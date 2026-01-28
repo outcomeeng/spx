@@ -14,10 +14,11 @@ Implemented pre-commit test orchestration for vitest integration, enabling lefth
    - `PRECOMMIT_RUN`: Constants for messages and exit codes
    - Type definitions for `PrecommitDeps`, `PrecommitResult`, `VitestResult`
 
-2. **`bin/precommit.js`** - Entry point for lefthook
-   - Loads from dist or uses tsx for development
-   - Provides real `getStagedFiles()` using git diff
-   - Provides real `runVitest()` using npx vitest
+2. **Entry Point** - Lefthook invokes `npx tsx src/precommit/run.ts` directly
+   - No separate bin script needed (tsx runs TypeScript directly)
+   - Production implementations (`createProductionDeps()`) in run.ts provide:
+     - `getStagedFiles()` using git diff
+     - `runVitest()` using npx vitest
 
 ### Functional Requirements Satisfied
 
