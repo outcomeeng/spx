@@ -78,6 +78,29 @@ export interface SpxConfig {
      * @default ".spx/sessions"
      */
     dir: string;
+
+    /**
+     * Status-based subdirectories for sessions
+     */
+    statusDirs: {
+      /**
+       * Available sessions directory
+       * @default "todo"
+       */
+      todo: string;
+
+      /**
+       * Claimed sessions directory
+       * @default "doing"
+       */
+      doing: string;
+
+      /**
+       * Archived sessions directory
+       * @default "archive"
+       */
+      archive: string;
+    };
   };
 }
 
@@ -105,5 +128,10 @@ export const DEFAULT_CONFIG = {
   },
   sessions: {
     dir: ".spx/sessions",
+    statusDirs: {
+      todo: "todo",
+      doing: "doing",
+      archive: "archive",
+    },
   },
 } as const satisfies SpxConfig;

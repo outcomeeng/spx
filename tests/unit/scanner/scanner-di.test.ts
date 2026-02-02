@@ -43,6 +43,11 @@ describe("Story 21: Scanner Dependency Injection", () => {
         },
         sessions: {
           dir: ".custom/sessions",
+          statusDirs: {
+            todo: "todo",
+            doing: "doing",
+            archive: "archive",
+          },
         },
       };
 
@@ -66,6 +71,11 @@ describe("Story 21: Scanner Dependency Injection", () => {
         },
         sessions: {
           dir: ".spx/sessions",
+          statusDirs: {
+            todo: "todo",
+            doing: "doing",
+            archive: "archive",
+          },
         },
       };
 
@@ -110,6 +120,11 @@ describe("Story 21: Scanner Dependency Injection", () => {
         },
         sessions: {
           dir: ".spx/sessions",
+          statusDirs: {
+            todo: "todo",
+            doing: "doing",
+            archive: "archive",
+          },
         },
       };
 
@@ -158,6 +173,11 @@ describe("Story 21: Scanner Dependency Injection", () => {
         },
         sessions: {
           dir: ".spx/sessions",
+          statusDirs: {
+            todo: "todo",
+            doing: "doing",
+            archive: "archive",
+          },
         },
       };
 
@@ -205,6 +225,11 @@ describe("Story 21: Scanner Dependency Injection", () => {
         },
         sessions: {
           dir: ".spx/sessions",
+          statusDirs: {
+            todo: "todo",
+            doing: "doing",
+            archive: "archive",
+          },
         },
       };
 
@@ -261,6 +286,11 @@ describe("Story 21: Scanner Dependency Injection", () => {
         },
         sessions: {
           dir: ".custom-spx/handoffs",
+          statusDirs: {
+            todo: "todo",
+            doing: "doing",
+            archive: "archive",
+          },
         },
       };
 
@@ -293,6 +323,11 @@ describe("Story 21: Scanner Dependency Injection", () => {
         },
         sessions: {
           dir: ".my-sessions",
+          statusDirs: {
+            todo: "todo",
+            doing: "doing",
+            archive: "archive",
+          },
         },
       };
 

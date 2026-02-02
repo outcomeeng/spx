@@ -2,21 +2,15 @@
  * Level 2: Integration tests for DONE.md detection
  * Story: story-43_parse-done-md
  */
-import { describe, it, expect } from "vitest";
 import { hasDoneMd } from "@/status/state";
-import path from "path";
-import { fileURLToPath } from "url";
-
-const __filename = fileURLToPath(import.meta.url);
-const __dirname = path.dirname(__filename);
+import { FIXTURES_ROOT } from "@test/harness/constants";
+import { join } from "path";
+import { describe, expect, it } from "vitest";
 
 describe("hasDoneMd", () => {
   it("GIVEN tests dir with DONE.md WHEN checking THEN returns true", async () => {
     // Given
-    const testsPath = path.join(
-      __dirname,
-      "../../../../../../tests/fixtures/work-items/done-item/tests"
-    );
+    const testsPath = join(FIXTURES_ROOT, "work-items/done-item/tests");
 
     // When
     const result = await hasDoneMd(testsPath);
@@ -27,10 +21,7 @@ describe("hasDoneMd", () => {
 
   it("GIVEN tests dir without DONE.md WHEN checking THEN returns false", async () => {
     // Given
-    const testsPath = path.join(
-      __dirname,
-      "../../../../../../tests/fixtures/work-items/in-progress/tests"
-    );
+    const testsPath = join(FIXTURES_ROOT, "work-items/in-progress/tests");
 
     // When
     const result = await hasDoneMd(testsPath);
@@ -41,10 +32,7 @@ describe("hasDoneMd", () => {
 
   it("GIVEN DONE.md as directory (not file) WHEN checking THEN returns false", async () => {
     // Given
-    const testsPath = path.join(
-      __dirname,
-      "../../../../../../tests/fixtures/work-items/done-is-dir/tests"
-    );
+    const testsPath = join(FIXTURES_ROOT, "work-items/done-is-dir/tests");
 
     // When
     const result = await hasDoneMd(testsPath);
@@ -55,10 +43,7 @@ describe("hasDoneMd", () => {
 
   it("GIVEN DONE.md with different case WHEN checking THEN returns false", async () => {
     // Given
-    const testsPath = path.join(
-      __dirname,
-      "../../../../../../tests/fixtures/work-items/wrong-case/tests"
-    );
+    const testsPath = join(FIXTURES_ROOT, "work-items/wrong-case/tests");
 
     // When
     const result = await hasDoneMd(testsPath);

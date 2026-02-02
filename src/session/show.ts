@@ -4,8 +4,11 @@
  * @module session/show
  */
 
-import { parseSessionMetadata } from "./list";
-import type { SessionStatus } from "./types";
+import { join } from "node:path";
+
+import { DEFAULT_CONFIG } from "../config/defaults.js";
+import { parseSessionMetadata } from "./list.js";
+import type { SessionStatus } from "./types.js";
 
 /**
  * Configuration for session directory paths.
@@ -21,11 +24,16 @@ export interface SessionDirectoryConfig {
 
 /**
  * Default session directory configuration.
+ *
+ * Derived from DEFAULT_CONFIG to ensure single source of truth for all path components.
+ * NEVER hardcode path strings like ".spx", "sessions", "todo" - always derive from config.
  */
+const { dir: sessionsBaseDir, statusDirs } = DEFAULT_CONFIG.sessions;
+
 export const DEFAULT_SESSION_CONFIG: SessionDirectoryConfig = {
-  todoDir: ".spx/sessions/todo",
-  doingDir: ".spx/sessions/doing",
-  archiveDir: ".spx/sessions/archive",
+  todoDir: join(sessionsBaseDir, statusDirs.todo),
+  doingDir: join(sessionsBaseDir, statusDirs.doing),
+  archiveDir: join(sessionsBaseDir, statusDirs.archive),
 };
 
 /**

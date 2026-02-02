@@ -99,3 +99,133 @@ You're following this decision if:
 - Use filename prefixes for status (`TODO_`, `DOING_`)
 - Mix sessions of different statuses in the same directory
 - Parse filenames to determine session status
+- Hardcode path strings (`.spx`, `sessions`, `todo`, etc.) outside of `DEFAULT_CONFIG`
+- Duplicate path definitions across multiple files
+
+---
+
+## Git Root Anchoring
+
+### Problem
+
+Session paths resolve relative to current working directory. Running `spx session handoff` from `/repo/src/components` creates `.spx/` there instead of at `/repo/.spx/`.
+
+### Decision
+
+**When no `--sessions-dir` is provided, resolve `.spx/` relative to the git repository root.**
+
+### Detection Strategy
+
+1. Run `git rev-parse --show-toplevel` to find git root
+2. If not in a git repo, use cwd and emit warning to stderr
+3. All session paths resolve from this anchor
+
+### Rationale
+
+- Sessions are project-scoped, not directory-scoped
+- Agents may run from different subdirectories
+- Consistent location enables cross-agent session discovery
+
+### Testing Strategy
+
+#### Level Coverage
+
+| Level           | Question Answered                       | Scope                               |
+| --------------- | --------------------------------------- | ----------------------------------- |
+| 1 (Unit)        | Is path construction from root correct? | Pure function: root + config → path |
+| 2 (Integration) | Does git root detection work reliably?  | Real git repos, subdirectories      |
+
+#### Test Harness
+
+| Level | Harness      | Location                        |
+| ----- | ------------ | ------------------------------- |
+| 2     | `withGitEnv` | `@test/harness/with-git-env.ts` |
+
+#### Behaviors Verified
+
+**Level 1 (Unit):**
+
+- Given git root and config, path construction returns correct absolute path
+- Path components derived from `DEFAULT_CONFIG`, never hardcoded
+
+**Level 2 (Integration):**
+
+- In git repo subdirectory → `.spx/` created at repo root
+- Not in git repo → `.spx/` created at cwd with warning to stderr
+
+### Validation
+
+#### MUST
+
+- Use `git rev-parse --show-toplevel` to find git root
+- Emit warning to stderr when not in git repo
+- Derive all path components from `DEFAULT_CONFIG`
+- Use `@test/harness/constants` and `@test/harness/with-git-env` in tests
+
+#### NEVER
+
+- Create `.spx/` relative to cwd when inside a git repo
+- Hardcode path strings in tests (use config constants)
+- Use deep relative imports (`../../../`) - use path aliases (`@/`, `@test/`)
+- Shell out to `mkdir`, `ls`, etc. when Node.js `fs` functions exist
+
+---
+
+## Single Source of Truth for Paths
+
+### Problem
+
+Path components (`.spx`, `sessions`, `todo`, `doing`, `archive`) are duplicated across:
+
+- `src/config/defaults.ts` (`DEFAULT_CONFIG.sessions.dir`)
+- `src/session/show.ts` (`DEFAULT_SESSION_CONFIG`)
+- Test files (hardcoded strings)
+
+This violates DRY and causes drift.
+
+### Decision
+
+**All session path components MUST be defined in `DEFAULT_CONFIG` and derived elsewhere.**
+
+### Required Structure
+
+`src/config/defaults.ts`:
+
+```typescript
+sessions: {
+  dir: ".spx/sessions",
+  statusDirs: {
+    todo: "todo",
+    doing: "doing",
+    archive: "archive",
+  },
+},
+```
+
+`src/session/show.ts` MUST derive from config:
+
+```typescript
+import { DEFAULT_CONFIG } from "@/config/defaults";
+import { join } from "node:path";
+
+const { dir, statusDirs } = DEFAULT_CONFIG.sessions;
+
+export const DEFAULT_SESSION_CONFIG: SessionDirectoryConfig = {
+  todoDir: join(dir, statusDirs.todo),
+  doingDir: join(dir, statusDirs.doing),
+  archiveDir: join(dir, statusDirs.archive),
+};
+```
+
+### Validation
+
+#### MUST
+
+- Define all path components in `DEFAULT_CONFIG`
+- Derive `DEFAULT_SESSION_CONFIG` from `DEFAULT_CONFIG`
+- Import path constants in tests from `@/config/defaults`
+
+#### NEVER
+
+- Duplicate path strings across files
+- Hardcode `.spx`, `sessions`, `todo`, `doing`, `archive` outside `DEFAULT_CONFIG`
