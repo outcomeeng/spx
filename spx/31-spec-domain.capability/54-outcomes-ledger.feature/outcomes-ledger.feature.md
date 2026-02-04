@@ -4,6 +4,8 @@
 
 Parse, validate, and generate outcomes.yaml files that provide machine-verifiable proof linking specs to test evidence.
 
+**Depends on**: 43-naming-parsing (needs to resolve container paths from parsed names)
+
 ## Requirements
 
 ### Ledger Format
