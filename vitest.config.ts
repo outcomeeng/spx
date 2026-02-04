@@ -13,6 +13,8 @@ export default defineConfig({
     globals: true,
     environment: "node",
     include: ["tests/**/*.test.ts", "spx/**/*.test.ts", "specs/**/*.test.ts"],
+    // TODO: Make exclusion more fine-grained - only exclude fixture stubs, not actual tests in fixtures
+    exclude: ["**/node_modules/**", "**/dist/**", "tests/fixtures/**/*.test.ts"],
     // Use forks instead of threads for integration tests that need process.chdir()
     pool: "forks",
     coverage: {
