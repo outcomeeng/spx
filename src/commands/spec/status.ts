@@ -41,7 +41,6 @@ export interface StatusOptions {
  *
  * @param options - Command options
  * @returns Formatted status output
- * @throws Error if specs directory doesn't exist or is inaccessible
  *
  * @example
  * ```typescript
@@ -57,7 +56,20 @@ export async function statusCommand(
 
   // Step 1-3: Use Scanner with config-driven paths
   const scanner = new Scanner(cwd, DEFAULT_CONFIG);
-  const workItems = await scanner.scan();
+  let workItems;
+  try {
+    workItems = await scanner.scan();
+  } catch (error) {
+    // Handle missing directory gracefully
+    if (error instanceof Error && error.message.includes("ENOENT")) {
+      const doingPath =
+        `${DEFAULT_CONFIG.specs.root}/${DEFAULT_CONFIG.specs.work.dir}/${DEFAULT_CONFIG.specs.work.statusDirs.doing}`;
+      throw new Error(
+        `Directory ${doingPath} not found.\n\nThis command is for legacy specs/ projects. For CODE framework projects, check the spx/ directory for specifications.`,
+      );
+    }
+    throw error;
+  }
 
   // Handle empty project
   if (workItems.length === 0) {
