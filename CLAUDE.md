@@ -237,7 +237,7 @@ pnpm test
 # Build
 pnpm run build
 
-# Run CLI locally
+# Run locally
 node bin/spx.js --help
 ```
 
@@ -245,10 +245,18 @@ node bin/spx.js --help
 
 ```
 src/
-├── scanner/          # Directory walking, pattern matching
-├── status/           # DONE/IN PROGRESS/OPEN state machine
-├── reporter/         # Output formatting (text, json, md, table)
-└── mcp/              # MCP server adapter
+├── commands/      # CLI command implementations
+│   ├── validation/  # spx validation subcommands
+│   └── session/     # spx session subcommands
+├── validation/    # Lint, typecheck, circular dep logic
+├── session/       # Session lifecycle and storage
+├── config/        # Configuration loading
+├── git/           # Git integration utilities
+├── scanner/       # Directory walking, pattern matching
+├── status/        # Status state machine
+├── reporter/      # Output formatting
+├── tree/          # Hierarchical tree building
+└── lib/           # Shared utilities
 ```
 
 ### Status Determination

@@ -6,14 +6,13 @@ Fast, deterministic CLI tool for spec workflow management.
 
 ## What is spx?
 
-**spx** scans your project's `specs/` directory and provides instant status analysis of work items (capabilities, features, stories). It replaces slow, token-expensive LLM-based status checks with deterministic filesystem operations completing in under 100ms.
+**spx** is a developer CLI that provides code validation and session management for spec-driven projects. It orchestrates linting, type checking, circular dependency detection, and manages work handoffs between agent contexts.
 
 ### Key Benefits
 
-- **Fast**: Scan entire spec tree in <100ms vs 1-2 minutes with LLM
-- **Deterministic**: Reliable DONE/IN PROGRESS/OPEN classification
-- **Zero token cost**: No LLM calls for status checks
-- **Multiple formats**: Text, JSON, Markdown, Table output
+- **Unified validation**: Run ESLint, TypeScript, and circular dependency checks through a single command
+- **Session management**: Queue, claim, and hand off work between agents
+- **Multiple formats**: Text, JSON output for CI and automation
 
 ## Installation
 
@@ -37,48 +36,26 @@ pnpm add -g spx
 
 ## Usage
 
+### Code Validation
+
 ```bash
-# Get project status
-spx spec status
+# Full validation pipeline (circular deps → ESLint → TypeScript)
+spx validation all
 
-# Get status as JSON (for scripts/agents)
-spx spec status --json
+# Individual checks
+spx validation lint           # ESLint
+spx validation lint --fix     # ESLint with auto-fix
+spx validation typescript     # TypeScript type checking
+spx validation circular       # Circular dependency detection
+spx validation knip           # Unused code detection
 
-# Choose output format
-spx spec status --format markdown
-spx spec status --format table
-
-# Find next work item to work on
-spx spec next
+# Production scope only (excludes tests/scripts)
+spx validation all --scope production
 ```
 
-### Example Output
+All commands support `--quiet` for CI and `--json` for machine-readable output.
 
-```
-$ spx spec status
-
-capability-21_core-cli [IN PROGRESS]
-├── feature-21_pattern-matching [DONE]
-│   ├── story-21_parse-capability-names [DONE]
-│   ├── story-32_parse-feature-names [DONE]
-│   └── story-43_parse-story-names [DONE]
-├── feature-32_directory-walking [IN PROGRESS]
-│   ├── story-21_recursive-walk [DONE]
-│   └── story-32_pattern-filter [OPEN]
-└── feature-43_status-determination [OPEN]
-```
-
-## Status Determination
-
-Status is computed deterministically from the `tests/` directory:
-
-| Condition                           | Status          |
-| ----------------------------------- | --------------- |
-| No `tests/` directory or empty      | **OPEN**        |
-| `tests/` has files but no `DONE.md` | **IN PROGRESS** |
-| `tests/DONE.md` exists              | **DONE**        |
-
-## Session Management
+### Session Management
 
 Manage work sessions for agent handoffs and task queuing:
 
@@ -119,46 +96,6 @@ Sessions are stored in `.spx/sessions/` with priority-based ordering (high → m
 
 See [Session Recipes](docs/how-to/session/common-tasks.md) for detailed usage patterns.
 
-## Work Item Structure
-
-spx expects work items in `specs/doing/` following this pattern:
-
-```
-specs/doing/
-└── capability-NN_{slug}/
-    ├── {slug}.capability.md
-    └── feature-NN_{slug}/
-        ├── {slug}.feature.md
-        └── story-NN_{slug}/
-            ├── {slug}.story.md
-            └── tests/
-                └── DONE.md  # Present when complete
-```
-
-Numbers use [BSP (Binary Space Partitioning)](https://en.wikipedia.org/wiki/Binary_space_partitioning) for easy insertion: start with 21, 32, 43... and insert between existing items.
-
-## Code Validation
-
-Run code quality checks through `spx validation`:
-
-```bash
-# Full validation pipeline (circular deps → ESLint → TypeScript)
-spx validation all
-
-# Individual checks
-spx validation lint           # ESLint
-spx validation lint --fix     # ESLint with auto-fix
-spx validation typescript     # TypeScript type checking
-spx validation circular       # Circular dependency detection
-spx validation knip           # Unused code detection
-
-# Production scope only (excludes tests/scripts)
-spx validation all --scope production
-spx validation lint --scope production
-```
-
-All commands support `--quiet` for CI and `--json` for machine-readable output.
-
 ## Development
 
 ```bash
@@ -175,7 +112,7 @@ pnpm run validate   # or: spx validation all
 pnpm run build
 
 # Run locally
-node bin/spx.js spec status
+node bin/spx.js --help
 ```
 
 ## Technical Stack
@@ -190,11 +127,18 @@ node bin/spx.js spec status
 
 ```
 src/
-├── scanner/     # Directory walking, pattern matching
-├── status/      # DONE/IN PROGRESS/OPEN state machine
-├── reporter/    # Output formatting (text, json, md, table)
-├── tree/        # Hierarchical tree building
-└── commands/    # CLI command implementations
+├── commands/      # CLI command implementations
+│   ├── validation/  # spx validation subcommands
+│   └── session/     # spx session subcommands
+├── validation/    # Lint, typecheck, circular dep logic
+├── session/       # Session lifecycle and storage
+├── config/        # Configuration loading
+├── git/           # Git integration utilities
+├── scanner/       # Directory walking, pattern matching
+├── status/        # Status state machine
+├── reporter/      # Output formatting
+├── tree/          # Hierarchical tree building
+└── lib/           # Shared utilities
 ```
 
 ## License
