@@ -10,11 +10,14 @@
 import { mkdir, writeFile } from "node:fs/promises";
 import { join, resolve } from "node:path";
 
+import { DEFAULT_CONFIG } from "../../config/defaults.js";
 import { buildSessionPathFromRoot, detectGitRoot } from "../../git/root.js";
 import { validateSessionContent } from "../../session/create.js";
 import { SessionInvalidContentError } from "../../session/errors.js";
 import { DEFAULT_SESSION_CONFIG, type SessionDirectoryConfig } from "../../session/show.js";
 import { generateSessionId } from "../../session/timestamp.js";
+
+const { statusDirs } = DEFAULT_CONFIG.sessions;
 
 /**
  * Regex to detect YAML frontmatter presence.
@@ -102,9 +105,9 @@ export async function handoffCommand(options: HandoffOptions): Promise<string> {
   // Build config from options
   const config: SessionDirectoryConfig = options.sessionsDir
     ? {
-      todoDir: join(options.sessionsDir, "todo"),
-      doingDir: join(options.sessionsDir, "doing"),
-      archiveDir: join(options.sessionsDir, "archive"),
+      todoDir: join(options.sessionsDir, statusDirs.todo),
+      doingDir: join(options.sessionsDir, statusDirs.doing),
+      archiveDir: join(options.sessionsDir, statusDirs.archive),
     }
     : DEFAULT_SESSION_CONFIG;
 
@@ -134,12 +137,17 @@ export async function handoffCommand(options: HandoffOptions): Promise<string> {
     throw new SessionInvalidContentError(validation.error ?? "Unknown validation error");
   }
 
-  // Build path from git root (or cwd if not in git repo)
-  const sessionPath = buildSessionPathFromRoot(baseDir, sessionId, config);
+  // Build path to session file
+  const filename = `${sessionId}.md`;
+  const sessionPath = options.sessionsDir
+    ? join(config.todoDir, filename)
+    : buildSessionPathFromRoot(baseDir, sessionId, config);
   const absolutePath = resolve(sessionPath);
 
   // Ensure directory exists
-  const todoDir = join(baseDir, config.todoDir);
+  const todoDir = options.sessionsDir
+    ? config.todoDir
+    : join(baseDir, config.todoDir);
   await mkdir(todoDir, { recursive: true });
 
   // Write file
