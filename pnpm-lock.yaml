@@ -14,9 +14,6 @@ importers:
       commander:
         specifier: ^11.1.0
         version: 11.1.0
-      fast-check:
-        specifier: ^4.5.3
-        version: 4.5.3
       madge:
         specifier: ^8.0.0
         version: 8.0.0(typescript@5.9.3)
@@ -51,6 +48,9 @@ importers:
       execa:
         specifier: ^9.6.1
         version: 9.6.1
+      fast-check:
+        specifier: ^4.5.3
+        version: 4.5.3
       globals:
         specifier: ^17.0.0
         version: 17.1.0

@@ -1,10 +1,20 @@
 {
-  "name": "@outcomeeng/cli",
+  "name": "@outcomeeng/spx",
   "version": "0.1.0",
-  "description": "Developer CLI for outcome-driven development: code validation, spec tree management, and session handoffs",
+  "description": "Developer CLI for code validation and session management",
   "type": "module",
   "bin": {
     "spx": "./bin/spx.js"
+  },
+  "files": [
+    "dist",
+    "bin"
+  ],
+  "engines": {
+    "node": ">=18"
+  },
+  "publishConfig": {
+    "access": "public"
   },
   "scripts": {
     "build": "tsup",
@@ -26,16 +36,16 @@
     "circular": "node bin/spx.js validation circular",
     "format": "prettier --write .",
     "format:check": "prettier --check .",
-    "prepare": "lefthook install"
+    "prepare": "lefthook install",
+    "prepublishOnly": "pnpm run validate && pnpm test && pnpm run build"
   },
   "keywords": [
     "cli",
-    "spec",
-    "workflow",
-    "mcp",
-    "status"
+    "validation",
+    "session",
+    "workflow"
   ],
-  "author": "",
+  "author": "Outcome Engineering",
   "license": "MIT",
   "devDependencies": {
     "@faker-js/faker": "^10.2.0",
@@ -47,6 +57,7 @@
     "eslint-config-prettier": "^10.1.8",
     "eslint-plugin-import": "^2.32.0",
     "execa": "^9.6.1",
+    "fast-check": "^4.5.3",
     "globals": "^17.0.0",
     "husky": "^9.1.7",
     "lefthook": "^1.10.10",
@@ -62,7 +73,6 @@
   "dependencies": {
     "chalk": "^5.6.2",
     "commander": "^11.1.0",
-    "fast-check": "^4.5.3",
     "madge": "^8.0.0",
     "yaml": "^2.8.2"
   },
