@@ -23,8 +23,8 @@ pnpm add -g @outcomeeng/spx
 ### From Source
 
 ```bash
-git clone https://github.com/simonheimlicher/spx-cli.git
-cd spx-cli
+git clone https://github.com/outcomeeng/spx.git
+cd spx
 pnpm install && pnpm run build
 pnpm link --global
 ```
@@ -96,8 +96,8 @@ See [Session Recipes](docs/how-to/session/common-tasks.md) for detailed usage pa
 ### Setup
 
 ```bash
-git clone https://github.com/simonheimlicher/spx-cli.git
-cd spx-cli
+git clone https://github.com/outcomeeng/spx.git
+cd spx
 pnpm install
 pnpm run build
 pnpm link --global  # Optional: makes 'spx' available in your shell
