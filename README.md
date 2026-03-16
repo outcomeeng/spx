@@ -1,35 +1,32 @@
-# spx
+# @outcomeeng/spx
 
-Developer CLI for outcome-driven development: code validation, spec tree management, and session handoffs.
-
-> **Note**: This tool will be published as `@outcomeeng/cli` when it reaches a more mature state. For now, install directly from GitHub.
+Developer CLI for code validation and session management.
 
 ## What is spx?
 
-**spx** is a developer CLI for outcome-driven projects. It provides:
+**spx** is a developer CLI that provides code validation and session management for spec-driven projects. It orchestrates linting, type checking, circular dependency detection, and manages work handoffs between agent contexts.
 
-- **Code validation** — ESLint, TypeScript type checking, circular dependency detection, and unused code analysis through a single command
-- **Spec tree management** — create, navigate, validate, and track specifications following the CODE framework with outcome-based verification
-- **Session management** — queue, claim, and hand off work between agents with priority ordering
+### Key Benefits
 
-All commands are domain-scoped (e.g., `spx validation`, `spx session`, `spx spec`) and support `--quiet` and `--json` flags for CI and automation.
+- **Unified validation**: Run ESLint, TypeScript, and circular dependency checks through a single command
+- **Session management**: Queue, claim, and hand off work between agents
+- **Multiple formats**: Text, JSON output for CI and automation
+
+All commands are domain-scoped (e.g., `spx validation`, `spx session`) and support `--quiet` and `--json` flags for CI and automation.
 
 ## Installation
 
-### From GitHub (Latest)
+```bash
+pnpm add -g @outcomeeng/spx
+```
+
+### From Source
 
 ```bash
 git clone https://github.com/simonheimlicher/spx-cli.git
 cd spx-cli
-pnpm install
-pnpm run build
-pnpm link --global  # Makes 'spx' available in your shell
-```
-
-### From Registry (Coming Soon)
-
-```bash
-pnpm add -g @outcomeeng/cli
+pnpm install && pnpm run build
+pnpm link --global
 ```
 
 ## Usage

@@ -212,10 +212,9 @@ Commands output XML-style tags for easy parsing by automation tools:
 
 ## Project Overview
 
-**spx** is a developer CLI for outcome-driven development:
+**spx** is a developer CLI for code validation and session management:
 
 - **Code validation** — ESLint, TypeScript, circular dependency detection, unused code analysis
-- **Spec tree management** — deterministic <100ms scans, status tracking via `outcomes.yaml`, CODE framework
 - **Session management** — work handoffs between agent contexts with priority ordering
 - **Multiple output formats** — Text, JSON for CI and automation
 
