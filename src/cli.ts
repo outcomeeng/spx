@@ -2,17 +2,21 @@
  * CLI entry point for spx
  */
 import { Command } from "commander";
+import { createRequire } from "node:module";
 import { claudeDomain } from "./domains/claude";
 import { sessionDomain } from "./domains/session";
 import { specDomain } from "./domains/spec";
 import { validationDomain } from "./domains/validation";
+
+const require = createRequire(import.meta.url);
+const { version } = require("../package.json") as { version: string };
 
 const program = new Command();
 
 program
   .name("spx")
   .description("Fast, deterministic CLI tool for spec workflow management")
-  .version("0.2.0");
+  .version(version);
 
 // Register domains
 claudeDomain.register(program);
