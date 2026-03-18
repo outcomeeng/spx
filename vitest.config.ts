@@ -15,6 +15,8 @@ export default defineConfig({
     include: ["tests/**/*.test.ts", "spx/**/*.test.ts", "specs/**/*.test.ts"],
     // TODO: Make exclusion more fine-grained - only exclude fixture stubs, not actual tests in fixtures
     exclude: ["**/node_modules/**", "**/dist/**", "tests/fixtures/**/*.test.ts"],
+    // CI runners are slower — 5s default is too tight for integration/e2e tests
+    testTimeout: 15_000,
     // Use forks instead of threads for integration tests that need process.chdir()
     pool: "forks",
     coverage: {

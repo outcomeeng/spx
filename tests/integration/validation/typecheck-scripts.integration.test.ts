@@ -40,9 +40,11 @@ describe("TypeScript checking for scripts/", () => {
       });
 
       // Then: TypeScript fails due to type error in fixture
+      // tsc outputs errors to stdout; stderr may contain unrelated npm warnings (Node 24+)
       expect(result.exitCode).not.toBe(0);
-      expect(result.stderr || result.stdout).toContain("has-type-error.ts");
-      expect(result.stderr || result.stdout).toContain(
+      const tscOutput = result.stdout;
+      expect(tscOutput).toContain("has-type-error.ts");
+      expect(tscOutput).toContain(
         "Type 'string' is not assignable to type 'number'",
       );
     });
