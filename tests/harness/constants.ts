@@ -50,6 +50,7 @@ export const CLI_TIMEOUTS_MS = {
   PROCESS_START: 500,
   /** Spec parsing/scanning operations */
   SPEC_PARSE: 100,
-  /** E2E threshold: accounts for process startup + CLI execution + system variance */
-  E2E: 1500,
+  /** E2E threshold: accounts for process startup + CLI execution + system variance.
+   * CI runners (GitHub Actions) are slower than local dev machines. */
+  E2E: 3000,
 } as const;
