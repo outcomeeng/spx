@@ -11,13 +11,14 @@ Developer CLI for code validation and session management.
 - **Unified validation**: Run ESLint, TypeScript, and circular dependency checks through a single command
 - **Session management**: Queue, claim, and hand off work between agents
 - **Multiple formats**: Text, JSON output for CI and automation
+- **Secure publishing**: OIDC Trusted Publishing with Sigstore provenance via GitHub Actions
 
 All commands are domain-scoped (e.g., `spx validation`, `spx session`) and support `--quiet` and `--json` flags for CI and automation.
 
 ## Installation
 
 ```bash
-pnpm add -g @outcomeeng/spx
+npm install -g @outcomeeng/spx
 ```
 
 ### From Source
@@ -62,20 +63,12 @@ priority: high
 ---
 # Implement feature X
 EOF
-# Output:
-# Created handoff session <HANDOFF_ID>2026-01-15_08-30-00</HANDOFF_ID>
-# <SESSION_FILE>/path/to/.spx/sessions/todo/2026-01-15_08-30-00.md</SESSION_FILE>
-
-# Or create empty session and edit the file directly
-spx session handoff
-# Then edit the <SESSION_FILE> path returned
 
 # List all sessions
 spx session list
 
 # Claim the highest priority session
 spx session pickup --auto
-# Output: Claimed session <PICKUP_ID>2026-01-15_08-30-00</PICKUP_ID>
 
 # Release session back to queue
 spx session release
@@ -87,9 +80,13 @@ spx session show <session-id>
 spx session delete <session-id>
 ```
 
-Sessions are stored in `.spx/sessions/` with priority-based ordering (high → medium → low) and FIFO within the same priority. Commands output parseable `<PICKUP_ID>`, `<HANDOFF_ID>`, and `<SESSION_FILE>` tags for automation.
+Sessions are stored in `.spx/sessions/` with priority-based ordering (high > medium > low) and FIFO within the same priority. Commands output parseable `<PICKUP_ID>`, `<HANDOFF_ID>`, and `<SESSION_FILE>` tags for automation.
 
 See [Session Recipes](docs/how-to/session/common-tasks.md) for detailed usage patterns.
+
+### Spec Management (deprecated)
+
+The `spx spec` and `spx spx` CLI domains are **deprecated**. Spec tree management has moved to the **spec-tree** Claude Code plugin, available at [`outcomeeng/claude/plugins/spec-tree`](https://github.com/simonheimlicher/spx-claude). The plugin provides skills for understanding, authoring, decomposing, contextualizing, testing, refactoring, and aligning specification trees.
 
 ## Development
 
@@ -128,21 +125,39 @@ pnpm run knip           # Unused code detection
 
 The `pnpm run` scripts use `node bin/spx.js` internally, so they work without a global link. Once linked, you can also use `spx validation all` etc. directly.
 
+## CI/CD
+
+The project uses GitHub Actions for continuous integration and publishing:
+
+- **CI** (`ci.yml`) — Runs validate, test, and build on Node 22 and 24 for every push to `main` and every pull request. Includes dependency review to block PRs introducing vulnerable dependencies.
+- **Publish** (`publish.yml`) — Triggered by `v*` tags. Uses OIDC Trusted Publishing (no stored npm tokens) with Sigstore provenance attestation. Requires manual approval via the `npm-publish` GitHub Environment.
+- **Scorecard** (`scorecard.yml`) — Weekly OpenSSF Scorecard assessment, results published to the GitHub Security tab.
+
+### Publishing a Release
+
+1. Bump the version in `package.json`
+2. Commit and tag: `git tag vX.Y.Z`
+3. Push: `git push origin main && git push origin vX.Y.Z`
+4. Approve the deployment in the GitHub Actions `npm-publish` environment
+5. The package is published with provenance — verify with `npm audit signatures`
+
 ## Technical Stack
 
-- **TypeScript** - Type-safe implementation
-- **Commander.js** - CLI framework
-- **Vitest** - Testing framework
-- **tsup** - Build tool
-- **ESLint 9** - Linting with flat config
+- **TypeScript** — Type-safe implementation (ESM)
+- **Commander.js** — CLI framework
+- **Vitest** — Testing framework
+- **tsup** — Build tool (esbuild-based)
+- **ESLint 9** — Linting with flat config
+- **GitHub Actions** — CI/CD with OIDC Trusted Publishing
 
 ## Architecture
 
 ```
 src/
 ├── commands/      # CLI command implementations
-│   ├── validation/  # spx validation subcommands
-│   └── session/     # spx session subcommands
+│   ├── session/     # spx session subcommands
+│   └── validation/  # spx validation subcommands
+├── domains/       # Domain routers
 ├── validation/    # Lint, typecheck, circular dep logic
 ├── session/       # Session lifecycle and storage
 ├── config/        # Configuration loading
@@ -151,6 +166,7 @@ src/
 ├── status/        # Status state machine
 ├── reporter/      # Output formatting
 ├── tree/          # Hierarchical tree building
+├── precommit/     # Pre-commit hook orchestration
 └── lib/           # Shared utilities
 ```
 

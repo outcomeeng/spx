@@ -6,57 +6,41 @@
 
 ---
 
-## 🚨 MIGRATION IN PROGRESS: specs/ → spx/
+## Spec Management
 
-**We are migrating from the legacy `specs/` framework to the CODE Framework in `spx/`.**
+### Deprecated: `spx spec` and `spx spx` commands
 
-| Directory | System         | Status                                                  |
-| --------- | -------------- | ------------------------------------------------------- |
-| `spx/`    | CODE Framework | **Primary** - use for all new work                      |
-| `specs/`  | Legacy         | **Frozen** - do not modify unless explicitly instructed |
+The `spec` and `spx` CLI domains are **deprecated** and will be removed. They are replaced by the **spec-tree** plugin, which provides the same functionality as Claude Code skills.
 
-**Key differences:**
+### Current: spec-tree plugin (skill-only)
 
-| Aspect          | Legacy (`specs/`)                | CODE Framework (`spx/`)       |
-| --------------- | -------------------------------- | ----------------------------- |
-| Test location   | Graduate to global `tests/`      | Stay in container `tests/`    |
-| Status tracking | `DONE.md` in container           | `outcomes.yaml` ledger        |
-| Philosophy      | Task-driven (backlog/doing/done) | Outcome-driven, durable specs |
+The **spec-tree** plugin (`outcomeeng/claude/plugins/spec-tree`) is the active system for managing specification trees. It provides seven skills:
 
-**Migration tracking:** Each migrated container has an `SPX-MIGRATION.md` file documenting reverse-graduation of tests.
+| Skill                        | Purpose                                                        |
+| ---------------------------- | -------------------------------------------------------------- |
+| `/spec-tree:understanding`   | Load methodology foundation (node types, ordering, assertions) |
+| `/spec-tree:contextualizing` | Load context for a specific work item (walks tree to target)   |
+| `/spec-tree:authoring`       | Create specs, ADRs, PDRs, enablers, outcomes                   |
+| `/spec-tree:decomposing`     | Break nodes into children with proper ordering                 |
+| `/spec-tree:testing`         | Manage spec-test lock file lifecycle                           |
+| `/spec-tree:refactoring`     | Restructure the spec tree (move, consolidate, extract)         |
+| `/spec-tree:aligning`        | Review for gaps, contradictions, and consistency               |
 
-**Primary guide for new work:** [`spx/CLAUDE.md`](spx/CLAUDE.md)
+### Legacy: `specs/` directory
+
+The `specs/` directory uses the legacy task-driven system (backlog/doing/done with `DONE.md`). It is **frozen** — do not modify unless explicitly instructed.
 
 ---
 
 ## BSP Numbers
 
 - BSP stands for Binary Space Partitioning.
-- BSP numbers are only sibling-unique. Always use the complete path `capability-NN/feature-NN/story-NN` and `capability-NN/feature-NN/adr-NN` etc. when interacting with the user, creating handoff documents or otherwise referring to artifcats within the `specs/` and `spx/` directories.
+- BSP numbers are only sibling-unique. Always use the complete path `capability-NN/feature-NN/story-NN` and `capability-NN/feature-NN/adr-NN` etc. when interacting with the user, creating handoff documents or otherwise referring to artifacts within the `specs/` and `spx/` directories.
+- Lower BSP number = higher priority. Complete `21-*.feature` before `32-*.feature`.
 
 ---
 
-### Finding Work
-
-**Rule**: Lower BSP number = higher priority. Complete `21-*.feature` before `32-*.feature`.
-
-> **Note:** The `spx spec` and `spx spx` domain commands are not yet implemented. Use skills or manual inspection to find work items.
-
-```bash
-# These commands do NOT work yet:
-# spx spec status
-# spx spec next
-
-# Instead, use skills:
-/spx:understanding-spx   # Load context for a work item
-/spx:managing-spx        # Find next work item, create specs
-```
-
-Full CODE Framework rules: [`spx/CLAUDE.md`](spx/CLAUDE.md)
-
----
-
-## 🚨 VALIDATION GATE (MANDATORY BEFORE COMMIT)
+## Validation Gate (Mandatory Before Commit)
 
 **NEVER commit without passing validation.** This is *non-negotiable*.
 
@@ -108,26 +92,6 @@ All validation runs through `spx validation` subcommands. Use pnpm scripts or ca
 - `--files <paths...>`: Specific files/directories to validate
 - `--quiet`: Suppress progress output
 - `--json`: Output results as JSON
-
----
-
-## Finding Work Items
-
-> **Note:** The `spx spec` and `spx spx` domain commands are not yet implemented.
-
-**For now, use skills to find and understand work:**
-
-```bash
-/spx:managing-spx        # Ask "what's next?" - finds next work item by hierarchy (capability -> feature -> story) and then by BSP order
-/spx:understanding-spx   # Load full context for a specific work item
-```
-
-**Or inspect the `spx/` directory manually:**
-
-- Lower BSP number = higher priority
-- Check `outcomes.yaml` for status (missing = unknown, has entries = check if tests pass)
-
-**For CODE Framework details**: Read [`spx/CLAUDE.md`](spx/CLAUDE.md)
 
 ---
 
@@ -220,10 +184,11 @@ Commands output XML-style tags for easy parsing by automation tools:
 
 ## Technical Stack
 
-- **Language**: TypeScript
-- **Build**: tsup
+- **Language**: TypeScript (ESM)
+- **Build**: tsup (esbuild-based)
 - **Testing**: Vitest
 - **CLI**: Commander.js
+- **CI/CD**: GitHub Actions with OIDC Trusted Publishing and Sigstore provenance
 
 ## Development
 
@@ -236,8 +201,15 @@ Use `pnpm run` scripts (e.g. `pnpm run validate`, `pnpm test`) for development �
 ```
 src/
 ├── commands/      # CLI command implementations
-│   ├── validation/  # spx validation subcommands
-│   └── session/     # spx session subcommands
+│   ├── claude/      # spx claude subcommands (deprecated)
+│   ├── session/     # spx session subcommands
+│   ├── spec/        # spx spec subcommands (deprecated)
+│   └── validation/  # spx validation subcommands
+├── domains/       # Domain routers
+│   ├── claude/      # (deprecated)
+│   ├── session/
+│   ├── spec/        # (deprecated)
+│   └── validation/
 ├── validation/    # Lint, typecheck, circular dep logic
 ├── session/       # Session lifecycle and storage
 ├── config/        # Configuration loading
@@ -246,25 +218,6 @@ src/
 ├── status/        # Status state machine
 ├── reporter/      # Output formatting
 ├── tree/          # Hierarchical tree building
+├── precommit/     # Pre-commit hook orchestration
 └── lib/           # Shared utilities
 ```
-
-### Status Determination
-
-**CODE Framework (`spx/`)** - status via `outcomes.yaml` ledger:
-
-| State     | Condition                          | Required Action                 |
-| --------- | ---------------------------------- | ------------------------------- |
-| Unknown   | Test Files links don't resolve     | Write tests                     |
-| Pending   | Tests exist, not all passing       | Fix code or fix tests           |
-| Stale     | Spec or test blob changed          | Re-commit with `spx spx commit` |
-| Passing   | All tests pass, blobs unchanged    | None—potential realized         |
-| Regressed | Was passing, now fails, blobs same | Investigate and fix             |
-
-**Legacy (`specs/`)** - status via `tests/` directory:
-
-| State       | Condition                           |
-| ----------- | ----------------------------------- |
-| OPEN        | Missing or empty `tests/` directory |
-| IN PROGRESS | `tests/` has files but no `DONE.md` |
-| DONE        | `tests/DONE.md` exists              |

@@ -1,33 +1,20 @@
-# spx/ Directory Guide (CODE Framework)
+# spx/ Directory Guide (Spec Tree)
 
-This guide explains WHEN to invoke spx skills. It is a **router** that tells you which skill to use. The skills themselves contain the HOW (detailed procedures, templates, structure definitions).
+This guide explains the `spx/` directory structure and how to work with specification trees.
 
----
+Spec tree management is handled by the **spec-tree** Claude Code plugin (`outcomeeng/claude/plugins/spec-tree`). Use its skills for all spec operations:
 
-## 🚨 DISAMBIGUATION: spx/ vs specs/
+| Skill                        | Purpose                                                        |
+| ---------------------------- | -------------------------------------------------------------- |
+| `/spec-tree:understanding`   | Load methodology foundation (node types, ordering, assertions) |
+| `/spec-tree:contextualizing` | Load context for a specific work item                          |
+| `/spec-tree:authoring`       | Create specs, ADRs, PDRs, enablers, outcomes                   |
+| `/spec-tree:decomposing`     | Break nodes into children with proper ordering                 |
+| `/spec-tree:testing`         | Manage spec-test lock file lifecycle                           |
+| `/spec-tree:refactoring`     | Restructure the spec tree                                      |
+| `/spec-tree:aligning`        | Review for gaps, contradictions, and consistency               |
 
-**Before proceeding, determine which system this project uses:**
-
-| Directory | System         | Skills to Use                                       |
-| --------- | -------------- | --------------------------------------------------- |
-| `spx/`    | CODE framework | `spx:understanding-spx`, `spx:managing-spx`         |
-| `specs/`  | Legacy         | `specs:understanding-specs`, `specs:managing-specs` |
-
-**If BOTH directories exist**: Ask the user which system they want to work with.
-
-**If `specs/` exists**: Read `specs/CLAUDE.md` for legacy system guidance.
-
-**Fully qualified skill names** (required when both plugins are installed):
-
-```bash
-# CODE framework spx/ projects
-/spx:understanding-spx
-/spx:managing-spx
-
-# Legacy specs/ projects
-/specs:understanding-specs
-/specs:managing-specs
-```
+The `specs/` directory uses the legacy task-driven system and is **frozen**.
 
 ---
 
@@ -126,7 +113,7 @@ tests:
 
 ## When to Invoke Skills
 
-### Before Implementing ANY Work Item → `/spx:understanding-spx`
+### Before Implementing ANY Work Item → `/spec-tree:contextualizing`
 
 **BLOCKING REQUIREMENT**
 
@@ -136,30 +123,35 @@ tests:
 - User references a work item file
 - You're about to write implementation code
 
-**What it does**: Loads complete context hierarchy (PRD → ADRs → capability → feature → story).
+**What it does**: Walks the tree from product root to target node, collecting ancestor specs and context.
 
-### When Creating/Organizing Specs → `/spx:managing-spx`
+### When Creating/Organizing Specs → `/spec-tree:authoring`
 
 **BLOCKING REQUIREMENT**
 
 **Trigger conditions:**
 
 - User says "create a PRD", "add an ADR", "create capability/feature/story"
-- User asks "what's next to work on?"
-- You need templates or BSP numbering rules
+- You need templates or ordering rules
 
-**What it does**: Provides templates, BSP numbering, structure guidance.
+**What it does**: Provides templates, sparse integer ordering, structure guidance.
+
+### When Asking "What's Next?" → `/spec-tree:contextualizing`
+
+Use contextualizing to understand current state, then authoring or testing to act on it.
 
 ---
 
 ## Quick Reference: Skill Selection
 
-| User Says...         | Invoke                   | Do NOT                 |
-| -------------------- | ------------------------ | ---------------------- |
-| "Implement story-21" | `/spx:understanding-spx` | Read story.md directly |
-| "Create a PRD"       | `/spx:managing-spx`      | Search for templates   |
-| "What's next?"       | `/spx:managing-spx`      | Grep for work items    |
-| "Create a feature"   | `/spx:managing-spx`      | Calculate BSP yourself |
+| User Says...              | Invoke                       | Do NOT                 |
+| ------------------------- | ---------------------------- | ---------------------- |
+| "Implement story-21"      | `/spec-tree:contextualizing` | Read story.md directly |
+| "Create a PRD"            | `/spec-tree:authoring`       | Search for templates   |
+| "What's next?"            | `/spec-tree:contextualizing` | Grep for work items    |
+| "Create a feature"        | `/spec-tree:authoring`       | Calculate BSP yourself |
+| "Break this down"         | `/spec-tree:decomposing`     | Guess child structure  |
+| "Anything contradictory?" | `/spec-tree:aligning`        | Skim specs manually    |
 
 ---
 
