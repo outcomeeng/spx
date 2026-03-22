@@ -86,7 +86,7 @@ See [Session Recipes](docs/how-to/session/common-tasks.md) for detailed usage pa
 
 ### Spec Management (deprecated)
 
-The `spx spec` and `spx spx` CLI domains are **deprecated**. Spec tree management has moved to the **spec-tree** Claude Code plugin, available at [`outcomeeng/claude/plugins/spec-tree`](https://github.com/simonheimlicher/spx-claude). The plugin provides skills for understanding, authoring, decomposing, contextualizing, testing, refactoring, and aligning specification trees.
+The `spx spec` and `spx spx` CLI domains are **deprecated**. Spec tree management has moved to the **spec-tree** Claude Code plugin, available at [`outcomeeng/claude/plugins/spec-tree`](https://github.com/outcomeeng/claude). The plugin provides skills for understanding, authoring, decomposing, contextualizing, testing, refactoring, and aligning specification trees.
 
 ## Development
 
