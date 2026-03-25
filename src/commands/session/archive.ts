@@ -7,8 +7,9 @@
 import { mkdir, rename, stat } from "node:fs/promises";
 import { dirname, join } from "node:path";
 
+import { resolveSessionConfig } from "../../git/root.js";
 import { SessionNotFoundError } from "../../session/errors.js";
-import { DEFAULT_SESSION_CONFIG, type SessionDirectoryConfig } from "../../session/show.js";
+import type { SessionDirectoryConfig } from "../../session/show.js";
 
 /**
  * Options for the archive command.
@@ -102,14 +103,7 @@ export async function resolveArchivePaths(
  * @throws {SessionAlreadyArchivedError} When session is already archived
  */
 export async function archiveCommand(options: ArchiveOptions): Promise<string> {
-  // Build config from options
-  const config: SessionDirectoryConfig = options.sessionsDir
-    ? {
-      todoDir: join(options.sessionsDir, "todo"),
-      doingDir: join(options.sessionsDir, "doing"),
-      archiveDir: join(options.sessionsDir, "archive"),
-    }
-    : DEFAULT_SESSION_CONFIG;
+  const { config } = await resolveSessionConfig({ sessionsDir: options.sessionsDir });
 
   // Resolve source and target paths
   const { source, target } = await resolveArchivePaths(options.sessionId, config);

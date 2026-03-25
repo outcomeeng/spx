@@ -10,14 +10,10 @@
 import { mkdir, writeFile } from "node:fs/promises";
 import { join, resolve } from "node:path";
 
-import { DEFAULT_CONFIG } from "../../config/defaults.js";
-import { buildSessionPathFromRoot, detectGitRoot } from "../../git/root.js";
+import { resolveSessionConfig } from "../../git/root.js";
 import { validateSessionContent } from "../../session/create.js";
 import { SessionInvalidContentError } from "../../session/errors.js";
-import { DEFAULT_SESSION_CONFIG, type SessionDirectoryConfig } from "../../session/show.js";
 import { generateSessionId } from "../../session/timestamp.js";
-
-const { statusDirs } = DEFAULT_CONFIG.sessions;
 
 /**
  * Regex to detect YAML frontmatter presence.
@@ -102,28 +98,7 @@ ${content}`;
  * @throws {SessionInvalidContentError} When content validation fails
  */
 export async function handoffCommand(options: HandoffOptions): Promise<string> {
-  // Build config from options
-  const config: SessionDirectoryConfig = options.sessionsDir
-    ? {
-      todoDir: join(options.sessionsDir, statusDirs.todo),
-      doingDir: join(options.sessionsDir, statusDirs.doing),
-      archiveDir: join(options.sessionsDir, statusDirs.archive),
-    }
-    : DEFAULT_SESSION_CONFIG;
-
-  // Detect git root when no explicit sessions directory provided
-  let baseDir: string;
-  let warningMessage: string | undefined;
-
-  if (options.sessionsDir) {
-    // Explicit directory provided - use as-is
-    baseDir = options.sessionsDir;
-  } else {
-    // No explicit directory - detect git root
-    const gitResult = await detectGitRoot();
-    baseDir = gitResult.root;
-    warningMessage = gitResult.warning;
-  }
+  const { config, warning } = await resolveSessionConfig({ sessionsDir: options.sessionsDir });
 
   // Generate session ID
   const sessionId = generateSessionId();
@@ -139,29 +114,19 @@ export async function handoffCommand(options: HandoffOptions): Promise<string> {
 
   // Build path to session file
   const filename = `${sessionId}.md`;
-  const sessionPath = options.sessionsDir
-    ? join(config.todoDir, filename)
-    : buildSessionPathFromRoot(baseDir, sessionId, config);
+  const sessionPath = join(config.todoDir, filename);
   const absolutePath = resolve(sessionPath);
 
   // Ensure directory exists
-  const todoDir = options.sessionsDir
-    ? config.todoDir
-    : join(baseDir, config.todoDir);
-  await mkdir(todoDir, { recursive: true });
+  await mkdir(config.todoDir, { recursive: true });
 
   // Write file
   await writeFile(sessionPath, fullContent, "utf-8");
 
-  // Build output message
-  let output =
-    `Created handoff session <HANDOFF_ID>${sessionId}</HANDOFF_ID>\n<SESSION_FILE>${absolutePath}</SESSION_FILE>`;
-
   // Emit warning to stderr if not in git repo
-  if (warningMessage) {
-    // Write warning to stderr (not included in returned string)
-    process.stderr.write(`${warningMessage}\n`);
+  if (warning) {
+    process.stderr.write(`${warning}\n`);
   }
 
-  return output;
+  return `Created handoff session <HANDOFF_ID>${sessionId}</HANDOFF_ID>\n<SESSION_FILE>${absolutePath}</SESSION_FILE>`;
 }

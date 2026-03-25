@@ -5,11 +5,10 @@
  */
 
 import { readFile, stat } from "node:fs/promises";
-import { join } from "node:path";
 
+import { resolveSessionConfig } from "../../git/root.js";
 import { SessionNotFoundError } from "../../session/errors.js";
 import {
-  DEFAULT_SESSION_CONFIG,
   formatShowOutput,
   resolveSessionPaths,
   SEARCH_ORDER,
@@ -56,14 +55,7 @@ async function findExistingPath(
  * @throws {SessionNotFoundError} When session not found
  */
 export async function showCommand(options: ShowOptions): Promise<string> {
-  // Build config from options
-  const config: SessionDirectoryConfig = options.sessionsDir
-    ? {
-      todoDir: join(options.sessionsDir, "todo"),
-      doingDir: join(options.sessionsDir, "doing"),
-      archiveDir: join(options.sessionsDir, "archive"),
-    }
-    : DEFAULT_SESSION_CONFIG;
+  const { config } = await resolveSessionConfig({ sessionsDir: options.sessionsDir });
 
   // Resolve possible paths
   const paths = resolveSessionPaths(options.sessionId, config);

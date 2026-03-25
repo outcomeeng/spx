@@ -5,11 +5,11 @@
  */
 
 import { readdir, rename } from "node:fs/promises";
-import { join } from "node:path";
 
+import { resolveSessionConfig } from "../../git/root.js";
 import { SessionNotClaimedError } from "../../session/errors.js";
 import { buildReleasePaths, findCurrentSession } from "../../session/release.js";
-import { DEFAULT_SESSION_CONFIG, type SessionDirectoryConfig } from "../../session/show.js";
+import type { SessionDirectoryConfig } from "../../session/show.js";
 
 /**
  * Options for the release command.
@@ -46,14 +46,7 @@ async function loadDoingSessions(config: SessionDirectoryConfig): Promise<Array<
  * @throws {SessionNotClaimedError} When session not in doing directory
  */
 export async function releaseCommand(options: ReleaseOptions): Promise<string> {
-  // Build config from options
-  const config: SessionDirectoryConfig = options.sessionsDir
-    ? {
-      todoDir: join(options.sessionsDir, "todo"),
-      doingDir: join(options.sessionsDir, "doing"),
-      archiveDir: join(options.sessionsDir, "archive"),
-    }
-    : DEFAULT_SESSION_CONFIG;
+  const { config } = await resolveSessionConfig({ sessionsDir: options.sessionsDir });
 
   let sessionId: string;
 

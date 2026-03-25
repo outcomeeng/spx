@@ -7,8 +7,8 @@
 import { readdir, readFile } from "node:fs/promises";
 import { join } from "node:path";
 
+import { resolveSessionConfig } from "../../git/root.js";
 import { parseSessionMetadata, sortSessions } from "../../session/list.js";
-import { DEFAULT_SESSION_CONFIG, type SessionDirectoryConfig } from "../../session/show.js";
 import type { Session, SessionStatus } from "../../session/types.js";
 
 /**
@@ -83,14 +83,7 @@ function formatTextOutput(sessions: Session[], _status: SessionStatus): string {
  * @returns Formatted output for display
  */
 export async function listCommand(options: ListOptions): Promise<string> {
-  // Build config from options
-  const config: SessionDirectoryConfig = options.sessionsDir
-    ? {
-      todoDir: join(options.sessionsDir, "todo"),
-      doingDir: join(options.sessionsDir, "doing"),
-      archiveDir: join(options.sessionsDir, "archive"),
-    }
-    : DEFAULT_SESSION_CONFIG;
+  const { config } = await resolveSessionConfig({ sessionsDir: options.sessionsDir });
 
   // Load sessions based on filter
   const statuses: SessionStatus[] = options.status

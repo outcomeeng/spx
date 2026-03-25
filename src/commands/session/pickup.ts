@@ -7,10 +7,11 @@
 import { mkdir, readdir, readFile, rename } from "node:fs/promises";
 import { join } from "node:path";
 
+import { resolveSessionConfig } from "../../git/root.js";
 import { NoSessionsAvailableError } from "../../session/errors.js";
 import { parseSessionMetadata } from "../../session/list.js";
 import { buildClaimPaths, classifyClaimError, selectBestSession } from "../../session/pickup.js";
-import { DEFAULT_SESSION_CONFIG, formatShowOutput, type SessionDirectoryConfig } from "../../session/show.js";
+import { formatShowOutput, type SessionDirectoryConfig } from "../../session/show.js";
 import type { Session, SessionStatus } from "../../session/types.js";
 
 /**
@@ -70,14 +71,7 @@ async function loadTodoSessions(config: SessionDirectoryConfig): Promise<Session
  * @throws {SessionNotAvailableError} When session already claimed
  */
 export async function pickupCommand(options: PickupOptions): Promise<string> {
-  // Build config from options
-  const config: SessionDirectoryConfig = options.sessionsDir
-    ? {
-      todoDir: join(options.sessionsDir, "todo"),
-      doingDir: join(options.sessionsDir, "doing"),
-      archiveDir: join(options.sessionsDir, "archive"),
-    }
-    : DEFAULT_SESSION_CONFIG;
+  const { config } = await resolveSessionConfig({ sessionsDir: options.sessionsDir });
 
   let sessionId: string;
 

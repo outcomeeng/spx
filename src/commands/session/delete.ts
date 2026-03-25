@@ -5,10 +5,10 @@
  */
 
 import { stat, unlink } from "node:fs/promises";
-import { join } from "node:path";
 
+import { resolveSessionConfig } from "../../git/root.js";
 import { resolveDeletePath } from "../../session/delete.js";
-import { DEFAULT_SESSION_CONFIG, resolveSessionPaths, type SessionDirectoryConfig } from "../../session/show.js";
+import { resolveSessionPaths } from "../../session/show.js";
 
 /**
  * Options for the delete command.
@@ -48,14 +48,7 @@ async function findExistingPaths(paths: string[]): Promise<string[]> {
  * @throws {SessionNotFoundError} When session not found
  */
 export async function deleteCommand(options: DeleteOptions): Promise<string> {
-  // Build config from options
-  const config: SessionDirectoryConfig = options.sessionsDir
-    ? {
-      todoDir: join(options.sessionsDir, "todo"),
-      doingDir: join(options.sessionsDir, "doing"),
-      archiveDir: join(options.sessionsDir, "archive"),
-    }
-    : DEFAULT_SESSION_CONFIG;
+  const { config } = await resolveSessionConfig({ sessionsDir: options.sessionsDir });
 
   // Resolve possible paths
   const paths = resolveSessionPaths(options.sessionId, config);

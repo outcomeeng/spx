@@ -7,8 +7,9 @@
 import { readdir, readFile, unlink } from "node:fs/promises";
 import { join } from "node:path";
 
+import { resolveSessionConfig } from "../../git/root.js";
 import { parseSessionMetadata, sortSessions } from "../../session/list.js";
-import { DEFAULT_SESSION_CONFIG, type SessionDirectoryConfig } from "../../session/show.js";
+import type { SessionDirectoryConfig } from "../../session/show.js";
 import type { Session } from "../../session/types.js";
 
 /**
@@ -123,14 +124,7 @@ export async function pruneCommand(options: PruneOptions): Promise<string> {
   const keep = options.keep ?? DEFAULT_KEEP_COUNT;
   const dryRun = options.dryRun ?? false;
 
-  // Build config from options
-  const config: SessionDirectoryConfig = options.sessionsDir
-    ? {
-      todoDir: join(options.sessionsDir, "todo"),
-      doingDir: join(options.sessionsDir, "doing"),
-      archiveDir: join(options.sessionsDir, "archive"),
-    }
-    : DEFAULT_SESSION_CONFIG;
+  const { config } = await resolveSessionConfig({ sessionsDir: options.sessionsDir });
 
   // Load and sort sessions
   const sessions = await loadArchiveSessions(config);
