@@ -4,20 +4,20 @@
 
 ## Status of this Document: DoR Checklist
 
-| DoR checkbox            | Description                                                                                                        |
-| ----------------------- | ------------------------------------------------------------------------------------------------------------------ |
-| [ ] **Outcome**         | Users can install/update marketplace; developers get automated JSON maintenance from SKILL.md                      |
-| [ ] **Test Evidence**   | CLI correctly installs marketplace, syncs JSON, validates schema, manages versions via Conventional Commits        |
-| [ ] **Assumptions**     | Projects use standard Claude Code plugin structure; Conventional Commits convention followed; spx-claude on GitHub |
-| [ ] **Dependencies**    | spx-cli core (Capability 21), git for version detection, Claude Code plugin schema                                 |
-| [ ] **Pre-Mortem**      | Schema drift as Claude Code evolves; Conventional Commits not followed; GitHub rate limits                         |
-| [ ] **Deployment Plan** | Two subcommands of existing spx CLI; pre-commit hook integration via lefthook/husky                                |
+| DoR checkbox            | Description                                                                                                               |
+| ----------------------- | ------------------------------------------------------------------------------------------------------------------------- |
+| [ ] **Outcome**         | Users can install/update marketplace; developers get automated JSON maintenance from SKILL.md                             |
+| [ ] **Test Evidence**   | CLI correctly installs marketplace, syncs JSON, validates schema, manages versions via Conventional Commits               |
+| [ ] **Assumptions**     | Projects use standard Claude Code plugin structure; Conventional Commits convention followed; outcomeeng/claude on GitHub |
+| [ ] **Dependencies**    | spx-cli core (Capability 21), git for version detection, Claude Code plugin schema                                        |
+| [ ] **Pre-Mortem**      | Schema drift as Claude Code evolves; Conventional Commits not followed; GitHub rate limits                                |
+| [ ] **Deployment Plan** | Two subcommands of existing spx CLI; pre-commit hook integration via lefthook/husky                                       |
 
 ## Two Audiences, Two Command Namespaces
 
 | Namespace         | Audience                   | Purpose                                                                |
 | ----------------- | -------------------------- | ---------------------------------------------------------------------- |
-| `spx claude`      | **Users**                  | Install and update spx-claude marketplace in their Claude Code setup   |
+| `spx claude`      | **Users**                  | Install and update outcomeeng marketplace in their Claude Code setup   |
 | `spx marketplace` | **Marketplace developers** | Maintain JSON files, versioning, pre-commit hooks in marketplace repos |
 
 ---
@@ -29,7 +29,7 @@
 ### Customer Problem
 
 ```
-As a Claude Code user, I want to easily install and update the spx-claude marketplace
+As a Claude Code user, I want to easily install and update the outcomeeng marketplace
 because manual installation is error-prone and updates require knowing the source URL,
 which prevents me from benefiting from the latest plugin improvements.
 ```
@@ -45,7 +45,7 @@ which prevents me from benefiting from the latest plugin improvements.
 ### Customer Solution
 
 ```
-Implement spx claude subcommands that install and update the spx-claude marketplace
+Implement spx claude subcommands that install and update the outcomeeng marketplace
 by reading Claude Code's configuration to determine the source,
 resulting in one-command installation and updates.
 ```
@@ -54,20 +54,20 @@ resulting in one-command installation and updates.
 
 ### `spx claude init [--source <url|path>]`
 
-Install spx-claude marketplace into user's Claude Code setup.
+Install outcomeeng marketplace into user's Claude Code setup.
 
 ```bash
 # Install from GitHub (default)
 spx claude init
 
 # Install from local path (development)
-spx claude init --source ~/Code/spx/spx-claude
+spx claude init --source ~/Code/spx/outcomeeng/claude
 ```
 
 **Behavior:**
 
 1. Detect Claude Code plugins directory (`~/.claude/plugins/` or platform equivalent)
-2. If `--source` not provided, use default: `https://github.com/shz/spx-claude`
+2. If `--source` not provided, use default: `https://github.com/shz/outcomeeng/claude`
 3. Clone/copy marketplace to plugins cache
 4. Register marketplace in Claude Code settings
 
@@ -310,7 +310,7 @@ describe("Feature: spx claude init", () => {
 
     expect(exitCode).toBe(0);
     expect(
-      await exists(path.join(tempHome, ".claude/plugins/cache/spx-claude")),
+      await exists(path.join(tempHome, ".claude/plugins/cache/outcomeeng/claude")),
     ).toBe(true);
   });
 });
@@ -438,7 +438,7 @@ describe("Feature: spx marketplace version", () => {
 
 ```bash
 # User commands
-spx claude init                    # Install spx-claude marketplace
+spx claude init                    # Install outcomeeng marketplace
 spx claude init --source ~/local   # Install from local path
 spx claude update                  # Update from configured source
 spx claude status                  # Show installation status

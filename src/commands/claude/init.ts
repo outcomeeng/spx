@@ -1,7 +1,7 @@
 /**
  * Init command implementation
  *
- * Wrapper around `claude plugin marketplace` to install/update spx-claude marketplace
+ * Wrapper around `claude plugin marketplace` to install/update outcomeeng marketplace
  */
 import { execa } from "execa";
 
@@ -17,12 +17,12 @@ export interface InitOptions {
  * Execute claude init command
  *
  * Wraps the Claude CLI's `plugin marketplace` commands to manage
- * the spx-claude marketplace installation.
+ * the outcomeeng marketplace installation.
  *
  * Behavior:
- * 1. Check if spx-claude marketplace exists via `claude plugin marketplace list`
- * 2. If missing: shell `claude plugin marketplace add simonheimlicher/spx-claude`
- * 3. If exists: shell `claude plugin marketplace update spx-claude`
+ * 1. Check if outcomeeng marketplace exists via `claude plugin marketplace list`
+ * 2. If missing: shell `claude plugin marketplace add outcomeeng/claude`
+ * 3. If exists: shell `claude plugin marketplace update outcomeeng`
  * 4. Parse output and return status message
  *
  * @param options - Command options
@@ -33,8 +33,8 @@ export interface InitOptions {
  * ```typescript
  * const output = await initCommand();
  * console.log(output);
- * // Output: "✓ spx-claude marketplace installed successfully"
- * //    or: "✓ spx-claude marketplace updated successfully"
+ * // Output: "✓ outcomeeng marketplace installed successfully"
+ * //    or: "✓ outcomeeng marketplace updated successfully"
  * ```
  */
 export async function initCommand(
@@ -43,32 +43,32 @@ export async function initCommand(
   const cwd = options.cwd || process.cwd();
 
   try {
-    // Step 1: Check if spx-claude marketplace exists
+    // Step 1: Check if outcomeeng marketplace exists
     const { stdout: listOutput } = await execa(
       "claude",
       ["plugin", "marketplace", "list"],
       { cwd },
     );
 
-    const exists = listOutput.includes("spx-claude");
+    const exists = listOutput.includes("outcomeeng");
 
     // Step 2: Add or update based on existence
     if (!exists) {
       // Add marketplace
       await execa(
         "claude",
-        ["plugin", "marketplace", "add", "simonheimlicher/spx-claude"],
+        ["plugin", "marketplace", "add", "outcomeeng/claude"],
         { cwd },
       );
 
-      return "✓ spx-claude marketplace installed successfully\n\nRun 'claude plugin marketplace list' to view all marketplaces.";
+      return "✓ outcomeeng marketplace installed successfully\n\nRun 'claude plugin marketplace list' to view all marketplaces.";
     } else {
       // Update marketplace
-      await execa("claude", ["plugin", "marketplace", "update", "spx-claude"], {
+      await execa("claude", ["plugin", "marketplace", "update", "outcomeeng"], {
         cwd,
       });
 
-      return "✓ spx-claude marketplace updated successfully\n\nThe marketplace is now up to date.";
+      return "✓ outcomeeng marketplace updated successfully\n\nThe marketplace is now up to date.";
     }
   } catch (error) {
     if (error instanceof Error) {

@@ -58,7 +58,7 @@ describe("Capability: Claude Marketplace - User", () => {
       await exists(
         path.join(
           tempHome,
-          ".claude/plugins/cache/spx-claude/marketplace.json",
+          ".claude/plugins/cache/outcomeeng/marketplace.json",
         ),
       ),
     ).toBe(true);

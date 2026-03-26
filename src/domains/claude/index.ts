@@ -15,7 +15,7 @@ function registerClaudeCommands(claudeCmd: Command): void {
   // init command
   claudeCmd
     .command("init")
-    .description("Initialize or update spx-claude marketplace plugin")
+    .description("Initialize or update outcomeeng marketplace plugin")
     .action(async () => {
       try {
         const output = await initCommand({ cwd: process.cwd() });

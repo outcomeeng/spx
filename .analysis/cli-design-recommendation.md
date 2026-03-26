@@ -90,7 +90,7 @@ spx-cli/
 | Domain        | Audience               | Purpose                               |
 | ------------- | ---------------------- | ------------------------------------- |
 | `specs`       | All developers         | Manage spec workflow (status, next)   |
-| `claude`      | Plugin users           | Install/update spx-claude marketplace |
+| `claude`      | Plugin users           | Install/update outcomeeng marketplace |
 | `marketplace` | Marketplace developers | Maintain plugin JSON, versioning      |
 
 ## Recommendation: Hybrid Approach (like `gh`)
@@ -208,7 +208,7 @@ const claudeCmd = program
 
 claudeCmd
   .command("init")
-  .description("Install spx-claude marketplace")
+  .description("Install outcomeeng marketplace")
   .option("--source <url>", "Source URL or path")
   .action(claudeInitAction);
 

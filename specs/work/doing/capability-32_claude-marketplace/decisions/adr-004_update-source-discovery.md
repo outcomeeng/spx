@@ -28,7 +28,7 @@ Three approaches were considered:
 Implementation approach:
 
 1. Read Claude Code's plugin configuration
-2. Find the spx-claude marketplace entry
+2. Find the outcomeeng marketplace entry
 3. Extract source URL/path from that entry
 4. Fetch/pull updates from that source
 
