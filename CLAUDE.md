@@ -45,14 +45,6 @@ The `specs/` directory uses the legacy task-driven system (backlog/doing/done wi
 
 ---
 
-## BSP Numbers
-
-- BSP stands for Binary Space Partitioning.
-- BSP numbers are only sibling-unique. Always use the complete path `capability-NN/feature-NN/story-NN` and `capability-NN/feature-NN/adr-NN` etc. when interacting with the user, creating handoff documents or otherwise referring to artifacts within the `specs/` and `spx/` directories.
-- Lower BSP number = higher priority. Complete `21-*.feature` before `32-*.feature`.
-
----
-
 ## Validation Gate (Mandatory Before Commit)
 
 **NEVER commit without passing validation.** This is *non-negotiable*.
@@ -75,11 +67,11 @@ Before committing ANY changes:
 
 ### Committing Changes
 
-**ALWAYS use the `core:commit` skill to commit.** Never run raw git commands for commits.
+**ALWAYS use the `/spec-tree:committing-changes` skill to commit.** Never run raw git commands for commits.
 
 ```bash
 # Correct: invoke the skill
-/core:commit
+/spec-tree:committing-changes
 
 # Wrong: manual git commands
 git add . && git commit -m "..."
