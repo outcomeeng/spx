@@ -2,8 +2,8 @@
  * Level 1: Unit tests for pattern filtering
  * Story: story-32_pattern-filter
  */
-import { describe, it, expect } from "vitest";
 import { filterWorkItemDirectories } from "@/scanner/walk";
+import { describe, expect, it } from "vitest";
 
 describe("filterWorkItemDirectories", () => {
   it("GIVEN directories with work item names WHEN filtering THEN includes them", () => {

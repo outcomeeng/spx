@@ -98,10 +98,7 @@ This story uses Level 1 only because:
 
 ```typescript
 // tests/unit/helpers/fixture-generator.test.ts
-import {
-  generateFixtureTree,
-  PRESETS,
-} from "@/tests/helpers/fixture-generator";
+import { generateFixtureTree, PRESETS } from "@/tests/helpers/fixture-generator";
 import { describe, expect, it } from "vitest";
 
 describe("generateFixtureTree", () => {
@@ -175,8 +172,7 @@ describe("PRESETS", () => {
   });
 
   it("SHALLOW_50 produces ~50 items (wide, shallow)", () => {
-    const { capabilities: c, featuresPerCapability: f, storiesPerFeature: s } =
-      PRESETS.SHALLOW_50;
+    const { capabilities: c, featuresPerCapability: f, storiesPerFeature: s } = PRESETS.SHALLOW_50;
     const total = c + c * f + c * f * s;
     expect(total).toBeGreaterThanOrEqual(50);
   });

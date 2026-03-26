@@ -31,8 +31,7 @@ const rule: Rule.RuleModule = {
         "BDD violation: Conditional assertions after catch blocks hide test failures. Make assertions unconditional.",
       bddViolationGenericSwallowing:
         "BDD violation: Generic error swallowing in tests prevents proper failure reporting. Let tests fail loudly.",
-      suggestProperBdd:
-        "Consider: Remove try-catch and let test fail, or use expect().rejects for error testing.",
+      suggestProperBdd: "Consider: Remove try-catch and let test fail, or use expect().rejects for error testing.",
     },
   },
   create(context: Rule.RuleContext) {
@@ -42,10 +41,10 @@ const rule: Rule.RuleModule = {
     function isTestFile() {
       const filename = context.getFilename?.() || context.filename;
       return (
-        filename.includes(".test.") ||
-        filename.includes(".spec.") ||
-        filename.includes("/tests/") ||
-        filename.includes("/__tests__/")
+        filename.includes(".test.")
+        || filename.includes(".spec.")
+        || filename.includes("/tests/")
+        || filename.includes("/__tests__/")
       );
     }
     /**
@@ -59,9 +58,9 @@ const rule: Rule.RuleModule = {
       }
       // Chained expect().method() calls
       if (
-        node.callee?.type === "MemberExpression" &&
-        node.callee.object?.type === "CallExpression" &&
-        node.callee.object.callee?.name === "expect"
+        node.callee?.type === "MemberExpression"
+        && node.callee.object?.type === "CallExpression"
+        && node.callee.object.callee?.name === "expect"
       ) {
         return true;
       }
@@ -112,18 +111,18 @@ const rule: Rule.RuleModule = {
         if (!node) return false;
         // Check for "error instanceof SomeError" pattern
         if (
-          node.type === "BinaryExpression" &&
-          node.operator === "instanceof" &&
-          node.right?.name
+          node.type === "BinaryExpression"
+          && node.operator === "instanceof"
+          && node.right?.name
         ) {
           return notImplementedErrorPatterns.includes(node.right.name);
         }
         // Check for error.constructor === SomeError
         if (
-          node.type === "BinaryExpression" &&
-          node.operator === "===" &&
-          node.left?.type === "MemberExpression" &&
-          node.left.property?.name === "constructor"
+          node.type === "BinaryExpression"
+          && node.operator === "==="
+          && node.left?.type === "MemberExpression"
+          && node.left.property?.name === "constructor"
         ) {
           return notImplementedErrorPatterns.includes(node.right?.name);
         }

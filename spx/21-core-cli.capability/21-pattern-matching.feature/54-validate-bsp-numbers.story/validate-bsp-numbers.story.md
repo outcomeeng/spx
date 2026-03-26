@@ -67,10 +67,7 @@ This story stays at Level 1 because:
 ```typescript
 // test/unit/scanner/validation.test.ts
 import { describe, expect, it } from "vitest";
-import {
-  isValidBSPNumber,
-  validateBSPNumber,
-} from "../../../src/scanner/validation";
+import { isValidBSPNumber, validateBSPNumber } from "../../../src/scanner/validation";
 
 describe("isValidBSPNumber", () => {
   /**

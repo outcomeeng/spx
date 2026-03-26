@@ -8,12 +8,7 @@
 
 import { describe, expect, it } from "vitest";
 
-import {
-  buildEslintArgs,
-  buildTypeScriptArgs,
-  CACHE_PATHS,
-  VALIDATION_SCOPES,
-} from "../../../src/validation/index.js";
+import { buildEslintArgs, buildTypeScriptArgs, CACHE_PATHS, VALIDATION_SCOPES } from "../../../src/validation/index.js";
 
 describe("buildEslintArgs", () => {
   describe("full project mode", () => {

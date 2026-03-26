@@ -165,12 +165,7 @@ Level 1 is sufficient because:
 
 ```typescript
 // specs/doing/capability-26_scoped-cli/feature-21_domain-router/story-21_domain-router-infrastructure/tests/domain-registry.test.ts
-import {
-  clearDomains,
-  getAllDomains,
-  getDomain,
-  registerDomain,
-} from "@/domains/registry";
+import { clearDomains, getAllDomains, getDomain, registerDomain } from "@/domains/registry";
 import type { Domain } from "@/domains/types";
 import { beforeEach, describe, expect, it } from "vitest";
 

@@ -55,13 +55,15 @@ export function formatTable(tree: WorkItemTree): string {
         name: "Name",
         status: "Status",
       },
-      widths
-    )
+      widths,
+    ),
   );
 
   // Separator row
   lines.push(
-    `|${"-".repeat(widths.level + 2)}|${"-".repeat(widths.number + 2)}|${"-".repeat(widths.name + 2)}|${"-".repeat(widths.status + 2)}|`
+    `|${"-".repeat(widths.level + 2)}|${"-".repeat(widths.number + 2)}|${"-".repeat(widths.name + 2)}|${
+      "-".repeat(widths.status + 2)
+    }|`,
   );
 
   // Data rows
@@ -156,7 +158,9 @@ function calculateColumnWidths(rows: TableRow[]): {
  */
 function formatRow(
   row: TableRow,
-  widths: { level: number; number: number; name: number; status: number }
+  widths: { level: number; number: number; name: number; status: number },
 ): string {
-  return `| ${row.level.padEnd(widths.level)} | ${row.number.padEnd(widths.number)} | ${row.name.padEnd(widths.name)} | ${row.status.padEnd(widths.status)} |`;
+  return `| ${row.level.padEnd(widths.level)} | ${row.number.padEnd(widths.number)} | ${
+    row.name.padEnd(widths.name)
+  } | ${row.status.padEnd(widths.status)} |`;
 }

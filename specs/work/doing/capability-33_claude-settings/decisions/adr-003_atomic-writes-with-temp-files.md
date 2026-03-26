@@ -214,7 +214,7 @@ describe("writeSettings - Error Handling", () => {
     await writeSettings("/target/settings.json", mockSettings, { fs: testFs });
 
     // Verify 2-space indent and trailing newline
-    expect(writtenContent).toContain('  "permissions"');
+    expect(writtenContent).toContain("  \"permissions\"");
     expect(writtenContent).toEndWith("\n");
     expect(JSON.parse(writtenContent)).toEqual(mockSettings);
   });

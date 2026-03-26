@@ -10,7 +10,6 @@
 
 ## Testing Strategy
 
-
 ### Level Assignment
 
 | Component             | Level | Justification                                       |

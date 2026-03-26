@@ -48,7 +48,7 @@ export function formatMarkdown(tree: WorkItemTree): string {
 function formatNode(
   node: TreeNode,
   level: number,
-  sections: string[]
+  sections: string[],
 ): void {
   const displayNumber = getDisplayNumber(node);
   const name = `${node.kind}-${displayNumber}_${node.slug}`;

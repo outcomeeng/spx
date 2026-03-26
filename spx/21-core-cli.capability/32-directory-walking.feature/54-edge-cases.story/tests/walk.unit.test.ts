@@ -2,8 +2,8 @@
  * Level 1: Unit tests for path normalization
  * Story: story-54_edge-cases
  */
-import { describe, it, expect } from "vitest";
 import { normalizePath } from "@/scanner/walk";
+import { describe, expect, it } from "vitest";
 
 describe("normalizePath", () => {
   /**

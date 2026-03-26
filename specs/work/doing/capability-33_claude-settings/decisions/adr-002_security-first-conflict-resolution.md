@@ -111,9 +111,9 @@ fc.assert(
     const result2 = resolveConflicts(permissions);
 
     return (
-      JSON.stringify(result1.resolved.allow.sort()) ===
-        JSON.stringify(result2.resolved.allow.sort()) &&
-      JSON.stringify(result1.resolved.deny.sort()) === JSON.stringify(result2.resolved.deny.sort())
+      JSON.stringify(result1.resolved.allow.sort())
+        === JSON.stringify(result2.resolved.allow.sort())
+      && JSON.stringify(result1.resolved.deny.sort()) === JSON.stringify(result2.resolved.deny.sort())
     );
   }),
 );
@@ -164,9 +164,9 @@ fc.assert(
     const twice = resolveConflicts(once.resolved);
 
     return (
-      JSON.stringify(once.resolved.allow.sort()) === JSON.stringify(twice.resolved.allow.sort()) &&
-      JSON.stringify(once.resolved.deny.sort()) === JSON.stringify(twice.resolved.deny.sort()) &&
-      twice.conflictCount === 0 // No conflicts after first resolution
+      JSON.stringify(once.resolved.allow.sort()) === JSON.stringify(twice.resolved.allow.sort())
+      && JSON.stringify(once.resolved.deny.sort()) === JSON.stringify(twice.resolved.deny.sort())
+      && twice.conflictCount === 0 // No conflicts after first resolution
     );
   }),
 );

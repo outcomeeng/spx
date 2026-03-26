@@ -41,7 +41,7 @@ export function isValidBSPNumber(n: number): boolean {
 export function validateBSPNumber(n: number): number {
   if (!isValidBSPNumber(n)) {
     throw new Error(
-      `BSP number must be between ${MIN_BSP_NUMBER} and ${MAX_BSP_NUMBER}, got ${n}`
+      `BSP number must be between ${MIN_BSP_NUMBER} and ${MAX_BSP_NUMBER}, got ${n}`,
     );
   }
   return n;

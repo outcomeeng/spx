@@ -237,9 +237,7 @@ describe("E2E: Output Formats", () => {
       ["bin/spx.js", "status"],
       { cwd: fixture.path },
     );
-    const textLines = textOut.split("\n").filter(l =>
-      l.match(/capability-|feature-|story-/)
-    );
+    const textLines = textOut.split("\n").filter(l => l.match(/capability-|feature-|story-/));
     expect(textLines.length).toBe(expectedTotal);
   });
 });

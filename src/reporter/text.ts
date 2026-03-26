@@ -72,7 +72,7 @@ function formatNode(node: TreeNode, indent: number): string {
 function formatWorkItemName(
   kind: WorkItemKind,
   number: number,
-  slug: string
+  slug: string,
 ): string {
   // Capabilities: display = internal + 1
   // Features/Stories: display = internal

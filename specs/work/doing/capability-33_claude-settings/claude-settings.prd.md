@@ -22,7 +22,7 @@
 ```
 As a Claude Code user, I face two interconnected problems:
 
-1. I must manually install and update the spx-claude marketplace,
+1. I must manually install and update the outcomeeng marketplace,
    which is error-prone and requires knowing the source URL.
 
 2. I constantly re-approve the same permissions across multiple projects,
@@ -56,7 +56,7 @@ and wastes time on repetitive permission approvals.
 ```
 Implement spx claude subcommands that:
 
-1. Install and update the spx-claude marketplace from a configured source,
+1. Install and update the outcomeeng marketplace from a configured source,
    reading Claude Code's configuration to enable one-command management.
 
 2. Consolidate all project-local permissions into the global settings file,
@@ -73,20 +73,20 @@ This results in streamlined marketplace updates and centralized permission manag
 
 #### `spx claude init [--source <url|path>]`
 
-Install spx-claude marketplace into user's Claude Code setup.
+Install outcomeeng marketplace into user's Claude Code setup.
 
 ```bash
 # Install from GitHub (default)
 spx claude init
 
 # Install from local path (development)
-spx claude init --source ~/Code/spx/spx-claude
+spx claude init --source ~/Code/spx/outcomeeng/claude
 ```
 
 **Behavior:**
 
 1. Detect Claude Code plugins directory (`~/.claude/plugins/` or platform equivalent)
-2. If `--source` not provided, use default: `https://github.com/shz/spx-claude`
+2. If `--source` not provided, use default: `https://github.com/shz/outcomeeng/claude`
 3. Clone/copy marketplace to plugins cache
 4. Register marketplace in Claude Code settings
 
@@ -404,7 +404,7 @@ describe("Feature: spx claude init", () => {
     expect(exitCode).toBe(0);
     expect(stdout).toContain("Marketplace installed");
     expect(
-      await exists(path.join(tempHome, ".claude/plugins/cache/spx-claude")),
+      await exists(path.join(tempHome, ".claude/plugins/cache/outcomeeng/claude")),
     ).toBe(true);
   });
 
@@ -719,7 +719,7 @@ describe("Feature: spx claude settings consolidate", () => {
 
 ```bash
 # Marketplace management
-spx claude init                              # Install spx-claude marketplace
+spx claude init                              # Install outcomeeng marketplace
 spx claude init --source ~/local             # Install from local path
 spx claude update                            # Update from configured source
 spx claude status                            # Show installation status

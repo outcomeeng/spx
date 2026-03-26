@@ -80,11 +80,11 @@ describe("resolveConflicts - Property: Determinism", () => {
         const subsumed2Sorted = JSON.stringify([...result2.subsumed].sort());
 
         return (
-          allow1Sorted === allow2Sorted &&
-          deny1Sorted === deny2Sorted &&
-          ask1Sorted === ask2Sorted &&
-          countsMatch &&
-          subsumed1Sorted === subsumed2Sorted
+          allow1Sorted === allow2Sorted
+          && deny1Sorted === deny2Sorted
+          && ask1Sorted === ask2Sorted
+          && countsMatch
+          && subsumed1Sorted === subsumed2Sorted
         );
       }),
       { numRuns: 100 },

@@ -86,6 +86,7 @@ AND durations >= 1000ms show as "X.Xs"
 ## Testing Strategy
 
 > Use `/testing-typescript` skill to understand testing strategy.
+
 ### Level Assignment
 
 | Component                  | Level | Justification                    |

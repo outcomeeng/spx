@@ -22,7 +22,7 @@ import { parseWorkItemName } from "./patterns.js";
  */
 export async function walkDirectory(
   root: string,
-  visited: Set<string> = new Set()
+  visited: Set<string> = new Set(),
 ): Promise<DirectoryEntry[]> {
   // Normalize and resolve path to handle symlinks
   const normalizedRoot = path.resolve(root);
@@ -61,7 +61,7 @@ export async function walkDirectory(
     // Re-throw with more context
     if (error instanceof Error) {
       throw new Error(
-        `Failed to walk directory "${normalizedRoot}": ${error.message}`
+        `Failed to walk directory "${normalizedRoot}": ${error.message}`,
       );
     }
     throw error;
@@ -88,7 +88,7 @@ export async function walkDirectory(
  * ```
  */
 export function filterWorkItemDirectories(
-  entries: DirectoryEntry[]
+  entries: DirectoryEntry[],
 ): DirectoryEntry[] {
   return entries.filter((entry) => {
     try {

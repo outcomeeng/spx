@@ -88,7 +88,7 @@ describe("parsePermission", () => {
 
   test("throws error for malformed permission - no parentheses", () => {
     expect(() => parsePermission("Bash git:*", "allow")).toThrow(
-      'Malformed permission string: "Bash git:*"',
+      "Malformed permission string: \"Bash git:*\"",
     );
   });
 

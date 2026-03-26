@@ -49,10 +49,7 @@ THEN register status and next commands under spec namespace
 // src/domains/spec/index.ts
 import type { Command } from "commander";
 import { nextCommand } from "../../commands/spec/next.js";
-import {
-  type OutputFormat,
-  statusCommand,
-} from "../../commands/spec/status.js";
+import { type OutputFormat, statusCommand } from "../../commands/spec/status.js";
 import type { Domain } from "../types.js";
 
 /**
@@ -79,9 +76,7 @@ function registerSpecCommands(specCmd: Command): void {
             format = options.format as OutputFormat;
           } else {
             console.error(
-              `Error: Invalid format "${options.format}". Must be one of: ${
-                validFormats.join(", ")
-              }`,
+              `Error: Invalid format "${options.format}". Must be one of: ${validFormats.join(", ")}`,
             );
             process.exit(1);
           }

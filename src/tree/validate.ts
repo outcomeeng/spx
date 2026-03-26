@@ -54,12 +54,12 @@ export function validateTree(tree: WorkItemTree): void {
 function validateNode(
   node: TreeNode,
   parentKind: "root" | "capability" | "feature" | "story",
-  visited: Set<string> = new Set()
+  visited: Set<string> = new Set(),
 ): void {
   // Check for cycles
   if (visited.has(node.path)) {
     throw new TreeValidationError(
-      `Cycle detected: node at ${node.path} appears multiple times in tree`
+      `Cycle detected: node at ${node.path} appears multiple times in tree`,
     );
   }
   visited.add(node.path);
@@ -92,20 +92,20 @@ function validateNode(
  */
 function validateHierarchy(
   node: TreeNode,
-  parentKind: "root" | "capability" | "feature" | "story"
+  parentKind: "root" | "capability" | "feature" | "story",
 ): void {
   switch (node.kind) {
     case "capability":
       if (parentKind !== "root") {
         throw new TreeValidationError(
-          `Hierarchy error: capability "${node.slug}" must be at root level, found under ${parentKind}`
+          `Hierarchy error: capability "${node.slug}" must be at root level, found under ${parentKind}`,
         );
       }
       // Capabilities should only have features as children
       for (const child of node.children) {
         if (child.kind !== "feature") {
           throw new TreeValidationError(
-            `Hierarchy error: capability "${node.slug}" has ${child.kind} child "${child.slug}", but can only contain features`
+            `Hierarchy error: capability "${node.slug}" has ${child.kind} child "${child.slug}", but can only contain features`,
           );
         }
       }
@@ -114,14 +114,14 @@ function validateHierarchy(
     case "feature":
       if (parentKind !== "capability") {
         throw new TreeValidationError(
-          `Hierarchy error: feature "${node.slug}" must be under capability, found under ${parentKind}`
+          `Hierarchy error: feature "${node.slug}" must be under capability, found under ${parentKind}`,
         );
       }
       // Features should only have stories as children
       for (const child of node.children) {
         if (child.kind !== "story") {
           throw new TreeValidationError(
-            `Hierarchy error: feature "${node.slug}" has ${child.kind} child "${child.slug}", but can only contain stories`
+            `Hierarchy error: feature "${node.slug}" has ${child.kind} child "${child.slug}", but can only contain stories`,
           );
         }
       }
@@ -130,13 +130,13 @@ function validateHierarchy(
     case "story":
       if (parentKind !== "feature") {
         throw new TreeValidationError(
-          `Hierarchy error: story "${node.slug}" must be under feature, found under ${parentKind}`
+          `Hierarchy error: story "${node.slug}" must be under feature, found under ${parentKind}`,
         );
       }
       // Stories should have no children
       if (node.children.length > 0) {
         throw new TreeValidationError(
-          `Hierarchy error: story "${node.slug}" has children, but stories must be leaf nodes`
+          `Hierarchy error: story "${node.slug}" has children, but stories must be leaf nodes`,
         );
       }
       break;
@@ -157,7 +157,7 @@ function checkDuplicateBSP(nodes: TreeNode[], kind: string): void {
   for (const num of numbers) {
     if (seen.has(num)) {
       throw new TreeValidationError(
-        `Duplicate BSP number detected: multiple ${kind}s have number ${num} at the same level`
+        `Duplicate BSP number detected: multiple ${kind}s have number ${num} at the same level`,
       );
     }
     seen.add(num);

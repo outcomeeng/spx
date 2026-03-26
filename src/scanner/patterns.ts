@@ -29,13 +29,13 @@ const WORK_ITEM_PATTERN = /^(capability|feature|story)-(\d+)_([a-z][a-z0-9-]*)$/
  * // Returns: { kind: "feature", number: 21, slug: "pattern-matching" }
  * ```
  */
-export function parseWorkItemName(dirName: string): Omit<WorkItem, 'path'> {
+export function parseWorkItemName(dirName: string): Omit<WorkItem, "path"> {
   const match = WORK_ITEM_PATTERN.exec(dirName);
 
   if (!match) {
     throw new Error(
-      `Invalid work item name: "${dirName}". Expected format: {kind}-{number}_{slug} ` +
-        `(e.g., "capability-21_core-cli", "feature-21_pattern-matching")`
+      `Invalid work item name: "${dirName}". Expected format: {kind}-{number}_{slug} `
+        + `(e.g., "capability-21_core-cli", "feature-21_pattern-matching")`,
     );
   }
 

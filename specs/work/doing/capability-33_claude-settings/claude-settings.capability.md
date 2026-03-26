@@ -61,7 +61,7 @@ describe("Capability: Claude Settings - Marketplace Install", () => {
     // Verify marketplace files exist
     const marketplacePath = path.join(
       tempHome,
-      ".claude/plugins/cache/spx-claude",
+      ".claude/plugins/cache/outcomeeng",
     );
     expect(await exists(marketplacePath)).toBe(true);
     expect(
@@ -175,7 +175,7 @@ describe("Capability: Claude Settings - Marketplace Update", () => {
     // Verify new plugin exists in installed marketplace
     const installedPath = path.join(
       tempHome,
-      ".claude/plugins/cache/spx-claude",
+      ".claude/plugins/cache/outcomeeng",
     );
     expect(
       await exists(path.join(installedPath, "plugins/new-plugin")),
@@ -252,7 +252,7 @@ This capability provides the `spx claude` command namespace for user-facing Clau
 
 | Command                           | Purpose                                                  |
 | --------------------------------- | -------------------------------------------------------- |
-| `spx claude init`                 | Install spx-claude marketplace into Claude Code          |
+| `spx claude init`                 | Install outcomeeng marketplace into Claude Code          |
 | `spx claude update`               | Update marketplace from configured source                |
 | `spx claude status`               | Show marketplace installation status                     |
 | `spx claude settings consolidate` | Consolidate permissions from projects into global config |

@@ -64,11 +64,7 @@ This story stays at Level 1 because:
 ```typescript
 // test/unit/fixtures/factories.test.ts
 import { describe, expect, it } from "vitest";
-import {
-  createRandomWorkItem,
-  createWorkItem,
-  createWorkItemName,
-} from "../../fixtures/factories";
+import { createRandomWorkItem, createWorkItem, createWorkItemName } from "../../fixtures/factories";
 
 describe("createWorkItemName", () => {
   /**
@@ -244,7 +240,6 @@ function randomBSPNumber(): number {
 ```
 
 ## Architectural Requirements
-
 
 ## Quality Requirements
 

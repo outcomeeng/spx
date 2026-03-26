@@ -219,7 +219,7 @@ proven by zero breaking changes during migration and successful addition of clau
 #### Claude Domain (Infrastructure Only - Capability 32)
 
 - **`spx claude init [--source <url>]`**
-  - Install spx-claude marketplace (implemented in capability-32)
+  - Install outcomeeng marketplace (implemented in capability-32)
 
 - **`spx claude update`**
   - Update marketplace from source (implemented in capability-32)

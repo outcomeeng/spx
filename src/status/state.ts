@@ -1,9 +1,9 @@
 /**
  * Status determination state machine for work items
  */
-import type { WorkItemStatus } from "../types";
 import { access, readdir, stat } from "fs/promises";
 import path from "path";
+import type { WorkItemStatus } from "../types";
 
 /**
  * Input flags for status determination
@@ -80,7 +80,7 @@ export function determineStatus(flags: StatusFlags): WorkItemStatus {
  * ```
  */
 export async function hasTestsDirectory(
-  workItemPath: string
+  workItemPath: string,
 ): Promise<boolean> {
   try {
     const testsPath = path.join(workItemPath, "tests");
@@ -118,7 +118,7 @@ export async function hasTestsDirectory(
  * ```
  */
 export async function isTestsDirectoryEmpty(
-  testsPath: string
+  testsPath: string,
 ): Promise<boolean> {
   try {
     const entries = await readdir(testsPath);
@@ -198,10 +198,9 @@ export async function hasDoneMd(testsPath: string): Promise<boolean> {
 export class StatusDeterminationError extends Error {
   constructor(
     public readonly workItemPath: string,
-    public readonly cause: unknown
+    public readonly cause: unknown,
   ) {
-    const errorMessage =
-      cause instanceof Error ? cause.message : String(cause);
+    const errorMessage = cause instanceof Error ? cause.message : String(cause);
     super(`Failed to determine status for ${workItemPath}: ${errorMessage}`);
     this.name = "StatusDeterminationError";
   }
@@ -239,7 +238,7 @@ export class StatusDeterminationError extends Error {
  * ```
  */
 export async function getWorkItemStatus(
-  workItemPath: string
+  workItemPath: string,
 ): Promise<WorkItemStatus> {
   try {
     // Step 0: Verify work item path exists
