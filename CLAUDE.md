@@ -55,6 +55,9 @@ pnpm run validate
 
 # Quick verification before committing
 pnpm run validate && pnpm test
+
+# Build (required before push — the global `spx` command runs from dist/)
+pnpm run build
 ```
 
 ### Pre-Commit Checklist
@@ -63,7 +66,14 @@ Before committing ANY changes:
 
 - [ ] **`pnpm run validate`** passes (all 3 steps: circular deps, ESLint, TypeScript)
 - [ ] **`pnpm test`** shows 0 failed tests
-- [ ] **`pnpm run build`** succeeds
+
+### Pre-Push Checklist
+
+Before pushing (enforced by lefthook pre-push hook):
+
+- [ ] **`pnpm run build`** succeeds — the `spx` global link runs `dist/cli.js`, not source
+- [ ] **`pnpm run validate`** passes
+- [ ] **`pnpm test`** passes
 
 ### Committing Changes
 

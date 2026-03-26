@@ -1,9 +1,12 @@
-# Lefthook configuration for pre-commit test enforcement.
+# Lefthook configuration for pre-commit and pre-push enforcement.
 # See ADR-021: Lefthook Pre-Commit Test Enforcement
 #
 # Pre-commit hook runs tests on modified files using the TypeScript
 # orchestration script. Uses tsx to run TypeScript directly, ensuring
 # the hook always uses the latest source code without needing a build step.
+#
+# Pre-push hook runs full build + validation + test suite to prevent
+# pushing code that hasn't been built or validated.
 
 pre-commit:
   parallel: true
@@ -11,3 +14,12 @@ pre-commit:
     tests:
       glob: "*.{ts,tsx,js,jsx}"
       run: npx tsx src/precommit/run.ts
+
+pre-push:
+  commands:
+    build:
+      run: pnpm run build
+    validate:
+      run: pnpm run validate
+    test:
+      run: pnpm test
