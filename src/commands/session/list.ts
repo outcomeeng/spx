@@ -9,14 +9,17 @@ import { join } from "node:path";
 
 import { resolveSessionConfig } from "../../git/root.js";
 import { parseSessionMetadata, sortSessions } from "../../session/list.js";
-import type { Session, SessionStatus } from "../../session/types.js";
+import type { SessionDirectoryConfig } from "../../session/show.js";
+import { DEFAULT_LIST_STATUSES, type Session, SESSION_STATUSES, type SessionStatus } from "../../session/types.js";
 
 /**
  * Options for the list command.
+ * Note: status is string (not SessionStatus) because it comes from user input via Commander.js.
+ * Validation happens inside listCommand per ADR 001-cli-framework.
  */
 export interface ListOptions {
-  /** Filter by status */
-  status?: SessionStatus;
+  /** Filter by status (validated against SESSION_STATUSES) */
+  status?: string;
   /** Custom sessions directory */
   sessionsDir?: string;
   /** Output format */
@@ -60,9 +63,18 @@ async function loadSessionsFromDir(
 }
 
 /**
+ * Maps a session status to its directory path in the config.
+ */
+const STATUS_DIR_KEY: Record<SessionStatus, keyof SessionDirectoryConfig> = {
+  todo: "todoDir",
+  doing: "doingDir",
+  archive: "archiveDir",
+};
+
+/**
  * Formats sessions for text output.
  */
-function formatTextOutput(sessions: Session[], _status: SessionStatus): string {
+function formatTextOutput(sessions: Session[]): string {
   if (sessions.length === 0) {
     return `  (no sessions)`;
   }
@@ -82,54 +94,47 @@ function formatTextOutput(sessions: Session[], _status: SessionStatus): string {
  * @param options - Command options
  * @returns Formatted output for display
  */
+/**
+ * Validates a user-supplied status string against SESSION_STATUSES.
+ * Returns the validated SessionStatus or throws with valid values listed.
+ */
+function validateStatus(input: string): SessionStatus {
+  if (SESSION_STATUSES.includes(input as SessionStatus)) {
+    return input as SessionStatus;
+  }
+  throw new Error(
+    `Invalid status: "${input}". Valid values: ${SESSION_STATUSES.join(", ")}`,
+  );
+}
+
 export async function listCommand(options: ListOptions): Promise<string> {
   const { config } = await resolveSessionConfig({ sessionsDir: options.sessionsDir });
 
-  // Load sessions based on filter
-  const statuses: SessionStatus[] = options.status
-    ? [options.status]
-    : ["todo", "doing", "archive"];
+  // Validate and resolve statuses per ADR 001-cli-framework
+  const statuses: readonly SessionStatus[] = options.status !== undefined
+    ? [validateStatus(options.status)]
+    : DEFAULT_LIST_STATUSES;
 
-  const allSessions: Record<SessionStatus, Session[]> = {
-    todo: [],
-    doing: [],
-    archive: [],
-  };
+  const sessionsByStatus: Partial<Record<SessionStatus, Session[]>> = {};
 
   for (const status of statuses) {
-    const dir = status === "todo"
-      ? config.todoDir
-      : status === "doing"
-      ? config.doingDir
-      : config.archiveDir;
-
-    const sessions = await loadSessionsFromDir(dir, status);
-    allSessions[status] = sortSessions(sessions);
+    const dirKey = STATUS_DIR_KEY[status];
+    const sessions = await loadSessionsFromDir(config[dirKey], status);
+    sessionsByStatus[status] = sortSessions(sessions);
   }
 
   // Format output
   if (options.format === "json") {
-    return JSON.stringify(allSessions, null, 2);
+    return JSON.stringify(sessionsByStatus, null, 2);
   }
 
   // Text format
   const lines: string[] = [];
 
-  if (statuses.includes("doing")) {
-    lines.push("DOING:");
-    lines.push(formatTextOutput(allSessions.doing, "doing"));
+  for (const status of statuses) {
+    lines.push(`${status.toUpperCase()}:`);
+    lines.push(formatTextOutput(sessionsByStatus[status] ?? []));
     lines.push("");
-  }
-
-  if (statuses.includes("todo")) {
-    lines.push("TODO:");
-    lines.push(formatTextOutput(allSessions.todo, "todo"));
-    lines.push("");
-  }
-
-  if (statuses.includes("archive")) {
-    lines.push("ARCHIVE:");
-    lines.push(formatTextOutput(allSessions.archive, "archive"));
   }
 
   return lines.join("\n").trim();

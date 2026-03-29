@@ -91,9 +91,10 @@ describe("spx session commands", () => {
 
       expect(exitCode).toBe(0);
       const parsed = JSON.parse(stdout);
-      expect(parsed).toHaveProperty("todo");
+      // Default list shows only doing + todo per DEFAULT_LIST_STATUSES
       expect(parsed).toHaveProperty("doing");
-      expect(parsed).toHaveProperty("archive");
+      expect(parsed).toHaveProperty("todo");
+      expect(parsed).not.toHaveProperty("archive");
     });
   });
 

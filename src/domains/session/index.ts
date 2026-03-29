@@ -15,6 +15,7 @@ import {
   SessionAlreadyArchivedError,
   showCommand,
 } from "../../commands/session/index.js";
+import { SESSION_STATUSES } from "../../session/types.js";
 import type { Domain } from "../types.js";
 import { HANDOFF_FRONTMATTER_HELP, PICKUP_SELECTION_HELP, SESSION_FORMAT_HELP } from "./help.js";
 
@@ -61,14 +62,33 @@ function registerSessionCommands(sessionCmd: Command): void {
   // list command
   sessionCmd
     .command("list")
-    .description("List all sessions")
-    .option("--status <status>", "Filter by status (todo|doing|archive)")
+    .description("List active sessions (doing + todo by default)")
+    .option("--status <status>", "Filter by status (todo|doing|archive); defaults to doing + todo")
     .option("--json", "Output as JSON")
     .option("--sessions-dir <path>", "Custom sessions directory")
     .action(async (options: { status?: string; json?: boolean; sessionsDir?: string }) => {
       try {
         const output = await listCommand({
-          status: options.status as "todo" | "doing" | "archive" | undefined,
+          status: options.status,
+          format: options.json ? "json" : "text",
+          sessionsDir: options.sessionsDir,
+        });
+        console.log(output);
+      } catch (error) {
+        handleError(error);
+      }
+    });
+
+  // todo command (convenience alias for list --status todo)
+  sessionCmd
+    .command("todo")
+    .description("List todo sessions")
+    .option("--json", "Output as JSON")
+    .option("--sessions-dir <path>", "Custom sessions directory")
+    .action(async (options: { json?: boolean; sessionsDir?: string }) => {
+      try {
+        const output = await listCommand({
+          status: SESSION_STATUSES[0],
           format: options.json ? "json" : "text",
           sessionsDir: options.sessionsDir,
         });
