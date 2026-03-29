@@ -11,9 +11,21 @@
 export type SessionPriority = "high" | "medium" | "low";
 
 /**
+ * All valid session statuses, derived from directory structure per ADR-21.
+ * This is the single source of truth — SessionStatus type derives from it.
+ */
+export const SESSION_STATUSES = ["todo", "doing", "archive"] as const;
+
+/**
  * Status derived from directory location per ADR-21.
  */
-export type SessionStatus = "todo" | "doing" | "archive";
+export type SessionStatus = (typeof SESSION_STATUSES)[number];
+
+/**
+ * Default statuses shown by `spx session list` when no --status filter is provided.
+ * Excludes archive — use `--status archive` to see archived sessions.
+ */
+export const DEFAULT_LIST_STATUSES: readonly SessionStatus[] = ["doing", "todo"] as const;
 
 /**
  * Priority sort order (lower number = higher priority).

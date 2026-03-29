@@ -12,7 +12,12 @@ import { NoSessionsAvailableError } from "../../session/errors.js";
 import { parseSessionMetadata } from "../../session/list.js";
 import { buildClaimPaths, classifyClaimError, selectBestSession } from "../../session/pickup.js";
 import { formatShowOutput, type SessionDirectoryConfig } from "../../session/show.js";
-import type { Session, SessionStatus } from "../../session/types.js";
+import { type Session, SESSION_STATUSES, type SessionStatus } from "../../session/types.js";
+
+/** Status of sessions available for pickup. */
+const PICKUP_SOURCE_STATUS: SessionStatus = SESSION_STATUSES[0]; // todo
+/** Status of sessions after being claimed. */
+const PICKUP_TARGET_STATUS: SessionStatus = SESSION_STATUSES[1]; // doing
 
 /**
  * Options for the pickup command.
@@ -44,7 +49,7 @@ async function loadTodoSessions(config: SessionDirectoryConfig): Promise<Session
 
       sessions.push({
         id,
-        status: "todo" as SessionStatus,
+        status: PICKUP_SOURCE_STATUS,
         path: filePath,
         metadata,
       });
@@ -104,7 +109,7 @@ export async function pickupCommand(options: PickupOptions): Promise<string> {
 
   // Read and format content
   const content = await readFile(paths.target, "utf-8");
-  const output = formatShowOutput(content, { status: "doing" });
+  const output = formatShowOutput(content, { status: PICKUP_TARGET_STATUS });
 
   // Output with parseable PICKUP_ID tag
   return `Claimed session <PICKUP_ID>${sessionId}</PICKUP_ID>\n\n${output}`;

@@ -8,7 +8,7 @@ import { join } from "node:path";
 
 import { DEFAULT_CONFIG } from "../config/defaults.js";
 import { parseSessionMetadata } from "./list.js";
-import type { SessionStatus } from "./types.js";
+import { SESSION_STATUSES, type SessionStatus } from "./types.js";
 
 /**
  * Configuration for session directory paths.
@@ -38,8 +38,9 @@ export const DEFAULT_SESSION_CONFIG: SessionDirectoryConfig = {
 
 /**
  * Order to search directories (matches priority: todo first, then doing, then archive).
+ * Derived from SESSION_STATUSES to maintain single source of truth per ADR 21-directory-structure.
  */
-export const SEARCH_ORDER: SessionStatus[] = ["todo", "doing", "archive"];
+export const SEARCH_ORDER: SessionStatus[] = [...SESSION_STATUSES];
 
 /**
  * Options for formatting show output.

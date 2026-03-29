@@ -10,7 +10,10 @@ import { join } from "node:path";
 import { resolveSessionConfig } from "../../git/root.js";
 import { parseSessionMetadata, sortSessions } from "../../session/list.js";
 import type { SessionDirectoryConfig } from "../../session/show.js";
-import type { Session } from "../../session/types.js";
+import { type Session, SESSION_STATUSES, type SessionStatus } from "../../session/types.js";
+
+/** Prune operates only on archived sessions. */
+const PRUNE_STATUS: SessionStatus = SESSION_STATUSES[2]; // archive
 
 /**
  * Default number of sessions to keep when pruning.
@@ -73,7 +76,7 @@ async function loadArchiveSessions(config: SessionDirectoryConfig): Promise<Sess
 
       sessions.push({
         id,
-        status: "archive",
+        status: PRUNE_STATUS,
         path: filePath,
         metadata,
       });

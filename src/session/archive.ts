@@ -8,6 +8,8 @@
  * @module session/archive
  */
 
+import type { SessionStatus } from "./types.js";
+
 /**
  * File extension for session files.
  */
@@ -49,11 +51,16 @@ export interface ExistingPathsMap {
 }
 
 /**
+ * Archivable statuses — sessions can only be archived from todo or doing.
+ */
+export type ArchivableStatus = Exclude<SessionStatus, "archive">;
+
+/**
  * Result of finding a session for archiving.
  */
 export interface SessionLocation {
   /** Status/directory where session was found */
-  status: "todo" | "doing";
+  status: ArchivableStatus;
   /** Full path to the session file */
   path: string;
 }
@@ -79,13 +86,22 @@ export interface SessionLocation {
  * // paths.target === ".spx/sessions/archive/2026-01-13_08-01-05.md"
  * ```
  */
+/**
+ * Maps archivable status to the corresponding config directory key.
+ */
+const ARCHIVABLE_DIR_KEY: Record<ArchivableStatus, "todoDir" | "doingDir"> = {
+  todo: "todoDir",
+  doing: "doingDir",
+};
+
 export function buildArchivePaths(
   sessionId: string,
-  currentStatus: "todo" | "doing",
+  currentStatus: ArchivableStatus,
   config: ArchivePathConfig,
 ): ArchivePaths {
   const filename = `${sessionId}${SESSION_FILE_EXTENSION}`;
-  const sourceDir = currentStatus === "todo" ? config.todoDir : config.doingDir;
+  const dirKey = ARCHIVABLE_DIR_KEY[currentStatus];
+  const sourceDir = config[dirKey];
 
   if (!sourceDir) {
     throw new Error(`Missing ${currentStatus}Dir in config`);
@@ -126,6 +142,11 @@ export function buildArchivePaths(
  * // location === null
  * ```
  */
+/**
+ * Statuses to check when looking for a session to archive, in priority order.
+ */
+const ARCHIVE_SEARCH_ORDER: readonly ArchivableStatus[] = ["todo", "doing"] as const;
+
 export function findSessionForArchive(
   existingPaths: ExistingPathsMap,
 ): SessionLocation | null {
@@ -134,14 +155,11 @@ export function findSessionForArchive(
     return null;
   }
 
-  // Check todo first (per ADR-21 directory structure)
-  if (existingPaths.todo !== null) {
-    return { status: "todo", path: existingPaths.todo };
-  }
-
-  // Check doing
-  if (existingPaths.doing !== null) {
-    return { status: "doing", path: existingPaths.doing };
+  // Check archivable directories in priority order
+  for (const status of ARCHIVE_SEARCH_ORDER) {
+    if (existingPaths[status] !== null) {
+      return { status, path: existingPaths[status] };
+    }
   }
 
   // Session not found anywhere
