@@ -1,103 +1,58 @@
-# ADR 001: CLI Framework Selection
+# CLI Framework
 
-## Problem
+## Purpose
 
-spx requires both simple command execution (`spx status --json`) and interactive tree navigation (`spx browse`). We need a CLI framework that handles both modes elegantly without over-engineering the simple cases.
+This decision governs how spx parses CLI arguments, routes subcommands, and validates user input. Every subcommand, option, and flag flows through Commander.js — input validation and routing correctness are system-wide concerns.
 
 ## Context
 
-- **Business**: spx replaces an LLM-based spec workflow skill with a deterministic CLI, requiring <100ms response times for non-interactive commands
-- **Technical**: TypeScript chosen for MCP SDK alignment; need command parsing + optional TUI capability; must support JSON output for MCP consumption
+**Business impact:** spx is an agent-facing CLI where malformed input causes cryptic runtime errors instead of actionable feedback. Agents retry on failure, wasting tokens and time. Input validation at the boundary prevents cascading failures.
+
+**Technical constraints:** Commander.js parses argv into typed options but does not validate option values against application-specific constraints. All `--status`, `--format`, and similar bounded-choice options require explicit validation before reaching command handlers. TypeScript's type system is erased at runtime — a `status as SessionStatus` cast trusts user input without verification.
 
 ## Decision
 
-**Use Commander.js for command routing and Ink for interactive modes.**
+Use Commander.js for command routing. Validate all user-supplied option values at the CLI boundary before passing them to command handlers.
 
 ## Rationale
 
-spx has two distinct interaction modes that benefit from specialized tools:
+Commander.js is the industry-standard Node.js CLI framework. It handles argument parsing, subcommand routing, and help text generation with minimal overhead and no runtime dependencies beyond Node.js.
 
-1. **Fire-and-forget commands** (status, next, done) — Commander handles these perfectly with minimal overhead. It's the industry standard, familiar to Node developers, and adds negligible startup time.
-
-2. **Interactive navigation** (browse, tree exploration) — Ink provides full TUI capability with React's component model, enabling live-updating trees with keyboard navigation.
+Input validation at the boundary follows the principle that internal code trusts its inputs — only system boundaries (user input, external APIs) require validation. Command handlers receive validated types, never raw strings. This eliminates an entire class of runtime errors where invalid strings propagate through record lookups, switch statements, and directory path construction.
 
 Alternatives considered:
 
-- **Commander-only**: Would require bolting on interactivity later with unknown libraries, risking fragmentation.
-- **oclif**: Heavy plugin architecture designed for large CLI suites; overkill for a focused tool.
-- **Clack**: Beautiful for guided prompts but prompt-oriented, not app-oriented. Limited for persistent TUI with live updates.
+- **oclif**: Plugin architecture designed for large CLI suites; over-engineering for a focused tool
+- **Clack**: Prompt-oriented, not command-routing-oriented; limited for persistent TUI
+- **yargs**: Comparable to Commander.js but less ecosystem adoption in TypeScript projects
 
-The Commander + Ink combination keeps simple things simple while enabling complex interactivity without architectural changes. Clack may be added later for specific flows like `spx init`.
+## Trade-offs accepted
 
-## Trade-offs Accepted
+| Trade-off                                    | Mitigation / reasoning                                                                                                                   |
+| -------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------- |
+| Commander.js does not validate option values | Explicit validation layer at CLI boundary; property-based tests verify all valid inputs are accepted and all invalid inputs are rejected |
+| TypeScript type casts bypass runtime safety  | Validation functions replace casts — `validateStatus(input)` returns `SessionStatus` or throws                                           |
 
-- **Two libraries instead of one**: Acceptable given clear separation of concerns — Commander owns routing, Ink owns rendering.
-- **Ink requires React mental model**: Acceptable given its power for TUI and the ecosystem of primitives (select, spinner, text-input).
-- **Larger bundle than Commander-only**: Mitigated by tree-shaking and lazy-loading Ink only when interactive mode is invoked.
+## Invariants
 
-## Testing Strategy
+- Every user-supplied option value is validated against its domain before reaching a command handler
+- Invalid input produces an error message listing all valid values
 
-> Consult `typescript-testing` skill for patterns and harness guidance.
+## Compliance
 
-### Level Coverage
+### Recognized by
 
-| Level           | Question Answered                                           | Scope                                               |
-| --------------- | ----------------------------------------------------------- | --------------------------------------------------- |
-| 1 (Unit)        | Do command handlers produce correct output for valid input? | Individual command modules (`status.ts`, `next.ts`) |
-| 2 (Integration) | Does the CLI parse args and route to correct handler?       | Commander program → handler → output                |
-| 3 (E2E)         | Does the installed CLI binary work for real user workflows? | Full `spx` binary execution against fixture repos   |
-
-### Escalation Rationale
-
-- **1 → 2**: Unit tests verify handlers in isolation but cannot verify Commander's argument parsing, option handling, or subcommand routing. Integration tests execute the program entry point with real argv.
-- **2 → 3**: Integration tests run in-process but cannot verify the built binary, shebang, PATH resolution, or real-world timing. E2E tests execute the actual installed `spx` command.
-
-### Test Harness
-
-| Level | Harness           | Location/Dependency                                                             |
-| ----- | ----------------- | ------------------------------------------------------------------------------- |
-| 2     | CLI test executor | `tests/harness/cli-executor.ts` — wraps `execa` with timeout and output capture |
-| 3     | Fixture generator | ADR-003, `tests/harness/fixture-generator.ts` — generates realistic spec repos  |
-
-### Behaviors Verified
-
-**Level 1 (Unit):**
-
-- Status command handler returns correct structure for given WorkItemTree
-- JSON formatter produces valid, parseable JSON
-- Text formatter produces expected tree rendering
-
-**Level 2 (Integration):**
-
-- `spx status --json` parses flags and invokes correct handler
-- `spx status --format=table` routes to table formatter
-- Unknown commands produce helpful error messages
-- `--help` flag works on all commands
-
-**Level 3 (E2E):**
-
-- `spx status --json` completes in <100ms on 50-item fixture
-- `spx browse` renders tree and responds to keyboard input
-- Exit codes are correct (0 for success, 1 for error)
-
-## Validation
-
-### How to Recognize Compliance
-
-You're following this decision if:
-
-- Non-interactive commands use Commander directly with no Ink dependency
-- Interactive commands use Ink components with Commander only for initial routing
-- New commands default to non-interactive unless they require live updates
+Commander.js `.action()` handlers receive validated types. No `as SessionStatus` or `as Format` casts on user input — validation functions replace casts.
 
 ### MUST
 
-- All non-interactive commands complete in <100ms
-- JSON output is machine-parseable (no ANSI codes, no trailing output)
-- Ink is lazy-loaded only when interactive mode is invoked
+- Validate all bounded-choice options (`--status`, `--format`, `--scope`) against their valid value set before invoking command handlers — user input is untrusted ([review])
+- Include valid values in error messages for invalid input — agents and users need actionable feedback ([review])
+- Use property-based tests (`fast-check`) to verify input validation accepts exactly the valid set and rejects everything else — example-based tests miss edge cases ([review])
+- Lazy-load Ink only when interactive mode is invoked — non-interactive commands pay no TUI dependency cost ([review])
 
 ### NEVER
 
-- Import Ink in non-interactive command paths
-- Use `console.log` for output in commands (use the output formatter interface)
-- Block the event loop in interactive mode (use async patterns)
+- Cast user input with `as T` to satisfy TypeScript — casts are lies that crash at runtime ([review])
+- Pass unvalidated strings to record lookups, `join()`, or filesystem operations — undefined propagation causes cryptic errors ([review])
+- Import Ink in non-interactive command paths — violates startup time budget ([review])
