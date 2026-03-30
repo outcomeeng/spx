@@ -25,7 +25,8 @@ Workflow:
   1. handoff  - Create session (todo)
   2. pickup   - Claim session (todo -> doing)
   3. release  - Return session (doing -> todo)
-  4. delete   - Remove session
+  4. archive  - Move session to archive
+  5. delete   - Remove session permanently
 `;
 
 /**
