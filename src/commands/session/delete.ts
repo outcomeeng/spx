@@ -7,15 +7,16 @@
 import { stat, unlink } from "node:fs/promises";
 
 import { resolveSessionConfig } from "../../git/root.js";
+import { processBatch } from "../../session/batch.js";
 import { resolveDeletePath } from "../../session/delete.js";
-import { resolveSessionPaths } from "../../session/show.js";
+import { resolveSessionPaths, type SessionDirectoryConfig } from "../../session/show.js";
 
 /**
  * Options for the delete command.
  */
 export interface DeleteOptions {
-  /** Session ID to delete */
-  sessionId: string;
+  /** Session ID(s) to delete */
+  sessionIds: string[];
   /** Custom sessions directory */
   sessionsDir?: string;
 }
@@ -47,20 +48,30 @@ async function findExistingPaths(paths: string[]): Promise<string[]> {
  * @returns Formatted output for display
  * @throws {SessionNotFoundError} When session not found
  */
+/**
+ * Deletes a single session by ID.
+ */
+async function deleteSingle(
+  sessionId: string,
+  config: SessionDirectoryConfig,
+): Promise<string> {
+  const paths = resolveSessionPaths(sessionId, config);
+  const existingPaths = await findExistingPaths(paths);
+  const pathToDelete = resolveDeletePath(sessionId, existingPaths);
+  await unlink(pathToDelete);
+  return `Deleted session: ${sessionId}`;
+}
+
+/**
+ * Executes the delete command for one or more session IDs.
+ *
+ * @param options - Command options with one or more session IDs
+ * @returns Formatted output for display
+ * @throws {BatchError} When one or more IDs fail
+ * @throws {SessionNotFoundError} When session not found (single ID)
+ */
 export async function deleteCommand(options: DeleteOptions): Promise<string> {
   const { config } = await resolveSessionConfig({ sessionsDir: options.sessionsDir });
 
-  // Resolve possible paths
-  const paths = resolveSessionPaths(options.sessionId, config);
-
-  // Find existing paths
-  const existingPaths = await findExistingPaths(paths);
-
-  // Resolve the path to delete
-  const pathToDelete = resolveDeletePath(options.sessionId, existingPaths);
-
-  // Delete the file
-  await unlink(pathToDelete);
-
-  return `Deleted session: ${options.sessionId}`;
+  return processBatch(options.sessionIds, (id) => deleteSingle(id, config));
 }

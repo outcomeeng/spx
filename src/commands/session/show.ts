@@ -7,6 +7,7 @@
 import { readFile, stat } from "node:fs/promises";
 
 import { resolveSessionConfig } from "../../git/root.js";
+import { processBatch } from "../../session/batch.js";
 import { SessionNotFoundError } from "../../session/errors.js";
 import {
   formatShowOutput,
@@ -20,8 +21,8 @@ import type { SessionStatus } from "../../session/types.js";
  * Options for the show command.
  */
 export interface ShowOptions {
-  /** Session ID to show */
-  sessionId: string;
+  /** Session ID(s) to show */
+  sessionIds: string[];
   /** Custom sessions directory */
   sessionsDir?: string;
 }
@@ -54,20 +55,34 @@ async function findExistingPath(
  * @returns Formatted output for display
  * @throws {SessionNotFoundError} When session not found
  */
-export async function showCommand(options: ShowOptions): Promise<string> {
-  const { config } = await resolveSessionConfig({ sessionsDir: options.sessionsDir });
-
-  // Resolve possible paths
-  const paths = resolveSessionPaths(options.sessionId, config);
-
-  // Find the existing file
+/**
+ * Shows a single session by ID.
+ */
+async function showSingle(
+  sessionId: string,
+  config: SessionDirectoryConfig,
+): Promise<string> {
+  const paths = resolveSessionPaths(sessionId, config);
   const found = await findExistingPath(paths, config);
 
   if (!found) {
-    throw new SessionNotFoundError(options.sessionId);
+    throw new SessionNotFoundError(sessionId);
   }
 
-  // Read and format content
   const content = await readFile(found.path, "utf-8");
   return formatShowOutput(content, { status: found.status });
+}
+
+/**
+ * Executes the show command for one or more session IDs.
+ *
+ * @param options - Command options with one or more session IDs
+ * @returns Formatted output for display
+ * @throws {BatchError} When one or more IDs fail
+ * @throws {SessionNotFoundError} When session not found (single ID)
+ */
+export async function showCommand(options: ShowOptions): Promise<string> {
+  const { config } = await resolveSessionConfig({ sessionsDir: options.sessionsDir });
+
+  return processBatch(options.sessionIds, (id) => showSingle(id, config));
 }

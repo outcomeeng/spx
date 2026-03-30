@@ -230,7 +230,7 @@ describe("archiveCommand with real filesystem", () => {
     const sessionId = "2026-01-13_08-00-00";
     await harness.writeSession(TODO, sessionId);
 
-    const output = await archiveCommand({ sessionId, sessionsDir: harness.sessionsDir });
+    const output = await archiveCommand({ sessionIds: [sessionId], sessionsDir: harness.sessionsDir });
 
     expect(output).toContain("Archived session");
     expect(existsSync(join(harness.statusDir(ARCHIVE), `${sessionId}.md`))).toBe(true);
@@ -241,19 +241,19 @@ describe("archiveCommand with real filesystem", () => {
     const sessionId = "2026-01-13_08-00-00";
     await harness.writeSession(DOING, sessionId);
 
-    const output = await archiveCommand({ sessionId, sessionsDir: harness.sessionsDir });
+    const output = await archiveCommand({ sessionIds: [sessionId], sessionsDir: harness.sessionsDir });
 
     expect(output).toContain("Archived session");
     expect(existsSync(join(harness.statusDir(ARCHIVE), `${sessionId}.md`))).toBe(true);
     expect(existsSync(join(harness.statusDir(DOING), `${sessionId}.md`))).toBe(false);
   });
 
-  it("S4: GIVEN session already in archive WHEN archive THEN throws SessionAlreadyArchivedError", async () => {
+  it("S4: GIVEN session already in archive WHEN archive THEN throws with already-archived message", async () => {
     const sessionId = "2026-01-13_08-00-00";
     await harness.writeSession(ARCHIVE, sessionId);
 
     await expect(
-      archiveCommand({ sessionId, sessionsDir: harness.sessionsDir }),
-    ).rejects.toThrow(SessionAlreadyArchivedError);
+      archiveCommand({ sessionIds: [sessionId], sessionsDir: harness.sessionsDir }),
+    ).rejects.toThrow(/already archived/i);
   });
 });

@@ -8,6 +8,7 @@ import { mkdir, rename, stat } from "node:fs/promises";
 import { dirname, join } from "node:path";
 
 import { resolveSessionConfig } from "../../git/root.js";
+import { processBatch } from "../../session/batch.js";
 import { SessionNotFoundError } from "../../session/errors.js";
 import type { SessionDirectoryConfig } from "../../session/show.js";
 
@@ -15,8 +16,8 @@ import type { SessionDirectoryConfig } from "../../session/show.js";
  * Options for the archive command.
  */
 export interface ArchiveOptions {
-  /** Session ID to archive */
-  sessionId: string;
+  /** Session ID(s) to archive */
+  sessionIds: string[];
   /** Custom sessions directory */
   sessionsDir?: string;
 }
@@ -102,17 +103,30 @@ export async function resolveArchivePaths(
  * @throws {SessionNotFoundError} When session not found
  * @throws {SessionAlreadyArchivedError} When session is already archived
  */
+/**
+ * Archives a single session by ID.
+ */
+async function archiveSingle(
+  sessionId: string,
+  config: SessionDirectoryConfig,
+): Promise<string> {
+  const { source, target } = await resolveArchivePaths(sessionId, config);
+  await mkdir(dirname(target), { recursive: true });
+  await rename(source, target);
+  return `Archived session: ${sessionId}\nArchive location: ${target}`;
+}
+
+/**
+ * Executes the archive command for one or more session IDs.
+ *
+ * @param options - Command options with one or more session IDs
+ * @returns Formatted output for display
+ * @throws {BatchError} When one or more IDs fail
+ * @throws {SessionNotFoundError} When session not found (single ID)
+ * @throws {SessionAlreadyArchivedError} When session already archived (single ID)
+ */
 export async function archiveCommand(options: ArchiveOptions): Promise<string> {
   const { config } = await resolveSessionConfig({ sessionsDir: options.sessionsDir });
 
-  // Resolve source and target paths
-  const { source, target } = await resolveArchivePaths(options.sessionId, config);
-
-  // Ensure archive directory exists (FR2: create if missing)
-  await mkdir(dirname(target), { recursive: true });
-
-  // Move to archive
-  await rename(source, target);
-
-  return `Archived session: ${options.sessionId}\nArchive location: ${target}`;
+  return processBatch(options.sessionIds, (id) => archiveSingle(id, config));
 }

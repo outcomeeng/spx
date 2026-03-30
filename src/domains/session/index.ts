@@ -100,13 +100,13 @@ function registerSessionCommands(sessionCmd: Command): void {
 
   // show command
   sessionCmd
-    .command("show <id>")
+    .command("show <id...>")
     .description("Show session content")
     .option("--sessions-dir <path>", "Custom sessions directory")
-    .action(async (id: string, options: { sessionsDir?: string }) => {
+    .action(async (ids: string[], options: { sessionsDir?: string }) => {
       try {
         const output = await showCommand({
-          sessionId: id,
+          sessionIds: ids,
           sessionsDir: options.sessionsDir,
         });
         console.log(output);
@@ -181,13 +181,13 @@ function registerSessionCommands(sessionCmd: Command): void {
 
   // delete command
   sessionCmd
-    .command("delete <id>")
-    .description("Delete a session")
+    .command("delete <id...>")
+    .description("Delete one or more sessions")
     .option("--sessions-dir <path>", "Custom sessions directory")
-    .action(async (id: string, options: { sessionsDir?: string }) => {
+    .action(async (ids: string[], options: { sessionsDir?: string }) => {
       try {
         const output = await deleteCommand({
-          sessionId: id,
+          sessionIds: ids,
           sessionsDir: options.sessionsDir,
         });
         console.log(output);
@@ -223,13 +223,13 @@ function registerSessionCommands(sessionCmd: Command): void {
 
   // archive command
   sessionCmd
-    .command("archive <id>")
-    .description("Move a session to the archive directory")
+    .command("archive <id...>")
+    .description("Move one or more sessions to the archive directory")
     .option("--sessions-dir <path>", "Custom sessions directory")
-    .action(async (id: string, options: { sessionsDir?: string }) => {
+    .action(async (ids: string[], options: { sessionsDir?: string }) => {
       try {
         const output = await archiveCommand({
-          sessionId: id,
+          sessionIds: ids,
           sessionsDir: options.sessionsDir,
         });
         console.log(output);
