@@ -1,9 +1,15 @@
 /**
  * Spec domain - Manage spec workflow
  */
+import { access } from "node:fs/promises";
+import { readFile, writeFile } from "node:fs/promises";
+
 import type { Command } from "commander";
+
 import { nextCommand } from "../../commands/spec/next.js";
 import { type OutputFormat, statusCommand } from "../../commands/spec/status.js";
+import { APPLY_HELP } from "../../spec/apply/exclude/help.js";
+import { applyExcludeCommand } from "../../spec/apply/exclude/index.js";
 import type { Domain } from "../types.js";
 
 /**
@@ -62,6 +68,31 @@ function registerSpecCommands(specCmd: Command): void {
         );
         process.exit(1);
       }
+    });
+
+  // apply command
+  specCmd
+    .command("apply")
+    .description("Apply spec-tree state to project configuration")
+    .addHelpText("after", APPLY_HELP)
+    .action(async () => {
+      const result = await applyExcludeCommand({
+        cwd: process.cwd(),
+        deps: {
+          readFile: (path: string) => readFile(path, "utf-8"),
+          writeFile: (path: string, content: string) => writeFile(path, content, "utf-8"),
+          fileExists: async (path: string) => {
+            try {
+              await access(path);
+              return true;
+            } catch {
+              return false;
+            }
+          },
+        },
+      });
+      if (result.output) console.log(result.output);
+      process.exit(result.exitCode);
     });
 }
 
