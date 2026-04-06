@@ -6,7 +6,14 @@
  */
 import type { Command } from "commander";
 
-import { allCommand, circularCommand, knipCommand, lintCommand, typescriptCommand } from "../../commands/validation";
+import {
+  allCommand,
+  circularCommand,
+  knipCommand,
+  lintCommand,
+  markdownCommand,
+  typescriptCommand,
+} from "../../commands/validation";
 import type { Domain } from "../types";
 
 /** Validation scope options */
@@ -106,6 +113,22 @@ function registerValidationCommands(validationCmd: Command): void {
       process.exit(result.exitCode);
     });
   addCommonOptions(knipCmd);
+
+  // markdown command
+  const markdownCmd = validationCmd
+    .command("markdown")
+    .alias("md")
+    .description("Validate markdown link integrity and structure")
+    .action(async (options: CommonOptions) => {
+      const result = await markdownCommand({
+        cwd: process.cwd(),
+        files: options.files,
+        quiet: options.quiet,
+      });
+      if (result.output) console.log(result.output);
+      process.exit(result.exitCode);
+    });
+  addCommonOptions(markdownCmd);
 
   // all command (default)
   const allCmd = validationCmd

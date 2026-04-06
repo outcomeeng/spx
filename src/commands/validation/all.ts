@@ -11,11 +11,12 @@ import { circularCommand } from "./circular";
 import { formatDuration, formatSummary } from "./format";
 import { knipCommand } from "./knip";
 import { lintCommand } from "./lint";
+import { markdownCommand } from "./markdown";
 import type { AllCommandOptions, ValidationCommandResult } from "./types";
 import { typescriptCommand } from "./typescript";
 
 /** Total number of validation steps */
-const TOTAL_STEPS = 4;
+const TOTAL_STEPS = 5;
 
 /**
  * Format step output with step number and timing.
@@ -71,6 +72,12 @@ export async function allCommand(options: AllCommandOptions): Promise<Validation
   const tsOutput = formatStepWithTiming(4, tsResult, quiet);
   if (tsOutput) outputs.push(tsOutput);
   if (tsResult.exitCode !== 0) hasFailure = true;
+
+  // 5. Markdown
+  const markdownResult = await markdownCommand({ cwd, files, quiet });
+  const markdownOutput = formatStepWithTiming(5, markdownResult, quiet);
+  if (markdownOutput) outputs.push(markdownOutput);
+  if (markdownResult.exitCode !== 0) hasFailure = true;
 
   // Calculate total duration
   const totalDurationMs = Date.now() - startTime;

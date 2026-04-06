@@ -48,11 +48,11 @@ describe("Validation CLI Output Format", () => {
   }, 60000); // 60 second timeout for beforeAll
 
   describe("Step numbering and timing", () => {
-    it("GIVEN spx validation all WHEN running THEN output includes step numbers [1/4] through [4/4]", () => {
+    it("GIVEN spx validation all WHEN running THEN output includes step numbers [1/5] through [5/5]", () => {
       // Test output format regardless of pass/fail status
       expect(validationResult.stdout).toMatch(STEP_NUMBER_PATTERN);
-      expect(validationResult.stdout).toContain("[1/4]");
-      expect(validationResult.stdout).toContain("[4/4]");
+      expect(validationResult.stdout).toContain("[1/5]");
+      expect(validationResult.stdout).toContain("[5/5]");
     });
 
     it("GIVEN spx validation all WHEN running THEN output includes timing for each step", () => {

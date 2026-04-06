@@ -13,6 +13,7 @@ export * from "./constants.js";
 export * from "./circular.js";
 export * from "./eslint.js";
 export * from "./knip.js";
+export * from "./markdown.js";
 export * from "./typescript.js";
 
 // Re-export step definitions for easy access

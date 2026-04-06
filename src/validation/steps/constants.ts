@@ -14,6 +14,7 @@ export const STEP_IDS = {
   ESLINT: "eslint",
   TYPESCRIPT: "typescript",
   KNIP: "knip",
+  MARKDOWN: "markdown",
 } as const;
 
 /**
@@ -24,6 +25,7 @@ export const STEP_NAMES = {
   ESLINT: "ESLint",
   TYPESCRIPT: "TypeScript",
   KNIP: "Unused Code",
+  MARKDOWN: "Markdown",
 } as const;
 
 /**
@@ -34,6 +36,7 @@ export const STEP_DESCRIPTIONS = {
   ESLINT: "Validating ESLint compliance",
   TYPESCRIPT: "Validating TypeScript",
   KNIP: "Detecting unused exports, dependencies, and files",
+  MARKDOWN: "Validating markdown link integrity and structure",
 } as const;
 
 /**

@@ -49,6 +49,13 @@ export interface KnipCommandOptions {
   json?: boolean;
 }
 
+/** Options for markdown command */
+export interface MarkdownCommandOptions {
+  cwd: string;
+  files?: string[];
+  quiet?: boolean;
+}
+
 /** Options for all command */
 export interface AllCommandOptions extends CommonValidationOptions {
   /** Auto-fix ESLint issues */
