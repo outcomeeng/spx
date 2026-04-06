@@ -1,0 +1,8 @@
+# Nodes excluded from the quality gate.
+# Specs and tests exist. Implementation does not.
+# Tests are excluded from pytest and type checking.
+# Linting still runs — style is checked regardless.
+#
+# Run the project's sync command after editing.
+# Remove entries when implementation begins.
+
