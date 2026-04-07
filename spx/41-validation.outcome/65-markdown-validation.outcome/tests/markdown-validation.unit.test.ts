@@ -250,12 +250,75 @@ describe("validateMarkdown()", () => {
 });
 
 // =============================================================================
+// PER-DIRECTORY MD024 — DUPLICATE HEADINGS (via fixture harness)
+// =============================================================================
+
+describe("per-directory MD024 behavior", () => {
+  it(
+    "GIVEN spx/ has duplicate sibling headings, WHEN validation runs, THEN MD024 errors are reported",
+    async () => {
+      await withMarkdownEnv({ fixture: MARKDOWN_FIXTURES.DUPLICATE_HEADINGS }, async ({ spxDir }) => {
+        const result = await validateMarkdown({ directories: [spxDir] });
+
+        const md024Errors = result.errors.filter((e) => e.detail.includes("MD024"));
+        expect(md024Errors.length).toBeGreaterThanOrEqual(1);
+        // The sibling duplicate is in child.md
+        expect(md024Errors.some((e) => e.file.includes("child.md"))).toBe(true);
+      });
+    },
+    MARKDOWN_HARNESS_TIMEOUT,
+  );
+
+  it(
+    "GIVEN spx/ has same heading under different parents, WHEN validation runs, THEN no MD024 error for that file",
+    async () => {
+      await withMarkdownEnv({ fixture: MARKDOWN_FIXTURES.DUPLICATE_HEADINGS }, async ({ spxDir }) => {
+        const result = await validateMarkdown({ directories: [spxDir] });
+
+        // feature.md has "Details" under different parent sections — allowed by siblings_only
+        const featureMd024Errors = result.errors.filter(
+          (e) => e.file.includes("feature.md") && e.detail.includes("MD024"),
+        );
+        expect(featureMd024Errors).toHaveLength(0);
+      });
+    },
+    MARKDOWN_HARNESS_TIMEOUT,
+  );
+
+  it(
+    "GIVEN docs/ has duplicate sibling headings, WHEN validation runs, THEN no MD024 errors are reported for docs/",
+    async () => {
+      await withMarkdownEnv({ fixture: MARKDOWN_FIXTURES.DUPLICATE_HEADINGS }, async ({ docsDir }) => {
+        const result = await validateMarkdown({ directories: [docsDir] });
+
+        const md024Errors = result.errors.filter((e) => e.detail.includes("MD024"));
+        expect(md024Errors).toHaveLength(0);
+      });
+    },
+    MARKDOWN_HARNESS_TIMEOUT,
+  );
+
+  it(
+    "GIVEN docs/ has a broken relative link, WHEN validation runs, THEN the broken link is still reported",
+    async () => {
+      await withMarkdownEnv({ fixture: MARKDOWN_FIXTURES.DUPLICATE_HEADINGS }, async ({ docsDir }) => {
+        const result = await validateMarkdown({ directories: [docsDir] });
+
+        expect(result.success).toBe(false);
+        expect(result.errors.some((e) => e.detail.includes("does-not-exist"))).toBe(true);
+      });
+    },
+    MARKDOWN_HARNESS_TIMEOUT,
+  );
+});
+
+// =============================================================================
 // CONFIG BUILDER — PURE (no harness needed)
 // =============================================================================
 
 describe("buildMarkdownlintConfig()", () => {
-  it("disables all default rules and enables the curated subset", () => {
-    const config = buildMarkdownlintConfig();
+  it("disables all default rules and enables the curated subset for spx/", () => {
+    const config = buildMarkdownlintConfig("spx");
 
     expect(config.default).toBe(false);
 
@@ -263,13 +326,24 @@ describe("buildMarkdownlintConfig()", () => {
     expect(config.MD003).toBe(true);
     expect(config.MD009).toBe(true);
     expect(config.MD010).toBe(true);
-    expect(config.MD024).toBe(true);
     expect(config.MD025).toBe(true);
     expect(config.MD047).toBe(true);
   });
 
+  it("enables MD024 with siblings_only for spx/", () => {
+    const config = buildMarkdownlintConfig("spx");
+
+    expect(config.MD024).toEqual({ siblings_only: true });
+  });
+
+  it("disables MD024 for docs/", () => {
+    const config = buildMarkdownlintConfig("docs");
+
+    expect(config.MD024).toBe(false);
+  });
+
   it("includes the relative-links custom rule", () => {
-    const config = buildMarkdownlintConfig();
+    const config = buildMarkdownlintConfig("spx");
 
     expect(config.customRules).toBeDefined();
     expect(config.customRules).toHaveLength(1);

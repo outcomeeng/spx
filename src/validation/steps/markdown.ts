@@ -9,7 +9,7 @@
  */
 
 import { existsSync, readFileSync } from "node:fs";
-import { join } from "node:path";
+import { basename, join } from "node:path";
 
 import { EXCLUDE_FILENAME } from "../../spec/apply/exclude/constants.js";
 import { readExcludedNodes } from "../../spec/apply/exclude/exclude-file.js";
@@ -25,16 +25,18 @@ import relativeLinksRule from "markdownlint-rule-relative-links";
 /** Default directories to validate when no --files are specified. */
 const DEFAULT_DIRECTORY_NAMES = ["spx", "docs"] as const;
 
-/** Built-in markdownlint rules enabled for validation. */
+/** Built-in markdownlint rules enabled for validation (MD024 excluded — configured per directory). */
 const ENABLED_RULES = {
   MD001: true,
   MD003: true,
   MD009: true,
   MD010: true,
-  MD024: true,
   MD025: true,
   MD047: true,
 } as const;
+
+/** Directories where MD024 is disabled entirely (generated/repetitive headings are normal). */
+const MD024_DISABLED_DIRECTORIES = ["docs"] as const;
 
 /**
  * Pattern for parsing markdownlint-cli2 default formatter output.
@@ -86,26 +88,33 @@ export interface ValidateMarkdownOptions {
 /**
  * Build the markdownlint configuration object.
  *
- * Returns a configuration that disables all default rules and enables
- * only the curated subset, plus the relative-links custom rule.
- * This is a pure function for testability.
+ * MD024 (no duplicate headings) is configured per directory:
+ * - `spx/` and other spec directories: `siblings_only` — allows same heading
+ *   under different parents, flags true sibling duplicates
+ * - `docs/`: disabled — generated/repetitive docs commonly reuse headings
  *
+ * @param directoryName - Basename of the directory being validated (e.g. "spx", "docs")
  * @returns Configuration object for markdownlint-cli2's optionsOverride
  */
-export function buildMarkdownlintConfig(): {
+export function buildMarkdownlintConfig(directoryName: string): {
   default: boolean;
   MD001: boolean;
   MD003: boolean;
   MD009: boolean;
   MD010: boolean;
-  MD024: boolean;
+  MD024: boolean | { siblings_only: boolean };
   MD025: boolean;
   MD047: boolean;
   customRules: MarkdownlintRule[];
 } {
+  const md024Disabled = MD024_DISABLED_DIRECTORIES.includes(
+    directoryName as (typeof MD024_DISABLED_DIRECTORIES)[number],
+  );
+
   return {
     default: false,
     ...ENABLED_RULES,
+    MD024: md024Disabled ? false : { siblings_only: true },
     customRules: [relativeLinksRule],
   };
 }
@@ -220,9 +229,9 @@ export async function validateMarkdown(
   const { directories, projectRoot } = options;
   const errors: MarkdownError[] = [];
 
-  const config = buildMarkdownlintConfig();
-
   for (const directory of directories) {
+    const dirName = basename(directory);
+    const config = buildMarkdownlintConfig(dirName);
     const excludeGlobs = getExcludeGlobs(directory);
     const dirErrors = await validateDirectory(directory, config, projectRoot, excludeGlobs);
     errors.push(...dirErrors);
