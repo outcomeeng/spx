@@ -8,10 +8,19 @@ CONTRIBUTING TO eliminating permission drift by ensuring no project's settings a
 
 ### Scenarios
 
-- Given a directory tree with multiple `settings.local.json` files, when discovery runs, then all files are found regardless of nesting depth ([test](tests/discovery.unit.test.ts))
-- Given a `settings.local.json` with valid permissions, when parsing runs, then typed permission records are extracted ([test](tests/parser.unit.test.ts))
-- Given a `settings.local.json` with malformed JSON, when parsing runs, then the file is reported as an error without aborting the scan ([test](tests/parser.unit.test.ts))
+- Given a directory tree with `settings.local.json` files at varying depths, when discovery runs, then all files inside `.claude/` directories are found ([test](tests/discovery.unit.test.ts))
+- Given a `settings.local.json` outside a `.claude/` directory, when discovery runs, then it is ignored ([test](tests/discovery.unit.test.ts))
+- Given a `.claude/` directory with subdirectories, when discovery runs, then it does not recurse into `.claude/` children ([test](tests/discovery.unit.test.ts))
+- Given symlink loops in the directory tree, when discovery runs, then it completes without hanging ([test](tests/discovery.unit.test.ts))
+- Given a valid permission string like `Bash(git:*)`, when parsed, then type, scope, and category are extracted ([test](tests/parser.unit.test.ts))
+- Given a malformed permission string, when parsed, then an error is thrown ([test](tests/parser.unit.test.ts))
+- Given a `settings.local.json` with malformed JSON, when batch parsing runs, then the file is skipped and remaining files are still parsed ([test](tests/parser.unit.test.ts))
+
+### Mappings
+
+- Permission categories allow, deny, and ask each map to their respective parsed records ([test](tests/parser.unit.test.ts))
 
 ### Properties
 
-- Discovery is exhaustive: every `settings.local.json` under the root is found ([test](tests/discovery.unit.test.ts))
+- Discovery results are consistent: the same directory always produces the same file list in the same order ([test](tests/discovery.unit.test.ts))
+- Batch parsing preserves input order: parsed results correspond positionally to input files ([test](tests/parser.unit.test.ts))
