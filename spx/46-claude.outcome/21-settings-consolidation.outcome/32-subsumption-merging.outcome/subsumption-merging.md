@@ -6,13 +6,21 @@ CONTRIBUTING TO eliminating permission drift by making the merge result predicta
 
 ## Assertions
 
+### Scenarios
+
+- Given a permission in both allow and deny, when conflicts are resolved, then it is removed from allow and kept in deny ([test](tests/merger.unit.test.ts))
+- Given a broader deny (e.g. `Bash(git:*)`) and narrower allow (e.g. `Bash(git log:*)`), when conflicts are resolved, then the narrower allow is subsumed ([test](tests/merger.unit.test.ts))
+- Given a narrower deny and broader allow, when conflicts are resolved, then both are kept — narrower deny does not subsume broader allow ([test](tests/merger.unit.test.ts))
+- Given two permission sets with no overlapping types, when merged, then both lists are unchanged ([test](tests/merger.unit.test.ts))
+- Given identical permissions across multiple files, when merged, then duplicates are removed ([test](tests/merger.unit.test.ts))
+
 ### Properties
 
-- Merging is deterministic: the same inputs always produce the same output ([test](tests/merger.unit.test.ts))
+- Merging is deterministic: the same inputs always produce the same output ([test](tests/merger.property.test.ts))
 - Merging is commutative: order of input files does not affect the result ([test](tests/merger.property.test.ts))
 - Subsumption is transitive: if A subsumes B and B subsumes C, then A subsumes C ([test](tests/subsumption.property.test.ts))
 
-### Scenarios
+### Compliance
 
-- Given two permission sets with no conflicts, when merged, then the result is the union ([test](tests/merger.unit.test.ts))
-- Given two permission sets with conflicting values, when merged, then the broader permission wins ([test](tests/subsumption.unit.test.ts))
+- ALWAYS: merged output is sorted alphabetically within each category ([test](tests/merger.unit.test.ts))
+- ALWAYS: ask permissions are unaffected by allow/deny conflict resolution ([test](tests/merger.unit.test.ts))
