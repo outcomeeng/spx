@@ -15,4 +15,4 @@ CONTRIBUTING TO eliminating permission drift by making the merge result predicta
 ### Scenarios
 
 - Given two permission sets with no conflicts, when merged, then the result is the union ([test](tests/merger.unit.test.ts))
-- Given two permission sets with conflicting values, when merged, then the broader permission wins ([test](tests/subsumption.unit.test.ts))
+- Given conflicting allow and deny for the same scope, when merged, then deny takes precedence ([test](tests/subsumption.unit.test.ts))
