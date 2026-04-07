@@ -18,6 +18,8 @@ CONTRIBUTING TO spec tree link integrity with automated enforcement across `spx/
 - Given `spx validation all` runs, then markdown validation executes as a step and its failure fails the pipeline ([test](tests/markdown-validation.integration.test.ts))
 - Given a user runs `spx validation markdown`, then the command is registered and executes markdown validation ([test](tests/markdown-validation.e2e.test.ts))
 - Given a user runs `spx validation markdown` on a directory with a broken link, then the process exits with code 1 and the error output identifies the broken link ([test](tests/markdown-validation.e2e.test.ts))
+- Given `spx/EXCLUDE` lists a node path, when validation runs, then markdown files in that node directory are skipped ([test](tests/markdown-validation.unit.test.ts))
+- Given a declared-state node has `[test]` links to files that do not exist yet, when that node is listed in `spx/EXCLUDE`, then those broken links are not reported ([test](tests/markdown-validation.unit.test.ts))
 
 ### Mappings
 

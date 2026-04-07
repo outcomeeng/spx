@@ -1,0 +1,4 @@
+# Nodes excluded from the quality gate.
+# Specs and tests exist. Implementation does not.
+
+32-declared.outcome

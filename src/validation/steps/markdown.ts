@@ -8,8 +8,11 @@
  * @module validation/steps/markdown
  */
 
-import { existsSync } from "node:fs";
+import { existsSync, readFileSync } from "node:fs";
 import { join } from "node:path";
+
+import { EXCLUDE_FILENAME } from "../../spec/apply/exclude/constants.js";
+import { readExcludedNodes } from "../../spec/apply/exclude/exclude-file.js";
 
 // @ts-expect-error markdownlint-cli2 has no TypeScript type declarations
 import { main as markdownlintMain } from "markdownlint-cli2";
@@ -127,6 +130,30 @@ export function getDefaultDirectories(projectRoot: string): string[] {
 }
 
 // =============================================================================
+// EXCLUDE SUPPORT
+// =============================================================================
+
+/**
+ * Read node paths from spx/EXCLUDE and return them as ignore globs.
+ *
+ * Declared-state nodes have [test] links pointing to files that do not
+ * exist yet. Listing them in spx/EXCLUDE tells markdown validation to
+ * skip those directories so broken [test] links are not flagged.
+ *
+ * @param spxDir - Absolute path to the spx/ directory being validated
+ * @returns Array of glob patterns to ignore (relative to spxDir)
+ */
+export function getExcludeGlobs(spxDir: string): string[] {
+  const excludePath = join(spxDir, EXCLUDE_FILENAME);
+  if (!existsSync(excludePath)) {
+    return [];
+  }
+  const content = readFileSync(excludePath, "utf-8");
+  const nodes = readExcludedNodes(content);
+  return nodes.map((node) => `${node}/**`);
+}
+
+// =============================================================================
 // ERROR PARSING
 // =============================================================================
 
@@ -196,7 +223,8 @@ export async function validateMarkdown(
   const config = buildMarkdownlintConfig();
 
   for (const directory of directories) {
-    const dirErrors = await validateDirectory(directory, config, projectRoot);
+    const excludeGlobs = getExcludeGlobs(directory);
+    const dirErrors = await validateDirectory(directory, config, projectRoot, excludeGlobs);
     errors.push(...dirErrors);
   }
 
@@ -218,6 +246,7 @@ async function validateDirectory(
   directory: string,
   config: ReturnType<typeof buildMarkdownlintConfig>,
   projectRoot?: string,
+  ignoreGlobs: string[] = [],
 ): Promise<MarkdownError[]> {
   const errors: MarkdownError[] = [];
 
@@ -231,6 +260,7 @@ async function validateDirectory(
     customRules,
     noProgress: true,
     noBanner: true,
+    ...(ignoreGlobs.length > 0 ? { ignores: ignoreGlobs } : {}),
   };
 
   await markdownlintMain({

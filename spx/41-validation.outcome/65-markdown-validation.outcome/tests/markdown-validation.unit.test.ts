@@ -206,6 +206,47 @@ describe("validateMarkdown()", () => {
       MARKDOWN_HARNESS_TIMEOUT,
     );
   });
+
+  // ===========================================================================
+  // spx/EXCLUDE SUPPORT
+  // ===========================================================================
+
+  describe("spx/EXCLUDE support", () => {
+    it(
+      "GIVEN spx/EXCLUDE lists a node path, WHEN validation runs, THEN markdown files in that node are skipped",
+      async () => {
+        await withMarkdownEnv({ fixture: MARKDOWN_FIXTURES.WITH_EXCLUDE }, async ({ spxDir, path }) => {
+          const result = await validateMarkdown({
+            directories: [spxDir],
+            projectRoot: path,
+          });
+
+          // 32-declared.outcome has broken [test] links but is excluded
+          // 21-passing.outcome has valid links — should pass
+          expect(result.success).toBe(true);
+          expect(result.errors).toHaveLength(0);
+        });
+      },
+      MARKDOWN_HARNESS_TIMEOUT,
+    );
+
+    it(
+      "GIVEN a declared-state node with broken [test] links is in EXCLUDE, WHEN validation runs, THEN those links are not reported",
+      async () => {
+        await withMarkdownEnv({ fixture: MARKDOWN_FIXTURES.WITH_EXCLUDE }, async ({ spxDir, path }) => {
+          const result = await validateMarkdown({
+            directories: [spxDir],
+            projectRoot: path,
+          });
+
+          // No errors referencing the excluded node's files
+          const declaredErrors = result.errors.filter((e) => e.file.includes("32-declared"));
+          expect(declaredErrors).toHaveLength(0);
+        });
+      },
+      MARKDOWN_HARNESS_TIMEOUT,
+    );
+  });
 });
 
 // =============================================================================

@@ -42,6 +42,7 @@ describe("Validation Domain", () => {
         },
         alias: () => mockCommand,
         description: () => mockCommand,
+        addHelpText: () => mockCommand,
         option: () => mockCommand,
         action: () => mockCommand,
       };

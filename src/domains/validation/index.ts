@@ -119,6 +119,12 @@ function registerValidationCommands(validationCmd: Command): void {
     .command("markdown")
     .alias("md")
     .description("Validate markdown link integrity and structure")
+    .addHelpText(
+      "after",
+      "\nValidates spx/ and docs/ by default. Nodes listed in spx/EXCLUDE are\n"
+        + "skipped — use this for declared-state nodes whose [test] links point\n"
+        + "to files that do not exist yet.",
+    )
     .action(async (options: CommonOptions) => {
       const result = await markdownCommand({
         cwd: process.cwd(),
