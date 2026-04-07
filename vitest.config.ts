@@ -7,6 +7,7 @@ export default defineConfig({
       "@": path.resolve(__dirname, "./src"),
       "@test": path.resolve(__dirname, "./tests"),
       "@scripts": path.resolve(__dirname, "./scripts"),
+      "@eslint-rules": path.resolve(__dirname, "./eslint-rules"),
     },
   },
   test: {

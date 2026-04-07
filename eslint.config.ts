@@ -6,8 +6,9 @@ import globals from "globals";
 import * as JSONC from "jsonc-parser";
 import tseslint from "typescript-eslint";
 
-// Import custom rules
+// Import custom rules and restricted syntax selectors
 import customRules from "./eslint-rules";
+import { testRestrictedSyntax, tsRestrictedSyntax } from "./eslint-rules/restricted-syntax";
 
 /**
  * Read TypeScript exclusions to maintain perfect scope alignment
@@ -91,6 +92,8 @@ const config = [
       "no-dupe-class-members": "off",
       // Enable TypeScript-specific versions
       "@typescript-eslint/no-redeclare": "error",
+      // Ban enums, "as any", "<any>" assertions
+      "no-restricted-syntax": ["error", ...tsRestrictedSyntax],
     },
   },
 
@@ -144,15 +147,26 @@ const config = [
       // Allow unimported test utilities and transformers
       "no-undef": "off",
       "@typescript-eslint/no-redeclare": "off",
+      // Ban vi.mock(), vi.fn(), string literals in assertions, skipIf, readFileSync
+      // Set to "warn" until existing violations are resolved
+      "no-restricted-syntax": [
+        "warn",
+        ...tsRestrictedSyntax,
+        ...testRestrictedSyntax,
+      ],
     },
   },
 
-  // Custom rules
+  // Custom rules — all TypeScript files
   {
+    files: ["**/*.ts", "**/*.tsx"],
     plugins: {
       spx: customRules,
     },
-    rules: {},
+    rules: {
+      // Set to "warn" until existing violations are resolved
+      "spx/no-spec-references": "warn",
+    },
   },
   // Custom CraftFinal rules for test files
   {

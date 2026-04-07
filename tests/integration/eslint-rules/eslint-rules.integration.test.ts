@@ -63,6 +63,18 @@ describe("ESLint Rules Integration", () => {
 
       expect(config.rules).toHaveProperty("spx/no-hardcoded-statuses");
     });
+
+    it("GIVEN eslint config WHEN calculating config for TS file THEN no-spec-references rule is registered", async () => {
+      const config = await eslint.calculateConfigForFile("src/example.ts");
+
+      expect(config.rules).toHaveProperty("spx/no-spec-references");
+    });
+
+    it("GIVEN eslint config WHEN calculating config for TS file THEN no-restricted-syntax is active", async () => {
+      const config = await eslint.calculateConfigForFile("src/example.ts");
+
+      expect(config.rules).toHaveProperty("no-restricted-syntax");
+    });
   });
 
   describe("no-hardcoded-work-item-kinds detection", () => {

@@ -12,7 +12,8 @@
     "paths": {
       "@/*": ["./src/*"],
       "@scripts/*": ["./scripts/*"],
-      "@test/*": ["./tests/*"]
+      "@test/*": ["./tests/*"],
+      "@eslint-rules/*": ["./eslint-rules/*"]
     },
     "resolveJsonModule": true,
     "rootDir": ".",
