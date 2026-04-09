@@ -114,6 +114,8 @@ export interface ValidationContext {
   validatedFiles?: string[];
   /** Whether running in file-specific mode */
   isFileSpecificMode: boolean;
+  /** ESLint flat config file name, determined by language detection */
+  eslintConfigFile?: string;
 }
 
 // =============================================================================

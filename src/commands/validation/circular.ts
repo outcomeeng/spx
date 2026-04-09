@@ -4,12 +4,18 @@
  * Runs madge to detect circular dependencies.
  */
 import { getTypeScriptScope } from "../../validation/config/scope.js";
-import { discoverTool, formatSkipMessage } from "../../validation/discovery/index.js";
+import { detectTypeScript, discoverTool, formatSkipMessage } from "../../validation/discovery/index.js";
 import { validateCircularDependencies } from "../../validation/steps/circular.js";
 import type { CircularCommandOptions, ValidationCommandResult } from "./types";
 
+const TYPESCRIPT_ABSENT_MESSAGE = "⏭ Skipping Circular dependencies (TypeScript not detected in project)";
+
 /**
  * Check for circular dependencies.
+ *
+ * Gates madge execution on TypeScript language detection: madge walks the
+ * TypeScript import graph and has nothing to examine in non-TypeScript
+ * projects.
  *
  * @param options - Command options
  * @returns Command result with exit code and output
@@ -18,7 +24,17 @@ export async function circularCommand(options: CircularCommandOptions): Promise<
   const { cwd, quiet } = options;
   const startTime = Date.now();
 
-  // Discover madge
+  // Gate 1: language detection. No TypeScript = skip cleanly.
+  const tsDetection = detectTypeScript(cwd);
+  if (!tsDetection.present) {
+    return {
+      exitCode: 0,
+      output: quiet ? "" : TYPESCRIPT_ABSENT_MESSAGE,
+      durationMs: Date.now() - startTime,
+    };
+  }
+
+  // Gate 2: tool discovery.
   const toolResult = await discoverTool("madge", { projectRoot: cwd });
   if (!toolResult.found) {
     const skipMessage = formatSkipMessage("circular dependency check", toolResult);

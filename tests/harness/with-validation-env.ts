@@ -24,6 +24,9 @@ export const FIXTURES = {
   WITH_LINT_ERRORS: "with-lint-errors",
   WITH_CIRCULAR_DEPS: "with-circular-deps",
   CLEAN_PROJECT: "clean-project",
+  PYTHON_PROJECT: "python-project",
+  BARE_PROJECT: "bare-project",
+  TYPESCRIPT_NO_ESLINT: "typescript-no-eslint",
 } as const;
 
 export type FixtureName = (typeof FIXTURES)[keyof typeof FIXTURES];

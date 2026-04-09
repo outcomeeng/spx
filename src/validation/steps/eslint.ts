@@ -33,6 +33,13 @@ export const defaultEslintProcessRunner: ProcessRunner = { spawn };
 // =============================================================================
 
 /**
+ * Default ESLint flat config file name, used when the caller does not supply
+ * one. Callers should prefer passing the config file reported by language
+ * detection.
+ */
+export const DEFAULT_ESLINT_CONFIG_FILE = "eslint.config.ts";
+
+/**
  * Build ESLint CLI arguments based on validation context.
  *
  * Pure function for testability - can be verified at Level 1.
@@ -46,6 +53,7 @@ export const defaultEslintProcessRunner: ProcessRunner = { spawn };
  *   validatedFiles: ["src/index.ts"],
  *   mode: "write",
  *   cacheFile: "dist/.eslintcache",
+ *   configFile: "eslint.config.ts",
  * });
  * // Returns: ["eslint", "--config", "eslint.config.ts", "--cache", ...]
  * ```
@@ -54,15 +62,16 @@ export function buildEslintArgs(context: {
   validatedFiles?: string[];
   mode?: ExecutionMode;
   cacheFile: string;
+  configFile?: string;
 }): string[] {
-  const { validatedFiles, mode, cacheFile } = context;
+  const { validatedFiles, mode, cacheFile, configFile = DEFAULT_ESLINT_CONFIG_FILE } = context;
   const fixArg = mode === EXECUTION_MODES.WRITE ? ["--fix"] : [];
   const cacheArgs = ["--cache", "--cache-location", cacheFile];
 
   if (validatedFiles && validatedFiles.length > 0) {
-    return ["eslint", "--config", "eslint.config.ts", ...cacheArgs, ...fixArg, "--", ...validatedFiles];
+    return ["eslint", "--config", configFile, ...cacheArgs, ...fixArg, "--", ...validatedFiles];
   }
-  return ["eslint", ".", "--config", "eslint.config.ts", ...cacheArgs, ...fixArg];
+  return ["eslint", ".", "--config", configFile, ...cacheArgs, ...fixArg];
 }
 
 // =============================================================================
@@ -91,7 +100,7 @@ export async function validateESLint(
   success: boolean;
   error?: string;
 }> {
-  const { scope, validatedFiles, mode } = context;
+  const { scope, validatedFiles, mode, eslintConfigFile } = context;
 
   return new Promise((resolve) => {
     // Set environment variable to control ESLint scope
@@ -108,6 +117,7 @@ export async function validateESLint(
       validatedFiles,
       mode,
       cacheFile: CACHE_PATHS.ESLINT,
+      configFile: eslintConfigFile,
     });
 
     const eslintProcess = runner.spawn("npx", eslintArgs, {

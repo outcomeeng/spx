@@ -1,0 +1,5 @@
+[project]
+name = "fixture-python-project"
+version = "0.1.0"
+description = "Minimal Python fixture project — has pyproject.toml, no TypeScript/ESLint config"
+requires-python = ">=3.11"

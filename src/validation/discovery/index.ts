@@ -14,4 +14,19 @@ export {
   type ToolNotFound,
 } from "./tool-finder.js";
 
+export {
+  defaultLanguageDetectionDeps,
+  detectLanguages,
+  detectPython,
+  detectTypeScript,
+  ESLINT_CONFIG_FILES,
+  type EslintConfigFile,
+  type LanguageDetection,
+  type LanguageDetectionDeps,
+  PYTHON_MARKER,
+  type PythonDetection,
+  TYPESCRIPT_MARKER,
+  type TypeScriptDetection,
+} from "./language-finder.js";
+
 export { TOOL_DISCOVERY, type ToolSource } from "./constants.js";

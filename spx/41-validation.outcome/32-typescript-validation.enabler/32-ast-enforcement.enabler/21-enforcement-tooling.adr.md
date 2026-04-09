@@ -2,13 +2,13 @@
 
 ## Purpose
 
-This decision governs how ADR compliance rules are encoded and enforced across the codebase. It applies to every MUST/NEVER rule in every ADR that constrains source code structure.
+This decision governs how ADR compliance rules are encoded and enforced on TypeScript source code. It applies to every MUST/NEVER rule in every ADR that constrains TypeScript code structure.
 
 ## Context
 
 **Business impact:** Automated enforcement catches ADR compliance drift at authoring time — a banned syntax pattern, a hardcoded value that should be derived from a constant. Violations surface as lint errors during development, not as user-facing bugs in production.
 
-**Technical constraints:** ESLint 9 flat config runs in the validation pipeline (`pnpm lint`). The codebase is TypeScript exclusively.
+**Technical constraints:** ESLint 9 flat config runs against every TypeScript project as part of the validation pipeline. TypeScript AST enforcement is scoped to projects where language detection reports TypeScript present.
 
 ## Decision
 
@@ -24,6 +24,7 @@ Alternatives considered:
 
 - **String grep only** — cannot distinguish comments from code, breaks on aliased imports, produces false positives. Not a valid enforcement mechanism for structural rules.
 - **TypeScript compiler plugins** — powerful but fragile across TS versions, no IDE integration for diagnostics, steep authoring cost.
+- **Semgrep** — polyglot strength is wasted in a single-language scope. Editor integration lags ESLint on TypeScript. Custom rules use a different pattern language than the TypeScript AST developers already know. Semgrep is the right tool for Python AST enforcement, not TypeScript.
 
 ## Trade-offs accepted
 
@@ -50,3 +51,4 @@ ESLint flat config references project-specific rules via the `spx` plugin namesp
 - Enforce structural compliance by reading source files as text and matching regexes — string grep does not understand code semantics ([review])
 - Write enforcement rules without a corresponding ADR — rules must trace to decisions ([review])
 - Ship a custom rule without `RuleTester` coverage of both valid and invalid cases — untested rules produce false positives or miss violations silently ([review])
+- Introduce Semgrep for TypeScript AST enforcement — one tool per language keeps the validation pipeline coherent ([review])

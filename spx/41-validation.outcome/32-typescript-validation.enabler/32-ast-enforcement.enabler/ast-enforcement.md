@@ -1,8 +1,8 @@
-# AST Enforcement
+# TypeScript AST Enforcement
 
-PROVIDES AST-based static analysis that enforces ADR compliance rules at the code level
-SO THAT validation outcomes and their tests
-CAN focus on behavior, trusting that structural compliance — correct imports, banned syntax, module boundaries — is caught by the validation pipeline
+PROVIDES ESLint custom rules and `no-restricted-syntax` selectors that enforce ADR compliance rules on TypeScript source code
+SO THAT TypeScript validation outcomes and their tests
+CAN focus on behavior, trusting that structural compliance — correct imports, banned syntax, module boundaries — is caught by ESLint during `spx validation lint`
 
 ## Assertions
 
@@ -34,7 +34,7 @@ BDD test hygiene (custom rule module in `eslint-rules/`):
 
 ### Compliance
 
-- NEVER: reference ADR-NN / PDR-NN by number in code comments, strings, or template literals — code complies silently, never cites decision numbers ([enforce](../../../eslint-rules/no-spec-references.ts))
+- NEVER: reference ADR-NN / PDR-NN by number in code comments, strings, or template literals — code complies silently, never cites decision numbers ([enforce](../../../../eslint-rules/no-spec-references.ts))
 - ALWAYS: each enforcement rule references the ADR or PDR it enforces — traceability from rule to decision ([review])
 - ALWAYS: enforcement rules produce zero diagnostics on compliant code — no false positives on the codebase ([review])
 - NEVER: enforce compliance by reading source files as strings — AST analysis is the only valid enforcement mechanism for structural rules ([review])

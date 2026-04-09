@@ -73,6 +73,29 @@ describe("buildEslintArgs", () => {
       expect(args).toContain("src/index.ts");
     });
   });
+
+  describe("configFile parameter", () => {
+    it("GIVEN a custom configFile WHEN building args THEN uses the supplied config path", () => {
+      const CUSTOM_CONFIG = "eslint.config.mjs";
+      const args = buildEslintArgs({
+        cacheFile: CACHE_PATHS.ESLINT,
+        configFile: CUSTOM_CONFIG,
+      });
+
+      const configIndex = args.indexOf("--config");
+      expect(configIndex).toBeGreaterThanOrEqual(0);
+      expect(args[configIndex + 1]).toBe(CUSTOM_CONFIG);
+    });
+
+    it("GIVEN no configFile WHEN building args THEN falls back to default eslint.config.ts", () => {
+      const args = buildEslintArgs({
+        cacheFile: CACHE_PATHS.ESLINT,
+      });
+
+      const configIndex = args.indexOf("--config");
+      expect(args[configIndex + 1]).toBe("eslint.config.ts");
+    });
+  });
 });
 
 describe("buildTypeScriptArgs", () => {

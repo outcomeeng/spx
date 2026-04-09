@@ -1,0 +1,6 @@
+{
+  "name": "fixture-typescript-no-eslint",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Minimal TypeScript fixture with tsconfig.json but no ESLint flat config"
+}
