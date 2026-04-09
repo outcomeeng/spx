@@ -21,7 +21,7 @@ CONTRIBUTING TO sustainable customer value delivery by catching these issues bef
 
 ### Mappings
 
-- Every supported language — Python and TypeScript — has at least lint, type check, and circular dependency detection ([test](tests/validation.integration.test.ts))
+- Every supported language — Python and TypeScript — has at least lint, type check, and AST enforcement stages; TypeScript additionally has circular dependency detection ([test](tests/validation.integration.test.ts))
 
 ### Compliance
 
