@@ -26,12 +26,15 @@ No intermediate hops. Diverged specs/↔tests/ pairs are resolved at the spx/ ta
 
 Skills to invoke during execution (not loaded yet):
 
-| Skill                           | When                                       |
-| ------------------------------- | ------------------------------------------ |
-| `/spec-tree:authoring`          | Phase 2, when creating new spx/ nodes      |
-| `/spec-tree:testing`            | Each phase, before moving tests            |
-| `/spec-tree:refactoring`        | Phase 4, when resolving 31-spec-domain dup |
-| `/spec-tree:committing-changes` | Every commit boundary                      |
+| Skill                                 | When                                                              |
+| ------------------------------------- | ----------------------------------------------------------------- |
+| `/spec-tree:authoring`                | Phase 2, when creating new spx/ nodes                             |
+| `/spec-tree:testing`                  | Each phase, before moving tests                                   |
+| `/spec-tree:refactoring`              | Phase 2c-i (session rearchitecture) and Phase 4 (31-spec-domain)  |
+| `/spec-tree:aligning`                 | Before closing any node, to verify spec ↔ test ↔ code alignment   |
+| `/typescript:architecting-typescript` | Phase 2c-i, when authoring ADRs for prune and batch consolidation |
+| `/typescript:coding-typescript`       | Phase 2c-i, when writing the consolidated src modules             |
+| `/spec-tree:committing-changes`       | Every commit boundary                                             |
 
 ---
 
@@ -260,52 +263,128 @@ The spx/ tree lacks a `{product}.product.md`. This is required by the contextual
 
 ---
 
-### 2c: Session (8 specs/ + 14 tests/ = 22 files)
+### 2c: Session — rearchitect subtree, then delete legacy
 
 **Source:** Remaining `specs/capability-28_session-core` after Phase 1 + all `tests/**/session*`
-**Target:** Existing `spx/36-session.outcome/` tree
+**Target:** Rearchitected `spx/36-session.outcome/` tree
 
-spx/ session tests are rewrites, not copies. The incoming specs/ and tests/ files may cover cases the rewrites don't.
+**Discovered during execution:** The existing `spx/36-session.outcome/` subtree misapplies the methodology:
 
-#### specs/-only files → move directly to spx/
+1. **False outcomes.** Children like `32-core-operations.outcome`, `43-session-lifecycle.outcome`, `54-advanced-operations.outcome`, `54-auto-injection.outcome`, `76-batch-operations.outcome` are declared as outcomes but have no user-behavior-change hypothesis. The single real outcome is at `session.md`: agents switch from manual file editing to CLI commands. Everything below is infrastructure serving that outcome.
+2. **Junk-drawer names.** `core-operations` and `advanced-operations` tell nothing about what they contain. They invite scope creep.
+3. **Split implementations.** `src/session/prune.ts` (pure selection/formatting, orphaned) and `src/commands/session/prune.ts` (CLI handler with its own inline duplicate logic) both implement prune. Same disease affects batch: `src/session/batch.ts` + per-command inline variadic arg handling.
+4. **Coverage gap.** Deleting `tests/unit/session/prune.test.ts` drops `src/session/prune.ts` from 89% to 0% coverage — because nothing in `src/` consumes it.
 
-| Source                                                                          | Target                                                                                     | Operation |
-| ------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------ | --------- |
-| `specs/.../story-54_create-command/tests/git-root.unit.test.ts`                 | `spx/36-session.outcome/32-core-operations.outcome/tests/git-root.unit.test.ts`            | `git mv`  |
-| `specs/.../story-54_create-command/tests/git-root.integration.test.ts`          | `spx/36-session.outcome/32-core-operations.outcome/tests/git-root.integration.test.ts`     | `git mv`  |
-| `specs/.../story-43_auto-pickup/tests/auto-pickup.unit.test.ts`                 | `spx/36-session.outcome/43-session-lifecycle.outcome/tests/auto-pickup.unit.test.ts`       | `git mv`  |
-| `specs/.../story-54_cli-integration/tests/cli.integration.test.ts`              | `spx/36-session.outcome/43-session-lifecycle.outcome/tests/cli.integration.test.ts`        | `git mv`  |
-| `specs/.../feature-32_session-lifecycle/tests/handoff-frontmatter.unit.test.ts` | `spx/36-session.outcome/32-core-operations.outcome/tests/handoff-frontmatter.unit.test.ts` | `git mv`  |
+specs/ and tests/ session files are NOT migrated. The session implementation is complete in src/. specs/ and tests/ copies are graduated legacy duplicates. Coverage from legacy tests fills gaps only because of architecture flaws, not because the tests carry unique product intent.
 
-#### Diverged specs/↔tests/ pairs → merge at spx/ target, `git rm` both originals
+#### 2c-i: Rearchitect spx/36-session.outcome/ subtree
 
-| specs/ file                                            | tests/ file                                               | spx/ target                                                                |
-| ------------------------------------------------------ | --------------------------------------------------------- | -------------------------------------------------------------------------- |
-| `story-21_pickup-command/.../pickup.unit.test.ts`      | `tests/unit/session/pickup.test.ts`                       | `spx/.../43-session-lifecycle.outcome/tests/pickup.unit.test.ts`           |
-| `story-32_release-command/.../release.unit.test.ts`    | `tests/unit/session/release.test.ts`                      | `spx/.../43-session-lifecycle.outcome/tests/release.unit.test.ts`          |
-| `feature-32/.../session-lifecycle.integration.test.ts` | `tests/integration/session/lifecycle.integration.test.ts` | `spx/.../43-session-lifecycle.outcome/tests/lifecycle.integration.test.ts` |
+Invoke `/spec-tree:refactoring` to execute the restructure. Target tree:
 
-For lifecycle: spx/ already has `session-lifecycle.integration.test.ts`. Diff the incoming merged result against the spx/ rewrite — if the rewrite covers everything, `git rm` the merged result. If the merged result has unique cases, keep it alongside as `lifecycle-legacy.integration.test.ts`.
+```text
+spx/36-session.outcome/
+├── session.md                          # THE outcome (unchanged hypothesis)
+├── 21-directory-structure.adr.md       # unchanged
+├── 21-timestamp-format.adr.md          # unchanged
+├── 21-atomic-claiming.adr.md           # unchanged
+├── 21-auto-injection.adr.md            # unchanged
+├── 26-worktree-detection.adr.md        # unchanged
+├── tests/                              # Cross-cutting session tests
+│
+├── 21-test-harness.enabler/            # unchanged (was already correct)
+├── 32-session-identity.enabler/        # NEW: ID format, metadata parsing
+├── 43-session-store.enabler/           # NEW: CRUD primitives over directory store
+├── 54-auto-injection.enabler/          # RENAMED from .outcome
+├── 54-session-retention.enabler/       # REPLACES 54-advanced-operations.outcome
+├── 65-session-claim.enabler/           # REPLACES 43-session-lifecycle.outcome
+└── 76-session-cli.enabler/             # REPLACES 76-batch-operations.outcome + CLI surface concerns
+```
 
-#### tests/-only session files → move to spx/
+**Dependency order (by index):**
 
-| Source                                                       | Target                                                                          | Collision?             |
-| ------------------------------------------------------------ | ------------------------------------------------------------------------------- | ---------------------- |
-| `tests/unit/session/timestamp.test.ts`                       | `spx/.../32-core-operations.outcome/tests/timestamp-legacy.unit.test.ts`        | Yes — spx/ has rewrite |
-| `tests/unit/session/list.test.ts`                            | `spx/.../32-core-operations.outcome/tests/list-legacy.unit.test.ts`             | Yes — spx/ has rewrite |
-| `tests/unit/session/show.test.ts`                            | `spx/.../32-core-operations.outcome/tests/show-legacy.unit.test.ts`             | Yes — spx/ has rewrite |
-| `tests/unit/session/create.test.ts`                          | `spx/.../32-core-operations.outcome/tests/create.unit.test.ts`                  | No                     |
-| `tests/unit/session/delete.test.ts`                          | `spx/.../32-core-operations.outcome/tests/delete-legacy.unit.test.ts`           | Yes — spx/ has rewrite |
-| `tests/unit/session/handoff.test.ts`                         | `spx/.../32-core-operations.outcome/tests/handoff-legacy.unit.test.ts`          | Yes — spx/ has rewrite |
-| `tests/unit/session/archive.test.ts`                         | `spx/.../54-advanced-operations.outcome/tests/archive.unit.test.ts`             | No                     |
-| `tests/unit/session/prune.test.ts`                           | `spx/.../54-advanced-operations.outcome/tests/prune.unit.test.ts`               | No                     |
-| `tests/unit/session/dry-run.test.ts`                         | `spx/.../54-advanced-operations.outcome/tests/dry-run.unit.test.ts`             | No                     |
-| `tests/integration/session/advanced-cli.integration.test.ts` | `spx/.../54-advanced-operations.outcome/tests/advanced-cli.integration.test.ts` | No                     |
-| `tests/integration/cli/session.integration.test.ts`          | `spx/36-session.outcome/tests/session-cli.integration.test.ts`                  | No                     |
+| Index | Node                | Depends on                                         |
+| ----- | ------------------- | -------------------------------------------------- |
+| 21    | `test-harness`      | nothing                                            |
+| 32    | `session-identity`  | nothing                                            |
+| 43    | `session-store`     | 32 (identity)                                      |
+| 54    | `auto-injection`    | 43 (store)                                         |
+| 54    | `session-retention` | 43 (store), independent of auto-injection          |
+| 65    | `session-claim`     | 43 (store), 54 (auto-injection runs during pickup) |
+| 76    | `session-cli`       | all of the above                                   |
 
-**Commit:** "refactor(session): consolidate specs/ and tests/ session tests into spx/36-session"
+**Dissolved nodes:**
 
-**SPX-MIGRATION.md:** Create at `spx/36-session.outcome/SPX-MIGRATION.md`
+| Old                              | Where its concerns go                                                                                                            |
+| -------------------------------- | -------------------------------------------------------------------------------------------------------------------------------- |
+| `32-core-operations.outcome`     | Split into `32-session-identity` (timestamp, metadata parsing) and `43-session-store` (list, show, create, delete, handoff CRUD) |
+| `43-session-lifecycle.outcome`   | `65-session-claim` (atomic pickup/release, auto-selection)                                                                       |
+| `54-advanced-operations.outcome` | `54-session-retention` (prune + archive — directory lifecycle)                                                                   |
+| `54-auto-injection.outcome`      | `54-auto-injection.enabler` (suffix change only — content stays)                                                                 |
+| `76-batch-operations.outcome`    | `76-session-cli` (variadic args, error handling, exit codes, plus all CLI surface concerns)                                      |
+
+**Per-node action plan (all use `/spec-tree:authoring` + `/spec-tree:testing`):**
+
+1. **`32-session-identity.enabler`** — NEW. Author spec. Declares: timestamp ID format (ADR `21-timestamp-format`), front matter parsing with defaults. Tests migrate from existing `32-core-operations.outcome/tests/timestamp.unit.test.ts` and `metadata.unit.test.ts`.
+
+2. **`43-session-store.enabler`** — NEW. Author spec. Declares: directory-backed CRUD (list/show/create/delete/handoff) following ADR `21-directory-structure`. Tests migrate from existing `32-core-operations.outcome/tests/{list-command,show,delete,handoff,core-operations}.{unit,integration}.test.ts`.
+
+3. **`54-auto-injection.enabler`** — RENAME `.outcome` → `.enabler`. Spec content stays. Tests stay. `git mv` directory only.
+
+4. **`54-session-retention.enabler`** — NEW. Author spec. Declares: archive (atomic move to archive dir) + prune (retention-based deletion from archive dir). **Before tests migrate, rearchitect src:**
+   - Consolidate `src/session/prune.ts` + `src/commands/session/prune.ts` into one clean module structure
+   - Pure selection/formatting in `src/session/retention.ts` (or keep in `src/session/prune.ts` as the authoritative home)
+   - CLI handler in `src/commands/session/prune.ts` imports from the pure module (no inline duplicates)
+   - Archive follows the same split
+   - Delete dead code
+   - Tests migrate from existing `54-advanced-operations.outcome/tests/advanced-operations.unit.test.ts`
+   - Tests remain in the `/spec-tree:testing` flow — write tests that verify the new spec's assertions, not the current tests'
+
+5. **`65-session-claim.enabler`** — NEW (replaces `43-session-lifecycle.outcome`). Author spec. Declares: atomic pickup/release via `fs.rename()` per ADR `21-atomic-claiming`, priority-based auto-selection. Tests `git mv` from `43-session-lifecycle.outcome/tests/`.
+
+6. **`76-session-cli.enabler`** — NEW (replaces `76-batch-operations.outcome`). Author spec. Declares: Commander bindings for all session subcommands, variadic arg parsing for batch operations, per-ID result reporting, non-zero exit on any failure, `<HANDOFF_ID>`/`<PICKUP_ID>` tag emission. **Before tests migrate, rearchitect src:**
+   - `src/session/batch.ts` becomes the sole home for variadic arg processing
+   - All command handlers in `src/commands/session/*.ts` consume `batch.processBatch()` — no inline loops
+   - Delete per-command duplicated batch logic
+   - Tests migrate from existing `76-batch-operations.outcome/tests/batch-operations.unit.test.ts`
+
+**Commits during 2c-i (one per node rearchitecture):**
+
+1. `refactor(spec-tree): dissolve session false outcomes, declare 32-session-identity.enabler`
+2. `refactor(spec-tree): declare 43-session-store.enabler, migrate CRUD tests`
+3. `refactor(spec-tree): convert 54-auto-injection.outcome to enabler`
+4. `refactor(src): consolidate src/session/prune.ts and src/commands/session/prune.ts`
+5. `refactor(src): consolidate batch arg handling via src/session/batch.ts`
+6. `refactor(spec-tree): declare 54-session-retention.enabler, migrate prune/archive tests`
+7. `refactor(spec-tree): declare 65-session-claim.enabler (was 43-session-lifecycle.outcome)`
+8. `refactor(spec-tree): declare 76-session-cli.enabler (was 76-batch-operations.outcome)`
+
+**Verification after 2c-i:** `pnpm test` passes. Coverage on `src/session/**` and `src/commands/session/**` is unchanged or improved from pre-rearchitecture baseline. Every moved test still exercises the same src code paths.
+
+#### 2c-ii: Delete legacy session copies
+
+Only after 2c-i is complete and coverage is verified:
+
+```bash
+git rm -r specs/work/doing/capability-28_session-core/
+git rm tests/unit/session/*.test.ts
+git rm tests/integration/session/*.test.ts
+git rm tests/integration/cli/session.integration.test.ts
+```
+
+**Verification:** `pnpm test` passes. `pnpm test -- --coverage` shows `src/session/**` and `src/commands/session/**` coverage unchanged from the 2c-i post-rearchitecture baseline (NOT from the pre-migration baseline, which included legacy tests hiding the dead code).
+
+**Commit:** `refactor(session): remove legacy specs/ and tests/ session copies, now covered by rearchitected spx/36-session subtree`
+
+#### 2c-iii: Create SPX-MIGRATION.md
+
+At `spx/36-session.outcome/SPX-MIGRATION.md`. Documents:
+
+- The rearchitecture (old → new node mapping)
+- The src consolidation (which files merged, which deleted)
+- Coverage verification before deletion
+- Why no files from specs/ or tests/ were migrated (legacy was redundant after cleanup)
+
+**Commit:** `docs(spx): document session rearchitecture and legacy deletion`
 
 ---
 
@@ -498,24 +577,27 @@ git worktree remove "../spx_pre-migration"
 
 ## Execution Summary
 
-| Phase     | Scope                               | Files            | Commits         | Risk   |
-| --------- | ----------------------------------- | ---------------- | --------------- | ------ |
-| 0         | Foundation (worktree, product file) | 1 created        | 1               | Low    |
-| 1         | Prune identical specs/ copies       | 10 removed       | 1               | Low    |
-| 2a        | Core Config → spx/                  | 2 moved          | 1               | Low    |
-| 2b        | Claude → spx/                       | 7 moved          | 1               | Medium |
-| 2c        | Session → spx/                      | 22 handled       | 1               | Medium |
-| 2d-i      | Validation Core → spx/              | 19 handled       | 1               | High   |
-| 2d-ii     | ESLint Rules → spx/                 | 3 moved          | 1               | Low    |
-| 2d-iii    | Precommit → spx/                    | 4 moved          | 1               | Low    |
-| 2d-iv     | Validation Commands → spx/          | 9 handled        | 1               | Medium |
-| 3         | Core CLI tests/ → spx/              | 14 moved         | 1               | Low    |
-| 4         | Resolve 31-spec-domain dup          | TBD              | TBD             | Medium |
-| 5         | Cleanup + vitest config             | config + -legacy | 1               | Low    |
-| **Total** |                                     | **~90 files**    | **~12 commits** |        |
+| Phase     | Scope                                              | Files                   | Commits         | Risk   |
+| --------- | -------------------------------------------------- | ----------------------- | --------------- | ------ |
+| 0         | Foundation (worktree, product file)                | 1 created               | 1               | Low    |
+| 1         | Prune identical specs/ copies                      | 10 removed              | 1               | Low    |
+| 2a        | Core Config → spx/                                 | 2 moved                 | 1               | Low    |
+| 2b        | Claude → spx/                                      | 7 moved                 | 1               | Medium |
+| 2c-i      | Session subtree rearchitecture + src consolidation | 7 nodes + 2 src modules | 8               | High   |
+| 2c-ii     | Delete legacy session specs/ and tests/            | ~30 removed             | 1               | Medium |
+| 2c-iii    | Session SPX-MIGRATION.md                           | 1 created               | 1               | Low    |
+| 2d-i      | Validation Core → spx/                             | 19 handled              | 1               | High   |
+| 2d-ii     | ESLint Rules → spx/                                | 3 moved                 | 1               | Low    |
+| 2d-iii    | Precommit → spx/                                   | 4 moved                 | 1               | Low    |
+| 2d-iv     | Validation Commands → spx/                         | 9 handled               | 1               | Medium |
+| 3         | Core CLI tests/ → spx/                             | 14 moved                | 1               | Low    |
+| 4         | Resolve 31-spec-domain dup                         | TBD                     | TBD             | Medium |
+| 5         | Cleanup + vitest config                            | config + -legacy        | 1               | Low    |
+| **Total** |                                                    | **~120 files**          | **~20 commits** |        |
 
 ## Open Questions
 
-1. **Phase 4 (31-spec-domain):** Requires `/spec-tree:refactoring` to determine target structure. This phase cannot be fully specified until that skill is invoked.
-2. **Legacy suffix cleanup:** After migration, some files will have `-legacy` suffixes. Phase 5a addresses this but the exact count depends on coverage comparison results.
-3. **Structural normalization (.capability → .enabler/.outcome):** Explicitly out of scope. Flagged for a future initiative.
+1. **Phase 2c-i src consolidation:** The rearchitecture of `src/session/prune.ts` + `src/commands/session/prune.ts` (and the equivalent for `batch.ts`) must preserve every behavioral test currently passing. Before starting, capture a coverage baseline of `src/session/**` and `src/commands/session/**` with all current tests running. After 2c-i, the coverage must be unchanged or improved, or the rearchitecture is rejected.
+2. **Phase 4 (31-spec-domain):** Requires `/spec-tree:refactoring` to determine target structure. This phase cannot be fully specified until that skill is invoked.
+3. **Legacy suffix cleanup:** After migration, some files will have `-legacy` suffixes. Phase 5a addresses this but the exact count depends on coverage comparison results.
+4. **Structural normalization (.capability → .enabler/.outcome):** Explicitly out of scope for the migration but Phase 2c demonstrates that the session subtree itself needed a separate structural cleanup. The remaining `21-core-cli.capability/`, `26-scoped-cli.capability/`, and `31-spec-domain.capability/` subtrees carry the same kind of misapplication and will need similar attention in a future initiative.
