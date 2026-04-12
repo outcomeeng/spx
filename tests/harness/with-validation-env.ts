@@ -27,6 +27,7 @@ export const FIXTURES = {
   PYTHON_PROJECT: "python-project",
   BARE_PROJECT: "bare-project",
   TYPESCRIPT_NO_ESLINT: "typescript-no-eslint",
+  TYPESCRIPT_NO_TSCONFIG: "typescript-no-tsconfig",
 } as const;
 
 export type FixtureName = (typeof FIXTURES)[keyof typeof FIXTURES];
