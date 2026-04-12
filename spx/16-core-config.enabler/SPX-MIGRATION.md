@@ -7,14 +7,15 @@
 
 ## Test Inventory
 
-| Test File                          | Source                                                              | Operation         |
-| ---------------------------------- | ------------------------------------------------------------------- | ----------------- |
-| `tests/config-schema.unit.test.ts` | `specs/.../story-11_config-schema/tests/config-schema.unit.test.ts` | `git mv`          |
-| `tests/defaults.unit.test.ts`      | `tests/unit/config/defaults.test.ts`                                | `git mv` + rename |
+| Test File                          | Source                                                              | Operation                      |
+| ---------------------------------- | ------------------------------------------------------------------- | ------------------------------ |
+| `tests/config-schema.unit.test.ts` | `specs/.../story-11_config-schema/tests/config-schema.unit.test.ts` | `git mv`                       |
+| (removed)                          | `tests/unit/config/defaults.test.ts`                                | `git rm` — byte-identical pair |
+
+The `tests/unit/config/defaults.test.ts` file was moved then identified as byte-identical to `config-schema.unit.test.ts` and removed. Coverage is preserved by the remaining file.
 
 ## Verification
 
 ```bash
-pnpm test -- spx/16-core-config.enabler/
-# 128 files, 1291 tests, 0 failures
+pnpm exec vitest run "spx/16-core-config.enabler/"
 ```
