@@ -21,7 +21,8 @@ CONTRIBUTING TO sustainable customer value delivery by catching these issues bef
 
 ### Mappings
 
-- Every supported language — Python and TypeScript — has at least lint, type check, and AST enforcement stages; TypeScript additionally has circular dependency detection ([test](tests/validation.integration.test.ts))
+- TypeScript has lint, type check, AST enforcement, and circular dependency detection stages ([test](tests/validation.integration.test.ts))
+- Python has lint, type check, and AST enforcement stages ([review]) — specified, excluded from quality gate per `spx/EXCLUDE`; blocked on stage registration ADR (see `32-python-validation.enabler/PLAN.md`)
 
 ### Compliance
 

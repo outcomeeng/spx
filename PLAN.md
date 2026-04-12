@@ -65,13 +65,13 @@ All 1373 tests passing. 10 byte-identical specs/↔tests/ pairs, 8 diverged spec
 
 The spx/ tree has mixed node types from two eras:
 
-| Node                         | Suffix        | Methodology                                          |
-| ---------------------------- | ------------- | ---------------------------------------------------- |
-| `21-core-cli.capability/`    | `.capability` | Pre-methodology (children use `.feature/.story`)     |
-| `26-scoped-cli.capability/`  | `.capability` | Pre-methodology (children use `.feature/.story`)     |
-| `31-spec-domain.capability/` | `.capability` | Pre-methodology (DUPLICATE of below)                 |
-| `31-spec-domain.outcome/`    | `.outcome`    | Current spec-tree                                    |
-| `36-session.outcome/`        | `.outcome`    | Current spec-tree (children use `.enabler/.outcome`) |
+| Node                         | Suffix        | Methodology                                           |
+| ---------------------------- | ------------- | ----------------------------------------------------- |
+| `21-core-cli.capability/`    | `.capability` | Pre-methodology (children use `.feature/.story`)      |
+| `26-scoped-cli.capability/`  | `.capability` | Pre-methodology (children use `.feature/.story`)      |
+| `31-spec-domain.capability/` | `.capability` | Pre-methodology (DUPLICATE of below)                  |
+| `31-spec-domain.outcome/`    | `.outcome`    | Current spec-tree                                     |
+| `36-session.enabler/`        | `.enabler`    | Current spec-tree (children converting to `.enabler`) |
 
 **Decision:** Structural normalization (`.capability` → `.enabler`/`.outcome`, `.feature`/`.story` → `.outcome`) is OUT OF SCOPE for this migration. It requires `/spec-tree:refactoring` and is a separate initiative. This plan migrates tests into the tree as it exists today.
 
@@ -266,9 +266,9 @@ The spx/ tree lacks a `{product}.product.md`. This is required by the contextual
 ### 2c: Session — rearchitect subtree, then delete legacy
 
 **Source:** Remaining `specs/capability-28_session-core` after Phase 1 + all `tests/**/session*`
-**Target:** Rearchitected `spx/36-session.outcome/` tree
+**Target:** Rearchitected `spx/36-session.enabler/` tree
 
-**Discovered during execution:** The existing `spx/36-session.outcome/` subtree misapplies the methodology:
+**Discovered during execution:** The existing `spx/36-session.enabler/` subtree (formerly `.outcome`) misapplies the methodology:
 
 1. **False outcomes.** Children like `32-core-operations.outcome`, `43-session-lifecycle.outcome`, `54-advanced-operations.outcome`, `54-auto-injection.outcome`, `76-batch-operations.outcome` are declared as outcomes but have no user-behavior-change hypothesis. The single real outcome is at `session.md`: agents switch from manual file editing to CLI commands. Everything below is infrastructure serving that outcome.
 2. **Junk-drawer names.** `core-operations` and `advanced-operations` tell nothing about what they contain. They invite scope creep.
@@ -277,13 +277,13 @@ The spx/ tree lacks a `{product}.product.md`. This is required by the contextual
 
 specs/ and tests/ session files are NOT migrated. The session implementation is complete in src/. specs/ and tests/ copies are graduated legacy duplicates. Coverage from legacy tests fills gaps only because of architecture flaws, not because the tests carry unique product intent.
 
-#### 2c-i: Rearchitect spx/36-session.outcome/ subtree
+#### 2c-i: Rearchitect spx/36-session.enabler/ subtree
 
 Invoke `/spec-tree:refactoring` to execute the restructure. Target tree:
 
 ```text
-spx/36-session.outcome/
-├── session.md                          # THE outcome (unchanged hypothesis)
+spx/36-session.enabler/
+├── session.md                          # THE enabler (PROVIDES/SO THAT/CAN)
 ├── 21-directory-structure.adr.md       # unchanged
 ├── 21-timestamp-format.adr.md          # unchanged
 ├── 21-atomic-claiming.adr.md           # unchanged
@@ -377,7 +377,7 @@ git rm tests/integration/cli/session.integration.test.ts
 
 #### 2c-iii: Create SPX-MIGRATION.md
 
-At `spx/36-session.outcome/SPX-MIGRATION.md`. Documents:
+At `spx/36-session.enabler/SPX-MIGRATION.md`. Documents:
 
 - The rearchitecture (old → new node mapping)
 - The src consolidation (which files merged, which deleted)
