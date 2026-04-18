@@ -18,6 +18,7 @@ CAN offer `spx session archive` and `spx session prune` commands without reimple
 
 - Prune never deletes sessions from todo or doing directories — only archive ([test](tests/session-retention.unit.test.ts))
 - Prune with --keep N where N >= total archived sessions deletes nothing ([test](tests/session-retention.unit.test.ts))
+- Prune selection is deterministic when session file names do not match the timestamp pattern: sessions with unparsable IDs are selected for deletion before valid-ID sessions ([test](tests/session-retention.unit.test.ts))
 
 ### Compliance
 

@@ -9,11 +9,16 @@ CAN enumerate, read, write, and remove sessions without reimplementing filesyste
 ### Scenarios
 
 - Given an empty sessions directory, when content is piped to handoff, then a session file is created in todo/ with a timestamp ID and the `<HANDOFF_ID>` tag is emitted ([test](tests/session-store.unit.test.ts))
+- Given empty or whitespace-only content piped to handoff, when validated, then handoff rejects the content with an error ([test](tests/session-store.unit.test.ts))
 - Given sessions in doing and todo, when list is invoked without --status, then only doing and todo sessions are shown, grouped by status and sorted by priority then timestamp ([test](tests/session-store.unit.test.ts))
 - Given sessions in all directories, when list --status archive is invoked, then only archived sessions are shown ([test](tests/session-store.unit.test.ts))
 - Given sessions in todo, when todo is invoked, then only todo sessions are shown sorted by priority then timestamp ([test](tests/session-store.integration.test.ts))
 - Given a session exists, when show is invoked, then full session content is printed with metadata header ([test](tests/session-store.unit.test.ts))
 - Given a session in any status directory, when delete is invoked, then the session file is removed ([test](tests/session-store.unit.test.ts))
+
+### Properties
+
+- Session sorting is deterministic when session file names do not match the timestamp pattern: sessions with unparsable IDs occupy stable positions relative to valid-ID sessions ([test](tests/session-store.unit.test.ts))
 
 ### Compliance
 
