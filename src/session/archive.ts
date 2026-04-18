@@ -20,9 +20,9 @@ export const SESSION_FILE_EXTENSION = ".md";
  */
 export interface ArchivePathConfig {
   /** Directory for todo sessions */
-  todoDir?: string;
+  todoDir: string;
   /** Directory for doing (claimed) sessions */
-  doingDir?: string;
+  doingDir: string;
   /** Directory for archived sessions */
   archiveDir: string;
 }
@@ -102,10 +102,6 @@ export function buildArchivePaths(
   const filename = `${sessionId}${SESSION_FILE_EXTENSION}`;
   const dirKey = ARCHIVABLE_DIR_KEY[currentStatus];
   const sourceDir = config[dirKey];
-
-  if (!sourceDir) {
-    throw new Error(`Missing ${currentStatus}Dir in config`);
-  }
 
   return {
     source: `${sourceDir}/${filename}`,
