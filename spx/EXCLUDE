@@ -6,4 +6,4 @@
 # Remove entries when implementation begins.
 
 18-exclude-scoping.enabler
-41-validation.outcome/32-python-validation.enabler
+41-validation.enabler/32-python-validation.enabler

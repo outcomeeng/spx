@@ -88,7 +88,7 @@ Specified and failing are normal states — not problems to fix urgently. The sp
 ```text
 16-core-config.enabler/             ← Built first (shared config)
 36-session.enabler/                 ← Depends on core config
-41-validation.outcome/              ← Can parallel with 46-claude
+41-validation.enabler/              ← Can parallel with 46-claude
 46-claude.outcome/                  ← Same BSP range = parallel safe
 ```
 
@@ -97,7 +97,7 @@ Specified and failing are normal states — not problems to fix urgently. The sp
 | Wrong                  | Correct                                                         |
 | ---------------------- | --------------------------------------------------------------- |
 | "session-identity"     | "36-session.enabler/32-session-identity.enabler"                |
-| "implement validation" | "implement 41-validation.outcome/21-language-detection.enabler" |
+| "implement validation" | "implement 41-validation.enabler/21-language-detection.enabler" |
 
 ---
 
