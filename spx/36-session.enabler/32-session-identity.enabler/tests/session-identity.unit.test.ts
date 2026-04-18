@@ -73,6 +73,14 @@ describe("parseSessionId", () => {
   it("GIVEN out-of-range hour WHEN parsed THEN returns null", () => {
     expect(parseSessionId(`2026-01-01${SESSION_ID_SEPARATOR}24-00-00`)).toBeNull();
   });
+
+  it("GIVEN out-of-range minute WHEN parsed THEN returns null", () => {
+    expect(parseSessionId(`2026-01-01${SESSION_ID_SEPARATOR}00-60-00`)).toBeNull();
+  });
+
+  it("GIVEN out-of-range second WHEN parsed THEN returns null", () => {
+    expect(parseSessionId(`2026-01-01${SESSION_ID_SEPARATOR}00-00-60`)).toBeNull();
+  });
 });
 
 describe("generateSessionId → parseSessionId roundtrip (property-based)", () => {
@@ -159,6 +167,22 @@ describe("parseSessionMetadata", () => {
 
   it("GIVEN malformed YAML WHEN parsed THEN returns defaults gracefully", () => {
     const content = `---\npriority: [invalid: yaml:\n---\n# Content`;
+    const result = parseSessionMetadata(content);
+
+    expect(result.priority).toBe(DEFAULT_PRIORITY);
+    expect(result.tags).toEqual([]);
+  });
+
+  it("GIVEN YAML that parses to null WHEN parsed THEN returns defaults", () => {
+    const content = `---\nnull\n---\n# Content`;
+    const result = parseSessionMetadata(content);
+
+    expect(result.priority).toBe(DEFAULT_PRIORITY);
+    expect(result.tags).toEqual([]);
+  });
+
+  it("GIVEN YAML that parses to a scalar (non-object) WHEN parsed THEN returns defaults", () => {
+    const content = `---\njust a string\n---\n# Content`;
     const result = parseSessionMetadata(content);
 
     expect(result.priority).toBe(DEFAULT_PRIORITY);

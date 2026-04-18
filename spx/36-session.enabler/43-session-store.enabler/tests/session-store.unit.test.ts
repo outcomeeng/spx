@@ -16,6 +16,7 @@ import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { buildSessionContent, handoffCommand, hasFrontmatter } from "@/commands/session/handoff";
 import { listCommand } from "@/commands/session/list";
 import { DEFAULT_CONFIG } from "@/config/defaults";
+import { validateSessionContent } from "@/session/create";
 import { resolveDeletePath } from "@/session/delete";
 import {
   SessionError,
@@ -23,11 +24,17 @@ import {
   SessionNotAvailableError,
   SessionNotFoundError,
 } from "@/session/errors";
-import { parseSessionMetadata } from "@/session/list";
+import { parseSessionMetadata, sortSessions } from "@/session/list";
 import { DEFAULT_SESSION_CONFIG, formatShowOutput, resolveSessionPaths, SEARCH_ORDER } from "@/session/show";
 import type { SessionHarness } from "@/session/testing/harness";
 import { createSessionHarness } from "@/session/testing/harness";
-import { DEFAULT_LIST_STATUSES, DEFAULT_PRIORITY, SESSION_STATUSES } from "@/session/types";
+import {
+  DEFAULT_LIST_STATUSES,
+  DEFAULT_PRIORITY,
+  type Session,
+  SESSION_STATUSES,
+  type SessionPriority,
+} from "@/session/types";
 
 const [TODO] = SESSION_STATUSES;
 
@@ -475,5 +482,70 @@ describe("handoffCommand with real filesystem", () => {
 
     expect(output).toMatch(/<HANDOFF_ID>\d{4}-\d{2}-\d{2}_\d{2}-\d{2}-\d{2}<\/HANDOFF_ID>/);
     expect(output).toMatch(/<SESSION_FILE>.*\.md<\/SESSION_FILE>/);
+  });
+});
+
+// ============================================================
+// Handoff content validation: validateSessionContent
+// ============================================================
+
+describe("validateSessionContent", () => {
+  it("GIVEN non-empty content WHEN validated THEN valid with no error", () => {
+    expect(validateSessionContent("# Task")).toEqual({ valid: true });
+  });
+
+  it("GIVEN empty string WHEN validated THEN rejected as empty", () => {
+    const result = validateSessionContent("");
+    expect(result.valid).toBe(false);
+    expect(result.error).toContain("empty");
+  });
+
+  it("GIVEN whitespace-only content WHEN validated THEN rejected as empty", () => {
+    const result = validateSessionContent("   \n\t  ");
+    expect(result.valid).toBe(false);
+    expect(result.error).toContain("empty");
+  });
+});
+
+// ============================================================
+// Sort determinism with unparsable IDs
+// ============================================================
+
+describe("sortSessions with unparsable IDs", () => {
+  function makeSession(id: string, priority: SessionPriority = "medium"): Session {
+    return {
+      id,
+      status: TODO,
+      path: `/s/${TODO}/${id}.md`,
+      metadata: { priority, tags: [] },
+    };
+  }
+
+  it("GIVEN all valid IDs at same priority WHEN sorted THEN newest first", () => {
+    const sorted = sortSessions([
+      makeSession("2026-01-10_10-00-00"),
+      makeSession("2026-01-13_10-00-00"),
+      makeSession("2026-01-11_10-00-00"),
+    ]);
+    expect(sorted.map((s) => s.id)).toEqual([
+      "2026-01-13_10-00-00",
+      "2026-01-11_10-00-00",
+      "2026-01-10_10-00-00",
+    ]);
+  });
+
+  it("GIVEN mix of valid and unparsable IDs at same priority WHEN sorted THEN unparsable last", () => {
+    const sorted = sortSessions([
+      makeSession("unparsable", "high"),
+      makeSession("2026-01-13_10-00-00", "high"),
+    ]);
+    expect(sorted.map((s) => s.id)).toEqual(["2026-01-13_10-00-00", "unparsable"]);
+  });
+
+  it("GIVEN all unparsable IDs at same priority WHEN sorted THEN stable ordering", () => {
+    const input = [makeSession("zzz"), makeSession("aaa")];
+    const sorted = sortSessions(input);
+    expect(sorted).toHaveLength(2);
+    expect(sorted.map((s) => s.id).sort()).toEqual(["aaa", "zzz"]);
   });
 });

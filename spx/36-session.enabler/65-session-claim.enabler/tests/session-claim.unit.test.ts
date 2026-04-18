@@ -108,6 +108,26 @@ describe("selectBestSession", () => {
 
     expect(sessions.map((s) => s.id)).toEqual(originalOrder);
   });
+
+  it("GIVEN mix of valid and unparsable IDs at same priority WHEN selected THEN valid ID returned (FIFO)", () => {
+    // Both orderings tested to exercise both sides of the invalid-ID comparator branches.
+    const a = createTestSession({ id: "unparsable", priority: "high" });
+    const b = createTestSession({ id: "2026-01-13_10-00-00", priority: "high" });
+
+    expect(selectBestSession([a, b])?.id).toBe("2026-01-13_10-00-00");
+    expect(selectBestSession([b, a])?.id).toBe("2026-01-13_10-00-00");
+  });
+
+  it("GIVEN all unparsable IDs at same priority WHEN selected THEN deterministic selection", () => {
+    const sessions = [
+      createTestSession({ id: "zzz", priority: "high" }),
+      createTestSession({ id: "aaa", priority: "high" }),
+    ];
+
+    const first = selectBestSession(sessions);
+    const second = selectBestSession(sessions);
+    expect(first?.id).toBe(second?.id);
+  });
 });
 
 describe("selectBestSession determinism (P2)", () => {
@@ -167,6 +187,23 @@ describe("findCurrentSession", () => {
     findCurrentSession(sessions);
 
     expect(sessions.map((s) => s.id)).toEqual(originalOrder);
+  });
+
+  it("GIVEN mix of valid and unparsable IDs WHEN found THEN valid ID returned", () => {
+    const sessions = [
+      { id: "unparsable" },
+      { id: "2026-01-13_08-00-00" },
+    ];
+
+    expect(findCurrentSession(sessions)?.id).toBe("2026-01-13_08-00-00");
+  });
+
+  it("GIVEN all unparsable IDs WHEN found THEN deterministic selection", () => {
+    const sessions = [{ id: "zzz" }, { id: "aaa" }];
+    const first = findCurrentSession(sessions);
+    const second = findCurrentSession(sessions);
+
+    expect(first?.id).toBe(second?.id);
   });
 });
 

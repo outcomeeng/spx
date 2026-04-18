@@ -77,6 +77,33 @@ describe("selectSessionsToDelete", () => {
   it("GIVEN empty list WHEN selected THEN returns empty", () => {
     expect(selectSessionsToDelete([], { keep: 5 })).toHaveLength(0);
   });
+
+  it("GIVEN mix of valid and unparsable IDs WHEN selected THEN unparsable deleted first", () => {
+    const sessions = [
+      createTestSession({ id: "unparsable" }),
+      createTestSession({ id: "2026-01-13_10-00-00" }),
+      createTestSession({ id: "2026-01-14_10-00-00" }),
+    ];
+
+    const toPrune = selectSessionsToDelete(sessions, { keep: 2 });
+
+    expect(toPrune).toHaveLength(1);
+    expect(toPrune[0].id).toBe("unparsable");
+  });
+
+  it("GIVEN all unparsable IDs WHEN selected THEN stable deterministic subset", () => {
+    const sessions = [
+      createTestSession({ id: "zzz" }),
+      createTestSession({ id: "aaa" }),
+      createTestSession({ id: "mmm" }),
+    ];
+
+    const first = selectSessionsToDelete(sessions, { keep: 1 });
+    const second = selectSessionsToDelete(sessions, { keep: 1 });
+
+    expect(first.map((s) => s.id)).toEqual(second.map((s) => s.id));
+    expect(first).toHaveLength(2);
+  });
 });
 
 describe("validatePruneOptions", () => {
