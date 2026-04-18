@@ -13,18 +13,8 @@ import { tmpdir } from "node:os";
 import { isAbsolute, join } from "node:path";
 
 import { TSCONFIG_FILES } from "../config/scope.js";
-import type {
-  ProcessRunner,
-  ScopeConfig,
-  ValidationContext,
-  ValidationScope,
-  ValidationStep,
-  ValidationStepResult,
-} from "../types.js";
+import type { ProcessRunner, ScopeConfig, ValidationScope } from "../types.js";
 import { VALIDATION_SCOPES } from "../types.js";
-
-import { STEP_DESCRIPTIONS, STEP_IDS, STEP_NAMES, VALIDATION_KEYS } from "./constants.js";
-import { validationEnabled } from "./eslint.js";
 
 // =============================================================================
 // DEFAULT DEPENDENCIES
@@ -230,43 +220,3 @@ export async function validateTypeScript(
     });
   });
 }
-
-// =============================================================================
-// VALIDATION STEP DEFINITION
-// =============================================================================
-
-/**
- * TypeScript validation step.
- *
- * Enabled when TypeScript validation is enabled in the context.
- */
-export const typescriptStep: ValidationStep = {
-  id: STEP_IDS.TYPESCRIPT,
-  name: STEP_NAMES.TYPESCRIPT,
-  description: STEP_DESCRIPTIONS.TYPESCRIPT,
-  enabled: (context: ValidationContext) =>
-    context.enabledValidations[VALIDATION_KEYS.TYPESCRIPT] === true
-    && validationEnabled(VALIDATION_KEYS.TYPESCRIPT),
-  execute: async (context: ValidationContext): Promise<ValidationStepResult> => {
-    const startTime = performance.now();
-    try {
-      const result = await validateTypeScript(
-        context.scope,
-        context.scopeConfig,
-        context.validatedFiles,
-      );
-      return {
-        success: result.success,
-        error: result.error,
-        duration: performance.now() - startTime,
-        skipped: result.skipped,
-      };
-    } catch (error) {
-      return {
-        success: false,
-        error: error instanceof Error ? error.message : String(error),
-        duration: performance.now() - startTime,
-      };
-    }
-  },
-};

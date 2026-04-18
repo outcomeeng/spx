@@ -9,16 +9,7 @@
 import madge from "madge";
 
 import { TSCONFIG_FILES } from "../config/scope.js";
-import type {
-  CircularDependencyResult,
-  ScopeConfig,
-  ValidationContext,
-  ValidationScope,
-  ValidationStep,
-  ValidationStepResult,
-} from "../types.js";
-
-import { STEP_DESCRIPTIONS, STEP_IDS, STEP_NAMES, VALIDATION_KEYS } from "./constants.js";
+import type { CircularDependencyResult, ScopeConfig, ValidationScope } from "../types.js";
 
 // =============================================================================
 // DEPENDENCY INJECTION INTERFACES
@@ -107,37 +98,3 @@ export async function validateCircularDependencies(
     return { success: false, error: errorMessage };
   }
 }
-
-// =============================================================================
-// VALIDATION STEP DEFINITION
-// =============================================================================
-
-/**
- * Circular dependency validation step.
- *
- * Enabled when not in file-specific mode and TypeScript validation is enabled.
- */
-export const circularDependencyStep: ValidationStep = {
-  id: STEP_IDS.CIRCULAR,
-  name: STEP_NAMES.CIRCULAR,
-  description: STEP_DESCRIPTIONS.CIRCULAR,
-  enabled: (context: ValidationContext) =>
-    !context.isFileSpecificMode && context.enabledValidations[VALIDATION_KEYS.TYPESCRIPT] === true,
-  execute: async (context: ValidationContext): Promise<ValidationStepResult> => {
-    const startTime = performance.now();
-    try {
-      const result = await validateCircularDependencies(context.scope, context.scopeConfig);
-      return {
-        success: result.success,
-        error: result.error,
-        duration: performance.now() - startTime,
-      };
-    } catch (error) {
-      return {
-        success: false,
-        error: error instanceof Error ? error.message : String(error),
-        duration: performance.now() - startTime,
-      };
-    }
-  },
-};

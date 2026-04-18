@@ -8,16 +8,10 @@
 
 import { spawn } from "node:child_process";
 
-import type {
-  ExecutionMode,
-  ProcessRunner,
-  ValidationContext,
-  ValidationStep,
-  ValidationStepResult,
-} from "../types.js";
+import type { ExecutionMode, ProcessRunner, ValidationContext } from "../types.js";
 import { EXECUTION_MODES, VALIDATION_SCOPES } from "../types.js";
 
-import { CACHE_PATHS, STEP_DESCRIPTIONS, STEP_IDS, STEP_NAMES, VALIDATION_KEYS } from "./constants.js";
+import { CACHE_PATHS } from "./constants.js";
 
 // =============================================================================
 // DEFAULT DEPENDENCIES
@@ -100,10 +94,9 @@ export async function validateESLint(
   success: boolean;
   error?: string;
 }> {
-  const { scope, validatedFiles, mode, eslintConfigFile } = context;
+  const { projectRoot, scope, validatedFiles, mode, eslintConfigFile } = context;
 
   return new Promise((resolve) => {
-    // Set environment variable to control ESLint scope
     if (!validatedFiles || validatedFiles.length === 0) {
       if (scope === VALIDATION_SCOPES.PRODUCTION) {
         process.env.ESLINT_PRODUCTION_ONLY = "1";
@@ -112,7 +105,6 @@ export async function validateESLint(
       }
     }
 
-    // Build ESLint arguments
     const eslintArgs = buildEslintArgs({
       validatedFiles,
       mode,
@@ -121,7 +113,7 @@ export async function validateESLint(
     });
 
     const eslintProcess = runner.spawn("npx", eslintArgs, {
-      cwd: process.cwd(),
+      cwd: projectRoot,
       stdio: "inherit",
     });
 
@@ -164,38 +156,3 @@ export function validationEnabled(
   }
   return explicitlyEnabled;
 }
-
-// =============================================================================
-// VALIDATION STEP DEFINITION
-// =============================================================================
-
-/**
- * ESLint validation step.
- *
- * Enabled when ESLint validation is enabled in the context.
- */
-export const eslintStep: ValidationStep = {
-  id: STEP_IDS.ESLINT,
-  name: STEP_NAMES.ESLINT,
-  description: STEP_DESCRIPTIONS.ESLINT,
-  enabled: (context: ValidationContext) =>
-    context.enabledValidations[VALIDATION_KEYS.ESLINT] === true
-    && validationEnabled(VALIDATION_KEYS.ESLINT),
-  execute: async (context: ValidationContext): Promise<ValidationStepResult> => {
-    const startTime = performance.now();
-    try {
-      const result = await validateESLint(context);
-      return {
-        success: result.success,
-        error: result.error,
-        duration: performance.now() - startTime,
-      };
-    } catch (error) {
-      return {
-        success: false,
-        error: error instanceof Error ? error.message : String(error),
-        duration: performance.now() - startTime,
-      };
-    }
-  },
-};

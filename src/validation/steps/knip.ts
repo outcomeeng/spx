@@ -8,10 +8,7 @@
 
 import { spawn } from "node:child_process";
 
-import type { ProcessRunner, ScopeConfig, ValidationContext, ValidationStep, ValidationStepResult } from "../types.js";
-
-import { STEP_DESCRIPTIONS, STEP_IDS, STEP_NAMES, VALIDATION_DEFAULTS, VALIDATION_KEYS } from "./constants.js";
-import { validationEnabled } from "./eslint.js";
+import type { ProcessRunner, ScopeConfig } from "../types.js";
 
 // =============================================================================
 // DEFAULT DEPENDENCIES
@@ -95,40 +92,3 @@ export async function validateKnip(
     return { success: false, error: errorMessage };
   }
 }
-
-// =============================================================================
-// VALIDATION STEP DEFINITION
-// =============================================================================
-
-/**
- * Knip unused code validation step.
- *
- * Enabled when knip validation is enabled and not in file-specific mode.
- * Knip is disabled by default.
- */
-export const knipStep: ValidationStep = {
-  id: STEP_IDS.KNIP,
-  name: STEP_NAMES.KNIP,
-  description: STEP_DESCRIPTIONS.KNIP,
-  enabled: (context: ValidationContext) =>
-    context.enabledValidations[VALIDATION_KEYS.KNIP] === true
-    && validationEnabled(VALIDATION_KEYS.KNIP, VALIDATION_DEFAULTS)
-    && !context.isFileSpecificMode,
-  execute: async (context: ValidationContext): Promise<ValidationStepResult> => {
-    const startTime = performance.now();
-    try {
-      const result = await validateKnip(context.scopeConfig);
-      return {
-        success: result.success,
-        error: result.error,
-        duration: performance.now() - startTime,
-      };
-    } catch (error) {
-      return {
-        success: false,
-        error: error instanceof Error ? error.message : String(error),
-        duration: performance.now() - startTime,
-      };
-    }
-  },
-};
