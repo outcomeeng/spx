@@ -1,8 +1,8 @@
 # Auto-Injection
 
-WE BELIEVE THAT automatically reading and printing files listed in session YAML front matter on pickup
-WILL cause agents to reach productive context within seconds instead of manually reading files
-CONTRIBUTING TO reduced time-to-productivity after context switches
+PROVIDES automatic reading and printing of files listed in session YAML front matter on pickup
+SO THAT session-claim and session-cli enablers
+CAN deliver referenced file contents to the agent without additional read commands
 
 ## Assertions
 

@@ -2,7 +2,7 @@
  * Unit tests for advanced session operations — prune and archive.
  *
  * Test Level: 1 (Unit)
- * - Pure functions: selectSessionsToPrune, validatePruneOptions,
+ * - Pure functions: selectSessionsToDelete, validatePruneOptions,
  *   buildArchivePaths, findSessionForArchive
  * - Real filesystem via harness for prune/archive commands
  *
@@ -22,13 +22,9 @@ import { join } from "node:path";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 
 import { archiveCommand } from "@/commands/session/archive";
-import {
-  DEFAULT_KEEP_COUNT,
-  pruneCommand,
-  selectSessionsToPrune,
-  validatePruneOptions,
-} from "@/commands/session/prune";
+import { pruneCommand, validatePruneOptions } from "@/commands/session/prune";
 import { type ArchivableStatus, buildArchivePaths, findSessionForArchive } from "@/session/archive";
+import { DEFAULT_KEEP_COUNT, selectSessionsToDelete } from "@/session/prune";
 import type { SessionHarness } from "@/session/testing/harness";
 import { createSessionHarness } from "@/session/testing/harness";
 import { type Session, SESSION_STATUSES, type SessionPriority } from "@/session/types";
@@ -56,14 +52,14 @@ function createTestSession(overrides: {
 
 // -- Pure function tests --
 
-describe("selectSessionsToPrune", () => {
+describe("selectSessionsToDelete", () => {
   it("GIVEN 10 sessions and keep=5 WHEN selected THEN returns 5 oldest", () => {
     const sessions = Array.from(
       { length: 10 },
       (_, i) => createTestSession({ id: `2026-01-${String(i + 1).padStart(2, "0")}_10-00-00` }),
     );
 
-    const toPrune = selectSessionsToPrune(sessions, 5);
+    const toPrune = selectSessionsToDelete(sessions, { keep: 5 });
 
     expect(toPrune).toHaveLength(5);
   });
@@ -74,12 +70,12 @@ describe("selectSessionsToPrune", () => {
       createTestSession({ id: "2026-01-02_10-00-00" }),
     ];
 
-    expect(selectSessionsToPrune(sessions, 5)).toHaveLength(0);
-    expect(selectSessionsToPrune(sessions, 2)).toHaveLength(0);
+    expect(selectSessionsToDelete(sessions, { keep: 5 })).toHaveLength(0);
+    expect(selectSessionsToDelete(sessions, { keep: 2 })).toHaveLength(0);
   });
 
   it("GIVEN empty list WHEN selected THEN returns empty", () => {
-    expect(selectSessionsToPrune([], 5)).toHaveLength(0);
+    expect(selectSessionsToDelete([], { keep: 5 })).toHaveLength(0);
   });
 });
 
