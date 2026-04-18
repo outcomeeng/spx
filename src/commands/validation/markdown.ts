@@ -30,17 +30,32 @@ import type { MarkdownCommandOptions, ValidationCommandResult } from "./types";
  * });
  * ```
  */
+const MARKDOWN_EXTENSIONS = new Set([".md", ".markdown"]);
+
+function isMarkdownOrDirectory(path: string): boolean {
+  const lastDot = path.lastIndexOf(".");
+  if (lastDot < 0) return true;
+  const ext = path.slice(lastDot).toLowerCase();
+  return MARKDOWN_EXTENSIONS.has(ext);
+}
+
 export async function markdownCommand(options: MarkdownCommandOptions): Promise<ValidationCommandResult> {
   const { cwd, files, quiet } = options;
   const startTime = Date.now();
 
-  // Determine directories to validate
-  const directories = files && files.length > 0
-    ? files
+  const markdownScopedFiles = files?.filter(isMarkdownOrDirectory);
+
+  const directories = markdownScopedFiles && markdownScopedFiles.length > 0
+    ? markdownScopedFiles
+    : files && files.length > 0
+    ? []
     : getDefaultDirectories(cwd);
 
   if (directories.length === 0) {
-    const output = quiet ? "" : "Markdown: skipped (no spx/ or docs/ directories found)";
+    const reason = files && files.length > 0
+      ? "no markdown files in --files scope"
+      : "no spx/ or docs/ directories found";
+    const output = quiet ? "" : `Markdown: skipped (${reason})`;
     return { exitCode: 0, output, durationMs: Date.now() - startTime };
   }
 
