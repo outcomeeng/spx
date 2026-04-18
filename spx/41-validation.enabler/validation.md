@@ -16,13 +16,13 @@ CAN surface security, maintainability, and reliability issues before they reach 
 
 ### Mappings
 
-- TypeScript has lint, type check, AST enforcement, and circular dependency detection stages ([test](tests/validation.integration.test.ts))
-- Python has lint, type check, and AST enforcement stages ([test](tests/validation.integration.test.ts))
+- TypeScript has lint, type check, AST enforcement, and circular dependency detection stages ([test](tests/validation.unit.test.ts))
+- Python has lint, type check, and AST enforcement stages ([test](tests/validation.unit.test.ts))
 
 ### Properties
 
-- Validation results are deterministic: the same codebase always produces the same pass/fail verdict ([test](tests/validation.unit.test.ts))
-- Validation is additive: adding a new step never changes the verdict of existing steps ([test](tests/validation.unit.test.ts))
+- Validation results are deterministic: the same codebase always produces the same pass/fail verdict ([test](tests/validation.integration.test.ts))
+- Validation is additive: adding a new step never changes the verdict of existing steps ([test](tests/validation.integration.test.ts))
 
 ### Compliance
 

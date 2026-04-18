@@ -1,0 +1,256 @@
+/**
+ * Level 2: Integration tests for the cross-cutting validation pipeline.
+ *
+ * Spec: spx/41-validation.enabler/validation.md
+ *
+ * Routing: Stage 2 → Level 2. Evidence lives in the real `spx validation all`
+ * CLI invocation against real fixture projects. Stage 3C glue code where the
+ * behavior IS the composition of child steps. No doubles.
+ */
+
+import { execa } from "execa";
+import { readFile, writeFile } from "node:fs/promises";
+import { join } from "node:path";
+import { describe, expect, it } from "vitest";
+
+import { CLI_PATH } from "@test/harness/constants.js";
+import { FIXTURES, HARNESS_TIMEOUT, withValidationEnv } from "@test/harness/with-validation-env.js";
+
+const EXIT_SUCCESS = 0;
+const EXIT_FAILURE = 1;
+const ALL_TIMEOUT_MS = 120_000;
+const TOTAL_STEPS = 5;
+const STEP_LINE_PATTERN = /^\[(\d)\/5\]/gm;
+const DURATION_PATTERN = /\((\d+(?:\.\d+)?)(ms|s)\)\s*$/;
+const STEP_NAMES = {
+  CIRCULAR: "Circular dependencies",
+  ESLINT: "ESLint",
+  TYPESCRIPT: "TypeScript",
+  MARKDOWN: "Markdown",
+} as const;
+
+describe("spx validation all — pipeline composition (Scenarios)", () => {
+  it(
+    "S1 GIVEN a clean project WHEN running all THEN every step passes and the pipeline exits 0",
+    { timeout: ALL_TIMEOUT_MS },
+    async () => {
+      await withValidationEnv({ fixture: FIXTURES.CLEAN_PROJECT }, async ({ path }) => {
+        const result = await execa("node", [CLI_PATH, "validation", "all"], {
+          cwd: path,
+          reject: false,
+        });
+
+        expect(result.exitCode).toBe(EXIT_SUCCESS);
+        expect(result.stdout).toContain("Validation passed");
+      });
+    },
+  );
+
+  it(
+    "S2 GIVEN a fixture that triggers a pipeline failure WHEN running all THEN the failure output identifies the step that failed",
+    { timeout: ALL_TIMEOUT_MS },
+    async () => {
+      await withValidationEnv({ fixture: FIXTURES.WITH_CIRCULAR_DEPS }, async ({ path }) => {
+        const result = await execa("node", [CLI_PATH, "validation", "all"], {
+          cwd: path,
+          reject: false,
+        });
+
+        expect(result.exitCode).toBe(EXIT_FAILURE);
+        expect(result.stdout).toContain("Circular dependencies found");
+        expect(result.stdout).toContain("Validation failed");
+      });
+    },
+  );
+
+  it(
+    "S3 GIVEN --scope production WHEN running all THEN the pipeline accepts the scope and runs every step in sequence",
+    { timeout: ALL_TIMEOUT_MS },
+    async () => {
+      await withValidationEnv({ fixture: FIXTURES.CLEAN_PROJECT }, async ({ path }) => {
+        const result = await execa(
+          "node",
+          [CLI_PATH, "validation", "all", "--scope", "production"],
+          { cwd: path, reject: false },
+        );
+
+        const stepMarkers = [...result.stdout.matchAll(STEP_LINE_PATTERN)];
+        expect(stepMarkers).toHaveLength(TOTAL_STEPS);
+        expect(stepMarkers.map((m) => Number(m[1]))).toEqual([1, 2, 3, 4, 5]);
+      });
+    },
+  );
+
+  it(
+    "S4 GIVEN --files pointing at a source file that exists WHEN running all THEN the pipeline accepts the filter and runs every step in sequence",
+    { timeout: ALL_TIMEOUT_MS },
+    async () => {
+      await withValidationEnv({ fixture: FIXTURES.CLEAN_PROJECT }, async ({ path }) => {
+        const targetFile = join(path, "src", "clean.ts");
+
+        const result = await execa(
+          "node",
+          [CLI_PATH, "validation", "all", "--files", targetFile],
+          { cwd: path, reject: false },
+        );
+
+        const stepMarkers = [...result.stdout.matchAll(STEP_LINE_PATTERN)];
+        expect(stepMarkers).toHaveLength(TOTAL_STEPS);
+        expect(stepMarkers.map((m) => Number(m[1]))).toEqual([1, 2, 3, 4, 5]);
+      });
+    },
+  );
+
+  it(
+    "S5 GIVEN a multi-step pipeline WHEN running all THEN each step's completion line appears before the next step's line in output order",
+    { timeout: ALL_TIMEOUT_MS },
+    async () => {
+      await withValidationEnv({ fixture: FIXTURES.CLEAN_PROJECT }, async ({ path }) => {
+        const result = await execa("node", [CLI_PATH, "validation", "all"], {
+          cwd: path,
+          reject: false,
+        });
+
+        const stepMarkers = [...result.stdout.matchAll(STEP_LINE_PATTERN)];
+        expect(stepMarkers).toHaveLength(TOTAL_STEPS);
+        const stepNumbers = stepMarkers.map((m) => Number(m[1]));
+        expect(stepNumbers).toEqual([1, 2, 3, 4, 5]);
+      });
+    },
+  );
+});
+
+describe("spx validation all — pipeline composition (Compliance)", () => {
+  it(
+    "C1 GIVEN a fixture whose first step fails WHEN running all THEN subsequent steps still execute (no short-circuit)",
+    { timeout: ALL_TIMEOUT_MS },
+    async () => {
+      await withValidationEnv({ fixture: FIXTURES.WITH_CIRCULAR_DEPS }, async ({ path }) => {
+        const result = await execa("node", [CLI_PATH, "validation", "all"], {
+          cwd: path,
+          reject: false,
+        });
+
+        expect(result.exitCode).toBe(EXIT_FAILURE);
+        const stepMarkers = [...result.stdout.matchAll(STEP_LINE_PATTERN)];
+        expect(stepMarkers).toHaveLength(TOTAL_STEPS);
+        expect(result.stdout).toContain(STEP_NAMES.TYPESCRIPT);
+        expect(result.stdout).toContain(STEP_NAMES.MARKDOWN);
+      });
+    },
+  );
+
+  it(
+    "C2 GIVEN any step failure WHEN running all THEN the pipeline exit code is non-zero",
+    { timeout: ALL_TIMEOUT_MS },
+    async () => {
+      await withValidationEnv({ fixture: FIXTURES.WITH_TYPE_ERRORS }, async ({ path }) => {
+        const result = await execa("node", [CLI_PATH, "validation", "all"], {
+          cwd: path,
+          reject: false,
+        });
+
+        expect(result.exitCode).not.toBe(EXIT_SUCCESS);
+      });
+    },
+  );
+
+  it(
+    "C3 GIVEN a full pipeline run WHEN inspecting output THEN every step line carries its own duration annotation",
+    { timeout: ALL_TIMEOUT_MS },
+    async () => {
+      await withValidationEnv({ fixture: FIXTURES.CLEAN_PROJECT }, async ({ path }) => {
+        const result = await execa("node", [CLI_PATH, "validation", "all"], {
+          cwd: path,
+          reject: false,
+        });
+
+        const lines = result.stdout.split("\n").filter((line) => /^\[\d\/5\]/.test(line));
+        expect(lines).toHaveLength(TOTAL_STEPS);
+        for (const line of lines) {
+          expect(line).toMatch(DURATION_PATTERN);
+        }
+      });
+    },
+  );
+});
+
+describe("spx validation all — pipeline composition (Properties)", () => {
+  it(
+    "P1 GIVEN the same fixture WHEN running all twice THEN both runs produce identical pass/fail verdicts",
+    { timeout: ALL_TIMEOUT_MS * 2 },
+    async () => {
+      await withValidationEnv({ fixture: FIXTURES.CLEAN_PROJECT }, async ({ path }) => {
+        const first = await execa("node", [CLI_PATH, "validation", "all"], {
+          cwd: path,
+          reject: false,
+        });
+        const second = await execa("node", [CLI_PATH, "validation", "all"], {
+          cwd: path,
+          reject: false,
+        });
+
+        expect(second.exitCode).toBe(first.exitCode);
+        const firstStepOutcomes = extractStepOutcomes(first.stdout);
+        const secondStepOutcomes = extractStepOutcomes(second.stdout);
+        expect(secondStepOutcomes).toEqual(firstStepOutcomes);
+      });
+    },
+  );
+
+  it(
+    "P2 GIVEN a step that fails in one run and passes in another WHEN inspecting other steps' verdicts THEN other steps' verdicts are unchanged (additivity)",
+    { timeout: ALL_TIMEOUT_MS * 2 },
+    async () => {
+      await withValidationEnv({ fixture: FIXTURES.WITH_TYPE_ERRORS }, async ({ path }) => {
+        const withFailure = await execa("node", [CLI_PATH, "validation", "all"], {
+          cwd: path,
+          reject: false,
+        });
+        const failingOutcomes = extractStepOutcomes(withFailure.stdout);
+
+        const typeErrorFile = join(path, "src", "has-type-error.ts");
+        const original = await readFile(typeErrorFile, "utf8");
+        const fixed = original.replace(/const x:\s*number\s*=\s*"[^"]+";?/g, "const x: number = 0;");
+        await writeFile(typeErrorFile, fixed, "utf8");
+
+        const withoutFailure = await execa("node", [CLI_PATH, "validation", "all"], {
+          cwd: path,
+          reject: false,
+        });
+        const passingOutcomes = extractStepOutcomes(withoutFailure.stdout);
+
+        const stepsIndependentOfTypeScript = [1, 2, 3, 5];
+        for (const stepNumber of stepsIndependentOfTypeScript) {
+          expect(passingOutcomes.get(stepNumber)).toBe(failingOutcomes.get(stepNumber));
+        }
+      });
+    },
+  );
+});
+
+/**
+ * Parse `[N/5] <step-text>` lines into a map of step-number to a canonical
+ * outcome token ("pass", "skip", or "fail"). Outcomes are derived from the
+ * step line's leading marker:
+ *   - `✓` or "passed" / "No issues"/ "No cycles" / "No type errors" → pass
+ *   - `⏭` or "skipped" → skip
+ *   - anything else → fail
+ */
+function extractStepOutcomes(stdout: string): Map<number, "pass" | "skip" | "fail"> {
+  const outcomes = new Map<number, "pass" | "skip" | "fail">();
+  for (const line of stdout.split("\n")) {
+    const match = line.match(/^\[(\d)\/5\]\s+(.+)$/);
+    if (!match) continue;
+    const step = Number(match[1]);
+    const body = match[2];
+    if (body.includes("✓") || body.includes("No issues found") || body.includes("No cycles") || body.includes("No type errors") || body.includes("None found")) {
+      outcomes.set(step, "pass");
+    } else if (body.includes("⏭") || body.startsWith("Skipping") || body.includes("skipped")) {
+      outcomes.set(step, "skip");
+    } else {
+      outcomes.set(step, "fail");
+    }
+  }
+  return outcomes;
+}
