@@ -8,17 +8,15 @@ import { readdir, readFile, unlink } from "node:fs/promises";
 import { join } from "node:path";
 
 import { resolveSessionConfig } from "../../git/root.js";
-import { parseSessionMetadata, sortSessions } from "../../session/list.js";
+import { parseSessionMetadata } from "../../session/list.js";
+import { DEFAULT_KEEP_COUNT, selectSessionsToDelete } from "../../session/prune.js";
 import type { SessionDirectoryConfig } from "../../session/show.js";
 import { type Session, SESSION_STATUSES, type SessionStatus } from "../../session/types.js";
 
+export { DEFAULT_KEEP_COUNT };
+
 /** Prune operates only on archived sessions. */
 const PRUNE_STATUS: SessionStatus = SESSION_STATUSES[2]; // archive
-
-/**
- * Default number of sessions to keep when pruning.
- */
-export const DEFAULT_KEEP_COUNT = 5;
 
 /**
  * Options for the prune command.
@@ -92,28 +90,6 @@ async function loadArchiveSessions(config: SessionDirectoryConfig): Promise<Sess
 }
 
 /**
- * Determines which sessions to prune.
- *
- * Sessions are sorted by priority (high first) then by timestamp (newest first).
- * The first `keep` sessions are retained, the rest are marked for deletion.
- *
- * @param sessions - All todo sessions
- * @param keep - Number of sessions to keep
- * @returns Sessions to delete (oldest/lowest priority first)
- */
-export function selectSessionsToPrune(sessions: Session[], keep: number): Session[] {
-  // Sort sessions by priority and timestamp
-  const sorted = sortSessions(sessions);
-
-  // Keep the top N sessions, prune the rest
-  if (sorted.length <= keep) {
-    return [];
-  }
-
-  return sorted.slice(keep);
-}
-
-/**
  * Executes the prune command.
  *
  * @param options - Command options
@@ -131,7 +107,7 @@ export async function pruneCommand(options: PruneOptions): Promise<string> {
 
   // Load and sort sessions
   const sessions = await loadArchiveSessions(config);
-  const toPrune = selectSessionsToPrune(sessions, keep);
+  const toPrune = selectSessionsToDelete(sessions, { keep });
 
   if (toPrune.length === 0) {
     return `No sessions to prune. ${sessions.length} sessions kept.`;

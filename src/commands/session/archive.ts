@@ -8,6 +8,12 @@ import { mkdir, rename, stat } from "node:fs/promises";
 import { dirname, join } from "node:path";
 
 import { resolveSessionConfig } from "../../git/root.js";
+import {
+  buildArchivePaths,
+  type ExistingPathsMap,
+  findSessionForArchive,
+  SESSION_FILE_EXTENSION,
+} from "../../session/archive.js";
 import { processBatch } from "../../session/batch.js";
 import { SessionNotFoundError } from "../../session/errors.js";
 import type { SessionDirectoryConfig } from "../../session/show.js";
@@ -37,11 +43,50 @@ export class SessionAlreadyArchivedError extends Error {
 }
 
 /**
- * Finds the source path for a session to archive.
+ * Checks whether a path exists as a file.
+ */
+async function fileExists(path: string): Promise<boolean> {
+  try {
+    const stats = await stat(path);
+    return stats.isFile();
+  } catch {
+    return false;
+  }
+}
+
+/**
+ * Builds an ExistingPathsMap by probing the filesystem for a session ID
+ * across all status directories.
  *
- * @param sessionId - Session ID to find
+ * @param sessionId - Session ID to locate
  * @param config - Directory configuration
- * @returns Source path and target path for archiving
+ * @returns Map of existing paths (null for directories where file is absent)
+ */
+async function probeSessionPaths(
+  sessionId: string,
+  config: SessionDirectoryConfig,
+): Promise<ExistingPathsMap> {
+  const filename = `${sessionId}${SESSION_FILE_EXTENSION}`;
+  const todoPath = join(config.todoDir, filename);
+  const doingPath = join(config.doingDir, filename);
+  const archivePath = join(config.archiveDir, filename);
+
+  return {
+    todo: await fileExists(todoPath) ? todoPath : null,
+    doing: await fileExists(doingPath) ? doingPath : null,
+    archive: await fileExists(archivePath) ? archivePath : null,
+  };
+}
+
+/**
+ * Resolves source and target paths for archiving a session.
+ *
+ * I/O: probes filesystem to locate the session.
+ * Path logic: delegated to src/session/archive.ts pure functions.
+ *
+ * @param sessionId - Session ID to archive
+ * @param config - Directory configuration
+ * @returns Source and target paths for the archive rename
  * @throws {SessionNotFoundError} When session is not found in todo or doing
  * @throws {SessionAlreadyArchivedError} When session is already in archive
  */
@@ -49,50 +94,20 @@ export async function resolveArchivePaths(
   sessionId: string,
   config: SessionDirectoryConfig,
 ): Promise<{ source: string; target: string }> {
-  const filename = `${sessionId}.md`;
-  const todoPath = join(config.todoDir, filename);
-  const doingPath = join(config.doingDir, filename);
-  const archivePath = join(config.archiveDir, filename);
+  const existingPaths = await probeSessionPaths(sessionId, config);
 
-  // Check if already archived
-  try {
-    const archiveStats = await stat(archivePath);
-    if (archiveStats.isFile()) {
-      throw new SessionAlreadyArchivedError(sessionId);
-    }
-  } catch (error) {
-    // ENOENT is expected - session not in archive
-    if (error instanceof Error && "code" in error && error.code !== "ENOENT") {
-      throw error;
-    }
-    // Rethrow SessionAlreadyArchivedError
-    if (error instanceof SessionAlreadyArchivedError) {
-      throw error;
-    }
+  if (existingPaths.archive !== null) {
+    throw new SessionAlreadyArchivedError(sessionId);
   }
 
-  // Check todo directory first
-  try {
-    const todoStats = await stat(todoPath);
-    if (todoStats.isFile()) {
-      return { source: todoPath, target: archivePath };
-    }
-  } catch {
-    // File not in todo, continue to check doing
+  const location = findSessionForArchive(existingPaths);
+
+  if (!location) {
+    throw new SessionNotFoundError(sessionId);
   }
 
-  // Check doing directory
-  try {
-    const doingStats = await stat(doingPath);
-    if (doingStats.isFile()) {
-      return { source: doingPath, target: archivePath };
-    }
-  } catch {
-    // File not in doing either
-  }
-
-  // Session not found in either directory
-  throw new SessionNotFoundError(sessionId);
+  const paths = buildArchivePaths(sessionId, location.status, config);
+  return paths;
 }
 
 /**
