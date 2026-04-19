@@ -26,7 +26,7 @@ Alternatives considered:
 
 - **Factory + method-object with manual cleanup** (a factory that returns a handle with a `cleanup()` method the caller must invoke). Rejected because manual cleanup is opt-in; every test author becomes responsible for error-path correctness. A callback-scoped environment removes the opt-in entirely.
 - **Registry-aware environment that composes Config from the live registry.** Rejected because tight coupling to production state defeats the per-test isolation that tests exist to achieve. Tests wanting live-registry coverage construct the live Config themselves and pass it in.
-- **Class-based `TestEnvironment` with lifecycle methods.** Rejected for the same reasons cited in `src/spec-tree/` ADR-style decisions: state lives on disk, not in memory. A class wrapping a factory adds noise without benefit.
+- **Class-based `TestEnvironment` with lifecycle methods.** Rejected because state lives on disk, not in memory. A class wrapping a factory adds noise without benefit.
 - **Separate `withConfigEnv` and `withTreeEnv` entry points.** Rejected because the asymmetry is not observable from the test author's perspective — both need a temp project root and cleanup, differing only in which env helpers are useful. One entry point with destructurable helpers serves both cases without duplicating lifecycle code.
 
 ## Trade-offs accepted
