@@ -53,9 +53,15 @@ export async function withTestEnv(
       writeDecision: (relativePath, contents) => writeAt(projectDir, relativePath, contents),
       writeRaw: (relativePath, contents) => writeAt(projectDir, relativePath, contents),
       readFile: (relativePath) => readAt(projectDir, relativePath),
-      arbitraryNodePath: arbitraryNodePath(config),
-      arbitraryDecisionPath: arbitraryDecisionPath(config),
-      arbitrarySpecTree: arbitrarySpecTree(config),
+      get arbitraryNodePath() {
+        return arbitraryNodePath(config);
+      },
+      get arbitraryDecisionPath() {
+        return arbitraryDecisionPath(config);
+      },
+      get arbitrarySpecTree() {
+        return arbitrarySpecTree(config);
+      },
     };
 
     await callback(env);
