@@ -4,6 +4,7 @@
 import { Command } from "commander";
 import { createRequire } from "node:module";
 import { claudeDomain } from "./domains/claude";
+import { configDomain } from "./domains/config";
 import { sessionDomain } from "./domains/session";
 import { specDomain } from "./domains/spec";
 import { validationDomain } from "./domains/validation";
@@ -20,6 +21,7 @@ program
 
 // Register domains
 claudeDomain.register(program);
+configDomain.register(program);
 sessionDomain.register(program);
 specDomain.register(program);
 validationDomain.register(program);
