@@ -5,3 +5,5 @@ export interface ConfigDescriptor<T> {
   readonly defaults: T;
   validate(value: unknown): Result<T>;
 }
+
+export type Config = Readonly<Record<string, unknown>>;
