@@ -1,7 +1,7 @@
 # TypeScript Detection
 
 PROVIDES identification of projects that use TypeScript
-SO THAT TypeScript-specific validation tools (tsc, ESLint)
+SO THAT TypeScript-specific tools (validation stages and test runners)
 CAN determine whether to run against the current project root
 
 ## Assertions

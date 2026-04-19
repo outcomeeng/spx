@@ -2,11 +2,11 @@
 
 ## Purpose
 
-This decision governs how spx determines which programming languages a project uses, enabling language-specific validation tools to run only where applicable.
+This decision governs how spx determines which programming languages a project uses, enabling language-specific tools (validation stages and test runners) to run only where applicable.
 
 ## Context
 
-**Business impact:** spx validates code across multilingual projects. Running language-specific tools (ESLint, mypy) in projects that don't use that language wastes time, produces errors, and — in the case of `npx` — prompts users to install irrelevant packages.
+**Business impact:** spx operates on multilingual projects. Running language-specific tools (ESLint, mypy, pytest, vitest) against projects that don't use that language wastes time, produces errors, and — in the case of `npx` — prompts users to install irrelevant packages.
 
 **Technical constraints:** Language ecosystems use well-known configuration files (`tsconfig.json`, `eslint.config.ts`, `pyproject.toml`) that reliably indicate language use. These files are stable markers — their presence is a necessary condition for the corresponding toolchain to function.
 
@@ -34,12 +34,12 @@ Alternatives considered:
 
 ### Recognized by
 
-Validation steps skip cleanly when the target project lacks marker files for that step's language.
+Language-specific tools (validation stages and test runners) skip cleanly when the target project lacks marker files for that tool's language.
 
 ### MUST
 
 - Use configuration file presence, not file extension scanning, to determine language use ([review])
-- Check marker files relative to the project root passed to the validation command ([review])
+- Check marker files relative to the project root passed to the calling command ([review])
 
 ### NEVER
 

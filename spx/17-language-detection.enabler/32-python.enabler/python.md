@@ -1,7 +1,7 @@
 # Python Detection
 
 PROVIDES identification of projects that use Python
-SO THAT Python-specific validation tools
+SO THAT Python-specific tools (validation stages and test runners)
 CAN determine whether to run against the current project root
 
 ## Assertions

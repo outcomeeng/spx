@@ -1,7 +1,7 @@
 # Language Detection
 
 PROVIDES project language identification based on configuration file presence
-SO THAT validation steps (ast-enforcement, type checking, linting)
+SO THAT quality-gate enablers (validation stages and test runners)
 CAN run only the tools applicable to the languages the project actually uses
 
 ## Assertions
