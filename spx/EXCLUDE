@@ -8,5 +8,6 @@
 16-config.enabler
 18-exclude-scoping.enabler
 22-test-environment.enabler
+23-spec-tree-shape.enabler
 41-testing.enabler
 41-validation.enabler/32-python-validation.enabler
