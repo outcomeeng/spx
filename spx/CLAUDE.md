@@ -94,10 +94,10 @@ Specified and failing are normal states — not problems to fix urgently. The sp
 
 **ALWAYS use full path when referencing work items:**
 
-| Wrong                  | Correct                                                         |
-| ---------------------- | --------------------------------------------------------------- |
-| "session-identity"     | "36-session.enabler/32-session-identity.enabler"                |
-| "implement validation" | "implement 41-validation.enabler/21-language-detection.enabler" |
+| Wrong                  | Correct                                                            |
+| ---------------------- | ------------------------------------------------------------------ |
+| "session-identity"     | "36-session.enabler/32-session-identity.enabler"                   |
+| "implement validation" | "implement 41-validation.enabler/32-typescript-validation.enabler" |
 
 ---
 

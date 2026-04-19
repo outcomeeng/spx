@@ -1,11 +1,5 @@
 # Open Issues
 
-## Missing product spec
-
-`spx/spx.product.md` does not exist. The `/spec-tree:contextualizing` workflow requires it. Skipped during migration Phase 0 to unblock test consolidation.
-
-**Resolution:** Invoke `/spec-tree:authoring` to create `spx/spx.product.md` derived from `specs/work/spx-platform.prd.md`.
-
 ## Capability subtrees use pre-methodology suffixes and misdeclared node types
 
 Three top-level subtrees use non-methodology directory suffixes (`.capability`, `.feature`, `.story`) and likely carry the same misapplied-outcome disease that `36-session.outcome` exhibits (see `36-session.outcome/ISSUES.md`). Affected:
@@ -21,12 +15,6 @@ Three top-level subtrees use non-methodology directory suffixes (`.capability`, 
 `31-spec-domain.enabler` covers the most important domain in spx — deterministic CLI operations on the spec tree (declare → spec → apply) — but has no child enablers. The CLI implements `spx spec status` and `spx spec next` in code without matching specs in the tree. The previous child `21-apply.enabler` (with `21-apply-exclude.enabler`) was deleted because its purpose (writing to project tool configuration) was rejected by the new quality-gate design where `spx test passing` and `spx validation all passing` filter at invocation time.
 
 **Resolution:** Author specs for the existing `status` and `next` commands. Re-examine whether an `apply` CLI command belongs here (as "run the declare → spec → apply methodology step") or elsewhere. Scope: follow-up work, not part of the EXCLUDE-aware quality-gate restructure.
-
-## Language detection is under a single subtree but used by multiple
-
-`41-validation.enabler/21-language-detection.enabler/` is consumed by validation AND (per the planned testing enabler) testing. Same BSP (41) siblings should not depend on each other's internals — language detection is a shared concern that belongs at product root.
-
-**Resolution:** Pull `21-language-detection.enabler/` up to product root (e.g., `spx/17-language-detection.enabler/`). Update references in validation specs and descriptors. Scope: follow-up work, not part of the EXCLUDE-aware quality-gate restructure.
 
 ## PDR-11 scope does not cover testing
 
