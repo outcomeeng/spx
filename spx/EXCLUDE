@@ -6,5 +6,8 @@
 # Remove entries when implementation begins.
 
 18-exclude-scoping.enabler
+31-spec-domain.capability
+31-spec-domain.enabler
 41-testing.enabler
 41-validation.enabler/32-python-validation.enabler
+41-validation.enabler/32-typescript-validation.enabler/32-literal-reuse.enabler

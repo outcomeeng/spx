@@ -13,7 +13,7 @@ CAN report quality issues across every TypeScript-specific concern before code r
 
 ### Mappings
 
-- TypeScript stages: lint, type-check, ast-enforcement, circular-deps — each stage is provided by a leaf enabler child ([test](tests/typescript-validation.integration.test.ts))
+- TypeScript stages: lint, type-check, ast-enforcement, circular-deps, literal-reuse — each stage is provided by a leaf enabler child ([test](tests/typescript-validation.integration.test.ts))
 
 ### Compliance
 

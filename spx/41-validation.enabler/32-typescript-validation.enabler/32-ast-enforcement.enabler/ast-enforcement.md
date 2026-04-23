@@ -10,7 +10,8 @@ CAN focus on behavior, trusting that structural compliance — correct imports, 
 
 Global TypeScript conventions (`no-restricted-syntax` selectors, all `.ts`/`.tsx` files):
 
-- `TSEnumDeclaration` maps to lint error — use discriminated unions or const objects ([test](tests/ast-enforcement.unit.test.ts))
+- `TSEnumDeclaration` maps to lint error — use `as const` object literals with types derived via `keyof typeof` ([test](tests/ast-enforcement.unit.test.ts))
+- Bare string-literal union types (`type X = "a" | "b"` and similar `TSUnionType` composed of `TSLiteralType` string members) map to lint error — declare the set as an `as const` object literal and derive the union via `keyof typeof` ([test](tests/ast-enforcement.unit.test.ts))
 - `as any` type assertion maps to lint error — use `as unknown` and narrow with a type guard ([test](tests/ast-enforcement.unit.test.ts))
 - `<any>` type assertion maps to lint error — use `as unknown` and narrow with a type guard ([test](tests/ast-enforcement.unit.test.ts))
 
