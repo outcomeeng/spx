@@ -15,8 +15,8 @@ This feature provides foundational test infrastructure that subsequent features 
 
 ### Relevant ADRs
 
-1. [**ADR-003: E2E Fixture Generation Strategy**](./../decisions/adr-003_e2e-fixture-generation.md) - Defines `generateFixtureTree()` and `materializeFixture()` that this feature wraps
-2. [**ADR-004: Test Environment Context Manager**](./../decisions/adr-004_test-environment.md) - Defines the `withTestEnv()` API and rationale
+1. [**ADR-003: E2E Fixture Generation Strategy**](../003-e2e-fixture-generation.adr.md) - Defines `generateFixtureTree()` and `materializeFixture()` that this feature wraps
+2. [**ADR-004: Test Environment Context Manager**](../004-test-environment.adr.md) - Defines the `withTestEnv()` API and rationale
 
 ## API Design
 

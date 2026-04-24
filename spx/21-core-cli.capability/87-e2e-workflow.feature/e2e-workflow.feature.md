@@ -15,7 +15,7 @@ This feature contains the E2E tests that prove Capability-21 is complete.
 
 ### Relevant ADRs
 
-1. [**ADR-003: E2E Fixture Generation Strategy**](specs/doing/capability-21_core-cli/decisions/adr-003_e2e-fixture-generation.md) - Programmatic fixture generation with faker.js
+1. [**ADR-003: E2E Fixture Generation Strategy**](../003-e2e-fixture-generation.adr.md) - Programmatic fixture generation with faker.js
    - `generateFixtureTree(config)` - Pure function to create tree structure
    - `materializeFixture(tree)` - Write to `os.tmpdir()`, return cleanup handle
    - `PRESETS` object with `MINIMAL`, `SHALLOW_50`, `DEEP_50`, `FAN_10_LEVEL_3`
