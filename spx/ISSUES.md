@@ -6,7 +6,7 @@ Three top-level subtrees use non-methodology directory suffixes (`.capability`, 
 
 - `21-core-cli.capability/` — 8 features, 27 stories, all using pre-methodology suffixes
 - `26-scoped-cli.capability/` — 1 feature, 2 stories
-- `31-spec-domain.capability/` — BSP collision with `31-spec-domain.enabler/` AND pre-methodology suffixes inside
+- `31-spec-domain.capability/` — index collision with `31-spec-domain.enabler/` AND pre-methodology suffixes inside
 
 **Resolution:** Defer to a future structural normalization initiative. The migration plan is explicit: structural cleanup of these subtrees is OUT OF SCOPE for the test consolidation work. Each subtree needs its own audit for (1) whether children are real outcomes or should be enablers, (2) whether junk-drawer names like "core-cli" describe real concerns, (3) what should be renamed vs dissolved vs merged.
 

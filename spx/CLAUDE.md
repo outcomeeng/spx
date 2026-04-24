@@ -14,6 +14,8 @@ Spec tree management is handled by the **spec-tree** Claude Code plugin (`outcom
 | `/spec-tree:refactoring`     | Restructure the spec tree                                      |
 | `/spec-tree:aligning`        | Review for gaps, contradictions, and consistency               |
 
+Additional skills ship with the plugin and are invoked by name: `applying`, `committing-changes`, `interviewing`, `auditing-tests`, `auditing-product-decisions`, `handing-off`, `picking-up`, `refocusing`, `bootstrapping`. See `outcomeeng/claude/plugins/spec-tree/skills/` for the full list.
+
 The `specs/` directory uses the legacy task-driven system and is **frozen**.
 
 ---
@@ -22,30 +24,21 @@ The `specs/` directory uses the legacy task-driven system and is **frozen**.
 
 The `spx/` tree is the always-current map of the product. Nothing moves because work is "done" — status is derived from tests.
 
-Two node types exist: **enablers** (infrastructure) and **outcomes** (user-behavior hypotheses). Three legacy subtrees still use pre-methodology suffixes (`.capability`, `.feature`, `.story`) — see `spx/ISSUES.md`.
+Two node types exist: **enablers** (infrastructure) and **outcomes** (user-behavior hypotheses). Pre-methodology subtrees still carry non-methodology suffixes and are tracked for migration in [`spx/ISSUES.md`](ISSUES.md).
 
 ```text
 spx/
-  {product}.product.md                # Product requirements (MISSING — see ISSUES.md)
-  NN-{slug}.pdr.md                    # Product decisions (interleaved)
-  NN-{slug}.adr.md                    # Architectural decisions (interleaved)
+  {product}.product.md                # Product requirements
+  NN-{slug}.pdr.md                    # Product decisions
+  NN-{slug}.adr.md                    # Architectural decisions
   NN-{slug}.{enabler|outcome}/
     {slug}.md                         # Spec file (no type suffix, no numeric prefix)
     tests/
       *.{unit,integration,e2e}.test.{ts,py}
-    PLAN.md                           # Escape hatch: deferred plan (optional)
-    ISSUES.md                         # Escape hatch: known issues (optional)
+    PLAN.md                           # Escape hatch: deferred plan (ephemeral, not spec tree)
+    ISSUES.md                         # Escape hatch: known issues (ephemeral, not spec tree)
     NN-{slug}.adr.md                  # Decisions scoped to this subtree
     NN-{slug}.{enabler|outcome}/      # Nested children
-```
-
-**Legacy subtrees** (pre-methodology — structural normalization deferred):
-
-```text
-NN-{slug}.capability/               # → will become .enabler or .outcome
-  {slug}.capability.md              # Legacy: type suffix in spec filename
-  NN-{slug}.feature/
-    NN-{slug}.story/
 ```
 
 ---
@@ -56,7 +49,8 @@ NN-{slug}.capability/               # → will become .enabler or .outcome
 2. **Co-location**: Tests live with their spec in `tests/`. No graduation.
 3. **Truth flows down**: PDR/ADR → Spec → Test → Code. When layers disagree, the lower layer is in violation.
 4. **Two node types**: Enablers (infrastructure, `PROVIDES ... SO THAT ... CAN ...`) and outcomes (hypothesis, `WE BELIEVE THAT ... WILL ... CONTRIBUTING TO ...`). No other node types exist.
-5. **Atemporal voice**: Specs state product truth. Never narrate history or reference time.
+5. **Nesting rule**: Outcomes may contain enablers and outcomes. **Enablers contain only enablers** — never outcome children. If a child under an enabler has genuine uncertainty about which output achieves a behavior change, the parent is mis-typed.
+6. **Atemporal voice**: Specs state product truth. Never narrate history or reference time.
 
 ---
 
@@ -73,23 +67,23 @@ A node's state is derived from its spec and tests:
 
 Specified and failing are normal states — not problems to fix urgently. The spec leads; the code follows.
 
-**Note:** `31-spec-domain.capability` specifies an `outcomes.yaml` blob-based ledger with additional states (Unknown, Pending, Stale, Regressed). That system is not yet implemented. The states above are the current methodology.
-
 ---
 
-## BSP = Binary Space Partitioning
+## Sparse Integer Ordering
 
-**Binary Space Partitioning (BSP)** encodes dependency order: lower BSP items are dependencies that higher-BSP items may rely on; same BSP means independent. The "binary" refers to insertion by halving available space.
+Numeric prefixes on directories and decision files encode **dependency order** within each directory. A lower-index item constrains every sibling with a higher index and that sibling's descendants. Same index means independent.
 
-- Lower BSP → dependency (others may rely on it)
-- Same BSP → independent of each other
-- Use `@` for recursive insertion when integers exhausted (e.g., `20@54-audit`)
+- Lower index → dependency (others may rely on it)
+- Same index → independent of each other (all depend on the previous lower index)
+- Range `[10, 99]`; start at 21 to leave insertion room
+- Insert between existing indices at the midpoint (`(21 + 32) / 2 = 26`)
+- When integer gaps are exhausted, use **fractional indexing** as an escape hatch (`21.5-…`). Avoid when possible
 
 ```text
 16-core-config.enabler/             ← Built first (shared config)
 36-session.enabler/                 ← Depends on core config
-41-validation.enabler/              ← Can parallel with 46-claude
-46-claude.outcome/                  ← Same BSP range = parallel safe
+41-validation.enabler/              ← Independent of 46-claude
+46-claude.outcome/                  ← Independent of 41-validation (same-range siblings)
 ```
 
 **ALWAYS use full path when referencing work items:**
@@ -109,7 +103,7 @@ Specified and failing are normal states — not problems to fix urgently. The sp
 
 **Trigger conditions:**
 
-- User says "implement story-NN", "work on feature-NN", or "build capability-NN"
+- User says "implement X", "work on X", or references a node by its path
 - User references a work item file
 - You're about to write implementation code
 
@@ -121,7 +115,7 @@ Specified and failing are normal states — not problems to fix urgently. The sp
 
 **Trigger conditions:**
 
-- User says "create a PRD", "add an ADR", "create capability/feature/story"
+- User says "create a PDR", "add an ADR", "create an enabler", "create an outcome"
 - You need templates or ordering rules
 
 **What it does**: Provides templates, sparse integer ordering, structure guidance.
@@ -134,14 +128,14 @@ Use contextualizing to understand current state, then authoring or testing to ac
 
 ## Quick Reference: Skill Selection
 
-| User Says...              | Invoke                       | Do NOT                 |
-| ------------------------- | ---------------------------- | ---------------------- |
-| "Implement story-21"      | `/spec-tree:contextualizing` | Read story.md directly |
-| "Create a PRD"            | `/spec-tree:authoring`       | Search for templates   |
-| "What's next?"            | `/spec-tree:contextualizing` | Grep for work items    |
-| "Create a feature"        | `/spec-tree:authoring`       | Calculate BSP yourself |
-| "Break this down"         | `/spec-tree:decomposing`     | Guess child structure  |
-| "Anything contradictory?" | `/spec-tree:aligning`        | Skim specs manually    |
+| User Says...              | Invoke                       | Do NOT                     |
+| ------------------------- | ---------------------------- | -------------------------- |
+| "Implement &lt;node&gt;"  | `/spec-tree:contextualizing` | Read the spec directly     |
+| "Create a PDR"            | `/spec-tree:authoring`       | Search for templates       |
+| "What's next?"            | `/spec-tree:contextualizing` | Grep for work items        |
+| "Create an enabler"       | `/spec-tree:authoring`       | Calculate indices yourself |
+| "Break this down"         | `/spec-tree:decomposing`     | Guess child structure      |
+| "Anything contradictory?" | `/spec-tree:aligning`        | Skim specs manually        |
 
 ---
 
@@ -155,13 +149,13 @@ Test level is in the filename suffix:
 | Integration | `*.integration.test.{ts,py}` | Real dependencies (databases, binaries, harnesses) |
 | E2E         | `*.e2e.test.{ts,py}`         | Complete user workflows, real credentials          |
 
-**Any test level can exist at any container level.** A capability may have unit tests; a story may have integration tests. The level describes what KIND of test, not where it lives.
+**Any test level can exist at any node.** The suffix describes what KIND of test it is, not where it lives.
 
 ---
 
 ## Spec-Test Contract
 
-**Current methodology** (enabler/outcome nodes): Typed assertions with inline evidence links.
+Nodes carry typed assertions with inline evidence links.
 
 ```markdown
 ## Assertions
@@ -179,9 +173,15 @@ Test level is in the filename suffix:
 - NEVER: accept paths with traversal sequences ([test](tests/parsing.unit.test.ts))
 ```
 
-Five assertion types: Scenario, Mapping, Conformance, Property, Compliance. Three evidence mechanisms: `[test]`, `[enforce]`, `[review]`. See `/spec-tree:understanding` for details.
+**Five assertion types:**
 
-**Legacy format** (capability/feature/story nodes): Gherkin scenarios with Test Files tables — still present in `21-core-cli.capability/`, `26-scoped-cli.capability/`, `31-spec-domain.capability/`.
+- **Scenario** — "there exists" (this specific case works). Example-based tests.
+- **Mapping** — "for all" over a finite, enumerable set. Parameterized tests.
+- **Conformance** — output must match an external schema, standard, or reference. Tool-based validation.
+- **Property** — "for all" over a type or value space (invariant always holds). Property-based tests.
+- **Compliance** — ALWAYS/NEVER behavioral rules from a decision or semantic constraint. Test or review.
+
+**Two evidence mechanisms:** `[test]` (automated test exercises the behavior) and `[review]` (semantic constraint verified by human or agent judgment). See `/spec-tree:understanding` for full details.
 
 ---
 
@@ -191,9 +191,9 @@ Claude Code session handoffs are stored in `.spx/sessions/` (separate from spec 
 
 ```text
 .spx/sessions/
-├── todo/          # Available for /pickup
+├── todo/          # Available for pickup
 ├── doing/         # Currently claimed
 └── archive/       # Completed sessions
 ```
 
-Use `/handoff` to create, `/pickup` to claim.
+Use `spx session handoff` to create and `spx session pickup` to claim (see the top-level `CLAUDE.md` for full CLI usage). The `/spec-tree:handing-off` and `/spec-tree:picking-up` skills drive the same lifecycle from within a conversation.
