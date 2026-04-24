@@ -23,7 +23,13 @@ const INDEX_SLUG_PATTERN = /^\d+-(.+)\.enabler$/;
 const TYPESCRIPT_VALIDATION_DIR = resolve(VALIDATION_ROOT, "32-typescript-validation.enabler");
 const PYTHON_VALIDATION_DIR = resolve(VALIDATION_ROOT, "32-python-validation.enabler");
 
-const TYPESCRIPT_EXPECTED_CHILDREN = new Set(["lint", "type-check", "ast-enforcement", "circular-deps"]);
+const TYPESCRIPT_EXPECTED_CHILDREN = new Set([
+  "lint",
+  "type-check",
+  "ast-enforcement",
+  "circular-deps",
+  "literal-reuse",
+]);
 const PYTHON_EXPECTED_CHILDREN = new Set(["lint", "type-check", "ast-enforcement"]);
 
 /**
@@ -46,7 +52,7 @@ function listEnablerChildSlugs(directory: string): Set<string> {
 }
 
 describe("validation subtree structural mappings (Mappings)", () => {
-  it("M1 TypeScript has exactly lint, type-check, ast-enforcement, and circular-deps leaf enabler children", () => {
+  it("M1 TypeScript has exactly lint, type-check, ast-enforcement, circular-deps, and literal-reuse leaf enabler children", () => {
     const slugs = listEnablerChildSlugs(TYPESCRIPT_VALIDATION_DIR);
 
     expect(slugs).toEqual(TYPESCRIPT_EXPECTED_CHILDREN);

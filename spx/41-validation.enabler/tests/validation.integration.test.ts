@@ -14,7 +14,7 @@ import { join } from "node:path";
 import { describe, expect, it } from "vitest";
 
 import { CLI_PATH } from "@test/harness/constants.js";
-import { FIXTURES, HARNESS_TIMEOUT, withValidationEnv } from "@test/harness/with-validation-env.js";
+import { FIXTURES, withValidationEnv } from "@test/harness/with-validation-env.js";
 
 const EXIT_SUCCESS = 0;
 const EXIT_FAILURE = 1;
@@ -244,7 +244,10 @@ function extractStepOutcomes(stdout: string): Map<number, "pass" | "skip" | "fai
     if (!match) continue;
     const step = Number(match[1]);
     const body = match[2];
-    if (body.includes("✓") || body.includes("No issues found") || body.includes("No cycles") || body.includes("No type errors") || body.includes("None found")) {
+    if (
+      body.includes("✓") || body.includes("No issues found") || body.includes("No cycles")
+      || body.includes("No type errors") || body.includes("None found")
+    ) {
       outcomes.set(step, "pass");
     } else if (body.includes("⏭") || body.startsWith("Skipping") || body.includes("skipped")) {
       outcomes.set(step, "skip");

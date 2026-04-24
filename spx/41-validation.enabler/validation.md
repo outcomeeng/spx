@@ -16,7 +16,7 @@ CAN surface security, maintainability, and reliability issues before they reach 
 
 ### Mappings
 
-- TypeScript has lint, type check, AST enforcement, and circular dependency detection stages ([test](tests/validation.unit.test.ts))
+- TypeScript has lint, type check, AST enforcement, circular dependency detection, and literal reuse stages ([test](tests/validation.unit.test.ts))
 - Python has lint, type check, and AST enforcement stages ([test](tests/validation.unit.test.ts))
 
 ### Properties
