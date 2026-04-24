@@ -45,6 +45,7 @@ describe("Validation Domain", () => {
         addHelpText: () => mockCommand,
         option: () => mockCommand,
         action: () => mockCommand,
+        on: () => mockCommand,
       };
       const mockProgram = {
         command: (name: string) => {

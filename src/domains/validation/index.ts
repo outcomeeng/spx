@@ -11,9 +11,11 @@ import {
   circularCommand,
   knipCommand,
   lintCommand,
+  literalCommand,
   markdownCommand,
   typescriptCommand,
 } from "../../commands/validation";
+import { sanitizeCliArgument } from "../../lib/sanitize-cli-argument";
 import type { Domain } from "../types";
 
 /** Validation scope options */
@@ -114,6 +116,22 @@ function registerValidationCommands(validationCmd: Command): void {
     });
   addCommonOptions(knipCmd);
 
+  // literal command (cross-file literal-reuse detector)
+  const literalCmd = validationCmd
+    .command("literal")
+    .description("Detect cross-file literal reuse between source and tests")
+    .action(async (options: CommonOptions) => {
+      const result = await literalCommand({
+        cwd: process.cwd(),
+        files: options.files,
+        quiet: options.quiet,
+        json: options.json,
+      });
+      if (result.output) console.log(result.output);
+      process.exit(result.exitCode);
+    });
+  addCommonOptions(literalCmd);
+
   // markdown command
   const markdownCmd = validationCmd
     .command("markdown")
@@ -136,9 +154,9 @@ function registerValidationCommands(validationCmd: Command): void {
     });
   addCommonOptions(markdownCmd);
 
-  // all command (default)
+  // all command
   const allCmd = validationCmd
-    .command("all", { isDefault: true })
+    .command("all")
     .description("Run all validations")
     .option("--fix", "Auto-fix ESLint issues")
     .action(async (options: LintOptions) => {
@@ -159,6 +177,15 @@ function registerValidationCommands(validationCmd: Command): void {
 /**
  * Validation domain - Run code validation tools
  */
+const UNKNOWN_SUBCOMMAND_EXIT_CODE = 1;
+
+function handleUnknownSubcommand(operands: readonly string[]): never {
+  const [first] = operands;
+  const sanitized = sanitizeCliArgument(first);
+  process.stderr.write(`spx validation: unknown subcommand: ${sanitized}\n`);
+  process.exit(UNKNOWN_SUBCOMMAND_EXIT_CODE);
+}
+
 export const validationDomain: Domain = {
   name: "validation",
   description: "Run code validation tools",
@@ -167,6 +194,10 @@ export const validationDomain: Domain = {
       .command("validation")
       .alias("v")
       .description("Run code validation tools");
+
+    validationCmd.on("command:*", (operands: readonly string[]) => {
+      handleUnknownSubcommand(operands);
+    });
 
     registerValidationCommands(validationCmd);
   },
