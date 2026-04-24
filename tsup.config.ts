@@ -12,6 +12,12 @@ export default defineConfig({
     "execa",
     // madge is CJS with dynamic requires - must be external and installed as dependency
     "madge",
+    // @typescript-eslint/parser pulls in typescript-estree + debug, which use dynamic
+    // require() for Node built-ins ('tty', 'fs', 'path'). Must stay external.
+    "@typescript-eslint/parser",
+    "@typescript-eslint/visitor-keys",
+    "@typescript-eslint/typescript-estree",
+    "eslint-visitor-keys",
     // Optional template engines from @vue/compiler-sfc (via madge -> detective-vue2)
     // These are dynamically required and only needed for Vue files using exotic templates
     "velocityjs",
