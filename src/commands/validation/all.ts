@@ -11,6 +11,7 @@ import { circularCommand } from "./circular";
 import { formatDuration, formatSummary } from "./format";
 import { knipCommand } from "./knip";
 import { lintCommand } from "./lint";
+import { literalCommand } from "./literal";
 import { markdownCommand } from "./markdown";
 import type { AllCommandOptions, ValidationCommandResult } from "./types";
 import { typescriptCommand } from "./typescript";
@@ -78,6 +79,16 @@ export async function allCommand(options: AllCommandOptions): Promise<Validation
   const markdownOutput = formatStepWithTiming(5, markdownResult, quiet);
   if (markdownOutput) outputs.push(markdownOutput);
   if (markdownResult.exitCode !== 0) hasFailure = true;
+
+  // Literal (cross-file TS literal-reuse detector; env-gated like knip)
+  const literalResult = await literalCommand({ cwd, files, quiet, json });
+  if (!quiet && literalResult.output) {
+    const timing = literalResult.durationMs === undefined
+      ? ""
+      : ` (${formatDuration(literalResult.durationMs)})`;
+    outputs.push(`${literalResult.output}${timing}`);
+  }
+  if (literalResult.exitCode !== 0) hasFailure = true;
 
   // Calculate total duration
   const totalDurationMs = Date.now() - startTime;
