@@ -8,31 +8,30 @@ CAN enforce the source/test boundary import rules and shared-test-support recurr
 
 ### Scenarios
 
-- Given a string literal carrying domain meaning appears in a file under `src/` and also in a file under `spx/**/tests/`, when the detector runs, then it reports a src↔test reuse finding citing the test location and the source location ([test](tests/literal-reuse.unit.test.ts))
-- Given a string literal carrying domain meaning appears in two or more test files but in no source file, when the detector runs, then it reports a test↔test duplication finding citing each test location ([test](tests/literal-reuse.unit.test.ts))
-- Given a numeric literal of meaningful magnitude duplicates between source and test, when the detector runs, then it reports a src↔test reuse finding ([test](tests/literal-reuse.unit.test.ts))
-- Given a literal value appears exactly once in the codebase, when the detector runs, then it produces no finding for that value ([test](tests/literal-reuse.unit.test.ts))
-- Given a literal value is in the project's allowlist of low-signal common values, when the detector runs, then it produces no finding for that value ([test](tests/literal-reuse.unit.test.ts))
-- Given a string literal appears as an `ImportDeclaration`, `ImportExpression`, `ExportNamedDeclaration`, or `ExportAllDeclaration` source, when the detector runs, then it is excluded from the literal index ([test](tests/literal-reuse.unit.test.ts))
-- Given a node directory listed in `spx/EXCLUDE`, when the detector walks files, then files under that node's directory are not parsed or indexed ([test](tests/literal-reuse.integration.test.ts))
-- Given the detector is invoked with `--files <paths...>`, when the detector runs, then only the named files are walked and findings are reported against the indexed literal set those files contribute ([test](tests/literal-reuse.integration.test.ts))
-- Given the detector is invoked with `--json`, when it completes, then findings are emitted as a JSON document conforming to the result schema ([test](tests/literal-reuse.integration.test.ts))
+- Given a string literal carrying domain meaning appears in a file under `src/` and also in a file under `spx/**/tests/`, when the detector runs, then it reports a src↔test reuse finding citing the test location and the source location ([test](tests/literal.scenario.l1.test.ts))
+- Given a string literal carrying domain meaning appears in two or more test files but in no source file, when the detector runs, then it reports a test↔test duplication finding citing each test location ([test](tests/literal.scenario.l1.test.ts))
+- Given a numeric literal of meaningful magnitude duplicates between source and test, when the detector runs, then it reports a src↔test reuse finding ([test](tests/literal.scenario.l1.test.ts))
+- Given a literal value appears exactly once in the codebase, when the detector runs, then it produces no finding for that value ([test](tests/literal.scenario.l1.test.ts))
+- Given a literal value is in the project's allowlist, when the detector runs, then it produces no finding for that value ([test](tests/literal.scenario.l1.test.ts))
+- Given a node directory listed in `spx/EXCLUDE`, when the detector walks files, then files under that node's directory are not parsed or indexed ([test](tests/literal.scenario.l1.test.ts))
+- Given the detector is invoked with `--files <paths...>`, when it runs, then only the named files are walked and findings are reported against the index those files contribute ([test](tests/literal.scenario.l1.test.ts))
+- Given the detector is invoked with `--json`, when it completes, then the output parses through `parseLiteralReuseResult` without throwing ([test](tests/literal.scenario.l1.test.ts))
 
 ### Mappings
 
-- Finding kinds map to remediation: src↔test reuse → import the value from source; test↔test duplication absent from source → declare in shared test support and import ([test](tests/literal-reuse.unit.test.ts))
-- Literal kinds in the index: `Literal` nodes with string values, `Literal` nodes with numeric values of meaningful magnitude, `TemplateElement` cooked strings carrying domain meaning ([test](tests/literal-reuse.unit.test.ts))
+- Finding kinds map to remediation: `srcReuse` findings carry `remediation === REMEDIATION.IMPORT_FROM_SOURCE`; `testDupe` findings carry `remediation === REMEDIATION.EXTRACT_TO_SHARED_TEST_SUPPORT` ([test](tests/literal.mapping.l1.test.ts))
+- Literal kinds indexed: `Literal` nodes with string values produce occurrences with `kind === "string"`; `Literal` nodes with numeric values of meaningful magnitude produce occurrences with `kind === "number"`; `TemplateElement` cooked strings produce occurrences with `kind === "string"` ([test](tests/literal.mapping.l1.test.ts))
 
 ### Properties
 
-- Detection is deterministic: the same project state produces the same set of findings on repeated runs ([test](tests/literal-reuse.unit.test.ts))
-- Detection is order-independent: findings depend on the set of files indexed, not the order in which the detector walks them ([test](tests/literal-reuse.unit.test.ts))
-- The literal index is collision-free across kinds: a string literal `"42"` and a numeric literal `42` index under distinct keys ([test](tests/literal-reuse.unit.test.ts))
+- Detection is deterministic: for every project state, running the detector twice produces findings deep-equal to each other ([test](tests/literal.property.l1.test.ts))
+- Detection is order-independent: for every set of files `F`, running the detector with the files walked in two different orders produces finding sets that are deep-equal after canonical sort ([test](tests/literal.property.l1.test.ts))
+- Index keys are injective on `(kind, value)`: for every pair of occurrences `o1, o2` with `(o1.kind, o1.value) ≠ (o2.kind, o2.value)`, their entries in the built index occupy distinct keys ([test](tests/literal.property.l1.test.ts))
 
 ### Compliance
 
-- ALWAYS: detection respects `spx/EXCLUDE` — files under excluded node directories are not parsed or indexed ([test](tests/literal-reuse.integration.test.ts))
-- ALWAYS: detection participates in `spx validation all` as an independent stage; non-zero findings cause `spx validation all` to exit non-zero ([test](tests/literal-reuse.integration.test.ts))
-- ALWAYS: AST traversal descends only into fields the parser declares as carrying child nodes — non-child fields (`loc`, `range`, parser metadata) are not visited and contribute no literals to the index ([test](tests/literal-reuse.unit.test.ts))
-- NEVER: descend into directories that contain no TypeScript source — `node_modules`, `dist`, `build`, `.next`, `.source`, `.git`, `out`, `coverage`, and similar artifact directories are skipped at the walker level ([test](tests/literal-reuse.integration.test.ts))
-- NEVER: index literals from positions whose value names a module rather than data — import sources, export sources, dynamic import expressions ([test](tests/literal-reuse.unit.test.ts))
+- ALWAYS: detection respects `spx/EXCLUDE` — files under excluded node directories are never parsed and contribute no occurrences ([test](tests/literal.compliance.l1.test.ts))
+- ALWAYS: AST traversal descends only into fields the injected visitor-keys map declares for each node type; unknown node types short-circuit with no descent ([test](tests/literal.compliance.l1.test.ts))
+- NEVER: descend into artifact directories — `node_modules`, `dist`, `build`, `.next`, `.source`, `.git`, `out`, `coverage` ([test](tests/literal.compliance.l1.test.ts))
+- NEVER: index literals from positions that name a module — `ImportDeclaration.source`, `ExportNamedDeclaration.source`, `ExportAllDeclaration.source`, `ImportExpression.source`, `TSImportType.source`, `TSExternalModuleReference.expression` ([test](tests/literal.compliance.l1.test.ts))
+- ALWAYS: the stage participates in `spx validation all` — `allCommand` imports and invokes `literalCommand`, which returns a non-zero exit code when findings exist ([review])
