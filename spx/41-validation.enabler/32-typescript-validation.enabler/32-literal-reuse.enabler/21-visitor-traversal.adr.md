@@ -36,7 +36,8 @@ Alternatives considered:
 
 ## Invariants
 
-- For every AST node the walker receives, the set of fields descended into equals the set returned by `visitorKeys[node.type]`, or is empty if the entry is absent.
+- For every AST node the walker receives, the set of fields descended into is a subset of the fields returned by `visitorKeys[node.type]`, or is empty if the entry is absent. Subset restrictions are expressed as positional denylists — exclusions keyed to specific `(node.type, field)` pairs — and never as hand-rolled maps that substitute for the visitor-keys lookup.
+- Positional denylists filter the visitor-keys-selected field set without redefining which children a node has. A denylist entry for `ImportDeclaration.source` excludes that one field from traversal; it does not enumerate the remaining children of `ImportDeclaration`, and removing the entry restores traversal of that field with no other code change.
 - Two detector runs over the same sources produce identical literal occurrence arrays regardless of the internal iteration order of fields, because field order derives from the keys map, not from the `Object.keys` ordering of the node.
 
 ## Compliance
@@ -50,10 +51,11 @@ A single visitor function in the detector that accepts `(node, visitorKeys)` and
 - The walker accept a visitor-keys map as a dependency-injected parameter typed as `Record<string, readonly string[]>` — enables `l1` unit tests to inject a stub map covering a miniature AST ([review])
 - The default implementation compose `eslint-visitor-keys` core with the TypeScript parser's extended keys at a single construction site; the composition is exported for reuse by related pre-passes ([review])
 - The walker short-circuit to a zero-child descent when the node type is absent from the visitor-keys map — fail-closed behavior surfaces parser or map drift as missing literals, detectable by property tests ([review])
+- Positional denylists apply after the visitor-keys lookup returns its field set; the denylist filters that set by `(node.type, field)` pair and never alters which fields the lookup would otherwise have returned ([review])
 
 ### NEVER
 
 - Enumerate AST node fields by `Object.keys(node)`, `for...in`, or any untyped reflection mechanism — visits parser metadata and breaks the literal-index invariants ([review])
-- Maintain a hand-rolled node-type to field-name map inside the detector — duplicates what the parser declares and drifts silently ([review])
+- Maintain a hand-rolled node-type to field-name map that substitutes for the visitor-keys lookup — declaring which fields exist is the parser's concern, and a hand-maintained substitute drifts silently as the parser evolves. Positional denylists that filter the visitor-keys result do not substitute for it; they compose ([review])
 - Cast the node to `any` to reach into fields the type system hides — defeats the visitor-keys invariant at the type boundary ([review])
 - `vi.mock()` or `jest.mock()` the visitor-keys import in tests — dependency injection of the map is the only sanctioned test-double mechanism ([review])
