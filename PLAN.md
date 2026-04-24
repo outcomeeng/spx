@@ -40,14 +40,16 @@ Skills to invoke during execution (not loaded yet):
 
 ## Baseline
 
-| Location  | Files   | Tests    |
-| --------- | ------- | -------- |
-| specs/    | 40      | 485      |
-| tests/    | 47      | 480      |
-| spx/      | 47      | 408      |
-| **Total** | **134** | **1373** |
+Counts at plan inception, current counts in parentheses.
 
-All 1373 tests passing. 10 byte-identical specs/↔tests/ pairs, 8 diverged specs/↔tests/ pairs, 22 specs/-only files, remaining tests/ files have no specs/ counterpart.
+| Location  | Files at start | Tests at start | Files now | Tests now |
+| --------- | -------------- | -------------- | --------- | --------- |
+| specs/    | 40             | 485            | 0         | 0         |
+| tests/    | 47             | 480            | 12        | ~140      |
+| spx/      | 47             | 408            | 106       | ~910      |
+| **Total** | **134**        | **1373**       | **118**   | **1049**  |
+
+All 1049 tests passing. The remaining 12 files in `tests/` are core-cli-related (reporter, tree, scanner, CLI commands, harness) and cover Phase 3.
 
 ---
 
@@ -138,6 +140,8 @@ Every phase follows this protocol:
 
 ## Phase 0: Foundation
 
+**Status:** Done. Worktree at `../spx_pre-migration` (HEAD `306dc91`); product spec authored at `spx/spx.product.md` (commits `eb9677e`, `fd45443`).
+
 ### 0a: Create Reference Worktree
 
 ```bash
@@ -165,6 +169,8 @@ The spx/ tree lacks a `{product}.product.md`. This is required by the contextual
 ---
 
 ## Phase 1: Prune Byte-Identical specs/ Copies
+
+**Status:** Done in `1553ad2` — 10 files removed, zero coverage delta.
 
 **Goal:** Remove 10 specs/ test files that are byte-identical to their tests/ counterparts. These run the same tests twice — removing them loses zero coverage.
 
@@ -211,6 +217,8 @@ The spx/ tree lacks a `{product}.product.md`. This is required by the contextual
 
 ### 2a: Core Config (2 test files — lowest risk)
 
+**Status:** Done. Initial migration to `16-core-config.enabler` in `65c6429`; later re-scoped and renamed to `16-config.enabler` (registry-composed) in `6229eb2`.
+
 **Source:** `specs/capability-42_core-config`
 **Code:** `src/config/`
 
@@ -232,6 +240,8 @@ The spx/ tree lacks a `{product}.product.md`. This is required by the contextual
 ---
 
 ### 2b: Claude (7 test files + 1 spec-only node)
+
+**Status:** Done in `a109cd0`. `46-claude.outcome` with `21-settings-consolidation.outcome` and `32-marketplace.outcome` children. SPX-MIGRATION.md at the destination.
 
 **Source:** `specs/capability-33_claude-settings`, `specs/capability-32_claude-marketplace`
 **Code:** `src/lib/claude/permissions/`, `src/commands/claude/`
@@ -264,6 +274,8 @@ The spx/ tree lacks a `{product}.product.md`. This is required by the contextual
 ---
 
 ### 2c: Session — rearchitect subtree, then delete legacy
+
+**Status:** Done. 2c-i in `14b8ba2` + `13d36d2`; 2c-ii in `4be91b6` + `9441cdc`; 2c-iii in `4f62f2a`. SPX-MIGRATION.md at `spx/36-session.enabler/`.
 
 **Source:** Remaining `specs/capability-28_session-core` after Phase 1 + all `tests/**/session*`
 **Target:** Rearchitected `spx/36-session.enabler/` tree
@@ -390,6 +402,8 @@ At `spx/36-session.enabler/SPX-MIGRATION.md`. Documents:
 
 ### 2d: Validation (15 specs/ + 17 tests/ = 32 files — largest)
 
+**Status:** Done in `f43d85a`, `3478198`, `7c751a1`, `dc6272e`. The migration was not file-for-file: the `41-validation.enabler/` subtree was rebuilt per `11-tool-based-validation.pdr.md` (each leaf names its tool — ESLint, tsc, madge, literal-reuse detector, markdownlint-cli2). Precommit was not absorbed into validation because lefthook's runner is a peer quality gate, not a `spx validation` subcommand — it lives at `spx/43-precommit.enabler/` (added by this phase, not anticipated in the original plan). SPX-MIGRATION.md at both `spx/41-validation.enabler/` and `spx/43-precommit.enabler/`.
+
 **Source:** Remaining `specs/capability-15_infrastructure` after Phase 1 + all `tests/**/validation*`, `tests/**/precommit*`, `tests/**/eslint*`, `tests/**/commands/validation*`, validation harness
 **Code:** `src/validation/`, `src/commands/validation/`, `src/precommit/`, ESLint rules
 
@@ -457,6 +471,8 @@ Authoring determines whether each is an enabler or outcome, the parent-child rel
 
 ## Phase 3: Remaining tests/ → Existing spx/ Nodes
 
+**Status:** Not started. 12 files remain in `tests/` after Phase 2d.
+
 **Goal:** Move remaining tests/ files into existing `spx/21-core-cli.capability/` nodes. These are tests/-only files (no specs/ counterpart) for the core CLI domain.
 
 ### 3a: Reporter tests → 65-output-formatting.feature/
@@ -504,30 +520,30 @@ Authoring determines whether each is an enabler or outcome, the parent-child rel
 
 ## Phase 4: Resolve 31-spec-domain Duplicate
 
-Two nodes at BSP 31 — this is a tree invariant violation.
+**Status:** Not started. Partial movement happened in `3670c6c` (the legacy `.outcome` was retyped to `.enabler`), but the duplicate sibling at the same index was not dissolved.
+
+Two nodes at sparse-integer index 31 with the same slug — a tree invariant violation. Same index means independent peers, but same slug means the same concern; they cannot be both.
 
 **Current state:**
 
-- `31-spec-domain.capability/` — 6 features, docs, tests (37 test files covering legacy `spx spec`/`spx spx` CLI)
-- `31-spec-domain.outcome/` — apply enabler with 3 test files
+- `31-spec-domain.capability/` — pre-methodology subtree: `21-configurable-hierarchy.feature/`, `32-container-model.feature/`, `43-naming-parsing.feature/`, `54-outcomes-ledger.feature/`, `65-status-derivation.feature/`, `76-cli-commands.feature/`, plus `docs/`, `tests/`, `CLAUDE.md`, `AGENTS.md`, `spec-domain.capability.md`
+- `31-spec-domain.enabler/` — current methodology: `spec-domain.md` only (no children, no tests, no decisions)
 
-**Assessment needed:** Invoke `/spec-tree:refactoring` to determine:
+**Assessment needed:** Invoke `/spec-tree:refactoring`. For each `.feature/` child under `.capability`, classify as:
 
-1. Which `.capability` features are still relevant (or describe deprecated CLI commands)
-2. Whether `.capability` tests cover code that `.outcome` tests don't
-3. Target structure (merge into `.outcome` or renumber one node)
+1. **Still relevant** — the concern lives, but its current home is elsewhere (some are subsumed by `23-spec-tree-shape.enabler`, the kind-registry work in `926ca39`, `19-language-registration.adr.md`, or the recently-added `feat(spec-domain): add status and next commands` in `112558e`)
+2. **Superseded** — the concern was reframed by the methodology shift (e.g., status derivation is now spec-state derived from tests, not a separate CLI feature)
+3. **Dead** — describes deprecated CLI surface that was removed (`3c291eb refactor(spec-domain): remove historical status and next commands`) and not re-added
 
-**Action depends on refactoring skill output.** Possible outcomes:
-
-- **Merge:** `.capability` content absorbed into `.outcome` children → `git mv` tests, `git rm` capability tree
-- **Renumber:** Keep both but fix the BSP collision (e.g., rename `.capability` to `28-spec-domain-legacy.enabler`)
-- **Prune:** `.capability` describes deprecated CLI → `git rm` after verifying coverage is elsewhere
+**Action:** absorb survivors into `31-spec-domain.enabler/` (or other already-existing nodes), `git rm` the rest, end with exactly one `31-spec-domain.{enabler|outcome}/` directory.
 
 **Commit:** Determined by `/spec-tree:refactoring` output.
 
 ---
 
 ## Phase 5: Final Cleanup
+
+**Status:** Not started.
 
 ### 5a: Resolve `-legacy` Suffixes
 
@@ -577,27 +593,24 @@ git worktree remove "../spx_pre-migration"
 
 ## Execution Summary
 
-| Phase     | Scope                                              | Files                   | Commits         | Risk   |
-| --------- | -------------------------------------------------- | ----------------------- | --------------- | ------ |
-| 0         | Foundation (worktree, product file)                | 1 created               | 1               | Low    |
-| 1         | Prune identical specs/ copies                      | 10 removed              | 1               | Low    |
-| 2a        | Core Config → spx/                                 | 2 moved                 | 1               | Low    |
-| 2b        | Claude → spx/                                      | 7 moved                 | 1               | Medium |
-| 2c-i      | Session subtree rearchitecture + src consolidation | 7 nodes + 2 src modules | 8               | High   |
-| 2c-ii     | Delete legacy session specs/ and tests/            | ~30 removed             | 1               | Medium |
-| 2c-iii    | Session SPX-MIGRATION.md                           | 1 created               | 1               | Low    |
-| 2d-i      | Validation Core → spx/                             | 19 handled              | 1               | High   |
-| 2d-ii     | ESLint Rules → spx/                                | 3 moved                 | 1               | Low    |
-| 2d-iii    | Precommit → spx/                                   | 4 moved                 | 1               | Low    |
-| 2d-iv     | Validation Commands → spx/                         | 9 handled               | 1               | Medium |
-| 3         | Core CLI tests/ → spx/                             | 14 moved                | 1               | Low    |
-| 4         | Resolve 31-spec-domain dup                         | TBD                     | TBD             | Medium |
-| 5         | Cleanup + vitest config                            | config + -legacy        | 1               | Low    |
-| **Total** |                                                    | **~120 files**          | **~20 commits** |        |
+| Phase     | Scope                                                        | Status      | Files                   | Commits |
+| --------- | ------------------------------------------------------------ | ----------- | ----------------------- | ------- |
+| 0         | Foundation (worktree, product file)                          | Done        | 1 created               | 2+      |
+| 1         | Prune identical specs/ copies                                | Done        | 10 removed              | 1       |
+| 2a        | Core Config → spx/                                           | Done        | 2 moved                 | 2       |
+| 2b        | Claude → spx/                                                | Done        | 7 moved                 | 1       |
+| 2c-i      | Session subtree rearchitecture + src consolidation           | Done        | 7 nodes + 2 src modules | 2       |
+| 2c-ii     | Delete legacy session specs/ and tests/                      | Done        | ~30 removed             | 2       |
+| 2c-iii    | Session SPX-MIGRATION.md                                     | Done        | 1 created               | 1       |
+| 2d        | Validation rebuild + precommit peer + ESLint rules + cleanup | Done        | 4 migrated + 23 deleted | 4       |
+| 3         | Core CLI tests/ → spx/                                       | Not started | 12 to move              | TBD     |
+| 4         | Resolve 31-spec-domain dup                                   | Not started | TBD                     | TBD     |
+| 5         | Cleanup + vitest config                                      | Not started | config + -legacy        | 1       |
+| **Total** |                                                              |             |                         |         |
 
 ## Open Questions
 
-1. **Phase 2c-i src consolidation:** The rearchitecture of `src/session/prune.ts` + `src/commands/session/prune.ts` (and the equivalent for `batch.ts`) must preserve every behavioral test currently passing. Before starting, capture a coverage baseline of `src/session/**` and `src/commands/session/**` with all current tests running. After 2c-i, the coverage must be unchanged or improved, or the rearchitecture is rejected.
-2. **Phase 4 (31-spec-domain):** Requires `/spec-tree:refactoring` to determine target structure. This phase cannot be fully specified until that skill is invoked.
-3. **Legacy suffix cleanup:** After migration, some files will have `-legacy` suffixes. Phase 5a addresses this but the exact count depends on coverage comparison results.
-4. **Structural normalization (.capability → .enabler/.outcome):** Explicitly out of scope for the migration but Phase 2c demonstrates that the session subtree itself needed a separate structural cleanup. The remaining `21-core-cli.capability/`, `26-scoped-cli.capability/`, and `31-spec-domain.capability/` subtrees carry the same kind of misapplication and will need similar attention in a future initiative.
+1. **Phase 4 (31-spec-domain):** Requires `/spec-tree:refactoring`. Each `.feature/` child under `.capability` must be classified (still relevant / superseded by methodology shift / dead) before survivors are absorbed and the duplicate dissolved. Some concerns now live under `23-spec-tree-shape.enabler`, the kind-registry work in `926ca39`, or `19-language-registration.adr.md`; others were removed in `3c291eb` and partially re-added in `112558e`. Cannot be fully specified until classification runs.
+2. **Phase 3 risk:** `tests/` files for core-cli are tests/-only with no specs/ counterpart, so the unknown is whether the existing `21-core-cli.capability/` children's specs already cover the assertions these tests carry, or whether each move requires extending the destination spec.
+3. **Legacy suffix cleanup:** Phase 5a addresses any `-legacy.test.ts` files surfaced during Phase 3 collisions. None exist yet — count depends on collisions during the relocation.
+4. **Structural normalization (.capability → .enabler/.outcome):** Out of scope for this plan. Phase 2c showed the session subtree itself needed a separate structural cleanup. Phase 4 will repeat this for `31-spec-domain.capability/`. The remaining `21-core-cli.capability/` and `26-scoped-cli.capability/` subtrees carry the same misapplication and need similar attention in a future initiative.
