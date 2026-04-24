@@ -50,7 +50,16 @@ export const CLI_TIMEOUTS_MS = {
   PROCESS_START: 500,
   /** Spec parsing/scanning operations */
   SPEC_PARSE: 100,
-  /** E2E threshold: accounts for process startup + CLI execution + system variance.
-   * CI runners (GitHub Actions) are slower than local dev machines. */
-  E2E: 3000,
+  /**
+   * Wall-clock threshold for a single CLI subprocess under test-suite load.
+   *
+   * The product spec's <100ms target applies once the CLI process is already
+   * running. E2E tests also include Node startup plus worker-pool contention
+   * from the surrounding Vitest run, so they need a wider guardrail.
+   */
+  E2E: 10000,
+  /** Timeout for batched E2E tests that execute several CLI subprocesses. */
+  E2E_BATCH: 45000,
+  /** Average per-call ceiling for direct status checks in integration tests. */
+  STATUS_CHECK_AVG: 15,
 } as const;

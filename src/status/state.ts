@@ -241,46 +241,35 @@ export async function getWorkItemStatus(
   workItemPath: string,
 ): Promise<WorkItemStatus> {
   try {
-    // Step 0: Verify work item path exists
+    const testsPath = path.join(workItemPath, "tests");
+    let entries: string[];
+
     try {
-      await access(workItemPath);
+      // Read tests/ once and reuse the listing for all subsequent checks.
+      entries = await readdir(testsPath);
     } catch (error) {
       if ((error as NodeJS.ErrnoException).code === "ENOENT") {
-        throw new Error(`Work item not found: ${workItemPath}`);
+        try {
+          await access(workItemPath);
+        } catch (workItemError) {
+          if ((workItemError as NodeJS.ErrnoException).code === "ENOENT") {
+            throw new Error(`Work item not found: ${workItemPath}`);
+          }
+
+          throw workItemError;
+        }
+
+        return determineStatus({
+          hasTestsDir: false,
+          hasDoneMd: false,
+          testsIsEmpty: true,
+        });
       }
-      // Permission error or other failure
+
       throw error;
     }
 
-    // Step 1: Check if tests/ directory exists
-    const testsPath = path.join(workItemPath, "tests");
-    let hasTests: boolean;
-    try {
-      await access(testsPath);
-      hasTests = true;
-    } catch (error) {
-      if ((error as NodeJS.ErrnoException).code === "ENOENT") {
-        hasTests = false;
-      } else {
-        // Permission error or other failure
-        throw error;
-      }
-    }
-
-    // Early return if no tests directory
-    if (!hasTests) {
-      return determineStatus({
-        hasTestsDir: false,
-        hasDoneMd: false,
-        testsIsEmpty: true,
-      });
-    }
-
-    // Step 2: Read tests/ directory once (caching strategy)
-    // This single readdir call gives us all the data we need
-    const entries = await readdir(testsPath);
-
-    // Step 3: Check for DONE.md (from cached entries)
+    // Check for DONE.md from the cached entries before any extra stat call.
     const hasDone = entries.includes("DONE.md");
     if (hasDone) {
       // Verify it's a file, not a directory
@@ -296,10 +285,9 @@ export async function getWorkItemStatus(
       }
     }
 
-    // Step 4: Check if empty (from cached entries)
+    // Check if empty from the same cached entries.
     const isEmpty = isEmptyFromEntries(entries);
 
-    // Step 5: Determine final status
     return determineStatus({
       hasTestsDir: true,
       hasDoneMd: hasDone,

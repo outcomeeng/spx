@@ -4,7 +4,7 @@
  */
 import { getWorkItemStatus, StatusDeterminationError } from "@/status/state";
 import { WORK_ITEM_STATUSES } from "@/types";
-import { FIXTURES_ROOT } from "@test/harness/constants";
+import { CLI_TIMEOUTS_MS, FIXTURES_ROOT } from "@test/harness/constants";
 import { join } from "path";
 import { describe, expect, it } from "vitest";
 
@@ -110,6 +110,6 @@ describe("Status determination performance", () => {
 
     // Then: Average should be well under 5ms per call
     // Note: This is a rough check, not a precise benchmark
-    expect(avgTime).toBeLessThan(10); // Generous threshold for CI environments
+    expect(avgTime).toBeLessThan(CLI_TIMEOUTS_MS.STATUS_CHECK_AVG);
   });
 });

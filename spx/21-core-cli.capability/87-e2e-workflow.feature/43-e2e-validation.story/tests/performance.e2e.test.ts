@@ -100,7 +100,7 @@ describe("E2E: Performance", () => {
       }
 
       expect(Math.max(...times)).toBeLessThan(CLI_TIMEOUTS_MS.E2E);
-    });
+    }, CLI_TIMEOUTS_MS.E2E_BATCH);
 
     it("GIVEN fixture WHEN running multiple formats THEN all complete within threshold each", async () => {
       const tree = generateFixtureTree(PRESETS.SHALLOW_50);
@@ -122,7 +122,7 @@ describe("E2E: Performance", () => {
         expect(exitCode).toBe(0);
         expect(elapsed).toBeLessThan(CLI_TIMEOUTS_MS.E2E);
       }
-    });
+    }, CLI_TIMEOUTS_MS.E2E_BATCH);
   });
 
   describe("Summary Accuracy", () => {

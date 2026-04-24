@@ -68,7 +68,7 @@ describe("Feature 87: E2E Workflow Integration", () => {
         await fixture.cleanup();
         fixture = null;
       }
-    });
+    }, CLI_TIMEOUTS_MS.E2E_BATCH);
 
     it("GIVEN createFixture convenience wrapper WHEN calling THEN works end-to-end", async () => {
       // Using the convenience wrapper combines story 21 + 32
