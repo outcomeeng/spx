@@ -15,7 +15,7 @@ import { RuleTester } from "eslint";
 import tseslint from "typescript-eslint";
 import { describe } from "vitest";
 
-import rule from "../../../eslint-rules/no-hardcoded-statuses";
+import rule from "@eslint-rules/no-hardcoded-statuses";
 
 const ruleTester = new RuleTester({
   languageOptions: {

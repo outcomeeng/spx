@@ -35,7 +35,7 @@ describe("ESLint Rules Integration", () => {
   let eslint: ESLint;
 
   // Project root where eslint.config.ts lives
-  const projectRoot = path.resolve(import.meta.dirname, "../../..");
+  const projectRoot = path.resolve(import.meta.dirname, "../../../../../");
 
   beforeAll(() => {
     eslint = new ESLint({

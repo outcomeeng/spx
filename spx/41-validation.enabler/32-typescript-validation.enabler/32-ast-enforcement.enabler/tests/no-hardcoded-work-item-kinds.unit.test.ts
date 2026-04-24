@@ -15,7 +15,7 @@ import { RuleTester } from "eslint";
 import tseslint from "typescript-eslint";
 import { describe } from "vitest";
 
-import rule from "../../../eslint-rules/no-hardcoded-work-item-kinds";
+import rule from "@eslint-rules/no-hardcoded-work-item-kinds";
 
 const ruleTester = new RuleTester({
   languageOptions: {

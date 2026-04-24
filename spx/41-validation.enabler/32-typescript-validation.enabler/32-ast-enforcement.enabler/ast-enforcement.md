@@ -28,6 +28,18 @@ BDD test hygiene (custom rule module in `eslint-rules/`):
 - try-catch with expect() and empty catch maps to lint error — empty catch swallows assertion failures ([test](tests/ast-enforcement.unit.test.ts))
 - try-catch with expect() and non-rethrowing catch maps to lint error — catch silently suppresses failures ([test](tests/ast-enforcement.unit.test.ts))
 
+Registry-backed literal enforcement (custom rule modules in `eslint-rules/`):
+
+- `no-hardcoded-statuses` flags each occurrence of the exact literal string `"OPEN"`, `"IN_PROGRESS"`, or `"DONE"` appearing in assertion-argument positions within `*.test.ts`/`*.test.tsx` files — each occurrence maps to a lint error directing the author to reference the typed `WORK_ITEM_STATUSES` registry instead ([test](tests/no-hardcoded-statuses.unit.test.ts))
+- `no-hardcoded-work-item-kinds` flags each occurrence of the exact literal string `"capability"`, `"feature"`, or `"story"` appearing in assertion-argument positions within `*.test.ts`/`*.test.tsx` files — each occurrence maps to a lint error directing the author to reference the typed `WORK_ITEM_KINDS` registry instead ([test](tests/no-hardcoded-work-item-kinds.unit.test.ts))
+- Whitelisted positions produce no diagnostic for either registry rule: the string argument to `describe`/`it`/`test`/`describe.each`/`it.each`/`test.each`, the literal type position in `type X = "..."` or `const x: "..." = ...`, and any string that is a substring of a larger identifier (`"DONE.md"` or `"capability-28"` never match) ([test](tests/no-hardcoded-statuses.unit.test.ts), [test](tests/no-hardcoded-work-item-kinds.unit.test.ts))
+
+### Scenarios
+
+- Given `eslint.config.ts` loads the custom rule plugin, when real ESLint runs against a representative mix of production and test files, then every custom rule declared above is registered and evaluable without configuration errors ([test](tests/eslint-rules.integration.test.ts))
+- Given a `*.test.ts` file contains a hardcoded registry literal in an assertion-argument position, when real ESLint runs against that file, then the corresponding rule reports the violation with its rule name ([test](tests/eslint-rules.integration.test.ts))
+- Given a source file (non-`*.test.ts`) contains the same hardcoded registry literal, when real ESLint runs against that file, then the registry rules report no violation — the rules apply to test files only ([test](tests/eslint-rules.integration.test.ts))
+
 ### Compliance
 
 - ALWAYS: ESLint flat config references project-specific rules from the enforcement rule set ([review])
