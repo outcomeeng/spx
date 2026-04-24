@@ -17,7 +17,7 @@ import {
   writeExclude,
 } from "./support.js";
 
-describe("exclude-scoping — mappings", () => {
+describe("ignore-source — mappings", () => {
   it("a node path segment in EXCLUDE maps to the directory spx/{segment}/ for prefix matching", async () => {
     await withTestEnv(INTEGRATION_CONFIG, async (env) => {
       await writeExclude(env, [NODE_SEGMENT_SIMPLE]);

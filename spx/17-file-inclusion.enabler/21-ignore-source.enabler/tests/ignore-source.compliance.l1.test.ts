@@ -17,7 +17,7 @@ import {
   writeExcludeRaw,
 } from "./support.js";
 
-describe("exclude-scoping — compliance", () => {
+describe("ignore-source — compliance", () => {
   it("EXCLUDE is append-tolerant: comments, blank lines, and trailing whitespace parse without error", async () => {
     await withTestEnv(INTEGRATION_CONFIG, async (env) => {
       await writeExclude(env, [

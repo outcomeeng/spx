@@ -18,7 +18,7 @@ import {
   writeExcludeRaw,
 } from "./support.js";
 
-describe("exclude-scoping — scenarios", () => {
+describe("ignore-source — scenarios", () => {
   it("EXCLUDE lists a node path and the filter reports a file inside that node directory as excluded", async () => {
     await withTestEnv(INTEGRATION_CONFIG, async (env) => {
       await writeExclude(env, [NODE_SEGMENT_SIMPLE]);

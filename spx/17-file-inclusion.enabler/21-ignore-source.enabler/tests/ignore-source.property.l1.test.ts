@@ -18,7 +18,7 @@ import {
   writeExclude,
 } from "./support.js";
 
-describe("exclude-scoping — properties", () => {
+describe("ignore-source — properties", () => {
   it("filtering is deterministic: the same EXCLUDE content always produces the same exclusion set", async () => {
     await fc.assert(
       fc.asyncProperty(
@@ -56,10 +56,10 @@ describe("exclude-scoping — properties", () => {
   it("path matching is prefix-based: any file inside an excluded node directory matches the exclusion", async () => {
     await fc.assert(
       fc.asyncProperty(
-        fc.array(
-          fc.constantFrom(...SUBPATHS_FOR_PREFIX_CHECK),
-          { minLength: 1, maxLength: ARBITRARY_QUERY_MAX },
-        ),
+        fc.array(fc.constantFrom(...SUBPATHS_FOR_PREFIX_CHECK), {
+          minLength: 1,
+          maxLength: ARBITRARY_QUERY_MAX,
+        }),
         async (subpaths) => {
           await withTestEnv(INTEGRATION_CONFIG, async (env) => {
             await writeExclude(env, [NODE_SEGMENT_SIMPLE]);

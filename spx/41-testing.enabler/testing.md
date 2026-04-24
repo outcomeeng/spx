@@ -26,6 +26,6 @@ CAN run all spec-tree tests with a single command, honoring the specified-state 
 
 ### Compliance
 
-- ALWAYS: `spx test passing` reads `spx/EXCLUDE` via the exclude-scoping enabler — no duplicate parsing logic ([review])
+- ALWAYS: `spx test passing` reads `spx/EXCLUDE` via the [file-inclusion enabler](./17-file-inclusion.enabler/file-inclusion.md) — no duplicate parsing logic ([review])
 - ALWAYS: runner invocation is gated on language presence per `../19-language-registration.adr.md` ([review])
 - NEVER: write to project configuration files (`pyproject.toml`, `package.json`, `tsconfig.json`, `vitest.config.ts`) — exclusion applies via runner flags at invocation time ([review])
