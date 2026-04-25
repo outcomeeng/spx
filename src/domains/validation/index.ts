@@ -21,6 +21,107 @@ import type { Domain } from "../types";
 /** Validation scope options */
 type ValidationScope = "full" | "production";
 
+interface ValidationDomainCommandDefinition {
+  readonly commandName: string;
+  readonly alias: string;
+  readonly description: string;
+}
+
+interface ValidationSubcommandDefinition {
+  readonly commandName: string;
+  readonly alias?: string;
+  readonly description: string;
+}
+
+interface ValidationCliDefinition {
+  readonly domain: ValidationDomainCommandDefinition;
+  readonly subcommands: {
+    readonly typescript: ValidationSubcommandDefinition;
+    readonly lint: ValidationSubcommandDefinition;
+    readonly circular: ValidationSubcommandDefinition;
+    readonly knip: ValidationSubcommandDefinition;
+    readonly literal: ValidationSubcommandDefinition;
+    readonly markdown: ValidationSubcommandDefinition;
+    readonly all: ValidationSubcommandDefinition;
+  };
+  readonly commanderHelpOperands: {
+    readonly subcommand: string;
+    readonly longFlag: string;
+    readonly shortFlag: string;
+  };
+  readonly diagnostics: {
+    readonly unknownSubcommand: {
+      readonly messageLabel: string;
+      readonly exitCode: number;
+    };
+  };
+}
+
+export const validationCliDefinition: ValidationCliDefinition = {
+  domain: {
+    commandName: "validation",
+    alias: "v",
+    description: "Run code validation tools",
+  },
+  subcommands: {
+    typescript: {
+      commandName: "typescript",
+      alias: "ts",
+      description: "Run TypeScript type checking",
+    },
+    lint: {
+      commandName: "lint",
+      description: "Run ESLint",
+    },
+    circular: {
+      commandName: "circular",
+      description: "Check for circular dependencies",
+    },
+    knip: {
+      commandName: "knip",
+      description: "Detect unused code",
+    },
+    literal: {
+      commandName: "literal",
+      description: "Detect cross-file literal reuse between source and tests",
+    },
+    markdown: {
+      commandName: "markdown",
+      alias: "md",
+      description: "Validate markdown link integrity and structure",
+    },
+    all: {
+      commandName: "all",
+      description: "Run all validations",
+    },
+  },
+  commanderHelpOperands: {
+    subcommand: "help",
+    longFlag: "--help",
+    shortFlag: "-h",
+  },
+  diagnostics: {
+    unknownSubcommand: {
+      messageLabel: "unknown subcommand",
+      exitCode: 1,
+    },
+  },
+} as const;
+
+const validationSubcommandOperands = Object.values(validationCliDefinition.subcommands).flatMap(
+  (subcommand) => {
+    const operands = [subcommand.commandName];
+    if (subcommand.alias !== undefined) operands.push(subcommand.alias);
+    return operands;
+  },
+);
+
+export const validationKnownOperands: ReadonlySet<string> = new Set([
+  ...validationSubcommandOperands,
+  ...Object.values(validationCliDefinition.commanderHelpOperands),
+]);
+export const validationOptionPrefix = validationCliDefinition.commanderHelpOperands.longFlag.slice(0, 1);
+
 /** Common options for all validation commands */
 interface CommonOptions {
   scope?: ValidationScope;
@@ -45,15 +146,29 @@ function addCommonOptions(cmd: Command): Command {
     .option("--json", "Output results as JSON");
 }
 
+function addValidationSubcommand(
+  validationCmd: Command,
+  definition: ValidationSubcommandDefinition,
+): Command {
+  let subcommand = validationCmd
+    .command(definition.commandName)
+    .description(definition.description);
+
+  if (definition.alias !== undefined) {
+    subcommand = subcommand.alias(definition.alias);
+  }
+
+  return subcommand;
+}
+
 /**
  * Register validation domain commands
  */
 function registerValidationCommands(validationCmd: Command): void {
+  const { subcommands } = validationCliDefinition;
+
   // typescript command
-  const tsCmd = validationCmd
-    .command("typescript")
-    .alias("ts")
-    .description("Run TypeScript type checking")
+  const tsCmd = addValidationSubcommand(validationCmd, subcommands.typescript)
     .action(async (options: CommonOptions) => {
       const result = await typescriptCommand({
         cwd: process.cwd(),
@@ -68,9 +183,7 @@ function registerValidationCommands(validationCmd: Command): void {
   addCommonOptions(tsCmd);
 
   // lint command
-  const lintCmd = validationCmd
-    .command("lint")
-    .description("Run ESLint")
+  const lintCmd = addValidationSubcommand(validationCmd, subcommands.lint)
     .option("--fix", "Auto-fix issues")
     .action(async (options: LintOptions) => {
       const result = await lintCommand({
@@ -87,9 +200,7 @@ function registerValidationCommands(validationCmd: Command): void {
   addCommonOptions(lintCmd);
 
   // circular command
-  const circularCmd = validationCmd
-    .command("circular")
-    .description("Check for circular dependencies")
+  const circularCmd = addValidationSubcommand(validationCmd, subcommands.circular)
     .action(async (options: CommonOptions) => {
       const result = await circularCommand({
         cwd: process.cwd(),
@@ -102,9 +213,7 @@ function registerValidationCommands(validationCmd: Command): void {
   addCommonOptions(circularCmd);
 
   // knip command
-  const knipCmd = validationCmd
-    .command("knip")
-    .description("Detect unused code")
+  const knipCmd = addValidationSubcommand(validationCmd, subcommands.knip)
     .action(async (options: CommonOptions) => {
       const result = await knipCommand({
         cwd: process.cwd(),
@@ -117,9 +226,7 @@ function registerValidationCommands(validationCmd: Command): void {
   addCommonOptions(knipCmd);
 
   // literal command (cross-file literal-reuse detector)
-  const literalCmd = validationCmd
-    .command("literal")
-    .description("Detect cross-file literal reuse between source and tests")
+  const literalCmd = addValidationSubcommand(validationCmd, subcommands.literal)
     .action(async (options: CommonOptions) => {
       const result = await literalCommand({
         cwd: process.cwd(),
@@ -133,10 +240,7 @@ function registerValidationCommands(validationCmd: Command): void {
   addCommonOptions(literalCmd);
 
   // markdown command
-  const markdownCmd = validationCmd
-    .command("markdown")
-    .alias("md")
-    .description("Validate markdown link integrity and structure")
+  const markdownCmd = addValidationSubcommand(validationCmd, subcommands.markdown)
     .addHelpText(
       "after",
       "\nValidates spx/ and docs/ by default. Nodes listed in spx/EXCLUDE are\n"
@@ -155,9 +259,7 @@ function registerValidationCommands(validationCmd: Command): void {
   addCommonOptions(markdownCmd);
 
   // all command
-  const allCmd = validationCmd
-    .command("all")
-    .description("Run all validations")
+  const allCmd = addValidationSubcommand(validationCmd, subcommands.all)
     .option("--fix", "Auto-fix ESLint issues")
     .action(async (options: LintOptions) => {
       const result = await allCommand({
@@ -177,23 +279,24 @@ function registerValidationCommands(validationCmd: Command): void {
 /**
  * Validation domain - Run code validation tools
  */
-const UNKNOWN_SUBCOMMAND_EXIT_CODE = 1;
-
 function handleUnknownSubcommand(operands: readonly string[]): never {
   const [first] = operands;
   const sanitized = sanitizeCliArgument(first);
-  process.stderr.write(`spx validation: unknown subcommand: ${sanitized}\n`);
-  process.exit(UNKNOWN_SUBCOMMAND_EXIT_CODE);
+  const { domain, diagnostics } = validationCliDefinition;
+  const { unknownSubcommand } = diagnostics;
+  process.stderr.write(`spx ${domain.commandName}: ${unknownSubcommand.messageLabel}: ${sanitized}\n`);
+  process.exit(unknownSubcommand.exitCode);
 }
 
 export const validationDomain: Domain = {
-  name: "validation",
-  description: "Run code validation tools",
+  name: validationCliDefinition.domain.commandName,
+  description: validationCliDefinition.domain.description,
   register: (program: Command) => {
+    const { domain } = validationCliDefinition;
     const validationCmd = program
-      .command("validation")
-      .alias("v")
-      .description("Run code validation tools");
+      .command(domain.commandName)
+      .alias(domain.alias)
+      .description(domain.description);
 
     validationCmd.on("command:*", (operands: readonly string[]) => {
       handleUnknownSubcommand(operands);
