@@ -1,22 +1,14 @@
-/**
- * Integration tests for withSpecEnv context manager
- *
- * Level 2: Tests real filesystem operations in os.tmpdir()
- *
- * @see specs/doing/capability-21_core-cli/feature-48_test-harness/story-21_context-manager/
- * @see specs/doing/capability-21_core-cli/feature-48_test-harness/story-32_fixture-integration/
- */
+import { PRESETS } from "@test/harness/fixture-generator";
+import { withSpecEnv } from "@test/harness/with-spec-env";
 import { existsSync, readdirSync } from "node:fs";
 import { rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { describe, expect, it } from "vitest";
-import { PRESETS } from "./fixture-generator";
-import { withSpecEnv } from "./with-spec-env";
 
 describe("withSpecEnv", () => {
-  describe("bare temp directory (default)", () => {
-    it("GIVEN no options WHEN called THEN creates temp directory in tmpdir", async () => {
+  describe("bare temp directory", () => {
+    it("GIVEN no options WHEN called THEN creates temp directory under os.tmpdir()", async () => {
       let capturedPath: string | undefined;
 
       await withSpecEnv(async ({ path }) => {
@@ -26,20 +18,16 @@ describe("withSpecEnv", () => {
         expect(existsSync(path)).toBe(true);
       });
 
-      // Verify cleanup
       expect(existsSync(capturedPath!)).toBe(false);
     });
 
-    it("GIVEN callback returns value WHEN called THEN returns that value", async () => {
+    it("GIVEN callback returns a value WHEN called THEN resolves to that value", async () => {
       const result = await withSpecEnv(async () => 42);
       expect(result).toBe(42);
     });
 
-    it("GIVEN callback returns object WHEN called THEN returns that object", async () => {
-      const result = await withSpecEnv(async ({ path }) => ({
-        path,
-        custom: "value",
-      }));
+    it("GIVEN callback returns an object WHEN called THEN resolves to that object", async () => {
+      const result = await withSpecEnv(async ({ path }) => ({ path, custom: "value" }));
       expect(result.custom).toBe("value");
       expect(result.path).toContain("spx-test-");
     });
@@ -60,7 +48,7 @@ describe("withSpecEnv", () => {
       });
     });
 
-    it("GIVEN emptySpecs: true WHEN completed THEN cleans up", async () => {
+    it("GIVEN emptySpecs: true WHEN completed THEN cleans up the entire tree", async () => {
       let capturedPath: string | undefined;
 
       await withSpecEnv({ emptySpecs: true }, async ({ path }) => {
@@ -72,11 +60,10 @@ describe("withSpecEnv", () => {
   });
 
   describe("fixture mode", () => {
-    it("GIVEN fixture: PRESETS.MINIMAL WHEN called THEN creates fixture structure", async () => {
+    it("GIVEN fixture: PRESETS.MINIMAL WHEN called THEN specs/work/doing contains capability directories", async () => {
       await withSpecEnv({ fixture: PRESETS.MINIMAL }, async ({ path }) => {
         const doingPath = join(path, "specs", "work", "doing");
         expect(existsSync(doingPath)).toBe(true);
-
         const contents = readdirSync(doingPath);
         expect(contents.some((d) => d.startsWith("capability-"))).toBe(true);
       });
@@ -93,15 +80,15 @@ describe("withSpecEnv", () => {
       expect(existsSync(capturedPath!)).toBe(false);
     });
 
-    it("GIVEN fixture with custom config WHEN called THEN creates matching fixture", async () => {
-      const customConfig = {
+    it("GIVEN fixture config with 2 capabilities WHEN called THEN doing contains exactly 2 capability directories", async () => {
+      const config = {
         capabilities: 2,
         featuresPerCapability: 1,
         storiesPerFeature: 1,
         statusDistribution: { done: 1, inProgress: 0, open: 0 },
       };
 
-      await withSpecEnv({ fixture: customConfig }, async ({ path }) => {
+      await withSpecEnv({ fixture: config }, async ({ path }) => {
         const doingPath = join(path, "specs", "work", "doing");
         const contents = readdirSync(doingPath);
         const caps = contents.filter((d) => d.startsWith("capability-"));
@@ -109,21 +96,17 @@ describe("withSpecEnv", () => {
       });
     });
 
-    it("GIVEN both fixture and emptySpecs WHEN called THEN fixture takes precedence", async () => {
-      await withSpecEnv(
-        { fixture: PRESETS.MINIMAL, emptySpecs: true },
-        async ({ path }) => {
-          // Should have full fixture structure, not just empty specs
-          const doingPath = join(path, "specs", "work", "doing");
-          const contents = readdirSync(doingPath);
-          expect(contents.some((d) => d.startsWith("capability-"))).toBe(true);
-        },
-      );
+    it("GIVEN both fixture and emptySpecs: true WHEN called THEN fixture takes precedence", async () => {
+      await withSpecEnv({ fixture: PRESETS.MINIMAL, emptySpecs: true }, async ({ path }) => {
+        const doingPath = join(path, "specs", "work", "doing");
+        const contents = readdirSync(doingPath);
+        expect(contents.some((d) => d.startsWith("capability-"))).toBe(true);
+      });
     });
   });
 
   describe("cleanup behavior", () => {
-    it("GIVEN callback throws error WHEN called THEN still cleans up", async () => {
+    it("GIVEN callback throws WHEN called THEN error propagates and temp directory is deleted", async () => {
       let capturedPath: string | undefined;
 
       await expect(
@@ -136,7 +119,7 @@ describe("withSpecEnv", () => {
       expect(existsSync(capturedPath!)).toBe(false);
     });
 
-    it("GIVEN fixture callback throws WHEN called THEN still cleans up fixture", async () => {
+    it("GIVEN fixture callback throws WHEN called THEN error propagates and fixture directory is deleted", async () => {
       let capturedPath: string | undefined;
 
       await expect(
@@ -149,41 +132,34 @@ describe("withSpecEnv", () => {
       expect(existsSync(capturedPath!)).toBe(false);
     });
 
-    it("GIVEN directory already deleted by callback WHEN cleanup runs THEN does not throw", async () => {
-      // This tests idempotent cleanup
+    it("GIVEN callback deletes the directory WHEN cleanup runs THEN no error is thrown", async () => {
       await withSpecEnv(async ({ path }) => {
-        // Delete directory inside callback
         await rm(path, { recursive: true });
       });
-      // Should not throw
     });
 
-    it("GIVEN emptySpecs directory deleted WHEN cleanup runs THEN does not throw", async () => {
+    it("GIVEN emptySpecs directory deleted by callback WHEN cleanup runs THEN no error is thrown", async () => {
       await withSpecEnv({ emptySpecs: true }, async ({ path }) => {
         await rm(path, { recursive: true });
       });
-      // Should not throw
     });
   });
 
-  describe("type safety", () => {
-    it("GIVEN async function returning void WHEN called THEN returns undefined", async () => {
+  describe("type preservation", () => {
+    it("GIVEN async function returning void WHEN called THEN resolves to undefined", async () => {
       const result = await withSpecEnv(async () => {
-        // void function
+        // void
       });
       expect(result).toBeUndefined();
     });
 
-    it("GIVEN generic type WHEN called THEN preserves type", async () => {
+    it("GIVEN generic type T WHEN called THEN resolves to a value of type T", async () => {
       interface CustomResult {
         count: number;
         label: string;
       }
 
-      const result = await withSpecEnv<CustomResult>(async () => ({
-        count: 5,
-        label: "test",
-      }));
+      const result = await withSpecEnv<CustomResult>(async () => ({ count: 5, label: "test" }));
 
       expect(result.count).toBe(5);
       expect(result.label).toBe("test");

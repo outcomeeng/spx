@@ -471,7 +471,7 @@ Authoring determines whether each is an enabler or outcome, the parent-child rel
 
 ## Phase 3: Remaining tests/ → Existing spx/ Nodes
 
-**Status:** Not started. 12 files remain in `tests/` after Phase 2d.
+**Status:** Done. 5 `.feature` dirs renamed to `.enabler`, 5 specs rewritten with typed assertions, 5 canonical test files written, 12 originals removed. All 1110 tests pass.
 
 **Goal:** Move remaining tests/ files into existing `spx/21-core-cli.capability/` nodes. These are tests/-only files (no specs/ counterpart) for the core CLI domain.
 
@@ -603,7 +603,7 @@ git worktree remove "../spx_pre-migration"
 | 2c-ii     | Delete legacy session specs/ and tests/                      | Done        | ~30 removed             | 2       |
 | 2c-iii    | Session SPX-MIGRATION.md                                     | Done        | 1 created               | 1       |
 | 2d        | Validation rebuild + precommit peer + ESLint rules + cleanup | Done        | 4 migrated + 23 deleted | 4       |
-| 3         | Core CLI tests/ → spx/                                       | Not started | 12 to move              | TBD     |
+| 3         | Core CLI tests/ → spx/                                       | Done        | 12 removed, 5 written   | TBD     |
 | 4         | Resolve 31-spec-domain dup                                   | Not started | TBD                     | TBD     |
 | 5         | Cleanup + vitest config                                      | Not started | config + -legacy        | 1       |
 | **Total** |                                                              |             |                         |         |
