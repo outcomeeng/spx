@@ -58,35 +58,48 @@ The `specs/` directory uses the legacy task-driven system (backlog/doing/done wi
 
 ---
 
-## Validation Gate (Mandatory Before Commit)
+## Validation and Publish Gates
 
-**NEVER commit without passing validation.** This is *non-negotiable*.
+**NEVER commit without passing source validation. NEVER publish without passing the publish gate.**
 
 ```bash
-# Full validation pipeline (circular deps → ESLint → TypeScript)
+# Source validation for current TypeScript source
 pnpm run validate
 
 # Quick verification before committing
 pnpm run validate && pnpm test
 
-# Build (required before push — the global `spx` command runs from dist/)
+# Build packaged output for the `spx` executable
 pnpm run build
+
+# Publish gate: source validation, build, tests, packaged validation
+pnpm run publish:check
 ```
+
+`pnpm run validate` and related development scripts execute `tsx src/cli.ts`, so they validate the current source tree even when `dist/` exists. The packaged executable `bin/spx.js` requires `dist/cli.js`; invoke it only after `pnpm run build`.
 
 ### Pre-Commit Checklist
 
 Before committing ANY changes:
 
-- [ ] **`pnpm run validate`** passes (all 3 steps: circular deps, ESLint, TypeScript)
+- [ ] **`pnpm run validate`** passes (source CLI full pipeline)
 - [ ] **`pnpm test`** shows 0 failed tests
 
 ### Pre-Push Checklist
 
 Before pushing (enforced by lefthook pre-push hook):
 
-- [ ] **`pnpm run build`** succeeds — the `spx` global link runs `dist/cli.js`, not source
+- [ ] **`pnpm run build`** succeeds
 - [ ] **`pnpm run validate`** passes
 - [ ] **`pnpm test`** passes
+
+### Pre-Publish Checklist
+
+Before publishing or tagging a release:
+
+- [ ] **`pnpm run publish:check`** passes
+- [ ] **`pnpm run validate:published`** passes after the final build
+- [ ] The version in `package.json` matches the release tag
 
 ### Committing Changes
 
@@ -104,15 +117,17 @@ git add . && git commit -m "..."
 
 All validation runs through `spx validation` subcommands. Use pnpm scripts or call spx directly:
 
-| pnpm Script                    | spx Command                             | Purpose                     |
-| ------------------------------ | --------------------------------------- | --------------------------- |
-| `pnpm run validate`            | `spx validation all`                    | Full validation pipeline    |
-| `pnpm run validate:production` | `spx validation all --scope production` | Production scope only       |
-| `pnpm run lint`                | `spx validation lint`                   | ESLint only                 |
-| `pnpm run lint:fix`            | `spx validation lint --fix`             | Auto-fix ESLint issues      |
-| `pnpm run typecheck`           | `spx validation typescript`             | TypeScript only             |
-| `pnpm run circular`            | `spx validation circular`               | Check circular dependencies |
-| `pnpm run knip`                | `spx validation knip`                   | Find unused code            |
+| pnpm Script                    | Executable path                                      | Purpose                          |
+| ------------------------------ | ---------------------------------------------------- | -------------------------------- |
+| `pnpm run validate`            | `tsx src/cli.ts validation all`                      | Source full validation pipeline  |
+| `pnpm run validate:production` | `tsx src/cli.ts validation all --scope production`   | Source production scope only     |
+| `pnpm run validate:published`  | `node bin/spx.js validation all --scope production`  | Built executable validation      |
+| `pnpm run publish:check`       | source validation -> build -> tests -> packaged gate | Required pre-publish gate        |
+| `pnpm run lint`                | `tsx src/cli.ts validation lint`                     | ESLint only                      |
+| `pnpm run lint:fix`            | `tsx src/cli.ts validation lint --fix`               | Auto-fix ESLint issues           |
+| `pnpm run typecheck`           | `tsx src/cli.ts validation typescript`               | TypeScript only                  |
+| `pnpm run circular`            | `tsx src/cli.ts validation circular`                 | Check circular dependencies      |
+| `pnpm run knip`                | `tsx src/cli.ts validation knip`                     | Find unused code                 |
 
 **Options available on all spx validation subcommands:**
 

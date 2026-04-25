@@ -4,11 +4,11 @@ Developer CLI for code validation and session management.
 
 ## What is spx?
 
-**spx** is a developer CLI that provides code validation and session management for spec-driven projects. It orchestrates linting, type checking, circular dependency detection, and manages work handoffs between agent contexts.
+**spx** is a developer CLI that provides code validation and session management for spec-driven projects. It orchestrates linting, type checking, circular dependency detection, markdown validation, literal reuse checks, and work handoffs between agent contexts.
 
 ### Key Benefits
 
-- **Unified validation**: Run ESLint, TypeScript, and circular dependency checks through a single command
+- **Unified validation**: Run the full quality gate through a single command
 - **Session management**: Queue, claim, and hand off work between agents
 - **Multiple formats**: Text, JSON output for CI and automation
 - **Secure publishing**: OIDC Trusted Publishing with Sigstore provenance via GitHub Actions
@@ -35,7 +35,7 @@ pnpm link --global
 ### Code Validation
 
 ```bash
-# Full validation pipeline (circular deps → ESLint → TypeScript)
+# Full validation pipeline
 spx validation all
 
 # Individual checks
@@ -44,6 +44,8 @@ spx validation lint --fix     # ESLint with auto-fix
 spx validation typescript     # TypeScript type checking
 spx validation circular       # Circular dependency detection
 spx validation knip           # Unused code detection
+spx validation markdown       # Markdown link validation
+spx validation literal        # Source/test literal reuse detection
 
 # Production scope only (excludes tests/scripts)
 spx validation all --scope production
@@ -105,25 +107,35 @@ pnpm link --global  # Optional: makes 'spx' available in your shell
 ```bash
 pnpm run build          # Build with tsup
 pnpm run dev            # Build in watch mode
-pnpm test               # Run all tests
+pnpm test               # Build, then run all tests
 pnpm run test:watch     # Run tests in watch mode
 pnpm run test:unit      # Unit tests only
-pnpm run test:e2e       # End-to-end tests only
+pnpm run test:e2e       # Build, then run end-to-end tests
 pnpm run test:coverage  # Tests with coverage
 ```
 
 ### Validation (Required Before Commits)
 
 ```bash
-pnpm run validate       # Full pipeline: circular deps → ESLint → TypeScript
-pnpm run lint           # ESLint only
-pnpm run lint:fix       # ESLint with auto-fix
-pnpm run typecheck      # TypeScript only
-pnpm run circular       # Circular dependency detection
-pnpm run knip           # Unused code detection
+pnpm run validate              # Source CLI: full validation pipeline
+pnpm run validate:production   # Source CLI: production scope only
+pnpm run lint                  # Source CLI: ESLint only
+pnpm run lint:fix              # Source CLI: ESLint with auto-fix
+pnpm run typecheck             # Source CLI: TypeScript only
+pnpm run circular              # Source CLI: circular dependency detection
+pnpm run knip                  # Source CLI: unused code detection
 ```
 
-The `pnpm run` scripts use `node bin/spx.js` internally, so they work without a global link. Once linked, you can also use `spx validation all` etc. directly.
+The development validation scripts run `tsx src/cli.ts`, so they validate the current source tree. The packaged executable at `bin/spx.js` requires `dist/cli.js`; run `pnpm run build` before invoking it directly or through a global link.
+
+### Publish Validation
+
+```bash
+pnpm run publish:check        # Source validation, build, tests, packaged validation
+pnpm run validate:published   # Packaged executable validation; requires dist/cli.js
+```
+
+`pnpm run publish:check` is the required pre-publish gate. It runs source validation, builds `dist/`, runs the test suite, and then runs `node bin/spx.js validation all --scope production` against the built executable.
 
 ## CI/CD
 
@@ -135,11 +147,12 @@ The project uses GitHub Actions for continuous integration and publishing:
 
 ### Publishing a Release
 
-1. Bump the version in `package.json`
-2. Commit and tag: `git tag vX.Y.Z`
-3. Push: `git push origin main && git push origin vX.Y.Z`
-4. Approve the deployment in the GitHub Actions `npm-publish` environment
-5. The package is published with provenance — verify with `npm audit signatures`
+1. Run `pnpm run publish:check`
+2. Bump the version in `package.json`
+3. Commit and tag: `git tag vX.Y.Z`
+4. Push: `git push origin main && git push origin vX.Y.Z`
+5. Approve the deployment in the GitHub Actions `npm-publish` environment
+6. Verify provenance with `npm audit signatures`
 
 ## Technical Stack
 
