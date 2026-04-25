@@ -11,8 +11,6 @@
  *
  * @see decisions/adr-21_eslint-testing-harness.md
  */
-import path from "node:path";
-
 import { ESLint } from "eslint";
 import { beforeAll, describe, expect, it } from "vitest";
 
@@ -35,7 +33,7 @@ describe("ESLint Rules Integration", () => {
   let eslint: ESLint;
 
   // Project root where eslint.config.ts lives
-  const projectRoot = path.resolve(import.meta.dirname, "../../../../../");
+  const projectRoot = process.cwd();
 
   beforeAll(() => {
     eslint = new ESLint({
