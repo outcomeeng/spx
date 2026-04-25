@@ -1,0 +1,149 @@
+<audit_verdict>
+  <header>
+    <spec_node>spx/17-file-inclusion.enabler/21-ignore-source.enabler</spec_node>
+    <verdict>REJECT</verdict>
+    <timestamp>2026-04-25T15:45:00Z</timestamp>
+  </header>
+  <gates>
+    <gate id="0" name="deterministic" status="PASS">
+      <findings count="0"/>
+    </gate>
+    <gate id="1" name="assertion" status="FAIL">
+      <assertions>
+        <assertion index="1">
+          <spec_file>spx/17-file-inclusion.enabler/21-ignore-source.enabler/ignore-source.md</spec_file>
+          <assertion_text>Given the configured ignore-source file lists a node path, when the reader is queried with a path under that node's directory, then the reader reports the query path as under-ignore-source</assertion_text>
+          <assertion_type>Scenario</assertion_type>
+          <test_file>spx/17-file-inclusion.enabler/21-ignore-source.enabler/tests/ignore-source.scenario.l1.test.ts</test_file>
+          <verdict>PASS</verdict>
+          <findings>
+            <finding>
+              <step>challenge</step>
+              <detail>ADR 21-reader-shape.adr.md declares the factory as createIgnoreSourceReader with isUnderIgnoreSource; test imports createExcludeFilter with isExcluded from @/exclude/index.js. The pre-refactoring module implements the same behavior under different names. Behavioral evidence is present; the API divergence from the ADR means refactoring to createIgnoreSourceReader could introduce a bug not caught by these tests.</detail>
+            </finding>
+          </findings>
+        </assertion>
+        <assertion index="2">
+          <spec_file>spx/17-file-inclusion.enabler/21-ignore-source.enabler/ignore-source.md</spec_file>
+          <assertion_text>Given the configured ignore-source file lists a nested node path, when the reader is queried with a path under that nested node, then the reader reports the query path as under-ignore-source</assertion_text>
+          <assertion_type>Scenario</assertion_type>
+          <test_file>spx/17-file-inclusion.enabler/21-ignore-source.enabler/tests/ignore-source.scenario.l1.test.ts</test_file>
+          <verdict>PASS</verdict>
+          <findings>
+            <finding>
+              <step>challenge</step>
+              <detail>Same API name divergence as assertion 1: createExcludeFilter/isExcluded vs declared createIgnoreSourceReader/isUnderIgnoreSource. Behavioral evidence is present.</detail>
+            </finding>
+          </findings>
+        </assertion>
+        <assertion index="3">
+          <spec_file>spx/17-file-inclusion.enabler/21-ignore-source.enabler/ignore-source.md</spec_file>
+          <assertion_text>Given the configured ignore-source file contains comment lines and blank lines interleaved with entries, when the reader parses the file, then only non-comment, non-blank, whitespace-trimmed lines become entries</assertion_text>
+          <assertion_type>Scenario</assertion_type>
+          <test_file>spx/17-file-inclusion.enabler/21-ignore-source.enabler/tests/ignore-source.scenario.l1.test.ts</test_file>
+          <verdict>PASS</verdict>
+          <findings>
+            <finding>
+              <step>challenge</step>
+              <detail>Same API name divergence as assertion 1. Behavioral evidence is present.</detail>
+            </finding>
+          </findings>
+        </assertion>
+        <assertion index="4">
+          <spec_file>spx/17-file-inclusion.enabler/21-ignore-source.enabler/ignore-source.md</spec_file>
+          <assertion_text>Given the configured ignore-source file is absent from the project root, when the reader is constructed, then the reader reports every query path as not-under-ignore-source</assertion_text>
+          <assertion_type>Scenario</assertion_type>
+          <test_file>spx/17-file-inclusion.enabler/21-ignore-source.enabler/tests/ignore-source.scenario.l1.test.ts</test_file>
+          <verdict>PASS</verdict>
+          <findings>
+            <finding>
+              <step>challenge</step>
+              <detail>Same API name divergence as assertion 1. Behavioral evidence is present.</detail>
+            </finding>
+          </findings>
+        </assertion>
+        <assertion index="5">
+          <spec_file>spx/17-file-inclusion.enabler/21-ignore-source.enabler/ignore-source.md</spec_file>
+          <assertion_text>Given the configured ignore-source file exists but contains no entries after comment and blank stripping, when the reader is constructed, then the reader reports every query path as not-under-ignore-source</assertion_text>
+          <assertion_type>Scenario</assertion_type>
+          <test_file>spx/17-file-inclusion.enabler/21-ignore-source.enabler/tests/ignore-source.scenario.l1.test.ts</test_file>
+          <verdict>PASS</verdict>
+          <findings>
+            <finding>
+              <step>challenge</step>
+              <detail>Same API name divergence as assertion 1. Behavioral evidence is present.</detail>
+            </finding>
+          </findings>
+        </assertion>
+        <assertion index="6">
+          <spec_file>spx/17-file-inclusion.enabler/21-ignore-source.enabler/ignore-source.md</spec_file>
+          <assertion_text>An entry {segment} in the ignore-source file maps to the directory {spec-tree-root-segment}/{segment}/ for prefix matching; {spec-tree-root-segment} comes from the file-inclusion descriptor</assertion_text>
+          <assertion_type>Mapping</assertion_type>
+          <test_file>spx/17-file-inclusion.enabler/21-ignore-source.enabler/tests/ignore-source.mapping.l1.test.ts</test_file>
+          <verdict>REJECT</verdict>
+          <findings>
+            <finding>
+              <step>alignment</step>
+              <detail>The assertion has two clauses: (1) path-to-directory prefix mapping mechanics, and (2) {spec-tree-root-segment} comes from the file-inclusion descriptor. Clause 2 is not tested. INTEGRATION_CONFIG in support.ts contains no specTreeRootSegment field; SPX_ROOT_SEGMENT is hardcoded to "spx" in support.ts and SPX_ROOT is hardcoded to "spx" in src/exclude/index.ts. The test passes whether or not the implementation reads the root segment from the descriptor — if the implementation always hardcodes "spx", all tests pass and clause 2 is silently unfulfilled.</detail>
+            </finding>
+            <finding>
+              <step>challenge</step>
+              <detail>The test file contains a second it() block ("toToolFlags generates pytest --ignore and vitest --exclude flags...") with no corresponding spec assertion and testing behavior the spec compliance explicitly marks NEVER: "emit tool-specific flag syntax from this enabler — tool-flag production lives in ../54-tool-adapters.enabler/". This floating test asserts a prohibited behavior and signals the test file is coupled to the pre-decomposition API shape.</detail>
+            </finding>
+          </findings>
+        </assertion>
+        <assertion index="7">
+          <spec_file>spx/17-file-inclusion.enabler/21-ignore-source.enabler/ignore-source.md</spec_file>
+          <assertion_text>The reader is deterministic: the same project root and the same ignore-source file content always produce the same parsed entry set and the same membership-query results</assertion_text>
+          <assertion_type>Property</assertion_type>
+          <test_file>spx/17-file-inclusion.enabler/21-ignore-source.enabler/tests/ignore-source.property.l1.test.ts</test_file>
+          <verdict>REJECT</verdict>
+          <findings>
+            <finding>
+              <step>evidence</step>
+              <detail>The segment arbitrary is fc.array(fc.constantFrom(NODE_SEGMENT_SIMPLE, NODE_SEGMENT_OTHER), {maxLength: 3}) — fc.constantFrom over exactly 2 hardcoded values, equivalent to fc.oneof(fc.constant(a), fc.constant(b)). Per Gate 1 step 3, this reduces the property to a parameterized example test over a 2-element domain. A mutation that only manifests with a third unique segment (e.g., a hash-collision bug in an internal map keyed on segment strings) would not be caught. The property claims determinism over all valid ignore-source content; the arbitrary only samples configurations involving two fixed segment names across 16 runs.</detail>
+            </finding>
+          </findings>
+        </assertion>
+        <assertion index="8">
+          <spec_file>spx/17-file-inclusion.enabler/21-ignore-source.enabler/ignore-source.md</spec_file>
+          <assertion_text>Membership matching is prefix-based: every path inside the directory of any parsed entry reports as under-ignore-source, and no path outside every such directory reports as under-ignore-source</assertion_text>
+          <assertion_type>Property</assertion_type>
+          <test_file>spx/17-file-inclusion.enabler/21-ignore-source.enabler/tests/ignore-source.property.l1.test.ts</test_file>
+          <verdict>REJECT</verdict>
+          <findings>
+            <finding>
+              <step>evidence</step>
+              <detail>The subpath arbitrary is fc.array(fc.constantFrom(...SUBPATHS_FOR_PREFIX_CHECK), {minLength:1, maxLength:4}) where SUBPATHS_FOR_PREFIX_CHECK is a 4-element constant set [SUBPATH_IMPL, SUBPATH_TEST_SHALLOW, SUBPATH_TEST_DEEP, SUBPATH_DOC]. The property claims prefix matching holds for EVERY path inside the directory, but the test only checks 4 specific pre-enumerated paths. A mutation affecting paths not in the list (e.g., a path with an unusual extension or depth) would not be detected. A meaningful arbitrary would generate arbitrary strings and map them to paths under the excluded segment directory.</detail>
+            </finding>
+          </findings>
+        </assertion>
+        <assertion index="9">
+          <spec_file>spx/17-file-inclusion.enabler/21-ignore-source.enabler/ignore-source.md</spec_file>
+          <assertion_text>ALWAYS: entries whose resolved directory would lie outside the configured spec-tree root segment — absolute paths, paths containing traversal sequences, separator patterns that escape the root — cause construction to fail with an error naming the offending entry</assertion_text>
+          <assertion_type>Compliance</assertion_type>
+          <test_file>spx/17-file-inclusion.enabler/21-ignore-source.enabler/tests/ignore-source.compliance.l1.test.ts</test_file>
+          <verdict>REJECT</verdict>
+          <findings>
+            <finding>
+              <step>alignment</step>
+              <detail>The assertion requires the error to NAME the offending entry. The test uses expect(() => createExcludeFilter(env.projectDir), entry).toThrow() — in Vitest, the second argument to expect() is a custom failure label for the test expectation, not a constraint on the thrown error's message. The test verifies only that construction throws; it does not verify that the thrown error's message includes the entry text. A mutation that throws a generic "parse failed" error without naming the entry would pass all five test cases while violating the assertion.</detail>
+            </finding>
+          </findings>
+        </assertion>
+        <assertion index="10">
+          <spec_file>spx/17-file-inclusion.enabler/21-ignore-source.enabler/ignore-source.md</spec_file>
+          <assertion_text>ALWAYS: parsing is append-tolerant — comment lines, blank lines, and trailing whitespace parse without error</assertion_text>
+          <assertion_type>Compliance</assertion_type>
+          <test_file>spx/17-file-inclusion.enabler/21-ignore-source.enabler/tests/ignore-source.compliance.l1.test.ts</test_file>
+          <verdict>PASS</verdict>
+          <findings/>
+        </assertion>
+      </assertions>
+    </gate>
+    <gate id="2" name="architectural" status="SKIPPED">
+      <skipped_reason>Gate 1 failed</skipped_reason>
+      <findings/>
+    </gate>
+  </gates>
+</audit_verdict>

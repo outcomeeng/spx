@@ -1,0 +1,136 @@
+/**
+ * Audit verdict reader — parses an audit verdict XML file from disk into a
+ * typed in-memory representation.
+ *
+ * All downstream verify stages (structural, semantic, paths) import
+ * AuditVerdict from this module and operate on the parsed representation
+ * rather than raw XML.
+ *
+ * @module audit/reader
+ */
+
+import { readFile } from "node:fs/promises";
+
+import { XMLParser, XMLValidator } from "fast-xml-parser";
+
+export interface AuditFinding {
+  readonly spec_file?: string;
+  readonly test_file?: string;
+}
+
+export interface AuditGate {
+  readonly name?: string;
+  readonly status?: string;
+  readonly skipped_reason?: string;
+  readonly count?: string;
+  readonly findings: readonly AuditFinding[];
+}
+
+export interface AuditVerdictHeader {
+  readonly spec_node?: string;
+  readonly verdict?: string;
+  readonly timestamp?: string;
+}
+
+export interface AuditVerdict {
+  readonly header?: AuditVerdictHeader;
+  readonly gates: readonly AuditGate[];
+}
+
+const ARRAY_TAGS = new Set(["gate", "finding"]);
+
+const PARSER_OPTIONS = {
+  ignoreAttributes: false,
+  attributeNamePrefix: "@_",
+  parseTagValue: false,
+  parseAttributeValue: false,
+  isArray: (name: string) => ARRAY_TAGS.has(name),
+} as const;
+
+/**
+ * Reads and parses an audit verdict XML file from disk.
+ *
+ * @throws {Error} When the file does not exist — message includes filePath.
+ * @throws {Error} When the file is not well-formed XML — message includes filePath.
+ */
+export async function readVerdictFile(filePath: string): Promise<AuditVerdict> {
+  let xml: string;
+  try {
+    xml = await readFile(filePath, "utf-8");
+  } catch (cause) {
+    throw new Error(`Failed to read verdict file: ${filePath}`, { cause });
+  }
+
+  const validation = XMLValidator.validate(xml);
+  if (validation !== true) {
+    throw new Error(
+      `Malformed XML in verdict file: ${filePath}: ${validation.err.msg}`,
+    );
+  }
+
+  const parser = new XMLParser(PARSER_OPTIONS);
+  const parsed = parser.parse(xml) as Record<string, unknown>;
+
+  return buildVerdict(parsed);
+}
+
+function isObject(value: unknown): value is Record<string, unknown> {
+  return typeof value === "object" && value !== null;
+}
+
+function asString(value: unknown): string | undefined {
+  return typeof value === "string" ? value : undefined;
+}
+
+function buildVerdict(parsed: Record<string, unknown>): AuditVerdict {
+  const rootUnknown = parsed["audit_verdict"];
+  if (!isObject(rootUnknown)) {
+    return { gates: [] };
+  }
+
+  const headerUnknown = rootUnknown["header"];
+  const gatesUnknown = rootUnknown["gates"];
+
+  return {
+    header: isObject(headerUnknown) ? buildHeader(headerUnknown) : undefined,
+    gates: isObject(gatesUnknown) ? buildGates(gatesUnknown) : [],
+  };
+}
+
+function buildHeader(raw: Record<string, unknown>): AuditVerdictHeader {
+  return {
+    spec_node: asString(raw["spec_node"]),
+    verdict: asString(raw["verdict"]),
+    timestamp: asString(raw["timestamp"]),
+  };
+}
+
+function buildGates(raw: Record<string, unknown>): readonly AuditGate[] {
+  const gatesUnknown = raw["gate"];
+  if (!Array.isArray(gatesUnknown)) return [];
+  return gatesUnknown.filter(isObject).map(buildGate);
+}
+
+function buildGate(raw: Record<string, unknown>): AuditGate {
+  const findingsUnknown = raw["findings"];
+  return {
+    name: asString(raw["name"]),
+    status: asString(raw["status"]),
+    skipped_reason: asString(raw["skipped_reason"]),
+    count: isObject(findingsUnknown) ? asString(findingsUnknown["@_count"]) : undefined,
+    findings: isObject(findingsUnknown) ? buildFindings(findingsUnknown) : [],
+  };
+}
+
+function buildFindings(raw: Record<string, unknown>): readonly AuditFinding[] {
+  const findingsUnknown = raw["finding"];
+  if (!Array.isArray(findingsUnknown)) return [];
+  return findingsUnknown.filter(isObject).map(buildFinding);
+}
+
+function buildFinding(raw: Record<string, unknown>): AuditFinding {
+  return {
+    spec_file: asString(raw["spec_file"]),
+    test_file: asString(raw["test_file"]),
+  };
+}

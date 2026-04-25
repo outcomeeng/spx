@@ -3,6 +3,7 @@
  */
 import { Command } from "commander";
 import { createRequire } from "node:module";
+import { auditDomain } from "./audit/cli";
 import { claudeDomain } from "./domains/claude";
 import { configDomain } from "./domains/config";
 import { sessionDomain } from "./domains/session";
@@ -20,6 +21,7 @@ program
   .version(version);
 
 // Register domains
+auditDomain.register(program);
 claudeDomain.register(program);
 configDomain.register(program);
 sessionDomain.register(program);
