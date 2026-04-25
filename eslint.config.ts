@@ -11,13 +11,20 @@ import customRules from "./eslint-rules";
 import { testRestrictedSyntax, tsRestrictedSyntax } from "./eslint-rules/restricted-syntax";
 
 /**
- * Read TypeScript exclusions to maintain perfect scope alignment
+ * Read TypeScript exclusions to maintain perfect scope alignment.
+ * Follows `extends` so derived configs (e.g. tsconfig.production.json)
+ * inherit base exclusions such as `dist`.
  */
 function getTypeScriptExclusions(configFile: string): string[] {
   try {
     const configContent = readFileSync(configFile, "utf-8");
     const config = JSONC.parse(configContent);
-    return config.exclude || [];
+    const ownExcludes: string[] = config.exclude || [];
+    if (config.extends) {
+      const baseFile = config.extends.startsWith(".") ? config.extends : `./${config.extends}`;
+      return [...getTypeScriptExclusions(baseFile), ...ownExcludes];
+    }
+    return ownExcludes;
   } catch {
     console.warn(`Could not read TypeScript config ${configFile}, using default exclusions`);
     return [];

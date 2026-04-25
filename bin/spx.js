@@ -1,30 +1,27 @@
 #!/usr/bin/env node
 
 // CLI entry point
-// Use tsx for development when dist/cli.js doesn't exist
 import { existsSync } from "node:fs";
 import { dirname, join } from "node:path";
-import { fileURLToPath } from "node:url";
+import { fileURLToPath, pathToFileURL } from "node:url";
+
+const BUILD_COMMAND = "pnpm run build";
+const BUILT_CLI_FILENAME = "cli.js";
+const DIST_DIRECTORY = "dist";
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
-const distPath = join(__dirname, "../dist/cli.js");
+const distPath = join(__dirname, "..", DIST_DIRECTORY, BUILT_CLI_FILENAME);
 
-if (existsSync(distPath)) {
-  try {
-    await import("../dist/cli.js");
-  } catch (err) {
-    console.error("Failed to load CLI:", err);
-    process.exit(1);
-  }
-} else {
-  // Development mode: use tsx to run source directly
-  try {
-    await import("tsx/esm");
-    await import("../src/cli.ts");
-  } catch (err) {
-    console.error("tsx not available and dist/cli.js not found:", err);
-    console.error("Run \"pnpm run build\" to build the CLI");
-    process.exit(1);
-  }
+if (!existsSync(distPath)) {
+  console.error(`Built CLI not found at ${distPath}`);
+  console.error(`Run "${BUILD_COMMAND}" before invoking the packaged spx executable.`);
+  process.exit(1);
+}
+
+try {
+  await import(pathToFileURL(distPath).href);
+} catch (err) {
+  console.error("Failed to load built CLI:", err);
+  process.exit(1);
 }
