@@ -1,6 +1,6 @@
 {
   "name": "@outcomeeng/spx",
-  "version": "0.3.0",
+  "version": "0.3.1",
   "description": "Developer CLI for code validation and session management",
   "type": "module",
   "bin": {
