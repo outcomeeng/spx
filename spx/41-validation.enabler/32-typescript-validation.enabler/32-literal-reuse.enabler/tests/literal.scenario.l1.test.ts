@@ -1,7 +1,13 @@
+import { unlink } from "node:fs/promises";
+import { join } from "node:path";
+
 import { describe, expect, it } from "vitest";
 
 import { literalCommand } from "@/commands/validation/literal";
+import { CONFIG_FILENAMES } from "@/config/index.js";
 import { withTestEnv } from "@/spec/testing/index.js";
+import { TYPESCRIPT_MARKER } from "@/validation/discovery/index.js";
+import { LITERAL_SECTION } from "@/validation/literal/config.js";
 import {
   buildIndex,
   collectLiterals,
@@ -15,6 +21,7 @@ import {
 } from "@/validation/literal/index.js";
 
 import {
+  configWithAllowlist,
   DETECTOR_OPTIONS_DEFAULTS,
   EMPTY_ALLOWLIST,
   INTEGRATION_CONFIG,
@@ -50,8 +57,10 @@ function testOccurrences(
 const SRC_LITERAL = "src-owned-token";
 const TEST_DUPE_LITERAL = "test-dupe-token";
 const SOLITARY_LITERAL = "only-once-value-abc";
-const ALLOWLISTED_LITERAL = "info";
 const EXCLUDED_NODE_DIR = "spx/21-excluded.enabler";
+const WEB_PRESET_ID = "web";
+const ALLOWLISTED_PRESET_TOKEN = "Authorization";
+const UNKNOWN_PRESET_ID = "ecosystem-nonexistent";
 
 describe("literal-reuse detection — scenarios", () => {
   it("string literal carrying domain meaning in src and in a test file produces a src↔test reuse finding citing both locations", () => {
@@ -133,22 +142,80 @@ describe("literal-reuse detection — scenarios", () => {
     expect(hits).toHaveLength(0);
   });
 
-  it("literal value listed in the project's allowlist produces no finding even when it would otherwise reuse across src and test", () => {
-    const srcIndex = indexSources(["src/loglevel.ts", `export const LEVEL = "${ALLOWLISTED_LITERAL}";`]);
-    const tests = testOccurrences(["tests/loglevel.test.ts", `expect(level()).toBe("${ALLOWLISTED_LITERAL}");`]);
-    const allowlist = new Set<string>([ALLOWLISTED_LITERAL]);
+  it("literal.allowlist.include in spx.config.yaml suppresses findings for that value via literalCommand", async () => {
+    const includedLiteral = "include-token-via-config";
+    await withTestEnv(configWithAllowlist({ include: [includedLiteral] }), async (env) => {
+      await env.writeRaw(TYPESCRIPT_MARKER, "{}\n");
+      await writeSourceWithLiteral(env, "src/x.ts", includedLiteral);
+      await writeTestWithLiteral(env, "tests/x.test.ts", includedLiteral);
 
-    const result = detectReuse({
-      srcIndex,
-      testOccurrencesByFile: tests,
-      allowlist,
+      const { output } = await literalCommand({ cwd: env.projectDir, json: true, quiet: true });
+      const parsed = parseLiteralReuseResult(JSON.parse(output) as unknown);
+
+      expect(parsed.srcReuse.find((f) => f.value === includedLiteral)).toBeUndefined();
+      expect(parsed.testDupe.find((f) => f.value === includedLiteral)).toBeUndefined();
     });
+  });
 
-    const anyFinding = [
-      ...result.srcReuse.filter((f) => f.value === ALLOWLISTED_LITERAL),
-      ...result.testDupe.filter((f) => f.value === ALLOWLISTED_LITERAL),
-    ];
-    expect(anyFinding).toHaveLength(0);
+  it("literal.allowlist.presets web preset suppresses bundled tokens via literalCommand", async () => {
+    const presetToken = ALLOWLISTED_PRESET_TOKEN;
+    await withTestEnv(configWithAllowlist({ presets: [WEB_PRESET_ID] }), async (env) => {
+      await env.writeRaw(TYPESCRIPT_MARKER, "{}\n");
+      await writeSourceWithLiteral(env, "src/api.ts", presetToken);
+      await writeTestWithLiteral(env, "tests/api.test.ts", presetToken);
+
+      const { output } = await literalCommand({ cwd: env.projectDir, json: true, quiet: true });
+      const parsed = parseLiteralReuseResult(JSON.parse(output) as unknown);
+
+      expect(parsed.srcReuse.find((f) => f.value === presetToken)).toBeUndefined();
+    });
+  });
+
+  it("literal.allowlist.exclude wins over a preset — findings for the excluded value are still reported", async () => {
+    const presetToken = ALLOWLISTED_PRESET_TOKEN;
+    await withTestEnv(
+      configWithAllowlist({ presets: [WEB_PRESET_ID], exclude: [presetToken] }),
+      async (env) => {
+        await env.writeRaw(TYPESCRIPT_MARKER, "{}\n");
+        await writeSourceWithLiteral(env, "src/api.ts", presetToken);
+        await writeTestWithLiteral(env, "tests/api.test.ts", presetToken);
+
+        const { output } = await literalCommand({ cwd: env.projectDir, json: true, quiet: true });
+        const parsed = parseLiteralReuseResult(JSON.parse(output) as unknown);
+
+        expect(parsed.srcReuse.find((f) => f.value === presetToken)).toBeDefined();
+      },
+    );
+  });
+
+  it("no spx.config.* file at the project root yields an empty effective allowlist", async () => {
+    const wouldBeAllowedByWeb = ALLOWLISTED_PRESET_TOKEN;
+    await withTestEnv(INTEGRATION_CONFIG, async (env) => {
+      await unlink(join(env.projectDir, CONFIG_FILENAMES.yaml));
+      await env.writeRaw(TYPESCRIPT_MARKER, "{}\n");
+      await writeSourceWithLiteral(env, "src/api.ts", wouldBeAllowedByWeb);
+      await writeTestWithLiteral(env, "tests/api.test.ts", wouldBeAllowedByWeb);
+
+      const { output } = await literalCommand({ cwd: env.projectDir, json: true, quiet: true });
+      const parsed = parseLiteralReuseResult(JSON.parse(output) as unknown);
+
+      expect(parsed.srcReuse.find((f) => f.value === wouldBeAllowedByWeb)).toBeDefined();
+    });
+  });
+
+  it("unrecognized preset identifier in literal.allowlist.presets causes literalCommand to fail with the validator's error", async () => {
+    await withTestEnv(INTEGRATION_CONFIG, async (env) => {
+      await env.writeRaw(TYPESCRIPT_MARKER, "{}\n");
+      await env.writeRaw(
+        CONFIG_FILENAMES.yaml,
+        `${LITERAL_SECTION}:\n  allowlist:\n    presets:\n      - ${UNKNOWN_PRESET_ID}\n`,
+      );
+
+      const result = await literalCommand({ cwd: env.projectDir, json: false, quiet: true });
+
+      expect(result.exitCode).not.toBe(0);
+      expect(result.output).toContain(UNKNOWN_PRESET_ID);
+    });
   });
 
   it("files under a node listed in spx/EXCLUDE are not parsed and contribute no occurrences to the index", async () => {
@@ -195,33 +262,26 @@ describe("literal-reuse detection — scenarios", () => {
 
   it("--json output parses through parseLiteralReuseResult without throwing and exposes both finding arrays", async () => {
     await withTestEnv(INTEGRATION_CONFIG, async (env) => {
-      const enableKey = "LITERAL_VALIDATION_ENABLED";
-      const previous = process.env[enableKey];
-      process.env[enableKey] = "1";
-      try {
-        await writeSourceWithLiteral(env, "src/reuse.ts", SRC_LITERAL);
-        await writeTestWithLiteral(env, "tests/reuse.test.ts", SRC_LITERAL);
-        await writeTestWithLiteral(env, "tests/dupe-1.test.ts", TEST_DUPE_LITERAL);
-        await writeTestWithLiteral(env, "tests/dupe-2.test.ts", TEST_DUPE_LITERAL);
+      await env.writeRaw(TYPESCRIPT_MARKER, "{}\n");
+      await writeSourceWithLiteral(env, "src/reuse.ts", SRC_LITERAL);
+      await writeTestWithLiteral(env, "tests/reuse.test.ts", SRC_LITERAL);
+      await writeTestWithLiteral(env, "tests/dupe-1.test.ts", TEST_DUPE_LITERAL);
+      await writeTestWithLiteral(env, "tests/dupe-2.test.ts", TEST_DUPE_LITERAL);
 
-        const { output } = await literalCommand({
-          cwd: env.projectDir,
-          json: true,
-          quiet: true,
-        });
-        const parsed = parseLiteralReuseResult(JSON.parse(output) as unknown);
+      const { output } = await literalCommand({
+        cwd: env.projectDir,
+        json: true,
+        quiet: true,
+      });
+      const parsed = parseLiteralReuseResult(JSON.parse(output) as unknown);
 
-        expect(parsed.srcReuse.length).toBeGreaterThanOrEqual(1);
-        expect(parsed.testDupe.length).toBeGreaterThanOrEqual(1);
-        for (const f of parsed.srcReuse) {
-          expect(f.remediation).toBe(REMEDIATION.IMPORT_FROM_SOURCE);
-        }
-        for (const f of parsed.testDupe) {
-          expect(f.remediation).toBe(REMEDIATION.EXTRACT_TO_SHARED_TEST_SUPPORT);
-        }
-      } finally {
-        if (previous === undefined) delete process.env[enableKey];
-        else process.env[enableKey] = previous;
+      expect(parsed.srcReuse.length).toBeGreaterThanOrEqual(1);
+      expect(parsed.testDupe.length).toBeGreaterThanOrEqual(1);
+      for (const f of parsed.srcReuse) {
+        expect(f.remediation).toBe(REMEDIATION.IMPORT_FROM_SOURCE);
+      }
+      for (const f of parsed.testDupe) {
+        expect(f.remediation).toBe(REMEDIATION.EXTRACT_TO_SHARED_TEST_SUPPORT);
       }
     });
   });

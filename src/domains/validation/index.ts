@@ -227,6 +227,11 @@ function registerValidationCommands(validationCmd: Command): void {
 
   // literal command (cross-file literal-reuse detector)
   const literalCmd = addValidationSubcommand(validationCmd, subcommands.literal)
+    .addHelpText(
+      "after",
+      "\nEnabled for TypeScript projects by default. Set LITERAL_VALIDATION_ENABLED=0\n"
+        + "to skip (useful when migrating a project with many existing violations).",
+    )
     .action(async (options: CommonOptions) => {
       const result = await literalCommand({
         cwd: process.cwd(),

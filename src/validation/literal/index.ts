@@ -1,7 +1,7 @@
 import { readFile } from "node:fs/promises";
 import { isAbsolute, relative, resolve } from "node:path";
 
-import { type LiteralReuseConfig, literalReuseConfigDescriptor } from "./config.js";
+import { type LiteralConfig, literalConfigDescriptor, resolveAllowlist } from "./config.js";
 import {
   buildIndex,
   collectLiterals,
@@ -13,8 +13,8 @@ import {
 import { isUnderExcluded, readExcludePaths } from "./exclude.js";
 import { isTestFile, walkTypescriptFiles } from "./walker.js";
 
-export { literalReuseConfigDescriptor } from "./config.js";
-export type { LiteralReuseConfig } from "./config.js";
+export { literalConfigDescriptor, resolveAllowlist } from "./config.js";
+export type { LiteralAllowlistConfig, LiteralConfig } from "./config.js";
 export {
   buildIndex,
   collectLiterals,
@@ -38,7 +38,7 @@ export type {
 export interface ValidateLiteralReuseInput {
   readonly projectRoot: string;
   readonly files?: readonly string[];
-  readonly config?: LiteralReuseConfig;
+  readonly config?: LiteralConfig;
 }
 
 export interface ValidateLiteralReuseResult {
@@ -49,7 +49,7 @@ export interface ValidateLiteralReuseResult {
 export async function validateLiteralReuse(
   input: ValidateLiteralReuseInput,
 ): Promise<ValidateLiteralReuseResult> {
-  const config = input.config ?? literalReuseConfigDescriptor.defaults;
+  const config = input.config ?? literalConfigDescriptor.defaults;
   const excludePaths = await readExcludePaths(input.projectRoot);
 
   const candidateFiles = input.files
@@ -86,7 +86,7 @@ export async function validateLiteralReuse(
   const findings = detectReuse({
     srcIndex,
     testOccurrencesByFile,
-    allowlist: new Set(config.allowlist),
+    allowlist: resolveAllowlist(config.allowlist),
   });
 
   return { findings, indexedOccurrencesByFile };

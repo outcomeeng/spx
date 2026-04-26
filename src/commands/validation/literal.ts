@@ -1,3 +1,6 @@
+import { resolveConfig } from "@/config/index.js";
+import { detectTypeScript } from "@/validation/discovery/index.js";
+import { type LiteralConfig, literalConfigDescriptor } from "@/validation/literal/config.js";
 import { type DetectionResult, type LiteralLocation, validateLiteralReuse } from "@/validation/literal/index.js";
 import { validationEnabled } from "@/validation/steps/eslint.js";
 
@@ -6,6 +9,7 @@ export interface LiteralCommandOptions {
   readonly files?: readonly string[];
   readonly json?: boolean;
   readonly quiet?: boolean;
+  readonly config?: LiteralConfig;
 }
 
 export interface ValidationCommandResult {
@@ -16,28 +20,51 @@ export interface ValidationCommandResult {
 
 const EXIT_OK = 0;
 const EXIT_FINDINGS = 1;
-
-const ENABLE_ENV_KEY = "LITERAL";
-
-export function literalEnabled(): boolean {
-  return validationEnabled(ENABLE_ENV_KEY, { [ENABLE_ENV_KEY]: false });
-}
+const EXIT_CONFIG_ERROR = 2;
+const TYPESCRIPT_ABSENT_MESSAGE = "⏭ Skipping Literal (TypeScript not detected in project)";
+const DISABLED_MESSAGE = "⏭ Skipping Literal (LITERAL_VALIDATION_ENABLED=0)";
 
 export async function literalCommand(
   options: LiteralCommandOptions,
 ): Promise<ValidationCommandResult> {
   const start = Date.now();
 
-  if (!literalEnabled()) {
-    const output = options.quiet
-      ? ""
-      : "Literal: skipped (disabled by default, set LITERAL_VALIDATION_ENABLED=1 to enable)";
-    return { exitCode: EXIT_OK, output, durationMs: Date.now() - start };
+  const tsDetection = detectTypeScript(options.cwd);
+  if (!tsDetection.present) {
+    return {
+      exitCode: EXIT_OK,
+      output: options.quiet ? "" : TYPESCRIPT_ABSENT_MESSAGE,
+      durationMs: Date.now() - start,
+    };
+  }
+
+  if (!validationEnabled("LITERAL")) {
+    return {
+      exitCode: EXIT_OK,
+      output: options.quiet ? "" : DISABLED_MESSAGE,
+      durationMs: Date.now() - start,
+    };
+  }
+
+  let resolvedConfig: LiteralConfig;
+  if (options.config !== undefined) {
+    resolvedConfig = options.config;
+  } else {
+    const loaded = await resolveConfig(options.cwd, [literalConfigDescriptor]);
+    if (!loaded.ok) {
+      return {
+        exitCode: EXIT_CONFIG_ERROR,
+        output: `Literal: ✗ config error — ${loaded.error}`,
+        durationMs: Date.now() - start,
+      };
+    }
+    resolvedConfig = loaded.value[literalConfigDescriptor.section] as LiteralConfig;
   }
 
   const result = await validateLiteralReuse({
     projectRoot: options.cwd,
     files: options.files,
+    config: resolvedConfig,
   });
 
   const totalFindings = result.findings.srcReuse.length + result.findings.testDupe.length;

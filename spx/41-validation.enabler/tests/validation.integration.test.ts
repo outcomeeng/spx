@@ -19,14 +19,15 @@ import { FIXTURES, withValidationEnv } from "@test/harness/with-validation-env.j
 const EXIT_SUCCESS = 0;
 const EXIT_FAILURE = 1;
 const ALL_TIMEOUT_MS = 120_000;
-const TOTAL_STEPS = 5;
-const STEP_LINE_PATTERN = /^\[(\d)\/5\]/gm;
+const TOTAL_STEPS = 6;
+const STEP_LINE_PATTERN = /^\[(\d)\/6\]/gm;
 const DURATION_PATTERN = /\((\d+(?:\.\d+)?)(ms|s)\)\s*$/;
 const STEP_NAMES = {
   CIRCULAR: "Circular dependencies",
   ESLINT: "ESLint",
   TYPESCRIPT: "TypeScript",
   MARKDOWN: "Markdown",
+  LITERAL: "Literal",
 } as const;
 
 describe("spx validation all — pipeline composition (Scenarios)", () => {
@@ -76,7 +77,7 @@ describe("spx validation all — pipeline composition (Scenarios)", () => {
 
         const stepMarkers = [...result.stdout.matchAll(STEP_LINE_PATTERN)];
         expect(stepMarkers).toHaveLength(TOTAL_STEPS);
-        expect(stepMarkers.map((m) => Number(m[1]))).toEqual([1, 2, 3, 4, 5]);
+        expect(stepMarkers.map((m) => Number(m[1]))).toEqual([1, 2, 3, 4, 5, 6]);
       });
     },
   );
@@ -96,7 +97,7 @@ describe("spx validation all — pipeline composition (Scenarios)", () => {
 
         const stepMarkers = [...result.stdout.matchAll(STEP_LINE_PATTERN)];
         expect(stepMarkers).toHaveLength(TOTAL_STEPS);
-        expect(stepMarkers.map((m) => Number(m[1]))).toEqual([1, 2, 3, 4, 5]);
+        expect(stepMarkers.map((m) => Number(m[1]))).toEqual([1, 2, 3, 4, 5, 6]);
       });
     },
   );
@@ -114,7 +115,7 @@ describe("spx validation all — pipeline composition (Scenarios)", () => {
         const stepMarkers = [...result.stdout.matchAll(STEP_LINE_PATTERN)];
         expect(stepMarkers).toHaveLength(TOTAL_STEPS);
         const stepNumbers = stepMarkers.map((m) => Number(m[1]));
-        expect(stepNumbers).toEqual([1, 2, 3, 4, 5]);
+        expect(stepNumbers).toEqual([1, 2, 3, 4, 5, 6]);
       });
     },
   );
@@ -136,6 +137,7 @@ describe("spx validation all — pipeline composition (Compliance)", () => {
         expect(stepMarkers).toHaveLength(TOTAL_STEPS);
         expect(result.stdout).toContain(STEP_NAMES.TYPESCRIPT);
         expect(result.stdout).toContain(STEP_NAMES.MARKDOWN);
+        expect(result.stdout).toContain(STEP_NAMES.LITERAL);
       });
     },
   );
@@ -165,7 +167,7 @@ describe("spx validation all — pipeline composition (Compliance)", () => {
           reject: false,
         });
 
-        const lines = result.stdout.split("\n").filter((line) => /^\[\d\/5\]/.test(line));
+        const lines = result.stdout.split("\n").filter((line) => /^\[\d\/6\]/.test(line));
         expect(lines).toHaveLength(TOTAL_STEPS);
         for (const line of lines) {
           expect(line).toMatch(DURATION_PATTERN);
@@ -220,7 +222,7 @@ describe("spx validation all — pipeline composition (Properties)", () => {
         });
         const passingOutcomes = extractStepOutcomes(withoutFailure.stdout);
 
-        const stepsIndependentOfTypeScript = [1, 2, 3, 5];
+        const stepsIndependentOfTypeScript = [1, 2, 3, 5, 6];
         for (const stepNumber of stepsIndependentOfTypeScript) {
           expect(passingOutcomes.get(stepNumber)).toBe(failingOutcomes.get(stepNumber));
         }
@@ -230,7 +232,7 @@ describe("spx validation all — pipeline composition (Properties)", () => {
 });
 
 /**
- * Parse `[N/5] <step-text>` lines into a map of step-number to a canonical
+ * Parse `[N/6] <step-text>` lines into a map of step-number to a canonical
  * outcome token ("pass", "skip", or "fail"). Outcomes are derived from the
  * step line's leading marker:
  *   - `✓` or "passed" / "No issues"/ "No cycles" / "No type errors" → pass
@@ -240,7 +242,7 @@ describe("spx validation all — pipeline composition (Properties)", () => {
 function extractStepOutcomes(stdout: string): Map<number, "pass" | "skip" | "fail"> {
   const outcomes = new Map<number, "pass" | "skip" | "fail">();
   for (const line of stdout.split("\n")) {
-    const match = line.match(/^\[(\d)\/5\]\s+(.+)$/);
+    const match = line.match(/^\[(\d)\/6\]\s+(.+)$/);
     if (!match) continue;
     const step = Number(match[1]);
     const body = match[2];

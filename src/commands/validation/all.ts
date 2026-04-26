@@ -5,7 +5,9 @@
  * 1. Circular dependencies (fastest)
  * 2. Knip (optional)
  * 3. ESLint
- * 4. TypeScript (slowest)
+ * 4. TypeScript
+ * 5. Markdown
+ * 6. Literal reuse
  */
 import { circularCommand } from "./circular";
 import { formatDuration, formatSummary } from "./format";
@@ -17,7 +19,7 @@ import type { AllCommandOptions, ValidationCommandResult } from "./types";
 import { typescriptCommand } from "./typescript";
 
 /** Total number of validation steps */
-const TOTAL_STEPS = 5;
+const TOTAL_STEPS = 6;
 
 /**
  * Format step output with step number and timing.
@@ -80,14 +82,10 @@ export async function allCommand(options: AllCommandOptions): Promise<Validation
   if (markdownOutput) outputs.push(markdownOutput);
   if (markdownResult.exitCode !== 0) hasFailure = true;
 
-  // Literal (cross-file TS literal-reuse detector; env-gated like knip)
+  // 6. Literal reuse
   const literalResult = await literalCommand({ cwd, files, quiet, json });
-  if (!quiet && literalResult.output) {
-    const timing = literalResult.durationMs === undefined
-      ? ""
-      : ` (${formatDuration(literalResult.durationMs)})`;
-    outputs.push(`${literalResult.output}${timing}`);
-  }
+  const literalOutput = formatStepWithTiming(6, literalResult, quiet);
+  if (literalOutput) outputs.push(literalOutput);
   if (literalResult.exitCode !== 0) hasFailure = true;
 
   // Calculate total duration

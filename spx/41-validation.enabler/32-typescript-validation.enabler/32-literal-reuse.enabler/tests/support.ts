@@ -1,5 +1,6 @@
-import type { Config } from "@/spec/testing/index.js";
-import type { SpecTreeEnv } from "@/spec/testing/index.js";
+import { KIND_REGISTRY } from "@/spec/config.js";
+import type { Config, SpecTreeEnv } from "@/spec/testing/index.js";
+import { LITERAL_SECTION, type LiteralAllowlistConfig, type LiteralConfig } from "@/validation/literal/config.js";
 
 export const MIN_STRING_LENGTH = 4;
 export const MIN_NUMBER_DIGITS = 4;
@@ -10,21 +11,23 @@ export const DETECTOR_OPTIONS_DEFAULTS = {
   minNumberDigits: MIN_NUMBER_DIGITS,
 } as const;
 
-export const INTEGRATION_CONFIG: Config = {
-  specTree: {
-    kinds: {
-      enabler: { category: "node", suffix: ".enabler" },
-      outcome: { category: "node", suffix: ".outcome" },
-      adr: { category: "decision", suffix: ".adr.md" },
-      pdr: { category: "decision", suffix: ".pdr.md" },
-    },
-  },
-  literalReuse: {
-    allowlist: [],
-    minStringLength: MIN_STRING_LENGTH,
-    minNumberDigits: MIN_NUMBER_DIGITS,
-  },
+const BASE_LITERAL_CONFIG: LiteralConfig = {
+  allowlist: {},
+  minStringLength: MIN_STRING_LENGTH,
+  minNumberDigits: MIN_NUMBER_DIGITS,
 };
+
+export const INTEGRATION_CONFIG: Config = {
+  specTree: { kinds: { ...KIND_REGISTRY } },
+  [LITERAL_SECTION]: BASE_LITERAL_CONFIG,
+};
+
+export function configWithAllowlist(allowlist: LiteralAllowlistConfig): Config {
+  return {
+    ...INTEGRATION_CONFIG,
+    [LITERAL_SECTION]: { ...BASE_LITERAL_CONFIG, allowlist },
+  };
+}
 
 export async function writeSourceWithLiteral(
   env: SpecTreeEnv,

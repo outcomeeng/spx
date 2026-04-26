@@ -20,9 +20,11 @@ const ENOENT_MARKER = "ENOENT";
 const ESLINT_OUTPUT_MARKER = "ESLint";
 const TSC_OUTPUT_MARKER = "TypeScript";
 const CIRCULAR_OUTPUT_MARKER = "Circular";
+const LITERAL_OUTPUT_MARKER = "Literal";
 const ESLINT_SKIP_MARKER = "Skipping ESLint";
 const TSC_SKIP_MARKER = "Skipping TypeScript";
 const CIRCULAR_SKIP_MARKER = "Skipping Circular";
+const LITERAL_SKIP_MARKER = "Skipping Literal";
 const ALL_TIMEOUT_MS = 120_000;
 
 describe("spx validation all — TypeScript pipeline composition", () => {
@@ -40,6 +42,7 @@ describe("spx validation all — TypeScript pipeline composition", () => {
         expect(result.stdout).toContain(ESLINT_OUTPUT_MARKER);
         expect(result.stdout).toContain(TSC_OUTPUT_MARKER);
         expect(result.stdout).toContain(CIRCULAR_OUTPUT_MARKER);
+        expect(result.stdout).toContain(LITERAL_OUTPUT_MARKER);
       });
     },
   );
@@ -63,6 +66,7 @@ describe("spx validation all — TypeScript pipeline composition", () => {
         expect(result.stdout).toContain(ESLINT_SKIP_MARKER);
         expect(result.stdout).toContain(TSC_SKIP_MARKER);
         expect(result.stdout).toContain(CIRCULAR_SKIP_MARKER);
+        expect(result.stdout).toContain(LITERAL_SKIP_MARKER);
       });
     },
   );

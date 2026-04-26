@@ -8,9 +8,34 @@ import {
   type LiteralIndex,
   type LiteralOccurrence,
   REMEDIATION,
+  resolveAllowlist,
 } from "@/validation/literal/index.js";
 
 import { DETECTOR_OPTIONS_DEFAULTS, EMPTY_ALLOWLIST } from "./support.js";
+
+const WEB_PRESET_ID = "web";
+
+const WEB_PRESET_TOKENS: readonly string[] = [
+  "GET",
+  "POST",
+  "PUT",
+  "DELETE",
+  "PATCH",
+  "Content-Type",
+  "Authorization",
+  "Accept",
+  "status",
+  "message",
+  "error",
+  "data",
+  "class",
+  "id",
+  "href",
+  "src",
+  "type",
+  "name",
+  "value",
+];
 
 const DEFAULT_OPTIONS = {
   visitorKeys: defaultVisitorKeys,
@@ -90,5 +115,67 @@ describe("AST node → occurrence-kind mapping", () => {
     const match = occurrences.find((o) => o.value === expectedValue);
     expect(match).toBeDefined();
     expect(match?.kind).toBe(expectedKind);
+  });
+});
+
+describe("effective allowlist = ⋃(presets) ∪ include \\ exclude", () => {
+  it.each([
+    {
+      label: "presets only — every preset value present",
+      config: { presets: [WEB_PRESET_ID] },
+      members: ["GET", "POST", "Content-Type"],
+      nonMembers: ["bespoke-domain-token"],
+    },
+    {
+      label: "include only — non-preset values added",
+      config: { include: ["custom-domain-token"] },
+      members: ["custom-domain-token"],
+      nonMembers: ["GET"],
+    },
+    {
+      label: "include extends presets",
+      config: { presets: [WEB_PRESET_ID], include: ["custom-domain-token"] },
+      members: ["GET", "custom-domain-token"],
+      nonMembers: ["other-domain-token"],
+    },
+    {
+      label: "exclude removes a preset value",
+      config: { presets: [WEB_PRESET_ID], exclude: ["GET"] },
+      members: ["POST", "Content-Type"],
+      nonMembers: ["GET"],
+    },
+    {
+      label: "exclude removes an include value",
+      config: { include: ["a-domain-token", "b-domain-token"], exclude: ["b-domain-token"] },
+      members: ["a-domain-token"],
+      nonMembers: ["b-domain-token"],
+    },
+    {
+      label: "preset + include + exclude composition",
+      config: {
+        presets: [WEB_PRESET_ID],
+        include: ["mine-domain-token"],
+        exclude: ["GET", "mine-domain-token"],
+      },
+      members: ["POST", "Content-Type"],
+      nonMembers: ["GET", "mine-domain-token"],
+    },
+  ])("$label", ({ config, members, nonMembers }) => {
+    const effective = resolveAllowlist(config);
+
+    for (const value of members) {
+      expect(effective.has(value)).toBe(true);
+    }
+    for (const value of nonMembers) {
+      expect(effective.has(value)).toBe(false);
+    }
+  });
+});
+
+describe("'web' preset bundle membership", () => {
+  it.each(WEB_PRESET_TOKENS)("'%s' is bundled in the 'web' preset", (token) => {
+    const effective = resolveAllowlist({ presets: [WEB_PRESET_ID] });
+
+    expect(effective.has(token)).toBe(true);
   });
 });

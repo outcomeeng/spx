@@ -4,12 +4,18 @@ import { withTestEnv } from "@/spec/testing/index.js";
 import {
   collectLiterals,
   defaultVisitorKeys,
+  type LiteralAllowlistConfig,
   type LiteralOccurrence,
+  resolveAllowlist,
   validateLiteralReuse,
   type VisitorKeysMap,
 } from "@/validation/literal/index.js";
 
 import { DETECTOR_OPTIONS_DEFAULTS, INTEGRATION_CONFIG, writeSourceWithLiteral } from "./support.js";
+
+const WEB_PRESET_ID = "web";
+const WEB_PRESET_TOKEN = "Authorization";
+const PROJECT_INCLUDE_TOKEN = "project-include-domain-token";
 
 const ARTIFACT_DIRECTORIES: readonly string[] = [
   "node_modules",
@@ -103,5 +109,39 @@ describe("NEVER: index literals from module-naming positions", () => {
     const occurrences = collect(fixtureSource);
     const values = occurrences.filter((o) => o.kind === "string").map((o) => o.value);
     expect(values).not.toContain(modulePath);
+  });
+});
+
+describe("ALWAYS: exclude removes a value from the effective allowlist regardless of which source contributed it", () => {
+  const cases: ReadonlyArray<{
+    readonly source: string;
+    readonly config: LiteralAllowlistConfig;
+    readonly value: string;
+  }> = [
+    {
+      source: "preset",
+      config: { presets: [WEB_PRESET_ID], exclude: [WEB_PRESET_TOKEN] },
+      value: WEB_PRESET_TOKEN,
+    },
+    {
+      source: "include",
+      config: { include: [PROJECT_INCLUDE_TOKEN], exclude: [PROJECT_INCLUDE_TOKEN] },
+      value: PROJECT_INCLUDE_TOKEN,
+    },
+    {
+      source: "preset+include",
+      config: {
+        presets: [WEB_PRESET_ID],
+        include: [WEB_PRESET_TOKEN],
+        exclude: [WEB_PRESET_TOKEN],
+      },
+      value: WEB_PRESET_TOKEN,
+    },
+  ];
+
+  it.each(cases)("a value contributed via $source is removed when listed in exclude", ({ config, value }) => {
+    const effective = resolveAllowlist(config);
+
+    expect(effective.has(value)).toBe(false);
   });
 });
