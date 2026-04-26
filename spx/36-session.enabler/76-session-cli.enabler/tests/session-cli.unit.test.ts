@@ -5,12 +5,14 @@
  * - Real filesystem via harness for archive/delete
  * - Pure output verification for show
  *
- * Assertions covered from batch-operations.md:
+ * Assertions covered from session-cli.md:
  * - S1: archive 3 IDs → all 3 move
  * - S2: delete 3 IDs → all 3 removed
  * - S3: show 2 IDs → both printed with separators
- * - S4: 1 valid + 1 invalid → valid succeeds, invalid errors, exit non-zero
+ * - S4: archive 1 valid + 1 invalid → valid succeeds, invalid errors, exit non-zero
  * - S5: single ID → identical to current behavior
+ * - S6: release 2 IDs in doing → both move to todo
+ * - S7: release 1 valid + 1 invalid → valid released, invalid errors, exit non-zero
  * - P1: successes + errors = IDs count
  * - P2: processing order matches argument order
  */
@@ -21,12 +23,13 @@ import { afterEach, beforeEach, describe, expect, it } from "vitest";
 
 import { archiveCommand } from "@/commands/session/archive";
 import { deleteCommand } from "@/commands/session/delete";
+import { releaseCommand } from "@/commands/session/release";
 import { showCommand } from "@/commands/session/show";
 import type { SessionHarness } from "@/session/testing/harness";
 import { createSessionHarness } from "@/session/testing/harness";
 import { SESSION_STATUSES } from "@/session/types";
 
-const [TODO, _DOING, ARCHIVE] = SESSION_STATUSES;
+const [TODO, DOING, ARCHIVE] = SESSION_STATUSES;
 
 describe("batch archive", () => {
   let harness: SessionHarness;
@@ -129,6 +132,51 @@ describe("batch delete", () => {
 
     // Valid one was still deleted
     expect(existsSync(join(harness.statusDir(TODO), `${validId}.md`))).toBe(false);
+  });
+});
+
+describe("batch release", () => {
+  let harness: SessionHarness;
+
+  beforeEach(async () => {
+    harness = await createSessionHarness();
+  });
+
+  afterEach(async () => {
+    await harness.cleanup();
+  });
+
+  it("S6: GIVEN 2 sessions in doing WHEN release with 2 IDs THEN both move to todo", async () => {
+    const ids = ["2026-04-25_15-39-03", "2026-04-24_08-10-44"];
+    for (const id of ids) {
+      await harness.writeSession(DOING, id);
+    }
+
+    const output = await releaseCommand({
+      sessionIds: ids,
+      sessionsDir: harness.sessionsDir,
+    });
+
+    for (const id of ids) {
+      expect(existsSync(join(harness.statusDir(TODO), `${id}.md`))).toBe(true);
+      expect(existsSync(join(harness.statusDir(DOING), `${id}.md`))).toBe(false);
+    }
+    expect(output).toContain("Released");
+  });
+
+  it("S7: GIVEN 1 valid in doing + 1 invalid ID WHEN release THEN valid released, invalid errors", async () => {
+    const validId = "2026-01-10_10-00-00";
+    await harness.writeSession(DOING, validId);
+
+    await expect(
+      releaseCommand({
+        sessionIds: [validId, "nonexistent"],
+        sessionsDir: harness.sessionsDir,
+      }),
+    ).rejects.toThrow();
+
+    expect(existsSync(join(harness.statusDir(TODO), `${validId}.md`))).toBe(true);
+    expect(existsSync(join(harness.statusDir(DOING), `${validId}.md`))).toBe(false);
   });
 });
 

@@ -7,6 +7,7 @@
 import { readdir, rename } from "node:fs/promises";
 
 import { resolveSessionConfig } from "../../git/root.js";
+import { processBatch } from "../../session/batch.js";
 import { SessionNotClaimedError } from "../../session/errors.js";
 import { buildReleasePaths, findCurrentSession } from "../../session/release.js";
 import type { SessionDirectoryConfig } from "../../session/show.js";
@@ -15,8 +16,8 @@ import type { SessionDirectoryConfig } from "../../session/show.js";
  * Options for the release command.
  */
 export interface ReleaseOptions {
-  /** Session ID to release (optional, defaults to most recent in doing) */
-  sessionId?: string;
+  /** Session IDs to release. Empty array defaults to most recent in doing. */
+  sessionIds: string[];
   /** Custom sessions directory */
   sessionsDir?: string;
 }
@@ -39,32 +40,9 @@ async function loadDoingSessions(config: SessionDirectoryConfig): Promise<Array<
 }
 
 /**
- * Executes the release command.
- *
- * @param options - Command options
- * @returns Formatted output for display
- * @throws {SessionNotClaimedError} When session not in doing directory
+ * Releases a single claimed session by ID.
  */
-export async function releaseCommand(options: ReleaseOptions): Promise<string> {
-  const { config } = await resolveSessionConfig({ sessionsDir: options.sessionsDir });
-
-  let sessionId: string;
-
-  if (options.sessionId) {
-    sessionId = options.sessionId;
-  } else {
-    // Find most recent session in doing
-    const sessions = await loadDoingSessions(config);
-    const current = findCurrentSession(sessions);
-
-    if (!current) {
-      throw new SessionNotClaimedError("(none)");
-    }
-
-    sessionId = current.id;
-  }
-
-  // Build paths and perform release
+async function releaseSingle(sessionId: string, config: SessionDirectoryConfig): Promise<string> {
   const paths = buildReleasePaths(sessionId, config);
 
   try {
@@ -77,4 +55,34 @@ export async function releaseCommand(options: ReleaseOptions): Promise<string> {
   }
 
   return `Released session: ${sessionId}\nSession returned to todo directory.`;
+}
+
+/**
+ * Executes the release command for zero or more session IDs.
+ *
+ * When `sessionIds` is empty, the most recently claimed session in doing is released.
+ * When one or more IDs are provided, all are processed in argument order.
+ *
+ * @param options - Command options
+ * @returns Formatted output for display
+ * @throws {BatchError} When one or more IDs fail
+ * @throws {SessionNotClaimedError} When no session is claimed (empty IDs) or session not in doing (single ID)
+ */
+export async function releaseCommand(options: ReleaseOptions): Promise<string> {
+  const { config } = await resolveSessionConfig({ sessionsDir: options.sessionsDir });
+
+  let ids = options.sessionIds;
+
+  if (ids.length === 0) {
+    const sessions = await loadDoingSessions(config);
+    const current = findCurrentSession(sessions);
+
+    if (!current) {
+      throw new SessionNotClaimedError("(none)");
+    }
+
+    ids = [current.id];
+  }
+
+  return processBatch(ids, (id) => releaseSingle(id, config));
 }

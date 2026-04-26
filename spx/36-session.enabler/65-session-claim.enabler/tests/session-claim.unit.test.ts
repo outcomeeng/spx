@@ -278,7 +278,7 @@ describe("releaseCommand with real filesystem", () => {
     await harness.writeSession(DOING, sessionId);
 
     const output = await releaseCommand({
-      sessionId,
+      sessionIds: [sessionId],
       sessionsDir: harness.sessionsDir,
     });
 

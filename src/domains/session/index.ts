@@ -141,13 +141,13 @@ function registerSessionCommands(sessionCmd: Command): void {
 
   // release command
   sessionCmd
-    .command("release [id]")
-    .description("Release a session (move from doing to todo)")
+    .command("release [ids...]")
+    .description("Release one or more sessions (move from doing to todo)")
     .option("--sessions-dir <path>", "Custom sessions directory")
-    .action(async (id: string | undefined, options: { sessionsDir?: string }) => {
+    .action(async (ids: string[], options: { sessionsDir?: string }) => {
       try {
         const output = await releaseCommand({
-          sessionId: id,
+          sessionIds: ids,
           sessionsDir: options.sessionsDir,
         });
         console.log(output);
