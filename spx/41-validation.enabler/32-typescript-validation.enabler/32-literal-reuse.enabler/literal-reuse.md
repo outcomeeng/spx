@@ -1,8 +1,8 @@
 # Literal Reuse
 
-PROVIDES the cross-file literal-reuse detector — a global pre-pass that parses every TypeScript source and test file, indexes string and numeric literals carrying domain meaning, and reports two classes of finding: literals that recur between source and test files (src↔test reuse) and literals that recur across two or more test files without appearing in any source file (test↔test duplication)
-SO THAT `spx validation all` running against a TypeScript project
-CAN enforce the source/test boundary import rules and shared-test-support recurrence rules from [21-typescript-conventions.adr.md](../21-typescript-conventions.adr.md) — patterns that per-file ESLint rules cannot detect because they require indexing literals across the full codebase
+PROVIDES the cross-file literal-reuse detector — a global pre-pass that parses every TypeScript source and test file, indexes string and numeric literals carrying domain meaning, and reports two classes of finding: literals that recur between source and test files (src↔test reuse) and literals that recur across two or more test files without appearing in any source file (test↔test duplication) — and an adoption helper that records every current finding's value into the project's `literal.allowlist.include` in one operation
+SO THAT `spx validation all` running against a TypeScript project, plus projects adopting the literal stage that already carry pre-existing duplications,
+CAN enforce the source/test boundary import rules and shared-test-support recurrence rules from [21-typescript-conventions.adr.md](../21-typescript-conventions.adr.md) — patterns that per-file ESLint rules cannot detect because they require indexing literals across the full codebase — without first having to fix every pre-existing violation before the stage produces signal
 
 ## Assertions
 
@@ -20,6 +20,8 @@ CAN enforce the source/test boundary import rules and shared-test-support recurr
 - Given a node directory listed in `spx/EXCLUDE`, when the detector walks files, then files under that node's directory are not parsed or indexed ([test](tests/literal.scenario.l1.test.ts))
 - Given the detector is invoked with `--files <paths...>`, when it runs, then only the named files are walked and findings are reported against the index those files contribute ([test](tests/literal.scenario.l1.test.ts))
 - Given the detector is invoked with `--json`, when it completes, then the output parses through `parseLiteralReuseResult` without throwing ([test](tests/literal.scenario.l1.test.ts))
+- Given a project with one or more current findings, when the user runs `spx validation literal --allowlist-existing`, then every distinct value currently flagged is appended to `literal.allowlist.include` in the project's `spx.config.*` file (creating the file or `literal` section if absent, deduplicating against existing entries, sorted alphabetically), and a subsequent `spx validation literal` run against the unchanged source reports zero findings ([test](tests/literal.scenario.l1.test.ts))
+- Given multiple `spx.config.*` files exist at the project root, when `--allowlist-existing` runs, then it returns the same ambiguity error as `resolveConfig` (naming every detected file) and writes nothing ([test](tests/literal.scenario.l1.test.ts))
 
 ### Mappings
 
@@ -43,3 +45,6 @@ CAN enforce the source/test boundary import rules and shared-test-support recurr
 - NEVER: descend into artifact directories — `node_modules`, `dist`, `build`, `.next`, `.source`, `.git`, `out`, `coverage` ([test](tests/literal.compliance.l1.test.ts))
 - NEVER: index literals from positions that name a module — `ImportDeclaration.source`, `ExportNamedDeclaration.source`, `ExportAllDeclaration.source`, `ImportExpression.source`, `TSImportType.source`, `TSExternalModuleReference.expression` ([test](tests/literal.compliance.l1.test.ts))
 - ALWAYS: the stage participates in `spx validation all` — `allCommand` imports and invokes `literalCommand`, which returns a non-zero exit code when findings exist ([review])
+- ALWAYS: `--allowlist-existing` writes only to `literal.allowlist.include` — never to `presets`, `exclude`, or any other top-level section of `spx.config.*` ([test](tests/literal.compliance.l1.test.ts))
+- ALWAYS: `--allowlist-existing` is idempotent — running it twice in succession against unchanged source yields the same `include` set ([test](tests/literal.compliance.l1.test.ts))
+- NEVER: `--allowlist-existing` removes or reorders existing `include` entries — it only appends new values, deduplicating against the existing set ([test](tests/literal.compliance.l1.test.ts))
