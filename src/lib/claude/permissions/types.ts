@@ -12,7 +12,7 @@ export type PermissionCategory = "allow" | "deny" | "ask";
  *
  * Examples:
  * - "Bash(git:*)"
- * - "Read(file_path:/Users/shz/Code/**)"
+ * - "Read(file_path:/Users/user/Code/**)"
  * - "WebFetch(domain:github.com)"
  */
 export interface Permission {
@@ -103,6 +103,6 @@ export interface ConsolidationResult {
 export interface ScopePattern {
   /** Type of scope pattern: command or path */
   type: "command" | "path";
-  /** The pattern string (e.g., "git:*" or "/Users/shz/Code/**") */
+  /** The pattern string (e.g., "git:*" or "/Users/user/Code/**") */
   pattern: string;
 }

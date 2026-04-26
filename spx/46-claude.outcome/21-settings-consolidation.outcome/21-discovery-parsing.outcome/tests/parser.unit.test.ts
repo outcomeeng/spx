@@ -45,12 +45,12 @@ describe("parsePermission", () => {
   });
 
   test("parses file path permission", () => {
-    const result = parsePermission("Read(file_path:/Users/shz/Code/**)", "allow");
+    const result = parsePermission("Read(file_path:/Users/user/Code/**)", "allow");
 
     expect(result).toEqual({
-      raw: "Read(file_path:/Users/shz/Code/**)",
+      raw: "Read(file_path:/Users/user/Code/**)",
       type: "Read",
-      scope: "file_path:/Users/shz/Code/**",
+      scope: "file_path:/Users/user/Code/**",
       category: "allow",
     });
   });
@@ -88,7 +88,7 @@ describe("parsePermission", () => {
 
   test("throws error for malformed permission - no parentheses", () => {
     expect(() => parsePermission("Bash git:*", "allow")).toThrow(
-      "Malformed permission string: \"Bash git:*\"",
+      'Malformed permission string: "Bash git:*"',
     );
   });
 

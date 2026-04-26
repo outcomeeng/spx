@@ -97,8 +97,8 @@ describe("resolveConflicts - Subsumption", () => {
 
   test("path subsumption in conflicts", () => {
     const permissions: Permissions = {
-      allow: ["Read(file_path:/Users/shz/Code/project-a/**)", "Read(file_path:/Users/other/**)"],
-      deny: ["Read(file_path:/Users/shz/Code/**)"],
+      allow: ["Read(file_path:/Users/user/Code/project-a/**)", "Read(file_path:/Users/other/**)"],
+      deny: ["Read(file_path:/Users/user/Code/**)"],
     };
 
     const result = resolveConflicts(permissions);
@@ -107,10 +107,10 @@ describe("resolveConflicts - Subsumption", () => {
     expect(result.resolved.allow).toContain("Read(file_path:/Users/other/**)");
 
     expect(result.resolved.deny).toHaveLength(1);
-    expect(result.resolved.deny).toContain("Read(file_path:/Users/shz/Code/**)");
+    expect(result.resolved.deny).toContain("Read(file_path:/Users/user/Code/**)");
 
     expect(result.conflictCount).toBe(1);
-    expect(result.subsumed).toContain("Read(file_path:/Users/shz/Code/project-a/**)");
+    expect(result.subsumed).toContain("Read(file_path:/Users/user/Code/project-a/**)");
   });
 
   test("narrower deny does NOT subsume broader allow", () => {

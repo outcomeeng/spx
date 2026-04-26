@@ -23,9 +23,7 @@ import type { ClaudeSettings, Permission, PermissionCategory, Permissions } from
  * }
  * ```
  */
-export async function parseSettingsFile(
-  filePath: string,
-): Promise<ClaudeSettings | null> {
+export async function parseSettingsFile(filePath: string): Promise<ClaudeSettings | null> {
   try {
     // Read file contents
     const content = await fs.readFile(filePath, "utf-8");
@@ -51,7 +49,7 @@ export async function parseSettingsFile(
  * Permission format: "Type(scope)"
  * Examples:
  * - "Bash(git:*)" => { type: "Bash", scope: "git:*" }
- * - "Read(file_path:/Users/shz/Code/**)" => { type: "Read", scope: "file_path:/Users/shz/Code/**" }
+ * - "Read(file_path:/Users/user/Code/**)" => { type: "Read", scope: "file_path:/Users/user/Code/**" }
  * - "WebFetch(domain:github.com)" => { type: "WebFetch", scope: "domain:github.com" }
  *
  * @param raw - Raw permission string
@@ -65,10 +63,7 @@ export async function parseSettingsFile(
  * // Returns: { raw: "Bash(git:*)", type: "Bash", scope: "git:*", category: "allow" }
  * ```
  */
-export function parsePermission(
-  raw: string,
-  category: PermissionCategory,
-): Permission {
+export function parsePermission(raw: string, category: PermissionCategory): Permission {
   // Match pattern: Type(scope)
   const match = raw.match(/^([^(]+)\((.+)\)$/);
 
@@ -159,16 +154,14 @@ export function parseAllPermissions(permissions: Permissions): Permission[] {
  * @example
  * ```typescript
  * const files = [
- *   "/Users/shz/Code/project-a/.claude/settings.local.json",
- *   "/Users/shz/Code/project-b/.claude/settings.local.json"
+ *   "/Users/user/Code/project-a/.claude/settings.local.json",
+ *   "/Users/user/Code/project-b/.claude/settings.local.json"
  * ];
  * const allPermissions = await parseAllSettings(files);
  * // Returns: [{ allow: [...], deny: [...] }, { allow: [...] }]
  * ```
  */
-export async function parseAllSettings(
-  filePaths: string[],
-): Promise<Permissions[]> {
+export async function parseAllSettings(filePaths: string[]): Promise<Permissions[]> {
   const results: Permissions[] = [];
 
   for (const filePath of filePaths) {

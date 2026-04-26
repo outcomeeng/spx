@@ -19,8 +19,8 @@ import path from "path";
  * ```typescript
  * const files = await findSettingsFiles("~/Code");
  * // Returns: [
- * //   "/Users/shz/Code/project-a/.claude/settings.local.json",
- * //   "/Users/shz/Code/project-b/.claude/settings.local.json"
+ * //   "/Users/user/Code/project-a/.claude/settings.local.json",
+ * //   "/Users/user/Code/project-b/.claude/settings.local.json"
  * // ]
  * ```
  */
@@ -76,9 +76,7 @@ export async function findSettingsFiles(
       if (error.message.includes("EACCES")) {
         throw new Error(`Permission denied: ${normalizedRoot}`);
       }
-      throw new Error(
-        `Failed to search directory "${normalizedRoot}": ${error.message}`,
-      );
+      throw new Error(`Failed to search directory "${normalizedRoot}": ${error.message}`);
     }
     throw error;
   }

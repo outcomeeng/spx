@@ -69,7 +69,7 @@ retain focus\" --reporter=line 2>&1 | tail -10"}
 2 {"name":"Bash","cmd":"spx validation markdown --files spx/44-streams.outcome spx/44-memory-mapped.outcome spx/37-multi-target-generation.outcome 2>&1"}
 ⎿ 1 PostToolUse hook ran
 
-⏺ Read(/Users/shz/Code/hermes/.claude/settings.json)
+⏺ Read(/Users/user/Code/hermes/.claude/settings.json)
 ⎿ Read 7 lines
 
     10:59 AM claude-opus-4-7

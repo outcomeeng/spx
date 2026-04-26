@@ -26,9 +26,9 @@ describe("parseScopePattern", () => {
   });
 
   test("detects file_path patterns", () => {
-    const result = parseScopePattern("file_path:/Users/shz/Code/**");
+    const result = parseScopePattern("file_path:/Users/user/Code/**");
     expect(result.type).toBe("path");
-    expect(result.pattern).toBe("/Users/shz/Code/**");
+    expect(result.pattern).toBe("/Users/user/Code/**");
   });
 
   test("detects directory_path patterns", () => {
@@ -104,22 +104,22 @@ describe("subsumes - Command Patterns", () => {
 // ============================================================================
 
 describe("subsumes - Path Patterns", () => {
-  test("Read(file_path:/Users/shz/Code/**) subsumes Read(file_path:/Users/shz/Code/project-a/**)", () => {
-    const broader = parsePermission("Read(file_path:/Users/shz/Code/**)", "allow");
-    const narrower = parsePermission("Read(file_path:/Users/shz/Code/project-a/**)", "allow");
+  test("Read(file_path:/Users/user/Code/**) subsumes Read(file_path:/Users/user/Code/project-a/**)", () => {
+    const broader = parsePermission("Read(file_path:/Users/user/Code/**)", "allow");
+    const narrower = parsePermission("Read(file_path:/Users/user/Code/project-a/**)", "allow");
 
     expect(subsumes(broader, narrower)).toBe(true);
   });
 
-  test("Read(file_path:/Users/shz/**) subsumes Read(file_path:/Users/shz/Code/project-a/**)", () => {
-    const broader = parsePermission("Read(file_path:/Users/shz/**)", "allow");
-    const narrower = parsePermission("Read(file_path:/Users/shz/Code/project-a/**)", "allow");
+  test("Read(file_path:/Users/user/**) subsumes Read(file_path:/Users/user/Code/project-a/**)", () => {
+    const broader = parsePermission("Read(file_path:/Users/user/**)", "allow");
+    const narrower = parsePermission("Read(file_path:/Users/user/Code/project-a/**)", "allow");
 
     expect(subsumes(broader, narrower)).toBe(true);
   });
 
-  test("Read(file_path:/Users/shz/Code/**) does NOT subsume Read(file_path:/Users/other/**)", () => {
-    const permA = parsePermission("Read(file_path:/Users/shz/Code/**)", "allow");
+  test("Read(file_path:/Users/user/Code/**) does NOT subsume Read(file_path:/Users/other/**)", () => {
+    const permA = parsePermission("Read(file_path:/Users/user/Code/**)", "allow");
     const permB = parsePermission("Read(file_path:/Users/other/**)", "allow");
 
     expect(subsumes(permA, permB)).toBe(false);
@@ -133,8 +133,8 @@ describe("subsumes - Path Patterns", () => {
   });
 
   test("Sibling paths do not subsume each other", () => {
-    const permA = parsePermission("Read(file_path:/Users/shz/project-a/**)", "allow");
-    const permB = parsePermission("Read(file_path:/Users/shz/project-b/**)", "allow");
+    const permA = parsePermission("Read(file_path:/Users/user/project-a/**)", "allow");
+    const permB = parsePermission("Read(file_path:/Users/user/project-b/**)", "allow");
 
     expect(subsumes(permA, permB)).toBe(false);
     expect(subsumes(permB, permA)).toBe(false);
@@ -148,7 +148,7 @@ describe("subsumes - Path Patterns", () => {
 describe("subsumes - Cross-Type", () => {
   test("Bash does NOT subsume Read", () => {
     const bash = parsePermission("Bash(git:*)", "allow");
-    const read = parsePermission("Read(file_path:/Users/shz/Code/**)", "allow");
+    const read = parsePermission("Read(file_path:/Users/user/Code/**)", "allow");
 
     expect(subsumes(bash, read)).toBe(false);
     expect(subsumes(read, bash)).toBe(false);
@@ -197,17 +197,17 @@ describe("detectSubsumptions", () => {
 
   test("finds subsumptions in path permissions", () => {
     const permissions = [
-      parsePermission("Read(file_path:/Users/shz/Code/**)", "allow"),
-      parsePermission("Read(file_path:/Users/shz/Code/project-a/**)", "allow"),
+      parsePermission("Read(file_path:/Users/user/Code/**)", "allow"),
+      parsePermission("Read(file_path:/Users/user/Code/project-a/**)", "allow"),
       parsePermission("Read(file_path:/Users/other/**)", "allow"),
     ];
 
     const results = detectSubsumptions(permissions);
 
     expect(results).toHaveLength(1);
-    expect(results[0].broader.raw).toBe("Read(file_path:/Users/shz/Code/**)");
+    expect(results[0].broader.raw).toBe("Read(file_path:/Users/user/Code/**)");
     expect(results[0].narrower).toHaveLength(1);
-    expect(results[0].narrower[0].raw).toBe("Read(file_path:/Users/shz/Code/project-a/**)");
+    expect(results[0].narrower[0].raw).toBe("Read(file_path:/Users/user/Code/project-a/**)");
   });
 
   test("returns empty array when no subsumptions exist", () => {
@@ -280,19 +280,19 @@ describe("removeSubsumed", () => {
 
   test("removes subsumed path permissions", () => {
     const permissions = [
-      "Read(file_path:/Users/shz/Code/**)",
-      "Read(file_path:/Users/shz/Code/project-a/**)",
-      "Read(file_path:/Users/shz/Code/project-b/**)",
+      "Read(file_path:/Users/user/Code/**)",
+      "Read(file_path:/Users/user/Code/project-a/**)",
+      "Read(file_path:/Users/user/Code/project-b/**)",
       "Read(file_path:/Users/other/**)",
     ];
 
     const result = removeSubsumed(permissions, "allow");
 
     expect(result).toHaveLength(2);
-    expect(result).toContain("Read(file_path:/Users/shz/Code/**)");
+    expect(result).toContain("Read(file_path:/Users/user/Code/**)");
     expect(result).toContain("Read(file_path:/Users/other/**)");
-    expect(result).not.toContain("Read(file_path:/Users/shz/Code/project-a/**)");
-    expect(result).not.toContain("Read(file_path:/Users/shz/Code/project-b/**)");
+    expect(result).not.toContain("Read(file_path:/Users/user/Code/project-a/**)");
+    expect(result).not.toContain("Read(file_path:/Users/user/Code/project-b/**)");
   });
 
   test("returns all permissions when no subsumptions exist", () => {
@@ -343,8 +343,8 @@ describe("removeSubsumed", () => {
     const permissions = [
       "Bash(git:*)",
       "Bash(git log:*)",
-      "Read(file_path:/Users/shz/**)",
-      "Read(file_path:/Users/shz/Code/**)",
+      "Read(file_path:/Users/user/**)",
+      "Read(file_path:/Users/user/Code/**)",
       "WebFetch(domain:github.com)",
     ];
 
@@ -352,7 +352,7 @@ describe("removeSubsumed", () => {
 
     expect(result).toHaveLength(3);
     expect(result).toContain("Bash(git:*)");
-    expect(result).toContain("Read(file_path:/Users/shz/**)");
+    expect(result).toContain("Read(file_path:/Users/user/**)");
     expect(result).toContain("WebFetch(domain:github.com)");
   });
 

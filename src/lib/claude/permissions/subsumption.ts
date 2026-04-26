@@ -3,7 +3,7 @@
  *
  * Detects when broader permissions subsume narrower ones:
  * - Bash(git:*) subsumes Bash(git log:*), Bash(git worktree:*), etc.
- * - Read(file_path:/Users/shz/Code/**) subsumes Read(file_path:/Users/shz/Code/project-a/**)
+ * - Read(file_path:/Users/user/Code/**) subsumes Read(file_path:/Users/user/Code/project-a/**)
  */
 import { normalizePath } from "../../../scanner/walk.js";
 import { parsePermission } from "./parser.js";
@@ -13,7 +13,7 @@ import type { Permission, PermissionCategory, ScopePattern, SubsumptionResult } 
  * Parse a scope string to extract pattern type and value
  *
  * Determines whether the scope is a command pattern (e.g., "git:*")
- * or a path pattern (e.g., "file_path:/Users/shz/Code/**").
+ * or a path pattern (e.g., "file_path:/Users/user/Code/**").
  *
  * @param scope - Scope string from permission
  * @returns ScopePattern with type and pattern
@@ -23,16 +23,16 @@ import type { Permission, PermissionCategory, ScopePattern, SubsumptionResult } 
  * parseScopePattern("git:*")
  * // Returns: { type: "command", pattern: "git:*" }
  *
- * parseScopePattern("file_path:/Users/shz/Code/**")
- * // Returns: { type: "path", pattern: "/Users/shz/Code/**" }
+ * parseScopePattern("file_path:/Users/user/Code/**")
+ * // Returns: { type: "path", pattern: "/Users/user/Code/**" }
  * ```
  */
 export function parseScopePattern(scope: string): ScopePattern {
   // Check if scope contains path indicators
   if (
-    scope.includes("file_path:")
-    || scope.includes("directory_path:")
-    || scope.includes("path:")
+    scope.includes("file_path:") ||
+    scope.includes("directory_path:") ||
+    scope.includes("path:")
   ) {
     // Extract path after the colon
     const colonIndex = scope.indexOf(":");
@@ -52,7 +52,7 @@ export function parseScopePattern(scope: string): ScopePattern {
  * 2. Identical scopes = not subsumption (exact match)
  * 3. Broader scope subsumes narrower scope:
  *    - Command: "git:*" subsumes "git log:*", "git worktree:*"
- *    - Path: "/Users/shz/Code/**" subsumes "/Users/shz/Code/project-a/**"
+ *    - Path: "/Users/user/Code/**" subsumes "/Users/user/Code/project-a/**"
  *
  * @param broader - Permission that might subsume the other
  * @param narrower - Permission that might be subsumed
@@ -67,14 +67,14 @@ export function parseScopePattern(scope: string): ScopePattern {
  * // Returns: true
  *
  * subsumes(
- *   parsePermission("Read(file_path:/Users/shz/Code/**)", "allow"),
- *   parsePermission("Read(file_path:/Users/shz/Code/project-a/**)", "allow")
+ *   parsePermission("Read(file_path:/Users/user/Code/**)", "allow"),
+ *   parsePermission("Read(file_path:/Users/user/Code/project-a/**)", "allow")
  * )
  * // Returns: true
  *
  * subsumes(
  *   parsePermission("Bash(git:*)", "allow"),
- *   parsePermission("Read(file_path:/Users/shz/Code/**)", "allow")
+ *   parsePermission("Read(file_path:/Users/user/Code/**)", "allow")
  * )
  * // Returns: false (different types)
  * ```
@@ -111,14 +111,14 @@ export function subsumes(broader: Permission, narrower: Permission): boolean {
     }
   }
 
-  // 5. Handle path patterns (e.g., "/Users/shz/Code/**")
+  // 5. Handle path patterns (e.g., "/Users/user/Code/**")
   if (broaderScope.type === "path" && narrowerScope.type === "path") {
     // Normalize paths for comparison
     const broaderPath = normalizePath(broaderScope.pattern.replace(/\/?\*+$/, ""));
     const narrowerPath = normalizePath(narrowerScope.pattern.replace(/\/?\*+$/, ""));
 
     // Check if narrower is a sub-path of broader
-    // "/Users/shz/Code" subsumes "/Users/shz/Code/project-a" if:
+    // "/Users/user/Code" subsumes "/Users/user/Code/project-a" if:
     // - narrowerPath starts with broaderPath + "/"
     return narrowerPath.startsWith(broaderPath + "/");
   }
@@ -158,9 +158,7 @@ export function subsumes(broader: Permission, narrower: Permission): boolean {
  * // ]
  * ```
  */
-export function detectSubsumptions(
-  permissions: Permission[],
-): SubsumptionResult[] {
+export function detectSubsumptions(permissions: Permission[]): SubsumptionResult[] {
   const results: SubsumptionResult[] = [];
   const processedBroader = new Set<string>();
 
