@@ -16,7 +16,7 @@ The semantic validation module exports a single `validateSemantics(verdict: Audi
 
 Coherence checks run in a fixed order:
 
-1. Overall verdict coherence: `APPROVED` requires all gates `PASS` or `SKIPPED`; `REJECT` requires at least one gate `FAIL`
+1. Overall verdict coherence: `APPROVED` requires all gates `PASS`; `REJECT` requires at least one gate `FAIL`
 2. For each gate with status `FAIL`: at least one finding must be present
 3. For each gate with status `SKIPPED`: a `skipped_reason` field must be present
 
