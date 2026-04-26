@@ -10,6 +10,8 @@
  * Spec: 43-session-store.enabler/session-store.md
  */
 
+import { readFile } from "node:fs/promises";
+
 import fc from "fast-check";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 
@@ -32,11 +34,17 @@ import {
   DEFAULT_LIST_STATUSES,
   DEFAULT_PRIORITY,
   type Session,
+  SESSION_FRONT_MATTER,
   SESSION_STATUSES,
   type SessionPriority,
 } from "@/session/types";
 
+import { extractSessionFile, parseFrontMatter } from "./helpers";
+
 const [TODO] = SESSION_STATUSES;
+
+const ENV_KEYS = ["CLAUDE_SESSION_ID", "CODEX_THREAD_ID"] as const;
+const PREFILL_SESSION_CONTENT = `---\npriority: medium\n---\n# Test session`;
 
 describe("listCommand", () => {
   let harness: SessionHarness;
@@ -547,5 +555,60 @@ describe("sortSessions with unparsable IDs", () => {
     const sorted = sortSessions(input);
     expect(sorted).toHaveLength(2);
     expect(sorted.map((s) => s.id).sort()).toEqual(["aaa", "zzz"]);
+  });
+});
+
+// ============================================================
+// Handoff: created_at and agent_session_id pre-fill
+// ============================================================
+
+describe("handoffCommand — created_at and agent_session_id pre-fill", () => {
+  let harness: SessionHarness;
+
+  beforeEach(async () => {
+    harness = await createSessionHarness();
+    for (const key of ENV_KEYS) {
+      delete process.env[key];
+    }
+  });
+
+  afterEach(async () => {
+    await harness.cleanup();
+    for (const key of ENV_KEYS) {
+      delete process.env[key];
+    }
+  });
+
+  it("GIVEN handoff is invoked WHEN session file is created THEN created_at is written to YAML front matter", async () => {
+    const output = await handoffCommand({ content: PREFILL_SESSION_CONTENT, sessionsDir: harness.sessionsDir });
+    const frontMatter = parseFrontMatter(await readFile(extractSessionFile(output), "utf-8"));
+
+    expect(frontMatter).toHaveProperty(SESSION_FRONT_MATTER.CREATED_AT);
+    expect(typeof frontMatter[SESSION_FRONT_MATTER.CREATED_AT]).toBe("string");
+  });
+
+  it("GIVEN CLAUDE_SESSION_ID is set WHEN handoff creates session THEN agent_session_id is written with CLAUDE_SESSION_ID value", async () => {
+    process.env.CLAUDE_SESSION_ID = "fa0a91ee-f0bc-449e-8299-727ebe314a78";
+
+    const output = await handoffCommand({ content: PREFILL_SESSION_CONTENT, sessionsDir: harness.sessionsDir });
+    const frontMatter = parseFrontMatter(await readFile(extractSessionFile(output), "utf-8"));
+
+    expect(frontMatter).toHaveProperty(SESSION_FRONT_MATTER.AGENT_SESSION_ID, "fa0a91ee-f0bc-449e-8299-727ebe314a78");
+  });
+
+  it("GIVEN CLAUDE_SESSION_ID absent and CODEX_THREAD_ID set WHEN handoff creates session THEN agent_session_id is written with CODEX_THREAD_ID value", async () => {
+    process.env.CODEX_THREAD_ID = "thread-xyz-789";
+
+    const output = await handoffCommand({ content: PREFILL_SESSION_CONTENT, sessionsDir: harness.sessionsDir });
+    const frontMatter = parseFrontMatter(await readFile(extractSessionFile(output), "utf-8"));
+
+    expect(frontMatter).toHaveProperty(SESSION_FRONT_MATTER.AGENT_SESSION_ID, "thread-xyz-789");
+  });
+
+  it("GIVEN neither CLAUDE_SESSION_ID nor CODEX_THREAD_ID set WHEN handoff creates session THEN agent_session_id does not appear in YAML front matter", async () => {
+    const output = await handoffCommand({ content: PREFILL_SESSION_CONTENT, sessionsDir: harness.sessionsDir });
+    const frontMatter = parseFrontMatter(await readFile(extractSessionFile(output), "utf-8"));
+
+    expect(frontMatter).not.toHaveProperty(SESSION_FRONT_MATTER.AGENT_SESSION_ID);
   });
 });
