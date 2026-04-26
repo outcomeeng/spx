@@ -3,7 +3,7 @@ import * as fc from "fast-check";
 import { join } from "node:path";
 import { describe, expect, it } from "vitest";
 
-const CLI_PATH = join(process.cwd(), "dist", "cli.js");
+const CLI_PATH = join(process.cwd(), "bin", "spx.js");
 const SUBPROCESS_TIMEOUT_MS = 10_000;
 const PROPERTY_RUN_COUNT = 15;
 const PROPERTY_TIMEOUT_MS = 60_000;

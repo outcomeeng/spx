@@ -2,7 +2,7 @@ import { execa } from "execa";
 import { join } from "node:path";
 import { describe, expect, it } from "vitest";
 
-const CLI_PATH = join(process.cwd(), "dist", "cli.js");
+const CLI_PATH = join(process.cwd(), "bin", "spx.js");
 const SUBPROCESS_TIMEOUT_MS = 10_000;
 const UNKNOWN_TAG = "unknown subcommand";
 
