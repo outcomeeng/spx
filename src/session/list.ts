@@ -7,7 +7,14 @@
 import { parse as parseYaml } from "yaml";
 
 import { parseSessionId } from "./timestamp";
-import { DEFAULT_PRIORITY, PRIORITY_ORDER, type Session, type SessionMetadata, type SessionPriority } from "./types";
+import {
+  DEFAULT_PRIORITY,
+  PRIORITY_ORDER,
+  type Session,
+  SESSION_FRONT_MATTER,
+  type SessionMetadata,
+  type SessionPriority,
+} from "./types";
 
 /**
  * Regular expression to match YAML front matter.
@@ -58,45 +65,39 @@ export function parseSessionMetadata(content: string): SessionMetadata {
       };
     }
 
-    // Extract priority with validation
-    const priority = isValidPriority(parsed.priority)
-      ? parsed.priority
-      : DEFAULT_PRIORITY;
+    const rawPriority = parsed[SESSION_FRONT_MATTER.PRIORITY];
+    const priority = isValidPriority(rawPriority) ? rawPriority : DEFAULT_PRIORITY;
 
-    // Extract tags, ensuring it's an array of strings
-    let tags: string[] = [];
-    if (Array.isArray(parsed.tags)) {
-      tags = parsed.tags.filter((t): t is string => typeof t === "string");
+    const rawTags = parsed[SESSION_FRONT_MATTER.TAGS];
+    const tags: string[] = Array.isArray(rawTags)
+      ? rawTags.filter((t): t is string => typeof t === "string")
+      : [];
+
+    const metadata: SessionMetadata = { priority, tags };
+
+    const id = parsed[SESSION_FRONT_MATTER.ID];
+    if (typeof id === "string") metadata.id = id;
+
+    const branch = parsed[SESSION_FRONT_MATTER.BRANCH];
+    if (typeof branch === "string") metadata.branch = branch;
+
+    const createdAt = parsed[SESSION_FRONT_MATTER.CREATED_AT];
+    if (typeof createdAt === "string") metadata.createdAt = createdAt;
+
+    const agentSessionId = parsed[SESSION_FRONT_MATTER.AGENT_SESSION_ID];
+    if (typeof agentSessionId === "string") metadata.agentSessionId = agentSessionId;
+
+    const workingDirectory = parsed[SESSION_FRONT_MATTER.WORKING_DIRECTORY];
+    if (typeof workingDirectory === "string") metadata.workingDirectory = workingDirectory;
+
+    const specs = parsed[SESSION_FRONT_MATTER.SPECS];
+    if (Array.isArray(specs)) {
+      metadata.specs = specs.filter((s): s is string => typeof s === "string");
     }
 
-    // Build metadata object
-    const metadata: SessionMetadata = {
-      priority,
-      tags,
-    };
-
-    // Add optional fields if present
-    if (typeof parsed.id === "string") {
-      metadata.id = parsed.id;
-    }
-    if (typeof parsed.branch === "string") {
-      metadata.branch = parsed.branch;
-    }
-    if (typeof parsed.created_at === "string") {
-      metadata.createdAt = parsed.created_at;
-    }
-    if (typeof parsed.working_directory === "string") {
-      metadata.workingDirectory = parsed.working_directory;
-    }
-    if (Array.isArray(parsed.specs)) {
-      metadata.specs = parsed.specs.filter(
-        (s): s is string => typeof s === "string",
-      );
-    }
-    if (Array.isArray(parsed.files)) {
-      metadata.files = parsed.files.filter(
-        (f): f is string => typeof f === "string",
-      );
+    const files = parsed[SESSION_FRONT_MATTER.FILES];
+    if (Array.isArray(files)) {
+      metadata.files = files.filter((f): f is string => typeof f === "string");
     }
 
     return metadata;

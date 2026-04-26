@@ -11,7 +11,7 @@ import { mkdir, writeFile } from "node:fs/promises";
 import { join, resolve } from "node:path";
 
 import { resolveSessionConfig } from "../../git/root.js";
-import { validateSessionContent } from "../../session/create.js";
+import { preFillSessionContent, validateSessionContent } from "../../session/create.js";
 import { SessionInvalidContentError } from "../../session/errors.js";
 import { generateSessionId } from "../../session/timestamp.js";
 
@@ -103,10 +103,13 @@ export async function handoffCommand(options: HandoffOptions): Promise<string> {
   // Generate session ID
   const sessionId = generateSessionId();
 
-  // Build content - preserves existing frontmatter or adds defaults
-  const fullContent = buildSessionContent(options.content);
+  const baseContent = buildSessionContent(options.content);
+  const agentSessionId = process.env.CLAUDE_SESSION_ID ?? process.env.CODEX_THREAD_ID;
+  const fullContent = preFillSessionContent(baseContent, {
+    createdAt: new Date(),
+    agentSessionId,
+  });
 
-  // Validate content
   const validation = validateSessionContent(fullContent);
   if (!validation.valid) {
     throw new SessionInvalidContentError(validation.error ?? "Unknown validation error");

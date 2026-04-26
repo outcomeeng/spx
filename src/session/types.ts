@@ -42,6 +42,22 @@ export const PRIORITY_ORDER: Record<SessionPriority, number> = {
 export const DEFAULT_PRIORITY: SessionPriority = "medium";
 
 /**
+ * YAML front matter keys for session files.
+ * Single source of truth for the serialized session schema.
+ */
+export const SESSION_FRONT_MATTER = {
+  PRIORITY: "priority",
+  TAGS: "tags",
+  ID: "id",
+  BRANCH: "branch",
+  CREATED_AT: "created_at",
+  AGENT_SESSION_ID: "agent_session_id",
+  WORKING_DIRECTORY: "working_directory",
+  SPECS: "specs",
+  FILES: "files",
+} as const;
+
+/**
  * Metadata extracted from session YAML front matter.
  */
 export interface SessionMetadata {
@@ -59,6 +75,8 @@ export interface SessionMetadata {
   files?: string[];
   /** ISO 8601 timestamp when session was created */
   createdAt?: string;
+  /** Agent session ID from CLAUDE_SESSION_ID or CODEX_THREAD_ID at handoff time */
+  agentSessionId?: string;
   /** Working directory path */
   workingDirectory?: string;
 }
