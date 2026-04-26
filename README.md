@@ -4,14 +4,16 @@ Developer CLI for code validation and session management.
 
 ## What is spx?
 
-**spx** is a developer CLI that provides code validation and session management for spec-driven projects. It orchestrates linting, type checking, circular dependency detection, markdown validation, literal reuse checks, and work handoffs between agent contexts.
+`spx` is a command-line interface (CLI) tool that provides code validation and session management for projects that implement the spec-as-source methodology named [Outcome Engineering](https://outcome.engineering). The `spx` CLI works hand-in-hand with the **Claude Code** and **Codex** [plugin marketplace for Outcome Engineering](https://github.com/outcomeeng/plugins).
+
+The `spx` CLI orchestrates linting, type checking, circular dependency detection, markdown validation, literal reuse checks, and work handoffs between agent contexts.
 
 ### Key Benefits
 
-- **Unified validation**: Run the full quality gate through a single command
-- **Session management**: Queue, claim, and hand off work between agents
-- **Multiple formats**: Text, JSON output for CI and automation
-- **Secure publishing**: OIDC Trusted Publishing with Sigstore provenance via GitHub Actions
+- Run the full quality gate through a single `spx validation all` command
+- Queue, claim, and hand off work between agents with `spx session`
+- Text and JSON output for CI and automation
+- OIDC Trusted Publishing with Sigstore provenance via GitHub Actions
 
 All commands are domain-scoped (e.g., `spx validation`, `spx session`) and support `--quiet` and `--json` flags for CI and automation.
 
@@ -39,16 +41,18 @@ pnpm link --global
 spx validation all
 
 # Individual checks
-spx validation lint           # ESLint
-spx validation lint --fix     # ESLint with auto-fix
-spx validation typescript     # TypeScript type checking
-spx validation circular       # Circular dependency detection
-spx validation knip           # Unused code detection
-spx validation markdown       # Markdown link validation
-spx validation literal        # Source/test literal reuse detection
+spx validation lint              # ESLint
+spx validation lint --fix        # ESLint with auto-fix
+spx validation typescript        # TypeScript type checking (alias: spx validation ts)
+spx validation circular          # Circular dependency detection
+spx validation knip              # Unused code detection
+spx validation markdown          # Markdown link validation (alias: spx validation md)
+spx validation literal           # Source/test literal reuse detection
 
-# Production scope only (excludes tests/scripts)
-spx validation all --scope production
+# Scope and targeting
+spx validation all --scope production        # Exclude tests/scripts
+spx validation all --fix                     # Auto-fix across all checks
+spx validation all --files src/session/      # Validate specific files or directories
 ```
 
 All validation commands support `--quiet` for CI and `--json` for machine-readable output.
@@ -69,14 +73,23 @@ EOF
 # List all sessions
 spx session list
 
+# List todo sessions only
+spx session todo
+
 # Claim the highest priority session
 spx session pickup --auto
 
-# Release session back to queue
-spx session release
+# Release one or more sessions back to the todo queue
+spx session release [id...]
+
+# Archive a session
+spx session archive <session-id>
 
 # Show session content
 spx session show <session-id>
+
+# Remove old todo sessions (keeps 5 by default)
+spx session prune [--keep <n>] [--dry-run]
 
 # Delete a session
 spx session delete <session-id>
@@ -88,7 +101,7 @@ See [Session Recipes](docs/how-to/session/common-tasks.md) for detailed usage pa
 
 ### Spec Management (deprecated)
 
-The `spx spec` and `spx spx` CLI domains are **deprecated**. Spec tree management has moved to the **spec-tree** Claude Code plugin, available at [`outcomeeng/claude/plugins/spec-tree`](https://github.com/outcomeeng/claude). The plugin provides skills for understanding, authoring, decomposing, contextualizing, testing, refactoring, and aligning specification trees.
+The `spx spec` and `spx spx` CLI domains are **deprecated**. Spec tree management has moved to the **spec-tree** Claude Code plugin, available at [`outcomeeng/plugins`](https://github.com/outcomeeng/plugins). The plugin provides skills for understanding, authoring, decomposing, contextualizing, testing, refactoring, and aligning specification trees.
 
 ## Development
 
@@ -141,9 +154,9 @@ pnpm run validate:published   # Packaged executable validation; requires dist/cl
 
 The project uses GitHub Actions for continuous integration and publishing:
 
-- **CI** (`ci.yml`) — Runs validate, test, and build on Node 22 and 24 for every push to `main` and every pull request. Includes dependency review to block PRs introducing vulnerable dependencies.
-- **Publish** (`publish.yml`) — Triggered by `v*` tags. Uses OIDC Trusted Publishing (no stored npm tokens) with Sigstore provenance attestation. Requires manual approval via the `npm-publish` GitHub Environment.
-- **Scorecard** (`scorecard.yml`) — Weekly OpenSSF Scorecard assessment, results published to the GitHub Security tab.
+- `ci.yml` — Runs validate, test, and build on Node 22 and 24 for every push to `main` and every pull request. Includes dependency review to block PRs introducing vulnerable dependencies.
+- `publish.yml` — Triggered by `v*` tags. Uses OIDC Trusted Publishing (no stored npm tokens) with Sigstore provenance attestation. Requires manual approval via the `npm-publish` GitHub Environment.
+- `scorecard.yml` — Weekly OpenSSF Scorecard assessment, results published to the GitHub Security tab.
 
 ### Publishing a Release
 
@@ -156,12 +169,12 @@ The project uses GitHub Actions for continuous integration and publishing:
 
 ## Technical Stack
 
-- **TypeScript** — Type-safe implementation (ESM)
-- **Commander.js** — CLI framework
-- **Vitest** — Testing framework
-- **tsup** — Build tool (esbuild-based)
-- **ESLint 9** — Linting with flat config
-- **GitHub Actions** — CI/CD with OIDC Trusted Publishing
+- TypeScript — type-safe implementation (ESM)
+- Commander.js — CLI framework
+- Vitest — testing framework
+- tsup — build tool (esbuild-based)
+- ESLint 9 — linting with flat config
+- GitHub Actions — CI/CD with OIDC Trusted Publishing
 
 ## Architecture
 
@@ -169,7 +182,8 @@ The project uses GitHub Actions for continuous integration and publishing:
 src/
 ├── commands/      # CLI command implementations
 │   ├── session/     # spx session subcommands
-│   └── validation/  # spx validation subcommands
+│   ├── validation/  # spx validation subcommands
+│   └── spec/        # spx spec subcommands (deprecated)
 ├── domains/       # Domain routers
 ├── validation/    # Lint, typecheck, circular dep logic
 ├── session/       # Session lifecycle and storage
