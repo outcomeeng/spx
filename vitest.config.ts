@@ -6,6 +6,7 @@ export default defineConfig({
   resolve: {
     alias: {
       "@": `${root}/src`,
+      "@root": root,
       "@test": `${root}/tests`,
       "@scripts": `${root}/scripts`,
       "@eslint-rules": `${root}/eslint-rules`,

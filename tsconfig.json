@@ -11,6 +11,7 @@
     "outDir": "dist",
     "paths": {
       "@/*": ["./src/*"],
+      "@root/*": ["./*"],
       "@scripts/*": ["./scripts/*"],
       "@test/*": ["./tests/*"],
       "@eslint-rules/*": ["./eslint-rules/*"]
