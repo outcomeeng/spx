@@ -1,5 +1,6 @@
 # Claude Code plan mode
-.claude/
+.claude/*
+!.claude/settings.json
 
 # Dependencies
 node_modules/
@@ -32,3 +33,4 @@ npm-debug.log*
 
 # SPX session files
 .spx/sessions/
+.spx/nodes/
