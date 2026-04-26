@@ -4,13 +4,13 @@ literal:
       - web
     include:
       - |-
-
-          ---
-          # Content
-      - ' = "'
+        
+        ---
+        # Content
       - '  "capabilities"'
       - '  "summary"'
       - "  - "
+      - ' = "'
       - " must be an object"
       - "# No frontmatter"
       - "# capability-21"
@@ -19,10 +19,10 @@ literal:
       - "### story-32"
       - (no sessions)
       - |-
-          ---
-          priority: high
-          ---
-          # Content
+        ---
+        priority: high
+        ---
+        # Content
       - --files
       - --format
       - --help
@@ -84,30 +84,30 @@ literal:
       - 2026-01-13_10-00-00
       - "30000"
       - |-
-          <audit_verdict>
-            <gates>
-              <gate>
-                <name>architecture</name>
-                <status>PASS</status>
-                <findings count="0"/>
-              </gate>
-            </gates>
-          </audit_verdict>
+        <audit_verdict>
+          <gates>
+            <gate>
+              <name>architecture</name>
+              <status>PASS</status>
+              <findings count="0"/>
+            </gate>
+          </gates>
+        </audit_verdict>
       - |-
-          <audit_verdict>
-            <header>
-              <spec_node>spx/36-audit.enabler</spec_node>
-              <verdict>APPROVED</verdict>
-              <timestamp>2024-01-01_00-00-00</timestamp>
-            </header>
-            <gates>
-              <gate>
-                <name>architecture</name>
-                <status>PASS</status>
-                <findings count="0"/>
-              </gate>
-            </gates>
-          </audit_verdict>
+        <audit_verdict>
+          <header>
+            <spec_node>spx/36-audit.enabler</spec_node>
+            <verdict>APPROVED</verdict>
+            <timestamp>2024-01-01_00-00-00</timestamp>
+          </header>
+          <gates>
+            <gate>
+              <name>architecture</name>
+              <status>PASS</status>
+              <findings count="0"/>
+            </gate>
+          </gates>
+        </audit_verdict>
       - <empty>
       - ADR Generation
       - APPROVED
