@@ -7,7 +7,7 @@ Users accumulate 100+ duplicate and overlapping permissions across project-local
 ## Context
 
 - **Business**: Users need a clean, minimal permission set in `~/.claude/settings.json` without manual curation; overlapping permissions create maintenance burden and confusion
-- **Technical**: Claude Code permission format uses `Type(scope)` pattern; scopes follow command-prefix (e.g., `git:*`) or path-prefix (e.g., `file_path:/Users/shz/Code/**`) patterns
+- **Technical**: Claude Code permission format uses `Type(scope)` pattern; scopes follow command-prefix (e.g., `git:*`) or path-prefix (e.g., `file_path:/Users/user/Code/**`) patterns
 
 ## Decision
 
@@ -34,11 +34,11 @@ narrowerFull = "git log"; // from "git log:*"
 return narrowerFull.startsWith(broaderPrefix) && narrowerFull.length > broaderPrefix.length;
 ```
 
-**Path patterns** (`Read(file_path:/Users/shz/Code/**)` subsumes `Read(file_path:/Users/shz/Code/project-a/**)`):
+**Path patterns** (`Read(file_path:/Users/user/Code/**)` subsumes `Read(file_path:/Users/user/Code/project-a/**)`):
 
 ```typescript
-broaderPath = "/Users/shz/Code";
-narrowerPath = "/Users/shz/Code/project-a";
+broaderPath = "/Users/user/Code";
+narrowerPath = "/Users/user/Code/project-a";
 return narrowerPath.startsWith(broaderPath + "/");
 ```
 
@@ -86,7 +86,7 @@ return false if permission types differ (Bash vs Read)
 - `subsumes("Bash(git:*)", "Bash(git worktree:*)") → true`
 - `subsumes("Bash(npm:*)", "Bash(git:*)") → false` (different prefixes)
 - `subsumes("Bash(git:*)", "Bash(git:*)") → false` (identical = deduplication, not subsumption)
-- `subsumes("Read(file_path:/Users/shz/Code/**)", "Read(file_path:/Users/shz/Code/project-a/**)") → true`
+- `subsumes("Read(file_path:/Users/user/Code/**)", "Read(file_path:/Users/user/Code/project-a/**)") → true`
 - `subsumes("Bash(git:*)", "Read(file_path:...)") → false` (cross-type)
 
 **Level 1 (Property-Based with fast-check):**

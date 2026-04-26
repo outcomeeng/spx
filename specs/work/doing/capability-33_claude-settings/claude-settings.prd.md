@@ -211,7 +211,7 @@ Run without --dry-run to apply changes.
 
 **Special Handling for Path-Specific Permissions:**
 
-Permissions like `Read(file_path:/Users/shz/Code/project-a/**)` are:
+Permissions like `Read(file_path:/Users/user/Code/project-a/**)` are:
 
 - Preserved as-is (not generalized automatically)
 - Reported separately in output as "project-specific permissions"

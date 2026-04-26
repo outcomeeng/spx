@@ -27,7 +27,7 @@
 1. Implement subsumption algorithm in `src/lib/claude/permissions/subsumption.ts` per ADR-001:
    - Function: `subsumes(broader, narrower) => boolean`
    - Command patterns: `Bash(git:*)` subsumes `Bash(git log:*)`, `Bash(git worktree:*)`, etc.
-   - Path patterns: `Read(file_path:/Users/shz/Code/**)` subsumes `Read(file_path:/Users/shz/Code/project-a/**)`
+   - Path patterns: `Read(file_path:/Users/user/Code/**)` subsumes `Read(file_path:/Users/user/Code/project-a/**)`
    - Type matching: `Bash(...)` never subsumes `Read(...)` (different types)
    - Function: `detectSubsumptions(permissions) => SubsumptionResult[]`
    - Function: `removeSubsumed(permissions) => string[]` (main entry point)
@@ -102,7 +102,7 @@ Known cases from ADRs and real-world usage:
 
 - `Bash(git:*)` subsumes `Bash(git log:*)`, `Bash(git worktree:*)`, `Bash(git branch:*)`
 - `Bash(npm:*)` subsumes `Bash(npm install:*)`, `Bash(npm test:*)`
-- `Read(file_path:/Users/shz/Code/**)` subsumes `Read(file_path:/Users/shz/Code/project-a/**)`
+- `Read(file_path:/Users/user/Code/**)` subsumes `Read(file_path:/Users/user/Code/project-a/**)`
 - Conflict: `Bash(docker:*)` in both allow and deny → stays in deny
 
 **Level 2 (Integration):**

@@ -351,13 +351,13 @@ Stories included in this feature:
 
 ### Assumption: Path-specific permissions handling
 
-- **Likelihood**: Low (path-specific permissions like `Read(file_path:/Users/shz/Code/project-a/**)` are edge case)
+- **Likelihood**: Low (path-specific permissions like `Read(file_path:/Users/user/Code/project-a/**)` are edge case)
 - **Impact**: Low (users may want to keep project-specific path permissions vs. consolidating them)
 - **Mitigation**:
   - Document behavior: Path patterns are preserved as-is (not generalized automatically)
   - Reporter shows path-specific permissions separately in output
   - Future enhancement: `--generalize-paths` flag to convert project-specific paths to broader patterns
-  - Property-based tests verify path subsumption works correctly (`/Users/shz/Code/**` subsumes `/Users/shz/Code/project-a/**`)
+  - Property-based tests verify path subsumption works correctly (`/Users/user/Code/**` subsumes `/Users/user/Code/project-a/**`)
 
 ### Assumption: Backup restoration process
 
