@@ -4,7 +4,7 @@
 
 Three top-level subtrees use non-methodology directory suffixes (`.capability`, `.feature`, `.story`) and likely carry the same misapplied-outcome disease that `36-session.outcome` exhibits (see `36-session.outcome/ISSUES.md`). Affected:
 
-- `21-core-cli.capability/` — 8 features, 27 stories, all using pre-methodology suffixes
+- `21-core-cli.capability/` — 3 remaining `.feature` dirs + ~30 `.story` dirs (5 `.feature` dirs renamed to `.enabler` in `b335386`; see `spx/PLAN.md` for the bottom-up normalization plan)
 - `26-scoped-cli.capability/` — 1 feature, 2 stories
 - `31-spec-domain.capability/` — index collision with `31-spec-domain.enabler/` AND pre-methodology suffixes inside
 

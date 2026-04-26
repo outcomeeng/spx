@@ -23,6 +23,8 @@
 - ⚠️ **NEVER mechanically extract typed literal union values to named constants** — `no-restricted-syntax` warnings on `expect(x).toBe("declared")` where `x: NodeState` are false positives. The type annotation IS the documentation; renaming `"declared"` → `STATE_DECLARED` adds zero information. The lint rule targets magic strings whose meaning is obscure; enum-like union members are already self-documenting. Suppress the warning inline or leave it; never rename.
 - ⚠️ **ALWAYS research related codebases before offering architectural options** — before presenting A/B/C choices via `AskUserQuestion`, grep/read related codebases (sibling monorepo paths like `~/Code/CraftFinal/root/`, existing `src/spec/apply/`, etc.) for established patterns. If a pattern already exists there, reference it rather than reinventing. "Read the existing code" beats any combination of options you can invent.
 
+- ⚠️ **ALWAYS normalize spec-tree suffix debt bottom-up** — when cleaning up `.story`/`.feature`/`.capability` nodes: rename all `.story` dirs first (within each parent), then `.feature` dirs, then the `.capability` root. Never rename a parent before all children are resolved. Each rename also rewrites the spec content (PROVIDES/SO THAT/CAN). Verify code is still wired into the CLI afterward — surface unwired items at end of session.
+
 - ✅ **ALWAYS `git mv` when moving tracked files** - Never `cp` then `git add`. `git mv` preserves history. Use `git mv -f` when the target exists.
 - ✅ **When uncertain, ASK STRUCTURED QUESTIONS. Never guess implementation patterns, test methodology or requirements.**
 - ✅ **Use `AskUserQuestion` for structured questions with predefined options.** Do NOT use it for open-ended questions where the user needs to provide free-form context — just ask in plain text instead.
@@ -117,17 +119,17 @@ git add . && git commit -m "..."
 
 All validation runs through `spx validation` subcommands. Use pnpm scripts or call spx directly:
 
-| pnpm Script                    | Executable path                                      | Purpose                          |
-| ------------------------------ | ---------------------------------------------------- | -------------------------------- |
-| `pnpm run validate`            | `tsx src/cli.ts validation all`                      | Source full validation pipeline  |
-| `pnpm run validate:production` | `tsx src/cli.ts validation all --scope production`   | Source production scope only     |
-| `pnpm run validate:published`  | `node bin/spx.js validation all --scope production`  | Built executable validation      |
-| `pnpm run publish:check`       | source validation -> build -> tests -> packaged gate | Required pre-publish gate        |
-| `pnpm run lint`                | `tsx src/cli.ts validation lint`                     | ESLint only                      |
-| `pnpm run lint:fix`            | `tsx src/cli.ts validation lint --fix`               | Auto-fix ESLint issues           |
-| `pnpm run typecheck`           | `tsx src/cli.ts validation typescript`               | TypeScript only                  |
-| `pnpm run circular`            | `tsx src/cli.ts validation circular`                 | Check circular dependencies      |
-| `pnpm run knip`                | `tsx src/cli.ts validation knip`                     | Find unused code                 |
+| pnpm Script                    | Executable path                                      | Purpose                         |
+| ------------------------------ | ---------------------------------------------------- | ------------------------------- |
+| `pnpm run validate`            | `tsx src/cli.ts validation all`                      | Source full validation pipeline |
+| `pnpm run validate:production` | `tsx src/cli.ts validation all --scope production`   | Source production scope only    |
+| `pnpm run validate:published`  | `node bin/spx.js validation all --scope production`  | Built executable validation     |
+| `pnpm run publish:check`       | source validation -> build -> tests -> packaged gate | Required pre-publish gate       |
+| `pnpm run lint`                | `tsx src/cli.ts validation lint`                     | ESLint only                     |
+| `pnpm run lint:fix`            | `tsx src/cli.ts validation lint --fix`               | Auto-fix ESLint issues          |
+| `pnpm run typecheck`           | `tsx src/cli.ts validation typescript`               | TypeScript only                 |
+| `pnpm run circular`            | `tsx src/cli.ts validation circular`                 | Check circular dependencies     |
+| `pnpm run knip`                | `tsx src/cli.ts validation knip`                     | Find unused code                |
 
 **Options available on all spx validation subcommands:**
 
