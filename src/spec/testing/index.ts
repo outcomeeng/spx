@@ -8,6 +8,30 @@ import { stringify as yamlStringify } from "yaml";
 import type { Config } from "@/config/types.js";
 import type { Kind, KindDefinition, SpecTreeConfig } from "@/spec/config.js";
 
+export function configToToml(config: Config): string {
+  return tomlSections("", config as Record<string, unknown>);
+}
+
+function tomlSections(prefix: string, obj: Record<string, unknown>): string {
+  const entries = Object.entries(obj);
+  const allScalars = entries.every(([, v]) => typeof v !== "object" || v === null);
+  if (allScalars) {
+    let out = prefix.length > 0 ? `[${prefix}]\n` : "";
+    for (const [k, v] of entries) {
+      if (typeof v === "string") out += `${k} = "${v}"\n`;
+      else if (typeof v === "number" || typeof v === "boolean") out += `${k} = ${v}\n`;
+    }
+    return out;
+  }
+  let out = "";
+  for (const [k, v] of entries) {
+    if (typeof v === "object" && v !== null && !Array.isArray(v)) {
+      out += tomlSections(prefix.length > 0 ? `${prefix}.${k}` : k, v as Record<string, unknown>);
+    }
+  }
+  return out;
+}
+
 export type { Config } from "@/config/types.js";
 
 const TEMP_PREFIX = "spx-test-env-";
