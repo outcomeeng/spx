@@ -1,0 +1,85 @@
+import type { Config, SpecTreeEnv } from "@/spec/testing/index.js";
+import {
+  DEFAULT_MIN_NUMBER_DIGITS,
+  DEFAULT_MIN_STRING_LENGTH,
+  LITERAL_SECTION,
+  type LiteralAllowlistConfig,
+  type LiteralConfig,
+} from "@/validation/literal/config.js";
+
+export const SHARED_FIXTURE_LITERAL = "fixture-allowlist-target-literal";
+export const EXISTING_INCLUDE_FIRST = "preexisting-allowlist-entry-alpha";
+export const EXISTING_INCLUDE_SECOND = "preexisting-allowlist-entry-beta";
+export const WEB_PRESET_NAME = "web";
+export const SAMPLE_EXCLUDE_VALUE = "explicitly-excluded-allowlist-value";
+
+export const MULTI_FINDINGS_LITERALS = [
+  "zeta-multi-fixture-literal",
+  "alpha-multi-fixture-literal",
+  "mu-multi-fixture-literal",
+] as const;
+
+export const FOREIGN_SECTION_KEY = "foreignFixtureSection";
+export const FOREIGN_SECTION_BODY = { foreignKey: "foreign-section-marker-value" } as const;
+
+const FIXTURE_SOURCE_PATH = "src/fixture-source.ts";
+const FIXTURE_TEST_PATH = "spx/aux-fixture.enabler/tests/duplicated.scenario.l1.test.ts";
+
+const BASE_LITERAL_CONFIG: LiteralConfig = {
+  allowlist: {},
+  minStringLength: DEFAULT_MIN_STRING_LENGTH,
+  minNumberDigits: DEFAULT_MIN_NUMBER_DIGITS,
+};
+
+export function buildBaselineConfig(): Config {
+  return { [LITERAL_SECTION]: BASE_LITERAL_CONFIG };
+}
+
+export function buildConfigWithAllowlist(allowlist: LiteralAllowlistConfig): Config {
+  return { [LITERAL_SECTION]: { ...BASE_LITERAL_CONFIG, allowlist } };
+}
+
+export function buildConfigWithForeignSection(): Config {
+  return {
+    [LITERAL_SECTION]: BASE_LITERAL_CONFIG,
+    [FOREIGN_SECTION_KEY]: FOREIGN_SECTION_BODY,
+  };
+}
+
+export async function writeDuplicatedLiteralFixture(env: SpecTreeEnv): Promise<void> {
+  await env.writeRaw(
+    FIXTURE_SOURCE_PATH,
+    `export const FIXTURE_VALUE = "${SHARED_FIXTURE_LITERAL}";\n`,
+  );
+  await env.writeRaw(
+    FIXTURE_TEST_PATH,
+    `expect(value).toBe("${SHARED_FIXTURE_LITERAL}");\n`,
+  );
+}
+
+export async function writeMultipleLiteralFixtures(
+  env: SpecTreeEnv,
+  literals: readonly string[],
+): Promise<void> {
+  for (const [index, literal] of literals.entries()) {
+    const sourcePath = `src/multi-source-${index}.ts`;
+    const testPath = `spx/aux-fixture.enabler/tests/multi-${index}.scenario.l1.test.ts`;
+    await env.writeRaw(sourcePath, `export const MULTI_VALUE_${index} = "${literal}";\n`);
+    await env.writeRaw(testPath, `expect(value).toBe("${literal}");\n`);
+  }
+}
+
+export function readLiteralAllowlist(parsedConfig: unknown): LiteralAllowlistConfig {
+  if (typeof parsedConfig !== "object" || parsedConfig === null) {
+    throw new Error("parsed config is not an object");
+  }
+  const literal = (parsedConfig as Record<string, unknown>)[LITERAL_SECTION];
+  if (typeof literal !== "object" || literal === null) {
+    throw new Error(`parsed config missing ${LITERAL_SECTION} section`);
+  }
+  const allowlist = (literal as Record<string, unknown>)["allowlist"];
+  if (typeof allowlist !== "object" || allowlist === null) {
+    throw new Error(`parsed config missing ${LITERAL_SECTION}.allowlist section`);
+  }
+  return allowlist as LiteralAllowlistConfig;
+}

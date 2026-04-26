@@ -6,6 +6,7 @@
  */
 import type { Command } from "commander";
 
+import { allowlistExisting } from "@/validation/literal/allowlist-existing.js";
 import {
   allCommand,
   circularCommand,
@@ -227,12 +228,21 @@ function registerValidationCommands(validationCmd: Command): void {
 
   // literal command (cross-file literal-reuse detector)
   const literalCmd = addValidationSubcommand(validationCmd, subcommands.literal)
+    .option(
+      "--allowlist-existing",
+      "Append every current finding's value to literal.allowlist.include and exit",
+    )
     .addHelpText(
       "after",
       "\nEnabled for TypeScript projects by default. Set LITERAL_VALIDATION_ENABLED=0\n"
         + "to skip (useful when migrating a project with many existing violations).",
     )
-    .action(async (options: CommonOptions) => {
+    .action(async (options: CommonOptions & { allowlistExisting?: boolean }) => {
+      if (options.allowlistExisting) {
+        const result = await allowlistExisting({ projectRoot: process.cwd() });
+        if (result.output) console.log(result.output);
+        process.exit(result.exitCode);
+      }
       const result = await literalCommand({
         cwd: process.cwd(),
         files: options.files,
