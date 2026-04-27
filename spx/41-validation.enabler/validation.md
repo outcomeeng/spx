@@ -28,4 +28,5 @@ CAN surface security, maintainability, and reliability issues before they reach 
 
 - ALWAYS: validation runs all configured steps regardless of earlier failures — no short-circuit ([test](tests/validation.integration.test.ts))
 - ALWAYS: validation exit code is non-zero when any step fails ([test](tests/validation.integration.test.ts))
+- ALWAYS: each step uses "problem" as the canonical term for an item requiring developer attention — consistent with ESLint, ruff, and VS Code tooling conventions ([review])
 - ALWAYS: each step reports its own duration ([test](tests/validation.integration.test.ts))
