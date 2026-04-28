@@ -4,8 +4,8 @@ import { join } from "node:path";
 import { parse as parseToml } from "smol-toml";
 import { parse as parseYaml } from "yaml";
 
-import { productionRegistry } from "./registry.js";
-import type { Config, ConfigDescriptor, Result } from "./types.js";
+import { productionRegistry } from "./registry";
+import type { Config, ConfigDescriptor, Result } from "./types";
 
 export const CONFIG_FILENAMES = {
   json: "spx.config.json",

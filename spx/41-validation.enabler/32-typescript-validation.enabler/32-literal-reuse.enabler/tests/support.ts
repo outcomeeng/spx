@@ -1,6 +1,6 @@
-import { KIND_REGISTRY } from "@/spec/config.js";
-import type { Config, SpecTreeEnv } from "@/spec/testing/index.js";
-import { LITERAL_SECTION, type LiteralAllowlistConfig, type LiteralConfig } from "@/validation/literal/config.js";
+import { KIND_REGISTRY } from "@/spec/config";
+import type { Config, SpecTreeEnv } from "@/spec/testing/index";
+import { LITERAL_SECTION, type LiteralAllowlistConfig, type LiteralConfig } from "@/validation/literal/config";
 
 export const MIN_STRING_LENGTH = 4;
 export const MIN_NUMBER_DIGITS = 4;

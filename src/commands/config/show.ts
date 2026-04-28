@@ -1,8 +1,8 @@
 import { stringify as yamlStringify } from "yaml";
 
-import type { Config } from "@/config/types.js";
+import type { Config } from "@/config/types";
 
-import type { CliDeps, CliResult, ShowOptions } from "./types.js";
+import type { CliDeps, CliResult, ShowOptions } from "./types";
 
 const JSON_INDENT = 2;
 const EXIT_CODE_ERROR = 1;

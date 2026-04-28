@@ -1,7 +1,7 @@
 /**
  * Parse spx/EXCLUDE files into node paths with validation.
  */
-import { COMMENT_CHAR } from "./constants.js";
+import { COMMENT_CHAR } from "./constants";
 
 /** Characters that are unsafe in TOML string values */
 const TOML_UNSAFE_PATTERN = /["\\\n\r\t]/;

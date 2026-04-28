@@ -1,5 +1,5 @@
-import type { CliDeps, CliResult, ValidateOptions } from "./types.js";
-import { CONFIG_FILENAME } from "./types.js";
+import type { CliDeps, CliResult, ValidateOptions } from "./types";
+import { CONFIG_FILENAME } from "./types";
 
 const EXIT_CODE_INVALID = 1;
 

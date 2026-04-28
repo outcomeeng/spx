@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { withTestEnv } from "@/spec/testing/index.js";
+import { withTestEnv } from "@/spec/testing/index";
 import {
   collectLiterals,
   defaultVisitorKeys,
@@ -9,9 +9,9 @@ import {
   resolveAllowlist,
   validateLiteralReuse,
   type VisitorKeysMap,
-} from "@/validation/literal/index.js";
+} from "@/validation/literal/index";
 
-import { DETECTOR_OPTIONS_DEFAULTS, INTEGRATION_CONFIG, writeSourceWithLiteral } from "./support.js";
+import { DETECTOR_OPTIONS_DEFAULTS, INTEGRATION_CONFIG, writeSourceWithLiteral } from "./support";
 
 const WEB_PRESET_ID = "web";
 const WEB_PRESET_TOKEN = "Authorization";

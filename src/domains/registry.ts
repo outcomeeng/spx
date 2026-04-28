@@ -1,7 +1,7 @@
 /**
  * Domain registry for managing CLI domains
  */
-import type { Domain } from "./types.js";
+import type { Domain } from "./types";
 
 const domains = new Map<string, Domain>();
 

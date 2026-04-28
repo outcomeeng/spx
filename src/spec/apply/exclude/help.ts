@@ -1,8 +1,8 @@
 /**
  * Dynamic help text for spx spec apply, built from constants and adapter registry.
  */
-import { ADAPTERS } from "./adapters/index.js";
-import { EXCLUDE_FILENAME, SPX_PREFIX } from "./constants.js";
+import { ADAPTERS } from "./adapters/index";
+import { EXCLUDE_FILENAME, SPX_PREFIX } from "./constants";
 
 /**
  * Build the help text for spx spec apply.

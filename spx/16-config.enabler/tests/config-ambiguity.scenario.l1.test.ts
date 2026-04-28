@@ -3,9 +3,9 @@ import { join } from "node:path";
 
 import { describe, expect, it } from "vitest";
 
-import { CONFIG_FILENAMES, resolveConfig } from "@/config/index.js";
-import { specTreeConfigDescriptor } from "@/spec/config.js";
-import { withTestEnv } from "@/spec/testing/index.js";
+import { CONFIG_FILENAMES, resolveConfig } from "@/config/index";
+import { specTreeConfigDescriptor } from "@/spec/config";
+import { withTestEnv } from "@/spec/testing/index";
 
 describe("resolveConfig — ambiguity error", () => {
   it("returns an error naming both files when json and yaml are both present at projectRoot", async () => {

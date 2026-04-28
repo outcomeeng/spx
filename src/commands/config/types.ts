@@ -1,4 +1,4 @@
-import type { Config, ConfigDescriptor, Result } from "@/config/types.js";
+import type { Config, ConfigDescriptor, Result } from "@/config/types";
 
 export type CliResult = {
   readonly stdout: string;

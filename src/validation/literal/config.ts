@@ -1,4 +1,4 @@
-import type { ConfigDescriptor, Result } from "@/config/types.js";
+import type { ConfigDescriptor, Result } from "@/config/types";
 
 export const LITERAL_SECTION = "literal";
 export const DEFAULT_MIN_STRING_LENGTH = 4;

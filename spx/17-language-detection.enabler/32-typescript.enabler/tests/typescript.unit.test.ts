@@ -13,7 +13,7 @@ import {
   detectTypeScript,
   ESLINT_CONFIG_FILES,
   type LanguageDetectionDeps,
-} from "@/validation/discovery/language-finder.js";
+} from "@/validation/discovery/language-finder";
 
 const PROJECT_ROOT = "/project";
 const TSCONFIG_PATH = `${PROJECT_ROOT}/tsconfig.json`;

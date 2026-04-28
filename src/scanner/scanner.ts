@@ -7,9 +7,9 @@
  * @module scanner/scanner
  */
 import path from "node:path";
-import type { SpxConfig } from "../config/defaults.js";
-import type { WorkItem } from "../types.js";
-import { buildWorkItemList, filterWorkItemDirectories, walkDirectory } from "./walk.js";
+import type { SpxConfig } from "../config/defaults";
+import type { WorkItem } from "../types";
+import { buildWorkItemList, filterWorkItemDirectories, walkDirectory } from "./walk";
 
 /**
  * Scanner for discovering work items in a project

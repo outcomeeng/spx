@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 
-import { createExcludeFilter } from "@/exclude/index.js";
-import { withTestEnv } from "@/spec/testing/index.js";
+import { createExcludeFilter } from "@/exclude/index";
+import { withTestEnv } from "@/spec/testing/index";
 
 import {
   COMMENT_HEADER,
@@ -16,7 +16,7 @@ import {
   SUBPATH_TEST_FOO,
   writeExclude,
   writeExcludeRaw,
-} from "./support.js";
+} from "./support";
 
 describe("ignore-source — scenarios", () => {
   it("EXCLUDE lists a node path and the filter reports a file inside that node directory as excluded", async () => {

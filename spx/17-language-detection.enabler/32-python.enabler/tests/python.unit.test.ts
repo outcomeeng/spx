@@ -8,7 +8,7 @@
 
 import { describe, expect, it } from "vitest";
 
-import { detectPython, type LanguageDetectionDeps } from "@/validation/discovery/language-finder.js";
+import { detectPython, type LanguageDetectionDeps } from "@/validation/discovery/language-finder";
 
 const PROJECT_ROOT = "/project";
 const PYPROJECT_PATH = `${PROJECT_ROOT}/pyproject.toml`;

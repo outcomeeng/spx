@@ -1,19 +1,19 @@
 /**
  * Session domain command exports
  */
-export { archiveCommand, SessionAlreadyArchivedError } from "./archive.js";
-export type { ArchiveOptions } from "./archive.js";
-export { deleteCommand } from "./delete.js";
-export type { DeleteOptions } from "./delete.js";
-export { handoffCommand } from "./handoff.js";
-export type { HandoffOptions } from "./handoff.js";
-export { listCommand } from "./list.js";
-export type { ListOptions } from "./list.js";
-export { pickupCommand } from "./pickup.js";
-export type { PickupOptions } from "./pickup.js";
-export { pruneCommand, PruneValidationError } from "./prune.js";
-export type { PruneOptions } from "./prune.js";
-export { releaseCommand } from "./release.js";
-export type { ReleaseOptions } from "./release.js";
-export { showCommand } from "./show.js";
-export type { ShowOptions } from "./show.js";
+export { archiveCommand, SessionAlreadyArchivedError } from "./archive";
+export type { ArchiveOptions } from "./archive";
+export { deleteCommand } from "./delete";
+export type { DeleteOptions } from "./delete";
+export { handoffCommand } from "./handoff";
+export type { HandoffOptions } from "./handoff";
+export { listCommand } from "./list";
+export type { ListOptions } from "./list";
+export { pickupCommand } from "./pickup";
+export type { PickupOptions } from "./pickup";
+export { pruneCommand, PruneValidationError } from "./prune";
+export type { PruneOptions } from "./prune";
+export { releaseCommand } from "./release";
+export type { ReleaseOptions } from "./release";
+export { showCommand } from "./show";
+export type { ShowOptions } from "./show";

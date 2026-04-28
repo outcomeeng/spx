@@ -1,14 +1,14 @@
 import type { Command } from "commander";
 
-import { defaultsCommand } from "@/commands/config/defaults.js";
-import { showCommand } from "@/commands/config/show.js";
-import type { CliDeps, CliResult, ShowOptions, ValidateOptions } from "@/commands/config/types.js";
-import { validateCommand } from "@/commands/config/validate.js";
-import { resolveConfig } from "@/config/index.js";
-import { productionRegistry } from "@/config/registry.js";
+import { defaultsCommand } from "@/commands/config/defaults";
+import { showCommand } from "@/commands/config/show";
+import type { CliDeps, CliResult, ShowOptions, ValidateOptions } from "@/commands/config/types";
+import { validateCommand } from "@/commands/config/validate";
+import { resolveConfig } from "@/config/index";
+import { productionRegistry } from "@/config/registry";
 
-import type { Domain } from "../types.js";
-import { resolveProjectRoot } from "./root.js";
+import type { Domain } from "../types";
+import { resolveProjectRoot } from "./root";
 
 function buildDefaultDeps(): CliDeps {
   return {

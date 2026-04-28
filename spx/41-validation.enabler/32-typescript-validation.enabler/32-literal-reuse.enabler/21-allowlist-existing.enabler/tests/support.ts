@@ -1,11 +1,11 @@
-import type { Config, SpecTreeEnv } from "@/spec/testing/index.js";
+import type { Config, SpecTreeEnv } from "@/spec/testing/index";
 import {
   DEFAULT_MIN_NUMBER_DIGITS,
   DEFAULT_MIN_STRING_LENGTH,
   LITERAL_SECTION,
   type LiteralAllowlistConfig,
   type LiteralConfig,
-} from "@/validation/literal/config.js";
+} from "@/validation/literal/config";
 
 export const SHARED_FIXTURE_LITERAL = "fixture-allowlist-target-literal";
 export const EXISTING_INCLUDE_FIRST = "preexisting-allowlist-entry-alpha";

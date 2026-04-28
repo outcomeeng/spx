@@ -1,8 +1,8 @@
 import { stringify as yamlStringify } from "yaml";
 
-import type { Config } from "@/config/types.js";
+import type { Config } from "@/config/types";
 
-import type { CliDeps, CliResult, DefaultsOptions } from "./types.js";
+import type { CliDeps, CliResult, DefaultsOptions } from "./types";
 
 const JSON_INDENT = 2;
 

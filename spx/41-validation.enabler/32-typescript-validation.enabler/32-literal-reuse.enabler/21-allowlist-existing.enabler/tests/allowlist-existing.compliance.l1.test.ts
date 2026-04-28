@@ -1,9 +1,9 @@
 import { describe, expect, it } from "vitest";
 import { parse as parseYaml } from "yaml";
 
-import { CONFIG_FILENAMES } from "@/config/index.js";
-import { withTestEnv } from "@/spec/testing/index.js";
-import { allowlistExisting } from "@/validation/literal/allowlist-existing.js";
+import { CONFIG_FILENAMES } from "@/config/index";
+import { withTestEnv } from "@/spec/testing/index";
+import { allowlistExisting } from "@/validation/literal/allowlist-existing";
 
 import {
   buildConfigWithAllowlist,
@@ -17,7 +17,7 @@ import {
   SHARED_FIXTURE_LITERAL,
   WEB_PRESET_NAME,
   writeDuplicatedLiteralFixture,
-} from "./support.js";
+} from "./support";
 
 describe("allowlist-existing compliance", () => {
   it("writes only to literal.allowlist.include — leaves presets and exclude unchanged", async () => {

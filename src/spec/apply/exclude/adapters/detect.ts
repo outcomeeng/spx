@@ -6,9 +6,9 @@
  */
 import { join } from "node:path";
 
-import type { ApplyExcludeDeps } from "../types.js";
-import { pythonAdapter } from "./python.js";
-import type { LanguageAdapter } from "./types.js";
+import type { ApplyExcludeDeps } from "../types";
+import { pythonAdapter } from "./python";
+import type { LanguageAdapter } from "./types";
 
 /** All registered language adapters, checked in order */
 export const ADAPTERS: readonly LanguageAdapter[] = [pythonAdapter] as const;

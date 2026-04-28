@@ -8,8 +8,8 @@
  *       story-21_name [STATUS] (colored)
  */
 import chalk from "chalk";
-import type { TreeNode, WorkItemTree } from "../tree/types.js";
-import type { WorkItemKind } from "../types.js";
+import type { TreeNode, WorkItemTree } from "../tree/types";
+import type { WorkItemKind } from "../types";
 
 /**
  * Format work item tree as text with hierarchical indentation

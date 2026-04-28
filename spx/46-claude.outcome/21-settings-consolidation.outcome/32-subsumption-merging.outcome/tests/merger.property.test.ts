@@ -12,7 +12,7 @@
  * 5. Idempotency: Resolution is idempotent
  */
 
-import { resolveConflicts } from "@/lib/claude/permissions/merger.js";
+import { resolveConflicts } from "@/lib/claude/permissions/merger";
 import fc from "fast-check";
 import { describe, test } from "vitest";
 

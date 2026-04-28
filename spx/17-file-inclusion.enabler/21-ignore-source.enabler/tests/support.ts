@@ -1,5 +1,5 @@
-import type { Config } from "@/spec/testing/index.js";
-import type { SpecTreeEnv } from "@/spec/testing/index.js";
+import type { Config } from "@/spec/testing/index";
+import type { SpecTreeEnv } from "@/spec/testing/index";
 
 export const INTEGRATION_CONFIG: Config = {
   specTree: {

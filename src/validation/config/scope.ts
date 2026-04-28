@@ -12,7 +12,7 @@ import * as JSONC from "jsonc-parser";
 import { existsSync, readdirSync, readFileSync } from "node:fs";
 import { join } from "node:path";
 
-import type { ScopeConfig, ValidationScope } from "../types.js";
+import type { ScopeConfig, ValidationScope } from "../types";
 
 // =============================================================================
 // CONSTANTS

@@ -3,8 +3,8 @@ import { join } from "node:path";
 
 import { describe, expect, it } from "vitest";
 
-import { withTestEnv } from "@/spec/testing/index.js";
-import type { Config } from "@/spec/testing/index.js";
+import { withTestEnv } from "@/spec/testing/index";
+import type { Config } from "@/spec/testing/index";
 
 const MINIMAL_CONFIG: Config = {
   specTree: {

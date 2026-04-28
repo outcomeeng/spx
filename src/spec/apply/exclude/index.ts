@@ -5,13 +5,13 @@
  */
 
 // Constants
-export { COMMENT_CHAR, EXCLUDE_FILENAME, NODE_SUFFIXES, SPX_PREFIX } from "./constants.js";
+export { COMMENT_CHAR, EXCLUDE_FILENAME, NODE_SUFFIXES, SPX_PREFIX } from "./constants";
 
 // Parsing
-export { readExcludedNodes, validateNodePath } from "./exclude-file.js";
+export { readExcludedNodes, validateNodePath } from "./exclude-file";
 
 // Mappings
-export { isExcludedEntry, toMypyRegex, toPyrightPath, toPytestIgnore } from "./mappings.js";
+export { isExcludedEntry, toMypyRegex, toPyrightPath, toPytestIgnore } from "./mappings";
 
 // Adapters
 export {
@@ -22,11 +22,11 @@ export {
   PYTEST_SECTION,
   PYTHON_CONFIG_FILE,
   pythonAdapter,
-} from "./adapters/index.js";
-export type { LanguageAdapter } from "./adapters/index.js";
+} from "./adapters/index";
+export type { LanguageAdapter } from "./adapters/index";
 
 // Command
-export { applyExcludeCommand } from "./command.js";
+export { applyExcludeCommand } from "./command";
 
 // Types
-export type { ApplyExcludeDeps, ApplyExcludeOptions, ApplyExcludeResult, ApplyResult } from "./types.js";
+export type { ApplyExcludeDeps, ApplyExcludeOptions, ApplyExcludeResult, ApplyResult } from "./types";

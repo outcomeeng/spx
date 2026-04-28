@@ -4,11 +4,11 @@ import { join } from "node:path";
 import { describe, expect, it } from "vitest";
 import { parse as parseYaml } from "yaml";
 
-import { CONFIG_FILENAMES, resolveConfig } from "@/config/index.js";
-import { withTestEnv } from "@/spec/testing/index.js";
-import { allowlistExisting } from "@/validation/literal/allowlist-existing.js";
-import { type LiteralConfig, literalConfigDescriptor } from "@/validation/literal/config.js";
-import { validateLiteralReuse } from "@/validation/literal/index.js";
+import { CONFIG_FILENAMES, resolveConfig } from "@/config/index";
+import { withTestEnv } from "@/spec/testing/index";
+import { allowlistExisting } from "@/validation/literal/allowlist-existing";
+import { type LiteralConfig, literalConfigDescriptor } from "@/validation/literal/config";
+import { validateLiteralReuse } from "@/validation/literal/index";
 
 import {
   buildBaselineConfig,
@@ -17,7 +17,7 @@ import {
   SHARED_FIXTURE_LITERAL,
   writeDuplicatedLiteralFixture,
   writeMultipleLiteralFixtures,
-} from "./support.js";
+} from "./support";
 
 const EMPTY_JSON_BODY = "{}\n";
 const EMPTY_CONFIG: Record<string, unknown> = {};

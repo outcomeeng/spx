@@ -5,7 +5,7 @@
  * Level 1: File I/O with Node.js built-ins and temp fixtures.
  */
 
-import { findSettingsFiles, isValidSettingsFile } from "@/lib/claude/permissions/discovery.js";
+import { findSettingsFiles, isValidSettingsFile } from "@/lib/claude/permissions/discovery";
 import { mkdir, rm, symlink, writeFile } from "fs/promises";
 import { tmpdir } from "os";
 import { join } from "path";

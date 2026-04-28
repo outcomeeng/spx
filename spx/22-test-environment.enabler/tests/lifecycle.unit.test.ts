@@ -7,8 +7,8 @@ import * as fc from "fast-check";
 import { describe, expect, it } from "vitest";
 import { parse as parseYaml } from "yaml";
 
-import { withTestEnv } from "@/spec/testing/index.js";
-import type { Config } from "@/spec/testing/index.js";
+import { withTestEnv } from "@/spec/testing/index";
+import type { Config } from "@/spec/testing/index";
 
 const MINIMAL_CONFIG: Config = {
   specTree: {

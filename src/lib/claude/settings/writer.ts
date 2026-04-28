@@ -4,7 +4,7 @@
 import fs from "fs/promises";
 import os from "os";
 import path from "path";
-import type { ClaudeSettings } from "../permissions/types.js";
+import type { ClaudeSettings } from "../permissions/types";
 
 /**
  * Filesystem abstraction for dependency injection

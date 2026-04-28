@@ -8,8 +8,8 @@
 
 import madge from "madge";
 
-import { TSCONFIG_FILES } from "../config/scope.js";
-import type { CircularDependencyResult, ScopeConfig, ValidationScope } from "../types.js";
+import { TSCONFIG_FILES } from "../config/scope";
+import type { CircularDependencyResult, ScopeConfig, ValidationScope } from "../types";
 
 // =============================================================================
 // DEPENDENCY INJECTION INTERFACES

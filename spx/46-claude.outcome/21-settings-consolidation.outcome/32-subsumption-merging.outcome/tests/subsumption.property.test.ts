@@ -12,8 +12,8 @@
  * 5. Idempotency: removeSubsumed is idempotent
  */
 
-import { parsePermission } from "@/lib/claude/permissions/parser.js";
-import { removeSubsumed, subsumes } from "@/lib/claude/permissions/subsumption.js";
+import { parsePermission } from "@/lib/claude/permissions/parser";
+import { removeSubsumed, subsumes } from "@/lib/claude/permissions/subsumption";
 import fc from "fast-check";
 import { describe, test } from "vitest";
 

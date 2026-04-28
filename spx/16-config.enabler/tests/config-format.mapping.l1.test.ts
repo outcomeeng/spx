@@ -3,10 +3,10 @@ import { join } from "node:path";
 
 import { describe, expect, it } from "vitest";
 
-import { CONFIG_FILENAMES, resolveConfig } from "@/config/index.js";
-import { KIND_REGISTRY, specTreeConfigDescriptor } from "@/spec/config.js";
-import { configToToml, withTestEnv } from "@/spec/testing/index.js";
-import type { Config } from "@/spec/testing/index.js";
+import { CONFIG_FILENAMES, resolveConfig } from "@/config/index";
+import { KIND_REGISTRY, specTreeConfigDescriptor } from "@/spec/config";
+import { configToToml, withTestEnv } from "@/spec/testing/index";
+import type { Config } from "@/spec/testing/index";
 
 const EQUIV_CONFIG: Config = {
   specTree: { kinds: { pdr: KIND_REGISTRY.pdr } },

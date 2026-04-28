@@ -11,13 +11,13 @@
  */
 
 // Types
-export * from "./types.js";
+export * from "./types";
 
 // Configuration
-export * from "./config/index.js";
+export * from "./config/index";
 
 // Tool discovery
-export * from "./discovery/index.js";
+export * from "./discovery/index";
 
 // Validation steps
-export * from "./steps/index.js";
+export * from "./steps/index";

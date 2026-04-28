@@ -1,8 +1,8 @@
-import { DEFAULT_CONFIG } from "@/config/defaults.js";
-import { Scanner } from "@/scanner/scanner.js";
-import { buildTree } from "@/tree/build.js";
-import type { TreeNode, WorkItemTree } from "@/tree/types.js";
-import { LEAF_KIND } from "@/types.js";
+import { DEFAULT_CONFIG } from "@/config/defaults";
+import { Scanner } from "@/scanner/scanner";
+import { buildTree } from "@/tree/build";
+import type { TreeNode, WorkItemTree } from "@/tree/types";
+import { LEAF_KIND } from "@/types";
 
 const EMPTY_WORK_ITEMS_MESSAGE = "No work items found in specs/work/doing";
 const ALL_COMPLETE_MESSAGE = "All work items are complete! 🎉";

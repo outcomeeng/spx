@@ -1,8 +1,8 @@
 import * as fc from "fast-check";
 import { describe, expect, it } from "vitest";
 
-import { createExcludeFilter } from "@/exclude/index.js";
-import { withTestEnv } from "@/spec/testing/index.js";
+import { createExcludeFilter } from "@/exclude/index";
+import { withTestEnv } from "@/spec/testing/index";
 
 import {
   ARBITRARY_QUERY_MAX,
@@ -16,7 +16,7 @@ import {
   TOOL_PYTEST,
   TOOL_VITEST,
   writeExclude,
-} from "./support.js";
+} from "./support";
 
 describe("ignore-source — properties", () => {
   it("filtering is deterministic: the same EXCLUDE content always produces the same exclusion set", async () => {

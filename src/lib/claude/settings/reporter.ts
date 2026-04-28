@@ -1,7 +1,7 @@
 /**
  * Formatting and reporting of consolidation results
  */
-import type { ConsolidationResult } from "../permissions/types.js";
+import type { ConsolidationResult } from "../permissions/types";
 
 /**
  * Format consolidation result as user-friendly text report

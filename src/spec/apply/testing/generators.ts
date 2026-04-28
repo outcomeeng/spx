@@ -5,7 +5,7 @@
  */
 import fc from "fast-check";
 
-import { NODE_SUFFIXES } from "../exclude/constants.js";
+import { NODE_SUFFIXES } from "../exclude/constants";
 
 /** Valid BSP range for node indices */
 const MIN_BSP = 10;

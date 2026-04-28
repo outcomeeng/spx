@@ -10,7 +10,7 @@
 
 import { describe, expect, it } from "vitest";
 
-import { detectLanguages, type LanguageDetectionDeps } from "@/validation/discovery/language-finder.js";
+import { detectLanguages, type LanguageDetectionDeps } from "@/validation/discovery/language-finder";
 
 const PROJECT_ROOT = "/project";
 const TSCONFIG_PATH = `${PROJECT_ROOT}/tsconfig.json`;
