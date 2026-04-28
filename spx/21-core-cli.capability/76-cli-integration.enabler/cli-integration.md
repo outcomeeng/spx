@@ -20,6 +20,7 @@ CAN get work-item status, the next work item, and error feedback with correct ex
 - Given an unknown subcommand, when running `spx invalid`, then the process exits with code 1 and stderr matches /unknown command|error/i ([test](tests/cli-integration.scenario.l2.test.ts))
 - Given no command, when running `spx` with no arguments, then output contains "Usage:" or "Commands:" ([test](tests/cli-integration.scenario.l2.test.ts))
 - Given the --help flag, when running `spx --help`, then the process exits with code 0 and stdout contains "spec" and "session" ([test](tests/cli-integration.scenario.l2.test.ts))
+- Given the --version flag, when invoking the spx binary directly via its shebang, then stdout is exactly the version string from package.json and the process exits with code 0 ([test](tests/cli-integration.scenario.l2.test.ts))
 - Given a command with the --help flag, when running `spx spec status --help`, then the process exits with code 0 and stdout contains "--json" and "--format" ([test](tests/cli-integration.scenario.l2.test.ts))
 
 ### Compliance
