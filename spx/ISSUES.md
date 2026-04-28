@@ -1,14 +1,26 @@
 # Open Issues
 
+## Root outcome node remains after enabler-only direction
+
+`spx/46-claude.outcome/` is still a root outcome node. The `21-core-cli.capability` migration plan now treats migrated content as enabler-only, but eliminating every outcome node in the tree requires a separate root-level `/spec-tree:refactoring` pass that audits whether the Claude integration content becomes an enabler, dissolves into existing enablers, or is deleted.
+
+**Resolution:** Track separately from `spx/PLAN.md`. Revisit before declaring the whole spec tree enabler-only.
+
+## Test run emits unresolved YAML tag warning
+
+`pnpm test` passes, but the run emits `[TAG_RESOLVE_FAILED] YAMLWarning: Unresolved tag: !o at line 4, column 6`.
+
+**Resolution:** Trace the generated YAML fixture or parser input that produces `!o`. Revisit before closing the validation warning cleanup batch.
+
 ## Capability subtrees use pre-methodology suffixes and misdeclared node types
 
-Three top-level subtrees use non-methodology directory suffixes (`.capability`, `.feature`, `.story`) and likely carry the same misapplied-outcome disease that `36-session.outcome` exhibits (see `36-session.outcome/ISSUES.md`). Affected:
+Three top-level subtrees use non-methodology directory suffixes (`.capability`, `.feature`, `.story`) and likely carry the same misapplied-outcome disease that `36-session.enabler` records (see `36-session.enabler/ISSUES.md`). Affected:
 
-- `21-core-cli.capability/` — 3 remaining `.feature` dirs + ~30 `.story` dirs (5 `.feature` dirs renamed to `.enabler` in `b335386`; see `spx/PLAN.md` for the bottom-up normalization plan)
+- `21-core-cli.capability/` — 3 remaining `.feature` dirs + ~30 `.story` dirs (5 `.feature` dirs renamed to `.enabler` in `b335386`; see `spx/PLAN.md` for the current config-first migration plan)
 - `26-scoped-cli.capability/` — 1 feature, 2 stories
 - `31-spec-domain.capability/` — index collision with `31-spec-domain.enabler/` AND pre-methodology suffixes inside
 
-**Resolution:** Defer to a future structural normalization initiative. The migration plan is explicit: structural cleanup of these subtrees is OUT OF SCOPE for the test consolidation work. Each subtree needs its own audit for (1) whether children are real outcomes or should be enablers, (2) whether junk-drawer names like "core-cli" describe real concerns, (3) what should be renamed vs dissolved vs merged.
+**Resolution:** Follow the current migration plan for `21-core-cli.capability`. The remaining subtrees need their own audit for (1) whether each child remains a real enabler, (2) whether junk-drawer names describe real concerns, (3) what should be renamed, dissolved, merged, or deleted.
 
 ## Spec domain under-specified
 
