@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { DECISION_KINDS, type Kind, KIND_REGISTRY, NODE_KINDS } from "@/spec/config.js";
+import { DECISION_KINDS, type Kind, KIND_REGISTRY, NODE_KINDS } from "@/spec/config";
 
 describe("single-source invariants", () => {
   it("every NODE_KINDS entry appears as a key in KIND_REGISTRY", () => {

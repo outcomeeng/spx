@@ -7,19 +7,20 @@ import {
   KIND_REGISTRY,
   NODE_KINDS,
   NODE_SUFFIXES,
-} from "@/spec/config.js";
+  SPEC_TREE_KIND_CATEGORY,
+} from "@/spec/config";
 
 describe("NODE_KINDS", () => {
   it("includes exactly the kinds whose category is node", () => {
     const expected = (Object.keys(KIND_REGISTRY) as Kind[]).filter(
-      (k) => KIND_REGISTRY[k].category === "node",
+      (k) => KIND_REGISTRY[k].category === SPEC_TREE_KIND_CATEGORY.NODE,
     );
     expect([...NODE_KINDS].sort()).toEqual([...expected].sort());
   });
 
   it("excludes every kind whose category is decision", () => {
     for (const kind of NODE_KINDS) {
-      expect(KIND_REGISTRY[kind].category).toBe("node");
+      expect(KIND_REGISTRY[kind].category).toBe(SPEC_TREE_KIND_CATEGORY.NODE);
     }
   });
 });
@@ -27,14 +28,14 @@ describe("NODE_KINDS", () => {
 describe("DECISION_KINDS", () => {
   it("includes exactly the kinds whose category is decision", () => {
     const expected = (Object.keys(KIND_REGISTRY) as Kind[]).filter(
-      (k) => KIND_REGISTRY[k].category === "decision",
+      (k) => KIND_REGISTRY[k].category === SPEC_TREE_KIND_CATEGORY.DECISION,
     );
     expect([...DECISION_KINDS].sort()).toEqual([...expected].sort());
   });
 
   it("excludes every kind whose category is node", () => {
     for (const kind of DECISION_KINDS) {
-      expect(KIND_REGISTRY[kind].category).toBe("decision");
+      expect(KIND_REGISTRY[kind].category).toBe(SPEC_TREE_KIND_CATEGORY.DECISION);
     }
   });
 });

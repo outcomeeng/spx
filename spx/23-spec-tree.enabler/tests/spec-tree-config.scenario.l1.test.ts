@@ -1,10 +1,10 @@
 import { describe, expect, it } from "vitest";
 
-import { type Kind, KIND_REGISTRY, specTreeConfigDescriptor } from "@/spec/config.js";
+import { type Kind, KIND_REGISTRY, SPEC_TREE_SECTION, specTreeConfigDescriptor } from "@/spec/config";
 
 describe("specTreeConfigDescriptor.section", () => {
   it("names the spec-tree section of spx.config.yaml", () => {
-    expect(specTreeConfigDescriptor.section).toBe("specTree");
+    expect(specTreeConfigDescriptor.section).toBe(SPEC_TREE_SECTION);
   });
 });
 

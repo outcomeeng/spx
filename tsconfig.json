@@ -14,6 +14,7 @@
       "@root/*": ["./*"],
       "@scripts/*": ["./scripts/*"],
       "@test/*": ["./tests/*"],
+      "@testing/*": ["./testing/*"],
       "@eslint-rules/*": ["./eslint-rules/*"]
     },
     "resolveJsonModule": true,
@@ -25,7 +26,7 @@
     "types": ["node", "vitest/globals"]
   },
   "exclude": ["node_modules", "dist", "docs/**/*", "vite.config.mts", "tests/fixtures/**/*"],
-  "include": ["src/**/*", "bin/**/*", "scripts/**/*", "tests/**/*", "specs/**/*", "spx/**/*"],
+  "include": ["src/**/*", "bin/**/*", "scripts/**/*", "tests/**/*", "testing/**/*", "specs/**/*", "spx/**/*"],
   // This tells ts-node to pre-load tsconfig-paths
   "ts-node": {
     "require": ["tsconfig-paths/register"]

@@ -1,29 +1,36 @@
-import type { ConfigDescriptor, Result } from "@/config/types.js";
+import type { ConfigDescriptor, Result } from "@/config/types";
+
+export const SPEC_TREE_KIND_CATEGORY = {
+  NODE: "node",
+  DECISION: "decision",
+} as const;
+
+export type SpecTreeKindCategory = (typeof SPEC_TREE_KIND_CATEGORY)[keyof typeof SPEC_TREE_KIND_CATEGORY];
 
 export const KIND_REGISTRY = {
-  enabler: { category: "node", suffix: ".enabler" },
-  outcome: { category: "node", suffix: ".outcome" },
-  adr: { category: "decision", suffix: ".adr.md" },
-  pdr: { category: "decision", suffix: ".pdr.md" },
+  enabler: { category: SPEC_TREE_KIND_CATEGORY.NODE, suffix: ".enabler" },
+  outcome: { category: SPEC_TREE_KIND_CATEGORY.NODE, suffix: ".outcome" },
+  adr: { category: SPEC_TREE_KIND_CATEGORY.DECISION, suffix: ".adr.md" },
+  pdr: { category: SPEC_TREE_KIND_CATEGORY.DECISION, suffix: ".pdr.md" },
 } as const;
 
 export type Kind = keyof typeof KIND_REGISTRY;
 export type KindDefinition<K extends Kind> = (typeof KIND_REGISTRY)[K];
 
 export type NodeKind = {
-  [K in Kind]: (typeof KIND_REGISTRY)[K]["category"] extends "node" ? K : never;
+  [K in Kind]: (typeof KIND_REGISTRY)[K]["category"] extends typeof SPEC_TREE_KIND_CATEGORY.NODE ? K : never;
 }[Kind];
 
 export type DecisionKind = {
-  [K in Kind]: (typeof KIND_REGISTRY)[K]["category"] extends "decision" ? K : never;
+  [K in Kind]: (typeof KIND_REGISTRY)[K]["category"] extends typeof SPEC_TREE_KIND_CATEGORY.DECISION ? K : never;
 }[Kind];
 
 export const NODE_KINDS: readonly NodeKind[] = (Object.keys(KIND_REGISTRY) as Kind[]).filter(
-  (k): k is NodeKind => KIND_REGISTRY[k].category === "node",
+  (k): k is NodeKind => KIND_REGISTRY[k].category === SPEC_TREE_KIND_CATEGORY.NODE,
 );
 
 export const DECISION_KINDS: readonly DecisionKind[] = (Object.keys(KIND_REGISTRY) as Kind[]).filter(
-  (k): k is DecisionKind => KIND_REGISTRY[k].category === "decision",
+  (k): k is DecisionKind => KIND_REGISTRY[k].category === SPEC_TREE_KIND_CATEGORY.DECISION,
 );
 
 export const NODE_SUFFIXES: readonly string[] = NODE_KINDS.map((k) => KIND_REGISTRY[k].suffix);
@@ -33,7 +40,7 @@ export type SpecTreeConfig = {
   readonly kinds: { readonly [K in Kind]?: KindDefinition<K> };
 };
 
-const SPEC_TREE_SECTION = "specTree";
+export const SPEC_TREE_SECTION = "specTree";
 
 function isKind(value: string): value is Kind {
   return Object.prototype.hasOwnProperty.call(KIND_REGISTRY, value);

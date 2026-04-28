@@ -45,7 +45,7 @@ Alternatives considered:
 - Tool adapters are pure over `(ScopeResult, ToolName)` — the same resolved scope and the same tool name always produce the same argument array, regardless of which tool was adapted previously in the process
 - The pipeline's layer sequence is declared in one place and consumed through a single accessor; no module outside the pipeline composes its own layer order
 - The layer sequence is extensible: inserting a new layer at a declared position preserves the decision-trail ordering and membership decisions of every existing layer
-- Every vocabulary constant the file-inclusion subtree consumes — the artifact-directory name set, the hidden-prefix character, the ignore-source filename — is declared in the file-inclusion config descriptor; the spec-tree root segment is consumed from the spec-tree-shape descriptor per `../23-spec-tree-shape.enabler/`
+- Every vocabulary constant the file-inclusion subtree consumes — the artifact-directory name set, the hidden-prefix character, the ignore-source filename — is declared in the file-inclusion config descriptor; the spec-tree root segment is consumed from the spec-tree descriptor per `../23-spec-tree.enabler/`
 - No module outside the file-inclusion subtree reads an ignore source, enumerates artifact-directory names, or matches the hidden prefix
 
 ## Compliance

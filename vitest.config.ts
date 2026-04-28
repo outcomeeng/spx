@@ -8,6 +8,7 @@ export default defineConfig({
       "@": `${root}/src`,
       "@root": root,
       "@test": `${root}/tests`,
+      "@testing": `${root}/testing`,
       "@scripts": `${root}/scripts`,
       "@eslint-rules": `${root}/eslint-rules`,
     },

@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { type Kind, KIND_REGISTRY } from "@/spec/config.js";
+import { type Kind, KIND_REGISTRY } from "@/spec/config";
 
 describe("KIND_REGISTRY", () => {
   it("exposes each kind as a key whose value carries category and suffix", () => {

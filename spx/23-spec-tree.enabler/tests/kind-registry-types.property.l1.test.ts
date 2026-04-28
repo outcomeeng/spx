@@ -8,7 +8,8 @@ import {
   type KindDefinition,
   NODE_KINDS,
   type NodeKind,
-} from "@/spec/config.js";
+  SPEC_TREE_KIND_CATEGORY,
+} from "@/spec/config";
 
 describe("types match values", () => {
   it("Kind is the union of KIND_REGISTRY's keys — enumerable at the type level", () => {
@@ -35,14 +36,14 @@ describe("types match values", () => {
   it("every runtime NODE_KINDS member is assignable to NodeKind at the value level", () => {
     for (const kind of NODE_KINDS) {
       const value: NodeKind = kind;
-      expect(KIND_REGISTRY[value].category).toBe("node");
+      expect(KIND_REGISTRY[value].category).toBe(SPEC_TREE_KIND_CATEGORY.NODE);
     }
   });
 
   it("every runtime DECISION_KINDS member is assignable to DecisionKind at the value level", () => {
     for (const kind of DECISION_KINDS) {
       const value: DecisionKind = kind;
-      expect(KIND_REGISTRY[value].category).toBe("decision");
+      expect(KIND_REGISTRY[value].category).toBe(SPEC_TREE_KIND_CATEGORY.DECISION);
     }
   });
 });
