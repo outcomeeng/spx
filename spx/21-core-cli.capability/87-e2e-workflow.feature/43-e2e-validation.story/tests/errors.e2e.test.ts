@@ -11,7 +11,7 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { describe, expect, it } from "vitest";
 
-import { CLI_PATH } from "@test/harness/constants";
+import { CLI_PATH, VERSION_FLAG } from "@test/harness/constants";
 
 describe("E2E: Error Scenarios", () => {
   describe("FR3: Error Handling", () => {
@@ -66,7 +66,7 @@ describe("E2E: Error Scenarios", () => {
     });
 
     it("GIVEN --version flag WHEN running spx THEN exits 0 with semver version", async () => {
-      const { exitCode, stdout } = await execa("node", [CLI_PATH, "--version"]);
+      const { exitCode, stdout } = await execa("node", [CLI_PATH, VERSION_FLAG]);
 
       expect(exitCode).toBe(0);
       expect(stdout).toMatch(/\d+\.\d+\.\d+/);

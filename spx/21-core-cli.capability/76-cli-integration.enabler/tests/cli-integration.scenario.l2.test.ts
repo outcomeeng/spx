@@ -1,4 +1,6 @@
-import { CLI_PATH, FIXTURES_ROOT } from "@test/harness/constants";
+import { createRequire } from "node:module";
+
+import { CLI_PATH, FIXTURES_ROOT, PROJECT_ROOT, VERSION_FLAG } from "@test/harness/constants";
 import { execa } from "execa";
 import path from "path";
 import { describe, expect, it } from "vitest";
@@ -210,6 +212,17 @@ describe("spx error handling and help", () => {
     const result = await execa("node", [CLI_PATH, "spec", "status"], { cwd, reject: false });
 
     expect(result.stderr).toMatch(/^Error:/);
+  });
+
+  it("GIVEN --version flag WHEN invoking spx binary via shebang THEN exits 0 and stdout is the package.json version", async () => {
+    const { version } = createRequire(import.meta.url)(path.join(PROJECT_ROOT, "package.json")) as {
+      version: string;
+    };
+
+    const { stdout, exitCode } = await execa(CLI_PATH, [VERSION_FLAG]);
+
+    expect(exitCode).toBe(0);
+    expect(stdout).toBe(version);
   });
 
   it("GIVEN --format xml WHEN running status THEN stderr names the invalid format with valid options", async () => {

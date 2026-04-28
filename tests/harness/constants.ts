@@ -25,6 +25,11 @@ export const FIXTURES_ROOT = resolve(PROJECT_ROOT, "tests/fixtures");
 export const CLI_PATH = resolve(PROJECT_ROOT, "bin/spx.js");
 
 /**
+ * Common CLI flags used across test files.
+ */
+export const VERSION_FLAG = "--version";
+
+/**
  * Default BSP number for test data
  */
 export const DEFAULT_BSP_NUMBER = 20;
