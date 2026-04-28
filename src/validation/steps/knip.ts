@@ -7,6 +7,8 @@
  */
 
 import { spawn } from "node:child_process";
+import { existsSync } from "node:fs";
+import { join } from "node:path";
 
 import type { ProcessRunner, ScopeConfig } from "../types.js";
 
@@ -55,7 +57,9 @@ export async function validateKnip(
     }
 
     return new Promise((resolve) => {
-      const knipProcess = runner.spawn("npx", ["knip"], {
+      const localBin = join(process.cwd(), "node_modules", ".bin", "knip");
+      const binary = existsSync(localBin) ? localBin : "npx";
+      const knipProcess = runner.spawn(binary, binary === "npx" ? ["knip"] : [], {
         cwd: process.cwd(),
         stdio: "pipe",
       });

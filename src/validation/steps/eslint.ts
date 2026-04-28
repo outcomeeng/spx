@@ -7,6 +7,8 @@
  */
 
 import { spawn } from "node:child_process";
+import { existsSync } from "node:fs";
+import { join } from "node:path";
 
 import type { ExecutionMode, ProcessRunner, ValidationContext } from "../types.js";
 import { EXECUTION_MODES, VALIDATION_SCOPES } from "../types.js";
@@ -112,7 +114,10 @@ export async function validateESLint(
       configFile: eslintConfigFile,
     });
 
-    const eslintProcess = runner.spawn("npx", eslintArgs, {
+    const localBin = join(projectRoot, "node_modules", ".bin", "eslint");
+    const binary = existsSync(localBin) ? localBin : "npx";
+    const spawnArgs = binary === "npx" ? eslintArgs : eslintArgs.slice(1);
+    const eslintProcess = runner.spawn(binary, spawnArgs, {
       cwd: projectRoot,
       stdio: "inherit",
     });

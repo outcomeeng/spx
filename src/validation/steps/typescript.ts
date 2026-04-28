@@ -171,7 +171,10 @@ export async function validateTypeScript(
 
     try {
       return await new Promise((resolve) => {
-        const tscProcess = runner.spawn("npx", ["tsc", "--project", configPath], {
+        const tscBin = join(process.cwd(), "node_modules", ".bin", "tsc");
+        const tscBinary = existsSync(tscBin) ? tscBin : "npx";
+        const tscArgs = tscBinary === "npx" ? ["tsc", "--project", configPath] : ["--project", configPath];
+        const tscProcess = runner.spawn(tscBinary, tscArgs, {
           cwd: process.cwd(),
           stdio: "inherit",
         });
@@ -197,8 +200,10 @@ export async function validateTypeScript(
     }
   } else {
     // Full validation using tsc
-    tool = "npx";
-    tscArgs = buildTypeScriptArgs({ scope, configFile });
+    const tscBin = join(process.cwd(), "node_modules", ".bin", "tsc");
+    tool = existsSync(tscBin) ? tscBin : "npx";
+    const rawArgs = buildTypeScriptArgs({ scope, configFile });
+    tscArgs = tool === "npx" ? rawArgs : rawArgs.slice(1);
   }
 
   return new Promise((resolve) => {
