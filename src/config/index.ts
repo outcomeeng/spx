@@ -1,38 +1,82 @@
 import { readFile } from "node:fs/promises";
 import { join } from "node:path";
 
-import { parse as parseToml } from "smol-toml";
-import { parse as parseYaml } from "yaml";
+import { parse as parseToml, stringify as stringifyToml } from "smol-toml";
+import { parse as parseYaml, stringify as stringifyYaml } from "yaml";
 
 import { productionRegistry } from "./registry";
 import type { Config, ConfigDescriptor, Result } from "./types";
 
-export const CONFIG_FILENAMES = {
-  json: "spx.config.json",
-  yaml: "spx.config.yaml",
-  toml: "spx.config.toml",
+export const CONFIG_FILE_FORMAT = {
+  JSON: "json",
+  YAML: "yaml",
+  TOML: "toml",
 } as const;
 
-type ConfigFile = { readonly filename: string; readonly raw: string };
+export type ConfigFileFormat = (typeof CONFIG_FILE_FORMAT)[keyof typeof CONFIG_FILE_FORMAT];
+
+export const CONFIG_FILE_DEFINITIONS = {
+  [CONFIG_FILE_FORMAT.JSON]: {
+    format: CONFIG_FILE_FORMAT.JSON,
+    filename: "spx.config.json",
+  },
+  [CONFIG_FILE_FORMAT.YAML]: {
+    format: CONFIG_FILE_FORMAT.YAML,
+    filename: "spx.config.yaml",
+  },
+  [CONFIG_FILE_FORMAT.TOML]: {
+    format: CONFIG_FILE_FORMAT.TOML,
+    filename: "spx.config.toml",
+  },
+} as const;
+
+export const CONFIG_FILE_FORMAT_ORDER = [
+  CONFIG_FILE_FORMAT.JSON,
+  CONFIG_FILE_FORMAT.YAML,
+  CONFIG_FILE_FORMAT.TOML,
+] as const;
+
+export const DEFAULT_CONFIG_FILE_FORMAT = CONFIG_FILE_FORMAT.YAML;
+
+export const CONFIG_FILENAMES = {
+  json: CONFIG_FILE_DEFINITIONS[CONFIG_FILE_FORMAT.JSON].filename,
+  yaml: CONFIG_FILE_DEFINITIONS[CONFIG_FILE_FORMAT.YAML].filename,
+  toml: CONFIG_FILE_DEFINITIONS[CONFIG_FILE_FORMAT.TOML].filename,
+} as const;
+
+export type ConfigFilename = (typeof CONFIG_FILENAMES)[keyof typeof CONFIG_FILENAMES];
+
+export const DEFAULT_CONFIG_FILENAME = CONFIG_FILE_DEFINITIONS[DEFAULT_CONFIG_FILE_FORMAT].filename;
+
+export type ConfigFile = {
+  readonly filename: ConfigFilename;
+  readonly format: ConfigFileFormat;
+  readonly path: string;
+  readonly raw: string;
+};
+
+export type ConfigFileReadResult =
+  | { readonly kind: "ok"; readonly file: ConfigFile }
+  | { readonly kind: "ambiguous"; readonly detected: readonly ConfigFilename[] }
+  | { readonly kind: "absent" };
+
+const JSON_INDENT = 2;
 
 export async function resolveConfig(
   projectRoot: string,
   descriptors: readonly ConfigDescriptor<unknown>[] = productionRegistry,
 ): Promise<Result<Config>> {
-  const detectedResult = await detectConfigFiles(projectRoot);
-  if (!detectedResult.ok) {
-    return detectedResult;
-  }
+  const detectedResult = await readProjectConfigFile(projectRoot);
+  if (!detectedResult.ok) return detectedResult;
+
   const detected = detectedResult.value;
-
-  if (detected.length > 1) {
-    const names = detected.map((f) => f.filename).join(", ");
-    return { ok: false, error: `multiple config files found: ${names}` };
+  if (detected.kind === "ambiguous") {
+    return { ok: false, error: formatConfigFileAmbiguityError(detected.detected) };
   }
 
-  const sectionsResult = detected.length === 0
+  const sectionsResult = detected.kind === "absent"
     ? ({ ok: true as const, value: {} as Record<string, unknown> })
-    : parseSections(detected[0]);
+    : parseConfigFileSections(detected.file);
   if (!sectionsResult.ok) {
     return sectionsResult;
   }
@@ -55,29 +99,74 @@ export async function resolveConfig(
   return { ok: true, value: resolved };
 }
 
-async function detectConfigFiles(projectRoot: string): Promise<Result<ConfigFile[]>> {
+export async function readProjectConfigFile(projectRoot: string): Promise<Result<ConfigFileReadResult>> {
   const detected: ConfigFile[] = [];
-  for (const filename of Object.values(CONFIG_FILENAMES)) {
+  for (const format of CONFIG_FILE_FORMAT_ORDER) {
+    const filename = CONFIG_FILE_DEFINITIONS[format].filename;
+    const path = join(projectRoot, filename);
     let raw: string;
     try {
-      raw = await readFile(join(projectRoot, filename), "utf8");
+      raw = await readFile(path, "utf8");
     } catch (error) {
       if (isFileNotFound(error)) continue;
       return { ok: false, error: `failed to read ${filename}: ${toMessage(error)}` };
     }
-    detected.push({ filename, raw });
+    detected.push({ filename, format, path, raw });
   }
-  return { ok: true, value: detected };
+  if (detected.length === 0) return { ok: true, value: { kind: "absent" } };
+  if (detected.length > 1) {
+    return {
+      ok: true,
+      value: {
+        kind: "ambiguous",
+        detected: detected.map((file) => file.filename),
+      },
+    };
+  }
+  return { ok: true, value: { kind: "ok", file: detected[0] } };
 }
 
-function parseSections(file: ConfigFile): Result<Record<string, unknown>> {
-  switch (file.filename) {
-    case CONFIG_FILENAMES.json:
+export function configFileForFormat(
+  projectRoot: string,
+  format: ConfigFileFormat = DEFAULT_CONFIG_FILE_FORMAT,
+  raw = "",
+): ConfigFile {
+  const filename = CONFIG_FILE_DEFINITIONS[format].filename;
+  return {
+    filename,
+    format,
+    path: join(projectRoot, filename),
+    raw,
+  };
+}
+
+export function formatConfigFileAmbiguityError(detected: readonly ConfigFilename[]): string {
+  return `multiple config files found: ${detected.join(", ")}`;
+}
+
+export function parseConfigFileSections(file: ConfigFile): Result<Record<string, unknown>> {
+  if (file.raw.trim() === "") return { ok: true, value: {} };
+  switch (file.format) {
+    case CONFIG_FILE_FORMAT.JSON:
       return parseJsonSections(file.filename, file.raw);
-    case CONFIG_FILENAMES.yaml:
+    case CONFIG_FILE_FORMAT.YAML:
       return parseYamlSections(file.filename, file.raw);
-    default:
+    case CONFIG_FILE_FORMAT.TOML:
       return parseTomlSections(file.filename, file.raw);
+  }
+}
+
+export function serializeConfigFileSections(
+  format: ConfigFileFormat,
+  sections: Record<string, unknown>,
+): Result<string> {
+  switch (format) {
+    case CONFIG_FILE_FORMAT.JSON:
+      return { ok: true, value: JSON.stringify(sections, null, JSON_INDENT) + "\n" };
+    case CONFIG_FILE_FORMAT.YAML:
+      return { ok: true, value: stringifyYaml(sections) };
+    case CONFIG_FILE_FORMAT.TOML:
+      return serializeTomlSections(sections);
   }
 }
 
@@ -86,7 +175,7 @@ function parseJsonSections(filename: string, raw: string): Result<Record<string,
   try {
     parsed = JSON.parse(raw) as unknown;
   } catch (error) {
-    return { ok: false, error: `${filename} is not valid json: ${toMessage(error)}` };
+    return { ok: false, error: `${filename} is not valid ${CONFIG_FILE_FORMAT.JSON}: ${toMessage(error)}` };
   }
   return validateParsedSections(filename, parsed);
 }
@@ -96,7 +185,7 @@ function parseYamlSections(filename: string, raw: string): Result<Record<string,
   try {
     parsed = parseYaml(raw) as unknown;
   } catch (error) {
-    return { ok: false, error: `${filename} is not valid yaml: ${toMessage(error)}` };
+    return { ok: false, error: `${filename} is not valid ${CONFIG_FILE_FORMAT.YAML}: ${toMessage(error)}` };
   }
   if (parsed === null || parsed === undefined) {
     return { ok: true, value: {} };
@@ -109,9 +198,20 @@ function parseTomlSections(filename: string, raw: string): Result<Record<string,
   try {
     parsed = parseToml(raw) as unknown;
   } catch (error) {
-    return { ok: false, error: `${filename} is not valid toml: ${toMessage(error)}` };
+    return { ok: false, error: `${filename} is not valid ${CONFIG_FILE_FORMAT.TOML}: ${toMessage(error)}` };
   }
   return validateParsedSections(filename, parsed);
+}
+
+function serializeTomlSections(sections: Record<string, unknown>): Result<string> {
+  try {
+    return { ok: true, value: stringifyToml(sections) };
+  } catch (error) {
+    return {
+      ok: false,
+      error: `config is not serializable as ${CONFIG_FILE_FORMAT.TOML}: ${toMessage(error)}`,
+    };
+  }
 }
 
 function validateParsedSections(filename: string, parsed: unknown): Result<Record<string, unknown>> {

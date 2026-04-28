@@ -1,7 +1,6 @@
 import { describe, expect, it } from "vitest";
-import { parse as parseYaml } from "yaml";
 
-import { CONFIG_FILENAMES } from "@/config/index";
+import { CONFIG_FILE_FORMAT_ORDER, readProjectConfigFile } from "@/config/index";
 import { withTestEnv } from "@/spec/testing/index";
 import { allowlistExisting } from "@/validation/literal/allowlist-existing";
 
@@ -13,10 +12,12 @@ import {
   FOREIGN_SECTION_BODY,
   FOREIGN_SECTION_KEY,
   readLiteralAllowlist,
+  readProjectConfigSections,
   SAMPLE_EXCLUDE_VALUE,
   SHARED_FIXTURE_LITERAL,
   WEB_PRESET_NAME,
   writeDuplicatedLiteralFixture,
+  writeProjectConfig,
 } from "./support";
 
 describe("allowlist-existing compliance", () => {
@@ -32,7 +33,7 @@ describe("allowlist-existing compliance", () => {
       const result = await allowlistExisting({ projectRoot: env.projectDir });
       expect(result.exitCode).toBe(0);
 
-      const allowlist = readLiteralAllowlist(parseYaml(await env.readFile(CONFIG_FILENAMES.yaml)));
+      const allowlist = readLiteralAllowlist(await readProjectConfigSections(env));
       expect(allowlist.presets).toEqual([WEB_PRESET_NAME]);
       expect(allowlist.exclude).toEqual([SAMPLE_EXCLUDE_VALUE]);
     });
@@ -45,7 +46,7 @@ describe("allowlist-existing compliance", () => {
       const result = await allowlistExisting({ projectRoot: env.projectDir });
       expect(result.exitCode).toBe(0);
 
-      const parsed = parseYaml(await env.readFile(CONFIG_FILENAMES.yaml)) as Record<string, unknown>;
+      const parsed = await readProjectConfigSections(env);
       expect(parsed[FOREIGN_SECTION_KEY]).toEqual(FOREIGN_SECTION_BODY);
     });
   });
@@ -57,15 +58,11 @@ describe("allowlist-existing compliance", () => {
 
       const first = await allowlistExisting({ projectRoot: env.projectDir });
       expect(first.exitCode).toBe(0);
-      const allowlistAfterFirst = readLiteralAllowlist(
-        parseYaml(await env.readFile(CONFIG_FILENAMES.yaml)),
-      );
+      const allowlistAfterFirst = readLiteralAllowlist(await readProjectConfigSections(env));
 
       const second = await allowlistExisting({ projectRoot: env.projectDir });
       expect(second.exitCode).toBe(0);
-      const allowlistAfterSecond = readLiteralAllowlist(
-        parseYaml(await env.readFile(CONFIG_FILENAMES.yaml)),
-      );
+      const allowlistAfterSecond = readLiteralAllowlist(await readProjectConfigSections(env));
 
       expect(allowlistAfterSecond.include).toEqual(allowlistAfterFirst.include);
     });
@@ -81,7 +78,7 @@ describe("allowlist-existing compliance", () => {
       const result = await allowlistExisting({ projectRoot: env.projectDir });
       expect(result.exitCode).toBe(0);
 
-      const allowlist = readLiteralAllowlist(parseYaml(await env.readFile(CONFIG_FILENAMES.yaml)));
+      const allowlist = readLiteralAllowlist(await readProjectConfigSections(env));
       const include = allowlist.include ?? [];
 
       expect(include.indexOf(EXISTING_INCLUDE_FIRST)).toBe(0);
@@ -97,10 +94,32 @@ describe("allowlist-existing compliance", () => {
       const result = await allowlistExisting({ projectRoot: env.projectDir });
       expect(result.exitCode).toBe(0);
 
-      const allowlist = readLiteralAllowlist(parseYaml(await env.readFile(CONFIG_FILENAMES.yaml)));
+      const allowlist = readLiteralAllowlist(await readProjectConfigSections(env));
       const include = allowlist.include ?? [];
       const occurrences = include.filter((value) => value === SHARED_FIXTURE_LITERAL).length;
       expect(occurrences).toBe(1);
     });
   });
+
+  it.each(CONFIG_FILE_FORMAT_ORDER)(
+    "preserves the config module's %s file format while updating literal.allowlist.include",
+    async (format) => {
+      const config = buildConfigWithAllowlist({ include: [] });
+      await withTestEnv(config, async (env) => {
+        await writeProjectConfig(env, format, config);
+        await writeDuplicatedLiteralFixture(env);
+
+        const result = await allowlistExisting({ projectRoot: env.projectDir });
+        expect(result.exitCode).toBe(0);
+
+        const read = await readProjectConfigFile(env.projectDir);
+        expect(read.ok).toBe(true);
+        if (!read.ok || read.value.kind !== "ok") return;
+        expect(read.value.file.format).toBe(format);
+
+        const allowlist = readLiteralAllowlist(await readProjectConfigSections(env));
+        expect(allowlist.include).toContain(SHARED_FIXTURE_LITERAL);
+      });
+    },
+  );
 });

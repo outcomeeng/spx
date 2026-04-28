@@ -1,21 +1,21 @@
 import { describe, expect, it } from "vitest";
 
-import { resolveConfig } from "@/config/index.js";
-import { specTreeConfigDescriptor } from "@/spec/config.js";
-import { withTestEnv } from "@/spec/testing/index.js";
-import type { Config } from "@/spec/testing/index.js";
+import { resolveConfig } from "@/config/index";
+import { specTreeConfigDescriptor } from "@/spec/config";
+import { withTestEnv } from "@/spec/testing/index";
+import type { Config } from "@/spec/testing/index";
 
 describe("resolveConfig — validator rejection", () => {
   it("returns an error naming the descriptor whose validator rejected its section", async () => {
-    const yamlConfig: Config = {
-      specTree: {
+    const projectConfig: Config = {
+      [specTreeConfigDescriptor.section]: {
         kinds: {
           madeUpKind: { category: "node", suffix: ".fake" },
         },
       },
     };
 
-    await withTestEnv(yamlConfig, async ({ projectDir }) => {
+    await withTestEnv(projectConfig, async ({ projectDir }) => {
       const result = await resolveConfig(projectDir, [specTreeConfigDescriptor]);
 
       expect(result.ok).toBe(false);
@@ -26,15 +26,15 @@ describe("resolveConfig — validator rejection", () => {
   });
 
   it("names the offending field within the rejected section", async () => {
-    const yamlConfig: Config = {
-      specTree: {
+    const projectConfig: Config = {
+      [specTreeConfigDescriptor.section]: {
         kinds: {
           phantomKind: { category: "node", suffix: ".phantom" },
         },
       },
     };
 
-    await withTestEnv(yamlConfig, async ({ projectDir }) => {
+    await withTestEnv(projectConfig, async ({ projectDir }) => {
       const result = await resolveConfig(projectDir, [specTreeConfigDescriptor]);
 
       expect(result.ok).toBe(false);
@@ -45,13 +45,13 @@ describe("resolveConfig — validator rejection", () => {
   });
 
   it("returns no partially usable Config when any descriptor rejects — either ok:true with full Config or ok:false with error", async () => {
-    const yamlConfig: Config = {
-      specTree: {
+    const projectConfig: Config = {
+      [specTreeConfigDescriptor.section]: {
         kinds: { nonsense: { category: "node", suffix: ".nonsense" } },
       },
     };
 
-    await withTestEnv(yamlConfig, async ({ projectDir }) => {
+    await withTestEnv(projectConfig, async ({ projectDir }) => {
       const result = await resolveConfig(projectDir, [specTreeConfigDescriptor]);
 
       if (result.ok) {

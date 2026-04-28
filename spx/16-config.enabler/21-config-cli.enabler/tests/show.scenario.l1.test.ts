@@ -1,9 +1,15 @@
 import { describe, expect, it } from "vitest";
-import { parse as parseYaml } from "yaml";
 
-import { showCommand } from "@/commands/config/show.js";
-import type { Config, ConfigDescriptor, Result } from "@/config/types.js";
-import { specTreeConfigDescriptor } from "@/spec/config.js";
+import { showCommand } from "@/commands/config/show";
+import {
+  CONFIG_FILE_FORMAT,
+  configFileForFormat,
+  type ConfigFileFormat,
+  DEFAULT_CONFIG_FILE_FORMAT,
+  parseConfigFileSections,
+} from "@/config/index";
+import type { Config, ConfigDescriptor, Result } from "@/config/types";
+import { specTreeConfigDescriptor } from "@/spec/config";
 
 type CliDeps = {
   resolveConfig: (projectRoot: string) => Promise<Result<Config>>;
@@ -22,11 +28,11 @@ function makeDeps(resolved: Result<Config>): CliDeps {
 }
 
 const DEFAULTS_CONFIG: Config = {
-  specTree: specTreeConfigDescriptor.defaults,
+  [specTreeConfigDescriptor.section]: specTreeConfigDescriptor.defaults,
 };
 
 const SUBSET_CONFIG: Config = {
-  specTree: {
+  [specTreeConfigDescriptor.section]: {
     kinds: {
       enabler: specTreeConfigDescriptor.defaults.kinds.enabler,
       adr: specTreeConfigDescriptor.defaults.kinds.adr,
@@ -34,25 +40,34 @@ const SUBSET_CONFIG: Config = {
   },
 };
 
-describe("showCommand — YAML output", () => {
-  it("emits a YAML dump of the resolved Config when no yaml overrides apply, exit 0", async () => {
+function parseOutput(format: ConfigFileFormat, raw: string): Config {
+  const parsed = parseConfigFileSections(configFileForFormat(PROJECT_ROOT, format, raw));
+  expect(parsed.ok).toBe(true);
+  if (!parsed.ok) {
+    throw new Error(parsed.error);
+  }
+  return parsed.value;
+}
+
+describe("showCommand — default-format output", () => {
+  it("emits a default-format dump of the resolved Config when no overrides apply, exit 0", async () => {
     const deps = makeDeps({ ok: true, value: DEFAULTS_CONFIG });
 
     const result = await showCommand({}, deps);
 
     expect(result.exitCode).toBe(0);
-    expect(result.stderr).toBe("");
-    expect(parseYaml(result.stdout)).toEqual(DEFAULTS_CONFIG);
+    expect(result.stderr).toHaveLength(0);
+    expect(parseOutput(DEFAULT_CONFIG_FILE_FORMAT, result.stdout)).toEqual(DEFAULTS_CONFIG);
   });
 
-  it("reflects yaml-driven overrides in the emitted YAML", async () => {
+  it("reflects config-driven overrides in the emitted default format", async () => {
     const deps = makeDeps({ ok: true, value: SUBSET_CONFIG });
 
     const result = await showCommand({}, deps);
 
     expect(result.exitCode).toBe(0);
-    const parsed = parseYaml(result.stdout) as Config;
-    const specTree = parsed["specTree"] as typeof specTreeConfigDescriptor.defaults;
+    const parsed = parseOutput(DEFAULT_CONFIG_FILE_FORMAT, result.stdout);
+    const specTree = parsed[specTreeConfigDescriptor.section] as typeof specTreeConfigDescriptor.defaults;
     expect(Object.keys(specTree.kinds).sort()).toEqual(["adr", "enabler"]);
   });
 });
@@ -64,16 +79,18 @@ describe("showCommand — JSON output", () => {
     const result = await showCommand({ json: true }, deps);
 
     expect(result.exitCode).toBe(0);
-    expect(JSON.parse(result.stdout)).toEqual(DEFAULTS_CONFIG);
+    expect(parseOutput(CONFIG_FILE_FORMAT.JSON, result.stdout)).toEqual(DEFAULTS_CONFIG);
   });
 
-  it("JSON and YAML encodings of the same resolved Config round-trip to equal values", async () => {
+  it("JSON and default-format encodings of the same resolved Config round-trip to equal values", async () => {
     const deps = makeDeps({ ok: true, value: SUBSET_CONFIG });
 
-    const yamlResult = await showCommand({}, deps);
+    const defaultResult = await showCommand({}, deps);
     const jsonResult = await showCommand({ json: true }, deps);
 
-    expect(parseYaml(yamlResult.stdout)).toEqual(JSON.parse(jsonResult.stdout));
+    expect(parseOutput(DEFAULT_CONFIG_FILE_FORMAT, defaultResult.stdout)).toEqual(
+      parseOutput(CONFIG_FILE_FORMAT.JSON, jsonResult.stdout),
+    );
   });
 });
 
@@ -84,7 +101,7 @@ describe("showCommand — resolution failure", () => {
     const result = await showCommand({}, deps);
 
     expect(result.exitCode).not.toBe(0);
-    expect(result.stdout).toBe("");
+    expect(result.stdout).toHaveLength(0);
     expect(result.stderr).toMatch(/specTree/);
   });
 });

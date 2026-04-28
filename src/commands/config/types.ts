@@ -17,5 +17,3 @@ export type OutputFormatOptions = { readonly json?: boolean };
 export type ShowOptions = OutputFormatOptions;
 export type DefaultsOptions = OutputFormatOptions;
 export type ValidateOptions = Record<string, never>;
-
-export const CONFIG_FILENAME = "spx.config.yaml";

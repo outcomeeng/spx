@@ -1,11 +1,11 @@
 import * as fc from "fast-check";
 import { describe, expect, it } from "vitest";
 
-import { defaultsCommand } from "@/commands/config/defaults.js";
-import { showCommand } from "@/commands/config/show.js";
-import { validateCommand } from "@/commands/config/validate.js";
-import type { Config, ConfigDescriptor, Result } from "@/config/types.js";
-import { specTreeConfigDescriptor } from "@/spec/config.js";
+import { defaultsCommand } from "@/commands/config/defaults";
+import { showCommand } from "@/commands/config/show";
+import { validateCommand } from "@/commands/config/validate";
+import type { Config, ConfigDescriptor, Result } from "@/config/types";
+import { specTreeConfigDescriptor } from "@/spec/config";
 
 type CliDeps = {
   resolveConfig: (projectRoot: string) => Promise<Result<Config>>;
@@ -170,9 +170,9 @@ describe("invariants — stream discipline (C2)", () => {
     const defs = await defaultsCommand({}, deps);
 
     expect(show.stdout.length).toBeGreaterThan(0);
-    expect(show.stderr).toBe("");
+    expect(show.stderr).toHaveLength(0);
     expect(defs.stdout.length).toBeGreaterThan(0);
-    expect(defs.stderr).toBe("");
+    expect(defs.stderr).toHaveLength(0);
   });
 
   it("failed resolution in show/validate routes diagnostics to stderr and leaves stdout empty", async () => {
@@ -181,9 +181,9 @@ describe("invariants — stream discipline (C2)", () => {
     const show = await showCommand({}, deps);
     const validate = await validateCommand({}, deps);
 
-    expect(show.stdout).toBe("");
+    expect(show.stdout).toHaveLength(0);
     expect(show.stderr.length).toBeGreaterThan(0);
-    expect(validate.stdout).toBe("");
+    expect(validate.stdout).toHaveLength(0);
     expect(validate.stderr.length).toBeGreaterThan(0);
   });
 
@@ -193,6 +193,6 @@ describe("invariants — stream discipline (C2)", () => {
     const result = await validateCommand({}, deps);
 
     expect(result.stdout.length).toBeGreaterThan(0);
-    expect(result.stderr).toBe("");
+    expect(result.stderr).toHaveLength(0);
   });
 });

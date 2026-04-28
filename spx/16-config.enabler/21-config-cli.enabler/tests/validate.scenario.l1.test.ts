@@ -1,8 +1,9 @@
 import { describe, expect, it } from "vitest";
 
-import { validateCommand } from "@/commands/config/validate.js";
-import type { Config, ConfigDescriptor, Result } from "@/config/types.js";
-import { specTreeConfigDescriptor } from "@/spec/config.js";
+import { validateCommand } from "@/commands/config/validate";
+import { DEFAULT_CONFIG_FILENAME } from "@/config/index";
+import type { Config, ConfigDescriptor, Result } from "@/config/types";
+import { specTreeConfigDescriptor } from "@/spec/config";
 
 type CliDeps = {
   resolveConfig: (projectRoot: string) => Promise<Result<Config>>;
@@ -32,7 +33,7 @@ describe("validateCommand — success path", () => {
 
     expect(result.exitCode).toBe(0);
     expect(result.stdout.length).toBeGreaterThan(0);
-    expect(result.stderr).toBe("");
+    expect(result.stderr).toHaveLength(0);
   });
 
   it("the success line names the validated file", async () => {
@@ -40,7 +41,7 @@ describe("validateCommand — success path", () => {
 
     const result = await validateCommand({}, deps);
 
-    expect(result.stdout).toMatch(/spx\.config\.yaml/);
+    expect(result.stdout).toContain(DEFAULT_CONFIG_FILENAME);
   });
 });
 
@@ -63,7 +64,7 @@ describe("validateCommand — rejection path", () => {
 
     expect(result.stderr).toMatch(/specTree/);
     expect(result.stderr).toMatch(/phantom/);
-    expect(result.stdout).toBe("");
+    expect(result.stdout).toHaveLength(0);
   });
 
   it("exit code on rejection is exactly 1", async () => {
@@ -77,18 +78,18 @@ describe("validateCommand — rejection path", () => {
 
 describe("validateCommand — mapping contract", () => {
   it("resolves the projectRoot through deps before calling resolveConfig", async () => {
-    let observedRoot = "";
+    let observedRoot: string | undefined;
     const deps: CliDeps = {
       resolveConfig: async (root) => {
         observedRoot = root;
         return { ok: true, value: DEFAULTS_CONFIG };
       },
-      resolveProjectRoot: () => "/test-root",
+      resolveProjectRoot: () => PROJECT_ROOT,
       descriptors: [specTreeConfigDescriptor],
     };
 
     await validateCommand({}, deps);
 
-    expect(observedRoot).toBe("/test-root");
+    expect(observedRoot).toBe(PROJECT_ROOT);
   });
 });

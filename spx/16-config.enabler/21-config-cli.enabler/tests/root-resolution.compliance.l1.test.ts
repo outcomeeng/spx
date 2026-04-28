@@ -4,7 +4,7 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 
-import { resolveProjectRoot } from "@/domains/config/root.js";
+import { resolveProjectRoot } from "@/domains/config/root";
 
 const TEMP_PREFIX = "spx-config-root-";
 
@@ -58,7 +58,7 @@ describe("resolveProjectRoot — outside a git worktree", () => {
     expect(await realpath(resolved.projectRoot)).toBe(expectedRoot);
   });
 
-  it("emits a warning describing the fallback, per PDR-15", () => {
+  it("emits a warning describing the fallback", () => {
     const resolved = resolveProjectRoot(nonRepo);
 
     expect(resolved.warning).toBeDefined();

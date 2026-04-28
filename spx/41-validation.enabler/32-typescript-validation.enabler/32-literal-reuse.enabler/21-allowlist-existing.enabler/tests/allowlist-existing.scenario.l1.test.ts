@@ -2,9 +2,14 @@ import { unlink } from "node:fs/promises";
 import { join } from "node:path";
 
 import { describe, expect, it } from "vitest";
-import { parse as parseYaml } from "yaml";
 
-import { CONFIG_FILENAMES, resolveConfig } from "@/config/index";
+import {
+  CONFIG_FILE_FORMAT,
+  CONFIG_FILENAMES,
+  DEFAULT_CONFIG_FILENAME,
+  resolveConfig,
+  serializeConfigFileSections,
+} from "@/config/index";
 import { withTestEnv } from "@/spec/testing/index";
 import { allowlistExisting } from "@/validation/literal/allowlist-existing";
 import { type LiteralConfig, literalConfigDescriptor } from "@/validation/literal/config";
@@ -14,13 +19,21 @@ import {
   buildBaselineConfig,
   MULTI_FINDINGS_LITERALS,
   readLiteralAllowlist,
+  readProjectConfigSections,
   SHARED_FIXTURE_LITERAL,
   writeDuplicatedLiteralFixture,
   writeMultipleLiteralFixtures,
 } from "./support";
 
-const EMPTY_JSON_BODY = "{}\n";
 const EMPTY_CONFIG: Record<string, unknown> = {};
+
+function serializeEmptyJsonConfig(): string {
+  const serialized = serializeConfigFileSections(CONFIG_FILE_FORMAT.JSON, EMPTY_CONFIG);
+  if (!serialized.ok) {
+    throw new Error(serialized.error);
+  }
+  return serialized.value;
+}
 
 describe("allowlist-existing scenario", () => {
   it("appends current finding values to literal.allowlist.include and a subsequent run reports zero findings", async () => {
@@ -31,7 +44,7 @@ describe("allowlist-existing scenario", () => {
 
       expect(result.exitCode).toBe(0);
 
-      const parsed = parseYaml(await env.readFile(CONFIG_FILENAMES.yaml));
+      const parsed = await readProjectConfigSections(env);
       const allowlist = readLiteralAllowlist(parsed);
       expect(allowlist.include).toContain(SHARED_FIXTURE_LITERAL);
 
@@ -48,21 +61,21 @@ describe("allowlist-existing scenario", () => {
     });
   });
 
-  it("creates spx.config.yaml when no spx.config.* exists at the project root", async () => {
+  it("creates the config module's default file when no spx.config.* exists at the project root", async () => {
     await withTestEnv(buildBaselineConfig(), async (env) => {
       await writeDuplicatedLiteralFixture(env);
-      await unlink(join(env.projectDir, CONFIG_FILENAMES.yaml));
+      await unlink(join(env.projectDir, DEFAULT_CONFIG_FILENAME));
 
       const result = await allowlistExisting({ projectRoot: env.projectDir });
 
       expect(result.exitCode).toBe(0);
 
-      const allowlist = readLiteralAllowlist(parseYaml(await env.readFile(CONFIG_FILENAMES.yaml)));
+      const allowlist = readLiteralAllowlist(await readProjectConfigSections(env));
       expect(allowlist.include).toContain(SHARED_FIXTURE_LITERAL);
     });
   });
 
-  it("adds the literal section when spx.config.yaml exists without one", async () => {
+  it("adds the literal section when the default project config file exists without one", async () => {
     await withTestEnv(EMPTY_CONFIG, async (env) => {
       await writeDuplicatedLiteralFixture(env);
 
@@ -70,7 +83,7 @@ describe("allowlist-existing scenario", () => {
 
       expect(result.exitCode).toBe(0);
 
-      const allowlist = readLiteralAllowlist(parseYaml(await env.readFile(CONFIG_FILENAMES.yaml)));
+      const allowlist = readLiteralAllowlist(await readProjectConfigSections(env));
       expect(allowlist.include).toContain(SHARED_FIXTURE_LITERAL);
     });
   });
@@ -82,7 +95,7 @@ describe("allowlist-existing scenario", () => {
       const result = await allowlistExisting({ projectRoot: env.projectDir });
       expect(result.exitCode).toBe(0);
 
-      const allowlist = readLiteralAllowlist(parseYaml(await env.readFile(CONFIG_FILENAMES.yaml)));
+      const allowlist = readLiteralAllowlist(await readProjectConfigSections(env));
       const include = allowlist.include ?? [];
       const indices = MULTI_FINDINGS_LITERALS.map((value) => include.indexOf(value));
       indices.forEach((idx) => expect(idx).toBeGreaterThan(-1));
@@ -96,17 +109,18 @@ describe("allowlist-existing scenario", () => {
   it("returns the resolveConfig ambiguity error and writes nothing when multiple spx.config.* files are present", async () => {
     await withTestEnv(buildBaselineConfig(), async (env) => {
       await writeDuplicatedLiteralFixture(env);
-      const yamlBefore = await env.readFile(CONFIG_FILENAMES.yaml);
-      await env.writeRaw(CONFIG_FILENAMES.json, EMPTY_JSON_BODY);
+      const defaultConfigBefore = await env.readFile(DEFAULT_CONFIG_FILENAME);
+      const jsonBefore = serializeEmptyJsonConfig();
+      await env.writeRaw(CONFIG_FILENAMES.json, jsonBefore);
 
       const result = await allowlistExisting({ projectRoot: env.projectDir });
 
       expect(result.exitCode).not.toBe(0);
-      expect(result.output).toContain(CONFIG_FILENAMES.yaml);
+      expect(result.output).toContain(DEFAULT_CONFIG_FILENAME);
       expect(result.output).toContain(CONFIG_FILENAMES.json);
 
-      expect(await env.readFile(CONFIG_FILENAMES.yaml)).toBe(yamlBefore);
-      expect(await env.readFile(CONFIG_FILENAMES.json)).toBe(EMPTY_JSON_BODY);
+      expect(await env.readFile(DEFAULT_CONFIG_FILENAME)).toBe(defaultConfigBefore);
+      expect(await env.readFile(CONFIG_FILENAMES.json)).toBe(jsonBefore);
     });
   });
 });

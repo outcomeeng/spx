@@ -1,3 +1,14 @@
+import { rm } from "node:fs/promises";
+import { join } from "node:path";
+
+import {
+  CONFIG_FILE_DEFINITIONS,
+  CONFIG_FILE_FORMAT_ORDER,
+  type ConfigFileFormat,
+  parseConfigFileSections,
+  readProjectConfigFile,
+  serializeConfigFileSections,
+} from "@/config/index";
 import type { Config, SpecTreeEnv } from "@/spec/testing/index";
 import {
   DEFAULT_MIN_NUMBER_DIGITS,
@@ -44,6 +55,38 @@ export function buildConfigWithForeignSection(): Config {
     [LITERAL_SECTION]: BASE_LITERAL_CONFIG,
     [FOREIGN_SECTION_KEY]: FOREIGN_SECTION_BODY,
   };
+}
+
+export async function writeProjectConfig(
+  env: SpecTreeEnv,
+  format: ConfigFileFormat,
+  config: Config,
+): Promise<void> {
+  for (const registeredFormat of CONFIG_FILE_FORMAT_ORDER) {
+    await rm(join(env.projectDir, CONFIG_FILE_DEFINITIONS[registeredFormat].filename), { force: true });
+  }
+
+  const serialized = serializeConfigFileSections(format, config as Record<string, unknown>);
+  if (!serialized.ok) {
+    throw new Error(serialized.error);
+  }
+
+  await env.writeRaw(CONFIG_FILE_DEFINITIONS[format].filename, serialized.value);
+}
+
+export async function readProjectConfigSections(env: SpecTreeEnv): Promise<Record<string, unknown>> {
+  const read = await readProjectConfigFile(env.projectDir);
+  if (!read.ok) {
+    throw new Error(read.error);
+  }
+  if (read.value.kind !== "ok") {
+    throw new Error(`expected one project config file, got ${read.value.kind}`);
+  }
+  const parsed = parseConfigFileSections(read.value.file);
+  if (!parsed.ok) {
+    throw new Error(parsed.error);
+  }
+  return parsed.value;
 }
 
 export async function writeDuplicatedLiteralFixture(env: SpecTreeEnv): Promise<void> {

@@ -8,17 +8,17 @@ This decision governs how the `--allowlist-existing` helper persists allowlist e
 
 **Business impact:** A bulk-silence helper that writes the project's main configuration file is high-trust. A non-atomic write that crashes mid-flight corrupts the config and forces manual recovery; a write that loses the user's comments or reorders unrelated sections erodes trust enough to disable the feature. Atomic, format-preserving writes are the difference between a helper agents and operators run without supervision and a helper that lives behind a manual review checklist.
 
-**Technical constraints:** `resolveConfig` detects the active config file by scanning the project root for `spx.config.{json,yaml,toml}` and returns an ambiguity error when more than one is present. The helper must use the same detection — running its own search would diverge from the read path and produce surprising write targets. POSIX `rename` is atomic when source and destination share a filesystem. Comment-preserving serializers exist for YAML (`yaml.parseDocument`/`Document.toString`); `smol-toml` round-trips structure but not comments; `JSON.parse`/`JSON.stringify` has no comment surface. The read path uses `yaml.parse` and `smol-toml.parse`; the write path uses the matching stringifiers.
+**Technical constraints:** The config module detects the active config file by scanning the project root for `spx.config.{json,yaml,toml}` and returns an ambiguity result when more than one is present. The helper must use the same detection — running its own search would diverge from the read path and produce surprising write targets. POSIX `rename` is atomic when source and destination share a filesystem. Raw config parsing and serialization live in `src/config/`; the helper consumes config-file and section APIs rather than importing JSON, YAML, or TOML parsers itself.
 
 ## Decision
 
-The helper writes back through the same file `resolveConfig` reads — preserving the file's syntax format and best-effort preserving comments and unrelated structure — using a temp-file-plus-atomic-rename pattern, accepting reader and writer dependencies through command options for `l1` testability.
+The helper writes back through the same file the config module detects — preserving the file's syntax format and unrelated config sections through config-owned parse and serialize APIs — using a temp-file-plus-atomic-rename pattern, accepting reader and writer dependencies through command options for `l1` testability.
 
 ## Rationale
 
 Reusing `resolveConfig`'s file detection — including its multi-file ambiguity error path — collapses read and write into a single decision about *which file is the project config*. Any divergence between read-side and write-side detection produces a write that targets the wrong file, with no way for the user to predict which file would be touched. Returning the same ambiguity error for the write path mirrors the read-side guarantee; the helper writes nothing rather than guess.
 
-Format preservation matches the user's choice of config syntax — JSON, YAML, or TOML. Round-tripping the file through a format-aware serializer keeps the user's comments, unrelated keys, and structural ordering intact to the limit of each serializer's guarantees. A serializer-free approach (read raw text, locate the section, append entries) is rejected because it cannot generalize across three formats and breaks on any non-trivial existing structure. Best-effort comment preservation is the right level: YAML's `parseDocument` round-tripper preserves comments by default; TOML and JSON have weaker or no comment surfaces to preserve.
+Format preservation matches the user's choice of config syntax — JSON, YAML, or TOML. Round-tripping through the config module keeps unrelated top-level sections intact and keeps all format-specific parser and serializer choices in one owner. A serializer-free approach (read raw text, locate the section, append entries) is rejected because it cannot generalize across three formats and breaks on any non-trivial existing structure.
 
 The temp-file-plus-rename pattern is the standard idiom for atomic single-file writes. A direct write to the destination file leaves a window during which a concurrent reader, a power loss, or a process crash observes a partial file. Renaming a fully-written temp file is atomic on the destination filesystem; readers either see the old file or the new file, never a partial write.
 
@@ -35,13 +35,13 @@ Alternatives considered:
 
 ## Trade-offs accepted
 
-| Trade-off                                                              | Mitigation / reasoning                                                                                                                               |
-| ---------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Three serializers (yaml, JSON, smol-toml) must be available at runtime | Each is already a dependency of the read path; the write path adds the matching stringifier with no new package surface                              |
-| Comment preservation is best-effort, not guaranteed                    | YAML's `parseDocument` round-tripper preserves comments; TOML and JSON have weaker or no comment surfaces; failures are serializer-bound, not policy |
-| Default file creation chooses YAML over the user's untold preference   | The user can rename or convert the file on first edit; the helper never overwrites a file the user did not consent to                                |
-| Atomic rename relies on temp file and target sharing a filesystem      | The helper writes the temp file alongside the target in the project root; project root and its sibling temp file always share a filesystem           |
-| Write target is determined at run time by `resolveConfig`'s detection  | Behavior is identical to the read path the user already runs; no new "which file?" question is introduced                                            |
+| Trade-off                                                             | Mitigation / reasoning                                                                                                                        |
+| --------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------- |
+| Config-owned serializers must support both read and write paths       | One format registry owns JSON, YAML, and TOML parsing/serialization, so downstream helpers do not drift from config resolution                |
+| Comments are not part of the section-level write contract             | The helper preserves sections and values; comment-preserving edits require a richer config-module mutation API rather than local text surgery |
+| Default file creation chooses YAML over the user's untold preference  | The user can rename or convert the file on first edit; the helper never overwrites a file the user did not consent to                         |
+| Atomic rename relies on temp file and target sharing a filesystem     | The helper writes the temp file alongside the target in the project root; project root and its sibling temp file always share a filesystem    |
+| Write target is determined at run time by `resolveConfig`'s detection | Behavior is identical to the read path the user already runs; no new "which file?" question is introduced                                     |
 
 ## Invariants
 
@@ -58,12 +58,12 @@ A single write entry point in `src/validation/literal/allowlist-existing.ts` tha
 
 ### MUST
 
-- The write target equals the file detected by `resolveConfig(projectRoot)` — when `resolveConfig` returns ambiguity, the helper exits non-zero with the same error and writes nothing ([review])
+- The write target equals the file detected by the config module for `projectRoot` — when config detection returns ambiguity, the helper exits non-zero with the same error and writes nothing ([review])
 - The post-write file syntax format equals the pre-read file syntax format (YAML round-trips to YAML, JSON to JSON, TOML to TOML); when no pre-read file exists, the helper creates `spx.config.yaml` ([review])
-- Format-preserving serializers parse and re-emit the file: `yaml.parseDocument`/`Document.toString` for YAML, `JSON.parse`/`JSON.stringify` for JSON, `smol-toml`'s `parse`/`stringify` for TOML — comment and unrelated-key preservation is bounded by each serializer's guarantees ([review])
+- Format-preserving parsing and serialization route through `src/config/`; the helper never imports raw JSON, YAML, or TOML parsers ([review])
 - Writes are atomic: the helper writes to a sibling temp file in the project root, then renames over the destination — readers observe the old file or the new file, never a partial state ([review])
 - Exit code is 0 when the write completes (including the no-op case where the findings set is empty); exit code is non-zero when `resolveConfig` returns an error or any filesystem operation fails ([review])
-- The helper's options accept optional `reader` and `writer` dependencies — when omitted, defaults resolve to the production `resolveConfig` and the production temp-file-plus-rename adapter; when supplied, the helper bypasses production resolution and uses the injected implementations ([review])
+- The helper's options accept optional `reader` and `writer` dependencies — when omitted, defaults resolve to the production config-file reader and the production temp-file-plus-rename adapter; when supplied, the helper bypasses production detection and uses the injected implementations ([review])
 
 ### NEVER
 
