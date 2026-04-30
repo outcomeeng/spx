@@ -1,4 +1,16 @@
+import noBareStringUnions, {
+  BARE_STRING_UNION_MESSAGE_ID,
+  NO_BARE_STRING_UNIONS_RULE_NAME,
+} from "@eslint-rules/no-bare-string-unions";
 import noBddTryCatchAntiPattern from "@eslint-rules/no-bdd-try-catch-anti-pattern";
+import noDeepRelativeImports, {
+  DEEP_RELATIVE_IMPORT_MESSAGE_ID,
+  NO_DEEP_RELATIVE_IMPORTS_RULE_NAME,
+} from "@eslint-rules/no-deep-relative-imports";
+import noImportSourceExtensions, {
+  IMPORT_SOURCE_EXTENSION_MESSAGE_ID,
+  NO_IMPORT_SOURCE_EXTENSIONS_RULE_NAME,
+} from "@eslint-rules/no-import-source-extensions";
 import noSpecReferences from "@eslint-rules/no-spec-references";
 import { testRestrictedSyntax, tsRestrictedSyntax } from "@eslint-rules/restricted-syntax";
 import { RuleTester } from "eslint";
@@ -53,6 +65,32 @@ describe("tsRestrictedSyntax selectors", () => {
               code: "enum Direction { Up, Down }",
               options: tsRestrictedSyntax,
               errors: [{ message: tsRestrictedSyntax[0].message }],
+            },
+          ],
+        },
+      );
+    }).not.toThrow();
+  });
+
+  it("bare string literal unions map to lint error", () => {
+    expect(() => {
+      ruleTester.run(
+        NO_BARE_STRING_UNIONS_RULE_NAME,
+        noBareStringUnions,
+        {
+          valid: [
+            "const Tier = { Free: 'free', Pro: 'pro' } as const; type Tier = (typeof Tier)[keyof typeof Tier];",
+            "type Mode = 'read';",
+            "type Mixed = 'read' | 2;",
+          ],
+          invalid: [
+            {
+              code: "type Tier = 'free' | 'pro';",
+              errors: [{ messageId: BARE_STRING_UNION_MESSAGE_ID }],
+            },
+            {
+              code: "interface Config { mode: 'strict' | 'lenient'; }",
+              errors: [{ messageId: BARE_STRING_UNION_MESSAGE_ID }],
             },
           ],
         },
@@ -238,6 +276,109 @@ describe("testRestrictedSyntax selectors", () => {
               code: "import { readFileSync } from 'node:fs';",
               options: [...tsRestrictedSyntax, ...testRestrictedSyntax],
               errors: [{ message: testRestrictedSyntax[4].message }],
+            },
+          ],
+        },
+      );
+    }).not.toThrow();
+  });
+});
+
+// ---------------------------------------------------------------------------
+// Custom rule modules: import hygiene
+// ---------------------------------------------------------------------------
+
+describe("import hygiene rules", () => {
+  let ruleTester: RuleTester;
+
+  beforeEach(() => {
+    ruleTester = new RuleTester({
+      languageOptions: {
+        ecmaVersion: 2023,
+        sourceType: "module",
+        parser: tseslint.parser,
+      },
+    });
+  });
+
+  it("internal import sources with file extensions map to lint error and autofix", () => {
+    expect(() => {
+      ruleTester.run(
+        NO_IMPORT_SOURCE_EXTENSIONS_RULE_NAME,
+        noImportSourceExtensions,
+        {
+          valid: [
+            "import { parse } from './parser';",
+            "import type { Config } from '@/config/types';",
+            "export { parse } from '@scripts/run/validate';",
+            "const mod = import('@eslint-rules/no-spec-references');",
+            "import external from 'published-package/index.js';",
+          ],
+          invalid: [
+            {
+              code: "import { parse } from './parser.js';",
+              output: "import { parse } from './parser';",
+              errors: [{ messageId: IMPORT_SOURCE_EXTENSION_MESSAGE_ID }],
+            },
+            {
+              code: "export { parse } from '@/scanner/patterns.ts';",
+              output: "export { parse } from '@/scanner/patterns';",
+              errors: [{ messageId: IMPORT_SOURCE_EXTENSION_MESSAGE_ID }],
+            },
+            {
+              code: "const mod = import('@test/harness/constants.mjs');",
+              output: "const mod = import('@test/harness/constants');",
+              errors: [{ messageId: IMPORT_SOURCE_EXTENSION_MESSAGE_ID }],
+            },
+            {
+              code: "type Probe = import('@eslint-rules/import-source.ts').AstNode;",
+              output: "type Probe = import('@eslint-rules/import-source').AstNode;",
+              errors: [{ messageId: IMPORT_SOURCE_EXTENSION_MESSAGE_ID }],
+            },
+            {
+              code: "import type { Probe } from './probe.d.ts';",
+              output: "import type { Probe } from './probe';",
+              errors: [{ messageId: IMPORT_SOURCE_EXTENSION_MESSAGE_ID }],
+            },
+            {
+              code: "import asset from './asset.tsx?raw';",
+              output: "import asset from './asset?raw';",
+              errors: [{ messageId: IMPORT_SOURCE_EXTENSION_MESSAGE_ID }],
+            },
+          ],
+        },
+      );
+    }).not.toThrow();
+  });
+
+  it("relative imports climbing more than one parent directory map to lint error", () => {
+    expect(() => {
+      ruleTester.run(
+        NO_DEEP_RELATIVE_IMPORTS_RULE_NAME,
+        noDeepRelativeImports,
+        {
+          valid: [
+            "import { parse } from './parser';",
+            "import { parse } from '../parser';",
+            "import { parse } from '@/scanner/patterns';",
+            "const mod = import('@scripts/run/validate');",
+          ],
+          invalid: [
+            {
+              code: "import { parse } from '../../scanner/patterns';",
+              errors: [{ messageId: DEEP_RELATIVE_IMPORT_MESSAGE_ID }],
+            },
+            {
+              code: "export { parse } from '../../../scanner/patterns';",
+              errors: [{ messageId: DEEP_RELATIVE_IMPORT_MESSAGE_ID }],
+            },
+            {
+              code: "const mod = import('../../scanner/patterns');",
+              errors: [{ messageId: DEEP_RELATIVE_IMPORT_MESSAGE_ID }],
+            },
+            {
+              code: "type Probe = import('../../../scanner/patterns').WorkItemPattern;",
+              errors: [{ messageId: DEEP_RELATIVE_IMPORT_MESSAGE_ID }],
             },
           ],
         },

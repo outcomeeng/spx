@@ -10,7 +10,8 @@
 export const tsRestrictedSyntax = [
   {
     selector: "TSEnumDeclaration",
-    message: "TypeScript enums are banned. Use `type Foo = 'a' | 'b'` or `{ A: 'a', B: 'b' } as const` instead.",
+    message:
+      "TypeScript enums are banned. Declare a source-owned `as const` registry and derive the union type from that registry.",
   },
   {
     selector: "TSAsExpression[typeAnnotation.type='TSAnyKeyword']",
@@ -26,16 +27,19 @@ export const tsRestrictedSyntax = [
 export const testRestrictedSyntax = [
   {
     selector: "CallExpression[callee.object.name='vi'][callee.property.name='mock']",
-    message: "vi.mock() is banned. Use dependency injection instead.",
+    message:
+      "vi.mock() is banned. Use explicit dependency injection; allowed doubles must be typed objects or classes tied to a testing exception.",
   },
   {
     selector: "CallExpression[callee.object.name='vi'][callee.property.name='fn']",
-    message: "vi.fn() is banned. Use typed interface implementations instead.",
+    message:
+      "vi.fn() is banned. Use an explicit typed implementation or recording object passed through dependency injection.",
   },
   {
     selector:
       "CallExpression[callee.type='MemberExpression'][callee.property.name=/^(toBe|toEqual|toStrictEqual|toContain|toMatch)$/] > Literal.arguments[raw=/^['\"`](?!(string|number|boolean|object|undefined|function|bigint|symbol)['\"`])/]",
-    message: "Do not use string literals in assertions. Use a named constant or data factory.",
+    message:
+      "Do not use string literals in assertions. Import source-owned values from their owning module; if none exists, refactor production code to export a semantic `as const` registry.",
   },
   {
     selector: "CallExpression[callee.property.name='skipIf']",
@@ -45,6 +49,6 @@ export const testRestrictedSyntax = [
   {
     selector: "ImportDeclaration[source.value='node:fs'] > ImportSpecifier[imported.name='readFileSync']",
     message:
-      "readFileSync is banned in tests. Tests verify behavior, not source text. If reading pipeline output or fixtures, ask user for explicit permission with justification.",
+      "readFileSync imports are banned in tests because source-text testing is not evidence. Use real behavior through a harness or fixture file; justified filesystem fixture reads need an explicit lint suppression.",
   },
 ];

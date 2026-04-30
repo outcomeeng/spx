@@ -4,12 +4,9 @@
  * Tests the ESLint rule that detects hardcoded work item status strings
  * ("OPEN", "IN_PROGRESS", "DONE") in test assertions.
  *
- * Per ADR-21 (ESLint Testing Harness):
  * - Uses ESLint RuleTester for fast, isolated rule testing
  * - Tests behavior (what violations are reported), not AST internals
  * - Integration with real ESLint is tested at Level 2
- *
- * @see decisions/adr-21_eslint-testing-harness.md
  */
 import { RuleTester } from "eslint";
 import tseslint from "typescript-eslint";
@@ -34,7 +31,7 @@ describe("no-hardcoded-statuses", () => {
    * - Whitelist context checking (test descriptions, type definitions)
    * - Error message formatting with actionable suggestions
    *
-   * Level 2 (Integration) - tests/integration/eslint-rules.integration.test.ts:
+   * Level 2 - eslint-rules.scenario.l2.test.ts:
    * - Plugin registration in eslint.config.ts
    * - File pattern filtering (test vs non-test files)
    * - Cross-rule interaction
@@ -62,16 +59,11 @@ describe("no-hardcoded-statuses", () => {
       },
 
       //
-      // WHITELIST: Using constants instead of literals
+      // WHITELIST: Using source-owned registries instead of literals
       //
       {
-        name: "GIVEN expect with WORK_ITEM_STATUSES constant WHEN linting THEN no error",
-        code: `expect(item.status).toBe(WORK_ITEM_STATUSES[0])`,
-        filename: "test.test.ts",
-      },
-      {
-        name: "GIVEN expect with named status constant WHEN linting THEN no error",
-        code: `expect(item.status).toBe(STATUS_DONE)`,
+        name: "GIVEN expect with imported WORK_ITEM_STATUSES registry WHEN linting THEN no error",
+        code: `import { WORK_ITEM_STATUSES } from "@/types"; expect(item.status).toBe(WORK_ITEM_STATUSES[0])`,
         filename: "test.test.ts",
       },
 
@@ -84,8 +76,8 @@ describe("no-hardcoded-statuses", () => {
         filename: "types.ts",
       },
       {
-        name: "GIVEN union type with status literals WHEN linting THEN no error (type definition allowed)",
-        code: `type WorkItemStatus = "OPEN" | "IN_PROGRESS" | "DONE"`,
+        name: "GIVEN registry-derived status type WHEN linting THEN no error (type definition allowed)",
+        code: `type WorkItemStatus = (typeof WORK_ITEM_STATUSES)[number]`,
         filename: "src/types.ts",
       },
 

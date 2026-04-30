@@ -9,6 +9,9 @@ import tseslint from "typescript-eslint";
 
 // Import custom rules and restricted syntax selectors
 import customRules from "./eslint-rules";
+import { NO_BARE_STRING_UNIONS_RULE_ID } from "./eslint-rules/no-bare-string-unions";
+import { NO_DEEP_RELATIVE_IMPORTS_RULE_ID } from "./eslint-rules/no-deep-relative-imports";
+import { NO_IMPORT_SOURCE_EXTENSIONS_RULE_ID } from "./eslint-rules/no-import-source-extensions";
 import { testRestrictedSyntax, tsRestrictedSyntax } from "./eslint-rules/restricted-syntax";
 
 const LEGACY_SPEC_SUFFIX_NODE_MANIFEST_FILE = "eslint.legacy-spec-suffix-nodes.json";
@@ -357,7 +360,7 @@ const config = [
       },
     },
     rules: {
-      "@typescript-eslint/no-explicit-any": "off",
+      "@typescript-eslint/no-explicit-any": "error",
       "@typescript-eslint/no-non-null-assertion": "off",
       "@typescript-eslint/no-unnecessary-condition": "off",
       "@typescript-eslint/no-unsafe-assignment": "off",
@@ -392,11 +395,13 @@ const config = [
       spx: customRules,
     },
     rules: {
-      // Set to "warn" until existing violations are resolved
-      "spx/no-spec-references": "warn",
+      [NO_BARE_STRING_UNIONS_RULE_ID]: "error",
+      [NO_DEEP_RELATIVE_IMPORTS_RULE_ID]: "error",
+      [NO_IMPORT_SOURCE_EXTENSIONS_RULE_ID]: "error",
+      "spx/no-spec-references": "error",
     },
   },
-  // Custom CraftFinal rules for test files
+  // Custom rules for test files
   {
     files: ["**/*.test.ts", "**/*.spec.ts", "**/tests/**/*.ts", "**/__tests__/**/*.ts"],
     plugins: {
@@ -404,8 +409,14 @@ const config = [
     },
     rules: {
       "spx/no-bdd-try-catch-anti-pattern": "error",
-      // Rules set to "warn" until existing violations are fixed (463 violations detected)
-      // See feature-25_eslint-rules-enforcement for tracking
+      "spx/no-hardcoded-work-item-kinds": "error",
+      "spx/no-hardcoded-statuses": "error",
+    },
+  },
+  {
+    files: testLintDebtNodeTestGlobs,
+    rules: {
+      "@typescript-eslint/no-explicit-any": "off",
       "spx/no-hardcoded-work-item-kinds": "warn",
       "spx/no-hardcoded-statuses": "warn",
     },

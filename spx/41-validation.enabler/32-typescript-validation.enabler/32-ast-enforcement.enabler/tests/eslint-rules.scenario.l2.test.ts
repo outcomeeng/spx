@@ -3,16 +3,18 @@
  *
  * Tests that custom ESLint rules integrate correctly with real ESLint.
  *
- * Per ADR-21 (ESLint Testing Harness):
  * - Uses real ESLint instance with production config
  * - Verifies plugin loading and rule registration
  * - Verifies file-type filtering (test vs non-test files)
  * - Does NOT duplicate every valid/invalid case from unit tests
- *
- * @see decisions/adr-21_eslint-testing-harness.md
  */
+import { NO_BARE_STRING_UNIONS_RULE_ID } from "@eslint-rules/no-bare-string-unions";
+import { NO_DEEP_RELATIVE_IMPORTS_RULE_ID } from "@eslint-rules/no-deep-relative-imports";
+import { NO_IMPORT_SOURCE_EXTENSIONS_RULE_ID } from "@eslint-rules/no-import-source-extensions";
 import { ESLint } from "eslint";
 import { beforeAll, describe, expect, it } from "vitest";
+
+import { TYPESCRIPT_VALIDATION_TEST_FILE } from "@root/spx/41-validation.enabler/32-typescript-validation.enabler/tests/support";
 
 describe("ESLint Rules Integration", () => {
   /**
@@ -62,16 +64,59 @@ describe("ESLint Rules Integration", () => {
       expect(config.rules).toHaveProperty("spx/no-hardcoded-statuses");
     });
 
+    it("GIVEN eslint config WHEN calculating config for TS file THEN import hygiene rules are registered", async () => {
+      const config = await eslint.calculateConfigForFile(TYPESCRIPT_VALIDATION_TEST_FILE);
+
+      expect(config.rules).toHaveProperty(NO_BARE_STRING_UNIONS_RULE_ID);
+      expect(config.rules).toHaveProperty(NO_IMPORT_SOURCE_EXTENSIONS_RULE_ID);
+      expect(config.rules).toHaveProperty(NO_DEEP_RELATIVE_IMPORTS_RULE_ID);
+    });
+
     it("GIVEN eslint config WHEN calculating config for TS file THEN no-spec-references rule is registered", async () => {
-      const config = await eslint.calculateConfigForFile("src/example.ts");
+      const config = await eslint.calculateConfigForFile(TYPESCRIPT_VALIDATION_TEST_FILE);
 
       expect(config.rules).toHaveProperty("spx/no-spec-references");
     });
 
     it("GIVEN eslint config WHEN calculating config for TS file THEN no-restricted-syntax is active", async () => {
-      const config = await eslint.calculateConfigForFile("src/example.ts");
+      const config = await eslint.calculateConfigForFile(TYPESCRIPT_VALIDATION_TEST_FILE);
 
       expect(config.rules).toHaveProperty("no-restricted-syntax");
+    });
+  });
+
+  describe("import hygiene detection", () => {
+    it("GIVEN bare string union WHEN linting THEN reports violation", async () => {
+      const results = await eslint.lintText(
+        `type Tier = "free" | "pro";`,
+        { filePath: TYPESCRIPT_VALIDATION_TEST_FILE },
+      );
+
+      expect(results[0].messages).toContainEqual(
+        expect.objectContaining({ ruleId: NO_BARE_STRING_UNIONS_RULE_ID }),
+      );
+    });
+
+    it("GIVEN internal source extension WHEN linting THEN reports violation", async () => {
+      const results = await eslint.lintText(
+        `import "./local.js";`,
+        { filePath: TYPESCRIPT_VALIDATION_TEST_FILE },
+      );
+
+      expect(results[0].messages).toContainEqual(
+        expect.objectContaining({ ruleId: NO_IMPORT_SOURCE_EXTENSIONS_RULE_ID }),
+      );
+    });
+
+    it("GIVEN deep parent import WHEN linting THEN reports violation", async () => {
+      const results = await eslint.lintText(
+        `import "../../config";`,
+        { filePath: "src/commands/session/example.ts" },
+      );
+
+      expect(results[0].messages).toContainEqual(
+        expect.objectContaining({ ruleId: NO_DEEP_RELATIVE_IMPORTS_RULE_ID }),
+      );
     });
   });
 
