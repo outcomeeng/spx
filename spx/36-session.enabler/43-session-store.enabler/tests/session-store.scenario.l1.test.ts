@@ -16,9 +16,14 @@ import fc from "fast-check";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 
 import { buildSessionContent, handoffCommand, hasFrontmatter } from "@/commands/session/handoff";
-import { listCommand } from "@/commands/session/list";
+import { listCommand, SESSION_LIST_EMPTY_TEXT, SESSION_LIST_FORMAT } from "@/commands/session/list";
 import { DEFAULT_CONFIG } from "@/config/defaults";
-import { validateSessionContent } from "@/session/create";
+import {
+  buildSessionFrontMatterContent,
+  SESSION_CONTENT_ERROR,
+  SESSION_FRONT_MATTER_CLOSE,
+  validateSessionContent,
+} from "@/session/create";
 import { resolveDeletePath } from "@/session/delete";
 import {
   SessionError,
@@ -27,14 +32,22 @@ import {
   SessionNotFoundError,
 } from "@/session/errors";
 import { parseSessionMetadata, sortSessions } from "@/session/list";
-import { DEFAULT_SESSION_CONFIG, formatShowOutput, resolveSessionPaths, SEARCH_ORDER } from "@/session/show";
+import {
+  DEFAULT_SESSION_CONFIG,
+  formatShowOutput,
+  resolveSessionPaths,
+  SEARCH_ORDER,
+  SESSION_SHOW_LABEL,
+  SESSION_SHOW_SEPARATOR_CHAR,
+} from "@/session/show";
 import type { SessionHarness } from "@/session/testing/harness";
-import { createSessionHarness } from "@/session/testing/harness";
+import { buildSessionMarkdownBody, createSessionHarness } from "@/session/testing/harness";
 import {
   DEFAULT_LIST_STATUSES,
   DEFAULT_PRIORITY,
   type Session,
   SESSION_FRONT_MATTER,
+  SESSION_PRIORITY,
   SESSION_STATUSES,
   type SessionPriority,
 } from "@/session/types";
@@ -44,7 +57,10 @@ import { extractSessionFile, parseFrontMatter } from "./helpers";
 const [TODO] = SESSION_STATUSES;
 
 const ENV_KEYS = ["CLAUDE_SESSION_ID", "CODEX_THREAD_ID"] as const;
-const PREFILL_SESSION_CONTENT = `---\npriority: medium\n---\n# Test session`;
+const PREFILL_SESSION_CONTENT = buildSessionFrontMatterContent(
+  [`${SESSION_FRONT_MATTER.PRIORITY}: ${DEFAULT_PRIORITY}`],
+  "# Test session",
+);
 
 describe("listCommand", () => {
   let harness: SessionHarness;
@@ -61,8 +77,14 @@ describe("listCommand", () => {
 
   describe("GIVEN sessions in all directories WHEN list invoked without --status", () => {
     it("THEN shows only DEFAULT_LIST_STATUSES, not others", async () => {
-      await harness.writeSession(SESSION_STATUSES[0], "2026-01-10_10-00-00", { priority: "low", tags: ["backlog"] });
-      await harness.writeSession(SESSION_STATUSES[1], "2026-01-11_10-00-00", { priority: "high", tags: ["active"] });
+      await harness.writeSession(SESSION_STATUSES[0], "2026-01-10_10-00-00", {
+        priority: SESSION_PRIORITY.LOW,
+        tags: ["backlog"],
+      });
+      await harness.writeSession(SESSION_STATUSES[1], "2026-01-11_10-00-00", {
+        priority: SESSION_PRIORITY.HIGH,
+        tags: ["active"],
+      });
       await harness.writeSession(SESSION_STATUSES[2], "2026-01-09_10-00-00");
 
       const output = await listCommand({ sessionsDir: harness.sessionsDir });
@@ -99,7 +121,7 @@ describe("listCommand", () => {
       for (const status of DEFAULT_LIST_STATUSES) {
         expect(output).toContain(`${status.toUpperCase()}:`);
       }
-      expect(output).toContain("(no sessions)");
+      expect(output).toContain(SESSION_LIST_EMPTY_TEXT);
       for (const status of SESSION_STATUSES) {
         if (!DEFAULT_LIST_STATUSES.includes(status)) {
           expect(output).not.toContain(`${status.toUpperCase()}:`);
@@ -131,16 +153,19 @@ describe("listCommand", () => {
 
   describe("GIVEN sessions in todo WHEN list invoked with --status todo", () => {
     it("THEN sessions are sorted by priority then timestamp", async () => {
-      await harness.writeSession(TODO, "2026-01-10_10-00-00", { priority: "low" });
-      await harness.writeSession(TODO, "2026-01-12_10-00-00", { priority: "high" });
-      await harness.writeSession(TODO, "2026-01-11_10-00-00", { priority: "high" });
+      const lowPrioritySessionId = "2026-01-10_10-00-00";
+      const newestHighPrioritySessionId = "2026-01-12_10-00-00";
+      const olderHighPrioritySessionId = "2026-01-11_10-00-00";
+      await harness.writeSession(TODO, lowPrioritySessionId, { priority: SESSION_PRIORITY.LOW });
+      await harness.writeSession(TODO, newestHighPrioritySessionId, { priority: SESSION_PRIORITY.HIGH });
+      await harness.writeSession(TODO, olderHighPrioritySessionId, { priority: SESSION_PRIORITY.HIGH });
 
       const output = await listCommand({ status: TODO, sessionsDir: harness.sessionsDir });
 
       const lines = output.split("\n").filter((l) => l.trim().startsWith("2026-"));
-      expect(lines[0]).toContain("2026-01-12_10-00-00");
-      expect(lines[1]).toContain("2026-01-11_10-00-00");
-      expect(lines[2]).toContain("2026-01-10_10-00-00");
+      expect(lines[0]).toContain(newestHighPrioritySessionId);
+      expect(lines[1]).toContain(olderHighPrioritySessionId);
+      expect(lines[2]).toContain(lowPrioritySessionId);
     });
   });
 
@@ -152,7 +177,7 @@ describe("listCommand", () => {
         await harness.writeSession(status, `2026-01-${10 + SESSION_STATUSES.indexOf(status)}_10-00-00`);
       }
 
-      const output = await listCommand({ format: "json", sessionsDir: harness.sessionsDir });
+      const output = await listCommand({ format: SESSION_LIST_FORMAT.JSON, sessionsDir: harness.sessionsDir });
       const parsed = JSON.parse(output);
 
       for (const status of DEFAULT_LIST_STATUSES) {
@@ -173,7 +198,11 @@ describe("listCommand", () => {
       }
 
       for (const targetStatus of SESSION_STATUSES) {
-        const output = await listCommand({ status: targetStatus, format: "json", sessionsDir: harness.sessionsDir });
+        const output = await listCommand({
+          status: targetStatus,
+          format: SESSION_LIST_FORMAT.JSON,
+          sessionsDir: harness.sessionsDir,
+        });
         const parsed = JSON.parse(output);
 
         expect(parsed).toHaveProperty(targetStatus);
@@ -186,7 +215,7 @@ describe("listCommand", () => {
     });
   });
 
-  // -- Input validation (property-based per ADR 001-cli-framework) --
+  // -- Input validation (property-based) --
 
   describe("GIVEN valid status values WHEN list invoked", () => {
     it("THEN every member of SESSION_STATUSES is accepted", async () => {
@@ -233,14 +262,16 @@ describe("listCommand", () => {
 
   describe("GIVEN sessions with priorities and tags WHEN listed", () => {
     it("THEN non-medium priorities are shown in brackets and tags in parens", async () => {
-      await harness.writeSession(TODO, "2026-01-10_10-00-00", { priority: "high", tags: ["ci", "fix"] });
+      const priority = SESSION_PRIORITY.HIGH;
+      const tags = ["ci", "fix"];
+      await harness.writeSession(TODO, "2026-01-10_10-00-00", { priority, tags });
       await harness.writeSession(TODO, "2026-01-11_10-00-00");
 
       const output = await listCommand({ status: TODO, sessionsDir: harness.sessionsDir });
 
-      expect(output).toContain("[high]");
-      expect(output).toContain("(ci, fix)");
-      expect(output).not.toContain("[medium]");
+      expect(output).toContain(`[${priority}]`);
+      expect(output).toContain(`(${tags.join(", ")})`);
+      expect(output).not.toContain(`[${DEFAULT_PRIORITY}]`);
     });
   });
 });
@@ -251,56 +282,81 @@ describe("listCommand", () => {
 
 describe("formatShowOutput", () => {
   it("GIVEN session content WHEN formatted THEN includes status from SESSION_STATUSES", () => {
-    const content = `---\npriority: high\n---\n# Content`;
+    const content = buildSessionFrontMatterContent([
+      `${SESSION_FRONT_MATTER.PRIORITY}: ${SESSION_PRIORITY.HIGH}`,
+    ], buildSessionMarkdownBody("show status"));
 
     for (const status of SESSION_STATUSES) {
       const result = formatShowOutput(content, { status });
-      expect(result).toContain(`Status: ${status}`);
+      expect(result).toContain(`${SESSION_SHOW_LABEL.STATUS}: ${status}`);
     }
   });
 
   it("GIVEN session with priority WHEN formatted THEN includes priority", () => {
-    const content = `---\npriority: high\n---\n# Content`;
+    const priority = SESSION_PRIORITY.HIGH;
+    const content = buildSessionFrontMatterContent(
+      [`${SESSION_FRONT_MATTER.PRIORITY}: ${priority}`],
+      buildSessionMarkdownBody("show priority"),
+    );
     const result = formatShowOutput(content, { status: SESSION_STATUSES[0] });
 
-    expect(result).toContain("Priority: high");
+    expect(result).toContain(`${SESSION_SHOW_LABEL.PRIORITY}: ${priority}`);
   });
 
   it("GIVEN session with full metadata WHEN formatted THEN includes all fields", () => {
-    const content =
-      `---\nid: test-session\npriority: high\nbranch: feature/test\ntags: [bug, urgent]\ncreated_at: 2026-01-13T10:00:00Z\n---\n# Content`;
+    const expected = {
+      id: "test-session",
+      priority: SESSION_PRIORITY.HIGH,
+      branch: "feature/test",
+      tags: ["bug", "triage"],
+      createdAt: "2026-01-13T10:00:00Z",
+    };
+    const content = buildSessionFrontMatterContent([
+      `${SESSION_FRONT_MATTER.ID}: ${expected.id}`,
+      `${SESSION_FRONT_MATTER.PRIORITY}: ${expected.priority}`,
+      `${SESSION_FRONT_MATTER.BRANCH}: ${expected.branch}`,
+      `${SESSION_FRONT_MATTER.TAGS}: [${expected.tags.join(", ")}]`,
+      `${SESSION_FRONT_MATTER.CREATED_AT}: ${expected.createdAt}`,
+    ], buildSessionMarkdownBody("show metadata"));
     const result = formatShowOutput(content, { status: SESSION_STATUSES[1] });
 
-    expect(result).toContain("ID: test-session");
-    expect(result).toContain(`Status: ${SESSION_STATUSES[1]}`);
-    expect(result).toContain("Priority: high");
-    expect(result).toContain("Branch: feature/test");
-    expect(result).toContain("Tags: bug, urgent");
-    expect(result).toContain("Created: 2026-01-13T10:00:00Z");
+    expect(result).toContain(`${SESSION_SHOW_LABEL.ID}: ${expected.id}`);
+    expect(result).toContain(`${SESSION_SHOW_LABEL.STATUS}: ${SESSION_STATUSES[1]}`);
+    expect(result).toContain(`${SESSION_SHOW_LABEL.PRIORITY}: ${expected.priority}`);
+    expect(result).toContain(`${SESSION_SHOW_LABEL.BRANCH}: ${expected.branch}`);
+    expect(result).toContain(`${SESSION_SHOW_LABEL.TAGS}: ${expected.tags.join(", ")}`);
+    expect(result).toContain(`${SESSION_SHOW_LABEL.CREATED}: ${expected.createdAt}`);
   });
 
   it("GIVEN session content WHEN formatted THEN preserves original content", () => {
-    const content = `---\npriority: medium\n---\n# Original Content\nPreserved.`;
+    const heading = "# Original Content";
+    const body = "Preserved.";
+    const content = buildSessionFrontMatterContent([
+      `${SESSION_FRONT_MATTER.PRIORITY}: ${DEFAULT_PRIORITY}`,
+    ], `${heading}\n${body}`);
     const result = formatShowOutput(content, { status: SESSION_STATUSES[2] });
 
-    expect(result).toContain("# Original Content");
-    expect(result).toContain("Preserved.");
+    expect(result).toContain(heading);
+    expect(result).toContain(body);
   });
 
   it("GIVEN session without frontmatter WHEN formatted THEN uses defaults", () => {
-    const content = "# Just Content\nNo metadata.";
+    const heading = "# Just Content";
+    const content = `${heading}\nNo metadata.`;
     const result = formatShowOutput(content, { status: SESSION_STATUSES[0] });
 
-    expect(result).toContain("Priority: medium");
-    expect(result).toContain(`Status: ${SESSION_STATUSES[0]}`);
-    expect(result).toContain("# Just Content");
+    expect(result).toContain(`${SESSION_SHOW_LABEL.PRIORITY}: ${DEFAULT_PRIORITY}`);
+    expect(result).toContain(`${SESSION_SHOW_LABEL.STATUS}: ${SESSION_STATUSES[0]}`);
+    expect(result).toContain(heading);
   });
 
   it("GIVEN output WHEN inspected THEN has separator between metadata and content", () => {
-    const content = `---\npriority: low\n---\n# Content`;
+    const content = buildSessionFrontMatterContent([
+      `${SESSION_FRONT_MATTER.PRIORITY}: ${SESSION_PRIORITY.LOW}`,
+    ], buildSessionMarkdownBody("show separator"));
     const result = formatShowOutput(content, { status: SESSION_STATUSES[0] });
 
-    expect(result).toContain("\u2500"); // Unicode box drawing character
+    expect(result).toContain(SESSION_SHOW_SEPARATOR_CHAR);
   });
 });
 
@@ -334,9 +390,9 @@ describe("SEARCH_ORDER", () => {
 
 describe("DEFAULT_SESSION_CONFIG", () => {
   it("GIVEN default config WHEN checked THEN all dirs contain sessions path", () => {
-    expect(DEFAULT_SESSION_CONFIG.todoDir).toContain("sessions");
-    expect(DEFAULT_SESSION_CONFIG.doingDir).toContain("sessions");
-    expect(DEFAULT_SESSION_CONFIG.archiveDir).toContain("sessions");
+    expect(DEFAULT_SESSION_CONFIG.todoDir).toContain(DEFAULT_CONFIG.sessions.dir);
+    expect(DEFAULT_SESSION_CONFIG.doingDir).toContain(DEFAULT_CONFIG.sessions.dir);
+    expect(DEFAULT_SESSION_CONFIG.archiveDir).toContain(DEFAULT_CONFIG.sessions.dir);
   });
 });
 
@@ -374,27 +430,29 @@ describe("resolveDeletePath", () => {
 
 describe("Session error types", () => {
   it("GIVEN SessionNotFoundError WHEN inspected THEN has session ID and descriptive message", () => {
-    const error = new SessionNotFoundError("test-id");
+    const sessionId = "test-id";
+    const error = new SessionNotFoundError(sessionId);
 
-    expect(error.sessionId).toBe("test-id");
-    expect(error.message).toContain("test-id");
-    expect(error.message).toContain("not found");
+    expect(error.sessionId).toBe(sessionId);
+    expect(error.message).toContain(sessionId);
     expect(error).toBeInstanceOf(SessionError);
     expect(error).toBeInstanceOf(Error);
-    expect(error.name).toBe("SessionNotFoundError");
+    expect(error.name).toBe(SessionNotFoundError.name);
   });
 
   it("GIVEN SessionNotAvailableError WHEN inspected THEN has session ID", () => {
-    const error = new SessionNotAvailableError("busy");
+    const sessionId = "busy";
+    const error = new SessionNotAvailableError(sessionId);
 
-    expect(error.sessionId).toBe("busy");
-    expect(error.message).toContain("not available");
+    expect(error.sessionId).toBe(sessionId);
+    expect(error.message).toContain(sessionId);
   });
 
   it("GIVEN SessionInvalidContentError WHEN inspected THEN includes reason", () => {
-    const error = new SessionInvalidContentError("missing field");
+    const reason = "missing field";
+    const error = new SessionInvalidContentError(reason);
 
-    expect(error.message).toContain("missing field");
+    expect(error.message).toContain(reason);
   });
 });
 
@@ -404,7 +462,9 @@ describe("Session error types", () => {
 
 describe("hasFrontmatter", () => {
   it("GIVEN content starting with --- WHEN checked THEN returns true", () => {
-    const content = `---\npriority: high\n---\n# Content`;
+    const content = buildSessionFrontMatterContent([
+      `${SESSION_FRONT_MATTER.PRIORITY}: ${SESSION_PRIORITY.HIGH}`,
+    ], buildSessionMarkdownBody("frontmatter probe"));
     expect(hasFrontmatter(content)).toBe(true);
   });
 
@@ -413,7 +473,7 @@ describe("hasFrontmatter", () => {
   });
 
   it("GIVEN dashes not at start WHEN checked THEN returns false", () => {
-    expect(hasFrontmatter("# Title\n---\nNot frontmatter")).toBe(false);
+    expect(hasFrontmatter(`# Title${SESSION_FRONT_MATTER_CLOSE}Not frontmatter`)).toBe(false);
   });
 
   it("GIVEN empty content WHEN checked THEN returns false", () => {
@@ -423,7 +483,10 @@ describe("hasFrontmatter", () => {
 
 describe("buildSessionContent", () => {
   it("GIVEN content with frontmatter WHEN built THEN preserves as-is", () => {
-    const content = `---\npriority: high\ntags: [feature]\n---\n# Task`;
+    const content = buildSessionFrontMatterContent([
+      `${SESSION_FRONT_MATTER.PRIORITY}: ${SESSION_PRIORITY.HIGH}`,
+      `${SESSION_FRONT_MATTER.TAGS}: [feature]`,
+    ], "# Task");
     expect(buildSessionContent(content)).toBe(content);
   });
 
@@ -431,34 +494,39 @@ describe("buildSessionContent", () => {
     const content = "# My Task\nSome details.";
     const result = buildSessionContent(content);
 
-    expect(result).toContain("---");
-    expect(result).toContain(`priority: ${DEFAULT_PRIORITY}`);
-    expect(result).toContain("# My Task");
+    expect(hasFrontmatter(result)).toBe(true);
+    expect(parseSessionMetadata(result).priority).toBe(DEFAULT_PRIORITY);
+    expect(result).toContain(content);
   });
 
   it("GIVEN empty content WHEN built THEN creates default session", () => {
     const result = buildSessionContent("");
 
-    expect(result).toContain("---");
-    expect(result).toContain(`priority: ${DEFAULT_PRIORITY}`);
+    expect(hasFrontmatter(result)).toBe(true);
+    expect(parseSessionMetadata(result).priority).toBe(DEFAULT_PRIORITY);
   });
 
   it("GIVEN undefined content WHEN built THEN creates default session", () => {
     const result = buildSessionContent(undefined);
 
-    expect(result).toContain("---");
-    expect(result).toContain(`priority: ${DEFAULT_PRIORITY}`);
+    expect(hasFrontmatter(result)).toBe(true);
+    expect(parseSessionMetadata(result).priority).toBe(DEFAULT_PRIORITY);
   });
 });
 
 describe("buildSessionContent → parseSessionMetadata roundtrip", () => {
   it("GIVEN content with metadata WHEN built then parsed THEN metadata preserved", () => {
-    const content = `---\npriority: high\ntags: [refactor, cleanup]\n---\n# Task`;
+    const expectedPriority = SESSION_PRIORITY.HIGH;
+    const expectedTags = ["refactor", "cleanup"];
+    const content = buildSessionFrontMatterContent([
+      `${SESSION_FRONT_MATTER.PRIORITY}: ${expectedPriority}`,
+      `${SESSION_FRONT_MATTER.TAGS}: [${expectedTags.join(", ")}]`,
+    ], "# Task");
     const built = buildSessionContent(content);
     const metadata = parseSessionMetadata(built);
 
-    expect(metadata.priority).toBe("high");
-    expect(metadata.tags).toEqual(["refactor", "cleanup"]);
+    expect(metadata.priority).toBe(expectedPriority);
+    expect(metadata.tags).toEqual(expectedTags);
   });
 
   it("GIVEN content without metadata WHEN built then parsed THEN defaults applied", () => {
@@ -482,7 +550,10 @@ describe("handoffCommand with real filesystem", () => {
   });
 
   it("GIVEN content piped to handoff WHEN executed THEN creates file in todo with HANDOFF_ID tag", async () => {
-    const content = `---\npriority: high\n---\n# Test handoff`;
+    const content = buildSessionFrontMatterContent(
+      [`${SESSION_FRONT_MATTER.PRIORITY}: ${SESSION_PRIORITY.HIGH}`],
+      "# Test handoff",
+    );
     const output = await handoffCommand({
       content,
       sessionsDir: harness.sessionsDir,
@@ -505,13 +576,13 @@ describe("validateSessionContent", () => {
   it("GIVEN empty string WHEN validated THEN rejected as empty", () => {
     const result = validateSessionContent("");
     expect(result.valid).toBe(false);
-    expect(result.error).toContain("empty");
+    expect(result.error).toBe(SESSION_CONTENT_ERROR.EMPTY);
   });
 
   it("GIVEN whitespace-only content WHEN validated THEN rejected as empty", () => {
     const result = validateSessionContent("   \n\t  ");
     expect(result.valid).toBe(false);
-    expect(result.error).toContain("empty");
+    expect(result.error).toBe(SESSION_CONTENT_ERROR.EMPTY);
   });
 });
 
@@ -520,7 +591,7 @@ describe("validateSessionContent", () => {
 // ============================================================
 
 describe("sortSessions with unparsable IDs", () => {
-  function makeSession(id: string, priority: SessionPriority = "medium"): Session {
+  function makeSession(id: string, priority: SessionPriority = DEFAULT_PRIORITY): Session {
     return {
       id,
       status: TODO,
@@ -530,31 +601,32 @@ describe("sortSessions with unparsable IDs", () => {
   }
 
   it("GIVEN all valid IDs at same priority WHEN sorted THEN newest first", () => {
+    const oldestSessionId = "2026-01-10_10-00-00";
+    const newestSessionId = "2026-01-13_10-00-00";
+    const middleSessionId = "2026-01-11_10-00-00";
     const sorted = sortSessions([
-      makeSession("2026-01-10_10-00-00"),
-      makeSession("2026-01-13_10-00-00"),
-      makeSession("2026-01-11_10-00-00"),
+      makeSession(oldestSessionId),
+      makeSession(newestSessionId),
+      makeSession(middleSessionId),
     ]);
-    expect(sorted.map((s) => s.id)).toEqual([
-      "2026-01-13_10-00-00",
-      "2026-01-11_10-00-00",
-      "2026-01-10_10-00-00",
-    ]);
+    expect(sorted.map((s) => s.id)).toEqual([newestSessionId, middleSessionId, oldestSessionId]);
   });
 
   it("GIVEN mix of valid and unparsable IDs at same priority WHEN sorted THEN unparsable last", () => {
+    const unparsableSessionId = "unparsable";
+    const validSessionId = "2026-01-13_10-00-00";
     const sorted = sortSessions([
-      makeSession("unparsable", "high"),
-      makeSession("2026-01-13_10-00-00", "high"),
+      makeSession(unparsableSessionId, SESSION_PRIORITY.HIGH),
+      makeSession(validSessionId, SESSION_PRIORITY.HIGH),
     ]);
-    expect(sorted.map((s) => s.id)).toEqual(["2026-01-13_10-00-00", "unparsable"]);
+    expect(sorted.map((s) => s.id)).toEqual([validSessionId, unparsableSessionId]);
   });
 
   it("GIVEN all unparsable IDs at same priority WHEN sorted THEN stable ordering", () => {
     const input = [makeSession("zzz"), makeSession("aaa")];
     const sorted = sortSessions(input);
     expect(sorted).toHaveLength(2);
-    expect(sorted.map((s) => s.id).sort()).toEqual(["aaa", "zzz"]);
+    expect(sorted.map((s) => s.id).sort()).toEqual(input.map((session) => session.id).sort());
   });
 });
 
@@ -588,21 +660,23 @@ describe("handoffCommand — created_at and agent_session_id pre-fill", () => {
   });
 
   it("GIVEN CLAUDE_SESSION_ID is set WHEN handoff creates session THEN agent_session_id is written with CLAUDE_SESSION_ID value", async () => {
-    process.env.CLAUDE_SESSION_ID = "fa0a91ee-f0bc-449e-8299-727ebe314a78";
+    const agentSessionId = "fa0a91ee-f0bc-449e-8299-727ebe314a78";
+    process.env.CLAUDE_SESSION_ID = agentSessionId;
 
     const output = await handoffCommand({ content: PREFILL_SESSION_CONTENT, sessionsDir: harness.sessionsDir });
     const frontMatter = parseFrontMatter(await readFile(extractSessionFile(output), "utf-8"));
 
-    expect(frontMatter).toHaveProperty(SESSION_FRONT_MATTER.AGENT_SESSION_ID, "fa0a91ee-f0bc-449e-8299-727ebe314a78");
+    expect(frontMatter).toHaveProperty(SESSION_FRONT_MATTER.AGENT_SESSION_ID, agentSessionId);
   });
 
   it("GIVEN CLAUDE_SESSION_ID absent and CODEX_THREAD_ID set WHEN handoff creates session THEN agent_session_id is written with CODEX_THREAD_ID value", async () => {
-    process.env.CODEX_THREAD_ID = "thread-xyz-789";
+    const threadId = "thread-xyz-789";
+    process.env.CODEX_THREAD_ID = threadId;
 
     const output = await handoffCommand({ content: PREFILL_SESSION_CONTENT, sessionsDir: harness.sessionsDir });
     const frontMatter = parseFrontMatter(await readFile(extractSessionFile(output), "utf-8"));
 
-    expect(frontMatter).toHaveProperty(SESSION_FRONT_MATTER.AGENT_SESSION_ID, "thread-xyz-789");
+    expect(frontMatter).toHaveProperty(SESSION_FRONT_MATTER.AGENT_SESSION_ID, threadId);
   });
 
   it("GIVEN neither CLAUDE_SESSION_ID nor CODEX_THREAD_ID set WHEN handoff creates session THEN agent_session_id does not appear in YAML front matter", async () => {

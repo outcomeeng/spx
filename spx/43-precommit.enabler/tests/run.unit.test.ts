@@ -13,7 +13,8 @@
  * work correctly. Level 2 (feature integration) tests real execution.
  */
 
-import { PRECOMMIT_RUN, type PrecommitDeps, runPrecommitTests, shouldRunTests } from "@/precommit/run.js";
+import { VITEST_ARGS } from "@/precommit/build-args";
+import { PRECOMMIT_RUN, type PrecommitDeps, runPrecommitTests, shouldRunTests } from "@/precommit/run";
 import { describe, expect, it } from "vitest";
 
 // =============================================================================
@@ -271,10 +272,11 @@ describe("runPrecommitTests", () => {
 
   describe("GIVEN test files staged", () => {
     it("WHEN running THEN calls runVitest", async () => {
+      const stagedFile = "tests/unit/foo.test.ts";
       let vitestCalled = false;
       let vitestArgs: string[] = [];
       const deps: PrecommitDeps = {
-        getStagedFiles: async () => ["tests/unit/foo.test.ts"],
+        getStagedFiles: async () => [stagedFile],
         runVitest: async (args) => {
           vitestCalled = true;
           vitestArgs = args;
@@ -287,15 +289,16 @@ describe("runPrecommitTests", () => {
 
       expect(vitestCalled).toBe(true);
       // Verify --run flag is included (from buildVitestArgs)
-      expect(vitestArgs).toContain("--run");
+      expect(vitestArgs).toContain(VITEST_ARGS.RUN);
     });
   });
 
   describe("GIVEN source files staged", () => {
     it("WHEN running THEN uses vitest related subcommand", async () => {
+      const stagedFile = "src/validation/runner.ts";
       let vitestArgs: string[] = [];
       const deps: PrecommitDeps = {
-        getStagedFiles: async () => ["src/validation/runner.ts"],
+        getStagedFiles: async () => [stagedFile],
         runVitest: async (args) => {
           vitestArgs = args;
           return { exitCode: 0, output: "" };
@@ -305,8 +308,8 @@ describe("runPrecommitTests", () => {
 
       await runPrecommitTests(deps);
 
-      expect(vitestArgs).toContain("related");
-      expect(vitestArgs).toContain("src/validation/runner.ts");
+      expect(vitestArgs).toContain(VITEST_ARGS.RELATED);
+      expect(vitestArgs).toContain(stagedFile);
     });
   });
 

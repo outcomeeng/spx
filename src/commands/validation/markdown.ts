@@ -6,7 +6,7 @@
  * markdownlint-cli2 is a production dependency, always available.
  */
 
-import { getDefaultDirectories, validateMarkdown } from "../../validation/steps/markdown.js";
+import { getDefaultDirectories, validateMarkdown } from "@/validation/steps/markdown";
 import type { MarkdownCommandOptions, ValidationCommandResult } from "./types";
 
 /**
@@ -31,6 +31,10 @@ import type { MarkdownCommandOptions, ValidationCommandResult } from "./types";
  * ```
  */
 const MARKDOWN_EXTENSIONS = new Set([".md", ".markdown"]);
+export const MARKDOWN_COMMAND_OUTPUT = {
+  ERROR_SUMMARY_SUFFIX: "error(s) found",
+  NO_ISSUES: "Markdown: No issues found",
+} as const;
 
 function isMarkdownOrDirectory(path: string): boolean {
   const lastDot = path.lastIndexOf(".");
@@ -68,13 +72,14 @@ export async function markdownCommand(options: MarkdownCommandOptions): Promise<
 
   // Map result to command output
   if (result.success) {
-    const output = quiet ? "" : "Markdown: No issues found";
+    const output = quiet ? "" : MARKDOWN_COMMAND_OUTPUT.NO_ISSUES;
     return { exitCode: 0, output, durationMs };
   } else {
     const errorLines = result.errors.map(
       (error) => `  ${error.file}:${error.line} ${error.detail}`,
     );
-    const output = [`Markdown: ${result.errors.length} error(s) found`, ...errorLines].join("\n");
+    const output = [`Markdown: ${result.errors.length} ${MARKDOWN_COMMAND_OUTPUT.ERROR_SUMMARY_SUFFIX}`, ...errorLines]
+      .join("\n");
     return { exitCode: 1, output, durationMs };
   }
 }

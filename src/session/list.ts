@@ -12,6 +12,7 @@ import {
   PRIORITY_ORDER,
   type Session,
   SESSION_FRONT_MATTER,
+  SESSION_PRIORITY,
   type SessionMetadata,
   type SessionPriority,
 } from "./types";
@@ -21,12 +22,13 @@ import {
  * Matches content between opening `---` and closing `---` or `...`
  */
 const FRONT_MATTER_PATTERN = /^---\r?\n([\s\S]*?)\r?\n(?:---|\.\.\.)\r?\n?/;
+const SESSION_PRIORITY_VALUES = Object.values(SESSION_PRIORITY);
 
 /**
  * Validates if a value is a valid priority.
  */
 function isValidPriority(value: unknown): value is SessionPriority {
-  return value === "high" || value === "medium" || value === "low";
+  return typeof value === "string" && SESSION_PRIORITY_VALUES.some((priority) => priority === value);
 }
 
 /**

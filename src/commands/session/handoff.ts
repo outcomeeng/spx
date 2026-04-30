@@ -10,10 +10,11 @@
 import { mkdir, writeFile } from "node:fs/promises";
 import { join, resolve } from "node:path";
 
-import { resolveSessionConfig } from "../../git/root.js";
-import { preFillSessionContent, validateSessionContent } from "../../session/create.js";
-import { SessionInvalidContentError } from "../../session/errors.js";
-import { generateSessionId } from "../../session/timestamp.js";
+import { resolveSessionConfig } from "@/git/root";
+import { buildSessionFrontMatterContent, preFillSessionContent, validateSessionContent } from "@/session/create";
+import { SessionInvalidContentError } from "@/session/errors";
+import { generateSessionId } from "@/session/timestamp";
+import { DEFAULT_PRIORITY, SESSION_FRONT_MATTER } from "@/session/types";
 
 /**
  * Regex to detect YAML frontmatter presence.
@@ -53,13 +54,10 @@ export function hasFrontmatter(content: string): boolean {
 export function buildSessionContent(content: string | undefined): string {
   // Default content if none provided
   if (!content || content.trim().length === 0) {
-    return `---
-priority: medium
----
-
-# New Session
-
-Describe your task here.`;
+    return buildSessionFrontMatterContent(
+      [`${SESSION_FRONT_MATTER.PRIORITY}: ${DEFAULT_PRIORITY}`],
+      "\n# New Session\n\nDescribe your task here.",
+    );
   }
 
   // If content already has frontmatter, preserve it as-is
@@ -68,11 +66,7 @@ Describe your task here.`;
   }
 
   // Add default frontmatter to content without it
-  return `---
-priority: medium
----
-
-${content}`;
+  return buildSessionFrontMatterContent([`${SESSION_FRONT_MATTER.PRIORITY}: ${DEFAULT_PRIORITY}`], `\n${content}`);
 }
 
 /**

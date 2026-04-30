@@ -55,10 +55,7 @@ import { fileURLToPath } from "node:url";
 
 // Import from validation library (story-45)
 // The library now contains the canonical type definitions and scope resolution
-import {
-  getTypeScriptScope as libGetTypeScriptScope,
-  TSCONFIG_FILES as LIB_TSCONFIG_FILES,
-} from "../../src/validation/index.js";
+import { getTypeScriptScope as libGetTypeScriptScope, TSCONFIG_FILES as LIB_TSCONFIG_FILES } from "@/validation/index";
 
 // =============================================================================
 // DEPENDENCY INJECTION INTERFACES

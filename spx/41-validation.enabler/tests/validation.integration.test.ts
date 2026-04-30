@@ -13,8 +13,10 @@ import { readFile, writeFile } from "node:fs/promises";
 import { join } from "node:path";
 import { describe, expect, it } from "vitest";
 
-import { CLI_PATH } from "@test/harness/constants.js";
-import { FIXTURES, withValidationEnv } from "@test/harness/with-validation-env.js";
+import { CIRCULAR_DEPENDENCY_OUTPUT } from "@/commands/validation/circular";
+import { VALIDATION_SUMMARY_STATUS } from "@/commands/validation/format";
+import { CLI_PATH } from "@test/harness/constants";
+import { FIXTURES, withValidationEnv } from "@test/harness/with-validation-env";
 
 const EXIT_SUCCESS = 0;
 const EXIT_FAILURE = 1;
@@ -42,7 +44,7 @@ describe("spx validation all — pipeline composition (Scenarios)", () => {
         });
 
         expect(result.exitCode).toBe(EXIT_SUCCESS);
-        expect(result.stdout).toContain("Validation passed");
+        expect(result.stdout).toContain(`Validation ${VALIDATION_SUMMARY_STATUS.PASSED}`);
       });
     },
   );
@@ -58,8 +60,8 @@ describe("spx validation all — pipeline composition (Scenarios)", () => {
         });
 
         expect(result.exitCode).toBe(EXIT_FAILURE);
-        expect(result.stdout).toContain("Circular dependencies found");
-        expect(result.stdout).toContain("Validation failed");
+        expect(result.stdout).toContain(CIRCULAR_DEPENDENCY_OUTPUT.FOUND);
+        expect(result.stdout).toContain(`Validation ${VALIDATION_SUMMARY_STATUS.FAILED}`);
       });
     },
   );
@@ -239,8 +241,15 @@ describe("spx validation all — pipeline composition (Properties)", () => {
  *   - `⏭` or "skipped" → skip
  *   - anything else → fail
  */
-function extractStepOutcomes(stdout: string): Map<number, "pass" | "skip" | "fail"> {
-  const outcomes = new Map<number, "pass" | "skip" | "fail">();
+const VALIDATION_STEP_OUTCOME = {
+  PASS: "pass",
+  SKIP: "skip",
+  FAIL: "fail",
+} as const;
+type ValidationStepOutcome = (typeof VALIDATION_STEP_OUTCOME)[keyof typeof VALIDATION_STEP_OUTCOME];
+
+function extractStepOutcomes(stdout: string): Map<number, ValidationStepOutcome> {
+  const outcomes = new Map<number, ValidationStepOutcome>();
   for (const line of stdout.split("\n")) {
     const match = line.match(/^\[(\d)\/6\]\s+(.+)$/);
     if (!match) continue;
@@ -250,11 +259,11 @@ function extractStepOutcomes(stdout: string): Map<number, "pass" | "skip" | "fai
       body.includes("✓") || body.includes("No issues found") || body.includes("No cycles")
       || body.includes("No type errors") || body.includes("None found")
     ) {
-      outcomes.set(step, "pass");
+      outcomes.set(step, VALIDATION_STEP_OUTCOME.PASS);
     } else if (body.includes("⏭") || body.startsWith("Skipping") || body.includes("skipped")) {
-      outcomes.set(step, "skip");
+      outcomes.set(step, VALIDATION_STEP_OUTCOME.SKIP);
     } else {
-      outcomes.set(step, "fail");
+      outcomes.set(step, VALIDATION_STEP_OUTCOME.FAIL);
     }
   }
   return outcomes;

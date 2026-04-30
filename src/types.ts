@@ -5,18 +5,24 @@
 /**
  * Work item types in the spec hierarchy
  */
-export type WorkItemKind = "capability" | "feature" | "story";
+export const WORK_ITEM_KIND = {
+  CAPABILITY: "capability",
+  FEATURE: "feature",
+  STORY: "story",
+} as const;
+
+export type WorkItemKind = (typeof WORK_ITEM_KIND)[keyof typeof WORK_ITEM_KIND];
 
 /**
  * Ordered hierarchy of work item kinds (root to leaf)
  *
  * Used by both production code and tests to derive hierarchy structure.
- * Per ADR-21: Never hardcode kind names - derive from this constant.
+ * Derive work item kind names from this constant.
  */
 export const WORK_ITEM_KINDS: readonly WorkItemKind[] = [
-  "capability",
-  "feature",
-  "story",
+  WORK_ITEM_KIND.CAPABILITY,
+  WORK_ITEM_KIND.FEATURE,
+  WORK_ITEM_KIND.STORY,
 ] as const;
 
 /**
@@ -55,16 +61,22 @@ export interface DirectoryEntry {
 /**
  * Work item status
  */
-export type WorkItemStatus = "OPEN" | "IN_PROGRESS" | "DONE";
+export const WORK_ITEM_STATUS = {
+  OPEN: "OPEN",
+  IN_PROGRESS: "IN_PROGRESS",
+  DONE: "DONE",
+} as const;
+
+export type WorkItemStatus = (typeof WORK_ITEM_STATUS)[keyof typeof WORK_ITEM_STATUS];
 
 /**
  * Ordered list of work item statuses
  *
  * Used by both production code and tests to derive status values.
- * Per ADR-21: Never hardcode status names - derive from this constant.
+ * Derive work item status names from this constant.
  */
 export const WORK_ITEM_STATUSES: readonly WorkItemStatus[] = [
-  "OPEN",
-  "IN_PROGRESS",
-  "DONE",
+  WORK_ITEM_STATUS.OPEN,
+  WORK_ITEM_STATUS.IN_PROGRESS,
+  WORK_ITEM_STATUS.DONE,
 ] as const;

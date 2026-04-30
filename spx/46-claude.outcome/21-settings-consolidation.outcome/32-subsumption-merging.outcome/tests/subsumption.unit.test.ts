@@ -5,13 +5,8 @@
  * Complements property-based tests with concrete examples.
  */
 
-import { parsePermission } from "@/lib/claude/permissions/parser.js";
-import {
-  detectSubsumptions,
-  parseScopePattern,
-  removeSubsumed,
-  subsumes,
-} from "@/lib/claude/permissions/subsumption.js";
+import { parsePermission } from "@/lib/claude/permissions/parser";
+import { detectSubsumptions, parseScopePattern, removeSubsumed, subsumes } from "@/lib/claude/permissions/subsumption";
 import { describe, expect, test } from "vitest";
 
 // ============================================================================

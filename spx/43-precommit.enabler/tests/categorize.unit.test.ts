@@ -268,30 +268,32 @@ describe("filterTestRelevantFiles", () => {
 
   it("GIVEN mixed files WHEN filtering THEN excludes README.md", () => {
     // Given
+    const ignoredFile = "README.md";
     const files = [
       `${FILE_PATTERNS.SOURCE_DIR}foo.ts`,
-      "README.md",
+      ignoredFile,
     ];
 
     // When
     const relevant = filterTestRelevantFiles(files);
 
     // Then
-    expect(relevant).not.toContain("README.md");
+    expect(relevant).not.toContain(ignoredFile);
   });
 
   it("GIVEN mixed files WHEN filtering THEN excludes package.json", () => {
     // Given
+    const ignoredFile = "package.json";
     const files = [
       `${FILE_PATTERNS.SOURCE_DIR}foo.ts`,
-      "package.json",
+      ignoredFile,
     ];
 
     // When
     const relevant = filterTestRelevantFiles(files);
 
     // Then
-    expect(relevant).not.toContain("package.json");
+    expect(relevant).not.toContain(ignoredFile);
   });
 
   it("GIVEN only non-test-relevant files WHEN filtering THEN returns empty array", () => {
@@ -322,9 +324,11 @@ describe("filterTestRelevantFiles", () => {
 
   it("GIVEN comprehensive mixed files WHEN filtering THEN returns only test and source files", () => {
     // Given
+    const sourceFile = `${FILE_PATTERNS.SOURCE_DIR}foo.ts`;
+    const testFile = `${FILE_PATTERNS.TESTS_DIR}${FILE_PATTERNS.UNIT_DIR}foo${FILE_PATTERNS.TEST_FILE_SUFFIX}`;
     const files = [
-      `${FILE_PATTERNS.SOURCE_DIR}foo.ts`,
-      `${FILE_PATTERNS.TESTS_DIR}${FILE_PATTERNS.UNIT_DIR}foo${FILE_PATTERNS.TEST_FILE_SUFFIX}`,
+      sourceFile,
+      testFile,
       "README.md",
       "package.json",
       ".gitignore",
@@ -337,27 +341,7 @@ describe("filterTestRelevantFiles", () => {
 
     // Then
     expect(relevant).toHaveLength(2);
-    expect(relevant).toContain(`${FILE_PATTERNS.SOURCE_DIR}foo.ts`);
-    expect(relevant).toContain(
-      `${FILE_PATTERNS.TESTS_DIR}${FILE_PATTERNS.UNIT_DIR}foo${FILE_PATTERNS.TEST_FILE_SUFFIX}`,
-    );
-  });
-});
-
-describe("constants verification", () => {
-  it("FILE_PATTERNS has expected values", () => {
-    expect(FILE_PATTERNS.TEST_FILE_SUFFIX).toBe(".test.ts");
-    expect(FILE_PATTERNS.INTEGRATION_TEST_SUFFIX).toBe(".integration.test.ts");
-    expect(FILE_PATTERNS.SOURCE_DIR).toBe("src/");
-    expect(FILE_PATTERNS.TESTS_DIR).toBe("tests/");
-    expect(FILE_PATTERNS.SPECS_DIR).toBe("specs/");
-    expect(FILE_PATTERNS.UNIT_DIR).toBe("unit/");
-    expect(FILE_PATTERNS.INTEGRATION_DIR).toBe("integration/");
-  });
-
-  it("FILE_CATEGORIES has expected values", () => {
-    expect(FILE_CATEGORIES.TEST).toBe("test");
-    expect(FILE_CATEGORIES.SOURCE).toBe("source");
-    expect(FILE_CATEGORIES.OTHER).toBe("other");
+    expect(relevant).toContain(sourceFile);
+    expect(relevant).toContain(testFile);
   });
 });

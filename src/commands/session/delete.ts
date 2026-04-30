@@ -6,10 +6,14 @@
 
 import { stat, unlink } from "node:fs/promises";
 
-import { resolveSessionConfig } from "../../git/root.js";
-import { processBatch } from "../../session/batch.js";
-import { resolveDeletePath } from "../../session/delete.js";
-import { resolveSessionPaths, type SessionDirectoryConfig } from "../../session/show.js";
+import { resolveSessionConfig } from "@/git/root";
+import { processBatch } from "@/session/batch";
+import { resolveDeletePath } from "@/session/delete";
+import { resolveSessionPaths, type SessionDirectoryConfig } from "@/session/show";
+
+export const SESSION_DELETE_OUTPUT = {
+  DELETED: "Deleted session",
+} as const;
 
 /**
  * Options for the delete command.
@@ -59,7 +63,7 @@ async function deleteSingle(
   const existingPaths = await findExistingPaths(paths);
   const pathToDelete = resolveDeletePath(sessionId, existingPaths);
   await unlink(pathToDelete);
-  return `Deleted session: ${sessionId}`;
+  return `${SESSION_DELETE_OUTPUT.DELETED}: ${sessionId}`;
 }
 
 /**

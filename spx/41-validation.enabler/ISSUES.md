@@ -58,3 +58,15 @@ spx validation all src/             # all validators scoped to src/
 **Constraint:** `32-literal-reuse.enabler` output-mode redesign (in-flight) retains `--files` as-is. Apply the positional-args change after the PDR is authored and as a separate pass across all affected nodes.
 
 **Scope:** follow-up work, not part of any in-flight cycle.
+
+---
+
+## Package format scripts invoke Prettier instead of dprint
+
+`package.json` defines `format` and `format:check` with Prettier, while repository instructions require `dprint` for JavaScript, TypeScript, JSON, Markdown, HTML, and CSS formatting.
+
+**Consequence:** agents following package scripts can apply an unavailable or non-authoritative formatter and create churn outside the configured formatter.
+
+**Remediation:** replace the package scripts with `dprint fmt` and `dprint check` commands that use the configured `~/.config/dprint/dprint.jsonc`.
+
+**Constraint:** apply this as a small validation-tooling pass, because changing package scripts should include a package-script compliance update.

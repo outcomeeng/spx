@@ -2,12 +2,11 @@
  * JSON formatter for work item trees
  *
  * Produces structured JSON with summary statistics and full tree data.
- * Part of Feature 65 (Output Formatting), Story 32.
  */
 import type { SpxConfig } from "@/config/defaults";
 import type { TreeNode, WorkItemTree } from "@/tree/types";
 
-/** JSON indentation (2 spaces per ADR-002 and user requirements) */
+/** JSON indentation width. */
 const JSON_INDENT = 2;
 
 /**
@@ -35,7 +34,7 @@ interface JSONOutput {
  * Format tree as JSON with summary statistics
  *
  * Summary counts capabilities + features only (per user requirement).
- * Display numbers (per ADR-002):
+ * Display numbers:
  * - Capabilities: internal + 1
  * - Features/Stories: as-is
  *
@@ -143,7 +142,7 @@ function countNode(node: TreeNode, summary: Summary): void {
 /**
  * Get display number for a work item
  *
- * Per ADR-002:
+ * Display numbers:
  * - Capabilities: internal + 1 (dir capability-21 has internal 20)
  * - Features/Stories: as-is
  */

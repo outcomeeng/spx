@@ -6,9 +6,21 @@
 
 import { join } from "node:path";
 
-import { DEFAULT_CONFIG } from "../config/defaults.js";
-import { parseSessionMetadata } from "./list.js";
-import { SESSION_STATUSES, type SessionStatus } from "./types.js";
+import { DEFAULT_CONFIG } from "../config/defaults";
+import { parseSessionMetadata } from "./list";
+import { SESSION_STATUSES, type SessionStatus } from "./types";
+
+export const SESSION_SHOW_LABEL = {
+  ID: "ID",
+  STATUS: "Status",
+  PRIORITY: "Priority",
+  BRANCH: "Branch",
+  TAGS: "Tags",
+  CREATED: "Created",
+} as const;
+
+export const SESSION_SHOW_SEPARATOR_CHAR = "─";
+export const SESSION_SHOW_SEPARATOR_WIDTH = 40;
 
 /**
  * Configuration for session directory paths.
@@ -38,7 +50,7 @@ export const DEFAULT_SESSION_CONFIG: SessionDirectoryConfig = {
 
 /**
  * Order to search directories (matches priority: todo first, then doing, then archive).
- * Derived from SESSION_STATUSES to maintain single source of truth per ADR 21-directory-structure.
+ * Derived from SESSION_STATUSES to maintain a single source of truth.
  */
 export const SEARCH_ORDER: SessionStatus[] = [...SESSION_STATUSES];
 
@@ -105,27 +117,27 @@ export function formatShowOutput(
 
   // Build header with extracted metadata
   const headerLines: string[] = [
-    `Status: ${options.status}`,
-    `Priority: ${metadata.priority}`,
+    `${SESSION_SHOW_LABEL.STATUS}: ${options.status}`,
+    `${SESSION_SHOW_LABEL.PRIORITY}: ${metadata.priority}`,
   ];
 
   // Add optional metadata if present
   if (metadata.id) {
-    headerLines.unshift(`ID: ${metadata.id}`);
+    headerLines.unshift(`${SESSION_SHOW_LABEL.ID}: ${metadata.id}`);
   }
   if (metadata.branch) {
-    headerLines.push(`Branch: ${metadata.branch}`);
+    headerLines.push(`${SESSION_SHOW_LABEL.BRANCH}: ${metadata.branch}`);
   }
   if (metadata.tags.length > 0) {
-    headerLines.push(`Tags: ${metadata.tags.join(", ")}`);
+    headerLines.push(`${SESSION_SHOW_LABEL.TAGS}: ${metadata.tags.join(", ")}`);
   }
   if (metadata.createdAt) {
-    headerLines.push(`Created: ${metadata.createdAt}`);
+    headerLines.push(`${SESSION_SHOW_LABEL.CREATED}: ${metadata.createdAt}`);
   }
 
   // Combine header with separator and original content
   const header = headerLines.join("\n");
-  const separator = "\n" + "─".repeat(40) + "\n\n";
+  const separator = "\n" + SESSION_SHOW_SEPARATOR_CHAR.repeat(SESSION_SHOW_SEPARATOR_WIDTH) + "\n\n";
 
   return header + separator + content;
 }

@@ -24,7 +24,13 @@ import type { AuditHarness } from "@/audit/testing/harness";
 import { runVerifyPipeline } from "@/audit/verify";
 
 const LINE_FORMAT = /^(reader|structural|semantic|paths): /;
-type VerifyStage = "reader" | "structural" | "semantic" | "paths";
+const VERIFY_STAGE = {
+  READER: "reader",
+  STRUCTURAL: "structural",
+  SEMANTIC: "semantic",
+  PATHS: "paths",
+} as const;
+type VerifyStage = (typeof VERIFY_STAGE)[keyof typeof VERIFY_STAGE];
 
 const XML_ALL_PASS = `<audit_verdict>
   <header>
@@ -168,19 +174,19 @@ describe("runVerifyPipeline: sequential stop mapping (M1)", () => {
     {
       label: "structural failure",
       xml: XML_MISSING_HEADER,
-      failingStage: "structural",
-      absentStages: ["semantic", "paths"],
+      failingStage: VERIFY_STAGE.STRUCTURAL,
+      absentStages: [VERIFY_STAGE.SEMANTIC, VERIFY_STAGE.PATHS],
     },
     {
       label: "semantic failure",
       xml: XML_SEMANTIC_FAIL,
-      failingStage: "semantic",
-      absentStages: ["paths"],
+      failingStage: VERIFY_STAGE.SEMANTIC,
+      absentStages: [VERIFY_STAGE.PATHS],
     },
     {
       label: "paths failure",
       xml: XML_PATHS_FAIL,
-      failingStage: "paths",
+      failingStage: VERIFY_STAGE.PATHS,
       absentStages: [],
     },
   ];

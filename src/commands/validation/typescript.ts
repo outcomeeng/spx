@@ -3,9 +3,9 @@
  *
  * Runs TypeScript type checking using tsc.
  */
-import { getTypeScriptScope } from "../../validation/config/scope.js";
-import { detectTypeScript, discoverTool, formatSkipMessage } from "../../validation/discovery/index.js";
-import { validateTypeScript } from "../../validation/steps/typescript.js";
+import { getTypeScriptScope } from "@/validation/config/scope";
+import { detectTypeScript, discoverTool, formatSkipMessage } from "@/validation/discovery/index";
+import { validateTypeScript } from "@/validation/steps/typescript";
 import type { TypeScriptCommandOptions, ValidationCommandResult } from "./types";
 
 const TYPESCRIPT_ABSENT_MESSAGE = "⏭ Skipping TypeScript (TypeScript not detected in project)";

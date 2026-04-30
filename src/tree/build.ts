@@ -1,11 +1,9 @@
 /**
  * Tree building functions for converting flat work item lists to hierarchical trees
- *
- * Part of Feature 54 (Tree Building)
  */
-import { getWorkItemStatus } from "../status/state.js";
-import type { WorkItem } from "../types.js";
-import type { TreeNode, WorkItemTree } from "./types.js";
+import { getWorkItemStatus } from "../status/state";
+import type { WorkItem, WorkItemStatus } from "../types";
+import type { TreeNode, WorkItemTree } from "./types";
 
 /**
  * Dependencies for tree building (for testing)
@@ -18,7 +16,7 @@ export interface TreeBuildDeps {
  * Build hierarchical tree from flat list of work items
  *
  * Creates parent-child relationships based on directory paths.
- * Per ADR-002, children are BSP-sorted and status is rolled up from children.
+ * Children are BSP-sorted and status is rolled up from children.
  *
  * @param workItems - Flat list of work items from scanner
  * @param deps - Optional dependencies (for testing)
@@ -95,7 +93,7 @@ function createTreeNode(
     number: item.number,
     slug: item.slug,
     path: item.path,
-    status: item.status as "OPEN" | "IN_PROGRESS" | "DONE",
+    status: item.status as WorkItemStatus,
     children,
   };
 }

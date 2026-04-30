@@ -14,14 +14,12 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { describe, expect, it } from "vitest";
 
-import { validatePaths } from "@/audit/paths";
-import type { AuditVerdict } from "@/audit/reader";
-
-const DEFECT_ESCAPES_ROOT = "path escapes project root";
+import { AUDIT_PATH_DEFECT, validatePaths } from "@/audit/paths";
+import { AUDIT_GATE_STATUS, AUDIT_VERDICT_VALUE, type AuditVerdict } from "@/audit/reader";
 
 const VALID_HEADER = {
   spec_node: "spx/36-audit.enabler",
-  verdict: "APPROVED",
+  verdict: AUDIT_VERDICT_VALUE.APPROVED,
   timestamp: "2024-01-01_00-00-00",
 };
 
@@ -38,7 +36,7 @@ describe("validatePaths: scenarios", () => {
         gates: [
           {
             name: "architecture",
-            status: "PASS",
+            status: AUDIT_GATE_STATUS.PASS,
             count: "1",
             findings: [
               {
@@ -61,23 +59,24 @@ describe("validatePaths: scenarios", () => {
   it("GIVEN a verdict with a path that escapes the project root WHEN path validation runs THEN it reports a 'path escapes project root' defect", async () => {
     const root = await mkdtemp(join(tmpdir(), "spx-paths-test-"));
     try {
+      const escapingPath = "../../etc/passwd";
       const verdict: AuditVerdict = {
         header: VALID_HEADER,
         gates: [
           {
             name: "architecture",
-            status: "PASS",
+            status: AUDIT_GATE_STATUS.PASS,
             count: "1",
-            findings: [{ spec_file: "../../etc/passwd" }],
+            findings: [{ spec_file: escapingPath }],
           },
         ],
       };
 
       const defects = validatePaths(verdict, root);
 
-      const defect = defects.find((d) => d.includes(DEFECT_ESCAPES_ROOT));
+      const defect = defects.find((d) => d.includes(AUDIT_PATH_DEFECT.ESCAPES_ROOT));
       expect(defect).toBeDefined();
-      expect(defect).toContain("../../etc/passwd");
+      expect(defect).toContain(escapingPath);
     } finally {
       await rm(root, { recursive: true, force: true });
     }

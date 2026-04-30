@@ -1,13 +1,11 @@
 /**
  * Fixture generator for E2E testing
  *
- * Implements ADR-003: E2E Fixture Generation Strategy
  * - generateFixtureTree(config) - Pure function to create tree structure
  * - PRESETS - Common configurations for testing
- *
- * @see specs/doing/capability-21_core-cli/decisions/adr-003_e2e-fixture-generation.md
  */
-import type { WorkItemStatus } from "@/types";
+import { DECISION_KINDS, type DecisionKind } from "@/spec/config";
+import type { WorkItemKind, WorkItemStatus } from "@/types";
 import { WORK_ITEM_KINDS, WORK_ITEM_STATUSES } from "@/types";
 import { faker } from "@faker-js/faker";
 
@@ -34,7 +32,7 @@ export interface FixtureConfig {
  */
 export interface FixtureNode {
   /** Type of work item */
-  kind: "capability" | "feature" | "story" | "adr";
+  kind: WorkItemKind | DecisionKind;
   /** BSP number (10-99) */
   number: number;
   /** URL-safe slug */
@@ -195,7 +193,7 @@ export function generateFixtureTree(config: FixtureConfig): FixtureTree {
     // Generate ADRs
     for (let adrIdx = 0; adrIdx < adrsPerCap; adrIdx++) {
       capChildren.push({
-        kind: "adr",
+        kind: DECISION_KINDS[0],
         number: adrIdx + 1, // ADRs use sequential numbering (001, 002, etc.)
         slug: generateSlug(),
         children: [],
@@ -252,7 +250,7 @@ export function generateFixtureTree(config: FixtureConfig): FixtureTree {
 
     // Determine capability status from children (excluding ADRs)
     const capStatus = deriveStatus(
-      capChildren.filter((c) => c.kind !== "adr"),
+      capChildren.filter((c) => c.kind !== DECISION_KINDS[0]),
     );
 
     nodes.push({
@@ -305,7 +303,7 @@ export function countNodes(tree: FixtureTree): number {
 
   function traverse(nodes: FixtureNode[]): void {
     for (const node of nodes) {
-      if (node.kind !== "adr") {
+      if (node.kind !== DECISION_KINDS[0]) {
         count++;
       }
       traverse(node.children);

@@ -21,13 +21,13 @@ import { readdir } from "node:fs/promises";
 import { join } from "node:path";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 
-import { archiveCommand } from "@/commands/session/archive";
-import { pruneCommand, validatePruneOptions } from "@/commands/session/prune";
+import { archiveCommand, SESSION_ARCHIVE_OUTPUT } from "@/commands/session/archive";
+import { pruneCommand, SESSION_PRUNE_OUTPUT, validatePruneOptions } from "@/commands/session/prune";
 import { type ArchivableStatus, buildArchivePaths, findSessionForArchive } from "@/session/archive";
 import { DEFAULT_KEEP_COUNT, selectSessionsToDelete } from "@/session/prune";
 import type { SessionHarness } from "@/session/testing/harness";
 import { createSessionHarness } from "@/session/testing/harness";
-import { type Session, SESSION_STATUSES, type SessionPriority } from "@/session/types";
+import { DEFAULT_PRIORITY, type Session, SESSION_STATUSES, type SessionPriority } from "@/session/types";
 
 const [TODO, DOING, ARCHIVE] = SESSION_STATUSES;
 
@@ -44,7 +44,7 @@ function createTestSession(overrides: {
     status,
     path: `/test/sessions/${status}/${id}.md`,
     metadata: {
-      priority: overrides.priority ?? "medium",
+      priority: overrides.priority ?? DEFAULT_PRIORITY,
       tags: [],
     },
   };
@@ -79,8 +79,9 @@ describe("selectSessionsToDelete", () => {
   });
 
   it("GIVEN mix of valid and unparsable IDs WHEN selected THEN unparsable deleted first", () => {
+    const unparsableSessionId = "unparsable";
     const sessions = [
-      createTestSession({ id: "unparsable" }),
+      createTestSession({ id: unparsableSessionId }),
       createTestSession({ id: "2026-01-13_10-00-00" }),
       createTestSession({ id: "2026-01-14_10-00-00" }),
     ];
@@ -88,7 +89,7 @@ describe("selectSessionsToDelete", () => {
     const toPrune = selectSessionsToDelete(sessions, { keep: 2 });
 
     expect(toPrune).toHaveLength(1);
-    expect(toPrune[0].id).toBe("unparsable");
+    expect(toPrune[0].id).toBe(unparsableSessionId);
   });
 
   it("GIVEN all unparsable IDs WHEN selected THEN stable deterministic subset", () => {
@@ -129,10 +130,11 @@ describe("buildArchivePaths", () => {
         doingDir: "/s/doing",
         archiveDir: "/s/archive",
       };
-      const result = buildArchivePaths("test-id", status, config);
+      const sessionId = "test-id";
+      const result = buildArchivePaths(sessionId, status, config);
 
       expect(result.target).toContain(config.archiveDir);
-      expect(result.source).toContain("test-id");
+      expect(result.source).toContain(sessionId);
     }
   });
 });
@@ -190,7 +192,7 @@ describe("pruneCommand with real filesystem", () => {
 
     const output = await pruneCommand({ keep: 5, sessionsDir: harness.sessionsDir });
 
-    expect(output).toContain("Deleted 5 sessions");
+    expect(output).toContain(`${SESSION_PRUNE_OUTPUT.DELETED} 5 sessions`);
     const remaining = await readdir(harness.statusDir(ARCHIVE));
     expect(remaining.filter((f) => f.endsWith(".md"))).toHaveLength(5);
   });
@@ -215,7 +217,7 @@ describe("pruneCommand with real filesystem", () => {
 
     const output = await pruneCommand({ keep: 5, dryRun: true, sessionsDir: harness.sessionsDir });
 
-    expect(output).toContain("Would delete");
+    expect(output).toContain(SESSION_PRUNE_OUTPUT.WOULD_DELETE);
     // All sessions still exist
     const remaining = await readdir(harness.statusDir(ARCHIVE));
     expect(remaining.filter((f) => f.endsWith(".md"))).toHaveLength(8);
@@ -255,7 +257,7 @@ describe("archiveCommand with real filesystem", () => {
 
     const output = await archiveCommand({ sessionIds: [sessionId], sessionsDir: harness.sessionsDir });
 
-    expect(output).toContain("Archived session");
+    expect(output).toContain(SESSION_ARCHIVE_OUTPUT.ARCHIVED);
     expect(existsSync(join(harness.statusDir(ARCHIVE), `${sessionId}.md`))).toBe(true);
     expect(existsSync(join(harness.statusDir(TODO), `${sessionId}.md`))).toBe(false);
   });
@@ -266,7 +268,7 @@ describe("archiveCommand with real filesystem", () => {
 
     const output = await archiveCommand({ sessionIds: [sessionId], sessionsDir: harness.sessionsDir });
 
-    expect(output).toContain("Archived session");
+    expect(output).toContain(SESSION_ARCHIVE_OUTPUT.ARCHIVED);
     expect(existsSync(join(harness.statusDir(ARCHIVE), `${sessionId}.md`))).toBe(true);
     expect(existsSync(join(harness.statusDir(DOING), `${sessionId}.md`))).toBe(false);
   });

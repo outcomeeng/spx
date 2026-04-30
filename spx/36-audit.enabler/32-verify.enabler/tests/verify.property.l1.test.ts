@@ -15,6 +15,8 @@ import type { AuditHarness } from "@/audit/testing/harness";
 import { createAuditHarness } from "@/audit/testing/harness";
 import { runVerifyPipeline } from "@/audit/verify";
 
+import { AUDIT_XML_TEST_TOKENS } from "./support";
+
 const VALID_STATUSES = ["PASS", "FAIL", "SKIPPED"] as const;
 const VALID_VERDICTS = ["APPROVED", "REJECT"] as const;
 
@@ -24,7 +26,7 @@ function buildGateXml(name: string, status: string, findings: number): string {
     (_, i) => `<finding><spec_file>spec${i}.md</spec_file><test_file>test${i}.ts</test_file></finding>`,
   ).join("");
   const skippedReason = status === "SKIPPED" ? "<skipped_reason>Not applicable</skipped_reason>" : "";
-  return `<gate><name>${name}</name><status>${status}</status>${skippedReason}<findings count="${findings}">${findingElements}</findings></gate>`;
+  return `<gate><name>${name}</name><status>${status}</status>${skippedReason}${AUDIT_XML_TEST_TOKENS.FINDINGS_COUNT_OPEN}${findings}">${findingElements}</findings></gate>`;
 }
 
 function buildVerdictXml(verdict: string, gates: string[]): string {
@@ -35,9 +37,7 @@ function buildVerdictXml(verdict: string, gates: string[]): string {
     <timestamp>2024-01-01_00-00-00</timestamp>
   </header>
   <gates>
-    ${gates.join("\n    ")}
-  </gates>
-</audit_verdict>`;
+    ${gates.join("\n    ")}${AUDIT_XML_TEST_TOKENS.VERDICT_GATES_CLOSE}`;
 }
 
 describe("runVerifyPipeline: determinism property (P1)", () => {

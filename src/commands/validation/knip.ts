@@ -4,10 +4,10 @@
  * Runs knip to find unused exports, dependencies, and files.
  * Disabled by default - enable with KNIP_VALIDATION_ENABLED=1.
  */
-import { getTypeScriptScope } from "../../validation/config/scope.js";
-import { discoverTool, formatSkipMessage } from "../../validation/discovery/index.js";
-import { validationEnabled } from "../../validation/steps/eslint.js";
-import { validateKnip } from "../../validation/steps/knip.js";
+import { getTypeScriptScope } from "@/validation/config/scope";
+import { discoverTool, formatSkipMessage } from "@/validation/discovery/index";
+import { validationEnabled } from "@/validation/steps/eslint";
+import { validateKnip } from "@/validation/steps/knip";
 import type { KnipCommandOptions, ValidationCommandResult } from "./types";
 
 /**

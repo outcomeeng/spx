@@ -2,9 +2,8 @@
  * Markdown formatter for work item trees
  *
  * Renders trees with heading hierarchy and status lines.
- * Part of Feature 65 (Output Formatting), Story 43.
  */
-import type { TreeNode, WorkItemTree } from "../tree/types.js";
+import type { TreeNode, WorkItemTree } from "../tree/types";
 
 /**
  * Format tree as markdown with heading hierarchy
@@ -14,7 +13,7 @@ import type { TreeNode, WorkItemTree } from "../tree/types.js";
  * - Features: ##
  * - Stories: ###
  *
- * Display numbers (per ADR-002):
+ * Display numbers:
  * - Capabilities: internal + 1
  * - Features/Stories: as-is
  *
@@ -66,7 +65,7 @@ function formatNode(
 /**
  * Get display number for a work item
  *
- * Per ADR-002:
+ * Display numbers:
  * - Capabilities: internal + 1 (dir capability-21 has internal 20)
  * - Features/Stories: as-is
  */

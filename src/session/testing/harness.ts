@@ -13,10 +13,15 @@ import { mkdtemp } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 
-import { DEFAULT_CONFIG } from "../../config/defaults.js";
-import { SESSION_STATUSES, type SessionStatus } from "../types.js";
+import { DEFAULT_CONFIG } from "@/config/defaults";
+import { buildSessionFrontMatterContent } from "@/session/create";
+import { SESSION_STATUSES, type SessionStatus } from "../types";
 
 const { statusDirs } = DEFAULT_CONFIG.sessions;
+
+export function buildSessionMarkdownBody(title: string): string {
+  return `# ${title}`;
+}
 
 /**
  * Metadata options for writing a session file.
@@ -84,7 +89,7 @@ export async function createSessionHarness(): Promise<SessionHarness> {
         lines.push(...opts.extraYaml);
       }
 
-      const content = `---\n${lines.join("\n")}\n---\n# Session ${id}\n`;
+      const content = buildSessionFrontMatterContent(lines, `# Session ${id}\n`);
       const filePath = join(sessionsDir, statusDirs[status], `${id}.md`);
       await writeFile(filePath, content);
       return filePath;

@@ -2,9 +2,8 @@
  * Table formatter for work item trees
  *
  * Renders trees as aligned tables with dynamic column widths.
- * Part of Feature 65 (Output Formatting), Story 54.
  */
-import type { TreeNode, WorkItemTree } from "../tree/types.js";
+import type { TreeNode, WorkItemTree } from "../tree/types";
 
 /**
  * Table row data
@@ -25,7 +24,7 @@ interface TableRow {
  * - "  Feature" (2-space indent)
  * - "    Story" (4-space indent)
  *
- * Display numbers (per ADR-002):
+ * Display numbers:
  * - Capabilities: internal + 1
  * - Features/Stories: as-is
  *
@@ -112,7 +111,7 @@ function getLevelName(kind: string): string {
 /**
  * Get display number for a work item
  *
- * Per ADR-002:
+ * Display numbers:
  * - Capabilities: internal + 1 (dir capability-21 has internal 20)
  * - Features/Stories: as-is
  */

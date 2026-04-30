@@ -1,9 +1,17 @@
 /**
  * Tree validation functions to ensure structural integrity
- *
- * Part of Feature 54 (Tree Building), Story 54 (Tree Validation)
  */
-import type { TreeNode, WorkItemTree } from "./types.js";
+import { WORK_ITEM_KIND } from "../types";
+import type { TreeNode, WorkItemTree } from "./types";
+
+const TREE_PARENT_KIND = {
+  ROOT: "root",
+  CAPABILITY: WORK_ITEM_KIND.CAPABILITY,
+  FEATURE: WORK_ITEM_KIND.FEATURE,
+  STORY: WORK_ITEM_KIND.STORY,
+} as const;
+
+type TreeParentKind = (typeof TREE_PARENT_KIND)[keyof typeof TREE_PARENT_KIND];
 
 /**
  * Custom error for tree validation failures
@@ -36,11 +44,11 @@ export class TreeValidationError extends Error {
 export function validateTree(tree: WorkItemTree): void {
   // Validate each capability and its children
   for (const capability of tree.nodes) {
-    validateNode(capability, "root");
+    validateNode(capability, TREE_PARENT_KIND.ROOT);
   }
 
   // Check for duplicate BSP numbers at root level (capabilities)
-  checkDuplicateBSP(tree.nodes, "capability");
+  checkDuplicateBSP(tree.nodes, WORK_ITEM_KIND.CAPABILITY);
 }
 
 /**
@@ -53,7 +61,7 @@ export function validateTree(tree: WorkItemTree): void {
  */
 function validateNode(
   node: TreeNode,
-  parentKind: "root" | "capability" | "feature" | "story",
+  parentKind: TreeParentKind,
   visited: Set<string> = new Set(),
 ): void {
   // Check for cycles
@@ -92,7 +100,7 @@ function validateNode(
  */
 function validateHierarchy(
   node: TreeNode,
-  parentKind: "root" | "capability" | "feature" | "story",
+  parentKind: TreeParentKind,
 ): void {
   switch (node.kind) {
     case "capability":

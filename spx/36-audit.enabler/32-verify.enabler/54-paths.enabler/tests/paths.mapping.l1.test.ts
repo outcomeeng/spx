@@ -14,10 +14,10 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { describe, expect, it } from "vitest";
 
-import { validatePaths } from "@/audit/paths";
+import { AUDIT_PATH_DEFECT, validatePaths } from "@/audit/paths";
 import type { AuditFinding, AuditVerdict } from "@/audit/reader";
 
-const DEFECT_MISSING_FILE = "missing file";
+const DEFECT_MISSING_FILE = AUDIT_PATH_DEFECT.MISSING_FILE;
 
 const VALID_HEADER = {
   spec_node: "spx/36-audit.enabler",
@@ -29,7 +29,7 @@ const PATH_BEARING_FIELDS = ["spec_file", "test_file"] as const;
 
 describe("validatePaths: path-bearing element mapping (M1)", () => {
   it.each(PATH_BEARING_FIELDS)(
-    "GIVEN a finding with a '%s' path that does not exist WHEN path validation runs THEN a 'missing file' defect naming the path is reported",
+    "GIVEN a finding with a '%s' path that does not exist WHEN path validation runs THEN the defect names the path",
     async (field) => {
       const root = await mkdtemp(join(tmpdir(), "spx-paths-test-"));
       try {

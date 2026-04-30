@@ -72,17 +72,15 @@ describe("parseSessionMetadata — specs/files property-based", () => {
   it("GIVEN arbitrary string arrays in YAML WHEN parsed THEN only strings survive", () => {
     fc.assert(
       fc.property(
-        fc.array(fc.string().filter((s) => !s.includes("\n") && !s.includes("#") && s.length > 0), { maxLength: 5 }),
+        fc.array(fc.string(), { maxLength: 5 }),
         (paths) => {
-          const yamlArray = paths.map((p) => `  - ${p}`).join("\n");
-          const content = `---\nspecs:\n${yamlArray}\n---\n# Content`;
+          const yamlArray = paths.length === 0
+            ? " []"
+            : `\n${paths.map((p) => `  - ${JSON.stringify(p)}`).join("\n")}`;
+          const content = `---\nspecs:${yamlArray}\n---\n# Content`;
           const result = parseSessionMetadata(content);
 
-          if (result.specs) {
-            for (const spec of result.specs) {
-              expect(typeof spec).toBe("string");
-            }
-          }
+          expect(result.specs).toEqual(paths);
         },
       ),
     );

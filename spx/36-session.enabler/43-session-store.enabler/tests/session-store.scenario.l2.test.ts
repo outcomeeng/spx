@@ -14,9 +14,10 @@
 import { execa } from "execa";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 
+import { SESSION_LIST_EMPTY_TEXT } from "@/commands/session/list";
 import type { SessionHarness } from "@/session/testing/harness";
 import { createSessionHarness } from "@/session/testing/harness";
-import { DEFAULT_LIST_STATUSES, SESSION_STATUSES } from "@/session/types";
+import { DEFAULT_LIST_STATUSES, SESSION_PRIORITY, SESSION_STATUSES } from "@/session/types";
 
 const [TODO] = SESSION_STATUSES;
 const CLI_ENTRY = "bin/spx.js";
@@ -38,14 +39,15 @@ describe("spx session todo (CLI integration)", () => {
   });
 
   it("GIVEN sessions in todo WHEN spx session todo THEN shows only todo sessions", async () => {
-    await harness.writeSession(TODO, "2026-01-10_10-00-00", { priority: "high" });
+    const todoSessionId = "2026-01-10_10-00-00";
+    await harness.writeSession(TODO, todoSessionId, { priority: SESSION_PRIORITY.HIGH });
     await harness.writeSession(SESSION_STATUSES[1], "2026-01-11_10-00-00");
 
     const { stdout, exitCode } = await runSpx("session", "todo", "--sessions-dir", harness.sessionsDir);
 
     expect(exitCode).toBe(0);
     expect(stdout).toContain(`${TODO.toUpperCase()}:`);
-    expect(stdout).toContain("2026-01-10_10-00-00");
+    expect(stdout).toContain(todoSessionId);
     for (const other of SESSION_STATUSES) {
       if (other !== TODO) {
         expect(stdout).not.toContain(`${other.toUpperCase()}:`);
@@ -58,7 +60,7 @@ describe("spx session todo (CLI integration)", () => {
 
     expect(exitCode).toBe(0);
     expect(stdout).toContain(`${TODO.toUpperCase()}:`);
-    expect(stdout).toContain("(no sessions)");
+    expect(stdout).toContain(SESSION_LIST_EMPTY_TEXT);
   });
 
   it("GIVEN --json flag WHEN spx session todo --json THEN JSON has only todo key", async () => {

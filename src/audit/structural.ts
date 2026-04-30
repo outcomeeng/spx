@@ -1,7 +1,7 @@
-import type { AuditVerdict } from "@/audit/reader";
+import { AUDIT_GATE_STATUS, AUDIT_VERDICT_VALUE, type AuditVerdict } from "@/audit/reader";
 
-const VALID_VERDICTS = new Set(["APPROVED", "REJECT"]);
-const VALID_GATE_STATUSES = new Set(["PASS", "FAIL", "SKIPPED"]);
+const VALID_VERDICTS = new Set<string>(Object.values(AUDIT_VERDICT_VALUE));
+const VALID_GATE_STATUSES = new Set<string>(Object.values(AUDIT_GATE_STATUS));
 
 export function validateStructure(verdict: AuditVerdict): readonly string[] {
   const defects: string[] = [];

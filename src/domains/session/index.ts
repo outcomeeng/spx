@@ -14,10 +14,10 @@ import {
   releaseCommand,
   SessionAlreadyArchivedError,
   showCommand,
-} from "../../commands/session/index.js";
-import { SESSION_STATUSES } from "../../session/types.js";
-import type { Domain } from "../types.js";
-import { HANDOFF_FRONTMATTER_HELP, PICKUP_SELECTION_HELP, SESSION_FORMAT_HELP } from "./help.js";
+} from "@/commands/session/index";
+import { SESSION_STATUSES } from "@/session/types";
+import type { Domain } from "../types";
+import { HANDOFF_FRONTMATTER_HELP, PICKUP_SELECTION_HELP, SESSION_FORMAT_HELP } from "./help";
 
 /**
  * Reads content from stdin if available (piped input).

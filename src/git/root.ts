@@ -10,8 +10,8 @@
 import { execa } from "execa";
 import { dirname, isAbsolute, join, resolve } from "node:path";
 
-import { DEFAULT_CONFIG } from "../config/defaults.js";
-import type { SessionDirectoryConfig } from "../session/show.js";
+import { DEFAULT_CONFIG } from "../config/defaults";
+import type { SessionDirectoryConfig } from "../session/show";
 
 /**
  * Result from git root detection.
@@ -149,8 +149,8 @@ function extractStdout(stdout: unknown): string {
  * then returns its parent as the main repository root. In a non-worktree
  * repository, this returns the same path as `detectGitRoot`.
  *
- * Per PDR-15, this function is used for `.spx/` (gitignored) operations
- * where state must be shared across all worktrees.
+ * This function supports `.spx/` operations where state must be shared across
+ * all worktrees.
  *
  * @param cwd - Current working directory (defaults to process.cwd())
  * @param deps - Injectable dependencies for testing
@@ -246,8 +246,8 @@ export interface ResolveSessionConfigResult {
  * repository root via `detectMainRepoRoot` and builds absolute paths from
  * `DEFAULT_CONFIG`.
  *
- * Per PDR-15, session operations always resolve against the main repository
- * root (root worktree) so that `.spx/sessions/` is shared across all worktrees.
+ * Session operations resolve against the main repository root so that
+ * `.spx/sessions/` is shared across all worktrees.
  *
  * @param options - Resolution options
  * @returns Resolved config with absolute paths and optional warning

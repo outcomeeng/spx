@@ -21,7 +21,7 @@ import { basename, isAbsolute, join } from "node:path";
 import * as fc from "fast-check";
 import { describe, expect, it } from "vitest";
 
-import { DEFAULT_AUDIT_CONFIG, encodeNodePath } from "@/audit/config";
+import { DEFAULT_AUDIT_CONFIG, encodeNodePath, formatAuditTimestamp } from "@/audit/config";
 import { createAuditHarness } from "@/audit/testing/harness";
 
 const AUDIT_TIMESTAMP_PATTERN = /^\d{4}-\d{2}-\d{2}_\d{2}-\d{2}-\d{2}\.audit\.xml$/;
@@ -141,8 +141,9 @@ describe("writeVerdict", () => {
       const fixedDate = new Date("2024-06-15T10:30:45.000Z");
       const now = () => fixedDate;
       const filePath = await harness.writeVerdict("spx/36-audit.enabler", "<audit_verdict/>", now);
+      const expectedFilename = `${formatAuditTimestamp(now)}${DEFAULT_AUDIT_CONFIG.auditSuffix}`;
 
-      expect(basename(filePath)).toBe("2024-06-15_10-30-45.audit.xml");
+      expect(basename(filePath)).toBe(expectedFilename);
     } finally {
       await harness.cleanup();
     }

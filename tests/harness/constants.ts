@@ -6,7 +6,7 @@ import { fileURLToPath } from "url";
 
 const __dirname = fileURLToPath(new URL(".", import.meta.url));
 
-// Re-export from production code (per ADR-21: single source of truth)
+// Re-export from production code so tests share the runtime source of truth.
 export { LEAF_KIND, WORK_ITEM_KINDS } from "@/types";
 
 /**

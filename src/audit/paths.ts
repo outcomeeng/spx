@@ -3,6 +3,11 @@ import { relative, resolve } from "node:path";
 
 import type { AuditVerdict } from "@/audit/reader";
 
+export const AUDIT_PATH_DEFECT = {
+  ESCAPES_ROOT: "path escapes project root",
+  MISSING_FILE: "missing file",
+} as const;
+
 export function validatePaths(verdict: AuditVerdict, projectRoot: string): readonly string[] {
   const defects: string[] = [];
   const root = resolve(projectRoot);
@@ -22,11 +27,11 @@ function checkPath(filePath: string | undefined, root: string, defects: string[]
 
   const rel = relative(root, resolve(root, filePath));
   if (rel.startsWith("..")) {
-    defects.push(`path escapes project root: ${filePath}`);
+    defects.push(`${AUDIT_PATH_DEFECT.ESCAPES_ROOT}: ${filePath}`);
     return;
   }
 
   if (!existsSync(resolve(root, filePath))) {
-    defects.push(`missing file: ${filePath}`);
+    defects.push(`${AUDIT_PATH_DEFECT.MISSING_FILE}: ${filePath}`);
   }
 }

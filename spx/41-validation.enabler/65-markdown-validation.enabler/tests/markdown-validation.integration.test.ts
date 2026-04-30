@@ -10,9 +10,9 @@
 
 import { describe, expect, it } from "vitest";
 
-import { allCommand } from "@/commands/validation/all.js";
-import { markdownCommand } from "@/commands/validation/markdown.js";
-import { validateMarkdown } from "@/validation/steps/markdown.js";
+import { allCommand } from "@/commands/validation/all";
+import { MARKDOWN_COMMAND_OUTPUT, markdownCommand } from "@/commands/validation/markdown";
+import { validateMarkdown } from "@/validation/steps/markdown";
 import { MARKDOWN_FIXTURES, MARKDOWN_HARNESS_TIMEOUT, withMarkdownEnv } from "@test/harness/with-markdown-env";
 
 // =============================================================================
@@ -50,7 +50,7 @@ describe("default directory validation", () => {
         const result = await markdownCommand({ cwd: path });
 
         expect(result.exitCode).toBe(1);
-        expect(result.output).toContain("error");
+        expect(result.output).toContain(MARKDOWN_COMMAND_OUTPUT.ERROR_SUMMARY_SUFFIX);
       });
     },
     MARKDOWN_HARNESS_TIMEOUT,
@@ -65,7 +65,7 @@ describe("--files flag scoping", () => {
   it(
     "GIVEN --files points to docs/ only, WHEN validation runs, THEN spx/ errors are not reported",
     async () => {
-      await withMarkdownEnv({ fixture: MARKDOWN_FIXTURES.BROKEN_LINKS }, async ({ path, docsDir }) => {
+      await withMarkdownEnv({ fixture: MARKDOWN_FIXTURES.BROKEN_LINKS }, async ({ path, docsDir, spxDir }) => {
         const result = await markdownCommand({
           cwd: path,
           files: [docsDir],
@@ -78,8 +78,8 @@ describe("--files flag scoping", () => {
         const detailed = await validateMarkdown({ directories: [docsDir], projectRoot: path });
         expect(detailed.errors.length).toBeGreaterThan(0);
         for (const error of detailed.errors) {
-          expect(error.file).toContain("/docs/");
-          expect(error.file).not.toContain("/spx/");
+          expect(error.file).toContain(docsDir);
+          expect(error.file).not.toContain(spxDir);
         }
       });
     },

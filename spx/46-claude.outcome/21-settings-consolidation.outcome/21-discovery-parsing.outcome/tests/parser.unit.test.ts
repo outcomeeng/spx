@@ -10,8 +10,8 @@ import {
   parseAllSettings,
   parsePermission,
   parseSettingsFile,
-} from "@/lib/claude/permissions/parser.js";
-import type { Permissions } from "@/lib/claude/permissions/types.js";
+} from "@/lib/claude/permissions/parser";
+import type { Permissions } from "@/lib/claude/permissions/types";
 import { mkdir, rm, writeFile } from "fs/promises";
 import { tmpdir } from "os";
 import { join } from "path";
@@ -88,7 +88,7 @@ describe("parsePermission", () => {
 
   test("throws error for malformed permission - no parentheses", () => {
     expect(() => parsePermission("Bash git:*", "allow")).toThrow(
-      'Malformed permission string: "Bash git:*"',
+      "Malformed permission string: \"Bash git:*\"",
     );
   });
 

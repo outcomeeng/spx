@@ -3,12 +3,15 @@
  *
  * Runs madge to detect circular dependencies.
  */
-import { getTypeScriptScope } from "../../validation/config/scope.js";
-import { detectTypeScript, discoverTool, formatSkipMessage } from "../../validation/discovery/index.js";
-import { validateCircularDependencies } from "../../validation/steps/circular.js";
+import { getTypeScriptScope } from "@/validation/config/scope";
+import { detectTypeScript, discoverTool, formatSkipMessage } from "@/validation/discovery/index";
+import { validateCircularDependencies } from "@/validation/steps/circular";
 import type { CircularCommandOptions, ValidationCommandResult } from "./types";
 
 const TYPESCRIPT_ABSENT_MESSAGE = "⏭ Skipping Circular dependencies (TypeScript not detected in project)";
+export const CIRCULAR_DEPENDENCY_OUTPUT = {
+  FOUND: "Circular dependencies found",
+} as const;
 
 /**
  * Check for circular dependencies.
@@ -54,12 +57,12 @@ export async function circularCommand(options: CircularCommandOptions): Promise<
     return { exitCode: 0, output, durationMs };
   } else {
     // Format circular dependency output
-    let output = result.error ?? "Circular dependencies found";
+    let output = result.error ?? CIRCULAR_DEPENDENCY_OUTPUT.FOUND;
     if (result.circularDependencies && result.circularDependencies.length > 0) {
       const cycles = result.circularDependencies
         .map((cycle) => `  ${cycle.join(" → ")}`)
         .join("\n");
-      output = `Circular dependencies found:\n${cycles}`;
+      output = `${CIRCULAR_DEPENDENCY_OUTPUT.FOUND}:\n${cycles}`;
     }
     return { exitCode: 1, output, durationMs };
   }
