@@ -37,25 +37,18 @@ export function findNextSpecTreeNode(snapshot: SpecTreeSnapshot): SpecTreeNode |
 
 ### Mappings
 
-- Filesystem-shaped source records and in-memory source records that describe the same product tree map to equivalent recognized spec-tree entries ([test](tests/spec-tree-source.mapping.l1.test.ts))
-- Spec and evidence combinations map to node states through the public snapshot: missing evidence maps to `declared`, linked evidence without implementation maps to `specified`, failing evidence maps to `failing`, and passing evidence maps to `passing` ([test](tests/node-state-derivation.mapping.l1.test.ts))
 - Every kind key maps to exactly one category value and one suffix through `KIND_REGISTRY` ([test](tests/kind-registry.mapping.l1.test.ts))
 - Filtering `KIND_REGISTRY` by category maps to the exported node and decision sub-registries, and their suffix projections match their members ([test](tests/kind-registry-subsets.mapping.l1.test.ts))
 
-### Conformance
-
-- `projectSpecTree(snapshot)` output conforms to the stable projection contract consumed by command renderers and automation callers ([test](tests/spec-tree-projection.conformance.l1.test.ts))
-
 ### Properties
 
-- Parent-child assembly preserves dependency ordering: lower-index siblings precede higher-index siblings, same-index siblings remain independent, and every child keeps exactly one parent within the snapshot ([test](tests/spec-tree-assembly.property.l1.test.ts))
 - Derived kind types match derived values: `keyof typeof KIND_REGISTRY` enumerates the runtime keys, node and decision kind types partition that set, and entry definitions project from the registry ([test](tests/kind-registry-types.property.l1.test.ts))
 - Suffix uniqueness holds across the registry: no two node kinds share a directory suffix, no two decision kinds share a filename suffix, and no two registered kinds share the same suffix ([test](tests/kind-registry-suffixes.property.l1.test.ts))
 
 ### Compliance
 
 - ALWAYS: `src/spec-tree/index.ts` is the import boundary for consumers that read, project, or select from a spec tree; scanner, tree, and reporter internals stay behind this boundary ([test](tests/spec-tree-surface.scenario.l1.test.ts))
-- ALWAYS: `KIND_REGISTRY` is declared as one flat `as const` object literal, and every derived kind view comes from that registry ([test](tests/kind-registry-single-source.compliance.l1.test.ts), [review](21-kind-registry.adr.md))
+- ALWAYS: `SPEC_TREE_CONFIG.KINDS` is declared as one flat `as const` object literal, `KIND_REGISTRY` projects from it, and every derived kind view comes from that registry ([test](tests/kind-registry-single-source.compliance.l1.test.ts), [review](21-kind-registry.adr.md))
 - ALWAYS: config descriptors, source adapters, tree assembly, state derivation, and projections receive vocabulary through the semantic registry or a test-scoped registry fixture ([review](21-kind-registry.adr.md))
 - NEVER: declare spec-tree kind, category, suffix, label, or alias strings in parallel module-local constants outside the registry surface ([review](21-kind-registry.adr.md))
 - NEVER: parse spec-tree source records, directory suffixes, or decision suffixes inside CLI command modules; commands consume snapshots and projections from the public surface ([review])
