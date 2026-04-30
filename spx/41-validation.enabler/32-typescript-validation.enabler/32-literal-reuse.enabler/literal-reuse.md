@@ -2,14 +2,14 @@
 
 PROVIDES the cross-file literal-reuse detector — a global pre-pass that parses every TypeScript source and test file, indexes string and numeric literals carrying domain meaning, and reports two classes of problem: literals that recur between source and test files (src↔test reuse) and literals that recur across two or more test files without appearing in any source file (test↔test duplication)
 SO THAT `spx validation all` running against a TypeScript project
-CAN enforce the source/test boundary import rules and shared-test-support recurrence rules from [21-typescript-conventions.adr.md](../21-typescript-conventions.adr.md) — patterns that per-file ESLint rules cannot detect because they require indexing literals across the full codebase
+CAN enforce the source/test boundary import rules and no-test-owned-semantic-constant rules from [21-typescript-conventions.adr.md](../21-typescript-conventions.adr.md) — patterns that per-file ESLint rules cannot detect because they require indexing literals across the full codebase
 
 ## Assertions
 
 ### Scenarios
 
 - Given a string literal carrying domain meaning appears in a file under `src/` and also in a file under `spx/**/tests/`, when the detector runs, then it reports a src↔test reuse problem citing the test location and the source location ([test](tests/literal.scenario.l1.test.ts))
-- Given a string literal carrying domain meaning appears in two or more test files but in no source file, when the detector runs, then it reports a test↔test duplication problem citing each test location ([test](tests/literal.scenario.l1.test.ts))
+- Given a string literal carrying domain meaning appears in two or more test files but in no source file, when the detector runs, then it reports a test↔test duplication problem citing each test location and directing the author to refactor the value into production semantics or generated input data ([test](tests/literal.scenario.l1.test.ts))
 - Given a numeric literal of meaningful magnitude duplicates between source and test, when the detector runs, then it reports a src↔test reuse problem ([test](tests/literal.scenario.l1.test.ts))
 - Given a literal value appears exactly once in the codebase, when the detector runs, then it produces no problem for that value ([test](tests/literal.scenario.l1.test.ts))
 - Given `literal.allowlist.include` contains a string value, when the detector runs, then no problem is reported for that value regardless of how many files contain it ([test](tests/literal.scenario.l1.test.ts))
@@ -31,7 +31,7 @@ CAN enforce the source/test boundary import rules and shared-test-support recurr
 
 ### Mappings
 
-- Problem kinds map to remediation: `srcReuse` problems carry `remediation === REMEDIATION.IMPORT_FROM_SOURCE`; `testDupe` problems carry `remediation === REMEDIATION.EXTRACT_TO_SHARED_TEST_SUPPORT` ([test](tests/literal.mapping.l1.test.ts))
+- Problem kinds map to remediation: `srcReuse` problems carry `remediation === REMEDIATION.IMPORT_FROM_SOURCE`; `testDupe` problems carry `remediation === REMEDIATION.REFACTOR_TO_SOURCE_OR_GENERATOR` ([test](tests/literal.mapping.l1.test.ts))
 - Literal kinds indexed: `Literal` nodes with string values produce occurrences with `kind === "string"`; `Literal` nodes with numeric values of meaningful magnitude produce occurrences with `kind === "number"`; `TemplateElement` cooked strings produce occurrences with `kind === "string"` ([test](tests/literal.mapping.l1.test.ts))
 - The effective allowlist for a detection run equals union(values bundled in each named preset) ∪ `include` \ `exclude` — computed once before any file is walked ([test](tests/literal.mapping.l1.test.ts))
 - Built-in preset identifiers: `"web"` bundles HTTP method names, HTTP header names, common response shape keys, and HTML attribute tokens ([test](tests/literal.mapping.l1.test.ts))

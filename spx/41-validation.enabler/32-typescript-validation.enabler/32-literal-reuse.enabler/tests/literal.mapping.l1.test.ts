@@ -9,9 +9,9 @@ import {
   type LiteralOccurrence,
   REMEDIATION,
   resolveAllowlist,
-} from "@/validation/literal/index.js";
+} from "@/validation/literal/index";
 
-import { DETECTOR_OPTIONS_DEFAULTS, EMPTY_ALLOWLIST } from "./support.js";
+import { DETECTOR_OPTIONS_DEFAULTS, EMPTY_ALLOWLIST } from "./support";
 
 const WEB_PRESET_ID = "web";
 
@@ -81,7 +81,7 @@ describe("finding-kind → remediation mapping", () => {
     expect(finding?.remediation).toBe(REMEDIATION.IMPORT_FROM_SOURCE);
   });
 
-  it("test↔test duplication findings carry remediation === REMEDIATION.EXTRACT_TO_SHARED_TEST_SUPPORT", () => {
+  it("test↔test duplication findings carry remediation === REMEDIATION.REFACTOR_TO_SOURCE_OR_GENERATOR", () => {
     const dupeValue = "dupe-value-delta";
     const srcIndex = indexSources(["src/a.ts", `export const A = "unrelated";`]);
     const tests = testOccurrences(
@@ -98,7 +98,7 @@ describe("finding-kind → remediation mapping", () => {
     const findings = result.testDupe.filter((f) => f.value === dupeValue);
     expect(findings.length).toBeGreaterThanOrEqual(1);
     for (const f of findings) {
-      expect(f.remediation).toBe(REMEDIATION.EXTRACT_TO_SHARED_TEST_SUPPORT);
+      expect(f.remediation).toBe(REMEDIATION.REFACTOR_TO_SOURCE_OR_GENERATOR);
     }
   });
 });
