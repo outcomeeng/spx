@@ -17,3 +17,4 @@ CAN run ESLint against TypeScript projects — executing style, correctness, and
 - ALWAYS: ESLint invocation is gated on `detectTypeScript` reporting present ([test](tests/lint.integration.test.ts))
 - NEVER: invoke ESLint via `npx` against a project lacking an ESLint flat config — prevents installation prompts and ENOENT failures ([test](tests/lint.integration.test.ts))
 - ALWAYS: ESLint uses the flat config file reported by language detection — path correctness is covered by unit tests on `detectTypeScript` ([review])
+- ALWAYS: ESLint receives only the target project's flat config, cache settings, fix mode, and caller-supplied file scope — `spx` does not inject repository-specific ignore patterns or warning-budget policy into consuming projects ([test](tests/lint-args.compliance.l1.test.ts))

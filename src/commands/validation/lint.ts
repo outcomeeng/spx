@@ -3,10 +3,10 @@
  *
  * Runs ESLint for code quality checks.
  */
-import { getTypeScriptScope } from "../../validation/config/scope.js";
-import { detectTypeScript, discoverTool, formatSkipMessage } from "../../validation/discovery/index.js";
-import { validateESLint } from "../../validation/steps/eslint.js";
-import type { ValidationContext } from "../../validation/types.js";
+import { getTypeScriptScope } from "@/validation/config/scope";
+import { detectTypeScript, discoverTool, formatSkipMessage } from "@/validation/discovery/index";
+import { validateESLint } from "@/validation/steps/eslint";
+import type { ValidationContext } from "@/validation/types";
 import type { LintCommandOptions, ValidationCommandResult } from "./types";
 
 const TYPESCRIPT_ABSENT_MESSAGE = "⏭ Skipping ESLint (TypeScript not detected in project)";
@@ -75,7 +75,7 @@ export async function lintCommand(options: LintCommandOptions): Promise<Validati
 
   // Map result to command output
   if (result.success) {
-    const output = quiet ? "" : `ESLint: ✓ No issues found`;
+    const output = quiet ? "" : `ESLint: ✓ No errors found`;
     return { exitCode: 0, output, durationMs };
   } else {
     const output = result.error ?? "ESLint validation failed";
