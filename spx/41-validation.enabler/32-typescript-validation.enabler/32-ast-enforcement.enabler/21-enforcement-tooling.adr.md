@@ -12,13 +12,18 @@ This decision governs how ADR compliance rules are encoded and enforced on TypeS
 
 ## Decision
 
-ESLint custom rules and `no-restricted-syntax` selectors are the enforcement mechanism. Custom rules handle patterns requiring AST traversal logic; `no-restricted-syntax` handles patterns expressible as single AST selectors.
+Two enforcement mechanisms are active:
+
+1. ESLint custom rules and `no-restricted-syntax` selectors enforce single-file AST patterns: import restrictions, banned syntax, value-level detection, and test-evidence constraints.
+2. Project-local Node detectors enforce cross-file data joins: literal values shared between source and tests, plus duplicated test literals that need source-owned semantics or generators.
 
 ## Rationale
 
 ESLint runs on every `pnpm lint` invocation. Custom rules written against the ESTree AST handle the majority of enforcement needs: import restrictions, banned syntax patterns, code-level compliance checks. The flat config (`eslint.config.ts`) accepts inline rule definitions or plugin references without infrastructure changes.
 
 `no-restricted-syntax` with exported selector arrays provides a lightweight enforcement path for patterns that match a single AST node type. Exporting the selector arrays enables RuleTester-based unit tests that import the actual config arrays.
+
+Cross-file literal provenance requires a repository-level pass. Single-file ESLint rules see one source file at a time, while a data join compares values across `src/` and co-located tests. Project-local Node detectors parse candidates with the TypeScript parser and report provenance violations in `spx validation all`.
 
 Alternatives considered:
 
@@ -28,27 +33,31 @@ Alternatives considered:
 
 ## Trade-offs accepted
 
-| Trade-off                               | Mitigation / reasoning                                                                                         |
-| --------------------------------------- | -------------------------------------------------------------------------------------------------------------- |
-| Custom ESLint rules require authoring   | Rules are small AST visitors; each rule maps to one ADR constraint                                             |
-| Rules must be maintained as ADRs evolve | Spec `[enforce]` links trace rules to decisions — when a decision changes, the linked rules surface for update |
+| Trade-off                                     | Mitigation / reasoning                                                                                         |
+| --------------------------------------------- | -------------------------------------------------------------------------------------------------------------- |
+| Custom ESLint rules require authoring         | Rules are small AST visitors; each rule maps to one decision constraint                                        |
+| Separate Node detectors add another mechanism | ESLint covers single-file AST patterns; Node detectors cover cross-file data joins                             |
+| Rules must be maintained as ADRs evolve       | Spec `[enforce]` links trace rules to decisions — when a decision changes, the linked rules surface for update |
 
 ## Compliance
 
 ### Recognized by
 
-ESLint flat config references project-specific rules via the `spx` plugin namespace. Selector arrays are exported from `eslint-rules/restricted-syntax.ts` for test reuse via the `@eslint-rules` path alias.
+ESLint flat config references project-specific rules via the `spx` plugin namespace. Selector arrays are exported from `eslint-rules/restricted-syntax.ts` for test reuse via the `@eslint-rules` path alias. Cross-file detectors live under `src/validation/literal/` and participate in `spx validation all`.
 
 ### MUST
 
 - Encode each ADR MUST/NEVER rule as an ESLint rule when expressible as an AST pattern — covers import restrictions, banned syntax, structural constraints ([review])
+- Use a project-local Node detector for cross-file data-join patterns — covers source/test literal provenance and duplicated test literal provenance that one-file lint rules cannot see ([review])
 - Trace each enforcement rule to its governing decision via the spec's `[enforce]` evidence link — diagnostic messages do not cite decision numbers because `no-spec-references` prohibits ADR-NN/PDR-NN in code ([review])
-- Run all enforcement rules in `pnpm lint` — no manual enforcement step ([review])
+- Run all ESLint enforcement rules in `pnpm lint` and all Node detectors in `spx validation all` — no manual enforcement step ([review])
 - Test each custom rule with `RuleTester` exercising both positive cases (compliant code passes) and negative cases (violations produce the expected diagnostic) ([review])
+- Test each Node detector with in-memory fixture maps or equivalent pure inputs; filesystem walking stays a thin wrapper ([review])
 
 ### NEVER
 
 - Enforce structural compliance by reading source files as text and matching regexes — string grep does not understand code semantics ([review])
 - Write enforcement rules without a corresponding ADR — rules must trace to decisions ([review])
 - Ship a custom rule without `RuleTester` coverage of both valid and invalid cases — untested rules produce false positives or miss violations silently ([review])
+- Run a detector in the validation pipeline without test coverage that pins its diagnostic surface ([review])
 - Introduce Semgrep for TypeScript AST enforcement — one tool per language keeps the validation pipeline coherent ([review])
