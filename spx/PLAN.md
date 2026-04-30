@@ -246,20 +246,20 @@ Each parent is classified only after reading its immediate children. File moves 
 
 ### 2. Align Specs For Semantic Vocabulary
 
-- [ ] Preserve `spx/23-spec-tree.enabler/21-kind-registry.adr.md` as the baseline and amend it only for label/alias ownership.
-- [ ] Rewrite `spx/23-spec-tree.enabler/spec-tree.md` assertions around section keys, category keys, kind keys, labels, suffixes, and aliases.
-- [ ] Update or add canonical tests under `spx/23-spec-tree.enabler/tests/` that prove each vocabulary string has one declaration site.
+- [x] Preserve `spx/23-spec-tree.enabler/21-kind-registry.adr.md` as the baseline and amend it only for label/alias ownership.
+- [x] Rewrite `spx/23-spec-tree.enabler/spec-tree.md` assertions around section keys, category keys, kind keys, labels, suffixes, and aliases.
+- [x] Update or add canonical tests under `spx/23-spec-tree.enabler/tests/` that prove each vocabulary string has one declaration site.
 - [ ] Rewrite config-related tests under `spx/16-config.enabler/tests/` that currently repeat kind/category/suffix literals.
 - [ ] Record any deliberately retained fixture/example literals in `spx.config.yaml` under `literal.allowlist.include`.
 
 ### 3. Implement Semantic Config Vocabulary
 
-- [ ] Extend the flat `KIND_REGISTRY` in `src/spec/config.ts` so each entry owns its kind, category, label, suffix, and aliases.
-- [ ] Derive existing public views from the registry during migration: kind unions, category partitions, suffix lists, and descriptor defaults.
-- [ ] Update `specTreeConfigDescriptor` validation so yaml selection compares against registry values.
-- [ ] Update `src/config/registry.ts` only if the descriptor export shape changes.
+- [x] Extend the flat `KIND_REGISTRY` in `src/spec/config.ts` so each entry owns its kind, category, label, suffix, and aliases.
+- [x] Derive existing public views from the registry during migration: kind unions, category partitions, suffix lists, and descriptor defaults.
+- [x] Update `specTreeConfigDescriptor` validation so yaml selection compares against registry values.
+- [x] Update `src/config/registry.ts` only if the descriptor export shape changes.
 - [ ] Update `src/spec/testing/index.ts` to read section/category/kind names through the semantic registry.
-- [ ] Update `src/spec/apply/exclude/*` to consume node suffixes from the registry instead of its local suffix list.
+- [x] Update `src/spec/apply/exclude/*` to consume node suffixes from the registry instead of its local suffix list.
 
 ### 4. Remove Legacy Work-Item Vocabulary From Source
 
@@ -273,19 +273,19 @@ Each parent is classified only after reading its immediate children. File moves 
 ### 5. Refactor Spec Nodes Top Down
 
 - [ ] For `21-core-cli.capability`, read the root spec and every immediate child spec before moving content.
-- [ ] Create or rewrite `23-spec-tree.enabler/32-spec-tree-source.enabler`.
+- [x] Create or rewrite `23-spec-tree.enabler/32-spec-tree-source.enabler`.
 - [ ] Move/rewrite filesystem enumeration and source-record assertions into spec-tree source abstraction.
-- [ ] Create or rewrite `23-spec-tree.enabler/43-entry-recognition.enabler`.
+- [x] Create or rewrite `23-spec-tree.enabler/43-entry-recognition.enabler`.
 - [ ] Move/rewrite pattern-matching assertions into entry recognition and prune capability/feature/story parsing content.
-- [ ] Create or rewrite `23-spec-tree.enabler/54-spec-tree-assembly.enabler`.
+- [x] Create or rewrite `23-spec-tree.enabler/54-spec-tree-assembly.enabler`.
 - [ ] Move/rewrite tree-building assertions into current spec-tree assembly.
-- [ ] Create or rewrite `23-spec-tree.enabler/65-spec-tree-traversal.enabler`.
+- [x] Create or rewrite `23-spec-tree.enabler/65-spec-tree-traversal.enabler`.
 - [ ] Move/rewrite directory-walking traversal assertions into backend-neutral spec-tree traversal.
-- [ ] Create or rewrite `23-spec-tree.enabler/76-node-state-derivation.enabler`.
+- [x] Create or rewrite `23-spec-tree.enabler/76-node-state-derivation.enabler`.
 - [ ] Move/rewrite status-determination assertions into current spec-tree state derivation.
-- [ ] Create or rewrite `23-spec-tree.enabler/87-spec-tree-projection.enabler`.
+- [x] Create or rewrite `23-spec-tree.enabler/87-spec-tree-projection.enabler`.
 - [ ] Move/rewrite reusable output shape assertions into spec-tree projections.
-- [ ] Create or rewrite `22-test-environment.enabler/32-spec-tree-fixtures.enabler`.
+- [x] Create or rewrite `22-test-environment.enabler/32-spec-tree-fixtures.enabler`.
 - [ ] Move/rewrite test-harness, fixture-generator, and fixture-writer content into test environment.
 - [ ] Create or rewrite `31-spec-domain.enabler/32-spec-cli-rendering.enabler`.
 - [ ] Move/rewrite terminal-oriented formatting assertions into spec CLI rendering.
@@ -305,8 +305,8 @@ Each parent is classified only after reading its immediate children. File moves 
 
 ### 7. Final Verification
 
-- [ ] Run `spx validation all`.
-- [ ] Run the relevant co-located tests for `16-config.enabler`, `22-test-environment.enabler`, `23-spec-tree.enabler`, and `31-spec-domain.enabler`.
+- [x] Run `spx validation all`.
+- [x] Run the relevant co-located tests for `16-config.enabler`, `22-test-environment.enabler`, `23-spec-tree.enabler`, and `31-spec-domain.enabler`.
 - [ ] Run any E2E tests moved from `21-core-cli.capability`.
 - [ ] Update `spx/ISSUES.md` with any remaining root-level structural debt.
 - [ ] Confirm no `.capability`, `.feature`, or `.story` paths remain under migrated content.
