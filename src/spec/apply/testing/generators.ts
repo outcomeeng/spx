@@ -7,9 +7,9 @@ import fc from "fast-check";
 
 import { NODE_SUFFIXES } from "../exclude/constants";
 
-/** Valid BSP range for node indices */
-const MIN_BSP = 10;
-const MAX_BSP = 99;
+/** Valid range for spec-tree node order indices */
+const MIN_SPEC_ORDER = 10;
+const MAX_SPEC_ORDER = 99;
 
 /** Characters valid in a node slug (lowercase letters and hyphens) */
 const SLUG_CHARS = "abcdefghijklmnopqrstuvwxyz-";
@@ -47,8 +47,8 @@ export function arbitrarySuffix(): fc.Arbitrary<string> {
  * spx/EXCLUDE do not include trailing slashes per segment.
  */
 export function arbitraryNodeSegment(): fc.Arbitrary<string> {
-  return fc.tuple(fc.integer({ min: MIN_BSP, max: MAX_BSP }), arbitrarySlug(), arbitrarySuffix()).map(
-    ([bsp, slug, suffix]) => `${bsp}-${slug}${suffix.replace(/\/$/, "")}`,
+  return fc.tuple(fc.integer({ min: MIN_SPEC_ORDER, max: MAX_SPEC_ORDER }), arbitrarySlug(), arbitrarySuffix()).map(
+    ([order, slug, suffix]) => `${order}-${slug}${suffix.replace(/\/$/, "")}`,
   );
 }
 

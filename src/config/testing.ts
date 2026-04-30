@@ -39,7 +39,9 @@ export type GeneratedKindOverride = {
   readonly kind: string;
   readonly definition: {
     readonly category: SpecTreeKindCategory;
+    readonly label: string;
     readonly suffix: string;
+    readonly aliases: readonly string[];
   };
 };
 
@@ -131,7 +133,9 @@ function arbitraryKindOverride(category: SpecTreeKindCategory): fc.Arbitrary<Gen
       kind,
       definition: {
         category,
+        label: kind,
         suffix: `.${kind}`,
+        aliases: [],
       },
     }));
 }

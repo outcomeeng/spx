@@ -13,7 +13,7 @@ describe("suffix uniqueness", () => {
     expect(new Set(suffixes).size).toBe(suffixes.length);
   });
 
-  it("no two kinds — regardless of category — share a suffix", () => {
+  it("no two kinds share a suffix across categories", () => {
     const suffixes = (NODE_KINDS as readonly string[])
       .map((kind) => KIND_REGISTRY[kind as keyof typeof KIND_REGISTRY].suffix)
       .concat(

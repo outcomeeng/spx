@@ -1,5 +1,8 @@
-import type { DecisionKind, KindDefinition, NodeKind } from "@/spec/config";
-import { KIND_REGISTRY, SPEC_TREE_KIND_CATEGORY } from "@/spec/config";
+import { readdir, readFile } from "node:fs/promises";
+import { join } from "node:path";
+
+import type { DecisionKind, Kind, KindDefinition, NodeKind, SpecTreeKindCategory } from "@/spec/config";
+import { KIND_REGISTRY, SPEC_TREE_CONFIG, SPEC_TREE_KIND_CATEGORY } from "@/spec/config";
 
 const SPEC_TREE_FIELD_KEY = {
   VERSION: "version",
@@ -23,6 +26,14 @@ export const SPEC_TREE_ENTRY_TYPE = {
 } as const;
 
 export type SpecTreeEntryType = (typeof SPEC_TREE_ENTRY_TYPE)[keyof typeof SPEC_TREE_ENTRY_TYPE];
+
+export const SPEC_TREE_FILESYSTEM_RECORD_TYPE = {
+  DIRECTORY: "directory",
+  FILE: "file",
+} as const;
+
+export type SpecTreeFilesystemRecordType =
+  (typeof SPEC_TREE_FILESYSTEM_RECORD_TYPE)[keyof typeof SPEC_TREE_FILESYSTEM_RECORD_TYPE];
 
 export const SPEC_TREE_NODE_STATE = {
   DECLARED: "declared",
@@ -132,6 +143,20 @@ export type SpecTreeSource = {
   readText?(ref: SpecTreeSourceRef): Promise<string>;
 };
 
+export type SpecTreeFilesystemRecord = {
+  readonly type: SpecTreeFilesystemRecordType;
+  readonly relativePath: string;
+  readonly parentId?: string;
+};
+
+export type SpecTreePathInclusionPredicate = (path: string) => boolean | Promise<boolean>;
+
+export type FilesystemSpecTreeSourceOptions = {
+  readonly projectRoot: string;
+  readonly registry?: SpecTreeRegistry;
+  readonly includePath?: SpecTreePathInclusionPredicate;
+};
+
 export type SpecTreeEvidenceProvider = {
   stateForNode?(
     node: SpecTreeNodeSourceEntry,
@@ -221,12 +246,83 @@ type OrderedEntry = {
 };
 
 const ORDER_COMPARISON_EQUAL = 0;
+const SPEC_TREE_PATH_SEPARATOR = "/";
+const SPEC_TREE_ORDER_SEPARATOR = "-";
+const SPEC_TREE_ORDER_RADIX = 10;
+const SPEC_TREE_TEXT_ENCODING = "utf8";
+const SPEC_TREE_EMPTY_RELATIVE_PATH = "";
+const SPEC_TREE_ORDER_PATTERN = /^\d+$/;
 
 export function getKindDefinition<K extends keyof SpecTreeRegistry>(
   kind: K,
   registry: SpecTreeRegistry = KIND_REGISTRY,
 ): KindDefinition<K> {
   return registry[kind];
+}
+
+export function createFilesystemSpecTreeSource(options: FilesystemSpecTreeSourceOptions): SpecTreeSource {
+  const registry = options.registry ?? KIND_REGISTRY;
+  const includePath = options.includePath ?? includeEverySpecTreePath;
+
+  return {
+    entries: () => readFilesystemSourceEntries(options.projectRoot, registry, includePath),
+    async readText(ref: SpecTreeSourceRef): Promise<string> {
+      if (ref.path === undefined) {
+        throw new Error("Filesystem source refs require a path");
+      }
+      return readFile(join(options.projectRoot, ref.path), SPEC_TREE_TEXT_ENCODING);
+    },
+  };
+}
+
+export function recognizeSpecTreeFilesystemEntry(
+  record: SpecTreeFilesystemRecord,
+  registry: SpecTreeRegistry = KIND_REGISTRY,
+): SpecTreeSourceEntry | null {
+  const name = readLastPathSegment(record.relativePath);
+
+  if (record.type === SPEC_TREE_FILESYSTEM_RECORD_TYPE.FILE && isProductFile(record.relativePath)) {
+    return {
+      type: SPEC_TREE_ENTRY_TYPE.PRODUCT,
+      id: record.relativePath,
+      title: stripSuffix(name, SPEC_TREE_CONFIG.PRODUCT.SUFFIX),
+      ref: sourceRefForRelativePath(record.relativePath),
+    };
+  }
+
+  if (record.type === SPEC_TREE_FILESYSTEM_RECORD_TYPE.DIRECTORY) {
+    const nodeMatch = matchKindSuffix(name, registry, SPEC_TREE_KIND_CATEGORY.NODE);
+    if (nodeMatch === null) return null;
+    const parsed = parseOrderedSlug(stripSuffix(name, nodeMatch.definition.suffix));
+    if (parsed === null) return null;
+    return {
+      type: SPEC_TREE_ENTRY_TYPE.NODE,
+      kind: nodeMatch.kind as NodeKind,
+      id: record.relativePath,
+      order: parsed.order,
+      slug: parsed.slug,
+      parentId: record.parentId,
+      ref: sourceRefForNode(record.relativePath, parsed.slug),
+    };
+  }
+
+  if (record.type === SPEC_TREE_FILESYSTEM_RECORD_TYPE.FILE) {
+    const decisionMatch = matchKindSuffix(name, registry, SPEC_TREE_KIND_CATEGORY.DECISION);
+    if (decisionMatch === null) return null;
+    const parsed = parseOrderedSlug(stripSuffix(name, decisionMatch.definition.suffix));
+    if (parsed === null) return null;
+    return {
+      type: SPEC_TREE_ENTRY_TYPE.DECISION,
+      kind: decisionMatch.kind as DecisionKind,
+      id: record.relativePath,
+      order: parsed.order,
+      slug: parsed.slug,
+      parentId: record.parentId,
+      ref: sourceRefForRelativePath(record.relativePath),
+    };
+  }
+
+  return null;
 }
 
 export async function readSpecTree(options: SpecTreeOptions): Promise<SpecTreeSnapshot> {
@@ -415,4 +511,135 @@ function compareOrderedEntries(left: OrderedEntry, right: OrderedEntry): number 
   const orderComparison = left.order - right.order;
   if (orderComparison !== ORDER_COMPARISON_EQUAL) return orderComparison;
   return left.id.localeCompare(right.id);
+}
+
+async function* readFilesystemSourceEntries(
+  projectRoot: string,
+  registry: SpecTreeRegistry,
+  includePath: SpecTreePathInclusionPredicate,
+): AsyncIterable<SpecTreeSourceEntry> {
+  yield* walkFilesystemDirectory({
+    absolutePath: join(projectRoot, SPEC_TREE_CONFIG.ROOT_DIRECTORY),
+    relativePath: SPEC_TREE_EMPTY_RELATIVE_PATH,
+    registry,
+    includePath,
+  });
+}
+
+type FilesystemWalkContext = {
+  readonly absolutePath: string;
+  readonly relativePath: string;
+  readonly registry: SpecTreeRegistry;
+  readonly includePath: SpecTreePathInclusionPredicate;
+  readonly parentId?: string;
+};
+
+async function* walkFilesystemDirectory(context: FilesystemWalkContext): AsyncIterable<SpecTreeSourceEntry> {
+  let entries;
+  try {
+    entries = await readdir(context.absolutePath, { withFileTypes: true });
+  } catch (error) {
+    if (isFileNotFound(error)) return;
+    throw error;
+  }
+
+  const sortedEntries = [...entries].sort((left, right) => left.name.localeCompare(right.name));
+  for (const entry of sortedEntries) {
+    const relativePath = joinSpecTreePath(context.relativePath, entry.name);
+    const refPath = joinSpecTreePath(SPEC_TREE_CONFIG.ROOT_DIRECTORY, relativePath);
+    if (!await context.includePath(refPath)) continue;
+
+    const recordType = entry.isDirectory()
+      ? SPEC_TREE_FILESYSTEM_RECORD_TYPE.DIRECTORY
+      : entry.isFile()
+      ? SPEC_TREE_FILESYSTEM_RECORD_TYPE.FILE
+      : undefined;
+    if (recordType === undefined) continue;
+
+    const sourceEntry = recognizeSpecTreeFilesystemEntry(
+      { type: recordType, relativePath, parentId: context.parentId },
+      context.registry,
+    );
+    if (sourceEntry !== null) yield sourceEntry;
+
+    if (entry.isDirectory()) {
+      yield* walkFilesystemDirectory({
+        absolutePath: join(context.absolutePath, entry.name),
+        relativePath,
+        registry: context.registry,
+        includePath: context.includePath,
+        parentId: sourceEntry?.type === SPEC_TREE_ENTRY_TYPE.NODE ? sourceEntry.id : context.parentId,
+      });
+    }
+  }
+}
+
+type KindSuffixMatch = {
+  readonly kind: string;
+  readonly definition: KindDefinition<Kind>;
+};
+
+function matchKindSuffix(
+  name: string,
+  registry: SpecTreeRegistry,
+  category: SpecTreeKindCategory,
+): KindSuffixMatch | null {
+  for (const [kind, definition] of Object.entries(registry) as Array<[Kind, KindDefinition<Kind>]>) {
+    if (definition.category === category && name.endsWith(definition.suffix)) {
+      return { kind, definition };
+    }
+  }
+  return null;
+}
+
+type OrderedSlug = {
+  readonly order: number;
+  readonly slug: string;
+};
+
+function parseOrderedSlug(value: string): OrderedSlug | null {
+  const separatorIndex = value.indexOf(SPEC_TREE_ORDER_SEPARATOR);
+  if (separatorIndex <= ORDER_COMPARISON_EQUAL) return null;
+  const orderText = value.slice(0, separatorIndex);
+  if (!SPEC_TREE_ORDER_PATTERN.test(orderText)) return null;
+  const slug = value.slice(separatorIndex + SPEC_TREE_ORDER_SEPARATOR.length);
+  if (slug.length === 0) return null;
+  return {
+    order: Number.parseInt(orderText, SPEC_TREE_ORDER_RADIX),
+    slug,
+  };
+}
+
+function isProductFile(relativePath: string): boolean {
+  return !relativePath.includes(SPEC_TREE_PATH_SEPARATOR) && relativePath.endsWith(SPEC_TREE_CONFIG.PRODUCT.SUFFIX);
+}
+
+function sourceRefForRelativePath(relativePath: string): SpecTreeSourceRef {
+  const path = joinSpecTreePath(SPEC_TREE_CONFIG.ROOT_DIRECTORY, relativePath);
+  return { id: path, path };
+}
+
+function sourceRefForNode(relativePath: string, slug: string): SpecTreeSourceRef {
+  return sourceRefForRelativePath(joinSpecTreePath(relativePath, `${slug}.md`));
+}
+
+function stripSuffix(value: string, suffix: string): string {
+  return value.slice(0, value.length - suffix.length);
+}
+
+function readLastPathSegment(relativePath: string): string {
+  const segments = relativePath.split(SPEC_TREE_PATH_SEPARATOR);
+  return segments[segments.length - 1] ?? relativePath;
+}
+
+function joinSpecTreePath(...segments: readonly string[]): string {
+  return segments.filter((segment) => segment.length > 0).join(SPEC_TREE_PATH_SEPARATOR);
+}
+
+function includeEverySpecTreePath(): boolean {
+  return true;
+}
+
+function isFileNotFound(error: unknown): boolean {
+  return error instanceof Error && "code" in error && (error as NodeJS.ErrnoException).code === "ENOENT";
 }

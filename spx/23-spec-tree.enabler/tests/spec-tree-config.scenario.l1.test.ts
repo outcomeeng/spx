@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { type Kind, KIND_REGISTRY, SPEC_TREE_SECTION, specTreeConfigDescriptor } from "@/spec/config";
+import { type Kind, KIND_REGISTRY, SPEC_TREE_CONFIG, SPEC_TREE_SECTION, specTreeConfigDescriptor } from "@/spec/config";
 
 describe("specTreeConfigDescriptor.section", () => {
   it("names the spec-tree section of spx.config.yaml", () => {
@@ -15,7 +15,7 @@ describe("specTreeConfigDescriptor.defaults", () => {
     expect(defaultKinds.sort()).toEqual(registryKinds.sort());
   });
 
-  it("carries the full definition — category and suffix — for each default kind", () => {
+  it("carries the full definition for each default kind", () => {
     for (const kind of Object.keys(KIND_REGISTRY) as Kind[]) {
       expect(specTreeConfigDescriptor.defaults.kinds[kind]).toEqual(KIND_REGISTRY[kind]);
     }
@@ -23,6 +23,16 @@ describe("specTreeConfigDescriptor.defaults", () => {
 });
 
 describe("specTreeConfigDescriptor.validate", () => {
+  it("rejects a yaml section keyed by display label instead of kind name", () => {
+    const result = specTreeConfigDescriptor.validate({
+      kinds: {
+        [SPEC_TREE_CONFIG.KINDS.enabler.label]: KIND_REGISTRY.enabler,
+      },
+    });
+
+    expect(result.ok).toBe(false);
+  });
+
   it("accepts a yaml section that selects a subset of registered kinds", () => {
     const result = specTreeConfigDescriptor.validate({
       kinds: { enabler: KIND_REGISTRY.enabler, adr: KIND_REGISTRY.adr },
@@ -53,7 +63,7 @@ describe("specTreeConfigDescriptor.validate", () => {
     expect(result.ok).toBe(false);
   });
 
-  it("accepts the defaults round-trip — defaults validate cleanly", () => {
+  it("accepts the defaults round-trip; defaults validate cleanly", () => {
     const result = specTreeConfigDescriptor.validate(specTreeConfigDescriptor.defaults);
 
     expect(result.ok).toBe(true);

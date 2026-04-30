@@ -55,4 +55,24 @@ describe("node state derivation", () => {
       expect(snapshot.nodes[0]?.state).toBe(expected);
     }
   });
+
+  it("allows an injected evidence provider to own backend-specific state", async () => {
+    const fixture = buildRepresentativeFixture(KIND_REGISTRY);
+    const snapshot = await readSpecTree({
+      source: createSource([
+        buildNodeEntry(KIND_REGISTRY, {
+          id: fixture.root.id,
+          order: fixture.root.order,
+          slug: fixture.root.slug,
+        }),
+      ]),
+      evidence: {
+        stateForNode() {
+          return SPEC_TREE_NODE_STATE.PASSING;
+        },
+      },
+    });
+
+    expect(snapshot.nodes[0]?.state).toBe(SPEC_TREE_NODE_STATE.PASSING);
+  });
 });

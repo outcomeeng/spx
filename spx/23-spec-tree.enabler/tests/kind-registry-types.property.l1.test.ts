@@ -12,7 +12,7 @@ import {
 } from "@/spec/config";
 
 describe("types match values", () => {
-  it("Kind is the union of KIND_REGISTRY's keys — enumerable at the type level", () => {
+  it("Kind is the union of KIND_REGISTRY's keys and is enumerable at the type level", () => {
     expectTypeOf<Kind>().toEqualTypeOf<keyof typeof KIND_REGISTRY>();
   });
 
@@ -24,7 +24,7 @@ describe("types match values", () => {
     expectTypeOf<DecisionKind>().toExtend<Kind>();
   });
 
-  it("NodeKind and DecisionKind together equal Kind — no kind escapes categorization", () => {
+  it("NodeKind and DecisionKind together equal Kind; every kind is categorized", () => {
     expectTypeOf<NodeKind | DecisionKind>().toEqualTypeOf<Kind>();
   });
 
