@@ -3,8 +3,8 @@ import { existsSync } from "node:fs";
 import * as fc from "fast-check";
 import { describe, expect, it } from "vitest";
 
-import { withTestEnv } from "@/spec/testing/index";
-import type { Config } from "@/spec/testing/index";
+import type { Config } from "@testing/harnesses/spec-tree/spec-tree";
+import { withTestEnv } from "@testing/harnesses/spec-tree/spec-tree";
 
 const MINIMAL_CONFIG: Config = {
   specTree: {

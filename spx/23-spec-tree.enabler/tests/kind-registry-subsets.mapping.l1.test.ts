@@ -8,7 +8,7 @@ import {
   NODE_KINDS,
   NODE_SUFFIXES,
   SPEC_TREE_KIND_CATEGORY,
-} from "@/spec/config";
+} from "@/lib/spec-tree/config";
 
 describe("NODE_KINDS", () => {
   it("includes exactly the kinds whose category is node", () => {

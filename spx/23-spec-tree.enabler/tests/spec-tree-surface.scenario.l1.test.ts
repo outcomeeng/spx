@@ -1,8 +1,8 @@
 import { describe, expect, it } from "vitest";
 
-import { readSpecTree, SPEC_TREE_NODE_STATE } from "@/spec-tree";
-import { KIND_REGISTRY } from "@/spec/config";
-import { buildRepresentativeFixture, createSource } from "@testing/generators/spec-tree";
+import { readSpecTree, SPEC_TREE_NODE_STATE } from "@/lib/spec-tree";
+import { KIND_REGISTRY } from "@/lib/spec-tree/config";
+import { buildRepresentativeFixture, createSource } from "@testing/generators/spec-tree/spec-tree";
 
 describe("readSpecTree stable surface", () => {
   it("returns a snapshot with recognized entries, hierarchy, decisions, sorting, and derived states", async () => {

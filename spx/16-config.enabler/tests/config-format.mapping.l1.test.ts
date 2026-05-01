@@ -13,9 +13,9 @@ import {
   serializeConfigFileSections,
   serializeConfigFileSectionsWithSetIn,
 } from "@/config/index";
-import { KIND_REGISTRY, specTreeConfigDescriptor } from "@/spec/config";
-import { withTestEnv } from "@/spec/testing/index";
-import type { Config } from "@/spec/testing/index";
+import { KIND_REGISTRY, specTreeConfigDescriptor } from "@/lib/spec-tree/config";
+import type { Config } from "@testing/harnesses/spec-tree/spec-tree";
+import { withTestEnv } from "@testing/harnesses/spec-tree/spec-tree";
 
 const EQUIV_CONFIG: Config = {
   [specTreeConfigDescriptor.section]: { kinds: { pdr: KIND_REGISTRY.pdr } },

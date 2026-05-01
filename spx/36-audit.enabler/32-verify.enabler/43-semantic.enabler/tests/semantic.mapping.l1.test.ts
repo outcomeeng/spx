@@ -14,11 +14,9 @@
  *   6. Any SKIPPED, no FAIL + APPROVED → "incoherent verdict"
  */
 
+import { AuditGate, AuditVerdict, AuditVerdictHeader } from "@/domains/audit/reader";
+import { validateSemantics } from "@/domains/audit/semantic";
 import { describe, expect, it } from "vitest";
-
-import type { AuditGate, AuditVerdict, AuditVerdictHeader } from "@/audit/reader";
-import { validateSemantics } from "@/audit/semantic";
-
 const DEFECT_INCOHERENT_VERDICT = "incoherent verdict";
 
 const APPROVED_HEADER: AuditVerdictHeader = {

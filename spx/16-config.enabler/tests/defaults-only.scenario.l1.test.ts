@@ -4,9 +4,9 @@ import { join } from "node:path";
 import { describe, expect, it } from "vitest";
 
 import { DEFAULT_CONFIG_FILENAME, resolveConfig } from "@/config/index";
-import { KIND_REGISTRY, specTreeConfigDescriptor } from "@/spec/config";
-import { withTestEnv } from "@/spec/testing/index";
-import type { Config } from "@/spec/testing/index";
+import { KIND_REGISTRY, specTreeConfigDescriptor } from "@/lib/spec-tree/config";
+import type { Config } from "@testing/harnesses/spec-tree/spec-tree";
+import { withTestEnv } from "@testing/harnesses/spec-tree/spec-tree";
 
 const EMPTY_CONFIG: Config = {};
 

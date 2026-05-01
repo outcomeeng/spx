@@ -18,8 +18,8 @@ import { CIRCULAR_DEPENDENCY_OUTPUT } from "@/commands/validation/circular";
 import { VALIDATION_SUMMARY_STATUS } from "@/commands/validation/format";
 import { allValidationCliOptions } from "@/domains/validation";
 import { TSCONFIG_FILES } from "@/validation/config/scope";
-import { CLI_PATH } from "@test/harness/constants";
-import { FIXTURES, withValidationEnv } from "@test/harness/with-validation-env";
+import { CLI_PATH } from "@testing/harnesses/constants";
+import { PROJECT_FIXTURES, withValidationEnv } from "@testing/harnesses/with-validation-env";
 
 const EXIT_SUCCESS = 0;
 const EXIT_FAILURE = 1;
@@ -45,7 +45,7 @@ describe("spx validation all — pipeline composition (Scenarios)", () => {
     "S1 GIVEN a clean project WHEN running all THEN every step passes and the pipeline exits 0",
     { timeout: ALL_TIMEOUT_MS },
     async () => {
-      await withValidationEnv({ fixture: FIXTURES.CLEAN_PROJECT }, async ({ path }) => {
+      await withValidationEnv({ fixture: PROJECT_FIXTURES.CLEAN_PROJECT }, async ({ path }) => {
         const result = await execa("node", [CLI_PATH, "validation", "all"], {
           cwd: path,
           reject: false,
@@ -61,7 +61,7 @@ describe("spx validation all — pipeline composition (Scenarios)", () => {
     "S2 GIVEN a fixture that triggers a pipeline failure WHEN running all THEN the failure output identifies the step that failed",
     { timeout: ALL_TIMEOUT_MS },
     async () => {
-      await withValidationEnv({ fixture: FIXTURES.WITH_CIRCULAR_DEPS }, async ({ path }) => {
+      await withValidationEnv({ fixture: PROJECT_FIXTURES.WITH_CIRCULAR_DEPS }, async ({ path }) => {
         const result = await execa("node", [CLI_PATH, "validation", "all"], {
           cwd: path,
           reject: false,
@@ -78,7 +78,7 @@ describe("spx validation all — pipeline composition (Scenarios)", () => {
     "S3 GIVEN --scope production WHEN running all THEN the pipeline accepts the scope and runs every step in sequence",
     { timeout: ALL_TIMEOUT_MS },
     async () => {
-      await withValidationEnv({ fixture: FIXTURES.CLEAN_PROJECT }, async ({ path }) => {
+      await withValidationEnv({ fixture: PROJECT_FIXTURES.CLEAN_PROJECT }, async ({ path }) => {
         const result = await execa(
           "node",
           [CLI_PATH, "validation", "all", "--scope", "production"],
@@ -96,7 +96,7 @@ describe("spx validation all — pipeline composition (Scenarios)", () => {
     "S4 GIVEN --files pointing at a source file that exists WHEN running all THEN the pipeline accepts the filter and runs every step in sequence",
     { timeout: ALL_TIMEOUT_MS },
     async () => {
-      await withValidationEnv({ fixture: FIXTURES.CLEAN_PROJECT }, async ({ path }) => {
+      await withValidationEnv({ fixture: PROJECT_FIXTURES.CLEAN_PROJECT }, async ({ path }) => {
         const targetFile = join(path, "src", "clean.ts");
 
         const result = await execa(
@@ -116,7 +116,7 @@ describe("spx validation all — pipeline composition (Scenarios)", () => {
     "S5 GIVEN a multi-step pipeline WHEN running all THEN each step's completion line appears before the next step's line in output order",
     { timeout: ALL_TIMEOUT_MS },
     async () => {
-      await withValidationEnv({ fixture: FIXTURES.CLEAN_PROJECT }, async ({ path }) => {
+      await withValidationEnv({ fixture: PROJECT_FIXTURES.CLEAN_PROJECT }, async ({ path }) => {
         const result = await execa("node", [CLI_PATH, "validation", "all"], {
           cwd: path,
           reject: false,
@@ -134,7 +134,7 @@ describe("spx validation all — pipeline composition (Scenarios)", () => {
     "S6 GIVEN --skip-literal WHEN running all THEN literal detection is skipped and quiet suppresses the skip notice",
     { timeout: ALL_TIMEOUT_MS },
     async () => {
-      await withValidationEnv({ fixture: FIXTURES.CLEAN_PROJECT }, async ({ path }) => {
+      await withValidationEnv({ fixture: PROJECT_FIXTURES.CLEAN_PROJECT }, async ({ path }) => {
         const srcDir = join(path, "src");
         const testDir = join(path, "spx", "21-literal-skip.enabler", "tests");
         await mkdir(srcDir, { recursive: true });
@@ -236,7 +236,7 @@ describe("spx validation all — pipeline composition (Compliance)", () => {
     "C1 GIVEN a fixture whose first step fails WHEN running all THEN subsequent steps still execute (no short-circuit)",
     { timeout: ALL_TIMEOUT_MS },
     async () => {
-      await withValidationEnv({ fixture: FIXTURES.WITH_CIRCULAR_DEPS }, async ({ path }) => {
+      await withValidationEnv({ fixture: PROJECT_FIXTURES.WITH_CIRCULAR_DEPS }, async ({ path }) => {
         const result = await execa("node", [CLI_PATH, "validation", "all"], {
           cwd: path,
           reject: false,
@@ -256,7 +256,7 @@ describe("spx validation all — pipeline composition (Compliance)", () => {
     "C2 GIVEN any step failure WHEN running all THEN the pipeline exit code is non-zero",
     { timeout: ALL_TIMEOUT_MS },
     async () => {
-      await withValidationEnv({ fixture: FIXTURES.WITH_TYPE_ERRORS }, async ({ path }) => {
+      await withValidationEnv({ fixture: PROJECT_FIXTURES.WITH_TYPE_ERRORS }, async ({ path }) => {
         const result = await execa("node", [CLI_PATH, "validation", "all"], {
           cwd: path,
           reject: false,
@@ -271,7 +271,7 @@ describe("spx validation all — pipeline composition (Compliance)", () => {
     "C3 GIVEN a full pipeline run WHEN inspecting output THEN every step line carries its own duration annotation",
     { timeout: ALL_TIMEOUT_MS },
     async () => {
-      await withValidationEnv({ fixture: FIXTURES.CLEAN_PROJECT }, async ({ path }) => {
+      await withValidationEnv({ fixture: PROJECT_FIXTURES.CLEAN_PROJECT }, async ({ path }) => {
         const result = await execa("node", [CLI_PATH, "validation", "all"], {
           cwd: path,
           reject: false,
@@ -292,7 +292,7 @@ describe("spx validation all — pipeline composition (Properties)", () => {
     "P1 GIVEN the same fixture WHEN running all twice THEN both runs produce identical pass/fail verdicts",
     { timeout: ALL_TIMEOUT_MS * 2 },
     async () => {
-      await withValidationEnv({ fixture: FIXTURES.CLEAN_PROJECT }, async ({ path }) => {
+      await withValidationEnv({ fixture: PROJECT_FIXTURES.CLEAN_PROJECT }, async ({ path }) => {
         const first = await execa("node", [CLI_PATH, "validation", "all"], {
           cwd: path,
           reject: false,
@@ -314,7 +314,7 @@ describe("spx validation all — pipeline composition (Properties)", () => {
     "P2 GIVEN a step that fails in one run and passes in another WHEN inspecting other steps' verdicts THEN other steps' verdicts are unchanged (additivity)",
     { timeout: ALL_TIMEOUT_MS * 2 },
     async () => {
-      await withValidationEnv({ fixture: FIXTURES.WITH_TYPE_ERRORS }, async ({ path }) => {
+      await withValidationEnv({ fixture: PROJECT_FIXTURES.WITH_TYPE_ERRORS }, async ({ path }) => {
         const withFailure = await execa("node", [CLI_PATH, "validation", "all"], {
           cwd: path,
           reject: false,

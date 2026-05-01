@@ -1,5 +1,5 @@
-import { buildTree, type TreeBuildDeps } from "@/tree/build";
-import { WORK_ITEM_KINDS, WORK_ITEM_STATUSES, type WorkItem } from "@/types";
+import { buildTree, TreeBuildDeps } from "@/lib/spec-legacy/tree/build";
+import { WORK_ITEM_KINDS, WORK_ITEM_STATUSES, type WorkItem } from "@/lib/spec-legacy/types";
 import { describe, expect, it } from "vitest";
 
 /**

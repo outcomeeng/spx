@@ -2,9 +2,9 @@ import { describe, expect, it } from "vitest";
 
 import { resolveConfig } from "@/config/index";
 import { CONFIG_TEST_GENERATOR, sampleConfigTestValue } from "@/config/testing";
-import { specTreeConfigDescriptor } from "@/spec/config";
-import { withTestEnv } from "@/spec/testing/index";
-import type { Config } from "@/spec/testing/index";
+import { specTreeConfigDescriptor } from "@/lib/spec-tree/config";
+import type { Config } from "@testing/harnesses/spec-tree/spec-tree";
+import { withTestEnv } from "@testing/harnesses/spec-tree/spec-tree";
 
 describe("resolveConfig — registry extension", () => {
   it("exposes a newly registered descriptor's section alongside existing ones, with no change to other descriptors", async () => {

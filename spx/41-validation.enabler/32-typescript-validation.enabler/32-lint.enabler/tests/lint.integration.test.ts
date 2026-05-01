@@ -11,8 +11,8 @@
 import { execa } from "execa";
 import { describe, expect, it } from "vitest";
 
-import { CLI_PATH } from "@test/harness/constants";
-import { FIXTURES, HARNESS_TIMEOUT, withValidationEnv } from "@test/harness/with-validation-env";
+import { CLI_PATH } from "@testing/harnesses/constants";
+import { HARNESS_TIMEOUT, PROJECT_FIXTURES, withValidationEnv } from "@testing/harnesses/with-validation-env";
 
 const EXIT_SUCCESS = 0;
 const NPX_INSTALL_PROMPT = "Need to install the following packages";
@@ -26,7 +26,7 @@ describe("spx validation lint — language-gated execution", () => {
     "GIVEN a TypeScript fixture with eslint.config.ts WHEN running lint THEN ESLint executes",
     { timeout: HARNESS_TIMEOUT },
     async () => {
-      await withValidationEnv({ fixture: FIXTURES.CLEAN_PROJECT }, async ({ path }) => {
+      await withValidationEnv({ fixture: PROJECT_FIXTURES.CLEAN_PROJECT }, async ({ path }) => {
         const result = await execa("node", [CLI_PATH, "validation", "lint"], {
           cwd: path,
           reject: false,
@@ -44,7 +44,7 @@ describe("spx validation lint — language-gated execution", () => {
     "GIVEN a Python fixture WHEN running lint THEN ESLint does not execute and no install prompt appears",
     { timeout: HARNESS_TIMEOUT },
     async () => {
-      await withValidationEnv({ fixture: FIXTURES.PYTHON_PROJECT }, async ({ path }) => {
+      await withValidationEnv({ fixture: PROJECT_FIXTURES.PYTHON_PROJECT }, async ({ path }) => {
         const result = await execa("node", [CLI_PATH, "validation", "lint"], {
           cwd: path,
           reject: false,
@@ -62,7 +62,7 @@ describe("spx validation lint — language-gated execution", () => {
     "GIVEN a bare fixture with no language markers WHEN running lint THEN ESLint does not execute",
     { timeout: HARNESS_TIMEOUT },
     async () => {
-      await withValidationEnv({ fixture: FIXTURES.BARE_PROJECT }, async ({ path }) => {
+      await withValidationEnv({ fixture: PROJECT_FIXTURES.BARE_PROJECT }, async ({ path }) => {
         const result = await execa("node", [CLI_PATH, "validation", "lint"], {
           cwd: path,
           reject: false,
@@ -80,7 +80,7 @@ describe("spx validation lint — language-gated execution", () => {
     "GIVEN TypeScript present but no ESLint flat config WHEN running lint THEN reports missing config error",
     { timeout: HARNESS_TIMEOUT },
     async () => {
-      await withValidationEnv({ fixture: FIXTURES.TYPESCRIPT_NO_ESLINT }, async ({ path }) => {
+      await withValidationEnv({ fixture: PROJECT_FIXTURES.TYPESCRIPT_NO_ESLINT }, async ({ path }) => {
         const result = await execa("node", [CLI_PATH, "validation", "lint"], {
           cwd: path,
           reject: false,

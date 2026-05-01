@@ -11,7 +11,7 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { describe, expect, it } from "vitest";
 
-import { CLI_PATH, VERSION_FLAG } from "@test/harness/constants";
+import { CLI_PATH, VERSION_FLAG } from "@testing/harnesses/constants";
 
 describe("E2E: Error Scenarios", () => {
   describe("FR3: Error Handling", () => {

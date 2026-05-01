@@ -9,10 +9,9 @@
  * - S2: spx audit verify with defective verdict → exits 1, prints stage-prefixed defects
  */
 
+import { runVerifyCommand } from "@/domains/audit/cli";
+import { createAuditHarness } from "@testing/harnesses/audit/harness";
 import { describe, expect, it } from "vitest";
-
-import { runVerifyCommand } from "@/audit/cli";
-import { createAuditHarness } from "@/audit/testing/harness";
 
 const VALID_XML = `<audit_verdict>
   <header>

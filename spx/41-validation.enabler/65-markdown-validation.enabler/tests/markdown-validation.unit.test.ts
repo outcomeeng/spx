@@ -17,7 +17,11 @@ import {
   MARKDOWN_CUSTOM_RULE_NAMES,
   validateMarkdown,
 } from "@/validation/steps/markdown";
-import { MARKDOWN_FIXTURES, MARKDOWN_HARNESS_TIMEOUT, withMarkdownEnv } from "@test/harness/with-markdown-env";
+import {
+  MARKDOWN_FIXTURES,
+  MARKDOWN_HARNESS_TIMEOUT,
+  withMarkdownEnv,
+} from "@testing/harnesses/with-markdown-env";
 
 // =============================================================================
 // LINK VALIDATION — SCENARIOS (via fixture harness)

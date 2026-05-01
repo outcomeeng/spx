@@ -1,7 +1,7 @@
 import { DEFAULT_CONFIG } from "@/config/defaults";
-import { formatJSON } from "@/reporter/json";
-import { WORK_ITEM_KINDS } from "@/types";
-import { buildSimpleTree, buildTreeWithMixedStatus, buildTreeWithStories } from "@test/harness/tree-builder";
+import { formatJSON } from "@/lib/spec-legacy/reporter/json";
+import { WORK_ITEM_KINDS } from "@/lib/spec-legacy/types";
+import { buildSimpleTree, buildTreeWithMixedStatus, buildTreeWithStories } from "@testing/harnesses/tree-builder";
 import { describe, expect, it } from "vitest";
 
 describe("formatJSON", () => {

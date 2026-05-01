@@ -5,9 +5,9 @@
  *
  * @see story-43_e2e-validation.story.md
  */
-import { WORK_ITEM_KINDS } from "@/types";
-import { generateFixtureTree, PRESETS } from "@test/harness/fixture-generator";
-import { type MaterializedFixture, materializeFixture } from "@test/harness/fixture-writer";
+import { WORK_ITEM_KINDS } from "@/lib/spec-legacy/types";
+import { generateFixtureTree, PRESETS } from "@testing/harnesses/fixture-generator";
+import { type MaterializedFixture, materializeFixture } from "@testing/harnesses/fixture-writer";
 import { execa } from "execa";
 import { resolve } from "node:path";
 import { afterEach, describe, expect, it } from "vitest";

@@ -4,9 +4,9 @@ import * as fc from "fast-check";
 import { describe, expect, it } from "vitest";
 
 import { resolveConfig } from "@/config/index";
-import { KIND_REGISTRY, SPEC_TREE_KIND_CATEGORY, specTreeConfigDescriptor } from "@/spec/config";
-import { withTestEnv } from "@/spec/testing/index";
-import type { Config } from "@/spec/testing/index";
+import { KIND_REGISTRY, SPEC_TREE_KIND_CATEGORY, specTreeConfigDescriptor } from "@/lib/spec-tree/config";
+import type { Config } from "@testing/harnesses/spec-tree/spec-tree";
+import { withTestEnv } from "@testing/harnesses/spec-tree/spec-tree";
 
 const ENV_SENTINEL_KEY = "SPX_CONFIG_INVARIANT_PROBE";
 const ENV_SENTINEL_VALUE = "set-before-resolve";

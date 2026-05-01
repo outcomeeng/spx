@@ -7,11 +7,11 @@
 import { readdir, readFile, unlink } from "node:fs/promises";
 import { join } from "node:path";
 
+import { parseSessionMetadata } from "@/domains/session/list";
+import { DEFAULT_KEEP_COUNT, selectSessionsToDelete } from "@/domains/session/prune";
+import { SessionDirectoryConfig } from "@/domains/session/show";
+import { Session, SESSION_STATUSES, SessionStatus } from "@/domains/session/types";
 import { resolveSessionConfig } from "@/git/root";
-import { parseSessionMetadata } from "@/session/list";
-import { DEFAULT_KEEP_COUNT, selectSessionsToDelete } from "@/session/prune";
-import type { SessionDirectoryConfig } from "@/session/show";
-import { type Session, SESSION_STATUSES, type SessionStatus } from "@/session/types";
 
 export { DEFAULT_KEEP_COUNT };
 

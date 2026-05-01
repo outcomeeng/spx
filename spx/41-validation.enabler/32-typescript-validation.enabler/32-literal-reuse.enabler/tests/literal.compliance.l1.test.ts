@@ -1,8 +1,7 @@
 import { describe, expect, it } from "vitest";
 
 import { literalCommand } from "@/commands/validation/literal";
-import { SPEC_TREE_ENV_FIXTURE_WRITER_METHODS } from "@/spec/fixture-writer-methods";
-import { withTestEnv } from "@/spec/testing/index";
+import { SPEC_TREE_ENV_FIXTURE_WRITER_METHODS } from "@/domains/spec/fixture-writer-methods";
 import {
   collectLiterals,
   defaultVisitorKeys,
@@ -14,6 +13,7 @@ import {
   validateLiteralReuse,
   type VisitorKeysMap,
 } from "@/validation/literal/index";
+import { withTestEnv } from "@testing/harnesses/spec-tree/spec-tree";
 
 import {
   DETECTOR_OPTIONS_DEFAULTS,

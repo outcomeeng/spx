@@ -7,7 +7,6 @@ export default defineConfig({
     alias: {
       "@": `${root}/src`,
       "@root": root,
-      "@test": `${root}/tests`,
       "@testing": `${root}/testing`,
       "@scripts": `${root}/scripts`,
       "@eslint-rules": `${root}/eslint-rules`,
@@ -16,9 +15,8 @@ export default defineConfig({
   test: {
     globals: true,
     environment: "node",
-    include: ["tests/**/*.test.ts", "spx/**/*.test.ts", "specs/**/*.test.ts"],
-    // TODO: Make exclusion more fine-grained - only exclude fixture stubs, not actual tests in fixtures
-    exclude: ["**/node_modules/**", "**/dist/**", "tests/fixtures/**/*.test.ts"],
+    include: ["spx/**/*.test.ts", "specs/**/*.test.ts"],
+    exclude: ["**/node_modules/**", "**/dist/**", "testing/fixtures/**/*.test.ts"],
     // Integration/e2e tests spawn subprocesses; under full concurrency (130 files, forks pool) isolation runs of 4–9s can exceed 15s
     testTimeout: 30_000,
     // Use forks instead of threads for integration tests that need process.chdir()
@@ -26,14 +24,14 @@ export default defineConfig({
     coverage: {
       provider: "v8",
       reporter: ["text", "json", "html"],
-      include: ["src/**/*.ts", "scripts/**/*.ts", "tests/harness/**/*.ts"],
+      include: ["src/**/*.ts", "scripts/**/*.ts", "testing/harnesses/**/*.ts"],
       exclude: [
         "node_modules/",
         "dist/",
         "**/*.test.ts",
         "**/*.spec.ts",
         "**/*.config.ts",
-        "tests/fixtures/**/*",
+        "testing/fixtures/**/*",
       ],
     },
   },

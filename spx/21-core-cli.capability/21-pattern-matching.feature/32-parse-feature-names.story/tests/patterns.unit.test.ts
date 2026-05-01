@@ -2,8 +2,8 @@
  * Level 1: Pure function tests for feature pattern matching
  * Story: story-32_parse-feature-names
  */
-import { parseWorkItemName } from "@/scanner/patterns";
-import { WORK_ITEM_KINDS } from "@/types";
+import { parseWorkItemName } from "@/lib/spec-legacy/scanner/patterns";
+import { WORK_ITEM_KINDS } from "@/lib/spec-legacy/types";
 import { describe, expect, it } from "vitest";
 
 describe("parseWorkItemName - Features", () => {

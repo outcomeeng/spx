@@ -1,6 +1,5 @@
+import { SESSION_FRONT_MATTER_CLOSE, SESSION_FRONT_MATTER_OPEN } from "@/domains/session/create";
 import { parse as parseYaml } from "yaml";
-
-import { SESSION_FRONT_MATTER_CLOSE, SESSION_FRONT_MATTER_OPEN } from "@/session/create";
 
 export function parseFrontMatter(content: string): Record<string, unknown> {
   if (!content.startsWith(SESSION_FRONT_MATTER_OPEN)) return {};

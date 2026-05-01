@@ -17,7 +17,7 @@
 import fc from "fast-check";
 import { describe, expect, it } from "vitest";
 
-import { parseSessionMetadata } from "@/session/list";
+import { parseSessionMetadata } from "@/domains/session/list";
 
 describe("parseSessionMetadata — specs and files extraction (P1)", () => {
   it("GIVEN session with specs and files arrays WHEN parsed THEN both arrays extracted", () => {

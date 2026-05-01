@@ -2,9 +2,10 @@
  * Level 2: Integration tests for complete status determination
  * Story: story-54_status-edge-cases
  */
-import { getWorkItemStatus, StatusDeterminationError } from "@/status/state";
-import { WORK_ITEM_STATUSES } from "@/types";
-import { CLI_TIMEOUTS_MS, FIXTURES_ROOT } from "@test/harness/constants";
+import { getWorkItemStatus, StatusDeterminationError } from "@/lib/spec-legacy/status/state";
+import { WORK_ITEM_STATUSES } from "@/lib/spec-legacy/types";
+import { FIXTURES_PATHS } from "@testing/fixtures";
+import { CLI_TIMEOUTS_MS } from "@testing/harnesses/constants";
 import { join } from "path";
 import { describe, expect, it } from "vitest";
 
@@ -16,7 +17,7 @@ describe("getWorkItemStatus", () => {
 
   it("GIVEN work item with no tests dir WHEN getting status THEN returns OPEN", async () => {
     // Given
-    const workItemPath = join(FIXTURES_ROOT, "work-items/no-tests");
+    const workItemPath = join(FIXTURES_PATHS.SPEC_LEGACY, "work-items/no-tests");
 
     // When
     const status = await getWorkItemStatus(workItemPath);
@@ -27,7 +28,7 @@ describe("getWorkItemStatus", () => {
 
   it("GIVEN work item with tests but no DONE.md WHEN getting status THEN returns IN_PROGRESS", async () => {
     // Given
-    const workItemPath = join(FIXTURES_ROOT, "work-items/in-progress");
+    const workItemPath = join(FIXTURES_PATHS.SPEC_LEGACY, "work-items/in-progress");
 
     // When
     const status = await getWorkItemStatus(workItemPath);
@@ -38,7 +39,7 @@ describe("getWorkItemStatus", () => {
 
   it("GIVEN work item with DONE.md WHEN getting status THEN returns DONE", async () => {
     // Given
-    const workItemPath = join(FIXTURES_ROOT, "work-items/done-item");
+    const workItemPath = join(FIXTURES_PATHS.SPEC_LEGACY, "work-items/done-item");
 
     // When
     const status = await getWorkItemStatus(workItemPath);
@@ -49,7 +50,7 @@ describe("getWorkItemStatus", () => {
 
   it("GIVEN work item with empty tests dir WHEN getting status THEN returns OPEN", async () => {
     // Given
-    const workItemPath = join(FIXTURES_ROOT, "work-items/empty-tests");
+    const workItemPath = join(FIXTURES_PATHS.SPEC_LEGACY, "work-items/empty-tests");
 
     // When
     const status = await getWorkItemStatus(workItemPath);
@@ -60,7 +61,7 @@ describe("getWorkItemStatus", () => {
 
   it("GIVEN work item with only DONE.md WHEN getting status THEN returns DONE", async () => {
     // Given
-    const workItemPath = join(FIXTURES_ROOT, "work-items/only-done");
+    const workItemPath = join(FIXTURES_PATHS.SPEC_LEGACY, "work-items/only-done");
 
     // When
     const status = await getWorkItemStatus(workItemPath);
@@ -71,7 +72,7 @@ describe("getWorkItemStatus", () => {
 
   it("GIVEN work item with DONE.md as directory WHEN getting status THEN returns IN_PROGRESS", async () => {
     // Given: DONE.md exists but is a directory (not a file)
-    const workItemPath = join(FIXTURES_ROOT, "work-items/done-is-dir");
+    const workItemPath = join(FIXTURES_PATHS.SPEC_LEGACY, "work-items/done-is-dir");
 
     // When
     const status = await getWorkItemStatus(workItemPath);
@@ -82,7 +83,7 @@ describe("getWorkItemStatus", () => {
 
   it("GIVEN non-existent work item WHEN getting status THEN throws StatusDeterminationError", async () => {
     // Given
-    const workItemPath = join(FIXTURES_ROOT, "work-items/does-not-exist");
+    const workItemPath = join(FIXTURES_PATHS.SPEC_LEGACY, "work-items/does-not-exist");
 
     // When/Then
     await expect(getWorkItemStatus(workItemPath)).rejects.toThrow(
@@ -97,7 +98,7 @@ describe("getWorkItemStatus", () => {
 describe("Status determination performance", () => {
   it("GIVEN work item WHEN getting status multiple times THEN completes quickly", async () => {
     // Given
-    const workItemPath = join(FIXTURES_ROOT, "work-items/done-item");
+    const workItemPath = join(FIXTURES_PATHS.SPEC_LEGACY, "work-items/done-item");
 
     // When: Measure multiple calls
     const iterations = 10;

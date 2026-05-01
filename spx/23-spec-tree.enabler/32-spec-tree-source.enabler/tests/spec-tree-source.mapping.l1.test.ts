@@ -6,16 +6,16 @@ import {
   readSpecTree,
   SPEC_TREE_ENTRY_TYPE,
   type SpecTreeSourceEntry,
-} from "@/spec-tree";
-import { KIND_REGISTRY, SPEC_TREE_CONFIG } from "@/spec/config";
-import { withTestEnv } from "@/spec/testing/index";
+} from "@/lib/spec-tree";
+import { KIND_REGISTRY, SPEC_TREE_CONFIG } from "@/lib/spec-tree/config";
 import {
   createSource,
   sampleDecisionKind,
   sampleNodeKind,
   sampleSpecTreeTestValue,
   SPEC_TREE_TEST_GENERATOR,
-} from "@testing/generators/spec-tree";
+} from "@testing/generators/spec-tree/spec-tree";
+import { withTestEnv } from "@testing/harnesses/spec-tree/spec-tree";
 
 describe("SpecTreeSource mappings", () => {
   it("maps filesystem source records and in-memory records to equivalent projections", async () => {

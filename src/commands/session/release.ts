@@ -6,11 +6,11 @@
 
 import { readdir, rename } from "node:fs/promises";
 
+import { processBatch } from "@/domains/session/batch";
+import { SessionNotClaimedError } from "@/domains/session/errors";
+import { buildReleasePaths, findCurrentSession } from "@/domains/session/release";
+import { SessionDirectoryConfig } from "@/domains/session/show";
 import { resolveSessionConfig } from "@/git/root";
-import { processBatch } from "@/session/batch";
-import { SessionNotClaimedError } from "@/session/errors";
-import { buildReleasePaths, findCurrentSession } from "@/session/release";
-import type { SessionDirectoryConfig } from "@/session/show";
 
 export const SESSION_RELEASE_OUTPUT = {
   RELEASED: "Released session",

@@ -3,10 +3,6 @@ literal:
     presets:
       - web
     include:
-      - |-
-
-          ---
-          # Content
       - '  "capabilities"'
       - '  "summary"'
       - "  - "
@@ -17,20 +13,11 @@ literal:
       - "## feature-21"
       - "### story-21"
       - "### story-32"
-      - (no sessions)
-      - |-
-          ---
-          priority: high
-          ---
-          # Content
       - --files
       - --format
       - --help
       - --json
       - --quiet
-      - "[dupe] \""
-      - "[reuse] \""
-      - --run
       - --write
       - .adr.md
       - .backup.
@@ -40,17 +27,14 @@ literal:
       - .feature.md
       - .git
       - .gitignore
-      - .integration.test.ts
       - .next
       - .outcome
       - .pdr.md
-      - .phantom
       - .source
       - .spx
       - .spx/sessions
       - .story.md
       - .test.ts
-      - /dev/null
       - /project
       - /pyproject.toml
       - /secret.ts
@@ -86,35 +70,33 @@ literal:
       - 2026-01-13_10-00-00
       - "30000"
       - |-
-          <audit_verdict>
-            <gates>
-              <gate>
-                <name>architecture</name>
-                <status>PASS</status>
-                <findings count="0"/>
-              </gate>
-            </gates>
-          </audit_verdict>
+        <audit_verdict>
+          <gates>
+            <gate>
+              <name>architecture</name>
+              <status>PASS</status>
+              <findings count="0"/>
+            </gate>
+          </gates>
+        </audit_verdict>
       - |-
-          <audit_verdict>
-            <header>
-              <spec_node>spx/36-audit.enabler</spec_node>
-              <verdict>APPROVED</verdict>
-              <timestamp>2024-01-01_00-00-00</timestamp>
-            </header>
-            <gates>
-              <gate>
-                <name>architecture</name>
-                <status>PASS</status>
-                <findings count="0"/>
-              </gate>
-            </gates>
-          </audit_verdict>
-      - <empty>
+        <audit_verdict>
+          <header>
+            <spec_node>spx/36-audit.enabler</spec_node>
+            <verdict>APPROVED</verdict>
+            <timestamp>2024-01-01_00-00-00</timestamp>
+          </header>
+          <gates>
+            <gate>
+              <name>architecture</name>
+              <status>PASS</status>
+              <findings count="0"/>
+            </gate>
+          </gates>
+        </audit_verdict>
       - ADR Generation
       - APPROVED
       - All tests passed
-      - Archived session
       - BSP number must be between 10 and 99
       - Bash
       - Bash(curl:*)
@@ -125,9 +107,8 @@ literal:
       - Bash(npm:*)
       - Bash(rm:*)
       - Circular dependencies
-      - Circular dependencies found
       - DONE.md
-      - "Deleted "
+      - DUPE
       - ENOENT
       - ESLint
       - Edit
@@ -149,21 +130,19 @@ literal:
       - "Next work item:"
       - No work items found
       - PASS
-      - "Priority: high"
       - README.md
       - REJECT
       - REJECTED
+      - REUSE
       - Read
       - Read(file_path:/Users/other/**)
       - Read(file_path:/Users/user/Code/**)
       - Read(file_path:/Users/user/Code/project-a/**)
       - Read(file_path:/tmp/**)
       - SKIPPED
-      - SessionNotFoundError
       - Skipping
       - Skipping Circular
       - Skipping TypeScript
-      - "Status: "
       - "Status: DONE"
       - "Status: IN_PROGRESS"
       - "Status: OPEN"
@@ -176,19 +155,18 @@ literal:
       - "[DONE]"
       - "[IN_PROGRESS]"
       - "[OPEN]"
+      - '[dupe] "'
+      - '[reuse] "'
       - _10-00-00
       - active
       - adr-
       - allow
-      - alpha
       - architecture
       - archive
       - audit
       - backlog
-      - beta
       - bin/spx.js
       - build
-      - 'const NODE_KIND = "enabler";'
       - cap1
       - cap2
       - cap3
@@ -202,9 +180,8 @@ literal:
       - circular-deps
       - claude
       - command
-      - config
       - consolidate
-      - constants verification
+      - const NODE_KIND = "enabler";
       - core-cli
       - coverage
       - decision
@@ -213,12 +190,12 @@ literal:
       - deny
       - dist
       - docs
-      - dupe
       - docs/testing/standards.md
       - does-not-exist
       - doing
       - domain:github.com
       - done
+      - dupe
       - emits a JSON document when --json is set, exit 0
       - emptySwallowing
       - enabler
@@ -226,7 +203,6 @@ literal:
       - expect(v).toBe("
       - expect(value).toBe("
       - export const V = "
-      - fakeDomain
       - feat
       - feat1
       - feat2
@@ -242,7 +218,6 @@ literal:
       - formatTable
       - formatText
       - function
-      - gamma
       - gate
       - git:*
       - help
@@ -251,7 +226,6 @@ literal:
       - include
       - incoherent verdict
       - init
-      - integration/
       - invalid
       - invalid enum value
       - invalid-pattern
@@ -259,12 +233,10 @@ literal:
       - kind
       - kinds
       - knip
-      - lenient
       - lint
       - list
       - literal
       - markdown
-      - medium
       - missing required element
       - module
       - nested
@@ -280,46 +252,37 @@ literal:
       - node_modules
       - nodes
       - nonexistent
-      - not found
       - number
       - object
       - open
       - orphan
-      - other
       - package.json
       - parent
       - path
       - path/to/spec.md
       - paths
       - pattern-matching
-      - "priority: "
       - production
       - project
-      - related
-      - relative-links
       - repos/empty
       - repos/mixed
       - repos/simple
+      - reuse
       - session
-      - sessions
       - settings
       - settings.json
       - settings.local.json
       - skipped
       - slug
-      - source
       - spec
       - spec.md
       - specReference
-      - specTree
       - "specTree: kinds.phantom contains unknown kind"
       - spec_file
       - specs
-      - specs/
       - spx-fixture-
       - spx-paths-test-
       - spx-test-
-      - spx.config.yaml
       - spx.js
       - spx/
       - spx/36-audit.enabler
@@ -327,10 +290,7 @@ literal:
       - spx/no-bdd-try-catch-anti-pattern
       - spx/no-hardcoded-statuses
       - spx/no-hardcoded-work-item-kinds
-      - spx/no-registry-position-access
       - spx/no-spec-references
-      - spx/no-test-owned-domain-constants
-      - src/
       - src-owned-token
       - src/a.ts
       - src/file.ts
@@ -350,20 +310,18 @@ literal:
       - story1
       - story2
       - story3
-      - strict
       - string
       - table
       - test
+      - test-dupe-token
       - test-id
       - test.test.ts
       - test.ts
       - test/node
       - test1
       - test2
-      - test@test.local
       - test_file
       - tests
-      - tests/
       - tests/dupe-a.test.ts
       - tests/dupe-b.test.ts
       - tests/reuse.test.ts
@@ -373,7 +331,6 @@ literal:
       - tsconfig.json
       - types.ts
       - typescript
-      - unit/
       - unknown subcommand
       - unparsable
       - useWorkItemKinds
@@ -385,10 +342,6 @@ literal:
       - validation
       - vitest.config.ts
       - work
-      - REUSE
-      - DUPE
-      - reuse
-      - test-dupe-token
       - work-items/does-not-exist
       - work-items/no-tests
       - "|     Story"
@@ -398,3 +351,4 @@ literal:
       - "| Name"
       - "| Number"
       - "| Status"
+    # include:

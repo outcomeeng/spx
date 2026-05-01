@@ -326,8 +326,8 @@ describe("import hygiene rules", () => {
               errors: [{ messageId: IMPORT_SOURCE_EXTENSION_MESSAGE_ID }],
             },
             {
-              code: "const mod = import('@test/harness/constants.mjs');",
-              output: "const mod = import('@test/harness/constants');",
+              code: "const mod = import('@testing/harnesses/constants.mjs');",
+              output: "const mod = import('@testing/harnesses/constants');",
               errors: [{ messageId: IMPORT_SOURCE_EXTENSION_MESSAGE_ID }],
             },
             {

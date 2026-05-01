@@ -13,7 +13,11 @@ import { describe, expect, it } from "vitest";
 import { allCommand } from "@/commands/validation/all";
 import { MARKDOWN_COMMAND_OUTPUT, markdownCommand } from "@/commands/validation/markdown";
 import { validateMarkdown } from "@/validation/steps/markdown";
-import { MARKDOWN_FIXTURES, MARKDOWN_HARNESS_TIMEOUT, withMarkdownEnv } from "@test/harness/with-markdown-env";
+import {
+  MARKDOWN_FIXTURES,
+  MARKDOWN_HARNESS_TIMEOUT,
+  withMarkdownEnv,
+} from "@testing/harnesses/with-markdown-env";
 
 // =============================================================================
 // PROJECT-ABSOLUTE LINK RESOLUTION

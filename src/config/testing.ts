@@ -1,7 +1,7 @@
 import * as fc from "fast-check";
 
 import type { ConfigDescriptor, Result } from "@/config/types";
-import { KIND_REGISTRY, SPEC_TREE_SECTION, type SpecTreeKindCategory } from "@/spec/config";
+import { KIND_REGISTRY, SPEC_TREE_SECTION, type SpecTreeKindCategory } from "@/lib/spec-tree/config";
 
 export const CONFIG_TEST_FIELDS = {
   TOKEN: "token",

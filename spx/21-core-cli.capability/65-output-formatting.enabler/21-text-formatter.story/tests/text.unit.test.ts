@@ -1,10 +1,10 @@
-import { formatText } from "@/reporter/text";
+import { formatText } from "@/lib/spec-legacy/reporter/text";
 import {
   buildSimpleTree,
   buildTreeWithFeatures,
   buildTreeWithStatus,
   buildTreeWithStories,
-} from "@test/harness/tree-builder";
+} from "@testing/harnesses/tree-builder";
 import { describe, expect, it } from "vitest";
 
 describe("formatText", () => {

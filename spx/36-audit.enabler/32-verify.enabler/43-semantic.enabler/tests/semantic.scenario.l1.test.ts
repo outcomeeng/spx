@@ -13,10 +13,9 @@
  * - S6: SKIPPED gate + no skipped_reason → "skipped gate missing reason" defect
  */
 
+import { AuditVerdict } from "@/domains/audit/reader";
+import { validateSemantics } from "@/domains/audit/semantic";
 import { describe, expect, it } from "vitest";
-
-import type { AuditVerdict } from "@/audit/reader";
-import { validateSemantics } from "@/audit/semantic";
 
 const DEFECT_INCOHERENT_VERDICT = "incoherent verdict";
 const DEFECT_FAILED_NO_FINDINGS = "failed gate has no findings";

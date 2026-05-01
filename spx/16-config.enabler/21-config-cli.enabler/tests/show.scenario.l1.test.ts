@@ -9,7 +9,7 @@ import {
   parseConfigFileSections,
 } from "@/config/index";
 import type { Config, ConfigDescriptor, Result } from "@/config/types";
-import { specTreeConfigDescriptor } from "@/spec/config";
+import { specTreeConfigDescriptor } from "@/lib/spec-tree/config";
 
 type CliDeps = {
   resolveConfig: (projectRoot: string) => Promise<Result<Config>>;

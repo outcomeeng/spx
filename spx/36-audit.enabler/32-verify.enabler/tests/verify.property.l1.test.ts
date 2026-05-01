@@ -8,17 +8,17 @@
  * - P1: The pipeline is deterministic: same input always produces same stage results and exit code
  */
 
-import * as fc from "fast-check";
-import { afterEach, beforeEach, describe, expect, it } from "vitest";
-
-import { AUDIT_GATE_STATUS, AUDIT_VERDICT_VALUE } from "@/audit/reader";
-import type { AuditHarness, AuditVerdictXmlFindingFixture } from "@/audit/testing/harness";
+import { AUDIT_GATE_STATUS, AUDIT_VERDICT_VALUE } from "@/domains/audit/reader";
+import { runVerifyPipeline } from "@/domains/audit/verify";
 import {
   AUDIT_VERDICT_XML_SKIPPED_REASON_FIXTURE,
+  AuditHarness,
+  AuditVerdictXmlFindingFixture,
   createAuditHarness,
   renderAuditVerdictXml,
-} from "@/audit/testing/harness";
-import { runVerifyPipeline } from "@/audit/verify";
+} from "@testing/harnesses/audit/harness";
+import * as fc from "fast-check";
+import { afterEach, beforeEach, describe, expect, it } from "vitest";
 
 function buildFindings(count: number): readonly AuditVerdictXmlFindingFixture[] {
   return Array.from({ length: count }, (_, index) => ({

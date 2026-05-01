@@ -6,10 +6,15 @@
  *
  * Tests at Level 2+3: Real filesystem + CLI execution.
  */
-import { WORK_ITEM_STATUSES } from "@/types";
-import { CLI_PATH, CLI_TIMEOUTS_MS } from "@test/harness/constants";
-import { countNodes, type FixtureConfig, generateFixtureTree, PRESETS } from "@test/harness/fixture-generator";
-import { createFixture, type MaterializedFixture, materializeFixture } from "@test/harness/fixture-writer";
+import { WORK_ITEM_STATUSES } from "@/lib/spec-legacy/types";
+import { CLI_PATH, CLI_TIMEOUTS_MS } from "@testing/harnesses/constants";
+import {
+  countNodes,
+  type FixtureConfig,
+  generateFixtureTree,
+  PRESETS,
+} from "@testing/harnesses/fixture-generator";
+import { createFixture, type MaterializedFixture, materializeFixture } from "@testing/harnesses/fixture-writer";
 import { execa } from "execa";
 import { afterEach, describe, expect, it } from "vitest";
 

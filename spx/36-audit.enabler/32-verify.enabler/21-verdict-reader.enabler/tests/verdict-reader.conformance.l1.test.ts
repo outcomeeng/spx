@@ -10,12 +10,13 @@
  *       (spec_node, verdict, timestamp) and gates array (name, status, findings)
  */
 
+import { AUDIT_GATE_STATUS, AUDIT_VERDICT_VALUE, AuditVerdict, readVerdictFile } from "@/domains/audit/reader";
+import {
+  AuditVerdictXmlFixture,
+  createAuditHarness,
+  renderAuditVerdictXml,
+} from "@testing/harnesses/audit/harness";
 import { describe, expect, it } from "vitest";
-
-import type { AuditVerdict } from "@/audit/reader";
-import { AUDIT_GATE_STATUS, AUDIT_VERDICT_VALUE, readVerdictFile } from "@/audit/reader";
-import type { AuditVerdictXmlFixture } from "@/audit/testing/harness";
-import { createAuditHarness, renderAuditVerdictXml } from "@/audit/testing/harness";
 
 function createSinglePassGateFixture(): AuditVerdictXmlFixture {
   return {

@@ -5,7 +5,7 @@ import { pathToFileURL } from "node:url";
 
 import { describe, expect, it } from "vitest";
 
-import { WORK_ITEM_KINDS } from "@/types";
+import { WORK_ITEM_KINDS } from "@/lib/spec-legacy/types";
 import { validateLintPolicy } from "@/validation/lint-policy";
 import { LINT_POLICY_BASE_REFS, LINT_POLICY_MANIFESTS } from "@/validation/lint-policy-constants";
 import {
@@ -16,7 +16,7 @@ import {
   readGit,
   runGit,
   runTsxEval,
-} from "@test/harness/git-test-constants";
+} from "@testing/harnesses/git-test-constants";
 
 const LEGACY_MANIFEST_FILE = LINT_POLICY_MANIFESTS.LEGACY_SPEC_SUFFIX_NODES.file;
 const LEGACY_MANIFEST_KEY = LINT_POLICY_MANIFESTS.LEGACY_SPEC_SUFFIX_NODES.key;

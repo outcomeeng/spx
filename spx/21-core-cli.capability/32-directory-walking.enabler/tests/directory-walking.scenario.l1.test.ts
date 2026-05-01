@@ -1,5 +1,5 @@
 import type { SpxConfig } from "@/config/defaults";
-import { Scanner } from "@/scanner/scanner";
+import { Scanner } from "@/lib/spec-legacy/scanner/scanner";
 import * as fs from "node:fs/promises";
 import * as os from "node:os";
 import * as path from "node:path";

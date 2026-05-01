@@ -3,8 +3,8 @@ import { describe, expect, it } from "vitest";
 
 import { resolveConfig } from "@/config/index";
 import { CONFIG_TEST_GENERATOR, sampleConfigTestValue } from "@/config/testing";
-import { specTreeConfigDescriptor } from "@/spec/config";
-import { withTestEnv } from "@/spec/testing/index";
+import { specTreeConfigDescriptor } from "@/lib/spec-tree/config";
+import { withTestEnv } from "@testing/harnesses/spec-tree/spec-tree";
 
 describe("resolveConfig — defaults are type-complete", () => {
   it("every registered descriptor's declared defaults round-trip through its own validator", () => {

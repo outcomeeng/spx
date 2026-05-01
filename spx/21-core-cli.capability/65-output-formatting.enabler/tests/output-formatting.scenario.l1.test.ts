@@ -1,17 +1,17 @@
 import { DEFAULT_CONFIG } from "@/config/defaults";
-import { formatJSON } from "@/reporter/json";
-import { formatMarkdown } from "@/reporter/markdown";
-import { formatTable } from "@/reporter/table";
-import { formatText } from "@/reporter/text";
-import { buildTree, type TreeBuildDeps } from "@/tree/build";
-import { WORK_ITEM_KINDS, WORK_ITEM_STATUSES, type WorkItem } from "@/types";
+import { formatJSON } from "@/lib/spec-legacy/reporter/json";
+import { formatMarkdown } from "@/lib/spec-legacy/reporter/markdown";
+import { formatTable } from "@/lib/spec-legacy/reporter/table";
+import { formatText } from "@/lib/spec-legacy/reporter/text";
+import { buildTree, TreeBuildDeps } from "@/lib/spec-legacy/tree/build";
+import { WORK_ITEM_KINDS, WORK_ITEM_STATUSES, type WorkItem } from "@/lib/spec-legacy/types";
 import {
   buildSimpleTree,
   buildTreeWithFeatures,
   buildTreeWithMixedStatus,
   buildTreeWithStatus,
   buildTreeWithStories,
-} from "@test/harness/tree-builder";
+} from "@testing/harnesses/tree-builder";
 import { describe, expect, it } from "vitest";
 
 // ─── formatText ──────────────────────────────────────────────────────────────

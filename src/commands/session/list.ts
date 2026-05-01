@@ -7,16 +7,16 @@
 import { readdir, readFile } from "node:fs/promises";
 import { join } from "node:path";
 
-import { resolveSessionConfig } from "@/git/root";
-import { parseSessionMetadata, sortSessions } from "@/session/list";
-import type { SessionDirectoryConfig } from "@/session/show";
+import { parseSessionMetadata, sortSessions } from "@/domains/session/list";
+import { SessionDirectoryConfig } from "@/domains/session/show";
 import {
   DEFAULT_LIST_STATUSES,
   DEFAULT_PRIORITY,
-  type Session,
+  Session,
   SESSION_STATUSES,
-  type SessionStatus,
-} from "@/session/types";
+  SessionStatus,
+} from "@/domains/session/types";
+import { resolveSessionConfig } from "@/git/root";
 
 export const SESSION_LIST_FORMAT = {
   TEXT: "text",

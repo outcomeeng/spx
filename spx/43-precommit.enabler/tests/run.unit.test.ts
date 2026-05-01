@@ -13,8 +13,8 @@
  * work correctly. Level 2 (feature integration) tests real execution.
  */
 
-import { VITEST_ARGS } from "@/precommit/build-args";
-import { PRECOMMIT_RUN, type PrecommitDeps, runPrecommitTests, shouldRunTests } from "@/precommit/run";
+import { VITEST_ARGS } from "@/lib/precommit/build-args";
+import { PRECOMMIT_RUN, type PrecommitDeps, runPrecommitTests, shouldRunTests } from "@/lib/precommit/run";
 import { describe, expect, it } from "vitest";
 
 // =============================================================================

@@ -11,8 +11,8 @@
 import { existsSync, readFileSync } from "node:fs";
 import { basename, join } from "node:path";
 
-import { EXCLUDE_FILENAME } from "@/spec/apply/exclude/constants";
-import { readExcludedNodes } from "@/spec/apply/exclude/exclude-file";
+import { EXCLUDE_FILENAME } from "@/domains/spec/apply/exclude/constants";
+import { readExcludedNodes } from "@/domains/spec/apply/exclude/exclude-file";
 
 // @ts-expect-error markdownlint-cli2 has no TypeScript type declarations
 import { main as markdownlintMain } from "markdownlint-cli2";

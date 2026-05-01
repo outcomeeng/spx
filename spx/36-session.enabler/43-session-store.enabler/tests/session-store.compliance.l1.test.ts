@@ -1,11 +1,8 @@
-import { readFile } from "node:fs/promises";
-
-import { afterEach, beforeEach, describe, expect, it } from "vitest";
-
 import { handoffCommand } from "@/commands/session/handoff";
-import { createSessionHarness, type SessionHarness } from "@/session/testing/harness";
-import { SESSION_FRONT_MATTER } from "@/session/types";
-
+import { SESSION_FRONT_MATTER } from "@/domains/session/types";
+import { createSessionHarness, SessionHarness } from "@testing/harnesses/session/harness";
+import { readFile } from "node:fs/promises";
+import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { extractSessionFile, parseFrontMatter } from "./helpers";
 
 // ISO 8601 with timezone: YYYY-MM-DDTHH:mm:ss[.SSS](Z|±HH:MM)

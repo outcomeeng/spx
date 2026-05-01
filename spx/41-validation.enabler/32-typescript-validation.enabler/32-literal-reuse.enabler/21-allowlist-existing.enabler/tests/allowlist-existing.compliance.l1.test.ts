@@ -1,8 +1,8 @@
 import { describe, expect, it } from "vitest";
 
 import { CONFIG_FILE_FORMAT_ORDER, CONFIG_FILENAMES, readProjectConfigFile } from "@/config/index";
-import { withTestEnv } from "@/spec/testing/index";
 import { allowlistExisting } from "@/validation/literal/allowlist-existing";
+import { withTestEnv } from "@testing/harnesses/spec-tree/spec-tree";
 
 import {
   buildConfigWithAllowlist,

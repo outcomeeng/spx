@@ -18,8 +18,8 @@
 import { execa } from "execa";
 import { describe, expect, it } from "vitest";
 
-import { CLI_PATH } from "@test/harness/constants";
-import { FIXTURES, HARNESS_TIMEOUT, withValidationEnv } from "@test/harness/with-validation-env";
+import { CLI_PATH } from "@testing/harnesses/constants";
+import { HARNESS_TIMEOUT, PROJECT_FIXTURES, withValidationEnv } from "@testing/harnesses/with-validation-env";
 
 const EXIT_SUCCESS = 0;
 const NPX_INSTALL_PROMPT = "Need to install the following packages";
@@ -32,7 +32,7 @@ describe("spx validation circular — language-gated cycle detection", () => {
     "S1: GIVEN a TypeScript project with no circular deps WHEN running circular THEN madge reports no cycles and exits zero",
     { timeout: HARNESS_TIMEOUT },
     async () => {
-      await withValidationEnv({ fixture: FIXTURES.CLEAN_PROJECT }, async ({ path }) => {
+      await withValidationEnv({ fixture: PROJECT_FIXTURES.CLEAN_PROJECT }, async ({ path }) => {
         const result = await execa("node", [CLI_PATH, "validation", "circular"], {
           cwd: path,
           reject: false,
@@ -50,7 +50,7 @@ describe("spx validation circular — language-gated cycle detection", () => {
     "S2: GIVEN a TypeScript project with a circular dependency WHEN running circular THEN exits non-zero and reports the cycle",
     { timeout: HARNESS_TIMEOUT },
     async () => {
-      await withValidationEnv({ fixture: FIXTURES.WITH_CIRCULAR_DEPS }, async ({ path }) => {
+      await withValidationEnv({ fixture: PROJECT_FIXTURES.WITH_CIRCULAR_DEPS }, async ({ path }) => {
         const result = await execa("node", [CLI_PATH, "validation", "circular"], {
           cwd: path,
           reject: false,
@@ -66,7 +66,7 @@ describe("spx validation circular — language-gated cycle detection", () => {
     "S3: GIVEN a project where TypeScript is absent WHEN running circular THEN madge does not execute",
     { timeout: HARNESS_TIMEOUT },
     async () => {
-      await withValidationEnv({ fixture: FIXTURES.BARE_PROJECT }, async ({ path }) => {
+      await withValidationEnv({ fixture: PROJECT_FIXTURES.BARE_PROJECT }, async ({ path }) => {
         const result = await execa("node", [CLI_PATH, "validation", "circular"], {
           cwd: path,
           reject: false,
@@ -85,7 +85,7 @@ describe("spx validation circular — language-gated cycle detection", () => {
     "C1: GIVEN a Python-only project WHEN running circular THEN madge is gated off by detectTypeScript",
     { timeout: HARNESS_TIMEOUT },
     async () => {
-      await withValidationEnv({ fixture: FIXTURES.PYTHON_PROJECT }, async ({ path }) => {
+      await withValidationEnv({ fixture: PROJECT_FIXTURES.PYTHON_PROJECT }, async ({ path }) => {
         const result = await execa("node", [CLI_PATH, "validation", "circular"], {
           cwd: path,
           reject: false,
@@ -104,7 +104,7 @@ describe("spx validation circular — language-gated cycle detection", () => {
     "C2: GIVEN .ts files present but no tsconfig.json WHEN running circular THEN madge does not execute and no npx prompt appears",
     { timeout: HARNESS_TIMEOUT },
     async () => {
-      await withValidationEnv({ fixture: FIXTURES.TYPESCRIPT_NO_TSCONFIG }, async ({ path }) => {
+      await withValidationEnv({ fixture: PROJECT_FIXTURES.TYPESCRIPT_NO_TSCONFIG }, async ({ path }) => {
         const result = await execa("node", [CLI_PATH, "validation", "circular"], {
           cwd: path,
           reject: false,

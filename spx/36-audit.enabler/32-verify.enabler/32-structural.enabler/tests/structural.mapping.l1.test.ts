@@ -9,16 +9,15 @@
  * - M2: Each allowed gate status (PASS, FAIL, SKIPPED) maps to valid; any other value maps to defect
  */
 
-import { describe, expect, it } from "vitest";
-
 import {
   AUDIT_GATE_STATUS,
   AUDIT_VERDICT_VALUE,
-  type AuditGate,
-  type AuditVerdict,
-  type AuditVerdictHeader,
-} from "@/audit/reader";
-import { STRUCTURAL_DEFECT_TEXT, validateStructure } from "@/audit/structural";
+  AuditGate,
+  AuditVerdict,
+  AuditVerdictHeader,
+} from "@/domains/audit/reader";
+import { STRUCTURAL_DEFECT_TEXT, validateStructure } from "@/domains/audit/structural";
+import { describe, expect, it } from "vitest";
 
 function createFullHeader(): AuditVerdictHeader {
   return {

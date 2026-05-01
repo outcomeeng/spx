@@ -1,14 +1,14 @@
 import { describe, expect, it } from "vitest";
 
-import { findNextSpecTreeNode, readSpecTree, SPEC_TREE_EVIDENCE_STATUS } from "@/spec-tree";
-import { KIND_REGISTRY } from "@/spec/config";
+import { findNextSpecTreeNode, readSpecTree, SPEC_TREE_EVIDENCE_STATUS } from "@/lib/spec-tree";
+import { KIND_REGISTRY } from "@/lib/spec-tree/config";
 import {
   buildEvidenceEntry,
   buildRepresentativeFixture,
   createSource,
   sampleSpecTreeTestValue,
   SPEC_TREE_TEST_GENERATOR,
-} from "@testing/generators/spec-tree";
+} from "@testing/generators/spec-tree/spec-tree";
 
 describe("spec-tree traversal", () => {
   it("returns the first non-passing node in deterministic tree order", async () => {

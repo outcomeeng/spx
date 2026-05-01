@@ -7,7 +7,7 @@
 
 import type { Rule } from "eslint";
 
-import { WORK_ITEM_KINDS } from "../src/types";
+import { WORK_ITEM_KINDS } from "../src/lib/spec-legacy/types";
 
 import {
   isInTestDescription,

@@ -18,11 +18,10 @@ import { existsSync } from "node:fs";
 import { readFile, stat } from "node:fs/promises";
 import { basename, isAbsolute, join } from "node:path";
 
+import { DEFAULT_AUDIT_CONFIG, encodeNodePath, formatAuditTimestamp } from "@/domains/audit/config";
+import { createAuditHarness } from "@testing/harnesses/audit/harness";
 import * as fc from "fast-check";
 import { describe, expect, it } from "vitest";
-
-import { DEFAULT_AUDIT_CONFIG, encodeNodePath, formatAuditTimestamp } from "@/audit/config";
-import { createAuditHarness } from "@/audit/testing/harness";
 
 const AUDIT_TIMESTAMP_PATTERN = /^\d{4}-\d{2}-\d{2}_\d{2}-\d{2}-\d{2}\.audit\.xml$/;
 

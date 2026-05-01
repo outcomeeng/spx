@@ -10,12 +10,11 @@
  * - S2: Missing file path → throws error naming the missing path
  */
 
+import { readVerdictFile } from "@/domains/audit/reader";
+import { createAuditHarness } from "@testing/harnesses/audit/harness";
 import { join } from "node:path";
 
 import { describe, expect, it } from "vitest";
-
-import { readVerdictFile } from "@/audit/reader";
-import { createAuditHarness } from "@/audit/testing/harness";
 
 describe("readVerdictFile: error scenarios", () => {
   it("GIVEN a file that is not well-formed XML WHEN the reader parses it THEN throws an error identifying the file", async () => {

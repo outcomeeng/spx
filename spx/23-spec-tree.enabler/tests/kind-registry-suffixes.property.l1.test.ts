@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { DECISION_KINDS, KIND_REGISTRY, NODE_KINDS } from "@/spec/config";
+import { DECISION_KINDS, KIND_REGISTRY, NODE_KINDS } from "@/lib/spec-tree/config";
 
 describe("suffix uniqueness", () => {
   it("no two node kinds share a directory suffix", () => {

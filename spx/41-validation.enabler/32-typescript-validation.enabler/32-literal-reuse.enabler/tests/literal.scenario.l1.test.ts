@@ -5,7 +5,6 @@ import { describe, expect, it } from "vitest";
 
 import { literalCommand } from "@/commands/validation/literal";
 import { CONFIG_FILENAMES } from "@/config/index";
-import { withTestEnv } from "@/spec/testing/index";
 import { TYPESCRIPT_MARKER } from "@/validation/discovery/index";
 import { LITERAL_SECTION } from "@/validation/literal/config";
 import {
@@ -20,6 +19,7 @@ import {
   REMEDIATION,
   validateLiteralReuse,
 } from "@/validation/literal/index";
+import { withTestEnv } from "@testing/harnesses/spec-tree/spec-tree";
 
 import {
   configWithAllowlist,

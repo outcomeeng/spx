@@ -4,7 +4,7 @@ import { join } from "node:path";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 
 import { resolveProjectRoot } from "@/domains/config/root";
-import { GIT_TEST_SUBCOMMANDS, runGit } from "@test/harness/git-test-constants";
+import { GIT_TEST_SUBCOMMANDS, runGit } from "@testing/harnesses/git-test-constants";
 
 const TEMP_PREFIX = "spx-config-root-";
 

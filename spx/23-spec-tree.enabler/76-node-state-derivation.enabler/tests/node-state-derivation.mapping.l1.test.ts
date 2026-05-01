@@ -6,8 +6,8 @@ import {
   SPEC_TREE_NODE_STATE,
   type SpecTreeEvidenceStatus,
   type SpecTreeNodeState,
-} from "@/spec-tree";
-import { KIND_REGISTRY } from "@/spec/config";
+} from "@/lib/spec-tree";
+import { KIND_REGISTRY } from "@/lib/spec-tree/config";
 import {
   buildEvidenceEntry,
   buildNodeEntry,
@@ -15,7 +15,7 @@ import {
   createSource,
   sampleSpecTreeTestValue,
   SPEC_TREE_TEST_GENERATOR,
-} from "@testing/generators/spec-tree";
+} from "@testing/generators/spec-tree/spec-tree";
 
 type StateCase = {
   readonly evidence?: SpecTreeEvidenceStatus;

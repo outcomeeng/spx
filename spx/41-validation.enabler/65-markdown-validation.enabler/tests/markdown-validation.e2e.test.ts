@@ -15,7 +15,7 @@ import { join } from "node:path";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 
 import { validationCliDefinition } from "@/domains/validation";
-import { CLI_PATH } from "@test/harness/constants";
+import { CLI_PATH } from "@testing/harnesses/constants";
 
 let tempDir: string;
 

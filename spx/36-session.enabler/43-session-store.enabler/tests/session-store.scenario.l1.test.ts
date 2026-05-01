@@ -18,20 +18,14 @@ import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { buildSessionContent, handoffCommand, hasFrontmatter } from "@/commands/session/handoff";
 import { listCommand, SESSION_LIST_EMPTY_TEXT, SESSION_LIST_FORMAT } from "@/commands/session/list";
 import { DEFAULT_CONFIG } from "@/config/defaults";
-import {
-  buildSessionFrontMatterContent,
-  SESSION_CONTENT_ERROR,
-  SESSION_FRONT_MATTER_CLOSE,
-  validateSessionContent,
-} from "@/session/create";
-import { resolveDeletePath } from "@/session/delete";
+import { resolveDeletePath } from "@/domains/session/delete";
 import {
   SessionError,
   SessionInvalidContentError,
   SessionNotAvailableError,
   SessionNotFoundError,
-} from "@/session/errors";
-import { parseSessionMetadata, sortSessions } from "@/session/list";
+} from "@/domains/session/errors";
+import { parseSessionMetadata, sortSessions } from "@/domains/session/list";
 import {
   DEFAULT_SESSION_CONFIG,
   formatShowOutput,
@@ -39,9 +33,7 @@ import {
   SEARCH_ORDER,
   SESSION_SHOW_LABEL,
   SESSION_SHOW_SEPARATOR_CHAR,
-} from "@/session/show";
-import type { SessionHarness } from "@/session/testing/harness";
-import { buildSessionMarkdownBody, createSessionHarness } from "@/session/testing/harness";
+} from "@/domains/session/show";
 import {
   DEFAULT_LIST_STATUSES,
   DEFAULT_PRIORITY,
@@ -50,8 +42,19 @@ import {
   SESSION_PRIORITY,
   SESSION_STATUSES,
   type SessionPriority,
-} from "@/session/types";
+} from "@/domains/session/types";
 
+import {
+  buildSessionFrontMatterContent,
+  SESSION_CONTENT_ERROR,
+  SESSION_FRONT_MATTER_CLOSE,
+  validateSessionContent,
+} from "@/domains/session/create";
+import {
+  buildSessionMarkdownBody,
+  createSessionHarness,
+  SessionHarness,
+} from "@testing/harnesses/session/harness";
 import { extractSessionFile, parseFrontMatter } from "./helpers";
 
 const [TODO] = SESSION_STATUSES;

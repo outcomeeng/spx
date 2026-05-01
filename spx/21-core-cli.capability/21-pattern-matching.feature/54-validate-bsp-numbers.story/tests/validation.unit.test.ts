@@ -2,7 +2,7 @@
  * Level 1: Pure function tests for BSP number validation
  * Story: story-54_validate-bsp-numbers
  */
-import { isValidBSPNumber, validateBSPNumber } from "@/scanner/validation";
+import { isValidBSPNumber, validateBSPNumber } from "@/lib/spec-legacy/scanner/validation";
 import { describe, expect, it } from "vitest";
 
 describe("isValidBSPNumber", () => {

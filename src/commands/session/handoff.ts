@@ -10,11 +10,15 @@
 import { mkdir, writeFile } from "node:fs/promises";
 import { join, resolve } from "node:path";
 
+import {
+  buildSessionFrontMatterContent,
+  preFillSessionContent,
+  validateSessionContent,
+} from "@/domains/session/create";
+import { SessionInvalidContentError } from "@/domains/session/errors";
+import { generateSessionId } from "@/domains/session/timestamp";
+import { DEFAULT_PRIORITY, SESSION_FRONT_MATTER } from "@/domains/session/types";
 import { resolveSessionConfig } from "@/git/root";
-import { buildSessionFrontMatterContent, preFillSessionContent, validateSessionContent } from "@/session/create";
-import { SessionInvalidContentError } from "@/session/errors";
-import { generateSessionId } from "@/session/timestamp";
-import { DEFAULT_PRIORITY, SESSION_FRONT_MATTER } from "@/session/types";
 
 /**
  * Regex to detect YAML frontmatter presence.

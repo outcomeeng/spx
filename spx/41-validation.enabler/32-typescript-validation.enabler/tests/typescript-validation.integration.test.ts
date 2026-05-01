@@ -11,8 +11,8 @@
 import { execa } from "execa";
 import { describe, expect, it } from "vitest";
 
-import { CLI_PATH } from "@test/harness/constants";
-import { FIXTURES, HARNESS_TIMEOUT, withValidationEnv } from "@test/harness/with-validation-env";
+import { CLI_PATH } from "@testing/harnesses/constants";
+import { HARNESS_TIMEOUT, PROJECT_FIXTURES, withValidationEnv } from "@testing/harnesses/with-validation-env";
 
 const EXIT_SUCCESS = 0;
 const NPX_INSTALL_PROMPT = "Need to install the following packages";
@@ -32,7 +32,7 @@ describe("spx validation all — TypeScript pipeline composition", () => {
     "GIVEN a clean TypeScript fixture WHEN running all validations THEN every TypeScript stage executes and exits zero",
     { timeout: ALL_TIMEOUT_MS },
     async () => {
-      await withValidationEnv({ fixture: FIXTURES.CLEAN_PROJECT }, async ({ path }) => {
+      await withValidationEnv({ fixture: PROJECT_FIXTURES.CLEAN_PROJECT }, async ({ path }) => {
         const result = await execa("node", [CLI_PATH, "validation", "all"], {
           cwd: path,
           reject: false,
@@ -51,7 +51,7 @@ describe("spx validation all — TypeScript pipeline composition", () => {
     "GIVEN a Python fixture WHEN running all validations THEN every TypeScript stage reports skipped",
     { timeout: HARNESS_TIMEOUT },
     async () => {
-      await withValidationEnv({ fixture: FIXTURES.PYTHON_PROJECT }, async ({ path }) => {
+      await withValidationEnv({ fixture: PROJECT_FIXTURES.PYTHON_PROJECT }, async ({ path }) => {
         const result = await execa("node", [CLI_PATH, "validation", "all"], {
           cwd: path,
           reject: false,

@@ -1,15 +1,15 @@
 import * as fc from "fast-check";
 import { describe, expect, it } from "vitest";
 
-import { readSpecTree } from "@/spec-tree";
-import { KIND_REGISTRY } from "@/spec/config";
+import { readSpecTree } from "@/lib/spec-tree";
+import { KIND_REGISTRY } from "@/lib/spec-tree/config";
 import {
   buildNodeEntry,
   buildRepresentativeFixture,
   createSource,
   sampleSpecTreeTestValue,
   SPEC_TREE_TEST_GENERATOR,
-} from "@testing/generators/spec-tree";
+} from "@testing/generators/spec-tree/spec-tree";
 
 const ORDER_COUNT = 3;
 const PROPERTY_RUNS = 25;

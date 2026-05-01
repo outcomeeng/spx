@@ -19,9 +19,9 @@ import { isAbsolute, join } from "node:path";
 import { describe, expect, it } from "vitest";
 
 import { DEFAULT_CONFIG } from "@/config/defaults";
-import { parseSessionMetadata } from "@/session/list";
-import { createSessionHarness } from "@/session/testing/harness";
-import { DEFAULT_PRIORITY, SESSION_PRIORITY, SESSION_STATUSES } from "@/session/types";
+import { parseSessionMetadata } from "@/domains/session/list";
+import { DEFAULT_PRIORITY, SESSION_PRIORITY, SESSION_STATUSES } from "@/domains/session/types";
+import { createSessionHarness } from "@testing/harnesses/session/harness";
 
 const { statusDirs } = DEFAULT_CONFIG.sessions;
 

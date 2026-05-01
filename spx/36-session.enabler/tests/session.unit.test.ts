@@ -19,7 +19,7 @@ import {
   type GitTestEnvironmentOverrides,
   runGit,
   runTsxEval,
-} from "@test/harness/git-test-constants";
+} from "@testing/harnesses/git-test-constants";
 
 const POLLUTED_GIT_DIR = "/tmp/nonexistent-git-dir";
 const POLLUTED_GIT_WORK_TREE = "/tmp/nonexistent-git-work-tree";

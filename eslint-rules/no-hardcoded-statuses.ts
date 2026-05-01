@@ -9,7 +9,7 @@
 
 import type { Rule } from "eslint";
 
-import { WORK_ITEM_STATUSES } from "../src/types";
+import { WORK_ITEM_STATUSES } from "../src/lib/spec-legacy/types";
 
 import {
   isInTestDescription,

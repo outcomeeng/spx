@@ -2,9 +2,9 @@
  * Level 1: Unit tests for building work item lists
  * Story: story-43_build-work-item-list
  */
-import { buildWorkItemList } from "@/scanner/walk";
-import { WORK_ITEM_KINDS } from "@/types";
-import type { DirectoryEntry } from "@/types";
+import { buildWorkItemList } from "@/lib/spec-legacy/scanner/walk";
+import type { DirectoryEntry } from "@/lib/spec-legacy/types";
+import { WORK_ITEM_KINDS } from "@/lib/spec-legacy/types";
 import { describe, expect, it } from "vitest";
 
 describe("buildWorkItemList", () => {

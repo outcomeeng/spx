@@ -9,18 +9,22 @@
  * Spec: 32-session-identity.enabler/session-identity.md
  */
 
-import fc from "fast-check";
-import { describe, expect, it } from "vitest";
-
 import {
   buildSessionFrontMatterContent,
   SESSION_FRONT_MATTER_DELIMITER,
   SESSION_FRONT_MATTER_DOCUMENT_END,
-} from "@/session/create";
-import { parseSessionMetadata } from "@/session/list";
-import { buildSessionMarkdownBody } from "@/session/testing/harness";
-import { generateSessionId, parseSessionId, SESSION_ID_PATTERN, SESSION_ID_SEPARATOR } from "@/session/timestamp";
-import { DEFAULT_PRIORITY, SESSION_FRONT_MATTER, SESSION_PRIORITY, type SessionPriority } from "@/session/types";
+} from "@/domains/session/create";
+import { parseSessionMetadata } from "@/domains/session/list";
+import {
+  generateSessionId,
+  parseSessionId,
+  SESSION_ID_PATTERN,
+  SESSION_ID_SEPARATOR,
+} from "@/domains/session/timestamp";
+import { DEFAULT_PRIORITY, SESSION_FRONT_MATTER, SESSION_PRIORITY, SessionPriority } from "@/domains/session/types";
+import { buildSessionMarkdownBody } from "@testing/harnesses/session/harness";
+import fc from "fast-check";
+import { describe, expect, it } from "vitest";
 
 /** Valid priorities derived from the type, not hardcoded. */
 const VALID_PRIORITIES: readonly SessionPriority[] = Object.values(SESSION_PRIORITY);

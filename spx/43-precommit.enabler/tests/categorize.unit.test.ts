@@ -12,7 +12,7 @@ import {
   FILE_PATTERNS,
   filterTestRelevantFiles,
   findRelatedTestPaths,
-} from "@/precommit/categorize";
+} from "@/lib/precommit/categorize";
 
 describe("categorizeFile", () => {
   describe("test file detection", () => {

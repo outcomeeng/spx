@@ -1,7 +1,7 @@
-import { KIND_REGISTRY } from "@/spec/config";
-import type { Config, SpecTreeEnv } from "@/spec/testing/index";
+import { KIND_REGISTRY } from "@/lib/spec-tree/config";
 import { TYPESCRIPT_MARKER } from "@/validation/discovery/index";
 import { LITERAL_SECTION, type LiteralAllowlistConfig, type LiteralConfig } from "@/validation/literal/config";
+import type { Config, SpecTreeEnv } from "@testing/harnesses/spec-tree/spec-tree";
 
 export const MIN_STRING_LENGTH = 4;
 export const MIN_NUMBER_DIGITS = 4;

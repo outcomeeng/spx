@@ -2,8 +2,8 @@
  * Level 1: Pure function tests for test factories
  * Story: story-65_test-factories
  */
-import { WORK_ITEM_KINDS } from "@/types";
-import { createRandomWorkItem, createWorkItem, createWorkItemName } from "@test/harness/factories";
+import { WORK_ITEM_KINDS } from "@/lib/spec-legacy/types";
+import { createRandomWorkItem, createWorkItem, createWorkItemName } from "@testing/harnesses/factories";
 import { describe, expect, it } from "vitest";
 
 describe("createWorkItemName", () => {

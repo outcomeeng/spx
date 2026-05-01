@@ -5,7 +5,7 @@
  *
  * @see story-21_fixture-generator.story.md
  */
-import { WORK_ITEM_KINDS, WORK_ITEM_STATUSES } from "@/types";
+import { WORK_ITEM_KINDS, WORK_ITEM_STATUSES } from "@/lib/spec-legacy/types";
 import {
   collectStatuses,
   countNodes,
@@ -13,7 +13,7 @@ import {
   type FixtureNode,
   generateFixtureTree,
   PRESETS,
-} from "@test/harness/fixture-generator";
+} from "@testing/harnesses/fixture-generator";
 import { describe, expect, it } from "vitest";
 
 describe("generateFixtureTree", () => {

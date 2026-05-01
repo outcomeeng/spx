@@ -10,7 +10,7 @@ import {
 } from "@/config/index";
 import { CONFIG_TEST_GENERATOR, sampleConfigTestValue } from "@/config/testing";
 import type { Config, ConfigDescriptor, Result } from "@/config/types";
-import { specTreeConfigDescriptor } from "@/spec/config";
+import { specTreeConfigDescriptor } from "@/lib/spec-tree/config";
 
 type CliDeps = {
   resolveConfig: (projectRoot: string) => Promise<Result<Config>>;

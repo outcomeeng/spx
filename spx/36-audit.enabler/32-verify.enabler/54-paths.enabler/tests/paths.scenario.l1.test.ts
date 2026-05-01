@@ -9,13 +9,12 @@
  * - S2: Path escapes project root → "path escapes project root" defect
  */
 
+import { AUDIT_PATH_DEFECT, validatePaths } from "@/domains/audit/paths";
+import { AUDIT_GATE_STATUS, AUDIT_VERDICT_VALUE, AuditVerdict } from "@/domains/audit/reader";
 import { mkdir, mkdtemp, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { describe, expect, it } from "vitest";
-
-import { AUDIT_PATH_DEFECT, validatePaths } from "@/audit/paths";
-import { AUDIT_GATE_STATUS, AUDIT_VERDICT_VALUE, type AuditVerdict } from "@/audit/reader";
 
 const VALID_HEADER = {
   spec_node: "spx/36-audit.enabler",

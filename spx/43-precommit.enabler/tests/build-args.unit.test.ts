@@ -8,7 +8,7 @@
 
 import { describe, expect, it } from "vitest";
 
-import { buildVitestArgs, FILE_PATTERNS, isTestFile, VITEST_ARGS } from "@/precommit/build-args";
+import { buildVitestArgs, FILE_PATTERNS, isTestFile, VITEST_ARGS } from "@/lib/precommit/build-args";
 
 describe("isTestFile", () => {
   it("GIVEN .test.ts file WHEN checking THEN returns true", () => {

@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 
-import { createExcludeFilter } from "@/exclude/index";
-import { withTestEnv } from "@/spec/testing/index";
+import { createExcludeFilter } from "@/lib/path-inclusion/index";
+import { withTestEnv } from "@testing/harnesses/spec-tree/spec-tree";
 
 import {
   expectedPytestFlag,

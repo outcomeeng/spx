@@ -1,10 +1,10 @@
 import { DEFAULT_CONFIG } from "@/config/defaults";
-import { formatJSON } from "@/reporter/json";
-import { formatMarkdown } from "@/reporter/markdown";
-import { formatTable } from "@/reporter/table";
-import { formatText } from "@/reporter/text";
-import { Scanner } from "@/scanner/scanner";
-import { buildTree } from "@/tree/build";
+import { formatJSON } from "@/lib/spec-legacy/reporter/json";
+import { formatMarkdown } from "@/lib/spec-legacy/reporter/markdown";
+import { formatTable } from "@/lib/spec-legacy/reporter/table";
+import { formatText } from "@/lib/spec-legacy/reporter/text";
+import { Scanner } from "@/lib/spec-legacy/scanner/scanner";
+import { buildTree } from "@/lib/spec-legacy/tree/build";
 
 export const OUTPUT_FORMAT = {
   TEXT: "text",

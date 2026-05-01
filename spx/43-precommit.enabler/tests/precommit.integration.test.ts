@@ -5,10 +5,8 @@
  * - Block commits when tests fail
  * - Allow commits when tests pass
  * - Skip tests for non-test-related files
- *
- * @see specs/work/doing/capability-15_infrastructure/feature-65_precommit-test-enforcement/precommit-test-enforcement.feature.md
  */
-import { withGitEnv } from "@test/harness/with-git-env";
+import { withGitEnv } from "@testing/harnesses/with-git-env";
 import { describe, expect, it } from "vitest";
 
 /** Timeout for git+lefthook+vitest integration tests */
@@ -31,12 +29,12 @@ describe("Feature: Pre-Commit Test Enforcement", () => {
           );
 
           await writeFile(
-            "tests/math.test.ts",
+            "spx/21-math.enabler/tests/math.test.ts",
             `import { expect, it } from "vitest";
-import { add } from "../src/math.js";
+import { add } from "../../../src/math.js";
 
 it("intentionally fails to test pre-commit blocking", () => {
-  expect(add(1, 1)).toBe(999); // Wrong expectation
+  expect(add(1, 1)).toBe(999);
 });
 `,
           );
@@ -69,9 +67,9 @@ it("intentionally fails to test pre-commit blocking", () => {
         );
 
         await writeFile(
-          "tests/math.test.ts",
+          "spx/21-math.enabler/tests/math.test.ts",
           `import { expect, it } from "vitest";
-import { add } from "../src/math.js";
+import { add } from "../../../src/math.js";
 
 it("correctly tests addition", () => {
   expect(add(1, 1)).toBe(2);

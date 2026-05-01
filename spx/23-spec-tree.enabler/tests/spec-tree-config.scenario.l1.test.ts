@@ -1,6 +1,12 @@
 import { describe, expect, it } from "vitest";
 
-import { type Kind, KIND_REGISTRY, SPEC_TREE_CONFIG, SPEC_TREE_SECTION, specTreeConfigDescriptor } from "@/spec/config";
+import {
+  type Kind,
+  KIND_REGISTRY,
+  SPEC_TREE_CONFIG,
+  SPEC_TREE_SECTION,
+  specTreeConfigDescriptor,
+} from "@/lib/spec-tree/config";
 
 describe("specTreeConfigDescriptor.section", () => {
   it("names the spec-tree section of spx.config.yaml", () => {

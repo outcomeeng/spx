@@ -1,4 +1,4 @@
-import { specTreeConfigDescriptor } from "@/spec/config";
+import { specTreeConfigDescriptor } from "@/lib/spec-tree/config";
 import { literalConfigDescriptor } from "@/validation/literal/config";
 
 import type { ConfigDescriptor } from "./types";

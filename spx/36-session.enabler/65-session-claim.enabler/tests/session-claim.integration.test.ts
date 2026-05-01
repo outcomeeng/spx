@@ -14,9 +14,9 @@ import { join } from "node:path";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 
 import { pickupCommand } from "@/commands/session/pickup";
-import type { SessionHarness } from "@/session/testing/harness";
-import { createSessionHarness } from "@/session/testing/harness";
-import { SESSION_STATUSES } from "@/session/types";
+import { SESSION_STATUSES } from "@/domains/session/types";
+import type { SessionHarness } from "@testing/harnesses/session/harness";
+import { createSessionHarness } from "@testing/harnesses/session/harness";
 
 const [TODO, DOING] = SESSION_STATUSES;
 const CONCURRENT_AGENTS = 5;

@@ -1,4 +1,4 @@
-import { specDomain } from "@/domains/spec/index";
+import { specDomain } from "@/domains/spec-legacy/index";
 import { describe, expect, it } from "vitest";
 
 describe("Spec Domain Stub", () => {

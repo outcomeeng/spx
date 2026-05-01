@@ -15,9 +15,9 @@ import { execa } from "execa";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 
 import { SESSION_LIST_EMPTY_TEXT } from "@/commands/session/list";
-import type { SessionHarness } from "@/session/testing/harness";
-import { createSessionHarness } from "@/session/testing/harness";
-import { DEFAULT_LIST_STATUSES, SESSION_PRIORITY, SESSION_STATUSES } from "@/session/types";
+import { DEFAULT_LIST_STATUSES, SESSION_PRIORITY, SESSION_STATUSES } from "@/domains/session/types";
+import type { SessionHarness } from "@testing/harnesses/session/harness";
+import { createSessionHarness } from "@testing/harnesses/session/harness";
 
 const [TODO] = SESSION_STATUSES;
 const CLI_ENTRY = "bin/spx.js";

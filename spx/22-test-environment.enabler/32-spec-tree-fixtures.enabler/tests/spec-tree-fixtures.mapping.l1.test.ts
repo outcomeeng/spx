@@ -1,8 +1,12 @@
 import { describe, expect, it } from "vitest";
 
-import { readSpecTree, SPEC_TREE_ENTRY_TYPE } from "@/spec-tree";
-import { KIND_REGISTRY } from "@/spec/config";
-import { buildRepresentativeFixture, createSource, SPEC_TREE_TEST_GENERATOR } from "@testing/generators/spec-tree";
+import { readSpecTree, SPEC_TREE_ENTRY_TYPE } from "@/lib/spec-tree";
+import { KIND_REGISTRY } from "@/lib/spec-tree/config";
+import {
+  buildRepresentativeFixture,
+  createSource,
+  SPEC_TREE_TEST_GENERATOR,
+} from "@testing/generators/spec-tree/spec-tree";
 
 describe("spec-tree fixture generator", () => {
   it("generates representative entries accepted by readSpecTree", async () => {

@@ -13,7 +13,6 @@
       "@/*": ["./src/*"],
       "@root/*": ["./*"],
       "@scripts/*": ["./scripts/*"],
-      "@test/*": ["./tests/*"],
       "@testing/*": ["./testing/*"],
       "@eslint-rules/*": ["./eslint-rules/*"]
     },
@@ -25,8 +24,8 @@
     "target": "ES2022",
     "types": ["node", "vitest/globals"]
   },
-  "exclude": ["node_modules", "dist", "docs/**/*", "vite.config.mts", "tests/fixtures/**/*"],
-  "include": ["src/**/*", "bin/**/*", "scripts/**/*", "tests/**/*", "testing/**/*", "specs/**/*", "spx/**/*"],
+  "exclude": ["node_modules", "dist", "docs/**/*", "vite.config.mts", "testing/fixtures/**/*"],
+  "include": ["src/**/*", "bin/**/*", "scripts/**/*", "testing/**/*", "specs/**/*", "spx/**/*"],
   // This tells ts-node to pre-load tsconfig-paths
   "ts-node": {
     "require": ["tsconfig-paths/register"]

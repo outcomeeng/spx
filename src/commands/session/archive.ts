@@ -7,16 +7,16 @@
 import { mkdir, rename, stat } from "node:fs/promises";
 import { dirname, join } from "node:path";
 
-import { resolveSessionConfig } from "@/git/root";
 import {
   buildArchivePaths,
-  type ExistingPathsMap,
+  ExistingPathsMap,
   findSessionForArchive,
   SESSION_FILE_EXTENSION,
-} from "@/session/archive";
-import { processBatch } from "@/session/batch";
-import { SessionNotFoundError } from "@/session/errors";
-import type { SessionDirectoryConfig } from "@/session/show";
+} from "@/domains/session/archive";
+import { processBatch } from "@/domains/session/batch";
+import { SessionNotFoundError } from "@/domains/session/errors";
+import { SessionDirectoryConfig } from "@/domains/session/show";
+import { resolveSessionConfig } from "@/git/root";
 
 export const SESSION_ARCHIVE_OUTPUT = {
   ARCHIVED: "Archived session",
@@ -85,9 +85,6 @@ async function probeSessionPaths(
 
 /**
  * Resolves source and target paths for archiving a session.
- *
- * I/O: probes filesystem to locate the session.
- * Path logic: delegated to src/session/archive.ts pure functions.
  *
  * @param sessionId - Session ID to archive
  * @param config - Directory configuration

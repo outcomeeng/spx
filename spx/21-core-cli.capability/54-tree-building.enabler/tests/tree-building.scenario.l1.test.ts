@@ -1,8 +1,13 @@
-import { buildTree, type TreeBuildDeps } from "@/tree/build";
-import type { WorkItemTree } from "@/tree/types";
-import { TreeValidationError, validateTree } from "@/tree/validate";
-import { WORK_ITEM_KINDS, WORK_ITEM_STATUSES, type WorkItem, type WorkItemKind } from "@/types";
-import { buildSimpleTree, buildTreeWithFeatures, buildTreeWithStories, createNode } from "@test/harness/tree-builder";
+import { buildTree, TreeBuildDeps } from "@/lib/spec-legacy/tree/build";
+import { WorkItemTree } from "@/lib/spec-legacy/tree/types";
+import { TreeValidationError, validateTree } from "@/lib/spec-legacy/tree/validate";
+import { WORK_ITEM_KINDS, WORK_ITEM_STATUSES, type WorkItem, type WorkItemKind } from "@/lib/spec-legacy/types";
+import {
+  buildSimpleTree,
+  buildTreeWithFeatures,
+  buildTreeWithStories,
+  createNode,
+} from "@testing/harnesses/tree-builder";
 import { describe, expect, it } from "vitest";
 
 function makeItem(kind: WorkItemKind, number: number, slug: string, path: string): WorkItem {

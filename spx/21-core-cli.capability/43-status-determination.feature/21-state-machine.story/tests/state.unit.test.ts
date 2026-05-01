@@ -2,8 +2,8 @@
  * Level 1: Pure function tests for status state machine
  * Story: story-21_state-machine
  */
-import { determineStatus } from "@/status/state";
-import { WORK_ITEM_STATUSES } from "@/types";
+import { determineStatus } from "@/lib/spec-legacy/status/state";
+import { WORK_ITEM_STATUSES } from "@/lib/spec-legacy/types";
 import { describe, expect, it } from "vitest";
 
 describe("determineStatus", () => {

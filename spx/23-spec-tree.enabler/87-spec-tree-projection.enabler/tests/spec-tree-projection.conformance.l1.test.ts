@@ -1,8 +1,8 @@
 import { describe, expect, it } from "vitest";
 
-import { projectSpecTree, readSpecTree, SPEC_TREE_PROJECTION } from "@/spec-tree";
-import { KIND_REGISTRY } from "@/spec/config";
-import { buildRepresentativeFixture, createSource } from "@testing/generators/spec-tree";
+import { projectSpecTree, readSpecTree, SPEC_TREE_PROJECTION } from "@/lib/spec-tree";
+import { KIND_REGISTRY } from "@/lib/spec-tree/config";
+import { buildRepresentativeFixture, createSource } from "@testing/generators/spec-tree/spec-tree";
 
 describe("spec-tree projection contract", () => {
   it("conforms to the stable projection shape consumed by commands and automation", async () => {

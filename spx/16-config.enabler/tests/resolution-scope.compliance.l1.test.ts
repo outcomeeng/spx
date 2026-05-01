@@ -19,9 +19,9 @@ import {
   SPEC_TREE_KIND_CATEGORY,
   specTreeConfigDescriptor,
   type SpecTreeKindCategory,
-} from "@/spec/config";
-import { withTestEnv } from "@/spec/testing/index";
-import type { Config } from "@/spec/testing/index";
+} from "@/lib/spec-tree/config";
+import type { Config } from "@testing/harnesses/spec-tree/spec-tree";
+import { withTestEnv } from "@testing/harnesses/spec-tree/spec-tree";
 
 type ConfigKindDefinition = {
   readonly category: SpecTreeKindCategory;

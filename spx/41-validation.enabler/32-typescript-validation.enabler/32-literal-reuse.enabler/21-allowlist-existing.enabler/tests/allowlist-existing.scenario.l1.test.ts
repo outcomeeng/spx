@@ -10,10 +10,10 @@ import {
   resolveConfig,
   serializeConfigFileSections,
 } from "@/config/index";
-import { withTestEnv } from "@/spec/testing/index";
 import { allowlistExisting } from "@/validation/literal/allowlist-existing";
 import { type LiteralConfig, literalConfigDescriptor } from "@/validation/literal/config";
 import { validateLiteralReuse } from "@/validation/literal/index";
+import { withTestEnv } from "@testing/harnesses/spec-tree/spec-tree";
 
 import {
   buildBaselineConfig,

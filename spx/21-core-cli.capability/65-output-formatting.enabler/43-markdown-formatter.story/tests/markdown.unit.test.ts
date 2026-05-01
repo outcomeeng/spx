@@ -1,10 +1,10 @@
-import { formatMarkdown } from "@/reporter/markdown";
+import { formatMarkdown } from "@/lib/spec-legacy/reporter/markdown";
 import {
   buildSimpleTree,
   buildTreeWithFeatures,
   buildTreeWithStatus,
   buildTreeWithStories,
-} from "@test/harness/tree-builder";
+} from "@testing/harnesses/tree-builder";
 import { describe, expect, it } from "vitest";
 
 describe("formatMarkdown", () => {

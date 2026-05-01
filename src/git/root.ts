@@ -10,8 +10,8 @@
 import { execa } from "execa";
 import { dirname, isAbsolute, join, resolve } from "node:path";
 
+import { SessionDirectoryConfig } from "@/domains/session/show";
 import { DEFAULT_CONFIG } from "../config/defaults";
-import type { SessionDirectoryConfig } from "../session/show";
 import { withoutGitEnvironment } from "./environment";
 
 /**

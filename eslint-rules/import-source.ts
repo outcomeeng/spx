@@ -21,7 +21,7 @@ const INTERNAL_ALIAS_PREFIXES = [
   "@/",
   "@root/",
   "@scripts/",
-  "@test/",
+  "@testing/",
   "@eslint-rules/",
 ] as const;
 

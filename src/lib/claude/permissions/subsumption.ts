@@ -5,7 +5,7 @@
  * - Bash(git:*) subsumes Bash(git log:*), Bash(git worktree:*), etc.
  * - Read(file_path:/Users/user/Code/**) subsumes Read(file_path:/Users/user/Code/project-a/**)
  */
-import { normalizePath } from "@/scanner/walk";
+import { normalizePath } from "@/lib/file-system/normalizePath";
 import { parsePermission } from "./parser";
 import type { Permission, PermissionCategory, ScopePattern, SubsumptionResult } from "./types";
 

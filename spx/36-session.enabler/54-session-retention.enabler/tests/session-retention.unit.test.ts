@@ -23,11 +23,11 @@ import { afterEach, beforeEach, describe, expect, it } from "vitest";
 
 import { archiveCommand, SESSION_ARCHIVE_OUTPUT } from "@/commands/session/archive";
 import { pruneCommand, SESSION_PRUNE_OUTPUT, validatePruneOptions } from "@/commands/session/prune";
-import { type ArchivableStatus, buildArchivePaths, findSessionForArchive } from "@/session/archive";
-import { DEFAULT_KEEP_COUNT, selectSessionsToDelete } from "@/session/prune";
-import type { SessionHarness } from "@/session/testing/harness";
-import { createSessionHarness } from "@/session/testing/harness";
-import { DEFAULT_PRIORITY, type Session, SESSION_STATUSES, type SessionPriority } from "@/session/types";
+import { type ArchivableStatus, buildArchivePaths, findSessionForArchive } from "@/domains/session/archive";
+import { DEFAULT_KEEP_COUNT, selectSessionsToDelete } from "@/domains/session/prune";
+import { DEFAULT_PRIORITY, type Session, SESSION_STATUSES, type SessionPriority } from "@/domains/session/types";
+import type { SessionHarness } from "@testing/harnesses/session/harness";
+import { createSessionHarness } from "@testing/harnesses/session/harness";
 
 const [TODO, DOING, ARCHIVE] = SESSION_STATUSES;
 

@@ -25,10 +25,10 @@ import { archiveCommand, SESSION_ARCHIVE_OUTPUT } from "@/commands/session/archi
 import { deleteCommand, SESSION_DELETE_OUTPUT } from "@/commands/session/delete";
 import { releaseCommand, SESSION_RELEASE_OUTPUT } from "@/commands/session/release";
 import { showCommand } from "@/commands/session/show";
-import { SESSION_SHOW_LABEL } from "@/session/show";
-import type { SessionHarness } from "@/session/testing/harness";
-import { createSessionHarness } from "@/session/testing/harness";
-import { SESSION_PRIORITY, SESSION_STATUSES } from "@/session/types";
+import { SESSION_SHOW_LABEL } from "@/domains/session/show";
+import { SESSION_PRIORITY, SESSION_STATUSES } from "@/domains/session/types";
+import type { SessionHarness } from "@testing/harnesses/session/harness";
+import { createSessionHarness } from "@testing/harnesses/session/harness";
 
 const [TODO, DOING, ARCHIVE] = SESSION_STATUSES;
 

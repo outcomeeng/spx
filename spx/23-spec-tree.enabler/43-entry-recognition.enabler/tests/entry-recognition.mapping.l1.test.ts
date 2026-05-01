@@ -1,13 +1,17 @@
 import { describe, expect, it } from "vitest";
 
-import { recognizeSpecTreeFilesystemEntry, SPEC_TREE_ENTRY_TYPE, SPEC_TREE_FILESYSTEM_RECORD_TYPE } from "@/spec-tree";
-import { KIND_REGISTRY, SPEC_TREE_CONFIG } from "@/spec/config";
+import {
+  recognizeSpecTreeFilesystemEntry,
+  SPEC_TREE_ENTRY_TYPE,
+  SPEC_TREE_FILESYSTEM_RECORD_TYPE,
+} from "@/lib/spec-tree";
+import { KIND_REGISTRY, SPEC_TREE_CONFIG } from "@/lib/spec-tree/config";
 import {
   sampleDecisionKind,
   sampleNodeKind,
   sampleSpecTreeTestValue,
   SPEC_TREE_TEST_GENERATOR,
-} from "@testing/generators/spec-tree";
+} from "@testing/generators/spec-tree/spec-tree";
 
 describe("spec-tree entry recognition", () => {
   it("maps registered node suffixes to node source entries", () => {

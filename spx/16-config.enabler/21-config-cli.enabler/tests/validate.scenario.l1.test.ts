@@ -3,7 +3,7 @@ import { describe, expect, it } from "vitest";
 import { validateCommand } from "@/commands/config/validate";
 import { DEFAULT_CONFIG_FILENAME } from "@/config/index";
 import type { Config, ConfigDescriptor, Result } from "@/config/types";
-import { specTreeConfigDescriptor } from "@/spec/config";
+import { specTreeConfigDescriptor } from "@/lib/spec-tree/config";
 
 type CliDeps = {
   resolveConfig: (projectRoot: string) => Promise<Result<Config>>;

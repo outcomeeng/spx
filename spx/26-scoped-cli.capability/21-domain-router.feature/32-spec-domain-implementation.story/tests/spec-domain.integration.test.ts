@@ -1,4 +1,5 @@
-import { CLI_PATH, FIXTURES_ROOT } from "@test/harness/constants";
+import { FIXTURES_PATH } from "@testing/fixtures";
+import { CLI_PATH } from "@testing/harnesses/constants";
 import { execa } from "execa";
 import { join } from "path";
 import { describe, expect, it } from "vitest";
@@ -7,7 +8,7 @@ describe("Spec Domain Integration", () => {
   describe("status command", () => {
     it("GIVEN fixture repo WHEN running spec status THEN outputs tree", async () => {
       // Given: Fixture repo with work items
-      const cwd = join(FIXTURES_ROOT, "repos/simple");
+      const cwd = join(FIXTURES_PATH, "repos/simple");
 
       // When: Running spec status command
       const { stdout, exitCode } = await execa("node", [CLI_PATH, "spec", "status"], {
@@ -21,7 +22,7 @@ describe("Spec Domain Integration", () => {
 
     it("GIVEN fixture repo WHEN running spec status --json THEN outputs valid JSON", async () => {
       // Given: Fixture repo
-      const cwd = join(FIXTURES_ROOT, "repos/simple");
+      const cwd = join(FIXTURES_PATH, "repos/simple");
 
       // When: Running spec status --json
       const { stdout, exitCode } = await execa("node", [CLI_PATH, "spec", "status", "--json"], {
@@ -39,7 +40,7 @@ describe("Spec Domain Integration", () => {
 
     it("GIVEN empty repo WHEN running spec status THEN shows no work items", async () => {
       // Given: Empty repo (no specs directory)
-      const cwd = join(FIXTURES_ROOT, "repos/empty");
+      const cwd = join(FIXTURES_PATH, "repos/empty");
 
       // When: Running spec status
       const { stdout, exitCode } = await execa("node", [CLI_PATH, "spec", "status"], {
@@ -55,7 +56,7 @@ describe("Spec Domain Integration", () => {
   describe("next command", () => {
     it("GIVEN fixture repo WHEN running spec next THEN finds next work item", async () => {
       // Given: Fixture repo with incomplete work items
-      const cwd = join(FIXTURES_ROOT, "repos/mixed");
+      const cwd = join(FIXTURES_PATH, "repos/mixed");
 
       // When: Running spec next
       const { stdout, exitCode } = await execa("node", [CLI_PATH, "spec", "next"], {
@@ -85,7 +86,7 @@ describe("Spec Domain Integration", () => {
   describe("error handling", () => {
     it("GIVEN invalid format WHEN running spec status THEN shows error", async () => {
       // Given: Fixture repo
-      const cwd = join(FIXTURES_ROOT, "repos/simple");
+      const cwd = join(FIXTURES_PATH, "repos/simple");
 
       // When: Running with invalid format
       const { stderr, exitCode } = await execa(

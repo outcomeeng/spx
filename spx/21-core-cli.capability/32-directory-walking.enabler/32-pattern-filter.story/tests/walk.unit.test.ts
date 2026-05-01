@@ -2,7 +2,7 @@
  * Level 1: Unit tests for pattern filtering
  * Story: story-32_pattern-filter
  */
-import { filterWorkItemDirectories } from "@/scanner/walk";
+import { filterWorkItemDirectories } from "@/lib/spec-legacy/scanner/walk";
 import { describe, expect, it } from "vitest";
 
 describe("filterWorkItemDirectories", () => {

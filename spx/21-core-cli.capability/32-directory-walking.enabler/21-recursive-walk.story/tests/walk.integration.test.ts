@@ -2,8 +2,8 @@
  * Level 2: Integration tests for recursive directory walking
  * Story: story-21_recursive-walk
  */
-import { walkDirectory } from "@/scanner/walk";
-import { FIXTURES_ROOT } from "@test/harness/constants";
+import { walkDirectory } from "@/lib/spec-legacy/scanner/walk";
+import { FIXTURES_PATH } from "@testing/fixtures";
 import { join, resolve, sep } from "path";
 import { describe, expect, it } from "vitest";
 
@@ -14,7 +14,7 @@ describe("walkDirectory", () => {
 
   it("GIVEN directory with subdirectories WHEN walking THEN returns all paths", async () => {
     // Given
-    const fixtureRoot = join(FIXTURES_ROOT, "simple-tree");
+    const fixtureRoot = join(FIXTURES_PATH, "simple-tree");
 
     // When
     const entries = await walkDirectory(fixtureRoot);
@@ -27,7 +27,7 @@ describe("walkDirectory", () => {
 
   it("GIVEN nested directory structure WHEN walking THEN discovers all levels", async () => {
     // Given
-    const fixtureRoot = join(FIXTURES_ROOT, "nested-tree");
+    const fixtureRoot = join(FIXTURES_PATH, "nested-tree");
 
     // When
     const entries = await walkDirectory(fixtureRoot);
@@ -40,7 +40,7 @@ describe("walkDirectory", () => {
 
   it("GIVEN empty directory WHEN walking THEN returns empty array", async () => {
     // Given
-    const fixtureRoot = join(FIXTURES_ROOT, "empty-dir");
+    const fixtureRoot = join(FIXTURES_PATH, "empty-dir");
 
     // When
     const entries = await walkDirectory(fixtureRoot);
@@ -59,7 +59,7 @@ describe("walkDirectory", () => {
 
   it("GIVEN directory WHEN walking THEN returns DirectoryEntry objects", async () => {
     // Given
-    const fixtureRoot = join(FIXTURES_ROOT, "simple-tree");
+    const fixtureRoot = join(FIXTURES_PATH, "simple-tree");
 
     // When
     const entries = await walkDirectory(fixtureRoot);

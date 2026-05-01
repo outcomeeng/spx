@@ -14,14 +14,12 @@
  * - C1: Each defect line conforms to "{stage}: {message}" format
  */
 
+import { runVerifyPipeline } from "@/domains/audit/verify";
+import { AuditHarness, createAuditHarness } from "@testing/harnesses/audit/harness";
 import { mkdir, mkdtemp, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
-
-import { createAuditHarness } from "@/audit/testing/harness";
-import type { AuditHarness } from "@/audit/testing/harness";
-import { runVerifyPipeline } from "@/audit/verify";
 
 const LINE_FORMAT = /^(reader|structural|semantic|paths): /;
 const VERIFY_STAGE = {

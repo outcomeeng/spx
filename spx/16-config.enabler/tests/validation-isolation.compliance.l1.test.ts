@@ -2,9 +2,9 @@ import { describe, expect, it } from "vitest";
 
 import { resolveConfig } from "@/config/index";
 import type { ConfigDescriptor, Result } from "@/config/types";
-import { KIND_REGISTRY, specTreeConfigDescriptor } from "@/spec/config";
-import { withTestEnv } from "@/spec/testing/index";
-import type { Config } from "@/spec/testing/index";
+import { KIND_REGISTRY, specTreeConfigDescriptor } from "@/lib/spec-tree/config";
+import type { Config } from "@testing/harnesses/spec-tree/spec-tree";
+import { withTestEnv } from "@testing/harnesses/spec-tree/spec-tree";
 
 type SpyDescriptorConfig = { readonly label: string };
 

@@ -6,10 +6,10 @@
 
 import { stat, unlink } from "node:fs/promises";
 
+import { processBatch } from "@/domains/session/batch";
+import { resolveDeletePath } from "@/domains/session/delete";
+import { resolveSessionPaths, SessionDirectoryConfig } from "@/domains/session/show";
 import { resolveSessionConfig } from "@/git/root";
-import { processBatch } from "@/session/batch";
-import { resolveDeletePath } from "@/session/delete";
-import { resolveSessionPaths, type SessionDirectoryConfig } from "@/session/show";
 
 export const SESSION_DELETE_OUTPUT = {
   DELETED: "Deleted session",

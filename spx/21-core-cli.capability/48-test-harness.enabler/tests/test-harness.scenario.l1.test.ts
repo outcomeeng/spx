@@ -1,5 +1,5 @@
-import { PRESETS } from "@test/harness/fixture-generator";
-import { withSpecEnv } from "@test/harness/with-spec-env";
+import { PRESETS } from "@testing/harnesses/fixture-generator";
+import { withSpecEnv } from "@testing/harnesses/with-spec-env";
 import { existsSync, readdirSync } from "node:fs";
 import { rm } from "node:fs/promises";
 import { tmpdir } from "node:os";

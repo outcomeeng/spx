@@ -11,10 +11,9 @@
  * - S4: Gate count attribute mismatch → "count mismatch" defect
  */
 
+import { AuditVerdict } from "@/domains/audit/reader";
+import { validateStructure } from "@/domains/audit/structural";
 import { describe, expect, it } from "vitest";
-
-import type { AuditVerdict } from "@/audit/reader";
-import { validateStructure } from "@/audit/structural";
 
 const DEFECT_MISSING_ELEMENT = "missing required element";
 const DEFECT_INVALID_ENUM = "invalid enum value";

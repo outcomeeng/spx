@@ -9,13 +9,12 @@
  *       under the project root, then a "missing file" defect naming the path is reported
  */
 
+import { AUDIT_PATH_DEFECT, validatePaths } from "@/domains/audit/paths";
+import { AuditFinding, AuditVerdict } from "@/domains/audit/reader";
 import { mkdtemp, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { describe, expect, it } from "vitest";
-
-import { AUDIT_PATH_DEFECT, validatePaths } from "@/audit/paths";
-import type { AuditFinding, AuditVerdict } from "@/audit/reader";
 
 const DEFECT_MISSING_FILE = AUDIT_PATH_DEFECT.MISSING_FILE;
 

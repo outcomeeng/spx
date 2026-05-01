@@ -15,9 +15,9 @@ import {
   SessionAlreadyArchivedError,
   showCommand,
 } from "@/commands/session/index";
-import { SESSION_STATUSES } from "@/session/types";
 import type { Domain } from "../types";
 import { HANDOFF_FRONTMATTER_HELP, PICKUP_SELECTION_HELP, SESSION_FORMAT_HELP } from "./help";
+import { SESSION_STATUSES } from "./types";
 
 /**
  * Reads content from stdin if available (piped input).

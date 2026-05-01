@@ -6,11 +6,11 @@
 
 import { readFile, stat } from "node:fs/promises";
 
+import { processBatch } from "@/domains/session/batch";
+import { SessionNotFoundError } from "@/domains/session/errors";
+import { formatShowOutput, resolveSessionPaths, SEARCH_ORDER, SessionDirectoryConfig } from "@/domains/session/show";
+import { SessionStatus } from "@/domains/session/types";
 import { resolveSessionConfig } from "@/git/root";
-import { processBatch } from "@/session/batch";
-import { SessionNotFoundError } from "@/session/errors";
-import { formatShowOutput, resolveSessionPaths, SEARCH_ORDER, type SessionDirectoryConfig } from "@/session/show";
-import type { SessionStatus } from "@/session/types";
 
 /**
  * Options for the show command.

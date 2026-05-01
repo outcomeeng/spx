@@ -21,18 +21,18 @@ import { afterEach, beforeEach, describe, expect, it } from "vitest";
 
 import { pickupCommand } from "@/commands/session/pickup";
 import { releaseCommand, SESSION_RELEASE_OUTPUT } from "@/commands/session/release";
-import { SessionNotAvailableError } from "@/session/errors";
-import { buildClaimPaths, classifyClaimError, selectBestSession } from "@/session/pickup";
-import { buildReleasePaths, findCurrentSession } from "@/session/release";
-import type { SessionHarness } from "@/session/testing/harness";
-import { createSessionHarness } from "@/session/testing/harness";
+import { SessionNotAvailableError } from "@/domains/session/errors";
+import { buildClaimPaths, classifyClaimError, selectBestSession } from "@/domains/session/pickup";
+import { buildReleasePaths, findCurrentSession } from "@/domains/session/release";
 import {
   DEFAULT_PRIORITY,
   type Session,
   SESSION_PRIORITY,
   SESSION_STATUSES,
   type SessionPriority,
-} from "@/session/types";
+} from "@/domains/session/types";
+import type { SessionHarness } from "@testing/harnesses/session/harness";
+import { createSessionHarness } from "@testing/harnesses/session/harness";
 
 const [TODO, DOING] = SESSION_STATUSES;
 

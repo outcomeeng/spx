@@ -9,7 +9,7 @@ import {
   NODE_KINDS,
   type NodeKind,
   SPEC_TREE_KIND_CATEGORY,
-} from "@/spec/config";
+} from "@/lib/spec-tree/config";
 
 describe("types match values", () => {
   it("Kind is the union of KIND_REGISTRY's keys and is enumerable at the type level", () => {

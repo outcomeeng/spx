@@ -2,15 +2,15 @@
  * Level 2: Integration tests for DONE.md detection
  * Story: story-43_parse-done-md
  */
-import { hasDoneMd } from "@/status/state";
-import { FIXTURES_ROOT } from "@test/harness/constants";
+import { hasDoneMd } from "@/lib/spec-legacy/status/state";
+import { FIXTURES_PATHS } from "@testing/fixtures";
 import { join } from "path";
 import { describe, expect, it } from "vitest";
 
 describe("hasDoneMd", () => {
   it("GIVEN tests dir with DONE.md WHEN checking THEN returns true", async () => {
     // Given
-    const testsPath = join(FIXTURES_ROOT, "work-items/done-item/tests");
+    const testsPath = join(FIXTURES_PATHS.SPEC_LEGACY, "work-items/done-item/tests");
 
     // When
     const result = await hasDoneMd(testsPath);
@@ -21,7 +21,7 @@ describe("hasDoneMd", () => {
 
   it("GIVEN tests dir without DONE.md WHEN checking THEN returns false", async () => {
     // Given
-    const testsPath = join(FIXTURES_ROOT, "work-items/in-progress/tests");
+    const testsPath = join(FIXTURES_PATHS.SPEC_LEGACY, "work-items/in-progress/tests");
 
     // When
     const result = await hasDoneMd(testsPath);
@@ -32,7 +32,7 @@ describe("hasDoneMd", () => {
 
   it("GIVEN DONE.md as directory (not file) WHEN checking THEN returns false", async () => {
     // Given
-    const testsPath = join(FIXTURES_ROOT, "work-items/done-is-dir/tests");
+    const testsPath = join(FIXTURES_PATHS.SPEC_LEGACY, "work-items/done-is-dir/tests");
 
     // When
     const result = await hasDoneMd(testsPath);
@@ -43,7 +43,7 @@ describe("hasDoneMd", () => {
 
   it("GIVEN DONE.md with different case WHEN checking THEN returns false", async () => {
     // Given
-    const testsPath = join(FIXTURES_ROOT, "work-items/wrong-case/tests");
+    const testsPath = join(FIXTURES_PATHS.SPEC_LEGACY, "work-items/wrong-case/tests");
 
     // When
     const result = await hasDoneMd(testsPath);

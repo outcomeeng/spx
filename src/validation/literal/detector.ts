@@ -1,7 +1,7 @@
 import { parse as parseTypeScript } from "@typescript-eslint/parser";
 import { visitorKeys as typescriptVisitorKeys } from "@typescript-eslint/visitor-keys";
 
-import { SPEC_TREE_ENV_FIXTURE_WRITER_METHODS } from "@/spec/fixture-writer-methods";
+import { SPEC_TREE_ENV_FIXTURE_WRITER_METHODS } from "@/domains/spec/fixture-writer-methods";
 
 export const LITERAL_KIND = {
   STRING: "string",

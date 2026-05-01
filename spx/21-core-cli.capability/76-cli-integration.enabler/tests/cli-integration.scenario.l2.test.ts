@@ -1,6 +1,7 @@
 import { createRequire } from "node:module";
 
-import { CLI_PATH, FIXTURES_ROOT, PROJECT_ROOT, VERSION_FLAG } from "@test/harness/constants";
+import { FIXTURES_PATH } from "@testing/fixtures";
+import { CLI_PATH, PROJECT_ROOT, VERSION_FLAG } from "@testing/harnesses/constants";
 import { execa } from "execa";
 import path from "path";
 import { describe, expect, it } from "vitest";
@@ -9,7 +10,7 @@ import { describe, expect, it } from "vitest";
 
 describe("spx spec status", () => {
   it("GIVEN project with work items WHEN running status THEN outputs tree and exits 0", async () => {
-    const cwd = path.join(FIXTURES_ROOT, "repos/simple");
+    const cwd = path.join(FIXTURES_PATH, "repos/simple");
 
     const { stdout, exitCode } = await execa("node", [CLI_PATH, "spec", "status"], { cwd });
 
@@ -20,7 +21,7 @@ describe("spx spec status", () => {
   });
 
   it("GIVEN project with no work items WHEN running status THEN stdout contains 'No work items found'", async () => {
-    const cwd = path.join(FIXTURES_ROOT, "repos/empty");
+    const cwd = path.join(FIXTURES_PATH, "repos/empty");
 
     const { stdout, exitCode } = await execa("node", [CLI_PATH, "spec", "status"], { cwd });
 
@@ -29,7 +30,7 @@ describe("spx spec status", () => {
   });
 
   it("GIVEN project with no specs directory WHEN running status THEN exits 1 and stderr contains 'Error:'", async () => {
-    const cwd = FIXTURES_ROOT;
+    const cwd = FIXTURES_PATH;
 
     const result = await execa("node", [CLI_PATH, "spec", "status"], { cwd, reject: false });
 
@@ -38,7 +39,7 @@ describe("spx spec status", () => {
   });
 
   it("GIVEN --json flag WHEN running status THEN stdout is valid JSON with capabilities", async () => {
-    const cwd = path.join(FIXTURES_ROOT, "repos/simple");
+    const cwd = path.join(FIXTURES_PATH, "repos/simple");
 
     const { stdout, exitCode } = await execa("node", [CLI_PATH, "spec", "status", "--json"], {
       cwd,
@@ -50,7 +51,7 @@ describe("spx spec status", () => {
   });
 
   it("GIVEN --json flag WHEN running status THEN output includes config values", async () => {
-    const cwd = path.join(FIXTURES_ROOT, "repos/simple");
+    const cwd = path.join(FIXTURES_PATH, "repos/simple");
 
     const { stdout, exitCode } = await execa("node", [CLI_PATH, "spec", "status", "--json"], {
       cwd,
@@ -66,7 +67,7 @@ describe("spx spec status", () => {
   });
 
   it("GIVEN --format json WHEN running status THEN exits 0 and stdout is valid JSON", async () => {
-    const cwd = path.join(FIXTURES_ROOT, "repos/simple");
+    const cwd = path.join(FIXTURES_PATH, "repos/simple");
 
     const { stdout, exitCode } = await execa(
       "node",
@@ -79,7 +80,7 @@ describe("spx spec status", () => {
   });
 
   it("GIVEN --format markdown WHEN running status THEN exits 0 and stdout contains markdown headings", async () => {
-    const cwd = path.join(FIXTURES_ROOT, "repos/simple");
+    const cwd = path.join(FIXTURES_PATH, "repos/simple");
 
     const { stdout, exitCode } = await execa(
       "node",
@@ -92,7 +93,7 @@ describe("spx spec status", () => {
   });
 
   it("GIVEN --format table WHEN running status THEN exits 0 and stdout contains table rows", async () => {
-    const cwd = path.join(FIXTURES_ROOT, "repos/simple");
+    const cwd = path.join(FIXTURES_PATH, "repos/simple");
 
     const { stdout, exitCode } = await execa(
       "node",
@@ -105,7 +106,7 @@ describe("spx spec status", () => {
   });
 
   it("GIVEN --format text WHEN running status THEN exits 0 and stdout contains tree items", async () => {
-    const cwd = path.join(FIXTURES_ROOT, "repos/simple");
+    const cwd = path.join(FIXTURES_PATH, "repos/simple");
 
     const { stdout, exitCode } = await execa(
       "node",
@@ -119,7 +120,7 @@ describe("spx spec status", () => {
   });
 
   it("GIVEN --format invalid WHEN running status THEN exits 1 and stderr names the invalid value", async () => {
-    const cwd = path.join(FIXTURES_ROOT, "repos/simple");
+    const cwd = path.join(FIXTURES_PATH, "repos/simple");
 
     const result = await execa(
       "node",
@@ -136,7 +137,7 @@ describe("spx spec status", () => {
 
 describe("spx spec next", () => {
   it("GIVEN project with IN_PROGRESS item WHEN running next THEN stdout contains 'Next work item:'", async () => {
-    const cwd = path.join(FIXTURES_ROOT, "repos/mixed");
+    const cwd = path.join(FIXTURES_PATH, "repos/mixed");
 
     const { stdout, exitCode } = await execa("node", [CLI_PATH, "spec", "next"], { cwd });
 
@@ -145,7 +146,7 @@ describe("spx spec next", () => {
   });
 
   it("GIVEN project where all items are DONE WHEN running next THEN stdout contains completion message", async () => {
-    const cwd = path.join(FIXTURES_ROOT, "repos/all-done");
+    const cwd = path.join(FIXTURES_PATH, "repos/all-done");
 
     const { stdout, exitCode } = await execa("node", [CLI_PATH, "spec", "next"], { cwd });
 
@@ -154,7 +155,7 @@ describe("spx spec next", () => {
   });
 
   it("GIVEN project with no work items WHEN running next THEN stdout contains 'No work items found'", async () => {
-    const cwd = path.join(FIXTURES_ROOT, "repos/empty");
+    const cwd = path.join(FIXTURES_PATH, "repos/empty");
 
     const { stdout, exitCode } = await execa("node", [CLI_PATH, "spec", "next"], { cwd });
 
@@ -163,7 +164,7 @@ describe("spx spec next", () => {
   });
 
   it("GIVEN project with no specs directory WHEN running next THEN exits 1 and stderr contains 'Error:'", async () => {
-    const cwd = FIXTURES_ROOT;
+    const cwd = FIXTURES_PATH;
 
     const result = await execa("node", [CLI_PATH, "spec", "next"], { cwd, reject: false });
 
@@ -207,7 +208,7 @@ describe("spx error handling and help", () => {
   });
 
   it("GIVEN missing specs dir WHEN running status THEN stderr begins with 'Error:'", async () => {
-    const cwd = path.join(FIXTURES_ROOT, "repos/no-specs");
+    const cwd = path.join(FIXTURES_PATH, "repos/no-specs");
 
     const result = await execa("node", [CLI_PATH, "spec", "status"], { cwd, reject: false });
 
@@ -226,7 +227,7 @@ describe("spx error handling and help", () => {
   });
 
   it("GIVEN --format xml WHEN running status THEN stderr names the invalid format with valid options", async () => {
-    const cwd = path.join(FIXTURES_ROOT, "repos/simple");
+    const cwd = path.join(FIXTURES_PATH, "repos/simple");
 
     const result = await execa(
       "node",

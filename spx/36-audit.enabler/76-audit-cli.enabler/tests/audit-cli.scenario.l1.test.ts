@@ -10,11 +10,10 @@
  * - S2: spx audit verify <file> with valid verdict outputs APPROVED or REJECT
  */
 
+import { auditDomain, runVerifyCommand } from "@/domains/audit/cli";
+import { createAuditHarness } from "@testing/harnesses/audit/harness";
 import { Command } from "commander";
 import { describe, expect, it } from "vitest";
-
-import { auditDomain, runVerifyCommand } from "@/audit/cli";
-import { createAuditHarness } from "@/audit/testing/harness";
 
 const VALID_XML = `<audit_verdict>
   <header>

@@ -9,7 +9,6 @@ import {
   readProjectConfigFile,
   serializeConfigFileSections,
 } from "@/config/index";
-import type { Config, SpecTreeEnv } from "@/spec/testing/index";
 import {
   DEFAULT_MIN_NUMBER_DIGITS,
   DEFAULT_MIN_STRING_LENGTH,
@@ -17,6 +16,7 @@ import {
   type LiteralAllowlistConfig,
   type LiteralConfig,
 } from "@/validation/literal/config";
+import type { Config, SpecTreeEnv } from "@testing/harnesses/spec-tree/spec-tree";
 
 export const SHARED_FIXTURE_LITERAL = "fixture-allowlist-target-literal";
 export const EXISTING_INCLUDE_FIRST = "preexisting-allowlist-entry-alpha";
