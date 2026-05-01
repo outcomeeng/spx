@@ -70,7 +70,7 @@ export function sampleConfigTestValue<T>(arbitrary: fc.Arbitrary<T>): T {
 }
 
 function arbitraryConfigKey(): fc.Arbitrary<string> {
-  return fc.stringMatching(/[a-z][a-z0-9]{5,16}/).filter((key) => key !== SPEC_TREE_SECTION);
+  return fc.stringMatching(/^[a-z][a-z0-9]{5,16}$/).filter((key) => key !== SPEC_TREE_SECTION);
 }
 
 function arbitraryConfigScalar(): fc.Arbitrary<string> {
