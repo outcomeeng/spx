@@ -6,7 +6,7 @@ import * as fc from "fast-check";
 
 import { configFileForFormat, DEFAULT_CONFIG_FILE_FORMAT, serializeConfigFileSections } from "@/config/index";
 import type { Config } from "@/config/types";
-import { SPEC_TREE_KIND_CATEGORY, SPEC_TREE_SECTION, type SpecTreeKindCategory } from "@/spec/config";
+import { SPEC_TREE_CONFIG, type SpecTreeKindCategory } from "@/spec/config";
 import type { Kind, KindDefinition, SpecTreeConfig } from "@/spec/config";
 
 export type { Config } from "@/config/types";
@@ -79,7 +79,7 @@ export async function withTestEnv(
 }
 
 export function arbitraryNodePath(config: Config): fc.Arbitrary<string> {
-  const entries = readKinds(config, SPEC_TREE_KIND_CATEGORY.NODE);
+  const entries = readKinds(config, SPEC_TREE_CONFIG.CATEGORY.NODE);
   if (entries.length === 0) {
     throw new Error("Config supplied to arbitraryNodePath has no node kinds registered");
   }
@@ -87,7 +87,7 @@ export function arbitraryNodePath(config: Config): fc.Arbitrary<string> {
 }
 
 export function arbitraryDecisionPath(config: Config): fc.Arbitrary<string> {
-  const entries = readKinds(config, SPEC_TREE_KIND_CATEGORY.DECISION);
+  const entries = readKinds(config, SPEC_TREE_CONFIG.CATEGORY.DECISION);
   if (entries.length === 0) {
     throw new Error("Config supplied to arbitraryDecisionPath has no decision kinds registered");
   }
@@ -96,8 +96,8 @@ export function arbitraryDecisionPath(config: Config): fc.Arbitrary<string> {
 
 export function arbitrarySpecTree(config: Config): fc.Arbitrary<SpecTreeFixture> {
   const all = [
-    ...readKinds(config, SPEC_TREE_KIND_CATEGORY.NODE),
-    ...readKinds(config, SPEC_TREE_KIND_CATEGORY.DECISION),
+    ...readKinds(config, SPEC_TREE_CONFIG.CATEGORY.NODE),
+    ...readKinds(config, SPEC_TREE_CONFIG.CATEGORY.DECISION),
   ];
   if (all.length === 0) {
     throw new Error("Config supplied to arbitrarySpecTree has no kinds registered");
@@ -110,9 +110,9 @@ export function arbitrarySpecTree(config: Config): fc.Arbitrary<SpecTreeFixture>
 type KindEntry = { readonly kind: string; readonly suffix: string };
 
 function readKinds(config: Config, category: SpecTreeKindCategory): readonly KindEntry[] {
-  const specTree = config[SPEC_TREE_SECTION] as SpecTreeConfig | undefined;
+  const specTree = config[SPEC_TREE_CONFIG.SECTION] as SpecTreeConfig | undefined;
   if (!specTree || typeof specTree !== "object") {
-    throw new Error(`Config supplied to spec-tree generators is missing the ${SPEC_TREE_SECTION} section`);
+    throw new Error(`Config supplied to spec-tree generators is missing the ${SPEC_TREE_CONFIG.SECTION} section`);
   }
   const kinds = specTree.kinds ?? {};
   return Object.entries(kinds)

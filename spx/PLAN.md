@@ -249,7 +249,7 @@ Each parent is classified only after reading its immediate children. File moves 
 - [x] Preserve `spx/23-spec-tree.enabler/21-kind-registry.adr.md` as the baseline and amend it only for label/alias ownership.
 - [x] Rewrite `spx/23-spec-tree.enabler/spec-tree.md` assertions around section keys, category keys, kind keys, labels, suffixes, and aliases.
 - [x] Update or add canonical tests under `spx/23-spec-tree.enabler/tests/` that prove each vocabulary string has one declaration site.
-- [ ] Rewrite config-related tests under `spx/16-config.enabler/tests/` that currently repeat kind/category/suffix literals.
+- [x] Rewrite config-related tests under `spx/16-config.enabler/tests/` that currently repeat kind/category/suffix literals.
 - [ ] Record any deliberately retained fixture/example literals in `spx.config.yaml` under `literal.allowlist.include`.
 
 ### 3. Implement Semantic Config Vocabulary
@@ -258,7 +258,7 @@ Each parent is classified only after reading its immediate children. File moves 
 - [x] Derive existing public views from the registry during migration: kind unions, category partitions, suffix lists, and descriptor defaults.
 - [x] Update `specTreeConfigDescriptor` validation so yaml selection compares against registry values.
 - [x] Update `src/config/registry.ts` only if the descriptor export shape changes.
-- [ ] Update `src/spec/testing/index.ts` to read section/category/kind names through the semantic registry.
+- [x] Update `src/spec/testing/index.ts` to read section/category/kind names through the semantic registry.
 - [x] Update `src/spec/apply/exclude/*` to consume node suffixes from the registry instead of its local suffix list.
 
 ### 4. Remove Legacy Work-Item Vocabulary From Source
