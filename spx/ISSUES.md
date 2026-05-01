@@ -22,6 +22,18 @@ Observed while verifying Dependabot PR #11 on May 1, 2026: both `pnpm run valida
 
 **Resolution:** Convert each case to source-owned constants, source-side test-data generators, or inline assertion data as required by the testing guidance, then remove the owning node from `eslint.test-owned-constant-debt-nodes.json`.
 
+## GitHub Scorecard code-scanning alerts remain open
+
+The May 1, 2026 dependency update merge closed the open Dependabot alerts: GitHub reports 0 open Dependabot alerts and 22 fixed Dependabot alerts for `outcomeeng/spx`. GitHub code scanning still reports 13 open Scorecard alerts:
+
+- High: Branch-Protection, Code-Review, Dependency-Update-Tool, Token-Permissions in `.github/workflows/claude.yml`, and Token-Permissions in `.github/workflows/claude-code-review.yml`
+- Medium: Security-Policy, SAST, and four Pinned-Dependencies alerts across `.github/workflows/claude.yml` and `.github/workflows/claude-code-review.yml`
+- Low: CII-Best-Practices and License
+
+**Skills:** `github:github`, GitHub security triage, and the workflow-specific implementation skill for any `.github/workflows/` edits.
+
+**Resolution:** Triage repository-policy alerts separately from workflow-file alerts. For workflow-file alerts, audit token permissions and pin external actions before changing the automation.
+
 ## Capability subtrees use pre-methodology suffixes and misdeclared node types
 
 Three top-level subtrees use non-methodology directory suffixes (`.capability`, `.feature`, `.story`) and likely carry the same misapplied-outcome disease that `36-session.enabler` records (see `36-session.enabler/ISSUES.md`). Affected:
