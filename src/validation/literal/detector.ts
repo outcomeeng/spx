@@ -129,8 +129,6 @@ interface WalkAncestor {
 interface WalkContext {
   readonly filename: string;
   readonly isTestFixtureFile: boolean;
-  // Shared recursion stack; walkChild pushes before descent and pops in finally.
-  ancestors: WalkAncestor[];
 }
 
 export function collectLiterals(
@@ -147,17 +145,19 @@ export function collectLiterals(
     sourceType: "module",
   }) as unknown as Node;
   const out: LiteralOccurrence[] = [];
-  walk(ast, { filename, isTestFixtureFile: isTestLikeFile(filename), ancestors: [] }, options, out);
+  const ancestors: WalkAncestor[] = [];
+  walk(ast, { filename, isTestFixtureFile: isTestLikeFile(filename) }, ancestors, options, out);
   return out;
 }
 
 function walk(
   node: Node,
   context: WalkContext,
+  ancestors: WalkAncestor[],
   options: CollectLiteralsOptions,
   out: LiteralOccurrence[],
 ): void {
-  emitLiteral(node, context, options, out);
+  emitLiteral(node, context, ancestors, options, out);
 
   const keys = options.visitorKeys[node.type];
   if (!keys) {
@@ -169,10 +169,10 @@ function walk(
     const child = node[key];
     if (Array.isArray(child)) {
       for (const item of child) {
-        if (isNode(item)) walkChild(item, node, context, options, out);
+        if (isNode(item)) walkChild(item, node, context, ancestors, options, out);
       }
     } else if (isNode(child)) {
-      walkChild(child, node, context, options, out);
+      walkChild(child, node, context, ancestors, options, out);
     }
   }
 }
@@ -181,14 +181,15 @@ function walkChild(
   node: Node,
   parent: Node,
   context: WalkContext,
+  ancestors: WalkAncestor[],
   options: CollectLiteralsOptions,
   out: LiteralOccurrence[],
 ): void {
-  context.ancestors.push({ node: parent });
+  ancestors.push({ node: parent });
   try {
-    walk(node, context, options, out);
+    walk(node, context, ancestors, options, out);
   } finally {
-    context.ancestors.pop();
+    ancestors.pop();
   }
 }
 
@@ -199,13 +200,14 @@ function isNode(value: unknown): value is Node {
 function emitLiteral(
   node: Node,
   context: WalkContext,
+  ancestors: readonly WalkAncestor[],
   options: CollectLiteralsOptions,
   out: LiteralOccurrence[],
 ): void {
   if (node.type !== LITERAL_TYPE && node.type !== TEMPLATE_ELEMENT_TYPE) {
     return;
   }
-  if (isFixtureDataLiteral(context)) {
+  if (isFixtureDataLiteral(context, ancestors)) {
     return;
   }
   const line = node.loc?.start?.line ?? 0;
@@ -239,16 +241,19 @@ function isTestLikeFile(filename: string): boolean {
     || filename.includes(TEST_FILE_MARKER);
 }
 
-function isFixtureDataLiteral(context: WalkContext): boolean {
+function isFixtureDataLiteral(
+  context: WalkContext,
+  ancestors: readonly WalkAncestor[],
+): boolean {
   if (!context.isTestFixtureFile) {
     return false;
   }
-  return isInsideFixtureWriterArgument(context) || isInsideFixtureDataVariable(context);
+  return isInsideFixtureWriterArgument(ancestors) || isInsideFixtureDataVariable(ancestors);
 }
 
-function isInsideFixtureWriterArgument(context: WalkContext): boolean {
-  for (let index = context.ancestors.length - 1; index >= 0; index -= 1) {
-    const ancestor = context.ancestors[index];
+function isInsideFixtureWriterArgument(ancestors: readonly WalkAncestor[]): boolean {
+  for (let index = ancestors.length - 1; index >= 0; index -= 1) {
+    const ancestor = ancestors[index];
     if (ancestor.node.type !== CALL_EXPRESSION_TYPE) {
       continue;
     }
@@ -256,7 +261,7 @@ function isInsideFixtureWriterArgument(context: WalkContext): boolean {
     if (callName === undefined || !isFixtureWriterCall(callName)) {
       continue;
     }
-    if (hasNestedFunctionBetween(context.ancestors, index)) {
+    if (hasNestedFunctionBetween(ancestors, index)) {
       continue;
     }
     return true;
@@ -268,13 +273,13 @@ function isFixtureWriterCall(callName: string): boolean {
   return FIXTURE_WRITER_CALLS.has(callName) || LITERAL_TEST_FIXTURE_WRITER_CALLS.has(callName);
 }
 
-function isInsideFixtureDataVariable(context: WalkContext): boolean {
-  for (let index = context.ancestors.length - 1; index >= 0; index -= 1) {
-    const ancestor = context.ancestors[index];
+function isInsideFixtureDataVariable(ancestors: readonly WalkAncestor[]): boolean {
+  for (let index = ancestors.length - 1; index >= 0; index -= 1) {
+    const ancestor = ancestors[index];
     if (ancestor.node.type !== VARIABLE_DECLARATOR_TYPE) {
       continue;
     }
-    if (hasNestedFunctionBetween(context.ancestors, index)) {
+    if (hasNestedFunctionBetween(ancestors, index)) {
       continue;
     }
     const variableName = getFixtureDataDeclaratorName(ancestor.node);
