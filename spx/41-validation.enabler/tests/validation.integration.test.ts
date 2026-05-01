@@ -126,7 +126,7 @@ describe("spx validation all — pipeline composition (Scenarios)", () => {
   );
 
   it(
-    "S6 GIVEN --skip-literal WHEN running all THEN literal detection is skipped and the other validation stages still run",
+    "S6 GIVEN --skip-literal WHEN running all THEN literal detection is skipped and quiet suppresses the skip notice",
     { timeout: ALL_TIMEOUT_MS },
     async () => {
       await withValidationEnv({ fixture: FIXTURES.CLEAN_PROJECT }, async ({ path }) => {
@@ -163,6 +163,19 @@ describe("spx validation all — pipeline composition (Scenarios)", () => {
         expect(result.stdout).toContain(STEP_NAMES.MARKDOWN);
         expect(result.stdout).toContain(STEP_NAMES.LITERAL);
         expect(result.stdout).toContain(LITERAL_SKIP_OUTPUT);
+
+        const quietResult = await execa(
+          "node",
+          [CLI_PATH, "validation", "all", allValidationCliOptions.skipLiteral.flag, "--quiet"],
+          {
+            cwd: path,
+            reject: false,
+          },
+        );
+
+        expect(quietResult.exitCode).toBe(EXIT_SUCCESS);
+        expect(quietResult.stdout).not.toContain(LITERAL_SKIP_OUTPUT);
+        expect(quietResult.stdout.trim()).toHaveLength(0);
       });
     },
   );
