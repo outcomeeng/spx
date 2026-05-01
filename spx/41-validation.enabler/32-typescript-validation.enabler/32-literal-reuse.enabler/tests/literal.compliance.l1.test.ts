@@ -7,6 +7,7 @@ import {
   collectLiterals,
   defaultVisitorKeys,
   FIXTURE_WRITER_CALLS,
+  LITERAL_TEST_FIXTURE_WRITER_METHODS,
   type LiteralAllowlistConfig,
   type LiteralOccurrence,
   parseLiteralReuseResult,
@@ -18,6 +19,7 @@ import {
 import {
   DETECTOR_OPTIONS_DEFAULTS,
   INTEGRATION_CONFIG,
+  literalTestFixtureWriterMethods,
   writeLiteralOutputFixture,
   writeSourceWithLiteral,
 } from "./support";
@@ -125,8 +127,12 @@ describe("NEVER: index literals from module-naming positions", () => {
 });
 
 describe("NEVER: change fixture-writer helpers without updating detector classification", () => {
-  it("detector fixture-writer calls match the spec-tree environment writer methods", () => {
+  it("detector environment fixture-writer calls match the spec-tree environment writer methods", () => {
     expect([...FIXTURE_WRITER_CALLS].sort()).toEqual([...SPEC_TREE_ENV_FIXTURE_WRITER_METHODS].sort());
+  });
+
+  it("detector local fixture-writer calls match the literal test helper methods", () => {
+    expect([...LITERAL_TEST_FIXTURE_WRITER_METHODS].sort()).toEqual([...literalTestFixtureWriterMethods].sort());
   });
 });
 

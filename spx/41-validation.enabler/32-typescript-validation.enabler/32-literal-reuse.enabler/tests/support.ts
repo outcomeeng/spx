@@ -48,21 +48,23 @@ export function configWithAllowlist(allowlist: LiteralAllowlistConfig): Config {
   };
 }
 
-export async function writeSourceWithLiteral(
+type LiteralTestFixtureWriter = (
   env: SpecTreeEnv,
   filename: string,
   literal: string,
-): Promise<void> {
-  await env.writeRaw(filename, `export const V = "${literal}";\n`);
-}
+) => Promise<void>;
 
-export async function writeTestWithLiteral(
-  env: SpecTreeEnv,
-  filename: string,
-  literal: string,
-): Promise<void> {
-  await env.writeRaw(filename, `expect(v).toBe("${literal}");\n`);
-}
+const literalTestFixtureWriters = {
+  writeSourceWithLiteral: async (env, filename, literal) => {
+    await env.writeRaw(filename, `export const V = "${literal}";\n`);
+  },
+  writeTestWithLiteral: async (env, filename, literal) => {
+    await env.writeRaw(filename, `expect(v).toBe("${literal}");\n`);
+  },
+} as const satisfies Record<string, LiteralTestFixtureWriter>;
+
+export const literalTestFixtureWriterMethods = Object.keys(literalTestFixtureWriters);
+export const { writeSourceWithLiteral, writeTestWithLiteral } = literalTestFixtureWriters;
 
 export async function writeLiteralOutputFixture(env: SpecTreeEnv): Promise<LiteralOutputFixture> {
   await env.writeRaw(TYPESCRIPT_MARKER, "{}\n");

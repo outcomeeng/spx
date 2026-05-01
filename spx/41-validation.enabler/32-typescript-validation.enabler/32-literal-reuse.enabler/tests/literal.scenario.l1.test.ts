@@ -74,6 +74,8 @@ const fixtureSessionPath = "spx/21-session-fixture.enabler/tests/session.scenari
 const assertionSemanticLiteral = "assertion-semantic-value";
 const fixtureProtocolStatus = "PASS";
 const fixtureProtocolVerdict = "APPROVED";
+const inlineDestructuringDefaultLiteral = "inline-destructuring-default-value";
+const inlineDestructuringObjectLiteral = "inline-destructuring-object-value";
 const dataSourceLiteral = "semantic-data-source-value";
 const jsonOutputLiteral = "semantic-json-output-value";
 const sessionManagerLiteral = "semantic-session-manager-value";
@@ -376,6 +378,24 @@ describe("literal-reuse detection — scenarios", () => {
 
     expect(values.filter((value) => value === fixtureProtocolStatus)).toHaveLength(1);
     expect(values).not.toContain(fixtureProtocolVerdict);
+  });
+
+  it("inline object destructuring literals still contribute occurrences", () => {
+    const source = `
+      const { status = "${inlineDestructuringDefaultLiteral}" } = {
+        verdict: "${inlineDestructuringObjectLiteral}",
+      };
+    `;
+
+    const occurrences = collectLiterals(
+      source,
+      "spx/36-audit.enabler/tests/inline-destructuring.scenario.l1.test.ts",
+      DEFAULT_OPTIONS,
+    );
+    const values = occurrences.map((occurrence) => occurrence.value);
+
+    expect(values).toContain(inlineDestructuringDefaultLiteral);
+    expect(values).toContain(inlineDestructuringObjectLiteral);
   });
 
   it("compound-role fixture data names do not contribute occurrences while assertion literals still do", () => {
