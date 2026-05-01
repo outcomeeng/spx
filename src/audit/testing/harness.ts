@@ -15,6 +15,8 @@ import { join } from "node:path";
 import { DEFAULT_AUDIT_CONFIG, encodeNodePath, formatAuditTimestamp } from "../config";
 import { AUDIT_VERDICT_XML, type AuditGateStatus, type AuditVerdictValue } from "../reader";
 
+export const AUDIT_VERDICT_XML_SKIPPED_REASON_FIXTURE = "Not applicable for this generated gate";
+
 export interface AuditVerdictXmlFindingFixture {
   readonly specFile: string;
   readonly testFile: string;
@@ -23,6 +25,7 @@ export interface AuditVerdictXmlFindingFixture {
 export interface AuditVerdictXmlGateFixture {
   readonly name: string;
   readonly status: AuditGateStatus;
+  readonly skippedReason?: string;
   readonly findings: readonly AuditVerdictXmlFindingFixture[];
 }
 
@@ -118,6 +121,10 @@ ${gatesXml}
 
 function renderAuditGateXml(gate: AuditVerdictXmlGateFixture): string {
   const findingsXml = gate.findings.map(renderAuditFindingXml).join("\n");
+  const skippedReasonElement = gate.skippedReason === undefined
+    ? ""
+    : `
+      <${AUDIT_VERDICT_XML.SKIPPED_REASON}>${gate.skippedReason}</${AUDIT_VERDICT_XML.SKIPPED_REASON}>`;
   const findingsElement = gate.findings.length === 0
     ? `<${AUDIT_VERDICT_XML.FINDINGS} ${AUDIT_VERDICT_XML.COUNT}="${gate.findings.length}"/>`
     : `<${AUDIT_VERDICT_XML.FINDINGS} ${AUDIT_VERDICT_XML.COUNT}="${gate.findings.length}">
@@ -127,6 +134,7 @@ ${findingsXml}
   return `    <${AUDIT_VERDICT_XML.GATE}>
       <${AUDIT_VERDICT_XML.NAME}>${gate.name}</${AUDIT_VERDICT_XML.NAME}>
       <${AUDIT_VERDICT_XML.STATUS}>${gate.status}</${AUDIT_VERDICT_XML.STATUS}>
+      ${skippedReasonElement}
       ${findingsElement}
     </${AUDIT_VERDICT_XML.GATE}>`;
 }

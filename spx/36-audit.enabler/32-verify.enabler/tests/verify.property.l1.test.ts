@@ -13,7 +13,11 @@ import { afterEach, beforeEach, describe, expect, it } from "vitest";
 
 import { AUDIT_GATE_STATUS, AUDIT_VERDICT_VALUE } from "@/audit/reader";
 import type { AuditHarness, AuditVerdictXmlFindingFixture } from "@/audit/testing/harness";
-import { createAuditHarness, renderAuditVerdictXml } from "@/audit/testing/harness";
+import {
+  AUDIT_VERDICT_XML_SKIPPED_REASON_FIXTURE,
+  createAuditHarness,
+  renderAuditVerdictXml,
+} from "@/audit/testing/harness";
 import { runVerifyPipeline } from "@/audit/verify";
 
 function buildFindings(count: number): readonly AuditVerdictXmlFindingFixture[] {
@@ -56,6 +60,9 @@ describe("runVerifyPipeline: determinism property (P1)", () => {
             gates: gates.map((gate, index) => ({
               name: gate.name || `gate${index}`,
               status: gate.status,
+              skippedReason: gate.status === AUDIT_GATE_STATUS.SKIPPED
+                ? AUDIT_VERDICT_XML_SKIPPED_REASON_FIXTURE
+                : undefined,
               findings: buildFindings(gate.findings),
             })),
           });
