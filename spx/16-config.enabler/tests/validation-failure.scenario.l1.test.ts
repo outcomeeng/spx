@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 
 import { resolveConfig } from "@/config/index";
-import { specTreeConfigDescriptor } from "@/spec/config";
+import { SPEC_TREE_KIND_CATEGORY, specTreeConfigDescriptor } from "@/spec/config";
 import { withTestEnv } from "@/spec/testing/index";
 import type { Config } from "@/spec/testing/index";
 
@@ -10,7 +10,7 @@ describe("resolveConfig — validator rejection", () => {
     const projectConfig: Config = {
       [specTreeConfigDescriptor.section]: {
         kinds: {
-          madeUpKind: { category: "node", suffix: ".fake" },
+          madeUpKind: { category: SPEC_TREE_KIND_CATEGORY.NODE, suffix: ".fake" },
         },
       },
     };
@@ -20,7 +20,7 @@ describe("resolveConfig — validator rejection", () => {
 
       expect(result.ok).toBe(false);
       if (!result.ok) {
-        expect(result.error).toMatch(/specTree/);
+        expect(result.error).toContain(specTreeConfigDescriptor.section);
       }
     });
   });
@@ -29,7 +29,7 @@ describe("resolveConfig — validator rejection", () => {
     const projectConfig: Config = {
       [specTreeConfigDescriptor.section]: {
         kinds: {
-          phantomKind: { category: "node", suffix: ".phantom" },
+          phantomKind: { category: SPEC_TREE_KIND_CATEGORY.NODE, suffix: ".phantom" },
         },
       },
     };
@@ -47,7 +47,7 @@ describe("resolveConfig — validator rejection", () => {
   it("returns no partially usable Config when any descriptor rejects — either ok:true with full Config or ok:false with error", async () => {
     const projectConfig: Config = {
       [specTreeConfigDescriptor.section]: {
-        kinds: { nonsense: { category: "node", suffix: ".nonsense" } },
+        kinds: { nonsense: { category: SPEC_TREE_KIND_CATEGORY.NODE, suffix: ".nonsense" } },
       },
     };
 

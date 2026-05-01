@@ -4,7 +4,7 @@ import * as fc from "fast-check";
 import { describe, expect, it } from "vitest";
 
 import { resolveConfig } from "@/config/index";
-import { KIND_REGISTRY, specTreeConfigDescriptor } from "@/spec/config";
+import { KIND_REGISTRY, SPEC_TREE_KIND_CATEGORY, specTreeConfigDescriptor } from "@/spec/config";
 import { withTestEnv } from "@/spec/testing/index";
 import type { Config } from "@/spec/testing/index";
 
@@ -78,7 +78,9 @@ describe("resolveConfig — side-effect freedom (property)", () => {
 describe("resolveConfig — typed-or-error invariant (C4)", () => {
   it("returns ok:true with a fully-typed Config or ok:false with a descriptor-qualified error — never a partial result", async () => {
     const rejectingConfig: Config = {
-      [specTreeConfigDescriptor.section]: { kinds: { wrong: { category: "node", suffix: ".wrong" } } },
+      [specTreeConfigDescriptor.section]: {
+        kinds: { wrong: { category: SPEC_TREE_KIND_CATEGORY.NODE, suffix: ".wrong" } },
+      },
     };
 
     await withTestEnv(rejectingConfig, async ({ projectDir }) => {

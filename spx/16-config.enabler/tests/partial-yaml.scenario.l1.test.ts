@@ -21,8 +21,10 @@ describe("resolveConfig — partial config", () => {
 
       expect(result.ok).toBe(true);
       if (result.ok) {
+        const declaredSpecTree =
+          projectConfig[specTreeConfigDescriptor.section] as typeof specTreeConfigDescriptor.defaults;
         const specTree = result.value[specTreeConfigDescriptor.section] as typeof specTreeConfigDescriptor.defaults;
-        expect(Object.keys(specTree.kinds).sort()).toEqual(["adr", "enabler"]);
+        expect(Object.keys(specTree.kinds).sort()).toEqual(Object.keys(declaredSpecTree.kinds).sort());
       }
     });
   });
