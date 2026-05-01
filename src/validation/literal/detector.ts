@@ -295,6 +295,7 @@ function hasNestedFunctionBetween(
   ancestors: readonly WalkAncestor[],
   ancestorIndex: number,
 ): boolean {
+  // The current literal node is passed separately, so this range checks only ancestors between call and literal.
   for (let index = ancestorIndex + 1; index < ancestors.length; index += 1) {
     if (FUNCTION_NODE_TYPES.has(ancestors[index].node.type)) {
       return true;
