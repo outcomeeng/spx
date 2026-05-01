@@ -289,13 +289,16 @@ function registerValidationCommands(validationCmd: Command): void {
         if (result.output) console.log(result.output);
         process.exit(result.exitCode);
       }
-      const kind = parseLiteralProblemKind(options.kind);
-      if (options.kind !== undefined && kind === undefined) {
-        const { unknownLiteralProblemKind } = validationCliDefinition.diagnostics;
-        process.stderr.write(
-          `spx validation literal: ${unknownLiteralProblemKind.messageLabel}: ${sanitizeCliArgument(options.kind)}\n`,
-        );
-        process.exit(unknownLiteralProblemKind.exitCode);
+      let kind: LiteralProblemKind | undefined;
+      if (options.kind !== undefined) {
+        kind = parseLiteralProblemKind(options.kind);
+        if (kind === undefined) {
+          const { unknownLiteralProblemKind } = validationCliDefinition.diagnostics;
+          process.stderr.write(
+            `spx validation literal: ${unknownLiteralProblemKind.messageLabel}: ${sanitizeCliArgument(options.kind)}\n`,
+          );
+          process.exit(unknownLiteralProblemKind.exitCode);
+        }
       }
       const result = await literalCommand({
         cwd: process.cwd(),
@@ -349,7 +352,7 @@ function registerValidationCommands(validationCmd: Command): void {
   addCommonOptions(allCmd);
 }
 
-function parseLiteralProblemKind(value: string | undefined): LiteralProblemKind | undefined {
+function parseLiteralProblemKind(value: string): LiteralProblemKind | undefined {
   if (value === LITERAL_PROBLEM_KIND.REUSE || value === LITERAL_PROBLEM_KIND.DUPE) {
     return value;
   }
