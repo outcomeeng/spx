@@ -90,7 +90,7 @@ export async function allCommand(options: AllCommandOptions): Promise<Validation
   // 6. Literal reuse
   const literalSkipOutput = json ? LITERAL_SKIP_JSON_OUTPUT : LITERAL_SKIP_OUTPUT;
   const literalResult = skipLiteral
-    ? { exitCode: 0, output: quiet ? "" : literalSkipOutput, durationMs: 0 }
+    ? { exitCode: 0, output: quiet ? "" : literalSkipOutput }
     : await literalCommand({ cwd, files, quiet, json });
   const literalOutput = formatStepWithTiming(6, literalResult, quiet);
   if (literalOutput) outputs.push(literalOutput);

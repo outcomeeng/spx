@@ -163,6 +163,7 @@ describe("spx validation all — pipeline composition (Scenarios)", () => {
         expect(result.stdout).toContain(STEP_NAMES.MARKDOWN);
         expect(result.stdout).toContain(STEP_NAMES.LITERAL);
         expect(result.stdout).toContain(LITERAL_SKIP_OUTPUT);
+        expect(result.stdout).not.toContain(`${LITERAL_SKIP_OUTPUT} (0ms)`);
 
         const quietResult = await execa(
           "node",
