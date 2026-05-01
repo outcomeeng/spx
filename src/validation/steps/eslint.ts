@@ -10,6 +10,7 @@ import { spawn } from "node:child_process";
 import { existsSync } from "node:fs";
 import { join } from "node:path";
 
+import { validateLintPolicy } from "@/validation/lint-policy";
 import type { ExecutionMode, ProcessRunner, ValidationContext } from "../types";
 import { EXECUTION_MODES, VALIDATION_SCOPES } from "../types";
 
@@ -125,6 +126,11 @@ export async function validateESLint(
   error?: string;
 }> {
   const { projectRoot, scope, validatedFiles, mode, eslintConfigFile } = context;
+  const lintPolicy = validateLintPolicy(projectRoot);
+
+  if (!lintPolicy.ok) {
+    return { success: false, error: lintPolicy.error };
+  }
 
   return new Promise((resolve) => {
     if (!validatedFiles || validatedFiles.length === 0) {
