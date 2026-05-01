@@ -161,6 +161,7 @@ describe("spx validation all — pipeline composition (Scenarios)", () => {
         expect(result.stdout).toContain(STEP_NAMES.ESLINT);
         expect(result.stdout).toContain(STEP_NAMES.TYPESCRIPT);
         expect(result.stdout).toContain(STEP_NAMES.MARKDOWN);
+        expect(result.stdout).toContain(STEP_NAMES.LITERAL);
         expect(result.stdout).toContain(LITERAL_SKIP_OUTPUT);
       });
     },
