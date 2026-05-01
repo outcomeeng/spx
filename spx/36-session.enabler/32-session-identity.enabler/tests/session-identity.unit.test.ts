@@ -24,6 +24,8 @@ import { DEFAULT_PRIORITY, SESSION_FRONT_MATTER, SESSION_PRIORITY, type SessionP
 
 /** Valid priorities derived from the type, not hardcoded. */
 const VALID_PRIORITIES: readonly SessionPriority[] = Object.values(SESSION_PRIORITY);
+const PROPERTY_DATE_MIN = new Date(2000, 0, 1, 0, 0, 0);
+const PROPERTY_DATE_MAX = new Date(2099, 11, 28, 23, 59, 59);
 
 describe("generateSessionId", () => {
   it("GIVEN injected time WHEN generated THEN matches SESSION_ID_PATTERN", () => {
@@ -91,29 +93,24 @@ describe("parseSessionId", () => {
 
 describe("generateSessionId → parseSessionId roundtrip (property-based)", () => {
   it("GIVEN any valid Date WHEN generated then parsed THEN roundtrips correctly", () => {
-    // Arbitrary for valid date components
-    const validDate = fc.record({
-      year: fc.integer({ min: 2000, max: 2099 }),
-      month: fc.integer({ min: 0, max: 11 }),
-      day: fc.integer({ min: 1, max: 28 }), // 28 to avoid month-length issues
-      hour: fc.integer({ min: 0, max: 23 }),
-      minute: fc.integer({ min: 0, max: 59 }),
-      second: fc.integer({ min: 0, max: 59 }),
+    const validDate = fc.date({
+      min: PROPERTY_DATE_MIN,
+      max: PROPERTY_DATE_MAX,
+      noInvalidDate: true,
     });
 
     fc.assert(
-      fc.property(validDate, ({ year, month, day, hour, minute, second }) => {
-        const original = new Date(year, month, day, hour, minute, second);
+      fc.property(validDate, (original) => {
         const id = generateSessionId({ now: () => original });
         const parsed = parseSessionId(id);
 
         expect(parsed).not.toBeNull();
-        expect(parsed!.getFullYear()).toBe(year);
-        expect(parsed!.getMonth()).toBe(month);
-        expect(parsed!.getDate()).toBe(day);
-        expect(parsed!.getHours()).toBe(hour);
-        expect(parsed!.getMinutes()).toBe(minute);
-        expect(parsed!.getSeconds()).toBe(second);
+        expect(parsed!.getFullYear()).toBe(original.getFullYear());
+        expect(parsed!.getMonth()).toBe(original.getMonth());
+        expect(parsed!.getDate()).toBe(original.getDate());
+        expect(parsed!.getHours()).toBe(original.getHours());
+        expect(parsed!.getMinutes()).toBe(original.getMinutes());
+        expect(parsed!.getSeconds()).toBe(original.getSeconds());
       }),
     );
   });
