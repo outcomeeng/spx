@@ -130,10 +130,12 @@ describe("spx validation all — pipeline composition (Scenarios)", () => {
     { timeout: ALL_TIMEOUT_MS },
     async () => {
       await withValidationEnv({ fixture: FIXTURES.CLEAN_PROJECT }, async ({ path }) => {
+        const srcDir = join(path, "src");
         const testDir = join(path, "spx", "21-literal-skip.enabler", "tests");
+        await mkdir(srcDir, { recursive: true });
         await mkdir(testDir, { recursive: true });
         await writeFile(
-          join(path, "src", "literal-skip.ts"),
+          join(srcDir, "literal-skip.ts"),
           `export const TOKEN = "${skippedLiteralToken}";\n`,
           "utf8",
         );

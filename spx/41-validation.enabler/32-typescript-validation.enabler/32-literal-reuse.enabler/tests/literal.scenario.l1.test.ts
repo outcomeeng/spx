@@ -73,6 +73,10 @@ const fixtureSessionPath = "spx/21-session-fixture.enabler/tests/session.scenari
 const assertionSemanticLiteral = "assertion-semantic-value";
 const fixtureProtocolStatus = "PASS";
 const fixtureProtocolVerdict = "APPROVED";
+const dataSourceLiteral = "semantic-data-source-value";
+const jsonOutputLiteral = "semantic-json-output-value";
+const sessionManagerLiteral = "semantic-session-manager-value";
+const xmlParserLiteral = "semantic-xml-parser-value";
 
 describe("literal-reuse detection — scenarios", () => {
   it("string literal carrying domain meaning in src and in a test file produces a src↔test reuse finding citing both locations", () => {
@@ -340,6 +344,27 @@ describe("literal-reuse detection — scenarios", () => {
 
     expect(values.filter((value) => value === fixtureProtocolStatus)).toHaveLength(1);
     expect(values).not.toContain(fixtureProtocolVerdict);
+  });
+
+  it("production-like camelCase names that contain fixture role words still contribute occurrences", () => {
+    const source = `
+      const dataSource = "${dataSourceLiteral}";
+      const jsonOutput = "${jsonOutputLiteral}";
+      const sessionManager = "${sessionManagerLiteral}";
+      const xmlParser = "${xmlParserLiteral}";
+    `;
+
+    const occurrences = collectLiterals(
+      source,
+      "spx/41-validation.enabler/tests/semantic-names.scenario.l1.test.ts",
+      DEFAULT_OPTIONS,
+    );
+    const values = occurrences.map((occurrence) => occurrence.value);
+
+    expect(values).toContain(dataSourceLiteral);
+    expect(values).toContain(jsonOutputLiteral);
+    expect(values).toContain(sessionManagerLiteral);
+    expect(values).toContain(xmlParserLiteral);
   });
 
   it("--kind dupe output contains only test↔test duplication problems", async () => {

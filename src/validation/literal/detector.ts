@@ -96,7 +96,18 @@ const FIXTURE_WRITER_CALLS: ReadonlySet<string> = new Set([
   "writeSourceWithLiteral",
   "writeTestWithLiteral",
 ]);
-const FIXTURE_DATA_NAME_PATTERN = /fixture|payload|verdict|session|frontmatter|xml|yaml|json|source/i;
+const FIXTURE_DATA_DIRECT_SEGMENTS: ReadonlySet<string> = new Set(["fixture", "payload"]);
+const FIXTURE_DATA_ROLE_SEGMENTS: ReadonlySet<string> = new Set([
+  "verdict",
+  "session",
+  "frontmatter",
+  "xml",
+  "yaml",
+  "json",
+  "source",
+]);
+const FIXTURE_DATA_CONTEXT_SEGMENTS: ReadonlySet<string> = new Set(["path", "tree"]);
+const IDENTIFIER_SEGMENT_PATTERN = /[A-Z]+(?=[A-Z][a-z]|$)|[A-Z]?[a-z]+|[0-9]+/g;
 
 interface Node {
   readonly type: string;
@@ -113,7 +124,7 @@ interface WalkAncestor {
 interface WalkContext {
   readonly filename: string;
   readonly isTestFixtureFile: boolean;
-  readonly ancestors: readonly WalkAncestor[];
+  readonly ancestors: WalkAncestor[];
 }
 
 export function collectLiterals(
@@ -167,15 +178,12 @@ function walkChild(
   options: CollectLiteralsOptions,
   out: LiteralOccurrence[],
 ): void {
-  walk(
-    node,
-    {
-      ...context,
-      ancestors: [...context.ancestors, { node: parent }],
-    },
-    options,
-    out,
-  );
+  context.ancestors.push({ node: parent });
+  try {
+    walk(node, context, options, out);
+  } finally {
+    context.ancestors.pop();
+  }
 }
 
 function isNode(value: unknown): value is Node {
@@ -257,7 +265,7 @@ function isInsideFixtureDataVariable(context: WalkContext): boolean {
       continue;
     }
     const variableName = getIdentifierName(ancestor.node.id);
-    if (variableName !== undefined && FIXTURE_DATA_NAME_PATTERN.test(variableName)) {
+    if (variableName !== undefined && isFixtureDataVariableName(variableName)) {
       return true;
     }
   }
@@ -268,7 +276,37 @@ function hasFunctionBoundaryAfterAncestor(
   ancestors: readonly WalkAncestor[],
   ancestorIndex: number,
 ): boolean {
-  return ancestors.slice(ancestorIndex + 1).some((ancestor) => FUNCTION_NODE_TYPES.has(ancestor.node.type));
+  for (let index = ancestorIndex + 1; index < ancestors.length; index += 1) {
+    if (FUNCTION_NODE_TYPES.has(ancestors[index].node.type)) {
+      return true;
+    }
+  }
+  return false;
+}
+
+function isFixtureDataVariableName(variableName: string): boolean {
+  const segments = splitIdentifierName(variableName);
+  if (segments.length === 0) {
+    return false;
+  }
+  if (segments.some((segment) => FIXTURE_DATA_DIRECT_SEGMENTS.has(segment))) {
+    return true;
+  }
+  if (!segments.some((segment) => FIXTURE_DATA_ROLE_SEGMENTS.has(segment))) {
+    return false;
+  }
+  if (segments.every((segment) => FIXTURE_DATA_ROLE_SEGMENTS.has(segment))) {
+    return true;
+  }
+  const finalSegment = segments[segments.length - 1];
+  return finalSegment !== undefined && FIXTURE_DATA_CONTEXT_SEGMENTS.has(finalSegment);
+}
+
+function splitIdentifierName(variableName: string): readonly string[] {
+  return variableName
+    .split("_")
+    .flatMap((part) => part.match(IDENTIFIER_SEGMENT_PATTERN) ?? [])
+    .map((segment) => segment.toLowerCase());
 }
 
 function getCallName(node: Node): string | undefined {
