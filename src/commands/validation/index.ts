@@ -21,7 +21,8 @@ export { allCommand } from "./all";
 export { circularCommand } from "./circular";
 export { knipCommand } from "./knip";
 export { lintCommand } from "./lint";
-export { literalCommand } from "./literal";
+export { LITERAL_PROBLEM_KIND, literalCommand } from "./literal";
+export type { LiteralProblemKind } from "./literal";
 export { markdownCommand } from "./markdown";
 export { typescriptCommand } from "./typescript";
 

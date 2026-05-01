@@ -1,18 +1,24 @@
 import { execa } from "execa";
+import { mkdtemp, rm } from "node:fs/promises";
+import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { describe, expect, it } from "vitest";
 
-import { validationCliDefinition } from "@/domains/validation";
+import { literalValidationCliOptions, validationCliDefinition } from "@/domains/validation";
 import { sanitizeCliArgument, SENTINEL_EMPTY } from "@/lib/sanitize-cli-argument";
 
 const CLI_PATH = join(process.cwd(), "bin", "spx.js");
 const SUBPROCESS_TIMEOUT_MS = 10_000;
 const UNKNOWN_TAG = validationCliDefinition.diagnostics.unknownSubcommand.messageLabel;
+const UNKNOWN_LITERAL_PROBLEM_KIND_TAG = validationCliDefinition.diagnostics.unknownLiteralProblemKind.messageLabel;
+const TEMP_DIR_PREFIX = "spx-validation-literal-kind-";
 
 async function runValidation(
   args: readonly string[],
+  options: { readonly cwd?: string } = {},
 ): Promise<{ exitCode: number; stderr: string; stdout: string }> {
   const result = await execa("node", [CLI_PATH, "validation", ...args], {
+    cwd: options.cwd,
     reject: false,
     timeout: SUBPROCESS_TIMEOUT_MS,
   });
@@ -58,5 +64,30 @@ describe("spx validation dispatch — observable scenarios", () => {
     const result = await runValidation([unicodeArgument]);
     expect(result.exitCode).not.toBe(0);
     expect(result.stderr).toContain(unicodeArgument);
+  });
+
+  it("literal help lists the literal-specific presentation flags accepted by the handler", async () => {
+    const result = await runValidation(["literal", "--help"]);
+    expect(result.exitCode).toBe(0);
+    expect(result.stderr).toHaveLength(0);
+    expect(result.stdout).toContain(literalValidationCliOptions.kind.flag);
+    expect(result.stdout).toContain(literalValidationCliOptions.filesWithProblems.flag);
+    expect(result.stdout).toContain(literalValidationCliOptions.literals.flag);
+    expect(result.stdout).toContain(literalValidationCliOptions.verbose.flag);
+  });
+
+  it("unknown literal problem kind is rejected before detection with a sanitized diagnostic", async () => {
+    const emptyProjectRoot = await mkdtemp(join(tmpdir(), TEMP_DIR_PREFIX));
+    const unsafeKind = "bad\x01kind";
+    try {
+      const result = await runValidation(["literal", "--kind", unsafeKind], { cwd: emptyProjectRoot });
+      expect(result.exitCode).not.toBe(0);
+      expect(result.stdout).toHaveLength(0);
+      expect(result.stderr).toContain(UNKNOWN_LITERAL_PROBLEM_KIND_TAG);
+      expect(result.stderr).toContain(sanitizeCliArgument(unsafeKind));
+      expect(result.stderr).not.toContain(unsafeKind);
+    } finally {
+      await rm(emptyProjectRoot, { force: true, recursive: true });
+    }
   });
 });
