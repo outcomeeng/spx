@@ -16,7 +16,7 @@ The TypeScript testing guidance forbids test-owned named constants. Several enab
 
 The spec-tree fixture support now lives in `testing/generators/spec-tree.ts`; audit that generator as source-side test-data API debt, separate from enabled-test constant cleanup.
 
-Observed while verifying Dependabot PR #11 on May 1, 2026: both `pnpm run validate` and `pnpm run validate:published` passed, and each reported 229 `spx/no-test-owned-domain-constants` warnings from the existing debt manifest.
+Observed while verifying the spec-tree boundary correction on May 1, 2026: `pnpm run validate` passed and reported 231 `spx/no-test-owned-domain-constants` warnings from the existing debt manifest.
 
 **Skills:** `typescript:testing-typescript`, `typescript:auditing-typescript-tests`, and `spec-tree:testing`.
 

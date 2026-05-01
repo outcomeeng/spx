@@ -6,7 +6,7 @@ CAN consume the product's spec tree through stable contracts without owning trav
 
 ## Public Surface
 
-The public tree-operations module is `src/spec-tree/index.ts`. The kind registry and spec-tree config descriptor remain in `src/spec/config.ts` per `21-kind-registry.adr.md`.
+The public tree-operations module is `src/lib/spec-tree/index.ts`. The kind registry and spec-tree config descriptor live inside the same library at `src/lib/spec-tree/config.ts` per `21-kind-registry.adr.md`; there is no separate `src/spec` directory for spec-tree behavior.
 
 It exports these contracts:
 
@@ -47,7 +47,7 @@ export function findNextSpecTreeNode(snapshot: SpecTreeSnapshot): SpecTreeNode |
 
 ### Compliance
 
-- ALWAYS: `src/spec-tree/index.ts` is the import boundary for consumers that read, project, or select from a spec tree; scanner, tree, and reporter internals stay behind this boundary ([test](tests/spec-tree-surface.scenario.l1.test.ts))
+- ALWAYS: `src/lib/spec-tree/index.ts` is the import boundary for consumers that read, project, or select from a spec tree; scanner, tree, and reporter internals stay behind this boundary ([test](tests/spec-tree-surface.scenario.l1.test.ts))
 - ALWAYS: `SPEC_TREE_CONFIG.KINDS` is declared as one flat `as const` object literal, `KIND_REGISTRY` projects from it, and every derived kind view comes from that registry ([test](tests/kind-registry-single-source.compliance.l1.test.ts), [review](21-kind-registry.adr.md))
 - ALWAYS: config descriptors, source adapters, tree assembly, state derivation, and projections receive vocabulary through the semantic registry or a test-scoped registry fixture ([review](21-kind-registry.adr.md))
 - NEVER: declare spec-tree kind, category, suffix, label, or alias strings in parallel module-local constants outside the registry surface ([review](21-kind-registry.adr.md))

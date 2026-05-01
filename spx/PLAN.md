@@ -17,7 +17,7 @@ The reusable spec-tree interface must preserve the config boundary:
 1. Preserve `spx/23-spec-tree.enabler/21-kind-registry.adr.md` as the architectural baseline: a single `as const` registry constructs typed semantic views from primitive strings.
 2. Amend the ADR only where the current baseline needs explicit ownership for display labels and aliases.
 3. Rewrite `spx/23-spec-tree.enabler/spec-tree.md` assertions to describe the full registry entry shape: section keys, category values, kind keys, display labels, suffixes, and aliases.
-4. Extend `src/spec/config.ts` so `KIND_REGISTRY` owns each product string once:
+4. Extend `src/lib/spec-tree/config.ts` so `KIND_REGISTRY` owns each product string once:
    - section names such as `specTree`
    - category keys such as node and decision
    - kind keys such as enabler, outcome, adr, pdr
@@ -32,10 +32,10 @@ The reusable spec-tree interface must preserve the config boundary:
 ## Current Drift To Resolve
 
 - `spx/23-spec-tree.enabler/21-kind-registry.adr.md` gives the right single-registry architecture; it needs any missing label/alias ownership made explicit.
-- `src/spec/config.ts` owns keys, categories, and suffixes; it lacks display labels and future semantic aliases.
+- `src/lib/spec-tree/config.ts` owns keys, categories, and suffixes; it lacks display labels and future semantic aliases.
 - `spx/23-spec-tree.enabler/tests/*` repeat kind/category/suffix strings in assertions.
-- `src/spec/apply/exclude/constants.ts` owns a separate node suffix list and still includes legacy suffixes.
-- `src/types.ts`, `src/scanner/*`, `src/tree/*`, `src/reporter/*`, and `src/commands/spec/*` still model legacy work items.
+- spec apply/exclude code owns a separate node suffix list and still includes legacy suffixes.
+- `src/lib/spec-legacy/types.ts`, `src/lib/spec-legacy/scanner/*`, `src/lib/spec-legacy/tree/*`, `src/lib/spec-legacy/reporter/*`, and `src/commands/spec/*` still model legacy work items.
 - `21-core-cli.capability` contains useful concerns, but its root name and hierarchy are legacy packaging.
 
 ## Tracked Validation Warning Backlog
@@ -82,9 +82,9 @@ export function findNextSpecTreeNode(snapshot: SpecTreeSnapshot): SpecTreeNode |
 Consumer contracts:
 
 - `src/commands/spec/*` reads a `SpecTreeSnapshot`, asks for projections or next-node selection, and owns only command flags, command errors, and terminal rendering.
-- `src/spec/apply/exclude/*` reads node state from `SpecTreeSnapshot`; it does not walk the filesystem or parse suffixes itself.
-- `src/reporter/*` either moves behind `projectSpecTree` or becomes CLI rendering under `31-spec-domain.enabler`.
-- `src/scanner/*` and `src/tree/*` become internals of the `23-spec-tree.enabler` implementation or are deleted after their behavior is absorbed.
+- spec apply/exclude code reads node state from `SpecTreeSnapshot`; it does not walk the filesystem or parse suffixes itself.
+- `src/lib/spec-legacy/reporter/*` either moves behind `projectSpecTree` or becomes CLI rendering under `31-spec-domain.enabler`.
+- `src/lib/spec-legacy/scanner/*` and `src/lib/spec-legacy/tree/*` become internals of the `23-spec-tree.enabler` implementation or are deleted after their behavior is absorbed.
 - Tests use a source fixture that implements `SpecTreeSource`, so the same assertions apply to filesystem, in-memory, Linear, GitHub Issues, ORM, or paper-ledger adapters.
 
 Stable-surface tests come before implementation slices. They use canonical evidence/level filenames and target the public API:
@@ -192,10 +192,10 @@ Each parent is classified only after reading its immediate children. File moves 
    - define acceptance tests that prove strings are declared once and consumed by reference
 
 3. Implement the semantic config module:
-   - extend the flat `KIND_REGISTRY` entries in `src/spec/config.ts`
+   - extend the flat `KIND_REGISTRY` entries in `src/lib/spec-tree/config.ts`
    - derive compatibility exports only where needed during the migration
    - update config descriptor validation and config tests
-   - route `src/spec/testing/index.ts` and `src/spec/apply/exclude/*` through the registry
+   - route spec-tree testing helpers and spec apply/exclude code through the registry
 
 4. Migrate legacy code consumers:
    - replace `WorkItemKind` and `WORK_ITEM_KINDS` with spec-tree vocabulary types
@@ -254,19 +254,19 @@ Each parent is classified only after reading its immediate children. File moves 
 
 ### 3. Implement Semantic Config Vocabulary
 
-- [x] Extend the flat `KIND_REGISTRY` in `src/spec/config.ts` so each entry owns its kind, category, label, suffix, and aliases.
+- [x] Extend the flat `KIND_REGISTRY` in `src/lib/spec-tree/config.ts` so each entry owns its kind, category, label, suffix, and aliases.
 - [x] Derive existing public views from the registry during migration: kind unions, category partitions, suffix lists, and descriptor defaults.
 - [x] Update `specTreeConfigDescriptor` validation so yaml selection compares against registry values.
 - [x] Update `src/config/registry.ts` only if the descriptor export shape changes.
-- [x] Update `src/spec/testing/index.ts` to read section/category/kind names through the semantic registry.
-- [x] Update `src/spec/apply/exclude/*` to consume node suffixes from the registry instead of its local suffix list.
+- [x] Update spec-tree testing helpers to read section/category/kind names through the semantic registry.
+- [x] Update spec apply/exclude code to consume node suffixes from the registry instead of its local suffix list.
 
 ### 4. Remove Legacy Work-Item Vocabulary From Source
 
-- [ ] Replace `WorkItemKind` and `WORK_ITEM_KINDS` in `src/types.ts` with current spec-tree vocabulary types.
-- [ ] Update `src/scanner/patterns.ts`, `src/scanner/walk.ts`, and `src/scanner/scanner.ts` to parse current spec-tree entries through config-derived vocabulary.
-- [ ] Update `src/tree/*` so hierarchy and validation rules derive from current spec-tree categories.
-- [ ] Update `src/reporter/*` so display labels come from the semantic registry.
+- [ ] Replace `WorkItemKind` and `WORK_ITEM_KINDS` in `src/lib/spec-legacy/types.ts` with current spec-tree vocabulary types.
+- [ ] Update `src/lib/spec-legacy/scanner/patterns.ts`, `src/lib/spec-legacy/scanner/walk.ts`, and `src/lib/spec-legacy/scanner/scanner.ts` to parse current spec-tree entries through config-derived vocabulary.
+- [ ] Update `src/lib/spec-legacy/tree/*` so hierarchy and validation rules derive from current spec-tree categories.
+- [ ] Update `src/lib/spec-legacy/reporter/*` so display labels come from the semantic registry.
 - [ ] Update `src/commands/spec/*` and `src/domains/spec/*` so command behavior targets current spec-tree state and names.
 - [ ] Delete legacy-only suffix constants after all consumers move.
 

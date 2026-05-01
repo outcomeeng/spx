@@ -2,17 +2,17 @@
 
 ## Purpose
 
-This decision governs the shape and location of the spec-tree semantic registry in `src/spec/config.ts`. The enabler's assertions specify observable behavior; this ADR specifies the code shape that makes those assertions true and explains the flat `as const` object keyed by kind name.
+This decision governs the shape and location of the spec-tree semantic registry in `src/lib/spec-tree/config.ts`. The enabler's assertions specify observable behavior; this ADR specifies the code shape that makes those assertions true and explains the flat `as const` object keyed by kind name.
 
 ## Context
 
 **Business impact:** Every module that touches the spec tree needs the same vocabulary: the config section, the tracked spec root, product-file suffixes, kind names, categories, display labels, aliases, and disk suffixes. A single source of truth makes each vocabulary change one edit and eliminates the class of bugs where a consumer's hardcoded list drifts from the true vocabulary. A duplicated source forces every consumer to track changes; a generated source introduces a build step that complicates editor feedback.
 
-**Technical constraints:** spx is TypeScript ESM, no runtime reflection, no codegen. `as const` object literals produce precise key- and value-typed types at compile time via `keyof typeof` and `typeof X[K]` inference. Consumers import from a single module; editors follow types across imports without a build step. The registry module depends on `src/config/` for the `ConfigDescriptor<T>` type (via the spec-tree descriptor) and on nothing else in production code.
+**Technical constraints:** spx is TypeScript ESM, no runtime reflection, no codegen. `as const` object literals produce precise key- and value-typed types at compile time via `keyof typeof` and `typeof X[K]` inference. Consumers import spec-tree vocabulary through the spec-tree library surface; editors follow types across imports without a build step. The registry module depends on `src/config/` for the `ConfigDescriptor<T>` type and on nothing else in production code. The `src/lib/` namespace contains extractable library modules; spec-tree uses that namespace because it is a reusable library rather than a command domain.
 
 ## Decision
 
-`src/spec/config.ts` declares `SPEC_TREE_CONFIG` as one `as const` semantic object. The object owns the config section name, tracked root directory name, product metadata, category values, and a flat `KINDS` registry where each key is a kind name (`enabler`, `outcome`, `adr`, `pdr`, and any additional kind). Each kind entry carries `{ category, label, suffix, aliases }`. `KIND_REGISTRY`, `SPEC_TREE_KIND_CATEGORY`, and `SPEC_TREE_SECTION` are projections from `SPEC_TREE_CONFIG`, not separate sources. Types are inferred: `Kind = keyof typeof KIND_REGISTRY`, `KindDefinition<K extends Kind> = typeof KIND_REGISTRY[K]`, `NodeKind = { [K in Kind]: KIND_REGISTRY[K]["category"] extends "node" ? K : never }[Kind]`, and similarly for `DecisionKind`. Derived sub-registries (`NODE_KINDS`, `DECISION_KINDS`, `NODE_SUFFIXES`, `DECISION_SUFFIXES`) are computed at module scope by filtering and projecting `KIND_REGISTRY`. The same module exports the spec-tree `ConfigDescriptor<SpecTreeConfig>`; its `defaults` field carries the full list of registered kind names and definitions, and its `validate` field rejects yaml sections referring to kind names or definitions absent from the registry.
+`src/lib/spec-tree/config.ts` declares `SPEC_TREE_CONFIG` as one `as const` semantic object. The object owns the config section name, tracked root directory name, product metadata, category values, and a flat `KINDS` registry where each key is a kind name (`enabler`, `outcome`, `adr`, `pdr`, and any additional kind). Each kind entry carries `{ category, label, suffix, aliases }`. `KIND_REGISTRY`, `SPEC_TREE_KIND_CATEGORY`, and `SPEC_TREE_SECTION` are projections from `SPEC_TREE_CONFIG`, not separate sources. Types are inferred: `Kind = keyof typeof KIND_REGISTRY`, `KindDefinition<K extends Kind> = typeof KIND_REGISTRY[K]`, `NodeKind = { [K in Kind]: KIND_REGISTRY[K]["category"] extends "node" ? K : never }[Kind]`, and similarly for `DecisionKind`. Derived sub-registries (`NODE_KINDS`, `DECISION_KINDS`, `NODE_SUFFIXES`, `DECISION_SUFFIXES`) are computed at module scope by filtering and projecting `KIND_REGISTRY`. The same module exports the spec-tree `ConfigDescriptor<SpecTreeConfig>`; its `defaults` field carries the full list of registered kind names and definitions, and its `validate` field rejects yaml sections referring to kind names or definitions absent from the registry.
 
 ## Rationale
 
@@ -41,17 +41,17 @@ Alternatives considered:
 
 ## Invariants
 
-- The semantic registry is declared exactly once, as a single `as const` object literal in `src/spec/config.ts`
+- The semantic registry is declared exactly once, as a single `as const` object literal in `src/lib/spec-tree/config.ts`
 - Kind labels, aliases, suffixes, and categories are properties of kind entries, never module-local formatter constants
 - `keyof typeof KIND_REGISTRY` is the sole source of the `Kind` type; no parallel union-type declaration exists
 - Derived sub-registries (`NODE_KINDS`, `DECISION_KINDS`, `NODE_SUFFIXES`, `DECISION_SUFFIXES`) are computed by filter/projection over the registry
-- The spec-tree `ConfigDescriptor` is co-located with the registry in the same module; consumers import both from one path
+- The spec-tree `ConfigDescriptor` is co-located with the registry in the same module; consumers import both through the `src/lib/spec-tree` library surface
 
 ## Compliance
 
 ### Recognized by
 
-`src/spec/config.ts` contains `SPEC_TREE_CONFIG`, `KIND_REGISTRY`, the derived type aliases, the derived sub-registries, and the spec-tree `ConfigDescriptor`. No other module in the codebase contains a bare string literal matching a kind name (`"enabler"`, `"outcome"`, `"adr"`, `"pdr"`, or any other kind); no other module declares a type union over kind names; no other module declares a parallel array of suffixes, labels, or aliases.
+`src/lib/spec-tree/config.ts` contains `SPEC_TREE_CONFIG`, `KIND_REGISTRY`, the derived type aliases, the derived sub-registries, and the spec-tree `ConfigDescriptor`. `src/lib/spec-tree/index.ts` exports the supported consumer surface for that vocabulary. No other module in the codebase contains a bare string literal matching a kind name (`"enabler"`, `"outcome"`, `"adr"`, `"pdr"`, or any other kind); no other module declares a type union over kind names; no other module declares a parallel array of suffixes, labels, or aliases.
 
 ### MUST
 
@@ -64,7 +64,7 @@ Alternatives considered:
 
 ### NEVER
 
-- Declare a kind name as a bare string literal anywhere outside `src/spec/config.ts` ([review])
+- Declare a kind name as a bare string literal anywhere outside `src/lib/spec-tree/config.ts` ([review])
 - Declare display labels or aliases for registered kinds outside the semantic registry ([review])
 - Declare a type union over kind names; the union is inferred from the registry's keys ([review])
 - Declare a parallel array, record, or constant of suffixes, categories, or kind metadata outside the derived sub-registries in the registry module ([review])
