@@ -4,18 +4,19 @@
  * Provides CLI commands for running validation tools (TypeScript, ESLint, etc.)
  * as a globally-installed tool across TypeScript projects.
  */
-import { type Command, Option } from "commander";
+import type { Command } from "commander";
 
 import {
   allCommand,
   circularCommand,
   knipCommand,
   lintCommand,
+  LITERAL_PROBLEM_KIND,
   literalCommand,
+  type LiteralProblemKind,
   markdownCommand,
   typescriptCommand,
 } from "@/commands/validation";
-import type { LiteralProblemKind } from "@/commands/validation/literal";
 import { sanitizeCliArgument } from "@/lib/sanitize-cli-argument";
 import { allowlistExisting } from "@/validation/literal/allowlist-existing";
 import type { ValidationScope } from "@/validation/types";
@@ -51,6 +52,10 @@ interface ValidationCliDefinition {
   };
   readonly diagnostics: {
     readonly unknownSubcommand: {
+      readonly messageLabel: string;
+      readonly exitCode: number;
+    };
+    readonly unknownLiteralProblemKind: {
       readonly messageLabel: string;
       readonly exitCode: number;
     };
@@ -105,6 +110,33 @@ export const validationCliDefinition: ValidationCliDefinition = {
       messageLabel: "unknown subcommand",
       exitCode: 1,
     },
+    unknownLiteralProblemKind: {
+      messageLabel: "unknown problem kind",
+      exitCode: 1,
+    },
+  },
+} as const;
+
+export const literalValidationCliOptions = {
+  allowlistExisting: {
+    flag: "--allowlist-existing",
+    description: "Append every current problem's value to literal.allowlist.include and exit",
+  },
+  kind: {
+    flag: "--kind <kind>",
+    description: "Only report one problem kind (reuse|dupe)",
+  },
+  filesWithProblems: {
+    flag: "--files-with-problems",
+    description: "Print each affected file path once",
+  },
+  literals: {
+    flag: "--literals",
+    description: "Print each affected literal value once",
+  },
+  verbose: {
+    flag: "--verbose",
+    description: "Print grouped problem details",
   },
 } as const;
 
@@ -137,7 +169,7 @@ interface LintOptions extends CommonOptions {
 
 interface LiteralOptions extends CommonOptions {
   allowlistExisting?: boolean;
-  kind?: LiteralProblemKind;
+  kind?: string;
   filesWithProblems?: boolean;
   literals?: boolean;
   verbose?: boolean;
@@ -235,16 +267,17 @@ function registerValidationCommands(validationCmd: Command): void {
 
   // literal command (cross-file literal-reuse detector)
   const literalCmd = addValidationSubcommand(validationCmd, subcommands.literal)
-    .addOption(
-      new Option("--kind <kind>", "Problem kind to report (reuse|dupe)").choices(["reuse", "dupe"]),
-    )
-    .option("--files-with-problems", "Print only unique files with literal problems")
-    .option("--literals", "Print only unique literal values with problems")
-    .option("--verbose", "Print grouped literal problem details")
     .option(
-      "--allowlist-existing",
-      "Append every current finding's value to literal.allowlist.include and exit",
+      literalValidationCliOptions.allowlistExisting.flag,
+      literalValidationCliOptions.allowlistExisting.description,
     )
+    .option(literalValidationCliOptions.kind.flag, literalValidationCliOptions.kind.description)
+    .option(
+      literalValidationCliOptions.filesWithProblems.flag,
+      literalValidationCliOptions.filesWithProblems.description,
+    )
+    .option(literalValidationCliOptions.literals.flag, literalValidationCliOptions.literals.description)
+    .option(literalValidationCliOptions.verbose.flag, literalValidationCliOptions.verbose.description)
     .addHelpText(
       "after",
       "\nEnabled for TypeScript projects by default. Set LITERAL_VALIDATION_ENABLED=0\n"
@@ -256,10 +289,18 @@ function registerValidationCommands(validationCmd: Command): void {
         if (result.output) console.log(result.output);
         process.exit(result.exitCode);
       }
+      const kind = parseLiteralProblemKind(options.kind);
+      if (options.kind !== undefined && kind === undefined) {
+        const { unknownLiteralProblemKind } = validationCliDefinition.diagnostics;
+        process.stderr.write(
+          `spx validation literal: ${unknownLiteralProblemKind.messageLabel}: ${sanitizeCliArgument(options.kind)}\n`,
+        );
+        process.exit(unknownLiteralProblemKind.exitCode);
+      }
       const result = await literalCommand({
         cwd: process.cwd(),
         files: options.files,
-        kind: options.kind,
+        kind,
         filesWithProblems: options.filesWithProblems,
         literals: options.literals,
         verbose: options.verbose,
@@ -306,6 +347,13 @@ function registerValidationCommands(validationCmd: Command): void {
       process.exit(result.exitCode);
     });
   addCommonOptions(allCmd);
+}
+
+function parseLiteralProblemKind(value: string | undefined): LiteralProblemKind | undefined {
+  if (value === LITERAL_PROBLEM_KIND.REUSE || value === LITERAL_PROBLEM_KIND.DUPE) {
+    return value;
+  }
+  return undefined;
 }
 
 /**
