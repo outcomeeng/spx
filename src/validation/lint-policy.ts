@@ -2,6 +2,7 @@ import { execFileSync } from "node:child_process";
 import { existsSync, readdirSync, readFileSync, statSync } from "node:fs";
 import { join } from "node:path";
 
+import { withoutGitEnvironment } from "@/git/environment";
 import { LINT_POLICY_BASE_REFS, LINT_POLICY_MANIFESTS, parseLintPolicyManifest } from "./lint-policy-constants";
 
 const LEGACY_SPEC_SUFFIX_NODE_MANIFEST_FILE = LINT_POLICY_MANIFESTS.LEGACY_SPEC_SUFFIX_NODES.file;
@@ -103,26 +104,29 @@ function readBaselineManifest(projectRoot: string, file: string, key: string): s
     return undefined;
   }
 
+  let content: string;
   try {
-    return parseLintPolicyManifest(
-      execFileSync("git", ["show", `${baselineRef}:${file}`], {
-        cwd: projectRoot,
-        encoding: "utf-8",
-        env: withoutGitEnvironment(process.env),
-        stdio: ["ignore", "pipe", "ignore"],
-      }),
-      `${baselineRef}:${file}`,
-      key,
-    );
+    content = execFileSync("git", ["show", `${baselineRef}:${file}`], {
+      cwd: projectRoot,
+      encoding: "utf-8",
+      env: withoutGitEnvironment(process.env),
+      stdio: ["ignore", "pipe", "ignore"],
+    });
   } catch {
     return undefined;
   }
+
+  return parseLintPolicyManifest(
+    content,
+    `${baselineRef}:${file}`,
+    key,
+  );
 }
 
 function readBaselineRef(projectRoot: string): string | undefined {
-  const pullRequestBase = readPullRequestBaseRef(projectRoot);
-  if (pullRequestBase !== undefined) {
-    return pullRequestBase;
+  const mergeCommitFirstParent = readMergeCommitFirstParent(projectRoot);
+  if (mergeCommitFirstParent !== undefined) {
+    return mergeCommitFirstParent;
   }
 
   for (const baseBranchRef of BASE_BRANCH_REFS) {
@@ -135,7 +139,7 @@ function readBaselineRef(projectRoot: string): string | undefined {
   return readGitRef(projectRoot, ["rev-parse", "--verify", "HEAD"]);
 }
 
-function readPullRequestBaseRef(projectRoot: string): string | undefined {
+function readMergeCommitFirstParent(projectRoot: string): string | undefined {
   const secondParent = readGitRef(projectRoot, ["rev-parse", "--verify", "HEAD^2"]);
   if (secondParent === undefined) {
     return undefined;
@@ -159,16 +163,6 @@ function readGitRef(projectRoot: string, args: readonly string[]): string | unde
   } catch {
     return undefined;
   }
-}
-
-function withoutGitEnvironment(env: NodeJS.ProcessEnv): NodeJS.ProcessEnv {
-  const cleaned = { ...env };
-  for (const key of Object.keys(cleaned)) {
-    if (key.startsWith("GIT_")) {
-      delete cleaned[key];
-    }
-  }
-  return cleaned;
 }
 
 function assertManifestDoesNotGrow(

@@ -28,6 +28,7 @@ const LINT_POLICY_TEST_BRANCH = `${WORK_ITEM_KINDS[1]}-branch`;
 const OUTER_REPO_BRANCH = "outer-main";
 const OUTER_REPO_USER_NAME = "Outer Repo User";
 const OUTER_REPO_USER_EMAIL = "outer@test.local";
+const JSON_OBJECT_ERROR_FRAGMENT = "must contain a JSON object";
 
 async function withPolicyProject(callback: (projectRoot: string) => Promise<void>): Promise<void> {
   const projectRoot = await mkdtemp(join(tmpdir(), "spx-lint-policy-"));
@@ -183,6 +184,40 @@ describe("lint policy validation", () => {
       await expect(readGitOutput(outerRoot, [GIT_TEST_SUBCOMMANDS.CONFIG, "--get", "user.name"])).resolves.toBe(
         OUTER_REPO_USER_NAME,
       );
+    });
+  });
+
+  it("rejects corrupt baseline manifests instead of skipping the shrink-only check", async () => {
+    await withPolicyProject(async (projectRoot) => {
+      await runGit(projectRoot, [
+        GIT_TEST_SUBCOMMANDS.INIT,
+        "--initial-branch",
+        LINT_POLICY_BASE_REFS.LOCAL_MAIN,
+      ]);
+      await runGit(projectRoot, [GIT_TEST_SUBCOMMANDS.CONFIG, "user.email", GIT_TEST_CONFIG.EMAIL]);
+      await runGit(projectRoot, [GIT_TEST_SUBCOMMANDS.CONFIG, "user.name", GIT_TEST_CONFIG.USER_NAME]);
+      await mkdir(join(projectRoot, BASE_LEGACY_PATH), { recursive: true });
+      await mkdir(join(projectRoot, BASE_TEST_DEBT_PATH), { recursive: true });
+      await writeFile(
+        join(projectRoot, LEGACY_MANIFEST_FILE),
+        JSON.stringify({ [LEGACY_MANIFEST_KEY]: [BASE_LEGACY_PATH] }, null, 2),
+      );
+      await writeFile(join(projectRoot, TEST_DEBT_MANIFEST_FILE), JSON.stringify([], null, 2));
+      await commitAll(projectRoot, "corrupt baseline manifest");
+
+      await runGit(projectRoot, [GIT_TEST_SUBCOMMANDS.CHECKOUT, "-b", LINT_POLICY_TEST_BRANCH]);
+      await writePolicyManifest(projectRoot, {
+        legacySpecSuffixNodes: [BASE_LEGACY_PATH],
+        testLintDebtNodes: [BASE_TEST_DEBT_PATH],
+      });
+
+      const result = validateLintPolicy(projectRoot);
+
+      expect(result.ok).toBe(false);
+      if (!result.ok) {
+        expect(result.error).toContain(TEST_DEBT_MANIFEST_FILE);
+        expect(result.error).toContain(JSON_OBJECT_ERROR_FRAGMENT);
+      }
     });
   });
 

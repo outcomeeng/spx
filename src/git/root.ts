@@ -12,6 +12,7 @@ import { dirname, isAbsolute, join, resolve } from "node:path";
 
 import { DEFAULT_CONFIG } from "../config/defaults";
 import type { SessionDirectoryConfig } from "../session/show";
+import { withoutGitEnvironment } from "./environment";
 
 /**
  * Result from git root detection.
@@ -75,21 +76,8 @@ const defaultDeps: GitDependencies = {
   },
 };
 
-/**
- * Warning message emitted when not in a git repository.
- */
 const NOT_GIT_REPO_WARNING =
   "Warning: Not in a git repository. Sessions will be created relative to current directory.";
-
-function withoutGitEnvironment(env: NodeJS.ProcessEnv): NodeJS.ProcessEnv {
-  const cleaned = { ...env };
-  for (const key of Object.keys(cleaned)) {
-    if (key.startsWith("GIT_")) {
-      delete cleaned[key];
-    }
-  }
-  return cleaned;
-}
 
 /**
  * Detects the git repository root directory.

@@ -1,3 +1,5 @@
+import { withoutGitEnvironment } from "@/git/environment";
+
 export const GIT_TEST_COMMAND = "git";
 
 export const GIT_TEST_SUBCOMMANDS = {
@@ -27,12 +29,8 @@ export const GIT_TEST_ENVIRONMENT_KEYS = {
 type GitTestEnvironmentKey = (typeof GIT_TEST_ENVIRONMENT_KEYS)[keyof typeof GIT_TEST_ENVIRONMENT_KEYS];
 
 export function cleanGitTestEnvironment(env: NodeJS.ProcessEnv = process.env): NodeJS.ProcessEnv {
-  const cleaned = { ...env };
-  for (const key of Object.keys(cleaned)) {
-    if (key.startsWith("GIT_")) {
-      delete cleaned[key];
-    }
-  }
+  const cleaned = withoutGitEnvironment(env);
+  // Fixture repositories should not inherit a developer's global identity or hooks.
   cleaned.GIT_CONFIG_GLOBAL = "/dev/null";
   return cleaned;
 }
