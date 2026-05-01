@@ -70,6 +70,7 @@ const literalVerboseDupeHeading = "DUPE";
 const fixtureWriterPath = "src/generated-fixture.ts";
 const fixtureWriterPayload = "export const GENERATED_STATUS = \"fixture-generated-status\";";
 const fixtureWriterCallbackLiteral = "fixture-writer-callback-semantic-value";
+const nestedWriterPayloadLiteral = "nested-writer-payload-fixture-value";
 const fixtureSessionPath = "spx/21-session-fixture.enabler/tests/session.scenario.l1.test.ts";
 const assertionSemanticLiteral = "assertion-semantic-value";
 const fixtureProtocolStatus = "PASS";
@@ -375,6 +376,24 @@ describe("literal-reuse detection — scenarios", () => {
 
     expect(values).not.toContain(fixtureWriterPath);
     expect(values).not.toContain(fixtureWriterPayload);
+  });
+
+  it("non-fixture calls nested inside fixture writers keep payload literals suppressed", () => {
+    const source = `
+      async function seed(env) {
+        env.writeRaw("${fixtureWriterPath}", serialize({ key: "${nestedWriterPayloadLiteral}" }));
+      }
+    `;
+
+    const occurrences = collectLiterals(
+      source,
+      "spx/41-validation.enabler/32-typescript-validation.enabler/32-literal-reuse.enabler/tests/generated.scenario.l1.test.ts",
+      DEFAULT_OPTIONS,
+    );
+    const values = occurrences.map((occurrence) => occurrence.value);
+
+    expect(values).not.toContain(fixtureWriterPath);
+    expect(values).not.toContain(nestedWriterPayloadLiteral);
   });
 
   it("protocol and status values inside fixture data do not contribute occurrences while assertion literals still do", () => {

@@ -185,6 +185,7 @@ function walkChild(
   options: CollectLiteralsOptions,
   out: LiteralOccurrence[],
 ): void {
+  // Shared stack mutation relies on synchronous traversal.
   ancestors.push({ node: parent });
   try {
     walk(node, context, ancestors, options, out);
