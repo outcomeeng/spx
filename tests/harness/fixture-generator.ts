@@ -4,7 +4,7 @@
  * - generateFixtureTree(config) - Pure function to create tree structure
  * - PRESETS - Common configurations for testing
  */
-import { DECISION_KINDS, type DecisionKind } from "@/spec/config";
+import { type DecisionKind, KIND_REGISTRY, SPEC_TREE_KIND_CATEGORY } from "@/spec/config";
 import type { WorkItemKind, WorkItemStatus } from "@/types";
 import { WORK_ITEM_KINDS, WORK_ITEM_STATUSES } from "@/types";
 import { faker } from "@faker-js/faker";
@@ -93,6 +93,10 @@ export const PRESETS: Record<string, FixtureConfig> = {
     adrsPerCapability: 1,
   },
 } as const;
+
+const DECISION_FIXTURE_SUFFIX = ".adr.md";
+
+export const DECISION_FIXTURE_KIND = readDecisionKindBySuffix(DECISION_FIXTURE_SUFFIX);
 
 /**
  * Generate a valid BSP number in range [10, 99]
@@ -193,7 +197,7 @@ export function generateFixtureTree(config: FixtureConfig): FixtureTree {
     // Generate ADRs
     for (let adrIdx = 0; adrIdx < adrsPerCap; adrIdx++) {
       capChildren.push({
-        kind: DECISION_KINDS[0],
+        kind: DECISION_FIXTURE_KIND,
         number: adrIdx + 1, // ADRs use sequential numbering (001, 002, etc.)
         slug: generateSlug(),
         children: [],
@@ -250,7 +254,7 @@ export function generateFixtureTree(config: FixtureConfig): FixtureTree {
 
     // Determine capability status from children (excluding ADRs)
     const capStatus = deriveStatus(
-      capChildren.filter((c) => c.kind !== DECISION_KINDS[0]),
+      capChildren.filter((c) => c.kind !== DECISION_FIXTURE_KIND),
     );
 
     nodes.push({
@@ -303,7 +307,7 @@ export function countNodes(tree: FixtureTree): number {
 
   function traverse(nodes: FixtureNode[]): void {
     for (const node of nodes) {
-      if (node.kind !== DECISION_KINDS[0]) {
+      if (node.kind !== DECISION_FIXTURE_KIND) {
         count++;
       }
       traverse(node.children);
@@ -312,6 +316,15 @@ export function countNodes(tree: FixtureTree): number {
 
   traverse(tree.nodes);
   return count;
+}
+
+function readDecisionKindBySuffix(suffix: string): DecisionKind {
+  for (const [kind, definition] of Object.entries(KIND_REGISTRY)) {
+    if (definition.category === SPEC_TREE_KIND_CATEGORY.DECISION && definition.suffix === suffix) {
+      return kind as DecisionKind;
+    }
+  }
+  throw new Error(`Spec-tree registry has no decision kind for suffix ${suffix}`);
 }
 
 /**

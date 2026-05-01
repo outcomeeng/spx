@@ -10,7 +10,9 @@ import noDeepRelativeImports, { NO_DEEP_RELATIVE_IMPORTS_RULE_NAME } from "./no-
 import noHardcodedStatuses from "./no-hardcoded-statuses";
 import noHardcodedWorkItemKinds from "./no-hardcoded-work-item-kinds";
 import noImportSourceExtensions, { NO_IMPORT_SOURCE_EXTENSIONS_RULE_NAME } from "./no-import-source-extensions";
+import noRegistryPositionAccess, { NO_REGISTRY_POSITION_ACCESS_RULE_NAME } from "./no-registry-position-access";
 import noSpecReferences from "./no-spec-references";
+import noTestOwnedDomainConstants, { NO_TEST_OWNED_DOMAIN_CONSTANTS_RULE_NAME } from "./no-test-owned-domain-constants";
 
 const eslintRules = {
   meta: {
@@ -25,7 +27,9 @@ const eslintRules = {
     "no-hardcoded-statuses": noHardcodedStatuses,
     "no-hardcoded-work-item-kinds": noHardcodedWorkItemKinds,
     [NO_IMPORT_SOURCE_EXTENSIONS_RULE_NAME]: noImportSourceExtensions,
+    [NO_REGISTRY_POSITION_ACCESS_RULE_NAME]: noRegistryPositionAccess,
     "no-spec-references": noSpecReferences,
+    [NO_TEST_OWNED_DOMAIN_CONSTANTS_RULE_NAME]: noTestOwnedDomainConstants,
   },
 };
 

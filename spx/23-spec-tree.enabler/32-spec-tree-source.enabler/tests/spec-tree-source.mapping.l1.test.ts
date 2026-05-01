@@ -7,15 +7,21 @@ import {
   SPEC_TREE_ENTRY_TYPE,
   type SpecTreeSourceEntry,
 } from "@/spec-tree";
-import { DECISION_KINDS, KIND_REGISTRY, NODE_KINDS, SPEC_TREE_CONFIG } from "@/spec/config";
+import { KIND_REGISTRY, SPEC_TREE_CONFIG } from "@/spec/config";
 import { withTestEnv } from "@/spec/testing/index";
-import { createSource, sampleSpecTreeTestValue, SPEC_TREE_TEST_GENERATOR } from "@testing/generators/spec-tree";
+import {
+  createSource,
+  sampleDecisionKind,
+  sampleNodeKind,
+  sampleSpecTreeTestValue,
+  SPEC_TREE_TEST_GENERATOR,
+} from "@testing/generators/spec-tree";
 
 describe("SpecTreeSource mappings", () => {
   it("maps filesystem source records and in-memory records to equivalent projections", async () => {
     await withTestEnv({}, async ({ projectDir, writeDecision, writeNode, writeRaw }) => {
-      const nodeKind = readFirstNodeKind();
-      const decisionKind = readFirstDecisionKind();
+      const nodeKind = sampleNodeKind(KIND_REGISTRY);
+      const decisionKind = sampleDecisionKind(KIND_REGISTRY);
       const rootDirectory = `21-root${KIND_REGISTRY[nodeKind].suffix}`;
       const childDirectory = `${rootDirectory}/32-child${KIND_REGISTRY[nodeKind].suffix}`;
       const decisionPath = `${rootDirectory}/21-kind-registry${KIND_REGISTRY[decisionKind].suffix}`;
@@ -90,7 +96,7 @@ describe("SpecTreeSource mappings", () => {
 
   it("uses project-root-relative refs and an inclusion predicate", async () => {
     await withTestEnv({}, async ({ projectDir, writeNode }) => {
-      const nodeKind = readFirstNodeKind();
+      const nodeKind = sampleNodeKind(KIND_REGISTRY);
       const includedSlug = sampleSpecTreeTestValue(SPEC_TREE_TEST_GENERATOR.sourceSlug());
       const excludedSlug = sampleSpecTreeTestValue(SPEC_TREE_TEST_GENERATOR.sourceSlug());
       const includedText = `# ${sampleSpecTreeTestValue(SPEC_TREE_TEST_GENERATOR.sourceTitle())}\n`;
@@ -116,19 +122,3 @@ describe("SpecTreeSource mappings", () => {
     });
   });
 });
-
-function readFirstNodeKind(): (typeof NODE_KINDS)[number] {
-  const kind = NODE_KINDS[0];
-  if (kind === undefined) {
-    throw new Error("Spec-tree source test requires one node kind");
-  }
-  return kind;
-}
-
-function readFirstDecisionKind(): (typeof DECISION_KINDS)[number] {
-  const kind = DECISION_KINDS[0];
-  if (kind === undefined) {
-    throw new Error("Spec-tree source test requires one decision kind");
-  }
-  return kind;
-}

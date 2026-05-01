@@ -4,9 +4,9 @@ literal:
       - web
     include:
       - |-
-        
-        ---
-        # Content
+
+          ---
+          # Content
       - '  "capabilities"'
       - '  "summary"'
       - "  - "
@@ -19,15 +19,17 @@ literal:
       - "### story-32"
       - (no sessions)
       - |-
-        ---
-        priority: high
-        ---
-        # Content
+          ---
+          priority: high
+          ---
+          # Content
       - --files
       - --format
       - --help
       - --json
       - --quiet
+      - "[dupe] \""
+      - "[reuse] \""
       - --run
       - --write
       - .adr.md
@@ -84,30 +86,30 @@ literal:
       - 2026-01-13_10-00-00
       - "30000"
       - |-
-        <audit_verdict>
-          <gates>
-            <gate>
-              <name>architecture</name>
-              <status>PASS</status>
-              <findings count="0"/>
-            </gate>
-          </gates>
-        </audit_verdict>
+          <audit_verdict>
+            <gates>
+              <gate>
+                <name>architecture</name>
+                <status>PASS</status>
+                <findings count="0"/>
+              </gate>
+            </gates>
+          </audit_verdict>
       - |-
-        <audit_verdict>
-          <header>
-            <spec_node>spx/36-audit.enabler</spec_node>
-            <verdict>APPROVED</verdict>
-            <timestamp>2024-01-01_00-00-00</timestamp>
-          </header>
-          <gates>
-            <gate>
-              <name>architecture</name>
-              <status>PASS</status>
-              <findings count="0"/>
-            </gate>
-          </gates>
-        </audit_verdict>
+          <audit_verdict>
+            <header>
+              <spec_node>spx/36-audit.enabler</spec_node>
+              <verdict>APPROVED</verdict>
+              <timestamp>2024-01-01_00-00-00</timestamp>
+            </header>
+            <gates>
+              <gate>
+                <name>architecture</name>
+                <status>PASS</status>
+                <findings count="0"/>
+              </gate>
+            </gates>
+          </audit_verdict>
       - <empty>
       - ADR Generation
       - APPROVED
@@ -141,6 +143,7 @@ literal:
       - Invalid work item name
       - InvalidFormat
       - Literal
+      - "Literal: No problems of type reuse"
       - Manage spec workflow
       - Need to install the following packages
       - "Next work item:"
@@ -185,6 +188,7 @@ literal:
       - beta
       - bin/spx.js
       - build
+      - 'const NODE_KIND = "enabler";'
       - cap1
       - cap2
       - cap3
@@ -209,6 +213,7 @@ literal:
       - deny
       - dist
       - docs
+      - dupe
       - docs/testing/standards.md
       - does-not-exist
       - doing
@@ -267,8 +272,10 @@ literal:
       - no-bdd-try-catch-anti-pattern
       - no-hardcoded-statuses
       - no-hardcoded-work-item-kinds
+      - no-registry-position-access
       - no-restricted-syntax
       - no-spec-references
+      - no-test-owned-domain-constants
       - node
       - node_modules
       - nodes
@@ -320,14 +327,18 @@ literal:
       - spx/no-bdd-try-catch-anti-pattern
       - spx/no-hardcoded-statuses
       - spx/no-hardcoded-work-item-kinds
+      - spx/no-registry-position-access
       - spx/no-spec-references
+      - spx/no-test-owned-domain-constants
       - src/
+      - src-owned-token
       - src/a.ts
       - src/file.ts
       - src/foo.ts
       - src/normal.ts
       - src/other.ts
       - src/parser.ts
+      - src/reuse.ts
       - src/scanner/walk.ts
       - src/status.ts
       - src/types.ts
@@ -353,6 +364,8 @@ literal:
       - test_file
       - tests
       - tests/
+      - tests/dupe-a.test.ts
+      - tests/dupe-b.test.ts
       - tests/reuse.test.ts
       - tests/unit/foo.test.ts
       - text
@@ -372,6 +385,10 @@ literal:
       - validation
       - vitest.config.ts
       - work
+      - REUSE
+      - DUPE
+      - reuse
+      - test-dupe-token
       - work-items/does-not-exist
       - work-items/no-tests
       - "|     Story"

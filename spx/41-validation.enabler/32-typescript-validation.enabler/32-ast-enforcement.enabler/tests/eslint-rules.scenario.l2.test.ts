@@ -11,10 +11,14 @@
 import { NO_BARE_STRING_UNIONS_RULE_ID } from "@eslint-rules/no-bare-string-unions";
 import { NO_DEEP_RELATIVE_IMPORTS_RULE_ID } from "@eslint-rules/no-deep-relative-imports";
 import { NO_IMPORT_SOURCE_EXTENSIONS_RULE_ID } from "@eslint-rules/no-import-source-extensions";
+import { NO_REGISTRY_POSITION_ACCESS_RULE_ID } from "@eslint-rules/no-registry-position-access";
+import { NO_TEST_OWNED_DOMAIN_CONSTANTS_RULE_ID } from "@eslint-rules/no-test-owned-domain-constants";
 import { ESLint } from "eslint";
 import { beforeAll, describe, expect, it } from "vitest";
 
 import { TYPESCRIPT_VALIDATION_TEST_FILE } from "@root/spx/41-validation.enabler/32-typescript-validation.enabler/tests/support";
+
+const unmanifestedSpecTestFile = "spx/31-spec-domain.capability/tests/new.mapping.l1.test.ts";
 
 describe("ESLint Rules Integration", () => {
   /**
@@ -43,6 +47,12 @@ describe("ESLint Rules Integration", () => {
     });
   });
 
+  function severityOf(ruleConfig: unknown): number | undefined {
+    if (typeof ruleConfig === "number") return ruleConfig;
+    if (Array.isArray(ruleConfig) && typeof ruleConfig[0] === "number") return ruleConfig[0];
+    return undefined;
+  }
+
   describe("plugin registration", () => {
     it("GIVEN eslint config WHEN calculating config for test file THEN spx rules are available", async () => {
       const config = await eslint.calculateConfigForFile("test.test.ts");
@@ -62,6 +72,18 @@ describe("ESLint Rules Integration", () => {
       const config = await eslint.calculateConfigForFile("test.test.ts");
 
       expect(config.rules).toHaveProperty("spx/no-hardcoded-statuses");
+    });
+
+    it("GIVEN eslint config WHEN calculating config THEN test-owned constant rule is registered", async () => {
+      const config = await eslint.calculateConfigForFile(unmanifestedSpecTestFile);
+
+      expect(config.rules).toHaveProperty(NO_TEST_OWNED_DOMAIN_CONSTANTS_RULE_ID);
+    });
+
+    it("GIVEN eslint config WHEN calculating config THEN registry position rule is registered", async () => {
+      const config = await eslint.calculateConfigForFile("test.test.ts");
+
+      expect(config.rules).toHaveProperty(NO_REGISTRY_POSITION_ACCESS_RULE_ID);
     });
 
     it("GIVEN eslint config WHEN calculating config for TS file THEN import hygiene rules are registered", async () => {
@@ -179,6 +201,62 @@ describe("ESLint Rules Integration", () => {
         (m) => m.ruleId === "spx/no-hardcoded-statuses",
       );
       expect(statusViolations).toHaveLength(0);
+    });
+  });
+
+  describe("test-owned domain constant detection", () => {
+    it("GIVEN test file outside debt manifest with top-level uppercase constant WHEN linting THEN reports error", async () => {
+      const results = await eslint.lintText(
+        `const NODE_KIND = "enabler";`,
+        {
+          filePath: unmanifestedSpecTestFile,
+        },
+      );
+
+      expect(results[0].messages).toContainEqual(
+        expect.objectContaining({
+          ruleId: NO_TEST_OWNED_DOMAIN_CONSTANTS_RULE_ID,
+          severity: 2,
+        }),
+      );
+    });
+
+    it("GIVEN test file inside debt manifest WHEN calculating config THEN only test-owned constant rule is downgraded", async () => {
+      const config = await eslint.calculateConfigForFile(
+        "spx/41-validation.enabler/21-validation-cli.enabler/tests/package-scripts.compliance.l1.test.ts",
+      );
+
+      expect(severityOf(config.rules[NO_TEST_OWNED_DOMAIN_CONSTANTS_RULE_ID])).toBe(1);
+      expect(severityOf(config.rules["spx/no-hardcoded-statuses"])).toBe(2);
+    });
+
+    it("GIVEN test file inside debt manifest with top-level uppercase constant WHEN linting THEN reports warning", async () => {
+      const results = await eslint.lintText(
+        `const NODE_KIND = "enabler";`,
+        {
+          filePath: "spx/41-validation.enabler/21-validation-cli.enabler/tests/package-scripts.compliance.l1.test.ts",
+        },
+      );
+
+      expect(results[0].messages).toContainEqual(
+        expect.objectContaining({
+          ruleId: NO_TEST_OWNED_DOMAIN_CONSTANTS_RULE_ID,
+          severity: 1,
+        }),
+      );
+    });
+  });
+
+  describe("registry position detection", () => {
+    it("GIVEN test file with positional registry read WHEN linting THEN reports violation", async () => {
+      const results = await eslint.lintText(
+        `import { DECISION_KINDS } from "@/spec/config"; const kind = DECISION_KINDS[0];`,
+        { filePath: "test.test.ts" },
+      );
+
+      expect(results[0].messages).toContainEqual(
+        expect.objectContaining({ ruleId: NO_REGISTRY_POSITION_ACCESS_RULE_ID }),
+      );
     });
   });
 

@@ -4,7 +4,7 @@
  * Provides CLI commands for running validation tools (TypeScript, ESLint, etc.)
  * as a globally-installed tool across TypeScript projects.
  */
-import type { Command } from "commander";
+import { type Command, Option } from "commander";
 
 import {
   allCommand,
@@ -15,6 +15,7 @@ import {
   markdownCommand,
   typescriptCommand,
 } from "@/commands/validation";
+import type { LiteralProblemKind } from "@/commands/validation/literal";
 import { sanitizeCliArgument } from "@/lib/sanitize-cli-argument";
 import { allowlistExisting } from "@/validation/literal/allowlist-existing";
 import type { ValidationScope } from "@/validation/types";
@@ -134,6 +135,14 @@ interface LintOptions extends CommonOptions {
   fix?: boolean;
 }
 
+interface LiteralOptions extends CommonOptions {
+  allowlistExisting?: boolean;
+  kind?: LiteralProblemKind;
+  filesWithProblems?: boolean;
+  literals?: boolean;
+  verbose?: boolean;
+}
+
 /**
  * Add common options to a command
  */
@@ -226,6 +235,12 @@ function registerValidationCommands(validationCmd: Command): void {
 
   // literal command (cross-file literal-reuse detector)
   const literalCmd = addValidationSubcommand(validationCmd, subcommands.literal)
+    .addOption(
+      new Option("--kind <kind>", "Problem kind to report (reuse|dupe)").choices(["reuse", "dupe"]),
+    )
+    .option("--files-with-problems", "Print only unique files with literal problems")
+    .option("--literals", "Print only unique literal values with problems")
+    .option("--verbose", "Print grouped literal problem details")
     .option(
       "--allowlist-existing",
       "Append every current finding's value to literal.allowlist.include and exit",
@@ -235,7 +250,7 @@ function registerValidationCommands(validationCmd: Command): void {
       "\nEnabled for TypeScript projects by default. Set LITERAL_VALIDATION_ENABLED=0\n"
         + "to skip (useful when migrating a project with many existing violations).",
     )
-    .action(async (options: CommonOptions & { allowlistExisting?: boolean }) => {
+    .action(async (options: LiteralOptions) => {
       if (options.allowlistExisting) {
         const result = await allowlistExisting({ projectRoot: process.cwd() });
         if (result.output) console.log(result.output);
@@ -244,6 +259,10 @@ function registerValidationCommands(validationCmd: Command): void {
       const result = await literalCommand({
         cwd: process.cwd(),
         files: options.files,
+        kind: options.kind,
+        filesWithProblems: options.filesWithProblems,
+        literals: options.literals,
+        verbose: options.verbose,
         quiet: options.quiet,
         json: options.json,
       });

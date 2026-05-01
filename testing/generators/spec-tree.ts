@@ -71,6 +71,14 @@ export function buildRepresentativeEntries(registry: SpecTreeRegistry): readonly
   return buildRepresentativeFixture(registry).entries;
 }
 
+export function sampleNodeKind(registry: SpecTreeRegistry): NodeKind {
+  return sampleSpecTreeTestValue(arbitraryNodeKind(registry));
+}
+
+export function sampleDecisionKind(registry: SpecTreeRegistry): DecisionKind {
+  return sampleSpecTreeTestValue(arbitraryDecisionKind(registry));
+}
+
 export function withGeneratedSourceRef(entry: SpecTreeSourceEntry): SpecTreeSourceEntry {
   return {
     ...entry,

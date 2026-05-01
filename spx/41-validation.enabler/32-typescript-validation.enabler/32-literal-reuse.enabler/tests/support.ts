@@ -1,5 +1,6 @@
 import { KIND_REGISTRY } from "@/spec/config";
 import type { Config, SpecTreeEnv } from "@/spec/testing/index";
+import { TYPESCRIPT_MARKER } from "@/validation/discovery/index";
 import { LITERAL_SECTION, type LiteralAllowlistConfig, type LiteralConfig } from "@/validation/literal/config";
 
 export const MIN_STRING_LENGTH = 4;
@@ -20,6 +21,24 @@ const BASE_LITERAL_CONFIG: LiteralConfig = {
 export const INTEGRATION_CONFIG: Config = {
   specTree: { kinds: { ...KIND_REGISTRY } },
   [LITERAL_SECTION]: BASE_LITERAL_CONFIG,
+};
+
+export interface LiteralOutputFixture {
+  readonly reuseLiteral: string;
+  readonly dupeLiteral: string;
+  readonly reuseSourceFile: string;
+  readonly reuseTestFile: string;
+  readonly dupeFirstTestFile: string;
+  readonly dupeSecondTestFile: string;
+}
+
+export const outputFixture: LiteralOutputFixture = {
+  reuseLiteral: "src-owned-token",
+  dupeLiteral: "test-dupe-token",
+  reuseSourceFile: "src/reuse.ts",
+  reuseTestFile: "tests/reuse.test.ts",
+  dupeFirstTestFile: "tests/dupe-a.test.ts",
+  dupeSecondTestFile: "tests/dupe-b.test.ts",
 };
 
 export function configWithAllowlist(allowlist: LiteralAllowlistConfig): Config {
@@ -43,4 +62,13 @@ export async function writeTestWithLiteral(
   literal: string,
 ): Promise<void> {
   await env.writeRaw(filename, `expect(v).toBe("${literal}");\n`);
+}
+
+export async function writeLiteralOutputFixture(env: SpecTreeEnv): Promise<LiteralOutputFixture> {
+  await env.writeRaw(TYPESCRIPT_MARKER, "{}\n");
+  await writeSourceWithLiteral(env, outputFixture.reuseSourceFile, outputFixture.reuseLiteral);
+  await writeTestWithLiteral(env, outputFixture.reuseTestFile, outputFixture.reuseLiteral);
+  await writeTestWithLiteral(env, outputFixture.dupeFirstTestFile, outputFixture.dupeLiteral);
+  await writeTestWithLiteral(env, outputFixture.dupeSecondTestFile, outputFixture.dupeLiteral);
+  return outputFixture;
 }

@@ -1,5 +1,4 @@
 import js from "@eslint/js";
-import prettier from "eslint-config-prettier";
 import importPlugin from "eslint-plugin-import";
 import globals from "globals";
 import * as JSONC from "jsonc-parser";
@@ -12,12 +11,16 @@ import customRules from "./eslint-rules";
 import { NO_BARE_STRING_UNIONS_RULE_ID } from "./eslint-rules/no-bare-string-unions";
 import { NO_DEEP_RELATIVE_IMPORTS_RULE_ID } from "./eslint-rules/no-deep-relative-imports";
 import { NO_IMPORT_SOURCE_EXTENSIONS_RULE_ID } from "./eslint-rules/no-import-source-extensions";
+import { NO_REGISTRY_POSITION_ACCESS_RULE_ID } from "./eslint-rules/no-registry-position-access";
+import { NO_TEST_OWNED_DOMAIN_CONSTANTS_RULE_ID } from "./eslint-rules/no-test-owned-domain-constants";
 import { testRestrictedSyntax, tsRestrictedSyntax } from "./eslint-rules/restricted-syntax";
 
 const LEGACY_SPEC_SUFFIX_NODE_MANIFEST_FILE = "eslint.legacy-spec-suffix-nodes.json";
 const LEGACY_SPEC_SUFFIX_NODE_MANIFEST_KEY = "legacySpecSuffixNodes";
 const TEST_LINT_DEBT_NODE_MANIFEST_FILE = "eslint.test-lint-debt-nodes.json";
 const TEST_LINT_DEBT_NODE_MANIFEST_KEY = "testLintDebtNodes";
+const TEST_OWNED_CONSTANT_DEBT_NODE_MANIFEST_FILE = "eslint.test-owned-constant-debt-nodes.json";
+const TEST_OWNED_CONSTANT_DEBT_NODE_MANIFEST_KEY = "testOwnedConstantDebtNodes";
 const SPEC_TREE_ROOT = "spx";
 const SPEC_TREE_NODE_SUFFIX_PATTERN = /\.(enabler|outcome|capability|feature|story)$/;
 const LEGACY_SPEC_NODE_SUFFIX_PATTERN = /\.(capability|feature|story)$/;
@@ -192,8 +195,31 @@ function validateTestLintDebtNodeManifest(entries: string[]): void {
   );
 }
 
+function validateTestOwnedConstantDebtNodeManifest(entries: string[]): void {
+  assertManifestEntries(
+    TEST_OWNED_CONSTANT_DEBT_NODE_MANIFEST_FILE,
+    entries,
+    SPEC_TREE_NODE_SUFFIX_PATTERN,
+    "be a Spec Tree node path",
+  );
+  assertManifestDoesNotGrow(
+    TEST_OWNED_CONSTANT_DEBT_NODE_MANIFEST_FILE,
+    TEST_OWNED_CONSTANT_DEBT_NODE_MANIFEST_KEY,
+    entries,
+  );
+}
+
 function toTestLintDebtNodeTestGlob(path: string): string {
   return `${path}/**/*.test.ts`;
+}
+
+function toTestOwnedConstantDebtNodeTestGlobs(path: string): readonly string[] {
+  return [
+    `${path}/**/*.test.ts`,
+    `${path}/**/*.spec.ts`,
+    `${path}/**/tests/**/*.ts`,
+    `${path}/**/__tests__/**/*.ts`,
+  ];
 }
 
 function isAssertionStringLiteralRule(
@@ -248,7 +274,15 @@ const testLintDebtNodePaths = readManifest(
   TEST_LINT_DEBT_NODE_MANIFEST_KEY,
 );
 validateTestLintDebtNodeManifest(testLintDebtNodePaths);
+const testOwnedConstantDebtNodePaths = readManifest(
+  TEST_OWNED_CONSTANT_DEBT_NODE_MANIFEST_FILE,
+  TEST_OWNED_CONSTANT_DEBT_NODE_MANIFEST_KEY,
+);
+validateTestOwnedConstantDebtNodeManifest(testOwnedConstantDebtNodePaths);
 const testLintDebtNodeTestGlobs = testLintDebtNodePaths.map(toTestLintDebtNodeTestGlob);
+const testOwnedConstantDebtNodeTestGlobs = testOwnedConstantDebtNodePaths.flatMap(
+  toTestOwnedConstantDebtNodeTestGlobs,
+);
 const testLintDebtRestrictedSyntax = testRestrictedSyntax.filter(
   (rule) => !isLegacyLintNoiseRule(rule),
 );
@@ -411,6 +445,16 @@ const config = [
       "spx/no-bdd-try-catch-anti-pattern": "error",
       "spx/no-hardcoded-work-item-kinds": "error",
       "spx/no-hardcoded-statuses": "error",
+      [NO_REGISTRY_POSITION_ACCESS_RULE_ID]: "error",
+    },
+  },
+  {
+    files: ["spx/**/*.test.ts", "spx/**/*.spec.ts", "spx/**/tests/**/*.ts", "spx/**/__tests__/**/*.ts"],
+    plugins: {
+      spx: customRules,
+    },
+    rules: {
+      [NO_TEST_OWNED_DOMAIN_CONSTANTS_RULE_ID]: "error",
     },
   },
   {
@@ -421,9 +465,12 @@ const config = [
       "spx/no-hardcoded-statuses": "warn",
     },
   },
-
-  // Prettier integration (must be last)
-  prettier,
+  {
+    files: testOwnedConstantDebtNodeTestGlobs,
+    rules: {
+      [NO_TEST_OWNED_DOMAIN_CONSTANTS_RULE_ID]: "warn",
+    },
+  },
 ];
 
 export default config;

@@ -21,6 +21,8 @@ const PUBLISHED_VALIDATION_SCRIPT = `${PACKAGED_CLI} validation all --scope prod
 const PUBLISH_CHECK_SCRIPT = "pnpm run validate && pnpm run build && vitest run && pnpm run validate:published";
 const PREPUBLISH_SCRIPT = "pnpm run publish:check";
 const TEST_SCRIPT = "pnpm run build && vitest run";
+const FORMAT_SCRIPT = "dprint fmt .";
+const FORMAT_CHECK_SCRIPT = "dprint check .";
 
 describe("package scripts — CLI boundary compliance", () => {
   it("development validation scripts execute the source CLI explicitly", () => {
@@ -37,5 +39,10 @@ describe("package scripts — CLI boundary compliance", () => {
 
   it("the default test script builds before running CLI subprocess tests", () => {
     expect(scripts.test).toBe(TEST_SCRIPT);
+  });
+
+  it("format scripts invoke dprint", () => {
+    expect(scripts.format).toBe(FORMAT_SCRIPT);
+    expect(scripts["format:check"]).toBe(FORMAT_CHECK_SCRIPT);
   });
 });

@@ -1,21 +1,31 @@
 import { describe, expect, it } from "vitest";
 
+import { literalCommand } from "@/commands/validation/literal";
 import { withTestEnv } from "@/spec/testing/index";
 import {
   collectLiterals,
   defaultVisitorKeys,
   type LiteralAllowlistConfig,
   type LiteralOccurrence,
+  parseLiteralReuseResult,
   resolveAllowlist,
   validateLiteralReuse,
   type VisitorKeysMap,
 } from "@/validation/literal/index";
 
-import { DETECTOR_OPTIONS_DEFAULTS, INTEGRATION_CONFIG, writeSourceWithLiteral } from "./support";
+import {
+  DETECTOR_OPTIONS_DEFAULTS,
+  INTEGRATION_CONFIG,
+  writeLiteralOutputFixture,
+  writeSourceWithLiteral,
+} from "./support";
 
 const WEB_PRESET_ID = "web";
 const WEB_PRESET_TOKEN = "Authorization";
 const PROJECT_INCLUDE_TOKEN = "project-include-domain-token";
+const literalNoReuseProblemsMessage = "Literal: No problems of type reuse";
+const literalVerboseReuseHeading = "REUSE";
+const literalVerboseDupeHeading = "DUPE";
 
 const ARTIFACT_DIRECTORIES: readonly string[] = [
   "node_modules",
@@ -143,5 +153,112 @@ describe("ALWAYS: exclude removes a value from the effective allowlist regardles
     const effective = resolveAllowlist(config);
 
     expect(effective.has(value)).toBe(false);
+  });
+});
+
+describe("literal command output compliance", () => {
+  it("default text output is one problem per line in parseable [kind] value path:line form", async () => {
+    await withTestEnv(INTEGRATION_CONFIG, async (env) => {
+      const fixture = await writeLiteralOutputFixture(env);
+
+      const result = await literalCommand({ cwd: env.projectDir });
+
+      expect(result.output.split("\n")).toContain(`[reuse] "${fixture.reuseLiteral}" ${fixture.reuseTestFile}:1`);
+      expect(result.output.split("\n")).toContain(`[dupe] "${fixture.dupeLiteral}" ${fixture.dupeFirstTestFile}:1`);
+    });
+  });
+
+  it("--files-with-problems outputs each unique affected test file path on its own line", async () => {
+    await withTestEnv(INTEGRATION_CONFIG, async (env) => {
+      const fixture = await writeLiteralOutputFixture(env);
+
+      const result = await literalCommand({ cwd: env.projectDir, filesWithProblems: true });
+      const lines = result.output.split("\n");
+
+      expect(lines).toEqual([...new Set(lines)].sort());
+      expect(lines.every((line) => !line.includes(":"))).toBe(true);
+      expect(lines).toContain(fixture.reuseTestFile);
+    });
+  });
+
+  it("--literals outputs each unique literal value on its own line", async () => {
+    await withTestEnv(INTEGRATION_CONFIG, async (env) => {
+      const fixture = await writeLiteralOutputFixture(env);
+
+      const result = await literalCommand({ cwd: env.projectDir, literals: true });
+      const lines = result.output.split("\n");
+
+      expect(lines).toEqual([...new Set(lines)].sort());
+      expect(lines).toContain(`"${fixture.reuseLiteral}"`);
+      expect(lines).toContain(`"${fixture.dupeLiteral}"`);
+    });
+  });
+
+  it("--kind applies to default, verbose, files-with-problems, literals, and json output modes", async () => {
+    await withTestEnv(INTEGRATION_CONFIG, async (env) => {
+      const fixture = await writeLiteralOutputFixture(env);
+
+      const defaultText = await literalCommand({ cwd: env.projectDir, kind: "reuse" });
+      const verboseText = await literalCommand({ cwd: env.projectDir, kind: "reuse", verbose: true });
+      const filesText = await literalCommand({ cwd: env.projectDir, kind: "reuse", filesWithProblems: true });
+      const literalsText = await literalCommand({ cwd: env.projectDir, kind: "reuse", literals: true });
+      const jsonText = await literalCommand({ cwd: env.projectDir, kind: "reuse", json: true });
+      const parsed = parseLiteralReuseResult(JSON.parse(jsonText.output) as unknown);
+
+      expect(defaultText.output).toContain(fixture.reuseLiteral);
+      expect(defaultText.output).not.toContain(fixture.dupeLiteral);
+      expect(verboseText.output).toContain(literalVerboseReuseHeading);
+      expect(verboseText.output).not.toContain(literalVerboseDupeHeading);
+      expect(filesText.output).toBe(fixture.reuseTestFile);
+      expect(literalsText.output).toBe(`"${fixture.reuseLiteral}"`);
+      expect(parsed.srcReuse).toHaveLength(1);
+      expect(parsed.testDupe).toEqual([]);
+    });
+  });
+
+  it("--kind with no matching problems returns the no-match message", async () => {
+    await withTestEnv(INTEGRATION_CONFIG, async (env) => {
+      await writeLiteralOutputFixture(env);
+
+      const result = await literalCommand({
+        cwd: env.projectDir,
+        files: ["tests/dupe-a.test.ts", "tests/dupe-b.test.ts"],
+        kind: "reuse",
+      });
+
+      expect(result.output).toBe(literalNoReuseProblemsMessage);
+    });
+  });
+
+  it("exit code reflects filtered problems when --kind is specified", async () => {
+    await withTestEnv(INTEGRATION_CONFIG, async (env) => {
+      await writeLiteralOutputFixture(env);
+
+      const reuseOnly = await literalCommand({
+        cwd: env.projectDir,
+        files: ["tests/dupe-a.test.ts", "tests/dupe-b.test.ts"],
+        kind: "reuse",
+      });
+      const dupeOnly = await literalCommand({
+        cwd: env.projectDir,
+        files: ["tests/dupe-a.test.ts", "tests/dupe-b.test.ts"],
+        kind: "dupe",
+      });
+
+      expect(reuseOnly.exitCode).toBe(0);
+      expect(dupeOnly.exitCode).toBe(1);
+    });
+  });
+
+  it("--kind with --json emits empty arrays for the non-matching problem kind", async () => {
+    await withTestEnv(INTEGRATION_CONFIG, async (env) => {
+      await writeLiteralOutputFixture(env);
+
+      const reuseJson = await literalCommand({ cwd: env.projectDir, kind: "reuse", json: true });
+      const dupeJson = await literalCommand({ cwd: env.projectDir, kind: "dupe", json: true });
+
+      expect(parseLiteralReuseResult(JSON.parse(reuseJson.output) as unknown).testDupe).toEqual([]);
+      expect(parseLiteralReuseResult(JSON.parse(dupeJson.output) as unknown).srcReuse).toEqual([]);
+    });
   });
 });
