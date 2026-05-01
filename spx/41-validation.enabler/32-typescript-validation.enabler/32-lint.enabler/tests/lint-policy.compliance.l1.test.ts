@@ -137,6 +137,29 @@ describe("lint policy validation", () => {
     });
   });
 
+  it("skips shrink-only comparison when no merge or base branch baseline exists", async () => {
+    await withPolicyProject(async (projectRoot) => {
+      await runGit(projectRoot, [
+        GIT_TEST_SUBCOMMANDS.INIT,
+        "--initial-branch",
+        LINT_POLICY_TEST_BRANCH,
+      ]);
+      await runGit(projectRoot, [GIT_TEST_SUBCOMMANDS.CONFIG, "user.email", GIT_TEST_CONFIG.EMAIL]);
+      await runGit(projectRoot, [GIT_TEST_SUBCOMMANDS.CONFIG, "user.name", GIT_TEST_CONFIG.USER_NAME]);
+      await mkdir(join(projectRoot, BASE_LEGACY_PATH), { recursive: true });
+      await mkdir(join(projectRoot, ADDED_TEST_DEBT_PATH), { recursive: true });
+      await writePolicyManifest(projectRoot, {
+        legacySpecSuffixNodes: [BASE_LEGACY_PATH],
+        testLintDebtNodes: [ADDED_TEST_DEBT_PATH],
+      });
+      await commitAll(projectRoot, "manifests without baseline branch");
+
+      const result = validateLintPolicy(projectRoot);
+
+      expect(result.ok).toBe(true);
+    });
+  });
+
   it("keeps nested fixture Git commands inside the fixture when hook Git variables are present", async () => {
     await withPolicyProject(async (outerRoot) => {
       await runGit(outerRoot, [

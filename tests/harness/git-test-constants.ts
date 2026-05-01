@@ -39,6 +39,7 @@ export async function withGitTestEnvironment(
   values: Readonly<Record<GitTestEnvironmentKey, string>>,
   callback: () => Promise<void>,
 ): Promise<void> {
+  // This mutates process.env while the callback runs; keep callers serial.
   const originalValues = new Map<GitTestEnvironmentKey, string | undefined>();
   for (const key of Object.values(GIT_TEST_ENVIRONMENT_KEYS)) {
     originalValues.set(key, process.env[key]);
