@@ -197,6 +197,9 @@ function emitLiteral(
   options: CollectLiteralsOptions,
   out: LiteralOccurrence[],
 ): void {
+  if (node.type !== LITERAL_TYPE && node.type !== TEMPLATE_ELEMENT_TYPE) {
+    return;
+  }
   if (isFixtureDataLiteral(context)) {
     return;
   }
@@ -290,6 +293,7 @@ function getFixtureDataDeclaratorName(node: Node): string | undefined {
   if (bindingName !== undefined) {
     return bindingName;
   }
+  // Destructuring defaults are classified by the fixture object they read from.
   return getIdentifierName(node.init);
 }
 
