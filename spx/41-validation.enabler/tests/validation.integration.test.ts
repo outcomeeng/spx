@@ -17,6 +17,7 @@ import { LITERAL_SKIP_JSON_OUTPUT, LITERAL_SKIP_OUTPUT } from "@/commands/valida
 import { CIRCULAR_DEPENDENCY_OUTPUT } from "@/commands/validation/circular";
 import { VALIDATION_SUMMARY_STATUS } from "@/commands/validation/format";
 import { allValidationCliOptions } from "@/domains/validation";
+import { TSCONFIG_FILES } from "@/validation/config/scope";
 import { CLI_PATH } from "@test/harness/constants";
 import { FIXTURES, withValidationEnv } from "@test/harness/with-validation-env";
 
@@ -33,6 +34,10 @@ const STEP_NAMES = {
   MARKDOWN: "Markdown",
   LITERAL: "Literal",
 } as const;
+const productionTsconfigContent = JSON.stringify({
+  extends: `./${TSCONFIG_FILES.full}`,
+  include: ["src/**/*"],
+});
 const skippedLiteralToken = "validation-all-skip-literal-token";
 
 describe("spx validation all — pipeline composition (Scenarios)", () => {
@@ -144,6 +149,11 @@ describe("spx validation all — pipeline composition (Scenarios)", () => {
           `expect(value).toBe("${skippedLiteralToken}");\n`,
           "utf8",
         );
+        await writeFile(
+          join(path, TSCONFIG_FILES.production),
+          `${productionTsconfigContent}\n`,
+          "utf8",
+        );
 
         const result = await execa(
           "node",
@@ -207,6 +217,7 @@ describe("spx validation all — pipeline composition (Scenarios)", () => {
           },
         );
 
+        expect(productionResult.exitCode).toBe(EXIT_SUCCESS);
         const productionStepMarkers = [...productionResult.stdout.matchAll(STEP_LINE_PATTERN)];
         expect(productionStepMarkers).toHaveLength(TOTAL_STEPS);
         expect(productionResult.stdout).toContain(STEP_NAMES.CIRCULAR);
