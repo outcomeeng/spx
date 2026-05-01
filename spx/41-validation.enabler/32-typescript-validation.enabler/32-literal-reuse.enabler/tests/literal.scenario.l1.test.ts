@@ -78,6 +78,10 @@ const dataSourceLiteral = "semantic-data-source-value";
 const jsonOutputLiteral = "semantic-json-output-value";
 const sessionManagerLiteral = "semantic-session-manager-value";
 const xmlParserLiteral = "semantic-xml-parser-value";
+const compoundRoleYamlSourceLiteral = "compound-role-yaml-source-fixture-value";
+const compoundRoleAssertionLiteral = "compound-role-assertion-value";
+const screamingSnakeFixtureStatus = "SCREAMING_SNAKE_FIXTURE_STATUS";
+const screamingSnakeAssertionLiteral = "screaming-snake-assertion-value";
 const singleSegmentJsonFixtureLiteral = "single-segment-json-fixture-value";
 const singleSegmentAssertionLiteral = "single-segment-assertion-value";
 const windowsPathJsonFixtureLiteral = "windows-path-json-fixture-value";
@@ -370,6 +374,44 @@ describe("literal-reuse detection — scenarios", () => {
 
     expect(values.filter((value) => value === fixtureProtocolStatus)).toHaveLength(1);
     expect(values).not.toContain(fixtureProtocolVerdict);
+  });
+
+  it("compound-role fixture data names do not contribute occurrences while assertion literals still do", () => {
+    const source = `
+      const yamlSource = "${compoundRoleYamlSourceLiteral}";
+      expect(actual).toBe("${compoundRoleAssertionLiteral}");
+    `;
+
+    const occurrences = collectLiterals(
+      source,
+      "spx/41-validation.enabler/tests/compound-role-fixture.scenario.l1.test.ts",
+      DEFAULT_OPTIONS,
+    );
+    const values = occurrences.map((occurrence) => occurrence.value);
+
+    expect(values).not.toContain(compoundRoleYamlSourceLiteral);
+    expect(values).toContain(compoundRoleAssertionLiteral);
+  });
+
+  it("SCREAMING_SNAKE fixture identifiers classify destructuring defaults as fixture data", () => {
+    const source = `
+      const VERDICT_FIXTURE = {
+        status: "${screamingSnakeFixtureStatus}",
+      };
+      const { status = "${screamingSnakeFixtureStatus}" } = VERDICT_FIXTURE;
+      expect(actual.status).toBe("${screamingSnakeFixtureStatus}");
+      expect(actual.label).toBe("${screamingSnakeAssertionLiteral}");
+    `;
+
+    const occurrences = collectLiterals(
+      source,
+      "spx/41-validation.enabler/tests/screaming-snake-fixture.scenario.l1.test.ts",
+      DEFAULT_OPTIONS,
+    );
+    const values = occurrences.map((occurrence) => occurrence.value);
+
+    expect(values.filter((value) => value === screamingSnakeFixtureStatus)).toHaveLength(1);
+    expect(values).toContain(screamingSnakeAssertionLiteral);
   });
 
   it("production-like camelCase names that contain fixture role words still contribute occurrences", () => {
