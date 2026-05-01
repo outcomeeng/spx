@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 
-import { createExcludeFilter } from "@/exclude/index.js";
-import { withTestEnv } from "@/spec/testing/index.js";
+import { createExcludeFilter } from "@/exclude/index";
+import { withTestEnv } from "@/spec/testing/index";
 
 import {
   COMMENT_HEADER,
@@ -15,7 +15,7 @@ import {
   SUBPATH_TEST_SHALLOW,
   writeExclude,
   writeExcludeRaw,
-} from "./support.js";
+} from "./support";
 
 describe("ignore-source — compliance", () => {
   it("EXCLUDE is append-tolerant: comments, blank lines, and trailing whitespace parse without error", async () => {

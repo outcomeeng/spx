@@ -1,7 +1,7 @@
 import { readdir } from "node:fs/promises";
 import { join, relative } from "node:path";
 
-import { isUnderExcluded } from "./exclude.js";
+import { isUnderExcluded } from "./exclude";
 
 export const ARTIFACT_DIRECTORIES: ReadonlySet<string> = new Set([
   "node_modules",

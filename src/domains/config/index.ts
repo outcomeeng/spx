@@ -1,14 +1,14 @@
 import type { Command } from "commander";
 
-import { defaultsCommand } from "@/commands/config/defaults.js";
-import { showCommand } from "@/commands/config/show.js";
-import type { CliDeps, CliResult, ShowOptions, ValidateOptions } from "@/commands/config/types.js";
-import { validateCommand } from "@/commands/config/validate.js";
-import { resolveConfig } from "@/config/index.js";
-import { productionRegistry } from "@/config/registry.js";
+import { defaultsCommand } from "@/commands/config/defaults";
+import { showCommand } from "@/commands/config/show";
+import type { CliDeps, CliResult, ShowOptions, ValidateOptions } from "@/commands/config/types";
+import { validateCommand } from "@/commands/config/validate";
+import { CONFIG_FILE_FORMAT, DEFAULT_CONFIG_FILE_FORMAT, DEFAULT_CONFIG_FILENAME, resolveConfig } from "@/config/index";
+import { productionRegistry } from "@/config/registry";
 
-import type { Domain } from "../types.js";
-import { resolveProjectRoot } from "./root.js";
+import type { Domain } from "../types";
+import { resolveProjectRoot } from "./root";
 
 function buildDefaultDeps(): CliDeps {
   return {
@@ -37,23 +37,26 @@ async function emit(result: CliResult): Promise<never> {
 function registerConfigCommands(configCmd: Command): void {
   configCmd
     .command("show")
-    .description("Print the resolved configuration as YAML (or JSON with --json)")
-    .option("--json", "Output as JSON")
+    .description(
+      `Print the resolved configuration as ${DEFAULT_CONFIG_FILE_FORMAT.toUpperCase()} `
+        + `(or ${CONFIG_FILE_FORMAT.JSON.toUpperCase()} with --json)`,
+    )
+    .option("--json", `Output as ${CONFIG_FILE_FORMAT.JSON.toUpperCase()}`)
     .action(async (options: ShowOptions) => {
       await emit(await showCommand(options, buildDefaultDeps()));
     });
 
   configCmd
     .command("validate")
-    .description("Verify that spx.config.yaml passes every registered descriptor's validator")
+    .description(`Verify that ${DEFAULT_CONFIG_FILENAME} passes every registered descriptor's validator`)
     .action(async (options: ValidateOptions) => {
       await emit(await validateCommand(options, buildDefaultDeps()));
     });
 
   configCmd
     .command("defaults")
-    .description("Print each registered descriptor's defaults — ignores spx.config.yaml")
-    .option("--json", "Output as JSON")
+    .description(`Print each registered descriptor's defaults; ignores ${DEFAULT_CONFIG_FILENAME}`)
+    .option("--json", `Output as ${CONFIG_FILE_FORMAT.JSON.toUpperCase()}`)
     .action(async (options: ShowOptions) => {
       await emit(await defaultsCommand(options, buildDefaultDeps()));
     });

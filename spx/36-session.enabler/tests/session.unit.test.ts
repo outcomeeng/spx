@@ -1,20 +1,34 @@
 /**
  * Unit tests for worktree-aware session root detection and config resolution.
  *
- * Tests detectMainRepoRoot and resolveSessionConfig per:
- * - PDR-15 (worktree resolution)
- * - ADR 26-worktree-detection
- *
  * Level 1: DI-injected execa for path logic, real git for worktree tests.
  */
 
 import { mkdirSync, mkdtempSync, realpathSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
+import { pathToFileURL } from "node:url";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 
 import { DEFAULT_CONFIG } from "@/config/defaults";
 import { detectGitRoot, detectMainRepoRoot, type GitDependencies, resolveSessionConfig } from "@/git/root";
+import {
+  GIT_TEST_CONFIG,
+  GIT_TEST_FLAGS,
+  GIT_TEST_SUBCOMMANDS,
+  type GitTestEnvironmentOverrides,
+  runGit,
+  runTsxEval,
+} from "@test/harness/git-test-constants";
+
+const POLLUTED_GIT_DIR = "/tmp/nonexistent-git-dir";
+const POLLUTED_GIT_WORK_TREE = "/tmp/nonexistent-git-work-tree";
+const SESSION_ROOT_TEST_CWD_ENV = "SPX_SESSION_ROOT_TEST_CWD";
+
+interface DetectedRoots {
+  readonly gitRoot: string;
+  readonly mainRoot: string;
+}
 
 // -- Helper: create a GitDependencies that returns controlled results --
 
@@ -36,64 +50,109 @@ function createMockDeps(responses: Array<{ stdout: string; exitCode: number }>):
   };
 }
 
+function parseDetectedRoots(stdout: string): DetectedRoots {
+  const parsed = JSON.parse(stdout) as Partial<DetectedRoots>;
+  if (typeof parsed.gitRoot !== "string" || typeof parsed.mainRoot !== "string") {
+    throw new Error("Session root child process returned invalid JSON");
+  }
+  return {
+    gitRoot: parsed.gitRoot,
+    mainRoot: parsed.mainRoot,
+  };
+}
+
+async function detectRootsInChildProcess(
+  cwd: string,
+  envOverrides: GitTestEnvironmentOverrides,
+): Promise<DetectedRoots> {
+  const moduleUrl = pathToFileURL(join(process.cwd(), "src/git/root.ts")).href;
+  const script = `
+    import { detectGitRoot, detectMainRepoRoot } from ${JSON.stringify(moduleUrl)};
+    async function main() {
+      const cwd = process.env.${SESSION_ROOT_TEST_CWD_ENV};
+      if (cwd === undefined) {
+        throw new Error("Missing ${SESSION_ROOT_TEST_CWD_ENV}");
+      }
+      const gitRoot = await detectGitRoot(cwd);
+      const mainRoot = await detectMainRepoRoot(cwd);
+      console.log(JSON.stringify({ gitRoot: gitRoot.root, mainRoot: mainRoot.root }));
+    }
+    main().catch((error: unknown) => {
+      console.error(error);
+      process.exitCode = 1;
+    });
+  `;
+  const stdout = await runTsxEval(process.cwd(), script, {
+    ...envOverrides,
+    [SESSION_ROOT_TEST_CWD_ENV]: cwd,
+  });
+  return parseDetectedRoots(stdout);
+}
+
 // ============================================================
 // detectMainRepoRoot with DI (pure path logic)
 // ============================================================
 
 describe("detectMainRepoRoot with dependency injection", () => {
   it("GIVEN non-worktree repo WHEN --git-common-dir returns .git THEN root equals --show-toplevel", async () => {
+    const repoRoot = "/repo";
     // In a non-worktree repo, --git-common-dir returns ".git" (relative)
     // and --show-toplevel returns the repo root.
     // dirname(resolve(toplevel, ".git")) === toplevel
     const deps = createMockDeps([
-      { stdout: "/repo", exitCode: 0 }, // --show-toplevel
+      { stdout: repoRoot, exitCode: 0 }, // --show-toplevel
       { stdout: ".git", exitCode: 0 }, // --git-common-dir
     ]);
 
-    const result = await detectMainRepoRoot("/repo/src", deps);
+    const result = await detectMainRepoRoot(join(repoRoot, "src"), deps);
 
-    expect(result.root).toBe("/repo");
+    expect(result.root).toBe(repoRoot);
     expect(result.isGitRepo).toBe(true);
     expect(result.warning).toBeUndefined();
   });
 
   it("GIVEN worktree WHEN --git-common-dir returns absolute path THEN root is parent of common dir", async () => {
+    const mainRepoRoot = "/repo";
+    const worktreeRoot = join(mainRepoRoot, ".claude", "worktrees", "my-branch");
     // In a worktree, --git-common-dir returns the absolute path to the main repo's .git
     const deps = createMockDeps([
-      { stdout: "/repo/.claude/worktrees/my-branch", exitCode: 0 }, // --show-toplevel
-      { stdout: "/repo/.git", exitCode: 0 }, // --git-common-dir
+      { stdout: worktreeRoot, exitCode: 0 }, // --show-toplevel
+      { stdout: join(mainRepoRoot, ".git"), exitCode: 0 }, // --git-common-dir
     ]);
 
-    const result = await detectMainRepoRoot("/repo/.claude/worktrees/my-branch/src", deps);
+    const result = await detectMainRepoRoot(join(worktreeRoot, "src"), deps);
 
-    expect(result.root).toBe("/repo");
+    expect(result.root).toBe(mainRepoRoot);
     expect(result.isGitRepo).toBe(true);
     expect(result.warning).toBeUndefined();
   });
 
   it("GIVEN worktree WHEN --git-common-dir returns relative path THEN resolves against toplevel", async () => {
+    const mainRepoRoot = "/repo";
+    const worktreeRoot = join(mainRepoRoot, ".claude", "worktrees", "my-branch");
     // Some git versions return relative paths from --git-common-dir
     const deps = createMockDeps([
-      { stdout: "/repo/.claude/worktrees/my-branch", exitCode: 0 }, // --show-toplevel
+      { stdout: worktreeRoot, exitCode: 0 }, // --show-toplevel
       { stdout: "../../../.git", exitCode: 0 }, // --git-common-dir (relative)
     ]);
 
-    const result = await detectMainRepoRoot("/repo/.claude/worktrees/my-branch", deps);
+    const result = await detectMainRepoRoot(worktreeRoot, deps);
 
     // resolve("/repo/.claude/worktrees/my-branch", "../../../.git") = "/repo/.git"
     // dirname("/repo/.git") = "/repo"
-    expect(result.root).toBe("/repo");
+    expect(result.root).toBe(mainRepoRoot);
     expect(result.isGitRepo).toBe(true);
   });
 
   it("GIVEN not a git repo WHEN detecting THEN returns cwd with warning", async () => {
+    const cwd = "/not/a/repo";
     const deps = createMockDeps([
       { stdout: "", exitCode: 128 }, // --show-toplevel fails
     ]);
 
-    const result = await detectMainRepoRoot("/not/a/repo", deps);
+    const result = await detectMainRepoRoot(cwd, deps);
 
-    expect(result.root).toBe("/not/a/repo");
+    expect(result.root).toBe(cwd);
     expect(result.isGitRepo).toBe(false);
     expect(result.warning).toBeDefined();
   });
@@ -153,26 +212,15 @@ describe("detectMainRepoRoot with real git worktrees", () => {
   let repoDir: string;
   let worktreeDir: string;
 
-  // Clean git env prevents pre-commit hook's GIT_DIR/GIT_INDEX_FILE from
-  // leaking into the test's subprocess and targeting the main repo.
-  const cleanGitEnv = {
-    GIT_DIR: undefined,
-    GIT_WORK_TREE: undefined,
-    GIT_INDEX_FILE: undefined,
-    GIT_CONFIG_GLOBAL: "/dev/null",
-  };
-
   beforeEach(async () => {
     // Create a minimal git repo without lefthook (avoids hook conflicts)
     repoDir = realpathSync(mkdtempSync(join(tmpdir(), "worktree-repo-")));
     worktreeDir = realpathSync(mkdtempSync(join(tmpdir(), "worktree-wt-")));
 
-    const { execa: realExeca } = await import("execa");
-    const gitOpts = { cwd: repoDir, env: cleanGitEnv };
-    await realExeca("git", ["init"], gitOpts);
-    await realExeca("git", ["config", "user.email", "test@test.local"], gitOpts);
-    await realExeca("git", ["config", "user.name", "Test"], gitOpts);
-    await realExeca("git", ["commit", "--allow-empty", "-m", "initial"], gitOpts);
+    await runGit(repoDir, [GIT_TEST_SUBCOMMANDS.INIT]);
+    await runGit(repoDir, [GIT_TEST_SUBCOMMANDS.CONFIG, "user.email", GIT_TEST_CONFIG.EMAIL]);
+    await runGit(repoDir, [GIT_TEST_SUBCOMMANDS.CONFIG, "user.name", GIT_TEST_CONFIG.USER_NAME]);
+    await runGit(repoDir, [GIT_TEST_SUBCOMMANDS.COMMIT, GIT_TEST_FLAGS.ALLOW_EMPTY, "-m", "initial"]);
   });
 
   afterEach(() => {
@@ -182,9 +230,8 @@ describe("detectMainRepoRoot with real git worktrees", () => {
   });
 
   it("GIVEN real worktree WHEN detectMainRepoRoot THEN returns main repo root", async () => {
-    const { execa: realExeca } = await import("execa");
     const wtPath = join(worktreeDir, "my-wt");
-    await realExeca("git", ["worktree", "add", wtPath, "-b", "test-branch"], { cwd: repoDir, env: cleanGitEnv });
+    await runGit(repoDir, [GIT_TEST_SUBCOMMANDS.WORKTREE, GIT_TEST_SUBCOMMANDS.ADD, wtPath, "-b", "test-branch"]);
     const canonicalWtPath = realpathSync(wtPath);
 
     // detectGitRoot from worktree → worktree root
@@ -198,9 +245,8 @@ describe("detectMainRepoRoot with real git worktrees", () => {
   });
 
   it("GIVEN real worktree subdirectory WHEN detectMainRepoRoot THEN still returns main repo root", async () => {
-    const { execa: realExeca } = await import("execa");
     const wtPath = join(worktreeDir, "my-wt");
-    await realExeca("git", ["worktree", "add", wtPath, "-b", "test-branch"], { cwd: repoDir, env: cleanGitEnv });
+    await runGit(repoDir, [GIT_TEST_SUBCOMMANDS.WORKTREE, GIT_TEST_SUBCOMMANDS.ADD, wtPath, "-b", "test-branch"]);
 
     const subDir = join(wtPath, "src", "deep");
     mkdirSync(subDir, { recursive: true });
@@ -217,6 +263,16 @@ describe("detectMainRepoRoot with real git worktrees", () => {
     expect(gitRootResult.root).toBe(mainRepoResult.root);
     expect(mainRepoResult.root).toBe(repoDir);
   });
+
+  it("GIVEN hook Git variables WHEN detecting repo roots THEN cwd repo wins", async () => {
+    const roots = await detectRootsInChildProcess(repoDir, {
+      GIT_DIR: POLLUTED_GIT_DIR,
+      GIT_WORK_TREE: POLLUTED_GIT_WORK_TREE,
+    });
+
+    expect(roots.gitRoot).toBe(repoDir);
+    expect(roots.mainRoot).toBe(repoDir);
+  });
 });
 
 // ============================================================
@@ -225,11 +281,12 @@ describe("detectMainRepoRoot with real git worktrees", () => {
 
 describe("resolveSessionConfig", () => {
   it("GIVEN explicit sessionsDir WHEN resolving THEN uses provided path", async () => {
-    const result = await resolveSessionConfig({ sessionsDir: "/custom/sessions" });
+    const sessionsDir = "/custom/sessions";
+    const result = await resolveSessionConfig({ sessionsDir });
 
-    expect(result.config.todoDir).toBe(join("/custom/sessions", "todo"));
-    expect(result.config.doingDir).toBe(join("/custom/sessions", "doing"));
-    expect(result.config.archiveDir).toBe(join("/custom/sessions", "archive"));
+    expect(result.config.todoDir).toBe(join(sessionsDir, DEFAULT_CONFIG.sessions.statusDirs.todo));
+    expect(result.config.doingDir).toBe(join(sessionsDir, DEFAULT_CONFIG.sessions.statusDirs.doing));
+    expect(result.config.archiveDir).toBe(join(sessionsDir, DEFAULT_CONFIG.sessions.statusDirs.archive));
     expect(result.warning).toBeUndefined();
   });
 
@@ -248,26 +305,30 @@ describe("resolveSessionConfig", () => {
   });
 
   it("GIVEN not in git repo WHEN resolving THEN uses cwd and emits warning", async () => {
+    const cwd = "/not/a/repo";
     const deps = createMockDeps([
       { stdout: "", exitCode: 128 },
     ]);
 
-    const result = await resolveSessionConfig({ deps, cwd: "/not/a/repo" });
+    const result = await resolveSessionConfig({ deps, cwd });
 
-    expect(result.config.todoDir).toContain("/not/a/repo");
+    expect(result.config.todoDir).toBe(join(cwd, DEFAULT_CONFIG.sessions.dir, DEFAULT_CONFIG.sessions.statusDirs.todo));
     expect(result.warning).toBeDefined();
   });
 
   it("GIVEN worktree WHEN resolving THEN uses main repo root not worktree root", async () => {
+    const mainRepoRoot = "/repo";
+    const worktreeRoot = join(mainRepoRoot, ".claude", "worktrees", "topic");
     const deps = createMockDeps([
-      { stdout: "/repo/.claude/worktrees/branch", exitCode: 0 },
-      { stdout: "/repo/.git", exitCode: 0 },
+      { stdout: worktreeRoot, exitCode: 0 },
+      { stdout: join(mainRepoRoot, ".git"), exitCode: 0 },
     ]);
 
     const result = await resolveSessionConfig({ deps });
 
-    // Should use /repo, not /repo/.claude/worktrees/branch
-    expect(result.config.todoDir).toContain("/repo/");
-    expect(result.config.todoDir).not.toContain("worktrees");
+    expect(result.config.todoDir).toBe(
+      join(mainRepoRoot, DEFAULT_CONFIG.sessions.dir, DEFAULT_CONFIG.sessions.statusDirs.todo),
+    );
+    expect(result.config.todoDir).not.toContain(worktreeRoot);
   });
 });

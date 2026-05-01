@@ -1,10 +1,12 @@
 import { parse as parseYaml } from "yaml";
 
+import { SESSION_FRONT_MATTER_CLOSE, SESSION_FRONT_MATTER_OPEN } from "@/session/create";
+
 export function parseFrontMatter(content: string): Record<string, unknown> {
-  if (!content.startsWith("---\n")) return {};
-  const end = content.indexOf("\n---\n", 4);
+  if (!content.startsWith(SESSION_FRONT_MATTER_OPEN)) return {};
+  const end = content.indexOf(SESSION_FRONT_MATTER_CLOSE, SESSION_FRONT_MATTER_OPEN.length);
   if (end === -1) return {};
-  const parsed = parseYaml(content.slice(4, end));
+  const parsed = parseYaml(content.slice(SESSION_FRONT_MATTER_OPEN.length, end));
   return typeof parsed === "object" && parsed !== null
     ? (parsed as Record<string, unknown>)
     : {};

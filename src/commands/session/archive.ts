@@ -7,16 +7,21 @@
 import { mkdir, rename, stat } from "node:fs/promises";
 import { dirname, join } from "node:path";
 
-import { resolveSessionConfig } from "../../git/root.js";
+import { resolveSessionConfig } from "@/git/root";
 import {
   buildArchivePaths,
   type ExistingPathsMap,
   findSessionForArchive,
   SESSION_FILE_EXTENSION,
-} from "../../session/archive.js";
-import { processBatch } from "../../session/batch.js";
-import { SessionNotFoundError } from "../../session/errors.js";
-import type { SessionDirectoryConfig } from "../../session/show.js";
+} from "@/session/archive";
+import { processBatch } from "@/session/batch";
+import { SessionNotFoundError } from "@/session/errors";
+import type { SessionDirectoryConfig } from "@/session/show";
+
+export const SESSION_ARCHIVE_OUTPUT = {
+  ARCHIVED: "Archived session",
+  ARCHIVE_LOCATION: "Archive location",
+} as const;
 
 /**
  * Options for the archive command.
@@ -128,7 +133,7 @@ async function archiveSingle(
   const { source, target } = await resolveArchivePaths(sessionId, config);
   await mkdir(dirname(target), { recursive: true });
   await rename(source, target);
-  return `Archived session: ${sessionId}\nArchive location: ${target}`;
+  return `${SESSION_ARCHIVE_OUTPUT.ARCHIVED}: ${sessionId}\n${SESSION_ARCHIVE_OUTPUT.ARCHIVE_LOCATION}: ${target}`;
 }
 
 /**

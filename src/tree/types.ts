@@ -1,12 +1,7 @@
 /**
- * Tree structure contract between Feature 54 (tree building) and Feature 65 (formatting)
- *
- * Feature 54 produces these tree structures from flat WorkItem arrays
- * Feature 65 consumes these structures for output formatting
- *
- * See: specs/doing/capability-21_core-cli/decisions/adr-002_tree-structure-contract.md
+ * Tree structure contract for converting flat work item arrays into formatted output.
  */
-import type { WorkItemKind, WorkItemStatus } from "../types.js";
+import type { WorkItemKind, WorkItemStatus } from "../types";
 
 /**
  * Tree node representing a work item (capability, feature, or story)
@@ -19,7 +14,7 @@ import type { WorkItemKind, WorkItemStatus } from "../types.js";
  * @property slug - URL-safe identifier
  * @property path - Full filesystem path
  * @property status - Work item status (computed or rolled up)
- * @property children - Child nodes, BSP-sorted by Feature 54
+ * @property children - Child nodes, sorted by BSP number
  *
  * @example
  * ```typescript
@@ -55,7 +50,7 @@ export interface TreeNode {
  *
  * Contains top-level capabilities, each with their feature and story children.
  *
- * @property nodes - Root-level capabilities, BSP-sorted by Feature 54
+ * @property nodes - Root-level capabilities, sorted by BSP number
  *
  * @example
  * ```typescript

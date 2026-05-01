@@ -5,8 +5,8 @@
  * Complements property-based tests with concrete examples.
  */
 
-import { mergePermissions, resolveConflicts } from "@/lib/claude/permissions/merger.js";
-import type { Permissions } from "@/lib/claude/permissions/types.js";
+import { mergePermissions, resolveConflicts } from "@/lib/claude/permissions/merger";
+import type { Permissions } from "@/lib/claude/permissions/types";
 import { describe, expect, test } from "vitest";
 
 // ============================================================================

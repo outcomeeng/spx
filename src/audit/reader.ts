@@ -18,6 +18,21 @@ export interface AuditFinding {
   readonly test_file?: string;
 }
 
+export const AUDIT_VERDICT_VALUE = {
+  APPROVED: "APPROVED",
+  REJECT: "REJECT",
+} as const;
+
+export type AuditVerdictValue = (typeof AUDIT_VERDICT_VALUE)[keyof typeof AUDIT_VERDICT_VALUE];
+
+export const AUDIT_GATE_STATUS = {
+  FAIL: "FAIL",
+  PASS: "PASS",
+  SKIPPED: "SKIPPED",
+} as const;
+
+export type AuditGateStatus = (typeof AUDIT_GATE_STATUS)[keyof typeof AUDIT_GATE_STATUS];
+
 export interface AuditGate {
   readonly name?: string;
   readonly status?: string;

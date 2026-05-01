@@ -5,10 +5,15 @@ import { join } from "node:path";
 
 import * as fc from "fast-check";
 import { describe, expect, it } from "vitest";
-import { parse as parseYaml } from "yaml";
 
-import { withTestEnv } from "@/spec/testing/index.js";
-import type { Config } from "@/spec/testing/index.js";
+import {
+  configFileForFormat,
+  DEFAULT_CONFIG_FILE_FORMAT,
+  DEFAULT_CONFIG_FILENAME,
+  parseConfigFileSections,
+} from "@/config/index";
+import { withTestEnv } from "@/spec/testing/index";
+import type { Config } from "@/spec/testing/index";
 
 const MINIMAL_CONFIG: Config = {
   specTree: {
@@ -22,14 +27,18 @@ const MINIMAL_CONFIG: Config = {
 };
 
 describe("withTestEnv — startup", () => {
-  it("creates a fresh temp directory under os.tmpdir() and materializes spx.config.yaml from the Config", async () => {
+  it("creates a fresh temp directory under os.tmpdir() and materializes the project config from the Config", async () => {
     let observedProjectDir = "";
     let observedConfig: unknown = null;
 
     await withTestEnv(MINIMAL_CONFIG, async (env) => {
       observedProjectDir = env.projectDir;
-      const raw = await readFile(join(env.projectDir, "spx.config.yaml"), "utf8");
-      observedConfig = parseYaml(raw);
+      const raw = await readFile(join(env.projectDir, DEFAULT_CONFIG_FILENAME), "utf8");
+      const parsed = parseConfigFileSections(configFileForFormat(env.projectDir, DEFAULT_CONFIG_FILE_FORMAT, raw));
+      expect(parsed.ok).toBe(true);
+      if (parsed.ok) {
+        observedConfig = parsed.value;
+      }
     });
 
     expect(observedProjectDir.startsWith(tmpdir())).toBe(true);

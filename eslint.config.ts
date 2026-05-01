@@ -1,28 +1,70 @@
 import js from "@eslint/js";
 import prettier from "eslint-config-prettier";
 import importPlugin from "eslint-plugin-import";
-import { readFileSync } from "fs";
 import globals from "globals";
 import * as JSONC from "jsonc-parser";
+import { readFileSync } from "node:fs";
 import tseslint from "typescript-eslint";
 
 // Import custom rules and restricted syntax selectors
 import customRules from "./eslint-rules";
-import { testRestrictedSyntax, tsRestrictedSyntax } from "./eslint-rules/restricted-syntax";
+import { NO_BARE_STRING_UNIONS_RULE_ID } from "./eslint-rules/no-bare-string-unions";
+import { NO_DEEP_RELATIVE_IMPORTS_RULE_ID } from "./eslint-rules/no-deep-relative-imports";
+import { NO_IMPORT_SOURCE_EXTENSIONS_RULE_ID } from "./eslint-rules/no-import-source-extensions";
+import {
+  TEST_ASSERTION_STRING_LITERAL_RULE,
+  TEST_READ_FILE_SYNC_IMPORT_RULE,
+  testRestrictedSyntax,
+  tsRestrictedSyntax,
+} from "./eslint-rules/restricted-syntax";
+import { LINT_POLICY_MANIFESTS, parseLintPolicyManifest } from "./src/validation/lint-policy-constants";
+
+const TEST_LINT_DEBT_NODE_MANIFEST_FILE = LINT_POLICY_MANIFESTS.TEST_LINT_DEBT_NODES.file;
+const TEST_LINT_DEBT_NODE_MANIFEST_KEY = LINT_POLICY_MANIFESTS.TEST_LINT_DEBT_NODES.key;
+function readManifest(file: string, key: string): string[] {
+  return parseLintPolicyManifest(
+    readFileSync(file, "utf-8"),
+    file,
+    key,
+  );
+}
+
+function toTestLintDebtNodeTestGlob(path: string): string {
+  return `${path}/**/*.test.ts`;
+}
+
+function isLegacyLintNoiseRule(
+  rule: (typeof testRestrictedSyntax)[number],
+): boolean {
+  return (
+    rule === TEST_ASSERTION_STRING_LITERAL_RULE
+    || rule === TEST_READ_FILE_SYNC_IMPORT_RULE
+  );
+}
 
 /**
  * Read TypeScript exclusions to maintain perfect scope alignment.
  * Follows `extends` so derived configs (e.g. tsconfig.production.json)
  * inherit base exclusions such as `dist`.
  */
-function getTypeScriptExclusions(configFile: string): string[] {
+function getTypeScriptExclusions(configFile: string, seen: ReadonlySet<string> = new Set()): string[] {
+  if (seen.has(configFile)) {
+    return [];
+  }
+  const nextSeen = new Set(seen).add(configFile);
   try {
     const configContent = readFileSync(configFile, "utf-8");
     const config = JSONC.parse(configContent);
     const ownExcludes: string[] = config.exclude || [];
-    if (config.extends) {
-      const baseFile = config.extends.startsWith(".") ? config.extends : `./${config.extends}`;
-      return [...getTypeScriptExclusions(baseFile), ...ownExcludes];
+    const extendsValues = Array.isArray(config.extends) ? config.extends : [config.extends];
+    const baseExcludes = extendsValues
+      .filter((value): value is string => typeof value === "string")
+      .flatMap((value) => {
+        const baseFile = value.startsWith(".") ? value : `./${value}`;
+        return getTypeScriptExclusions(baseFile, nextSeen);
+      });
+    if (baseExcludes.length > 0) {
+      return [...baseExcludes, ...ownExcludes];
     }
     return ownExcludes;
   } catch {
@@ -37,6 +79,14 @@ const isBuildOnly = process.env.ESLINT_PRODUCTION_ONLY === "1";
 const typescriptConfigFile = isBuildOnly ? "./tsconfig.production.json" : "./tsconfig.json";
 // Always read TypeScript exclusions - tsconfig.json is the single source of truth
 const tsExclusions = getTypeScriptExclusions(typescriptConfigFile);
+const testLintDebtNodePaths = readManifest(
+  TEST_LINT_DEBT_NODE_MANIFEST_FILE,
+  TEST_LINT_DEBT_NODE_MANIFEST_KEY,
+);
+const testLintDebtNodeTestGlobs = testLintDebtNodePaths.map(toTestLintDebtNodeTestGlob);
+const testLintDebtRestrictedSyntax = testRestrictedSyntax.filter(
+  (rule) => !isLegacyLintNoiseRule(rule),
+);
 
 const config = [
   // Ignore patterns - tsconfig.json exclusions + ESLint-specific patterns
@@ -145,7 +195,7 @@ const config = [
       },
     },
     rules: {
-      "@typescript-eslint/no-explicit-any": "off",
+      "@typescript-eslint/no-explicit-any": "error",
       "@typescript-eslint/no-non-null-assertion": "off",
       "@typescript-eslint/no-unnecessary-condition": "off",
       "@typescript-eslint/no-unsafe-assignment": "off",
@@ -155,11 +205,20 @@ const config = [
       "no-undef": "off",
       "@typescript-eslint/no-redeclare": "off",
       // Ban vi.mock(), vi.fn(), string literals in assertions, skipIf, readFileSync
-      // Set to "warn" until existing violations are resolved
       "no-restricted-syntax": [
-        "warn",
+        "error",
         ...tsRestrictedSyntax,
         ...testRestrictedSyntax,
+      ],
+    },
+  },
+  {
+    files: testLintDebtNodeTestGlobs,
+    rules: {
+      "no-restricted-syntax": [
+        "error",
+        ...tsRestrictedSyntax,
+        ...testLintDebtRestrictedSyntax,
       ],
     },
   },
@@ -171,11 +230,13 @@ const config = [
       spx: customRules,
     },
     rules: {
-      // Set to "warn" until existing violations are resolved
-      "spx/no-spec-references": "warn",
+      [NO_BARE_STRING_UNIONS_RULE_ID]: "error",
+      [NO_DEEP_RELATIVE_IMPORTS_RULE_ID]: "error",
+      [NO_IMPORT_SOURCE_EXTENSIONS_RULE_ID]: "error",
+      "spx/no-spec-references": "error",
     },
   },
-  // Custom CraftFinal rules for test files
+  // Custom rules for test files
   {
     files: ["**/*.test.ts", "**/*.spec.ts", "**/tests/**/*.ts", "**/__tests__/**/*.ts"],
     plugins: {
@@ -183,8 +244,14 @@ const config = [
     },
     rules: {
       "spx/no-bdd-try-catch-anti-pattern": "error",
-      // Rules set to "warn" until existing violations are fixed (463 violations detected)
-      // See feature-25_eslint-rules-enforcement for tracking
+      "spx/no-hardcoded-work-item-kinds": "error",
+      "spx/no-hardcoded-statuses": "error",
+    },
+  },
+  {
+    files: testLintDebtNodeTestGlobs,
+    rules: {
+      "@typescript-eslint/no-explicit-any": "off",
       "spx/no-hardcoded-work-item-kinds": "warn",
       "spx/no-hardcoded-statuses": "warn",
     },

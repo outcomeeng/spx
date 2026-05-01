@@ -8,7 +8,7 @@
  * @module session/archive
  */
 
-import type { SessionStatus } from "./types.js";
+import type { SessionStatus } from "./types";
 
 /**
  * File extension for session files.
@@ -55,6 +55,13 @@ export interface ExistingPathsMap {
  */
 export type ArchivableStatus = Exclude<SessionStatus, "archive">;
 
+const ARCHIVABLE_DIR_KEYS = {
+  TODO: "todoDir",
+  DOING: "doingDir",
+} as const;
+
+type ArchivableDirKey = (typeof ARCHIVABLE_DIR_KEYS)[keyof typeof ARCHIVABLE_DIR_KEYS];
+
 /**
  * Result of finding a session for archiving.
  */
@@ -89,9 +96,9 @@ export interface SessionLocation {
 /**
  * Maps archivable status to the corresponding config directory key.
  */
-const ARCHIVABLE_DIR_KEY: Record<ArchivableStatus, "todoDir" | "doingDir"> = {
-  todo: "todoDir",
-  doing: "doingDir",
+const ARCHIVABLE_DIR_KEY: Record<ArchivableStatus, ArchivableDirKey> = {
+  todo: ARCHIVABLE_DIR_KEYS.TODO,
+  doing: ARCHIVABLE_DIR_KEYS.DOING,
 };
 
 export function buildArchivePaths(

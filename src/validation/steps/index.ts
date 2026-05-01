@@ -6,9 +6,9 @@
  * @module validation/steps
  */
 
-export * from "./circular.js";
-export * from "./constants.js";
-export * from "./eslint.js";
-export * from "./knip.js";
-export * from "./markdown.js";
-export * from "./typescript.js";
+export * from "./circular";
+export * from "./constants";
+export * from "./eslint";
+export * from "./knip";
+export * from "./markdown";
+export * from "./typescript";

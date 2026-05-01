@@ -1,10 +1,7 @@
 /**
  * Test environment context manager
  *
- * Implements ADR-004: Test Environment Context Manager
  * Provides automatic setup and teardown for test environments.
- *
- * @see specs/doing/capability-21_core-cli/decisions/adr-004_test-environment.md
  */
 import { randomUUID } from "node:crypto";
 import { mkdir, rm } from "node:fs/promises";
@@ -17,7 +14,7 @@ import { materializeFixture } from "./fixture-writer";
  * Options for test environment setup
  */
 export interface TestEnvOptions {
-  /** Generate full fixture from config (uses ADR-003 fixture generator) */
+  /** Generate full fixture from config. */
   fixture?: FixtureConfig;
 
   /** Create empty specs/work/doing structure (ignored if fixture provided) */
@@ -71,7 +68,7 @@ export async function withSpecEnv<T>(
     ? [{}, optionsOrFn]
     : [optionsOrFn, maybeFn!];
 
-  // Fixture path: generate and materialize via ADR-003
+  // Fixture path: generate and materialize through the shared fixture harness.
   if (options.fixture) {
     const tree = generateFixtureTree(options.fixture);
     const fixture = await materializeFixture(tree);

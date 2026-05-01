@@ -1,12 +1,10 @@
 /**
  * Fixture writer for E2E testing
  *
- * Implements ADR-003: E2E Fixture Generation Strategy
  * - materializeFixture(tree) - Write tree to os.tmpdir()
  * - createFixture(config) - Convenience wrapper
- *
- * @see specs/doing/capability-21_core-cli/decisions/adr-003_e2e-fixture-generation.md
  */
+import { SPEC_TREE_ADR_KIND } from "@/spec/config";
 import { WORK_ITEM_KINDS, WORK_ITEM_STATUSES } from "@/types";
 import { randomUUID } from "node:crypto";
 import { mkdir, rm, writeFile } from "node:fs/promises";
@@ -87,7 +85,7 @@ async function materializeCapability(doingPath: string, cap: FixtureNode): Promi
 
   const features = cap.children.filter((c) => c.kind === WORK_ITEM_KINDS[1]);
   for (const child of cap.children) {
-    if (child.kind === "adr") {
+    if (child.kind === SPEC_TREE_ADR_KIND) {
       await materializeAdr(decisionsPath, child);
     } else if (child.kind === WORK_ITEM_KINDS[1]) {
       await materializeFeature(capPath, child);
@@ -118,7 +116,7 @@ async function materializeAdr(decisionsPath: string, adr: FixtureNode): Promise<
 
   await writeFile(
     adrPath,
-    `# ADR: ${formatSlugAsTitle(adr.slug)}\n\n## Decision\n\nGenerated ADR for testing.\n`,
+    `# Decision: ${formatSlugAsTitle(adr.slug)}\n\n## Decision\n\nGenerated decision record for testing.\n`,
   );
 }
 

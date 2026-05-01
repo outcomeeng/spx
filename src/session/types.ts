@@ -8,16 +8,22 @@
  * Priority levels for session ordering.
  * Sessions are sorted: high → medium → low
  */
-export type SessionPriority = "high" | "medium" | "low";
+export const SESSION_PRIORITY = {
+  HIGH: "high",
+  MEDIUM: "medium",
+  LOW: "low",
+} as const;
+
+export type SessionPriority = (typeof SESSION_PRIORITY)[keyof typeof SESSION_PRIORITY];
 
 /**
- * All valid session statuses, derived from directory structure per ADR-21.
+ * All valid session statuses, derived from directory structure.
  * This is the single source of truth — SessionStatus type derives from it.
  */
 export const SESSION_STATUSES = ["todo", "doing", "archive"] as const;
 
 /**
- * Status derived from directory location per ADR-21.
+ * Status derived from directory location.
  */
 export type SessionStatus = (typeof SESSION_STATUSES)[number];
 
@@ -31,15 +37,15 @@ export const DEFAULT_LIST_STATUSES: readonly SessionStatus[] = ["doing", "todo"]
  * Priority sort order (lower number = higher priority).
  */
 export const PRIORITY_ORDER: Record<SessionPriority, number> = {
-  high: 0,
-  medium: 1,
-  low: 2,
+  [SESSION_PRIORITY.HIGH]: 0,
+  [SESSION_PRIORITY.MEDIUM]: 1,
+  [SESSION_PRIORITY.LOW]: 2,
 } as const;
 
 /**
  * Default priority when not specified in YAML front matter.
  */
-export const DEFAULT_PRIORITY: SessionPriority = "medium";
+export const DEFAULT_PRIORITY: SessionPriority = SESSION_PRIORITY.MEDIUM;
 
 /**
  * YAML front matter keys for session files.

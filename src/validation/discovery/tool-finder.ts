@@ -12,7 +12,7 @@ import fs from "node:fs";
 import { createRequire } from "node:module";
 import path from "node:path";
 
-import { TOOL_DISCOVERY, type ToolSource } from "./constants.js";
+import { TOOL_DISCOVERY, type ToolSource } from "./constants";
 
 /**
  * Information about a found tool.

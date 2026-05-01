@@ -12,7 +12,7 @@ import { extractSessionFile, parseFrontMatter } from "./helpers";
 // Matches: 2026-01-13T10:00:00Z, 2026-01-13T10:00:00.000Z, 2026-01-13T10:00:00+00:00
 const ISO_8601_WITH_TIMEZONE_OFFSET = /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(?:\.\d+)?(?:Z|[+-]\d{2}:\d{2})$/;
 
-describe("session-store compliance — ADR 21-timestamp-format", () => {
+describe("session-store compliance — timestamp format", () => {
   let harness: SessionHarness;
 
   beforeEach(async () => {

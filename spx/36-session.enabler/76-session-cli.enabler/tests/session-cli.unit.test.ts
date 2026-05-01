@@ -21,13 +21,14 @@ import { existsSync } from "node:fs";
 import { join } from "node:path";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 
-import { archiveCommand } from "@/commands/session/archive";
-import { deleteCommand } from "@/commands/session/delete";
-import { releaseCommand } from "@/commands/session/release";
+import { archiveCommand, SESSION_ARCHIVE_OUTPUT } from "@/commands/session/archive";
+import { deleteCommand, SESSION_DELETE_OUTPUT } from "@/commands/session/delete";
+import { releaseCommand, SESSION_RELEASE_OUTPUT } from "@/commands/session/release";
 import { showCommand } from "@/commands/session/show";
+import { SESSION_SHOW_LABEL } from "@/session/show";
 import type { SessionHarness } from "@/session/testing/harness";
 import { createSessionHarness } from "@/session/testing/harness";
-import { SESSION_STATUSES } from "@/session/types";
+import { SESSION_PRIORITY, SESSION_STATUSES } from "@/session/types";
 
 const [TODO, DOING, ARCHIVE] = SESSION_STATUSES;
 
@@ -57,7 +58,7 @@ describe("batch archive", () => {
       expect(existsSync(join(harness.statusDir(ARCHIVE), `${id}.md`))).toBe(true);
       expect(existsSync(join(harness.statusDir(TODO), `${id}.md`))).toBe(false);
     }
-    expect(output).toContain("Archived");
+    expect(output).toContain(SESSION_ARCHIVE_OUTPUT.ARCHIVED);
   });
 
   it("S4: GIVEN 1 valid + 1 invalid ID WHEN archive THEN valid succeeds, invalid errors", async () => {
@@ -86,7 +87,7 @@ describe("batch archive", () => {
     });
 
     expect(existsSync(join(harness.statusDir(ARCHIVE), `${id}.md`))).toBe(true);
-    expect(output).toContain("Archived session");
+    expect(output).toContain(SESSION_ARCHIVE_OUTPUT.ARCHIVED);
     expect(output).toContain(id);
   });
 });
@@ -116,7 +117,7 @@ describe("batch delete", () => {
     for (const id of ids) {
       expect(existsSync(join(harness.statusDir(TODO), `${id}.md`))).toBe(false);
     }
-    expect(output).toContain("Deleted");
+    expect(output).toContain(SESSION_DELETE_OUTPUT.DELETED);
   });
 
   it("S4: GIVEN 1 valid + 1 invalid WHEN delete THEN valid deleted, invalid errors", async () => {
@@ -161,7 +162,7 @@ describe("batch release", () => {
       expect(existsSync(join(harness.statusDir(TODO), `${id}.md`))).toBe(true);
       expect(existsSync(join(harness.statusDir(DOING), `${id}.md`))).toBe(false);
     }
-    expect(output).toContain("Released");
+    expect(output).toContain(SESSION_RELEASE_OUTPUT.RELEASED);
   });
 
   it("S7: GIVEN 1 valid in doing + 1 invalid ID WHEN release THEN valid released, invalid errors", async () => {
@@ -194,8 +195,10 @@ describe("batch show", () => {
   it("S3: GIVEN 2 sessions WHEN show with 2 IDs THEN both contents printed", async () => {
     const id1 = "2026-01-10_10-00-00";
     const id2 = "2026-01-11_10-00-00";
-    await harness.writeSession(TODO, id1, { priority: "high" });
-    await harness.writeSession(TODO, id2, { priority: "low" });
+    const priority1 = SESSION_PRIORITY.HIGH;
+    const priority2 = SESSION_PRIORITY.LOW;
+    await harness.writeSession(TODO, id1, { priority: priority1 });
+    await harness.writeSession(TODO, id2, { priority: priority2 });
 
     const output = await showCommand({
       sessionIds: [id1, id2],
@@ -204,8 +207,8 @@ describe("batch show", () => {
 
     expect(output).toContain(id1);
     expect(output).toContain(id2);
-    expect(output).toContain("Priority: high");
-    expect(output).toContain("Priority: low");
+    expect(output).toContain(`${SESSION_SHOW_LABEL.PRIORITY}: ${priority1}`);
+    expect(output).toContain(`${SESSION_SHOW_LABEL.PRIORITY}: ${priority2}`);
   });
 });
 

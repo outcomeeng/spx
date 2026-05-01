@@ -141,15 +141,21 @@ Use contextualizing to understand current state, then authoring or testing to ac
 
 ## Test Naming Convention
 
-Test level is in the filename suffix:
+Test filenames encode the subject, evidence mode, and execution level:
 
-| Level       | Suffix                       | What It Tests                                      |
-| ----------- | ---------------------------- | -------------------------------------------------- |
-| Unit        | `*.unit.test.{ts,py}`        | Pure logic, no external dependencies               |
-| Integration | `*.integration.test.{ts,py}` | Real dependencies (databases, binaries, harnesses) |
-| E2E         | `*.e2e.test.{ts,py}`         | Complete user workflows, real credentials          |
+```text
+<subject>.<evidence>.<level>[.<runner>].test.ts
+test_<subject>.<evidence>.<level>.py
+<subject>.<evidence>.<level>[.<runner>].rs
+```
 
-**Any test level can exist at any node.** The suffix describes what KIND of test it is, not where it lives.
+| Segment  | Values                                                                    | Meaning                         |
+| -------- | ------------------------------------------------------------------------- | ------------------------------- |
+| evidence | `scenario`, `mapping`, `conformance`, `property`, `compliance`            | The proof the test provides     |
+| level    | `l1`, `l2`, `l3`                                                          | Execution pain and dependencies |
+| runner   | Optional runner qualifier such as `vitest`, `playwright`, or `subprocess` | Tool-specific disambiguation    |
+
+Execution level describes operational cost and environment dependence. Evidence mode describes the claim the test proves. Runner names describe the tool that executes the test.
 
 ---
 

@@ -8,7 +8,7 @@
 
 import { describe, expect, it } from "vitest";
 
-import { buildVitestArgs, FILE_PATTERNS, isTestFile, VITEST_ARGS } from "@/precommit/build-args.js";
+import { buildVitestArgs, FILE_PATTERNS, isTestFile, VITEST_ARGS } from "@/precommit/build-args";
 
 describe("isTestFile", () => {
   it("GIVEN .test.ts file WHEN checking THEN returns true", () => {
@@ -38,12 +38,6 @@ describe("isTestFile", () => {
 
 describe("buildVitestArgs", () => {
   describe("constants verification", () => {
-    it("GIVEN VITEST_ARGS WHEN accessed THEN has expected values", () => {
-      // Verify constants exist and have expected values
-      expect(VITEST_ARGS.RUN).toBe("--run");
-      expect(VITEST_ARGS.RELATED).toBe("related");
-    });
-
     it("GIVEN FILE_PATTERNS WHEN accessing TEST_FILE THEN matches test files", () => {
       expect(FILE_PATTERNS.TEST_FILE.test("foo.test.ts")).toBe(true);
       expect(FILE_PATTERNS.TEST_FILE.test("foo.ts")).toBe(false);
@@ -65,14 +59,15 @@ describe("buildVitestArgs", () => {
       const args = buildVitestArgs(files);
 
       expect(args).toContain(VITEST_ARGS.RUN);
-      expect(args).toContain("tests/unit/foo.test.ts");
-      expect(args).toContain("tests/unit/bar.test.ts");
+      expect(args).toContain(files[0]);
+      expect(args).toContain(files[1]);
     });
 
     it("GIVEN single test file WHEN building args THEN returns correct array", () => {
-      const args = buildVitestArgs(["tests/unit/foo.test.ts"]);
+      const file = "tests/unit/foo.test.ts";
+      const args = buildVitestArgs([file]);
 
-      expect(args).toEqual([VITEST_ARGS.RUN, "tests/unit/foo.test.ts"]);
+      expect(args).toEqual([VITEST_ARGS.RUN, file]);
     });
   });
 

@@ -11,8 +11,8 @@
 import { existsSync, readFileSync } from "node:fs";
 import { basename, join } from "node:path";
 
-import { EXCLUDE_FILENAME } from "../../spec/apply/exclude/constants.js";
-import { readExcludedNodes } from "../../spec/apply/exclude/exclude-file.js";
+import { EXCLUDE_FILENAME } from "@/spec/apply/exclude/constants";
+import { readExcludedNodes } from "@/spec/apply/exclude/exclude-file";
 
 // @ts-expect-error markdownlint-cli2 has no TypeScript type declarations
 import { main as markdownlintMain } from "markdownlint-cli2";
@@ -37,6 +37,8 @@ const ENABLED_RULES = {
 
 /** Directories where MD024 is disabled entirely (generated/repetitive headings are normal). */
 const MD024_DISABLED_DIRECTORIES = ["docs"] as const;
+
+export const MARKDOWN_CUSTOM_RULE_NAMES = relativeLinksRule.names;
 
 /**
  * Pattern for parsing markdownlint-cli2 default formatter output.

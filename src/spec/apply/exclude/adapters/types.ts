@@ -4,7 +4,7 @@
  * Each language (Python, TypeScript, etc.) provides an adapter that knows
  * how to apply spec-tree exclusions to its tool configuration file.
  */
-import type { ApplyResult } from "../types.js";
+import type { ApplyResult } from "../types";
 
 /** Adapter that applies exclusions to a language-specific config file */
 export interface LanguageAdapter {

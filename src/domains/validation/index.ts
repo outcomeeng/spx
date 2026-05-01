@@ -6,7 +6,6 @@
  */
 import type { Command } from "commander";
 
-import { allowlistExisting } from "@/validation/literal/allowlist-existing.js";
 import {
   allCommand,
   circularCommand,
@@ -15,12 +14,11 @@ import {
   literalCommand,
   markdownCommand,
   typescriptCommand,
-} from "../../commands/validation";
-import { sanitizeCliArgument } from "../../lib/sanitize-cli-argument";
+} from "@/commands/validation";
+import { sanitizeCliArgument } from "@/lib/sanitize-cli-argument";
+import { allowlistExisting } from "@/validation/literal/allowlist-existing";
+import type { ValidationScope } from "@/validation/types";
 import type { Domain } from "../types";
-
-/** Validation scope options */
-type ValidationScope = "full" | "production";
 
 interface ValidationDomainCommandDefinition {
   readonly commandName: string;

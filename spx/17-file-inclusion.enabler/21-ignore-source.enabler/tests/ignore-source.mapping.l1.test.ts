@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 
-import { createExcludeFilter } from "@/exclude/index.js";
-import { withTestEnv } from "@/spec/testing/index.js";
+import { createExcludeFilter } from "@/exclude/index";
+import { withTestEnv } from "@/spec/testing/index";
 
 import {
   expectedPytestFlag,
@@ -15,7 +15,7 @@ import {
   TOOL_PYTEST,
   TOOL_VITEST,
   writeExclude,
-} from "./support.js";
+} from "./support";
 
 describe("ignore-source — mappings", () => {
   it("a node path segment in EXCLUDE maps to the directory spx/{segment}/ for prefix matching", async () => {

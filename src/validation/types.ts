@@ -2,7 +2,7 @@
  * Shared types for the validation module.
  *
  * These types define the contracts for validation steps and their dependencies,
- * enabling dependency injection for testability (per ADR-001).
+ * enabling dependency injection for testability.
  *
  * @module validation/types
  */

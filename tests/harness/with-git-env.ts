@@ -15,6 +15,8 @@ import { tmpdir } from "node:os";
 import { dirname, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 
+import { buildGitTestEnvironment, GIT_TEST_CONFIG, GIT_TEST_SUBCOMMANDS, runGit } from "./git-test-constants";
+
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
 
@@ -101,14 +103,16 @@ export async function withGitEnv<T>(
     );
 
     // Initialize git repo
-    await execa("git", ["init"], { cwd: tempDir });
-    await execa("git", ["config", "user.email", "test@test.local"], {
-      cwd: tempDir,
-    });
-    await execa("git", ["config", "user.name", "Test User"], { cwd: tempDir });
+    await runGit(tempDir, [GIT_TEST_SUBCOMMANDS.INIT]);
+    await runGit(tempDir, [GIT_TEST_SUBCOMMANDS.CONFIG, "user.email", GIT_TEST_CONFIG.EMAIL]);
+    await runGit(tempDir, [GIT_TEST_SUBCOMMANDS.CONFIG, "user.name", GIT_TEST_CONFIG.USER_NAME]);
 
     // Install lefthook hooks
-    await execa("npx", ["lefthook", "install"], { cwd: tempDir });
+    await execa("npx", ["lefthook", "install"], {
+      cwd: tempDir,
+      env: buildGitTestEnvironment(),
+      extendEnv: false,
+    });
 
     // Create context helpers
     const exec = async (
@@ -118,11 +122,8 @@ export async function withGitEnv<T>(
       const execaOpts: ExecaOptions = {
         cwd: tempDir,
         reject: options?.reject ?? true,
-        env: {
-          ...process.env,
-          // Ensure git doesn't use global hooks
-          GIT_CONFIG_GLOBAL: "/dev/null",
-        },
+        env: buildGitTestEnvironment(),
+        extendEnv: false,
       };
 
       try {

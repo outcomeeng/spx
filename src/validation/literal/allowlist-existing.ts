@@ -1,29 +1,23 @@
-import { readFile, rename, writeFile } from "node:fs/promises";
+import { rename, writeFile } from "node:fs/promises";
 import { dirname, join } from "node:path";
 
-import { parse as tomlParse, stringify as tomlStringify } from "smol-toml";
-import { Document, isMap, parseDocument } from "yaml";
+import {
+  type ConfigFile,
+  configFileForFormat,
+  type ConfigFileReadResult,
+  DEFAULT_CONFIG_FILE_FORMAT,
+  formatConfigFileAmbiguityError,
+  parseConfigFileSections,
+  readProjectConfigFile,
+  serializeConfigFileSectionsWithSetIn,
+} from "@/config/index";
+import type { Result } from "@/config/types";
 
-import { CONFIG_FILENAMES } from "@/config/index.js";
-
-import { LITERAL_SECTION, type LiteralConfig, literalConfigDescriptor } from "./config.js";
-import { validateLiteralReuse } from "./index.js";
-
-export type ConfigFormat = "json" | "yaml" | "toml";
-
-export interface ConfigFileInfo {
-  readonly path: string;
-  readonly format: ConfigFormat;
-  readonly raw: string;
-}
-
-export type ConfigReadResult =
-  | { readonly kind: "ok"; readonly file: ConfigFileInfo }
-  | { readonly kind: "ambiguous"; readonly detected: readonly string[] }
-  | { readonly kind: "absent" };
+import { LITERAL_SECTION, type LiteralConfig, literalConfigDescriptor } from "./config";
+import { validateLiteralReuse } from "./index";
 
 export interface ConfigReader {
-  read(projectRoot: string): Promise<ConfigReadResult>;
+  read(projectRoot: string): Promise<Result<ConfigFileReadResult>>;
 }
 
 export interface ConfigWriter {
@@ -43,40 +37,15 @@ export interface AllowlistExistingResult {
 
 const EXIT_OK = 0;
 const EXIT_ERROR = 1;
-const DEFAULT_FORMAT: ConfigFormat = "yaml";
 const ALLOWLIST_INCLUDE_PATH = [LITERAL_SECTION, "allowlist", "include"] as const;
 const TEMP_FILE_PREFIX = ".spx-allowlist-existing-";
 const TEMP_FILE_SUFFIX = ".tmp";
 const RANDOM_BASE = 36;
 const RANDOM_PREFIX_SLICE = 2;
 const RANDOM_TOKEN_LENGTH = 10;
-const JSON_INDENT = 2;
-const FORMAT_FILENAMES: Readonly<Record<ConfigFormat, string>> = {
-  json: CONFIG_FILENAMES.json,
-  yaml: CONFIG_FILENAMES.yaml,
-  toml: CONFIG_FILENAMES.toml,
-};
-const DETECTION_ORDER: readonly ConfigFormat[] = ["json", "yaml", "toml"];
 
 export const productionReader: ConfigReader = {
-  async read(projectRoot: string): Promise<ConfigReadResult> {
-    const detected: ConfigFileInfo[] = [];
-    for (const format of DETECTION_ORDER) {
-      const filename = FORMAT_FILENAMES[format];
-      const path = join(projectRoot, filename);
-      try {
-        const raw = await readFile(path, "utf8");
-        detected.push({ path, format, raw });
-      } catch (error: unknown) {
-        if (!isFileNotFound(error)) throw error;
-      }
-    }
-    if (detected.length === 0) return { kind: "absent" };
-    if (detected.length > 1) {
-      return { kind: "ambiguous", detected: detected.map((file) => FORMAT_FILENAMES[file.format]) };
-    }
-    return { kind: "ok", file: detected[0] };
-  },
+  read: readProjectConfigFile,
 };
 
 export const productionWriter: ConfigWriter = {
@@ -98,59 +67,52 @@ export async function allowlistExisting(
   const writer = options.writer ?? productionWriter;
 
   const readResult = await reader.read(options.projectRoot);
-  if (readResult.kind === "ambiguous") {
-    const names = readResult.detected.join(", ");
-    return { exitCode: EXIT_ERROR, output: `multiple config files found: ${names}` };
+  if (!readResult.ok) {
+    return { exitCode: EXIT_ERROR, output: readResult.error };
   }
 
-  const currentLiteralConfig = readCurrentLiteralConfig(readResult);
+  const configRead = readResult.value;
+  if (configRead.kind === "ambiguous") {
+    return { exitCode: EXIT_ERROR, output: formatConfigFileAmbiguityError(configRead.detected) };
+  }
+
+  const currentLiteralConfig = readCurrentLiteralConfig(configRead);
+  if (!currentLiteralConfig.ok) {
+    return { exitCode: EXIT_ERROR, output: currentLiteralConfig.error };
+  }
 
   const detection = await validateLiteralReuse({
     projectRoot: options.projectRoot,
-    config: currentLiteralConfig,
+    config: currentLiteralConfig.value,
   });
 
   const findingValues = collectFindingValues(detection.findings);
   const updatedInclude = computeUpdatedInclude(
-    currentLiteralConfig.allowlist.include,
+    currentLiteralConfig.value.allowlist.include,
     findingValues,
   );
 
-  const target: ConfigFileInfo = readResult.kind === "ok"
-    ? readResult.file
-    : {
-      path: join(options.projectRoot, FORMAT_FILENAMES[DEFAULT_FORMAT]),
-      format: DEFAULT_FORMAT,
-      raw: "",
-    };
+  const target: ConfigFile = configRead.kind === "ok"
+    ? configRead.file
+    : configFileForFormat(options.projectRoot, DEFAULT_CONFIG_FILE_FORMAT);
 
   const serialized = serializeWithUpdatedInclude(target, updatedInclude);
-  await writer.write(target.path, serialized);
+  if (!serialized.ok) {
+    return { exitCode: EXIT_ERROR, output: serialized.error };
+  }
+  await writer.write(target.path, serialized.value);
 
   return { exitCode: EXIT_OK, output: "" };
 }
 
-function readCurrentLiteralConfig(read: ConfigReadResult): LiteralConfig {
-  if (read.kind !== "ok") return literalConfigDescriptor.defaults;
-  const sections = parseSections(read.file);
-  const literalRaw = sections[LITERAL_SECTION];
-  if (literalRaw === undefined) return literalConfigDescriptor.defaults;
+function readCurrentLiteralConfig(read: ConfigFileReadResult): Result<LiteralConfig> {
+  if (read.kind !== "ok") return { ok: true, value: literalConfigDescriptor.defaults };
+  const sections = parseConfigFileSections(read.file);
+  if (!sections.ok) return sections;
+  const literalRaw = sections.value[LITERAL_SECTION];
+  if (literalRaw === undefined) return { ok: true, value: literalConfigDescriptor.defaults };
   const validated = literalConfigDescriptor.validate(literalRaw);
-  return validated.ok ? validated.value : literalConfigDescriptor.defaults;
-}
-
-function parseSections(file: ConfigFileInfo): Record<string, unknown> {
-  if (file.raw.trim() === "") return {};
-  switch (file.format) {
-    case "json":
-      return JSON.parse(file.raw) as Record<string, unknown>;
-    case "yaml": {
-      const parsed = parseDocument(file.raw).toJS({ maxAliasCount: 0 }) as Record<string, unknown> | null;
-      return parsed ?? {};
-    }
-    case "toml":
-      return tomlParse(file.raw) as Record<string, unknown>;
-  }
+  return validated.ok ? validated : { ok: true, value: literalConfigDescriptor.defaults };
 }
 
 function collectFindingValues(
@@ -175,67 +137,6 @@ function computeUpdatedInclude(
   return [...existingArr, ...additions];
 }
 
-function serializeWithUpdatedInclude(target: ConfigFileInfo, include: readonly string[]): string {
-  switch (target.format) {
-    case "yaml":
-      return serializeYaml(target.raw, include);
-    case "json":
-      return serializeJson(target.raw, include);
-    case "toml":
-      return serializeToml(target.raw, include);
-  }
-}
-
-function serializeYaml(raw: string, include: readonly string[]): string {
-  const doc = isEffectivelyEmpty(raw, "yaml") ? new Document({}) : parseDocument(raw);
-  doc.setIn([...ALLOWLIST_INCLUDE_PATH], [...include]);
-  return doc.toString();
-}
-
-function serializeJson(raw: string, include: readonly string[]): string {
-  const obj = isEffectivelyEmpty(raw, "json")
-    ? {}
-    : (JSON.parse(raw) as Record<string, unknown>);
-  setNested(obj, [...ALLOWLIST_INCLUDE_PATH], [...include]);
-  return JSON.stringify(obj, null, JSON_INDENT) + "\n";
-}
-
-function serializeToml(raw: string, include: readonly string[]): string {
-  const obj = isEffectivelyEmpty(raw, "toml")
-    ? {}
-    : (tomlParse(raw) as Record<string, unknown>);
-  setNested(obj, [...ALLOWLIST_INCLUDE_PATH], [...include]);
-  return tomlStringify(obj);
-}
-
-function isEffectivelyEmpty(raw: string, format: ConfigFormat): boolean {
-  if (raw.trim() === "") return true;
-  if (format === "yaml") {
-    const doc = parseDocument(raw);
-    if (doc.contents === null) return true;
-    if (isMap(doc.contents) && doc.contents.items.length === 0) return true;
-  }
-  return false;
-}
-
-function setNested(target: Record<string, unknown>, path: readonly string[], value: unknown): void {
-  let cursor: Record<string, unknown> = target;
-  for (let i = 0; i < path.length - 1; i += 1) {
-    const key = path[i];
-    const existing = cursor[key];
-    if (typeof existing === "object" && existing !== null && !Array.isArray(existing)) {
-      cursor = existing as Record<string, unknown>;
-    } else {
-      const fresh: Record<string, unknown> = {};
-      cursor[key] = fresh;
-      cursor = fresh;
-    }
-  }
-  cursor[path[path.length - 1]] = value;
-}
-
-function isFileNotFound(error: unknown): boolean {
-  return error instanceof Error
-    && "code" in error
-    && (error as NodeJS.ErrnoException).code === "ENOENT";
+function serializeWithUpdatedInclude(target: ConfigFile, include: readonly string[]): Result<string> {
+  return serializeConfigFileSectionsWithSetIn(target, ALLOWLIST_INCLUDE_PATH, [...include]);
 }

@@ -4,21 +4,22 @@ import { join } from "node:path";
 import { describe, expect, it } from "vitest";
 
 import { literalCommand } from "@/commands/validation/literal";
-import { CONFIG_FILENAMES } from "@/config/index.js";
-import { withTestEnv } from "@/spec/testing/index.js";
-import { TYPESCRIPT_MARKER } from "@/validation/discovery/index.js";
-import { LITERAL_SECTION } from "@/validation/literal/config.js";
+import { CONFIG_FILENAMES } from "@/config/index";
+import { withTestEnv } from "@/spec/testing/index";
+import { TYPESCRIPT_MARKER } from "@/validation/discovery/index";
+import { LITERAL_SECTION } from "@/validation/literal/config";
 import {
   buildIndex,
   collectLiterals,
   defaultVisitorKeys,
   detectReuse,
+  LITERAL_KIND,
   type LiteralIndex,
   type LiteralOccurrence,
   parseLiteralReuseResult,
   REMEDIATION,
   validateLiteralReuse,
-} from "@/validation/literal/index.js";
+} from "@/validation/literal/index";
 
 import {
   configWithAllowlist,
@@ -27,7 +28,7 @@ import {
   INTEGRATION_CONFIG,
   writeSourceWithLiteral,
   writeTestWithLiteral,
-} from "./support.js";
+} from "./support";
 
 const DEFAULT_OPTIONS = {
   visitorKeys: defaultVisitorKeys,
@@ -64,9 +65,11 @@ const UNKNOWN_PRESET_ID = "ecosystem-nonexistent";
 
 describe("literal-reuse detection — scenarios", () => {
   it("string literal carrying domain meaning in src and in a test file produces a src↔test reuse finding citing both locations", () => {
-    const srcIndex = indexSources(["src/status.ts", `export const STATE = "${SRC_LITERAL}";`]);
+    const sourceFile = "src/status.ts";
+    const testFile = "tests/status.test.ts";
+    const srcIndex = indexSources([sourceFile, `export const STATE = "${SRC_LITERAL}";`]);
     const tests = testOccurrences(
-      ["tests/status.test.ts", `expect(value).toBe("${SRC_LITERAL}");`],
+      [testFile, `expect(value).toBe("${SRC_LITERAL}");`],
     );
 
     const result = detectReuse({
@@ -77,9 +80,9 @@ describe("literal-reuse detection — scenarios", () => {
 
     const finding = result.srcReuse.find((f) => f.value === SRC_LITERAL);
     expect(finding).toBeDefined();
-    expect(finding?.kind).toBe("string");
-    expect(finding?.test.file).toBe("tests/status.test.ts");
-    expect(finding?.src.map((s) => s.file)).toContain("src/status.ts");
+    expect(finding?.kind).toBe(LITERAL_KIND.STRING);
+    expect(finding?.test.file).toBe(testFile);
+    expect(finding?.src.map((s) => s.file)).toContain(sourceFile);
     expect(result.testDupe).toHaveLength(0);
   });
 
@@ -122,7 +125,7 @@ describe("literal-reuse detection — scenarios", () => {
 
     const finding = result.srcReuse.find((f) => f.value === numericLiteral);
     expect(finding).toBeDefined();
-    expect(finding?.kind).toBe("number");
+    expect(finding?.kind).toBe(LITERAL_KIND.NUMBER);
   });
 
   it("literal value appearing exactly once in the codebase produces no finding for that value", () => {
@@ -281,7 +284,7 @@ describe("literal-reuse detection — scenarios", () => {
         expect(f.remediation).toBe(REMEDIATION.IMPORT_FROM_SOURCE);
       }
       for (const f of parsed.testDupe) {
-        expect(f.remediation).toBe(REMEDIATION.EXTRACT_TO_SHARED_TEST_SUPPORT);
+        expect(f.remediation).toBe(REMEDIATION.REFACTOR_TO_SOURCE_OR_GENERATOR);
       }
     });
   });

@@ -14,5 +14,6 @@ CAN absorb the existing violations into configured allowlist entries without rem
 ### Compliance
 
 - ALWAYS: `--allowlist-existing` writes only to `literal.allowlist.include` — never to `presets`, `exclude`, or any other top-level section of `spx.config.*` ([test](tests/allowlist-existing.compliance.l1.test.ts))
+- ALWAYS: `--allowlist-existing` preserves the detected `spx.config.*` file format and reads/writes config content through `src/config/` format APIs ([test](tests/allowlist-existing.compliance.l1.test.ts))
 - ALWAYS: `--allowlist-existing` is idempotent — running it twice in succession against unchanged source yields the same `include` set ([test](tests/allowlist-existing.compliance.l1.test.ts))
 - NEVER: `--allowlist-existing` removes or reorders existing `include` entries — it only appends new values, deduplicating against the existing set ([test](tests/allowlist-existing.compliance.l1.test.ts))

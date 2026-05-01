@@ -10,10 +10,11 @@ import { spawn } from "node:child_process";
 import { existsSync } from "node:fs";
 import { join } from "node:path";
 
-import type { ExecutionMode, ProcessRunner, ValidationContext } from "../types.js";
-import { EXECUTION_MODES, VALIDATION_SCOPES } from "../types.js";
+import { validateLintPolicy } from "@/validation/lint-policy";
+import type { ExecutionMode, ProcessRunner, ValidationContext } from "../types";
+import { EXECUTION_MODES, VALIDATION_SCOPES } from "../types";
 
-import { CACHE_PATHS } from "./constants.js";
+import { CACHE_PATHS } from "./constants";
 
 // =============================================================================
 // DEFAULT DEPENDENCIES
@@ -34,6 +35,15 @@ export const defaultEslintProcessRunner: ProcessRunner = { spawn };
  * detection.
  */
 export const DEFAULT_ESLINT_CONFIG_FILE = "eslint.config.ts";
+export const ESLINT_COMMAND_TOKENS = {
+  CACHE_FLAG: "--cache",
+  CACHE_LOCATION_FLAG: "--cache-location",
+  COMMAND: "eslint",
+  CONFIG_FLAG: "--config",
+  CURRENT_DIRECTORY: ".",
+  FILE_SEPARATOR: "--",
+  FIX_FLAG: "--fix",
+} as const;
 
 /**
  * Build ESLint CLI arguments based on validation context.
@@ -61,13 +71,32 @@ export function buildEslintArgs(context: {
   configFile?: string;
 }): string[] {
   const { validatedFiles, mode, cacheFile, configFile = DEFAULT_ESLINT_CONFIG_FILE } = context;
-  const fixArg = mode === EXECUTION_MODES.WRITE ? ["--fix"] : [];
-  const cacheArgs = ["--cache", "--cache-location", cacheFile];
+  const fixArg = mode === EXECUTION_MODES.WRITE ? [ESLINT_COMMAND_TOKENS.FIX_FLAG] : [];
+  const cacheArgs = [
+    ESLINT_COMMAND_TOKENS.CACHE_FLAG,
+    ESLINT_COMMAND_TOKENS.CACHE_LOCATION_FLAG,
+    cacheFile,
+  ];
 
   if (validatedFiles && validatedFiles.length > 0) {
-    return ["eslint", "--config", configFile, ...cacheArgs, ...fixArg, "--", ...validatedFiles];
+    return [
+      ESLINT_COMMAND_TOKENS.COMMAND,
+      ESLINT_COMMAND_TOKENS.CONFIG_FLAG,
+      configFile,
+      ...cacheArgs,
+      ...fixArg,
+      ESLINT_COMMAND_TOKENS.FILE_SEPARATOR,
+      ...validatedFiles,
+    ];
   }
-  return ["eslint", ".", "--config", configFile, ...cacheArgs, ...fixArg];
+  return [
+    ESLINT_COMMAND_TOKENS.COMMAND,
+    ESLINT_COMMAND_TOKENS.CURRENT_DIRECTORY,
+    ESLINT_COMMAND_TOKENS.CONFIG_FLAG,
+    configFile,
+    ...cacheArgs,
+    ...fixArg,
+  ];
 }
 
 // =============================================================================
@@ -97,6 +126,11 @@ export async function validateESLint(
   error?: string;
 }> {
   const { projectRoot, scope, validatedFiles, mode, eslintConfigFile } = context;
+  const lintPolicy = validateLintPolicy(projectRoot);
+
+  if (!lintPolicy.ok) {
+    return { success: false, error: lintPolicy.error };
+  }
 
   return new Promise((resolve) => {
     if (!validatedFiles || validatedFiles.length === 0) {

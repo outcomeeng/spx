@@ -14,6 +14,7 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 
+import { validationCliDefinition } from "@/domains/validation";
 import { CLI_PATH } from "@test/harness/constants";
 
 let tempDir: string;
@@ -35,17 +36,15 @@ describe("spx validation markdown (e2e)", () => {
     );
 
     expect(exitCode).toBe(0);
-    expect(stdout).toContain("markdown");
-    expect(stdout).toContain("Validate markdown link integrity");
+    expect(stdout).toContain(validationCliDefinition.subcommands.markdown.commandName);
+    expect(stdout).toContain(validationCliDefinition.subcommands.markdown.description);
   });
 
   it("GIVEN a directory with a broken link, WHEN spx validation markdown runs, THEN exits 1 with the broken link identified", async () => {
     const spxDir = join(tempDir, "spx");
     await mkdir(spxDir, { recursive: true });
-    await writeFile(
-      join(spxDir, "test.md"),
-      "# Test\n\n[broken](./nonexistent.md)\n",
-    );
+    const missingTarget = "nonexistent.md";
+    await writeFile(join(spxDir, "test.md"), `# Test\n\n[broken](./${missingTarget})\n`);
 
     const { exitCode, stdout } = await execa(
       "node",
@@ -54,7 +53,7 @@ describe("spx validation markdown (e2e)", () => {
     );
 
     expect(exitCode).toBe(1);
-    expect(stdout).toContain("nonexistent.md");
+    expect(stdout).toContain(missingTarget);
   });
 
   it("GIVEN a directory with valid links, WHEN spx validation markdown runs, THEN exits 0", async () => {

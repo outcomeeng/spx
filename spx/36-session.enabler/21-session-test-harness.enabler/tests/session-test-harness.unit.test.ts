@@ -19,8 +19,9 @@ import { isAbsolute, join } from "node:path";
 import { describe, expect, it } from "vitest";
 
 import { DEFAULT_CONFIG } from "@/config/defaults";
+import { parseSessionMetadata } from "@/session/list";
 import { createSessionHarness } from "@/session/testing/harness";
-import { SESSION_STATUSES } from "@/session/types";
+import { DEFAULT_PRIORITY, SESSION_PRIORITY, SESSION_STATUSES } from "@/session/types";
 
 const { statusDirs } = DEFAULT_CONFIG.sessions;
 
@@ -61,16 +62,16 @@ describe("writeSession", () => {
     try {
       const status = SESSION_STATUSES[0];
       const id = "2026-01-10_10-00-00";
+      const tags = ["test", "ci"];
 
-      await harness.writeSession(status, id, { priority: "high", tags: ["test", "ci"] });
+      await harness.writeSession(status, id, { priority: SESSION_PRIORITY.HIGH, tags });
 
       const filePath = join(harness.statusDir(status), `${id}.md`);
       const content = await readFile(filePath, "utf-8");
+      const metadata = parseSessionMetadata(content);
 
-      expect(content).toContain("priority: high");
-      expect(content).toContain("tags:");
-      expect(content).toContain("test");
-      expect(content).toContain("ci");
+      expect(metadata.priority).toBe(SESSION_PRIORITY.HIGH);
+      expect(metadata.tags).toEqual(tags);
     } finally {
       await harness.cleanup();
     }
@@ -86,8 +87,9 @@ describe("writeSession", () => {
 
       const filePath = join(harness.statusDir(status), `${id}.md`);
       const content = await readFile(filePath, "utf-8");
+      const metadata = parseSessionMetadata(content);
 
-      expect(content).toContain("priority: medium");
+      expect(metadata.priority).toBe(DEFAULT_PRIORITY);
     } finally {
       await harness.cleanup();
     }

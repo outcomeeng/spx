@@ -11,7 +11,12 @@
 import { join } from "node:path";
 import { describe, expect, it } from "vitest";
 
-import { buildMarkdownlintConfig, getDefaultDirectories, validateMarkdown } from "@/validation/steps/markdown.js";
+import {
+  buildMarkdownlintConfig,
+  getDefaultDirectories,
+  MARKDOWN_CUSTOM_RULE_NAMES,
+  validateMarkdown,
+} from "@/validation/steps/markdown";
 import { MARKDOWN_FIXTURES, MARKDOWN_HARNESS_TIMEOUT, withMarkdownEnv } from "@test/harness/with-markdown-env";
 
 // =============================================================================
@@ -349,6 +354,6 @@ describe("buildMarkdownlintConfig()", () => {
     expect(config.customRules).toHaveLength(1);
 
     const rule = config.customRules[0];
-    expect(rule.names).toContain("relative-links");
+    expect(rule.names).toEqual(MARKDOWN_CUSTOM_RULE_NAMES);
   });
 });

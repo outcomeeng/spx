@@ -4,4 +4,4 @@
  * @module validation/config
  */
 
-export * from "./scope.js";
+export * from "./scope";

@@ -1,8 +1,8 @@
-import { resolveConfig } from "@/config/index.js";
-import { detectTypeScript } from "@/validation/discovery/index.js";
-import { type LiteralConfig, literalConfigDescriptor } from "@/validation/literal/config.js";
-import { type DetectionResult, type LiteralLocation, validateLiteralReuse } from "@/validation/literal/index.js";
-import { validationEnabled } from "@/validation/steps/eslint.js";
+import { resolveConfig } from "@/config/index";
+import { detectTypeScript } from "@/validation/discovery/index";
+import { type LiteralConfig, literalConfigDescriptor } from "@/validation/literal/config";
+import { type DetectionResult, type LiteralLocation, validateLiteralReuse } from "@/validation/literal/index";
+import { validationEnabled } from "@/validation/steps/eslint";
 
 export interface LiteralCommandOptions {
   readonly cwd: string;

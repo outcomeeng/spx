@@ -12,9 +12,9 @@ import { mkdtemp } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { isAbsolute, join } from "node:path";
 
-import { TSCONFIG_FILES } from "../config/scope.js";
-import type { ProcessRunner, ScopeConfig, ValidationScope } from "../types.js";
-import { VALIDATION_SCOPES } from "../types.js";
+import { TSCONFIG_FILES } from "../config/scope";
+import type { ProcessRunner, ScopeConfig, ValidationScope } from "../types";
+import { VALIDATION_SCOPES } from "../types";
 
 // =============================================================================
 // DEFAULT DEPENDENCIES

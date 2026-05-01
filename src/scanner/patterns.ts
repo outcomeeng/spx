@@ -1,8 +1,8 @@
 /**
  * Pattern matching for work item directory names
  */
-import type { WorkItem, WorkItemKind } from "../types.js";
-import { validateBSPNumber } from "./validation.js";
+import type { WorkItem, WorkItemKind } from "../types";
+import { validateBSPNumber } from "./validation";
 
 /**
  * Regex pattern for work item directory names

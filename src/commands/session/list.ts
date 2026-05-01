@@ -7,15 +7,30 @@
 import { readdir, readFile } from "node:fs/promises";
 import { join } from "node:path";
 
-import { resolveSessionConfig } from "../../git/root.js";
-import { parseSessionMetadata, sortSessions } from "../../session/list.js";
-import type { SessionDirectoryConfig } from "../../session/show.js";
-import { DEFAULT_LIST_STATUSES, type Session, SESSION_STATUSES, type SessionStatus } from "../../session/types.js";
+import { resolveSessionConfig } from "@/git/root";
+import { parseSessionMetadata, sortSessions } from "@/session/list";
+import type { SessionDirectoryConfig } from "@/session/show";
+import {
+  DEFAULT_LIST_STATUSES,
+  DEFAULT_PRIORITY,
+  type Session,
+  SESSION_STATUSES,
+  type SessionStatus,
+} from "@/session/types";
+
+export const SESSION_LIST_FORMAT = {
+  TEXT: "text",
+  JSON: "json",
+} as const;
+
+export type SessionListFormat = (typeof SESSION_LIST_FORMAT)[keyof typeof SESSION_LIST_FORMAT];
+
+export const SESSION_LIST_EMPTY_TEXT = "(no sessions)";
 
 /**
  * Options for the list command.
  * Note: status is string (not SessionStatus) because it comes from user input via Commander.js.
- * Validation happens inside listCommand per ADR 001-cli-framework.
+ * Validation happens inside listCommand before status is used.
  */
 export interface ListOptions {
   /** Filter by status (validated against SESSION_STATUSES) */
@@ -23,7 +38,7 @@ export interface ListOptions {
   /** Custom sessions directory */
   sessionsDir?: string;
   /** Output format */
-  format?: "text" | "json";
+  format?: SessionListFormat;
 }
 
 /**
@@ -76,12 +91,12 @@ const STATUS_DIR_KEY: Record<SessionStatus, keyof SessionDirectoryConfig> = {
  */
 function formatTextOutput(sessions: Session[]): string {
   if (sessions.length === 0) {
-    return `  (no sessions)`;
+    return `  ${SESSION_LIST_EMPTY_TEXT}`;
   }
 
   return sessions
     .map((s) => {
-      const priority = s.metadata.priority !== "medium" ? ` [${s.metadata.priority}]` : "";
+      const priority = s.metadata.priority !== DEFAULT_PRIORITY ? ` [${s.metadata.priority}]` : "";
       const tags = s.metadata.tags.length > 0 ? ` (${s.metadata.tags.join(", ")})` : "";
       return `  ${s.id}${priority}${tags}`;
     })
@@ -110,7 +125,7 @@ function validateStatus(input: string): SessionStatus {
 export async function listCommand(options: ListOptions): Promise<string> {
   const { config } = await resolveSessionConfig({ sessionsDir: options.sessionsDir });
 
-  // Validate and resolve statuses per ADR 001-cli-framework
+  // Validate and resolve statuses before use.
   const statuses: readonly SessionStatus[] = options.status !== undefined
     ? [validateStatus(options.status)]
     : DEFAULT_LIST_STATUSES;
@@ -124,7 +139,7 @@ export async function listCommand(options: ListOptions): Promise<string> {
   }
 
   // Format output
-  if (options.format === "json") {
+  if (options.format === SESSION_LIST_FORMAT.JSON) {
     return JSON.stringify(sessionsByStatus, null, 2);
   }
 

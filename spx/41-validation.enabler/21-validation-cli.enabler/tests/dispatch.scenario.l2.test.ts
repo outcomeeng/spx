@@ -2,9 +2,12 @@ import { execa } from "execa";
 import { join } from "node:path";
 import { describe, expect, it } from "vitest";
 
+import { validationCliDefinition } from "@/domains/validation";
+import { sanitizeCliArgument, SENTINEL_EMPTY } from "@/lib/sanitize-cli-argument";
+
 const CLI_PATH = join(process.cwd(), "bin", "spx.js");
 const SUBPROCESS_TIMEOUT_MS = 10_000;
-const UNKNOWN_TAG = "unknown subcommand";
+const UNKNOWN_TAG = validationCliDefinition.diagnostics.unknownSubcommand.messageLabel;
 
 async function runValidation(
   args: readonly string[],
@@ -27,30 +30,33 @@ describe("spx validation dispatch — observable scenarios", () => {
   });
 
   it("unknown subcommand: no stage runs, stderr names the sanitized argument, exit code is non-zero", async () => {
-    const result = await runValidation(["not-a-real-stage-xyz"]);
+    const unknownStage = "not-a-real-stage-xyz";
+    const result = await runValidation([unknownStage]);
     expect(result.exitCode).not.toBe(0);
     expect(result.stderr).toContain(UNKNOWN_TAG);
-    expect(result.stderr).toContain("not-a-real-stage-xyz");
+    expect(result.stderr).toContain(unknownStage);
   });
 
   it("empty-string argument: stderr shows the empty-value sentinel, exit code is non-zero", async () => {
     const result = await runValidation([""]);
     expect(result.exitCode).not.toBe(0);
-    expect(result.stderr).toContain("<empty>");
+    expect(result.stderr).toContain(SENTINEL_EMPTY);
   });
 
   it("ASCII control characters in the argument: stderr shows each as its \\xNN escape, no stage runs", async () => {
-    const result = await runValidation(["bad\x01arg\x1fend"]);
+    const unsafeArgument = "bad\x01arg\x1fend";
+    const result = await runValidation([unsafeArgument]);
     expect(result.exitCode).not.toBe(0);
-    expect(result.stderr).toContain("\\x01");
-    expect(result.stderr).toContain("\\x1f");
+    expect(result.stderr).toContain(sanitizeCliArgument("\x01"));
+    expect(result.stderr).toContain(sanitizeCliArgument("\x1f"));
     // eslint-disable-next-line no-control-regex -- the raw control chars must NOT appear in stderr
     expect(result.stderr).not.toMatch(/bad\x01arg/);
   });
 
   it("multi-byte Unicode in the argument: stderr preserves non-control code points verbatim", async () => {
-    const result = await runValidation(["¡unicode-🎉-日本語!"]);
+    const unicodeArgument = "¡unicode-🎉-日本語!";
+    const result = await runValidation([unicodeArgument]);
     expect(result.exitCode).not.toBe(0);
-    expect(result.stderr).toContain("¡unicode-🎉-日本語!");
+    expect(result.stderr).toContain(unicodeArgument);
   });
 });

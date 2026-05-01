@@ -3,41 +3,17 @@ import { tmpdir } from "node:os";
 import { dirname, join, resolve, sep } from "node:path";
 
 import * as fc from "fast-check";
-import { stringify as yamlStringify } from "yaml";
 
-import type { Config } from "@/config/types.js";
-import type { Kind, KindDefinition, SpecTreeConfig } from "@/spec/config.js";
+import { configFileForFormat, DEFAULT_CONFIG_FILE_FORMAT, serializeConfigFileSections } from "@/config/index";
+import type { Config } from "@/config/types";
+import { SPEC_TREE_CONFIG, type SpecTreeKindCategory } from "@/spec/config";
+import type { Kind, KindDefinition, SpecTreeConfig } from "@/spec/config";
 
-export function configToToml(config: Config): string {
-  return tomlSections("", config as Record<string, unknown>);
-}
-
-function tomlSections(prefix: string, obj: Record<string, unknown>): string {
-  const entries = Object.entries(obj);
-  const allScalars = entries.every(([, v]) => typeof v !== "object" || v === null);
-  if (allScalars) {
-    let out = prefix.length > 0 ? `[${prefix}]\n` : "";
-    for (const [k, v] of entries) {
-      if (typeof v === "string") out += `${k} = "${v}"\n`;
-      else if (typeof v === "number" || typeof v === "boolean") out += `${k} = ${v}\n`;
-    }
-    return out;
-  }
-  let out = "";
-  for (const [k, v] of entries) {
-    if (typeof v === "object" && v !== null && !Array.isArray(v)) {
-      out += tomlSections(prefix.length > 0 ? `${prefix}.${k}` : k, v as Record<string, unknown>);
-    }
-  }
-  return out;
-}
-
-export type { Config } from "@/config/types.js";
+export type { Config } from "@/config/types";
 
 const TEMP_PREFIX = "spx-test-env-";
-const CONFIG_FILENAME = "spx.config.yaml";
-const MIN_BSP_INDEX = 10;
-const MAX_BSP_INDEX = 99;
+const MIN_SPEC_ORDER_INDEX = 10;
+const MAX_SPEC_ORDER_INDEX = 99;
 const SLUG_POOL = ["foo", "bar", "baz", "widget", "gizmo", "spec", "stub", "sample", "probe", "fixture"];
 const MAX_FIXTURE_ENTRIES = 5;
 
@@ -69,7 +45,15 @@ export async function withTestEnv(
   const projectDir = await mkdtemp(join(tempRoot, TEMP_PREFIX));
 
   try {
-    await writeAt(projectDir, CONFIG_FILENAME, yamlStringify(config));
+    const configFile = configFileForFormat(projectDir, DEFAULT_CONFIG_FILE_FORMAT);
+    const serialized = serializeConfigFileSections(
+      configFile.format,
+      config as Record<string, unknown>,
+    );
+    if (!serialized.ok) {
+      throw new Error(serialized.error);
+    }
+    await writeAt(projectDir, configFile.filename, serialized.value);
 
     const env: SpecTreeEnv = {
       projectDir,
@@ -95,7 +79,7 @@ export async function withTestEnv(
 }
 
 export function arbitraryNodePath(config: Config): fc.Arbitrary<string> {
-  const entries = readKinds(config, "node");
+  const entries = readKinds(config, SPEC_TREE_CONFIG.CATEGORY.NODE);
   if (entries.length === 0) {
     throw new Error("Config supplied to arbitraryNodePath has no node kinds registered");
   }
@@ -103,7 +87,7 @@ export function arbitraryNodePath(config: Config): fc.Arbitrary<string> {
 }
 
 export function arbitraryDecisionPath(config: Config): fc.Arbitrary<string> {
-  const entries = readKinds(config, "decision");
+  const entries = readKinds(config, SPEC_TREE_CONFIG.CATEGORY.DECISION);
   if (entries.length === 0) {
     throw new Error("Config supplied to arbitraryDecisionPath has no decision kinds registered");
   }
@@ -111,7 +95,10 @@ export function arbitraryDecisionPath(config: Config): fc.Arbitrary<string> {
 }
 
 export function arbitrarySpecTree(config: Config): fc.Arbitrary<SpecTreeFixture> {
-  const all = [...readKinds(config, "node"), ...readKinds(config, "decision")];
+  const all = [
+    ...readKinds(config, SPEC_TREE_CONFIG.CATEGORY.NODE),
+    ...readKinds(config, SPEC_TREE_CONFIG.CATEGORY.DECISION),
+  ];
   if (all.length === 0) {
     throw new Error("Config supplied to arbitrarySpecTree has no kinds registered");
   }
@@ -122,10 +109,10 @@ export function arbitrarySpecTree(config: Config): fc.Arbitrary<SpecTreeFixture>
 
 type KindEntry = { readonly kind: string; readonly suffix: string };
 
-function readKinds(config: Config, category: "node" | "decision"): readonly KindEntry[] {
-  const specTree = config["specTree"] as SpecTreeConfig | undefined;
+function readKinds(config: Config, category: SpecTreeKindCategory): readonly KindEntry[] {
+  const specTree = config[SPEC_TREE_CONFIG.SECTION] as SpecTreeConfig | undefined;
   if (!specTree || typeof specTree !== "object") {
-    throw new Error("Config supplied to spec-tree generators is missing the 'specTree' section");
+    throw new Error(`Config supplied to spec-tree generators is missing the ${SPEC_TREE_CONFIG.SECTION} section`);
   }
   const kinds = specTree.kinds ?? {};
   return Object.entries(kinds)
@@ -147,7 +134,7 @@ function arbitraryEntryFromKinds(
 ): fc.Arbitrary<SpecTreeFixtureEntry> {
   return fc
     .tuple(
-      fc.integer({ min: MIN_BSP_INDEX, max: MAX_BSP_INDEX }),
+      fc.integer({ min: MIN_SPEC_ORDER_INDEX, max: MAX_SPEC_ORDER_INDEX }),
       fc.constantFrom(...SLUG_POOL),
       fc.constantFrom(...entries),
     )

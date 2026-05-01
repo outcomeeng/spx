@@ -12,7 +12,7 @@ import { mkdtemp } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 
-import { COMMENT_CHAR, EXCLUDE_FILENAME, SPX_PREFIX } from "../exclude/constants.js";
+import { COMMENT_CHAR, EXCLUDE_FILENAME, SPX_PREFIX } from "../exclude/constants";
 
 /** Header lines written to spx/EXCLUDE before node paths */
 const EXCLUDE_HEADER = [

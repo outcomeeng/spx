@@ -7,12 +7,12 @@
 import { mkdir, readdir, readFile, rename } from "node:fs/promises";
 import { join } from "node:path";
 
-import { resolveSessionConfig } from "../../git/root.js";
-import { NoSessionsAvailableError } from "../../session/errors.js";
-import { parseSessionMetadata } from "../../session/list.js";
-import { buildClaimPaths, classifyClaimError, selectBestSession } from "../../session/pickup.js";
-import { formatShowOutput, type SessionDirectoryConfig } from "../../session/show.js";
-import { type Session, SESSION_STATUSES, type SessionStatus } from "../../session/types.js";
+import { resolveSessionConfig } from "@/git/root";
+import { NoSessionsAvailableError } from "@/session/errors";
+import { parseSessionMetadata } from "@/session/list";
+import { buildClaimPaths, classifyClaimError, selectBestSession } from "@/session/pickup";
+import { formatShowOutput, type SessionDirectoryConfig } from "@/session/show";
+import { type Session, SESSION_STATUSES, type SessionStatus } from "@/session/types";
 
 /** Status of sessions available for pickup. */
 const PICKUP_SOURCE_STATUS: SessionStatus = SESSION_STATUSES[0]; // todo

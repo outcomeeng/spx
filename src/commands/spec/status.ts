@@ -1,14 +1,21 @@
-import { DEFAULT_CONFIG } from "@/config/defaults.js";
-import { formatJSON } from "@/reporter/json.js";
-import { formatMarkdown } from "@/reporter/markdown.js";
-import { formatTable } from "@/reporter/table.js";
-import { formatText } from "@/reporter/text.js";
-import { Scanner } from "@/scanner/scanner.js";
-import { buildTree } from "@/tree/build.js";
+import { DEFAULT_CONFIG } from "@/config/defaults";
+import { formatJSON } from "@/reporter/json";
+import { formatMarkdown } from "@/reporter/markdown";
+import { formatTable } from "@/reporter/table";
+import { formatText } from "@/reporter/text";
+import { Scanner } from "@/scanner/scanner";
+import { buildTree } from "@/tree/build";
 
-const DEFAULT_FORMAT: OutputFormat = "text";
+export const OUTPUT_FORMAT = {
+  TEXT: "text",
+  JSON: "json",
+  MARKDOWN: "markdown",
+  TABLE: "table",
+} as const;
 
-export type OutputFormat = "text" | "json" | "markdown" | "table";
+const DEFAULT_FORMAT: OutputFormat = OUTPUT_FORMAT.TEXT;
+
+export type OutputFormat = (typeof OUTPUT_FORMAT)[keyof typeof OUTPUT_FORMAT];
 
 export interface StatusOptions {
   cwd?: string;
@@ -52,13 +59,13 @@ export async function statusCommand(
   const tree = await buildTree(workItems);
 
   switch (format) {
-    case "json":
+    case OUTPUT_FORMAT.JSON:
       return formatJSON(tree, DEFAULT_CONFIG);
-    case "markdown":
+    case OUTPUT_FORMAT.MARKDOWN:
       return formatMarkdown(tree);
-    case "table":
+    case OUTPUT_FORMAT.TABLE:
       return formatTable(tree);
-    case "text":
+    case OUTPUT_FORMAT.TEXT:
       return formatText(tree);
   }
 }

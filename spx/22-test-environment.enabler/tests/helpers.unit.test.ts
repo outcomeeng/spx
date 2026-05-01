@@ -3,8 +3,9 @@ import { join } from "node:path";
 
 import { describe, expect, it } from "vitest";
 
-import { withTestEnv } from "@/spec/testing/index.js";
-import type { Config } from "@/spec/testing/index.js";
+import { DEFAULT_CONFIG_FILENAME } from "@/config/index";
+import { withTestEnv } from "@/spec/testing/index";
+import type { Config } from "@/spec/testing/index";
 
 const MINIMAL_CONFIG: Config = {
   specTree: {
@@ -62,9 +63,9 @@ describe("withTestEnv — writeRaw", () => {
 });
 
 describe("withTestEnv — readFile", () => {
-  it("reads the materialized spx.config.yaml at the root", async () => {
+  it("reads the materialized project config file at the root", async () => {
     await withTestEnv(MINIMAL_CONFIG, async ({ readFile }) => {
-      const raw = await readFile("spx.config.yaml");
+      const raw = await readFile(DEFAULT_CONFIG_FILENAME);
       expect(raw.length).toBeGreaterThan(0);
     });
   });

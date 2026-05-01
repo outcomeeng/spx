@@ -14,6 +14,11 @@ export const VALIDATION_SYMBOLS = {
   FAILURE: "✗",
 } as const;
 
+export const VALIDATION_SUMMARY_STATUS = {
+  PASSED: "passed",
+  FAILED: "failed",
+} as const;
+
 /**
  * Format a duration in milliseconds for display.
  *
@@ -36,7 +41,7 @@ export interface FormatStepOptions {
   totalSteps: number;
   /** Name of the validation step */
   name: string;
-  /** Result message (e.g., "✓ No issues found") */
+  /** Result message (e.g., "✓ No errors found") */
   result: string;
   /** Duration in milliseconds */
   durationMs: number;
@@ -46,7 +51,7 @@ export interface FormatStepOptions {
  * Format a validation step result for display.
  *
  * @param options - Step formatting options
- * @returns Formatted string (e.g., "[1/4] ESLint: ✓ No issues found (0.8s)")
+ * @returns Formatted string (e.g., "[1/4] ESLint: ✓ No errors found (0.8s)")
  */
 export function formatStepOutput(options: FormatStepOptions): string {
   const { stepNumber, totalSteps, name, result, durationMs } = options;
@@ -71,7 +76,7 @@ export interface FormatSummaryOptions {
 export function formatSummary(options: FormatSummaryOptions): string {
   const { success, totalDurationMs } = options;
   const symbol = success ? VALIDATION_SYMBOLS.SUCCESS : VALIDATION_SYMBOLS.FAILURE;
-  const status = success ? "passed" : "failed";
+  const status = success ? VALIDATION_SUMMARY_STATUS.PASSED : VALIDATION_SUMMARY_STATUS.FAILED;
   const duration = formatDuration(totalDurationMs);
   return `${symbol} Validation ${status} (${duration} total)`;
 }

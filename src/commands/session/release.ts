@@ -6,11 +6,16 @@
 
 import { readdir, rename } from "node:fs/promises";
 
-import { resolveSessionConfig } from "../../git/root.js";
-import { processBatch } from "../../session/batch.js";
-import { SessionNotClaimedError } from "../../session/errors.js";
-import { buildReleasePaths, findCurrentSession } from "../../session/release.js";
-import type { SessionDirectoryConfig } from "../../session/show.js";
+import { resolveSessionConfig } from "@/git/root";
+import { processBatch } from "@/session/batch";
+import { SessionNotClaimedError } from "@/session/errors";
+import { buildReleasePaths, findCurrentSession } from "@/session/release";
+import type { SessionDirectoryConfig } from "@/session/show";
+
+export const SESSION_RELEASE_OUTPUT = {
+  RELEASED: "Released session",
+  RETURNED_TO_TODO: "Session returned to todo directory.",
+} as const;
 
 /**
  * Options for the release command.
@@ -54,7 +59,7 @@ async function releaseSingle(sessionId: string, config: SessionDirectoryConfig):
     throw error;
   }
 
-  return `Released session: ${sessionId}\nSession returned to todo directory.`;
+  return `${SESSION_RELEASE_OUTPUT.RELEASED}: ${sessionId}\n${SESSION_RELEASE_OUTPUT.RETURNED_TO_TODO}`;
 }
 
 /**

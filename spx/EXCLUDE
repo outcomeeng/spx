@@ -10,6 +10,7 @@
 17-file-inclusion.enabler/32-path-predicates.enabler
 17-file-inclusion.enabler/43-scope-resolver.enabler
 17-file-inclusion.enabler/54-tool-adapters.enabler
+23-spec-tree.enabler
 31-spec-domain.capability
 31-spec-domain.enabler
 41-testing.enabler

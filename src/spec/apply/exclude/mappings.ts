@@ -1,7 +1,7 @@
 /**
  * Node path to tool-specific config entry mappings.
  */
-import { NODE_SUFFIXES, SPX_PREFIX } from "./constants.js";
+import { NODE_SUFFIXES, SPX_PREFIX } from "./constants";
 
 /**
  * Convert a node path to a pytest --ignore flag.

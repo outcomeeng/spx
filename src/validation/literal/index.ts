@@ -1,7 +1,7 @@
 import { readFile } from "node:fs/promises";
 import { isAbsolute, relative, resolve } from "node:path";
 
-import { type LiteralConfig, literalConfigDescriptor, resolveAllowlist } from "./config.js";
+import { type LiteralConfig, literalConfigDescriptor, resolveAllowlist } from "./config";
 import {
   buildIndex,
   collectLiterals,
@@ -9,20 +9,21 @@ import {
   type DetectionResult,
   detectReuse,
   type LiteralOccurrence,
-} from "./detector.js";
-import { isUnderExcluded, readExcludePaths } from "./exclude.js";
-import { isTestFile, walkTypescriptFiles } from "./walker.js";
+} from "./detector";
+import { isUnderExcluded, readExcludePaths } from "./exclude";
+import { isTestFile, walkTypescriptFiles } from "./walker";
 
-export { literalConfigDescriptor, resolveAllowlist } from "./config.js";
-export type { LiteralAllowlistConfig, LiteralConfig } from "./config.js";
+export { literalConfigDescriptor, resolveAllowlist } from "./config";
+export type { LiteralAllowlistConfig, LiteralConfig } from "./config";
 export {
   buildIndex,
   collectLiterals,
   defaultVisitorKeys,
   detectReuse,
+  LITERAL_KIND,
   parseLiteralReuseResult,
   REMEDIATION,
-} from "./detector.js";
+} from "./detector";
 export type {
   DetectionResult,
   DupeFinding,
@@ -33,7 +34,7 @@ export type {
   Remediation,
   ReuseFinding,
   VisitorKeysMap,
-} from "./detector.js";
+} from "./detector";
 
 export interface ValidateLiteralReuseInput {
   readonly projectRoot: string;

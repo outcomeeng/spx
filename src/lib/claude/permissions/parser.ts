@@ -2,7 +2,7 @@
  * Parser for Claude Code settings files and permissions
  */
 import fs from "fs/promises";
-import type { ClaudeSettings, Permission, PermissionCategory, Permissions } from "./types.js";
+import type { ClaudeSettings, Permission, PermissionCategory, Permissions } from "./types";
 
 /**
  * Parse a settings.json file and extract permissions

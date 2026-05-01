@@ -1,10 +1,10 @@
 /**
  * Claude domain - Manage Claude Code settings and plugins
  */
+import { initCommand } from "@/commands/claude/init";
+import { consolidateCommand } from "@/commands/claude/settings/consolidate";
 import type { Command } from "commander";
-import { initCommand } from "../../commands/claude/init.js";
-import { consolidateCommand } from "../../commands/claude/settings/consolidate.js";
-import type { Domain } from "../types.js";
+import type { Domain } from "../types";
 
 /**
  * Register claude domain commands

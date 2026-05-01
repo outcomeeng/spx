@@ -7,16 +7,21 @@
 import { readdir, readFile, unlink } from "node:fs/promises";
 import { join } from "node:path";
 
-import { resolveSessionConfig } from "../../git/root.js";
-import { parseSessionMetadata } from "../../session/list.js";
-import { DEFAULT_KEEP_COUNT, selectSessionsToDelete } from "../../session/prune.js";
-import type { SessionDirectoryConfig } from "../../session/show.js";
-import { type Session, SESSION_STATUSES, type SessionStatus } from "../../session/types.js";
+import { resolveSessionConfig } from "@/git/root";
+import { parseSessionMetadata } from "@/session/list";
+import { DEFAULT_KEEP_COUNT, selectSessionsToDelete } from "@/session/prune";
+import type { SessionDirectoryConfig } from "@/session/show";
+import { type Session, SESSION_STATUSES, type SessionStatus } from "@/session/types";
 
 export { DEFAULT_KEEP_COUNT };
 
 /** Prune operates only on archived sessions. */
 const PRUNE_STATUS: SessionStatus = SESSION_STATUSES[2]; // archive
+
+export const SESSION_PRUNE_OUTPUT = {
+  DELETED: "Deleted",
+  WOULD_DELETE: "Would delete",
+} as const;
 
 /**
  * Options for the prune command.
@@ -116,7 +121,7 @@ export async function pruneCommand(options: PruneOptions): Promise<string> {
   // Dry run mode
   if (dryRun) {
     const lines = [
-      `Would delete ${toPrune.length} sessions:`,
+      `${SESSION_PRUNE_OUTPUT.WOULD_DELETE} ${toPrune.length} sessions:`,
       ...toPrune.map((s) => `  - ${s.id}`),
       "",
       `${sessions.length - toPrune.length} sessions would be kept.`,
@@ -130,7 +135,7 @@ export async function pruneCommand(options: PruneOptions): Promise<string> {
   }
 
   const lines = [
-    `Deleted ${toPrune.length} sessions:`,
+    `${SESSION_PRUNE_OUTPUT.DELETED} ${toPrune.length} sessions:`,
     ...toPrune.map((s) => `  - ${s.id}`),
     "",
     `${sessions.length - toPrune.length} sessions kept.`,

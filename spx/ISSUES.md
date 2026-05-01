@@ -6,11 +6,21 @@
 
 **Resolution:** Track separately from `spx/PLAN.md`. Revisit before declaring the whole spec tree enabler-only.
 
-## Test run emits unresolved YAML tag warning
+## Enabled tests still contain test-owned named constants
 
-`pnpm test` passes, but the run emits `[TAG_RESOLVE_FAILED] YAMLWarning: Unresolved tag: !o at line 4, column 6`.
+The TypeScript testing guidance forbids test-owned named constants. Several enabled tests still carry them, and the current lint/literal gates do not catch this class yet. Examples observed during the strict lint cleanup:
 
-**Resolution:** Trace the generated YAML fixture or parser input that produces `!o`. Revisit before closing the validation warning cleanup batch.
+- `spx/36-audit.enabler/32-verify.enabler/tests/support.ts` exports `AUDIT_XML_TEST_TOKENS`
+- `spx/41-validation.enabler/32-typescript-validation.enabler/tests/support.ts` exports `TYPESCRIPT_VALIDATION_TEST_FILE`
+- `spx/36-audit.enabler/32-verify.enabler/tests/verify.property.l1.test.ts` declares `VALID_STATUSES` and `VALID_VERDICTS`
+- `spx/41-validation.enabler/32-typescript-validation.enabler/32-lint.enabler/tests/lint.integration.test.ts` declares output marker constants
+- `spx/41-validation.enabler/32-typescript-validation.enabler/tests/typescript-validation.integration.test.ts` declares output marker constants
+
+The spec-tree fixture support now lives in `testing/generators/spec-tree.ts`; audit that generator as source-side test-data API debt, separate from enabled-test constant cleanup.
+
+**Skills:** `typescript:testing-typescript`, `typescript:auditing-typescript-tests`, and `spec-tree:testing`.
+
+**Resolution:** Convert each case to source-owned constants, source-side test-data generators, or inline assertion data as required by the testing guidance. After migration, add a validation rule that rejects test-owned named constants in enabled tests.
 
 ## Capability subtrees use pre-methodology suffixes and misdeclared node types
 

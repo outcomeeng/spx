@@ -1,5 +1,6 @@
-import type { CliDeps, CliResult, ValidateOptions } from "./types.js";
-import { CONFIG_FILENAME } from "./types.js";
+import { DEFAULT_CONFIG_FILENAME } from "@/config/index";
+
+import type { CliDeps, CliResult, ValidateOptions } from "./types";
 
 const EXIT_CODE_INVALID = 1;
 
@@ -16,7 +17,7 @@ export async function validateCommand(_options: ValidateOptions, deps: CliDeps):
   }
 
   return {
-    stdout: `${CONFIG_FILENAME} at ${projectRoot} passes every registered descriptor's validator.\n`,
+    stdout: `${DEFAULT_CONFIG_FILENAME} at ${projectRoot} passes every registered descriptor's validator.\n`,
     stderr: "",
     exitCode: 0,
   };

@@ -5,9 +5,9 @@
  * - Bash(git:*) subsumes Bash(git log:*), Bash(git worktree:*), etc.
  * - Read(file_path:/Users/user/Code/**) subsumes Read(file_path:/Users/user/Code/project-a/**)
  */
-import { normalizePath } from "../../../scanner/walk.js";
-import { parsePermission } from "./parser.js";
-import type { Permission, PermissionCategory, ScopePattern, SubsumptionResult } from "./types.js";
+import { normalizePath } from "@/scanner/walk";
+import { parsePermission } from "./parser";
+import type { Permission, PermissionCategory, ScopePattern, SubsumptionResult } from "./types";
 
 /**
  * Parse a scope string to extract pattern type and value
@@ -30,9 +30,9 @@ import type { Permission, PermissionCategory, ScopePattern, SubsumptionResult } 
 export function parseScopePattern(scope: string): ScopePattern {
   // Check if scope contains path indicators
   if (
-    scope.includes("file_path:") ||
-    scope.includes("directory_path:") ||
-    scope.includes("path:")
+    scope.includes("file_path:")
+    || scope.includes("directory_path:")
+    || scope.includes("path:")
   ) {
     // Extract path after the colon
     const colonIndex = scope.indexOf(":");

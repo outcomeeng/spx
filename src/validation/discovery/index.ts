@@ -12,7 +12,7 @@ export {
   type ToolDiscoveryResult,
   type ToolLocation,
   type ToolNotFound,
-} from "./tool-finder.js";
+} from "./tool-finder";
 
 export {
   defaultLanguageDetectionDeps,
@@ -27,6 +27,6 @@ export {
   type PythonDetection,
   TYPESCRIPT_MARKER,
   type TypeScriptDetection,
-} from "./language-finder.js";
+} from "./language-finder";
 
-export { TOOL_DISCOVERY, type ToolSource } from "./constants.js";
+export { TOOL_DISCOVERY, type ToolSource } from "./constants";

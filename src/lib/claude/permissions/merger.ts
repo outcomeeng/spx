@@ -1,9 +1,9 @@
 /**
  * Permission merging with subsumption and conflict resolution
  */
-import { parsePermission } from "./parser.js";
-import { removeSubsumed, subsumes } from "./subsumption.js";
-import type { ConsolidationResult, Permissions, PermissionsAdded } from "./types.js";
+import { parsePermission } from "./parser";
+import { removeSubsumed, subsumes } from "./subsumption";
+import type { ConsolidationResult, Permissions, PermissionsAdded } from "./types";
 
 /**
  * Merge permissions from global settings and multiple local settings files

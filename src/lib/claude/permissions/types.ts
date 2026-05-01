@@ -5,7 +5,28 @@
 /**
  * Permission category
  */
-export type PermissionCategory = "allow" | "deny" | "ask";
+export const PERMISSION_CATEGORY = {
+  ALLOW: "allow",
+  DENY: "deny",
+  ASK: "ask",
+} as const;
+
+export type PermissionCategory = (typeof PERMISSION_CATEGORY)[keyof typeof PERMISSION_CATEGORY];
+
+export const PERMISSION_CONFLICT_RESOLUTION = {
+  DENY: "deny",
+  ASK_USER: "ask-user",
+} as const;
+
+export type PermissionConflictResolution =
+  (typeof PERMISSION_CONFLICT_RESOLUTION)[keyof typeof PERMISSION_CONFLICT_RESOLUTION];
+
+export const SCOPE_PATTERN_TYPE = {
+  COMMAND: "command",
+  PATH: "path",
+} as const;
+
+export type ScopePatternType = (typeof SCOPE_PATTERN_TYPE)[keyof typeof SCOPE_PATTERN_TYPE];
 
 /**
  * Permission string with its type (allow/deny/ask) and parsed components
@@ -63,7 +84,7 @@ export interface PermissionConflict {
   /** Permission string that appears in both allow and deny */
   permission: string;
   /** Whether conflict was resolved automatically or requires user input */
-  resolution: "deny" | "ask-user";
+  resolution: PermissionConflictResolution;
 }
 
 /**
@@ -102,7 +123,7 @@ export interface ConsolidationResult {
  */
 export interface ScopePattern {
   /** Type of scope pattern: command or path */
-  type: "command" | "path";
+  type: ScopePatternType;
   /** The pattern string (e.g., "git:*" or "/Users/user/Code/**") */
   pattern: string;
 }

@@ -10,7 +10,7 @@ import { spawn } from "node:child_process";
 import { existsSync } from "node:fs";
 import { join } from "node:path";
 
-import type { ProcessRunner, ScopeConfig } from "../types.js";
+import type { ProcessRunner, ScopeConfig } from "../types";
 
 // =============================================================================
 // DEFAULT DEPENDENCIES

@@ -18,8 +18,8 @@
 import { execa } from "execa";
 import { describe, expect, it } from "vitest";
 
-import { CLI_PATH } from "@test/harness/constants.js";
-import { FIXTURES, HARNESS_TIMEOUT, withValidationEnv } from "@test/harness/with-validation-env.js";
+import { CLI_PATH } from "@test/harness/constants";
+import { FIXTURES, HARNESS_TIMEOUT, withValidationEnv } from "@test/harness/with-validation-env";
 
 const EXIT_SUCCESS = 0;
 const NPX_INSTALL_PROMPT = "Need to install the following packages";

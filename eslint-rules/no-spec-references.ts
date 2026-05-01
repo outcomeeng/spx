@@ -18,6 +18,7 @@ const SPEC_REFERENCE = /\b[AP]DR(?:[-–— ]\d+|:\s)/;
 /** Files where spec references are legitimate test data — exempt from the rule. */
 const EXEMPT_SUFFIXES = [
   "eslint-rules/no-spec-references.ts",
+  "32-ast-enforcement.enabler/tests/ast-enforcement.mapping.l1.test.ts",
 ];
 
 function isExemptFile(filename: string): boolean {

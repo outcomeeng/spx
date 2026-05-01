@@ -1,7 +1,12 @@
 import { parse as parseTypeScript } from "@typescript-eslint/parser";
 import { visitorKeys as typescriptVisitorKeys } from "@typescript-eslint/visitor-keys";
 
-export type LiteralKind = "string" | "number";
+export const LITERAL_KIND = {
+  STRING: "string",
+  NUMBER: "number",
+} as const;
+
+export type LiteralKind = (typeof LITERAL_KIND)[keyof typeof LITERAL_KIND];
 
 export interface LiteralLocation {
   readonly file: string;
@@ -20,7 +25,7 @@ export type VisitorKeysMap = Record<string, readonly string[] | undefined>;
 
 export const REMEDIATION = {
   IMPORT_FROM_SOURCE: "import-from-source",
-  EXTRACT_TO_SHARED_TEST_SUPPORT: "extract-to-shared-test-support",
+  REFACTOR_TO_SOURCE_OR_GENERATOR: "refactor-to-source-or-generator",
 } as const;
 
 export type Remediation = (typeof REMEDIATION)[keyof typeof REMEDIATION];
@@ -38,7 +43,7 @@ export interface DupeFinding {
   readonly kind: LiteralKind;
   readonly value: string;
   readonly otherTests: readonly LiteralLocation[];
-  readonly remediation: typeof REMEDIATION.EXTRACT_TO_SHARED_TEST_SUPPORT;
+  readonly remediation: typeof REMEDIATION.REFACTOR_TO_SOURCE_OR_GENERATOR;
 }
 
 export interface DetectionResult {
@@ -232,7 +237,7 @@ export function detectReuse(input: DetectReuseInput): DetectionResult {
           kind,
           value,
           otherTests,
-          remediation: REMEDIATION.EXTRACT_TO_SHARED_TEST_SUPPORT,
+          remediation: REMEDIATION.REFACTOR_TO_SOURCE_OR_GENERATOR,
         });
       }
     }
@@ -296,9 +301,9 @@ function validateDupeFinding(value: unknown): void {
     throw new Error("testDupe finding.otherTests must be an array");
   }
   for (const loc of obj["otherTests"]) validateLiteralLocation(loc, "testDupe finding.otherTests[i]");
-  if (obj["remediation"] !== REMEDIATION.EXTRACT_TO_SHARED_TEST_SUPPORT) {
+  if (obj["remediation"] !== REMEDIATION.REFACTOR_TO_SOURCE_OR_GENERATOR) {
     throw new Error(
-      `testDupe finding.remediation must be "${REMEDIATION.EXTRACT_TO_SHARED_TEST_SUPPORT}"`,
+      `testDupe finding.remediation must be "${REMEDIATION.REFACTOR_TO_SOURCE_OR_GENERATOR}"`,
     );
   }
 }

@@ -9,14 +9,14 @@
  * 5. Writing - Atomically write merged settings (if not dry-run)
  * 6. Reporting - Format and return result summary
  */
+import { findSettingsFiles } from "@/lib/claude/permissions/discovery";
+import { mergePermissions } from "@/lib/claude/permissions/merger";
+import { parseAllSettings, parseSettingsFile } from "@/lib/claude/permissions/parser";
+import { createBackup } from "@/lib/claude/settings/backup";
+import { formatReport } from "@/lib/claude/settings/reporter";
+import { writeSettings } from "@/lib/claude/settings/writer";
 import os from "os";
 import path from "path";
-import { findSettingsFiles } from "../../../lib/claude/permissions/discovery.js";
-import { mergePermissions } from "../../../lib/claude/permissions/merger.js";
-import { parseAllSettings, parseSettingsFile } from "../../../lib/claude/permissions/parser.js";
-import { createBackup } from "../../../lib/claude/settings/backup.js";
-import { formatReport } from "../../../lib/claude/settings/reporter.js";
-import { writeSettings } from "../../../lib/claude/settings/writer.js";
 
 /**
  * Options for consolidate command

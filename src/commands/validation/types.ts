@@ -1,6 +1,7 @@
 /**
  * Shared types for validation commands.
  */
+import type { ValidationScope } from "@/validation/types";
 
 /** Result from a validation command */
 export interface ValidationCommandResult {
@@ -17,7 +18,7 @@ export interface CommonValidationOptions {
   /** Working directory */
   cwd: string;
   /** Validation scope */
-  scope?: "full" | "production";
+  scope?: ValidationScope;
   /** Specific files to validate */
   files?: string[];
   /** Suppress progress output */

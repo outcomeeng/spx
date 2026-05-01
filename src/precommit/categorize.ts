@@ -10,7 +10,13 @@
 /**
  * File category types for changed files.
  */
-export type FileCategory = "test" | "source" | "other";
+export const FILE_CATEGORIES = {
+  TEST: "test",
+  SOURCE: "source",
+  OTHER: "other",
+} as const;
+
+export type FileCategory = (typeof FILE_CATEGORIES)[keyof typeof FILE_CATEGORIES];
 
 /**
  * Constants for file categorization patterns.
@@ -31,15 +37,6 @@ export const FILE_PATTERNS = {
   UNIT_DIR: "unit/",
   /** Integration tests subdirectory */
   INTEGRATION_DIR: "integration/",
-} as const;
-
-/**
- * File categories as string constants.
- */
-export const FILE_CATEGORIES = {
-  TEST: "test" as const,
-  SOURCE: "source" as const,
-  OTHER: "other" as const,
 } as const;
 
 /**

@@ -4,8 +4,8 @@ import { join } from "node:path";
 import * as fc from "fast-check";
 import { describe, expect, it } from "vitest";
 
-import { arbitraryDecisionPath, arbitraryNodePath, arbitrarySpecTree, withTestEnv } from "@/spec/testing/index.js";
-import type { Config } from "@/spec/testing/index.js";
+import { arbitraryDecisionPath, arbitraryNodePath, arbitrarySpecTree, withTestEnv } from "@/spec/testing/index";
+import type { Config } from "@/spec/testing/index";
 
 const MINIMAL_CONFIG: Config = {
   specTree: {

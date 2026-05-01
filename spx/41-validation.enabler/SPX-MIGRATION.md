@@ -35,7 +35,7 @@ Children of the rebuilt subtree:
 ### Relocated tests
 
 - Four precommit tests moved to `43-precommit.enabler/tests/` — see `spx/43-precommit.enabler/SPX-MIGRATION.md`
-- Three ESLint rule tests (`no-hardcoded-statuses`, `no-hardcoded-work-item-kinds`, `eslint-rules.integration`) moved to `32-typescript-validation.enabler/32-ast-enforcement.enabler/tests/` alongside extended spec assertions for the two registry-backed rules
+- Three ESLint rule tests (`no-hardcoded-statuses`, `no-hardcoded-work-item-kinds`, `eslint-rules.scenario.l2`) moved to `32-typescript-validation.enabler/32-ast-enforcement.enabler/tests/` alongside extended spec assertions for the two registry-backed rules
 
 ### Deleted tests (covered by rebuilt tree)
 

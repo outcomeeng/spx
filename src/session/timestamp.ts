@@ -1,8 +1,7 @@
 /**
  * Session timestamp utilities for generating and parsing session IDs.
  *
- * Session IDs use the format YYYY-MM-DD_HH-mm-ss as specified in
- * ADR-32 (Timestamp Format).
+ * Session IDs use the format YYYY-MM-DD_HH-mm-ss.
  *
  * @module session/timestamp
  */

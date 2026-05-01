@@ -6,9 +6,9 @@
  * for pytest addopts, mypy exclude, and pyright exclude — everything else
  * is left untouched.
  */
-import { isExcludedEntry, toMypyRegex, toPyrightPath, toPytestIgnore } from "../mappings.js";
-import type { ApplyResult } from "../types.js";
-import type { LanguageAdapter } from "./types.js";
+import { isExcludedEntry, toMypyRegex, toPyrightPath, toPytestIgnore } from "../mappings";
+import type { ApplyResult } from "../types";
+import type { LanguageAdapter } from "./types";
 
 /** Config file name for Python projects */
 export const PYTHON_CONFIG_FILE = "pyproject.toml";

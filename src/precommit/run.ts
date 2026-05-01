@@ -11,8 +11,8 @@
  * @module precommit/run
  */
 
-import { buildVitestArgs } from "./build-args.js";
-import { filterTestRelevantFiles } from "./categorize.js";
+import { buildVitestArgs } from "./build-args";
+import { filterTestRelevantFiles } from "./categorize";
 
 // =============================================================================
 // CONSTANTS

@@ -12,12 +12,20 @@
 import fc from "fast-check";
 import { describe, expect, it } from "vitest";
 
+import {
+  buildSessionFrontMatterContent,
+  SESSION_FRONT_MATTER_DELIMITER,
+  SESSION_FRONT_MATTER_DOCUMENT_END,
+} from "@/session/create";
 import { parseSessionMetadata } from "@/session/list";
+import { buildSessionMarkdownBody } from "@/session/testing/harness";
 import { generateSessionId, parseSessionId, SESSION_ID_PATTERN, SESSION_ID_SEPARATOR } from "@/session/timestamp";
-import { DEFAULT_PRIORITY, type SessionPriority } from "@/session/types";
+import { DEFAULT_PRIORITY, SESSION_FRONT_MATTER, SESSION_PRIORITY, type SessionPriority } from "@/session/types";
 
 /** Valid priorities derived from the type, not hardcoded. */
-const VALID_PRIORITIES: readonly SessionPriority[] = ["high", "medium", "low"] as const;
+const VALID_PRIORITIES: readonly SessionPriority[] = Object.values(SESSION_PRIORITY);
+const PROPERTY_DATE_MIN = new Date(2000, 0, 1, 0, 0, 0);
+const PROPERTY_DATE_MAX = new Date(2099, 11, 28, 23, 59, 59);
 
 describe("generateSessionId", () => {
   it("GIVEN injected time WHEN generated THEN matches SESSION_ID_PATTERN", () => {
@@ -85,29 +93,24 @@ describe("parseSessionId", () => {
 
 describe("generateSessionId → parseSessionId roundtrip (property-based)", () => {
   it("GIVEN any valid Date WHEN generated then parsed THEN roundtrips correctly", () => {
-    // Arbitrary for valid date components
-    const validDate = fc.record({
-      year: fc.integer({ min: 2000, max: 2099 }),
-      month: fc.integer({ min: 0, max: 11 }),
-      day: fc.integer({ min: 1, max: 28 }), // 28 to avoid month-length issues
-      hour: fc.integer({ min: 0, max: 23 }),
-      minute: fc.integer({ min: 0, max: 59 }),
-      second: fc.integer({ min: 0, max: 59 }),
+    const validDate = fc.date({
+      min: PROPERTY_DATE_MIN,
+      max: PROPERTY_DATE_MAX,
+      noInvalidDate: true,
     });
 
     fc.assert(
-      fc.property(validDate, ({ year, month, day, hour, minute, second }) => {
-        const original = new Date(year, month, day, hour, minute, second);
+      fc.property(validDate, (original) => {
         const id = generateSessionId({ now: () => original });
         const parsed = parseSessionId(id);
 
         expect(parsed).not.toBeNull();
-        expect(parsed!.getFullYear()).toBe(year);
-        expect(parsed!.getMonth()).toBe(month);
-        expect(parsed!.getDate()).toBe(day);
-        expect(parsed!.getHours()).toBe(hour);
-        expect(parsed!.getMinutes()).toBe(minute);
-        expect(parsed!.getSeconds()).toBe(second);
+        expect(parsed!.getFullYear()).toBe(original.getFullYear());
+        expect(parsed!.getMonth()).toBe(original.getMonth());
+        expect(parsed!.getDate()).toBe(original.getDate());
+        expect(parsed!.getHours()).toBe(original.getHours());
+        expect(parsed!.getMinutes()).toBe(original.getMinutes());
+        expect(parsed!.getSeconds()).toBe(original.getSeconds());
       }),
     );
   });
@@ -143,12 +146,21 @@ describe("generateSessionId → parseSessionId roundtrip (property-based)", () =
 
 describe("parseSessionMetadata", () => {
   it("GIVEN YAML front matter with priority and tags WHEN parsed THEN extracts all fields", () => {
-    const content = `---\nid: test\npriority: high\ntags: [bug, urgent]\n---\n# Content`;
+    const expected = {
+      id: "test",
+      priority: SESSION_PRIORITY.HIGH,
+      tags: ["bug", "urgent"],
+    };
+    const content = buildSessionFrontMatterContent([
+      `${SESSION_FRONT_MATTER.ID}: ${expected.id}`,
+      `${SESSION_FRONT_MATTER.PRIORITY}: ${expected.priority}`,
+      `${SESSION_FRONT_MATTER.TAGS}: [${expected.tags.join(", ")}]`,
+    ], buildSessionMarkdownBody("identity metadata"));
     const result = parseSessionMetadata(content);
 
-    expect(result.id).toBe("test");
-    expect(result.priority).toBe("high");
-    expect(result.tags).toEqual(["bug", "urgent"]);
+    expect(result.id).toBe(expected.id);
+    expect(result.priority).toBe(expected.priority);
+    expect(result.tags).toEqual(expected.tags);
   });
 
   it("GIVEN no front matter WHEN parsed THEN returns DEFAULT_PRIORITY and empty tags", () => {
@@ -166,7 +178,9 @@ describe("parseSessionMetadata", () => {
   });
 
   it("GIVEN malformed YAML WHEN parsed THEN returns defaults gracefully", () => {
-    const content = `---\npriority: [invalid: yaml:\n---\n# Content`;
+    const content = buildSessionFrontMatterContent([
+      `${SESSION_FRONT_MATTER.PRIORITY}: [invalid: yaml:`,
+    ], buildSessionMarkdownBody("malformed metadata"));
     const result = parseSessionMetadata(content);
 
     expect(result.priority).toBe(DEFAULT_PRIORITY);
@@ -174,7 +188,7 @@ describe("parseSessionMetadata", () => {
   });
 
   it("GIVEN YAML that parses to null WHEN parsed THEN returns defaults", () => {
-    const content = `---\nnull\n---\n# Content`;
+    const content = buildSessionFrontMatterContent(["null"], buildSessionMarkdownBody("null metadata"));
     const result = parseSessionMetadata(content);
 
     expect(result.priority).toBe(DEFAULT_PRIORITY);
@@ -182,7 +196,7 @@ describe("parseSessionMetadata", () => {
   });
 
   it("GIVEN YAML that parses to a scalar (non-object) WHEN parsed THEN returns defaults", () => {
-    const content = `---\njust a string\n---\n# Content`;
+    const content = buildSessionFrontMatterContent(["just a string"], buildSessionMarkdownBody("scalar metadata"));
     const result = parseSessionMetadata(content);
 
     expect(result.priority).toBe(DEFAULT_PRIORITY);
@@ -190,39 +204,67 @@ describe("parseSessionMetadata", () => {
   });
 
   it("GIVEN invalid priority value WHEN parsed THEN uses DEFAULT_PRIORITY", () => {
-    const content = `---\npriority: critical\n---`;
+    const content = buildSessionFrontMatterContent([`${SESSION_FRONT_MATTER.PRIORITY}: critical`], "");
     const result = parseSessionMetadata(content);
 
     expect(result.priority).toBe(DEFAULT_PRIORITY);
   });
 
   it("GIVEN full metadata WHEN parsed THEN extracts all optional fields", () => {
-    const content =
-      `---\nid: 2026-01-13_10-00-00\npriority: high\ntags: [feature, cli]\nbranch: feature/session\ncreated_at: 2026-01-13T10:00:00-08:00\nworking_directory: /path/to/project\nspecs:\n  - path/to/spec.md\nfiles:\n  - src/file.ts\n---\n# Session`;
+    const expected = {
+      id: "2026-01-13_10-00-00",
+      priority: SESSION_PRIORITY.HIGH,
+      tags: ["metadata", "cli"],
+      branch: "feature/session",
+      createdAt: "2026-01-13T10:00:00-08:00",
+      workingDirectory: "/path/to/project",
+      specs: ["path/to/spec.md"],
+      files: ["src/file.ts"],
+    };
+    const content = buildSessionFrontMatterContent([
+      `${SESSION_FRONT_MATTER.ID}: ${expected.id}`,
+      `${SESSION_FRONT_MATTER.PRIORITY}: ${expected.priority}`,
+      `${SESSION_FRONT_MATTER.TAGS}: [${expected.tags.join(", ")}]`,
+      `${SESSION_FRONT_MATTER.BRANCH}: ${expected.branch}`,
+      `${SESSION_FRONT_MATTER.CREATED_AT}: ${expected.createdAt}`,
+      `${SESSION_FRONT_MATTER.WORKING_DIRECTORY}: ${expected.workingDirectory}`,
+      `${SESSION_FRONT_MATTER.SPECS}:`,
+      `  - ${expected.specs[0]}`,
+      `${SESSION_FRONT_MATTER.FILES}:`,
+      `  - ${expected.files[0]}`,
+    ], "# Session");
     const result = parseSessionMetadata(content);
 
-    expect(result.id).toBe("2026-01-13_10-00-00");
-    expect(result.priority).toBe("high");
-    expect(result.tags).toContain("cli");
-    expect(result.branch).toBe("feature/session");
-    expect(result.createdAt).toBe("2026-01-13T10:00:00-08:00");
-    expect(result.workingDirectory).toBe("/path/to/project");
-    expect(result.specs).toEqual(["path/to/spec.md"]);
-    expect(result.files).toEqual(["src/file.ts"]);
+    expect(result.id).toBe(expected.id);
+    expect(result.priority).toBe(expected.priority);
+    expect(result.tags).toEqual(expected.tags);
+    expect(result.branch).toBe(expected.branch);
+    expect(result.createdAt).toBe(expected.createdAt);
+    expect(result.workingDirectory).toBe(expected.workingDirectory);
+    expect(result.specs).toEqual(expected.specs);
+    expect(result.files).toEqual(expected.files);
   });
 
   it("GIVEN front matter with ... delimiter WHEN parsed THEN extracts correctly", () => {
-    const content = `---\npriority: low\n...\n# Content`;
+    const expectedPriority = SESSION_PRIORITY.LOW;
+    const content = buildSessionFrontMatterContent(
+      [`${SESSION_FRONT_MATTER.PRIORITY}: ${expectedPriority}`],
+      buildSessionMarkdownBody("document-end delimiter"),
+      SESSION_FRONT_MATTER_DOCUMENT_END,
+    );
     const result = parseSessionMetadata(content);
 
-    expect(result.priority).toBe("low");
+    expect(result.priority).toBe(expectedPriority);
   });
 
   it("GIVEN tags with non-string values WHEN parsed THEN filters them out", () => {
-    const content = `---\ntags: [valid, 123, true, null]\n---`;
+    const expectedTags = ["valid"];
+    const content = buildSessionFrontMatterContent([
+      `${SESSION_FRONT_MATTER.TAGS}: [${expectedTags[0]}, 123, true, null]`,
+    ], "");
     const result = parseSessionMetadata(content);
 
-    expect(result.tags).toEqual(["valid"]);
+    expect(result.tags).toEqual(expectedTags);
   });
 });
 
@@ -232,7 +274,9 @@ describe("parseSessionMetadata properties (property-based)", () => {
       fc.property(
         fc.constantFrom(...VALID_PRIORITIES),
         (priority) => {
-          const content = `---\npriority: ${priority}\n---\n# Content`;
+          const content = buildSessionFrontMatterContent([
+            `${SESSION_FRONT_MATTER.PRIORITY}: ${priority}`,
+          ], buildSessionMarkdownBody("priority roundtrip"));
           const result = parseSessionMetadata(content);
           expect(result.priority).toBe(priority);
         },
@@ -244,9 +288,11 @@ describe("parseSessionMetadata properties (property-based)", () => {
     const validSet = new Set<string>(VALID_PRIORITIES);
     fc.assert(
       fc.property(
-        fc.string().filter((s) => !validSet.has(s) && !s.includes("\n") && !s.includes("---")),
+        fc.string().filter((s) => !validSet.has(s) && !s.includes("\n") && !s.includes(SESSION_FRONT_MATTER_DELIMITER)),
         (invalidPriority) => {
-          const content = `---\npriority: ${invalidPriority}\n---\n# Content`;
+          const content = buildSessionFrontMatterContent([
+            `${SESSION_FRONT_MATTER.PRIORITY}: ${JSON.stringify(invalidPriority)}`,
+          ], buildSessionMarkdownBody("invalid priority fallback"));
           const result = parseSessionMetadata(content);
           expect(result.priority).toBe(DEFAULT_PRIORITY);
         },
@@ -257,7 +303,7 @@ describe("parseSessionMetadata properties (property-based)", () => {
   it("GIVEN content without frontmatter WHEN parsed THEN always returns defaults", () => {
     fc.assert(
       fc.property(
-        fc.string().filter((s) => !s.startsWith("---")),
+        fc.string().filter((s) => !s.startsWith(SESSION_FRONT_MATTER_DELIMITER)),
         (content) => {
           const result = parseSessionMetadata(content);
           expect(result.priority).toBe(DEFAULT_PRIORITY);

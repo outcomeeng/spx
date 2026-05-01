@@ -1,6 +1,6 @@
 # Test Environment
 
-PROVIDES a callback-scoped spec-tree test environment — a temp project directory pre-materialized from an explicit Config, with helpers for writing nodes, decision records, and yaml, plus guaranteed cleanup on return or throw
+PROVIDES a callback-scoped spec-tree test environment — a temp project directory pre-materialized from an explicit Config, with helpers for writing nodes, decision records, and raw fixture files, plus guaranteed cleanup on return or throw
 SO THAT every spec-tree test (config, spec-tree descriptor, session, validation, language) across the harness
 CAN construct real filesystem fixtures without hand-written directory trees, manual cleanup, or filesystem mocking
 
@@ -8,7 +8,7 @@ CAN construct real filesystem fixtures without hand-written directory trees, man
 
 ### Scenarios
 
-- Given a test passes a Config and a callback, when the environment starts, then a fresh temp directory is created, `spx.config.yaml` is materialized from the Config, and the callback receives an env object with the project path and write helpers ([test](tests/lifecycle.unit.test.ts))
+- Given a test passes a Config and a callback, when the environment starts, then a fresh temp directory is created, the config module's default project config file is materialized from the Config, and the callback receives an env object with the project path and write helpers ([test](tests/lifecycle.unit.test.ts))
 - Given the callback returns normally, when the environment completes, then the temp directory and all contents are removed before the outer test continues ([test](tests/lifecycle.unit.test.ts))
 - Given the callback throws, when the environment completes, then the temp directory is removed and the original error is rethrown unchanged ([test](tests/lifecycle.unit.test.ts))
 - Given nested environments (a withTestEnv call inside another), when the inner callback returns, then only the inner temp directory is removed; the outer environment remains intact for the outer callback ([test](tests/nesting.unit.test.ts))

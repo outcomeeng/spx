@@ -5,11 +5,11 @@ import { access, readFile, writeFile } from "node:fs/promises";
 
 import type { Command } from "commander";
 
-import { nextCommand } from "../../commands/spec/next.js";
-import { type OutputFormat, statusCommand } from "../../commands/spec/status.js";
-import { APPLY_HELP } from "../../spec/apply/exclude/help.js";
-import { applyExcludeCommand } from "../../spec/apply/exclude/index.js";
-import type { Domain } from "../types.js";
+import { nextCommand } from "@/commands/spec/next";
+import { type OutputFormat, statusCommand } from "@/commands/spec/status";
+import { APPLY_HELP } from "@/spec/apply/exclude/help";
+import { applyExcludeCommand } from "@/spec/apply/exclude/index";
+import type { Domain } from "../types";
 
 const VALID_STATUS_FORMATS: readonly OutputFormat[] = [
   "text",

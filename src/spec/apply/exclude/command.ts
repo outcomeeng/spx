@@ -6,10 +6,10 @@
  */
 import { join } from "node:path";
 
-import { detectLanguage } from "./adapters/index.js";
-import { EXCLUDE_FILENAME, SPX_PREFIX } from "./constants.js";
-import { readExcludedNodes } from "./exclude-file.js";
-import type { ApplyExcludeOptions, ApplyExcludeResult } from "./types.js";
+import { detectLanguage } from "./adapters/index";
+import { EXCLUDE_FILENAME, SPX_PREFIX } from "./constants";
+import { readExcludedNodes } from "./exclude-file";
+import type { ApplyExcludeOptions, ApplyExcludeResult } from "./types";
 
 /**
  * Run the apply-exclude command.

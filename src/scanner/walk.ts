@@ -3,8 +3,8 @@
  */
 import fs from "fs/promises";
 import path from "path";
-import type { DirectoryEntry, WorkItem } from "../types.js";
-import { parseWorkItemName } from "./patterns.js";
+import type { DirectoryEntry, WorkItem } from "../types";
+import { parseWorkItemName } from "./patterns";
 
 /**
  * Recursively walk a directory tree and return all subdirectories
