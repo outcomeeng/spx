@@ -13,6 +13,25 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 
 import { DEFAULT_AUDIT_CONFIG, encodeNodePath, formatAuditTimestamp } from "../config";
+import { AUDIT_VERDICT_XML, type AuditGateStatus, type AuditVerdictValue } from "../reader";
+
+export interface AuditVerdictXmlFindingFixture {
+  readonly specFile: string;
+  readonly testFile: string;
+}
+
+export interface AuditVerdictXmlGateFixture {
+  readonly name: string;
+  readonly status: AuditGateStatus;
+  readonly findings: readonly AuditVerdictXmlFindingFixture[];
+}
+
+export interface AuditVerdictXmlFixture {
+  readonly specNode: string;
+  readonly verdict: AuditVerdictValue;
+  readonly timestamp: string;
+  readonly gates: readonly AuditVerdictXmlGateFixture[];
+}
 
 /**
  * Audit test harness interface.
@@ -80,4 +99,41 @@ export async function createAuditHarness(): Promise<AuditHarness> {
   };
 
   return harness;
+}
+
+export function renderAuditVerdictXml(fixture: AuditVerdictXmlFixture): string {
+  const gatesXml = fixture.gates.map(renderAuditGateXml).join("\n");
+
+  return `<${AUDIT_VERDICT_XML.ROOT}>
+  <${AUDIT_VERDICT_XML.HEADER}>
+    <${AUDIT_VERDICT_XML.SPEC_NODE}>${fixture.specNode}</${AUDIT_VERDICT_XML.SPEC_NODE}>
+    <${AUDIT_VERDICT_XML.VERDICT}>${fixture.verdict}</${AUDIT_VERDICT_XML.VERDICT}>
+    <${AUDIT_VERDICT_XML.TIMESTAMP}>${fixture.timestamp}</${AUDIT_VERDICT_XML.TIMESTAMP}>
+  </${AUDIT_VERDICT_XML.HEADER}>
+  <${AUDIT_VERDICT_XML.GATES}>
+${gatesXml}
+  </${AUDIT_VERDICT_XML.GATES}>
+</${AUDIT_VERDICT_XML.ROOT}>`;
+}
+
+function renderAuditGateXml(gate: AuditVerdictXmlGateFixture): string {
+  const findingsXml = gate.findings.map(renderAuditFindingXml).join("\n");
+  const findingsElement = gate.findings.length === 0
+    ? `<${AUDIT_VERDICT_XML.FINDINGS} ${AUDIT_VERDICT_XML.COUNT}="${gate.findings.length}"/>`
+    : `<${AUDIT_VERDICT_XML.FINDINGS} ${AUDIT_VERDICT_XML.COUNT}="${gate.findings.length}">
+${findingsXml}
+      </${AUDIT_VERDICT_XML.FINDINGS}>`;
+
+  return `    <${AUDIT_VERDICT_XML.GATE}>
+      <${AUDIT_VERDICT_XML.NAME}>${gate.name}</${AUDIT_VERDICT_XML.NAME}>
+      <${AUDIT_VERDICT_XML.STATUS}>${gate.status}</${AUDIT_VERDICT_XML.STATUS}>
+      ${findingsElement}
+    </${AUDIT_VERDICT_XML.GATE}>`;
+}
+
+function renderAuditFindingXml(finding: AuditVerdictXmlFindingFixture): string {
+  return `        <${AUDIT_VERDICT_XML.FINDING}>
+          <${AUDIT_VERDICT_XML.SPEC_FILE}>${finding.specFile}</${AUDIT_VERDICT_XML.SPEC_FILE}>
+          <${AUDIT_VERDICT_XML.TEST_FILE}>${finding.testFile}</${AUDIT_VERDICT_XML.TEST_FILE}>
+        </${AUDIT_VERDICT_XML.FINDING}>`;
 }

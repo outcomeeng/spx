@@ -10,9 +10,7 @@
 
 The TypeScript testing guidance forbids test-owned named constants. Several enabled tests still carry them, and the current lint/literal gates do not catch this class yet. Examples observed during the strict lint cleanup:
 
-- `spx/36-audit.enabler/32-verify.enabler/tests/support.ts` exports `AUDIT_XML_TEST_TOKENS`
 - `spx/41-validation.enabler/32-typescript-validation.enabler/tests/support.ts` exports `TYPESCRIPT_VALIDATION_TEST_FILE`
-- `spx/36-audit.enabler/32-verify.enabler/tests/verify.property.l1.test.ts` declares `VALID_STATUSES` and `VALID_VERDICTS`
 - `spx/41-validation.enabler/32-typescript-validation.enabler/32-lint.enabler/tests/lint.integration.test.ts` declares output marker constants
 - `spx/41-validation.enabler/32-typescript-validation.enabler/tests/typescript-validation.integration.test.ts` declares output marker constants
 

@@ -12,31 +12,12 @@
 
 import { describe, expect, it } from "vitest";
 
-import type { AuditGateStatus, AuditVerdict, AuditVerdictValue } from "@/audit/reader";
+import type { AuditVerdict } from "@/audit/reader";
 import { AUDIT_GATE_STATUS, AUDIT_VERDICT_VALUE, readVerdictFile } from "@/audit/reader";
-import { createAuditHarness } from "@/audit/testing/harness";
+import type { AuditVerdictXmlFixture } from "@/audit/testing/harness";
+import { createAuditHarness, renderAuditVerdictXml } from "@/audit/testing/harness";
 
-import { AUDIT_XML_TEST_TOKENS } from "@root/spx/36-audit.enabler/32-verify.enabler/tests/support";
-
-interface FindingFixture {
-  readonly specFile: string;
-  readonly testFile: string;
-}
-
-interface GateFixture {
-  readonly name: string;
-  readonly status: AuditGateStatus;
-  readonly findings: readonly FindingFixture[];
-}
-
-interface VerdictFixture {
-  readonly specNode: string;
-  readonly verdict: AuditVerdictValue;
-  readonly timestamp: string;
-  readonly gates: readonly GateFixture[];
-}
-
-function createSinglePassGateFixture(): VerdictFixture {
+function createSinglePassGateFixture(): AuditVerdictXmlFixture {
   return {
     specNode: "spx/36-audit.enabler/21-verdict-reader.enabler",
     verdict: AUDIT_VERDICT_VALUE.APPROVED,
@@ -51,7 +32,7 @@ function createSinglePassGateFixture(): VerdictFixture {
   };
 }
 
-function createFindingsFixture(): VerdictFixture {
+function createFindingsFixture(): AuditVerdictXmlFixture {
   return {
     specNode: "spx/36-audit.enabler/21-verdict-reader.enabler",
     verdict: AUDIT_VERDICT_VALUE.REJECT,
@@ -76,47 +57,12 @@ function createFindingsFixture(): VerdictFixture {
   };
 }
 
-function renderVerdictXml(fixture: VerdictFixture): string {
-  const gatesXml = fixture.gates.map(renderGateXml).join("\n");
-
-  return `<audit_verdict>
-  <header>
-    <spec_node>${fixture.specNode}</spec_node>
-    <verdict>${fixture.verdict}</verdict>
-    <timestamp>${fixture.timestamp}</timestamp>
-  </header>
-  <gates>
-${gatesXml}${AUDIT_XML_TEST_TOKENS.VERDICT_GATES_CLOSE}`;
-}
-
-function renderGateXml(gate: GateFixture): string {
-  const findingsXml = gate.findings.map(renderFindingXml).join("\n");
-  const findingsElement = gate.findings.length === 0
-    ? `${AUDIT_XML_TEST_TOKENS.FINDINGS_COUNT_OPEN}${gate.findings.length}"/>`
-    : `${AUDIT_XML_TEST_TOKENS.FINDINGS_COUNT_OPEN}${gate.findings.length}">
-${findingsXml}
-      </findings>`;
-
-  return `    <gate>
-      <name>${gate.name}</name>
-      <status>${gate.status}</status>
-      ${findingsElement}
-    </gate>`;
-}
-
-function renderFindingXml(finding: FindingFixture): string {
-  return `        <finding>
-          <spec_file>${finding.specFile}</spec_file>
-          <test_file>${finding.testFile}</test_file>
-        </finding>`;
-}
-
 describe("readVerdictFile: AuditVerdict conformance", () => {
   it("GIVEN a valid verdict XML WHEN the reader parses it THEN header contains spec_node, verdict, and timestamp as strings", async () => {
     const harness = await createAuditHarness();
     try {
       const fixture = createSinglePassGateFixture();
-      const filePath = await harness.writeVerdict("test/node", renderVerdictXml(fixture));
+      const filePath = await harness.writeVerdict("test/node", renderAuditVerdictXml(fixture));
       const result: AuditVerdict = await readVerdictFile(filePath);
 
       expect(result.header).toBeDefined();
@@ -132,7 +78,7 @@ describe("readVerdictFile: AuditVerdict conformance", () => {
     const harness = await createAuditHarness();
     try {
       const fixture = createSinglePassGateFixture();
-      const filePath = await harness.writeVerdict("test/node", renderVerdictXml(fixture));
+      const filePath = await harness.writeVerdict("test/node", renderAuditVerdictXml(fixture));
       const result: AuditVerdict = await readVerdictFile(filePath);
 
       expect(Array.isArray(result.gates)).toBe(true);
@@ -149,7 +95,7 @@ describe("readVerdictFile: AuditVerdict conformance", () => {
     const harness = await createAuditHarness();
     try {
       const fixture = createFindingsFixture();
-      const filePath = await harness.writeVerdict("test/node", renderVerdictXml(fixture));
+      const filePath = await harness.writeVerdict("test/node", renderAuditVerdictXml(fixture));
       const result: AuditVerdict = await readVerdictFile(filePath);
 
       expect(result.gates).toHaveLength(fixture.gates.length);
@@ -170,7 +116,7 @@ describe("readVerdictFile: AuditVerdict conformance", () => {
     const harness = await createAuditHarness();
     try {
       const fixture = createFindingsFixture();
-      const filePath = await harness.writeVerdict("test/node", renderVerdictXml(fixture));
+      const filePath = await harness.writeVerdict("test/node", renderAuditVerdictXml(fixture));
       const result: AuditVerdict = await readVerdictFile(filePath);
 
       expect(result.gates).toHaveLength(fixture.gates.length);

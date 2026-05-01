@@ -53,8 +53,6 @@ import path, { extname, isAbsolute, join, resolve } from "node:path";
 import { performance } from "node:perf_hooks";
 import { fileURLToPath } from "node:url";
 
-// Import from validation library (story-45)
-// The library now contains the canonical type definitions and scope resolution
 import { getTypeScriptScope as libGetTypeScriptScope, TSCONFIG_FILES as LIB_TSCONFIG_FILES } from "@/validation/index";
 
 // =============================================================================
@@ -223,9 +221,6 @@ export const VALIDATION_SCOPES = {
   PRODUCTION: "production" as const,
 } as const;
 export type ValidationScope = (typeof VALIDATION_SCOPES)[keyof typeof VALIDATION_SCOPES];
-
-// TSCONFIG_FILES imported from src/validation/ library (story-45)
-// Local definition removed to use library version (LIB_TSCONFIG_FILES)
 
 const VALIDATION_TYPES = {
   TYPESCRIPT: { default: true },
@@ -1433,8 +1428,7 @@ async function validate(
   const mode = getValidationScope(options);
   const enabledValidations = getEnabledValidations(verb);
 
-  // Resolve TypeScript scope (source of truth)
-  // Uses library function from src/validation/ (story-45)
+  // Resolve TypeScript scope from the validation library.
   let typescriptScope: ScopeConfig;
   try {
     typescriptScope = libGetTypeScriptScope(mode);
