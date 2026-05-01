@@ -63,7 +63,7 @@ const literalTestFixtureWriters = {
   },
 } as const satisfies Record<string, LiteralTestFixtureWriter>;
 
-export const literalTestFixtureWriterMethods = Object.keys(literalTestFixtureWriters);
+export const literalTestFixtureWriterMethods: readonly string[] = Object.keys(literalTestFixtureWriters);
 export const { writeSourceWithLiteral, writeTestWithLiteral } = literalTestFixtureWriters;
 
 export async function writeLiteralOutputFixture(env: SpecTreeEnv): Promise<LiteralOutputFixture> {

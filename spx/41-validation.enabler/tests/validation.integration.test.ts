@@ -189,6 +189,31 @@ describe("spx validation all — pipeline composition (Scenarios)", () => {
         expect(jsonResult.exitCode).toBe(EXIT_SUCCESS);
         expect(jsonResult.stdout).toContain(LITERAL_SKIP_JSON_OUTPUT);
         expect(jsonResult.stdout).not.toContain(LITERAL_SKIP_OUTPUT);
+
+        const productionResult = await execa(
+          "node",
+          [
+            CLI_PATH,
+            "validation",
+            "all",
+            "--scope",
+            "production",
+            allValidationCliOptions.skipLiteral.flag,
+          ],
+          {
+            cwd: path,
+            reject: false,
+          },
+        );
+
+        const productionStepMarkers = [...productionResult.stdout.matchAll(STEP_LINE_PATTERN)];
+        expect(productionStepMarkers).toHaveLength(TOTAL_STEPS);
+        expect(productionResult.stdout).toContain(STEP_NAMES.CIRCULAR);
+        expect(productionResult.stdout).toContain(STEP_NAMES.ESLINT);
+        expect(productionResult.stdout).toContain(STEP_NAMES.TYPESCRIPT);
+        expect(productionResult.stdout).toContain(STEP_NAMES.MARKDOWN);
+        expect(productionResult.stdout).toContain(STEP_NAMES.LITERAL);
+        expect(productionResult.stdout).toContain(LITERAL_SKIP_OUTPUT);
       });
     },
   );
