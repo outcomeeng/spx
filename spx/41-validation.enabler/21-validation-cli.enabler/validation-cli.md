@@ -17,7 +17,7 @@ CAN trust that well-formed subcommands reach the correct stage, malformed or adv
 - Given an unknown subcommand, when `spx validation <garbage>` is invoked, then no stage runs, stderr reports "unknown subcommand" with the sanitized argument, and exit code is non-zero ([test](tests/dispatch.scenario.l2.test.ts))
 - Given an argument containing ASCII control characters, when `spx validation <arg>` is invoked, then stderr shows each control character as its `\xNN` escape form and no stage runs ([test](tests/dispatch.scenario.l2.test.ts))
 - Given an argument containing multi-byte Unicode code points, when `spx validation <arg>` is invoked, then stderr shows those code points unchanged ([test](tests/dispatch.scenario.l2.test.ts))
-- Given literal validation help is requested, when `spx validation literal --help` is invoked, then the help output lists `--kind <kind>`, `--files-with-problems`, `--literals`, and `--verbose` ([test](tests/dispatch.scenario.l2.test.ts))
+- Given literal validation help is requested, when `spx validation literal --help` is invoked, then the help output lists `--allowlist-existing`, `--kind <kind>`, `--files-with-problems`, `--literals`, `--verbose`, and the valid `--kind` values `reuse` and `dupe` ([test](tests/dispatch.scenario.l2.test.ts))
 - Given an unknown literal problem kind, when `spx validation literal --kind <kind>` is invoked, then no literal detection runs, stderr reports "unknown problem kind" with the sanitized kind, and exit code is non-zero ([test](tests/dispatch.scenario.l2.test.ts))
 
 ### Mappings
@@ -37,7 +37,7 @@ CAN trust that well-formed subcommands reach the correct stage, malformed or adv
 
 - ALWAYS: route every `spx validation <subcommand>` invocation through a dispatcher that resolves against a typed registry; unknown subcommands reach the safe-error path and never enter a stage handler ([test](tests/dispatch.scenario.l2.test.ts))
 - ALWAYS: emit unknown-subcommand diagnostics to stderr with the argument passed through `sanitizeCliArgument`; exit code is non-zero ([test](tests/dispatch.scenario.l2.test.ts))
-- ALWAYS: register literal-specific presentation flags on `spx validation literal` and expose them through command help with the same operands accepted by the handler ([test](tests/dispatch.scenario.l2.test.ts))
+- ALWAYS: register literal-specific flags on `spx validation literal` and expose them through command help with the same operands accepted by the handler, including the valid `--kind` values `reuse` and `dupe` ([test](tests/dispatch.scenario.l2.test.ts))
 - ALWAYS: reject invalid `--kind` values before literal detection, emit the sanitized kind to stderr, and exit non-zero ([test](tests/dispatch.scenario.l2.test.ts))
 - ALWAYS: development validation scripts invoke `tsx src/cli.ts`; publish validation invokes `node bin/spx.js` only after `pnpm run build` creates `dist/cli.js` ([test](tests/package-scripts.compliance.l1.test.ts))
 - ALWAYS: package formatting scripts invoke `dprint fmt .` and `dprint check .`; package scripts do not invoke Prettier ([test](tests/package-scripts.compliance.l1.test.ts))
