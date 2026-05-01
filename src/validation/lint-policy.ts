@@ -136,7 +136,7 @@ function readBaselineRef(projectRoot: string): string | undefined {
     }
   }
 
-  return readGitRef(projectRoot, ["rev-parse", "--verify", "HEAD"]);
+  return undefined;
 }
 
 function readMergeCommitFirstParent(projectRoot: string): string | undefined {
