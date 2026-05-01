@@ -86,6 +86,8 @@ const singleSegmentJsonFixtureLiteral = "single-segment-json-fixture-value";
 const singleSegmentAssertionLiteral = "single-segment-assertion-value";
 const windowsPathJsonFixtureLiteral = "windows-path-json-fixture-value";
 const windowsPathAssertionLiteral = "windows-path-assertion-value";
+const testMarkerJsonFixtureLiteral = "test-marker-json-fixture-value";
+const testMarkerAssertionLiteral = "test-marker-assertion-value";
 
 describe("literal-reuse detection — scenarios", () => {
   it("string literal carrying domain meaning in src and in a test file produces a src↔test reuse finding citing both locations", () => {
@@ -467,6 +469,23 @@ describe("literal-reuse detection — scenarios", () => {
 
     expect(values).not.toContain(windowsPathJsonFixtureLiteral);
     expect(values).toContain(windowsPathAssertionLiteral);
+  });
+
+  it(".test. filename markers are treated as test fixture files outside tests directories", () => {
+    const source = `
+      const json = "${testMarkerJsonFixtureLiteral}";
+      expect(actual).toBe("${testMarkerAssertionLiteral}");
+    `;
+
+    const occurrences = collectLiterals(
+      source,
+      "src/formatters.test.helpers.ts",
+      DEFAULT_OPTIONS,
+    );
+    const values = occurrences.map((occurrence) => occurrence.value);
+
+    expect(values).not.toContain(testMarkerJsonFixtureLiteral);
+    expect(values).toContain(testMarkerAssertionLiteral);
   });
 
   it("--kind dupe output contains only test↔test duplication problems", async () => {

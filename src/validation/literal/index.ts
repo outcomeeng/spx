@@ -20,6 +20,7 @@ export {
   collectLiterals,
   defaultVisitorKeys,
   detectReuse,
+  FIXTURE_WRITER_CALLS,
   LITERAL_KIND,
   parseLiteralReuseResult,
   REMEDIATION,

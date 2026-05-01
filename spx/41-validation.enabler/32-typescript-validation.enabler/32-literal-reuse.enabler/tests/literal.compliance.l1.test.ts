@@ -1,10 +1,12 @@
 import { describe, expect, it } from "vitest";
 
 import { literalCommand } from "@/commands/validation/literal";
+import { SPEC_TREE_ENV_FIXTURE_WRITER_METHODS } from "@/spec/testing/fixture-writer-methods";
 import { withTestEnv } from "@/spec/testing/index";
 import {
   collectLiterals,
   defaultVisitorKeys,
+  FIXTURE_WRITER_CALLS,
   type LiteralAllowlistConfig,
   type LiteralOccurrence,
   parseLiteralReuseResult,
@@ -119,6 +121,12 @@ describe("NEVER: index literals from module-naming positions", () => {
     const occurrences = collect(fixtureSource);
     const values = occurrences.filter((o) => o.kind === "string").map((o) => o.value);
     expect(values).not.toContain(modulePath);
+  });
+});
+
+describe("NEVER: change fixture-writer helpers without updating detector classification", () => {
+  it("detector fixture-writer calls match the spec-tree environment writer methods", () => {
+    expect([...FIXTURE_WRITER_CALLS].sort()).toEqual([...SPEC_TREE_ENV_FIXTURE_WRITER_METHODS].sort());
   });
 });
 

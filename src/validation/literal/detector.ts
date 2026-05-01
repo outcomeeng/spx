@@ -1,6 +1,8 @@
 import { parse as parseTypeScript } from "@typescript-eslint/parser";
 import { visitorKeys as typescriptVisitorKeys } from "@typescript-eslint/visitor-keys";
 
+import { SPEC_TREE_ENV_FIXTURE_WRITER_METHODS } from "@/spec/testing/fixture-writer-methods";
+
 export const LITERAL_KIND = {
   STRING: "string",
   NUMBER: "number",
@@ -89,11 +91,10 @@ const FUNCTION_NODE_TYPES: ReadonlySet<string> = new Set([
   "FunctionDeclaration",
   "FunctionExpression",
 ]);
-// Keep in sync with test-harness helpers that write source, spec, and fixture files.
-const FIXTURE_WRITER_CALLS: ReadonlySet<string> = new Set([
-  "writeDecision",
-  "writeNode",
-  "writeRaw",
+export const FIXTURE_WRITER_CALLS: ReadonlySet<string> = new Set(
+  SPEC_TREE_ENV_FIXTURE_WRITER_METHODS,
+);
+const LITERAL_TEST_FIXTURE_WRITER_CALLS: ReadonlySet<string> = new Set([
   "writeSourceWithLiteral",
   "writeTestWithLiteral",
 ]);
@@ -126,11 +127,7 @@ interface WalkContext {
   readonly filename: string;
   readonly isTestFixtureFile: boolean;
   // Shared recursion stack; walkChild pushes before descent and pops in finally.
-  readonly ancestors: readonly WalkAncestor[];
-}
-
-interface MutableWalkContext extends WalkContext {
-  readonly ancestors: WalkAncestor[];
+  ancestors: WalkAncestor[];
 }
 
 export function collectLiterals(
@@ -153,7 +150,7 @@ export function collectLiterals(
 
 function walk(
   node: Node,
-  context: MutableWalkContext,
+  context: WalkContext,
   options: CollectLiteralsOptions,
   out: LiteralOccurrence[],
 ): void {
@@ -180,7 +177,7 @@ function walk(
 function walkChild(
   node: Node,
   parent: Node,
-  context: MutableWalkContext,
+  context: WalkContext,
   options: CollectLiteralsOptions,
   out: LiteralOccurrence[],
 ): void {
@@ -253,7 +250,7 @@ function isInsideFixtureWriterArgument(context: WalkContext): boolean {
       continue;
     }
     const callName = getCallName(ancestor.node);
-    if (callName === undefined || !FIXTURE_WRITER_CALLS.has(callName)) {
+    if (callName === undefined || !isFixtureWriterCall(callName)) {
       continue;
     }
     if (hasNestedFunctionBetween(context.ancestors, index)) {
@@ -262,6 +259,10 @@ function isInsideFixtureWriterArgument(context: WalkContext): boolean {
     return true;
   }
   return false;
+}
+
+function isFixtureWriterCall(callName: string): boolean {
+  return FIXTURE_WRITER_CALLS.has(callName) || LITERAL_TEST_FIXTURE_WRITER_CALLS.has(callName);
 }
 
 function isInsideFixtureDataVariable(context: WalkContext): boolean {

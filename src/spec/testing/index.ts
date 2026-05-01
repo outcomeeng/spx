@@ -8,6 +8,8 @@ import { configFileForFormat, DEFAULT_CONFIG_FILE_FORMAT, serializeConfigFileSec
 import type { Config } from "@/config/types";
 import { SPEC_TREE_CONFIG, type SpecTreeKindCategory } from "@/spec/config";
 import type { Kind, KindDefinition, SpecTreeConfig } from "@/spec/config";
+import type { SpecTreeEnvFixtureWriterMethod } from "./fixture-writer-methods";
+export { SPEC_TREE_ENV_FIXTURE_WRITER_METHODS } from "./fixture-writer-methods";
 
 export type { Config } from "@/config/types";
 
@@ -26,16 +28,19 @@ export type SpecTreeFixture = {
   readonly entries: readonly SpecTreeFixtureEntry[];
 };
 
-export type SpecTreeEnv = {
-  readonly projectDir: string;
-  writeNode(relativePath: string, contents: string): Promise<void>;
-  writeDecision(relativePath: string, contents: string): Promise<void>;
-  writeRaw(relativePath: string, contents: string): Promise<void>;
-  readFile(relativePath: string): Promise<string>;
-  readonly arbitraryNodePath: fc.Arbitrary<string>;
-  readonly arbitraryDecisionPath: fc.Arbitrary<string>;
-  readonly arbitrarySpecTree: fc.Arbitrary<SpecTreeFixture>;
-};
+type SpecTreeEnvFixtureWriter = (relativePath: string, contents: string) => Promise<void>;
+
+export type SpecTreeEnv =
+  & {
+    readonly projectDir: string;
+    readFile(relativePath: string): Promise<string>;
+    readonly arbitraryNodePath: fc.Arbitrary<string>;
+    readonly arbitraryDecisionPath: fc.Arbitrary<string>;
+    readonly arbitrarySpecTree: fc.Arbitrary<SpecTreeFixture>;
+  }
+  & {
+    readonly [method in SpecTreeEnvFixtureWriterMethod]: SpecTreeEnvFixtureWriter;
+  };
 
 export async function withTestEnv(
   config: Config,
