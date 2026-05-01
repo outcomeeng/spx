@@ -7,7 +7,6 @@
  */
 
 export * from "./circular";
-export * from "./constants";
 export * from "./eslint";
 export * from "./knip";
 export * from "./markdown";

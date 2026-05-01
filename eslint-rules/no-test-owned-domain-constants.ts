@@ -26,11 +26,11 @@ const rule: Rule.RuleModule = {
   meta: {
     type: "problem",
     docs: {
-      description: "Disallow test-owned domain constants and test-owned as const registries",
+      description: "Disallow top-level uppercase test constants and test-owned as const registries",
     },
     messages: {
       [TEST_OWNED_DOMAIN_CONSTANT_MESSAGE_ID]:
-        "Do not define test-owned domain constant '{{name}}'. Import the source-owned value or generate test data from a generator.",
+        "Do not define top-level uppercase test constant '{{name}}'. Import the source-owned value or generate test data from a generator.",
       [TEST_OWNED_DOMAIN_REGISTRY_MESSAGE_ID]:
         "Do not define test-owned `as const` registry '{{name}}'. Move the semantic set to source ownership or generate test inputs.",
     },
@@ -91,6 +91,8 @@ function isConstRegistry(node: AstNode | null | undefined): boolean {
 }
 
 function isConstAssertion(node: AstNode | undefined): boolean {
+  // Current parser versions use TSTypeReference for `as const`; keep
+  // TSConstKeyword for parser releases that expose keyword assertions directly.
   if (node?.type === "TSConstKeyword") return true;
   return node?.type === "TSTypeReference" && node.typeName?.type === "Identifier" && node.typeName.name === "const";
 }

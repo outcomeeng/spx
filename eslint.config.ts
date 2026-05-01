@@ -34,6 +34,8 @@ function readManifest(file: string, key: string): string[] {
 }
 
 function toTestLintDebtNodeTestGlob(path: string): string {
+  // Legacy lint debt predates alternate test suffix support and tracks only
+  // canonical `.test.ts` files under each listed node.
   return `${path}/**/*.test.ts`;
 }
 

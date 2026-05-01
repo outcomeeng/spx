@@ -16,6 +16,7 @@
     "spx/36-audit.enabler/32-verify.enabler/43-semantic.enabler",
     "spx/36-audit.enabler/32-verify.enabler/54-paths.enabler",
     "spx/36-audit.enabler/76-audit-cli.enabler",
+    "spx/36-session.enabler",
     "spx/36-session.enabler/32-session-identity.enabler",
     "spx/36-session.enabler/43-session-store.enabler",
     "spx/36-session.enabler/65-session-claim.enabler",

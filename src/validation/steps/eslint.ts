@@ -14,8 +14,6 @@ import { validateLintPolicy } from "@/validation/lint-policy";
 import type { ExecutionMode, ProcessRunner, ValidationContext } from "../types";
 import { EXECUTION_MODES, VALIDATION_SCOPES } from "../types";
 
-import { CACHE_PATHS } from "./constants";
-
 // =============================================================================
 // DEFAULT DEPENDENCIES
 // =============================================================================
@@ -36,8 +34,6 @@ export const defaultEslintProcessRunner: ProcessRunner = { spawn };
  */
 export const DEFAULT_ESLINT_CONFIG_FILE = "eslint.config.ts";
 export const ESLINT_COMMAND_TOKENS = {
-  CACHE_FLAG: "--cache",
-  CACHE_LOCATION_FLAG: "--cache-location",
   COMMAND: "eslint",
   CONFIG_FLAG: "--config",
   CURRENT_DIRECTORY: ".",
@@ -58,32 +54,24 @@ export const ESLINT_COMMAND_TOKENS = {
  * const args = buildEslintArgs({
  *   validatedFiles: ["src/index.ts"],
  *   mode: "write",
- *   cacheFile: "dist/.eslintcache",
  *   configFile: "eslint.config.ts",
  * });
- * // Returns: ["eslint", "--config", "eslint.config.ts", "--cache", ...]
+ * // Returns: ["eslint", "--config", "eslint.config.ts", "--", "src/index.ts"]
  * ```
  */
 export function buildEslintArgs(context: {
   validatedFiles?: string[];
   mode?: ExecutionMode;
-  cacheFile: string;
   configFile?: string;
 }): string[] {
-  const { validatedFiles, mode, cacheFile, configFile = DEFAULT_ESLINT_CONFIG_FILE } = context;
+  const { validatedFiles, mode, configFile = DEFAULT_ESLINT_CONFIG_FILE } = context;
   const fixArg = mode === EXECUTION_MODES.WRITE ? [ESLINT_COMMAND_TOKENS.FIX_FLAG] : [];
-  const cacheArgs = [
-    ESLINT_COMMAND_TOKENS.CACHE_FLAG,
-    ESLINT_COMMAND_TOKENS.CACHE_LOCATION_FLAG,
-    cacheFile,
-  ];
 
   if (validatedFiles && validatedFiles.length > 0) {
     return [
       ESLINT_COMMAND_TOKENS.COMMAND,
       ESLINT_COMMAND_TOKENS.CONFIG_FLAG,
       configFile,
-      ...cacheArgs,
       ...fixArg,
       ESLINT_COMMAND_TOKENS.FILE_SEPARATOR,
       ...validatedFiles,
@@ -94,7 +82,6 @@ export function buildEslintArgs(context: {
     ESLINT_COMMAND_TOKENS.CURRENT_DIRECTORY,
     ESLINT_COMMAND_TOKENS.CONFIG_FLAG,
     configFile,
-    ...cacheArgs,
     ...fixArg,
   ];
 }
@@ -144,7 +131,6 @@ export async function validateESLint(
     const eslintArgs = buildEslintArgs({
       validatedFiles,
       mode,
-      cacheFile: CACHE_PATHS.ESLINT,
       configFile: eslintConfigFile,
     });
 
