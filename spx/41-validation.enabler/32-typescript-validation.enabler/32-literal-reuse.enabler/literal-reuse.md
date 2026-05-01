@@ -62,6 +62,7 @@ CAN enforce the source/test boundary import rules and no-test-owned-semantic-con
 - ALWAYS: AST traversal descends only into fields the injected visitor-keys map declares for each node type; unknown node types short-circuit with no descent ([test](tests/literal.compliance.l1.test.ts))
 - NEVER: descend into artifact directories — `node_modules`, `dist`, `build`, `.next`, `.source`, `.git`, `out`, `coverage` ([test](tests/literal.compliance.l1.test.ts))
 - NEVER: index literals from positions that name a module — `ImportDeclaration.source`, `ExportNamedDeclaration.source`, `ExportAllDeclaration.source`, `ImportExpression.source`, `TSImportType.source`, `TSExternalModuleReference.expression` ([test](tests/literal.compliance.l1.test.ts))
+- NEVER: add, remove, or rename fixture-writer helper methods without updating the detector's fixture-writer call classification in the same change ([review])
 - ALWAYS: the stage participates in `spx validation all` — `allCommand` imports and invokes `literalCommand`, which returns a non-zero exit code when problems exist ([review])
 - ALWAYS: default text output is one problem per line formatted as `[kind] "value" path:line` — parseable without regex gymnastics ([test](tests/literal.compliance.l1.test.ts))
 - ALWAYS: `--files-with-problems` outputs each unique affected file path on its own line, sorted lexicographically, with no line number suffix ([test](tests/literal.compliance.l1.test.ts))
