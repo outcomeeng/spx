@@ -12,7 +12,9 @@ import {
   cleanGitTestEnvironment,
   GIT_TEST_COMMAND,
   GIT_TEST_CONFIG,
+  GIT_TEST_FLAGS,
   GIT_TEST_SUBCOMMANDS,
+  withGitTestEnvironment,
 } from "@test/harness/git-test-constants";
 
 const LEGACY_MANIFEST_FILE = LINT_POLICY_MANIFESTS.LEGACY_SPEC_SUFFIX_NODES.file;
@@ -23,6 +25,9 @@ const BASE_LEGACY_PATH = "spx/10-old.story";
 const BASE_TEST_DEBT_PATH = "spx/20-current.enabler";
 const ADDED_TEST_DEBT_PATH = "spx/30-added.enabler";
 const LINT_POLICY_TEST_BRANCH = `${WORK_ITEM_KINDS[1]}-branch`;
+const OUTER_REPO_BRANCH = "outer-main";
+const OUTER_REPO_USER_NAME = "Outer Repo User";
+const OUTER_REPO_USER_EMAIL = "outer@test.local";
 
 async function withPolicyProject(callback: (projectRoot: string) => Promise<void>): Promise<void> {
   const projectRoot = await mkdtemp(join(tmpdir(), "spx-lint-policy-"));
@@ -56,6 +61,15 @@ async function runGit(projectRoot: string, args: readonly string[]): Promise<voi
     env: cleanGitTestEnvironment(),
     extendEnv: false,
   });
+}
+
+async function readGitOutput(projectRoot: string, args: readonly string[]): Promise<string> {
+  const result = await execa(GIT_TEST_COMMAND, [...args], {
+    cwd: projectRoot,
+    env: cleanGitTestEnvironment(),
+    extendEnv: false,
+  });
+  return result.stdout.trim();
 }
 
 async function commitAll(projectRoot: string, message: string): Promise<void> {
@@ -119,6 +133,56 @@ describe("lint policy validation", () => {
         expect(result.error).toContain(TEST_DEBT_MANIFEST_FILE);
         expect(result.error).toContain(ADDED_TEST_DEBT_PATH);
       }
+    });
+  });
+
+  it("keeps nested fixture Git commands inside the fixture when hook Git variables are present", async () => {
+    await withPolicyProject(async (outerRoot) => {
+      await runGit(outerRoot, [
+        GIT_TEST_SUBCOMMANDS.INIT,
+        "--initial-branch",
+        OUTER_REPO_BRANCH,
+      ]);
+      await runGit(outerRoot, [GIT_TEST_SUBCOMMANDS.CONFIG, "user.email", OUTER_REPO_USER_EMAIL]);
+      await runGit(outerRoot, [GIT_TEST_SUBCOMMANDS.CONFIG, "user.name", OUTER_REPO_USER_NAME]);
+      await runGit(outerRoot, [GIT_TEST_SUBCOMMANDS.COMMIT, GIT_TEST_FLAGS.ALLOW_EMPTY, "-m", "outer sentinel"]);
+      const outerGitDir = join(outerRoot, ".git");
+
+      await withPolicyProject(async (projectRoot) => {
+        await withGitTestEnvironment(
+          {
+            GIT_DIR: outerGitDir,
+            GIT_WORK_TREE: outerRoot,
+          },
+          async () => {
+            await runGit(projectRoot, [
+              GIT_TEST_SUBCOMMANDS.INIT,
+              "--initial-branch",
+              LINT_POLICY_BASE_REFS.LOCAL_MAIN,
+            ]);
+            await runGit(projectRoot, [GIT_TEST_SUBCOMMANDS.CONFIG, "user.email", GIT_TEST_CONFIG.EMAIL]);
+            await runGit(projectRoot, [GIT_TEST_SUBCOMMANDS.CONFIG, "user.name", GIT_TEST_CONFIG.USER_NAME]);
+            await mkdir(join(projectRoot, BASE_LEGACY_PATH), { recursive: true });
+            await mkdir(join(projectRoot, BASE_TEST_DEBT_PATH), { recursive: true });
+            await writePolicyManifest(projectRoot, {
+              legacySpecSuffixNodes: [BASE_LEGACY_PATH],
+              testLintDebtNodes: [BASE_TEST_DEBT_PATH],
+            });
+            await commitAll(projectRoot, "base manifests");
+            await runGit(projectRoot, [GIT_TEST_SUBCOMMANDS.CHECKOUT, "-b", LINT_POLICY_TEST_BRANCH]);
+          },
+        );
+      });
+
+      await expect(readGitOutput(outerRoot, [GIT_TEST_SUBCOMMANDS.BRANCH, GIT_TEST_FLAGS.SHOW_CURRENT])).resolves.toBe(
+        OUTER_REPO_BRANCH,
+      );
+      await expect(readGitOutput(outerRoot, [GIT_TEST_SUBCOMMANDS.CONFIG, "--get", "user.email"])).resolves.toBe(
+        OUTER_REPO_USER_EMAIL,
+      );
+      await expect(readGitOutput(outerRoot, [GIT_TEST_SUBCOMMANDS.CONFIG, "--get", "user.name"])).resolves.toBe(
+        OUTER_REPO_USER_NAME,
+      );
     });
   });
 

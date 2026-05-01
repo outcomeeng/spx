@@ -11,7 +11,17 @@ import { afterEach, beforeEach, describe, expect, it } from "vitest";
 
 import { DEFAULT_CONFIG } from "@/config/defaults";
 import { detectGitRoot, detectMainRepoRoot, type GitDependencies, resolveSessionConfig } from "@/git/root";
-import { GIT_TEST_COMMAND, GIT_TEST_CONFIG, GIT_TEST_SUBCOMMANDS } from "@test/harness/git-test-constants";
+import {
+  cleanGitTestEnvironment,
+  GIT_TEST_COMMAND,
+  GIT_TEST_CONFIG,
+  GIT_TEST_FLAGS,
+  GIT_TEST_SUBCOMMANDS,
+  withGitTestEnvironment,
+} from "@test/harness/git-test-constants";
+
+const POLLUTED_GIT_DIR = "/tmp/nonexistent-git-dir";
+const POLLUTED_GIT_WORK_TREE = "/tmp/nonexistent-git-work-tree";
 
 // -- Helper: create a GitDependencies that returns controlled results --
 
@@ -156,22 +166,17 @@ describe("detectMainRepoRoot with real git worktrees", () => {
   let repoDir: string;
   let worktreeDir: string;
 
-  // Clean git env prevents pre-commit hook's GIT_DIR/GIT_INDEX_FILE from
-  // leaking into the test's subprocess and targeting the main repo.
-  const cleanGitEnv = {
-    GIT_DIR: undefined,
-    GIT_WORK_TREE: undefined,
-    GIT_INDEX_FILE: undefined,
-    GIT_CONFIG_GLOBAL: "/dev/null",
-  };
-
   beforeEach(async () => {
     // Create a minimal git repo without lefthook (avoids hook conflicts)
     repoDir = realpathSync(mkdtempSync(join(tmpdir(), "worktree-repo-")));
     worktreeDir = realpathSync(mkdtempSync(join(tmpdir(), "worktree-wt-")));
 
     const { execa: realExeca } = await import("execa");
-    const gitOpts = { cwd: repoDir, env: cleanGitEnv };
+    const gitOpts = {
+      cwd: repoDir,
+      env: cleanGitTestEnvironment(),
+      extendEnv: false,
+    };
     await realExeca(GIT_TEST_COMMAND, [GIT_TEST_SUBCOMMANDS.INIT], gitOpts);
     await realExeca(GIT_TEST_COMMAND, [GIT_TEST_SUBCOMMANDS.CONFIG, "user.email", GIT_TEST_CONFIG.EMAIL], gitOpts);
     await realExeca(
@@ -179,7 +184,11 @@ describe("detectMainRepoRoot with real git worktrees", () => {
       [GIT_TEST_SUBCOMMANDS.CONFIG, "user.name", GIT_TEST_CONFIG.USER_NAME],
       gitOpts,
     );
-    await realExeca(GIT_TEST_COMMAND, [GIT_TEST_SUBCOMMANDS.COMMIT, "--allow-empty", "-m", "initial"], gitOpts);
+    await realExeca(
+      GIT_TEST_COMMAND,
+      [GIT_TEST_SUBCOMMANDS.COMMIT, GIT_TEST_FLAGS.ALLOW_EMPTY, "-m", "initial"],
+      gitOpts,
+    );
   });
 
   afterEach(() => {
@@ -191,7 +200,11 @@ describe("detectMainRepoRoot with real git worktrees", () => {
   it("GIVEN real worktree WHEN detectMainRepoRoot THEN returns main repo root", async () => {
     const { execa: realExeca } = await import("execa");
     const wtPath = join(worktreeDir, "my-wt");
-    await realExeca("git", ["worktree", "add", wtPath, "-b", "test-branch"], { cwd: repoDir, env: cleanGitEnv });
+    await realExeca(GIT_TEST_COMMAND, ["worktree", "add", wtPath, "-b", "test-branch"], {
+      cwd: repoDir,
+      env: cleanGitTestEnvironment(),
+      extendEnv: false,
+    });
     const canonicalWtPath = realpathSync(wtPath);
 
     // detectGitRoot from worktree → worktree root
@@ -207,7 +220,11 @@ describe("detectMainRepoRoot with real git worktrees", () => {
   it("GIVEN real worktree subdirectory WHEN detectMainRepoRoot THEN still returns main repo root", async () => {
     const { execa: realExeca } = await import("execa");
     const wtPath = join(worktreeDir, "my-wt");
-    await realExeca("git", ["worktree", "add", wtPath, "-b", "test-branch"], { cwd: repoDir, env: cleanGitEnv });
+    await realExeca(GIT_TEST_COMMAND, ["worktree", "add", wtPath, "-b", "test-branch"], {
+      cwd: repoDir,
+      env: cleanGitTestEnvironment(),
+      extendEnv: false,
+    });
 
     const subDir = join(wtPath, "src", "deep");
     mkdirSync(subDir, { recursive: true });
@@ -223,6 +240,22 @@ describe("detectMainRepoRoot with real git worktrees", () => {
 
     expect(gitRootResult.root).toBe(mainRepoResult.root);
     expect(mainRepoResult.root).toBe(repoDir);
+  });
+
+  it("GIVEN hook Git variables WHEN detecting repo roots THEN cwd repo wins", async () => {
+    await withGitTestEnvironment(
+      {
+        GIT_DIR: POLLUTED_GIT_DIR,
+        GIT_WORK_TREE: POLLUTED_GIT_WORK_TREE,
+      },
+      async () => {
+        const gitRootResult = await detectGitRoot(repoDir);
+        const mainRepoResult = await detectMainRepoRoot(repoDir);
+
+        expect(gitRootResult.root).toBe(repoDir);
+        expect(mainRepoResult.root).toBe(repoDir);
+      },
+    );
   });
 });
 

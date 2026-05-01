@@ -62,7 +62,11 @@ export interface GitDependencies {
  */
 const defaultDeps: GitDependencies = {
   execa: async (command, args, options) => {
-    const result = await execa(command, args, options);
+    const result = await execa(command, args, {
+      ...options,
+      env: withoutGitEnvironment(process.env),
+      extendEnv: false,
+    });
     return {
       exitCode: result.exitCode ?? 0,
       stdout: typeof result.stdout === "string" ? result.stdout : String(result.stdout),
@@ -76,6 +80,16 @@ const defaultDeps: GitDependencies = {
  */
 const NOT_GIT_REPO_WARNING =
   "Warning: Not in a git repository. Sessions will be created relative to current directory.";
+
+function withoutGitEnvironment(env: NodeJS.ProcessEnv): NodeJS.ProcessEnv {
+  const cleaned = { ...env };
+  for (const key of Object.keys(cleaned)) {
+    if (key.startsWith("GIT_")) {
+      delete cleaned[key];
+    }
+  }
+  return cleaned;
+}
 
 /**
  * Detects the git repository root directory.
