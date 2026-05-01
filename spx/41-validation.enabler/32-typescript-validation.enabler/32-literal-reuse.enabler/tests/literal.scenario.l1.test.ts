@@ -77,6 +77,8 @@ const dataSourceLiteral = "semantic-data-source-value";
 const jsonOutputLiteral = "semantic-json-output-value";
 const sessionManagerLiteral = "semantic-session-manager-value";
 const xmlParserLiteral = "semantic-xml-parser-value";
+const singleSegmentJsonFixtureLiteral = "single-segment-json-fixture-value";
+const singleSegmentAssertionLiteral = "single-segment-assertion-value";
 
 describe("literal-reuse detection — scenarios", () => {
   it("string literal carrying domain meaning in src and in a test file produces a src↔test reuse finding citing both locations", () => {
@@ -366,6 +368,23 @@ describe("literal-reuse detection — scenarios", () => {
     expect(values).toContain(jsonOutputLiteral);
     expect(values).toContain(sessionManagerLiteral);
     expect(values).toContain(xmlParserLiteral);
+  });
+
+  it("single-segment fixture role names do not contribute occurrences while assertion literals still do", () => {
+    const source = `
+      const json = "${singleSegmentJsonFixtureLiteral}";
+      expect(actual).toBe("${singleSegmentAssertionLiteral}");
+    `;
+
+    const occurrences = collectLiterals(
+      source,
+      "spx/41-validation.enabler/tests/single-segment-fixture.scenario.l1.test.ts",
+      DEFAULT_OPTIONS,
+    );
+    const values = occurrences.map((occurrence) => occurrence.value);
+
+    expect(values).not.toContain(singleSegmentJsonFixtureLiteral);
+    expect(values).toContain(singleSegmentAssertionLiteral);
   });
 
   it("--kind dupe output contains only test↔test duplication problems", async () => {

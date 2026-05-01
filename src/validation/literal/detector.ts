@@ -124,6 +124,7 @@ interface WalkAncestor {
 interface WalkContext {
   readonly filename: string;
   readonly isTestFixtureFile: boolean;
+  // Shared recursion stack; walkChild pushes before descent and pops in finally.
   ancestors: WalkAncestor[];
 }
 
