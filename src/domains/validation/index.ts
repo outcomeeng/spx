@@ -182,7 +182,8 @@ interface LiteralOptions extends CommonOptions {
   verbose?: boolean;
 }
 
-interface AllOptions extends LintOptions {
+interface AllOptions extends CommonOptions {
+  fix?: boolean;
   skipLiteral?: boolean;
 }
 

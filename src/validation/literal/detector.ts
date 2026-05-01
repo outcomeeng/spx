@@ -252,6 +252,7 @@ function isFixtureDataLiteral(
 }
 
 function isInsideFixtureWriterArgument(ancestors: readonly WalkAncestor[]): boolean {
+  // Scan every call ancestor so wrappers around fixture-writer calls do not hide direct writer arguments.
   for (let index = ancestors.length - 1; index >= 0; index -= 1) {
     const ancestor = ancestors[index];
     if (ancestor.node.type !== CALL_EXPRESSION_TYPE) {
@@ -317,16 +318,19 @@ function isFixtureDataVariableName(variableName: string): boolean {
   if (segments.length === 0) {
     return false;
   }
+  // Tier 1: explicit fixture markers always denote test-authored data.
   if (segments.some((segment) => FIXTURE_DATA_DIRECT_SEGMENTS.has(segment))) {
     return true;
   }
+  // Tier 2 and Tier 3 require at least one fixture role word.
   if (!segments.some((segment) => FIXTURE_DATA_ROLE_SEGMENTS.has(segment))) {
     return false;
   }
-  // Single-role and compound-role names describe fixture data in tests.
+  // Tier 2: single-role and compound-role names describe fixture payloads.
   if (segments.every((segment) => FIXTURE_DATA_ROLE_SEGMENTS.has(segment))) {
     return true;
   }
+  // Tier 3: role/context compounds are fixtures only when the context word is final.
   const finalSegment = segments[segments.length - 1];
   return finalSegment !== undefined && FIXTURE_DATA_CONTEXT_SEGMENTS.has(finalSegment);
 }
