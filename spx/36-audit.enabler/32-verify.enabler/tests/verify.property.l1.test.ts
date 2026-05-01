@@ -11,33 +11,20 @@
 import * as fc from "fast-check";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 
-import type { AuditHarness } from "@/audit/testing/harness";
-import { createAuditHarness } from "@/audit/testing/harness";
+import { AUDIT_GATE_STATUS, AUDIT_VERDICT_VALUE } from "@/audit/reader";
+import type { AuditHarness, AuditVerdictXmlFindingFixture } from "@/audit/testing/harness";
+import {
+  AUDIT_VERDICT_XML_SKIPPED_REASON_FIXTURE,
+  createAuditHarness,
+  renderAuditVerdictXml,
+} from "@/audit/testing/harness";
 import { runVerifyPipeline } from "@/audit/verify";
 
-import { AUDIT_XML_TEST_TOKENS } from "./support";
-
-const VALID_STATUSES = ["PASS", "FAIL", "SKIPPED"] as const;
-const VALID_VERDICTS = ["APPROVED", "REJECT"] as const;
-
-function buildGateXml(name: string, status: string, findings: number): string {
-  const findingElements = Array.from(
-    { length: findings },
-    (_, i) => `<finding><spec_file>spec${i}.md</spec_file><test_file>test${i}.ts</test_file></finding>`,
-  ).join("");
-  const skippedReason = status === "SKIPPED" ? "<skipped_reason>Not applicable</skipped_reason>" : "";
-  return `<gate><name>${name}</name><status>${status}</status>${skippedReason}${AUDIT_XML_TEST_TOKENS.FINDINGS_COUNT_OPEN}${findings}">${findingElements}</findings></gate>`;
-}
-
-function buildVerdictXml(verdict: string, gates: string[]): string {
-  return `<audit_verdict>
-  <header>
-    <spec_node>spx/36-audit.enabler</spec_node>
-    <verdict>${verdict}</verdict>
-    <timestamp>2024-01-01_00-00-00</timestamp>
-  </header>
-  <gates>
-    ${gates.join("\n    ")}${AUDIT_XML_TEST_TOKENS.VERDICT_GATES_CLOSE}`;
+function buildFindings(count: number): readonly AuditVerdictXmlFindingFixture[] {
+  return Array.from({ length: count }, (_, index) => ({
+    specFile: `spec${index}.md`,
+    testFile: `test${index}.ts`,
+  }));
 }
 
 describe("runVerifyPipeline: determinism property (P1)", () => {
@@ -55,19 +42,30 @@ describe("runVerifyPipeline: determinism property (P1)", () => {
     await fc.assert(
       fc.asyncProperty(
         fc.record({
-          verdict: fc.constantFrom(...VALID_VERDICTS),
+          verdict: fc.constantFrom(...Object.values(AUDIT_VERDICT_VALUE)),
           gates: fc.array(
             fc.record({
               name: fc.string({ minLength: 1, maxLength: 20 }),
-              status: fc.constantFrom(...VALID_STATUSES),
+              status: fc.constantFrom(...Object.values(AUDIT_GATE_STATUS)),
               findings: fc.integer({ min: 0, max: 3 }),
             }),
             { minLength: 1, maxLength: 3 },
           ),
         }),
         async ({ verdict, gates }) => {
-          const gateXmls = gates.map((g, i) => buildGateXml(g.name || `gate${i}`, g.status, g.findings));
-          const xml = buildVerdictXml(verdict, gateXmls);
+          const xml = renderAuditVerdictXml({
+            specNode: "spx/36-audit.enabler",
+            verdict,
+            timestamp: "2024-01-01_00-00-00",
+            gates: gates.map((gate, index) => ({
+              name: gate.name || `gate${index}`,
+              status: gate.status,
+              skippedReason: gate.status === AUDIT_GATE_STATUS.SKIPPED
+                ? AUDIT_VERDICT_XML_SKIPPED_REASON_FIXTURE
+                : undefined,
+              findings: buildFindings(gate.findings),
+            })),
+          });
 
           const filePath = await harness.writeVerdict(`prop-test/${verdict}`, xml);
 

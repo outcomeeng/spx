@@ -52,7 +52,26 @@ export interface AuditVerdict {
   readonly gates: readonly AuditGate[];
 }
 
-const ARRAY_TAGS = new Set(["gate", "finding"]);
+export const AUDIT_VERDICT_XML = {
+  ROOT: "audit_verdict",
+  HEADER: "header",
+  SPEC_NODE: "spec_node",
+  VERDICT: "verdict",
+  TIMESTAMP: "timestamp",
+  GATES: "gates",
+  GATE: "gate",
+  NAME: "name",
+  STATUS: "status",
+  SKIPPED_REASON: "skipped_reason",
+  FINDINGS: "findings",
+  FINDING: "finding",
+  COUNT: "count",
+  PARSED_COUNT: "@_count",
+  SPEC_FILE: "spec_file",
+  TEST_FILE: "test_file",
+} as const;
+
+const ARRAY_TAGS = new Set<string>([AUDIT_VERDICT_XML.GATE, AUDIT_VERDICT_XML.FINDING]);
 
 const PARSER_OPTIONS = {
   ignoreAttributes: false,
@@ -98,13 +117,13 @@ function asString(value: unknown): string | undefined {
 }
 
 function buildVerdict(parsed: Record<string, unknown>): AuditVerdict {
-  const rootUnknown = parsed["audit_verdict"];
+  const rootUnknown = parsed[AUDIT_VERDICT_XML.ROOT];
   if (!isObject(rootUnknown)) {
     return { gates: [] };
   }
 
-  const headerUnknown = rootUnknown["header"];
-  const gatesUnknown = rootUnknown["gates"];
+  const headerUnknown = rootUnknown[AUDIT_VERDICT_XML.HEADER];
+  const gatesUnknown = rootUnknown[AUDIT_VERDICT_XML.GATES];
 
   return {
     header: isObject(headerUnknown) ? buildHeader(headerUnknown) : undefined,
@@ -114,38 +133,38 @@ function buildVerdict(parsed: Record<string, unknown>): AuditVerdict {
 
 function buildHeader(raw: Record<string, unknown>): AuditVerdictHeader {
   return {
-    spec_node: asString(raw["spec_node"]),
-    verdict: asString(raw["verdict"]),
-    timestamp: asString(raw["timestamp"]),
+    spec_node: asString(raw[AUDIT_VERDICT_XML.SPEC_NODE]),
+    verdict: asString(raw[AUDIT_VERDICT_XML.VERDICT]),
+    timestamp: asString(raw[AUDIT_VERDICT_XML.TIMESTAMP]),
   };
 }
 
 function buildGates(raw: Record<string, unknown>): readonly AuditGate[] {
-  const gatesUnknown = raw["gate"];
+  const gatesUnknown = raw[AUDIT_VERDICT_XML.GATE];
   if (!Array.isArray(gatesUnknown)) return [];
   return gatesUnknown.filter(isObject).map(buildGate);
 }
 
 function buildGate(raw: Record<string, unknown>): AuditGate {
-  const findingsUnknown = raw["findings"];
+  const findingsUnknown = raw[AUDIT_VERDICT_XML.FINDINGS];
   return {
-    name: asString(raw["name"]),
-    status: asString(raw["status"]),
-    skipped_reason: asString(raw["skipped_reason"]),
-    count: isObject(findingsUnknown) ? asString(findingsUnknown["@_count"]) : undefined,
+    name: asString(raw[AUDIT_VERDICT_XML.NAME]),
+    status: asString(raw[AUDIT_VERDICT_XML.STATUS]),
+    skipped_reason: asString(raw[AUDIT_VERDICT_XML.SKIPPED_REASON]),
+    count: isObject(findingsUnknown) ? asString(findingsUnknown[AUDIT_VERDICT_XML.PARSED_COUNT]) : undefined,
     findings: isObject(findingsUnknown) ? buildFindings(findingsUnknown) : [],
   };
 }
 
 function buildFindings(raw: Record<string, unknown>): readonly AuditFinding[] {
-  const findingsUnknown = raw["finding"];
+  const findingsUnknown = raw[AUDIT_VERDICT_XML.FINDING];
   if (!Array.isArray(findingsUnknown)) return [];
   return findingsUnknown.filter(isObject).map(buildFinding);
 }
 
 function buildFinding(raw: Record<string, unknown>): AuditFinding {
   return {
-    spec_file: asString(raw["spec_file"]),
-    test_file: asString(raw["test_file"]),
+    spec_file: asString(raw[AUDIT_VERDICT_XML.SPEC_FILE]),
+    test_file: asString(raw[AUDIT_VERDICT_XML.TEST_FILE]),
   };
 }

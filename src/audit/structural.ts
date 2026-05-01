@@ -3,32 +3,37 @@ import { AUDIT_GATE_STATUS, AUDIT_VERDICT_VALUE, type AuditVerdict } from "@/aud
 const VALID_VERDICTS = new Set<string>(Object.values(AUDIT_VERDICT_VALUE));
 const VALID_GATE_STATUSES = new Set<string>(Object.values(AUDIT_GATE_STATUS));
 
+export const STRUCTURAL_DEFECT_TEXT = {
+  MISSING_REQUIRED_ELEMENT: "missing required element",
+  INVALID_ENUM_VALUE: "invalid enum value",
+} as const;
+
 export function validateStructure(verdict: AuditVerdict): readonly string[] {
   const defects: string[] = [];
 
   if (!verdict.header) {
-    defects.push("missing required element: <header>");
+    defects.push(`${STRUCTURAL_DEFECT_TEXT.MISSING_REQUIRED_ELEMENT}: <header>`);
     return defects;
   }
 
   if (!verdict.header.spec_node) {
-    defects.push("missing required element: <spec_node>");
+    defects.push(`${STRUCTURAL_DEFECT_TEXT.MISSING_REQUIRED_ELEMENT}: <spec_node>`);
   }
 
   if (!verdict.header.verdict) {
-    defects.push("missing required element: <verdict> in <header>");
+    defects.push(`${STRUCTURAL_DEFECT_TEXT.MISSING_REQUIRED_ELEMENT}: <verdict> in <header>`);
   } else if (!VALID_VERDICTS.has(verdict.header.verdict)) {
     defects.push(
-      `invalid enum value: verdict "${verdict.header.verdict}" is not one of APPROVED, REJECT`,
+      `${STRUCTURAL_DEFECT_TEXT.INVALID_ENUM_VALUE}: verdict "${verdict.header.verdict}" is not one of APPROVED, REJECT`,
     );
   }
 
   if (!verdict.header.timestamp) {
-    defects.push("missing required element: <timestamp>");
+    defects.push(`${STRUCTURAL_DEFECT_TEXT.MISSING_REQUIRED_ELEMENT}: <timestamp>`);
   }
 
   if (verdict.gates.length === 0) {
-    defects.push("missing required element: at least one <gate> in <gates>");
+    defects.push(`${STRUCTURAL_DEFECT_TEXT.MISSING_REQUIRED_ELEMENT}: at least one <gate> in <gates>`);
   }
 
   for (const gate of verdict.gates) {
@@ -36,7 +41,7 @@ export function validateStructure(verdict: AuditVerdict): readonly string[] {
 
     if (gate.status !== undefined && !VALID_GATE_STATUSES.has(gate.status)) {
       defects.push(
-        `invalid enum value: ${label} status "${gate.status}" is not one of PASS, FAIL, SKIPPED`,
+        `${STRUCTURAL_DEFECT_TEXT.INVALID_ENUM_VALUE}: ${label} status "${gate.status}" is not one of PASS, FAIL, SKIPPED`,
       );
     }
 

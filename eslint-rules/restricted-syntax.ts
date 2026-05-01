@@ -53,7 +53,6 @@ export const TEST_READ_FILE_SYNC_IMPORT_RULE = {
   message:
     "readFileSync imports are banned in tests because source-text testing is not evidence. Use real behavior through a harness or fixture file; justified filesystem fixture reads need an explicit lint suppression.",
 } as const;
-
 /** Additional selectors applied only to test files (stacked on tsRestrictedSyntax). */
 export const testRestrictedSyntax = [
   TEST_VI_MOCK_RULE,
