@@ -34,7 +34,9 @@ spx/
   NN-{slug}.{enabler|outcome}/
     {slug}.md                         # Spec file (no type suffix, no numeric prefix)
     tests/
-      *.{unit,integration,e2e}.test.{ts,py}
+      <subject>.<evidence>.<level>[.<runner>].test.ts
+      test_<subject>.<evidence>.<level>.py
+      <subject>.<evidence>.<level>[.<runner>].rs
     PLAN.md                           # Escape hatch: deferred plan (ephemeral, not spec tree)
     ISSUES.md                         # Escape hatch: known issues (ephemeral, not spec tree)
     NN-{slug}.adr.md                  # Decisions scoped to this subtree
@@ -168,15 +170,15 @@ Nodes carry typed assertions with inline evidence links.
 
 ### Scenarios
 
-- Given a valid config, when parsed, then fields are extracted ([test](tests/parsing.unit.test.ts))
+- Given a valid config, when parsed, then fields are extracted ([test](tests/parsing.scenario.l1.test.ts))
 
 ### Properties
 
-- Parsing is deterministic: same input always produces same output ([test](tests/parsing.unit.test.ts))
+- Parsing is deterministic: same input always produces same output ([test](tests/parsing.property.l1.test.ts))
 
 ### Compliance
 
-- NEVER: accept paths with traversal sequences ([test](tests/parsing.unit.test.ts))
+- NEVER: accept paths with traversal sequences ([test](tests/parsing.compliance.l1.test.ts))
 ```
 
 **Five assertion types:**
