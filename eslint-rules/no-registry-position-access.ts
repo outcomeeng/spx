@@ -8,6 +8,8 @@ export const NO_REGISTRY_POSITION_ACCESS_RULE_ID =
 export const REGISTRY_POSITION_ACCESS_MESSAGE_ID = "registryPositionAccess";
 
 const GENERATOR_PATH_SEGMENT = "testing/generators/";
+// Keep this list aligned with source-owned registries that export ordered
+// arrays and have generator helpers for sampled values.
 const POSITIONAL_REGISTRY_NAMES: ReadonlySet<string> = new Set(["NODE_KINDS", "DECISION_KINDS"]);
 
 type AstNode = {

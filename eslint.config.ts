@@ -26,8 +26,15 @@ const SPEC_TREE_NODE_SUFFIX_PATTERN = /\.(enabler|outcome|capability|feature|sto
 const LEGACY_SPEC_NODE_SUFFIX_PATTERN = /\.(capability|feature|story)$/;
 const ASSERTION_STRING_LITERAL_RULE_MESSAGE = "Do not use string literals in assertions.";
 const READ_FILE_SYNC_IMPORT_RULE_MESSAGE = "readFileSync imports are banned in tests";
+const HEAD_PATH_MISSING_MARKERS = [
+  "exists on disk, but not in 'HEAD'",
+  "does not exist in 'HEAD'",
+] as const;
 
 type JsonObject = Record<string, unknown>;
+type CommandError = Error & {
+  readonly stderr?: string | Buffer;
+};
 
 function isJsonObject(value: unknown): value is JsonObject {
   return typeof value === "object" && value !== null && !Array.isArray(value);
@@ -92,7 +99,18 @@ function assertManifestEntries(
   suffixPattern: RegExp,
   suffixDescription: string,
 ): void {
-  const duplicates = entries.filter((entry, index) => entries.indexOf(entry) !== index);
+  const seenEntries = new Set<string>();
+  const duplicateEntries = new Set<string>();
+
+  for (const entry of entries) {
+    if (seenEntries.has(entry)) {
+      duplicateEntries.add(entry);
+      continue;
+    }
+    seenEntries.add(entry);
+  }
+
+  const duplicates = [...duplicateEntries];
 
   if (duplicates.length > 0) {
     throw new Error(
@@ -128,14 +146,37 @@ function readHeadManifest(file: string, key: string): string[] | undefined {
     return parseManifest(
       execFileSync("git", ["show", `HEAD:${file}`], {
         encoding: "utf-8",
-        stdio: ["ignore", "pipe", "ignore"],
+        stdio: ["ignore", "pipe", "pipe"],
       }),
       `HEAD:${file}`,
       key,
     );
-  } catch {
-    return undefined;
+  } catch (error) {
+    const message = commandErrorMessage(error);
+    if (HEAD_PATH_MISSING_MARKERS.some((marker) => message.includes(marker))) {
+      return undefined;
+    }
+
+    throw new Error(
+      `${file} shrink-only baseline could not be read from HEAD: ${message}`,
+    );
   }
+}
+
+function commandErrorMessage(error: unknown): string {
+  if (error instanceof Error) {
+    const commandError = error as CommandError;
+    const stderr = commandError.stderr;
+    if (Buffer.isBuffer(stderr)) {
+      return stderr.toString("utf-8").trim() || error.message;
+    }
+    if (typeof stderr === "string" && stderr.trim().length > 0) {
+      return stderr.trim();
+    }
+    return error.message;
+  }
+
+  return String(error);
 }
 
 function assertManifestDoesNotGrow(file: string, key: string, entries: string[]): void {
@@ -210,6 +251,8 @@ function validateTestOwnedConstantDebtNodeManifest(entries: string[]): void {
 }
 
 function toTestLintDebtNodeTestGlob(path: string): string {
+  // Legacy lint debt predates alternate test suffix support and tracks only
+  // canonical `.test.ts` files under each listed node.
   return `${path}/**/*.test.ts`;
 }
 
