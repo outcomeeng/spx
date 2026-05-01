@@ -332,6 +332,7 @@ describe("literal-reuse detection — scenarios", () => {
         status: "${fixtureProtocolStatus}",
         verdict: "${fixtureProtocolVerdict}",
       };
+      const { status = "${fixtureProtocolStatus}" } = verdictFixture;
       expect(actual.status).toBe("${fixtureProtocolStatus}");
     `;
 

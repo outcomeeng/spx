@@ -124,7 +124,7 @@ interface WalkAncestor {
 interface WalkContext {
   readonly filename: string;
   readonly isTestFixtureFile: boolean;
-  readonly ancestors: WalkAncestor[];
+  ancestors: WalkAncestor[];
 }
 
 export function collectLiterals(
@@ -247,7 +247,7 @@ function isInsideFixtureWriterArgument(context: WalkContext): boolean {
     if (callName === undefined || !FIXTURE_WRITER_CALLS.has(callName)) {
       continue;
     }
-    if (hasFunctionBoundaryAfterAncestor(context.ancestors, index)) {
+    if (hasNestedFunctionBetween(context.ancestors, index)) {
       continue;
     }
     return true;
@@ -261,10 +261,10 @@ function isInsideFixtureDataVariable(context: WalkContext): boolean {
     if (ancestor.node.type !== VARIABLE_DECLARATOR_TYPE) {
       continue;
     }
-    if (hasFunctionBoundaryAfterAncestor(context.ancestors, index)) {
+    if (hasNestedFunctionBetween(context.ancestors, index)) {
       continue;
     }
-    const variableName = getIdentifierName(ancestor.node.id);
+    const variableName = getFixtureDataDeclaratorName(ancestor.node);
     if (variableName !== undefined && isFixtureDataVariableName(variableName)) {
       return true;
     }
@@ -272,7 +272,7 @@ function isInsideFixtureDataVariable(context: WalkContext): boolean {
   return false;
 }
 
-function hasFunctionBoundaryAfterAncestor(
+function hasNestedFunctionBetween(
   ancestors: readonly WalkAncestor[],
   ancestorIndex: number,
 ): boolean {
@@ -282,6 +282,14 @@ function hasFunctionBoundaryAfterAncestor(
     }
   }
   return false;
+}
+
+function getFixtureDataDeclaratorName(node: Node): string | undefined {
+  const bindingName = getIdentifierName(node.id);
+  if (bindingName !== undefined) {
+    return bindingName;
+  }
+  return getIdentifierName(node.init);
 }
 
 function isFixtureDataVariableName(variableName: string): boolean {
