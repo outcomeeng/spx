@@ -1,12 +1,17 @@
 import { describe, expect, it } from "vitest";
 
 import { recognizeSpecTreeFilesystemEntry, SPEC_TREE_ENTRY_TYPE, SPEC_TREE_FILESYSTEM_RECORD_TYPE } from "@/spec-tree";
-import { DECISION_KINDS, KIND_REGISTRY, NODE_KINDS, SPEC_TREE_CONFIG } from "@/spec/config";
-import { sampleSpecTreeTestValue, SPEC_TREE_TEST_GENERATOR } from "@testing/generators/spec-tree";
+import { KIND_REGISTRY, SPEC_TREE_CONFIG } from "@/spec/config";
+import {
+  sampleDecisionKind,
+  sampleNodeKind,
+  sampleSpecTreeTestValue,
+  SPEC_TREE_TEST_GENERATOR,
+} from "@testing/generators/spec-tree";
 
 describe("spec-tree entry recognition", () => {
   it("maps registered node suffixes to node source entries", () => {
-    const nodeKind = readFirstNodeKind();
+    const nodeKind = sampleNodeKind(KIND_REGISTRY);
     const slug = sampleSpecTreeTestValue(SPEC_TREE_TEST_GENERATOR.sourceSlug());
     const entry = recognizeSpecTreeFilesystemEntry({
       type: SPEC_TREE_FILESYSTEM_RECORD_TYPE.DIRECTORY,
@@ -22,10 +27,10 @@ describe("spec-tree entry recognition", () => {
   });
 
   it("maps registered decision suffixes to decision source entries", () => {
-    const decisionKind = readFirstDecisionKind();
+    const decisionKind = sampleDecisionKind(KIND_REGISTRY);
     const parentSlug = sampleSpecTreeTestValue(SPEC_TREE_TEST_GENERATOR.sourceSlug());
     const decisionSlug = sampleSpecTreeTestValue(SPEC_TREE_TEST_GENERATOR.sourceSlug());
-    const parentId = `21-${parentSlug}${KIND_REGISTRY[readFirstNodeKind()].suffix}`;
+    const parentId = `21-${parentSlug}${KIND_REGISTRY[sampleNodeKind(KIND_REGISTRY)].suffix}`;
     const entry = recognizeSpecTreeFilesystemEntry({
       type: SPEC_TREE_FILESYSTEM_RECORD_TYPE.FILE,
       relativePath: `${parentId}/32-${decisionSlug}${KIND_REGISTRY[decisionKind].suffix}`,
@@ -75,19 +80,3 @@ describe("spec-tree entry recognition", () => {
     }
   });
 });
-
-function readFirstNodeKind(): (typeof NODE_KINDS)[number] {
-  const kind = NODE_KINDS[0];
-  if (kind === undefined) {
-    throw new Error("Entry recognition test requires one node kind");
-  }
-  return kind;
-}
-
-function readFirstDecisionKind(): (typeof DECISION_KINDS)[number] {
-  const kind = DECISION_KINDS[0];
-  if (kind === undefined) {
-    throw new Error("Entry recognition test requires one decision kind");
-  }
-  return kind;
-}

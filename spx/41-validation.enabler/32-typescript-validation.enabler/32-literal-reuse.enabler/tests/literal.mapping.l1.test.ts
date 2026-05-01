@@ -1,9 +1,17 @@
 import { describe, expect, it } from "vitest";
 
 import {
+  filterLiteralFindings,
+  formatDefaultLiteralProblems,
+  formatFilesWithProblems,
+  formatLiteralValues,
+  formatVerboseLiteralProblems,
+} from "@/commands/validation/literal";
+import {
   buildIndex,
   collectLiterals,
   defaultVisitorKeys,
+  type DetectionResult,
   detectReuse,
   type LiteralIndex,
   type LiteralOccurrence,
@@ -40,6 +48,41 @@ const WEB_PRESET_TOKENS: readonly string[] = [
 const DEFAULT_OPTIONS = {
   visitorKeys: defaultVisitorKeys,
   ...DETECTOR_OPTIONS_DEFAULTS,
+};
+
+const sampleProblems: DetectionResult = {
+  srcReuse: [
+    {
+      test: { file: "tests/reuse-z.test.ts", line: 7 },
+      kind: "string",
+      value: "source-z-token",
+      src: [{ file: "src/reuse-z.ts", line: 1 }],
+      remediation: REMEDIATION.IMPORT_FROM_SOURCE,
+    },
+    {
+      test: { file: "tests/reuse-a.test.ts", line: 3 },
+      kind: "number",
+      value: "30000",
+      src: [{ file: "src/reuse-a.ts", line: 2 }],
+      remediation: REMEDIATION.IMPORT_FROM_SOURCE,
+    },
+  ],
+  testDupe: [
+    {
+      test: { file: "tests/dupe-b.test.ts", line: 5 },
+      kind: "string",
+      value: "dupe-token",
+      otherTests: [{ file: "tests/dupe-a.test.ts", line: 2 }],
+      remediation: REMEDIATION.REFACTOR_TO_SOURCE_OR_GENERATOR,
+    },
+    {
+      test: { file: "tests/dupe-a.test.ts", line: 2 },
+      kind: "string",
+      value: "dupe-token",
+      otherTests: [{ file: "tests/dupe-b.test.ts", line: 5 }],
+      remediation: REMEDIATION.REFACTOR_TO_SOURCE_OR_GENERATOR,
+    },
+  ],
 };
 
 function indexSources(
@@ -177,5 +220,68 @@ describe("'web' preset bundle membership", () => {
     const effective = resolveAllowlist({ presets: [WEB_PRESET_ID] });
 
     expect(effective.has(token)).toBe(true);
+  });
+});
+
+describe("literal output mode mappings", () => {
+  it("--kind selects src↔test reuse or test↔test duplication arrays", () => {
+    expect(filterLiteralFindings(sampleProblems, "reuse")).toEqual({
+      srcReuse: [sampleProblems.srcReuse[1], sampleProblems.srcReuse[0]],
+      testDupe: [],
+    });
+    expect(filterLiteralFindings(sampleProblems, "dupe")).toEqual({
+      srcReuse: [],
+      testDupe: [sampleProblems.testDupe[1], sampleProblems.testDupe[0]],
+    });
+  });
+
+  it("default text output maps each problem to [kind] value path:line sorted by kind then location", () => {
+    expect(formatDefaultLiteralProblems(sampleProblems)).toBe(
+      [
+        `[reuse] 30000 tests/reuse-a.test.ts:3`,
+        `[reuse] "source-z-token" tests/reuse-z.test.ts:7`,
+        `[dupe] "dupe-token" tests/dupe-a.test.ts:2`,
+        `[dupe] "dupe-token" tests/dupe-b.test.ts:5`,
+      ].join("\n"),
+    );
+  });
+
+  it("--verbose maps problems to kind sections, file headers, and indented problem lines", () => {
+    expect(formatVerboseLiteralProblems(sampleProblems)).toBe(
+      [
+        "Literal: 4 problems (reuse: 2, dupe: 2)",
+        "REUSE",
+        "tests/reuse-a.test.ts",
+        "  line 3: 30000 also in src/reuse-a.ts:2",
+        "tests/reuse-z.test.ts",
+        "  line 7: \"source-z-token\" also in src/reuse-z.ts:1",
+        "DUPE",
+        "tests/dupe-a.test.ts",
+        "  line 2: \"dupe-token\" also in tests/dupe-b.test.ts:5",
+        "tests/dupe-b.test.ts",
+        "  line 5: \"dupe-token\" also in tests/dupe-a.test.ts:2",
+      ].join("\n"),
+    );
+  });
+
+  it("--files-with-problems maps matching problems to unique sorted test file paths", () => {
+    expect(formatFilesWithProblems(sampleProblems)).toBe(
+      [
+        "tests/dupe-a.test.ts",
+        "tests/dupe-b.test.ts",
+        "tests/reuse-a.test.ts",
+        "tests/reuse-z.test.ts",
+      ].join("\n"),
+    );
+  });
+
+  it("--literals maps matching problems to unique sorted values with strings quoted and numbers decimal", () => {
+    expect(formatLiteralValues(sampleProblems)).toBe(
+      [
+        "30000",
+        "\"dupe-token\"",
+        "\"source-z-token\"",
+      ].join("\n"),
+    );
   });
 });

@@ -9,6 +9,8 @@ const LEGACY_SPEC_SUFFIX_NODE_MANIFEST_FILE = LINT_POLICY_MANIFESTS.LEGACY_SPEC_
 const LEGACY_SPEC_SUFFIX_NODE_MANIFEST_KEY = LINT_POLICY_MANIFESTS.LEGACY_SPEC_SUFFIX_NODES.key;
 const TEST_LINT_DEBT_NODE_MANIFEST_FILE = LINT_POLICY_MANIFESTS.TEST_LINT_DEBT_NODES.file;
 const TEST_LINT_DEBT_NODE_MANIFEST_KEY = LINT_POLICY_MANIFESTS.TEST_LINT_DEBT_NODES.key;
+const TEST_OWNED_CONSTANT_DEBT_NODE_MANIFEST_FILE = LINT_POLICY_MANIFESTS.TEST_OWNED_CONSTANT_DEBT_NODES.file;
+const TEST_OWNED_CONSTANT_DEBT_NODE_MANIFEST_KEY = LINT_POLICY_MANIFESTS.TEST_OWNED_CONSTANT_DEBT_NODES.key;
 const SPEC_TREE_ROOT = "spx";
 const SPEC_TREE_NODE_SUFFIX_PATTERN = /\.(enabler|outcome|capability|feature|story)$/;
 const LEGACY_SPEC_NODE_SUFFIX_PATTERN = /\.(capability|feature|story)$/;
@@ -231,14 +233,33 @@ function validateTestLintDebtNodeManifest(projectRoot: string, entries: string[]
   );
 }
 
+function validateTestOwnedConstantDebtNodeManifest(projectRoot: string, entries: string[]): void {
+  assertManifestEntries(
+    projectRoot,
+    TEST_OWNED_CONSTANT_DEBT_NODE_MANIFEST_FILE,
+    entries,
+    SPEC_TREE_NODE_SUFFIX_PATTERN,
+    "be a Spec Tree node path",
+  );
+  assertManifestDoesNotGrow(
+    projectRoot,
+    TEST_OWNED_CONSTANT_DEBT_NODE_MANIFEST_FILE,
+    TEST_OWNED_CONSTANT_DEBT_NODE_MANIFEST_KEY,
+    entries,
+  );
+}
+
 export function validateLintPolicy(projectRoot: string): LintPolicyResult {
   try {
-    const legacyManifestExists = manifestExists(projectRoot, LEGACY_SPEC_SUFFIX_NODE_MANIFEST_FILE);
-    const testDebtManifestExists = manifestExists(projectRoot, TEST_LINT_DEBT_NODE_MANIFEST_FILE);
-    if (!legacyManifestExists && !testDebtManifestExists) {
+    const manifestExistence = [
+      manifestExists(projectRoot, LEGACY_SPEC_SUFFIX_NODE_MANIFEST_FILE),
+      manifestExists(projectRoot, TEST_LINT_DEBT_NODE_MANIFEST_FILE),
+      manifestExists(projectRoot, TEST_OWNED_CONSTANT_DEBT_NODE_MANIFEST_FILE),
+    ];
+    if (manifestExistence.every((exists) => !exists)) {
       return { ok: true };
     }
-    if (!legacyManifestExists || !testDebtManifestExists) {
+    if (!manifestExistence.every(Boolean)) {
       return {
         ok: false,
         error: "lint policy manifests must be present together",
@@ -252,6 +273,14 @@ export function validateLintPolicy(projectRoot: string): LintPolicyResult {
     validateTestLintDebtNodeManifest(
       projectRoot,
       readManifest(projectRoot, TEST_LINT_DEBT_NODE_MANIFEST_FILE, TEST_LINT_DEBT_NODE_MANIFEST_KEY),
+    );
+    validateTestOwnedConstantDebtNodeManifest(
+      projectRoot,
+      readManifest(
+        projectRoot,
+        TEST_OWNED_CONSTANT_DEBT_NODE_MANIFEST_FILE,
+        TEST_OWNED_CONSTANT_DEBT_NODE_MANIFEST_KEY,
+      ),
     );
     return { ok: true };
   } catch (error) {

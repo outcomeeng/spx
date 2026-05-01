@@ -9,6 +9,10 @@ export const LINT_POLICY_MANIFESTS = {
     file: "eslint.test-lint-debt-nodes.json",
     key: "testLintDebtNodes",
   },
+  TEST_OWNED_CONSTANT_DEBT_NODES: {
+    file: "eslint.test-owned-constant-debt-nodes.json",
+    key: "testOwnedConstantDebtNodes",
+  },
 } as const;
 
 export const LINT_POLICY_BASE_REFS = {

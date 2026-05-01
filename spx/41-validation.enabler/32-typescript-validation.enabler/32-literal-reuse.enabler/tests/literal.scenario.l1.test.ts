@@ -26,6 +26,7 @@ import {
   DETECTOR_OPTIONS_DEFAULTS,
   EMPTY_ALLOWLIST,
   INTEGRATION_CONFIG,
+  writeLiteralOutputFixture,
   writeSourceWithLiteral,
   writeTestWithLiteral,
 } from "./support";
@@ -62,6 +63,10 @@ const EXCLUDED_NODE_DIR = "spx/21-excluded.enabler";
 const WEB_PRESET_ID = "web";
 const ALLOWLISTED_PRESET_TOKEN = "Authorization";
 const UNKNOWN_PRESET_ID = "ecosystem-nonexistent";
+const literalNoReuseProblemsMessage = "Literal: No problems of type reuse";
+const literalVerboseSummary = "Literal: 3 problems (reuse: 1, dupe: 2)";
+const literalVerboseReuseHeading = "REUSE";
+const literalVerboseDupeHeading = "DUPE";
 
 describe("literal-reuse detection — scenarios", () => {
   it("string literal carrying domain meaning in src and in a test file produces a src↔test reuse finding citing both locations", () => {
@@ -286,6 +291,116 @@ describe("literal-reuse detection — scenarios", () => {
       for (const f of parsed.testDupe) {
         expect(f.remediation).toBe(REMEDIATION.REFACTOR_TO_SOURCE_OR_GENERATOR);
       }
+    });
+  });
+
+  it("--kind dupe output contains only test↔test duplication problems", async () => {
+    await withTestEnv(INTEGRATION_CONFIG, async (env) => {
+      const fixture = await writeLiteralOutputFixture(env);
+
+      const result = await literalCommand({ cwd: env.projectDir, kind: "dupe" });
+
+      expect(result.exitCode).toBe(1);
+      expect(result.output).toContain(`[dupe] "${fixture.dupeLiteral}"`);
+      expect(result.output).not.toContain(`[reuse] "${fixture.reuseLiteral}"`);
+    });
+  });
+
+  it("--kind reuse output contains only src↔test reuse problems", async () => {
+    await withTestEnv(INTEGRATION_CONFIG, async (env) => {
+      const fixture = await writeLiteralOutputFixture(env);
+
+      const result = await literalCommand({ cwd: env.projectDir, kind: "reuse" });
+
+      expect(result.exitCode).toBe(1);
+      expect(result.output).toContain(`[reuse] "${fixture.reuseLiteral}"`);
+      expect(result.output).not.toContain(`[dupe] "${fixture.dupeLiteral}"`);
+    });
+  });
+
+  it("--kind reuse with only test↔test duplication problems exits 0 with the no-match message", async () => {
+    await withTestEnv(INTEGRATION_CONFIG, async (env) => {
+      await env.writeRaw(TYPESCRIPT_MARKER, "{}\n");
+      await writeTestWithLiteral(env, "tests/dupe-a.test.ts", TEST_DUPE_LITERAL);
+      await writeTestWithLiteral(env, "tests/dupe-b.test.ts", TEST_DUPE_LITERAL);
+
+      const result = await literalCommand({ cwd: env.projectDir, kind: "reuse" });
+
+      expect(result.exitCode).toBe(0);
+      expect(result.output).toBe(literalNoReuseProblemsMessage);
+    });
+  });
+
+  it("--files-with-problems output contains unique problem file paths sorted lexicographically", async () => {
+    await withTestEnv(INTEGRATION_CONFIG, async (env) => {
+      const fixture = await writeLiteralOutputFixture(env);
+
+      const result = await literalCommand({ cwd: env.projectDir, filesWithProblems: true });
+
+      expect(result.output.split("\n")).toEqual([
+        fixture.dupeFirstTestFile,
+        fixture.dupeSecondTestFile,
+        fixture.reuseTestFile,
+      ]);
+    });
+  });
+
+  it("--kind reuse --files-with-problems output contains only reuse problem file paths", async () => {
+    await withTestEnv(INTEGRATION_CONFIG, async (env) => {
+      const fixture = await writeLiteralOutputFixture(env);
+
+      const result = await literalCommand({
+        cwd: env.projectDir,
+        kind: "reuse",
+        filesWithProblems: true,
+      });
+
+      expect(result.output).toBe(fixture.reuseTestFile);
+    });
+  });
+
+  it("--literals output contains unique literal values sorted lexicographically", async () => {
+    await withTestEnv(INTEGRATION_CONFIG, async (env) => {
+      const fixture = await writeLiteralOutputFixture(env);
+
+      const result = await literalCommand({ cwd: env.projectDir, literals: true });
+
+      expect(result.output.split("\n")).toEqual([
+        `"${fixture.reuseLiteral}"`,
+        `"${fixture.dupeLiteral}"`,
+      ].sort());
+    });
+  });
+
+  it("--verbose output groups problems into REUSE and DUPE sections", async () => {
+    await withTestEnv(INTEGRATION_CONFIG, async (env) => {
+      const fixture = await writeLiteralOutputFixture(env);
+
+      const result = await literalCommand({ cwd: env.projectDir, verbose: true });
+
+      expect(result.output).toContain(literalVerboseSummary);
+      expect(result.output).toContain(literalVerboseReuseHeading);
+      expect(result.output).toContain(fixture.reuseTestFile);
+      expect(result.output).toContain(`  line 1: "${fixture.reuseLiteral}" also in ${fixture.reuseSourceFile}:1`);
+      expect(result.output).toContain(literalVerboseDupeHeading);
+      expect(result.output).toContain(fixture.dupeFirstTestFile);
+      expect(result.output).toContain(`  line 1: "${fixture.dupeLiteral}" also in ${fixture.dupeSecondTestFile}:1`);
+    });
+  });
+
+  it("--kind reuse --json output preserves the full object shape and empties testDupe", async () => {
+    await withTestEnv(INTEGRATION_CONFIG, async (env) => {
+      const fixture = await writeLiteralOutputFixture(env);
+
+      const result = await literalCommand({
+        cwd: env.projectDir,
+        kind: "reuse",
+        json: true,
+      });
+      const parsed = parseLiteralReuseResult(JSON.parse(result.output) as unknown);
+
+      expect(parsed.srcReuse.map((problem) => problem.value)).toContain(fixture.reuseLiteral);
+      expect(parsed.testDupe).toEqual([]);
     });
   });
 });

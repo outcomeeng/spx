@@ -22,6 +22,8 @@ const LEGACY_MANIFEST_FILE = LINT_POLICY_MANIFESTS.LEGACY_SPEC_SUFFIX_NODES.file
 const LEGACY_MANIFEST_KEY = LINT_POLICY_MANIFESTS.LEGACY_SPEC_SUFFIX_NODES.key;
 const TEST_DEBT_MANIFEST_FILE = LINT_POLICY_MANIFESTS.TEST_LINT_DEBT_NODES.file;
 const TEST_DEBT_MANIFEST_KEY = LINT_POLICY_MANIFESTS.TEST_LINT_DEBT_NODES.key;
+const TEST_OWNED_CONSTANT_DEBT_MANIFEST_FILE = LINT_POLICY_MANIFESTS.TEST_OWNED_CONSTANT_DEBT_NODES.file;
+const TEST_OWNED_CONSTANT_DEBT_MANIFEST_KEY = LINT_POLICY_MANIFESTS.TEST_OWNED_CONSTANT_DEBT_NODES.key;
 const BASE_LEGACY_PATH = "spx/10-old.story";
 const BASE_TEST_DEBT_PATH = "spx/20-current.enabler";
 const ADDED_TEST_DEBT_PATH = "spx/30-added.enabler";
@@ -51,6 +53,7 @@ async function writePolicyManifest(
   entries: {
     readonly legacySpecSuffixNodes: readonly string[];
     readonly testLintDebtNodes: readonly string[];
+    readonly testOwnedConstantDebtNodes?: readonly string[];
   },
 ): Promise<void> {
   await writeFile(
@@ -60,6 +63,10 @@ async function writePolicyManifest(
   await writeFile(
     join(projectRoot, TEST_DEBT_MANIFEST_FILE),
     JSON.stringify({ [TEST_DEBT_MANIFEST_KEY]: entries.testLintDebtNodes }, null, 2),
+  );
+  await writeFile(
+    join(projectRoot, TEST_OWNED_CONSTANT_DEBT_MANIFEST_FILE),
+    JSON.stringify({ [TEST_OWNED_CONSTANT_DEBT_MANIFEST_KEY]: entries.testOwnedConstantDebtNodes ?? [] }, null, 2),
   );
 }
 
@@ -262,6 +269,10 @@ describe("lint policy validation", () => {
         JSON.stringify({ [LEGACY_MANIFEST_KEY]: [BASE_LEGACY_PATH] }, null, 2),
       );
       await writeFile(join(projectRoot, TEST_DEBT_MANIFEST_FILE), JSON.stringify([], null, 2));
+      await writeFile(
+        join(projectRoot, TEST_OWNED_CONSTANT_DEBT_MANIFEST_FILE),
+        JSON.stringify({ [TEST_OWNED_CONSTANT_DEBT_MANIFEST_KEY]: [] }, null, 2),
+      );
       await commitAll(projectRoot, "corrupt baseline manifest");
 
       await runGit(projectRoot, [GIT_TEST_SUBCOMMANDS.CHECKOUT, "-b", LINT_POLICY_TEST_BRANCH]);
