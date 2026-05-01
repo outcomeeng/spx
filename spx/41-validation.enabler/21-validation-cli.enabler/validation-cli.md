@@ -20,7 +20,7 @@ CAN trust that well-formed subcommands reach the correct stage, malformed or adv
 - Given literal validation help is requested, when `spx validation literal --help` is invoked, then the help output lists `--allowlist-existing`, `--kind <kind>`, `--files-with-problems`, `--literals`, `--verbose`, and the valid `--kind` values `reuse` and `dupe` ([test](tests/dispatch.scenario.l2.test.ts))
 - Given an unknown literal problem kind, when `spx validation literal --kind <kind>` is invoked, then no literal detection runs, stderr reports "unknown problem kind" with the sanitized kind, and exit code is non-zero ([test](tests/dispatch.scenario.l2.test.ts))
 - Given validation-all help is requested, when `spx validation all --help` is invoked, then the help output lists `--skip-literal` ([test](tests/dispatch.scenario.l2.test.ts))
-- Given literal validation is skipped for one full-pipeline run, when `spx validation all --skip-literal` is invoked, then literal detection exits zero with skip output and the other validation stages still run ([test](../tests/validation.integration.test.ts))
+- Given literal validation is skipped for one full-pipeline run, when `spx validation all --skip-literal` is invoked, then literal detection exits zero with skip output unless `--quiet` is set, and the other validation stages still run ([test](../tests/validation.integration.test.ts))
 
 ### Mappings
 
