@@ -140,6 +140,13 @@ export const literalValidationCliOptions = {
   },
 } as const;
 
+export const allValidationCliOptions = {
+  skipLiteral: {
+    flag: "--skip-literal",
+    description: "Skip literal reuse detection for this validation all run",
+  },
+} as const;
+
 const validationSubcommandOperands = Object.values(validationCliDefinition.subcommands).flatMap(
   (subcommand) => {
     const operands = [subcommand.commandName];
@@ -173,6 +180,11 @@ interface LiteralOptions extends CommonOptions {
   filesWithProblems?: boolean;
   literals?: boolean;
   verbose?: boolean;
+}
+
+interface AllOptions extends CommonOptions {
+  fix?: boolean;
+  skipLiteral?: boolean;
 }
 
 /**
@@ -337,12 +349,14 @@ function registerValidationCommands(validationCmd: Command): void {
   // all command
   const allCmd = addValidationSubcommand(validationCmd, subcommands.all)
     .option("--fix", "Auto-fix ESLint issues")
-    .action(async (options: LintOptions) => {
+    .option(allValidationCliOptions.skipLiteral.flag, allValidationCliOptions.skipLiteral.description)
+    .action(async (options: AllOptions) => {
       const result = await allCommand({
         cwd: process.cwd(),
         scope: options.scope,
         files: options.files,
         fix: options.fix,
+        skipLiteral: options.skipLiteral,
         quiet: options.quiet,
         json: options.json,
       });

@@ -67,6 +67,34 @@ const literalNoReuseProblemsMessage = "Literal: No problems of type reuse";
 const literalVerboseSummary = "Literal: 3 problems (reuse: 1, dupe: 2)";
 const literalVerboseReuseHeading = "REUSE";
 const literalVerboseDupeHeading = "DUPE";
+const fixtureWriterPath = "src/generated-fixture.ts";
+const fixtureWriterPayload = "export const GENERATED_STATUS = \"fixture-generated-status\";";
+const fixtureWriterCallbackLiteral = "fixture-writer-callback-semantic-value";
+const nestedWriterPayloadLiteral = "nested-writer-payload-fixture-value";
+const nestedFixtureWriterPath = "spx/41-validation.enabler/32-nested-fixture.enabler/nested.md";
+const nestedFixtureWriterPayload = "# Nested Fixture";
+const fixtureSessionPath = "spx/21-session-fixture.enabler/tests/session.scenario.l1.test.ts";
+const assertionSemanticLiteral = "assertion-semantic-value";
+const fixtureProtocolStatus = "PASS";
+const fixtureProtocolVerdict = "APPROVED";
+const inlineDestructuringDefaultLiteral = "inline-destructuring-default-value";
+const inlineDestructuringObjectLiteral = "inline-destructuring-object-value";
+const dataSourceLiteral = "semantic-data-source-value";
+const jsonOutputLiteral = "semantic-json-output-value";
+const sessionManagerLiteral = "semantic-session-manager-value";
+const xmlParserLiteral = "semantic-xml-parser-value";
+const compoundRoleYamlSourceLiteral = "compound-role-yaml-source-fixture-value";
+const compoundRoleAssertionLiteral = "compound-role-assertion-value";
+const screamingSnakeFixtureStatus = "SCREAMING_SNAKE_FIXTURE_STATUS";
+const screamingSnakeAssertionLiteral = "screaming-snake-assertion-value";
+const singleSegmentJsonFixtureLiteral = "single-segment-json-fixture-value";
+const singleSegmentSourceFixtureLiteral = "single-segment-source-fixture-value";
+const singleSegmentSessionFixtureLiteral = "single-segment-session-fixture-value";
+const singleSegmentAssertionLiteral = "single-segment-assertion-value";
+const windowsPathJsonFixtureLiteral = "windows-path-json-fixture-value";
+const windowsPathAssertionLiteral = "windows-path-assertion-value";
+const testMarkerJsonFixtureLiteral = "test-marker-json-fixture-value";
+const testMarkerAssertionLiteral = "test-marker-assertion-value";
 
 describe("literal-reuse detection — scenarios", () => {
   it("string literal carrying domain meaning in src and in a test file produces a src↔test reuse finding citing both locations", () => {
@@ -292,6 +320,277 @@ describe("literal-reuse detection — scenarios", () => {
         expect(f.remediation).toBe(REMEDIATION.REFACTOR_TO_SOURCE_OR_GENERATOR);
       }
     });
+  });
+
+  it("fixture-writer paths and source payload strings do not contribute occurrences while assertion literals still do", () => {
+    const source = `
+      async function seed(env) {
+        await env.writeRaw("${fixtureWriterPath}", '${fixtureWriterPayload}');
+        await env.writeRaw("${fixtureSessionPath}", "# Content\\n");
+        expect(actual).toBe("${assertionSemanticLiteral}");
+      }
+    `;
+
+    const occurrences = collectLiterals(
+      source,
+      "spx/41-validation.enabler/32-typescript-validation.enabler/32-literal-reuse.enabler/tests/generated.scenario.l1.test.ts",
+      DEFAULT_OPTIONS,
+    );
+    const values = occurrences.map((occurrence) => occurrence.value);
+
+    expect(values).not.toContain(fixtureWriterPath);
+    expect(values).not.toContain(fixtureWriterPayload);
+    expect(values).not.toContain(fixtureSessionPath);
+    expect(values).toContain(assertionSemanticLiteral);
+  });
+
+  it("function-boundary literals inside fixture-writer arguments still contribute occurrences", () => {
+    const source = `
+      async function seed(env) {
+        await env.writeRaw("${fixtureWriterPath}", () => {
+          return "${fixtureWriterCallbackLiteral}";
+        });
+      }
+    `;
+
+    const occurrences = collectLiterals(
+      source,
+      "spx/41-validation.enabler/32-typescript-validation.enabler/32-literal-reuse.enabler/tests/generated.scenario.l1.test.ts",
+      DEFAULT_OPTIONS,
+    );
+    const values = occurrences.map((occurrence) => occurrence.value);
+
+    expect(values).not.toContain(fixtureWriterPath);
+    expect(values).toContain(fixtureWriterCallbackLiteral);
+  });
+
+  it("wrapper calls around fixture writers keep direct writer literals suppressed", () => {
+    const source = `
+      async function seed(env) {
+        nonFixtureOuter(env.writeRaw("${fixtureWriterPath}", '${fixtureWriterPayload}'));
+      }
+    `;
+
+    const occurrences = collectLiterals(
+      source,
+      "spx/41-validation.enabler/32-typescript-validation.enabler/32-literal-reuse.enabler/tests/generated.scenario.l1.test.ts",
+      DEFAULT_OPTIONS,
+    );
+    const values = occurrences.map((occurrence) => occurrence.value);
+
+    expect(values).not.toContain(fixtureWriterPath);
+    expect(values).not.toContain(fixtureWriterPayload);
+  });
+
+  it("computed string fixture-writer calls keep direct writer literals suppressed", () => {
+    const source = `
+      async function seed(env) {
+        await env["writeRaw"]("${fixtureWriterPath}", '${fixtureWriterPayload}');
+      }
+    `;
+
+    const occurrences = collectLiterals(
+      source,
+      "spx/41-validation.enabler/32-typescript-validation.enabler/32-literal-reuse.enabler/tests/generated.scenario.l1.test.ts",
+      DEFAULT_OPTIONS,
+    );
+    const values = occurrences.map((occurrence) => occurrence.value);
+
+    expect(values).not.toContain(fixtureWriterPath);
+    expect(values).not.toContain(fixtureWriterPayload);
+  });
+
+  it("non-fixture calls nested inside fixture writers keep payload literals suppressed", () => {
+    const source = `
+      async function seed(env) {
+        env.writeRaw("${fixtureWriterPath}", serialize({ key: "${nestedWriterPayloadLiteral}" }));
+      }
+    `;
+
+    const occurrences = collectLiterals(
+      source,
+      "spx/41-validation.enabler/32-typescript-validation.enabler/32-literal-reuse.enabler/tests/generated.scenario.l1.test.ts",
+      DEFAULT_OPTIONS,
+    );
+    const values = occurrences.map((occurrence) => occurrence.value);
+
+    expect(values).not.toContain(fixtureWriterPath);
+    expect(values).not.toContain(nestedWriterPayloadLiteral);
+  });
+
+  it("nested fixture-writer calls keep both writer argument lists suppressed", () => {
+    const source = `
+      async function seed(env) {
+        await env.writeRaw(
+          "${fixtureWriterPath}",
+          env.writeNode("${nestedFixtureWriterPath}", "${nestedFixtureWriterPayload}"),
+        );
+      }
+    `;
+
+    const occurrences = collectLiterals(
+      source,
+      "spx/41-validation.enabler/32-typescript-validation.enabler/32-literal-reuse.enabler/tests/generated.scenario.l1.test.ts",
+      DEFAULT_OPTIONS,
+    );
+    const values = occurrences.map((occurrence) => occurrence.value);
+
+    expect(values).not.toContain(fixtureWriterPath);
+    expect(values).not.toContain(nestedFixtureWriterPath);
+    expect(values).not.toContain(nestedFixtureWriterPayload);
+  });
+
+  it("protocol and status values inside fixture data do not contribute occurrences while assertion literals still do", () => {
+    const source = `
+      const verdictFixture = {
+        status: "${fixtureProtocolStatus}",
+        verdict: "${fixtureProtocolVerdict}",
+      };
+      const { status = "${fixtureProtocolStatus}" } = verdictFixture;
+      expect(actual.status).toBe("${fixtureProtocolStatus}");
+    `;
+
+    const occurrences = collectLiterals(
+      source,
+      "spx/36-audit.enabler/tests/audit.scenario.l1.test.ts",
+      DEFAULT_OPTIONS,
+    );
+    const values = occurrences.map((occurrence) => occurrence.value);
+
+    expect(values.filter((value) => value === fixtureProtocolStatus)).toHaveLength(1);
+    expect(values).not.toContain(fixtureProtocolVerdict);
+  });
+
+  it("inline object destructuring literals still contribute occurrences", () => {
+    const source = `
+      const { status = "${inlineDestructuringDefaultLiteral}" } = {
+        verdict: "${inlineDestructuringObjectLiteral}",
+      };
+    `;
+
+    const occurrences = collectLiterals(
+      source,
+      "spx/36-audit.enabler/tests/inline-destructuring.scenario.l1.test.ts",
+      DEFAULT_OPTIONS,
+    );
+    const values = occurrences.map((occurrence) => occurrence.value);
+
+    expect(values).toContain(inlineDestructuringDefaultLiteral);
+    expect(values).toContain(inlineDestructuringObjectLiteral);
+  });
+
+  it("compound-role fixture data names do not contribute occurrences while assertion literals still do", () => {
+    const source = `
+      const yamlSource = "${compoundRoleYamlSourceLiteral}";
+      expect(actual).toBe("${compoundRoleAssertionLiteral}");
+    `;
+
+    const occurrences = collectLiterals(
+      source,
+      "spx/41-validation.enabler/tests/compound-role-fixture.scenario.l1.test.ts",
+      DEFAULT_OPTIONS,
+    );
+    const values = occurrences.map((occurrence) => occurrence.value);
+
+    expect(values).not.toContain(compoundRoleYamlSourceLiteral);
+    expect(values).toContain(compoundRoleAssertionLiteral);
+  });
+
+  it("SCREAMING_SNAKE fixture identifiers classify destructuring defaults as fixture data", () => {
+    const source = `
+      const VERDICT_FIXTURE = {
+        status: "${screamingSnakeFixtureStatus}",
+      };
+      const { status = "${screamingSnakeFixtureStatus}" } = VERDICT_FIXTURE;
+      expect(actual.status).toBe("${screamingSnakeFixtureStatus}");
+      expect(actual.label).toBe("${screamingSnakeAssertionLiteral}");
+    `;
+
+    const occurrences = collectLiterals(
+      source,
+      "spx/41-validation.enabler/tests/screaming-snake-fixture.scenario.l1.test.ts",
+      DEFAULT_OPTIONS,
+    );
+    const values = occurrences.map((occurrence) => occurrence.value);
+
+    expect(values.filter((value) => value === screamingSnakeFixtureStatus)).toHaveLength(1);
+    expect(values).toContain(screamingSnakeAssertionLiteral);
+  });
+
+  it("production-like camelCase names that contain fixture role words still contribute occurrences", () => {
+    const source = `
+      const dataSource = "${dataSourceLiteral}";
+      const jsonOutput = "${jsonOutputLiteral}";
+      const sessionManager = "${sessionManagerLiteral}";
+      const xmlParser = "${xmlParserLiteral}";
+    `;
+
+    const occurrences = collectLiterals(
+      source,
+      "spx/41-validation.enabler/tests/semantic-names.scenario.l1.test.ts",
+      DEFAULT_OPTIONS,
+    );
+    const values = occurrences.map((occurrence) => occurrence.value);
+
+    expect(values).toContain(dataSourceLiteral);
+    expect(values).toContain(jsonOutputLiteral);
+    expect(values).toContain(sessionManagerLiteral);
+    expect(values).toContain(xmlParserLiteral);
+  });
+
+  it("single-segment fixture role names do not contribute occurrences while assertion literals still do", () => {
+    const source = `
+      const source = "${singleSegmentSourceFixtureLiteral}";
+      const json = "${singleSegmentJsonFixtureLiteral}";
+      const session = "${singleSegmentSessionFixtureLiteral}";
+      expect(actual).toBe("${singleSegmentAssertionLiteral}");
+    `;
+
+    const occurrences = collectLiterals(
+      source,
+      "spx/41-validation.enabler/tests/single-segment-fixture.scenario.l1.test.ts",
+      DEFAULT_OPTIONS,
+    );
+    const values = occurrences.map((occurrence) => occurrence.value);
+
+    expect(values).not.toContain(singleSegmentJsonFixtureLiteral);
+    expect(values).not.toContain(singleSegmentSourceFixtureLiteral);
+    expect(values).not.toContain(singleSegmentSessionFixtureLiteral);
+    expect(values).toContain(singleSegmentAssertionLiteral);
+  });
+
+  it("Windows-style tests path segments are treated as test fixture files", () => {
+    const source = `
+      const json = "${windowsPathJsonFixtureLiteral}";
+      expect(actual).toBe("${windowsPathAssertionLiteral}");
+    `;
+
+    const occurrences = collectLiterals(
+      source,
+      "spx\\41-validation.enabler\\tests\\windows-fixture.ts",
+      DEFAULT_OPTIONS,
+    );
+    const values = occurrences.map((occurrence) => occurrence.value);
+
+    expect(values).not.toContain(windowsPathJsonFixtureLiteral);
+    expect(values).toContain(windowsPathAssertionLiteral);
+  });
+
+  it(".test. filename markers are treated as test fixture files outside tests directories", () => {
+    const source = `
+      const json = "${testMarkerJsonFixtureLiteral}";
+      expect(actual).toBe("${testMarkerAssertionLiteral}");
+    `;
+
+    const occurrences = collectLiterals(
+      source,
+      "src/formatters.test.helpers.ts",
+      DEFAULT_OPTIONS,
+    );
+    const values = occurrences.map((occurrence) => occurrence.value);
+
+    expect(values).not.toContain(testMarkerJsonFixtureLiteral);
+    expect(values).toContain(testMarkerAssertionLiteral);
   });
 
   it("--kind dupe output contains only test↔test duplication problems", async () => {

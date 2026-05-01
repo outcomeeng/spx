@@ -19,6 +19,10 @@ CAN trust that well-formed subcommands reach the correct stage, malformed or adv
 - Given an argument containing multi-byte Unicode code points, when `spx validation <arg>` is invoked, then stderr shows those code points unchanged ([test](tests/dispatch.scenario.l2.test.ts))
 - Given literal validation help is requested, when `spx validation literal --help` is invoked, then the help output lists `--allowlist-existing`, `--kind <kind>`, `--files-with-problems`, `--literals`, `--verbose`, and the valid `--kind` values `reuse` and `dupe` ([test](tests/dispatch.scenario.l2.test.ts))
 - Given an unknown literal problem kind, when `spx validation literal --kind <kind>` is invoked, then no literal detection runs, stderr reports "unknown problem kind" with the sanitized kind, and exit code is non-zero ([test](tests/dispatch.scenario.l2.test.ts))
+- Given validation-all help is requested, when `spx validation all --help` is invoked, then the help output lists `--skip-literal` ([test](tests/dispatch.scenario.l2.test.ts))
+- Given literal validation is skipped for one full-pipeline run, when `spx validation all --skip-literal` is invoked, then literal detection exits zero with skip output unless `--quiet` is set, and the other validation stages still run ([test](../tests/validation.integration.test.ts))
+- Given literal validation is skipped for one JSON full-pipeline run, when `spx validation all --skip-literal --json` is invoked, then the literal step emits a structured skipped sentinel instead of the human skip message ([test](../tests/validation.integration.test.ts))
+- Given literal validation is skipped for one production-scope full-pipeline run, when `spx validation all --scope production --skip-literal` is invoked, then the literal step is skipped and the other production-scope validation stages still run ([test](../tests/validation.integration.test.ts))
 
 ### Mappings
 
@@ -38,6 +42,9 @@ CAN trust that well-formed subcommands reach the correct stage, malformed or adv
 - ALWAYS: route every `spx validation <subcommand>` invocation through a dispatcher that resolves against a typed registry; unknown subcommands reach the safe-error path and never enter a stage handler ([test](tests/dispatch.scenario.l2.test.ts))
 - ALWAYS: emit unknown-subcommand diagnostics to stderr with the argument passed through `sanitizeCliArgument`; exit code is non-zero ([test](tests/dispatch.scenario.l2.test.ts))
 - ALWAYS: register literal-specific flags on `spx validation literal` and expose them through command help with the same operands accepted by the handler, including the valid `--kind` values `reuse` and `dupe` ([test](tests/dispatch.scenario.l2.test.ts))
+- ALWAYS: register `--skip-literal` on `spx validation all` and scope it to that full-pipeline invocation; the flag does not change `spx validation literal` behavior ([test](tests/dispatch.scenario.l2.test.ts), [test](../tests/validation.integration.test.ts))
+- ALWAYS: emit the skipped literal step as structured JSON with `skipped: true` and `reason: "skip-literal"` when `spx validation all --skip-literal --json` is invoked ([test](../tests/validation.integration.test.ts))
+- ALWAYS: apply `--skip-literal` to the literal step regardless of whether `spx validation all` runs with full or production scope ([test](../tests/validation.integration.test.ts))
 - ALWAYS: reject invalid `--kind` values before literal detection, emit the sanitized kind to stderr, and exit non-zero ([test](tests/dispatch.scenario.l2.test.ts))
 - ALWAYS: development validation scripts invoke `tsx src/cli.ts`; publish validation invokes `node bin/spx.js` only after `pnpm run build` creates `dist/cli.js` ([test](tests/package-scripts.compliance.l1.test.ts))
 - ALWAYS: package formatting scripts invoke `dprint fmt .` and `dprint check .`; package scripts do not invoke Prettier ([test](tests/package-scripts.compliance.l1.test.ts))

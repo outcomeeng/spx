@@ -9,12 +9,15 @@
  */
 
 import { execa } from "execa";
-import { readFile, writeFile } from "node:fs/promises";
+import { mkdir, readFile, writeFile } from "node:fs/promises";
 import { join } from "node:path";
 import { describe, expect, it } from "vitest";
 
+import { LITERAL_SKIP_JSON_OUTPUT, LITERAL_SKIP_OUTPUT } from "@/commands/validation/all";
 import { CIRCULAR_DEPENDENCY_OUTPUT } from "@/commands/validation/circular";
 import { VALIDATION_SUMMARY_STATUS } from "@/commands/validation/format";
+import { allValidationCliOptions } from "@/domains/validation";
+import { TSCONFIG_FILES } from "@/validation/config/scope";
 import { CLI_PATH } from "@test/harness/constants";
 import { FIXTURES, withValidationEnv } from "@test/harness/with-validation-env";
 
@@ -31,6 +34,11 @@ const STEP_NAMES = {
   MARKDOWN: "Markdown",
   LITERAL: "Literal",
 } as const;
+const productionTsconfigContent = JSON.stringify({
+  extends: `./${TSCONFIG_FILES.full}`,
+  include: ["src/**/*"],
+});
+const skippedLiteralToken = "validation-all-skip-literal-token";
 
 describe("spx validation all — pipeline composition (Scenarios)", () => {
   it(
@@ -118,6 +126,106 @@ describe("spx validation all — pipeline composition (Scenarios)", () => {
         expect(stepMarkers).toHaveLength(TOTAL_STEPS);
         const stepNumbers = stepMarkers.map((m) => Number(m[1]));
         expect(stepNumbers).toEqual([1, 2, 3, 4, 5, 6]);
+      });
+    },
+  );
+
+  it(
+    "S6 GIVEN --skip-literal WHEN running all THEN literal detection is skipped and quiet suppresses the skip notice",
+    { timeout: ALL_TIMEOUT_MS },
+    async () => {
+      await withValidationEnv({ fixture: FIXTURES.CLEAN_PROJECT }, async ({ path }) => {
+        const srcDir = join(path, "src");
+        const testDir = join(path, "spx", "21-literal-skip.enabler", "tests");
+        await mkdir(srcDir, { recursive: true });
+        await mkdir(testDir, { recursive: true });
+        await writeFile(
+          join(srcDir, "literal-skip.ts"),
+          `export const TOKEN = "${skippedLiteralToken}";\n`,
+          "utf8",
+        );
+        await writeFile(
+          join(testDir, "literal-skip.scenario.l1.test.ts"),
+          `expect(value).toBe("${skippedLiteralToken}");\n`,
+          "utf8",
+        );
+        await writeFile(
+          join(path, TSCONFIG_FILES.production),
+          `${productionTsconfigContent}\n`,
+          "utf8",
+        );
+
+        const result = await execa(
+          "node",
+          [CLI_PATH, "validation", "all", allValidationCliOptions.skipLiteral.flag],
+          {
+            cwd: path,
+            reject: false,
+          },
+        );
+
+        expect(result.exitCode).toBe(EXIT_SUCCESS);
+        const stepMarkers = [...result.stdout.matchAll(STEP_LINE_PATTERN)];
+        expect(stepMarkers).toHaveLength(TOTAL_STEPS);
+        expect(result.stdout).toContain(STEP_NAMES.CIRCULAR);
+        expect(result.stdout).toContain(STEP_NAMES.ESLINT);
+        expect(result.stdout).toContain(STEP_NAMES.TYPESCRIPT);
+        expect(result.stdout).toContain(STEP_NAMES.MARKDOWN);
+        expect(result.stdout).toContain(STEP_NAMES.LITERAL);
+        expect(result.stdout).toContain(LITERAL_SKIP_OUTPUT);
+        expect(result.stdout).not.toContain(`${LITERAL_SKIP_OUTPUT} (0ms)`);
+
+        const quietResult = await execa(
+          "node",
+          [CLI_PATH, "validation", "all", allValidationCliOptions.skipLiteral.flag, "--quiet"],
+          {
+            cwd: path,
+            reject: false,
+          },
+        );
+
+        expect(quietResult.exitCode).toBe(EXIT_SUCCESS);
+        expect(quietResult.stdout).not.toContain(LITERAL_SKIP_OUTPUT);
+        expect(quietResult.stdout.trim()).toHaveLength(0);
+
+        const jsonResult = await execa(
+          "node",
+          [CLI_PATH, "validation", "all", allValidationCliOptions.skipLiteral.flag, "--json"],
+          {
+            cwd: path,
+            reject: false,
+          },
+        );
+
+        expect(jsonResult.exitCode).toBe(EXIT_SUCCESS);
+        expect(jsonResult.stdout).toContain(LITERAL_SKIP_JSON_OUTPUT);
+        expect(jsonResult.stdout).not.toContain(LITERAL_SKIP_OUTPUT);
+
+        const productionResult = await execa(
+          "node",
+          [
+            CLI_PATH,
+            "validation",
+            "all",
+            "--scope",
+            "production",
+            allValidationCliOptions.skipLiteral.flag,
+          ],
+          {
+            cwd: path,
+            reject: false,
+          },
+        );
+
+        expect(productionResult.exitCode).toBe(EXIT_SUCCESS);
+        const productionStepMarkers = [...productionResult.stdout.matchAll(STEP_LINE_PATTERN)];
+        expect(productionStepMarkers).toHaveLength(TOTAL_STEPS);
+        expect(productionResult.stdout).toContain(STEP_NAMES.CIRCULAR);
+        expect(productionResult.stdout).toContain(STEP_NAMES.ESLINT);
+        expect(productionResult.stdout).toContain(STEP_NAMES.TYPESCRIPT);
+        expect(productionResult.stdout).toContain(STEP_NAMES.MARKDOWN);
+        expect(productionResult.stdout).toContain(STEP_NAMES.LITERAL);
+        expect(productionResult.stdout).toContain(LITERAL_SKIP_OUTPUT);
       });
     },
   );
