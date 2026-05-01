@@ -36,6 +36,7 @@ CAN trust that well-formed subcommands reach the correct stage, malformed or adv
 - ALWAYS: route every `spx validation <subcommand>` invocation through a dispatcher that resolves against a typed registry; unknown subcommands reach the safe-error path and never enter a stage handler ([test](tests/dispatch.scenario.l2.test.ts))
 - ALWAYS: emit unknown-subcommand diagnostics to stderr with the argument passed through `sanitizeCliArgument`; exit code is non-zero ([test](tests/dispatch.scenario.l2.test.ts))
 - ALWAYS: development validation scripts invoke `tsx src/cli.ts`; publish validation invokes `node bin/spx.js` only after `pnpm run build` creates `dist/cli.js` ([test](tests/package-scripts.compliance.l1.test.ts))
+- ALWAYS: package formatting scripts invoke `dprint fmt .` and `dprint check .`; package scripts do not invoke Prettier ([test](tests/package-scripts.compliance.l1.test.ts))
 - NEVER: pass raw user-supplied strings to `console.error`, `process.stderr.write`, or shell execution paths without `sanitizeCliArgument` in the chain ([review])
 - NEVER: invoke a stage handler during dispatch failure ([test](tests/dispatch.scenario.l2.test.ts))
 - NEVER: the packaged executable imports `src/cli.ts` when built output is absent; it exits with a build-required diagnostic instead ([review])
