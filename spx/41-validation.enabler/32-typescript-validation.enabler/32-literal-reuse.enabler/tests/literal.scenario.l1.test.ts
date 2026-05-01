@@ -88,6 +88,8 @@ const compoundRoleAssertionLiteral = "compound-role-assertion-value";
 const screamingSnakeFixtureStatus = "SCREAMING_SNAKE_FIXTURE_STATUS";
 const screamingSnakeAssertionLiteral = "screaming-snake-assertion-value";
 const singleSegmentJsonFixtureLiteral = "single-segment-json-fixture-value";
+const singleSegmentSourceFixtureLiteral = "single-segment-source-fixture-value";
+const singleSegmentSessionFixtureLiteral = "single-segment-session-fixture-value";
 const singleSegmentAssertionLiteral = "single-segment-assertion-value";
 const windowsPathJsonFixtureLiteral = "windows-path-json-fixture-value";
 const windowsPathAssertionLiteral = "windows-path-assertion-value";
@@ -538,7 +540,9 @@ describe("literal-reuse detection — scenarios", () => {
 
   it("single-segment fixture role names do not contribute occurrences while assertion literals still do", () => {
     const source = `
+      const source = "${singleSegmentSourceFixtureLiteral}";
       const json = "${singleSegmentJsonFixtureLiteral}";
+      const session = "${singleSegmentSessionFixtureLiteral}";
       expect(actual).toBe("${singleSegmentAssertionLiteral}");
     `;
 
@@ -550,6 +554,8 @@ describe("literal-reuse detection — scenarios", () => {
     const values = occurrences.map((occurrence) => occurrence.value);
 
     expect(values).not.toContain(singleSegmentJsonFixtureLiteral);
+    expect(values).not.toContain(singleSegmentSourceFixtureLiteral);
+    expect(values).not.toContain(singleSegmentSessionFixtureLiteral);
     expect(values).toContain(singleSegmentAssertionLiteral);
   });
 
