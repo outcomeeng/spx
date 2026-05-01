@@ -8,8 +8,8 @@ import { configFileForFormat, DEFAULT_CONFIG_FILE_FORMAT, serializeConfigFileSec
 import type { Config } from "@/config/types";
 import { SPEC_TREE_CONFIG, type SpecTreeKindCategory } from "@/spec/config";
 import type { Kind, KindDefinition, SpecTreeConfig } from "@/spec/config";
-import type { SpecTreeEnvFixtureWriterMethod } from "./fixture-writer-methods";
-export { SPEC_TREE_ENV_FIXTURE_WRITER_METHODS } from "./fixture-writer-methods";
+import type { SpecTreeEnvFixtureWriterMethod } from "@/spec/fixture-writer-methods";
+export { SPEC_TREE_ENV_FIXTURE_WRITER_METHODS } from "@/spec/fixture-writer-methods";
 
 export type { Config } from "@/config/types";
 

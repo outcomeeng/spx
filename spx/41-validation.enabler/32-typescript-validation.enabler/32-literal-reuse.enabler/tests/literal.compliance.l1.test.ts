@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 
 import { literalCommand } from "@/commands/validation/literal";
-import { SPEC_TREE_ENV_FIXTURE_WRITER_METHODS } from "@/spec/testing/fixture-writer-methods";
+import { SPEC_TREE_ENV_FIXTURE_WRITER_METHODS } from "@/spec/fixture-writer-methods";
 import { withTestEnv } from "@/spec/testing/index";
 import {
   collectLiterals,
