@@ -6,9 +6,9 @@
 
 **Resolution:** Track separately from `spx/PLAN.md`. Revisit before declaring the whole spec tree enabler-only.
 
-## Enabled tests still contain test-owned named constants
+## Enabled tests still contain manifest-tracked test-owned named constants
 
-The TypeScript testing guidance forbids test-owned named constants. Several enabled tests still carry them, and the current lint/literal gates do not catch this class yet. Examples observed during the strict lint cleanup:
+The TypeScript testing guidance forbids test-owned named constants. Several enabled tests still carry them. `spx/no-test-owned-domain-constants` now catches this class, and `eslint.test-owned-constant-debt-nodes.json` downgrades existing debt nodes to warnings during migration. Examples observed during the strict lint cleanup:
 
 - `spx/41-validation.enabler/32-typescript-validation.enabler/tests/support.ts` exports `TYPESCRIPT_VALIDATION_TEST_FILE`
 - `spx/41-validation.enabler/32-typescript-validation.enabler/32-lint.enabler/tests/lint.integration.test.ts` declares output marker constants
@@ -18,7 +18,7 @@ The spec-tree fixture support now lives in `testing/generators/spec-tree.ts`; au
 
 **Skills:** `typescript:testing-typescript`, `typescript:auditing-typescript-tests`, and `spec-tree:testing`.
 
-**Resolution:** Convert each case to source-owned constants, source-side test-data generators, or inline assertion data as required by the testing guidance. After migration, add a validation rule that rejects test-owned named constants in enabled tests.
+**Resolution:** Convert each case to source-owned constants, source-side test-data generators, or inline assertion data as required by the testing guidance, then remove the owning node from `eslint.test-owned-constant-debt-nodes.json`.
 
 ## Capability subtrees use pre-methodology suffixes and misdeclared node types
 
