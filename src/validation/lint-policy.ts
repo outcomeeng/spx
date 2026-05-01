@@ -2,9 +2,7 @@ import { execFileSync } from "node:child_process";
 import { existsSync, readdirSync, readFileSync, statSync } from "node:fs";
 import { join } from "node:path";
 
-import * as JSONC from "jsonc-parser";
-
-import { LINT_POLICY_MANIFESTS } from "./lint-policy-constants";
+import { LINT_POLICY_BASE_REFS, LINT_POLICY_MANIFESTS, parseLintPolicyManifest } from "./lint-policy-constants";
 
 const LEGACY_SPEC_SUFFIX_NODE_MANIFEST_FILE = LINT_POLICY_MANIFESTS.LEGACY_SPEC_SUFFIX_NODES.file;
 const LEGACY_SPEC_SUFFIX_NODE_MANIFEST_KEY = LINT_POLICY_MANIFESTS.LEGACY_SPEC_SUFFIX_NODES.key;
@@ -13,41 +11,14 @@ const TEST_LINT_DEBT_NODE_MANIFEST_KEY = LINT_POLICY_MANIFESTS.TEST_LINT_DEBT_NO
 const SPEC_TREE_ROOT = "spx";
 const SPEC_TREE_NODE_SUFFIX_PATTERN = /\.(enabler|outcome|capability|feature|story)$/;
 const LEGACY_SPEC_NODE_SUFFIX_PATTERN = /\.(capability|feature|story)$/;
-
-type JsonObject = Record<string, unknown>;
+const BASE_BRANCH_REFS = [LINT_POLICY_BASE_REFS.REMOTE_MAIN, LINT_POLICY_BASE_REFS.LOCAL_MAIN] as const;
 
 export type LintPolicyResult =
   | { readonly ok: true }
   | { readonly ok: false; readonly error: string };
 
-function isJsonObject(value: unknown): value is JsonObject {
-  return typeof value === "object" && value !== null && !Array.isArray(value);
-}
-
-function parseManifest(content: string, source: string, key: string): string[] {
-  const parsed = JSONC.parse(content) as unknown;
-
-  if (!isJsonObject(parsed)) {
-    throw new Error(`${source} must contain a JSON object`);
-  }
-
-  const entries = parsed[key];
-
-  if (!Array.isArray(entries)) {
-    throw new Error(`${source} must contain a ${key} array`);
-  }
-
-  const invalidEntries = entries.filter((entry) => typeof entry !== "string");
-
-  if (invalidEntries.length > 0) {
-    throw new Error(`${source} ${key} entries must be strings`);
-  }
-
-  return entries as string[];
-}
-
 function readManifest(projectRoot: string, file: string, key: string): string[] {
-  return parseManifest(
+  return parseLintPolicyManifest(
     readFileSync(join(projectRoot, file), "utf-8"),
     file,
     key,
@@ -126,18 +97,65 @@ function assertManifestEntries(
   }
 }
 
-function readHeadManifest(projectRoot: string, file: string, key: string): string[] | undefined {
+function readBaselineManifest(projectRoot: string, file: string, key: string): string[] | undefined {
+  const baselineRef = readBaselineRef(projectRoot);
+  if (baselineRef === undefined) {
+    return undefined;
+  }
+
   try {
-    return parseManifest(
-      execFileSync("git", ["show", `HEAD:${file}`], {
+    return parseLintPolicyManifest(
+      execFileSync("git", ["show", `${baselineRef}:${file}`], {
         cwd: projectRoot,
         encoding: "utf-8",
         env: withoutGitEnvironment(process.env),
         stdio: ["ignore", "pipe", "ignore"],
       }),
-      `HEAD:${file}`,
+      `${baselineRef}:${file}`,
       key,
     );
+  } catch {
+    return undefined;
+  }
+}
+
+function readBaselineRef(projectRoot: string): string | undefined {
+  const pullRequestBase = readPullRequestBaseRef(projectRoot);
+  if (pullRequestBase !== undefined) {
+    return pullRequestBase;
+  }
+
+  for (const baseBranchRef of BASE_BRANCH_REFS) {
+    const mergeBase = readMergeBase(projectRoot, baseBranchRef);
+    if (mergeBase !== undefined) {
+      return mergeBase;
+    }
+  }
+
+  return readGitRef(projectRoot, ["rev-parse", "--verify", "HEAD"]);
+}
+
+function readPullRequestBaseRef(projectRoot: string): string | undefined {
+  const secondParent = readGitRef(projectRoot, ["rev-parse", "--verify", "HEAD^2"]);
+  if (secondParent === undefined) {
+    return undefined;
+  }
+  return readGitRef(projectRoot, ["rev-parse", "--verify", "HEAD^1"]);
+}
+
+function readMergeBase(projectRoot: string, baseBranchRef: string): string | undefined {
+  return readGitRef(projectRoot, ["merge-base", "HEAD", baseBranchRef]);
+}
+
+function readGitRef(projectRoot: string, args: readonly string[]): string | undefined {
+  try {
+    const output = execFileSync("git", [...args], {
+      cwd: projectRoot,
+      encoding: "utf-8",
+      env: withoutGitEnvironment(process.env),
+      stdio: ["ignore", "pipe", "ignore"],
+    });
+    return output.trim() || undefined;
   } catch {
     return undefined;
   }
@@ -159,14 +177,14 @@ function assertManifestDoesNotGrow(
   key: string,
   entries: string[],
 ): void {
-  const headEntries = readHeadManifest(projectRoot, file, key);
+  const baselineEntries = readBaselineManifest(projectRoot, file, key);
 
-  if (headEntries === undefined) {
+  if (baselineEntries === undefined) {
     return;
   }
 
-  const headEntrySet = new Set(headEntries);
-  const additions = entries.filter((entry) => !headEntrySet.has(entry));
+  const baselineEntrySet = new Set(baselineEntries);
+  const additions = entries.filter((entry) => !baselineEntrySet.has(entry));
 
   if (additions.length > 0) {
     throw new Error(

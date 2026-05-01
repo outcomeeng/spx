@@ -11,6 +11,7 @@ import { afterEach, beforeEach, describe, expect, it } from "vitest";
 
 import { DEFAULT_CONFIG } from "@/config/defaults";
 import { detectGitRoot, detectMainRepoRoot, type GitDependencies, resolveSessionConfig } from "@/git/root";
+import { GIT_TEST_COMMAND, GIT_TEST_CONFIG, GIT_TEST_SUBCOMMANDS } from "@test/harness/git-test-constants";
 
 // -- Helper: create a GitDependencies that returns controlled results --
 
@@ -171,10 +172,14 @@ describe("detectMainRepoRoot with real git worktrees", () => {
 
     const { execa: realExeca } = await import("execa");
     const gitOpts = { cwd: repoDir, env: cleanGitEnv };
-    await realExeca("git", ["init"], gitOpts);
-    await realExeca("git", ["config", "user.email", "test@test.local"], gitOpts);
-    await realExeca("git", ["config", "user.name", "Test"], gitOpts);
-    await realExeca("git", ["commit", "--allow-empty", "-m", "initial"], gitOpts);
+    await realExeca(GIT_TEST_COMMAND, [GIT_TEST_SUBCOMMANDS.INIT], gitOpts);
+    await realExeca(GIT_TEST_COMMAND, [GIT_TEST_SUBCOMMANDS.CONFIG, "user.email", GIT_TEST_CONFIG.EMAIL], gitOpts);
+    await realExeca(
+      GIT_TEST_COMMAND,
+      [GIT_TEST_SUBCOMMANDS.CONFIG, "user.name", GIT_TEST_CONFIG.USER_NAME],
+      gitOpts,
+    );
+    await realExeca(GIT_TEST_COMMAND, [GIT_TEST_SUBCOMMANDS.COMMIT, "--allow-empty", "-m", "initial"], gitOpts);
   });
 
   afterEach(() => {

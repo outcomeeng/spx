@@ -11,44 +11,18 @@ import customRules from "./eslint-rules";
 import { NO_BARE_STRING_UNIONS_RULE_ID } from "./eslint-rules/no-bare-string-unions";
 import { NO_DEEP_RELATIVE_IMPORTS_RULE_ID } from "./eslint-rules/no-deep-relative-imports";
 import { NO_IMPORT_SOURCE_EXTENSIONS_RULE_ID } from "./eslint-rules/no-import-source-extensions";
-import { testRestrictedSyntax, tsRestrictedSyntax } from "./eslint-rules/restricted-syntax";
-import { LINT_POLICY_MANIFESTS } from "./src/validation/lint-policy-constants";
+import {
+  TEST_ASSERTION_STRING_LITERAL_RULE,
+  TEST_READ_FILE_SYNC_IMPORT_RULE,
+  testRestrictedSyntax,
+  tsRestrictedSyntax,
+} from "./eslint-rules/restricted-syntax";
+import { LINT_POLICY_MANIFESTS, parseLintPolicyManifest } from "./src/validation/lint-policy-constants";
 
 const TEST_LINT_DEBT_NODE_MANIFEST_FILE = LINT_POLICY_MANIFESTS.TEST_LINT_DEBT_NODES.file;
 const TEST_LINT_DEBT_NODE_MANIFEST_KEY = LINT_POLICY_MANIFESTS.TEST_LINT_DEBT_NODES.key;
-const ASSERTION_STRING_LITERAL_RULE_MESSAGE = "Do not use string literals in assertions.";
-const READ_FILE_SYNC_IMPORT_RULE_MESSAGE = "readFileSync imports are banned in tests";
-
-type JsonObject = Record<string, unknown>;
-
-function isJsonObject(value: unknown): value is JsonObject {
-  return typeof value === "object" && value !== null && !Array.isArray(value);
-}
-
-function parseManifest(content: string, source: string, key: string): string[] {
-  const parsed = JSONC.parse(content) as unknown;
-
-  if (!isJsonObject(parsed)) {
-    throw new Error(`${source} must contain a JSON object`);
-  }
-
-  const entries = parsed[key];
-
-  if (!Array.isArray(entries)) {
-    throw new Error(`${source} must contain a ${key} array`);
-  }
-
-  const invalidEntries = entries.filter((entry) => typeof entry !== "string");
-
-  if (invalidEntries.length > 0) {
-    throw new Error(`${source} ${key} entries must be strings`);
-  }
-
-  return entries as string[];
-}
-
 function readManifest(file: string, key: string): string[] {
-  return parseManifest(
+  return parseLintPolicyManifest(
     readFileSync(file, "utf-8"),
     file,
     key,
@@ -59,18 +33,12 @@ function toTestLintDebtNodeTestGlob(path: string): string {
   return `${path}/**/*.test.ts`;
 }
 
-function isAssertionStringLiteralRule(
-  rule: (typeof testRestrictedSyntax)[number],
-): boolean {
-  return rule.message.startsWith(ASSERTION_STRING_LITERAL_RULE_MESSAGE);
-}
-
 function isLegacyLintNoiseRule(
   rule: (typeof testRestrictedSyntax)[number],
 ): boolean {
   return (
-    isAssertionStringLiteralRule(rule)
-    || rule.message.startsWith(READ_FILE_SYNC_IMPORT_RULE_MESSAGE)
+    rule === TEST_ASSERTION_STRING_LITERAL_RULE
+    || rule === TEST_READ_FILE_SYNC_IMPORT_RULE
   );
 }
 
@@ -79,14 +47,24 @@ function isLegacyLintNoiseRule(
  * Follows `extends` so derived configs (e.g. tsconfig.production.json)
  * inherit base exclusions such as `dist`.
  */
-function getTypeScriptExclusions(configFile: string): string[] {
+function getTypeScriptExclusions(configFile: string, seen: ReadonlySet<string> = new Set()): string[] {
+  if (seen.has(configFile)) {
+    return [];
+  }
+  const nextSeen = new Set(seen).add(configFile);
   try {
     const configContent = readFileSync(configFile, "utf-8");
     const config = JSONC.parse(configContent);
     const ownExcludes: string[] = config.exclude || [];
-    if (config.extends) {
-      const baseFile = config.extends.startsWith(".") ? config.extends : `./${config.extends}`;
-      return [...getTypeScriptExclusions(baseFile), ...ownExcludes];
+    const extendsValues = Array.isArray(config.extends) ? config.extends : [config.extends];
+    const baseExcludes = extendsValues
+      .filter((value): value is string => typeof value === "string")
+      .flatMap((value) => {
+        const baseFile = value.startsWith(".") ? value : `./${value}`;
+        return getTypeScriptExclusions(baseFile, nextSeen);
+      });
+    if (baseExcludes.length > 0) {
+      return [...baseExcludes, ...ownExcludes];
     }
     return ownExcludes;
   } catch {
