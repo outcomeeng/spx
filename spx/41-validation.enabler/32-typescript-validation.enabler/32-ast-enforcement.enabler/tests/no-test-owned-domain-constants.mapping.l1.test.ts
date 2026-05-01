@@ -21,7 +21,7 @@ describe("no-test-owned-domain-constants", () => {
     valid: [
       {
         name: "GIVEN imported source-owned constant WHEN linting THEN no error",
-        code: `import { NODE_KINDS } from "@/spec/config"; expect(kind).toBe(NODE_KINDS[0]);`,
+        code: `import { NODE_KINDS } from "@/lib/spec-tree/config"; expect(kind).toBe(NODE_KINDS[0]);`,
         filename: "spx/sample.enabler/tests/source-owned.mapping.l1.test.ts",
       },
       {

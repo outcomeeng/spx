@@ -250,7 +250,7 @@ describe("ESLint Rules Integration", () => {
   describe("registry position detection", () => {
     it("GIVEN test file with positional registry read WHEN linting THEN reports violation", async () => {
       const results = await eslint.lintText(
-        `import { DECISION_KINDS } from "@/spec/config"; const kind = DECISION_KINDS[0];`,
+        `import { DECISION_KINDS } from "@/lib/spec-tree/config"; const kind = DECISION_KINDS[0];`,
         { filePath: "test.test.ts" },
       );
 
