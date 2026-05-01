@@ -89,6 +89,7 @@ const FUNCTION_NODE_TYPES: ReadonlySet<string> = new Set([
   "FunctionDeclaration",
   "FunctionExpression",
 ]);
+// Keep in sync with test-harness helpers that write source, spec, and fixture files.
 const FIXTURE_WRITER_CALLS: ReadonlySet<string> = new Set([
   "writeDecision",
   "writeNode",

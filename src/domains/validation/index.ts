@@ -182,6 +182,7 @@ interface LiteralOptions extends CommonOptions {
   verbose?: boolean;
 }
 
+// `validation all` accepts lint's --fix option and forwards it only to ESLint.
 interface AllOptions extends LintOptions {
   skipLiteral?: boolean;
 }
