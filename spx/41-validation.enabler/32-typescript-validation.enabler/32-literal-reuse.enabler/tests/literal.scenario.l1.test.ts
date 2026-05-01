@@ -378,6 +378,24 @@ describe("literal-reuse detection — scenarios", () => {
     expect(values).not.toContain(fixtureWriterPayload);
   });
 
+  it("computed string fixture-writer calls keep direct writer literals suppressed", () => {
+    const source = `
+      async function seed(env) {
+        await env["writeRaw"]("${fixtureWriterPath}", '${fixtureWriterPayload}');
+      }
+    `;
+
+    const occurrences = collectLiterals(
+      source,
+      "spx/41-validation.enabler/32-typescript-validation.enabler/32-literal-reuse.enabler/tests/generated.scenario.l1.test.ts",
+      DEFAULT_OPTIONS,
+    );
+    const values = occurrences.map((occurrence) => occurrence.value);
+
+    expect(values).not.toContain(fixtureWriterPath);
+    expect(values).not.toContain(fixtureWriterPayload);
+  });
+
   it("non-fixture calls nested inside fixture writers keep payload literals suppressed", () => {
     const source = `
       async function seed(env) {
