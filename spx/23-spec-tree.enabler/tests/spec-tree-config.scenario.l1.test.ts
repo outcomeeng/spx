@@ -25,9 +25,7 @@ describe("specTreeConfigDescriptor.defaults", () => {
 describe("specTreeConfigDescriptor.validate", () => {
   it("rejects a yaml section keyed by display label instead of kind name", () => {
     const result = specTreeConfigDescriptor.validate({
-      kinds: {
-        [SPEC_TREE_CONFIG.KINDS.enabler.label]: KIND_REGISTRY.enabler,
-      },
+      kinds: [SPEC_TREE_CONFIG.KINDS.enabler.label],
     });
 
     expect(result.ok).toBe(false);
@@ -35,7 +33,7 @@ describe("specTreeConfigDescriptor.validate", () => {
 
   it("accepts a yaml section that selects a subset of registered kinds", () => {
     const result = specTreeConfigDescriptor.validate({
-      kinds: { enabler: KIND_REGISTRY.enabler, adr: KIND_REGISTRY.adr },
+      kinds: ["enabler", "adr"],
     });
 
     expect(result.ok).toBe(true);
@@ -46,7 +44,7 @@ describe("specTreeConfigDescriptor.validate", () => {
 
   it("rejects a yaml section naming a kind not present in the registry", () => {
     const result = specTreeConfigDescriptor.validate({
-      kinds: { phantomKind: { category: "node", suffix: ".phantom" } },
+      kinds: ["phantomKind"],
     });
 
     expect(result.ok).toBe(false);
@@ -56,11 +54,22 @@ describe("specTreeConfigDescriptor.validate", () => {
   });
 
   it("returns an error rather than a partial config when the input is malformed", () => {
-    const malformed = { kinds: "not-an-object" };
+    const malformed = { kinds: "not-an-array" };
 
     const result = specTreeConfigDescriptor.validate(malformed);
 
     expect(result.ok).toBe(false);
+  });
+
+  it("rejects a yaml section that selects the same kind more than once", () => {
+    const result = specTreeConfigDescriptor.validate({
+      kinds: ["enabler", "enabler"],
+    });
+
+    expect(result.ok).toBe(false);
+    if (!result.ok) {
+      expect(result.error).toMatch(/duplicate/);
+    }
   });
 
   it("accepts the defaults round-trip; defaults validate cleanly", () => {

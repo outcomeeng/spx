@@ -2,7 +2,7 @@ import { readFile } from "node:fs/promises";
 import { join } from "node:path";
 
 import { parse as parseToml, stringify as stringifyToml } from "smol-toml";
-import { parse as parseYaml, stringify as stringifyYaml } from "yaml";
+import { parse as parseYaml, parseDocument as parseYamlDocument, stringify as stringifyYaml } from "yaml";
 
 import { productionRegistry } from "./registry";
 import type { Config, ConfigDescriptor, Result } from "./types";
@@ -170,6 +170,24 @@ export function serializeConfigFileSections(
   }
 }
 
+export function serializeConfigFileSectionsWithSetIn(
+  file: ConfigFile,
+  path: readonly string[],
+  value: unknown,
+): Result<string> {
+  switch (file.format) {
+    case CONFIG_FILE_FORMAT.YAML:
+      return serializeYamlSectionsWithSetIn(file, path, value);
+    case CONFIG_FILE_FORMAT.JSON:
+    case CONFIG_FILE_FORMAT.TOML: {
+      const sections = parseConfigFileSections(file);
+      if (!sections.ok) return sections;
+      setNested(sections.value, path, value);
+      return serializeConfigFileSections(file.format, sections.value);
+    }
+  }
+}
+
 function parseJsonSections(filename: string, raw: string): Result<Record<string, unknown>> {
   let parsed: unknown;
   try {
@@ -212,6 +230,42 @@ function serializeTomlSections(sections: Record<string, unknown>): Result<string
       error: `config is not serializable as ${CONFIG_FILE_FORMAT.TOML}: ${toMessage(error)}`,
     };
   }
+}
+
+function serializeYamlSectionsWithSetIn(
+  file: ConfigFile,
+  path: readonly string[],
+  value: unknown,
+): Result<string> {
+  try {
+    const doc = parseYamlDocument(file.raw.trim() === "" ? "{}\n" : file.raw);
+    if (doc.errors.length > 0) {
+      return {
+        ok: false,
+        error: `${file.filename} is not valid ${CONFIG_FILE_FORMAT.YAML}: ${doc.errors[0].message}`,
+      };
+    }
+    doc.setIn([...path], value);
+    return { ok: true, value: String(doc) };
+  } catch (error) {
+    return { ok: false, error: `${file.filename} is not valid ${CONFIG_FILE_FORMAT.YAML}: ${toMessage(error)}` };
+  }
+}
+
+function setNested(target: Record<string, unknown>, path: readonly string[], value: unknown): void {
+  let cursor: Record<string, unknown> = target;
+  for (let i = 0; i < path.length - 1; i += 1) {
+    const key = path[i];
+    const existing = cursor[key];
+    if (typeof existing === "object" && existing !== null && !Array.isArray(existing)) {
+      cursor = existing as Record<string, unknown>;
+    } else {
+      const fresh: Record<string, unknown> = {};
+      cursor[key] = fresh;
+      cursor = fresh;
+    }
+  }
+  cursor[path[path.length - 1]] = value;
 }
 
 function validateParsedSections(filename: string, parsed: unknown): Result<Record<string, unknown>> {

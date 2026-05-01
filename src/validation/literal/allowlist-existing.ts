@@ -9,7 +9,7 @@ import {
   formatConfigFileAmbiguityError,
   parseConfigFileSections,
   readProjectConfigFile,
-  serializeConfigFileSections,
+  serializeConfigFileSectionsWithSetIn,
 } from "@/config/index";
 import type { Result } from "@/config/types";
 
@@ -138,25 +138,5 @@ function computeUpdatedInclude(
 }
 
 function serializeWithUpdatedInclude(target: ConfigFile, include: readonly string[]): Result<string> {
-  const sections = parseConfigFileSections(target);
-  if (!sections.ok) return sections;
-
-  setNested(sections.value, [...ALLOWLIST_INCLUDE_PATH], [...include]);
-  return serializeConfigFileSections(target.format, sections.value);
-}
-
-function setNested(target: Record<string, unknown>, path: readonly string[], value: unknown): void {
-  let cursor: Record<string, unknown> = target;
-  for (let i = 0; i < path.length - 1; i += 1) {
-    const key = path[i];
-    const existing = cursor[key];
-    if (typeof existing === "object" && existing !== null && !Array.isArray(existing)) {
-      cursor = existing as Record<string, unknown>;
-    } else {
-      const fresh: Record<string, unknown> = {};
-      cursor[key] = fresh;
-      cursor = fresh;
-    }
-  }
-  cursor[path[path.length - 1]] = value;
+  return serializeConfigFileSectionsWithSetIn(target, ALLOWLIST_INCLUDE_PATH, [...include]);
 }

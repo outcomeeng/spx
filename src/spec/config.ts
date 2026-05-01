@@ -85,24 +85,63 @@ function buildDefaults(): SpecTreeConfig {
   return { kinds: { ...KIND_REGISTRY } };
 }
 
+function buildConfigFromKindNames(kindNames: readonly Kind[]): SpecTreeConfig {
+  const entries = kindNames.map((kind) => [kind, KIND_REGISTRY[kind]] as const);
+  return { kinds: Object.fromEntries(entries) as SpecTreeConfig["kinds"] };
+}
+
 function validate(value: unknown): Result<SpecTreeConfig> {
   if (typeof value !== "object" || value === null) {
     return { ok: false, error: `${SPEC_TREE_SECTION} section must be an object` };
   }
   const candidate = value as { kinds?: unknown };
+  if (Array.isArray(candidate.kinds)) {
+    return validateKindList(candidate.kinds);
+  }
   if (
     typeof candidate.kinds !== "object"
     || candidate.kinds === null
-    || Array.isArray(candidate.kinds)
   ) {
     return {
       ok: false,
-      error: `${SPEC_TREE_SECTION}.kinds must be an object keyed by kind name`,
+      error: `${SPEC_TREE_SECTION}.kinds must be an array of registry kind names`,
     };
   }
 
+  return validateKindDefinitionMap(candidate.kinds as Record<string, unknown>);
+}
+
+function validateKindList(kinds: readonly unknown[]): Result<SpecTreeConfig> {
+  const kindNames: Kind[] = [];
+  for (const entry of kinds) {
+    if (typeof entry !== "string") {
+      return {
+        ok: false,
+        error: `${SPEC_TREE_SECTION}.kinds entries must be registry kind names`,
+      };
+    }
+    if (!isKind(entry)) {
+      return {
+        ok: false,
+        error: `${SPEC_TREE_SECTION}.kinds contains unknown kind "${entry}"`,
+      };
+    }
+    kindNames.push(entry);
+  }
+
+  const duplicateKinds = kindNames.filter((kind, index) => kindNames.indexOf(kind) !== index);
+  if (duplicateKinds.length > 0) {
+    return {
+      ok: false,
+      error: `${SPEC_TREE_SECTION}.kinds contains duplicate kind "${duplicateKinds[0]}"`,
+    };
+  }
+
+  return { ok: true, value: buildConfigFromKindNames(kindNames) };
+}
+
+function validateKindDefinitionMap(kindEntries: Record<string, unknown>): Result<SpecTreeConfig> {
   const entries: Array<[Kind, KindDefinition<Kind>]> = [];
-  const kindEntries = candidate.kinds as Record<string, unknown>;
   for (const [key, entry] of Object.entries(kindEntries)) {
     if (!isKind(key)) {
       return {

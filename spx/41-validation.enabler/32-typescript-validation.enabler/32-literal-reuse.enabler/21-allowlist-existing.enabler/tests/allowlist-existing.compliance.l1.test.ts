@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { CONFIG_FILE_FORMAT_ORDER, readProjectConfigFile } from "@/config/index";
+import { CONFIG_FILE_FORMAT_ORDER, CONFIG_FILENAMES, readProjectConfigFile } from "@/config/index";
 import { withTestEnv } from "@/spec/testing/index";
 import { allowlistExisting } from "@/validation/literal/allowlist-existing";
 
@@ -122,4 +122,42 @@ describe("allowlist-existing compliance", () => {
       });
     },
   );
+
+  it("preserves YAML comments while updating literal.allowlist.include", async () => {
+    const projectConfigComment = "# project config comment";
+    const allowlistSectionComment = "# allowlist section comment";
+    const includeListComment = "# include list comment";
+    const sectionIndent = " ".repeat(2);
+    const nestedIndent = " ".repeat(4);
+    const listIndent = " ".repeat(6);
+    await withTestEnv({}, async (env) => {
+      await env.writeRaw(
+        CONFIG_FILENAMES.yaml,
+        [
+          projectConfigComment,
+          "literal:",
+          `${sectionIndent}${allowlistSectionComment}`,
+          `${sectionIndent}allowlist:`,
+          `${nestedIndent}${includeListComment}`,
+          `${nestedIndent}include:`,
+          `${listIndent}- ${EXISTING_INCLUDE_FIRST}`,
+          `${sectionIndent}minStringLength: 5`,
+          `${sectionIndent}minNumberDigits: 3`,
+          "",
+        ].join("\n"),
+      );
+      await writeDuplicatedLiteralFixture(env);
+
+      const result = await allowlistExisting({ projectRoot: env.projectDir });
+      expect(result.exitCode).toBe(0);
+
+      const rawConfig = await env.readFile(CONFIG_FILENAMES.yaml);
+      expect(rawConfig).toContain(projectConfigComment);
+      expect(rawConfig).toContain(allowlistSectionComment);
+      expect(rawConfig).toContain(includeListComment);
+
+      const allowlist = readLiteralAllowlist(await readProjectConfigSections(env));
+      expect(allowlist.include).toContain(SHARED_FIXTURE_LITERAL);
+    });
+  });
 });

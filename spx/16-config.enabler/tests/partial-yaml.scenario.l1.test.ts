@@ -1,30 +1,23 @@
 import { describe, expect, it } from "vitest";
 
-import { resolveConfig } from "@/config/index";
+import { CONFIG_FILENAMES, resolveConfig } from "@/config/index";
 import { KIND_REGISTRY, specTreeConfigDescriptor } from "@/spec/config";
 import { withTestEnv } from "@/spec/testing/index";
 import type { Config } from "@/spec/testing/index";
 
 describe("resolveConfig — partial config", () => {
   it("merges the subset declared in config content with descriptor defaults for that section", async () => {
-    const projectConfig: Config = {
-      [specTreeConfigDescriptor.section]: {
-        kinds: {
-          enabler: KIND_REGISTRY.enabler,
-          adr: KIND_REGISTRY.adr,
-        },
-      },
-    };
+    const selectedKinds = ["enabler", "adr"] as const;
 
-    await withTestEnv(projectConfig, async ({ projectDir }) => {
+    await withTestEnv({}, async ({ projectDir, writeRaw }) => {
+      await writeRaw(CONFIG_FILENAMES.yaml, "specTree:\n  kinds:\n    - enabler\n    - adr\n");
+
       const result = await resolveConfig(projectDir, [specTreeConfigDescriptor]);
 
       expect(result.ok).toBe(true);
       if (result.ok) {
-        const declaredSpecTree =
-          projectConfig[specTreeConfigDescriptor.section] as typeof specTreeConfigDescriptor.defaults;
         const specTree = result.value[specTreeConfigDescriptor.section] as typeof specTreeConfigDescriptor.defaults;
-        expect(Object.keys(specTree.kinds).sort()).toEqual(Object.keys(declaredSpecTree.kinds).sort());
+        expect(Object.keys(specTree.kinds).sort()).toEqual([...selectedKinds].sort());
       }
     });
   });
@@ -43,11 +36,9 @@ describe("resolveConfig — partial config", () => {
   });
 
   it("passes the parsed section value — not the full config — through the descriptor's validator", async () => {
-    const projectConfig: Config = {
-      [specTreeConfigDescriptor.section]: { kinds: { pdr: KIND_REGISTRY.pdr } },
-    };
+    await withTestEnv({}, async ({ projectDir, writeRaw }) => {
+      await writeRaw(CONFIG_FILENAMES.yaml, "specTree:\n  kinds:\n    - pdr\n");
 
-    await withTestEnv(projectConfig, async ({ projectDir }) => {
       const result = await resolveConfig(projectDir, [specTreeConfigDescriptor]);
 
       expect(result.ok).toBe(true);
