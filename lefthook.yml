@@ -16,10 +16,11 @@ pre-commit:
       run: npx tsx src/precommit/run.ts
 
 pre-push:
+  files: printf 'pre-push\n'
   commands:
     build:
-      run: pnpm run build
+      run: env -u GIT_DIR -u GIT_WORK_TREE -u GIT_INDEX_FILE -u GIT_PREFIX -u GIT_COMMON_DIR pnpm run build
     validate:
-      run: pnpm run validate
+      run: env -u GIT_DIR -u GIT_WORK_TREE -u GIT_INDEX_FILE -u GIT_PREFIX -u GIT_COMMON_DIR pnpm run validate
     test:
-      run: pnpm test
+      run: env -u GIT_DIR -u GIT_WORK_TREE -u GIT_INDEX_FILE -u GIT_PREFIX -u GIT_COMMON_DIR pnpm test
