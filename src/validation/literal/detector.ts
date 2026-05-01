@@ -126,7 +126,11 @@ interface WalkContext {
   readonly filename: string;
   readonly isTestFixtureFile: boolean;
   // Shared recursion stack; walkChild pushes before descent and pops in finally.
-  ancestors: WalkAncestor[];
+  readonly ancestors: readonly WalkAncestor[];
+}
+
+interface MutableWalkContext extends WalkContext {
+  readonly ancestors: WalkAncestor[];
 }
 
 export function collectLiterals(
@@ -149,7 +153,7 @@ export function collectLiterals(
 
 function walk(
   node: Node,
-  context: WalkContext,
+  context: MutableWalkContext,
   options: CollectLiteralsOptions,
   out: LiteralOccurrence[],
 ): void {
@@ -176,7 +180,7 @@ function walk(
 function walkChild(
   node: Node,
   parent: Node,
-  context: WalkContext,
+  context: MutableWalkContext,
   options: CollectLiteralsOptions,
   out: LiteralOccurrence[],
 ): void {
@@ -295,6 +299,7 @@ function getFixtureDataDeclaratorName(node: Node): string | undefined {
     return bindingName;
   }
   // Destructuring defaults are classified by the fixture object they read from.
+  // Opaque initializer expressions keep their literals in the occurrence index.
   return getIdentifierName(node.init);
 }
 
@@ -309,6 +314,7 @@ function isFixtureDataVariableName(variableName: string): boolean {
   if (!segments.some((segment) => FIXTURE_DATA_ROLE_SEGMENTS.has(segment))) {
     return false;
   }
+  // Single-role and compound-role names describe fixture data in tests.
   if (segments.every((segment) => FIXTURE_DATA_ROLE_SEGMENTS.has(segment))) {
     return true;
   }
