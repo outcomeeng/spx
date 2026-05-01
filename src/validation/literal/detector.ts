@@ -105,6 +105,7 @@ const FIXTURE_DATA_ROLE_SEGMENTS: ReadonlySet<string> = new Set([
   "source",
 ]);
 const FIXTURE_DATA_CONTEXT_SEGMENTS: ReadonlySet<string> = new Set(["path", "tree"]);
+// Used through String#match; match resets global regex state instead of reading lastIndex.
 const IDENTIFIER_SEGMENT_PATTERN = /[A-Z]+(?=[A-Z][a-z]|$)|[A-Z]?[a-z]+|[0-9]+/g;
 
 interface Node {
@@ -247,6 +248,7 @@ function isFixtureDataLiteral(
 
 function isInsideFixtureWriterArgument(ancestors: readonly WalkAncestor[]): boolean {
   // Scan every call ancestor so wrappers around fixture-writer calls do not hide direct writer arguments.
+  // Payload helpers inside a fixture writer remain setup data unless a nested function boundary intervenes.
   for (let index = ancestors.length - 1; index >= 0; index -= 1) {
     const ancestor = ancestors[index];
     if (ancestor.node.type !== CALL_EXPRESSION_TYPE) {
