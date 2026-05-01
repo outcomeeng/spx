@@ -1,10 +1,12 @@
+import { Command, CommanderError } from "commander";
 import { execa } from "execa";
 import { mkdtemp, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { describe, expect, it } from "vitest";
 
-import { literalValidationCliOptions, validationCliDefinition } from "@/domains/validation";
+import { LITERAL_PROBLEM_KIND } from "@/commands/validation";
+import { literalValidationCliOptions, validationCliDefinition, validationDomain } from "@/domains/validation";
 import { sanitizeCliArgument, SENTINEL_EMPTY } from "@/lib/sanitize-cli-argument";
 
 const CLI_PATH = join(process.cwd(), "bin", "spx.js");
@@ -27,6 +29,43 @@ async function runValidation(
     stderr: result.stderr,
     stdout: result.stdout,
   };
+}
+
+async function runValidationInProcess(
+  args: readonly string[],
+): Promise<{ exitCode: number; stderr: string; stdout: string }> {
+  const program = new Command();
+  const stdout: string[] = [];
+  const stderr: string[] = [];
+
+  program.exitOverride();
+  program.configureOutput({
+    writeErr: (value) => stderr.push(value),
+    writeOut: (value) => stdout.push(value),
+  });
+  validationDomain.register(program);
+
+  try {
+    await program.parseAsync(["node", "spx", "validation", ...args], { from: "node" });
+    return {
+      exitCode: 0,
+      stderr: stderr.join(""),
+      stdout: stdout.join(""),
+    };
+  } catch (error) {
+    if (isCommanderExit(error)) {
+      return {
+        exitCode: error.exitCode,
+        stderr: stderr.join(""),
+        stdout: stdout.join(""),
+      };
+    }
+    throw error;
+  }
+}
+
+function isCommanderExit(error: unknown): error is CommanderError {
+  return error instanceof CommanderError;
 }
 
 describe("spx validation dispatch — observable scenarios", () => {
@@ -66,14 +105,17 @@ describe("spx validation dispatch — observable scenarios", () => {
     expect(result.stderr).toContain(unicodeArgument);
   });
 
-  it("literal help lists the literal-specific presentation flags accepted by the handler", async () => {
-    const result = await runValidation(["literal", "--help"]);
+  it("literal help lists the literal-specific flags and valid problem kinds accepted by the handler", async () => {
+    const result = await runValidationInProcess(["literal", "--help"]);
     expect(result.exitCode).toBe(0);
     expect(result.stderr).toHaveLength(0);
+    expect(result.stdout).toContain(literalValidationCliOptions.allowlistExisting.flag);
     expect(result.stdout).toContain(literalValidationCliOptions.kind.flag);
     expect(result.stdout).toContain(literalValidationCliOptions.filesWithProblems.flag);
     expect(result.stdout).toContain(literalValidationCliOptions.literals.flag);
     expect(result.stdout).toContain(literalValidationCliOptions.verbose.flag);
+    expect(result.stdout).toContain(LITERAL_PROBLEM_KIND.REUSE);
+    expect(result.stdout).toContain(LITERAL_PROBLEM_KIND.DUPE);
   });
 
   it("unknown literal problem kind is rejected before detection with a sanitized diagnostic", async () => {
