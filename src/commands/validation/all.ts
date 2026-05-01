@@ -20,7 +20,11 @@ import { typescriptCommand } from "./typescript";
 
 /** Total number of validation steps */
 const TOTAL_STEPS = 6;
-export const LITERAL_SKIP_OUTPUT = "⏭ Skipping Literal (--skip-literal)";
+export const LITERAL_SKIP_OUTPUT = "Literal: skipped (--skip-literal)";
+export const LITERAL_SKIP_JSON_OUTPUT = JSON.stringify({
+  skipped: true,
+  reason: "skip-literal",
+});
 
 /**
  * Format step output with step number and timing.
@@ -84,8 +88,9 @@ export async function allCommand(options: AllCommandOptions): Promise<Validation
   if (markdownResult.exitCode !== 0) hasFailure = true;
 
   // 6. Literal reuse
+  const literalSkipOutput = json ? LITERAL_SKIP_JSON_OUTPUT : LITERAL_SKIP_OUTPUT;
   const literalResult = skipLiteral
-    ? { exitCode: 0, output: quiet ? "" : LITERAL_SKIP_OUTPUT, durationMs: 0 }
+    ? { exitCode: 0, output: quiet ? "" : literalSkipOutput, durationMs: 0 }
     : await literalCommand({ cwd, files, quiet, json });
   const literalOutput = formatStepWithTiming(6, literalResult, quiet);
   if (literalOutput) outputs.push(literalOutput);

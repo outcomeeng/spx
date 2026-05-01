@@ -13,7 +13,7 @@ import { mkdir, readFile, writeFile } from "node:fs/promises";
 import { join } from "node:path";
 import { describe, expect, it } from "vitest";
 
-import { LITERAL_SKIP_OUTPUT } from "@/commands/validation/all";
+import { LITERAL_SKIP_JSON_OUTPUT, LITERAL_SKIP_OUTPUT } from "@/commands/validation/all";
 import { CIRCULAR_DEPENDENCY_OUTPUT } from "@/commands/validation/circular";
 import { VALIDATION_SUMMARY_STATUS } from "@/commands/validation/format";
 import { allValidationCliOptions } from "@/domains/validation";
@@ -176,6 +176,19 @@ describe("spx validation all — pipeline composition (Scenarios)", () => {
         expect(quietResult.exitCode).toBe(EXIT_SUCCESS);
         expect(quietResult.stdout).not.toContain(LITERAL_SKIP_OUTPUT);
         expect(quietResult.stdout.trim()).toHaveLength(0);
+
+        const jsonResult = await execa(
+          "node",
+          [CLI_PATH, "validation", "all", allValidationCliOptions.skipLiteral.flag, "--json"],
+          {
+            cwd: path,
+            reject: false,
+          },
+        );
+
+        expect(jsonResult.exitCode).toBe(EXIT_SUCCESS);
+        expect(jsonResult.stdout).toContain(LITERAL_SKIP_JSON_OUTPUT);
+        expect(jsonResult.stdout).not.toContain(LITERAL_SKIP_OUTPUT);
       });
     },
   );
