@@ -359,6 +359,24 @@ describe("literal-reuse detection — scenarios", () => {
     expect(values).toContain(fixtureWriterCallbackLiteral);
   });
 
+  it("wrapper calls around fixture writers keep direct writer literals suppressed", () => {
+    const source = `
+      async function seed(env) {
+        nonFixtureOuter(env.writeRaw("${fixtureWriterPath}", '${fixtureWriterPayload}'));
+      }
+    `;
+
+    const occurrences = collectLiterals(
+      source,
+      "spx/41-validation.enabler/32-typescript-validation.enabler/32-literal-reuse.enabler/tests/generated.scenario.l1.test.ts",
+      DEFAULT_OPTIONS,
+    );
+    const values = occurrences.map((occurrence) => occurrence.value);
+
+    expect(values).not.toContain(fixtureWriterPath);
+    expect(values).not.toContain(fixtureWriterPayload);
+  });
+
   it("protocol and status values inside fixture data do not contribute occurrences while assertion literals still do", () => {
     const source = `
       const verdictFixture = {

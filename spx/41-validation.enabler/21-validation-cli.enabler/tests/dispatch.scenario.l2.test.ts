@@ -137,6 +137,13 @@ describe("spx validation dispatch — observable scenarios", () => {
     expect(result.stdout).not.toContain(allValidationCliOptions.skipLiteral.flag);
   });
 
+  it("literal command rejects the full-pipeline literal skip flag", async () => {
+    const result = await runValidationInProcess(["literal", allValidationCliOptions.skipLiteral.flag]);
+    expect(result.exitCode).not.toBe(0);
+    expect(result.stdout).toHaveLength(0);
+    expect(result.stderr).toContain(allValidationCliOptions.skipLiteral.flag);
+  });
+
   it("unknown literal problem kind is rejected before detection with a sanitized diagnostic", async () => {
     const emptyProjectRoot = await mkdtemp(join(tmpdir(), TEMP_DIR_PREFIX));
     const unsafeKind = "bad\x01kind";
