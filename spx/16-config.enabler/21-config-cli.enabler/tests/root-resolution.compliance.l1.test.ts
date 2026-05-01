@@ -1,10 +1,10 @@
-import { execa } from "execa";
 import { mkdir, mkdtemp, realpath, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 
 import { resolveProjectRoot } from "@/domains/config/root";
+import { GIT_TEST_SUBCOMMANDS, runGit } from "@test/harness/git-test-constants";
 
 const TEMP_PREFIX = "spx-config-root-";
 
@@ -13,7 +13,7 @@ describe("resolveProjectRoot — inside a git worktree", () => {
 
   beforeEach(async () => {
     repo = await mkdtemp(join(tmpdir(), TEMP_PREFIX));
-    await execa("git", ["init", "--quiet", repo]);
+    await runGit(repo, [GIT_TEST_SUBCOMMANDS.INIT, "--quiet"]);
   });
 
   afterEach(async () => {

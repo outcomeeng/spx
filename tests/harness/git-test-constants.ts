@@ -1,3 +1,5 @@
+import { execa } from "execa";
+
 import { withoutGitEnvironment } from "@/git/environment";
 
 export const GIT_TEST_COMMAND = "git";
@@ -9,6 +11,7 @@ export const GIT_TEST_SUBCOMMANDS = {
   COMMIT: "commit",
   CONFIG: "config",
   INIT: "init",
+  WORKTREE: "worktree",
 } as const;
 
 export const GIT_TEST_FLAGS = {
@@ -26,7 +29,10 @@ export const GIT_TEST_ENVIRONMENT_KEYS = {
   WORK_TREE: "GIT_WORK_TREE",
 } as const;
 
-type GitTestEnvironmentKey = (typeof GIT_TEST_ENVIRONMENT_KEYS)[keyof typeof GIT_TEST_ENVIRONMENT_KEYS];
+const TEST_PACKAGE_MANAGER_COMMAND = "pnpm";
+const TEST_TYPESCRIPT_EXECUTION_ARGS = ["exec", "tsx", "--input-type=module", "--eval"] as const;
+
+export type GitTestEnvironmentOverrides = Readonly<Record<string, string>>;
 
 export function cleanGitTestEnvironment(env: NodeJS.ProcessEnv = process.env): NodeJS.ProcessEnv {
   const cleaned = withoutGitEnvironment(env);
@@ -35,27 +41,49 @@ export function cleanGitTestEnvironment(env: NodeJS.ProcessEnv = process.env): N
   return cleaned;
 }
 
-export async function withGitTestEnvironment(
-  values: Readonly<Record<GitTestEnvironmentKey, string>>,
-  callback: () => Promise<void>,
-): Promise<void> {
-  // This mutates process.env while the callback runs; keep callers serial.
-  const originalValues = new Map<GitTestEnvironmentKey, string | undefined>();
-  for (const key of Object.values(GIT_TEST_ENVIRONMENT_KEYS)) {
-    originalValues.set(key, process.env[key]);
-    process.env[key] = values[key];
-  }
+export function buildGitTestEnvironment(
+  envOverrides: GitTestEnvironmentOverrides = {},
+): NodeJS.ProcessEnv {
+  return cleanGitTestEnvironment({ ...process.env, ...envOverrides });
+}
 
-  try {
-    await callback();
-  } finally {
-    for (const key of Object.values(GIT_TEST_ENVIRONMENT_KEYS)) {
-      const originalValue = originalValues.get(key);
-      if (originalValue === undefined) {
-        delete process.env[key];
-      } else {
-        process.env[key] = originalValue;
-      }
-    }
-  }
+export async function runGit(
+  cwd: string,
+  args: readonly string[],
+  envOverrides: GitTestEnvironmentOverrides = {},
+): Promise<void> {
+  await execa(GIT_TEST_COMMAND, [...args], {
+    cwd,
+    env: buildGitTestEnvironment(envOverrides),
+    extendEnv: false,
+  });
+}
+
+export async function readGit(
+  cwd: string,
+  args: readonly string[],
+  envOverrides: GitTestEnvironmentOverrides = {},
+): Promise<string> {
+  const result = await execa(GIT_TEST_COMMAND, [...args], {
+    cwd,
+    env: buildGitTestEnvironment(envOverrides),
+    extendEnv: false,
+  });
+  return result.stdout.trim();
+}
+
+export async function runTsxEval(
+  cwd: string,
+  script: string,
+  envOverrides: GitTestEnvironmentOverrides = {},
+): Promise<string> {
+  const result = await execa(TEST_PACKAGE_MANAGER_COMMAND, [...TEST_TYPESCRIPT_EXECUTION_ARGS, script], {
+    cwd,
+    env: {
+      ...buildGitTestEnvironment(),
+      ...envOverrides,
+    },
+    extendEnv: false,
+  });
+  return result.stdout.trim();
 }

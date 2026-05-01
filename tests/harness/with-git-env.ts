@@ -15,7 +15,7 @@ import { tmpdir } from "node:os";
 import { dirname, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 
-import { cleanGitTestEnvironment, GIT_TEST_COMMAND, GIT_TEST_CONFIG, GIT_TEST_SUBCOMMANDS } from "./git-test-constants";
+import { buildGitTestEnvironment, GIT_TEST_CONFIG, GIT_TEST_SUBCOMMANDS, runGit } from "./git-test-constants";
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
@@ -103,26 +103,14 @@ export async function withGitEnv<T>(
     );
 
     // Initialize git repo
-    await execa(GIT_TEST_COMMAND, [GIT_TEST_SUBCOMMANDS.INIT], {
-      cwd: tempDir,
-      env: cleanGitTestEnvironment(),
-      extendEnv: false,
-    });
-    await execa(GIT_TEST_COMMAND, [GIT_TEST_SUBCOMMANDS.CONFIG, "user.email", GIT_TEST_CONFIG.EMAIL], {
-      cwd: tempDir,
-      env: cleanGitTestEnvironment(),
-      extendEnv: false,
-    });
-    await execa(GIT_TEST_COMMAND, [GIT_TEST_SUBCOMMANDS.CONFIG, "user.name", GIT_TEST_CONFIG.USER_NAME], {
-      cwd: tempDir,
-      env: cleanGitTestEnvironment(),
-      extendEnv: false,
-    });
+    await runGit(tempDir, [GIT_TEST_SUBCOMMANDS.INIT]);
+    await runGit(tempDir, [GIT_TEST_SUBCOMMANDS.CONFIG, "user.email", GIT_TEST_CONFIG.EMAIL]);
+    await runGit(tempDir, [GIT_TEST_SUBCOMMANDS.CONFIG, "user.name", GIT_TEST_CONFIG.USER_NAME]);
 
     // Install lefthook hooks
     await execa("npx", ["lefthook", "install"], {
       cwd: tempDir,
-      env: cleanGitTestEnvironment(),
+      env: buildGitTestEnvironment(),
       extendEnv: false,
     });
 
@@ -134,7 +122,7 @@ export async function withGitEnv<T>(
       const execaOpts: ExecaOptions = {
         cwd: tempDir,
         reject: options?.reject ?? true,
-        env: cleanGitTestEnvironment(),
+        env: buildGitTestEnvironment(),
         extendEnv: false,
       };
 

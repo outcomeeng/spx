@@ -13,16 +13,13 @@ pre-commit:
   commands:
     tests:
       glob: "*.{ts,tsx,js,jsx}"
-      run: npx tsx src/precommit/run.ts
+      run: env -u GIT_DIR -u GIT_WORK_TREE -u GIT_INDEX_FILE -u GIT_PREFIX -u GIT_COMMON_DIR npx tsx src/precommit/run.ts
 
 pre-push:
   commands:
     build:
-      skip: false
       run: env -u GIT_DIR -u GIT_WORK_TREE -u GIT_INDEX_FILE -u GIT_PREFIX -u GIT_COMMON_DIR pnpm run build
     validate:
-      skip: false
       run: env -u GIT_DIR -u GIT_WORK_TREE -u GIT_INDEX_FILE -u GIT_PREFIX -u GIT_COMMON_DIR pnpm run validate
     test:
-      skip: false
       run: env -u GIT_DIR -u GIT_WORK_TREE -u GIT_INDEX_FILE -u GIT_PREFIX -u GIT_COMMON_DIR pnpm test

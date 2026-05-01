@@ -7,21 +7,28 @@
 import { mkdirSync, mkdtempSync, realpathSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
+import { pathToFileURL } from "node:url";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 
 import { DEFAULT_CONFIG } from "@/config/defaults";
 import { detectGitRoot, detectMainRepoRoot, type GitDependencies, resolveSessionConfig } from "@/git/root";
 import {
-  cleanGitTestEnvironment,
-  GIT_TEST_COMMAND,
   GIT_TEST_CONFIG,
   GIT_TEST_FLAGS,
   GIT_TEST_SUBCOMMANDS,
-  withGitTestEnvironment,
+  type GitTestEnvironmentOverrides,
+  runGit,
+  runTsxEval,
 } from "@test/harness/git-test-constants";
 
 const POLLUTED_GIT_DIR = "/tmp/nonexistent-git-dir";
 const POLLUTED_GIT_WORK_TREE = "/tmp/nonexistent-git-work-tree";
+const SESSION_ROOT_TEST_CWD_ENV = "SPX_SESSION_ROOT_TEST_CWD";
+
+interface DetectedRoots {
+  readonly gitRoot: string;
+  readonly mainRoot: string;
+}
 
 // -- Helper: create a GitDependencies that returns controlled results --
 
@@ -41,6 +48,45 @@ function createMockDeps(responses: Array<{ stdout: string; exitCode: number }>):
       };
     },
   };
+}
+
+function parseDetectedRoots(stdout: string): DetectedRoots {
+  const parsed = JSON.parse(stdout) as Partial<DetectedRoots>;
+  if (typeof parsed.gitRoot !== "string" || typeof parsed.mainRoot !== "string") {
+    throw new Error("Session root child process returned invalid JSON");
+  }
+  return {
+    gitRoot: parsed.gitRoot,
+    mainRoot: parsed.mainRoot,
+  };
+}
+
+async function detectRootsInChildProcess(
+  cwd: string,
+  envOverrides: GitTestEnvironmentOverrides,
+): Promise<DetectedRoots> {
+  const moduleUrl = pathToFileURL(join(process.cwd(), "src/git/root.ts")).href;
+  const script = `
+    import { detectGitRoot, detectMainRepoRoot } from ${JSON.stringify(moduleUrl)};
+    async function main() {
+      const cwd = process.env.${SESSION_ROOT_TEST_CWD_ENV};
+      if (cwd === undefined) {
+        throw new Error("Missing ${SESSION_ROOT_TEST_CWD_ENV}");
+      }
+      const gitRoot = await detectGitRoot(cwd);
+      const mainRoot = await detectMainRepoRoot(cwd);
+      console.log(JSON.stringify({ gitRoot: gitRoot.root, mainRoot: mainRoot.root }));
+    }
+    main().catch((error: unknown) => {
+      console.error(error);
+      process.exitCode = 1;
+    });
+  `;
+  const stdout = await runTsxEval(process.cwd(), script, {
+    ...envOverrides,
+    [SESSION_ROOT_TEST_CWD_ENV]: cwd,
+  });
+  return parseDetectedRoots(stdout);
 }
 
 // ============================================================
@@ -171,24 +217,10 @@ describe("detectMainRepoRoot with real git worktrees", () => {
     repoDir = realpathSync(mkdtempSync(join(tmpdir(), "worktree-repo-")));
     worktreeDir = realpathSync(mkdtempSync(join(tmpdir(), "worktree-wt-")));
 
-    const { execa: realExeca } = await import("execa");
-    const gitOpts = {
-      cwd: repoDir,
-      env: cleanGitTestEnvironment(),
-      extendEnv: false,
-    };
-    await realExeca(GIT_TEST_COMMAND, [GIT_TEST_SUBCOMMANDS.INIT], gitOpts);
-    await realExeca(GIT_TEST_COMMAND, [GIT_TEST_SUBCOMMANDS.CONFIG, "user.email", GIT_TEST_CONFIG.EMAIL], gitOpts);
-    await realExeca(
-      GIT_TEST_COMMAND,
-      [GIT_TEST_SUBCOMMANDS.CONFIG, "user.name", GIT_TEST_CONFIG.USER_NAME],
-      gitOpts,
-    );
-    await realExeca(
-      GIT_TEST_COMMAND,
-      [GIT_TEST_SUBCOMMANDS.COMMIT, GIT_TEST_FLAGS.ALLOW_EMPTY, "-m", "initial"],
-      gitOpts,
-    );
+    await runGit(repoDir, [GIT_TEST_SUBCOMMANDS.INIT]);
+    await runGit(repoDir, [GIT_TEST_SUBCOMMANDS.CONFIG, "user.email", GIT_TEST_CONFIG.EMAIL]);
+    await runGit(repoDir, [GIT_TEST_SUBCOMMANDS.CONFIG, "user.name", GIT_TEST_CONFIG.USER_NAME]);
+    await runGit(repoDir, [GIT_TEST_SUBCOMMANDS.COMMIT, GIT_TEST_FLAGS.ALLOW_EMPTY, "-m", "initial"]);
   });
 
   afterEach(() => {
@@ -198,13 +230,8 @@ describe("detectMainRepoRoot with real git worktrees", () => {
   });
 
   it("GIVEN real worktree WHEN detectMainRepoRoot THEN returns main repo root", async () => {
-    const { execa: realExeca } = await import("execa");
     const wtPath = join(worktreeDir, "my-wt");
-    await realExeca(GIT_TEST_COMMAND, ["worktree", "add", wtPath, "-b", "test-branch"], {
-      cwd: repoDir,
-      env: cleanGitTestEnvironment(),
-      extendEnv: false,
-    });
+    await runGit(repoDir, [GIT_TEST_SUBCOMMANDS.WORKTREE, GIT_TEST_SUBCOMMANDS.ADD, wtPath, "-b", "test-branch"]);
     const canonicalWtPath = realpathSync(wtPath);
 
     // detectGitRoot from worktree → worktree root
@@ -218,13 +245,8 @@ describe("detectMainRepoRoot with real git worktrees", () => {
   });
 
   it("GIVEN real worktree subdirectory WHEN detectMainRepoRoot THEN still returns main repo root", async () => {
-    const { execa: realExeca } = await import("execa");
     const wtPath = join(worktreeDir, "my-wt");
-    await realExeca(GIT_TEST_COMMAND, ["worktree", "add", wtPath, "-b", "test-branch"], {
-      cwd: repoDir,
-      env: cleanGitTestEnvironment(),
-      extendEnv: false,
-    });
+    await runGit(repoDir, [GIT_TEST_SUBCOMMANDS.WORKTREE, GIT_TEST_SUBCOMMANDS.ADD, wtPath, "-b", "test-branch"]);
 
     const subDir = join(wtPath, "src", "deep");
     mkdirSync(subDir, { recursive: true });
@@ -243,19 +265,13 @@ describe("detectMainRepoRoot with real git worktrees", () => {
   });
 
   it("GIVEN hook Git variables WHEN detecting repo roots THEN cwd repo wins", async () => {
-    await withGitTestEnvironment(
-      {
-        GIT_DIR: POLLUTED_GIT_DIR,
-        GIT_WORK_TREE: POLLUTED_GIT_WORK_TREE,
-      },
-      async () => {
-        const gitRootResult = await detectGitRoot(repoDir);
-        const mainRepoResult = await detectMainRepoRoot(repoDir);
+    const roots = await detectRootsInChildProcess(repoDir, {
+      GIT_DIR: POLLUTED_GIT_DIR,
+      GIT_WORK_TREE: POLLUTED_GIT_WORK_TREE,
+    });
 
-        expect(gitRootResult.root).toBe(repoDir);
-        expect(mainRepoResult.root).toBe(repoDir);
-      },
-    );
+    expect(roots.gitRoot).toBe(repoDir);
+    expect(roots.mainRoot).toBe(repoDir);
   });
 });
 
