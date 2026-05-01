@@ -4,7 +4,7 @@
  * - materializeFixture(tree) - Write tree to os.tmpdir()
  * - createFixture(config) - Convenience wrapper
  */
-import { DECISION_KINDS } from "@/spec/config";
+import { SPEC_TREE_ADR_KIND } from "@/spec/config";
 import { WORK_ITEM_KINDS, WORK_ITEM_STATUSES } from "@/types";
 import { randomUUID } from "node:crypto";
 import { mkdir, rm, writeFile } from "node:fs/promises";
@@ -85,7 +85,7 @@ async function materializeCapability(doingPath: string, cap: FixtureNode): Promi
 
   const features = cap.children.filter((c) => c.kind === WORK_ITEM_KINDS[1]);
   for (const child of cap.children) {
-    if (child.kind === DECISION_KINDS[0]) {
+    if (child.kind === SPEC_TREE_ADR_KIND) {
       await materializeAdr(decisionsPath, child);
     } else if (child.kind === WORK_ITEM_KINDS[1]) {
       await materializeFeature(capPath, child);

@@ -60,6 +60,8 @@ export type DecisionKind = {
   [K in Kind]: (typeof KIND_REGISTRY)[K]["category"] extends typeof SPEC_TREE_KIND_CATEGORY.DECISION ? K : never;
 }[Kind];
 
+export const SPEC_TREE_ADR_KIND: DecisionKind = "adr";
+
 export const NODE_KINDS: readonly NodeKind[] = (Object.keys(KIND_REGISTRY) as Kind[]).filter(
   (k): k is NodeKind => KIND_REGISTRY[k].category === SPEC_TREE_KIND_CATEGORY.NODE,
 );

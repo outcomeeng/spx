@@ -4,7 +4,7 @@
  * - generateFixtureTree(config) - Pure function to create tree structure
  * - PRESETS - Common configurations for testing
  */
-import { DECISION_KINDS, type DecisionKind } from "@/spec/config";
+import { type DecisionKind, SPEC_TREE_ADR_KIND } from "@/spec/config";
 import type { WorkItemKind, WorkItemStatus } from "@/types";
 import { WORK_ITEM_KINDS, WORK_ITEM_STATUSES } from "@/types";
 import { faker } from "@faker-js/faker";
@@ -193,7 +193,7 @@ export function generateFixtureTree(config: FixtureConfig): FixtureTree {
     // Generate ADRs
     for (let adrIdx = 0; adrIdx < adrsPerCap; adrIdx++) {
       capChildren.push({
-        kind: DECISION_KINDS[0],
+        kind: SPEC_TREE_ADR_KIND,
         number: adrIdx + 1, // ADRs use sequential numbering (001, 002, etc.)
         slug: generateSlug(),
         children: [],
@@ -250,7 +250,7 @@ export function generateFixtureTree(config: FixtureConfig): FixtureTree {
 
     // Determine capability status from children (excluding ADRs)
     const capStatus = deriveStatus(
-      capChildren.filter((c) => c.kind !== DECISION_KINDS[0]),
+      capChildren.filter((c) => c.kind !== SPEC_TREE_ADR_KIND),
     );
 
     nodes.push({
@@ -303,7 +303,7 @@ export function countNodes(tree: FixtureTree): number {
 
   function traverse(nodes: FixtureNode[]): void {
     for (const node of nodes) {
-      if (node.kind !== DECISION_KINDS[0]) {
+      if (node.kind !== SPEC_TREE_ADR_KIND) {
         count++;
       }
       traverse(node.children);
