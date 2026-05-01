@@ -6,7 +6,12 @@ import { join } from "node:path";
 import { describe, expect, it } from "vitest";
 
 import { LITERAL_PROBLEM_KIND } from "@/commands/validation";
-import { literalValidationCliOptions, validationCliDefinition, validationDomain } from "@/domains/validation";
+import {
+  allValidationCliOptions,
+  literalValidationCliOptions,
+  validationCliDefinition,
+  validationDomain,
+} from "@/domains/validation";
 import { sanitizeCliArgument, SENTINEL_EMPTY } from "@/lib/sanitize-cli-argument";
 
 const CLI_PATH = join(process.cwd(), "bin", "spx.js");
@@ -116,6 +121,20 @@ describe("spx validation dispatch — observable scenarios", () => {
     expect(result.stdout).toContain(literalValidationCliOptions.verbose.flag);
     expect(result.stdout).toContain(LITERAL_PROBLEM_KIND.REUSE);
     expect(result.stdout).toContain(LITERAL_PROBLEM_KIND.DUPE);
+  });
+
+  it("validation all help lists the literal skip flag accepted by the handler", async () => {
+    const result = await runValidationInProcess(["all", "--help"]);
+    expect(result.exitCode).toBe(0);
+    expect(result.stderr).toHaveLength(0);
+    expect(result.stdout).toContain(allValidationCliOptions.skipLiteral.flag);
+  });
+
+  it("literal help does not list the full-pipeline literal skip flag", async () => {
+    const result = await runValidationInProcess(["literal", "--help"]);
+    expect(result.exitCode).toBe(0);
+    expect(result.stderr).toHaveLength(0);
+    expect(result.stdout).not.toContain(allValidationCliOptions.skipLiteral.flag);
   });
 
   it("unknown literal problem kind is rejected before detection with a sanitized diagnostic", async () => {

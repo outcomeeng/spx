@@ -67,6 +67,12 @@ const literalNoReuseProblemsMessage = "Literal: No problems of type reuse";
 const literalVerboseSummary = "Literal: 3 problems (reuse: 1, dupe: 2)";
 const literalVerboseReuseHeading = "REUSE";
 const literalVerboseDupeHeading = "DUPE";
+const fixtureWriterPath = "src/generated-fixture.ts";
+const fixtureWriterPayload = "export const GENERATED_STATUS = \"fixture-generated-status\";";
+const fixtureSessionPath = "spx/21-session-fixture.enabler/tests/session.scenario.l1.test.ts";
+const assertionSemanticLiteral = "assertion-semantic-value";
+const fixtureProtocolStatus = "PASS";
+const fixtureProtocolVerdict = "APPROVED";
 
 describe("literal-reuse detection — scenarios", () => {
   it("string literal carrying domain meaning in src and in a test file produces a src↔test reuse finding citing both locations", () => {
@@ -292,6 +298,48 @@ describe("literal-reuse detection — scenarios", () => {
         expect(f.remediation).toBe(REMEDIATION.REFACTOR_TO_SOURCE_OR_GENERATOR);
       }
     });
+  });
+
+  it("fixture-writer paths and source payload strings do not contribute occurrences while assertion literals still do", () => {
+    const source = `
+      async function seed(env) {
+        await env.writeRaw("${fixtureWriterPath}", '${fixtureWriterPayload}');
+        await env.writeRaw("${fixtureSessionPath}", "# Content\\n");
+        expect(actual).toBe("${assertionSemanticLiteral}");
+      }
+    `;
+
+    const occurrences = collectLiterals(
+      source,
+      "spx/41-validation.enabler/32-typescript-validation.enabler/32-literal-reuse.enabler/tests/generated.scenario.l1.test.ts",
+      DEFAULT_OPTIONS,
+    );
+    const values = occurrences.map((occurrence) => occurrence.value);
+
+    expect(values).not.toContain(fixtureWriterPath);
+    expect(values).not.toContain(fixtureWriterPayload);
+    expect(values).not.toContain(fixtureSessionPath);
+    expect(values).toContain(assertionSemanticLiteral);
+  });
+
+  it("protocol and status values inside fixture data do not contribute occurrences while assertion literals still do", () => {
+    const source = `
+      const verdictFixture = {
+        status: "${fixtureProtocolStatus}",
+        verdict: "${fixtureProtocolVerdict}",
+      };
+      expect(actual.status).toBe("${fixtureProtocolStatus}");
+    `;
+
+    const occurrences = collectLiterals(
+      source,
+      "spx/36-audit.enabler/tests/audit.scenario.l1.test.ts",
+      DEFAULT_OPTIONS,
+    );
+    const values = occurrences.map((occurrence) => occurrence.value);
+
+    expect(values.filter((value) => value === fixtureProtocolStatus)).toHaveLength(1);
+    expect(values).not.toContain(fixtureProtocolVerdict);
   });
 
   it("--kind dupe output contains only test↔test duplication problems", async () => {

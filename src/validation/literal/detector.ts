@@ -75,6 +75,28 @@ const MODULE_NAMING_SKIP: Record<string, ReadonlySet<string>> = {
 };
 
 const EMPTY_SKIP: ReadonlySet<string> = new Set();
+const TEST_PATH_SEGMENT = "/tests/";
+const WINDOWS_TEST_PATH_SEGMENT = "\\tests\\";
+const TEST_FILE_MARKER = ".test.";
+const CALL_EXPRESSION_TYPE = "CallExpression";
+const VARIABLE_DECLARATOR_TYPE = "VariableDeclarator";
+const IDENTIFIER_TYPE = "Identifier";
+const LITERAL_TYPE = "Literal";
+const MEMBER_EXPRESSION_TYPE = "MemberExpression";
+const TEMPLATE_ELEMENT_TYPE = "TemplateElement";
+const FUNCTION_NODE_TYPES: ReadonlySet<string> = new Set([
+  "ArrowFunctionExpression",
+  "FunctionDeclaration",
+  "FunctionExpression",
+]);
+const FIXTURE_WRITER_CALLS: ReadonlySet<string> = new Set([
+  "writeDecision",
+  "writeNode",
+  "writeRaw",
+  "writeSourceWithLiteral",
+  "writeTestWithLiteral",
+]);
+const FIXTURE_DATA_NAME_PATTERN = /fixture|payload|verdict|session|frontmatter|xml|yaml|json|source/i;
 
 interface Node {
   readonly type: string;
@@ -82,6 +104,16 @@ interface Node {
   readonly value?: unknown;
   readonly raw?: unknown;
   readonly [key: string]: unknown;
+}
+
+interface WalkAncestor {
+  readonly node: Node;
+}
+
+interface WalkContext {
+  readonly filename: string;
+  readonly isTestFixtureFile: boolean;
+  readonly ancestors: readonly WalkAncestor[];
 }
 
 export function collectLiterals(
@@ -98,17 +130,17 @@ export function collectLiterals(
     sourceType: "module",
   }) as unknown as Node;
   const out: LiteralOccurrence[] = [];
-  walk(ast, filename, options, out);
+  walk(ast, { filename, isTestFixtureFile: isTestLikeFile(filename), ancestors: [] }, options, out);
   return out;
 }
 
 function walk(
   node: Node,
-  filename: string,
+  context: WalkContext,
   options: CollectLiteralsOptions,
   out: LiteralOccurrence[],
 ): void {
-  emitLiteral(node, filename, options, out);
+  emitLiteral(node, context, options, out);
 
   const keys = options.visitorKeys[node.type];
   if (!keys) {
@@ -120,12 +152,30 @@ function walk(
     const child = node[key];
     if (Array.isArray(child)) {
       for (const item of child) {
-        if (isNode(item)) walk(item, filename, options, out);
+        if (isNode(item)) walkChild(item, node, context, options, out);
       }
     } else if (isNode(child)) {
-      walk(child, filename, options, out);
+      walkChild(child, node, context, options, out);
     }
   }
+}
+
+function walkChild(
+  node: Node,
+  parent: Node,
+  context: WalkContext,
+  options: CollectLiteralsOptions,
+  out: LiteralOccurrence[],
+): void {
+  walk(
+    node,
+    {
+      ...context,
+      ancestors: [...context.ancestors, { node: parent }],
+    },
+    options,
+    out,
+  );
 }
 
 function isNode(value: unknown): value is Node {
@@ -134,33 +184,123 @@ function isNode(value: unknown): value is Node {
 
 function emitLiteral(
   node: Node,
-  filename: string,
+  context: WalkContext,
   options: CollectLiteralsOptions,
   out: LiteralOccurrence[],
 ): void {
+  if (isFixtureDataLiteral(context)) {
+    return;
+  }
   const line = node.loc?.start?.line ?? 0;
 
-  if (node.type === "Literal") {
+  if (node.type === LITERAL_TYPE) {
     if (typeof node.value === "string") {
       if (node.value.length >= options.minStringLength) {
-        out.push({ kind: "string", value: node.value, loc: { file: filename, line } });
+        out.push({ kind: "string", value: node.value, loc: { file: context.filename, line } });
       }
     } else if (typeof node.value === "number") {
       const raw = typeof node.raw === "string" ? node.raw : String(node.value);
       if (isMeaningfulNumber(raw, options.minNumberDigits)) {
-        out.push({ kind: "number", value: String(node.value), loc: { file: filename, line } });
+        out.push({ kind: "number", value: String(node.value), loc: { file: context.filename, line } });
       }
     }
     return;
   }
 
-  if (node.type === "TemplateElement") {
+  if (node.type === TEMPLATE_ELEMENT_TYPE) {
     const value = node.value as { readonly cooked?: string } | undefined;
     const cooked = value?.cooked ?? "";
     if (cooked.length >= options.minStringLength) {
-      out.push({ kind: "string", value: cooked, loc: { file: filename, line } });
+      out.push({ kind: "string", value: cooked, loc: { file: context.filename, line } });
     }
   }
+}
+
+function isTestLikeFile(filename: string): boolean {
+  return filename.includes(TEST_PATH_SEGMENT)
+    || filename.includes(WINDOWS_TEST_PATH_SEGMENT)
+    || filename.includes(TEST_FILE_MARKER);
+}
+
+function isFixtureDataLiteral(context: WalkContext): boolean {
+  if (!context.isTestFixtureFile) {
+    return false;
+  }
+  return isInsideFixtureWriterArgument(context) || isInsideFixtureDataVariable(context);
+}
+
+function isInsideFixtureWriterArgument(context: WalkContext): boolean {
+  for (let index = context.ancestors.length - 1; index >= 0; index -= 1) {
+    const ancestor = context.ancestors[index];
+    if (ancestor.node.type !== CALL_EXPRESSION_TYPE) {
+      continue;
+    }
+    const callName = getCallName(ancestor.node);
+    if (callName === undefined || !FIXTURE_WRITER_CALLS.has(callName)) {
+      continue;
+    }
+    if (hasFunctionBoundaryAfterAncestor(context.ancestors, index)) {
+      continue;
+    }
+    return true;
+  }
+  return false;
+}
+
+function isInsideFixtureDataVariable(context: WalkContext): boolean {
+  for (let index = context.ancestors.length - 1; index >= 0; index -= 1) {
+    const ancestor = context.ancestors[index];
+    if (ancestor.node.type !== VARIABLE_DECLARATOR_TYPE) {
+      continue;
+    }
+    if (hasFunctionBoundaryAfterAncestor(context.ancestors, index)) {
+      continue;
+    }
+    const variableName = getIdentifierName(ancestor.node.id);
+    if (variableName !== undefined && FIXTURE_DATA_NAME_PATTERN.test(variableName)) {
+      return true;
+    }
+  }
+  return false;
+}
+
+function hasFunctionBoundaryAfterAncestor(
+  ancestors: readonly WalkAncestor[],
+  ancestorIndex: number,
+): boolean {
+  return ancestors.slice(ancestorIndex + 1).some((ancestor) => FUNCTION_NODE_TYPES.has(ancestor.node.type));
+}
+
+function getCallName(node: Node): string | undefined {
+  const callee = node.callee;
+  if (!isNode(callee)) {
+    return undefined;
+  }
+  if (callee.type === IDENTIFIER_TYPE) {
+    return getIdentifierName(callee);
+  }
+  if (callee.type !== MEMBER_EXPRESSION_TYPE) {
+    return undefined;
+  }
+  const property = callee.property;
+  if (isNode(property)) {
+    return property.type === IDENTIFIER_TYPE ? getIdentifierName(property) : getLiteralString(property);
+  }
+  return undefined;
+}
+
+function getIdentifierName(value: unknown): string | undefined {
+  if (!isNode(value) || value.type !== IDENTIFIER_TYPE) {
+    return undefined;
+  }
+  return typeof value.name === "string" ? value.name : undefined;
+}
+
+function getLiteralString(value: unknown): string | undefined {
+  if (!isNode(value) || value.type !== LITERAL_TYPE) {
+    return undefined;
+  }
+  return typeof value.value === "string" ? value.value : undefined;
 }
 
 function isMeaningfulNumber(raw: string, minDigits: number): boolean {

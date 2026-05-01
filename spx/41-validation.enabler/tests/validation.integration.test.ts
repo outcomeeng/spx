@@ -9,12 +9,14 @@
  */
 
 import { execa } from "execa";
-import { readFile, writeFile } from "node:fs/promises";
+import { mkdir, readFile, writeFile } from "node:fs/promises";
 import { join } from "node:path";
 import { describe, expect, it } from "vitest";
 
+import { LITERAL_SKIP_OUTPUT } from "@/commands/validation/all";
 import { CIRCULAR_DEPENDENCY_OUTPUT } from "@/commands/validation/circular";
 import { VALIDATION_SUMMARY_STATUS } from "@/commands/validation/format";
+import { allValidationCliOptions } from "@/domains/validation";
 import { CLI_PATH } from "@test/harness/constants";
 import { FIXTURES, withValidationEnv } from "@test/harness/with-validation-env";
 
@@ -31,6 +33,7 @@ const STEP_NAMES = {
   MARKDOWN: "Markdown",
   LITERAL: "Literal",
 } as const;
+const skippedLiteralToken = "validation-all-skip-literal-token";
 
 describe("spx validation all — pipeline composition (Scenarios)", () => {
   it(
@@ -118,6 +121,45 @@ describe("spx validation all — pipeline composition (Scenarios)", () => {
         expect(stepMarkers).toHaveLength(TOTAL_STEPS);
         const stepNumbers = stepMarkers.map((m) => Number(m[1]));
         expect(stepNumbers).toEqual([1, 2, 3, 4, 5, 6]);
+      });
+    },
+  );
+
+  it(
+    "S6 GIVEN --skip-literal WHEN running all THEN literal detection is skipped and the other validation stages still run",
+    { timeout: ALL_TIMEOUT_MS },
+    async () => {
+      await withValidationEnv({ fixture: FIXTURES.CLEAN_PROJECT }, async ({ path }) => {
+        const testDir = join(path, "spx", "21-literal-skip.enabler", "tests");
+        await mkdir(testDir, { recursive: true });
+        await writeFile(
+          join(path, "src", "literal-skip.ts"),
+          `export const TOKEN = "${skippedLiteralToken}";\n`,
+          "utf8",
+        );
+        await writeFile(
+          join(testDir, "literal-skip.scenario.l1.test.ts"),
+          `expect(value).toBe("${skippedLiteralToken}");\n`,
+          "utf8",
+        );
+
+        const result = await execa(
+          "node",
+          [CLI_PATH, "validation", "all", allValidationCliOptions.skipLiteral.flag],
+          {
+            cwd: path,
+            reject: false,
+          },
+        );
+
+        expect(result.exitCode).toBe(EXIT_SUCCESS);
+        const stepMarkers = [...result.stdout.matchAll(STEP_LINE_PATTERN)];
+        expect(stepMarkers).toHaveLength(TOTAL_STEPS);
+        expect(result.stdout).toContain(STEP_NAMES.CIRCULAR);
+        expect(result.stdout).toContain(STEP_NAMES.ESLINT);
+        expect(result.stdout).toContain(STEP_NAMES.TYPESCRIPT);
+        expect(result.stdout).toContain(STEP_NAMES.MARKDOWN);
+        expect(result.stdout).toContain(LITERAL_SKIP_OUTPUT);
       });
     },
   );
