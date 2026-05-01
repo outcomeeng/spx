@@ -22,7 +22,6 @@ export {
   detectReuse,
   FIXTURE_WRITER_CALLS,
   LITERAL_KIND,
-  LITERAL_TEST_FIXTURE_WRITER_METHODS,
   parseLiteralReuseResult,
   REMEDIATION,
 } from "./detector";

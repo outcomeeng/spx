@@ -94,13 +94,6 @@ const FUNCTION_NODE_TYPES: ReadonlySet<string> = new Set([
 export const FIXTURE_WRITER_CALLS: ReadonlySet<string> = new Set(
   SPEC_TREE_ENV_FIXTURE_WRITER_METHODS,
 );
-export const LITERAL_TEST_FIXTURE_WRITER_METHODS = [
-  "writeSourceWithLiteral",
-  "writeTestWithLiteral",
-] as const satisfies readonly string[];
-const LITERAL_TEST_FIXTURE_WRITER_CALLS: ReadonlySet<string> = new Set(
-  LITERAL_TEST_FIXTURE_WRITER_METHODS,
-);
 const FIXTURE_DATA_DIRECT_SEGMENTS: ReadonlySet<string> = new Set(["fixture", "payload"]);
 const FIXTURE_DATA_ROLE_SEGMENTS: ReadonlySet<string> = new Set([
   "verdict",
@@ -272,7 +265,7 @@ function isInsideFixtureWriterArgument(ancestors: readonly WalkAncestor[]): bool
 }
 
 function isFixtureWriterCall(callName: string): boolean {
-  return FIXTURE_WRITER_CALLS.has(callName) || LITERAL_TEST_FIXTURE_WRITER_CALLS.has(callName);
+  return FIXTURE_WRITER_CALLS.has(callName);
 }
 
 function isInsideFixtureDataVariable(ancestors: readonly WalkAncestor[]): boolean {
