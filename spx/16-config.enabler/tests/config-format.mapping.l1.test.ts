@@ -6,10 +6,12 @@ import { describe, expect, it } from "vitest";
 import {
   CONFIG_FILE_FORMAT,
   CONFIG_FILENAMES,
+  configFileForFormat,
   type ConfigFileFormat,
   DEFAULT_CONFIG_FILENAME,
   resolveConfig,
   serializeConfigFileSections,
+  serializeConfigFileSectionsWithSetIn,
 } from "@/config/index";
 import { KIND_REGISTRY, specTreeConfigDescriptor } from "@/spec/config";
 import { withTestEnv } from "@/spec/testing/index";
@@ -98,5 +100,17 @@ describe("resolveConfig — format equivalence", () => {
     expect(results).toHaveLength(Object.keys(CONFIG_FILENAMES).length);
     expect(results[1]).toEqual(results[0]);
     expect(results[2]).toEqual(results[0]);
+  });
+
+  it("rejects config mutation requests without a section path", async () => {
+    await withTestEnv({}, async ({ projectDir }) => {
+      const result = serializeConfigFileSectionsWithSetIn(
+        configFileForFormat(projectDir),
+        [],
+        {},
+      );
+
+      expect(result.ok).toBe(false);
+    });
   });
 });

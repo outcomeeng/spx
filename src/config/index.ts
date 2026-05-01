@@ -175,6 +175,9 @@ export function serializeConfigFileSectionsWithSetIn(
   path: readonly string[],
   value: unknown,
 ): Result<string> {
+  if (path.length === 0) {
+    return { ok: false, error: "config mutation path must not be empty" };
+  }
   switch (file.format) {
     case CONFIG_FILE_FORMAT.YAML:
       return serializeYamlSectionsWithSetIn(file, path, value);
