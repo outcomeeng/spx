@@ -45,9 +45,9 @@ export type ScopeResult = {
   readonly excluded: readonly ScopeEntry[];
 };
 
-export type LayerEntry = {
-  readonly predicate: (path: string, config: unknown) => LayerDecision;
-  readonly extractConfig: (ctx: LayerContext) => unknown;
+export type LayerEntry<C = unknown> = {
+  readonly predicate: (path: string, config: C) => LayerDecision;
+  readonly extractConfig: (ctx: LayerContext) => C;
 };
 
 export type AdapterConfig = { readonly ignoreFlag: string };

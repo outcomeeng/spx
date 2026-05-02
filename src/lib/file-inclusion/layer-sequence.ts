@@ -2,25 +2,29 @@ import { artifactDirectoryPredicate } from "./predicates/artifact-directory";
 import { hiddenPrefixPredicate } from "./predicates/hidden-prefix";
 import { ignoreSourcePredicate } from "./predicates/ignore-source";
 import type { ArtifactDirectoryConfig, HiddenPrefixConfig, IgnoreSourcePredicateConfig } from "./types";
-import type { LayerContext, LayerEntry } from "./types";
+import type { LayerContext, LayerDecision, LayerEntry } from "./types";
+
+function makeLayer<C>(
+  extractConfig: (ctx: LayerContext) => C,
+  predicate: (path: string, config: C) => LayerDecision,
+): LayerEntry {
+  return {
+    extractConfig,
+    predicate: (path, config) => predicate(path, config as C),
+  };
+}
 
 export const LAYER_SEQUENCE: readonly LayerEntry[] = [
-  {
-    predicate: (path, config) => artifactDirectoryPredicate(path, config as ArtifactDirectoryConfig),
-    extractConfig: (ctx: LayerContext): ArtifactDirectoryConfig => ({
-      artifactDirectories: ctx.config.artifactDirectories,
-    }),
-  },
-  {
-    predicate: (path, config) => hiddenPrefixPredicate(path, config as HiddenPrefixConfig),
-    extractConfig: (ctx: LayerContext): HiddenPrefixConfig => ({
-      hiddenPrefix: ctx.config.hiddenPrefix,
-    }),
-  },
-  {
-    predicate: (path, config) => ignoreSourcePredicate(path, config as IgnoreSourcePredicateConfig),
-    extractConfig: (ctx: LayerContext): IgnoreSourcePredicateConfig => ({
-      reader: ctx.ignoreReader,
-    }),
-  },
+  makeLayer(
+    (ctx): ArtifactDirectoryConfig => ({ artifactDirectories: ctx.config.artifactDirectories }),
+    artifactDirectoryPredicate,
+  ),
+  makeLayer(
+    (ctx): HiddenPrefixConfig => ({ hiddenPrefix: ctx.config.hiddenPrefix }),
+    hiddenPrefixPredicate,
+  ),
+  makeLayer(
+    (ctx): IgnoreSourcePredicateConfig => ({ reader: ctx.ignoreReader }),
+    ignoreSourcePredicate,
+  ),
 ];
