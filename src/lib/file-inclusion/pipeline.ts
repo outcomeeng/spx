@@ -1,3 +1,4 @@
+import type { Dirent } from "node:fs";
 import { readdir } from "node:fs/promises";
 import { join, relative, sep } from "node:path";
 
@@ -19,14 +20,26 @@ export type { LayerContext, LayerDecision };
 
 export const EXPLICIT_OVERRIDE_LAYER = "explicit-override" as const;
 
+function isNodeError(err: unknown): err is NodeJS.ErrnoException {
+  return err instanceof Error && "code" in err;
+}
+
 async function collectPaths(
   absoluteDir: string,
   projectRoot: string,
   result: string[],
   artifactDirs: ReadonlySet<string>,
 ): Promise<void> {
-  const entries = await readdir(absoluteDir, { withFileTypes: true });
-  for (const entry of entries) {
+  let dirEntries: Dirent<string>[];
+  try {
+    dirEntries = await readdir(absoluteDir, { withFileTypes: true });
+  } catch (err) {
+    if (isNodeError(err) && (err.code === "ENOENT" || err.code === "ENOTDIR")) {
+      return;
+    }
+    throw err;
+  }
+  for (const entry of dirEntries) {
     if (entry.isDirectory()) {
       if (artifactDirs.has(entry.name)) continue;
       const absolutePath = join(absoluteDir, entry.name);
