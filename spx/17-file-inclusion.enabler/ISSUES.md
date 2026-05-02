@@ -1,22 +1,16 @@
 # Open Issues
 
-## Walk-time EXCLUDE pruning efficiency
+## `validateLiteralReuse` silently skips EXCLUDE'd test files
 
-`collectPaths` in `src/lib/file-inclusion/pipeline.ts` descends into every directory except artifact directories. EXCLUDE-listed spec-tree nodes are traversed in full; files inside them are added to `allPaths` and subsequently placed in `ScopeResult.excluded` with a decision trail by the ignore-source predicate.
+`validateLiteralReuse` in `src/validation/literal/index.ts` calls `resolveScope` and then filters on `scope.included` only. TypeScript test files inside EXCLUDE'd spec-tree nodes (e.g. `spx/23-spec-tree.enabler/tests/*.ts`) land in `scope.excluded` and are never passed to the literal detector.
 
-The old `walkTypescriptFiles` (before this enabler shipped) short-circuited at EXCLUDE'd directory boundaries, avoiding the descent entirely. The new design is spec-correct — `file-inclusion.md` asserts that excluded paths carry a decision trail — but pays the traversal cost for every EXCLUDE'd node.
+Those test files are real — `spx/EXCLUDE` marks nodes where implementation is absent but tests exist. If an EXCLUDE'd test file reuses a literal from a source file in `src/`, the reuse check misses it entirely with no diagnostic.
 
-**Impact:** `validateLiteralReuse` reads only `scope.included`, so it traverses EXCLUDE'd directories to produce `excluded` entries that it then ignores. For repos with large EXCLUDE'd subtrees (e.g. `21-core-cli.capability` with ~30 `.story` directories and hundreds of test files), this is a measurable overhead on every literal-validation invocation.
+The correct fix is for `validateLiteralReuse` to use TypeScript files from both `scope.included` and `scope.excluded` rather than only `scope.included`. Callers that intentionally skip EXCLUDE'd files (test runners, quality gates) are a separate concern and should not influence how the literal detector aggregates its candidate set.
 
-**Options:**
+**Note:** Walk-time pruning of EXCLUDE'd directories is not a valid optimization path. The spec-tree library's analysis role requires `ScopeResult.excluded` to be populated with per-path decision trails; pruning would deprive analysis callers of that data.
 
-1. Add a `collectPathsIncludedOnly` variant that prunes EXCLUDE'd directories but does not populate `excluded` — for callers that only need `scope.included`.
-2. Extend the spec to allow an opt-in "shallow walk" mode that skips decision-trail generation for excluded directories in exchange for not visiting them.
-3. Accept the current overhead until the EXCLUDE list is small enough that the cost is negligible.
-
-**Prerequisite:** Any walk-time pruning must be reconciled with the spec assertion ("each excluded path carries a decision trail") before implementation.
-
-**Skill:** `spec-tree:aligning` to audit the trade-off, then `spec-tree:authoring` if the spec assertion changes.
+**Skill:** `spec-tree:authoring` to extend the scope-resolver spec assertion and `typescript:coding-typescript` to fix the `validateLiteralReuse` candidate-file collection.
 
 ## `fileInclusion` config section silently ignores user-supplied values
 
