@@ -76,7 +76,7 @@ export function createIgnoreSourceReader(
       return prefixes.some((prefix) => relativePath.startsWith(prefix));
     },
     entries(): readonly IgnoreSourceEntry[] {
-      return [...parsedEntries];
+      return parsedEntries;
     },
     matchedEntry(relativePath: string): IgnoreSourceEntry | undefined {
       return parsedEntries.find((entry) => relativePath.startsWith(`${specTreeRootSegment}/${entry.segment}/`));
