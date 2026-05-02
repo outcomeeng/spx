@@ -35,12 +35,6 @@
 
 ## Spec Management
 
-### Deprecated: `spx spec` and `spx spx` commands
-
-The `spec` and `spx` CLI domains are **deprecated** and will be removed. They are replaced by the **spec-tree** plugin, which provides the same functionality as Claude Code skills.
-
-### Current: spec-tree plugin (skill-only)
-
 The **spec-tree** plugin (`outcomeeng/claude/plugins/spec-tree`) is the active system for managing specification trees. Core skills:
 
 | Skill                        | Purpose                                                        |
@@ -138,6 +132,59 @@ All validation runs through `spx validation` subcommands. Use pnpm scripts or ca
 - `--files <paths...>`: Specific files/directories to validate
 - `--quiet`: Suppress progress output
 - `--json`: Output results as JSON
+
+---
+
+## Pull request (PR) audit workflow
+
+Use small PRs with one purpose. A PR that changes specs, tests, architecture, runtime code, deployment, and publishing workflows at once is too hard to review and too easy to merge for the wrong reason. Split the work into the smallest reviewable concern that can pass its own local gate.
+
+Run the right local gate before publishing. Use `spx validation markdown` for markdown-only spec or instruction changes. Use `spx validation all` for everything else. Add targeted tests for the node or workflow changed, and name those commands in the PR body.
+
+### Executing PR workflow
+
+Use this `gh` sequence for the normal review loop:
+
+```bash
+pr_url="$(gh pr create --title "$title" --body "$body" --base main --head "$branch")"
+pr_number="${pr_url##*/}"
+```
+
+```bash
+# Always wait 3min first
+deadline=$((SECONDS + 180))
+while (( SECONDS < deadline )); do
+  gh pr checks "$pr_number"
+  gh pr view "$pr_number" --json comments,reviews,reviewDecision,statusCheckRollup
+  sleep 15
+done
+```
+
+```bash
+gh pr view "$pr_number" --comments
+# Replace {organization}/{repo} by the actual organization and repository names
+gh api "repos/{organization}/{repo}/pulls/${pr_number}/comments" --paginate
+gh api "repos/{organization}/{repo}/issues/${pr_number}/comments" --paginate
+```
+
+Use `gh pr checks "$pr_number" --watch --interval 10` when waiting for CI to finish and no other local work can proceed. Use the explicit three-minute loop above when waiting for PR reviews, because it keeps returning inspectable state and naturally stops after the review window.
+
+### Ask for adversarial PR audit
+
+Ask the PR reviewers for adversarial auditing of all architecture, security-sensitive workflows, deployment and publishing paths, and any PR that changes production behavior. Set yourself a reminder to check on the PR reviews after 3 minutes. In the meantime, continue with non-blocking local work or merge only when the user explicitly asked for no review wait.
+
+### Treat PR review findings by severity
+
+- Critical, high, security, data-loss, production-safety, or architecture-break findings block the PR. Fix them in the same PR, rerun the focused tests and `spx validation all`, then update the PR.
+- Medium and lower findings do not keep widening a production-path PR once the high-severity queue is empty. Record them in the owning spec tree node's `ISSUES.md` or `PLAN.md` with evidence, impact, and resolution and Markdown links to all involved files and specs.
+- Findings that expose weak evidence require a test rearchitecture using the `/typescript:testing-typescript` skill before merge.
+
+### Merge discipline
+
+- Merge stacked PRs in dependency order.
+- Do not deploy or publish from draft branches.
+- Use selective staging and one commit per concern before pushing using the `/spec-tree:committing-changes` skill.
+- After merge, sync local `main` and verify the worktree is clean before starting the next branch.
 
 ---
 
