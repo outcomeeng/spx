@@ -54,6 +54,45 @@ describe("ignore-source — mappings", () => {
     );
   });
 
+  it("matchedEntry returns the IgnoreSourceEntry whose segment matches the path's directory prefix", async () => {
+    await fc.assert(
+      fc.asyncProperty(
+        fc.tuple(arbNodeSegment, arbNodeSegment).filter(([a, b]) => a !== b),
+        arbSubpath,
+        async ([matched, other], sub) => {
+          await withTestEnv(INTEGRATION_CONFIG, async (env) => {
+            await writeExclude(env, [matched, other]);
+
+            const reader = createIgnoreSourceReader(env.projectDir, READER_CONFIG);
+            const path = spxPath(matched, sub);
+
+            const entry = reader.matchedEntry(path);
+            expect(entry, `matchedEntry("${path}") defined`).toBeDefined();
+            expect(entry?.segment, `segment for "${path}"`).toBe(matched);
+          });
+        },
+      ),
+      { numRuns: PROPERTY_NUM_RUNS },
+    );
+  });
+
+  it("matchedEntry returns undefined when the path is not under any listed entry", async () => {
+    await fc.assert(
+      fc.asyncProperty(arbNodeSegment, arbSubpath, async (segment, sub) => {
+        await withTestEnv(INTEGRATION_CONFIG, async (env) => {
+          await writeExclude(env, [segment]);
+
+          const reader = createIgnoreSourceReader(env.projectDir, READER_CONFIG);
+          const unrelatedPath = `other-root/${segment}/${sub}`;
+
+          const entry = reader.matchedEntry(unrelatedPath);
+          expect(entry, `matchedEntry("${unrelatedPath}") undefined`).toBeUndefined();
+        });
+      }),
+      { numRuns: PROPERTY_NUM_RUNS },
+    );
+  });
+
   it("specTreeRootSegment comes from the reader config, not hardcoded — a different segment prefix produces a different match domain", async () => {
     const altRootSegment = "alt-root";
     const altConfig: IgnoreSourceReaderConfig = {
