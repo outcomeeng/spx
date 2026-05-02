@@ -12,7 +12,18 @@ This decision governs how the configured ignore-source file is materialized as a
 
 ## Decision
 
-The ignore-source layer exposes a single factory `createIgnoreSourceReader(projectRoot: string): IgnoreSourceReader` that reads and parses the configured ignore-source file at construction and returns an immutable object whose public surface is a membership query (`isUnderIgnoreSource(relativePath: string): boolean`) and an entries accessor (`entries(): readonly IgnoreSourceEntry[]`). The factory is the sole reader of the configured ignore-source file; consumers never parse the file themselves.
+The ignore-source layer exposes a single factory `createIgnoreSourceReader(projectRoot: string, config: IgnoreSourceReaderConfig): IgnoreSourceReader` that reads and parses the configured ignore-source file at construction and returns an immutable object whose public surface is a membership query (`isUnderIgnoreSource(relativePath: string): boolean`) and an entries accessor (`entries(): readonly IgnoreSourceEntry[]`). The factory is the sole reader of the configured ignore-source file; consumers never parse the file themselves.
+
+`IgnoreSourceReaderConfig` carries pre-resolved vocabulary from the file-inclusion config descriptor:
+
+```typescript
+type IgnoreSourceReaderConfig = {
+  readonly ignoreSourceFilename: string;
+  readonly specTreeRootSegment: string;
+};
+```
+
+The caller resolves the file-inclusion config descriptor before constructing the reader and passes the relevant fields as `config`. The factory performs no config file I/O and remains fully synchronous.
 
 ## Rationale
 
@@ -36,26 +47,29 @@ Alternatives considered:
 | Trade-off                                                                                       | Mitigation / reasoning                                                                                                                                                                                                       |
 | ----------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | Factory hides parse timing from callers                                                         | `createIgnoreSourceReader` is synchronous and idempotent; multiple reader instances within one invocation are cheap. Callers that edit the ignore-source mid-run receive stale results, but CLI invocations are short-lived. |
+| Caller must resolve config before constructing the reader                                       | The scope-resolver (the natural construction site) already resolves config once per invocation; passing the two relevant fields as `IgnoreSourceReaderConfig` adds no extra I/O and keeps the factory synchronous            |
 | Splitting tool-flag generation into `../54-tool-adapters.enabler/` costs one cross-child import | The split is a direct consequence of `../15-scope-composition.adr.md`; the cost is a static import boundary that the type system enforces                                                                                    |
 | Entries accessor exposes parsed state shape                                                     | The shape is intentionally narrow (a list of node-path strings and parse provenance); it is the evidence the scope-resolver needs for decision trails, and it is not a path to mutable state                                 |
 
 ## Invariants
 
-- The same `projectRoot` and the same ignore-source file content always produce equal `IgnoreSourceReader` behavior — equal `entries()` output and equal `isUnderIgnoreSource` decisions across all input paths
+- The same `projectRoot`, the same `IgnoreSourceReaderConfig`, and the same ignore-source file content always produce equal `IgnoreSourceReader` behavior — equal `entries()` output and equal `isUnderIgnoreSource` decisions across all input paths
 - `isUnderIgnoreSource(p)` returns `true` if and only if `p` is inside a directory named by a non-comment, non-blank, validated entry of the ignore-source file (prefix match on `{spec-tree-root-segment}/{entry}/`)
 - The factory rejects entries that would resolve outside the configured spec-tree root segment — absolute paths, traversal sequences, separator patterns that escape the root — at construction, never at query time
+- The factory performs no config file I/O; all vocabulary constants it consumes are carried by the `IgnoreSourceReaderConfig` parameter supplied by the caller
 - No module outside this enabler reads the ignore-source file, parses its grammar, or validates its entries
 
 ## Compliance
 
 ### Recognized by
 
-One module inside this enabler exports `createIgnoreSourceReader(projectRoot: string): IgnoreSourceReader` and the `IgnoreSourceReader` and `IgnoreSourceEntry` types. The path-predicates child's ignore-source predicate imports the reader factory and consults the reader through `isUnderIgnoreSource`. The scope-resolver consumes the reader's `entries()` for decision-trail population. No other module across the spx codebase reads the ignore-source file, parses its grammar, or references its filename as a source literal.
+One module inside this enabler exports `createIgnoreSourceReader(projectRoot: string, config: IgnoreSourceReaderConfig): IgnoreSourceReader` and the `IgnoreSourceReader`, `IgnoreSourceEntry`, and `IgnoreSourceReaderConfig` types. The path-predicates child's ignore-source predicate imports the reader factory and consults the reader through `isUnderIgnoreSource`. The scope-resolver constructs the reader by passing pre-resolved vocabulary as `IgnoreSourceReaderConfig`, then consumes `entries()` for decision-trail population. No other module across the spx codebase reads the ignore-source file, parses its grammar, or references its filename as a source literal.
 
 ### MUST
 
-- The reader is exposed as `createIgnoreSourceReader(projectRoot: string): IgnoreSourceReader` — a factory function, not a class, not a method on another module ([review])
+- The reader is exposed as `createIgnoreSourceReader(projectRoot: string, config: IgnoreSourceReaderConfig): IgnoreSourceReader` — a factory function, not a class, not a method on another module ([review])
 - The factory accepts `projectRoot` as a parameter per `../../15-worktree-resolution.pdr.md` ([review])
+- The factory accepts `IgnoreSourceReaderConfig` as a second parameter carrying pre-resolved vocabulary; it performs no config file I/O and remains fully synchronous ([review])
 - The factory reads and parses the configured ignore-source file once at construction; query methods are pure over parsed state ([review])
 - Path validation runs during parse — malformed entries cause construction to fail with an error naming the offending entry and the parse position ([review])
 - The configured ignore-source filename and the configured spec-tree root segment are read through the file-inclusion descriptor at every use site within this enabler ([review])
@@ -64,6 +78,7 @@ One module inside this enabler exports `createIgnoreSourceReader(projectRoot: st
 ### NEVER
 
 - Read, parse, or reference the ignore-source file from any module outside this enabler ([review])
+- Call `resolveConfig` or any config resolution function inside the factory — vocabulary is passed as pre-resolved `IgnoreSourceReaderConfig` by the caller ([review])
 - `vi.mock()`, `jest.mock()`, `memfs`, or any filesystem-mocking mechanism for `node:fs` / `node:fs/promises` — tests use real fixtures under tmpdirs ([review])
 - Accept an entry that is absolute, contains traversal sequences, or resolves outside the configured spec-tree root segment — reject at parse time ([review])
 - Expose tool-specific flag generation from this enabler — that surface lives in `../54-tool-adapters.enabler/` ([review])

@@ -5,11 +5,6 @@
 #
 # Remove entries when implementation begins.
 
-17-file-inclusion.enabler
-17-file-inclusion.enabler/21-ignore-source.enabler
-17-file-inclusion.enabler/32-path-predicates.enabler
-17-file-inclusion.enabler/43-scope-resolver.enabler
-17-file-inclusion.enabler/54-tool-adapters.enabler
 23-spec-tree.enabler
 31-spec-domain.capability
 31-spec-domain.enabler

@@ -61,7 +61,7 @@ One module declares the layer sequence. One module composes layers into the pipe
 - Each ignore layer is a pure predicate typed as `(path: string, config: LayerConfig) => LayerDecision`; layers perform no filesystem I/O beyond what their construction phase declares ([review])
 - Each tool adapter is declared in its own module as a pure function over `(ScopeResult, AdapterConfig) => readonly string[]` and registered through the adapter registry's static import list ([review])
 - `ScopeResult` carries a per-path decision trail — the sequence of layers that matched the path, in pipeline order, with the first element being `explicit-override` when the path was supplied by the caller ([review])
-- The layer-sequence declaration accepts insertion of a new layer at any declared position; inserting a layer does not alter the decision trails of other layers or the included/excluded membership of other layers' matches ([test](../43-scope-resolver.enabler/tests/scope-resolver.property.l1.test.ts))
+- The layer-sequence declaration accepts insertion of a new layer at any declared position; inserting a layer does not alter the decision trails of other layers or the included/excluded membership of other layers' matches ([test](43-scope-resolver.enabler/tests/scope-resolver.property.l1.test.ts))
 - Every file-inclusion vocabulary constant the subtree consumes is read through a 16-config-registered descriptor at every use site ([review](../16-config.enabler/21-descriptor-registration.adr.md))
 
 ### NEVER
