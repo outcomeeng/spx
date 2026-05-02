@@ -17,6 +17,7 @@ CAN consult parsed ignore-source state through a single read and a single valida
 ### Mappings
 
 - An entry `{segment}` in the ignore-source file maps to the directory `{spec-tree-root-segment}/{segment}/` for prefix matching; `{spec-tree-root-segment}` comes from the file-inclusion descriptor ([test](tests/ignore-source.mapping.l1.test.ts))
+- `matchedEntry(path)` returns the `IgnoreSourceEntry` whose segment's directory prefix covers the path, or `undefined` if no entry matches ([test](tests/ignore-source.mapping.l1.test.ts))
 
 ### Properties
 
@@ -26,7 +27,7 @@ CAN consult parsed ignore-source state through a single read and a single valida
 ### Compliance
 
 - ALWAYS: the reader parses the configured ignore-source file once at construction — query methods are pure over parsed state and perform no filesystem I/O ([review])
-- ALWAYS: entries whose resolved directory would lie outside the configured spec-tree root segment — absolute paths, paths containing traversal sequences, separator patterns that escape the root — cause construction to fail with an error naming the offending entry ([test](tests/ignore-source.compliance.l1.test.ts))
+- ALWAYS: entries containing absolute paths, traversal sequences, dot-relative prefixes, or empty segments (consecutive or trailing separators) cause construction to fail with an error naming the offending entry and its parse position — property coverage over all entries with empty segments, plus fixed examples for traversal and absolute-path cases ([test](tests/ignore-source.compliance.l1.test.ts))
 - ALWAYS: parsing is append-tolerant — comment lines, blank lines, and trailing whitespace parse without error ([test](tests/ignore-source.compliance.l1.test.ts))
 - NEVER: read, parse, or reference the ignore-source file from any module outside this enabler — the reader is the single reader ([review])
 - NEVER: emit tool-specific flag syntax from this enabler — tool-flag production lives in `../54-tool-adapters.enabler/` ([review])
