@@ -151,8 +151,8 @@ export function getDefaultDirectories(projectRoot: string): string[] {
  * exist yet. Listing them in spx/EXCLUDE tells markdown validation to
  * skip those directories so broken [test] links are not flagged.
  *
- * @param spxDir - Absolute path to the spx/ directory being validated
- * @returns Array of glob patterns to ignore (relative to spxDir)
+ * @param projectRoot - Absolute path to the project root
+ * @returns Array of glob patterns to ignore (relative to the validated directory)
  */
 export function getExcludeGlobs(projectRoot: string | undefined): string[] {
   if (projectRoot === undefined) return [];
@@ -229,11 +229,11 @@ export async function validateMarkdown(
 ): Promise<MarkdownValidationResult> {
   const { directories, projectRoot } = options;
   const errors: MarkdownError[] = [];
+  const excludeGlobs = getExcludeGlobs(projectRoot);
 
   for (const directory of directories) {
     const dirName = basename(directory);
     const config = buildMarkdownlintConfig(dirName);
-    const excludeGlobs = getExcludeGlobs(projectRoot);
     const dirErrors = await validateDirectory(directory, config, projectRoot, excludeGlobs);
     errors.push(...dirErrors);
   }

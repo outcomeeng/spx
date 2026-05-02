@@ -57,5 +57,5 @@ export async function makeIgnoreSourceConfig(
 ): Promise<IgnoreSourcePredicateConfig> {
   await writeExclude(env, segments);
   const reader = createIgnoreSourceReader(env.projectDir, readerConfig);
-  return { reader, specTreeRootSegment: spxRootSegment };
+  return { reader };
 }

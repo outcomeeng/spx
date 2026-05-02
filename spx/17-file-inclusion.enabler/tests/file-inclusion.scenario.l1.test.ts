@@ -10,7 +10,6 @@ import {
   toToolArguments,
 } from "@/lib/file-inclusion";
 import type { ToolAdaptersConfig } from "@/lib/file-inclusion";
-import { ARTIFACT_DIRECTORY_LAYER } from "@/lib/file-inclusion/predicates/artifact-directory";
 import { HIDDEN_PREFIX_LAYER } from "@/lib/file-inclusion/predicates/hidden-prefix";
 import { IGNORE_SOURCE_LAYER } from "@/lib/file-inclusion/predicates/ignore-source";
 
@@ -47,9 +46,9 @@ describe("file-inclusion service — scenarios", () => {
 
       const result = await resolveScope(env.projectDir, { walkRoot: env.projectDir }, resolverConfig);
 
-      const artifact = result.excluded.find((e) => e.path === artifactFilePath);
-      expect(artifact, `scope.excluded missing entry for "${artifactFilePath}"`).toBeDefined();
-      expect(artifact!.decisionTrail.some((d) => d.layer === ARTIFACT_DIRECTORY_LAYER)).toBe(true);
+      // collectPaths skips artifact directories during the walk; artifact files never enter included
+      const artifactInIncluded = result.included.find((e) => e.path === artifactFilePath);
+      expect(artifactInIncluded, `${artifactFilePath} must not appear in included`).toBeUndefined();
 
       const hidden = result.excluded.find((e) => e.path === hiddenFilePath);
       expect(hidden, `scope.excluded missing entry for "${hiddenFilePath}"`).toBeDefined();

@@ -11,6 +11,7 @@ import {
   hiddenFilePath,
   ignoredFilePath,
   integrationConfig,
+  makeLayerContext,
   resolverConfig,
   writeExclude,
   writeTestFiles,
@@ -27,8 +28,9 @@ describe("scope resolver — compliance", () => {
   });
 
   it("LAYER_SEQUENCE layer names are a non-empty set of known string identifiers — all layer names are non-empty strings", () => {
+    const dummyCtx = makeLayerContext(resolverConfig);
     const layerNames = LAYER_SEQUENCE.map((entry) => {
-      const sample = entry.predicate("any-path", entry.extractConfig(resolverConfig));
+      const sample = entry.predicate("any-path", entry.extractConfig(dummyCtx));
       return sample.layer;
     });
     expect(layerNames.length).toBeGreaterThan(0);

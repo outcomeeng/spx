@@ -16,7 +16,6 @@ export type HiddenPrefixConfig = {
 
 export type IgnoreSourcePredicateConfig = {
   readonly reader: IgnoreSourceReader;
-  readonly specTreeRootSegment: string;
 };
 
 export type ScopeResolverConfig = {
@@ -24,6 +23,11 @@ export type ScopeResolverConfig = {
   readonly hiddenPrefix: string;
   readonly ignoreSourceFilename: string;
   readonly specTreeRootSegment: string;
+};
+
+export type LayerContext = {
+  readonly config: ScopeResolverConfig;
+  readonly ignoreReader: IgnoreSourceReader;
 };
 
 export type ScopeRequest = {
@@ -43,7 +47,7 @@ export type ScopeResult = {
 
 export type LayerEntry = {
   readonly predicate: (path: string, config: unknown) => LayerDecision;
-  readonly extractConfig: (r: ScopeResolverConfig) => unknown;
+  readonly extractConfig: (ctx: LayerContext) => unknown;
 };
 
 export type AdapterConfig = { readonly ignoreFlag: string };

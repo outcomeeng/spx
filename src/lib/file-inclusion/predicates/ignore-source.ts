@@ -7,12 +7,9 @@ export function ignoreSourcePredicate(
   path: string,
   config: IgnoreSourcePredicateConfig,
 ): LayerDecision {
-  if (!config.reader.isUnderIgnoreSource(path)) {
+  const entry = config.reader.matchedEntry(path);
+  if (entry === undefined) {
     return { matched: false, layer: LAYER };
   }
-  const { specTreeRootSegment } = config;
-  const matchedEntry = config.reader.entries().find((entry) =>
-    path.startsWith(`${specTreeRootSegment}/${entry.segment}/`)
-  );
-  return { matched: true, layer: LAYER, detail: matchedEntry?.segment };
+  return { matched: true, layer: LAYER, detail: entry.segment };
 }

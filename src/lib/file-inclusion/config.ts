@@ -36,6 +36,8 @@ function validate(value: unknown): Result<FileInclusionConfig> {
   if (typeof value !== "object" || value === null || Array.isArray(value)) {
     return { ok: false, error: `${FILE_INCLUSION_SECTION} section must be an object` };
   }
+  // User-supplied keys are accepted but not yet merged; always returns defaults.
+  // Deep merging requires a schema (tracked as a future enhancement).
   return { ok: true, value: defaults };
 }
 

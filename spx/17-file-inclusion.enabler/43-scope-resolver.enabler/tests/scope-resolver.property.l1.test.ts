@@ -3,10 +3,10 @@ import { describe, expect, it } from "vitest";
 
 import { withTestEnv } from "@testing/harnesses/spec-tree/spec-tree";
 
+import { createIgnoreSourceReader } from "@/lib/file-inclusion/ignore-source";
 import { LAYER_SEQUENCE } from "@/lib/file-inclusion/layer-sequence";
 import { EXPLICIT_OVERRIDE_LAYER, resolveScope, runPipeline } from "@/lib/file-inclusion/pipeline";
 import type { LayerEntry } from "@/lib/file-inclusion/pipeline";
-import { ARTIFACT_DIRECTORY_LAYER } from "@/lib/file-inclusion/predicates/artifact-directory";
 import type { LayerDecision } from "@/lib/file-inclusion/types";
 
 import {
@@ -16,6 +16,7 @@ import {
   hiddenFilePath,
   ignoredFilePath,
   integrationConfig,
+  makeLayerContext,
   multiLayerFilePath,
   PROPERTY_NUM_RUNS,
   resolverConfig,
@@ -68,9 +69,10 @@ describe("scope resolver — properties", () => {
       await writeTestFiles(env);
       await writeExclude(env, [excludedNodeSegment]);
       const result = await resolveScope(env.projectDir, { walkRoot: env.projectDir }, resolverConfig);
+      const dummyCtx = makeLayerContext(resolverConfig);
       const layerIndexMap = new Map<string, number>(
         LAYER_SEQUENCE.map((entry, index): [string, number] => {
-          const sample = entry.predicate("x", entry.extractConfig(resolverConfig));
+          const sample = entry.predicate("x", entry.extractConfig(dummyCtx));
           return [sample.layer, index];
         }),
       );
@@ -106,6 +108,10 @@ describe("scope resolver — properties", () => {
 
       const baseResult = await resolveScope(env.projectDir, { walkRoot: env.projectDir }, resolverConfig);
       const baseExcluded = new Map(baseResult.excluded.map((e) => [e.path, e]));
+      const ignoreReader = createIgnoreSourceReader(env.projectDir, {
+        ignoreSourceFilename: resolverConfig.ignoreSourceFilename,
+        specTreeRootSegment: resolverConfig.specTreeRootSegment,
+      });
 
       for (let position = 0; position <= LAYER_SEQUENCE.length; position++) {
         const extended = [
@@ -113,7 +119,13 @@ describe("scope resolver — properties", () => {
           noopLayer,
           ...LAYER_SEQUENCE.slice(position),
         ];
-        const extResult = await runPipeline(extended, env.projectDir, { walkRoot: env.projectDir }, resolverConfig);
+        const extResult = await runPipeline(
+          extended,
+          env.projectDir,
+          { walkRoot: env.projectDir },
+          resolverConfig,
+          ignoreReader,
+        );
 
         expect(extResult.included.map((e) => e.path).sort(), `position ${position}: included set unchanged`).toEqual(
           baseResult.included.map((e) => e.path).sort(),
@@ -128,6 +140,9 @@ describe("scope resolver — properties", () => {
               baseEntry!.decisionTrail,
             );
         }
+        const artifactInIncluded = extResult.included.find((e) => e.path === artifactFilePath);
+        expect(artifactInIncluded, `position ${position}: ${artifactFilePath} must not appear in included`)
+          .toBeUndefined();
       }
     });
   });
@@ -148,6 +163,10 @@ describe("scope resolver — properties", () => {
 
       const baseResult = await resolveScope(env.projectDir, { walkRoot: env.projectDir }, resolverConfig);
       const baseExcluded = new Map(baseResult.excluded.map((e) => [e.path, e]));
+      const ignoreReader = createIgnoreSourceReader(env.projectDir, {
+        ignoreSourceFilename: resolverConfig.ignoreSourceFilename,
+        specTreeRootSegment: resolverConfig.specTreeRootSegment,
+      });
 
       for (let position = 0; position <= LAYER_SEQUENCE.length; position++) {
         const extended = [
@@ -155,7 +174,13 @@ describe("scope resolver — properties", () => {
           customLayer,
           ...LAYER_SEQUENCE.slice(position),
         ];
-        const extResult = await runPipeline(extended, env.projectDir, { walkRoot: env.projectDir }, resolverConfig);
+        const extResult = await runPipeline(
+          extended,
+          env.projectDir,
+          { walkRoot: env.projectDir },
+          resolverConfig,
+          ignoreReader,
+        );
 
         const customExcluded = extResult.excluded.find((e) => e.path === cleanFilePath);
         expect(customExcluded, `position ${position}: ${cleanFilePath} should be excluded by custom layer`)
@@ -164,12 +189,10 @@ describe("scope resolver — properties", () => {
         const customTrailEntry = customExcluded!.decisionTrail.find((d) => d.layer === customLayerName);
         expect(customTrailEntry, `position ${position}: trail must name "${customLayerName}"`).toBeDefined();
 
-        const artifactExcluded = extResult.excluded.find((e) => e.path === artifactFilePath);
-        expect(artifactExcluded, `position ${position}: ${artifactFilePath} still excluded`).toBeDefined();
-        expect(
-          artifactExcluded!.decisionTrail.some((d) => d.layer === ARTIFACT_DIRECTORY_LAYER),
-          `position ${position}: artifact-directory trail entry preserved`,
-        ).toBe(true);
+        // Artifact files are pruned during walk (collectPaths skips artifact directories); verify they are absent from included
+        const artifactInIncluded = extResult.included.find((e) => e.path === artifactFilePath);
+        expect(artifactInIncluded, `position ${position}: ${artifactFilePath} must not appear in included`)
+          .toBeUndefined();
 
         const hiddenExcluded = extResult.excluded.find((e) => e.path === hiddenFilePath);
         expect(hiddenExcluded, `position ${position}: ${hiddenFilePath} still excluded`).toBeDefined();

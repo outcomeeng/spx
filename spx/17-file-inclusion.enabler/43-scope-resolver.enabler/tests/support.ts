@@ -1,7 +1,8 @@
 import type { Config, SpecTreeEnv } from "@testing/harnesses/spec-tree/spec-tree";
 
 import { IGNORE_SOURCE_FILENAME_DEFAULT } from "@/lib/file-inclusion/ignore-source";
-import type { ScopeResolverConfig } from "@/lib/file-inclusion/pipeline";
+import type { IgnoreSourceReader } from "@/lib/file-inclusion/ignore-source";
+import type { LayerContext, ScopeResolverConfig } from "@/lib/file-inclusion/pipeline";
 import { ARTIFACT_DIRECTORIES_DEFAULT } from "@/lib/file-inclusion/predicates/artifact-directory";
 import { HIDDEN_PREFIX_DEFAULT } from "@/lib/file-inclusion/predicates/hidden-prefix";
 import { SPEC_TREE_CONFIG } from "@/lib/spec-tree/config";
@@ -36,8 +37,19 @@ export const artifactFilePath = `${firstArtifactDir}/pkg/index.js`;
 export const hiddenFilePath = `src/${HIDDEN_PREFIX_DEFAULT}config.ts`;
 export const excludedNodeSegment = "21-excluded-sample.enabler";
 export const ignoredFilePath = `${spxRootSegment}/${excludedNodeSegment}/impl.ts`;
-// Matches both artifact-directory (contains firstArtifactDir segment) and hidden-prefix (basename starts with HIDDEN_PREFIX_DEFAULT)
-export const multiLayerFilePath = `${firstArtifactDir}/${HIDDEN_PREFIX_DEFAULT}hidden-file.ts`;
+// Matches both hidden-prefix (basename starts with HIDDEN_PREFIX_DEFAULT) and ignore-source (under an excluded node).
+// Does NOT use an artifact directory so it is collected during the walk.
+export const multiLayerFilePath = `${spxRootSegment}/${excludedNodeSegment}/${HIDDEN_PREFIX_DEFAULT}hidden-file.ts`;
+
+export const noopIgnoreReader: IgnoreSourceReader = {
+  isUnderIgnoreSource: () => false,
+  entries: () => [],
+  matchedEntry: () => undefined,
+};
+
+export function makeLayerContext(config: ScopeResolverConfig): LayerContext {
+  return { config, ignoreReader: noopIgnoreReader };
+}
 
 export { PROPERTY_NUM_RUNS } from "@testing/harnesses/spec-tree/generators";
 

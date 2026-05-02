@@ -16,6 +16,7 @@ export type IgnoreSourceEntry = {
 export type IgnoreSourceReader = {
   isUnderIgnoreSource(relativePath: string): boolean;
   entries(): readonly IgnoreSourceEntry[];
+  matchedEntry(relativePath: string): IgnoreSourceEntry | undefined;
 };
 
 const COMMENT_PREFIX = "#";
@@ -76,6 +77,9 @@ export function createIgnoreSourceReader(
     },
     entries(): readonly IgnoreSourceEntry[] {
       return [...parsedEntries];
+    },
+    matchedEntry(relativePath: string): IgnoreSourceEntry | undefined {
+      return parsedEntries.find((entry) => relativePath.startsWith(`${specTreeRootSegment}/${entry.segment}/`));
     },
   };
 }

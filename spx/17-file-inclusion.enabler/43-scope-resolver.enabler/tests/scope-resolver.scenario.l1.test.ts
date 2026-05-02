@@ -3,7 +3,6 @@ import { describe, expect, it } from "vitest";
 import { withTestEnv } from "@testing/harnesses/spec-tree/spec-tree";
 
 import { EXPLICIT_OVERRIDE_LAYER, resolveScope } from "@/lib/file-inclusion/pipeline";
-import { ARTIFACT_DIRECTORY_LAYER } from "@/lib/file-inclusion/predicates/artifact-directory";
 import { HIDDEN_PREFIX_LAYER } from "@/lib/file-inclusion/predicates/hidden-prefix";
 import { IGNORE_SOURCE_LAYER } from "@/lib/file-inclusion/predicates/ignore-source";
 
@@ -37,9 +36,9 @@ describe("scope resolver — scenarios", () => {
       await writeExclude(env, [excludedNodeSegment]);
       const result = await resolveScope(env.projectDir, { walkRoot: env.projectDir }, resolverConfig);
 
-      const artifact = result.excluded.find((e) => e.path === artifactFilePath);
-      expect(artifact, `expected ${artifactFilePath} in excluded`).toBeDefined();
-      expect(artifact!.decisionTrail.some((d) => d.layer === ARTIFACT_DIRECTORY_LAYER)).toBe(true);
+      // collectPaths skips artifact directories during the walk; artifact files never enter included
+      const artifactInIncluded = result.included.find((e) => e.path === artifactFilePath);
+      expect(artifactInIncluded, `${artifactFilePath} must not appear in included`).toBeUndefined();
 
       const hidden = result.excluded.find((e) => e.path === hiddenFilePath);
       expect(hidden, `expected ${hiddenFilePath} in excluded`).toBeDefined();
