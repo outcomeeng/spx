@@ -38,7 +38,7 @@ describe("scope resolver — scenarios", () => {
 
       // collectPaths skips artifact directories during the walk; artifact files never enter included
       const artifactInIncluded = result.included.find((e) => e.path === artifactFilePath);
-      expect(artifactInIncluded, `${artifactFilePath} must not appear in included`).toBeUndefined();
+      expect(artifactInIncluded, `scope.resolver.scenario: ${artifactFilePath} absent from included`).toBeUndefined();
 
       const hidden = result.excluded.find((e) => e.path === hiddenFilePath);
       expect(hidden, `expected ${hiddenFilePath} in excluded`).toBeDefined();

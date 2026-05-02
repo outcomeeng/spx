@@ -48,7 +48,8 @@ describe("file-inclusion service — scenarios", () => {
 
       // collectPaths skips artifact directories during the walk; artifact files never enter included
       const artifactInIncluded = result.included.find((e) => e.path === artifactFilePath);
-      expect(artifactInIncluded, `${artifactFilePath} must not appear in included`).toBeUndefined();
+      expect(artifactInIncluded, `file-inclusion.scenario: ${artifactFilePath} absent from scope.included`)
+        .toBeUndefined();
 
       const hidden = result.excluded.find((e) => e.path === hiddenFilePath);
       expect(hidden, `scope.excluded missing entry for "${hiddenFilePath}"`).toBeDefined();

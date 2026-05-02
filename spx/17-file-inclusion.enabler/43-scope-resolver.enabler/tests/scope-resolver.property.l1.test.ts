@@ -141,7 +141,7 @@ describe("scope resolver — properties", () => {
             );
         }
         const artifactInIncluded = extResult.included.find((e) => e.path === artifactFilePath);
-        expect(artifactInIncluded, `position ${position}: ${artifactFilePath} must not appear in included`)
+        expect(artifactInIncluded, `position ${position}: ${artifactFilePath} absent from included scope`)
           .toBeUndefined();
       }
     });
@@ -191,7 +191,7 @@ describe("scope resolver — properties", () => {
 
         // Artifact files are pruned during walk (collectPaths skips artifact directories); verify they are absent from included
         const artifactInIncluded = extResult.included.find((e) => e.path === artifactFilePath);
-        expect(artifactInIncluded, `position ${position}: ${artifactFilePath} must not appear in included`)
+        expect(artifactInIncluded, `position ${position}: ${artifactFilePath} absent from included scope`)
           .toBeUndefined();
 
         const hiddenExcluded = extResult.excluded.find((e) => e.path === hiddenFilePath);
