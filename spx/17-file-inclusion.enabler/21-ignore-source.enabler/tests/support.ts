@@ -40,6 +40,8 @@ export const INVALID_EXCLUDE_ENTRIES = [
   "21-example.enabler/../escape",
   "./21-example.enabler",
   "21-example.enabler/../..",
+  "21-example.enabler//nested.enabler",
+  "21-example.enabler/",
 ] as const;
 
 export const ARBITRARY_SEGMENT_MAX = 3;

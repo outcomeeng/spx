@@ -18,6 +18,11 @@ import {
   writeExcludeRaw,
 } from "./support";
 
+const arbEmptySegmentEntry = fc.oneof(
+  fc.tuple(arbNodeSegment, arbNodeSegment).map(([a, b]) => `${a}//${b}`),
+  arbNodeSegment.map((s) => `${s}/`),
+);
+
 describe("ignore-source — compliance", () => {
   it("ALWAYS: parsing is append-tolerant — comments, blank lines, and trailing whitespace parse without error", async () => {
     await fc.assert(
@@ -64,7 +69,7 @@ describe("ignore-source — compliance", () => {
     );
   });
 
-  it("ALWAYS: entries that escape the configured spec-tree root segment cause construction to fail with an error naming the offending entry and the parse position", async () => {
+  it("ALWAYS: entries containing absolute paths, traversal sequences, dot-relative prefixes, or empty segments cause construction to fail with an error naming the offending entry and the parse position", async () => {
     for (const entry of INVALID_EXCLUDE_ENTRIES) {
       await withTestEnv(INTEGRATION_CONFIG, async (env) => {
         await writeExclude(env, [entry]);
@@ -74,5 +79,20 @@ describe("ignore-source — compliance", () => {
         expect(throws, entry).toThrow("at line 1");
       });
     }
+  });
+
+  it("ALWAYS: any entry with consecutive separators or a trailing separator causes construction to fail — covers the entire empty-segment class", async () => {
+    await fc.assert(
+      fc.asyncProperty(arbEmptySegmentEntry, async (entry) => {
+        await withTestEnv(INTEGRATION_CONFIG, async (env) => {
+          await writeExclude(env, [entry]);
+
+          const throws = () => createIgnoreSourceReader(env.projectDir, READER_CONFIG);
+          expect(throws, `entry: "${entry}"`).toThrow(entry);
+          expect(throws, `entry: "${entry}"`).toThrow("at line 1");
+        });
+      }),
+      { numRuns: PROPERTY_NUM_RUNS },
+    );
   });
 });

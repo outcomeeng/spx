@@ -33,9 +33,9 @@ function validateEntry(entry: string, lineNumber: number): void {
   }
   const parts = entry.split("/");
   for (const part of parts) {
-    if (part === ".." || part === ".") {
+    if (part === ".." || part === "." || part === "") {
       throw new Error(
-        `Invalid ignore-source entry "${entry}" at line ${lineNumber}: traversal sequences and dot-relative prefixes are not allowed`,
+        `Invalid ignore-source entry "${entry}" at line ${lineNumber}: empty segments, traversal sequences, and dot-relative prefixes are not allowed`,
       );
     }
   }
