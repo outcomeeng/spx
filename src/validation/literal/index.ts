@@ -1,6 +1,8 @@
 import { readFile } from "node:fs/promises";
 import { isAbsolute, relative, resolve } from "node:path";
 
+import { DEFAULT_SCOPE_CONFIG } from "@/lib/file-inclusion/config";
+import { resolveScope } from "@/lib/file-inclusion/pipeline";
 import { type LiteralConfig, literalConfigDescriptor, resolveAllowlist } from "./config";
 import {
   buildIndex,
@@ -10,8 +12,7 @@ import {
   detectReuse,
   type LiteralOccurrence,
 } from "./detector";
-import { isUnderExcluded, readExcludePaths } from "./exclude";
-import { isTestFile, walkTypescriptFiles } from "./walker";
+import { isTestFile, isTypescriptSource } from "./walker";
 
 export { literalConfigDescriptor, resolveAllowlist } from "./config";
 export type { LiteralAllowlistConfig, LiteralConfig } from "./config";
@@ -52,11 +53,21 @@ export async function validateLiteralReuse(
   input: ValidateLiteralReuseInput,
 ): Promise<ValidateLiteralReuseResult> {
   const config = input.config ?? literalConfigDescriptor.defaults;
-  const excludePaths = await readExcludePaths(input.projectRoot);
 
-  const candidateFiles = input.files
-    ? input.files.map((f) => (isAbsolute(f) ? f : resolve(input.projectRoot, f)))
-    : await walkTypescriptFiles(input.projectRoot, excludePaths);
+  const request = input.files
+    ? {
+      explicit: input.files.map((f) => {
+        const abs = isAbsolute(f) ? f : resolve(input.projectRoot, f);
+        return relative(input.projectRoot, abs).split(/[\\/]/g).join("/");
+      }),
+    }
+    : { walkRoot: input.projectRoot };
+
+  const scope = await resolveScope(input.projectRoot, request, DEFAULT_SCOPE_CONFIG);
+
+  const candidateFiles = scope.included
+    .filter((entry) => isTypescriptSource(entry.path))
+    .map((entry) => resolve(input.projectRoot, entry.path));
 
   const collectOptions = {
     visitorKeys: defaultVisitorKeys,
@@ -70,7 +81,6 @@ export async function validateLiteralReuse(
 
   for (const abs of candidateFiles) {
     const rel = relative(input.projectRoot, abs).split(/[\\/]/g).join("/");
-    if (isUnderExcluded(rel, excludePaths)) continue;
 
     const content = await readSafe(abs);
     if (content === null) continue;

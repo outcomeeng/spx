@@ -8,11 +8,11 @@
  * @module validation/steps/markdown
  */
 
-import { existsSync, readFileSync } from "node:fs";
+import { existsSync } from "node:fs";
 import { basename, join } from "node:path";
 
-import { EXCLUDE_FILENAME } from "@/domains/spec/apply/exclude/constants";
-import { readExcludedNodes } from "@/domains/spec/apply/exclude/exclude-file";
+import { createIgnoreSourceReader, IGNORE_SOURCE_FILENAME_DEFAULT } from "@/lib/file-inclusion/ignore-source";
+import { SPEC_TREE_CONFIG } from "@/lib/spec-tree/config";
 
 // @ts-expect-error markdownlint-cli2 has no TypeScript type declarations
 import { main as markdownlintMain } from "markdownlint-cli2";
@@ -154,14 +154,13 @@ export function getDefaultDirectories(projectRoot: string): string[] {
  * @param spxDir - Absolute path to the spx/ directory being validated
  * @returns Array of glob patterns to ignore (relative to spxDir)
  */
-export function getExcludeGlobs(spxDir: string): string[] {
-  const excludePath = join(spxDir, EXCLUDE_FILENAME);
-  if (!existsSync(excludePath)) {
-    return [];
-  }
-  const content = readFileSync(excludePath, "utf-8");
-  const nodes = readExcludedNodes(content);
-  return nodes.map((node) => `${node}/**`);
+export function getExcludeGlobs(projectRoot: string | undefined): string[] {
+  if (projectRoot === undefined) return [];
+  const reader = createIgnoreSourceReader(projectRoot, {
+    ignoreSourceFilename: IGNORE_SOURCE_FILENAME_DEFAULT,
+    specTreeRootSegment: SPEC_TREE_CONFIG.ROOT_DIRECTORY,
+  });
+  return reader.entries().map((entry) => `${entry.segment}/**`);
 }
 
 // =============================================================================
@@ -234,7 +233,7 @@ export async function validateMarkdown(
   for (const directory of directories) {
     const dirName = basename(directory);
     const config = buildMarkdownlintConfig(dirName);
-    const excludeGlobs = getExcludeGlobs(directory);
+    const excludeGlobs = getExcludeGlobs(projectRoot);
     const dirErrors = await validateDirectory(directory, config, projectRoot, excludeGlobs);
     errors.push(...dirErrors);
   }
