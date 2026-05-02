@@ -1,51 +1,45 @@
 import * as fc from "fast-check";
 import { describe, expect, it } from "vitest";
 
-import { createExcludeFilter } from "@/lib/path-inclusion/index";
+import { createIgnoreSourceReader } from "@/lib/file-inclusion/ignore-source";
 import { withTestEnv } from "@testing/harnesses/spec-tree/spec-tree";
 
 import {
   ARBITRARY_QUERY_MAX,
   ARBITRARY_SEGMENT_MAX,
+  arbNodeSegment,
+  arbSubpath,
   INTEGRATION_CONFIG,
-  NODE_SEGMENT_OTHER,
-  NODE_SEGMENT_SIMPLE,
   PROPERTY_NUM_RUNS,
+  READER_CONFIG,
   spxPath,
-  SUBPATHS_FOR_PREFIX_CHECK,
-  TOOL_PYTEST,
-  TOOL_VITEST,
   writeExclude,
 } from "./support";
 
 describe("ignore-source — properties", () => {
-  it("filtering is deterministic: the same EXCLUDE content always produces the same exclusion set", async () => {
+  it("the reader is deterministic: the same project root and the same ignore-source file content always produce the same parsed entry set and the same membership-query results", async () => {
     await fc.assert(
       fc.asyncProperty(
-        fc.array(fc.constantFrom(NODE_SEGMENT_SIMPLE, NODE_SEGMENT_OTHER), {
-          maxLength: ARBITRARY_SEGMENT_MAX,
+        fc.array(arbNodeSegment, { maxLength: ARBITRARY_SEGMENT_MAX }),
+        fc.array(fc.tuple(arbNodeSegment, arbSubpath), {
+          minLength: 1,
+          maxLength: ARBITRARY_QUERY_MAX,
         }),
-        fc.array(
-          fc.tuple(
-            fc.constantFrom(NODE_SEGMENT_SIMPLE, NODE_SEGMENT_OTHER),
-            fc.constantFrom(...SUBPATHS_FOR_PREFIX_CHECK),
-          ),
-          { minLength: 1, maxLength: ARBITRARY_QUERY_MAX },
-        ),
         async (segments, queries) => {
           await withTestEnv(INTEGRATION_CONFIG, async (env) => {
             await writeExclude(env, segments);
 
-            const filterA = createExcludeFilter(env.projectDir);
-            const filterB = createExcludeFilter(env.projectDir);
+            const readerA = createIgnoreSourceReader(env.projectDir, READER_CONFIG);
+            const readerB = createIgnoreSourceReader(env.projectDir, READER_CONFIG);
 
             for (const [segment, rest] of queries) {
               const input = spxPath(segment, rest);
-              expect(filterA.isExcluded(input)).toBe(filterB.isExcluded(input));
+              expect(readerA.isUnderIgnoreSource(input)).toBe(readerB.isUnderIgnoreSource(input));
             }
 
-            expect(filterA.toToolFlags(TOOL_PYTEST)).toEqual(filterB.toToolFlags(TOOL_PYTEST));
-            expect(filterA.toToolFlags(TOOL_VITEST)).toEqual(filterB.toToolFlags(TOOL_VITEST));
+            const entriesA = readerA.entries().map((e) => e.segment).sort();
+            const entriesB = readerB.entries().map((e) => e.segment).sort();
+            expect(entriesA).toEqual(entriesB);
           });
         },
       ),
@@ -53,22 +47,20 @@ describe("ignore-source — properties", () => {
     );
   });
 
-  it("path matching is prefix-based: any file inside an excluded node directory matches the exclusion", async () => {
+  it("membership matching is prefix-based: every path inside the directory of a parsed entry reports as under-ignore-source, and no path outside every such directory reports as under-ignore-source", async () => {
     await fc.assert(
       fc.asyncProperty(
-        fc.array(fc.constantFrom(...SUBPATHS_FOR_PREFIX_CHECK), {
-          minLength: 1,
-          maxLength: ARBITRARY_QUERY_MAX,
-        }),
-        async (subpaths) => {
+        fc.tuple(arbNodeSegment, arbNodeSegment).filter(([a, b]) => a !== b),
+        fc.array(arbSubpath, { minLength: 1, maxLength: ARBITRARY_QUERY_MAX }),
+        async ([listed, unlisted], subpaths) => {
           await withTestEnv(INTEGRATION_CONFIG, async (env) => {
-            await writeExclude(env, [NODE_SEGMENT_SIMPLE]);
+            await writeExclude(env, [listed]);
 
-            const filter = createExcludeFilter(env.projectDir);
+            const reader = createIgnoreSourceReader(env.projectDir, READER_CONFIG);
 
             for (const sub of subpaths) {
-              expect(filter.isExcluded(spxPath(NODE_SEGMENT_SIMPLE, sub))).toBe(true);
-              expect(filter.isExcluded(spxPath(NODE_SEGMENT_OTHER, sub))).toBe(false);
+              expect(reader.isUnderIgnoreSource(spxPath(listed, sub))).toBe(true);
+              expect(reader.isUnderIgnoreSource(spxPath(unlisted, sub))).toBe(false);
             }
           });
         },

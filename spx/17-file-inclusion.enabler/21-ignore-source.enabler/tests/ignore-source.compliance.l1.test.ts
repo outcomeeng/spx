@@ -1,60 +1,77 @@
+import * as fc from "fast-check";
 import { describe, expect, it } from "vitest";
 
-import { createExcludeFilter } from "@/lib/path-inclusion/index";
+import { createIgnoreSourceReader } from "@/lib/file-inclusion/ignore-source";
 import { withTestEnv } from "@testing/harnesses/spec-tree/spec-tree";
 
 import {
+  arbNodeSegment,
+  arbSubpath,
   COMMENT_HEADER,
   COMMENT_INDENTED,
   INTEGRATION_CONFIG,
   INVALID_EXCLUDE_ENTRIES,
-  NODE_SEGMENT_OTHER,
-  NODE_SEGMENT_SIMPLE,
+  PROPERTY_NUM_RUNS,
+  READER_CONFIG,
   spxPath,
-  SUBPATH_IMPL,
-  SUBPATH_TEST_SHALLOW,
   writeExclude,
   writeExcludeRaw,
 } from "./support";
 
 describe("ignore-source — compliance", () => {
-  it("EXCLUDE is append-tolerant: comments, blank lines, and trailing whitespace parse without error", async () => {
-    await withTestEnv(INTEGRATION_CONFIG, async (env) => {
-      await writeExclude(env, [
-        "",
-        COMMENT_HEADER,
-        "",
-        `   ${NODE_SEGMENT_SIMPLE}   `,
-        COMMENT_INDENTED,
-        "",
-        `${NODE_SEGMENT_OTHER}\t`,
-        "",
-        "",
-      ]);
+  it("ALWAYS: parsing is append-tolerant — comments, blank lines, and trailing whitespace parse without error", async () => {
+    await fc.assert(
+      fc.asyncProperty(
+        fc.tuple(arbNodeSegment, arbNodeSegment).filter(([a, b]) => a !== b),
+        arbSubpath,
+        async ([segA, segB], sub) => {
+          await withTestEnv(INTEGRATION_CONFIG, async (env) => {
+            await writeExclude(env, [
+              "",
+              COMMENT_HEADER,
+              "",
+              `   ${segA}   `,
+              COMMENT_INDENTED,
+              "",
+              `${segB}\t`,
+              "",
+              "",
+            ]);
 
-      const filter = createExcludeFilter(env.projectDir);
+            const reader = createIgnoreSourceReader(env.projectDir, READER_CONFIG);
 
-      expect(filter.isExcluded(spxPath(NODE_SEGMENT_SIMPLE, SUBPATH_IMPL))).toBe(true);
-      expect(filter.isExcluded(spxPath(NODE_SEGMENT_OTHER, SUBPATH_TEST_SHALLOW))).toBe(true);
-    });
+            expect(reader.isUnderIgnoreSource(spxPath(segA, sub))).toBe(true);
+            expect(reader.isUnderIgnoreSource(spxPath(segB, sub))).toBe(true);
+          });
+        },
+      ),
+      { numRuns: PROPERTY_NUM_RUNS },
+    );
   });
 
-  it("EXCLUDE with only newlines and no entries parses without error and excludes nothing", async () => {
-    await withTestEnv(INTEGRATION_CONFIG, async (env) => {
-      await writeExcludeRaw(env, "\n\n\n");
+  it("ALWAYS: append-tolerant — file with only newlines and no entries parses without error and excludes nothing", async () => {
+    await fc.assert(
+      fc.asyncProperty(arbNodeSegment, arbSubpath, async (segment, sub) => {
+        await withTestEnv(INTEGRATION_CONFIG, async (env) => {
+          await writeExcludeRaw(env, "\n\n\n");
 
-      const filter = createExcludeFilter(env.projectDir);
+          const reader = createIgnoreSourceReader(env.projectDir, READER_CONFIG);
 
-      expect(filter.isExcluded(spxPath(NODE_SEGMENT_SIMPLE, SUBPATH_IMPL))).toBe(false);
-    });
+          expect(reader.isUnderIgnoreSource(spxPath(segment, sub))).toBe(false);
+        });
+      }),
+      { numRuns: PROPERTY_NUM_RUNS },
+    );
   });
 
-  it("rejects every entry that escapes spx/ at construction time", async () => {
+  it("ALWAYS: entries that escape the configured spec-tree root segment cause construction to fail with an error naming the offending entry and the parse position", async () => {
     for (const entry of INVALID_EXCLUDE_ENTRIES) {
       await withTestEnv(INTEGRATION_CONFIG, async (env) => {
         await writeExclude(env, [entry]);
 
-        expect(() => createExcludeFilter(env.projectDir), entry).toThrow();
+        const throws = () => createIgnoreSourceReader(env.projectDir, READER_CONFIG);
+        expect(throws, entry).toThrow(entry);
+        expect(throws, entry).toThrow("at line 1");
       });
     }
   });

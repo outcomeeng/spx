@@ -1,81 +1,115 @@
+import * as fc from "fast-check";
 import { describe, expect, it } from "vitest";
 
-import { createExcludeFilter } from "@/lib/path-inclusion/index";
+import { createIgnoreSourceReader } from "@/lib/file-inclusion/ignore-source";
 import { withTestEnv } from "@testing/harnesses/spec-tree/spec-tree";
 
 import {
+  arbNestedNodeSegment,
+  arbNodeSegment,
+  arbSubpath,
   COMMENT_HEADER,
   COMMENT_MIDDLE,
   INTEGRATION_CONFIG,
-  NODE_SEGMENT_NESTED,
-  NODE_SEGMENT_OTHER,
-  NODE_SEGMENT_SIMPLE,
+  PROPERTY_NUM_RUNS,
+  READER_CONFIG,
   spxPath,
-  SUBPATH_IMPL,
-  SUBPATH_TEST_BAR,
-  SUBPATH_TEST_FOO,
   writeExclude,
   writeExcludeRaw,
 } from "./support";
 
 describe("ignore-source — scenarios", () => {
-  it("EXCLUDE lists a node path and the filter reports a file inside that node directory as excluded", async () => {
-    await withTestEnv(INTEGRATION_CONFIG, async (env) => {
-      await writeExclude(env, [NODE_SEGMENT_SIMPLE]);
+  it("ignore-source file lists a node path and the reader reports a path under that node directory as under-ignore-source", async () => {
+    await fc.assert(
+      fc.asyncProperty(
+        fc.tuple(arbNodeSegment, arbNodeSegment).filter(([a, b]) => a !== b),
+        arbSubpath,
+        async ([listed, unlisted], sub) => {
+          await withTestEnv(INTEGRATION_CONFIG, async (env) => {
+            await writeExclude(env, [listed]);
 
-      const filter = createExcludeFilter(env.projectDir);
+            const reader = createIgnoreSourceReader(env.projectDir, READER_CONFIG);
 
-      expect(filter.isExcluded(spxPath(NODE_SEGMENT_SIMPLE, SUBPATH_TEST_FOO))).toBe(true);
-      expect(filter.isExcluded(spxPath(NODE_SEGMENT_OTHER, SUBPATH_TEST_FOO))).toBe(false);
-    });
+            expect(reader.isUnderIgnoreSource(spxPath(listed, sub))).toBe(true);
+            expect(reader.isUnderIgnoreSource(spxPath(unlisted, sub))).toBe(false);
+          });
+        },
+      ),
+      { numRuns: PROPERTY_NUM_RUNS },
+    );
   });
 
-  it("EXCLUDE lists a nested node path and the filter reports a file inside that nested node as excluded", async () => {
-    await withTestEnv(INTEGRATION_CONFIG, async (env) => {
-      await writeExclude(env, [NODE_SEGMENT_NESTED]);
+  it("ignore-source file lists a nested node path and the reader reports a path under that nested node as under-ignore-source", async () => {
+    await fc.assert(
+      fc.asyncProperty(arbNestedNodeSegment, arbSubpath, async (nested, sub) => {
+        await withTestEnv(INTEGRATION_CONFIG, async (env) => {
+          await writeExclude(env, [nested]);
 
-      const filter = createExcludeFilter(env.projectDir);
+          const reader = createIgnoreSourceReader(env.projectDir, READER_CONFIG);
 
-      expect(filter.isExcluded(spxPath(NODE_SEGMENT_NESTED, SUBPATH_TEST_BAR))).toBe(true);
-    });
+          expect(reader.isUnderIgnoreSource(spxPath(nested, sub))).toBe(true);
+        });
+      }),
+      { numRuns: PROPERTY_NUM_RUNS },
+    );
   });
 
-  it("EXCLUDE with comments and blank lines parses so only non-comment, non-blank lines become node paths", async () => {
-    await withTestEnv(INTEGRATION_CONFIG, async (env) => {
-      await writeExclude(env, [
-        COMMENT_HEADER,
-        "",
-        NODE_SEGMENT_SIMPLE,
-        "",
-        COMMENT_MIDDLE,
-        NODE_SEGMENT_OTHER,
-        "",
-      ]);
+  it("ignore-source file with comments and blank lines parses so only non-comment, non-blank, whitespace-trimmed lines become entries", async () => {
+    await fc.assert(
+      fc.asyncProperty(
+        fc
+          .tuple(arbNodeSegment, arbNodeSegment, arbNodeSegment)
+          .filter(([a, b, c]) => a !== b && b !== c && a !== c),
+        arbSubpath,
+        async ([segA, segB, segC], sub) => {
+          await withTestEnv(INTEGRATION_CONFIG, async (env) => {
+            await writeExclude(env, [
+              COMMENT_HEADER,
+              "",
+              `  ${segA}  `,
+              "",
+              COMMENT_MIDDLE,
+              segB,
+              "",
+            ]);
 
-      const filter = createExcludeFilter(env.projectDir);
+            const reader = createIgnoreSourceReader(env.projectDir, READER_CONFIG);
 
-      expect(filter.isExcluded(spxPath(NODE_SEGMENT_SIMPLE, SUBPATH_IMPL))).toBe(true);
-      expect(filter.isExcluded(spxPath(NODE_SEGMENT_OTHER, SUBPATH_IMPL))).toBe(true);
-      expect(filter.isExcluded(spxPath(NODE_SEGMENT_NESTED, SUBPATH_IMPL))).toBe(false);
-    });
+            expect(reader.isUnderIgnoreSource(spxPath(segA, sub))).toBe(true);
+            expect(reader.isUnderIgnoreSource(spxPath(segB, sub))).toBe(true);
+            expect(reader.isUnderIgnoreSource(spxPath(segC, sub))).toBe(false);
+          });
+        },
+      ),
+      { numRuns: PROPERTY_NUM_RUNS },
+    );
   });
 
-  it("EXCLUDE does not exist and the filter constructs so every input path reports as non-excluded", async () => {
-    await withTestEnv(INTEGRATION_CONFIG, async (env) => {
-      const filter = createExcludeFilter(env.projectDir);
+  it("ignore-source file is absent and the reader reports every path as not-under-ignore-source", async () => {
+    await fc.assert(
+      fc.asyncProperty(arbNodeSegment, arbSubpath, async (segment, sub) => {
+        await withTestEnv(INTEGRATION_CONFIG, async (env) => {
+          const reader = createIgnoreSourceReader(env.projectDir, READER_CONFIG);
 
-      expect(filter.isExcluded(spxPath(NODE_SEGMENT_SIMPLE, SUBPATH_IMPL))).toBe(false);
-      expect(filter.isExcluded(spxPath(NODE_SEGMENT_OTHER, SUBPATH_IMPL))).toBe(false);
-    });
+          expect(reader.isUnderIgnoreSource(spxPath(segment, sub))).toBe(false);
+        });
+      }),
+      { numRuns: PROPERTY_NUM_RUNS },
+    );
   });
 
-  it("EXCLUDE is empty and the filter constructs so every input path reports as non-excluded", async () => {
-    await withTestEnv(INTEGRATION_CONFIG, async (env) => {
-      await writeExcludeRaw(env, "");
+  it("ignore-source file exists but contains no entries after comment and blank stripping and the reader reports every path as not-under-ignore-source", async () => {
+    await fc.assert(
+      fc.asyncProperty(arbNodeSegment, arbSubpath, async (segment, sub) => {
+        await withTestEnv(INTEGRATION_CONFIG, async (env) => {
+          await writeExcludeRaw(env, "");
 
-      const filter = createExcludeFilter(env.projectDir);
+          const reader = createIgnoreSourceReader(env.projectDir, READER_CONFIG);
 
-      expect(filter.isExcluded(spxPath(NODE_SEGMENT_SIMPLE, SUBPATH_IMPL))).toBe(false);
-    });
+          expect(reader.isUnderIgnoreSource(spxPath(segment, sub))).toBe(false);
+        });
+      }),
+      { numRuns: PROPERTY_NUM_RUNS },
+    );
   });
 });

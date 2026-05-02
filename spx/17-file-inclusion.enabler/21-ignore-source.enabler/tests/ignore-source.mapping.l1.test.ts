@@ -1,48 +1,77 @@
+import * as fc from "fast-check";
 import { describe, expect, it } from "vitest";
 
-import { createExcludeFilter } from "@/lib/path-inclusion/index";
+import {
+  createIgnoreSourceReader,
+  IGNORE_SOURCE_FILENAME_DEFAULT,
+  type IgnoreSourceReaderConfig,
+} from "@/lib/file-inclusion/ignore-source";
 import { withTestEnv } from "@testing/harnesses/spec-tree/spec-tree";
 
 import {
-  expectedPytestFlag,
-  expectedVitestFlag,
+  arbNestedNodeSegment,
+  arbNodeSegment,
+  arbSubpath,
   INTEGRATION_CONFIG,
-  NODE_SEGMENT_NESTED,
-  NODE_SEGMENT_SIMPLE,
+  PROPERTY_NUM_RUNS,
+  READER_CONFIG,
   spxPath,
-  SUBPATH_IMPL,
-  SUBPATH_TEST_SHALLOW,
-  TOOL_PYTEST,
-  TOOL_VITEST,
   writeExclude,
 } from "./support";
 
 describe("ignore-source — mappings", () => {
-  it("a node path segment in EXCLUDE maps to the directory spx/{segment}/ for prefix matching", async () => {
-    await withTestEnv(INTEGRATION_CONFIG, async (env) => {
-      await writeExclude(env, [NODE_SEGMENT_SIMPLE]);
+  it("an entry segment in the ignore-source file maps to the directory {specTreeRootSegment}/{segment}/ for prefix matching", async () => {
+    await fc.assert(
+      fc.asyncProperty(arbNodeSegment, arbSubpath, async (segment, sub) => {
+        await withTestEnv(INTEGRATION_CONFIG, async (env) => {
+          await writeExclude(env, [segment]);
 
-      const filter = createExcludeFilter(env.projectDir);
+          const reader = createIgnoreSourceReader(env.projectDir, READER_CONFIG);
 
-      expect(filter.isExcluded(spxPath(NODE_SEGMENT_SIMPLE, SUBPATH_TEST_SHALLOW))).toBe(true);
-      expect(filter.isExcluded(spxPath(NODE_SEGMENT_SIMPLE, SUBPATH_IMPL))).toBe(true);
-      expect(filter.isExcluded(spxPath(NODE_SEGMENT_SIMPLE))).toBe(false);
-    });
+          expect(reader.isUnderIgnoreSource(spxPath(segment, sub))).toBe(true);
+          // directory path without trailing separator does not match
+          expect(reader.isUnderIgnoreSource(spxPath(segment))).toBe(false);
+        });
+      }),
+      { numRuns: PROPERTY_NUM_RUNS },
+    );
   });
 
-  it("toToolFlags generates pytest --ignore and vitest --exclude flags for each excluded segment", async () => {
-    await withTestEnv(INTEGRATION_CONFIG, async (env) => {
-      await writeExclude(env, [NODE_SEGMENT_SIMPLE, NODE_SEGMENT_NESTED]);
+  it("entries() returns the parsed segments from the ignore-source file", async () => {
+    await fc.assert(
+      fc.asyncProperty(arbNodeSegment, arbNestedNodeSegment, async (simple, nested) => {
+        await withTestEnv(INTEGRATION_CONFIG, async (env) => {
+          await writeExclude(env, [simple, nested]);
 
-      const filter = createExcludeFilter(env.projectDir);
+          const reader = createIgnoreSourceReader(env.projectDir, READER_CONFIG);
 
-      const pytestFlags = filter.toToolFlags(TOOL_PYTEST);
-      expect(pytestFlags).toContain(expectedPytestFlag(NODE_SEGMENT_SIMPLE));
-      expect(pytestFlags).toContain(expectedPytestFlag(NODE_SEGMENT_NESTED));
+          const segments = reader.entries().map((e) => e.segment);
+          expect(segments).toContain(simple);
+          expect(segments).toContain(nested);
+        });
+      }),
+      { numRuns: PROPERTY_NUM_RUNS },
+    );
+  });
 
-      const vitestFlags = filter.toToolFlags(TOOL_VITEST);
-      expect(vitestFlags).toContain(expectedVitestFlag(NODE_SEGMENT_SIMPLE));
-      expect(vitestFlags).toContain(expectedVitestFlag(NODE_SEGMENT_NESTED));
-    });
+  it("specTreeRootSegment comes from the reader config, not hardcoded — a different segment prefix produces a different match domain", async () => {
+    const altRootSegment = "alt-root";
+    const altConfig: IgnoreSourceReaderConfig = {
+      ignoreSourceFilename: IGNORE_SOURCE_FILENAME_DEFAULT,
+      specTreeRootSegment: altRootSegment,
+    };
+    await fc.assert(
+      fc.asyncProperty(arbNodeSegment, arbSubpath, async (segment, sub) => {
+        await withTestEnv(INTEGRATION_CONFIG, async (env) => {
+          await env.writeRaw(`${altRootSegment}/${IGNORE_SOURCE_FILENAME_DEFAULT}`, segment);
+
+          const reader = createIgnoreSourceReader(env.projectDir, altConfig);
+
+          expect(reader.isUnderIgnoreSource(`${altRootSegment}/${segment}/${sub}`)).toBe(true);
+          expect(reader.isUnderIgnoreSource(spxPath(segment, sub))).toBe(false);
+        });
+      }),
+      { numRuns: PROPERTY_NUM_RUNS },
+    );
   });
 });
