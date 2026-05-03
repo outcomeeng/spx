@@ -168,20 +168,25 @@ describe("allowlist-existing compliance", () => {
     const includeListComment = sampleCommentText();
     const sectionIndent = " ".repeat(SECTION_INDENT_WIDTH);
     const nestedIndent = " ".repeat(NESTED_INDENT_WIDTH);
-    const listIndent = " ".repeat(LIST_INDENT_WIDTH);
+    const valuesIndent = " ".repeat(NESTED_INDENT_WIDTH + SECTION_INDENT_WIDTH);
+    const allowlistIndent = " ".repeat(NESTED_INDENT_WIDTH + NESTED_INDENT_WIDTH);
+    const includeIndent = " ".repeat(NESTED_INDENT_WIDTH + NESTED_INDENT_WIDTH + SECTION_INDENT_WIDTH);
+    const listIndent = " ".repeat(LIST_INDENT_WIDTH + NESTED_INDENT_WIDTH);
     await withTestEnv({}, async (env) => {
       await env.writeRaw(
         CONFIG_FILENAMES.yaml,
         [
           projectConfigComment,
-          "literal:",
-          `${sectionIndent}${allowlistSectionComment}`,
-          `${sectionIndent}allowlist:`,
-          `${nestedIndent}${includeListComment}`,
-          `${nestedIndent}include:`,
+          "validation:",
+          `${sectionIndent}literal:`,
+          `${nestedIndent}values:`,
+          `${valuesIndent}${allowlistSectionComment}`,
+          `${valuesIndent}allowlist:`,
+          `${allowlistIndent}${includeListComment}`,
+          `${allowlistIndent}include:`,
           `${listIndent}- ${seedIncludeEntry}`,
-          `${sectionIndent}minStringLength: ${MIN_STRING_LENGTH_FIXTURE}`,
-          `${sectionIndent}minNumberDigits: ${MIN_NUMBER_DIGITS_FIXTURE}`,
+          `${valuesIndent}minStringLength: ${MIN_STRING_LENGTH_FIXTURE}`,
+          `${valuesIndent}minNumberDigits: ${MIN_NUMBER_DIGITS_FIXTURE}`,
           "",
         ].join("\n"),
       );

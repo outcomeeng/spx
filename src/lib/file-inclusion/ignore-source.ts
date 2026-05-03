@@ -19,6 +19,18 @@ export type IgnoreSourceReader = {
   matchedEntry(relativePath: string): IgnoreSourceEntry | undefined;
 };
 
+export const EMPTY_IGNORE_READER: IgnoreSourceReader = {
+  isUnderIgnoreSource(): boolean {
+    return false;
+  },
+  entries(): readonly IgnoreSourceEntry[] {
+    return [];
+  },
+  matchedEntry(): IgnoreSourceEntry | undefined {
+    return undefined;
+  },
+};
+
 const COMMENT_PREFIX = "#";
 
 function isNodeError(err: unknown): err is NodeJS.ErrnoException {

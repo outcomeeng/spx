@@ -12,8 +12,13 @@ import {
   serializeConfigFileSectionsWithSetIn,
 } from "@/config/index";
 import type { Result } from "@/config/types";
+import {
+  VALIDATION_LITERAL_SUBSECTION,
+  VALIDATION_LITERAL_VALUES_SUBSECTION,
+  VALIDATION_SECTION,
+} from "@/validation/config/descriptor";
 
-import { LITERAL_SECTION, type LiteralConfig, literalConfigDescriptor } from "./config";
+import { type LiteralConfig, literalConfigDescriptor } from "./config";
 import { validateLiteralReuse } from "./index";
 
 export interface ConfigReader {
@@ -37,7 +42,15 @@ export interface AllowlistExistingResult {
 
 const EXIT_OK = 0;
 const EXIT_ERROR = 1;
-const ALLOWLIST_INCLUDE_PATH = [LITERAL_SECTION, "allowlist", "include"] as const;
+const ALLOWLIST_FIELD = "allowlist";
+const INCLUDE_FIELD = "include";
+const ALLOWLIST_INCLUDE_PATH = [
+  VALIDATION_SECTION,
+  VALIDATION_LITERAL_SUBSECTION,
+  VALIDATION_LITERAL_VALUES_SUBSECTION,
+  ALLOWLIST_FIELD,
+  INCLUDE_FIELD,
+] as const;
 const TEMP_FILE_PREFIX = ".spx-allowlist-existing-";
 const TEMP_FILE_SUFFIX = ".tmp";
 const RANDOM_BASE = 36;
@@ -109,9 +122,19 @@ function readCurrentLiteralConfig(read: ConfigFileReadResult): Result<LiteralCon
   if (read.kind !== "ok") return { ok: true, value: literalConfigDescriptor.defaults };
   const sections = parseConfigFileSections(read.file);
   if (!sections.ok) return sections;
-  const literalRaw = sections.value[LITERAL_SECTION];
-  if (literalRaw === undefined) return { ok: true, value: literalConfigDescriptor.defaults };
-  const validated = literalConfigDescriptor.validate(literalRaw);
+  const validationRaw = sections.value[VALIDATION_SECTION];
+  if (typeof validationRaw !== "object" || validationRaw === null) {
+    return { ok: true, value: literalConfigDescriptor.defaults };
+  }
+  const literalRaw = (validationRaw as Record<string, unknown>)[VALIDATION_LITERAL_SUBSECTION];
+  if (typeof literalRaw !== "object" || literalRaw === null) {
+    return { ok: true, value: literalConfigDescriptor.defaults };
+  }
+  const valuesRaw = (literalRaw as Record<string, unknown>)[VALIDATION_LITERAL_VALUES_SUBSECTION];
+  if (valuesRaw === undefined) {
+    return { ok: true, value: literalConfigDescriptor.defaults };
+  }
+  const validated = literalConfigDescriptor.validate(valuesRaw);
   return validated.ok ? validated : { ok: true, value: literalConfigDescriptor.defaults };
 }
 

@@ -1,6 +1,11 @@
 import { resolveConfig } from "@/config/index";
+import {
+  type ValidationConfig,
+  validationConfigDescriptor,
+  type ValidationPathConfig,
+} from "@/validation/config/descriptor";
 import { detectTypeScript } from "@/validation/discovery/index";
-import { type LiteralConfig, literalConfigDescriptor } from "@/validation/literal/config";
+import { type LiteralConfig } from "@/validation/literal/config";
 import {
   type DetectionResult,
   type DupeFinding,
@@ -28,6 +33,7 @@ export interface LiteralCommandOptions {
   readonly json?: boolean;
   readonly quiet?: boolean;
   readonly config?: LiteralConfig;
+  readonly pathConfig?: ValidationPathConfig;
 }
 
 export interface ValidationCommandResult {
@@ -73,11 +79,13 @@ export async function literalCommand(
     };
   }
 
-  let resolvedConfig: LiteralConfig;
+  let resolvedLiteralConfig: LiteralConfig;
+  let resolvedPathConfig: ValidationPathConfig;
   if (options.config !== undefined) {
-    resolvedConfig = options.config;
+    resolvedLiteralConfig = options.config;
+    resolvedPathConfig = options.pathConfig ?? validationConfigDescriptor.defaults.paths;
   } else {
-    const loaded = await resolveConfig(options.cwd, [literalConfigDescriptor]);
+    const loaded = await resolveConfig(options.cwd, [validationConfigDescriptor]);
     if (!loaded.ok) {
       return {
         exitCode: EXIT_CONFIG_ERROR,
@@ -85,13 +93,16 @@ export async function literalCommand(
         durationMs: Date.now() - start,
       };
     }
-    resolvedConfig = loaded.value[literalConfigDescriptor.section] as LiteralConfig;
+    const validationConfig = loaded.value[validationConfigDescriptor.section] as ValidationConfig;
+    resolvedLiteralConfig = validationConfig.literal.values;
+    resolvedPathConfig = validationConfig.paths;
   }
 
   const result = await validateLiteralReuse({
     projectRoot: options.cwd,
     files: options.files,
-    config: resolvedConfig,
+    config: resolvedLiteralConfig,
+    pathConfig: resolvedPathConfig,
   });
 
   const filteredFindings = filterLiteralFindings(result.findings, options.kind);

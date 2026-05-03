@@ -2,7 +2,12 @@ import { readFile } from "node:fs/promises";
 import { isAbsolute, relative, resolve } from "node:path";
 
 import { DEFAULT_SCOPE_CONFIG } from "@/lib/file-inclusion/config";
-import { resolveScope } from "@/lib/file-inclusion/pipeline";
+import { EMPTY_IGNORE_READER } from "@/lib/file-inclusion/ignore-source";
+import { artifactDirectoryLayer, hiddenPrefixLayer } from "@/lib/file-inclusion/layer-sequence";
+import { runPipeline } from "@/lib/file-inclusion/pipeline";
+import type { ScopeEntry } from "@/lib/file-inclusion/types";
+import { type ValidationPathConfig } from "@/validation/config/descriptor";
+
 import { type LiteralConfig, literalConfigDescriptor, resolveAllowlist } from "./config";
 import {
   buildIndex,
@@ -42,11 +47,42 @@ export interface ValidateLiteralReuseInput {
   readonly projectRoot: string;
   readonly files?: readonly string[];
   readonly config?: LiteralConfig;
+  readonly pathConfig?: ValidationPathConfig;
 }
 
 export interface ValidateLiteralReuseResult {
   readonly findings: DetectionResult;
   readonly indexedOccurrencesByFile: ReadonlyMap<string, readonly LiteralOccurrence[]>;
+}
+
+const PATH_PREFIX_SEPARATOR = "/";
+
+function normalizePathPrefix(prefix: string): string {
+  const posix = prefix.split(/[\\/]/g).join(PATH_PREFIX_SEPARATOR);
+  return posix.endsWith(PATH_PREFIX_SEPARATOR) ? posix : `${posix}${PATH_PREFIX_SEPARATOR}`;
+}
+
+function applyPathFilter(
+  entries: readonly ScopeEntry[],
+  pathConfig: ValidationPathConfig | undefined,
+): readonly ScopeEntry[] {
+  if (pathConfig === undefined) {
+    return entries;
+  }
+  const includePrefixes = (pathConfig.include ?? []).map(normalizePathPrefix);
+  const excludePrefixes = (pathConfig.exclude ?? []).map(normalizePathPrefix);
+  return entries.filter((entry) => {
+    if (
+      includePrefixes.length > 0
+      && !includePrefixes.some((p) => entry.path.startsWith(p))
+    ) {
+      return false;
+    }
+    if (excludePrefixes.some((p) => entry.path.startsWith(p))) {
+      return false;
+    }
+    return true;
+  });
 }
 
 export async function validateLiteralReuse(
@@ -63,9 +99,17 @@ export async function validateLiteralReuse(
     }
     : { walkRoot: input.projectRoot };
 
-  const scope = await resolveScope(input.projectRoot, request, DEFAULT_SCOPE_CONFIG);
+  const scope = await runPipeline(
+    [artifactDirectoryLayer, hiddenPrefixLayer],
+    input.projectRoot,
+    request,
+    DEFAULT_SCOPE_CONFIG,
+    EMPTY_IGNORE_READER,
+  );
 
-  const candidateFiles = scope.included
+  const filtered = applyPathFilter(scope.included, input.pathConfig);
+
+  const candidateFiles = filtered
     .filter((entry) => isTypescriptSource(entry.path))
     .map((entry) => resolve(input.projectRoot, entry.path));
 

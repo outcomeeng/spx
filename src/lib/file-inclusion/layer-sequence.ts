@@ -14,17 +14,23 @@ function makeLayer<C>(
   };
 }
 
+export const artifactDirectoryLayer: LayerEntry = makeLayer(
+  (ctx): ArtifactDirectoryConfig => ({ artifactDirectories: ctx.config.artifactDirectories }),
+  artifactDirectoryPredicate,
+);
+
+export const hiddenPrefixLayer: LayerEntry = makeLayer(
+  (ctx): HiddenPrefixConfig => ({ hiddenPrefix: ctx.config.hiddenPrefix }),
+  hiddenPrefixPredicate,
+);
+
+export const ignoreSourceLayer: LayerEntry = makeLayer(
+  (ctx): IgnoreSourcePredicateConfig => ({ reader: ctx.ignoreReader }),
+  ignoreSourcePredicate,
+);
+
 export const LAYER_SEQUENCE: readonly LayerEntry[] = [
-  makeLayer(
-    (ctx): ArtifactDirectoryConfig => ({ artifactDirectories: ctx.config.artifactDirectories }),
-    artifactDirectoryPredicate,
-  ),
-  makeLayer(
-    (ctx): HiddenPrefixConfig => ({ hiddenPrefix: ctx.config.hiddenPrefix }),
-    hiddenPrefixPredicate,
-  ),
-  makeLayer(
-    (ctx): IgnoreSourcePredicateConfig => ({ reader: ctx.ignoreReader }),
-    ignoreSourcePredicate,
-  ),
+  artifactDirectoryLayer,
+  hiddenPrefixLayer,
+  ignoreSourceLayer,
 ];

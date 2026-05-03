@@ -4,4 +4,5 @@
  * @module validation/config
  */
 
+export * from "./descriptor";
 export * from "./scope";

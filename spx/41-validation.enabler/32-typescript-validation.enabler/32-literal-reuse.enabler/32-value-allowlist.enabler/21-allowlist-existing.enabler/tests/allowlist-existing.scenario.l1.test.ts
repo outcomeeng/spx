@@ -11,8 +11,8 @@ import {
   resolveConfig,
   serializeConfigFileSections,
 } from "@/config/index";
+import { type ValidationConfig, validationConfigDescriptor } from "@/validation/config/descriptor";
 import { allowlistExisting } from "@/validation/literal/allowlist-existing";
-import { type LiteralConfig, literalConfigDescriptor } from "@/validation/literal/config";
 import { validateLiteralReuse } from "@/validation/literal/index";
 import {
   arbitraryDomainLiteral,
@@ -60,14 +60,14 @@ describe("allowlist-existing scenario", () => {
       const allowlist = readLiteralAllowlist(parsed);
       expect(allowlist.include).toContain(literal);
 
-      const resolved = await resolveConfig(env.projectDir, [literalConfigDescriptor]);
+      const resolved = await resolveConfig(env.projectDir, [validationConfigDescriptor]);
       expect(resolved.ok).toBe(true);
       if (!resolved.ok) return;
-      const updatedConfig = resolved.value[literalConfigDescriptor.section] as LiteralConfig;
+      const updatedValidation = resolved.value[validationConfigDescriptor.section] as ValidationConfig;
 
       const second = await validateLiteralReuse({
         projectRoot: env.projectDir,
-        config: updatedConfig,
+        config: updatedValidation.literal.values,
       });
       expect(second.findings.srcReuse.length + second.findings.testDupe.length).toBe(0);
     });
