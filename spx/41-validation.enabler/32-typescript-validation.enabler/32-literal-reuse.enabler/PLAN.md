@@ -22,7 +22,45 @@
 - `src/validation/literal/index.ts` — partial rewrite; imports unused; runtime error. **BROKEN.**
 - `src/validation/literal/allowlist-existing.ts` — unmodified but stale; needs 4-segment `[VALIDATION_SECTION, VALIDATION_LITERAL_SUBSECTION, VALIDATION_LITERAL_VALUES_SUBSECTION, "include"]`.
 
-## Remaining work (TDD-ordered)
+## Status
+
+| Step                                       | Status                                          | Reference                                                                                                           |
+| ------------------------------------------ | ----------------------------------------------- | ------------------------------------------------------------------------------------------------------------------- |
+| 1 — Audit ADRs                             | DONE                                            | Both ADRs APPROVED via `/typescript:auditing-typescript-architecture`                                               |
+| 2 — Adjust descriptor + redistribute tests | PARTIAL — descriptor done; 1/5 children done    | Detection done in `fcbdd94`; 4 children remain                                                                      |
+| 3 — Implement source                       | DONE                                            | `e629a1d`                                                                                                           |
+| 4 — Quality gates                          | DONE for the source baseline                    | 14/14 allowlist-existing, 13/13 validation integration, 29/29 detection — all pass                                  |
+| 5 — Commit per concern                     | PARTIAL — 3/4 commits landed, splits 1+2 merged | `270e793` (refactor doorstep + cleanup), `e629a1d` (descriptor + source impl combined), `fcbdd94` (detection child) |
+
+The four `literal.{scenario,mapping,property,compliance}.l1.test.ts` files at the parent level are still in the working tree. After all five children's tests are populated and pass, delete them and the parent `tests/` directory.
+
+The `21-detection.enabler` entry was removed from `spx/EXCLUDE` in `fcbdd94`. As each remaining child gets populated tests + green source, remove its EXCLUDE entry.
+
+## Remaining work for the next agent
+
+The **detection child template** is `fcbdd94` — apply the same pattern to the four remaining children:
+
+| Child                               | Test files                                          | Assertions                                                      | EXCLUDE removal |
+| ----------------------------------- | --------------------------------------------------- | --------------------------------------------------------------- | --------------- |
+| `21-fixture-classification.enabler` | scenario.l1, compliance.l1                          | 7 scenarios, 3 compliance ([review]-only mixed)                 | After commit    |
+| `32-path-filter.enabler`            | scenario.l1, compliance.l1                          | 3 NEW scenarios for `validation.paths`, 1 compliance ([review]) | After commit    |
+| `32-value-allowlist.enabler`        | scenario.l1, mapping.l1, compliance.l1              | 5 scenarios, 2 mappings, 1 compliance ([review])                | After commit    |
+| `54-output-modes.enabler`           | scenario.l1, mapping.l1, property.l1, compliance.l1 | 10 scenarios, 5 mappings, 2 properties, 7 compliance            | After commit    |
+
+For each child:
+
+1. `/spec-tree:contextualizing spx/41-validation.enabler/32-typescript-validation.enabler/32-literal-reuse.enabler/<child>`
+2. Read the child's spec, identify which doomed test cases at the parent level migrate
+3. Author test files using `LITERAL_TEST_GENERATOR` + source imports — see [21-detection.enabler/tests/](21-detection.enabler/tests/) as the template
+4. Local `support.ts` only contains F-category factories (no semantic constants)
+5. `/typescript:auditing-typescript-tests` APPROVED gate before commit
+6. `git rm` the corresponding doomed assertions from the parent test files (or wait until all five children done, then delete the four doomed files in one commit)
+7. Remove the child's `spx/EXCLUDE` entry
+8. Commit per child: `test(<child>): author <evidence>/<level> tests`
+
+After all five children: final commit `test(literal-reuse): delete redistributed parent-level tests`. Then `pnpm run validate` should be green for the whole literal-reuse subtree.
+
+### Original step-by-step (for reference)
 
 Pick this up by invoking `/spec-tree:contextualizing` on the relevant child node, then `/spec-tree:applying`.
 
