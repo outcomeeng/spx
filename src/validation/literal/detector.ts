@@ -67,7 +67,7 @@ export interface DetectReuseInput {
 
 export const defaultVisitorKeys: VisitorKeysMap = typescriptVisitorKeys;
 
-const MODULE_NAMING_SKIP: Record<string, ReadonlySet<string>> = {
+export const MODULE_NAMING_SKIP: Record<string, ReadonlySet<string>> = {
   ImportDeclaration: new Set(["source"]),
   ExportNamedDeclaration: new Set(["source"]),
   ExportAllDeclaration: new Set(["source"]),
