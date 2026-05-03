@@ -12,7 +12,7 @@ This decision governs how the literal-reuse detector resolves which literals to 
 
 ## Decision
 
-The allowlist config is a structured object under the `"validation"` section, nested inside the `"literal"` key (i.e., `validation.literal` in `spx.config.yaml`), with three optional fields:
+The allowlist config is a structured object under the `"validation"` section, nested inside the `"literal"` key, with the value allowlist further nested under the `"values"` key (i.e., `validation.literal.values` in `spx.config.yaml`), with three optional fields:
 
 - `presets`: array of named preset identifiers — each preset bundles a curated list of strings common to a particular ecosystem
 - `include`: project-specific string values to add to the effective allowlist beyond what presets contribute
@@ -24,7 +24,9 @@ The effective allowlist for a detection run is: **⋃(values in each named prese
 
 The built-in preset `"web"` bundles strings common to web-framework boilerplate: HTTP method names (`GET`, `POST`, `PUT`, `DELETE`, `PATCH`), HTTP header names (`Content-Type`, `Authorization`, `Accept`), common response shape keys (`status`, `message`, `error`, `data`), and HTML attribute tokens (`class`, `id`, `href`, `src`, `type`, `name`, `value`).
 
-`literalCommand` loads the project config via `resolveConfig(projectRoot, [validationConfigDescriptor])`, extracts the resolved `ValidationConfig` from the `"validation"` section, and passes the `literal` and `paths` subsections to `validateLiteralReuse` before any file is walked. When `resolveConfig` returns an error, `literalCommand` exits non-zero with the error message and does not proceed to detection. `LiteralCommandOptions` accepts an optional `config?: LiteralConfig` and `pathConfig?: ValidationPathConfig` for dependency injection in tests; when provided, `literalCommand` bypasses `resolveConfig`.
+The `"values"` nesting reserves the `"literal"` namespace for additional literal-reuse subsections (e.g., a future per-tool path filter at `validation.literal.paths.{exclude,include}` mirroring the global `validation.paths` semantic). The value allowlist is one such subsection.
+
+`literalCommand` loads the project config via `resolveConfig(projectRoot, [validationConfigDescriptor])`, extracts the resolved `ValidationConfig` from the `"validation"` section, and passes the `literal.values` and `paths` subsections to `validateLiteralReuse` before any file is walked. When `resolveConfig` returns an error, `literalCommand` exits non-zero with the error message and does not proceed to detection. `LiteralCommandOptions` accepts an optional `config?: LiteralConfig` (the value allowlist content) and `pathConfig?: ValidationPathConfig` for dependency injection in tests; when provided, `literalCommand` bypasses `resolveConfig`.
 
 ## Rationale
 
@@ -42,12 +44,12 @@ Alternatives considered:
 
 ## Trade-offs accepted
 
-| Trade-off                                                                          | Mitigation / reasoning                                                                                                                                                    |
-| ---------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Preset maintenance burden as ecosystems evolve                                     | Presets are curated constants in the implementation; a new noisy token is a one-line addition; existing projects are unaffected unless they explicitly include the preset |
-| `exclude` semantics may surprise users who expect it to remove only from `include` | Documentation and error messages describe `exclude` as applying to the full effective set; this removes the "which source did this come from?" question                   |
-| Unknown preset names require validation at config load time                        | The `"validation"` section validator rejects any `literal.presets` entry not in the registered preset registry; the error names the unrecognized identifier               |
-| Config loading adds an async FS operation at command startup                       | `resolveConfig` performs a single directory scan followed by at most one file read; the cost is bounded and exits early before any AST work begins                        |
+| Trade-off                                                                          | Mitigation / reasoning                                                                                                                                                        |
+| ---------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Preset maintenance burden as ecosystems evolve                                     | Presets are curated constants in the implementation; a new noisy token is a one-line addition; existing projects are unaffected unless they explicitly include the preset     |
+| `exclude` semantics may surprise users who expect it to remove only from `include` | Documentation and error messages describe `exclude` as applying to the full effective set; this removes the "which source did this come from?" question                       |
+| Unknown preset names require validation at config load time                        | The `"validation"` section validator rejects any `validation.literal.values.presets` entry not in the registered preset registry; the error names the unrecognized identifier |
+| Config loading adds an async FS operation at command startup                       | `resolveConfig` performs a single directory scan followed by at most one file read; the cost is bounded and exits early before any AST work begins                            |
 
 ## Invariants
 
@@ -59,18 +61,18 @@ Alternatives considered:
 
 ### Recognized by
 
-The `"validation"` section validator in `src/validation/config.ts` accepts a `literal` sub-object with optional `presets`, `include`, and `exclude` fields. No caller outside `src/config/` or descriptor modules references the section or sub-section keys as string literals. `LiteralCommandOptions` carries a `config?: LiteralConfig` and `pathConfig?: ValidationPathConfig` field; `literalCommand` calls `resolveConfig` only when `config` is absent.
+The `"validation"` section validator in `src/validation/config.ts` accepts a `literal` sub-object containing a `values` sub-object with optional `presets`, `include`, and `exclude` fields. No caller outside `src/config/` or descriptor modules references the section or sub-section keys as string literals. `LiteralCommandOptions` carries a `config?: LiteralConfig` (the value allowlist content) and `pathConfig?: ValidationPathConfig` field; `literalCommand` calls `resolveConfig` only when `config` is absent.
 
 ### MUST
 
 - The top-level config section key is `"validation"` — referenced via `VALIDATION_SECTION` constant in `src/validation/config.ts`, never as an inline string ([review])
-- The literal config is nested at `validation.literal` — referenced via constants, never as inline strings ([review])
+- The literal config is nested at `validation.literal`, and the value allowlist is nested at `validation.literal.values` — every key segment is referenced via constants, never as inline strings ([review])
 - The effective allowlist computation is: union(preset bundles for each named preset) ∪ include \ exclude — evaluated once before detection begins ([review])
-- The section validator rejects any `literal.presets` entry not found in the registered preset registry and returns an error naming the unrecognized identifier ([review])
+- The section validator rejects any `validation.literal.values.presets` entry not found in the registered preset registry and returns an error naming the unrecognized identifier ([review])
 - `exclude` removes a value from the effective allowlist regardless of which source contributed it ([review])
-- `literalCommand` calls `resolveConfig(projectRoot, [validationConfigDescriptor])` before invoking `validateLiteralReuse` and passes the resolved `literal` and `paths` subsections — the allowlist and path config from the project config file reach the detector ([review])
+- `literalCommand` calls `resolveConfig(projectRoot, [validationConfigDescriptor])` before invoking `validateLiteralReuse` and passes the resolved `literal.values` and `paths` subsections — the allowlist and path config from the project config file reach the detector ([review])
 - `literalCommand` exits non-zero with the config error message when `resolveConfig` returns `{ ok: false }` — detection does not proceed on config errors ([review])
-- `LiteralCommandOptions` accepts `config?: LiteralConfig` and `pathConfig?: ValidationPathConfig` — when provided, `literalCommand` skips `resolveConfig` and passes them directly, enabling `l1` tests without config file I/O ([review])
+- `LiteralCommandOptions` accepts `config?: LiteralConfig` (the value allowlist content) and `pathConfig?: ValidationPathConfig` — when provided, `literalCommand` skips `resolveConfig` and passes them directly, enabling `l1` tests without config file I/O ([review])
 
 ### NEVER
 

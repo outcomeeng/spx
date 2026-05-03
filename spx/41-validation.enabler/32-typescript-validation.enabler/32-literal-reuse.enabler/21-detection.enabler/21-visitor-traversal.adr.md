@@ -8,7 +8,7 @@ This decision governs how the literal-reuse detector enumerates child AST nodes 
 
 **Business impact:** Cross-file literal indexing is only as precise as the traversal that feeds it. Visiting non-child properties — `loc`, `range`, parent pointers, parser-private fields — produces phantom entries in the index, traps the walker in back-reference cycles, or crashes on nullable metadata. Either failure class degrades literal-reuse to noise and forces the stage to be disabled.
 
-**Technical constraints:** The TypeScript parser emits ESTree-compatible AST nodes whose enumerable fields mix child nodes with metadata. The ESLint ecosystem maintains `eslint-visitor-keys` as the canonical mapping of node type to child-carrying field names; TypeScript-aware parsers extend this map at registration time with their additional node types. [21-typescript-conventions.adr.md](../21-typescript-conventions.adr.md) governs the conventions the detector enforces; [21-enforcement-tooling.adr.md](../32-ast-enforcement.enabler/21-enforcement-tooling.adr.md) governs the per-file enforcement path, leaving the cross-file pre-pass to this subtree.
+**Technical constraints:** The TypeScript parser emits ESTree-compatible AST nodes whose enumerable fields mix child nodes with metadata. The ESLint ecosystem maintains `eslint-visitor-keys` as the canonical mapping of node type to child-carrying field names; TypeScript-aware parsers extend this map at registration time with their additional node types. [21-typescript-conventions.adr.md](../../21-typescript-conventions.adr.md) governs the conventions the detector enforces; [21-enforcement-tooling.adr.md](../../32-ast-enforcement.enabler/21-enforcement-tooling.adr.md) governs the per-file enforcement path, leaving the cross-file pre-pass to this subtree.
 
 ## Decision
 
@@ -28,11 +28,11 @@ Alternatives considered:
 
 ## Trade-offs accepted
 
-| Trade-off                                                                                | Mitigation / reasoning                                                                                                                                   |
-| ---------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| The visitor-keys map must stay in sync with the parser version                           | The composition is a pure function of the parser's public keys export; updating the parser updates the map atomically; no hand-maintained list drifts    |
-| Nodes whose type is absent from the visitor-keys map contribute no literals to the index | Fail-closed behavior: a missing registration surfaces as a zero-literal walk, which property tests catch via a deterministic walk-count invariant        |
-| The public detector API gains one parameter                                              | Dependency injection is already mandated by [21-typescript-conventions.adr.md](../21-typescript-conventions.adr.md); this is consistent with the pattern |
+| Trade-off                                                                                | Mitigation / reasoning                                                                                                                                      |
+| ---------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| The visitor-keys map must stay in sync with the parser version                           | The composition is a pure function of the parser's public keys export; updating the parser updates the map atomically; no hand-maintained list drifts       |
+| Nodes whose type is absent from the visitor-keys map contribute no literals to the index | Fail-closed behavior: a missing registration surfaces as a zero-literal walk, which property tests catch via a deterministic walk-count invariant           |
+| The public detector API gains one parameter                                              | Dependency injection is already mandated by [21-typescript-conventions.adr.md](../../21-typescript-conventions.adr.md); this is consistent with the pattern |
 
 ## Invariants
 

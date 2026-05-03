@@ -24,7 +24,7 @@ The temp-file-plus-rename pattern is the standard idiom for atomic single-file w
 
 When no `spx.config.*` exists at the project root, the helper creates `spx.config.yaml`. YAML is the ergonomic default for human-edited configs (comments, hierarchical structure, no quote noise) and matches the format spx uses for its own project config. Writing JSON-by-default is defensible but produces a file with weaker affordances for the user's later maintenance.
 
-Dependency injection of reader and writer follows the convention established by `32-allowlist-config.adr.md` — `LiteralCommandOptions` accepts an optional `config?: LiteralConfig` for `l1` testability. The same pattern extends here: the helper's options accept optional reader and writer implementations. Production runs use the real `resolveConfig` and the temp-file-plus-rename adapter; `l1` tests inject deterministic implementations that operate against `withTestEnv` temp directories per `22-test-environment.enabler` conventions, verifying behavior without filesystem mocking.
+Dependency injection of reader and writer follows the convention established by [21-allowlist-config.adr.md](../21-allowlist-config.adr.md) — `LiteralCommandOptions` accepts an optional `config?: LiteralConfig` for `l1` testability. The same pattern extends here: the helper's options accept optional reader and writer implementations. Production runs use the real `resolveConfig` and the temp-file-plus-rename adapter; `l1` tests inject deterministic implementations that operate against `withTestEnv` temp directories per `22-test-environment.enabler` conventions, verifying behavior without filesystem mocking.
 
 Alternatives considered:
 

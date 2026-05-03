@@ -1,102 +1,107 @@
-# Deferred Plan: validation.paths config implementation
+# Deferred Plan: literal-reuse decomposition + validation.paths implementation
 
-## What is done (committed)
+## What is done (in working tree, not yet committed)
 
-- `spx/17-file-inclusion.enabler/11-ignore-defaults.pdr.md` — PDR rewritten to narrow ignore-source layer to quality-gate walkers only; validation commands use `validation.paths` from config instead
-- `spx/41-validation.enabler/32-typescript-validation.enabler/32-literal-reuse.enabler/literal-reuse.md` — removed EXCLUDE scenario and compliance assertion; added three new `validation.paths` scenarios and updated compliance assertions
-- `spx/41-validation.enabler/32-typescript-validation.enabler/32-literal-reuse.enabler/32-allowlist-config.adr.md` — section key changed from `"literal"` to `"validation"` with `literal` subsection; compliance rules updated
+- Spec decomposition: parent `literal-reuse.md` is now an aggregate concern; five child enablers carry the assertions:
+  - [`21-detection.enabler/`](21-detection.enabler/detection.md) — cross-file indexing engine; owns moved `21-visitor-traversal.adr.md`
+  - [`21-fixture-classification.enabler/`](21-fixture-classification.enabler/fixture-classification.md) — fixture-writer + test-file classification
+  - [`32-value-allowlist.enabler/`](32-value-allowlist.enabler/value-allowlist.md) — `validation.literal.values.*` config; owns moved `21-allowlist-config.adr.md` (renamed from `32-allowlist-config.adr.md`); contains existing `21-allowlist-existing.enabler/` (moved here)
+  - [`32-path-filter.enabler/`](32-path-filter.enabler/path-filter.md) — `validation.paths.*` integration; explicitly does NOT consult `spx/EXCLUDE`
+  - [`54-output-modes.enabler/`](54-output-modes.enabler/output-modes.md) — CLI flags + output formats (FLAG: 25 assertions; sub-decomposition queued in [ISSUES.md](ISSUES.md))
+- Existing `32-literal-reuse.enabler/tests/` (literal.{scenario,mapping,property,compliance}.l1.test.ts + support.ts) needs to be redistributed into the five children's `tests/` directories during the testing step
+- `spx/EXCLUDE` lists the four newly declared-state children (and `32-value-allowlist.enabler` which contains the unchanged `21-allowlist-existing.enabler`); markdown validation passes
+- Spec keys renamed everywhere: `literal.allowlist.{presets,include,exclude}` → `validation.literal.values.{presets,include,exclude}`
 
 ## Uncommitted code changes on working tree
 
-The following files are modified but NOT committed (user chose spec-only commit):
+- `src/lib/file-inclusion/layer-sequence.ts` — exports `artifactDirectoryLayer`, `hiddenPrefixLayer`, `ignoreSourceLayer` as named constants. **Clean.**
+- `src/validation/config/descriptor.ts` — new file; exports `VALIDATION_SECTION`, `ValidationPathConfig`, `ValidationConfig`, `validationConfigDescriptor`. **Needs adjustment for `values` nesting (see Step 3 below).**
+- `src/validation/config/index.ts` — barrel re-exports descriptor. **Clean.**
+- `src/config/registry.ts` — uses `validationConfigDescriptor`. **Clean.**
+- `src/commands/validation/literal.ts` — extracts subsections from `ValidationConfig`. **BROKEN: `pathConfig` not on `ValidateLiteralReuseInput` yet; extraction needs to read `literal.values` not `literal`.**
+- `src/validation/literal/index.ts` — partial rewrite; imports unused; runtime error. **BROKEN.**
+- `src/validation/literal/allowlist-existing.ts` — unmodified but stale; needs 4-segment `[VALIDATION_SECTION, VALIDATION_LITERAL_SUBSECTION, VALIDATION_LITERAL_VALUES_SUBSECTION, "include"]`.
 
-- `src/lib/file-inclusion/layer-sequence.ts` — exports `artifactDirectoryLayer`, `hiddenPrefixLayer`, `ignoreSourceLayer` as named constants; `LAYER_SEQUENCE` assembles from them. **Clean — no deps on broken code.**
-- `src/validation/config/descriptor.ts` — new file; exports `VALIDATION_SECTION`, `ValidationPathConfig`, `ValidationConfig`, `validationConfigDescriptor`. **Clean.**
-- `src/validation/config/index.ts` — barrel updated to `export * from "./descriptor"`. **Clean.**
-- `src/config/registry.ts` — `literalConfigDescriptor` replaced with `validationConfigDescriptor`. **Clean but depends on descriptor.ts.**
-- `src/commands/validation/literal.ts` — imports updated to use `validationConfigDescriptor`; command body extracts `literal` and `paths` from `ValidationConfig`; passes `pathConfig` to `validateLiteralReuse`. **BROKEN: `pathConfig` does not exist in `ValidateLiteralReuseInput` yet.**
-- `src/validation/literal/index.ts` — imports partially updated (adds `artifactDirectoryLayer`, `hiddenPrefixLayer`, `ValidationPathConfig`). **BROKEN: imports unused; `ValidateLiteralReuseInput` not extended; function body not updated.**
+## Remaining work (TDD-ordered)
 
-The following file was NOT modified but is now stale:
+Pick this up by invoking `/spec-tree:contextualizing` on the relevant child node, then `/spec-tree:applying`.
 
-- `src/validation/literal/allowlist-existing.ts` — `ALLOWLIST_INCLUDE_PATH` is `["literal", "allowlist", "include"]`; must become `["validation", "literal", "allowlist", "include"]`. `LITERAL_SECTION` reference must change to `VALIDATION_SECTION`.
+### Step 1 — Audit ADRs
 
-## Remaining implementation steps (in order)
+The two ADRs were moved + renamed. Audit them to confirm the structural changes did not invalidate any decision content:
 
-Pick this up by invoking `/spec-tree:contextualizing spx/41-validation.enabler/32-typescript-validation.enabler/32-literal-reuse.enabler` and `/spec-tree:applying spx/41-validation.enabler/32-typescript-validation.enabler/32-literal-reuse.enabler`.
+- `21-detection.enabler/21-visitor-traversal.adr.md` — relative links to `../../21-typescript-conventions.adr.md` and `../../32-ast-enforcement.enabler/...` updated for the deeper location
+- `32-value-allowlist.enabler/21-allowlist-config.adr.md` — Decision, Trade-offs, Recognized-by, MUST sections updated for `values` nesting; reserves `validation.literal.paths.*` namespace for the future per-tool path filter
 
-### Step A — Complete `src/validation/literal/index.ts`
+Invoke `/typescript:auditing-typescript-architecture` for each. APPROVED gate before continuing.
 
-1. Add `pathConfig?: ValidationPathConfig` to `ValidateLiteralReuseInput`.
-2. Replace `resolveScope(... DEFAULT_SCOPE_CONFIG)` with `runPipeline([artifactDirectoryLayer, hiddenPrefixLayer], projectRoot, request, DEFAULT_SCOPE_CONFIG, EMPTY_IGNORE_READER)` where `EMPTY_IGNORE_READER` is an ignore reader constructed against a non-existent file, OR use a dedicated `VALIDATION_SCOPE_CONFIG` that points the ignore-source filename to a guaranteed-absent path. The cleanest approach: call `runPipeline` with only `[artifactDirectoryLayer, hiddenPrefixLayer]`.
+### Step 2 — Adjust descriptor shape and write tests
 
-   The `runPipeline` signature is:
-   ```typescript
-   export async function runPipeline(
-     sequence: readonly LayerEntry[],
-     projectRoot: string,
-     request: ScopeRequest,
-     config: ScopeResolverConfig,
-     ignoreReader: IgnoreSourceReader,
-   ): Promise<ScopeResult>;
-   ```
-   The `ignoreReader` can be constructed by calling `createIgnoreSourceReader(projectRoot, { ignoreSourceFilename: ".spx-nonexistent", specTreeRootSegment: SPEC_TREE_CONFIG.ROOT_DIRECTORY })` — the file won't exist so it returns an empty reader.
+`src/validation/config/descriptor.ts` currently exports `ValidationConfig` with `{ paths, literal: { presets, include, exclude } }`. Restructure to `{ paths, literal: { values: LiteralConfig } }`. Export new constants:
 
-3. After obtaining `scope.included`, apply `pathConfig` filtering:
-   - If `pathConfig.include` is non-empty: keep only entries where `entry.path.startsWith(prefix)` for at least one prefix in `include`
-   - If `pathConfig.exclude` is non-empty: remove entries where `entry.path.startsWith(prefix)` for any prefix in `exclude`
-   - Prefix matching is POSIX-normalized (use `/` separators; ensure prefix ends with `/` to avoid partial directory matches, e.g. `src/leg` should not match `src/legacy/`)
+- `VALIDATION_LITERAL_SUBSECTION = "literal"`
+- `VALIDATION_LITERAL_VALUES_SUBSECTION = "values"`
 
-4. Remove the now-unused `resolveScope` import; keep `runPipeline`, `createIgnoreSourceReader`, `artifactDirectoryLayer`, `hiddenPrefixLayer`.
+Then redistribute the existing `32-literal-reuse.enabler/tests/literal.*.l1.test.ts` content into the children's `tests/` directories per the assertions each child now carries. Each test imports from `@/validation/literal/...` and uses `withTestEnv` per [22-test-environment.enabler](../../../22-test-environment.enabler/test-environment.md). Concretely:
 
-### Step B — Update `src/validation/literal/allowlist-existing.ts`
+- `21-detection.enabler/tests/detection.{scenario,mapping,property,compliance}.l1.test.ts` — core detection cases (4 scenarios, 2 mappings, 3 properties, 3 compliance)
+- `21-fixture-classification.enabler/tests/fixture-classification.{scenario,compliance}.l1.test.ts` — 7 scenarios, 3 compliance (one is `[review]`-only)
+- `32-value-allowlist.enabler/tests/value-allowlist.{scenario,mapping,compliance}.l1.test.ts` — 5 scenarios, 2 mappings, 1 compliance (the section-key compliance is `[review]`-only via the ADR)
+- `32-path-filter.enabler/tests/path-filter.{scenario,compliance}.l1.test.ts` — 3 scenarios (NEW; tests the just-introduced `validation.paths` behavior), 1 compliance (one is `[review]`)
+- `54-output-modes.enabler/tests/output-modes.{scenario,mapping,property,compliance}.l1.test.ts` — 10 scenarios, 5 mappings, 2 properties, 7 compliance
 
-1. Replace `import { LITERAL_SECTION, type LiteralConfig, literalConfigDescriptor } from "./config"` with `import { LITERAL_SECTION, type LiteralConfig, literalConfigDescriptor } from "./config"` — keep the local import but add `VALIDATION_LITERAL_SUBSECTION` and `VALIDATION_SECTION` from `@/validation/config/descriptor`.
-2. Change `ALLOWLIST_INCLUDE_PATH` from `[LITERAL_SECTION, "allowlist", "include"] as const` to `[VALIDATION_SECTION, VALIDATION_LITERAL_SUBSECTION, "allowlist", "include"] as const`.
-3. Update `readCurrentLiteralConfig`: change `sections.value[LITERAL_SECTION]` to `sections.value[VALIDATION_SECTION]?.[VALIDATION_LITERAL_SUBSECTION]` (safe navigation since both levels may be absent).
+Existing scenarios already in `tests/literal.scenario.l1.test.ts` that reference `literal.allowlist.*` (lines 181, 196, 210, 242, 247) must be rewritten to use `validation.literal.values.*` and the new descriptor constants when migrated.
 
-### Step C — Run `pnpm run validate`
+Existing scenario in `tests/literal.scenario.l1.test.ts` at ~line 257 ("files under a node listed in spx/EXCLUDE are not parsed") must be REPLACED with the new scenario "spx/EXCLUDE no longer suppresses literal detection" placed in `32-path-filter.enabler/tests/`.
 
-All five validation checks must pass before proceeding to tests.
+Existing compliance block in `tests/literal.compliance.l1.test.ts` at ~line 59 (`describe("ALWAYS: detection respects spx/EXCLUDE", ...)`) must be REPLACED with the new compliance "validation.paths.exclude suppresses by prefix" in `32-path-filter.enabler/tests/path-filter.compliance.l1.test.ts`.
 
-### Step D — Update tests
+After redistribution, delete the now-empty `tests/literal.*.l1.test.ts` files and the `tests/` directory itself if empty. The `tests/support.ts` content also redistributes — shared helpers move to `21-detection.enabler/tests/support.ts` (or the lowest-index consumer); other helpers move alongside their tests.
 
-**Remove** from `literal.scenario.l1.test.ts`:
+The 21-allowlist-existing tests (now under `32-value-allowlist.enabler/21-allowlist-existing.enabler/tests/`) need their `LITERAL_SECTION` references and `literal.allowlist.include` text updated to `VALIDATION_SECTION` and the 4-segment path.
 
-- The test block at ~line 257: "files under a node listed in spx/EXCLUDE are not parsed and contribute no occurrences"
-- The `EXCLUDED_NODE_DIR` constant if only used by that test
-- The `spx/EXCLUDE` write call
+Invoke `/typescript:testing-typescript` to drive this. `/typescript:auditing-typescript-tests` APPROVED gate before continuing.
 
-**Remove** from `literal.compliance.l1.test.ts`:
+### Step 3 — Implement
 
-- The entire `describe("ALWAYS: detection respects spx/EXCLUDE", ...)` block at ~line 59
+After Step 2 establishes the test contract:
 
-**Add** to `literal.scenario.l1.test.ts`:
+1. **`src/validation/literal/index.ts`**
+   - Add `pathConfig?: ValidationPathConfig` to `ValidateLiteralReuseInput`
+   - Replace `resolveScope(...)` with `runPipeline([artifactDirectoryLayer, hiddenPrefixLayer], projectRoot, request, DEFAULT_SCOPE_CONFIG, EMPTY_IGNORE_READER)` — `EMPTY_IGNORE_READER` constructed against a guaranteed-absent file
+   - After `scope.included`, apply `pathConfig` filtering: prefix-match `include` (keep) and `exclude` (drop), POSIX-normalized, prefix ends with `/` to avoid partial-directory matches
+   - Remove unused `resolveScope` import
+2. **`src/validation/literal/allowlist-existing.ts`**
+   - Remove `LITERAL_SECTION` import; add `VALIDATION_SECTION`, `VALIDATION_LITERAL_SUBSECTION`, `VALIDATION_LITERAL_VALUES_SUBSECTION` from `@/validation/config/descriptor`
+   - `ALLOWLIST_INCLUDE_PATH` becomes `[VALIDATION_SECTION, VALIDATION_LITERAL_SUBSECTION, VALIDATION_LITERAL_VALUES_SUBSECTION, "include"] as const`
+   - `readCurrentLiteralConfig`: `sections.value[VALIDATION_SECTION]?.[VALIDATION_LITERAL_SUBSECTION]?.[VALIDATION_LITERAL_VALUES_SUBSECTION]`
+3. **`src/commands/validation/literal.ts`**
+   - Extract `paths` and `literal.values` from `ValidationConfig`; pass `config: literal.values` and `pathConfig: paths` to `validateLiteralReuse`
+4. **`src/validation/literal/config.ts`**
+   - `LITERAL_SECTION` constant: keep only if still referenced by validator error messages; otherwise remove
 
-- Scenario: given `pathConfig.exclude` contains `"src/excluded/"`, when detector runs, then files whose path starts with `"src/excluded/"` are not indexed (use `env.writeRaw` to create a TS file under that prefix)
-- Scenario: given `pathConfig.include` contains `"src/included/"`, when detector runs, then only files under that prefix are indexed
-- Scenario: given a node listed in `spx/EXCLUDE` (write a real EXCLUDE file and a TS file under the node), when detector runs with no `pathConfig`, then the file IS indexed (spx/EXCLUDE no longer suppresses literal detection)
+Invoke `/typescript:coding-typescript`. `/typescript:auditing-typescript` APPROVED gate.
 
-**Add** to `literal.compliance.l1.test.ts`:
+### Step 4 — Run quality gates
 
-- Compliance: `validation.paths.exclude` suppresses by prefix — all files under every listed prefix are never parsed
+- `pnpm run validate` — all five checks pass
+- `pnpm test` — all redistributed and new tests pass
 
-### Step E — Run `pnpm test`
+### Step 5 — Commit
 
-All tests must pass. Fix any regressions.
+Use `/spec-tree:committing-changes`. Suggested split (one PR per logical concern):
 
-### Step F — Commit
+1. `refactor(literal-reuse): decompose into 5 child enablers + nest value allowlist under values` — all spec/ADR edits, all `git mv`, EXCLUDE additions, ISSUES.md, PLAN.md
+2. `feat(validation): add ValidationConfig descriptor with paths and literal.values subsections` — `src/validation/config/descriptor.ts`, `src/validation/config/index.ts`, `src/config/registry.ts`, `src/lib/file-inclusion/layer-sequence.ts`
+3. `feat(literal-reuse): apply validation.paths filtering; drop ignore-source layer` — `src/validation/literal/index.ts`, `src/validation/literal/allowlist-existing.ts`, `src/commands/validation/literal.ts`
+4. `test(literal-reuse): redistribute tests into child enablers; add validation.paths tests` — all test files
 
-Commit code and test changes using `/spec-tree:committing-changes`. Suggested split:
-
-1. `feat(validation): add ValidationConfig descriptor with paths and literal subsections` — `src/lib/file-inclusion/layer-sequence.ts`, `src/validation/config/descriptor.ts`, `src/validation/config/index.ts`, `src/config/registry.ts`
-2. `feat(literal-reuse): apply validation.paths filtering; drop ignore-source layer` — `src/validation/literal/index.ts`, `src/validation/literal/allowlist-existing.ts`, `src/commands/validation/literal.ts`
-3. `test(literal-reuse): replace spx/EXCLUDE tests with validation.paths tests` — test files only
+Once Step 5 commits 1-3 land, remove the matching child paths from `spx/EXCLUDE`.
 
 ## Constraints
 
-- `allowlist-existing.ts` calls `serializeConfigFileSectionsWithSetIn` with a four-segment path `["validation", "literal", "allowlist", "include"]` — this is supported by the existing `setNested` helper in `src/config/index.ts`.
-- The `validateLiteralReuse` function exports its interface; `allowlist-existing.ts` calls it directly with `config: currentLiteralConfig.value` — no `pathConfig` is needed there (it walks the whole project to find existing findings).
-- Do NOT use glob libraries — path prefix matching (`startsWith`) is sufficient for the user's stated use case (directory exclusion).
-- Do NOT use `vi.mock`, `jest.mock`, or memfs in tests — construct real temp project directories via `withTestEnv`.
-- The `LITERAL_SECTION` constant stays in `src/validation/literal/config.ts` — it is still used internally by `literalConfigDescriptor.validate` for error messages. Do not remove it.
+- The 4-segment config-section write `["validation", "literal", "values", "include"]` must be supported by `setNested` in `src/config/index.ts` (or an equivalent helper supporting arbitrary depth)
+- `validateLiteralReuse` is called by `allowlist-existing.ts` with `config: currentLiteralConfig.value` only — no `pathConfig` (the bulk-silence helper walks the whole project to find existing findings)
+- Do NOT use glob libraries for path filtering — `String.prototype.startsWith` is sufficient for the user's directory-prefix use case
+- Do NOT use `vi.mock`, `jest.mock`, or memfs in tests — construct real temp project directories via `withTestEnv`
+- Do NOT add `it.skip`/`it.todo` placeholder tests for unimplemented child specs — the EXCLUDE entry is the only declared-state mechanism per the methodology

@@ -10,3 +10,8 @@
 31-spec-domain.enabler
 41-testing.enabler
 41-validation.enabler/32-python-validation.enabler
+41-validation.enabler/32-typescript-validation.enabler/32-literal-reuse.enabler/21-detection.enabler
+41-validation.enabler/32-typescript-validation.enabler/32-literal-reuse.enabler/21-fixture-classification.enabler
+41-validation.enabler/32-typescript-validation.enabler/32-literal-reuse.enabler/32-path-filter.enabler
+41-validation.enabler/32-typescript-validation.enabler/32-literal-reuse.enabler/32-value-allowlist.enabler
+41-validation.enabler/32-typescript-validation.enabler/32-literal-reuse.enabler/54-output-modes.enabler
