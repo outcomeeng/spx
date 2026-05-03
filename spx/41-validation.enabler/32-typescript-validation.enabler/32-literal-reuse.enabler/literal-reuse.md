@@ -17,7 +17,9 @@ CAN enforce the source/test boundary import rules and no-test-owned-semantic-con
 - Given `literal.allowlist.exclude` names a value that a configured preset would suppress, when the detector runs, then problems for that value are still reported — `exclude` wins over presets ([test](tests/literal.scenario.l1.test.ts))
 - Given no `spx.config.*` file is present at the project root, when the detector runs, then the effective allowlist is empty ([test](tests/literal.scenario.l1.test.ts))
 - Given `literal.allowlist.presets` names an unrecognized preset identifier, when `resolveConfig` validates the section, then it returns an error naming the unrecognized identifier and the detection run does not proceed ([test](tests/literal.scenario.l1.test.ts))
-- Given a node directory listed in `spx/EXCLUDE`, when the detector walks files, then files under that node's directory are not parsed or indexed ([test](tests/literal.scenario.l1.test.ts))
+- Given `validation.paths.exclude` lists a path prefix, when the detector walks files, then files whose relative path starts with that prefix are not parsed or indexed ([test](tests/literal.scenario.l1.test.ts))
+- Given `validation.paths.include` lists a path prefix, when the detector walks files, then only files whose relative path starts with at least one include prefix are parsed and indexed ([test](tests/literal.scenario.l1.test.ts))
+- Given a node directory listed in `spx/EXCLUDE` but not listed in `validation.paths.exclude`, when the detector walks files, then files under that node's directory are parsed and indexed normally ([test](tests/literal.scenario.l1.test.ts))
 - Given the detector is invoked with `--files <paths...>`, when it runs, then only the named files are walked and problems are reported against the index those files contribute ([test](tests/literal.scenario.l1.test.ts))
 - Given the detector is invoked with `--json`, when it completes, then the output parses through `parseLiteralReuseResult` without throwing ([test](tests/literal.scenario.l1.test.ts))
 - Given a test file contains fixture-writer paths and source payload strings, when literals are collected, then those setup literals do not contribute occurrences while assertion-position semantic literals still contribute occurrences ([test](tests/literal.scenario.l1.test.ts))
@@ -58,9 +60,10 @@ CAN enforce the source/test boundary import rules and no-test-owned-semantic-con
 
 ### Compliance
 
-- ALWAYS: the `spx.config.*` section key for literal configuration is `"literal"` — no caller outside the config module references this key as a string literal ([review](32-allowlist-config.adr.md))
+- ALWAYS: the `spx.config.*` section key for validation configuration is `"validation"`, with literal config nested under `"validation.literal"` — no caller outside the config module references these keys as string literals ([review](32-allowlist-config.adr.md))
 - ALWAYS: `exclude` removes a value from the effective allowlist regardless of which source contributed it — a value in both `include` and `exclude` is not in the effective allowlist ([test](tests/literal.compliance.l1.test.ts))
-- ALWAYS: detection respects `spx/EXCLUDE` — files under excluded node directories are never parsed and contribute no occurrences ([test](tests/literal.compliance.l1.test.ts))
+- ALWAYS: `validation.paths.exclude` suppresses files by path prefix — files under every listed prefix are never parsed and contribute no occurrences ([test](tests/literal.compliance.l1.test.ts))
+- NEVER: consult `spx/EXCLUDE` during literal-reuse detection — the ignore-source mechanism applies only to spec-tree quality-gate walkers, not to validation commands ([review](../../../17-file-inclusion.enabler/11-ignore-defaults.pdr.md))
 - ALWAYS: test-file classification recognizes POSIX `/tests/`, Windows `\tests\`, and `.test.` filename markers as test fixture paths ([test](tests/literal.scenario.l1.test.ts))
 - ALWAYS: AST traversal descends only into fields the injected visitor-keys map declares for each node type; unknown node types short-circuit with no descent ([test](tests/literal.compliance.l1.test.ts))
 - NEVER: descend into artifact directories — `node_modules`, `dist`, `build`, `.next`, `.source`, `.git`, `out`, `coverage` ([test](tests/literal.compliance.l1.test.ts))
