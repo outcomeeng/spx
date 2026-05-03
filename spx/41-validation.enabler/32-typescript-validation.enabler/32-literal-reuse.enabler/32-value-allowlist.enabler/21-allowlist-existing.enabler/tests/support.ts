@@ -9,51 +9,25 @@ import {
   readProjectConfigFile,
   serializeConfigFileSections,
 } from "@/config/index";
-import {
-  DEFAULT_MIN_NUMBER_DIGITS,
-  DEFAULT_MIN_STRING_LENGTH,
-  LITERAL_SECTION,
-  type LiteralAllowlistConfig,
-  type LiteralConfig,
-} from "@/validation/literal/config";
+import { LITERAL_DEFAULTS, LITERAL_SECTION, type LiteralAllowlistConfig } from "@/validation/literal/config";
+import { LITERAL_TEST_GENERATOR, sampleLiteralTestValue } from "@testing/generators/literal/literal";
 import type { Config, SpecTreeEnv } from "@testing/harnesses/spec-tree/spec-tree";
 
-export const SHARED_FIXTURE_LITERAL = "fixture-allowlist-target-literal";
-export const EXISTING_INCLUDE_FIRST = "preexisting-allowlist-entry-alpha";
-export const EXISTING_INCLUDE_SECOND = "preexisting-allowlist-entry-beta";
-export const WEB_PRESET_NAME = "web";
-export const SAMPLE_EXCLUDE_VALUE = "explicitly-excluded-allowlist-value";
-
-export const MULTI_FINDINGS_LITERALS = [
-  "zeta-multi-fixture-literal",
-  "alpha-multi-fixture-literal",
-  "mu-multi-fixture-literal",
-] as const;
-
-export const FOREIGN_SECTION_KEY = "foreignFixtureSection";
-export const FOREIGN_SECTION_BODY = { foreignKey: "foreign-section-marker-value" } as const;
-
-const FIXTURE_SOURCE_PATH = "src/fixture-source.ts";
-const FIXTURE_TEST_PATH = "spx/aux-fixture.enabler/tests/duplicated.scenario.l1.test.ts";
-
-const BASE_LITERAL_CONFIG: LiteralConfig = {
-  allowlist: {},
-  minStringLength: DEFAULT_MIN_STRING_LENGTH,
-  minNumberDigits: DEFAULT_MIN_NUMBER_DIGITS,
-};
-
 export function buildBaselineConfig(): Config {
-  return { [LITERAL_SECTION]: BASE_LITERAL_CONFIG };
+  return { [LITERAL_SECTION]: LITERAL_DEFAULTS };
 }
 
 export function buildConfigWithAllowlist(allowlist: LiteralAllowlistConfig): Config {
-  return { [LITERAL_SECTION]: { ...BASE_LITERAL_CONFIG, allowlist } };
+  return { [LITERAL_SECTION]: { ...LITERAL_DEFAULTS, allowlist } };
 }
 
-export function buildConfigWithForeignSection(): Config {
+export function buildConfigWithForeignSection(
+  foreignKey: string,
+  foreignBody: Record<string, unknown>,
+): Config {
   return {
-    [LITERAL_SECTION]: BASE_LITERAL_CONFIG,
-    [FOREIGN_SECTION_KEY]: FOREIGN_SECTION_BODY,
+    [LITERAL_SECTION]: LITERAL_DEFAULTS,
+    [foreignKey]: foreignBody,
   };
 }
 
@@ -63,7 +37,10 @@ export async function writeProjectConfig(
   config: Config,
 ): Promise<void> {
   for (const registeredFormat of CONFIG_FILE_FORMAT_ORDER) {
-    await rm(join(env.projectDir, CONFIG_FILE_DEFINITIONS[registeredFormat].filename), { force: true });
+    await rm(
+      join(env.projectDir, CONFIG_FILE_DEFINITIONS[registeredFormat].filename),
+      { force: true },
+    );
   }
 
   const serialized = serializeConfigFileSections(format, config as Record<string, unknown>);
@@ -89,15 +66,14 @@ export async function readProjectConfigSections(env: SpecTreeEnv): Promise<Recor
   return parsed.value;
 }
 
-export async function writeDuplicatedLiteralFixture(env: SpecTreeEnv): Promise<void> {
-  await env.writeRaw(
-    FIXTURE_SOURCE_PATH,
-    `export const FIXTURE_VALUE = "${SHARED_FIXTURE_LITERAL}";\n`,
-  );
-  await env.writeRaw(
-    FIXTURE_TEST_PATH,
-    `expect(value).toBe("${SHARED_FIXTURE_LITERAL}");\n`,
-  );
+export async function writeDuplicatedLiteralFixture(
+  env: SpecTreeEnv,
+  literal: string,
+): Promise<void> {
+  const sourcePath = sampleLiteralTestValue(LITERAL_TEST_GENERATOR.sourceFilePath());
+  const testPath = sampleLiteralTestValue(LITERAL_TEST_GENERATOR.testFilePath());
+  await env.writeRaw(sourcePath, `export const FIXTURE_VALUE = "${literal}";\n`);
+  await env.writeRaw(testPath, `expect(value).toBe("${literal}");\n`);
 }
 
 export async function writeMultipleLiteralFixtures(
@@ -105,8 +81,8 @@ export async function writeMultipleLiteralFixtures(
   literals: readonly string[],
 ): Promise<void> {
   for (const [index, literal] of literals.entries()) {
-    const sourcePath = `src/multi-source-${index}.ts`;
-    const testPath = `spx/aux-fixture.enabler/tests/multi-${index}.scenario.l1.test.ts`;
+    const sourcePath = sampleLiteralTestValue(LITERAL_TEST_GENERATOR.sourceFilePath());
+    const testPath = sampleLiteralTestValue(LITERAL_TEST_GENERATOR.testFilePath());
     await env.writeRaw(sourcePath, `export const MULTI_VALUE_${index} = "${literal}";\n`);
     await env.writeRaw(testPath, `expect(value).toBe("${literal}");\n`);
   }

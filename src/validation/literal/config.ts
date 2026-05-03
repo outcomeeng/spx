@@ -16,7 +16,13 @@ export interface LiteralConfig {
   readonly minNumberDigits: number;
 }
 
-const WEB_PRESET: ReadonlySet<string> = new Set([
+export const PRESET_NAMES = {
+  WEB: "web",
+} as const;
+
+export type PresetName = (typeof PRESET_NAMES)[keyof typeof PRESET_NAMES];
+
+export const WEB_PRESET_TOKENS = [
   "GET",
   "POST",
   "PUT",
@@ -36,17 +42,21 @@ const WEB_PRESET: ReadonlySet<string> = new Set([
   "type",
   "name",
   "value",
-]);
+] as const;
 
-const PRESET_REGISTRY: ReadonlyMap<string, ReadonlySet<string>> = new Map([
-  ["web", WEB_PRESET],
+export type WebPresetToken = (typeof WEB_PRESET_TOKENS)[number];
+
+const WEB_PRESET: ReadonlySet<WebPresetToken> = new Set(WEB_PRESET_TOKENS);
+
+const PRESET_REGISTRY: ReadonlyMap<PresetName, ReadonlySet<string>> = new Map([
+  [PRESET_NAMES.WEB, WEB_PRESET],
 ]);
 
 export function resolveAllowlist(config: LiteralAllowlistConfig): ReadonlySet<string> {
   const effective = new Set<string>();
 
   for (const presetId of config.presets ?? []) {
-    const preset = PRESET_REGISTRY.get(presetId);
+    const preset = PRESET_REGISTRY.get(presetId as PresetName);
     if (preset !== undefined) {
       for (const v of preset) effective.add(v);
     }
@@ -63,7 +73,7 @@ export function resolveAllowlist(config: LiteralAllowlistConfig): ReadonlySet<st
   return effective;
 }
 
-const defaults: LiteralConfig = {
+export const LITERAL_DEFAULTS: LiteralConfig = {
   allowlist: {},
   minStringLength: DEFAULT_MIN_STRING_LENGTH,
   minNumberDigits: DEFAULT_MIN_NUMBER_DIGITS,
@@ -81,7 +91,7 @@ function validate(value: unknown): Result<LiteralConfig> {
     return allowlistResult;
   }
 
-  const minStringLength = candidate["minStringLength"] ?? defaults.minStringLength;
+  const minStringLength = candidate["minStringLength"] ?? LITERAL_DEFAULTS.minStringLength;
   if (typeof minStringLength !== "number" || !Number.isInteger(minStringLength) || minStringLength < 0) {
     return {
       ok: false,
@@ -89,7 +99,7 @@ function validate(value: unknown): Result<LiteralConfig> {
     };
   }
 
-  const minNumberDigits = candidate["minNumberDigits"] ?? defaults.minNumberDigits;
+  const minNumberDigits = candidate["minNumberDigits"] ?? LITERAL_DEFAULTS.minNumberDigits;
   if (typeof minNumberDigits !== "number" || !Number.isInteger(minNumberDigits) || minNumberDigits < 0) {
     return {
       ok: false,
@@ -112,7 +122,7 @@ function validateAllowlist(raw: unknown): Result<LiteralAllowlistConfig> {
       return { ok: false, error: `${LITERAL_SECTION}.allowlist.presets must be an array of strings` };
     }
     for (const id of presets as string[]) {
-      if (!PRESET_REGISTRY.has(id)) {
+      if (!PRESET_REGISTRY.has(id as PresetName)) {
         return { ok: false, error: `${LITERAL_SECTION}.allowlist.presets: unrecognized preset "${id}"` };
       }
     }
@@ -140,6 +150,6 @@ function validateAllowlist(raw: unknown): Result<LiteralAllowlistConfig> {
 
 export const literalConfigDescriptor: ConfigDescriptor<LiteralConfig> = {
   section: LITERAL_SECTION,
-  defaults,
+  defaults: LITERAL_DEFAULTS,
   validate,
 };

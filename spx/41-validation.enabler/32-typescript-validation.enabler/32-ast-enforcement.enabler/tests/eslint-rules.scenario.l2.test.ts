@@ -16,8 +16,9 @@ import { NO_TEST_OWNED_DOMAIN_CONSTANTS_RULE_ID } from "@eslint-rules/no-test-ow
 import { ESLint } from "eslint";
 import { beforeAll, describe, expect, it } from "vitest";
 
-import { TYPESCRIPT_VALIDATION_TEST_FILE } from "@root/spx/41-validation.enabler/32-typescript-validation.enabler/tests/support";
+import { LITERAL_TEST_GENERATOR, sampleLiteralTestValue } from "@testing/generators/literal/literal";
 
+const TYPESCRIPT_VALIDATION_TEST_FILE = sampleLiteralTestValue(LITERAL_TEST_GENERATOR.sourceFilePath());
 const unmanifestedSpecTestFile = "spx/31-spec-domain.capability/tests/new.mapping.l1.test.ts";
 
 describe("ESLint Rules Integration", () => {

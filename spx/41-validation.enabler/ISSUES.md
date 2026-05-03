@@ -1,5 +1,26 @@
 # Known Issues: 41-validation.enabler
 
+## TypeScript-validation integration test launders source-owned step display names
+
+[`spx/41-validation.enabler/32-typescript-validation.enabler/tests/typescript-validation.integration.test.ts:20-27`](32-typescript-validation.enabler/tests/typescript-validation.integration.test.ts) declares 11 test-owned semantic constants (`NPX_INSTALL_PROMPT`, `ENOENT_MARKER`, `ESLINT_OUTPUT_MARKER`, `TSC_OUTPUT_MARKER`, `CIRCULAR_OUTPUT_MARKER`, `LITERAL_OUTPUT_MARKER`, `ESLINT_SKIP_MARKER`, `TSC_SKIP_MARKER`, `CIRCULAR_SKIP_MARKER`, `LITERAL_SKIP_MARKER`, `EXIT_SUCCESS=0`).
+
+Eight of the eleven match per-stage display labels (`"ESLint"`, `"TypeScript"`, `"Circular"`, `"Literal"`) and the skip-prefix label (`"Skipping ESLint"`, etc.) currently inlined as string literals across [`src/commands/validation/lint.ts:12,53,78,81`](../../src/commands/validation/lint.ts), [`src/commands/validation/typescript.ts:11,40,53,56`](../../src/commands/validation/typescript.ts), [`src/commands/validation/circular.ts:11,43,56,60,65`](../../src/commands/validation/circular.ts), and [`src/commands/validation/literal.ts:48-50`](../../src/commands/validation/literal.ts).
+
+This is an ADR-21 NEVER violation per [`32-typescript-validation.enabler/21-typescript-conventions.adr.md`](32-typescript-validation.enabler/21-typescript-conventions.adr.md): test-owned semantic constants in test files duplicate values that should originate at one source-side declaration site.
+
+**Remediation:**
+
+1. Add `src/validation/orchestration/step-display.ts` exporting:
+   - `VALIDATION_STEP_DISPLAY_NAMES = { ESLINT: "ESLint", TYPESCRIPT: "TypeScript", CIRCULAR: "Circular dependencies", LITERAL: "Literal", KNIP: "Knip", MARKDOWN: "Markdown" } as const` and the corresponding union type
+   - `VALIDATION_SKIP_VERB = "Skipping"` and a `formatStageSkipMessage(step, reason)` helper
+2. Refactor each stage's `TYPESCRIPT_ABSENT_MESSAGE` and `formatSkipMessage` call to compose from the registry.
+3. Rewrite the integration test to import `VALIDATION_STEP_DISPLAY_NAMES` and assert `expect(result.stdout).toContain(VALIDATION_STEP_DISPLAY_NAMES.ESLINT)` etc.
+4. For the runtime tokens `"ENOENT"` and `"Need to install the following packages"`, expose a `RUNTIME_DIAGNOSTIC_ANTI_MARKERS` registry the test can import (the strings represent regressions spx orchestration must avoid emitting; that statement belongs in source as a named constraint).
+
+**Scope:** independent of the literal-reuse refactor; a separate cleanup pass after the in-flight cycle lands.
+
+---
+
 ## `allCommand` hardcodes stage dispatch (ADR-19 violation)
 
 `src/commands/validation/all.ts` imports each stage handler by name and invokes it in a fixed sequence. This violates [ADR-19 language registration](../19-language-registration.adr.md), which mandates:

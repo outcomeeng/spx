@@ -1,75 +1,62 @@
 import { KIND_REGISTRY } from "@/lib/spec-tree/config";
 import { TYPESCRIPT_MARKER } from "@/validation/discovery/index";
-import { LITERAL_SECTION, type LiteralAllowlistConfig, type LiteralConfig } from "@/validation/literal/config";
+import {
+  DEFAULT_MIN_NUMBER_DIGITS,
+  DEFAULT_MIN_STRING_LENGTH,
+  LITERAL_DEFAULTS,
+  LITERAL_SECTION,
+  type LiteralAllowlistConfig,
+} from "@/validation/literal/config";
+import {
+  LITERAL_TEST_GENERATOR,
+  type LiteralReuseFixtureInputs,
+  sampleLiteralTestValue,
+} from "@testing/generators/literal/literal";
 import type { Config, SpecTreeEnv } from "@testing/harnesses/spec-tree/spec-tree";
 
-export const MIN_STRING_LENGTH = 4;
-export const MIN_NUMBER_DIGITS = 4;
-export const EMPTY_ALLOWLIST: ReadonlySet<string> = new Set();
-
 export const DETECTOR_OPTIONS_DEFAULTS = {
-  minStringLength: MIN_STRING_LENGTH,
-  minNumberDigits: MIN_NUMBER_DIGITS,
+  minStringLength: DEFAULT_MIN_STRING_LENGTH,
+  minNumberDigits: DEFAULT_MIN_NUMBER_DIGITS,
 } as const;
 
-const BASE_LITERAL_CONFIG: LiteralConfig = {
-  allowlist: {},
-  minStringLength: MIN_STRING_LENGTH,
-  minNumberDigits: MIN_NUMBER_DIGITS,
-};
+export const EMPTY_ALLOWLIST: ReadonlySet<string> = new Set();
 
 export const INTEGRATION_CONFIG: Config = {
   specTree: { kinds: { ...KIND_REGISTRY } },
-  [LITERAL_SECTION]: BASE_LITERAL_CONFIG,
-};
-
-export interface LiteralOutputFixture {
-  readonly reuseLiteral: string;
-  readonly dupeLiteral: string;
-  readonly reuseSourceFile: string;
-  readonly reuseTestFile: string;
-  readonly dupeFirstTestFile: string;
-  readonly dupeSecondTestFile: string;
-}
-
-export const outputFixture: LiteralOutputFixture = {
-  reuseLiteral: "src-owned-token",
-  dupeLiteral: "test-dupe-token",
-  reuseSourceFile: "src/reuse.ts",
-  reuseTestFile: "tests/reuse.test.ts",
-  dupeFirstTestFile: "tests/dupe-a.test.ts",
-  dupeSecondTestFile: "tests/dupe-b.test.ts",
+  [LITERAL_SECTION]: LITERAL_DEFAULTS,
 };
 
 export function configWithAllowlist(allowlist: LiteralAllowlistConfig): Config {
   return {
     ...INTEGRATION_CONFIG,
-    [LITERAL_SECTION]: { ...BASE_LITERAL_CONFIG, allowlist },
+    [LITERAL_SECTION]: { ...LITERAL_DEFAULTS, allowlist },
   };
 }
 
-type LiteralTestFixtureWriter = (
+export async function writeSourceWithLiteral(
   env: SpecTreeEnv,
   filename: string,
   literal: string,
-) => Promise<void>;
+): Promise<void> {
+  await env.writeRaw(filename, `export const V = "${literal}";\n`);
+}
 
-const literalTestFixtureWriters = {
-  writeSourceWithLiteral: async (env, filename, literal) => {
-    await env.writeRaw(filename, `export const V = "${literal}";\n`);
-  },
-  writeTestWithLiteral: async (env, filename, literal) => {
-    await env.writeRaw(filename, `expect(v).toBe("${literal}");\n`);
-  },
-} as const satisfies Record<string, LiteralTestFixtureWriter>;
+export async function writeTestWithLiteral(
+  env: SpecTreeEnv,
+  filename: string,
+  literal: string,
+): Promise<void> {
+  await env.writeRaw(filename, `expect(v).toBe("${literal}");\n`);
+}
 
-export const { writeSourceWithLiteral, writeTestWithLiteral } = literalTestFixtureWriters;
-
-export async function writeLiteralOutputFixture(env: SpecTreeEnv): Promise<LiteralOutputFixture> {
+export async function writeLiteralOutputFixture(
+  env: SpecTreeEnv,
+): Promise<LiteralReuseFixtureInputs> {
+  const inputs = sampleLiteralTestValue(LITERAL_TEST_GENERATOR.reuseFixtureInputs());
   await env.writeRaw(TYPESCRIPT_MARKER, "{}\n");
-  await writeSourceWithLiteral(env, outputFixture.reuseSourceFile, outputFixture.reuseLiteral);
-  await writeTestWithLiteral(env, outputFixture.reuseTestFile, outputFixture.reuseLiteral);
-  await writeTestWithLiteral(env, outputFixture.dupeFirstTestFile, outputFixture.dupeLiteral);
-  await writeTestWithLiteral(env, outputFixture.dupeSecondTestFile, outputFixture.dupeLiteral);
-  return outputFixture;
+  await writeSourceWithLiteral(env, inputs.reuseSourceFile, inputs.reuseLiteral);
+  await writeTestWithLiteral(env, inputs.reuseTestFile, inputs.reuseLiteral);
+  await writeTestWithLiteral(env, inputs.dupeFirstTestFile, inputs.dupeLiteral);
+  await writeTestWithLiteral(env, inputs.dupeSecondTestFile, inputs.dupeLiteral);
+  return inputs;
 }

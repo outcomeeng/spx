@@ -2,8 +2,7 @@ import { describe, expect, it } from "vitest";
 
 import { buildEslintArgs, DEFAULT_ESLINT_CONFIG_FILE, ESLINT_COMMAND_TOKENS } from "@/validation/steps/eslint";
 import { EXECUTION_MODES } from "@/validation/types";
-
-import { TYPESCRIPT_VALIDATION_TEST_FILE } from "@root/spx/41-validation.enabler/32-typescript-validation.enabler/tests/support";
+import { LITERAL_TEST_GENERATOR, sampleLiteralTestValue } from "@testing/generators/literal/literal";
 
 describe("ESLint command arguments", () => {
   it("passes project lint through without injected policy arguments", () => {
@@ -18,7 +17,7 @@ describe("ESLint command arguments", () => {
   });
 
   it("passes scoped file lint through without injected policy arguments", () => {
-    const validatedFile = TYPESCRIPT_VALIDATION_TEST_FILE;
+    const validatedFile = sampleLiteralTestValue(LITERAL_TEST_GENERATOR.sourceFilePath());
     const args = buildEslintArgs({
       validatedFiles: [validatedFile],
     });
