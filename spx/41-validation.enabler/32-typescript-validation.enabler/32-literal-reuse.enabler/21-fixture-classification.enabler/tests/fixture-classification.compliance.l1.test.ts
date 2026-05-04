@@ -2,14 +2,19 @@ import { describe, expect, it } from "vitest";
 
 import { SPEC_TREE_ENV_FIXTURE_WRITER_METHODS } from "@/domains/spec/fixture-writer-methods";
 import { FIXTURE_WRITER_CALLS } from "@/validation/literal/index";
-import { arbitraryDomainLiteral, sampleLiteralTestValue } from "@testing/generators/literal/literal";
+import {
+  arbitraryDomainLiteral,
+  arbitrarySourceFilePath,
+  arbitrarySpecTreeTestFilePath,
+  arbitraryTestMarkerFilePath,
+  sampleLiteralTestValue,
+} from "@testing/generators/literal/literal";
 
 import { collectFromFile } from "./support";
 
 describe("ALWAYS: test-file classification recognizes POSIX /tests/, Windows \\tests\\, and .test. filename markers as test fixture paths", () => {
   it("a POSIX /tests/ path segment suppresses fixture-data variable contents", () => {
-    const slug = sampleLiteralTestValue(arbitraryDomainLiteral());
-    const posixTestPath = `spx/${slug}/tests/scenario.l1.test.ts`;
+    const posixTestPath = sampleLiteralTestValue(arbitrarySpecTreeTestFilePath());
     const fixtureValue = sampleLiteralTestValue(arbitraryDomainLiteral());
     const source = `const json = "${fixtureValue}";`;
 
@@ -30,8 +35,7 @@ describe("ALWAYS: test-file classification recognizes POSIX /tests/, Windows \\t
   });
 
   it("a .test. filename marker suppresses fixture-data variable contents outside a tests directory", () => {
-    const slug = sampleLiteralTestValue(arbitraryDomainLiteral());
-    const testMarkerPath = `src/${slug}.test.helpers.ts`;
+    const testMarkerPath = sampleLiteralTestValue(arbitraryTestMarkerFilePath());
     const fixtureValue = sampleLiteralTestValue(arbitraryDomainLiteral());
     const source = `const json = "${fixtureValue}";`;
 
@@ -41,8 +45,7 @@ describe("ALWAYS: test-file classification recognizes POSIX /tests/, Windows \\t
   });
 
   it("a source file path without any test marker does not suppress fixture-data variable contents", () => {
-    const slug = sampleLiteralTestValue(arbitraryDomainLiteral());
-    const sourcePath = `src/${slug}.ts`;
+    const sourcePath = sampleLiteralTestValue(arbitrarySourceFilePath());
     const fixtureValue = sampleLiteralTestValue(arbitraryDomainLiteral());
     const source = `const json = "${fixtureValue}";`;
 

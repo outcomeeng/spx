@@ -5,6 +5,7 @@ import {
   arbitraryDomainLiteral,
   arbitrarySourceFilePath,
   arbitraryTestFilePath,
+  arbitraryTestMarkerFilePath,
   sampleLiteralTestValue,
 } from "@testing/generators/literal/literal";
 
@@ -128,8 +129,7 @@ describe("fixture-classification — scenarios", () => {
   });
 
   it("a file path containing the .test. filename marker outside a tests directory is treated as test-authored", () => {
-    const slug = sampleLiteralTestValue(arbitraryDomainLiteral());
-    const testMarkerPath = `src/${slug}.test.helpers.ts`;
+    const testMarkerPath = sampleLiteralTestValue(arbitraryTestMarkerFilePath());
     const fixtureValue = sampleLiteralTestValue(arbitraryDomainLiteral());
     const assertionLiteral = sampleLiteralTestValue(arbitraryDomainLiteral());
     const source = `
