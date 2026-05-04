@@ -1,13 +1,18 @@
 import { describe, expect, it } from "vitest";
 
-import { LITERAL_PROBLEM_KIND, literalCommand } from "@/commands/validation/literal";
+import {
+  LITERAL_PROBLEM_KIND,
+  literalCommand,
+  OUTPUT_MODE_NAMES,
+  type OutputModeName,
+  VERBOSE_PROBLEM_LINE_PREFIX,
+} from "@/commands/validation/literal";
 import { LITERAL_DEFAULTS } from "@/validation/literal/config";
 import { parseLiteralReuseResult } from "@/validation/literal/index";
 import { LITERAL_TEST_GENERATOR, sampleLiteralTestValue } from "@testing/generators/literal/literal";
 import { withLiteralFixtureEnv } from "@testing/harnesses/literal/harness";
 
-const OUTPUT_MODE_NAMES = ["text", "verbose", "filesWithProblems", "literals", "json"] as const;
-type OutputModeName = (typeof OUTPUT_MODE_NAMES)[number];
+const [OUTPUT_MODE_TEXT, , OUTPUT_MODE_FILES_WITH_PROBLEMS, OUTPUT_MODE_LITERALS, OUTPUT_MODE_JSON] = OUTPUT_MODE_NAMES;
 
 type OutputModeOptions = {
   verbose?: boolean;
@@ -52,26 +57,26 @@ describe("output-modes — mappings", () => {
         expect(reuseResult.exitCode).toBe(1);
         expect(dupeResult.exitCode).toBe(1);
 
-        if (mode === "json") {
+        if (mode === OUTPUT_MODE_JSON) {
           const reuseFindings = parseLiteralReuseResult(JSON.parse(reuseResult.output));
           const dupeFindings = parseLiteralReuseResult(JSON.parse(dupeResult.output));
           expect(reuseFindings.testDupe).toHaveLength(0);
           expect(reuseFindings.srcReuse.length).toBeGreaterThan(0);
           expect(dupeFindings.srcReuse).toHaveLength(0);
           expect(dupeFindings.testDupe.length).toBeGreaterThan(0);
-        } else if (mode === "text") {
+        } else if (mode === OUTPUT_MODE_TEXT) {
           expect(reuseResult.output).toContain(`[${LITERAL_PROBLEM_KIND.REUSE}]`);
           expect(reuseResult.output).not.toContain(`[${LITERAL_PROBLEM_KIND.DUPE}]`);
           expect(dupeResult.output).toContain(`[${LITERAL_PROBLEM_KIND.DUPE}]`);
           expect(dupeResult.output).not.toContain(`[${LITERAL_PROBLEM_KIND.REUSE}]`);
-        } else if (mode === "filesWithProblems") {
+        } else if (mode === OUTPUT_MODE_FILES_WITH_PROBLEMS) {
           const reuseFiles = new Set(reuseResult.output.split("\n").filter(Boolean));
           expect(reuseFiles.has(inputs.reuseTestFile)).toBe(true);
           expect(reuseFiles.has(inputs.dupeFirstTestFile)).toBe(false);
           expect(reuseFiles.has(inputs.dupeSecondTestFile)).toBe(false);
           const dupeFiles = new Set(dupeResult.output.split("\n").filter(Boolean));
           expect(dupeFiles.has(inputs.dupeFirstTestFile)).toBe(true);
-        } else if (mode === "literals") {
+        } else if (mode === OUTPUT_MODE_LITERALS) {
           expect(reuseResult.output).toContain(inputs.reuseLiteral);
           expect(reuseResult.output).not.toContain(inputs.dupeLiteral);
           expect(dupeResult.output).toContain(inputs.dupeLiteral);
@@ -132,8 +137,8 @@ describe("output-modes — mappings", () => {
       const output = verboseResult.output;
 
       // REUSE section appears before DUPE section
-      const reuseHeaderIdx = output.indexOf("REUSE");
-      const dupeHeaderIdx = output.indexOf("DUPE");
+      const reuseHeaderIdx = output.indexOf(LITERAL_PROBLEM_KIND.REUSE.toUpperCase());
+      const dupeHeaderIdx = output.indexOf(LITERAL_PROBLEM_KIND.DUPE.toUpperCase());
       expect(reuseHeaderIdx).toBeGreaterThanOrEqual(0);
       expect(dupeHeaderIdx).toBeGreaterThan(reuseHeaderIdx);
 
@@ -143,7 +148,7 @@ describe("output-modes — mappings", () => {
       expect(output.indexOf(inputs.dupeFirstTestFile)).toBeGreaterThan(dupeHeaderIdx);
 
       // Per-problem "line N" entries exist for all findings
-      const problemLines = output.split("\n").filter((l) => l.trimStart().startsWith("line "));
+      const problemLines = output.split("\n").filter((l) => l.trimStart().startsWith(VERBOSE_PROBLEM_LINE_PREFIX));
       expect(problemLines.length).toBe(findings.srcReuse.length + findings.testDupe.length);
     });
   });

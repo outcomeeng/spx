@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { LITERAL_PROBLEM_KIND, literalCommand } from "@/commands/validation/literal";
+import { formatNoProblemsOfKind, LITERAL_PROBLEM_KIND, literalCommand } from "@/commands/validation/literal";
 import { LITERAL_DEFAULTS } from "@/validation/literal/config";
 import { parseLiteralReuseResult } from "@/validation/literal/index";
 import { LITERAL_TEST_GENERATOR, sampleLiteralTestValue } from "@testing/generators/literal/literal";
@@ -120,8 +120,7 @@ describe("output-modes compliance", () => {
       });
 
       expect(result.exitCode).toBe(0);
-      // eslint-disable-next-line no-restricted-syntax
-      expect(result.output).toBe("Literal: No problems of type reuse");
+      expect(result.output).toBe(formatNoProblemsOfKind(LITERAL_PROBLEM_KIND.REUSE));
     });
   });
 

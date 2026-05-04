@@ -1,6 +1,11 @@
 import { describe, expect, it } from "vitest";
 
-import { LITERAL_PROBLEM_KIND, literalCommand } from "@/commands/validation/literal";
+import {
+  formatNoProblemsOfKind,
+  LITERAL_PROBLEM_KIND,
+  literalCommand,
+  VERBOSE_PROBLEM_LINE_PREFIX,
+} from "@/commands/validation/literal";
 import { LITERAL_DEFAULTS } from "@/validation/literal/config";
 import { parseLiteralReuseResult } from "@/validation/literal/index";
 import { LITERAL_TEST_GENERATOR, sampleLiteralTestValue } from "@testing/generators/literal/literal";
@@ -91,8 +96,7 @@ describe("output-modes — scenarios", () => {
       });
 
       expect(result.exitCode).toBe(0);
-      // eslint-disable-next-line no-restricted-syntax
-      expect(result.output).toBe("Literal: No problems of type reuse");
+      expect(result.output).toBe(formatNoProblemsOfKind(LITERAL_PROBLEM_KIND.REUSE));
     });
   });
 
@@ -170,7 +174,7 @@ describe("output-modes — scenarios", () => {
       expect(output).toContain(LITERAL_PROBLEM_KIND.REUSE.toUpperCase());
       expect(output).toContain(LITERAL_PROBLEM_KIND.DUPE.toUpperCase());
       expect(output).toContain(inputs.reuseTestFile);
-      const problemLines = output.split("\n").filter((l) => l.trimStart().startsWith("line "));
+      const problemLines = output.split("\n").filter((l) => l.trimStart().startsWith(VERBOSE_PROBLEM_LINE_PREFIX));
       expect(problemLines.length).toBeGreaterThan(0);
     });
   });
