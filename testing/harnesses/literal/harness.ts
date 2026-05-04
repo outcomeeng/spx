@@ -13,6 +13,7 @@ export interface LiteralFixtureEnv {
   writeSourceFile(relativePath: string, value: string): Promise<void>;
   writeTestFile(relativePath: string, value: string): Promise<void>;
   writeReuseFixture(inputs: LiteralReuseFixtureInputs): Promise<void>;
+  writeRaw(relativePath: string, content: string): Promise<void>;
 }
 
 export async function withLiteralFixtureEnv<T>(
@@ -39,6 +40,7 @@ function createLiteralFixtureEnv(specEnv: SpecTreeEnv): LiteralFixtureEnv {
     writeSourceFile: (relativePath, value) => specEnv.writeRaw(relativePath, formatSourceFile(value)),
     writeTestFile: (relativePath, value) => specEnv.writeRaw(relativePath, formatTestFile(value)),
     writeReuseFixture: (inputs) => writeReuseFixture(specEnv, inputs),
+    writeRaw: (relativePath, content) => specEnv.writeRaw(relativePath, content),
   };
 }
 
