@@ -1,6 +1,10 @@
 validation:
   paths:
     exclude:
+      - spx/16-config.enabler/
       - spx/21-core-cli.capability/
       - spx/26-scoped-cli.capability/
       - spx/31-spec-domain.capability/
+      - spx/36-audit.enabler/
+      - spx/36-session.enabler/
+      - spx/46-claude.outcome/
