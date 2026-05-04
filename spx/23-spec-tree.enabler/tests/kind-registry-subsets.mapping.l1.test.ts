@@ -10,7 +10,7 @@ import {
   SPEC_TREE_KIND_CATEGORY,
 } from "@/lib/spec-tree/config";
 
-describe("NODE_KINDS", () => {
+describe("node kinds", () => {
   it("includes exactly the kinds whose category is node", () => {
     const expected = (Object.keys(KIND_REGISTRY) as Kind[]).filter(
       (k) => KIND_REGISTRY[k].category === SPEC_TREE_KIND_CATEGORY.NODE,
@@ -25,7 +25,7 @@ describe("NODE_KINDS", () => {
   });
 });
 
-describe("DECISION_KINDS", () => {
+describe("decision kinds", () => {
   it("includes exactly the kinds whose category is decision", () => {
     const expected = (Object.keys(KIND_REGISTRY) as Kind[]).filter(
       (k) => KIND_REGISTRY[k].category === SPEC_TREE_KIND_CATEGORY.DECISION,

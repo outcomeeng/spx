@@ -6,9 +6,9 @@ describe("KIND_REGISTRY", () => {
   it("exposes each kind as a key whose value carries registry metadata", () => {
     for (const kind of Object.keys(KIND_REGISTRY) as Kind[]) {
       const definition = KIND_REGISTRY[kind];
-      expect(typeof definition.category).toBe("string");
-      expect(typeof definition.label).toBe("string");
-      expect(typeof definition.suffix).toBe("string");
+      expect(definition.category.length).toBeGreaterThan(0);
+      expect(definition.label.length).toBeGreaterThan(0);
+      expect(definition.suffix.length).toBeGreaterThan(0);
       expect(Array.isArray(definition.aliases)).toBe(true);
     }
   });

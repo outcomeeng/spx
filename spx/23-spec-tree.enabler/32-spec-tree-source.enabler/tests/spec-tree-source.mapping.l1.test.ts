@@ -22,10 +22,12 @@ describe("SpecTreeSource mappings", () => {
     await withTestEnv({}, async ({ projectDir, writeDecision, writeNode, writeRaw }) => {
       const nodeKind = sampleNodeKind(KIND_REGISTRY);
       const decisionKind = sampleDecisionKind(KIND_REGISTRY);
-      const rootDirectory = `21-root${KIND_REGISTRY[nodeKind].suffix}`;
+      const rootSlug = sampleSpecTreeTestValue(SPEC_TREE_TEST_GENERATOR.sourceSlug());
+      const productSlug = sampleSpecTreeTestValue(SPEC_TREE_TEST_GENERATOR.sourceSlug());
+      const rootDirectory = `21-${rootSlug}${KIND_REGISTRY[nodeKind].suffix}`;
       const childDirectory = `${rootDirectory}/32-child${KIND_REGISTRY[nodeKind].suffix}`;
       const decisionPath = `${rootDirectory}/21-kind-registry${KIND_REGISTRY[decisionKind].suffix}`;
-      const productPath = `fixture${SPEC_TREE_CONFIG.PRODUCT.SUFFIX}`;
+      const productPath = `${productSlug}${SPEC_TREE_CONFIG.PRODUCT.SUFFIX}`;
 
       await writeRaw(`${SPEC_TREE_CONFIG.ROOT_DIRECTORY}/${productPath}`, "# Fixture\n");
       await writeNode(`${SPEC_TREE_CONFIG.ROOT_DIRECTORY}/${rootDirectory}/root.md`, "# Root\n");
@@ -44,7 +46,7 @@ describe("SpecTreeSource mappings", () => {
               {
                 type: SPEC_TREE_ENTRY_TYPE.PRODUCT,
                 id: productPath,
-                title: "fixture",
+                title: productSlug,
                 ref: {
                   id: `${SPEC_TREE_CONFIG.ROOT_DIRECTORY}/${productPath}`,
                   path: `${SPEC_TREE_CONFIG.ROOT_DIRECTORY}/${productPath}`,
@@ -55,7 +57,7 @@ describe("SpecTreeSource mappings", () => {
                 id: rootDirectory,
                 kind: nodeKind,
                 order: 21,
-                slug: "root",
+                slug: rootSlug,
                 ref: {
                   id: `${SPEC_TREE_CONFIG.ROOT_DIRECTORY}/${rootDirectory}`,
                   path: `${SPEC_TREE_CONFIG.ROOT_DIRECTORY}/${rootDirectory}`,

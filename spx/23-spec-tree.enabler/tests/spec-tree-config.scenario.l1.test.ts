@@ -1,8 +1,10 @@
 import { describe, expect, it } from "vitest";
 
 import {
+  DECISION_KINDS,
   type Kind,
   KIND_REGISTRY,
+  NODE_KINDS,
   SPEC_TREE_CONFIG,
   SPEC_TREE_SECTION,
   specTreeConfigDescriptor,
@@ -38,13 +40,12 @@ describe("specTreeConfigDescriptor.validate", () => {
   });
 
   it("accepts a yaml section that selects a subset of registered kinds", () => {
-    const result = specTreeConfigDescriptor.validate({
-      kinds: ["enabler", "adr"],
-    });
+    const subset = [NODE_KINDS[0], DECISION_KINDS[0]];
+    const result = specTreeConfigDescriptor.validate({ kinds: subset });
 
     expect(result.ok).toBe(true);
     if (result.ok) {
-      expect(Object.keys(result.value.kinds).sort()).toEqual(["adr", "enabler"]);
+      expect(Object.keys(result.value.kinds).sort()).toEqual([...subset].sort());
     }
   });
 
@@ -69,7 +70,7 @@ describe("specTreeConfigDescriptor.validate", () => {
 
   it("rejects a yaml section that selects the same kind more than once", () => {
     const result = specTreeConfigDescriptor.validate({
-      kinds: ["enabler", "enabler"],
+      kinds: [NODE_KINDS[0], NODE_KINDS[0]],
     });
 
     expect(result.ok).toBe(false);

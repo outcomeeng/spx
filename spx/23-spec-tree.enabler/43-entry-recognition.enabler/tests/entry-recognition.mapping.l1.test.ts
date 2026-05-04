@@ -51,18 +51,19 @@ describe("spec-tree entry recognition", () => {
   });
 
   it("maps product filenames to product source entries", () => {
+    const productSlug = sampleSpecTreeTestValue(SPEC_TREE_TEST_GENERATOR.sourceSlug());
     const entry = recognizeSpecTreeFilesystemEntry({
       type: SPEC_TREE_FILESYSTEM_RECORD_TYPE.FILE,
-      relativePath: `fixture${SPEC_TREE_CONFIG.PRODUCT.SUFFIX}`,
+      relativePath: `${productSlug}${SPEC_TREE_CONFIG.PRODUCT.SUFFIX}`,
     });
 
     expect(entry).toEqual({
       type: SPEC_TREE_ENTRY_TYPE.PRODUCT,
-      id: `fixture${SPEC_TREE_CONFIG.PRODUCT.SUFFIX}`,
-      title: "fixture",
+      id: `${productSlug}${SPEC_TREE_CONFIG.PRODUCT.SUFFIX}`,
+      title: productSlug,
       ref: {
-        id: `${SPEC_TREE_CONFIG.ROOT_DIRECTORY}/fixture${SPEC_TREE_CONFIG.PRODUCT.SUFFIX}`,
-        path: `${SPEC_TREE_CONFIG.ROOT_DIRECTORY}/fixture${SPEC_TREE_CONFIG.PRODUCT.SUFFIX}`,
+        id: `${SPEC_TREE_CONFIG.ROOT_DIRECTORY}/${productSlug}${SPEC_TREE_CONFIG.PRODUCT.SUFFIX}`,
+        path: `${SPEC_TREE_CONFIG.ROOT_DIRECTORY}/${productSlug}${SPEC_TREE_CONFIG.PRODUCT.SUFFIX}`,
       },
     });
   });
