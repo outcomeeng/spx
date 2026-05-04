@@ -68,44 +68,6 @@ export function categorizeFile(filePath: string): FileCategory {
 }
 
 /**
- * Find potential test file paths for a given source file.
- *
- * Given a source file path like "src/validation/runner.ts",
- * returns potential test paths in both unit and integration directories.
- *
- * @param sourcePath - The source file path (must start with "src/")
- * @returns Array of potential test file paths
- *
- * @example
- * ```typescript
- * findRelatedTestPaths("src/validation/runner.ts");
- * // Returns:
- * // [
- * //   "tests/unit/validation/runner.test.ts",
- * //   "tests/integration/validation/runner.integration.test.ts"
- * // ]
- * ```
- */
-export function findRelatedTestPaths(sourcePath: string): string[] {
-  // Only handle source files
-  if (!sourcePath.startsWith(FILE_PATTERNS.SOURCE_DIR)) {
-    return [];
-  }
-
-  // Remove "src/" prefix and ".ts" extension
-  const relativePath = sourcePath.slice(FILE_PATTERNS.SOURCE_DIR.length);
-  const pathWithoutExtension = relativePath.replace(/\.ts$/, "");
-
-  // Generate potential test paths
-  const unitTestPath =
-    `${FILE_PATTERNS.TESTS_DIR}${FILE_PATTERNS.UNIT_DIR}${pathWithoutExtension}${FILE_PATTERNS.TEST_FILE_SUFFIX}`;
-  const integrationTestPath =
-    `${FILE_PATTERNS.TESTS_DIR}${FILE_PATTERNS.INTEGRATION_DIR}${pathWithoutExtension}${FILE_PATTERNS.INTEGRATION_TEST_SUFFIX}`;
-
-  return [unitTestPath, integrationTestPath];
-}
-
-/**
  * Filter a list of file paths to only include test-relevant files.
  *
  * Test-relevant files are:

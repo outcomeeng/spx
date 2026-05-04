@@ -6,13 +6,7 @@
  */
 import { describe, expect, it } from "vitest";
 
-import {
-  categorizeFile,
-  FILE_CATEGORIES,
-  FILE_PATTERNS,
-  filterTestRelevantFiles,
-  findRelatedTestPaths,
-} from "@/lib/precommit/categorize";
+import { categorizeFile, FILE_CATEGORIES, FILE_PATTERNS, filterTestRelevantFiles } from "@/lib/precommit/categorize";
 
 describe("categorizeFile", () => {
   describe("test file detection", () => {
@@ -153,85 +147,6 @@ describe("categorizeFile", () => {
       // Then
       expect(result).toBe(FILE_CATEGORIES.OTHER);
     });
-  });
-});
-
-describe("findRelatedTestPaths", () => {
-  it("GIVEN source path WHEN finding tests THEN returns unit test path", () => {
-    // Given
-    const sourcePath = `${FILE_PATTERNS.SOURCE_DIR}validation/runner.ts`;
-
-    // When
-    const paths = findRelatedTestPaths(sourcePath);
-
-    // Then
-    expect(paths).toContain(
-      `${FILE_PATTERNS.TESTS_DIR}${FILE_PATTERNS.UNIT_DIR}validation/runner${FILE_PATTERNS.TEST_FILE_SUFFIX}`,
-    );
-  });
-
-  it("GIVEN source path WHEN finding tests THEN returns integration test path", () => {
-    // Given
-    const sourcePath = `${FILE_PATTERNS.SOURCE_DIR}validation/runner.ts`;
-
-    // When
-    const paths = findRelatedTestPaths(sourcePath);
-
-    // Then
-    expect(paths).toContain(
-      `${FILE_PATTERNS.TESTS_DIR}${FILE_PATTERNS.INTEGRATION_DIR}validation/runner${FILE_PATTERNS.INTEGRATION_TEST_SUFFIX}`,
-    );
-  });
-
-  it("GIVEN deeply nested source path WHEN finding tests THEN preserves directory structure", () => {
-    // Given
-    const sourcePath = `${FILE_PATTERNS.SOURCE_DIR}cli/commands/build.ts`;
-
-    // When
-    const paths = findRelatedTestPaths(sourcePath);
-
-    // Then
-    expect(paths).toContain(
-      `${FILE_PATTERNS.TESTS_DIR}${FILE_PATTERNS.UNIT_DIR}cli/commands/build${FILE_PATTERNS.TEST_FILE_SUFFIX}`,
-    );
-    expect(paths).toContain(
-      `${FILE_PATTERNS.TESTS_DIR}${FILE_PATTERNS.INTEGRATION_DIR}cli/commands/build${FILE_PATTERNS.INTEGRATION_TEST_SUFFIX}`,
-    );
-  });
-
-  it("GIVEN non-source path WHEN finding tests THEN returns empty array", () => {
-    // Given
-    const nonSourcePath = "README.md";
-
-    // When
-    const paths = findRelatedTestPaths(nonSourcePath);
-
-    // Then
-    expect(paths).toEqual([]);
-  });
-
-  it("GIVEN test file path WHEN finding tests THEN returns empty array", () => {
-    // Given
-    const testPath = `${FILE_PATTERNS.TESTS_DIR}${FILE_PATTERNS.UNIT_DIR}foo${FILE_PATTERNS.TEST_FILE_SUFFIX}`;
-
-    // When
-    const paths = findRelatedTestPaths(testPath);
-
-    // Then
-    expect(paths).toEqual([]);
-  });
-
-  it("GIVEN index.ts source path WHEN finding tests THEN returns correct paths", () => {
-    // Given
-    const sourcePath = `${FILE_PATTERNS.SOURCE_DIR}index.ts`;
-
-    // When
-    const paths = findRelatedTestPaths(sourcePath);
-
-    // Then
-    expect(paths).toContain(
-      `${FILE_PATTERNS.TESTS_DIR}${FILE_PATTERNS.UNIT_DIR}index${FILE_PATTERNS.TEST_FILE_SUFFIX}`,
-    );
   });
 });
 
