@@ -1,10 +1,9 @@
 import { TYPESCRIPT_MARKER } from "@/validation/discovery/index";
 import type { LiteralReuseFixtureInputs } from "@testing/generators/literal/literal";
+import { buildStringAssertion, buildStringDeclaration } from "@testing/harnesses/literal/snippets";
 import { type Config, type SpecTreeEnv, withTestEnv } from "@testing/harnesses/spec-tree/spec-tree";
 
 const EMPTY_TSCONFIG_CONTENT = "{}\n";
-const SOURCE_BINDING_NAME = "V";
-const TEST_VARIABLE_NAME = "v";
 
 export interface LiteralFixtureEnv {
   readonly projectDir: string;
@@ -53,9 +52,9 @@ async function writeReuseFixture(specEnv: SpecTreeEnv, inputs: LiteralReuseFixtu
 }
 
 function formatSourceFile(value: string): string {
-  return `export const ${SOURCE_BINDING_NAME} = ${JSON.stringify(value)};\n`;
+  return buildStringDeclaration(value);
 }
 
 function formatTestFile(value: string): string {
-  return `expect(${TEST_VARIABLE_NAME}).toBe(${JSON.stringify(value)});\n`;
+  return buildStringAssertion(value);
 }
