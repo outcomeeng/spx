@@ -133,6 +133,20 @@ All validation runs through `spx validation` subcommands. Use pnpm scripts or ca
 - `--quiet`: Suppress progress output
 - `--json`: Output results as JSON
 
+**Scoping literal findings to a subtree:**
+
+`pnpm run validate` runs all 5 checks and floods output when there are many literal findings. To see only the files with problems in a specific subtree:
+
+```bash
+# Files with literal problems in a subtree
+tsx src/cli.ts validation literal --files-with-problems | grep spx/41-validation.enabler/32-typescript-validation.enabler/32-literal-reuse.enabler
+
+# All literal findings in a subtree (with line numbers)
+tsx src/cli.ts validation literal | grep spx/41-validation.enabler/32-typescript-validation.enabler/32-literal-reuse.enabler
+```
+
+`--files-with-problems` emits one unique file path per line — pipe through `grep <prefix>` to scope to a node.
+
 ---
 
 ## Pull request (PR) audit workflow
