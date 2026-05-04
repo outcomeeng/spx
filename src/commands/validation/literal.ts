@@ -47,7 +47,11 @@ const EXIT_FINDINGS = 1;
 const EXIT_CONFIG_ERROR = 2;
 const TYPESCRIPT_ABSENT_MESSAGE = "⏭ Skipping Literal (TypeScript not detected in project)";
 const DISABLED_MESSAGE = "⏭ Skipping Literal (LITERAL_VALIDATION_ENABLED=0)";
-const NO_PROBLEMS_MESSAGE = "Literal: ✓ No problems";
+export const NO_PROBLEMS_MESSAGE = "Literal: ✓ No problems";
+
+export function formatNoProblemsOfKind(kind: LiteralProblemKind): string {
+  return `Literal: No problems of type ${kind}`;
+}
 
 interface LiteralProblem {
   readonly problemKind: LiteralProblemKind;
@@ -200,7 +204,7 @@ function formatLiteralCommandOutput(
   const totalProblems = countLiteralProblems(findings);
 
   if (totalProblems === 0 && options.kind !== undefined) {
-    return `Literal: No problems of type ${options.kind}`;
+    return formatNoProblemsOfKind(options.kind);
   }
 
   if (totalProblems === 0) {
