@@ -1,84 +1,82 @@
-# PLAN: 43-precommit.enabler test rearchitecture
+# PLAN: 43-precommit.enabler rearchitecture
 
-## What this node tests
+## Completed
 
-Three pure functions and one orchestrator:
+- `findRelatedTestPaths` deleted from `categorize.ts` and from the spec — confirmed zero production callers (commit 867738f)
 
-- `categorizeFile(path)` — 3-branch if-else: `.test.ts` anywhere → test, `src/` prefix → source, else → other
-- `filterTestRelevantFiles(files)` — filter by `categorizeFile`
-- `buildVitestArgs(files)` — split by `isTestFile`, return `[--run, ...tests]` or `[related, --run, ...sources]`
-- `runPrecommitTests(deps)` — orchestrates the above with injected `getStagedFiles` + `runVitest`
-- `findRelatedTestPaths(path)` — derives `tests/unit/…` and `tests/integration/…` paths from a `src/…` path
+## Remaining structural problem
 
-## What to investigate before writing a single test
+### `categorize.ts` hardcodes what should live in SPX config
 
-### 1. `findRelatedTestPaths` is likely dead
+`categorize.ts` exports `FILE_PATTERNS` with hardcoded source dirs and test suffix. `build-args.ts` exports a second, different `FILE_PATTERNS` with a different regex. Neither reads from the SPX config system.
 
-`run.ts` never calls it. The production path is:
-`filterTestRelevantFiles` → `buildVitestArgs` → `vitest related --run <sources>`.
-`vitest related` finds related tests on its own; there is no step that calls `findRelatedTestPaths`.
+The rest of the codebase already has the right pattern:
 
-The function also produces `tests/unit/` and `tests/integration/` paths — the legacy format.
-Current tests live at `spx/*/tests/`. So the function's output is structurally wrong for the current codebase.
+- `validateLiteralReuse(input)` takes `LiteralConfig` — source dirs and patterns come from `spx.config.yaml` via `literalConfigDescriptor`
+- `src/config/testing.ts` provides `CONFIG_TEST_GENERATOR` with `arbitraryProjectRoot()` etc. for config system tests
 
-**Decision needed**: delete the function and remove its spec assertion, or wire it into the production path if it still has a role.
+The precommit module should follow the same shape:
 
-### 2. Two `FILE_PATTERNS` exports with different content
+1. Add a `precommit` section to `spx.config.yaml` (alongside `validation`) with `sourceDirs` and `testPattern`
+2. Add `precommitConfigDescriptor` to `src/config/registry.ts`
+3. `categorize.ts` becomes `categorizeFile(path, config: PrecommitConfig)` — same DI shape as the literal and scope modules
+4. `build-args.ts`'s `isTestFile(path)` becomes `isTestFile(path, config: PrecommitConfig)`, reading `config.testPattern`
+5. Delete all hardcoded `FILE_PATTERNS` constants from both modules once the config is wired in
 
-`build-args.ts` exports `FILE_PATTERNS = { TEST_FILE: /\.test\.(ts|tsx|js|jsx)$/ }`.
-`categorize.ts` exports `FILE_PATTERNS = { TEST_FILE_SUFFIX, SOURCE_DIR, TESTS_DIR, … }`.
+The current hardcoded values become the descriptor's `defaults`:
 
-They share the same export name but are unrelated objects. Both are imported by the test files.
-`categorize.ts` checks `includes(".test.ts")` while `build-args.ts`'s `isTestFile` uses the regex matching `.test.ts`, `.test.tsx`, `.test.js`, `.test.jsx` — different domains.
+```yaml
+# spx.config.yaml precommit defaults
+precommit:
+  sourceDirs:
+    - src/
+  testPattern: "*.test.ts"
+```
 
-**Decision needed**: consolidate into one classifier. If the precommit hook is TypeScript-only (`spx` is a TypeScript project), `.test.tsx`, `.test.js`, `.test.jsx` matching may be unnecessary noise.
+### Dead constants in `categorize.ts`
 
-### 3. Spec-mandated property tests are not written
+After deleting `findRelatedTestPaths`, the constants `TESTS_DIR`, `UNIT_DIR`, `INTEGRATION_DIR`, `SPECS_DIR`, `INTEGRATION_TEST_SUFFIX` are no longer referenced in the source — only in the test file. Delete them from `categorize.ts` and remove the tests that construct paths from them.
 
-The spec lists:
+## Generator and test plan
 
-- "Classification is deterministic: for every path `p`, `categorizeFile(p)` returns the same category on repeated calls"
-- "Test-relevance filter is idempotent: for every file list `F`, `filterTestRelevantFiles(filterTestRelevantFiles(F))` equals `filterTestRelevantFiles(F)`"
+Once `categorizeFile(path, config)` accepts config:
 
-Neither is written as `fc.assert(fc.property(...))`. They exist as prose in the spec but are absent from the test files.
+### New `testing/generators/precommit/precommit.ts`
 
-### 4. ADR-21 findings are a symptom, not the problem
+Mirrors `src/config/testing.ts`'s approach:
 
-The 67 literal-reuse findings (`"tests/unit/foo.test.ts"`, `"src/foo.ts"`, `"README.md"`, etc.) all come from example-based tests for trivially simple functions. The real issue: testing a 3-branch function with 15 specific examples checks 15 paths but establishes no invariant.
+```typescript
+export const PRECOMMIT_TEST_GENERATOR = {
+  config: arbitraryPrecommitConfig,
+  sourcePath: arbitrarySourcePath, // fc.string().map(s => `${config.sourceDirs[0]}${s}.ts`)
+  testPath: arbitraryTestPath, // fc.string().map(s => `${s}${testSuffix}`)
+  otherPath: arbitraryOtherPath, // paths that match neither
+} as const;
+```
 
-## Proposed rearchitecture (pending investigation above)
-
-After resolving the two structural questions (dead function, two FILE_PATTERNS):
-
-### Generators needed
-
-A new `testing/generators/precommit/precommit.ts` with:
-
-- `arbitraryPrecommitTestFilePath()` — generates paths containing `.test.ts`
-- `arbitraryPrecommitOtherFilePath()` — generates paths that don't start with `src/` and don't contain `.test.ts`
-
-The existing `arbitrarySourceFilePath()` from `@testing/generators/literal/literal` covers `src/*.ts`.
+Each arbitrary takes a `PrecommitConfig` so the generated paths are consistent with the config under test.
 
 ### Test structure after rearchitecture
 
-| Spec assertion                               | Test file                        | Evidence | Approach                                                                                       |
-| -------------------------------------------- | -------------------------------- | -------- | ---------------------------------------------------------------------------------------------- |
-| `categorizeFile` classification mapping      | `categorize.mapping.l1.test.ts`  | mapping  | `fc.property` over each of the 3 path classes                                                  |
-| Classification is deterministic              | `categorize.property.l1.test.ts` | property | `fc.property(fc.string(), path => categorizeFile(path) === categorizeFile(path))`              |
-| Filter idempotency                           | `categorize.property.l1.test.ts` | property | `fc.property(fc.array(fc.string()), files => deepEqual(filter(filter(files)), filter(files)))` |
-| `buildVitestArgs` invocation shape           | `build-args.mapping.l1.test.ts`  | mapping  | `fc.property` over `fc.array(arbitraryPrecommitTestFilePath())` etc.                           |
-| `runPrecommitTests` skip/propagate scenarios | `run.scenario.l1.test.ts`        | scenario | Keep current DI structure; replace hardcoded file paths with generated paths                   |
-| Lefthook integration scenarios               | `precommit.integration.test.ts`  | scenario | No changes needed; integration test is structurally correct                                    |
+| Spec assertion                     | Test file                        | Evidence | Approach                                                                                                                 |
+| ---------------------------------- | -------------------------------- | -------- | ------------------------------------------------------------------------------------------------------------------------ |
+| Classification mapping             | `categorize.mapping.l1.test.ts`  | mapping  | `fc.property(arbitraryPrecommitConfig(), arbitrarySourcePath(config), ...)`                                              |
+| Classification is deterministic    | `categorize.property.l1.test.ts` | property | `fc.property(config, fc.string(), (cfg, path) => categorizeFile(path, cfg) === categorizeFile(path, cfg))`               |
+| Filter idempotency                 | `categorize.property.l1.test.ts` | property | `fc.property(config, fc.array(fc.string()), (cfg, files) => filter(filter(files, cfg), cfg).equals(filter(files, cfg)))` |
+| `buildVitestArgs` invocation shape | `build-args.mapping.l1.test.ts`  | mapping  | `fc.property(config, fc.array(arbitraryTestPath(config)), ...)`                                                          |
+| `runPrecommitTests` skip/propagate | `run.scenario.l1.test.ts`        | scenario | DI structure stays; hardcoded file paths → generated paths                                                               |
+| Lefthook integration               | `precommit.integration.test.ts`  | scenario | No changes needed                                                                                                        |
 
-### Files to rename (`.unit.test.ts` → methodology names)
+### Files to rename
 
-`build-args.unit.test.ts` → `build-args.mapping.l1.test.ts` + `build-args.property.l1.test.ts`
+`build-args.unit.test.ts` → `build-args.mapping.l1.test.ts` (+ property file once config is wired)
 `categorize.unit.test.ts` → `categorize.mapping.l1.test.ts` + `categorize.property.l1.test.ts`
 `run.unit.test.ts` → `run.scenario.l1.test.ts` + `run.compliance.l1.test.ts`
 
-## What to do first
+## Sequence
 
-1. Check whether `findRelatedTestPaths` is called anywhere in production code (`grep -r findRelatedTestPaths src/`).
-   If not called: remove it from `categorize.ts` and from the spec.
-2. Decide on one `FILE_PATTERNS` export and one `isTestFile` implementation.
-3. Once the source is settled, write generators and replace tests.
+1. **Delete dead `FILE_PATTERNS` constants** from `categorize.ts` (`TESTS_DIR`, `UNIT_DIR`, `INTEGRATION_DIR`, `SPECS_DIR`, `INTEGRATION_TEST_SUFFIX`) and remove the tests that use them
+2. **Add `PrecommitConfig` + descriptor** to the config system
+3. **Wire config into `categorize.ts` and `build-args.ts`** — make both functions accept config
+4. **Write `testing/generators/precommit/precommit.ts`**
+5. **Rewrite tests** to use the generators and drop all hardcoded paths
