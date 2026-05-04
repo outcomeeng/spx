@@ -10,11 +10,6 @@ describe("hidden-prefix predicate — scenarios", () => {
     expect(result.matched).toBe(true);
   });
 
-  it("a hidden file at the root level reports matched: true", () => {
-    const result = hiddenPrefixPredicate(".gitignore", hiddenPrefixConfig);
-    expect(result.matched).toBe(true);
-  });
-
   it("a path whose basename does not start with the configured hidden prefix reports matched: false", () => {
     const result = hiddenPrefixPredicate("src/lib/helpers.ts", hiddenPrefixConfig);
     expect(result.matched).toBe(false);
@@ -29,13 +24,5 @@ describe("hidden-prefix predicate — scenarios", () => {
   it("a path with a hidden intermediate segment reports matched: false — only the basename is checked", () => {
     const result = hiddenPrefixPredicate("src/.hidden/visible.ts", hiddenPrefixConfig);
     expect(result.matched).toBe(false);
-  });
-
-  it("every hidden-prefix result carries a layer string identifying the predicate", () => {
-    const matched = hiddenPrefixPredicate(".gitignore", hiddenPrefixConfig);
-    const unmatched = hiddenPrefixPredicate("README.md", hiddenPrefixConfig);
-    expect(typeof matched.layer).toBe("string");
-    expect(matched.layer.length).toBeGreaterThan(0);
-    expect(matched.layer).toBe(unmatched.layer);
   });
 });

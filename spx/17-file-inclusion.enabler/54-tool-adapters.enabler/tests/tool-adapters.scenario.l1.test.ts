@@ -1,5 +1,7 @@
 import { describe, expect, it } from "vitest";
 
+import { arbitrarySourceFilePath, sampleLiteralTestValue } from "@testing/generators/literal/literal";
+
 import { REGISTERED_TOOL_NAMES, toToolArguments } from "@/lib/file-inclusion/adapters";
 
 import { makeScope, makeToolAdaptersConfig, testAdapterFlag } from "./support";
@@ -25,7 +27,7 @@ describe("tool adapters — scenarios", () => {
 
   it("throws an error naming the unregistered tool and the registered tool set when tool is not registered", () => {
     const unknownTool = "unknown-tool-xyz";
-    const scope = makeScope(["src/foo.ts"]);
+    const scope = makeScope([sampleLiteralTestValue(arbitrarySourceFilePath())]);
     const config = makeToolAdaptersConfig(
       Object.fromEntries(REGISTERED_TOOL_NAMES.map((n) => [n, testAdapterFlag])),
     );

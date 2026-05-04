@@ -87,7 +87,6 @@ describe("ignore-source predicate — scenarios", () => {
 
             const matched = ignoreSourcePredicate(spxPath(listed, sub), config);
             const unmatched = ignoreSourcePredicate(spxPath(unlisted, sub), config);
-            expect(typeof matched.layer).toBe("string");
             expect(matched.layer.length).toBeGreaterThan(0);
             expect(matched.layer).toBe(unmatched.layer);
           });

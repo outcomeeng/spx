@@ -77,6 +77,18 @@ describe("predicate purity — properties", () => {
     );
   });
 
+  it("hidden-prefix layer name is a non-empty string consistent across all paths regardless of match outcome", () => {
+    fc.assert(
+      fc.property(fc.string(), fc.string(), (p1, p2) => {
+        const r1 = hiddenPrefixPredicate(p1, hiddenPrefixConfig);
+        const r2 = hiddenPrefixPredicate(p2, hiddenPrefixConfig);
+        expect(r1.layer.length).toBeGreaterThan(0);
+        expect(r1.layer).toBe(r2.layer);
+      }),
+      { numRuns: PROPERTY_NUM_RUNS },
+    );
+  });
+
   it("hidden-prefix predicate uses only the basename: a path whose last segment starts with the hidden prefix always matches regardless of other segments", () => {
     fc.assert(
       fc.property(

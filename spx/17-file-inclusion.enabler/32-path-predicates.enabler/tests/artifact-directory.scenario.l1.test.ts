@@ -41,7 +41,6 @@ describe("artifact-directory predicate — scenarios", () => {
   it("every artifact-directory result carries a layer string identifying the predicate", () => {
     const matched = artifactDirectoryPredicate(`feature/${artifactDirs[0]}/pkg.ts`, artifactDirConfig);
     const unmatched = artifactDirectoryPredicate("src/lib/utils.ts", artifactDirConfig);
-    expect(typeof matched.layer).toBe("string");
     expect(matched.layer.length).toBeGreaterThan(0);
     expect(matched.layer).toBe(unmatched.layer);
   });

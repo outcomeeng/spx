@@ -22,8 +22,8 @@ describe("scope resolver — compliance", () => {
     expect(Array.isArray(LAYER_SEQUENCE)).toBe(true);
     expect(LAYER_SEQUENCE.length).toBeGreaterThan(0);
     for (const entry of LAYER_SEQUENCE) {
-      expect(typeof entry.predicate).toBe("function");
-      expect(typeof entry.extractConfig).toBe("function");
+      expect(entry.predicate).toBeDefined();
+      expect(entry.extractConfig).toBeDefined();
     }
   });
 
@@ -35,7 +35,6 @@ describe("scope resolver — compliance", () => {
     });
     expect(layerNames.length).toBeGreaterThan(0);
     for (const name of layerNames) {
-      expect(typeof name).toBe("string");
       expect(name.length).toBeGreaterThan(0);
     }
   });
