@@ -23,6 +23,11 @@ export const LITERAL_PROBLEM_KIND = {
 
 export type LiteralProblemKind = (typeof LITERAL_PROBLEM_KIND)[keyof typeof LITERAL_PROBLEM_KIND];
 
+export const OUTPUT_MODE_NAMES = ["text", "verbose", "filesWithProblems", "literals", "json"] as const;
+export type OutputModeName = (typeof OUTPUT_MODE_NAMES)[number];
+
+export const VERBOSE_PROBLEM_LINE_PREFIX = "line ";
+
 export interface LiteralCommandOptions {
   readonly cwd: string;
   readonly files?: readonly string[];
