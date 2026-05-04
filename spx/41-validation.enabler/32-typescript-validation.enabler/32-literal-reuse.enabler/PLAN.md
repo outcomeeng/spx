@@ -32,7 +32,7 @@
 | 4 — Quality gates                               | Source baseline DONE             | 14/14 allowlist-existing, 13/13 validation integration, 29/29 detection                                                                                    |
 | 5 — Commit per concern                          | 4/5 children committed + harness | `270e793` (refactor), `e629a1d` (impl), `fcbdd94`, `4a00176`, `75fb209`, `0ceba4f` (4 children's tests); harness landing committed in this cycle           |
 | 6 — NEW: Literal fixture harness                | DONE                             | [`36-literal-fixture-harness.enabler`](36-literal-fixture-harness.enabler/literal-fixture-harness.md) + `testing/harnesses/literal/harness.ts`; 10/10 pass |
-| 7 — NEW: Migrate parent + 4 children to harness | TODO                             | Replace `writeLiteralOutputFixture`/inline templates in `tests/support.ts` and the 4 child tests with `withLiteralFixtureEnv` from the harness             |
+| 7 — NEW: Migrate parent + 4 children to harness | DONE                             | Replace `writeLiteralOutputFixture`/inline templates in `tests/support.ts` and the 4 child tests with `withLiteralFixtureEnv` from the harness             |
 | 8 — NEW: Author 54-output-modes tests           | TODO                             | Use the harness; 10 scenarios, 5 mappings, 2 properties, 7 compliance                                                                                      |
 | 9 — NEW: Delete parent doomed tests             | TODO                             | After Steps 7 and 8 land green: delete `tests/literal.{scenario,mapping,property,compliance}.l1.test.ts` and parent `tests/` directory if empty            |
 
