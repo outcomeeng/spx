@@ -1,13 +1,5 @@
 # Known Issues: 41-validation.enabler
 
-## Transient: 7 of 101 doomed `literal.*.l1.test.ts` assertions fail until Step 2 finishes
-
-The four files [`spx/41-validation.enabler/32-typescript-validation.enabler/32-literal-reuse.enabler/tests/literal.{scenario,mapping,property,compliance}.l1.test.ts`](32-typescript-validation.enabler/32-literal-reuse.enabler/tests/) are slated for deletion in [PLAN.md Step 2](32-typescript-validation.enabler/32-literal-reuse.enabler/PLAN.md). They run as part of `pnpm test` until they are deleted. 94 of 101 assertions pass against the new source baseline (`e629a1d`). 7 assertions in `literal.scenario.l1.test.ts` (around lines 596-704) fail because the doorstep cleanup (`270e793`) made `writeLiteralOutputFixture` sample its file paths from the literal generator instead of returning hardcoded constants — `--files-with-problems` and `--literals` output ordering is no longer deterministic across runs. The failures resolve when Step 2 redistributes those tests into 5 child enablers that consume the generator directly.
-
-**Scope:** transient — disappears when Step 2 finishes the redistribution and deletes the parent-level files. Do not treat the 7 failures as new regressions.
-
----
-
 ## TypeScript-validation integration test launders source-owned step display names
 
 [`spx/41-validation.enabler/32-typescript-validation.enabler/tests/typescript-validation.integration.test.ts:20-27`](32-typescript-validation.enabler/tests/typescript-validation.integration.test.ts) declares 11 test-owned semantic constants (`NPX_INSTALL_PROMPT`, `ENOENT_MARKER`, `ESLINT_OUTPUT_MARKER`, `TSC_OUTPUT_MARKER`, `CIRCULAR_OUTPUT_MARKER`, `LITERAL_OUTPUT_MARKER`, `ESLINT_SKIP_MARKER`, `TSC_SKIP_MARKER`, `CIRCULAR_SKIP_MARKER`, `LITERAL_SKIP_MARKER`, `EXIT_SUCCESS=0`).
