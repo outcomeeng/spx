@@ -38,7 +38,7 @@ export async function writeSourceWithLiteral(
   filename: string,
   literal: string,
 ): Promise<void> {
-  await env.writeRaw(filename, `export const V = "${literal}";\n`);
+  await env.writeRaw(filename, `export const V = ${JSON.stringify(literal)};\n`);
 }
 
 export async function writeTestWithLiteral(
@@ -46,7 +46,7 @@ export async function writeTestWithLiteral(
   filename: string,
   literal: string,
 ): Promise<void> {
-  await env.writeRaw(filename, `expect(v).toBe("${literal}");\n`);
+  await env.writeRaw(filename, `expect(v).toBe(${JSON.stringify(literal)});\n`);
 }
 
 export async function writeLiteralOutputFixture(

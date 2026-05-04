@@ -170,7 +170,6 @@ describe("allowlist-existing compliance", () => {
     const nestedIndent = " ".repeat(NESTED_INDENT_WIDTH);
     const valuesIndent = " ".repeat(NESTED_INDENT_WIDTH + SECTION_INDENT_WIDTH);
     const allowlistIndent = " ".repeat(NESTED_INDENT_WIDTH + NESTED_INDENT_WIDTH);
-    const includeIndent = " ".repeat(NESTED_INDENT_WIDTH + NESTED_INDENT_WIDTH + SECTION_INDENT_WIDTH);
     const listIndent = " ".repeat(LIST_INDENT_WIDTH + NESTED_INDENT_WIDTH);
     await withTestEnv({}, async (env) => {
       await env.writeRaw(

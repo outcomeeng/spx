@@ -10,22 +10,18 @@ import {
   LITERAL_TEST_GENERATOR,
   sampleLiteralTestValue,
 } from "@testing/generators/literal/literal";
-import { withTestEnv } from "@testing/harnesses/spec-tree/spec-tree";
+import { withLiteralFixtureEnv } from "@testing/harnesses/literal/harness";
 
 describe("value-allowlist — scenarios", () => {
   it("validation.literal.values.include containing a value suppresses all findings for that value", async () => {
-    await withTestEnv({}, async (env) => {
+    await withLiteralFixtureEnv({}, async (env) => {
       const allowedLiteral = sampleLiteralTestValue(arbitraryDomainLiteral());
       const reportedLiteral = sampleLiteralTestValue(arbitraryDomainLiteral());
 
-      await env.writeRaw(
-        "src/source.ts",
-        `export const A = "${allowedLiteral}"; export const B = "${reportedLiteral}";\n`,
-      );
-      await env.writeRaw(
-        "tests/test.test.ts",
-        `expect(v).toBe("${allowedLiteral}"); expect(w).toBe("${reportedLiteral}");\n`,
-      );
+      await env.writeSourceFile("src/source-a.ts", allowedLiteral);
+      await env.writeSourceFile("src/source-b.ts", reportedLiteral);
+      await env.writeTestFile("tests/test-a.test.ts", allowedLiteral);
+      await env.writeTestFile("tests/test-b.test.ts", reportedLiteral);
 
       const config = { ...LITERAL_DEFAULTS, allowlist: { include: [allowedLiteral] } };
       const result = await validateLiteralReuse({ projectRoot: env.projectDir, config });
@@ -36,11 +32,11 @@ describe("value-allowlist — scenarios", () => {
   });
 
   it("validation.literal.values.presets naming the web preset suppresses all bundled tokens", async () => {
-    await withTestEnv({}, async (env) => {
+    await withLiteralFixtureEnv({}, async (env) => {
       const webToken = sampleLiteralTestValue(LITERAL_TEST_GENERATOR.webPresetToken());
 
-      await env.writeRaw("src/api.ts", `export const TOKEN = "${webToken}";\n`);
-      await env.writeRaw("tests/api.test.ts", `expect(v).toBe("${webToken}");\n`);
+      await env.writeSourceFile("src/api.ts", webToken);
+      await env.writeTestFile("tests/api.test.ts", webToken);
 
       const config = buildLiteralConfig({
         allowlist: { presets: [PRESET_NAMES.WEB] },
@@ -53,11 +49,11 @@ describe("value-allowlist — scenarios", () => {
   });
 
   it("validation.literal.values.exclude naming a preset-supplied value keeps reporting problems for that value", async () => {
-    await withTestEnv({}, async (env) => {
+    await withLiteralFixtureEnv({}, async (env) => {
       const webToken = sampleLiteralTestValue(LITERAL_TEST_GENERATOR.webPresetToken());
 
-      await env.writeRaw("src/api.ts", `export const TOKEN = "${webToken}";\n`);
-      await env.writeRaw("tests/api.test.ts", `expect(v).toBe("${webToken}");\n`);
+      await env.writeSourceFile("src/api.ts", webToken);
+      await env.writeTestFile("tests/api.test.ts", webToken);
 
       const config = buildLiteralConfig({
         allowlist: { presets: [PRESET_NAMES.WEB], exclude: [webToken] },
@@ -70,11 +66,11 @@ describe("value-allowlist — scenarios", () => {
   });
 
   it("no spx.config.* file at the project root yields an empty effective allowlist and all findings are reported", async () => {
-    await withTestEnv({}, async (env) => {
+    await withLiteralFixtureEnv({}, async (env) => {
       const literal = sampleLiteralTestValue(arbitraryDomainLiteral());
 
-      await env.writeRaw("src/source.ts", `export const V = "${literal}";\n`);
-      await env.writeRaw("tests/test.test.ts", `expect(v).toBe("${literal}");\n`);
+      await env.writeSourceFile("src/source.ts", literal);
+      await env.writeTestFile("tests/test.test.ts", literal);
 
       const result = await validateLiteralReuse({ projectRoot: env.projectDir });
 
@@ -83,7 +79,7 @@ describe("value-allowlist — scenarios", () => {
   });
 
   it("unrecognized preset identifier in validation.literal.values.presets causes resolveConfig to return an error naming the identifier", async () => {
-    await withTestEnv({}, async (env) => {
+    await withLiteralFixtureEnv({}, async (env) => {
       const badPreset = sampleLiteralTestValue(arbitraryDomainLiteral());
 
       await env.writeRaw(

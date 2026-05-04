@@ -15,7 +15,7 @@ import {
   arbitrarySourceFilePath,
   sampleLiteralTestValue,
 } from "@testing/generators/literal/literal";
-import { withTestEnv } from "@testing/harnesses/spec-tree/spec-tree";
+import { withLiteralFixtureEnv } from "@testing/harnesses/literal/harness";
 
 import { collectFromSource, DETECTOR_OPTIONS } from "./support";
 
@@ -104,20 +104,14 @@ describe("NEVER: descend into artifact directories", () => {
   it.each(ARTIFACT_DIRECTORIES_DEFAULT)(
     "skips files under %s regardless of their contents",
     async (artifactDir) => {
-      await withTestEnv({}, async (env) => {
+      await withLiteralFixtureEnv({}, async (env) => {
         const artifactLiteral = sampleLiteralTestValue(arbitraryDomainLiteral());
         const activeLiteral = sampleLiteralTestValue(arbitraryDomainLiteral());
         const activeRelativePath = sampleLiteralTestValue(arbitrarySourceFilePath());
         const artifactRelativePath = join(artifactDir, "junk.ts");
 
-        await env.writeRaw(
-          artifactRelativePath,
-          `export const ARTIFACT = "${artifactLiteral}";\n`,
-        );
-        await env.writeRaw(
-          activeRelativePath,
-          `export const ACTIVE = "${activeLiteral}";\n`,
-        );
+        await env.writeSourceFile(artifactRelativePath, artifactLiteral);
+        await env.writeSourceFile(activeRelativePath, activeLiteral);
 
         const result = await validateLiteralReuse({ projectRoot: env.projectDir });
 
