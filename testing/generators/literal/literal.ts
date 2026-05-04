@@ -77,6 +77,14 @@ export function arbitraryTestFilePath(): fc.Arbitrary<string> {
   return arbitraryDomainLiteral().map((slug) => `tests/${slug}.test.ts`);
 }
 
+export function arbitrarySpecTreeTestFilePath(): fc.Arbitrary<string> {
+  return arbitraryDomainLiteral().map((slug) => `spx/${slug}/tests/scenario.l1.test.ts`);
+}
+
+export function arbitraryTestMarkerFilePath(): fc.Arbitrary<string> {
+  return arbitraryDomainLiteral().map((slug) => `src/${slug}.test.helpers.ts`);
+}
+
 export function arbitraryWebPresetToken(): fc.Arbitrary<WebPresetToken> {
   return fc.constantFrom(...WEB_PRESET_TOKENS);
 }
