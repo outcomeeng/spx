@@ -24,41 +24,46 @@
 
 ## Status
 
-| Step                                       | Status                                          | Reference                                                                                                           |
-| ------------------------------------------ | ----------------------------------------------- | ------------------------------------------------------------------------------------------------------------------- |
-| 1 — Audit ADRs                             | DONE                                            | Both ADRs APPROVED via `/typescript:auditing-typescript-architecture`                                               |
-| 2 — Adjust descriptor + redistribute tests | PARTIAL — descriptor done; 1/5 children done    | Detection done in `fcbdd94`; 4 children remain                                                                      |
-| 3 — Implement source                       | DONE                                            | `e629a1d`                                                                                                           |
-| 4 — Quality gates                          | DONE for the source baseline                    | 14/14 allowlist-existing, 13/13 validation integration, 29/29 detection — all pass                                  |
-| 5 — Commit per concern                     | PARTIAL — 3/4 commits landed, splits 1+2 merged | `270e793` (refactor doorstep + cleanup), `e629a1d` (descriptor + source impl combined), `fcbdd94` (detection child) |
+| Step                                            | Status                           | Reference                                                                                                                                                  |
+| ----------------------------------------------- | -------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| 1 — Audit ADRs                                  | DONE                             | Both ADRs APPROVED via `/typescript:auditing-typescript-architecture`                                                                                      |
+| 2 — Adjust descriptor + redistribute tests      | DONE for descriptor + 4/5        | Detection (`fcbdd94`), fixture-classification (`4a00176`), path-filter (`75fb209`), value-allowlist (`0ceba4f`); output-modes pending — depends on Step 6  |
+| 3 — Implement source                            | DONE                             | `e629a1d`                                                                                                                                                  |
+| 4 — Quality gates                               | Source baseline DONE             | 14/14 allowlist-existing, 13/13 validation integration, 29/29 detection                                                                                    |
+| 5 — Commit per concern                          | 4/5 children committed + harness | `270e793` (refactor), `e629a1d` (impl), `fcbdd94`, `4a00176`, `75fb209`, `0ceba4f` (4 children's tests); harness landing committed in this cycle           |
+| 6 — NEW: Literal fixture harness                | DONE                             | [`36-literal-fixture-harness.enabler`](36-literal-fixture-harness.enabler/literal-fixture-harness.md) + `testing/harnesses/literal/harness.ts`; 10/10 pass |
+| 7 — NEW: Migrate parent + 4 children to harness | TODO                             | Replace `writeLiteralOutputFixture`/inline templates in `tests/support.ts` and the 4 child tests with `withLiteralFixtureEnv` from the harness             |
+| 8 — NEW: Author 54-output-modes tests           | TODO                             | Use the harness; 10 scenarios, 5 mappings, 2 properties, 7 compliance                                                                                      |
+| 9 — NEW: Delete parent doomed tests             | TODO                             | After Steps 7 and 8 land green: delete `tests/literal.{scenario,mapping,property,compliance}.l1.test.ts` and parent `tests/` directory if empty            |
 
-The four `literal.{scenario,mapping,property,compliance}.l1.test.ts` files at the parent level are still in the working tree. After all five children's tests are populated and pass, delete them and the parent `tests/` directory.
+The four `literal.{scenario,mapping,property,compliance}.l1.test.ts` files at the parent level are still in the working tree. They contain TypeScript fixture templates (`writeLiteralOutputFixture` etc.) that exploit the literal validator's own file-pattern blind spot — the harness exists to move those templates out of spec-tree `tests/` and into production code under `testing/harnesses/literal/`. Step 7 retrofits the existing children to use the harness; Step 9 removes the parent files.
 
-The `21-detection.enabler` entry was removed from `spx/EXCLUDE` in `fcbdd94`. As each remaining child gets populated tests + green source, remove its EXCLUDE entry.
+The `21-detection.enabler`, `21-fixture-classification.enabler`, `32-path-filter.enabler`, `32-value-allowlist.enabler` entries were removed from `spx/EXCLUDE` as their tests landed. The `36-literal-fixture-harness.enabler` entry was removed when its implementation landed. The `54-output-modes.enabler` entry remains; remove it after Step 8.
 
 ## Remaining work for the next agent
 
-The **detection child template** is `fcbdd94` — apply the same pattern to the four remaining children:
+**Step 7 — Migrate parent + 4 children to use the harness.**
 
-| Child                               | Test files                                          | Assertions                                                      | EXCLUDE removal |
-| ----------------------------------- | --------------------------------------------------- | --------------------------------------------------------------- | --------------- |
-| `21-fixture-classification.enabler` | scenario.l1, compliance.l1                          | 7 scenarios, 3 compliance ([review]-only mixed)                 | After commit    |
-| `32-path-filter.enabler`            | scenario.l1, compliance.l1                          | 3 NEW scenarios for `validation.paths`, 1 compliance ([review]) | After commit    |
-| `32-value-allowlist.enabler`        | scenario.l1, mapping.l1, compliance.l1              | 5 scenarios, 2 mappings, 1 compliance ([review])                | After commit    |
-| `54-output-modes.enabler`           | scenario.l1, mapping.l1, property.l1, compliance.l1 | 10 scenarios, 5 mappings, 2 properties, 7 compliance            | After commit    |
+The parent's `tests/support.ts` currently contains `writeLiteralOutputFixture`, `writeSourceWithLiteral`, `writeTestWithLiteral` — these emit TypeScript fixture templates inline in the spec tree. Replace each call site with `withLiteralFixtureEnv` from `@testing/harnesses/literal/harness`:
 
-For each child:
+| File                        | Current pattern                                                     | Replace with                                                                                                     |
+| --------------------------- | ------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------- |
+| `tests/support.ts` (parent) | `writeLiteralOutputFixture(env)` returns inputs after writing files | Tests call `withLiteralFixtureEnv(config, async (env) => { await env.writeReuseFixture(inputs); ... })` directly |
+| 4 children's tests          | Various `writeRaw` patterns building TS source/test files           | Same — `env.writeSourceFile(path, value)`, `env.writeTestFile(path, value)`, or `env.writeReuseFixture(inputs)`  |
 
-1. `/spec-tree:contextualizing spx/41-validation.enabler/32-typescript-validation.enabler/32-literal-reuse.enabler/<child>`
-2. Read the child's spec, identify which doomed test cases at the parent level migrate
-3. Author test files using `LITERAL_TEST_GENERATOR` + source imports — see [21-detection.enabler/tests/](21-detection.enabler/tests/) as the template
-4. Local `support.ts` only contains F-category factories (no semantic constants)
-5. `/typescript:auditing-typescript-tests` APPROVED gate before commit
-6. `git rm` the corresponding doomed assertions from the parent test files (or wait until all five children done, then delete the four doomed files in one commit)
-7. Remove the child's `spx/EXCLUDE` entry
-8. Commit per child: `test(<child>): author <evidence>/<level> tests`
+After migration, `tests/support.ts` at the parent retains only config helpers (`INTEGRATION_CONFIG`, `configWithAllowlist`, `EMPTY_ALLOWLIST`, `DETECTOR_OPTIONS_DEFAULTS`) — the writer functions are deleted because the harness owns them.
 
-After all five children: final commit `test(literal-reuse): delete redistributed parent-level tests`. Then `pnpm run validate` should be green for the whole literal-reuse subtree.
+**Step 8 — Author 54-output-modes tests.**
+
+`/spec-tree:contextualizing spx/41-validation.enabler/32-typescript-validation.enabler/32-literal-reuse.enabler/54-output-modes.enabler`. Then write 4 test files (scenario.l1, mapping.l1, property.l1, compliance.l1) using `withLiteralFixtureEnv` for fixture setup and source imports for `LITERAL_PROBLEM_KIND`, format functions, etc.
+
+Spec assertions: 10 scenarios, 5 mappings, 2 properties, 7 compliance. After tests are APPROVED via `/typescript:auditing-typescript-tests`, remove `54-output-modes.enabler` from `spx/EXCLUDE`.
+
+**Step 9 — Delete parent doomed tests.**
+
+After Steps 7 and 8 are committed and green: `git rm` the four `tests/literal.{scenario,mapping,property,compliance}.l1.test.ts` files at the parent. If `tests/support.ts` no longer has any writers, also reduce it to just config helpers as described above.
+
+Final commit: `test(literal-reuse): delete redistributed parent-level tests`. Then `pnpm run validate` should be green for the whole literal-reuse subtree (modulo the unrelated project-wide ADR-21 debt tracked in [spx/ISSUES.md](../../../ISSUES.md#cross-file-literal-reuse-findings-116-unsuppressed-across-11-subtrees)).
 
 ### Original step-by-step (for reference)
 
@@ -96,7 +101,7 @@ Existing compliance block in `tests/literal.compliance.l1.test.ts` at ~line 59 (
 
 After redistribution, delete the now-empty `tests/literal.*.l1.test.ts` files and the `tests/` directory itself if empty. The `tests/support.ts` content also redistributes — shared helpers move to `21-detection.enabler/tests/support.ts` (or the lowest-index consumer); other helpers move alongside their tests.
 
-**ADR-21 compliance is mandatory in the redistribution.** The five new test files MUST NOT contain test-owned semantic constants. Every variable test input (literal values, file paths, allowlist entries, preset names, foreign-section keys) comes from [`testing/generators/literal/literal.ts`](../../../../../testing/generators/literal/literal.ts) via `sampleLiteralTestValue(LITERAL_TEST_GENERATOR.<arbitrary>())` for scenario tests or via `fc.assert(fc.property(<arbitrary>, ...))` for property tests. Every source-owned value (`PRESET_NAMES.WEB`, `WEB_PRESET_TOKENS`, `LITERAL_DEFAULTS`, `DEFAULT_MIN_STRING_LENGTH`, `DEFAULT_MIN_NUMBER_DIGITS`, format-output strings) is imported from `@/validation/literal/config` or its owning module. Output-format strings produced by `formatVerboseLiteralProblems`, `formatDefaultLiteralProblems`, `formatFilesWithProblems`, `formatLiteralValues` and the `NO_PROBLEMS_MESSAGE` constant must be exported from [`src/commands/validation/literal.ts`](../../../../../src/commands/validation/literal.ts) so the redistributed compliance/scenario tests can import them — grow named exports as needed during Step 2. Fixture content written into temp project files via `env.writeRaw(...)` is inert and remains acceptable, but the literal values inside those write calls are sampled from generators, not declared as constants. The redistribution may NOT introduce a new "support.ts" that hosts shared semantic constants — `support.ts` files contain F-category factories and harness writers only.
+**ADR-21 compliance is mandatory in the redistribution.** The five new test files MUST NOT contain test-owned semantic constants. Every variable test input (literal values, file paths, allowlist entries, preset names, foreign-section keys) comes from [`testing/generators/literal/literal.ts`](../../../../testing/generators/literal/literal.ts) via `sampleLiteralTestValue(LITERAL_TEST_GENERATOR.<arbitrary>())` for scenario tests or via `fc.assert(fc.property(<arbitrary>, ...))` for property tests. Every source-owned value (`PRESET_NAMES.WEB`, `WEB_PRESET_TOKENS`, `LITERAL_DEFAULTS`, `DEFAULT_MIN_STRING_LENGTH`, `DEFAULT_MIN_NUMBER_DIGITS`, format-output strings) is imported from `@/validation/literal/config` or its owning module. Output-format strings produced by `formatVerboseLiteralProblems`, `formatDefaultLiteralProblems`, `formatFilesWithProblems`, `formatLiteralValues` and the `NO_PROBLEMS_MESSAGE` constant must be exported from [`src/commands/validation/literal.ts`](../../../../src/commands/validation/literal.ts) so the redistributed compliance/scenario tests can import them — grow named exports as needed during Step 2. Fixture content written into temp project files via `env.writeRaw(...)` is inert and remains acceptable, but the literal values inside those write calls are sampled from generators, not declared as constants. The redistribution may NOT introduce a new "support.ts" that hosts shared semantic constants — `support.ts` files contain F-category factories and harness writers only.
 
 The 21-allowlist-existing tests (now under `32-value-allowlist.enabler/21-allowlist-existing.enabler/tests/`) need their `LITERAL_SECTION` references and `literal.allowlist.include` text updated to `VALIDATION_SECTION` and the 4-segment path. Both consumer tests and the local `support.ts` already conform to ADR-21 via the literal generator (no test-owned semantic constants, all variable inputs from `LITERAL_TEST_GENERATOR`, source-owned values imported); the section-key rename is the only change Step 2 makes here.
 
