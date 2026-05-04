@@ -8,6 +8,12 @@ import {
   arbitraryTestFilePath,
   sampleLiteralTestValue,
 } from "@testing/generators/literal/literal";
+import {
+  buildNumericDeclaration,
+  buildStringAssertion,
+  buildStringDeclaration,
+  buildTemplateDeclaration,
+} from "@testing/harnesses/literal/snippets";
 
 import { collectFromSource, EMPTY_ALLOWLIST, indexSources, testOccurrences } from "./support";
 
@@ -21,8 +27,8 @@ describe("finding-kind → remediation mapping", () => {
     const sourceFile = sampleLiteralTestValue(arbitrarySourceFilePath());
     const testFile = sampleLiteralTestValue(arbitraryTestFilePath());
 
-    const srcIndex = indexSources([sourceFile, `export const STATE = "${literal}";`]);
-    const tests = testOccurrences([testFile, `expect(value).toBe("${literal}");`]);
+    const srcIndex = indexSources([sourceFile, buildStringDeclaration(literal)]);
+    const tests = testOccurrences([testFile, buildStringAssertion(literal)]);
 
     const result = detectReuse({ srcIndex, testOccurrencesByFile: tests, allowlist: EMPTY_ALLOWLIST });
 
@@ -38,10 +44,10 @@ describe("finding-kind → remediation mapping", () => {
     const firstTestFile = sampleLiteralTestValue(arbitraryTestFilePath());
     const secondTestFile = sampleLiteralTestValue(arbitraryTestFilePath());
 
-    const srcIndex = indexSources([sourceFile, `export const OTHER = "${otherLiteral}";`]);
+    const srcIndex = indexSources([sourceFile, buildStringDeclaration(otherLiteral)]);
     const tests = testOccurrences(
-      [firstTestFile, `expect(value).toBe("${literal}");`],
-      [secondTestFile, `expect(value).toBe("${literal}");`],
+      [firstTestFile, buildStringAssertion(literal)],
+      [secondTestFile, buildStringAssertion(literal)],
     );
 
     const result = detectReuse({ srcIndex, testOccurrencesByFile: tests, allowlist: EMPTY_ALLOWLIST });
@@ -58,19 +64,19 @@ describe("AST node → occurrence-kind mapping", () => {
   it.each([
     {
       label: STRING_LITERAL_DECLARATION,
-      buildSource: (value: string) => `export const S = "${value}";`,
+      buildSource: buildStringDeclaration,
       buildValue: () => sampleLiteralTestValue(arbitraryDomainLiteral()),
       expectedKind: LITERAL_KIND.STRING,
     },
     {
       label: NUMERIC_LITERAL_DECLARATION,
-      buildSource: (value: string) => `export const N = ${value};`,
+      buildSource: buildNumericDeclaration,
       buildValue: () => String(sampleLiteralTestValue(arbitraryDomainNumber())),
       expectedKind: LITERAL_KIND.NUMBER,
     },
     {
       label: TEMPLATE_ELEMENT_DECLARATION,
-      buildSource: (value: string) => `export const T = \`${value}\`;`,
+      buildSource: buildTemplateDeclaration,
       buildValue: () => sampleLiteralTestValue(arbitraryDomainLiteral()),
       expectedKind: LITERAL_KIND.STRING,
     },

@@ -8,6 +8,12 @@ import {
   arbitraryTestFilePath,
   sampleLiteralTestValue,
 } from "@testing/generators/literal/literal";
+import {
+  buildNumericAssertion,
+  buildNumericDeclaration,
+  buildStringAssertion,
+  buildStringDeclaration,
+} from "@testing/harnesses/literal/snippets";
 
 import { EMPTY_ALLOWLIST, indexSources, testOccurrences } from "./support";
 
@@ -17,8 +23,8 @@ describe("literal-reuse detection — scenarios", () => {
     const sourceFile = sampleLiteralTestValue(arbitrarySourceFilePath());
     const testFile = sampleLiteralTestValue(arbitraryTestFilePath());
 
-    const srcIndex = indexSources([sourceFile, `export const STATE = "${literal}";`]);
-    const tests = testOccurrences([testFile, `expect(value).toBe("${literal}");`]);
+    const srcIndex = indexSources([sourceFile, buildStringDeclaration(literal)]);
+    const tests = testOccurrences([testFile, buildStringAssertion(literal)]);
 
     const result = detectReuse({ srcIndex, testOccurrencesByFile: tests, allowlist: EMPTY_ALLOWLIST });
 
@@ -37,10 +43,10 @@ describe("literal-reuse detection — scenarios", () => {
     const firstTestFile = sampleLiteralTestValue(arbitraryTestFilePath());
     const secondTestFile = sampleLiteralTestValue(arbitraryTestFilePath());
 
-    const srcIndex = indexSources([sourceFile, `export const OTHER = "${otherSourceLiteral}";`]);
+    const srcIndex = indexSources([sourceFile, buildStringDeclaration(otherSourceLiteral)]);
     const tests = testOccurrences(
-      [firstTestFile, `expect(value).toBe("${literal}");`],
-      [secondTestFile, `expect(value).toBe("${literal}");`],
+      [firstTestFile, buildStringAssertion(literal)],
+      [secondTestFile, buildStringAssertion(literal)],
     );
 
     const result = detectReuse({ srcIndex, testOccurrencesByFile: tests, allowlist: EMPTY_ALLOWLIST });
@@ -62,8 +68,8 @@ describe("literal-reuse detection — scenarios", () => {
     const sourceFile = sampleLiteralTestValue(arbitrarySourceFilePath());
     const testFile = sampleLiteralTestValue(arbitraryTestFilePath());
 
-    const srcIndex = indexSources([sourceFile, `export const DEADLINE_MS = ${literalText};`]);
-    const tests = testOccurrences([testFile, `expect(computeDeadline()).toBe(${literalText});`]);
+    const srcIndex = indexSources([sourceFile, buildNumericDeclaration(literalText)]);
+    const tests = testOccurrences([testFile, buildNumericAssertion(literalText)]);
 
     const result = detectReuse({ srcIndex, testOccurrencesByFile: tests, allowlist: EMPTY_ALLOWLIST });
 
@@ -78,8 +84,8 @@ describe("literal-reuse detection — scenarios", () => {
     const sourceFile = sampleLiteralTestValue(arbitrarySourceFilePath());
     const testFile = sampleLiteralTestValue(arbitraryTestFilePath());
 
-    const srcIndex = indexSources([sourceFile, `export const VALUE = "${literal}";`]);
-    const tests = testOccurrences([testFile, `expect(value).toBe("${otherLiteral}");`]);
+    const srcIndex = indexSources([sourceFile, buildStringDeclaration(literal)]);
+    const tests = testOccurrences([testFile, buildStringAssertion(otherLiteral)]);
 
     const result = detectReuse({ srcIndex, testOccurrencesByFile: tests, allowlist: EMPTY_ALLOWLIST });
 

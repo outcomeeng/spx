@@ -13,6 +13,7 @@ import {
   arbitrarySourceFilePath,
   arbitraryTestFilePath,
 } from "@testing/generators/literal/literal";
+import { buildStringAssertion, buildStringDeclaration } from "@testing/harnesses/literal/snippets";
 
 import { DETECTOR_OPTIONS, EMPTY_ALLOWLIST } from "./support";
 
@@ -58,9 +59,7 @@ function collectFixture(
 
   for (const file of fileOrder) {
     const isSource = srcFilenames.has(file.filename);
-    const sourceText = isSource
-      ? `export const VALUE = "${file.literal}";`
-      : `expect(value).toBe("${file.literal}");`;
+    const sourceText = isSource ? buildStringDeclaration(file.literal) : buildStringAssertion(file.literal);
     const occurrences = collectLiterals(sourceText, file.filename, DETECTOR_OPTIONS);
     if (isSource) {
       srcOccurrences.push(...occurrences);
@@ -141,11 +140,7 @@ describe("detection — invariants", () => {
           const occurrences: LiteralOccurrence[] = [];
           for (const entry of entries) {
             occurrences.push(
-              ...collectLiterals(
-                `export const V = "${entry.literal}";`,
-                entry.filename,
-                DETECTOR_OPTIONS,
-              ),
+              ...collectLiterals(buildStringDeclaration(entry.literal), entry.filename, DETECTOR_OPTIONS),
             );
           }
           const index = buildIndex(occurrences);

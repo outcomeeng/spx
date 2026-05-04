@@ -6,6 +6,7 @@ import { ARTIFACT_DIRECTORIES_DEFAULT } from "@/lib/file-inclusion/predicates/ar
 import {
   collectLiterals,
   defaultVisitorKeys,
+  LITERAL_KIND,
   MODULE_NAMING_SKIP,
   validateLiteralReuse,
   type VisitorKeysMap,
@@ -19,68 +20,51 @@ import { withLiteralFixtureEnv } from "@testing/harnesses/literal/harness";
 
 import { collectFromSource, DETECTOR_OPTIONS } from "./support";
 
-const PROGRAM_NODE_TYPE = "Program";
-const VARIABLE_DECLARATION_NODE_TYPE = "VariableDeclaration";
-const VARIABLE_DECLARATOR_NODE_TYPE = "VariableDeclarator";
-
-const MODULE_NAMING_FIXTURES: ReadonlyArray<{
-  readonly nodeType: string;
-  readonly field: string;
-  readonly source: string;
-  readonly path: string;
-}> = [
-  {
-    nodeType: "ImportDeclaration",
-    field: "source",
+// Source code examples for each node type in MODULE_NAMING_SKIP.
+// Unquoted property names are Identifier nodes, not StringLiterals — not indexed by the literal checker.
+const IMPORT_SYNTAX_EXAMPLES: Record<string, { readonly source: string; readonly path: string }> = {
+  ImportDeclaration: {
     source: `import { a } from "./import-decl-path";`,
     path: "./import-decl-path",
   },
-  {
-    nodeType: "ExportNamedDeclaration",
-    field: "source",
+  ExportNamedDeclaration: {
     source: `export { x } from "./export-named-path";`,
     path: "./export-named-path",
   },
-  {
-    nodeType: "ExportAllDeclaration",
-    field: "source",
+  ExportAllDeclaration: {
     source: `export * from "./export-all-path";`,
     path: "./export-all-path",
   },
-  {
-    nodeType: "ImportExpression",
-    field: "source",
+  ImportExpression: {
     source: `const load = () => import("./dynamic-import-path");`,
     path: "./dynamic-import-path",
   },
-  {
-    nodeType: "TSImportType",
-    field: "source",
+  TSImportType: {
     source: `type X = import("./type-only-path").Thing;`,
     path: "./type-only-path",
   },
-  {
-    nodeType: "TSExternalModuleReference",
-    field: "expression",
+  TSExternalModuleReference: {
     source: `import eq = require("./equals-required-path");`,
     path: "./equals-required-path",
   },
-];
+};
+
+const MODULE_NAMING_FIXTURES = Object.entries(MODULE_NAMING_SKIP).flatMap(([nodeType, fields]) => {
+  const example = IMPORT_SYNTAX_EXAMPLES[nodeType];
+  if (!example) return [];
+  return [...fields].map((field) => ({ nodeType, field, source: example.source, path: example.path }));
+});
 
 describe("ALWAYS: AST traversal descends only into fields the injected visitor-keys map declares", () => {
   it("unknown node types short-circuit: literals nested below un-registered types are not indexed", () => {
-    const minimalKeys: VisitorKeysMap = {
-      [PROGRAM_NODE_TYPE]: ["body"],
-      [VARIABLE_DECLARATION_NODE_TYPE]: ["declarations"],
-      [VARIABLE_DECLARATOR_NODE_TYPE]: ["init"],
-    };
+    const emptyKeys: VisitorKeysMap = {};
     const literal = sampleLiteralTestValue(arbitraryDomainLiteral());
     const filename = sampleLiteralTestValue(arbitrarySourceFilePath());
     const source = `const x = { key: "${literal}" };`;
 
     const occurrences = collectFromSource(source, filename, {
       ...DETECTOR_OPTIONS,
-      visitorKeys: minimalKeys,
+      visitorKeys: emptyKeys,
     });
 
     expect(occurrences.map((o) => o.value)).not.toContain(literal);
@@ -139,7 +123,7 @@ describe("NEVER: index literals from module-naming positions", () => {
     ({ source, path }) => {
       const filename = sampleLiteralTestValue(arbitrarySourceFilePath());
       const occurrences = collectLiterals(source, filename, DETECTOR_OPTIONS);
-      const stringValues = occurrences.filter((o) => o.kind === "string").map((o) => o.value);
+      const stringValues = occurrences.filter((o) => o.kind === LITERAL_KIND.STRING).map((o) => o.value);
       expect(stringValues).not.toContain(path);
     },
   );
