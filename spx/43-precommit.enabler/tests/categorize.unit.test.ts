@@ -7,14 +7,15 @@
 import * as fc from "fast-check";
 import { describe, expect, it } from "vitest";
 
-import { categorizeFile, FILE_CATEGORIES, FILE_PATTERNS, filterTestRelevantFiles } from "@/lib/precommit/categorize";
+import { categorizeFile, FILE_CATEGORIES, filterTestRelevantFiles } from "@/lib/precommit/categorize";
+import { PRECOMMIT_DEFAULTS } from "@/lib/precommit/config";
 
 describe("categorizeFile", () => {
   describe("test file detection", () => {
     it("any path containing the test file suffix maps to 'test' regardless of surrounding segments", () => {
       fc.assert(
         fc.property(fc.string(), fc.string(), (prefix, suffix) => {
-          expect(categorizeFile(`${prefix}${FILE_PATTERNS.TEST_FILE_SUFFIX}${suffix}`)).toBe(FILE_CATEGORIES.TEST);
+          expect(categorizeFile(`${prefix}${PRECOMMIT_DEFAULTS.testPattern}${suffix}`)).toBe(FILE_CATEGORIES.TEST);
         }),
       );
     });
@@ -23,7 +24,7 @@ describe("categorizeFile", () => {
   describe("source file detection", () => {
     it("GIVEN source file path WHEN categorizing THEN returns 'source'", () => {
       // Given
-      const filePath = `${FILE_PATTERNS.SOURCE_DIR}validation/runner.ts`;
+      const filePath = `${PRECOMMIT_DEFAULTS.sourceDirs[0]}validation/runner.ts`;
 
       // When
       const result = categorizeFile(filePath);
@@ -34,7 +35,7 @@ describe("categorizeFile", () => {
 
     it("GIVEN deeply nested source file WHEN categorizing THEN returns 'source'", () => {
       // Given
-      const filePath = `${FILE_PATTERNS.SOURCE_DIR}cli/commands/build.ts`;
+      const filePath = `${PRECOMMIT_DEFAULTS.sourceDirs[0]}cli/commands/build.ts`;
 
       // When
       const result = categorizeFile(filePath);
@@ -45,7 +46,7 @@ describe("categorizeFile", () => {
 
     it("GIVEN source index file WHEN categorizing THEN returns 'source'", () => {
       // Given
-      const filePath = `${FILE_PATTERNS.SOURCE_DIR}index.ts`;
+      const filePath = `${PRECOMMIT_DEFAULTS.sourceDirs[0]}index.ts`;
 
       // When
       const result = categorizeFile(filePath);
@@ -117,7 +118,7 @@ describe("filterTestRelevantFiles", () => {
   it("GIVEN mixed files WHEN filtering THEN keeps source files", () => {
     // Given
     const files = [
-      `${FILE_PATTERNS.SOURCE_DIR}foo.ts`,
+      `${PRECOMMIT_DEFAULTS.sourceDirs[0]}foo.ts`,
       "README.md",
     ];
 
@@ -125,12 +126,12 @@ describe("filterTestRelevantFiles", () => {
     const relevant = filterTestRelevantFiles(files);
 
     // Then
-    expect(relevant).toContain(`${FILE_PATTERNS.SOURCE_DIR}foo.ts`);
+    expect(relevant).toContain(`${PRECOMMIT_DEFAULTS.sourceDirs[0]}foo.ts`);
   });
 
   it("GIVEN mixed files WHEN filtering THEN keeps test files", () => {
     // Given
-    const testFile = `spx/foo.enabler/tests/foo${FILE_PATTERNS.TEST_FILE_SUFFIX}`;
+    const testFile = `spx/foo.enabler/tests/foo${PRECOMMIT_DEFAULTS.testPattern}`;
     const files = [testFile, "package.json"];
 
     // When
@@ -144,7 +145,7 @@ describe("filterTestRelevantFiles", () => {
     // Given
     const ignoredFile = "README.md";
     const files = [
-      `${FILE_PATTERNS.SOURCE_DIR}foo.ts`,
+      `${PRECOMMIT_DEFAULTS.sourceDirs[0]}foo.ts`,
       ignoredFile,
     ];
 
@@ -159,7 +160,7 @@ describe("filterTestRelevantFiles", () => {
     // Given
     const ignoredFile = "package.json";
     const files = [
-      `${FILE_PATTERNS.SOURCE_DIR}foo.ts`,
+      `${PRECOMMIT_DEFAULTS.sourceDirs[0]}foo.ts`,
       ignoredFile,
     ];
 
@@ -198,8 +199,8 @@ describe("filterTestRelevantFiles", () => {
 
   it("GIVEN comprehensive mixed files WHEN filtering THEN returns only test and source files", () => {
     // Given
-    const sourceFile = `${FILE_PATTERNS.SOURCE_DIR}foo.ts`;
-    const testFile = `spx/foo.enabler/tests/foo${FILE_PATTERNS.TEST_FILE_SUFFIX}`;
+    const sourceFile = `${PRECOMMIT_DEFAULTS.sourceDirs[0]}foo.ts`;
+    const testFile = `spx/foo.enabler/tests/foo${PRECOMMIT_DEFAULTS.testPattern}`;
     const files = [
       sourceFile,
       testFile,

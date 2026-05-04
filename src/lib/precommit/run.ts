@@ -13,6 +13,7 @@
 
 import { buildVitestArgs } from "./build-args";
 import { filterTestRelevantFiles } from "./categorize";
+import { PRECOMMIT_DEFAULTS, type PrecommitConfig } from "./config";
 
 // =============================================================================
 // CONSTANTS
@@ -118,8 +119,8 @@ export interface PrecommitResult {
  * shouldRunTests([]); // false
  * ```
  */
-export function shouldRunTests(files: string[]): boolean {
-  const relevantFiles = filterTestRelevantFiles(files);
+export function shouldRunTests(files: string[], config: PrecommitConfig = PRECOMMIT_DEFAULTS): boolean {
+  const relevantFiles = filterTestRelevantFiles(files, config);
   return relevantFiles.length > 0;
 }
 
@@ -153,14 +154,15 @@ export function shouldRunTests(files: string[]): boolean {
  * process.exit(result.exitCode);
  * ```
  */
-export async function runPrecommitTests(deps: PrecommitDeps): Promise<PrecommitResult> {
+export async function runPrecommitTests(
+  deps: PrecommitDeps,
+  config: PrecommitConfig = PRECOMMIT_DEFAULTS,
+): Promise<PrecommitResult> {
   const log = deps.log ?? console.log;
 
-  // Get staged files
   const stagedFiles = await deps.getStagedFiles();
 
-  // Check if tests should run
-  if (!shouldRunTests(stagedFiles)) {
+  if (!shouldRunTests(stagedFiles, config)) {
     log(PRECOMMIT_RUN.MESSAGES.SKIPPING_NO_RELEVANT);
     return {
       skipped: true,
@@ -169,9 +171,8 @@ export async function runPrecommitTests(deps: PrecommitDeps): Promise<PrecommitR
     };
   }
 
-  // Get test-relevant files and build vitest args
-  const relevantFiles = filterTestRelevantFiles(stagedFiles);
-  const vitestArgs = buildVitestArgs(relevantFiles);
+  const relevantFiles = filterTestRelevantFiles(stagedFiles, config);
+  const vitestArgs = buildVitestArgs(relevantFiles, config);
 
   // Run vitest
   log(PRECOMMIT_RUN.MESSAGES.RUNNING_TESTS);

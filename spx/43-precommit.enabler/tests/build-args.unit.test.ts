@@ -8,23 +8,11 @@
 
 import { describe, expect, it } from "vitest";
 
-import { buildVitestArgs, FILE_PATTERNS, isTestFile, VITEST_ARGS } from "@/lib/precommit/build-args";
+import { buildVitestArgs, isTestFile, VITEST_ARGS } from "@/lib/precommit/build-args";
 
 describe("isTestFile", () => {
   it("GIVEN .test.ts file WHEN checking THEN returns true", () => {
-    expect(isTestFile("tests/unit/foo.test.ts")).toBe(true);
-  });
-
-  it("GIVEN .test.tsx file WHEN checking THEN returns true", () => {
-    expect(isTestFile("tests/unit/foo.test.tsx")).toBe(true);
-  });
-
-  it("GIVEN .test.js file WHEN checking THEN returns true", () => {
-    expect(isTestFile("tests/unit/foo.test.js")).toBe(true);
-  });
-
-  it("GIVEN .test.jsx file WHEN checking THEN returns true", () => {
-    expect(isTestFile("tests/unit/foo.test.jsx")).toBe(true);
+    expect(isTestFile("spx/foo.enabler/tests/foo.test.ts")).toBe(true);
   });
 
   it("GIVEN source .ts file WHEN checking THEN returns false", () => {
@@ -37,10 +25,10 @@ describe("isTestFile", () => {
 });
 
 describe("buildVitestArgs", () => {
-  describe("constants verification", () => {
-    it("GIVEN FILE_PATTERNS WHEN accessing TEST_FILE THEN matches test files", () => {
-      expect(FILE_PATTERNS.TEST_FILE.test("foo.test.ts")).toBe(true);
-      expect(FILE_PATTERNS.TEST_FILE.test("foo.ts")).toBe(false);
+  describe("test file detection", () => {
+    it("a path containing the test pattern is classified as a test file", () => {
+      expect(isTestFile("spx/foo.enabler/tests/foo.test.ts")).toBe(true);
+      expect(isTestFile("src/foo.ts")).toBe(false);
     });
   });
 

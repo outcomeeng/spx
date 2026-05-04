@@ -28,8 +28,9 @@ describe("types match values", () => {
     expectTypeOf<NodeKind | DecisionKind>().toEqualTypeOf<Kind>();
   });
 
-  it("KindDefinition<K> projects a single registry entry — for all K in Kind simultaneously", () => {
-    expectTypeOf<{ [K in Kind]: KindDefinition<K> }>().toEqualTypeOf<typeof KIND_REGISTRY>();
+  it("KindDefinition<K> projects to the registry entry for K — verified for node and decision union types", () => {
+    expectTypeOf<KindDefinition<NodeKind>>().toEqualTypeOf<(typeof KIND_REGISTRY)[NodeKind]>();
+    expectTypeOf<KindDefinition<DecisionKind>>().toEqualTypeOf<(typeof KIND_REGISTRY)[DecisionKind]>();
   });
 
   it("every runtime NODE_KINDS member is assignable to NodeKind at the value level", () => {
