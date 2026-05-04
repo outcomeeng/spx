@@ -4,56 +4,19 @@
  *
  * All functions are pure string manipulation with no filesystem access.
  */
+import * as fc from "fast-check";
 import { describe, expect, it } from "vitest";
 
 import { categorizeFile, FILE_CATEGORIES, FILE_PATTERNS, filterTestRelevantFiles } from "@/lib/precommit/categorize";
 
 describe("categorizeFile", () => {
   describe("test file detection", () => {
-    it("GIVEN unit test file path WHEN categorizing THEN returns 'test'", () => {
-      // Given
-      const filePath = `${FILE_PATTERNS.TESTS_DIR}${FILE_PATTERNS.UNIT_DIR}foo${FILE_PATTERNS.TEST_FILE_SUFFIX}`;
-
-      // When
-      const result = categorizeFile(filePath);
-
-      // Then
-      expect(result).toBe(FILE_CATEGORIES.TEST);
-    });
-
-    it("GIVEN integration test file path WHEN categorizing THEN returns 'test'", () => {
-      // Given
-      const filePath =
-        `${FILE_PATTERNS.TESTS_DIR}${FILE_PATTERNS.INTEGRATION_DIR}bar${FILE_PATTERNS.INTEGRATION_TEST_SUFFIX}`;
-
-      // When
-      const result = categorizeFile(filePath);
-
-      // Then
-      expect(result).toBe(FILE_CATEGORIES.TEST);
-    });
-
-    it("GIVEN spec test file path WHEN categorizing THEN returns 'test'", () => {
-      // Given
-      const filePath = `${FILE_PATTERNS.SPECS_DIR}work/doing/cap-1/tests/baz${FILE_PATTERNS.TEST_FILE_SUFFIX}`;
-
-      // When
-      const result = categorizeFile(filePath);
-
-      // Then
-      expect(result).toBe(FILE_CATEGORIES.TEST);
-    });
-
-    it("GIVEN deeply nested test file WHEN categorizing THEN returns 'test'", () => {
-      // Given
-      const filePath =
-        `${FILE_PATTERNS.TESTS_DIR}${FILE_PATTERNS.UNIT_DIR}scanner/patterns${FILE_PATTERNS.TEST_FILE_SUFFIX}`;
-
-      // When
-      const result = categorizeFile(filePath);
-
-      // Then
-      expect(result).toBe(FILE_CATEGORIES.TEST);
+    it("any path containing the test file suffix maps to 'test' regardless of surrounding segments", () => {
+      fc.assert(
+        fc.property(fc.string(), fc.string(), (prefix, suffix) => {
+          expect(categorizeFile(`${prefix}${FILE_PATTERNS.TEST_FILE_SUFFIX}${suffix}`)).toBe(FILE_CATEGORIES.TEST);
+        }),
+      );
     });
   });
 
@@ -167,18 +130,14 @@ describe("filterTestRelevantFiles", () => {
 
   it("GIVEN mixed files WHEN filtering THEN keeps test files", () => {
     // Given
-    const files = [
-      `${FILE_PATTERNS.TESTS_DIR}${FILE_PATTERNS.UNIT_DIR}foo${FILE_PATTERNS.TEST_FILE_SUFFIX}`,
-      "package.json",
-    ];
+    const testFile = `spx/foo.enabler/tests/foo${FILE_PATTERNS.TEST_FILE_SUFFIX}`;
+    const files = [testFile, "package.json"];
 
     // When
     const relevant = filterTestRelevantFiles(files);
 
     // Then
-    expect(relevant).toContain(
-      `${FILE_PATTERNS.TESTS_DIR}${FILE_PATTERNS.UNIT_DIR}foo${FILE_PATTERNS.TEST_FILE_SUFFIX}`,
-    );
+    expect(relevant).toContain(testFile);
   });
 
   it("GIVEN mixed files WHEN filtering THEN excludes README.md", () => {
@@ -240,7 +199,7 @@ describe("filterTestRelevantFiles", () => {
   it("GIVEN comprehensive mixed files WHEN filtering THEN returns only test and source files", () => {
     // Given
     const sourceFile = `${FILE_PATTERNS.SOURCE_DIR}foo.ts`;
-    const testFile = `${FILE_PATTERNS.TESTS_DIR}${FILE_PATTERNS.UNIT_DIR}foo${FILE_PATTERNS.TEST_FILE_SUFFIX}`;
+    const testFile = `spx/foo.enabler/tests/foo${FILE_PATTERNS.TEST_FILE_SUFFIX}`;
     const files = [
       sourceFile,
       testFile,

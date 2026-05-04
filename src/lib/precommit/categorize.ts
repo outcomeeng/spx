@@ -23,20 +23,10 @@ export type FileCategory = (typeof FILE_CATEGORIES)[keyof typeof FILE_CATEGORIES
  * DRY constants that are verified in tests rather than using literal strings.
  */
 export const FILE_PATTERNS = {
-  /** Pattern to identify test files */
+  /** Suffix that identifies test files */
   TEST_FILE_SUFFIX: ".test.ts",
-  /** Integration test suffix */
-  INTEGRATION_TEST_SUFFIX: ".integration.test.ts",
   /** Source directory prefix */
   SOURCE_DIR: "src/",
-  /** Tests directory prefix */
-  TESTS_DIR: "tests/",
-  /** Specs directory prefix (for spec tests) */
-  SPECS_DIR: "specs/",
-  /** Unit tests subdirectory */
-  UNIT_DIR: "unit/",
-  /** Integration tests subdirectory */
-  INTEGRATION_DIR: "integration/",
 } as const;
 
 /**
