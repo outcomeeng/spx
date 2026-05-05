@@ -17,7 +17,7 @@ import {
   markdownCommand,
   typescriptCommand,
 } from "@/commands/validation";
-import { sanitizeCliArgument } from "@/lib/sanitize-cli-argument";
+import { sanitizeCliArgument } from "@/interfaces/cli/sanitize";
 import { allowlistExisting } from "@/validation/literal/allowlist-existing";
 import type { ValidationScope } from "@/validation/types";
 import type { Domain } from "../types";

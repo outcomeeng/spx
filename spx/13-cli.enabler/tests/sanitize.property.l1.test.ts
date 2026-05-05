@@ -6,7 +6,7 @@ import {
   FIRST_PRINTABLE_CHAR_CODE,
   MAX_CLI_ARGUMENT_DISPLAY_LENGTH,
   sanitizeCliArgument,
-} from "@/lib/sanitize-cli-argument";
+} from "@/interfaces/cli/sanitize";
 
 describe("sanitizeCliArgument invariants", () => {
   it("is idempotent: applying sanitize to its own output returns the same string", () => {

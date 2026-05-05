@@ -12,7 +12,7 @@ import {
   validationCliDefinition,
   validationDomain,
 } from "@/domains/validation";
-import { sanitizeCliArgument, SENTINEL_EMPTY } from "@/lib/sanitize-cli-argument";
+import { sanitizeCliArgument, SENTINEL_EMPTY } from "@/interfaces/cli/sanitize";
 
 const CLI_PATH = join(process.cwd(), "bin", "spx.js");
 const SUBPROCESS_TIMEOUT_MS = 10_000;

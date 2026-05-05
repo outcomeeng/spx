@@ -6,7 +6,7 @@ import {
   SENTINEL_EMPTY,
   SENTINEL_NULL,
   SENTINEL_UNDEFINED,
-} from "@/lib/sanitize-cli-argument";
+} from "@/interfaces/cli/sanitize";
 
 describe("sanitizeCliArgument edge-case inputs map to exported sentinels", () => {
   it("returns SENTINEL_UNDEFINED when input is undefined", () => {
