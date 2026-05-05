@@ -8,14 +8,14 @@ CAN run only the tools applicable to the languages the project actually uses
 
 ### Scenarios
 
-- Given a project with `tsconfig.json`, when language detection runs, then TypeScript is identified as present ([test](tests/language-detection.unit.test.ts))
-- Given a project with `pyproject.toml`, when language detection runs, then Python is identified as present ([test](tests/language-detection.unit.test.ts))
-- Given a project with both `tsconfig.json` and `pyproject.toml`, when language detection runs, then both languages are identified ([test](tests/language-detection.unit.test.ts))
-- Given a project with neither marker file, when language detection runs, then no languages are identified ([test](tests/language-detection.unit.test.ts))
+- Given a project with `tsconfig.json`, when language detection runs, then TypeScript is identified as present ([test](tests/language-detection.property.l1.test.ts))
+- Given a project with `pyproject.toml`, when language detection runs, then Python is identified as present ([test](tests/language-detection.property.l1.test.ts))
+- Given a project with both `tsconfig.json` and `pyproject.toml`, when language detection runs, then both languages are identified ([test](tests/language-detection.property.l1.test.ts))
+- Given a project with neither marker file, when language detection runs, then no languages are identified ([test](tests/language-detection.property.l1.test.ts))
 
 ### Properties
 
-- Detection is deterministic: the same project root always produces the same language set ([test](tests/language-detection.unit.test.ts))
+- Detection is deterministic: the same project root always produces the same language set ([test](tests/language-detection.property.l1.test.ts))
 
 ### Compliance
 
