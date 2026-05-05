@@ -15,6 +15,8 @@ export interface LifecycleRunnerDeps {
   readonly spawn: ProcessRunner["spawn"];
 }
 
+export type LifecycleSpawn = LifecycleRunnerDeps["spawn"];
+
 export function createLifecycleRunner(deps: LifecycleRunnerDeps): ProcessRunner {
   return {
     spawn(command, args, options) {

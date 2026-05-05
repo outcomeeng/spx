@@ -12,5 +12,5 @@ export { EPIPE_EXIT_CODE, SIGINT_EXIT_CODE, SIGTERM_EXIT_CODE, UNCAUGHT_EXIT_COD
 export { createHandlers, SIGINT_NAME, SIGTERM_NAME } from "./handlers";
 export { EPIPE_CODE, installLifecycle, lifecycleProcessRunner, UNCAUGHT_EVENT_NAME } from "./install";
 export { createRegistry } from "./registry";
-export { createLifecycleRunner } from "./runner";
+export { createLifecycleRunner, type LifecycleRunnerDeps, type LifecycleSpawn } from "./runner";
 export type { ChildHandle, ChildRegistry, ExitController, LifecycleHandlerDeps, LifecycleHandlers } from "./types";
