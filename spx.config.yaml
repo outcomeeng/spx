@@ -8,3 +8,4 @@ validation:
       - spx/36-audit.enabler/
       - spx/36-session.enabler/
       - spx/46-claude.outcome/
+      - spx/41-validation.enabler/
