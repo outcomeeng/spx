@@ -6,10 +6,10 @@
  * @module validation/steps/knip
  */
 
-import { spawn } from "node:child_process";
 import { existsSync } from "node:fs";
 import { join } from "node:path";
 
+import { lifecycleProcessRunner } from "@/lib/process-lifecycle";
 import type { ProcessRunner, ScopeConfig } from "../types";
 
 // =============================================================================
@@ -19,7 +19,7 @@ import type { ProcessRunner, ScopeConfig } from "../types";
 /**
  * Default production process runner for Knip.
  */
-export const defaultKnipProcessRunner: ProcessRunner = { spawn };
+export const defaultKnipProcessRunner: ProcessRunner = lifecycleProcessRunner;
 
 // =============================================================================
 // VALIDATION FUNCTION

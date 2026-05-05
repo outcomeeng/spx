@@ -6,10 +6,10 @@
  * @module validation/steps/eslint
  */
 
-import { spawn } from "node:child_process";
 import { existsSync } from "node:fs";
 import { join } from "node:path";
 
+import { lifecycleProcessRunner } from "@/lib/process-lifecycle";
 import { validateLintPolicy } from "@/validation/lint-policy";
 import type { ExecutionMode, ProcessRunner, ValidationContext } from "../types";
 import { EXECUTION_MODES, VALIDATION_SCOPES } from "../types";
@@ -21,7 +21,7 @@ import { EXECUTION_MODES, VALIDATION_SCOPES } from "../types";
 /**
  * Default production process runner for ESLint.
  */
-export const defaultEslintProcessRunner: ProcessRunner = { spawn };
+export const defaultEslintProcessRunner: ProcessRunner = lifecycleProcessRunner;
 
 // =============================================================================
 // PURE ARGUMENT BUILDER

@@ -6,12 +6,12 @@
  * @module validation/steps/typescript
  */
 
-import { spawn } from "node:child_process";
 import { existsSync, mkdirSync, rmSync, writeFileSync } from "node:fs";
 import { mkdtemp } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { isAbsolute, join } from "node:path";
 
+import { lifecycleProcessRunner } from "@/lib/process-lifecycle";
 import { TSCONFIG_FILES } from "../config/scope";
 import type { ProcessRunner, ScopeConfig, ValidationScope } from "../types";
 import { VALIDATION_SCOPES } from "../types";
@@ -23,7 +23,7 @@ import { VALIDATION_SCOPES } from "../types";
 /**
  * Default production process runner for TypeScript.
  */
-export const defaultTypeScriptProcessRunner: ProcessRunner = { spawn };
+export const defaultTypeScriptProcessRunner: ProcessRunner = lifecycleProcessRunner;
 
 /**
  * Dependencies for file-specific TypeScript validation.

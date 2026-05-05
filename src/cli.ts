@@ -3,12 +3,16 @@
  */
 import { Command } from "commander";
 import { createRequire } from "node:module";
+
 import { auditDomain } from "./domains/audit/cli";
 import { claudeDomain } from "./domains/claude";
 import { configDomain } from "./domains/config";
 import { sessionDomain } from "./domains/session/";
 import { specDomain } from "./domains/spec-legacy";
 import { validationDomain } from "./domains/validation";
+import { installLifecycle } from "./lib/process-lifecycle";
+
+installLifecycle();
 
 const require = createRequire(import.meta.url);
 const { version } = require("../package.json") as { version: string };
