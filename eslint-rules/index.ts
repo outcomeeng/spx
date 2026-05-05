@@ -4,6 +4,9 @@
  * Custom ESLint rules for BDD test behavior and spec-tree compliance.
  */
 
+import noAsyncSpawnOutsideLifecycle, {
+  NO_ASYNC_SPAWN_OUTSIDE_LIFECYCLE_RULE_NAME,
+} from "./no-async-spawn-outside-lifecycle";
 import noBareStringUnions, { NO_BARE_STRING_UNIONS_RULE_NAME } from "./no-bare-string-unions";
 import noBddTryCatchAntiPattern from "./no-bdd-try-catch-anti-pattern";
 import noDeepRelativeImports, { NO_DEEP_RELATIVE_IMPORTS_RULE_NAME } from "./no-deep-relative-imports";
@@ -21,6 +24,7 @@ const eslintRules = {
     namespace: "spx",
   },
   rules: {
+    [NO_ASYNC_SPAWN_OUTSIDE_LIFECYCLE_RULE_NAME]: noAsyncSpawnOutsideLifecycle,
     "no-bdd-try-catch-anti-pattern": noBddTryCatchAntiPattern,
     [NO_BARE_STRING_UNIONS_RULE_NAME]: noBareStringUnions,
     [NO_DEEP_RELATIVE_IMPORTS_RULE_NAME]: noDeepRelativeImports,

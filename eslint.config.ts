@@ -7,6 +7,7 @@ import tseslint from "typescript-eslint";
 
 // Import custom rules and restricted syntax selectors
 import customRules from "./eslint-rules";
+import { NO_ASYNC_SPAWN_OUTSIDE_LIFECYCLE_RULE_ID } from "./eslint-rules/no-async-spawn-outside-lifecycle";
 import { NO_BARE_STRING_UNIONS_RULE_ID } from "./eslint-rules/no-bare-string-unions";
 import { NO_DEEP_RELATIVE_IMPORTS_RULE_ID } from "./eslint-rules/no-deep-relative-imports";
 import { NO_IMPORT_SOURCE_EXTENSIONS_RULE_ID } from "./eslint-rules/no-import-source-extensions";
@@ -252,6 +253,7 @@ const config = [
       spx: customRules,
     },
     rules: {
+      [NO_ASYNC_SPAWN_OUTSIDE_LIFECYCLE_RULE_ID]: "error",
       [NO_BARE_STRING_UNIONS_RULE_ID]: "error",
       [NO_DEEP_RELATIVE_IMPORTS_RULE_ID]: "error",
       [NO_IMPORT_SOURCE_EXTENSIONS_RULE_ID]: "error",
