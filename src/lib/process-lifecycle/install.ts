@@ -33,6 +33,27 @@ export const lifecycleProcessRunner = createLifecycleRunner({
 
 export const EPIPE_CODE = "EPIPE";
 export const UNCAUGHT_EVENT_NAME = "uncaughtException";
+const UNCAUGHT_PREFIX = "Uncaught: ";
+const NEWLINE = "\n";
+
+function formatUncaught(error: unknown): string {
+  if (error instanceof Error && error.stack !== undefined) {
+    return UNCAUGHT_PREFIX + error.stack + NEWLINE;
+  }
+  return UNCAUGHT_PREFIX + String(error) + NEWLINE;
+}
+
+function logUncaughtToStderr(error: unknown): void {
+  // Best-effort diagnostic write before the process exits. If stderr is
+  // already closed, the write throws synchronously and we swallow it; the
+  // exit path runs regardless so the operator at minimum sees a non-zero
+  // exit code.
+  try {
+    process.stderr.write(formatUncaught(error));
+  } catch {
+    /* stderr unavailable; rely on exit code */
+  }
+}
 
 export function installLifecycle(): void {
   if (installed) return;
@@ -43,8 +64,14 @@ export function installLifecycle(): void {
     exitController: moduleExitController,
   });
 
-  process.on("uncaughtException", (error: unknown) => handlers.onUncaught(error));
-  process.on("unhandledRejection", (reason: unknown) => handlers.onUncaught(reason));
+  process.on("uncaughtException", (error: unknown) => {
+    logUncaughtToStderr(error);
+    handlers.onUncaught(error);
+  });
+  process.on("unhandledRejection", (reason: unknown) => {
+    logUncaughtToStderr(reason);
+    handlers.onUncaught(reason);
+  });
   process.on("SIGTERM", () => handlers.onSigterm());
   process.on("SIGINT", () => handlers.onSigint());
 
