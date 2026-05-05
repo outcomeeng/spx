@@ -40,7 +40,9 @@ describe("specTreeConfigDescriptor.validate", () => {
   });
 
   it("accepts a yaml section that selects a subset of registered kinds", () => {
-    const subset = [NODE_KINDS[0], DECISION_KINDS[0]];
+    const [firstNodeKind] = NODE_KINDS;
+    const [firstDecisionKind] = DECISION_KINDS;
+    const subset: Kind[] = [firstNodeKind, firstDecisionKind];
     const result = specTreeConfigDescriptor.validate({ kinds: subset });
 
     expect(result.ok).toBe(true);
@@ -69,8 +71,9 @@ describe("specTreeConfigDescriptor.validate", () => {
   });
 
   it("rejects a yaml section that selects the same kind more than once", () => {
+    const [firstNodeKind] = NODE_KINDS;
     const result = specTreeConfigDescriptor.validate({
-      kinds: [NODE_KINDS[0], NODE_KINDS[0]],
+      kinds: [firstNodeKind, firstNodeKind],
     });
 
     expect(result.ok).toBe(false);
