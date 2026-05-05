@@ -17,7 +17,7 @@ describe("withTestEnv — writeNode", () => {
       await writeNode("21-sample.enabler/sample.md", NODE_BODY);
 
       const viaEnv = await readFile("21-sample.enabler/sample.md");
-      const viaDisk = await nativeReadFile(join(projectDir, "21-sample.enabler/sample.md"), "utf8");
+      const viaDisk = (await nativeReadFile(join(projectDir, "21-sample.enabler/sample.md"))).toString();
 
       expect(viaEnv).toBe(NODE_BODY);
       expect(viaDisk).toBe(NODE_BODY);
@@ -43,7 +43,7 @@ describe("withTestEnv — writeRaw", () => {
       await writeRaw("notes/misc.txt", RAW_BODY);
 
       const viaEnv = await readFile("notes/misc.txt");
-      const viaDisk = await nativeReadFile(join(projectDir, "notes/misc.txt"), "utf8");
+      const viaDisk = (await nativeReadFile(join(projectDir, "notes/misc.txt"))).toString();
 
       expect(viaEnv).toBe(RAW_BODY);
       expect(viaDisk).toBe(RAW_BODY);

@@ -22,7 +22,7 @@ describe("withTestEnv — startup", () => {
 
     await withTestEnv(MINIMAL_SPEC_TREE_CONFIG, async (env) => {
       observedProjectDir = env.projectDir;
-      const raw = await readFile(join(env.projectDir, DEFAULT_CONFIG_FILENAME), "utf8");
+      const raw = (await readFile(join(env.projectDir, DEFAULT_CONFIG_FILENAME))).toString();
       const parsed = parseConfigFileSections(configFileForFormat(env.projectDir, DEFAULT_CONFIG_FILE_FORMAT, raw));
       expect(parsed.ok).toBe(true);
       if (parsed.ok) {
