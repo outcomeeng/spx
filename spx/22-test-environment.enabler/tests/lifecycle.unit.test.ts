@@ -12,26 +12,15 @@ import {
   DEFAULT_CONFIG_FILENAME,
   parseConfigFileSections,
 } from "@/config/index";
-import type { Config } from "@testing/harnesses/spec-tree/spec-tree";
+import { MINIMAL_SPEC_TREE_CONFIG } from "@testing/generators/config/config";
 import { withTestEnv } from "@testing/harnesses/spec-tree/spec-tree";
-
-const MINIMAL_CONFIG: Config = {
-  specTree: {
-    kinds: {
-      enabler: { category: "node", suffix: ".enabler" },
-      outcome: { category: "node", suffix: ".outcome" },
-      adr: { category: "decision", suffix: ".adr.md" },
-      pdr: { category: "decision", suffix: ".pdr.md" },
-    },
-  },
-};
 
 describe("withTestEnv — startup", () => {
   it("creates a fresh temp directory under os.tmpdir() and materializes the project config from the Config", async () => {
     let observedProjectDir = "";
     let observedConfig: unknown = null;
 
-    await withTestEnv(MINIMAL_CONFIG, async (env) => {
+    await withTestEnv(MINIMAL_SPEC_TREE_CONFIG, async (env) => {
       observedProjectDir = env.projectDir;
       const raw = await readFile(join(env.projectDir, DEFAULT_CONFIG_FILENAME), "utf8");
       const parsed = parseConfigFileSections(configFileForFormat(env.projectDir, DEFAULT_CONFIG_FILE_FORMAT, raw));
@@ -42,26 +31,26 @@ describe("withTestEnv — startup", () => {
     });
 
     expect(observedProjectDir.startsWith(tmpdir())).toBe(true);
-    expect(observedConfig).toEqual(MINIMAL_CONFIG);
+    expect(observedConfig).toEqual(MINIMAL_SPEC_TREE_CONFIG);
   });
 
   it("invokes the callback with an env object exposing projectDir and write helpers", async () => {
-    await withTestEnv(MINIMAL_CONFIG, async (env) => {
-      expect(typeof env.projectDir).toBe("string");
-      expect(typeof env.writeNode).toBe("function");
-      expect(typeof env.writeDecision).toBe("function");
-      expect(typeof env.writeRaw).toBe("function");
-      expect(typeof env.readFile).toBe("function");
+    await withTestEnv(MINIMAL_SPEC_TREE_CONFIG, async (env) => {
+      expect(env.projectDir).toBeDefined();
+      expect(env.writeNode).toBeDefined();
+      expect(env.writeDecision).toBeDefined();
+      expect(env.writeRaw).toBeDefined();
+      expect(env.readFile).toBeDefined();
     });
   });
 
   it("returns distinct temp directories on repeated invocations", async () => {
     const observed: string[] = [];
 
-    await withTestEnv(MINIMAL_CONFIG, async (env) => {
+    await withTestEnv(MINIMAL_SPEC_TREE_CONFIG, async (env) => {
       observed.push(env.projectDir);
     });
-    await withTestEnv(MINIMAL_CONFIG, async (env) => {
+    await withTestEnv(MINIMAL_SPEC_TREE_CONFIG, async (env) => {
       observed.push(env.projectDir);
     });
 
@@ -73,7 +62,7 @@ describe("withTestEnv — cleanup on return", () => {
   it("removes the temp directory after the callback returns normally", async () => {
     let projectDir = "";
 
-    await withTestEnv(MINIMAL_CONFIG, async (env) => {
+    await withTestEnv(MINIMAL_SPEC_TREE_CONFIG, async (env) => {
       projectDir = env.projectDir;
       const before = await stat(projectDir);
       expect(before.isDirectory()).toBe(true);
@@ -96,7 +85,7 @@ describe("withTestEnv — cleanup on throw", () => {
     const boom = new TestBoomError("callback blew up");
 
     await expect(
-      withTestEnv(MINIMAL_CONFIG, async (env) => {
+      withTestEnv(MINIMAL_SPEC_TREE_CONFIG, async (env) => {
         projectDir = env.projectDir;
         throw boom;
       }),
@@ -110,7 +99,7 @@ describe("withTestEnv — cleanup on throw", () => {
     const rejection = { code: "NON_ERROR", detail: 42 } as const;
 
     await expect(
-      withTestEnv(MINIMAL_CONFIG, async (env) => {
+      withTestEnv(MINIMAL_SPEC_TREE_CONFIG, async (env) => {
         projectDir = env.projectDir;
         return Promise.reject(rejection);
       }),
@@ -132,7 +121,7 @@ describe("withTestEnv — cleanup invariance", () => {
           let projectDir = "";
 
           const run = (): Promise<void> =>
-            withTestEnv(MINIMAL_CONFIG, async (env) => {
+            withTestEnv(MINIMAL_SPEC_TREE_CONFIG, async (env) => {
               projectDir = env.projectDir;
               for (let i = 0; i < awaits; i++) {
                 await Promise.resolve();

@@ -4,25 +4,14 @@ import { join, relative, resolve } from "node:path";
 
 import { describe, expect, it } from "vitest";
 
-import type { Config } from "@testing/harnesses/spec-tree/spec-tree";
+import { MINIMAL_SPEC_TREE_CONFIG } from "@testing/generators/config/config";
 import { withTestEnv } from "@testing/harnesses/spec-tree/spec-tree";
-
-const MINIMAL_CONFIG: Config = {
-  specTree: {
-    kinds: {
-      enabler: { category: "node", suffix: ".enabler" },
-      outcome: { category: "node", suffix: ".outcome" },
-      adr: { category: "decision", suffix: ".adr.md" },
-      pdr: { category: "decision", suffix: ".pdr.md" },
-    },
-  },
-};
 
 describe("withTestEnv — filesystem safety", () => {
   it("roots every temp directory inside os.tmpdir()", async () => {
     const tmpRoot = resolve(tmpdir());
 
-    await withTestEnv(MINIMAL_CONFIG, async (env) => {
+    await withTestEnv(MINIMAL_SPEC_TREE_CONFIG, async (env) => {
       const projectDir = resolve(env.projectDir);
       const relativeToTmp = relative(tmpRoot, projectDir);
 
@@ -37,7 +26,7 @@ describe("withTestEnv — filesystem safety", () => {
 
     try {
       let projectDir = "";
-      await withTestEnv(MINIMAL_CONFIG, async (env) => {
+      await withTestEnv(MINIMAL_SPEC_TREE_CONFIG, async (env) => {
         projectDir = env.projectDir;
         expect(projectDir).not.toBe(sibling);
       });
@@ -52,7 +41,7 @@ describe("withTestEnv — filesystem safety", () => {
   it("never exposes a project directory that resolves outside the OS temp root", async () => {
     const tmpRoot = resolve(tmpdir());
 
-    await withTestEnv(MINIMAL_CONFIG, async (env) => {
+    await withTestEnv(MINIMAL_SPEC_TREE_CONFIG, async (env) => {
       const resolvedProject = resolve(env.projectDir);
       expect(resolvedProject.startsWith(tmpRoot)).toBe(true);
     });

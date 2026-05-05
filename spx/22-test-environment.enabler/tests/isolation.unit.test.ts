@@ -3,19 +3,8 @@ import { existsSync } from "node:fs";
 import * as fc from "fast-check";
 import { describe, expect, it } from "vitest";
 
-import type { Config } from "@testing/harnesses/spec-tree/spec-tree";
+import { MINIMAL_SPEC_TREE_CONFIG } from "@testing/generators/config/config";
 import { withTestEnv } from "@testing/harnesses/spec-tree/spec-tree";
-
-const MINIMAL_CONFIG: Config = {
-  specTree: {
-    kinds: {
-      enabler: { category: "node", suffix: ".enabler" },
-      outcome: { category: "node", suffix: ".outcome" },
-      adr: { category: "decision", suffix: ".adr.md" },
-      pdr: { category: "decision", suffix: ".pdr.md" },
-    },
-  },
-};
 
 describe("withTestEnv — concurrent isolation", () => {
   it("gives every concurrent invocation a distinct temp directory and isolates writes across any cardinality of parallel runs", async () => {
@@ -30,7 +19,7 @@ describe("withTestEnv — concurrent isolation", () => {
             markers.map(async (marker): Promise<{ dir: string; readBack: string }> => {
               let dir = "";
               let readBack = "";
-              await withTestEnv(MINIMAL_CONFIG, async (env) => {
+              await withTestEnv(MINIMAL_SPEC_TREE_CONFIG, async (env) => {
                 dir = env.projectDir;
                 await env.writeRaw("marker.txt", marker);
                 readBack = await env.readFile("marker.txt");

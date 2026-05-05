@@ -2,26 +2,15 @@ import { existsSync } from "node:fs";
 
 import { describe, expect, it } from "vitest";
 
-import type { Config } from "@testing/harnesses/spec-tree/spec-tree";
+import { MINIMAL_SPEC_TREE_CONFIG } from "@testing/generators/config/config";
 import { withTestEnv } from "@testing/harnesses/spec-tree/spec-tree";
-
-const MINIMAL_CONFIG: Config = {
-  specTree: {
-    kinds: {
-      enabler: { category: "node", suffix: ".enabler" },
-      outcome: { category: "node", suffix: ".outcome" },
-      adr: { category: "decision", suffix: ".adr.md" },
-      pdr: { category: "decision", suffix: ".pdr.md" },
-    },
-  },
-};
 
 describe("withTestEnv — nested invocations", () => {
   it("removes only the inner temp directory when the inner callback returns, leaving the outer directory intact for the outer callback", async () => {
-    await withTestEnv(MINIMAL_CONFIG, async (outer) => {
+    await withTestEnv(MINIMAL_SPEC_TREE_CONFIG, async (outer) => {
       let innerDir = "";
 
-      await withTestEnv(MINIMAL_CONFIG, async (inner) => {
+      await withTestEnv(MINIMAL_SPEC_TREE_CONFIG, async (inner) => {
         innerDir = inner.projectDir;
         expect(inner.projectDir).not.toBe(outer.projectDir);
         expect(existsSync(outer.projectDir)).toBe(true);
@@ -37,9 +26,9 @@ describe("withTestEnv — nested invocations", () => {
     let outerDir = "";
     let innerDir = "";
 
-    await withTestEnv(MINIMAL_CONFIG, async (outer) => {
+    await withTestEnv(MINIMAL_SPEC_TREE_CONFIG, async (outer) => {
       outerDir = outer.projectDir;
-      await withTestEnv(MINIMAL_CONFIG, async (inner) => {
+      await withTestEnv(MINIMAL_SPEC_TREE_CONFIG, async (inner) => {
         innerDir = inner.projectDir;
       });
     });
@@ -53,9 +42,9 @@ describe("withTestEnv — nested invocations", () => {
     let innerDir = "";
 
     await expect(
-      withTestEnv(MINIMAL_CONFIG, async (outer) => {
+      withTestEnv(MINIMAL_SPEC_TREE_CONFIG, async (outer) => {
         outerDir = outer.projectDir;
-        await withTestEnv(MINIMAL_CONFIG, async (inner) => {
+        await withTestEnv(MINIMAL_SPEC_TREE_CONFIG, async (inner) => {
           innerDir = inner.projectDir;
         });
         throw new Error("outer-fail");

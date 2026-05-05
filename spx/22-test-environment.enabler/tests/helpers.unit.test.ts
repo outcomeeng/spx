@@ -4,19 +4,8 @@ import { join } from "node:path";
 import { describe, expect, it } from "vitest";
 
 import { DEFAULT_CONFIG_FILENAME } from "@/config/index";
-import type { Config } from "@testing/harnesses/spec-tree/spec-tree";
+import { MINIMAL_SPEC_TREE_CONFIG } from "@testing/generators/config/config";
 import { withTestEnv } from "@testing/harnesses/spec-tree/spec-tree";
-
-const MINIMAL_CONFIG: Config = {
-  specTree: {
-    kinds: {
-      enabler: { category: "node", suffix: ".enabler" },
-      outcome: { category: "node", suffix: ".outcome" },
-      adr: { category: "decision", suffix: ".adr.md" },
-      pdr: { category: "decision", suffix: ".pdr.md" },
-    },
-  },
-};
 
 const NODE_BODY = "# Some Enabler\n\nPROVIDES X SO THAT Y CAN Z\n";
 const DECISION_BODY = "# Decision\n\n## Purpose\n\nGoverns X.\n";
@@ -24,7 +13,7 @@ const RAW_BODY = "arbitrary text";
 
 describe("withTestEnv — writeNode", () => {
   it("writes a node spec file under the temp project directory and a subsequent read observes the change", async () => {
-    await withTestEnv(MINIMAL_CONFIG, async ({ projectDir, writeNode, readFile }) => {
+    await withTestEnv(MINIMAL_SPEC_TREE_CONFIG, async ({ projectDir, writeNode, readFile }) => {
       await writeNode("21-sample.enabler/sample.md", NODE_BODY);
 
       const viaEnv = await readFile("21-sample.enabler/sample.md");
@@ -38,7 +27,7 @@ describe("withTestEnv — writeNode", () => {
 
 describe("withTestEnv — writeDecision", () => {
   it("writes a decision record file under the temp project directory and readFile sees it", async () => {
-    await withTestEnv(MINIMAL_CONFIG, async ({ writeDecision, readFile }) => {
+    await withTestEnv(MINIMAL_SPEC_TREE_CONFIG, async ({ writeDecision, readFile }) => {
       await writeDecision("21-choice.adr.md", DECISION_BODY);
 
       const viaEnv = await readFile("21-choice.adr.md");
@@ -50,7 +39,7 @@ describe("withTestEnv — writeDecision", () => {
 
 describe("withTestEnv — writeRaw", () => {
   it("writes arbitrary bytes at the given relative path under the temp project directory", async () => {
-    await withTestEnv(MINIMAL_CONFIG, async ({ projectDir, writeRaw, readFile }) => {
+    await withTestEnv(MINIMAL_SPEC_TREE_CONFIG, async ({ projectDir, writeRaw, readFile }) => {
       await writeRaw("notes/misc.txt", RAW_BODY);
 
       const viaEnv = await readFile("notes/misc.txt");
@@ -64,7 +53,7 @@ describe("withTestEnv — writeRaw", () => {
 
 describe("withTestEnv — readFile", () => {
   it("reads the materialized project config file at the root", async () => {
-    await withTestEnv(MINIMAL_CONFIG, async ({ readFile }) => {
+    await withTestEnv(MINIMAL_SPEC_TREE_CONFIG, async ({ readFile }) => {
       const raw = await readFile(DEFAULT_CONFIG_FILENAME);
       expect(raw.length).toBeGreaterThan(0);
     });
