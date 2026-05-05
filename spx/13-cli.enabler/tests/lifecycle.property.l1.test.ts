@@ -6,6 +6,7 @@ import {
   createHandlers,
   createLifecycleRunner,
   createRegistry,
+  type LifecycleSpawn,
   SIGINT_NAME,
   SIGTERM_NAME,
 } from "@/lib/process-lifecycle";
@@ -97,7 +98,7 @@ describe("Property: lifecycle runner registers every spawned child", () => {
         const registry = createRegistry();
         const fakeSpawn = ((..._args: readonly unknown[]): ChildHandle => {
           return new RecordingChild();
-        }) as unknown as Parameters<typeof createLifecycleRunner>[0]["spawn"];
+        }) as unknown as LifecycleSpawn;
 
         const runner = createLifecycleRunner({ registry, spawn: fakeSpawn });
         for (let i = 0; i < spawnCount; i++) {
