@@ -14,9 +14,11 @@ import { validateLintPolicy } from "@/validation/lint-policy";
 import type { ExecutionMode, ProcessRunner, ValidationContext } from "../types";
 import { EXECUTION_MODES, VALIDATION_SCOPES } from "../types";
 import {
+  defaultValidationSubprocessOutputStreams,
   forwardValidationSubprocessOutput,
   VALIDATION_SUBPROCESS_EVENTS,
   VALIDATION_SUBPROCESS_STDIO,
+  type ValidationSubprocessOutputStreams,
 } from "./subprocess-output";
 
 // =============================================================================
@@ -113,6 +115,7 @@ export function buildEslintArgs(context: {
 export async function validateESLint(
   context: ValidationContext,
   runner: ProcessRunner = defaultEslintProcessRunner,
+  outputStreams: ValidationSubprocessOutputStreams = defaultValidationSubprocessOutputStreams,
 ): Promise<{
   success: boolean;
   error?: string;
@@ -146,7 +149,7 @@ export async function validateESLint(
       cwd: projectRoot,
       stdio: VALIDATION_SUBPROCESS_STDIO,
     });
-    forwardValidationSubprocessOutput(eslintProcess);
+    forwardValidationSubprocessOutput(eslintProcess, outputStreams);
 
     eslintProcess.on(VALIDATION_SUBPROCESS_EVENTS.CLOSE, (code) => {
       if (code === 0) {

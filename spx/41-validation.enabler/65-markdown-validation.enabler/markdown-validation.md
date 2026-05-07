@@ -24,6 +24,10 @@ CAN catch broken cross-references and structural defects before they reach the r
 - Given a user runs `spx validation markdown` on a directory with a broken link, then the process exits with code 1 and the error output identifies the broken link ([test](tests/markdown-validation.e2e.test.ts))
 - Given `spx/EXCLUDE` lists a node path, when validation runs, then markdown files in that node directory are skipped ([test](tests/markdown-validation.unit.test.ts))
 - Given a declared-state node has `[test]` links to files that do not exist yet, when that node is listed in `spx/EXCLUDE`, then those broken links are not reported ([test](tests/markdown-validation.unit.test.ts))
+- Given a directory scope contains a broken `.markdown` file and no broken `.md` file, when validation runs on the directory, then no error is reported for the `.markdown` file; when validation runs on that direct `.markdown` file, then the broken link is reported ([test](tests/markdown-validation.unit.test.ts))
+- Given a file scope contains a missing markdown file path, when `spx validation markdown --files` runs, then the command reports the skipped scope in output and exits 0 when no markdown target remains ([test](tests/markdown-validation.integration.test.ts))
+- Given a file scope contains a path that is neither an existing directory nor a markdown file, when `spx validation markdown --files` runs, then the command reports the skipped scope in output and exits 0 when no markdown target remains ([test](tests/markdown-validation.integration.test.ts))
+- Given file scope contains both a valid markdown target and an unrelated file, when `spx validation markdown --files` runs, then validation runs for the markdown target and the skipped unrelated file is reported in output ([test](tests/markdown-validation.integration.test.ts))
 
 ### Mappings
 

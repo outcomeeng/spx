@@ -14,6 +14,7 @@ export const VALIDATION_SUBPROCESS_STDIO = "pipe";
 export const VALIDATION_SUBPROCESS_EVENTS = {
   CLOSE: "close",
   DATA: "data",
+  DRAIN: "drain",
   ERROR: "error",
 } as const;
 
@@ -24,6 +25,7 @@ export interface ValidationSubprocessOutputStreams {
 
 export interface ValidationWritableStream {
   write(chunk: string | Uint8Array): boolean;
+  once?(event: typeof VALIDATION_SUBPROCESS_EVENTS.DRAIN, listener: () => void): unknown;
 }
 
 export interface ValidationSubprocessWithOutput {
@@ -41,10 +43,26 @@ export function forwardValidationSubprocessOutput(
   streams: ValidationSubprocessOutputStreams = defaultValidationSubprocessOutputStreams,
 ): void {
   child.stdout?.on(VALIDATION_SUBPROCESS_EVENTS.DATA, (chunk: string | Uint8Array) => {
-    streams.stdout.write(chunk);
+    forwardChunkWithBackpressure(child.stdout, streams.stdout, chunk);
   });
 
   child.stderr?.on(VALIDATION_SUBPROCESS_EVENTS.DATA, (chunk: string | Uint8Array) => {
-    streams.stderr.write(chunk);
+    forwardChunkWithBackpressure(child.stderr, streams.stderr, chunk);
+  });
+}
+
+function forwardChunkWithBackpressure(
+  source: Readable | null | undefined,
+  stream: ValidationWritableStream,
+  chunk: string | Uint8Array,
+): void {
+  const ready = stream.write(chunk);
+  if (ready || stream.once === undefined || source === null || source === undefined) {
+    return;
+  }
+
+  source.pause();
+  stream.once(VALIDATION_SUBPROCESS_EVENTS.DRAIN, () => {
+    source.resume();
   });
 }

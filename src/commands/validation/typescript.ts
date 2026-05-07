@@ -6,11 +6,15 @@
 import { getTypeScriptScope } from "@/validation/config/scope";
 import { detectTypeScript, discoverTool, formatSkipMessage } from "@/validation/discovery/index";
 import { validateTypeScript } from "@/validation/steps/typescript";
-import { formatValidationSkipMessage, VALIDATION_COMMAND_OUTPUT, VALIDATION_STAGE_DISPLAY_NAMES } from "./messages";
+import {
+  formatTypeScriptAbsentSkipMessage,
+  VALIDATION_COMMAND_OUTPUT,
+  VALIDATION_STAGE_DISPLAY_NAMES,
+} from "./messages";
 import type { TypeScriptCommandOptions, ValidationCommandResult } from "./types";
 
 export const TYPESCRIPT_VALIDATION_MESSAGES = {
-  ABSENT: formatValidationSkipMessage(VALIDATION_STAGE_DISPLAY_NAMES.TYPESCRIPT),
+  ABSENT: formatTypeScriptAbsentSkipMessage(VALIDATION_STAGE_DISPLAY_NAMES.TYPESCRIPT),
   SUCCESS: VALIDATION_COMMAND_OUTPUT.TYPESCRIPT_SUCCESS,
   TOOL_LABEL: VALIDATION_STAGE_DISPLAY_NAMES.TYPESCRIPT,
 } as const;

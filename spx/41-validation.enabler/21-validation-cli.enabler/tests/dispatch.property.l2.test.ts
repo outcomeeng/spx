@@ -2,7 +2,8 @@ import * as fc from "fast-check";
 import { describe, expect, it } from "vitest";
 
 import { validationCliDefinition } from "@/domains/validation";
-import { sampleValidationCliTestValue, VALIDATION_CLI_GENERATOR } from "@testing/generators/validation/validation";
+import { sampleLiteralTestValue } from "@testing/generators/literal/literal";
+import { VALIDATION_CLI_GENERATOR } from "@testing/generators/validation/validation";
 import { runValidationSubprocess } from "@testing/harnesses/validation/cli";
 
 describe("spx validation dispatch — invariant over non-matching argument strings", () => {
@@ -19,9 +20,9 @@ describe("spx validation dispatch — invariant over non-matching argument strin
             expect(result.stderr).toContain(validationCliDefinition.diagnostics.unknownSubcommand.messageLabel);
           },
         ),
-        sampleValidationCliTestValue(VALIDATION_CLI_GENERATOR.propertyOptions()),
+        sampleLiteralTestValue(VALIDATION_CLI_GENERATOR.propertyOptions()),
       );
     },
-    sampleValidationCliTestValue(VALIDATION_CLI_GENERATOR.propertyOptions()).timeout,
+    sampleLiteralTestValue(VALIDATION_CLI_GENERATOR.propertyOptions()).timeout,
   );
 });

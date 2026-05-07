@@ -61,69 +61,30 @@ spx validation all src/             # all validators scoped to src/
 
 ---
 
-## PR 15 review follow-ups for validation metadata and markdown targets
+## Resolved: PR 15 review follow-ups for validation metadata and markdown targets
 
 The review on
 [`outcomeeng/spx#15`](https://github.com/outcomeeng/spx/pull/15#issuecomment-4398198837)
-identified non-blocking follow-ups after the validation-gate cleanup:
+identified non-blocking follow-ups after the validation-gate cleanup. The
+validation review cleanup branch resolved that list.
 
-- [`src/commands/validation/messages.ts`](../../src/commands/validation/messages.ts)
-  exposes `formatValidationSkipMessage(stageName)`, but the function always
-  uses the TypeScript-absent skip reason. Rename it to
-  `formatTypeScriptAbsentSkipMessage(stageName)` or accept a source-owned
-  reason parameter.
-- [`src/validation/steps/markdown.ts`](../../src/validation/steps/markdown.ts)
-  classifies `.markdown` file scopes as markdown targets, while directory
-  targets still recurse with the existing `**/*.md` glob. Directory-scoped
-  `.markdown` discovery needs a product decision because the cleanup plan kept
-  the current directory recursion behavior.
-- [`src/commands/validation/messages.ts`](../../src/commands/validation/messages.ts)
-  re-exports runtime anti-markers under
-  `VALIDATION_RUNTIME_DIAGNOSTIC_ANTI_MARKERS`. Choose one canonical import path
-  for runtime anti-marker constants and remove the alias if it is unnecessary.
-- [`src/commands/validation/messages.ts`](../../src/commands/validation/messages.ts)
-  keeps the validation step-line denominator as a regex literal in
-  `VALIDATION_STEP_LINE_PATTERN`. Add a source-owned assertion or comment tying
-  the regex to `VALIDATION_PIPELINE.TOTAL_STEPS`.
-- [`testing/generators/validation/ast-enforcement.ts`](../../testing/generators/validation/ast-enforcement.ts)
-  exports `VALIDATION_PIPELINE_STAGE_NAMES` as an alias for
-  `VALIDATION_STAGE_DISPLAY_NAMES`. Fold this into the canonical validation
-  metadata import-path cleanup.
-- [`testing/generators/validation/validation.ts`](../../testing/generators/validation/validation.ts)
-  exposes `sampleValidationCliTestValue()` as a thin wrapper around
-  `sampleLiteralTestValue()`. Give the helper a distinct validation contract or
-  import the canonical sampler at call sites.
-- [`testing/generators/validation/ast-enforcement.ts`](../../testing/generators/validation/ast-enforcement.ts)
-  names `VALIDATION_ESLINT_EXPECTED.zeroDiagnostics` with a label that repeats
-  its value. Rename it to describe the validation invariant or remove the
-  extra name.
-- [`src/validation/steps/subprocess-output.ts`](../../src/validation/steps/subprocess-output.ts)
-  forwards child-process output with direct `write()` calls. Decide whether this
-  helper should catch stream write errors or handle backpressure for large
-  validation subprocess output.
-- [`src/validation/steps/eslint.ts`](../../src/validation/steps/eslint.ts)
-  forwards subprocess output through the default streams, while the TypeScript
-  validator accepts injectable output streams. Decide whether ESLint validation
-  should expose the same end-to-end stream injection surface.
-- [`src/validation/steps/markdown.ts`](../../src/validation/steps/markdown.ts)
-  uses direct `statSync` filesystem access inside markdown target
-  classification. Decide whether target classification should accept injected
-  filesystem dependencies like the TypeScript validator does.
-- [`testing/harnesses/validation/markdown.ts`](../../testing/harnesses/validation/markdown.ts)
-  throws the scenario title when a fixture-backed markdown scenario has no
-  fixture. Replace that with an explicit harness error message.
-- [`eslint-rules/no-spec-references.ts`](../../eslint-rules/no-spec-references.ts)
-  exempts `testing/generators/validation/ast-enforcement.ts` because that
-  generator owns ADR/PDR snippets used to test the rule. Add a short comment so
-  the exemption remains readable.
-- [`src/commands/validation/markdown.ts`](../../src/commands/validation/markdown.ts)
-  silently skips file scopes that are neither existing directories nor markdown
-  paths. Decide whether explicit missing or unrelated file scopes need user
-  diagnostics.
+The metadata cleanup now uses `formatTypeScriptAbsentSkipMessage(stageName)` for
+TypeScript-absence skip text, imports runtime anti-markers from their canonical
+runtime diagnostics module, derives validation step-line matching from
+`VALIDATION_PIPELINE.TOTAL_STEPS`, removes validation generator aliases that only
+renamed canonical metadata or samplers, and renames the ESLint expectation for no
+reported diagnostics to `noDiagnostics`.
 
-**Impact:** These findings do not block the validation gate or markdown
-file-target fix. They are cleanup and follow-up design items.
+The subprocess cleanup now handles parent-stream backpressure while forwarding
+child output and gives ESLint validation the same injectable output-stream
+surface used by TypeScript validation.
 
-**Resolution:** Address in a separate validation metadata/markdown-target pass
-after PR 15, keeping the current PR scoped to clearing the blocking literal
-gate and fixing direct markdown-file scopes.
+Markdown target cleanup keeps directory targets on the existing `**/*.md`
+discovery policy, while direct file targets still accept existing `.md` and
+`.markdown` files. Explicit file scopes that are missing or unrelated now emit a
+source-owned skipped-scope diagnostic. Target classification accepts injected
+filesystem state, and the markdown harness uses generator-owned diagnostics for
+missing fixture-backed scenarios.
+
+The no-spec-reference rule exemption for the ADR/PDR snippet generator now has a
+local comment explaining the test-data ownership.

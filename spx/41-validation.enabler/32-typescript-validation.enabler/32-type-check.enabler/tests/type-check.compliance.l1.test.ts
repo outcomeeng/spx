@@ -5,6 +5,7 @@ import { PassThrough } from "node:stream";
 import * as fc from "fast-check";
 import { describe, expect, it } from "vitest";
 
+import { VALIDATION_EXIT_CODES } from "@/commands/validation/messages";
 import {
   forwardValidationSubprocessOutput,
   VALIDATION_SUBPROCESS_EVENTS,
@@ -25,6 +26,15 @@ class RecordingWritable implements ValidationWritableStream {
   }
 }
 
+class BackpressuredWritable extends EventEmitter implements ValidationWritableStream {
+  readonly chunks: string[] = [];
+
+  write(chunk: string | Uint8Array): boolean {
+    this.chunks.push(Buffer.from(chunk).toString());
+    return false;
+  }
+}
+
 class RecordingValidationChild extends EventEmitter {
   readonly stdout = new PassThrough();
   readonly stderr = new PassThrough();
@@ -36,7 +46,7 @@ class RecordingValidationChild extends EventEmitter {
   }
 
   closeSuccessfully(): void {
-    this.emit(VALIDATION_SUBPROCESS_EVENTS.CLOSE, 0);
+    this.emit(VALIDATION_SUBPROCESS_EVENTS.CLOSE, VALIDATION_EXIT_CODES.SUCCESS);
   }
 
   asChildProcess(): ChildProcess {
@@ -91,6 +101,26 @@ describe("Compliance: tsc subprocess output is owned by the parent process", () 
 
         expect(stdout.chunks).toEqual([stdoutChunk]);
         expect(stderr.chunks).toEqual([stderrChunk]);
+      }),
+    );
+  });
+
+  it("pauses child output until the parent stream drains", () => {
+    fc.assert(
+      fc.property(arbitraryDomainLiteral(), (stdoutChunk) => {
+        const child = new RecordingValidationChild();
+        const stdout = new BackpressuredWritable();
+        const stderr = new RecordingWritable();
+
+        forwardValidationSubprocessOutput(child, { stdout, stderr });
+        child.stdout.write(stdoutChunk);
+
+        expect(child.stdout.isPaused()).toBe(true);
+
+        stdout.emit(VALIDATION_SUBPROCESS_EVENTS.DRAIN);
+
+        expect(child.stdout.isPaused()).toBe(false);
+        expect(stdout.chunks).toEqual([stdoutChunk]);
       }),
     );
   });

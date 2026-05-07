@@ -1,5 +1,3 @@
-import { VALIDATION_RUNTIME_ANTI_MARKERS } from "./runtime-diagnostics";
-
 export const VALIDATION_EXIT_CODES = {
   SUCCESS: 0,
   FAILURE: 1,
@@ -50,11 +48,12 @@ export const LITERAL_SKIP_JSON_OUTPUT = JSON.stringify({
   reason: VALIDATION_SKIP_LABELS.LITERAL_REASON,
 });
 
-export const VALIDATION_STEP_LINE_PATTERN = /^\[(\d)\/6\]/gm;
+export const VALIDATION_STEP_LINE_PATTERN = new RegExp(
+  String.raw`^\[(\d+)\/${VALIDATION_PIPELINE.TOTAL_STEPS}\]`,
+  "gm",
+);
 export const VALIDATION_STEP_DURATION_PATTERN = /\((\d+(?:\.\d+)?)(ms|s)\)\s*$/;
 
-export function formatValidationSkipMessage(stageName: string): string {
+export function formatTypeScriptAbsentSkipMessage(stageName: string): string {
   return `⏭ ${VALIDATION_SKIP_LABELS.VERB} ${stageName} (${VALIDATION_SKIP_LABELS.TYPESCRIPT_ABSENT_REASON})`;
 }
-
-export const VALIDATION_RUNTIME_DIAGNOSTIC_ANTI_MARKERS = VALIDATION_RUNTIME_ANTI_MARKERS;

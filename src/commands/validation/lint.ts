@@ -7,10 +7,14 @@ import { getTypeScriptScope } from "@/validation/config/scope";
 import { detectTypeScript, discoverTool, formatSkipMessage } from "@/validation/discovery/index";
 import { validateESLint } from "@/validation/steps/eslint";
 import type { ValidationContext } from "@/validation/types";
-import { formatValidationSkipMessage, VALIDATION_COMMAND_OUTPUT, VALIDATION_STAGE_DISPLAY_NAMES } from "./messages";
+import {
+  formatTypeScriptAbsentSkipMessage,
+  VALIDATION_COMMAND_OUTPUT,
+  VALIDATION_STAGE_DISPLAY_NAMES,
+} from "./messages";
 import type { LintCommandOptions, ValidationCommandResult } from "./types";
 
-const TYPESCRIPT_ABSENT_MESSAGE = formatValidationSkipMessage(VALIDATION_STAGE_DISPLAY_NAMES.ESLINT);
+const TYPESCRIPT_ABSENT_MESSAGE = formatTypeScriptAbsentSkipMessage(VALIDATION_STAGE_DISPLAY_NAMES.ESLINT);
 const MISSING_CONFIG_MESSAGE = VALIDATION_COMMAND_OUTPUT.ESLINT_MISSING_CONFIG;
 
 /**
@@ -25,7 +29,7 @@ const MISSING_CONFIG_MESSAGE = VALIDATION_COMMAND_OUTPUT.ESLINT_MISSING_CONFIG;
  * @returns Command result with exit code and output
  */
 export async function lintCommand(options: LintCommandOptions): Promise<ValidationCommandResult> {
-  const { cwd, scope = "full", files, fix, quiet } = options;
+  const { cwd, scope = "full", files, fix, outputStreams, quiet } = options;
   const startTime = Date.now();
 
   // Gate 1: language detection. No TypeScript = skip cleanly.
@@ -70,7 +74,7 @@ export async function lintCommand(options: LintCommandOptions): Promise<Validati
   };
 
   // Run ESLint validation
-  const result = await validateESLint(context);
+  const result = await validateESLint(context, undefined, outputStreams);
   const durationMs = Date.now() - startTime;
 
   // Map result to command output

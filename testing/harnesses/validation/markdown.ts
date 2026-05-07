@@ -11,6 +11,7 @@ import {
   buildMarkdownlintConfig,
   getDefaultDirectories,
   MARKDOWN_CUSTOM_RULE_NAMES,
+  MARKDOWN_VALIDATION_TARGET_DIAGNOSTICS,
   validateMarkdown,
 } from "@/validation/steps/markdown";
 import {
@@ -65,6 +66,14 @@ export async function runMarkdownValidationScenario(scenario: MarkdownValidation
       return runE2eDirectFileScenario();
     case MARKDOWN_SCENARIO_KIND.DOCS_DIRECT_FILE_MD024:
       return runDocsDirectFileMd024Scenario();
+    case MARKDOWN_SCENARIO_KIND.MISSING_FILE_SCOPE_DIAGNOSTIC:
+      return runMissingFileScopeDiagnosticScenario();
+    case MARKDOWN_SCENARIO_KIND.UNRELATED_FILE_SCOPE_DIAGNOSTIC:
+      return runUnrelatedFileScopeDiagnosticScenario();
+    case MARKDOWN_SCENARIO_KIND.MIXED_FILE_SCOPE_DIAGNOSTIC:
+      return runMixedFileScopeDiagnosticScenario();
+    case MARKDOWN_SCENARIO_KIND.DIRECTORY_SCOPE_MD_ONLY:
+      return runDirectoryScopeMdOnlyScenario();
   }
 }
 
@@ -345,6 +354,79 @@ async function runDocsDirectFileMd024Scenario(): Promise<void> {
   });
 }
 
+async function runMissingFileScopeDiagnosticScenario(): Promise<void> {
+  await withMarkdownTempProject(async ({ path }) => {
+    const missingFile = join(path, MARKDOWN_VALIDATION_DATA.missingMarkdownScopeFile);
+
+    const result = await markdownCommand({
+      cwd: path,
+      files: [missingFile],
+    });
+
+    expect(result.exitCode).toBe(MARKDOWN_VALIDATION_DATA.zero);
+    expect(result.output).toContain(MARKDOWN_COMMAND_OUTPUT.SKIPPED_FILE_SCOPE_PREFIX);
+    expect(result.output).toContain(MARKDOWN_VALIDATION_TARGET_DIAGNOSTICS.MISSING_OR_UNRELATED_SCOPE);
+    expect(result.output).toContain(missingFile);
+  });
+}
+
+async function runUnrelatedFileScopeDiagnosticScenario(): Promise<void> {
+  await withMarkdownTempProject(async ({ path }) => {
+    const unrelatedFile = join(path, MARKDOWN_VALIDATION_DATA.unrelatedMarkdownScopeFile);
+    await writeFile(unrelatedFile, MARKDOWN_VALIDATION_DATA.unrelatedMarkdownScopeContent);
+
+    const result = await markdownCommand({
+      cwd: path,
+      files: [unrelatedFile],
+    });
+
+    expect(result.exitCode).toBe(MARKDOWN_VALIDATION_DATA.zero);
+    expect(result.output).toContain(MARKDOWN_COMMAND_OUTPUT.SKIPPED_FILE_SCOPE_PREFIX);
+    expect(result.output).toContain(MARKDOWN_VALIDATION_TARGET_DIAGNOSTICS.MISSING_OR_UNRELATED_SCOPE);
+    expect(result.output).toContain(unrelatedFile);
+  });
+}
+
+async function runMixedFileScopeDiagnosticScenario(): Promise<void> {
+  await withMarkdownTempProject(async ({ path, spxDir }) => {
+    const sourceFile = await writeValidMarkdownPair(spxDir);
+    const unrelatedFile = join(path, MARKDOWN_VALIDATION_DATA.unrelatedMarkdownScopeFile);
+    await writeFile(unrelatedFile, MARKDOWN_VALIDATION_DATA.unrelatedMarkdownScopeContent);
+
+    const result = await markdownCommand({
+      cwd: path,
+      files: [sourceFile, unrelatedFile],
+    });
+
+    expect(result.exitCode).toBe(MARKDOWN_VALIDATION_DATA.zero);
+    expect(result.output).toContain(MARKDOWN_COMMAND_OUTPUT.NO_ISSUES);
+    expect(result.output).toContain(MARKDOWN_COMMAND_OUTPUT.SKIPPED_FILE_SCOPE_PREFIX);
+    expect(result.output).toContain(unrelatedFile);
+  });
+}
+
+async function runDirectoryScopeMdOnlyScenario(): Promise<void> {
+  await withMarkdownTempProject(async ({ path, spxDir }) => {
+    await mkdir(spxDir, { recursive: true });
+    const markdownExtensionFile = join(spxDir, MARKDOWN_VALIDATION_DATA.brokenMarkdownExtensionFile);
+    await writeFile(markdownExtensionFile, MARKDOWN_VALIDATION_DATA.brokenMarkdownContent);
+
+    const directoryResult = await validateMarkdown({
+      targets: [markdownDirectoryTarget(spxDir)],
+      projectRoot: path,
+    });
+    const directFileResult = await validateMarkdown({
+      targets: [markdownFileTarget(markdownExtensionFile)],
+      projectRoot: path,
+    });
+
+    expect(directoryResult.success).toBe(true);
+    expect(directoryResult.errors).toHaveLength(MARKDOWN_VALIDATION_DATA.zero);
+    expect(directFileResult.success).toBe(false);
+    expect(directFileResult.errors.length).toBeGreaterThanOrEqual(MARKDOWN_VALIDATION_DATA.one);
+  });
+}
+
 async function writeValidMarkdownPair(spxDir: string): Promise<string> {
   await mkdir(spxDir, { recursive: true });
   await writeFile(
@@ -375,7 +457,7 @@ async function withMarkdownScenarioEnv(
   callback: Parameters<typeof withMarkdownEnv>[1],
 ): Promise<void> {
   if (scenario.fixture === undefined) {
-    throw new Error(scenario.title);
+    throw new Error(`${MARKDOWN_VALIDATION_DATA.missingFixtureDiagnostic}: ${scenario.title}`);
   }
   await withMarkdownEnv({ fixture: scenario.fixture }, callback);
 }

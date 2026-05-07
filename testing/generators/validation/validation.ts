@@ -6,17 +6,17 @@ import { LITERAL_PROBLEM_KIND } from "@/commands/validation";
 import { CIRCULAR_DEPENDENCY_OUTPUT } from "@/commands/validation/circular";
 import { VALIDATION_SUMMARY_STATUS } from "@/commands/validation/format";
 import {
-  formatValidationSkipMessage,
+  formatTypeScriptAbsentSkipMessage,
   LITERAL_SKIP_JSON_OUTPUT,
   LITERAL_SKIP_OUTPUT,
   VALIDATION_COMMAND_OUTPUT,
   VALIDATION_EXIT_CODES,
   VALIDATION_PIPELINE,
-  VALIDATION_RUNTIME_DIAGNOSTIC_ANTI_MARKERS,
   VALIDATION_STAGE_DISPLAY_NAMES,
   VALIDATION_STEP_DURATION_PATTERN,
   VALIDATION_STEP_LINE_PATTERN,
 } from "@/commands/validation/messages";
+import { VALIDATION_RUNTIME_ANTI_MARKERS } from "@/commands/validation/runtime-diagnostics";
 import {
   allValidationCliOptions,
   validationCliDefinition,
@@ -24,7 +24,7 @@ import {
   validationOptionPrefix,
 } from "@/domains/validation";
 import { TSCONFIG_FILES } from "@/validation/config/scope";
-import { arbitraryDomainLiteral, sampleLiteralTestValue } from "@testing/generators/literal/literal";
+import { arbitraryDomainLiteral } from "@testing/generators/literal/literal";
 import { type FixtureName, HARNESS_TIMEOUT, PROJECT_FIXTURES } from "@testing/harnesses/with-validation-env";
 
 const PROPERTY_RUN_COUNT_MIN = 8;
@@ -262,8 +262,8 @@ export function validationCliPackagedExecutablePath(): string {
 
 export function validationCircularSubprocessScenarios(): ValidationSubprocessScenario[] {
   const args = [validationCliDefinition.subcommands.circular.commandName];
-  const runtimeAntiMarkers = Object.values(VALIDATION_RUNTIME_DIAGNOSTIC_ANTI_MARKERS);
-  const circularSkip = formatValidationSkipMessage(VALIDATION_STAGE_DISPLAY_NAMES.CIRCULAR);
+  const runtimeAntiMarkers = Object.values(VALIDATION_RUNTIME_ANTI_MARKERS);
+  const circularSkip = formatTypeScriptAbsentSkipMessage(VALIDATION_STAGE_DISPLAY_NAMES.CIRCULAR);
 
   return [
     {
@@ -331,8 +331,8 @@ export function validationCircularSubprocessScenarios(): ValidationSubprocessSce
 
 export function validationLintSubprocessScenarios(): ValidationSubprocessScenario[] {
   const args = [validationCliDefinition.subcommands.lint.commandName];
-  const runtimeAntiMarkers = Object.values(VALIDATION_RUNTIME_DIAGNOSTIC_ANTI_MARKERS);
-  const lintSkip = formatValidationSkipMessage(VALIDATION_STAGE_DISPLAY_NAMES.ESLINT);
+  const runtimeAntiMarkers = Object.values(VALIDATION_RUNTIME_ANTI_MARKERS);
+  const lintSkip = formatTypeScriptAbsentSkipMessage(VALIDATION_STAGE_DISPLAY_NAMES.ESLINT);
 
   return [
     {
@@ -388,7 +388,7 @@ export function validationLintSubprocessScenarios(): ValidationSubprocessScenari
 
 export function validationAllTypeScriptSubprocessScenarios(): ValidationSubprocessScenario[] {
   const args = [validationCliDefinition.subcommands.all.commandName];
-  const runtimeAntiMarkers = Object.values(VALIDATION_RUNTIME_DIAGNOSTIC_ANTI_MARKERS);
+  const runtimeAntiMarkers = Object.values(VALIDATION_RUNTIME_ANTI_MARKERS);
 
   return [
     {
@@ -415,9 +415,9 @@ export function validationAllTypeScriptSubprocessScenarios(): ValidationSubproce
       timeout: HARNESS_TIMEOUT,
       expectedExitCode: VALIDATION_EXIT_CODES.SUCCESS,
       stdoutIncludes: [
-        formatValidationSkipMessage(VALIDATION_STAGE_DISPLAY_NAMES.ESLINT),
-        formatValidationSkipMessage(VALIDATION_STAGE_DISPLAY_NAMES.TYPESCRIPT),
-        formatValidationSkipMessage(VALIDATION_STAGE_DISPLAY_NAMES.CIRCULAR),
+        formatTypeScriptAbsentSkipMessage(VALIDATION_STAGE_DISPLAY_NAMES.ESLINT),
+        formatTypeScriptAbsentSkipMessage(VALIDATION_STAGE_DISPLAY_NAMES.TYPESCRIPT),
+        formatTypeScriptAbsentSkipMessage(VALIDATION_STAGE_DISPLAY_NAMES.CIRCULAR),
         VALIDATION_STAGE_DISPLAY_NAMES.LITERAL,
       ],
       combinedIncludes: [],
@@ -514,9 +514,5 @@ export const VALIDATION_CLI_GENERATOR = {
   subprocessTimeout: arbitraryValidationCliSubprocessTimeout,
   propertyOptions: arbitraryValidationCliPropertyOptions,
 } as const;
-
-export function sampleValidationCliTestValue<T>(arbitrary: fc.Arbitrary<T>): T {
-  return sampleLiteralTestValue(arbitrary);
-}
 
 type LiteralProblemKindCandidate = (typeof LITERAL_PROBLEM_KINDS)[number];

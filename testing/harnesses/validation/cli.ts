@@ -6,8 +6,8 @@ import { join } from "node:path";
 import { expect } from "vitest";
 
 import { validationCliDefinition, validationDomain } from "@/domains/validation";
+import { sampleLiteralTestValue } from "@testing/generators/literal/literal";
 import {
-  sampleValidationCliTestValue,
   VALIDATION_CLI_GENERATOR,
   validationCliCommanderArgvPrefix,
   validationCliCommanderParseSource,
@@ -41,7 +41,7 @@ export async function runValidationSubprocess(
   const result = await execa(process.execPath, validationCliPackagedArgs(args), {
     cwd: options.cwd,
     reject: false,
-    timeout: options.timeout ?? sampleValidationCliTestValue(VALIDATION_CLI_GENERATOR.subprocessTimeout()),
+    timeout: options.timeout ?? sampleLiteralTestValue(VALIDATION_CLI_GENERATOR.subprocessTimeout()),
   });
   return {
     exitCode: result.exitCode ?? validationCliUnavailableExitCode(),

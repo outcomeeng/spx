@@ -3,8 +3,8 @@ import { describe, expect, it } from "vitest";
 import { LITERAL_PROBLEM_KIND } from "@/commands/validation";
 import { allValidationCliOptions, literalValidationCliOptions, validationCliDefinition } from "@/domains/validation";
 import { sanitizeCliArgument, SENTINEL_EMPTY } from "@/interfaces/cli/sanitize";
+import { sampleLiteralTestValue } from "@testing/generators/literal/literal";
 import {
-  sampleValidationCliTestValue,
   VALIDATION_CLI_GENERATOR,
   validationCliEmptyOutputLength,
   validationCliSuccessExitCodeUpperBound,
@@ -25,7 +25,7 @@ describe("spx validation dispatch — observable scenarios", () => {
   });
 
   it("unknown subcommand reaches the sanitized diagnostic path", async () => {
-    const unknownStage = sampleValidationCliTestValue(VALIDATION_CLI_GENERATOR.unknownSubcommand());
+    const unknownStage = sampleLiteralTestValue(VALIDATION_CLI_GENERATOR.unknownSubcommand());
     const result = await runValidationSubprocess([unknownStage]);
 
     expect(result.exitCode).toBe(validationCliDefinition.diagnostics.unknownSubcommand.exitCode);
@@ -35,7 +35,7 @@ describe("spx validation dispatch — observable scenarios", () => {
 
   it("empty argument reports the empty-value sentinel", async () => {
     const result = await runValidationSubprocess([
-      sampleValidationCliTestValue(VALIDATION_CLI_GENERATOR.emptyArgument()),
+      sampleLiteralTestValue(VALIDATION_CLI_GENERATOR.emptyArgument()),
     ]);
 
     expect(result.exitCode).toBe(validationCliDefinition.diagnostics.unknownSubcommand.exitCode);
@@ -43,7 +43,7 @@ describe("spx validation dispatch — observable scenarios", () => {
   });
 
   it("ASCII control characters are escaped before reaching stderr", async () => {
-    const unsafeArgument = sampleValidationCliTestValue(VALIDATION_CLI_GENERATOR.controlArgument());
+    const unsafeArgument = sampleLiteralTestValue(VALIDATION_CLI_GENERATOR.controlArgument());
     const result = await runValidationSubprocess([unsafeArgument]);
 
     expect(result.exitCode).toBe(validationCliDefinition.diagnostics.unknownSubcommand.exitCode);
@@ -52,7 +52,7 @@ describe("spx validation dispatch — observable scenarios", () => {
   });
 
   it("multi-byte Unicode arguments are preserved in stderr", async () => {
-    const unicodeArgument = sampleValidationCliTestValue(VALIDATION_CLI_GENERATOR.unicodeArgument());
+    const unicodeArgument = sampleLiteralTestValue(VALIDATION_CLI_GENERATOR.unicodeArgument());
     const result = await runValidationSubprocess([unicodeArgument]);
 
     expect(result.exitCode).toBe(validationCliDefinition.diagnostics.unknownSubcommand.exitCode);
@@ -111,7 +111,7 @@ describe("spx validation dispatch — observable scenarios", () => {
 
   it("unknown literal problem kind is rejected before detection", async () => {
     await withEmptyValidationProject(async (projectRoot) => {
-      const unsafeKind = sampleValidationCliTestValue(VALIDATION_CLI_GENERATOR.invalidLiteralProblemKind());
+      const unsafeKind = sampleLiteralTestValue(VALIDATION_CLI_GENERATOR.invalidLiteralProblemKind());
       const result = await runValidationSubprocess(
         [
           validationCliDefinition.subcommands.literal.commandName,

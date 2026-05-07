@@ -1,6 +1,7 @@
 /**
  * Shared types for validation commands.
  */
+import type { ValidationSubprocessOutputStreams } from "@/validation/steps/subprocess-output";
 import type { ValidationScope } from "@/validation/types";
 
 /** Result from a validation command */
@@ -34,6 +35,8 @@ export type TypeScriptCommandOptions = CommonValidationOptions;
 export interface LintCommandOptions extends CommonValidationOptions {
   /** Auto-fix issues */
   fix?: boolean;
+  /** Parent streams that receive ESLint subprocess output */
+  outputStreams?: ValidationSubprocessOutputStreams;
 }
 
 /** Options for circular command */

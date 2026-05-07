@@ -1,10 +1,6 @@
 import type { RuleTester } from "eslint";
 
-import {
-  VALIDATION_EXIT_CODES,
-  VALIDATION_PIPELINE,
-  VALIDATION_STAGE_DISPLAY_NAMES,
-} from "@/commands/validation/messages";
+import { VALIDATION_EXIT_CODES, VALIDATION_PIPELINE } from "@/commands/validation/messages";
 import { WORK_ITEM_KINDS, WORK_ITEM_STATUSES } from "@/lib/spec-legacy/types";
 import { ASYNC_SPAWN_OUTSIDE_LIFECYCLE_MESSAGE_ID } from "@eslint-rules/no-async-spawn-outside-lifecycle";
 import {
@@ -139,7 +135,7 @@ export function validationAstRuleTesterLanguageOptions(): {
 }
 
 export const VALIDATION_ESLINT_EXPECTED = {
-  zeroDiagnostics: ZERO_DIAGNOSTICS,
+  noDiagnostics: ZERO_DIAGNOSTICS,
   singleDiagnostic: SINGLE_DIAGNOSTIC,
   doubleDiagnostics: DOUBLE_DIAGNOSTIC,
   totalPipelineSteps: VALIDATION_PIPELINE.TOTAL_STEPS,
@@ -928,8 +924,6 @@ export const VALIDATION_ESLINT_RULE_IDS = {
   registryPositionAccess: NO_REGISTRY_POSITION_ACCESS_RULE_ID,
 } as const;
 
-export const VALIDATION_PIPELINE_STAGE_NAMES = VALIDATION_STAGE_DISPLAY_NAMES;
-
 export function validationRuleRegistrationCases(): ValidationGeneratedRuleRegistrationCase[] {
   return [
     {
@@ -1049,7 +1043,7 @@ export function validationLintScenarios(): ValidationGeneratedLintScenario[] {
       expectations: [
         {
           ruleId: NO_HARDCODED_WORK_ITEM_KINDS_RULE_ID,
-          count: VALIDATION_ESLINT_EXPECTED.zeroDiagnostics,
+          count: VALIDATION_ESLINT_EXPECTED.noDiagnostics,
         },
       ],
     },
@@ -1071,7 +1065,7 @@ export function validationLintScenarios(): ValidationGeneratedLintScenario[] {
       expectations: [
         {
           ruleId: NO_HARDCODED_STATUSES_RULE_ID,
-          count: VALIDATION_ESLINT_EXPECTED.zeroDiagnostics,
+          count: VALIDATION_ESLINT_EXPECTED.noDiagnostics,
         },
       ],
     },
@@ -1082,7 +1076,7 @@ export function validationLintScenarios(): ValidationGeneratedLintScenario[] {
       expectations: [
         {
           ruleId: NO_HARDCODED_STATUSES_RULE_ID,
-          count: VALIDATION_ESLINT_EXPECTED.zeroDiagnostics,
+          count: VALIDATION_ESLINT_EXPECTED.noDiagnostics,
         },
       ],
     },
@@ -1128,7 +1122,7 @@ export function validationLintScenarios(): ValidationGeneratedLintScenario[] {
       expectations: [
         {
           ruleId: NO_TEST_OWNED_DOMAIN_CONSTANTS_RULE_ID,
-          count: VALIDATION_ESLINT_EXPECTED.zeroDiagnostics,
+          count: VALIDATION_ESLINT_EXPECTED.noDiagnostics,
         },
       ],
     },

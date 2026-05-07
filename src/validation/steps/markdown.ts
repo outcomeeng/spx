@@ -25,7 +25,7 @@ import relativeLinksRule from "markdownlint-rule-relative-links";
 /** Default directories to validate when no --files are specified. */
 const DEFAULT_DIRECTORY_NAMES = ["spx", "docs"] as const;
 const MARKDOWN_FILE_EXTENSIONS: ReadonlySet<string> = new Set([".md", ".markdown"]);
-const MARKDOWN_DIRECTORY_GLOB = "**/*.md";
+export const MARKDOWN_DIRECTORY_GLOB = "**/*.md";
 
 /** Built-in markdownlint rules enabled for validation (MD024 excluded — configured per directory). */
 const ENABLED_RULES = {
@@ -44,6 +44,10 @@ export const MARKDOWN_CUSTOM_RULE_NAMES = relativeLinksRule.names;
 export const MARKDOWN_VALIDATION_TARGET_KIND = {
   DIRECTORY: "directory",
   FILE: "file",
+} as const;
+
+export const MARKDOWN_VALIDATION_TARGET_DIAGNOSTICS = {
+  MISSING_OR_UNRELATED_SCOPE: "not an existing directory or markdown file",
 } as const;
 
 /**
@@ -96,6 +100,24 @@ export interface MarkdownValidationTarget {
 
 export type MarkdownValidationTargetKind =
   (typeof MARKDOWN_VALIDATION_TARGET_KIND)[keyof typeof MARKDOWN_VALIDATION_TARGET_KIND];
+
+export interface MarkdownSkippedValidationTarget {
+  readonly path: string;
+  readonly reason: string;
+}
+
+export interface MarkdownValidationTargetResolution {
+  readonly skipped?: MarkdownSkippedValidationTarget;
+  readonly target?: MarkdownValidationTarget;
+}
+
+export interface MarkdownValidationTargetDeps {
+  readonly statSync: typeof statSync;
+}
+
+const defaultMarkdownValidationTargetDeps: MarkdownValidationTargetDeps = {
+  statSync,
+};
 
 // =============================================================================
 // CONFIGURATION
@@ -154,14 +176,29 @@ export function getDefaultDirectories(projectRoot: string): string[] {
     .filter((dir) => existsSync(dir));
 }
 
-export function classifyMarkdownValidationTarget(path: string): MarkdownValidationTarget | undefined {
-  if (isExistingDirectory(path)) {
-    return { kind: MARKDOWN_VALIDATION_TARGET_KIND.DIRECTORY, path };
+export function classifyMarkdownValidationTarget(
+  path: string,
+  deps: MarkdownValidationTargetDeps = defaultMarkdownValidationTargetDeps,
+): MarkdownValidationTarget | undefined {
+  return resolveMarkdownValidationTarget(path, deps).target;
+}
+
+export function resolveMarkdownValidationTarget(
+  path: string,
+  deps: MarkdownValidationTargetDeps = defaultMarkdownValidationTargetDeps,
+): MarkdownValidationTargetResolution {
+  if (isExistingDirectory(path, deps)) {
+    return { target: { kind: MARKDOWN_VALIDATION_TARGET_KIND.DIRECTORY, path } };
   }
-  if (hasMarkdownExtension(path)) {
-    return { kind: MARKDOWN_VALIDATION_TARGET_KIND.FILE, path };
+  if (hasMarkdownExtension(path) && isExistingFile(path, deps)) {
+    return { target: { kind: MARKDOWN_VALIDATION_TARGET_KIND.FILE, path } };
   }
-  return undefined;
+  return {
+    skipped: {
+      path,
+      reason: MARKDOWN_VALIDATION_TARGET_DIAGNOSTICS.MISSING_OR_UNRELATED_SCOPE,
+    },
+  };
 }
 
 // =============================================================================
@@ -332,9 +369,17 @@ function hasMarkdownExtension(path: string): boolean {
   return MARKDOWN_FILE_EXTENSIONS.has(path.slice(lastDot).toLowerCase());
 }
 
-function isExistingDirectory(path: string): boolean {
+function isExistingDirectory(path: string, deps: MarkdownValidationTargetDeps): boolean {
   try {
-    return statSync(path).isDirectory();
+    return deps.statSync(path).isDirectory();
+  } catch {
+    return false;
+  }
+}
+
+function isExistingFile(path: string, deps: MarkdownValidationTargetDeps): boolean {
+  try {
+    return deps.statSync(path).isFile();
   } catch {
     return false;
   }

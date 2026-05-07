@@ -20,11 +20,16 @@ const FEATURE_MARKDOWN_FILE = "feature.md";
 const TARGET_MARKDOWN_FILE = "target.md";
 const SOURCE_MARKDOWN_FILE = "source.md";
 const BROKEN_MARKDOWN_FILE = "broken.md";
+const BROKEN_MARKDOWN_EXTENSION_FILE = "broken.markdown";
+const MISSING_MARKDOWN_SCOPE_FILE = "missing.md";
+const UNRELATED_MARKDOWN_SCOPE_FILE = "notes.txt";
 const GUIDE_DIRECTORY_NAME = "guides";
+const MISSING_FIXTURE_DIAGNOSTIC = "Markdown validation scenario has no fixture";
 const DOCS_DIRECT_FILE_MD024_CONTENT = "# Page\n\n## Repeat\n\n## Repeat\n";
 const VALID_MARKDOWN_TARGET_CONTENT = "# Target\n\nContent.\n";
 const VALID_MARKDOWN_SOURCE_CONTENT = "# Source\n\n[valid](./target.md)\n";
 const BROKEN_MARKDOWN_CONTENT = "# Broken\n\n[broken](./does-not-exist.md)\n";
+const UNRELATED_MARKDOWN_SCOPE_CONTENT = "plain text\n";
 const MARKDOWN_HELP_FLAG = "--help";
 const FILES_FLAG = "--files";
 const EXPECTED_ZERO = 0;
@@ -61,6 +66,10 @@ export const MARKDOWN_SCENARIO_KIND = {
   E2E_VALID_DIRECTORY: "e2eValidDirectory",
   E2E_DIRECT_FILE: "e2eDirectFile",
   DOCS_DIRECT_FILE_MD024: "docsDirectFileMd024",
+  MISSING_FILE_SCOPE_DIAGNOSTIC: "missingFileScopeDiagnostic",
+  UNRELATED_FILE_SCOPE_DIAGNOSTIC: "unrelatedFileScopeDiagnostic",
+  MIXED_FILE_SCOPE_DIAGNOSTIC: "mixedFileScopeDiagnostic",
+  DIRECTORY_SCOPE_MD_ONLY: "directoryScopeMdOnly",
 } as const;
 
 export type MarkdownScenarioKind = (typeof MARKDOWN_SCENARIO_KIND)[keyof typeof MARKDOWN_SCENARIO_KIND];
@@ -88,11 +97,16 @@ export const MARKDOWN_VALIDATION_DATA = {
   targetMarkdownFile: TARGET_MARKDOWN_FILE,
   sourceMarkdownFile: SOURCE_MARKDOWN_FILE,
   brokenMarkdownFile: BROKEN_MARKDOWN_FILE,
+  brokenMarkdownExtensionFile: BROKEN_MARKDOWN_EXTENSION_FILE,
+  missingMarkdownScopeFile: MISSING_MARKDOWN_SCOPE_FILE,
+  unrelatedMarkdownScopeFile: UNRELATED_MARKDOWN_SCOPE_FILE,
   guideDirectoryName: GUIDE_DIRECTORY_NAME,
+  missingFixtureDiagnostic: MISSING_FIXTURE_DIAGNOSTIC,
   docsDirectFileMd024Content: DOCS_DIRECT_FILE_MD024_CONTENT,
   validMarkdownTargetContent: VALID_MARKDOWN_TARGET_CONTENT,
   validMarkdownSourceContent: VALID_MARKDOWN_SOURCE_CONTENT,
   brokenMarkdownContent: BROKEN_MARKDOWN_CONTENT,
+  unrelatedMarkdownScopeContent: UNRELATED_MARKDOWN_SCOPE_CONTENT,
   helpFlag: MARKDOWN_HELP_FLAG,
   filesFlag: FILES_FLAG,
   zero: EXPECTED_ZERO,
@@ -182,6 +196,11 @@ export function markdownUnitScenarios(): MarkdownValidationScenario[] {
       kind: MARKDOWN_SCENARIO_KIND.CONFIG_BUILDER,
       timeout: MARKDOWN_HARNESS_TIMEOUT,
     },
+    {
+      title: "directory targets recurse over md files only",
+      kind: MARKDOWN_SCENARIO_KIND.DIRECTORY_SCOPE_MD_ONLY,
+      timeout: MARKDOWN_HARNESS_TIMEOUT,
+    },
   ];
 }
 
@@ -209,6 +228,21 @@ export function markdownIntegrationScenarios(): MarkdownValidationScenario[] {
       title: "markdown failure fails the full pipeline",
       kind: MARKDOWN_SCENARIO_KIND.PIPELINE_FAILURE,
       fixture: MARKDOWN_FIXTURES.BROKEN_LINKS,
+      timeout: MARKDOWN_HARNESS_TIMEOUT,
+    },
+    {
+      title: "markdown command reports unrelated file scopes",
+      kind: MARKDOWN_SCENARIO_KIND.UNRELATED_FILE_SCOPE_DIAGNOSTIC,
+      timeout: MARKDOWN_HARNESS_TIMEOUT,
+    },
+    {
+      title: "markdown command reports missing file scopes",
+      kind: MARKDOWN_SCENARIO_KIND.MISSING_FILE_SCOPE_DIAGNOSTIC,
+      timeout: MARKDOWN_HARNESS_TIMEOUT,
+    },
+    {
+      title: "markdown command reports skipped file scopes while validating markdown scopes",
+      kind: MARKDOWN_SCENARIO_KIND.MIXED_FILE_SCOPE_DIAGNOSTIC,
       timeout: MARKDOWN_HARNESS_TIMEOUT,
     },
   ];
