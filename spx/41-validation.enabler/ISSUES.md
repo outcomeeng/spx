@@ -89,6 +89,14 @@ identified non-blocking follow-ups after the validation-gate cleanup:
   exports `VALIDATION_PIPELINE_STAGE_NAMES` as an alias for
   `VALIDATION_STAGE_DISPLAY_NAMES`. Fold this into the canonical validation
   metadata import-path cleanup.
+- [`testing/generators/validation/validation.ts`](../../testing/generators/validation/validation.ts)
+  exposes `sampleValidationCliTestValue()` as a thin wrapper around
+  `sampleLiteralTestValue()`. Give the helper a distinct validation contract or
+  import the canonical sampler at call sites.
+- [`testing/generators/validation/ast-enforcement.ts`](../../testing/generators/validation/ast-enforcement.ts)
+  names `VALIDATION_ESLINT_EXPECTED.zeroDiagnostics` with a label that repeats
+  its value. Rename it to describe the validation invariant or remove the
+  extra name.
 - [`src/validation/steps/subprocess-output.ts`](../../src/validation/steps/subprocess-output.ts)
   forwards child-process output with direct `write()` calls. Decide whether this
   helper should catch stream write errors or handle backpressure for large
