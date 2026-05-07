@@ -11,6 +11,7 @@ export const VALIDATION_PIPELINE = {
 
 export const VALIDATION_STAGE_DISPLAY_NAMES = {
   CIRCULAR: "Circular dependencies",
+  KNIP: "Knip",
   ESLINT: "ESLint",
   TYPESCRIPT: "TypeScript",
   MARKDOWN: "Markdown",
@@ -28,10 +29,13 @@ export const VALIDATION_SKIP_LABELS = {
 export const VALIDATION_COMMAND_OUTPUT = {
   CIRCULAR_FOUND: `${VALIDATION_STAGE_DISPLAY_NAMES.CIRCULAR} found`,
   CIRCULAR_NONE_FOUND: `${VALIDATION_STAGE_DISPLAY_NAMES.CIRCULAR}: ✓ None found`,
+  KNIP_DISABLED:
+    `${VALIDATION_STAGE_DISPLAY_NAMES.KNIP}: skipped (disabled by default, set KNIP_VALIDATION_ENABLED=1 to enable)`,
+  KNIP_SUCCESS: `${VALIDATION_STAGE_DISPLAY_NAMES.KNIP}: ✓ No unused code found`,
+  KNIP_FAILURE: "Unused code found",
   ESLINT_SUCCESS: `${VALIDATION_STAGE_DISPLAY_NAMES.ESLINT}: ✓ No errors found`,
   ESLINT_FAILURE: `${VALIDATION_STAGE_DISPLAY_NAMES.ESLINT} validation failed`,
-  ESLINT_MISSING_CONFIG:
-    "ESLint config not found: project has tsconfig.json but no eslint.config.{ts,js,mjs,cjs}",
+  ESLINT_MISSING_CONFIG: "ESLint config not found: project has tsconfig.json but no eslint.config.{ts,js,mjs,cjs}",
   TYPESCRIPT_SUCCESS: `${VALIDATION_STAGE_DISPLAY_NAMES.TYPESCRIPT}: ✓ No type errors`,
   TYPESCRIPT_FAILURE: `${VALIDATION_STAGE_DISPLAY_NAMES.TYPESCRIPT} validation failed`,
   MARKDOWN_NO_ISSUES: `${VALIDATION_STAGE_DISPLAY_NAMES.MARKDOWN}: No issues found`,
