@@ -42,7 +42,7 @@ Children of the rebuilt subtree:
 The following legacy test files were deleted after confirming the rebuilt subtree's integration and unit tests exercise equivalent behavior:
 
 - `tests/unit/validation/{argument-builders,scope-resolution,extracted-functions,tool-finder}.test.ts` — internal helpers exercised transitively by `32-{lint,type-check,circular-deps}.enabler/tests/*.integration.test.ts`
-- `tests/integration/validation/{tool-finder,typecheck-scripts}.integration.test.ts` — tool discovery and tsc-on-scripts covered by `32-type-check.enabler/tests/type-check.integration.test.ts`
+- `tests/integration/validation/{tool-finder,typecheck-scripts}.integration.test.ts` — tool discovery and tsc-on-scripts covered by `32-type-check.enabler/tests/type-check.scenario.l2.test.ts`
 - `tests/unit/commands/validation/format.test.ts` — duration and output formatting covered by `41-validation.enabler/tests/validation.integration.test.ts` (C3: step duration annotation)
 - `tests/integration/commands/validation/output.integration.test.ts` — step output sequencing covered by `41-validation.enabler/tests/validation.integration.test.ts` (S5: ordered step completion)
 - `tests/integration/cli/validation.integration.test.ts` — CLI surface covered by the subtree's integration tests and `21-validation-cli.enabler/tests/dispatch.*.test.ts`

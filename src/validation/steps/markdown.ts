@@ -8,8 +8,8 @@
  * @module validation/steps/markdown
  */
 
-import { existsSync } from "node:fs";
-import { basename, join } from "node:path";
+import { existsSync, statSync } from "node:fs";
+import { basename, dirname, join, relative as pathRelative } from "node:path";
 
 import { createIgnoreSourceReader, IGNORE_SOURCE_FILENAME_DEFAULT } from "@/lib/file-inclusion/ignore-source";
 import { SPEC_TREE_CONFIG } from "@/lib/spec-tree/config";
@@ -24,6 +24,8 @@ import relativeLinksRule from "markdownlint-rule-relative-links";
 
 /** Default directories to validate when no --files are specified. */
 const DEFAULT_DIRECTORY_NAMES = ["spx", "docs"] as const;
+const MARKDOWN_FILE_EXTENSIONS: ReadonlySet<string> = new Set([".md", ".markdown"]);
+const MARKDOWN_DIRECTORY_GLOB = "**/*.md";
 
 /** Built-in markdownlint rules enabled for validation (MD024 excluded — configured per directory). */
 const ENABLED_RULES = {
@@ -39,6 +41,10 @@ const ENABLED_RULES = {
 const MD024_DISABLED_DIRECTORIES = ["docs"] as const;
 
 export const MARKDOWN_CUSTOM_RULE_NAMES = relativeLinksRule.names;
+export const MARKDOWN_VALIDATION_TARGET_KIND = {
+  DIRECTORY: "directory",
+  FILE: "file",
+} as const;
 
 /**
  * Pattern for parsing markdownlint-cli2 default formatter output.
@@ -77,11 +83,19 @@ interface MarkdownlintRule {
 
 /** Options for the validateMarkdown function. */
 export interface ValidateMarkdownOptions {
-  /** Directories to validate. */
-  directories: string[];
+  /** Files or directories to validate. */
+  targets: MarkdownValidationTarget[];
   /** Project root for resolving project-absolute links. */
   projectRoot?: string;
 }
+
+export interface MarkdownValidationTarget {
+  readonly kind: MarkdownValidationTargetKind;
+  readonly path: string;
+}
+
+export type MarkdownValidationTargetKind =
+  (typeof MARKDOWN_VALIDATION_TARGET_KIND)[keyof typeof MARKDOWN_VALIDATION_TARGET_KIND];
 
 // =============================================================================
 // CONFIGURATION
@@ -138,6 +152,16 @@ export function getDefaultDirectories(projectRoot: string): string[] {
   return DEFAULT_DIRECTORY_NAMES
     .map((name) => join(projectRoot, name))
     .filter((dir) => existsSync(dir));
+}
+
+export function classifyMarkdownValidationTarget(path: string): MarkdownValidationTarget | undefined {
+  if (isExistingDirectory(path)) {
+    return { kind: MARKDOWN_VALIDATION_TARGET_KIND.DIRECTORY, path };
+  }
+  if (hasMarkdownExtension(path)) {
+    return { kind: MARKDOWN_VALIDATION_TARGET_KIND.FILE, path };
+  }
+  return undefined;
 }
 
 // =============================================================================
@@ -203,18 +227,18 @@ function parseErrorLine(line: string): MarkdownError | null {
 // =============================================================================
 
 /**
- * Validate markdown files in the specified directories.
+ * Validate markdown files in the specified targets.
  *
  * Uses markdownlint-cli2's programmatic API with in-code configuration.
  * No config files are written to validated directories.
  *
- * @param options - Validation options including directories and project root
+ * @param options - Validation options including targets and project root
  * @returns Validation result with success status and structured errors
  *
  * @example
  * ```typescript
  * const result = await validateMarkdown({
- *   directories: ["/path/to/spx", "/path/to/docs"],
+ *   targets: [{ kind: MARKDOWN_VALIDATION_TARGET_KIND.DIRECTORY, path: "/path/to/spx" }],
  *   projectRoot: "/path/to/project",
  * });
  * if (!result.success) {
@@ -227,14 +251,15 @@ function parseErrorLine(line: string): MarkdownError | null {
 export async function validateMarkdown(
   options: ValidateMarkdownOptions,
 ): Promise<MarkdownValidationResult> {
-  const { directories, projectRoot } = options;
+  const { targets, projectRoot } = options;
   const errors: MarkdownError[] = [];
   const excludeGlobs = getExcludeGlobs(projectRoot);
 
-  for (const directory of directories) {
-    const dirName = basename(directory);
+  for (const target of targets) {
+    const directory = targetDirectory(target);
+    const dirName = markdownlintConfigDirectoryName(directory, projectRoot);
     const config = buildMarkdownlintConfig(dirName);
-    const dirErrors = await validateDirectory(directory, config, projectRoot, excludeGlobs);
+    const dirErrors = await validateTarget(target, config, projectRoot, excludeGlobs);
     errors.push(...dirErrors);
   }
 
@@ -245,20 +270,24 @@ export async function validateMarkdown(
 }
 
 /**
- * Validate a single directory using markdownlint-cli2's programmatic API.
+ * Validate a single target using markdownlint-cli2's programmatic API.
  *
- * @param directory - Absolute path to the directory to validate
+ * @param target - Absolute path target to validate
  * @param config - Markdownlint configuration object
  * @param projectRoot - Optional project root for resolving project-absolute links
  * @returns Array of structured errors found in the directory
  */
-async function validateDirectory(
-  directory: string,
+async function validateTarget(
+  target: MarkdownValidationTarget,
   config: ReturnType<typeof buildMarkdownlintConfig>,
   projectRoot?: string,
   ignoreGlobs: string[] = [],
 ): Promise<MarkdownError[]> {
   const errors: MarkdownError[] = [];
+  const directory = targetDirectory(target);
+  const argv = target.kind === MARKDOWN_VALIDATION_TARGET_KIND.FILE
+    ? [basename(target.path)]
+    : [MARKDOWN_DIRECTORY_GLOB];
 
   const { customRules, ...markdownlintConfig } = config;
 
@@ -275,7 +304,7 @@ async function validateDirectory(
 
   await markdownlintMain({
     directory,
-    argv: ["**/*.md"],
+    argv,
     optionsOverride,
     noImport: true,
     logMessage: () => {},
@@ -291,4 +320,32 @@ async function validateDirectory(
   });
 
   return errors;
+}
+
+function targetDirectory(target: MarkdownValidationTarget): string {
+  return target.kind === MARKDOWN_VALIDATION_TARGET_KIND.FILE ? dirname(target.path) : target.path;
+}
+
+function hasMarkdownExtension(path: string): boolean {
+  const lastDot = path.lastIndexOf(".");
+  if (lastDot < 0) return false;
+  return MARKDOWN_FILE_EXTENSIONS.has(path.slice(lastDot).toLowerCase());
+}
+
+function isExistingDirectory(path: string): boolean {
+  try {
+    return statSync(path).isDirectory();
+  } catch {
+    return false;
+  }
+}
+
+function markdownlintConfigDirectoryName(directory: string, projectRoot: string | undefined): string {
+  if (projectRoot !== undefined) {
+    const [rootSegment] = pathRelative(projectRoot, directory).split(/[\\/]/);
+    if (MD024_DISABLED_DIRECTORIES.includes(rootSegment as (typeof MD024_DISABLED_DIRECTORIES)[number])) {
+      return rootSegment;
+    }
+  }
+  return basename(directory);
 }

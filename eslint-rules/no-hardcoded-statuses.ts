@@ -19,6 +19,12 @@ import {
   isTestFile,
 } from "./test-literal-context";
 
+import { SPX_RULE_PREFIX } from "./import-source";
+
+export const NO_HARDCODED_STATUSES_RULE_NAME = "no-hardcoded-statuses";
+export const NO_HARDCODED_STATUSES_RULE_ID = `${SPX_RULE_PREFIX}${NO_HARDCODED_STATUSES_RULE_NAME}` as const;
+export const USE_WORK_ITEM_STATUSES_MESSAGE_ID = "useWorkItemStatuses";
+
 const WORK_ITEM_STATUS_VALUES: ReadonlySet<string> = new Set(WORK_ITEM_STATUSES);
 
 const rule: Rule.RuleModule = {
@@ -32,7 +38,7 @@ const rule: Rule.RuleModule = {
     fixable: undefined,
     schema: [],
     messages: {
-      useWorkItemStatuses:
+      [USE_WORK_ITEM_STATUSES_MESSAGE_ID]:
         "Do not hardcode source-owned status '{{value}}'. Import WORK_ITEM_STATUSES from '@/types' and reference that registry.",
     },
   },
@@ -51,7 +57,7 @@ const rule: Rule.RuleModule = {
 
         context.report({
           node: node as never,
-          messageId: "useWorkItemStatuses",
+          messageId: USE_WORK_ITEM_STATUSES_MESSAGE_ID,
           data: { value: node.value },
         });
       },

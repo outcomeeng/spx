@@ -14,6 +14,14 @@
 import type { Rule } from "eslint";
 import type { Node as ESTreeNode } from "estree";
 
+import { SPX_RULE_PREFIX } from "./import-source";
+
+export const NO_BDD_TRY_CATCH_ANTI_PATTERN_RULE_NAME = "no-bdd-try-catch-anti-pattern";
+export const NO_BDD_TRY_CATCH_ANTI_PATTERN_RULE_ID =
+  `${SPX_RULE_PREFIX}${NO_BDD_TRY_CATCH_ANTI_PATTERN_RULE_NAME}` as const;
+export const HIDDEN_ASSERTIONS_MESSAGE_ID = "hiddenAssertions";
+export const EMPTY_SWALLOWING_MESSAGE_ID = "emptySwallowing";
+
 function isExpectCall(node: ESTreeNode): boolean {
   if (node.type !== "CallExpression") return false;
   if (node.callee.type === "Identifier" && node.callee.name === "expect") {
@@ -65,9 +73,9 @@ const rule: Rule.RuleModule = {
       description: "Prevent test assertions hidden in try-catch blocks that swallow errors",
     },
     messages: {
-      hiddenAssertions:
+      [HIDDEN_ASSERTIONS_MESSAGE_ID]:
         "Test assertions inside try-catch with no re-throw. The catch block silently suppresses assertion failures — the test passes when it should fail. Remove the try-catch, or re-throw the error.",
-      emptySwallowing:
+      [EMPTY_SWALLOWING_MESSAGE_ID]:
         "Empty catch block swallows test assertion failures. Remove the try-catch, or re-throw the error.",
     },
   },
@@ -81,12 +89,12 @@ const rule: Rule.RuleModule = {
         if (!containsExpectCalls(node.block)) return;
 
         if (catchClause.body.body.length === 0) {
-          context.report({ node, messageId: "emptySwallowing" });
+          context.report({ node, messageId: EMPTY_SWALLOWING_MESSAGE_ID });
           return;
         }
 
         if (!catchClauseReThrows(catchClause)) {
-          context.report({ node, messageId: "hiddenAssertions" });
+          context.report({ node, messageId: HIDDEN_ASSERTIONS_MESSAGE_ID });
         }
       },
     };

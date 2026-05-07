@@ -6,7 +6,14 @@
  * markdownlint-cli2 is a production dependency, always available.
  */
 
-import { getDefaultDirectories, validateMarkdown } from "@/validation/steps/markdown";
+import {
+  classifyMarkdownValidationTarget,
+  getDefaultDirectories,
+  MARKDOWN_VALIDATION_TARGET_KIND,
+  type MarkdownValidationTarget,
+  validateMarkdown,
+} from "@/validation/steps/markdown";
+import { VALIDATION_COMMAND_OUTPUT, VALIDATION_SKIP_LABELS, VALIDATION_STAGE_DISPLAY_NAMES } from "./messages";
 import type { MarkdownCommandOptions, ValidationCommandResult } from "./types";
 
 /**
@@ -30,42 +37,35 @@ import type { MarkdownCommandOptions, ValidationCommandResult } from "./types";
  * });
  * ```
  */
-const MARKDOWN_EXTENSIONS = new Set([".md", ".markdown"]);
 export const MARKDOWN_COMMAND_OUTPUT = {
-  ERROR_SUMMARY_SUFFIX: "error(s) found",
-  NO_ISSUES: "Markdown: No issues found",
+  ERROR_SUMMARY_SUFFIX: VALIDATION_COMMAND_OUTPUT.MARKDOWN_ERROR_SUMMARY_SUFFIX,
+  NO_ISSUES: VALIDATION_COMMAND_OUTPUT.MARKDOWN_NO_ISSUES,
 } as const;
-
-function isMarkdownOrDirectory(path: string): boolean {
-  const lastDot = path.lastIndexOf(".");
-  if (lastDot < 0) return true;
-  const ext = path.slice(lastDot).toLowerCase();
-  return MARKDOWN_EXTENSIONS.has(ext);
-}
 
 export async function markdownCommand(options: MarkdownCommandOptions): Promise<ValidationCommandResult> {
   const { cwd, files, quiet } = options;
   const startTime = Date.now();
 
-  const markdownScopedFiles = files?.filter(isMarkdownOrDirectory);
+  const targets = files && files.length > 0
+    ? files
+      .map((filePath) => classifyMarkdownValidationTarget(filePath))
+      .filter((target): target is MarkdownValidationTarget => target !== undefined)
+    : getDefaultDirectories(cwd).map((path) => ({
+      kind: MARKDOWN_VALIDATION_TARGET_KIND.DIRECTORY,
+      path,
+    }));
 
-  const directories = markdownScopedFiles && markdownScopedFiles.length > 0
-    ? markdownScopedFiles
-    : files && files.length > 0
-    ? []
-    : getDefaultDirectories(cwd);
-
-  if (directories.length === 0) {
+  if (targets.length === 0) {
     const reason = files && files.length > 0
-      ? "no markdown files in --files scope"
-      : "no spx/ or docs/ directories found";
-    const output = quiet ? "" : `Markdown: skipped (${reason})`;
+      ? VALIDATION_SKIP_LABELS.MARKDOWN_NO_SCOPE_REASON
+      : VALIDATION_SKIP_LABELS.MARKDOWN_NO_DEFAULT_DIRECTORIES_REASON;
+    const output = quiet ? "" : `${VALIDATION_STAGE_DISPLAY_NAMES.MARKDOWN}: skipped (${reason})`;
     return { exitCode: 0, output, durationMs: Date.now() - startTime };
   }
 
   // Run markdown validation
   const result = await validateMarkdown({
-    directories,
+    targets,
     projectRoot: cwd,
   });
   const durationMs = Date.now() - startTime;

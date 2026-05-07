@@ -7,11 +7,11 @@ import { getTypeScriptScope } from "@/validation/config/scope";
 import { detectTypeScript, discoverTool, formatSkipMessage } from "@/validation/discovery/index";
 import { validateESLint } from "@/validation/steps/eslint";
 import type { ValidationContext } from "@/validation/types";
+import { formatValidationSkipMessage, VALIDATION_COMMAND_OUTPUT, VALIDATION_STAGE_DISPLAY_NAMES } from "./messages";
 import type { LintCommandOptions, ValidationCommandResult } from "./types";
 
-const TYPESCRIPT_ABSENT_MESSAGE = "⏭ Skipping ESLint (TypeScript not detected in project)";
-const MISSING_CONFIG_MESSAGE =
-  "ESLint config not found: project has tsconfig.json but no eslint.config.{ts,js,mjs,cjs}";
+const TYPESCRIPT_ABSENT_MESSAGE = formatValidationSkipMessage(VALIDATION_STAGE_DISPLAY_NAMES.ESLINT);
+const MISSING_CONFIG_MESSAGE = VALIDATION_COMMAND_OUTPUT.ESLINT_MISSING_CONFIG;
 
 /**
  * Run ESLint validation.
@@ -50,7 +50,7 @@ export async function lintCommand(options: LintCommandOptions): Promise<Validati
   // Gate 3: tool discovery — ensure ESLint itself is available somewhere.
   const toolResult = await discoverTool("eslint", { projectRoot: cwd });
   if (!toolResult.found) {
-    const skipMessage = formatSkipMessage("ESLint", toolResult);
+    const skipMessage = formatSkipMessage(VALIDATION_STAGE_DISPLAY_NAMES.ESLINT, toolResult);
     return { exitCode: 0, output: skipMessage, durationMs: Date.now() - startTime };
   }
 
@@ -75,10 +75,10 @@ export async function lintCommand(options: LintCommandOptions): Promise<Validati
 
   // Map result to command output
   if (result.success) {
-    const output = quiet ? "" : `ESLint: ✓ No errors found`;
+    const output = quiet ? "" : VALIDATION_COMMAND_OUTPUT.ESLINT_SUCCESS;
     return { exitCode: 0, output, durationMs };
   } else {
-    const output = result.error ?? "ESLint validation failed";
+    const output = result.error ?? VALIDATION_COMMAND_OUTPUT.ESLINT_FAILURE;
     return { exitCode: 1, output, durationMs };
   }
 }

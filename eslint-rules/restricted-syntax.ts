@@ -6,6 +6,8 @@
  * full ESLint config dependency tree.
  */
 
+export const NO_RESTRICTED_SYNTAX_RULE_ID = "no-restricted-syntax";
+
 /** Selectors applied to all TypeScript files. */
 export const tsRestrictedSyntax = [
   {

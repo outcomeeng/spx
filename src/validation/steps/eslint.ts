@@ -13,6 +13,11 @@ import { lifecycleProcessRunner } from "@/lib/process-lifecycle";
 import { validateLintPolicy } from "@/validation/lint-policy";
 import type { ExecutionMode, ProcessRunner, ValidationContext } from "../types";
 import { EXECUTION_MODES, VALIDATION_SCOPES } from "../types";
+import {
+  forwardValidationSubprocessOutput,
+  VALIDATION_SUBPROCESS_EVENTS,
+  VALIDATION_SUBPROCESS_STDIO,
+} from "./subprocess-output";
 
 // =============================================================================
 // DEFAULT DEPENDENCIES
@@ -139,10 +144,11 @@ export async function validateESLint(
     const spawnArgs = binary === "npx" ? eslintArgs : eslintArgs.slice(1);
     const eslintProcess = runner.spawn(binary, spawnArgs, {
       cwd: projectRoot,
-      stdio: "inherit",
+      stdio: VALIDATION_SUBPROCESS_STDIO,
     });
+    forwardValidationSubprocessOutput(eslintProcess);
 
-    eslintProcess.on("close", (code) => {
+    eslintProcess.on(VALIDATION_SUBPROCESS_EVENTS.CLOSE, (code) => {
       if (code === 0) {
         resolve({ success: true });
       } else {
@@ -150,7 +156,7 @@ export async function validateESLint(
       }
     });
 
-    eslintProcess.on("error", (error) => {
+    eslintProcess.on(VALIDATION_SUBPROCESS_EVENTS.ERROR, (error) => {
       resolve({ success: false, error: error.message });
     });
   });

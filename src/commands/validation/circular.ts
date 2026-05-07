@@ -6,11 +6,12 @@
 import { getTypeScriptScope } from "@/validation/config/scope";
 import { detectTypeScript, discoverTool, formatSkipMessage } from "@/validation/discovery/index";
 import { validateCircularDependencies } from "@/validation/steps/circular";
+import { formatValidationSkipMessage, VALIDATION_COMMAND_OUTPUT, VALIDATION_STAGE_DISPLAY_NAMES } from "./messages";
 import type { CircularCommandOptions, ValidationCommandResult } from "./types";
 
-const TYPESCRIPT_ABSENT_MESSAGE = "⏭ Skipping Circular dependencies (TypeScript not detected in project)";
+const TYPESCRIPT_ABSENT_MESSAGE = formatValidationSkipMessage(VALIDATION_STAGE_DISPLAY_NAMES.CIRCULAR);
 export const CIRCULAR_DEPENDENCY_OUTPUT = {
-  FOUND: "Circular dependencies found",
+  FOUND: VALIDATION_COMMAND_OUTPUT.CIRCULAR_FOUND,
 } as const;
 
 /**
@@ -53,7 +54,7 @@ export async function circularCommand(options: CircularCommandOptions): Promise<
 
   // Map result to command output
   if (result.success) {
-    const output = quiet ? "" : `Circular dependencies: ✓ None found`;
+    const output = quiet ? "" : VALIDATION_COMMAND_OUTPUT.CIRCULAR_NONE_FOUND;
     return { exitCode: 0, output, durationMs };
   } else {
     // Format circular dependency output

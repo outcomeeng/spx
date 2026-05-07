@@ -8,6 +8,7 @@
 import type { Rule } from "eslint";
 
 import { WORK_ITEM_KINDS } from "../src/lib/spec-legacy/types";
+import { SPX_RULE_PREFIX } from "./import-source";
 
 import {
   isInTestDescription,
@@ -16,6 +17,11 @@ import {
   isStringLiteralNode,
   isTestFile,
 } from "./test-literal-context";
+
+export const NO_HARDCODED_WORK_ITEM_KINDS_RULE_NAME = "no-hardcoded-work-item-kinds";
+export const NO_HARDCODED_WORK_ITEM_KINDS_RULE_ID =
+  `${SPX_RULE_PREFIX}${NO_HARDCODED_WORK_ITEM_KINDS_RULE_NAME}` as const;
+export const USE_WORK_ITEM_KINDS_MESSAGE_ID = "useWorkItemKinds";
 
 const WORK_ITEM_KIND_VALUES: ReadonlySet<string> = new Set(WORK_ITEM_KINDS);
 
@@ -30,7 +36,7 @@ const rule: Rule.RuleModule = {
     fixable: undefined,
     schema: [],
     messages: {
-      useWorkItemKinds:
+      [USE_WORK_ITEM_KINDS_MESSAGE_ID]:
         "Do not hardcode source-owned work item kind '{{value}}'. Import WORK_ITEM_KINDS from '@/types' and reference that registry.",
     },
   },
@@ -49,7 +55,7 @@ const rule: Rule.RuleModule = {
 
         context.report({
           node: node as never,
-          messageId: "useWorkItemKinds",
+          messageId: USE_WORK_ITEM_KINDS_MESSAGE_ID,
           data: { value: node.value },
         });
       },

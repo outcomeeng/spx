@@ -6,7 +6,7 @@
  * @module validation/steps/typescript
  */
 
-import { existsSync, mkdirSync, rmSync, writeFileSync } from "node:fs";
+import { existsSync, rmSync, writeFileSync } from "node:fs";
 import { mkdtemp } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { isAbsolute, join } from "node:path";
@@ -15,6 +15,13 @@ import { lifecycleProcessRunner } from "@/lib/process-lifecycle";
 import { TSCONFIG_FILES } from "../config/scope";
 import type { ProcessRunner, ScopeConfig, ValidationScope } from "../types";
 import { VALIDATION_SCOPES } from "../types";
+import {
+  defaultValidationSubprocessOutputStreams,
+  forwardValidationSubprocessOutput,
+  VALIDATION_SUBPROCESS_EVENTS,
+  VALIDATION_SUBPROCESS_STDIO,
+  type ValidationSubprocessOutputStreams,
+} from "./subprocess-output";
 
 // =============================================================================
 // DEFAULT DEPENDENCIES
@@ -33,7 +40,6 @@ export interface TypeScriptDeps {
   writeFileSync: typeof writeFileSync;
   rmSync: typeof rmSync;
   existsSync: typeof existsSync;
-  mkdirSync: typeof mkdirSync;
 }
 
 /**
@@ -44,7 +50,6 @@ export const defaultTypeScriptDeps: TypeScriptDeps = {
   writeFileSync,
   rmSync,
   existsSync,
-  mkdirSync,
 };
 
 // =============================================================================
@@ -154,6 +159,7 @@ export async function validateTypeScript(
   files?: string[],
   runner: ProcessRunner = defaultTypeScriptProcessRunner,
   deps: TypeScriptDeps = defaultTypeScriptDeps,
+  outputStreams: ValidationSubprocessOutputStreams = defaultValidationSubprocessOutputStreams,
 ): Promise<{
   success: boolean;
   error?: string;
@@ -172,14 +178,15 @@ export async function validateTypeScript(
     try {
       return await new Promise((resolve) => {
         const tscBin = join(process.cwd(), "node_modules", ".bin", "tsc");
-        const tscBinary = existsSync(tscBin) ? tscBin : "npx";
+        const tscBinary = deps.existsSync(tscBin) ? tscBin : "npx";
         const tscArgs = tscBinary === "npx" ? ["tsc", "--project", configPath] : ["--project", configPath];
         const tscProcess = runner.spawn(tscBinary, tscArgs, {
           cwd: process.cwd(),
-          stdio: "inherit",
+          stdio: VALIDATION_SUBPROCESS_STDIO,
         });
+        forwardValidationSubprocessOutput(tscProcess, outputStreams);
 
-        tscProcess.on("close", (code) => {
+        tscProcess.on(VALIDATION_SUBPROCESS_EVENTS.CLOSE, (code) => {
           cleanup();
           if (code === 0) {
             resolve({ success: true, skipped: false });
@@ -188,7 +195,7 @@ export async function validateTypeScript(
           }
         });
 
-        tscProcess.on("error", (error) => {
+        tscProcess.on(VALIDATION_SUBPROCESS_EVENTS.ERROR, (error) => {
           cleanup();
           resolve({ success: false, error: error.message });
         });
@@ -201,7 +208,7 @@ export async function validateTypeScript(
   } else {
     // Full validation using tsc
     const tscBin = join(process.cwd(), "node_modules", ".bin", "tsc");
-    tool = existsSync(tscBin) ? tscBin : "npx";
+    tool = deps.existsSync(tscBin) ? tscBin : "npx";
     const rawArgs = buildTypeScriptArgs({ scope, configFile });
     tscArgs = tool === "npx" ? rawArgs : rawArgs.slice(1);
   }
@@ -209,10 +216,11 @@ export async function validateTypeScript(
   return new Promise((resolve) => {
     const tscProcess = runner.spawn(tool, tscArgs, {
       cwd: process.cwd(),
-      stdio: "inherit",
+      stdio: VALIDATION_SUBPROCESS_STDIO,
     });
+    forwardValidationSubprocessOutput(tscProcess, outputStreams);
 
-    tscProcess.on("close", (code) => {
+    tscProcess.on(VALIDATION_SUBPROCESS_EVENTS.CLOSE, (code) => {
       if (code === 0) {
         resolve({ success: true, skipped: false });
       } else {
@@ -220,7 +228,7 @@ export async function validateTypeScript(
       }
     });
 
-    tscProcess.on("error", (error) => {
+    tscProcess.on(VALIDATION_SUBPROCESS_EVENTS.ERROR, (error) => {
       resolve({ success: false, error: error.message });
     });
   });

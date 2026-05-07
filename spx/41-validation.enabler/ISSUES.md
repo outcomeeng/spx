@@ -1,26 +1,5 @@
 # Known Issues: 41-validation.enabler
 
-## TypeScript-validation integration test launders source-owned step display names
-
-[`spx/41-validation.enabler/32-typescript-validation.enabler/tests/typescript-validation.integration.test.ts:20-27`](32-typescript-validation.enabler/tests/typescript-validation.integration.test.ts) declares 11 test-owned semantic constants (`NPX_INSTALL_PROMPT`, `ENOENT_MARKER`, `ESLINT_OUTPUT_MARKER`, `TSC_OUTPUT_MARKER`, `CIRCULAR_OUTPUT_MARKER`, `LITERAL_OUTPUT_MARKER`, `ESLINT_SKIP_MARKER`, `TSC_SKIP_MARKER`, `CIRCULAR_SKIP_MARKER`, `LITERAL_SKIP_MARKER`, `EXIT_SUCCESS=0`).
-
-Eight of the eleven match per-stage display labels (`"ESLint"`, `"TypeScript"`, `"Circular"`, `"Literal"`) and the skip-prefix label (`"Skipping ESLint"`, etc.) currently inlined as string literals across [`src/commands/validation/lint.ts:12,53,78,81`](../../src/commands/validation/lint.ts), [`src/commands/validation/typescript.ts:11,40,53,56`](../../src/commands/validation/typescript.ts), [`src/commands/validation/circular.ts:11,43,56,60,65`](../../src/commands/validation/circular.ts), and [`src/commands/validation/literal.ts:48-50`](../../src/commands/validation/literal.ts).
-
-This is an ADR-21 NEVER violation per [`32-typescript-validation.enabler/21-typescript-conventions.adr.md`](32-typescript-validation.enabler/21-typescript-conventions.adr.md): test-owned semantic constants in test files duplicate values that should originate at one source-side declaration site.
-
-**Remediation:**
-
-1. Add `src/validation/orchestration/step-display.ts` exporting:
-   - `VALIDATION_STEP_DISPLAY_NAMES = { ESLINT: "ESLint", TYPESCRIPT: "TypeScript", CIRCULAR: "Circular dependencies", LITERAL: "Literal", KNIP: "Knip", MARKDOWN: "Markdown" } as const` and the corresponding union type
-   - `VALIDATION_SKIP_VERB = "Skipping"` and a `formatStageSkipMessage(step, reason)` helper
-2. Refactor each stage's `TYPESCRIPT_ABSENT_MESSAGE` and `formatSkipMessage` call to compose from the registry.
-3. Rewrite the integration test to import `VALIDATION_STEP_DISPLAY_NAMES` and assert `expect(result.stdout).toContain(VALIDATION_STEP_DISPLAY_NAMES.ESLINT)` etc.
-4. For the runtime tokens `"ENOENT"` and `"Need to install the following packages"`, expose a `RUNTIME_DIAGNOSTIC_ANTI_MARKERS` registry the test can import (the strings represent regressions spx orchestration must avoid emitting; that statement belongs in source as a named constraint).
-
-**Scope:** independent of the literal-reuse refactor; a separate cleanup pass after the in-flight cycle lands.
-
----
-
 ## `allCommand` hardcodes stage dispatch (ADR-19 violation)
 
 `src/commands/validation/all.ts` imports each stage handler by name and invokes it in a fixed sequence. This violates [ADR-19 language registration](../19-language-registration.adr.md), which mandates:
@@ -81,3 +60,70 @@ spx validation all src/             # all validators scoped to src/
 **Scope:** follow-up work, not part of any in-flight cycle.
 
 ---
+
+## PR 15 review follow-ups for validation metadata and markdown targets
+
+The review on
+[`outcomeeng/spx#15`](https://github.com/outcomeeng/spx/pull/15#issuecomment-4398198837)
+identified non-blocking follow-ups after the validation-gate cleanup:
+
+- [`src/commands/validation/messages.ts`](../../src/commands/validation/messages.ts)
+  exposes `formatValidationSkipMessage(stageName)`, but the function always
+  uses the TypeScript-absent skip reason. Rename it to
+  `formatTypeScriptAbsentSkipMessage(stageName)` or accept a source-owned
+  reason parameter.
+- [`src/validation/steps/markdown.ts`](../../src/validation/steps/markdown.ts)
+  classifies `.markdown` file scopes as markdown targets, while directory
+  targets still recurse with the existing `**/*.md` glob. Directory-scoped
+  `.markdown` discovery needs a product decision because the cleanup plan kept
+  the current directory recursion behavior.
+- [`src/commands/validation/messages.ts`](../../src/commands/validation/messages.ts)
+  re-exports runtime anti-markers under
+  `VALIDATION_RUNTIME_DIAGNOSTIC_ANTI_MARKERS`. Choose one canonical import path
+  for runtime anti-marker constants and remove the alias if it is unnecessary.
+- [`src/commands/validation/messages.ts`](../../src/commands/validation/messages.ts)
+  keeps the validation step-line denominator as a regex literal in
+  `VALIDATION_STEP_LINE_PATTERN`. Add a source-owned assertion or comment tying
+  the regex to `VALIDATION_PIPELINE.TOTAL_STEPS`.
+- [`testing/generators/validation/ast-enforcement.ts`](../../testing/generators/validation/ast-enforcement.ts)
+  exports `VALIDATION_PIPELINE_STAGE_NAMES` as an alias for
+  `VALIDATION_STAGE_DISPLAY_NAMES`. Fold this into the canonical validation
+  metadata import-path cleanup.
+- [`testing/generators/validation/validation.ts`](../../testing/generators/validation/validation.ts)
+  exposes `sampleValidationCliTestValue()` as a thin wrapper around
+  `sampleLiteralTestValue()`. Give the helper a distinct validation contract or
+  import the canonical sampler at call sites.
+- [`testing/generators/validation/ast-enforcement.ts`](../../testing/generators/validation/ast-enforcement.ts)
+  names `VALIDATION_ESLINT_EXPECTED.zeroDiagnostics` with a label that repeats
+  its value. Rename it to describe the validation invariant or remove the
+  extra name.
+- [`src/validation/steps/subprocess-output.ts`](../../src/validation/steps/subprocess-output.ts)
+  forwards child-process output with direct `write()` calls. Decide whether this
+  helper should catch stream write errors or handle backpressure for large
+  validation subprocess output.
+- [`src/validation/steps/eslint.ts`](../../src/validation/steps/eslint.ts)
+  forwards subprocess output through the default streams, while the TypeScript
+  validator accepts injectable output streams. Decide whether ESLint validation
+  should expose the same end-to-end stream injection surface.
+- [`src/validation/steps/markdown.ts`](../../src/validation/steps/markdown.ts)
+  uses direct `statSync` filesystem access inside markdown target
+  classification. Decide whether target classification should accept injected
+  filesystem dependencies like the TypeScript validator does.
+- [`testing/harnesses/validation/markdown.ts`](../../testing/harnesses/validation/markdown.ts)
+  throws the scenario title when a fixture-backed markdown scenario has no
+  fixture. Replace that with an explicit harness error message.
+- [`eslint-rules/no-spec-references.ts`](../../eslint-rules/no-spec-references.ts)
+  exempts `testing/generators/validation/ast-enforcement.ts` because that
+  generator owns ADR/PDR snippets used to test the rule. Add a short comment so
+  the exemption remains readable.
+- [`src/commands/validation/markdown.ts`](../../src/commands/validation/markdown.ts)
+  silently skips file scopes that are neither existing directories nor markdown
+  paths. Decide whether explicit missing or unrelated file scopes need user
+  diagnostics.
+
+**Impact:** These findings do not block the validation gate or markdown
+file-target fix. They are cleanup and follow-up design items.
+
+**Resolution:** Address in a separate validation metadata/markdown-target pass
+after PR 15, keeping the current PR scoped to clearing the blocking literal
+gate and fixing direct markdown-file scopes.
