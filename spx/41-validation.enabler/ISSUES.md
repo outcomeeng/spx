@@ -101,6 +101,10 @@ identified non-blocking follow-ups after the validation-gate cleanup:
   forwards child-process output with direct `write()` calls. Decide whether this
   helper should catch stream write errors or handle backpressure for large
   validation subprocess output.
+- [`src/validation/steps/eslint.ts`](../../src/validation/steps/eslint.ts)
+  forwards subprocess output through the default streams, while the TypeScript
+  validator accepts injectable output streams. Decide whether ESLint validation
+  should expose the same end-to-end stream injection surface.
 - [`src/validation/steps/markdown.ts`](../../src/validation/steps/markdown.ts)
   uses direct `statSync` filesystem access inside markdown target
   classification. Decide whether target classification should accept injected
