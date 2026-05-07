@@ -81,10 +81,22 @@ identified non-blocking follow-ups after the validation-gate cleanup:
   re-exports runtime anti-markers under
   `VALIDATION_RUNTIME_DIAGNOSTIC_ANTI_MARKERS`. Choose one canonical import path
   for runtime anti-marker constants and remove the alias if it is unnecessary.
+- [`src/commands/validation/messages.ts`](../../src/commands/validation/messages.ts)
+  keeps the validation step-line denominator as a regex literal in
+  `VALIDATION_STEP_LINE_PATTERN`. Add a source-owned assertion or comment tying
+  the regex to `VALIDATION_PIPELINE.TOTAL_STEPS`.
+- [`testing/generators/validation/ast-enforcement.ts`](../../testing/generators/validation/ast-enforcement.ts)
+  exports `VALIDATION_PIPELINE_STAGE_NAMES` as an alias for
+  `VALIDATION_STAGE_DISPLAY_NAMES`. Fold this into the canonical validation
+  metadata import-path cleanup.
 - [`src/validation/steps/subprocess-output.ts`](../../src/validation/steps/subprocess-output.ts)
   forwards child-process output with direct `write()` calls. Decide whether this
   helper should catch stream write errors or handle backpressure for large
   validation subprocess output.
+- [`src/validation/steps/markdown.ts`](../../src/validation/steps/markdown.ts)
+  uses direct `statSync` filesystem access inside markdown target
+  classification. Decide whether target classification should accept injected
+  filesystem dependencies like the TypeScript validator does.
 - [`testing/harnesses/validation/markdown.ts`](../../testing/harnesses/validation/markdown.ts)
   throws the scenario title when a fixture-backed markdown scenario has no
   fixture. Replace that with an explicit harness error message.
