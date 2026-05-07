@@ -17,6 +17,7 @@ import {
   MARKDOWN_SCENARIO_KIND,
   MARKDOWN_VALIDATION_DATA,
   markdownDirectoryTarget,
+  markdownFileTarget,
   type MarkdownValidationScenario,
 } from "@testing/generators/validation/markdown";
 import { runValidationSubprocess } from "@testing/harnesses/validation/cli";
@@ -62,6 +63,8 @@ export async function runMarkdownValidationScenario(scenario: MarkdownValidation
       return runE2eValidDirectoryScenario();
     case MARKDOWN_SCENARIO_KIND.E2E_DIRECT_FILE:
       return runE2eDirectFileScenario();
+    case MARKDOWN_SCENARIO_KIND.DOCS_DIRECT_FILE_MD024:
+      return runDocsDirectFileMd024Scenario();
   }
 }
 
@@ -318,6 +321,27 @@ async function runE2eDirectFileScenario(): Promise<void> {
     ]);
 
     expect(result.exitCode).toBe(MARKDOWN_VALIDATION_DATA.zero);
+  });
+}
+
+async function runDocsDirectFileMd024Scenario(): Promise<void> {
+  await withMarkdownTempProject(async ({ path }) => {
+    const docsGuideDir = join(
+      path,
+      MARKDOWN_VALIDATION_DATA.docsDirectoryName,
+      MARKDOWN_VALIDATION_DATA.guideDirectoryName,
+    );
+    await mkdir(docsGuideDir, { recursive: true });
+    const sourceFile = join(docsGuideDir, MARKDOWN_VALIDATION_DATA.sourceMarkdownFile);
+    await writeFile(sourceFile, MARKDOWN_VALIDATION_DATA.docsDirectFileMd024Content);
+
+    const result = await validateMarkdown({
+      targets: [markdownFileTarget(sourceFile)],
+      projectRoot: path,
+    });
+
+    expect(result.success).toBe(true);
+    expect(result.errors).toHaveLength(MARKDOWN_VALIDATION_DATA.zero);
   });
 }
 

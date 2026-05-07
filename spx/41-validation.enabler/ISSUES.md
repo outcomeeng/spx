@@ -81,6 +81,10 @@ identified non-blocking follow-ups after the validation-gate cleanup:
   re-exports runtime anti-markers under
   `VALIDATION_RUNTIME_DIAGNOSTIC_ANTI_MARKERS`. Choose one canonical import path
   for runtime anti-marker constants and remove the alias if it is unnecessary.
+- [`src/validation/steps/subprocess-output.ts`](../../src/validation/steps/subprocess-output.ts)
+  forwards child-process output with direct `write()` calls. Decide whether this
+  helper should catch stream write errors or handle backpressure for large
+  validation subprocess output.
 - [`testing/harnesses/validation/markdown.ts`](../../testing/harnesses/validation/markdown.ts)
   throws the scenario title when a fixture-backed markdown scenario has no
   fixture. Replace that with an explicit harness error message.
@@ -88,6 +92,10 @@ identified non-blocking follow-ups after the validation-gate cleanup:
   exempts `testing/generators/validation/ast-enforcement.ts` because that
   generator owns ADR/PDR snippets used to test the rule. Add a short comment so
   the exemption remains readable.
+- [`src/commands/validation/markdown.ts`](../../src/commands/validation/markdown.ts)
+  silently skips file scopes that are neither existing directories nor markdown
+  paths. Decide whether explicit missing or unrelated file scopes need user
+  diagnostics.
 
 **Impact:** These findings do not block the validation gate or markdown
 file-target fix. They are cleanup and follow-up design items.

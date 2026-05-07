@@ -9,7 +9,7 @@
  */
 
 import { existsSync, statSync } from "node:fs";
-import { basename, dirname, join } from "node:path";
+import { basename, dirname, join, relative as pathRelative } from "node:path";
 
 import { createIgnoreSourceReader, IGNORE_SOURCE_FILENAME_DEFAULT } from "@/lib/file-inclusion/ignore-source";
 import { SPEC_TREE_CONFIG } from "@/lib/spec-tree/config";
@@ -257,7 +257,7 @@ export async function validateMarkdown(
 
   for (const target of targets) {
     const directory = targetDirectory(target);
-    const dirName = basename(directory);
+    const dirName = markdownlintConfigDirectoryName(directory, projectRoot);
     const config = buildMarkdownlintConfig(dirName);
     const dirErrors = await validateTarget(target, config, projectRoot, excludeGlobs);
     errors.push(...dirErrors);
@@ -338,4 +338,14 @@ function isExistingDirectory(path: string): boolean {
   } catch {
     return false;
   }
+}
+
+function markdownlintConfigDirectoryName(directory: string, projectRoot: string | undefined): string {
+  if (projectRoot !== undefined) {
+    const [rootSegment] = pathRelative(projectRoot, directory).split(/[\\/]/);
+    if (MD024_DISABLED_DIRECTORIES.includes(rootSegment as (typeof MD024_DISABLED_DIRECTORIES)[number])) {
+      return rootSegment;
+    }
+  }
+  return basename(directory);
 }

@@ -20,6 +20,8 @@ const FEATURE_MARKDOWN_FILE = "feature.md";
 const TARGET_MARKDOWN_FILE = "target.md";
 const SOURCE_MARKDOWN_FILE = "source.md";
 const BROKEN_MARKDOWN_FILE = "broken.md";
+const GUIDE_DIRECTORY_NAME = "guides";
+const DOCS_DIRECT_FILE_MD024_CONTENT = "# Page\n\n## Repeat\n\n## Repeat\n";
 const VALID_MARKDOWN_TARGET_CONTENT = "# Target\n\nContent.\n";
 const VALID_MARKDOWN_SOURCE_CONTENT = "# Source\n\n[valid](./target.md)\n";
 const BROKEN_MARKDOWN_CONTENT = "# Broken\n\n[broken](./does-not-exist.md)\n";
@@ -58,6 +60,7 @@ export const MARKDOWN_SCENARIO_KIND = {
   E2E_BROKEN_DIRECTORY: "e2eBrokenDirectory",
   E2E_VALID_DIRECTORY: "e2eValidDirectory",
   E2E_DIRECT_FILE: "e2eDirectFile",
+  DOCS_DIRECT_FILE_MD024: "docsDirectFileMd024",
 } as const;
 
 export type MarkdownScenarioKind = (typeof MARKDOWN_SCENARIO_KIND)[keyof typeof MARKDOWN_SCENARIO_KIND];
@@ -85,6 +88,8 @@ export const MARKDOWN_VALIDATION_DATA = {
   targetMarkdownFile: TARGET_MARKDOWN_FILE,
   sourceMarkdownFile: SOURCE_MARKDOWN_FILE,
   brokenMarkdownFile: BROKEN_MARKDOWN_FILE,
+  guideDirectoryName: GUIDE_DIRECTORY_NAME,
+  docsDirectFileMd024Content: DOCS_DIRECT_FILE_MD024_CONTENT,
   validMarkdownTargetContent: VALID_MARKDOWN_TARGET_CONTENT,
   validMarkdownSourceContent: VALID_MARKDOWN_SOURCE_CONTENT,
   brokenMarkdownContent: BROKEN_MARKDOWN_CONTENT,
@@ -229,6 +234,11 @@ export function markdownE2eScenarios(): MarkdownValidationScenario[] {
     {
       title: "markdown command accepts direct markdown file scope",
       kind: MARKDOWN_SCENARIO_KIND.E2E_DIRECT_FILE,
+      timeout: MARKDOWN_HARNESS_TIMEOUT,
+    },
+    {
+      title: "markdown direct docs file scope keeps docs heading policy",
+      kind: MARKDOWN_SCENARIO_KIND.DOCS_DIRECT_FILE_MD024,
       timeout: MARKDOWN_HARNESS_TIMEOUT,
     },
   ];

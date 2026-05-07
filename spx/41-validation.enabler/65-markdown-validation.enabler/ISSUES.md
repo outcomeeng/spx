@@ -33,4 +33,6 @@ argv target.
 **Evidence:** `markdown-validation.e2e.test.ts` now includes a generator-backed
 direct-file scenario for `spx validation markdown --files <markdown-file>`.
 Unit and integration markdown tests use source-owned target kinds and generated
-scenario data instead of fixture-owned expected values.
+scenario data instead of fixture-owned expected values. The direct-file evidence
+also covers docs subdirectories so file-scoped docs validation keeps the same
+MD024 duplicate-heading policy as directory-scoped docs validation.
