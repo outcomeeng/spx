@@ -8,6 +8,12 @@
 
 import type { Rule } from "eslint";
 
+import { SPX_RULE_PREFIX } from "./import-source";
+
+export const NO_SPEC_REFERENCES_RULE_NAME = "no-spec-references";
+export const NO_SPEC_REFERENCES_RULE_ID = `${SPX_RULE_PREFIX}${NO_SPEC_REFERENCES_RULE_NAME}` as const;
+export const SPEC_REFERENCE_MESSAGE_ID = "specReference";
+
 /**
  * Matches spec-tree decision references in code:
  * - Numbered: ADR-15, PDR-15, ADR 32 (hyphen, en-dash, em-dash, or space separator)
@@ -18,6 +24,7 @@ const SPEC_REFERENCE = /\b[AP]DR(?:[-–— ]\d+|:\s)/;
 /** Files where spec references are legitimate test data — exempt from the rule. */
 const EXEMPT_SUFFIXES = [
   "eslint-rules/no-spec-references.ts",
+  "testing/generators/validation/ast-enforcement.ts",
   "32-ast-enforcement.enabler/tests/ast-enforcement.mapping.l1.test.ts",
 ];
 
@@ -33,7 +40,7 @@ const rule: Rule.RuleModule = {
         "Disallow references to spx/ artifacts (ADRs, PDRs, specs) in code — the spec is the source of truth, tests make assertions executable, code complies",
     },
     messages: {
-      specReference:
+      [SPEC_REFERENCE_MESSAGE_ID]:
         "Spec reference '{{value}}' detected. Code must not reference spx/ artifacts such as ADRs or PDRs. The spec is the source of truth; tests make the spec's assertions executable; code complies.",
     },
   },
@@ -49,7 +56,7 @@ const rule: Rule.RuleModule = {
         if (match) {
           context.report({
             node,
-            messageId: "specReference",
+            messageId: SPEC_REFERENCE_MESSAGE_ID,
             data: { value: match[0] },
           });
         }
@@ -61,7 +68,7 @@ const rule: Rule.RuleModule = {
           if (match) {
             context.report({
               node,
-              messageId: "specReference",
+              messageId: SPEC_REFERENCE_MESSAGE_ID,
               data: { value: match[0] },
             });
             break;
@@ -76,7 +83,7 @@ const rule: Rule.RuleModule = {
           if (match) {
             context.report({
               loc: comment.loc!,
-              messageId: "specReference",
+              messageId: SPEC_REFERENCE_MESSAGE_ID,
               data: { value: match[0] },
             });
           }

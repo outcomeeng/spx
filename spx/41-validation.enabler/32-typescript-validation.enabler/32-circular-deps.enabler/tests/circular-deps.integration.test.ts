@@ -1,121 +1,24 @@
-/**
- * Level 2: Integration tests for the TypeScript circular dependency stage via `spx validation circular`.
- *
- * Spec: spx/41-validation.enabler/32-typescript-validation.enabler/32-circular-deps.enabler/circular-deps.md
- *
- * Routing: Glue code (Stage 3C) where behavior IS the interaction with madge
- * via the CLI. Real spawn against real fixture projects (Stage 4 — reliable,
- * safe, cheap, observable). No doubles.
- *
- * Assertions covered:
- *   S1: Clean TypeScript project → madge reports no cycles, exits zero
- *   S2: TypeScript project with circular deps → non-zero exit, cycle reported
- *   S3: TypeScript absent → madge does not execute
- *   C1: ALWAYS gated on detectTypeScript
- *   C2: NEVER invoke madge without tsconfig.json
- */
+import { describe, it } from "vitest";
 
-import { execa } from "execa";
-import { describe, expect, it } from "vitest";
+import { validationCircularSubprocessScenarios } from "@testing/generators/validation/validation";
+import { expectValidationSubprocessResult, runValidationSubprocess } from "@testing/harnesses/validation/cli";
+import { withValidationEnv } from "@testing/harnesses/with-validation-env";
 
-import { CLI_PATH } from "@testing/harnesses/constants";
-import { HARNESS_TIMEOUT, PROJECT_FIXTURES, withValidationEnv } from "@testing/harnesses/with-validation-env";
+describe("circular dependency validation subprocess", () => {
+  for (const scenario of validationCircularSubprocessScenarios()) {
+    it(
+      scenario.title,
+      { timeout: scenario.timeout },
+      async () => {
+        await withValidationEnv({ fixture: scenario.fixture }, async ({ path }) => {
+          const result = await runValidationSubprocess(scenario.args, {
+            cwd: path,
+            timeout: scenario.timeout,
+          });
 
-const EXIT_SUCCESS = 0;
-const NPX_INSTALL_PROMPT = "Need to install the following packages";
-const SKIP_MARKER = "Skipping Circular";
-const SUCCESS_MARKER = "Circular dependencies";
-const ENOENT_MARKER = "ENOENT";
-
-describe("spx validation circular — language-gated cycle detection", () => {
-  it(
-    "S1: GIVEN a TypeScript project with no circular deps WHEN running circular THEN madge reports no cycles and exits zero",
-    { timeout: HARNESS_TIMEOUT },
-    async () => {
-      await withValidationEnv({ fixture: PROJECT_FIXTURES.CLEAN_PROJECT }, async ({ path }) => {
-        const result = await execa("node", [CLI_PATH, "validation", "circular"], {
-          cwd: path,
-          reject: false,
+          expectValidationSubprocessResult(result, scenario);
         });
-
-        expect(result.exitCode).toBe(EXIT_SUCCESS);
-        expect(result.stdout).toContain(SUCCESS_MARKER);
-        expect(result.stdout).not.toContain(NPX_INSTALL_PROMPT);
-        expect(result.stdout).not.toContain(SKIP_MARKER);
-      });
-    },
-  );
-
-  it(
-    "S2: GIVEN a TypeScript project with a circular dependency WHEN running circular THEN exits non-zero and reports the cycle",
-    { timeout: HARNESS_TIMEOUT },
-    async () => {
-      await withValidationEnv({ fixture: PROJECT_FIXTURES.WITH_CIRCULAR_DEPS }, async ({ path }) => {
-        const result = await execa("node", [CLI_PATH, "validation", "circular"], {
-          cwd: path,
-          reject: false,
-        });
-
-        expect(result.exitCode).not.toBe(EXIT_SUCCESS);
-        expect(result.stdout).not.toContain(NPX_INSTALL_PROMPT);
-      });
-    },
-  );
-
-  it(
-    "S3: GIVEN a project where TypeScript is absent WHEN running circular THEN madge does not execute",
-    { timeout: HARNESS_TIMEOUT },
-    async () => {
-      await withValidationEnv({ fixture: PROJECT_FIXTURES.BARE_PROJECT }, async ({ path }) => {
-        const result = await execa("node", [CLI_PATH, "validation", "circular"], {
-          cwd: path,
-          reject: false,
-        });
-
-        expect(result.exitCode).toBe(EXIT_SUCCESS);
-        expect(result.stdout).toContain(SKIP_MARKER);
-        expect(result.stdout).not.toContain(NPX_INSTALL_PROMPT);
-        expect(result.stderr).not.toContain(NPX_INSTALL_PROMPT);
-        expect(`${result.stdout}${result.stderr}`).not.toContain(ENOENT_MARKER);
-      });
-    },
-  );
-
-  it(
-    "C1: GIVEN a Python-only project WHEN running circular THEN madge is gated off by detectTypeScript",
-    { timeout: HARNESS_TIMEOUT },
-    async () => {
-      await withValidationEnv({ fixture: PROJECT_FIXTURES.PYTHON_PROJECT }, async ({ path }) => {
-        const result = await execa("node", [CLI_PATH, "validation", "circular"], {
-          cwd: path,
-          reject: false,
-        });
-
-        expect(result.exitCode).toBe(EXIT_SUCCESS);
-        expect(result.stdout).toContain(SKIP_MARKER);
-        expect(result.stdout).not.toContain(NPX_INSTALL_PROMPT);
-        expect(result.stderr).not.toContain(NPX_INSTALL_PROMPT);
-        expect(`${result.stdout}${result.stderr}`).not.toContain(ENOENT_MARKER);
-      });
-    },
-  );
-
-  it(
-    "C2: GIVEN .ts files present but no tsconfig.json WHEN running circular THEN madge does not execute and no npx prompt appears",
-    { timeout: HARNESS_TIMEOUT },
-    async () => {
-      await withValidationEnv({ fixture: PROJECT_FIXTURES.TYPESCRIPT_NO_TSCONFIG }, async ({ path }) => {
-        const result = await execa("node", [CLI_PATH, "validation", "circular"], {
-          cwd: path,
-          reject: false,
-        });
-
-        expect(result.exitCode).toBe(EXIT_SUCCESS);
-        expect(result.stdout).toContain(SKIP_MARKER);
-        expect(result.stdout).not.toContain(NPX_INSTALL_PROMPT);
-        expect(result.stderr).not.toContain(NPX_INSTALL_PROMPT);
-        expect(`${result.stdout}${result.stderr}`).not.toContain(ENOENT_MARKER);
-      });
-    },
-  );
+      },
+    );
+  }
 });

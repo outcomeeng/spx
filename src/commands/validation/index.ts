@@ -24,6 +24,18 @@ export { lintCommand } from "./lint";
 export { LITERAL_PROBLEM_KIND, literalCommand } from "./literal";
 export type { LiteralProblemKind } from "./literal";
 export { markdownCommand } from "./markdown";
+export {
+  LITERAL_SKIP_JSON_OUTPUT,
+  LITERAL_SKIP_OUTPUT,
+  VALIDATION_COMMAND_OUTPUT,
+  VALIDATION_EXIT_CODES,
+  VALIDATION_PIPELINE,
+  VALIDATION_RUNTIME_DIAGNOSTIC_ANTI_MARKERS,
+  VALIDATION_SKIP_LABELS,
+  VALIDATION_STAGE_DISPLAY_NAMES,
+  VALIDATION_STEP_DURATION_PATTERN,
+  VALIDATION_STEP_LINE_PATTERN,
+} from "./messages";
 export { typescriptCommand } from "./typescript";
 
 // Formatting utilities

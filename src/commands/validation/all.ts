@@ -15,16 +15,13 @@ import { knipCommand } from "./knip";
 import { lintCommand } from "./lint";
 import { literalCommand } from "./literal";
 import { markdownCommand } from "./markdown";
+import { LITERAL_SKIP_JSON_OUTPUT, LITERAL_SKIP_OUTPUT, VALIDATION_PIPELINE } from "./messages";
 import type { AllCommandOptions, ValidationCommandResult } from "./types";
 import { typescriptCommand } from "./typescript";
 
 /** Total number of validation steps */
-const TOTAL_STEPS = 6;
-export const LITERAL_SKIP_OUTPUT = "Literal: skipped (--skip-literal)";
-export const LITERAL_SKIP_JSON_OUTPUT = JSON.stringify({
-  skipped: true,
-  reason: "skip-literal",
-});
+const TOTAL_STEPS = VALIDATION_PIPELINE.TOTAL_STEPS;
+export { LITERAL_SKIP_JSON_OUTPUT, LITERAL_SKIP_OUTPUT };
 
 /**
  * Format step output with step number and timing.

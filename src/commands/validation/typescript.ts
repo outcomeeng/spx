@@ -6,12 +6,13 @@
 import { getTypeScriptScope } from "@/validation/config/scope";
 import { detectTypeScript, discoverTool, formatSkipMessage } from "@/validation/discovery/index";
 import { validateTypeScript } from "@/validation/steps/typescript";
+import { formatValidationSkipMessage, VALIDATION_COMMAND_OUTPUT, VALIDATION_STAGE_DISPLAY_NAMES } from "./messages";
 import type { TypeScriptCommandOptions, ValidationCommandResult } from "./types";
 
 export const TYPESCRIPT_VALIDATION_MESSAGES = {
-  ABSENT: "⏭ Skipping TypeScript (TypeScript not detected in project)",
-  SUCCESS: "TypeScript: ✓ No type errors",
-  TOOL_LABEL: "TypeScript",
+  ABSENT: formatValidationSkipMessage(VALIDATION_STAGE_DISPLAY_NAMES.TYPESCRIPT),
+  SUCCESS: VALIDATION_COMMAND_OUTPUT.TYPESCRIPT_SUCCESS,
+  TOOL_LABEL: VALIDATION_STAGE_DISPLAY_NAMES.TYPESCRIPT,
 } as const;
 
 /**
@@ -41,7 +42,7 @@ export async function typescriptCommand(options: TypeScriptCommandOptions): Prom
   // Gate 2: tool discovery — ensure tsc itself is available somewhere.
   const toolResult = await discoverTool("typescript", { projectRoot: cwd });
   if (!toolResult.found) {
-    const skipMessage = formatSkipMessage("TypeScript", toolResult);
+    const skipMessage = formatSkipMessage(VALIDATION_STAGE_DISPLAY_NAMES.TYPESCRIPT, toolResult);
     return { exitCode: 0, output: skipMessage, durationMs: Date.now() - startTime };
   }
 
@@ -57,7 +58,7 @@ export async function typescriptCommand(options: TypeScriptCommandOptions): Prom
     const output = quiet ? "" : TYPESCRIPT_VALIDATION_MESSAGES.SUCCESS;
     return { exitCode: 0, output, durationMs };
   } else {
-    const output = result.error ?? "TypeScript validation failed";
+    const output = result.error ?? VALIDATION_COMMAND_OUTPUT.TYPESCRIPT_FAILURE;
     return { exitCode: 1, output, durationMs };
   }
 }

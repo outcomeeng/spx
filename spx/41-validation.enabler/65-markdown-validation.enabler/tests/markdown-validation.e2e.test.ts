@@ -1,76 +1,16 @@
-/**
- * E2E: Markdown validation CLI tests.
- *
- * Exercises spx validation markdown as a user would — by spawning the CLI
- * binary. Catches registration failures, argument parsing issues, and
- * exit code behavior that unit/integration tests cannot reach.
- *
- * Routing: Stage 4 → Level 3. Real CLI binary, real process, real exit codes.
- */
+import { describe, it } from "vitest";
 
-import { execa } from "execa";
-import { mkdir, mkdtemp, rm, writeFile } from "node:fs/promises";
-import { tmpdir } from "node:os";
-import { join } from "node:path";
-import { afterEach, beforeEach, describe, expect, it } from "vitest";
+import { markdownE2eScenarios } from "@testing/generators/validation/markdown";
+import { runMarkdownValidationScenario } from "@testing/harnesses/validation/markdown";
 
-import { validationCliDefinition } from "@/domains/validation";
-import { CLI_PATH } from "@testing/harnesses/constants";
-
-let tempDir: string;
-
-beforeEach(async () => {
-  tempDir = await mkdtemp(join(tmpdir(), "mdlint-e2e-"));
-});
-
-afterEach(async () => {
-  await rm(tempDir, { recursive: true, force: true });
-});
-
-describe("spx validation markdown (e2e)", () => {
-  it("GIVEN a user runs spx validation markdown, THEN the command is registered and executes", async () => {
-    const { exitCode, stdout } = await execa(
-      "node",
-      [CLI_PATH, "validation", "markdown", "--help"],
-      { reject: false },
+describe("markdown validation e2e evidence", () => {
+  for (const scenario of markdownE2eScenarios()) {
+    it(
+      scenario.title,
+      { timeout: scenario.timeout },
+      async () => {
+        await runMarkdownValidationScenario(scenario);
+      },
     );
-
-    expect(exitCode).toBe(0);
-    expect(stdout).toContain(validationCliDefinition.subcommands.markdown.commandName);
-    expect(stdout).toContain(validationCliDefinition.subcommands.markdown.description);
-  });
-
-  it("GIVEN a directory with a broken link, WHEN spx validation markdown runs, THEN exits 1 with the broken link identified", async () => {
-    const spxDir = join(tempDir, "spx");
-    await mkdir(spxDir, { recursive: true });
-    const missingTarget = "nonexistent.md";
-    await writeFile(join(spxDir, "test.md"), `# Test\n\n[broken](./${missingTarget})\n`);
-
-    const { exitCode, stdout } = await execa(
-      "node",
-      [CLI_PATH, "validation", "markdown", "--files", spxDir],
-      { reject: false },
-    );
-
-    expect(exitCode).toBe(1);
-    expect(stdout).toContain(missingTarget);
-  });
-
-  it("GIVEN a directory with valid links, WHEN spx validation markdown runs, THEN exits 0", async () => {
-    const spxDir = join(tempDir, "spx");
-    await mkdir(spxDir, { recursive: true });
-    await writeFile(join(spxDir, "target.md"), "# Target\n\nContent.\n");
-    await writeFile(
-      join(spxDir, "source.md"),
-      "# Source\n\n[valid](./target.md)\n",
-    );
-
-    const { exitCode } = await execa(
-      "node",
-      [CLI_PATH, "validation", "markdown", "--files", spxDir],
-      { reject: false },
-    );
-
-    expect(exitCode).toBe(0);
-  });
+  }
 });

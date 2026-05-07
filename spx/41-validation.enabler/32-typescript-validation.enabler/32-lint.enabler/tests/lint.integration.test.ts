@@ -1,96 +1,24 @@
-/**
- * Level 2: Integration tests for the TypeScript lint stage via `spx validation lint`.
- *
- * Spec: spx/41-validation.enabler/32-typescript-validation.enabler/32-lint.enabler/lint.md
- *
- * Routing: Glue code (Stage 3C) where behavior IS the interaction with the CLI
- * and filesystem. Real spawn against real fixture projects (Stage 4 — reliable,
- * safe, cheap, observable). No doubles.
- */
+import { describe, it } from "vitest";
 
-import { execa } from "execa";
-import { describe, expect, it } from "vitest";
+import { validationLintSubprocessScenarios } from "@testing/generators/validation/validation";
+import { expectValidationSubprocessResult, runValidationSubprocess } from "@testing/harnesses/validation/cli";
+import { withValidationEnv } from "@testing/harnesses/with-validation-env";
 
-import { CLI_PATH } from "@testing/harnesses/constants";
-import { HARNESS_TIMEOUT, PROJECT_FIXTURES, withValidationEnv } from "@testing/harnesses/with-validation-env";
+describe("lint validation subprocess", () => {
+  for (const scenario of validationLintSubprocessScenarios()) {
+    it(
+      scenario.title,
+      { timeout: scenario.timeout },
+      async () => {
+        await withValidationEnv({ fixture: scenario.fixture }, async ({ path }) => {
+          const result = await runValidationSubprocess(scenario.args, {
+            cwd: path,
+            timeout: scenario.timeout,
+          });
 
-const EXIT_SUCCESS = 0;
-const NPX_INSTALL_PROMPT = "Need to install the following packages";
-const SKIP_PREFIX = "Skipping";
-const MISSING_CONFIG_MARKER = "ESLint config";
-const ESLINT_OUTPUT_MARKER = "ESLint";
-const ENOENT_MARKER = "ENOENT";
-
-describe("spx validation lint — language-gated execution", () => {
-  it(
-    "GIVEN a TypeScript fixture with eslint.config.ts WHEN running lint THEN ESLint executes",
-    { timeout: HARNESS_TIMEOUT },
-    async () => {
-      await withValidationEnv({ fixture: PROJECT_FIXTURES.CLEAN_PROJECT }, async ({ path }) => {
-        const result = await execa("node", [CLI_PATH, "validation", "lint"], {
-          cwd: path,
-          reject: false,
+          expectValidationSubprocessResult(result, scenario);
         });
-
-        expect(result.exitCode).toBe(EXIT_SUCCESS);
-        expect(result.stdout).toContain(ESLINT_OUTPUT_MARKER);
-        expect(result.stdout).not.toContain(NPX_INSTALL_PROMPT);
-        expect(result.stdout).not.toContain(SKIP_PREFIX);
-      });
-    },
-  );
-
-  it(
-    "GIVEN a Python fixture WHEN running lint THEN ESLint does not execute and no install prompt appears",
-    { timeout: HARNESS_TIMEOUT },
-    async () => {
-      await withValidationEnv({ fixture: PROJECT_FIXTURES.PYTHON_PROJECT }, async ({ path }) => {
-        const result = await execa("node", [CLI_PATH, "validation", "lint"], {
-          cwd: path,
-          reject: false,
-        });
-
-        expect(result.exitCode).toBe(EXIT_SUCCESS);
-        expect(result.stdout).not.toContain(NPX_INSTALL_PROMPT);
-        expect(result.stderr).not.toContain(NPX_INSTALL_PROMPT);
-        expect(`${result.stdout}${result.stderr}`).not.toContain(ENOENT_MARKER);
-      });
-    },
-  );
-
-  it(
-    "GIVEN a bare fixture with no language markers WHEN running lint THEN ESLint does not execute",
-    { timeout: HARNESS_TIMEOUT },
-    async () => {
-      await withValidationEnv({ fixture: PROJECT_FIXTURES.BARE_PROJECT }, async ({ path }) => {
-        const result = await execa("node", [CLI_PATH, "validation", "lint"], {
-          cwd: path,
-          reject: false,
-        });
-
-        expect(result.exitCode).toBe(EXIT_SUCCESS);
-        expect(result.stdout).not.toContain(NPX_INSTALL_PROMPT);
-        expect(result.stderr).not.toContain(NPX_INSTALL_PROMPT);
-        expect(`${result.stdout}${result.stderr}`).not.toContain(ENOENT_MARKER);
-      });
-    },
-  );
-
-  it(
-    "GIVEN TypeScript present but no ESLint flat config WHEN running lint THEN reports missing config error",
-    { timeout: HARNESS_TIMEOUT },
-    async () => {
-      await withValidationEnv({ fixture: PROJECT_FIXTURES.TYPESCRIPT_NO_ESLINT }, async ({ path }) => {
-        const result = await execa("node", [CLI_PATH, "validation", "lint"], {
-          cwd: path,
-          reject: false,
-        });
-
-        expect(result.exitCode).not.toBe(EXIT_SUCCESS);
-        const combinedOutput = `${result.stdout}${result.stderr}`;
-        expect(combinedOutput).toContain(MISSING_CONFIG_MARKER);
-        expect(combinedOutput).not.toContain(NPX_INSTALL_PROMPT);
-      });
-    },
-  );
+      },
+    );
+  }
 });

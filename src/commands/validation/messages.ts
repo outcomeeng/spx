@@ -1,0 +1,56 @@
+import { VALIDATION_RUNTIME_ANTI_MARKERS } from "./runtime-diagnostics";
+
+export const VALIDATION_EXIT_CODES = {
+  SUCCESS: 0,
+  FAILURE: 1,
+} as const;
+
+export const VALIDATION_PIPELINE = {
+  TOTAL_STEPS: 6,
+} as const;
+
+export const VALIDATION_STAGE_DISPLAY_NAMES = {
+  CIRCULAR: "Circular dependencies",
+  ESLINT: "ESLint",
+  TYPESCRIPT: "TypeScript",
+  MARKDOWN: "Markdown",
+  LITERAL: "Literal",
+} as const;
+
+export const VALIDATION_SKIP_LABELS = {
+  VERB: "Skipping",
+  LITERAL_REASON: "skip-literal",
+  TYPESCRIPT_ABSENT_REASON: "TypeScript not detected in project",
+  MARKDOWN_NO_SCOPE_REASON: "no markdown files in --files scope",
+  MARKDOWN_NO_DEFAULT_DIRECTORIES_REASON: "no spx/ or docs/ directories found",
+} as const;
+
+export const VALIDATION_COMMAND_OUTPUT = {
+  CIRCULAR_FOUND: `${VALIDATION_STAGE_DISPLAY_NAMES.CIRCULAR} found`,
+  CIRCULAR_NONE_FOUND: `${VALIDATION_STAGE_DISPLAY_NAMES.CIRCULAR}: ✓ None found`,
+  ESLINT_SUCCESS: `${VALIDATION_STAGE_DISPLAY_NAMES.ESLINT}: ✓ No errors found`,
+  ESLINT_FAILURE: `${VALIDATION_STAGE_DISPLAY_NAMES.ESLINT} validation failed`,
+  ESLINT_MISSING_CONFIG:
+    "ESLint config not found: project has tsconfig.json but no eslint.config.{ts,js,mjs,cjs}",
+  TYPESCRIPT_SUCCESS: `${VALIDATION_STAGE_DISPLAY_NAMES.TYPESCRIPT}: ✓ No type errors`,
+  TYPESCRIPT_FAILURE: `${VALIDATION_STAGE_DISPLAY_NAMES.TYPESCRIPT} validation failed`,
+  MARKDOWN_NO_ISSUES: `${VALIDATION_STAGE_DISPLAY_NAMES.MARKDOWN}: No issues found`,
+  MARKDOWN_ERROR_SUMMARY_SUFFIX: "error(s) found",
+} as const;
+
+export const LITERAL_SKIP_OUTPUT =
+  `${VALIDATION_STAGE_DISPLAY_NAMES.LITERAL}: skipped (--${VALIDATION_SKIP_LABELS.LITERAL_REASON})`;
+
+export const LITERAL_SKIP_JSON_OUTPUT = JSON.stringify({
+  skipped: true,
+  reason: VALIDATION_SKIP_LABELS.LITERAL_REASON,
+});
+
+export const VALIDATION_STEP_LINE_PATTERN = /^\[(\d)\/6\]/gm;
+export const VALIDATION_STEP_DURATION_PATTERN = /\((\d+(?:\.\d+)?)(ms|s)\)\s*$/;
+
+export function formatValidationSkipMessage(stageName: string): string {
+  return `⏭ ${VALIDATION_SKIP_LABELS.VERB} ${stageName} (${VALIDATION_SKIP_LABELS.TYPESCRIPT_ABSENT_REASON})`;
+}
+
+export const VALIDATION_RUNTIME_DIAGNOSTIC_ANTI_MARKERS = VALIDATION_RUNTIME_ANTI_MARKERS;
