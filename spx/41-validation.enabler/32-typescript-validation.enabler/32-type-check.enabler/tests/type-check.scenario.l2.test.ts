@@ -1,5 +1,5 @@
 /**
- * Level 2: Integration tests for the TypeScript type-check stage via `spx validation typescript`.
+ * Level 2: Integration tests for the TypeScript type-check stage via `spx validation ts`.
  *
  * Spec: spx/41-validation.enabler/32-typescript-validation.enabler/32-type-check.enabler/type-check.md
  *
@@ -18,14 +18,20 @@
 import { execa } from "execa";
 import { describe, expect, it } from "vitest";
 
+import { VALIDATION_RUNTIME_ANTI_MARKERS } from "@/commands/validation/runtime-diagnostics";
+import { TYPESCRIPT_VALIDATION_MESSAGES } from "@/commands/validation/typescript";
+import { validationCliDefinition } from "@/domains/validation";
 import { CLI_PATH } from "@testing/harnesses/constants";
 import { HARNESS_TIMEOUT, PROJECT_FIXTURES, withValidationEnv } from "@testing/harnesses/with-validation-env";
 
-const EXIT_SUCCESS = 0;
-const NPX_INSTALL_PROMPT = "Need to install the following packages";
-const SKIP_MARKER = "Skipping TypeScript";
-const TSC_SUCCESS_MARKER = "TypeScript";
-const ENOENT_MARKER = "ENOENT";
+function validationTypeScriptAliasArgs(): string[] {
+  const alias = validationCliDefinition.subcommands.typescript.alias;
+  if (alias === undefined) {
+    throw new Error("TypeScript validation alias is not registered");
+  }
+
+  return [CLI_PATH, validationCliDefinition.domain.commandName, alias];
+}
 
 describe("spx validation typescript — language-gated type checking", () => {
   it(
@@ -33,15 +39,15 @@ describe("spx validation typescript — language-gated type checking", () => {
     { timeout: HARNESS_TIMEOUT },
     async () => {
       await withValidationEnv({ fixture: PROJECT_FIXTURES.CLEAN_PROJECT }, async ({ path }) => {
-        const result = await execa("node", [CLI_PATH, "validation", "typescript"], {
+        const result = await execa(process.execPath, validationTypeScriptAliasArgs(), {
           cwd: path,
           reject: false,
         });
 
-        expect(result.exitCode).toBe(EXIT_SUCCESS);
-        expect(result.stdout).toContain(TSC_SUCCESS_MARKER);
-        expect(result.stdout).not.toContain(NPX_INSTALL_PROMPT);
-        expect(result.stdout).not.toContain(SKIP_MARKER);
+        expect(result.exitCode).toBe(0);
+        expect(result.stdout).toContain(TYPESCRIPT_VALIDATION_MESSAGES.TOOL_LABEL);
+        expect(result.stdout).not.toContain(VALIDATION_RUNTIME_ANTI_MARKERS.NPX_INSTALL_PROMPT);
+        expect(result.stdout).not.toContain(TYPESCRIPT_VALIDATION_MESSAGES.ABSENT);
       });
     },
   );
@@ -51,16 +57,16 @@ describe("spx validation typescript — language-gated type checking", () => {
     { timeout: HARNESS_TIMEOUT },
     async () => {
       await withValidationEnv({ fixture: PROJECT_FIXTURES.BARE_PROJECT }, async ({ path }) => {
-        const result = await execa("node", [CLI_PATH, "validation", "typescript"], {
+        const result = await execa(process.execPath, validationTypeScriptAliasArgs(), {
           cwd: path,
           reject: false,
         });
 
-        expect(result.exitCode).toBe(EXIT_SUCCESS);
-        expect(result.stdout).toContain(SKIP_MARKER);
-        expect(result.stdout).not.toContain(NPX_INSTALL_PROMPT);
-        expect(result.stderr).not.toContain(NPX_INSTALL_PROMPT);
-        expect(`${result.stdout}${result.stderr}`).not.toContain(ENOENT_MARKER);
+        expect(result.exitCode).toBe(0);
+        expect(result.stdout).toContain(TYPESCRIPT_VALIDATION_MESSAGES.ABSENT);
+        expect(result.stdout).not.toContain(VALIDATION_RUNTIME_ANTI_MARKERS.NPX_INSTALL_PROMPT);
+        expect(result.stderr).not.toContain(VALIDATION_RUNTIME_ANTI_MARKERS.NPX_INSTALL_PROMPT);
+        expect(`${result.stdout}${result.stderr}`).not.toContain(VALIDATION_RUNTIME_ANTI_MARKERS.ENOENT);
       });
     },
   );
@@ -70,13 +76,13 @@ describe("spx validation typescript — language-gated type checking", () => {
     { timeout: HARNESS_TIMEOUT },
     async () => {
       await withValidationEnv({ fixture: PROJECT_FIXTURES.WITH_TYPE_ERRORS }, async ({ path }) => {
-        const result = await execa("node", [CLI_PATH, "validation", "typescript"], {
+        const result = await execa(process.execPath, validationTypeScriptAliasArgs(), {
           cwd: path,
           reject: false,
         });
 
-        expect(result.exitCode).not.toBe(EXIT_SUCCESS);
-        expect(result.stdout).not.toContain(NPX_INSTALL_PROMPT);
+        expect(result.exitCode).not.toBe(0);
+        expect(result.stdout).not.toContain(VALIDATION_RUNTIME_ANTI_MARKERS.NPX_INSTALL_PROMPT);
       });
     },
   );
@@ -86,16 +92,16 @@ describe("spx validation typescript — language-gated type checking", () => {
     { timeout: HARNESS_TIMEOUT },
     async () => {
       await withValidationEnv({ fixture: PROJECT_FIXTURES.PYTHON_PROJECT }, async ({ path }) => {
-        const result = await execa("node", [CLI_PATH, "validation", "typescript"], {
+        const result = await execa(process.execPath, validationTypeScriptAliasArgs(), {
           cwd: path,
           reject: false,
         });
 
-        expect(result.exitCode).toBe(EXIT_SUCCESS);
-        expect(result.stdout).toContain(SKIP_MARKER);
-        expect(result.stdout).not.toContain(NPX_INSTALL_PROMPT);
-        expect(result.stderr).not.toContain(NPX_INSTALL_PROMPT);
-        expect(`${result.stdout}${result.stderr}`).not.toContain(ENOENT_MARKER);
+        expect(result.exitCode).toBe(0);
+        expect(result.stdout).toContain(TYPESCRIPT_VALIDATION_MESSAGES.ABSENT);
+        expect(result.stdout).not.toContain(VALIDATION_RUNTIME_ANTI_MARKERS.NPX_INSTALL_PROMPT);
+        expect(result.stderr).not.toContain(VALIDATION_RUNTIME_ANTI_MARKERS.NPX_INSTALL_PROMPT);
+        expect(`${result.stdout}${result.stderr}`).not.toContain(VALIDATION_RUNTIME_ANTI_MARKERS.ENOENT);
       });
     },
   );
@@ -105,18 +111,18 @@ describe("spx validation typescript — language-gated type checking", () => {
     { timeout: HARNESS_TIMEOUT },
     async () => {
       await withValidationEnv({ fixture: PROJECT_FIXTURES.TYPESCRIPT_NO_TSCONFIG }, async ({ path }) => {
-        const result = await execa("node", [CLI_PATH, "validation", "typescript"], {
+        const result = await execa(process.execPath, validationTypeScriptAliasArgs(), {
           cwd: path,
           reject: false,
         });
 
         // detectTypeScript checks for tsconfig.json, not .ts files.
         // Without tsconfig.json, tsc must not be invoked — exit 0 with skip.
-        expect(result.exitCode).toBe(EXIT_SUCCESS);
-        expect(result.stdout).toContain(SKIP_MARKER);
-        expect(result.stdout).not.toContain(NPX_INSTALL_PROMPT);
-        expect(result.stderr).not.toContain(NPX_INSTALL_PROMPT);
-        expect(`${result.stdout}${result.stderr}`).not.toContain(ENOENT_MARKER);
+        expect(result.exitCode).toBe(0);
+        expect(result.stdout).toContain(TYPESCRIPT_VALIDATION_MESSAGES.ABSENT);
+        expect(result.stdout).not.toContain(VALIDATION_RUNTIME_ANTI_MARKERS.NPX_INSTALL_PROMPT);
+        expect(result.stderr).not.toContain(VALIDATION_RUNTIME_ANTI_MARKERS.NPX_INSTALL_PROMPT);
+        expect(`${result.stdout}${result.stderr}`).not.toContain(VALIDATION_RUNTIME_ANTI_MARKERS.ENOENT);
       });
     },
   );

@@ -8,7 +8,11 @@ import { detectTypeScript, discoverTool, formatSkipMessage } from "@/validation/
 import { validateTypeScript } from "@/validation/steps/typescript";
 import type { TypeScriptCommandOptions, ValidationCommandResult } from "./types";
 
-const TYPESCRIPT_ABSENT_MESSAGE = "⏭ Skipping TypeScript (TypeScript not detected in project)";
+export const TYPESCRIPT_VALIDATION_MESSAGES = {
+  ABSENT: "⏭ Skipping TypeScript (TypeScript not detected in project)",
+  SUCCESS: "TypeScript: ✓ No type errors",
+  TOOL_LABEL: "TypeScript",
+} as const;
 
 /**
  * Run TypeScript type checking.
@@ -29,7 +33,7 @@ export async function typescriptCommand(options: TypeScriptCommandOptions): Prom
   if (!tsDetection.present) {
     return {
       exitCode: 0,
-      output: quiet ? "" : TYPESCRIPT_ABSENT_MESSAGE,
+      output: quiet ? "" : TYPESCRIPT_VALIDATION_MESSAGES.ABSENT,
       durationMs: Date.now() - startTime,
     };
   }
@@ -50,7 +54,7 @@ export async function typescriptCommand(options: TypeScriptCommandOptions): Prom
 
   // Map result to command output
   if (result.success) {
-    const output = quiet ? "" : `TypeScript: ✓ No type errors`;
+    const output = quiet ? "" : TYPESCRIPT_VALIDATION_MESSAGES.SUCCESS;
     return { exitCode: 0, output, durationMs };
   } else {
     const output = result.error ?? "TypeScript validation failed";
