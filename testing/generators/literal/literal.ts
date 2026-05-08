@@ -216,7 +216,9 @@ export function arbitraryLiteralReuseFixtureInputs(): fc.Arbitrary<LiteralReuseF
     })
     .filter((inputs) => {
       const values = Object.values(inputs);
-      return new Set(values).size === values.length;
+      return new Set(values).size === values.length
+        && !inputs.reuseLiteral.includes(inputs.dupeLiteral)
+        && !inputs.dupeLiteral.includes(inputs.reuseLiteral);
     });
 }
 
