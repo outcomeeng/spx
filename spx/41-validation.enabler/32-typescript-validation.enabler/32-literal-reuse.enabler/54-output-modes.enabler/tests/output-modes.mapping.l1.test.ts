@@ -11,9 +11,9 @@ import {
 import { LITERAL_DEFAULTS } from "@/validation/literal/config";
 import { parseLiteralReuseResult } from "@/validation/literal/index";
 import {
+  LITERAL_TEST_BOUNDS,
   LITERAL_TEST_GENERATOR,
   LITERAL_TEST_GENERATOR_COUNTS,
-  LITERAL_TEST_INDEXES,
   LITERAL_TEXT_LAYOUT,
   literalEmptyConfig,
   literalOutputModeOptions,
@@ -131,7 +131,7 @@ describe("output-modes — mappings", () => {
       // REUSE section appears before DUPE section
       const reuseHeaderIdx = output.indexOf(LITERAL_PROBLEM_KIND.REUSE.toUpperCase());
       const dupeHeaderIdx = output.indexOf(LITERAL_PROBLEM_KIND.DUPE.toUpperCase());
-      expect(reuseHeaderIdx).toBeGreaterThanOrEqual(LITERAL_TEST_INDEXES.foundMinimum);
+      expect(reuseHeaderIdx).toBeGreaterThanOrEqual(LITERAL_TEST_BOUNDS.foundMinimum);
       expect(dupeHeaderIdx).toBeGreaterThan(reuseHeaderIdx);
 
       // Fixture file paths appear under the correct sections

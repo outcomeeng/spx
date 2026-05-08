@@ -162,11 +162,11 @@ export function arbitraryDetectionResult(): fc.Arbitrary<DetectionResult> {
   return fc.record({
     srcReuse: fc.array(arbitraryReuseFinding(), {
       minLength: LITERAL_TEST_GENERATOR_COUNTS.one,
-      maxLength: LITERAL_FINDINGS_MAX_COUNT,
+      maxLength: LITERAL_TEST_GENERATOR_COUNTS.findingsMax,
     }),
     testDupe: fc.array(arbitraryDupeFinding(), {
       minLength: LITERAL_TEST_GENERATOR_COUNTS.one,
-      maxLength: LITERAL_FINDINGS_MAX_COUNT,
+      maxLength: LITERAL_TEST_GENERATOR_COUNTS.findingsMax,
     }),
   });
 }
@@ -325,6 +325,9 @@ export const LITERAL_TEST_GENERATOR_COUNTS = {
 export const LITERAL_TEST_INDEXES = {
   first: 0,
   second: 1,
+} as const;
+
+export const LITERAL_TEST_BOUNDS = {
   foundMinimum: 0,
 } as const;
 
