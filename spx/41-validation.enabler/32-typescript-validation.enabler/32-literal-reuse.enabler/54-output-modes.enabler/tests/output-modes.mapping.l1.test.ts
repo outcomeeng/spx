@@ -13,9 +13,10 @@ import { parseLiteralReuseResult } from "@/validation/literal/index";
 import {
   LITERAL_TEST_GENERATOR,
   LITERAL_TEST_GENERATOR_COUNTS,
-  LITERAL_YAML_LAYOUT,
+  LITERAL_TEST_INDEXES,
+  LITERAL_TEXT_LAYOUT,
+  literalEmptyConfig,
   literalOutputModeOptions,
-  sampleLiteralEmptyConfig,
   sampleLiteralTestValue,
 } from "@testing/generators/literal/literal";
 import { withLiteralFixtureEnv } from "@testing/harnesses/literal/harness";
@@ -24,7 +25,7 @@ describe("output-modes — mappings", () => {
   it.each(OUTPUT_MODE_NAMES)(
     "--kind reuse selects srcReuse and --kind dupe selects testDupe in %s mode",
     async (mode) => {
-      await withLiteralFixtureEnv(sampleLiteralEmptyConfig(), async (env) => {
+      await withLiteralFixtureEnv(literalEmptyConfig(), async (env) => {
         const inputs = sampleLiteralTestValue(LITERAL_TEST_GENERATOR.reuseFixtureInputs());
         await env.writeReuseFixture(inputs);
 
@@ -61,11 +62,11 @@ describe("output-modes — mappings", () => {
           expect(dupeResult.output).toContain(`[${LITERAL_PROBLEM_KIND.DUPE}]`);
           expect(dupeResult.output).not.toContain(`[${LITERAL_PROBLEM_KIND.REUSE}]`);
         } else if (mode === OUTPUT_MODE_NAME.FILES_WITH_PROBLEMS) {
-          const reuseFiles = new Set(reuseResult.output.split(LITERAL_YAML_LAYOUT.lineSeparator).filter(Boolean));
+          const reuseFiles = new Set(reuseResult.output.split(LITERAL_TEXT_LAYOUT.lineSeparator).filter(Boolean));
           expect(reuseFiles.has(inputs.reuseTestFile)).toBe(true);
           expect(reuseFiles.has(inputs.dupeFirstTestFile)).toBe(false);
           expect(reuseFiles.has(inputs.dupeSecondTestFile)).toBe(false);
-          const dupeFiles = new Set(dupeResult.output.split(LITERAL_YAML_LAYOUT.lineSeparator).filter(Boolean));
+          const dupeFiles = new Set(dupeResult.output.split(LITERAL_TEXT_LAYOUT.lineSeparator).filter(Boolean));
           expect(dupeFiles.has(inputs.dupeFirstTestFile)).toBe(true);
         } else if (mode === OUTPUT_MODE_NAME.LITERALS) {
           expect(reuseResult.output).toContain(inputs.reuseLiteral);
@@ -81,7 +82,7 @@ describe("output-modes — mappings", () => {
   );
 
   it("default text output: one [kind] \"value\" path:line per problem; reuse problems first, then dupe, each group sorted", async () => {
-    await withLiteralFixtureEnv(sampleLiteralEmptyConfig(), async (env) => {
+    await withLiteralFixtureEnv(literalEmptyConfig(), async (env) => {
       const inputs = sampleLiteralTestValue(LITERAL_TEST_GENERATOR.reuseFixtureInputs());
       await env.writeReuseFixture(inputs);
 
@@ -91,7 +92,7 @@ describe("output-modes — mappings", () => {
       ]);
 
       const findings = parseLiteralReuseResult(JSON.parse(jsonResult.output));
-      const lines = defaultResult.output.split(LITERAL_YAML_LAYOUT.lineSeparator).filter(Boolean);
+      const lines = defaultResult.output.split(LITERAL_TEXT_LAYOUT.lineSeparator).filter(Boolean);
       const reuseTag = `[${LITERAL_PROBLEM_KIND.REUSE}]`;
       const dupeTag = `[${LITERAL_PROBLEM_KIND.DUPE}]`;
       const reuseLines = lines.filter((l) => l.startsWith(reuseTag));
@@ -115,7 +116,7 @@ describe("output-modes — mappings", () => {
   });
 
   it("--verbose output: summary line stating problem counts; REUSE section with file headers; DUPE section with file headers", async () => {
-    await withLiteralFixtureEnv(sampleLiteralEmptyConfig(), async (env) => {
+    await withLiteralFixtureEnv(literalEmptyConfig(), async (env) => {
       const inputs = sampleLiteralTestValue(LITERAL_TEST_GENERATOR.reuseFixtureInputs());
       await env.writeReuseFixture(inputs);
 
@@ -130,7 +131,7 @@ describe("output-modes — mappings", () => {
       // REUSE section appears before DUPE section
       const reuseHeaderIdx = output.indexOf(LITERAL_PROBLEM_KIND.REUSE.toUpperCase());
       const dupeHeaderIdx = output.indexOf(LITERAL_PROBLEM_KIND.DUPE.toUpperCase());
-      expect(reuseHeaderIdx).toBeGreaterThanOrEqual(LITERAL_TEST_GENERATOR_COUNTS.none);
+      expect(reuseHeaderIdx).toBeGreaterThanOrEqual(LITERAL_TEST_INDEXES.foundMinimum);
       expect(dupeHeaderIdx).toBeGreaterThan(reuseHeaderIdx);
 
       // Fixture file paths appear under the correct sections
@@ -140,20 +141,20 @@ describe("output-modes — mappings", () => {
 
       // Per-problem "line N" entries exist for all findings
       const problemLines = output
-        .split(LITERAL_YAML_LAYOUT.lineSeparator)
+        .split(LITERAL_TEXT_LAYOUT.lineSeparator)
         .filter((l) => l.trimStart().startsWith(VERBOSE_PROBLEM_LINE_PREFIX));
       expect(problemLines.length).toBe(findings.srcReuse.length + findings.testDupe.length);
     });
   });
 
   it("--files-with-problems output: unique file paths one per line sorted lexicographically with no line number suffix", async () => {
-    await withLiteralFixtureEnv(sampleLiteralEmptyConfig(), async (env) => {
+    await withLiteralFixtureEnv(literalEmptyConfig(), async (env) => {
       const inputs = sampleLiteralTestValue(LITERAL_TEST_GENERATOR.reuseFixtureInputs());
       await env.writeReuseFixture(inputs);
 
       const result = await literalCommand({ cwd: env.projectDir, config: LITERAL_DEFAULTS, filesWithProblems: true });
 
-      const lines = result.output.split(LITERAL_YAML_LAYOUT.lineSeparator).filter(Boolean);
+      const lines = result.output.split(LITERAL_TEXT_LAYOUT.lineSeparator).filter(Boolean);
 
       // Unique, sorted, no line number suffix
       expect(new Set(lines).size).toBe(lines.length);
@@ -169,13 +170,13 @@ describe("output-modes — mappings", () => {
   });
 
   it("--literals output: unique literal values one per line sorted lexicographically; strings in double quotes", async () => {
-    await withLiteralFixtureEnv(sampleLiteralEmptyConfig(), async (env) => {
+    await withLiteralFixtureEnv(literalEmptyConfig(), async (env) => {
       const inputs = sampleLiteralTestValue(LITERAL_TEST_GENERATOR.reuseFixtureInputs());
       await env.writeReuseFixture(inputs);
 
       const result = await literalCommand({ cwd: env.projectDir, config: LITERAL_DEFAULTS, literals: true });
 
-      const lines = result.output.split(LITERAL_YAML_LAYOUT.lineSeparator).filter(Boolean);
+      const lines = result.output.split(LITERAL_TEXT_LAYOUT.lineSeparator).filter(Boolean);
 
       // Unique, sorted, all values in double quotes
       expect(new Set(lines).size).toBe(lines.length);
@@ -191,7 +192,7 @@ describe("output-modes — mappings", () => {
   });
 
   it("--kind reuse returns only srcReuse findings; --kind dupe returns only testDupe findings — both disjoint from unfiltered output", async () => {
-    await withLiteralFixtureEnv(sampleLiteralEmptyConfig(), async (env) => {
+    await withLiteralFixtureEnv(literalEmptyConfig(), async (env) => {
       const inputs = sampleLiteralTestValue(LITERAL_TEST_GENERATOR.reuseFixtureInputs());
       await env.writeReuseFixture(inputs);
 

@@ -11,8 +11,8 @@ import { parseLiteralReuseResult } from "@/validation/literal/index";
 import {
   LITERAL_TEST_GENERATOR,
   LITERAL_TEST_GENERATOR_COUNTS,
+  literalEmptyConfig,
   type LiteralReuseFixtureInputs,
-  sampleLiteralEmptyConfig,
   sampleLiteralTestValue,
 } from "@testing/generators/literal/literal";
 import { withLiteralFixtureEnv } from "@testing/harnesses/literal/harness";
@@ -20,7 +20,7 @@ import { withLiteralFixtureEnv } from "@testing/harnesses/literal/harness";
 describe("withLiteralFixtureEnv", () => {
   it("materializes a temp project and provides projectDir to the callback", async () => {
     let captured = "";
-    await withLiteralFixtureEnv(sampleLiteralEmptyConfig(), async (env) => {
+    await withLiteralFixtureEnv(literalEmptyConfig(), async (env) => {
       captured = env.projectDir;
       expect(existsSync(env.projectDir)).toBe(true);
     });
@@ -28,7 +28,7 @@ describe("withLiteralFixtureEnv", () => {
   });
 
   it("writeTsConfigMarker creates the discovery marker so detectTypeScript reports present", async () => {
-    await withLiteralFixtureEnv(sampleLiteralEmptyConfig(), async (env) => {
+    await withLiteralFixtureEnv(literalEmptyConfig(), async (env) => {
       await env.writeTsConfigMarker();
       const detection = detectTypeScript(env.projectDir);
       expect(detection.present).toBe(true);
@@ -38,7 +38,7 @@ describe("withLiteralFixtureEnv", () => {
   it("writeSourceFile writes a file whose content includes the supplied value", async () => {
     const value = sampleLiteralTestValue(LITERAL_TEST_GENERATOR.domainLiteral());
     const sourcePath = sampleLiteralTestValue(LITERAL_TEST_GENERATOR.sourceFilePath());
-    await withLiteralFixtureEnv(sampleLiteralEmptyConfig(), async (env) => {
+    await withLiteralFixtureEnv(literalEmptyConfig(), async (env) => {
       await env.writeSourceFile(sourcePath, value);
       const content = await env.readFile(sourcePath);
       expect(content).toContain(value);
@@ -48,7 +48,7 @@ describe("withLiteralFixtureEnv", () => {
   it("writeTestFile writes a file whose content includes the supplied value", async () => {
     const value = sampleLiteralTestValue(LITERAL_TEST_GENERATOR.domainLiteral());
     const testPath = sampleLiteralTestValue(LITERAL_TEST_GENERATOR.testFilePath());
-    await withLiteralFixtureEnv(sampleLiteralEmptyConfig(), async (env) => {
+    await withLiteralFixtureEnv(literalEmptyConfig(), async (env) => {
       await env.writeTestFile(testPath, value);
       const content = await env.readFile(testPath);
       expect(content).toContain(value);
@@ -59,7 +59,7 @@ describe("withLiteralFixtureEnv", () => {
     const inputs: LiteralReuseFixtureInputs = sampleLiteralTestValue(
       LITERAL_TEST_GENERATOR.reuseFixtureInputs(),
     );
-    await withLiteralFixtureEnv(sampleLiteralEmptyConfig(), async (env) => {
+    await withLiteralFixtureEnv(literalEmptyConfig(), async (env) => {
       await env.writeReuseFixture(inputs);
       const result = await literalCommand({
         cwd: env.projectDir,
@@ -75,7 +75,7 @@ describe("withLiteralFixtureEnv", () => {
 
   it("removes the temp directory when the callback returns normally", async () => {
     let projectDir = "";
-    await withLiteralFixtureEnv(sampleLiteralEmptyConfig(), async (env) => {
+    await withLiteralFixtureEnv(literalEmptyConfig(), async (env) => {
       projectDir = env.projectDir;
       expect(existsSync(projectDir)).toBe(true);
     });
@@ -86,7 +86,7 @@ describe("withLiteralFixtureEnv", () => {
     let projectDir = "";
     const thrownMessage = sampleLiteralTestValue(LITERAL_TEST_GENERATOR.domainLiteral());
     await expect(
-      withLiteralFixtureEnv(sampleLiteralEmptyConfig(), async (env) => {
+      withLiteralFixtureEnv(literalEmptyConfig(), async (env) => {
         projectDir = env.projectDir;
         throw new Error(thrownMessage);
       }),
@@ -99,14 +99,14 @@ describe("withLiteralFixtureEnv", () => {
     const sentinelValue = sampleLiteralTestValue(LITERAL_TEST_GENERATOR.domainLiteral());
     const observations: Array<{ projectDir: string; sentinelExists: boolean }> = [];
     await Promise.all([
-      withLiteralFixtureEnv(sampleLiteralEmptyConfig(), async (env) => {
+      withLiteralFixtureEnv(literalEmptyConfig(), async (env) => {
         await env.writeTestFile(sentinelPath, sentinelValue);
         observations.push({
           projectDir: env.projectDir,
           sentinelExists: existsSync(joinPath(env.projectDir, sentinelPath)),
         });
       }),
-      withLiteralFixtureEnv(sampleLiteralEmptyConfig(), async (env) => {
+      withLiteralFixtureEnv(literalEmptyConfig(), async (env) => {
         observations.push({
           projectDir: env.projectDir,
           sentinelExists: existsSync(joinPath(env.projectDir, sentinelPath)),

@@ -17,8 +17,8 @@ import { validateLiteralReuse } from "@/validation/literal/index";
 import {
   LITERAL_TEST_GENERATOR,
   LITERAL_TEST_GENERATOR_COUNTS,
+  literalEmptyConfig,
   sampleDistinctDomainLiterals,
-  sampleLiteralEmptyConfig,
   sampleLiteralTestValue,
 } from "@testing/generators/literal/literal";
 import { withTestEnv } from "@testing/harnesses/spec-tree/spec-tree";
@@ -32,7 +32,7 @@ import {
 } from "./support";
 
 function serializeEmptyJsonConfig(): string {
-  const serialized = serializeConfigFileSections(CONFIG_FILE_FORMAT.JSON, sampleLiteralEmptyConfig());
+  const serialized = serializeConfigFileSections(CONFIG_FILE_FORMAT.JSON, literalEmptyConfig());
   if (!serialized.ok) {
     throw new Error(serialized.error);
   }
@@ -85,7 +85,7 @@ describe("allowlist-existing scenario", () => {
 
   it("adds the literal section when the default project config file exists without one", async () => {
     const literal = sampleLiteralTestValue(LITERAL_TEST_GENERATOR.domainLiteral());
-    await withTestEnv(sampleLiteralEmptyConfig(), async (env) => {
+    await withTestEnv(literalEmptyConfig(), async (env) => {
       await writeDuplicatedLiteralFixture(env, literal);
 
       const result = await allowlistExisting({ projectRoot: env.projectDir });

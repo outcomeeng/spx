@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { detectReuse, LITERAL_KIND } from "@/validation/literal/index";
+import { createEmptyLiteralAllowlist, detectReuse, LITERAL_KIND } from "@/validation/literal/index";
 import {
   arbitraryDomainLiteral,
   arbitraryDomainNumber,
@@ -16,7 +16,7 @@ import {
   buildStringDeclaration,
 } from "@testing/harnesses/literal/snippets";
 
-import { emptyAllowlist, indexSources, testOccurrences } from "./support";
+import { indexSources, testOccurrences } from "./support";
 
 describe("literal-reuse detection — scenarios", () => {
   it("string literal carrying domain meaning in a src file and a test file produces a src↔test reuse finding citing both locations", () => {
@@ -27,7 +27,7 @@ describe("literal-reuse detection — scenarios", () => {
     const srcIndex = indexSources([sourceFile, buildStringDeclaration(literal)]);
     const tests = testOccurrences([testFile, buildStringAssertion(literal)]);
 
-    const result = detectReuse({ srcIndex, testOccurrencesByFile: tests, allowlist: emptyAllowlist() });
+    const result = detectReuse({ srcIndex, testOccurrencesByFile: tests, allowlist: createEmptyLiteralAllowlist() });
 
     const finding = result.srcReuse.find((f) => f.value === literal);
     expect(finding).toBeDefined();
@@ -50,7 +50,7 @@ describe("literal-reuse detection — scenarios", () => {
       [secondTestFile, buildStringAssertion(literal)],
     );
 
-    const result = detectReuse({ srcIndex, testOccurrencesByFile: tests, allowlist: emptyAllowlist() });
+    const result = detectReuse({ srcIndex, testOccurrencesByFile: tests, allowlist: createEmptyLiteralAllowlist() });
 
     const findings = result.testDupe.filter((f) => f.value === literal);
     expect(findings.length).toBeGreaterThanOrEqual(LITERAL_TEST_GENERATOR_COUNTS.one);
@@ -72,7 +72,7 @@ describe("literal-reuse detection — scenarios", () => {
     const srcIndex = indexSources([sourceFile, buildNumericDeclaration(literalText)]);
     const tests = testOccurrences([testFile, buildNumericAssertion(literalText)]);
 
-    const result = detectReuse({ srcIndex, testOccurrencesByFile: tests, allowlist: emptyAllowlist() });
+    const result = detectReuse({ srcIndex, testOccurrencesByFile: tests, allowlist: createEmptyLiteralAllowlist() });
 
     const finding = result.srcReuse.find((f) => f.value === literalText);
     expect(finding).toBeDefined();
@@ -88,7 +88,7 @@ describe("literal-reuse detection — scenarios", () => {
     const srcIndex = indexSources([sourceFile, buildStringDeclaration(literal)]);
     const tests = testOccurrences([testFile, buildStringAssertion(otherLiteral)]);
 
-    const result = detectReuse({ srcIndex, testOccurrencesByFile: tests, allowlist: emptyAllowlist() });
+    const result = detectReuse({ srcIndex, testOccurrencesByFile: tests, allowlist: createEmptyLiteralAllowlist() });
 
     const reuseHits = result.srcReuse.filter((f) => f.value === literal);
     const dupeHits = result.testDupe.filter((f) => f.value === literal);

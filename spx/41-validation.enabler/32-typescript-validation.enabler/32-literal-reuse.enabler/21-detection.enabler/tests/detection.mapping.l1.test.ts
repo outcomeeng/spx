@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { detectReuse, REMEDIATION } from "@/validation/literal/index";
+import { createEmptyLiteralAllowlist, detectReuse, REMEDIATION } from "@/validation/literal/index";
 import {
   arbitraryDomainLiteral,
   arbitrarySourceFilePath,
@@ -10,7 +10,7 @@ import {
 } from "@testing/generators/literal/literal";
 import { buildStringAssertion, buildStringDeclaration } from "@testing/harnesses/literal/snippets";
 
-import { collectFromSource, emptyAllowlist, indexSources, testOccurrences } from "./support";
+import { collectFromSource, indexSources, testOccurrences } from "./support";
 
 describe("finding-kind → remediation mapping", () => {
   it("src↔test reuse findings carry remediation === REMEDIATION.IMPORT_FROM_SOURCE", () => {
@@ -21,7 +21,7 @@ describe("finding-kind → remediation mapping", () => {
     const srcIndex = indexSources([sourceFile, buildStringDeclaration(literal)]);
     const tests = testOccurrences([testFile, buildStringAssertion(literal)]);
 
-    const result = detectReuse({ srcIndex, testOccurrencesByFile: tests, allowlist: emptyAllowlist() });
+    const result = detectReuse({ srcIndex, testOccurrencesByFile: tests, allowlist: createEmptyLiteralAllowlist() });
 
     const finding = result.srcReuse.find((f) => f.value === literal);
     expect(finding).toBeDefined();
@@ -41,7 +41,7 @@ describe("finding-kind → remediation mapping", () => {
       [secondTestFile, buildStringAssertion(literal)],
     );
 
-    const result = detectReuse({ srcIndex, testOccurrencesByFile: tests, allowlist: emptyAllowlist() });
+    const result = detectReuse({ srcIndex, testOccurrencesByFile: tests, allowlist: createEmptyLiteralAllowlist() });
 
     const findings = result.testDupe.filter((f) => f.value === literal);
     expect(findings.length).toBeGreaterThanOrEqual(1);

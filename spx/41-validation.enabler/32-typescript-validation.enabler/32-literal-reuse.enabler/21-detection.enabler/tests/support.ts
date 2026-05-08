@@ -1,7 +1,6 @@
 import {
   buildIndex,
   collectLiterals,
-  createEmptyLiteralAllowlist,
   DEFAULT_LITERAL_COLLECT_OPTIONS,
   type LiteralIndex,
   type LiteralOccurrence,
@@ -33,8 +32,4 @@ export function collectFromSource(
   options: typeof DEFAULT_LITERAL_COLLECT_OPTIONS = DEFAULT_LITERAL_COLLECT_OPTIONS,
 ): readonly LiteralOccurrence[] {
   return collectLiterals(source, filename, options);
-}
-
-export function emptyAllowlist(): ReadonlySet<string> {
-  return createEmptyLiteralAllowlist();
 }

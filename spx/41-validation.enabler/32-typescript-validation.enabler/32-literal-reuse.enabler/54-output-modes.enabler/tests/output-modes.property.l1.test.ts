@@ -5,7 +5,7 @@ import { formatFilesWithProblems, formatLiteralValues } from "@/commands/validat
 import {
   arbitraryDetectionResult,
   LITERAL_TEST_GENERATOR_COUNTS,
-  LITERAL_YAML_LAYOUT,
+  LITERAL_TEXT_LAYOUT,
 } from "@testing/generators/literal/literal";
 
 describe("output-modes — properties", () => {
@@ -13,7 +13,7 @@ describe("output-modes — properties", () => {
     fc.assert(
       fc.property(arbitraryDetectionResult(), (findings) => {
         const output = formatFilesWithProblems(findings);
-        const lines = output.split(LITERAL_YAML_LAYOUT.lineSeparator).filter(Boolean);
+        const lines = output.split(LITERAL_TEXT_LAYOUT.lineSeparator).filter(Boolean);
 
         // Every test.file from srcReuse and testDupe appears in the output (oracle from findings data)
         for (const finding of findings.srcReuse) {
@@ -35,7 +35,7 @@ describe("output-modes — properties", () => {
     fc.assert(
       fc.property(arbitraryDetectionResult(), (findings) => {
         const output = formatLiteralValues(findings);
-        const lines = output.split(LITERAL_YAML_LAYOUT.lineSeparator).filter(Boolean);
+        const lines = output.split(LITERAL_TEXT_LAYOUT.lineSeparator).filter(Boolean);
 
         // Every literal value from srcReuse and testDupe appears quoted in the output (oracle from findings data)
         for (const finding of findings.srcReuse) {

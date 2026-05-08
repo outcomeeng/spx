@@ -4,12 +4,12 @@ import { join as joinPath } from "node:path";
 import { describe, expect, it } from "vitest";
 
 import { detectTypeScript, TYPESCRIPT_MARKER } from "@/validation/discovery/index";
-import { sampleLiteralEmptyConfig } from "@testing/generators/literal/literal";
+import { literalEmptyConfig } from "@testing/generators/literal/literal";
 import { withLiteralFixtureEnv } from "@testing/harnesses/literal/harness";
 
 describe("withLiteralFixtureEnv compliance", () => {
   it("writes the discovery marker at the path bound to TYPESCRIPT_MARKER and detectTypeScript reports present", async () => {
-    await withLiteralFixtureEnv(sampleLiteralEmptyConfig(), async (env) => {
+    await withLiteralFixtureEnv(literalEmptyConfig(), async (env) => {
       await env.writeTsConfigMarker();
       const markerPath = joinPath(env.projectDir, TYPESCRIPT_MARKER);
       expect(existsSync(markerPath)).toBe(true);

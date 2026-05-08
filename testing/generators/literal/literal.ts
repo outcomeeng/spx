@@ -61,7 +61,6 @@ const SLUG_UNIT_CHARS = [
 
 const NUMERIC_LITERAL_MIN_DIGITS = DEFAULT_MIN_NUMBER_DIGITS + 1;
 const NUMERIC_LITERAL_MAX_DIGITS = NUMERIC_LITERAL_MIN_DIGITS + 4;
-const LITERAL_PAIR_LENGTH = 2;
 const LITERAL_MULTI_FIXTURE_COUNT = 3;
 const LITERAL_PROPERTY_RUN_COUNT = 32;
 const LITERAL_SMALL_PROPERTY_RUN_COUNT = 5;
@@ -69,7 +68,7 @@ const LITERAL_FINDINGS_MAX_COUNT = 5;
 const LITERAL_SECTION_INDENT_WIDTH = 2;
 const LITERAL_NESTED_INDENT_WIDTH = 4;
 const LITERAL_LIST_INDENT_WIDTH = 6;
-const LITERAL_OUTPUT_LINE_SEPARATOR = "\n";
+const LITERAL_TEXT_LINE_SEPARATOR = "\n";
 
 const RESERVED_LITERALS: ReadonlySet<string> = new Set(WEB_PRESET_TOKENS);
 
@@ -279,7 +278,7 @@ export function sampleDistinctDomainLiterals(count: number): readonly string[] {
 }
 
 export function sampleLiteralPair(): readonly [string, string] {
-  const [first, second] = sampleDistinctDomainLiterals(LITERAL_PAIR_LENGTH);
+  const [first, second] = sampleDistinctDomainLiterals(LITERAL_TEST_GENERATOR_COUNTS.two);
   if (first === undefined || second === undefined) {
     throw new Error("Literal generator returned an incomplete pair");
   }
@@ -301,7 +300,7 @@ export function literalOutputModeOptions(mode: OutputModeName): Partial<LiteralC
   }
 }
 
-export function sampleLiteralEmptyConfig(): Record<string, unknown> {
+export function literalEmptyConfig(): Record<string, unknown> {
   return {};
 }
 
@@ -309,18 +308,26 @@ export const LITERAL_TEST_GENERATOR_COUNTS = {
   none: 0,
   one: 1,
   two: 2,
-  pair: LITERAL_PAIR_LENGTH,
   multiFixture: LITERAL_MULTI_FIXTURE_COUNT,
   propertyRuns: LITERAL_PROPERTY_RUN_COUNT,
   smallPropertyRuns: LITERAL_SMALL_PROPERTY_RUN_COUNT,
   findingsMax: LITERAL_FINDINGS_MAX_COUNT,
 } as const;
 
+export const LITERAL_TEST_INDEXES = {
+  first: 0,
+  second: 1,
+  foundMinimum: 0,
+} as const;
+
 export const LITERAL_YAML_LAYOUT = {
   sectionIndentWidth: LITERAL_SECTION_INDENT_WIDTH,
   nestedIndentWidth: LITERAL_NESTED_INDENT_WIDTH,
   listIndentWidth: LITERAL_LIST_INDENT_WIDTH,
-  lineSeparator: LITERAL_OUTPUT_LINE_SEPARATOR,
+} as const;
+
+export const LITERAL_TEXT_LAYOUT = {
+  lineSeparator: LITERAL_TEXT_LINE_SEPARATOR,
 } as const;
 
 export const LITERAL_TEST_GENERATOR = {

@@ -8,6 +8,8 @@ import {
   arbitraryDomainLiteral,
   LITERAL_TEST_GENERATOR,
   LITERAL_TEST_GENERATOR_COUNTS,
+  LITERAL_TEST_INDEXES,
+  LITERAL_TEXT_LAYOUT,
   LITERAL_YAML_LAYOUT,
   sampleDistinctDomainLiterals,
   sampleLiteralPair,
@@ -106,8 +108,8 @@ describe("allowlist-existing compliance", () => {
       const allowlist = readLiteralAllowlist(await readProjectConfigSections(env));
       const include = allowlist.include ?? [];
 
-      expect(include.indexOf(existingFirst)).toBe(LITERAL_TEST_GENERATOR_COUNTS.none);
-      expect(include.indexOf(existingSecond)).toBe(LITERAL_TEST_GENERATOR_COUNTS.one);
+      expect(include.indexOf(existingFirst)).toBe(LITERAL_TEST_INDEXES.first);
+      expect(include.indexOf(existingSecond)).toBe(LITERAL_TEST_INDEXES.second);
     });
   });
 
@@ -179,7 +181,7 @@ describe("allowlist-existing compliance", () => {
           `${valuesIndent}minStringLength: ${LITERAL_DEFAULTS.minStringLength}`,
           `${valuesIndent}minNumberDigits: ${LITERAL_DEFAULTS.minNumberDigits}`,
           "",
-        ].join(LITERAL_YAML_LAYOUT.lineSeparator),
+        ].join(LITERAL_TEXT_LAYOUT.lineSeparator),
       );
       await writeDuplicatedLiteralFixture(env, fixtureLiteral);
 

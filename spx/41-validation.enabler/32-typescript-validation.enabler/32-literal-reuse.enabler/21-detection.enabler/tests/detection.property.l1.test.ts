@@ -4,6 +4,7 @@ import { describe, expect, it } from "vitest";
 import {
   buildIndex,
   collectLiterals,
+  createEmptyLiteralAllowlist,
   DEFAULT_LITERAL_COLLECT_OPTIONS,
   type DetectionResult,
   detectReuse,
@@ -16,8 +17,6 @@ import {
   LITERAL_TEST_GENERATOR_COUNTS,
 } from "@testing/generators/literal/literal";
 import { buildStringAssertion, buildStringDeclaration } from "@testing/harnesses/literal/snippets";
-
-import { emptyAllowlist } from "./support";
 
 interface FixtureFile {
   readonly filename: string;
@@ -71,7 +70,7 @@ function collectFixture(
   return detectReuse({
     srcIndex: buildIndex(srcOccurrences),
     testOccurrencesByFile,
-    allowlist: emptyAllowlist(),
+    allowlist: createEmptyLiteralAllowlist(),
   });
 }
 

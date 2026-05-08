@@ -16,7 +16,7 @@ import {
   arbitraryDomainLiteral,
   arbitrarySourceFilePath,
   literalModuleNamingFixtures,
-  sampleLiteralEmptyConfig,
+  literalEmptyConfig,
   sampleLiteralTestValue,
 } from "@testing/generators/literal/literal";
 import { withLiteralFixtureEnv } from "@testing/harnesses/literal/harness";
@@ -56,7 +56,7 @@ describe("NEVER: descend into artifact directories", () => {
   it.each(ARTIFACT_DIRECTORIES_DEFAULT)(
     "skips files under %s regardless of their contents",
     async (artifactDir) => {
-      await withLiteralFixtureEnv(sampleLiteralEmptyConfig(), async (env) => {
+      await withLiteralFixtureEnv(literalEmptyConfig(), async (env) => {
         const artifactLiteral = sampleLiteralTestValue(arbitraryDomainLiteral());
         const activeLiteral = sampleLiteralTestValue(arbitraryDomainLiteral());
         const activeRelativePath = sampleLiteralTestValue(arbitrarySourceFilePath());

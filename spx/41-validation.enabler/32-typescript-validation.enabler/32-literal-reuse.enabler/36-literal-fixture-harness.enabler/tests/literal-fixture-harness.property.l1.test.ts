@@ -4,7 +4,7 @@ import { describe, expect, it } from "vitest";
 import {
   arbitraryLiteralReuseFixtureInputs,
   LITERAL_TEST_GENERATOR_COUNTS,
-  sampleLiteralEmptyConfig,
+  literalEmptyConfig,
 } from "@testing/generators/literal/literal";
 import { withLiteralFixtureEnv } from "@testing/harnesses/literal/harness";
 
@@ -14,7 +14,7 @@ describe("withLiteralFixtureEnv properties", () => {
       fc.asyncProperty(arbitraryLiteralReuseFixtureInputs(), async (inputs) => {
         const captureFiles = async (): Promise<Record<string, string>> => {
           const captured: Record<string, string> = {};
-          await withLiteralFixtureEnv(sampleLiteralEmptyConfig(), async (env) => {
+          await withLiteralFixtureEnv(literalEmptyConfig(), async (env) => {
             await env.writeReuseFixture(inputs);
             const paths = [
               inputs.reuseSourceFile,
