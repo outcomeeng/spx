@@ -1,11 +1,7 @@
 import * as fc from "fast-check";
 import { describe, expect, it } from "vitest";
 
-import {
-  DEFAULT_MIN_NUMBER_DIGITS,
-  DEFAULT_MIN_STRING_LENGTH,
-} from "@/validation/literal/config";
-import { collectLiterals, defaultVisitorKeys, LITERAL_KIND } from "@/validation/literal/index";
+import { collectLiterals, DEFAULT_LITERAL_COLLECT_OPTIONS, LITERAL_KIND } from "@/validation/literal/index";
 import {
   arbitraryDomainLiteral,
   arbitraryDomainNumber,
@@ -20,17 +16,11 @@ import {
   buildTemplateDeclaration,
 } from "@testing/harnesses/literal/snippets";
 
-const DETECTOR_OPTIONS = {
-  visitorKeys: defaultVisitorKeys,
-  minStringLength: DEFAULT_MIN_STRING_LENGTH,
-  minNumberDigits: DEFAULT_MIN_NUMBER_DIGITS,
-} as const;
-
 describe("snippet builders — round-trip: output is indexed by the literal detector", () => {
   it("buildStringDeclaration output yields a STRING occurrence with the original value", () => {
     fc.assert(
       fc.property(arbitraryDomainLiteral(), arbitrarySourceFilePath(), (value, filename) => {
-        const occurrences = collectLiterals(buildStringDeclaration(value), filename, DETECTOR_OPTIONS);
+        const occurrences = collectLiterals(buildStringDeclaration(value), filename, DEFAULT_LITERAL_COLLECT_OPTIONS);
         expect(occurrences.some((o) => o.kind === LITERAL_KIND.STRING && o.value === value)).toBe(true);
       }),
     );
@@ -40,7 +30,7 @@ describe("snippet builders — round-trip: output is indexed by the literal dete
     fc.assert(
       fc.property(arbitraryDomainNumber(), arbitrarySourceFilePath(), (n, filename) => {
         const numStr = String(n);
-        const occurrences = collectLiterals(buildNumericDeclaration(numStr), filename, DETECTOR_OPTIONS);
+        const occurrences = collectLiterals(buildNumericDeclaration(numStr), filename, DEFAULT_LITERAL_COLLECT_OPTIONS);
         expect(occurrences.some((o) => o.kind === LITERAL_KIND.NUMBER && o.value === numStr)).toBe(true);
       }),
     );
@@ -49,7 +39,7 @@ describe("snippet builders — round-trip: output is indexed by the literal dete
   it("buildTemplateDeclaration output yields a STRING occurrence with the original value", () => {
     fc.assert(
       fc.property(arbitraryDomainLiteral(), arbitrarySourceFilePath(), (value, filename) => {
-        const occurrences = collectLiterals(buildTemplateDeclaration(value), filename, DETECTOR_OPTIONS);
+        const occurrences = collectLiterals(buildTemplateDeclaration(value), filename, DEFAULT_LITERAL_COLLECT_OPTIONS);
         expect(occurrences.some((o) => o.kind === LITERAL_KIND.STRING && o.value === value)).toBe(true);
       }),
     );
@@ -58,7 +48,7 @@ describe("snippet builders — round-trip: output is indexed by the literal dete
   it("buildStringAssertion output yields a STRING occurrence with the original value", () => {
     fc.assert(
       fc.property(arbitraryDomainLiteral(), arbitraryTestFilePath(), (value, filename) => {
-        const occurrences = collectLiterals(buildStringAssertion(value), filename, DETECTOR_OPTIONS);
+        const occurrences = collectLiterals(buildStringAssertion(value), filename, DEFAULT_LITERAL_COLLECT_OPTIONS);
         expect(occurrences.some((o) => o.kind === LITERAL_KIND.STRING && o.value === value)).toBe(true);
       }),
     );
@@ -68,7 +58,7 @@ describe("snippet builders — round-trip: output is indexed by the literal dete
     fc.assert(
       fc.property(arbitraryDomainNumber(), arbitraryTestFilePath(), (n, filename) => {
         const numStr = String(n);
-        const occurrences = collectLiterals(buildNumericAssertion(numStr), filename, DETECTOR_OPTIONS);
+        const occurrences = collectLiterals(buildNumericAssertion(numStr), filename, DEFAULT_LITERAL_COLLECT_OPTIONS);
         expect(occurrences.some((o) => o.kind === LITERAL_KIND.NUMBER && o.value === numStr)).toBe(true);
       }),
     );
