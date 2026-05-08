@@ -1,9 +1,9 @@
 import { unlink } from "node:fs/promises";
 import { join } from "node:path";
 
-import * as fc from "fast-check";
 import { describe, expect, it } from "vitest";
 
+import { LITERAL_EXIT_CODES } from "@/commands/validation/literal";
 import {
   CONFIG_FILE_FORMAT,
   CONFIG_FILENAMES,
@@ -15,8 +15,10 @@ import { type ValidationConfig, validationConfigDescriptor } from "@/validation/
 import { allowlistExisting } from "@/validation/literal/allowlist-existing";
 import { validateLiteralReuse } from "@/validation/literal/index";
 import {
-  arbitraryDomainLiteral,
   LITERAL_TEST_GENERATOR,
+  LITERAL_TEST_GENERATOR_COUNTS,
+  literalEmptyConfig,
+  sampleDistinctDomainLiterals,
   sampleLiteralTestValue,
 } from "@testing/generators/literal/literal";
 import { withTestEnv } from "@testing/harnesses/spec-tree/spec-tree";
@@ -29,21 +31,12 @@ import {
   writeMultipleLiteralFixtures,
 } from "./support";
 
-const MULTI_FIXTURE_COUNT = 3;
-const EMPTY_CONFIG: Record<string, unknown> = {};
-
 function serializeEmptyJsonConfig(): string {
-  const serialized = serializeConfigFileSections(CONFIG_FILE_FORMAT.JSON, EMPTY_CONFIG);
+  const serialized = serializeConfigFileSections(CONFIG_FILE_FORMAT.JSON, literalEmptyConfig());
   if (!serialized.ok) {
     throw new Error(serialized.error);
   }
   return serialized.value;
-}
-
-function sampleDistinctLiterals(count: number): readonly string[] {
-  return sampleLiteralTestValue(
-    fc.uniqueArray(arbitraryDomainLiteral(), { minLength: count, maxLength: count }),
-  );
 }
 
 describe("allowlist-existing scenario", () => {
@@ -54,7 +47,7 @@ describe("allowlist-existing scenario", () => {
 
       const result = await allowlistExisting({ projectRoot: env.projectDir });
 
-      expect(result.exitCode).toBe(0);
+      expect(result.exitCode).toBe(LITERAL_EXIT_CODES.OK);
 
       const parsed = await readProjectConfigSections(env);
       const allowlist = readLiteralAllowlist(parsed);
@@ -69,7 +62,9 @@ describe("allowlist-existing scenario", () => {
         projectRoot: env.projectDir,
         config: updatedValidation.literal.values,
       });
-      expect(second.findings.srcReuse.length + second.findings.testDupe.length).toBe(0);
+      expect(second.findings.srcReuse.length + second.findings.testDupe.length).toBe(
+        LITERAL_TEST_GENERATOR_COUNTS.none,
+      );
     });
   });
 
@@ -81,7 +76,7 @@ describe("allowlist-existing scenario", () => {
 
       const result = await allowlistExisting({ projectRoot: env.projectDir });
 
-      expect(result.exitCode).toBe(0);
+      expect(result.exitCode).toBe(LITERAL_EXIT_CODES.OK);
 
       const allowlist = readLiteralAllowlist(await readProjectConfigSections(env));
       expect(allowlist.include).toContain(literal);
@@ -90,12 +85,12 @@ describe("allowlist-existing scenario", () => {
 
   it("adds the literal section when the default project config file exists without one", async () => {
     const literal = sampleLiteralTestValue(LITERAL_TEST_GENERATOR.domainLiteral());
-    await withTestEnv(EMPTY_CONFIG, async (env) => {
+    await withTestEnv(literalEmptyConfig(), async (env) => {
       await writeDuplicatedLiteralFixture(env, literal);
 
       const result = await allowlistExisting({ projectRoot: env.projectDir });
 
-      expect(result.exitCode).toBe(0);
+      expect(result.exitCode).toBe(LITERAL_EXIT_CODES.OK);
 
       const allowlist = readLiteralAllowlist(await readProjectConfigSections(env));
       expect(allowlist.include).toContain(literal);
@@ -103,12 +98,12 @@ describe("allowlist-existing scenario", () => {
   });
 
   it("appends new include entries in alphabetical order when multiple distinct findings are present", async () => {
-    const literals = sampleDistinctLiterals(MULTI_FIXTURE_COUNT);
+    const literals = sampleDistinctDomainLiterals(LITERAL_TEST_GENERATOR_COUNTS.multiFixture);
     await withTestEnv(buildBaselineConfig(), async (env) => {
       await writeMultipleLiteralFixtures(env, literals);
 
       const result = await allowlistExisting({ projectRoot: env.projectDir });
-      expect(result.exitCode).toBe(0);
+      expect(result.exitCode).toBe(LITERAL_EXIT_CODES.OK);
 
       const allowlist = readLiteralAllowlist(await readProjectConfigSections(env));
       const include = allowlist.include ?? [];
@@ -131,7 +126,7 @@ describe("allowlist-existing scenario", () => {
 
       const result = await allowlistExisting({ projectRoot: env.projectDir });
 
-      expect(result.exitCode).not.toBe(0);
+      expect(result.exitCode).not.toBe(LITERAL_EXIT_CODES.OK);
       expect(result.output).toContain(DEFAULT_CONFIG_FILENAME);
       expect(result.output).toContain(CONFIG_FILENAMES.json);
 

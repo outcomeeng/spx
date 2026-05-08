@@ -4,6 +4,8 @@ import { describe, expect, it } from "vitest";
 import {
   buildIndex,
   collectLiterals,
+  createEmptyLiteralAllowlist,
+  DEFAULT_LITERAL_COLLECT_OPTIONS,
   type DetectionResult,
   detectReuse,
   type LiteralOccurrence,
@@ -12,12 +14,9 @@ import {
   arbitraryDomainLiteral,
   arbitrarySourceFilePath,
   arbitraryTestFilePath,
+  LITERAL_TEST_GENERATOR_COUNTS,
 } from "@testing/generators/literal/literal";
 import { buildStringAssertion, buildStringDeclaration } from "@testing/harnesses/literal/snippets";
-
-import { DETECTOR_OPTIONS, EMPTY_ALLOWLIST } from "./support";
-
-const PROPERTY_RUN_COUNT = 32;
 
 interface FixtureFile {
   readonly filename: string;
@@ -38,13 +37,13 @@ const arbitraryFixtureFile = (filenameArbitrary: fc.Arbitrary<string>): fc.Arbit
 const arbitraryDetectionFixture = (): fc.Arbitrary<DetectionFixture> =>
   fc.record({
     srcFiles: fc.uniqueArray(arbitraryFixtureFile(arbitrarySourceFilePath()), {
-      minLength: 1,
-      maxLength: 4,
+      minLength: LITERAL_TEST_GENERATOR_COUNTS.one,
+      maxLength: LITERAL_TEST_GENERATOR_COUNTS.findingsMax,
       selector: (entry) => entry.filename,
     }),
     testFiles: fc.uniqueArray(arbitraryFixtureFile(arbitraryTestFilePath()), {
-      minLength: 1,
-      maxLength: 4,
+      minLength: LITERAL_TEST_GENERATOR_COUNTS.one,
+      maxLength: LITERAL_TEST_GENERATOR_COUNTS.findingsMax,
       selector: (entry) => entry.filename,
     }),
   });
@@ -60,7 +59,7 @@ function collectFixture(
   for (const file of fileOrder) {
     const isSource = srcFilenames.has(file.filename);
     const sourceText = isSource ? buildStringDeclaration(file.literal) : buildStringAssertion(file.literal);
-    const occurrences = collectLiterals(sourceText, file.filename, DETECTOR_OPTIONS);
+    const occurrences = collectLiterals(sourceText, file.filename, DEFAULT_LITERAL_COLLECT_OPTIONS);
     if (isSource) {
       srcOccurrences.push(...occurrences);
     } else {
@@ -71,7 +70,7 @@ function collectFixture(
   return detectReuse({
     srcIndex: buildIndex(srcOccurrences),
     testOccurrencesByFile,
-    allowlist: EMPTY_ALLOWLIST,
+    allowlist: createEmptyLiteralAllowlist(),
   });
 }
 
@@ -111,7 +110,7 @@ describe("detection — invariants", () => {
         const second = collectFixture(fixture, naturalOrder(fixture));
         expect(canonicalSort(second)).toEqual(canonicalSort(first));
       }),
-      { numRuns: PROPERTY_RUN_COUNT },
+      { numRuns: LITERAL_TEST_GENERATOR_COUNTS.propertyRuns },
     );
   });
 
@@ -122,7 +121,7 @@ describe("detection — invariants", () => {
         const reversed = collectFixture(fixture, reverseOrder(fixture));
         expect(canonicalSort(reversed)).toEqual(canonicalSort(forward));
       }),
-      { numRuns: PROPERTY_RUN_COUNT },
+      { numRuns: LITERAL_TEST_GENERATOR_COUNTS.propertyRuns },
     );
   });
 
@@ -134,20 +133,28 @@ describe("detection — invariants", () => {
             literal: arbitraryDomainLiteral(),
             filename: arbitrarySourceFilePath(),
           }),
-          { minLength: 2, maxLength: 6, selector: (entry) => entry.literal },
+          {
+            minLength: LITERAL_TEST_GENERATOR_COUNTS.two,
+            maxLength: LITERAL_TEST_GENERATOR_COUNTS.findingsMax,
+            selector: (entry) => entry.literal,
+          },
         ),
         (entries) => {
           const occurrences: LiteralOccurrence[] = [];
           for (const entry of entries) {
             occurrences.push(
-              ...collectLiterals(buildStringDeclaration(entry.literal), entry.filename, DETECTOR_OPTIONS),
+              ...collectLiterals(
+                buildStringDeclaration(entry.literal),
+                entry.filename,
+                DEFAULT_LITERAL_COLLECT_OPTIONS,
+              ),
             );
           }
           const index = buildIndex(occurrences);
           expect(index.size).toBe(entries.length);
         },
       ),
-      { numRuns: PROPERTY_RUN_COUNT },
+      { numRuns: LITERAL_TEST_GENERATOR_COUNTS.propertyRuns },
     );
   });
 });

@@ -166,8 +166,7 @@ export const VALIDATION_ESLINT_FILES = {
   sessionCommandExample: "src/commands/session/example.ts",
   eslintStep: "src/validation/steps/eslint.ts",
   unmanifestedSpecTest: "spx/31-spec-domain.capability/tests/new.mapping.l1.test.ts",
-  manifestCoveredSpecTest:
-    "spx/41-validation.enabler/21-validation-cli.enabler/tests/package-scripts.compliance.l1.test.ts",
+  manifestCoveredSpecTest: "spx/16-config.enabler/tests/config-ambiguity.scenario.l1.test.ts",
   registrySpecTest: "spx/sample.enabler/tests/registry.mapping.l1.test.ts",
   sourceOwnedSpecTest: "spx/sample.enabler/tests/source-owned.mapping.l1.test.ts",
   supportFile: "spx/sample.enabler/tests/support.ts",

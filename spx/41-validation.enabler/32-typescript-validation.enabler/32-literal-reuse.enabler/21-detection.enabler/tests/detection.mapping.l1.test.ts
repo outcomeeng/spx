@@ -1,25 +1,16 @@
 import { describe, expect, it } from "vitest";
 
-import { detectReuse, LITERAL_KIND, REMEDIATION } from "@/validation/literal/index";
+import { createEmptyLiteralAllowlist, detectReuse, REMEDIATION } from "@/validation/literal/index";
 import {
   arbitraryDomainLiteral,
-  arbitraryDomainNumber,
   arbitrarySourceFilePath,
   arbitraryTestFilePath,
+  literalAstOccurrenceCases,
   sampleLiteralTestValue,
 } from "@testing/generators/literal/literal";
-import {
-  buildNumericDeclaration,
-  buildStringAssertion,
-  buildStringDeclaration,
-  buildTemplateDeclaration,
-} from "@testing/harnesses/literal/snippets";
+import { buildStringAssertion, buildStringDeclaration } from "@testing/harnesses/literal/snippets";
 
-import { collectFromSource, EMPTY_ALLOWLIST, indexSources, testOccurrences } from "./support";
-
-const STRING_LITERAL_DECLARATION = "stringLiteralDeclaration";
-const NUMERIC_LITERAL_DECLARATION = "numericLiteralDeclaration";
-const TEMPLATE_ELEMENT_DECLARATION = "templateElementDeclaration";
+import { collectFromSource, indexSources, testOccurrences } from "./support";
 
 describe("finding-kind → remediation mapping", () => {
   it("src↔test reuse findings carry remediation === REMEDIATION.IMPORT_FROM_SOURCE", () => {
@@ -30,7 +21,7 @@ describe("finding-kind → remediation mapping", () => {
     const srcIndex = indexSources([sourceFile, buildStringDeclaration(literal)]);
     const tests = testOccurrences([testFile, buildStringAssertion(literal)]);
 
-    const result = detectReuse({ srcIndex, testOccurrencesByFile: tests, allowlist: EMPTY_ALLOWLIST });
+    const result = detectReuse({ srcIndex, testOccurrencesByFile: tests, allowlist: createEmptyLiteralAllowlist() });
 
     const finding = result.srcReuse.find((f) => f.value === literal);
     expect(finding).toBeDefined();
@@ -50,7 +41,7 @@ describe("finding-kind → remediation mapping", () => {
       [secondTestFile, buildStringAssertion(literal)],
     );
 
-    const result = detectReuse({ srcIndex, testOccurrencesByFile: tests, allowlist: EMPTY_ALLOWLIST });
+    const result = detectReuse({ srcIndex, testOccurrencesByFile: tests, allowlist: createEmptyLiteralAllowlist() });
 
     const findings = result.testDupe.filter((f) => f.value === literal);
     expect(findings.length).toBeGreaterThanOrEqual(1);
@@ -61,34 +52,18 @@ describe("finding-kind → remediation mapping", () => {
 });
 
 describe("AST node → occurrence-kind mapping", () => {
-  it.each([
-    {
-      label: STRING_LITERAL_DECLARATION,
-      buildSource: buildStringDeclaration,
-      buildValue: () => sampleLiteralTestValue(arbitraryDomainLiteral()),
-      expectedKind: LITERAL_KIND.STRING,
-    },
-    {
-      label: NUMERIC_LITERAL_DECLARATION,
-      buildSource: buildNumericDeclaration,
-      buildValue: () => String(sampleLiteralTestValue(arbitraryDomainNumber())),
-      expectedKind: LITERAL_KIND.NUMBER,
-    },
-    {
-      label: TEMPLATE_ELEMENT_DECLARATION,
-      buildSource: buildTemplateDeclaration,
-      buildValue: () => sampleLiteralTestValue(arbitraryDomainLiteral()),
-      expectedKind: LITERAL_KIND.STRING,
-    },
-  ])("$label produces an occurrence with the expected kind and value", ({ buildSource, buildValue, expectedKind }) => {
-    const value = buildValue();
-    const source = buildSource(value);
-    const filename = sampleLiteralTestValue(arbitrarySourceFilePath());
+  it.each(literalAstOccurrenceCases())(
+    "$label produces an occurrence with the expected kind and value",
+    ({ buildSource, buildValue, expectedKind }) => {
+      const value = buildValue();
+      const source = buildSource(value);
+      const filename = sampleLiteralTestValue(arbitrarySourceFilePath());
 
-    const occurrences = collectFromSource(source, filename);
-    const match = occurrences.find((o) => o.value === value);
+      const occurrences = collectFromSource(source, filename);
+      const match = occurrences.find((o) => o.value === value);
 
-    expect(match).toBeDefined();
-    expect(match?.kind).toBe(expectedKind);
-  });
+      expect(match).toBeDefined();
+      expect(match?.kind).toBe(expectedKind);
+    },
+  );
 });

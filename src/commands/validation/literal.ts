@@ -23,7 +23,15 @@ export const LITERAL_PROBLEM_KIND = {
 
 export type LiteralProblemKind = (typeof LITERAL_PROBLEM_KIND)[keyof typeof LITERAL_PROBLEM_KIND];
 
-export const OUTPUT_MODE_NAMES = ["text", "verbose", "filesWithProblems", "literals", "json"] as const;
+export const OUTPUT_MODE_NAME = {
+  TEXT: "text",
+  VERBOSE: "verbose",
+  FILES_WITH_PROBLEMS: "filesWithProblems",
+  LITERALS: "literals",
+  JSON: "json",
+} as const;
+
+export const OUTPUT_MODE_NAMES = Object.values(OUTPUT_MODE_NAME);
 export type OutputModeName = (typeof OUTPUT_MODE_NAMES)[number];
 
 export const VERBOSE_PROBLEM_LINE_PREFIX = "line ";
@@ -47,9 +55,11 @@ export interface ValidationCommandResult {
   readonly durationMs: number;
 }
 
-const EXIT_OK = 0;
-const EXIT_FINDINGS = 1;
-const EXIT_CONFIG_ERROR = 2;
+export const LITERAL_EXIT_CODES = {
+  OK: 0,
+  FINDINGS: 1,
+  CONFIG_ERROR: 2,
+} as const;
 const TYPESCRIPT_ABSENT_MESSAGE = "⏭ Skipping Literal (TypeScript not detected in project)";
 const DISABLED_MESSAGE = "⏭ Skipping Literal (LITERAL_VALIDATION_ENABLED=0)";
 export const NO_PROBLEMS_MESSAGE = "Literal: ✓ No problems";
@@ -74,7 +84,7 @@ export async function literalCommand(
   const tsDetection = detectTypeScript(options.cwd);
   if (!tsDetection.present) {
     return {
-      exitCode: EXIT_OK,
+      exitCode: LITERAL_EXIT_CODES.OK,
       output: options.quiet ? "" : TYPESCRIPT_ABSENT_MESSAGE,
       durationMs: Date.now() - start,
     };
@@ -82,7 +92,7 @@ export async function literalCommand(
 
   if (!validationEnabled("LITERAL")) {
     return {
-      exitCode: EXIT_OK,
+      exitCode: LITERAL_EXIT_CODES.OK,
       output: options.quiet ? "" : DISABLED_MESSAGE,
       durationMs: Date.now() - start,
     };
@@ -97,7 +107,7 @@ export async function literalCommand(
     const loaded = await resolveConfig(options.cwd, [validationConfigDescriptor]);
     if (!loaded.ok) {
       return {
-        exitCode: EXIT_CONFIG_ERROR,
+        exitCode: LITERAL_EXIT_CODES.CONFIG_ERROR,
         output: `Literal: ✗ config error — ${loaded.error}`,
         durationMs: Date.now() - start,
       };
@@ -116,7 +126,7 @@ export async function literalCommand(
 
   const filteredFindings = filterLiteralFindings(result.findings, options.kind);
   const totalProblems = countLiteralProblems(filteredFindings);
-  const exitCode = totalProblems === 0 ? EXIT_OK : EXIT_FINDINGS;
+  const exitCode = totalProblems === 0 ? LITERAL_EXIT_CODES.OK : LITERAL_EXIT_CODES.FINDINGS;
 
   const output = options.json
     ? JSON.stringify(filteredFindings)

@@ -58,6 +58,16 @@ export interface ValidateLiteralReuseResult {
 
 const PATH_PREFIX_SEPARATOR = "/";
 
+export const DEFAULT_LITERAL_COLLECT_OPTIONS = {
+  visitorKeys: defaultVisitorKeys,
+  minStringLength: literalConfigDescriptor.defaults.minStringLength,
+  minNumberDigits: literalConfigDescriptor.defaults.minNumberDigits,
+} as const;
+
+export function createEmptyLiteralAllowlist(): ReadonlySet<string> {
+  return new Set();
+}
+
 function normalizePathPrefix(prefix: string): string {
   const posix = prefix.split(/[\\/]/g).join(PATH_PREFIX_SEPARATOR);
   return posix.endsWith(PATH_PREFIX_SEPARATOR) ? posix : `${posix}${PATH_PREFIX_SEPARATOR}`;

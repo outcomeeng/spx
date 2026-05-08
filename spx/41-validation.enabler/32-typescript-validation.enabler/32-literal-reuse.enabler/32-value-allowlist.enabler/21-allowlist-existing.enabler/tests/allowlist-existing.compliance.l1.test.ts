@@ -1,12 +1,18 @@
-import * as fc from "fast-check";
 import { describe, expect, it } from "vitest";
 
+import { LITERAL_EXIT_CODES } from "@/commands/validation/literal";
 import { CONFIG_FILE_FORMAT_ORDER, CONFIG_FILENAMES, readProjectConfigFile } from "@/config/index";
 import { allowlistExisting } from "@/validation/literal/allowlist-existing";
-import { PRESET_NAMES } from "@/validation/literal/config";
+import { LITERAL_DEFAULTS, PRESET_NAMES } from "@/validation/literal/config";
 import {
   arbitraryDomainLiteral,
   LITERAL_TEST_GENERATOR,
+  LITERAL_TEST_GENERATOR_COUNTS,
+  LITERAL_TEST_INDEXES,
+  LITERAL_TEXT_LAYOUT,
+  LITERAL_YAML_LAYOUT,
+  sampleDistinctDomainLiterals,
+  sampleLiteralPair,
   sampleLiteralTestValue,
 } from "@testing/generators/literal/literal";
 import { withTestEnv } from "@testing/harnesses/spec-tree/spec-tree";
@@ -20,25 +26,14 @@ import {
   writeProjectConfig,
 } from "./support";
 
-const PAIR_LENGTH = 2;
-const SECTION_INDENT_WIDTH = 2;
-const NESTED_INDENT_WIDTH = 4;
-const LIST_INDENT_WIDTH = 6;
-const MIN_STRING_LENGTH_FIXTURE = 5;
-const MIN_NUMBER_DIGITS_FIXTURE = 3;
-
-function sampleDistinctLiterals(count: number): readonly string[] {
-  return sampleLiteralTestValue(
-    fc.uniqueArray(arbitraryDomainLiteral(), { minLength: count, maxLength: count }),
-  );
-}
-
 function sampleCommentText(): string {
   return `# ${sampleLiteralTestValue(arbitraryDomainLiteral())}`;
 }
 
 function sampleForeignSection(): { readonly key: string; readonly body: Record<string, unknown> } {
-  const [keySlug, bodyKeySlug, bodyValueSlug] = sampleDistinctLiterals(3);
+  const [keySlug, bodyKeySlug, bodyValueSlug] = sampleDistinctDomainLiterals(
+    LITERAL_TEST_GENERATOR_COUNTS.multiFixture,
+  );
   return {
     key: keySlug,
     body: { [bodyKeySlug]: bodyValueSlug },
@@ -58,7 +53,7 @@ describe("allowlist-existing compliance", () => {
       await writeDuplicatedLiteralFixture(env, fixtureLiteral);
 
       const result = await allowlistExisting({ projectRoot: env.projectDir });
-      expect(result.exitCode).toBe(0);
+      expect(result.exitCode).toBe(LITERAL_EXIT_CODES.OK);
 
       const allowlist = readLiteralAllowlist(await readProjectConfigSections(env));
       expect(allowlist.presets).toEqual([PRESET_NAMES.WEB]);
@@ -73,7 +68,7 @@ describe("allowlist-existing compliance", () => {
       await writeDuplicatedLiteralFixture(env, fixtureLiteral);
 
       const result = await allowlistExisting({ projectRoot: env.projectDir });
-      expect(result.exitCode).toBe(0);
+      expect(result.exitCode).toBe(LITERAL_EXIT_CODES.OK);
 
       const parsed = await readProjectConfigSections(env);
       expect(parsed[foreign.key]).toEqual(foreign.body);
@@ -87,11 +82,11 @@ describe("allowlist-existing compliance", () => {
       await writeDuplicatedLiteralFixture(env, fixtureLiteral);
 
       const first = await allowlistExisting({ projectRoot: env.projectDir });
-      expect(first.exitCode).toBe(0);
+      expect(first.exitCode).toBe(LITERAL_EXIT_CODES.OK);
       const allowlistAfterFirst = readLiteralAllowlist(await readProjectConfigSections(env));
 
       const second = await allowlistExisting({ projectRoot: env.projectDir });
-      expect(second.exitCode).toBe(0);
+      expect(second.exitCode).toBe(LITERAL_EXIT_CODES.OK);
       const allowlistAfterSecond = readLiteralAllowlist(await readProjectConfigSections(env));
 
       expect(allowlistAfterSecond.include).toEqual(allowlistAfterFirst.include);
@@ -99,10 +94,7 @@ describe("allowlist-existing compliance", () => {
   });
 
   it("never removes or reorders existing include entries — appends new values", async () => {
-    const [existingFirst, existingSecond] = sampleDistinctLiterals(PAIR_LENGTH);
-    if (existingFirst === undefined || existingSecond === undefined) {
-      throw new Error("sampleDistinctLiterals returned an incomplete pair");
-    }
+    const [existingFirst, existingSecond] = sampleLiteralPair();
     const fixtureLiteral = sampleLiteralTestValue(LITERAL_TEST_GENERATOR.domainLiteral());
     const config = buildConfigWithAllowlist({
       include: [existingFirst, existingSecond],
@@ -111,13 +103,13 @@ describe("allowlist-existing compliance", () => {
       await writeDuplicatedLiteralFixture(env, fixtureLiteral);
 
       const result = await allowlistExisting({ projectRoot: env.projectDir });
-      expect(result.exitCode).toBe(0);
+      expect(result.exitCode).toBe(LITERAL_EXIT_CODES.OK);
 
       const allowlist = readLiteralAllowlist(await readProjectConfigSections(env));
       const include = allowlist.include ?? [];
 
-      expect(include.indexOf(existingFirst)).toBe(0);
-      expect(include.indexOf(existingSecond)).toBe(1);
+      expect(include.indexOf(existingFirst)).toBe(LITERAL_TEST_INDEXES.first);
+      expect(include.indexOf(existingSecond)).toBe(LITERAL_TEST_INDEXES.second);
     });
   });
 
@@ -128,12 +120,12 @@ describe("allowlist-existing compliance", () => {
       await writeDuplicatedLiteralFixture(env, fixtureLiteral);
 
       const result = await allowlistExisting({ projectRoot: env.projectDir });
-      expect(result.exitCode).toBe(0);
+      expect(result.exitCode).toBe(LITERAL_EXIT_CODES.OK);
 
       const allowlist = readLiteralAllowlist(await readProjectConfigSections(env));
       const include = allowlist.include ?? [];
       const occurrences = include.filter((value) => value === fixtureLiteral).length;
-      expect(occurrences).toBe(1);
+      expect(occurrences).toBe(LITERAL_TEST_GENERATOR_COUNTS.one);
     });
   });
 
@@ -147,7 +139,7 @@ describe("allowlist-existing compliance", () => {
         await writeDuplicatedLiteralFixture(env, fixtureLiteral);
 
         const result = await allowlistExisting({ projectRoot: env.projectDir });
-        expect(result.exitCode).toBe(0);
+        expect(result.exitCode).toBe(LITERAL_EXIT_CODES.OK);
 
         const read = await readProjectConfigFile(env.projectDir);
         expect(read.ok).toBe(true);
@@ -166,11 +158,13 @@ describe("allowlist-existing compliance", () => {
     const projectConfigComment = sampleCommentText();
     const allowlistSectionComment = sampleCommentText();
     const includeListComment = sampleCommentText();
-    const sectionIndent = " ".repeat(SECTION_INDENT_WIDTH);
-    const nestedIndent = " ".repeat(NESTED_INDENT_WIDTH);
-    const valuesIndent = " ".repeat(NESTED_INDENT_WIDTH + SECTION_INDENT_WIDTH);
-    const allowlistIndent = " ".repeat(NESTED_INDENT_WIDTH + NESTED_INDENT_WIDTH);
-    const listIndent = " ".repeat(LIST_INDENT_WIDTH + NESTED_INDENT_WIDTH);
+    const sectionIndent = " ".repeat(LITERAL_YAML_LAYOUT.sectionIndentWidth);
+    const nestedIndent = " ".repeat(LITERAL_YAML_LAYOUT.nestedIndentWidth);
+    const valuesIndent = " ".repeat(LITERAL_YAML_LAYOUT.nestedIndentWidth + LITERAL_YAML_LAYOUT.sectionIndentWidth);
+    const allowlistIndent = " ".repeat(
+      LITERAL_YAML_LAYOUT.nestedIndentWidth + LITERAL_YAML_LAYOUT.nestedIndentWidth,
+    );
+    const listIndent = " ".repeat(LITERAL_YAML_LAYOUT.listIndentWidth + LITERAL_YAML_LAYOUT.nestedIndentWidth);
     await withTestEnv({}, async (env) => {
       await env.writeRaw(
         CONFIG_FILENAMES.yaml,
@@ -184,15 +178,15 @@ describe("allowlist-existing compliance", () => {
           `${allowlistIndent}${includeListComment}`,
           `${allowlistIndent}include:`,
           `${listIndent}- ${seedIncludeEntry}`,
-          `${valuesIndent}minStringLength: ${MIN_STRING_LENGTH_FIXTURE}`,
-          `${valuesIndent}minNumberDigits: ${MIN_NUMBER_DIGITS_FIXTURE}`,
+          `${valuesIndent}minStringLength: ${LITERAL_DEFAULTS.minStringLength}`,
+          `${valuesIndent}minNumberDigits: ${LITERAL_DEFAULTS.minNumberDigits}`,
           "",
-        ].join("\n"),
+        ].join(LITERAL_TEXT_LAYOUT.lineSeparator),
       );
       await writeDuplicatedLiteralFixture(env, fixtureLiteral);
 
       const result = await allowlistExisting({ projectRoot: env.projectDir });
-      expect(result.exitCode).toBe(0);
+      expect(result.exitCode).toBe(LITERAL_EXIT_CODES.OK);
 
       const rawConfig = await env.readFile(CONFIG_FILENAMES.yaml);
       expect(rawConfig).toContain(projectConfigComment);
