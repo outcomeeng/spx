@@ -285,6 +285,14 @@ export function sampleLiteralPair(): readonly [string, string] {
   return [first, second];
 }
 
+export function sampleLiteralTriple(): readonly [string, string, string] {
+  const [first, second, third] = sampleDistinctDomainLiterals(LITERAL_TEST_GENERATOR_COUNTS.multiFixture);
+  if (first === undefined || second === undefined || third === undefined) {
+    throw new Error("Literal generator returned an incomplete triple");
+  }
+  return [first, second, third];
+}
+
 export function literalOutputModeOptions(mode: OutputModeName): Partial<LiteralCommandOptions> {
   switch (mode) {
     case OUTPUT_MODE_NAME.TEXT:
