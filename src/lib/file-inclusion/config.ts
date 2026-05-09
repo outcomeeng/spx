@@ -12,7 +12,6 @@ export const FILE_INCLUSION_SECTION = "fileInclusion";
 export const FILE_INCLUSION_CONFIG_FIELDS = {
   SCOPE: "scope",
   TOOLS: "tools",
-  TOOL_REGISTRY: "tools",
   ARTIFACT_DIRECTORIES: "artifactDirectories",
   HIDDEN_PREFIX: "hiddenPrefix",
   IGNORE_SOURCE_FILENAME: "ignoreSourceFilename",
@@ -163,39 +162,50 @@ function validateTools(raw: unknown): Result<ToolAdaptersConfig> {
   const unknown = rejectUnknownFields(
     `${FILE_INCLUSION_SECTION}.${FILE_INCLUSION_CONFIG_FIELDS.TOOLS}`,
     raw,
-    new Set<string>([FILE_INCLUSION_CONFIG_FIELDS.TOOL_REGISTRY]),
+    new Set<string>([FILE_INCLUSION_CONFIG_FIELDS.TOOLS]),
   );
   if (!unknown.ok) return unknown;
 
-  const registryRaw = raw[FILE_INCLUSION_CONFIG_FIELDS.TOOL_REGISTRY] ?? {};
+  const registryRaw = raw[FILE_INCLUSION_CONFIG_FIELDS.TOOLS] ?? {};
   if (!isRecord(registryRaw)) {
     return {
       ok: false,
       error:
-        `${FILE_INCLUSION_SECTION}.${FILE_INCLUSION_CONFIG_FIELDS.TOOLS}.${FILE_INCLUSION_CONFIG_FIELDS.TOOL_REGISTRY} must be an object`,
+        `${FILE_INCLUSION_SECTION}.${FILE_INCLUSION_CONFIG_FIELDS.TOOLS}.${FILE_INCLUSION_CONFIG_FIELDS.TOOLS} must be an object`,
     };
   }
 
   const tools: Record<string, { readonly ignoreFlag: string }> = { ...DEFAULT_TOOLS_CONFIG.tools };
   for (const [toolName, adapterRaw] of Object.entries(registryRaw)) {
+    const defaultToolConfig = DEFAULT_TOOLS_CONFIG.tools[toolName];
+    if (defaultToolConfig === undefined) {
+      return {
+        ok: false,
+        error:
+          `${FILE_INCLUSION_SECTION}.${FILE_INCLUSION_CONFIG_FIELDS.TOOLS}.${FILE_INCLUSION_CONFIG_FIELDS.TOOLS}.${toolName} is not a recognized tool`,
+      };
+    }
     if (!isRecord(adapterRaw)) {
       return {
         ok: false,
         error:
-          `${FILE_INCLUSION_SECTION}.${FILE_INCLUSION_CONFIG_FIELDS.TOOLS}.${FILE_INCLUSION_CONFIG_FIELDS.TOOL_REGISTRY}.${toolName} must be an object`,
+          `${FILE_INCLUSION_SECTION}.${FILE_INCLUSION_CONFIG_FIELDS.TOOLS}.${FILE_INCLUSION_CONFIG_FIELDS.TOOLS}.${toolName} must be an object`,
       };
     }
     const adapterUnknown = rejectUnknownFields(
-      `${FILE_INCLUSION_SECTION}.${FILE_INCLUSION_CONFIG_FIELDS.TOOLS}.${FILE_INCLUSION_CONFIG_FIELDS.TOOL_REGISTRY}.${toolName}`,
+      `${FILE_INCLUSION_SECTION}.${FILE_INCLUSION_CONFIG_FIELDS.TOOLS}.${FILE_INCLUSION_CONFIG_FIELDS.TOOLS}.${toolName}`,
       adapterRaw,
       new Set<string>([FILE_INCLUSION_CONFIG_FIELDS.IGNORE_FLAG]),
     );
     if (!adapterUnknown.ok) return adapterUnknown;
-    const ignoreFlag = validateStringField(
-      `${FILE_INCLUSION_SECTION}.${FILE_INCLUSION_CONFIG_FIELDS.TOOLS}.${FILE_INCLUSION_CONFIG_FIELDS.TOOL_REGISTRY}.${toolName}`,
-      FILE_INCLUSION_CONFIG_FIELDS.IGNORE_FLAG,
-      adapterRaw[FILE_INCLUSION_CONFIG_FIELDS.IGNORE_FLAG],
-    );
+    const ignoreFlagRaw = adapterRaw[FILE_INCLUSION_CONFIG_FIELDS.IGNORE_FLAG];
+    const ignoreFlag = ignoreFlagRaw === undefined
+      ? { ok: true as const, value: defaultToolConfig.ignoreFlag }
+      : validateStringField(
+        `${FILE_INCLUSION_SECTION}.${FILE_INCLUSION_CONFIG_FIELDS.TOOLS}.${FILE_INCLUSION_CONFIG_FIELDS.TOOLS}.${toolName}`,
+        FILE_INCLUSION_CONFIG_FIELDS.IGNORE_FLAG,
+        ignoreFlagRaw,
+      );
     if (!ignoreFlag.ok) return ignoreFlag;
     tools[toolName] = { ignoreFlag: ignoreFlag.value };
   }
@@ -223,7 +233,13 @@ function validate(value: unknown): Result<FileInclusionConfig> {
   const tools = validateTools(toolsRaw);
   if (!tools.ok) return tools;
 
-  return { ok: true, value: { scope: scope.value, tools: tools.value } };
+  return {
+    ok: true,
+    value: {
+      [FILE_INCLUSION_CONFIG_FIELDS.SCOPE]: scope.value,
+      [FILE_INCLUSION_CONFIG_FIELDS.TOOLS]: tools.value,
+    },
+  };
 }
 
 export const fileInclusionConfigDescriptor: ConfigDescriptor<FileInclusionConfig> = {

@@ -3,6 +3,7 @@ import * as fc from "fast-check";
 import type { Config } from "@/config/types";
 import { REGISTERED_TOOL_NAMES } from "@/lib/file-inclusion";
 import {
+  DEFAULT_SCOPE_CONFIG,
   DEFAULT_TOOLS_CONFIG,
   FILE_INCLUSION_CONFIG_FIELDS,
   FILE_INCLUSION_SECTION,
@@ -14,6 +15,8 @@ const GENERATED_SEGMENT_MIN_LENGTH = 3;
 const GENERATED_SEGMENT_MAX_LENGTH = 12;
 const GENERATED_ARTIFACT_DIRECTORY_MIN_COUNT = 1;
 const GENERATED_ARTIFACT_DIRECTORY_MAX_COUNT = 3;
+const GENERATED_SEGMENT_SUFFIX_MIN_LENGTH = GENERATED_SEGMENT_MIN_LENGTH - 1;
+const GENERATED_SEGMENT_SUFFIX_MAX_LENGTH = GENERATED_SEGMENT_MAX_LENGTH - 1;
 
 /**
  * Canonical minimal config with all registered kinds.
@@ -26,6 +29,8 @@ export const MINIMAL_SPEC_TREE_CONFIG: Config = {
 
 export const CONFIG_GENERATOR = {
   fileInclusionOverride: arbitraryFileInclusionOverride,
+  fileInclusionPartialToolOverride: arbitraryFileInclusionPartialToolOverride,
+  fileInclusionUnknownToolOverride: arbitraryFileInclusionUnknownToolOverride,
   validSpecTreeConfig: arbitraryValidSpecTreeConfig,
 } as const;
 
@@ -33,6 +38,11 @@ export type GeneratedFileInclusionOverride = {
   readonly config: Config;
   readonly expected: FileInclusionConfig;
   readonly selectedTool: string;
+};
+
+export type GeneratedFileInclusionUnknownToolOverride = {
+  readonly config: Config;
+  readonly toolName: string;
 };
 
 export function sampleConfigValue<T>(arbitrary: fc.Arbitrary<T>): T {
@@ -60,10 +70,14 @@ function arbitraryValidSpecTreeConfig(): fc.Arbitrary<Config> {
 }
 
 function arbitraryConfigSegment(): fc.Arbitrary<string> {
-  return fc.stringMatching(/^[a-z][a-z0-9-]+$/).filter((value) =>
-    value.length >= GENERATED_SEGMENT_MIN_LENGTH
-    && value.length <= GENERATED_SEGMENT_MAX_LENGTH
+  return fc.stringMatching(
+    new RegExp(`^[a-z][a-z0-9-]{${GENERATED_SEGMENT_SUFFIX_MIN_LENGTH},${GENERATED_SEGMENT_SUFFIX_MAX_LENGTH}}$`),
+    { maxLength: GENERATED_SEGMENT_MAX_LENGTH },
   );
+}
+
+function arbitraryUnknownToolName(): fc.Arbitrary<string> {
+  return arbitraryConfigSegment().filter((toolName) => !REGISTERED_TOOL_NAMES.includes(toolName));
 }
 
 function arbitraryFileInclusionOverride(): fc.Arbitrary<GeneratedFileInclusionOverride> {
@@ -102,7 +116,7 @@ function arbitraryFileInclusionOverride(): fc.Arbitrary<GeneratedFileInclusionOv
             [FILE_INCLUSION_SECTION]: {
               [FILE_INCLUSION_CONFIG_FIELDS.SCOPE]: expected.scope,
               [FILE_INCLUSION_CONFIG_FIELDS.TOOLS]: {
-                [FILE_INCLUSION_CONFIG_FIELDS.TOOL_REGISTRY]: {
+                [FILE_INCLUSION_CONFIG_FIELDS.TOOLS]: {
                   [selectedTool]: {
                     [FILE_INCLUSION_CONFIG_FIELDS.IGNORE_FLAG]: ignoreFlag,
                   },
@@ -113,4 +127,48 @@ function arbitraryFileInclusionOverride(): fc.Arbitrary<GeneratedFileInclusionOv
         };
       },
     );
+}
+
+function arbitraryFileInclusionPartialToolOverride(): fc.Arbitrary<GeneratedFileInclusionOverride> {
+  return fc.constantFrom(...REGISTERED_TOOL_NAMES).map((selectedTool) => {
+    const expected: FileInclusionConfig = {
+      scope: {
+        ...DEFAULT_SCOPE_CONFIG,
+      },
+      tools: {
+        tools: {
+          ...DEFAULT_TOOLS_CONFIG.tools,
+          [selectedTool]: DEFAULT_TOOLS_CONFIG.tools[selectedTool],
+        },
+      },
+    };
+    return {
+      selectedTool,
+      expected,
+      config: {
+        [FILE_INCLUSION_SECTION]: {
+          [FILE_INCLUSION_CONFIG_FIELDS.TOOLS]: {
+            [FILE_INCLUSION_CONFIG_FIELDS.TOOLS]: {
+              [selectedTool]: {},
+            },
+          },
+        },
+      },
+    };
+  });
+}
+
+function arbitraryFileInclusionUnknownToolOverride(): fc.Arbitrary<GeneratedFileInclusionUnknownToolOverride> {
+  return arbitraryUnknownToolName().map((toolName) => ({
+    toolName,
+    config: {
+      [FILE_INCLUSION_SECTION]: {
+        [FILE_INCLUSION_CONFIG_FIELDS.TOOLS]: {
+          [FILE_INCLUSION_CONFIG_FIELDS.TOOLS]: {
+            [toolName]: {},
+          },
+        },
+      },
+    },
+  }));
 }

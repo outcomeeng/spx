@@ -113,4 +113,30 @@ describe("file-inclusion service — scenarios", () => {
       }
     });
   });
+
+  it("file-inclusion tool overrides default missing adapter fields from the registered tool", async () => {
+    const generated = sampleConfigValue(CONFIG_GENERATOR.fileInclusionPartialToolOverride());
+
+    await withTestEnv(generated.config, async (env) => {
+      const result = await resolveConfig(env.projectDir, [fileInclusionConfigDescriptor]);
+
+      expect(result.ok).toBe(true);
+      if (result.ok) {
+        expect(result.value[FILE_INCLUSION_SECTION]).toEqual(generated.expected);
+      }
+    });
+  });
+
+  it("file-inclusion rejects unknown tool override names", async () => {
+    const generated = sampleConfigValue(CONFIG_GENERATOR.fileInclusionUnknownToolOverride());
+
+    await withTestEnv(generated.config, async (env) => {
+      const result = await resolveConfig(env.projectDir, [fileInclusionConfigDescriptor]);
+
+      expect(result.ok).toBe(false);
+      if (!result.ok) {
+        expect(result.error).toContain(generated.toolName);
+      }
+    });
+  });
 });

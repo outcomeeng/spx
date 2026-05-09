@@ -7,6 +7,7 @@ import {
   configFileForFormat,
   type ConfigFileReadResult,
   DEFAULT_CONFIG_FILENAME,
+  resolveConfigFromReadResult,
 } from "@/config/index";
 import { CONFIG_TEST_GENERATOR, sampleConfigTestValue } from "@/config/testing";
 import type { Config, ConfigDescriptor, Result } from "@/config/types";
@@ -15,6 +16,10 @@ import { specTreeConfigDescriptor } from "@/lib/spec-tree/config";
 type CliDeps = {
   resolveConfig: (projectRoot: string) => Promise<Result<Config>>;
   readProjectConfigFile: (projectRoot: string) => Promise<Result<ConfigFileReadResult>>;
+  resolveConfigFromReadResult: (
+    readResult: ConfigFileReadResult,
+    descriptors: readonly ConfigDescriptor<unknown>[],
+  ) => Result<Config>;
   resolveProjectRoot: () => string;
   descriptors: readonly ConfigDescriptor<unknown>[];
 };
@@ -25,8 +30,11 @@ function makeDeps(
   fileResult: Result<ConfigFileReadResult> = sampleConfigTestValue(CONFIG_TEST_GENERATOR.absentConfigFileReadResult()),
 ): CliDeps {
   return {
-    resolveConfig: async () => resolved,
+    resolveConfig: async () => {
+      throw new Error(sampleConfigTestValue(CONFIG_TEST_GENERATOR.scalar()));
+    },
     readProjectConfigFile: async () => fileResult,
+    resolveConfigFromReadResult: () => resolved,
     resolveProjectRoot: () => projectRoot,
     descriptors: [specTreeConfigDescriptor],
   };
@@ -108,15 +116,18 @@ describe("validateCommand — rejection path", () => {
 });
 
 describe("validateCommand — mapping contract", () => {
-  it("resolves the projectRoot through deps before calling resolveConfig", async () => {
+  it("resolves the projectRoot through deps before reading the config file", async () => {
     let observedRoot: string | undefined;
     const projectRoot = sampleConfigTestValue(CONFIG_TEST_GENERATOR.projectRoot());
     const deps: CliDeps = {
-      resolveConfig: async (root) => {
-        observedRoot = root;
-        return { ok: true, value: defaultsConfig() };
+      resolveConfig: async () => {
+        throw new Error(sampleConfigTestValue(CONFIG_TEST_GENERATOR.scalar()));
       },
-      readProjectConfigFile: async () => sampleConfigTestValue(CONFIG_TEST_GENERATOR.absentConfigFileReadResult()),
+      readProjectConfigFile: async (root) => {
+        observedRoot = root;
+        return sampleConfigTestValue(CONFIG_TEST_GENERATOR.absentConfigFileReadResult());
+      },
+      resolveConfigFromReadResult: () => ({ ok: true, value: defaultsConfig() }),
       resolveProjectRoot: () => projectRoot,
       descriptors: [specTreeConfigDescriptor],
     };
@@ -124,5 +135,34 @@ describe("validateCommand — mapping contract", () => {
     await validateCommand({}, deps);
 
     expect(observedRoot).toBe(projectRoot);
+  });
+
+  it("validates the same config-file read result that supplies the success filename", async () => {
+    const projectRoot = sampleConfigTestValue(CONFIG_TEST_GENERATOR.projectRoot());
+    const fileResult: Result<ConfigFileReadResult> = {
+      ok: true,
+      value: {
+        kind: "ok",
+        file: configFileForFormat(projectRoot, CONFIG_FILE_FORMAT.JSON),
+      },
+    };
+    let observedReadResult: ConfigFileReadResult | undefined;
+    const deps: CliDeps = {
+      resolveConfig: async () => {
+        throw new Error(sampleConfigTestValue(CONFIG_TEST_GENERATOR.scalar()));
+      },
+      readProjectConfigFile: async () => fileResult,
+      resolveConfigFromReadResult: (readResult, descriptors) => {
+        observedReadResult = readResult;
+        return resolveConfigFromReadResult(readResult, descriptors);
+      },
+      resolveProjectRoot: () => projectRoot,
+      descriptors: [specTreeConfigDescriptor],
+    };
+
+    const result = await validateCommand({}, deps);
+
+    expect(observedReadResult).toBe(fileResult.value);
+    expect(result.stdout).toContain(CONFIG_FILENAMES.json);
   });
 });

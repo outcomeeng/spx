@@ -69,7 +69,13 @@ export async function resolveConfig(
   const detectedResult = await readProjectConfigFile(projectRoot);
   if (!detectedResult.ok) return detectedResult;
 
-  const detected = detectedResult.value;
+  return resolveConfigFromReadResult(detectedResult.value, descriptors);
+}
+
+export function resolveConfigFromReadResult(
+  detected: ConfigFileReadResult,
+  descriptors: readonly ConfigDescriptor<unknown>[] = productionRegistry,
+): Result<Config> {
   if (detected.kind === "ambiguous") {
     return { ok: false, error: formatConfigFileAmbiguityError(detected.detected) };
   }

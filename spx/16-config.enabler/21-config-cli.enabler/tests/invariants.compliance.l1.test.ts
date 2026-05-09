@@ -12,6 +12,10 @@ import { specTreeConfigDescriptor } from "@/lib/spec-tree/config";
 type CliDeps = {
   resolveConfig: (projectRoot: string) => Promise<Result<Config>>;
   readProjectConfigFile: (projectRoot: string) => Promise<Result<ConfigFileReadResult>>;
+  resolveConfigFromReadResult: (
+    readResult: ConfigFileReadResult,
+    descriptors: readonly ConfigDescriptor<unknown>[],
+  ) => Result<Config>;
   resolveProjectRoot: () => string;
   descriptors: readonly ConfigDescriptor<unknown>[];
 };
@@ -22,6 +26,7 @@ function makeDeps(resolved: Result<Config>): CliDeps {
   return {
     resolveConfig: async () => resolved,
     readProjectConfigFile: async () => sampleConfigTestValue(CONFIG_TEST_GENERATOR.absentConfigFileReadResult()),
+    resolveConfigFromReadResult: () => resolved,
     resolveProjectRoot: () => projectRoot,
     descriptors: [specTreeConfigDescriptor],
   };

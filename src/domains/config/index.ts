@@ -10,6 +10,7 @@ import {
   DEFAULT_CONFIG_FILENAME,
   readProjectConfigFile,
   resolveConfig,
+  resolveConfigFromReadResult,
 } from "@/config/index";
 import { productionRegistry } from "@/config/registry";
 
@@ -20,6 +21,7 @@ function buildDefaultDeps(): CliDeps {
   return {
     resolveConfig,
     readProjectConfigFile,
+    resolveConfigFromReadResult,
     resolveProjectRoot: (): string => {
       const resolved = resolveProjectRoot();
       if (resolved.warning !== undefined) {
