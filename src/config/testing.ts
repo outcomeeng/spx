@@ -14,6 +14,8 @@ export const CONFIG_TEST_FIELDS = {
   MODE: "mode",
 } as const;
 
+const ENVIRONMENT_SENTINEL_PREFIX = "SPX_TEST_SENTINEL_";
+
 type GeneratedTokenSection = {
   readonly [CONFIG_TEST_FIELDS.TOKEN]: string;
 };
@@ -127,7 +129,7 @@ function arbitraryEnvironmentSentinel(): fc.Arbitrary<GeneratedEnvironmentSentin
       key: arbitraryConfigKey(),
       value: arbitraryConfigScalar(),
     })
-    .map(({ key, value }) => ({ key: key.toUpperCase(), value }));
+    .map(({ key, value }) => ({ key: `${ENVIRONMENT_SENTINEL_PREFIX}${key.toUpperCase()}`, value }));
 }
 
 function arbitraryAbsentConfigFileReadResult(): fc.Arbitrary<Result<ConfigFileReadResult>> {

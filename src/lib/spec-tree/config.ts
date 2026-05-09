@@ -111,7 +111,8 @@ function validate(value: unknown): Result<SpecTreeConfig> {
   ) {
     return {
       ok: false,
-      error: `${SPEC_TREE_SECTION}.${SPEC_TREE_CONFIG_FIELDS.KINDS} must be an array of registry kind names`,
+      error:
+        `${SPEC_TREE_SECTION}.${SPEC_TREE_CONFIG_FIELDS.KINDS} must be an array of registry kind names or an object with registry metadata`,
     };
   }
 

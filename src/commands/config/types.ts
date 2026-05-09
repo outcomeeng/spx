@@ -10,6 +10,10 @@ export type CliResult = {
 export type CliDeps = {
   readonly resolveConfig: (projectRoot: string) => Promise<Result<Config>>;
   readonly readProjectConfigFile: (projectRoot: string) => Promise<Result<ConfigFileReadResult>>;
+  readonly resolveConfigFromReadResult: (
+    readResult: ConfigFileReadResult,
+    descriptors: readonly ConfigDescriptor<unknown>[],
+  ) => Result<Config>;
   readonly resolveProjectRoot: () => string;
   readonly descriptors: readonly ConfigDescriptor<unknown>[];
 };
