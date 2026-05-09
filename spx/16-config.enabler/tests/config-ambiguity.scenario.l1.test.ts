@@ -4,13 +4,12 @@ import { join } from "node:path";
 import { describe, expect, it } from "vitest";
 
 import { CONFIG_FILE_FORMAT, CONFIG_FILENAMES, resolveConfig, serializeConfigFileSections } from "@/config/index";
+import { CONFIG_TEST_GENERATOR, sampleConfigTestValue } from "@/config/testing";
 import { specTreeConfigDescriptor } from "@/lib/spec-tree/config";
 import { withTestEnv } from "@testing/harnesses/spec-tree/spec-tree";
 
-const EMPTY_CONFIG: Record<string, unknown> = {};
-
 function serializeEmptyConfig(format: typeof CONFIG_FILE_FORMAT.JSON | typeof CONFIG_FILE_FORMAT.TOML): string {
-  const serialized = serializeConfigFileSections(format, EMPTY_CONFIG);
+  const serialized = serializeConfigFileSections(format, sampleConfigTestValue(CONFIG_TEST_GENERATOR.emptyConfig()));
   if (!serialized.ok) {
     throw new Error(serialized.error);
   }

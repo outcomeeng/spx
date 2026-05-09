@@ -16,6 +16,7 @@ export const GIT_TEST_SUBCOMMANDS = {
 
 export const GIT_TEST_FLAGS = {
   ALLOW_EMPTY: "--allow-empty",
+  QUIET: "--quiet",
   SHOW_CURRENT: "--show-current",
 } as const;
 

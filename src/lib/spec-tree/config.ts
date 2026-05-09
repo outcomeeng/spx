@@ -43,6 +43,10 @@ export const SPEC_TREE_CONFIG = {
   },
 } as const;
 
+export const SPEC_TREE_CONFIG_FIELDS = {
+  KINDS: "kinds",
+} as const;
+
 export const SPEC_TREE_KIND_CATEGORY = SPEC_TREE_CONFIG.CATEGORY;
 
 export type SpecTreeKindCategory = (typeof SPEC_TREE_KIND_CATEGORY)[keyof typeof SPEC_TREE_KIND_CATEGORY];
@@ -74,7 +78,7 @@ export const NODE_SUFFIXES: readonly string[] = NODE_KINDS.map((k) => KIND_REGIS
 export const DECISION_SUFFIXES: readonly string[] = DECISION_KINDS.map((k) => KIND_REGISTRY[k].suffix);
 
 export type SpecTreeConfig = {
-  readonly kinds: { readonly [K in Kind]?: KindDefinition<K> };
+  readonly [SPEC_TREE_CONFIG_FIELDS.KINDS]: { readonly [K in Kind]?: KindDefinition<K> };
 };
 
 export const SPEC_TREE_SECTION = SPEC_TREE_CONFIG.SECTION;
@@ -96,21 +100,22 @@ function validate(value: unknown): Result<SpecTreeConfig> {
   if (typeof value !== "object" || value === null) {
     return { ok: false, error: `${SPEC_TREE_SECTION} section must be an object` };
   }
-  const candidate = value as { kinds?: unknown };
-  if (Array.isArray(candidate.kinds)) {
-    return validateKindList(candidate.kinds);
+  const candidate = value as { [SPEC_TREE_CONFIG_FIELDS.KINDS]?: unknown };
+  const kindValue = candidate[SPEC_TREE_CONFIG_FIELDS.KINDS];
+  if (Array.isArray(kindValue)) {
+    return validateKindList(kindValue);
   }
   if (
-    typeof candidate.kinds !== "object"
-    || candidate.kinds === null
+    typeof kindValue !== "object"
+    || kindValue === null
   ) {
     return {
       ok: false,
-      error: `${SPEC_TREE_SECTION}.kinds must be an array of registry kind names`,
+      error: `${SPEC_TREE_SECTION}.${SPEC_TREE_CONFIG_FIELDS.KINDS} must be an array of registry kind names`,
     };
   }
 
-  return validateKindDefinitionMap(candidate.kinds as Record<string, unknown>);
+  return validateKindDefinitionMap(kindValue as Record<string, unknown>);
 }
 
 function validateKindList(kinds: readonly unknown[]): Result<SpecTreeConfig> {
@@ -119,13 +124,13 @@ function validateKindList(kinds: readonly unknown[]): Result<SpecTreeConfig> {
     if (typeof entry !== "string") {
       return {
         ok: false,
-        error: `${SPEC_TREE_SECTION}.kinds entries must be registry kind names`,
+        error: `${SPEC_TREE_SECTION}.${SPEC_TREE_CONFIG_FIELDS.KINDS} entries must be registry kind names`,
       };
     }
     if (!isKind(entry)) {
       return {
         ok: false,
-        error: `${SPEC_TREE_SECTION}.kinds contains unknown kind "${entry}"`,
+        error: `${SPEC_TREE_SECTION}.${SPEC_TREE_CONFIG_FIELDS.KINDS} contains unknown kind "${entry}"`,
       };
     }
     kindNames.push(entry);
@@ -135,7 +140,7 @@ function validateKindList(kinds: readonly unknown[]): Result<SpecTreeConfig> {
   if (duplicateKinds.length > 0) {
     return {
       ok: false,
-      error: `${SPEC_TREE_SECTION}.kinds contains duplicate kind "${duplicateKinds[0]}"`,
+      error: `${SPEC_TREE_SECTION}.${SPEC_TREE_CONFIG_FIELDS.KINDS} contains duplicate kind "${duplicateKinds[0]}"`,
     };
   }
 
@@ -148,13 +153,13 @@ function validateKindDefinitionMap(kindEntries: Record<string, unknown>): Result
     if (!isKind(key)) {
       return {
         ok: false,
-        error: `${SPEC_TREE_SECTION}.kinds contains unknown kind "${key}"`,
+        error: `${SPEC_TREE_SECTION}.${SPEC_TREE_CONFIG_FIELDS.KINDS} contains unknown kind "${key}"`,
       };
     }
     if (typeof entry !== "object" || entry === null) {
       return {
         ok: false,
-        error: `${SPEC_TREE_SECTION}.kinds.${key} must be an object with registry metadata`,
+        error: `${SPEC_TREE_SECTION}.${SPEC_TREE_CONFIG_FIELDS.KINDS}.${key} must be an object with registry metadata`,
       };
     }
     const def = entry as { category?: unknown; suffix?: unknown };
@@ -162,26 +167,26 @@ function validateKindDefinitionMap(kindEntries: Record<string, unknown>): Result
     if (def.category !== expected.category) {
       return {
         ok: false,
-        error: `${SPEC_TREE_SECTION}.kinds.${key}.category must be "${expected.category}"`,
+        error: `${SPEC_TREE_SECTION}.${SPEC_TREE_CONFIG_FIELDS.KINDS}.${key}.category must be "${expected.category}"`,
       };
     }
     if ((entry as { label?: unknown }).label !== expected.label) {
       return {
         ok: false,
-        error: `${SPEC_TREE_SECTION}.kinds.${key}.label must be "${expected.label}"`,
+        error: `${SPEC_TREE_SECTION}.${SPEC_TREE_CONFIG_FIELDS.KINDS}.${key}.label must be "${expected.label}"`,
       };
     }
     if (def.suffix !== expected.suffix) {
       return {
         ok: false,
-        error: `${SPEC_TREE_SECTION}.kinds.${key}.suffix must be "${expected.suffix}"`,
+        error: `${SPEC_TREE_SECTION}.${SPEC_TREE_CONFIG_FIELDS.KINDS}.${key}.suffix must be "${expected.suffix}"`,
       };
     }
     const aliases = (entry as { aliases?: unknown }).aliases;
     if (!Array.isArray(aliases) || aliases.some((alias) => typeof alias !== "string")) {
       return {
         ok: false,
-        error: `${SPEC_TREE_SECTION}.kinds.${key}.aliases must be an array of strings`,
+        error: `${SPEC_TREE_SECTION}.${SPEC_TREE_CONFIG_FIELDS.KINDS}.${key}.aliases must be an array of strings`,
       };
     }
     if (
@@ -189,7 +194,8 @@ function validateKindDefinitionMap(kindEntries: Record<string, unknown>): Result
     ) {
       return {
         ok: false,
-        error: `${SPEC_TREE_SECTION}.kinds.${key}.aliases must match the registry definition`,
+        error:
+          `${SPEC_TREE_SECTION}.${SPEC_TREE_CONFIG_FIELDS.KINDS}.${key}.aliases must match the registry definition`,
       };
     }
     entries.push([key, expected]);

@@ -13,16 +13,17 @@ import {
   serializeConfigFileSections,
   serializeConfigFileSectionsWithSetIn,
 } from "@/config/index";
-import { KIND_REGISTRY, specTreeConfigDescriptor } from "@/lib/spec-tree/config";
+import { CONFIG_TEST_GENERATOR, sampleConfigTestValue } from "@/config/testing";
+import { specTreeConfigDescriptor } from "@/lib/spec-tree/config";
 import type { Config } from "@testing/harnesses/spec-tree/spec-tree";
 import { withTestEnv } from "@testing/harnesses/spec-tree/spec-tree";
 
-const EQUIV_CONFIG: Config = {
-  [specTreeConfigDescriptor.section]: { kinds: { pdr: KIND_REGISTRY.pdr } },
-};
+function equivalentConfig(): Config {
+  return sampleConfigTestValue(CONFIG_TEST_GENERATOR.specTreeSubsetConfig());
+}
 
-function serializeEquivalentConfig(format: ConfigFileFormat): string {
-  const serialized = serializeConfigFileSections(format, EQUIV_CONFIG as Record<string, unknown>);
+function serializeEquivalentConfig(format: ConfigFileFormat, config: Config): string {
+  const serialized = serializeConfigFileSections(format, config as Record<string, unknown>);
   if (!serialized.ok) {
     throw new Error(serialized.error);
   }
@@ -33,8 +34,9 @@ describe("resolveConfig — format equivalence", () => {
   it("spx.config.json produces the same typed Config as the default config format with equivalent content", async () => {
     let defaultResult: unknown;
     let jsonResult: unknown;
+    const config = equivalentConfig();
 
-    await withTestEnv(EQUIV_CONFIG, async ({ projectDir }) => {
+    await withTestEnv(config, async ({ projectDir }) => {
       const r = await resolveConfig(projectDir, [specTreeConfigDescriptor]);
       expect(r.ok).toBe(true);
       if (r.ok) defaultResult = r.value;
@@ -42,7 +44,7 @@ describe("resolveConfig — format equivalence", () => {
 
     await withTestEnv({}, async ({ projectDir, writeRaw }) => {
       await rm(join(projectDir, DEFAULT_CONFIG_FILENAME));
-      await writeRaw(CONFIG_FILENAMES.json, serializeEquivalentConfig(CONFIG_FILE_FORMAT.JSON));
+      await writeRaw(CONFIG_FILENAMES.json, serializeEquivalentConfig(CONFIG_FILE_FORMAT.JSON, config));
       const r = await resolveConfig(projectDir, [specTreeConfigDescriptor]);
       expect(r.ok).toBe(true);
       if (r.ok) jsonResult = r.value;
@@ -54,8 +56,9 @@ describe("resolveConfig — format equivalence", () => {
   it("spx.config.toml produces the same typed Config as the default config format with equivalent content", async () => {
     let defaultResult: unknown;
     let tomlResult: unknown;
+    const config = equivalentConfig();
 
-    await withTestEnv(EQUIV_CONFIG, async ({ projectDir }) => {
+    await withTestEnv(config, async ({ projectDir }) => {
       const r = await resolveConfig(projectDir, [specTreeConfigDescriptor]);
       expect(r.ok).toBe(true);
       if (r.ok) defaultResult = r.value;
@@ -63,7 +66,7 @@ describe("resolveConfig — format equivalence", () => {
 
     await withTestEnv({}, async ({ projectDir, writeRaw }) => {
       await rm(join(projectDir, DEFAULT_CONFIG_FILENAME));
-      await writeRaw(CONFIG_FILENAMES.toml, serializeEquivalentConfig(CONFIG_FILE_FORMAT.TOML));
+      await writeRaw(CONFIG_FILENAMES.toml, serializeEquivalentConfig(CONFIG_FILE_FORMAT.TOML, config));
       const r = await resolveConfig(projectDir, [specTreeConfigDescriptor]);
       expect(r.ok).toBe(true);
       if (r.ok) tomlResult = r.value;
@@ -74,8 +77,9 @@ describe("resolveConfig — format equivalence", () => {
 
   it("all three formats produce identical typed Configs for the same key-value structure", async () => {
     const results: unknown[] = [];
+    const config = equivalentConfig();
 
-    await withTestEnv(EQUIV_CONFIG, async ({ projectDir }) => {
+    await withTestEnv(config, async ({ projectDir }) => {
       const r = await resolveConfig(projectDir, [specTreeConfigDescriptor]);
       expect(r.ok).toBe(true);
       if (r.ok) results.push(r.value);
@@ -83,7 +87,7 @@ describe("resolveConfig — format equivalence", () => {
 
     await withTestEnv({}, async ({ projectDir, writeRaw }) => {
       await rm(join(projectDir, DEFAULT_CONFIG_FILENAME));
-      await writeRaw(CONFIG_FILENAMES.json, serializeEquivalentConfig(CONFIG_FILE_FORMAT.JSON));
+      await writeRaw(CONFIG_FILENAMES.json, serializeEquivalentConfig(CONFIG_FILE_FORMAT.JSON, config));
       const r = await resolveConfig(projectDir, [specTreeConfigDescriptor]);
       expect(r.ok).toBe(true);
       if (r.ok) results.push(r.value);
@@ -91,7 +95,7 @@ describe("resolveConfig — format equivalence", () => {
 
     await withTestEnv({}, async ({ projectDir, writeRaw }) => {
       await rm(join(projectDir, DEFAULT_CONFIG_FILENAME));
-      await writeRaw(CONFIG_FILENAMES.toml, serializeEquivalentConfig(CONFIG_FILE_FORMAT.TOML));
+      await writeRaw(CONFIG_FILENAMES.toml, serializeEquivalentConfig(CONFIG_FILE_FORMAT.TOML, config));
       const r = await resolveConfig(projectDir, [specTreeConfigDescriptor]);
       expect(r.ok).toBe(true);
       if (r.ok) results.push(r.value);

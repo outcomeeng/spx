@@ -9,7 +9,7 @@ CAN read its configuration through a uniform, type-checked API without inline co
 ### Scenarios
 
 - Given no config file exists at the project root, when the config loads, then every registered descriptor resolves to its declared defaults ([test](tests/defaults-only.scenario.l1.test.ts))
-- Given a config file exists with a subset of sections, when the config loads, then sections present in the file merge with their descriptor's defaults and unmentioned sections resolve entirely to defaults ([test](tests/partial-yaml.scenario.l1.test.ts))
+- Given a config file exists with a subset of sections, when the config loads, then sections present in the file are composed by their descriptor and unmentioned sections resolve entirely to defaults ([test](tests/partial-yaml.scenario.l1.test.ts))
 - Given both `spx.config.json` and `spx.config.yaml` are present at the project root, when the config loads, then it returns an error naming both files and no config is returned ([test](tests/config-ambiguity.scenario.l1.test.ts))
 - Given a descriptor's validator rejects its section in the config file, when the config loads, then the load returns an error naming the descriptor and the offending fields and the returned config is not partially usable ([test](tests/validation-failure.scenario.l1.test.ts))
 - Given a new descriptor is added to the registry, when the config loads, then its section becomes available alongside existing descriptors without any change to other descriptor modules or consumer code ([test](tests/registry-extension.scenario.l1.test.ts))

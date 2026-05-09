@@ -2,31 +2,19 @@ import * as fc from "fast-check";
 import { describe, expect, it } from "vitest";
 
 import { resolveConfig } from "@/config/index";
-import { KIND_REGISTRY, specTreeConfigDescriptor } from "@/lib/spec-tree/config";
+import { CONFIG_TEST_GENERATOR, sampleConfigTestValue } from "@/config/testing";
+import { specTreeConfigDescriptor } from "@/lib/spec-tree/config";
 import type { Config } from "@testing/harnesses/spec-tree/spec-tree";
 import { withTestEnv } from "@testing/harnesses/spec-tree/spec-tree";
 
-const KIND_SUBSETS: readonly Config[] = [
-  {},
-  { [specTreeConfigDescriptor.section]: { kinds: {} } },
-  { [specTreeConfigDescriptor.section]: { kinds: { enabler: KIND_REGISTRY.enabler } } },
-  { [specTreeConfigDescriptor.section]: { kinds: { enabler: KIND_REGISTRY.enabler, adr: KIND_REGISTRY.adr } } },
-  {
-    [specTreeConfigDescriptor.section]: {
-      kinds: {
-        enabler: KIND_REGISTRY.enabler,
-        outcome: KIND_REGISTRY.outcome,
-        adr: KIND_REGISTRY.adr,
-        pdr: KIND_REGISTRY.pdr,
-      },
-    },
-  },
-];
+function configShape(): fc.Arbitrary<Config> {
+  return fc.oneof(CONFIG_TEST_GENERATOR.emptyConfig(), CONFIG_TEST_GENERATOR.specTreeSubsetConfig());
+}
 
 describe("resolveConfig — determinism", () => {
   it("produces the same resolved Config on every load against any config shape drawn from the registry", async () => {
     await fc.assert(
-      fc.asyncProperty(fc.constantFrom(...KIND_SUBSETS), async (projectConfig) => {
+      fc.asyncProperty(configShape(), async (projectConfig) => {
         await withTestEnv(projectConfig, async ({ projectDir }) => {
           const first = await resolveConfig(projectDir, [specTreeConfigDescriptor]);
           const second = await resolveConfig(projectDir, [specTreeConfigDescriptor]);
@@ -39,14 +27,7 @@ describe("resolveConfig — determinism", () => {
   });
 
   it("is deterministic across distinct temp roots when the config content is identical", async () => {
-    const projectConfig: Config = {
-      [specTreeConfigDescriptor.section]: {
-        kinds: {
-          enabler: KIND_REGISTRY.enabler,
-          adr: KIND_REGISTRY.adr,
-        },
-      },
-    };
+    const projectConfig = sampleConfigTestValue(CONFIG_TEST_GENERATOR.specTreeSubsetConfig());
 
     let firstValue: unknown;
     let secondValue: unknown;

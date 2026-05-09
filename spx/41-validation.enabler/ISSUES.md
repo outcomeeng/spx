@@ -61,6 +61,29 @@ spx validation all src/             # all validators scoped to src/
 
 ---
 
+## `validation all --quiet --json` emits warning text before JSON
+
+`pnpm exec tsx src/cli.ts validation all --quiet --json` is not parseable JSON
+when ESLint reports `spx/no-test-owned-domain-constants` warnings. During the
+May 8, 2026 verification pass, parsing `/tmp/spx-validation-all-current.json`
+failed because the file began with human warning output:
+
+```text
+/Users/shz/Code/outcomeeng/spx/spx/16-config.enabler/...
+```
+
+**Consequence:** agents and scripts cannot rely on `validation all --quiet
+--json` as a machine-readable gate while warnings are present, even though
+`pnpm run validate` exits 0.
+
+**Remediation:** route diagnostics through the JSON result shape when `--json`
+is set, or emit human warning text on a separate stream that callers can keep
+out of the JSON capture.
+
+**Scope:** follow-up work for the next validation cleanup tranche.
+
+---
+
 ## Resolved: PR 15 review follow-ups for validation metadata and markdown targets
 
 The review on

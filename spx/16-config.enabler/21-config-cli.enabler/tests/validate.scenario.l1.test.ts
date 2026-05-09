@@ -1,33 +1,44 @@
 import { describe, expect, it } from "vitest";
 
 import { validateCommand } from "@/commands/config/validate";
-import { DEFAULT_CONFIG_FILENAME } from "@/config/index";
+import {
+  CONFIG_FILE_FORMAT,
+  CONFIG_FILENAMES,
+  configFileForFormat,
+  type ConfigFileReadResult,
+  DEFAULT_CONFIG_FILENAME,
+} from "@/config/index";
+import { CONFIG_TEST_GENERATOR, sampleConfigTestValue } from "@/config/testing";
 import type { Config, ConfigDescriptor, Result } from "@/config/types";
 import { specTreeConfigDescriptor } from "@/lib/spec-tree/config";
 
 type CliDeps = {
   resolveConfig: (projectRoot: string) => Promise<Result<Config>>;
+  readProjectConfigFile: (projectRoot: string) => Promise<Result<ConfigFileReadResult>>;
   resolveProjectRoot: () => string;
   descriptors: readonly ConfigDescriptor<unknown>[];
 };
 
-const PROJECT_ROOT = "/virtual/project";
-
-function makeDeps(resolved: Result<Config>, projectRoot = PROJECT_ROOT): CliDeps {
+function makeDeps(
+  resolved: Result<Config>,
+  projectRoot = sampleConfigTestValue(CONFIG_TEST_GENERATOR.projectRoot()),
+  fileResult: Result<ConfigFileReadResult> = sampleConfigTestValue(CONFIG_TEST_GENERATOR.absentConfigFileReadResult()),
+): CliDeps {
   return {
     resolveConfig: async () => resolved,
+    readProjectConfigFile: async () => fileResult,
     resolveProjectRoot: () => projectRoot,
     descriptors: [specTreeConfigDescriptor],
   };
 }
 
-const DEFAULTS_CONFIG: Config = {
-  specTree: specTreeConfigDescriptor.defaults,
-};
+function defaultsConfig(): Config {
+  return sampleConfigTestValue(CONFIG_TEST_GENERATOR.specTreeDefaultsConfig());
+}
 
 describe("validateCommand — success path", () => {
   it("exits 0 and emits a success line to stdout when resolution succeeds", async () => {
-    const deps = makeDeps({ ok: true, value: DEFAULTS_CONFIG });
+    const deps = makeDeps({ ok: true, value: defaultsConfig() });
 
     const result = await validateCommand({}, deps);
 
@@ -37,17 +48,36 @@ describe("validateCommand — success path", () => {
   });
 
   it("the success line names the validated file", async () => {
-    const deps = makeDeps({ ok: true, value: DEFAULTS_CONFIG });
+    const deps = makeDeps({ ok: true, value: defaultsConfig() });
 
     const result = await validateCommand({}, deps);
 
     expect(result.stdout).toContain(DEFAULT_CONFIG_FILENAME);
   });
+
+  it("the success line names the present config file when the project uses a non-default format", async () => {
+    const projectRoot = sampleConfigTestValue(CONFIG_TEST_GENERATOR.projectRoot());
+    const fileResult: Result<ConfigFileReadResult> = {
+      ok: true,
+      value: {
+        kind: "ok",
+        file: configFileForFormat(projectRoot, CONFIG_FILE_FORMAT.TOML),
+      },
+    };
+    const deps = makeDeps({ ok: true, value: defaultsConfig() }, projectRoot, fileResult);
+
+    const result = await validateCommand({}, deps);
+
+    expect(result.stdout).toContain(CONFIG_FILENAMES.toml);
+  });
 });
 
 describe("validateCommand — rejection path", () => {
   it("exits non-zero when resolution returns an error", async () => {
-    const deps = makeDeps({ ok: false, error: "specTree: kinds.phantom contains unknown kind" });
+    const deps = makeDeps({
+      ok: false,
+      error: sampleConfigTestValue(CONFIG_TEST_GENERATOR.specTreeUnknownKindError()),
+    });
 
     const result = await validateCommand({}, deps);
 
@@ -55,15 +85,16 @@ describe("validateCommand — rejection path", () => {
   });
 
   it("routes the error to stderr with descriptor-qualified context", async () => {
+    const generated = sampleConfigTestValue(CONFIG_TEST_GENERATOR.invalidSpecTreeConfig());
     const deps = makeDeps({
       ok: false,
-      error: "specTree: kinds.phantom contains unknown kind \"phantom\"",
+      error: generated.error,
     });
 
     const result = await validateCommand({}, deps);
 
     expect(result.stderr).toMatch(/specTree/);
-    expect(result.stderr).toMatch(/phantom/);
+    expect(result.stderr).toContain(generated.offendingKind);
     expect(result.stdout).toHaveLength(0);
   });
 
@@ -79,17 +110,19 @@ describe("validateCommand — rejection path", () => {
 describe("validateCommand — mapping contract", () => {
   it("resolves the projectRoot through deps before calling resolveConfig", async () => {
     let observedRoot: string | undefined;
+    const projectRoot = sampleConfigTestValue(CONFIG_TEST_GENERATOR.projectRoot());
     const deps: CliDeps = {
       resolveConfig: async (root) => {
         observedRoot = root;
-        return { ok: true, value: DEFAULTS_CONFIG };
+        return { ok: true, value: defaultsConfig() };
       },
-      resolveProjectRoot: () => PROJECT_ROOT,
+      readProjectConfigFile: async () => sampleConfigTestValue(CONFIG_TEST_GENERATOR.absentConfigFileReadResult()),
+      resolveProjectRoot: () => projectRoot,
       descriptors: [specTreeConfigDescriptor],
     };
 
     await validateCommand({}, deps);
 
-    expect(observedRoot).toBe(PROJECT_ROOT);
+    expect(observedRoot).toBe(projectRoot);
   });
 });

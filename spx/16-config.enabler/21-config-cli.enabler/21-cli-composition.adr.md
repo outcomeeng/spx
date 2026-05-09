@@ -8,22 +8,22 @@ This decision governs the shape of the `spx config` CLI surface — subcommand r
 
 **Business impact:** `spx config show`, `spx config validate`, and `spx config defaults` are the first user-facing windows onto the descriptor-registry configuration system. Their usefulness depends on correct config rendering, deterministic output, clean separation of diagnostic text from resolved config, and exit codes CI pipelines can depend on. Handlers that import `resolveConfig` directly are impossible to unit-test without process spawning; handlers that accept it as a parameter compose cleanly with the `withTestEnv` harness.
 
-**Technical constraints:** spx is TypeScript ESM with Commander.js at the CLI layer. Domain subcommands register through a `registerDomainCommands(cmd: Command)` seam that wires subcommands to handlers under `src/commands/{domain}/`. Handlers return a result; the domain layer translates the result into stream writes and an exit code. The config module owns serialization for every supported config format.
+**Technical constraints:** spx is TypeScript ESM with Commander.js at the CLI layer. Domain subcommands register through a `registerDomainCommands(cmd: Command)` seam that wires subcommands to handlers under `src/commands/{domain}/`. Handlers return a result; the domain layer translates the result into stream writes and an exit code. The config module owns serialization and file discovery for every supported config format.
 
 ## Decision
 
-The config CLI follows the existing domain composition pattern with one refinement — explicit dependency injection of `resolveConfig` and of a minimal writer interface, enabling handler-level unit tests.
+The config CLI follows the domain composition pattern with one refinement — explicit dependency injection of config resolution and config-file discovery, enabling handler-level unit tests.
 
 - `src/domains/config/index.ts` exports a `configDomain: Domain` value and registers three subcommands (`show`, `validate`, `defaults`) through `program.command("config").command("show")…` call chains.
 - Each subcommand imports its handler from `src/commands/config/{show,validate,defaults}.ts`.
-- Handlers have the signature `async function handler(options: Options, deps: CliDeps): Promise<CliResult>` where `CliDeps` bundles `{ resolveConfig: (projectRoot: string) => Promise<Result<Config>>, resolveProjectRoot: () => string, descriptors: readonly ConfigDescriptor<unknown>[] }` and `CliResult` is `{ stdout: string; stderr: string; exitCode: number }`. The `show` and `validate` handlers call `deps.resolveProjectRoot()` first and pass the returned root to `deps.resolveConfig(root)`, honoring the parent ADR's `resolveConfig(projectRoot)` contract. The `defaults` handler iterates `deps.descriptors` directly, skipping config-file resolution entirely; its output reflects what each descriptor ships with, independent of any `spx.config.*` present at the root.
-- The domain registration layer builds a default `CliDeps` (pointing at the real `resolveConfig` and a real git-rooted resolver), invokes the handler, writes `stdout`/`stderr` to the process streams, and calls `process.exit(result.exitCode)`.
+- Handlers have the signature `async function handler(options: Options, deps: CliDeps): Promise<CliResult>` where `CliDeps` bundles `{ resolveConfig: (projectRoot: string) => Promise<Result<Config>>, readProjectConfigFile: (projectRoot: string) => Promise<Result<ConfigFileReadResult>>, resolveProjectRoot: () => string, descriptors: readonly ConfigDescriptor<unknown>[] }` and `CliResult` is `{ stdout: string; stderr: string; exitCode: number }`. The `show` and `validate` handlers call `deps.resolveProjectRoot()` first and pass the returned root to `deps.resolveConfig(root)`, honoring the parent ADR's `resolveConfig(projectRoot)` contract. The `validate` handler also reads config-file discovery metadata through `deps.readProjectConfigFile(root)` so its success line and ambiguity diagnostics name the file format the config module selected. The `defaults` handler iterates `deps.descriptors` directly, skipping config-file resolution entirely; its output reflects what each descriptor ships with, independent of any `spx.config.*` present at the root.
+- The domain registration layer builds a default `CliDeps` (pointing at the real `resolveConfig`, `readProjectConfigFile`, and a real git-rooted resolver), invokes the handler, writes `stdout`/`stderr` to the process streams, and calls `process.exit(result.exitCode)`.
 - Output format: `show` and `defaults` emit the config module's default format by default; a `--json` flag routes through the config module's JSON serializer. `validate` emits a single success line on the ok path and a descriptor-qualified error on the reject path.
 - Root resolution: `resolveProjectRoot()` invokes `git rev-parse --show-toplevel` (tracked-file read per PDR-15, applicable because `spx.config.*` files are tracked files at the repo root) when inside a worktree. Outside a worktree it falls back to `process.cwd()` and emits a diagnostic warning per PDR-15's Compliance rule. Handlers never call git themselves.
 
 ## Rationale
 
-Handlers-with-DI keep the CLI module testable at Level 1. A unit test constructs a `CliDeps` with a controlled `resolveConfig` implementation returning a fixture `Result<Config>` and a controlled `resolveProjectRoot` implementation returning a fixture path, exercises the handler, and asserts on the `CliResult`. No process is spawned, no config file is parsed from disk, no git call happens. This mirrors the language-registration descriptor pattern (ADR-19) in the architectural sense — the registry enumerates, the CLI iterates.
+Handlers-with-DI keep the CLI module testable at Level 1. A unit test constructs a `CliDeps` with controlled config-resolution functions returning generated values, exercises the handler, and asserts on the `CliResult`. No process is spawned, no config file is parsed from disk, no git call happens. This mirrors the language-registration descriptor pattern (ADR-19) in the architectural sense — the registry enumerates, the CLI iterates.
 
 Returning `{ stdout, stderr, exitCode }` instead of writing to `process.stdout` / `process.stderr` inside the handler isolates side effects to the registration layer. The registration layer owns the contract with the runtime; handlers own only the logic of producing correct output from a resolved Config.
 
@@ -57,7 +57,7 @@ Alternatives considered:
 
 ### Recognized by
 
-Files under `src/domains/config/` and `src/commands/config/` contain the domain registration, handler implementations, a shared `CliDeps` / `CliResult` type module, and the `resolveProjectRoot` helper. No handler imports `resolveConfig` from `@/config` directly — all handlers receive it through the `deps` parameter.
+Files under `src/domains/config/` and `src/commands/config/` contain the domain registration, handler implementations, a shared `CliDeps` / `CliResult` type module, and the `resolveProjectRoot` helper. No handler imports config resolution or config-file discovery functions from `@/config` directly — all handlers receive them through the `deps` parameter.
 
 ### MUST
 
@@ -65,12 +65,12 @@ Files under `src/domains/config/` and `src/commands/config/` contain the domain 
 - The domain registration layer builds the default `CliDeps` from real implementations and is the sole owner of process-stream writes and `process.exit` for this domain ([review])
 - `resolveProjectRoot` uses `git rev-parse --show-toplevel` inside a worktree; outside a worktree it falls back to `process.cwd()` and emits a diagnostic warning on stderr per PDR-15's Compliance rule ([test](tests/root-resolution.compliance.l1.test.ts))
 - Output format selection between default format and json lives in a single place per output handler and delegates serialization to `src/config/`; `validate` does not emit serialized config ([review])
-- Handler tests construct `CliDeps` with controlled implementations of `resolveConfig`, `resolveProjectRoot`, and a test-scoped `descriptors` array — the production registry is not intercepted ([review])
+- Handler tests construct `CliDeps` with controlled implementations of `resolveConfig`, `readProjectConfigFile`, `resolveProjectRoot`, and a test-scoped `descriptors` array — the production registry is not intercepted ([review])
 
 ### NEVER
 
 - `vi.mock()`, `jest.mock()`, `memfs`, or any filesystem-mocking mechanism in handler tests — controlled dependencies are supplied through the `deps` parameter ([review])
-- Import `resolveConfig` from `@/config` inside a handler module — the handler receives it via `deps` ([review])
+- Import config resolution or config-file discovery functions from `@/config` inside a handler module — the handler receives them via `deps` ([review])
 - Call `process.exit`, `process.chdir`, or mutate `process.env` from inside a handler — handlers are pure with respect to the process ([review])
 - Hardcode descriptor section names inside CLI output paths — the CLI iterates the resolved Config's keys or the supplied descriptor list ([review])
 - Render descriptor values through per-descriptor pretty-printers or local raw-format serializers — the CLI uses `src/config/` serialization uniformly across all sections ([review])

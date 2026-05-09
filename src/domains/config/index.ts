@@ -4,7 +4,13 @@ import { defaultsCommand } from "@/commands/config/defaults";
 import { showCommand } from "@/commands/config/show";
 import type { CliDeps, CliResult, ShowOptions, ValidateOptions } from "@/commands/config/types";
 import { validateCommand } from "@/commands/config/validate";
-import { CONFIG_FILE_FORMAT, DEFAULT_CONFIG_FILE_FORMAT, DEFAULT_CONFIG_FILENAME, resolveConfig } from "@/config/index";
+import {
+  CONFIG_FILE_FORMAT,
+  DEFAULT_CONFIG_FILE_FORMAT,
+  DEFAULT_CONFIG_FILENAME,
+  readProjectConfigFile,
+  resolveConfig,
+} from "@/config/index";
 import { productionRegistry } from "@/config/registry";
 
 import type { Domain } from "../types";
@@ -13,6 +19,7 @@ import { resolveProjectRoot } from "./root";
 function buildDefaultDeps(): CliDeps {
   return {
     resolveConfig,
+    readProjectConfigFile,
     resolveProjectRoot: (): string => {
       const resolved = resolveProjectRoot();
       if (resolved.warning !== undefined) {

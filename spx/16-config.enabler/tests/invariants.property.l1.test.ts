@@ -4,34 +4,19 @@ import * as fc from "fast-check";
 import { describe, expect, it } from "vitest";
 
 import { resolveConfig } from "@/config/index";
+import { CONFIG_TEST_GENERATOR, sampleConfigTestValue } from "@/config/testing";
 import { KIND_REGISTRY, SPEC_TREE_KIND_CATEGORY, specTreeConfigDescriptor } from "@/lib/spec-tree/config";
 import type { Config } from "@testing/harnesses/spec-tree/spec-tree";
 import { withTestEnv } from "@testing/harnesses/spec-tree/spec-tree";
 
-const ENV_SENTINEL_KEY = "SPX_CONFIG_INVARIANT_PROBE";
-const ENV_SENTINEL_VALUE = "set-before-resolve";
-
-const CONFIG_SHAPES: readonly Config[] = [
-  {},
-  { [specTreeConfigDescriptor.section]: { kinds: {} } },
-  { [specTreeConfigDescriptor.section]: { kinds: { enabler: KIND_REGISTRY.enabler } } },
-  { [specTreeConfigDescriptor.section]: { kinds: { adr: KIND_REGISTRY.adr, pdr: KIND_REGISTRY.pdr } } },
-  {
-    [specTreeConfigDescriptor.section]: {
-      kinds: {
-        enabler: KIND_REGISTRY.enabler,
-        outcome: KIND_REGISTRY.outcome,
-        adr: KIND_REGISTRY.adr,
-        pdr: KIND_REGISTRY.pdr,
-      },
-    },
-  },
-];
+function configShape(): fc.Arbitrary<Config> {
+  return fc.oneof(CONFIG_TEST_GENERATOR.emptyConfig(), CONFIG_TEST_GENERATOR.specTreeSubsetConfig());
+}
 
 describe("resolveConfig — side-effect freedom (property)", () => {
   it("leaves the project directory unchanged across any config shape drawn from the registry", async () => {
     await fc.assert(
-      fc.asyncProperty(fc.constantFrom(...CONFIG_SHAPES), async (projectConfig) => {
+      fc.asyncProperty(configShape(), async (projectConfig) => {
         await withTestEnv(projectConfig, async ({ projectDir }) => {
           const before = await readdir(projectDir);
           await resolveConfig(projectDir, [specTreeConfigDescriptor]);
@@ -46,15 +31,15 @@ describe("resolveConfig — side-effect freedom (property)", () => {
 
   it("leaves the process environment unchanged across any config shape", async () => {
     await fc.assert(
-      fc.asyncProperty(fc.constantFrom(...CONFIG_SHAPES), async (projectConfig) => {
-        process.env[ENV_SENTINEL_KEY] = ENV_SENTINEL_VALUE;
+      fc.asyncProperty(configShape(), CONFIG_TEST_GENERATOR.environmentSentinel(), async (projectConfig, sentinel) => {
+        process.env[sentinel.key] = sentinel.value;
         try {
           await withTestEnv(projectConfig, async ({ projectDir }) => {
             await resolveConfig(projectDir, [specTreeConfigDescriptor]);
-            expect(process.env[ENV_SENTINEL_KEY]).toBe(ENV_SENTINEL_VALUE);
+            expect(process.env[sentinel.key]).toBe(sentinel.value);
           });
         } finally {
-          delete process.env[ENV_SENTINEL_KEY];
+          delete process.env[sentinel.key];
         }
       }),
       { numRuns: 10 },
@@ -63,7 +48,7 @@ describe("resolveConfig — side-effect freedom (property)", () => {
 
   it("does not mutate process.cwd during resolution across any config shape", async () => {
     await fc.assert(
-      fc.asyncProperty(fc.constantFrom(...CONFIG_SHAPES), async (projectConfig) => {
+      fc.asyncProperty(configShape(), async (projectConfig) => {
         const before = process.cwd();
         await withTestEnv(projectConfig, async ({ projectDir }) => {
           await resolveConfig(projectDir, [specTreeConfigDescriptor]);
@@ -88,7 +73,7 @@ describe("resolveConfig — typed-or-error invariant (C4)", () => {
 
       expect(result.ok).toBe(false);
       if (!result.ok) {
-        expect("value" in result).toBe(false);
+        expect(sampleConfigTestValue(CONFIG_TEST_GENERATOR.resultValueKey()) in result).toBe(false);
         expect(result.error.length).toBeGreaterThan(0);
       }
     });

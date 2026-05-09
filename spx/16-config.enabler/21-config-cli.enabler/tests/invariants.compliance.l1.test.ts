@@ -4,25 +4,31 @@ import { describe, expect, it } from "vitest";
 import { defaultsCommand } from "@/commands/config/defaults";
 import { showCommand } from "@/commands/config/show";
 import { validateCommand } from "@/commands/config/validate";
+import type { ConfigFileReadResult } from "@/config";
+import { CONFIG_TEST_GENERATOR, sampleConfigTestValue } from "@/config/testing";
 import type { Config, ConfigDescriptor, Result } from "@/config/types";
 import { specTreeConfigDescriptor } from "@/lib/spec-tree/config";
 
 type CliDeps = {
   resolveConfig: (projectRoot: string) => Promise<Result<Config>>;
+  readProjectConfigFile: (projectRoot: string) => Promise<Result<ConfigFileReadResult>>;
   resolveProjectRoot: () => string;
   descriptors: readonly ConfigDescriptor<unknown>[];
 };
 
-const PROJECT_ROOT = "/virtual/project";
-
-const DEFAULTS_CONFIG: Config = { specTree: specTreeConfigDescriptor.defaults };
-
 function makeDeps(resolved: Result<Config>): CliDeps {
+  const projectRoot = sampleConfigTestValue(CONFIG_TEST_GENERATOR.projectRoot());
+
   return {
     resolveConfig: async () => resolved,
-    resolveProjectRoot: () => PROJECT_ROOT,
+    readProjectConfigFile: async () => sampleConfigTestValue(CONFIG_TEST_GENERATOR.absentConfigFileReadResult()),
+    resolveProjectRoot: () => projectRoot,
     descriptors: [specTreeConfigDescriptor],
   };
+}
+
+function defaultsConfig(): Config {
+  return sampleConfigTestValue(CONFIG_TEST_GENERATOR.specTreeDefaultsConfig());
 }
 
 type ProcessOverrides = {
@@ -72,7 +78,7 @@ function trapProcessSideEffects(): ProcessOverrides {
 
 describe("invariants — handlers trigger no process side effects (P1)", () => {
   it("showCommand does not call process.exit, process.chdir, or write to process streams", async () => {
-    const deps = makeDeps({ ok: true, value: DEFAULTS_CONFIG });
+    const deps = makeDeps({ ok: true, value: defaultsConfig() });
     const traps = trapProcessSideEffects();
 
     try {
@@ -86,7 +92,7 @@ describe("invariants — handlers trigger no process side effects (P1)", () => {
   });
 
   it("validateCommand does not call process.exit, process.chdir, or write to process streams on the success path", async () => {
-    const deps = makeDeps({ ok: true, value: DEFAULTS_CONFIG });
+    const deps = makeDeps({ ok: true, value: defaultsConfig() });
     const traps = trapProcessSideEffects();
 
     try {
@@ -112,7 +118,7 @@ describe("invariants — handlers trigger no process side effects (P1)", () => {
   });
 
   it("defaultsCommand does not call process.exit, process.chdir, or write to process streams", async () => {
-    const deps = makeDeps({ ok: true, value: DEFAULTS_CONFIG });
+    const deps = makeDeps({ ok: true, value: defaultsConfig() });
     const traps = trapProcessSideEffects();
 
     try {
@@ -128,7 +134,7 @@ describe("invariants — handlers trigger no process side effects (P1)", () => {
 
 describe("invariants — handlers do not throw, even on rejection", () => {
   it("every handler resolves to a CliResult for both ok and error inputs — no thrown exceptions", async () => {
-    const okDeps = makeDeps({ ok: true, value: DEFAULTS_CONFIG });
+    const okDeps = makeDeps({ ok: true, value: defaultsConfig() });
     const failDeps = makeDeps({ ok: false, error: "specTree: bad" });
 
     await expect(showCommand({}, okDeps)).resolves.toMatchObject({ exitCode: 0 });
@@ -143,7 +149,7 @@ describe("invariants — determinism across handler invocations", () => {
   it("show, validate, and defaults each produce identical CliResult across identical inputs", async () => {
     await fc.assert(
       fc.asyncProperty(fc.boolean(), async (asJson) => {
-        const deps = makeDeps({ ok: true, value: DEFAULTS_CONFIG });
+        const deps = makeDeps({ ok: true, value: defaultsConfig() });
 
         const showA = await showCommand({ json: asJson }, deps);
         const showB = await showCommand({ json: asJson }, deps);
@@ -164,7 +170,7 @@ describe("invariants — determinism across handler invocations", () => {
 
 describe("invariants — stream discipline (C2)", () => {
   it("successful show/defaults route the resolved Config to stdout; stderr is empty", async () => {
-    const deps = makeDeps({ ok: true, value: DEFAULTS_CONFIG });
+    const deps = makeDeps({ ok: true, value: defaultsConfig() });
 
     const show = await showCommand({}, deps);
     const defs = await defaultsCommand({}, deps);
@@ -188,7 +194,7 @@ describe("invariants — stream discipline (C2)", () => {
   });
 
   it("successful validate emits the success line on stdout, not stderr", async () => {
-    const deps = makeDeps({ ok: true, value: DEFAULTS_CONFIG });
+    const deps = makeDeps({ ok: true, value: defaultsConfig() });
 
     const result = await validateCommand({}, deps);
 

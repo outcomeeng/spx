@@ -2,8 +2,11 @@ import { describe, expect, it } from "vitest";
 
 import { withTestEnv } from "@testing/harnesses/spec-tree/spec-tree";
 
+import { resolveConfig } from "@/config";
 import {
   EXPLICIT_OVERRIDE_LAYER,
+  FILE_INCLUSION_SECTION,
+  fileInclusionConfigDescriptor,
   REGISTERED_TOOL_NAMES,
   resolveScope,
   TOOL_DEFAULT_FLAGS,
@@ -12,6 +15,7 @@ import {
 import type { ToolAdaptersConfig } from "@/lib/file-inclusion";
 import { HIDDEN_PREFIX_LAYER } from "@/lib/file-inclusion/predicates/hidden-prefix";
 import { IGNORE_SOURCE_LAYER } from "@/lib/file-inclusion/predicates/ignore-source";
+import { CONFIG_GENERATOR, sampleConfigValue } from "@testing/generators/config/config";
 
 import {
   artifactFilePath,
@@ -93,6 +97,19 @@ describe("file-inclusion service — scenarios", () => {
       }
       for (const path of excludedPaths) {
         expect(outputPaths.has(path), `"${path}" from excluded must appear in args`).toBe(true);
+      }
+    });
+  });
+
+  it("file-inclusion scope and tool values resolve through the config descriptor", async () => {
+    const generated = sampleConfigValue(CONFIG_GENERATOR.fileInclusionOverride());
+
+    await withTestEnv(generated.config, async (env) => {
+      const result = await resolveConfig(env.projectDir, [fileInclusionConfigDescriptor]);
+
+      expect(result.ok).toBe(true);
+      if (result.ok) {
+        expect(result.value[FILE_INCLUSION_SECTION]).toEqual(generated.expected);
       }
     });
   });

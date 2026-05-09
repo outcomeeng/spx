@@ -12,9 +12,9 @@ import {
   arbNestedNodeSegment,
   arbNodeSegment,
   arbSubpath,
-  INTEGRATION_CONFIG,
+  integrationConfig,
   PROPERTY_NUM_RUNS,
-  READER_CONFIG,
+  readerConfig,
   spxPath,
   writeExclude,
 } from "./support";
@@ -23,10 +23,10 @@ describe("ignore-source — mappings", () => {
   it("an entry segment in the ignore-source file maps to the directory {specTreeRootSegment}/{segment}/ for prefix matching", async () => {
     await fc.assert(
       fc.asyncProperty(arbNodeSegment, arbSubpath, async (segment, sub) => {
-        await withTestEnv(INTEGRATION_CONFIG, async (env) => {
+        await withTestEnv(integrationConfig(), async (env) => {
           await writeExclude(env, [segment]);
 
-          const reader = createIgnoreSourceReader(env.projectDir, READER_CONFIG);
+          const reader = createIgnoreSourceReader(env.projectDir, readerConfig());
 
           expect(reader.isUnderIgnoreSource(spxPath(segment, sub))).toBe(true);
           // directory path without trailing separator does not match
@@ -40,10 +40,10 @@ describe("ignore-source — mappings", () => {
   it("entries() returns the parsed segments from the ignore-source file", async () => {
     await fc.assert(
       fc.asyncProperty(arbNodeSegment, arbNestedNodeSegment, async (simple, nested) => {
-        await withTestEnv(INTEGRATION_CONFIG, async (env) => {
+        await withTestEnv(integrationConfig(), async (env) => {
           await writeExclude(env, [simple, nested]);
 
-          const reader = createIgnoreSourceReader(env.projectDir, READER_CONFIG);
+          const reader = createIgnoreSourceReader(env.projectDir, readerConfig());
 
           const segments = reader.entries().map((e) => e.segment);
           expect(segments).toContain(simple);
@@ -60,10 +60,10 @@ describe("ignore-source — mappings", () => {
         fc.tuple(arbNodeSegment, arbNodeSegment).filter(([a, b]) => a !== b),
         arbSubpath,
         async ([matched, other], sub) => {
-          await withTestEnv(INTEGRATION_CONFIG, async (env) => {
+          await withTestEnv(integrationConfig(), async (env) => {
             await writeExclude(env, [matched, other]);
 
-            const reader = createIgnoreSourceReader(env.projectDir, READER_CONFIG);
+            const reader = createIgnoreSourceReader(env.projectDir, readerConfig());
             const path = spxPath(matched, sub);
 
             const entry = reader.matchedEntry(path);
@@ -79,10 +79,10 @@ describe("ignore-source — mappings", () => {
   it("matchedEntry returns undefined when the path is not under any listed entry", async () => {
     await fc.assert(
       fc.asyncProperty(arbNodeSegment, arbSubpath, async (segment, sub) => {
-        await withTestEnv(INTEGRATION_CONFIG, async (env) => {
+        await withTestEnv(integrationConfig(), async (env) => {
           await writeExclude(env, [segment]);
 
-          const reader = createIgnoreSourceReader(env.projectDir, READER_CONFIG);
+          const reader = createIgnoreSourceReader(env.projectDir, readerConfig());
           const unrelatedPath = `other-root/${segment}/${sub}`;
 
           const entry = reader.matchedEntry(unrelatedPath);
@@ -101,7 +101,7 @@ describe("ignore-source — mappings", () => {
     };
     await fc.assert(
       fc.asyncProperty(arbNodeSegment, arbSubpath, async (segment, sub) => {
-        await withTestEnv(INTEGRATION_CONFIG, async (env) => {
+        await withTestEnv(integrationConfig(), async (env) => {
           await env.writeRaw(`${altRootSegment}/${IGNORE_SOURCE_FILENAME_DEFAULT}`, segment);
 
           const reader = createIgnoreSourceReader(env.projectDir, altConfig);

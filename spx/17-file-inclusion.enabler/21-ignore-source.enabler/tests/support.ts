@@ -1,7 +1,10 @@
 import type { Config, SpecTreeEnv } from "@testing/harnesses/spec-tree/spec-tree";
 
-import { IGNORE_SOURCE_FILENAME_DEFAULT, type IgnoreSourceReaderConfig } from "@/lib/file-inclusion/ignore-source";
-import { SPEC_TREE_CONFIG } from "@/lib/spec-tree/config";
+import type { IgnoreSourceReaderConfig } from "@/lib/file-inclusion/ignore-source";
+import {
+  FILE_INCLUSION_IGNORE_SOURCE_GENERATOR,
+  sampleFileInclusionIgnoreSourceValue,
+} from "@testing/generators/file-inclusion/ignore-source";
 
 export {
   arbNestedNodeSegment,
@@ -10,45 +13,41 @@ export {
   PROPERTY_NUM_RUNS,
 } from "@testing/harnesses/spec-tree/generators";
 
-export const INTEGRATION_CONFIG: Config = {
-  specTree: {
-    kinds: {
-      enabler: { category: "node", suffix: ".enabler" },
-      outcome: { category: "node", suffix: ".outcome" },
-      adr: { category: "decision", suffix: ".adr.md" },
-      pdr: { category: "decision", suffix: ".pdr.md" },
-    },
-  },
-};
+export function integrationConfig(): Config {
+  return sampleFileInclusionIgnoreSourceValue(FILE_INCLUSION_IGNORE_SOURCE_GENERATOR.integrationConfig());
+}
 
-export const SPX_ROOT_SEGMENT = SPEC_TREE_CONFIG.ROOT_DIRECTORY;
-const IGNORE_SOURCE_FILENAME = IGNORE_SOURCE_FILENAME_DEFAULT;
-export const EXCLUDE_FILENAME = `${SPX_ROOT_SEGMENT}/${IGNORE_SOURCE_FILENAME}`;
+export function readerConfig(): IgnoreSourceReaderConfig {
+  return sampleFileInclusionIgnoreSourceValue(FILE_INCLUSION_IGNORE_SOURCE_GENERATOR.readerConfig());
+}
 
-export const READER_CONFIG: IgnoreSourceReaderConfig = {
-  ignoreSourceFilename: IGNORE_SOURCE_FILENAME,
-  specTreeRootSegment: SPX_ROOT_SEGMENT,
-};
+export function commentHeader(): string {
+  return sampleFileInclusionIgnoreSourceValue(FILE_INCLUSION_IGNORE_SOURCE_GENERATOR.commentHeader());
+}
 
-export const COMMENT_HEADER = "# header comment";
-export const COMMENT_INDENTED = "  # indented comment";
-export const COMMENT_MIDDLE = "# middle comment";
+export function commentIndented(): string {
+  return sampleFileInclusionIgnoreSourceValue(FILE_INCLUSION_IGNORE_SOURCE_GENERATOR.commentIndented());
+}
 
-export const INVALID_EXCLUDE_ENTRIES = [
-  "/absolute/node.enabler",
-  "../outside-spx",
-  "21-example.enabler/../escape",
-  "./21-example.enabler",
-  "21-example.enabler/../..",
-  "21-example.enabler//nested.enabler",
-  "21-example.enabler/",
-] as const;
+export function commentMiddle(): string {
+  return sampleFileInclusionIgnoreSourceValue(FILE_INCLUSION_IGNORE_SOURCE_GENERATOR.commentMiddle());
+}
 
-export const ARBITRARY_SEGMENT_MAX = 3;
-export const ARBITRARY_QUERY_MAX = 4;
+export function invalidExcludeEntries(): readonly string[] {
+  return sampleFileInclusionIgnoreSourceValue(FILE_INCLUSION_IGNORE_SOURCE_GENERATOR.invalidEntries());
+}
+
+export function arbitrarySegmentMax(): number {
+  return sampleFileInclusionIgnoreSourceValue(FILE_INCLUSION_IGNORE_SOURCE_GENERATOR.propertyLimits()).SEGMENT_MAX;
+}
+
+export function arbitraryQueryMax(): number {
+  return sampleFileInclusionIgnoreSourceValue(FILE_INCLUSION_IGNORE_SOURCE_GENERATOR.propertyLimits()).QUERY_MAX;
+}
 
 export function spxPath(segment: string, ...rest: string[]): string {
-  return [SPX_ROOT_SEGMENT, segment, ...rest].join("/");
+  const rootSegment = sampleFileInclusionIgnoreSourceValue(FILE_INCLUSION_IGNORE_SOURCE_GENERATOR.rootSegment());
+  return [rootSegment, segment, ...rest].join("/");
 }
 
 export function excludeContents(lines: readonly string[]): string {
@@ -56,9 +55,15 @@ export function excludeContents(lines: readonly string[]): string {
 }
 
 export async function writeExclude(env: SpecTreeEnv, lines: readonly string[]): Promise<void> {
-  await env.writeRaw(EXCLUDE_FILENAME, excludeContents(lines));
+  await env.writeRaw(
+    sampleFileInclusionIgnoreSourceValue(FILE_INCLUSION_IGNORE_SOURCE_GENERATOR.excludeFilename()),
+    excludeContents(lines),
+  );
 }
 
 export async function writeExcludeRaw(env: SpecTreeEnv, contents: string): Promise<void> {
-  await env.writeRaw(EXCLUDE_FILENAME, contents);
+  await env.writeRaw(
+    sampleFileInclusionIgnoreSourceValue(FILE_INCLUSION_IGNORE_SOURCE_GENERATOR.excludeFilename()),
+    contents,
+  );
 }

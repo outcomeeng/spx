@@ -1,7 +1,13 @@
 import * as fc from "fast-check";
 
+import type { ConfigFileReadResult } from "@/config/index";
 import type { ConfigDescriptor, Result } from "@/config/types";
-import { KIND_REGISTRY, SPEC_TREE_SECTION, type SpecTreeKindCategory } from "@/lib/spec-tree/config";
+import {
+  KIND_REGISTRY,
+  SPEC_TREE_CONFIG_FIELDS,
+  SPEC_TREE_SECTION,
+  type SpecTreeKindCategory,
+} from "@/lib/spec-tree/config";
 
 export const CONFIG_TEST_FIELDS = {
   TOKEN: "token",
@@ -19,6 +25,17 @@ type GeneratedModeSection = {
 type GeneratedDescriptorOptions = {
   readonly minLength: number;
   readonly maxLength: number;
+};
+
+export type GeneratedEnvironmentSentinel = {
+  readonly key: string;
+  readonly value: string;
+};
+
+export type GeneratedInvalidSpecTreeConfig = {
+  readonly config: Record<string, unknown>;
+  readonly error: string;
+  readonly offendingKind: string;
 };
 
 export type GeneratedTokenDescriptor = {
@@ -51,8 +68,19 @@ export type GeneratedResolutionScope = {
 };
 
 export const CONFIG_TEST_GENERATOR = {
+  absentConfigFileReadResult: arbitraryAbsentConfigFileReadResult,
+  emptyConfig: arbitraryEmptyConfig,
+  environmentSentinel: arbitraryEnvironmentSentinel,
+  invalidSpecTreeConfig: arbitraryInvalidSpecTreeConfig,
   key: arbitraryConfigKey,
+  resultValueKey: arbitraryResultValueKey,
   scalar: arbitraryConfigScalar,
+  specTreeKindField: arbitrarySpecTreeKindField,
+  specTreeUnknownKindError: arbitrarySpecTreeUnknownKindError,
+  specTreeDefaultsConfig: arbitrarySpecTreeDefaultsConfig,
+  specTreeSubsetConfig: arbitrarySpecTreeSubsetConfig,
+  tempPrefix: arbitraryTempPrefix,
+  tokenDescriptorPair: arbitraryTokenDescriptorPair,
   tokenDescriptor: arbitraryTokenDescriptor,
   tokenDescriptors: arbitraryTokenDescriptors,
   modeDescriptor: arbitraryModeDescriptor,
@@ -77,8 +105,81 @@ function arbitraryConfigScalar(): fc.Arbitrary<string> {
   return fc.uuid();
 }
 
+function arbitraryEmptyConfig(): fc.Arbitrary<Record<string, unknown>> {
+  return fc.constant({});
+}
+
+function arbitraryResultValueKey(): fc.Arbitrary<string> {
+  return fc.constant("value");
+}
+
 function arbitraryProjectRoot(): fc.Arbitrary<string> {
   return fc.uuid().map((id) => `/${id}`);
+}
+
+function arbitraryTempPrefix(): fc.Arbitrary<string> {
+  return arbitraryConfigKey().map((key) => `${key}-`);
+}
+
+function arbitraryEnvironmentSentinel(): fc.Arbitrary<GeneratedEnvironmentSentinel> {
+  return fc
+    .record({
+      key: arbitraryConfigKey(),
+      value: arbitraryConfigScalar(),
+    })
+    .map(({ key, value }) => ({ key: key.toUpperCase(), value }));
+}
+
+function arbitraryAbsentConfigFileReadResult(): fc.Arbitrary<Result<ConfigFileReadResult>> {
+  return fc.constant({ ok: true, value: { kind: "absent" } });
+}
+
+function arbitrarySpecTreeDefaultsConfig(): fc.Arbitrary<Record<string, unknown>> {
+  return fc.constant({ [SPEC_TREE_SECTION]: { [SPEC_TREE_CONFIG_FIELDS.KINDS]: { ...KIND_REGISTRY } } });
+}
+
+function arbitrarySpecTreeSubsetConfig(): fc.Arbitrary<Record<string, unknown>> {
+  return fc
+    .uniqueArray(fc.constantFrom(...Object.keys(KIND_REGISTRY)), {
+      minLength: 1,
+      maxLength: Object.keys(KIND_REGISTRY).length,
+    })
+    .map((kinds) => ({
+      [SPEC_TREE_SECTION]: {
+        [SPEC_TREE_CONFIG_FIELDS.KINDS]: Object.fromEntries(
+          kinds.map((kind) => [kind, KIND_REGISTRY[kind as keyof typeof KIND_REGISTRY]]),
+        ),
+      },
+    }));
+}
+
+function arbitraryInvalidSpecTreeConfig(): fc.Arbitrary<GeneratedInvalidSpecTreeConfig> {
+  return arbitraryConfigKey()
+    .filter((kind) => !Object.prototype.hasOwnProperty.call(KIND_REGISTRY, kind))
+    .map((offendingKind) => ({
+      offendingKind,
+      error: `${SPEC_TREE_SECTION}.${SPEC_TREE_CONFIG_FIELDS.KINDS} contains unknown kind "${offendingKind}"`,
+      config: {
+        [SPEC_TREE_SECTION]: {
+          [SPEC_TREE_CONFIG_FIELDS.KINDS]: {
+            [offendingKind]: {
+              category: KIND_REGISTRY.enabler.category,
+              suffix: `.${offendingKind}`,
+            },
+          },
+        },
+      },
+    }));
+}
+
+function arbitrarySpecTreeKindField(): fc.Arbitrary<string> {
+  return fc.constant(SPEC_TREE_CONFIG_FIELDS.KINDS);
+}
+
+function arbitrarySpecTreeUnknownKindError(): fc.Arbitrary<string> {
+  return arbitraryConfigKey()
+    .filter((kind) => !Object.prototype.hasOwnProperty.call(KIND_REGISTRY, kind))
+    .map((kind) => `${SPEC_TREE_SECTION}.${SPEC_TREE_CONFIG_FIELDS.KINDS} contains unknown kind "${kind}"`);
 }
 
 function arbitraryTokenDescriptor(): fc.Arbitrary<GeneratedTokenDescriptor> {
@@ -105,6 +206,16 @@ function arbitraryTokenDescriptors(options: GeneratedDescriptorOptions): fc.Arbi
     .map(([sections, tokenDefaults]) =>
       sections.map((section, index) => buildTokenDescriptor(section, tokenDefaults[index % tokenDefaults.length]))
     );
+}
+
+function arbitraryTokenDescriptorPair(): fc.Arbitrary<readonly [GeneratedTokenDescriptor, GeneratedTokenDescriptor]> {
+  return arbitraryTokenDescriptors({ minLength: 2, maxLength: 2 }).map((descriptors) => {
+    const [first, second] = descriptors;
+    if (first === undefined || second === undefined) {
+      throw new Error("Token descriptor pair generator returned an incomplete descriptor set");
+    }
+    return [first, second] as const;
+  });
 }
 
 function arbitraryModeDescriptor(): fc.Arbitrary<GeneratedModeDescriptor> {

@@ -1,19 +1,15 @@
 import { describe, expect, it } from "vitest";
 
 import { resolveConfig } from "@/config/index";
-import { SPEC_TREE_KIND_CATEGORY, specTreeConfigDescriptor } from "@/lib/spec-tree/config";
+import { CONFIG_TEST_GENERATOR, sampleConfigTestValue } from "@/config/testing";
+import { specTreeConfigDescriptor } from "@/lib/spec-tree/config";
 import type { Config } from "@testing/harnesses/spec-tree/spec-tree";
 import { withTestEnv } from "@testing/harnesses/spec-tree/spec-tree";
 
 describe("resolveConfig — validator rejection", () => {
   it("returns an error naming the descriptor whose validator rejected its section", async () => {
-    const projectConfig: Config = {
-      [specTreeConfigDescriptor.section]: {
-        kinds: {
-          madeUpKind: { category: SPEC_TREE_KIND_CATEGORY.NODE, suffix: ".fake" },
-        },
-      },
-    };
+    const generated = sampleConfigTestValue(CONFIG_TEST_GENERATOR.invalidSpecTreeConfig());
+    const projectConfig: Config = generated.config;
 
     await withTestEnv(projectConfig, async ({ projectDir }) => {
       const result = await resolveConfig(projectDir, [specTreeConfigDescriptor]);
@@ -26,30 +22,22 @@ describe("resolveConfig — validator rejection", () => {
   });
 
   it("names the offending field within the rejected section", async () => {
-    const projectConfig: Config = {
-      [specTreeConfigDescriptor.section]: {
-        kinds: {
-          phantomKind: { category: SPEC_TREE_KIND_CATEGORY.NODE, suffix: ".phantom" },
-        },
-      },
-    };
+    const generated = sampleConfigTestValue(CONFIG_TEST_GENERATOR.invalidSpecTreeConfig());
+    const projectConfig: Config = generated.config;
 
     await withTestEnv(projectConfig, async ({ projectDir }) => {
       const result = await resolveConfig(projectDir, [specTreeConfigDescriptor]);
 
       expect(result.ok).toBe(false);
       if (!result.ok) {
-        expect(result.error).toMatch(/phantomKind/);
+        expect(result.error).toContain(generated.offendingKind);
       }
     });
   });
 
   it("returns no partially usable Config when any descriptor rejects — either ok:true with full Config or ok:false with error", async () => {
-    const projectConfig: Config = {
-      [specTreeConfigDescriptor.section]: {
-        kinds: { nonsense: { category: SPEC_TREE_KIND_CATEGORY.NODE, suffix: ".nonsense" } },
-      },
-    };
+    const generated = sampleConfigTestValue(CONFIG_TEST_GENERATOR.invalidSpecTreeConfig());
+    const projectConfig: Config = generated.config;
 
     await withTestEnv(projectConfig, async ({ projectDir }) => {
       const result = await resolveConfig(projectDir, [specTreeConfigDescriptor]);
@@ -57,7 +45,7 @@ describe("resolveConfig — validator rejection", () => {
       if (result.ok) {
         throw new Error("expected validator rejection, got ok:true");
       }
-      expect("value" in result).toBe(false);
+      expect(sampleConfigTestValue(CONFIG_TEST_GENERATOR.resultValueKey()) in result).toBe(false);
     });
   });
 });

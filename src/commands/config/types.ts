@@ -1,3 +1,4 @@
+import type { ConfigFileReadResult } from "@/config";
 import type { Config, ConfigDescriptor, Result } from "@/config/types";
 
 export type CliResult = {
@@ -8,6 +9,7 @@ export type CliResult = {
 
 export type CliDeps = {
   readonly resolveConfig: (projectRoot: string) => Promise<Result<Config>>;
+  readonly readProjectConfigFile: (projectRoot: string) => Promise<Result<ConfigFileReadResult>>;
   readonly resolveProjectRoot: () => string;
   readonly descriptors: readonly ConfigDescriptor<unknown>[];
 };

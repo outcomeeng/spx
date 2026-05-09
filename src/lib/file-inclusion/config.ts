@@ -9,6 +9,17 @@ import type { ScopeResolverConfig, ToolAdaptersConfig } from "./types";
 
 export const FILE_INCLUSION_SECTION = "fileInclusion";
 
+export const FILE_INCLUSION_CONFIG_FIELDS = {
+  SCOPE: "scope",
+  TOOLS: "tools",
+  TOOL_REGISTRY: "tools",
+  ARTIFACT_DIRECTORIES: "artifactDirectories",
+  HIDDEN_PREFIX: "hiddenPrefix",
+  IGNORE_SOURCE_FILENAME: "ignoreSourceFilename",
+  SPEC_TREE_ROOT_SEGMENT: "specTreeRootSegment",
+  IGNORE_FLAG: "ignoreFlag",
+} as const;
+
 export type FileInclusionConfig = {
   readonly scope: ScopeResolverConfig;
   readonly tools: ToolAdaptersConfig;
@@ -32,13 +43,187 @@ const defaults: FileInclusionConfig = {
   tools: DEFAULT_TOOLS_CONFIG,
 };
 
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === "object" && value !== null && !Array.isArray(value);
+}
+
+function validateStringField(
+  section: string,
+  field: string,
+  value: unknown,
+): Result<string> {
+  if (typeof value !== "string" || value.length === 0) {
+    return { ok: false, error: `${section}.${field} must be a non-empty string` };
+  }
+  return { ok: true, value };
+}
+
+function validateStringArrayField(
+  section: string,
+  field: string,
+  value: unknown,
+): Result<readonly string[]> {
+  if (!Array.isArray(value) || value.some((entry) => typeof entry !== "string" || entry.length === 0)) {
+    return { ok: false, error: `${section}.${field} must be an array of non-empty strings` };
+  }
+  return { ok: true, value };
+}
+
+function rejectUnknownFields(
+  section: string,
+  value: Record<string, unknown>,
+  allowed: ReadonlySet<string>,
+): Result<undefined> {
+  const unknownField = Object.keys(value).find((field) => !allowed.has(field));
+  if (unknownField !== undefined) {
+    return { ok: false, error: `${section}.${unknownField} is not a recognized config field` };
+  }
+  return { ok: true, value: undefined };
+}
+
+function validateScope(raw: unknown): Result<ScopeResolverConfig> {
+  if (!isRecord(raw)) {
+    return {
+      ok: false,
+      error: `${FILE_INCLUSION_SECTION}.${FILE_INCLUSION_CONFIG_FIELDS.SCOPE} must be an object`,
+    };
+  }
+
+  const allowed = new Set<string>([
+    FILE_INCLUSION_CONFIG_FIELDS.ARTIFACT_DIRECTORIES,
+    FILE_INCLUSION_CONFIG_FIELDS.HIDDEN_PREFIX,
+    FILE_INCLUSION_CONFIG_FIELDS.IGNORE_SOURCE_FILENAME,
+    FILE_INCLUSION_CONFIG_FIELDS.SPEC_TREE_ROOT_SEGMENT,
+  ]);
+  const unknown = rejectUnknownFields(
+    `${FILE_INCLUSION_SECTION}.${FILE_INCLUSION_CONFIG_FIELDS.SCOPE}`,
+    raw,
+    allowed,
+  );
+  if (!unknown.ok) return unknown;
+
+  const artifactDirectoriesRaw = raw[FILE_INCLUSION_CONFIG_FIELDS.ARTIFACT_DIRECTORIES];
+  const artifactDirectories = artifactDirectoriesRaw === undefined
+    ? { ok: true as const, value: DEFAULT_SCOPE_CONFIG.artifactDirectories }
+    : validateStringArrayField(
+      `${FILE_INCLUSION_SECTION}.${FILE_INCLUSION_CONFIG_FIELDS.SCOPE}`,
+      FILE_INCLUSION_CONFIG_FIELDS.ARTIFACT_DIRECTORIES,
+      artifactDirectoriesRaw,
+    );
+  if (!artifactDirectories.ok) return artifactDirectories;
+
+  const hiddenPrefixRaw = raw[FILE_INCLUSION_CONFIG_FIELDS.HIDDEN_PREFIX];
+  const hiddenPrefix = hiddenPrefixRaw === undefined
+    ? { ok: true as const, value: DEFAULT_SCOPE_CONFIG.hiddenPrefix }
+    : validateStringField(
+      `${FILE_INCLUSION_SECTION}.${FILE_INCLUSION_CONFIG_FIELDS.SCOPE}`,
+      FILE_INCLUSION_CONFIG_FIELDS.HIDDEN_PREFIX,
+      hiddenPrefixRaw,
+    );
+  if (!hiddenPrefix.ok) return hiddenPrefix;
+
+  const ignoreSourceFilenameRaw = raw[FILE_INCLUSION_CONFIG_FIELDS.IGNORE_SOURCE_FILENAME];
+  const ignoreSourceFilename = ignoreSourceFilenameRaw === undefined
+    ? { ok: true as const, value: DEFAULT_SCOPE_CONFIG.ignoreSourceFilename }
+    : validateStringField(
+      `${FILE_INCLUSION_SECTION}.${FILE_INCLUSION_CONFIG_FIELDS.SCOPE}`,
+      FILE_INCLUSION_CONFIG_FIELDS.IGNORE_SOURCE_FILENAME,
+      ignoreSourceFilenameRaw,
+    );
+  if (!ignoreSourceFilename.ok) return ignoreSourceFilename;
+
+  const specTreeRootSegmentRaw = raw[FILE_INCLUSION_CONFIG_FIELDS.SPEC_TREE_ROOT_SEGMENT];
+  const specTreeRootSegment = specTreeRootSegmentRaw === undefined
+    ? { ok: true as const, value: DEFAULT_SCOPE_CONFIG.specTreeRootSegment }
+    : validateStringField(
+      `${FILE_INCLUSION_SECTION}.${FILE_INCLUSION_CONFIG_FIELDS.SCOPE}`,
+      FILE_INCLUSION_CONFIG_FIELDS.SPEC_TREE_ROOT_SEGMENT,
+      specTreeRootSegmentRaw,
+    );
+  if (!specTreeRootSegment.ok) return specTreeRootSegment;
+
+  return {
+    ok: true,
+    value: {
+      artifactDirectories: artifactDirectories.value,
+      hiddenPrefix: hiddenPrefix.value,
+      ignoreSourceFilename: ignoreSourceFilename.value,
+      specTreeRootSegment: specTreeRootSegment.value,
+    },
+  };
+}
+
+function validateTools(raw: unknown): Result<ToolAdaptersConfig> {
+  if (!isRecord(raw)) {
+    return {
+      ok: false,
+      error: `${FILE_INCLUSION_SECTION}.${FILE_INCLUSION_CONFIG_FIELDS.TOOLS} must be an object`,
+    };
+  }
+  const unknown = rejectUnknownFields(
+    `${FILE_INCLUSION_SECTION}.${FILE_INCLUSION_CONFIG_FIELDS.TOOLS}`,
+    raw,
+    new Set<string>([FILE_INCLUSION_CONFIG_FIELDS.TOOL_REGISTRY]),
+  );
+  if (!unknown.ok) return unknown;
+
+  const registryRaw = raw[FILE_INCLUSION_CONFIG_FIELDS.TOOL_REGISTRY] ?? {};
+  if (!isRecord(registryRaw)) {
+    return {
+      ok: false,
+      error:
+        `${FILE_INCLUSION_SECTION}.${FILE_INCLUSION_CONFIG_FIELDS.TOOLS}.${FILE_INCLUSION_CONFIG_FIELDS.TOOL_REGISTRY} must be an object`,
+    };
+  }
+
+  const tools: Record<string, { readonly ignoreFlag: string }> = { ...DEFAULT_TOOLS_CONFIG.tools };
+  for (const [toolName, adapterRaw] of Object.entries(registryRaw)) {
+    if (!isRecord(adapterRaw)) {
+      return {
+        ok: false,
+        error:
+          `${FILE_INCLUSION_SECTION}.${FILE_INCLUSION_CONFIG_FIELDS.TOOLS}.${FILE_INCLUSION_CONFIG_FIELDS.TOOL_REGISTRY}.${toolName} must be an object`,
+      };
+    }
+    const adapterUnknown = rejectUnknownFields(
+      `${FILE_INCLUSION_SECTION}.${FILE_INCLUSION_CONFIG_FIELDS.TOOLS}.${FILE_INCLUSION_CONFIG_FIELDS.TOOL_REGISTRY}.${toolName}`,
+      adapterRaw,
+      new Set<string>([FILE_INCLUSION_CONFIG_FIELDS.IGNORE_FLAG]),
+    );
+    if (!adapterUnknown.ok) return adapterUnknown;
+    const ignoreFlag = validateStringField(
+      `${FILE_INCLUSION_SECTION}.${FILE_INCLUSION_CONFIG_FIELDS.TOOLS}.${FILE_INCLUSION_CONFIG_FIELDS.TOOL_REGISTRY}.${toolName}`,
+      FILE_INCLUSION_CONFIG_FIELDS.IGNORE_FLAG,
+      adapterRaw[FILE_INCLUSION_CONFIG_FIELDS.IGNORE_FLAG],
+    );
+    if (!ignoreFlag.ok) return ignoreFlag;
+    tools[toolName] = { ignoreFlag: ignoreFlag.value };
+  }
+
+  return { ok: true, value: { tools } };
+}
+
 function validate(value: unknown): Result<FileInclusionConfig> {
   if (typeof value !== "object" || value === null || Array.isArray(value)) {
     return { ok: false, error: `${FILE_INCLUSION_SECTION} section must be an object` };
   }
-  // User-supplied keys are accepted but not yet merged; always returns defaults.
-  // Deep merging requires a schema (tracked as a future enhancement).
-  return { ok: true, value: defaults };
+  const candidate = value as Record<string, unknown>;
+  const unknown = rejectUnknownFields(
+    FILE_INCLUSION_SECTION,
+    candidate,
+    new Set<string>([FILE_INCLUSION_CONFIG_FIELDS.SCOPE, FILE_INCLUSION_CONFIG_FIELDS.TOOLS]),
+  );
+  if (!unknown.ok) return unknown;
+
+  const scopeRaw = candidate[FILE_INCLUSION_CONFIG_FIELDS.SCOPE] ?? {};
+  const scope = validateScope(scopeRaw);
+  if (!scope.ok) return scope;
+
+  const toolsRaw = candidate[FILE_INCLUSION_CONFIG_FIELDS.TOOLS] ?? {};
+  const tools = validateTools(toolsRaw);
+  if (!tools.ok) return tools;
+
+  return { ok: true, value: { scope: scope.value, tools: tools.value } };
 }
 
 export const fileInclusionConfigDescriptor: ConfigDescriptor<FileInclusionConfig> = {
