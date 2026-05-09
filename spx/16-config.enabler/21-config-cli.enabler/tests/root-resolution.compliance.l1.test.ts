@@ -3,17 +3,16 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 
+import { CONFIG_TEST_GENERATOR, sampleConfigTestValue } from "@/config/testing";
 import { resolveProjectRoot } from "@/domains/config/root";
-import { GIT_TEST_SUBCOMMANDS, runGit } from "@testing/harnesses/git-test-constants";
-
-const TEMP_PREFIX = "spx-config-root-";
+import { GIT_TEST_FLAGS, GIT_TEST_SUBCOMMANDS, runGit } from "@testing/harnesses/git-test-constants";
 
 describe("resolveProjectRoot — inside a git worktree", () => {
   let repo: string;
 
   beforeEach(async () => {
-    repo = await mkdtemp(join(tmpdir(), TEMP_PREFIX));
-    await runGit(repo, [GIT_TEST_SUBCOMMANDS.INIT, "--quiet"]);
+    repo = await mkdtemp(join(tmpdir(), sampleConfigTestValue(CONFIG_TEST_GENERATOR.tempPrefix())));
+    await runGit(repo, [GIT_TEST_SUBCOMMANDS.INIT, GIT_TEST_FLAGS.QUIET]);
   });
 
   afterEach(async () => {
@@ -44,7 +43,7 @@ describe("resolveProjectRoot — outside a git worktree", () => {
   let nonRepo: string;
 
   beforeEach(async () => {
-    nonRepo = await mkdtemp(join(tmpdir(), TEMP_PREFIX));
+    nonRepo = await mkdtemp(join(tmpdir(), sampleConfigTestValue(CONFIG_TEST_GENERATOR.tempPrefix())));
   });
 
   afterEach(async () => {

@@ -5,13 +5,13 @@ import { createIgnoreSourceReader } from "@/lib/file-inclusion/ignore-source";
 import { withTestEnv } from "@testing/harnesses/spec-tree/spec-tree";
 
 import {
-  ARBITRARY_QUERY_MAX,
-  ARBITRARY_SEGMENT_MAX,
+  arbitraryQueryMax,
+  arbitrarySegmentMax,
   arbNodeSegment,
   arbSubpath,
-  INTEGRATION_CONFIG,
+  integrationConfig,
   PROPERTY_NUM_RUNS,
-  READER_CONFIG,
+  readerConfig,
   spxPath,
   writeExclude,
 } from "./support";
@@ -20,17 +20,17 @@ describe("ignore-source — properties", () => {
   it("the reader is deterministic: the same project root and the same ignore-source file content always produce the same parsed entry set and the same membership-query results", async () => {
     await fc.assert(
       fc.asyncProperty(
-        fc.array(arbNodeSegment, { maxLength: ARBITRARY_SEGMENT_MAX }),
+        fc.array(arbNodeSegment, { maxLength: arbitrarySegmentMax() }),
         fc.array(fc.tuple(arbNodeSegment, arbSubpath), {
           minLength: 1,
-          maxLength: ARBITRARY_QUERY_MAX,
+          maxLength: arbitraryQueryMax(),
         }),
         async (segments, queries) => {
-          await withTestEnv(INTEGRATION_CONFIG, async (env) => {
+          await withTestEnv(integrationConfig(), async (env) => {
             await writeExclude(env, segments);
 
-            const readerA = createIgnoreSourceReader(env.projectDir, READER_CONFIG);
-            const readerB = createIgnoreSourceReader(env.projectDir, READER_CONFIG);
+            const readerA = createIgnoreSourceReader(env.projectDir, readerConfig());
+            const readerB = createIgnoreSourceReader(env.projectDir, readerConfig());
 
             for (const [segment, rest] of queries) {
               const input = spxPath(segment, rest);
@@ -51,12 +51,12 @@ describe("ignore-source — properties", () => {
     await fc.assert(
       fc.asyncProperty(
         fc.tuple(arbNodeSegment, arbNodeSegment).filter(([a, b]) => a !== b),
-        fc.array(arbSubpath, { minLength: 1, maxLength: ARBITRARY_QUERY_MAX }),
+        fc.array(arbSubpath, { minLength: 1, maxLength: arbitraryQueryMax() }),
         async ([listed, unlisted], subpaths) => {
-          await withTestEnv(INTEGRATION_CONFIG, async (env) => {
+          await withTestEnv(integrationConfig(), async (env) => {
             await writeExclude(env, [listed]);
 
-            const reader = createIgnoreSourceReader(env.projectDir, READER_CONFIG);
+            const reader = createIgnoreSourceReader(env.projectDir, readerConfig());
 
             for (const sub of subpaths) {
               expect(reader.isUnderIgnoreSource(spxPath(listed, sub))).toBe(true);

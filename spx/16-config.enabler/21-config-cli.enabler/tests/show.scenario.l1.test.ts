@@ -5,43 +5,42 @@ import {
   CONFIG_FILE_FORMAT,
   configFileForFormat,
   type ConfigFileFormat,
+  type ConfigFileReadResult,
   DEFAULT_CONFIG_FILE_FORMAT,
   parseConfigFileSections,
 } from "@/config/index";
+import { CONFIG_TEST_GENERATOR, sampleConfigTestValue } from "@/config/testing";
 import type { Config, ConfigDescriptor, Result } from "@/config/types";
 import { specTreeConfigDescriptor } from "@/lib/spec-tree/config";
 
 type CliDeps = {
   resolveConfig: (projectRoot: string) => Promise<Result<Config>>;
+  readProjectConfigFile: (projectRoot: string) => Promise<Result<ConfigFileReadResult>>;
   resolveProjectRoot: () => string;
   descriptors: readonly ConfigDescriptor<unknown>[];
 };
 
-const PROJECT_ROOT = "/virtual/project";
-
 function makeDeps(resolved: Result<Config>): CliDeps {
   return {
     resolveConfig: async () => resolved,
-    resolveProjectRoot: () => PROJECT_ROOT,
+    readProjectConfigFile: async () => sampleConfigTestValue(CONFIG_TEST_GENERATOR.absentConfigFileReadResult()),
+    resolveProjectRoot: () => sampleConfigTestValue(CONFIG_TEST_GENERATOR.projectRoot()),
     descriptors: [specTreeConfigDescriptor],
   };
 }
 
-const DEFAULTS_CONFIG: Config = {
-  [specTreeConfigDescriptor.section]: specTreeConfigDescriptor.defaults,
-};
+function defaultsConfig(): Config {
+  return sampleConfigTestValue(CONFIG_TEST_GENERATOR.specTreeDefaultsConfig());
+}
 
-const SUBSET_CONFIG: Config = {
-  [specTreeConfigDescriptor.section]: {
-    kinds: {
-      enabler: specTreeConfigDescriptor.defaults.kinds.enabler,
-      adr: specTreeConfigDescriptor.defaults.kinds.adr,
-    },
-  },
-};
+function subsetConfig(): Config {
+  return sampleConfigTestValue(CONFIG_TEST_GENERATOR.specTreeSubsetConfig());
+}
 
 function parseOutput(format: ConfigFileFormat, raw: string): Config {
-  const parsed = parseConfigFileSections(configFileForFormat(PROJECT_ROOT, format, raw));
+  const parsed = parseConfigFileSections(
+    configFileForFormat(sampleConfigTestValue(CONFIG_TEST_GENERATOR.projectRoot()), format, raw),
+  );
   expect(parsed.ok).toBe(true);
   if (!parsed.ok) {
     throw new Error(parsed.error);
@@ -51,39 +50,43 @@ function parseOutput(format: ConfigFileFormat, raw: string): Config {
 
 describe("showCommand — default-format output", () => {
   it("emits a default-format dump of the resolved Config when no overrides apply, exit 0", async () => {
-    const deps = makeDeps({ ok: true, value: DEFAULTS_CONFIG });
+    const config = defaultsConfig();
+    const deps = makeDeps({ ok: true, value: config });
 
     const result = await showCommand({}, deps);
 
     expect(result.exitCode).toBe(0);
     expect(result.stderr).toHaveLength(0);
-    expect(parseOutput(DEFAULT_CONFIG_FILE_FORMAT, result.stdout)).toEqual(DEFAULTS_CONFIG);
+    expect(parseOutput(DEFAULT_CONFIG_FILE_FORMAT, result.stdout)).toEqual(config);
   });
 
   it("reflects config-driven overrides in the emitted default format", async () => {
-    const deps = makeDeps({ ok: true, value: SUBSET_CONFIG });
+    const config = subsetConfig();
+    const deps = makeDeps({ ok: true, value: config });
 
     const result = await showCommand({}, deps);
 
     expect(result.exitCode).toBe(0);
     const parsed = parseOutput(DEFAULT_CONFIG_FILE_FORMAT, result.stdout);
     const specTree = parsed[specTreeConfigDescriptor.section] as typeof specTreeConfigDescriptor.defaults;
-    expect(Object.keys(specTree.kinds).sort()).toEqual(["adr", "enabler"]);
+    const expected = config[specTreeConfigDescriptor.section] as typeof specTreeConfigDescriptor.defaults;
+    expect(Object.keys(specTree.kinds).sort()).toEqual(Object.keys(expected.kinds).sort());
   });
 });
 
 describe("showCommand — JSON output", () => {
   it("emits a JSON document when --json is set, exit 0", async () => {
-    const deps = makeDeps({ ok: true, value: DEFAULTS_CONFIG });
+    const config = defaultsConfig();
+    const deps = makeDeps({ ok: true, value: config });
 
     const result = await showCommand({ json: true }, deps);
 
     expect(result.exitCode).toBe(0);
-    expect(parseOutput(CONFIG_FILE_FORMAT.JSON, result.stdout)).toEqual(DEFAULTS_CONFIG);
+    expect(parseOutput(CONFIG_FILE_FORMAT.JSON, result.stdout)).toEqual(config);
   });
 
   it("JSON and default-format encodings of the same resolved Config round-trip to equal values", async () => {
-    const deps = makeDeps({ ok: true, value: SUBSET_CONFIG });
+    const deps = makeDeps({ ok: true, value: subsetConfig() });
 
     const defaultResult = await showCommand({}, deps);
     const jsonResult = await showCommand({ json: true }, deps);
@@ -96,7 +99,10 @@ describe("showCommand — JSON output", () => {
 
 describe("showCommand — resolution failure", () => {
   it("surfaces a resolveConfig error with non-zero exit and a descriptor-qualified stderr message", async () => {
-    const deps = makeDeps({ ok: false, error: "specTree: kinds.phantom contains unknown kind" });
+    const deps = makeDeps({
+      ok: false,
+      error: sampleConfigTestValue(CONFIG_TEST_GENERATOR.specTreeUnknownKindError()),
+    });
 
     const result = await showCommand({}, deps);
 

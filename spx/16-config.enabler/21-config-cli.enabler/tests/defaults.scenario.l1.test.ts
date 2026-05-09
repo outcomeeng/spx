@@ -5,6 +5,7 @@ import {
   CONFIG_FILE_FORMAT,
   configFileForFormat,
   type ConfigFileFormat,
+  type ConfigFileReadResult,
   DEFAULT_CONFIG_FILE_FORMAT,
   parseConfigFileSections,
 } from "@/config/index";
@@ -14,6 +15,7 @@ import { specTreeConfigDescriptor } from "@/lib/spec-tree/config";
 
 type CliDeps = {
   resolveConfig: (projectRoot: string) => Promise<Result<Config>>;
+  readProjectConfigFile: (projectRoot: string) => Promise<Result<ConfigFileReadResult>>;
   resolveProjectRoot: () => string;
   descriptors: readonly ConfigDescriptor<unknown>[];
 };
@@ -22,6 +24,9 @@ function makeDeps(descriptors: readonly ConfigDescriptor<unknown>[]): CliDeps {
   return {
     resolveConfig: async () => {
       throw new Error("defaultsCommand must not call resolveConfig");
+    },
+    readProjectConfigFile: async () => {
+      throw new Error("defaultsCommand must not call readProjectConfigFile");
     },
     resolveProjectRoot: () => sampleConfigTestValue(CONFIG_TEST_GENERATOR.projectRoot()),
     descriptors,
@@ -66,7 +71,7 @@ describe("defaultsCommand — default-format output", () => {
 });
 
 describe("defaultsCommand — JSON output", () => {
-  it("emits a JSON document when --json is set, exit 0", async () => {
+  it("emits descriptor defaults as a JSON document when --json is set, exit 0", async () => {
     const generated = sampleConfigTestValue(CONFIG_TEST_GENERATOR.modeDescriptor());
     const deps = makeDeps([specTreeConfigDescriptor, generated.descriptor]);
 
