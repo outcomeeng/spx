@@ -13,7 +13,7 @@ import {
   resolveConfig,
   serializeConfigFileSections,
 } from "@/config/index";
-import { CONFIG_TEST_GENERATOR, sampleConfigTestValue } from "@/config/testing";
+import { CONFIG_TEST_GENERATOR, sampleConfigTestValue } from "@testing/generators/config/descriptors";
 import {
   KIND_REGISTRY,
   SPEC_TREE_KIND_CATEGORY,
