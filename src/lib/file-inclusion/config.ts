@@ -203,12 +203,16 @@ function validate(value: unknown): Result<FileInclusionConfig> {
   );
   if (!sectionUnknownFieldResult.ok) return sectionUnknownFieldResult;
 
-  const scopeRaw = candidate[FILE_INCLUSION_CONFIG_FIELDS.SCOPE] ?? {};
-  const scope = validateScope(scopeRaw);
+  const scopeRaw = candidate[FILE_INCLUSION_CONFIG_FIELDS.SCOPE];
+  const scope = scopeRaw === undefined
+    ? { ok: true as const, value: DEFAULT_SCOPE_CONFIG }
+    : validateScope(scopeRaw);
   if (!scope.ok) return scope;
 
-  const toolsRaw = candidate[FILE_INCLUSION_CONFIG_FIELDS.TOOLS] ?? {};
-  const tools = validateTools(toolsRaw);
+  const toolsRaw = candidate[FILE_INCLUSION_CONFIG_FIELDS.TOOLS];
+  const tools = toolsRaw === undefined
+    ? { ok: true as const, value: DEFAULT_TOOLS_CONFIG }
+    : validateTools(toolsRaw);
   if (!tools.ok) return tools;
 
   return {
