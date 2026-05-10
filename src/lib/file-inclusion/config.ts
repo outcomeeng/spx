@@ -94,12 +94,12 @@ function validateScope(raw: unknown): Result<ScopeResolverConfig> {
     FILE_INCLUSION_CONFIG_FIELDS.IGNORE_SOURCE_FILENAME,
     FILE_INCLUSION_CONFIG_FIELDS.SPEC_TREE_ROOT_SEGMENT,
   ]);
-  const unknown = rejectUnknownFields(
+  const scopeUnknownFieldResult = rejectUnknownFields(
     `${FILE_INCLUSION_SECTION}.${FILE_INCLUSION_CONFIG_FIELDS.SCOPE}`,
     raw,
     allowed,
   );
-  if (!unknown.ok) return unknown;
+  if (!scopeUnknownFieldResult.ok) return scopeUnknownFieldResult;
 
   const artifactDirectoriesRaw = raw[FILE_INCLUSION_CONFIG_FIELDS.ARTIFACT_DIRECTORIES];
   const artifactDirectories = artifactDirectoriesRaw === undefined
@@ -159,12 +159,12 @@ function validateTools(raw: unknown): Result<ToolAdaptersConfig> {
       error: `${FILE_INCLUSION_SECTION}.${FILE_INCLUSION_CONFIG_FIELDS.TOOLS} must be an object`,
     };
   }
-  const unknown = rejectUnknownFields(
+  const toolsUnknownFieldResult = rejectUnknownFields(
     `${FILE_INCLUSION_SECTION}.${FILE_INCLUSION_CONFIG_FIELDS.TOOLS}`,
     raw,
     new Set<string>([FILE_INCLUSION_CONFIG_FIELDS.TOOLS]),
   );
-  if (!unknown.ok) return unknown;
+  if (!toolsUnknownFieldResult.ok) return toolsUnknownFieldResult;
 
   const registryRaw = raw[FILE_INCLUSION_CONFIG_FIELDS.TOOLS] ?? {};
   if (!isRecord(registryRaw)) {
@@ -192,12 +192,12 @@ function validateTools(raw: unknown): Result<ToolAdaptersConfig> {
           `${FILE_INCLUSION_SECTION}.${FILE_INCLUSION_CONFIG_FIELDS.TOOLS}.${FILE_INCLUSION_CONFIG_FIELDS.TOOLS}.${toolName} must be an object`,
       };
     }
-    const adapterUnknown = rejectUnknownFields(
+    const adapterUnknownFieldResult = rejectUnknownFields(
       `${FILE_INCLUSION_SECTION}.${FILE_INCLUSION_CONFIG_FIELDS.TOOLS}.${FILE_INCLUSION_CONFIG_FIELDS.TOOLS}.${toolName}`,
       adapterRaw,
       new Set<string>([FILE_INCLUSION_CONFIG_FIELDS.IGNORE_FLAG]),
     );
-    if (!adapterUnknown.ok) return adapterUnknown;
+    if (!adapterUnknownFieldResult.ok) return adapterUnknownFieldResult;
     const ignoreFlagRaw = adapterRaw[FILE_INCLUSION_CONFIG_FIELDS.IGNORE_FLAG];
     const ignoreFlag = ignoreFlagRaw === undefined
       ? { ok: true as const, value: defaultToolConfig.ignoreFlag }
@@ -218,12 +218,12 @@ function validate(value: unknown): Result<FileInclusionConfig> {
     return { ok: false, error: `${FILE_INCLUSION_SECTION} section must be an object` };
   }
   const candidate = value as Record<string, unknown>;
-  const unknown = rejectUnknownFields(
+  const sectionUnknownFieldResult = rejectUnknownFields(
     FILE_INCLUSION_SECTION,
     candidate,
     new Set<string>([FILE_INCLUSION_CONFIG_FIELDS.SCOPE, FILE_INCLUSION_CONFIG_FIELDS.TOOLS]),
   );
-  if (!unknown.ok) return unknown;
+  if (!sectionUnknownFieldResult.ok) return sectionUnknownFieldResult;
 
   const scopeRaw = candidate[FILE_INCLUSION_CONFIG_FIELDS.SCOPE] ?? {};
   const scope = validateScope(scopeRaw);
