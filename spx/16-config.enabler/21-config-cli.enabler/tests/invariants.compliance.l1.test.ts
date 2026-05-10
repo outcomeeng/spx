@@ -3,22 +3,11 @@ import { describe, expect, it } from "vitest";
 
 import { defaultsCommand } from "@/commands/config/defaults";
 import { showCommand } from "@/commands/config/show";
+import type { CliDeps } from "@/commands/config/types";
 import { validateCommand } from "@/commands/config/validate";
-import type { ConfigFileReadResult } from "@/config";
 import { CONFIG_TEST_GENERATOR, sampleConfigTestValue } from "@/config/testing";
-import type { Config, ConfigDescriptor, Result } from "@/config/types";
+import type { Config, Result } from "@/config/types";
 import { specTreeConfigDescriptor } from "@/lib/spec-tree/config";
-
-type CliDeps = {
-  resolveConfig: (projectRoot: string) => Promise<Result<Config>>;
-  readProjectConfigFile: (projectRoot: string) => Promise<Result<ConfigFileReadResult>>;
-  resolveConfigFromReadResult: (
-    readResult: ConfigFileReadResult,
-    descriptors: readonly ConfigDescriptor<unknown>[],
-  ) => Result<Config>;
-  resolveProjectRoot: () => string;
-  descriptors: readonly ConfigDescriptor<unknown>[];
-};
 
 function makeDeps(resolved: Result<Config>): CliDeps {
   const projectRoot = sampleConfigTestValue(CONFIG_TEST_GENERATOR.projectRoot());
@@ -110,7 +99,10 @@ describe("invariants — handlers trigger no process side effects (P1)", () => {
   });
 
   it("validateCommand does not call process.exit, process.chdir, or write to process streams on the rejection path", async () => {
-    const deps = makeDeps({ ok: false, error: "specTree: bad" });
+    const deps = makeDeps({
+      ok: false,
+      error: sampleConfigTestValue(CONFIG_TEST_GENERATOR.specTreeUnknownKindError()),
+    });
     const traps = trapProcessSideEffects();
 
     try {
@@ -140,7 +132,10 @@ describe("invariants — handlers trigger no process side effects (P1)", () => {
 describe("invariants — handlers do not throw, even on rejection", () => {
   it("every handler resolves to a CliResult for both ok and error inputs — no thrown exceptions", async () => {
     const okDeps = makeDeps({ ok: true, value: defaultsConfig() });
-    const failDeps = makeDeps({ ok: false, error: "specTree: bad" });
+    const failDeps = makeDeps({
+      ok: false,
+      error: sampleConfigTestValue(CONFIG_TEST_GENERATOR.specTreeUnknownKindError()),
+    });
 
     await expect(showCommand({}, okDeps)).resolves.toMatchObject({ exitCode: 0 });
     await expect(showCommand({}, failDeps)).resolves.toMatchObject({ exitCode: expect.any(Number) });
@@ -187,7 +182,10 @@ describe("invariants — stream discipline (C2)", () => {
   });
 
   it("failed resolution in show/validate routes diagnostics to stderr and leaves stdout empty", async () => {
-    const deps = makeDeps({ ok: false, error: "specTree: validator rejected" });
+    const deps = makeDeps({
+      ok: false,
+      error: sampleConfigTestValue(CONFIG_TEST_GENERATOR.specTreeUnknownKindError()),
+    });
 
     const show = await showCommand({}, deps);
     const validate = await validateCommand({}, deps);
