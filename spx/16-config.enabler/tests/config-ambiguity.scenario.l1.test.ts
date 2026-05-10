@@ -4,7 +4,7 @@ import { join } from "node:path";
 import { describe, expect, it } from "vitest";
 
 import { CONFIG_FILE_FORMAT, CONFIG_FILENAMES, resolveConfig, serializeConfigFileSections } from "@/config/index";
-import { CONFIG_TEST_GENERATOR, sampleConfigTestValue } from "@/config/testing";
+import { CONFIG_TEST_GENERATOR, sampleConfigTestValue } from "@testing/generators/config/descriptors";
 import { specTreeConfigDescriptor } from "@/lib/spec-tree/config";
 import { withTestEnv } from "@testing/harnesses/spec-tree/spec-tree";
 

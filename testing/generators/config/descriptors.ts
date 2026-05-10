@@ -81,6 +81,7 @@ export const CONFIG_TEST_GENERATOR = {
   specTreeUnknownKindError: arbitrarySpecTreeUnknownKindError,
   specTreeDefaultsConfig: arbitrarySpecTreeDefaultsConfig,
   specTreeSubsetConfig: arbitrarySpecTreeSubsetConfig,
+  specTreeArrayKindsConfig: arbitrarySpecTreeArrayKindsConfig,
   tempPrefix: arbitraryTempPrefix,
   tokenDescriptorPair: arbitraryTokenDescriptorPair,
   tokenDescriptor: arbitraryTokenDescriptor,
@@ -90,6 +91,11 @@ export const CONFIG_TEST_GENERATOR = {
   projectRoot: arbitraryProjectRoot,
   resolutionScope: arbitraryResolutionScope,
 } as const;
+
+export type GeneratedSpecTreeArrayKindsConfig = {
+  readonly config: Record<string, unknown>;
+  readonly selectedKinds: readonly (keyof typeof KIND_REGISTRY)[];
+};
 
 export function sampleConfigTestValue<T>(arbitrary: fc.Arbitrary<T>): T {
   const [value] = fc.sample(arbitrary, { numRuns: 1 });
@@ -151,6 +157,22 @@ function arbitrarySpecTreeSubsetConfig(): fc.Arbitrary<Record<string, unknown>> 
         [SPEC_TREE_CONFIG_FIELDS.KINDS]: Object.fromEntries(
           kinds.map((kind) => [kind, KIND_REGISTRY[kind as keyof typeof KIND_REGISTRY]]),
         ),
+      },
+    }));
+}
+
+function arbitrarySpecTreeArrayKindsConfig(): fc.Arbitrary<GeneratedSpecTreeArrayKindsConfig> {
+  return fc
+    .uniqueArray(fc.constantFrom(...(Object.keys(KIND_REGISTRY) as (keyof typeof KIND_REGISTRY)[])), {
+      minLength: 1,
+      maxLength: Object.keys(KIND_REGISTRY).length,
+    })
+    .map((selectedKinds) => ({
+      selectedKinds,
+      config: {
+        [SPEC_TREE_SECTION]: {
+          [SPEC_TREE_CONFIG_FIELDS.KINDS]: [...selectedKinds],
+        },
       },
     }));
 }
