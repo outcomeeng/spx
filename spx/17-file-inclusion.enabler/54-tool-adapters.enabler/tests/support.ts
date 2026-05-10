@@ -22,9 +22,7 @@ export function makeAdapterConfig(ignoreFlag: string): AdapterConfig {
 export function makeToolAdaptersConfig(
   tools: Readonly<Record<string, string>>,
 ): ToolAdaptersConfig {
-  return {
-    tools: Object.fromEntries(
-      Object.entries(tools).map(([name, flag]) => [name, makeAdapterConfig(flag)]),
-    ),
-  };
+  return Object.fromEntries(
+    Object.entries(tools).map(([name, flag]) => [name, makeAdapterConfig(flag)]),
+  );
 }

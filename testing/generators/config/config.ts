@@ -103,10 +103,8 @@ function arbitraryFileInclusionOverride(): fc.Arbitrary<GeneratedFileInclusionOv
             specTreeRootSegment,
           },
           tools: {
-            tools: {
-              ...DEFAULT_TOOLS_CONFIG.tools,
-              [selectedTool]: { ignoreFlag },
-            },
+            ...DEFAULT_TOOLS_CONFIG,
+            [selectedTool]: { ignoreFlag },
           },
         };
         return {
@@ -116,10 +114,8 @@ function arbitraryFileInclusionOverride(): fc.Arbitrary<GeneratedFileInclusionOv
             [FILE_INCLUSION_SECTION]: {
               [FILE_INCLUSION_CONFIG_FIELDS.SCOPE]: expected.scope,
               [FILE_INCLUSION_CONFIG_FIELDS.TOOLS]: {
-                [FILE_INCLUSION_CONFIG_FIELDS.TOOLS]: {
-                  [selectedTool]: {
-                    [FILE_INCLUSION_CONFIG_FIELDS.IGNORE_FLAG]: ignoreFlag,
-                  },
+                [selectedTool]: {
+                  [FILE_INCLUSION_CONFIG_FIELDS.IGNORE_FLAG]: ignoreFlag,
                 },
               },
             },
@@ -136,10 +132,8 @@ function arbitraryFileInclusionPartialToolOverride(): fc.Arbitrary<GeneratedFile
         ...DEFAULT_SCOPE_CONFIG,
       },
       tools: {
-        tools: {
-          ...DEFAULT_TOOLS_CONFIG.tools,
-          [selectedTool]: DEFAULT_TOOLS_CONFIG.tools[selectedTool],
-        },
+        ...DEFAULT_TOOLS_CONFIG,
+        [selectedTool]: DEFAULT_TOOLS_CONFIG[selectedTool],
       },
     };
     return {
@@ -148,9 +142,7 @@ function arbitraryFileInclusionPartialToolOverride(): fc.Arbitrary<GeneratedFile
       config: {
         [FILE_INCLUSION_SECTION]: {
           [FILE_INCLUSION_CONFIG_FIELDS.TOOLS]: {
-            [FILE_INCLUSION_CONFIG_FIELDS.TOOLS]: {
-              [selectedTool]: {},
-            },
+            [selectedTool]: {},
           },
         },
       },
@@ -164,9 +156,7 @@ function arbitraryFileInclusionUnknownToolOverride(): fc.Arbitrary<GeneratedFile
     config: {
       [FILE_INCLUSION_SECTION]: {
         [FILE_INCLUSION_CONFIG_FIELDS.TOOLS]: {
-          [FILE_INCLUSION_CONFIG_FIELDS.TOOLS]: {
-            [toolName]: {},
-          },
+          [toolName]: {},
         },
       },
     },

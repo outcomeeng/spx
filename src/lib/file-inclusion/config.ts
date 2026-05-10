@@ -31,11 +31,9 @@ export const DEFAULT_SCOPE_CONFIG: ScopeResolverConfig = {
   specTreeRootSegment: SPEC_TREE_CONFIG.ROOT_DIRECTORY,
 };
 
-export const DEFAULT_TOOLS_CONFIG: ToolAdaptersConfig = {
-  tools: Object.fromEntries(
-    Object.entries(TOOL_DEFAULT_FLAGS).map(([name, flag]) => [name, { ignoreFlag: flag }]),
-  ),
-};
+export const DEFAULT_TOOLS_CONFIG: ToolAdaptersConfig = Object.fromEntries(
+  Object.entries(TOOL_DEFAULT_FLAGS).map(([name, flag]) => [name, { ignoreFlag: flag }]),
+);
 
 const defaults: FileInclusionConfig = {
   scope: DEFAULT_SCOPE_CONFIG,
@@ -159,41 +157,25 @@ function validateTools(raw: unknown): Result<ToolAdaptersConfig> {
       error: `${FILE_INCLUSION_SECTION}.${FILE_INCLUSION_CONFIG_FIELDS.TOOLS} must be an object`,
     };
   }
-  const toolsUnknownFieldResult = rejectUnknownFields(
-    `${FILE_INCLUSION_SECTION}.${FILE_INCLUSION_CONFIG_FIELDS.TOOLS}`,
-    raw,
-    new Set<string>([FILE_INCLUSION_CONFIG_FIELDS.TOOLS]),
-  );
-  if (!toolsUnknownFieldResult.ok) return toolsUnknownFieldResult;
 
-  const registryRaw = raw[FILE_INCLUSION_CONFIG_FIELDS.TOOLS] ?? {};
-  if (!isRecord(registryRaw)) {
-    return {
-      ok: false,
-      error:
-        `${FILE_INCLUSION_SECTION}.${FILE_INCLUSION_CONFIG_FIELDS.TOOLS}.${FILE_INCLUSION_CONFIG_FIELDS.TOOLS} must be an object`,
-    };
-  }
-
-  const tools: Record<string, { readonly ignoreFlag: string }> = { ...DEFAULT_TOOLS_CONFIG.tools };
-  for (const [toolName, adapterRaw] of Object.entries(registryRaw)) {
-    const defaultToolConfig = DEFAULT_TOOLS_CONFIG.tools[toolName];
+  const tools: Record<string, { readonly ignoreFlag: string }> = { ...DEFAULT_TOOLS_CONFIG };
+  for (const [toolName, adapterRaw] of Object.entries(raw)) {
+    const defaultToolConfig = DEFAULT_TOOLS_CONFIG[toolName];
     if (defaultToolConfig === undefined) {
       return {
         ok: false,
-        error:
-          `${FILE_INCLUSION_SECTION}.${FILE_INCLUSION_CONFIG_FIELDS.TOOLS}.${FILE_INCLUSION_CONFIG_FIELDS.TOOLS}.${toolName} is not a recognized tool`,
+        error: `${FILE_INCLUSION_SECTION}.${FILE_INCLUSION_CONFIG_FIELDS.TOOLS}.${toolName} is not a recognized tool`,
       };
     }
     if (!isRecord(adapterRaw)) {
       return {
         ok: false,
-        error:
-          `${FILE_INCLUSION_SECTION}.${FILE_INCLUSION_CONFIG_FIELDS.TOOLS}.${FILE_INCLUSION_CONFIG_FIELDS.TOOLS}.${toolName} must be an object`,
+        error: `${FILE_INCLUSION_SECTION}.${FILE_INCLUSION_CONFIG_FIELDS.TOOLS}.${toolName} must be an object`,
       };
     }
+    const toolPath = `${FILE_INCLUSION_SECTION}.${FILE_INCLUSION_CONFIG_FIELDS.TOOLS}.${toolName}`;
     const adapterUnknownFieldResult = rejectUnknownFields(
-      `${FILE_INCLUSION_SECTION}.${FILE_INCLUSION_CONFIG_FIELDS.TOOLS}.${FILE_INCLUSION_CONFIG_FIELDS.TOOLS}.${toolName}`,
+      toolPath,
       adapterRaw,
       new Set<string>([FILE_INCLUSION_CONFIG_FIELDS.IGNORE_FLAG]),
     );
@@ -201,16 +183,12 @@ function validateTools(raw: unknown): Result<ToolAdaptersConfig> {
     const ignoreFlagRaw = adapterRaw[FILE_INCLUSION_CONFIG_FIELDS.IGNORE_FLAG];
     const ignoreFlag = ignoreFlagRaw === undefined
       ? { ok: true as const, value: defaultToolConfig.ignoreFlag }
-      : validateStringField(
-        `${FILE_INCLUSION_SECTION}.${FILE_INCLUSION_CONFIG_FIELDS.TOOLS}.${FILE_INCLUSION_CONFIG_FIELDS.TOOLS}.${toolName}`,
-        FILE_INCLUSION_CONFIG_FIELDS.IGNORE_FLAG,
-        ignoreFlagRaw,
-      );
+      : validateStringField(toolPath, FILE_INCLUSION_CONFIG_FIELDS.IGNORE_FLAG, ignoreFlagRaw);
     if (!ignoreFlag.ok) return ignoreFlag;
     tools[toolName] = { ignoreFlag: ignoreFlag.value };
   }
 
-  return { ok: true, value: { tools } };
+  return { ok: true, value: tools };
 }
 
 function validate(value: unknown): Result<FileInclusionConfig> {
