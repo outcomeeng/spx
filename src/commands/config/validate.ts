@@ -1,8 +1,21 @@
-import { DEFAULT_CONFIG_FILENAME } from "@/config/index";
-
 import type { CliDeps, CliResult, ValidateOptions } from "./types";
 
 const EXIT_CODE_INVALID = 1;
+
+export const VALIDATE_SUCCESS_TOKENS = {
+  PASSES_SUFFIX: "passes every registered descriptor's validator.",
+  ABSENT_PREFIX: "No config file",
+  ABSENT_SUBJECT: "descriptor defaults",
+} as const;
+
+function buildPresentSuccessLine(filename: string, projectRoot: string): string {
+  return `${filename} at ${projectRoot} ${VALIDATE_SUCCESS_TOKENS.PASSES_SUFFIX}\n`;
+}
+
+function buildAbsentSuccessLine(projectRoot: string): string {
+  return `${VALIDATE_SUCCESS_TOKENS.ABSENT_PREFIX} at ${projectRoot}; `
+    + `${VALIDATE_SUCCESS_TOKENS.ABSENT_SUBJECT} ${VALIDATE_SUCCESS_TOKENS.PASSES_SUFFIX}\n`;
+}
 
 export async function validateCommand(_options: ValidateOptions, deps: CliDeps): Promise<CliResult> {
   const projectRoot = deps.resolveProjectRoot();
@@ -26,11 +39,9 @@ export async function validateCommand(_options: ValidateOptions, deps: CliDeps):
   }
 
   const file = fileResult.value;
-  const validatedFilename = file.kind === "ok" ? file.file.filename : DEFAULT_CONFIG_FILENAME;
+  const stdout = file.kind === "ok"
+    ? buildPresentSuccessLine(file.file.filename, projectRoot)
+    : buildAbsentSuccessLine(projectRoot);
 
-  return {
-    stdout: `${validatedFilename} at ${projectRoot} passes every registered descriptor's validator.\n`,
-    stderr: "",
-    exitCode: 0,
-  };
+  return { stdout, stderr: "", exitCode: 0 };
 }

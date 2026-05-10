@@ -4,8 +4,9 @@ import * as fc from "fast-check";
 import { describe, expect, it } from "vitest";
 
 import { resolveConfig } from "@/config/index";
-import { CONFIG_TEST_GENERATOR, sampleConfigTestValue } from "@/config/testing";
+import { RESULT_VALUE_KEY } from "@/config/types";
 import { KIND_REGISTRY, specTreeConfigDescriptor } from "@/lib/spec-tree/config";
+import { CONFIG_TEST_GENERATOR, sampleConfigTestValue } from "@testing/generators/config/descriptors";
 import type { Config } from "@testing/harnesses/spec-tree/spec-tree";
 import { withTestEnv } from "@testing/harnesses/spec-tree/spec-tree";
 
@@ -69,7 +70,7 @@ describe("resolveConfig — typed-or-error invariant (C4)", () => {
 
       expect(result.ok).toBe(false);
       if (!result.ok) {
-        expect(sampleConfigTestValue(CONFIG_TEST_GENERATOR.resultValueKey()) in result).toBe(false);
+        expect(RESULT_VALUE_KEY in result).toBe(false);
         expect(result.error.length).toBeGreaterThan(0);
       }
     });
