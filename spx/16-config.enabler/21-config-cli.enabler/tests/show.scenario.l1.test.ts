@@ -1,28 +1,17 @@
 import { describe, expect, it } from "vitest";
 
 import { showCommand } from "@/commands/config/show";
+import type { CliDeps } from "@/commands/config/types";
 import {
   CONFIG_FILE_FORMAT,
   configFileForFormat,
   type ConfigFileFormat,
-  type ConfigFileReadResult,
   DEFAULT_CONFIG_FILE_FORMAT,
   parseConfigFileSections,
 } from "@/config/index";
 import { CONFIG_TEST_GENERATOR, sampleConfigTestValue } from "@/config/testing";
-import type { Config, ConfigDescriptor, Result } from "@/config/types";
+import type { Config, Result } from "@/config/types";
 import { specTreeConfigDescriptor } from "@/lib/spec-tree/config";
-
-type CliDeps = {
-  resolveConfig: (projectRoot: string) => Promise<Result<Config>>;
-  readProjectConfigFile: (projectRoot: string) => Promise<Result<ConfigFileReadResult>>;
-  resolveConfigFromReadResult: (
-    readResult: ConfigFileReadResult,
-    descriptors: readonly ConfigDescriptor<unknown>[],
-  ) => Result<Config>;
-  resolveProjectRoot: () => string;
-  descriptors: readonly ConfigDescriptor<unknown>[];
-};
 
 function makeDeps(resolved: Result<Config>): CliDeps {
   return {
@@ -113,6 +102,6 @@ describe("showCommand — resolution failure", () => {
 
     expect(result.exitCode).not.toBe(0);
     expect(result.stdout).toHaveLength(0);
-    expect(result.stderr).toMatch(/specTree/);
+    expect(result.stderr).toContain(specTreeConfigDescriptor.section);
   });
 });

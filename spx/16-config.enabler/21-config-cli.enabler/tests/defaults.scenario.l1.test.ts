@@ -1,28 +1,17 @@
 import { describe, expect, it } from "vitest";
 
 import { defaultsCommand } from "@/commands/config/defaults";
+import type { CliDeps } from "@/commands/config/types";
 import {
   CONFIG_FILE_FORMAT,
   configFileForFormat,
   type ConfigFileFormat,
-  type ConfigFileReadResult,
   DEFAULT_CONFIG_FILE_FORMAT,
   parseConfigFileSections,
 } from "@/config/index";
 import { CONFIG_TEST_GENERATOR, sampleConfigTestValue } from "@/config/testing";
-import type { Config, ConfigDescriptor, Result } from "@/config/types";
+import type { Config, ConfigDescriptor } from "@/config/types";
 import { specTreeConfigDescriptor } from "@/lib/spec-tree/config";
-
-type CliDeps = {
-  resolveConfig: (projectRoot: string) => Promise<Result<Config>>;
-  readProjectConfigFile: (projectRoot: string) => Promise<Result<ConfigFileReadResult>>;
-  resolveConfigFromReadResult: (
-    readResult: ConfigFileReadResult,
-    descriptors: readonly ConfigDescriptor<unknown>[],
-  ) => Result<Config>;
-  resolveProjectRoot: () => string;
-  descriptors: readonly ConfigDescriptor<unknown>[];
-};
 
 function makeDeps(descriptors: readonly ConfigDescriptor<unknown>[]): CliDeps {
   return {

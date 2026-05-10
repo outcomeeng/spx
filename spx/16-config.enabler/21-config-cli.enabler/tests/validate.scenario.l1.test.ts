@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 
+import type { CliDeps } from "@/commands/config/types";
 import { validateCommand } from "@/commands/config/validate";
 import {
   CONFIG_FILE_FORMAT,
@@ -10,19 +11,8 @@ import {
   resolveConfigFromReadResult,
 } from "@/config/index";
 import { CONFIG_TEST_GENERATOR, sampleConfigTestValue } from "@/config/testing";
-import type { Config, ConfigDescriptor, Result } from "@/config/types";
+import type { Config, Result } from "@/config/types";
 import { specTreeConfigDescriptor } from "@/lib/spec-tree/config";
-
-type CliDeps = {
-  resolveConfig: (projectRoot: string) => Promise<Result<Config>>;
-  readProjectConfigFile: (projectRoot: string) => Promise<Result<ConfigFileReadResult>>;
-  resolveConfigFromReadResult: (
-    readResult: ConfigFileReadResult,
-    descriptors: readonly ConfigDescriptor<unknown>[],
-  ) => Result<Config>;
-  resolveProjectRoot: () => string;
-  descriptors: readonly ConfigDescriptor<unknown>[];
-};
 
 function makeDeps(
   resolved: Result<Config>,
@@ -101,13 +91,16 @@ describe("validateCommand — rejection path", () => {
 
     const result = await validateCommand({}, deps);
 
-    expect(result.stderr).toMatch(/specTree/);
+    expect(result.stderr).toContain(specTreeConfigDescriptor.section);
     expect(result.stderr).toContain(generated.offendingKind);
     expect(result.stdout).toHaveLength(0);
   });
 
   it("exit code on rejection is exactly 1", async () => {
-    const deps = makeDeps({ ok: false, error: "anySection: bad" });
+    const deps = makeDeps({
+      ok: false,
+      error: sampleConfigTestValue(CONFIG_TEST_GENERATOR.specTreeUnknownKindError()),
+    });
 
     const result = await validateCommand({}, deps);
 
