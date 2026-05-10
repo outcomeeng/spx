@@ -137,4 +137,26 @@ describe("file-inclusion service — scenarios", () => {
       }
     });
   });
+
+  it("file-inclusion rejects an explicit null value for the scope section", async () => {
+    await withTestEnv({ [FILE_INCLUSION_SECTION]: { scope: null } }, async (env) => {
+      const result = await resolveConfig(env.projectDir, [fileInclusionConfigDescriptor]);
+
+      expect(result.ok).toBe(false);
+      if (!result.ok) {
+        expect(result.error).toContain(`${FILE_INCLUSION_SECTION}.scope`);
+      }
+    });
+  });
+
+  it("file-inclusion rejects an explicit null value for the tools section", async () => {
+    await withTestEnv({ [FILE_INCLUSION_SECTION]: { tools: null } }, async (env) => {
+      const result = await resolveConfig(env.projectDir, [fileInclusionConfigDescriptor]);
+
+      expect(result.ok).toBe(false);
+      if (!result.ok) {
+        expect(result.error).toContain(`${FILE_INCLUSION_SECTION}.tools`);
+      }
+    });
+  });
 });
