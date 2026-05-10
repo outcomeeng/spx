@@ -76,9 +76,7 @@ describe("file-inclusion service — scenarios", () => {
       const result = await resolveScope(env.projectDir, { walkRoot: env.projectDir }, resolverConfig);
 
       const toolFlag = TOOL_DEFAULT_FLAGS[testTool];
-      const adapterConfig: ToolAdaptersConfig = {
-        tools: { [testTool]: { ignoreFlag: toolFlag } },
-      };
+      const adapterConfig: ToolAdaptersConfig = { [testTool]: { ignoreFlag: toolFlag } };
       const args = toToolArguments(result, testTool, adapterConfig);
 
       const excludedPaths = new Set(result.excluded.map((e) => e.path));

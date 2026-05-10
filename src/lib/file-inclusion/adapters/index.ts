@@ -44,7 +44,7 @@ export function toToolArguments(
       `Unknown tool "${toolName}". Registered tools: ${REGISTERED_TOOL_NAMES.join(", ")}`,
     );
   }
-  const adapterConfig = config.tools[toolName];
+  const adapterConfig = config[toolName];
   if (adapterConfig === undefined) {
     throw new Error(
       `No adapter config for tool "${toolName}". Registered tools: ${REGISTERED_TOOL_NAMES.join(", ")}`,
