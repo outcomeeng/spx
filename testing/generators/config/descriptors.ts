@@ -75,7 +75,6 @@ export const CONFIG_TEST_GENERATOR = {
   environmentSentinel: arbitraryEnvironmentSentinel,
   invalidSpecTreeConfig: arbitraryInvalidSpecTreeConfig,
   key: arbitraryConfigKey,
-  resultValueKey: arbitraryResultValueKey,
   scalar: arbitraryConfigScalar,
   specTreeKindField: arbitrarySpecTreeKindField,
   specTreeUnknownKindError: arbitrarySpecTreeUnknownKindError,
@@ -115,10 +114,6 @@ function arbitraryConfigScalar(): fc.Arbitrary<string> {
 
 function arbitraryEmptyConfig(): fc.Arbitrary<Record<string, unknown>> {
   return fc.constant({});
-}
-
-function arbitraryResultValueKey(): fc.Arbitrary<string> {
-  return fc.constant("value");
 }
 
 function arbitraryProjectRoot(): fc.Arbitrary<string> {

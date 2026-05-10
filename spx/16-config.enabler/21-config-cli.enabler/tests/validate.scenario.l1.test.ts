@@ -1,18 +1,17 @@
 import { describe, expect, it } from "vitest";
 
 import type { CliDeps } from "@/commands/config/types";
-import { validateCommand } from "@/commands/config/validate";
+import { VALIDATE_SUCCESS_TOKENS, validateCommand } from "@/commands/config/validate";
 import {
   CONFIG_FILE_FORMAT,
   CONFIG_FILENAMES,
   configFileForFormat,
   type ConfigFileReadResult,
-  DEFAULT_CONFIG_FILENAME,
   resolveConfigFromReadResult,
 } from "@/config/index";
-import { CONFIG_TEST_GENERATOR, sampleConfigTestValue } from "@/config/testing";
 import type { Config, Result } from "@/config/types";
 import { specTreeConfigDescriptor } from "@/lib/spec-tree/config";
+import { CONFIG_TEST_GENERATOR, sampleConfigTestValue } from "@testing/generators/config/descriptors";
 
 function makeDeps(
   resolved: Result<Config>,
@@ -45,12 +44,18 @@ describe("validateCommand — success path", () => {
     expect(result.stderr).toHaveLength(0);
   });
 
-  it("the success line names the validated file", async () => {
-    const deps = makeDeps({ ok: true, value: defaultsConfig() });
+  it("the success line reports that no config file was found and that defaults were validated when the read result is absent", async () => {
+    const projectRoot = sampleConfigTestValue(CONFIG_TEST_GENERATOR.projectRoot());
+    const deps = makeDeps({ ok: true, value: defaultsConfig() }, projectRoot);
 
     const result = await validateCommand({}, deps);
 
-    expect(result.stdout).toContain(DEFAULT_CONFIG_FILENAME);
+    expect(result.stdout).toContain(projectRoot);
+    expect(result.stdout).toContain(VALIDATE_SUCCESS_TOKENS.ABSENT_PREFIX);
+    expect(result.stdout).toContain(VALIDATE_SUCCESS_TOKENS.ABSENT_SUBJECT);
+    for (const filename of Object.values(CONFIG_FILENAMES)) {
+      expect(result.stdout).not.toContain(filename);
+    }
   });
 
   it("the success line names the present config file when the project uses a non-default format", async () => {

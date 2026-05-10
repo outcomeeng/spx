@@ -1,3 +1,6 @@
+export const RESULT_VALUE_KEY = "value";
+export const RESULT_ERROR_KEY = "error";
+
 export type Result<T> = { ok: true; value: T } | { ok: false; error: string };
 
 export interface ConfigDescriptor<T> {
