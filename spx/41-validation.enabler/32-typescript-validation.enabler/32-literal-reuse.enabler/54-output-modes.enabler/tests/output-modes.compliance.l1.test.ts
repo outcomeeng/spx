@@ -13,7 +13,7 @@ describe("output-modes compliance", () => {
       await env.writeReuseFixture(inputs);
 
       const result = await literalCommand({
-        cwd: env.projectDir,
+        cwd: env.productDir,
         config: LITERAL_DEFAULTS,
       });
 
@@ -34,7 +34,7 @@ describe("output-modes compliance", () => {
       await env.writeReuseFixture(inputs);
 
       const result = await literalCommand({
-        cwd: env.projectDir,
+        cwd: env.productDir,
         config: LITERAL_DEFAULTS,
         filesWithProblems: true,
       });
@@ -55,7 +55,7 @@ describe("output-modes compliance", () => {
       await env.writeReuseFixture(inputs);
 
       const result = await literalCommand({
-        cwd: env.projectDir,
+        cwd: env.productDir,
         config: LITERAL_DEFAULTS,
         literals: true,
       });
@@ -73,26 +73,26 @@ describe("output-modes compliance", () => {
       await env.writeReuseFixture(inputs);
 
       const [textResult, verboseResult, filesResult, literalsResult, jsonResult] = await Promise.all([
-        literalCommand({ cwd: env.projectDir, config: LITERAL_DEFAULTS, kind: LITERAL_PROBLEM_KIND.REUSE }),
+        literalCommand({ cwd: env.productDir, config: LITERAL_DEFAULTS, kind: LITERAL_PROBLEM_KIND.REUSE }),
         literalCommand({
-          cwd: env.projectDir,
+          cwd: env.productDir,
           config: LITERAL_DEFAULTS,
           kind: LITERAL_PROBLEM_KIND.REUSE,
           verbose: true,
         }),
         literalCommand({
-          cwd: env.projectDir,
+          cwd: env.productDir,
           config: LITERAL_DEFAULTS,
           kind: LITERAL_PROBLEM_KIND.REUSE,
           filesWithProblems: true,
         }),
         literalCommand({
-          cwd: env.projectDir,
+          cwd: env.productDir,
           config: LITERAL_DEFAULTS,
           kind: LITERAL_PROBLEM_KIND.REUSE,
           literals: true,
         }),
-        literalCommand({ cwd: env.projectDir, config: LITERAL_DEFAULTS, kind: LITERAL_PROBLEM_KIND.REUSE, json: true }),
+        literalCommand({ cwd: env.productDir, config: LITERAL_DEFAULTS, kind: LITERAL_PROBLEM_KIND.REUSE, json: true }),
       ]);
 
       expect(textResult.output).not.toContain(`[${LITERAL_PROBLEM_KIND.DUPE}]`);
@@ -114,7 +114,7 @@ describe("output-modes compliance", () => {
       await env.writeTestFile(inputs.dupeSecondTestFile, inputs.dupeLiteral);
 
       const result = await literalCommand({
-        cwd: env.projectDir,
+        cwd: env.productDir,
         config: LITERAL_DEFAULTS,
         kind: LITERAL_PROBLEM_KIND.REUSE,
       });
@@ -132,8 +132,8 @@ describe("output-modes compliance", () => {
       await env.writeTestFile(inputs.dupeSecondTestFile, inputs.dupeLiteral);
 
       const [reuseResult, dupeResult] = await Promise.all([
-        literalCommand({ cwd: env.projectDir, config: LITERAL_DEFAULTS, kind: LITERAL_PROBLEM_KIND.REUSE }),
-        literalCommand({ cwd: env.projectDir, config: LITERAL_DEFAULTS, kind: LITERAL_PROBLEM_KIND.DUPE }),
+        literalCommand({ cwd: env.productDir, config: LITERAL_DEFAULTS, kind: LITERAL_PROBLEM_KIND.REUSE }),
+        literalCommand({ cwd: env.productDir, config: LITERAL_DEFAULTS, kind: LITERAL_PROBLEM_KIND.DUPE }),
       ]);
 
       expect(reuseResult.exitCode).toBe(0);
@@ -147,7 +147,7 @@ describe("output-modes compliance", () => {
       await env.writeReuseFixture(inputs);
 
       const result = await literalCommand({
-        cwd: env.projectDir,
+        cwd: env.productDir,
         config: LITERAL_DEFAULTS,
         kind: LITERAL_PROBLEM_KIND.REUSE,
         json: true,

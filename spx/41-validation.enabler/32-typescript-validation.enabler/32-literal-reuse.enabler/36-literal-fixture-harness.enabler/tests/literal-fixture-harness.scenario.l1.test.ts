@@ -18,11 +18,11 @@ import {
 import { withLiteralFixtureEnv } from "@testing/harnesses/literal/harness";
 
 describe("withLiteralFixtureEnv", () => {
-  it("materializes a temp project and provides projectDir to the callback", async () => {
+  it("materializes a temp project and provides productDir to the callback", async () => {
     let captured = "";
     await withLiteralFixtureEnv(literalEmptyConfig(), async (env) => {
-      captured = env.projectDir;
-      expect(existsSync(env.projectDir)).toBe(true);
+      captured = env.productDir;
+      expect(existsSync(env.productDir)).toBe(true);
     });
     expect(captured.length).toBeGreaterThan(LITERAL_TEST_GENERATOR_COUNTS.none);
   });
@@ -30,7 +30,7 @@ describe("withLiteralFixtureEnv", () => {
   it("writeTsConfigMarker creates the discovery marker so detectTypeScript reports present", async () => {
     await withLiteralFixtureEnv(literalEmptyConfig(), async (env) => {
       await env.writeTsConfigMarker();
-      const detection = detectTypeScript(env.projectDir);
+      const detection = detectTypeScript(env.productDir);
       expect(detection.present).toBe(true);
     });
   });
@@ -62,7 +62,7 @@ describe("withLiteralFixtureEnv", () => {
     await withLiteralFixtureEnv(literalEmptyConfig(), async (env) => {
       await env.writeReuseFixture(inputs);
       const result = await literalCommand({
-        cwd: env.projectDir,
+        cwd: env.productDir,
         config: LITERAL_DEFAULTS,
         json: true,
       });
@@ -74,47 +74,47 @@ describe("withLiteralFixtureEnv", () => {
   });
 
   it("removes the temp directory when the callback returns normally", async () => {
-    let projectDir = "";
+    let productDir = "";
     await withLiteralFixtureEnv(literalEmptyConfig(), async (env) => {
-      projectDir = env.projectDir;
-      expect(existsSync(projectDir)).toBe(true);
+      productDir = env.productDir;
+      expect(existsSync(productDir)).toBe(true);
     });
-    expect(existsSync(projectDir)).toBe(false);
+    expect(existsSync(productDir)).toBe(false);
   });
 
   it("removes the temp directory and rethrows when the callback throws", async () => {
-    let projectDir = "";
+    let productDir = "";
     const thrownMessage = sampleLiteralTestValue(LITERAL_TEST_GENERATOR.domainLiteral());
     await expect(
       withLiteralFixtureEnv(literalEmptyConfig(), async (env) => {
-        projectDir = env.projectDir;
+        productDir = env.productDir;
         throw new Error(thrownMessage);
       }),
     ).rejects.toThrow(thrownMessage);
-    expect(existsSync(projectDir)).toBe(false);
+    expect(existsSync(productDir)).toBe(false);
   });
 
-  it("concurrent invocations receive distinct projectDirs and isolated filesystem state", async () => {
+  it("concurrent invocations receive distinct productDirs and isolated filesystem state", async () => {
     const sentinelPath = sampleLiteralTestValue(LITERAL_TEST_GENERATOR.testFilePath());
     const sentinelValue = sampleLiteralTestValue(LITERAL_TEST_GENERATOR.domainLiteral());
-    const observations: Array<{ projectDir: string; sentinelExists: boolean }> = [];
+    const observations: Array<{ productDir: string; sentinelExists: boolean }> = [];
     await Promise.all([
       withLiteralFixtureEnv(literalEmptyConfig(), async (env) => {
         await env.writeTestFile(sentinelPath, sentinelValue);
         observations.push({
-          projectDir: env.projectDir,
-          sentinelExists: existsSync(joinPath(env.projectDir, sentinelPath)),
+          productDir: env.productDir,
+          sentinelExists: existsSync(joinPath(env.productDir, sentinelPath)),
         });
       }),
       withLiteralFixtureEnv(literalEmptyConfig(), async (env) => {
         observations.push({
-          projectDir: env.projectDir,
-          sentinelExists: existsSync(joinPath(env.projectDir, sentinelPath)),
+          productDir: env.productDir,
+          sentinelExists: existsSync(joinPath(env.productDir, sentinelPath)),
         });
       }),
     ]);
     expect(observations).toHaveLength(LITERAL_TEST_GENERATOR_COUNTS.two);
-    expect(observations[0]?.projectDir).not.toBe(observations[1]?.projectDir);
+    expect(observations[0]?.productDir).not.toBe(observations[1]?.productDir);
     const withSentinel = observations.filter((o) => o.sentinelExists);
     expect(withSentinel).toHaveLength(LITERAL_TEST_GENERATOR_COUNTS.one);
   });

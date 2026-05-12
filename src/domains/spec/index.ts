@@ -6,16 +6,29 @@ import { access, readFile, writeFile } from "node:fs/promises";
 import type { Command } from "commander";
 
 import { nextCommand } from "@/commands/spec/next";
-import { type OutputFormat, statusCommand } from "@/commands/spec/status";
+import { OUTPUT_FORMAT, type OutputFormat, statusCommand } from "@/commands/spec/status";
 import { APPLY_HELP } from "@/domains/spec/apply/exclude/help";
 import { applyExcludeCommand } from "@/domains/spec/apply/exclude/index";
 import type { Domain } from "../types";
 
+export const SPEC_DOMAIN_CLI = {
+  COMMAND: "spec",
+  STATUS_COMMAND: "status",
+  NEXT_COMMAND: "next",
+  APPLY_COMMAND: "apply",
+  JSON_OPTION: "--json",
+  FORMAT_OPTION: "--format",
+} as const;
+
+export const SPEC_STATUS_FORMAT_MESSAGE = {
+  INVALID_PREFIX: "Invalid format",
+} as const;
+
 const VALID_STATUS_FORMATS: readonly OutputFormat[] = [
-  "text",
-  "json",
-  "markdown",
-  "table",
+  OUTPUT_FORMAT.TEXT,
+  OUTPUT_FORMAT.JSON,
+  OUTPUT_FORMAT.MARKDOWN,
+  OUTPUT_FORMAT.TABLE,
 ];
 
 function handleCommandError(error: unknown): never {
@@ -37,16 +50,18 @@ function resolveStatusFormat(options: { json?: boolean; format?: string }): Outp
   }
 
   throw new Error(
-    `Invalid format "${options.format}". Must be one of: ${VALID_STATUS_FORMATS.join(", ")}`,
+    `${SPEC_STATUS_FORMAT_MESSAGE.INVALID_PREFIX} "${options.format}". Must be one of: ${
+      VALID_STATUS_FORMATS.join(", ")
+    }`,
   );
 }
 
 function registerSpecCommands(specCmd: Command): void {
   specCmd
-    .command("status")
-    .description("Get project status")
-    .option("--json", "Output as JSON")
-    .option("--format <format>", "Output format (text|json|markdown|table)")
+    .command(SPEC_DOMAIN_CLI.STATUS_COMMAND)
+    .description("Get product status")
+    .option(SPEC_DOMAIN_CLI.JSON_OPTION, "Output as JSON")
+    .option(`${SPEC_DOMAIN_CLI.FORMAT_OPTION} <format>`, "Output format (text|json|markdown|table)")
     .action(async (options: { json?: boolean; format?: string }) => {
       try {
         const output = await statusCommand({
@@ -60,8 +75,8 @@ function registerSpecCommands(specCmd: Command): void {
     });
 
   specCmd
-    .command("next")
-    .description("Find next work item to work on")
+    .command(SPEC_DOMAIN_CLI.NEXT_COMMAND)
+    .description("Find next spec-tree node to work on")
     .action(async () => {
       try {
         const output = await nextCommand({ cwd: process.cwd() });
@@ -72,8 +87,8 @@ function registerSpecCommands(specCmd: Command): void {
     });
 
   specCmd
-    .command("apply")
-    .description("Apply spec-tree state to project configuration")
+    .command(SPEC_DOMAIN_CLI.APPLY_COMMAND)
+    .description("Apply spec-tree state to product configuration")
     .addHelpText("after", APPLY_HELP)
     .action(async () => {
       try {
@@ -108,7 +123,7 @@ export const specDomain: Domain = {
   description: "Manage spec workflow",
   register: (program: Command) => {
     const specCmd = program
-      .command("spec")
+      .command(SPEC_DOMAIN_CLI.COMMAND)
       .description("Manage spec workflow");
 
     registerSpecCommands(specCmd);

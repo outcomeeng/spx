@@ -56,6 +56,6 @@ export async function makeIgnoreSourceConfig(
   segments: readonly string[],
 ): Promise<IgnoreSourcePredicateConfig> {
   await writeExclude(env, segments);
-  const reader = createIgnoreSourceReader(env.projectDir, readerConfig);
+  const reader = createIgnoreSourceReader(env.productDir, readerConfig);
   return { reader };
 }

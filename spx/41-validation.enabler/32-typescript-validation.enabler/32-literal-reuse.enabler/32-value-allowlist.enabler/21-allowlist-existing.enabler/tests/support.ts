@@ -53,7 +53,7 @@ export async function writeProjectConfig(
 ): Promise<void> {
   for (const registeredFormat of CONFIG_FILE_FORMAT_ORDER) {
     await rm(
-      join(env.projectDir, CONFIG_FILE_DEFINITIONS[registeredFormat].filename),
+      join(env.productDir, CONFIG_FILE_DEFINITIONS[registeredFormat].filename),
       { force: true },
     );
   }
@@ -67,7 +67,7 @@ export async function writeProjectConfig(
 }
 
 export async function readProjectConfigSections(env: SpecTreeEnv): Promise<Record<string, unknown>> {
-  const read = await readProjectConfigFile(env.projectDir);
+  const read = await readProjectConfigFile(env.productDir);
   if (!read.ok) {
     throw new Error(read.error);
   }

@@ -6,7 +6,7 @@ import { type Config, type SpecTreeEnv, withTestEnv } from "@testing/harnesses/s
 const EMPTY_TSCONFIG_CONTENT = "{}\n";
 
 export interface LiteralFixtureEnv {
-  readonly projectDir: string;
+  readonly productDir: string;
   readFile(relativePath: string): Promise<string>;
   writeTsConfigMarker(): Promise<void>;
   writeSourceFile(relativePath: string, value: string): Promise<void>;
@@ -33,7 +33,7 @@ export async function withLiteralFixtureEnv<T>(
 
 function createLiteralFixtureEnv(specEnv: SpecTreeEnv): LiteralFixtureEnv {
   return {
-    projectDir: specEnv.projectDir,
+    productDir: specEnv.productDir,
     readFile: (relativePath) => specEnv.readFile(relativePath),
     writeTsConfigMarker: () => specEnv.writeRaw(TYPESCRIPT_MARKER, EMPTY_TSCONFIG_CONTENT),
     writeSourceFile: (relativePath, value) => specEnv.writeRaw(relativePath, formatSourceFile(value)),

@@ -1,10 +1,13 @@
-import { DEFAULT_CONFIG } from "@/config/defaults";
-import { formatJSON } from "@/lib/spec-legacy/reporter/json";
-import { formatMarkdown } from "@/lib/spec-legacy/reporter/markdown";
-import { formatTable } from "@/lib/spec-legacy/reporter/table";
-import { formatText } from "@/lib/spec-legacy/reporter/text";
-import { Scanner } from "@/lib/spec-legacy/scanner/scanner";
-import { buildTree } from "@/lib/spec-legacy/tree/build";
+import {
+  createFilesystemSpecTreeSource,
+  projectSpecTree,
+  readSpecTree,
+  type SpecTreeNode,
+  type SpecTreeProjection,
+  type SpecTreeSnapshot,
+  type SpecTreeSource,
+} from "@/lib/spec-tree";
+import { KIND_REGISTRY, SPEC_TREE_CONFIG } from "@/lib/spec-tree/config";
 
 export const OUTPUT_FORMAT = {
   TEXT: "text",
@@ -13,59 +16,108 @@ export const OUTPUT_FORMAT = {
   TABLE: "table",
 } as const;
 
+export const SPEC_STATUS_MESSAGE = {
+  EMPTY: `No spec-tree nodes found in ${SPEC_TREE_CONFIG.ROOT_DIRECTORY}`,
+} as const;
+
 const DEFAULT_FORMAT: OutputFormat = OUTPUT_FORMAT.TEXT;
+const JSON_INDENTATION = 2;
+const STATUS_SEPARATOR = " ";
+const NODE_INDENT = "  ";
+const MARKDOWN_NODE_PREFIX = "- ";
+const TABLE_SEPARATOR = "|";
+const TABLE_HEADER_SEPARATOR = "---";
+const TABLE_HEADER = {
+  KIND: "Kind",
+  PATH: "Path",
+  STATE: "State",
+} as const;
+export const SPEC_STATUS_TABLE_HEADER = formatTableRow([
+  TABLE_HEADER.KIND,
+  TABLE_HEADER.PATH,
+  TABLE_HEADER.STATE,
+]);
 
 export type OutputFormat = (typeof OUTPUT_FORMAT)[keyof typeof OUTPUT_FORMAT];
 
 export interface StatusOptions {
   cwd?: string;
   format?: OutputFormat;
-}
-
-function buildMissingDirectoryMessage(): string {
-  const {
-    root,
-    work: {
-      dir,
-      statusDirs: { doing },
-    },
-  } = DEFAULT_CONFIG.specs;
-
-  return `Directory ${root}/${dir}/${doing} not found.`;
+  source?: SpecTreeSource;
 }
 
 export async function statusCommand(
   options: StatusOptions = {},
 ): Promise<string> {
-  const cwd = options.cwd ?? process.cwd();
-  const format = options.format ?? DEFAULT_FORMAT;
-  const scanner = new Scanner(cwd, DEFAULT_CONFIG);
+  const snapshot = await readCommandSnapshot(options);
 
-  let workItems;
-  try {
-    workItems = await scanner.scan();
-  } catch (error) {
-    if (error instanceof Error && error.message.includes("ENOENT")) {
-      throw new Error(buildMissingDirectoryMessage());
-    }
-
-    throw error;
+  if (snapshot.allNodes.length === 0) {
+    return SPEC_STATUS_MESSAGE.EMPTY;
   }
 
-  if (workItems.length === 0) {
-    return "No work items found in specs/work/doing";
-  }
-
-  const tree = await buildTree(workItems);
-
-  switch (format) {
+  switch (options.format ?? DEFAULT_FORMAT) {
     case OUTPUT_FORMAT.JSON:
-      return formatJSON(tree, DEFAULT_CONFIG);
+      return formatJSON(projectSpecTree(snapshot));
     case OUTPUT_FORMAT.MARKDOWN:
-      return formatMarkdown(tree);
+      return formatMarkdown(snapshot);
     case OUTPUT_FORMAT.TABLE:
-      return formatTable(tree);
+      return formatTable(snapshot);
     case OUTPUT_FORMAT.TEXT:
-      return formatText(tree);
+      return formatText(snapshot);
   }
+}
+
+async function readCommandSnapshot(options: StatusOptions): Promise<SpecTreeSnapshot> {
+  const cwd = options.cwd ?? process.cwd();
+  const source = options.source ?? createFilesystemSpecTreeSource({ projectRoot: cwd });
+  return readSpecTree({ source });
+}
+
+function formatJSON(projection: SpecTreeProjection): string {
+  return JSON.stringify(projection, null, JSON_INDENTATION);
+}
+
+function formatText(snapshot: SpecTreeSnapshot): string {
+  return snapshot.nodes.map((node) => formatTextNode(node)).join("\n");
+}
+
+function formatTextNode(node: SpecTreeNode, depth = 0): string {
+  const current = `${NODE_INDENT.repeat(depth)}${formatNodeLabel(node)}`;
+  const children = node.children.map((child) => formatTextNode(child, depth + 1));
+  return [current, ...children].join("\n");
+}
+
+function formatMarkdown(snapshot: SpecTreeSnapshot): string {
+  return snapshot.nodes.map((node) => formatMarkdownNode(node)).join("\n");
+}
+
+function formatMarkdownNode(node: SpecTreeNode, depth = 0): string {
+  const current = `${NODE_INDENT.repeat(depth)}${MARKDOWN_NODE_PREFIX}${formatNodeLabel(node)}`;
+  const children = node.children.map((child) => formatMarkdownNode(child, depth + 1));
+  return [current, ...children].join("\n");
+}
+
+function formatTable(snapshot: SpecTreeSnapshot): string {
+  const rows = snapshot.allNodes.map((node) => [
+    KIND_REGISTRY[node.kind].label,
+    node.id,
+    node.state,
+  ]);
+  return [
+    SPEC_STATUS_TABLE_HEADER,
+    formatTableRow([TABLE_HEADER_SEPARATOR, TABLE_HEADER_SEPARATOR, TABLE_HEADER_SEPARATOR]),
+    ...rows.map(formatTableRow),
+  ].join("\n");
+}
+
+function formatTableRow(values: readonly string[]): string {
+  return `${TABLE_SEPARATOR} ${values.join(` ${TABLE_SEPARATOR} `)} ${TABLE_SEPARATOR}`;
+}
+
+function formatNodeLabel(node: SpecTreeNode): string {
+  return [
+    KIND_REGISTRY[node.kind].label,
+    node.id,
+    `[${node.state}]`,
+  ].join(STATUS_SEPARATOR);
 }

@@ -15,10 +15,10 @@ function emptyConfig(): Config {
 
 describe("resolveConfig — no project config file", () => {
   it("resolves every registered descriptor to its declared defaults when the file is absent", async () => {
-    await withTestEnv(emptyConfig(), async ({ projectDir }) => {
-      await rm(join(projectDir, DEFAULT_CONFIG_FILENAME));
+    await withTestEnv(emptyConfig(), async ({ productDir }) => {
+      await rm(join(productDir, DEFAULT_CONFIG_FILENAME));
 
-      const result = await resolveConfig(projectDir, [specTreeConfigDescriptor]);
+      const result = await resolveConfig(productDir, [specTreeConfigDescriptor]);
 
       expect(result.ok).toBe(true);
       if (result.ok) {
@@ -28,10 +28,10 @@ describe("resolveConfig — no project config file", () => {
   });
 
   it("returns a Config containing every descriptor's section keyed by its section name", async () => {
-    await withTestEnv(emptyConfig(), async ({ projectDir }) => {
-      await rm(join(projectDir, DEFAULT_CONFIG_FILENAME));
+    await withTestEnv(emptyConfig(), async ({ productDir }) => {
+      await rm(join(productDir, DEFAULT_CONFIG_FILENAME));
 
-      const result = await resolveConfig(projectDir, [specTreeConfigDescriptor]);
+      const result = await resolveConfig(productDir, [specTreeConfigDescriptor]);
 
       expect(result.ok).toBe(true);
       if (result.ok) {
@@ -41,8 +41,8 @@ describe("resolveConfig — no project config file", () => {
   });
 
   it("treats an empty project config file the same as an absent file — defaults apply uniformly", async () => {
-    await withTestEnv(emptyConfig(), async ({ projectDir }) => {
-      const result = await resolveConfig(projectDir, [specTreeConfigDescriptor]);
+    await withTestEnv(emptyConfig(), async ({ productDir }) => {
+      const result = await resolveConfig(productDir, [specTreeConfigDescriptor]);
 
       expect(result.ok).toBe(true);
       if (result.ok) {

@@ -8,6 +8,7 @@ import {
   arbitraryDomainLiteral,
   buildLiteralConfig,
   LITERAL_TEST_GENERATOR,
+  sampleLiteralPair,
   sampleLiteralTestValue,
 } from "@testing/generators/literal/literal";
 import { withLiteralFixtureEnv } from "@testing/harnesses/literal/harness";
@@ -15,8 +16,7 @@ import { withLiteralFixtureEnv } from "@testing/harnesses/literal/harness";
 describe("value-allowlist — scenarios", () => {
   it("validation.literal.values.include containing a value suppresses all findings for that value", async () => {
     await withLiteralFixtureEnv({}, async (env) => {
-      const allowedLiteral = sampleLiteralTestValue(arbitraryDomainLiteral());
-      const reportedLiteral = sampleLiteralTestValue(arbitraryDomainLiteral());
+      const [allowedLiteral, reportedLiteral] = sampleLiteralPair();
 
       await env.writeSourceFile("src/source-a.ts", allowedLiteral);
       await env.writeSourceFile("src/source-b.ts", reportedLiteral);
@@ -24,7 +24,7 @@ describe("value-allowlist — scenarios", () => {
       await env.writeTestFile("tests/test-b.test.ts", reportedLiteral);
 
       const config = { ...LITERAL_DEFAULTS, allowlist: { include: [allowedLiteral] } };
-      const result = await validateLiteralReuse({ projectRoot: env.projectDir, config });
+      const result = await validateLiteralReuse({ projectRoot: env.productDir, config });
 
       expect(result.findings.srcReuse.some((f) => f.value === allowedLiteral)).toBe(false);
       expect(result.findings.srcReuse.some((f) => f.value === reportedLiteral)).toBe(true);
@@ -42,7 +42,7 @@ describe("value-allowlist — scenarios", () => {
         allowlist: { presets: [PRESET_NAMES.WEB] },
         minStringLength: 0,
       });
-      const result = await validateLiteralReuse({ projectRoot: env.projectDir, config });
+      const result = await validateLiteralReuse({ projectRoot: env.productDir, config });
 
       expect(result.findings.srcReuse.some((f) => f.value === webToken)).toBe(false);
     });
@@ -59,7 +59,7 @@ describe("value-allowlist — scenarios", () => {
         allowlist: { presets: [PRESET_NAMES.WEB], exclude: [webToken] },
         minStringLength: 0,
       });
-      const result = await validateLiteralReuse({ projectRoot: env.projectDir, config });
+      const result = await validateLiteralReuse({ projectRoot: env.productDir, config });
 
       expect(result.findings.srcReuse.some((f) => f.value === webToken)).toBe(true);
     });
@@ -72,7 +72,7 @@ describe("value-allowlist — scenarios", () => {
       await env.writeSourceFile("src/source.ts", literal);
       await env.writeTestFile("tests/test.test.ts", literal);
 
-      const result = await validateLiteralReuse({ projectRoot: env.projectDir });
+      const result = await validateLiteralReuse({ projectRoot: env.productDir });
 
       expect(result.findings.srcReuse.some((f) => f.value === literal)).toBe(true);
     });
@@ -87,7 +87,7 @@ describe("value-allowlist — scenarios", () => {
         `validation:\n  literal:\n    values:\n      allowlist:\n        presets:\n          - ${badPreset}\n`,
       );
 
-      const resolved = await resolveConfig(env.projectDir, [validationConfigDescriptor]);
+      const resolved = await resolveConfig(env.productDir, [validationConfigDescriptor]);
 
       expect(resolved.ok).toBe(false);
       if (!resolved.ok) {

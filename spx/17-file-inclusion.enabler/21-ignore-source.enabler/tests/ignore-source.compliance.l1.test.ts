@@ -43,7 +43,7 @@ describe("ignore-source — compliance", () => {
               "",
             ]);
 
-            const reader = createIgnoreSourceReader(env.projectDir, readerConfig());
+            const reader = createIgnoreSourceReader(env.productDir, readerConfig());
 
             expect(reader.isUnderIgnoreSource(spxPath(segA, sub))).toBe(true);
             expect(reader.isUnderIgnoreSource(spxPath(segB, sub))).toBe(true);
@@ -60,7 +60,7 @@ describe("ignore-source — compliance", () => {
         await withTestEnv(integrationConfig(), async (env) => {
           await writeExcludeRaw(env, "\n\n\n");
 
-          const reader = createIgnoreSourceReader(env.projectDir, readerConfig());
+          const reader = createIgnoreSourceReader(env.productDir, readerConfig());
 
           expect(reader.isUnderIgnoreSource(spxPath(segment, sub))).toBe(false);
         });
@@ -74,7 +74,7 @@ describe("ignore-source — compliance", () => {
       await withTestEnv(integrationConfig(), async (env) => {
         await writeExclude(env, [entry]);
 
-        const throws = () => createIgnoreSourceReader(env.projectDir, readerConfig());
+        const throws = () => createIgnoreSourceReader(env.productDir, readerConfig());
         expect(throws, entry).toThrow(entry);
         expect(throws, entry).toThrow("at line 1");
       });
@@ -87,7 +87,7 @@ describe("ignore-source — compliance", () => {
         await withTestEnv(integrationConfig(), async (env) => {
           await writeExclude(env, [entry]);
 
-          const throws = () => createIgnoreSourceReader(env.projectDir, readerConfig());
+          const throws = () => createIgnoreSourceReader(env.productDir, readerConfig());
           expect(throws, `entry: "${entry}"`).toThrow(entry);
           expect(throws, `entry: "${entry}"`).toThrow("at line 1");
         });

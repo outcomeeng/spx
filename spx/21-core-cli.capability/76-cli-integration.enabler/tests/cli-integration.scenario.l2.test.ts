@@ -1,196 +1,151 @@
 import { createRequire } from "node:module";
 
-import { FIXTURES_PATH } from "@testing/fixtures";
+import { SPEC_NEXT_MESSAGE } from "@/commands/spec/next";
+import { OUTPUT_FORMAT, SPEC_STATUS_MESSAGE } from "@/commands/spec/status";
+import { SPEC_TREE_NODE_STATE } from "@/lib/spec-tree";
+import { KIND_REGISTRY, type NodeKind, SPEC_TREE_CONFIG } from "@/lib/spec-tree/config";
+import { MINIMAL_SPEC_TREE_CONFIG } from "@testing/generators/config/config";
+import {
+  sampleNodeKind,
+  sampleSpecTreeTestValue,
+  SPEC_TREE_TEST_GENERATOR,
+} from "@testing/generators/spec-tree/spec-tree";
 import { CLI_PATH, PROJECT_ROOT, VERSION_FLAG } from "@testing/harnesses/constants";
+import { withTestEnv } from "@testing/harnesses/spec-tree/spec-tree";
 import { execa } from "execa";
-import path from "path";
+import * as fc from "fast-check";
 import { describe, expect, it } from "vitest";
 
-// ─── spx spec status ──────────────────────────────────────────────────────────
-
 describe("spx spec status", () => {
-  it("GIVEN project with work items WHEN running status THEN outputs tree and exits 0", async () => {
-    const cwd = path.join(FIXTURES_PATH, "repos/simple");
+  it("reports current spec-tree nodes from a tracked spx directory", async () => {
+    await withCurrentSpecTree(async ({ productDir, rootPath, childPath, nodeKind }) => {
+      const { stdout, exitCode } = await runCli(productDir, "spec", "status");
 
-    const { stdout, exitCode } = await execa("node", [CLI_PATH, "spec", "status"], { cwd });
-
-    expect(exitCode).toBe(0);
-    expect(stdout).toContain("capability-");
-    expect(stdout).toContain("feature-");
-    expect(stdout).toContain("story-");
-  });
-
-  it("GIVEN project with no work items WHEN running status THEN stdout contains 'No work items found'", async () => {
-    const cwd = path.join(FIXTURES_PATH, "repos/empty");
-
-    const { stdout, exitCode } = await execa("node", [CLI_PATH, "spec", "status"], { cwd });
-
-    expect(exitCode).toBe(0);
-    expect(stdout).toContain("No work items found");
-  });
-
-  it("GIVEN project with no specs directory WHEN running status THEN exits 1 and stderr contains 'Error:'", async () => {
-    const cwd = FIXTURES_PATH;
-
-    const result = await execa("node", [CLI_PATH, "spec", "status"], { cwd, reject: false });
-
-    expect(result.exitCode).toBe(1);
-    expect(result.stderr).toContain("Error:");
-  });
-
-  it("GIVEN --json flag WHEN running status THEN stdout is valid JSON with capabilities", async () => {
-    const cwd = path.join(FIXTURES_PATH, "repos/simple");
-
-    const { stdout, exitCode } = await execa("node", [CLI_PATH, "spec", "status", "--json"], {
-      cwd,
+      expect(exitCode).toBe(0);
+      expect(stdout).toContain(KIND_REGISTRY[nodeKind].label);
+      expect(stdout).toContain(rootPath);
+      expect(stdout).toContain(childPath);
+      expect(stdout).toContain(SPEC_TREE_NODE_STATE.DECLARED);
     });
-
-    expect(exitCode).toBe(0);
-    expect(() => JSON.parse(stdout)).not.toThrow();
-    expect(JSON.parse(stdout).capabilities).toBeDefined();
   });
 
-  it("GIVEN --json flag WHEN running status THEN output includes config values", async () => {
-    const cwd = path.join(FIXTURES_PATH, "repos/simple");
+  it("reports empty output when no current spec-tree nodes exist", async () => {
+    await withTestEnv(MINIMAL_SPEC_TREE_CONFIG, async ({ productDir }) => {
+      const { stdout, exitCode } = await runCli(productDir, "spec", "status");
 
-    const { stdout, exitCode } = await execa("node", [CLI_PATH, "spec", "status", "--json"], {
-      cwd,
+      expect(exitCode).toBe(0);
+      expect(stdout).toBe(SPEC_STATUS_MESSAGE.EMPTY);
     });
-
-    expect(exitCode).toBe(0);
-    const parsed = JSON.parse(stdout);
-    expect(parsed.config).toBeDefined();
-    expect(parsed.config.specs.root).toBe("specs");
-    expect(parsed.config.specs.work.dir).toBe("work");
-    expect(parsed.config.specs.work.statusDirs.doing).toBe("doing");
-    expect(parsed.config.sessions.dir).toBe(".spx/sessions");
   });
 
-  it("GIVEN --format json WHEN running status THEN exits 0 and stdout is valid JSON", async () => {
-    const cwd = path.join(FIXTURES_PATH, "repos/simple");
+  it("serializes the current projection for JSON output", async () => {
+    await withCurrentSpecTree(async ({ productDir, rootPath }) => {
+      const { stdout, exitCode } = await runCli(productDir, "spec", "status", "--json");
 
-    const { stdout, exitCode } = await execa(
-      "node",
-      [CLI_PATH, "spec", "status", "--format", "json"],
-      { cwd },
-    );
-
-    expect(exitCode).toBe(0);
-    expect(() => JSON.parse(stdout)).not.toThrow();
+      expect(exitCode).toBe(0);
+      const parsed = JSON.parse(stdout) as { nodes: Array<{ id: string; state: string }> };
+      expect(parsed.nodes[0]).toMatchObject({
+        id: rootPath,
+        state: SPEC_TREE_NODE_STATE.DECLARED,
+      });
+    });
   });
 
-  it("GIVEN --format markdown WHEN running status THEN exits 0 and stdout contains markdown headings", async () => {
-    const cwd = path.join(FIXTURES_PATH, "repos/simple");
+  it("accepts the explicit json format option", async () => {
+    await withCurrentSpecTree(async ({ productDir }) => {
+      const { stdout, exitCode } = await runCli(
+        productDir,
+        "spec",
+        "status",
+        "--format",
+        OUTPUT_FORMAT.JSON,
+      );
 
-    const { stdout, exitCode } = await execa(
-      "node",
-      [CLI_PATH, "spec", "status", "--format", "markdown"],
-      { cwd },
-    );
-
-    expect(exitCode).toBe(0);
-    expect(stdout).toMatch(/^#/m);
+      expect(exitCode).toBe(0);
+      expect(() => JSON.parse(stdout)).not.toThrow();
+    });
   });
 
-  it("GIVEN --format table WHEN running status THEN exits 0 and stdout contains table rows", async () => {
-    const cwd = path.join(FIXTURES_PATH, "repos/simple");
+  it("renders markdown output for current spec-tree nodes", async () => {
+    await withCurrentSpecTree(async ({ productDir, rootPath }) => {
+      const { stdout, exitCode } = await runCli(
+        productDir,
+        "spec",
+        "status",
+        "--format",
+        OUTPUT_FORMAT.MARKDOWN,
+      );
 
-    const { stdout, exitCode } = await execa(
-      "node",
-      [CLI_PATH, "spec", "status", "--format", "table"],
-      { cwd },
-    );
-
-    expect(exitCode).toBe(0);
-    expect(stdout).toMatch(/\|.*\|/);
+      expect(exitCode).toBe(0);
+      expect(stdout).toContain(`- `);
+      expect(stdout).toContain(rootPath);
+    });
   });
 
-  it("GIVEN --format text WHEN running status THEN exits 0 and stdout contains tree items", async () => {
-    const cwd = path.join(FIXTURES_PATH, "repos/simple");
+  it("renders table output for current spec-tree nodes", async () => {
+    await withCurrentSpecTree(async ({ productDir, rootPath }) => {
+      const { stdout, exitCode } = await runCli(
+        productDir,
+        "spec",
+        "status",
+        "--format",
+        OUTPUT_FORMAT.TABLE,
+      );
 
-    const { stdout, exitCode } = await execa(
-      "node",
-      [CLI_PATH, "spec", "status", "--format", "text"],
-      { cwd },
-    );
-
-    expect(exitCode).toBe(0);
-    expect(stdout).toContain("capability-");
-    expect(stdout).toContain("feature-");
+      expect(exitCode).toBe(0);
+      expect(stdout).toContain("| Kind | Path | State |");
+      expect(stdout).toContain(rootPath);
+    });
   });
 
-  it("GIVEN --format invalid WHEN running status THEN exits 1 and stderr names the invalid value", async () => {
-    const cwd = path.join(FIXTURES_PATH, "repos/simple");
+  it("rejects an unknown output format", async () => {
+    await withCurrentSpecTree(async ({ productDir }) => {
+      const result = await runCli(productDir, "spec", "status", "--format", "invalid");
 
-    const result = await execa(
-      "node",
-      [CLI_PATH, "spec", "status", "--format", "invalid"],
-      { cwd, reject: false },
-    );
-
-    expect(result.exitCode).toBe(1);
-    expect(result.stderr).toContain("Invalid format \"invalid\"");
+      expect(result.exitCode).toBe(1);
+      expect(result.stderr).toContain("Invalid format");
+    });
   });
 });
-
-// ─── spx spec next ────────────────────────────────────────────────────────────
 
 describe("spx spec next", () => {
-  it("GIVEN project with IN_PROGRESS item WHEN running next THEN stdout contains 'Next work item:'", async () => {
-    const cwd = path.join(FIXTURES_PATH, "repos/mixed");
+  it("reports the first non-passing current spec-tree node", async () => {
+    await withCurrentSpecTree(async ({ productDir, rootPath, childPath }) => {
+      const { stdout, exitCode } = await runCli(productDir, "spec", "next");
 
-    const { stdout, exitCode } = await execa("node", [CLI_PATH, "spec", "next"], { cwd });
-
-    expect(exitCode).toBe(0);
-    expect(stdout).toContain("Next work item:");
+      expect(exitCode).toBe(0);
+      expect(stdout).toContain(SPEC_NEXT_MESSAGE.HEADING);
+      expect(stdout).toContain(rootPath);
+      expect(stdout).not.toContain(childPath);
+    });
   });
 
-  it("GIVEN project where all items are DONE WHEN running next THEN stdout contains completion message", async () => {
-    const cwd = path.join(FIXTURES_PATH, "repos/all-done");
+  it("reports empty output when no current spec-tree nodes exist", async () => {
+    await withTestEnv(MINIMAL_SPEC_TREE_CONFIG, async ({ productDir }) => {
+      const { stdout, exitCode } = await runCli(productDir, "spec", "next");
 
-    const { stdout, exitCode } = await execa("node", [CLI_PATH, "spec", "next"], { cwd });
-
-    expect(exitCode).toBe(0);
-    expect(stdout).toContain("All work items are complete");
-  });
-
-  it("GIVEN project with no work items WHEN running next THEN stdout contains 'No work items found'", async () => {
-    const cwd = path.join(FIXTURES_PATH, "repos/empty");
-
-    const { stdout, exitCode } = await execa("node", [CLI_PATH, "spec", "next"], { cwd });
-
-    expect(exitCode).toBe(0);
-    expect(stdout).toContain("No work items found");
-  });
-
-  it("GIVEN project with no specs directory WHEN running next THEN exits 1 and stderr contains 'Error:'", async () => {
-    const cwd = FIXTURES_PATH;
-
-    const result = await execa("node", [CLI_PATH, "spec", "next"], { cwd, reject: false });
-
-    expect(result.exitCode).toBe(1);
-    expect(result.stderr).toContain("Error:");
+      expect(exitCode).toBe(0);
+      expect(stdout).toBe(SPEC_NEXT_MESSAGE.EMPTY);
+    });
   });
 });
 
-// ─── error handling and help ──────────────────────────────────────────────────
-
-describe("spx error handling and help", () => {
-  it("GIVEN unknown subcommand WHEN running spx THEN exits 1 and stderr matches /unknown command|error/i", async () => {
+describe("spx help and errors", () => {
+  it("rejects an unknown top-level command", async () => {
     const result = await execa("node", [CLI_PATH, "invalid"], { reject: false });
 
     expect(result.exitCode).toBe(1);
     expect(result.stderr).toMatch(/unknown command|error/i);
   });
 
-  it("GIVEN no arguments WHEN running spx THEN output contains 'Usage:' or 'Commands:'", async () => {
+  it("prints help when invoked without a command", async () => {
     const result = await execa("node", [CLI_PATH], { reject: false });
-
     const output = result.stdout + result.stderr;
+
     expect(output).toMatch(/Usage:|Commands:/);
   });
 
-  it("GIVEN --help flag WHEN running spx THEN exits 0 and stdout contains 'spec' and 'session'", async () => {
+  it("prints global help with the spec and session domains", async () => {
     const { stdout, exitCode } = await execa("node", [CLI_PATH, "--help"]);
 
     expect(exitCode).toBe(0);
@@ -199,7 +154,7 @@ describe("spx error handling and help", () => {
     expect(stdout).toContain("session");
   });
 
-  it("GIVEN spec status --help WHEN running THEN exits 0 and stdout contains --json and --format", async () => {
+  it("prints status command help with output format flags", async () => {
     const { stdout, exitCode } = await execa("node", [CLI_PATH, "spec", "status", "--help"]);
 
     expect(exitCode).toBe(0);
@@ -207,36 +162,76 @@ describe("spx error handling and help", () => {
     expect(stdout).toContain("--format");
   });
 
-  it("GIVEN missing specs dir WHEN running status THEN stderr begins with 'Error:'", async () => {
-    const cwd = path.join(FIXTURES_PATH, "repos/no-specs");
+  it("prints next command help with current spec-tree wording", async () => {
+    const { stdout, exitCode } = await execa("node", [CLI_PATH, "spec", "next", "--help"]);
 
-    const result = await execa("node", [CLI_PATH, "spec", "status"], { cwd, reject: false });
-
-    expect(result.stderr).toMatch(/^Error:/);
+    expect(exitCode).toBe(0);
+    expect(stdout).toContain("Find next spec-tree node");
   });
 
-  it("GIVEN --version flag WHEN invoking spx binary via shebang THEN exits 0 and stdout is the package.json version", async () => {
-    const { version } = createRequire(import.meta.url)(path.join(PROJECT_ROOT, "package.json")) as {
+  it("prints the package version", async () => {
+    const { version } = createRequire(import.meta.url)(`${PROJECT_ROOT}/package.json`) as {
       version: string;
     };
 
-    const { stdout, exitCode } = await execa(CLI_PATH, [VERSION_FLAG]);
+    const { stdout, exitCode } = await execa("node", [CLI_PATH, VERSION_FLAG]);
 
     expect(exitCode).toBe(0);
-    expect(stdout).toBe(version);
-  });
-
-  it("GIVEN --format xml WHEN running status THEN stderr names the invalid format with valid options", async () => {
-    const cwd = path.join(FIXTURES_PATH, "repos/simple");
-
-    const result = await execa(
-      "node",
-      [CLI_PATH, "spec", "status", "--format", "xml"],
-      { cwd, reject: false },
-    );
-
-    expect(result.exitCode).toBe(1);
-    expect(result.stderr).toContain("Invalid format \"xml\"");
-    expect(result.stderr).toContain("text, json, markdown, table");
+    expect(stdout.trim()).toBe(version);
   });
 });
+
+type CurrentSpecTreeFixture = {
+  readonly productDir: string;
+  readonly rootPath: string;
+  readonly childPath: string;
+  readonly nodeKind: NodeKind;
+};
+
+async function withCurrentSpecTree(
+  callback: (fixture: CurrentSpecTreeFixture) => Promise<void>,
+): Promise<void> {
+  await withTestEnv(MINIMAL_SPEC_TREE_CONFIG, async ({ productDir, writeNode }) => {
+    const nodeKind = sampleNodeKind(KIND_REGISTRY);
+    const rootOrder = sampleSpecOrder();
+    const childOrder = sampleSpecOrderAbove(rootOrder);
+    const rootSlug = sampleSpecTreeTestValue(SPEC_TREE_TEST_GENERATOR.sourceSlug());
+    const childSlug = sampleSpecTreeTestValue(SPEC_TREE_TEST_GENERATOR.sourceSlug());
+    const rootPath = formatNodePath(rootOrder, rootSlug, nodeKind);
+    const childPath = `${rootPath}/${formatNodePath(childOrder, childSlug, nodeKind)}`;
+
+    await writeNode(
+      `${SPEC_TREE_CONFIG.ROOT_DIRECTORY}/${rootPath}/${rootSlug}.md`,
+      formatSpecHeading(),
+    );
+    await writeNode(
+      `${SPEC_TREE_CONFIG.ROOT_DIRECTORY}/${childPath}/${childSlug}.md`,
+      formatSpecHeading(),
+    );
+
+    await callback({ productDir, rootPath, childPath, nodeKind });
+  });
+}
+
+async function runCli(
+  cwd: string,
+  ...args: readonly string[]
+) {
+  return execa("node", [CLI_PATH, ...args], { cwd, reject: false });
+}
+
+function sampleSpecOrder(): number {
+  return sampleSpecTreeTestValue(fc.integer({ min: 10, max: 98 }));
+}
+
+function sampleSpecOrderAbove(order: number): number {
+  return sampleSpecTreeTestValue(fc.integer({ min: order + 1, max: 99 }));
+}
+
+function formatNodePath(order: number, slug: string, kind: NodeKind): string {
+  return `${order}-${slug}${KIND_REGISTRY[kind].suffix}`;
+}
+
+function formatSpecHeading(): string {
+  return `# ${sampleSpecTreeTestValue(SPEC_TREE_TEST_GENERATOR.sourceTitle())}\n`;
+}

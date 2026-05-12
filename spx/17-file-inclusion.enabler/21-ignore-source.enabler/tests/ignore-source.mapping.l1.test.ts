@@ -26,7 +26,7 @@ describe("ignore-source — mappings", () => {
         await withTestEnv(integrationConfig(), async (env) => {
           await writeExclude(env, [segment]);
 
-          const reader = createIgnoreSourceReader(env.projectDir, readerConfig());
+          const reader = createIgnoreSourceReader(env.productDir, readerConfig());
 
           expect(reader.isUnderIgnoreSource(spxPath(segment, sub))).toBe(true);
           // directory path without trailing separator does not match
@@ -43,7 +43,7 @@ describe("ignore-source — mappings", () => {
         await withTestEnv(integrationConfig(), async (env) => {
           await writeExclude(env, [simple, nested]);
 
-          const reader = createIgnoreSourceReader(env.projectDir, readerConfig());
+          const reader = createIgnoreSourceReader(env.productDir, readerConfig());
 
           const segments = reader.entries().map((e) => e.segment);
           expect(segments).toContain(simple);
@@ -63,7 +63,7 @@ describe("ignore-source — mappings", () => {
           await withTestEnv(integrationConfig(), async (env) => {
             await writeExclude(env, [matched, other]);
 
-            const reader = createIgnoreSourceReader(env.projectDir, readerConfig());
+            const reader = createIgnoreSourceReader(env.productDir, readerConfig());
             const path = spxPath(matched, sub);
 
             const entry = reader.matchedEntry(path);
@@ -82,7 +82,7 @@ describe("ignore-source — mappings", () => {
         await withTestEnv(integrationConfig(), async (env) => {
           await writeExclude(env, [segment]);
 
-          const reader = createIgnoreSourceReader(env.projectDir, readerConfig());
+          const reader = createIgnoreSourceReader(env.productDir, readerConfig());
           const unrelatedPath = `other-root/${segment}/${sub}`;
 
           const entry = reader.matchedEntry(unrelatedPath);
@@ -104,7 +104,7 @@ describe("ignore-source — mappings", () => {
         await withTestEnv(integrationConfig(), async (env) => {
           await env.writeRaw(`${altRootSegment}/${IGNORE_SOURCE_FILENAME_DEFAULT}`, segment);
 
-          const reader = createIgnoreSourceReader(env.projectDir, altConfig);
+          const reader = createIgnoreSourceReader(env.productDir, altConfig);
 
           expect(reader.isUnderIgnoreSource(`${altRootSegment}/${segment}/${sub}`)).toBe(true);
           expect(reader.isUnderIgnoreSource(spxPath(segment, sub))).toBe(false);

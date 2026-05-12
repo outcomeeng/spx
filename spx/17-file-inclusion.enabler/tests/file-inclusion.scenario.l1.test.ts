@@ -36,7 +36,7 @@ describe("file-inclusion service — scenarios", () => {
   it("explicit paths are included with explicit-override as first decision trail entry regardless of layer membership", async () => {
     await withTestEnv(integrationConfig, async (env) => {
       await writeExclude(env, [excludedNodeSegment]);
-      const result = await resolveScope(env.projectDir, { explicit: [artifactFilePath] }, resolverConfig);
+      const result = await resolveScope(env.productDir, { explicit: [artifactFilePath] }, resolverConfig);
       const entry = result.included.find((e) => e.path === artifactFilePath);
       expect(entry, `scope.included missing entry for "${artifactFilePath}"`).toBeDefined();
       expect(entry!.decisionTrail[0]?.layer).toBe(EXPLICIT_OVERRIDE_LAYER);
@@ -48,7 +48,7 @@ describe("file-inclusion service — scenarios", () => {
       await writeTestFiles(env);
       await writeExclude(env, [excludedNodeSegment]);
 
-      const result = await resolveScope(env.projectDir, { walkRoot: env.projectDir }, resolverConfig);
+      const result = await resolveScope(env.productDir, { walkRoot: env.productDir }, resolverConfig);
 
       // collectPaths skips artifact directories during the walk; artifact files never enter included
       const artifactInIncluded = result.included.find((e) => e.path === artifactFilePath);
@@ -73,7 +73,7 @@ describe("file-inclusion service — scenarios", () => {
       await writeTestFiles(env);
       await writeExclude(env, [excludedNodeSegment]);
 
-      const result = await resolveScope(env.projectDir, { walkRoot: env.projectDir }, resolverConfig);
+      const result = await resolveScope(env.productDir, { walkRoot: env.productDir }, resolverConfig);
 
       const toolFlag = TOOL_DEFAULT_FLAGS[testTool];
       const adapterConfig: ToolAdaptersConfig = { [testTool]: { ignoreFlag: toolFlag } };
@@ -103,7 +103,7 @@ describe("file-inclusion service — scenarios", () => {
     const generated = sampleConfigValue(CONFIG_GENERATOR.fileInclusionOverride());
 
     await withTestEnv(generated.config, async (env) => {
-      const result = await resolveConfig(env.projectDir, [fileInclusionConfigDescriptor]);
+      const result = await resolveConfig(env.productDir, [fileInclusionConfigDescriptor]);
 
       expect(result.ok).toBe(true);
       if (result.ok) {
@@ -116,7 +116,7 @@ describe("file-inclusion service — scenarios", () => {
     const generated = sampleConfigValue(CONFIG_GENERATOR.fileInclusionPartialToolOverride());
 
     await withTestEnv(generated.config, async (env) => {
-      const result = await resolveConfig(env.projectDir, [fileInclusionConfigDescriptor]);
+      const result = await resolveConfig(env.productDir, [fileInclusionConfigDescriptor]);
 
       expect(result.ok).toBe(true);
       if (result.ok) {
@@ -129,7 +129,7 @@ describe("file-inclusion service — scenarios", () => {
     const generated = sampleConfigValue(CONFIG_GENERATOR.fileInclusionUnknownToolOverride());
 
     await withTestEnv(generated.config, async (env) => {
-      const result = await resolveConfig(env.projectDir, [fileInclusionConfigDescriptor]);
+      const result = await resolveConfig(env.productDir, [fileInclusionConfigDescriptor]);
 
       expect(result.ok).toBe(false);
       if (!result.ok) {
@@ -140,7 +140,7 @@ describe("file-inclusion service — scenarios", () => {
 
   it("file-inclusion rejects an explicit null value for the scope section", async () => {
     await withTestEnv({ [FILE_INCLUSION_SECTION]: { scope: null } }, async (env) => {
-      const result = await resolveConfig(env.projectDir, [fileInclusionConfigDescriptor]);
+      const result = await resolveConfig(env.productDir, [fileInclusionConfigDescriptor]);
 
       expect(result.ok).toBe(false);
       if (!result.ok) {
@@ -151,7 +151,7 @@ describe("file-inclusion service — scenarios", () => {
 
   it("file-inclusion rejects an explicit null value for the tools section", async () => {
     await withTestEnv({ [FILE_INCLUSION_SECTION]: { tools: null } }, async (env) => {
-      const result = await resolveConfig(env.projectDir, [fileInclusionConfigDescriptor]);
+      const result = await resolveConfig(env.productDir, [fileInclusionConfigDescriptor]);
 
       expect(result.ok).toBe(false);
       if (!result.ok) {

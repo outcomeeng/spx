@@ -12,8 +12,8 @@ describe("withTestEnv — filesystem safety", () => {
     const tmpRoot = resolve(tmpdir());
 
     await withTestEnv(MINIMAL_SPEC_TREE_CONFIG, async (env) => {
-      const projectDir = resolve(env.projectDir);
-      const relativeToTmp = relative(tmpRoot, projectDir);
+      const productDir = resolve(env.productDir);
+      const relativeToTmp = relative(tmpRoot, productDir);
 
       expect(relativeToTmp.startsWith("..")).toBe(false);
       expect(relativeToTmp === "" || relativeToTmp === ".").toBe(false);
@@ -25,24 +25,24 @@ describe("withTestEnv — filesystem safety", () => {
     mkdirSync(sibling);
 
     try {
-      let projectDir = "";
+      let productDir = "";
       await withTestEnv(MINIMAL_SPEC_TREE_CONFIG, async (env) => {
-        projectDir = env.projectDir;
-        expect(projectDir).not.toBe(sibling);
+        productDir = env.productDir;
+        expect(productDir).not.toBe(sibling);
       });
 
-      expect(existsSync(projectDir)).toBe(false);
+      expect(existsSync(productDir)).toBe(false);
       expect(existsSync(sibling)).toBe(true);
     } finally {
       rmSync(sibling, { recursive: true, force: true });
     }
   });
 
-  it("never exposes a project directory that resolves outside the OS temp root", async () => {
+  it("never exposes a product directory that resolves outside the OS temp root", async () => {
     const tmpRoot = resolve(tmpdir());
 
     await withTestEnv(MINIMAL_SPEC_TREE_CONFIG, async (env) => {
-      const resolvedProject = resolve(env.projectDir);
+      const resolvedProject = resolve(env.productDir);
       expect(resolvedProject.startsWith(tmpRoot)).toBe(true);
     });
   });

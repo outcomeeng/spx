@@ -16,27 +16,27 @@ import { MINIMAL_SPEC_TREE_CONFIG } from "@testing/generators/config/config";
 import { withTestEnv } from "@testing/harnesses/spec-tree/spec-tree";
 
 describe("withTestEnv — startup", () => {
-  it("creates a fresh temp directory under os.tmpdir() and materializes the project config from the Config", async () => {
-    let observedProjectDir = "";
+  it("creates a fresh temp directory under os.tmpdir() and materializes the product config from the Config", async () => {
+    let observedProductDir = "";
     let observedConfig: unknown = null;
 
     await withTestEnv(MINIMAL_SPEC_TREE_CONFIG, async (env) => {
-      observedProjectDir = env.projectDir;
-      const raw = (await readFile(join(env.projectDir, DEFAULT_CONFIG_FILENAME))).toString();
-      const parsed = parseConfigFileSections(configFileForFormat(env.projectDir, DEFAULT_CONFIG_FILE_FORMAT, raw));
+      observedProductDir = env.productDir;
+      const raw = (await readFile(join(env.productDir, DEFAULT_CONFIG_FILENAME))).toString();
+      const parsed = parseConfigFileSections(configFileForFormat(env.productDir, DEFAULT_CONFIG_FILE_FORMAT, raw));
       expect(parsed.ok).toBe(true);
       if (parsed.ok) {
         observedConfig = parsed.value;
       }
     });
 
-    expect(observedProjectDir.startsWith(tmpdir())).toBe(true);
+    expect(observedProductDir.startsWith(tmpdir())).toBe(true);
     expect(observedConfig).toEqual(MINIMAL_SPEC_TREE_CONFIG);
   });
 
-  it("invokes the callback with an env object exposing projectDir and write helpers", async () => {
+  it("invokes the callback with an env object exposing productDir and write helpers", async () => {
     await withTestEnv(MINIMAL_SPEC_TREE_CONFIG, async (env) => {
-      expect(env.projectDir).toBeDefined();
+      expect(env.productDir).toBeDefined();
       expect(env.writeNode).toBeDefined();
       expect(env.writeDecision).toBeDefined();
       expect(env.writeRaw).toBeDefined();
@@ -48,10 +48,10 @@ describe("withTestEnv — startup", () => {
     const observed: string[] = [];
 
     await withTestEnv(MINIMAL_SPEC_TREE_CONFIG, async (env) => {
-      observed.push(env.projectDir);
+      observed.push(env.productDir);
     });
     await withTestEnv(MINIMAL_SPEC_TREE_CONFIG, async (env) => {
-      observed.push(env.projectDir);
+      observed.push(env.productDir);
     });
 
     expect(observed[0]).not.toBe(observed[1]);
@@ -60,15 +60,15 @@ describe("withTestEnv — startup", () => {
 
 describe("withTestEnv — cleanup on return", () => {
   it("removes the temp directory after the callback returns normally", async () => {
-    let projectDir = "";
+    let productDir = "";
 
     await withTestEnv(MINIMAL_SPEC_TREE_CONFIG, async (env) => {
-      projectDir = env.projectDir;
-      const before = await stat(projectDir);
+      productDir = env.productDir;
+      const before = await stat(productDir);
       expect(before.isDirectory()).toBe(true);
     });
 
-    expect(existsSync(projectDir)).toBe(false);
+    expect(existsSync(productDir)).toBe(false);
   });
 });
 
@@ -81,31 +81,31 @@ describe("withTestEnv — cleanup on throw", () => {
   }
 
   it("removes the temp directory when the callback throws, and rethrows the original error unchanged", async () => {
-    let projectDir = "";
+    let productDir = "";
     const boom = new TestBoomError("callback blew up");
 
     await expect(
       withTestEnv(MINIMAL_SPEC_TREE_CONFIG, async (env) => {
-        projectDir = env.projectDir;
+        productDir = env.productDir;
         throw boom;
       }),
     ).rejects.toBe(boom);
 
-    expect(existsSync(projectDir)).toBe(false);
+    expect(existsSync(productDir)).toBe(false);
   });
 
   it("propagates non-Error rejections unchanged while still cleaning up", async () => {
-    let projectDir = "";
+    let productDir = "";
     const rejection = { code: "NON_ERROR", detail: 42 } as const;
 
     await expect(
       withTestEnv(MINIMAL_SPEC_TREE_CONFIG, async (env) => {
-        projectDir = env.projectDir;
+        productDir = env.productDir;
         return Promise.reject(rejection);
       }),
     ).rejects.toBe(rejection);
 
-    expect(existsSync(projectDir)).toBe(false);
+    expect(existsSync(productDir)).toBe(false);
   });
 });
 
@@ -118,11 +118,11 @@ describe("withTestEnv — cleanup invariance", () => {
           awaits: fc.integer({ min: 0, max: 3 }),
         }),
         async ({ outcome, awaits }) => {
-          let projectDir = "";
+          let productDir = "";
 
           const run = (): Promise<void> =>
             withTestEnv(MINIMAL_SPEC_TREE_CONFIG, async (env) => {
-              projectDir = env.projectDir;
+              productDir = env.productDir;
               for (let i = 0; i < awaits; i++) {
                 await Promise.resolve();
               }
@@ -137,8 +137,8 @@ describe("withTestEnv — cleanup invariance", () => {
             await expect(run()).rejects.toBeInstanceOf(Error);
           }
 
-          expect(projectDir.length).toBeGreaterThan(0);
-          expect(existsSync(projectDir)).toBe(false);
+          expect(productDir.length).toBeGreaterThan(0);
+          expect(existsSync(productDir)).toBe(false);
         },
       ),
       { numRuns: 20 },

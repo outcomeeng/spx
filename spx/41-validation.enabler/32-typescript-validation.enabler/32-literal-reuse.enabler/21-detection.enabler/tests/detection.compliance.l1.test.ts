@@ -65,7 +65,7 @@ describe("NEVER: descend into artifact directories", () => {
         await env.writeSourceFile(artifactRelativePath, artifactLiteral);
         await env.writeSourceFile(activeRelativePath, activeLiteral);
 
-        const result = await validateLiteralReuse({ projectRoot: env.projectDir });
+        const result = await validateLiteralReuse({ projectRoot: env.productDir });
 
         const indexedValues = new Set<string>();
         for (const occurrences of result.indexedOccurrencesByFile.values()) {

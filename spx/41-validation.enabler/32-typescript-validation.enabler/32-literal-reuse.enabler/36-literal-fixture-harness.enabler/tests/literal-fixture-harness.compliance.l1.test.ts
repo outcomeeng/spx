@@ -11,9 +11,9 @@ describe("withLiteralFixtureEnv compliance", () => {
   it("writes the discovery marker at the path bound to TYPESCRIPT_MARKER and detectTypeScript reports present", async () => {
     await withLiteralFixtureEnv(literalEmptyConfig(), async (env) => {
       await env.writeTsConfigMarker();
-      const markerPath = joinPath(env.projectDir, TYPESCRIPT_MARKER);
+      const markerPath = joinPath(env.productDir, TYPESCRIPT_MARKER);
       expect(existsSync(markerPath)).toBe(true);
-      const detection = detectTypeScript(env.projectDir);
+      const detection = detectTypeScript(env.productDir);
       expect(detection.present).toBe(true);
     });
   });

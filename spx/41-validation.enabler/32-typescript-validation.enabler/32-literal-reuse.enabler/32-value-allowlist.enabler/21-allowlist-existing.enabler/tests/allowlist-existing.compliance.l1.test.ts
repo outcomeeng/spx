@@ -52,7 +52,7 @@ describe("allowlist-existing compliance", () => {
     await withTestEnv(config, async (env) => {
       await writeDuplicatedLiteralFixture(env, fixtureLiteral);
 
-      const result = await allowlistExisting({ projectRoot: env.projectDir });
+      const result = await allowlistExisting({ projectRoot: env.productDir });
       expect(result.exitCode).toBe(LITERAL_EXIT_CODES.OK);
 
       const allowlist = readLiteralAllowlist(await readProjectConfigSections(env));
@@ -67,7 +67,7 @@ describe("allowlist-existing compliance", () => {
     await withTestEnv(buildConfigWithForeignSection(foreign.key, foreign.body), async (env) => {
       await writeDuplicatedLiteralFixture(env, fixtureLiteral);
 
-      const result = await allowlistExisting({ projectRoot: env.projectDir });
+      const result = await allowlistExisting({ projectRoot: env.productDir });
       expect(result.exitCode).toBe(LITERAL_EXIT_CODES.OK);
 
       const parsed = await readProjectConfigSections(env);
@@ -81,11 +81,11 @@ describe("allowlist-existing compliance", () => {
     await withTestEnv(config, async (env) => {
       await writeDuplicatedLiteralFixture(env, fixtureLiteral);
 
-      const first = await allowlistExisting({ projectRoot: env.projectDir });
+      const first = await allowlistExisting({ projectRoot: env.productDir });
       expect(first.exitCode).toBe(LITERAL_EXIT_CODES.OK);
       const allowlistAfterFirst = readLiteralAllowlist(await readProjectConfigSections(env));
 
-      const second = await allowlistExisting({ projectRoot: env.projectDir });
+      const second = await allowlistExisting({ projectRoot: env.productDir });
       expect(second.exitCode).toBe(LITERAL_EXIT_CODES.OK);
       const allowlistAfterSecond = readLiteralAllowlist(await readProjectConfigSections(env));
 
@@ -102,7 +102,7 @@ describe("allowlist-existing compliance", () => {
     await withTestEnv(config, async (env) => {
       await writeDuplicatedLiteralFixture(env, fixtureLiteral);
 
-      const result = await allowlistExisting({ projectRoot: env.projectDir });
+      const result = await allowlistExisting({ projectRoot: env.productDir });
       expect(result.exitCode).toBe(LITERAL_EXIT_CODES.OK);
 
       const allowlist = readLiteralAllowlist(await readProjectConfigSections(env));
@@ -119,7 +119,7 @@ describe("allowlist-existing compliance", () => {
     await withTestEnv(config, async (env) => {
       await writeDuplicatedLiteralFixture(env, fixtureLiteral);
 
-      const result = await allowlistExisting({ projectRoot: env.projectDir });
+      const result = await allowlistExisting({ projectRoot: env.productDir });
       expect(result.exitCode).toBe(LITERAL_EXIT_CODES.OK);
 
       const allowlist = readLiteralAllowlist(await readProjectConfigSections(env));
@@ -138,10 +138,10 @@ describe("allowlist-existing compliance", () => {
         await writeProjectConfig(env, format, config);
         await writeDuplicatedLiteralFixture(env, fixtureLiteral);
 
-        const result = await allowlistExisting({ projectRoot: env.projectDir });
+        const result = await allowlistExisting({ projectRoot: env.productDir });
         expect(result.exitCode).toBe(LITERAL_EXIT_CODES.OK);
 
-        const read = await readProjectConfigFile(env.projectDir);
+        const read = await readProjectConfigFile(env.productDir);
         expect(read.ok).toBe(true);
         if (!read.ok || read.value.kind !== "ok") return;
         expect(read.value.file.format).toBe(format);
@@ -185,7 +185,7 @@ describe("allowlist-existing compliance", () => {
       );
       await writeDuplicatedLiteralFixture(env, fixtureLiteral);
 
-      const result = await allowlistExisting({ projectRoot: env.projectDir });
+      const result = await allowlistExisting({ projectRoot: env.productDir });
       expect(result.exitCode).toBe(LITERAL_EXIT_CODES.OK);
 
       const rawConfig = await env.readFile(CONFIG_FILENAMES.yaml);

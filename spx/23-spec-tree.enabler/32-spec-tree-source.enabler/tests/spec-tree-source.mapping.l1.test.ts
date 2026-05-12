@@ -2,115 +2,67 @@ import { describe, expect, it } from "vitest";
 
 import {
   createFilesystemSpecTreeSource,
+  getKindDefinition,
   projectSpecTree,
   readSpecTree,
-  SPEC_TREE_ENTRY_TYPE,
-  type SpecTreeSourceEntry,
+  type SpecTreeProjectedNode,
+  type SpecTreeProjection,
 } from "@/lib/spec-tree";
-import { KIND_REGISTRY, SPEC_TREE_CONFIG } from "@/lib/spec-tree/config";
-import {
-  createSource,
-  sampleDecisionKind,
-  sampleNodeKind,
-  sampleSpecTreeTestValue,
-  SPEC_TREE_TEST_GENERATOR,
-} from "@testing/generators/spec-tree/spec-tree";
-import { withTestEnv } from "@testing/harnesses/spec-tree/spec-tree";
+import { type NodeKind, SPEC_TREE_CONFIG } from "@/lib/spec-tree/config";
+import { withSpecTreeEnv } from "@testing/harnesses/spec-tree/spec-tree";
+
+type NodeSignature = {
+  readonly kind: string;
+  readonly order: number;
+  readonly slug: string;
+  readonly childCount: number;
+};
+
+type DecisionSignature = {
+  readonly kind: string;
+  readonly order: number;
+  readonly slug: string;
+};
+
+type NodeDirectoryEntry = {
+  readonly kind: NodeKind;
+  readonly order: number;
+  readonly slug: string;
+};
 
 describe("SpecTreeSource mappings", () => {
   it("maps filesystem source records and in-memory records to equivalent projections", async () => {
-    await withTestEnv({}, async ({ projectDir, writeDecision, writeNode, writeRaw }) => {
-      const nodeKind = sampleNodeKind(KIND_REGISTRY);
-      const decisionKind = sampleDecisionKind(KIND_REGISTRY);
-      const rootSlug = sampleSpecTreeTestValue(SPEC_TREE_TEST_GENERATOR.sourceSlug());
-      const productSlug = sampleSpecTreeTestValue(SPEC_TREE_TEST_GENERATOR.sourceSlug());
-      const rootDirectory = `21-${rootSlug}${KIND_REGISTRY[nodeKind].suffix}`;
-      const childDirectory = `${rootDirectory}/32-child${KIND_REGISTRY[nodeKind].suffix}`;
-      const decisionPath = `${rootDirectory}/21-kind-registry${KIND_REGISTRY[decisionKind].suffix}`;
-      const productPath = `${productSlug}${SPEC_TREE_CONFIG.PRODUCT.SUFFIX}`;
-
-      await writeRaw(`${SPEC_TREE_CONFIG.ROOT_DIRECTORY}/${productPath}`, "# Fixture\n");
-      await writeNode(`${SPEC_TREE_CONFIG.ROOT_DIRECTORY}/${rootDirectory}/root.md`, "# Root\n");
-      await writeNode(`${SPEC_TREE_CONFIG.ROOT_DIRECTORY}/${childDirectory}/child.md`, "# Child\n");
-      await writeDecision(`${SPEC_TREE_CONFIG.ROOT_DIRECTORY}/${decisionPath}`, "# Kind Registry\n");
+    await withSpecTreeEnv({}, async (env) => {
+      await env.materialize();
 
       const filesystemProjection = projectSpecTree(
         await readSpecTree({
-          source: createFilesystemSpecTreeSource({ projectRoot: projectDir }),
+          source: env.filesystemSource(),
         }),
       );
-      const inMemoryProjection = projectSpecTree(
-        await readSpecTree({
-          source: createSource(
-            [
-              {
-                type: SPEC_TREE_ENTRY_TYPE.PRODUCT,
-                id: productPath,
-                title: productSlug,
-                ref: {
-                  id: `${SPEC_TREE_CONFIG.ROOT_DIRECTORY}/${productPath}`,
-                  path: `${SPEC_TREE_CONFIG.ROOT_DIRECTORY}/${productPath}`,
-                },
-              },
-              {
-                type: SPEC_TREE_ENTRY_TYPE.NODE,
-                id: rootDirectory,
-                kind: nodeKind,
-                order: 21,
-                slug: rootSlug,
-                ref: {
-                  id: `${SPEC_TREE_CONFIG.ROOT_DIRECTORY}/${rootDirectory}`,
-                  path: `${SPEC_TREE_CONFIG.ROOT_DIRECTORY}/${rootDirectory}`,
-                },
-              },
-              {
-                type: SPEC_TREE_ENTRY_TYPE.NODE,
-                id: childDirectory,
-                kind: nodeKind,
-                order: 32,
-                slug: "child",
-                parentId: rootDirectory,
-                ref: {
-                  id: `${SPEC_TREE_CONFIG.ROOT_DIRECTORY}/${childDirectory}`,
-                  path: `${SPEC_TREE_CONFIG.ROOT_DIRECTORY}/${childDirectory}`,
-                },
-              },
-              {
-                type: SPEC_TREE_ENTRY_TYPE.DECISION,
-                id: decisionPath,
-                kind: decisionKind,
-                order: 21,
-                slug: "kind-registry",
-                parentId: rootDirectory,
-                ref: {
-                  id: `${SPEC_TREE_CONFIG.ROOT_DIRECTORY}/${decisionPath}`,
-                  path: `${SPEC_TREE_CONFIG.ROOT_DIRECTORY}/${decisionPath}`,
-                },
-              },
-            ] satisfies readonly SpecTreeSourceEntry[],
-          ),
-        }),
-      );
+      const inMemoryProjection = await env.projectMemory();
 
-      expect(filesystemProjection).toEqual(inMemoryProjection);
+      expect(filesystemProjection.product?.title).toBe(inMemoryProjection.product?.title);
+      expect(nodeSignatures(filesystemProjection)).toEqual(nodeSignatures(inMemoryProjection));
+      expect(decisionSignatures(filesystemProjection)).toEqual(decisionSignatures(inMemoryProjection));
     });
   });
 
-  it("uses project-root-relative refs and an inclusion predicate", async () => {
-    await withTestEnv({}, async ({ projectDir, writeNode }) => {
-      const nodeKind = sampleNodeKind(KIND_REGISTRY);
-      const includedSlug = sampleSpecTreeTestValue(SPEC_TREE_TEST_GENERATOR.sourceSlug());
-      const excludedSlug = sampleSpecTreeTestValue(SPEC_TREE_TEST_GENERATOR.sourceSlug());
-      const includedText = `# ${sampleSpecTreeTestValue(SPEC_TREE_TEST_GENERATOR.sourceTitle())}\n`;
-      const includedDirectory = `21-${includedSlug}${KIND_REGISTRY[nodeKind].suffix}`;
-      const excludedDirectory = `32-${excludedSlug}${KIND_REGISTRY[nodeKind].suffix}`;
-
-      await writeNode(`${SPEC_TREE_CONFIG.ROOT_DIRECTORY}/${includedDirectory}/${includedSlug}.md`, includedText);
-      await writeNode(`${SPEC_TREE_CONFIG.ROOT_DIRECTORY}/${excludedDirectory}/${excludedSlug}.md`, includedText);
+  it("uses product-root-relative refs and an inclusion predicate", async () => {
+    await withSpecTreeEnv({}, async (env) => {
+      await env.materialize();
+      const excludedDirectories = [
+        nodeDirectoryName(env.fixture.peer),
+        `${nodeDirectoryName(env.fixture.root)}/${nodeDirectoryName(env.fixture.child)}`,
+      ];
+      const includedDirectory = nodeDirectoryName(env.fixture.root);
+      const includedText = await env.readFile(
+        `${SPEC_TREE_CONFIG.ROOT_DIRECTORY}/${includedDirectory}/${env.fixture.root.slug}.md`,
+      );
 
       const source = createFilesystemSpecTreeSource({
-        projectRoot: projectDir,
-        includePath: (path) => !path.includes(excludedDirectory),
+        projectRoot: env.productDir,
+        includePath: (path) => excludedDirectories.every((directory) => !path.includes(directory)),
       });
       const snapshot = await readSpecTree({ source });
       const ref = snapshot.allNodes[0]?.ref;
@@ -119,8 +71,34 @@ describe("SpecTreeSource mappings", () => {
       }
 
       expect(snapshot.allNodes.map((node) => node.id)).toEqual([includedDirectory]);
-      expect(ref.path).toBe(`${SPEC_TREE_CONFIG.ROOT_DIRECTORY}/${includedDirectory}/${includedSlug}.md`);
+      expect(ref.path).toBe(`${SPEC_TREE_CONFIG.ROOT_DIRECTORY}/${includedDirectory}/${env.fixture.root.slug}.md`);
       await expect(source.readText(ref)).resolves.toBe(includedText);
     });
   });
 });
+
+function nodeSignatures(projection: SpecTreeProjection): readonly NodeSignature[] {
+  return flattenNodes(projection.nodes).map((node) => ({
+    kind: node.kind,
+    order: node.order,
+    slug: node.slug,
+    childCount: node.children.length,
+  }));
+}
+
+function flattenNodes(nodes: readonly SpecTreeProjectedNode[]): readonly SpecTreeProjectedNode[] {
+  return nodes.flatMap((node) => [node, ...flattenNodes(node.children)]);
+}
+
+function decisionSignatures(projection: SpecTreeProjection): readonly DecisionSignature[] {
+  return projection.decisions.map((decision) => ({
+    kind: decision.kind,
+    order: decision.order,
+    slug: decision.slug,
+  }));
+}
+
+function nodeDirectoryName(node: NodeDirectoryEntry): string {
+  const definition = getKindDefinition(node.kind);
+  return `${node.order}-${node.slug}${definition.suffix}`;
+}

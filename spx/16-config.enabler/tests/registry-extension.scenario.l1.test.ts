@@ -11,8 +11,8 @@ describe("resolveConfig — registry extension", () => {
     const generated = sampleConfigTestValue(CONFIG_TEST_GENERATOR.modeDescriptor());
     const projectConfig: Config = {};
 
-    await withTestEnv(projectConfig, async ({ projectDir }) => {
-      const result = await resolveConfig(projectDir, [specTreeConfigDescriptor, generated.descriptor]);
+    await withTestEnv(projectConfig, async ({ productDir }) => {
+      const result = await resolveConfig(productDir, [specTreeConfigDescriptor, generated.descriptor]);
 
       expect(result.ok).toBe(true);
       if (result.ok) {
@@ -28,8 +28,8 @@ describe("resolveConfig — registry extension", () => {
       [generated.section]: generated.override,
     };
 
-    await withTestEnv(projectConfig, async ({ projectDir }) => {
-      const result = await resolveConfig(projectDir, [specTreeConfigDescriptor, generated.descriptor]);
+    await withTestEnv(projectConfig, async ({ productDir }) => {
+      const result = await resolveConfig(productDir, [specTreeConfigDescriptor, generated.descriptor]);
 
       expect(result.ok).toBe(true);
       if (result.ok) {
@@ -45,8 +45,8 @@ describe("resolveConfig — registry extension", () => {
       [generated.section]: generated.invalid,
     };
 
-    await withTestEnv(projectConfig, async ({ projectDir }) => {
-      const result = await resolveConfig(projectDir, [specTreeConfigDescriptor, generated.descriptor]);
+    await withTestEnv(projectConfig, async ({ productDir }) => {
+      const result = await resolveConfig(productDir, [specTreeConfigDescriptor, generated.descriptor]);
 
       expect(result.ok).toBe(false);
       if (!result.ok) {

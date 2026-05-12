@@ -10,9 +10,14 @@ const __dirname = fileURLToPath(new URL(".", import.meta.url));
 export { LEAF_KIND, WORK_ITEM_KINDS } from "@/lib/spec-legacy/types";
 
 /**
- * Project root directory (absolute path)
+ * Product root directory (absolute path)
  */
 export const PROJECT_ROOT = resolve(__dirname, "../..");
+
+/**
+ * Node.js executable used by subprocess CLI tests.
+ */
+export const NODE_EXECUTABLE = "node";
 
 /**
  * CLI binary path (absolute path)

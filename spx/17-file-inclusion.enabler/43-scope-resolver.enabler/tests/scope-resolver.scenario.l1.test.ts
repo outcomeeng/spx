@@ -23,7 +23,7 @@ describe("scope resolver — scenarios", () => {
     await withTestEnv(integrationConfig, async (env) => {
       await writeExclude(env, [excludedNodeSegment]);
       const explicitPath = artifactFilePath;
-      const result = await resolveScope(env.projectDir, { explicit: [explicitPath] }, resolverConfig);
+      const result = await resolveScope(env.productDir, { explicit: [explicitPath] }, resolverConfig);
       const entry = result.included.find((e) => e.path === explicitPath);
       expect(entry, `expected ${explicitPath} in included`).toBeDefined();
       expect(entry!.decisionTrail[0]?.layer).toBe(EXPLICIT_OVERRIDE_LAYER);
@@ -34,7 +34,7 @@ describe("scope resolver — scenarios", () => {
     await withTestEnv(integrationConfig, async (env) => {
       await writeTestFiles(env);
       await writeExclude(env, [excludedNodeSegment]);
-      const result = await resolveScope(env.projectDir, { walkRoot: env.projectDir }, resolverConfig);
+      const result = await resolveScope(env.productDir, { walkRoot: env.productDir }, resolverConfig);
 
       // collectPaths skips artifact directories during the walk; artifact files never enter included
       const artifactInIncluded = result.included.find((e) => e.path === artifactFilePath);
@@ -58,8 +58,8 @@ describe("scope resolver — scenarios", () => {
       await writeTestFiles(env);
       await writeExclude(env, [excludedNodeSegment]);
       const result = await resolveScope(
-        env.projectDir,
-        { explicit: [artifactFilePath], walkRoot: env.projectDir },
+        env.productDir,
+        { explicit: [artifactFilePath], walkRoot: env.productDir },
         resolverConfig,
       );
 

@@ -18,10 +18,10 @@ describe("resolveConfig — side-effect freedom (property)", () => {
   it("leaves the project directory unchanged across any config shape drawn from the registry", async () => {
     await fc.assert(
       fc.asyncProperty(configShape(), async (projectConfig) => {
-        await withTestEnv(projectConfig, async ({ projectDir }) => {
-          const before = await readdir(projectDir);
-          await resolveConfig(projectDir, [specTreeConfigDescriptor]);
-          const after = await readdir(projectDir);
+        await withTestEnv(projectConfig, async ({ productDir }) => {
+          const before = await readdir(productDir);
+          await resolveConfig(productDir, [specTreeConfigDescriptor]);
+          const after = await readdir(productDir);
 
           expect(after.sort()).toEqual(before.sort());
         });
@@ -35,8 +35,8 @@ describe("resolveConfig — side-effect freedom (property)", () => {
       fc.asyncProperty(configShape(), CONFIG_TEST_GENERATOR.environmentSentinel(), async (projectConfig, sentinel) => {
         process.env[sentinel.key] = sentinel.value;
         try {
-          await withTestEnv(projectConfig, async ({ projectDir }) => {
-            await resolveConfig(projectDir, [specTreeConfigDescriptor]);
+          await withTestEnv(projectConfig, async ({ productDir }) => {
+            await resolveConfig(productDir, [specTreeConfigDescriptor]);
             expect(process.env[sentinel.key]).toBe(sentinel.value);
           });
         } finally {
@@ -51,8 +51,8 @@ describe("resolveConfig — side-effect freedom (property)", () => {
     await fc.assert(
       fc.asyncProperty(configShape(), async (projectConfig) => {
         const before = process.cwd();
-        await withTestEnv(projectConfig, async ({ projectDir }) => {
-          await resolveConfig(projectDir, [specTreeConfigDescriptor]);
+        await withTestEnv(projectConfig, async ({ productDir }) => {
+          await resolveConfig(productDir, [specTreeConfigDescriptor]);
         });
         expect(process.cwd()).toBe(before);
       }),
@@ -65,8 +65,8 @@ describe("resolveConfig — typed-or-error invariant (C4)", () => {
   it("returns ok:true with a fully-typed Config or ok:false with a descriptor-qualified error — never a partial result", async () => {
     const rejectingConfig: Config = sampleConfigTestValue(CONFIG_TEST_GENERATOR.invalidSpecTreeConfig()).config;
 
-    await withTestEnv(rejectingConfig, async ({ projectDir }) => {
-      const result = await resolveConfig(projectDir, [specTreeConfigDescriptor]);
+    await withTestEnv(rejectingConfig, async ({ productDir }) => {
+      const result = await resolveConfig(productDir, [specTreeConfigDescriptor]);
 
       expect(result.ok).toBe(false);
       if (!result.ok) {
@@ -85,8 +85,8 @@ describe("resolveConfig — typed-or-error invariant (C4)", () => {
       [unregisteredSection]: { [unregisteredField]: unregisteredValue },
     };
 
-    await withTestEnv(projectConfig, async ({ projectDir }) => {
-      const result = await resolveConfig(projectDir, [specTreeConfigDescriptor]);
+    await withTestEnv(projectConfig, async ({ productDir }) => {
+      const result = await resolveConfig(productDir, [specTreeConfigDescriptor]);
 
       expect(result.ok).toBe(true);
       if (result.ok) {

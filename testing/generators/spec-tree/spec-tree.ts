@@ -25,7 +25,7 @@ type SpecTreeEntryDiscriminatorKey =
 
 type SpecTreeEntryTypeKey = typeof SPEC_TREE_SOURCE_ENTRY_KEYS.TYPE;
 
-type RepresentativeEntries = {
+export type RepresentativeSpecTreeFixture = {
   readonly product: Extract<SpecTreeSourceEntry, { readonly type: typeof SPEC_TREE_ENTRY_TYPE.PRODUCT }>;
   readonly root: SpecTreeNodeSourceEntry;
   readonly child: SpecTreeNodeSourceEntry;
@@ -41,6 +41,8 @@ const SPEC_TREE_TEST_GENERATOR_OPTIONS = {
   REPRESENTATIVE_SLUG_COUNT: 4,
   REPRESENTATIVE_TITLE_COUNT: 5,
   REPRESENTATIVE_ORDER_COUNT: 4,
+  REPRESENTATIVE_ORDER_MIN: 10,
+  REPRESENTATIVE_ORDER_MAX: 99,
 } as const;
 
 export const SPEC_TREE_TEST_GENERATOR = {
@@ -68,7 +70,7 @@ export function createSource(entries: readonly SpecTreeSourceEntry[]): SpecTreeS
   };
 }
 
-export function buildRepresentativeFixture(registry: SpecTreeRegistry): RepresentativeEntries {
+export function buildRepresentativeFixture(registry: SpecTreeRegistry): RepresentativeSpecTreeFixture {
   return sampleSpecTreeTestValue(SPEC_TREE_TEST_GENERATOR.representativeFixture(registry));
 }
 
@@ -122,7 +124,7 @@ export function buildEvidenceEntry(
   };
 }
 
-function arbitraryRepresentativeFixture(registry: SpecTreeRegistry): fc.Arbitrary<RepresentativeEntries> {
+function arbitraryRepresentativeFixture(registry: SpecTreeRegistry): fc.Arbitrary<RepresentativeSpecTreeFixture> {
   return fc
     .record({
       ids: fc.uniqueArray(arbitrarySourceId(), {
@@ -137,10 +139,16 @@ function arbitraryRepresentativeFixture(registry: SpecTreeRegistry): fc.Arbitrar
         minLength: SPEC_TREE_TEST_GENERATOR_OPTIONS.REPRESENTATIVE_TITLE_COUNT,
         maxLength: SPEC_TREE_TEST_GENERATOR_OPTIONS.REPRESENTATIVE_TITLE_COUNT,
       }),
-      orders: fc.uniqueArray(arbitrarySourceOrder(), {
-        minLength: SPEC_TREE_TEST_GENERATOR_OPTIONS.REPRESENTATIVE_ORDER_COUNT,
-        maxLength: SPEC_TREE_TEST_GENERATOR_OPTIONS.REPRESENTATIVE_ORDER_COUNT,
-      }),
+      orders: fc.uniqueArray(
+        fc.integer({
+          min: SPEC_TREE_TEST_GENERATOR_OPTIONS.REPRESENTATIVE_ORDER_MIN,
+          max: SPEC_TREE_TEST_GENERATOR_OPTIONS.REPRESENTATIVE_ORDER_MAX,
+        }),
+        {
+          minLength: SPEC_TREE_TEST_GENERATOR_OPTIONS.REPRESENTATIVE_ORDER_COUNT,
+          maxLength: SPEC_TREE_TEST_GENERATOR_OPTIONS.REPRESENTATIVE_ORDER_COUNT,
+        },
+      ),
       productRef: arbitrarySourceRef(),
       rootRef: arbitrarySourceRef(),
     })

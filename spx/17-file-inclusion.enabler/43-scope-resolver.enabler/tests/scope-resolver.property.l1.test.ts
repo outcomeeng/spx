@@ -34,10 +34,10 @@ describe("scope resolver — properties", () => {
           fc.array(fc.string({ minLength: 1 }).filter((s) => !s.startsWith("/") && !s.includes(".."))),
           async (explicitPaths) => {
             const request = explicitPaths.length > 0
-              ? { explicit: explicitPaths, walkRoot: env.projectDir }
-              : { walkRoot: env.projectDir };
-            const first = await resolveScope(env.projectDir, request, resolverConfig);
-            const second = await resolveScope(env.projectDir, request, resolverConfig);
+              ? { explicit: explicitPaths, walkRoot: env.productDir }
+              : { walkRoot: env.productDir };
+            const first = await resolveScope(env.productDir, request, resolverConfig);
+            const second = await resolveScope(env.productDir, request, resolverConfig);
             expect(first.included.map((e) => e.path).sort()).toEqual(second.included.map((e) => e.path).sort());
             expect(first.excluded.map((e) => e.path).sort()).toEqual(second.excluded.map((e) => e.path).sort());
           },
@@ -53,7 +53,7 @@ describe("scope resolver — properties", () => {
         fc.string({ minLength: 1 }).filter((s) => !s.startsWith("/") && !s.includes("..")),
         async (path) => {
           await withTestEnv(integrationConfig, async (env) => {
-            const result = await resolveScope(env.projectDir, { explicit: [path] }, resolverConfig);
+            const result = await resolveScope(env.productDir, { explicit: [path] }, resolverConfig);
             const entry = result.included.find((e) => e.path === path);
             expect(entry, `scope.resolver.property absent from scope.included: ${path}`).toBeDefined();
             expect(entry!.decisionTrail[0]?.layer).toBe(EXPLICIT_OVERRIDE_LAYER);
@@ -68,7 +68,7 @@ describe("scope resolver — properties", () => {
     await withTestEnv(integrationConfig, async (env) => {
       await writeTestFiles(env);
       await writeExclude(env, [excludedNodeSegment]);
-      const result = await resolveScope(env.projectDir, { walkRoot: env.projectDir }, resolverConfig);
+      const result = await resolveScope(env.productDir, { walkRoot: env.productDir }, resolverConfig);
       const dummyCtx = makeLayerContext(resolverConfig);
       const layerIndexMap = new Map<string, number>(
         LAYER_SEQUENCE.map((entry, index): [string, number] => {
@@ -106,9 +106,9 @@ describe("scope resolver — properties", () => {
         extractConfig: () => ({}),
       };
 
-      const baseResult = await resolveScope(env.projectDir, { walkRoot: env.projectDir }, resolverConfig);
+      const baseResult = await resolveScope(env.productDir, { walkRoot: env.productDir }, resolverConfig);
       const baseExcluded = new Map(baseResult.excluded.map((e) => [e.path, e]));
-      const ignoreReader = createIgnoreSourceReader(env.projectDir, {
+      const ignoreReader = createIgnoreSourceReader(env.productDir, {
         ignoreSourceFilename: resolverConfig.ignoreSourceFilename,
         specTreeRootSegment: resolverConfig.specTreeRootSegment,
       });
@@ -121,8 +121,8 @@ describe("scope resolver — properties", () => {
         ];
         const extResult = await runPipeline(
           extended,
-          env.projectDir,
-          { walkRoot: env.projectDir },
+          env.productDir,
+          { walkRoot: env.productDir },
           resolverConfig,
           ignoreReader,
         );
@@ -161,9 +161,9 @@ describe("scope resolver — properties", () => {
         extractConfig: () => ({}),
       };
 
-      const baseResult = await resolveScope(env.projectDir, { walkRoot: env.projectDir }, resolverConfig);
+      const baseResult = await resolveScope(env.productDir, { walkRoot: env.productDir }, resolverConfig);
       const baseExcluded = new Map(baseResult.excluded.map((e) => [e.path, e]));
-      const ignoreReader = createIgnoreSourceReader(env.projectDir, {
+      const ignoreReader = createIgnoreSourceReader(env.productDir, {
         ignoreSourceFilename: resolverConfig.ignoreSourceFilename,
         specTreeRootSegment: resolverConfig.specTreeRootSegment,
       });
@@ -176,8 +176,8 @@ describe("scope resolver — properties", () => {
         ];
         const extResult = await runPipeline(
           extended,
-          env.projectDir,
-          { walkRoot: env.projectDir },
+          env.productDir,
+          { walkRoot: env.productDir },
           resolverConfig,
           ignoreReader,
         );
