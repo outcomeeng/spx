@@ -84,6 +84,23 @@ out of the JSON capture.
 
 ---
 
+## Repository-wide `dprint check .` drift
+
+`pnpm run format:check` failed on May 12, 2026 with 17 unrelated files that
+would be rewritten by `dprint fmt .`, including `eslint-rules/index.ts`,
+multiple `spx/16-config.enabler/**/tests/*.ts` files, session/audit legacy test
+files, and `pnpm-lock.yaml`.
+
+The active review-thread fix formatted its touched files directly with
+`pnpm exec dprint fmt <paths...>`, and the source validation gate passed. The
+repo-wide formatter drift is deferred because including the full cleanup would
+add broad lockfile and cross-node formatting churn to a targeted validation PR.
+
+**Revisit condition:** run as a dedicated formatter cleanup pass before making
+`pnpm run format:check` a required PR gate.
+
+---
+
 ## Resolved: PR 15 review follow-ups for validation metadata and markdown targets
 
 The review on
