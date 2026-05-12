@@ -45,6 +45,7 @@ export const ESLINT_COMMAND_TOKENS = {
   CURRENT_DIRECTORY: ".",
   FILE_SEPARATOR: "--",
   FIX_FLAG: "--fix",
+  IGNORE_PATTERN_FLAG: "--ignore-pattern",
 } as const;
 
 /**
@@ -89,7 +90,10 @@ export function buildEslintArgs(context: {
   // directory fallback keeps direct builder calls usable when no scope config
   // is available.
   const targetArgs = scope === VALIDATION_SCOPES.PRODUCTION && scopeConfig?.filePatterns.length
-    ? scopeConfig.filePatterns
+    ? [
+      ...scopeConfig.filePatterns,
+      ...scopeConfig.excludePatterns.flatMap((pattern) => [ESLINT_COMMAND_TOKENS.IGNORE_PATTERN_FLAG, pattern]),
+    ]
     : [ESLINT_COMMAND_TOKENS.CURRENT_DIRECTORY];
   return [
     ESLINT_COMMAND_TOKENS.COMMAND,
