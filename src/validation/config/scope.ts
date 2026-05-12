@@ -110,6 +110,8 @@ export function resolveTypeScriptConfig(
   if (config.extends) {
     const baseConfigs = normalizeExtends(config.extends)
       .map((extendedConfig) => parseTypeScriptConfig(resolveProjectPath(projectRoot, extendedConfig), deps));
+    // TypeScript applies later extended configs after earlier ones; include
+    // arrays replace instead of merge, so the last inherited include wins.
     const inheritedInclude = [...baseConfigs].reverse().find((baseConfig) => baseConfig.include !== undefined)?.include
       ?? [];
     return {
