@@ -4,7 +4,9 @@ import type { ProcessRunner } from "./types";
 
 export const MANAGED_SUBPROCESS_STDIO = "pipe";
 
-export type ManagedSubprocessSpawnOptions = Omit<SpawnOptions, "stdio">;
+export type ManagedSubprocessSpawnOptions = Omit<SpawnOptions, "stdio"> & {
+  readonly stdio?: never;
+};
 
 export function spawnManagedSubprocess(
   runner: ProcessRunner,
