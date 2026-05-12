@@ -45,8 +45,6 @@ export interface LiteralCommandOptions {
   readonly json?: boolean;
   readonly quiet?: boolean;
   readonly config?: LiteralConfig;
-  /** Override resolved enabled state when tests inject config directly. */
-  readonly enabled?: boolean;
   readonly pathConfig?: ValidationPathConfig;
 }
 
@@ -95,7 +93,7 @@ export async function literalCommand(
   let resolvedLiteralConfig: LiteralConfig;
   let resolvedPathConfig: ValidationPathConfig;
   if (options.config !== undefined) {
-    resolvedEnabled = options.enabled ?? validationConfigDescriptor.defaults.literal.enabled;
+    resolvedEnabled = validationConfigDescriptor.defaults.literal.enabled;
     resolvedLiteralConfig = options.config;
     resolvedPathConfig = options.pathConfig ?? validationConfigDescriptor.defaults.paths;
   } else {

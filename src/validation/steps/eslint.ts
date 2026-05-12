@@ -47,6 +47,8 @@ export const ESLINT_COMMAND_TOKENS = {
   FIX_FLAG: "--fix",
   IGNORE_PATTERN_FLAG: "--ignore-pattern",
 } as const;
+export const ESLINT_LOCAL_BIN_SEGMENTS = ["node_modules", ".bin", ESLINT_COMMAND_TOKENS.COMMAND] as const;
+export const ESLINT_EMPTY_PRODUCTION_SCOPE_ERROR = "ESLint production scope has no file patterns";
 
 /**
  * Build ESLint CLI arguments based on validation context.
@@ -86,14 +88,8 @@ export function buildEslintArgs(context: {
       ...validatedFiles,
     ];
   }
-  // Production scope normally supplies source-only patterns; the current
-  // directory fallback keeps direct builder calls usable when no scope config
-  // is available.
-  const targetArgs = scope === VALIDATION_SCOPES.PRODUCTION && scopeConfig?.filePatterns.length
-    ? [
-      ...scopeConfig.filePatterns,
-      ...scopeConfig.excludePatterns.flatMap((pattern) => [ESLINT_COMMAND_TOKENS.IGNORE_PATTERN_FLAG, pattern]),
-    ]
+  const targetArgs = scope === VALIDATION_SCOPES.PRODUCTION
+    ? buildProductionTargetArgs(scopeConfig)
     : [ESLINT_COMMAND_TOKENS.CURRENT_DIRECTORY];
   return [
     ESLINT_COMMAND_TOKENS.COMMAND,
@@ -101,6 +97,16 @@ export function buildEslintArgs(context: {
     ESLINT_COMMAND_TOKENS.CONFIG_FLAG,
     configFile,
     ...fixArg,
+  ];
+}
+
+function buildProductionTargetArgs(scopeConfig: ScopeConfig | undefined): string[] {
+  if (scopeConfig === undefined || scopeConfig.filePatterns.length === 0) {
+    throw new Error(ESLINT_EMPTY_PRODUCTION_SCOPE_ERROR);
+  }
+  return [
+    ...scopeConfig.filePatterns,
+    ...scopeConfig.excludePatterns.flatMap((pattern) => [ESLINT_COMMAND_TOKENS.IGNORE_PATTERN_FLAG, pattern]),
   ];
 }
 
@@ -138,16 +144,21 @@ export async function validateESLint(
     return { success: false, error: lintPolicy.error };
   }
 
-  return new Promise((resolve) => {
-    const eslintArgs = buildEslintArgs({
+  let eslintArgs: string[];
+  try {
+    eslintArgs = buildEslintArgs({
       validatedFiles,
       mode,
       configFile: eslintConfigFile,
       scope,
       scopeConfig: context.scopeConfig,
     });
+  } catch (error) {
+    return { success: false, error: error instanceof Error ? error.message : String(error) };
+  }
 
-    const localBin = join(projectRoot, "node_modules", ".bin", "eslint");
+  return new Promise((resolve) => {
+    const localBin = join(projectRoot, ...ESLINT_LOCAL_BIN_SEGMENTS);
     const binary = existsSync(localBin) ? localBin : "npx";
     const spawnArgs = binary === "npx" ? eslintArgs : eslintArgs.slice(1);
     const eslintProcess = spawnManagedSubprocess(runner, binary, spawnArgs, {
