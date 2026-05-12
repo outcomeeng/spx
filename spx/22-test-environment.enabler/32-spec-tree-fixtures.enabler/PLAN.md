@@ -60,4 +60,4 @@ The API sketch is illustrative. The implementation pass owns the exact type name
 - [x] No public test-environment API, spec assertion, or ADR prose uses legacy repository-root vocabulary.
 - [ ] Filesystem and in-memory fixture paths are generated from the same fixture model.
 - [x] Every materialized fixture is accepted by `readSpecTree`.
-- [ ] Every helper that writes files remains constrained to the temp product directory.
+- [x] Every helper that writes files remains constrained to the temp product directory.

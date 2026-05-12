@@ -19,3 +19,4 @@ CAN build valid spec-tree inputs without hand-written directory trees or test-ow
 
 - ALWAYS: shared spec-tree fixture values live in top-level test infrastructure, not in node-local support files reused across multiple test files ([test](tests/spec-tree-fixtures.mapping.l1.test.ts))
 - ALWAYS: fixture generation receives kind vocabulary through an injected registry ([test](tests/spec-tree-fixtures.mapping.l1.test.ts))
+- ALWAYS: materialized fixture paths remain constrained to the temp product directory ([test](tests/spec-tree-env-safety.compliance.l1.test.ts))

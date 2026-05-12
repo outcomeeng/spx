@@ -123,30 +123,37 @@ export async function withSpecTreeEnv(
   const fixture = options.fixture ?? buildRepresentativeFixture(registry);
 
   await withTestEnv(config, async (env) => {
-    const currentEnv = {} as CurrentSpecTreeEnv;
-    Object.defineProperties(currentEnv, Object.getOwnPropertyDescriptors(env));
-    Object.assign(currentEnv, {
-      fixture,
-      memorySource: (sourceFixture = fixture) => createSource(sourceFixture.entries),
-      filesystemSource: () => createFilesystemSpecTreeSource({ projectRoot: env.productDir, registry }),
-      materialize: (sourceFixture = fixture) => materializeSpecTreeFixture(env, registry, sourceFixture),
-      readMemorySnapshot: (sourceFixture = fixture) =>
-        readSpecTree({ source: createSource(sourceFixture.entries), registry }),
-      readFilesystemSnapshot: () =>
+    const currentEnv = Object.create(Object.prototype, {
+      ...Object.getOwnPropertyDescriptors(env),
+      fixture: valueDescriptor(fixture),
+      memorySource: valueDescriptor((sourceFixture = fixture) => createSource(sourceFixture.entries)),
+      filesystemSource: valueDescriptor(() =>
+        createFilesystemSpecTreeSource({ projectRoot: env.productDir, registry })
+      ),
+      materialize: valueDescriptor((sourceFixture = fixture) =>
+        materializeSpecTreeFixture(env, registry, sourceFixture)
+      ),
+      readMemorySnapshot: valueDescriptor((sourceFixture = fixture) =>
+        readSpecTree({ source: createSource(sourceFixture.entries), registry })
+      ),
+      readFilesystemSnapshot: valueDescriptor(() =>
         readSpecTree({
           source: createFilesystemSpecTreeSource({ projectRoot: env.productDir, registry }),
           registry,
-        }),
-      projectMemory: async (sourceFixture = fixture) =>
-        projectSpecTree(await readSpecTree({ source: createSource(sourceFixture.entries), registry })),
-      projectFilesystem: async () =>
+        })
+      ),
+      projectMemory: valueDescriptor(async (sourceFixture = fixture) =>
+        projectSpecTree(await readSpecTree({ source: createSource(sourceFixture.entries), registry }))
+      ),
+      projectFilesystem: valueDescriptor(async () =>
         projectSpecTree(
           await readSpecTree({
             source: createFilesystemSpecTreeSource({ projectRoot: env.productDir, registry }),
             registry,
           }),
-        ),
-    });
+        )
+      ),
+    }) as CurrentSpecTreeEnv;
 
     await callback(currentEnv);
   });
@@ -182,6 +189,15 @@ export function arbitrarySpecTree(config: Config): fc.Arbitrary<SpecTreeFixture>
 }
 
 type KindEntry = { readonly kind: string; readonly suffix: string };
+
+function valueDescriptor<T>(value: T): PropertyDescriptor {
+  return {
+    value,
+    enumerable: true,
+    writable: false,
+    configurable: false,
+  };
+}
 
 function readKinds(config: Config, category: SpecTreeKindCategory): readonly KindEntry[] {
   const specTree = config[SPEC_TREE_CONFIG.SECTION] as SpecTreeConfig | undefined;
