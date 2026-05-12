@@ -89,10 +89,7 @@ function getTypeScriptExclusions(configFile: string, seen: ReadonlySet<string> =
   }
 }
 
-// Determine TypeScript config file based on mode
-// Use ESLINT_PRODUCTION_ONLY=1 to lint only production files
-const isBuildOnly = process.env.ESLINT_PRODUCTION_ONLY === "1";
-const typescriptConfigFile = isBuildOnly ? "./tsconfig.production.json" : "./tsconfig.json";
+const typescriptConfigFile = "./tsconfig.json";
 // Always read TypeScript exclusions - tsconfig.json is the single source of truth
 const tsExclusions = getTypeScriptExclusions(typescriptConfigFile);
 const testLintDebtNodePaths = readManifest(

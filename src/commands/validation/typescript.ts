@@ -51,7 +51,7 @@ export async function typescriptCommand(options: TypeScriptCommandOptions): Prom
   }
 
   // Get scope configuration from tsconfig
-  const scopeConfig = getTypeScriptScope(scope);
+  const scopeConfig = getTypeScriptScope(scope, cwd);
 
   // Run TypeScript validation
   const result = await validateTypeScript(scope, scopeConfig, files);

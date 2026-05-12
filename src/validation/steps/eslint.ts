@@ -11,7 +11,7 @@ import { join } from "node:path";
 
 import { lifecycleProcessRunner, type ProcessRunner, spawnManagedSubprocess } from "@/lib/process-lifecycle";
 import { validateLintPolicy } from "@/validation/lint-policy";
-import type { ExecutionMode, ValidationContext } from "../types";
+import type { ExecutionMode, ScopeConfig, ValidationContext, ValidationScope } from "../types";
 import { EXECUTION_MODES, VALIDATION_SCOPES } from "../types";
 import {
   defaultValidationSubprocessOutputStreams,
@@ -69,8 +69,10 @@ export function buildEslintArgs(context: {
   validatedFiles?: string[];
   mode?: ExecutionMode;
   configFile?: string;
+  scope?: ValidationScope;
+  scopeConfig?: ScopeConfig;
 }): string[] {
-  const { validatedFiles, mode, configFile = DEFAULT_ESLINT_CONFIG_FILE } = context;
+  const { validatedFiles, mode, configFile = DEFAULT_ESLINT_CONFIG_FILE, scope, scopeConfig } = context;
   const fixArg = mode === EXECUTION_MODES.WRITE ? [ESLINT_COMMAND_TOKENS.FIX_FLAG] : [];
 
   if (validatedFiles && validatedFiles.length > 0) {
@@ -83,9 +85,12 @@ export function buildEslintArgs(context: {
       ...validatedFiles,
     ];
   }
+  const targetArgs = scope === VALIDATION_SCOPES.PRODUCTION && scopeConfig?.filePatterns.length
+    ? scopeConfig.filePatterns
+    : [ESLINT_COMMAND_TOKENS.CURRENT_DIRECTORY];
   return [
     ESLINT_COMMAND_TOKENS.COMMAND,
-    ESLINT_COMMAND_TOKENS.CURRENT_DIRECTORY,
+    ...targetArgs,
     ESLINT_COMMAND_TOKENS.CONFIG_FLAG,
     configFile,
     ...fixArg,
@@ -127,18 +132,12 @@ export async function validateESLint(
   }
 
   return new Promise((resolve) => {
-    if (!validatedFiles || validatedFiles.length === 0) {
-      if (scope === VALIDATION_SCOPES.PRODUCTION) {
-        process.env.ESLINT_PRODUCTION_ONLY = "1";
-      } else {
-        delete process.env.ESLINT_PRODUCTION_ONLY;
-      }
-    }
-
     const eslintArgs = buildEslintArgs({
       validatedFiles,
       mode,
       configFile: eslintConfigFile,
+      scope,
+      scopeConfig: context.scopeConfig,
     });
 
     const localBin = join(projectRoot, "node_modules", ".bin", "eslint");
@@ -161,30 +160,4 @@ export async function validateESLint(
       resolve({ success: false, error: error.message });
     });
   });
-}
-
-// =============================================================================
-// ENVIRONMENT CHECK
-// =============================================================================
-
-/**
- * Check if a validation type is enabled via environment variable.
- *
- * @param envVarKey - Validation key (TYPESCRIPT, ESLINT, KNIP)
- * @param defaults - Default enabled states
- * @returns True if the validation is enabled
- */
-export function validationEnabled(
-  envVarKey: string,
-  defaults: Record<string, boolean> = {},
-): boolean {
-  const envVar = `${envVarKey}_VALIDATION_ENABLED`;
-  const explicitlyDisabled = process.env[envVar] === "0";
-  const explicitlyEnabled = process.env[envVar] === "1";
-
-  const defaultValue = defaults[envVarKey] ?? true;
-  if (defaultValue) {
-    return !explicitlyDisabled;
-  }
-  return explicitlyEnabled;
 }

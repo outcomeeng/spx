@@ -15,6 +15,7 @@ import {
 import { VALIDATION_SUBPROCESS_EVENTS, type ValidationWritableStream } from "@/validation/steps/subprocess-output";
 import { EXECUTION_MODES, VALIDATION_SCOPES, type ValidationContext } from "@/validation/types";
 import { LITERAL_TEST_GENERATOR, sampleLiteralTestValue } from "@testing/generators/literal/literal";
+import { VALIDATION_PIPELINE_DATA } from "@testing/generators/validation/validation";
 
 class RecordingWritable implements ValidationWritableStream {
   readonly chunks: string[] = [];
@@ -101,6 +102,24 @@ describe("ESLint command arguments", () => {
       ESLINT_COMMAND_TOKENS.CONFIG_FLAG,
       DEFAULT_ESLINT_CONFIG_FILE,
       ESLINT_COMMAND_TOKENS.FIX_FLAG,
+    ]);
+  });
+
+  it("passes production scope patterns as ESLint targets without process environment state", () => {
+    const args = buildEslintArgs({
+      scope: VALIDATION_SCOPES.PRODUCTION,
+      scopeConfig: {
+        directories: [VALIDATION_PIPELINE_DATA.sourceDirectoryName],
+        excludePatterns: [],
+        filePatterns: [VALIDATION_PIPELINE_DATA.productionScopeFilePattern],
+      },
+    });
+
+    expect(args).toStrictEqual([
+      ESLINT_COMMAND_TOKENS.COMMAND,
+      VALIDATION_PIPELINE_DATA.productionScopeFilePattern,
+      ESLINT_COMMAND_TOKENS.CONFIG_FLAG,
+      DEFAULT_ESLINT_CONFIG_FILE,
     ]);
   });
 
