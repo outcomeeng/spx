@@ -40,6 +40,13 @@ export interface LifecycleHandlerDeps {
   readonly exitController: ExitController;
 }
 
+/**
+ * Injectable process boundary for domains that launch child processes.
+ *
+ * Production callers use the lifecycle runner so asynchronously spawned child
+ * handles are registered for signal and EPIPE cleanup. Tests provide recording
+ * runners instead of replacing Node's spawn primitive.
+ */
 export interface ProcessRunner {
   spawn(command: string, args: readonly string[], options?: SpawnOptions): ChildProcess;
 }

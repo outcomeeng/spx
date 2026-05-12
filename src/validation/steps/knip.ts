@@ -21,6 +21,11 @@ import type { ScopeConfig } from "../types";
  */
 export const defaultKnipProcessRunner: ProcessRunner = lifecycleProcessRunner;
 
+export interface KnipValidationContext {
+  readonly projectRoot: string;
+  readonly typescriptScope: ScopeConfig;
+}
+
 // =============================================================================
 // VALIDATION FUNCTION
 // =============================================================================
@@ -28,27 +33,27 @@ export const defaultKnipProcessRunner: ProcessRunner = lifecycleProcessRunner;
 /**
  * Validate unused code using knip with TypeScript-derived scope.
  *
- * @param scope - Validation scope
- * @param typescriptScope - Scope configuration from tsconfig
+ * @param context - Knip validation context
  * @param runner - Injectable process runner
  * @returns Promise resolving to validation result
  *
  * @example
  * ```typescript
- * const result = await validateKnip("full", scopeConfig);
+ * const result = await validateKnip({ projectRoot, typescriptScope: scopeConfig });
  * if (!result.success) {
  *   console.error("Knip found issues:", result.error);
  * }
  * ```
  */
 export async function validateKnip(
-  typescriptScope: ScopeConfig,
+  context: KnipValidationContext,
   runner: ProcessRunner = defaultKnipProcessRunner,
 ): Promise<{
   success: boolean;
   error?: string;
 }> {
   try {
+    const { projectRoot, typescriptScope } = context;
     // Use TypeScript-derived directories for perfect scope alignment
     const analyzeDirectories = typescriptScope.directories;
 
@@ -57,10 +62,10 @@ export async function validateKnip(
     }
 
     return new Promise((resolve) => {
-      const localBin = join(process.cwd(), "node_modules", ".bin", "knip");
+      const localBin = join(projectRoot, "node_modules", ".bin", "knip");
       const binary = existsSync(localBin) ? localBin : "npx";
       const knipProcess = spawnManagedSubprocess(runner, binary, binary === "npx" ? ["knip"] : [], {
-        cwd: process.cwd(),
+        cwd: projectRoot,
       });
 
       let knipOutput = "";
