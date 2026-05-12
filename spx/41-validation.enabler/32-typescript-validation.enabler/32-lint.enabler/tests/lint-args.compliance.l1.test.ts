@@ -13,7 +13,6 @@ import {
   buildEslintArgs,
   DEFAULT_ESLINT_CONFIG_FILE,
   ESLINT_COMMAND_TOKENS,
-  ESLINT_EMPTY_PRODUCTION_SCOPE_ERROR,
   ESLINT_LOCAL_BIN_SEGMENTS,
   validateESLint,
 } from "@/validation/steps/eslint";
@@ -154,18 +153,24 @@ describe("ESLint command arguments", () => {
     ]);
   });
 
-  it("rejects production scope without TypeScript file patterns", () => {
-    const build = () =>
-      buildEslintArgs({
-        scope: VALIDATION_SCOPES.PRODUCTION,
-        scopeConfig: {
-          directories: [VALIDATION_PIPELINE_DATA.sourceDirectoryName],
-          excludePatterns: [],
-          filePatterns: [],
-        },
-      });
+  it("uses ESLint current-directory target for implicit TypeScript include scope", () => {
+    const args = buildEslintArgs({
+      scope: VALIDATION_SCOPES.PRODUCTION,
+      scopeConfig: {
+        directories: [VALIDATION_PIPELINE_DATA.sourceDirectoryName],
+        excludePatterns: [VALIDATION_PIPELINE_DATA.productionScopeExcludePattern],
+        filePatterns: [],
+      },
+    });
 
-    expect(build).toThrow(ESLINT_EMPTY_PRODUCTION_SCOPE_ERROR);
+    expect(args).toStrictEqual([
+      ESLINT_COMMAND_TOKENS.COMMAND,
+      ESLINT_COMMAND_TOKENS.CURRENT_DIRECTORY,
+      ESLINT_COMMAND_TOKENS.IGNORE_PATTERN_FLAG,
+      VALIDATION_PIPELINE_DATA.productionScopeExcludePattern,
+      ESLINT_COMMAND_TOKENS.CONFIG_FLAG,
+      DEFAULT_ESLINT_CONFIG_FILE,
+    ]);
   });
 
   it("runs lint command from the requested project root", async () => {

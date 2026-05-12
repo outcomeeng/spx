@@ -48,7 +48,6 @@ export const ESLINT_COMMAND_TOKENS = {
   IGNORE_PATTERN_FLAG: "--ignore-pattern",
 } as const;
 export const ESLINT_LOCAL_BIN_SEGMENTS = ["node_modules", ".bin", ESLINT_COMMAND_TOKENS.COMMAND] as const;
-export const ESLINT_EMPTY_PRODUCTION_SCOPE_ERROR = "ESLint production scope has no file patterns";
 
 /**
  * Build ESLint CLI arguments based on validation context.
@@ -103,12 +102,12 @@ export function buildEslintArgs(context: {
 }
 
 function buildProductionTargetArgs(scopeConfig: ScopeConfig | undefined): string[] {
-  if (scopeConfig === undefined || scopeConfig.filePatterns.length === 0) {
-    throw new Error(ESLINT_EMPTY_PRODUCTION_SCOPE_ERROR);
-  }
+  const targetPatterns = scopeConfig?.filePatterns.length
+    ? scopeConfig.filePatterns
+    : [ESLINT_COMMAND_TOKENS.CURRENT_DIRECTORY];
   return [
-    ...scopeConfig.filePatterns,
-    ...scopeConfig.excludePatterns.flatMap((pattern) => [ESLINT_COMMAND_TOKENS.IGNORE_PATTERN_FLAG, pattern]),
+    ...targetPatterns,
+    ...(scopeConfig?.excludePatterns ?? []).flatMap((pattern) => [ESLINT_COMMAND_TOKENS.IGNORE_PATTERN_FLAG, pattern]),
   ];
 }
 
