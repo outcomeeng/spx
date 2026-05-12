@@ -1,48 +1,20 @@
-import type { ChildProcess, SpawnOptions } from "node:child_process";
-import { EventEmitter } from "node:events";
+import type { SpawnOptions } from "node:child_process";
 import { dirname } from "node:path";
-import { PassThrough } from "node:stream";
 
 import { describe, expect, it } from "vitest";
 
-import { VALIDATION_EXIT_CODES } from "@/commands/validation/messages";
 import {
   lifecycleProcessRunner,
   MANAGED_SUBPROCESS_STDIO,
   type ManagedSubprocessSpawnOptions,
-  type ProcessRunner,
   spawnManagedSubprocess,
 } from "@/lib/process-lifecycle";
 import { DEFAULT_ESLINT_CONFIG_FILE, defaultEslintProcessRunner, validateESLint } from "@/validation/steps/eslint";
 import { defaultKnipProcessRunner, validateKnip } from "@/validation/steps/knip";
-import { VALIDATION_SUBPROCESS_EVENTS } from "@/validation/steps/subprocess-output";
 import { defaultTypeScriptProcessRunner, validateTypeScript } from "@/validation/steps/typescript";
 import { EXECUTION_MODES, type ScopeConfig, VALIDATION_SCOPES, type ValidationContext } from "@/validation/types";
 import { LITERAL_TEST_GENERATOR, sampleLiteralTestValue } from "@testing/generators/literal/literal";
-
-class RecordingValidationChild extends EventEmitter {
-  readonly stdout = new PassThrough();
-  readonly stderr = new PassThrough();
-
-  closeSuccessfully(): void {
-    this.emit(VALIDATION_SUBPROCESS_EVENTS.CLOSE, VALIDATION_EXIT_CODES.SUCCESS);
-  }
-
-  asChildProcess(): ChildProcess {
-    return this as unknown as ChildProcess;
-  }
-}
-
-class RecordingSpawnOptionsRunner implements ProcessRunner {
-  spawnOptions: SpawnOptions | undefined;
-
-  spawn(_command: string, _args: readonly string[], options?: SpawnOptions): ChildProcess {
-    this.spawnOptions = options;
-    const child = new RecordingValidationChild();
-    queueMicrotask(() => child.closeSuccessfully());
-    return child.asChildProcess();
-  }
-}
+import { RecordingSpawnOptionsRunner } from "@testing/harnesses/validation/subprocess";
 
 function createValidationScopeConfig(): ScopeConfig {
   const sourcePath = sampleLiteralTestValue(LITERAL_TEST_GENERATOR.sourceFilePath());

@@ -9,6 +9,7 @@ import { describe, expect, it } from "vitest";
 import { lintCommand } from "@/commands/validation/lint";
 import { VALIDATION_EXIT_CODES } from "@/commands/validation/messages";
 import type { ProcessRunner } from "@/lib/process-lifecycle";
+import { TSCONFIG_FILES } from "@/validation/config/scope";
 import {
   buildEslintArgs,
   DEFAULT_ESLINT_CONFIG_FILE,
@@ -118,6 +119,24 @@ describe("ESLint command arguments", () => {
     ]);
   });
 
+  it("passes fix mode through when explicit file scope is supplied", () => {
+    const validatedFile = sampleLiteralTestValue(LITERAL_TEST_GENERATOR.sourceFilePath());
+    const args = buildEslintArgs({
+      scope: VALIDATION_SCOPES.FULL,
+      mode: EXECUTION_MODES.WRITE,
+      validatedFiles: [validatedFile],
+    });
+
+    expect(args).toStrictEqual([
+      ESLINT_COMMAND_TOKENS.COMMAND,
+      ESLINT_COMMAND_TOKENS.CONFIG_FLAG,
+      DEFAULT_ESLINT_CONFIG_FILE,
+      ESLINT_COMMAND_TOKENS.FIX_FLAG,
+      ESLINT_COMMAND_TOKENS.FILE_SEPARATOR,
+      validatedFile,
+    ]);
+  });
+
   it("passes fix mode through as the only optional ESLint behavior flag", () => {
     const args = buildEslintArgs({
       scope: VALIDATION_SCOPES.FULL,
@@ -188,6 +207,37 @@ describe("ESLint command arguments", () => {
 
       expect(result.exitCode).toBe(VALIDATION_EXIT_CODES.SUCCESS);
       expect((await env.readFile("eslint-cwd.txt")).trim()).toBe(await realpath(env.projectDir));
+    });
+  });
+
+  it("passes production ESLint ignore patterns to the spawned binary", async () => {
+    await withTestEnv({}, async (env) => {
+      await env.writeRaw("tsconfig.json", JSON.stringify({ include: [VALIDATION_PIPELINE_DATA.sourceDirectoryName] }));
+      await env.writeRaw(
+        TSCONFIG_FILES.production,
+        JSON.stringify({
+          include: [VALIDATION_PIPELINE_DATA.productionScopeFilePattern],
+          exclude: [VALIDATION_PIPELINE_DATA.productionScopeExcludePattern],
+        }),
+      );
+      await env.writeRaw("eslint.config.ts", "export default [];\n");
+      await env.writeRaw("src/index.ts", "export const lintCommandProjectRoot = 1;\n");
+      await env.writeRaw(
+        join(...ESLINT_LOCAL_BIN_SEGMENTS),
+        "#!/bin/sh\nprintf '%s\\n' \"$@\" > eslint-args.txt\nexit 0\n",
+      );
+      await chmod(join(env.projectDir, ...ESLINT_LOCAL_BIN_SEGMENTS), 0o755);
+
+      const result = await lintCommand({ cwd: env.projectDir, scope: VALIDATION_SCOPES.PRODUCTION, quiet: true });
+
+      expect(result.exitCode).toBe(VALIDATION_EXIT_CODES.SUCCESS);
+      expect((await env.readFile("eslint-args.txt")).trim().split("\n")).toStrictEqual([
+        VALIDATION_PIPELINE_DATA.productionScopeFilePattern,
+        ESLINT_COMMAND_TOKENS.IGNORE_PATTERN_FLAG,
+        VALIDATION_PIPELINE_DATA.productionScopeExcludePattern,
+        ESLINT_COMMAND_TOKENS.CONFIG_FLAG,
+        DEFAULT_ESLINT_CONFIG_FILE,
+      ]);
     });
   });
 
