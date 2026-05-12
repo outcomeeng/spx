@@ -30,11 +30,12 @@ Alternatives considered:
 
 ## Trade-offs accepted
 
-| Trade-off                                            | Mitigation / reasoning                                                                                         |
-| ---------------------------------------------------- | -------------------------------------------------------------------------------------------------------------- |
-| Validation config has both global and per-tool paths | The nesting mirrors the distinction between wrapper-wide policy and stage-specific policy                      |
-| Shell users lose hidden environment toggles          | Declared config files, explicit command flags, and committed project state make validation behavior reviewable |
-| SPX config and tool config both influence execution  | Tool config owns maximum surface; SPX config owns wrapper narrowing and stage participation                    |
+| Trade-off                                                                                | Mitigation / reasoning                                                                                           |
+| ---------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------- |
+| Validation config has both global and per-tool paths                                     | The nesting mirrors the distinction between wrapper-wide policy and stage-specific policy                        |
+| Shell users lose hidden environment toggles                                              | Declared config files, explicit command flags, and committed project state make validation behavior reviewable   |
+| SPX config and tool config both influence execution                                      | Tool config owns maximum surface; SPX config owns wrapper narrowing and stage participation                      |
+| Production ESLint passes target patterns instead of swapping the TypeScript project file | Type-aware rules load the full project context while reported diagnostics stay narrowed by the SPX wrapper scope |
 
 ## Invariants
 
