@@ -17,7 +17,8 @@ export const SPEC_DOMAIN_CLI = {
   NEXT_COMMAND: "next",
   APPLY_COMMAND: "apply",
   JSON_OPTION: "--json",
-  FORMAT_OPTION: "--format",
+  FORMAT_OPTION_FLAG: "--format",
+  FORMAT_OPTION_DEFINITION: "--format <format>",
 } as const;
 
 export const SPEC_STATUS_FORMAT_MESSAGE = {
@@ -61,7 +62,7 @@ function registerSpecCommands(specCmd: Command): void {
     .command(SPEC_DOMAIN_CLI.STATUS_COMMAND)
     .description("Get product status")
     .option(SPEC_DOMAIN_CLI.JSON_OPTION, "Output as JSON")
-    .option(`${SPEC_DOMAIN_CLI.FORMAT_OPTION} <format>`, "Output format (text|json|markdown|table)")
+    .option(SPEC_DOMAIN_CLI.FORMAT_OPTION_DEFINITION, "Output format (text|json|markdown|table)")
     .action(async (options: { json?: boolean; format?: string }) => {
       try {
         const output = await statusCommand({

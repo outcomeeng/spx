@@ -123,21 +123,9 @@ export async function withSpecTreeEnv(
   const fixture = options.fixture ?? buildRepresentativeFixture(registry);
 
   await withTestEnv(config, async (env) => {
-    const currentEnv: CurrentSpecTreeEnv = {
-      productDir: env.productDir,
-      writeNode: env.writeNode,
-      writeDecision: env.writeDecision,
-      writeRaw: env.writeRaw,
-      readFile: env.readFile,
-      get arbitraryNodePath() {
-        return env.arbitraryNodePath;
-      },
-      get arbitraryDecisionPath() {
-        return env.arbitraryDecisionPath;
-      },
-      get arbitrarySpecTree() {
-        return env.arbitrarySpecTree;
-      },
+    const currentEnv = Object.create(Object.getPrototypeOf(env)) as CurrentSpecTreeEnv;
+    Object.defineProperties(currentEnv, Object.getOwnPropertyDescriptors(env));
+    Object.assign(currentEnv, {
       fixture,
       memorySource: (sourceFixture = fixture) => createSource(sourceFixture.entries),
       filesystemSource: () => createFilesystemSpecTreeSource({ projectRoot: env.productDir, registry }),
@@ -158,7 +146,7 @@ export async function withSpecTreeEnv(
             registry,
           }),
         ),
-    };
+    });
 
     await callback(currentEnv);
   });

@@ -50,7 +50,7 @@ describe("spx spec process contract", () => {
         env.productDir,
         SPEC_DOMAIN_CLI.COMMAND,
         SPEC_DOMAIN_CLI.STATUS_COMMAND,
-        SPEC_DOMAIN_CLI.FORMAT_OPTION,
+        SPEC_DOMAIN_CLI.FORMAT_OPTION_FLAG,
         "invalid",
       );
 
@@ -67,7 +67,7 @@ describe("spx spec process contract", () => {
         env.productDir,
         SPEC_DOMAIN_CLI.COMMAND,
         SPEC_DOMAIN_CLI.STATUS_COMMAND,
-        SPEC_DOMAIN_CLI.FORMAT_OPTION,
+        SPEC_DOMAIN_CLI.FORMAT_OPTION_FLAG,
         OUTPUT_FORMAT.JSON,
       );
 

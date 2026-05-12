@@ -1,41 +1,28 @@
 import { describe, expect, it } from "vitest";
 
 import { OUTPUT_FORMAT, SPEC_STATUS_TABLE_HEADER, statusCommand } from "@/commands/spec/status";
-import { SPEC_TREE_ENTRY_TYPE, SPEC_TREE_NODE_STATE } from "@/lib/spec-tree";
+import { SPEC_TREE_NODE_STATE } from "@/lib/spec-tree";
 import { KIND_REGISTRY } from "@/lib/spec-tree/config";
-import {
-  createSource,
-  sampleNodeKind,
-  sampleSpecTreeTestValue,
-  SPEC_TREE_TEST_GENERATOR,
-} from "@testing/generators/spec-tree/spec-tree";
+import { buildRepresentativeFixture, createSource } from "@testing/generators/spec-tree/spec-tree";
 
 describe("spec status rendering", () => {
   it("maps spec-tree projections to text, table, and markdown output", async () => {
-    const nodeKind = sampleNodeKind(KIND_REGISTRY);
-    const nodeOrder = sampleSpecTreeTestValue(SPEC_TREE_TEST_GENERATOR.sourceOrder());
-    const nodeSlug = sampleSpecTreeTestValue(SPEC_TREE_TEST_GENERATOR.sourceSlug());
-    const nodeId = `${nodeOrder}-${nodeSlug}${KIND_REGISTRY[nodeKind].suffix}`;
-    const source = createSource([
-      {
-        type: SPEC_TREE_ENTRY_TYPE.NODE,
-        id: nodeId,
-        kind: nodeKind,
-        order: nodeOrder,
-        slug: nodeSlug,
-      },
-    ]);
+    const fixture = buildRepresentativeFixture(KIND_REGISTRY);
+    const source = createSource([fixture.root, fixture.child]);
 
     const text = await statusCommand({ source });
     const table = await statusCommand({ source, format: OUTPUT_FORMAT.TABLE });
     const markdown = await statusCommand({ source, format: OUTPUT_FORMAT.MARKDOWN });
 
-    expect(text).toContain(KIND_REGISTRY[nodeKind].label);
-    expect(text).toContain(nodeId);
+    expect(text).toContain(KIND_REGISTRY[fixture.root.kind].label);
+    expect(text).toContain(fixture.root.id);
+    expect(text).toContain(fixture.child.id);
     expect(text).toContain(SPEC_TREE_NODE_STATE.DECLARED);
     expect(table).toContain(SPEC_STATUS_TABLE_HEADER);
-    expect(table).toContain(nodeId);
-    expect(markdown).toContain(`- ${KIND_REGISTRY[nodeKind].label}`);
-    expect(markdown).toContain(nodeId);
+    expect(table).toContain(fixture.root.id);
+    expect(table).toContain(fixture.child.id);
+    expect(markdown).toContain(`- ${KIND_REGISTRY[fixture.root.kind].label}`);
+    expect(markdown).toContain(fixture.root.id);
+    expect(markdown).toContain(fixture.child.id);
   });
 });
