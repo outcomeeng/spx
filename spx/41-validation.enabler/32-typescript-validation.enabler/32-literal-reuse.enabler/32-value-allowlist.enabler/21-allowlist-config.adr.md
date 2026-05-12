@@ -26,7 +26,7 @@ The built-in preset `"web"` bundles strings common to web-framework boilerplate:
 
 The `"values"` nesting reserves the `"literal"` namespace for additional literal-reuse subsections (e.g., a future per-tool path filter at `validation.literal.paths.{exclude,include}` mirroring the global `validation.paths` semantic). The value allowlist is one such subsection.
 
-`literalCommand` loads the project config via `resolveConfig(projectRoot, [validationConfigDescriptor])`, extracts the resolved `ValidationConfig` from the `"validation"` section, and passes the `literal.values` and `paths` subsections to `validateLiteralReuse` before any file is walked. When `resolveConfig` returns an error, `literalCommand` exits non-zero with the error message and does not proceed to detection. `LiteralCommandOptions` accepts an optional `config?: LiteralConfig` (the value allowlist content) and `pathConfig?: ValidationPathConfig` for dependency injection in tests; when provided, `literalCommand` bypasses `resolveConfig`.
+`literalCommand` loads the project config via `resolveConfig(projectRoot, [validationConfigDescriptor])`, extracts the resolved `ValidationConfig` from the `"validation"` section, and passes the `literal.values` and `paths` subsections to `validateLiteralReuse` before any file is walked. When `resolveConfig` returns an error, `literalCommand` exits non-zero with the error message and does not proceed to detection. `LiteralCommandOptions` accepts optional `enabled?: boolean`, `config?: LiteralConfig` (the value allowlist content), and `pathConfig?: ValidationPathConfig` for dependency injection in tests; when provided, `literalCommand` bypasses `resolveConfig`.
 
 ## Rationale
 
