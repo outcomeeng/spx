@@ -57,7 +57,7 @@ export const defaultScopeDeps: ScopeDeps = {
 interface TypeScriptConfig {
   include?: string[];
   exclude?: string[];
-  extends?: string;
+  extends?: string | string[];
 }
 
 function resolveProjectPath(projectRoot: string, path: string): string {
@@ -108,10 +108,16 @@ export function resolveTypeScriptConfig(
   const config = parseTypeScriptConfig(resolveProjectPath(projectRoot, configFile), deps);
 
   if (config.extends) {
-    const baseConfig = parseTypeScriptConfig(resolveProjectPath(projectRoot, config.extends), deps);
+    const baseConfigs = normalizeExtends(config.extends)
+      .map((extendedConfig) => parseTypeScriptConfig(resolveProjectPath(projectRoot, extendedConfig), deps));
+    const inheritedInclude = [...baseConfigs].reverse().find((baseConfig) => baseConfig.include !== undefined)?.include
+      ?? [];
     return {
-      include: config.include ?? baseConfig.include ?? [],
-      exclude: [...(baseConfig.exclude ?? []), ...(config.exclude ?? [])],
+      include: config.include ?? inheritedInclude,
+      exclude: [
+        ...baseConfigs.flatMap((baseConfig) => baseConfig.exclude ?? []),
+        ...(config.exclude ?? []),
+      ],
     };
   }
 
@@ -119,6 +125,10 @@ export function resolveTypeScriptConfig(
     include: config.include ?? [],
     exclude: config.exclude ?? [],
   };
+}
+
+function normalizeExtends(extendsConfig: string | string[]): readonly string[] {
+  return Array.isArray(extendsConfig) ? extendsConfig : [extendsConfig];
 }
 
 /**
