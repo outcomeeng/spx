@@ -86,7 +86,10 @@ describe("ALWAYS: TypeScript scope resolution uses the requested project root", 
     await withTestEnv({}, async (env) => {
       await env.writeRaw(
         "base-includes.json",
-        JSON.stringify({ include: [VALIDATION_PIPELINE_DATA.productionScopeFilePattern] }),
+        JSON.stringify({
+          exclude: [VALIDATION_PIPELINE_DATA.sourceDirectoryName],
+          include: [VALIDATION_PIPELINE_DATA.productionScopeFilePattern],
+        }),
       );
       await env.writeRaw(
         "base-excludes.json",

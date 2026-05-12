@@ -111,15 +111,15 @@ export function resolveTypeScriptConfig(
     const baseConfigs = normalizeExtends(config.extends)
       .map((extendedConfig) => parseTypeScriptConfig(resolveProjectPath(projectRoot, extendedConfig), deps));
     // TypeScript applies later extended configs after earlier ones; include
-    // arrays replace instead of merge, so the last inherited include wins.
+    // and exclude arrays replace instead of merge, so the last inherited
+    // field wins.
     const inheritedInclude = [...baseConfigs].reverse().find((baseConfig) => baseConfig.include !== undefined)?.include
+      ?? [];
+    const inheritedExclude = [...baseConfigs].reverse().find((baseConfig) => baseConfig.exclude !== undefined)?.exclude
       ?? [];
     return {
       include: config.include ?? inheritedInclude,
-      exclude: [
-        ...baseConfigs.flatMap((baseConfig) => baseConfig.exclude ?? []),
-        ...(config.exclude ?? []),
-      ],
+      exclude: config.exclude ?? inheritedExclude,
     };
   }
 
