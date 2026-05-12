@@ -6,9 +6,7 @@
  * @module lib/process-lifecycle/runner
  */
 
-import type { ProcessRunner } from "@/validation/types";
-
-import type { ChildRegistry } from "./types";
+import type { ChildRegistry, ProcessRunner } from "./types";
 
 export interface LifecycleRunnerDeps {
   readonly registry: ChildRegistry;

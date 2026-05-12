@@ -7,35 +7,8 @@
  * @module validation/types
  */
 
-import type { ChildProcess, SpawnOptions } from "node:child_process";
-
 // =============================================================================
 // DEPENDENCY INJECTION INTERFACES
-// =============================================================================
-
-/**
- * Interface for subprocess execution.
- *
- * Enables dependency injection for testing - production code uses real spawn,
- * tests can provide controlled implementations.
- *
- * @example
- * ```typescript
- * // Production usage
- * const runner: ProcessRunner = { spawn };
- *
- * // Test usage with controlled implementation
- * const testRunner: ProcessRunner = {
- *   spawn: (cmd, args, opts) => createMockProcess({ exitCode: 0 }),
- * };
- * ```
- */
-export interface ProcessRunner {
-  spawn(command: string, args: readonly string[], options?: SpawnOptions): ChildProcess;
-}
-
-// =============================================================================
-// VALIDATION SCOPE
 // =============================================================================
 
 /**

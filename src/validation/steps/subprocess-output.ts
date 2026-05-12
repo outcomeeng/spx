@@ -9,8 +9,6 @@
 
 import type { Readable } from "node:stream";
 
-export const VALIDATION_SUBPROCESS_STDIO = "pipe";
-
 export const VALIDATION_SUBPROCESS_EVENTS = {
   CLOSE: "close",
   DATA: "data",

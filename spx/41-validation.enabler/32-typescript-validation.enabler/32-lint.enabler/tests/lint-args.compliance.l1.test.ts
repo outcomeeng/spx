@@ -5,6 +5,7 @@ import { PassThrough } from "node:stream";
 import { describe, expect, it } from "vitest";
 
 import { VALIDATION_EXIT_CODES } from "@/commands/validation/messages";
+import type { ProcessRunner } from "@/lib/process-lifecycle";
 import {
   buildEslintArgs,
   DEFAULT_ESLINT_CONFIG_FILE,
@@ -12,7 +13,7 @@ import {
   validateESLint,
 } from "@/validation/steps/eslint";
 import { VALIDATION_SUBPROCESS_EVENTS, type ValidationWritableStream } from "@/validation/steps/subprocess-output";
-import { EXECUTION_MODES, type ProcessRunner, VALIDATION_SCOPES, type ValidationContext } from "@/validation/types";
+import { EXECUTION_MODES, VALIDATION_SCOPES, type ValidationContext } from "@/validation/types";
 import { LITERAL_TEST_GENERATOR, sampleLiteralTestValue } from "@testing/generators/literal/literal";
 
 class RecordingWritable implements ValidationWritableStream {

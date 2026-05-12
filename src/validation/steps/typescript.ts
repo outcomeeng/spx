@@ -11,15 +11,14 @@ import { mkdtemp } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { isAbsolute, join } from "node:path";
 
-import { lifecycleProcessRunner } from "@/lib/process-lifecycle";
+import { lifecycleProcessRunner, type ProcessRunner, spawnManagedSubprocess } from "@/lib/process-lifecycle";
 import { TSCONFIG_FILES } from "../config/scope";
-import type { ProcessRunner, ScopeConfig, ValidationScope } from "../types";
+import type { ScopeConfig, ValidationScope } from "../types";
 import { VALIDATION_SCOPES } from "../types";
 import {
   defaultValidationSubprocessOutputStreams,
   forwardValidationSubprocessOutput,
   VALIDATION_SUBPROCESS_EVENTS,
-  VALIDATION_SUBPROCESS_STDIO,
   type ValidationSubprocessOutputStreams,
 } from "./subprocess-output";
 
@@ -180,9 +179,8 @@ export async function validateTypeScript(
         const tscBin = join(process.cwd(), "node_modules", ".bin", "tsc");
         const tscBinary = deps.existsSync(tscBin) ? tscBin : "npx";
         const tscArgs = tscBinary === "npx" ? ["tsc", "--project", configPath] : ["--project", configPath];
-        const tscProcess = runner.spawn(tscBinary, tscArgs, {
+        const tscProcess = spawnManagedSubprocess(runner, tscBinary, tscArgs, {
           cwd: process.cwd(),
-          stdio: VALIDATION_SUBPROCESS_STDIO,
         });
         forwardValidationSubprocessOutput(tscProcess, outputStreams);
 
@@ -214,9 +212,8 @@ export async function validateTypeScript(
   }
 
   return new Promise((resolve) => {
-    const tscProcess = runner.spawn(tool, tscArgs, {
+    const tscProcess = spawnManagedSubprocess(runner, tool, tscArgs, {
       cwd: process.cwd(),
-      stdio: VALIDATION_SUBPROCESS_STDIO,
     });
     forwardValidationSubprocessOutput(tscProcess, outputStreams);
 

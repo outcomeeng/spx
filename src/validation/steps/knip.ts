@@ -9,8 +9,8 @@
 import { existsSync } from "node:fs";
 import { join } from "node:path";
 
-import { lifecycleProcessRunner } from "@/lib/process-lifecycle";
-import type { ProcessRunner, ScopeConfig } from "../types";
+import { lifecycleProcessRunner, type ProcessRunner, spawnManagedSubprocess } from "@/lib/process-lifecycle";
+import type { ScopeConfig } from "../types";
 
 // =============================================================================
 // DEFAULT DEPENDENCIES
@@ -59,9 +59,8 @@ export async function validateKnip(
     return new Promise((resolve) => {
       const localBin = join(process.cwd(), "node_modules", ".bin", "knip");
       const binary = existsSync(localBin) ? localBin : "npx";
-      const knipProcess = runner.spawn(binary, binary === "npx" ? ["knip"] : [], {
+      const knipProcess = spawnManagedSubprocess(runner, binary, binary === "npx" ? ["knip"] : [], {
         cwd: process.cwd(),
-        stdio: "pipe",
       });
 
       let knipOutput = "";
