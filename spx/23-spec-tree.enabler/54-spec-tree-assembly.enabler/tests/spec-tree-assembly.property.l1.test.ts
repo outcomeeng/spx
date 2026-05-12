@@ -55,7 +55,7 @@ describe("spec-tree assembly invariants", () => {
           );
         },
       ),
-      { numRuns: SPEC_TREE_TEST_GENERATOR_COUNTS.assemblyPropertyRuns },
+      { numRuns: SPEC_TREE_TEST_GENERATOR_COUNTS.assemblyPropertyRunCount },
     );
   });
 
