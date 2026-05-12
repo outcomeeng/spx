@@ -9,7 +9,6 @@ import {
   createSource,
   sampleSpecTreeTestValue,
   SPEC_TREE_TEST_GENERATOR,
-  SPEC_TREE_TEST_GENERATOR_COUNTS,
 } from "@testing/generators/spec-tree/spec-tree";
 
 describe("spec-tree assembly invariants", () => {
@@ -19,8 +18,8 @@ describe("spec-tree assembly invariants", () => {
     await fc.assert(
       fc.asyncProperty(
         fc.uniqueArray(SPEC_TREE_TEST_GENERATOR.sourceOrder(), {
-          minLength: SPEC_TREE_TEST_GENERATOR_COUNTS.assemblyOrderCount,
-          maxLength: SPEC_TREE_TEST_GENERATOR_COUNTS.assemblyOrderCount,
+          minLength: SPEC_TREE_TEST_GENERATOR.counts.assemblyOrderCount,
+          maxLength: SPEC_TREE_TEST_GENERATOR.counts.assemblyOrderCount,
         }),
         async ([rootOrder, childOrder, peerOrder]) => {
           const snapshot = await readSpecTree({
@@ -55,7 +54,7 @@ describe("spec-tree assembly invariants", () => {
           );
         },
       ),
-      { numRuns: SPEC_TREE_TEST_GENERATOR_COUNTS.assemblyPropertyRunCount },
+      { numRuns: SPEC_TREE_TEST_GENERATOR.counts.assemblyPropertyRunCount },
     );
   });
 

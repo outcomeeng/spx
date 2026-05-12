@@ -49,12 +49,11 @@ const SPEC_TREE_TEST_GENERATOR_OPTIONS = {
   ASSEMBLY_PROPERTY_RUN_COUNT: 25,
 } as const;
 
-export const SPEC_TREE_TEST_GENERATOR_COUNTS = {
-  assemblyOrderCount: SPEC_TREE_TEST_GENERATOR_OPTIONS.ASSEMBLY_ORDER_COUNT,
-  assemblyPropertyRunCount: SPEC_TREE_TEST_GENERATOR_OPTIONS.ASSEMBLY_PROPERTY_RUN_COUNT,
-} as const;
-
 export const SPEC_TREE_TEST_GENERATOR = {
+  counts: {
+    assemblyOrderCount: SPEC_TREE_TEST_GENERATOR_OPTIONS.ASSEMBLY_ORDER_COUNT,
+    assemblyPropertyRunCount: SPEC_TREE_TEST_GENERATOR_OPTIONS.ASSEMBLY_PROPERTY_RUN_COUNT,
+  },
   sourceId: arbitrarySourceId,
   sourceSlug: arbitrarySourceSlug,
   sourceTitle: arbitrarySourceTitle,

@@ -11,12 +11,13 @@ describe("spec-tree stable surface", () => {
       source: createSource(fixture.entries),
     });
 
-    const root = snapshot.allNodes.find((node) => node.id === fixture.root.id);
-    const child = snapshot.allNodes.find((node) => node.id === fixture.child.id);
-    const peer = snapshot.allNodes.find((node) => node.id === fixture.peer.id);
+    const root = expectDefined(snapshot.allNodes.find((node) => node.id === fixture.root.id));
+    const child = expectDefined(snapshot.allNodes.find((node) => node.id === fixture.child.id));
+    const peer = expectDefined(snapshot.allNodes.find((node) => node.id === fixture.peer.id));
     const expectedRoots = [fixture.root, fixture.peer].sort((left, right) => left.order - right.order);
+    const snapshotProduct = expectDefined(snapshot.product);
 
-    expect(snapshot.product?.id).toBe(fixture.product.id);
+    expect(snapshotProduct.id).toBe(fixture.product.id);
     expect(snapshot.nodes.map((node) => node.id)).toEqual(expectedRoots.map((node) => node.id));
     expect(snapshot.allNodes.map((node) => node.id)).toEqual([
       fixture.root.id,
@@ -24,18 +25,30 @@ describe("spec-tree stable surface", () => {
       fixture.peer.id,
     ]);
 
-    expect(root?.order).toBe(fixture.root.order);
-    expect(peer?.order).toBe(fixture.peer.order);
-    expect(root?.state).toBe(SPEC_TREE_NODE_STATE.DECLARED);
-    expect(root?.children.map((node) => node.id)).toEqual([fixture.child.id]);
-    expect(child?.state).toBe(SPEC_TREE_NODE_STATE.PASSING);
-    expect(root?.decisions.map((decision) => decision.id)).toEqual([fixture.decision.id]);
-    expect(peer?.state).toBe(SPEC_TREE_NODE_STATE.FAILING);
+    expect(root.order).toBe(fixture.root.order);
+    expect(peer.order).toBe(fixture.peer.order);
+    expect(root.state).toBe(SPEC_TREE_NODE_STATE.DECLARED);
+    expect(root.children.map((node) => node.id)).toEqual([fixture.child.id]);
+    expect(child.state).toBe(SPEC_TREE_NODE_STATE.PASSING);
+    expect(root.decisions.map((decision) => decision.id)).toEqual([fixture.decision.id]);
+    expect(peer.state).toBe(SPEC_TREE_NODE_STATE.FAILING);
 
     const projection = projectSpecTree(snapshot);
-    expect(projection.product?.id).toBe(fixture.product.id);
+    const projectionProduct = expectDefined(projection.product);
+    const nextNode = expectDefined(findNextSpecTreeNode(snapshot));
+
+    expect(projectionProduct.id).toBe(fixture.product.id);
     expect(projection.nodes.map((node) => node.id)).toEqual(expectedRoots.map((node) => node.id));
     expect(projection.decisions.map((decision) => decision.id)).toEqual([fixture.decision.id]);
-    expect(findNextSpecTreeNode(snapshot)?.id).toBe(fixture.root.id);
+    expect(nextNode.id).toBe(fixture.root.id);
   });
 });
+
+function expectDefined<T>(value: T | null | undefined): T {
+  expect(value).toBeDefined();
+  expect(value).not.toBeNull();
+  if (value === undefined || value === null) {
+    throw new Error("Expected spec-tree surface value to be defined");
+  }
+  return value;
+}
