@@ -5,6 +5,7 @@ import { PassThrough } from "node:stream";
 
 import { describe, expect, it } from "vitest";
 
+import type { ProcessRunner } from "@/lib/process-lifecycle";
 import { getTypeScriptScope } from "@/validation/config/scope";
 import {
   CIRCULAR_DEPS_KEYS,
@@ -31,7 +32,7 @@ class RecordingChild extends EventEmitter {
   }
 }
 
-class RecordingRunner {
+class RecordingRunner implements ProcessRunner {
   readonly commands: string[] = [];
   readonly options: SpawnOptions[] = [];
 
