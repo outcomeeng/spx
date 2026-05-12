@@ -53,7 +53,7 @@ export async function circularCommand(options: CircularCommandOptions): Promise<
   const scopeConfig = getTypeScriptScope("full", cwd);
 
   // Run circular dependency validation
-  const result = await validateCircularDependencies("full", scopeConfig);
+  const result = await validateCircularDependencies("full", scopeConfig, cwd);
   const durationMs = Date.now() - startTime;
 
   // Map result to command output

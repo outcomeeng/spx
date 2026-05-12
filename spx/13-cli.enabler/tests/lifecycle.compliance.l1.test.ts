@@ -114,7 +114,7 @@ describe("Compliance: validation step ProcessRunner defaults reference lifecycle
 
     const result = await validateTypeScript(
       VALIDATION_SCOPES.FULL,
-      createValidationScopeConfig(),
+      process.cwd(),
       undefined,
       runner,
     );

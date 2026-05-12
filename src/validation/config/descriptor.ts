@@ -109,12 +109,14 @@ function validatePaths(raw: unknown): Result<ValidationPathConfig> {
   if (!baseResult.ok) return baseResult;
   const candidate = raw as Record<string, unknown>;
   const toolEntries = Object.values(VALIDATION_PATH_TOOL_SUBSECTIONS).map((tool) => {
-    const toolRaw = candidate[tool] ?? {};
+    const toolRaw = candidate[tool];
+    if (toolRaw === undefined) return [tool, undefined] as const;
     const toolResult = validatePathFilter(toolRaw, `${basePath}.${tool}`);
     return [tool, toolResult] as const;
   });
   const toolConfig: ValidationToolPathConfig = {};
   for (const [tool, toolResult] of toolEntries) {
+    if (toolResult === undefined) continue;
     if (!toolResult.ok) return toolResult;
     toolConfig[tool] = toolResult.value;
   }
