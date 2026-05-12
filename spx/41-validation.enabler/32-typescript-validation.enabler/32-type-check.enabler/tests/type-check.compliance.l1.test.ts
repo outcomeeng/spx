@@ -6,14 +6,14 @@ import * as fc from "fast-check";
 import { describe, expect, it } from "vitest";
 
 import { VALIDATION_EXIT_CODES } from "@/commands/validation/messages";
+import { MANAGED_SUBPROCESS_STDIO, type ProcessRunner } from "@/lib/process-lifecycle";
 import {
   forwardValidationSubprocessOutput,
   VALIDATION_SUBPROCESS_EVENTS,
-  VALIDATION_SUBPROCESS_STDIO,
   type ValidationWritableStream,
 } from "@/validation/steps/subprocess-output";
 import { validateTypeScript } from "@/validation/steps/typescript";
-import type { ProcessRunner, ScopeConfig } from "@/validation/types";
+import type { ScopeConfig } from "@/validation/types";
 import { VALIDATION_SCOPES } from "@/validation/types";
 import { arbitraryDomainLiteral } from "@testing/generators/literal/literal";
 
@@ -85,7 +85,7 @@ describe("Compliance: tsc subprocess output is owned by the parent process", () 
     );
 
     expect(result.success).toBe(true);
-    expect(runner.spawnOptions?.stdio).toBe(VALIDATION_SUBPROCESS_STDIO);
+    expect(runner.spawnOptions?.stdio).toBe(MANAGED_SUBPROCESS_STDIO);
   });
 
   it("forwards child stdout and stderr chunks through injected parent streams", () => {

@@ -9,6 +9,8 @@
  * @module lib/process-lifecycle/types
  */
 
+import type { ChildProcess, SpawnOptions } from "node:child_process";
+
 export interface ChildHandle {
   readonly pid?: number;
   readonly killed: boolean;
@@ -36,4 +38,8 @@ export interface LifecycleHandlers {
 export interface LifecycleHandlerDeps {
   readonly registry: ChildRegistry;
   readonly exitController: ExitController;
+}
+
+export interface ProcessRunner {
+  spawn(command: string, args: readonly string[], options?: SpawnOptions): ChildProcess;
 }

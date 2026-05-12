@@ -9,15 +9,14 @@
 import { existsSync } from "node:fs";
 import { join } from "node:path";
 
-import { lifecycleProcessRunner } from "@/lib/process-lifecycle";
+import { lifecycleProcessRunner, type ProcessRunner, spawnManagedSubprocess } from "@/lib/process-lifecycle";
 import { validateLintPolicy } from "@/validation/lint-policy";
-import type { ExecutionMode, ProcessRunner, ValidationContext } from "../types";
+import type { ExecutionMode, ValidationContext } from "../types";
 import { EXECUTION_MODES, VALIDATION_SCOPES } from "../types";
 import {
   defaultValidationSubprocessOutputStreams,
   forwardValidationSubprocessOutput,
   VALIDATION_SUBPROCESS_EVENTS,
-  VALIDATION_SUBPROCESS_STDIO,
   type ValidationSubprocessOutputStreams,
 } from "./subprocess-output";
 
@@ -145,9 +144,8 @@ export async function validateESLint(
     const localBin = join(projectRoot, "node_modules", ".bin", "eslint");
     const binary = existsSync(localBin) ? localBin : "npx";
     const spawnArgs = binary === "npx" ? eslintArgs : eslintArgs.slice(1);
-    const eslintProcess = runner.spawn(binary, spawnArgs, {
+    const eslintProcess = spawnManagedSubprocess(runner, binary, spawnArgs, {
       cwd: projectRoot,
-      stdio: VALIDATION_SUBPROCESS_STDIO,
     });
     forwardValidationSubprocessOutput(eslintProcess, outputStreams);
 

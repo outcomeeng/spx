@@ -11,6 +11,18 @@
 export { EPIPE_EXIT_CODE, SIGINT_EXIT_CODE, SIGTERM_EXIT_CODE, UNCAUGHT_EXIT_CODE } from "./exit-codes";
 export { createHandlers, SIGINT_NAME, SIGTERM_NAME } from "./handlers";
 export { EPIPE_CODE, installLifecycle, lifecycleProcessRunner, UNCAUGHT_EVENT_NAME } from "./install";
+export {
+  MANAGED_SUBPROCESS_STDIO,
+  type ManagedSubprocessSpawnOptions,
+  spawnManagedSubprocess,
+} from "./managed-subprocess";
 export { createRegistry } from "./registry";
 export { createLifecycleRunner, type LifecycleRunnerDeps, type LifecycleSpawn } from "./runner";
-export type { ChildHandle, ChildRegistry, ExitController, LifecycleHandlerDeps, LifecycleHandlers } from "./types";
+export type {
+  ChildHandle,
+  ChildRegistry,
+  ExitController,
+  LifecycleHandlerDeps,
+  LifecycleHandlers,
+  ProcessRunner,
+} from "./types";
