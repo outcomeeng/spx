@@ -3,7 +3,6 @@
  *
  * Runs TypeScript type checking using tsc.
  */
-import { getTypeScriptScope } from "@/validation/config/scope";
 import { detectTypeScript, discoverTool, formatSkipMessage } from "@/validation/discovery/index";
 import { validateTypeScript } from "@/validation/steps/typescript";
 import {
@@ -50,11 +49,8 @@ export async function typescriptCommand(options: TypeScriptCommandOptions): Prom
     return { exitCode: 0, output: skipMessage, durationMs: Date.now() - startTime };
   }
 
-  // Get scope configuration from tsconfig
-  const scopeConfig = getTypeScriptScope(scope, cwd);
-
   // Run TypeScript validation
-  const result = await validateTypeScript(scope, scopeConfig, files);
+  const result = await validateTypeScript(scope, cwd, files);
   const durationMs = Date.now() - startTime;
 
   // Map result to command output

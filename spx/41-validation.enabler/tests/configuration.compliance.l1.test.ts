@@ -85,6 +85,7 @@ describe("ALWAYS: validation command participation is driven by spx config", () 
         if (resolved.ok) {
           const validationConfig = resolved.value[validationConfigDescriptor.section] as ValidationConfig;
           expect(validationConfig.paths.eslint?.include).toEqual([VALIDATION_PIPELINE_DATA.sourceDirectoryName]);
+          expect(validationConfig.paths.knip).toBeUndefined();
         }
       },
     );

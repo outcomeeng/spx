@@ -13,7 +13,6 @@ import {
   type ValidationWritableStream,
 } from "@/validation/steps/subprocess-output";
 import { validateTypeScript } from "@/validation/steps/typescript";
-import type { ScopeConfig } from "@/validation/types";
 import { VALIDATION_SCOPES } from "@/validation/types";
 import { arbitraryDomainLiteral } from "@testing/generators/literal/literal";
 
@@ -54,14 +53,6 @@ class RecordingValidationChild extends EventEmitter {
   }
 }
 
-function createEmptyScopeConfig(): ScopeConfig {
-  return {
-    directories: [],
-    filePatterns: [],
-    excludePatterns: [],
-  };
-}
-
 class ImmediateCloseRunner implements ProcessRunner {
   spawnOptions: SpawnOptions | undefined;
 
@@ -79,7 +70,7 @@ describe("Compliance: tsc subprocess output is owned by the parent process", () 
 
     const result = await validateTypeScript(
       VALIDATION_SCOPES.FULL,
-      createEmptyScopeConfig(),
+      process.cwd(),
       undefined,
       runner,
     );

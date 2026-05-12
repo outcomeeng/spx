@@ -13,7 +13,7 @@ import { isAbsolute, join } from "node:path";
 
 import { lifecycleProcessRunner, type ProcessRunner, spawnManagedSubprocess } from "@/lib/process-lifecycle";
 import { TSCONFIG_FILES } from "../config/scope";
-import type { ScopeConfig, ValidationScope } from "../types";
+import type { ValidationScope } from "../types";
 import { VALIDATION_SCOPES } from "../types";
 import {
   defaultValidationSubprocessOutputStreams,
@@ -89,6 +89,7 @@ export function buildTypeScriptArgs(context: { scope: ValidationScope; configFil
 export async function createFileSpecificTsconfig(
   scope: ValidationScope,
   files: string[],
+  projectRoot: string,
   deps: TypeScriptDeps = defaultTypeScriptDeps,
 ): Promise<{ configPath: string; tempDir: string; cleanup: () => void }> {
   // Create temporary directory
@@ -99,7 +100,6 @@ export async function createFileSpecificTsconfig(
   const baseConfigFile = TSCONFIG_FILES[scope];
 
   // Ensure all file paths are absolute
-  const projectRoot = process.cwd();
   const absoluteFiles = files.map((file) => (isAbsolute(file) ? file : join(projectRoot, file)));
 
   // Create temporary tsconfig that extends the base config
@@ -138,7 +138,7 @@ export async function createFileSpecificTsconfig(
  * Validate TypeScript using authoritative configuration.
  *
  * @param scope - Validation scope
- * @param typescriptScope - Scope configuration from tsconfig
+ * @param projectRoot - Project root for tool execution and config resolution
  * @param files - Optional specific files to validate
  * @param runner - Injectable process runner
  * @param deps - Injectable TypeScript dependencies
@@ -146,7 +146,7 @@ export async function createFileSpecificTsconfig(
  *
  * @example
  * ```typescript
- * const result = await validateTypeScript("full", scopeConfig);
+ * const result = await validateTypeScript("full", projectRoot);
  * if (!result.success) {
  *   console.error("TypeScript failed:", result.error);
  * }
@@ -154,7 +154,7 @@ export async function createFileSpecificTsconfig(
  */
 export async function validateTypeScript(
   scope: ValidationScope,
-  typescriptScope: ScopeConfig,
+  projectRoot: string,
   files?: string[],
   runner: ProcessRunner = defaultTypeScriptProcessRunner,
   deps: TypeScriptDeps = defaultTypeScriptDeps,
@@ -172,15 +172,15 @@ export async function validateTypeScript(
 
   if (files && files.length > 0) {
     // File-specific validation using custom temporary tsconfig
-    const { configPath, cleanup } = await createFileSpecificTsconfig(scope, files, deps);
+    const { configPath, cleanup } = await createFileSpecificTsconfig(scope, files, projectRoot, deps);
 
     try {
       return await new Promise((resolve) => {
-        const tscBin = join(process.cwd(), "node_modules", ".bin", "tsc");
+        const tscBin = join(projectRoot, "node_modules", ".bin", "tsc");
         const tscBinary = deps.existsSync(tscBin) ? tscBin : "npx";
         const tscArgs = tscBinary === "npx" ? ["tsc", "--project", configPath] : ["--project", configPath];
         const tscProcess = spawnManagedSubprocess(runner, tscBinary, tscArgs, {
-          cwd: process.cwd(),
+          cwd: projectRoot,
         });
         forwardValidationSubprocessOutput(tscProcess, outputStreams);
 
@@ -205,7 +205,7 @@ export async function validateTypeScript(
     }
   } else {
     // Full validation using tsc
-    const tscBin = join(process.cwd(), "node_modules", ".bin", "tsc");
+    const tscBin = join(projectRoot, "node_modules", ".bin", "tsc");
     tool = deps.existsSync(tscBin) ? tscBin : "npx";
     const rawArgs = buildTypeScriptArgs({ scope, configFile });
     tscArgs = tool === "npx" ? rawArgs : rawArgs.slice(1);
@@ -213,7 +213,7 @@ export async function validateTypeScript(
 
   return new Promise((resolve) => {
     const tscProcess = spawnManagedSubprocess(runner, tool, tscArgs, {
-      cwd: process.cwd(),
+      cwd: projectRoot,
     });
     forwardValidationSubprocessOutput(tscProcess, outputStreams);
 

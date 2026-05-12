@@ -158,6 +158,7 @@ export const VALIDATION_PIPELINE_DATA = {
   filesFlag: "--files",
   productionScope: "production",
   productionScopeFilePattern: PRODUCTION_SCOPE_FILE_PATTERN,
+  fullTsconfigFile: TSCONFIG_FILES.full,
   sourceDirectoryName: "src",
   cleanSourceFileName: "clean.ts",
   literalSkipSourceSegments: LITERAL_SKIP_SOURCE_SEGMENTS,

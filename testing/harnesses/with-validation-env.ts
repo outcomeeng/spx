@@ -65,7 +65,7 @@ export interface TestEnvOptions {
  * @example
  * ```typescript
  * await withTestEnv({ fixture: FIXTURES.WITH_TYPE_ERRORS }, async ({ path }) => {
- *   const result = await validateTypeScript(path, ...);
+ *   const result = await validateTypeScript("full", path);
  *   expect(result.success).toBe(false);
  * });
  * ```
