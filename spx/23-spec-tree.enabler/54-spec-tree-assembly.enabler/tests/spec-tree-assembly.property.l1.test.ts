@@ -9,10 +9,8 @@ import {
   createSource,
   sampleSpecTreeTestValue,
   SPEC_TREE_TEST_GENERATOR,
+  SPEC_TREE_TEST_GENERATOR_COUNTS,
 } from "@testing/generators/spec-tree/spec-tree";
-
-const ORDER_COUNT = 3;
-const PROPERTY_RUNS = 25;
 
 describe("spec-tree assembly invariants", () => {
   it("preserves ordering and assigns every child exactly one parent", async () => {
@@ -21,8 +19,8 @@ describe("spec-tree assembly invariants", () => {
     await fc.assert(
       fc.asyncProperty(
         fc.uniqueArray(SPEC_TREE_TEST_GENERATOR.sourceOrder(), {
-          minLength: ORDER_COUNT,
-          maxLength: ORDER_COUNT,
+          minLength: SPEC_TREE_TEST_GENERATOR_COUNTS.assemblyOrderCount,
+          maxLength: SPEC_TREE_TEST_GENERATOR_COUNTS.assemblyOrderCount,
         }),
         async ([rootOrder, childOrder, peerOrder]) => {
           const snapshot = await readSpecTree({
@@ -57,7 +55,7 @@ describe("spec-tree assembly invariants", () => {
           );
         },
       ),
-      { numRuns: PROPERTY_RUNS },
+      { numRuns: SPEC_TREE_TEST_GENERATOR_COUNTS.assemblyPropertyRuns },
     );
   });
 

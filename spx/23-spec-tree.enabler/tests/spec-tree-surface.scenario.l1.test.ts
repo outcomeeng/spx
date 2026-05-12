@@ -1,11 +1,11 @@
 import { describe, expect, it } from "vitest";
 
-import { readSpecTree, SPEC_TREE_NODE_STATE } from "@/lib/spec-tree";
+import { findNextSpecTreeNode, projectSpecTree, readSpecTree, SPEC_TREE_NODE_STATE } from "@/lib/spec-tree";
 import { KIND_REGISTRY } from "@/lib/spec-tree/config";
 import { buildRepresentativeFixture, createSource } from "@testing/generators/spec-tree/spec-tree";
 
-describe("readSpecTree stable surface", () => {
-  it("returns a snapshot with recognized entries, hierarchy, decisions, sorting, and derived states", async () => {
+describe("spec-tree stable surface", () => {
+  it("reads, projects, and selects the next node from a representative tree", async () => {
     const fixture = buildRepresentativeFixture(KIND_REGISTRY);
     const snapshot = await readSpecTree({
       source: createSource(fixture.entries),
@@ -31,5 +31,11 @@ describe("readSpecTree stable surface", () => {
     expect(child?.state).toBe(SPEC_TREE_NODE_STATE.PASSING);
     expect(root?.decisions.map((decision) => decision.id)).toEqual([fixture.decision.id]);
     expect(peer?.state).toBe(SPEC_TREE_NODE_STATE.FAILING);
+
+    const projection = projectSpecTree(snapshot);
+    expect(projection.product?.id).toBe(fixture.product.id);
+    expect(projection.nodes.map((node) => node.id)).toEqual(expectedRoots.map((node) => node.id));
+    expect(projection.decisions.map((decision) => decision.id)).toEqual([fixture.decision.id]);
+    expect(findNextSpecTreeNode(snapshot)?.id).toBe(fixture.root.id);
   });
 });

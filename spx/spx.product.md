@@ -28,11 +28,10 @@ CONTRIBUTING TO higher engineering velocity — teams ship quality code faster b
 
 ### What's excluded
 
-| Excluded                      | Rationale                                  |
-| ----------------------------- | ------------------------------------------ |
-| GUI / web interface           | spx is a CLI tool; integrations can add UI |
-| Interactive prompts / wizards | CLI-first for agent compatibility          |
-| Third-party plugin API        | Requires stable domain interfaces first    |
+| Excluded                      | Rationale                               |
+| ----------------------------- | --------------------------------------- |
+| Interactive prompts / wizards | CLI-first for agent compatibility       |
+| Third-party plugin API        | Requires stable domain interfaces first |
 
 ## Product-level assertions
 
