@@ -9,6 +9,7 @@ import { VALIDATION_EXIT_CODES } from "@/commands/validation/messages";
 import {
   lifecycleProcessRunner,
   MANAGED_SUBPROCESS_STDIO,
+  type ManagedSubprocessSpawnOptions,
   type ProcessRunner,
   spawnManagedSubprocess,
 } from "@/lib/process-lifecycle";
@@ -65,6 +66,8 @@ function createValidationContext(scopeConfig: ScopeConfig = createValidationScop
   };
 }
 
+function acceptManagedSubprocessOptions(_options: ManagedSubprocessSpawnOptions): void {}
+
 describe("Compliance: validation step ProcessRunner defaults reference lifecycleProcessRunner", () => {
   it("defaultEslintProcessRunner is the shared lifecycleProcessRunner", () => {
     expect(defaultEslintProcessRunner).toBe(lifecycleProcessRunner);
@@ -86,6 +89,15 @@ describe("Compliance: validation step ProcessRunner defaults reference lifecycle
     spawnManagedSubprocess(runner, command, args, { cwd: process.cwd() });
 
     expect(runner.spawnOptions?.stdio).toBe(MANAGED_SUBPROCESS_STDIO);
+  });
+
+  it("managed subprocess options reject caller-owned stdio", () => {
+    const callerOwnedStdioOptions: SpawnOptions = { stdio: [process.stdin, process.stdout, process.stderr] };
+
+    // @ts-expect-error - Managed subprocess options reject caller-owned stdio even through SpawnOptions variables.
+    acceptManagedSubprocessOptions(callerOwnedStdioOptions);
+
+    expect(callerOwnedStdioOptions.stdio).toEqual([process.stdin, process.stdout, process.stderr]);
   });
 
   it("ESLint subprocess output is owned by parent-owned pipes", async () => {
