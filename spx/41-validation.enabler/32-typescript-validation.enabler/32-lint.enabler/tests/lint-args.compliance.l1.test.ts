@@ -1,5 +1,6 @@
 import type { ChildProcess, SpawnOptions } from "node:child_process";
 import { EventEmitter } from "node:events";
+import { existsSync } from "node:fs";
 import { chmod, realpath } from "node:fs/promises";
 import { join } from "node:path";
 import { PassThrough } from "node:stream";
@@ -7,7 +8,11 @@ import { PassThrough } from "node:stream";
 import { describe, expect, it } from "vitest";
 
 import { lintCommand } from "@/commands/validation/lint";
-import { VALIDATION_EXIT_CODES } from "@/commands/validation/messages";
+import {
+  formatValidationPathsNoTargetsSkipMessage,
+  VALIDATION_EXIT_CODES,
+  VALIDATION_STAGE_DISPLAY_NAMES,
+} from "@/commands/validation/messages";
 import type { ProcessRunner } from "@/lib/process-lifecycle";
 import {
   VALIDATION_PATH_TOOL_SUBSECTIONS,
@@ -318,6 +323,45 @@ describe("ESLint command arguments", () => {
           ESLINT_COMMAND_TOKENS.CONFIG_FLAG,
           DEFAULT_ESLINT_CONFIG_FILE,
         ]);
+      },
+    );
+  });
+
+  it("skips ESLint when validation path includes have no intersection", async () => {
+    const sourceFilePath = sampleLiteralTestValue(LITERAL_TEST_GENERATOR.sourceFilePath());
+    const testFilePath = sampleLiteralTestValue(LITERAL_TEST_GENERATOR.testFilePath());
+    await withTestEnv(
+      {
+        [validationConfigDescriptor.section]: {
+          [VALIDATION_PATHS_SUBSECTION]: {
+            include: [VALIDATION_PIPELINE_DATA.sourceDirectoryName],
+            [VALIDATION_PATH_TOOL_SUBSECTIONS.ESLINT]: {
+              include: [testFilePath],
+            },
+          },
+        },
+      },
+      async (env) => {
+        await env.writeRaw(
+          TSCONFIG_FILES.full,
+          JSON.stringify({
+            include: [VALIDATION_PIPELINE_DATA.productionScopeFilePattern, testFilePath],
+          }),
+        );
+        await env.writeRaw(DEFAULT_ESLINT_CONFIG_FILE, "export default [];\n");
+        await env.writeRaw(sourceFilePath, "export const lintCommandProjectRoot = 1;\n");
+        await env.writeRaw(testFilePath, "expect(true).toBe(true);\n");
+        await env.writeRaw(
+          join(...ESLINT_LOCAL_BIN_SEGMENTS),
+          "#!/bin/sh\nprintf '%s\\n' \"$@\" > eslint-args.txt\nexit 0\n",
+        );
+        await chmod(join(env.projectDir, ...ESLINT_LOCAL_BIN_SEGMENTS), 0o755);
+
+        const result = await lintCommand({ cwd: env.projectDir });
+
+        expect(result.exitCode).toBe(VALIDATION_EXIT_CODES.SUCCESS);
+        expect(result.output).toBe(formatValidationPathsNoTargetsSkipMessage(VALIDATION_STAGE_DISPLAY_NAMES.ESLINT));
+        expect(existsSync(join(env.projectDir, "eslint-args.txt"))).toBe(false);
       },
     );
   });

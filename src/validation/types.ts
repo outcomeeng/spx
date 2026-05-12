@@ -47,6 +47,8 @@ export interface ScopeConfig {
   filteredByValidationPaths?: boolean;
   /** Whether the narrowed scope came from an include path, not only excludes */
   filteredByValidationPathIncludes?: boolean;
+  /** Whether include filters were declared but did not match the configured tool scope */
+  filteredByValidationPathNoMatches?: boolean;
 }
 
 // =============================================================================

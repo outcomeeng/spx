@@ -20,6 +20,7 @@ export const VALIDATION_SKIP_LABELS = {
   VERB: "Skipping",
   LITERAL_REASON: "skip-literal",
   TYPESCRIPT_ABSENT_REASON: "TypeScript not detected in project",
+  VALIDATION_PATHS_NO_TARGETS_REASON: "validation paths matched no files",
   MARKDOWN_NO_SCOPE_REASON: "no markdown files in --files scope",
   MARKDOWN_NO_DEFAULT_DIRECTORIES_REASON: "no spx/ or docs/ directories found",
 } as const;
@@ -56,4 +57,8 @@ export const VALIDATION_STEP_DURATION_PATTERN = /\((\d+(?:\.\d+)?)(ms|s)\)\s*$/;
 
 export function formatTypeScriptAbsentSkipMessage(stageName: string): string {
   return `⏭ ${VALIDATION_SKIP_LABELS.VERB} ${stageName} (${VALIDATION_SKIP_LABELS.TYPESCRIPT_ABSENT_REASON})`;
+}
+
+export function formatValidationPathsNoTargetsSkipMessage(stageName: string): string {
+  return `⏭ ${VALIDATION_SKIP_LABELS.VERB} ${stageName} (${VALIDATION_SKIP_LABELS.VALIDATION_PATHS_NO_TARGETS_REASON})`;
 }

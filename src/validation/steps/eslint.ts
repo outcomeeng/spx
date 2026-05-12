@@ -148,12 +148,17 @@ export async function validateESLint(
 ): Promise<{
   success: boolean;
   error?: string;
+  skipped?: boolean;
 }> {
   const { projectRoot, scope, validatedFiles, mode, eslintConfigFile } = context;
   const lintPolicy = validateLintPolicy(projectRoot);
 
   if (!lintPolicy.ok) {
     return { success: false, error: lintPolicy.error };
+  }
+
+  if (context.scopeConfig.filteredByValidationPathNoMatches) {
+    return { success: true, skipped: true };
   }
 
   const eslintArgs = buildEslintArgs({
