@@ -79,6 +79,8 @@ export function buildEslintArgs(context: {
   const fixArg = mode === EXECUTION_MODES.WRITE ? [ESLINT_COMMAND_TOKENS.FIX_FLAG] : [];
 
   if (validatedFiles && validatedFiles.length > 0) {
+    // Explicit file scope is already the caller's narrowed target and takes
+    // precedence over broad validation scope selection.
     return [
       ESLINT_COMMAND_TOKENS.COMMAND,
       ESLINT_COMMAND_TOKENS.CONFIG_FLAG,

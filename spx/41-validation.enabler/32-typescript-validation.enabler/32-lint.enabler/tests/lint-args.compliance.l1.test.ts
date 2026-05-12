@@ -98,6 +98,27 @@ describe("ESLint command arguments", () => {
     ]);
   });
 
+  it("lets explicit file scope take precedence over production scope", () => {
+    const validatedFile = sampleLiteralTestValue(LITERAL_TEST_GENERATOR.sourceFilePath());
+    const args = buildEslintArgs({
+      scope: VALIDATION_SCOPES.PRODUCTION,
+      scopeConfig: {
+        directories: [VALIDATION_PIPELINE_DATA.sourceDirectoryName],
+        excludePatterns: [VALIDATION_PIPELINE_DATA.productionScopeExcludePattern],
+        filePatterns: [VALIDATION_PIPELINE_DATA.productionScopeFilePattern],
+      },
+      validatedFiles: [validatedFile],
+    });
+
+    expect(args).toStrictEqual([
+      ESLINT_COMMAND_TOKENS.COMMAND,
+      ESLINT_COMMAND_TOKENS.CONFIG_FLAG,
+      DEFAULT_ESLINT_CONFIG_FILE,
+      ESLINT_COMMAND_TOKENS.FILE_SEPARATOR,
+      validatedFile,
+    ]);
+  });
+
   it("passes fix mode through as the only optional ESLint behavior flag", () => {
     const args = buildEslintArgs({
       scope: VALIDATION_SCOPES.FULL,

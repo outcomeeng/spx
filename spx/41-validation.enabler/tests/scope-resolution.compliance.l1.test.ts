@@ -6,7 +6,7 @@ import { PassThrough } from "node:stream";
 import { describe, expect, it } from "vitest";
 
 import type { ProcessRunner } from "@/lib/process-lifecycle";
-import { getTypeScriptScope } from "@/validation/config/scope";
+import { getTypeScriptScope, TSCONFIG_FILES } from "@/validation/config/scope";
 import {
   CIRCULAR_DEPS_KEYS,
   type CircularDependencyGraphRunner,
@@ -79,6 +79,28 @@ describe("ALWAYS: TypeScript scope resolution uses the requested project root", 
       const scope = getTypeScriptScope(VALIDATION_SCOPES.FULL, env.projectDir);
 
       expect(scope.directories).toContain(VALIDATION_PIPELINE_DATA.scopeResolutionDirectoryName);
+    });
+  });
+
+  it("resolves array-based TypeScript config extends without crashing", async () => {
+    await withTestEnv({}, async (env) => {
+      await env.writeRaw(
+        "base-includes.json",
+        JSON.stringify({ include: [VALIDATION_PIPELINE_DATA.productionScopeFilePattern] }),
+      );
+      await env.writeRaw(
+        "base-excludes.json",
+        JSON.stringify({ exclude: [VALIDATION_PIPELINE_DATA.productionScopeExcludePattern] }),
+      );
+      await env.writeRaw(
+        TSCONFIG_FILES.production,
+        JSON.stringify({ extends: ["./base-includes.json", "./base-excludes.json"] }),
+      );
+
+      const scope = getTypeScriptScope(VALIDATION_SCOPES.PRODUCTION, env.projectDir);
+
+      expect(scope.filePatterns).toEqual([VALIDATION_PIPELINE_DATA.productionScopeFilePattern]);
+      expect(scope.excludePatterns).toEqual([VALIDATION_PIPELINE_DATA.productionScopeExcludePattern]);
     });
   });
 
