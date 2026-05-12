@@ -10,7 +10,7 @@
 
 import * as JSONC from "jsonc-parser";
 import { existsSync, readdirSync, readFileSync } from "node:fs";
-import { join } from "node:path";
+import { isAbsolute, join } from "node:path";
 
 import type { ScopeConfig, ValidationScope } from "../types";
 
@@ -60,6 +60,10 @@ interface TypeScriptConfig {
   extends?: string;
 }
 
+function resolveProjectPath(projectRoot: string, path: string): string {
+  return isAbsolute(path) ? path : join(projectRoot, path);
+}
+
 // =============================================================================
 // INTERNAL FUNCTIONS
 // =============================================================================
@@ -97,13 +101,14 @@ export function parseTypeScriptConfig(
  */
 export function resolveTypeScriptConfig(
   scope: ValidationScope,
+  projectRoot: string,
   deps: ScopeDeps = defaultScopeDeps,
 ): TypeScriptConfig {
   const configFile = TSCONFIG_FILES[scope];
-  const config = parseTypeScriptConfig(configFile, deps);
+  const config = parseTypeScriptConfig(resolveProjectPath(projectRoot, configFile), deps);
 
   if (config.extends) {
-    const baseConfig = parseTypeScriptConfig(config.extends, deps);
+    const baseConfig = parseTypeScriptConfig(resolveProjectPath(projectRoot, config.extends), deps);
     return {
       include: config.include ?? baseConfig.include ?? [],
       exclude: [...(baseConfig.exclude ?? []), ...(config.exclude ?? [])],
@@ -165,9 +170,10 @@ export function hasTypeScriptFilesRecursive(
  */
 export function getTopLevelDirectoriesWithTypeScript(
   config: TypeScriptConfig,
+  projectRoot: string,
   deps: ScopeDeps = defaultScopeDeps,
 ): string[] {
-  const allTopLevelItems = deps.readdirSync(".", { withFileTypes: true });
+  const allTopLevelItems = deps.readdirSync(projectRoot, { withFileTypes: true });
   const directories = new Set<string>();
 
   // Find all top-level directories
@@ -192,7 +198,7 @@ export function getTopLevelDirectoriesWithTypeScript(
     if (!isExcluded) {
       // Check if directory has TypeScript files
       try {
-        const hasTypeScriptFiles = hasTypeScriptFilesRecursive(dir, 2, deps);
+        const hasTypeScriptFiles = hasTypeScriptFilesRecursive(join(projectRoot, dir), 2, deps);
         if (hasTypeScriptFiles) {
           directories.add(dir);
         }
@@ -228,16 +234,17 @@ export function getTopLevelDirectoriesWithTypeScript(
  */
 export function getValidationDirectories(
   scope: ValidationScope,
+  projectRoot: string,
   deps: ScopeDeps = defaultScopeDeps,
 ): string[] {
   // Get TypeScript configuration for the specified mode
-  const config = resolveTypeScriptConfig(scope, deps);
+  const config = resolveTypeScriptConfig(scope, projectRoot, deps);
 
   // Get directories that contain TypeScript files and respect tsconfig exclude patterns
-  const configDirectories = getTopLevelDirectoriesWithTypeScript(config, deps);
+  const configDirectories = getTopLevelDirectoriesWithTypeScript(config, projectRoot, deps);
 
   // Only include directories that actually exist
-  const existingDirectories = configDirectories.filter((dir) => deps.existsSync(dir));
+  const existingDirectories = configDirectories.filter((dir) => deps.existsSync(join(projectRoot, dir)));
 
   return existingDirectories;
 }
@@ -254,19 +261,20 @@ export function getValidationDirectories(
  *
  * @example
  * ```typescript
- * const scopeConfig = getTypeScriptScope("full");
+ * const scopeConfig = getTypeScriptScope("full", projectRoot);
  * console.log(scopeConfig.directories); // ["src", "tests", "scripts"]
  * ```
  */
 export function getTypeScriptScope(
   scope: ValidationScope,
+  projectRoot: string,
   deps: ScopeDeps = defaultScopeDeps,
 ): ScopeConfig {
   // Use validation-focused directory selection
-  const directories = getValidationDirectories(scope, deps);
+  const directories = getValidationDirectories(scope, projectRoot, deps);
 
   // Read TypeScript config for patterns
-  const config = resolveTypeScriptConfig(scope, deps);
+  const config = resolveTypeScriptConfig(scope, projectRoot, deps);
 
   return {
     directories,

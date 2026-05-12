@@ -50,7 +50,7 @@ export async function circularCommand(options: CircularCommandOptions): Promise<
   }
 
   // Get scope configuration from tsconfig (circular always uses full scope)
-  const scopeConfig = getTypeScriptScope("full");
+  const scopeConfig = getTypeScriptScope("full", cwd);
 
   // Run circular dependency validation
   const result = await validateCircularDependencies("full", scopeConfig);

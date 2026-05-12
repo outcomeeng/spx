@@ -2,11 +2,11 @@
  * Knip command for detecting unused code.
  *
  * Runs knip to find unused exports, dependencies, and files.
- * Disabled by default - enable with KNIP_VALIDATION_ENABLED=1.
  */
+import { resolveConfig } from "@/config/index";
+import { type ValidationConfig, validationConfigDescriptor } from "@/validation/config/descriptor";
 import { getTypeScriptScope } from "@/validation/config/scope";
 import { discoverTool, formatSkipMessage } from "@/validation/discovery/index";
-import { validationEnabled } from "@/validation/steps/eslint";
 import { validateKnip } from "@/validation/steps/knip";
 import { VALIDATION_COMMAND_OUTPUT } from "./messages";
 import type { KnipCommandOptions, ValidationCommandResult } from "./types";
@@ -21,8 +21,17 @@ export async function knipCommand(options: KnipCommandOptions): Promise<Validati
   const { cwd, quiet } = options;
   const startTime = Date.now();
 
-  // Knip is disabled by default - check if explicitly enabled
-  if (!validationEnabled("KNIP", { KNIP: false })) {
+  const loaded = await resolveConfig(cwd, [validationConfigDescriptor]);
+  if (!loaded.ok) {
+    return {
+      exitCode: 1,
+      output: `${VALIDATION_COMMAND_OUTPUT.KNIP_CONFIG_ERROR} — ${loaded.error}`,
+      durationMs: Date.now() - startTime,
+    };
+  }
+  const validationConfig = loaded.value[validationConfigDescriptor.section] as ValidationConfig;
+
+  if (!validationConfig.knip.enabled) {
     const output = quiet ? "" : VALIDATION_COMMAND_OUTPUT.KNIP_DISABLED;
     return { exitCode: 0, output, durationMs: Date.now() - startTime };
   }
@@ -35,7 +44,7 @@ export async function knipCommand(options: KnipCommandOptions): Promise<Validati
   }
 
   // Get scope configuration from tsconfig (knip uses full scope)
-  const scopeConfig = getTypeScriptScope("full");
+  const scopeConfig = getTypeScriptScope("full", cwd);
 
   // Run knip validation
   const result = await validateKnip({ projectRoot: cwd, typescriptScope: scopeConfig });

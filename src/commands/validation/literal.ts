@@ -14,7 +14,6 @@ import {
   type ReuseFinding,
   validateLiteralReuse,
 } from "@/validation/literal/index";
-import { validationEnabled } from "@/validation/steps/eslint";
 
 export const LITERAL_PROBLEM_KIND = {
   REUSE: "reuse",
@@ -46,6 +45,7 @@ export interface LiteralCommandOptions {
   readonly json?: boolean;
   readonly quiet?: boolean;
   readonly config?: LiteralConfig;
+  readonly enabled?: boolean;
   readonly pathConfig?: ValidationPathConfig;
 }
 
@@ -61,7 +61,7 @@ export const LITERAL_EXIT_CODES = {
   CONFIG_ERROR: 2,
 } as const;
 const TYPESCRIPT_ABSENT_MESSAGE = "⏭ Skipping Literal (TypeScript not detected in project)";
-const DISABLED_MESSAGE = "⏭ Skipping Literal (LITERAL_VALIDATION_ENABLED=0)";
+export const LITERAL_DISABLED_MESSAGE = "⏭ Skipping Literal (disabled by validation.literal.enabled)";
 export const NO_PROBLEMS_MESSAGE = "Literal: ✓ No problems";
 
 export function formatNoProblemsOfKind(kind: LiteralProblemKind): string {
@@ -90,17 +90,11 @@ export async function literalCommand(
     };
   }
 
-  if (!validationEnabled("LITERAL")) {
-    return {
-      exitCode: LITERAL_EXIT_CODES.OK,
-      output: options.quiet ? "" : DISABLED_MESSAGE,
-      durationMs: Date.now() - start,
-    };
-  }
-
+  let resolvedEnabled: boolean;
   let resolvedLiteralConfig: LiteralConfig;
   let resolvedPathConfig: ValidationPathConfig;
   if (options.config !== undefined) {
+    resolvedEnabled = options.enabled ?? validationConfigDescriptor.defaults.literal.enabled;
     resolvedLiteralConfig = options.config;
     resolvedPathConfig = options.pathConfig ?? validationConfigDescriptor.defaults.paths;
   } else {
@@ -113,8 +107,17 @@ export async function literalCommand(
       };
     }
     const validationConfig = loaded.value[validationConfigDescriptor.section] as ValidationConfig;
+    resolvedEnabled = validationConfig.literal.enabled;
     resolvedLiteralConfig = validationConfig.literal.values;
     resolvedPathConfig = validationConfig.paths;
+  }
+
+  if (!resolvedEnabled) {
+    return {
+      exitCode: LITERAL_EXIT_CODES.OK,
+      output: options.quiet ? "" : LITERAL_DISABLED_MESSAGE,
+      durationMs: Date.now() - start,
+    };
   }
 
   const result = await validateLiteralReuse({

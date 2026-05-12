@@ -59,7 +59,7 @@ export async function lintCommand(options: LintCommandOptions): Promise<Validati
   }
 
   // Get scope configuration from tsconfig
-  const scopeConfig = getTypeScriptScope(scope);
+  const scopeConfig = getTypeScriptScope(scope, cwd);
 
   // Build validation context
   const context: ValidationContext = {

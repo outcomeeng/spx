@@ -59,6 +59,7 @@ const LITERAL_SKIP_TEST_SEGMENTS = [
 ] as const;
 const LITERAL_SKIP_TOKEN = "validation-all-skip-literal-token";
 const TYPE_ERROR_SOURCE_SEGMENTS = ["src", "has-type-error.ts"] as const;
+const PRODUCTION_SCOPE_FILE_PATTERN = "src/**/*";
 const TYPE_ERROR_REPLACEMENT_PATTERN = /const x:\s*number\s*=\s*"[^"]+";?/g;
 const TYPE_ERROR_REPLACEMENT = "const x: number = 0;";
 const OUTPUT_LINE_SEPARATOR = "\n";
@@ -156,6 +157,7 @@ export const VALIDATION_PIPELINE_DATA = {
   scopeFlag: "--scope",
   filesFlag: "--files",
   productionScope: "production",
+  productionScopeFilePattern: PRODUCTION_SCOPE_FILE_PATTERN,
   sourceDirectoryName: "src",
   cleanSourceFileName: "clean.ts",
   literalSkipSourceSegments: LITERAL_SKIP_SOURCE_SEGMENTS,
@@ -164,11 +166,13 @@ export const VALIDATION_PIPELINE_DATA = {
   productionTsconfigFile: TSCONFIG_FILES.production,
   productionTsconfigContent: JSON.stringify({
     extends: `./${TSCONFIG_FILES.full}`,
-    include: ["src/**/*"],
+    include: [PRODUCTION_SCOPE_FILE_PATTERN],
   }),
   typeErrorSourceSegments: TYPE_ERROR_SOURCE_SEGMENTS,
   typeErrorReplacementPattern: TYPE_ERROR_REPLACEMENT_PATTERN,
   typeErrorReplacement: TYPE_ERROR_REPLACEMENT,
+  scopeResolutionDirectoryName: "validation-scope-fixture",
+  scopeResolutionSourceFile: "validation-scope-fixture/index.ts",
   outcome: {
     pass: VALIDATION_STEP_OUTCOME_PASS,
     skip: VALIDATION_STEP_OUTCOME_SKIP,

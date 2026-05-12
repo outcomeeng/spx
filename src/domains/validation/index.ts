@@ -292,8 +292,8 @@ function registerValidationCommands(validationCmd: Command): void {
     .option(literalValidationCliOptions.verbose.flag, literalValidationCliOptions.verbose.description)
     .addHelpText(
       "after",
-      "\nEnabled for TypeScript projects by default. Set LITERAL_VALIDATION_ENABLED=0\n"
-        + "to skip (useful when migrating a project with many existing violations).",
+      "\nEnabled for TypeScript projects by default. Set validation.literal.enabled=false\n"
+        + "in spx.config.* to skip during migration.",
     )
     .action(async (options: LiteralOptions) => {
       if (options.allowlistExisting) {
