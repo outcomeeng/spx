@@ -71,7 +71,7 @@ export function buildEslintArgs(context: {
   validatedFiles?: string[];
   mode?: ExecutionMode;
   configFile?: string;
-  scope?: ValidationScope;
+  scope: ValidationScope;
   scopeConfig?: ScopeConfig;
 }): string[] {
   const { validatedFiles, mode, configFile = DEFAULT_ESLINT_CONFIG_FILE, scope, scopeConfig } = context;
@@ -145,18 +145,13 @@ export async function validateESLint(
     return { success: false, error: lintPolicy.error };
   }
 
-  let eslintArgs: string[];
-  try {
-    eslintArgs = buildEslintArgs({
-      validatedFiles,
-      mode,
-      configFile: eslintConfigFile,
-      scope,
-      scopeConfig: context.scopeConfig,
-    });
-  } catch (error) {
-    return { success: false, error: error instanceof Error ? error.message : String(error) };
-  }
+  const eslintArgs = buildEslintArgs({
+    validatedFiles,
+    mode,
+    configFile: eslintConfigFile,
+    scope,
+    scopeConfig: context.scopeConfig,
+  });
 
   return new Promise((resolve) => {
     const localBin = join(projectRoot, ...ESLINT_LOCAL_BIN_SEGMENTS);

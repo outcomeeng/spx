@@ -13,6 +13,7 @@ import {
   type ValidationConfig,
   validationConfigDescriptor,
 } from "@/validation/config/descriptor";
+import { LITERAL_DEFAULTS } from "@/validation/literal/config";
 import { VALIDATION_PIPELINE_DATA } from "@testing/generators/validation/validation";
 import { withLiteralFixtureEnv } from "@testing/harnesses/literal/harness";
 import { type Config } from "@testing/harnesses/spec-tree/spec-tree";
@@ -53,6 +54,21 @@ describe("ALWAYS: validation command participation is driven by spx config", () 
         expect(result.output).toBe(LITERAL_DISABLED_MESSAGE);
       },
     );
+  });
+
+  it("skips injected literal config when injected enabled is false", async () => {
+    await withLiteralFixtureEnv({}, async (env) => {
+      await env.writeTsConfigMarker();
+
+      const result = await literalCommand({
+        cwd: env.projectDir,
+        config: LITERAL_DEFAULTS,
+        enabled: false,
+      });
+
+      expect(result.exitCode).toBe(0);
+      expect(result.output).toBe(LITERAL_DISABLED_MESSAGE);
+    });
   });
 
   it("skips knip validation when validation.knip.enabled is false", async () => {
