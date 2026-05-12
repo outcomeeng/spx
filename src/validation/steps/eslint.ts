@@ -89,9 +89,9 @@ export function buildEslintArgs(context: {
       ...validatedFiles,
     ];
   }
-  const targetArgs = scope === VALIDATION_SCOPES.PRODUCTION
+  const targetArgs = scope === VALIDATION_SCOPES.PRODUCTION || scopeConfig?.filteredByValidationPathIncludes
     ? buildProductionTargetArgs(scopeConfig)
-    : [ESLINT_COMMAND_TOKENS.CURRENT_DIRECTORY];
+    : buildCurrentDirectoryTargetArgs(scopeConfig);
   return [
     ESLINT_COMMAND_TOKENS.COMMAND,
     ...targetArgs,
@@ -101,14 +101,25 @@ export function buildEslintArgs(context: {
   ];
 }
 
+function buildCurrentDirectoryTargetArgs(scopeConfig: ScopeConfig | undefined): string[] {
+  return [
+    ESLINT_COMMAND_TOKENS.CURRENT_DIRECTORY,
+    ...(scopeConfig?.filteredByValidationPaths ? buildIgnorePatternArgs(scopeConfig.excludePatterns) : []),
+  ];
+}
+
 function buildProductionTargetArgs(scopeConfig: ScopeConfig | undefined): string[] {
   const targetPatterns = scopeConfig?.filePatterns.length
     ? scopeConfig.filePatterns
     : [ESLINT_COMMAND_TOKENS.CURRENT_DIRECTORY];
   return [
     ...targetPatterns,
-    ...(scopeConfig?.excludePatterns ?? []).flatMap((pattern) => [ESLINT_COMMAND_TOKENS.IGNORE_PATTERN_FLAG, pattern]),
+    ...buildIgnorePatternArgs(scopeConfig?.excludePatterns ?? []),
   ];
+}
+
+function buildIgnorePatternArgs(patterns: readonly string[]): string[] {
+  return patterns.flatMap((pattern) => [ESLINT_COMMAND_TOKENS.IGNORE_PATTERN_FLAG, pattern]);
 }
 
 // =============================================================================

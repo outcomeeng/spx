@@ -7,6 +7,8 @@
  */
 
 import { existsSync } from "node:fs";
+import { mkdtemp, rm, writeFile } from "node:fs/promises";
+import { tmpdir } from "node:os";
 import { join } from "node:path";
 
 import { lifecycleProcessRunner, type ProcessRunner, spawnManagedSubprocess } from "@/lib/process-lifecycle";
@@ -20,6 +22,24 @@ import type { ScopeConfig } from "../types";
  * Default production process runner for Knip.
  */
 export const defaultKnipProcessRunner: ProcessRunner = lifecycleProcessRunner;
+export const KNIP_COMMAND_TOKENS = {
+  COMMAND: "knip",
+  CONFIG_FLAG: "--config",
+} as const;
+
+export interface KnipDeps {
+  readonly existsSync: typeof existsSync;
+  readonly mkdtemp: typeof mkdtemp;
+  readonly rm: typeof rm;
+  readonly writeFile: typeof writeFile;
+}
+
+const defaultKnipDeps: KnipDeps = {
+  existsSync,
+  mkdtemp,
+  rm,
+  writeFile,
+};
 
 export interface KnipValidationContext {
   readonly projectRoot: string;
@@ -48,6 +68,7 @@ export interface KnipValidationContext {
 export async function validateKnip(
   context: KnipValidationContext,
   runner: ProcessRunner = defaultKnipProcessRunner,
+  deps: KnipDeps = defaultKnipDeps,
 ): Promise<{
   success: boolean;
   error?: string;
@@ -61,25 +82,45 @@ export async function validateKnip(
       return { success: true };
     }
 
-    return new Promise((resolve) => {
-      const localBin = join(projectRoot, "node_modules", ".bin", "knip");
-      const binary = existsSync(localBin) ? localBin : "npx";
-      const knipProcess = spawnManagedSubprocess(runner, binary, binary === "npx" ? ["knip"] : [], {
-        cwd: projectRoot,
-      });
+    return await runKnipSubprocess(projectRoot, typescriptScope, runner, deps);
+  } catch (error) {
+    const errorMessage = error instanceof Error ? error.message : String(error);
+    return { success: false, error: errorMessage };
+  }
+}
 
-      let knipOutput = "";
-      let knipError = "";
+async function runKnipSubprocess(
+  projectRoot: string,
+  typescriptScope: ScopeConfig,
+  runner: ProcessRunner,
+  deps: KnipDeps,
+): Promise<{ success: boolean; error?: string }> {
+  const scopedConfig = typescriptScope.filteredByValidationPaths
+    ? await createScopedKnipConfig(typescriptScope, deps)
+    : undefined;
+  const localBin = join(projectRoot, "node_modules", ".bin", "knip");
+  const binary = deps.existsSync(localBin) ? localBin : "npx";
+  const baseArgs = scopedConfig === undefined ? [] : [KNIP_COMMAND_TOKENS.CONFIG_FLAG, scopedConfig.configPath];
+  const args = binary === "npx" ? [KNIP_COMMAND_TOKENS.COMMAND, ...baseArgs] : baseArgs;
+  const knipProcess = spawnManagedSubprocess(runner, binary, args, {
+    cwd: projectRoot,
+  });
+  const cleanup = scopedConfig?.cleanup ?? (async () => {});
 
-      knipProcess.stdout?.on("data", (data: Buffer) => {
-        knipOutput += data.toString();
-      });
+  let knipOutput = "";
+  let knipError = "";
 
-      knipProcess.stderr?.on("data", (data: Buffer) => {
-        knipError += data.toString();
-      });
+  knipProcess.stdout?.on("data", (data: Buffer) => {
+    knipOutput += data.toString();
+  });
 
-      knipProcess.on("close", (code) => {
+  knipProcess.stderr?.on("data", (data: Buffer) => {
+    knipError += data.toString();
+  });
+
+  return new Promise((resolve) => {
+    knipProcess.on("close", (code) => {
+      void cleanup().finally(() => {
         if (code === 0) {
           resolve({ success: true });
         } else {
@@ -90,13 +131,32 @@ export async function validateKnip(
           });
         }
       });
+    });
 
-      knipProcess.on("error", (error) => {
+    knipProcess.on("error", (error) => {
+      void cleanup().finally(() => {
         resolve({ success: false, error: error.message });
       });
     });
-  } catch (error) {
-    const errorMessage = error instanceof Error ? error.message : String(error);
-    return { success: false, error: errorMessage };
-  }
+  });
+}
+
+async function createScopedKnipConfig(
+  typescriptScope: ScopeConfig,
+  deps: KnipDeps,
+): Promise<{ configPath: string; cleanup: () => Promise<void> }> {
+  const tempDir = await deps.mkdtemp(join(tmpdir(), "validate-knip-"));
+  const configPath = join(tempDir, "knip.json");
+  const project = typescriptScope.filePatterns.length > 0
+    ? typescriptScope.filePatterns
+    : typescriptScope.directories.map((directory) => `${directory}/**/*.{js,ts,tsx}`);
+  const config = {
+    project,
+    ignore: typescriptScope.excludePatterns,
+  };
+  await deps.writeFile(configPath, JSON.stringify(config, null, 2));
+  return {
+    configPath,
+    cleanup: () => deps.rm(tempDir, { recursive: true, force: true }),
+  };
 }

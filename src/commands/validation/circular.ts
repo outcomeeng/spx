@@ -3,6 +3,13 @@
  *
  * Runs madge to detect circular dependencies.
  */
+import { resolveConfig } from "@/config/index";
+import {
+  VALIDATION_PATH_TOOL_SUBSECTIONS,
+  type ValidationConfig,
+  validationConfigDescriptor,
+} from "@/validation/config/descriptor";
+import { applyValidationPathFilterToScope, validationPathFilterForTool } from "@/validation/config/path-filter";
 import { getTypeScriptScope } from "@/validation/config/scope";
 import { detectTypeScript, discoverTool, formatSkipMessage } from "@/validation/discovery/index";
 import { validateCircularDependencies } from "@/validation/steps/circular";
@@ -14,6 +21,7 @@ import {
 import type { CircularCommandOptions, ValidationCommandResult } from "./types";
 
 const TYPESCRIPT_ABSENT_MESSAGE = formatTypeScriptAbsentSkipMessage(VALIDATION_STAGE_DISPLAY_NAMES.CIRCULAR);
+const CIRCULAR_CONFIG_ERROR_MESSAGE = `${VALIDATION_STAGE_DISPLAY_NAMES.CIRCULAR}: ✗ config error`;
 export const CIRCULAR_DEPENDENCY_OUTPUT = {
   FOUND: VALIDATION_COMMAND_OUTPUT.CIRCULAR_FOUND,
 } as const;
@@ -49,8 +57,19 @@ export async function circularCommand(options: CircularCommandOptions): Promise<
     return { exitCode: 0, output: skipMessage, durationMs: Date.now() - startTime };
   }
 
-  // Get scope configuration from tsconfig (circular always uses full scope)
-  const scopeConfig = getTypeScriptScope("full", cwd);
+  const loaded = await resolveConfig(cwd, [validationConfigDescriptor]);
+  if (!loaded.ok) {
+    return {
+      exitCode: 1,
+      output: `${CIRCULAR_CONFIG_ERROR_MESSAGE} — ${loaded.error}`,
+      durationMs: Date.now() - startTime,
+    };
+  }
+  const validationConfig = loaded.value[validationConfigDescriptor.section] as ValidationConfig;
+  const scopeConfig = applyValidationPathFilterToScope(
+    getTypeScriptScope("full", cwd),
+    validationPathFilterForTool(validationConfig.paths, VALIDATION_PATH_TOOL_SUBSECTIONS.CIRCULAR),
+  );
 
   // Run circular dependency validation
   const result = await validateCircularDependencies("full", scopeConfig, cwd);

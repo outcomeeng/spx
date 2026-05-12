@@ -13,7 +13,7 @@ import { isAbsolute, join } from "node:path";
 
 import { lifecycleProcessRunner, type ProcessRunner, spawnManagedSubprocess } from "@/lib/process-lifecycle";
 import { TSCONFIG_FILES } from "../config/scope";
-import type { ValidationScope } from "../types";
+import type { ScopeConfig, ValidationScope } from "../types";
 import { VALIDATION_SCOPES } from "../types";
 import {
   defaultValidationSubprocessOutputStreams,
@@ -130,6 +130,40 @@ export async function createFileSpecificTsconfig(
   return { configPath, tempDir, cleanup };
 }
 
+async function createScopeFilteredTsconfig(
+  scope: ValidationScope,
+  projectRoot: string,
+  scopeConfig: ScopeConfig,
+  deps: TypeScriptDeps = defaultTypeScriptDeps,
+): Promise<{ configPath: string; tempDir: string; cleanup: () => void }> {
+  const tempDir = await deps.mkdtemp(join(tmpdir(), "validate-ts-"));
+  const configPath = join(tempDir, "tsconfig.json");
+  const baseConfigFile = TSCONFIG_FILES[scope];
+  const toProjectPathPattern = (pattern: string) => isAbsolute(pattern) ? pattern : join(projectRoot, pattern);
+  const tempConfig = {
+    extends: join(projectRoot, baseConfigFile),
+    include: scopeConfig.filePatterns.map(toProjectPathPattern),
+    exclude: scopeConfig.excludePatterns.map(toProjectPathPattern),
+    compilerOptions: {
+      noEmit: true,
+      typeRoots: [join(projectRoot, "node_modules", "@types")],
+      types: ["node"],
+    },
+  };
+
+  deps.writeFileSync(configPath, JSON.stringify(tempConfig, null, 2));
+
+  const cleanup = () => {
+    try {
+      deps.rmSync(tempDir, { recursive: true, force: true });
+    } catch {
+      // Cleanup error - don't fail validation
+    }
+  };
+
+  return { configPath, tempDir, cleanup };
+}
+
 // =============================================================================
 // VALIDATION FUNCTION
 // =============================================================================
@@ -159,6 +193,7 @@ export async function validateTypeScript(
   runner: ProcessRunner = defaultTypeScriptProcessRunner,
   deps: TypeScriptDeps = defaultTypeScriptDeps,
   outputStreams: ValidationSubprocessOutputStreams = defaultValidationSubprocessOutputStreams,
+  scopeConfig?: ScopeConfig,
 ): Promise<{
   success: boolean;
   error?: string;
@@ -203,6 +238,34 @@ export async function validateTypeScript(
       const errorMessage = error instanceof Error ? error.message : String(error);
       return { success: false, error: `Failed to create temporary config: ${errorMessage}` };
     }
+  } else if (scopeConfig?.filteredByValidationPaths) {
+    if (scopeConfig.filePatterns.length === 0 && scopeConfig.directories.length === 0) {
+      return { success: true, skipped: false };
+    }
+    const { configPath, cleanup } = await createScopeFilteredTsconfig(scope, projectRoot, scopeConfig, deps);
+    const tscBin = join(projectRoot, "node_modules", ".bin", "tsc");
+    tool = deps.existsSync(tscBin) ? tscBin : "npx";
+    tscArgs = tool === "npx" ? ["tsc", "--project", configPath] : ["--project", configPath];
+    return new Promise((resolve) => {
+      const tscProcess = spawnManagedSubprocess(runner, tool, tscArgs, {
+        cwd: projectRoot,
+      });
+      forwardValidationSubprocessOutput(tscProcess, outputStreams);
+
+      tscProcess.on(VALIDATION_SUBPROCESS_EVENTS.CLOSE, (code) => {
+        cleanup();
+        if (code === 0) {
+          resolve({ success: true, skipped: false });
+        } else {
+          resolve({ success: false, error: `TypeScript exited with code ${code}` });
+        }
+      });
+
+      tscProcess.on(VALIDATION_SUBPROCESS_EVENTS.ERROR, (error) => {
+        cleanup();
+        resolve({ success: false, error: error.message });
+      });
+    });
   } else {
     // Full validation using tsc
     const tscBin = join(projectRoot, "node_modules", ".bin", "tsc");

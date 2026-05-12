@@ -2,7 +2,8 @@ import { describe, expect, it } from "vitest";
 
 import { knipCommand } from "@/commands/validation/knip";
 import { LITERAL_DISABLED_MESSAGE, literalCommand } from "@/commands/validation/literal";
-import { VALIDATION_COMMAND_OUTPUT } from "@/commands/validation/messages";
+import { markdownCommand } from "@/commands/validation/markdown";
+import { VALIDATION_COMMAND_OUTPUT, VALIDATION_EXIT_CODES } from "@/commands/validation/messages";
 import { resolveConfig } from "@/config/index";
 import {
   VALIDATION_ENABLED_FIELD,
@@ -14,6 +15,12 @@ import {
   validationConfigDescriptor,
 } from "@/validation/config/descriptor";
 import { LITERAL_DEFAULTS } from "@/validation/literal/config";
+import { MARKDOWN_DEFAULT_DIRECTORY_NAMES, MARKDOWN_PRIMARY_FILE_EXTENSION } from "@/validation/steps/markdown";
+import {
+  LITERAL_TEST_GENERATOR,
+  sampleDistinctDomainLiterals,
+  sampleLiteralTestValue,
+} from "@testing/generators/literal/literal";
 import { VALIDATION_PIPELINE_DATA } from "@testing/generators/validation/validation";
 import { withLiteralFixtureEnv } from "@testing/harnesses/literal/harness";
 import { type Config } from "@testing/harnesses/spec-tree/spec-tree";
@@ -103,6 +110,57 @@ describe("ALWAYS: validation command participation is driven by spx config", () 
           expect(validationConfig.paths.eslint?.include).toEqual([VALIDATION_PIPELINE_DATA.sourceDirectoryName]);
           expect(validationConfig.paths.knip).toBeUndefined();
         }
+      },
+    );
+  });
+
+  it("applies literal-specific validation paths during literal execution", async () => {
+    await withLiteralFixtureEnv(
+      {
+        [validationConfigDescriptor.section]: {
+          [VALIDATION_PATHS_SUBSECTION]: {
+            [VALIDATION_PATH_TOOL_SUBSECTIONS.LITERAL]: {
+              include: [VALIDATION_PIPELINE_DATA.sourceDirectoryName],
+            },
+          },
+        },
+      },
+      async (env) => {
+        const [reuseLiteral] = sampleDistinctDomainLiterals(1);
+        const sourceFilePath = sampleLiteralTestValue(LITERAL_TEST_GENERATOR.sourceFilePath());
+        const testFilePath = sampleLiteralTestValue(LITERAL_TEST_GENERATOR.testFilePath());
+        await env.writeTsConfigMarker();
+        await env.writeSourceFile(sourceFilePath, reuseLiteral);
+        await env.writeTestFile(testFilePath, reuseLiteral);
+
+        const result = await literalCommand({ cwd: env.projectDir, json: true });
+
+        expect(result.exitCode).toBe(VALIDATION_EXIT_CODES.SUCCESS);
+        expect(JSON.parse(result.output)).toEqual({ srcReuse: [], testDupe: [] });
+      },
+    );
+  });
+
+  it("applies markdown-specific validation paths during markdown execution", async () => {
+    await withLiteralFixtureEnv(
+      {
+        [validationConfigDescriptor.section]: {
+          [VALIDATION_PATHS_SUBSECTION]: {
+            [VALIDATION_PATH_TOOL_SUBSECTIONS.MARKDOWN]: {
+              include: ["spx"],
+            },
+          },
+        },
+      },
+      async (env) => {
+        const [validMarkdownSlug, invalidMarkdownSlug] = sampleDistinctDomainLiterals(2);
+        const [specTreeDirectory, docsDirectory] = MARKDOWN_DEFAULT_DIRECTORY_NAMES;
+        await env.writeRaw(`${specTreeDirectory}/${validMarkdownSlug}${MARKDOWN_PRIMARY_FILE_EXTENSION}`, "# Good\n");
+        await env.writeRaw(`${docsDirectory}/${invalidMarkdownSlug}${MARKDOWN_PRIMARY_FILE_EXTENSION}`, "# Bad  \n");
+
+        const result = await markdownCommand({ cwd: env.projectDir, quiet: true });
+
+        expect(result.exitCode).toBe(VALIDATION_EXIT_CODES.SUCCESS);
       },
     );
   });

@@ -6,6 +6,15 @@
  * markdownlint-cli2 is a production dependency, always available.
  */
 
+import { relative } from "node:path";
+
+import { resolveConfig } from "@/config/index";
+import {
+  VALIDATION_PATH_TOOL_SUBSECTIONS,
+  type ValidationConfig,
+  validationConfigDescriptor,
+} from "@/validation/config/descriptor";
+import { pathPassesValidationFilter, validationPathFilterForTool } from "@/validation/config/path-filter";
 import {
   getDefaultDirectories,
   MARKDOWN_VALIDATION_TARGET_KIND,
@@ -43,15 +52,29 @@ export const MARKDOWN_COMMAND_OUTPUT = {
   NO_ISSUES: VALIDATION_COMMAND_OUTPUT.MARKDOWN_NO_ISSUES,
   SKIPPED_FILE_SCOPE_PREFIX: "Markdown skipped file scope",
 } as const;
+const MARKDOWN_CONFIG_ERROR_MESSAGE = `${VALIDATION_STAGE_DISPLAY_NAMES.MARKDOWN}: ✗ config error`;
 
 export async function markdownCommand(options: MarkdownCommandOptions): Promise<ValidationCommandResult> {
   const { cwd, files, quiet } = options;
   const startTime = Date.now();
+  const loaded = await resolveConfig(cwd, [validationConfigDescriptor]);
+  if (!loaded.ok) {
+    return {
+      exitCode: 1,
+      output: `${MARKDOWN_CONFIG_ERROR_MESSAGE} — ${loaded.error}`,
+      durationMs: Date.now() - startTime,
+    };
+  }
+  const validationConfig = loaded.value[validationConfigDescriptor.section] as ValidationConfig;
+  const pathFilter = validationPathFilterForTool(
+    validationConfig.paths,
+    VALIDATION_PATH_TOOL_SUBSECTIONS.MARKDOWN,
+  );
 
   const targetResolutions = files && files.length > 0
     ? files.map((filePath) => resolveMarkdownValidationTarget(filePath))
     : undefined;
-  const targets = targetResolutions !== undefined
+  const unfilteredTargets = targetResolutions !== undefined
     ? targetResolutions
       .map((resolution) => resolution.target)
       .filter((target): target is MarkdownValidationTarget => target !== undefined)
@@ -59,6 +82,9 @@ export async function markdownCommand(options: MarkdownCommandOptions): Promise<
       kind: MARKDOWN_VALIDATION_TARGET_KIND.DIRECTORY,
       path,
     }));
+  const targets = unfilteredTargets.filter((target) =>
+    pathPassesValidationFilter(relative(cwd, target.path), pathFilter)
+  );
   const skippedTargets = targetResolutions === undefined
     ? []
     : targetResolutions
