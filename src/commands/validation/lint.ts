@@ -16,6 +16,7 @@ import { validateESLint } from "@/validation/steps/eslint";
 import { VALIDATION_SCOPES, type ValidationContext } from "@/validation/types";
 import {
   formatTypeScriptAbsentSkipMessage,
+  formatValidationPathsNoTargetsSkipMessage,
   VALIDATION_COMMAND_OUTPUT,
   VALIDATION_STAGE_DISPLAY_NAMES,
 } from "./messages";
@@ -24,6 +25,9 @@ import type { LintCommandOptions, ValidationCommandResult } from "./types";
 const TYPESCRIPT_ABSENT_MESSAGE = formatTypeScriptAbsentSkipMessage(VALIDATION_STAGE_DISPLAY_NAMES.ESLINT);
 const MISSING_CONFIG_MESSAGE = VALIDATION_COMMAND_OUTPUT.ESLINT_MISSING_CONFIG;
 const ESLINT_CONFIG_ERROR_MESSAGE = `${VALIDATION_STAGE_DISPLAY_NAMES.ESLINT}: ✗ config error`;
+const VALIDATION_PATHS_NO_TARGETS_MESSAGE = formatValidationPathsNoTargetsSkipMessage(
+  VALIDATION_STAGE_DISPLAY_NAMES.ESLINT,
+);
 
 /**
  * Run ESLint validation.
@@ -59,13 +63,6 @@ export async function lintCommand(options: LintCommandOptions): Promise<Validati
     };
   }
 
-  // Gate 3: tool discovery — ensure ESLint itself is available somewhere.
-  const toolResult = await discoverTool("eslint", { projectRoot: cwd });
-  if (!toolResult.found) {
-    const skipMessage = formatSkipMessage(VALIDATION_STAGE_DISPLAY_NAMES.ESLINT, toolResult);
-    return { exitCode: 0, output: skipMessage, durationMs: Date.now() - startTime };
-  }
-
   const loaded = await resolveConfig(cwd, [validationConfigDescriptor]);
   if (!loaded.ok) {
     return {
@@ -79,6 +76,21 @@ export async function lintCommand(options: LintCommandOptions): Promise<Validati
     getTypeScriptScope(scope, cwd),
     validationPathFilterForTool(validationConfig.paths, VALIDATION_PATH_TOOL_SUBSECTIONS.ESLINT),
   );
+
+  if (scopeConfig.filteredByValidationPathNoMatches) {
+    return {
+      exitCode: 0,
+      output: quiet ? "" : VALIDATION_PATHS_NO_TARGETS_MESSAGE,
+      durationMs: Date.now() - startTime,
+    };
+  }
+
+  // Gate 3: tool discovery — ensure ESLint itself is available somewhere.
+  const toolResult = await discoverTool("eslint", { projectRoot: cwd });
+  if (!toolResult.found) {
+    const skipMessage = formatSkipMessage(VALIDATION_STAGE_DISPLAY_NAMES.ESLINT, toolResult);
+    return { exitCode: 0, output: skipMessage, durationMs: Date.now() - startTime };
+  }
 
   // Build validation context
   const context: ValidationContext = {
@@ -99,7 +111,10 @@ export async function lintCommand(options: LintCommandOptions): Promise<Validati
   const durationMs = Date.now() - startTime;
 
   // Map result to command output
-  if (result.success) {
+  if (result.skipped) {
+    const output = quiet ? "" : VALIDATION_PATHS_NO_TARGETS_MESSAGE;
+    return { exitCode: 0, output, durationMs };
+  } else if (result.success) {
     const output = quiet ? "" : VALIDATION_COMMAND_OUTPUT.ESLINT_SUCCESS;
     return { exitCode: 0, output, durationMs };
   } else {

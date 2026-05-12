@@ -15,6 +15,7 @@ import { detectTypeScript, discoverTool, formatSkipMessage } from "@/validation/
 import { validateTypeScript } from "@/validation/steps/typescript";
 import {
   formatTypeScriptAbsentSkipMessage,
+  formatValidationPathsNoTargetsSkipMessage,
   VALIDATION_COMMAND_OUTPUT,
   VALIDATION_STAGE_DISPLAY_NAMES,
 } from "./messages";
@@ -23,6 +24,7 @@ import type { TypeScriptCommandOptions, ValidationCommandResult } from "./types"
 export const TYPESCRIPT_VALIDATION_MESSAGES = {
   ABSENT: formatTypeScriptAbsentSkipMessage(VALIDATION_STAGE_DISPLAY_NAMES.TYPESCRIPT),
   CONFIG_ERROR: `${VALIDATION_STAGE_DISPLAY_NAMES.TYPESCRIPT}: ✗ config error`,
+  NO_VALIDATION_PATH_TARGETS: formatValidationPathsNoTargetsSkipMessage(VALIDATION_STAGE_DISPLAY_NAMES.TYPESCRIPT),
   SUCCESS: VALIDATION_COMMAND_OUTPUT.TYPESCRIPT_SUCCESS,
   TOOL_LABEL: VALIDATION_STAGE_DISPLAY_NAMES.TYPESCRIPT,
 } as const;
@@ -51,13 +53,6 @@ export async function typescriptCommand(options: TypeScriptCommandOptions): Prom
     };
   }
 
-  // Gate 2: tool discovery — ensure tsc itself is available somewhere.
-  const toolResult = await discoverTool("typescript", { projectRoot: cwd });
-  if (!toolResult.found) {
-    const skipMessage = formatSkipMessage(VALIDATION_STAGE_DISPLAY_NAMES.TYPESCRIPT, toolResult);
-    return { exitCode: 0, output: skipMessage, durationMs: Date.now() - startTime };
-  }
-
   const loaded = await resolveConfig(cwd, [validationConfigDescriptor]);
   if (!loaded.ok) {
     return {
@@ -72,11 +67,29 @@ export async function typescriptCommand(options: TypeScriptCommandOptions): Prom
     validationPathFilterForTool(validationConfig.paths, VALIDATION_PATH_TOOL_SUBSECTIONS.TYPESCRIPT),
   );
 
+  if (scopeConfig.filteredByValidationPathNoMatches) {
+    return {
+      exitCode: 0,
+      output: quiet ? "" : TYPESCRIPT_VALIDATION_MESSAGES.NO_VALIDATION_PATH_TARGETS,
+      durationMs: Date.now() - startTime,
+    };
+  }
+
+  // Gate 2: tool discovery — ensure tsc itself is available somewhere.
+  const toolResult = await discoverTool("typescript", { projectRoot: cwd });
+  if (!toolResult.found) {
+    const skipMessage = formatSkipMessage(VALIDATION_STAGE_DISPLAY_NAMES.TYPESCRIPT, toolResult);
+    return { exitCode: 0, output: skipMessage, durationMs: Date.now() - startTime };
+  }
+
   const result = await validateTypeScript(scope, cwd, files, undefined, undefined, undefined, scopeConfig);
   const durationMs = Date.now() - startTime;
 
   // Map result to command output
-  if (result.success) {
+  if (result.skipped) {
+    const output = quiet ? "" : TYPESCRIPT_VALIDATION_MESSAGES.NO_VALIDATION_PATH_TARGETS;
+    return { exitCode: 0, output, durationMs };
+  } else if (result.success) {
     const output = quiet ? "" : TYPESCRIPT_VALIDATION_MESSAGES.SUCCESS;
     return { exitCode: 0, output, durationMs };
   } else {

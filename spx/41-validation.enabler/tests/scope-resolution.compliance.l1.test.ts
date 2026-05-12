@@ -11,7 +11,12 @@ import {
 } from "@/validation/steps/circular";
 import { type KnipDeps, validateKnip } from "@/validation/steps/knip";
 import { KNIP_COMMAND_TOKENS } from "@/validation/steps/knip";
-import { defaultTypeScriptDeps, type TypeScriptDeps, validateTypeScript } from "@/validation/steps/typescript";
+import {
+  defaultTypeScriptDeps,
+  TYPESCRIPT_TYPE_ROOT_SEGMENTS,
+  type TypeScriptDeps,
+  validateTypeScript,
+} from "@/validation/steps/typescript";
 import { VALIDATION_SCOPES } from "@/validation/types";
 import { VALIDATION_PIPELINE_DATA } from "@testing/generators/validation/validation";
 import { withTestEnv } from "@testing/harnesses/spec-tree/spec-tree";
@@ -172,10 +177,49 @@ describe("ALWAYS: TypeScript scope resolution uses the requested project root", 
       expect(result.success).toBe(true);
       expect(runner.options.every((options) => options.cwd === env.projectDir)).toBe(true);
       expect(writtenConfigs).toHaveLength(1);
-      expect(JSON.parse(writtenConfigs[0] ?? "{}")).toMatchObject({
+      const writtenConfig = JSON.parse(writtenConfigs[0] ?? "{}");
+      expect(writtenConfig).toMatchObject({
         include: [join(env.projectDir, VALIDATION_PIPELINE_DATA.productionScopeFilePattern)],
         exclude: [join(env.projectDir, VALIDATION_PIPELINE_DATA.productionScopeExcludePattern)],
       });
+      expect(writtenConfig.compilerOptions).toEqual({
+        noEmit: true,
+        typeRoots: [
+          join(
+            env.projectDir,
+            TYPESCRIPT_TYPE_ROOT_SEGMENTS.NODE_MODULES,
+            TYPESCRIPT_TYPE_ROOT_SEGMENTS.AT_TYPES,
+          ),
+          join(env.projectDir, TYPESCRIPT_TYPE_ROOT_SEGMENTS.NODE_MODULES),
+        ],
+      });
+    });
+  });
+
+  it("skips config-filtered TypeScript validation when validation paths match no targets", async () => {
+    await withTestEnv({}, async (env) => {
+      const runner = new RecordingSpawnOptionsRunner();
+
+      const result = await validateTypeScript(
+        VALIDATION_SCOPES.FULL,
+        env.projectDir,
+        undefined,
+        runner,
+        defaultTypeScriptDeps,
+        undefined,
+        {
+          directories: [],
+          filePatterns: [],
+          excludePatterns: [],
+          filteredByValidationPaths: true,
+          filteredByValidationPathIncludes: true,
+          filteredByValidationPathNoMatches: true,
+        },
+      );
+
+      expect(result.success).toBe(true);
+      expect(result.skipped).toBe(true);
+      expect(runner.commands).toEqual([]);
     });
   });
 

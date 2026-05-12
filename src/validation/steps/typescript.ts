@@ -50,6 +50,20 @@ export const defaultTypeScriptDeps: TypeScriptDeps = {
   rmSync,
   existsSync,
 };
+export const TYPESCRIPT_TYPE_ROOT_SEGMENTS = {
+  NODE_MODULES: "node_modules",
+  AT_TYPES: "@types",
+} as const;
+
+function createTemporaryCompilerOptions(projectRoot: string): Record<string, unknown> {
+  return {
+    noEmit: true,
+    typeRoots: [
+      join(projectRoot, TYPESCRIPT_TYPE_ROOT_SEGMENTS.NODE_MODULES, TYPESCRIPT_TYPE_ROOT_SEGMENTS.AT_TYPES),
+      join(projectRoot, TYPESCRIPT_TYPE_ROOT_SEGMENTS.NODE_MODULES),
+    ],
+  };
+}
 
 // =============================================================================
 // PURE ARGUMENT BUILDER
@@ -108,11 +122,7 @@ export async function createFileSpecificTsconfig(
     files: absoluteFiles,
     include: [],
     exclude: [],
-    compilerOptions: {
-      noEmit: true,
-      typeRoots: [join(projectRoot, "node_modules", "@types")],
-      types: ["node"],
-    },
+    compilerOptions: createTemporaryCompilerOptions(projectRoot),
   };
 
   // Write temporary config
@@ -144,11 +154,7 @@ async function createScopeFilteredTsconfig(
     extends: join(projectRoot, baseConfigFile),
     include: scopeConfig.filePatterns.map(toProjectPathPattern),
     exclude: scopeConfig.excludePatterns.map(toProjectPathPattern),
-    compilerOptions: {
-      noEmit: true,
-      typeRoots: [join(projectRoot, "node_modules", "@types")],
-      types: ["node"],
-    },
+    compilerOptions: createTemporaryCompilerOptions(projectRoot),
   };
 
   deps.writeFileSync(configPath, JSON.stringify(tempConfig, null, 2));
@@ -239,8 +245,11 @@ export async function validateTypeScript(
       return { success: false, error: `Failed to create temporary config: ${errorMessage}` };
     }
   } else if (scopeConfig?.filteredByValidationPaths) {
+    if (scopeConfig.filteredByValidationPathNoMatches) {
+      return { success: true, skipped: true };
+    }
     if (scopeConfig.filePatterns.length === 0 && scopeConfig.directories.length === 0) {
-      return { success: true, skipped: false };
+      return { success: true, skipped: true };
     }
     const { configPath, cleanup } = await createScopeFilteredTsconfig(scope, projectRoot, scopeConfig, deps);
     const tscBin = join(projectRoot, "node_modules", ".bin", "tsc");
