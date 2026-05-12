@@ -110,7 +110,7 @@ describe("ESLint command arguments", () => {
       scope: VALIDATION_SCOPES.PRODUCTION,
       scopeConfig: {
         directories: [VALIDATION_PIPELINE_DATA.sourceDirectoryName],
-        excludePatterns: [],
+        excludePatterns: [VALIDATION_PIPELINE_DATA.productionScopeExcludePattern],
         filePatterns: [VALIDATION_PIPELINE_DATA.productionScopeFilePattern],
       },
     });
@@ -118,6 +118,8 @@ describe("ESLint command arguments", () => {
     expect(args).toStrictEqual([
       ESLINT_COMMAND_TOKENS.COMMAND,
       VALIDATION_PIPELINE_DATA.productionScopeFilePattern,
+      ESLINT_COMMAND_TOKENS.IGNORE_PATTERN_FLAG,
+      VALIDATION_PIPELINE_DATA.productionScopeExcludePattern,
       ESLINT_COMMAND_TOKENS.CONFIG_FLAG,
       DEFAULT_ESLINT_CONFIG_FILE,
     ]);
