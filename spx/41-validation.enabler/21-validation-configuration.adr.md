@@ -8,7 +8,7 @@ This decision governs how validation commands derive their effective tool scope,
 
 **Business impact:** Developers and agents rely on `spx validation all` as a deterministic quality gate. A validation run against a declared project root must use the same project configuration, tool configuration, and path scope regardless of the shell process that invokes it.
 
-**Technical constraints:** Project tool configuration files such as `eslint.config.ts`, `tsconfig.json`, and markdownlint configuration define the maximum surface for their tools and are resolved relative to the target project root. The central config module resolves `spx.config.*` through typed descriptors per [spx/16-config.enabler/21-descriptor-registration.adr.md](../16-config.enabler/21-descriptor-registration.adr.md). Validation subprocess lifecycle policy is governed by [spx/13-cli.enabler/15-cli-architecture.adr.md](../13-cli.enabler/15-cli-architecture.adr.md); this decision governs wrapper scope, project-root alignment, path filters, and stage participation. Validation owns a descriptor section for global path filters under `validation.paths.{include,exclude}` and literal-specific configuration under `validation.literal.*`.
+**Technical constraints:** Project tool configuration files such as `eslint.config.ts`, `eslint.config.production.ts`, `tsconfig.json`, `tsconfig.production.json`, and markdownlint configuration define the maximum surface for their tools and are resolved relative to the target project root. The central config module resolves `spx.config.*` through typed descriptors per [spx/16-config.enabler/21-descriptor-registration.adr.md](../16-config.enabler/21-descriptor-registration.adr.md). Validation subprocess lifecycle policy is governed by [spx/13-cli.enabler/15-cli-architecture.adr.md](../13-cli.enabler/15-cli-architecture.adr.md); this decision governs wrapper scope, project-root alignment, path filters, and stage participation. Validation owns a descriptor section for global path filters under `validation.paths.{include,exclude}` and literal-specific configuration under `validation.literal.*`.
 
 ## Decision
 
@@ -30,12 +30,12 @@ Alternatives considered:
 
 ## Trade-offs accepted
 
-| Trade-off                                                                                                        | Mitigation / reasoning                                                                                                                                           |
-| ---------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Validation config has both global and per-tool paths                                                             | The nesting mirrors the distinction between wrapper-wide policy and stage-specific policy                                                                        |
-| Shell users lose hidden environment toggles                                                                      | Declared config files, explicit command flags, and committed project state make validation behavior reviewable                                                   |
-| SPX config and tool config both influence execution                                                              | Tool config owns maximum surface; SPX config owns wrapper narrowing and stage participation                                                                      |
-| Production ESLint passes target patterns and CLI ignore patterns instead of swapping the TypeScript project file | Type-aware rules load the full project context while reported diagnostics stay narrowed by the SPX wrapper scope; tool-native config remains the maximum surface |
+| Trade-off                                                 | Mitigation / reasoning                                                                                                          |
+| --------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------- |
+| Validation config has both global and per-tool paths      | The nesting mirrors the distinction between wrapper-wide policy and stage-specific policy                                       |
+| Shell users lose hidden environment toggles               | Declared config files, explicit command flags, and committed project state make validation behavior reviewable                  |
+| SPX config and tool config both influence execution       | Tool config owns maximum surface; SPX config owns wrapper narrowing and stage participation                                     |
+| Production ESLint may need a separate flat config wrapper | The production wrapper imports the shared config builder and swaps only the TypeScript project file; rule policy remains shared |
 
 ## Invariants
 
@@ -53,7 +53,7 @@ Validation command handlers accept or derive a project root, resolve validation 
 - Resolve validation wrapper behavior through `resolveConfig(projectRoot)` and the validation descriptor — keeps command behavior declared in `spx.config.*` ([review])
 - Resolve project tool configuration relative to the same project root used for command execution — keeps scope discovery and tool execution aligned ([review])
 - Treat project tool configuration as the maximum tool surface — keeps direct tool runs at least as strict as SPX wrapper runs ([review])
-- Keep production-scoped files inside the ESLint TypeScript project surface while narrowing the wrapper target patterns — prevents wrapper scope from depending on a separate project-service configuration ([review])
+- Prefer a production ESLint flat config when one exists for production scope — keeps type-aware parser and resolver configuration aligned with `tsconfig.production.json` ([review])
 - Pass production-scope ESLint excludes through the documented ESLint CLI ignore-pattern flag — keeps dynamic wrapper narrowing out of flat-config project policy ([review])
 - Validate global `validation.paths.{include,exclude}` and per-tool `validation.paths.<tool>.{include,exclude}` through the validation descriptor — supports wrapper-wide and stage-specific narrowing ([review])
 - Intersect explicit caller paths with project tool configuration and SPX validation path configuration — keeps invocation scope narrower than declared configuration ([review])
