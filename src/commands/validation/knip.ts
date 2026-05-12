@@ -4,7 +4,12 @@
  * Runs knip to find unused exports, dependencies, and files.
  */
 import { resolveConfig } from "@/config/index";
-import { type ValidationConfig, validationConfigDescriptor } from "@/validation/config/descriptor";
+import {
+  VALIDATION_PATH_TOOL_SUBSECTIONS,
+  type ValidationConfig,
+  validationConfigDescriptor,
+} from "@/validation/config/descriptor";
+import { applyValidationPathFilterToScope, validationPathFilterForTool } from "@/validation/config/path-filter";
 import { getTypeScriptScope } from "@/validation/config/scope";
 import { discoverTool, formatSkipMessage } from "@/validation/discovery/index";
 import { validateKnip } from "@/validation/steps/knip";
@@ -43,8 +48,10 @@ export async function knipCommand(options: KnipCommandOptions): Promise<Validati
     return { exitCode: 0, output: skipMessage, durationMs: Date.now() - startTime };
   }
 
-  // Get scope configuration from tsconfig (knip uses full scope)
-  const scopeConfig = getTypeScriptScope("full", cwd);
+  const scopeConfig = applyValidationPathFilterToScope(
+    getTypeScriptScope("full", cwd),
+    validationPathFilterForTool(validationConfig.paths, VALIDATION_PATH_TOOL_SUBSECTIONS.KNIP),
+  );
 
   // Run knip validation
   const result = await validateKnip({ projectRoot: cwd, typescriptScope: scopeConfig });

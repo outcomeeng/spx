@@ -43,6 +43,10 @@ export interface ScopeConfig {
   filePatterns: string[];
   /** Patterns to exclude from validation */
   excludePatterns: string[];
+  /** Whether spx.config validation path filters narrowed this scope */
+  filteredByValidationPaths?: boolean;
+  /** Whether the narrowed scope came from an include path, not only excludes */
+  filteredByValidationPathIncludes?: boolean;
 }
 
 // =============================================================================

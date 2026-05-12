@@ -23,7 +23,8 @@ import relativeLinksRule from "markdownlint-rule-relative-links";
 // =============================================================================
 
 /** Default directories to validate when no --files are specified. */
-const DEFAULT_DIRECTORY_NAMES = ["spx", "docs"] as const;
+export const MARKDOWN_DEFAULT_DIRECTORY_NAMES = ["spx", "docs"] as const;
+export const MARKDOWN_PRIMARY_FILE_EXTENSION = ".md";
 const MARKDOWN_FILE_EXTENSIONS: ReadonlySet<string> = new Set([".md", ".markdown"]);
 export const MARKDOWN_DIRECTORY_GLOB = "**/*.md";
 
@@ -171,7 +172,7 @@ export function buildMarkdownlintConfig(directoryName: string): {
  * @returns Array of absolute paths to existing default directories
  */
 export function getDefaultDirectories(projectRoot: string): string[] {
-  return DEFAULT_DIRECTORY_NAMES
+  return MARKDOWN_DEFAULT_DIRECTORY_NAMES
     .map((name) => join(projectRoot, name))
     .filter((dir) => existsSync(dir));
 }

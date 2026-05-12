@@ -9,6 +9,11 @@ import { describe, expect, it } from "vitest";
 import { lintCommand } from "@/commands/validation/lint";
 import { VALIDATION_EXIT_CODES } from "@/commands/validation/messages";
 import type { ProcessRunner } from "@/lib/process-lifecycle";
+import {
+  VALIDATION_PATH_TOOL_SUBSECTIONS,
+  VALIDATION_PATHS_SUBSECTION,
+  validationConfigDescriptor,
+} from "@/validation/config/descriptor";
 import { TSCONFIG_FILES } from "@/validation/config/scope";
 import {
   buildEslintArgs,
@@ -239,6 +244,50 @@ describe("ESLint command arguments", () => {
         DEFAULT_ESLINT_CONFIG_FILE,
       ]);
     });
+  });
+
+  it("passes ESLint-specific validation paths to the spawned binary", async () => {
+    await withTestEnv(
+      {
+        [validationConfigDescriptor.section]: {
+          [VALIDATION_PATHS_SUBSECTION]: {
+            [VALIDATION_PATH_TOOL_SUBSECTIONS.ESLINT]: {
+              include: [VALIDATION_PIPELINE_DATA.sourceDirectoryName],
+              exclude: [VALIDATION_PIPELINE_DATA.productionScopeExcludePattern],
+            },
+          },
+        },
+      },
+      async (env) => {
+        const sourceFilePath = sampleLiteralTestValue(LITERAL_TEST_GENERATOR.sourceFilePath());
+        const testFilePath = sampleLiteralTestValue(LITERAL_TEST_GENERATOR.testFilePath());
+        await env.writeRaw(
+          TSCONFIG_FILES.full,
+          JSON.stringify({
+            include: [VALIDATION_PIPELINE_DATA.productionScopeFilePattern, testFilePath],
+          }),
+        );
+        await env.writeRaw(DEFAULT_ESLINT_CONFIG_FILE, "export default [];\n");
+        await env.writeRaw(sourceFilePath, "export const lintCommandProjectRoot = 1;\n");
+        await env.writeRaw(testFilePath, "expect(true).toBe(true);\n");
+        await env.writeRaw(
+          join(...ESLINT_LOCAL_BIN_SEGMENTS),
+          "#!/bin/sh\nprintf '%s\\n' \"$@\" > eslint-args.txt\nexit 0\n",
+        );
+        await chmod(join(env.projectDir, ...ESLINT_LOCAL_BIN_SEGMENTS), 0o755);
+
+        const result = await lintCommand({ cwd: env.projectDir, quiet: true });
+
+        expect(result.exitCode).toBe(VALIDATION_EXIT_CODES.SUCCESS);
+        expect((await env.readFile("eslint-args.txt")).trim().split("\n")).toStrictEqual([
+          VALIDATION_PIPELINE_DATA.productionScopeFilePattern,
+          ESLINT_COMMAND_TOKENS.IGNORE_PATTERN_FLAG,
+          VALIDATION_PIPELINE_DATA.productionScopeExcludePattern,
+          ESLINT_COMMAND_TOKENS.CONFIG_FLAG,
+          DEFAULT_ESLINT_CONFIG_FILE,
+        ]);
+      },
+    );
   });
 
   it("forwards ESLint subprocess output through injected parent streams", async () => {

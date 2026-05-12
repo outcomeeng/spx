@@ -3,6 +3,13 @@
  *
  * Runs ESLint for code quality checks.
  */
+import { resolveConfig } from "@/config/index";
+import {
+  VALIDATION_PATH_TOOL_SUBSECTIONS,
+  type ValidationConfig,
+  validationConfigDescriptor,
+} from "@/validation/config/descriptor";
+import { applyValidationPathFilterToScope, validationPathFilterForTool } from "@/validation/config/path-filter";
 import { getTypeScriptScope } from "@/validation/config/scope";
 import { detectTypeScript, discoverTool, formatSkipMessage } from "@/validation/discovery/index";
 import { validateESLint } from "@/validation/steps/eslint";
@@ -16,6 +23,7 @@ import type { LintCommandOptions, ValidationCommandResult } from "./types";
 
 const TYPESCRIPT_ABSENT_MESSAGE = formatTypeScriptAbsentSkipMessage(VALIDATION_STAGE_DISPLAY_NAMES.ESLINT);
 const MISSING_CONFIG_MESSAGE = VALIDATION_COMMAND_OUTPUT.ESLINT_MISSING_CONFIG;
+const ESLINT_CONFIG_ERROR_MESSAGE = `${VALIDATION_STAGE_DISPLAY_NAMES.ESLINT}: ✗ config error`;
 
 /**
  * Run ESLint validation.
@@ -58,8 +66,19 @@ export async function lintCommand(options: LintCommandOptions): Promise<Validati
     return { exitCode: 0, output: skipMessage, durationMs: Date.now() - startTime };
   }
 
-  // Get scope configuration from tsconfig
-  const scopeConfig = getTypeScriptScope(scope, cwd);
+  const loaded = await resolveConfig(cwd, [validationConfigDescriptor]);
+  if (!loaded.ok) {
+    return {
+      exitCode: 1,
+      output: `${ESLINT_CONFIG_ERROR_MESSAGE} — ${loaded.error}`,
+      durationMs: Date.now() - startTime,
+    };
+  }
+  const validationConfig = loaded.value[validationConfigDescriptor.section] as ValidationConfig;
+  const scopeConfig = applyValidationPathFilterToScope(
+    getTypeScriptScope(scope, cwd),
+    validationPathFilterForTool(validationConfig.paths, VALIDATION_PATH_TOOL_SUBSECTIONS.ESLINT),
+  );
 
   // Build validation context
   const context: ValidationContext = {

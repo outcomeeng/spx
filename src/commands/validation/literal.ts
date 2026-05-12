@@ -1,9 +1,11 @@
 import { resolveConfig } from "@/config/index";
 import {
+  VALIDATION_PATH_TOOL_SUBSECTIONS,
   type ValidationConfig,
   validationConfigDescriptor,
   type ValidationPathConfig,
 } from "@/validation/config/descriptor";
+import { validationPathFilterForTool } from "@/validation/config/path-filter";
 import { detectTypeScript } from "@/validation/discovery/index";
 import { type LiteralConfig } from "@/validation/literal/config";
 import {
@@ -109,7 +111,10 @@ export async function literalCommand(
     const validationConfig = loaded.value[validationConfigDescriptor.section] as ValidationConfig;
     resolvedEnabled = validationConfig.literal.enabled;
     resolvedLiteralConfig = validationConfig.literal.values;
-    resolvedPathConfig = validationConfig.paths;
+    resolvedPathConfig = validationPathFilterForTool(
+      validationConfig.paths,
+      VALIDATION_PATH_TOOL_SUBSECTIONS.LITERAL,
+    );
   }
 
   if (!resolvedEnabled) {

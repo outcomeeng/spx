@@ -3,6 +3,14 @@
  *
  * Runs TypeScript type checking using tsc.
  */
+import { resolveConfig } from "@/config/index";
+import {
+  VALIDATION_PATH_TOOL_SUBSECTIONS,
+  type ValidationConfig,
+  validationConfigDescriptor,
+} from "@/validation/config/descriptor";
+import { applyValidationPathFilterToScope, validationPathFilterForTool } from "@/validation/config/path-filter";
+import { getTypeScriptScope } from "@/validation/config/scope";
 import { detectTypeScript, discoverTool, formatSkipMessage } from "@/validation/discovery/index";
 import { validateTypeScript } from "@/validation/steps/typescript";
 import {
@@ -14,6 +22,7 @@ import type { TypeScriptCommandOptions, ValidationCommandResult } from "./types"
 
 export const TYPESCRIPT_VALIDATION_MESSAGES = {
   ABSENT: formatTypeScriptAbsentSkipMessage(VALIDATION_STAGE_DISPLAY_NAMES.TYPESCRIPT),
+  CONFIG_ERROR: `${VALIDATION_STAGE_DISPLAY_NAMES.TYPESCRIPT}: ✗ config error`,
   SUCCESS: VALIDATION_COMMAND_OUTPUT.TYPESCRIPT_SUCCESS,
   TOOL_LABEL: VALIDATION_STAGE_DISPLAY_NAMES.TYPESCRIPT,
 } as const;
@@ -49,8 +58,21 @@ export async function typescriptCommand(options: TypeScriptCommandOptions): Prom
     return { exitCode: 0, output: skipMessage, durationMs: Date.now() - startTime };
   }
 
-  // Run TypeScript validation
-  const result = await validateTypeScript(scope, cwd, files);
+  const loaded = await resolveConfig(cwd, [validationConfigDescriptor]);
+  if (!loaded.ok) {
+    return {
+      exitCode: 1,
+      output: `${TYPESCRIPT_VALIDATION_MESSAGES.CONFIG_ERROR} — ${loaded.error}`,
+      durationMs: Date.now() - startTime,
+    };
+  }
+  const validationConfig = loaded.value[validationConfigDescriptor.section] as ValidationConfig;
+  const scopeConfig = applyValidationPathFilterToScope(
+    getTypeScriptScope(scope, cwd),
+    validationPathFilterForTool(validationConfig.paths, VALIDATION_PATH_TOOL_SUBSECTIONS.TYPESCRIPT),
+  );
+
+  const result = await validateTypeScript(scope, cwd, files, undefined, undefined, undefined, scopeConfig);
   const durationMs = Date.now() - startTime;
 
   // Map result to command output
