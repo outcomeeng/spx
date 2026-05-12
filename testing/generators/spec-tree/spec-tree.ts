@@ -42,7 +42,9 @@ const SPEC_TREE_TEST_GENERATOR_OPTIONS = {
   REPRESENTATIVE_TITLE_COUNT: 5,
   REPRESENTATIVE_ORDER_COUNT: 4,
   REPRESENTATIVE_ORDER_MIN: 10,
+  REPRESENTATIVE_PARENT_ORDER_MAX: 98,
   REPRESENTATIVE_ORDER_MAX: 99,
+  CHILD_ORDER_OFFSET: 1,
 } as const;
 
 export const SPEC_TREE_TEST_GENERATOR = {
@@ -50,6 +52,8 @@ export const SPEC_TREE_TEST_GENERATOR = {
   sourceSlug: arbitrarySourceSlug,
   sourceTitle: arbitrarySourceTitle,
   sourceOrder: arbitrarySourceOrder,
+  parentSourceOrder: arbitraryParentSourceOrder,
+  childSourceOrderAbove: arbitraryChildSourceOrderAbove,
   sourceRef: arbitrarySourceRef,
   representativeFixture: arbitraryRepresentativeFixture,
 } as const;
@@ -255,6 +259,24 @@ function arbitrarySourceTitle(): fc.Arbitrary<string> {
 
 function arbitrarySourceOrder(): fc.Arbitrary<number> {
   return fc.integer();
+}
+
+function arbitraryParentSourceOrder(): fc.Arbitrary<number> {
+  return fc.integer({
+    min: SPEC_TREE_TEST_GENERATOR_OPTIONS.REPRESENTATIVE_ORDER_MIN,
+    max: SPEC_TREE_TEST_GENERATOR_OPTIONS.REPRESENTATIVE_PARENT_ORDER_MAX,
+  });
+}
+
+function arbitraryChildSourceOrderAbove(order: number): fc.Arbitrary<number> {
+  if (order > SPEC_TREE_TEST_GENERATOR_OPTIONS.REPRESENTATIVE_PARENT_ORDER_MAX) {
+    throw new RangeError("Child source order requires a parent order below the maximum");
+  }
+
+  return fc.integer({
+    min: order + SPEC_TREE_TEST_GENERATOR_OPTIONS.CHILD_ORDER_OFFSET,
+    max: SPEC_TREE_TEST_GENERATOR_OPTIONS.REPRESENTATIVE_ORDER_MAX,
+  });
 }
 
 function arbitrarySourceRef(): fc.Arbitrary<SpecTreeSourceRef> {

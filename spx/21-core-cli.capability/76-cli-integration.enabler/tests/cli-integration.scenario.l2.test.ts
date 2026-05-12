@@ -13,7 +13,6 @@ import {
 import { CLI_PATH, PROJECT_ROOT, VERSION_FLAG } from "@testing/harnesses/constants";
 import { withTestEnv } from "@testing/harnesses/spec-tree/spec-tree";
 import { execa } from "execa";
-import * as fc from "fast-check";
 import { describe, expect, it } from "vitest";
 
 describe("spx spec status", () => {
@@ -221,11 +220,11 @@ async function runCli(
 }
 
 function sampleSpecOrder(): number {
-  return sampleSpecTreeTestValue(fc.integer({ min: 10, max: 98 }));
+  return sampleSpecTreeTestValue(SPEC_TREE_TEST_GENERATOR.parentSourceOrder());
 }
 
 function sampleSpecOrderAbove(order: number): number {
-  return sampleSpecTreeTestValue(fc.integer({ min: order + 1, max: 99 }));
+  return sampleSpecTreeTestValue(SPEC_TREE_TEST_GENERATOR.childSourceOrderAbove(order));
 }
 
 function formatNodePath(order: number, slug: string, kind: NodeKind): string {

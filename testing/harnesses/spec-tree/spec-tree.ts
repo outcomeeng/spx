@@ -123,7 +123,7 @@ export async function withSpecTreeEnv(
   const fixture = options.fixture ?? buildRepresentativeFixture(registry);
 
   await withTestEnv(config, async (env) => {
-    const currentEnv = Object.create(Object.getPrototypeOf(env)) as CurrentSpecTreeEnv;
+    const currentEnv = {} as CurrentSpecTreeEnv;
     Object.defineProperties(currentEnv, Object.getOwnPropertyDescriptors(env));
     Object.assign(currentEnv, {
       fixture,
