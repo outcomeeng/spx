@@ -39,6 +39,7 @@ CAN render diagnostics with no unprintable bytes and bounded length, CAN invoke 
 - ALWAYS: package formatting scripts invoke `dprint fmt .` and `dprint check .`; package scripts do not invoke Prettier ([test](tests/package-scripts.compliance.l1.test.ts))
 - ALWAYS: `installLifecycle()` is the first call executed in `src/cli.ts` before any domain registration ([review])
 - ALWAYS: every production async `ProcessRunner` default in the validation steps points at the shared lifecycle runner exported from `src/lib/process-lifecycle/` ([test](tests/lifecycle.compliance.l1.test.ts))
+- ALWAYS: managed long-running subprocesses use the process-lifecycle helper that owns parent-piped stdio rather than setting stdio at the domain call site ([test](tests/lifecycle.compliance.l1.test.ts))
 - NEVER: pass raw user-supplied strings to `console.error`, `process.stderr.write`, or shell execution paths without `sanitizeCliArgument` in the chain ([review])
 - NEVER: the packaged executable imports `src/cli.ts` when built output is absent; it exits with a build-required diagnostic instead ([review])
 - NEVER: import `child_process.spawn` for asynchronous child processes outside `src/lib/process-lifecycle/`; synchronous `execSync`/`spawnSync` are exempt because they self-reap before parent exit ([test](../41-validation.enabler/32-typescript-validation.enabler/32-ast-enforcement.enabler/tests/no-async-spawn-outside-lifecycle.mapping.l1.test.ts))

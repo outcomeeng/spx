@@ -7,19 +7,19 @@ This decision governs two architectural concerns for the SPX command-line interf
 1. **Source layering** — where CLI-specific code lives versus generic process-orchestration code under `src/`.
 2. **Process lifecycle** — how termination signals, broken pipes, and uncaught exceptions propagate from the CLI parent to its tracked subprocesses.
 
-It applies to every module under `src/interfaces/cli/` and `src/lib/process-lifecycle/`, every consumer of the `ProcessRunner` interface (`src/validation/types.ts`), and `src/cli.ts` itself.
+It applies to every module under `src/interfaces/cli/` and `src/lib/process-lifecycle/`, every consumer of the `ProcessRunner` interface (`src/lib/process-lifecycle/types.ts`), and `src/cli.ts` itself.
 
 ## Context
 
 **Business impact:** Operators run `spx` interactively (Ctrl-C must be responsive) and through pipelines (`spx ... | head -N` must not leak orphan processes). Validation steps spawn long-running tools (ESLint, tsc, Knip) as subprocesses. Without lifecycle handling those subprocesses outlive the parent on stdio close and accumulate as zombies, producing fork-bomb-shaped resource exhaustion under repeated invocations.
 
-**Technical constraints:** Node.js raises an `error` event on `process.stdout` and `process.stderr` writes when the downstream pipe is closed; without an `error` handler the event becomes an uncaught exception. Signals delivered to the parent are not automatically forwarded to children spawned via `child_process.spawn`. Synchronous `child_process.execSync` and `child_process.spawnSync` self-reap before the parent exits, so they do not require lifecycle tracking. Validation steps accept an injected `ProcessRunner` interface (`src/validation/types.ts:34`), providing a dependency-injection seam. The `@/*` path alias maps to `src/*`, so any subdirectory under `src/` is reachable from any module.
+**Technical constraints:** Node.js raises an `error` event on `process.stdout` and `process.stderr` writes when the downstream pipe is closed; without an `error` handler the event becomes an uncaught exception. Signals delivered to the parent are not automatically forwarded to children spawned via `child_process.spawn`. Synchronous `child_process.execSync` and `child_process.spawnSync` self-reap before the parent exits, so they do not require lifecycle tracking. Domain runners accept an injected `ProcessRunner` interface (`src/lib/process-lifecycle/types.ts`), providing a dependency-injection seam shared by validation and testing runners. The `@/*` path alias maps to `src/*`, so any subdirectory under `src/` is reachable from any module.
 
 This ADR refines, but does not contradict, the product-level decisions: `spx/15-worktree-resolution.pdr.md` (root resolution under git worktrees) and `spx/19-language-registration.adr.md` (typed language descriptors and explicit registry imports).
 
 ## Decision
 
-The SPX CLI partitions source code along the boundary between CLI-specific concerns and generic process-orchestration concerns: CLI-specific modules live under `src/interfaces/cli/` and process-lifecycle modules live under `src/lib/process-lifecycle/`. Process-lifecycle handling installs once at CLI entry, registers every asynchronously spawned child in a module-scoped registry exposed as a `ProcessRunner`-conformant `lifecycleProcessRunner`, and forwards SIGINT, SIGTERM, EPIPE, and uncaught-exception events to all registered children with the conventional exit codes (130, 143, 0, 1) before the parent exits.
+The SPX CLI partitions source code along the boundary between CLI-specific concerns and generic process-orchestration concerns: CLI-specific modules live under `src/interfaces/cli/` and process-lifecycle modules live under `src/lib/process-lifecycle/`. Process-lifecycle handling installs once at CLI entry, registers every asynchronously spawned child in a module-scoped registry exposed as a `ProcessRunner`-conformant `lifecycleProcessRunner`, exposes a managed subprocess helper that owns parent-piped stdio for long-running child processes, and forwards SIGINT, SIGTERM, EPIPE, and uncaught-exception events to all registered children with the conventional exit codes (130, 143, 0, 1) before the parent exits.
 
 ## Rationale
 
@@ -30,7 +30,7 @@ Alternatives considered:
 - **Single `src/cli/` directory** — collapses the interface/orchestration distinction and forces process-lifecycle modules to import via the CLI namespace even when no CLI is present. Rejected because it conflates *what runs* with *what wraps the run*, and a future non-CLI entrypoint would either duplicate the lifecycle logic or import a misleadingly-named module.
 - **Inline lifecycle in `src/cli.ts`** — keeps the entry small but spreads handler installation, registry state, and the runner adapter across one large file. Rejected because lifecycle logic is non-trivial and benefits from dedicated unit tests at the registry, handler, and runner-adapter levels.
 
-**Lifecycle shape.** A module-scoped registry installed once at CLI entry, paired with a runner adapter that implements `ProcessRunner`, lets every validation step receive an injected runner; production wires `lifecycleProcessRunner`, tests inject any conforming object. Pure singleton state forces test-runner module resets between cases; full dependency-injected registry threading makes every spawn site explicitly receive a registry argument it does not otherwise need. Module-scope strikes the balance: state lives in one place, the install site is one call, and the runner adapter is the only object threaded through dependency injection.
+**Lifecycle shape.** A module-scoped registry installed once at CLI entry, paired with a runner adapter that implements `ProcessRunner`, lets every domain runner receive an injected runner; production wires `lifecycleProcessRunner`, tests inject any conforming object. The managed subprocess helper applies parent-owned piped stdio at the shared lifecycle layer, so validation, testing, and any other domain runner use the same descriptor-containment policy. Pure singleton state forces test-runner module resets between cases; full dependency-injected registry threading makes every spawn site explicitly receive a registry argument it does not otherwise need. Module-scope strikes the balance: state lives in one place, the install site is one call, and the runner adapter is the only object threaded through dependency injection.
 
 Alternatives considered:
 
@@ -49,7 +49,8 @@ Alternatives considered:
 | Module-scoped registry holds state outside the type system                                                                      | Install is a single call at CLI entry; tests instantiate fresh registries per case via injection; the registry's identity is observable through the exported runner          |
 | EPIPE on stdout exits 0 even if the downstream consumer crashed                                                                 | Matches `head`/`tee` convention; pipelines use `set -o pipefail` to detect upstream failures; spx-internal errors still produce non-zero through the uncaught-exception path |
 | Synchronous `execSync`/`spawnSync` are exempt from registry membership                                                          | They self-reap before parent exit; tracking them adds zero safety value and incurs interface complexity                                                                      |
-| The `lifecycleProcessRunner` is module-scoped state, not a parameter to validation steps                                        | Validation steps already accept `ProcessRunner` via DI; production wires the lifecycle runner, tests inject controlled implementations; the seam is preserved                |
+| The `lifecycleProcessRunner` is module-scoped state, not a parameter to each domain runner                                      | Domain runners accept `ProcessRunner` via DI; production wires the lifecycle runner, tests inject controlled implementations; the seam is preserved                          |
+| Managed subprocess call sites cannot customize `stdio` directly                                                                 | Descriptor containment is a lifecycle invariant; call sites that need a different stdio contract require a separate documented lifecycle mechanism                           |
 
 ## Invariants
 
@@ -57,13 +58,15 @@ Alternatives considered:
 - For every signal-terminated invocation (SIGINT or SIGTERM), every child observed in the registry receives the corresponding signal exactly once.
 - For every EPIPE on `process.stdout`, the next observable process state is exit code 0 with no `uncaughtException` text on `process.stderr`.
 - For every spawn site that consumes the `ProcessRunner` interface in production, the injected runner is the shared `lifecycleProcessRunner`.
+- For every long-running child process launched through the managed subprocess helper, the child receives parent-owned piped stdio rather than inherited outer stdout/stderr descriptors.
 
 ## Compliance
 
 ### Recognized by
 
 - A single `installLifecycle()` call as the first executable statement in `src/cli.ts`.
-- The exported `lifecycleProcessRunner` from `src/lib/process-lifecycle/` implements the `ProcessRunner` interface from `src/validation/types.ts`.
+- The exported `lifecycleProcessRunner` from `src/lib/process-lifecycle/` implements the `ProcessRunner` interface from `src/lib/process-lifecycle/types.ts`.
+- The managed subprocess helper in `src/lib/process-lifecycle/` accepts spawn options without a `stdio` field and applies the lifecycle-owned stdio policy internally.
 - Every `defaultXxxProcessRunner` constant in `src/validation/steps/` references `lifecycleProcessRunner`.
 - No `import { spawn } from "node:child_process"` outside `src/lib/process-lifecycle/`.
 - No subdirectory under `src/lib/` named `cli` or `interfaces`; no subdirectory under `src/interfaces/` named `lib` or `process-lifecycle`.
@@ -77,12 +80,14 @@ Alternatives considered:
 - Cleanup is idempotent: invoking the SIGINT or SIGTERM handler N times kills each registered child exactly once ([review])
 - CLI-specific modules — argument sanitization, dispatch primitives, package-script invariants — live under `src/interfaces/cli/` ([review])
 - Process-lifecycle modules — registry, handlers, lifecycle runner, install entrypoint — live under `src/lib/process-lifecycle/` ([review])
-- Validation steps that spawn subprocesses accept the runner through dependency injection and consume `lifecycleProcessRunner` as the production default ([review])
+- Domain runners that spawn long-running subprocesses accept the runner through dependency injection and consume `lifecycleProcessRunner` as the production default ([review])
+- Domain runners that spawn long-running subprocesses use the managed subprocess helper instead of setting `stdio` directly at the call site ([review])
 
 ### NEVER
 
 - Import `child_process.spawn` for asynchronous child processes outside `src/lib/process-lifecycle/`; synchronous `execSync` and `spawnSync` are exempt because they self-reap before parent exit ([review])
 - Set `detached: true` on subprocess spawns in production code paths; detachment changes signal semantics and contradicts the registry's tracking model ([review])
+- Set `stdio` directly at a long-running subprocess call site that consumes `ProcessRunner`; the managed subprocess helper owns that policy ([review])
 - Spawn a child via `lifecycleProcessRunner.spawn` without registering its handle in the lifecycle registry ([review])
 - Use `vi.mock()` or `jest.mock()` to replace the spawn primitive, the registry, or the lifecycle runner; tests inject controlled implementations through the `ProcessRunner` interface ([review])
 - Place CLI-specific code under `src/lib/` or process-lifecycle code under `src/interfaces/`; the interface/orchestration boundary is mandatory ([review])
