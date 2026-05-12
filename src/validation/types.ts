@@ -37,7 +37,7 @@ export type ValidationScope = (typeof VALIDATION_SCOPES)[keyof typeof VALIDATION
  * TypeScript and ESLint validation.
  */
 export interface ScopeConfig {
-  /** Directories to include in validation */
+  /** Project-root-relative top-level directories to include in validation */
   directories: string[];
   /** File patterns to match (from tsconfig include) */
   filePatterns: string[];

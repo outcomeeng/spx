@@ -1,11 +1,7 @@
-import type { ChildProcess, SpawnOptions } from "node:child_process";
-import { EventEmitter } from "node:events";
 import { join } from "node:path";
-import { PassThrough } from "node:stream";
 
 import { describe, expect, it } from "vitest";
 
-import type { ProcessRunner } from "@/lib/process-lifecycle";
 import { getTypeScriptScope, TSCONFIG_FILES } from "@/validation/config/scope";
 import {
   CIRCULAR_DEPS_KEYS,
@@ -13,37 +9,11 @@ import {
   type CircularDeps,
   validateCircularDependencies,
 } from "@/validation/steps/circular";
-import { VALIDATION_SUBPROCESS_EVENTS } from "@/validation/steps/subprocess-output";
 import { defaultTypeScriptDeps, type TypeScriptDeps, validateTypeScript } from "@/validation/steps/typescript";
 import { VALIDATION_SCOPES } from "@/validation/types";
 import { VALIDATION_PIPELINE_DATA } from "@testing/generators/validation/validation";
 import { withTestEnv } from "@testing/harnesses/spec-tree/spec-tree";
-
-class RecordingChild extends EventEmitter {
-  readonly stdout = new PassThrough();
-  readonly stderr = new PassThrough();
-
-  kill(): boolean {
-    return true;
-  }
-
-  asChildProcess(): ChildProcess {
-    return this as unknown as ChildProcess;
-  }
-}
-
-class RecordingRunner implements ProcessRunner {
-  readonly commands: string[] = [];
-  readonly options: SpawnOptions[] = [];
-
-  spawn(command: string, _args: readonly string[], options?: SpawnOptions): ChildProcess {
-    this.commands.push(command);
-    this.options.push(options ?? {});
-    const child = new RecordingChild();
-    queueMicrotask(() => child.emit(VALIDATION_SUBPROCESS_EVENTS.CLOSE, 0));
-    return child.asChildProcess();
-  }
-}
+import { RecordingSpawnOptionsRunner } from "@testing/harnesses/validation/subprocess";
 
 function createRootRecordingDeps(projectRoot: string, checkedPaths: string[]): TypeScriptDeps {
   return {
@@ -107,9 +77,30 @@ describe("ALWAYS: TypeScript scope resolution uses the requested project root", 
     });
   });
 
+  it("lets child TypeScript exclude replace inherited excludes", async () => {
+    await withTestEnv({}, async (env) => {
+      await env.writeRaw(
+        "base-excludes.json",
+        JSON.stringify({ exclude: [VALIDATION_PIPELINE_DATA.sourceDirectoryName] }),
+      );
+      await env.writeRaw(
+        TSCONFIG_FILES.production,
+        JSON.stringify({
+          extends: "./base-excludes.json",
+          include: [VALIDATION_PIPELINE_DATA.productionScopeFilePattern],
+          exclude: [VALIDATION_PIPELINE_DATA.productionScopeExcludePattern],
+        }),
+      );
+
+      const scope = getTypeScriptScope(VALIDATION_SCOPES.PRODUCTION, env.projectDir);
+
+      expect(scope.excludePatterns).toEqual([VALIDATION_PIPELINE_DATA.productionScopeExcludePattern]);
+    });
+  });
+
   it("runs TypeScript validation from the requested project root", async () => {
     await withTestEnv({}, async (env) => {
-      const runner = new RecordingRunner();
+      const runner = new RecordingSpawnOptionsRunner();
       const checkedPaths: string[] = [];
       const deps = createRootRecordingDeps(env.projectDir, checkedPaths);
 
@@ -130,7 +121,7 @@ describe("ALWAYS: TypeScript scope resolution uses the requested project root", 
 
   it("runs file-scoped TypeScript validation from the requested project root", async () => {
     await withTestEnv({}, async (env) => {
-      const runner = new RecordingRunner();
+      const runner = new RecordingSpawnOptionsRunner();
       const checkedPaths: string[] = [];
       const deps = createRootRecordingDeps(env.projectDir, checkedPaths);
 
