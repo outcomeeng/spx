@@ -85,6 +85,9 @@ export function buildEslintArgs(context: {
       ...validatedFiles,
     ];
   }
+  // Production scope normally supplies source-only patterns; the current
+  // directory fallback keeps direct builder calls usable when no scope config
+  // is available.
   const targetArgs = scope === VALIDATION_SCOPES.PRODUCTION && scopeConfig?.filePatterns.length
     ? scopeConfig.filePatterns
     : [ESLINT_COMMAND_TOKENS.CURRENT_DIRECTORY];

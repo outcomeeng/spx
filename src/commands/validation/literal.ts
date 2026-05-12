@@ -45,6 +45,7 @@ export interface LiteralCommandOptions {
   readonly json?: boolean;
   readonly quiet?: boolean;
   readonly config?: LiteralConfig;
+  /** Override resolved enabled state when tests inject config directly. */
   readonly enabled?: boolean;
   readonly pathConfig?: ValidationPathConfig;
 }

@@ -1,8 +1,9 @@
-import { describe, expect, it } from "vitest";
-
 import type { ChildProcess, SpawnOptions } from "node:child_process";
 import { EventEmitter } from "node:events";
 import { join } from "node:path";
+import { PassThrough } from "node:stream";
+
+import { describe, expect, it } from "vitest";
 
 import { getTypeScriptScope } from "@/validation/config/scope";
 import {
@@ -18,6 +19,9 @@ import { VALIDATION_PIPELINE_DATA } from "@testing/generators/validation/validat
 import { withTestEnv } from "@testing/harnesses/spec-tree/spec-tree";
 
 class RecordingChild extends EventEmitter {
+  readonly stdout = new PassThrough();
+  readonly stderr = new PassThrough();
+
   kill(): boolean {
     return true;
   }
