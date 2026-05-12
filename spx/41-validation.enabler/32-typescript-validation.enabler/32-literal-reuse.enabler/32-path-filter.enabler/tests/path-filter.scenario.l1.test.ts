@@ -1,14 +1,13 @@
 import { describe, expect, it } from "vitest";
 
 import { validateLiteralReuse } from "@/validation/literal/index";
-import { arbitraryDomainLiteral, sampleLiteralTestValue } from "@testing/generators/literal/literal";
+import { sampleDistinctDomainLiterals } from "@testing/generators/literal/literal";
 import { withLiteralFixtureEnv } from "@testing/harnesses/literal/harness";
 
 describe("path-filter — scenarios", () => {
   it("files whose relative path starts with a prefix listed in validation.paths.exclude are not parsed or indexed", async () => {
     await withLiteralFixtureEnv({}, async (env) => {
-      const excludedLiteral = sampleLiteralTestValue(arbitraryDomainLiteral());
-      const activeLiteral = sampleLiteralTestValue(arbitraryDomainLiteral());
+      const [excludedLiteral, activeLiteral] = sampleDistinctDomainLiterals(2);
 
       await env.writeSourceFile("legacy/module.ts", excludedLiteral);
       await env.writeSourceFile("src/active.ts", activeLiteral);
@@ -29,8 +28,7 @@ describe("path-filter — scenarios", () => {
 
   it("when validation.paths.include lists a prefix, only files matching at least one include prefix are parsed and indexed", async () => {
     await withLiteralFixtureEnv({}, async (env) => {
-      const includedLiteral = sampleLiteralTestValue(arbitraryDomainLiteral());
-      const outsideLiteral = sampleLiteralTestValue(arbitraryDomainLiteral());
+      const [includedLiteral, outsideLiteral] = sampleDistinctDomainLiterals(2);
 
       await env.writeSourceFile("src/active.ts", includedLiteral);
       await env.writeSourceFile("vendor/third-party.ts", outsideLiteral);
@@ -51,7 +49,7 @@ describe("path-filter — scenarios", () => {
 
   it("node directory listed in spx/EXCLUDE but absent from validation.paths.exclude is parsed and indexed normally", async () => {
     await withLiteralFixtureEnv({}, async (env) => {
-      const literal = sampleLiteralTestValue(arbitraryDomainLiteral());
+      const [literal] = sampleDistinctDomainLiterals(1);
 
       await env.writeRaw("spx/EXCLUDE", "21-deferred.enabler\n");
       await env.writeSourceFile("spx/21-deferred.enabler/source.ts", literal);
