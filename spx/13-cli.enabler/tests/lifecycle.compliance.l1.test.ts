@@ -66,6 +66,8 @@ function createValidationContext(scopeConfig: ScopeConfig = createValidationScop
   };
 }
 
+// Compile-time fixture: accepting options through this function proves the
+// ManagedSubprocessSpawnOptions type, not runtime behavior.
 function acceptManagedSubprocessOptions(_options: ManagedSubprocessSpawnOptions): void {}
 
 describe("Compliance: validation step ProcessRunner defaults reference lifecycleProcessRunner", () => {
@@ -96,8 +98,6 @@ describe("Compliance: validation step ProcessRunner defaults reference lifecycle
 
     // @ts-expect-error - Managed subprocess options reject caller-owned stdio even through SpawnOptions variables.
     acceptManagedSubprocessOptions(callerOwnedStdioOptions);
-
-    expect(callerOwnedStdioOptions.stdio).toEqual([process.stdin, process.stdout, process.stderr]);
   });
 
   it("ESLint subprocess output is owned by parent-owned pipes", async () => {
@@ -125,10 +125,12 @@ describe("Compliance: validation step ProcessRunner defaults reference lifecycle
 
   it("Knip subprocess output is owned by parent-owned pipes", async () => {
     const runner = new RecordingSpawnOptionsRunner();
+    const projectRoot = dirname(sampleLiteralTestValue(LITERAL_TEST_GENERATOR.sourceFilePath()));
 
-    const result = await validateKnip(createValidationScopeConfig(), runner);
+    const result = await validateKnip({ projectRoot, typescriptScope: createValidationScopeConfig() }, runner);
 
     expect(result.success).toBe(true);
+    expect(runner.spawnOptions?.cwd).toBe(projectRoot);
     expect(runner.spawnOptions?.stdio).toBe(MANAGED_SUBPROCESS_STDIO);
   });
 });

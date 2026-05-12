@@ -38,7 +38,7 @@ export async function knipCommand(options: KnipCommandOptions): Promise<Validati
   const scopeConfig = getTypeScriptScope("full");
 
   // Run knip validation
-  const result = await validateKnip(scopeConfig);
+  const result = await validateKnip({ projectRoot: cwd, typescriptScope: scopeConfig });
   const durationMs = Date.now() - startTime;
 
   // Map result to command output
