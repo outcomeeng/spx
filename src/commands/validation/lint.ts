@@ -13,7 +13,7 @@ import { applyValidationPathFilterToScope, validationPathFilterForTool } from "@
 import { getTypeScriptScope } from "@/validation/config/scope";
 import { detectTypeScript, discoverTool, formatSkipMessage } from "@/validation/discovery/index";
 import { validateESLint } from "@/validation/steps/eslint";
-import type { ValidationContext } from "@/validation/types";
+import { VALIDATION_SCOPES, type ValidationContext } from "@/validation/types";
 import {
   formatTypeScriptAbsentSkipMessage,
   VALIDATION_COMMAND_OUTPUT,
@@ -89,7 +89,9 @@ export async function lintCommand(options: LintCommandOptions): Promise<Validati
     enabledValidations: { ESLINT: true },
     validatedFiles: files,
     isFileSpecificMode: Boolean(files && files.length > 0),
-    eslintConfigFile: tsDetection.eslintConfigFile,
+    eslintConfigFile: scope === VALIDATION_SCOPES.PRODUCTION
+      ? tsDetection.productionEslintConfigFile ?? tsDetection.eslintConfigFile
+      : tsDetection.eslintConfigFile,
   };
 
   // Run ESLint validation
