@@ -1,5 +1,12 @@
 # Plan
 
+## Tracked Deferrals
+
+- [ ] Resolve the 1 warning-level `spx/no-test-owned-domain-constants` finding reported by `pnpm run validate` on May 12, 2026:
+  - `spx/46-claude.outcome/21-settings-consolidation.outcome/43-cli-integration.outcome/tests/consolidate.integration.test.ts`
+
+Resolution: replace the test-owned CLI path constant with a source-owned constant, source-owned test-data API, or generated domain data, then remove the corresponding warning entry from the validation debt manifest.
+
 ## Observation
 
 Latest claude code offers slash command to consolidate permissions

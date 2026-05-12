@@ -8,6 +8,6 @@ CAN navigate, inspect, and progress nodes through state transitions without hand
 
 ### Compliance
 
-- ALWAYS: operate on tracked `spx/` files using worktree-local root per PDR-15 ([review](../15-worktree-resolution.pdr.md))
-- NEVER: modify files outside the project root ([review])
-- NEVER: write to project configuration files (`pyproject.toml`, `package.json`, `tsconfig.json`) — spec-tree operations stay within the `spx/` tree ([review])
+- ALWAYS: operate on tracked `spx/` files using worktree-local root per `spx/15-worktree-resolution.pdr.md` ([review](../15-worktree-resolution.pdr.md))
+- NEVER: modify files outside the product root ([review])
+- NEVER: write to product configuration files (`pyproject.toml`, `package.json`, `tsconfig.json`) — spec-tree operations stay within the `spx/` tree ([review])

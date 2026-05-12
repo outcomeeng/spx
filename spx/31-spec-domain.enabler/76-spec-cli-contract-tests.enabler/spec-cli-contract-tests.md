@@ -1,0 +1,18 @@
+# Spec CLI Contract Tests
+
+PROVIDES local process-level contract tests for `spx spec` command routing, flags, errors, and package-script invocation
+SO THAT `spx/31-spec-domain.enabler/54-spec-cli-commands.enabler/` can stay focused on command behavior
+CAN still prove the user-facing CLI entry point routes current spec-domain commands hermetically
+
+## Assertions
+
+### Scenarios
+
+- Given the development CLI entry point runs in a temp product directory with a current `spx/` tree, when `spx spec status` is invoked through the process boundary, then it exits successfully and renders current spec-tree status output ([test](tests/spec-cli-contract.scenario.l2.test.ts))
+- Given the development CLI entry point runs in a temp product directory with a current `spx/` tree, when `spx spec next` is invoked through the process boundary, then it exits successfully and renders the selected next node ([test](tests/spec-cli-contract.scenario.l2.test.ts))
+- Given an unsupported `spx spec status` format is passed through the process boundary, when the command runs, then it exits non-zero with a deterministic diagnostic ([test](tests/spec-cli-contract.scenario.l2.test.ts))
+
+### Compliance
+
+- ALWAYS: contract tests invoke the local development entry point without network access or remote services ([test](tests/spec-cli-contract.scenario.l2.test.ts))
+- NEVER: contract tests share mutable state with the invoking agent outside the temp product directory ([test](tests/spec-cli-contract.scenario.l2.test.ts))
