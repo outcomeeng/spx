@@ -25,6 +25,14 @@ const TEST_LINT_DEBT_NODE_MANIFEST_FILE = LINT_POLICY_MANIFESTS.TEST_LINT_DEBT_N
 const TEST_LINT_DEBT_NODE_MANIFEST_KEY = LINT_POLICY_MANIFESTS.TEST_LINT_DEBT_NODES.key;
 const TEST_OWNED_CONSTANT_DEBT_NODE_MANIFEST_FILE = LINT_POLICY_MANIFESTS.TEST_OWNED_CONSTANT_DEBT_NODES.file;
 const TEST_OWNED_CONSTANT_DEBT_NODE_MANIFEST_KEY = LINT_POLICY_MANIFESTS.TEST_OWNED_CONSTANT_DEBT_NODES.key;
+export const ESLINT_TYPESCRIPT_CONFIG_FILES = {
+  FULL: "./tsconfig.json",
+  PRODUCTION: "./tsconfig.production.json",
+} as const;
+
+export interface BuildEslintConfigOptions {
+  readonly typescriptConfigFile?: string;
+}
 
 function readManifest(file: string, key: string): string[] {
   return parseLintPolicyManifest(
@@ -89,9 +97,6 @@ function getTypeScriptExclusions(configFile: string, seen: ReadonlySet<string> =
   }
 }
 
-const typescriptConfigFile = "./tsconfig.json";
-// Always read TypeScript exclusions - tsconfig.json is the single source of truth
-const tsExclusions = getTypeScriptExclusions(typescriptConfigFile);
 const testLintDebtNodePaths = readManifest(
   TEST_LINT_DEBT_NODE_MANIFEST_FILE,
   TEST_LINT_DEBT_NODE_MANIFEST_KEY,
@@ -108,191 +113,196 @@ const testLintDebtRestrictedSyntax = testRestrictedSyntax.filter(
   (rule) => !isLegacyLintNoiseRule(rule),
 );
 
-const config = [
-  // Ignore patterns - tsconfig.json exclusions + ESLint-specific patterns
-  {
-    ignores: [
-      // Add ESLint-specific ignore rules below only if they cannot be
-      // handled in tsconfig.json
+export function buildEslintConfig(options: BuildEslintConfigOptions = {}) {
+  const typescriptConfigFile = options.typescriptConfigFile ?? ESLINT_TYPESCRIPT_CONFIG_FILES.FULL;
+  const tsExclusions = getTypeScriptExclusions(typescriptConfigFile);
 
-      // From tsconfig.json (single source of truth)
-      ...tsExclusions.map((p) => (p.includes("*") ? p : `${p}/**/*`)),
-    ],
-  },
+  return [
+    // Ignore patterns - tsconfig.json exclusions + ESLint-specific patterns
+    {
+      ignores: [
+        // Add ESLint-specific ignore rules below only if they cannot be
+        // handled in tsconfig.json
 
-  // Base configuration for all files
-  {
-    plugins: {
-      import: importPlugin,
+        // From tsconfig.json (single source of truth)
+        ...tsExclusions.map((p) => (p.includes("*") ? p : `${p}/**/*`)),
+      ],
     },
-    languageOptions: {
-      ecmaVersion: "latest",
-      sourceType: "module",
-      parser: tseslint.parser,
-      globals: {
-        ...globals.node,
-        ...globals.es2021,
+
+    // Base configuration for all files
+    {
+      plugins: {
+        import: importPlugin,
       },
-    },
-    settings: {
-      "import/resolver": {
-        typescript: {
-          alwaysTryTypes: true,
-          project: typescriptConfigFile,
+      languageOptions: {
+        ecmaVersion: "latest",
+        sourceType: "module",
+        parser: tseslint.parser,
+        globals: {
+          ...globals.node,
+          ...globals.es2021,
+        },
+      },
+      settings: {
+        "import/resolver": {
+          typescript: {
+            alwaysTryTypes: true,
+            project: typescriptConfigFile,
+          },
         },
       },
     },
-  },
 
-  // JavaScript recommended rules
-  js.configs.recommended,
+    // JavaScript recommended rules
+    js.configs.recommended,
 
-  // TypeScript configuration
-  {
-    files: ["**/*.ts", "**/*.tsx"],
-    plugins: {
-      "@typescript-eslint": tseslint.plugin,
-    },
-    languageOptions: {
-      parser: tseslint.parser,
-    },
-    rules: {
-      ...tseslint.configs.recommended[2].rules,
-      "@typescript-eslint/no-unused-vars": [
-        "error",
-        { argsIgnorePattern: "^_", varsIgnorePattern: "^_" },
-      ],
-      // Disable rules that conflict with TypeScript compiler
-      "no-unreachable": "off",
-      "no-redeclare": "off",
-      "no-undef": "off", // TypeScript handles this better
-      "no-dupe-class-members": "off",
-      // Enable TypeScript-specific versions
-      "@typescript-eslint/no-redeclare": "error",
-      // Ban enums, "as any", "<any>" assertions
-      "no-restricted-syntax": ["error", ...tsRestrictedSyntax],
-    },
-  },
-
-  // ESLint config files and other script files
-  {
-    files: [".eslintrc.{js,cjs}", "eslint.config.js", "tailwind.config.ts"],
-    languageOptions: {
-      sourceType: "script",
-      globals: {
-        node: true,
+    // TypeScript configuration
+    {
+      files: ["**/*.ts", "**/*.tsx"],
+      plugins: {
+        "@typescript-eslint": tseslint.plugin,
+      },
+      languageOptions: {
+        parser: tseslint.parser,
+      },
+      rules: {
+        ...tseslint.configs.recommended[2].rules,
+        "@typescript-eslint/no-unused-vars": [
+          "error",
+          { argsIgnorePattern: "^_", varsIgnorePattern: "^_" },
+        ],
+        // Disable rules that conflict with TypeScript compiler
+        "no-unreachable": "off",
+        "no-redeclare": "off",
+        "no-undef": "off", // TypeScript handles this better
+        "no-dupe-class-members": "off",
+        // Enable TypeScript-specific versions
+        "@typescript-eslint/no-redeclare": "error",
+        // Ban enums, "as any", "<any>" assertions
+        "no-restricted-syntax": ["error", ...tsRestrictedSyntax],
       },
     },
-    rules: {
-      "@typescript-eslint/no-require-imports": "off",
-    },
-  },
 
-  // TypeScript declaration files
-  {
-    files: ["**/*.d.ts"],
-    rules: {
-      "@typescript-eslint/no-unused-vars": "off",
-    },
-  },
-
-  // Test files overrides
-  {
-    files: ["**/*.test.ts", "**/*.test.tsx"],
-    languageOptions: {
-      globals: {
-        // Test environment globals
-        describe: "readonly",
-        it: "readonly",
-        expect: "readonly",
-        beforeEach: "readonly",
-        afterEach: "readonly",
-        beforeAll: "readonly",
-        afterAll: "readonly",
-        vi: "readonly",
-        vitest: "readonly",
-        test: "readonly",
+    // ESLint config files and other script files
+    {
+      files: [".eslintrc.{js,cjs}", "eslint.config.js", "tailwind.config.ts"],
+      languageOptions: {
+        sourceType: "script",
+        globals: {
+          node: true,
+        },
+      },
+      rules: {
+        "@typescript-eslint/no-require-imports": "off",
       },
     },
-    rules: {
-      "@typescript-eslint/no-explicit-any": "error",
-      "@typescript-eslint/no-non-null-assertion": "off",
-      "@typescript-eslint/no-unnecessary-condition": "off",
-      "@typescript-eslint/no-unsafe-assignment": "off",
-      "@typescript-eslint/no-unsafe-call": "off",
-      "@typescript-eslint/no-unsafe-member-access": "off",
-      // Allow unimported test utilities and transformers
-      "no-undef": "off",
-      "@typescript-eslint/no-redeclare": "off",
-      // Ban vi.mock(), vi.fn(), string literals in assertions, skipIf, readFileSync
-      "no-restricted-syntax": [
-        "error",
-        ...tsRestrictedSyntax,
-        ...testRestrictedSyntax,
-      ],
-    },
-  },
-  {
-    files: testLintDebtNodeTestGlobs,
-    rules: {
-      "no-restricted-syntax": [
-        "error",
-        ...tsRestrictedSyntax,
-        ...testLintDebtRestrictedSyntax,
-      ],
-    },
-  },
 
-  // Custom rules — all TypeScript files
-  {
-    files: ["**/*.ts", "**/*.tsx"],
-    plugins: {
-      spx: customRules,
+    // TypeScript declaration files
+    {
+      files: ["**/*.d.ts"],
+      rules: {
+        "@typescript-eslint/no-unused-vars": "off",
+      },
     },
-    rules: {
-      [NO_ASYNC_SPAWN_OUTSIDE_LIFECYCLE_RULE_ID]: "error",
-      [NO_BARE_STRING_UNIONS_RULE_ID]: "error",
-      [NO_DEEP_RELATIVE_IMPORTS_RULE_ID]: "error",
-      [NO_IMPORT_SOURCE_EXTENSIONS_RULE_ID]: "error",
-      "spx/no-spec-references": "error",
-    },
-  },
-  // Custom rules for test files
-  {
-    files: ["**/*.test.ts", "**/*.spec.ts", "**/tests/**/*.ts", "**/__tests__/**/*.ts"],
-    plugins: {
-      spx: customRules,
-    },
-    rules: {
-      "spx/no-bdd-try-catch-anti-pattern": "error",
-      "spx/no-hardcoded-work-item-kinds": "error",
-      "spx/no-hardcoded-statuses": "error",
-      [NO_REGISTRY_POSITION_ACCESS_RULE_ID]: "error",
-    },
-  },
-  {
-    files: ["spx/**/*.test.ts", "spx/**/*.spec.ts", "spx/**/tests/**/*.ts", "spx/**/__tests__/**/*.ts"],
-    plugins: {
-      spx: customRules,
-    },
-    rules: {
-      [NO_TEST_OWNED_DOMAIN_CONSTANTS_RULE_ID]: "error",
-    },
-  },
-  {
-    files: testLintDebtNodeTestGlobs,
-    rules: {
-      "@typescript-eslint/no-explicit-any": "off",
-      "spx/no-hardcoded-work-item-kinds": "warn",
-      "spx/no-hardcoded-statuses": "warn",
-    },
-  },
-  {
-    files: testOwnedConstantDebtNodeTestGlobs,
-    rules: {
-      [NO_TEST_OWNED_DOMAIN_CONSTANTS_RULE_ID]: "warn",
-    },
-  },
-];
 
-export default config;
+    // Test files overrides
+    {
+      files: ["**/*.test.ts", "**/*.test.tsx"],
+      languageOptions: {
+        globals: {
+          // Test environment globals
+          describe: "readonly",
+          it: "readonly",
+          expect: "readonly",
+          beforeEach: "readonly",
+          afterEach: "readonly",
+          beforeAll: "readonly",
+          afterAll: "readonly",
+          vi: "readonly",
+          vitest: "readonly",
+          test: "readonly",
+        },
+      },
+      rules: {
+        "@typescript-eslint/no-explicit-any": "error",
+        "@typescript-eslint/no-non-null-assertion": "off",
+        "@typescript-eslint/no-unnecessary-condition": "off",
+        "@typescript-eslint/no-unsafe-assignment": "off",
+        "@typescript-eslint/no-unsafe-call": "off",
+        "@typescript-eslint/no-unsafe-member-access": "off",
+        // Allow unimported test utilities and transformers
+        "no-undef": "off",
+        "@typescript-eslint/no-redeclare": "off",
+        // Ban vi.mock(), vi.fn(), string literals in assertions, skipIf, readFileSync
+        "no-restricted-syntax": [
+          "error",
+          ...tsRestrictedSyntax,
+          ...testRestrictedSyntax,
+        ],
+      },
+    },
+    {
+      files: testLintDebtNodeTestGlobs,
+      rules: {
+        "no-restricted-syntax": [
+          "error",
+          ...tsRestrictedSyntax,
+          ...testLintDebtRestrictedSyntax,
+        ],
+      },
+    },
+
+    // Custom rules — all TypeScript files
+    {
+      files: ["**/*.ts", "**/*.tsx"],
+      plugins: {
+        spx: customRules,
+      },
+      rules: {
+        [NO_ASYNC_SPAWN_OUTSIDE_LIFECYCLE_RULE_ID]: "error",
+        [NO_BARE_STRING_UNIONS_RULE_ID]: "error",
+        [NO_DEEP_RELATIVE_IMPORTS_RULE_ID]: "error",
+        [NO_IMPORT_SOURCE_EXTENSIONS_RULE_ID]: "error",
+        "spx/no-spec-references": "error",
+      },
+    },
+    // Custom rules for test files
+    {
+      files: ["**/*.test.ts", "**/*.spec.ts", "**/tests/**/*.ts", "**/__tests__/**/*.ts"],
+      plugins: {
+        spx: customRules,
+      },
+      rules: {
+        "spx/no-bdd-try-catch-anti-pattern": "error",
+        "spx/no-hardcoded-work-item-kinds": "error",
+        "spx/no-hardcoded-statuses": "error",
+        [NO_REGISTRY_POSITION_ACCESS_RULE_ID]: "error",
+      },
+    },
+    {
+      files: ["spx/**/*.test.ts", "spx/**/*.spec.ts", "spx/**/tests/**/*.ts", "spx/**/__tests__/**/*.ts"],
+      plugins: {
+        spx: customRules,
+      },
+      rules: {
+        [NO_TEST_OWNED_DOMAIN_CONSTANTS_RULE_ID]: "error",
+      },
+    },
+    {
+      files: testLintDebtNodeTestGlobs,
+      rules: {
+        "@typescript-eslint/no-explicit-any": "off",
+        "spx/no-hardcoded-work-item-kinds": "warn",
+        "spx/no-hardcoded-statuses": "warn",
+      },
+    },
+    {
+      files: testOwnedConstantDebtNodeTestGlobs,
+      rules: {
+        [NO_TEST_OWNED_DOMAIN_CONSTANTS_RULE_ID]: "warn",
+      },
+    },
+  ];
+}
+
+export default buildEslintConfig();

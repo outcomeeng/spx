@@ -37,11 +37,18 @@ export const ESLINT_CONFIG_FILES = [
   "eslint.config.mjs",
   "eslint.config.cjs",
 ] as const;
+export const ESLINT_PRODUCTION_CONFIG_FILES = [
+  "eslint.config.production.ts",
+  "eslint.config.production.js",
+  "eslint.config.production.mjs",
+  "eslint.config.production.cjs",
+] as const;
 
 /**
  * Type of an ESLint config file name.
  */
 export type EslintConfigFile = (typeof ESLINT_CONFIG_FILES)[number];
+export type EslintProductionConfigFile = (typeof ESLINT_PRODUCTION_CONFIG_FILES)[number];
 
 // =============================================================================
 // TYPES
@@ -55,6 +62,8 @@ export interface TypeScriptDetection {
   present: boolean;
   /** The ESLint flat config file name found, if any. Only set when `present` is true. */
   eslintConfigFile?: EslintConfigFile;
+  /** Production-scope ESLint flat config file name found, if any. */
+  productionEslintConfigFile?: EslintProductionConfigFile;
 }
 
 /**
@@ -121,10 +130,13 @@ export function detectTypeScript(
   const eslintConfigFile = ESLINT_CONFIG_FILES.find((configFile) =>
     deps.existsSync(path.join(projectRoot, configFile))
   );
+  const productionEslintConfigFile = ESLINT_PRODUCTION_CONFIG_FILES.find((configFile) =>
+    deps.existsSync(path.join(projectRoot, configFile))
+  );
 
   return eslintConfigFile === undefined
     ? { present: true }
-    : { present: true, eslintConfigFile };
+    : { present: true, eslintConfigFile, productionEslintConfigFile };
 }
 
 /**

@@ -15,6 +15,7 @@ import {
   validationConfigDescriptor,
 } from "@/validation/config/descriptor";
 import { TSCONFIG_FILES } from "@/validation/config/scope";
+import { ESLINT_PRODUCTION_CONFIG_FILES } from "@/validation/discovery";
 import {
   buildEslintArgs,
   DEFAULT_ESLINT_CONFIG_FILE,
@@ -243,6 +244,37 @@ describe("ESLint command arguments", () => {
         ESLINT_COMMAND_TOKENS.CONFIG_FLAG,
         DEFAULT_ESLINT_CONFIG_FILE,
       ]);
+    });
+  });
+
+  it("uses the production ESLint config when production scope supplies one", async () => {
+    await withTestEnv({}, async (env) => {
+      const sourceFilePath = sampleLiteralTestValue(LITERAL_TEST_GENERATOR.sourceFilePath());
+      await env.writeRaw(
+        TSCONFIG_FILES.full,
+        JSON.stringify({ include: [VALIDATION_PIPELINE_DATA.sourceDirectoryName] }),
+      );
+      await env.writeRaw(
+        TSCONFIG_FILES.production,
+        JSON.stringify({
+          include: [VALIDATION_PIPELINE_DATA.productionScopeFilePattern],
+        }),
+      );
+      await env.writeRaw(DEFAULT_ESLINT_CONFIG_FILE, "export default [];\n");
+      await env.writeRaw(ESLINT_PRODUCTION_CONFIG_FILES[0], "export default [];\n");
+      await env.writeRaw(sourceFilePath, "export const lintCommandProjectRoot = 1;\n");
+      await env.writeRaw(
+        join(...ESLINT_LOCAL_BIN_SEGMENTS),
+        "#!/bin/sh\nprintf '%s\\n' \"$@\" > eslint-args.txt\nexit 0\n",
+      );
+      await chmod(join(env.projectDir, ...ESLINT_LOCAL_BIN_SEGMENTS), 0o755);
+
+      const result = await lintCommand({ cwd: env.projectDir, scope: VALIDATION_SCOPES.PRODUCTION, quiet: true });
+
+      expect(result.exitCode).toBe(VALIDATION_EXIT_CODES.SUCCESS);
+      expect((await env.readFile("eslint-args.txt")).trim().split("\n")).toContain(
+        ESLINT_PRODUCTION_CONFIG_FILES[0],
+      );
     });
   });
 
