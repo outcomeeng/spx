@@ -30,6 +30,7 @@ export interface NextOptions {
 
 export async function nextCommand(options: NextOptions = {}): Promise<string> {
   if (options.source !== undefined) {
+    // Injected sources bypass filesystem and git resolution.
     const snapshot = await readSpecTree({ source: options.source });
     return formatNextSpecTreeNode(snapshot);
   }

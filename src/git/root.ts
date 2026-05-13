@@ -76,18 +76,23 @@ const defaultDeps: GitDependencies = {
   },
 };
 
-const NOT_GIT_REPO_WARNING =
-  "Warning: Not in a git repository. Sessions will be created relative to current directory.";
+const NOT_GIT_REPO_WARNING = "Warning: Not in a git repository. Using current working directory as root.";
 
 export const GIT_ROOT_COMMAND = {
   EXECUTABLE: "git",
   REV_PARSE: "rev-parse",
+  GIT_COMMON_DIR: "--git-common-dir",
   SHOW_TOPLEVEL: "--show-toplevel",
 } as const;
 
 export const GIT_SHOW_TOPLEVEL_ARGS = [
   GIT_ROOT_COMMAND.REV_PARSE,
   GIT_ROOT_COMMAND.SHOW_TOPLEVEL,
+] as const;
+
+export const GIT_COMMON_DIR_ARGS = [
+  GIT_ROOT_COMMAND.REV_PARSE,
+  GIT_ROOT_COMMAND.GIT_COMMON_DIR,
 ] as const;
 
 /**
@@ -176,8 +181,8 @@ export async function detectMainRepoRoot(
   try {
     // Step 1: Get the worktree/repo root via --show-toplevel
     const toplevelResult = await deps.execa(
-      "git",
-      ["rev-parse", "--show-toplevel"],
+      GIT_ROOT_COMMAND.EXECUTABLE,
+      [...GIT_SHOW_TOPLEVEL_ARGS],
       { cwd, reject: false },
     );
 
@@ -193,8 +198,8 @@ export async function detectMainRepoRoot(
 
     // Step 2: Get the common git directory via --git-common-dir
     const commonDirResult = await deps.execa(
-      "git",
-      ["rev-parse", "--git-common-dir"],
+      GIT_ROOT_COMMAND.EXECUTABLE,
+      [...GIT_COMMON_DIR_ARGS],
       { cwd, reject: false },
     );
 

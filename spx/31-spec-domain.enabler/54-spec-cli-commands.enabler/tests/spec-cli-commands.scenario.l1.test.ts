@@ -89,13 +89,14 @@ describe("spx spec status", () => {
       await env.writeRaw(join(scope.nestedDirectory, scope.productDirectory, nestedMarker), "");
       const nestedCwd = join(env.productDir, scope.nestedDirectory, scope.productDirectory);
       const rootPath = formatNodePath(env.fixture.root.order, env.fixture.root.slug, env.fixture.root.kind);
-      const gitDependencies = createGitRootDependencies(env.productDir, nestedCwd);
+      const gitRoot = createGitRootDependencies(env.productDir, nestedCwd);
 
-      const statusOutput = await statusCommand({ cwd: nestedCwd, gitDependencies });
-      const nextOutput = await nextCommand({ cwd: nestedCwd, gitDependencies });
+      const statusOutput = await statusCommand({ cwd: nestedCwd, gitDependencies: gitRoot.dependencies });
+      const nextOutput = await nextCommand({ cwd: nestedCwd, gitDependencies: gitRoot.dependencies });
 
       expect(statusOutput).toContain(rootPath);
       expect(nextOutput).toContain(rootPath);
+      expect(gitRoot.calls()).toBe([statusOutput, nextOutput].length);
     });
   });
 
@@ -200,17 +201,25 @@ function formatNodePath(order: number, slug: string, kind: NodeKind): string {
   return `${order}-${slug}${getKindDefinition(kind).suffix}`;
 }
 
-function createGitRootDependencies(productDir: string, expectedCwd: string): GitDependencies {
+function createGitRootDependencies(
+  productDir: string,
+  expectedCwd: string,
+): { dependencies: GitDependencies; calls: () => number } {
+  let callCount = 0;
   return {
-    execa: async (command, args, options) => {
-      expect(command).toBe(GIT_ROOT_COMMAND.EXECUTABLE);
-      expect(args).toEqual(GIT_SHOW_TOPLEVEL_ARGS);
-      expect(options?.cwd).toBe(expectedCwd);
-      return {
-        exitCode: 0,
-        stderr: "",
-        stdout: productDir,
-      };
+    dependencies: {
+      execa: async (command, args, options) => {
+        callCount += 1;
+        expect(command).toBe(GIT_ROOT_COMMAND.EXECUTABLE);
+        expect(args).toEqual(GIT_SHOW_TOPLEVEL_ARGS);
+        expect(options?.cwd).toBe(expectedCwd);
+        return {
+          exitCode: 0,
+          stderr: "",
+          stdout: productDir,
+        };
+      },
     },
+    calls: () => callCount,
   };
 }
