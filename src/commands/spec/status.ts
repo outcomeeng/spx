@@ -2,7 +2,7 @@ import {
   createFilesystemSpecTreeSource,
   projectSpecTree,
   readSpecTree,
-  type SpecTreeNode,
+  type SpecTreeProjectedNode,
   type SpecTreeProjection,
   type SpecTreeSnapshot,
   type SpecTreeSource,
@@ -50,20 +50,28 @@ export async function statusCommand(
   options: StatusOptions = {},
 ): Promise<string> {
   const snapshot = await readCommandSnapshot(options);
+  const projection = projectSpecTree(snapshot);
 
-  if (snapshot.allNodes.length === 0) {
+  if (projection.nodes.length === 0) {
     return SPEC_STATUS_MESSAGE.EMPTY;
   }
 
-  switch (options.format ?? DEFAULT_FORMAT) {
+  return renderSpecStatus(projection, options.format);
+}
+
+export function renderSpecStatus(
+  projection: SpecTreeProjection,
+  format: OutputFormat = DEFAULT_FORMAT,
+): string {
+  switch (format) {
     case OUTPUT_FORMAT.JSON:
-      return formatJSON(projectSpecTree(snapshot));
+      return formatJSON(projection);
     case OUTPUT_FORMAT.MARKDOWN:
-      return formatMarkdown(snapshot);
+      return formatMarkdown(projection);
     case OUTPUT_FORMAT.TABLE:
-      return formatTable(snapshot);
+      return formatTable(projection);
     case OUTPUT_FORMAT.TEXT:
-      return formatText(snapshot);
+      return formatText(projection);
   }
 }
 
@@ -77,28 +85,28 @@ function formatJSON(projection: SpecTreeProjection): string {
   return JSON.stringify(projection, null, JSON_INDENTATION);
 }
 
-function formatText(snapshot: SpecTreeSnapshot): string {
-  return snapshot.nodes.map((node) => formatTextNode(node)).join("\n");
+function formatText(projection: SpecTreeProjection): string {
+  return projection.nodes.map((node) => formatTextNode(node)).join("\n");
 }
 
-function formatTextNode(node: SpecTreeNode, depth = 0): string {
+function formatTextNode(node: SpecTreeProjectedNode, depth = 0): string {
   const current = `${NODE_INDENT.repeat(depth)}${formatNodeLabel(node)}`;
   const children = node.children.map((child) => formatTextNode(child, depth + 1));
   return [current, ...children].join("\n");
 }
 
-function formatMarkdown(snapshot: SpecTreeSnapshot): string {
-  return snapshot.nodes.map((node) => formatMarkdownNode(node)).join("\n");
+function formatMarkdown(projection: SpecTreeProjection): string {
+  return projection.nodes.map((node) => formatMarkdownNode(node)).join("\n");
 }
 
-function formatMarkdownNode(node: SpecTreeNode, depth = 0): string {
+function formatMarkdownNode(node: SpecTreeProjectedNode, depth = 0): string {
   const current = `${NODE_INDENT.repeat(depth)}${MARKDOWN_NODE_PREFIX}${formatNodeLabel(node)}`;
   const children = node.children.map((child) => formatMarkdownNode(child, depth + 1));
   return [current, ...children].join("\n");
 }
 
-function formatTable(snapshot: SpecTreeSnapshot): string {
-  const rows = snapshot.allNodes.map((node) => [
+function formatTable(projection: SpecTreeProjection): string {
+  const rows = flattenProjectionNodes(projection.nodes).map((node) => [
     KIND_REGISTRY[node.kind].label,
     node.id,
     node.state,
@@ -110,11 +118,15 @@ function formatTable(snapshot: SpecTreeSnapshot): string {
   ].join("\n");
 }
 
+function flattenProjectionNodes(nodes: readonly SpecTreeProjectedNode[]): readonly SpecTreeProjectedNode[] {
+  return nodes.flatMap((node) => [node, ...flattenProjectionNodes(node.children)]);
+}
+
 function formatTableRow(values: readonly string[]): string {
   return `${TABLE_SEPARATOR} ${values.join(` ${TABLE_SEPARATOR} `)} ${TABLE_SEPARATOR}`;
 }
 
-function formatNodeLabel(node: SpecTreeNode): string {
+function formatNodeLabel(node: SpecTreeProjectedNode): string {
   return [
     KIND_REGISTRY[node.kind].label,
     node.id,

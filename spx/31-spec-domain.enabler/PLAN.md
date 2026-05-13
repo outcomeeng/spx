@@ -40,7 +40,7 @@ Rebuild `spx spec` command behavior on top of the current spec-tree library. Thi
 
 - [x] Author the three spec-domain child nodes with current `.enabler` suffixes and assertion links.
 - [x] Move or rewrite command tests into those child nodes with canonical evidence/level names.
-- [ ] Make renderers consume `SpecTreeProjection` rather than raw snapshots when the command output is a stable projection concern.
+- [x] Make renderers consume `SpecTreeProjection` rather than raw snapshots when the command output is a stable projection concern.
 - [ ] Make command handlers resolve the worktree-local tracked `spx/` root per `spx/15-worktree-resolution.pdr.md`.
 - [ ] Keep config writes out of all spec-domain command paths.
 - [ ] Remove legacy `specs/work` fixtures from spec-domain tests.
@@ -51,5 +51,5 @@ Rebuild `spx spec` command behavior on top of the current spec-tree library. Thi
 - [ ] Spec-domain tests are in the current `spx/31-spec-domain.enabler/` subtree and no retained evidence depends on legacy capability/feature/story nodes.
 - [ ] Command modules consume the public spec-tree surface and never parse suffixes or assemble hierarchy themselves.
 - [ ] `status` and `next` behavior are proven against real temp product directories built by `withSpecTreeEnv`.
-- [ ] Rendering behavior is proven separately from command filesystem execution.
+- [x] Rendering behavior is proven separately from command filesystem execution.
 - [ ] CLI contract tests cover only behavior that cannot be proven through direct command functions.
