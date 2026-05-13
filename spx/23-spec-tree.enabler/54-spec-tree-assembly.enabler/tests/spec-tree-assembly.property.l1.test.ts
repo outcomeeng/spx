@@ -17,11 +17,8 @@ describe("spec-tree assembly invariants", () => {
 
     await fc.assert(
       fc.asyncProperty(
-        fc.uniqueArray(SPEC_TREE_TEST_GENERATOR.sourceOrder(), {
-          minLength: SPEC_TREE_TEST_GENERATOR.counts.assemblyOrderCount,
-          maxLength: SPEC_TREE_TEST_GENERATOR.counts.assemblyOrderCount,
-        }),
-        async ([rootOrder, childOrder, peerOrder]) => {
+        SPEC_TREE_TEST_GENERATOR.assemblyNodeOrders(),
+        async ({ rootOrder, childOrder, peerOrder }) => {
           const snapshot = await readSpecTree({
             source: createSource([
               buildNodeEntry(KIND_REGISTRY, {

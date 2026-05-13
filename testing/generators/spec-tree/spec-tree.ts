@@ -36,6 +36,12 @@ export type RepresentativeSpecTreeFixture = {
   readonly entries: readonly SpecTreeSourceEntry[];
 };
 
+export type AssemblyNodeOrders = {
+  readonly rootOrder: number;
+  readonly childOrder: number;
+  readonly peerOrder: number;
+};
+
 const SPEC_TREE_TEST_GENERATOR_OPTIONS = {
   REPRESENTATIVE_ID_COUNT: 7,
   REPRESENTATIVE_SLUG_COUNT: 4,
@@ -51,13 +57,13 @@ const SPEC_TREE_TEST_GENERATOR_OPTIONS = {
 
 export const SPEC_TREE_TEST_GENERATOR = {
   counts: {
-    assemblyOrderCount: SPEC_TREE_TEST_GENERATOR_OPTIONS.ASSEMBLY_ORDER_COUNT,
     assemblyPropertyRunCount: SPEC_TREE_TEST_GENERATOR_OPTIONS.ASSEMBLY_PROPERTY_RUN_COUNT,
   },
   sourceId: arbitrarySourceId,
   sourceSlug: arbitrarySourceSlug,
   sourceTitle: arbitrarySourceTitle,
   sourceOrder: arbitrarySourceOrder,
+  assemblyNodeOrders: arbitraryAssemblyNodeOrders,
   parentSourceOrder: arbitraryParentSourceOrder,
   childSourceOrderAbove: arbitraryChildSourceOrderAbove,
   sourceRef: arbitrarySourceRef,
@@ -249,6 +255,26 @@ function arbitraryRepresentativeFixture(registry: SpecTreeRegistry): fc.Arbitrar
         entries: [product, root, child, peer, decision, childEvidence, peerEvidence],
       };
     });
+}
+
+function arbitraryAssemblyNodeOrders(): fc.Arbitrary<AssemblyNodeOrders> {
+  return fc
+    .uniqueArray(arbitrarySourceOrder(), {
+      minLength: SPEC_TREE_TEST_GENERATOR_OPTIONS.ASSEMBLY_ORDER_COUNT,
+      maxLength: SPEC_TREE_TEST_GENERATOR_OPTIONS.ASSEMBLY_ORDER_COUNT,
+    })
+    .map(toAssemblyNodeOrders);
+}
+
+function toAssemblyNodeOrders(orders: readonly number[]): AssemblyNodeOrders {
+  if (orders.length !== SPEC_TREE_TEST_GENERATOR_OPTIONS.ASSEMBLY_ORDER_COUNT) {
+    throw new Error("Spec-tree assembly order generator produced an unexpected arity");
+  }
+  const [rootOrder, childOrder, peerOrder] = orders;
+  if (rootOrder === undefined || childOrder === undefined || peerOrder === undefined) {
+    throw new Error("Spec-tree assembly order generator produced an incomplete order set");
+  }
+  return { rootOrder, childOrder, peerOrder };
 }
 
 function arbitrarySourceId(): fc.Arbitrary<string> {
