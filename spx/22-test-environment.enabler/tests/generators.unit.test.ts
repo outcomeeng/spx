@@ -4,6 +4,7 @@ import { join } from "node:path";
 import * as fc from "fast-check";
 import { describe, expect, it } from "vitest";
 
+import { DECISION_SUFFIXES, NODE_SUFFIXES } from "@/lib/spec-tree/config";
 import { MINIMAL_SPEC_TREE_CONFIG } from "@testing/generators/config/config";
 import {
   arbitraryDecisionPath,
@@ -12,15 +13,20 @@ import {
   withTestEnv,
 } from "@testing/harnesses/spec-tree/spec-tree";
 
-const NODE_SUFFIX_PATTERN = /\.(enabler|outcome)$/;
-const DECISION_SUFFIX_PATTERN = /\.(adr|pdr)\.md$/;
+function hasRegisteredNodeSuffix(path: string): boolean {
+  return NODE_SUFFIXES.some((suffix) => path.endsWith(suffix));
+}
+
+function hasRegisteredDecisionSuffix(path: string): boolean {
+  return DECISION_SUFFIXES.some((suffix) => path.endsWith(suffix));
+}
 
 describe("arbitraryNodePath — free-function form", () => {
   it("generates paths whose trailing segment carries one of the Config's node suffixes", () => {
     fc.assert(
       fc.property(arbitraryNodePath(MINIMAL_SPEC_TREE_CONFIG), (path) => {
         expect(path.endsWith("/") === false).toBe(true);
-        expect(NODE_SUFFIX_PATTERN.test(path)).toBe(true);
+        expect(hasRegisteredNodeSuffix(path)).toBe(true);
       }),
       { numRuns: 50 },
     );
@@ -31,7 +37,7 @@ describe("arbitraryDecisionPath — free-function form", () => {
   it("generates paths whose trailing segment carries one of the Config's decision suffixes", () => {
     fc.assert(
       fc.property(arbitraryDecisionPath(MINIMAL_SPEC_TREE_CONFIG), (path) => {
-        expect(DECISION_SUFFIX_PATTERN.test(path)).toBe(true);
+        expect(hasRegisteredDecisionSuffix(path)).toBe(true);
       }),
       { numRuns: 50 },
     );
@@ -44,9 +50,9 @@ describe("arbitrarySpecTree — free-function form", () => {
       fc.property(arbitrarySpecTree(MINIMAL_SPEC_TREE_CONFIG), (tree) => {
         for (const entry of tree.entries) {
           if (entry.kind === "enabler" || entry.kind === "outcome") {
-            expect(NODE_SUFFIX_PATTERN.test(entry.path)).toBe(true);
+            expect(hasRegisteredNodeSuffix(entry.path)).toBe(true);
           } else {
-            expect(DECISION_SUFFIX_PATTERN.test(entry.path)).toBe(true);
+            expect(hasRegisteredDecisionSuffix(entry.path)).toBe(true);
           }
         }
       }),
@@ -72,7 +78,7 @@ describe("env-scoped generators — produce fixtures materializable inside the c
   it("env-scoped and free-function generators produce values of the same shape", () => {
     fc.assert(
       fc.property(arbitraryNodePath(MINIMAL_SPEC_TREE_CONFIG), (free) => {
-        expect(NODE_SUFFIX_PATTERN.test(free)).toBe(true);
+        expect(hasRegisteredNodeSuffix(free)).toBe(true);
       }),
       { numRuns: 10 },
     );

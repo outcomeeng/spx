@@ -26,14 +26,6 @@ CONTRIBUTING TO higher engineering velocity — teams ship quality code faster b
 - Code validation — ESLint, TypeScript type checking, circular dependency detection, unused code analysis
 - Session management — work handoffs between agent contexts with priority ordering
 
-### What's excluded
-
-| Excluded                      | Rationale                                  |
-| ----------------------------- | ------------------------------------------ |
-| GUI / web interface           | spx is a CLI tool; integrations can add UI |
-| Interactive prompts / wizards | CLI-first for agent compatibility          |
-| Third-party plugin API        | Requires stable domain interfaces first    |
-
 ## Product-level assertions
 
 ### Compliance

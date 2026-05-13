@@ -36,6 +36,12 @@ export type RepresentativeSpecTreeFixture = {
   readonly entries: readonly SpecTreeSourceEntry[];
 };
 
+export type AssemblyNodeOrders = {
+  readonly rootOrder: number;
+  readonly childOrder: number;
+  readonly peerOrder: number;
+};
+
 const SPEC_TREE_TEST_GENERATOR_OPTIONS = {
   REPRESENTATIVE_ID_COUNT: 7,
   REPRESENTATIVE_SLUG_COUNT: 4,
@@ -45,13 +51,21 @@ const SPEC_TREE_TEST_GENERATOR_OPTIONS = {
   REPRESENTATIVE_PARENT_ORDER_MAX: 98,
   REPRESENTATIVE_ORDER_MAX: 99,
   CHILD_ORDER_OFFSET: 1,
+  ASSEMBLY_ORDER_COUNT: 3,
+  ASSEMBLY_PROPERTY_RUN_COUNT: 25,
 } as const;
 
+const ASSEMBLY_NODE_ORDER_COUNT: 3 = SPEC_TREE_TEST_GENERATOR_OPTIONS.ASSEMBLY_ORDER_COUNT;
+
 export const SPEC_TREE_TEST_GENERATOR = {
+  counts: {
+    assemblyPropertyRunCount: SPEC_TREE_TEST_GENERATOR_OPTIONS.ASSEMBLY_PROPERTY_RUN_COUNT,
+  },
   sourceId: arbitrarySourceId,
   sourceSlug: arbitrarySourceSlug,
   sourceTitle: arbitrarySourceTitle,
   sourceOrder: arbitrarySourceOrder,
+  assemblyNodeOrders: arbitraryAssemblyNodeOrders,
   parentSourceOrder: arbitraryParentSourceOrder,
   childSourceOrderAbove: arbitraryChildSourceOrderAbove,
   sourceRef: arbitrarySourceRef,
@@ -243,6 +257,20 @@ function arbitraryRepresentativeFixture(registry: SpecTreeRegistry): fc.Arbitrar
         entries: [product, root, child, peer, decision, childEvidence, peerEvidence],
       };
     });
+}
+
+function arbitraryAssemblyNodeOrders(): fc.Arbitrary<AssemblyNodeOrders> {
+  return fc
+    .uniqueArray(arbitrarySourceOrder(), {
+      minLength: ASSEMBLY_NODE_ORDER_COUNT,
+      maxLength: ASSEMBLY_NODE_ORDER_COUNT,
+    })
+    .map(toAssemblyNodeOrders);
+}
+
+function toAssemblyNodeOrders(orders: readonly number[]): AssemblyNodeOrders {
+  const [rootOrder, childOrder, peerOrder] = orders as readonly [number, number, number];
+  return { rootOrder, childOrder, peerOrder };
 }
 
 function arbitrarySourceId(): fc.Arbitrary<string> {

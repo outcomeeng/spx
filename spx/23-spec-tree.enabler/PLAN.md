@@ -8,7 +8,7 @@ Keep the reusable spec-tree library as the foundation for the refactor. This nod
 
 - [x] Treat the current migrated tests as evidence inventory, then re-route each assertion through the spec-tree testing methodology before keeping it.
 - [x] Replace direct fixture construction in spec-tree tests with `withSpecTreeEnv` where the proof requires a real product directory and use in-memory sources where the proof is pure source-record behavior.
-- [ ] Keep one canonical public-surface scenario proving `readSpecTree`, `projectSpecTree`, and `findNextSpecTreeNode` together over a representative tree.
+- [x] Keep one canonical public-surface scenario proving `readSpecTree`, `projectSpecTree`, and `findNextSpecTreeNode` together over a representative tree.
 - [ ] Keep child-node tests focused on their owned behavior: source mapping, recognition mapping, assembly properties, traversal scenarios, state mapping, and projection conformance.
 - [ ] Remove any command-formatting or terminal-output assertions from this node and move them to `spx/31-spec-domain.enabler/`.
 - [ ] Replace remaining legacy `.capability`, `.feature`, and `.story` vocabulary in source, tests, and fixtures with registry-driven current vocabulary.
@@ -38,7 +38,7 @@ Keep the reusable spec-tree library as the foundation for the refactor. This nod
 
 ## Tracked Deferrals
 
-- [ ] Resolve the 2 warning-level `spx/no-test-owned-domain-constants` findings reported by `pnpm run validate` on May 12, 2026:
+- [x] Resolve the 2 warning-level `spx/no-test-owned-domain-constants` findings reported by `pnpm run validate` on May 12, 2026:
   - `spx/23-spec-tree.enabler/54-spec-tree-assembly.enabler/tests/spec-tree-assembly.property.l1.test.ts`
 
 ## Validation

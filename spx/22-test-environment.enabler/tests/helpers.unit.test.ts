@@ -7,20 +7,18 @@ import { DEFAULT_CONFIG_FILENAME } from "@/config/index";
 import { MINIMAL_SPEC_TREE_CONFIG } from "@testing/generators/config/config";
 import { withTestEnv } from "@testing/harnesses/spec-tree/spec-tree";
 
-const NODE_BODY = "# Some Enabler\n\nPROVIDES X SO THAT Y CAN Z\n";
-const DECISION_BODY = "# Decision\n\n## Purpose\n\nGoverns X.\n";
-const RAW_BODY = "arbitrary text";
-
 describe("withTestEnv — writeNode", () => {
   it("writes a node spec file under the temp product directory and a subsequent read observes the change", async () => {
     await withTestEnv(MINIMAL_SPEC_TREE_CONFIG, async ({ productDir, writeNode, readFile }) => {
-      await writeNode("21-sample.enabler/sample.md", NODE_BODY);
+      const nodeBody = "# Some Enabler\n\nPROVIDES X SO THAT Y CAN Z\n";
+
+      await writeNode("21-sample.enabler/sample.md", nodeBody);
 
       const viaEnv = await readFile("21-sample.enabler/sample.md");
       const viaDisk = (await nativeReadFile(join(productDir, "21-sample.enabler/sample.md"))).toString();
 
-      expect(viaEnv).toBe(NODE_BODY);
-      expect(viaDisk).toBe(NODE_BODY);
+      expect(viaEnv).toBe(nodeBody);
+      expect(viaDisk).toBe(nodeBody);
     });
   });
 });
@@ -28,11 +26,13 @@ describe("withTestEnv — writeNode", () => {
 describe("withTestEnv — writeDecision", () => {
   it("writes a decision record file under the temp product directory and readFile sees it", async () => {
     await withTestEnv(MINIMAL_SPEC_TREE_CONFIG, async ({ writeDecision, readFile }) => {
-      await writeDecision("21-choice.adr.md", DECISION_BODY);
+      const decisionBody = "# Decision\n\n## Purpose\n\nGoverns X.\n";
+
+      await writeDecision("21-choice.adr.md", decisionBody);
 
       const viaEnv = await readFile("21-choice.adr.md");
 
-      expect(viaEnv).toBe(DECISION_BODY);
+      expect(viaEnv).toBe(decisionBody);
     });
   });
 });
@@ -40,13 +40,15 @@ describe("withTestEnv — writeDecision", () => {
 describe("withTestEnv — writeRaw", () => {
   it("writes arbitrary bytes at the given relative path under the temp product directory", async () => {
     await withTestEnv(MINIMAL_SPEC_TREE_CONFIG, async ({ productDir, writeRaw, readFile }) => {
-      await writeRaw("notes/misc.txt", RAW_BODY);
+      const rawBody = "arbitrary text";
+
+      await writeRaw("notes/misc.txt", rawBody);
 
       const viaEnv = await readFile("notes/misc.txt");
       const viaDisk = (await nativeReadFile(join(productDir, "notes/misc.txt"))).toString();
 
-      expect(viaEnv).toBe(RAW_BODY);
-      expect(viaDisk).toBe(RAW_BODY);
+      expect(viaEnv).toBe(rawBody);
+      expect(viaDisk).toBe(rawBody);
     });
   });
 });
