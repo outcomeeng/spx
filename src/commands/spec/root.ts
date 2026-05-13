@@ -15,6 +15,7 @@ export async function resolveSpecProductDir(
 ): Promise<string> {
   const result = await detectGitRoot(cwd, gitDependencies);
   if (!result.isGitRepo) {
+    // Spec commands read tracked spx/ files, so the fallback warning names that domain.
     onWarning?.(SPEC_PRODUCT_DIR_WARNING.NOT_GIT_REPOSITORY);
   }
   return result.root;

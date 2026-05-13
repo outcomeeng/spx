@@ -76,7 +76,8 @@ const defaultDeps: GitDependencies = {
   },
 };
 
-const NOT_GIT_REPO_WARNING = "Warning: Not in a git repository. Using current working directory as root.";
+const NOT_GIT_REPO_WARNING =
+  "Warning: Not in a git repository. Sessions will be created relative to current directory.";
 
 export const GIT_ROOT_COMMAND = {
   EXECUTABLE: "git",
@@ -123,7 +124,7 @@ export async function detectGitRoot(
   try {
     const result = await deps.execa(
       GIT_ROOT_COMMAND.EXECUTABLE,
-      Array.from(GIT_SHOW_TOPLEVEL_ARGS),
+      [...GIT_SHOW_TOPLEVEL_ARGS],
       { cwd, reject: false },
     );
 

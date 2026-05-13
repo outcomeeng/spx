@@ -96,7 +96,39 @@ describe("spx spec status", () => {
 
       expect(statusOutput).toContain(rootPath);
       expect(nextOutput).toContain(rootPath);
-      expect(gitRoot.calls()).toBe([statusOutput, nextOutput].length);
+      expect(gitRoot.calls()).toBe(2);
+    });
+  });
+
+  it("reports an empty current spec-tree from a git repository without warnings", async () => {
+    await withTestEnv(MINIMAL_SPEC_TREE_CONFIG, async ({ productDir }) => {
+      const statusWarnings: string[] = [];
+      const nextWarnings: string[] = [];
+      await runGit(productDir, [GIT_TEST_SUBCOMMANDS.INIT, GIT_TEST_FLAGS.QUIET]);
+      await runGit(productDir, [GIT_TEST_SUBCOMMANDS.CONFIG, GIT_TEST_CONFIG.EMAIL_KEY, GIT_TEST_CONFIG.EMAIL]);
+      await runGit(productDir, [
+        GIT_TEST_SUBCOMMANDS.CONFIG,
+        GIT_TEST_CONFIG.USER_NAME_KEY,
+        GIT_TEST_CONFIG.USER_NAME,
+      ]);
+      await runGit(productDir, [
+        GIT_TEST_SUBCOMMANDS.ADD,
+        DEFAULT_CONFIG_FILENAME,
+      ]);
+      await runGit(productDir, [
+        GIT_TEST_SUBCOMMANDS.COMMIT,
+        "-m",
+        sampleConfigTestValue(CONFIG_TEST_GENERATOR.key()),
+      ]);
+
+      await expect(
+        statusCommand({ cwd: productDir, onWarning: (warning) => statusWarnings.push(warning) }),
+      ).resolves.toBe(SPEC_STATUS_MESSAGE.EMPTY);
+      await expect(
+        nextCommand({ cwd: productDir, onWarning: (warning) => nextWarnings.push(warning) }),
+      ).resolves.toBe(SPEC_NEXT_MESSAGE.EMPTY);
+      expect(statusWarnings).toEqual([]);
+      expect(nextWarnings).toEqual([]);
     });
   });
 
