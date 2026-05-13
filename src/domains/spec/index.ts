@@ -68,6 +68,7 @@ function registerSpecCommands(specCmd: Command): void {
         const output = await statusCommand({
           cwd: process.cwd(),
           format: resolveStatusFormat(options),
+          onWarning: writeWarning,
         });
         console.log(output);
       } catch (error) {
@@ -80,7 +81,7 @@ function registerSpecCommands(specCmd: Command): void {
     .description("Find next spec-tree node to work on")
     .action(async () => {
       try {
-        const output = await nextCommand({ cwd: process.cwd() });
+        const output = await nextCommand({ cwd: process.cwd(), onWarning: writeWarning });
         console.log(output);
       } catch (error) {
         handleCommandError(error);
@@ -114,6 +115,10 @@ function registerSpecCommands(specCmd: Command): void {
         handleCommandError(error);
       }
     });
+}
+
+function writeWarning(warning: string): void {
+  console.error(warning);
 }
 
 /**

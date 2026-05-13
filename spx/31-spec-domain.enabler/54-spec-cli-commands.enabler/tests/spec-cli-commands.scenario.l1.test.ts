@@ -1,7 +1,11 @@
+import { join } from "node:path";
 import { describe, expect, it } from "vitest";
 
 import { nextCommand, SPEC_NEXT_MESSAGE } from "@/commands/spec/next";
+import { SPEC_PRODUCT_DIR_WARNING } from "@/commands/spec/root";
 import { OUTPUT_FORMAT, SPEC_STATUS_MESSAGE, statusCommand } from "@/commands/spec/status";
+import { DEFAULT_CONFIG_FILENAME } from "@/config/index";
+import { GIT_ROOT_COMMAND, GIT_SHOW_TOPLEVEL_ARGS, type GitDependencies } from "@/git/root";
 import {
   getKindDefinition,
   SPEC_TREE_ENTRY_TYPE,
@@ -9,8 +13,9 @@ import {
   SPEC_TREE_NODE_STATE,
   type SpecTreeNodeSourceEntry,
 } from "@/lib/spec-tree";
-import { KIND_REGISTRY, type NodeKind } from "@/lib/spec-tree/config";
+import { KIND_REGISTRY, type NodeKind, SPEC_TREE_CONFIG } from "@/lib/spec-tree/config";
 import { MINIMAL_SPEC_TREE_CONFIG } from "@testing/generators/config/config";
+import { CONFIG_TEST_GENERATOR, sampleConfigTestValue } from "@testing/generators/config/descriptors";
 import {
   buildEvidenceEntry,
   createSource,
@@ -18,6 +23,7 @@ import {
   sampleSpecTreeTestValue,
   SPEC_TREE_TEST_GENERATOR,
 } from "@testing/generators/spec-tree/spec-tree";
+import { GIT_TEST_CONFIG, GIT_TEST_FLAGS, GIT_TEST_SUBCOMMANDS, runGit } from "@testing/harnesses/git-test-constants";
 import { withSpecTreeEnv, withTestEnv } from "@testing/harnesses/spec-tree/spec-tree";
 
 describe("spx spec status", () => {
@@ -31,6 +37,98 @@ describe("spx spec status", () => {
       expect(output).toContain(KIND_REGISTRY[env.fixture.root.kind].label);
       expect(output).toContain(rootPath);
       expect(output).toContain(SPEC_TREE_NODE_STATE.DECLARED);
+    });
+  });
+
+  it("reports current spec-tree nodes from a nested git repository directory", async () => {
+    await withSpecTreeEnv(MINIMAL_SPEC_TREE_CONFIG, async (env) => {
+      await env.materialize();
+      const scope = sampleConfigTestValue(CONFIG_TEST_GENERATOR.resolutionScope());
+      const nestedMarker = sampleConfigTestValue(CONFIG_TEST_GENERATOR.key());
+      await runGit(env.productDir, [GIT_TEST_SUBCOMMANDS.INIT, GIT_TEST_FLAGS.QUIET]);
+      await runGit(env.productDir, [GIT_TEST_SUBCOMMANDS.CONFIG, GIT_TEST_CONFIG.EMAIL_KEY, GIT_TEST_CONFIG.EMAIL]);
+      await runGit(env.productDir, [
+        GIT_TEST_SUBCOMMANDS.CONFIG,
+        GIT_TEST_CONFIG.USER_NAME_KEY,
+        GIT_TEST_CONFIG.USER_NAME,
+      ]);
+      await runGit(env.productDir, [
+        GIT_TEST_SUBCOMMANDS.ADD,
+        SPEC_TREE_CONFIG.ROOT_DIRECTORY,
+        DEFAULT_CONFIG_FILENAME,
+      ]);
+      await runGit(env.productDir, [
+        GIT_TEST_SUBCOMMANDS.COMMIT,
+        "-m",
+        sampleConfigTestValue(CONFIG_TEST_GENERATOR.key()),
+      ]);
+      await env.writeRaw(join(scope.nestedDirectory, scope.productDirectory, nestedMarker), "");
+      const nestedCwd = join(env.productDir, scope.nestedDirectory, scope.productDirectory);
+      const rootPath = formatNodePath(env.fixture.root.order, env.fixture.root.slug, env.fixture.root.kind);
+      const statusWarnings: string[] = [];
+      const nextWarnings: string[] = [];
+
+      const statusOutput = await statusCommand({
+        cwd: nestedCwd,
+        onWarning: (warning) => statusWarnings.push(warning),
+      });
+      const nextOutput = await nextCommand({ cwd: nestedCwd, onWarning: (warning) => nextWarnings.push(warning) });
+
+      expect(statusOutput).toContain(rootPath);
+      expect(nextOutput).toContain(rootPath);
+      expect(statusWarnings).toEqual([]);
+      expect(nextWarnings).toEqual([]);
+    });
+  });
+
+  it("reports current spec-tree nodes through injected git root dependencies", async () => {
+    await withSpecTreeEnv(MINIMAL_SPEC_TREE_CONFIG, async (env) => {
+      await env.materialize();
+      const scope = sampleConfigTestValue(CONFIG_TEST_GENERATOR.resolutionScope());
+      const nestedMarker = sampleConfigTestValue(CONFIG_TEST_GENERATOR.key());
+      await env.writeRaw(join(scope.nestedDirectory, scope.productDirectory, nestedMarker), "");
+      const nestedCwd = join(env.productDir, scope.nestedDirectory, scope.productDirectory);
+      const rootPath = formatNodePath(env.fixture.root.order, env.fixture.root.slug, env.fixture.root.kind);
+      const gitRoot = createGitRootDependencies(env.productDir, nestedCwd);
+
+      const statusOutput = await statusCommand({ cwd: nestedCwd, gitDependencies: gitRoot.dependencies });
+      const nextOutput = await nextCommand({ cwd: nestedCwd, gitDependencies: gitRoot.dependencies });
+
+      expect(statusOutput).toContain(rootPath);
+      expect(nextOutput).toContain(rootPath);
+      expect(gitRoot.calls()).toBe(2);
+    });
+  });
+
+  it("reports an empty current spec-tree from a git repository without warnings", async () => {
+    await withTestEnv(MINIMAL_SPEC_TREE_CONFIG, async ({ productDir }) => {
+      const statusWarnings: string[] = [];
+      const nextWarnings: string[] = [];
+      await runGit(productDir, [GIT_TEST_SUBCOMMANDS.INIT, GIT_TEST_FLAGS.QUIET]);
+      await runGit(productDir, [GIT_TEST_SUBCOMMANDS.CONFIG, GIT_TEST_CONFIG.EMAIL_KEY, GIT_TEST_CONFIG.EMAIL]);
+      await runGit(productDir, [
+        GIT_TEST_SUBCOMMANDS.CONFIG,
+        GIT_TEST_CONFIG.USER_NAME_KEY,
+        GIT_TEST_CONFIG.USER_NAME,
+      ]);
+      await runGit(productDir, [
+        GIT_TEST_SUBCOMMANDS.ADD,
+        DEFAULT_CONFIG_FILENAME,
+      ]);
+      await runGit(productDir, [
+        GIT_TEST_SUBCOMMANDS.COMMIT,
+        "-m",
+        sampleConfigTestValue(CONFIG_TEST_GENERATOR.key()),
+      ]);
+
+      await expect(
+        statusCommand({ cwd: productDir, onWarning: (warning) => statusWarnings.push(warning) }),
+      ).resolves.toBe(SPEC_STATUS_MESSAGE.EMPTY);
+      await expect(
+        nextCommand({ cwd: productDir, onWarning: (warning) => nextWarnings.push(warning) }),
+      ).resolves.toBe(SPEC_NEXT_MESSAGE.EMPTY);
+      expect(statusWarnings).toEqual([]);
+      expect(nextWarnings).toEqual([]);
     });
   });
 
@@ -60,9 +158,20 @@ describe("spx spec status", () => {
     });
   });
 
-  it("reports an empty current spec-tree without reading legacy specs/work defaults", async () => {
+  it("warns and reports an empty current spec-tree outside a git repository", async () => {
     await withTestEnv(MINIMAL_SPEC_TREE_CONFIG, async ({ productDir }) => {
-      await expect(statusCommand({ cwd: productDir })).resolves.toBe(SPEC_STATUS_MESSAGE.EMPTY);
+      const statusWarnings: string[] = [];
+      const nextWarnings: string[] = [];
+
+      await expect(
+        statusCommand({ cwd: productDir, onWarning: (warning) => statusWarnings.push(warning) }),
+      ).resolves.toBe(SPEC_STATUS_MESSAGE.EMPTY);
+      await expect(
+        nextCommand({ cwd: productDir, onWarning: (warning) => nextWarnings.push(warning) }),
+      ).resolves.toBe(SPEC_NEXT_MESSAGE.EMPTY);
+
+      expect(statusWarnings).toEqual([SPEC_PRODUCT_DIR_WARNING.NOT_GIT_REPOSITORY]);
+      expect(nextWarnings).toEqual([SPEC_PRODUCT_DIR_WARNING.NOT_GIT_REPOSITORY]);
     });
   });
 });
@@ -122,4 +231,27 @@ function sampleSpecOrder(): number {
 
 function formatNodePath(order: number, slug: string, kind: NodeKind): string {
   return `${order}-${slug}${getKindDefinition(kind).suffix}`;
+}
+
+function createGitRootDependencies(
+  productDir: string,
+  expectedCwd: string,
+): { dependencies: GitDependencies; calls: () => number } {
+  let callCount = 0;
+  return {
+    dependencies: {
+      execa: async (command, args, options) => {
+        callCount += 1;
+        expect(command).toBe(GIT_ROOT_COMMAND.EXECUTABLE);
+        expect(args).toEqual(GIT_SHOW_TOPLEVEL_ARGS);
+        expect(options?.cwd).toBe(expectedCwd);
+        return {
+          exitCode: 0,
+          stderr: "",
+          stdout: productDir,
+        };
+      },
+    },
+    calls: () => callCount,
+  };
 }
