@@ -28,7 +28,7 @@ describe("ignore-source — scenarios", () => {
           await withTestEnv(integrationConfig(), async (env) => {
             await writeExclude(env, [listed]);
 
-            const reader = createIgnoreSourceReader(env.projectDir, readerConfig());
+            const reader = createIgnoreSourceReader(env.productDir, readerConfig());
 
             expect(reader.isUnderIgnoreSource(spxPath(listed, sub))).toBe(true);
             expect(reader.isUnderIgnoreSource(spxPath(unlisted, sub))).toBe(false);
@@ -45,7 +45,7 @@ describe("ignore-source — scenarios", () => {
         await withTestEnv(integrationConfig(), async (env) => {
           await writeExclude(env, [nested]);
 
-          const reader = createIgnoreSourceReader(env.projectDir, readerConfig());
+          const reader = createIgnoreSourceReader(env.productDir, readerConfig());
 
           expect(reader.isUnderIgnoreSource(spxPath(nested, sub))).toBe(true);
         });
@@ -73,7 +73,7 @@ describe("ignore-source — scenarios", () => {
               "",
             ]);
 
-            const reader = createIgnoreSourceReader(env.projectDir, readerConfig());
+            const reader = createIgnoreSourceReader(env.productDir, readerConfig());
 
             expect(reader.isUnderIgnoreSource(spxPath(segA, sub))).toBe(true);
             expect(reader.isUnderIgnoreSource(spxPath(segB, sub))).toBe(true);
@@ -89,7 +89,7 @@ describe("ignore-source — scenarios", () => {
     await fc.assert(
       fc.asyncProperty(arbNodeSegment, arbSubpath, async (segment, sub) => {
         await withTestEnv(integrationConfig(), async (env) => {
-          const reader = createIgnoreSourceReader(env.projectDir, readerConfig());
+          const reader = createIgnoreSourceReader(env.productDir, readerConfig());
 
           expect(reader.isUnderIgnoreSource(spxPath(segment, sub))).toBe(false);
         });
@@ -104,7 +104,7 @@ describe("ignore-source — scenarios", () => {
         await withTestEnv(integrationConfig(), async (env) => {
           await writeExcludeRaw(env, "");
 
-          const reader = createIgnoreSourceReader(env.projectDir, readerConfig());
+          const reader = createIgnoreSourceReader(env.productDir, readerConfig());
 
           expect(reader.isUnderIgnoreSource(spxPath(segment, sub))).toBe(false);
         });

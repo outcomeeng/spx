@@ -20,7 +20,7 @@ describe("withTestEnv — concurrent isolation", () => {
               let dir = "";
               let readBack = "";
               await withTestEnv(MINIMAL_SPEC_TREE_CONFIG, async (env) => {
-                dir = env.projectDir;
+                dir = env.productDir;
                 await env.writeRaw("marker.txt", marker);
                 readBack = await env.readFile("marker.txt");
               });

@@ -36,16 +36,16 @@ describe("resolveConfig — format equivalence", () => {
     let jsonResult: unknown;
     const config = equivalentConfig();
 
-    await withTestEnv(config, async ({ projectDir }) => {
-      const r = await resolveConfig(projectDir, [specTreeConfigDescriptor]);
+    await withTestEnv(config, async ({ productDir }) => {
+      const r = await resolveConfig(productDir, [specTreeConfigDescriptor]);
       expect(r.ok).toBe(true);
       if (r.ok) defaultResult = r.value;
     });
 
-    await withTestEnv({}, async ({ projectDir, writeRaw }) => {
-      await rm(join(projectDir, DEFAULT_CONFIG_FILENAME));
+    await withTestEnv({}, async ({ productDir, writeRaw }) => {
+      await rm(join(productDir, DEFAULT_CONFIG_FILENAME));
       await writeRaw(CONFIG_FILENAMES.json, serializeEquivalentConfig(CONFIG_FILE_FORMAT.JSON, config));
-      const r = await resolveConfig(projectDir, [specTreeConfigDescriptor]);
+      const r = await resolveConfig(productDir, [specTreeConfigDescriptor]);
       expect(r.ok).toBe(true);
       if (r.ok) jsonResult = r.value;
     });
@@ -58,16 +58,16 @@ describe("resolveConfig — format equivalence", () => {
     let tomlResult: unknown;
     const config = equivalentConfig();
 
-    await withTestEnv(config, async ({ projectDir }) => {
-      const r = await resolveConfig(projectDir, [specTreeConfigDescriptor]);
+    await withTestEnv(config, async ({ productDir }) => {
+      const r = await resolveConfig(productDir, [specTreeConfigDescriptor]);
       expect(r.ok).toBe(true);
       if (r.ok) defaultResult = r.value;
     });
 
-    await withTestEnv({}, async ({ projectDir, writeRaw }) => {
-      await rm(join(projectDir, DEFAULT_CONFIG_FILENAME));
+    await withTestEnv({}, async ({ productDir, writeRaw }) => {
+      await rm(join(productDir, DEFAULT_CONFIG_FILENAME));
       await writeRaw(CONFIG_FILENAMES.toml, serializeEquivalentConfig(CONFIG_FILE_FORMAT.TOML, config));
-      const r = await resolveConfig(projectDir, [specTreeConfigDescriptor]);
+      const r = await resolveConfig(productDir, [specTreeConfigDescriptor]);
       expect(r.ok).toBe(true);
       if (r.ok) tomlResult = r.value;
     });
@@ -79,24 +79,24 @@ describe("resolveConfig — format equivalence", () => {
     const results: unknown[] = [];
     const config = equivalentConfig();
 
-    await withTestEnv(config, async ({ projectDir }) => {
-      const r = await resolveConfig(projectDir, [specTreeConfigDescriptor]);
+    await withTestEnv(config, async ({ productDir }) => {
+      const r = await resolveConfig(productDir, [specTreeConfigDescriptor]);
       expect(r.ok).toBe(true);
       if (r.ok) results.push(r.value);
     });
 
-    await withTestEnv({}, async ({ projectDir, writeRaw }) => {
-      await rm(join(projectDir, DEFAULT_CONFIG_FILENAME));
+    await withTestEnv({}, async ({ productDir, writeRaw }) => {
+      await rm(join(productDir, DEFAULT_CONFIG_FILENAME));
       await writeRaw(CONFIG_FILENAMES.json, serializeEquivalentConfig(CONFIG_FILE_FORMAT.JSON, config));
-      const r = await resolveConfig(projectDir, [specTreeConfigDescriptor]);
+      const r = await resolveConfig(productDir, [specTreeConfigDescriptor]);
       expect(r.ok).toBe(true);
       if (r.ok) results.push(r.value);
     });
 
-    await withTestEnv({}, async ({ projectDir, writeRaw }) => {
-      await rm(join(projectDir, DEFAULT_CONFIG_FILENAME));
+    await withTestEnv({}, async ({ productDir, writeRaw }) => {
+      await rm(join(productDir, DEFAULT_CONFIG_FILENAME));
       await writeRaw(CONFIG_FILENAMES.toml, serializeEquivalentConfig(CONFIG_FILE_FORMAT.TOML, config));
-      const r = await resolveConfig(projectDir, [specTreeConfigDescriptor]);
+      const r = await resolveConfig(productDir, [specTreeConfigDescriptor]);
       expect(r.ok).toBe(true);
       if (r.ok) results.push(r.value);
     });
@@ -107,9 +107,9 @@ describe("resolveConfig — format equivalence", () => {
   });
 
   it("rejects config mutation requests without a section path", async () => {
-    await withTestEnv({}, async ({ projectDir }) => {
+    await withTestEnv({}, async ({ productDir }) => {
       const result = serializeConfigFileSectionsWithSetIn(
-        configFileForFormat(projectDir),
+        configFileForFormat(productDir),
         [],
         {},
       );

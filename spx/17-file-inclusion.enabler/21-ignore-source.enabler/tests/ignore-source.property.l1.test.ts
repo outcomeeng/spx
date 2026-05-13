@@ -29,8 +29,8 @@ describe("ignore-source — properties", () => {
           await withTestEnv(integrationConfig(), async (env) => {
             await writeExclude(env, segments);
 
-            const readerA = createIgnoreSourceReader(env.projectDir, readerConfig());
-            const readerB = createIgnoreSourceReader(env.projectDir, readerConfig());
+            const readerA = createIgnoreSourceReader(env.productDir, readerConfig());
+            const readerB = createIgnoreSourceReader(env.productDir, readerConfig());
 
             for (const [segment, rest] of queries) {
               const input = spxPath(segment, rest);
@@ -56,7 +56,7 @@ describe("ignore-source — properties", () => {
           await withTestEnv(integrationConfig(), async (env) => {
             await writeExclude(env, [listed]);
 
-            const reader = createIgnoreSourceReader(env.projectDir, readerConfig());
+            const reader = createIgnoreSourceReader(env.productDir, readerConfig());
 
             for (const sub of subpaths) {
               expect(reader.isUnderIgnoreSource(spxPath(listed, sub))).toBe(true);

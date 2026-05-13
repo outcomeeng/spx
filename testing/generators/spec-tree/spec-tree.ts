@@ -25,7 +25,7 @@ type SpecTreeEntryDiscriminatorKey =
 
 type SpecTreeEntryTypeKey = typeof SPEC_TREE_SOURCE_ENTRY_KEYS.TYPE;
 
-type RepresentativeEntries = {
+export type RepresentativeSpecTreeFixture = {
   readonly product: Extract<SpecTreeSourceEntry, { readonly type: typeof SPEC_TREE_ENTRY_TYPE.PRODUCT }>;
   readonly root: SpecTreeNodeSourceEntry;
   readonly child: SpecTreeNodeSourceEntry;
@@ -41,6 +41,10 @@ const SPEC_TREE_TEST_GENERATOR_OPTIONS = {
   REPRESENTATIVE_SLUG_COUNT: 4,
   REPRESENTATIVE_TITLE_COUNT: 5,
   REPRESENTATIVE_ORDER_COUNT: 4,
+  REPRESENTATIVE_ORDER_MIN: 10,
+  REPRESENTATIVE_PARENT_ORDER_MAX: 98,
+  REPRESENTATIVE_ORDER_MAX: 99,
+  CHILD_ORDER_OFFSET: 1,
 } as const;
 
 export const SPEC_TREE_TEST_GENERATOR = {
@@ -48,6 +52,8 @@ export const SPEC_TREE_TEST_GENERATOR = {
   sourceSlug: arbitrarySourceSlug,
   sourceTitle: arbitrarySourceTitle,
   sourceOrder: arbitrarySourceOrder,
+  parentSourceOrder: arbitraryParentSourceOrder,
+  childSourceOrderAbove: arbitraryChildSourceOrderAbove,
   sourceRef: arbitrarySourceRef,
   representativeFixture: arbitraryRepresentativeFixture,
 } as const;
@@ -68,7 +74,7 @@ export function createSource(entries: readonly SpecTreeSourceEntry[]): SpecTreeS
   };
 }
 
-export function buildRepresentativeFixture(registry: SpecTreeRegistry): RepresentativeEntries {
+export function buildRepresentativeFixture(registry: SpecTreeRegistry): RepresentativeSpecTreeFixture {
   return sampleSpecTreeTestValue(SPEC_TREE_TEST_GENERATOR.representativeFixture(registry));
 }
 
@@ -122,7 +128,7 @@ export function buildEvidenceEntry(
   };
 }
 
-function arbitraryRepresentativeFixture(registry: SpecTreeRegistry): fc.Arbitrary<RepresentativeEntries> {
+function arbitraryRepresentativeFixture(registry: SpecTreeRegistry): fc.Arbitrary<RepresentativeSpecTreeFixture> {
   return fc
     .record({
       ids: fc.uniqueArray(arbitrarySourceId(), {
@@ -137,10 +143,16 @@ function arbitraryRepresentativeFixture(registry: SpecTreeRegistry): fc.Arbitrar
         minLength: SPEC_TREE_TEST_GENERATOR_OPTIONS.REPRESENTATIVE_TITLE_COUNT,
         maxLength: SPEC_TREE_TEST_GENERATOR_OPTIONS.REPRESENTATIVE_TITLE_COUNT,
       }),
-      orders: fc.uniqueArray(arbitrarySourceOrder(), {
-        minLength: SPEC_TREE_TEST_GENERATOR_OPTIONS.REPRESENTATIVE_ORDER_COUNT,
-        maxLength: SPEC_TREE_TEST_GENERATOR_OPTIONS.REPRESENTATIVE_ORDER_COUNT,
-      }),
+      orders: fc.uniqueArray(
+        fc.integer({
+          min: SPEC_TREE_TEST_GENERATOR_OPTIONS.REPRESENTATIVE_ORDER_MIN,
+          max: SPEC_TREE_TEST_GENERATOR_OPTIONS.REPRESENTATIVE_ORDER_MAX,
+        }),
+        {
+          minLength: SPEC_TREE_TEST_GENERATOR_OPTIONS.REPRESENTATIVE_ORDER_COUNT,
+          maxLength: SPEC_TREE_TEST_GENERATOR_OPTIONS.REPRESENTATIVE_ORDER_COUNT,
+        },
+      ),
       productRef: arbitrarySourceRef(),
       rootRef: arbitrarySourceRef(),
     })
@@ -247,6 +259,24 @@ function arbitrarySourceTitle(): fc.Arbitrary<string> {
 
 function arbitrarySourceOrder(): fc.Arbitrary<number> {
   return fc.integer();
+}
+
+function arbitraryParentSourceOrder(): fc.Arbitrary<number> {
+  return fc.integer({
+    min: SPEC_TREE_TEST_GENERATOR_OPTIONS.REPRESENTATIVE_ORDER_MIN,
+    max: SPEC_TREE_TEST_GENERATOR_OPTIONS.REPRESENTATIVE_PARENT_ORDER_MAX,
+  });
+}
+
+function arbitraryChildSourceOrderAbove(order: number): fc.Arbitrary<number> {
+  if (order > SPEC_TREE_TEST_GENERATOR_OPTIONS.REPRESENTATIVE_PARENT_ORDER_MAX) {
+    throw new RangeError("Child source order requires a parent order below the maximum");
+  }
+
+  return fc.integer({
+    min: order + SPEC_TREE_TEST_GENERATOR_OPTIONS.CHILD_ORDER_OFFSET,
+    max: SPEC_TREE_TEST_GENERATOR_OPTIONS.REPRESENTATIVE_ORDER_MAX,
+  });
 }
 
 function arbitrarySourceRef(): fc.Arbitrary<SpecTreeSourceRef> {

@@ -9,7 +9,7 @@ CAN consume product, node, decision, and evidence records without parsing the fi
 ### Mappings
 
 - Filesystem-shaped source records and in-memory source records that describe the same product tree map to equivalent recognized spec-tree entries ([test](tests/spec-tree-source.mapping.l1.test.ts))
-- Product files, node directories, and decision files under `spx/` map to source entry ids and refs relative to the supplied project root ([test](tests/spec-tree-source.mapping.l1.test.ts))
+- Product files, node directories, and decision files under `spx/` map to source entry ids and refs relative to the supplied product root ([test](tests/spec-tree-source.mapping.l1.test.ts))
 
 ### Compliance
 

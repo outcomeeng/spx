@@ -18,10 +18,10 @@ function serializeEmptyConfig(format: typeof CONFIG_FILE_FORMAT.JSON | typeof CO
 
 describe("resolveConfig — ambiguity error", () => {
   it("returns an error naming both files when json and yaml are both present at projectRoot", async () => {
-    await withTestEnv({}, async ({ projectDir, writeRaw }) => {
+    await withTestEnv({}, async ({ productDir, writeRaw }) => {
       await writeRaw(CONFIG_FILENAMES.json, serializeEmptyConfig(CONFIG_FILE_FORMAT.JSON));
 
-      const result = await resolveConfig(projectDir, [specTreeConfigDescriptor]);
+      const result = await resolveConfig(productDir, [specTreeConfigDescriptor]);
 
       expect(result.ok).toBe(false);
       if (!result.ok) {
@@ -32,10 +32,10 @@ describe("resolveConfig — ambiguity error", () => {
   });
 
   it("returns an error naming both files when yaml and toml are both present at projectRoot", async () => {
-    await withTestEnv({}, async ({ projectDir, writeRaw }) => {
+    await withTestEnv({}, async ({ productDir, writeRaw }) => {
       await writeRaw(CONFIG_FILENAMES.toml, serializeEmptyConfig(CONFIG_FILE_FORMAT.TOML));
 
-      const result = await resolveConfig(projectDir, [specTreeConfigDescriptor]);
+      const result = await resolveConfig(productDir, [specTreeConfigDescriptor]);
 
       expect(result.ok).toBe(false);
       if (!result.ok) {
@@ -46,12 +46,12 @@ describe("resolveConfig — ambiguity error", () => {
   });
 
   it("returns an error naming both files when json and toml are both present at projectRoot", async () => {
-    await withTestEnv({}, async ({ projectDir, writeRaw }) => {
-      await rm(join(projectDir, CONFIG_FILENAMES.yaml));
+    await withTestEnv({}, async ({ productDir, writeRaw }) => {
+      await rm(join(productDir, CONFIG_FILENAMES.yaml));
       await writeRaw(CONFIG_FILENAMES.json, serializeEmptyConfig(CONFIG_FILE_FORMAT.JSON));
       await writeRaw(CONFIG_FILENAMES.toml, serializeEmptyConfig(CONFIG_FILE_FORMAT.TOML));
 
-      const result = await resolveConfig(projectDir, [specTreeConfigDescriptor]);
+      const result = await resolveConfig(productDir, [specTreeConfigDescriptor]);
 
       expect(result.ok).toBe(false);
       if (!result.ok) {
@@ -62,11 +62,11 @@ describe("resolveConfig — ambiguity error", () => {
   });
 
   it("names all three files in the error when json, yaml, and toml are all present at projectRoot", async () => {
-    await withTestEnv({}, async ({ projectDir, writeRaw }) => {
+    await withTestEnv({}, async ({ productDir, writeRaw }) => {
       await writeRaw(CONFIG_FILENAMES.json, serializeEmptyConfig(CONFIG_FILE_FORMAT.JSON));
       await writeRaw(CONFIG_FILENAMES.toml, serializeEmptyConfig(CONFIG_FILE_FORMAT.TOML));
 
-      const result = await resolveConfig(projectDir, [specTreeConfigDescriptor]);
+      const result = await resolveConfig(productDir, [specTreeConfigDescriptor]);
 
       expect(result.ok).toBe(false);
       if (!result.ok) {

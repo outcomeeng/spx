@@ -11,14 +11,14 @@ describe("withTestEnv — nested invocations", () => {
       let innerDir = "";
 
       await withTestEnv(MINIMAL_SPEC_TREE_CONFIG, async (inner) => {
-        innerDir = inner.projectDir;
-        expect(inner.projectDir).not.toBe(outer.projectDir);
-        expect(existsSync(outer.projectDir)).toBe(true);
-        expect(existsSync(inner.projectDir)).toBe(true);
+        innerDir = inner.productDir;
+        expect(inner.productDir).not.toBe(outer.productDir);
+        expect(existsSync(outer.productDir)).toBe(true);
+        expect(existsSync(inner.productDir)).toBe(true);
       });
 
       expect(existsSync(innerDir)).toBe(false);
-      expect(existsSync(outer.projectDir)).toBe(true);
+      expect(existsSync(outer.productDir)).toBe(true);
     });
   });
 
@@ -27,9 +27,9 @@ describe("withTestEnv — nested invocations", () => {
     let innerDir = "";
 
     await withTestEnv(MINIMAL_SPEC_TREE_CONFIG, async (outer) => {
-      outerDir = outer.projectDir;
+      outerDir = outer.productDir;
       await withTestEnv(MINIMAL_SPEC_TREE_CONFIG, async (inner) => {
-        innerDir = inner.projectDir;
+        innerDir = inner.productDir;
       });
     });
 
@@ -43,9 +43,9 @@ describe("withTestEnv — nested invocations", () => {
 
     await expect(
       withTestEnv(MINIMAL_SPEC_TREE_CONFIG, async (outer) => {
-        outerDir = outer.projectDir;
+        outerDir = outer.productDir;
         await withTestEnv(MINIMAL_SPEC_TREE_CONFIG, async (inner) => {
-          innerDir = inner.projectDir;
+          innerDir = inner.productDir;
         });
         throw new Error("outer-fail");
       }),

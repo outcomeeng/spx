@@ -27,8 +27,8 @@ describe("resolveConfig — defaults are type-complete", () => {
       CONFIG_TEST_GENERATOR.tokenDescriptors({ minLength: 3, maxLength: 3 }),
     ).map(({ descriptor }) => descriptor);
 
-    await withTestEnv({}, async ({ projectDir }) => {
-      const result = await resolveConfig(projectDir, [specTreeConfigDescriptor, ...descriptors]);
+    await withTestEnv({}, async ({ productDir }) => {
+      const result = await resolveConfig(productDir, [specTreeConfigDescriptor, ...descriptors]);
 
       expect(result.ok).toBe(true);
       if (result.ok) {
@@ -44,8 +44,8 @@ describe("resolveConfig — defaults are type-complete", () => {
       CONFIG_TEST_GENERATOR.tokenDescriptors({ minLength: 4, maxLength: 4 }),
     ).map(({ descriptor }) => descriptor);
 
-    await withTestEnv({}, async ({ projectDir }) => {
-      const result = await resolveConfig(projectDir, [specTreeConfigDescriptor, ...descriptors]);
+    await withTestEnv({}, async ({ productDir }) => {
+      const result = await resolveConfig(productDir, [specTreeConfigDescriptor, ...descriptors]);
 
       expect(result.ok).toBe(true);
       if (result.ok) {

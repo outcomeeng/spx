@@ -11,8 +11,8 @@ describe("resolveConfig — partial config", () => {
     const projectConfig: Config = sampleConfigTestValue(CONFIG_TEST_GENERATOR.specTreeSubsetConfig());
     const expected = projectConfig[specTreeConfigDescriptor.section] as typeof specTreeConfigDescriptor.defaults;
 
-    await withTestEnv(projectConfig, async ({ projectDir }) => {
-      const result = await resolveConfig(projectDir, [specTreeConfigDescriptor]);
+    await withTestEnv(projectConfig, async ({ productDir }) => {
+      const result = await resolveConfig(productDir, [specTreeConfigDescriptor]);
 
       expect(result.ok).toBe(true);
       if (result.ok) {
@@ -25,8 +25,8 @@ describe("resolveConfig — partial config", () => {
   it("fills sections absent from config content with the descriptor's defaults, leaving declared sections intact", async () => {
     const projectConfig: Config = sampleConfigTestValue(CONFIG_TEST_GENERATOR.emptyConfig());
 
-    await withTestEnv(projectConfig, async ({ projectDir }) => {
-      const result = await resolveConfig(projectDir, [specTreeConfigDescriptor]);
+    await withTestEnv(projectConfig, async ({ productDir }) => {
+      const result = await resolveConfig(productDir, [specTreeConfigDescriptor]);
 
       expect(result.ok).toBe(true);
       if (result.ok) {
@@ -39,8 +39,8 @@ describe("resolveConfig — partial config", () => {
     const projectConfig: Config = sampleConfigTestValue(CONFIG_TEST_GENERATOR.specTreeSubsetConfig());
     const expected = projectConfig[specTreeConfigDescriptor.section] as typeof specTreeConfigDescriptor.defaults;
 
-    await withTestEnv(projectConfig, async ({ projectDir }) => {
-      const result = await resolveConfig(projectDir, [specTreeConfigDescriptor]);
+    await withTestEnv(projectConfig, async ({ productDir }) => {
+      const result = await resolveConfig(productDir, [specTreeConfigDescriptor]);
 
       expect(result.ok).toBe(true);
       if (result.ok) {
@@ -56,8 +56,8 @@ describe("resolveConfig — array-shorthand kinds", () => {
     const generated = sampleConfigTestValue(CONFIG_TEST_GENERATOR.specTreeArrayKindsConfig());
     const projectConfig: Config = generated.config;
 
-    await withTestEnv(projectConfig, async ({ projectDir }) => {
-      const result = await resolveConfig(projectDir, [specTreeConfigDescriptor]);
+    await withTestEnv(projectConfig, async ({ productDir }) => {
+      const result = await resolveConfig(productDir, [specTreeConfigDescriptor]);
 
       expect(result.ok).toBe(true);
       if (result.ok) {
@@ -81,8 +81,8 @@ describe("resolveConfig — array-shorthand kinds", () => {
       [specTreeConfigDescriptor.section]: { kinds: [singleKind] },
     };
 
-    await withTestEnv(projectConfig, async ({ projectDir }) => {
-      const result = await resolveConfig(projectDir, [specTreeConfigDescriptor]);
+    await withTestEnv(projectConfig, async ({ productDir }) => {
+      const result = await resolveConfig(productDir, [specTreeConfigDescriptor]);
 
       expect(result.ok).toBe(true);
       if (result.ok) {

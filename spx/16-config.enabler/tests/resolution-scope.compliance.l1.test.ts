@@ -95,17 +95,17 @@ describe("resolveConfig — resolution scope (C1)", () => {
     const nestedConfig = buildSpecTreeConfig(nestedOnly.kind, nestedOnly.definition);
 
     for (const format of CONFIG_FILE_FORMAT_ORDER) {
-      await withTestEnv(parentConfig, async ({ projectDir, writeRaw }) => {
+      await withTestEnv(parentConfig, async ({ productDir, writeRaw }) => {
         await writeRaw(
-          writeConfigPath(scope.projectDirectory, format),
+          writeConfigPath(scope.productDirectory, format),
           serializeConfig(format, rootConfig),
         );
         await writeRaw(
-          writeConfigPath(join(scope.projectDirectory, scope.nestedDirectory), format),
+          writeConfigPath(join(scope.productDirectory, scope.nestedDirectory), format),
           serializeConfig(format, nestedConfig),
         );
 
-        const result = await resolveConfig(join(projectDir, scope.projectDirectory), [specTreeConfigDescriptor]);
+        const result = await resolveConfig(join(productDir, scope.productDirectory), [specTreeConfigDescriptor]);
 
         expect(result.ok).toBe(true);
         if (result.ok) {
@@ -121,13 +121,13 @@ describe("resolveConfig — resolution scope (C1)", () => {
     const config = buildSpecTreeConfig(kind, definition);
 
     for (const format of CONFIG_FILE_FORMAT_ORDER) {
-      await withTestEnv({}, async ({ projectDir, writeRaw }) => {
+      await withTestEnv({}, async ({ productDir, writeRaw }) => {
         for (const registeredFormat of CONFIG_FILE_FORMAT_ORDER) {
-          await rm(join(projectDir, CONFIG_FILE_DEFINITIONS[registeredFormat].filename), { force: true });
+          await rm(join(productDir, CONFIG_FILE_DEFINITIONS[registeredFormat].filename), { force: true });
         }
         await writeRaw(CONFIG_FILE_DEFINITIONS[format].filename, serializeConfig(format, config));
 
-        const read = await readProjectConfigFile(projectDir);
+        const read = await readProjectConfigFile(productDir);
         expect(read.ok).toBe(true);
         if (!read.ok || read.value.kind !== "ok") return;
         expect(read.value.file.format).toBe(format);

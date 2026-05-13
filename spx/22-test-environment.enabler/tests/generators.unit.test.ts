@@ -62,7 +62,7 @@ describe("env-scoped generators — produce fixtures materializable inside the c
         fc.asyncProperty(env.arbitraryNodePath, async (path) => {
           const specRelative = `${path}/spec.md`;
           await env.writeNode(specRelative, `# ${path}\n`);
-          await access(join(env.projectDir, specRelative));
+          await access(join(env.productDir, specRelative));
         }),
         { numRuns: 10 },
       );

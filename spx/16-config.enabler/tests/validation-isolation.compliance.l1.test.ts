@@ -52,8 +52,8 @@ describe("resolveConfig — per-descriptor validation isolation (C2)", () => {
       [probeB.descriptor.section]: { [CONFIG_TEST_FIELDS.TOKEN]: tokenB },
     };
 
-    await withTestEnv(projectConfig, async ({ projectDir }) => {
-      await resolveConfig(projectDir, [probeA.descriptor, probeB.descriptor]);
+    await withTestEnv(projectConfig, async ({ productDir }) => {
+      await resolveConfig(productDir, [probeA.descriptor, probeB.descriptor]);
 
       expect(probeA.seen).toEqual([{ [CONFIG_TEST_FIELDS.TOKEN]: tokenA }]);
       expect(probeB.seen).toEqual([{ [CONFIG_TEST_FIELDS.TOKEN]: tokenB }]);
@@ -68,8 +68,8 @@ describe("resolveConfig — per-descriptor validation isolation (C2)", () => {
       [probe.descriptor.section]: { [CONFIG_TEST_FIELDS.TOKEN]: token },
     };
 
-    await withTestEnv(projectConfig, async ({ projectDir }) => {
-      await resolveConfig(projectDir, [specTreeConfigDescriptor, probe.descriptor]);
+    await withTestEnv(projectConfig, async ({ productDir }) => {
+      await resolveConfig(productDir, [specTreeConfigDescriptor, probe.descriptor]);
 
       expect(probe.seen).toEqual([{ [CONFIG_TEST_FIELDS.TOKEN]: token }]);
       for (const observation of probe.seen) {
@@ -82,8 +82,8 @@ describe("resolveConfig — per-descriptor validation isolation (C2)", () => {
   it("does not invoke the validator when config content omits the section — defaults are trusted and returned as-is", async () => {
     const probe = spyDescriptor(sampleConfigTestValue(CONFIG_TEST_GENERATOR.key()));
 
-    await withTestEnv({}, async ({ projectDir }) => {
-      const result = await resolveConfig(projectDir, [probe.descriptor]);
+    await withTestEnv({}, async ({ productDir }) => {
+      const result = await resolveConfig(productDir, [probe.descriptor]);
 
       expect(probe.seen).toEqual([]);
       expect(result.ok).toBe(true);

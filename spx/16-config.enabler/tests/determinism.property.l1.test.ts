@@ -15,9 +15,9 @@ describe("resolveConfig — determinism", () => {
   it("produces the same resolved Config on every load against any config shape drawn from the registry", async () => {
     await fc.assert(
       fc.asyncProperty(configShape(), async (projectConfig) => {
-        await withTestEnv(projectConfig, async ({ projectDir }) => {
-          const first = await resolveConfig(projectDir, [specTreeConfigDescriptor]);
-          const second = await resolveConfig(projectDir, [specTreeConfigDescriptor]);
+        await withTestEnv(projectConfig, async ({ productDir }) => {
+          const first = await resolveConfig(productDir, [specTreeConfigDescriptor]);
+          const second = await resolveConfig(productDir, [specTreeConfigDescriptor]);
 
           expect(first).toEqual(second);
         });
@@ -32,14 +32,14 @@ describe("resolveConfig — determinism", () => {
     let firstValue: unknown;
     let secondValue: unknown;
 
-    await withTestEnv(projectConfig, async ({ projectDir }) => {
-      const result = await resolveConfig(projectDir, [specTreeConfigDescriptor]);
+    await withTestEnv(projectConfig, async ({ productDir }) => {
+      const result = await resolveConfig(productDir, [specTreeConfigDescriptor]);
       expect(result.ok).toBe(true);
       if (result.ok) firstValue = result.value;
     });
 
-    await withTestEnv(projectConfig, async ({ projectDir }) => {
-      const result = await resolveConfig(projectDir, [specTreeConfigDescriptor]);
+    await withTestEnv(projectConfig, async ({ productDir }) => {
+      const result = await resolveConfig(productDir, [specTreeConfigDescriptor]);
       expect(result.ok).toBe(true);
       if (result.ok) secondValue = result.value;
     });

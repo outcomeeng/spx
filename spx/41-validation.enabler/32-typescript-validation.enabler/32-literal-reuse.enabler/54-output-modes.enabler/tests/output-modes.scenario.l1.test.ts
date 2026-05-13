@@ -18,7 +18,7 @@ describe("output-modes — scenarios", () => {
       await env.writeReuseFixture(inputs);
 
       const result = await literalCommand({
-        cwd: env.projectDir,
+        cwd: env.productDir,
         config: LITERAL_DEFAULTS,
         files: [inputs.dupeFirstTestFile, inputs.dupeSecondTestFile],
         json: true,
@@ -36,7 +36,7 @@ describe("output-modes — scenarios", () => {
       await env.writeReuseFixture(inputs);
 
       const result = await literalCommand({
-        cwd: env.projectDir,
+        cwd: env.productDir,
         config: LITERAL_DEFAULTS,
         json: true,
       });
@@ -54,7 +54,7 @@ describe("output-modes — scenarios", () => {
       await env.writeReuseFixture(inputs);
 
       const result = await literalCommand({
-        cwd: env.projectDir,
+        cwd: env.productDir,
         config: LITERAL_DEFAULTS,
         kind: LITERAL_PROBLEM_KIND.DUPE,
       });
@@ -71,7 +71,7 @@ describe("output-modes — scenarios", () => {
       await env.writeReuseFixture(inputs);
 
       const result = await literalCommand({
-        cwd: env.projectDir,
+        cwd: env.productDir,
         config: LITERAL_DEFAULTS,
         kind: LITERAL_PROBLEM_KIND.REUSE,
       });
@@ -90,7 +90,7 @@ describe("output-modes — scenarios", () => {
       await env.writeTestFile(inputs.dupeSecondTestFile, inputs.dupeLiteral);
 
       const result = await literalCommand({
-        cwd: env.projectDir,
+        cwd: env.productDir,
         config: LITERAL_DEFAULTS,
         kind: LITERAL_PROBLEM_KIND.REUSE,
       });
@@ -106,7 +106,7 @@ describe("output-modes — scenarios", () => {
       await env.writeReuseFixture(inputs);
 
       const result = await literalCommand({
-        cwd: env.projectDir,
+        cwd: env.productDir,
         config: LITERAL_DEFAULTS,
         filesWithProblems: true,
       });
@@ -127,7 +127,7 @@ describe("output-modes — scenarios", () => {
       await env.writeReuseFixture(inputs);
 
       const result = await literalCommand({
-        cwd: env.projectDir,
+        cwd: env.productDir,
         config: LITERAL_DEFAULTS,
         kind: LITERAL_PROBLEM_KIND.REUSE,
         filesWithProblems: true,
@@ -146,7 +146,7 @@ describe("output-modes — scenarios", () => {
       await env.writeReuseFixture(inputs);
 
       const result = await literalCommand({
-        cwd: env.projectDir,
+        cwd: env.productDir,
         config: LITERAL_DEFAULTS,
         literals: true,
       });
@@ -164,7 +164,7 @@ describe("output-modes — scenarios", () => {
       await env.writeReuseFixture(inputs);
 
       const result = await literalCommand({
-        cwd: env.projectDir,
+        cwd: env.productDir,
         config: LITERAL_DEFAULTS,
         verbose: true,
       });
@@ -185,12 +185,12 @@ describe("output-modes — scenarios", () => {
       await env.writeReuseFixture(inputs);
 
       const allResult = await literalCommand({
-        cwd: env.projectDir,
+        cwd: env.productDir,
         config: LITERAL_DEFAULTS,
         json: true,
       });
       const result = await literalCommand({
-        cwd: env.projectDir,
+        cwd: env.productDir,
         config: LITERAL_DEFAULTS,
         kind: LITERAL_PROBLEM_KIND.REUSE,
         json: true,

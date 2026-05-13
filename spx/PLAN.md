@@ -267,8 +267,18 @@ Each parent is classified only after reading its immediate children. File moves 
 - [ ] Update `src/lib/spec-legacy/scanner/patterns.ts`, `src/lib/spec-legacy/scanner/walk.ts`, and `src/lib/spec-legacy/scanner/scanner.ts` to parse current spec-tree entries through config-derived vocabulary.
 - [ ] Update `src/lib/spec-legacy/tree/*` so hierarchy and validation rules derive from current spec-tree categories.
 - [ ] Update `src/lib/spec-legacy/reporter/*` so display labels come from the semantic registry.
-- [ ] Update `src/commands/spec/*` and `src/domains/spec/*` so command behavior targets current spec-tree state and names.
+- [x] Update `src/commands/spec/*` and `src/domains/spec/*` so command behavior targets current spec-tree state and names.
 - [ ] Delete legacy-only suffix constants after all consumers move.
+
+Current command-cut evidence:
+
+- `src/commands/spec/status.ts` reads current `spx/` entries through `createFilesystemSpecTreeSource`, `readSpecTree`, and `projectSpecTree`.
+- `src/commands/spec/next.ts` selects the first non-passing current node through `findNextSpecTreeNode`.
+- `src/domains/spec-legacy/index.ts` moved to `src/domains/spec/index.ts`; the CLI imports the current domain path.
+- Focused verification passes: `pnpm exec vitest run spx/31-spec-domain.enabler/tests/spec-cli-commands.scenario.l1.test.ts spx/26-scoped-cli.capability/21-domain-router.feature/21-domain-router-infrastructure.story/tests/spec-domain.unit.test.ts`.
+- Source validation passes: `pnpm run validate`.
+- Legacy command and E2E tests that run through the package script now assert current `spx/` fixture behavior instead of legacy `specs/work` output.
+- Package test gate passes: `pnpm run test`.
 
 ### 5. Refactor Spec Nodes Top Down
 

@@ -46,7 +46,7 @@ describe("scope resolver — compliance", () => {
       // Use a path that would match both to prove neither layer appears in the trail
       const pathMatchingBothLayers = artifactFilePath;
       const result = await resolveScope(
-        env.projectDir,
+        env.productDir,
         { explicit: [pathMatchingBothLayers, ignoredFilePath, hiddenFilePath] },
         resolverConfig,
       );
@@ -64,7 +64,7 @@ describe("scope resolver — compliance", () => {
     await withTestEnv(integrationConfig, async (env) => {
       await writeTestFiles(env);
       await writeExclude(env, [excludedNodeSegment]);
-      const result = await resolveScope(env.projectDir, { walkRoot: env.projectDir }, resolverConfig);
+      const result = await resolveScope(env.productDir, { walkRoot: env.productDir }, resolverConfig);
       for (const excluded of result.excluded) {
         expect(
           excluded.decisionTrail.length,
@@ -80,8 +80,8 @@ describe("scope resolver — compliance", () => {
       await writeExclude(env, [excludedNodeSegment]);
       const explicitPaths = [artifactFilePath, ignoredFilePath, hiddenFilePath];
       const result = await resolveScope(
-        env.projectDir,
-        { explicit: explicitPaths, walkRoot: env.projectDir },
+        env.productDir,
+        { explicit: explicitPaths, walkRoot: env.productDir },
         resolverConfig,
       );
       for (const path of explicitPaths) {

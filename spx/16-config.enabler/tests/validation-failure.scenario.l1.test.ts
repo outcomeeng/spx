@@ -12,8 +12,8 @@ describe("resolveConfig — validator rejection", () => {
     const generated = sampleConfigTestValue(CONFIG_TEST_GENERATOR.invalidSpecTreeConfig());
     const projectConfig: Config = generated.config;
 
-    await withTestEnv(projectConfig, async ({ projectDir }) => {
-      const result = await resolveConfig(projectDir, [specTreeConfigDescriptor]);
+    await withTestEnv(projectConfig, async ({ productDir }) => {
+      const result = await resolveConfig(productDir, [specTreeConfigDescriptor]);
 
       expect(result.ok).toBe(false);
       if (!result.ok) {
@@ -26,8 +26,8 @@ describe("resolveConfig — validator rejection", () => {
     const generated = sampleConfigTestValue(CONFIG_TEST_GENERATOR.invalidSpecTreeConfig());
     const projectConfig: Config = generated.config;
 
-    await withTestEnv(projectConfig, async ({ projectDir }) => {
-      const result = await resolveConfig(projectDir, [specTreeConfigDescriptor]);
+    await withTestEnv(projectConfig, async ({ productDir }) => {
+      const result = await resolveConfig(productDir, [specTreeConfigDescriptor]);
 
       expect(result.ok).toBe(false);
       if (!result.ok) {
@@ -40,8 +40,8 @@ describe("resolveConfig — validator rejection", () => {
     const generated = sampleConfigTestValue(CONFIG_TEST_GENERATOR.invalidSpecTreeConfig());
     const projectConfig: Config = generated.config;
 
-    await withTestEnv(projectConfig, async ({ projectDir }) => {
-      const result = await resolveConfig(projectDir, [specTreeConfigDescriptor]);
+    await withTestEnv(projectConfig, async ({ productDir }) => {
+      const result = await resolveConfig(productDir, [specTreeConfigDescriptor]);
 
       if (result.ok) {
         throw new Error("expected validator rejection, got ok:true");

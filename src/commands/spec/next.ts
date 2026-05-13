@@ -1,96 +1,52 @@
-import { DEFAULT_CONFIG } from "@/config/defaults";
-import { Scanner } from "@/lib/spec-legacy/scanner/scanner";
-import { buildTree } from "@/lib/spec-legacy/tree/build";
-import { TreeNode, WorkItemTree } from "@/lib/spec-legacy/tree/types";
-import { LEAF_KIND } from "@/lib/spec-legacy/types";
+import {
+  createFilesystemSpecTreeSource,
+  findNextSpecTreeNode,
+  readSpecTree,
+  type SpecTreeNode,
+  type SpecTreeSource,
+} from "@/lib/spec-tree";
+import { KIND_REGISTRY, SPEC_TREE_CONFIG } from "@/lib/spec-tree/config";
 
-const EMPTY_WORK_ITEMS_MESSAGE = "No work items found in specs/work/doing";
-const ALL_COMPLETE_MESSAGE = "All work items are complete! 🎉";
-const NEXT_WORK_ITEM_HEADING = "Next work item:";
-const STATUS_LABEL = "Status";
-const PATH_LABEL = "Path";
+export const SPEC_NEXT_MESSAGE = {
+  EMPTY: `No spec-tree nodes found in ${SPEC_TREE_CONFIG.ROOT_DIRECTORY}`,
+  COMPLETE: "All spec-tree nodes are passing",
+  HEADING: "Next spec-tree node:",
+  KIND_LABEL: "Kind",
+  PATH_LABEL: "Path",
+  STATE_LABEL: "State",
+} as const;
+
 const INDENT = "  ";
-const BLANK_LINE = "";
-const PATH_SEPARATOR = " > ";
 
 export interface NextOptions {
   cwd?: string;
-}
-
-export function findNextWorkItem(tree: WorkItemTree): TreeNode | null {
-  return findFirstNonDoneLeaf(tree.nodes);
-}
-
-function findFirstNonDoneLeaf(nodes: TreeNode[]): TreeNode | null {
-  for (const node of nodes) {
-    if (node.kind === LEAF_KIND) {
-      if (node.status !== "DONE") {
-        return node;
-      }
-
-      continue;
-    }
-
-    const found = findFirstNonDoneLeaf(node.children);
-    if (found !== null) {
-      return found;
-    }
-  }
-
-  return null;
-}
-
-function formatWorkItemName(node: TreeNode): string {
-  const displayNumber = node.kind === "capability" ? node.number + 1 : node.number;
-  return `${node.kind}-${displayNumber}_${node.slug}`;
-}
-
-function findParents(
-  nodes: TreeNode[],
-  target: TreeNode,
-): { capability?: TreeNode; feature?: TreeNode } {
-  for (const capability of nodes) {
-    for (const feature of capability.children) {
-      for (const story of feature.children) {
-        if (story.path === target.path) {
-          return { capability, feature };
-        }
-      }
-    }
-  }
-
-  return {};
+  source?: SpecTreeSource;
 }
 
 export async function nextCommand(options: NextOptions = {}): Promise<string> {
   const cwd = options.cwd ?? process.cwd();
-  const scanner = new Scanner(cwd, DEFAULT_CONFIG);
-  const workItems = await scanner.scan();
+  const source = options.source ?? createFilesystemSpecTreeSource({ projectRoot: cwd });
+  const snapshot = await readSpecTree({ source });
 
-  if (workItems.length === 0) {
-    return EMPTY_WORK_ITEMS_MESSAGE;
+  if (snapshot.allNodes.length === 0) {
+    return SPEC_NEXT_MESSAGE.EMPTY;
   }
 
-  const tree = await buildTree(workItems);
-  const next = findNextWorkItem(tree);
+  const next = findNextSpecTreeNode(snapshot);
 
   if (next === null) {
-    return ALL_COMPLETE_MESSAGE;
+    return SPEC_NEXT_MESSAGE.COMPLETE;
   }
 
-  const parents = findParents(tree.nodes, next);
-  const pathLine = parents.capability !== undefined && parents.feature !== undefined
-    ? `${INDENT}${formatWorkItemName(parents.capability)}${PATH_SEPARATOR}${
-      formatWorkItemName(parents.feature)
-    }${PATH_SEPARATOR}${formatWorkItemName(next)}`
-    : `${INDENT}${formatWorkItemName(next)}`;
+  return formatNextNode(next);
+}
 
+function formatNextNode(node: SpecTreeNode): string {
   return [
-    NEXT_WORK_ITEM_HEADING,
-    BLANK_LINE,
-    pathLine,
-    BLANK_LINE,
-    `${INDENT}${STATUS_LABEL}: ${next.status}`,
-    `${INDENT}${PATH_LABEL}: ${next.path}`,
+    SPEC_NEXT_MESSAGE.HEADING,
+    "",
+    `${INDENT}${SPEC_NEXT_MESSAGE.PATH_LABEL}: ${node.id}`,
+    `${INDENT}${SPEC_NEXT_MESSAGE.KIND_LABEL}: ${KIND_REGISTRY[node.kind].label}`,
+    `${INDENT}${SPEC_NEXT_MESSAGE.STATE_LABEL}: ${node.state}`,
   ].join("\n");
 }

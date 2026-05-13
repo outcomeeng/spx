@@ -7,8 +7,23 @@ import * as fc from "fast-check";
 import { configFileForFormat, DEFAULT_CONFIG_FILE_FORMAT, serializeConfigFileSections } from "@/config/index";
 import type { Config } from "@/config/types";
 import type { SpecTreeEnvFixtureWriterMethod } from "@/domains/spec/fixture-writer-methods";
+import {
+  createFilesystemSpecTreeSource,
+  getKindDefinition,
+  projectSpecTree,
+  readSpecTree,
+  type SpecTreeProjection,
+  type SpecTreeRegistry,
+  type SpecTreeSnapshot,
+  type SpecTreeSource,
+} from "@/lib/spec-tree";
 import type { Kind, KindDefinition, SpecTreeConfig } from "@/lib/spec-tree/config";
-import { SPEC_TREE_CONFIG, type SpecTreeKindCategory } from "@/lib/spec-tree/config";
+import { KIND_REGISTRY, SPEC_TREE_CONFIG, type SpecTreeKindCategory } from "@/lib/spec-tree/config";
+import {
+  buildRepresentativeFixture,
+  createSource,
+  type RepresentativeSpecTreeFixture,
+} from "@testing/generators/spec-tree/spec-tree";
 export { SPEC_TREE_ENV_FIXTURE_WRITER_METHODS } from "@/domains/spec/fixture-writer-methods";
 
 export type { Config } from "@/config/types";
@@ -30,9 +45,14 @@ export type SpecTreeFixture = {
 
 type SpecTreeEnvFixtureWriter = (relativePath: string, contents: string) => Promise<void>;
 
+export type WithSpecTreeEnvOptions = {
+  readonly registry?: SpecTreeRegistry;
+  readonly fixture?: RepresentativeSpecTreeFixture;
+};
+
 export type SpecTreeEnv =
   & {
-    readonly projectDir: string;
+    readonly productDir: string;
     readFile(relativePath: string): Promise<string>;
     readonly arbitraryNodePath: fc.Arbitrary<string>;
     readonly arbitraryDecisionPath: fc.Arbitrary<string>;
@@ -42,15 +62,26 @@ export type SpecTreeEnv =
     readonly [method in SpecTreeEnvFixtureWriterMethod]: SpecTreeEnvFixtureWriter;
   };
 
+export type CurrentSpecTreeEnv = SpecTreeEnv & {
+  readonly fixture: RepresentativeSpecTreeFixture;
+  memorySource(fixture?: RepresentativeSpecTreeFixture): SpecTreeSource;
+  filesystemSource(): SpecTreeSource;
+  materialize(fixture?: RepresentativeSpecTreeFixture): Promise<void>;
+  readMemorySnapshot(fixture?: RepresentativeSpecTreeFixture): Promise<SpecTreeSnapshot>;
+  readFilesystemSnapshot(): Promise<SpecTreeSnapshot>;
+  projectMemory(fixture?: RepresentativeSpecTreeFixture): Promise<SpecTreeProjection>;
+  projectFilesystem(): Promise<SpecTreeProjection>;
+};
+
 export async function withTestEnv(
   config: Config,
   callback: (env: SpecTreeEnv) => Promise<void>,
 ): Promise<void> {
   const tempRoot = resolve(tmpdir());
-  const projectDir = await mkdtemp(join(tempRoot, TEMP_PREFIX));
+  const productDir = await mkdtemp(join(tempRoot, TEMP_PREFIX));
 
   try {
-    const configFile = configFileForFormat(projectDir, DEFAULT_CONFIG_FILE_FORMAT);
+    const configFile = configFileForFormat(productDir, DEFAULT_CONFIG_FILE_FORMAT);
     const serialized = serializeConfigFileSections(
       configFile.format,
       config as Record<string, unknown>,
@@ -58,14 +89,14 @@ export async function withTestEnv(
     if (!serialized.ok) {
       throw new Error(serialized.error);
     }
-    await writeAt(projectDir, configFile.filename, serialized.value);
+    await writeAt(productDir, configFile.filename, serialized.value);
 
     const env: SpecTreeEnv = {
-      projectDir,
-      writeNode: (relativePath, contents) => writeAt(projectDir, relativePath, contents),
-      writeDecision: (relativePath, contents) => writeAt(projectDir, relativePath, contents),
-      writeRaw: (relativePath, contents) => writeAt(projectDir, relativePath, contents),
-      readFile: (relativePath) => readAt(projectDir, relativePath),
+      productDir,
+      writeNode: (relativePath, contents) => writeAt(productDir, relativePath, contents),
+      writeDecision: (relativePath, contents) => writeAt(productDir, relativePath, contents),
+      writeRaw: (relativePath, contents) => writeAt(productDir, relativePath, contents),
+      readFile: (relativePath) => readAt(productDir, relativePath),
       get arbitraryNodePath() {
         return arbitraryNodePath(config);
       },
@@ -79,8 +110,53 @@ export async function withTestEnv(
 
     await callback(env);
   } finally {
-    await safeRemove(projectDir, tempRoot);
+    await safeRemove(productDir, tempRoot);
   }
+}
+
+export async function withSpecTreeEnv(
+  config: Config,
+  callback: (env: CurrentSpecTreeEnv) => Promise<void>,
+  options: WithSpecTreeEnvOptions = {},
+): Promise<void> {
+  const registry = options.registry ?? KIND_REGISTRY;
+  const fixture = options.fixture ?? buildRepresentativeFixture(registry);
+
+  await withTestEnv(config, async (env) => {
+    const currentEnv = Object.create(Object.prototype, {
+      ...Object.getOwnPropertyDescriptors(env),
+      fixture: valueDescriptor(fixture),
+      memorySource: valueDescriptor((sourceFixture = fixture) => createSource(sourceFixture.entries)),
+      filesystemSource: valueDescriptor(() =>
+        createFilesystemSpecTreeSource({ projectRoot: env.productDir, registry })
+      ),
+      materialize: valueDescriptor((sourceFixture = fixture) =>
+        materializeSpecTreeFixture(env, registry, sourceFixture)
+      ),
+      readMemorySnapshot: valueDescriptor((sourceFixture = fixture) =>
+        readSpecTree({ source: createSource(sourceFixture.entries), registry })
+      ),
+      readFilesystemSnapshot: valueDescriptor(() =>
+        readSpecTree({
+          source: createFilesystemSpecTreeSource({ projectRoot: env.productDir, registry }),
+          registry,
+        })
+      ),
+      projectMemory: valueDescriptor(async (sourceFixture = fixture) =>
+        projectSpecTree(await readSpecTree({ source: createSource(sourceFixture.entries), registry }))
+      ),
+      projectFilesystem: valueDescriptor(async () =>
+        projectSpecTree(
+          await readSpecTree({
+            source: createFilesystemSpecTreeSource({ projectRoot: env.productDir, registry }),
+            registry,
+          }),
+        )
+      ),
+    }) as CurrentSpecTreeEnv;
+
+    await callback(currentEnv);
+  });
 }
 
 export function arbitraryNodePath(config: Config): fc.Arbitrary<string> {
@@ -113,6 +189,15 @@ export function arbitrarySpecTree(config: Config): fc.Arbitrary<SpecTreeFixture>
 }
 
 type KindEntry = { readonly kind: string; readonly suffix: string };
+
+function valueDescriptor<T>(value: T): PropertyDescriptor {
+  return {
+    value,
+    enumerable: true,
+    writable: false,
+    configurable: false,
+  };
+}
 
 function readKinds(config: Config, category: SpecTreeKindCategory): readonly KindEntry[] {
   const specTree = config[SPEC_TREE_CONFIG.SECTION] as SpecTreeConfig | undefined;
@@ -149,28 +234,100 @@ function arbitraryEntryFromKinds(
     }));
 }
 
-async function writeAt(projectDir: string, relativePath: string, contents: string): Promise<void> {
-  const absolute = resolvePath(projectDir, relativePath);
+async function writeAt(productDir: string, relativePath: string, contents: string): Promise<void> {
+  const absolute = resolvePath(productDir, relativePath);
   await mkdir(dirname(absolute), { recursive: true });
   await writeFile(absolute, contents, "utf8");
 }
 
-async function readAt(projectDir: string, relativePath: string): Promise<string> {
-  const absolute = resolvePath(projectDir, relativePath);
+async function readAt(productDir: string, relativePath: string): Promise<string> {
+  const absolute = resolvePath(productDir, relativePath);
   return readNodeFile(absolute, "utf8");
 }
 
-function resolvePath(projectDir: string, relativePath: string): string {
-  const root = resolve(projectDir);
+async function materializeSpecTreeFixture(
+  env: SpecTreeEnv,
+  registry: SpecTreeRegistry,
+  fixture: RepresentativeSpecTreeFixture,
+): Promise<void> {
+  await env.writeRaw(productFilePath(fixture), specContent(fixture.product.title));
+  await env.writeNode(nodeSpecPath(registry, fixture.root), specContent(nodeTitle(fixture.root)));
+  await env.writeNode(nodeSpecPath(registry, fixture.child, fixture.root), specContent(nodeTitle(fixture.child)));
+  await env.writeNode(nodeSpecPath(registry, fixture.peer), specContent(nodeTitle(fixture.peer)));
+  await env.writeDecision(
+    decisionPath(registry, fixture.decision, fixture.root),
+    specContent(decisionTitle(fixture.decision)),
+  );
+}
+
+function productFilePath(fixture: RepresentativeSpecTreeFixture): string {
+  return joinSpecTreeFixturePath(
+    SPEC_TREE_CONFIG.ROOT_DIRECTORY,
+    `${fixture.product.title}${SPEC_TREE_CONFIG.PRODUCT.SUFFIX}`,
+  );
+}
+
+function nodeSpecPath(
+  registry: SpecTreeRegistry,
+  node: RepresentativeSpecTreeFixture["root"],
+  parent?: RepresentativeSpecTreeFixture["root"],
+): string {
+  return joinSpecTreeFixturePath(
+    SPEC_TREE_CONFIG.ROOT_DIRECTORY,
+    parent === undefined ? "" : nodeDirectoryName(registry, parent),
+    nodeDirectoryName(registry, node),
+    `${node.slug}.md`,
+  );
+}
+
+function decisionPath(
+  registry: SpecTreeRegistry,
+  decision: RepresentativeSpecTreeFixture["decision"],
+  parent: RepresentativeSpecTreeFixture["root"],
+): string {
+  const definition = getKindDefinition(decision.kind, registry);
+  return joinSpecTreeFixturePath(
+    SPEC_TREE_CONFIG.ROOT_DIRECTORY,
+    nodeDirectoryName(registry, parent),
+    `${decision.order}-${decision.slug}${definition.suffix}`,
+  );
+}
+
+function nodeDirectoryName(
+  registry: SpecTreeRegistry,
+  node: RepresentativeSpecTreeFixture["root"],
+): string {
+  const definition = getKindDefinition(node.kind, registry);
+  return `${node.order}-${node.slug}${definition.suffix}`;
+}
+
+function nodeTitle(node: RepresentativeSpecTreeFixture["root"]): string {
+  return node.title ?? node.slug;
+}
+
+function decisionTitle(decision: RepresentativeSpecTreeFixture["decision"]): string {
+  return decision.title ?? decision.slug;
+}
+
+function specContent(title: string): string {
+  return `# ${title}\n\nPROVIDES generated fixture content\nSO THAT spec-tree tests\nCAN read current nodes\n`;
+}
+
+function joinSpecTreeFixturePath(...segments: readonly string[]): string {
+  return segments.filter((segment) => segment.length > 0).join("/");
+}
+
+function resolvePath(productDir: string, relativePath: string): string {
+  const root = resolve(productDir);
   const absolute = resolve(root, relativePath);
   if (absolute !== root && !absolute.startsWith(root + sep)) {
-    throw new Error(`Path escapes project directory: ${relativePath}`);
+    throw new Error(`Path escapes product directory: ${relativePath}`);
   }
   return absolute;
 }
 
-async function safeRemove(projectDir: string, tempRoot: string): Promise<void> {
-  const resolved = resolve(projectDir);
+async function safeRemove(productDir: string, tempRoot: string): Promise<void> {
+  const resolved = resolve(productDir);
   const rootWithSep = tempRoot.endsWith(sep) ? tempRoot : tempRoot + sep;
   if (!resolved.startsWith(rootWithSep)) {
     throw new Error(`Refusing to remove path outside os.tmpdir(): ${resolved}`);

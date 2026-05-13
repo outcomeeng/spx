@@ -13,7 +13,7 @@ describe("path-filter — scenarios", () => {
       await env.writeSourceFile("src/active.ts", activeLiteral);
 
       const result = await validateLiteralReuse({
-        projectRoot: env.projectDir,
+        projectRoot: env.productDir,
         pathConfig: { exclude: ["legacy"] },
       });
 
@@ -34,7 +34,7 @@ describe("path-filter — scenarios", () => {
       await env.writeSourceFile("vendor/third-party.ts", outsideLiteral);
 
       const result = await validateLiteralReuse({
-        projectRoot: env.projectDir,
+        projectRoot: env.productDir,
         pathConfig: { include: ["src"] },
       });
 
@@ -54,7 +54,7 @@ describe("path-filter — scenarios", () => {
       await env.writeRaw("spx/EXCLUDE", "21-deferred.enabler\n");
       await env.writeSourceFile("spx/21-deferred.enabler/source.ts", literal);
 
-      const result = await validateLiteralReuse({ projectRoot: env.projectDir });
+      const result = await validateLiteralReuse({ projectRoot: env.productDir });
 
       const indexedValues = new Set<string>();
       for (const occurrences of result.indexedOccurrencesByFile.values()) {

@@ -33,13 +33,13 @@ describe("output-modes — mappings", () => {
 
         const [reuseResult, dupeResult] = await Promise.all([
           literalCommand({
-            cwd: env.projectDir,
+            cwd: env.productDir,
             config: LITERAL_DEFAULTS,
             kind: LITERAL_PROBLEM_KIND.REUSE,
             ...modeOpts,
           }),
           literalCommand({
-            cwd: env.projectDir,
+            cwd: env.productDir,
             config: LITERAL_DEFAULTS,
             kind: LITERAL_PROBLEM_KIND.DUPE,
             ...modeOpts,
@@ -87,8 +87,8 @@ describe("output-modes — mappings", () => {
       await env.writeReuseFixture(inputs);
 
       const [defaultResult, jsonResult] = await Promise.all([
-        literalCommand({ cwd: env.projectDir, config: LITERAL_DEFAULTS }),
-        literalCommand({ cwd: env.projectDir, config: LITERAL_DEFAULTS, json: true }),
+        literalCommand({ cwd: env.productDir, config: LITERAL_DEFAULTS }),
+        literalCommand({ cwd: env.productDir, config: LITERAL_DEFAULTS, json: true }),
       ]);
 
       const findings = parseLiteralReuseResult(JSON.parse(jsonResult.output));
@@ -121,8 +121,8 @@ describe("output-modes — mappings", () => {
       await env.writeReuseFixture(inputs);
 
       const [verboseResult, jsonResult] = await Promise.all([
-        literalCommand({ cwd: env.projectDir, config: LITERAL_DEFAULTS, verbose: true }),
-        literalCommand({ cwd: env.projectDir, config: LITERAL_DEFAULTS, json: true }),
+        literalCommand({ cwd: env.productDir, config: LITERAL_DEFAULTS, verbose: true }),
+        literalCommand({ cwd: env.productDir, config: LITERAL_DEFAULTS, json: true }),
       ]);
 
       const findings = parseLiteralReuseResult(JSON.parse(jsonResult.output));
@@ -152,7 +152,7 @@ describe("output-modes — mappings", () => {
       const inputs = sampleLiteralTestValue(LITERAL_TEST_GENERATOR.reuseFixtureInputs());
       await env.writeReuseFixture(inputs);
 
-      const result = await literalCommand({ cwd: env.projectDir, config: LITERAL_DEFAULTS, filesWithProblems: true });
+      const result = await literalCommand({ cwd: env.productDir, config: LITERAL_DEFAULTS, filesWithProblems: true });
 
       const lines = result.output.split(LITERAL_TEXT_LAYOUT.lineSeparator).filter(Boolean);
 
@@ -174,7 +174,7 @@ describe("output-modes — mappings", () => {
       const inputs = sampleLiteralTestValue(LITERAL_TEST_GENERATOR.reuseFixtureInputs());
       await env.writeReuseFixture(inputs);
 
-      const result = await literalCommand({ cwd: env.projectDir, config: LITERAL_DEFAULTS, literals: true });
+      const result = await literalCommand({ cwd: env.productDir, config: LITERAL_DEFAULTS, literals: true });
 
       const lines = result.output.split(LITERAL_TEXT_LAYOUT.lineSeparator).filter(Boolean);
 
@@ -197,9 +197,9 @@ describe("output-modes — mappings", () => {
       await env.writeReuseFixture(inputs);
 
       const [allResult, reuseResult, dupeResult] = await Promise.all([
-        literalCommand({ cwd: env.projectDir, config: LITERAL_DEFAULTS, json: true }),
-        literalCommand({ cwd: env.projectDir, config: LITERAL_DEFAULTS, kind: LITERAL_PROBLEM_KIND.REUSE, json: true }),
-        literalCommand({ cwd: env.projectDir, config: LITERAL_DEFAULTS, kind: LITERAL_PROBLEM_KIND.DUPE, json: true }),
+        literalCommand({ cwd: env.productDir, config: LITERAL_DEFAULTS, json: true }),
+        literalCommand({ cwd: env.productDir, config: LITERAL_DEFAULTS, kind: LITERAL_PROBLEM_KIND.REUSE, json: true }),
+        literalCommand({ cwd: env.productDir, config: LITERAL_DEFAULTS, kind: LITERAL_PROBLEM_KIND.DUPE, json: true }),
       ]);
 
       const allFindings = parseLiteralReuseResult(JSON.parse(allResult.output));

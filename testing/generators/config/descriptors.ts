@@ -65,7 +65,7 @@ export type GeneratedKindOverride = {
 };
 
 export type GeneratedResolutionScope = {
-  readonly projectDirectory: string;
+  readonly productDirectory: string;
   readonly nestedDirectory: string;
 };
 
@@ -273,11 +273,11 @@ function arbitraryKindOverride(category: SpecTreeKindCategory): fc.Arbitrary<Gen
 function arbitraryResolutionScope(): fc.Arbitrary<GeneratedResolutionScope> {
   return fc
     .record({
-      projectDirectory: arbitraryConfigKey(),
+      productDirectory: arbitraryConfigKey(),
       nestedDirectory: arbitraryConfigKey(),
     })
-    .map(({ projectDirectory, nestedDirectory }) => ({
-      projectDirectory,
+    .map(({ productDirectory, nestedDirectory }) => ({
+      productDirectory,
       nestedDirectory,
     }));
 }
