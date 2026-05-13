@@ -79,6 +79,17 @@ const defaultDeps: GitDependencies = {
 const NOT_GIT_REPO_WARNING =
   "Warning: Not in a git repository. Sessions will be created relative to current directory.";
 
+export const GIT_ROOT_COMMAND = {
+  EXECUTABLE: "git",
+  REV_PARSE: "rev-parse",
+  SHOW_TOPLEVEL: "--show-toplevel",
+} as const;
+
+export const GIT_SHOW_TOPLEVEL_ARGS = [
+  GIT_ROOT_COMMAND.REV_PARSE,
+  GIT_ROOT_COMMAND.SHOW_TOPLEVEL,
+] as const;
+
 /**
  * Detects the git repository root directory.
  *
@@ -106,8 +117,8 @@ export async function detectGitRoot(
 ): Promise<GitRootResult> {
   try {
     const result = await deps.execa(
-      "git",
-      ["rev-parse", "--show-toplevel"],
+      GIT_ROOT_COMMAND.EXECUTABLE,
+      Array.from(GIT_SHOW_TOPLEVEL_ARGS),
       { cwd, reject: false },
     );
 

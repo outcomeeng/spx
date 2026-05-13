@@ -5,7 +5,7 @@ import { nextCommand, SPEC_NEXT_MESSAGE } from "@/commands/spec/next";
 import { SPEC_PRODUCT_DIR_WARNING } from "@/commands/spec/root";
 import { OUTPUT_FORMAT, SPEC_STATUS_MESSAGE, statusCommand } from "@/commands/spec/status";
 import { DEFAULT_CONFIG_FILENAME } from "@/config/index";
-import type { GitDependencies } from "@/git/root";
+import { GIT_ROOT_COMMAND, GIT_SHOW_TOPLEVEL_ARGS, type GitDependencies } from "@/git/root";
 import {
   getKindDefinition,
   SPEC_TREE_ENTRY_TYPE,
@@ -89,7 +89,7 @@ describe("spx spec status", () => {
       await env.writeRaw(join(scope.nestedDirectory, scope.productDirectory, nestedMarker), "");
       const nestedCwd = join(env.productDir, scope.nestedDirectory, scope.productDirectory);
       const rootPath = formatNodePath(env.fixture.root.order, env.fixture.root.slug, env.fixture.root.kind);
-      const gitDependencies = createGitRootDependencies(env.productDir);
+      const gitDependencies = createGitRootDependencies(env.productDir, nestedCwd);
 
       const statusOutput = await statusCommand({ cwd: nestedCwd, gitDependencies });
       const nextOutput = await nextCommand({ cwd: nestedCwd, gitDependencies });
@@ -200,12 +200,17 @@ function formatNodePath(order: number, slug: string, kind: NodeKind): string {
   return `${order}-${slug}${getKindDefinition(kind).suffix}`;
 }
 
-function createGitRootDependencies(productDir: string): GitDependencies {
+function createGitRootDependencies(productDir: string, expectedCwd: string): GitDependencies {
   return {
-    execa: async () => ({
-      exitCode: 0,
-      stderr: "",
-      stdout: productDir,
-    }),
+    execa: async (command, args, options) => {
+      expect(command).toBe(GIT_ROOT_COMMAND.EXECUTABLE);
+      expect(args).toEqual(GIT_SHOW_TOPLEVEL_ARGS);
+      expect(options?.cwd).toBe(expectedCwd);
+      return {
+        exitCode: 0,
+        stderr: "",
+        stdout: productDir,
+      };
+    },
   };
 }
