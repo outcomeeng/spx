@@ -12,6 +12,7 @@ import {
 import {
   applyValidationPathFilterToScope,
   pathPassesValidationFilter,
+  toProjectRelativeValidationPath,
   validationPathFilterForTool,
 } from "@/validation/config/path-filter";
 import { getTypeScriptScope } from "@/validation/config/scope";
@@ -88,7 +89,9 @@ export async function lintCommand(options: LintCommandOptions): Promise<Validati
     getTypeScriptScope(scope, cwd),
     validationPathFilter,
   );
-  const validatedFiles = files?.filter((file) => pathPassesValidationFilter(file, validationPathFilter));
+  const validatedFiles = files
+    ?.map((file) => toProjectRelativeValidationPath(cwd, file))
+    .filter((file) => pathPassesValidationFilter(file, validationPathFilter));
 
   if (
     scopeConfig.filteredByValidationPathNoMatches
