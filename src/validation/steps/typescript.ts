@@ -6,10 +6,11 @@
  * @module validation/steps/typescript
  */
 
-import { existsSync, rmSync, writeFileSync } from "node:fs";
+import * as JSONC from "jsonc-parser";
+import { existsSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { mkdtemp } from "node:fs/promises";
 import { tmpdir } from "node:os";
-import { isAbsolute, join } from "node:path";
+import { dirname, isAbsolute, join } from "node:path";
 
 import { lifecycleProcessRunner, type ProcessRunner, spawnManagedSubprocess } from "@/lib/process-lifecycle";
 import { TSCONFIG_FILES } from "../config/scope";
@@ -36,6 +37,7 @@ export const defaultTypeScriptProcessRunner: ProcessRunner = lifecycleProcessRun
  */
 export interface TypeScriptDeps {
   mkdtemp: typeof mkdtemp;
+  readFileSync: typeof readFileSync;
   writeFileSync: typeof writeFileSync;
   rmSync: typeof rmSync;
   existsSync: typeof existsSync;
@@ -46,23 +48,105 @@ export interface TypeScriptDeps {
  */
 export const defaultTypeScriptDeps: TypeScriptDeps = {
   mkdtemp,
+  readFileSync,
   writeFileSync,
   rmSync,
   existsSync,
 };
+
 export const TYPESCRIPT_TYPE_ROOT_SEGMENTS = {
   NODE_MODULES: "node_modules",
   AT_TYPES: "@types",
 } as const;
 
-function createTemporaryCompilerOptions(projectRoot: string): Record<string, unknown> {
+interface TypeScriptConfigCompilerOptions {
+  readonly typeRoots?: readonly string[];
+}
+
+interface TypeScriptConfigForCompilerOptions {
+  readonly extends?: string | readonly string[];
+  readonly compilerOptions?: TypeScriptConfigCompilerOptions;
+}
+
+function createDefaultTypeRoots(projectRoot: string): readonly string[] {
+  return [
+    join(projectRoot, TYPESCRIPT_TYPE_ROOT_SEGMENTS.NODE_MODULES, TYPESCRIPT_TYPE_ROOT_SEGMENTS.AT_TYPES),
+    join(projectRoot, TYPESCRIPT_TYPE_ROOT_SEGMENTS.NODE_MODULES),
+  ];
+}
+
+function createTemporaryCompilerOptions(
+  scope: ValidationScope,
+  projectRoot: string,
+  deps: TypeScriptDeps,
+): Record<string, unknown> {
   return {
     noEmit: true,
-    typeRoots: [
-      join(projectRoot, TYPESCRIPT_TYPE_ROOT_SEGMENTS.NODE_MODULES, TYPESCRIPT_TYPE_ROOT_SEGMENTS.AT_TYPES),
-      join(projectRoot, TYPESCRIPT_TYPE_ROOT_SEGMENTS.NODE_MODULES),
-    ],
+    typeRoots: resolveInheritedTypeRoots(join(projectRoot, TSCONFIG_FILES[scope]), projectRoot, deps)
+      ?? createDefaultTypeRoots(projectRoot),
   };
+}
+
+function resolveInheritedTypeRoots(
+  configPath: string,
+  projectRoot: string,
+  deps: TypeScriptDeps,
+  visitedConfigs: ReadonlySet<string> = new Set(),
+): readonly string[] | undefined {
+  if (visitedConfigs.has(configPath)) {
+    return undefined;
+  }
+
+  const config = parseCompilerOptionsConfig(configPath, deps);
+  if (config === undefined) {
+    return undefined;
+  }
+
+  let inheritedTypeRoots: readonly string[] | undefined;
+  for (const extendedConfig of normalizeExtends(config.extends)) {
+    const extendedTypeRoots = resolveInheritedTypeRoots(
+      resolveExtendedConfigPath(projectRoot, configPath, extendedConfig),
+      projectRoot,
+      deps,
+      new Set([...visitedConfigs, configPath]),
+    );
+    inheritedTypeRoots = extendedTypeRoots ?? inheritedTypeRoots;
+  }
+
+  return config.compilerOptions?.typeRoots?.map((typeRoot) => resolveTypeRootPath(configPath, typeRoot))
+    ?? inheritedTypeRoots;
+}
+
+function parseCompilerOptionsConfig(
+  configPath: string,
+  deps: TypeScriptDeps,
+): TypeScriptConfigForCompilerOptions | undefined {
+  try {
+    return JSONC.parse(deps.readFileSync(configPath, "utf-8")) as TypeScriptConfigForCompilerOptions;
+  } catch {
+    return undefined;
+  }
+}
+
+function normalizeExtends(extendsConfig: string | readonly string[] | undefined): readonly string[] {
+  if (extendsConfig === undefined) {
+    return [];
+  }
+  return typeof extendsConfig === "string" ? [extendsConfig] : extendsConfig;
+}
+
+function resolveExtendedConfigPath(projectRoot: string, configPath: string, extendedConfig: string): string {
+  if (isAbsolute(extendedConfig)) {
+    return extendedConfig;
+  }
+  if (extendedConfig.startsWith(".")) {
+    return join(dirname(configPath), extendedConfig);
+  }
+  return join(projectRoot, extendedConfig);
+}
+
+function resolveTypeRootPath(configPath: string, typeRoot: string): string {
+  return isAbsolute(typeRoot) ? typeRoot : join(dirname(configPath), typeRoot);
 }
 
 // =============================================================================
@@ -122,7 +206,7 @@ export async function createFileSpecificTsconfig(
     files: absoluteFiles,
     include: [],
     exclude: [],
-    compilerOptions: createTemporaryCompilerOptions(projectRoot),
+    compilerOptions: createTemporaryCompilerOptions(scope, projectRoot, deps),
   };
 
   // Write temporary config
@@ -154,7 +238,7 @@ async function createScopeFilteredTsconfig(
     extends: join(projectRoot, baseConfigFile),
     include: scopeConfig.filePatterns.map(toProjectPathPattern),
     exclude: scopeConfig.excludePatterns.map(toProjectPathPattern),
-    compilerOptions: createTemporaryCompilerOptions(projectRoot),
+    compilerOptions: createTemporaryCompilerOptions(scope, projectRoot, deps),
   };
 
   deps.writeFileSync(configPath, JSON.stringify(tempConfig, null, 2));

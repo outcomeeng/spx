@@ -13,12 +13,7 @@ import {
   validateCircularDependencies,
 } from "@/validation/steps/circular";
 import { KNIP_COMMAND_TOKENS, type KnipDeps, validateKnip } from "@/validation/steps/knip";
-import {
-  defaultTypeScriptDeps,
-  TYPESCRIPT_TYPE_ROOT_SEGMENTS,
-  type TypeScriptDeps,
-  validateTypeScript,
-} from "@/validation/steps/typescript";
+import { defaultTypeScriptDeps, type TypeScriptDeps, validateTypeScript } from "@/validation/steps/typescript";
 import { VALIDATION_SCOPES } from "@/validation/types";
 import { LITERAL_TEST_GENERATOR, sampleLiteralTestValue } from "@testing/generators/literal/literal";
 import { VALIDATION_PIPELINE_DATA } from "@testing/generators/validation/validation";
@@ -161,6 +156,14 @@ describe("ALWAYS: TypeScript scope resolution uses the requested project root", 
           defaultTypeScriptDeps.writeFileSync(path, data);
         },
       };
+      await env.writeRaw(
+        TSCONFIG_FILES.full,
+        JSON.stringify({
+          compilerOptions: {
+            typeRoots: [VALIDATION_PIPELINE_DATA.sourceDirectoryName],
+          },
+        }),
+      );
 
       const result = await validateTypeScript(
         VALIDATION_SCOPES.FULL,
@@ -182,19 +185,13 @@ describe("ALWAYS: TypeScript scope resolution uses the requested project root", 
       expect(writtenConfigs).toHaveLength(1);
       const writtenConfig = JSON.parse(writtenConfigs[0] ?? "{}");
       expect(writtenConfig).toMatchObject({
+        extends: join(env.projectDir, TSCONFIG_FILES.full),
         include: [join(env.projectDir, VALIDATION_PIPELINE_DATA.productionScopeFilePattern)],
         exclude: [join(env.projectDir, VALIDATION_PIPELINE_DATA.productionScopeExcludePattern)],
       });
       expect(writtenConfig.compilerOptions).toEqual({
         noEmit: true,
-        typeRoots: [
-          join(
-            env.projectDir,
-            TYPESCRIPT_TYPE_ROOT_SEGMENTS.NODE_MODULES,
-            TYPESCRIPT_TYPE_ROOT_SEGMENTS.AT_TYPES,
-          ),
-          join(env.projectDir, TYPESCRIPT_TYPE_ROOT_SEGMENTS.NODE_MODULES),
-        ],
+        typeRoots: [join(env.projectDir, VALIDATION_PIPELINE_DATA.sourceDirectoryName)],
       });
     });
   });
