@@ -66,8 +66,10 @@ export const SPEC_TREE_TEST_GENERATOR = {
   sourceTitle: arbitrarySourceTitle,
   sourceOrder: arbitrarySourceOrder,
   assemblyNodeOrders: arbitraryAssemblyNodeOrders,
+  filesystemOrder: arbitraryFilesystemOrder,
   parentSourceOrder: arbitraryParentSourceOrder,
   childSourceOrderAbove: arbitraryChildSourceOrderAbove,
+  unregisteredNodeSuffix: arbitraryUnregisteredNodeSuffix,
   sourceRef: arbitrarySourceRef,
   representativeFixture: arbitraryRepresentativeFixture,
 } as const;
@@ -289,6 +291,13 @@ function arbitrarySourceOrder(): fc.Arbitrary<number> {
   return fc.integer();
 }
 
+function arbitraryFilesystemOrder(): fc.Arbitrary<number> {
+  return fc.integer({
+    min: SPEC_TREE_TEST_GENERATOR_OPTIONS.REPRESENTATIVE_ORDER_MIN,
+    max: SPEC_TREE_TEST_GENERATOR_OPTIONS.REPRESENTATIVE_ORDER_MAX,
+  });
+}
+
 function arbitraryParentSourceOrder(): fc.Arbitrary<number> {
   return fc.integer({
     min: SPEC_TREE_TEST_GENERATOR_OPTIONS.REPRESENTATIVE_ORDER_MIN,
@@ -324,6 +333,17 @@ function arbitraryDecisionKind(registry: SpecTreeRegistry): fc.Arbitrary<Decisio
   return fc.constantFrom(
     ...readKinds<DecisionKind>(registry, SPEC_TREE_KIND_CATEGORY.DECISION, "decision kind"),
   );
+}
+
+function arbitraryUnregisteredNodeSuffix(registry: SpecTreeRegistry): fc.Arbitrary<string> {
+  const nodeSuffixes = new Set<string>(
+    Object.values(registry)
+      .filter((definition) => definition.category === SPEC_TREE_KIND_CATEGORY.NODE)
+      .map((definition) => definition.suffix),
+  );
+  return arbitrarySourceSlug()
+    .map((slug) => `.${slug}`)
+    .filter((suffix) => !nodeSuffixes.has(suffix));
 }
 
 function readKinds<K extends NodeKind | DecisionKind>(

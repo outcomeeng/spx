@@ -16,6 +16,7 @@ import {
   sampleSpecTreeTestValue,
   SPEC_TREE_TEST_GENERATOR,
 } from "@testing/generators/spec-tree/spec-tree";
+import { expectPresent } from "@testing/harnesses/spec-tree/assertions";
 
 type StateCase = {
   readonly evidence?: SpecTreeEvidenceStatus;
@@ -52,7 +53,7 @@ describe("node state derivation", () => {
 
       const snapshot = await readSpecTree({ source: createSource(entries) });
 
-      expect(snapshot.nodes[0]?.state).toBe(expected);
+      expect(expectPresent(snapshot.nodes[0]).state).toBe(expected);
     }
   });
 
@@ -73,6 +74,6 @@ describe("node state derivation", () => {
       },
     });
 
-    expect(snapshot.nodes[0]?.state).toBe(SPEC_TREE_NODE_STATE.PASSING);
+    expect(expectPresent(snapshot.nodes[0]).state).toBe(SPEC_TREE_NODE_STATE.PASSING);
   });
 });

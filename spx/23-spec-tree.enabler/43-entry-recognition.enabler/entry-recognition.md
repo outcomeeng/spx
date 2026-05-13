@@ -16,4 +16,4 @@ CAN convert raw backend records into typed source entries without owning kind vo
 ### Compliance
 
 - ALWAYS: entry recognition derives categories, suffixes, and labels from the semantic registry ([test](tests/entry-recognition.mapping.l1.test.ts))
-- NEVER: entry recognition contains compatibility branches for `.capability`, `.feature`, or `.story` suffixes ([test](tests/entry-recognition.mapping.l1.test.ts))
+- NEVER: entry recognition contains compatibility branches for node suffixes absent from the semantic registry ([test](tests/entry-recognition.mapping.l1.test.ts))

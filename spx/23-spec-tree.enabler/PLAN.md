@@ -9,10 +9,10 @@ Keep the reusable spec-tree library as the foundation for the refactor. This nod
 - [x] Treat the current migrated tests as evidence inventory, then re-route each assertion through the spec-tree testing methodology before keeping it.
 - [x] Replace direct fixture construction in spec-tree tests with `withSpecTreeEnv` where the proof requires a real product directory and use in-memory sources where the proof is pure source-record behavior.
 - [x] Keep one canonical public-surface scenario proving `readSpecTree`, `projectSpecTree`, and `findNextSpecTreeNode` together over a representative tree.
-- [ ] Keep child-node tests focused on their owned behavior: source mapping, recognition mapping, assembly properties, traversal scenarios, state mapping, and projection conformance.
-- [ ] Remove any command-formatting or terminal-output assertions from this node and move them to `spx/31-spec-domain.enabler/`.
-- [ ] Replace remaining legacy `.capability`, `.feature`, and `.story` vocabulary in source, tests, and fixtures with registry-driven current vocabulary.
-- [ ] Rename repository-root variables in library tests from legacy root vocabulary to product language when touching the harness or API boundary.
+- [x] Keep child-node tests focused on their owned behavior: source mapping, recognition mapping, assembly properties, traversal scenarios, state mapping, and projection conformance.
+- [x] Remove any command-formatting or terminal-output assertions from this node and move them to `spx/31-spec-domain.enabler/`.
+- [x] Replace remaining legacy `.capability`, `.feature`, and `.story` vocabulary in source, tests, and fixtures with registry-driven current vocabulary.
+- [x] Rename repository-root variables in library tests from legacy root vocabulary to product language when touching the harness or API boundary.
 
 ## Evidence matrix
 
@@ -31,7 +31,7 @@ Keep the reusable spec-tree library as the foundation for the refactor. This nod
 - [x] Audit every assertion link in this node and each child node against the current test file body.
 - [ ] Delete or rewrite tests whose only value is proving the old work-item model.
 - [ ] Move reusable fixture helpers into the `withSpecTreeEnv` harness instead of node-local support files.
-- [ ] Keep source adapters free of command formatting, terminal labels, and CLI flag handling.
+- [x] Keep source adapters free of command formatting, terminal labels, and CLI flag handling.
 - [ ] Keep command modules from parsing suffixes by preserving `src/lib/spec-tree/index.ts` as the public import boundary.
 - [ ] Split `src/lib/spec-tree/index.ts` internally only after the public tests pass and the extracted modules keep the same public surface.
 - [ ] Remove legacy source modules after all command and validation consumers read the current spec-tree library.

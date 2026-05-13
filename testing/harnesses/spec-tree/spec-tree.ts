@@ -127,9 +127,7 @@ export async function withSpecTreeEnv(
       ...Object.getOwnPropertyDescriptors(env),
       fixture: valueDescriptor(fixture),
       memorySource: valueDescriptor((sourceFixture = fixture) => createSource(sourceFixture.entries)),
-      filesystemSource: valueDescriptor(() =>
-        createFilesystemSpecTreeSource({ projectRoot: env.productDir, registry })
-      ),
+      filesystemSource: valueDescriptor(() => createFilesystemSpecTreeSource({ productDir: env.productDir, registry })),
       materialize: valueDescriptor((sourceFixture = fixture) =>
         materializeSpecTreeFixture(env, registry, sourceFixture)
       ),
@@ -138,7 +136,7 @@ export async function withSpecTreeEnv(
       ),
       readFilesystemSnapshot: valueDescriptor(() =>
         readSpecTree({
-          source: createFilesystemSpecTreeSource({ projectRoot: env.productDir, registry }),
+          source: createFilesystemSpecTreeSource({ productDir: env.productDir, registry }),
           registry,
         })
       ),
@@ -148,7 +146,7 @@ export async function withSpecTreeEnv(
       projectFilesystem: valueDescriptor(async () =>
         projectSpecTree(
           await readSpecTree({
-            source: createFilesystemSpecTreeSource({ projectRoot: env.productDir, registry }),
+            source: createFilesystemSpecTreeSource({ productDir: env.productDir, registry }),
             registry,
           }),
         )

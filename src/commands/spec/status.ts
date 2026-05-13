@@ -68,8 +68,8 @@ export async function statusCommand(
 }
 
 async function readCommandSnapshot(options: StatusOptions): Promise<SpecTreeSnapshot> {
-  const cwd = options.cwd ?? process.cwd();
-  const source = options.source ?? createFilesystemSpecTreeSource({ projectRoot: cwd });
+  const productDir = options.cwd ?? process.cwd();
+  const source = options.source ?? createFilesystemSpecTreeSource({ productDir });
   return readSpecTree({ source });
 }
 

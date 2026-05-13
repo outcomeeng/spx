@@ -10,6 +10,7 @@ import {
   sampleSpecTreeTestValue,
   SPEC_TREE_TEST_GENERATOR,
 } from "@testing/generators/spec-tree/spec-tree";
+import { expectPresent } from "@testing/harnesses/spec-tree/assertions";
 
 describe("spec-tree assembly invariants", () => {
   it("preserves ordering and assigns every child exactly one parent", async () => {
@@ -40,14 +41,14 @@ describe("spec-tree assembly invariants", () => {
             ]),
           });
 
-          const root = snapshot.allNodes.find((node) => node.id === fixture.root.id);
-          expect(root?.children.map((child) => child.id)).toEqual([fixture.child.id]);
+          const root = expectPresent(snapshot.allNodes.find((node) => node.id === fixture.root.id));
+          expect(root.children.map((child) => child.id)).toEqual([fixture.child.id]);
           expect(snapshot.allNodes.filter((node) => node.id === fixture.child.id)).toHaveLength(1);
           expect(snapshot.nodes.map((node) => node.order)).toEqual(
             [...snapshot.nodes].map((node) => node.order).sort((left, right) => left - right),
           );
-          expect(root?.children.map((child) => child.order)).toEqual(
-            [...(root?.children ?? [])].map((child) => child.order).sort((left, right) => left - right),
+          expect(root.children.map((child) => child.order)).toEqual(
+            [...root.children].map((child) => child.order).sort((left, right) => left - right),
           );
         },
       ),

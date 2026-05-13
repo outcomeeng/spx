@@ -24,8 +24,8 @@ export interface NextOptions {
 }
 
 export async function nextCommand(options: NextOptions = {}): Promise<string> {
-  const cwd = options.cwd ?? process.cwd();
-  const source = options.source ?? createFilesystemSpecTreeSource({ projectRoot: cwd });
+  const productDir = options.cwd ?? process.cwd();
+  const source = options.source ?? createFilesystemSpecTreeSource({ productDir });
   const snapshot = await readSpecTree({ source });
 
   if (snapshot.allNodes.length === 0) {
