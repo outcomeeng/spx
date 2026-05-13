@@ -32,9 +32,9 @@ Rebuild `spx spec` command behavior on top of the current spec-tree library. Thi
 ## Current dirty edit disposition
 
 - [x] Move `spx/31-spec-domain.enabler/tests/spec-cli-commands.scenario.l1.test.ts` into `spx/31-spec-domain.enabler/54-spec-cli-commands.enabler/tests/spec-cli-commands.scenario.l1.test.ts` after routing it through the current command evidence matrix.
-- [ ] Replace legacy edits under `spx/21-core-cli.capability/` and `spx/26-scoped-cli.capability/` with target-node tests, then remove those legacy-node changes from the refactor branch.
-- [ ] Keep `src/domains/spec/index.ts`, `src/commands/spec/status.ts`, `src/commands/spec/next.ts`, and `src/cli.ts` changes only after the target-node tests prove the current command behavior.
-- [ ] Delete `src/domains/spec-legacy/index.ts` only after no import path or test still depends on the legacy domain.
+- [x] Replace legacy edits under `spx/21-core-cli.capability/` and `spx/26-scoped-cli.capability/` with target-node tests, then remove those legacy-node changes from the refactor branch.
+- [x] Keep `src/domains/spec/index.ts`, `src/commands/spec/status.ts`, `src/commands/spec/next.ts`, and `src/cli.ts` changes only after the target-node tests prove the current command behavior.
+- [x] Delete `src/domains/spec-legacy/index.ts` only after no import path or test still depends on the legacy domain.
 
 ## Remaining work
 
@@ -43,13 +43,14 @@ Rebuild `spx spec` command behavior on top of the current spec-tree library. Thi
 - [x] Make renderers consume `SpecTreeProjection` rather than raw snapshots when the command output is a stable projection concern.
 - [x] Make command handlers resolve the worktree-local tracked `spx/` root per `spx/15-worktree-resolution.pdr.md`.
 - [ ] Keep config writes out of all spec-domain command paths.
-- [ ] Remove legacy `specs/work` fixtures from spec-domain tests.
+- [ ] Rename apply-exclude root vocabulary from `projectRoot` to `productDir` when owning the config-write path.
+- [x] Remove legacy `specs/work` fixtures from spec-domain tests.
 - [x] Run focused spec-domain tests, then `spx validation all`, then the full package test gate.
 
 ## Acceptance
 
-- [ ] Spec-domain tests are in the current `spx/31-spec-domain.enabler/` subtree and no retained evidence depends on legacy capability/feature/story nodes.
+- [x] Spec-domain tests are in the current `spx/31-spec-domain.enabler/` subtree and no retained evidence depends on legacy capability/feature/story nodes.
 - [x] Command modules consume the public spec-tree surface and never parse suffixes or assemble hierarchy themselves.
 - [x] `status` and `next` behavior are proven against real temp product directories built by `withSpecTreeEnv`.
 - [x] Rendering behavior is proven separately from command filesystem execution.
-- [ ] CLI contract tests cover only behavior that cannot be proven through direct command functions.
+- [x] CLI contract tests cover only behavior that cannot be proven through direct command functions.
