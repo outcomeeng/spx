@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 
 import { OUTPUT_FORMAT, renderSpecStatus, SPEC_STATUS_MESSAGE, SPEC_STATUS_TABLE_HEADER } from "@/commands/spec/status";
-import { projectSpecTree, readSpecTree, SPEC_TREE_NODE_STATE } from "@/lib/spec-tree";
+import { projectSpecTree, readSpecTree, SPEC_TREE_NODE_STATE, SPEC_TREE_PROJECTION } from "@/lib/spec-tree";
 import { KIND_REGISTRY } from "@/lib/spec-tree/config";
 import {
   buildNodeEntry,
@@ -63,5 +63,21 @@ describe("spec status rendering", () => {
     const projection = projectSpecTree(await readSpecTree({ source: createSource([fixture.decision]) }));
 
     expect(renderSpecStatus(projection)).toBe(SPEC_STATUS_MESSAGE.EMPTY);
+  });
+
+  it("maps projections with no nodes to JSON projection output when JSON format is requested", async () => {
+    const fixture = buildRepresentativeFixture(KIND_REGISTRY);
+    const projection = projectSpecTree(await readSpecTree({ source: createSource([fixture.decision]) }));
+    const output = renderSpecStatus(projection, OUTPUT_FORMAT.JSON);
+
+    const parsed = JSON.parse(output) as {
+      readonly version: number;
+      readonly nodes: readonly unknown[];
+      readonly decisions: ReadonlyArray<{ readonly id: string }>;
+    };
+
+    expect(parsed.version).toBe(SPEC_TREE_PROJECTION.VERSION);
+    expect(parsed.nodes).toEqual([]);
+    expect(parsed.decisions).toMatchObject([{ id: fixture.decision.id }]);
   });
 });

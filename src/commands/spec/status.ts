@@ -57,7 +57,7 @@ export function renderSpecStatus(
   projection: SpecTreeProjection,
   format: OutputFormat = DEFAULT_FORMAT,
 ): string {
-  if (projection.nodes.length === 0) {
+  if (projection.nodes.length === 0 && format !== OUTPUT_FORMAT.JSON) {
     return SPEC_STATUS_MESSAGE.EMPTY;
   }
 
