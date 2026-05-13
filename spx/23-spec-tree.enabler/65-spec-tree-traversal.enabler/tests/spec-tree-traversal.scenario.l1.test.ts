@@ -9,6 +9,7 @@ import {
   sampleSpecTreeTestValue,
   SPEC_TREE_TEST_GENERATOR,
 } from "@testing/generators/spec-tree/spec-tree";
+import { expectPresent } from "@testing/harnesses/spec-tree/assertions";
 
 describe("spec-tree traversal", () => {
   it("returns the first non-passing node in deterministic tree order", async () => {
@@ -37,7 +38,7 @@ describe("spec-tree traversal", () => {
       ]),
     });
 
-    expect(findNextSpecTreeNode(snapshot)?.id).toBe(fixture.child.id);
+    expect(expectPresent(findNextSpecTreeNode(snapshot)).id).toBe(fixture.child.id);
   });
 
   it("returns no node when every node is passing", async () => {

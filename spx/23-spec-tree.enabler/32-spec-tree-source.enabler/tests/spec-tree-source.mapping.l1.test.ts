@@ -9,6 +9,7 @@ import {
   type SpecTreeProjection,
 } from "@/lib/spec-tree";
 import { type NodeKind, SPEC_TREE_CONFIG } from "@/lib/spec-tree/config";
+import { expectPresent } from "@testing/harnesses/spec-tree/assertions";
 import { withSpecTreeEnv } from "@testing/harnesses/spec-tree/spec-tree";
 
 type NodeSignature = {
@@ -42,7 +43,7 @@ describe("SpecTreeSource mappings", () => {
       );
       const inMemoryProjection = await env.projectMemory();
 
-      expect(filesystemProjection.product?.title).toBe(inMemoryProjection.product?.title);
+      expect(expectPresent(filesystemProjection.product).title).toBe(expectPresent(inMemoryProjection.product).title);
       expect(nodeSignatures(filesystemProjection)).toEqual(nodeSignatures(inMemoryProjection));
       expect(decisionSignatures(filesystemProjection)).toEqual(decisionSignatures(inMemoryProjection));
     });
@@ -61,11 +62,11 @@ describe("SpecTreeSource mappings", () => {
       );
 
       const source = createFilesystemSpecTreeSource({
-        projectRoot: env.productDir,
+        productDir: env.productDir,
         includePath: (path) => excludedDirectories.every((directory) => !path.includes(directory)),
       });
       const snapshot = await readSpecTree({ source });
-      const ref = snapshot.allNodes[0]?.ref;
+      const ref = expectPresent(snapshot.allNodes[0]).ref;
       if (source.readText === undefined || ref === undefined) {
         throw new Error("Filesystem source test expected a readable source ref");
       }

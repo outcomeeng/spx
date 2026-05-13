@@ -32,7 +32,7 @@ export function findNextSpecTreeNode(snapshot: SpecTreeSnapshot): SpecTreeNode |
 ### Scenarios
 
 - Given a `SpecTreeSource` that exposes product, node, decision, and evidence records, when `readSpecTree({ source })` runs, then it returns a `SpecTreeSnapshot` with recognized entries, assembled parent-child relationships, sorted siblings, decisions, and derived node states ([test](tests/spec-tree-surface.scenario.l1.test.ts))
-- Given the spec-tree descriptor is registered with the config module, when `resolveConfig(projectRoot)` runs with no yaml, then the resolved spec-tree section contains the full default kind list with their definitions ([test](tests/spec-tree-config.scenario.l1.test.ts))
+- Given the spec-tree descriptor is registered with the config module, when `resolveConfig(productDir)` runs with no yaml, then the resolved spec-tree section contains the full default kind list with their definitions ([test](tests/spec-tree-config.scenario.l1.test.ts))
 - Given `spx.config.yaml` selects a subset of kinds, when the spec-tree descriptor validates the yaml, then the resolved section contains only the selected kinds and an error names any kind absent from the registry ([test](tests/spec-tree-config.scenario.l1.test.ts))
 
 ### Mappings

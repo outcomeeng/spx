@@ -50,10 +50,16 @@ const SPEC_TREE_TEST_GENERATOR_OPTIONS = {
   REPRESENTATIVE_ORDER_MIN: 10,
   REPRESENTATIVE_PARENT_ORDER_MAX: 98,
   REPRESENTATIVE_ORDER_MAX: 99,
+  FILESYSTEM_ORDER_MIN: 10,
+  FILESYSTEM_ORDER_MAX: 99,
   CHILD_ORDER_OFFSET: 1,
   ASSEMBLY_ORDER_COUNT: 3,
   ASSEMBLY_PROPERTY_RUN_COUNT: 25,
+  UNREGISTERED_SUFFIX_MAX_LENGTH: 8,
 } as const;
+const SPEC_TREE_TEST_SUFFIX_INITIAL_CHARACTERS = [..."abcdefghijklmnopqrstuvwxyz"];
+const SPEC_TREE_TEST_SUFFIX_REST_CHARACTERS = [..."abcdefghijklmnopqrstuvwxyz-"];
+const UNREGISTERED_SUFFIX_DISAMBIGUATOR = "-candidate";
 
 const ASSEMBLY_NODE_ORDER_COUNT: 3 = SPEC_TREE_TEST_GENERATOR_OPTIONS.ASSEMBLY_ORDER_COUNT;
 
@@ -66,8 +72,10 @@ export const SPEC_TREE_TEST_GENERATOR = {
   sourceTitle: arbitrarySourceTitle,
   sourceOrder: arbitrarySourceOrder,
   assemblyNodeOrders: arbitraryAssemblyNodeOrders,
+  filesystemOrder: arbitraryFilesystemOrder,
   parentSourceOrder: arbitraryParentSourceOrder,
   childSourceOrderAbove: arbitraryChildSourceOrderAbove,
+  unregisteredNodeSuffix: arbitraryUnregisteredNodeSuffix,
   sourceRef: arbitrarySourceRef,
   representativeFixture: arbitraryRepresentativeFixture,
 } as const;
@@ -289,6 +297,14 @@ function arbitrarySourceOrder(): fc.Arbitrary<number> {
   return fc.integer();
 }
 
+function arbitraryFilesystemOrder(): fc.Arbitrary<number> {
+  // Filesystem fixtures exercise the current sparse two-digit node index range.
+  return fc.integer({
+    min: SPEC_TREE_TEST_GENERATOR_OPTIONS.FILESYSTEM_ORDER_MIN,
+    max: SPEC_TREE_TEST_GENERATOR_OPTIONS.FILESYSTEM_ORDER_MAX,
+  });
+}
+
 function arbitraryParentSourceOrder(): fc.Arbitrary<number> {
   return fc.integer({
     min: SPEC_TREE_TEST_GENERATOR_OPTIONS.REPRESENTATIVE_ORDER_MIN,
@@ -324,6 +340,40 @@ function arbitraryDecisionKind(registry: SpecTreeRegistry): fc.Arbitrary<Decisio
   return fc.constantFrom(
     ...readKinds<DecisionKind>(registry, SPEC_TREE_KIND_CATEGORY.DECISION, "decision kind"),
   );
+}
+
+function arbitraryUnregisteredNodeSuffix(registry: SpecTreeRegistry): fc.Arbitrary<string> {
+  const nodeSuffixes = new Set<string>(
+    Object.values(registry)
+      .filter((definition) => definition.category === SPEC_TREE_KIND_CATEGORY.NODE)
+      .map((definition) => definition.suffix),
+  );
+  return fc.tuple(
+    fc.constantFrom(...SPEC_TREE_TEST_SUFFIX_INITIAL_CHARACTERS),
+    fc.string({
+      unit: fc.constantFrom(...SPEC_TREE_TEST_SUFFIX_REST_CHARACTERS),
+      minLength: 0,
+      maxLength: SPEC_TREE_TEST_GENERATOR_OPTIONS.UNREGISTERED_SUFFIX_MAX_LENGTH - 1,
+    }),
+  )
+    .map(([firstCharacter, rest]) => `.${firstCharacter}${rest}`)
+    .map((suffix) => disambiguateRegisteredSuffix(suffix, nodeSuffixes));
+}
+
+function disambiguateRegisteredSuffix(suffix: string, registeredSuffixes: ReadonlySet<string>): string {
+  if (!registeredSuffixes.has(suffix)) {
+    return suffix;
+  }
+
+  // At most `size` candidates can collide, so `size + 1` attempts guarantees one free suffix.
+  for (let collisionIndex = 0; collisionIndex <= registeredSuffixes.size; collisionIndex += 1) {
+    const candidate = `${suffix}${UNREGISTERED_SUFFIX_DISAMBIGUATOR}${collisionIndex}`;
+    if (!registeredSuffixes.has(candidate)) {
+      return candidate;
+    }
+  }
+
+  throw new Error("Unable to generate an unregistered spec-tree suffix");
 }
 
 function readKinds<K extends NodeKind | DecisionKind>(

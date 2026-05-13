@@ -152,7 +152,7 @@ export type SpecTreeFilesystemRecord = {
 export type SpecTreePathInclusionPredicate = (path: string) => boolean | Promise<boolean>;
 
 export type FilesystemSpecTreeSourceOptions = {
-  readonly projectRoot: string;
+  readonly productDir: string;
   readonly registry?: SpecTreeRegistry;
   readonly includePath?: SpecTreePathInclusionPredicate;
 };
@@ -265,12 +265,12 @@ export function createFilesystemSpecTreeSource(options: FilesystemSpecTreeSource
   const includePath = options.includePath ?? includeEverySpecTreePath;
 
   return {
-    entries: () => readFilesystemSourceEntries(options.projectRoot, registry, includePath),
+    entries: () => readFilesystemSourceEntries(options.productDir, registry, includePath),
     async readText(ref: SpecTreeSourceRef): Promise<string> {
       if (ref.path === undefined) {
         throw new Error("Filesystem source refs require a path");
       }
-      return readFile(join(options.projectRoot, ref.path), SPEC_TREE_TEXT_ENCODING);
+      return readFile(join(options.productDir, ref.path), SPEC_TREE_TEXT_ENCODING);
     },
   };
 }
@@ -514,12 +514,12 @@ function compareOrderedEntries(left: OrderedEntry, right: OrderedEntry): number 
 }
 
 async function* readFilesystemSourceEntries(
-  projectRoot: string,
+  productDir: string,
   registry: SpecTreeRegistry,
   includePath: SpecTreePathInclusionPredicate,
 ): AsyncIterable<SpecTreeSourceEntry> {
   yield* walkFilesystemDirectory({
-    absolutePath: join(projectRoot, SPEC_TREE_CONFIG.ROOT_DIRECTORY),
+    absolutePath: join(productDir, SPEC_TREE_CONFIG.ROOT_DIRECTORY),
     relativePath: SPEC_TREE_EMPTY_RELATIVE_PATH,
     registry,
     includePath,
