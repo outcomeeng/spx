@@ -85,10 +85,11 @@ describe("Compliance: validation step ProcessRunner defaults reference lifecycle
     const runner = new RecordingSpawnOptionsRunner();
 
     const result = await validateTypeScript(
-      VALIDATION_SCOPES.FULL,
-      process.cwd(),
-      undefined,
-      runner,
+      {
+        scope: VALIDATION_SCOPES.FULL,
+        projectRoot: process.cwd(),
+      },
+      { runner },
     );
 
     expect(result.success).toBe(true);

@@ -59,6 +59,19 @@ export const TYPESCRIPT_TYPE_ROOT_SEGMENTS = {
   AT_TYPES: "@types",
 } as const;
 
+export interface TypeScriptValidationContext {
+  readonly scope: ValidationScope;
+  readonly projectRoot: string;
+  readonly files?: readonly string[];
+  readonly scopeConfig?: ScopeConfig;
+}
+
+export interface TypeScriptValidationOptions {
+  readonly runner?: ProcessRunner;
+  readonly deps?: TypeScriptDeps;
+  readonly outputStreams?: ValidationSubprocessOutputStreams;
+}
+
 interface TypeScriptConfigCompilerOptions {
   readonly typeRoots?: readonly string[];
 }
@@ -183,7 +196,7 @@ export function buildTypeScriptArgs(context: { scope: ValidationScope; configFil
  */
 export async function createFileSpecificTsconfig(
   scope: ValidationScope,
-  files: string[],
+  files: readonly string[],
   projectRoot: string,
   deps: TypeScriptDeps = defaultTypeScriptDeps,
 ): Promise<{ configPath: string; tempDir: string; cleanup: () => void }> {
@@ -258,34 +271,32 @@ async function createScopeFilteredTsconfig(
 /**
  * Validate TypeScript using authoritative configuration.
  *
- * @param scope - Validation scope
- * @param projectRoot - Project root for tool execution and config resolution
- * @param files - Optional specific files to validate
- * @param runner - Injectable process runner
- * @param deps - Injectable TypeScript dependencies
+ * @param context - Validation scope, project root, files, and optional path-filtered scope
+ * @param options - Injectable process runner, filesystem dependencies, and output streams
  * @returns Promise resolving to validation result
  *
  * @example
  * ```typescript
- * const result = await validateTypeScript("full", projectRoot);
+ * const result = await validateTypeScript({ scope: "full", projectRoot });
  * if (!result.success) {
  *   console.error("TypeScript failed:", result.error);
  * }
  * ```
  */
 export async function validateTypeScript(
-  scope: ValidationScope,
-  projectRoot: string,
-  files?: string[],
-  runner: ProcessRunner = defaultTypeScriptProcessRunner,
-  deps: TypeScriptDeps = defaultTypeScriptDeps,
-  outputStreams: ValidationSubprocessOutputStreams = defaultValidationSubprocessOutputStreams,
-  scopeConfig?: ScopeConfig,
+  context: TypeScriptValidationContext,
+  options: TypeScriptValidationOptions = {},
 ): Promise<{
   success: boolean;
   error?: string;
   skipped?: boolean;
 }> {
+  const { scope, projectRoot, files, scopeConfig } = context;
+  const {
+    runner = defaultTypeScriptProcessRunner,
+    deps = defaultTypeScriptDeps,
+    outputStreams = defaultValidationSubprocessOutputStreams,
+  } = options;
   const configFile = TSCONFIG_FILES[scope];
 
   // Determine tool and arguments based on whether specific files are provided

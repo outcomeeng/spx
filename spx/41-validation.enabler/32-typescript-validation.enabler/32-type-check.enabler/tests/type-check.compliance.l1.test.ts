@@ -37,10 +37,11 @@ describe("Compliance: tsc subprocess output is owned by the parent process", () 
     const runner = new RecordingSpawnOptionsRunner();
 
     const result = await validateTypeScript(
-      VALIDATION_SCOPES.FULL,
-      process.cwd(),
-      undefined,
-      runner,
+      {
+        scope: VALIDATION_SCOPES.FULL,
+        projectRoot: process.cwd(),
+      },
+      { runner },
     );
 
     expect(result.success).toBe(true);
