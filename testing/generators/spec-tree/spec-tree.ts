@@ -357,12 +357,18 @@ function arbitraryUnregisteredNodeSuffix(registry: SpecTreeRegistry): fc.Arbitra
 }
 
 function disambiguateRegisteredSuffix(suffix: string, registeredSuffixes: ReadonlySet<string>): string {
-  let candidate = suffix;
-  while (registeredSuffixes.has(candidate)) {
-    // The generator's max length constrains the base suffix; disambiguation preserves registry absence.
-    candidate = `${candidate}${UNREGISTERED_SUFFIX_DISAMBIGUATOR}`;
+  if (!registeredSuffixes.has(suffix)) {
+    return suffix;
   }
-  return candidate;
+
+  for (let collisionIndex = 0; collisionIndex <= registeredSuffixes.size; collisionIndex += 1) {
+    const candidate = `${suffix}${UNREGISTERED_SUFFIX_DISAMBIGUATOR}${collisionIndex}`;
+    if (!registeredSuffixes.has(candidate)) {
+      return candidate;
+    }
+  }
+
+  throw new Error("Unable to generate an unregistered spec-tree suffix");
 }
 
 function readKinds<K extends NodeKind | DecisionKind>(
