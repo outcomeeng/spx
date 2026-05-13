@@ -58,6 +58,12 @@ describe("spec status rendering", () => {
     expect(renderSpecStatus(projection)).toBe(SPEC_STATUS_MESSAGE.EMPTY);
   });
 
+  it("maps empty spec-tree projections to the empty status message when table format is requested", async () => {
+    const projection = projectSpecTree(await readSpecTree({ source: createSource([]) }));
+
+    expect(renderSpecStatus(projection, OUTPUT_FORMAT.TABLE)).toBe(SPEC_STATUS_MESSAGE.EMPTY);
+  });
+
   it("maps projections with decisions and no nodes to the empty status message", async () => {
     const fixture = buildRepresentativeFixture(KIND_REGISTRY);
     const projection = projectSpecTree(await readSpecTree({ source: createSource([fixture.decision]) }));

@@ -4,6 +4,7 @@ import {
   readSpecTree,
   type SpecTreeProjectedNode,
   type SpecTreeProjection,
+  type SpecTreeSnapshot,
   type SpecTreeSource,
 } from "@/lib/spec-tree";
 import { KIND_REGISTRY, SPEC_TREE_CONFIG } from "@/lib/spec-tree/config";
@@ -70,10 +71,14 @@ export function renderSpecStatus(
       return formatTable(projection);
     case OUTPUT_FORMAT.TEXT:
       return formatText(projection);
+    default: {
+      const unsupportedFormat: never = format;
+      throw new RangeError(`Unsupported spec status output format: ${unsupportedFormat}`);
+    }
   }
 }
 
-async function readCommandSnapshot(options: StatusOptions) {
+async function readCommandSnapshot(options: StatusOptions): Promise<SpecTreeSnapshot> {
   const productDir = options.cwd ?? process.cwd();
   const source = options.source ?? createFilesystemSpecTreeSource({ productDir });
   return readSpecTree({ source });
