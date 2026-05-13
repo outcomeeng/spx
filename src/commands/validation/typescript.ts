@@ -97,7 +97,12 @@ export async function typescriptCommand(options: TypeScriptCommandOptions): Prom
     return { exitCode: 0, output: skipMessage, durationMs: Date.now() - startTime };
   }
 
-  const result = await validateTypeScript(scope, cwd, filteredFiles, undefined, undefined, undefined, scopeConfig);
+  const result = await validateTypeScript({
+    scope,
+    projectRoot: cwd,
+    files: filteredFiles,
+    scopeConfig,
+  });
   const durationMs = Date.now() - startTime;
 
   // Map result to command output

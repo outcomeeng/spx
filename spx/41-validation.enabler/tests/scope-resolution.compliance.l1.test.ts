@@ -110,11 +110,11 @@ describe("ALWAYS: TypeScript scope resolution uses the requested project root", 
       const deps = createRootRecordingDeps(env.projectDir, checkedPaths);
 
       const result = await validateTypeScript(
-        VALIDATION_SCOPES.FULL,
-        env.projectDir,
-        undefined,
-        runner,
-        deps,
+        {
+          scope: VALIDATION_SCOPES.FULL,
+          projectRoot: env.projectDir,
+        },
+        { runner, deps },
       );
 
       expect(result.success).toBe(true);
@@ -131,11 +131,12 @@ describe("ALWAYS: TypeScript scope resolution uses the requested project root", 
       const deps = createRootRecordingDeps(env.projectDir, checkedPaths);
 
       const result = await validateTypeScript(
-        VALIDATION_SCOPES.FULL,
-        env.projectDir,
-        [VALIDATION_PIPELINE_DATA.scopeResolutionSourceFile],
-        runner,
-        deps,
+        {
+          scope: VALIDATION_SCOPES.FULL,
+          projectRoot: env.projectDir,
+          files: [VALIDATION_PIPELINE_DATA.scopeResolutionSourceFile],
+        },
+        { runner, deps },
       );
 
       expect(result.success).toBe(true);
@@ -166,18 +167,17 @@ describe("ALWAYS: TypeScript scope resolution uses the requested project root", 
       );
 
       const result = await validateTypeScript(
-        VALIDATION_SCOPES.FULL,
-        env.projectDir,
-        undefined,
-        runner,
-        deps,
-        undefined,
         {
-          directories: [VALIDATION_PIPELINE_DATA.sourceDirectoryName],
-          filePatterns: [VALIDATION_PIPELINE_DATA.productionScopeFilePattern],
-          excludePatterns: [VALIDATION_PIPELINE_DATA.productionScopeExcludePattern],
-          filteredByValidationPaths: true,
+          scope: VALIDATION_SCOPES.FULL,
+          projectRoot: env.projectDir,
+          scopeConfig: {
+            directories: [VALIDATION_PIPELINE_DATA.sourceDirectoryName],
+            filePatterns: [VALIDATION_PIPELINE_DATA.productionScopeFilePattern],
+            excludePatterns: [VALIDATION_PIPELINE_DATA.productionScopeExcludePattern],
+            filteredByValidationPaths: true,
+          },
         },
+        { runner, deps },
       );
 
       expect(result.success).toBe(true);
@@ -201,20 +201,19 @@ describe("ALWAYS: TypeScript scope resolution uses the requested project root", 
       const runner = new RecordingSpawnOptionsRunner();
 
       const result = await validateTypeScript(
-        VALIDATION_SCOPES.FULL,
-        env.projectDir,
-        undefined,
-        runner,
-        defaultTypeScriptDeps,
-        undefined,
         {
-          directories: [],
-          filePatterns: [],
-          excludePatterns: [],
-          filteredByValidationPaths: true,
-          filteredByValidationPathIncludes: true,
-          filteredByValidationPathNoMatches: true,
+          scope: VALIDATION_SCOPES.FULL,
+          projectRoot: env.projectDir,
+          scopeConfig: {
+            directories: [],
+            filePatterns: [],
+            excludePatterns: [],
+            filteredByValidationPaths: true,
+            filteredByValidationPathIncludes: true,
+            filteredByValidationPathNoMatches: true,
+          },
         },
+        { runner, deps: defaultTypeScriptDeps },
       );
 
       expect(result.success).toBe(true);
