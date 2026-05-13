@@ -55,6 +55,8 @@ const SPEC_TREE_TEST_GENERATOR_OPTIONS = {
   ASSEMBLY_PROPERTY_RUN_COUNT: 25,
 } as const;
 
+const ASSEMBLY_NODE_ORDER_COUNT: 3 = SPEC_TREE_TEST_GENERATOR_OPTIONS.ASSEMBLY_ORDER_COUNT;
+
 export const SPEC_TREE_TEST_GENERATOR = {
   counts: {
     assemblyPropertyRunCount: SPEC_TREE_TEST_GENERATOR_OPTIONS.ASSEMBLY_PROPERTY_RUN_COUNT,
@@ -260,20 +262,14 @@ function arbitraryRepresentativeFixture(registry: SpecTreeRegistry): fc.Arbitrar
 function arbitraryAssemblyNodeOrders(): fc.Arbitrary<AssemblyNodeOrders> {
   return fc
     .uniqueArray(arbitrarySourceOrder(), {
-      minLength: SPEC_TREE_TEST_GENERATOR_OPTIONS.ASSEMBLY_ORDER_COUNT,
-      maxLength: SPEC_TREE_TEST_GENERATOR_OPTIONS.ASSEMBLY_ORDER_COUNT,
+      minLength: ASSEMBLY_NODE_ORDER_COUNT,
+      maxLength: ASSEMBLY_NODE_ORDER_COUNT,
     })
     .map(toAssemblyNodeOrders);
 }
 
 function toAssemblyNodeOrders(orders: readonly number[]): AssemblyNodeOrders {
-  if (orders.length !== SPEC_TREE_TEST_GENERATOR_OPTIONS.ASSEMBLY_ORDER_COUNT) {
-    throw new Error("Spec-tree assembly order generator produced an unexpected arity");
-  }
-  const [rootOrder, childOrder, peerOrder] = orders;
-  if (rootOrder === undefined || childOrder === undefined || peerOrder === undefined) {
-    throw new Error("Spec-tree assembly order generator produced an incomplete order set");
-  }
+  const [rootOrder, childOrder, peerOrder] = orders as readonly [number, number, number];
   return { rootOrder, childOrder, peerOrder };
 }
 
