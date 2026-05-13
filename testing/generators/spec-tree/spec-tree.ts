@@ -53,7 +53,9 @@ const SPEC_TREE_TEST_GENERATOR_OPTIONS = {
   CHILD_ORDER_OFFSET: 1,
   ASSEMBLY_ORDER_COUNT: 3,
   ASSEMBLY_PROPERTY_RUN_COUNT: 25,
+  UNREGISTERED_SUFFIX_MAX_LENGTH: 8,
 } as const;
+const SPEC_TREE_TEST_SUFFIX_CHARACTERS = [..."abcdefghijklmnopqrstuvwxyz-"];
 
 const ASSEMBLY_NODE_ORDER_COUNT: 3 = SPEC_TREE_TEST_GENERATOR_OPTIONS.ASSEMBLY_ORDER_COUNT;
 
@@ -341,7 +343,11 @@ function arbitraryUnregisteredNodeSuffix(registry: SpecTreeRegistry): fc.Arbitra
       .filter((definition) => definition.category === SPEC_TREE_KIND_CATEGORY.NODE)
       .map((definition) => definition.suffix),
   );
-  return arbitrarySourceSlug()
+  return fc.string({
+    unit: fc.constantFrom(...SPEC_TREE_TEST_SUFFIX_CHARACTERS),
+    minLength: 1,
+    maxLength: SPEC_TREE_TEST_GENERATOR_OPTIONS.UNREGISTERED_SUFFIX_MAX_LENGTH,
+  })
     .map((slug) => `.${slug}`)
     .filter((suffix) => !nodeSuffixes.has(suffix));
 }
