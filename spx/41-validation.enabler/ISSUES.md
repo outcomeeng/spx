@@ -26,9 +26,6 @@ The review on
 identified follow-ups after the managed subprocess and validation path-filter
 cleanup:
 
-- `validateTypeScript` has positional optional parameters through
-  `scopeConfig`; convert the trailing parameters to an options object before
-  adding more TypeScript validation dependencies.
 - `createScopedKnipTsconfig` cleanup runs from both `error` and `close`
   handlers; guard cleanup so one process handle cannot resolve cleanup twice.
 - `applyValidationPathFilterToScope` falls back from file patterns to directory
