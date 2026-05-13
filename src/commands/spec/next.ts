@@ -1,3 +1,4 @@
+import type { GitDependencies } from "@/git/root";
 import {
   createFilesystemSpecTreeSource,
   findNextSpecTreeNode,
@@ -22,6 +23,7 @@ const INDENT = "  ";
 
 export interface NextOptions {
   cwd?: string;
+  gitDependencies?: GitDependencies;
   onWarning?: SpecProductDirWarningHandler;
   source?: SpecTreeSource;
 }
@@ -32,7 +34,11 @@ export async function nextCommand(options: NextOptions = {}): Promise<string> {
     return formatNextSpecTreeNode(snapshot);
   }
 
-  const productDir = await resolveSpecProductDir(options.cwd ?? process.cwd(), options.onWarning);
+  const productDir = await resolveSpecProductDir(
+    options.cwd ?? process.cwd(),
+    options.onWarning,
+    options.gitDependencies,
+  );
   const source = createFilesystemSpecTreeSource({ productDir });
   const snapshot = await readSpecTree({ source });
 

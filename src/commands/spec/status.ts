@@ -1,3 +1,4 @@
+import type { GitDependencies } from "@/git/root";
 import {
   createFilesystemSpecTreeSource,
   projectSpecTree,
@@ -44,6 +45,7 @@ export type OutputFormat = (typeof OUTPUT_FORMAT)[keyof typeof OUTPUT_FORMAT];
 export interface StatusOptions {
   cwd?: string;
   format?: OutputFormat;
+  gitDependencies?: GitDependencies;
   onWarning?: SpecProductDirWarningHandler;
   source?: SpecTreeSource;
 }
@@ -85,7 +87,11 @@ async function readCommandSnapshot(options: StatusOptions): Promise<SpecTreeSnap
     return readSpecTree({ source: options.source });
   }
 
-  const productDir = await resolveSpecProductDir(options.cwd ?? process.cwd(), options.onWarning);
+  const productDir = await resolveSpecProductDir(
+    options.cwd ?? process.cwd(),
+    options.onWarning,
+    options.gitDependencies,
+  );
   const source = createFilesystemSpecTreeSource({ productDir });
   return readSpecTree({ source });
 }
