@@ -36,8 +36,8 @@ export async function nextCommand(options: NextOptions = {}): Promise<string> {
 
   const productDir = await resolveSpecProductDir(
     options.cwd ?? process.cwd(),
-    options.onWarning,
     options.gitDependencies,
+    options.onWarning,
   );
   const source = createFilesystemSpecTreeSource({ productDir });
   const snapshot = await readSpecTree({ source });

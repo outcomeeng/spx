@@ -10,8 +10,8 @@ export type SpecProductDirWarningHandler = (warning: string) => void;
 
 export async function resolveSpecProductDir(
   cwd: string,
-  onWarning?: SpecProductDirWarningHandler,
   gitDependencies?: GitDependencies,
+  onWarning?: SpecProductDirWarningHandler,
 ): Promise<string> {
   const result = await detectGitRoot(cwd, gitDependencies);
   if (!result.isGitRepo) {

@@ -89,8 +89,8 @@ async function readCommandSnapshot(options: StatusOptions): Promise<SpecTreeSnap
 
   const productDir = await resolveSpecProductDir(
     options.cwd ?? process.cwd(),
-    options.onWarning,
     options.gitDependencies,
+    options.onWarning,
   );
   const source = createFilesystemSpecTreeSource({ productDir });
   return readSpecTree({ source });
