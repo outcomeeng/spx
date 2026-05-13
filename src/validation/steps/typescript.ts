@@ -105,7 +105,7 @@ function resolveInheritedTypeRoots(
   let inheritedTypeRoots: readonly string[] | undefined;
   for (const extendedConfig of normalizeExtends(config.extends)) {
     const extendedTypeRoots = resolveInheritedTypeRoots(
-      resolveExtendedConfigPath(projectRoot, configPath, extendedConfig),
+      resolveExtendedConfigPath(configPath, extendedConfig),
       projectRoot,
       deps,
       new Set([...visitedConfigs, configPath]),
@@ -135,14 +135,11 @@ function normalizeExtends(extendsConfig: string | readonly string[] | undefined)
   return typeof extendsConfig === "string" ? [extendsConfig] : extendsConfig;
 }
 
-function resolveExtendedConfigPath(projectRoot: string, configPath: string, extendedConfig: string): string {
+function resolveExtendedConfigPath(configPath: string, extendedConfig: string): string {
   if (isAbsolute(extendedConfig)) {
     return extendedConfig;
   }
-  if (extendedConfig.startsWith(".")) {
-    return join(dirname(configPath), extendedConfig);
-  }
-  return join(projectRoot, extendedConfig);
+  return join(dirname(configPath), extendedConfig);
 }
 
 function resolveTypeRootPath(configPath: string, typeRoot: string): string {

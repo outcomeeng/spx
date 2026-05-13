@@ -1,5 +1,48 @@
 # Known Issues: 41-validation.enabler
 
+## Release note: validation env toggles moved to config
+
+`KNIP_VALIDATION_ENABLED` and `LITERAL_VALIDATION_ENABLED` are no longer
+validation controls. Projects configure these stages through `spx.config.*`:
+
+- `validation.knip.enabled`
+- `validation.literal.enabled`
+
+**Migration impact:** projects that enabled Knip with
+`KNIP_VALIDATION_ENABLED=1` must set `validation.knip.enabled: true`. Projects
+that disabled literal validation with `LITERAL_VALIDATION_ENABLED=0` must set
+`validation.literal.enabled: false`.
+
+**Release requirement:** include this migration note in the next published
+release notes before tagging a release that contains the config-descriptor
+replacement.
+
+---
+
+## PR 19 review follow-ups for validation path filtering
+
+The review on
+[`outcomeeng/spx#19`](https://github.com/outcomeeng/spx/pull/19#issuecomment-4437790114)
+identified follow-ups after the managed subprocess and validation path-filter
+cleanup:
+
+- `validateTypeScript` has positional optional parameters through
+  `scopeConfig`; convert the trailing parameters to an options object before
+  adding more TypeScript validation dependencies.
+- `createScopedKnipTsconfig` cleanup runs from both `error` and `close`
+  handlers; guard cleanup so one process handle cannot resolve cleanup twice.
+- `applyValidationPathFilterToScope` falls back from file patterns to directory
+  names; confirm the TypeScript temp `include` semantics recurse the same way
+  ESLint directory targets do, or normalize directory fallbacks to recursive
+  globs before writing temp tsconfig files.
+- `eslint.config.production.ts` participates in production lint selection; add
+  a compliance assertion in the lint enabler or validation configuration ADR if
+  it is the durable production linting contract.
+
+**Scope:** follow-up work, not part of the managed subprocess lifecycle fix.
+
+---
+
 ## `allCommand` hardcodes stage dispatch (ADR-19 violation)
 
 `src/commands/validation/all.ts` imports each stage handler by name and invokes it in a fixed sequence. This violates [ADR-19 language registration](../19-language-registration.adr.md), which mandates:
