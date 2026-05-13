@@ -51,11 +51,6 @@ export async function statusCommand(
 ): Promise<string> {
   const snapshot = await readCommandSnapshot(options);
   const projection = projectSpecTree(snapshot);
-
-  if (projection.nodes.length === 0) {
-    return SPEC_STATUS_MESSAGE.EMPTY;
-  }
-
   return renderSpecStatus(projection, options.format);
 }
 
@@ -63,6 +58,10 @@ export function renderSpecStatus(
   projection: SpecTreeProjection,
   format: OutputFormat = DEFAULT_FORMAT,
 ): string {
+  if (projection.nodes.length === 0) {
+    return SPEC_STATUS_MESSAGE.EMPTY;
+  }
+
   switch (format) {
     case OUTPUT_FORMAT.JSON:
       return formatJSON(projection);

@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { OUTPUT_FORMAT, renderSpecStatus, SPEC_STATUS_TABLE_HEADER } from "@/commands/spec/status";
+import { OUTPUT_FORMAT, renderSpecStatus, SPEC_STATUS_MESSAGE, SPEC_STATUS_TABLE_HEADER } from "@/commands/spec/status";
 import { projectSpecTree, readSpecTree, SPEC_TREE_NODE_STATE } from "@/lib/spec-tree";
 import { KIND_REGISTRY } from "@/lib/spec-tree/config";
 import { buildRepresentativeFixture, createSource } from "@testing/generators/spec-tree/spec-tree";
@@ -26,5 +26,11 @@ describe("spec status rendering", () => {
     expect(markdown).toContain(`- ${KIND_REGISTRY[fixture.root.kind].label}`);
     expect(markdown).toContain(fixture.root.id);
     expect(markdown).toContain(fixture.child.id);
+  });
+
+  it("maps empty spec-tree projections to the empty status message", async () => {
+    const projection = projectSpecTree(await readSpecTree({ source: createSource([]) }));
+
+    expect(renderSpecStatus(projection)).toBe(SPEC_STATUS_MESSAGE.EMPTY);
   });
 });
