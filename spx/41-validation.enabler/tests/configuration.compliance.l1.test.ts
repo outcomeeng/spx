@@ -38,7 +38,7 @@ function validationConfigSection(section: string, enabled: boolean): Config {
 describe("ALWAYS: validation command participation is driven by spx config", () => {
   it("resolves literal enabled and knip disabled from descriptor defaults", async () => {
     await withLiteralFixtureEnv({}, async (env) => {
-      const resolved = await resolveConfig(env.projectDir, [validationConfigDescriptor]);
+      const resolved = await resolveConfig(env.productDir, [validationConfigDescriptor]);
 
       expect(resolved.ok).toBe(true);
       if (resolved.ok) {
@@ -55,7 +55,7 @@ describe("ALWAYS: validation command participation is driven by spx config", () 
       async (env) => {
         await env.writeTsConfigMarker();
 
-        const result = await literalCommand({ cwd: env.projectDir });
+        const result = await literalCommand({ cwd: env.productDir });
 
         expect(result.exitCode).toBe(0);
         expect(result.output).toBe(LITERAL_DISABLED_MESSAGE);
@@ -68,7 +68,7 @@ describe("ALWAYS: validation command participation is driven by spx config", () 
       await env.writeTsConfigMarker();
 
       const result = await literalCommand({
-        cwd: env.projectDir,
+        cwd: env.productDir,
         config: LITERAL_DEFAULTS,
         enabled: false,
       });
@@ -82,7 +82,7 @@ describe("ALWAYS: validation command participation is driven by spx config", () 
     await withLiteralFixtureEnv(
       validationConfigSection(VALIDATION_KNIP_SUBSECTION, false),
       async (env) => {
-        const result = await knipCommand({ cwd: env.projectDir });
+        const result = await knipCommand({ cwd: env.productDir });
 
         expect(result.exitCode).toBe(0);
         expect(result.output).toBe(VALIDATION_COMMAND_OUTPUT.KNIP_DISABLED);
@@ -102,7 +102,7 @@ describe("ALWAYS: validation command participation is driven by spx config", () 
         },
       },
       async (env) => {
-        const resolved = await resolveConfig(env.projectDir, [validationConfigDescriptor]);
+        const resolved = await resolveConfig(env.productDir, [validationConfigDescriptor]);
 
         expect(resolved.ok).toBe(true);
         if (resolved.ok) {
@@ -133,7 +133,7 @@ describe("ALWAYS: validation command participation is driven by spx config", () 
         await env.writeSourceFile(sourceFilePath, reuseLiteral);
         await env.writeTestFile(testFilePath, reuseLiteral);
 
-        const result = await literalCommand({ cwd: env.projectDir, json: true });
+        const result = await literalCommand({ cwd: env.productDir, json: true });
 
         expect(result.exitCode).toBe(VALIDATION_EXIT_CODES.SUCCESS);
         expect(JSON.parse(result.output)).toEqual({ srcReuse: [], testDupe: [] });
@@ -158,7 +158,7 @@ describe("ALWAYS: validation command participation is driven by spx config", () 
         await env.writeRaw(`${specTreeDirectory}/${validMarkdownSlug}${MARKDOWN_PRIMARY_FILE_EXTENSION}`, "# Good\n");
         await env.writeRaw(`${docsDirectory}/${invalidMarkdownSlug}${MARKDOWN_PRIMARY_FILE_EXTENSION}`, "# Bad  \n");
 
-        const result = await markdownCommand({ cwd: env.projectDir, quiet: true });
+        const result = await markdownCommand({ cwd: env.productDir, quiet: true });
 
         expect(result.exitCode).toBe(VALIDATION_EXIT_CODES.SUCCESS);
       },

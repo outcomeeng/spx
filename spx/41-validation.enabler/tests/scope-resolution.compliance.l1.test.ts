@@ -70,7 +70,7 @@ describe("ALWAYS: TypeScript scope resolution uses the requested project root", 
     await withTestEnv({}, async (env) => {
       await env.writeRaw(VALIDATION_PIPELINE_DATA.scopeResolutionSourceFile, "");
 
-      const scope = getTypeScriptScope(VALIDATION_SCOPES.FULL, env.projectDir);
+      const scope = getTypeScriptScope(VALIDATION_SCOPES.FULL, env.productDir);
 
       expect(scope.directories).toContain(VALIDATION_PIPELINE_DATA.scopeResolutionDirectoryName);
     });
@@ -94,7 +94,7 @@ describe("ALWAYS: TypeScript scope resolution uses the requested project root", 
         JSON.stringify({ extends: ["./base-includes.json", "./base-excludes.json"] }),
       );
 
-      const scope = getTypeScriptScope(VALIDATION_SCOPES.PRODUCTION, env.projectDir);
+      const scope = getTypeScriptScope(VALIDATION_SCOPES.PRODUCTION, env.productDir);
 
       expect(scope.filePatterns).toEqual([VALIDATION_PIPELINE_DATA.productionScopeFilePattern]);
       expect(scope.excludePatterns).toEqual([VALIDATION_PIPELINE_DATA.productionScopeExcludePattern]);
@@ -116,7 +116,7 @@ describe("ALWAYS: TypeScript scope resolution uses the requested project root", 
         }),
       );
 
-      const scope = getTypeScriptScope(VALIDATION_SCOPES.PRODUCTION, env.projectDir);
+      const scope = getTypeScriptScope(VALIDATION_SCOPES.PRODUCTION, env.productDir);
 
       expect(scope.excludePatterns).toEqual([VALIDATION_PIPELINE_DATA.productionScopeExcludePattern]);
     });
@@ -126,20 +126,20 @@ describe("ALWAYS: TypeScript scope resolution uses the requested project root", 
     await withTestEnv({}, async (env) => {
       const runner = new RecordingSpawnOptionsRunner();
       const checkedPaths: string[] = [];
-      const deps = createRootRecordingDeps(env.projectDir, checkedPaths);
+      const deps = createRootRecordingDeps(env.productDir, checkedPaths);
 
       const result = await validateTypeScript(
         {
           scope: VALIDATION_SCOPES.FULL,
-          projectRoot: env.projectDir,
+          projectRoot: env.productDir,
         },
         { runner, deps },
       );
 
       expect(result.success).toBe(true);
-      expect(checkedPaths.every((path) => path.startsWith(env.projectDir))).toBe(true);
-      expect(runner.commands.every((command) => command.startsWith(env.projectDir))).toBe(true);
-      expect(runner.options.every((options) => options.cwd === env.projectDir)).toBe(true);
+      expect(checkedPaths.every((path) => path.startsWith(env.productDir))).toBe(true);
+      expect(runner.commands.every((command) => command.startsWith(env.productDir))).toBe(true);
+      expect(runner.options.every((options) => options.cwd === env.productDir)).toBe(true);
     });
   });
 
@@ -147,21 +147,21 @@ describe("ALWAYS: TypeScript scope resolution uses the requested project root", 
     await withTestEnv({}, async (env) => {
       const runner = new RecordingSpawnOptionsRunner();
       const checkedPaths: string[] = [];
-      const deps = createRootRecordingDeps(env.projectDir, checkedPaths);
+      const deps = createRootRecordingDeps(env.productDir, checkedPaths);
 
       const result = await validateTypeScript(
         {
           scope: VALIDATION_SCOPES.FULL,
-          projectRoot: env.projectDir,
+          projectRoot: env.productDir,
           files: [VALIDATION_PIPELINE_DATA.scopeResolutionSourceFile],
         },
         { runner, deps },
       );
 
       expect(result.success).toBe(true);
-      expect(checkedPaths.every((path) => path.startsWith(env.projectDir))).toBe(true);
-      expect(runner.commands.every((command) => command.startsWith(env.projectDir))).toBe(true);
-      expect(runner.options.every((options) => options.cwd === env.projectDir)).toBe(true);
+      expect(checkedPaths.every((path) => path.startsWith(env.productDir))).toBe(true);
+      expect(runner.commands.every((command) => command.startsWith(env.productDir))).toBe(true);
+      expect(runner.options.every((options) => options.cwd === env.productDir)).toBe(true);
     });
   });
 
@@ -188,7 +188,7 @@ describe("ALWAYS: TypeScript scope resolution uses the requested project root", 
       const result = await validateTypeScript(
         {
           scope: VALIDATION_SCOPES.FULL,
-          projectRoot: env.projectDir,
+          projectRoot: env.productDir,
           scopeConfig: {
             directories: [VALIDATION_PIPELINE_DATA.sourceDirectoryName],
             filePatterns: [VALIDATION_PIPELINE_DATA.productionScopeFilePattern],
@@ -200,17 +200,17 @@ describe("ALWAYS: TypeScript scope resolution uses the requested project root", 
       );
 
       expect(result.success).toBe(true);
-      expect(runner.options.every((options) => options.cwd === env.projectDir)).toBe(true);
+      expect(runner.options.every((options) => options.cwd === env.productDir)).toBe(true);
       expect(writtenConfigs).toHaveLength(1);
       const writtenConfig = JSON.parse(writtenConfigs[0] ?? "{}");
       expect(writtenConfig).toMatchObject({
-        extends: join(env.projectDir, TSCONFIG_FILES.full),
-        include: [join(env.projectDir, VALIDATION_PIPELINE_DATA.productionScopeFilePattern)],
-        exclude: [join(env.projectDir, VALIDATION_PIPELINE_DATA.productionScopeExcludePattern)],
+        extends: join(env.productDir, TSCONFIG_FILES.full),
+        include: [join(env.productDir, VALIDATION_PIPELINE_DATA.productionScopeFilePattern)],
+        exclude: [join(env.productDir, VALIDATION_PIPELINE_DATA.productionScopeExcludePattern)],
       });
       expect(writtenConfig.compilerOptions).toEqual({
         noEmit: true,
-        typeRoots: [join(env.projectDir, VALIDATION_PIPELINE_DATA.sourceDirectoryName)],
+        typeRoots: [join(env.productDir, VALIDATION_PIPELINE_DATA.sourceDirectoryName)],
       });
     });
   });
@@ -222,7 +222,7 @@ describe("ALWAYS: TypeScript scope resolution uses the requested project root", 
       const result = await validateTypeScript(
         {
           scope: VALIDATION_SCOPES.FULL,
-          projectRoot: env.projectDir,
+          projectRoot: env.productDir,
           scopeConfig: {
             directories: [],
             filePatterns: [],
@@ -260,7 +260,7 @@ describe("ALWAYS: TypeScript scope resolution uses the requested project root", 
         );
         await env.writeRaw(testFilePath, "expect(true).toBe(true);\n");
 
-        const result = await typescriptCommand({ cwd: env.projectDir, files: [testFilePath] });
+        const result = await typescriptCommand({ cwd: env.productDir, files: [testFilePath] });
 
         expect(result.exitCode).toBe(VALIDATION_EXIT_CODES.SUCCESS);
         expect(result.output).toBe(TYPESCRIPT_VALIDATION_MESSAGES.NO_VALIDATION_PATH_TARGETS);
@@ -285,7 +285,7 @@ describe("ALWAYS: TypeScript scope resolution uses the requested project root", 
         );
         await env.writeRaw(VALIDATION_PIPELINE_DATA.scopeResolutionSourceFile, "");
 
-        const result = await typescriptCommand({ cwd: env.projectDir });
+        const result = await typescriptCommand({ cwd: env.productDir });
 
         expect(result.exitCode).toBe(VALIDATION_EXIT_CODES.SUCCESS);
         expect(result.output).toBe(TYPESCRIPT_VALIDATION_MESSAGES.NO_VALIDATION_PATH_TARGETS);
@@ -308,7 +308,7 @@ describe("ALWAYS: TypeScript scope resolution uses the requested project root", 
 
       const result = await validateKnip(
         {
-          projectRoot: env.projectDir,
+          projectRoot: env.productDir,
           typescriptScope: {
             directories: [VALIDATION_PIPELINE_DATA.sourceDirectoryName],
             filePatterns: [VALIDATION_PIPELINE_DATA.productionScopeFilePattern],
@@ -321,7 +321,7 @@ describe("ALWAYS: TypeScript scope resolution uses the requested project root", 
       );
 
       expect(result.success).toBe(true);
-      expect(runner.options.every((options) => options.cwd === env.projectDir)).toBe(true);
+      expect(runner.options.every((options) => options.cwd === env.productDir)).toBe(true);
       expect(runner.args[0]?.slice(0, 3)).toEqual([
         KNIP_COMMAND_TOKENS.COMMAND,
         KNIP_COMMAND_TOKENS.USE_TSCONFIG_FILES_FLAG,
@@ -329,9 +329,9 @@ describe("ALWAYS: TypeScript scope resolution uses the requested project root", 
       ]);
       expect(writtenConfigs).toHaveLength(1);
       expect(JSON.parse(writtenConfigs[0] ?? "{}")).toEqual({
-        extends: join(env.projectDir, TSCONFIG_FILES.full),
-        include: [join(env.projectDir, VALIDATION_PIPELINE_DATA.productionScopeFilePattern)],
-        exclude: [join(env.projectDir, VALIDATION_PIPELINE_DATA.productionScopeExcludePattern)],
+        extends: join(env.productDir, TSCONFIG_FILES.full),
+        include: [join(env.productDir, VALIDATION_PIPELINE_DATA.productionScopeFilePattern)],
+        exclude: [join(env.productDir, VALIDATION_PIPELINE_DATA.productionScopeExcludePattern)],
       });
     });
   });
@@ -352,7 +352,7 @@ describe("ALWAYS: TypeScript scope resolution uses the requested project root", 
 
       const result = await validateKnip(
         {
-          projectRoot: env.projectDir,
+          projectRoot: env.productDir,
           typescriptScope: {
             directories: [VALIDATION_PIPELINE_DATA.sourceDirectoryName],
             filePatterns: [VALIDATION_PIPELINE_DATA.productionScopeFilePattern],
@@ -366,7 +366,7 @@ describe("ALWAYS: TypeScript scope resolution uses the requested project root", 
 
       expect(result).toEqual({ success: false, error: errorMessage });
       expect(cleanupTargets).toHaveLength(1);
-      expect(runner.options.every((options) => options.cwd === env.projectDir)).toBe(true);
+      expect(runner.options.every((options) => options.cwd === env.productDir)).toBe(true);
     });
   });
 
@@ -387,16 +387,16 @@ describe("ALWAYS: TypeScript scope resolution uses the requested project root", 
           filePatterns: [],
           excludePatterns: [],
         },
-        env.projectDir,
+        env.productDir,
         deps,
       );
 
       expect(result.success).toBe(true);
       expect(dependencyGraphCalls).toHaveLength(1);
       const [paths, config] = dependencyGraphCalls[0] ?? [];
-      expect(paths).toEqual([join(env.projectDir, VALIDATION_PIPELINE_DATA.scopeResolutionDirectoryName)]);
-      expect(config?.baseDir).toBe(env.projectDir);
-      expect(config?.tsConfig).toBe(join(env.projectDir, VALIDATION_PIPELINE_DATA.fullTsconfigFile));
+      expect(paths).toEqual([join(env.productDir, VALIDATION_PIPELINE_DATA.scopeResolutionDirectoryName)]);
+      expect(config?.baseDir).toBe(env.productDir);
+      expect(config?.tsConfig).toBe(join(env.productDir, VALIDATION_PIPELINE_DATA.fullTsconfigFile));
     });
   });
 });

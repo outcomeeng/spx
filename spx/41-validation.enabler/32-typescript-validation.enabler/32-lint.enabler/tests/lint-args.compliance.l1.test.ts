@@ -212,12 +212,12 @@ describe("ESLint command arguments", () => {
       await env.writeRaw("eslint.config.ts", "export default [];\n");
       await env.writeRaw("src/index.ts", "export const lintCommandProjectRoot = 1;\n");
       await env.writeRaw(join(...ESLINT_LOCAL_BIN_SEGMENTS), "#!/bin/sh\npwd > eslint-cwd.txt\nexit 0\n");
-      await chmod(join(env.projectDir, ...ESLINT_LOCAL_BIN_SEGMENTS), 0o755);
+      await chmod(join(env.productDir, ...ESLINT_LOCAL_BIN_SEGMENTS), 0o755);
 
-      const result = await lintCommand({ cwd: env.projectDir, quiet: true });
+      const result = await lintCommand({ cwd: env.productDir, quiet: true });
 
       expect(result.exitCode).toBe(VALIDATION_EXIT_CODES.SUCCESS);
-      expect((await env.readFile("eslint-cwd.txt")).trim()).toBe(await realpath(env.projectDir));
+      expect((await env.readFile("eslint-cwd.txt")).trim()).toBe(await realpath(env.productDir));
     });
   });
 
@@ -237,9 +237,9 @@ describe("ESLint command arguments", () => {
         join(...ESLINT_LOCAL_BIN_SEGMENTS),
         "#!/bin/sh\nprintf '%s\\n' \"$@\" > eslint-args.txt\nexit 0\n",
       );
-      await chmod(join(env.projectDir, ...ESLINT_LOCAL_BIN_SEGMENTS), 0o755);
+      await chmod(join(env.productDir, ...ESLINT_LOCAL_BIN_SEGMENTS), 0o755);
 
-      const result = await lintCommand({ cwd: env.projectDir, scope: VALIDATION_SCOPES.PRODUCTION, quiet: true });
+      const result = await lintCommand({ cwd: env.productDir, scope: VALIDATION_SCOPES.PRODUCTION, quiet: true });
 
       expect(result.exitCode).toBe(VALIDATION_EXIT_CODES.SUCCESS);
       expect((await env.readFile("eslint-args.txt")).trim().split("\n")).toStrictEqual([
@@ -272,9 +272,9 @@ describe("ESLint command arguments", () => {
         join(...ESLINT_LOCAL_BIN_SEGMENTS),
         "#!/bin/sh\nprintf '%s\\n' \"$@\" > eslint-args.txt\nexit 0\n",
       );
-      await chmod(join(env.projectDir, ...ESLINT_LOCAL_BIN_SEGMENTS), 0o755);
+      await chmod(join(env.productDir, ...ESLINT_LOCAL_BIN_SEGMENTS), 0o755);
 
-      const result = await lintCommand({ cwd: env.projectDir, scope: VALIDATION_SCOPES.PRODUCTION, quiet: true });
+      const result = await lintCommand({ cwd: env.productDir, scope: VALIDATION_SCOPES.PRODUCTION, quiet: true });
 
       expect(result.exitCode).toBe(VALIDATION_EXIT_CODES.SUCCESS);
       expect((await env.readFile("eslint-args.txt")).trim().split("\n")).toContain(
@@ -302,9 +302,9 @@ describe("ESLint command arguments", () => {
         join(...ESLINT_LOCAL_BIN_SEGMENTS),
         "#!/bin/sh\nprintf '%s\\n' \"$@\" > eslint-args.txt\nexit 0\n",
       );
-      await chmod(join(env.projectDir, ...ESLINT_LOCAL_BIN_SEGMENTS), 0o755);
+      await chmod(join(env.productDir, ...ESLINT_LOCAL_BIN_SEGMENTS), 0o755);
 
-      const result = await lintCommand({ cwd: env.projectDir, scope: VALIDATION_SCOPES.PRODUCTION, quiet: true });
+      const result = await lintCommand({ cwd: env.productDir, scope: VALIDATION_SCOPES.PRODUCTION, quiet: true });
 
       expect(result.exitCode).toBe(VALIDATION_EXIT_CODES.SUCCESS);
       expect((await env.readFile("eslint-args.txt")).trim().split("\n")).toContain(
@@ -341,9 +341,9 @@ describe("ESLint command arguments", () => {
           join(...ESLINT_LOCAL_BIN_SEGMENTS),
           "#!/bin/sh\nprintf '%s\\n' \"$@\" > eslint-args.txt\nexit 0\n",
         );
-        await chmod(join(env.projectDir, ...ESLINT_LOCAL_BIN_SEGMENTS), 0o755);
+        await chmod(join(env.productDir, ...ESLINT_LOCAL_BIN_SEGMENTS), 0o755);
 
-        const result = await lintCommand({ cwd: env.projectDir, quiet: true });
+        const result = await lintCommand({ cwd: env.productDir, quiet: true });
 
         expect(result.exitCode).toBe(VALIDATION_EXIT_CODES.SUCCESS);
         expect((await env.readFile("eslint-args.txt")).trim().split("\n")).toStrictEqual([
@@ -385,13 +385,13 @@ describe("ESLint command arguments", () => {
           join(...ESLINT_LOCAL_BIN_SEGMENTS),
           "#!/bin/sh\nprintf '%s\\n' \"$@\" > eslint-args.txt\nexit 0\n",
         );
-        await chmod(join(env.projectDir, ...ESLINT_LOCAL_BIN_SEGMENTS), 0o755);
+        await chmod(join(env.productDir, ...ESLINT_LOCAL_BIN_SEGMENTS), 0o755);
 
-        const result = await lintCommand({ cwd: env.projectDir });
+        const result = await lintCommand({ cwd: env.productDir });
 
         expect(result.exitCode).toBe(VALIDATION_EXIT_CODES.SUCCESS);
         expect(result.output).toBe(formatValidationPathsNoTargetsSkipMessage(VALIDATION_STAGE_DISPLAY_NAMES.ESLINT));
-        expect(existsSync(join(env.projectDir, "eslint-args.txt"))).toBe(false);
+        expect(existsSync(join(env.productDir, "eslint-args.txt"))).toBe(false);
       },
     );
   });
@@ -421,13 +421,13 @@ describe("ESLint command arguments", () => {
           join(...ESLINT_LOCAL_BIN_SEGMENTS),
           "#!/bin/sh\nprintf '%s\\n' \"$@\" > eslint-args.txt\nexit 0\n",
         );
-        await chmod(join(env.projectDir, ...ESLINT_LOCAL_BIN_SEGMENTS), 0o755);
+        await chmod(join(env.productDir, ...ESLINT_LOCAL_BIN_SEGMENTS), 0o755);
 
-        const result = await lintCommand({ cwd: env.projectDir, files: [testFilePath] });
+        const result = await lintCommand({ cwd: env.productDir, files: [testFilePath] });
 
         expect(result.exitCode).toBe(VALIDATION_EXIT_CODES.SUCCESS);
         expect(result.output).toBe(formatValidationPathsNoTargetsSkipMessage(VALIDATION_STAGE_DISPLAY_NAMES.ESLINT));
-        expect(existsSync(join(env.projectDir, "eslint-args.txt"))).toBe(false);
+        expect(existsSync(join(env.productDir, "eslint-args.txt"))).toBe(false);
       },
     );
   });
@@ -453,9 +453,9 @@ describe("ESLint command arguments", () => {
           join(...ESLINT_LOCAL_BIN_SEGMENTS),
           "#!/bin/sh\nprintf '%s\\n' \"$@\" > eslint-args.txt\nexit 0\n",
         );
-        await chmod(join(env.projectDir, ...ESLINT_LOCAL_BIN_SEGMENTS), 0o755);
+        await chmod(join(env.productDir, ...ESLINT_LOCAL_BIN_SEGMENTS), 0o755);
 
-        const result = await lintCommand({ cwd: env.projectDir, files: [join(env.projectDir, sourceFilePath)] });
+        const result = await lintCommand({ cwd: env.productDir, files: [join(env.productDir, sourceFilePath)] });
 
         expect(result.exitCode).toBe(VALIDATION_EXIT_CODES.SUCCESS);
         expect((await env.readFile("eslint-args.txt")).trim().split("\n")).toStrictEqual([
