@@ -30,9 +30,15 @@ cleanup:
   names; confirm the TypeScript temp `include` semantics recurse the same way
   ESLint directory targets do, or normalize directory fallbacks to recursive
   globs before writing temp tsconfig files.
+- `validateKnip` returns success when `typescriptScope.directories` is empty,
+  even when filtered `filePatterns` still contains targets; gate the skip on
+  both collections so path-filtered file patterns still run Knip.
 - `eslint.config.production.ts` participates in production lint selection; add
   a compliance assertion in the lint enabler or validation configuration ADR if
   it is the durable production linting contract.
+- `hasValidationPathFilter` relies on `&&` binding before `||`; add explicit
+  parentheses around the metadata/no-match clause so the filter activation rule
+  is unambiguous to readers.
 
 **Scope:** follow-up work, not part of the managed subprocess lifecycle fix.
 
