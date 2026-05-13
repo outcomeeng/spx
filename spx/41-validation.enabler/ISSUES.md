@@ -26,8 +26,6 @@ The review on
 identified follow-ups after the managed subprocess and validation path-filter
 cleanup:
 
-- `createScopedKnipTsconfig` cleanup runs from both `error` and `close`
-  handlers; guard cleanup so one process handle cannot resolve cleanup twice.
 - `applyValidationPathFilterToScope` falls back from file patterns to directory
   names; confirm the TypeScript temp `include` semantics recurse the same way
   ESLint directory targets do, or normalize directory fallbacks to recursive
