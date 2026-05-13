@@ -114,6 +114,16 @@ async function runKnipSubprocess(
     cwd: projectRoot,
   });
   const cleanup = scopedTsconfig?.cleanup ?? (async () => {});
+  let cleanupStarted = false;
+  let resultResolved = false;
+
+  const cleanupOnce = async () => {
+    if (cleanupStarted) {
+      return;
+    }
+    cleanupStarted = true;
+    await cleanup();
+  };
 
   let knipOutput = "";
   let knipError = "";
@@ -127,24 +137,28 @@ async function runKnipSubprocess(
   });
 
   return new Promise((resolve) => {
+    const resolveAfterCleanup = (result: { success: boolean; error?: string }) => {
+      if (resultResolved) {
+        return;
+      }
+      resultResolved = true;
+      void cleanupOnce().finally(() => resolve(result));
+    };
+
     knipProcess.on("close", (code) => {
-      void cleanup().finally(() => {
-        if (code === 0) {
-          resolve({ success: true });
-        } else {
-          const errorOutput = knipOutput || knipError || "Unused code detected";
-          resolve({
-            success: false,
-            error: errorOutput,
-          });
-        }
-      });
+      if (code === 0) {
+        resolveAfterCleanup({ success: true });
+      } else {
+        const errorOutput = knipOutput || knipError || "Unused code detected";
+        resolveAfterCleanup({
+          success: false,
+          error: errorOutput,
+        });
+      }
     });
 
     knipProcess.on("error", (error) => {
-      void cleanup().finally(() => {
-        resolve({ success: false, error: error.message });
-      });
+      resolveAfterCleanup({ success: false, error: error.message });
     });
   });
 }

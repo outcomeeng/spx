@@ -1,9 +1,11 @@
+import type { ChildProcess, SpawnOptions } from "node:child_process";
 import { join } from "node:path";
 
 import { describe, expect, it } from "vitest";
 
 import { VALIDATION_EXIT_CODES } from "@/commands/validation/messages";
 import { TYPESCRIPT_VALIDATION_MESSAGES, typescriptCommand } from "@/commands/validation/typescript";
+import type { ProcessRunner } from "@/lib/process-lifecycle";
 import { VALIDATION_PATHS_SUBSECTION, validationConfigDescriptor } from "@/validation/config/descriptor";
 import { getTypeScriptScope, TSCONFIG_FILES } from "@/validation/config/scope";
 import {
@@ -13,12 +15,13 @@ import {
   validateCircularDependencies,
 } from "@/validation/steps/circular";
 import { KNIP_COMMAND_TOKENS, type KnipDeps, validateKnip } from "@/validation/steps/knip";
+import { VALIDATION_SUBPROCESS_EVENTS } from "@/validation/steps/subprocess-output";
 import { defaultTypeScriptDeps, type TypeScriptDeps, validateTypeScript } from "@/validation/steps/typescript";
 import { VALIDATION_SCOPES } from "@/validation/types";
 import { LITERAL_TEST_GENERATOR, sampleLiteralTestValue } from "@testing/generators/literal/literal";
 import { VALIDATION_PIPELINE_DATA } from "@testing/generators/validation/validation";
 import { withTestEnv } from "@testing/harnesses/spec-tree/spec-tree";
-import { RecordingSpawnOptionsRunner } from "@testing/harnesses/validation/subprocess";
+import { RecordingSpawnOptionsRunner, RecordingValidationChild } from "@testing/harnesses/validation/subprocess";
 
 function createRootRecordingDeps(projectRoot: string, checkedPaths: string[]): TypeScriptDeps {
   return {
@@ -44,6 +47,22 @@ function createDependencyGraphResult(): Awaited<ReturnType<CircularDependencyGra
     image: async () => "",
     svg: async () => Buffer.from(""),
   };
+}
+
+class ErrorThenCloseRunner implements ProcessRunner {
+  readonly options: SpawnOptions[] = [];
+
+  constructor(private readonly errorMessage: string) {}
+
+  spawn(_command: string, _args: readonly string[], options?: SpawnOptions): ChildProcess {
+    this.options.push(options ?? {});
+    const child = new RecordingValidationChild();
+    queueMicrotask(() => {
+      child.emit(VALIDATION_SUBPROCESS_EVENTS.ERROR, new Error(this.errorMessage));
+      child.emit(VALIDATION_SUBPROCESS_EVENTS.CLOSE, VALIDATION_EXIT_CODES.FAILURE);
+    });
+    return child.asChildProcess();
+  }
 }
 
 describe("ALWAYS: TypeScript scope resolution uses the requested project root", () => {
@@ -314,6 +333,40 @@ describe("ALWAYS: TypeScript scope resolution uses the requested project root", 
         include: [join(env.projectDir, VALIDATION_PIPELINE_DATA.productionScopeFilePattern)],
         exclude: [join(env.projectDir, VALIDATION_PIPELINE_DATA.productionScopeExcludePattern)],
       });
+    });
+  });
+
+  it("cleans config-filtered Knip temporary config once when error and close both fire", async () => {
+    const errorMessage = sampleLiteralTestValue(LITERAL_TEST_GENERATOR.domainLiteral());
+    await withTestEnv({}, async (env) => {
+      const runner = new ErrorThenCloseRunner(errorMessage);
+      const cleanupTargets: string[] = [];
+      const deps: KnipDeps = {
+        existsSync: () => false,
+        mkdtemp: defaultTypeScriptDeps.mkdtemp,
+        rm: async (path) => {
+          cleanupTargets.push(path.toString());
+        },
+        writeFile: async () => {},
+      };
+
+      const result = await validateKnip(
+        {
+          projectRoot: env.projectDir,
+          typescriptScope: {
+            directories: [VALIDATION_PIPELINE_DATA.sourceDirectoryName],
+            filePatterns: [VALIDATION_PIPELINE_DATA.productionScopeFilePattern],
+            excludePatterns: [VALIDATION_PIPELINE_DATA.productionScopeExcludePattern],
+            filteredByValidationPaths: true,
+          },
+        },
+        runner,
+        deps,
+      );
+
+      expect(result).toEqual({ success: false, error: errorMessage });
+      expect(cleanupTargets).toHaveLength(1);
+      expect(runner.options.every((options) => options.cwd === env.projectDir)).toBe(true);
     });
   });
 
