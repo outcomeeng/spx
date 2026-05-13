@@ -5,7 +5,7 @@ import { KIND_REGISTRY } from "@/lib/spec-tree/config";
 import { buildRepresentativeFixture, createSource } from "@testing/generators/spec-tree/spec-tree";
 
 describe("spec-tree stable surface", () => {
-  it("reads, projects, and selects the next node from a representative tree", async () => {
+  it("reads, projects, and selects the next root by tree order from a representative tree", async () => {
     const fixture = buildRepresentativeFixture(KIND_REGISTRY);
     const snapshot = await readSpecTree({
       source: createSource(fixture.entries),
@@ -27,6 +27,7 @@ describe("spec-tree stable surface", () => {
 
     expect(root.order).toBe(fixture.root.order);
     expect(peer.order).toBe(fixture.peer.order);
+    expect(root.order).toBeLessThan(peer.order);
     expect(root.state).toBe(SPEC_TREE_NODE_STATE.DECLARED);
     expect(root.children.map((node) => node.id)).toEqual([fixture.child.id]);
     expect(child.state).toBe(SPEC_TREE_NODE_STATE.PASSING);
