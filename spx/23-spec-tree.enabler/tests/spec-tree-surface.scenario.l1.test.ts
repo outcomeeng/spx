@@ -35,6 +35,7 @@ describe("spec-tree stable surface", () => {
 
     const projection = projectSpecTree(snapshot);
     const projectionProduct = expectDefined(projection.product);
+    // Tree-order selection returns the lower-order declared root before a later failing peer.
     const nextNode = expectDefined(findNextSpecTreeNode(snapshot));
 
     expect(projectionProduct.id).toBe(fixture.product.id);
