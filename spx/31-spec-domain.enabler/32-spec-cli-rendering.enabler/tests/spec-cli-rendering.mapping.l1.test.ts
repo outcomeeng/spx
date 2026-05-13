@@ -1,6 +1,12 @@
 import { describe, expect, it } from "vitest";
 
-import { OUTPUT_FORMAT, renderSpecStatus, SPEC_STATUS_MESSAGE, SPEC_STATUS_TABLE_HEADER } from "@/commands/spec/status";
+import {
+  OUTPUT_FORMAT,
+  type OutputFormat,
+  renderSpecStatus,
+  SPEC_STATUS_MESSAGE,
+  SPEC_STATUS_TABLE_HEADER,
+} from "@/commands/spec/status";
 import { projectSpecTree, readSpecTree, SPEC_TREE_NODE_STATE, SPEC_TREE_PROJECTION } from "@/lib/spec-tree";
 import { KIND_REGISTRY } from "@/lib/spec-tree/config";
 import {
@@ -85,5 +91,13 @@ describe("spec status rendering", () => {
     expect(parsed.version).toBe(SPEC_TREE_PROJECTION.VERSION);
     expect(parsed.nodes).toEqual([]);
     expect(parsed.decisions).toMatchObject([{ id: fixture.decision.id }]);
+  });
+
+  it("rejects unsupported runtime output formats", async () => {
+    const fixture = buildRepresentativeFixture(KIND_REGISTRY);
+    const projection = projectSpecTree(await readSpecTree({ source: createSource([fixture.root]) }));
+    const unsupportedFormat = sampleSpecTreeTestValue(SPEC_TREE_TEST_GENERATOR.sourceSlug()) as OutputFormat;
+
+    expect(() => renderSpecStatus(projection, unsupportedFormat)).toThrow(RangeError);
   });
 });
