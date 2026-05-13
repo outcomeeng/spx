@@ -50,12 +50,15 @@ const SPEC_TREE_TEST_GENERATOR_OPTIONS = {
   REPRESENTATIVE_ORDER_MIN: 10,
   REPRESENTATIVE_PARENT_ORDER_MAX: 98,
   REPRESENTATIVE_ORDER_MAX: 99,
+  FILESYSTEM_ORDER_MIN: 10,
+  FILESYSTEM_ORDER_MAX: 99,
   CHILD_ORDER_OFFSET: 1,
   ASSEMBLY_ORDER_COUNT: 3,
   ASSEMBLY_PROPERTY_RUN_COUNT: 25,
   UNREGISTERED_SUFFIX_MAX_LENGTH: 8,
 } as const;
 const SPEC_TREE_TEST_SUFFIX_CHARACTERS = [..."abcdefghijklmnopqrstuvwxyz-"];
+const UNREGISTERED_SUFFIX_DISAMBIGUATOR = "-candidate";
 
 const ASSEMBLY_NODE_ORDER_COUNT: 3 = SPEC_TREE_TEST_GENERATOR_OPTIONS.ASSEMBLY_ORDER_COUNT;
 
@@ -295,8 +298,8 @@ function arbitrarySourceOrder(): fc.Arbitrary<number> {
 
 function arbitraryFilesystemOrder(): fc.Arbitrary<number> {
   return fc.integer({
-    min: SPEC_TREE_TEST_GENERATOR_OPTIONS.REPRESENTATIVE_ORDER_MIN,
-    max: SPEC_TREE_TEST_GENERATOR_OPTIONS.REPRESENTATIVE_ORDER_MAX,
+    min: SPEC_TREE_TEST_GENERATOR_OPTIONS.FILESYSTEM_ORDER_MIN,
+    max: SPEC_TREE_TEST_GENERATOR_OPTIONS.FILESYSTEM_ORDER_MAX,
   });
 }
 
@@ -349,7 +352,15 @@ function arbitraryUnregisteredNodeSuffix(registry: SpecTreeRegistry): fc.Arbitra
     maxLength: SPEC_TREE_TEST_GENERATOR_OPTIONS.UNREGISTERED_SUFFIX_MAX_LENGTH,
   })
     .map((slug) => `.${slug}`)
-    .filter((suffix) => !nodeSuffixes.has(suffix));
+    .map((suffix) => disambiguateRegisteredSuffix(suffix, nodeSuffixes));
+}
+
+function disambiguateRegisteredSuffix(suffix: string, registeredSuffixes: ReadonlySet<string>): string {
+  let candidate = suffix;
+  while (registeredSuffixes.has(candidate)) {
+    candidate = `${candidate}${UNREGISTERED_SUFFIX_DISAMBIGUATOR}`;
+  }
+  return candidate;
 }
 
 function readKinds<K extends NodeKind | DecisionKind>(
