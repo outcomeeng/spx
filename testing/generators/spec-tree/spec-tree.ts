@@ -297,6 +297,7 @@ function arbitrarySourceOrder(): fc.Arbitrary<number> {
 }
 
 function arbitraryFilesystemOrder(): fc.Arbitrary<number> {
+  // Filesystem fixtures exercise the current sparse two-digit node index range.
   return fc.integer({
     min: SPEC_TREE_TEST_GENERATOR_OPTIONS.FILESYSTEM_ORDER_MIN,
     max: SPEC_TREE_TEST_GENERATOR_OPTIONS.FILESYSTEM_ORDER_MAX,
@@ -358,6 +359,7 @@ function arbitraryUnregisteredNodeSuffix(registry: SpecTreeRegistry): fc.Arbitra
 function disambiguateRegisteredSuffix(suffix: string, registeredSuffixes: ReadonlySet<string>): string {
   let candidate = suffix;
   while (registeredSuffixes.has(candidate)) {
+    // The generator's max length constrains the base suffix; disambiguation preserves registry absence.
     candidate = `${candidate}${UNREGISTERED_SUFFIX_DISAMBIGUATOR}`;
   }
   return candidate;

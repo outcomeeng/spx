@@ -28,6 +28,7 @@ describe("spec-tree entry recognition", () => {
 
     expect(nodeEntry.type).toBe(SPEC_TREE_ENTRY_TYPE.NODE);
     if (nodeEntry.type !== SPEC_TREE_ENTRY_TYPE.NODE) {
+      // Narrows the discriminated union after Vitest records the readable mismatch.
       throw new Error("Expected recognized filesystem entry to be a node");
     }
     expect(nodeEntry.kind).toBe(nodeKind);
@@ -52,6 +53,7 @@ describe("spec-tree entry recognition", () => {
 
     expect(decisionEntry.type).toBe(SPEC_TREE_ENTRY_TYPE.DECISION);
     if (decisionEntry.type !== SPEC_TREE_ENTRY_TYPE.DECISION) {
+      // Narrows the discriminated union after Vitest records the readable mismatch.
       throw new Error("Expected recognized filesystem entry to be a decision");
     }
     expect(decisionEntry.kind).toBe(decisionKind);
