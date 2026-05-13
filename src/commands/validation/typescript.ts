@@ -9,7 +9,11 @@ import {
   type ValidationConfig,
   validationConfigDescriptor,
 } from "@/validation/config/descriptor";
-import { applyValidationPathFilterToScope, validationPathFilterForTool } from "@/validation/config/path-filter";
+import {
+  applyValidationPathFilterToScope,
+  pathPassesValidationFilter,
+  validationPathFilterForTool,
+} from "@/validation/config/path-filter";
 import { getTypeScriptScope } from "@/validation/config/scope";
 import { detectTypeScript, discoverTool, formatSkipMessage } from "@/validation/discovery/index";
 import { validateTypeScript } from "@/validation/steps/typescript";
@@ -62,12 +66,20 @@ export async function typescriptCommand(options: TypeScriptCommandOptions): Prom
     };
   }
   const validationConfig = loaded.value[validationConfigDescriptor.section] as ValidationConfig;
+  const validationPathFilter = validationPathFilterForTool(
+    validationConfig.paths,
+    VALIDATION_PATH_TOOL_SUBSECTIONS.TYPESCRIPT,
+  );
   const scopeConfig = applyValidationPathFilterToScope(
     getTypeScriptScope(scope, cwd),
-    validationPathFilterForTool(validationConfig.paths, VALIDATION_PATH_TOOL_SUBSECTIONS.TYPESCRIPT),
+    validationPathFilter,
   );
+  const filteredFiles = files?.filter((file) => pathPassesValidationFilter(file, validationPathFilter));
 
-  if (scopeConfig.filteredByValidationPathNoMatches) {
+  if (
+    scopeConfig.filteredByValidationPathNoMatches
+    || (files !== undefined && files.length > 0 && filteredFiles?.length === 0)
+  ) {
     return {
       exitCode: 0,
       output: quiet ? "" : TYPESCRIPT_VALIDATION_MESSAGES.NO_VALIDATION_PATH_TARGETS,
@@ -82,7 +94,7 @@ export async function typescriptCommand(options: TypeScriptCommandOptions): Prom
     return { exitCode: 0, output: skipMessage, durationMs: Date.now() - startTime };
   }
 
-  const result = await validateTypeScript(scope, cwd, files, undefined, undefined, undefined, scopeConfig);
+  const result = await validateTypeScript(scope, cwd, filteredFiles, undefined, undefined, undefined, scopeConfig);
   const durationMs = Date.now() - startTime;
 
   // Map result to command output

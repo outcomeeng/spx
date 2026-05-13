@@ -9,9 +9,10 @@
 import { existsSync } from "node:fs";
 import { mkdtemp, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
-import { join } from "node:path";
+import { isAbsolute, join } from "node:path";
 
 import { lifecycleProcessRunner, type ProcessRunner, spawnManagedSubprocess } from "@/lib/process-lifecycle";
+import { TSCONFIG_FILES } from "@/validation/config/scope";
 import type { ScopeConfig } from "../types";
 
 // =============================================================================
@@ -24,7 +25,8 @@ import type { ScopeConfig } from "../types";
 export const defaultKnipProcessRunner: ProcessRunner = lifecycleProcessRunner;
 export const KNIP_COMMAND_TOKENS = {
   COMMAND: "knip",
-  CONFIG_FLAG: "--config",
+  TSCONFIG_FLAG: "--tsConfig",
+  USE_TSCONFIG_FILES_FLAG: "--use-tsconfig-files",
 } as const;
 
 export interface KnipDeps {
@@ -95,17 +97,23 @@ async function runKnipSubprocess(
   runner: ProcessRunner,
   deps: KnipDeps,
 ): Promise<{ success: boolean; error?: string }> {
-  const scopedConfig = typescriptScope.filteredByValidationPaths
-    ? await createScopedKnipConfig(typescriptScope, deps)
+  const scopedTsconfig = typescriptScope.filteredByValidationPaths
+    ? await createScopedKnipTsconfig(projectRoot, typescriptScope, deps)
     : undefined;
   const localBin = join(projectRoot, "node_modules", ".bin", "knip");
   const binary = deps.existsSync(localBin) ? localBin : "npx";
-  const baseArgs = scopedConfig === undefined ? [] : [KNIP_COMMAND_TOKENS.CONFIG_FLAG, scopedConfig.configPath];
+  const baseArgs = scopedTsconfig === undefined
+    ? []
+    : [
+      KNIP_COMMAND_TOKENS.USE_TSCONFIG_FILES_FLAG,
+      KNIP_COMMAND_TOKENS.TSCONFIG_FLAG,
+      scopedTsconfig.configPath,
+    ];
   const args = binary === "npx" ? [KNIP_COMMAND_TOKENS.COMMAND, ...baseArgs] : baseArgs;
   const knipProcess = spawnManagedSubprocess(runner, binary, args, {
     cwd: projectRoot,
   });
-  const cleanup = scopedConfig?.cleanup ?? (async () => {});
+  const cleanup = scopedTsconfig?.cleanup ?? (async () => {});
 
   let knipOutput = "";
   let knipError = "";
@@ -141,18 +149,21 @@ async function runKnipSubprocess(
   });
 }
 
-async function createScopedKnipConfig(
+async function createScopedKnipTsconfig(
+  projectRoot: string,
   typescriptScope: ScopeConfig,
   deps: KnipDeps,
 ): Promise<{ configPath: string; cleanup: () => Promise<void> }> {
   const tempDir = await deps.mkdtemp(join(tmpdir(), "validate-knip-"));
-  const configPath = join(tempDir, "knip.json");
+  const configPath = join(tempDir, TSCONFIG_FILES.full);
+  const toProjectPathPattern = (pattern: string) => isAbsolute(pattern) ? pattern : join(projectRoot, pattern);
   const project = typescriptScope.filePatterns.length > 0
     ? typescriptScope.filePatterns
     : typescriptScope.directories.map((directory) => `${directory}/**/*.{js,ts,tsx}`);
   const config = {
-    project,
-    ignore: typescriptScope.excludePatterns,
+    extends: join(projectRoot, TSCONFIG_FILES.full),
+    include: project.map(toProjectPathPattern),
+    exclude: typescriptScope.excludePatterns.map(toProjectPathPattern),
   };
   await deps.writeFile(configPath, JSON.stringify(config, null, 2));
   return {
