@@ -8,6 +8,7 @@ import {
   type SpecTreeSource,
 } from "@/lib/spec-tree";
 import { KIND_REGISTRY, SPEC_TREE_CONFIG } from "@/lib/spec-tree/config";
+import { resolveSpecProductDir, type SpecProductDirWarningHandler } from "./root";
 
 export const OUTPUT_FORMAT = {
   TEXT: "text",
@@ -43,6 +44,7 @@ export type OutputFormat = (typeof OUTPUT_FORMAT)[keyof typeof OUTPUT_FORMAT];
 export interface StatusOptions {
   cwd?: string;
   format?: OutputFormat;
+  onWarning?: SpecProductDirWarningHandler;
   source?: SpecTreeSource;
 }
 
@@ -79,8 +81,12 @@ export function renderSpecStatus(
 }
 
 async function readCommandSnapshot(options: StatusOptions): Promise<SpecTreeSnapshot> {
-  const productDir = options.cwd ?? process.cwd();
-  const source = options.source ?? createFilesystemSpecTreeSource({ productDir });
+  if (options.source !== undefined) {
+    return readSpecTree({ source: options.source });
+  }
+
+  const productDir = await resolveSpecProductDir(options.cwd ?? process.cwd(), options.onWarning);
+  const source = createFilesystemSpecTreeSource({ productDir });
   return readSpecTree({ source });
 }
 

@@ -3,9 +3,11 @@ import {
   findNextSpecTreeNode,
   readSpecTree,
   type SpecTreeNode,
+  type SpecTreeSnapshot,
   type SpecTreeSource,
 } from "@/lib/spec-tree";
 import { KIND_REGISTRY, SPEC_TREE_CONFIG } from "@/lib/spec-tree/config";
+import { resolveSpecProductDir, type SpecProductDirWarningHandler } from "./root";
 
 export const SPEC_NEXT_MESSAGE = {
   EMPTY: `No spec-tree nodes found in ${SPEC_TREE_CONFIG.ROOT_DIRECTORY}`,
@@ -20,14 +22,24 @@ const INDENT = "  ";
 
 export interface NextOptions {
   cwd?: string;
+  onWarning?: SpecProductDirWarningHandler;
   source?: SpecTreeSource;
 }
 
 export async function nextCommand(options: NextOptions = {}): Promise<string> {
-  const productDir = options.cwd ?? process.cwd();
-  const source = options.source ?? createFilesystemSpecTreeSource({ productDir });
+  if (options.source !== undefined) {
+    const snapshot = await readSpecTree({ source: options.source });
+    return formatNextSpecTreeNode(snapshot);
+  }
+
+  const productDir = await resolveSpecProductDir(options.cwd ?? process.cwd(), options.onWarning);
+  const source = createFilesystemSpecTreeSource({ productDir });
   const snapshot = await readSpecTree({ source });
 
+  return formatNextSpecTreeNode(snapshot);
+}
+
+function formatNextSpecTreeNode(snapshot: SpecTreeSnapshot): string {
   if (snapshot.allNodes.length === 0) {
     return SPEC_NEXT_MESSAGE.EMPTY;
   }

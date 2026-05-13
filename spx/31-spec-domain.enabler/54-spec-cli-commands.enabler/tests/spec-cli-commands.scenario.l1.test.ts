@@ -1,7 +1,10 @@
+import { join } from "node:path";
 import { describe, expect, it } from "vitest";
 
 import { nextCommand, SPEC_NEXT_MESSAGE } from "@/commands/spec/next";
+import { SPEC_PRODUCT_DIR_WARNING } from "@/commands/spec/root";
 import { OUTPUT_FORMAT, SPEC_STATUS_MESSAGE, statusCommand } from "@/commands/spec/status";
+import { DEFAULT_CONFIG_FILENAME } from "@/config/index";
 import {
   getKindDefinition,
   SPEC_TREE_ENTRY_TYPE,
@@ -9,8 +12,9 @@ import {
   SPEC_TREE_NODE_STATE,
   type SpecTreeNodeSourceEntry,
 } from "@/lib/spec-tree";
-import { KIND_REGISTRY, type NodeKind } from "@/lib/spec-tree/config";
+import { KIND_REGISTRY, type NodeKind, SPEC_TREE_CONFIG } from "@/lib/spec-tree/config";
 import { MINIMAL_SPEC_TREE_CONFIG } from "@testing/generators/config/config";
+import { CONFIG_TEST_GENERATOR, sampleConfigTestValue } from "@testing/generators/config/descriptors";
 import {
   buildEvidenceEntry,
   createSource,
@@ -18,6 +22,7 @@ import {
   sampleSpecTreeTestValue,
   SPEC_TREE_TEST_GENERATOR,
 } from "@testing/generators/spec-tree/spec-tree";
+import { GIT_TEST_FLAGS, GIT_TEST_SUBCOMMANDS, runGit } from "@testing/harnesses/git-test-constants";
 import { withSpecTreeEnv, withTestEnv } from "@testing/harnesses/spec-tree/spec-tree";
 
 describe("spx spec status", () => {
@@ -31,6 +36,29 @@ describe("spx spec status", () => {
       expect(output).toContain(KIND_REGISTRY[env.fixture.root.kind].label);
       expect(output).toContain(rootPath);
       expect(output).toContain(SPEC_TREE_NODE_STATE.DECLARED);
+    });
+  });
+
+  it("reports current spec-tree nodes from a nested git worktree directory", async () => {
+    await withSpecTreeEnv(MINIMAL_SPEC_TREE_CONFIG, async (env) => {
+      await env.materialize();
+      const scope = sampleConfigTestValue(CONFIG_TEST_GENERATOR.resolutionScope());
+      const nestedMarker = sampleConfigTestValue(CONFIG_TEST_GENERATOR.key());
+      await runGit(env.productDir, [GIT_TEST_SUBCOMMANDS.INIT, GIT_TEST_FLAGS.QUIET]);
+      await runGit(env.productDir, [
+        GIT_TEST_SUBCOMMANDS.ADD,
+        SPEC_TREE_CONFIG.ROOT_DIRECTORY,
+        DEFAULT_CONFIG_FILENAME,
+      ]);
+      await env.writeRaw(join(scope.nestedDirectory, scope.productDirectory, nestedMarker), "");
+      const nestedCwd = join(env.productDir, scope.nestedDirectory, scope.productDirectory);
+      const rootPath = formatNodePath(env.fixture.root.order, env.fixture.root.slug, env.fixture.root.kind);
+
+      const statusOutput = await statusCommand({ cwd: nestedCwd });
+      const nextOutput = await nextCommand({ cwd: nestedCwd });
+
+      expect(statusOutput).toContain(rootPath);
+      expect(nextOutput).toContain(rootPath);
     });
   });
 
@@ -62,7 +90,18 @@ describe("spx spec status", () => {
 
   it("reports an empty current spec-tree without reading legacy specs/work defaults", async () => {
     await withTestEnv(MINIMAL_SPEC_TREE_CONFIG, async ({ productDir }) => {
-      await expect(statusCommand({ cwd: productDir })).resolves.toBe(SPEC_STATUS_MESSAGE.EMPTY);
+      const statusWarnings: string[] = [];
+      const nextWarnings: string[] = [];
+
+      await expect(
+        statusCommand({ cwd: productDir, onWarning: (warning) => statusWarnings.push(warning) }),
+      ).resolves.toBe(SPEC_STATUS_MESSAGE.EMPTY);
+      await expect(
+        nextCommand({ cwd: productDir, onWarning: (warning) => nextWarnings.push(warning) }),
+      ).resolves.toBe(SPEC_NEXT_MESSAGE.EMPTY);
+
+      expect(statusWarnings).toEqual([SPEC_PRODUCT_DIR_WARNING.NOT_GIT_REPOSITORY]);
+      expect(nextWarnings).toEqual([SPEC_PRODUCT_DIR_WARNING.NOT_GIT_REPOSITORY]);
     });
   });
 });
