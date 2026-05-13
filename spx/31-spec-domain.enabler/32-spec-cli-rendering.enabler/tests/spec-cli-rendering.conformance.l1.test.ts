@@ -20,6 +20,7 @@ import { expectPresent } from "@testing/harnesses/spec-tree/assertions";
 describe("spec status JSON rendering", () => {
   it("conforms to the stable spec-tree projection contract", async () => {
     const nodeKind = sampleNodeKind(KIND_REGISTRY);
+    // Projection JSON exposes filesystem-shaped node IDs, so the fixture order uses the filesystem index domain.
     const nodeOrder = sampleSpecTreeTestValue(SPEC_TREE_TEST_GENERATOR.filesystemOrder());
     const nodeSlug = sampleSpecTreeTestValue(SPEC_TREE_TEST_GENERATOR.sourceSlug());
     const nodeId = `${nodeOrder}-${nodeSlug}${KIND_REGISTRY[nodeKind].suffix}`;
