@@ -253,6 +253,31 @@ describe("ALWAYS: TypeScript scope resolution uses the requested project root", 
     );
   });
 
+  it("does not expand TypeScript validation scope to include paths outside tsconfig scope", async () => {
+    const testFilePath = sampleLiteralTestValue(LITERAL_TEST_GENERATOR.testFilePath());
+    await withTestEnv(
+      {
+        [validationConfigDescriptor.section]: {
+          [VALIDATION_PATHS_SUBSECTION]: {
+            include: [testFilePath],
+          },
+        },
+      },
+      async (env) => {
+        await env.writeRaw(
+          TSCONFIG_FILES.full,
+          JSON.stringify({ include: [VALIDATION_PIPELINE_DATA.productionScopeFilePattern] }),
+        );
+        await env.writeRaw(VALIDATION_PIPELINE_DATA.scopeResolutionSourceFile, "");
+
+        const result = await typescriptCommand({ cwd: env.projectDir });
+
+        expect(result.exitCode).toBe(VALIDATION_EXIT_CODES.SUCCESS);
+        expect(result.output).toBe(TYPESCRIPT_VALIDATION_MESSAGES.NO_VALIDATION_PATH_TARGETS);
+      },
+    );
+  });
+
   it("runs config-filtered Knip validation through a scoped temporary config", async () => {
     await withTestEnv({}, async (env) => {
       const runner = new RecordingSpawnOptionsRunner();

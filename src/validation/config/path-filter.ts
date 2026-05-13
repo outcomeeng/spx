@@ -1,3 +1,5 @@
+import { isAbsolute, relative } from "node:path";
+
 import {
   type ValidationPathConfig,
   type ValidationPathFilterConfig,
@@ -48,6 +50,10 @@ function unique(values: readonly string[]): string[] {
 
 function nonEmpty(values: readonly string[] | undefined): readonly string[] {
   return values?.filter((value) => value.length > 0) ?? [];
+}
+
+export function toProjectRelativeValidationPath(projectRoot: string, path: string): string {
+  return isAbsolute(path) ? relative(projectRoot, path) : path;
 }
 
 function intersectIncludes(
@@ -120,12 +126,21 @@ export function applyValidationPathFilterToScope(
   const includeFallbacks = nonEmpty(filter.include);
   const hasEffectiveMetadata = hasEffectiveValidationPathMetadata(filter);
   const hasIncludeFilter = hasEffectiveMetadata ? filter.hasIncludeFilter : includeFallbacks.length > 0;
-  const noMatchingIncludes = hasEffectiveMetadata && filter.noMatchingIncludes;
   const scopedDirectories = scopeConfig.directories.filter((directory) =>
     pathPassesValidationFilter(directory, filter)
   );
-  const directories = scopedDirectories.length > 0 ? scopedDirectories : [...includeFallbacks];
   const scopedFilePatterns = scopeConfig.filePatterns.filter((pattern) => pathPassesValidationFilter(pattern, filter));
+  const includeFallbacksWithinScope = includeFallbacks.filter((include) =>
+    scopeConfig.directories.some((directory) => pathMatchesPrefix(include, directory))
+  );
+  const noMatchingIncludes = (hasEffectiveMetadata && filter.noMatchingIncludes)
+    || (hasIncludeFilter && scopedDirectories.length === 0 && scopedFilePatterns.length === 0
+      && includeFallbacksWithinScope.length === 0);
+  const directories = noMatchingIncludes
+    ? []
+    : scopedDirectories.length > 0
+    ? scopedDirectories
+    : includeFallbacksWithinScope;
   const filePatterns = scopedFilePatterns.length > 0 ? scopedFilePatterns : [...directories];
 
   return {
