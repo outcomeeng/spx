@@ -396,6 +396,42 @@ describe("ESLint command arguments", () => {
     );
   });
 
+  it("intersects explicit ESLint file scope with validation paths", async () => {
+    const sourceFilePath = sampleLiteralTestValue(LITERAL_TEST_GENERATOR.sourceFilePath());
+    const testFilePath = sampleLiteralTestValue(LITERAL_TEST_GENERATOR.testFilePath());
+    await withTestEnv(
+      {
+        [validationConfigDescriptor.section]: {
+          [VALIDATION_PATHS_SUBSECTION]: {
+            include: [VALIDATION_PIPELINE_DATA.sourceDirectoryName],
+          },
+        },
+      },
+      async (env) => {
+        await env.writeRaw(
+          TSCONFIG_FILES.full,
+          JSON.stringify({
+            include: [VALIDATION_PIPELINE_DATA.productionScopeFilePattern, testFilePath],
+          }),
+        );
+        await env.writeRaw(DEFAULT_ESLINT_CONFIG_FILE, "export default [];\n");
+        await env.writeRaw(sourceFilePath, "export const lintCommandProjectRoot = 1;\n");
+        await env.writeRaw(testFilePath, "expect(true).toBe(true);\n");
+        await env.writeRaw(
+          join(...ESLINT_LOCAL_BIN_SEGMENTS),
+          "#!/bin/sh\nprintf '%s\\n' \"$@\" > eslint-args.txt\nexit 0\n",
+        );
+        await chmod(join(env.projectDir, ...ESLINT_LOCAL_BIN_SEGMENTS), 0o755);
+
+        const result = await lintCommand({ cwd: env.projectDir, files: [testFilePath] });
+
+        expect(result.exitCode).toBe(VALIDATION_EXIT_CODES.SUCCESS);
+        expect(result.output).toBe(formatValidationPathsNoTargetsSkipMessage(VALIDATION_STAGE_DISPLAY_NAMES.ESLINT));
+        expect(existsSync(join(env.projectDir, "eslint-args.txt"))).toBe(false);
+      },
+    );
+  });
+
   it("forwards ESLint subprocess output through injected parent streams", async () => {
     const stdoutChunk = sampleLiteralTestValue(LITERAL_TEST_GENERATOR.domainLiteral());
     const stdout = new RecordingWritable();

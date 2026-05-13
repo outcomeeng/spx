@@ -9,7 +9,11 @@ import {
   type ValidationConfig,
   validationConfigDescriptor,
 } from "@/validation/config/descriptor";
-import { applyValidationPathFilterToScope, validationPathFilterForTool } from "@/validation/config/path-filter";
+import {
+  applyValidationPathFilterToScope,
+  pathPassesValidationFilter,
+  validationPathFilterForTool,
+} from "@/validation/config/path-filter";
 import { getTypeScriptScope } from "@/validation/config/scope";
 import { detectTypeScript, discoverTool, formatSkipMessage } from "@/validation/discovery/index";
 import { validateESLint } from "@/validation/steps/eslint";
@@ -76,12 +80,20 @@ export async function lintCommand(options: LintCommandOptions): Promise<Validati
     };
   }
   const validationConfig = loaded.value[validationConfigDescriptor.section] as ValidationConfig;
+  const validationPathFilter = validationPathFilterForTool(
+    validationConfig.paths,
+    VALIDATION_PATH_TOOL_SUBSECTIONS.ESLINT,
+  );
   const scopeConfig = applyValidationPathFilterToScope(
     getTypeScriptScope(scope, cwd),
-    validationPathFilterForTool(validationConfig.paths, VALIDATION_PATH_TOOL_SUBSECTIONS.ESLINT),
+    validationPathFilter,
   );
+  const validatedFiles = files?.filter((file) => pathPassesValidationFilter(file, validationPathFilter));
 
-  if (scopeConfig.filteredByValidationPathNoMatches) {
+  if (
+    scopeConfig.filteredByValidationPathNoMatches
+    || (files !== undefined && files.length > 0 && validatedFiles?.length === 0)
+  ) {
     return {
       exitCode: 0,
       output: quiet ? "" : VALIDATION_PATHS_NO_TARGETS_MESSAGE,
@@ -103,8 +115,8 @@ export async function lintCommand(options: LintCommandOptions): Promise<Validati
     scopeConfig,
     mode: fix ? "write" : "read",
     enabledValidations: { ESLINT: true },
-    validatedFiles: files,
-    isFileSpecificMode: Boolean(files && files.length > 0),
+    validatedFiles,
+    isFileSpecificMode: Boolean(validatedFiles && validatedFiles.length > 0),
     eslintConfigFile,
   };
 

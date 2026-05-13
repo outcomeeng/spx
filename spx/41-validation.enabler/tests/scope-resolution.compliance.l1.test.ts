@@ -2,6 +2,9 @@ import { join } from "node:path";
 
 import { describe, expect, it } from "vitest";
 
+import { VALIDATION_EXIT_CODES } from "@/commands/validation/messages";
+import { TYPESCRIPT_VALIDATION_MESSAGES, typescriptCommand } from "@/commands/validation/typescript";
+import { VALIDATION_PATHS_SUBSECTION, validationConfigDescriptor } from "@/validation/config/descriptor";
 import { getTypeScriptScope, TSCONFIG_FILES } from "@/validation/config/scope";
 import {
   CIRCULAR_DEPS_KEYS,
@@ -9,8 +12,7 @@ import {
   type CircularDeps,
   validateCircularDependencies,
 } from "@/validation/steps/circular";
-import { type KnipDeps, validateKnip } from "@/validation/steps/knip";
-import { KNIP_COMMAND_TOKENS } from "@/validation/steps/knip";
+import { KNIP_COMMAND_TOKENS, type KnipDeps, validateKnip } from "@/validation/steps/knip";
 import {
   defaultTypeScriptDeps,
   TYPESCRIPT_TYPE_ROOT_SEGMENTS,
@@ -18,6 +20,7 @@ import {
   validateTypeScript,
 } from "@/validation/steps/typescript";
 import { VALIDATION_SCOPES } from "@/validation/types";
+import { LITERAL_TEST_GENERATOR, sampleLiteralTestValue } from "@testing/generators/literal/literal";
 import { VALIDATION_PIPELINE_DATA } from "@testing/generators/validation/validation";
 import { withTestEnv } from "@testing/harnesses/spec-tree/spec-tree";
 import { RecordingSpawnOptionsRunner } from "@testing/harnesses/validation/subprocess";
@@ -223,6 +226,33 @@ describe("ALWAYS: TypeScript scope resolution uses the requested project root", 
     });
   });
 
+  it("intersects file-scoped TypeScript validation with validation paths", async () => {
+    const testFilePath = sampleLiteralTestValue(LITERAL_TEST_GENERATOR.testFilePath());
+    await withTestEnv(
+      {
+        [validationConfigDescriptor.section]: {
+          [VALIDATION_PATHS_SUBSECTION]: {
+            include: [VALIDATION_PIPELINE_DATA.sourceDirectoryName],
+          },
+        },
+      },
+      async (env) => {
+        await env.writeRaw(
+          TSCONFIG_FILES.full,
+          JSON.stringify({
+            include: [VALIDATION_PIPELINE_DATA.productionScopeFilePattern, testFilePath],
+          }),
+        );
+        await env.writeRaw(testFilePath, "expect(true).toBe(true);\n");
+
+        const result = await typescriptCommand({ cwd: env.projectDir, files: [testFilePath] });
+
+        expect(result.exitCode).toBe(VALIDATION_EXIT_CODES.SUCCESS);
+        expect(result.output).toBe(TYPESCRIPT_VALIDATION_MESSAGES.NO_VALIDATION_PATH_TARGETS);
+      },
+    );
+  });
+
   it("runs config-filtered Knip validation through a scoped temporary config", async () => {
     await withTestEnv({}, async (env) => {
       const runner = new RecordingSpawnOptionsRunner();
@@ -252,14 +282,16 @@ describe("ALWAYS: TypeScript scope resolution uses the requested project root", 
 
       expect(result.success).toBe(true);
       expect(runner.options.every((options) => options.cwd === env.projectDir)).toBe(true);
-      expect(runner.args[0]?.slice(0, 2)).toEqual([
+      expect(runner.args[0]?.slice(0, 3)).toEqual([
         KNIP_COMMAND_TOKENS.COMMAND,
-        KNIP_COMMAND_TOKENS.CONFIG_FLAG,
+        KNIP_COMMAND_TOKENS.USE_TSCONFIG_FILES_FLAG,
+        KNIP_COMMAND_TOKENS.TSCONFIG_FLAG,
       ]);
       expect(writtenConfigs).toHaveLength(1);
       expect(JSON.parse(writtenConfigs[0] ?? "{}")).toEqual({
-        project: [VALIDATION_PIPELINE_DATA.productionScopeFilePattern],
-        ignore: [VALIDATION_PIPELINE_DATA.productionScopeExcludePattern],
+        extends: join(env.projectDir, TSCONFIG_FILES.full),
+        include: [join(env.projectDir, VALIDATION_PIPELINE_DATA.productionScopeFilePattern)],
+        exclude: [join(env.projectDir, VALIDATION_PIPELINE_DATA.productionScopeExcludePattern)],
       });
     });
   });
