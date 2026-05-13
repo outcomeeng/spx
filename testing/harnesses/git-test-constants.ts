@@ -22,7 +22,9 @@ export const GIT_TEST_FLAGS = {
 
 export const GIT_TEST_CONFIG = {
   EMAIL: "test@test.local",
+  EMAIL_KEY: "user.email",
   USER_NAME: "Test User",
+  USER_NAME_KEY: "user.name",
 } as const;
 
 export const GIT_TEST_ENVIRONMENT_KEYS = {

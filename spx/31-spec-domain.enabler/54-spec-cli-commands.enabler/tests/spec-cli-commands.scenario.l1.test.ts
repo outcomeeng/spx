@@ -22,7 +22,7 @@ import {
   sampleSpecTreeTestValue,
   SPEC_TREE_TEST_GENERATOR,
 } from "@testing/generators/spec-tree/spec-tree";
-import { GIT_TEST_FLAGS, GIT_TEST_SUBCOMMANDS, runGit } from "@testing/harnesses/git-test-constants";
+import { GIT_TEST_CONFIG, GIT_TEST_FLAGS, GIT_TEST_SUBCOMMANDS, runGit } from "@testing/harnesses/git-test-constants";
 import { withSpecTreeEnv, withTestEnv } from "@testing/harnesses/spec-tree/spec-tree";
 
 describe("spx spec status", () => {
@@ -39,26 +39,44 @@ describe("spx spec status", () => {
     });
   });
 
-  it("reports current spec-tree nodes from a nested git worktree directory", async () => {
+  it("reports current spec-tree nodes from a nested git repository directory", async () => {
     await withSpecTreeEnv(MINIMAL_SPEC_TREE_CONFIG, async (env) => {
       await env.materialize();
       const scope = sampleConfigTestValue(CONFIG_TEST_GENERATOR.resolutionScope());
       const nestedMarker = sampleConfigTestValue(CONFIG_TEST_GENERATOR.key());
       await runGit(env.productDir, [GIT_TEST_SUBCOMMANDS.INIT, GIT_TEST_FLAGS.QUIET]);
+      await runGit(env.productDir, [GIT_TEST_SUBCOMMANDS.CONFIG, GIT_TEST_CONFIG.EMAIL_KEY, GIT_TEST_CONFIG.EMAIL]);
+      await runGit(env.productDir, [
+        GIT_TEST_SUBCOMMANDS.CONFIG,
+        GIT_TEST_CONFIG.USER_NAME_KEY,
+        GIT_TEST_CONFIG.USER_NAME,
+      ]);
       await runGit(env.productDir, [
         GIT_TEST_SUBCOMMANDS.ADD,
         SPEC_TREE_CONFIG.ROOT_DIRECTORY,
         DEFAULT_CONFIG_FILENAME,
       ]);
+      await runGit(env.productDir, [
+        GIT_TEST_SUBCOMMANDS.COMMIT,
+        "-m",
+        sampleConfigTestValue(CONFIG_TEST_GENERATOR.key()),
+      ]);
       await env.writeRaw(join(scope.nestedDirectory, scope.productDirectory, nestedMarker), "");
       const nestedCwd = join(env.productDir, scope.nestedDirectory, scope.productDirectory);
       const rootPath = formatNodePath(env.fixture.root.order, env.fixture.root.slug, env.fixture.root.kind);
+      const statusWarnings: string[] = [];
+      const nextWarnings: string[] = [];
 
-      const statusOutput = await statusCommand({ cwd: nestedCwd });
-      const nextOutput = await nextCommand({ cwd: nestedCwd });
+      const statusOutput = await statusCommand({
+        cwd: nestedCwd,
+        onWarning: (warning) => statusWarnings.push(warning),
+      });
+      const nextOutput = await nextCommand({ cwd: nestedCwd, onWarning: (warning) => nextWarnings.push(warning) });
 
       expect(statusOutput).toContain(rootPath);
       expect(nextOutput).toContain(rootPath);
+      expect(statusWarnings).toEqual([]);
+      expect(nextWarnings).toEqual([]);
     });
   });
 
