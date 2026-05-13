@@ -82,4 +82,18 @@ describe("detectTypeScript — properties", () => {
       ),
     );
   });
+
+  it("returns a production ESLint config when no base ESLint config exists", () => {
+    fc.assert(
+      fc.property(fc.string(), fc.constantFrom(...ESLINT_PRODUCTION_CONFIG_FILES), (root, productionConfig) => {
+        const result = detectTypeScript(
+          root,
+          makeDeps(new Set([join(root, TYPESCRIPT_MARKER), join(root, productionConfig)])),
+        );
+
+        expect(result.eslintConfigFile).toBeUndefined();
+        expect(result.productionEslintConfigFile).toBe(productionConfig);
+      }),
+    );
+  });
 });

@@ -62,7 +62,7 @@ export interface TypeScriptDetection {
   present: boolean;
   /** The ESLint flat config file name found, if any. Only set when `present` is true. */
   eslintConfigFile?: EslintConfigFile;
-  /** Production-scope ESLint flat config file name found, if any. */
+  /** Production-scope ESLint flat config file name found, if any. Only set when `present` is true. */
   productionEslintConfigFile?: EslintProductionConfigFile;
 }
 
@@ -134,9 +134,7 @@ export function detectTypeScript(
     deps.existsSync(path.join(projectRoot, configFile))
   );
 
-  return eslintConfigFile === undefined
-    ? { present: true }
-    : { present: true, eslintConfigFile, productionEslintConfigFile };
+  return { present: true, eslintConfigFile, productionEslintConfigFile };
 }
 
 /**

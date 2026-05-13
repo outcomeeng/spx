@@ -54,8 +54,12 @@ export async function lintCommand(options: LintCommandOptions): Promise<Validati
     };
   }
 
+  const eslintConfigFile = scope === VALIDATION_SCOPES.PRODUCTION
+    ? tsDetection.productionEslintConfigFile ?? tsDetection.eslintConfigFile
+    : tsDetection.eslintConfigFile;
+
   // Gate 2: ESLint flat config must exist when TypeScript is present.
-  if (tsDetection.eslintConfigFile === undefined) {
+  if (eslintConfigFile === undefined) {
     return {
       exitCode: 1,
       output: MISSING_CONFIG_MESSAGE,
@@ -101,9 +105,7 @@ export async function lintCommand(options: LintCommandOptions): Promise<Validati
     enabledValidations: { ESLINT: true },
     validatedFiles: files,
     isFileSpecificMode: Boolean(files && files.length > 0),
-    eslintConfigFile: scope === VALIDATION_SCOPES.PRODUCTION
-      ? tsDetection.productionEslintConfigFile ?? tsDetection.eslintConfigFile
-      : tsDetection.eslintConfigFile,
+    eslintConfigFile,
   };
 
   // Run ESLint validation
