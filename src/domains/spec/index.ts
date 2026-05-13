@@ -118,7 +118,7 @@ function registerSpecCommands(specCmd: Command): void {
 }
 
 function writeWarning(warning: string): void {
-  process.stderr.write(`${warning}\n`);
+  console.error(warning);
 }
 
 /**

@@ -3,7 +3,7 @@ import { SPEC_TREE_CONFIG } from "@/lib/spec-tree/config";
 
 export const SPEC_PRODUCT_DIR_WARNING = {
   NOT_GIT_REPOSITORY:
-    `warning: current directory is not inside a git worktree; reading ${SPEC_TREE_CONFIG.ROOT_DIRECTORY} relative to the current working directory.`,
+    `Warning: Not in a git repository. Reading ${SPEC_TREE_CONFIG.ROOT_DIRECTORY} relative to the current working directory.`,
 } as const;
 
 export type SpecProductDirWarningHandler = (warning: string) => void;

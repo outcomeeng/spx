@@ -88,11 +88,12 @@ describe("spx spec status", () => {
     });
   });
 
-  it("reports an empty current spec-tree without reading legacy specs/work defaults", async () => {
+  it("warns and reports an empty current spec-tree outside a git repository", async () => {
     await withTestEnv(MINIMAL_SPEC_TREE_CONFIG, async ({ productDir }) => {
       const statusWarnings: string[] = [];
       const nextWarnings: string[] = [];
 
+      // withTestEnv creates a temp product directory outside git, which exercises the PDR fallback path.
       await expect(
         statusCommand({ cwd: productDir, onWarning: (warning) => statusWarnings.push(warning) }),
       ).resolves.toBe(SPEC_STATUS_MESSAGE.EMPTY);
