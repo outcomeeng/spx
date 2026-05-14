@@ -8,7 +8,7 @@ Coordinate the config tranche that moves deterministic execution domains onto th
 
 - `spx/16-config.enabler/21-descriptor-registration.adr.md` owns the generic descriptor mechanism, shared config primitives, and registry composition.
 - `spx/16-config.enabler/21-config-file-formats.adr.md` owns `spx.config.{json,yaml,toml}` format resolution.
-- `spx/15-worktree-resolution.pdr.md` owns whether a domain resolves tracked product files from the local worktree or gitignored state from the main repository root.
+- `spx/15-worktree-resolution.pdr.md` owns whether a domain resolves tracked product files from the local worktree root or gitignored state from the Git common-dir product root.
 
 ## Current Tranche
 
@@ -16,7 +16,7 @@ Coordinate the config tranche that moves deterministic execution domains onto th
    - Work in `spx/16-config.enabler/32-shared-config-primitives.enabler/`.
    - Start with a path filter primitive: `{ include?: string[]; exclude?: string[] }`.
    - Keep the primitive structural only; domain descriptors own defaults and meaning.
-   - Move validation path-filter validation to the shared primitive without changing `validation.paths` behavior.
+   - Reuse validation's path-filter validation through the shared primitive without changing `validation.paths` behavior.
 
 2. Add a testing descriptor.
    - Work in `spx/41-testing.enabler/32-testing-config.enabler/` and consume through `spx/16-config.enabler/43-domain-execution-descriptors.enabler/`.
@@ -33,7 +33,7 @@ Coordinate the config tranche that moves deterministic execution domains onto th
    - Work in `spx/16-config.enabler/65-product-directory-api.enabler/`.
    - Apply to config APIs, tests, harness helpers, and spec text in one coherent pass.
    - Do not leave compatibility aliases.
-   - Include root-resolution helper names such as `detectMainRepoRoot` in the rename audit.
+   - Rename root-resolution helper names with ambiguous vocabulary, such as `detectMainRepoRoot`, to Git common-dir product-root vocabulary.
    - Treat existing runtime `projectRoot` names as pre-tranche debt; do not add new `projectRoot` call sites while this tranche is active.
 
 5. Add canonical descriptor digests.
