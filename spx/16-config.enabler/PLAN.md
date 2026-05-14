@@ -24,7 +24,7 @@ Coordinate the config tranche that moves deterministic execution domains onto th
    - The descriptor uses the shared path filter primitive for node/path selection.
    - `spx test` still runs normal test discovery; only `spx test passing` and status semantics consume passing-scope filters.
 
-3. Add audit and review descriptor placeholders.
+3. Add audit and review descriptor nodes.
    - Work in `spx/36-audit.enabler/43-audit-config.enabler/` and `spx/46-reviewing.enabler/21-review-config.enabler/`.
    - Audit owns storage defaults, branch slug settings, auditor selection, and target selection.
    - Review owns local hermetic execution defaults for branch and PR targets.
@@ -33,6 +33,7 @@ Coordinate the config tranche that moves deterministic execution domains onto th
    - Work in `spx/16-config.enabler/65-product-directory-api.enabler/`.
    - Apply to config APIs, tests, harness helpers, and spec text in one coherent pass.
    - Do not leave compatibility aliases.
+   - Include root-resolution helper names such as `detectMainRepoRoot` in the rename audit.
    - Treat existing runtime `projectRoot` names as pre-tranche debt; do not add new `projectRoot` call sites while this tranche is active.
 
 5. Add canonical descriptor digests.
