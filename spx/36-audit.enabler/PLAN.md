@@ -21,6 +21,7 @@ Move audit from verify-only artifact checking toward config-backed, branch-scope
 
 2. Implement branch slugging.
    - Branch names map to filesystem-safe slugs with no path separators.
+   - Branch slugs stay at or below 120 UTF-8 bytes and preserve the SHA-256 suffix after truncation.
    - Branch slugs always append the first eight lowercase hex characters of the SHA-256 digest of the original branch identity.
    - SHA-256 uses Node.js `node:crypto`; do not add a third-party crypto dependency.
    - Run ids use `node:crypto` `randomBytes`; `Math.random` is not used.
@@ -39,9 +40,10 @@ Move audit from verify-only artifact checking toward config-backed, branch-scope
 
 - Audit descriptor tests cover defaults, valid storage overrides, invalid storage values, target filters, and descriptor isolation.
 - Branch slug mapping tests cover slashes, punctuation, collisions, and detached heads.
+- Branch slug mapping tests cover the 120-byte limit and prove the SHA-256 suffix is preserved after truncation.
 - Audit state tests cover required `state.json` fields: branch name, branch slug, head commit SHA, resolved audit descriptor base ref, audit config digest, auditor identifiers, target paths, run start timestamp, run completion timestamp, optional verdict path, and terminal status.
 - Audit state tests prove `state.json` is absent for in-progress runs and written exactly once for `approved`, `rejected`, `failed`, or `interrupted` runs.
-- Audit state tests prove terminal `state.json` writes use a same-directory temporary file followed by atomic rename to the final path.
+- Audit state tests prove terminal `state.json` writes use a same-directory temporary file followed by atomic rename to the final path and that only the exclusive-created run directory owner writes the state file.
 - Audit state tests prove run directories with missing, partial, or parse-invalid `state.json` appear as incomplete/interrupted in list and status output and do not satisfy latest terminal audit status when a terminal run exists.
 - Audit state tests prove `status: "interrupted"` represents graceful terminal cancellation, while missing, partial, or parse-invalid `state.json` represents non-terminal incomplete evidence.
 - Audit state tests prove latest terminal lookup uses `state.json` timestamps before directory-name tie-breakers.

@@ -36,7 +36,9 @@ Move spec-tree passing-scope behavior to `spx.config.{toml,json,yaml}` and prepa
 - `spx test passing` scenario tests prove filtered nodes are skipped before runner invocation.
 - `spx test` scenario tests prove filtered nodes still run when `passing` is absent.
 - `withSpecTreeEnv` tests prove one fixture definition can generate in-memory structures and real directories with `withTempDir` behavior.
-- Last-run state tests prove status reads cached observations without invoking runners and marks stale evidence when the resolved testing config descriptor digest changes.
+- Last-run state tests prove the `testing.md` status scenario: status reads cached observations without invoking runners and reports observed results plus staleness.
+- Last-run state tests prove the `testing.md` evidence-cache property: deleting cached state changes only fast-status availability, never passing-scope policy.
+- Last-run state tests prove the `testing.md` staleness property: cached evidence is stale when the resolved testing config digest, discovered test path set, discovered test content digest, or descriptor-declared product input digest differs from the recorded values.
 - Testing digest tests prove the digest is computed from config-owned canonical descriptor JSON for the resolved testing config descriptor section after defaults are applied.
 - Last-run state tests prove status marks cached evidence stale when the discovered test file path set changes.
 - Performance regression tests or instrumentation prove staleness comparison reuses the discovery result instead of walking the spec tree twice in one command.
