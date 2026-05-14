@@ -318,12 +318,13 @@ function arbitraryEvidenceFileName(): fc.Arbitrary<string> {
     slug: arbitrarySourceSlug(),
     mode: fc.constantFrom(...SPEC_TREE_EVIDENCE_FILE.MODES),
     level: fc.constantFrom(...SPEC_TREE_EVIDENCE_FILE.LEVELS),
-  }).map(({ slug, mode, level }) =>
+    tail: fc.constantFrom(...Object.values(SPEC_TREE_EVIDENCE_FILE.TAILS)),
+  }).map(({ slug, mode, level, tail }) =>
     [
       slug,
       mode,
       level,
-      ...SPEC_TREE_EVIDENCE_FILE.TAILS.TYPESCRIPT,
+      ...tail,
     ].join(SPEC_TREE_EVIDENCE_FILE.SEGMENT_SEPARATOR)
   );
 }

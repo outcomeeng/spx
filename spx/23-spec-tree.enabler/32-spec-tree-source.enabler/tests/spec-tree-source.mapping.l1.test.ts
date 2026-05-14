@@ -88,28 +88,33 @@ describe("SpecTreeSource mappings", () => {
     await withSpecTreeEnv({}, async (env) => {
       await env.materialize();
       const rootDirectory = nodeDirectoryName(env.fixture.root);
-      const evidenceFile = sampleSpecTreeTestValue(SPEC_TREE_TEST_GENERATOR.evidenceFileName());
+      const evidenceFiles = Object.values(SPEC_TREE_EVIDENCE_FILE.TAILS).map((tail) => evidenceFileName(tail));
       const nonEvidenceSuffix = sampleSpecTreeTestValue(
         SPEC_TREE_TEST_GENERATOR.unregisteredNodeSuffix(KIND_REGISTRY),
       );
-      const evidencePath = [
-        SPEC_TREE_CONFIG.ROOT_DIRECTORY,
-        rootDirectory,
-        SPEC_TREE_EVIDENCE_FILE.DIRECTORY_NAME,
-        evidenceFile,
-      ].join("/");
-      await env.writeRaw(evidencePath, "");
+      const firstEvidenceFile = expectPresent(evidenceFiles[0]);
+      const evidencePath = evidenceFilePath(rootDirectory, firstEvidenceFile);
+      const ambiguousEvidencePath = evidenceFilePath(rootDirectory, ambiguousEvidenceFileName());
+
+      for (const evidenceFile of evidenceFiles) {
+        await env.writeRaw(evidenceFilePath(rootDirectory, evidenceFile), "");
+      }
       await env.writeRaw(`${evidencePath}${nonEvidenceSuffix}`, "");
+      await env.writeRaw(ambiguousEvidencePath, "");
 
       const snapshot = await readSpecTree({ source: env.filesystemSource() });
       const root = expectPresent(snapshot.allNodes.find((node) => node.id === rootDirectory));
       const evidence = snapshot.entries.filter(isEvidenceEntry);
-      const evidenceEntry = expectPresent(evidence[0]);
+      const expectedEvidenceIds = evidenceFiles.map((evidenceFile) =>
+        `${rootDirectory}/${SPEC_TREE_EVIDENCE_FILE.DIRECTORY_NAME}/${evidenceFile}`
+      );
+      const evidenceEntry = expectPresent(evidence.find((entry) => entry.id === expectedEvidenceIds[0]));
 
       expect(root.state).toBe(SPEC_TREE_NODE_STATE.SPECIFIED);
-      expect(evidence).toHaveLength(1);
+      expect(evidence).toHaveLength(evidenceFiles.length);
+      expect(evidence.map((entry) => entry.id)).toEqual(expect.arrayContaining(expectedEvidenceIds));
       expect(evidenceEntry).toMatchObject({
-        id: `${rootDirectory}/${SPEC_TREE_EVIDENCE_FILE.DIRECTORY_NAME}/${evidenceFile}`,
+        id: expectedEvidenceIds[0],
         parentId: rootDirectory,
         status: SPEC_TREE_EVIDENCE_STATUS.LINKED,
       });
@@ -143,6 +148,46 @@ describe("SpecTreeSource mappings", () => {
     });
   });
 });
+
+function evidenceFilePath(rootDirectory: string, evidenceFile: string): string {
+  return [
+    SPEC_TREE_CONFIG.ROOT_DIRECTORY,
+    rootDirectory,
+    SPEC_TREE_EVIDENCE_FILE.DIRECTORY_NAME,
+    evidenceFile,
+  ].join("/");
+}
+
+function evidenceFileName(tail: readonly string[]): string {
+  return [
+    sampleSpecTreeTestValue(SPEC_TREE_TEST_GENERATOR.sourceSlug()),
+    sampleEvidenceMode(),
+    sampleEvidenceLevel(),
+    ...tail,
+  ].join(SPEC_TREE_EVIDENCE_FILE.SEGMENT_SEPARATOR);
+}
+
+function ambiguousEvidenceFileName(): string {
+  const mode = sampleEvidenceMode();
+  const level = sampleEvidenceLevel();
+  return [
+    sampleSpecTreeTestValue(SPEC_TREE_TEST_GENERATOR.sourceSlug()),
+    mode,
+    level,
+    sampleSpecTreeTestValue(SPEC_TREE_TEST_GENERATOR.sourceSlug()),
+    mode,
+    level,
+    ...SPEC_TREE_EVIDENCE_FILE.TAILS.TYPESCRIPT,
+  ].join(SPEC_TREE_EVIDENCE_FILE.SEGMENT_SEPARATOR);
+}
+
+function sampleEvidenceMode(): string {
+  return expectPresent(SPEC_TREE_EVIDENCE_FILE.MODES[0]);
+}
+
+function sampleEvidenceLevel(): string {
+  return expectPresent(SPEC_TREE_EVIDENCE_FILE.LEVELS[0]);
+}
 
 function nodeSignatures(projection: SpecTreeProjection): readonly NodeSignature[] {
   return flattenNodes(projection.nodes).map((node) => ({

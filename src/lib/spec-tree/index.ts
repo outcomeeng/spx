@@ -64,6 +64,8 @@ export const SPEC_TREE_EVIDENCE_FILE = {
   SEGMENT_SEPARATOR: ".",
 } as const;
 
+const SPEC_TREE_EVIDENCE_FILE_TAILS = Object.values(SPEC_TREE_EVIDENCE_FILE.TAILS);
+
 export const SPEC_TREE_PROJECTION = {
   VERSION: 1,
   KEYS: {
@@ -653,7 +655,7 @@ function isEvidenceFile(relativePath: string): boolean {
   const filenameSegments = filename.split(SPEC_TREE_EVIDENCE_FILE.SEGMENT_SEPARATOR);
 
   return directoryName === SPEC_TREE_EVIDENCE_FILE.DIRECTORY_NAME
-    && Object.values(SPEC_TREE_EVIDENCE_FILE.TAILS).some((tail) =>
+    && SPEC_TREE_EVIDENCE_FILE_TAILS.some((tail) =>
       SPEC_TREE_EVIDENCE_FILE.MODES.some((mode) =>
         SPEC_TREE_EVIDENCE_FILE.LEVELS.some((level) => filenameHasEvidenceSuffix(filenameSegments, mode, level, tail))
       )
@@ -670,6 +672,7 @@ function filenameHasEvidenceSuffix(
   const tailStart = filenameSegments.length - tail.length;
   let evidenceMarkerCount = 0;
 
+  // Exactly one mode/level pair prevents ambiguous filenames from being treated as evidence.
   for (let index = SPEC_TREE_FIRST_EVIDENCE_MARKER_INDEX; index < tailStart - 1; index += 1) {
     if (filenameSegments[index] === mode && filenameSegments[index + 1] === level) {
       evidenceMarkerCount += 1;
@@ -691,6 +694,7 @@ function shouldDescendIntoDirectory(
   registry: SpecTreeRegistry,
 ): boolean {
   if (sourceEntry !== null) return true;
+  if (name === SPEC_TREE_EVIDENCE_FILE.DIRECTORY_NAME) return true;
   return !isUnregisteredOrderedDirectory(name, registry);
 }
 
