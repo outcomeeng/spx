@@ -13,9 +13,9 @@ Expose audit state through CLI list, status, and latest-run reporting.
 ## Implementation Notes
 
 - Implement status after branch-run-state produces the terminal state shape.
-- Render `approved` as `APPROVED`, `rejected` as `REJECT`, `failed` as `FAILED`, and `interrupted` as `INTERRUPTED`.
+- Render persisted status values through the display mapping in `spx/36-audit.enabler/15-audit-directory.adr.md`: `approved` as `APPROVED`, `rejected` as `REJECT`, `failed` as `FAILED`, and `interrupted` as `INTERRUPTED`.
 - Include incomplete directories in list/status output without treating them as terminal evidence.
-- Keep `spx audit verify <file>` behavior in the existing verify node.
+- Keep `spx audit verify <file>` behavior in `spx/36-audit.enabler/32-verify.enabler/`.
 
 ## Evidence Required
 

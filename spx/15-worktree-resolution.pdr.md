@@ -8,7 +8,7 @@ This decision governs how spx subcommands resolve their root directory when invo
 
 **Business impact:** Agents run inside git worktrees created by Claude Code. Correct root resolution ensures session state is shared across all worktrees and spec-tree commands operate on the branch-specific working copy.
 
-**Technical constraints:** Git worktrees share a single `.git` directory (the "common dir") at the main repository root. Each worktree gets its own working copy of tracked files but shares untracked/gitignored state with the main worktree only by convention. The `.spx/` directory is gitignored and exists only at the main repository root. The `spx/` directory is tracked and exists in every worktree's working copy.
+**Technical constraints:** Git worktrees share a single `.git` directory (the "common dir") at the main product directory root. Each worktree gets its own working copy of tracked files but shares untracked/gitignored state with the main worktree only by convention. The `.spx/` directory is gitignored and exists only at the main product directory root. The `spx/` directory is tracked and exists in every worktree's working copy.
 
 ## Decision
 
@@ -49,7 +49,7 @@ Running `spx session list` from any worktree of the same repository returns the 
 
 ### MUST
 
-- Use `git rev-parse --git-common-dir` to find the main repository root for `.spx/` operations ([review])
+- Use `git rev-parse --git-common-dir` to find the main product directory root for `.spx/` operations ([review])
 - Use `git rev-parse --show-toplevel` for `spx/` (tracked file) operations ([review])
 - Fall back to current working directory with a warning when not in a git repository ([review])
 
