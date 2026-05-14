@@ -23,7 +23,7 @@ Audit verdicts are stored under `.spx/audit/{branch-slug}/` using a branch-scope
         state.json
 ```
 
-**Branch slug:** The current branch name is encoded into a filesystem-safe slug. The slug is deterministic and contains no path separators. Slugging lowercases the branch name, replaces every run of non-alphanumeric characters with `-`, trims leading and trailing `-`, and always appends a deterministic disambiguator: the first eight lowercase hex characters of the SHA-256 digest of the original branch name, appended with a `-` separator. Detached HEAD state uses `detached-{short-sha}` as the original branch identity, where `{short-sha}` is the first twelve lowercase hex characters of the git `HEAD` commit SHA.
+**Branch slug:** The current branch name is encoded into a filesystem-safe slug. The slug is deterministic and contains no path separators. Slugging lowercases the branch name, replaces every run of non-alphanumeric characters with `-`, trims leading and trailing `-`, and adds a deterministic disambiguator: the first eight lowercase hex characters of the SHA-256 digest of the original branch name. When the normalized branch-name prefix is non-empty, the slug appends the SHA-256 prefix with a `-` separator; when the normalized prefix is empty, the slug is the SHA-256 prefix alone with no leading separator. Detached HEAD state uses `detached-{short-sha}` as the original branch identity, where `{short-sha}` is the first twelve lowercase hex characters of the git `HEAD` commit SHA.
 
 **Run directory:** `{YYYY-MM-DD_HH-mm-ss}` — timestamp format from `spx/36-session.enabler/21-timestamp-format.adr.md`, using UTC components so run directories sort consistently.
 
@@ -79,7 +79,7 @@ Alternatives rejected:
 
 ## Invariants
 
-- Each branch maps to exactly one directory name under `.spx/audit/` — the slug is a pure function of the branch identity and always includes a deterministic digest suffix
+- Each branch maps to exactly one directory name under `.spx/audit/` — the slug is a pure function of the branch identity, always includes a deterministic digest suffix, and omits the separator when the normalized prefix is empty
 - Detached HEAD state maps to a branch identity of `detached-{short-sha}`, where `{short-sha}` is the first twelve lowercase hex characters of the git `HEAD` commit SHA
 - Each `state.json` file contains the complete terminal run envelope required to list, inspect, and identify the latest branch audit without parsing verdict XML
 - `state.json` is written exactly once after the run reaches `approved`, `rejected`, `failed`, or `interrupted`
@@ -97,7 +97,8 @@ A verdict file at `.spx/audit/work-config-backed-execution-scope/runs/2026-04-25
 ### MUST
 
 - Encode branch names into filesystem-safe slugs with no path separators ([review])
-- Always append `-{sha256-prefix}`, where `sha256-prefix` is the first eight lowercase hex characters of the SHA-256 digest of the original branch identity ([review])
+- Append `-{sha256-prefix}` when the normalized branch-name prefix is non-empty, where `sha256-prefix` is the first eight lowercase hex characters of the SHA-256 digest of the original branch identity ([review])
+- Use `sha256-prefix` alone when slug normalization produces an empty branch-name prefix ([review])
 - Use `detached-{short-sha}` as the branch identity in detached HEAD state, where `short-sha` is the first twelve lowercase hex characters of the git `HEAD` commit SHA ([review])
 - Name run directories `{YYYY-MM-DD_HH-mm-ss}` using UTC timestamps ([review])
 - Write `state.json` exactly once at terminal run completion with branch name, branch slug, head commit SHA, resolved audit descriptor base ref, audit config digest, auditor identifiers, target paths, run start timestamp, run completion timestamp, verdict path, and final status ([review])
