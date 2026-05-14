@@ -6,7 +6,9 @@ import {
   arbitrarySourceFilePath,
   arbitraryTestFilePath,
   literalAstOccurrenceCases,
+  sampleLiteralPair,
   sampleLiteralTestValue,
+  sampleTestFilePathPair,
 } from "@testing/generators/literal/literal";
 import { buildStringAssertion, buildStringDeclaration } from "@testing/harnesses/literal/snippets";
 
@@ -29,11 +31,9 @@ describe("finding-kind → remediation mapping", () => {
   });
 
   it("test↔test duplication findings carry remediation === REMEDIATION.REFACTOR_TO_SOURCE_OR_GENERATOR", () => {
-    const literal = sampleLiteralTestValue(arbitraryDomainLiteral());
-    const otherLiteral = sampleLiteralTestValue(arbitraryDomainLiteral());
+    const [literal, otherLiteral] = sampleLiteralPair();
     const sourceFile = sampleLiteralTestValue(arbitrarySourceFilePath());
-    const firstTestFile = sampleLiteralTestValue(arbitraryTestFilePath());
-    const secondTestFile = sampleLiteralTestValue(arbitraryTestFilePath());
+    const [firstTestFile, secondTestFile] = sampleTestFilePathPair();
 
     const srcIndex = indexSources([sourceFile, buildStringDeclaration(otherLiteral)]);
     const tests = testOccurrences(
