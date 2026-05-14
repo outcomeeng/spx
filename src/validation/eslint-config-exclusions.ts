@@ -12,7 +12,7 @@ interface TypeScriptConfigFile {
 }
 
 export function readTypeScriptExcludeGlobs(configFile: string): string[] {
-  return readTypeScriptExclusions(configFile).map(toTypeScriptExcludeGlob);
+  return [...new Set(readTypeScriptExclusions(configFile).map(toTypeScriptExcludeGlob))];
 }
 
 function resolveTypeScriptConfigPath(configFile: string, baseDir: string = process.cwd()): string {

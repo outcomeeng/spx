@@ -236,6 +236,7 @@ export const VALIDATION_ESLINT_FILES = {
   eslintStep: "src/validation/steps/eslint.ts",
   unmanifestedSpecTest: "spx/31-spec-domain.enabler/tests/new.mapping.l1.test.ts",
   manifestCoveredSpecTest: "spx/16-config.enabler/tests/config-ambiguity.scenario.l1.test.ts",
+  lintDebtCoveredSpecTest: "spx/46-claude.outcome/tests/lint-debt.mapping.l1.test.ts",
   registrySpecTest: "spx/sample.enabler/tests/registry.mapping.l1.test.ts",
   sourceOwnedSpecTest: "spx/sample.enabler/tests/source-owned.mapping.l1.test.ts",
   supportFile: "spx/sample.enabler/tests/support.ts",
@@ -574,8 +575,8 @@ export function noHardcodedSpecTreeNodeStatesCases(): ValidationGeneratedRuleTes
 }
 
 export function noHardcodedSpecTreeNodeKindsCases(): ValidationGeneratedRuleTesterCases {
-  const enabler = NODE_KINDS.find((kind) => kind === "enabler") ?? NODE_KINDS[0];
-  const outcome = NODE_KINDS.find((kind) => kind === "outcome") ?? NODE_KINDS[0];
+  const enabler = "enabler" satisfies (typeof NODE_KINDS)[number];
+  const outcome = "outcome" satisfies (typeof NODE_KINDS)[number];
   return {
     valid: [
       {
@@ -1034,7 +1035,7 @@ export function validationRuleRegistrationCases(): ValidationGeneratedRuleRegist
 export function validationConfigSeverityScenarios(): ValidationGeneratedConfigSeverityScenario[] {
   return [
     {
-      title: "debt manifest downgrades only the test-owned constant rule",
+      title: "test-owned constant debt manifest downgrades only the test-owned constant rule",
       filePath: VALIDATION_ESLINT_FILES.manifestCoveredSpecTest,
       expectations: [
         {
@@ -1044,6 +1045,24 @@ export function validationConfigSeverityScenarios(): ValidationGeneratedConfigSe
         {
           ruleId: NO_HARDCODED_SPEC_TREE_NODE_STATES_RULE_ID,
           severity: VALIDATION_ESLINT_EXPECTED.errorSeverity,
+        },
+        {
+          ruleId: NO_HARDCODED_SPEC_TREE_NODE_KINDS_RULE_ID,
+          severity: VALIDATION_ESLINT_EXPECTED.errorSeverity,
+        },
+      ],
+    },
+    {
+      title: "lint debt manifest downgrades spec-tree node registry rules",
+      filePath: VALIDATION_ESLINT_FILES.lintDebtCoveredSpecTest,
+      expectations: [
+        {
+          ruleId: NO_HARDCODED_SPEC_TREE_NODE_KINDS_RULE_ID,
+          severity: VALIDATION_ESLINT_EXPECTED.warningSeverity,
+        },
+        {
+          ruleId: NO_HARDCODED_SPEC_TREE_NODE_STATES_RULE_ID,
+          severity: VALIDATION_ESLINT_EXPECTED.warningSeverity,
         },
       ],
     },
