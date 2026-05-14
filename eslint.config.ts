@@ -9,11 +9,13 @@ import tseslint from "typescript-eslint";
 import customRules from "./eslint-rules";
 import { NO_ASYNC_SPAWN_OUTSIDE_LIFECYCLE_RULE_ID } from "./eslint-rules/no-async-spawn-outside-lifecycle";
 import { NO_BARE_STRING_UNIONS_RULE_ID } from "./eslint-rules/no-bare-string-unions";
+import { NO_BDD_TRY_CATCH_ANTI_PATTERN_RULE_ID } from "./eslint-rules/no-bdd-try-catch-anti-pattern";
 import { NO_DEEP_RELATIVE_IMPORTS_RULE_ID } from "./eslint-rules/no-deep-relative-imports";
 import { NO_HARDCODED_SPEC_TREE_NODE_KINDS_RULE_ID } from "./eslint-rules/no-hardcoded-spec-tree-node-kinds";
 import { NO_HARDCODED_SPEC_TREE_NODE_STATES_RULE_ID } from "./eslint-rules/no-hardcoded-spec-tree-node-states";
 import { NO_IMPORT_SOURCE_EXTENSIONS_RULE_ID } from "./eslint-rules/no-import-source-extensions";
 import { NO_REGISTRY_POSITION_ACCESS_RULE_ID } from "./eslint-rules/no-registry-position-access";
+import { NO_SPEC_REFERENCES_RULE_ID } from "./eslint-rules/no-spec-references";
 import { NO_TEST_OWNED_DOMAIN_CONSTANTS_RULE_ID } from "./eslint-rules/no-test-owned-domain-constants";
 import {
   TEST_ASSERTION_STRING_LITERAL_RULE,
@@ -265,7 +267,7 @@ export function buildEslintConfig(options: BuildEslintConfigOptions = {}) {
         [NO_BARE_STRING_UNIONS_RULE_ID]: "error",
         [NO_DEEP_RELATIVE_IMPORTS_RULE_ID]: "error",
         [NO_IMPORT_SOURCE_EXTENSIONS_RULE_ID]: "error",
-        "spx/no-spec-references": "error",
+        [NO_SPEC_REFERENCES_RULE_ID]: "error",
       },
     },
     // Custom rules for test files
@@ -275,7 +277,7 @@ export function buildEslintConfig(options: BuildEslintConfigOptions = {}) {
         spx: customRules,
       },
       rules: {
-        "spx/no-bdd-try-catch-anti-pattern": "error",
+        [NO_BDD_TRY_CATCH_ANTI_PATTERN_RULE_ID]: "error",
         [NO_HARDCODED_SPEC_TREE_NODE_KINDS_RULE_ID]: "error",
         [NO_HARDCODED_SPEC_TREE_NODE_STATES_RULE_ID]: "error",
         [NO_REGISTRY_POSITION_ACCESS_RULE_ID]: "error",
