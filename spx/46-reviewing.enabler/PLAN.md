@@ -9,9 +9,9 @@ Add local hermetic review execution for branch and pull request targets.
 - `spx/spx.product.md`
 - `spx/46-reviewing.enabler/21-review-config.enabler/review-config.md`
 - `spx/46-reviewing.enabler/32-hermetic-review-execution.enabler/hermetic-review-execution.md`
-- `spx/46-reviewing.enabler/43-branch-review.enabler/branch-review.md`
-- `spx/46-reviewing.enabler/54-pr-review.enabler/pr-review.md`
-- `spx/46-reviewing.enabler/65-review-state.enabler/review-state.md`
+- `spx/46-reviewing.enabler/43-review-state.enabler/review-state.md`
+- `spx/46-reviewing.enabler/54-branch-review.enabler/branch-review.md`
+- `spx/46-reviewing.enabler/65-pr-review.enabler/pr-review.md`
 - `spx/33-agent-environment.enabler/agent-environment.md`
 
 ## Implementation Notes
@@ -30,3 +30,7 @@ Add local hermetic review execution for branch and pull request targets.
 ## Parallelization
 
 Child nodes can split after review config and hermetic execution contracts are agreed.
+
+## Open Coordination
+
+- A shared audit/review storage contract requires an ADR before review state can reuse audit state files.

@@ -18,6 +18,10 @@ Rebuild `spx spec` command behavior on top of the current spec-tree library. Thi
 - [x] Rebuild tests from the assertions using `withSpecTreeEnv` for real temp product directory execution and in-memory sources for pure command rendering.
 - [x] Keep source-level implementation changes in `src/commands/spec/*`, `src/domains/spec/*`, and CLI registration only after the target tests state the desired behavior.
 
+## Owner Nodes
+
+- Deterministic context ingestion work lives in `spx/31-spec-domain.enabler/43-context-ingestion.enabler/`.
+
 ## Evidence matrix
 
 | Target                               | Evidence                                                                                                                | Minimum level                                                                         |

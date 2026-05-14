@@ -8,7 +8,7 @@ Implement `spx review branch` for local branch targets.
 
 - `spx/46-reviewing.enabler/reviewing.md`
 - `spx/46-reviewing.enabler/32-hermetic-review-execution.enabler/hermetic-review-execution.md`
-- `spx/46-reviewing.enabler/65-review-state.enabler/review-state.md`
+- `spx/46-reviewing.enabler/43-review-state.enabler/review-state.md`
 
 ## Implementation Notes
 
