@@ -20,7 +20,7 @@ Keep the product spec tree on the current node model and remove the deprecated t
 - Migrate testing passing scope away from `spx/EXCLUDE` semantics and onto a testing config descriptor.
 - Align file inclusion with reusable path-scope mechanics rather than domain policy.
 - Align auditing with config-backed branch-scoped state under `.spx/audit/{branch-slug}`.
-- Create the reviewing node through `spec-tree:decomposing` before implementing local hermetic review execution.
+- Create the reviewing node through `spec-tree:decomposing` before implementing the review descriptor or local hermetic review execution.
 
 ## Remaining Work
 

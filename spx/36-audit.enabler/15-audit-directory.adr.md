@@ -23,11 +23,11 @@ Audit verdicts are stored under `.spx/audit/{branch-slug}/` using a branch-scope
         state.json
 ```
 
-**Branch slug:** The current branch name is encoded into a filesystem-safe slug. The slug is deterministic and contains no path separators. Slugging lowercases the branch name, replaces every run of non-alphanumeric characters with `-`, trims leading and trailing `-`, and always appends a deterministic disambiguator: the first eight lowercase hex characters of the SHA-256 digest of the original branch name, appended with a `-` separator. Detached HEAD state uses `detached-{short-sha}` as the original branch identity, where `{short-sha}` is the first twelve lowercase hex characters of `HEAD`.
+**Branch slug:** The current branch name is encoded into a filesystem-safe slug. The slug is deterministic and contains no path separators. Slugging lowercases the branch name, replaces every run of non-alphanumeric characters with `-`, trims leading and trailing `-`, and always appends a deterministic disambiguator: the first eight lowercase hex characters of the SHA-256 digest of the original branch name, appended with a `-` separator. Detached HEAD state uses `detached-{short-sha}` as the original branch identity, where `{short-sha}` is the first twelve lowercase hex characters of the git `HEAD` commit SHA.
 
 **Run directory:** `{YYYY-MM-DD_HH-mm-ss}` — timestamp format from `spx/36-session.enabler/21-timestamp-format.adr.md`, using UTC components so run directories sort consistently.
 
-**State file:** `state.json` records the run envelope. Domain-specific auditor output lives in verdict artifacts; `state.json` stays a compact index for status, list, and latest-run lookup.
+**State file:** `state.json` records the terminal run envelope. Domain-specific auditor output lives in verdict artifacts; `state.json` stays a compact index for status, list, and latest-run lookup. The file is written exactly once after the run reaches a terminal state. In-progress audit runs do not write `state.json`.
 
 ```ts
 interface AuditRunState {
@@ -39,11 +39,13 @@ interface AuditRunState {
   readonly auditors: readonly string[];
   readonly targets: readonly string[];
   readonly startedAt: string;
-  readonly completedAt: string | null;
-  readonly verdictPath: string | null;
-  readonly status: "running" | "approved" | "rejected" | "failed";
+  readonly completedAt: string;
+  readonly verdictPath: string;
+  readonly status: "approved" | "rejected" | "failed" | "interrupted";
 }
 ```
+
+**Audit config digest:** `auditConfigDigest` is the lowercase hex SHA-256 digest of canonical JSON for the resolved audit config descriptor section after defaults are applied. The digest excludes unrelated descriptor sections and raw file formatting.
 
 **Latest run:** The lexicographically last run directory inside `.spx/audit/{branch-slug}/runs/` is the most recent audit for that branch.
 
@@ -72,8 +74,9 @@ Alternatives rejected:
 ## Invariants
 
 - Each branch maps to exactly one directory name under `.spx/audit/` — the slug is a pure function of the branch identity and always includes a deterministic digest suffix
-- Detached HEAD state maps to a branch identity of `detached-{short-sha}`, where `{short-sha}` is the first twelve lowercase hex characters of `HEAD`
-- Each `state.json` file contains the complete run envelope required to list, inspect, and identify the latest branch audit without parsing verdict XML
+- Detached HEAD state maps to a branch identity of `detached-{short-sha}`, where `{short-sha}` is the first twelve lowercase hex characters of the git `HEAD` commit SHA
+- Each `state.json` file contains the complete terminal run envelope required to list, inspect, and identify the latest branch audit without parsing verdict XML
+- `state.json` is written exactly once after the run reaches `approved`, `rejected`, `failed`, or `interrupted`
 - Audit run directories within a branch directory are never renamed or moved — timestamps are assigned at write time and are stable
 - The `.spx/audit/` root is always resolved relative to the main repository root per `spx/15-worktree-resolution.pdr.md`
 
@@ -87,14 +90,17 @@ A verdict file at `.spx/audit/work-config-backed-execution-scope/runs/2026-04-25
 
 - Encode branch names into filesystem-safe slugs with no path separators ([review])
 - Always append `-{sha256-prefix}`, where `sha256-prefix` is the first eight lowercase hex characters of the SHA-256 digest of the original branch identity ([review])
-- Use `detached-{short-sha}` as the branch identity in detached HEAD state, where `short-sha` is the first twelve lowercase hex characters of `HEAD` ([review])
+- Use `detached-{short-sha}` as the branch identity in detached HEAD state, where `short-sha` is the first twelve lowercase hex characters of the git `HEAD` commit SHA ([review])
 - Name run directories `{YYYY-MM-DD_HH-mm-ss}` using UTC timestamps ([review])
-- Write `state.json` with branch name, branch slug, head commit SHA, base ref, audit config digest, auditor identifiers, target paths, run start timestamp, run completion timestamp, verdict path, and final status ([review])
+- Write `state.json` exactly once at terminal run completion with branch name, branch slug, head commit SHA, base ref, audit config digest, auditor identifiers, target paths, run start timestamp, run completion timestamp, verdict path, and final status ([review])
+- Compute `auditConfigDigest` from canonical JSON for the resolved audit config descriptor section after defaults are applied, excluding unrelated descriptor sections and raw file formatting ([review])
 - Resolve `.spx/audit/` relative to the main repository root via `detectMainRepoRoot` per `spx/15-worktree-resolution.pdr.md` ([review](../15-worktree-resolution.pdr.md))
 - Derive all path component names (`.spx`, `audit`, `runs`) from the audit config descriptor defaults — single source of truth ([review](../16-config.enabler/21-descriptor-registration.adr.md))
+- Keep `spx audit verify <file>` accepting explicit verdict file paths anywhere in the product directory, including existing `.spx/nodes/` artifacts and new `.spx/audit/` artifacts ([review])
 
 ### NEVER
 
 - Create status subdirectories under a branch directory — audit runs have no state transitions ([review])
 - Hardcode the strings `"audit"`, `"runs"`, or `".spx"` outside of the audit config descriptor defaults ([review])
 - Use `/` in branch slug directory names — breaks filesystem portability ([review])
+- Write `state.json` for an in-progress audit run ([review])

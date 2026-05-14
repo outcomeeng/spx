@@ -14,7 +14,7 @@ This decision governs how configurable behavior across the spx harness is declar
 
 Each spx domain declares a typed configuration descriptor — a module at `src/<domain>/config.ts` or `src/<domain>/config/descriptor.ts` exporting an object implementing `ConfigDescriptor<T>` with fields `{ section: string, defaults: T, validate(value: unknown): Result<T> }`. The config module at `src/config/` imports each descriptor through an explicit static registry (`src/config/registry.ts`), loads the single product-directory `spx.config.*` file (if present), parses that file through config-owned format APIs, merges each descriptor's section with its declared defaults, runs the descriptor's own validator on the merged value, and returns a typed `Config` keyed by descriptor section. Consumers read their domain's resolved section through a typed accessor — they never touch raw config content, nor reference vocabulary (suffixes, kinds, paths, rule names) outside their own descriptor. The spec-tree descriptor is the sole owner of entry-kind vocabulary; other descriptors consume spec-tree's resolved section for any vocabulary they need.
 
-Descriptor placement follows module complexity. A descriptor lives at `src/<domain>/config.ts` when the descriptor, defaults, validator, and exported types fit in one self-contained module. A descriptor lives at `src/<domain>/config/descriptor.ts` when the domain has a config package with submodules for helpers, shared validators, literals, accessors, or write-back behavior. The registry imports the descriptor object from whichever module is the descriptor owner; consumers do not infer descriptor placement from domain name.
+Descriptor placement follows a measurable companion-module rule. A descriptor lives at `src/<domain>/config.ts` when the descriptor, defaults, validator, and exported types fit in one self-contained module with at most one companion module. A descriptor lives at `src/<domain>/config/descriptor.ts` when the domain has two or more companion modules in the same config package, counted from validator helpers, shared primitive adapters, accessor modules, literal modules, write-back modules, or descriptor-local test generators. The registry imports the descriptor object from whichever module is the descriptor owner; consumers do not infer descriptor placement from domain name.
 
 Repeated structural shapes that appear in multiple domain descriptors are declared once as shared config primitives. A shared primitive validates structure only; the importing domain descriptor owns policy meaning, defaults, and section placement. Path include/exclude filters are the canonical shared primitive: validation uses them for quality-debt suppression, testing uses them for passing-scope selection, and future auditing or reviewing sections may use them for target selection without sharing policy semantics.
 
@@ -51,7 +51,7 @@ Alternatives considered:
 - `resolveConfig(productDir)` returns a fully-typed `Config` or an error describing which descriptors' validators rejected their sections — never a partial or untyped result
 - Adding a new descriptor module plus a registry entry requires no changes to any existing descriptor module or any consumer outside the new domain
 - Shared config primitives validate reusable structure only; they do not assign domain semantics outside the descriptor that imports them
-- Descriptor placement is deterministic: self-contained descriptors use `src/<domain>/config.ts`; descriptors inside config packages use `src/<domain>/config/descriptor.ts`
+- Descriptor placement is deterministic: descriptors with at most one companion module use `src/<domain>/config.ts`; descriptors with two or more companion modules use `src/<domain>/config/descriptor.ts`
 
 ## Compliance
 
@@ -63,7 +63,7 @@ Files under `src/config/` contain the registry, loader, shared types, shared pri
 
 - Each configurable domain exports a descriptor from `src/<domain>/config.ts` or `src/<domain>/config/descriptor.ts` implementing the `ConfigDescriptor<T>` interface ([review])
 - The registry at `src/config/registry.ts` imports each descriptor with a static import statement ([review])
-- Descriptor module placement follows the complexity rule: flat for self-contained descriptors, nested for config packages with submodules ([review])
+- Descriptor module placement follows the companion-module rule: flat for descriptors with at most one companion module, nested for descriptors with two or more companion modules ([review])
 - Validators receive only their descriptor's parsed section; cross-cutting vocabulary rules live with the vocabulary owner, not with the config module or with consuming domains ([review])
 - Repeated structural config shapes are factored into shared config primitives and imported by descriptors; domains do not copy-paste validators for the same shape ([review])
 - `resolveConfig(productDir: string)` accepts `productDir` as its first parameter — callers pass in the resolved product directory per `spx/15-worktree-resolution.pdr.md` ([review])
