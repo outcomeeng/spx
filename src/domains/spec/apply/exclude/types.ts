@@ -19,7 +19,7 @@ export interface ApplyExcludeDeps {
 
 /** Options for the apply-exclude command */
 export interface ApplyExcludeOptions {
-  /** Working directory (project root) */
+  /** Working directory (product root) */
   cwd: string;
   /** Injected dependencies (for testing) */
   deps: ApplyExcludeDeps;

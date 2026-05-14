@@ -1,7 +1,7 @@
 /**
  * Command handler for spx spec apply.
  *
- * Reads spx/EXCLUDE and applies exclusions to the project's language-specific
+ * Reads spx/EXCLUDE and applies exclusions to the product's language-specific
  * config file using the detected language adapter.
  */
 import { join } from "node:path";
@@ -27,7 +27,7 @@ export async function applyExcludeCommand(options: ApplyExcludeOptions): Promise
     return { exitCode: 1, output: `error: ${excludePath} not found` };
   }
 
-  // Detect project language
+  // Detect product language
   const adapter = await detectLanguage(cwd, deps);
   if (!adapter) {
     return { exitCode: 1, output: "error: no supported config file found (checked: pyproject.toml)" };

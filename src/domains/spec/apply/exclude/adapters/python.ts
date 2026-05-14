@@ -10,7 +10,7 @@ import { isExcludedEntry, toMypyRegex, toPyrightPath, toPytestIgnore } from "../
 import type { ApplyResult } from "../types";
 import type { LanguageAdapter } from "./types";
 
-/** Config file name for Python projects */
+/** Config file name for Python product directories */
 export const PYTHON_CONFIG_FILE = "pyproject.toml";
 
 /** TOML section header for pytest configuration */

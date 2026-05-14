@@ -10,7 +10,7 @@ import type { ApplyResult } from "../types";
 export interface LanguageAdapter {
   /** Human-readable language name (e.g., "Python", "TypeScript") */
   readonly language: string;
-  /** Config file path relative to project root (e.g., "pyproject.toml") */
+  /** Config file path relative to the product root (e.g., "pyproject.toml") */
   readonly configFile: string;
   /** Tool names that are configured by this adapter (e.g., ["pytest", "mypy", "pyright"]) */
   readonly tools: readonly string[];

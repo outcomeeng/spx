@@ -20,7 +20,7 @@ function buildApplyHelp(): string {
   });
 
   return `
-Reads ${excludePath} and applies exclusions to the project's tool configuration.
+Reads ${excludePath} and applies exclusions to the product's tool configuration.
 Each excluded node is translated into the appropriate format for the detected
 language's test runner, type checker, and other quality gate tools.
 

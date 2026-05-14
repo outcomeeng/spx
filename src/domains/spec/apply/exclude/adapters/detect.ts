@@ -1,7 +1,7 @@
 /**
  * Language detection for apply-exclude.
  *
- * Checks which config files exist in the project to determine the language
+ * Checks which config files exist in the product to determine the language
  * and return the appropriate adapter.
  */
 import { join } from "node:path";
@@ -14,18 +14,18 @@ import type { LanguageAdapter } from "./types";
 export const ADAPTERS: readonly LanguageAdapter[] = [pythonAdapter] as const;
 
 /**
- * Detect the project language by checking for config files.
+ * Detect the product language by checking for config files.
  *
- * @param projectRoot - Absolute path to the project root
+ * @param productDir - Absolute path to the product root
  * @param deps - Injected file system dependencies
  * @returns The first matching adapter, or null if no config file is found
  */
 export async function detectLanguage(
-  projectRoot: string,
+  productDir: string,
   deps: Pick<ApplyExcludeDeps, "fileExists">,
 ): Promise<LanguageAdapter | null> {
   for (const adapter of ADAPTERS) {
-    const configPath = join(projectRoot, adapter.configFile);
+    const configPath = join(productDir, adapter.configFile);
     const exists = await deps.fileExists(configPath);
     if (exists) {
       return adapter;

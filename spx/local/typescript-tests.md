@@ -1,4 +1,4 @@
-# Project-Specific TypeScript Test Standards (spx)
+# Product-Specific TypeScript Test Standards (spx)
 
 This file is the repo-local overlay for `standardizing-typescript-tests`. Rules here supplement the shared skill — they do not repeat it.
 
@@ -22,7 +22,7 @@ When you see ADR-21 findings:
 
 ## Generator inventory
 
-The project's generators live in `testing/generators/`. Consult this directory before writing any test value by hand.
+The product's generators live in `testing/generators/`. Consult this directory before writing any test value by hand.
 
 Key generators for common domains:
 
