@@ -56,6 +56,11 @@ export const SPEC_TREE_EVIDENCE_FILE = {
   DIRECTORY_NAME: "tests",
   MODES: ["scenario", "mapping", "conformance", "property", "compliance"],
   LEVELS: ["l1", "l2", "l3"],
+  TAILS: {
+    TYPESCRIPT: ["test", "ts"],
+    PYTHON: ["py"],
+    RUST: ["rs"],
+  },
   SEGMENT_SEPARATOR: ".",
 } as const;
 
@@ -259,6 +264,10 @@ const SPEC_TREE_ORDER_RADIX = 10;
 const SPEC_TREE_TEXT_ENCODING = "utf8";
 const SPEC_TREE_EMPTY_RELATIVE_PATH = "";
 const SPEC_TREE_ORDER_PATTERN = /^\d+$/;
+const SPEC_TREE_MIN_EVIDENCE_PATH_SEGMENTS = 2;
+const SPEC_TREE_PARENT_SEGMENT_OFFSET = 2;
+const SPEC_TREE_FIRST_EVIDENCE_MARKER_INDEX = 1;
+const SPEC_TREE_EXACTLY_ONE_EVIDENCE_MARKER = 1;
 
 export function getKindDefinition<K extends keyof SpecTreeRegistry>(
   kind: K,
@@ -637,24 +646,43 @@ function isProductFile(relativePath: string): boolean {
 
 function isEvidenceFile(relativePath: string): boolean {
   const segments = relativePath.split(SPEC_TREE_PATH_SEPARATOR);
-  const filename = segments.at(-1);
-  const directoryName = segments.at(-2);
+  if (segments.length < SPEC_TREE_MIN_EVIDENCE_PATH_SEGMENTS) return false;
 
-  return filename !== undefined
-    && directoryName === SPEC_TREE_EVIDENCE_FILE.DIRECTORY_NAME
-    && SPEC_TREE_EVIDENCE_FILE.MODES.some((mode) =>
-      SPEC_TREE_EVIDENCE_FILE.LEVELS.some((level) =>
-        filename.includes(
-          [
-            SPEC_TREE_EVIDENCE_FILE.SEGMENT_SEPARATOR,
-            mode,
-            SPEC_TREE_EVIDENCE_FILE.SEGMENT_SEPARATOR,
-            level,
-            SPEC_TREE_EVIDENCE_FILE.SEGMENT_SEPARATOR,
-          ].join(""),
-        )
+  const filename = segments[segments.length - 1] ?? "";
+  const directoryName = segments[segments.length - SPEC_TREE_PARENT_SEGMENT_OFFSET];
+  const filenameSegments = filename.split(SPEC_TREE_EVIDENCE_FILE.SEGMENT_SEPARATOR);
+
+  return directoryName === SPEC_TREE_EVIDENCE_FILE.DIRECTORY_NAME
+    && Object.values(SPEC_TREE_EVIDENCE_FILE.TAILS).some((tail) =>
+      SPEC_TREE_EVIDENCE_FILE.MODES.some((mode) =>
+        SPEC_TREE_EVIDENCE_FILE.LEVELS.some((level) => filenameHasEvidenceSuffix(filenameSegments, mode, level, tail))
       )
     );
+}
+
+function filenameHasEvidenceSuffix(
+  filenameSegments: readonly string[],
+  mode: string,
+  level: string,
+  tail: readonly string[],
+): boolean {
+  if (!segmentsEndWith(filenameSegments, tail)) return false;
+  const tailStart = filenameSegments.length - tail.length;
+  let evidenceMarkerCount = 0;
+
+  for (let index = SPEC_TREE_FIRST_EVIDENCE_MARKER_INDEX; index < tailStart - 1; index += 1) {
+    if (filenameSegments[index] === mode && filenameSegments[index + 1] === level) {
+      evidenceMarkerCount += 1;
+    }
+  }
+
+  return evidenceMarkerCount === SPEC_TREE_EXACTLY_ONE_EVIDENCE_MARKER;
+}
+
+function segmentsEndWith(segments: readonly string[], suffix: readonly string[]): boolean {
+  if (segments.length <= suffix.length) return false;
+  const start = segments.length - suffix.length;
+  return suffix.every((value, index) => segments[start + index] === value);
 }
 
 function shouldDescendIntoDirectory(

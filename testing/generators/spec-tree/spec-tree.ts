@@ -323,8 +323,7 @@ function arbitraryEvidenceFileName(): fc.Arbitrary<string> {
       slug,
       mode,
       level,
-      "test",
-      "ts",
+      ...SPEC_TREE_EVIDENCE_FILE.TAILS.TYPESCRIPT,
     ].join(SPEC_TREE_EVIDENCE_FILE.SEGMENT_SEPARATOR)
   );
 }

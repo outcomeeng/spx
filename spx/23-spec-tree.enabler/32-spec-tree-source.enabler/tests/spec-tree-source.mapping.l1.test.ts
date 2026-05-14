@@ -89,6 +89,9 @@ describe("SpecTreeSource mappings", () => {
       await env.materialize();
       const rootDirectory = nodeDirectoryName(env.fixture.root);
       const evidenceFile = sampleSpecTreeTestValue(SPEC_TREE_TEST_GENERATOR.evidenceFileName());
+      const nonEvidenceSuffix = sampleSpecTreeTestValue(
+        SPEC_TREE_TEST_GENERATOR.unregisteredNodeSuffix(KIND_REGISTRY),
+      );
       const evidencePath = [
         SPEC_TREE_CONFIG.ROOT_DIRECTORY,
         rootDirectory,
@@ -96,6 +99,7 @@ describe("SpecTreeSource mappings", () => {
         evidenceFile,
       ].join("/");
       await env.writeRaw(evidencePath, "");
+      await env.writeRaw(`${evidencePath}${nonEvidenceSuffix}`, "");
 
       const snapshot = await readSpecTree({ source: env.filesystemSource() });
       const root = expectPresent(snapshot.allNodes.find((node) => node.id === rootDirectory));
