@@ -25,12 +25,12 @@ CAN run all spec-tree tests with a single command, honor configured passing-scop
 - Test discovery is deterministic: the same spec tree structure always produces the same set of test files grouped by runner ([test](tests/testing.unit.test.ts))
 - Exit code aggregation: `spx test` exits non-zero if any dispatched runner exits non-zero, zero otherwise ([test](tests/testing.integration.test.ts))
 - Last-run state is evidence, not product truth: deleting the state never changes which tests are in passing scope, only whether fast status has cached observations available ([review])
-- Last-run state is stale when the resolved testing config digest or discovered test file path set differs from the values recorded with the cached observation ([review])
+- Last-run state is stale when the resolved testing config digest, discovered test file path set, discovered test file content digest, or descriptor-declared product input digest differs from the values recorded with the cached observation ([review])
 
 ### Compliance
 
 - ALWAYS: `spx test passing` reads passing-scope exclusions through the config descriptor system for `spx.config.{toml,json,yaml}` — no duplicate parsing logic ([review])
-- ALWAYS: persisted testing state records observed runner results, timestamps, inputs, and staleness metadata; config remains the source for passing-scope policy ([review])
+- ALWAYS: persisted testing state records observed runner results, timestamps, input path sets, input content digests, and staleness metadata; config remains the source for passing-scope policy ([review])
 - ALWAYS: the testing config digest is computed from config-owned canonical descriptor JSON for the resolved testing config descriptor section after defaults are applied; unrelated descriptor sections and raw file formatting do not affect testing state staleness ([review](../16-config.enabler/21-descriptor-registration.adr.md))
 - ALWAYS: runner invocation is gated on language presence per `../19-language-registration.adr.md` ([review])
 - NEVER: write to product configuration files (`pyproject.toml`, `package.json`, `tsconfig.json`, `vitest.config.ts`) — exclusion applies via runner flags at invocation time ([review])
