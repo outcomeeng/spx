@@ -301,7 +301,7 @@ export function sampleDistinctTestFilePaths(count: number): readonly string[] {
 }
 
 export function sampleLiteralPair(): readonly [string, string] {
-  const [first, second] = sampleDistinctDomainLiterals(LITERAL_TEST_GENERATOR_COUNTS.two);
+  const [first, second] = sampleIndependentDomainLiterals(LITERAL_TEST_GENERATOR_COUNTS.two);
   if (first === undefined || second === undefined) {
     throw new Error("Literal generator returned an incomplete pair");
   }

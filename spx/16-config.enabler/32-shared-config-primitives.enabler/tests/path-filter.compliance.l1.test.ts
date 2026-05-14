@@ -11,10 +11,12 @@ import { CONFIG_TEST_GENERATOR, sampleConfigTestValue } from "@testing/generator
 
 type GeneratedPathFilterSection = Readonly<Record<string, PathFilterConfig>>;
 
+const recordType = typeof {};
+
 function isGeneratedPathFilterSection(
   value: unknown,
 ): value is Readonly<Record<string, unknown>> {
-  return value !== null && !Array.isArray(value) && Object(value) === value;
+  return typeof value === recordType && value !== null && !Array.isArray(value);
 }
 
 function buildPathFilterDescriptor(section: string, field: string): ConfigDescriptor<GeneratedPathFilterSection> {

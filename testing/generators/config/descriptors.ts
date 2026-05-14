@@ -177,6 +177,7 @@ function arbitraryInvalidPathFilterObject(): fc.Arbitrary<{
     fc.integer(),
     fc.boolean(),
     fc.constant(null),
+    fc.constant(undefined),
     fc.array(fc.string()),
   ).map((value) => ({
     value,
@@ -194,6 +195,7 @@ function arbitraryInvalidPathFilterField(field: string): fc.Arbitrary<{
       fc.integer(),
       fc.boolean(),
       fc.constant(null),
+      fc.record({ nested: fc.string() }),
       arbitraryInvalidPathFilterArray(),
     )
     .map((value) => ({
