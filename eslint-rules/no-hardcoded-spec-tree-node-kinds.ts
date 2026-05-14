@@ -9,7 +9,6 @@ import type { Rule } from "eslint";
 
 import { NODE_KINDS } from "../src/lib/spec-tree/config";
 import { SPX_RULE_PREFIX } from "./import-source";
-
 import {
   isInTestDescription,
   isInTypeDefinition,
@@ -33,7 +32,6 @@ const rule: Rule.RuleModule = {
       category: "Best Practices",
       recommended: true,
     },
-    fixable: undefined,
     schema: [],
     messages: {
       [USE_SPEC_TREE_NODE_KINDS_MESSAGE_ID]:

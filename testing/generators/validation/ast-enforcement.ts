@@ -1,8 +1,7 @@
 import type { RuleTester } from "eslint";
 
 import { VALIDATION_EXIT_CODES, VALIDATION_PIPELINE } from "@/commands/validation/messages";
-import { SPEC_TREE_NODE_STATE } from "@/lib/spec-tree";
-import { NODE_KINDS } from "@/lib/spec-tree/config";
+import { NODE_KINDS, SPEC_TREE_NODE_STATE } from "@/lib/spec-tree/config";
 import { ASYNC_SPAWN_OUTSIDE_LIFECYCLE_MESSAGE_ID } from "@eslint-rules/no-async-spawn-outside-lifecycle";
 import {
   BARE_STRING_UNION_MESSAGE_ID,
@@ -205,7 +204,7 @@ export const VALIDATION_ESLINT_SNIPPETS = {
   objectRegistry: `const sectionModes = { STRICT: "strict", LENIENT: "lenient" } as const;`,
   tupleRegistry: `const sectionModes = ["strict", "lenient"] as const;`,
   sourceOwnedStates:
-    `import { SPEC_TREE_NODE_STATE } from "@/lib/spec-tree"; expect(node.state).toBe(SPEC_TREE_NODE_STATE.DECLARED)`,
+    `import { SPEC_TREE_NODE_STATE } from "@/lib/spec-tree/config"; expect(node.state).toBe(SPEC_TREE_NODE_STATE.DECLARED)`,
   sourceOwnedKinds: `import { NODE_KINDS } from "@/lib/spec-tree/config"; expect(node.kind).toBe(NODE_KINDS[0])`,
   declaredPathAssertion: `expect(file).toBe("declared.md")`,
   nestedDeclaredPathAssertion: `expect(path).toContain("tests/declared.md")`,

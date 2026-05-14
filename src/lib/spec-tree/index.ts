@@ -1,8 +1,10 @@
 import { readdir, readFile } from "node:fs/promises";
 import { join } from "node:path";
 
-import type { DecisionKind, Kind, KindDefinition, NodeKind, SpecTreeKindCategory } from "./config";
-import { KIND_REGISTRY, SPEC_TREE_CONFIG, SPEC_TREE_KIND_CATEGORY } from "./config";
+import type { DecisionKind, Kind, KindDefinition, NodeKind, SpecTreeKindCategory, SpecTreeNodeState } from "./config";
+import { KIND_REGISTRY, SPEC_TREE_CONFIG, SPEC_TREE_KIND_CATEGORY, SPEC_TREE_NODE_STATE } from "./config";
+export { SPEC_TREE_NODE_STATE } from "./config";
+export type { SpecTreeNodeState } from "./config";
 
 const SPEC_TREE_FIELD_KEY = {
   VERSION: "version",
@@ -34,15 +36,6 @@ export const SPEC_TREE_FILESYSTEM_RECORD_TYPE = {
 
 export type SpecTreeFilesystemRecordType =
   (typeof SPEC_TREE_FILESYSTEM_RECORD_TYPE)[keyof typeof SPEC_TREE_FILESYSTEM_RECORD_TYPE];
-
-export const SPEC_TREE_NODE_STATE = {
-  DECLARED: "declared",
-  SPECIFIED: "specified",
-  FAILING: "failing",
-  PASSING: "passing",
-} as const;
-
-export type SpecTreeNodeState = (typeof SPEC_TREE_NODE_STATE)[keyof typeof SPEC_TREE_NODE_STATE];
 
 export const SPEC_TREE_EVIDENCE_STATUS = {
   LINKED: "linked",

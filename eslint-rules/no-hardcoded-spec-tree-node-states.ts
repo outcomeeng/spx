@@ -7,8 +7,8 @@
 
 import type { Rule } from "eslint";
 
-import { SPEC_TREE_NODE_STATE } from "../src/lib/spec-tree";
-
+import { SPEC_TREE_NODE_STATE } from "../src/lib/spec-tree/config";
+import { SPX_RULE_PREFIX } from "./import-source";
 import {
   isInTestDescription,
   isInTypeDefinition,
@@ -16,8 +16,6 @@ import {
   isStringLiteralNode,
   isTestFile,
 } from "./test-literal-context";
-
-import { SPX_RULE_PREFIX } from "./import-source";
 
 export const NO_HARDCODED_SPEC_TREE_NODE_STATES_RULE_NAME = "no-hardcoded-spec-tree-node-states";
 export const NO_HARDCODED_SPEC_TREE_NODE_STATES_RULE_ID =
@@ -35,11 +33,10 @@ const rule: Rule.RuleModule = {
       category: "Best Practices",
       recommended: true,
     },
-    fixable: undefined,
     schema: [],
     messages: {
       [USE_SPEC_TREE_NODE_STATES_MESSAGE_ID]:
-        "Do not hardcode source-owned spec-tree node state '{{value}}'. Import SPEC_TREE_NODE_STATE from '@/lib/spec-tree' and reference that registry.",
+        "Do not hardcode source-owned spec-tree node state '{{value}}'. Import SPEC_TREE_NODE_STATE from '@/lib/spec-tree/config' and reference that registry.",
     },
   },
   create(context: Rule.RuleContext): Rule.RuleListener {
