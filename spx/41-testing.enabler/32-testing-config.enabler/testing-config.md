@@ -10,5 +10,5 @@ CAN read passing-scope filters from `spx.config.{toml,json,yaml}`
 
 - ALWAYS: `spx test passing` reads passing-scope policy from the testing descriptor ([review])
 - ALWAYS: normal `spx test` discovery remains independent from passing-scope filters ([review])
-- ALWAYS: the testing descriptor uses the shared path-filter primitive for node or path selection ([review])
+- ALWAYS: the testing descriptor uses the shared path-filter primitive for node or path selection ([test](tests/testing-config.compliance.l1.test.ts), [review])
 - NEVER: read `spx/EXCLUDE` as testing passing-scope policy ([review])

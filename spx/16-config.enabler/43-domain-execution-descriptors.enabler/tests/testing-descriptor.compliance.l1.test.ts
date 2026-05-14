@@ -1,0 +1,121 @@
+import { describe, expect, it } from "vitest";
+
+import { resolveConfig } from "@/config/index";
+import { PATH_FILTER_CONFIG_FIELDS } from "@/config/primitives/path-filter";
+import { productionRegistry } from "@/config/registry";
+import { RESULT_VALUE_KEY } from "@/config/types";
+import { TESTING_CONFIG_FIELDS, TESTING_SECTION, type TestingConfig, testingConfigDescriptor } from "@/testing/config";
+import {
+  VALIDATION_PATHS_SUBSECTION,
+  VALIDATION_SECTION,
+  validationConfigDescriptor,
+} from "@/validation/config/descriptor";
+import { CONFIG_TEST_GENERATOR, sampleConfigTestValue } from "@testing/generators/config/descriptors";
+import type { Config } from "@testing/harnesses/spec-tree/spec-tree";
+import { withTestEnv } from "@testing/harnesses/spec-tree/spec-tree";
+
+function expectResolvedConfig(result: Awaited<ReturnType<typeof resolveConfig>>) {
+  expect(result.ok).toBe(true);
+  if (!result.ok) {
+    throw new Error(result.error);
+  }
+  return result.value;
+}
+
+function assertTestingConfig(value: unknown): TestingConfig {
+  expect(value).toHaveProperty(TESTING_CONFIG_FIELDS.PASSING_SCOPE);
+  return value as TestingConfig;
+}
+
+describe("testing config descriptor registration", () => {
+  it("is reachable through the default production config registry", async () => {
+    const generated = sampleConfigTestValue(CONFIG_TEST_GENERATOR.testingConfig());
+
+    await withTestEnv(generated.config, async ({ productDir }) => {
+      // No explicit registry: this proves the testing descriptor is in the default production registry.
+      const result = await resolveConfig(productDir);
+      const config = expectResolvedConfig(result);
+      const testing = assertTestingConfig(config[TESTING_SECTION]);
+
+      expect(testing[TESTING_CONFIG_FIELDS.PASSING_SCOPE]).toEqual(generated.expected.passingScope);
+    });
+  });
+
+  it("resolves the testing descriptor default when the testing section is absent", async () => {
+    await withTestEnv({}, async ({ productDir }) => {
+      const result = await resolveConfig(productDir, productionRegistry);
+      const config = expectResolvedConfig(result);
+
+      expect(assertTestingConfig(config[TESTING_SECTION])).toEqual(testingConfigDescriptor.defaults);
+    });
+  });
+
+  it("ignores unknown testing section keys while resolving defaults", async () => {
+    const unknownKey = sampleConfigTestValue(CONFIG_TEST_GENERATOR.key());
+    const unknownValue = sampleConfigTestValue(CONFIG_TEST_GENERATOR.scalar());
+    const projectConfig: Config = {
+      [TESTING_SECTION]: {
+        [unknownKey]: unknownValue,
+      },
+    };
+
+    await withTestEnv(projectConfig, async ({ productDir }) => {
+      const result = await resolveConfig(productDir, productionRegistry);
+      const config = expectResolvedConfig(result);
+
+      expect(assertTestingConfig(config[TESTING_SECTION])).toEqual(testingConfigDescriptor.defaults);
+    });
+  });
+
+  it("keeps validation paths and testing passing-scope filters in separate descriptor sections", async () => {
+    const validationFilter = sampleConfigTestValue(CONFIG_TEST_GENERATOR.pathFilter());
+    const testingFilter = sampleConfigTestValue(CONFIG_TEST_GENERATOR.pathFilter());
+    const projectConfig: Config = {
+      [VALIDATION_SECTION]: {
+        [VALIDATION_PATHS_SUBSECTION]: validationFilter,
+      },
+      [TESTING_SECTION]: {
+        [TESTING_CONFIG_FIELDS.PASSING_SCOPE]: testingFilter,
+      },
+    };
+
+    await withTestEnv(projectConfig, async ({ productDir }) => {
+      const result = await resolveConfig(productDir, [validationConfigDescriptor, testingConfigDescriptor]);
+      const config = expectResolvedConfig(result);
+      const validation = config[VALIDATION_SECTION] as typeof validationConfigDescriptor.defaults;
+      const testing = assertTestingConfig(config[TESTING_SECTION]);
+
+      expect(validation.paths[PATH_FILTER_CONFIG_FIELDS.INCLUDE]).toEqual(
+        validationFilter[PATH_FILTER_CONFIG_FIELDS.INCLUDE],
+      );
+      expect(validation.paths[PATH_FILTER_CONFIG_FIELDS.EXCLUDE]).toEqual(
+        validationFilter[PATH_FILTER_CONFIG_FIELDS.EXCLUDE],
+      );
+      expect(testing[TESTING_CONFIG_FIELDS.PASSING_SCOPE][PATH_FILTER_CONFIG_FIELDS.INCLUDE]).toEqual(
+        testingFilter[PATH_FILTER_CONFIG_FIELDS.INCLUDE],
+      );
+      expect(testing[TESTING_CONFIG_FIELDS.PASSING_SCOPE][PATH_FILTER_CONFIG_FIELDS.EXCLUDE]).toEqual(
+        testingFilter[PATH_FILTER_CONFIG_FIELDS.EXCLUDE],
+      );
+    });
+  });
+
+  it("rejects malformed testing sections without returning a partial config", async () => {
+    const generated = sampleConfigTestValue(CONFIG_TEST_GENERATOR.invalidPathFilter());
+    const projectConfig: Config = {
+      [TESTING_SECTION]: {
+        [TESTING_CONFIG_FIELDS.PASSING_SCOPE]: generated.value,
+      },
+    };
+
+    await withTestEnv(projectConfig, async ({ productDir }) => {
+      const result = await resolveConfig(productDir, productionRegistry);
+
+      expect(result.ok).toBe(false);
+      if (!result.ok) {
+        expect(result.error).toContain(TESTING_SECTION);
+        expect(RESULT_VALUE_KEY in result).toBe(false);
+      }
+    });
+  });
+});

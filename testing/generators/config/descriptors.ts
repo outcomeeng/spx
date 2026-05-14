@@ -1,7 +1,11 @@
 import * as fc from "fast-check";
 
 import type { ConfigFileReadResult } from "@/config/index";
-import { PATH_FILTER_CONFIG_FIELDS, type PathFilterConfig } from "@/config/primitives/path-filter";
+import {
+  PATH_FILTER_CONFIG_FIELDS,
+  type PathFilterConfig,
+  validatePathFilterConfig,
+} from "@/config/primitives/path-filter";
 import type { ConfigDescriptor, Result } from "@/config/types";
 import {
   KIND_REGISTRY,
@@ -9,6 +13,7 @@ import {
   SPEC_TREE_SECTION,
   type SpecTreeKindCategory,
 } from "@/lib/spec-tree/config";
+import { TESTING_CONFIG_FIELDS, TESTING_SECTION, type TestingConfig } from "@/testing/config";
 
 export const CONFIG_TEST_FIELDS = {
   TOKEN: "token",
@@ -76,6 +81,11 @@ export type GeneratedInvalidPathFilter = {
   readonly error: string;
 };
 
+export type GeneratedTestingConfig = {
+  readonly config: Record<string, unknown>;
+  readonly expected: TestingConfig;
+};
+
 export const CONFIG_TEST_GENERATOR = {
   absentConfigFileReadResult: arbitraryAbsentConfigFileReadResult,
   emptyConfig: arbitraryEmptyConfig,
@@ -97,6 +107,7 @@ export const CONFIG_TEST_GENERATOR = {
   productDir: arbitraryProductDir,
   pathFilter: arbitraryPathFilter,
   invalidPathFilter: arbitraryInvalidPathFilter,
+  testingConfig: arbitraryTestingConfig,
   resolutionScope: arbitraryResolutionScope,
 } as const;
 
@@ -210,6 +221,31 @@ function arbitraryInvalidPathFilterArray(): fc.Arbitrary<readonly unknown[]> {
     fc.tuple(arbitraryPathPattern(), invalidEntry).map(([valid, invalid]) => [valid, invalid]),
     fc.tuple(invalidEntry, arbitraryPathPattern()).map(([invalid, valid]) => [invalid, valid]),
   );
+}
+
+function arbitraryTestingConfig(): fc.Arbitrary<GeneratedTestingConfig> {
+  return arbitraryPathFilter().map((passingScope) => {
+    const result = validatePathFilterConfig(
+      passingScope,
+      `${TESTING_SECTION}.${TESTING_CONFIG_FIELDS.PASSING_SCOPE}`,
+    );
+    if (!result.ok) {
+      // Guard the generator contract: arbitraryPathFilter must only emit values accepted by the primitive.
+      throw new Error(
+        `CONFIG_TEST_GENERATOR.pathFilter() produced an invalid filter ${JSON.stringify(passingScope)}: ${result.error}`,
+      );
+    }
+    return {
+      config: {
+        [TESTING_SECTION]: {
+          [TESTING_CONFIG_FIELDS.PASSING_SCOPE]: passingScope,
+        },
+      },
+      expected: {
+        [TESTING_CONFIG_FIELDS.PASSING_SCOPE]: result.value,
+      },
+    };
+  });
 }
 
 function arbitraryTempPrefix(): fc.Arbitrary<string> {
