@@ -194,12 +194,21 @@ function arbitraryInvalidPathFilterField(field: string): fc.Arbitrary<{
       fc.integer(),
       fc.boolean(),
       fc.constant(null),
-      fc.array(fc.oneof(fc.integer(), fc.boolean(), fc.constant(null)), { minLength: 1 }),
+      arbitraryInvalidPathFilterArray(),
     )
     .map((value) => ({
       value: { [field]: value },
       error: (path) => `${path}.${field} must be an array of strings`,
     }));
+}
+
+function arbitraryInvalidPathFilterArray(): fc.Arbitrary<readonly unknown[]> {
+  const invalidEntry = fc.oneof(fc.integer(), fc.boolean(), fc.constant(null));
+  return fc.oneof(
+    fc.array(invalidEntry, { minLength: 1 }),
+    fc.tuple(arbitraryPathPattern(), invalidEntry).map(([valid, invalid]) => [valid, invalid]),
+    fc.tuple(invalidEntry, arbitraryPathPattern()).map(([invalid, valid]) => [invalid, valid]),
+  );
 }
 
 function arbitraryTempPrefix(): fc.Arbitrary<string> {

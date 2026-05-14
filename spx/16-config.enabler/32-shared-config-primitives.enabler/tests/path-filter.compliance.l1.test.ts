@@ -7,37 +7,29 @@ import {
   validatePathFilterConfig,
 } from "@/config/primitives/path-filter";
 import type { ConfigDescriptor, Result } from "@/config/types";
-import { VALIDATION_PATHS_SUBSECTION, VALIDATION_SECTION } from "@/validation/config/descriptor";
 import { CONFIG_TEST_GENERATOR, sampleConfigTestValue } from "@testing/generators/config/descriptors";
 
-type GeneratedPathFilterSection = {
-  readonly [VALIDATION_PATHS_SUBSECTION]: PathFilterConfig;
-};
+type GeneratedPathFilterSection = Readonly<Record<string, PathFilterConfig>>;
 
 function isGeneratedPathFilterSection(
   value: unknown,
-): value is { readonly [VALIDATION_PATHS_SUBSECTION]?: unknown } {
+): value is Readonly<Record<string, unknown>> {
   return value !== null && !Array.isArray(value) && Object(value) === value;
 }
 
-function buildPathFilterDescriptor(section: string): ConfigDescriptor<GeneratedPathFilterSection> {
+function buildPathFilterDescriptor(section: string, field: string): ConfigDescriptor<GeneratedPathFilterSection> {
   return {
     section,
-    defaults: { [VALIDATION_PATHS_SUBSECTION]: {} },
+    defaults: { [field]: {} },
     validate(value: unknown): Result<GeneratedPathFilterSection> {
       if (!isGeneratedPathFilterSection(value)) {
-        const result = validatePathFilterConfig(value, section);
-        if (!result.ok) return result;
         return { ok: false, error: section };
       }
-      const filterResult = validatePathFilterConfig(
-        value[VALIDATION_PATHS_SUBSECTION] ?? {},
-        `${section}.${VALIDATION_PATHS_SUBSECTION}`,
-      );
+      const filterResult = validatePathFilterConfig(value[field] ?? {}, `${section}.${field}`);
       if (!filterResult.ok) return filterResult;
       return {
         ok: true,
-        value: { [VALIDATION_PATHS_SUBSECTION]: filterResult.value },
+        value: { [field]: filterResult.value },
       };
     },
   };
@@ -68,18 +60,17 @@ describe("path filter primitive compliance", () => {
   });
 
   it("lets separate descriptors expose the same structure under separate sections", () => {
-    const firstSection = sampleConfigTestValue(
-      CONFIG_TEST_GENERATOR.key().filter((section) => section !== VALIDATION_SECTION),
-    );
+    const field = sampleConfigTestValue(CONFIG_TEST_GENERATOR.key());
+    const firstSection = sampleConfigTestValue(CONFIG_TEST_GENERATOR.key());
     const secondSection = sampleConfigTestValue(
-      CONFIG_TEST_GENERATOR.key().filter((section) => section !== VALIDATION_SECTION && section !== firstSection),
+      CONFIG_TEST_GENERATOR.key().filter((section) => section !== firstSection),
     );
-    const firstDescriptor = buildPathFilterDescriptor(firstSection);
-    const secondDescriptor = buildPathFilterDescriptor(secondSection);
+    const firstDescriptor = buildPathFilterDescriptor(firstSection, field);
+    const secondDescriptor = buildPathFilterDescriptor(secondSection, field);
     const filter = sampleConfigTestValue(CONFIG_TEST_GENERATOR.pathFilter());
 
-    const firstResult = firstDescriptor.validate({ [VALIDATION_PATHS_SUBSECTION]: filter });
-    const secondResult = secondDescriptor.validate({ [VALIDATION_PATHS_SUBSECTION]: filter });
+    const firstResult = firstDescriptor.validate({ [field]: filter });
+    const secondResult = secondDescriptor.validate({ [field]: filter });
 
     expect(firstResult.ok).toBe(true);
     expect(secondResult.ok).toBe(true);
