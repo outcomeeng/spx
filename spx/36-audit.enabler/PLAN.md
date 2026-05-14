@@ -20,7 +20,7 @@ Move audit from verify-only artifact checking toward config-backed, branch-scope
 
 2. Implement branch slugging.
    - Branch names map to filesystem-safe slugs with no path separators.
-   - Slug collisions are disambiguated deterministically.
+   - Slug collisions append the first eight lowercase hex characters of the SHA-256 digest of the original branch name.
    - Detached-head behavior is explicit and test-covered.
 
 3. Move storage from node-first to branch-first.
@@ -32,6 +32,7 @@ Move audit from verify-only artifact checking toward config-backed, branch-scope
 
 - Audit descriptor tests cover defaults, valid storage overrides, invalid storage values, target filters, and descriptor isolation.
 - Branch slug mapping tests cover slashes, punctuation, collisions, and detached heads.
+- Audit state tests cover required `state.json` fields: branch name, branch slug, head commit SHA, base ref, audit config digest, auditor identifiers, target paths, run start timestamp, run completion timestamp, verdict path, and final status.
 - Storage tests prove audit state resolves through main repository root, not the worktree root.
 - Verify tests prove existing explicit-file verification still works for files outside `.spx/audit/`.
 

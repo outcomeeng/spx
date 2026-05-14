@@ -33,6 +33,7 @@ Remove ignore-source scope policy from file inclusion and keep this subtree focu
 - Tool-adapter tests prove generated ignore flags are derived from the resolved excluded set only.
 - Regression tests prove validation paths do not affect testing passing scope and testing passing scope does not affect validation output.
 - Removal tests prove no production code reads `spx/EXCLUDE` or imports ignore-source helpers.
+- Scope-resolver evidence updates prove `43-scope-resolver.enabler/tests/scope-resolver.property.l1.test.ts` covers the config-backed domain path-filter layer rather than the standalone ignore-source layer.
 
 ## Open Coordination
 

@@ -23,9 +23,11 @@ Audit verdicts are stored under `.spx/audit/{branch-slug}/` using a branch-scope
         state.json
 ```
 
-**Branch slug:** The current branch name is encoded into a filesystem-safe slug. The slug is deterministic and contains no path separators.
+**Branch slug:** The current branch name is encoded into a filesystem-safe slug. The slug is deterministic and contains no path separators. Slugging lowercases the branch name, replaces every run of non-alphanumeric characters with `-`, trims leading and trailing `-`, and appends a deterministic disambiguator when two branch names normalize to the same slug. The disambiguator is the first eight lowercase hex characters of the SHA-256 digest of the original branch name, appended with a `-` separator.
 
 **Run directory:** `{YYYY-MM-DD_HH-mm-ss}` — timestamp format from `spx/36-session.enabler/21-timestamp-format.adr.md`, using UTC components so run directories sort consistently.
+
+**State file:** `state.json` records the run envelope: branch name, branch slug, head commit SHA, base ref, audit config digest, auditor identifiers, target paths, run start timestamp, run completion timestamp, verdict path, and final status. Domain-specific auditor output lives in verdict artifacts; `state.json` stays a compact index for status, list, and latest-run lookup.
 
 **Latest run:** The lexicographically last run directory inside `.spx/audit/{branch-slug}/runs/` is the most recent audit for that branch.
 
@@ -48,12 +50,13 @@ Alternatives rejected:
 | Trade-off                                       | Mitigation / reasoning                                                                                           |
 | ----------------------------------------------- | ---------------------------------------------------------------------------------------------------------------- |
 | Branch history grows unbounded                  | Future `spx audit prune` command will manage retention, analogous to `spx session prune`                         |
-| Branch slugs can collide after sanitization     | The slugger appends a deterministic disambiguator when two branch names normalize to the same slug               |
+| Branch slugs can collide after sanitization     | The slugger appends the first eight lowercase hex characters of the SHA-256 digest of the original branch name   |
 | Per-node history is nested under branch history | The branch is the hermetic execution boundary; per-node indexing can be derived from state files inside each run |
 
 ## Invariants
 
 - Each branch maps to exactly one directory name under `.spx/audit/` — the slug is a pure function of the branch identity plus any required deterministic disambiguator
+- Each `state.json` file contains the complete run envelope required to list, inspect, and identify the latest branch audit without parsing verdict XML
 - Audit run directories within a branch directory are never renamed or moved — timestamps are assigned at write time and are stable
 - The `.spx/audit/` root is always resolved relative to the main repository root per `spx/15-worktree-resolution.pdr.md`
 
@@ -66,7 +69,9 @@ A verdict file at `.spx/audit/work-config-backed-execution-scope/runs/2026-04-25
 ### MUST
 
 - Encode branch names into filesystem-safe slugs with no path separators ([review])
+- Append `-{sha256-prefix}` when branch-name normalization collides, where `sha256-prefix` is the first eight lowercase hex characters of the SHA-256 digest of the original branch name ([review])
 - Name run directories `{YYYY-MM-DD_HH-mm-ss}` using UTC timestamps ([review])
+- Write `state.json` with branch name, branch slug, head commit SHA, base ref, audit config digest, auditor identifiers, target paths, run start timestamp, run completion timestamp, verdict path, and final status ([review])
 - Resolve `.spx/audit/` relative to the main repository root via `detectMainRepoRoot` per `spx/15-worktree-resolution.pdr.md` ([review](../15-worktree-resolution.pdr.md))
 - Derive all path component names (`.spx`, `audit`, `runs`) from the audit config descriptor defaults — single source of truth ([review](../16-config.enabler/21-descriptor-registration.adr.md))
 
