@@ -14,7 +14,7 @@ Define and implement deterministic management for agent instructions, runtime co
 ## Implementation Notes
 
 - Keep this node broader than the Claude-only outcome subtree.
-- Treat `spx/46-claude.outcome/` as migration input for later refactoring, not as the owner of new agent environment product truth.
+- Treat `spx/46-claude.outcome/` as Claude-specific source material for reconciling runtime configuration and instruction-management assumptions into this node; it does not own agent-environment product truth.
 - Make runtime config reconciliation deterministic and safe to run repeatedly.
 - Keep audit/review environment bootstrapping hermetically separate from the invoking agent.
 

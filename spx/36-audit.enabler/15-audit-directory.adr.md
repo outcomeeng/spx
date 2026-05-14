@@ -64,7 +64,7 @@ interface AuditRunState {
 
 The mapping preserves the established `APPROVED` and `REJECT` output from `spx audit verify <file>`.
 
-**Node-first verdict artifacts:** `.spx/nodes/` verdict artifacts remain verifiable when supplied as explicit `spx audit verify <file>` arguments, but branch-scoped audit list/status views do not index or display node-first artifacts. No automated conversion is provided; branch-scoped audit runs write only to `.spx/audit/{branch-slug}/runs/`.
+**Node-first verdict artifacts:** `.spx/nodes/` verdict artifacts remain verifiable when supplied as explicit `spx audit verify <file>` arguments, but branch-scoped audit list/status views do not index or display node-first artifacts. No automated relocation is provided; branch-scoped audit runs write only to `.spx/audit/{branch-slug}/runs/`.
 
 **Latest run:** The latest terminal run for a branch is selected from `state.json` timestamps, not from directory-name lexical order. Status and list commands compare `completedAt` first, `startedAt` second, and run directory name third as a deterministic tie-breaker. Incomplete run directories without `state.json` do not satisfy latest terminal lookup when any terminal run exists for the branch.
 

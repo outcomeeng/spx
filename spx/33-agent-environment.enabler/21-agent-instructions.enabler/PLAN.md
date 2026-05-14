@@ -18,6 +18,7 @@ Manage `AGENTS.md` and runtime-specific instruction files through deterministic 
 
 ## Evidence Required
 
+- Config-format tests cover JSON, YAML, and TOML instruction-fragment configuration.
 - Golden-output tests cover create, update, idempotent re-run, and unmanaged-content preservation.
 - Safety tests cover malformed markers and conflicting managed sections.
 

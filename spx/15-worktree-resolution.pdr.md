@@ -51,6 +51,7 @@ Running `spx session list` from any worktree of the same repository returns the 
 
 - Use `git rev-parse --git-common-dir` to find the Git common-dir product root for `.spx/` operations ([review])
 - Use `git rev-parse --show-toplevel` for `spx/` (tracked file) operations ([review])
+- Keep root-resolution helper names aligned with `spx/16-config.enabler/65-product-directory-api.enabler/` product-directory vocabulary ([review])
 - Fall back to current working directory with a warning when not in a git repository ([review])
 
 ### NEVER

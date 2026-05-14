@@ -25,7 +25,7 @@ A CLI success criterion makes the auditing skill's completion state mechanical a
 
 Storing verdicts in `.spx/audit/{branch-slug}/` follows the same separation as sessions: the spec tree holds durable declarations; `.spx/` holds ephemeral local state. Branch scoping prevents one local audit run from contaminating another branch's evidence.
 
-Scoping the domain to a full lifecycle enables commands such as `spx audit list` to enumerate prior audits per branch, and retention logic to prune retained verdicts — analogous to `spx session archive` and `spx session prune`.
+Scoping the domain to a full lifecycle enables commands such as `spx audit list` to enumerate prior audits per branch, and retention logic to prune verdicts by retention policy — analogous to `spx session archive` and `spx session prune`.
 
 ## Trade-offs accepted
 
