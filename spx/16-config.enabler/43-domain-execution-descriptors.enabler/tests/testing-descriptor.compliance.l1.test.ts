@@ -32,6 +32,7 @@ describe("testing config descriptor registration", () => {
     const generated = sampleConfigTestValue(CONFIG_TEST_GENERATOR.testingConfig());
 
     await withTestEnv(generated.config, async ({ productDir }) => {
+      // No explicit registry: this proves the testing descriptor is in the default production registry.
       const result = await resolveConfig(productDir);
       const config = expectResolvedConfig(result);
       const testing = assertTestingConfig(config[TESTING_SECTION]);

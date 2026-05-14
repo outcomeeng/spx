@@ -230,6 +230,7 @@ function arbitraryTestingConfig(): fc.Arbitrary<GeneratedTestingConfig> {
       `${TESTING_SECTION}.${TESTING_CONFIG_FIELDS.PASSING_SCOPE}`,
     );
     if (!result.ok) {
+      // Guard the generator contract: arbitraryPathFilter must only emit values accepted by the primitive.
       throw new Error(
         `CONFIG_TEST_GENERATOR.pathFilter() produced an invalid filter ${JSON.stringify(passingScope)}: ${result.error}`,
       );
