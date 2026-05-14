@@ -7,6 +7,7 @@ import {
   arbitrarySourceFilePath,
   arbitraryTestFilePath,
   LITERAL_TEST_GENERATOR_COUNTS,
+  sampleLiteralPair,
   sampleLiteralTestValue,
 } from "@testing/generators/literal/literal";
 import {
@@ -80,8 +81,7 @@ describe("literal-reuse detection — scenarios", () => {
   });
 
   it("literal value appearing exactly once in the codebase produces no problem for that value", () => {
-    const literal = sampleLiteralTestValue(arbitraryDomainLiteral());
-    const otherLiteral = sampleLiteralTestValue(arbitraryDomainLiteral());
+    const [literal, otherLiteral] = sampleLiteralPair();
     const sourceFile = sampleLiteralTestValue(arbitrarySourceFilePath());
     const testFile = sampleLiteralTestValue(arbitraryTestFilePath());
 
