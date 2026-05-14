@@ -53,7 +53,7 @@ Settled prerequisites on current `origin/main`:
 | --- | --- | --- | --- |
 | C1 | `spx/16-config.enabler/54-canonical-descriptor-digest.enabler/` | none | Config-owned canonical descriptor JSON and descriptor digest API |
 | C2 | `spx/16-config.enabler/65-product-directory-api.enabler/` | none | Product-root vocabulary across config APIs, harnesses, and root helpers |
-| C3 | `spx/17-file-inclusion.enabler/65-domain-path-filters.enabler/` | settled path-filter primitive | File-inclusion resolver accepts descriptor-owned domain path filters |
+| F1 | `spx/17-file-inclusion.enabler/65-domain-path-filters.enabler/` | settled path-filter primitive | File-inclusion resolver accepts descriptor-owned domain path filters |
 | T1 | `spx/22-test-environment.enabler/32-spec-tree-fixtures.enabler/` | none | Remaining spec-tree tests use `withSpecTreeEnv` when they need materialized `spx/` fixtures |
 | T2 | `spx/41-testing.enabler/43-last-run-evidence.enabler/` | settled testing descriptor, C1 | Persisted test observations and stale-status inputs |
 | A1 | `spx/36-audit.enabler/43-audit-config.enabler/` | settled path-filter primitive | Registered audit config descriptor |
@@ -65,7 +65,7 @@ Settled prerequisites on current `origin/main`:
 | R3 | `spx/46-reviewing.enabler/43-review-state.enabler/` | R1, C1 | Persisted review observations and latest-review lookup |
 | R4 | `spx/46-reviewing.enabler/54-branch-review.enabler/` | R2, R3 | `spx review branch` target execution |
 | R5 | `spx/46-reviewing.enabler/65-pr-review.enabler/` | R2, R3 | `spx review pr <number>` target execution |
-| S1 | `spx/31-spec-domain.enabler/43-context-ingestion.enabler/` | `origin/main` containing `baf0a21` and `0aec521` | Deterministic context-ingestion command surface |
+| S1 | `spx/31-spec-domain.enabler/43-context-ingestion.enabler/` | settled `spx/31-spec-domain.enabler/` public surface on `origin/main` | Deterministic context-ingestion command surface |
 | E0 | `spx/33-agent-environment.enabler/` | none | Agent environment descriptor shape for instructions, runtime config, and plugin bootstrap |
 | E1 | `spx/33-agent-environment.enabler/21-agent-instructions.enabler/` | E0 | Deterministic instruction-file reconciliation |
 | E2 | `spx/33-agent-environment.enabler/32-runtime-config.enabler/` | E0 | Claude Code and Codex runtime config reconciliation |
@@ -76,7 +76,9 @@ Settled prerequisites on current `origin/main`:
 Use this prompt skeleton for every packet, replacing `{target-node}` and `{packet-slug}` with the descriptive branch slug from the node-local prompt:
 
 ```text
-Start from fresh origin/main on a branch named work/{packet-slug}. Before branching, fetch origin main and verify every settled prerequisite path named by this table exists on origin/main with `git ls-tree origin/main -- <path>`. For S1, verify `git merge-base --is-ancestor baf0a21 origin/main` and `git merge-base --is-ancestor 0aec521 origin/main`. If a prerequisite is absent, stop and record the gap in the owning PLAN.md before implementation. Invoke spec-tree:understanding if the foundation marker is absent, then invoke spec-tree:contextualizing for {target-node}. Read {target-node}/PLAN.md and every governing spec or decision named there. Then invoke spec-tree:applying before implementation, the relevant language architecture/testing/coding skills before changing tests or code, and spec-tree:committing-changes plus spec-tree:opening-pr before publishing the branch. `spec-tree:opening-pr` is listed as an additional Spec Tree skill in AGENTS.md; if the runtime cannot load it, stop, record the missing skill as an imperfection, and use the product PR audit workflow in AGENTS.md under "Pull request (PR) audit workflow" and "Executing PR workflow".
+Start from fresh origin/main on a branch named work/{packet-slug}. Before branching, fetch origin main and verify every settled prerequisite path named by this table exists on origin/main with `git ls-tree origin/main -- <path>`. If a prerequisite is absent, stop and record the gap in the owning PLAN.md before implementation. Invoke spec-tree:understanding if the foundation marker is absent, then invoke spec-tree:contextualizing for {target-node}. Read {target-node}/PLAN.md and every governing spec or decision named there. Then invoke spec-tree:applying before implementation, the relevant language architecture/testing/coding skills before changing tests or code, and spec-tree:committing-changes plus spec-tree:opening-pr before publishing the branch.
+
+Fallback: `spec-tree:opening-pr` is listed as an additional Spec Tree skill in AGENTS.md. If the runtime cannot load it, stop, record the missing skill as an imperfection, and use the product PR audit workflow in AGENTS.md under "Pull request (PR) audit workflow" and "Executing PR workflow".
 
 Own only {target-node} and the implementation files required by its assertions. Do not edit sibling packet PLAN files except to record a scope-expanding review finding in the owning PLAN. Do not use subagents for edits. Keep the PR focused, ask for adversarial review of the packet's API shape, evidence coverage, and behavior preservation, wait for PR checks and comments, patch actionable findings, rerun focused tests plus pnpm run validate and pnpm test, and repeat until the PR is merged or a repository-governed decision blocks progress.
 ```
