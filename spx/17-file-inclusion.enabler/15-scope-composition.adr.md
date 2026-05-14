@@ -68,7 +68,7 @@ One module declares the layer sequence. One module composes layers into the pipe
 
 ### NEVER
 
-- Allow a consumer to reorder, skip, or replace layers in the pipeline — the sequence is architectural and fixed ([review])
+- Allow a consumer to reorder, skip shared layers, or replace layers in the pipeline — the sequence is architectural and fixed ([review])
 - Let a layer predicate consult caller intent — layer predicates are local-reasoning-safe over `(path, layer-config)` alone ([review])
 - Introduce a tool adapter that consults the filter layers directly — adapters read `ScopeResult` and nothing else ([review])
 - Produce a `ScopeResult` without per-path decision trails — the trail is the observable record of the pipeline's decision ([review])
