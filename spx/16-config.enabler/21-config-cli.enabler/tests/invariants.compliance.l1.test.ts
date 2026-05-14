@@ -5,18 +5,18 @@ import { defaultsCommand } from "@/commands/config/defaults";
 import { showCommand } from "@/commands/config/show";
 import type { CliDeps } from "@/commands/config/types";
 import { validateCommand } from "@/commands/config/validate";
-import { CONFIG_TEST_GENERATOR, sampleConfigTestValue } from "@testing/generators/config/descriptors";
 import type { Config, Result } from "@/config/types";
 import { specTreeConfigDescriptor } from "@/lib/spec-tree/config";
+import { CONFIG_TEST_GENERATOR, sampleConfigTestValue } from "@testing/generators/config/descriptors";
 
 function makeDeps(resolved: Result<Config>): CliDeps {
-  const projectRoot = sampleConfigTestValue(CONFIG_TEST_GENERATOR.projectRoot());
+  const productDir = sampleConfigTestValue(CONFIG_TEST_GENERATOR.productDir());
 
   return {
     resolveConfig: async () => resolved,
     readProjectConfigFile: async () => sampleConfigTestValue(CONFIG_TEST_GENERATOR.absentConfigFileReadResult()),
     resolveConfigFromReadResult: () => resolved,
-    resolveProjectRoot: () => projectRoot,
+    resolveProjectRoot: () => productDir,
     descriptors: [specTreeConfigDescriptor],
   };
 }

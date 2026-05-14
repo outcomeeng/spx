@@ -1,6 +1,7 @@
 import * as fc from "fast-check";
 
 import type { ConfigFileReadResult } from "@/config/index";
+import { PATH_FILTER_CONFIG_FIELDS, type PathFilterConfig } from "@/config/primitives/path-filter";
 import type { ConfigDescriptor, Result } from "@/config/types";
 import {
   KIND_REGISTRY,
@@ -69,6 +70,12 @@ export type GeneratedResolutionScope = {
   readonly nestedDirectory: string;
 };
 
+export type GeneratedInvalidPathFilter = {
+  readonly value: unknown;
+  readonly path: string;
+  readonly error: string;
+};
+
 export const CONFIG_TEST_GENERATOR = {
   absentConfigFileReadResult: arbitraryAbsentConfigFileReadResult,
   emptyConfig: arbitraryEmptyConfig,
@@ -87,7 +94,9 @@ export const CONFIG_TEST_GENERATOR = {
   tokenDescriptors: arbitraryTokenDescriptors,
   modeDescriptor: arbitraryModeDescriptor,
   kindOverride: arbitraryKindOverride,
-  projectRoot: arbitraryProjectRoot,
+  productDir: arbitraryProductDir,
+  pathFilter: arbitraryPathFilter,
+  invalidPathFilter: arbitraryInvalidPathFilter,
   resolutionScope: arbitraryResolutionScope,
 } as const;
 
@@ -116,8 +125,81 @@ function arbitraryEmptyConfig(): fc.Arbitrary<Record<string, unknown>> {
   return fc.constant({});
 }
 
-function arbitraryProjectRoot(): fc.Arbitrary<string> {
+function arbitraryProductDir(): fc.Arbitrary<string> {
   return fc.uuid().map((id) => `/${id}`);
+}
+
+function arbitraryPathPattern(): fc.Arbitrary<string> {
+  return fc
+    .tuple(arbitraryConfigKey(), fc.option(arbitraryConfigKey(), { nil: undefined }))
+    .map(([first, second]) => second === undefined ? first : `${first}/${second}`);
+}
+
+function arbitraryPathFilterArray(): fc.Arbitrary<readonly string[]> {
+  return fc.array(arbitraryPathPattern(), { minLength: 0, maxLength: 4 });
+}
+
+function arbitraryPathFilter(): fc.Arbitrary<PathFilterConfig> {
+  return fc.oneof(
+    fc.constant({}),
+    arbitraryPathFilterArray().map((include) => ({ [PATH_FILTER_CONFIG_FIELDS.INCLUDE]: include })),
+    arbitraryPathFilterArray().map((exclude) => ({ [PATH_FILTER_CONFIG_FIELDS.EXCLUDE]: exclude })),
+    fc.record({
+      [PATH_FILTER_CONFIG_FIELDS.INCLUDE]: arbitraryPathFilterArray(),
+      [PATH_FILTER_CONFIG_FIELDS.EXCLUDE]: arbitraryPathFilterArray(),
+    }),
+  );
+}
+
+function arbitraryInvalidPathFilter(): fc.Arbitrary<GeneratedInvalidPathFilter> {
+  return fc
+    .record({
+      path: arbitraryConfigKey(),
+      invalid: fc.oneof(
+        arbitraryInvalidPathFilterObject(),
+        arbitraryInvalidPathFilterField(PATH_FILTER_CONFIG_FIELDS.INCLUDE),
+        arbitraryInvalidPathFilterField(PATH_FILTER_CONFIG_FIELDS.EXCLUDE),
+      ),
+    })
+    .map(({ path, invalid }) => ({
+      value: invalid.value,
+      path,
+      error: invalid.error(path),
+    }));
+}
+
+function arbitraryInvalidPathFilterObject(): fc.Arbitrary<{
+  readonly value: unknown;
+  readonly error: (path: string) => string;
+}> {
+  return fc.oneof(
+    fc.string(),
+    fc.integer(),
+    fc.boolean(),
+    fc.constant(null),
+    fc.array(fc.string()),
+  ).map((value) => ({
+    value,
+    error: (path) => `${path} must be an object`,
+  }));
+}
+
+function arbitraryInvalidPathFilterField(field: string): fc.Arbitrary<{
+  readonly value: unknown;
+  readonly error: (path: string) => string;
+}> {
+  return fc
+    .oneof(
+      fc.string(),
+      fc.integer(),
+      fc.boolean(),
+      fc.constant(null),
+      fc.array(fc.oneof(fc.integer(), fc.boolean(), fc.constant(null)), { minLength: 1 }),
+    )
+    .map((value) => ({
+      value: { [field]: value },
+      error: (path) => `${path}.${field} must be an array of strings`,
+    }));
 }
 
 function arbitraryTempPrefix(): fc.Arbitrary<string> {

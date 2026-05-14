@@ -9,9 +9,9 @@ import {
   DEFAULT_CONFIG_FILE_FORMAT,
   parseConfigFileSections,
 } from "@/config/index";
-import { CONFIG_TEST_GENERATOR, sampleConfigTestValue } from "@testing/generators/config/descriptors";
 import type { Config, ConfigDescriptor } from "@/config/types";
 import { specTreeConfigDescriptor } from "@/lib/spec-tree/config";
+import { CONFIG_TEST_GENERATOR, sampleConfigTestValue } from "@testing/generators/config/descriptors";
 
 function makeDeps(descriptors: readonly ConfigDescriptor<unknown>[]): CliDeps {
   return {
@@ -24,14 +24,14 @@ function makeDeps(descriptors: readonly ConfigDescriptor<unknown>[]): CliDeps {
     resolveConfigFromReadResult: () => {
       throw new Error("defaultsCommand must not call resolveConfigFromReadResult");
     },
-    resolveProjectRoot: () => sampleConfigTestValue(CONFIG_TEST_GENERATOR.projectRoot()),
+    resolveProjectRoot: () => sampleConfigTestValue(CONFIG_TEST_GENERATOR.productDir()),
     descriptors,
   };
 }
 
 function parseOutput(format: ConfigFileFormat, raw: string): Config {
   const parsed = parseConfigFileSections(
-    configFileForFormat(sampleConfigTestValue(CONFIG_TEST_GENERATOR.projectRoot()), format, raw),
+    configFileForFormat(sampleConfigTestValue(CONFIG_TEST_GENERATOR.productDir()), format, raw),
   );
   expect(parsed.ok).toBe(true);
   if (!parsed.ok) {

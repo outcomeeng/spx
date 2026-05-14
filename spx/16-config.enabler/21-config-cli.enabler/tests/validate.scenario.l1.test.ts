@@ -15,7 +15,7 @@ import { CONFIG_TEST_GENERATOR, sampleConfigTestValue } from "@testing/generator
 
 function makeDeps(
   resolved: Result<Config>,
-  projectRoot = sampleConfigTestValue(CONFIG_TEST_GENERATOR.projectRoot()),
+  productDir = sampleConfigTestValue(CONFIG_TEST_GENERATOR.productDir()),
   fileResult: Result<ConfigFileReadResult> = sampleConfigTestValue(CONFIG_TEST_GENERATOR.absentConfigFileReadResult()),
 ): CliDeps {
   return {
@@ -24,7 +24,7 @@ function makeDeps(
     },
     readProjectConfigFile: async () => fileResult,
     resolveConfigFromReadResult: () => resolved,
-    resolveProjectRoot: () => projectRoot,
+    resolveProjectRoot: () => productDir,
     descriptors: [specTreeConfigDescriptor],
   };
 }
@@ -45,12 +45,12 @@ describe("validateCommand — success path", () => {
   });
 
   it("the success line reports that no config file was found and that defaults were validated when the read result is absent", async () => {
-    const projectRoot = sampleConfigTestValue(CONFIG_TEST_GENERATOR.projectRoot());
-    const deps = makeDeps({ ok: true, value: defaultsConfig() }, projectRoot);
+    const productDir = sampleConfigTestValue(CONFIG_TEST_GENERATOR.productDir());
+    const deps = makeDeps({ ok: true, value: defaultsConfig() }, productDir);
 
     const result = await validateCommand({}, deps);
 
-    expect(result.stdout).toContain(projectRoot);
+    expect(result.stdout).toContain(productDir);
     expect(result.stdout).toContain(VALIDATE_SUCCESS_TOKENS.ABSENT_PREFIX);
     expect(result.stdout).toContain(VALIDATE_SUCCESS_TOKENS.ABSENT_SUBJECT);
     for (const filename of Object.values(CONFIG_FILENAMES)) {
@@ -59,15 +59,15 @@ describe("validateCommand — success path", () => {
   });
 
   it("the success line names the present config file when the project uses a non-default format", async () => {
-    const projectRoot = sampleConfigTestValue(CONFIG_TEST_GENERATOR.projectRoot());
+    const productDir = sampleConfigTestValue(CONFIG_TEST_GENERATOR.productDir());
     const fileResult: Result<ConfigFileReadResult> = {
       ok: true,
       value: {
         kind: "ok",
-        file: configFileForFormat(projectRoot, CONFIG_FILE_FORMAT.TOML),
+        file: configFileForFormat(productDir, CONFIG_FILE_FORMAT.TOML),
       },
     };
-    const deps = makeDeps({ ok: true, value: defaultsConfig() }, projectRoot, fileResult);
+    const deps = makeDeps({ ok: true, value: defaultsConfig() }, productDir, fileResult);
 
     const result = await validateCommand({}, deps);
 
@@ -114,9 +114,9 @@ describe("validateCommand — rejection path", () => {
 });
 
 describe("validateCommand — mapping contract", () => {
-  it("resolves the projectRoot through deps before reading the config file", async () => {
+  it("resolves the product directory through deps before reading the config file", async () => {
     let observedRoot: string | undefined;
-    const projectRoot = sampleConfigTestValue(CONFIG_TEST_GENERATOR.projectRoot());
+    const productDir = sampleConfigTestValue(CONFIG_TEST_GENERATOR.productDir());
     const deps: CliDeps = {
       resolveConfig: async () => {
         throw new Error(sampleConfigTestValue(CONFIG_TEST_GENERATOR.scalar()));
@@ -126,22 +126,22 @@ describe("validateCommand — mapping contract", () => {
         return sampleConfigTestValue(CONFIG_TEST_GENERATOR.absentConfigFileReadResult());
       },
       resolveConfigFromReadResult: () => ({ ok: true, value: defaultsConfig() }),
-      resolveProjectRoot: () => projectRoot,
+      resolveProjectRoot: () => productDir,
       descriptors: [specTreeConfigDescriptor],
     };
 
     await validateCommand({}, deps);
 
-    expect(observedRoot).toBe(projectRoot);
+    expect(observedRoot).toBe(productDir);
   });
 
   it("validates the same config-file read result that supplies the success filename", async () => {
-    const projectRoot = sampleConfigTestValue(CONFIG_TEST_GENERATOR.projectRoot());
+    const productDir = sampleConfigTestValue(CONFIG_TEST_GENERATOR.productDir());
     const fileResult: Result<ConfigFileReadResult> = {
       ok: true,
       value: {
         kind: "ok",
-        file: configFileForFormat(projectRoot, CONFIG_FILE_FORMAT.JSON),
+        file: configFileForFormat(productDir, CONFIG_FILE_FORMAT.JSON),
       },
     };
     let observedReadResult: ConfigFileReadResult | undefined;
@@ -154,7 +154,7 @@ describe("validateCommand — mapping contract", () => {
         observedReadResult = readResult;
         return resolveConfigFromReadResult(readResult, descriptors);
       },
-      resolveProjectRoot: () => projectRoot,
+      resolveProjectRoot: () => productDir,
       descriptors: [specTreeConfigDescriptor],
     };
 
