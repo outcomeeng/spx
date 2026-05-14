@@ -30,6 +30,7 @@ Coordinate the config tranche that moves deterministic execution domains onto th
 4. Rename config root APIs from `projectRoot` to `productDir`.
    - Apply to config APIs, tests, harness helpers, and spec text in one coherent pass.
    - Do not leave compatibility aliases.
+   - Treat existing runtime `projectRoot` names as pre-tranche debt; do not add new `projectRoot` call sites while this tranche is active.
 
 ## Evidence Required
 

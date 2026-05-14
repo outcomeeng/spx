@@ -24,6 +24,7 @@ Move audit from verify-only artifact checking toward config-backed, branch-scope
    - Branch slugs always append the first eight lowercase hex characters of the SHA-256 digest of the original branch identity.
    - SHA-256 uses Node.js `node:crypto`; do not add a third-party crypto dependency.
    - Run ids use `node:crypto` `randomBytes`; `Math.random` is not used.
+   - Run directory creation retries `EEXIST` collisions up to ten times and fails on non-collision creation errors.
    - Detached HEAD state uses `detached-{short-sha}` as the branch identity and is test-covered.
 
 3. Move storage from node-first to branch-first.
@@ -42,7 +43,9 @@ Move audit from verify-only artifact checking toward config-backed, branch-scope
 - Audit state tests prove `state.json` is absent for in-progress runs and written exactly once for `approved`, `rejected`, `failed`, or `interrupted` runs.
 - Audit state tests prove terminal `state.json` writes use a same-directory temporary file followed by atomic rename to the final path.
 - Audit state tests prove run directories with missing, partial, or parse-invalid `state.json` appear as incomplete/interrupted in list and status output and do not satisfy latest terminal audit status when a terminal run exists.
+- Audit state tests prove `status: "interrupted"` represents graceful terminal cancellation, while missing, partial, or parse-invalid `state.json` represents non-terminal incomplete evidence.
 - Audit state tests prove latest terminal lookup uses `state.json` timestamps before directory-name tie-breakers.
+- Storage tests prove run directory creation retries `EEXIST` collisions up to ten times and fails on non-collision creation errors.
 - Audit state tests prove persisted status casing is lowercase and CLI status rendering follows the explicit persisted-status-to-display mapping.
 - Audit config digest tests prove the digest is computed from config-owned canonical descriptor JSON for the resolved audit config descriptor section after defaults are applied.
 - Audit base-ref tests prove the state file records `main` when no config override exists and records the configured value when `audit.baseRef` is set.
