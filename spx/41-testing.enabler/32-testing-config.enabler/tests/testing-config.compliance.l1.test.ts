@@ -16,8 +16,9 @@ function expectTestingConfig(result: ReturnType<typeof testingConfigDescriptor.v
 describe("testing config descriptor", () => {
   it("resolves omitted passing-scope policy to descriptor defaults", () => {
     const result = testingConfigDescriptor.validate({});
+    const resolved = expectTestingConfig(result);
 
-    expectTestingConfig(result);
+    expect(resolved).toStrictEqual(testingConfigDescriptor.defaults);
     expect(result).toEqual({
       ok: true,
       value: testingConfigDescriptor.defaults,

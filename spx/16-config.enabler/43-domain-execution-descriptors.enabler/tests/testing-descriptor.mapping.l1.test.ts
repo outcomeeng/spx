@@ -33,7 +33,7 @@ describe("testing config descriptor format mapping", () => {
     for (const format of CONFIG_FILE_FORMAT_ORDER) {
       await withTestEnv({}, async ({ productDir, writeRaw }) => {
         // withTestEnv writes the default config file; this test replaces it to isolate each format.
-        await rm(join(productDir, DEFAULT_CONFIG_FILENAME));
+        await rm(join(productDir, DEFAULT_CONFIG_FILENAME), { force: true });
         await writeRaw(CONFIG_FILENAMES[format], serializeConfig(format, generated.config));
         const result = await resolveConfig(productDir, [testingConfigDescriptor]);
         expect(result.ok).toBe(true);

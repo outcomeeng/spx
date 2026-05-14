@@ -11,11 +11,22 @@ export interface TestingConfig {
   readonly passingScope: PathFilterConfig;
 }
 
-const DEFAULT_PASSING_SCOPE: PathFilterConfig = {};
+const DEFAULT_PASSING_SCOPE = resolveDefaultPassingScope();
 
 const defaults: TestingConfig = {
   passingScope: DEFAULT_PASSING_SCOPE,
 };
+
+function resolveDefaultPassingScope(): PathFilterConfig {
+  const result = validatePathFilterConfig(
+    {},
+    `${TESTING_SECTION}.${TESTING_CONFIG_FIELDS.PASSING_SCOPE}`,
+  );
+  if (!result.ok) {
+    throw new Error(result.error);
+  }
+  return result.value;
+}
 
 function validate(value: unknown): Result<TestingConfig> {
   if (typeof value !== "object" || value === null || Array.isArray(value)) {
