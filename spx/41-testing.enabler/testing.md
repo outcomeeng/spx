@@ -1,8 +1,8 @@
 # Testing
 
-PROVIDES the `spx test` command — discovers test files by walking `spx/**/tests/`, groups them by file extension, and dispatches each group to the language-specific testing enabler registered for that extension
+PROVIDES the `spx test` command — discovers test files by walking `spx/**/tests/`, groups them by file extension, dispatches each group to the language-specific testing enabler registered for that extension, and records last-run evidence for fast status reporting
 SO THAT developers and agents running `spx test` or `spx test passing`
-CAN run all spec-tree tests with a single command, honoring configured passing-scope exclusions declared in `spx.config.{toml,json,yaml}`
+CAN run all spec-tree tests with a single command, honor configured passing-scope exclusions declared in `spx.config.{toml,json,yaml}`, and read recent status without re-running every test
 
 ## Assertions
 
@@ -11,6 +11,7 @@ CAN run all spec-tree tests with a single command, honoring configured passing-s
 - Given a spec tree with tests in multiple languages, when `spx test` runs, then each language's testing enabler is invoked on the files matching its registered extension pattern ([test](tests/testing.integration.test.ts))
 - Given `spx.config.{toml,json,yaml}` excludes a node path from the passing test scope, when `spx test passing` runs, then test files under that node are filtered out before any runner invocation ([test](tests/testing.integration.test.ts))
 - Given `spx.config.{toml,json,yaml}` excludes a node path from the passing test scope, when `spx test` runs without `passing`, then test files under that node are still invoked ([test](tests/testing.integration.test.ts))
+- Given `spx test` records last-run evidence, when a status command reads that evidence, then the status output reports observed results and staleness without invoking a test runner ([review])
 - Given test files whose extension does not match any registered testing enabler, when `spx test` runs, then those files are reported and skipped without error ([test](tests/testing.integration.test.ts))
 - Given one dispatched runner exits non-zero while another exits zero, when `spx test` completes, then the command exits non-zero ([test](tests/testing.integration.test.ts))
 
@@ -23,9 +24,12 @@ CAN run all spec-tree tests with a single command, honoring configured passing-s
 
 - Test discovery is deterministic: the same spec tree structure always produces the same set of test files grouped by runner ([test](tests/testing.unit.test.ts))
 - Exit code aggregation: `spx test` exits non-zero if any dispatched runner exits non-zero, zero otherwise ([test](tests/testing.integration.test.ts))
+- Last-run state is evidence, not product truth: deleting the state never changes which tests are in passing scope, only whether fast status has cached observations available ([review])
 
 ### Compliance
 
 - ALWAYS: `spx test passing` reads passing-scope exclusions through the config descriptor system for `spx.config.{toml,json,yaml}` — no duplicate parsing logic ([review])
+- ALWAYS: persisted testing state records observed runner results, timestamps, inputs, and staleness metadata; config remains the source for passing-scope policy ([review])
 - ALWAYS: runner invocation is gated on language presence per `../19-language-registration.adr.md` ([review])
-- NEVER: write to project configuration files (`pyproject.toml`, `package.json`, `tsconfig.json`, `vitest.config.ts`) — exclusion applies via runner flags at invocation time ([review])
+- NEVER: write to product configuration files (`pyproject.toml`, `package.json`, `tsconfig.json`, `vitest.config.ts`) — exclusion applies via runner flags at invocation time ([review])
+- NEVER: infer passing scope from persisted last-run state — state accelerates reporting but does not decide policy ([review])
