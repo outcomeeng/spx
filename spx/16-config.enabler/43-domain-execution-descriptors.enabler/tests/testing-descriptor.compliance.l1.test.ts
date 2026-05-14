@@ -15,6 +15,14 @@ import { CONFIG_TEST_GENERATOR, sampleConfigTestValue } from "@testing/generator
 import type { Config } from "@testing/harnesses/spec-tree/spec-tree";
 import { withTestEnv } from "@testing/harnesses/spec-tree/spec-tree";
 
+function expectResolvedConfig(result: Awaited<ReturnType<typeof resolveConfig>>) {
+  expect(result.ok).toBe(true);
+  if (!result.ok) {
+    throw new Error(result.error);
+  }
+  return result.value;
+}
+
 function assertTestingConfig(value: unknown): TestingConfig {
   expect(value).toHaveProperty(TESTING_CONFIG_FIELDS.PASSING_SCOPE);
   return value as TestingConfig;
@@ -26,23 +34,19 @@ describe("testing config descriptor registration", () => {
 
     await withTestEnv(generated.config, async ({ productDir }) => {
       const result = await resolveConfig(productDir);
+      const config = expectResolvedConfig(result);
+      const testing = assertTestingConfig(config[TESTING_SECTION]);
 
-      expect(result.ok).toBe(true);
-      if (result.ok) {
-        const testing = assertTestingConfig(result.value[TESTING_SECTION]);
-        expect(testing[TESTING_CONFIG_FIELDS.PASSING_SCOPE]).toEqual(generated.expected.passingScope);
-      }
+      expect(testing[TESTING_CONFIG_FIELDS.PASSING_SCOPE]).toEqual(generated.expected.passingScope);
     });
   });
 
   it("resolves the testing descriptor default when the testing section is absent", async () => {
     await withTestEnv({}, async ({ productDir }) => {
       const result = await resolveConfig(productDir, productionRegistry);
+      const config = expectResolvedConfig(result);
 
-      expect(result.ok).toBe(true);
-      if (result.ok) {
-        expect(assertTestingConfig(result.value[TESTING_SECTION])).toEqual(testingConfigDescriptor.defaults);
-      }
+      expect(assertTestingConfig(config[TESTING_SECTION])).toEqual(testingConfigDescriptor.defaults);
     });
   });
 
@@ -94,25 +98,22 @@ describe("testing config descriptor registration", () => {
 
     await withTestEnv(projectConfig, async ({ productDir }) => {
       const result = await resolveConfig(productDir, [validationConfigDescriptor, testingConfigDescriptor]);
+      const config = expectResolvedConfig(result);
+      const validation = config[VALIDATION_SECTION] as typeof validationConfigDescriptor.defaults;
+      const testing = assertTestingConfig(config[TESTING_SECTION]);
 
-      expect(result.ok).toBe(true);
-      if (result.ok) {
-        const validation = result.value[VALIDATION_SECTION] as typeof validationConfigDescriptor.defaults;
-        const testing = assertTestingConfig(result.value[TESTING_SECTION]);
-
-        expect(validation.paths[PATH_FILTER_CONFIG_FIELDS.INCLUDE]).toEqual(
-          validationFilter[PATH_FILTER_CONFIG_FIELDS.INCLUDE],
-        );
-        expect(validation.paths[PATH_FILTER_CONFIG_FIELDS.EXCLUDE]).toEqual(
-          validationFilter[PATH_FILTER_CONFIG_FIELDS.EXCLUDE],
-        );
-        expect(testing[TESTING_CONFIG_FIELDS.PASSING_SCOPE][PATH_FILTER_CONFIG_FIELDS.INCLUDE]).toEqual(
-          testingFilter[PATH_FILTER_CONFIG_FIELDS.INCLUDE],
-        );
-        expect(testing[TESTING_CONFIG_FIELDS.PASSING_SCOPE][PATH_FILTER_CONFIG_FIELDS.EXCLUDE]).toEqual(
-          testingFilter[PATH_FILTER_CONFIG_FIELDS.EXCLUDE],
-        );
-      }
+      expect(validation.paths[PATH_FILTER_CONFIG_FIELDS.INCLUDE]).toEqual(
+        validationFilter[PATH_FILTER_CONFIG_FIELDS.INCLUDE],
+      );
+      expect(validation.paths[PATH_FILTER_CONFIG_FIELDS.EXCLUDE]).toEqual(
+        validationFilter[PATH_FILTER_CONFIG_FIELDS.EXCLUDE],
+      );
+      expect(testing[TESTING_CONFIG_FIELDS.PASSING_SCOPE][PATH_FILTER_CONFIG_FIELDS.INCLUDE]).toEqual(
+        testingFilter[PATH_FILTER_CONFIG_FIELDS.INCLUDE],
+      );
+      expect(testing[TESTING_CONFIG_FIELDS.PASSING_SCOPE][PATH_FILTER_CONFIG_FIELDS.EXCLUDE]).toEqual(
+        testingFilter[PATH_FILTER_CONFIG_FIELDS.EXCLUDE],
+      );
     });
   });
 

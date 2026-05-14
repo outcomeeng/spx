@@ -25,7 +25,7 @@ Register testing, audit, and review execution descriptors on top of the shared c
 - Config-format mapping tests cover JSON, YAML, and TOML sections for testing, audit, and review.
 - Descriptor isolation tests prove malformed sections cannot affect other descriptors.
 - Validation confirms descriptor modules do not duplicate shared primitive validators.
-- Testing descriptor establishes lenient unknown-key section parsing. Audit and review descriptor tests should follow this precedent unless the domain-descriptor policy is intentionally changed before those descriptors are implemented.
+- Domain execution descriptor validators ignore unknown section keys by design: each descriptor reads declared fields and discards the rest. Audit and review descriptor tests should follow this pattern.
 
 ## Parallelization
 

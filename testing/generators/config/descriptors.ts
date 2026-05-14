@@ -86,11 +86,6 @@ export type GeneratedTestingConfig = {
   readonly expected: TestingConfig;
 };
 
-type ValidatedTestingPathFilter = {
-  readonly passingScope: PathFilterConfig;
-  readonly result: { readonly ok: true; readonly value: PathFilterConfig };
-};
-
 export const CONFIG_TEST_GENERATOR = {
   absentConfigFileReadResult: arbitraryAbsentConfigFileReadResult,
   emptyConfig: arbitraryEmptyConfig,
@@ -229,9 +224,17 @@ function arbitraryInvalidPathFilterArray(): fc.Arbitrary<readonly unknown[]> {
 }
 
 function arbitraryTestingConfig(): fc.Arbitrary<GeneratedTestingConfig> {
-  return arbitraryPathFilter()
-    .map(validateGeneratedTestingPathFilter)
-    .map(({ passingScope, result }) => ({
+  return arbitraryPathFilter().map((passingScope) => {
+    const result = validatePathFilterConfig(
+      passingScope,
+      `${TESTING_SECTION}.${TESTING_CONFIG_FIELDS.PASSING_SCOPE}`,
+    );
+    if (!result.ok) {
+      throw new Error(
+        `CONFIG_TEST_GENERATOR.pathFilter() produced an invalid filter ${JSON.stringify(passingScope)}: ${result.error}`,
+      );
+    }
+    return {
       config: {
         [TESTING_SECTION]: {
           [TESTING_CONFIG_FIELDS.PASSING_SCOPE]: passingScope,
@@ -240,20 +243,8 @@ function arbitraryTestingConfig(): fc.Arbitrary<GeneratedTestingConfig> {
       expected: {
         [TESTING_CONFIG_FIELDS.PASSING_SCOPE]: result.value,
       },
-    }));
-}
-
-function validateGeneratedTestingPathFilter(passingScope: PathFilterConfig): ValidatedTestingPathFilter {
-  const result = validatePathFilterConfig(
-    passingScope,
-    `${TESTING_SECTION}.${TESTING_CONFIG_FIELDS.PASSING_SCOPE}`,
-  );
-  if (!result.ok) {
-    throw new Error(
-      `CONFIG_TEST_GENERATOR.pathFilter() produced an invalid filter ${JSON.stringify(passingScope)}: ${result.error}`,
-    );
-  }
-  return { passingScope, result };
+    };
+  });
 }
 
 function arbitraryTempPrefix(): fc.Arbitrary<string> {
