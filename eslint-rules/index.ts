@@ -24,7 +24,7 @@ import noTestOwnedDomainConstants, { NO_TEST_OWNED_DOMAIN_CONSTANTS_RULE_NAME } 
 const eslintRules = {
   meta: {
     name: "eslint-plugin-spx",
-    version: "0.2.0",
+    version: "0.3.0",
     namespace: "spx",
   },
   rules: {
