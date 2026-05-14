@@ -48,6 +48,7 @@ Settled prerequisites on current `origin/main`:
 
 - Shared path-filter primitive: `spx/16-config.enabler/32-shared-config-primitives.enabler/` owns the structural `{ include?: string[]; exclude?: string[] }` primitive. Dependent packets consume it and do not recreate path-filter validators.
 - Testing descriptor: `spx/41-testing.enabler/32-testing-config.enabler/` and `spx/16-config.enabler/43-domain-execution-descriptors.enabler/` own the registered testing descriptor. Dependent packets consume it and do not create a second testing descriptor.
+- F1, A1, and R1 are the packets that consume the settled path-filter primitive directly.
 
 | Packet | Target node | Depends on | Output |
 | --- | --- | --- | --- |
@@ -76,7 +77,7 @@ Settled prerequisites on current `origin/main`:
 Use this prompt skeleton for every packet, replacing `{target-node}` and `{packet-slug}` with the descriptive branch slug from the node-local prompt:
 
 ```text
-Start from fresh origin/main on a branch named work/{packet-slug}. Before branching, fetch origin main and verify every settled prerequisite path named by this table exists on origin/main with `git ls-tree origin/main -- <path>`. If a prerequisite is absent, stop and record the gap in the owning PLAN.md before implementation. Invoke spec-tree:understanding if the foundation marker is absent, then invoke spec-tree:contextualizing for {target-node}. Read {target-node}/PLAN.md and every governing spec or decision named there. Then invoke spec-tree:applying before implementation, the relevant language architecture/testing/coding skills before changing tests or code, and spec-tree:committing-changes plus spec-tree:opening-pr before publishing the branch.
+Start from fresh origin/main on a branch named work/{packet-slug}. Before branching, run `git ls-remote --exit-code --heads origin work/{packet-slug}`; if the branch already exists, stop and inspect the existing PR or branch before claiming the packet. Fetch origin main and verify every settled prerequisite path named by this table exists on origin/main with `git ls-tree origin/main -- <path>`. If a prerequisite is absent, stop and record the gap in the owning PLAN.md before implementation. Invoke spec-tree:understanding if the foundation marker is absent, then invoke spec-tree:contextualizing for {target-node}. Read {target-node}/PLAN.md and every governing spec or decision named there. Then invoke spec-tree:applying before implementation, the relevant language architecture/testing/coding skills before changing tests or code, and spec-tree:committing-changes plus spec-tree:opening-pr before publishing the branch.
 
 Fallback: `spec-tree:opening-pr` is listed as an additional Spec Tree skill in AGENTS.md. If the runtime cannot load it, stop, record the missing skill as an imperfection, and use the product PR audit workflow in AGENTS.md under "Pull request (PR) audit workflow" and "Executing PR workflow".
 
