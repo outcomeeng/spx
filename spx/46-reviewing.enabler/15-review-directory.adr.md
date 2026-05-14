@@ -14,7 +14,7 @@ This decision governs how local review run state and reviewer artifacts are name
 
 Review run state is stored under `.spx/review/{target-kind}/{target-slug}/runs/{run-directory}/` at the Git common-dir product root.
 
-`target-kind` is either `branch` or `pr`. Branch target slugs use the same filesystem-safe slugging rules and implementation as audit branch slugs in `spx/36-audit.enabler/15-audit-directory.adr.md`. Pull request target slugs use `pr-{number}` where `{number}` is the decimal pull request number resolved by the review target boundary. All target slugs are at most 120 UTF-8 bytes. Pull request numbers are unsigned base-10 integers; no sign, decimal point, separator, or leading whitespace is accepted.
+`target-kind` is either `branch` or `pr`. Branch target slugs use the same filesystem-safe slugging rules and implementation as audit branch slugs in `spx/36-audit.enabler/15-audit-directory.adr.md`. Pull request target slugs use `pr-{number}` where `{number}` is the decimal pull request number resolved by the review target boundary. All target slugs are at most 120 UTF-8 bytes. Pull request numbers are unsigned base-10 integers; no sign, decimal point, separator, or whitespace is accepted.
 
 Each run directory contains a terminal `state.json` file and reviewer output artifacts. `state.json` records the target kind, target slug, reviewer identifiers, base/head metadata, review config digest, run timestamps, output paths, and terminal status. A run directory without parse-valid `state.json` is incomplete review evidence and cannot satisfy latest terminal review lookup.
 

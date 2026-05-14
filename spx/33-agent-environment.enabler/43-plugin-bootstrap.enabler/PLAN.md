@@ -24,4 +24,4 @@ Bootstrap configured plugin marketplaces, plugins, and skills for supported agen
 
 ## Parallelization
 
-Can proceed after the agent environment descriptor shape is agreed. Installation actions should be separate from status reporting.
+Can proceed after `spx/33-agent-environment.enabler/32-runtime-config.enabler/runtime-config.md` declares the runtime config descriptor shape. Installation actions should be separate from status reporting.
