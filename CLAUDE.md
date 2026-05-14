@@ -213,7 +213,7 @@ cat << 'EOF' | spx session handoff
 ---
 priority: high
 ---
-# Task: Implement config loading
+# Task: Implement X
 EOF
 # Output:
 # Created handoff session <HANDOFF_ID>2026-01-15_08-30-00</HANDOFF_ID>
