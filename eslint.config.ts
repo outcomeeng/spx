@@ -10,6 +10,8 @@ import customRules from "./eslint-rules";
 import { NO_ASYNC_SPAWN_OUTSIDE_LIFECYCLE_RULE_ID } from "./eslint-rules/no-async-spawn-outside-lifecycle";
 import { NO_BARE_STRING_UNIONS_RULE_ID } from "./eslint-rules/no-bare-string-unions";
 import { NO_DEEP_RELATIVE_IMPORTS_RULE_ID } from "./eslint-rules/no-deep-relative-imports";
+import { NO_HARDCODED_SPEC_TREE_NODE_KINDS_RULE_ID } from "./eslint-rules/no-hardcoded-spec-tree-node-kinds";
+import { NO_HARDCODED_SPEC_TREE_NODE_STATES_RULE_ID } from "./eslint-rules/no-hardcoded-spec-tree-node-states";
 import { NO_IMPORT_SOURCE_EXTENSIONS_RULE_ID } from "./eslint-rules/no-import-source-extensions";
 import { NO_REGISTRY_POSITION_ACCESS_RULE_ID } from "./eslint-rules/no-registry-position-access";
 import { NO_TEST_OWNED_DOMAIN_CONSTANTS_RULE_ID } from "./eslint-rules/no-test-owned-domain-constants";
@@ -274,8 +276,8 @@ export function buildEslintConfig(options: BuildEslintConfigOptions = {}) {
       },
       rules: {
         "spx/no-bdd-try-catch-anti-pattern": "error",
-        "spx/no-hardcoded-spec-tree-node-kinds": "error",
-        "spx/no-hardcoded-spec-tree-node-states": "error",
+        [NO_HARDCODED_SPEC_TREE_NODE_KINDS_RULE_ID]: "error",
+        [NO_HARDCODED_SPEC_TREE_NODE_STATES_RULE_ID]: "error",
         [NO_REGISTRY_POSITION_ACCESS_RULE_ID]: "error",
       },
     },
@@ -292,8 +294,8 @@ export function buildEslintConfig(options: BuildEslintConfigOptions = {}) {
       files: testLintDebtNodeTestGlobs,
       rules: {
         "@typescript-eslint/no-explicit-any": "off",
-        "spx/no-hardcoded-spec-tree-node-kinds": "warn",
-        "spx/no-hardcoded-spec-tree-node-states": "warn",
+        [NO_HARDCODED_SPEC_TREE_NODE_KINDS_RULE_ID]: "warn",
+        [NO_HARDCODED_SPEC_TREE_NODE_STATES_RULE_ID]: "warn",
       },
     },
     {
