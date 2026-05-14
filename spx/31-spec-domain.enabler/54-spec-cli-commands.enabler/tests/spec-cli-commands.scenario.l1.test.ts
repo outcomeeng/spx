@@ -9,6 +9,7 @@ import { GIT_ROOT_COMMAND, GIT_SHOW_TOPLEVEL_ARGS, type GitDependencies } from "
 import {
   getKindDefinition,
   SPEC_TREE_ENTRY_TYPE,
+  SPEC_TREE_EVIDENCE_FILE,
   SPEC_TREE_EVIDENCE_STATUS,
   SPEC_TREE_NODE_STATE,
   type SpecTreeNodeSourceEntry,
@@ -37,6 +38,28 @@ describe("spx spec status", () => {
       expect(output).toContain(KIND_REGISTRY[env.fixture.root.kind].label);
       expect(output).toContain(rootPath);
       expect(output).toContain(SPEC_TREE_NODE_STATE.DECLARED);
+    });
+  });
+
+  it("reports co-located test evidence from the tracked spx directory", async () => {
+    await withSpecTreeEnv(MINIMAL_SPEC_TREE_CONFIG, async (env) => {
+      await env.materialize();
+      const rootPath = formatNodePath(env.fixture.root.order, env.fixture.root.slug, env.fixture.root.kind);
+      const evidenceFile = sampleSpecTreeTestValue(SPEC_TREE_TEST_GENERATOR.evidenceFileName());
+      await env.writeRaw(
+        [
+          SPEC_TREE_CONFIG.ROOT_DIRECTORY,
+          rootPath,
+          SPEC_TREE_EVIDENCE_FILE.DIRECTORY_NAME,
+          evidenceFile,
+        ].join("/"),
+        "",
+      );
+
+      const output = await statusCommand({ cwd: env.productDir });
+
+      expect(output).toContain(rootPath);
+      expect(output).toContain(SPEC_TREE_NODE_STATE.SPECIFIED);
     });
   });
 

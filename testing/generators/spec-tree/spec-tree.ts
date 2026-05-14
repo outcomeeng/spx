@@ -2,6 +2,7 @@ import * as fc from "fast-check";
 
 import {
   SPEC_TREE_ENTRY_TYPE,
+  SPEC_TREE_EVIDENCE_FILE,
   SPEC_TREE_EVIDENCE_STATUS,
   SPEC_TREE_SOURCE_ENTRY_KEYS,
   type SpecTreeDecisionSourceEntry,
@@ -85,6 +86,7 @@ export const SPEC_TREE_TEST_GENERATOR = {
   filesystemOrder: arbitraryFilesystemOrder,
   parentSourceOrder: arbitraryParentSourceOrder,
   childSourceOrderAbove: arbitraryChildSourceOrderAbove,
+  evidenceFileName: arbitraryEvidenceFileName,
   unregisteredNodeSuffix: arbitraryUnregisteredNodeSuffix,
   sourceRef: arbitrarySourceRef,
   representativeFixture: arbitraryRepresentativeFixture,
@@ -309,6 +311,22 @@ function arbitrarySourceSlug(): fc.Arbitrary<string> {
 
 function arbitrarySourceTitle(): fc.Arbitrary<string> {
   return fc.uuid();
+}
+
+function arbitraryEvidenceFileName(): fc.Arbitrary<string> {
+  return fc.record({
+    slug: arbitrarySourceSlug(),
+    mode: fc.constantFrom(...SPEC_TREE_EVIDENCE_FILE.MODES),
+    level: fc.constantFrom(...SPEC_TREE_EVIDENCE_FILE.LEVELS),
+    tail: fc.constantFrom(...Object.values(SPEC_TREE_EVIDENCE_FILE.TAILS)),
+  }).map(({ slug, mode, level, tail }) =>
+    [
+      slug,
+      mode,
+      level,
+      ...tail,
+    ].join(SPEC_TREE_EVIDENCE_FILE.SEGMENT_SEPARATOR)
+  );
 }
 
 function arbitrarySourceOrder(): fc.Arbitrary<number> {
