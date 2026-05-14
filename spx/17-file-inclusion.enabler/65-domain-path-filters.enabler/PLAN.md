@@ -1,0 +1,30 @@
+# Plan: Domain Path Filters
+
+## Purpose
+
+Replace ignore-source scope policy with typed config-backed path-filter inputs.
+
+## Governing Specs
+
+- `spx/17-file-inclusion.enabler/file-inclusion.md`
+- `spx/17-file-inclusion.enabler/11-ignore-defaults.pdr.md`
+- `spx/17-file-inclusion.enabler/15-scope-composition.adr.md`
+- `spx/16-config.enabler/32-shared-config-primitives.enabler/shared-config-primitives.md`
+
+## Implementation Notes
+
+- Update scope resolver inputs to accept a domain path filter.
+- Preserve explicit override, artifact-directory, hidden-prefix, and adapter behavior.
+- Delete or rewrite tests that only prove standalone `spx/EXCLUDE` behavior.
+- Remove production imports of ignore-source reader helpers after testing passing scope consumes config.
+
+## Evidence Required
+
+- Scope resolver tests cover include misses, exclude matches, artifact directories, hidden prefixes, and explicit override.
+- Tool adapter tests prove ignore flags derive from resolved excluded paths only.
+- Regression tests prove validation filters do not affect testing passing scope.
+- Removal tests prove production code no longer reads `spx/EXCLUDE`.
+
+## Parallelization
+
+This depends on the shared path-filter primitive. It can proceed before testing state persistence, but final deletion of ignore-source code depends on config-backed testing passing scope.

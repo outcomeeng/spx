@@ -14,12 +14,14 @@ Move audit from verify-only artifact checking toward config-backed, branch-scope
 ## Current Tranche
 
 1. Add an audit config descriptor.
+   - Work in `spx/36-audit.enabler/43-audit-config.enabler/`.
    - Defaults include `.spx`, `audit`, `runs`, verdict filenames, and state filenames.
    - Descriptor owns auditor selection, base ref, target filters, and storage policy.
    - Default `audit.baseRef` to `main` when no config override is present.
    - Path filters use the shared config primitive when target selection needs include/exclude semantics.
 
 2. Implement branch slugging.
+   - Work in `spx/36-audit.enabler/54-branch-run-state.enabler/`.
    - Branch names map to filesystem-safe slugs with no path separators.
    - Branch slugs stay at or below 120 UTF-8 bytes and preserve the SHA-256 suffix after truncation.
    - Branch slugs always append the first eight lowercase hex characters of the SHA-256 digest of the original branch identity.
@@ -29,12 +31,18 @@ Move audit from verify-only artifact checking toward config-backed, branch-scope
    - Detached HEAD state uses `detached-{short-sha}` as the branch identity and is test-covered.
 
 3. Move storage from node-first to branch-first.
+   - Work in `spx/36-audit.enabler/54-branch-run-state.enabler/` and expose reporting through `spx/36-audit.enabler/87-audit-status.enabler/`.
    - Keep `spx audit verify <file>` accepting arbitrary file paths.
-   - Keep explicit-file verification working for existing `.spx/nodes/` verdict artifacts.
-   - New audit runs write under `.spx/audit/{branch-slug}/runs/{timestamp}/`.
+   - Keep explicit-file verification working for node-first `.spx/nodes/` verdict artifacts.
+   - Branch-scoped audit runs write under `.spx/audit/{branch-slug}/runs/{timestamp}/`.
    - Write `state.json` once per run after the terminal status is known.
    - Surface run directories without `state.json` as incomplete/interrupted rather than silently dropping them.
-   - Existing verify-only code remains the artifact consistency check inside the broader audit lifecycle.
+   - Verify-only code remains the artifact consistency check inside the broader audit lifecycle.
+
+4. Execute configured auditors.
+   - Work in `spx/36-audit.enabler/65-auditor-execution.enabler/`.
+   - Resolve auditors, targets, base ref, and storage before launch.
+   - Keep auditor execution hermetically separated from the invoking agent.
 
 ## Evidence Required
 
@@ -51,11 +59,11 @@ Move audit from verify-only artifact checking toward config-backed, branch-scope
 - Audit state tests prove persisted status casing is lowercase and CLI status rendering follows the explicit persisted-status-to-display mapping.
 - Audit config digest tests prove the digest is computed from config-owned canonical descriptor JSON for the resolved audit config descriptor section after defaults are applied.
 - Audit base-ref tests prove the state file records `main` when no config override exists and records the configured value when `audit.baseRef` is set.
-- Migration tests prove existing `.spx/nodes/` verdict artifacts remain valid explicit-file verification inputs but are not indexed by branch-scoped audit list/status views.
-- Storage tests prove audit state resolves through main repository root, not the worktree root.
-- Verify tests prove existing explicit-file verification still works for files outside `.spx/audit/`, including old `.spx/nodes/` artifacts.
+- Compatibility tests prove node-first `.spx/nodes/` verdict artifacts remain valid explicit-file verification inputs but are not indexed by branch-scoped audit list/status views.
+- Storage tests prove audit state resolves through the Git common-dir product root, not the worktree root.
+- Verify tests prove explicit-file verification still works for files outside `.spx/audit/`, including node-first `.spx/nodes/` artifacts.
 
 ## Open Coordination
 
-- The existing audit implementation and tests still refer to `.spx/nodes/`; before adding branch-scoped storage evidence, update or delete tests that assert `.spx/nodes/` as the default storage path while preserving explicit-file verification for old `.spx/nodes/` verdict artifacts.
-- Future retention behavior belongs in this node after branch-scoped storage passes.
+- Audit implementation and tests still refer to `.spx/nodes/`; before adding branch-scoped storage evidence, update or delete tests that assert `.spx/nodes/` as the default storage path while preserving explicit-file verification for node-first `.spx/nodes/` verdict artifacts.
+- Retention behavior belongs in this node after branch-scoped storage passes.

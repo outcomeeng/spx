@@ -8,29 +8,37 @@ Coordinate the config tranche that moves deterministic execution domains onto th
 
 - `spx/16-config.enabler/21-descriptor-registration.adr.md` owns the generic descriptor mechanism, shared config primitives, and registry composition.
 - `spx/16-config.enabler/21-config-file-formats.adr.md` owns `spx.config.{json,yaml,toml}` format resolution.
-- `spx/15-worktree-resolution.pdr.md` owns whether a domain resolves tracked product files from the local worktree or gitignored state from the main repository root.
+- `spx/15-worktree-resolution.pdr.md` owns whether a domain resolves tracked product files from the local worktree root or gitignored state from the Git common-dir product root.
 
 ## Current Tranche
 
 1. Add shared config primitives for repeated descriptor shapes.
+   - Work in `spx/16-config.enabler/32-shared-config-primitives.enabler/`.
    - Start with a path filter primitive: `{ include?: string[]; exclude?: string[] }`.
    - Keep the primitive structural only; domain descriptors own defaults and meaning.
-   - Move validation path-filter validation to the shared primitive without changing `validation.paths` behavior.
+   - Reuse validation's path-filter validation through the shared primitive without changing `validation.paths` behavior.
 
 2. Add a testing descriptor.
+   - Work in `spx/41-testing.enabler/32-testing-config.enabler/` and consume through `spx/16-config.enabler/43-domain-execution-descriptors.enabler/`.
    - Section owns passing-scope configuration only.
    - The descriptor uses the shared path filter primitive for node/path selection.
    - `spx test` still runs normal test discovery; only `spx test passing` and status semantics consume passing-scope filters.
 
-3. Add audit and review descriptor placeholders.
+3. Add audit and review descriptor nodes.
+   - Work in `spx/36-audit.enabler/43-audit-config.enabler/` and `spx/46-reviewing.enabler/21-review-config.enabler/`.
    - Audit owns storage defaults, branch slug settings, auditor selection, and target selection.
    - Review owns local hermetic execution defaults for branch and PR targets.
-   - If review has no node yet, create it through `spec-tree:decomposing` from the product root before implementation.
 
 4. Rename config root APIs from `projectRoot` to `productDir`.
+   - Work in `spx/16-config.enabler/65-product-directory-api.enabler/`.
    - Apply to config APIs, tests, harness helpers, and spec text in one coherent pass.
    - Do not leave compatibility aliases.
+   - Rename root-resolution helper names with ambiguous vocabulary, such as `detectMainRepoRoot`, to Git common-dir product-root vocabulary.
    - Treat existing runtime `projectRoot` names as pre-tranche debt; do not add new `projectRoot` call sites while this tranche is active.
+
+5. Add canonical descriptor digests.
+   - Work in `spx/16-config.enabler/54-canonical-descriptor-digest.enabler/`.
+   - Provide config-owned canonical descriptor JSON and SHA-256 digest computation for testing, audit, and review state.
 
 ## Evidence Required
 
@@ -46,5 +54,5 @@ Coordinate the config tranche that moves deterministic execution domains onto th
 
 ## Open Coordination
 
-- Decide and create the review node placement with `spec-tree:decomposing` before implementing the review descriptor or local hermetic review execution.
-- After config primitives land, update file-inclusion, testing, audit, and review implementation plans to consume the shared primitive rather than duplicating path-filter validation.
+- After config primitives land, update file-inclusion, testing, audit, and review implementation branches to consume the shared primitive rather than duplicating path-filter validation.
+- Agree on the canonical descriptor digest API shape before branches implementing testing last-run evidence, audit config digest, or review config digest integrate.

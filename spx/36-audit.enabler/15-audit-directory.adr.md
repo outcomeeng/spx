@@ -8,7 +8,7 @@ This decision governs how audit verdict files and audit run state are named and 
 
 **Business impact:** Agents and CI pipelines need to locate the most recent audit evidence for a branch without sharing mutable state with the invoking agent or another branch. Multiple audits of the same branch must coexist so history is preserved.
 
-**Technical constraints:** `.spx/` is gitignored and resolves to the main repository root per `spx/15-worktree-resolution.pdr.md`. The layout must accommodate future audit artifact types without restructuring and must keep branch state separated.
+**Technical constraints:** `.spx/` is gitignored and resolves to the Git common-dir product root per `spx/15-worktree-resolution.pdr.md`. The layout accommodates additional audit artifact types without restructuring and keeps branch state separated.
 
 ## Decision
 
@@ -62,9 +62,9 @@ interface AuditRunState {
 | `failed`            | `FAILED`           |
 | `interrupted`       | `INTERRUPTED`      |
 
-The mapping preserves the existing `APPROVED` and `REJECT` output from `spx audit verify <file>`.
+The mapping preserves the established `APPROVED` and `REJECT` output from `spx audit verify <file>`.
 
-**Legacy verdict artifacts:** Existing `.spx/nodes/` verdict artifacts remain verifiable when supplied as explicit `spx audit verify <file>` arguments, but branch-scoped audit list/status views do not index or display legacy node-first artifacts. No automated migration is provided; new audit runs write only to `.spx/audit/{branch-slug}/runs/`.
+**Node-first verdict artifacts:** `.spx/nodes/` verdict artifacts remain verifiable when supplied as explicit `spx audit verify <file>` arguments, but branch-scoped audit list/status views do not index or display node-first artifacts. No automated relocation is provided; branch-scoped audit runs write only to `.spx/audit/{branch-slug}/runs/`.
 
 **Latest run:** The latest terminal run for a branch is selected from `state.json` timestamps, not from directory-name lexical order. Status and list commands compare `completedAt` first, `startedAt` second, and run directory name third as a deterministic tie-breaker. Incomplete run directories without `state.json` do not satisfy latest terminal lookup when any terminal run exists for the branch.
 
@@ -72,14 +72,14 @@ The mapping preserves the existing `APPROVED` and `REJECT` output from `spx audi
 
 A flat single directory under `.spx/audit/` would merge verdicts for all branches, requiring filename parsing to locate a branch's history. A nested hierarchy mirroring `spx/` would encode the spec tree path in directory nesting, making directory creation expensive and path manipulation error-prone.
 
-The branch-scoped directory approach keeps audit execution state aligned with the reviewable unit: a branch. All artifacts for one branch are co-located, timestamped run directories preserve history, and future artifact types can be added inside each run without changing the branch boundary.
+The branch-scoped directory approach keeps audit execution state aligned with the reviewable unit: a branch. All artifacts for one branch are co-located, timestamped run directories preserve history, and additional artifact types fit inside each run without changing the branch boundary.
 
 No status subdirectories are needed: audit runs are write-once artifacts. Unlike sessions, which transition between `todo`, `doing`, and `archive`, an audit run is emitted once and never changes state.
 
 Alternatives rejected:
 
 - **Flat `.spx/audit/`**: All branches share one directory; locating a specific branch's runs requires filtering by filename prefix.
-- **Node-first `.spx/nodes/{encoded-node-path}/`**: Organizes existing verdict verification, but it does not isolate local audit execution by branch.
+- **Node-first `.spx/nodes/{encoded-node-path}/`**: Organizes explicit-file verdict verification, but it does not isolate local audit execution by branch.
 - **`.spx/audit/` with status subdirectories**: Runs have no state transitions; status directories add ceremony with no benefit.
 
 ## Trade-offs accepted
@@ -102,7 +102,7 @@ Alternatives rejected:
 - `baseRef` is always the resolved audit config descriptor base ref captured at run start; the descriptor default is `main`
 - Latest terminal audit lookup orders terminal runs by `state.json` timestamps before using directory names as a tie-breaker
 - Audit run directories within a branch directory are never renamed or moved — timestamps and run ids are assigned at write time and are stable
-- The `.spx/audit/` root is always resolved relative to the main repository root per `spx/15-worktree-resolution.pdr.md`
+- The `.spx/audit/` root is always resolved relative to the Git common-dir product root per `spx/15-worktree-resolution.pdr.md`
 
 ## Compliance
 
@@ -126,10 +126,10 @@ A verdict file at `.spx/audit/work-config-backed-execution-scope/runs/2026-04-25
 - Select the latest terminal run by greatest `completedAt`, then greatest `startedAt`, then lexicographically greatest run directory name as a deterministic tie-breaker ([review])
 - Store `state.json` statuses as lowercase machine tokens; render CLI status strings through the explicit persisted-status-to-display mapping ([review])
 - Compute `auditConfigDigest` from config-owned canonical descriptor JSON for the resolved audit config descriptor section after defaults are applied, excluding unrelated descriptor sections and raw file formatting ([review](../16-config.enabler/21-descriptor-registration.adr.md))
-- Resolve `.spx/audit/` relative to the main repository root via `detectMainRepoRoot` per `spx/15-worktree-resolution.pdr.md` ([review](../15-worktree-resolution.pdr.md))
+- Resolve `.spx/audit/` relative to the Git common-dir product root per `spx/15-worktree-resolution.pdr.md` ([review](../15-worktree-resolution.pdr.md))
 - Derive all path component names (`.spx`, `audit`, `runs`) from the audit config descriptor defaults — single source of truth ([review](../16-config.enabler/21-descriptor-registration.adr.md))
-- Keep `spx audit verify <file>` accepting any explicit verdict file path supplied by the caller, including existing `.spx/nodes/` artifacts and new `.spx/audit/` artifacts ([review])
-- Do not index, list, or migrate existing `.spx/nodes/` artifacts into branch-scoped audit status; legacy artifacts are explicit-file verification inputs only ([review])
+- Keep `spx audit verify <file>` accepting any explicit verdict file path supplied by the caller, including node-first `.spx/nodes/` artifacts and branch-scoped `.spx/audit/` artifacts ([review])
+- Do not index, list, or migrate `.spx/nodes/` artifacts into branch-scoped audit status; node-first artifacts are explicit-file verification inputs only ([review])
 
 ### NEVER
 

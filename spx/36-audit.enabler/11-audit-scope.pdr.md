@@ -25,13 +25,13 @@ A CLI success criterion makes the auditing skill's completion state mechanical a
 
 Storing verdicts in `.spx/audit/{branch-slug}/` follows the same separation as sessions: the spec tree holds durable declarations; `.spx/` holds ephemeral local state. Branch scoping prevents one local audit run from contaminating another branch's evidence.
 
-Scoping the domain to a full lifecycle enables commands such as `spx audit list` to enumerate prior audits per branch, and retention logic to prune old verdicts — analogous to `spx session archive` and `spx session prune`.
+Scoping the domain to a full lifecycle enables commands such as `spx audit list` to enumerate prior audits per branch and prune verdicts from branch-scoped local state, analogous to `spx session archive` and `spx session prune`.
 
 ## Trade-offs accepted
 
 | Trade-off                                                    | Mitigation / reasoning                                                                        |
 | ------------------------------------------------------------ | --------------------------------------------------------------------------------------------- |
-| Branch-scoped lifecycle is broader than verify-only behavior | Existing verify behavior remains the artifact consistency check inside the broader lifecycle  |
+| Branch-scoped lifecycle is broader than verify-only behavior | Verify behavior remains the artifact consistency check inside the broader lifecycle           |
 | Verdict files are not committed                              | Consistent with session design; agents that need to share verdicts pass file paths explicitly |
 
 ## Product invariants
@@ -45,7 +45,7 @@ Scoping the domain to a full lifecycle enables commands such as `spx audit list`
 
 ### MUST
 
-- Store verdict files in `.spx/audit/{branch-slug}/` at the main repository root per `spx/15-worktree-resolution.pdr.md` ([review](../15-worktree-resolution.pdr.md))
+- Store verdict files in `.spx/audit/{branch-slug}/` at the Git common-dir product root per `spx/15-worktree-resolution.pdr.md` ([review](../15-worktree-resolution.pdr.md))
 - Accept any file path as the argument to `spx audit verify` — the command is not restricted to `.spx/audit/` contents ([review])
 - Register audit configuration through the config descriptor system rather than parsing raw `spx.config.*` content in audit code ([review](../16-config.enabler/21-descriptor-registration.adr.md))
 
