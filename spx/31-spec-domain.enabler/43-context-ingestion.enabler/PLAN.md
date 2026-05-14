@@ -14,9 +14,10 @@ Add the deterministic context-ingestion surface that replaces skill-only context
 ## Implementation Notes
 
 - Build on the public spec-tree surface rather than parsing directories in command code.
-- Return both human-readable and machine-readable context output if the existing spec CLI output pattern supports both.
+- Return both human-readable and machine-readable context output when the spec CLI output mode requests each format.
 - Preserve the methodology ordering rules: lower-index siblings constrain; same-index peers are independent; higher-index siblings do not constrain.
 - Include PLAN.md and ISSUES.md as escape-hatch context, not product truth.
+- Never truncate context silently; if a transport or display boundary cannot carry the complete manifest, return an explicit incomplete-context diagnostic for the affected output mode.
 
 ## Evidence Required
 

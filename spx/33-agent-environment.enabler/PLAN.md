@@ -28,3 +28,7 @@ Define and implement deterministic management for agent instructions, runtime co
 ## Parallelization
 
 The three child nodes can proceed independently after their shared config shape is agreed.
+
+## Open Coordination
+
+- Author the invoking-agent isolation decision before auditor execution or reviewer execution implementation chooses working-directory, environment-variable, or temporary-file sharing boundaries.

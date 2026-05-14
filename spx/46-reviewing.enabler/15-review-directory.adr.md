@@ -14,9 +14,28 @@ This decision governs how local review run state and reviewer artifacts are name
 
 Review run state is stored under `.spx/review/{target-kind}/{target-slug}/runs/{run-directory}/` at the Git common-dir product root.
 
-`target-kind` is either `branch` or `pr`. Branch target slugs use the same filesystem-safe slugging rules as audit branch slugs in `spx/36-audit.enabler/15-audit-directory.adr.md`. Pull request target slugs use `pr-{number}` where `{number}` is the decimal pull request number resolved by the review target boundary.
+`target-kind` is either `branch` or `pr`. Branch target slugs use the same filesystem-safe slugging rules and implementation as audit branch slugs in `spx/36-audit.enabler/15-audit-directory.adr.md`. Pull request target slugs use `pr-{number}` where `{number}` is the decimal pull request number resolved by the review target boundary. All target slugs are at most 120 UTF-8 bytes. Pull request numbers are unsigned base-10 integers; no sign, decimal point, separator, or leading whitespace is accepted.
 
 Each run directory contains a terminal `state.json` file and reviewer output artifacts. `state.json` records the target kind, target slug, reviewer identifiers, base/head metadata, review config digest, run timestamps, output paths, and terminal status. A run directory without parse-valid `state.json` is incomplete review evidence and cannot satisfy latest terminal review lookup.
+
+```ts
+interface ReviewRunState {
+  readonly targetKind: "branch" | "pr";
+  readonly targetSlug: string;
+  readonly targetDisplayName: string;
+  readonly reviewers: readonly string[];
+  readonly baseRef: string;
+  readonly baseSha?: string;
+  readonly headSha: string;
+  readonly reviewConfigDigest: string;
+  readonly startedAt: string;
+  readonly completedAt: string;
+  readonly outputPaths: readonly string[];
+  readonly status: "approved" | "rejected" | "failed" | "interrupted";
+}
+```
+
+The latest terminal review for a target is selected from parse-valid `state.json` files by greatest `completedAt`, then greatest `startedAt`, then lexicographically greatest run directory name as a deterministic tie-breaker.
 
 ## Rationale
 
@@ -32,7 +51,9 @@ Separating review state under `.spx/review/` keeps review evidence distinct from
 ## Invariants
 
 - Review state is grouped by target kind and target slug before run history is inspected
+- Target slugs stay within the 120-byte component limit and use the shared audit/review branch slug implementation for branch targets
 - Incomplete review run directories cannot satisfy latest terminal review lookup
+- Latest terminal review lookup orders terminal runs by `state.json` timestamps before using directory names as a tie-breaker
 - Audit verdict state and review state are not interchangeable without a shared storage ADR
 
 ## Compliance
@@ -45,8 +66,12 @@ A state file at `.spx/review/branch/work-config-backed-execution-scope-1a2b3c4d/
 
 - Store review run state under `.spx/review/{target-kind}/{target-slug}/runs/{run-directory}/` at the Git common-dir product root ([review](../15-worktree-resolution.pdr.md))
 - Use `branch` and `pr` as the only target-kind directory names ([review])
+- Reuse the audit branch slug implementation for branch review target slugs ([review](../36-audit.enabler/15-audit-directory.adr.md))
+- Keep target slugs at or below 120 UTF-8 bytes ([review])
+- Encode pull request target slugs as `pr-{number}` using an unsigned base-10 pull request number ([review])
 - Store target kind, target slug, reviewer identifiers, base/head metadata, review config digest, run timestamps, output paths, and terminal status in `state.json` ([review])
 - Treat run directories without parse-valid `state.json` as incomplete evidence for latest-review lookup ([review])
+- Select the latest terminal review by greatest `completedAt`, then greatest `startedAt`, then lexicographically greatest run directory name as a deterministic tie-breaker ([review])
 
 ### NEVER
 

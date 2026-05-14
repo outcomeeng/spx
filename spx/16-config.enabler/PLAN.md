@@ -55,3 +55,4 @@ Coordinate the config tranche that moves deterministic execution domains onto th
 ## Open Coordination
 
 - After config primitives land, update file-inclusion, testing, audit, and review implementation branches to consume the shared primitive rather than duplicating path-filter validation.
+- Agree on the canonical descriptor digest API shape before branches implementing testing last-run evidence, audit config digest, or review config digest integrate.

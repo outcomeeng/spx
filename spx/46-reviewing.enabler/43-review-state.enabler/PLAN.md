@@ -17,6 +17,7 @@ Persist local review observations for status and latest-review lookup.
 - Define review state shape before branch and PR commands write it.
 - Store review state under `.spx/review/{target-kind}/{target-slug}/runs/{run-directory}` at the Git common-dir product root.
 - Include branch and PR target discriminators.
+- Reuse the branch slug implementation owned by `spx/36-audit.enabler/15-audit-directory.adr.md` for branch review targets.
 - Use canonical review descriptor digest for staleness.
 - Keep incomplete run behavior explicit and visible.
 
