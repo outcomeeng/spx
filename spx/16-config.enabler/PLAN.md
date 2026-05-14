@@ -39,6 +39,7 @@ Coordinate the config tranche that moves deterministic execution domains onto th
 - Config-format mapping tests cover the new sections across JSON, YAML, and TOML.
 - Descriptor isolation tests prove a malformed testing, audit, or review section cannot read or change validation config.
 - Shared-primitive tests prove validation and testing descriptors import the same path-filter primitive while exposing policy under separate sections.
+- Registry-extension tests prove the shared-primitive scenario from `config.md`: two domain descriptors import one shared path-filter primitive and expose it under separate domain sections without sharing policy defaults.
 - Canonical descriptor JSON tests prove object keys sort recursively, array order is preserved, primitive serialization matches JSON semantics, and digest input bytes are stable across equivalent resolved descriptor sections.
 - Canonical descriptor JSON tests prove validators reject `undefined`, `NaN`, `Infinity`, functions, symbols, and other non-JSON-representable values before digest computation.
 - Canonical descriptor JSON digest implementation uses Node.js `node:crypto`; no third-party crypto dependency is introduced.
