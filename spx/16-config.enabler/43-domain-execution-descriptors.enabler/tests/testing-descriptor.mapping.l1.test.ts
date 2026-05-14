@@ -7,6 +7,7 @@ import {
   CONFIG_FILE_FORMAT,
   CONFIG_FILENAMES,
   type ConfigFileFormat,
+  DEFAULT_CONFIG_FILE_FORMAT,
   DEFAULT_CONFIG_FILENAME,
   resolveConfig,
   serializeConfigFileSections,
@@ -27,12 +28,12 @@ function serializeConfig(format: ConfigFileFormat, config: Config): string {
 describe("testing config descriptor format mapping", () => {
   it("resolves equivalent testing sections from JSON, YAML, and TOML config files", async () => {
     const generated = sampleConfigTestValue(CONFIG_TEST_GENERATOR.testingConfig());
-    const results: unknown[] = [];
+    const results: Partial<Record<ConfigFileFormat, unknown>> = {};
 
     await withTestEnv(generated.config, async ({ productDir }) => {
       const result = await resolveConfig(productDir, [testingConfigDescriptor]);
       expect(result.ok).toBe(true);
-      if (result.ok) results.push(result.value);
+      if (result.ok) results[DEFAULT_CONFIG_FILE_FORMAT] = result.value;
     });
 
     await withTestEnv({}, async ({ productDir, writeRaw }) => {
@@ -40,7 +41,7 @@ describe("testing config descriptor format mapping", () => {
       await writeRaw(CONFIG_FILENAMES.json, serializeConfig(CONFIG_FILE_FORMAT.JSON, generated.config));
       const result = await resolveConfig(productDir, [testingConfigDescriptor]);
       expect(result.ok).toBe(true);
-      if (result.ok) results.push(result.value);
+      if (result.ok) results[CONFIG_FILE_FORMAT.JSON] = result.value;
     });
 
     await withTestEnv({}, async ({ productDir, writeRaw }) => {
@@ -48,11 +49,11 @@ describe("testing config descriptor format mapping", () => {
       await writeRaw(CONFIG_FILENAMES.toml, serializeConfig(CONFIG_FILE_FORMAT.TOML, generated.config));
       const result = await resolveConfig(productDir, [testingConfigDescriptor]);
       expect(result.ok).toBe(true);
-      if (result.ok) results.push(result.value);
+      if (result.ok) results[CONFIG_FILE_FORMAT.TOML] = result.value;
     });
 
-    expect(results).toHaveLength(Object.keys(CONFIG_FILENAMES).length);
-    expect(results[1]).toEqual(results[0]);
-    expect(results[2]).toEqual(results[0]);
+    expect(Object.keys(results)).toHaveLength(Object.keys(CONFIG_FILENAMES).length);
+    expect(results[CONFIG_FILE_FORMAT.JSON]).toEqual(results[DEFAULT_CONFIG_FILE_FORMAT]);
+    expect(results[CONFIG_FILE_FORMAT.TOML]).toEqual(results[DEFAULT_CONFIG_FILE_FORMAT]);
   });
 });

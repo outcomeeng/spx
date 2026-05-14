@@ -2,13 +2,7 @@ import * as fc from "fast-check";
 import { describe, expect, it } from "vitest";
 
 import { PATH_FILTER_CONFIG_FIELDS, validatePathFilterConfig } from "@/config/primitives/path-filter";
-import {
-  TESTING_CONFIG_DEFAULTS,
-  TESTING_CONFIG_FIELDS,
-  TESTING_SECTION,
-  type TestingConfig,
-  testingConfigDescriptor,
-} from "@/testing/config";
+import { TESTING_CONFIG_FIELDS, TESTING_SECTION, type TestingConfig, testingConfigDescriptor } from "@/testing/config";
 import { CONFIG_TEST_GENERATOR } from "@testing/generators/config/descriptors";
 
 function expectTestingConfig(result: ReturnType<typeof testingConfigDescriptor.validate>): TestingConfig {
@@ -26,7 +20,7 @@ describe("testing config descriptor", () => {
     expectTestingConfig(result);
     expect(result).toEqual({
       ok: true,
-      value: TESTING_CONFIG_DEFAULTS,
+      value: testingConfigDescriptor.defaults,
     });
   });
 

@@ -11,7 +11,7 @@ export interface TestingConfig {
   readonly passingScope: PathFilterConfig;
 }
 
-export const TESTING_CONFIG_DEFAULTS: TestingConfig = {
+const defaults: TestingConfig = {
   passingScope: {},
 };
 
@@ -21,6 +21,7 @@ function validate(value: unknown): Result<TestingConfig> {
   }
 
   const candidate = value as Record<string, unknown>;
+  // Null is an explicit invalid value; only an omitted field receives defaults.
   const passingScopeRaw = candidate[TESTING_CONFIG_FIELDS.PASSING_SCOPE] === undefined
     ? {}
     : candidate[TESTING_CONFIG_FIELDS.PASSING_SCOPE];
@@ -40,6 +41,6 @@ function validate(value: unknown): Result<TestingConfig> {
 
 export const testingConfigDescriptor: ConfigDescriptor<TestingConfig> = {
   section: TESTING_SECTION,
-  defaults: TESTING_CONFIG_DEFAULTS,
+  defaults,
   validate,
 };
