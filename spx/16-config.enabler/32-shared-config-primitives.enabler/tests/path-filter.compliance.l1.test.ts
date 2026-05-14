@@ -14,7 +14,7 @@ type GeneratedPathFilterSection = Readonly<Record<string, PathFilterConfig>>;
 function isGeneratedPathFilterSection(
   value: unknown,
 ): value is Readonly<Record<string, unknown>> {
-  return typeof value === typeof {} && value !== null && !Array.isArray(value);
+  return value instanceof Object && !Array.isArray(value);
 }
 
 function buildPathFilterDescriptor(section: string, field: string): ConfigDescriptor<GeneratedPathFilterSection> {
