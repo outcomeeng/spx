@@ -9,6 +9,7 @@ CAN report observed results and staleness without invoking test runners
 ### Compliance
 
 - ALWAYS: persisted testing state records runner outcomes, timestamps, discovered test path sets, discovered test content digests, descriptor-declared product input digests, and the resolved testing config digest ([review])
+- ALWAYS: persisted testing state is stored under `.spx/testing/{branch-slug}/runs/{run-directory}/state.json` at the Git common-dir product root ([review](11-last-run-directory.adr.md))
 - ALWAYS: deleting persisted testing state changes only fast-status availability, never passing-scope policy ([review])
 - ALWAYS: cached evidence is stale when any recorded staleness input differs from the current input ([review])
 - NEVER: infer passing scope from persisted testing state ([review])

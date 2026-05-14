@@ -7,6 +7,7 @@ Persist spec-tree test observations so status commands can report fast test stat
 ## Governing Specs
 
 - `spx/41-testing.enabler/testing.md`
+- `spx/41-testing.enabler/43-last-run-evidence.enabler/11-last-run-directory.adr.md`
 - `spx/41-testing.enabler/32-testing-config.enabler/testing-config.md`
 - `spx/16-config.enabler/54-canonical-descriptor-digest.enabler/canonical-descriptor-digest.md`
 - `spx/22-test-environment.enabler/32-spec-tree-fixtures.enabler/spec-tree-fixtures.md`
@@ -14,7 +15,7 @@ Persist spec-tree test observations so status commands can report fast test stat
 ## Implementation Notes
 
 - Compute discovery once per command and reuse it for runner dispatch and staleness comparison.
-- Store observed runner results and all staleness inputs in a deterministic state location under `.spx/`.
+- Store observed runner results and all staleness inputs in `.spx/testing/{branch-slug}/runs/{run-directory}/state.json`.
 - Keep policy reads config-backed; state is only evidence.
 - Use `withSpecTreeEnv` for filesystem and in-memory fixture tests when assertions require a spec-tree shape.
 

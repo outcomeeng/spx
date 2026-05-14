@@ -8,6 +8,6 @@ CAN resolve PR metadata, materialize the review target, and produce persisted re
 
 ### Compliance
 
-- ALWAYS: PR review records pull request number, base ref, head ref, head SHA, and reviewer identifiers in persisted state ([review])
+- ALWAYS: PR review records target kind, target slug, pull request number, reviewer identifiers, base/head metadata, review config digest, run timestamps, output paths, and terminal status in persisted state ([review](../15-review-directory.adr.md))
 - ALWAYS: PR review executes reviewers hermetically after target metadata is resolved ([review])
 - NEVER: PR review mutates remote pull request state unless a separate command explicitly owns that behavior ([review])
