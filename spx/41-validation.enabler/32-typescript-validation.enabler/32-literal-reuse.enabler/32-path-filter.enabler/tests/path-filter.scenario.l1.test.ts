@@ -1,13 +1,13 @@
 import { describe, expect, it } from "vitest";
 
 import { validateLiteralReuse } from "@/validation/literal/index";
-import { sampleDistinctDomainLiterals } from "@testing/generators/literal/literal";
+import { sampleDistinctDomainLiterals, sampleIndependentDomainLiterals } from "@testing/generators/literal/literal";
 import { withLiteralFixtureEnv } from "@testing/harnesses/literal/harness";
 
 describe("path-filter — scenarios", () => {
   it("files whose relative path starts with a prefix listed in validation.paths.exclude are not parsed or indexed", async () => {
     await withLiteralFixtureEnv({}, async (env) => {
-      const [excludedLiteral, activeLiteral] = sampleDistinctDomainLiterals(2);
+      const [excludedLiteral, activeLiteral] = sampleIndependentDomainLiterals(2);
 
       await env.writeSourceFile("legacy/module.ts", excludedLiteral);
       await env.writeSourceFile("src/active.ts", activeLiteral);
@@ -28,7 +28,7 @@ describe("path-filter — scenarios", () => {
 
   it("when validation.paths.include lists a prefix, only files matching at least one include prefix are parsed and indexed", async () => {
     await withLiteralFixtureEnv({}, async (env) => {
-      const [includedLiteral, outsideLiteral] = sampleDistinctDomainLiterals(2);
+      const [includedLiteral, outsideLiteral] = sampleIndependentDomainLiterals(2);
 
       await env.writeSourceFile("src/active.ts", includedLiteral);
       await env.writeSourceFile("vendor/third-party.ts", outsideLiteral);

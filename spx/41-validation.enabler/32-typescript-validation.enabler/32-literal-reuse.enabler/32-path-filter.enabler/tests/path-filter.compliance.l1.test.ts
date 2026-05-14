@@ -1,13 +1,13 @@
 import { describe, expect, it } from "vitest";
 
 import { validateLiteralReuse } from "@/validation/literal/index";
-import { sampleDistinctDomainLiterals } from "@testing/generators/literal/literal";
+import { sampleIndependentDomainLiterals } from "@testing/generators/literal/literal";
 import { withLiteralFixtureEnv } from "@testing/harnesses/literal/harness";
 
 describe("ALWAYS: validation.paths.exclude suppresses files by path prefix", () => {
   it("files under every listed prefix are never parsed and contribute no occurrences", async () => {
     await withLiteralFixtureEnv({}, async (env) => {
-      const [prefix1Literal, prefix2Literal] = sampleDistinctDomainLiterals(2);
+      const [prefix1Literal, prefix2Literal] = sampleIndependentDomainLiterals(2);
 
       await env.writeSourceFile("excluded-a/file.ts", prefix1Literal);
       await env.writeSourceFile("excluded-b/nested/file.ts", prefix2Literal);
