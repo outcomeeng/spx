@@ -39,6 +39,7 @@ Coordinate the config tranche that moves deterministic execution domains onto th
 - Descriptor isolation tests prove a malformed testing, audit, or review section cannot read or change validation config.
 - Shared-primitive tests prove validation and testing descriptors import the same path-filter primitive while exposing policy under separate sections.
 - Canonical descriptor JSON tests prove object keys sort recursively, array order is preserved, primitive serialization matches JSON semantics, and digest input bytes are stable across equivalent resolved descriptor sections.
+- Canonical descriptor JSON tests prove validators reject `undefined`, `NaN`, `Infinity`, functions, symbols, and other non-JSON-representable values before digest computation.
 
 ## Open Coordination
 
