@@ -27,7 +27,7 @@ Audit verdicts are stored under `.spx/audit/{branch-slug}/` using a branch-scope
 
 **Run directory:** `{YYYY-MM-DD_HH-mm-ss-SSS}-{run-id}` — timestamp format from `spx/36-session.enabler/21-timestamp-format.adr.md` extended with UTC milliseconds, plus a run id of twelve lowercase hex characters generated from random bytes at run start. The timestamp prefix keeps directory names time-sortable; the run id prevents collisions between concurrent audits that start in the same millisecond. Directory creation uses exclusive create semantics and retries with a new run id on collision.
 
-**State file:** `state.json` records the terminal run envelope. Domain-specific auditor output lives in verdict artifacts; `state.json` stays a compact index for status, list, and latest-run lookup. The file is written exactly once after the run reaches a terminal state. In-progress audit runs do not write `state.json`.
+**State file:** `state.json` records the terminal run envelope. Domain-specific auditor output lives in verdict artifacts; `state.json` stays a compact index for status, list, and latest-run lookup. The file is written exactly once after the run reaches a terminal state. In-progress audit runs do not write `state.json`. Runs that reach a terminal state without writing a verdict artifact omit `verdictPath`.
 
 **Incomplete runs:** A run directory without `state.json` is an incomplete run artifact. This can happen when an audit process is killed before it can write terminal state. `spx audit list` and status commands surface such directories as incomplete/interrupted using directory metadata only, never as approved or rejected audit evidence. Latest terminal audit lookup ignores incomplete run directories unless no terminal run exists for that branch.
 
@@ -44,7 +44,7 @@ interface AuditRunState {
   readonly targets: readonly string[];
   readonly startedAt: string;
   readonly completedAt: string;
-  readonly verdictPath: string;
+  readonly verdictPath?: string;
   readonly status: "approved" | "rejected" | "failed" | "interrupted";
 }
 ```
@@ -102,7 +102,7 @@ A verdict file at `.spx/audit/work-config-backed-execution-scope/runs/2026-04-25
 - Use `detached-{short-sha}` as the branch identity in detached HEAD state, where `short-sha` is the first twelve lowercase hex characters of the git `HEAD` commit SHA ([review])
 - Name run directories `{YYYY-MM-DD_HH-mm-ss-SSS}-{run-id}` using UTC timestamps and a twelve-character lowercase hex run id generated at run start ([review])
 - Create run directories with exclusive create semantics and retry with a new run id when a directory already exists ([review])
-- Write `state.json` exactly once at terminal run completion with branch name, branch slug, head commit SHA, resolved audit descriptor base ref, audit config digest, auditor identifiers, target paths, run start timestamp, run completion timestamp, verdict path, and final status ([review])
+- Write `state.json` exactly once at terminal run completion with branch name, branch slug, head commit SHA, resolved audit descriptor base ref, audit config digest, auditor identifiers, target paths, run start timestamp, run completion timestamp, optional verdict path, and final status ([review])
 - Default the audit descriptor `baseRef` to `main` when `audit.baseRef` is absent from `spx.config.*` ([review])
 - Surface run directories missing `state.json` as incomplete/interrupted in list and status output, and exclude them from latest terminal audit lookup when any terminal run exists for the branch ([review])
 - Store `state.json` statuses as lowercase machine tokens; render CLI verdict strings separately from persisted state casing ([review])
