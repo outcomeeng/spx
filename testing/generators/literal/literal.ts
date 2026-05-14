@@ -287,14 +287,10 @@ export function sampleLiteralPair(): readonly [string, string] {
   return [first, second];
 }
 
-export function sampleDistinctTestFilePaths(count: number): readonly string[] {
-  const paths = sampleLiteralTestValue(
+function sampleDistinctTestFilePaths(count: number): readonly string[] {
+  return sampleLiteralTestValue(
     fc.uniqueArray(arbitraryTestFilePath(), { minLength: count, maxLength: count }),
   );
-  if (paths.length !== count) {
-    throw new Error(`Literal test path generator returned ${paths.length} paths; expected ${count}`);
-  }
-  return paths;
 }
 
 export function sampleTestFilePathPair(): readonly [string, string] {

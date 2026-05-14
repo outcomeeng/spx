@@ -27,7 +27,7 @@ Audit verdicts are stored under `.spx/audit/{branch-slug}/` using a branch-scope
 
 **Run directory:** `{YYYY-MM-DD_HH-mm-ss-SSS}-{run-id}` — timestamp format from `spx/36-session.enabler/21-timestamp-format.adr.md` extended with UTC milliseconds, plus a run id of twelve lowercase hex characters generated from random bytes at run start. The timestamp prefix keeps directory names time-sortable; the run id prevents collisions between concurrent audits that start in the same millisecond. Directory creation uses exclusive create semantics and retries with a new run id on collision.
 
-**State file:** `state.json` records the terminal run envelope. Domain-specific auditor output lives in verdict artifacts; `state.json` stays a compact index for status, list, and latest-run lookup. The file is written exactly once after the run reaches a terminal state. In-progress audit runs do not write `state.json`. Runs that reach a terminal state without writing a verdict artifact omit `verdictPath`.
+**State file:** `state.json` records the terminal run envelope. Domain-specific auditor output lives in verdict artifacts; `state.json` stays a compact index for status, list, and latest-run lookup. The file is written exactly once after the run reaches a terminal state. In-progress audit runs do not write `state.json`. Runs that reach a terminal state without writing a verdict artifact omit `verdictPath`. Terminal state writes use a temporary file in the same run directory followed by an atomic rename to `state.json`; missing, partial, or parse-invalid state files are incomplete/interrupted evidence and cannot satisfy latest terminal lookup.
 
 **Incomplete runs:** A run directory without `state.json` is an incomplete run artifact. This can happen when an audit process is killed before it can write terminal state. `spx audit list` and status commands surface such directories as incomplete/interrupted using directory metadata only, never as approved or rejected audit evidence. Latest terminal audit lookup ignores incomplete run directories unless no terminal run exists for that branch.
 
@@ -83,7 +83,7 @@ Alternatives rejected:
 - Detached HEAD state maps to a branch identity of `detached-{short-sha}`, where `{short-sha}` is the first twelve lowercase hex characters of the git `HEAD` commit SHA
 - Each `state.json` file contains the complete terminal run envelope required to list, inspect, and identify the latest branch audit without parsing verdict XML
 - `state.json` is written exactly once after the run reaches `approved`, `rejected`, `failed`, or `interrupted`
-- A run directory without `state.json` is incomplete/interrupted evidence and cannot satisfy an approved or rejected audit status
+- A run directory without a parse-valid `state.json` is incomplete/interrupted evidence and cannot satisfy an approved or rejected audit status
 - `baseRef` is always the resolved audit config descriptor base ref captured at run start; the descriptor default is `main`
 - Latest terminal audit lookup orders terminal runs by `state.json` timestamps before using directory names as a tie-breaker
 - Audit run directories within a branch directory are never renamed or moved — timestamps and run ids are assigned at write time and are stable
@@ -104,8 +104,9 @@ A verdict file at `.spx/audit/work-config-backed-execution-scope/runs/2026-04-25
 - Name run directories `{YYYY-MM-DD_HH-mm-ss-SSS}-{run-id}` using UTC timestamps and a twelve-character lowercase hex run id generated at run start ([review])
 - Create run directories with exclusive create semantics and retry with a new run id when a directory already exists ([review])
 - Write `state.json` exactly once at terminal run completion with branch name, branch slug, head commit SHA, resolved audit descriptor base ref, audit config digest, auditor identifiers, target paths, run start timestamp, run completion timestamp, optional verdict path, and final status ([review])
+- Write terminal `state.json` through a temporary file in the same run directory followed by an atomic rename to the final path ([review])
 - Default the audit descriptor `baseRef` to `main` when `audit.baseRef` is absent from `spx.config.*` ([review])
-- Surface run directories missing `state.json` as incomplete/interrupted in list and status output, and exclude them from latest terminal audit lookup when any terminal run exists for the branch ([review])
+- Surface run directories with missing, partial, or parse-invalid `state.json` as incomplete/interrupted in list and status output, and exclude them from latest terminal audit lookup when any terminal run exists for the branch ([review])
 - Select the latest terminal run by greatest `completedAt`, then greatest `startedAt`, then lexicographically greatest run directory name as a deterministic tie-breaker ([review])
 - Store `state.json` statuses as lowercase machine tokens; render CLI verdict strings separately from persisted state casing ([review])
 - Compute `auditConfigDigest` from config-owned canonical descriptor JSON for the resolved audit config descriptor section after defaults are applied, excluding unrelated descriptor sections and raw file formatting ([review](../16-config.enabler/21-descriptor-registration.adr.md))
