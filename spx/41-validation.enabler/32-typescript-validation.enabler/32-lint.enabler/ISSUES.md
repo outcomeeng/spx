@@ -15,8 +15,8 @@
 The quarantined rule set is:
 
 - `no-restricted-syntax` entries for assertion string literals and `readFileSync`
-- `spx/no-hardcoded-work-item-kinds`
-- `spx/no-hardcoded-statuses`
+- `spx/no-hardcoded-spec-tree-node-kinds`
+- `spx/no-hardcoded-spec-tree-node-states`
 
 **Consequence:** `spx validation lint` remains portable for consuming projects, but this repository still carries test-string and registry-literal debt in the manifest paths.
 

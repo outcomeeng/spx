@@ -274,8 +274,8 @@ export function buildEslintConfig(options: BuildEslintConfigOptions = {}) {
       },
       rules: {
         "spx/no-bdd-try-catch-anti-pattern": "error",
-        "spx/no-hardcoded-work-item-kinds": "error",
-        "spx/no-hardcoded-statuses": "error",
+        "spx/no-hardcoded-spec-tree-node-kinds": "error",
+        "spx/no-hardcoded-spec-tree-node-states": "error",
         [NO_REGISTRY_POSITION_ACCESS_RULE_ID]: "error",
       },
     },
@@ -292,8 +292,8 @@ export function buildEslintConfig(options: BuildEslintConfigOptions = {}) {
       files: testLintDebtNodeTestGlobs,
       rules: {
         "@typescript-eslint/no-explicit-any": "off",
-        "spx/no-hardcoded-work-item-kinds": "warn",
-        "spx/no-hardcoded-statuses": "warn",
+        "spx/no-hardcoded-spec-tree-node-kinds": "warn",
+        "spx/no-hardcoded-spec-tree-node-states": "warn",
       },
     },
     {

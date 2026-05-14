@@ -1,16 +1,15 @@
-import { WORK_ITEM_KINDS } from "@/lib/spec-legacy/types";
 import { LINT_POLICY_BASE_REFS, LINT_POLICY_MANIFESTS } from "@/validation/lint-policy-constants";
 
 const LINT_POLICY_TEMP_PREFIX = "spx-lint-policy-";
-const BASE_LEGACY_PATH = "spx/10-old.story";
+const DEPRECATED_SPEC_NODE_PATH = "spx/10-old.capability";
 const BASE_TEST_DEBT_PATH = "spx/20-current.enabler";
 const ADDED_TEST_DEBT_PATH = "spx/30-added.enabler";
-const LINT_POLICY_TEST_BRANCH = `${WORK_ITEM_KINDS[1]}-branch`;
+const LINT_POLICY_TEST_BRANCH = "spec-tree-node-branch";
 const OUTER_REPO_BRANCH = "outer-main";
 const OUTER_REPO_USER_NAME = "Outer Repo User";
 const OUTER_REPO_USER_EMAIL = "outer@test.local";
 const JSON_OBJECT_ERROR_FRAGMENT = "must contain a JSON object";
-const LINT_POLICY_TEST_PROJECT_ROOT_ENV = "SPX_LINT_POLICY_TEST_PROJECT_ROOT";
+const LINT_POLICY_TEST_PRODUCT_DIR_ENV = "SPX_LINT_POLICY_TEST_PRODUCT_DIR";
 const BASE_COMMIT_MESSAGE = "base manifests";
 const ADDED_DEBT_COMMIT_MESSAGE = "add manifest debt";
 const BASELINE_ABSENT_COMMIT_MESSAGE = "manifests without baseline branch";
@@ -24,7 +23,7 @@ export const VALIDATION_LINT_POLICY_SCENARIO_KIND = {
   BASELINE_ABSENT: "baselineAbsent",
   HOOK_GIT_VARIABLES: "hookGitVariables",
   CORRUPT_BASELINE: "corruptBaseline",
-  MISSING_LEGACY_MANIFEST_ENTRY: "missingLegacyManifestEntry",
+  DEPRECATED_SPEC_NODE_SUFFIX: "deprecatedSpecNodeSuffix",
 } as const;
 
 export type ValidationLintPolicyScenarioKind =
@@ -36,7 +35,6 @@ export interface ValidationLintPolicyScenario {
 }
 
 export interface ValidationLintPolicyManifestEntries {
-  readonly legacySpecSuffixNodes: readonly string[];
   readonly testLintDebtNodes: readonly string[];
   readonly testOwnedConstantDebtNodes?: readonly string[];
 }
@@ -45,7 +43,7 @@ export const VALIDATION_LINT_POLICY_DATA = {
   tempPrefix: LINT_POLICY_TEMP_PREFIX,
   manifests: LINT_POLICY_MANIFESTS,
   baseRefs: LINT_POLICY_BASE_REFS,
-  baseLegacyPath: BASE_LEGACY_PATH,
+  deprecatedSpecNodePath: DEPRECATED_SPEC_NODE_PATH,
   baseTestDebtPath: BASE_TEST_DEBT_PATH,
   addedTestDebtPath: ADDED_TEST_DEBT_PATH,
   testBranch: LINT_POLICY_TEST_BRANCH,
@@ -53,7 +51,7 @@ export const VALIDATION_LINT_POLICY_DATA = {
   outerRepoUserName: OUTER_REPO_USER_NAME,
   outerRepoUserEmail: OUTER_REPO_USER_EMAIL,
   jsonObjectErrorFragment: JSON_OBJECT_ERROR_FRAGMENT,
-  projectRootEnvironmentKey: LINT_POLICY_TEST_PROJECT_ROOT_ENV,
+  productDirEnvironmentKey: LINT_POLICY_TEST_PRODUCT_DIR_ENV,
   commitMessages: {
     base: BASE_COMMIT_MESSAGE,
     addedDebt: ADDED_DEBT_COMMIT_MESSAGE,
@@ -66,7 +64,7 @@ export const VALIDATION_LINT_POLICY_DATA = {
 export function validationLintPolicyScenarios(): ValidationLintPolicyScenario[] {
   return [
     {
-      title: "unrelated TypeScript projects do not require repository policy manifests",
+      title: "unrelated TypeScript projects do not require product policy manifests",
       kind: VALIDATION_LINT_POLICY_SCENARIO_KIND.UNRELATED_PROJECT,
     },
     {
@@ -90,8 +88,8 @@ export function validationLintPolicyScenarios(): ValidationLintPolicyScenario[] 
       kind: VALIDATION_LINT_POLICY_SCENARIO_KIND.CORRUPT_BASELINE,
     },
     {
-      title: "legacy suffix nodes in the tree must be present in the manifest",
-      kind: VALIDATION_LINT_POLICY_SCENARIO_KIND.MISSING_LEGACY_MANIFEST_ENTRY,
+      title: "deprecated spec-tree node suffixes are rejected without a debt manifest escape hatch",
+      kind: VALIDATION_LINT_POLICY_SCENARIO_KIND.DEPRECATED_SPEC_NODE_SUFFIX,
     },
   ];
 }

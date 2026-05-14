@@ -32,9 +32,9 @@ Rebuild `spx spec` command behavior on top of the current spec-tree library. Thi
 ## Current dirty edit disposition
 
 - [x] Move `spx/31-spec-domain.enabler/tests/spec-cli-commands.scenario.l1.test.ts` into `spx/31-spec-domain.enabler/54-spec-cli-commands.enabler/tests/spec-cli-commands.scenario.l1.test.ts` after routing it through the current command evidence matrix.
-- [x] Replace legacy edits under `spx/21-core-cli.capability/` and `spx/26-scoped-cli.capability/` with target-node tests, then remove those legacy-node changes from the refactor branch.
+- [x] Replace deprecated-node edits with target-node tests, then remove those deprecated-node changes from the refactor branch.
 - [x] Keep `src/domains/spec/index.ts`, `src/commands/spec/status.ts`, `src/commands/spec/next.ts`, and `src/cli.ts` changes only after the target-node tests prove the current command behavior.
-- [x] Delete `src/domains/spec-legacy/index.ts` only after no import path or test still depends on the legacy domain.
+- [x] Delete the previous spec-domain compatibility path after no import path or test still depends on it.
 
 ## Remaining work
 
@@ -49,7 +49,7 @@ Rebuild `spx spec` command behavior on top of the current spec-tree library. Thi
 
 ## Acceptance
 
-- [x] Spec-domain tests are in the current `spx/31-spec-domain.enabler/` subtree and no retained evidence depends on legacy capability/feature/story nodes.
+- [x] Spec-domain tests are in the current `spx/31-spec-domain.enabler/` subtree and no retained evidence depends on deprecated node shapes.
 - [x] Command modules consume the public spec-tree surface and never parse suffixes or assemble hierarchy themselves.
 - [x] `status` and `next` behavior are proven against real temp product directories built by `withSpecTreeEnv`.
 - [x] Rendering behavior is proven separately from command filesystem execution.

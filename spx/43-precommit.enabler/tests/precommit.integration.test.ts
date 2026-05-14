@@ -11,7 +11,7 @@ import { describe, expect, it } from "vitest";
 
 import { PRECOMMIT_TEST_GENERATOR, samplePrecommitTestValue } from "@testing/generators/precommit/precommit";
 
-describe("Feature: Pre-Commit Test Enforcement", () => {
+describe("Pre-Commit Test Enforcement", () => {
   describe("FI1: Pre-commit blocking behavior", () => {
     it("GIVEN staged changes with failing test WHEN committing THEN commit is blocked", async () => {
       await withGitEnv(async ({ exec, writeFile }) => {

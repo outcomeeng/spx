@@ -1,7 +1,8 @@
 import type { RuleTester } from "eslint";
 
 import { VALIDATION_EXIT_CODES, VALIDATION_PIPELINE } from "@/commands/validation/messages";
-import { WORK_ITEM_KINDS, WORK_ITEM_STATUSES } from "@/lib/spec-legacy/types";
+import { SPEC_TREE_NODE_STATE } from "@/lib/spec-tree";
+import { NODE_KINDS } from "@/lib/spec-tree/config";
 import { ASYNC_SPAWN_OUTSIDE_LIFECYCLE_MESSAGE_ID } from "@eslint-rules/no-async-spawn-outside-lifecycle";
 import {
   BARE_STRING_UNION_MESSAGE_ID,
@@ -19,11 +20,14 @@ import {
   NO_DEEP_RELATIVE_IMPORTS_RULE_ID,
   NO_DEEP_RELATIVE_IMPORTS_RULE_NAME,
 } from "@eslint-rules/no-deep-relative-imports";
-import { NO_HARDCODED_STATUSES_RULE_ID, USE_WORK_ITEM_STATUSES_MESSAGE_ID } from "@eslint-rules/no-hardcoded-statuses";
 import {
-  NO_HARDCODED_WORK_ITEM_KINDS_RULE_ID,
-  USE_WORK_ITEM_KINDS_MESSAGE_ID,
-} from "@eslint-rules/no-hardcoded-work-item-kinds";
+  NO_HARDCODED_SPEC_TREE_NODE_KINDS_RULE_ID,
+  USE_SPEC_TREE_NODE_KINDS_MESSAGE_ID,
+} from "@eslint-rules/no-hardcoded-spec-tree-node-kinds";
+import {
+  NO_HARDCODED_SPEC_TREE_NODE_STATES_RULE_ID,
+  USE_SPEC_TREE_NODE_STATES_MESSAGE_ID,
+} from "@eslint-rules/no-hardcoded-spec-tree-node-states";
 import {
   IMPORT_SOURCE_EXTENSION_MESSAGE_ID,
   NO_IMPORT_SOURCE_EXTENSIONS_RULE_ID,
@@ -64,7 +68,6 @@ const FOURTH_RULE_INDEX = 3;
 const FIFTH_RULE_INDEX = 4;
 const ERROR_SEVERITY = 2;
 const WARNING_SEVERITY = 1;
-
 export interface ValidationGeneratedRuleTesterCases {
   readonly valid: RuleTester.ValidTestCase[] | string[];
   readonly invalid: RuleTester.InvalidTestCase[];
@@ -147,14 +150,14 @@ export const VALIDATION_ESLINT_EXPECTED = {
 
 export const VALIDATION_ESLINT_FILES = {
   genericTest: "test.test.ts",
-  genericSpec: "status.spec.ts",
+  genericSpec: "state.spec.ts",
   kindSpec: "parser.spec.ts",
   nestedTest: "tests/unit/state.ts",
   nestedScannerTest: "tests/unit/scanner.ts",
   doubleUnderscoreTest: "src/__tests__/state.ts",
   doubleUnderscoreParserTest: "src/__tests__/parser.ts",
   sourceTypes: "src/types.ts",
-  sourceStatus: "src/status.ts",
+  sourceState: "src/state.ts",
   sourceParser: "src/parser.ts",
   sourceScannerWalk: "src/scanner/walk.ts",
   lifecycleModule: "src/lib/process-lifecycle/install.ts",
@@ -165,7 +168,7 @@ export const VALIDATION_ESLINT_FILES = {
   domainTypes: "src/some-domain/types.ts",
   sessionCommandExample: "src/commands/session/example.ts",
   eslintStep: "src/validation/steps/eslint.ts",
-  unmanifestedSpecTest: "spx/31-spec-domain.capability/tests/new.mapping.l1.test.ts",
+  unmanifestedSpecTest: "spx/31-spec-domain.enabler/tests/new.mapping.l1.test.ts",
   manifestCoveredSpecTest: "spx/16-config.enabler/tests/config-ambiguity.scenario.l1.test.ts",
   registrySpecTest: "spx/sample.enabler/tests/registry.mapping.l1.test.ts",
   sourceOwnedSpecTest: "spx/sample.enabler/tests/source-owned.mapping.l1.test.ts",
@@ -185,8 +188,8 @@ export const VALIDATION_ESLINT_SNIPPETS = {
   importExecAndSpawn: `import { exec, spawn } from "node:child_process";`,
   nonRegistryIndex: `const first = values[0];`,
   registryIndexType: `type NodeKind = (typeof NODE_KINDS)[number];`,
-  namedRegistryAccess: `const kind = WORK_ITEM_KINDS.STORY;`,
-  legacyStatusRegistryIndex: `const status = WORK_ITEM_STATUSES[2];`,
+  namedRegistryAccess: `import { KIND_REGISTRY } from "@/lib/spec-tree/config"; const kind = KIND_REGISTRY.enabler;`,
+  nodeStateRegistryIndex: `const state = SPEC_TREE_NODE_STATES[2];`,
   generatorRegistryPosition: `const kind = NODE_KINDS[0];`,
   decisionKindsPosition: `const kind = DECISION_KINDS[0];`,
   nodeKindsAssertionPosition: `expect(node.kind).toBe(NODE_KINDS[1]);`,
@@ -201,21 +204,21 @@ export const VALIDATION_ESLINT_SNIPPETS = {
   exportedUppercaseConstant: `export const NODE_KIND = "enabler";`,
   objectRegistry: `const sectionModes = { STRICT: "strict", LENIENT: "lenient" } as const;`,
   tupleRegistry: `const sectionModes = ["strict", "lenient"] as const;`,
-  sourceOwnedStatuses: `import { WORK_ITEM_STATUSES } from "@/types"; expect(item.status).toBe(WORK_ITEM_STATUSES[0])`,
-  sourceOwnedKinds: `import { WORK_ITEM_KINDS } from "@/types"; expect(item.kind).toBe(WORK_ITEM_KINDS[2])`,
-  sourceOwnedLeafKind: `import { LEAF_KIND } from "@/types"; expect(item.kind).toBe(LEAF_KIND)`,
-  donePathAssertion: `expect(file).toBe("DONE.md")`,
-  nestedDonePathAssertion: `expect(path).toContain("tests/DONE.md")`,
-  kindRegex: `const pattern = /^(capability|feature|story)-/`,
-  statusObjectKeys: `const map = { OPEN: 1, IN_PROGRESS: 2, DONE: 3 }`,
-  kindObjectKeys: `const map = { story: 1, feature: 2, capability: 3 }`,
-  templateStatusDescription: "describe(`DONE status for ${name}`, () => {})",
-  templateKindDescription: "describe(`story parsing for ${name}`, () => {})",
+  sourceOwnedStates:
+    `import { SPEC_TREE_NODE_STATE } from "@/lib/spec-tree"; expect(node.state).toBe(SPEC_TREE_NODE_STATE.DECLARED)`,
+  sourceOwnedKinds: `import { NODE_KINDS } from "@/lib/spec-tree/config"; expect(node.kind).toBe(NODE_KINDS[0])`,
+  declaredPathAssertion: `expect(file).toBe("declared.md")`,
+  nestedDeclaredPathAssertion: `expect(path).toContain("tests/declared.md")`,
+  kindRegex: `const pattern = /\\.(enabler|outcome)$/`,
+  stateObjectKeys: `const map = { declared: 1, specified: 2, passing: 3 }`,
+  kindObjectKeys: `const map = { enabler: 1, outcome: 2 }`,
+  templateStateDescription: "describe(`node state for ${name}`, () => {})",
+  templateKindDescription: "describe(`node kind parsing for ${name}`, () => {})",
   bareStringUnion: `type Tier = "free" | "pro";`,
   internalSourceExtension: `import "./local.js";`,
   deepParentImport: `import "../../config";`,
   testOwnedConstantDeclaration: `const NODE_KIND = "enabler";`,
-  crossKindStatusAssertions: `expect(item.kind).toBe("story"); expect(item.status).toBe("DONE");`,
+  crossKindStateAssertions: `expect(node.kind).toBe("enabler"); expect(node.state).toBe("declared");`,
   noSpecReferenceRuleId: NO_SPEC_REFERENCES_RULE_ID,
   noRestrictedSyntaxRuleId: NO_RESTRICTED_SYNTAX_RULE_ID,
 } as const;
@@ -304,8 +307,8 @@ export function noRegistryPositionAccessCases(): ValidationGeneratedRuleTesterCa
         filename: VALIDATION_ESLINT_FILES.registrySpecTest,
       },
       {
-        name: "GIVEN legacy work-item registry numeric index WHEN linting THEN no error",
-        code: VALIDATION_ESLINT_SNIPPETS.legacyStatusRegistryIndex,
+        name: "GIVEN node-state registry numeric index WHEN linting THEN no error",
+        code: VALIDATION_ESLINT_SNIPPETS.nodeStateRegistryIndex,
         filename: VALIDATION_ESLINT_FILES.registrySpecTest,
       },
       {
@@ -394,149 +397,143 @@ export function noTestOwnedDomainConstantsCases(): ValidationGeneratedRuleTester
   };
 }
 
-export function noHardcodedStatusesCases(): ValidationGeneratedRuleTesterCases {
-  const done = WORK_ITEM_STATUSES.find((status) => status === "DONE") ?? WORK_ITEM_STATUSES[0];
-  const inProgress = WORK_ITEM_STATUSES.find((status) => status === "IN_PROGRESS") ?? WORK_ITEM_STATUSES[0];
-  const open = WORK_ITEM_STATUSES.find((status) => status === "OPEN") ?? WORK_ITEM_STATUSES[0];
+export function noHardcodedSpecTreeNodeStatesCases(): ValidationGeneratedRuleTesterCases {
+  const declared = SPEC_TREE_NODE_STATE.DECLARED;
+  const specified = SPEC_TREE_NODE_STATE.SPECIFIED;
+  const passing = SPEC_TREE_NODE_STATE.PASSING;
   return {
     valid: [
       {
-        name: "GIVEN expect with imported WORK_ITEM_STATUSES registry WHEN linting THEN no error",
-        code: VALIDATION_ESLINT_SNIPPETS.sourceOwnedStatuses,
+        name: "GIVEN expect with imported SPEC_TREE_NODE_STATE registry WHEN linting THEN no error",
+        code: VALIDATION_ESLINT_SNIPPETS.sourceOwnedStates,
         filename: VALIDATION_ESLINT_FILES.genericTest,
       },
       {
-        name: "GIVEN type alias with status literal WHEN linting THEN no error",
-        code: `type Status = "${done}"`,
+        name: "GIVEN type alias with state literal WHEN linting THEN no error",
+        code: `type State = "${declared}"`,
         filename: "types.ts",
       },
       {
-        name: "GIVEN registry-derived status type WHEN linting THEN no error",
-        code: `type WorkItemStatus = (typeof WORK_ITEM_STATUSES)[number]`,
+        name: "GIVEN registry-derived state type WHEN linting THEN no error",
+        code: `type SpecTreeNodeState = (typeof SPEC_TREE_NODE_STATE)[keyof typeof SPEC_TREE_NODE_STATE]`,
         filename: VALIDATION_ESLINT_FILES.sourceTypes,
       },
       {
-        name: "GIVEN non-test file with status literal WHEN linting THEN no error",
-        code: `const status = "${done}"`,
-        filename: VALIDATION_ESLINT_FILES.sourceStatus,
+        name: "GIVEN non-test file with state literal WHEN linting THEN no error",
+        code: `const state = "${declared}"`,
+        filename: VALIDATION_ESLINT_FILES.sourceState,
       },
       {
-        name: "GIVEN production code with status comparison WHEN linting THEN no error",
-        code: `function check() { if (item.status === "${inProgress}") { return true; } }`,
+        name: "GIVEN production code with state comparison WHEN linting THEN no error",
+        code: `function check() { if (node.state === "${specified}") { return true; } }`,
         filename: VALIDATION_ESLINT_FILES.sourceScannerWalk,
       },
       {
-        name: "GIVEN object with status as key WHEN linting THEN no error",
-        code: VALIDATION_ESLINT_SNIPPETS.statusObjectKeys,
+        name: "GIVEN object with state as key WHEN linting THEN no error",
+        code: VALIDATION_ESLINT_SNIPPETS.stateObjectKeys,
         filename: VALIDATION_ESLINT_FILES.genericTest,
       },
       {
-        name: "GIVEN partial match DONE.md WHEN linting THEN no error",
-        code: VALIDATION_ESLINT_SNIPPETS.donePathAssertion,
+        name: "GIVEN partial match declared.md WHEN linting THEN no error",
+        code: VALIDATION_ESLINT_SNIPPETS.declaredPathAssertion,
         filename: VALIDATION_ESLINT_FILES.genericTest,
       },
       {
-        name: "GIVEN partial match tests DONE.md WHEN linting THEN no error",
-        code: VALIDATION_ESLINT_SNIPPETS.nestedDonePathAssertion,
+        name: "GIVEN partial match tests declared.md WHEN linting THEN no error",
+        code: VALIDATION_ESLINT_SNIPPETS.nestedDeclaredPathAssertion,
         filename: VALIDATION_ESLINT_FILES.genericTest,
       },
     ],
     invalid: [
-      ...[done, inProgress, open].map((status) => ({
-        name: `GIVEN expect().toBe(${status}) WHEN linting THEN error`,
-        code: `expect(item.status).toBe("${status}")`,
+      ...[declared, specified, passing].map((state) => ({
+        name: `GIVEN expect().toBe(${state}) WHEN linting THEN error`,
+        code: `expect(node.state).toBe("${state}")`,
         filename: VALIDATION_ESLINT_FILES.genericTest,
-        errors: [{ messageId: USE_WORK_ITEM_STATUSES_MESSAGE_ID }],
+        errors: [{ messageId: USE_SPEC_TREE_NODE_STATES_MESSAGE_ID }],
       })),
       {
-        name: "GIVEN expect().toEqual status WHEN linting THEN error",
-        code: `expect(status).toEqual("${done}")`,
+        name: "GIVEN expect().toEqual state WHEN linting THEN error",
+        code: `expect(state).toEqual("${declared}")`,
         filename: VALIDATION_ESLINT_FILES.genericTest,
-        errors: [{ messageId: USE_WORK_ITEM_STATUSES_MESSAGE_ID }],
+        errors: [{ messageId: USE_SPEC_TREE_NODE_STATES_MESSAGE_ID }],
       },
       {
-        name: "GIVEN expect().toMatchObject with status property WHEN linting THEN error",
-        code: `expect(result).toMatchObject({ status: "${inProgress}" })`,
+        name: "GIVEN expect().toMatchObject with state property WHEN linting THEN error",
+        code: `expect(result).toMatchObject({ state: "${specified}" })`,
         filename: VALIDATION_ESLINT_FILES.genericTest,
-        errors: [{ messageId: USE_WORK_ITEM_STATUSES_MESSAGE_ID }],
+        errors: [{ messageId: USE_SPEC_TREE_NODE_STATES_MESSAGE_ID }],
       },
       {
-        name: "GIVEN expect().toContain status WHEN linting THEN error",
-        code: `expect(statuses).toContain("${open}")`,
+        name: "GIVEN expect().toContain state WHEN linting THEN error",
+        code: `expect(states).toContain("${passing}")`,
         filename: VALIDATION_ESLINT_FILES.genericTest,
-        errors: [{ messageId: USE_WORK_ITEM_STATUSES_MESSAGE_ID }],
+        errors: [{ messageId: USE_SPEC_TREE_NODE_STATES_MESSAGE_ID }],
       },
       {
-        name: "GIVEN nested object with status literal WHEN linting THEN error",
-        code: `expect(tree.node).toMatchObject({ item: { status: "${done}" } })`,
+        name: "GIVEN nested object with state literal WHEN linting THEN error",
+        code: `expect(tree.node).toMatchObject({ node: { state: "${declared}" } })`,
         filename: VALIDATION_ESLINT_FILES.genericTest,
-        errors: [{ messageId: USE_WORK_ITEM_STATUSES_MESSAGE_ID }],
+        errors: [{ messageId: USE_SPEC_TREE_NODE_STATES_MESSAGE_ID }],
       },
       {
-        name: "GIVEN multiple hardcoded statuses WHEN linting THEN multiple errors",
-        code: `expect(a.status).toBe("${open}"); expect(b.status).toBe("${done}");`,
+        name: "GIVEN multiple hardcoded states WHEN linting THEN multiple errors",
+        code: `expect(a.state).toBe("${passing}"); expect(b.state).toBe("${declared}");`,
         filename: VALIDATION_ESLINT_FILES.genericTest,
         errors: [
-          { messageId: USE_WORK_ITEM_STATUSES_MESSAGE_ID },
-          { messageId: USE_WORK_ITEM_STATUSES_MESSAGE_ID },
+          { messageId: USE_SPEC_TREE_NODE_STATES_MESSAGE_ID },
+          { messageId: USE_SPEC_TREE_NODE_STATES_MESSAGE_ID },
         ],
       },
       {
-        name: "GIVEN spec file with hardcoded status WHEN linting THEN error",
-        code: `expect(item.status).toBe("${done}")`,
+        name: "GIVEN spec file with hardcoded state WHEN linting THEN error",
+        code: `expect(node.state).toBe("${declared}")`,
         filename: VALIDATION_ESLINT_FILES.genericSpec,
-        errors: [{ messageId: USE_WORK_ITEM_STATUSES_MESSAGE_ID }],
+        errors: [{ messageId: USE_SPEC_TREE_NODE_STATES_MESSAGE_ID }],
       },
       {
-        name: "GIVEN file in tests directory with hardcoded status WHEN linting THEN error",
-        code: `expect(item.status).toBe("${inProgress}")`,
+        name: "GIVEN file in tests directory with hardcoded state WHEN linting THEN error",
+        code: `expect(node.state).toBe("${specified}")`,
         filename: VALIDATION_ESLINT_FILES.nestedTest,
-        errors: [{ messageId: USE_WORK_ITEM_STATUSES_MESSAGE_ID }],
+        errors: [{ messageId: USE_SPEC_TREE_NODE_STATES_MESSAGE_ID }],
       },
       {
-        name: "GIVEN file in __tests__ directory with hardcoded status WHEN linting THEN error",
-        code: `expect(item.status).toBe("${open}")`,
+        name: "GIVEN file in __tests__ directory with hardcoded state WHEN linting THEN error",
+        code: `expect(node.state).toBe("${passing}")`,
         filename: VALIDATION_ESLINT_FILES.doubleUnderscoreTest,
-        errors: [{ messageId: USE_WORK_ITEM_STATUSES_MESSAGE_ID }],
+        errors: [{ messageId: USE_SPEC_TREE_NODE_STATES_MESSAGE_ID }],
       },
     ],
   };
 }
 
-export function noHardcodedWorkItemKindsCases(): ValidationGeneratedRuleTesterCases {
-  const story = WORK_ITEM_KINDS.find((kind) => kind === "story") ?? WORK_ITEM_KINDS[0];
-  const feature = WORK_ITEM_KINDS.find((kind) => kind === "feature") ?? WORK_ITEM_KINDS[0];
-  const capability = WORK_ITEM_KINDS.find((kind) => kind === "capability") ?? WORK_ITEM_KINDS[0];
+export function noHardcodedSpecTreeNodeKindsCases(): ValidationGeneratedRuleTesterCases {
+  const enabler = NODE_KINDS.find((kind) => kind === "enabler") ?? NODE_KINDS[0];
+  const outcome = NODE_KINDS.find((kind) => kind === "outcome") ?? NODE_KINDS[0];
   return {
     valid: [
       {
-        name: "GIVEN expect with imported WORK_ITEM_KINDS registry WHEN linting THEN no error",
+        name: "GIVEN expect with imported NODE_KINDS registry WHEN linting THEN no error",
         code: VALIDATION_ESLINT_SNIPPETS.sourceOwnedKinds,
         filename: VALIDATION_ESLINT_FILES.genericTest,
       },
       {
-        name: "GIVEN expect with LEAF_KIND constant WHEN linting THEN no error",
-        code: VALIDATION_ESLINT_SNIPPETS.sourceOwnedLeafKind,
-        filename: VALIDATION_ESLINT_FILES.genericTest,
-      },
-      {
         name: "GIVEN type alias with kind literal WHEN linting THEN no error",
-        code: `type Kind = "${story}"`,
+        code: `type Kind = "${enabler}"`,
         filename: "types.ts",
       },
       {
         name: "GIVEN registry-derived kind type WHEN linting THEN no error",
-        code: `type WorkItemKind = (typeof WORK_ITEM_KINDS)[number]`,
+        code: `type NodeKind = (typeof NODE_KINDS)[number]`,
         filename: VALIDATION_ESLINT_FILES.sourceTypes,
       },
       {
         name: "GIVEN non-test file with kind literal WHEN linting THEN no error",
-        code: `const kind = "${story}"`,
+        code: `const kind = "${enabler}"`,
         filename: VALIDATION_ESLINT_FILES.sourceParser,
       },
       {
         name: "GIVEN production code with kind assignment WHEN linting THEN no error",
-        code: `function check() { if (item.kind === "${feature}") { return true; } }`,
+        code: `function check() { if (node.kind === "${outcome}") { return true; } }`,
         filename: VALIDATION_ESLINT_FILES.sourceScannerWalk,
       },
       {
@@ -551,62 +548,62 @@ export function noHardcodedWorkItemKindsCases(): ValidationGeneratedRuleTesterCa
       },
     ],
     invalid: [
-      ...[story, feature, capability].map((kind) => ({
+      ...[enabler, outcome].map((kind) => ({
         name: `GIVEN expect().toBe(${kind}) WHEN linting THEN error`,
-        code: `expect(item.kind).toBe("${kind}")`,
+        code: `expect(node.kind).toBe("${kind}")`,
         filename: VALIDATION_ESLINT_FILES.genericTest,
-        errors: [{ messageId: USE_WORK_ITEM_KINDS_MESSAGE_ID }],
+        errors: [{ messageId: USE_SPEC_TREE_NODE_KINDS_MESSAGE_ID }],
       })),
       {
         name: "GIVEN expect().toEqual kind WHEN linting THEN error",
-        code: `expect(kind).toEqual("${feature}")`,
+        code: `expect(kind).toEqual("${outcome}")`,
         filename: VALIDATION_ESLINT_FILES.genericTest,
-        errors: [{ messageId: USE_WORK_ITEM_KINDS_MESSAGE_ID }],
+        errors: [{ messageId: USE_SPEC_TREE_NODE_KINDS_MESSAGE_ID }],
       },
       {
         name: "GIVEN expect().toMatchObject with kind property WHEN linting THEN error",
-        code: `expect(result).toMatchObject({ kind: "${capability}" })`,
+        code: `expect(result).toMatchObject({ kind: "${enabler}" })`,
         filename: VALIDATION_ESLINT_FILES.genericTest,
-        errors: [{ messageId: USE_WORK_ITEM_KINDS_MESSAGE_ID }],
+        errors: [{ messageId: USE_SPEC_TREE_NODE_KINDS_MESSAGE_ID }],
       },
       {
         name: "GIVEN expect().toContain kind WHEN linting THEN error",
-        code: `expect(kinds).toContain("${story}")`,
+        code: `expect(kinds).toContain("${enabler}")`,
         filename: VALIDATION_ESLINT_FILES.genericTest,
-        errors: [{ messageId: USE_WORK_ITEM_KINDS_MESSAGE_ID }],
+        errors: [{ messageId: USE_SPEC_TREE_NODE_KINDS_MESSAGE_ID }],
       },
       {
         name: "GIVEN nested object with kind literal WHEN linting THEN error",
-        code: `expect(tree.children[0]).toMatchObject({ item: { kind: "${feature}" } })`,
+        code: `expect(tree.children[0]).toMatchObject({ node: { kind: "${outcome}" } })`,
         filename: VALIDATION_ESLINT_FILES.genericTest,
-        errors: [{ messageId: USE_WORK_ITEM_KINDS_MESSAGE_ID }],
+        errors: [{ messageId: USE_SPEC_TREE_NODE_KINDS_MESSAGE_ID }],
       },
       {
         name: "GIVEN multiple hardcoded kinds WHEN linting THEN multiple errors",
-        code: `expect(a.kind).toBe("${story}"); expect(b.kind).toBe("${feature}");`,
+        code: `expect(a.kind).toBe("${enabler}"); expect(b.kind).toBe("${outcome}");`,
         filename: VALIDATION_ESLINT_FILES.genericTest,
         errors: [
-          { messageId: USE_WORK_ITEM_KINDS_MESSAGE_ID },
-          { messageId: USE_WORK_ITEM_KINDS_MESSAGE_ID },
+          { messageId: USE_SPEC_TREE_NODE_KINDS_MESSAGE_ID },
+          { messageId: USE_SPEC_TREE_NODE_KINDS_MESSAGE_ID },
         ],
       },
       {
         name: "GIVEN spec file with hardcoded kind WHEN linting THEN error",
-        code: `expect(item.kind).toBe("${story}")`,
+        code: `expect(node.kind).toBe("${enabler}")`,
         filename: VALIDATION_ESLINT_FILES.kindSpec,
-        errors: [{ messageId: USE_WORK_ITEM_KINDS_MESSAGE_ID }],
+        errors: [{ messageId: USE_SPEC_TREE_NODE_KINDS_MESSAGE_ID }],
       },
       {
         name: "GIVEN file in tests directory with hardcoded kind WHEN linting THEN error",
-        code: `expect(item.kind).toBe("${capability}")`,
+        code: `expect(node.kind).toBe("${enabler}")`,
         filename: VALIDATION_ESLINT_FILES.nestedScannerTest,
-        errors: [{ messageId: USE_WORK_ITEM_KINDS_MESSAGE_ID }],
+        errors: [{ messageId: USE_SPEC_TREE_NODE_KINDS_MESSAGE_ID }],
       },
       {
         name: "GIVEN file in __tests__ directory with hardcoded kind WHEN linting THEN error",
-        code: `expect(item.kind).toBe("${feature}")`,
+        code: `expect(node.kind).toBe("${outcome}")`,
         filename: VALIDATION_ESLINT_FILES.doubleUnderscoreParserTest,
-        errors: [{ messageId: USE_WORK_ITEM_KINDS_MESSAGE_ID }],
+        errors: [{ messageId: USE_SPEC_TREE_NODE_KINDS_MESSAGE_ID }],
       },
     ],
   };
@@ -914,8 +911,8 @@ export const VALIDATION_ESLINT_RULE_IDS = {
   bareStringUnions: NO_BARE_STRING_UNIONS_RULE_ID,
   bddTryCatch: NO_BDD_TRY_CATCH_ANTI_PATTERN_RULE_ID,
   deepRelativeImports: NO_DEEP_RELATIVE_IMPORTS_RULE_ID,
-  hardcodedStatuses: NO_HARDCODED_STATUSES_RULE_ID,
-  hardcodedWorkItemKinds: NO_HARDCODED_WORK_ITEM_KINDS_RULE_ID,
+  hardcodedSpecTreeNodeStates: NO_HARDCODED_SPEC_TREE_NODE_STATES_RULE_ID,
+  hardcodedSpecTreeNodeKinds: NO_HARDCODED_SPEC_TREE_NODE_KINDS_RULE_ID,
   importSourceExtensions: NO_IMPORT_SOURCE_EXTENSIONS_RULE_ID,
   noRestrictedSyntax: NO_RESTRICTED_SYNTAX_RULE_ID,
   noSpecReferences: NO_SPEC_REFERENCES_RULE_ID,
@@ -931,9 +928,9 @@ export function validationRuleRegistrationCases(): ValidationGeneratedRuleRegist
       ruleIds: [NO_BDD_TRY_CATCH_ANTI_PATTERN_RULE_ID],
     },
     {
-      title: "work item domain rules are registered",
+      title: "spec-tree domain rules are registered",
       filePath: validationTestFilePath(),
-      ruleIds: [NO_HARDCODED_WORK_ITEM_KINDS_RULE_ID, NO_HARDCODED_STATUSES_RULE_ID],
+      ruleIds: [NO_HARDCODED_SPEC_TREE_NODE_KINDS_RULE_ID, NO_HARDCODED_SPEC_TREE_NODE_STATES_RULE_ID],
     },
     {
       title: "test-owned constant rule is registered for spec tests",
@@ -978,7 +975,7 @@ export function validationConfigSeverityScenarios(): ValidationGeneratedConfigSe
           severity: VALIDATION_ESLINT_EXPECTED.warningSeverity,
         },
         {
-          ruleId: NO_HARDCODED_STATUSES_RULE_ID,
+          ruleId: NO_HARDCODED_SPEC_TREE_NODE_STATES_RULE_ID,
           severity: VALIDATION_ESLINT_EXPECTED.errorSeverity,
         },
       ],
@@ -987,8 +984,8 @@ export function validationConfigSeverityScenarios(): ValidationGeneratedConfigSe
 }
 
 export function validationLintScenarios(): ValidationGeneratedLintScenario[] {
-  const done = WORK_ITEM_STATUSES.find((status) => status === "DONE") ?? WORK_ITEM_STATUSES[0];
-  const story = WORK_ITEM_KINDS.find((kind) => kind === "story") ?? WORK_ITEM_KINDS[0];
+  const declared = SPEC_TREE_NODE_STATE.DECLARED;
+  const enabler = NODE_KINDS.find((kind) => kind === "enabler") ?? NODE_KINDS[0];
 
   return [
     {
@@ -1025,56 +1022,56 @@ export function validationLintScenarios(): ValidationGeneratedLintScenario[] {
       ],
     },
     {
-      title: "hardcoded work item kind in a test file is reported",
-      code: `expect(item.kind).toBe("${story}");`,
+      title: "hardcoded spec-tree node kind in a test file is reported",
+      code: `expect(node.kind).toBe("${enabler}");`,
       filePath: validationTestFilePath(),
       expectations: [
         {
-          ruleId: NO_HARDCODED_WORK_ITEM_KINDS_RULE_ID,
+          ruleId: NO_HARDCODED_SPEC_TREE_NODE_KINDS_RULE_ID,
           count: VALIDATION_ESLINT_EXPECTED.singleDiagnostic,
         },
       ],
     },
     {
-      title: "hardcoded work item kind in source is ignored",
-      code: `const kind = "${story}";`,
+      title: "hardcoded spec-tree node kind in source is ignored",
+      code: `const kind = "${enabler}";`,
       filePath: VALIDATION_ESLINT_FILES.sourceParser,
       expectations: [
         {
-          ruleId: NO_HARDCODED_WORK_ITEM_KINDS_RULE_ID,
+          ruleId: NO_HARDCODED_SPEC_TREE_NODE_KINDS_RULE_ID,
           count: VALIDATION_ESLINT_EXPECTED.noDiagnostics,
         },
       ],
     },
     {
-      title: "hardcoded status in a test file is reported",
-      code: `expect(item.status).toBe("${done}");`,
+      title: "hardcoded spec-tree node state in a test file is reported",
+      code: `expect(node.state).toBe("${declared}");`,
       filePath: validationTestFilePath(),
       expectations: [
         {
-          ruleId: NO_HARDCODED_STATUSES_RULE_ID,
+          ruleId: NO_HARDCODED_SPEC_TREE_NODE_STATES_RULE_ID,
           count: VALIDATION_ESLINT_EXPECTED.singleDiagnostic,
         },
       ],
     },
     {
-      title: "hardcoded status in source is ignored",
-      code: `const status = "${done}";`,
-      filePath: VALIDATION_ESLINT_FILES.sourceStatus,
+      title: "hardcoded spec-tree node state in source is ignored",
+      code: `const state = "${declared}";`,
+      filePath: VALIDATION_ESLINT_FILES.sourceState,
       expectations: [
         {
-          ruleId: NO_HARDCODED_STATUSES_RULE_ID,
+          ruleId: NO_HARDCODED_SPEC_TREE_NODE_STATES_RULE_ID,
           count: VALIDATION_ESLINT_EXPECTED.noDiagnostics,
         },
       ],
     },
     {
-      title: "status token inside a markdown path is ignored",
-      code: VALIDATION_ESLINT_SNIPPETS.nestedDonePathAssertion,
+      title: "state token inside a markdown path is ignored",
+      code: VALIDATION_ESLINT_SNIPPETS.nestedDeclaredPathAssertion,
       filePath: validationTestFilePath(),
       expectations: [
         {
-          ruleId: NO_HARDCODED_STATUSES_RULE_ID,
+          ruleId: NO_HARDCODED_SPEC_TREE_NODE_STATES_RULE_ID,
           count: VALIDATION_ESLINT_EXPECTED.noDiagnostics,
         },
       ],
@@ -1126,16 +1123,16 @@ export function validationLintScenarios(): ValidationGeneratedLintScenario[] {
       ],
     },
     {
-      title: "kind and status violations are reported together",
-      code: VALIDATION_ESLINT_SNIPPETS.crossKindStatusAssertions,
+      title: "kind and state violations are reported together",
+      code: VALIDATION_ESLINT_SNIPPETS.crossKindStateAssertions,
       filePath: validationTestFilePath(),
       expectations: [
         {
-          ruleId: NO_HARDCODED_WORK_ITEM_KINDS_RULE_ID,
+          ruleId: NO_HARDCODED_SPEC_TREE_NODE_KINDS_RULE_ID,
           count: VALIDATION_ESLINT_EXPECTED.singleDiagnostic,
         },
         {
-          ruleId: NO_HARDCODED_STATUSES_RULE_ID,
+          ruleId: NO_HARDCODED_SPEC_TREE_NODE_STATES_RULE_ID,
           count: VALIDATION_ESLINT_EXPECTED.singleDiagnostic,
         },
       ],

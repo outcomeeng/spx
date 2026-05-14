@@ -6,4 +6,4 @@ Follow the steps below.
 
 ## Usage
 
-See [feature spec](../../spx/21-feature.outcome/feature.md) for the full specification.
+See [sample spec](../../spx/21-sample.outcome/sample.md) for the full specification.

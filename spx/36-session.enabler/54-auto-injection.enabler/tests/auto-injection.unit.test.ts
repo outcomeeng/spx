@@ -9,8 +9,8 @@
  *   missing or malformed fields produce empty arrays, never errors
  *
  * NOTE: S1-S4 (pickup with injection) require the auto-injection
- * feature to be implemented in pickupCommand. These tests will be
- * added when the feature exists. For now, only P1 (metadata parsing)
+ * behavior to be implemented in pickupCommand. These tests will be
+ * added when the behavior exists. For now, only P1 (metadata parsing)
  * is testable.
  */
 

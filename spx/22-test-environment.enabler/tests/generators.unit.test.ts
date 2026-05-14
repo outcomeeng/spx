@@ -4,7 +4,7 @@ import { join } from "node:path";
 import * as fc from "fast-check";
 import { describe, expect, it } from "vitest";
 
-import { DECISION_SUFFIXES, NODE_SUFFIXES } from "@/lib/spec-tree/config";
+import { DECISION_SUFFIXES, NODE_KINDS, NODE_SUFFIXES } from "@/lib/spec-tree/config";
 import { MINIMAL_SPEC_TREE_CONFIG } from "@testing/generators/config/config";
 import {
   arbitraryDecisionPath,
@@ -13,12 +13,18 @@ import {
   withTestEnv,
 } from "@testing/harnesses/spec-tree/spec-tree";
 
+const nodeKindValues: ReadonlySet<string> = new Set(NODE_KINDS);
+
 function hasRegisteredNodeSuffix(path: string): boolean {
   return NODE_SUFFIXES.some((suffix) => path.endsWith(suffix));
 }
 
 function hasRegisteredDecisionSuffix(path: string): boolean {
   return DECISION_SUFFIXES.some((suffix) => path.endsWith(suffix));
+}
+
+function hasRegisteredNodeKind(kind: string): boolean {
+  return nodeKindValues.has(kind);
 }
 
 describe("arbitraryNodePath — free-function form", () => {
@@ -49,7 +55,7 @@ describe("arbitrarySpecTree — free-function form", () => {
     fc.assert(
       fc.property(arbitrarySpecTree(MINIMAL_SPEC_TREE_CONFIG), (tree) => {
         for (const entry of tree.entries) {
-          if (entry.kind === "enabler" || entry.kind === "outcome") {
+          if (hasRegisteredNodeKind(entry.kind)) {
             expect(hasRegisteredNodeSuffix(entry.path)).toBe(true);
           } else {
             expect(hasRegisteredDecisionSuffix(entry.path)).toBe(true);

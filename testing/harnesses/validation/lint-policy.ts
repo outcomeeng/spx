@@ -42,49 +42,44 @@ export async function runValidationLintPolicyScenario(
       return runHookGitVariablesScenario();
     case VALIDATION_LINT_POLICY_SCENARIO_KIND.CORRUPT_BASELINE:
       return runCorruptBaselineScenario();
-    case VALIDATION_LINT_POLICY_SCENARIO_KIND.MISSING_LEGACY_MANIFEST_ENTRY:
-      return runMissingLegacyManifestEntryScenario();
+    case VALIDATION_LINT_POLICY_SCENARIO_KIND.DEPRECATED_SPEC_NODE_SUFFIX:
+      return runDeprecatedSpecNodeSuffixScenario();
   }
 }
 
-async function withPolicyProject(callback: (projectRoot: string) => Promise<void>): Promise<void> {
-  const projectRoot = await mkdtemp(join(tmpdir(), VALIDATION_LINT_POLICY_DATA.tempPrefix));
+async function withPolicyProject(callback: (productDir: string) => Promise<void>): Promise<void> {
+  const productDir = await mkdtemp(join(tmpdir(), VALIDATION_LINT_POLICY_DATA.tempPrefix));
   try {
-    await callback(projectRoot);
+    await callback(productDir);
   } finally {
-    await rm(projectRoot, { recursive: true, force: true });
+    await rm(productDir, { recursive: true, force: true });
   }
 }
 
 async function writePolicyManifest(
-  projectRoot: string,
+  productDir: string,
   entries: ValidationLintPolicyManifestEntries,
 ): Promise<void> {
-  const legacyManifest = VALIDATION_LINT_POLICY_DATA.manifests.LEGACY_SPEC_SUFFIX_NODES;
   const testDebtManifest = VALIDATION_LINT_POLICY_DATA.manifests.TEST_LINT_DEBT_NODES;
   const testOwnedConstantManifest = VALIDATION_LINT_POLICY_DATA.manifests.TEST_OWNED_CONSTANT_DEBT_NODES;
 
   await writeFile(
-    join(projectRoot, legacyManifest.file),
-    JSON.stringify({ [legacyManifest.key]: entries.legacySpecSuffixNodes }, null, 2),
-  );
-  await writeFile(
-    join(projectRoot, testDebtManifest.file),
+    join(productDir, testDebtManifest.file),
     JSON.stringify({ [testDebtManifest.key]: entries.testLintDebtNodes }, null, 2),
   );
   await writeFile(
-    join(projectRoot, testOwnedConstantManifest.file),
+    join(productDir, testOwnedConstantManifest.file),
     JSON.stringify({ [testOwnedConstantManifest.key]: entries.testOwnedConstantDebtNodes ?? [] }, null, 2),
   );
 }
 
 async function commitAll(
-  projectRoot: string,
+  productDir: string,
   message: string,
   envOverrides: GitTestEnvironmentOverrides = {},
 ): Promise<void> {
-  await runGit(projectRoot, [GIT_TEST_SUBCOMMANDS.ADD, "."], envOverrides);
-  await runGit(projectRoot, [GIT_TEST_SUBCOMMANDS.COMMIT, "-m", message], envOverrides);
+  await runGit(productDir, [GIT_TEST_SUBCOMMANDS.ADD, "."], envOverrides);
+  await runGit(productDir, [GIT_TEST_SUBCOMMANDS.COMMIT, "-m", message], envOverrides);
 }
 
 function parseSerializedLintPolicyResult(stdout: string): SerializedLintPolicyResult {
@@ -99,85 +94,82 @@ function parseSerializedLintPolicyResult(stdout: string): SerializedLintPolicyRe
 }
 
 async function validateLintPolicyInChildProcess(
-  projectRoot: string,
+  productDir: string,
   envOverrides: GitTestEnvironmentOverrides,
 ): Promise<SerializedLintPolicyResult> {
   const moduleUrl = pathToFileURL(join(process.cwd(), "src/validation/lint-policy.ts")).href;
-  const environmentKey = VALIDATION_LINT_POLICY_DATA.projectRootEnvironmentKey;
+  const environmentKey = VALIDATION_LINT_POLICY_DATA.productDirEnvironmentKey;
   const script = `
     import { validateLintPolicy } from ${JSON.stringify(moduleUrl)};
-    const projectRoot = process.env.${environmentKey};
-    if (projectRoot === undefined) {
+    const productDir = process.env.${environmentKey};
+    if (productDir === undefined) {
       throw new Error("Missing ${environmentKey}");
     }
-    console.log(JSON.stringify(validateLintPolicy(projectRoot)));
+    console.log(JSON.stringify(validateLintPolicy(productDir)));
   `;
   const stdout = await runTsxEval(process.cwd(), script, {
     ...envOverrides,
-    [environmentKey]: projectRoot,
+    [environmentKey]: productDir,
   });
   return parseSerializedLintPolicyResult(stdout);
 }
 
 async function initializePolicyRepository(
-  projectRoot: string,
+  productDir: string,
   branch: string,
   envOverrides: GitTestEnvironmentOverrides = {},
 ): Promise<void> {
-  await runGit(projectRoot, [
+  await runGit(productDir, [
     GIT_TEST_SUBCOMMANDS.INIT,
     "--initial-branch",
     branch,
   ], envOverrides);
-  await runGit(projectRoot, [GIT_TEST_SUBCOMMANDS.CONFIG, "user.email", GIT_TEST_CONFIG.EMAIL], envOverrides);
-  await runGit(projectRoot, [GIT_TEST_SUBCOMMANDS.CONFIG, "user.name", GIT_TEST_CONFIG.USER_NAME], envOverrides);
+  await runGit(productDir, [GIT_TEST_SUBCOMMANDS.CONFIG, "user.email", GIT_TEST_CONFIG.EMAIL], envOverrides);
+  await runGit(productDir, [GIT_TEST_SUBCOMMANDS.CONFIG, "user.name", GIT_TEST_CONFIG.USER_NAME], envOverrides);
 }
 
-async function writeBaseDebtFixture(projectRoot: string): Promise<void> {
-  await mkdir(join(projectRoot, VALIDATION_LINT_POLICY_DATA.baseLegacyPath), { recursive: true });
-  await mkdir(join(projectRoot, VALIDATION_LINT_POLICY_DATA.baseTestDebtPath), { recursive: true });
-  await writePolicyManifest(projectRoot, {
-    legacySpecSuffixNodes: [VALIDATION_LINT_POLICY_DATA.baseLegacyPath],
+async function writeBaseDebtFixture(productDir: string): Promise<void> {
+  await mkdir(join(productDir, VALIDATION_LINT_POLICY_DATA.baseTestDebtPath), { recursive: true });
+  await writePolicyManifest(productDir, {
     testLintDebtNodes: [VALIDATION_LINT_POLICY_DATA.baseTestDebtPath],
   });
 }
 
 async function runUnrelatedProjectScenario(): Promise<void> {
-  await withPolicyProject(async (projectRoot) => {
-    const result = validateLintPolicy(projectRoot);
+  await withPolicyProject(async (productDir) => {
+    const result = validateLintPolicy(productDir);
 
     expect(result.ok).toBe(true);
   });
 }
 
 async function runExistingDebtScenario(): Promise<void> {
-  await withPolicyProject(async (projectRoot) => {
-    await writeBaseDebtFixture(projectRoot);
+  await withPolicyProject(async (productDir) => {
+    await writeBaseDebtFixture(productDir);
 
-    const result = validateLintPolicy(projectRoot);
+    const result = validateLintPolicy(productDir);
 
     expect(result.ok).toBe(true);
   });
 }
 
 async function runBranchAdditionScenario(): Promise<void> {
-  await withPolicyProject(async (projectRoot) => {
-    await initializePolicyRepository(projectRoot, VALIDATION_LINT_POLICY_DATA.baseRefs.LOCAL_MAIN);
-    await writeBaseDebtFixture(projectRoot);
-    await commitAll(projectRoot, VALIDATION_LINT_POLICY_DATA.commitMessages.base);
+  await withPolicyProject(async (productDir) => {
+    await initializePolicyRepository(productDir, VALIDATION_LINT_POLICY_DATA.baseRefs.LOCAL_MAIN);
+    await writeBaseDebtFixture(productDir);
+    await commitAll(productDir, VALIDATION_LINT_POLICY_DATA.commitMessages.base);
 
-    await runGit(projectRoot, [GIT_TEST_SUBCOMMANDS.CHECKOUT, "-b", VALIDATION_LINT_POLICY_DATA.testBranch]);
-    await mkdir(join(projectRoot, VALIDATION_LINT_POLICY_DATA.addedTestDebtPath), { recursive: true });
-    await writePolicyManifest(projectRoot, {
-      legacySpecSuffixNodes: [VALIDATION_LINT_POLICY_DATA.baseLegacyPath],
+    await runGit(productDir, [GIT_TEST_SUBCOMMANDS.CHECKOUT, "-b", VALIDATION_LINT_POLICY_DATA.testBranch]);
+    await mkdir(join(productDir, VALIDATION_LINT_POLICY_DATA.addedTestDebtPath), { recursive: true });
+    await writePolicyManifest(productDir, {
       testLintDebtNodes: [
         VALIDATION_LINT_POLICY_DATA.baseTestDebtPath,
         VALIDATION_LINT_POLICY_DATA.addedTestDebtPath,
       ],
     });
-    await commitAll(projectRoot, VALIDATION_LINT_POLICY_DATA.commitMessages.addedDebt);
+    await commitAll(productDir, VALIDATION_LINT_POLICY_DATA.commitMessages.addedDebt);
 
-    const result = validateLintPolicy(projectRoot);
+    const result = validateLintPolicy(productDir);
 
     expect(result.ok).toBe(false);
     if (!result.ok) {
@@ -188,17 +180,15 @@ async function runBranchAdditionScenario(): Promise<void> {
 }
 
 async function runBaselineAbsentScenario(): Promise<void> {
-  await withPolicyProject(async (projectRoot) => {
-    await initializePolicyRepository(projectRoot, VALIDATION_LINT_POLICY_DATA.testBranch);
-    await mkdir(join(projectRoot, VALIDATION_LINT_POLICY_DATA.baseLegacyPath), { recursive: true });
-    await mkdir(join(projectRoot, VALIDATION_LINT_POLICY_DATA.addedTestDebtPath), { recursive: true });
-    await writePolicyManifest(projectRoot, {
-      legacySpecSuffixNodes: [VALIDATION_LINT_POLICY_DATA.baseLegacyPath],
+  await withPolicyProject(async (productDir) => {
+    await initializePolicyRepository(productDir, VALIDATION_LINT_POLICY_DATA.testBranch);
+    await mkdir(join(productDir, VALIDATION_LINT_POLICY_DATA.addedTestDebtPath), { recursive: true });
+    await writePolicyManifest(productDir, {
       testLintDebtNodes: [VALIDATION_LINT_POLICY_DATA.addedTestDebtPath],
     });
-    await commitAll(projectRoot, VALIDATION_LINT_POLICY_DATA.commitMessages.baselineAbsent);
+    await commitAll(productDir, VALIDATION_LINT_POLICY_DATA.commitMessages.baselineAbsent);
 
-    const result = validateLintPolicy(projectRoot);
+    const result = validateLintPolicy(productDir);
 
     expect(result.ok).toBe(true);
   });
@@ -232,21 +222,21 @@ async function runHookGitVariablesScenario(): Promise<void> {
       GIT_WORK_TREE: outerRoot,
     };
 
-    await withPolicyProject(async (projectRoot) => {
+    await withPolicyProject(async (productDir) => {
       await initializePolicyRepository(
-        projectRoot,
+        productDir,
         VALIDATION_LINT_POLICY_DATA.baseRefs.LOCAL_MAIN,
         pollutedGitEnvironment,
       );
-      await writeBaseDebtFixture(projectRoot);
-      await commitAll(projectRoot, VALIDATION_LINT_POLICY_DATA.commitMessages.base, pollutedGitEnvironment);
+      await writeBaseDebtFixture(productDir);
+      await commitAll(productDir, VALIDATION_LINT_POLICY_DATA.commitMessages.base, pollutedGitEnvironment);
       await runGit(
-        projectRoot,
+        productDir,
         [GIT_TEST_SUBCOMMANDS.CHECKOUT, "-b", VALIDATION_LINT_POLICY_DATA.testBranch],
         pollutedGitEnvironment,
       );
 
-      const result = await validateLintPolicyInChildProcess(projectRoot, pollutedGitEnvironment);
+      const result = await validateLintPolicyInChildProcess(productDir, pollutedGitEnvironment);
       expect(result.ok).toBe(true);
     });
 
@@ -263,32 +253,25 @@ async function runHookGitVariablesScenario(): Promise<void> {
 }
 
 async function runCorruptBaselineScenario(): Promise<void> {
-  await withPolicyProject(async (projectRoot) => {
-    const legacyManifest = VALIDATION_LINT_POLICY_DATA.manifests.LEGACY_SPEC_SUFFIX_NODES;
+  await withPolicyProject(async (productDir) => {
     const testDebtManifest = VALIDATION_LINT_POLICY_DATA.manifests.TEST_LINT_DEBT_NODES;
     const testOwnedConstantManifest = VALIDATION_LINT_POLICY_DATA.manifests.TEST_OWNED_CONSTANT_DEBT_NODES;
 
-    await initializePolicyRepository(projectRoot, VALIDATION_LINT_POLICY_DATA.baseRefs.LOCAL_MAIN);
-    await mkdir(join(projectRoot, VALIDATION_LINT_POLICY_DATA.baseLegacyPath), { recursive: true });
-    await mkdir(join(projectRoot, VALIDATION_LINT_POLICY_DATA.baseTestDebtPath), { recursive: true });
+    await initializePolicyRepository(productDir, VALIDATION_LINT_POLICY_DATA.baseRefs.LOCAL_MAIN);
+    await mkdir(join(productDir, VALIDATION_LINT_POLICY_DATA.baseTestDebtPath), { recursive: true });
+    await writeFile(join(productDir, testDebtManifest.file), JSON.stringify([], null, 2));
     await writeFile(
-      join(projectRoot, legacyManifest.file),
-      JSON.stringify({ [legacyManifest.key]: [VALIDATION_LINT_POLICY_DATA.baseLegacyPath] }, null, 2),
-    );
-    await writeFile(join(projectRoot, testDebtManifest.file), JSON.stringify([], null, 2));
-    await writeFile(
-      join(projectRoot, testOwnedConstantManifest.file),
+      join(productDir, testOwnedConstantManifest.file),
       JSON.stringify({ [testOwnedConstantManifest.key]: [] }, null, 2),
     );
-    await commitAll(projectRoot, VALIDATION_LINT_POLICY_DATA.commitMessages.corruptBaseline);
+    await commitAll(productDir, VALIDATION_LINT_POLICY_DATA.commitMessages.corruptBaseline);
 
-    await runGit(projectRoot, [GIT_TEST_SUBCOMMANDS.CHECKOUT, "-b", VALIDATION_LINT_POLICY_DATA.testBranch]);
-    await writePolicyManifest(projectRoot, {
-      legacySpecSuffixNodes: [VALIDATION_LINT_POLICY_DATA.baseLegacyPath],
+    await runGit(productDir, [GIT_TEST_SUBCOMMANDS.CHECKOUT, "-b", VALIDATION_LINT_POLICY_DATA.testBranch]);
+    await writePolicyManifest(productDir, {
       testLintDebtNodes: [VALIDATION_LINT_POLICY_DATA.baseTestDebtPath],
     });
 
-    const result = validateLintPolicy(projectRoot);
+    const result = validateLintPolicy(productDir);
 
     expect(result.ok).toBe(false);
     if (!result.ok) {
@@ -298,19 +281,18 @@ async function runCorruptBaselineScenario(): Promise<void> {
   });
 }
 
-async function runMissingLegacyManifestEntryScenario(): Promise<void> {
-  await withPolicyProject(async (projectRoot) => {
-    await mkdir(join(projectRoot, VALIDATION_LINT_POLICY_DATA.baseLegacyPath), { recursive: true });
-    await writePolicyManifest(projectRoot, {
-      legacySpecSuffixNodes: [],
+async function runDeprecatedSpecNodeSuffixScenario(): Promise<void> {
+  await withPolicyProject(async (productDir) => {
+    await mkdir(join(productDir, VALIDATION_LINT_POLICY_DATA.deprecatedSpecNodePath), { recursive: true });
+    await writePolicyManifest(productDir, {
       testLintDebtNodes: [],
     });
 
-    const result = validateLintPolicy(projectRoot);
+    const result = validateLintPolicy(productDir);
 
     expect(result.ok).toBe(false);
     if (!result.ok) {
-      expect(result.error).toContain(VALIDATION_LINT_POLICY_DATA.manifests.LEGACY_SPEC_SUFFIX_NODES.file);
+      expect(result.error).toContain(VALIDATION_LINT_POLICY_DATA.deprecatedSpecNodePath);
     }
   });
 }

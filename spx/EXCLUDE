@@ -6,7 +6,6 @@
 # Remove entries when implementation begins.
 
 23-spec-tree.enabler
-31-spec-domain.capability
 31-spec-domain.enabler
 41-testing.enabler
 41-validation.enabler/32-python-validation.enabler

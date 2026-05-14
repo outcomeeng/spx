@@ -38,7 +38,7 @@ export interface ConsolidateOptions {
  * Consolidates permissions from project-local settings files into
  * the global Claude Code settings file.
  *
- * Features:
+ * Behavior:
  * - Discovers all `.claude/settings.local.json` files recursively
  * - Applies subsumption to remove narrower permissions
  * - Resolves conflicts (deny wins over allow)

@@ -145,14 +145,14 @@ async function runProjectAbsoluteLinkScenario(scenario: MarkdownValidationScenar
 
 async function runNoSideEffectsScenario(scenario: MarkdownValidationScenario): Promise<void> {
   await withMarkdownScenarioEnv(scenario, async ({ spxDir }) => {
-    const featureDir = join(spxDir, MARKDOWN_VALIDATION_DATA.featureDirectoryName);
+    const sampleDir = join(spxDir, MARKDOWN_VALIDATION_DATA.sampleDirectoryName);
     const rootBefore = new Set(readdirSync(spxDir));
-    const featureBefore = new Set(readdirSync(featureDir));
+    const sampleBefore = new Set(readdirSync(sampleDir));
 
     await validateMarkdown({ targets: [markdownDirectoryTarget(spxDir)] });
 
     expect(new Set(readdirSync(spxDir))).toEqual(rootBefore);
-    expect(new Set(readdirSync(featureDir))).toEqual(featureBefore);
+    expect(new Set(readdirSync(sampleDir))).toEqual(sampleBefore);
   });
 }
 
@@ -187,8 +187,8 @@ async function runDuplicateHeadingsScenario(scenario: MarkdownValidationScenario
     const md024Errors = spxResult.errors.filter((error) =>
       error.detail.includes(MARKDOWN_VALIDATION_DATA.md024RuleMarker)
     );
-    const featureMd024Errors = spxResult.errors.filter((error) =>
-      error.file.includes(MARKDOWN_VALIDATION_DATA.featureMarkdownFile)
+    const sampleMd024Errors = spxResult.errors.filter((error) =>
+      error.file.includes(MARKDOWN_VALIDATION_DATA.sampleMarkdownFile)
       && error.detail.includes(MARKDOWN_VALIDATION_DATA.md024RuleMarker)
     );
     const docsResult = await validateMarkdown({ targets: [markdownDirectoryTarget(docsDir)] });
@@ -198,7 +198,7 @@ async function runDuplicateHeadingsScenario(scenario: MarkdownValidationScenario
 
     expect(md024Errors.length).toBeGreaterThanOrEqual(MARKDOWN_VALIDATION_DATA.one);
     expect(md024Errors.some((error) => error.file.includes(MARKDOWN_VALIDATION_DATA.childMarkdownFile))).toBe(true);
-    expect(featureMd024Errors).toHaveLength(MARKDOWN_VALIDATION_DATA.zero);
+    expect(sampleMd024Errors).toHaveLength(MARKDOWN_VALIDATION_DATA.zero);
     expect(docsMd024Errors).toHaveLength(MARKDOWN_VALIDATION_DATA.zero);
     expect(docsResult.success).toBe(false);
     expect(docsResult.errors.some((error) => error.detail.includes(MARKDOWN_VALIDATION_DATA.missingFileMarker))).toBe(

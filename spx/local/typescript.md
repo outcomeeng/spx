@@ -37,6 +37,6 @@ A property test that generates inputs and asserts an invariant is only useful if
 Subcommand dispatch, argument parsing, and unknown-subcommand safety are CLI-framework concerns shared by every stage under a domain. They belong at a dedicated child enabler under the domain, following the canonical pattern established by [16-config.enabler/21-config-cli.enabler](../16-config.enabler/21-config-cli.enabler/config-cli.md).
 
 - PATTERN: `spx/{NN}-{domain}.enabler/21-{domain}-cli.enabler/{domain}-cli.md` — typed dispatcher, handler signatures, argument sanitization.
-- REQUIRED: do **not** place cross-cutting CLI concerns in `21-core-cli.capability/` (frozen legacy per [spx/ISSUES.md](../ISSUES.md)) or in a specific subcommand's leaf node.
+- REQUIRED: place cross-cutting CLI concerns in the owning domain's CLI child enabler or a shared current enabler, never in a specific subcommand's leaf node.
 - REFERENCE implementations: [16-config.enabler/21-config-cli.enabler](../16-config.enabler/21-config-cli.enabler/), [41-validation.enabler/21-validation-cli.enabler](../41-validation.enabler/21-validation-cli.enabler/), [36-session.enabler/76-session-cli.enabler](../36-session.enabler/76-session-cli.enabler/).
 - Shared pure helpers (e.g., `sanitizeCliArgument`) live in `src/lib/` so any domain's CLI enabler can import them.

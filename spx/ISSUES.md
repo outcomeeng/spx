@@ -2,7 +2,7 @@
 
 ## Root outcome node remains after enabler-only direction
 
-`spx/46-claude.outcome/` is still a root outcome node. The `21-core-cli.capability` migration plan now treats migrated content as enabler-only, but eliminating every outcome node in the tree requires a separate root-level `/spec-tree:refactoring` pass that audits whether the Claude integration content becomes an enabler, dissolves into existing enablers, or is deleted.
+`spx/46-claude.outcome/` is still a root outcome node. Eliminating every outcome node in the tree requires a separate root-level `/spec-tree:refactoring` pass that audits whether the Claude integration content becomes an enabler, dissolves into existing enablers, or is deleted.
 
 **Resolution:** Track separately from `spx/PLAN.md`. Revisit before declaring the whole spec tree enabler-only.
 
@@ -33,16 +33,6 @@ The May 1, 2026 dependency update merge closed the open Dependabot alerts: GitHu
 **Skills:** `github:github`, GitHub security triage, and the workflow-specific implementation skill for any `.github/workflows/` edits.
 
 **Resolution:** Triage repository-policy alerts separately from workflow-file alerts. For workflow-file alerts, audit token permissions and pin external actions before changing the automation.
-
-## Capability subtrees use pre-methodology suffixes and misdeclared node types
-
-Three top-level subtrees use non-methodology directory suffixes (`.capability`, `.feature`, `.story`) and likely carry the same misapplied-outcome disease that `36-session.enabler` records (see `36-session.enabler/ISSUES.md`). Affected:
-
-- `21-core-cli.capability/` — 3 remaining `.feature` dirs + ~30 `.story` dirs (5 `.feature` dirs renamed to `.enabler` in `b335386`; see `spx/PLAN.md` for the current config-first migration plan)
-- `26-scoped-cli.capability/` — 1 feature, 2 stories
-- `31-spec-domain.capability/` — index collision with `31-spec-domain.enabler/` AND pre-methodology suffixes inside
-
-**Resolution:** Follow the current migration plan for `21-core-cli.capability`. The remaining subtrees need their own audit for (1) whether each child remains a real enabler, (2) whether junk-drawer names describe real concerns, (3) what should be renamed, dissolved, merged, or deleted.
 
 ## Cross-file literal-reuse findings: 116 unsuppressed across 11 subtrees
 

@@ -1,8 +1,8 @@
 import { readdir, readFile } from "node:fs/promises";
 import { join } from "node:path";
 
-import type { DecisionKind, Kind, KindDefinition, NodeKind, SpecTreeKindCategory } from "@/lib/spec-tree/config";
-import { KIND_REGISTRY, SPEC_TREE_CONFIG, SPEC_TREE_KIND_CATEGORY } from "@/lib/spec-tree/config";
+import type { DecisionKind, Kind, KindDefinition, NodeKind, SpecTreeKindCategory } from "./config";
+import { KIND_REGISTRY, SPEC_TREE_CONFIG, SPEC_TREE_KIND_CATEGORY } from "./config";
 
 const SPEC_TREE_FIELD_KEY = {
   VERSION: "version",

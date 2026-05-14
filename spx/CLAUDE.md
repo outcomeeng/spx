@@ -7,7 +7,7 @@ Spec tree management is handled by the **spec-tree** Claude Code plugin (`outcom
 | Skill                        | Purpose                                                        |
 | ---------------------------- | -------------------------------------------------------------- |
 | `/spec-tree:understanding`   | Load methodology foundation (node types, ordering, assertions) |
-| `/spec-tree:contextualizing` | Load context for a specific work item                          |
+| `/spec-tree:contextualizing` | Load context for a specific spec-tree node                     |
 | `/spec-tree:authoring`       | Create specs, ADRs, PDRs, enablers, outcomes                   |
 | `/spec-tree:decomposing`     | Break nodes into children with proper ordering                 |
 | `/spec-tree:testing`         | Manage spec-test lock file lifecycle                           |
@@ -24,7 +24,7 @@ The `specs/` directory uses the legacy task-driven system and is **frozen**.
 
 The `spx/` tree is the always-current map of the product. Nothing moves because work is "done" — status is derived from tests.
 
-Two node types exist: **enablers** (infrastructure) and **outcomes** (user-behavior hypotheses). Pre-methodology subtrees still carry non-methodology suffixes and are tracked for migration in [`spx/ISSUES.md`](ISSUES.md).
+Two node types exist: **enablers** (infrastructure) and **outcomes** (user-behavior hypotheses).
 
 ```text
 spx/
@@ -88,7 +88,7 @@ Numeric prefixes on directories and decision files encode **dependency order** w
 46-claude.outcome/                  ← Independent of 41-validation (same-range siblings)
 ```
 
-**ALWAYS use full path when referencing work items:**
+**ALWAYS use full path when referencing spec-tree nodes:**
 
 | Wrong                  | Correct                                                            |
 | ---------------------- | ------------------------------------------------------------------ |
@@ -99,14 +99,14 @@ Numeric prefixes on directories and decision files encode **dependency order** w
 
 ## When to Invoke Skills
 
-### Before Implementing ANY Work Item → `/spec-tree:contextualizing`
+### Before Implementing ANY Spec-Tree Node → `/spec-tree:contextualizing`
 
 **BLOCKING REQUIREMENT**
 
 **Trigger conditions:**
 
 - User says "implement X", "work on X", or references a node by its path
-- User references a work item file
+- User references a spec-tree node file
 - You're about to write implementation code
 
 **What it does**: Walks the tree from product root to target node, collecting ancestor specs and context.
@@ -134,7 +134,7 @@ Use contextualizing to understand current state, then authoring or testing to ac
 | ------------------------- | ---------------------------- | -------------------------- |
 | "Implement &lt;node&gt;"  | `/spec-tree:contextualizing` | Read the spec directly     |
 | "Create a PDR"            | `/spec-tree:authoring`       | Search for templates       |
-| "What's next?"            | `/spec-tree:contextualizing` | Grep for work items        |
+| "What's next?"            | `/spec-tree:contextualizing` | Grep for nodes             |
 | "Create an enabler"       | `/spec-tree:authoring`       | Calculate indices yourself |
 | "Break this down"         | `/spec-tree:decomposing`     | Guess child structure      |
 | "Anything contradictory?" | `/spec-tree:aligning`        | Skim specs manually        |

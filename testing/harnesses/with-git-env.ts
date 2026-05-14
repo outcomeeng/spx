@@ -22,7 +22,7 @@ const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
 
 /** Project root resolved from this helper's location */
-const PROJECT_ROOT = resolve(__dirname, "../..");
+const PRODUCT_ROOT = resolve(__dirname, "../..");
 
 /**
  * Result from executing a command
@@ -78,7 +78,7 @@ export async function withGitEnv<T>(
   fn: (ctx: GitTestEnvContext) => Promise<T>,
 ): Promise<T> {
   const tempDir = join(tmpdir(), `spx-git-test-${randomUUID()}`);
-  const precommitRelativePath = relative(PROJECT_ROOT, PRECOMMIT_PATH);
+  const precommitRelativePath = relative(PRODUCT_ROOT, PRECOMMIT_PATH);
   await mkdir(tempDir, { recursive: true });
 
   try {
@@ -92,7 +92,7 @@ export async function withGitEnv<T>(
     ];
 
     for (const file of filesToSymlink) {
-      await symlink(join(PROJECT_ROOT, file), join(tempDir, file));
+      await symlink(join(PRODUCT_ROOT, file), join(tempDir, file));
     }
 
     // Symlink src/lib/precommit specifically (NOT all of src/)

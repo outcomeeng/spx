@@ -40,7 +40,7 @@ Alternatives considered:
 - **Pure functions `isUnderIgnoreSource(projectRoot, path)` and `entries(projectRoot)`.** Each call re-reads the file. Rejected because repeated I/O is wasteful within a single CLI invocation and the two call paths would process the same file independently, leaving a window for divergence if parse logic accumulates corner cases.
 - **Register as a config descriptor at `src/file-inclusion/ignore-source/config.ts`.** Rejected because the file's grammar is not yaml-sectional and its consumer model is not "domain resolves its section through typed accessor." The descriptor abstraction is designed for typed, defaulted, validator-owned configuration — not for a plain-text node list.
 - **Combined `isUnderIgnoreSource` + `toToolFlags` factory (the pre-decomposition shape).** Rejected because tool-flag production is the tool-adapters child's concern under the new file-inclusion composition; co-locating it here would recreate the pre-decomposition tangle and violate the layer-boundary invariants declared in `../15-scope-composition.adr.md`.
-- **Class-based `IgnoreSourceReader` with constructor reading the file.** Rejected because the harness uses factory functions (`resolveConfig`, `withTestEnv`) for this pattern. A class would introduce inconsistency without adding any capability factories lack.
+- **Class-based `IgnoreSourceReader` with constructor reading the file.** Rejected because the harness uses factory functions (`resolveConfig`, `withTestEnv`) for this pattern. A class would introduce inconsistency without adding any factory functions lack.
 
 ## Trade-offs accepted
 
