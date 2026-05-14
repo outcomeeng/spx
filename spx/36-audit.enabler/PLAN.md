@@ -23,6 +23,7 @@ Move audit from verify-only artifact checking toward config-backed, branch-scope
    - Branch names map to filesystem-safe slugs with no path separators.
    - Branch slugs always append the first eight lowercase hex characters of the SHA-256 digest of the original branch identity.
    - SHA-256 uses Node.js `node:crypto`; do not add a third-party crypto dependency.
+   - Run ids use `node:crypto` `randomBytes`; `Math.random` is not used.
    - Detached HEAD state uses `detached-{short-sha}` as the branch identity and is test-covered.
 
 3. Move storage from node-first to branch-first.
@@ -42,9 +43,10 @@ Move audit from verify-only artifact checking toward config-backed, branch-scope
 - Audit state tests prove terminal `state.json` writes use a same-directory temporary file followed by atomic rename to the final path.
 - Audit state tests prove run directories with missing, partial, or parse-invalid `state.json` appear as incomplete/interrupted in list and status output and do not satisfy latest terminal audit status when a terminal run exists.
 - Audit state tests prove latest terminal lookup uses `state.json` timestamps before directory-name tie-breakers.
-- Audit state tests prove persisted status casing is lowercase and CLI verdict rendering remains a display concern.
+- Audit state tests prove persisted status casing is lowercase and CLI status rendering follows the explicit persisted-status-to-display mapping.
 - Audit config digest tests prove the digest is computed from config-owned canonical descriptor JSON for the resolved audit config descriptor section after defaults are applied.
 - Audit base-ref tests prove the state file records `main` when no config override exists and records the configured value when `audit.baseRef` is set.
+- Migration tests prove existing `.spx/nodes/` verdict artifacts remain valid explicit-file verification inputs but are not indexed by branch-scoped audit list/status views.
 - Storage tests prove audit state resolves through main repository root, not the worktree root.
 - Verify tests prove existing explicit-file verification still works for files outside `.spx/audit/`, including old `.spx/nodes/` artifacts.
 

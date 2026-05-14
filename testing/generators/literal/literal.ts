@@ -287,18 +287,11 @@ export function sampleLiteralPair(): readonly [string, string] {
   return [first, second];
 }
 
-function sampleDistinctTestFilePaths(count: number): readonly string[] {
-  return sampleLiteralTestValue(
-    fc.uniqueArray(arbitraryTestFilePath(), { minLength: count, maxLength: count }),
-  );
-}
-
 export function sampleTestFilePathPair(): readonly [string, string] {
-  const [first, second] = sampleDistinctTestFilePaths(LITERAL_TEST_GENERATOR_COUNTS.two);
-  if (first === undefined || second === undefined) {
-    throw new Error("Literal test path generator returned an incomplete pair");
-  }
-  return [first, second];
+  return sampleLiteralTestValue(
+    fc.tuple(arbitraryTestFilePath(), arbitraryTestFilePath())
+      .filter(([first, second]) => first !== second),
+  );
 }
 
 export function sampleLiteralTriple(): readonly [string, string, string] {
