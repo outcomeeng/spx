@@ -16,10 +16,6 @@ Spec tree management is handled by the **spec-tree** Claude Code plugin (`outcom
 
 Additional skills ship with the plugin and are invoked by name: `applying`, `committing-changes`, `interviewing`, `auditing-tests`, `auditing-product-decisions`, `handing-off`, `picking-up`, `refocusing`, `bootstrapping`. See `outcomeeng/claude/plugins/spec-tree/skills/` for the full list.
 
-The `specs/` directory uses the legacy task-driven system and is **frozen**.
-
----
-
 ## Structure Overview
 
 The `spx/` tree is the always-current map of the product. Nothing moves because work is "done" — status is derived from tests.
@@ -60,12 +56,12 @@ spx/
 
 A node's state is derived from its spec and tests:
 
-| State         | Condition                                         | Required Action                              |
-| ------------- | ------------------------------------------------- | -------------------------------------------- |
-| **Declared**  | Spec exists, no tests                             | Write tests                                  |
-| **Specified** | Spec and tests exist, implementation doesn't yet  | Implement (tests excluded via `spx/EXCLUDE`) |
-| **Failing**   | Spec, tests, and implementation exist; tests fail | Fix code                                     |
-| **Passing**   | Spec, tests, and implementation exist; tests pass | None                                         |
+| State         | Condition                                         | Required Action                                             |
+| ------------- | ------------------------------------------------- | ----------------------------------------------------------- |
+| **Declared**  | Spec exists, no tests                             | Write tests                                                 |
+| **Specified** | Spec and tests exist, implementation doesn't yet  | Implement or narrow passing-scope checks via `spx.config.*` |
+| **Failing**   | Spec, tests, and implementation exist; tests fail | Fix code                                                    |
+| **Passing**   | Spec, tests, and implementation exist; tests pass | None                                                        |
 
 Specified and failing are normal states — not problems to fix urgently. The spec leads; the code follows.
 
