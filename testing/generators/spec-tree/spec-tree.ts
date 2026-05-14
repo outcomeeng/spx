@@ -15,6 +15,7 @@ import {
 import {
   type DecisionKind,
   type NodeKind,
+  SPEC_TREE_CONFIG,
   SPEC_TREE_KIND_CATEGORY,
   type SpecTreeKindCategory,
 } from "@/lib/spec-tree/config";
@@ -62,6 +63,12 @@ const SPEC_TREE_TEST_SUFFIX_REST_CHARACTERS = [..."abcdefghijklmnopqrstuvwxyz-"]
 const UNREGISTERED_SUFFIX_DISAMBIGUATOR = "-candidate";
 
 const ASSEMBLY_NODE_ORDER_COUNT: 3 = SPEC_TREE_TEST_GENERATOR_OPTIONS.ASSEMBLY_ORDER_COUNT;
+
+export const RETIRED_SPEC_APPLY_FIXTURE = {
+  excludeFile: `${SPEC_TREE_CONFIG.ROOT_DIRECTORY}/EXCLUDE`,
+  pythonConfigFile: "pyproject.toml",
+  pytestSection: "tool.pytest.ini_options",
+} as const;
 
 export const SPEC_TREE_TEST_GENERATOR = {
   counts: {
@@ -117,6 +124,14 @@ export function withGeneratedSourceRef(entry: SpecTreeSourceEntry): SpecTreeSour
     ...entry,
     ref: sampleSpecTreeTestValue(SPEC_TREE_TEST_GENERATOR.sourceRef()),
   };
+}
+
+export function specTreeFixtureNodeDirectoryName(
+  registry: SpecTreeRegistry,
+  node: RepresentativeSpecTreeFixture["root"],
+): string {
+  const definition = registry[node.kind];
+  return `${node.order}-${node.slug}${definition.suffix}`;
 }
 
 export function buildNodeEntry(

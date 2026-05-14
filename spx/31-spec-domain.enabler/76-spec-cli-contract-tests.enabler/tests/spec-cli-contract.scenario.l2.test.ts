@@ -9,10 +9,13 @@ import {
   SPEC_DOMAIN_CLI_MESSAGE,
   SPEC_STATUS_FORMAT_MESSAGE,
 } from "@/domains/spec";
-import { PYTEST_SECTION, PYTHON_CONFIG_FILE } from "@/domains/spec/apply/exclude";
-import { EXCLUDE_FILENAME, SPX_PREFIX } from "@/domains/spec/apply/exclude/constants";
-import { getKindDefinition, SPEC_TREE_NODE_STATE } from "@/lib/spec-tree";
+import { SPEC_TREE_NODE_STATE } from "@/lib/spec-tree";
+import { KIND_REGISTRY } from "@/lib/spec-tree/config";
 import { MINIMAL_SPEC_TREE_CONFIG } from "@testing/generators/config/config";
+import {
+  RETIRED_SPEC_APPLY_FIXTURE,
+  specTreeFixtureNodeDirectoryName,
+} from "@testing/generators/spec-tree/spec-tree";
 import { CLI_PATH, NODE_EXECUTABLE } from "@testing/harnesses/constants";
 import { withSpecTreeEnv } from "@testing/harnesses/spec-tree/spec-tree";
 
@@ -86,19 +89,17 @@ describe("spx spec process contract", () => {
   it("rejects config-writing apply routing without modifying product configuration", async () => {
     await withSpecTreeEnv(MINIMAL_SPEC_TREE_CONFIG, async (env) => {
       await env.materialize();
-      const nodePath = `${env.fixture.root.order}-${env.fixture.root.slug}${
-        getKindDefinition(env.fixture.root.kind).suffix
-      }`;
-      const pyprojectContent = `[${PYTEST_SECTION}]\naddopts = ""\n`;
-      await env.writeRaw(`${SPX_PREFIX}${EXCLUDE_FILENAME}`, `${nodePath}\n`);
-      await env.writeRaw(PYTHON_CONFIG_FILE, pyprojectContent);
+      const nodePath = specTreeFixtureNodeDirectoryName(KIND_REGISTRY, env.fixture.root);
+      const pyprojectContent = `[${RETIRED_SPEC_APPLY_FIXTURE.pytestSection}]\naddopts = ""\n`;
+      await env.writeRaw(RETIRED_SPEC_APPLY_FIXTURE.excludeFile, `${nodePath}\n`);
+      await env.writeRaw(RETIRED_SPEC_APPLY_FIXTURE.pythonConfigFile, pyprojectContent);
 
       const result = await runCli(env.productDir, SPEC_DOMAIN_CLI.COMMAND, RETIRED_SPEC_DOMAIN_CLI.APPLY_COMMAND);
 
       expect(result.exitCode).not.toBe(0);
       expect(result.stderr).toContain(SPEC_DOMAIN_CLI_MESSAGE.UNKNOWN_COMMAND_PREFIX);
       expect(result.stderr).toContain(RETIRED_SPEC_DOMAIN_CLI.APPLY_COMMAND);
-      expect(await env.readFile(PYTHON_CONFIG_FILE)).toBe(pyprojectContent);
+      expect(await env.readFile(RETIRED_SPEC_APPLY_FIXTURE.pythonConfigFile)).toBe(pyprojectContent);
     });
   });
 });
