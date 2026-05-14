@@ -5,10 +5,17 @@ import {
   getKindDefinition,
   projectSpecTree,
   readSpecTree,
+  SPEC_TREE_ENTRY_TYPE,
+  SPEC_TREE_EVIDENCE_FILE,
+  SPEC_TREE_EVIDENCE_STATUS,
+  SPEC_TREE_NODE_STATE,
+  type SpecTreeEvidenceSourceEntry,
   type SpecTreeProjectedNode,
   type SpecTreeProjection,
+  type SpecTreeSourceEntry,
 } from "@/lib/spec-tree";
-import { type NodeKind, SPEC_TREE_CONFIG } from "@/lib/spec-tree/config";
+import { KIND_REGISTRY, type NodeKind, SPEC_TREE_CONFIG } from "@/lib/spec-tree/config";
+import { sampleSpecTreeTestValue, SPEC_TREE_TEST_GENERATOR } from "@testing/generators/spec-tree/spec-tree";
 import { expectPresent } from "@testing/harnesses/spec-tree/assertions";
 import { withSpecTreeEnv } from "@testing/harnesses/spec-tree/spec-tree";
 
@@ -76,6 +83,61 @@ describe("SpecTreeSource mappings", () => {
       await expect(source.readText(ref)).resolves.toBe(includedText);
     });
   });
+
+  it("maps co-located test files to linked evidence records", async () => {
+    await withSpecTreeEnv({}, async (env) => {
+      await env.materialize();
+      const rootDirectory = nodeDirectoryName(env.fixture.root);
+      const evidenceFile = sampleSpecTreeTestValue(SPEC_TREE_TEST_GENERATOR.evidenceFileName());
+      const evidencePath = [
+        SPEC_TREE_CONFIG.ROOT_DIRECTORY,
+        rootDirectory,
+        SPEC_TREE_EVIDENCE_FILE.DIRECTORY_NAME,
+        evidenceFile,
+      ].join("/");
+      await env.writeRaw(evidencePath, "");
+
+      const snapshot = await readSpecTree({ source: env.filesystemSource() });
+      const root = expectPresent(snapshot.allNodes.find((node) => node.id === rootDirectory));
+      const evidence = snapshot.entries.filter(isEvidenceEntry);
+      const evidenceEntry = expectPresent(evidence[0]);
+
+      expect(root.state).toBe(SPEC_TREE_NODE_STATE.SPECIFIED);
+      expect(evidence).toHaveLength(1);
+      expect(evidenceEntry).toMatchObject({
+        id: `${rootDirectory}/${SPEC_TREE_EVIDENCE_FILE.DIRECTORY_NAME}/${evidenceFile}`,
+        parentId: rootDirectory,
+        status: SPEC_TREE_EVIDENCE_STATUS.LINKED,
+      });
+      expect(evidenceEntry.ref?.path).toBe(evidencePath);
+    });
+  });
+
+  it("does not traverse registered descendants below unregistered ordered directories", async () => {
+    await withSpecTreeEnv({}, async (env) => {
+      const unregisteredDirectory = [
+        sampleSpecTreeTestValue(SPEC_TREE_TEST_GENERATOR.filesystemOrder()),
+        sampleSpecTreeTestValue(SPEC_TREE_TEST_GENERATOR.sourceSlug()),
+      ].join("-");
+      const unregisteredSuffix = sampleSpecTreeTestValue(
+        SPEC_TREE_TEST_GENERATOR.unregisteredNodeSuffix(KIND_REGISTRY),
+      );
+      const childDirectory = nodeDirectoryName(env.fixture.child);
+      await env.writeRaw(
+        [
+          SPEC_TREE_CONFIG.ROOT_DIRECTORY,
+          `${unregisteredDirectory}${unregisteredSuffix}`,
+          childDirectory,
+          `${env.fixture.child.slug}.md`,
+        ].join("/"),
+        "",
+      );
+
+      const snapshot = await readSpecTree({ source: env.filesystemSource() });
+
+      expect(snapshot.allNodes.map((node) => node.id)).toEqual([]);
+    });
+  });
 });
 
 function nodeSignatures(projection: SpecTreeProjection): readonly NodeSignature[] {
@@ -97,6 +159,10 @@ function decisionSignatures(projection: SpecTreeProjection): readonly DecisionSi
     order: decision.order,
     slug: decision.slug,
   }));
+}
+
+function isEvidenceEntry(entry: SpecTreeSourceEntry): entry is SpecTreeEvidenceSourceEntry {
+  return entry.type === SPEC_TREE_ENTRY_TYPE.EVIDENCE;
 }
 
 function nodeDirectoryName(node: NodeDirectoryEntry): string {

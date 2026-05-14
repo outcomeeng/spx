@@ -52,6 +52,13 @@ export const SPEC_TREE_EVIDENCE_STATUS = {
 
 export type SpecTreeEvidenceStatus = (typeof SPEC_TREE_EVIDENCE_STATUS)[keyof typeof SPEC_TREE_EVIDENCE_STATUS];
 
+export const SPEC_TREE_EVIDENCE_FILE = {
+  DIRECTORY_NAME: "tests",
+  MODES: ["scenario", "mapping", "conformance", "property", "compliance"],
+  LEVELS: ["l1", "l2", "l3"],
+  SEGMENT_SEPARATOR: ".",
+} as const;
+
 export const SPEC_TREE_PROJECTION = {
   VERSION: 1,
   KEYS: {
@@ -303,6 +310,20 @@ export function recognizeSpecTreeFilesystemEntry(
       slug: parsed.slug,
       parentId: record.parentId,
       ref: sourceRefForNode(record.relativePath, parsed.slug),
+    };
+  }
+
+  if (
+    record.type === SPEC_TREE_FILESYSTEM_RECORD_TYPE.FILE
+    && record.parentId !== undefined
+    && isEvidenceFile(record.relativePath)
+  ) {
+    return {
+      type: SPEC_TREE_ENTRY_TYPE.EVIDENCE,
+      id: record.relativePath,
+      parentId: record.parentId,
+      status: SPEC_TREE_EVIDENCE_STATUS.LINKED,
+      ref: sourceRefForRelativePath(record.relativePath),
     };
   }
 
@@ -562,7 +583,7 @@ async function* walkFilesystemDirectory(context: FilesystemWalkContext): AsyncIt
     );
     if (sourceEntry !== null) yield sourceEntry;
 
-    if (entry.isDirectory()) {
+    if (entry.isDirectory() && shouldDescendIntoDirectory(entry.name, sourceEntry, context.registry)) {
       yield* walkFilesystemDirectory({
         absolutePath: join(context.absolutePath, entry.name),
         relativePath,
@@ -612,6 +633,42 @@ function parseOrderedSlug(value: string): OrderedSlug | null {
 
 function isProductFile(relativePath: string): boolean {
   return !relativePath.includes(SPEC_TREE_PATH_SEPARATOR) && relativePath.endsWith(SPEC_TREE_CONFIG.PRODUCT.SUFFIX);
+}
+
+function isEvidenceFile(relativePath: string): boolean {
+  const segments = relativePath.split(SPEC_TREE_PATH_SEPARATOR);
+  const filename = segments.at(-1);
+  const directoryName = segments.at(-2);
+
+  return filename !== undefined
+    && directoryName === SPEC_TREE_EVIDENCE_FILE.DIRECTORY_NAME
+    && SPEC_TREE_EVIDENCE_FILE.MODES.some((mode) =>
+      SPEC_TREE_EVIDENCE_FILE.LEVELS.some((level) =>
+        filename.includes(
+          [
+            SPEC_TREE_EVIDENCE_FILE.SEGMENT_SEPARATOR,
+            mode,
+            SPEC_TREE_EVIDENCE_FILE.SEGMENT_SEPARATOR,
+            level,
+            SPEC_TREE_EVIDENCE_FILE.SEGMENT_SEPARATOR,
+          ].join(""),
+        )
+      )
+    );
+}
+
+function shouldDescendIntoDirectory(
+  name: string,
+  sourceEntry: SpecTreeSourceEntry | null,
+  registry: SpecTreeRegistry,
+): boolean {
+  if (sourceEntry !== null) return true;
+  return !isUnregisteredOrderedDirectory(name, registry);
+}
+
+function isUnregisteredOrderedDirectory(name: string, registry: SpecTreeRegistry): boolean {
+  if (matchKindSuffix(name, registry, SPEC_TREE_KIND_CATEGORY.NODE) !== null) return false;
+  return parseOrderedSlug(name) !== null;
 }
 
 function sourceRefForRelativePath(relativePath: string): SpecTreeSourceRef {
