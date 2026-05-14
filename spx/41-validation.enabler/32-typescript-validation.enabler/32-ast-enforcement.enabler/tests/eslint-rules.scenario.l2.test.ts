@@ -1,11 +1,16 @@
 import type { ESLint } from "eslint";
+import { join } from "node:path";
 import { beforeAll, describe, expect, it } from "vitest";
 
+import { readTypeScriptExcludeGlobs } from "@/validation/eslint-config-exclusions";
+import { MINIMAL_SPEC_TREE_CONFIG } from "@testing/generators/config/config";
 import {
   validationConfigSeverityScenarios,
   validationLintScenarios,
   validationRuleRegistrationCases,
+  validationTypeScriptExclusionsScenario,
 } from "@testing/generators/validation/ast-enforcement";
+import { withTestEnv } from "@testing/harnesses/spec-tree/spec-tree";
 import {
   createValidationEslint,
   lintValidationText,
@@ -62,5 +67,57 @@ describe("ESLint rules integration", () => {
         }
       });
     }
+  });
+
+  describe("TypeScript config exclusions", () => {
+    it("fails loudly when the configured TypeScript config cannot be read", () => {
+      const testCase = validationTypeScriptExclusionsScenario();
+
+      expect(() =>
+        readTypeScriptExcludeGlobs(testCase.missingConfigFile)
+      ).toThrow(testCase.missingConfigFile);
+    });
+
+    it("reads exclusions through relative TypeScript config extends", async () => {
+      const testCase = validationTypeScriptExclusionsScenario();
+
+      await withTestEnv(MINIMAL_SPEC_TREE_CONFIG, async ({ productDir, writeRaw }) => {
+        await writeRaw(
+          testCase.baseConfigFile,
+          JSON.stringify(testCase.baseConfig),
+        );
+        await writeRaw(
+          testCase.childConfigFile,
+          JSON.stringify(testCase.childConfig),
+        );
+
+        const ignorePatterns = readTypeScriptExcludeGlobs(join(productDir, testCase.childConfigFile));
+
+        expect(ignorePatterns).toEqual(expect.arrayContaining([...testCase.expectedGlobs]));
+      });
+    });
+
+    it("reads exclusions through package TypeScript config extends", async () => {
+      const testCase = validationTypeScriptExclusionsScenario();
+
+      await withTestEnv(MINIMAL_SPEC_TREE_CONFIG, async ({ productDir, writeRaw }) => {
+        await writeRaw(
+          testCase.packageConfigFile,
+          JSON.stringify(testCase.packageConfig),
+        );
+        await writeRaw(
+          testCase.packageManifestFile,
+          JSON.stringify(testCase.packageManifest),
+        );
+        await writeRaw(
+          testCase.childConfigFile,
+          JSON.stringify(testCase.packageChildConfig),
+        );
+
+        const ignorePatterns = readTypeScriptExcludeGlobs(join(productDir, testCase.childConfigFile));
+
+        expect(ignorePatterns).toEqual(expect.arrayContaining([...testCase.expectedPackageGlobs]));
+      });
+    });
   });
 });

@@ -79,6 +79,10 @@ describe("ALWAYS: TypeScript scope resolution uses the requested project root", 
   it("resolves array-based TypeScript config extends without crashing", async () => {
     await withTestEnv({}, async (env) => {
       await env.writeRaw(
+        join(VALIDATION_PIPELINE_DATA.sourceDirectoryName, VALIDATION_PIPELINE_DATA.cleanSourceFileName),
+        "",
+      );
+      await env.writeRaw(
         "base-includes.json",
         JSON.stringify({
           exclude: [VALIDATION_PIPELINE_DATA.sourceDirectoryName],
@@ -101,8 +105,36 @@ describe("ALWAYS: TypeScript scope resolution uses the requested project root", 
     });
   });
 
+  it("filters TypeScript include patterns whose target is absent or wholly excluded", async () => {
+    await withTestEnv({}, async (env) => {
+      await env.writeRaw(
+        join(VALIDATION_PIPELINE_DATA.sourceDirectoryName, VALIDATION_PIPELINE_DATA.cleanSourceFileName),
+        "",
+      );
+      await env.writeRaw(
+        TSCONFIG_FILES.production,
+        JSON.stringify({
+          include: [
+            VALIDATION_PIPELINE_DATA.productionScopeFilePattern,
+            VALIDATION_PIPELINE_DATA.absentScopeFilePattern,
+            VALIDATION_PIPELINE_DATA.productionScopeExcludePattern,
+          ],
+          exclude: [VALIDATION_PIPELINE_DATA.productionScopeExcludePattern],
+        }),
+      );
+
+      const scope = getTypeScriptScope(VALIDATION_SCOPES.PRODUCTION, env.productDir);
+
+      expect(scope.filePatterns).toEqual([VALIDATION_PIPELINE_DATA.productionScopeFilePattern]);
+    });
+  });
+
   it("lets child TypeScript exclude replace inherited excludes", async () => {
     await withTestEnv({}, async (env) => {
+      await env.writeRaw(
+        join(VALIDATION_PIPELINE_DATA.sourceDirectoryName, VALIDATION_PIPELINE_DATA.cleanSourceFileName),
+        "",
+      );
       await env.writeRaw(
         "base-excludes.json",
         JSON.stringify({ exclude: [VALIDATION_PIPELINE_DATA.sourceDirectoryName] }),
@@ -118,6 +150,7 @@ describe("ALWAYS: TypeScript scope resolution uses the requested project root", 
 
       const scope = getTypeScriptScope(VALIDATION_SCOPES.PRODUCTION, env.productDir);
 
+      expect(scope.filePatterns).toEqual([VALIDATION_PIPELINE_DATA.productionScopeFilePattern]);
       expect(scope.excludePatterns).toEqual([VALIDATION_PIPELINE_DATA.productionScopeExcludePattern]);
     });
   });

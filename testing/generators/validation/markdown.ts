@@ -9,14 +9,14 @@ const MARKDOWN_UNIT_TEMP_PREFIX = "mdlint-unit-";
 const MARKDOWN_E2E_TEMP_PREFIX = "mdlint-e2e-";
 const SPX_DIRECTORY_NAME = "spx";
 const DOCS_DIRECTORY_NAME = "docs";
-const FEATURE_DIRECTORY_NAME = "21-feature.outcome";
+const SAMPLE_DIRECTORY_NAME = "21-sample.outcome";
 const DECLARED_NODE_FRAGMENT = "32-declared";
 const DATA_URI_MARKER = "data:";
 const MISSING_HEADING_MARKER = "nonexistent-heading";
 const MISSING_FILE_MARKER = "does-not-exist";
 const MD024_RULE_MARKER = "MD024";
 const CHILD_MARKDOWN_FILE = "child.md";
-const FEATURE_MARKDOWN_FILE = "feature.md";
+const SAMPLE_MARKDOWN_FILE = "sample.md";
 const TARGET_MARKDOWN_FILE = "target.md";
 const SOURCE_MARKDOWN_FILE = "source.md";
 const BROKEN_MARKDOWN_FILE = "broken.md";
@@ -86,14 +86,14 @@ export const MARKDOWN_VALIDATION_DATA = {
   e2eTempPrefix: MARKDOWN_E2E_TEMP_PREFIX,
   spxDirectoryName: SPX_DIRECTORY_NAME,
   docsDirectoryName: DOCS_DIRECTORY_NAME,
-  featureDirectoryName: FEATURE_DIRECTORY_NAME,
+  sampleDirectoryName: SAMPLE_DIRECTORY_NAME,
   declaredNodeFragment: DECLARED_NODE_FRAGMENT,
   dataUriMarker: DATA_URI_MARKER,
   missingHeadingMarker: MISSING_HEADING_MARKER,
   missingFileMarker: MISSING_FILE_MARKER,
   md024RuleMarker: MD024_RULE_MARKER,
   childMarkdownFile: CHILD_MARKDOWN_FILE,
-  featureMarkdownFile: FEATURE_MARKDOWN_FILE,
+  sampleMarkdownFile: SAMPLE_MARKDOWN_FILE,
   targetMarkdownFile: TARGET_MARKDOWN_FILE,
   sourceMarkdownFile: SOURCE_MARKDOWN_FILE,
   brokenMarkdownFile: BROKEN_MARKDOWN_FILE,

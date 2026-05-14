@@ -1,7 +1,6 @@
 import js from "@eslint/js";
 import importPlugin from "eslint-plugin-import";
 import globals from "globals";
-import * as JSONC from "jsonc-parser";
 import { readFileSync } from "node:fs";
 import tseslint from "typescript-eslint";
 
@@ -9,9 +8,13 @@ import tseslint from "typescript-eslint";
 import customRules from "./eslint-rules";
 import { NO_ASYNC_SPAWN_OUTSIDE_LIFECYCLE_RULE_ID } from "./eslint-rules/no-async-spawn-outside-lifecycle";
 import { NO_BARE_STRING_UNIONS_RULE_ID } from "./eslint-rules/no-bare-string-unions";
+import { NO_BDD_TRY_CATCH_ANTI_PATTERN_RULE_ID } from "./eslint-rules/no-bdd-try-catch-anti-pattern";
 import { NO_DEEP_RELATIVE_IMPORTS_RULE_ID } from "./eslint-rules/no-deep-relative-imports";
+import { NO_HARDCODED_SPEC_TREE_NODE_KINDS_RULE_ID } from "./eslint-rules/no-hardcoded-spec-tree-node-kinds";
+import { NO_HARDCODED_SPEC_TREE_NODE_STATES_RULE_ID } from "./eslint-rules/no-hardcoded-spec-tree-node-states";
 import { NO_IMPORT_SOURCE_EXTENSIONS_RULE_ID } from "./eslint-rules/no-import-source-extensions";
 import { NO_REGISTRY_POSITION_ACCESS_RULE_ID } from "./eslint-rules/no-registry-position-access";
+import { NO_SPEC_REFERENCES_RULE_ID } from "./eslint-rules/no-spec-references";
 import { NO_TEST_OWNED_DOMAIN_CONSTANTS_RULE_ID } from "./eslint-rules/no-test-owned-domain-constants";
 import {
   TEST_ASSERTION_STRING_LITERAL_RULE,
@@ -19,6 +22,7 @@ import {
   testRestrictedSyntax,
   tsRestrictedSyntax,
 } from "./eslint-rules/restricted-syntax";
+import { readTypeScriptExcludeGlobs } from "./src/validation/eslint-config-exclusions";
 import { LINT_POLICY_MANIFESTS, parseLintPolicyManifest } from "./src/validation/lint-policy-constants";
 
 const TEST_LINT_DEBT_NODE_MANIFEST_FILE = LINT_POLICY_MANIFESTS.TEST_LINT_DEBT_NODES.file;
@@ -66,37 +70,6 @@ function isLegacyLintNoiseRule(
   );
 }
 
-/**
- * Read TypeScript exclusions to maintain perfect scope alignment.
- * Follows `extends` so derived configs (e.g. tsconfig.production.json)
- * inherit base exclusions such as `dist`.
- */
-function getTypeScriptExclusions(configFile: string, seen: ReadonlySet<string> = new Set()): string[] {
-  if (seen.has(configFile)) {
-    return [];
-  }
-  const nextSeen = new Set(seen).add(configFile);
-  try {
-    const configContent = readFileSync(configFile, "utf-8");
-    const config = JSONC.parse(configContent);
-    const ownExcludes: string[] = config.exclude || [];
-    const extendsValues = Array.isArray(config.extends) ? config.extends : [config.extends];
-    const baseExcludes = extendsValues
-      .filter((value): value is string => typeof value === "string")
-      .flatMap((value) => {
-        const baseFile = value.startsWith(".") ? value : `./${value}`;
-        return getTypeScriptExclusions(baseFile, nextSeen);
-      });
-    if (baseExcludes.length > 0) {
-      return [...baseExcludes, ...ownExcludes];
-    }
-    return ownExcludes;
-  } catch {
-    console.warn(`Could not read TypeScript config ${configFile}, using default exclusions`);
-    return [];
-  }
-}
-
 const testLintDebtNodePaths = readManifest(
   TEST_LINT_DEBT_NODE_MANIFEST_FILE,
   TEST_LINT_DEBT_NODE_MANIFEST_KEY,
@@ -115,7 +88,7 @@ const testLintDebtRestrictedSyntax = testRestrictedSyntax.filter(
 
 export function buildEslintConfig(options: BuildEslintConfigOptions = {}) {
   const typescriptConfigFile = options.typescriptConfigFile ?? ESLINT_TYPESCRIPT_CONFIG_FILES.FULL;
-  const tsExclusions = getTypeScriptExclusions(typescriptConfigFile);
+  const tsExclusionGlobs = readTypeScriptExcludeGlobs(typescriptConfigFile);
 
   return [
     // Ignore patterns - tsconfig.json exclusions + ESLint-specific patterns
@@ -125,7 +98,7 @@ export function buildEslintConfig(options: BuildEslintConfigOptions = {}) {
         // handled in tsconfig.json
 
         // From tsconfig.json (single source of truth)
-        ...tsExclusions.map((p) => (p.includes("*") ? p : `${p}/**/*`)),
+        ...tsExclusionGlobs,
       ],
     },
 
@@ -263,7 +236,7 @@ export function buildEslintConfig(options: BuildEslintConfigOptions = {}) {
         [NO_BARE_STRING_UNIONS_RULE_ID]: "error",
         [NO_DEEP_RELATIVE_IMPORTS_RULE_ID]: "error",
         [NO_IMPORT_SOURCE_EXTENSIONS_RULE_ID]: "error",
-        "spx/no-spec-references": "error",
+        [NO_SPEC_REFERENCES_RULE_ID]: "error",
       },
     },
     // Custom rules for test files
@@ -273,9 +246,9 @@ export function buildEslintConfig(options: BuildEslintConfigOptions = {}) {
         spx: customRules,
       },
       rules: {
-        "spx/no-bdd-try-catch-anti-pattern": "error",
-        "spx/no-hardcoded-work-item-kinds": "error",
-        "spx/no-hardcoded-statuses": "error",
+        [NO_BDD_TRY_CATCH_ANTI_PATTERN_RULE_ID]: "error",
+        [NO_HARDCODED_SPEC_TREE_NODE_KINDS_RULE_ID]: "error",
+        [NO_HARDCODED_SPEC_TREE_NODE_STATES_RULE_ID]: "error",
         [NO_REGISTRY_POSITION_ACCESS_RULE_ID]: "error",
       },
     },
@@ -292,8 +265,8 @@ export function buildEslintConfig(options: BuildEslintConfigOptions = {}) {
       files: testLintDebtNodeTestGlobs,
       rules: {
         "@typescript-eslint/no-explicit-any": "off",
-        "spx/no-hardcoded-work-item-kinds": "warn",
-        "spx/no-hardcoded-statuses": "warn",
+        [NO_HARDCODED_SPEC_TREE_NODE_KINDS_RULE_ID]: "warn",
+        [NO_HARDCODED_SPEC_TREE_NODE_STATES_RULE_ID]: "warn",
       },
     },
     {

@@ -5,38 +5,34 @@ import { join } from "node:path";
 import { withoutGitEnvironment } from "@/git/environment";
 import { LINT_POLICY_BASE_REFS, LINT_POLICY_MANIFESTS, parseLintPolicyManifest } from "./lint-policy-constants";
 
-const LEGACY_SPEC_SUFFIX_NODE_MANIFEST_FILE = LINT_POLICY_MANIFESTS.LEGACY_SPEC_SUFFIX_NODES.file;
-const LEGACY_SPEC_SUFFIX_NODE_MANIFEST_KEY = LINT_POLICY_MANIFESTS.LEGACY_SPEC_SUFFIX_NODES.key;
 const TEST_LINT_DEBT_NODE_MANIFEST_FILE = LINT_POLICY_MANIFESTS.TEST_LINT_DEBT_NODES.file;
 const TEST_LINT_DEBT_NODE_MANIFEST_KEY = LINT_POLICY_MANIFESTS.TEST_LINT_DEBT_NODES.key;
 const TEST_OWNED_CONSTANT_DEBT_NODE_MANIFEST_FILE = LINT_POLICY_MANIFESTS.TEST_OWNED_CONSTANT_DEBT_NODES.file;
 const TEST_OWNED_CONSTANT_DEBT_NODE_MANIFEST_KEY = LINT_POLICY_MANIFESTS.TEST_OWNED_CONSTANT_DEBT_NODES.key;
 const SPEC_TREE_ROOT = "spx";
-const SPEC_TREE_NODE_SUFFIX_PATTERN = /\.(enabler|outcome|capability|feature|story)$/;
-const LEGACY_SPEC_NODE_SUFFIX_PATTERN = /\.(capability|feature|story)$/;
+const SPEC_TREE_NODE_SUFFIX_PATTERN = /\.(enabler|outcome)$/;
+const DEPRECATED_SPEC_NODE_SUFFIX_PATTERN = /\.(capability|feature|story)$/;
 const BASE_BRANCH_REFS = [LINT_POLICY_BASE_REFS.REMOTE_MAIN, LINT_POLICY_BASE_REFS.LOCAL_MAIN] as const;
 
 export type LintPolicyResult =
   | { readonly ok: true }
   | { readonly ok: false; readonly error: string };
 
-function readManifest(projectRoot: string, file: string, key: string): string[] {
+function readManifest(productDir: string, file: string, key: string): string[] {
   return parseLintPolicyManifest(
-    readFileSync(join(projectRoot, file), "utf-8"),
+    readFileSync(join(productDir, file), "utf-8"),
     file,
     key,
   );
 }
 
-function manifestExists(projectRoot: string, file: string): boolean {
-  return existsSync(join(projectRoot, file));
+function manifestExists(productDir: string, file: string): boolean {
+  return existsSync(join(productDir, file));
 }
 
-function listLegacySpecNodePaths(projectRoot: string): string[] {
-  const legacySpecNodePaths: string[] = [];
-
-  function visit(relativeDirectory: string): void {
-    const absoluteDirectory = join(projectRoot, relativeDirectory);
+function findDeprecatedSpecNodePath(productDir: string): string | undefined {
+  function visit(relativeDirectory: string): string | undefined {
+    const absoluteDirectory = join(productDir, relativeDirectory);
     for (const entry of readdirSync(absoluteDirectory, { withFileTypes: true })) {
       if (!entry.isDirectory()) {
         continue;
@@ -44,25 +40,29 @@ function listLegacySpecNodePaths(projectRoot: string): string[] {
 
       const childPath = `${relativeDirectory}/${entry.name}`;
 
-      if (LEGACY_SPEC_NODE_SUFFIX_PATTERN.test(entry.name)) {
-        legacySpecNodePaths.push(childPath);
+      if (DEPRECATED_SPEC_NODE_SUFFIX_PATTERN.test(entry.name)) {
+        return childPath;
       }
 
-      visit(childPath);
+      const nestedDeprecatedPath = visit(childPath);
+      if (nestedDeprecatedPath !== undefined) {
+        return nestedDeprecatedPath;
+      }
     }
+
+    return undefined;
   }
 
-  const specTreeRootPath = join(projectRoot, SPEC_TREE_ROOT);
+  const specTreeRootPath = join(productDir, SPEC_TREE_ROOT);
   if (!existsSync(specTreeRootPath)) {
-    return [];
+    return undefined;
   }
 
-  visit(SPEC_TREE_ROOT);
-  return legacySpecNodePaths.sort();
+  return visit(SPEC_TREE_ROOT);
 }
 
 function assertManifestEntries(
-  projectRoot: string,
+  productDir: string,
   file: string,
   entries: string[],
   suffixPattern: RegExp,
@@ -93,15 +93,15 @@ function assertManifestEntries(
       throw new Error(`${file} entry must ${suffixDescription}: ${entry}`);
     }
 
-    const absoluteEntry = join(projectRoot, entry);
+    const absoluteEntry = join(productDir, entry);
     if (!existsSync(absoluteEntry) || !statSync(absoluteEntry).isDirectory()) {
       throw new Error(`${file} entry does not exist as a directory: ${entry}`);
     }
   }
 }
 
-function readBaselineManifest(projectRoot: string, file: string, key: string): string[] | undefined {
-  const baselineRef = readBaselineRef(projectRoot);
+function readBaselineManifest(productDir: string, file: string, key: string): string[] | undefined {
+  const baselineRef = readBaselineRef(productDir);
   if (baselineRef === undefined) {
     return undefined;
   }
@@ -109,7 +109,7 @@ function readBaselineManifest(projectRoot: string, file: string, key: string): s
   let content: string;
   try {
     content = execFileSync("git", ["show", `${baselineRef}:${file}`], {
-      cwd: projectRoot,
+      cwd: productDir,
       encoding: "utf-8",
       env: withoutGitEnvironment(process.env),
       stdio: ["ignore", "pipe", "ignore"],
@@ -125,14 +125,14 @@ function readBaselineManifest(projectRoot: string, file: string, key: string): s
   );
 }
 
-function readBaselineRef(projectRoot: string): string | undefined {
-  const mergeCommitFirstParent = readMergeCommitFirstParent(projectRoot);
+function readBaselineRef(productDir: string): string | undefined {
+  const mergeCommitFirstParent = readMergeCommitFirstParent(productDir);
   if (mergeCommitFirstParent !== undefined) {
     return mergeCommitFirstParent;
   }
 
   for (const baseBranchRef of BASE_BRANCH_REFS) {
-    const mergeBase = readMergeBase(projectRoot, baseBranchRef);
+    const mergeBase = readMergeBase(productDir, baseBranchRef);
     if (mergeBase !== undefined) {
       return mergeBase;
     }
@@ -141,22 +141,22 @@ function readBaselineRef(projectRoot: string): string | undefined {
   return undefined;
 }
 
-function readMergeCommitFirstParent(projectRoot: string): string | undefined {
-  const secondParent = readGitRef(projectRoot, ["rev-parse", "--verify", "HEAD^2"]);
+function readMergeCommitFirstParent(productDir: string): string | undefined {
+  const secondParent = readGitRef(productDir, ["rev-parse", "--verify", "HEAD^2"]);
   if (secondParent === undefined) {
     return undefined;
   }
-  return readGitRef(projectRoot, ["rev-parse", "--verify", "HEAD^1"]);
+  return readGitRef(productDir, ["rev-parse", "--verify", "HEAD^1"]);
 }
 
-function readMergeBase(projectRoot: string, baseBranchRef: string): string | undefined {
-  return readGitRef(projectRoot, ["merge-base", "HEAD", baseBranchRef]);
+function readMergeBase(productDir: string, baseBranchRef: string): string | undefined {
+  return readGitRef(productDir, ["merge-base", "HEAD", baseBranchRef]);
 }
 
-function readGitRef(projectRoot: string, args: readonly string[]): string | undefined {
+function readGitRef(productDir: string, args: readonly string[]): string | undefined {
   try {
     const output = execFileSync("git", [...args], {
-      cwd: projectRoot,
+      cwd: productDir,
       encoding: "utf-8",
       env: withoutGitEnvironment(process.env),
       stdio: ["ignore", "pipe", "ignore"],
@@ -168,12 +168,12 @@ function readGitRef(projectRoot: string, args: readonly string[]): string | unde
 }
 
 function assertManifestDoesNotGrow(
-  projectRoot: string,
+  productDir: string,
   file: string,
   key: string,
   entries: string[],
 ): void {
-  const baselineEntries = readBaselineManifest(projectRoot, file, key);
+  const baselineEntries = readBaselineManifest(productDir, file, key);
 
   if (baselineEntries === undefined) {
     return;
@@ -189,72 +189,54 @@ function assertManifestDoesNotGrow(
   }
 }
 
-function validateLegacySpecSuffixNodeManifest(projectRoot: string, entries: string[]): void {
-  assertManifestEntries(
-    projectRoot,
-    LEGACY_SPEC_SUFFIX_NODE_MANIFEST_FILE,
-    entries,
-    LEGACY_SPEC_NODE_SUFFIX_PATTERN,
-    "end in .capability, .feature, or .story",
-  );
-  assertManifestDoesNotGrow(
-    projectRoot,
-    LEGACY_SPEC_SUFFIX_NODE_MANIFEST_FILE,
-    LEGACY_SPEC_SUFFIX_NODE_MANIFEST_KEY,
-    entries,
-  );
-
-  const manifestEntrySet = new Set(entries);
-  const legacySpecNodePaths = listLegacySpecNodePaths(projectRoot);
-  const untrackedLegacySpecNodes = legacySpecNodePaths.filter((entry) => !manifestEntrySet.has(entry));
-
-  if (untrackedLegacySpecNodes.length > 0) {
+function rejectDeprecatedSpecNodeSuffixes(productDir: string): void {
+  const deprecatedSpecNodePath = findDeprecatedSpecNodePath(productDir);
+  if (deprecatedSpecNodePath !== undefined) {
     throw new Error(
-      `Legacy Spec Tree suffix paths must be listed in ${LEGACY_SPEC_SUFFIX_NODE_MANIFEST_FILE}: ${
-        untrackedLegacySpecNodes.join(", ")
-      }`,
+      `Spec Tree nodes must use current suffixes only: ${deprecatedSpecNodePath}`,
     );
   }
 }
 
-function validateTestLintDebtNodeManifest(projectRoot: string, entries: string[]): void {
+function validateTestLintDebtNodeManifest(productDir: string, entries: string[]): void {
   assertManifestEntries(
-    projectRoot,
+    productDir,
     TEST_LINT_DEBT_NODE_MANIFEST_FILE,
     entries,
     SPEC_TREE_NODE_SUFFIX_PATTERN,
     "be a Spec Tree node path",
   );
   assertManifestDoesNotGrow(
-    projectRoot,
+    productDir,
     TEST_LINT_DEBT_NODE_MANIFEST_FILE,
     TEST_LINT_DEBT_NODE_MANIFEST_KEY,
     entries,
   );
 }
 
-function validateTestOwnedConstantDebtNodeManifest(projectRoot: string, entries: string[]): void {
+function validateTestOwnedConstantDebtNodeManifest(productDir: string, entries: string[]): void {
   assertManifestEntries(
-    projectRoot,
+    productDir,
     TEST_OWNED_CONSTANT_DEBT_NODE_MANIFEST_FILE,
     entries,
     SPEC_TREE_NODE_SUFFIX_PATTERN,
     "be a Spec Tree node path",
   );
   assertManifestDoesNotGrow(
-    projectRoot,
+    productDir,
     TEST_OWNED_CONSTANT_DEBT_NODE_MANIFEST_FILE,
     TEST_OWNED_CONSTANT_DEBT_NODE_MANIFEST_KEY,
     entries,
   );
 }
 
-export function validateLintPolicy(projectRoot: string): LintPolicyResult {
+export function validateLintPolicy(productDir: string): LintPolicyResult {
   try {
+    rejectDeprecatedSpecNodeSuffixes(productDir);
+
     const manifestExistence = [
-      manifestExists(projectRoot, LEGACY_SPEC_SUFFIX_NODE_MANIFEST_FILE),
-      manifestExists(projectRoot, TEST_LINT_DEBT_NODE_MANIFEST_FILE),
-      manifestExists(projectRoot, TEST_OWNED_CONSTANT_DEBT_NODE_MANIFEST_FILE),
+      manifestExists(productDir, TEST_LINT_DEBT_NODE_MANIFEST_FILE),
+      manifestExists(productDir, TEST_OWNED_CONSTANT_DEBT_NODE_MANIFEST_FILE),
     ];
     if (manifestExistence.every((exists) => !exists)) {
       return { ok: true };
@@ -266,18 +248,14 @@ export function validateLintPolicy(projectRoot: string): LintPolicyResult {
       };
     }
 
-    validateLegacySpecSuffixNodeManifest(
-      projectRoot,
-      readManifest(projectRoot, LEGACY_SPEC_SUFFIX_NODE_MANIFEST_FILE, LEGACY_SPEC_SUFFIX_NODE_MANIFEST_KEY),
-    );
     validateTestLintDebtNodeManifest(
-      projectRoot,
-      readManifest(projectRoot, TEST_LINT_DEBT_NODE_MANIFEST_FILE, TEST_LINT_DEBT_NODE_MANIFEST_KEY),
+      productDir,
+      readManifest(productDir, TEST_LINT_DEBT_NODE_MANIFEST_FILE, TEST_LINT_DEBT_NODE_MANIFEST_KEY),
     );
     validateTestOwnedConstantDebtNodeManifest(
-      projectRoot,
+      productDir,
       readManifest(
-        projectRoot,
+        productDir,
         TEST_OWNED_CONSTANT_DEBT_NODE_MANIFEST_FILE,
         TEST_OWNED_CONSTANT_DEBT_NODE_MANIFEST_KEY,
       ),

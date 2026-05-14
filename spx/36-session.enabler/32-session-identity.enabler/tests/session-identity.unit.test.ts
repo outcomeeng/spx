@@ -219,7 +219,7 @@ describe("parseSessionMetadata", () => {
       id: "2026-01-13_10-00-00",
       priority: SESSION_PRIORITY.HIGH,
       tags: ["metadata", "cli"],
-      branch: "feature/session",
+      branch: "topic/session",
       createdAt: "2026-01-13T10:00:00-08:00",
       workingDirectory: "/path/to/project",
       specs: ["path/to/spec.md"],

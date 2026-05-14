@@ -86,7 +86,7 @@ export function buildSessionContent(content: string | undefined): string {
  * ```
  * ---
  * priority: high
- * tags: [feature, api]
+ * tags: [topic, api]
  * ---
  * # Session content...
  * ```

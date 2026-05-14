@@ -8,7 +8,7 @@ This decision governs which file formats `spx.config.*` accepts at the project r
 
 **Business impact:** spx is a multi-language tool. Projects using it may be primarily TypeScript, Python, Rust, or a mix. Each language ecosystem has a preferred config format — JSON with schema validation for TypeScript/JavaScript projects, YAML for configuration-heavy toolchains, TOML for Rust and Python projects. Restricting spx to a single format forces teams to maintain a file in a format foreign to their stack. Supporting the three canonical formats lets each project use the format their tooling already understands.
 
-**Technical constraints:** JSON Schema validators and IDE tooling (VS Code, JetBrains) recognize `spx.config.json` natively when the file is associated with a published schema. YAML language servers support schema association via a file-level pragma. TOML has limited schema-validation tooling but is the idiomatic format for Rust (`Cargo.toml`) and Python (`pyproject.toml`) projects. All three formats are structurally equivalent for the key-value shapes spx config requires — no format-specific features are needed.
+**Technical constraints:** JSON Schema validators and IDE tooling (VS Code, JetBrains) recognize `spx.config.json` natively when the file is associated with a published schema. YAML language servers support schema association via a file-level pragma. TOML has limited schema-validation tooling but is the idiomatic format for Rust (`Cargo.toml`) and Python (`pyproject.toml`) products. All three formats are structurally equivalent for the key-value shapes spx config requires.
 
 ## Decision
 

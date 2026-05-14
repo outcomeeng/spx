@@ -77,6 +77,15 @@ export const DECISION_KINDS: readonly DecisionKind[] = (Object.keys(KIND_REGISTR
 export const NODE_SUFFIXES: readonly string[] = NODE_KINDS.map((k) => KIND_REGISTRY[k].suffix);
 export const DECISION_SUFFIXES: readonly string[] = DECISION_KINDS.map((k) => KIND_REGISTRY[k].suffix);
 
+export const SPEC_TREE_NODE_STATE = {
+  DECLARED: "declared",
+  SPECIFIED: "specified",
+  FAILING: "failing",
+  PASSING: "passing",
+} as const;
+
+export type SpecTreeNodeState = (typeof SPEC_TREE_NODE_STATE)[keyof typeof SPEC_TREE_NODE_STATE];
+
 export type SpecTreeConfig = {
   readonly [SPEC_TREE_CONFIG_FIELDS.KINDS]: { readonly [K in Kind]?: KindDefinition<K> };
 };

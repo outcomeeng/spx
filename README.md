@@ -67,7 +67,7 @@ cat << 'EOF' | spx session handoff
 ---
 priority: high
 ---
-# Implement feature X
+# Implement change X
 EOF
 
 # List all sessions

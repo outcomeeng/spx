@@ -45,7 +45,7 @@ The API sketch is illustrative. The implementation pass owns the exact type name
 - [ ] Replace direct `withTestEnv` usage in spec-tree and spec-domain tests when the assertion needs a current spec-tree shape.
 - [ ] Keep direct `withTestEnv` usage for primitive config/file tests that do not need a spec-tree fixture.
 - [ ] Move any reusable node-local fixture constants into top-level test infrastructure.
-- [ ] Remove legacy fixture directories under `testing/fixtures/spec-legacy/` after current target tests no longer read them.
+- [x] Remove deprecated fixture directories after current target tests no longer read them.
 - [x] Re-run the test-environment tests, `spx validation all`, and the full package test gate after the harness rename.
 
 ## Tracked Deferrals

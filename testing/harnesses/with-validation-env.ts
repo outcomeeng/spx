@@ -8,7 +8,7 @@ const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
 
 /** Project root resolved from this helper's location */
-const PROJECT_ROOT = resolve(__dirname, "../..");
+const PRODUCT_ROOT = resolve(__dirname, "../..");
 
 /**
  * Fixture project constants for validation tests.
@@ -85,7 +85,7 @@ export async function withValidationEnv(
     await cp(fixtureSource, fixtureDest, { recursive: true });
 
     // Symlink node_modules from project root (fast, no install needed)
-    await symlink(join(PROJECT_ROOT, "node_modules"), join(fixtureDest, "node_modules"));
+    await symlink(join(PRODUCT_ROOT, "node_modules"), join(fixtureDest, "node_modules"));
 
     // Run test callback with context
     await testFn({ path: fixtureDest });

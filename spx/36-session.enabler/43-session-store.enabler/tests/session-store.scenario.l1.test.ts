@@ -50,11 +50,7 @@ import {
   SESSION_FRONT_MATTER_CLOSE,
   validateSessionContent,
 } from "@/domains/session/create";
-import {
-  buildSessionMarkdownBody,
-  createSessionHarness,
-  SessionHarness,
-} from "@testing/harnesses/session/harness";
+import { buildSessionMarkdownBody, createSessionHarness, SessionHarness } from "@testing/harnesses/session/harness";
 import { extractSessionFile, parseFrontMatter } from "./helpers";
 
 const [TODO] = SESSION_STATUSES;
@@ -310,7 +306,7 @@ describe("formatShowOutput", () => {
     const expected = {
       id: "test-session",
       priority: SESSION_PRIORITY.HIGH,
-      branch: "feature/test",
+      branch: "topic/test",
       tags: ["bug", "triage"],
       createdAt: "2026-01-13T10:00:00Z",
     };
@@ -488,7 +484,7 @@ describe("buildSessionContent", () => {
   it("GIVEN content with frontmatter WHEN built THEN preserves as-is", () => {
     const content = buildSessionFrontMatterContent([
       `${SESSION_FRONT_MATTER.PRIORITY}: ${SESSION_PRIORITY.HIGH}`,
-      `${SESSION_FRONT_MATTER.TAGS}: [feature]`,
+      `${SESSION_FRONT_MATTER.TAGS}: [topic]`,
     ], "# Task");
     expect(buildSessionContent(content)).toBe(content);
   });

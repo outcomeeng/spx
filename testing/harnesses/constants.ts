@@ -6,13 +6,10 @@ import { fileURLToPath } from "url";
 
 const __dirname = fileURLToPath(new URL(".", import.meta.url));
 
-// Re-export from production code so tests share the runtime source of truth.
-export { LEAF_KIND, WORK_ITEM_KINDS } from "@/lib/spec-legacy/types";
-
 /**
  * Product root directory (absolute path)
  */
-export const PROJECT_ROOT = resolve(__dirname, "../..");
+export const PRODUCT_ROOT = resolve(__dirname, "../..");
 
 /**
  * Node.js executable used by subprocess CLI tests.
@@ -22,27 +19,12 @@ export const NODE_EXECUTABLE = "node";
 /**
  * CLI binary path (absolute path)
  */
-export const CLI_PATH = resolve(PROJECT_ROOT, "bin/spx.js");
+export const CLI_PATH = resolve(PRODUCT_ROOT, "bin/spx.js");
 
 /**
  * Common CLI flags used across test files.
  */
 export const VERSION_FLAG = "--version";
-
-/**
- * Default BSP number for test data
- */
-export const DEFAULT_BSP_NUMBER = 20;
-
-/**
- * Minimum valid BSP number
- */
-export const MIN_BSP_NUMBER = 10;
-
-/**
- * Maximum valid BSP number
- */
-export const MAX_BSP_NUMBER = 99;
 
 /**
  * CLI performance thresholds in milliseconds

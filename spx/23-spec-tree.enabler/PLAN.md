@@ -11,7 +11,7 @@ Keep the reusable spec-tree library as the foundation for the refactor. This nod
 - [x] Keep one canonical public-surface scenario proving `readSpecTree`, `projectSpecTree`, and `findNextSpecTreeNode` together over a representative tree.
 - [x] Keep child-node tests focused on their owned behavior: source mapping, recognition mapping, assembly properties, traversal scenarios, state mapping, and projection conformance.
 - [x] Remove any command-formatting or terminal-output assertions from this node and move them to `spx/31-spec-domain.enabler/`.
-- [x] Replace remaining legacy `.capability`, `.feature`, and `.story` vocabulary in source, tests, and fixtures with registry-driven current vocabulary.
+- [x] Replace remaining deprecated node vocabulary in source, tests, and fixtures with registry-driven current vocabulary.
 - [x] Rename repository-root variables in library tests from legacy root vocabulary to product language when touching the harness or API boundary.
 
 ## Evidence matrix
@@ -51,5 +51,5 @@ Keep the reusable spec-tree library as the foundation for the refactor. This nod
 
 - [ ] The public spec-tree surface remains the only consumer import path for reading, projecting, and selecting from a spec tree.
 - [ ] Tests prove both in-memory and real-directory spec-tree structures where each assertion requires them.
-- [ ] Current `.enabler` and `.outcome` node vocabulary is accepted; legacy `.capability`, `.feature`, and `.story` vocabulary is rejected unless a separate current spec declares an explicit import path.
+- [ ] Current `.enabler` and `.outcome` node vocabulary is accepted; deprecated node suffixes are rejected unless a separate current spec declares an explicit import path.
 - [ ] State and projection behavior are derived from source records and evidence providers, not stored command state.

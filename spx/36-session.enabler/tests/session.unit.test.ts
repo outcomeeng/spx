@@ -164,7 +164,7 @@ describe("detectMainRepoRoot with dependency injection", () => {
 
 describe("detectMainRepoRoot vs detectGitRoot in worktrees", () => {
   it("GIVEN worktree WHEN both functions called THEN they return different roots", async () => {
-    const worktreeRoot = "/repo/.claude/worktrees/feature-branch";
+    const worktreeRoot = "/repo/.claude/worktrees/topic-branch";
     const mainRepoRoot = "/repo";
 
     // detectGitRoot uses --show-toplevel → worktree root

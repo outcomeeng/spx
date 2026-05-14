@@ -6,7 +6,7 @@ This decision governs how the `--allowlist-existing` helper persists allowlist e
 
 ## Context
 
-**Business impact:** A bulk-silence helper that writes the project's main configuration file is high-trust. A non-atomic write that crashes mid-flight corrupts the config and forces manual recovery; a write that loses the user's comments or reorders unrelated sections erodes trust enough to disable the feature. Atomic, format-preserving writes are the difference between a helper agents and operators run without supervision and a helper that lives behind a manual review checklist.
+**Business impact:** A bulk-silence helper that writes the product's main configuration file is high-trust. A non-atomic write that crashes mid-flight corrupts the config and forces manual recovery; a write that loses the user's comments or reorders unrelated sections erodes trust enough to disable the helper. Atomic, format-preserving writes are the difference between a helper that agents and operators run without supervision and a helper that lives behind a manual review checklist.
 
 **Technical constraints:** The config module detects the active config file by scanning the project root for `spx.config.{json,yaml,toml}` and returns an ambiguity result when more than one is present. The helper must use the same detection — running its own search would diverge from the read path and produce surprising write targets. POSIX `rename` is atomic when source and destination share a filesystem. Raw config parsing and serialization live in `src/config/`; the helper consumes config-file and section APIs rather than importing JSON, YAML, or TOML parsers itself.
 

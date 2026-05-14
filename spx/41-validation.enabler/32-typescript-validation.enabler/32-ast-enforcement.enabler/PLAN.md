@@ -15,8 +15,8 @@ Cleaned test files:
 - `tests/ast-enforcement.mapping.l1.test.ts`
 - `tests/eslint-rules.scenario.l2.test.ts`
 - `tests/no-async-spawn-outside-lifecycle.mapping.l1.test.ts`
-- `tests/no-hardcoded-statuses.mapping.l1.test.ts`
-- `tests/no-hardcoded-work-item-kinds.mapping.l1.test.ts`
+- `tests/no-hardcoded-spec-tree-node-states.mapping.l1.test.ts`
+- `tests/no-hardcoded-spec-tree-node-kinds.mapping.l1.test.ts`
 - `tests/no-registry-position-access.mapping.l1.test.ts`
 - `tests/no-test-owned-domain-constants.mapping.l1.test.ts`
 
