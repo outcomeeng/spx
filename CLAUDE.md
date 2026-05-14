@@ -24,8 +24,6 @@
 - ⚠️ **NEVER mechanically extract typed literal union values to named constants** — `no-restricted-syntax` warnings on `expect(x).toBe("declared")` where `x: NodeState` are false positives. The type annotation IS the documentation; renaming `"declared"` → `STATE_DECLARED` adds zero information. The lint rule targets magic strings whose meaning is obscure; enum-like union members are already self-documenting. Suppress the warning inline or leave it; never rename. The `typescript:auditing-typescript-tests` skill's Gate 0 C1/L1 findings for typed protocol values (`"PASS"`, `"FAIL"`, `"APPROVED"`, `"REJECT"`) are the same class of false positive — a Gate 0 REJECT on these strings is not a work blocker when `pnpm run validate` passes and tests pass.
 - ⚠️ **ALWAYS research related codebases before offering architectural options** — before presenting A/B/C choices via `AskUserQuestion`, grep/read related codebases (sibling monorepo paths like `~/Code/CraftFinal/root/`, existing `src/spec/apply/`, etc.) for established patterns. If a pattern already exists there, reference it rather than reinventing. "Read the existing code" beats any combination of options you can invent.
 
-- ⚠️ **ALWAYS normalize spec-tree suffix debt bottom-up** — when cleaning up `.story`/`.feature`/`.capability` nodes: rename all `.story` dirs first (within each parent), then `.feature` dirs, then the `.capability` root. Never rename a parent before all children are resolved. Each rename also rewrites the spec content (PROVIDES/SO THAT/CAN). Verify code is still wired into the CLI afterward — surface unwired items at end of session.
-
 - ✅ **ALWAYS `git mv` when moving tracked files** - Never `cp` then `git add`. `git mv` preserves history. Use `git mv -f` when the target exists.
 - ✅ **When uncertain, ASK STRUCTURED QUESTIONS. Never guess implementation patterns, test methodology or requirements.**
 - ✅ **Use `AskUserQuestion` for structured questions with predefined options.** Do NOT use it for open-ended questions where the user needs to provide free-form context — just ask in plain text instead.
@@ -45,7 +43,7 @@ The **spec-tree** plugin (`outcomeeng/claude/plugins/spec-tree`) is the active s
 | Skill                        | Purpose                                                        |
 | ---------------------------- | -------------------------------------------------------------- |
 | `/spec-tree:understanding`   | Load methodology foundation (node types, ordering, assertions) |
-| `/spec-tree:contextualizing` | Load context for a specific work item (walks tree to target)   |
+| `/spec-tree:contextualizing` | Load context for a specific node (walks tree to target)        |
 | `/spec-tree:authoring`       | Create specs, ADRs, PDRs, enablers, outcomes                   |
 | `/spec-tree:decomposing`     | Break nodes into children with proper ordering                 |
 | `/spec-tree:testing`         | Manage spec-test lock file lifecycle                           |
@@ -53,10 +51,6 @@ The **spec-tree** plugin (`outcomeeng/claude/plugins/spec-tree`) is the active s
 | `/spec-tree:aligning`        | Review for gaps, contradictions, and consistency               |
 
 Additional skills ship with the plugin and are invoked by name: `applying`, `committing-changes`, `interviewing`, `auditing-tests`, `auditing-product-decisions`, `handing-off`, `picking-up`, `refocusing`, `bootstrapping`. See `outcomeeng/claude/plugins/spec-tree/skills/` for the full list.
-
-### Legacy: `specs/` directory
-
-The `specs/` directory uses the legacy task-driven system (backlog/doing/done with `DONE.md`). It is **frozen** — do not modify unless explicitly instructed.
 
 ---
 
@@ -219,7 +213,7 @@ cat << 'EOF' | spx session handoff
 ---
 priority: high
 ---
-# Task: Implement feature X
+# Task: Implement X
 EOF
 # Output:
 # Created handoff session <HANDOFF_ID>2026-01-15_08-30-00</HANDOFF_ID>
@@ -246,7 +240,7 @@ This makes `spx session handoff` deterministic for permission pre-approval.
 cat << 'EOF' | spx session handoff
 ---
 priority: high
-tags: [feature, api]
+tags: [api]
 ---
 # Implement User Authentication
 

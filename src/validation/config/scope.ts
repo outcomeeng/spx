@@ -202,7 +202,7 @@ export function getTopLevelDirectoriesWithTypeScript(
   for (const dir of topLevelDirs) {
     // Check if directory is explicitly excluded
     const isExcluded = config.exclude?.some((pattern) => {
-      // Handle patterns like "specs/**/*", "docs/**/*"
+      // Handle directory-recursive patterns like "docs/**/*"
       if (pattern.includes("/**")) {
         const dirPattern = pattern.split("/**")[0];
         return dirPattern === dir;

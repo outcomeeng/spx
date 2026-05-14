@@ -60,7 +60,8 @@ const LITERAL_SKIP_TEST_SEGMENTS = [
 const LITERAL_SKIP_TOKEN = "validation-all-skip-literal-token";
 const TYPE_ERROR_SOURCE_SEGMENTS = ["src", "has-type-error.ts"] as const;
 const PRODUCTION_SCOPE_FILE_PATTERN = "src/**/*";
-const PRODUCTION_SCOPE_EXCLUDE_PATTERN = "specs/**/*";
+// Mirrors an actual tsconfig.production.json exclude entry.
+const PRODUCTION_SCOPE_EXCLUDE_PATTERN = "docs/**/*";
 const ABSENT_SCOPE_FILE_PATTERN = "scripts/**/*";
 const TYPE_ERROR_REPLACEMENT_PATTERN = /const x:\s*number\s*=\s*"[^"]+";?/g;
 const TYPE_ERROR_REPLACEMENT = "const x: number = 0;";

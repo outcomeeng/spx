@@ -44,7 +44,6 @@ Rebuild `spx spec` command behavior on top of the current spec-tree library. Thi
 - [x] Make command handlers resolve the worktree-local tracked `spx/` root per `spx/15-worktree-resolution.pdr.md`.
 - [x] Keep config writes out of all spec-domain command paths.
 - [x] Rename apply-exclude root vocabulary from `projectRoot` to `productDir` when owning the config-write path — resolved by deleting the retired config-write path instead of retaining it.
-- [x] Remove legacy `specs/work` fixtures from spec-domain tests.
 - [x] Run focused spec-domain tests, then `spx validation all`, then the full package test gate.
 
 ## Acceptance

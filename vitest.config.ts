@@ -15,7 +15,7 @@ export default defineConfig({
   test: {
     globals: true,
     environment: "node",
-    include: ["spx/**/*.test.ts", "specs/**/*.test.ts"],
+    include: ["spx/**/*.test.ts"],
     exclude: ["**/node_modules/**", "**/dist/**", "testing/fixtures/**/*.test.ts"],
     // Integration/e2e tests spawn subprocesses; under full concurrency (130 files, forks pool) isolation runs of 4–9s can exceed 15s
     testTimeout: 30_000,
