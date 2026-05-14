@@ -126,7 +126,7 @@ A verdict file at `.spx/audit/work-config-backed-execution-scope/runs/2026-04-25
 - Select the latest terminal run by greatest `completedAt`, then greatest `startedAt`, then lexicographically greatest run directory name as a deterministic tie-breaker ([review])
 - Store `state.json` statuses as lowercase machine tokens; render CLI status strings through the explicit persisted-status-to-display mapping ([review])
 - Compute `auditConfigDigest` from config-owned canonical descriptor JSON for the resolved audit config descriptor section after defaults are applied, excluding unrelated descriptor sections and raw file formatting ([review](../16-config.enabler/21-descriptor-registration.adr.md))
-- Resolve `.spx/audit/` relative to the Git common-dir product root via `detectMainRepoRoot` per `spx/15-worktree-resolution.pdr.md` ([review](../15-worktree-resolution.pdr.md))
+- Resolve `.spx/audit/` relative to the Git common-dir product root per `spx/15-worktree-resolution.pdr.md` ([review](../15-worktree-resolution.pdr.md))
 - Derive all path component names (`.spx`, `audit`, `runs`) from the audit config descriptor defaults — single source of truth ([review](../16-config.enabler/21-descriptor-registration.adr.md))
 - Keep `spx audit verify <file>` accepting any explicit verdict file path supplied by the caller, including node-first `.spx/nodes/` artifacts and branch-scoped `.spx/audit/` artifacts ([review])
 - Do not index, list, or migrate `.spx/nodes/` artifacts into branch-scoped audit status; node-first artifacts are explicit-file verification inputs only ([review])
