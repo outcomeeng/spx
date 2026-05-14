@@ -91,7 +91,7 @@ describe("spx spec process contract", () => {
 
       const result = await runCli(env.productDir, SPEC_DOMAIN_CLI.COMMAND, RETIRED_SPEC_APPLY_FIXTURE.command);
 
-      expect(result.exitCode).not.toBe(0);
+      expect(result.exitCode).toBe(1);
       expect(result.stderr).toContain(RETIRED_SPEC_APPLY_FIXTURE.unknownCommandPrefix);
       expect(result.stderr).toContain(RETIRED_SPEC_APPLY_FIXTURE.command);
       expect(await env.readFile(RETIRED_SPEC_APPLY_FIXTURE.pythonConfigFile)).toBe(pyprojectContent);
