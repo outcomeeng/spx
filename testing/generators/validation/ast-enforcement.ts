@@ -399,6 +399,7 @@ export function noTestOwnedDomainConstantsCases(): ValidationGeneratedRuleTester
 export function noHardcodedSpecTreeNodeStatesCases(): ValidationGeneratedRuleTesterCases {
   const declared = SPEC_TREE_NODE_STATE.DECLARED;
   const specified = SPEC_TREE_NODE_STATE.SPECIFIED;
+  const failing = SPEC_TREE_NODE_STATE.FAILING;
   const passing = SPEC_TREE_NODE_STATE.PASSING;
   return {
     valid: [
@@ -444,7 +445,7 @@ export function noHardcodedSpecTreeNodeStatesCases(): ValidationGeneratedRuleTes
       },
     ],
     invalid: [
-      ...[declared, specified, passing].map((state) => ({
+      ...[declared, specified, failing, passing].map((state) => ({
         name: `GIVEN expect().toBe(${state}) WHEN linting THEN error`,
         code: `expect(node.state).toBe("${state}")`,
         filename: VALIDATION_ESLINT_FILES.genericTest,
