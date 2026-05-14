@@ -149,6 +149,7 @@ export function validationTypeScriptExclusionsScenario(): ValidationGeneratedTyp
   const existingFileGlob = "generated/**/*";
   const childDirectoryExclude = "artifacts";
   const packageExclude = "cache";
+  const fileExclude = "generated.ts";
 
   return {
     missingConfigFile: "missing-tsconfig.json",
@@ -161,7 +162,7 @@ export function validationTypeScriptExclusionsScenario(): ValidationGeneratedTyp
     },
     childConfig: {
       extends: "./tsconfig.base.json",
-      exclude: [childDirectoryExclude],
+      exclude: [childDirectoryExclude, fileExclude],
     },
     packageChildConfig: {
       extends: "@spx-test/tsconfig",
@@ -178,6 +179,7 @@ export function validationTypeScriptExclusionsScenario(): ValidationGeneratedTyp
       existingDirectoryGlob,
       existingFileGlob,
       `${childDirectoryExclude}/**/*`,
+      fileExclude,
     ],
     expectedPackageGlobs: [`${packageExclude}/**/*`],
   };
@@ -281,6 +283,8 @@ export const VALIDATION_ESLINT_SNIPPETS = {
   kindObjectKeys: `const map = { enabler: 1, outcome: 2 }`,
   templateStateDescription: "describe(`node state for ${name}`, () => {})",
   templateKindDescription: "describe(`node kind parsing for ${name}`, () => {})",
+  templateStateAssertion: "expect(node.state).toBe(`declared`)",
+  templateKindAssertion: "expect(node.kind).toBe(`enabler`)",
   bareStringUnion: `type Tier = "free" | "pro";`,
   internalSourceExtension: `import "./local.js";`,
   deepParentImport: `import "../../config";`,
@@ -482,6 +486,16 @@ export function noHardcodedSpecTreeNodeStatesCases(): ValidationGeneratedRuleTes
         filename: "types.ts",
       },
       {
+        name: "GIVEN type alias with state literal in test file WHEN linting THEN no error",
+        code: `type State = "${declared}"`,
+        filename: VALIDATION_ESLINT_FILES.genericTest,
+      },
+      {
+        name: "GIVEN template literal state assertion WHEN linting THEN no error",
+        code: VALIDATION_ESLINT_SNIPPETS.templateStateAssertion,
+        filename: VALIDATION_ESLINT_FILES.genericTest,
+      },
+      {
         name: "GIVEN registry-derived state type WHEN linting THEN no error",
         code: `type SpecTreeNodeState = (typeof SPEC_TREE_NODE_STATE)[keyof typeof SPEC_TREE_NODE_STATE]`,
         filename: VALIDATION_ESLINT_FILES.sourceTypes,
@@ -588,6 +602,16 @@ export function noHardcodedSpecTreeNodeKindsCases(): ValidationGeneratedRuleTest
         name: "GIVEN type alias with kind literal WHEN linting THEN no error",
         code: `type Kind = "${enabler}"`,
         filename: "types.ts",
+      },
+      {
+        name: "GIVEN type alias with kind literal in test file WHEN linting THEN no error",
+        code: `type Kind = "${enabler}"`,
+        filename: VALIDATION_ESLINT_FILES.genericTest,
+      },
+      {
+        name: "GIVEN template literal kind assertion WHEN linting THEN no error",
+        code: VALIDATION_ESLINT_SNIPPETS.templateKindAssertion,
+        filename: VALIDATION_ESLINT_FILES.genericTest,
       },
       {
         name: "GIVEN registry-derived kind type WHEN linting THEN no error",

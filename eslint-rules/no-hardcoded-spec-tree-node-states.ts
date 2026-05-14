@@ -29,7 +29,7 @@ const rule: Rule.RuleModule = {
     type: "suggestion",
     docs: {
       description:
-        "Enforce source-owned SPEC_TREE_NODE_STATE registry references instead of hardcoded node state strings",
+        "Enforce source-owned SPEC_TREE_NODE_STATE registry references instead of hardcoded exact node state string literals in test assertions",
       category: "Best Practices",
       recommended: true,
     },

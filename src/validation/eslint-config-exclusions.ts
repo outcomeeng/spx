@@ -1,9 +1,10 @@
 import * as JSONC from "jsonc-parser";
 import { readFileSync } from "node:fs";
 import { createRequire } from "node:module";
-import { dirname, isAbsolute, join } from "node:path";
+import { basename, dirname, isAbsolute, join } from "node:path";
 
 const GLOB_MARKER = "*";
+const FILE_EXTENSION_PATTERN = /\.[^/]+$/;
 const TYPE_SCRIPT_EXCLUDE_TREE_GLOB = "/**/*";
 
 interface TypeScriptConfigFile {
@@ -35,7 +36,9 @@ function normalizeTypeScriptExtends(value: TypeScriptConfigFile["extends"]): rea
 }
 
 function toTypeScriptExcludeGlob(path: string): string {
-  return path.endsWith(TYPE_SCRIPT_EXCLUDE_TREE_GLOB) || path.includes(GLOB_MARKER)
+  return path.endsWith(TYPE_SCRIPT_EXCLUDE_TREE_GLOB)
+      || path.includes(GLOB_MARKER)
+      || FILE_EXTENSION_PATTERN.test(basename(path))
     ? path
     : `${path}${TYPE_SCRIPT_EXCLUDE_TREE_GLOB}`;
 }

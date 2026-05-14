@@ -28,7 +28,8 @@ const rule: Rule.RuleModule = {
   meta: {
     type: "suggestion",
     docs: {
-      description: "Enforce source-owned NODE_KINDS registry references instead of hardcoded node kind strings",
+      description:
+        "Enforce source-owned NODE_KINDS registry references instead of hardcoded exact node kind string literals in test assertions",
       category: "Best Practices",
       recommended: true,
     },
