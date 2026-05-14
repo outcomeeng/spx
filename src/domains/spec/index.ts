@@ -16,17 +16,8 @@ export const SPEC_DOMAIN_CLI = {
   FORMAT_OPTION_DEFINITION: "--format <format>",
 } as const;
 
-export const RETIRED_SPEC_DOMAIN_CLI = {
-  APPLY_COMMAND: "apply",
-} as const;
-
 export const SPEC_STATUS_FORMAT_MESSAGE = {
   INVALID_PREFIX: "Invalid format",
-} as const;
-
-export const SPEC_DOMAIN_CLI_MESSAGE = {
-  // Commander emits this prefix for unknown subcommands before domain action handlers run.
-  UNKNOWN_COMMAND_PREFIX: "error: unknown command",
 } as const;
 
 const VALID_STATUS_FORMATS: readonly OutputFormat[] = [

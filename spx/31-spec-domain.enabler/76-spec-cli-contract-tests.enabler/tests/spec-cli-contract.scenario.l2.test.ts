@@ -3,12 +3,7 @@ import { describe, expect, it } from "vitest";
 
 import { SPEC_NEXT_MESSAGE } from "@/commands/spec/next";
 import { OUTPUT_FORMAT } from "@/commands/spec/status";
-import {
-  RETIRED_SPEC_DOMAIN_CLI,
-  SPEC_DOMAIN_CLI,
-  SPEC_DOMAIN_CLI_MESSAGE,
-  SPEC_STATUS_FORMAT_MESSAGE,
-} from "@/domains/spec";
+import { SPEC_DOMAIN_CLI, SPEC_STATUS_FORMAT_MESSAGE } from "@/domains/spec";
 import { SPEC_TREE_NODE_STATE } from "@/lib/spec-tree";
 import { KIND_REGISTRY } from "@/lib/spec-tree/config";
 import { MINIMAL_SPEC_TREE_CONFIG } from "@testing/generators/config/config";
@@ -94,11 +89,11 @@ describe("spx spec process contract", () => {
       await env.writeRaw(RETIRED_SPEC_APPLY_FIXTURE.excludeFile, `${nodePath}\n`);
       await env.writeRaw(RETIRED_SPEC_APPLY_FIXTURE.pythonConfigFile, pyprojectContent);
 
-      const result = await runCli(env.productDir, SPEC_DOMAIN_CLI.COMMAND, RETIRED_SPEC_DOMAIN_CLI.APPLY_COMMAND);
+      const result = await runCli(env.productDir, SPEC_DOMAIN_CLI.COMMAND, RETIRED_SPEC_APPLY_FIXTURE.command);
 
       expect(result.exitCode).not.toBe(0);
-      expect(result.stderr).toContain(SPEC_DOMAIN_CLI_MESSAGE.UNKNOWN_COMMAND_PREFIX);
-      expect(result.stderr).toContain(RETIRED_SPEC_DOMAIN_CLI.APPLY_COMMAND);
+      expect(result.stderr).toContain(RETIRED_SPEC_APPLY_FIXTURE.unknownCommandPrefix);
+      expect(result.stderr).toContain(RETIRED_SPEC_APPLY_FIXTURE.command);
       expect(await env.readFile(RETIRED_SPEC_APPLY_FIXTURE.pythonConfigFile)).toBe(pyprojectContent);
     });
   });
