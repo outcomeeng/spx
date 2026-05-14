@@ -50,12 +50,20 @@ Settled prerequisites on current `origin/main`:
 - Testing descriptor: `spx/41-testing.enabler/32-testing-config.enabler/` and `spx/16-config.enabler/43-domain-execution-descriptors.enabler/` own the registered testing descriptor. Dependent packets consume it and do not create a second testing descriptor.
 - F1, A1, and R1 are the packets that consume the settled path-filter primitive directly.
 
+Verify the settled prerequisites before assigning dependent packets:
+
+```bash
+git ls-tree origin/main -- spx/16-config.enabler/32-shared-config-primitives.enabler/
+git ls-tree origin/main -- spx/41-testing.enabler/32-testing-config.enabler/
+git ls-tree origin/main -- spx/16-config.enabler/43-domain-execution-descriptors.enabler/
+```
+
 | Packet | Target node | Depends on | Output |
 | --- | --- | --- | --- |
 | C1 | `spx/16-config.enabler/54-canonical-descriptor-digest.enabler/` | none | Config-owned canonical descriptor JSON and descriptor digest API |
 | C2 | `spx/16-config.enabler/65-product-directory-api.enabler/` | none | Product-root vocabulary across config APIs, harnesses, and root helpers |
 | F1 | `spx/17-file-inclusion.enabler/65-domain-path-filters.enabler/` | settled path-filter primitive | File-inclusion resolver accepts descriptor-owned domain path filters |
-| T1 | `spx/22-test-environment.enabler/32-spec-tree-fixtures.enabler/` | none | Remaining spec-tree tests use `withSpecTreeEnv` when they need materialized `spx/` fixtures |
+| T1 | `spx/22-test-environment.enabler/32-spec-tree-fixtures.enabler/` | C2 | Remaining spec-tree tests use `withSpecTreeEnv` when they need materialized `spx/` fixtures |
 | T2 | `spx/41-testing.enabler/43-last-run-evidence.enabler/` | settled testing descriptor, C1 | Persisted test observations and stale-status inputs |
 | A1 | `spx/36-audit.enabler/43-audit-config.enabler/` | settled path-filter primitive | Registered audit config descriptor |
 | A2 | `spx/36-audit.enabler/54-branch-run-state.enabler/` | A1, C1 | Branch-scoped audit run state under `.spx/audit/{branch-slug}` |
@@ -71,6 +79,8 @@ Settled prerequisites on current `origin/main`:
 | E1 | `spx/33-agent-environment.enabler/21-agent-instructions.enabler/` | E0 | Deterministic instruction-file reconciliation |
 | E2 | `spx/33-agent-environment.enabler/32-runtime-config.enabler/` | E0 | Claude Code and Codex runtime config reconciliation |
 | E3 | `spx/33-agent-environment.enabler/43-plugin-bootstrap.enabler/` | E2 | Plugin marketplace, plugin, and skill bootstrap status |
+
+Critical path: E0 must settle before E2, and E2 gates A3, R2, R4, and R5 transitively. Assign E0 and E2 early when audit or review execution packets are planned.
 
 ## Common Agent Pickup Rules
 
