@@ -96,5 +96,28 @@ describe("ESLint rules integration", () => {
         expect(ignorePatterns).toEqual(expect.arrayContaining([...testCase.expectedGlobs]));
       });
     });
+
+    it("reads exclusions through package TypeScript config extends", async () => {
+      const testCase = validationTypeScriptExclusionsScenario();
+
+      await withTestEnv(MINIMAL_SPEC_TREE_CONFIG, async ({ productDir, writeRaw }) => {
+        await writeRaw(
+          testCase.packageConfigFile,
+          JSON.stringify(testCase.packageConfig),
+        );
+        await writeRaw(
+          testCase.packageManifestFile,
+          JSON.stringify(testCase.packageManifest),
+        );
+        await writeRaw(
+          testCase.childConfigFile,
+          JSON.stringify(testCase.packageChildConfig),
+        );
+
+        const ignorePatterns = readTypeScriptExcludeGlobs(join(productDir, testCase.childConfigFile));
+
+        expect(ignorePatterns).toEqual(expect.arrayContaining([...testCase.expectedPackageGlobs]));
+      });
+    });
   });
 });

@@ -30,10 +30,8 @@ function manifestExists(productDir: string, file: string): boolean {
   return existsSync(join(productDir, file));
 }
 
-function listDeprecatedSpecNodePaths(productDir: string): string[] {
-  const deprecatedSpecNodePaths: string[] = [];
-
-  function visit(relativeDirectory: string): void {
+function findDeprecatedSpecNodePath(productDir: string): string | undefined {
+  function visit(relativeDirectory: string): string | undefined {
     const absoluteDirectory = join(productDir, relativeDirectory);
     for (const entry of readdirSync(absoluteDirectory, { withFileTypes: true })) {
       if (!entry.isDirectory()) {
@@ -43,20 +41,24 @@ function listDeprecatedSpecNodePaths(productDir: string): string[] {
       const childPath = `${relativeDirectory}/${entry.name}`;
 
       if (DEPRECATED_SPEC_NODE_SUFFIX_PATTERN.test(entry.name)) {
-        deprecatedSpecNodePaths.push(childPath);
+        return childPath;
       }
 
-      visit(childPath);
+      const nestedDeprecatedPath = visit(childPath);
+      if (nestedDeprecatedPath !== undefined) {
+        return nestedDeprecatedPath;
+      }
     }
+
+    return undefined;
   }
 
   const specTreeRootPath = join(productDir, SPEC_TREE_ROOT);
   if (!existsSync(specTreeRootPath)) {
-    return [];
+    return undefined;
   }
 
-  visit(SPEC_TREE_ROOT);
-  return deprecatedSpecNodePaths.sort();
+  return visit(SPEC_TREE_ROOT);
 }
 
 function assertManifestEntries(
@@ -188,10 +190,10 @@ function assertManifestDoesNotGrow(
 }
 
 function rejectDeprecatedSpecNodeSuffixes(productDir: string): void {
-  const deprecatedSpecNodePaths = listDeprecatedSpecNodePaths(productDir);
-  if (deprecatedSpecNodePaths.length > 0) {
+  const deprecatedSpecNodePath = findDeprecatedSpecNodePath(productDir);
+  if (deprecatedSpecNodePath !== undefined) {
     throw new Error(
-      `Spec Tree nodes must use current suffixes only: ${deprecatedSpecNodePaths.join(", ")}`,
+      `Spec Tree nodes must use current suffixes only: ${deprecatedSpecNodePath}`,
     );
   }
 }

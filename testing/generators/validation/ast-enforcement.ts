@@ -110,6 +110,8 @@ export interface ValidationGeneratedTypeScriptExclusionsScenario {
   readonly missingConfigFile: string;
   readonly baseConfigFile: string;
   readonly childConfigFile: string;
+  readonly packageConfigFile: string;
+  readonly packageManifestFile: string;
   readonly baseConfig: {
     readonly exclude: readonly string[];
   };
@@ -117,7 +119,18 @@ export interface ValidationGeneratedTypeScriptExclusionsScenario {
     readonly extends: string;
     readonly exclude: readonly string[];
   };
+  readonly packageChildConfig: {
+    readonly extends: string;
+  };
+  readonly packageConfig: {
+    readonly exclude: readonly string[];
+  };
+  readonly packageManifest: {
+    readonly name: string;
+    readonly main: string;
+  };
   readonly expectedGlobs: readonly string[];
+  readonly expectedPackageGlobs: readonly string[];
 }
 
 export function validationRuleTesterHooks(): {
@@ -135,11 +148,14 @@ export function validationTypeScriptExclusionsScenario(): ValidationGeneratedTyp
   const existingDirectoryGlob = "coverage/**";
   const existingFileGlob = "generated/**/*";
   const childDirectoryExclude = "artifacts";
+  const packageExclude = "cache";
 
   return {
     missingConfigFile: "missing-tsconfig.json",
     baseConfigFile: "config/tsconfig.base.json",
     childConfigFile: "config/tsconfig.child.json",
+    packageConfigFile: "node_modules/@spx-test/tsconfig/tsconfig.json",
+    packageManifestFile: "node_modules/@spx-test/tsconfig/package.json",
     baseConfig: {
       exclude: [directoryExclude, existingDirectoryGlob, existingFileGlob],
     },
@@ -147,12 +163,23 @@ export function validationTypeScriptExclusionsScenario(): ValidationGeneratedTyp
       extends: "./tsconfig.base.json",
       exclude: [childDirectoryExclude],
     },
+    packageChildConfig: {
+      extends: "@spx-test/tsconfig",
+    },
+    packageConfig: {
+      exclude: [packageExclude],
+    },
+    packageManifest: {
+      name: "@spx-test/tsconfig",
+      main: "tsconfig.json",
+    },
     expectedGlobs: [
       `${directoryExclude}/**/*`,
       existingDirectoryGlob,
       existingFileGlob,
       `${childDirectoryExclude}/**/*`,
     ],
+    expectedPackageGlobs: [`${packageExclude}/**/*`],
   };
 }
 
