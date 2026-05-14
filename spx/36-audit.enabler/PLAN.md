@@ -20,8 +20,8 @@ Move audit from verify-only artifact checking toward config-backed, branch-scope
 
 2. Implement branch slugging.
    - Branch names map to filesystem-safe slugs with no path separators.
-   - Slug collisions append the first eight lowercase hex characters of the SHA-256 digest of the original branch name.
-   - Detached-head behavior is explicit and test-covered.
+   - Branch slugs always append the first eight lowercase hex characters of the SHA-256 digest of the original branch identity.
+   - Detached HEAD state uses `detached-{short-sha}` as the branch identity and is test-covered.
 
 3. Move storage from node-first to branch-first.
    - Keep `spx audit verify <file>` accepting arbitrary file paths.
@@ -38,5 +38,5 @@ Move audit from verify-only artifact checking toward config-backed, branch-scope
 
 ## Open Coordination
 
-- The existing audit implementation and tests still refer to `.spx/nodes/`; migrate them in the audit implementation tranche after the descriptor exists.
+- The existing audit implementation and tests still refer to `.spx/nodes/`; before adding branch-scoped storage evidence, update or delete tests that assert `.spx/nodes/` paths.
 - Future retention behavior belongs in this node after branch-scoped storage passes.
