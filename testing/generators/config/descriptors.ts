@@ -1,7 +1,11 @@
 import * as fc from "fast-check";
 
 import type { ConfigFileReadResult } from "@/config/index";
-import { PATH_FILTER_CONFIG_FIELDS, type PathFilterConfig } from "@/config/primitives/path-filter";
+import {
+  PATH_FILTER_CONFIG_FIELDS,
+  type PathFilterConfig,
+  validatePathFilterConfig,
+} from "@/config/primitives/path-filter";
 import type { ConfigDescriptor, Result } from "@/config/types";
 import {
   KIND_REGISTRY,
@@ -220,19 +224,25 @@ function arbitraryInvalidPathFilterArray(): fc.Arbitrary<readonly unknown[]> {
 }
 
 function arbitraryTestingConfig(): fc.Arbitrary<GeneratedTestingConfig> {
-  return arbitraryPathFilter().map((passingScope) => ({
-    config: {
-      [TESTING_SECTION]: {
-        [TESTING_CONFIG_FIELDS.PASSING_SCOPE]: passingScope,
+  return arbitraryPathFilter().map((passingScope) => {
+    const validated = validatePathFilterConfig(
+      passingScope,
+      `${TESTING_SECTION}.${TESTING_CONFIG_FIELDS.PASSING_SCOPE}`,
+    );
+    if (!validated.ok) {
+      throw new Error(validated.error);
+    }
+    return {
+      config: {
+        [TESTING_SECTION]: {
+          [TESTING_CONFIG_FIELDS.PASSING_SCOPE]: passingScope,
+        },
       },
-    },
-    expected: {
-      [TESTING_CONFIG_FIELDS.PASSING_SCOPE]: {
-        [PATH_FILTER_CONFIG_FIELDS.INCLUDE]: passingScope[PATH_FILTER_CONFIG_FIELDS.INCLUDE],
-        [PATH_FILTER_CONFIG_FIELDS.EXCLUDE]: passingScope[PATH_FILTER_CONFIG_FIELDS.EXCLUDE],
+      expected: {
+        [TESTING_CONFIG_FIELDS.PASSING_SCOPE]: validated.value,
       },
-    },
-  }));
+    };
+  });
 }
 
 function arbitraryTempPrefix(): fc.Arbitrary<string> {
