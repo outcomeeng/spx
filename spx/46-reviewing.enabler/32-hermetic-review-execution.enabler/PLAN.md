@@ -31,7 +31,7 @@ This can proceed after review config and agent environment APIs are sketched.
 ## Agent Pickup Prompt
 
 ```text
-Start from fresh origin/main on work/hermetic-review-execution after review config and agent-environment APIs are sketched. Invoke spec-tree:understanding if needed, then spec-tree:contextualizing for spx/46-reviewing.enabler/32-hermetic-review-execution.enabler/. Read this PLAN and the governing specs it names. Invoke spec-tree:applying, spec-tree:testing, typescript:testing-typescript, and typescript:coding-typescript before edits.
+Start from fresh origin/main on work/hermetic-review-execution after review config and spx/33-agent-environment.enabler/32-runtime-config.enabler/ are available. Invoke spec-tree:understanding if needed, then spec-tree:contextualizing for spx/46-reviewing.enabler/32-hermetic-review-execution.enabler/. Read this PLAN and the governing specs it names. Invoke spec-tree:applying, spec-tree:testing, typescript:testing-typescript, and typescript:coding-typescript before edits.
 
 Implement the isolated reviewer execution substrate shared by branch and PR review commands. Prepare execution directories and runtime config before launch, use the shared process lifecycle runner, separate target materialization from reviewer runtime state, and emit metadata needed by review state. Prove invoking-agent state is not mutated, lifecycle signals reap reviewer children, and non-zero or malformed reviewer outputs produce terminal failure state. Open one PR and ask reviewers to audit hermetic boundaries.
 ```

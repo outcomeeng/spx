@@ -31,7 +31,7 @@ This depends on audit config, branch-run-state, and agent environment primitives
 ## Agent Pickup Prompt
 
 ```text
-Start from fresh origin/main on work/auditor-execution after audit config, branch-run-state, and the agent-environment API sketch are available. Invoke spec-tree:understanding if needed, then spec-tree:contextualizing for spx/36-audit.enabler/65-auditor-execution.enabler/. Read this PLAN and the governing specs it names. Invoke spec-tree:applying, spec-tree:testing, typescript:testing-typescript, and typescript:coding-typescript before edits.
+Start from fresh origin/main on work/auditor-execution after audit config, branch-run-state, and spx/33-agent-environment.enabler/32-runtime-config.enabler/ are available. Invoke spec-tree:understanding if needed, then spec-tree:contextualizing for spx/36-audit.enabler/65-auditor-execution.enabler/. Read this PLAN and the governing specs it names. Invoke spec-tree:applying, spec-tree:testing, typescript:testing-typescript, and typescript:coding-typescript before edits.
 
 Resolve auditors, targets, base ref, storage, and isolated agent environment before launching any auditor. Use the shared process lifecycle runner for long-running subprocesses. Persist terminal run state for approval, rejection, failure, and graceful interruption. Prove expected target sets, isolated state paths, non-zero exits, malformed verdict output, interruptions, and child-process cleanup. Open one PR and ask reviewers to audit hermetic separation and state writes under failure.
 ```

@@ -32,3 +32,11 @@ The three child nodes can proceed independently after their shared config shape 
 ## Open Coordination
 
 - Author the invoking-agent isolation decision before auditor execution or reviewer execution implementation chooses working-directory, environment-variable, or temporary-file sharing boundaries.
+
+## Agent Pickup Prompt: Descriptor Shape
+
+```text
+Start from fresh origin/main on work/agent-environment-descriptor. Invoke spec-tree:understanding if needed, then spec-tree:contextualizing for spx/33-agent-environment.enabler/. Read this PLAN and the governing child specs it names. Invoke spec-tree:applying, typescript:architecting-typescript if the descriptor shape needs an ADR, spec-tree:testing and typescript:testing-typescript before tests, then typescript:coding-typescript before implementation.
+
+Define the agent environment descriptor shape that E1, E2, and E3 consume. Cover instruction fragments, runtime-specific config targets, plugin marketplaces, plugins, skills, offline behavior, and separate paths for invoking-agent state versus hermetic audit/review execution state. Keep runtime-specific serializers in child packets. Open one PR and ask reviewers to audit descriptor ownership, hermetic-state boundaries, and whether E1/E2/E3 have enough stable API to proceed.
+```
