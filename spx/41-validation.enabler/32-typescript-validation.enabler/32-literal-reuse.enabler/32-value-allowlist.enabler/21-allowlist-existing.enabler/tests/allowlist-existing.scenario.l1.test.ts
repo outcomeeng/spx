@@ -18,7 +18,7 @@ import {
   LITERAL_TEST_GENERATOR,
   LITERAL_TEST_GENERATOR_COUNTS,
   literalEmptyConfig,
-  sampleDistinctDomainLiterals,
+  sampleIndependentDomainLiterals,
   sampleLiteralTestValue,
 } from "@testing/generators/literal/literal";
 import { withTestEnv } from "@testing/harnesses/spec-tree/spec-tree";
@@ -98,7 +98,7 @@ describe("allowlist-existing scenario", () => {
   });
 
   it("appends new include entries in alphabetical order when multiple distinct findings are present", async () => {
-    const literals = sampleDistinctDomainLiterals(LITERAL_TEST_GENERATOR_COUNTS.multiFixture);
+    const literals = sampleIndependentDomainLiterals(LITERAL_TEST_GENERATOR_COUNTS.multiFixture);
     await withTestEnv(buildBaselineConfig(), async (env) => {
       await writeMultipleLiteralFixtures(env, literals);
 
