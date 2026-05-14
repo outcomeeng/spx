@@ -13,17 +13,20 @@ Move spec-tree passing-scope behavior to `spx.config.{toml,json,yaml}` and prepa
 ## Current Tranche
 
 1. Add a testing config descriptor.
+   - Work in `spx/41-testing.enabler/32-testing-config.enabler/`.
    - The first section owns passing scope only.
    - Use the shared path-filter primitive from `spx/16-config.enabler/`.
    - Keep normal `spx test` discovery independent from passing-scope filters.
 
 2. Extend the existing `withSpecTreeEnv` harness.
+   - Continue in `spx/22-test-environment.enabler/32-spec-tree-fixtures.enabler/`.
    - Keep `withTestEnv` as the cleanup-owning primitive.
    - Ensure `withSpecTreeEnv` can materialize both in-memory spec-tree structures and real directory trees from the same fixture description.
    - Add options for config file format, passing-scope filters, language-specific test files, and expected last-run state.
    - Ensure every helper speaks `productDir`.
 
 3. Persist last-run evidence.
+   - Work in `spx/41-testing.enabler/43-last-run-evidence.enabler/`.
    - Store runner outcomes, timestamps, discovered test inputs, config hash or comparable staleness input, and result summary.
    - Mark cached evidence stale when the resolved testing config digest or discovered test file path set differs from recorded values.
    - Compute discovery once per status/test command and reuse the discovered test file path set for both staleness comparison and runner dispatch.

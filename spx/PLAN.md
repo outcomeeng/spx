@@ -17,12 +17,13 @@ Keep the product spec tree on the current node model and remove the deprecated t
 
 ## Current Tranche
 
-- Move deterministic execution scope onto `spx.config.{toml,json,yaml}` through the shared config descriptor system.
-- Add shared config primitives for repeated descriptor shapes, starting with path include/exclude filters.
-- Migrate testing passing scope away from `spx/EXCLUDE` semantics and onto a testing config descriptor.
-- Align file inclusion with reusable path-scope mechanics rather than domain policy.
-- Align auditing with config-backed branch-scoped state under `.spx/audit/{branch-slug}`.
-- Create the reviewing node through `spec-tree:decomposing` before implementing the review descriptor or local hermetic review execution.
+- Move deterministic execution scope onto `spx.config.{toml,json,yaml}` through `spx/16-config.enabler/32-shared-config-primitives.enabler/`, `spx/16-config.enabler/43-domain-execution-descriptors.enabler/`, and `spx/16-config.enabler/54-canonical-descriptor-digest.enabler/`.
+- Migrate testing passing scope and cached status evidence through `spx/41-testing.enabler/32-testing-config.enabler/` and `spx/41-testing.enabler/43-last-run-evidence.enabler/`.
+- Align file inclusion with reusable path-scope mechanics through `spx/17-file-inclusion.enabler/65-domain-path-filters.enabler/`.
+- Align auditing with config-backed branch-scoped state through `spx/36-audit.enabler/43-audit-config.enabler/`, `spx/36-audit.enabler/54-branch-run-state.enabler/`, `spx/36-audit.enabler/65-auditor-execution.enabler/`, and `spx/36-audit.enabler/87-audit-status.enabler/`.
+- Add deterministic agent environment management through `spx/33-agent-environment.enabler/`.
+- Add local hermetic review execution through `spx/46-reviewing.enabler/`.
+- Rename remaining config and harness root-directory APIs through `spx/16-config.enabler/65-product-directory-api.enabler/`.
 
 ## Remaining Work
 
@@ -32,6 +33,7 @@ Keep the product spec tree on the current node model and remove the deprecated t
 - Keep command modules consuming the public spec-tree surface; command modules must not parse suffixes or assemble hierarchy themselves.
 - Continue reducing test-owned constant debt until `eslint.test-owned-constant-debt-nodes.json` is empty.
 - Rename remaining root-directory APIs and tests from `projectRoot` / `projectDir` to `productDir` in coherent owning tranches.
+- Reconcile or prune `spx/46-claude.outcome/` after `spx/33-agent-environment.enabler/` owns the durable agent-environment model.
 
 ## Acceptance
 
@@ -43,5 +45,6 @@ Keep the product spec tree on the current node model and remove the deprecated t
 - Validation, testing, auditing, and reviewing consume shared config primitives where their descriptor shapes repeat.
 - Audit state is branch-scoped under `.spx/audit/{branch-slug}`.
 - Review execution has a current spec-tree node before implementation begins.
+- Agent environment management has a current spec-tree node before implementation begins.
 - `spx validation all` passes.
 - The full package test gate passes.

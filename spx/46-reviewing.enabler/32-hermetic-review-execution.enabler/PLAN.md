@@ -1,0 +1,29 @@
+# Plan: Hermetic Review Execution
+
+## Purpose
+
+Implement the isolated reviewer execution substrate shared by branch and PR review commands.
+
+## Governing Specs
+
+- `spx/46-reviewing.enabler/reviewing.md`
+- `spx/46-reviewing.enabler/21-review-config.enabler/review-config.md`
+- `spx/33-agent-environment.enabler/agent-environment.md`
+- `spx/13-cli.enabler/cli.md`
+
+## Implementation Notes
+
+- Prepare execution directories and runtime config before launching reviewers.
+- Use the shared process lifecycle runner for long-running reviewer processes.
+- Keep target checkout or diff materialization separate from reviewer runtime state.
+- Persist enough metadata for review state to identify target, reviewer, base, head, and config digest.
+
+## Evidence Required
+
+- Isolation tests prove reviewer runs cannot mutate invoking-agent state.
+- Lifecycle tests prove SIGINT, SIGTERM, and pipe-close behavior reaps reviewer child processes.
+- Failure tests cover reviewer non-zero exit and malformed review output.
+
+## Parallelization
+
+This can proceed after review config and agent environment APIs are sketched.

@@ -14,12 +14,14 @@ Move audit from verify-only artifact checking toward config-backed, branch-scope
 ## Current Tranche
 
 1. Add an audit config descriptor.
+   - Work in `spx/36-audit.enabler/43-audit-config.enabler/`.
    - Defaults include `.spx`, `audit`, `runs`, verdict filenames, and state filenames.
    - Descriptor owns auditor selection, base ref, target filters, and storage policy.
    - Default `audit.baseRef` to `main` when no config override is present.
    - Path filters use the shared config primitive when target selection needs include/exclude semantics.
 
 2. Implement branch slugging.
+   - Work in `spx/36-audit.enabler/54-branch-run-state.enabler/`.
    - Branch names map to filesystem-safe slugs with no path separators.
    - Branch slugs stay at or below 120 UTF-8 bytes and preserve the SHA-256 suffix after truncation.
    - Branch slugs always append the first eight lowercase hex characters of the SHA-256 digest of the original branch identity.
@@ -29,12 +31,18 @@ Move audit from verify-only artifact checking toward config-backed, branch-scope
    - Detached HEAD state uses `detached-{short-sha}` as the branch identity and is test-covered.
 
 3. Move storage from node-first to branch-first.
+   - Work in `spx/36-audit.enabler/54-branch-run-state.enabler/` and expose reporting through `spx/36-audit.enabler/87-audit-status.enabler/`.
    - Keep `spx audit verify <file>` accepting arbitrary file paths.
    - Keep explicit-file verification working for existing `.spx/nodes/` verdict artifacts.
    - New audit runs write under `.spx/audit/{branch-slug}/runs/{timestamp}/`.
    - Write `state.json` once per run after the terminal status is known.
    - Surface run directories without `state.json` as incomplete/interrupted rather than silently dropping them.
    - Existing verify-only code remains the artifact consistency check inside the broader audit lifecycle.
+
+4. Execute configured auditors.
+   - Work in `spx/36-audit.enabler/65-auditor-execution.enabler/`.
+   - Resolve auditors, targets, base ref, and storage before launch.
+   - Keep auditor execution hermetically separated from the invoking agent.
 
 ## Evidence Required
 

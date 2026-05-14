@@ -12,6 +12,7 @@ Remove ignore-source scope policy from file inclusion and keep this subtree focu
 ## Current Tranche
 
 1. Replace ignore-source APIs with config-backed path-filter inputs.
+   - Work in `spx/17-file-inclusion.enabler/65-domain-path-filters.enabler/`.
    - Remove the configured ignore-source filename from the file-inclusion descriptor.
    - Remove `spx/EXCLUDE` reader code and tests.
    - Update scope resolver inputs to accept a typed domain path filter.
