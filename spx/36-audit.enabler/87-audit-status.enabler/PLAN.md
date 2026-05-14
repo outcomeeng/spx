@@ -26,3 +26,11 @@ Expose audit state through CLI list, status, and latest-run reporting.
 ## Parallelization
 
 This depends on branch-run-state. It can proceed independently from auditor execution by constructing state fixtures directly.
+
+## Agent Pickup Prompt
+
+```text
+Start from fresh origin/main on work/audit-status after branch-run-state is available. Invoke spec-tree:understanding if needed, then spec-tree:contextualizing for spx/36-audit.enabler/87-audit-status.enabler/. Read this PLAN and the governing specs it names. Invoke spec-tree:applying, spec-tree:testing, typescript:testing-typescript, and typescript:coding-typescript before edits.
+
+Implement audit list, status, and latest-run reporting from persisted branch state. Render persisted lowercase statuses through the explicit display-token mapping. Show incomplete and parse-invalid run directories without treating them as terminal evidence. Prove no-runs, terminal runs, incomplete runs, parse-invalid state, mixed latest-run ordering, and node-first `.spx/nodes/` exclusion from branch status. Open one PR and ask reviewers to audit status semantics and display mapping.
+```

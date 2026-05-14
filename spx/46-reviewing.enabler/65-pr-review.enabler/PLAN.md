@@ -25,3 +25,11 @@ Implement `spx review pr <number>` for local hermetic PR review targets.
 ## Parallelization
 
 This depends on hermetic execution and review state APIs. It can proceed in parallel with branch review after those contracts exist.
+
+## Agent Pickup Prompt
+
+```text
+Start from fresh origin/main on work/pr-review after hermetic execution and review state APIs are available. Invoke spec-tree:understanding if needed, then spec-tree:contextualizing for spx/46-reviewing.enabler/65-pr-review.enabler/. Read this PLAN and the governing specs it names. Invoke spec-tree:applying, spec-tree:testing, typescript:testing-typescript, and typescript:coding-typescript before edits.
+
+Implement `spx review pr <number>` through an injected PR-metadata boundary so tests use deterministic fixtures. Keep remote mutation out of this node. Convert PR metadata into a base/head target that reuses branch review execution, then persist PR target metadata with review outputs. Prove valid PR, missing PR, metadata fetch failure, target filters, reviewer failure, and injected remote-call boundaries. Open one PR and ask reviewers to audit hermetic PR metadata handling.
+```

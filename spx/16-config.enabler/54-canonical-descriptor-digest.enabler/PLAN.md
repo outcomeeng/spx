@@ -27,3 +27,11 @@ Implement canonical descriptor JSON and SHA-256 digests for resolved descriptor 
 ## Parallelization
 
 This node can proceed in parallel with descriptor registration if both branches agree on the exported digest API before integrating.
+
+## Agent Pickup Prompt
+
+```text
+Start from fresh origin/main on work/config-descriptor-digest. Invoke spec-tree:understanding if needed, then spec-tree:contextualizing for spx/16-config.enabler/54-canonical-descriptor-digest.enabler/. Read this PLAN and the governing specs it names. Invoke spec-tree:applying, typescript:architecting-typescript for the public API shape if an ADR change becomes necessary, spec-tree:testing and typescript:testing-typescript before tests, then typescript:coding-typescript before implementation.
+
+Implement only the config-owned canonical descriptor JSON and SHA-256 descriptor digest API. Prove recursive key sorting, array preservation, JSON primitive serialization, rejection of non-JSON-representable values, stable digest bytes, and descriptor-section isolation. Do not change testing, audit, or review state code except for compile-time integration required by this API. Open one PR and ask reviewers to audit digest determinism, JSON representation boundaries, and state-staleness compatibility.
+```

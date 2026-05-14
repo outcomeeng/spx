@@ -26,3 +26,11 @@ Add the audit config descriptor and wire audit command code to resolved audit se
 ## Parallelization
 
 This depends on shared config primitives and can run in parallel with branch-run-state design once the descriptor shape is stable.
+
+## Agent Pickup Prompt
+
+```text
+Start from fresh origin/main on work/audit-config-descriptor. Invoke spec-tree:understanding if needed, then spec-tree:contextualizing for spx/36-audit.enabler/43-audit-config.enabler/. Read this PLAN and the governing specs it names. Invoke spec-tree:applying, spec-tree:testing, typescript:testing-typescript, and typescript:coding-typescript before edits.
+
+Add the registered audit descriptor for storage defaults, baseRef, branch slug settings, auditor selection, and target filters. Use the shared path-filter primitive for include/exclude target selection. Keep `spx audit verify <file>` independent from descriptor target filters. Prove defaults, valid overrides, invalid storage values, target filters, auditor selection, config-format mapping, and descriptor isolation. Open one PR and ask reviewers to audit descriptor shape and separation from verify-only file handling.
+```

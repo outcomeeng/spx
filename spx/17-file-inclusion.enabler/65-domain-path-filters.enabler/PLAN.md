@@ -28,3 +28,11 @@ Replace ignore-source scope policy with typed config-backed path-filter inputs.
 ## Parallelization
 
 This depends on the shared path-filter primitive. It can proceed before testing state persistence, but final deletion of ignore-source code depends on config-backed testing passing scope.
+
+## Agent Pickup Prompt
+
+```text
+Start from fresh origin/main on work/domain-path-filters. Invoke spec-tree:understanding if needed, then spec-tree:contextualizing for spx/17-file-inclusion.enabler/65-domain-path-filters.enabler/. Read this PLAN and the governing specs it names. Invoke spec-tree:applying, spec-tree:testing, typescript:testing-typescript, and typescript:coding-typescript before edits.
+
+Make the file-inclusion resolver accept typed domain path filters supplied by callers. Preserve explicit caller-path override, artifact-directory filtering, hidden-prefix filtering, decision trails, and tool-adapter output. Delete or rewrite standalone `spx/EXCLUDE` production paths only when config-backed testing passing scope is wired. Prove validation filters do not affect testing passing scope. Open one PR and ask reviewers to audit path-decision trails, caller override behavior, and descriptor-policy separation.
+```

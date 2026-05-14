@@ -24,3 +24,11 @@ Add the review config descriptor for local hermetic branch and PR review executi
 ## Parallelization
 
 This depends on shared config primitives and can run before branch/PR command implementation.
+
+## Agent Pickup Prompt
+
+```text
+Start from fresh origin/main on work/review-config-descriptor. Invoke spec-tree:understanding if needed, then spec-tree:contextualizing for spx/46-reviewing.enabler/21-review-config.enabler/. Read this PLAN and the governing specs it names. Invoke spec-tree:applying, spec-tree:testing, typescript:testing-typescript, and typescript:coding-typescript before edits.
+
+Add the registered review descriptor for reviewer selection, target filters, base ref behavior, execution defaults, and state policy. Keep review descriptor policy independent from audit descriptor policy while importing shared structural primitives. Prove defaults, valid overrides, invalid values, target filters, descriptor isolation, registry composition, and config-format mapping. Open one PR and ask reviewers to audit descriptor shape and audit/review separation.
+```

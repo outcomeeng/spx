@@ -28,3 +28,11 @@ Add the deterministic context-ingestion surface that replaces skill-only context
 ## Parallelization
 
 This can proceed independently from config-backed testing and audit once the branch starts from the merged spec-tree public surface.
+
+## Agent Pickup Prompt
+
+```text
+Start from fresh origin/main on work/context-ingestion. Invoke spec-tree:understanding if needed, then spec-tree:contextualizing for spx/31-spec-domain.enabler/43-context-ingestion.enabler/. Read this PLAN and the governing specs it names. Invoke spec-tree:applying, spec-tree:testing, typescript:testing-typescript, and typescript:coding-typescript before edits.
+
+Build deterministic context ingestion on the public spec-tree surface. Return complete machine-readable and human-readable manifests for product root and nested targets. Preserve ordering rules: lower-index siblings constrain, same-index siblings are independent, and higher-index siblings are listed without being read as constraints. Include PLAN.md and ISSUES.md as escape-hatch context. Prove root target, nested target, same-index peers, lower-index siblings, missing target errors, manifest fields, output formats, and no suffix parsing in command modules. Open one PR and ask reviewers to audit completeness and deterministic context boundaries.
+```

@@ -28,3 +28,11 @@ Implement branch-scoped audit storage and terminal run-state lookup.
 ## Parallelization
 
 This depends on audit config defaults. Auditor execution can integrate after the state writer API exists.
+
+## Agent Pickup Prompt
+
+```text
+Start from fresh origin/main on work/audit-branch-run-state after the audit descriptor shape is available. Invoke spec-tree:understanding if needed, then spec-tree:contextualizing for spx/36-audit.enabler/54-branch-run-state.enabler/. Read this PLAN and the governing specs it names. Invoke spec-tree:applying, spec-tree:testing, typescript:testing-typescript, and typescript:coding-typescript before edits.
+
+Implement branch slugging, exclusive run-directory creation, terminal `state.json` writing through same-directory temp file plus atomic rename, and latest terminal run lookup. Preserve explicit-file verification for node-first `.spx/nodes/` artifacts without indexing them for branch status. Prove slug byte limits, SHA-256 suffix preservation, detached HEAD identity, collision retry, terminal statuses, incomplete evidence, parse-invalid state, and latest-run ordering. Open one PR and ask reviewers to audit filesystem safety and terminal-state semantics.
+```

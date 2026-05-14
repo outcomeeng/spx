@@ -29,3 +29,11 @@ Persist spec-tree test observations so status commands can report fast test stat
 ## Parallelization
 
 This depends on the testing descriptor and canonical descriptor digest. It can proceed independently from audit state once those APIs exist.
+
+## Agent Pickup Prompt
+
+```text
+Start from fresh origin/main on work/testing-last-run-evidence after the canonical descriptor digest API is available. Invoke spec-tree:understanding if needed, then spec-tree:contextualizing for spx/41-testing.enabler/43-last-run-evidence.enabler/. Read this PLAN and the governing specs it names. Invoke spec-tree:applying, spec-tree:testing, typescript:testing-typescript, and typescript:coding-typescript before edits.
+
+Persist testing observations under `.spx/testing/{branch-slug}/runs/{run-directory}/state.json` at the Git common-dir product root. Compute discovery once per command and reuse the result for runner dispatch and staleness comparison. Record runner outcomes, timestamps, discovered path sets, content digests, descriptor-declared product input digests, and the resolved testing config digest. Prove deleting state changes only fast-status availability. Open one PR and ask reviewers to audit staleness inputs, state ownership, and no-policy-from-state behavior.
+```

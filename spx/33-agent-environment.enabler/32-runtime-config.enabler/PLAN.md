@@ -24,3 +24,11 @@ Reconcile Claude Code and Codex runtime configuration from a configured product 
 ## Parallelization
 
 Can proceed in parallel with instruction management, but review/audit execution should consume this only after its public API stabilizes.
+
+## Agent Pickup Prompt
+
+```text
+Start from fresh origin/main on work/agent-runtime-config after the agent environment descriptor shape is stable. Invoke spec-tree:understanding if needed, then spec-tree:contextualizing for spx/33-agent-environment.enabler/32-runtime-config.enabler/. Read this PLAN and the governing specs it names. Invoke spec-tree:applying, spec-tree:testing, typescript:testing-typescript, and typescript:coding-typescript before edits.
+
+Implement deterministic Claude Code and Codex runtime config reconciliation. Separate runtime-specific serializers from shared policy resolution, keep dry-run output deterministic, and keep invoking-agent state separate from hermetic audit/review execution state. Prove read, reconcile, write, dry-run, idempotency, invalid config diagnostics, and separate output paths. Open one PR and ask reviewers to audit runtime boundary safety.
+```

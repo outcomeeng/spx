@@ -28,3 +28,11 @@ Rename config and descriptor-facing tracked product-root APIs to `productDir`.
 ## Parallelization
 
 This should be a focused rename PR because it touches many tests and helper imports.
+
+## Agent Pickup Prompt
+
+```text
+Start from fresh origin/main on work/product-directory-api. Invoke spec-tree:understanding if needed, then spec-tree:contextualizing for spx/16-config.enabler/65-product-directory-api.enabler/. Read this PLAN and the governing specs it names. Invoke spec-tree:applying, spec-tree:testing, typescript:testing-typescript, and typescript:coding-typescript before edits.
+
+Rename config and harness root-directory APIs to productDir in one coherent pass. Remove non-product compatibility aliases instead of preserving them. Rename ambiguous root-resolution helper names to tracked product root, worktree-local product root, or Git common-dir product root vocabulary. Use git mv for tracked moves. Run focused config and test-environment tests, pnpm run validate, and pnpm test. Open one PR and ask reviewers to audit vocabulary completeness and absence of compatibility shims.
+```
