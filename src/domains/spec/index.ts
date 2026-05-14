@@ -24,6 +24,10 @@ export const SPEC_STATUS_FORMAT_MESSAGE = {
   INVALID_PREFIX: "Invalid format",
 } as const;
 
+export const SPEC_DOMAIN_CLI_MESSAGE = {
+  UNKNOWN_COMMAND_PREFIX: "error: unknown command",
+} as const;
+
 const VALID_STATUS_FORMATS: readonly OutputFormat[] = [
   OUTPUT_FORMAT.TEXT,
   OUTPUT_FORMAT.JSON,

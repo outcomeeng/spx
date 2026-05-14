@@ -3,11 +3,15 @@ import { describe, expect, it } from "vitest";
 
 import { SPEC_NEXT_MESSAGE } from "@/commands/spec/next";
 import { OUTPUT_FORMAT } from "@/commands/spec/status";
-import { RETIRED_SPEC_DOMAIN_CLI, SPEC_DOMAIN_CLI, SPEC_STATUS_FORMAT_MESSAGE } from "@/domains/spec";
+import {
+  RETIRED_SPEC_DOMAIN_CLI,
+  SPEC_DOMAIN_CLI,
+  SPEC_DOMAIN_CLI_MESSAGE,
+  SPEC_STATUS_FORMAT_MESSAGE,
+} from "@/domains/spec";
 import { PYTEST_SECTION, PYTHON_CONFIG_FILE } from "@/domains/spec/apply/exclude";
 import { EXCLUDE_FILENAME, SPX_PREFIX } from "@/domains/spec/apply/exclude/constants";
-import { SPEC_TREE_NODE_STATE } from "@/lib/spec-tree";
-import { getKindDefinition } from "@/lib/spec-tree";
+import { getKindDefinition, SPEC_TREE_NODE_STATE } from "@/lib/spec-tree";
 import { MINIMAL_SPEC_TREE_CONFIG } from "@testing/generators/config/config";
 import { CLI_PATH, NODE_EXECUTABLE } from "@testing/harnesses/constants";
 import { withSpecTreeEnv } from "@testing/harnesses/spec-tree/spec-tree";
@@ -92,6 +96,8 @@ describe("spx spec process contract", () => {
       const result = await runCli(env.productDir, SPEC_DOMAIN_CLI.COMMAND, RETIRED_SPEC_DOMAIN_CLI.APPLY_COMMAND);
 
       expect(result.exitCode).not.toBe(0);
+      expect(result.stderr).toContain(SPEC_DOMAIN_CLI_MESSAGE.UNKNOWN_COMMAND_PREFIX);
+      expect(result.stderr).toContain(RETIRED_SPEC_DOMAIN_CLI.APPLY_COMMAND);
       expect(await env.readFile(PYTHON_CONFIG_FILE)).toBe(pyprojectContent);
     });
   });
