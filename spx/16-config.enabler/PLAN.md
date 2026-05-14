@@ -37,8 +37,9 @@ Coordinate the config tranche that moves deterministic execution domains onto th
 - Registry-extension tests prove testing, audit, and review descriptors compose without changing existing descriptor modules.
 - Config-format mapping tests cover the new sections across JSON, YAML, and TOML.
 - Descriptor isolation tests prove a malformed testing, audit, or review section cannot read or change validation config.
+- Shared-primitive tests prove validation and testing descriptors import the same path-filter primitive while exposing policy under separate sections.
 
 ## Open Coordination
 
-- Decide the review node placement with `spec-tree:decomposing` because no review enabler exists in the current tree.
+- Decide and create the review node placement with `spec-tree:decomposing` before implementing the review descriptor or local hermetic review execution.
 - After config primitives land, update file-inclusion, testing, audit, and review implementation plans to consume the shared primitive rather than duplicating path-filter validation.

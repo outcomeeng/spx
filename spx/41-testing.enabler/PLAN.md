@@ -25,6 +25,7 @@ Move spec-tree passing-scope behavior to `spx.config.{toml,json,yaml}` and prepa
 
 3. Persist last-run evidence.
    - Store runner outcomes, timestamps, discovered test inputs, config hash or comparable staleness input, and result summary.
+   - Mark cached evidence stale when the resolved testing config digest or discovered test file path set differs from recorded values.
    - Treat persisted state as an evidence cache only.
    - Status commands may read state for speed, but config remains the source for passing-scope policy.
 
@@ -34,7 +35,8 @@ Move spec-tree passing-scope behavior to `spx.config.{toml,json,yaml}` and prepa
 - `spx test passing` scenario tests prove filtered nodes are skipped before runner invocation.
 - `spx test` scenario tests prove filtered nodes still run when `passing` is absent.
 - `withSpecTreeEnv` tests prove one fixture definition can generate in-memory structures and real directories with `withTempDir` behavior.
-- Last-run state tests prove status reads cached observations without invoking runners and marks stale evidence when inputs change.
+- Last-run state tests prove status reads cached observations without invoking runners and marks stale evidence when the resolved testing config descriptor digest changes.
+- Last-run state tests prove status marks cached evidence stale when the discovered test file path set changes.
 
 ## Open Coordination
 
