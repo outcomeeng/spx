@@ -13,6 +13,7 @@ import { existsSync, readdirSync, readFileSync } from "node:fs";
 import { isAbsolute, join } from "node:path";
 
 import type { ScopeConfig, ValidationScope } from "../types";
+import { pathPassesValidationFilter } from "./path-filter";
 
 // =============================================================================
 // CONSTANTS
@@ -25,6 +26,9 @@ export const TSCONFIG_FILES = {
   full: "tsconfig.json",
   production: "tsconfig.production.json",
 } as const;
+const PATH_SEGMENT_SEPARATOR = "/";
+const GLOB_MARKER = "*";
+const HIDDEN_PATH_PREFIX = ".";
 
 // =============================================================================
 // DEPENDENCY INJECTION INTERFACES
@@ -225,9 +229,9 @@ export function getTopLevelDirectoriesWithTypeScript(
   if (config.include) {
     for (const pattern of config.include) {
       // Extract directory from patterns like "scripts/**/*.ts", "tests/**/*.tsx"
-      if (pattern.includes("/")) {
-        const topLevelDir = pattern.split("/")[0];
-        if (topLevelDir && !topLevelDir.includes("*") && !topLevelDir.startsWith(".")) {
+      if (pattern.includes(PATH_SEGMENT_SEPARATOR)) {
+        const topLevelDir = getLiteralTopLevelPatternDirectory(pattern);
+        if (topLevelDir) {
           directories.add(topLevelDir);
         }
       }
@@ -235,6 +239,28 @@ export function getTopLevelDirectoriesWithTypeScript(
   }
 
   return Array.from(directories).sort();
+}
+
+function getLiteralTopLevelPatternDirectory(pattern: string): string | null {
+  const topLevelDir = pattern.split(PATH_SEGMENT_SEPARATOR)[0];
+  if (!topLevelDir || topLevelDir.includes(GLOB_MARKER) || topLevelDir.startsWith(HIDDEN_PATH_PREFIX)) {
+    return null;
+  }
+  return topLevelDir;
+}
+
+function filterActiveIncludePatterns(
+  patterns: readonly string[],
+  excludePatterns: readonly string[],
+  projectRoot: string,
+  deps: ScopeDeps,
+): string[] {
+  return patterns
+    .filter((pattern) => {
+      const topLevelDir = getLiteralTopLevelPatternDirectory(pattern);
+      return topLevelDir === null || deps.existsSync(join(projectRoot, topLevelDir));
+    })
+    .filter((pattern) => pathPassesValidationFilter(pattern, { exclude: excludePatterns }));
 }
 
 /**
@@ -290,7 +316,7 @@ export function getTypeScriptScope(
 
   return {
     directories,
-    filePatterns: config.include ?? [],
+    filePatterns: filterActiveIncludePatterns(config.include ?? [], config.exclude ?? [], projectRoot, deps),
     excludePatterns: config.exclude ?? [],
   };
 }

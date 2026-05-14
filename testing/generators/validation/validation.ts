@@ -61,6 +61,7 @@ const LITERAL_SKIP_TOKEN = "validation-all-skip-literal-token";
 const TYPE_ERROR_SOURCE_SEGMENTS = ["src", "has-type-error.ts"] as const;
 const PRODUCTION_SCOPE_FILE_PATTERN = "src/**/*";
 const PRODUCTION_SCOPE_EXCLUDE_PATTERN = "specs/**/*";
+const ABSENT_SCOPE_FILE_PATTERN = "scripts/**/*";
 const TYPE_ERROR_REPLACEMENT_PATTERN = /const x:\s*number\s*=\s*"[^"]+";?/g;
 const TYPE_ERROR_REPLACEMENT = "const x: number = 0;";
 const OUTPUT_LINE_SEPARATOR = "\n";
@@ -160,6 +161,7 @@ export const VALIDATION_PIPELINE_DATA = {
   productionScope: "production",
   productionScopeFilePattern: PRODUCTION_SCOPE_FILE_PATTERN,
   productionScopeExcludePattern: PRODUCTION_SCOPE_EXCLUDE_PATTERN,
+  absentScopeFilePattern: ABSENT_SCOPE_FILE_PATTERN,
   fullTsconfigFile: TSCONFIG_FILES.full,
   sourceDirectoryName: "src",
   cleanSourceFileName: "clean.ts",
