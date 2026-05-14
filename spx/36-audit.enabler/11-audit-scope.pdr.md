@@ -45,7 +45,7 @@ Scoping the domain to a full lifecycle enables commands such as `spx audit list`
 
 ### MUST
 
-- Store verdict files in `.spx/audit/{branch-slug}/` at the main product directory root per `spx/15-worktree-resolution.pdr.md` ([review](../15-worktree-resolution.pdr.md))
+- Store verdict files in `.spx/audit/{branch-slug}/` at the Git common-dir product root per `spx/15-worktree-resolution.pdr.md` ([review](../15-worktree-resolution.pdr.md))
 - Accept any file path as the argument to `spx audit verify` — the command is not restricted to `.spx/audit/` contents ([review])
 - Register audit configuration through the config descriptor system rather than parsing raw `spx.config.*` content in audit code ([review](../16-config.enabler/21-descriptor-registration.adr.md))
 

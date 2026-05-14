@@ -60,7 +60,7 @@ Move audit from verify-only artifact checking toward config-backed, branch-scope
 - Audit config digest tests prove the digest is computed from config-owned canonical descriptor JSON for the resolved audit config descriptor section after defaults are applied.
 - Audit base-ref tests prove the state file records `main` when no config override exists and records the configured value when `audit.baseRef` is set.
 - Compatibility tests prove node-first `.spx/nodes/` verdict artifacts remain valid explicit-file verification inputs but are not indexed by branch-scoped audit list/status views.
-- Storage tests prove audit state resolves through the main product directory root, not the worktree root.
+- Storage tests prove audit state resolves through the Git common-dir product root, not the worktree root.
 - Verify tests prove explicit-file verification still works for files outside `.spx/audit/`, including node-first `.spx/nodes/` artifacts.
 
 ## Open Coordination

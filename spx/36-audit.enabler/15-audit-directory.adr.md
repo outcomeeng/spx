@@ -8,7 +8,7 @@ This decision governs how audit verdict files and audit run state are named and 
 
 **Business impact:** Agents and CI pipelines need to locate the most recent audit evidence for a branch without sharing mutable state with the invoking agent or another branch. Multiple audits of the same branch must coexist so history is preserved.
 
-**Technical constraints:** `.spx/` is gitignored and resolves to the main product directory root per `spx/15-worktree-resolution.pdr.md`. The layout accommodates additional audit artifact types without restructuring and keeps branch state separated.
+**Technical constraints:** `.spx/` is gitignored and resolves to the Git common-dir product root per `spx/15-worktree-resolution.pdr.md`. The layout accommodates additional audit artifact types without restructuring and keeps branch state separated.
 
 ## Decision
 
@@ -102,7 +102,7 @@ Alternatives rejected:
 - `baseRef` is always the resolved audit config descriptor base ref captured at run start; the descriptor default is `main`
 - Latest terminal audit lookup orders terminal runs by `state.json` timestamps before using directory names as a tie-breaker
 - Audit run directories within a branch directory are never renamed or moved — timestamps and run ids are assigned at write time and are stable
-- The `.spx/audit/` root is always resolved relative to the main product directory root per `spx/15-worktree-resolution.pdr.md`
+- The `.spx/audit/` root is always resolved relative to the Git common-dir product root per `spx/15-worktree-resolution.pdr.md`
 
 ## Compliance
 
@@ -126,7 +126,7 @@ A verdict file at `.spx/audit/work-config-backed-execution-scope/runs/2026-04-25
 - Select the latest terminal run by greatest `completedAt`, then greatest `startedAt`, then lexicographically greatest run directory name as a deterministic tie-breaker ([review])
 - Store `state.json` statuses as lowercase machine tokens; render CLI status strings through the explicit persisted-status-to-display mapping ([review])
 - Compute `auditConfigDigest` from config-owned canonical descriptor JSON for the resolved audit config descriptor section after defaults are applied, excluding unrelated descriptor sections and raw file formatting ([review](../16-config.enabler/21-descriptor-registration.adr.md))
-- Resolve `.spx/audit/` relative to the main product directory root via `detectMainRepoRoot` per `spx/15-worktree-resolution.pdr.md` ([review](../15-worktree-resolution.pdr.md))
+- Resolve `.spx/audit/` relative to the Git common-dir product root via `detectMainRepoRoot` per `spx/15-worktree-resolution.pdr.md` ([review](../15-worktree-resolution.pdr.md))
 - Derive all path component names (`.spx`, `audit`, `runs`) from the audit config descriptor defaults — single source of truth ([review](../16-config.enabler/21-descriptor-registration.adr.md))
 - Keep `spx audit verify <file>` accepting any explicit verdict file path supplied by the caller, including node-first `.spx/nodes/` artifacts and branch-scoped `.spx/audit/` artifacts ([review])
 - Do not index, list, or migrate `.spx/nodes/` artifacts into branch-scoped audit status; node-first artifacts are explicit-file verification inputs only ([review])

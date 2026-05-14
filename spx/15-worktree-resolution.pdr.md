@@ -8,7 +8,7 @@ This decision governs how spx subcommands resolve their root directory when invo
 
 **Business impact:** Agents run inside git worktrees created by Claude Code. Correct root resolution ensures session state is shared across all worktrees and spec-tree commands operate on the branch-specific working copy.
 
-**Technical constraints:** Git worktrees share a single `.git` directory (the "common dir") at the main product directory root. Each worktree gets its own working copy of tracked files but shares untracked/gitignored state with the main worktree only by convention. The `.spx/` directory is gitignored and exists only at the main product directory root. The `spx/` directory is tracked and exists in every worktree's working copy.
+**Technical constraints:** Git worktrees share a single Git common directory. The Git common-dir product root is the parent directory of `git rev-parse --git-common-dir`. Each worktree gets its own working copy of tracked files but shares untracked/gitignored state with the Git common-dir product root only by convention. The `.spx/` directory is gitignored and exists only at the Git common-dir product root. The `spx/` directory is tracked and exists in every worktree's working copy.
 
 ## Decision
 
@@ -16,7 +16,7 @@ Each spx subcommand resolves its root directory based on whether it operates on 
 
 | Target directory     | Root resolution                      | Git mechanism                              |
 | -------------------- | ------------------------------------ | ------------------------------------------ |
-| `.spx/` (gitignored) | Main repository root (root worktree) | Parent of `git rev-parse --git-common-dir` |
+| `.spx/` (gitignored) | Git common-dir product root          | Parent of `git rev-parse --git-common-dir` |
 | `spx/` (tracked)     | Local worktree root                  | `git rev-parse --show-toplevel`            |
 
 ## Rationale
@@ -26,7 +26,7 @@ The two directories have different lifecycle semantics. `.spx/` contains ephemer
 Alternatives considered:
 
 - **Always use `--show-toplevel`**: Fails for `.spx/` — creates orphan session directories inside worktrees that no other worktree can see.
-- **Always use common dir parent**: Fails for `spx/` — reads the main worktree's spec tree instead of the branch-specific one in the current worktree.
+- **Always use common-dir product root**: Fails for `spx/` — reads the common-dir worktree's spec tree instead of the branch-specific one in the current worktree.
 - **Symlink `.spx/` into worktrees**: Fragile, platform-dependent, requires worktree setup hooks.
 
 ## Trade-offs accepted
@@ -49,7 +49,7 @@ Running `spx session list` from any worktree of the same repository returns the 
 
 ### MUST
 
-- Use `git rev-parse --git-common-dir` to find the main product directory root for `.spx/` operations ([review])
+- Use `git rev-parse --git-common-dir` to find the Git common-dir product root for `.spx/` operations ([review])
 - Use `git rev-parse --show-toplevel` for `spx/` (tracked file) operations ([review])
 - Fall back to current working directory with a warning when not in a git repository ([review])
 
