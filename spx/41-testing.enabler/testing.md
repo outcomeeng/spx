@@ -31,7 +31,7 @@ CAN run all spec-tree tests with a single command, honor configured passing-scop
 
 - ALWAYS: `spx test passing` reads passing-scope exclusions through the config descriptor system for `spx.config.{toml,json,yaml}` — no duplicate parsing logic ([review])
 - ALWAYS: persisted testing state records observed runner results, timestamps, inputs, and staleness metadata; config remains the source for passing-scope policy ([review])
-- ALWAYS: the testing config digest is computed from canonical JSON for the resolved testing config descriptor section after defaults are applied; unrelated descriptor sections and raw file formatting do not affect testing state staleness ([review])
+- ALWAYS: the testing config digest is computed from config-owned canonical descriptor JSON for the resolved testing config descriptor section after defaults are applied; unrelated descriptor sections and raw file formatting do not affect testing state staleness ([review](../16-config.enabler/21-descriptor-registration.adr.md))
 - ALWAYS: runner invocation is gated on language presence per `../19-language-registration.adr.md` ([review])
 - NEVER: write to product configuration files (`pyproject.toml`, `package.json`, `tsconfig.json`, `vitest.config.ts`) — exclusion applies via runner flags at invocation time ([review])
 - NEVER: infer passing scope from persisted last-run state — state accelerates reporting but does not decide policy ([review])

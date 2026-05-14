@@ -36,6 +36,7 @@ Move spec-tree passing-scope behavior to `spx.config.{toml,json,yaml}` and prepa
 - `spx test` scenario tests prove filtered nodes still run when `passing` is absent.
 - `withSpecTreeEnv` tests prove one fixture definition can generate in-memory structures and real directories with `withTempDir` behavior.
 - Last-run state tests prove status reads cached observations without invoking runners and marks stale evidence when the resolved testing config descriptor digest changes.
+- Testing digest tests prove the digest is computed from config-owned canonical descriptor JSON for the resolved testing config descriptor section after defaults are applied.
 - Last-run state tests prove status marks cached evidence stale when the discovered test file path set changes.
 
 ## Open Coordination
