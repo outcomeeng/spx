@@ -230,14 +230,7 @@ function arbitraryInvalidPathFilterArray(): fc.Arbitrary<readonly unknown[]> {
 
 function arbitraryTestingConfig(): fc.Arbitrary<GeneratedTestingConfig> {
   return arbitraryPathFilter()
-    .map((passingScope) => ({
-      passingScope,
-      result: validatePathFilterConfig(
-        passingScope,
-        `${TESTING_SECTION}.${TESTING_CONFIG_FIELDS.PASSING_SCOPE}`,
-      ),
-    }))
-    .filter((entry): entry is ValidatedTestingPathFilter => entry.result.ok)
+    .map(validateGeneratedTestingPathFilter)
     .map(({ passingScope, result }) => ({
       config: {
         [TESTING_SECTION]: {
@@ -248,6 +241,17 @@ function arbitraryTestingConfig(): fc.Arbitrary<GeneratedTestingConfig> {
         [TESTING_CONFIG_FIELDS.PASSING_SCOPE]: result.value,
       },
     }));
+}
+
+function validateGeneratedTestingPathFilter(passingScope: PathFilterConfig): ValidatedTestingPathFilter {
+  const result = validatePathFilterConfig(
+    passingScope,
+    `${TESTING_SECTION}.${TESTING_CONFIG_FIELDS.PASSING_SCOPE}`,
+  );
+  if (!result.ok) {
+    throw new Error(`CONFIG_TEST_GENERATOR.pathFilter() produced an invalid filter: ${result.error}`);
+  }
+  return { passingScope, result };
 }
 
 function arbitraryTempPrefix(): fc.Arbitrary<string> {

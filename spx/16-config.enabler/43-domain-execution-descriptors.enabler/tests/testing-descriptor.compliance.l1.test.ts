@@ -14,8 +14,8 @@ import { CONFIG_TEST_GENERATOR, sampleConfigTestValue } from "@testing/generator
 import type { Config } from "@testing/harnesses/spec-tree/spec-tree";
 import { withTestEnv } from "@testing/harnesses/spec-tree/spec-tree";
 
-function assertDefinedAndCastTesting(value: unknown): TestingConfig {
-  expect(value).toBeDefined();
+function assertTestingConfig(value: unknown): TestingConfig {
+  expect(value).toHaveProperty(TESTING_CONFIG_FIELDS.PASSING_SCOPE);
   return value as TestingConfig;
 }
 
@@ -28,8 +28,19 @@ describe("testing config descriptor registration", () => {
 
       expect(result.ok).toBe(true);
       if (result.ok) {
-        const testing = assertDefinedAndCastTesting(result.value[TESTING_SECTION]);
+        const testing = assertTestingConfig(result.value[TESTING_SECTION]);
         expect(testing[TESTING_CONFIG_FIELDS.PASSING_SCOPE]).toEqual(generated.expected.passingScope);
+      }
+    });
+  });
+
+  it("resolves the testing descriptor default when the testing section is absent", async () => {
+    await withTestEnv({}, async ({ productDir }) => {
+      const result = await resolveConfig(productDir, productionRegistry);
+
+      expect(result.ok).toBe(true);
+      if (result.ok) {
+        expect(assertTestingConfig(result.value[TESTING_SECTION])).toEqual(testingConfigDescriptor.defaults);
       }
     });
   });
@@ -52,7 +63,7 @@ describe("testing config descriptor registration", () => {
       expect(result.ok).toBe(true);
       if (result.ok) {
         const validation = result.value[VALIDATION_SECTION] as typeof validationConfigDescriptor.defaults;
-        const testing = assertDefinedAndCastTesting(result.value[TESTING_SECTION]);
+        const testing = assertTestingConfig(result.value[TESTING_SECTION]);
 
         expect(validation.paths[PATH_FILTER_CONFIG_FIELDS.INCLUDE]).toEqual(
           validationFilter[PATH_FILTER_CONFIG_FIELDS.INCLUDE],
