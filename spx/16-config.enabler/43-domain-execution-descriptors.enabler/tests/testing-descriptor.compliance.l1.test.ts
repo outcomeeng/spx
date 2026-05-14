@@ -1,3 +1,4 @@
+import * as fc from "fast-check";
 import { describe, expect, it } from "vitest";
 
 import { resolveConfig } from "@/config/index";
@@ -43,6 +44,40 @@ describe("testing config descriptor registration", () => {
         expect(assertTestingConfig(result.value[TESTING_SECTION])).toEqual(testingConfigDescriptor.defaults);
       }
     });
+  });
+
+  it("ignores unknown testing section keys while resolving defaults", () => {
+    const unknownKey = sampleConfigTestValue(CONFIG_TEST_GENERATOR.key());
+    const unknownValue = sampleConfigTestValue(CONFIG_TEST_GENERATOR.scalar());
+    const result = testingConfigDescriptor.validate({ [unknownKey]: unknownValue });
+
+    expect(result).toEqual({
+      ok: true,
+      value: testingConfigDescriptor.defaults,
+    });
+  });
+
+  it("rejects generated non-object testing sections", () => {
+    fc.assert(
+      fc.property(
+        fc.oneof(
+          fc.string(),
+          fc.integer(),
+          fc.boolean(),
+          fc.constant(null),
+          fc.constant(undefined),
+          fc.array(fc.anything()),
+        ),
+        (value) => {
+          const result = testingConfigDescriptor.validate(value);
+
+          expect(result.ok).toBe(false);
+          if (!result.ok) {
+            expect(result.error).toContain(TESTING_SECTION);
+          }
+        },
+      ),
+    );
   });
 
   it("keeps validation paths and testing passing-scope filters in separate descriptor sections", async () => {

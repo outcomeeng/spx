@@ -249,7 +249,9 @@ function validateGeneratedTestingPathFilter(passingScope: PathFilterConfig): Val
     `${TESTING_SECTION}.${TESTING_CONFIG_FIELDS.PASSING_SCOPE}`,
   );
   if (!result.ok) {
-    throw new Error(`CONFIG_TEST_GENERATOR.pathFilter() produced an invalid filter: ${result.error}`);
+    throw new Error(
+      `CONFIG_TEST_GENERATOR.pathFilter() produced an invalid filter ${JSON.stringify(passingScope)}: ${result.error}`,
+    );
   }
   return { passingScope, result };
 }
