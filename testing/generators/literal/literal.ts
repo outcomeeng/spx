@@ -279,6 +279,12 @@ export function sampleDistinctDomainLiterals(count: number): readonly string[] {
   );
 }
 
+export function sampleDistinctTestFilePaths(count: number): readonly string[] {
+  return sampleLiteralTestValue(
+    fc.uniqueArray(arbitraryTestFilePath(), { minLength: count, maxLength: count }),
+  );
+}
+
 export function sampleLiteralPair(): readonly [string, string] {
   const [first, second] = sampleDistinctDomainLiterals(LITERAL_TEST_GENERATOR_COUNTS.two);
   if (first === undefined || second === undefined) {
@@ -288,10 +294,11 @@ export function sampleLiteralPair(): readonly [string, string] {
 }
 
 export function sampleTestFilePathPair(): readonly [string, string] {
-  return sampleLiteralTestValue(
-    fc.tuple(arbitraryTestFilePath(), arbitraryTestFilePath())
-      .filter(([first, second]) => first !== second),
-  );
+  const [first, second] = sampleDistinctTestFilePaths(LITERAL_TEST_GENERATOR_COUNTS.two);
+  if (first === undefined || second === undefined) {
+    throw new Error("Literal generator returned an incomplete test file path pair");
+  }
+  return [first, second];
 }
 
 export function sampleLiteralTriple(): readonly [string, string, string] {
