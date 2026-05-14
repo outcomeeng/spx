@@ -6,21 +6,23 @@ This decision governs how configurable behavior across the spx harness is declar
 
 ## Context
 
-**Business impact:** Every spx domain has configurable knobs — spec-tree hierarchy levels, decision kinds, session paths, validation rules, language markers, CLI defaults. Without a coordinated pattern, each domain parses its own config file format, hardcodes its own vocabulary, and drifts from other domains. A central config module that composes domain-declared descriptors yields a single source of truth (one project config file), a uniform consumer API (typed resolved config), and a natural extension point (new domains register descriptors without editing existing code or the config module's schema).
+**Business impact:** Every spx domain has configurable knobs — spec-tree hierarchy levels, decision kinds, session paths, validation rules, testing scope, auditing state, reviewing execution, language markers, CLI defaults. Without a coordinated pattern, each domain parses its own config file format, hardcodes its own vocabulary, and drifts from other domains. A central config module that composes domain-declared descriptors yields a single source of truth (one product config file), a uniform consumer API (typed resolved config), and a natural extension point (new domains register descriptors without editing existing code or the config module's schema).
 
 **Technical constraints:** spx is TypeScript ESM, no runtime reflection. Descriptors are static: declared by each domain at compile time and imported explicitly by the config registry. Root resolution follows `15-worktree-resolution.pdr.md` — `git rev-parse --show-toplevel` for tracked-file reads. The config module depends on `src/git/` for root resolution and on the static list of imported descriptor modules for composition.
 
 ## Decision
 
-Each spx domain declares a typed configuration descriptor — a module at `src/<domain>/config.ts` exporting an object implementing `ConfigDescriptor<T>` with fields `{ section: string, defaults: T, validate(value: unknown): Result<T> }`. The config module at `src/config/` imports each descriptor through an explicit static registry (`src/config/registry.ts`), loads the single repo-root `spx.config.*` file (if present), parses that file through config-owned format APIs, merges each descriptor's section with its declared defaults, runs the descriptor's own validator on the merged value, and returns a typed `Config` keyed by descriptor section. Consumers read their domain's resolved section through a typed accessor — they never touch raw config content, nor reference vocabulary (suffixes, kinds, paths, rule names) outside their own descriptor. The spec-tree descriptor is the sole owner of entry-kind vocabulary; other descriptors consume spec-tree's resolved section for any vocabulary they need.
+Each spx domain declares a typed configuration descriptor — a module at `src/<domain>/config.ts` or `src/<domain>/config/descriptor.ts` exporting an object implementing `ConfigDescriptor<T>` with fields `{ section: string, defaults: T, validate(value: unknown): Result<T> }`. The config module at `src/config/` imports each descriptor through an explicit static registry (`src/config/registry.ts`), loads the single product-directory `spx.config.*` file (if present), parses that file through config-owned format APIs, merges each descriptor's section with its declared defaults, runs the descriptor's own validator on the merged value, and returns a typed `Config` keyed by descriptor section. Consumers read their domain's resolved section through a typed accessor — they never touch raw config content, nor reference vocabulary (suffixes, kinds, paths, rule names) outside their own descriptor. The spec-tree descriptor is the sole owner of entry-kind vocabulary; other descriptors consume spec-tree's resolved section for any vocabulary they need.
+
+Repeated structural shapes that appear in multiple domain descriptors are declared once as shared config primitives. A shared primitive validates structure only; the importing domain descriptor owns policy meaning, defaults, and section placement. Path include/exclude filters are the canonical shared primitive: validation uses them for quality-debt suppression, testing uses them for passing-scope selection, and future auditing or reviewing sections may use them for target selection without sharing policy semantics.
 
 ## Rationale
 
-Descriptor-based registration is a direct application of the language-registration pattern from `19-language-registration.adr.md` to configuration. Each domain owns its own shape — what it expects, how it validates, what defaults it supplies. Adding a new configurable concern requires one descriptor module and one registry entry. Removing a concern requires deleting the descriptor and removing the registry entry. No code outside those two places changes.
+Descriptor-based registration is a direct application of the language-registration pattern from `spx/19-language-registration.adr.md` to configuration. Each domain owns its own shape — what it expects, how it validates, what defaults it supplies. Adding a new configurable concern requires one descriptor module and one registry entry. Removing a concern requires deleting the descriptor and removing the registry entry. No code outside those two places changes.
 
-Single-source resolution (repo-root config file or defaults only) eliminates the entire class of "which config won?" questions. Layered overlays, flag-based paths, and upward discovery save a few keystrokes at the cost of non-determinism during development and opacity during debugging. A single config file at a known location is the simplest model that still supports project-level customization.
+Single-source resolution (product-directory config file or defaults only) eliminates the entire class of "which config won?" questions. Layered overlays, flag-based paths, and upward discovery save a few keystrokes at the cost of non-determinism during development and opacity during debugging. A single config file at a known location is the simplest model that still supports product-level customization.
 
-Per-descriptor validation keeps each domain's rules isolated from every other. Cross-cutting constraints (e.g., "no suffix collisions across node kinds") belong with the vocabulary owner — the spec-tree descriptor owns all entry-kind vocabulary, so collision-checking for suffixes lives in the spec-tree descriptor's validator. Other domains that need entry-kind vocabulary consume spec-tree's resolved config; they never redeclare it.
+Per-descriptor validation keeps each domain's rules isolated from every other. Cross-cutting constraints (e.g., "no suffix collisions across node kinds") belong with the vocabulary owner — the spec-tree descriptor owns all entry-kind vocabulary, so collision-checking for suffixes lives in the spec-tree descriptor's validator. Other domains that need entry-kind vocabulary consume spec-tree's resolved config; they never redeclare it. Shared primitives reduce duplicated validators without merging policy: a primitive can prove "this is a path filter", while the validation, testing, auditing, or reviewing descriptor decides what that path filter means.
 
 Alternatives considered:
 
@@ -38,33 +40,37 @@ Alternatives considered:
 | No cwd override, no `--config` flag, no overlay                      | Experimental or per-directory config uses a branch or a dedicated overlay tool; resolution does not compose multiple sources             |
 | Cross-domain vocabulary collisions rely on single-owner discipline   | The spec-tree descriptor is the documented sole owner of entry-kind vocabulary; harness-driven coherence tests iterate the live registry |
 | Config module contains an explicit import of every registered domain | The explicit-import cost buys compile-time enumeration, type composition, and bundler-safety                                             |
+| Shared primitives introduce an extra abstraction                     | The abstraction is limited to repeated structure and test evidence; domain policy remains descriptor-local                               |
 
 ## Invariants
 
 - The registry is a static array of imported descriptor modules — no runtime filesystem scan, no plugin loader
 - Each descriptor's validator receives only its own parsed section — never raw file content nor another descriptor's section
-- `resolveConfig(projectRoot)` returns a fully-typed `Config` or an error describing which descriptors' validators rejected their sections — never a partial or untyped result
+- `resolveConfig(productDir)` returns a fully-typed `Config` or an error describing which descriptors' validators rejected their sections — never a partial or untyped result
 - Adding a new descriptor module plus a registry entry requires no changes to any existing descriptor module or any consumer outside the new domain
+- Shared config primitives validate reusable structure only; they do not assign domain semantics outside the descriptor that imports them
 
 ## Compliance
 
 ### Recognized by
 
-Files under `src/config/` contain the registry, loader, shared types, and the `resolveConfig` entry point. Files at `src/<domain>/config.ts` (one per domain with configurable behavior) export descriptor objects. No config-file parsing code, suffix arrays, or kind-name literals appear outside descriptor modules.
+Files under `src/config/` contain the registry, loader, shared types, shared primitives, and the `resolveConfig` entry point. Files at `src/<domain>/config.ts` or `src/<domain>/config/descriptor.ts` export descriptor objects. No config-file parsing code, suffix arrays, or kind-name literals appear outside descriptor modules.
 
 ### MUST
 
-- Each configurable domain exports a descriptor from `src/<domain>/config.ts` implementing the `ConfigDescriptor<T>` interface ([review])
+- Each configurable domain exports a descriptor from `src/<domain>/config.ts` or `src/<domain>/config/descriptor.ts` implementing the `ConfigDescriptor<T>` interface ([review])
 - The registry at `src/config/registry.ts` imports each descriptor with a static import statement ([review])
 - Validators receive only their descriptor's parsed section; cross-cutting vocabulary rules live with the vocabulary owner, not with the config module or with consuming domains ([review])
-- `resolveConfig(projectRoot: string)` accepts `projectRoot` as its first parameter — callers pass in the resolved root per `15-worktree-resolution.pdr.md` ([review])
+- Repeated structural config shapes are factored into shared config primitives and imported by descriptors; domains do not copy-paste validators for the same shape ([review])
+- `resolveConfig(productDir: string)` accepts `productDir` as its first parameter — callers pass in the resolved product directory per `spx/15-worktree-resolution.pdr.md` ([review])
 - Tests for the config module and every registered descriptor construct fixtures programmatically through the shared spec-tree harness — directory trees and config content are generated, never hand-written ([review])
 
 ### NEVER
 
 - Parse raw `spx.config.*` content or reference config-file keys anywhere outside `src/config/` and descriptor modules ([review])
 - Import one descriptor from another descriptor — descriptors are isolated by design ([review])
-- Accept a `--config` flag, walk parent directories searching for config files, or overlay multiple config sources — resolution reads the repo-root config file and defaults only ([review])
+- Put domain policy defaults in shared config primitives — primitives validate reusable structure; descriptors own meaning and defaults ([review])
+- Accept a `--config` flag, walk parent directories searching for config files, or overlay multiple config sources — resolution reads the product-directory config file and defaults only ([review])
 - Return a partial or untyped config when any descriptor's validator rejects its section ([review])
 - `vi.mock()`, `jest.mock()`, `memfs`, or any filesystem-mocking mechanism for `node:fs` / `node:fs/promises` — tests construct real fixtures through the shared harness under temp directories ([review])
 - Hardcode configurable vocabulary (suffixes, kind names, rule identifiers, path literals) anywhere except inside descriptor declarations — the spec-tree descriptor is the sole owner of entry-kind vocabulary ([review])
