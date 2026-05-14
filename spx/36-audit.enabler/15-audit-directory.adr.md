@@ -25,7 +25,7 @@ Audit verdicts are stored under `.spx/audit/{branch-slug}/` using a branch-scope
 
 **Branch slug:** The current branch name is encoded into a filesystem-safe slug. The slug is deterministic and contains no path separators. Slugging lowercases the branch name, replaces every run of non-alphanumeric characters with `-`, trims leading and trailing `-`, and adds a deterministic disambiguator: the first eight lowercase hex characters of the SHA-256 digest of the original branch name. When the normalized branch-name prefix is non-empty, the slug appends the SHA-256 prefix with a `-` separator; when the normalized prefix is empty, the slug is the SHA-256 prefix alone with no leading separator. Detached HEAD state uses `detached-{short-sha}` as the original branch identity, where `{short-sha}` is the first twelve lowercase hex characters of the git `HEAD` commit SHA.
 
-**Run directory:** `{YYYY-MM-DD_HH-mm-ss-SSS}-{run-id}` — timestamp format from `spx/36-session.enabler/21-timestamp-format.adr.md` extended with UTC milliseconds, plus a run id of twelve lowercase hex characters generated from random bytes at run start. The timestamp prefix keeps directory names time-sortable; the run id prevents collisions between concurrent audits that start in the same millisecond. Directory creation uses exclusive create semantics and retries with a new run id on collision.
+**Run directory:** `{YYYY-MM-DD_HH-mm-ss-SSS}-{run-id}` — timestamp format from `spx/36-session.enabler/21-timestamp-format.adr.md` extended with UTC milliseconds, plus a run id of twelve lowercase hex characters generated from `node:crypto` `randomBytes` at run start. The timestamp prefix keeps directory names time-sortable; the run id prevents collisions between concurrent audits that start in the same millisecond. Directory creation uses exclusive create semantics and retries with a new run id on collision. `Math.random` is not used for run ids.
 
 **State file:** `state.json` records the terminal run envelope. Domain-specific auditor output lives in verdict artifacts; `state.json` stays a compact index for status, list, and latest-run lookup. The file is written exactly once after the run reaches a terminal state. In-progress audit runs do not write `state.json`. Runs that reach a terminal state without writing a verdict artifact omit `verdictPath`. Terminal state writes use a temporary file in the same run directory followed by an atomic rename to `state.json`; missing, partial, or parse-invalid state files are incomplete/interrupted evidence and cannot satisfy latest terminal lookup.
 
@@ -51,7 +51,18 @@ interface AuditRunState {
 
 **Audit config digest:** `auditConfigDigest` is the lowercase hex SHA-256 digest of the config-owned canonical descriptor JSON for the resolved audit config descriptor section after defaults are applied. The digest excludes unrelated descriptor sections and raw file formatting.
 
-**Status casing:** `state.json` status values are lowercase machine tokens. CLI display may render verdict tokens in uppercase, including the existing `APPROVED` and `REJECT` output from `spx audit verify <file>`.
+**Status casing:** `state.json` status values are lowercase machine tokens. CLI display renders status values through an explicit mapping:
+
+| `state.json` status | CLI display string |
+| ------------------- | ------------------ |
+| `approved`          | `APPROVED`         |
+| `rejected`          | `REJECT`           |
+| `failed`            | `FAILED`           |
+| `interrupted`       | `INTERRUPTED`      |
+
+The mapping preserves the existing `APPROVED` and `REJECT` output from `spx audit verify <file>`.
+
+**Legacy verdict artifacts:** Existing `.spx/nodes/` verdict artifacts remain verifiable when supplied as explicit `spx audit verify <file>` arguments, but branch-scoped audit list/status views do not index or display legacy node-first artifacts. No automated migration is provided; new audit runs write only to `.spx/audit/{branch-slug}/runs/`.
 
 **Latest run:** The latest terminal run for a branch is selected from `state.json` timestamps, not from directory-name lexical order. Status and list commands compare `completedAt` first, `startedAt` second, and run directory name third as a deterministic tie-breaker. Incomplete run directories without `state.json` do not satisfy latest terminal lookup when any terminal run exists for the branch.
 
@@ -101,18 +112,19 @@ A verdict file at `.spx/audit/work-config-backed-execution-scope/runs/2026-04-25
 - Append `-{sha256-prefix}` when the normalized branch-name prefix is non-empty, where `sha256-prefix` is the first eight lowercase hex characters of the SHA-256 digest of the original branch identity ([review])
 - Use `sha256-prefix` alone when slug normalization produces an empty branch-name prefix ([review])
 - Use `detached-{short-sha}` as the branch identity in detached HEAD state, where `short-sha` is the first twelve lowercase hex characters of the git `HEAD` commit SHA ([review])
-- Name run directories `{YYYY-MM-DD_HH-mm-ss-SSS}-{run-id}` using UTC timestamps and a twelve-character lowercase hex run id generated at run start ([review])
+- Name run directories `{YYYY-MM-DD_HH-mm-ss-SSS}-{run-id}` using UTC timestamps and a twelve-character lowercase hex run id generated from `node:crypto` `randomBytes` at run start; never use `Math.random` for run ids ([review])
 - Create run directories with exclusive create semantics and retry with a new run id when a directory already exists ([review])
 - Write `state.json` exactly once at terminal run completion with branch name, branch slug, head commit SHA, resolved audit descriptor base ref, audit config digest, auditor identifiers, target paths, run start timestamp, run completion timestamp, optional verdict path, and final status ([review])
 - Write terminal `state.json` through a temporary file in the same run directory followed by an atomic rename to the final path ([review])
 - Default the audit descriptor `baseRef` to `main` when `audit.baseRef` is absent from `spx.config.*` ([review])
 - Surface run directories with missing, partial, or parse-invalid `state.json` as incomplete/interrupted in list and status output, and exclude them from latest terminal audit lookup when any terminal run exists for the branch ([review])
 - Select the latest terminal run by greatest `completedAt`, then greatest `startedAt`, then lexicographically greatest run directory name as a deterministic tie-breaker ([review])
-- Store `state.json` statuses as lowercase machine tokens; render CLI verdict strings separately from persisted state casing ([review])
+- Store `state.json` statuses as lowercase machine tokens; render CLI status strings through the explicit persisted-status-to-display mapping ([review])
 - Compute `auditConfigDigest` from config-owned canonical descriptor JSON for the resolved audit config descriptor section after defaults are applied, excluding unrelated descriptor sections and raw file formatting ([review](../16-config.enabler/21-descriptor-registration.adr.md))
 - Resolve `.spx/audit/` relative to the main repository root via `detectMainRepoRoot` per `spx/15-worktree-resolution.pdr.md` ([review](../15-worktree-resolution.pdr.md))
 - Derive all path component names (`.spx`, `audit`, `runs`) from the audit config descriptor defaults — single source of truth ([review](../16-config.enabler/21-descriptor-registration.adr.md))
 - Keep `spx audit verify <file>` accepting any explicit verdict file path supplied by the caller, including existing `.spx/nodes/` artifacts and new `.spx/audit/` artifacts ([review])
+- Do not index, list, or migrate existing `.spx/nodes/` artifacts into branch-scoped audit status; legacy artifacts are explicit-file verification inputs only ([review])
 
 ### NEVER
 
