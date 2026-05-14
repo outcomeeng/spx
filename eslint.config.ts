@@ -1,7 +1,6 @@
 import js from "@eslint/js";
 import importPlugin from "eslint-plugin-import";
 import globals from "globals";
-import * as JSONC from "jsonc-parser";
 import { readFileSync } from "node:fs";
 import tseslint from "typescript-eslint";
 
@@ -23,6 +22,7 @@ import {
   testRestrictedSyntax,
   tsRestrictedSyntax,
 } from "./eslint-rules/restricted-syntax";
+import { readTypeScriptExcludeGlobs } from "./src/validation/eslint-config-exclusions";
 import { LINT_POLICY_MANIFESTS, parseLintPolicyManifest } from "./src/validation/lint-policy-constants";
 
 const TEST_LINT_DEBT_NODE_MANIFEST_FILE = LINT_POLICY_MANIFESTS.TEST_LINT_DEBT_NODES.file;
@@ -70,37 +70,6 @@ function isLegacyLintNoiseRule(
   );
 }
 
-/**
- * Read TypeScript exclusions to maintain perfect scope alignment.
- * Follows `extends` so derived configs (e.g. tsconfig.production.json)
- * inherit base exclusions such as `dist`.
- */
-function getTypeScriptExclusions(configFile: string, seen: ReadonlySet<string> = new Set()): string[] {
-  if (seen.has(configFile)) {
-    return [];
-  }
-  const nextSeen = new Set(seen).add(configFile);
-  try {
-    const configContent = readFileSync(configFile, "utf-8");
-    const config = JSONC.parse(configContent);
-    const ownExcludes: string[] = config.exclude || [];
-    const extendsValues = Array.isArray(config.extends) ? config.extends : [config.extends];
-    const baseExcludes = extendsValues
-      .filter((value): value is string => typeof value === "string")
-      .flatMap((value) => {
-        const baseFile = value.startsWith(".") ? value : `./${value}`;
-        return getTypeScriptExclusions(baseFile, nextSeen);
-      });
-    if (baseExcludes.length > 0) {
-      return [...baseExcludes, ...ownExcludes];
-    }
-    return ownExcludes;
-  } catch {
-    console.warn(`Could not read TypeScript config ${configFile}, using default exclusions`);
-    return [];
-  }
-}
-
 const testLintDebtNodePaths = readManifest(
   TEST_LINT_DEBT_NODE_MANIFEST_FILE,
   TEST_LINT_DEBT_NODE_MANIFEST_KEY,
@@ -119,7 +88,7 @@ const testLintDebtRestrictedSyntax = testRestrictedSyntax.filter(
 
 export function buildEslintConfig(options: BuildEslintConfigOptions = {}) {
   const typescriptConfigFile = options.typescriptConfigFile ?? ESLINT_TYPESCRIPT_CONFIG_FILES.FULL;
-  const tsExclusions = getTypeScriptExclusions(typescriptConfigFile);
+  const tsExclusionGlobs = readTypeScriptExcludeGlobs(typescriptConfigFile);
 
   return [
     // Ignore patterns - tsconfig.json exclusions + ESLint-specific patterns
@@ -129,7 +98,7 @@ export function buildEslintConfig(options: BuildEslintConfigOptions = {}) {
         // handled in tsconfig.json
 
         // From tsconfig.json (single source of truth)
-        ...tsExclusions.map((p) => (p.includes("*") ? p : `${p}/**/*`)),
+        ...tsExclusionGlobs,
       ],
     },
 

@@ -53,7 +53,7 @@ const rule: Rule.RuleModule = {
         if (isObjectKey(node)) return;
 
         context.report({
-          node: node as never,
+          node: node as Rule.Node,
           messageId: USE_SPEC_TREE_NODE_STATES_MESSAGE_ID,
           data: { value: node.value },
         });

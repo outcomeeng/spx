@@ -106,6 +106,20 @@ export interface ValidationGeneratedConfigSeverityScenario {
   }>;
 }
 
+export interface ValidationGeneratedTypeScriptExclusionsScenario {
+  readonly missingConfigFile: string;
+  readonly baseConfigFile: string;
+  readonly childConfigFile: string;
+  readonly baseConfig: {
+    readonly exclude: readonly string[];
+  };
+  readonly childConfig: {
+    readonly extends: string;
+    readonly exclude: readonly string[];
+  };
+  readonly expectedGlobs: readonly string[];
+}
+
 export function validationRuleTesterHooks(): {
   readonly afterAllKey: string;
   readonly afterAll: () => void;
@@ -113,6 +127,32 @@ export function validationRuleTesterHooks(): {
   return {
     afterAllKey: AFTER_ALL_HOOK_KEY,
     afterAll: () => {},
+  };
+}
+
+export function validationTypeScriptExclusionsScenario(): ValidationGeneratedTypeScriptExclusionsScenario {
+  const directoryExclude = "dist";
+  const existingDirectoryGlob = "coverage/**";
+  const existingFileGlob = "generated/**/*";
+  const childDirectoryExclude = "artifacts";
+
+  return {
+    missingConfigFile: "missing-tsconfig.json",
+    baseConfigFile: "config/tsconfig.base.json",
+    childConfigFile: "config/tsconfig.child.json",
+    baseConfig: {
+      exclude: [directoryExclude, existingDirectoryGlob, existingFileGlob],
+    },
+    childConfig: {
+      extends: "./tsconfig.base.json",
+      exclude: [childDirectoryExclude],
+    },
+    expectedGlobs: [
+      `${directoryExclude}/**/*`,
+      existingDirectoryGlob,
+      existingFileGlob,
+      `${childDirectoryExclude}/**/*`,
+    ],
   };
 }
 
