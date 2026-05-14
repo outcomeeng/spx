@@ -61,6 +61,29 @@ describe("testing config descriptor", () => {
     }
   });
 
+  it("rejects generated non-object testing sections", () => {
+    fc.assert(
+      fc.property(
+        fc.oneof(
+          fc.string(),
+          fc.integer(),
+          fc.boolean(),
+          fc.constant(null),
+          fc.constant(undefined),
+          fc.array(fc.anything()),
+        ),
+        (value) => {
+          const result = testingConfigDescriptor.validate(value);
+
+          expect(result.ok).toBe(false);
+          if (!result.ok) {
+            expect(result.error).toContain(TESTING_SECTION);
+          }
+        },
+      ),
+    );
+  });
+
   it("rejects invalid passing-scope path filters with descriptor-qualified paths", () => {
     fc.assert(
       fc.property(CONFIG_TEST_GENERATOR.invalidPathFilter(), (generated) => {

@@ -4,7 +4,6 @@ import type { ConfigFileReadResult } from "@/config/index";
 import {
   PATH_FILTER_CONFIG_FIELDS,
   type PathFilterConfig,
-  validatePathFilterConfig,
 } from "@/config/primitives/path-filter";
 import type { ConfigDescriptor, Result } from "@/config/types";
 import {
@@ -224,27 +223,16 @@ function arbitraryInvalidPathFilterArray(): fc.Arbitrary<readonly unknown[]> {
 }
 
 function arbitraryTestingConfig(): fc.Arbitrary<GeneratedTestingConfig> {
-  return arbitraryPathFilter().map((passingScope) => {
-    const result = validatePathFilterConfig(
-      passingScope,
-      `${TESTING_SECTION}.${TESTING_CONFIG_FIELDS.PASSING_SCOPE}`,
-    );
-    if (!result.ok) {
-      throw new Error(
-        `CONFIG_TEST_GENERATOR.pathFilter() produced an invalid filter ${JSON.stringify(passingScope)}: ${result.error}`,
-      );
-    }
-    return {
-      config: {
-        [TESTING_SECTION]: {
-          [TESTING_CONFIG_FIELDS.PASSING_SCOPE]: passingScope,
-        },
+  return arbitraryPathFilter().map((passingScope) => ({
+    config: {
+      [TESTING_SECTION]: {
+        [TESTING_CONFIG_FIELDS.PASSING_SCOPE]: passingScope,
       },
-      expected: {
-        [TESTING_CONFIG_FIELDS.PASSING_SCOPE]: result.value,
-      },
-    };
-  });
+    },
+    expected: {
+      [TESTING_CONFIG_FIELDS.PASSING_SCOPE]: passingScope,
+    },
+  }));
 }
 
 function arbitraryTempPrefix(): fc.Arbitrary<string> {
