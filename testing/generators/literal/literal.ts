@@ -279,7 +279,6 @@ export function sampleDistinctDomainLiterals(count: number): readonly string[] {
   );
 }
 
-// Use independent samples when a detector assertion needs every generated value to surface separately.
 export function sampleIndependentDomainLiterals(count: number): readonly string[] {
   return sampleLiteralTestValue(
     fc

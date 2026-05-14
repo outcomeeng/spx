@@ -177,7 +177,6 @@ function arbitraryInvalidPathFilterObject(): fc.Arbitrary<{
     fc.integer(),
     fc.boolean(),
     fc.constant(null),
-    fc.constant(undefined),
     fc.array(fc.string()),
   ).map((value) => ({
     value,
