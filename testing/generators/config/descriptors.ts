@@ -86,6 +86,11 @@ export type GeneratedTestingConfig = {
   readonly expected: TestingConfig;
 };
 
+type ValidatedTestingPathFilter = {
+  readonly passingScope: PathFilterConfig;
+  readonly result: { readonly ok: true; readonly value: PathFilterConfig };
+};
+
 export const CONFIG_TEST_GENERATOR = {
   absentConfigFileReadResult: arbitraryAbsentConfigFileReadResult,
   emptyConfig: arbitraryEmptyConfig,
@@ -224,25 +229,25 @@ function arbitraryInvalidPathFilterArray(): fc.Arbitrary<readonly unknown[]> {
 }
 
 function arbitraryTestingConfig(): fc.Arbitrary<GeneratedTestingConfig> {
-  return arbitraryPathFilter().map((passingScope) => {
-    const validated = validatePathFilterConfig(
+  return arbitraryPathFilter()
+    .map((passingScope) => ({
       passingScope,
-      `${TESTING_SECTION}.${TESTING_CONFIG_FIELDS.PASSING_SCOPE}`,
-    );
-    if (!validated.ok) {
-      throw new Error(validated.error);
-    }
-    return {
+      result: validatePathFilterConfig(
+        passingScope,
+        `${TESTING_SECTION}.${TESTING_CONFIG_FIELDS.PASSING_SCOPE}`,
+      ),
+    }))
+    .filter((entry): entry is ValidatedTestingPathFilter => entry.result.ok)
+    .map(({ passingScope, result }) => ({
       config: {
         [TESTING_SECTION]: {
           [TESTING_CONFIG_FIELDS.PASSING_SCOPE]: passingScope,
         },
       },
       expected: {
-        [TESTING_CONFIG_FIELDS.PASSING_SCOPE]: validated.value,
+        [TESTING_CONFIG_FIELDS.PASSING_SCOPE]: result.value,
       },
-    };
-  });
+    }));
 }
 
 function arbitraryTempPrefix(): fc.Arbitrary<string> {

@@ -14,7 +14,7 @@ import { CONFIG_TEST_GENERATOR, sampleConfigTestValue } from "@testing/generator
 import type { Config } from "@testing/harnesses/spec-tree/spec-tree";
 import { withTestEnv } from "@testing/harnesses/spec-tree/spec-tree";
 
-function assertAndCastTesting(value: unknown): TestingConfig {
+function assertDefinedAndCastTesting(value: unknown): TestingConfig {
   expect(value).toBeDefined();
   return value as TestingConfig;
 }
@@ -28,7 +28,7 @@ describe("testing config descriptor registration", () => {
 
       expect(result.ok).toBe(true);
       if (result.ok) {
-        const testing = assertAndCastTesting(result.value[TESTING_SECTION]);
+        const testing = assertDefinedAndCastTesting(result.value[TESTING_SECTION]);
         expect(testing[TESTING_CONFIG_FIELDS.PASSING_SCOPE]).toEqual(generated.expected.passingScope);
       }
     });
@@ -52,7 +52,7 @@ describe("testing config descriptor registration", () => {
       expect(result.ok).toBe(true);
       if (result.ok) {
         const validation = result.value[VALIDATION_SECTION] as typeof validationConfigDescriptor.defaults;
-        const testing = assertAndCastTesting(result.value[TESTING_SECTION]);
+        const testing = assertDefinedAndCastTesting(result.value[TESTING_SECTION]);
 
         expect(validation.paths[PATH_FILTER_CONFIG_FIELDS.INCLUDE]).toEqual(
           validationFilter[PATH_FILTER_CONFIG_FIELDS.INCLUDE],
