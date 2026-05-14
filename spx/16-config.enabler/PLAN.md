@@ -38,6 +38,7 @@ Coordinate the config tranche that moves deterministic execution domains onto th
 - Config-format mapping tests cover the new sections across JSON, YAML, and TOML.
 - Descriptor isolation tests prove a malformed testing, audit, or review section cannot read or change validation config.
 - Shared-primitive tests prove validation and testing descriptors import the same path-filter primitive while exposing policy under separate sections.
+- Canonical descriptor JSON tests prove object keys sort recursively, array order is preserved, primitive serialization matches JSON semantics, and digest input bytes are stable across equivalent resolved descriptor sections.
 
 ## Open Coordination
 

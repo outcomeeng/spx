@@ -15,7 +15,7 @@ Move audit from verify-only artifact checking toward config-backed, branch-scope
 
 1. Add an audit config descriptor.
    - Defaults include `.spx`, `audit`, `runs`, verdict filenames, and state filenames.
-   - Descriptor owns auditor selection, target filters, and storage policy.
+   - Descriptor owns auditor selection, base ref, target filters, and storage policy.
    - Path filters use the shared config primitive when target selection needs include/exclude semantics.
 
 2. Implement branch slugging.
@@ -34,9 +34,10 @@ Move audit from verify-only artifact checking toward config-backed, branch-scope
 
 - Audit descriptor tests cover defaults, valid storage overrides, invalid storage values, target filters, and descriptor isolation.
 - Branch slug mapping tests cover slashes, punctuation, collisions, and detached heads.
-- Audit state tests cover required `state.json` fields: branch name, branch slug, head commit SHA, base ref, audit config digest, auditor identifiers, target paths, run start timestamp, run completion timestamp, verdict path, and terminal status.
+- Audit state tests cover required `state.json` fields: branch name, branch slug, head commit SHA, resolved audit descriptor base ref, audit config digest, auditor identifiers, target paths, run start timestamp, run completion timestamp, verdict path, and terminal status.
 - Audit state tests prove `state.json` is absent for in-progress runs and written exactly once for `approved`, `rejected`, `failed`, or `interrupted` runs.
-- Audit config digest tests prove the digest is computed from canonical JSON for the resolved audit config descriptor section after defaults are applied.
+- Audit config digest tests prove the digest is computed from config-owned canonical descriptor JSON for the resolved audit config descriptor section after defaults are applied.
+- Audit base-ref tests prove the state file records the resolved descriptor value after defaults and overrides.
 - Storage tests prove audit state resolves through main repository root, not the worktree root.
 - Verify tests prove existing explicit-file verification still works for files outside `.spx/audit/`, including old `.spx/nodes/` artifacts.
 

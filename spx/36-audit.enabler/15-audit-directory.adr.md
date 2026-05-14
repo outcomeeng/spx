@@ -29,6 +29,8 @@ Audit verdicts are stored under `.spx/audit/{branch-slug}/` using a branch-scope
 
 **State file:** `state.json` records the terminal run envelope. Domain-specific auditor output lives in verdict artifacts; `state.json` stays a compact index for status, list, and latest-run lookup. The file is written exactly once after the run reaches a terminal state. In-progress audit runs do not write `state.json`.
 
+**Base ref:** `baseRef` records the resolved audit config descriptor's base ref at run start, after descriptor defaults are applied. The audit descriptor owns the default base ref and any configured override; `state.json` records the resolved value so status, list, and latest-run views do not need to re-resolve config.
+
 ```ts
 interface AuditRunState {
   readonly branchName: string;
@@ -45,7 +47,7 @@ interface AuditRunState {
 }
 ```
 
-**Audit config digest:** `auditConfigDigest` is the lowercase hex SHA-256 digest of canonical JSON for the resolved audit config descriptor section after defaults are applied. The digest excludes unrelated descriptor sections and raw file formatting.
+**Audit config digest:** `auditConfigDigest` is the lowercase hex SHA-256 digest of the config-owned canonical descriptor JSON for the resolved audit config descriptor section after defaults are applied. The digest excludes unrelated descriptor sections and raw file formatting.
 
 **Latest run:** The lexicographically last run directory inside `.spx/audit/{branch-slug}/runs/` is the most recent audit for that branch.
 
@@ -68,7 +70,7 @@ Alternatives rejected:
 | Trade-off                                           | Mitigation / reasoning                                                                                           |
 | --------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------- |
 | Branch history grows unbounded                      | Future `spx audit prune` command will manage retention, analogous to `spx session prune`                         |
-| Branch slug readability is reduced by hash suffixes | The suffix removes collision lookup and makes slugging a pure function of the branch identity                    |
+| Branch slug readability is reduced by hash suffixes | The suffix makes collisions practically negligible without requiring lookup and keeps slugging a pure function   |
 | Per-node history is nested under branch history     | The branch is the hermetic execution boundary; per-node indexing can be derived from state files inside each run |
 
 ## Invariants
@@ -77,6 +79,7 @@ Alternatives rejected:
 - Detached HEAD state maps to a branch identity of `detached-{short-sha}`, where `{short-sha}` is the first twelve lowercase hex characters of the git `HEAD` commit SHA
 - Each `state.json` file contains the complete terminal run envelope required to list, inspect, and identify the latest branch audit without parsing verdict XML
 - `state.json` is written exactly once after the run reaches `approved`, `rejected`, `failed`, or `interrupted`
+- `baseRef` is always the resolved audit config descriptor base ref captured at run start
 - Audit run directories within a branch directory are never renamed or moved — timestamps are assigned at write time and are stable
 - The `.spx/audit/` root is always resolved relative to the main repository root per `spx/15-worktree-resolution.pdr.md`
 
@@ -92,8 +95,8 @@ A verdict file at `.spx/audit/work-config-backed-execution-scope/runs/2026-04-25
 - Always append `-{sha256-prefix}`, where `sha256-prefix` is the first eight lowercase hex characters of the SHA-256 digest of the original branch identity ([review])
 - Use `detached-{short-sha}` as the branch identity in detached HEAD state, where `short-sha` is the first twelve lowercase hex characters of the git `HEAD` commit SHA ([review])
 - Name run directories `{YYYY-MM-DD_HH-mm-ss}` using UTC timestamps ([review])
-- Write `state.json` exactly once at terminal run completion with branch name, branch slug, head commit SHA, base ref, audit config digest, auditor identifiers, target paths, run start timestamp, run completion timestamp, verdict path, and final status ([review])
-- Compute `auditConfigDigest` from canonical JSON for the resolved audit config descriptor section after defaults are applied, excluding unrelated descriptor sections and raw file formatting ([review])
+- Write `state.json` exactly once at terminal run completion with branch name, branch slug, head commit SHA, resolved audit descriptor base ref, audit config digest, auditor identifiers, target paths, run start timestamp, run completion timestamp, verdict path, and final status ([review])
+- Compute `auditConfigDigest` from config-owned canonical descriptor JSON for the resolved audit config descriptor section after defaults are applied, excluding unrelated descriptor sections and raw file formatting ([review](../16-config.enabler/21-descriptor-registration.adr.md))
 - Resolve `.spx/audit/` relative to the main repository root via `detectMainRepoRoot` per `spx/15-worktree-resolution.pdr.md` ([review](../15-worktree-resolution.pdr.md))
 - Derive all path component names (`.spx`, `audit`, `runs`) from the audit config descriptor defaults — single source of truth ([review](../16-config.enabler/21-descriptor-registration.adr.md))
 - Keep `spx audit verify <file>` accepting explicit verdict file paths anywhere in the product directory, including existing `.spx/nodes/` artifacts and new `.spx/audit/` artifacts ([review])
