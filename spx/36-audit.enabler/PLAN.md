@@ -16,6 +16,7 @@ Move audit from verify-only artifact checking toward config-backed, branch-scope
 1. Add an audit config descriptor.
    - Defaults include `.spx`, `audit`, `runs`, verdict filenames, and state filenames.
    - Descriptor owns auditor selection, base ref, target filters, and storage policy.
+   - Default `audit.baseRef` to `main` when no config override is present.
    - Path filters use the shared config primitive when target selection needs include/exclude semantics.
 
 2. Implement branch slugging.
@@ -40,7 +41,7 @@ Move audit from verify-only artifact checking toward config-backed, branch-scope
 - Audit state tests prove run directories missing `state.json` appear as incomplete/interrupted in list and status output and do not satisfy latest terminal audit status when a terminal run exists.
 - Audit state tests prove persisted status casing is lowercase and CLI verdict rendering remains a display concern.
 - Audit config digest tests prove the digest is computed from config-owned canonical descriptor JSON for the resolved audit config descriptor section after defaults are applied.
-- Audit base-ref tests prove the state file records the resolved descriptor value after defaults and overrides.
+- Audit base-ref tests prove the state file records `main` when no config override exists and records the configured value when `audit.baseRef` is set.
 - Storage tests prove audit state resolves through main repository root, not the worktree root.
 - Verify tests prove existing explicit-file verification still works for files outside `.spx/audit/`, including old `.spx/nodes/` artifacts.
 
