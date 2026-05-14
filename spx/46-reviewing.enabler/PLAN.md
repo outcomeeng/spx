@@ -34,4 +34,4 @@ Child nodes can split after review config and hermetic execution contracts are a
 ## Open Coordination
 
 - A shared audit/review storage contract requires an ADR before review state can reuse audit state files.
-- `spx/46-claude.outcome/` is Claude-specific source material for agent-environment reconciliation; `spx/46-reviewing.enabler/` owns local review execution truth.
+- Implementing agents load `spx/46-reviewing.enabler/` and `spx/33-agent-environment.enabler/` as governing truth; consult `spx/46-claude.outcome/` only as Claude-specific source material for reconciliation work.

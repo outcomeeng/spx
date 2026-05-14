@@ -21,6 +21,7 @@ Rename config and descriptor-facing tracked product-root APIs to `productDir`.
 ## Evidence Required
 
 - Config and descriptor tests use `productDir` in public helper names and assertions.
+- Session root resolver tests use Git common-dir product-root vocabulary after the root-helper rename.
 - Repository searches show no added `projectRoot` or `projectDir` call sites in the edited APIs.
 - `spx validation all` and full tests pass.
 

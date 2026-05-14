@@ -18,6 +18,8 @@ Review run state is stored under `.spx/review/{target-kind}/{target-slug}/runs/{
 
 Each run directory contains a terminal `state.json` file and reviewer output artifacts. `state.json` records the target kind, target slug, reviewer identifiers, base/head metadata, review config digest, run timestamps, output paths, and terminal status. A run directory without parse-valid `state.json` is incomplete review evidence and cannot satisfy latest terminal review lookup.
 
+`baseSha` is recorded when the base ref resolves to a commit SHA before reviewer execution begins. It is omitted only when the base ref is known but cannot be resolved to a commit SHA within the local hermetic review boundary. `headSha` is always required because the reviewed target must be pinned to a concrete head commit.
+
 ```ts
 interface ReviewRunState {
   readonly targetKind: "branch" | "pr";
@@ -70,6 +72,8 @@ A state file at `.spx/review/branch/work-config-backed-execution-scope-1a2b3c4d/
 - Keep target slugs at or below 120 UTF-8 bytes ([review])
 - Encode pull request target slugs as `pr-{number}` using an unsigned base-10 pull request number ([review])
 - Store target kind, target slug, reviewer identifiers, base/head metadata, review config digest, run timestamps, output paths, and terminal status in `state.json` ([review])
+- Record `baseSha` when the base ref resolves to a commit SHA before reviewer execution; omit `baseSha` only when the base ref cannot be resolved inside the local hermetic review boundary ([review])
+- Always record `headSha` for the reviewed target ([review])
 - Treat run directories without parse-valid `state.json` as incomplete evidence for latest-review lookup ([review])
 - Select the latest terminal review by greatest `completedAt`, then greatest `startedAt`, then lexicographically greatest run directory name as a deterministic tie-breaker ([review])
 
