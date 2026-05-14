@@ -12,6 +12,8 @@ Keep the product spec tree on the current node model and remove the deprecated t
 - Current spec-tree fixtures use `withSpecTreeEnv` under `testing/harnesses/spec-tree/`.
 - Deprecated root spec subtrees and deleted compatibility source paths are not product truth.
 - Deprecated task-model directories, stale suffix excludes, and frozen legacy specs are removed from the product tree.
+- Deprecated suffix debt manifest cleanup is complete; remaining deprecated suffix handling is enforcement-only.
+- Stale migration notes are removed from the current spec-tree refactor plan; any remaining release-note work lives in the owning validation issue.
 
 ## Current Tranche
 
