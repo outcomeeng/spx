@@ -21,6 +21,7 @@ describe("path filter config resolution", () => {
 
         expect(result.ok).toBe(true);
         if (result.ok) {
+          expect(result.value).toHaveProperty(VALIDATION_SECTION);
           const validation = result.value[VALIDATION_SECTION] as ValidationConfig;
           expect(validation.paths[PATH_FILTER_CONFIG_FIELDS.INCLUDE]).toEqual(
             filter[PATH_FILTER_CONFIG_FIELDS.INCLUDE],

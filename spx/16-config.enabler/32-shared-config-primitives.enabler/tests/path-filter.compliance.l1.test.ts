@@ -11,12 +11,10 @@ import { CONFIG_TEST_GENERATOR, sampleConfigTestValue } from "@testing/generator
 
 type GeneratedPathFilterSection = Readonly<Record<string, PathFilterConfig>>;
 
-const recordType = typeof {};
-
 function isGeneratedPathFilterSection(
   value: unknown,
 ): value is Readonly<Record<string, unknown>> {
-  return typeof value === recordType && value !== null && !Array.isArray(value);
+  return typeof value === typeof {} && value !== null && !Array.isArray(value);
 }
 
 function buildPathFilterDescriptor(section: string, field: string): ConfigDescriptor<GeneratedPathFilterSection> {
@@ -51,6 +49,21 @@ describe("path filter primitive compliance", () => {
   it("normalizes empty filters without adding domain policy defaults", () => {
     const path = sampleConfigTestValue(CONFIG_TEST_GENERATOR.key());
     const result = validatePathFilterConfig({}, path);
+
+    expect(result.ok).toBe(true);
+    if (result.ok) {
+      expect(result.value).toEqual({
+        [PATH_FILTER_CONFIG_FIELDS.INCLUDE]: undefined,
+        [PATH_FILTER_CONFIG_FIELDS.EXCLUDE]: undefined,
+      });
+    }
+  });
+
+  it("ignores generated unknown keys without turning them into filter output", () => {
+    const path = sampleConfigTestValue(CONFIG_TEST_GENERATOR.key());
+    const unknownKey = sampleConfigTestValue(CONFIG_TEST_GENERATOR.key());
+    const unknownValue = sampleConfigTestValue(CONFIG_TEST_GENERATOR.scalar());
+    const result = validatePathFilterConfig({ [unknownKey]: unknownValue }, path);
 
     expect(result.ok).toBe(true);
     if (result.ok) {
