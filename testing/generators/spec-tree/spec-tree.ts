@@ -126,6 +126,7 @@ export function withGeneratedSourceRef(entry: SpecTreeSourceEntry): SpecTreeSour
   };
 }
 
+// Contract tests use this to write existing node paths into fixture files.
 export function specTreeFixtureNodeDirectoryName(
   registry: SpecTreeRegistry,
   node: RepresentativeSpecTreeFixture["root"],

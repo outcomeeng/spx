@@ -25,6 +25,7 @@ export const SPEC_STATUS_FORMAT_MESSAGE = {
 } as const;
 
 export const SPEC_DOMAIN_CLI_MESSAGE = {
+  // Commander emits this prefix for unknown subcommands before domain action handlers run.
   UNKNOWN_COMMAND_PREFIX: "error: unknown command",
 } as const;
 
