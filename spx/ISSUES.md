@@ -44,12 +44,6 @@ Three top-level subtrees use non-methodology directory suffixes (`.capability`, 
 
 **Resolution:** Follow the current migration plan for `21-core-cli.capability`. The remaining subtrees need their own audit for (1) whether each child remains a real enabler, (2) whether junk-drawer names describe real concerns, (3) what should be renamed, dissolved, merged, or deleted.
 
-## Spec domain under-specified
-
-`31-spec-domain.enabler` covers the most important domain in spx — deterministic CLI operations on the spec tree (declare → spec → apply) — but has no child enablers. The CLI implements `spx spec status` and `spx spec next` in code without matching specs in the tree. The previous child `21-apply.enabler` (with `21-apply-exclude.enabler`) was deleted because its purpose (writing to project tool configuration) was rejected by the new quality-gate design where `spx test passing` and `spx validation all passing` filter at invocation time.
-
-**Resolution:** Author specs for the existing `status` and `next` commands. Re-examine whether an `apply` CLI command belongs here (as "run the declare → spec → apply methodology step") or elsewhere. Scope: follow-up work, not part of the EXCLUDE-aware quality-gate restructure.
-
 ## Cross-file literal-reuse findings: 116 unsuppressed across 11 subtrees
 
 `spx validation literal` reports 116 test files with literal-reuse findings — the cross-file detector running against an empty effective allowlist. The validator was migrated from `literal.allowlist.*` to `validation.literal.values.*` (commit `e629a1d`), but [spx.config.yaml](../spx.config.yaml) still uses the old `literal.allowlist.*` key. The validator silently reads schema defaults; the 100+ existing allowlist entries never reach the detector.

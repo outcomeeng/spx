@@ -5,7 +5,12 @@ import { SPEC_NEXT_MESSAGE } from "@/commands/spec/next";
 import { OUTPUT_FORMAT } from "@/commands/spec/status";
 import { SPEC_DOMAIN_CLI, SPEC_STATUS_FORMAT_MESSAGE } from "@/domains/spec";
 import { SPEC_TREE_NODE_STATE } from "@/lib/spec-tree";
+import { KIND_REGISTRY } from "@/lib/spec-tree/config";
 import { MINIMAL_SPEC_TREE_CONFIG } from "@testing/generators/config/config";
+import {
+  RETIRED_SPEC_APPLY_FIXTURE,
+  specTreeFixtureNodeDirectoryName,
+} from "@testing/generators/spec-tree/spec-tree";
 import { CLI_PATH, NODE_EXECUTABLE } from "@testing/harnesses/constants";
 import { withSpecTreeEnv } from "@testing/harnesses/spec-tree/spec-tree";
 
@@ -73,6 +78,23 @@ describe("spx spec process contract", () => {
 
       expect(exitCode).toBe(0);
       expect(() => JSON.parse(stdout)).not.toThrow();
+    });
+  });
+
+  it("rejects config-writing apply routing without modifying product configuration", async () => {
+    await withSpecTreeEnv(MINIMAL_SPEC_TREE_CONFIG, async (env) => {
+      await env.materialize();
+      const nodePath = specTreeFixtureNodeDirectoryName(KIND_REGISTRY, env.fixture.root);
+      const pyprojectContent = `[${RETIRED_SPEC_APPLY_FIXTURE.pytestSection}]\naddopts = ""\n`;
+      await env.writeRaw(RETIRED_SPEC_APPLY_FIXTURE.excludeFile, `${nodePath}\n`);
+      await env.writeRaw(RETIRED_SPEC_APPLY_FIXTURE.pythonConfigFile, pyprojectContent);
+
+      const result = await runCli(env.productDir, SPEC_DOMAIN_CLI.COMMAND, RETIRED_SPEC_APPLY_FIXTURE.command);
+
+      expect(result.exitCode).toBe(1);
+      expect(result.stderr).toContain(RETIRED_SPEC_APPLY_FIXTURE.unknownCommandPrefix);
+      expect(result.stderr).toContain(RETIRED_SPEC_APPLY_FIXTURE.command);
+      expect(await env.readFile(RETIRED_SPEC_APPLY_FIXTURE.pythonConfigFile)).toBe(pyprojectContent);
     });
   });
 });

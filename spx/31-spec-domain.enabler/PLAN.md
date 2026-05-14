@@ -42,8 +42,8 @@ Rebuild `spx spec` command behavior on top of the current spec-tree library. Thi
 - [x] Move or rewrite command tests into those child nodes with canonical evidence/level names.
 - [x] Make renderers consume `SpecTreeProjection` rather than raw snapshots when the command output is a stable projection concern.
 - [x] Make command handlers resolve the worktree-local tracked `spx/` root per `spx/15-worktree-resolution.pdr.md`.
-- [ ] Keep config writes out of all spec-domain command paths.
-- [ ] Rename apply-exclude root vocabulary from `projectRoot` to `productDir` when owning the config-write path.
+- [x] Keep config writes out of all spec-domain command paths.
+- [x] Rename apply-exclude root vocabulary from `projectRoot` to `productDir` when owning the config-write path — resolved by deleting the retired config-write path instead of retaining it.
 - [x] Remove legacy `specs/work` fixtures from spec-domain tests.
 - [x] Run focused spec-domain tests, then `spx validation all`, then the full package test gate.
 
