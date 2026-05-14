@@ -19,6 +19,7 @@ describe("testing config descriptor", () => {
     const resolved = expectTestingConfig(result);
 
     expect(resolved).toStrictEqual(testingConfigDescriptor.defaults);
+    expect(resolved).toBe(testingConfigDescriptor.defaults);
     expect(result).toEqual({
       ok: true,
       value: testingConfigDescriptor.defaults,

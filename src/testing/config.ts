@@ -34,10 +34,12 @@ function validate(value: unknown): Result<TestingConfig> {
   }
 
   const candidate = value as Record<string, unknown>;
+  const passingScopeRaw = candidate[TESTING_CONFIG_FIELDS.PASSING_SCOPE];
   // Null is an explicit invalid value; only an omitted field receives defaults.
-  const passingScopeRaw = candidate[TESTING_CONFIG_FIELDS.PASSING_SCOPE] === undefined
-    ? DEFAULT_PASSING_SCOPE
-    : candidate[TESTING_CONFIG_FIELDS.PASSING_SCOPE];
+  if (passingScopeRaw === undefined) {
+    return { ok: true, value: defaults };
+  }
+
   const passingScopeResult = validatePathFilterConfig(
     passingScopeRaw,
     `${TESTING_SECTION}.${TESTING_CONFIG_FIELDS.PASSING_SCOPE}`,
@@ -47,7 +49,7 @@ function validate(value: unknown): Result<TestingConfig> {
   return {
     ok: true,
     value: {
-      [TESTING_CONFIG_FIELDS.PASSING_SCOPE]: passingScopeResult.value,
+      passingScope: passingScopeResult.value,
     },
   };
 }

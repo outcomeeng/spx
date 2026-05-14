@@ -28,7 +28,7 @@ function assertTestingConfig(value: unknown): TestingConfig {
 }
 
 describe("testing config descriptor registration", () => {
-  it("registers the testing descriptor through the production config registry", async () => {
+  it("is reachable through the default production config registry", async () => {
     const generated = sampleConfigTestValue(CONFIG_TEST_GENERATOR.testingConfig());
 
     await withTestEnv(generated.config, async ({ productDir }) => {
