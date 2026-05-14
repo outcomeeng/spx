@@ -228,8 +228,8 @@ function arbitraryTestingConfig(): fc.Arbitrary<GeneratedTestingConfig> {
     },
     expected: {
       [TESTING_CONFIG_FIELDS.PASSING_SCOPE]: {
-        include: passingScope.include,
-        exclude: passingScope.exclude,
+        [PATH_FILTER_CONFIG_FIELDS.INCLUDE]: passingScope[PATH_FILTER_CONFIG_FIELDS.INCLUDE],
+        [PATH_FILTER_CONFIG_FIELDS.EXCLUDE]: passingScope[PATH_FILTER_CONFIG_FIELDS.EXCLUDE],
       },
     },
   }));

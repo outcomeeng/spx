@@ -7,10 +7,8 @@ export const TESTING_CONFIG_FIELDS = {
   PASSING_SCOPE: "passingScope",
 } as const;
 
-export type TestingPassingScopeConfig = PathFilterConfig;
-
 export interface TestingConfig {
-  readonly passingScope: TestingPassingScopeConfig;
+  readonly passingScope: PathFilterConfig;
 }
 
 export const TESTING_CONFIG_DEFAULTS: TestingConfig = {

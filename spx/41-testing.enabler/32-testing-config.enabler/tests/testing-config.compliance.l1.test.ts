@@ -41,14 +41,30 @@ describe("testing config descriptor", () => {
           `${TESTING_SECTION}.${TESTING_CONFIG_FIELDS.PASSING_SCOPE}`,
         );
 
-        expect(result).toEqual({
-          ok: true,
-          value: {
-            [TESTING_CONFIG_FIELDS.PASSING_SCOPE]: primitiveResult.ok ? primitiveResult.value : undefined,
-          },
-        });
+        expect(primitiveResult.ok).toBe(true);
+        if (primitiveResult.ok) {
+          expect(result).toEqual({
+            ok: true,
+            value: {
+              [TESTING_CONFIG_FIELDS.PASSING_SCOPE]: primitiveResult.value,
+            },
+          });
+        }
       }),
     );
+  });
+
+  it("rejects an explicit null passing-scope value instead of treating it as omitted", () => {
+    const path = `${TESTING_SECTION}.${TESTING_CONFIG_FIELDS.PASSING_SCOPE}`;
+    const result = testingConfigDescriptor.validate({
+      [TESTING_CONFIG_FIELDS.PASSING_SCOPE]: null,
+    });
+    const primitiveResult = validatePathFilterConfig(null, path);
+
+    expect(primitiveResult.ok).toBe(false);
+    if (!primitiveResult.ok) {
+      expect(result).toEqual(primitiveResult);
+    }
   });
 
   it("rejects invalid passing-scope path filters with descriptor-qualified paths", () => {
