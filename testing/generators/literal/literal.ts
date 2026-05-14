@@ -279,6 +279,21 @@ export function sampleDistinctDomainLiterals(count: number): readonly string[] {
   );
 }
 
+export function sampleIndependentDomainLiterals(count: number): readonly string[] {
+  return sampleLiteralTestValue(
+    fc
+      .uniqueArray(arbitraryDomainLiteral(), { minLength: count, maxLength: count })
+      .filter((values) =>
+        values.every((candidate, candidateIndex) =>
+          values.every((other, otherIndex) =>
+            candidateIndex === otherIndex
+            || (!candidate.includes(other) && !other.includes(candidate))
+          )
+        )
+      ),
+  );
+}
+
 export function sampleDistinctTestFilePaths(count: number): readonly string[] {
   return sampleLiteralTestValue(
     fc.uniqueArray(arbitraryTestFilePath(), { minLength: count, maxLength: count }),
@@ -286,7 +301,7 @@ export function sampleDistinctTestFilePaths(count: number): readonly string[] {
 }
 
 export function sampleLiteralPair(): readonly [string, string] {
-  const [first, second] = sampleDistinctDomainLiterals(LITERAL_TEST_GENERATOR_COUNTS.two);
+  const [first, second] = sampleIndependentDomainLiterals(LITERAL_TEST_GENERATOR_COUNTS.two);
   if (first === undefined || second === undefined) {
     throw new Error("Literal generator returned an incomplete pair");
   }
@@ -302,7 +317,7 @@ export function sampleTestFilePathPair(): readonly [string, string] {
 }
 
 export function sampleLiteralTriple(): readonly [string, string, string] {
-  const [first, second, third] = sampleDistinctDomainLiterals(LITERAL_TEST_GENERATOR_COUNTS.multiFixture);
+  const [first, second, third] = sampleIndependentDomainLiterals(LITERAL_TEST_GENERATOR_COUNTS.multiFixture);
   if (first === undefined || second === undefined || third === undefined) {
     throw new Error("Literal generator returned an incomplete triple");
   }

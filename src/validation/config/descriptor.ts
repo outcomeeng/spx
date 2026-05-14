@@ -1,3 +1,4 @@
+import { type PathFilterConfig, validatePathFilterConfig } from "@/config/primitives/path-filter";
 import type { ConfigDescriptor, Result } from "@/config/types";
 import {
   DEFAULT_MIN_NUMBER_DIGITS,
@@ -24,10 +25,7 @@ export const VALIDATION_PATH_TOOL_SUBSECTIONS = {
 export type ValidationPathToolSubsection =
   (typeof VALIDATION_PATH_TOOL_SUBSECTIONS)[keyof typeof VALIDATION_PATH_TOOL_SUBSECTIONS];
 
-export interface ValidationPathFilterConfig {
-  readonly include?: readonly string[];
-  readonly exclude?: readonly string[];
-}
+export type ValidationPathFilterConfig = PathFilterConfig;
 
 export type ValidationToolPathConfig = Partial<Record<ValidationPathToolSubsection, ValidationPathFilterConfig>>;
 
@@ -63,55 +61,15 @@ const defaults: ValidationConfig = {
   },
 };
 
-function validatePathFilter(raw: unknown, path: string): Result<ValidationPathFilterConfig> {
-  if (typeof raw !== "object" || raw === null || Array.isArray(raw)) {
-    return {
-      ok: false,
-      error: `${path} must be an object`,
-    };
-  }
-  const candidate = raw as Record<string, unknown>;
-
-  const include = candidate["include"];
-  if (
-    include !== undefined
-    && (!Array.isArray(include) || !include.every((x) => typeof x === "string"))
-  ) {
-    return {
-      ok: false,
-      error: `${path}.include must be an array of strings`,
-    };
-  }
-
-  const exclude = candidate["exclude"];
-  if (
-    exclude !== undefined
-    && (!Array.isArray(exclude) || !exclude.every((x) => typeof x === "string"))
-  ) {
-    return {
-      ok: false,
-      error: `${path}.exclude must be an array of strings`,
-    };
-  }
-
-  return {
-    ok: true,
-    value: {
-      include: include as readonly string[] | undefined,
-      exclude: exclude as readonly string[] | undefined,
-    },
-  };
-}
-
 function validatePaths(raw: unknown): Result<ValidationPathConfig> {
   const basePath = `${VALIDATION_SECTION}.${VALIDATION_PATHS_SUBSECTION}`;
-  const baseResult = validatePathFilter(raw, basePath);
+  const baseResult = validatePathFilterConfig(raw, basePath);
   if (!baseResult.ok) return baseResult;
   const candidate = raw as Record<string, unknown>;
   const toolEntries = Object.values(VALIDATION_PATH_TOOL_SUBSECTIONS).map((tool) => {
     const toolRaw = candidate[tool];
     if (toolRaw === undefined) return [tool, undefined] as const;
-    const toolResult = validatePathFilter(toolRaw, `${basePath}.${tool}`);
+    const toolResult = validatePathFilterConfig(toolRaw, `${basePath}.${tool}`);
     return [tool, toolResult] as const;
   });
   const toolConfig: ValidationToolPathConfig = {};

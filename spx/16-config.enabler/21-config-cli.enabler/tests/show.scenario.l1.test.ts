@@ -9,16 +9,16 @@ import {
   DEFAULT_CONFIG_FILE_FORMAT,
   parseConfigFileSections,
 } from "@/config/index";
-import { CONFIG_TEST_GENERATOR, sampleConfigTestValue } from "@testing/generators/config/descriptors";
 import type { Config, Result } from "@/config/types";
 import { specTreeConfigDescriptor } from "@/lib/spec-tree/config";
+import { CONFIG_TEST_GENERATOR, sampleConfigTestValue } from "@testing/generators/config/descriptors";
 
 function makeDeps(resolved: Result<Config>): CliDeps {
   return {
     resolveConfig: async () => resolved,
     readProjectConfigFile: async () => sampleConfigTestValue(CONFIG_TEST_GENERATOR.absentConfigFileReadResult()),
     resolveConfigFromReadResult: () => resolved,
-    resolveProjectRoot: () => sampleConfigTestValue(CONFIG_TEST_GENERATOR.projectRoot()),
+    resolveProjectRoot: () => sampleConfigTestValue(CONFIG_TEST_GENERATOR.productDir()),
     descriptors: [specTreeConfigDescriptor],
   };
 }
@@ -33,7 +33,7 @@ function subsetConfig(): Config {
 
 function parseOutput(format: ConfigFileFormat, raw: string): Config {
   const parsed = parseConfigFileSections(
-    configFileForFormat(sampleConfigTestValue(CONFIG_TEST_GENERATOR.projectRoot()), format, raw),
+    configFileForFormat(sampleConfigTestValue(CONFIG_TEST_GENERATOR.productDir()), format, raw),
   );
   expect(parsed.ok).toBe(true);
   if (!parsed.ok) {
