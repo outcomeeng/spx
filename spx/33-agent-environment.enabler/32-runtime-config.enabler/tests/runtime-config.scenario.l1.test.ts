@@ -18,50 +18,32 @@ import {
   runtimeConfigPath,
 } from "@/domains/agent-environment/runtime-config";
 import { CONFIG_TEST_GENERATOR, sampleConfigTestValue } from "@testing/generators/config/descriptors";
+import {
+  enabledAgentEnvironment,
+  readManagedRuntimeConfigState,
+  readRecord,
+} from "@testing/harnesses/agent-environment/runtime-config";
 import { withTestEnv } from "@testing/harnesses/spec-tree/spec-tree";
 import { parse as parseToml } from "smol-toml";
-
-function enabledAgentEnvironment(): AgentEnvironmentConfig {
-  return {
-    ...agentEnvironmentConfigDescriptor.defaults,
-    runtimes: {
-      [AGENT_RUNTIME.CODEX]: { enabled: true },
-      [AGENT_RUNTIME.CLAUDE_CODE]: { enabled: true },
-    },
-  };
-}
-
-function readRecord(value: unknown): Record<string, unknown> {
-  expect(value).not.toBeNull();
-  expect(value).toEqual(expect.any(Object));
-  expect(Array.isArray(value)).toBe(false);
-  return value as Record<string, unknown>;
-}
-
-function readManagedState(value: unknown): Record<string, unknown> {
-  const root = readRecord(value);
-  const spx = readRecord(root[RUNTIME_CONFIG_STATE_FIELDS.SPX]);
-  return readRecord(spx[RUNTIME_CONFIG_STATE_FIELDS.AGENT_ENVIRONMENT]);
-}
 
 class FailingWriteFileSystem implements RuntimeConfigFileSystem {
   constructor(private readonly message: string) {}
 
-  async readFile(): Promise<string> {
+  async readFile(_path: string, _encoding: BufferEncoding): Promise<string> {
     const error = new Error();
     (error as NodeJS.ErrnoException).code = RUNTIME_CONFIG_FILE_ERROR_CODES.FILE_NOT_FOUND;
     throw error;
   }
 
-  async mkdir(): Promise<unknown> {
+  async mkdir(_path: string, _options: { readonly recursive: true }): Promise<unknown> {
     return undefined;
   }
 
-  async rm(): Promise<unknown> {
+  async rm(_path: string, _options: { readonly force: true }): Promise<unknown> {
     return undefined;
   }
 
-  async writeFile(): Promise<unknown> {
+  async writeFile(_path: string, _content: string, _encoding: BufferEncoding): Promise<unknown> {
     throw new Error(this.message);
   }
 }
@@ -73,29 +55,34 @@ class RuntimeConfigMemoryFileSystem implements RuntimeConfigFileSystem {
     private readonly failWritePath?: string,
     private readonly failWriteMessage?: string,
     private readonly readError?: Error,
+    private readonly failRemovePath?: string,
+    private readonly failRemoveMessage?: string,
   ) {}
 
   hasFile(path: string): boolean {
     return this.files.has(path);
   }
 
-  async readFile(path: string): Promise<string> {
+  async readFile(path: string, _encoding: BufferEncoding): Promise<string> {
     if (this.readError !== undefined) throw this.readError;
     const value = this.files.get(path);
     if (value === undefined) throw fileNotFoundError();
     return value;
   }
 
-  async mkdir(): Promise<unknown> {
+  async mkdir(_path: string, _options: { readonly recursive: true }): Promise<unknown> {
     return undefined;
   }
 
-  async rm(path: string): Promise<unknown> {
+  async rm(path: string, _options: { readonly force: true }): Promise<unknown> {
+    if (path === this.failRemovePath) {
+      throw new Error(this.failRemoveMessage);
+    }
     this.files.delete(path);
     return undefined;
   }
 
-  async writeFile(path: string, content: string): Promise<unknown> {
+  async writeFile(path: string, content: string, _encoding: BufferEncoding): Promise<unknown> {
     if (path === this.failWritePath) {
       throw new Error(this.failWriteMessage);
     }
@@ -142,14 +129,14 @@ describe("runtime config reconciliation scenarios", () => {
 
       expect(codexRaw).toContain(codexComment);
       expect(codex[codexField]).toBe(codexValue);
-      expect(readManagedState(codex)).toEqual({
+      expect(readManagedRuntimeConfigState(codex)).toEqual({
         [RUNTIME_CONFIG_STATE_FIELDS.ENABLED]: true,
         [RUNTIME_CONFIG_STATE_FIELDS.PRODUCT_DIR]: productDir,
         [RUNTIME_CONFIG_STATE_FIELDS.RUNTIME]: AGENT_RUNTIME.CODEX,
         [RUNTIME_CONFIG_STATE_FIELDS.TARGET_KIND]: RUNTIME_CONFIG_TARGET_KIND.INVOKING_AGENT,
       });
       expect(claudeCode[claudeCodeField]).toBe(claudeCodeValue);
-      expect(readManagedState(claudeCode)).toEqual({
+      expect(readManagedRuntimeConfigState(claudeCode)).toEqual({
         [RUNTIME_CONFIG_STATE_FIELDS.ENABLED]: true,
         [RUNTIME_CONFIG_STATE_FIELDS.PRODUCT_DIR]: productDir,
         [RUNTIME_CONFIG_STATE_FIELDS.RUNTIME]: AGENT_RUNTIME.CLAUDE_CODE,
@@ -166,6 +153,51 @@ describe("runtime config reconciliation scenarios", () => {
       ]);
       expect(await readFile(CODEX_RUNTIME_CONFIG_RELATIVE_PATH)).toBe(codexRaw);
       expect(await readFile(CLAUDE_CODE_RUNTIME_CONFIG_RELATIVE_PATH)).toBe(claudeCodeRaw);
+    });
+  });
+
+  it("preserves Codex TOML array-of-tables entries after the managed table", async () => {
+    const agentEnvironment = enabledAgentEnvironment();
+    const firstTaskName = sampleConfigTestValue(CONFIG_TEST_GENERATOR.key());
+    const secondTaskName = sampleConfigTestValue(CONFIG_TEST_GENERATOR.key());
+
+    await withTestEnv({}, async ({ productDir, writeRaw, readFile }) => {
+      await writeRaw(
+        CODEX_RUNTIME_CONFIG_RELATIVE_PATH,
+        [
+          "[spx.agentEnvironment]",
+          "enabled = false",
+          `productDir = "${productDir}"`,
+          `runtime = "${AGENT_RUNTIME.CODEX}"`,
+          `targetKind = "${RUNTIME_CONFIG_TARGET_KIND.INVOKING_AGENT}"`,
+          "",
+          "[[tasks]]",
+          `name = "${firstTaskName}"`,
+          "",
+          "[[tasks]]",
+          `name = "${secondTaskName}"`,
+          "",
+        ].join("\n"),
+      );
+
+      const result = await reconcileRuntimeConfig({ productDir, agentEnvironment });
+      expect(result.ok).toBe(true);
+      if (!result.ok) throw new Error(result.error);
+
+      const codexRaw = await readFile(CODEX_RUNTIME_CONFIG_RELATIVE_PATH);
+      const codex = readRecord(parseToml(codexRaw));
+      const tasks = codex.tasks;
+
+      expect(tasks).toEqual([
+        { name: firstTaskName },
+        { name: secondTaskName },
+      ]);
+      expect(readManagedRuntimeConfigState(codex)).toEqual({
+        [RUNTIME_CONFIG_STATE_FIELDS.ENABLED]: true,
+        [RUNTIME_CONFIG_STATE_FIELDS.PRODUCT_DIR]: productDir,
+        [RUNTIME_CONFIG_STATE_FIELDS.RUNTIME]: AGENT_RUNTIME.CODEX,
+        [RUNTIME_CONFIG_STATE_FIELDS.TARGET_KIND]: RUNTIME_CONFIG_TARGET_KIND.INVOKING_AGENT,
+      });
     });
   });
 
@@ -266,6 +298,39 @@ describe("runtime config reconciliation scenarios", () => {
     });
   });
 
+  it("reports write and rollback diagnostics when rollback fails", async () => {
+    const agentEnvironment = enabledAgentEnvironment();
+    const writeFailureMessage = sampleConfigTestValue(CONFIG_TEST_GENERATOR.scalar());
+    const rollbackFailureMessage = sampleConfigTestValue(CONFIG_TEST_GENERATOR.scalar());
+
+    await withTestEnv({}, async ({ productDir }) => {
+      const codexPath = runtimeConfigPath(productDir, AGENT_RUNTIME.CODEX);
+      const claudeCodePath = runtimeConfigPath(productDir, AGENT_RUNTIME.CLAUDE_CODE);
+      const fs = new RuntimeConfigMemoryFileSystem(
+        claudeCodePath,
+        writeFailureMessage,
+        undefined,
+        codexPath,
+        rollbackFailureMessage,
+      );
+
+      const result = await reconcileRuntimeConfig({
+        productDir,
+        agentEnvironment,
+        deps: { fs },
+      });
+
+      expect(result.ok).toBe(false);
+      if (!result.ok) {
+        expect(result.error).toContain(CLAUDE_CODE_RUNTIME_CONFIG_RELATIVE_PATH);
+        expect(result.error).toContain(writeFailureMessage);
+        expect(result.error).toContain(RUNTIME_CONFIG_ERROR_MESSAGES.ROLLBACK_FAILED);
+        expect(result.error).toContain(rollbackFailureMessage);
+      }
+      expect(fs.hasFile(codexPath)).toBe(true);
+    });
+  });
+
   it("skips disabled runtimes without deleting or writing their runtime files", async () => {
     const agentEnvironment: AgentEnvironmentConfig = {
       ...agentEnvironmentConfigDescriptor.defaults,
@@ -285,12 +350,13 @@ describe("runtime config reconciliation scenarios", () => {
         RUNTIME_CONFIG_ACTION.CREATE,
       ]);
       await expect(readFile(CODEX_RUNTIME_CONFIG_RELATIVE_PATH)).rejects.toThrow();
-      expect(readManagedState(JSON.parse(await readFile(CLAUDE_CODE_RUNTIME_CONFIG_RELATIVE_PATH)))).toEqual({
-        [RUNTIME_CONFIG_STATE_FIELDS.ENABLED]: true,
-        [RUNTIME_CONFIG_STATE_FIELDS.PRODUCT_DIR]: productDir,
-        [RUNTIME_CONFIG_STATE_FIELDS.RUNTIME]: AGENT_RUNTIME.CLAUDE_CODE,
-        [RUNTIME_CONFIG_STATE_FIELDS.TARGET_KIND]: RUNTIME_CONFIG_TARGET_KIND.INVOKING_AGENT,
-      });
+      expect(readManagedRuntimeConfigState(JSON.parse(await readFile(CLAUDE_CODE_RUNTIME_CONFIG_RELATIVE_PATH))))
+        .toEqual({
+          [RUNTIME_CONFIG_STATE_FIELDS.ENABLED]: true,
+          [RUNTIME_CONFIG_STATE_FIELDS.PRODUCT_DIR]: productDir,
+          [RUNTIME_CONFIG_STATE_FIELDS.RUNTIME]: AGENT_RUNTIME.CLAUDE_CODE,
+          [RUNTIME_CONFIG_STATE_FIELDS.TARGET_KIND]: RUNTIME_CONFIG_TARGET_KIND.INVOKING_AGENT,
+        });
     });
   });
 });
