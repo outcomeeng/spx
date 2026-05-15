@@ -37,10 +37,14 @@ function expectResolvedConfig(result: Awaited<ReturnType<typeof resolveConfig>>)
   return result.value;
 }
 
-function expectRejectedConfig(result: Awaited<ReturnType<typeof resolveConfig>>) {
+function agentEnvironmentPath(...segments: readonly string[]) {
+  return [AGENT_ENVIRONMENT_SECTION, ...segments].join(".");
+}
+
+function expectRejectedConfig(result: Awaited<ReturnType<typeof resolveConfig>>, expectedErrorPath: string) {
   expect(result.ok).toBe(false);
   if (!result.ok) {
-    expect(result.error).toContain(AGENT_ENVIRONMENT_SECTION);
+    expect(result.error).toContain(expectedErrorPath);
     expect(RESULT_VALUE_KEY in result).toBe(false);
   }
 }
@@ -141,75 +145,105 @@ describe("agent environment config descriptor", () => {
     await withTestEnv(productConfig, async ({ productDir }) => {
       const result = await resolveConfig(productDir, [agentEnvironmentConfigDescriptor]);
 
-      expectRejectedConfig(result);
+      expectRejectedConfig(result, agentEnvironmentPath(AGENT_ENVIRONMENT_CONFIG_FIELDS.RUNTIMES, unknownRuntime));
     });
   });
 
   it("rejects non-object descriptor subsections", async () => {
-    const malformedSections: readonly Config[] = [
+    const malformedSections: readonly { readonly productConfig: Config; readonly expectedErrorPath: string }[] = [
       {
-        [AGENT_ENVIRONMENT_SECTION]: {
-          [AGENT_ENVIRONMENT_CONFIG_FIELDS.INSTRUCTIONS]: sampleUnknownAgentEnvironmentValue(),
+        productConfig: {
+          [AGENT_ENVIRONMENT_SECTION]: {
+            [AGENT_ENVIRONMENT_CONFIG_FIELDS.INSTRUCTIONS]: sampleUnknownAgentEnvironmentValue(),
+          },
         },
+        expectedErrorPath: agentEnvironmentPath(AGENT_ENVIRONMENT_CONFIG_FIELDS.INSTRUCTIONS),
       },
       {
-        [AGENT_ENVIRONMENT_SECTION]: {
-          [AGENT_ENVIRONMENT_CONFIG_FIELDS.RUNTIMES]: [AGENT_RUNTIME.CODEX],
+        productConfig: {
+          [AGENT_ENVIRONMENT_SECTION]: {
+            [AGENT_ENVIRONMENT_CONFIG_FIELDS.RUNTIMES]: [AGENT_RUNTIME.CODEX],
+          },
         },
+        expectedErrorPath: agentEnvironmentPath(AGENT_ENVIRONMENT_CONFIG_FIELDS.RUNTIMES),
       },
       {
-        [AGENT_ENVIRONMENT_SECTION]: {
-          [AGENT_ENVIRONMENT_CONFIG_FIELDS.PLUGIN_BOOTSTRAP]: true,
+        productConfig: {
+          [AGENT_ENVIRONMENT_SECTION]: {
+            [AGENT_ENVIRONMENT_CONFIG_FIELDS.PLUGIN_BOOTSTRAP]: true,
+          },
         },
+        expectedErrorPath: agentEnvironmentPath(AGENT_ENVIRONMENT_CONFIG_FIELDS.PLUGIN_BOOTSTRAP),
       },
     ];
 
-    for (const productConfig of malformedSections) {
+    for (const { productConfig, expectedErrorPath } of malformedSections) {
       await withTestEnv(productConfig, async ({ productDir }) => {
         const result = await resolveConfig(productDir, [agentEnvironmentConfigDescriptor]);
 
-        expectRejectedConfig(result);
+        expectRejectedConfig(result, expectedErrorPath);
       });
     }
   });
 
   it("rejects malformed subsection field values", async () => {
-    const malformedSections: readonly Config[] = [
+    const malformedSections: readonly { readonly productConfig: Config; readonly expectedErrorPath: string }[] = [
       {
-        [AGENT_ENVIRONMENT_SECTION]: {
-          [AGENT_ENVIRONMENT_CONFIG_FIELDS.INSTRUCTIONS]: {
-            [AGENT_ENVIRONMENT_CONFIG_FIELDS.FILES]: sampleAgentEnvironmentKey(),
-          },
-        },
-      },
-      {
-        [AGENT_ENVIRONMENT_SECTION]: {
-          [AGENT_ENVIRONMENT_CONFIG_FIELDS.INSTRUCTIONS]: {
-            [AGENT_ENVIRONMENT_CONFIG_FIELDS.FILES]: [
-              {
-                [AGENT_ENVIRONMENT_CONFIG_FIELDS.PATH]: "",
-                [AGENT_ENVIRONMENT_CONFIG_FIELDS.TARGET_RUNTIMES]: [AGENT_RUNTIME.CODEX],
-              },
-            ],
-          },
-        },
-      },
-      {
-        [AGENT_ENVIRONMENT_SECTION]: {
-          [AGENT_ENVIRONMENT_CONFIG_FIELDS.RUNTIMES]: {
-            [AGENT_RUNTIME.CODEX]: {
-              [AGENT_ENVIRONMENT_CONFIG_FIELDS.ENABLED]: sampleAgentEnvironmentKey(),
+        productConfig: {
+          [AGENT_ENVIRONMENT_SECTION]: {
+            [AGENT_ENVIRONMENT_CONFIG_FIELDS.INSTRUCTIONS]: {
+              [AGENT_ENVIRONMENT_CONFIG_FIELDS.FILES]: sampleAgentEnvironmentKey(),
             },
           },
         },
+        expectedErrorPath: agentEnvironmentPath(
+          AGENT_ENVIRONMENT_CONFIG_FIELDS.INSTRUCTIONS,
+          AGENT_ENVIRONMENT_CONFIG_FIELDS.FILES,
+        ),
+      },
+      {
+        productConfig: {
+          [AGENT_ENVIRONMENT_SECTION]: {
+            [AGENT_ENVIRONMENT_CONFIG_FIELDS.INSTRUCTIONS]: {
+              [AGENT_ENVIRONMENT_CONFIG_FIELDS.FILES]: [
+                {
+                  [AGENT_ENVIRONMENT_CONFIG_FIELDS.PATH]: "",
+                  [AGENT_ENVIRONMENT_CONFIG_FIELDS.TARGET_RUNTIMES]: [AGENT_RUNTIME.CODEX],
+                },
+              ],
+            },
+          },
+        },
+        expectedErrorPath: agentEnvironmentPath(
+          AGENT_ENVIRONMENT_CONFIG_FIELDS.INSTRUCTIONS,
+          AGENT_ENVIRONMENT_CONFIG_FIELDS.FILES,
+          "0",
+          AGENT_ENVIRONMENT_CONFIG_FIELDS.PATH,
+        ),
+      },
+      {
+        productConfig: {
+          [AGENT_ENVIRONMENT_SECTION]: {
+            [AGENT_ENVIRONMENT_CONFIG_FIELDS.RUNTIMES]: {
+              [AGENT_RUNTIME.CODEX]: {
+                [AGENT_ENVIRONMENT_CONFIG_FIELDS.ENABLED]: sampleAgentEnvironmentKey(),
+              },
+            },
+          },
+        },
+        expectedErrorPath: agentEnvironmentPath(
+          AGENT_ENVIRONMENT_CONFIG_FIELDS.RUNTIMES,
+          AGENT_RUNTIME.CODEX,
+          AGENT_ENVIRONMENT_CONFIG_FIELDS.ENABLED,
+        ),
       },
     ];
 
-    for (const productConfig of malformedSections) {
+    for (const { productConfig, expectedErrorPath } of malformedSections) {
       await withTestEnv(productConfig, async ({ productDir }) => {
         const result = await resolveConfig(productDir, [agentEnvironmentConfigDescriptor]);
 
-        expectRejectedConfig(result);
+        expectRejectedConfig(result, expectedErrorPath);
       });
     }
   });
@@ -231,7 +265,15 @@ describe("agent environment config descriptor", () => {
     await withTestEnv(productConfig, async ({ productDir }) => {
       const result = await resolveConfig(productDir, [agentEnvironmentConfigDescriptor]);
 
-      expectRejectedConfig(result);
+      expectRejectedConfig(
+        result,
+        agentEnvironmentPath(
+          AGENT_ENVIRONMENT_CONFIG_FIELDS.INSTRUCTIONS,
+          AGENT_ENVIRONMENT_CONFIG_FIELDS.FILES,
+          "0",
+          AGENT_ENVIRONMENT_CONFIG_FIELDS.TARGET_RUNTIMES,
+        ),
+      );
     });
   });
 
@@ -252,43 +294,88 @@ describe("agent environment config descriptor", () => {
     await withTestEnv(productConfig, async ({ productDir }) => {
       const result = await resolveConfig(productDir, [agentEnvironmentConfigDescriptor]);
 
-      expectRejectedConfig(result);
+      expectRejectedConfig(
+        result,
+        agentEnvironmentPath(
+          AGENT_ENVIRONMENT_CONFIG_FIELDS.INSTRUCTIONS,
+          AGENT_ENVIRONMENT_CONFIG_FIELDS.FILES,
+          "0",
+          AGENT_ENVIRONMENT_CONFIG_FIELDS.TARGET_RUNTIMES,
+          "1",
+        ),
+      );
     });
   });
 
   it("rejects malformed instruction file entries", async () => {
     const unknownRuntime = sampleUnknownAgentRuntime();
-    const malformedSections: readonly Config[] = [
+    const malformedSections: readonly { readonly productConfig: Config; readonly expectedErrorPath: string }[] = [
       {
-        [AGENT_ENVIRONMENT_SECTION]: {
-          [AGENT_ENVIRONMENT_CONFIG_FIELDS.INSTRUCTIONS]: {
-            [AGENT_ENVIRONMENT_CONFIG_FIELDS.FILES]: [
-              {
-                [AGENT_ENVIRONMENT_CONFIG_FIELDS.TARGET_RUNTIMES]: [AGENT_RUNTIME.CODEX],
-              },
-            ],
+        productConfig: {
+          [AGENT_ENVIRONMENT_SECTION]: {
+            [AGENT_ENVIRONMENT_CONFIG_FIELDS.INSTRUCTIONS]: {
+              [AGENT_ENVIRONMENT_CONFIG_FIELDS.FILES]: [
+                {
+                  [AGENT_ENVIRONMENT_CONFIG_FIELDS.TARGET_RUNTIMES]: [AGENT_RUNTIME.CODEX],
+                },
+              ],
+            },
           },
         },
+        expectedErrorPath: agentEnvironmentPath(
+          AGENT_ENVIRONMENT_CONFIG_FIELDS.INSTRUCTIONS,
+          AGENT_ENVIRONMENT_CONFIG_FIELDS.FILES,
+          "0",
+          AGENT_ENVIRONMENT_CONFIG_FIELDS.PATH,
+        ),
       },
       {
-        [AGENT_ENVIRONMENT_SECTION]: {
-          [AGENT_ENVIRONMENT_CONFIG_FIELDS.INSTRUCTIONS]: {
-            [AGENT_ENVIRONMENT_CONFIG_FIELDS.FILES]: [
-              {
-                [AGENT_ENVIRONMENT_CONFIG_FIELDS.PATH]: DEFAULT_AGENT_INSTRUCTION_FILE_PATH,
-                [AGENT_ENVIRONMENT_CONFIG_FIELDS.TARGET_RUNTIMES]: [unknownRuntime],
-              },
-            ],
+        productConfig: {
+          [AGENT_ENVIRONMENT_SECTION]: {
+            [AGENT_ENVIRONMENT_CONFIG_FIELDS.INSTRUCTIONS]: {
+              [AGENT_ENVIRONMENT_CONFIG_FIELDS.FILES]: [
+                {
+                  [AGENT_ENVIRONMENT_CONFIG_FIELDS.PATH]: DEFAULT_AGENT_INSTRUCTION_FILE_PATH,
+                },
+              ],
+            },
           },
         },
+        expectedErrorPath: agentEnvironmentPath(
+          AGENT_ENVIRONMENT_CONFIG_FIELDS.INSTRUCTIONS,
+          AGENT_ENVIRONMENT_CONFIG_FIELDS.FILES,
+          "0",
+          AGENT_ENVIRONMENT_CONFIG_FIELDS.TARGET_RUNTIMES,
+        ),
+      },
+      {
+        productConfig: {
+          [AGENT_ENVIRONMENT_SECTION]: {
+            [AGENT_ENVIRONMENT_CONFIG_FIELDS.INSTRUCTIONS]: {
+              [AGENT_ENVIRONMENT_CONFIG_FIELDS.FILES]: [
+                {
+                  [AGENT_ENVIRONMENT_CONFIG_FIELDS.PATH]: DEFAULT_AGENT_INSTRUCTION_FILE_PATH,
+                  [AGENT_ENVIRONMENT_CONFIG_FIELDS.TARGET_RUNTIMES]: [unknownRuntime],
+                },
+              ],
+            },
+          },
+        },
+        expectedErrorPath: agentEnvironmentPath(
+          AGENT_ENVIRONMENT_CONFIG_FIELDS.INSTRUCTIONS,
+          AGENT_ENVIRONMENT_CONFIG_FIELDS.FILES,
+          "0",
+          AGENT_ENVIRONMENT_CONFIG_FIELDS.TARGET_RUNTIMES,
+          "0",
+        ),
       },
     ];
 
-    for (const productConfig of malformedSections) {
+    for (const { productConfig, expectedErrorPath } of malformedSections) {
       await withTestEnv(productConfig, async ({ productDir }) => {
         const result = await resolveConfig(productDir, [agentEnvironmentConfigDescriptor]);
 
-        expectRejectedConfig(result);
+        expectRejectedConfig(result, expectedErrorPath);
       });
     }
   });
@@ -323,48 +410,72 @@ describe("agent environment config descriptor", () => {
 
   it("rejects malformed marketplace, plugin, and skill entries", async () => {
     const entryName = sampleConfigTestValue(CONFIG_TEST_GENERATOR.key());
-    const malformedSections: readonly Config[] = [
+    const malformedSections: readonly { readonly productConfig: Config; readonly expectedErrorPath: string }[] = [
       {
-        [AGENT_ENVIRONMENT_SECTION]: {
-          [AGENT_ENVIRONMENT_CONFIG_FIELDS.PLUGIN_BOOTSTRAP]: {
-            [AGENT_ENVIRONMENT_CONFIG_FIELDS.MARKETPLACES]: [
-              {
-                [AGENT_ENVIRONMENT_CONFIG_FIELDS.RUNTIME]: AGENT_RUNTIME.CLAUDE_CODE,
-                [AGENT_ENVIRONMENT_CONFIG_FIELDS.NAME]: entryName,
-              },
-            ],
+        productConfig: {
+          [AGENT_ENVIRONMENT_SECTION]: {
+            [AGENT_ENVIRONMENT_CONFIG_FIELDS.PLUGIN_BOOTSTRAP]: {
+              [AGENT_ENVIRONMENT_CONFIG_FIELDS.MARKETPLACES]: [
+                {
+                  [AGENT_ENVIRONMENT_CONFIG_FIELDS.RUNTIME]: AGENT_RUNTIME.CLAUDE_CODE,
+                  [AGENT_ENVIRONMENT_CONFIG_FIELDS.NAME]: entryName,
+                },
+              ],
+            },
           },
         },
+        expectedErrorPath: agentEnvironmentPath(
+          AGENT_ENVIRONMENT_CONFIG_FIELDS.PLUGIN_BOOTSTRAP,
+          AGENT_ENVIRONMENT_CONFIG_FIELDS.MARKETPLACES,
+          "0",
+          AGENT_ENVIRONMENT_CONFIG_FIELDS.SOURCE,
+        ),
       },
       {
-        [AGENT_ENVIRONMENT_SECTION]: {
-          [AGENT_ENVIRONMENT_CONFIG_FIELDS.PLUGIN_BOOTSTRAP]: {
-            [AGENT_ENVIRONMENT_CONFIG_FIELDS.PLUGINS]: [
-              {
-                [AGENT_ENVIRONMENT_CONFIG_FIELDS.RUNTIME]: AGENT_RUNTIME.CODEX,
-              },
-            ],
+        productConfig: {
+          [AGENT_ENVIRONMENT_SECTION]: {
+            [AGENT_ENVIRONMENT_CONFIG_FIELDS.PLUGIN_BOOTSTRAP]: {
+              [AGENT_ENVIRONMENT_CONFIG_FIELDS.PLUGINS]: [
+                {
+                  [AGENT_ENVIRONMENT_CONFIG_FIELDS.RUNTIME]: AGENT_RUNTIME.CODEX,
+                },
+              ],
+            },
           },
         },
+        expectedErrorPath: agentEnvironmentPath(
+          AGENT_ENVIRONMENT_CONFIG_FIELDS.PLUGIN_BOOTSTRAP,
+          AGENT_ENVIRONMENT_CONFIG_FIELDS.PLUGINS,
+          "0",
+          AGENT_ENVIRONMENT_CONFIG_FIELDS.NAME,
+        ),
       },
       {
-        [AGENT_ENVIRONMENT_SECTION]: {
-          [AGENT_ENVIRONMENT_CONFIG_FIELDS.PLUGIN_BOOTSTRAP]: {
-            [AGENT_ENVIRONMENT_CONFIG_FIELDS.SKILLS]: [
-              {
-                [AGENT_ENVIRONMENT_CONFIG_FIELDS.NAME]: entryName,
-              },
-            ],
+        productConfig: {
+          [AGENT_ENVIRONMENT_SECTION]: {
+            [AGENT_ENVIRONMENT_CONFIG_FIELDS.PLUGIN_BOOTSTRAP]: {
+              [AGENT_ENVIRONMENT_CONFIG_FIELDS.SKILLS]: [
+                {
+                  [AGENT_ENVIRONMENT_CONFIG_FIELDS.NAME]: entryName,
+                },
+              ],
+            },
           },
         },
+        expectedErrorPath: agentEnvironmentPath(
+          AGENT_ENVIRONMENT_CONFIG_FIELDS.PLUGIN_BOOTSTRAP,
+          AGENT_ENVIRONMENT_CONFIG_FIELDS.SKILLS,
+          "0",
+          AGENT_ENVIRONMENT_CONFIG_FIELDS.RUNTIME,
+        ),
       },
     ];
 
-    for (const productConfig of malformedSections) {
+    for (const { productConfig, expectedErrorPath } of malformedSections) {
       await withTestEnv(productConfig, async ({ productDir }) => {
         const result = await resolveConfig(productDir, [agentEnvironmentConfigDescriptor]);
 
-        expectRejectedConfig(result);
+        expectRejectedConfig(result, expectedErrorPath);
       });
     }
   });
@@ -394,53 +505,77 @@ describe("agent environment config descriptor", () => {
     await withTestEnv(productConfig, async ({ productDir }) => {
       const result = await resolveConfig(productDir, [agentEnvironmentConfigDescriptor]);
 
-      expectRejectedConfig(result);
+      expectRejectedConfig(
+        result,
+        agentEnvironmentPath(
+          AGENT_ENVIRONMENT_CONFIG_FIELDS.PLUGIN_BOOTSTRAP,
+          AGENT_ENVIRONMENT_CONFIG_FIELDS.MARKETPLACES,
+          "1",
+          AGENT_ENVIRONMENT_CONFIG_FIELDS.NAME,
+        ),
+      );
     });
   });
 
   it("rejects duplicate plugin and skill names for the same runtime", async () => {
     const pluginName = sampleConfigTestValue(CONFIG_TEST_GENERATOR.key());
     const skillName = sampleConfigTestValue(CONFIG_TEST_GENERATOR.key());
-    const duplicateSections: readonly Config[] = [
+    const duplicateSections: readonly { readonly productConfig: Config; readonly expectedErrorPath: string }[] = [
       {
-        [AGENT_ENVIRONMENT_SECTION]: {
-          [AGENT_ENVIRONMENT_CONFIG_FIELDS.PLUGIN_BOOTSTRAP]: {
-            [AGENT_ENVIRONMENT_CONFIG_FIELDS.PLUGINS]: [
-              {
-                [AGENT_ENVIRONMENT_CONFIG_FIELDS.RUNTIME]: AGENT_RUNTIME.CODEX,
-                [AGENT_ENVIRONMENT_CONFIG_FIELDS.NAME]: pluginName,
-              },
-              {
-                [AGENT_ENVIRONMENT_CONFIG_FIELDS.RUNTIME]: AGENT_RUNTIME.CODEX,
-                [AGENT_ENVIRONMENT_CONFIG_FIELDS.NAME]: pluginName,
-              },
-            ],
+        productConfig: {
+          [AGENT_ENVIRONMENT_SECTION]: {
+            [AGENT_ENVIRONMENT_CONFIG_FIELDS.PLUGIN_BOOTSTRAP]: {
+              [AGENT_ENVIRONMENT_CONFIG_FIELDS.PLUGINS]: [
+                {
+                  [AGENT_ENVIRONMENT_CONFIG_FIELDS.RUNTIME]: AGENT_RUNTIME.CODEX,
+                  [AGENT_ENVIRONMENT_CONFIG_FIELDS.NAME]: pluginName,
+                },
+                {
+                  [AGENT_ENVIRONMENT_CONFIG_FIELDS.RUNTIME]: AGENT_RUNTIME.CODEX,
+                  [AGENT_ENVIRONMENT_CONFIG_FIELDS.NAME]: pluginName,
+                },
+              ],
+            },
           },
         },
+        expectedErrorPath: agentEnvironmentPath(
+          AGENT_ENVIRONMENT_CONFIG_FIELDS.PLUGIN_BOOTSTRAP,
+          AGENT_ENVIRONMENT_CONFIG_FIELDS.PLUGINS,
+          "1",
+          AGENT_ENVIRONMENT_CONFIG_FIELDS.NAME,
+        ),
       },
       {
-        [AGENT_ENVIRONMENT_SECTION]: {
-          [AGENT_ENVIRONMENT_CONFIG_FIELDS.PLUGIN_BOOTSTRAP]: {
-            [AGENT_ENVIRONMENT_CONFIG_FIELDS.SKILLS]: [
-              {
-                [AGENT_ENVIRONMENT_CONFIG_FIELDS.RUNTIME]: AGENT_RUNTIME.CLAUDE_CODE,
-                [AGENT_ENVIRONMENT_CONFIG_FIELDS.NAME]: skillName,
-              },
-              {
-                [AGENT_ENVIRONMENT_CONFIG_FIELDS.RUNTIME]: AGENT_RUNTIME.CLAUDE_CODE,
-                [AGENT_ENVIRONMENT_CONFIG_FIELDS.NAME]: skillName,
-              },
-            ],
+        productConfig: {
+          [AGENT_ENVIRONMENT_SECTION]: {
+            [AGENT_ENVIRONMENT_CONFIG_FIELDS.PLUGIN_BOOTSTRAP]: {
+              [AGENT_ENVIRONMENT_CONFIG_FIELDS.SKILLS]: [
+                {
+                  [AGENT_ENVIRONMENT_CONFIG_FIELDS.RUNTIME]: AGENT_RUNTIME.CLAUDE_CODE,
+                  [AGENT_ENVIRONMENT_CONFIG_FIELDS.NAME]: skillName,
+                },
+                {
+                  [AGENT_ENVIRONMENT_CONFIG_FIELDS.RUNTIME]: AGENT_RUNTIME.CLAUDE_CODE,
+                  [AGENT_ENVIRONMENT_CONFIG_FIELDS.NAME]: skillName,
+                },
+              ],
+            },
           },
         },
+        expectedErrorPath: agentEnvironmentPath(
+          AGENT_ENVIRONMENT_CONFIG_FIELDS.PLUGIN_BOOTSTRAP,
+          AGENT_ENVIRONMENT_CONFIG_FIELDS.SKILLS,
+          "1",
+          AGENT_ENVIRONMENT_CONFIG_FIELDS.NAME,
+        ),
       },
     ];
 
-    for (const productConfig of duplicateSections) {
+    for (const { productConfig, expectedErrorPath } of duplicateSections) {
       await withTestEnv(productConfig, async ({ productDir }) => {
         const result = await resolveConfig(productDir, [agentEnvironmentConfigDescriptor]);
 
-        expectRejectedConfig(result);
+        expectRejectedConfig(result, expectedErrorPath);
       });
     }
   });
@@ -449,47 +584,63 @@ describe("agent environment config descriptor", () => {
     const marketplaceName = sampleConfigTestValue(CONFIG_TEST_GENERATOR.key());
     const pluginName = sampleConfigTestValue(CONFIG_TEST_GENERATOR.key());
     const source = sampleConfigTestValue(CONFIG_TEST_GENERATOR.scalar());
-    const malformedSections: readonly Config[] = [
+    const malformedSections: readonly { readonly productConfig: Config; readonly expectedErrorPath: string }[] = [
       {
-        [AGENT_ENVIRONMENT_SECTION]: {
-          [AGENT_ENVIRONMENT_CONFIG_FIELDS.PLUGIN_BOOTSTRAP]: {
-            [AGENT_ENVIRONMENT_CONFIG_FIELDS.PLUGINS]: [
-              {
-                [AGENT_ENVIRONMENT_CONFIG_FIELDS.RUNTIME]: AGENT_RUNTIME.CLAUDE_CODE,
-                [AGENT_ENVIRONMENT_CONFIG_FIELDS.NAME]: pluginName,
-                [AGENT_ENVIRONMENT_CONFIG_FIELDS.MARKETPLACE]: marketplaceName,
-              },
-            ],
+        productConfig: {
+          [AGENT_ENVIRONMENT_SECTION]: {
+            [AGENT_ENVIRONMENT_CONFIG_FIELDS.PLUGIN_BOOTSTRAP]: {
+              [AGENT_ENVIRONMENT_CONFIG_FIELDS.PLUGINS]: [
+                {
+                  [AGENT_ENVIRONMENT_CONFIG_FIELDS.RUNTIME]: AGENT_RUNTIME.CLAUDE_CODE,
+                  [AGENT_ENVIRONMENT_CONFIG_FIELDS.NAME]: pluginName,
+                  [AGENT_ENVIRONMENT_CONFIG_FIELDS.MARKETPLACE]: marketplaceName,
+                },
+              ],
+            },
           },
         },
+        expectedErrorPath: agentEnvironmentPath(
+          AGENT_ENVIRONMENT_CONFIG_FIELDS.PLUGIN_BOOTSTRAP,
+          AGENT_ENVIRONMENT_CONFIG_FIELDS.PLUGINS,
+          "0",
+          AGENT_ENVIRONMENT_CONFIG_FIELDS.MARKETPLACE,
+        ),
       },
       {
-        [AGENT_ENVIRONMENT_SECTION]: {
-          [AGENT_ENVIRONMENT_CONFIG_FIELDS.PLUGIN_BOOTSTRAP]: {
-            [AGENT_ENVIRONMENT_CONFIG_FIELDS.MARKETPLACES]: [
-              {
-                [AGENT_ENVIRONMENT_CONFIG_FIELDS.RUNTIME]: AGENT_RUNTIME.CLAUDE_CODE,
-                [AGENT_ENVIRONMENT_CONFIG_FIELDS.NAME]: marketplaceName,
-                [AGENT_ENVIRONMENT_CONFIG_FIELDS.SOURCE]: source,
-              },
-            ],
-            [AGENT_ENVIRONMENT_CONFIG_FIELDS.PLUGINS]: [
-              {
-                [AGENT_ENVIRONMENT_CONFIG_FIELDS.RUNTIME]: AGENT_RUNTIME.CODEX,
-                [AGENT_ENVIRONMENT_CONFIG_FIELDS.NAME]: pluginName,
-                [AGENT_ENVIRONMENT_CONFIG_FIELDS.MARKETPLACE]: marketplaceName,
-              },
-            ],
+        productConfig: {
+          [AGENT_ENVIRONMENT_SECTION]: {
+            [AGENT_ENVIRONMENT_CONFIG_FIELDS.PLUGIN_BOOTSTRAP]: {
+              [AGENT_ENVIRONMENT_CONFIG_FIELDS.MARKETPLACES]: [
+                {
+                  [AGENT_ENVIRONMENT_CONFIG_FIELDS.RUNTIME]: AGENT_RUNTIME.CLAUDE_CODE,
+                  [AGENT_ENVIRONMENT_CONFIG_FIELDS.NAME]: marketplaceName,
+                  [AGENT_ENVIRONMENT_CONFIG_FIELDS.SOURCE]: source,
+                },
+              ],
+              [AGENT_ENVIRONMENT_CONFIG_FIELDS.PLUGINS]: [
+                {
+                  [AGENT_ENVIRONMENT_CONFIG_FIELDS.RUNTIME]: AGENT_RUNTIME.CODEX,
+                  [AGENT_ENVIRONMENT_CONFIG_FIELDS.NAME]: pluginName,
+                  [AGENT_ENVIRONMENT_CONFIG_FIELDS.MARKETPLACE]: marketplaceName,
+                },
+              ],
+            },
           },
         },
+        expectedErrorPath: agentEnvironmentPath(
+          AGENT_ENVIRONMENT_CONFIG_FIELDS.PLUGIN_BOOTSTRAP,
+          AGENT_ENVIRONMENT_CONFIG_FIELDS.PLUGINS,
+          "0",
+          AGENT_ENVIRONMENT_CONFIG_FIELDS.MARKETPLACE,
+        ),
       },
     ];
 
-    for (const productConfig of malformedSections) {
+    for (const { productConfig, expectedErrorPath } of malformedSections) {
       await withTestEnv(productConfig, async ({ productDir }) => {
         const result = await resolveConfig(productDir, [agentEnvironmentConfigDescriptor]);
 
-        expectRejectedConfig(result);
+        expectRejectedConfig(result, expectedErrorPath);
       });
     }
   });
@@ -627,7 +778,15 @@ describe("agent environment config descriptor", () => {
     await withTestEnv(productConfig, async ({ productDir }) => {
       const result = await resolveConfig(productDir, [agentEnvironmentConfigDescriptor]);
 
-      expectRejectedConfig(result);
+      expectRejectedConfig(
+        result,
+        agentEnvironmentPath(
+          AGENT_ENVIRONMENT_CONFIG_FIELDS.INSTRUCTIONS,
+          AGENT_ENVIRONMENT_CONFIG_FIELDS.FILES,
+          "1",
+          AGENT_ENVIRONMENT_CONFIG_FIELDS.PATH,
+        ),
+      );
     });
   });
 
@@ -642,7 +801,7 @@ describe("agent environment config descriptor", () => {
     await withTestEnv(productConfig, async ({ productDir }) => {
       const result = await resolveConfig(productDir, [agentEnvironmentConfigDescriptor]);
 
-      expectRejectedConfig(result);
+      expectRejectedConfig(result, agentEnvironmentPath(unknownField));
     });
   });
 
@@ -650,92 +809,137 @@ describe("agent environment config descriptor", () => {
     const key = sampleAgentEnvironmentKey();
     const unknownField = sampleUnknownAgentEnvironmentField();
     const unknownValue = sampleUnknownAgentEnvironmentValue();
-    const nestedSections: readonly Config[] = [
+    const nestedSections: readonly { readonly productConfig: Config; readonly expectedErrorPath: string }[] = [
       {
-        [AGENT_ENVIRONMENT_SECTION]: {
-          [AGENT_ENVIRONMENT_CONFIG_FIELDS.INSTRUCTIONS]: {
-            [AGENT_ENVIRONMENT_CONFIG_FIELDS.FILES]: [],
-            [unknownField]: unknownValue,
-          },
-        },
-      },
-      {
-        [AGENT_ENVIRONMENT_SECTION]: {
-          [AGENT_ENVIRONMENT_CONFIG_FIELDS.INSTRUCTIONS]: {
-            [AGENT_ENVIRONMENT_CONFIG_FIELDS.FILES]: [
-              {
-                [AGENT_ENVIRONMENT_CONFIG_FIELDS.PATH]: DEFAULT_AGENT_INSTRUCTION_FILE_PATH,
-                [AGENT_ENVIRONMENT_CONFIG_FIELDS.TARGET_RUNTIMES]: [AGENT_RUNTIME.CODEX],
-                [unknownField]: unknownValue,
-              },
-            ],
-          },
-        },
-      },
-      {
-        [AGENT_ENVIRONMENT_SECTION]: {
-          [AGENT_ENVIRONMENT_CONFIG_FIELDS.RUNTIMES]: {
-            [AGENT_RUNTIME.CODEX]: {
-              [AGENT_ENVIRONMENT_CONFIG_FIELDS.ENABLED]: true,
+        productConfig: {
+          [AGENT_ENVIRONMENT_SECTION]: {
+            [AGENT_ENVIRONMENT_CONFIG_FIELDS.INSTRUCTIONS]: {
+              [AGENT_ENVIRONMENT_CONFIG_FIELDS.FILES]: [],
               [unknownField]: unknownValue,
             },
           },
         },
+        expectedErrorPath: agentEnvironmentPath(AGENT_ENVIRONMENT_CONFIG_FIELDS.INSTRUCTIONS, unknownField),
       },
       {
-        [AGENT_ENVIRONMENT_SECTION]: {
-          [AGENT_ENVIRONMENT_CONFIG_FIELDS.PLUGIN_BOOTSTRAP]: {
-            [unknownField]: unknownValue,
+        productConfig: {
+          [AGENT_ENVIRONMENT_SECTION]: {
+            [AGENT_ENVIRONMENT_CONFIG_FIELDS.INSTRUCTIONS]: {
+              [AGENT_ENVIRONMENT_CONFIG_FIELDS.FILES]: [
+                {
+                  [AGENT_ENVIRONMENT_CONFIG_FIELDS.PATH]: DEFAULT_AGENT_INSTRUCTION_FILE_PATH,
+                  [AGENT_ENVIRONMENT_CONFIG_FIELDS.TARGET_RUNTIMES]: [AGENT_RUNTIME.CODEX],
+                  [unknownField]: unknownValue,
+                },
+              ],
+            },
           },
         },
+        expectedErrorPath: agentEnvironmentPath(
+          AGENT_ENVIRONMENT_CONFIG_FIELDS.INSTRUCTIONS,
+          AGENT_ENVIRONMENT_CONFIG_FIELDS.FILES,
+          "0",
+          unknownField,
+        ),
       },
       {
-        [AGENT_ENVIRONMENT_SECTION]: {
-          [AGENT_ENVIRONMENT_CONFIG_FIELDS.PLUGIN_BOOTSTRAP]: {
-            [AGENT_ENVIRONMENT_CONFIG_FIELDS.MARKETPLACES]: [
-              {
-                [AGENT_ENVIRONMENT_CONFIG_FIELDS.RUNTIME]: AGENT_RUNTIME.CLAUDE_CODE,
-                [AGENT_ENVIRONMENT_CONFIG_FIELDS.NAME]: key,
-                [AGENT_ENVIRONMENT_CONFIG_FIELDS.SOURCE]: unknownValue,
+        productConfig: {
+          [AGENT_ENVIRONMENT_SECTION]: {
+            [AGENT_ENVIRONMENT_CONFIG_FIELDS.RUNTIMES]: {
+              [AGENT_RUNTIME.CODEX]: {
+                [AGENT_ENVIRONMENT_CONFIG_FIELDS.ENABLED]: true,
                 [unknownField]: unknownValue,
               },
-            ],
+            },
           },
         },
+        expectedErrorPath: agentEnvironmentPath(
+          AGENT_ENVIRONMENT_CONFIG_FIELDS.RUNTIMES,
+          AGENT_RUNTIME.CODEX,
+          unknownField,
+        ),
       },
       {
-        [AGENT_ENVIRONMENT_SECTION]: {
-          [AGENT_ENVIRONMENT_CONFIG_FIELDS.PLUGIN_BOOTSTRAP]: {
-            [AGENT_ENVIRONMENT_CONFIG_FIELDS.PLUGINS]: [
-              {
-                [AGENT_ENVIRONMENT_CONFIG_FIELDS.RUNTIME]: AGENT_RUNTIME.CLAUDE_CODE,
-                [AGENT_ENVIRONMENT_CONFIG_FIELDS.NAME]: key,
-                [unknownField]: unknownValue,
-              },
-            ],
+        productConfig: {
+          [AGENT_ENVIRONMENT_SECTION]: {
+            [AGENT_ENVIRONMENT_CONFIG_FIELDS.PLUGIN_BOOTSTRAP]: {
+              [unknownField]: unknownValue,
+            },
           },
         },
+        expectedErrorPath: agentEnvironmentPath(AGENT_ENVIRONMENT_CONFIG_FIELDS.PLUGIN_BOOTSTRAP, unknownField),
       },
       {
-        [AGENT_ENVIRONMENT_SECTION]: {
-          [AGENT_ENVIRONMENT_CONFIG_FIELDS.PLUGIN_BOOTSTRAP]: {
-            [AGENT_ENVIRONMENT_CONFIG_FIELDS.SKILLS]: [
-              {
-                [AGENT_ENVIRONMENT_CONFIG_FIELDS.RUNTIME]: AGENT_RUNTIME.CODEX,
-                [AGENT_ENVIRONMENT_CONFIG_FIELDS.NAME]: key,
-                [unknownField]: unknownValue,
-              },
-            ],
+        productConfig: {
+          [AGENT_ENVIRONMENT_SECTION]: {
+            [AGENT_ENVIRONMENT_CONFIG_FIELDS.PLUGIN_BOOTSTRAP]: {
+              [AGENT_ENVIRONMENT_CONFIG_FIELDS.MARKETPLACES]: [
+                {
+                  [AGENT_ENVIRONMENT_CONFIG_FIELDS.RUNTIME]: AGENT_RUNTIME.CLAUDE_CODE,
+                  [AGENT_ENVIRONMENT_CONFIG_FIELDS.NAME]: key,
+                  [AGENT_ENVIRONMENT_CONFIG_FIELDS.SOURCE]: unknownValue,
+                  [unknownField]: unknownValue,
+                },
+              ],
+            },
           },
         },
+        expectedErrorPath: agentEnvironmentPath(
+          AGENT_ENVIRONMENT_CONFIG_FIELDS.PLUGIN_BOOTSTRAP,
+          AGENT_ENVIRONMENT_CONFIG_FIELDS.MARKETPLACES,
+          "0",
+          unknownField,
+        ),
+      },
+      {
+        productConfig: {
+          [AGENT_ENVIRONMENT_SECTION]: {
+            [AGENT_ENVIRONMENT_CONFIG_FIELDS.PLUGIN_BOOTSTRAP]: {
+              [AGENT_ENVIRONMENT_CONFIG_FIELDS.PLUGINS]: [
+                {
+                  [AGENT_ENVIRONMENT_CONFIG_FIELDS.RUNTIME]: AGENT_RUNTIME.CLAUDE_CODE,
+                  [AGENT_ENVIRONMENT_CONFIG_FIELDS.NAME]: key,
+                  [unknownField]: unknownValue,
+                },
+              ],
+            },
+          },
+        },
+        expectedErrorPath: agentEnvironmentPath(
+          AGENT_ENVIRONMENT_CONFIG_FIELDS.PLUGIN_BOOTSTRAP,
+          AGENT_ENVIRONMENT_CONFIG_FIELDS.PLUGINS,
+          "0",
+          unknownField,
+        ),
+      },
+      {
+        productConfig: {
+          [AGENT_ENVIRONMENT_SECTION]: {
+            [AGENT_ENVIRONMENT_CONFIG_FIELDS.PLUGIN_BOOTSTRAP]: {
+              [AGENT_ENVIRONMENT_CONFIG_FIELDS.SKILLS]: [
+                {
+                  [AGENT_ENVIRONMENT_CONFIG_FIELDS.RUNTIME]: AGENT_RUNTIME.CODEX,
+                  [AGENT_ENVIRONMENT_CONFIG_FIELDS.NAME]: key,
+                  [unknownField]: unknownValue,
+                },
+              ],
+            },
+          },
+        },
+        expectedErrorPath: agentEnvironmentPath(
+          AGENT_ENVIRONMENT_CONFIG_FIELDS.PLUGIN_BOOTSTRAP,
+          AGENT_ENVIRONMENT_CONFIG_FIELDS.SKILLS,
+          "0",
+          unknownField,
+        ),
       },
     ];
 
-    for (const productConfig of nestedSections) {
+    for (const { productConfig, expectedErrorPath } of nestedSections) {
       await withTestEnv(productConfig, async ({ productDir }) => {
         const result = await resolveConfig(productDir, [agentEnvironmentConfigDescriptor]);
 
-        expectRejectedConfig(result);
+        expectRejectedConfig(result, expectedErrorPath);
       });
     }
   });
