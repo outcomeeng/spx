@@ -79,7 +79,7 @@ git ls-tree origin/main -- spx/23-spec-tree.enabler/spec-tree.md
 | R5 | `spx/46-reviewing.enabler/65-pr-review.enabler/` | R2, R3 | `spx review pr <number>` target execution |
 | S1 | `spx/31-spec-domain.enabler/43-context-ingestion.enabler/` | settled `spx/31-spec-domain.enabler/` public surface on `origin/main` | Deterministic context-ingestion command surface |
 | E0 | `spx/33-agent-environment.enabler/` | none | Agent environment descriptor shape for instructions, runtime config, and plugin bootstrap |
-| E1 | `spx/33-agent-environment.enabler/21-agent-instructions.enabler/` | E0, E2 | Deterministic instruction-file reconciliation |
+| E1 | `spx/33-agent-environment.enabler/21-agent-instructions.enabler/` | E2 | Deterministic instruction-file reconciliation |
 | E2 | `spx/33-agent-environment.enabler/32-runtime-config.enabler/` | E0 | Claude Code and Codex runtime config reconciliation |
 | E3 | `spx/33-agent-environment.enabler/43-plugin-bootstrap.enabler/` | E2 | Plugin marketplace, plugin, and skill bootstrap status |
 
@@ -116,3 +116,4 @@ Own only {target-node} and the implementation files required by its assertions. 
 - After A1-A4 settle, evaluate whether the parent `spx/36-audit.enabler/` spec needs a separate A0 packet for parent-level audit API alignment; create that packet only when a concrete parent-spec change is identified.
 - After R1-R5 settle, evaluate whether the parent `spx/46-reviewing.enabler/` spec needs a separate R0 packet for parent-level review API alignment; create that packet only when a concrete parent-spec change is identified.
 - After T1-T2 settle, evaluate whether the parent `spx/41-testing.enabler/` spec needs a separate T0 packet for parent-level testing API alignment; create that packet only when a concrete parent-spec change is identified.
+- After F1 settles, evaluate whether the parent `spx/17-file-inclusion.enabler/` spec needs a separate F0 packet for parent-level file-inclusion API alignment; create that packet only when a concrete parent-spec change is identified.
