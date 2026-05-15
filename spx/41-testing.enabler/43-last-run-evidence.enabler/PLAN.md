@@ -33,6 +33,8 @@ This depends on the testing descriptor and canonical descriptor digest. It can p
 ## Agent Pickup Prompt
 
 ```text
+Before branching, follow the common packet rules in `spx/16-config.enabler/PLAN.md`, including the branch-existence guard and settled-prerequisite checks.
+
 Start from fresh origin/main on work/testing-last-run-evidence after the canonical descriptor digest API is available. Invoke spec-tree:understanding if needed, then spec-tree:contextualizing for spx/41-testing.enabler/43-last-run-evidence.enabler/. Read this PLAN and the governing specs it names. Invoke spec-tree:applying, spec-tree:testing, typescript:testing-typescript, and typescript:coding-typescript before edits.
 
 Before branching, verify `git ls-tree origin/main -- spx/41-testing.enabler/32-testing-config.enabler/`, `git ls-tree origin/main -- spx/16-config.enabler/43-domain-execution-descriptors.enabler/`, and `git ls-tree origin/main -- spx/16-config.enabler/54-canonical-descriptor-digest.enabler/` report the settled testing descriptor and C1 artifacts. Persist testing observations under `.spx/testing/{branch-slug}/runs/{run-directory}/state.json` at the Git common-dir product root. Compute discovery once per command and reuse the result for runner dispatch and staleness comparison. Record runner outcomes, timestamps, discovered path sets, content digests, descriptor-declared product input digests, and the resolved testing config digest. Prove deleting state changes only fast-status availability. Open one PR and ask reviewers to audit staleness inputs, state ownership, and no-policy-from-state behavior.

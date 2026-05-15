@@ -30,6 +30,8 @@ This depends on shared config primitives and can run in parallel with branch-run
 ## Agent Pickup Prompt
 
 ```text
+Before branching, follow the common packet rules in `spx/16-config.enabler/PLAN.md`, including the branch-existence guard and settled-prerequisite checks.
+
 Start from fresh origin/main on work/audit-config-descriptor. Invoke spec-tree:understanding if needed, then spec-tree:contextualizing for spx/36-audit.enabler/43-audit-config.enabler/. Read this PLAN and the governing specs it names. Invoke spec-tree:applying, spec-tree:testing, typescript:testing-typescript, and typescript:coding-typescript before edits.
 
 Before branching, verify `git ls-tree origin/main -- spx/16-config.enabler/32-shared-config-primitives.enabler/` reports the settled path-filter primitive. Add the registered audit descriptor for storage defaults, baseRef, branch slug settings, auditor selection, and target filters. Use the shared path-filter primitive for include/exclude target selection. Keep `spx audit verify <file>` independent from descriptor target filters. Prove defaults, valid overrides, invalid storage values, target filters, auditor selection, config-format mapping, and descriptor isolation. Open one PR and ask reviewers to audit descriptor shape and separation from verify-only file handling.

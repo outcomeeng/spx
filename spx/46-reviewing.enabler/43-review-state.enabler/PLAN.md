@@ -35,6 +35,8 @@ This can proceed after review config and canonical descriptor digest are availab
 ## Agent Pickup Prompt
 
 ```text
+Before branching, follow the common packet rules in `spx/16-config.enabler/PLAN.md`, including the branch-existence guard and settled-prerequisite checks.
+
 Start from fresh origin/main on work/review-state after review config and canonical descriptor digest are available. Invoke spec-tree:understanding if needed, then spec-tree:contextualizing for spx/46-reviewing.enabler/43-review-state.enabler/. Read this PLAN and the governing specs it names. Invoke spec-tree:applying, spec-tree:testing, typescript:testing-typescript, and typescript:coding-typescript before edits.
 
 Define and implement persisted review state under `.spx/review/{target-kind}/{target-slug}/runs/{run-directory}` at the Git common-dir product root. Include branch and PR target discriminators, reviewer metadata, base/head identifiers, and canonical review descriptor digest. Prove terminal states, incomplete and parse-invalid runs, latest lookup for branch and PR targets, separate target-kind directories, and stale state after config digest changes. Open one PR and ask reviewers to audit state shape and storage boundaries.

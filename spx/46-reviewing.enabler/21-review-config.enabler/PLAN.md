@@ -28,6 +28,8 @@ This depends on shared config primitives and can run before branch/PR command im
 ## Agent Pickup Prompt
 
 ```text
+Before branching, follow the common packet rules in `spx/16-config.enabler/PLAN.md`, including the branch-existence guard and settled-prerequisite checks.
+
 Start from fresh origin/main on work/review-config-descriptor. Invoke spec-tree:understanding if needed, then spec-tree:contextualizing for spx/46-reviewing.enabler/21-review-config.enabler/. Read this PLAN and the governing specs it names. Invoke spec-tree:applying, spec-tree:testing, typescript:testing-typescript, and typescript:coding-typescript before edits.
 
 Before branching, verify `git ls-tree origin/main -- spx/16-config.enabler/32-shared-config-primitives.enabler/` reports the settled path-filter primitive. Add the registered review descriptor for reviewer selection, target filters, base ref behavior, execution defaults, and state policy. Keep review descriptor policy independent from audit descriptor policy while importing shared structural primitives. Prove defaults, valid overrides, invalid values, target filters, descriptor isolation, registry composition, and config-format mapping. Open one PR and ask reviewers to audit descriptor shape and audit/review separation.

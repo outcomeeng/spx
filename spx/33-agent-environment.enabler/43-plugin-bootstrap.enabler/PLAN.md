@@ -29,6 +29,8 @@ Can proceed after `spx/33-agent-environment.enabler/32-runtime-config.enabler/ru
 ## Agent Pickup Prompt
 
 ```text
+Before branching, follow the common packet rules in `spx/16-config.enabler/PLAN.md`, including the branch-existence guard and settled-prerequisite checks.
+
 Start from fresh origin/main on work/plugin-bootstrap-status after E2 (`spx/33-agent-environment.enabler/32-runtime-config.enabler/`) merges. Invoke spec-tree:understanding if needed, then spec-tree:contextualizing for spx/33-agent-environment.enabler/43-plugin-bootstrap.enabler/. Read this PLAN and the governing specs it names. Invoke spec-tree:applying, spec-tree:testing, typescript:testing-typescript, and typescript:coding-typescript before edits.
 
 Implement deterministic status and dry-run planning for configured plugin marketplaces, plugins, and skills. Separate local status reporting from install or update actions. Keep core status offline-capable and record exact installed versions or digests when the runtime exposes them. Prove installed, missing, stale, failed, dry-run actions without writes, offline mode, and malformed configured entries. Open one PR and ask reviewers to audit offline guarantees and action/status separation.
