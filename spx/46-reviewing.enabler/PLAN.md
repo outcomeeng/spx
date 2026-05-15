@@ -38,4 +38,6 @@ Child nodes can split after review config and hermetic execution contracts are a
 
 ## Gate Dependencies
 
+The central packet table in `spx/16-config.enabler/PLAN.md` is authoritative; this section is a local reminder only.
+
 - `spx/46-reviewing.enabler/32-hermetic-review-execution.enabler/` is gated on `spx/33-agent-environment.enabler/32-runtime-config.enabler/`. Pick up `spx/33-agent-environment.enabler/` E0 and E2 before R2 when resources are available.

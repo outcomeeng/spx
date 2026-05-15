@@ -2,7 +2,7 @@
 
 ## Purpose
 
-Coordinate the config tranche that moves deterministic execution domains onto the shared config descriptor system: validation, testing, auditing, reviewing, and future execution domains.
+Coordinate the refactor tranche that moves deterministic execution domains onto the shared config descriptor system: validation, testing, auditing, reviewing, agent environment management, context ingestion, and future execution domains.
 
 ## Governing Decisions
 
@@ -40,7 +40,7 @@ Coordinate the config tranche that moves deterministic execution domains onto th
    - Work in `spx/16-config.enabler/54-canonical-descriptor-digest.enabler/`.
    - Provide config-owned canonical descriptor JSON and SHA-256 digest computation for testing, audit, and review state.
 
-## Agent Work Packets
+## Refactor Tranche Agent Work Packets
 
 Each packet is intended for one agent on one branch. Agents start from fresh `origin/main`, load the target node through `spec-tree:contextualizing`, follow the node-local `PLAN.md`, open one focused PR, and handle PR review until merge or until blocked by a repository-governed decision.
 
@@ -78,9 +78,9 @@ git cat-file -e origin/main:spx/23-spec-tree.enabler/spec-tree.md
 | R4 | `spx/46-reviewing.enabler/54-branch-review.enabler/` | R2, R3 | `spx review branch` target execution |
 | R5 | `spx/46-reviewing.enabler/65-pr-review.enabler/` | R2, R3 | `spx review pr <number>` target execution |
 | S1 | `spx/31-spec-domain.enabler/43-context-ingestion.enabler/` | settled `spx/31-spec-domain.enabler/` public surface on `origin/main` | Deterministic context-ingestion command surface |
-| E0 | `spx/33-agent-environment.enabler/` | none | Assign first: agent environment descriptor shape for instructions, runtime config, and plugin bootstrap |
+| E0 | `spx/33-agent-environment.enabler/` | none | Agent environment descriptor shape for instructions, runtime config, and plugin bootstrap |
 | E1 | `spx/33-agent-environment.enabler/21-agent-instructions.enabler/` | E0, E2 | Deterministic instruction-file reconciliation |
-| E2 | `spx/33-agent-environment.enabler/32-runtime-config.enabler/` | E0 | Assign after E0: Claude Code and Codex runtime config reconciliation |
+| E2 | `spx/33-agent-environment.enabler/32-runtime-config.enabler/` | E0 | Claude Code and Codex runtime config reconciliation |
 | E3 | `spx/33-agent-environment.enabler/43-plugin-bootstrap.enabler/` | E2 | Plugin marketplace, plugin, and skill bootstrap status |
 
 Critical path: E0 must settle before E2, and E2 gates A3, E1, R2, R4, and R5 transitively. Assign E0 and E2 early when audit or review execution packets are planned.
@@ -96,7 +96,7 @@ The output sentinel file for each packet must match the node directory slug, suc
 
 Fallback: If the runtime cannot load `spec-tree:opening-pr`, record the missing skill as an imperfection in `{target-node}/ISSUES.md`, then proceed using the product PR audit workflow in the top-level `CLAUDE.md` under "Pull request (PR) audit workflow" and "Executing PR workflow". `AGENTS.md` is a symlink to the same product instructions when present.
 
-Own only {target-node} and the implementation files required by its assertions. Do not edit sibling packet PLAN files except to record a scope-expanding review finding in the owning PLAN. If the packet touches shared helpers or cross-node harness files, add or follow an Implementation Ownership section before editing. Before opening a shared process-lifecycle PR, re-read the Open Coordination section below, then check `git ls-remote --heads origin 'work/process-lifecycle-*'` and `gh pr list --state open --search process-lifecycle`; if an existing branch, PR, or Open Coordination item owns that work, claim it rather than opening a duplicate. If no owner exists, the first packet to record the gap in Open Coordination owns the shared PR. Do not use subagents for edits. Keep the PR focused, ask for adversarial review of the packet's API shape, evidence coverage, and behavior preservation, wait for PR checks and comments, patch actionable findings, rerun focused tests plus pnpm run validate and pnpm test, and repeat until the PR is merged or a repository-governed decision blocks progress.
+Own only {target-node} and the implementation files required by its assertions. Do not edit sibling packet PLAN files except to record a scope-expanding review finding in the owning PLAN. If the packet touches shared helpers or cross-node harness files, add or follow an Implementation Ownership section before editing. Before opening a shared process-lifecycle PR, re-read the Open Coordination section below, then check `git ls-remote --heads origin 'work/process-lifecycle-*'` and `gh pr list --state open --search process-lifecycle`; if an existing branch, PR, or Open Coordination item owns that work, claim it rather than opening a duplicate. A3 is the designated first recorder for shared process-lifecycle gaps; R2 must wait two minutes, re-read Open Coordination, and re-check branches and PRs before opening any process-lifecycle branch. Do not use subagents for edits. Keep the PR focused, ask for adversarial review of the packet's API shape, evidence coverage, and behavior preservation, wait for PR checks and comments, patch actionable findings, rerun focused tests plus pnpm run validate and pnpm test, and repeat until the PR is merged or a repository-governed decision blocks progress.
 ```
 
 ## Evidence Required
@@ -120,5 +120,5 @@ Own only {target-node} and the implementation files required by its assertions. 
 - After T1-T2 settle, evaluate whether the parent `spx/41-testing.enabler/` spec needs a separate T0 packet for parent-level testing API alignment; create that packet only when a concrete parent-spec change is identified.
 - After F1 settles, evaluate whether the parent `spx/17-file-inclusion.enabler/` spec needs a separate F0 packet for parent-level file-inclusion API alignment; create that packet only when a concrete parent-spec change is identified.
 - After C1 or C2 merges, evaluate whether common pickup rules should move from this config tranche PLAN to a neutral coordination artifact before assigning cross-domain packets such as E0 or S1.
-- If A3 or R2 discovers missing shared process-lifecycle behavior, record one shared coordination item here. The first packet to record the gap owns the shared PR; the second packet must re-read this section, inspect open process-lifecycle PRs, and claim the existing branch or PR instead of opening a duplicate.
+- If A3 or R2 discovers missing shared process-lifecycle behavior, A3 is the designated first recorder. R2 must wait two minutes, re-read this section, inspect open process-lifecycle PRs and branches, and claim the existing branch or PR instead of opening a duplicate.
 - `spx/41-testing.enabler/21-python-testing.enabler/` and `spx/41-testing.enabler/21-typescript-testing.enabler/` are current language-skill specs, not implementation packets for this config/status tranche.

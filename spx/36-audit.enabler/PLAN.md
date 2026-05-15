@@ -70,4 +70,6 @@ Move audit from verify-only artifact checking toward config-backed, branch-scope
 
 ## Gate Dependencies
 
+The central packet table in `spx/16-config.enabler/PLAN.md` is authoritative; this section is a local reminder only.
+
 - `spx/36-audit.enabler/65-auditor-execution.enabler/` is gated on `spx/33-agent-environment.enabler/32-runtime-config.enabler/`. Pick up `spx/33-agent-environment.enabler/` E0 and E2 before A3 when resources are available.
