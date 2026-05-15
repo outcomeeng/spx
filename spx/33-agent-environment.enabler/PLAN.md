@@ -32,6 +32,7 @@ The three child nodes can proceed independently after their shared config shape 
 ## Open Coordination
 
 - Author the invoking-agent isolation decision before auditor execution or reviewer execution implementation chooses working-directory, environment-variable, or temporary-file sharing boundaries.
+- When E1, E2, or E3 add descriptor-consuming tests, expand `CONFIG_TEST_GENERATOR.agentEnvironmentConfig()` beyond the E0 representative mapping shape or add narrower generator names for shape-specific evidence.
 
 ## Gate Dependencies
 

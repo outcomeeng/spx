@@ -492,6 +492,7 @@ function validatePlugin(path: string, raw: unknown): Result<AgentPluginConfig> {
     raw[AGENT_ENVIRONMENT_CONFIG_FIELDS.VERSION],
   );
   if (!version.ok) return version;
+  // Resolved config omits absent optional fields instead of materializing undefined values.
   return {
     ok: true,
     value: {
@@ -523,6 +524,7 @@ function validateSkill(path: string, raw: unknown): Result<AgentSkillConfig> {
     raw[AGENT_ENVIRONMENT_CONFIG_FIELDS.VERSION],
   );
   if (!version.ok) return version;
+  // Resolved config omits absent optional fields instead of materializing undefined values.
   return {
     ok: true,
     value: {
