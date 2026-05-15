@@ -69,6 +69,7 @@ export interface AgentEnvironmentConfig {
 }
 
 const AGENT_RUNTIME_VALUES = Object.values(AGENT_RUNTIME);
+const AGENT_RUNTIME_SET: ReadonlySet<string> = new Set(AGENT_RUNTIME_VALUES);
 const DEFAULT_AGENT_INSTRUCTION_TARGET_RUNTIMES = [
   AGENT_RUNTIME.CODEX,
   AGENT_RUNTIME.CLAUDE_CODE,
@@ -182,7 +183,7 @@ function validateRuntime(path: string, value: unknown): Result<AgentRuntime> {
 }
 
 function isAgentRuntime(value: string): value is AgentRuntime {
-  return AGENT_RUNTIME_VALUES.some((runtime) => runtime === value);
+  return AGENT_RUNTIME_SET.has(value);
 }
 
 function validateRuntimeArray(path: string, value: unknown): Result<readonly AgentRuntime[]> {
@@ -314,6 +315,13 @@ function validatePluginBootstrap(raw: unknown): Result<AgentEnvironmentConfig["p
   );
   if (!plugins.ok) return plugins;
 
+  const pluginMarketplaceReferences = validatePluginMarketplaceReferences(
+    sectionPath,
+    marketplaces.value,
+    plugins.value,
+  );
+  if (!pluginMarketplaceReferences.ok) return pluginMarketplaceReferences;
+
   const skills = validateEntryArray(
     `${sectionPath}.${AGENT_ENVIRONMENT_CONFIG_FIELDS.SKILLS}`,
     raw[AGENT_ENVIRONMENT_CONFIG_FIELDS.SKILLS],
@@ -348,6 +356,33 @@ function validateEntryArray<T>(
     entries.push(result.value);
   }
   return { ok: true, value: entries };
+}
+
+function validatePluginMarketplaceReferences(
+  path: string,
+  marketplaces: readonly AgentMarketplaceConfig[],
+  plugins: readonly AgentPluginConfig[],
+): Result<undefined> {
+  const marketplacesByRuntime = new Map<AgentRuntime, Set<string>>();
+  for (const marketplace of marketplaces) {
+    const runtimeMarketplaces = marketplacesByRuntime.get(marketplace.runtime) ?? new Set<string>();
+    runtimeMarketplaces.add(marketplace.name);
+    marketplacesByRuntime.set(marketplace.runtime, runtimeMarketplaces);
+  }
+
+  for (const [index, plugin] of plugins.entries()) {
+    if (plugin.marketplace === undefined) continue;
+    const runtimeMarketplaces = marketplacesByRuntime.get(plugin.runtime);
+    if (!runtimeMarketplaces?.has(plugin.marketplace)) {
+      return {
+        ok: false,
+        error:
+          `${path}.${AGENT_ENVIRONMENT_CONFIG_FIELDS.PLUGINS}.${index}.${AGENT_ENVIRONMENT_CONFIG_FIELDS.MARKETPLACE} must reference a configured marketplace for the same runtime`,
+      };
+    }
+  }
+
+  return { ok: true, value: undefined };
 }
 
 function validateMarketplace(path: string, raw: unknown): Result<AgentMarketplaceConfig> {
@@ -450,9 +485,7 @@ function validateNamedRuntimeEntry(
 
 function validateOptionalString(path: string, value: unknown): Result<string | undefined> {
   if (value === undefined) return { ok: true, value: undefined };
-  const stringValue = validateNonEmptyString(path, value);
-  if (!stringValue.ok) return stringValue;
-  return { ok: true, value: stringValue.value };
+  return validateNonEmptyString(path, value);
 }
 
 function validate(value: unknown): Result<AgentEnvironmentConfig> {

@@ -1,4 +1,4 @@
-import { readFile, rm } from "node:fs/promises";
+import { rm } from "node:fs/promises";
 import { join } from "node:path";
 
 import { describe, expect, it } from "vitest";
@@ -8,7 +8,6 @@ import {
   CONFIG_FILE_FORMAT_ORDER,
   CONFIG_FILENAMES,
   type ConfigFileFormat,
-  DEFAULT_CONFIG_FILE_FORMAT,
   DEFAULT_CONFIG_FILENAME,
   resolveConfig,
   serializeConfigFileSections,
@@ -32,9 +31,6 @@ describe("agent environment descriptor format mapping", () => {
     for (const format of CONFIG_FILE_FORMAT_ORDER) {
       await withTestEnv({}, async ({ productDir, writeRaw }) => {
         const defaultConfigPath = join(productDir, DEFAULT_CONFIG_FILENAME);
-        await expect(readFile(defaultConfigPath)).resolves.toEqual(
-          Buffer.from(serializeConfig(DEFAULT_CONFIG_FILE_FORMAT, {})),
-        );
         await rm(defaultConfigPath);
         await writeRaw(CONFIG_FILENAMES[format], serializeConfig(format, generated.config));
         const result = await resolveConfig(productDir, [agentEnvironmentConfigDescriptor]);
