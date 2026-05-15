@@ -173,6 +173,47 @@ describe("agent environment config descriptor", () => {
     }
   });
 
+  it("rejects malformed subsection field values", async () => {
+    const malformedSections: readonly Config[] = [
+      {
+        [AGENT_ENVIRONMENT_SECTION]: {
+          [AGENT_ENVIRONMENT_CONFIG_FIELDS.INSTRUCTIONS]: {
+            [AGENT_ENVIRONMENT_CONFIG_FIELDS.FILES]: sampleAgentEnvironmentKey(),
+          },
+        },
+      },
+      {
+        [AGENT_ENVIRONMENT_SECTION]: {
+          [AGENT_ENVIRONMENT_CONFIG_FIELDS.INSTRUCTIONS]: {
+            [AGENT_ENVIRONMENT_CONFIG_FIELDS.FILES]: [
+              {
+                [AGENT_ENVIRONMENT_CONFIG_FIELDS.PATH]: "",
+                [AGENT_ENVIRONMENT_CONFIG_FIELDS.TARGET_RUNTIMES]: [AGENT_RUNTIME.CODEX],
+              },
+            ],
+          },
+        },
+      },
+      {
+        [AGENT_ENVIRONMENT_SECTION]: {
+          [AGENT_ENVIRONMENT_CONFIG_FIELDS.RUNTIMES]: {
+            [AGENT_RUNTIME.CODEX]: {
+              [AGENT_ENVIRONMENT_CONFIG_FIELDS.ENABLED]: sampleAgentEnvironmentKey(),
+            },
+          },
+        },
+      },
+    ];
+
+    for (const productConfig of malformedSections) {
+      await withTestEnv(productConfig, async ({ productDir }) => {
+        const result = await resolveConfig(productDir, [agentEnvironmentConfigDescriptor]);
+
+        expectRejectedConfig(result);
+      });
+    }
+  });
+
   it("rejects instruction file entries with an empty target runtime list", async () => {
     const productConfig: Config = {
       [AGENT_ENVIRONMENT_SECTION]: {
