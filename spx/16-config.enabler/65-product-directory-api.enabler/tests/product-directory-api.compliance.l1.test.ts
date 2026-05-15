@@ -30,10 +30,10 @@ describe("product directory API result shape", () => {
   it("resolveProductDir exposes productDir without legacy root aliases", async () => {
     await withTestEnv({}, async ({ productDir }) => {
       const result = resolveProductDir(productDir);
-      const legacyFields = { projectRoot: productDir, projectDir: productDir };
+      const legacyFieldNames = ["projectRoot", "projectDir"] as const;
 
       expect(result.productDir).toBe(productDir);
-      for (const legacyField of Object.keys(legacyFields)) {
+      for (const legacyField of legacyFieldNames) {
         expect(legacyField in result).toBe(false);
       }
     });
