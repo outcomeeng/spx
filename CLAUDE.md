@@ -4,6 +4,8 @@
 
 - ⚠️ **NEVER answer ANY question without invoking at least one skill first** - If the question touches testing, specs, code, architecture, or any topic covered by a skill, invoke the relevant skill BEFORE answering. Skills are the authoritative source — not grep results, not existing files, not your training data. See skill table below.
 - ⚠️ **NEVER write code without invoking a skill first** - See skill table below
+- ⚠️ **ALWAYS invoke `/spec-tree:applying` before implementing any spec-tree work item** - Applying is the orchestration skill for spec-tree TDD. It requires methodology/context loading, language-specific architecture, test, and implementation steps, plus blocking audit gates before the work can be treated as ready.
+- ⚠️ **NEVER commit spec-tree implementation or test changes without the applying audit gates** - For TypeScript work, `/spec-tree:applying` requires `/typescript:auditing-typescript-tests` before implementation and `/typescript:auditing-typescript` before claiming readiness. Green tests and `pnpm run validate` are necessary but not sufficient for code/test changes.
 - ⚠️ **NEVER write tests in `tests/`** - Write in `spx/.../tests/` (co-located with specs)
 - ⚠️ **NEVER manually navigate `spx/` hierarchy** - Use `/contextualizing spx/path/to/node` skill
 - ⚠️ **ALWAYS read CLAUDE.md in subdirectories** - When working with files in `spx/`, or any other directory, read that directory's CLAUDE.md FIRST if it exists
@@ -47,11 +49,12 @@ The **spec-tree** plugin (`outcomeeng/claude/plugins/spec-tree`) is the active s
 | `/spec-tree:authoring`       | Create specs, ADRs, PDRs, enablers, outcomes                   |
 | `/spec-tree:decomposing`     | Break nodes into children with proper ordering                 |
 | `/spec-tree:testing`         | Manage spec-test lock file lifecycle                           |
+| `/spec-tree:applying`        | Orchestrate spec-tree implementation and audit gates           |
 | `/spec-tree:refactoring`     | Restructure the spec tree (move, consolidate, extract)         |
 | `/spec-tree:aligning`        | Review for gaps, contradictions, and consistency               |
 | `/spec-tree:opening-pr`      | Open draft PRs with branch hygiene and review-loop setup       |
 
-Additional skills ship with the plugin and are invoked by name: `applying`, `committing-changes`, `interviewing`, `auditing-tests`, `auditing-product-decisions`, `handing-off`, `picking-up`, `refocusing`, `bootstrapping`. See `outcomeeng/claude/plugins/spec-tree/skills/` for the full list.
+Additional skills ship with the plugin and are invoked by name: `committing-changes`, `interviewing`, `auditing-tests`, `auditing-product-decisions`, `handing-off`, `picking-up`, `refocusing`, `bootstrapping`. See `outcomeeng/claude/plugins/spec-tree/skills/` for the full list.
 
 ---
 
@@ -79,6 +82,9 @@ pnpm run publish:check
 
 Before committing ANY changes:
 
+- [ ] **`/spec-tree:applying` gates passed for spec-tree code/test work**: methodology/context loaded, architecture audit approved when applicable, test audit approved, code audit approved
+- [ ] **`/typescript:auditing-typescript-tests` passed for TypeScript test changes** before committing test-bearing work
+- [ ] **`/typescript:auditing-typescript` passed for TypeScript implementation changes** before committing code-bearing work
 - [ ] **`pnpm run validate`** passes (source CLI full pipeline)
 - [ ] **`pnpm test`** shows 0 failed tests
 
@@ -155,6 +161,12 @@ Use small PRs with one purpose. A PR that changes specs, tests, architecture, ru
 
 Run the right local gate before publishing. Use `spx validation markdown` for markdown-only spec or instruction changes. Use `spx validation all` for everything else. Add targeted tests for the node or workflow changed, and name those commands in the PR body.
 
+### PR review guidance
+
+[REVIEW.md](REVIEW.md) is the canonical guidance for PR reviews. Automated and human reviewers must classify findings by required receiver action using only `BLOCKING`, `NEEDS-ANSWER`, `FOLLOW-UP`, and `NOTE`.
+
+`BLOCKING` and `NEEDS-ANSWER` are the only finding classes that enter the active PR loop. `FOLLOW-UP` items must name the owning tracking location when retention is useful. `NOTE` items are optional and should be omitted when they add noise.
+
 ### Executing PR workflow
 
 Use this `gh` sequence for the normal review loop:
@@ -187,10 +199,12 @@ Use `gh pr checks "$pr_number" --watch --interval 10` when waiting for CI to fin
 
 Ask the PR reviewers for adversarial auditing of all architecture, security-sensitive workflows, deployment and publishing paths, and any PR that changes production behavior. Set yourself a reminder to check on the PR reviews after 3 minutes. In the meantime, continue with non-blocking local work or merge only when the user explicitly asked for no review wait.
 
-### Treat PR review findings by severity
+### Treat PR review findings by receiver action
 
-- Critical, high, security, data-loss, production-safety, or architecture-break findings block the PR. Fix them in the same PR, rerun the focused tests and `spx validation all`, then update the PR.
-- Medium and lower findings do not keep widening a production-path PR once the high-severity queue is empty. Record them in the owning spec tree node's `ISSUES.md` or `PLAN.md` with evidence, impact, and resolution and Markdown links to all involved files and specs.
+- Fix `BLOCKING` findings in the same PR, rerun the focused tests and `spx validation all`, then update the PR.
+- Answer `NEEDS-ANSWER` findings in the PR. If the answer proves the concern affects merge safety, convert the item to `BLOCKING` handling.
+- Record retained `FOLLOW-UP` findings in the owning spec tree node's `ISSUES.md` or `PLAN.md` with evidence, impact, and resolution and Markdown links to all involved files and specs.
+- Treat `NOTE` findings as context only. Do not create work from a `NOTE`.
 - Findings that expose weak evidence require a test rearchitecture using the `/typescript:testing-typescript` skill before merge.
 
 ### Merge discipline
