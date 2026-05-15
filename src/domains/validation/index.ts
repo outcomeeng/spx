@@ -297,7 +297,7 @@ function registerValidationCommands(validationCmd: Command): void {
     )
     .action(async (options: LiteralOptions) => {
       if (options.allowlistExisting) {
-        const result = await allowlistExisting({ projectRoot: process.cwd() });
+        const result = await allowlistExisting({ productDir: process.cwd() });
         if (result.output) console.log(result.output);
         process.exit(result.exitCode);
       }
