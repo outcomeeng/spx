@@ -306,7 +306,7 @@ function validatePluginBootstrap(raw: unknown): Result<AgentEnvironmentConfig["p
   );
   if (!marketplaces.ok) return marketplaces;
 
-  const marketplaceUniqueness = validateMarketplaceUniqueness(
+  const marketplaceUniqueness = validateNamedRuntimeEntryUniqueness(
     `${sectionPath}.${AGENT_ENVIRONMENT_CONFIG_FIELDS.MARKETPLACES}`,
     marketplaces.value,
   );
@@ -319,6 +319,12 @@ function validatePluginBootstrap(raw: unknown): Result<AgentEnvironmentConfig["p
     DEFAULT_AGENT_ENVIRONMENT_CONFIG.pluginBootstrap.plugins,
   );
   if (!plugins.ok) return plugins;
+
+  const pluginUniqueness = validateNamedRuntimeEntryUniqueness(
+    `${sectionPath}.${AGENT_ENVIRONMENT_CONFIG_FIELDS.PLUGINS}`,
+    plugins.value,
+  );
+  if (!pluginUniqueness.ok) return pluginUniqueness;
 
   const pluginMarketplaceReferences = validatePluginMarketplaceReferences(
     sectionPath,
@@ -334,6 +340,12 @@ function validatePluginBootstrap(raw: unknown): Result<AgentEnvironmentConfig["p
     DEFAULT_AGENT_ENVIRONMENT_CONFIG.pluginBootstrap.skills,
   );
   if (!skills.ok) return skills;
+
+  const skillUniqueness = validateNamedRuntimeEntryUniqueness(
+    `${sectionPath}.${AGENT_ENVIRONMENT_CONFIG_FIELDS.SKILLS}`,
+    skills.value,
+  );
+  if (!skillUniqueness.ok) return skillUniqueness;
 
   return {
     ok: true,
@@ -363,21 +375,21 @@ function validateEntryArray<T>(
   return { ok: true, value: entries };
 }
 
-function validateMarketplaceUniqueness(
+function validateNamedRuntimeEntryUniqueness(
   path: string,
-  marketplaces: readonly AgentMarketplaceConfig[],
+  entries: readonly { readonly runtime: AgentRuntime; readonly name: string }[],
 ): Result<undefined> {
-  const marketplacesByRuntime = new Map<AgentRuntime, Set<string>>();
-  for (const [index, marketplace] of marketplaces.entries()) {
-    const runtimeMarketplaces = marketplacesByRuntime.get(marketplace.runtime) ?? new Set<string>();
-    if (runtimeMarketplaces.has(marketplace.name)) {
+  const namesByRuntime = new Map<AgentRuntime, Set<string>>();
+  for (const [index, entry] of entries.entries()) {
+    const runtimeNames = namesByRuntime.get(entry.runtime) ?? new Set<string>();
+    if (runtimeNames.has(entry.name)) {
       return {
         ok: false,
         error: `${path}.${index}.${AGENT_ENVIRONMENT_CONFIG_FIELDS.NAME} must be unique for the same runtime`,
       };
     }
-    runtimeMarketplaces.add(marketplace.name);
-    marketplacesByRuntime.set(marketplace.runtime, runtimeMarketplaces);
+    runtimeNames.add(entry.name);
+    namesByRuntime.set(entry.runtime, runtimeNames);
   }
   return { ok: true, value: undefined };
 }
