@@ -29,6 +29,13 @@ Replace ignore-source scope policy with typed config-backed path-filter inputs.
 
 This depends on the shared path-filter primitive. It can proceed before testing state persistence, but final deletion of ignore-source code depends on config-backed testing passing scope.
 
+## Implementation Ownership
+
+- Own the domain path-filter resolver changes and tests required by this node under `src/lib/file-inclusion/` and this node's co-located `tests/`.
+- Consume the shared path-filter primitive from `src/config/primitives/`; do not define a second path-filter shape or validator.
+- Preserve the existing standalone ignore-source production path in this packet. Do not delete `src/lib/file-inclusion/ignore-source.ts`, ignore-source predicates, or tool-adapter ignore-source wiring until the T2 testing-status artifact exists on `origin/main`.
+- Do not edit testing, audit, or review descriptor consumers in this packet except through stable file-inclusion call signatures required by this node.
+
 ## Agent Pickup Prompt
 
 ```text

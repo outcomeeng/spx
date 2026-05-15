@@ -54,6 +54,8 @@ These sentinels were verified on `origin/main` during the refactor-tranche dispa
 - Spec-domain public surface: `spx/31-spec-domain.enabler/spec-domain.md` and `spx/23-spec-tree.enabler/spec-tree.md` own the settled command and library surfaces S1 consumes.
 - F1, A1, and R1 are the packets that consume the settled path-filter primitive directly.
 
+## Dispatcher Verification
+
 Verify the settled prerequisites before assigning dependent packets:
 
 ```bash
@@ -86,7 +88,7 @@ git cat-file -e origin/main:spx/23-spec-tree.enabler/spec-tree.md
 | E2 | `spx/33-agent-environment.enabler/32-runtime-config.enabler/` | E0 | Claude Code and Codex runtime config reconciliation |
 | E3 | `spx/33-agent-environment.enabler/43-plugin-bootstrap.enabler/` | E2 | Plugin marketplace, plugin, and skill bootstrap status |
 
-Critical path: E0 must settle before E2, and E2 gates A3, E1, R2, R4, and R5 transitively. Assign E0 and E2 early when audit or review execution packets are planned. C1 and C2 can start independently, but both may touch config modules and descriptor generators; fast-merge or sequence them when minimizing merge conflicts matters.
+Critical path: E0 must settle before E2, and E2 gates A3, E1, R2, R4, and R5 transitively. Assign E0 and E2 early when audit or review execution packets are planned. C1 and C2 can start independently, but both may touch config modules and descriptor generators; prefer sequencing C1 before C2 unless a human resolver is standing by. If C1 and C2 run in parallel, merge one first, then rebase the other and rerun validation before review.
 
 ## Common Agent Pickup Rules
 
