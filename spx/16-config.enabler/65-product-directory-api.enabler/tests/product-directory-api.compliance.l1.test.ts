@@ -9,6 +9,7 @@ import {
   type GitDependencies,
 } from "@/git/root";
 import { CONFIG_TEST_GENERATOR, sampleConfigTestValue } from "@testing/generators/config/descriptors";
+import { withTestEnv } from "@testing/harnesses/spec-tree/spec-tree";
 
 function createGitDeps(worktreeProductDir: string, gitCommonDirProductDir?: string): GitDependencies {
   return {
@@ -27,17 +28,17 @@ function createGitDeps(worktreeProductDir: string, gitCommonDirProductDir?: stri
 }
 
 describe("product directory API result shape", () => {
-  it("resolveProductDir exposes productDir without legacy root aliases", () => {
-    const productDir = sampleConfigTestValue(CONFIG_TEST_GENERATOR.productDir());
+  it("resolveProductDir exposes productDir without legacy root aliases", async () => {
+    await withTestEnv({}, async ({ productDir }) => {
+      const result = resolveProductDir(productDir);
+      const legacyFields = { projectRoot: productDir, projectDir: productDir };
 
-    const result = resolveProductDir(productDir);
-    const legacyFields = { projectRoot: productDir, projectDir: productDir };
-
-    expect(result.productDir).toBe(productDir);
-    // Object keys are the legacy field names; values keep the object shaped like the result.
-    for (const legacyField of Object.keys(legacyFields)) {
-      expect(legacyField in result).toBe(false);
-    }
+      expect(result.productDir).toBe(productDir);
+      // Object keys are the legacy field names; values keep the object shaped like the result.
+      for (const legacyField of Object.keys(legacyFields)) {
+        expect(legacyField in result).toBe(false);
+      }
+    });
   });
 
   it("git root helpers expose productDir without an unqualified root field", async () => {
