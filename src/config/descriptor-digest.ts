@@ -90,6 +90,7 @@ function normalizeObject(
     ? normalizeArray(value, path, seen)
     : normalizeRecord(value, path, seen);
 
+  // Keep `seen` as the current DFS path so sibling branches may share objects.
   seen.delete(value);
   return result;
 }

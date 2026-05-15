@@ -6,6 +6,9 @@ import { CONFIG_TEST_GENERATOR, sampleConfigTestValue } from "@testing/generator
 
 class NonPlainDescriptorRecord {}
 
+const bmpCodePointAfterSurrogateBlock = 0xe000;
+const astralCodePointAfterBmp = 0x10000;
+
 function expectCanonical(value: unknown, path: string): string {
   const result = canonicalDescriptorJson(value, path);
   expect(result.ok).toBe(true);
@@ -28,15 +31,16 @@ function arbitraryDescriptorJsonValue(maxDepth = 3): fc.Arbitrary<DescriptorJson
 }
 
 function sampleDistinctAsciiKeys(count: number): readonly string[] {
-  const samples = fc.sample(CONFIG_TEST_GENERATOR.key(), { numRuns: count * 3 });
-  const keys = [...new Set(samples)].slice(0, count);
+  const keys = sampleConfigTestValue(
+    fc.uniqueArray(CONFIG_TEST_GENERATOR.key(), {
+      minLength: count,
+      maxLength: count,
+      selector: (value) => value,
+    }),
+  );
   expect(keys).toHaveLength(count);
   expect(keys.every((key) => /^[a-z][a-z0-9]+$/.test(key))).toBe(true);
   return keys;
-}
-
-function indexOfKey(canonicalJson: string, key: string): number {
-  return canonicalJson.indexOf(JSON.stringify(key));
 }
 
 describe("canonical descriptor JSON compliance", () => {
@@ -54,10 +58,14 @@ describe("canonical descriptor JSON compliance", () => {
         firstKey,
       ],
     }, path);
+    const parsed = JSON.parse(canonicalJson) as Record<string, unknown>;
+    const parsedArray = parsed[firstKey] as readonly Record<string, unknown>[];
+    const parsedRecord = parsed[secondKey] as Record<string, unknown>;
 
-    expect(indexOfKey(canonicalJson, firstKey)).toBeLessThan(indexOfKey(canonicalJson, secondKey));
-    expect(indexOfKey(canonicalJson, secondKey)).toBeLessThan(indexOfKey(canonicalJson, thirdKey));
-    expect(JSON.parse(canonicalJson)).toEqual({
+    expect(Object.keys(parsed)).toEqual([firstKey, secondKey]);
+    expect(Object.keys(parsedArray[0])).toEqual([firstKey, secondKey, thirdKey]);
+    expect(Object.keys(parsedRecord)).toEqual([firstKey, secondKey]);
+    expect(parsed).toEqual({
       [firstKey]: [
         { [firstKey]: 1, [secondKey]: 2, [thirdKey]: 3 },
         secondKey,
@@ -68,6 +76,15 @@ describe("canonical descriptor JSON compliance", () => {
         [secondKey]: true,
       },
     });
+  });
+
+  it("sorts non-BMP keys by Unicode code point order", () => {
+    const path = sampleConfigTestValue(CONFIG_TEST_GENERATOR.key());
+    const bmpKey = String.fromCodePoint(bmpCodePointAfterSurrogateBlock);
+    const astralKey = String.fromCodePoint(astralCodePointAfterBmp);
+    const canonicalJson = expectCanonical({ [astralKey]: true, [bmpKey]: false }, path);
+
+    expect(Object.keys(JSON.parse(canonicalJson))).toEqual([bmpKey, astralKey]);
   });
 
   it("serializes JSON primitives and null with no insignificant whitespace", () => {
