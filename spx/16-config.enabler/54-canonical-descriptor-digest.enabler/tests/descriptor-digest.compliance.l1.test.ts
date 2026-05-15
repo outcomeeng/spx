@@ -30,6 +30,14 @@ function expectDigest(value: unknown): DescriptorSectionDigest {
   return result.value;
 }
 
+function expectResolvedTestingSection(config: Awaited<ReturnType<typeof resolveConfig>>): unknown {
+  expect(config.ok).toBe(true);
+  if (!config.ok) {
+    throw new Error(config.error);
+  }
+  return config.value[TESTING_SECTION];
+}
+
 function serializeSections(
   format: typeof CONFIG_FILE_FORMAT.JSON | typeof CONFIG_FILE_FORMAT.TOML,
   config: Config,
@@ -80,12 +88,7 @@ describe("descriptor section digest compliance", () => {
   it("computes digest from resolved descriptor defaults when the config section is absent", async () => {
     await withTestEnv({}, async ({ productDir }) => {
       const resolved = await resolveConfig(productDir, [testingConfigDescriptor]);
-      expect(resolved.ok).toBe(true);
-      if (!resolved.ok) {
-        throw new Error(resolved.error);
-      }
-
-      const digest = expectDigest(resolved.value[TESTING_SECTION]);
+      const digest = expectDigest(expectResolvedTestingSection(resolved));
 
       expect(digest).toEqual(expectDigest(testingConfigDescriptor.defaults));
     });
@@ -110,10 +113,7 @@ describe("descriptor section digest compliance", () => {
 
     await withTestEnv(config, async ({ productDir }) => {
       const resolved = await resolveConfig(productDir, [testingConfigDescriptor]);
-      expect(resolved.ok).toBe(true);
-      if (resolved.ok) {
-        digests.push(expectDigest(resolved.value[TESTING_SECTION]).sha256);
-      }
+      digests.push(expectDigest(expectResolvedTestingSection(resolved)).sha256);
     });
 
     await withTestEnv({}, async ({ productDir, writeRaw }) => {
@@ -123,10 +123,7 @@ describe("descriptor section digest compliance", () => {
         serializeSections(CONFIG_FILE_FORMAT.JSON, configWithUnrelatedSection),
       );
       const resolved = await resolveConfig(productDir, [testingConfigDescriptor]);
-      expect(resolved.ok).toBe(true);
-      if (resolved.ok) {
-        digests.push(expectDigest(resolved.value[TESTING_SECTION]).sha256);
-      }
+      digests.push(expectDigest(expectResolvedTestingSection(resolved)).sha256);
     });
 
     await withTestEnv({}, async ({ productDir, writeRaw }) => {
@@ -136,10 +133,7 @@ describe("descriptor section digest compliance", () => {
         serializeSections(CONFIG_FILE_FORMAT.TOML, configWithUnrelatedSection),
       );
       const resolved = await resolveConfig(productDir, [testingConfigDescriptor]);
-      expect(resolved.ok).toBe(true);
-      if (resolved.ok) {
-        digests.push(expectDigest(resolved.value[TESTING_SECTION]).sha256);
-      }
+      digests.push(expectDigest(expectResolvedTestingSection(resolved)).sha256);
     });
 
     expect(digests).toEqual([digests[0], digests[0], digests[0]]);

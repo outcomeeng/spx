@@ -19,7 +19,6 @@ const DEFAULT_DESCRIPTOR_PATH = "descriptor section";
 const SHA256_ALGORITHM = "sha256";
 const UTF8_ENCODING = "utf8";
 const HEX_ENCODING = "hex";
-const OBJECT_TAG = "[object Object]";
 
 type JsonRecord = { readonly [key: string]: DescriptorJsonValue };
 
@@ -125,7 +124,7 @@ function normalizeRecord(
 
   const record = value as Record<string, unknown>;
   const normalized: Record<string, DescriptorJsonValue> = {};
-  for (const key of keys.sort(compareUnicodeCodePointStrings) as string[]) {
+  for (const key of (keys as string[]).sort(compareUnicodeCodePointStrings)) {
     const child = normalizeDescriptorJsonValue(record[key], `${path}.${key}`, seen);
     if (!child.ok) return child;
     normalized[key] = child.value;
@@ -136,15 +135,12 @@ function normalizeRecord(
 
 function isPlainRecord(value: object): boolean {
   const prototype = Object.getPrototypeOf(value);
-  if (prototype === null) return true;
-  return Object.prototype.toString.call(value) === OBJECT_TAG && prototype === Object.prototype;
+  return prototype === null || prototype === Object.prototype;
 }
 
-function compareUnicodeCodePointStrings(left: string | symbol, right: string | symbol): number {
-  const leftText = String(left);
-  const rightText = String(right);
-  const leftCodePoints = Array.from(leftText, (value) => value.codePointAt(0) ?? 0);
-  const rightCodePoints = Array.from(rightText, (value) => value.codePointAt(0) ?? 0);
+function compareUnicodeCodePointStrings(left: string, right: string): number {
+  const leftCodePoints = Array.from(left, (value) => value.codePointAt(0) ?? 0);
+  const rightCodePoints = Array.from(right, (value) => value.codePointAt(0) ?? 0);
   const length = Math.min(leftCodePoints.length, rightCodePoints.length);
 
   for (let index = 0; index < length; index += 1) {

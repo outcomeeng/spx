@@ -27,12 +27,11 @@ function arbitraryDescriptorJsonValue(maxDepth = 3): fc.Arbitrary<DescriptorJson
   return fc.jsonValue({ maxDepth }) as fc.Arbitrary<DescriptorJsonValue>;
 }
 
-function sampleDistinctKeys(count: number): readonly string[] {
+function sampleDistinctAsciiKeys(count: number): readonly string[] {
   const samples = fc.sample(CONFIG_TEST_GENERATOR.key(), { numRuns: count * 3 });
   const keys = [...new Set(samples)].slice(0, count);
-  if (keys.length !== count) {
-    throw new Error("Config key generator did not produce enough distinct keys");
-  }
+  expect(keys).toHaveLength(count);
+  expect(keys.every((key) => /^[a-z][a-z0-9]+$/.test(key))).toBe(true);
   return keys;
 }
 
@@ -43,7 +42,7 @@ function indexOfKey(canonicalJson: string, key: string): number {
 describe("canonical descriptor JSON compliance", () => {
   it("sorts object keys recursively and preserves array order", () => {
     const path = sampleConfigTestValue(CONFIG_TEST_GENERATOR.key());
-    const [firstKey, secondKey, thirdKey] = [...sampleDistinctKeys(3)].sort();
+    const [firstKey, secondKey, thirdKey] = [...sampleDistinctAsciiKeys(3)].sort();
     const canonicalJson = expectCanonical({
       [secondKey]: {
         [secondKey]: true,
@@ -73,7 +72,7 @@ describe("canonical descriptor JSON compliance", () => {
 
   it("serializes JSON primitives and null with no insignificant whitespace", () => {
     const path = sampleConfigTestValue(CONFIG_TEST_GENERATOR.key());
-    const [textKey, numberKey, booleanKey, nullKey, arrayKey] = sampleDistinctKeys(5);
+    const [textKey, numberKey, booleanKey, nullKey, arrayKey] = sampleDistinctAsciiKeys(5);
     const textValue = sampleConfigTestValue(CONFIG_TEST_GENERATOR.scalar());
     const canonicalJson = expectCanonical({
       [textKey]: textValue,
@@ -108,7 +107,7 @@ describe("canonical descriptor JSON compliance", () => {
 
   it("rejects values that descriptor sections cannot represent as JSON", () => {
     const path = sampleConfigTestValue(CONFIG_TEST_GENERATOR.key());
-    const [nestedKey, symbolDescription] = sampleDistinctKeys(2);
+    const [nestedKey, symbolDescription] = sampleDistinctAsciiKeys(2);
     const symbolKey = Symbol(symbolDescription);
     const circular: Record<string, unknown> = {};
     circular[nestedKey] = circular;
@@ -137,20 +136,14 @@ describe("canonical descriptor JSON compliance", () => {
     }
   });
 
-  it("does not include unrelated descriptor sections or raw formatting in a section canonicalization", () => {
+  it("accepts DAG-shared objects without treating them as circular references", () => {
     const path = sampleConfigTestValue(CONFIG_TEST_GENERATOR.key());
-    const [sectionKey, unrelatedKey, firstKey, secondKey] = sampleDistinctKeys(4);
-    const section = {
-      [sectionKey]: {
-        [secondKey]: sampleConfigTestValue(CONFIG_TEST_GENERATOR.scalar()),
-        [firstKey]: sampleConfigTestValue(CONFIG_TEST_GENERATOR.scalar()),
-      },
+    const [firstKey, secondKey, sharedKey] = sampleDistinctAsciiKeys(3);
+    const shared = {
+      [sharedKey]: sampleConfigTestValue(CONFIG_TEST_GENERATOR.scalar()),
     };
-    const configWithUnrelatedSection = {
-      [path]: section,
-      [unrelatedKey]: sampleConfigTestValue(CONFIG_TEST_GENERATOR.scalar()),
-    };
+    const canonicalJson = expectCanonical({ [secondKey]: shared, [firstKey]: shared }, path);
 
-    expect(expectCanonical(configWithUnrelatedSection[path], path)).toBe(expectCanonical(section, path));
+    expect(JSON.parse(canonicalJson)).toEqual({ [firstKey]: shared, [secondKey]: shared });
   });
 });

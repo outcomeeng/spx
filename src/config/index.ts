@@ -6,12 +6,6 @@ import { parse as parseYaml, parseDocument as parseYamlDocument, stringify as st
 
 import { productionRegistry } from "./registry";
 import type { Config, ConfigDescriptor, Result } from "./types";
-export {
-  canonicalDescriptorJson,
-  type DescriptorJsonValue,
-  type DescriptorSectionDigest,
-  digestDescriptorSection,
-} from "./descriptor-digest";
 
 export const CONFIG_FILE_FORMAT = {
   JSON: "json",
@@ -297,3 +291,10 @@ function isFileNotFound(error: unknown): boolean {
 function toMessage(error: unknown): string {
   return error instanceof Error ? error.message : String(error);
 }
+
+export {
+  canonicalDescriptorJson,
+  type DescriptorJsonValue,
+  type DescriptorSectionDigest,
+  digestDescriptorSection,
+} from "./descriptor-digest";
