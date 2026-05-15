@@ -8,6 +8,13 @@ import {
 } from "@/config/primitives/path-filter";
 import type { ConfigDescriptor, Result } from "@/config/types";
 import {
+  AGENT_ENVIRONMENT_CONFIG_FIELDS,
+  AGENT_ENVIRONMENT_SECTION,
+  AGENT_RUNTIME,
+  type AgentEnvironmentConfig,
+  DEFAULT_AGENT_INSTRUCTION_FILE_PATH,
+} from "@/domains/agent-environment/config";
+import {
   KIND_REGISTRY,
   SPEC_TREE_CONFIG_FIELDS,
   SPEC_TREE_SECTION,
@@ -86,8 +93,14 @@ export type GeneratedTestingConfig = {
   readonly expected: TestingConfig;
 };
 
+export type GeneratedAgentEnvironmentConfig = {
+  readonly config: Record<string, unknown>;
+  readonly expected: AgentEnvironmentConfig;
+};
+
 export const CONFIG_TEST_GENERATOR = {
   absentConfigFileReadResult: arbitraryAbsentConfigFileReadResult,
+  agentEnvironmentConfig: arbitraryAgentEnvironmentConfig,
   emptyConfig: arbitraryEmptyConfig,
   environmentSentinel: arbitraryEnvironmentSentinel,
   invalidSpecTreeConfig: arbitraryInvalidSpecTreeConfig,
@@ -232,7 +245,9 @@ function arbitraryTestingConfig(): fc.Arbitrary<GeneratedTestingConfig> {
     if (!result.ok) {
       // Guard the generator contract: arbitraryPathFilter must only emit values accepted by the primitive.
       throw new Error(
-        `CONFIG_TEST_GENERATOR.pathFilter() produced an invalid filter ${JSON.stringify(passingScope)}: ${result.error}`,
+        `CONFIG_TEST_GENERATOR.pathFilter() produced an invalid filter ${
+          JSON.stringify(passingScope)
+        }: ${result.error}`,
       );
     }
     return {
@@ -246,6 +261,115 @@ function arbitraryTestingConfig(): fc.Arbitrary<GeneratedTestingConfig> {
       },
     };
   });
+}
+
+function arbitraryAgentEnvironmentConfig(): fc.Arbitrary<GeneratedAgentEnvironmentConfig> {
+  return fc
+    .record({
+      marketplaceName: arbitraryConfigKey(),
+      marketplaceSource: arbitraryConfigScalar(),
+      pluginName: arbitraryConfigKey(),
+      pluginVersion: arbitraryConfigScalar(),
+      skillName: arbitraryConfigKey(),
+      skillSource: arbitraryConfigScalar(),
+    })
+    .map(({ marketplaceName, marketplaceSource, pluginName, pluginVersion, skillName, skillSource }) => {
+      const section = {
+        [AGENT_ENVIRONMENT_CONFIG_FIELDS.INSTRUCTIONS]: {
+          [AGENT_ENVIRONMENT_CONFIG_FIELDS.FILES]: [
+            {
+              [AGENT_ENVIRONMENT_CONFIG_FIELDS.PATH]: DEFAULT_AGENT_INSTRUCTION_FILE_PATH,
+              [AGENT_ENVIRONMENT_CONFIG_FIELDS.TARGET_RUNTIMES]: [
+                AGENT_RUNTIME.CODEX,
+                AGENT_RUNTIME.CLAUDE_CODE,
+              ],
+            },
+          ],
+        },
+        [AGENT_ENVIRONMENT_CONFIG_FIELDS.RUNTIMES]: {
+          [AGENT_RUNTIME.CODEX]: {
+            [AGENT_ENVIRONMENT_CONFIG_FIELDS.ENABLED]: false,
+          },
+          [AGENT_RUNTIME.CLAUDE_CODE]: {
+            [AGENT_ENVIRONMENT_CONFIG_FIELDS.ENABLED]: true,
+          },
+        },
+        [AGENT_ENVIRONMENT_CONFIG_FIELDS.PLUGIN_BOOTSTRAP]: {
+          [AGENT_ENVIRONMENT_CONFIG_FIELDS.MARKETPLACES]: [
+            {
+              [AGENT_ENVIRONMENT_CONFIG_FIELDS.RUNTIME]: AGENT_RUNTIME.CLAUDE_CODE,
+              [AGENT_ENVIRONMENT_CONFIG_FIELDS.NAME]: marketplaceName,
+              [AGENT_ENVIRONMENT_CONFIG_FIELDS.SOURCE]: marketplaceSource,
+            },
+          ],
+          [AGENT_ENVIRONMENT_CONFIG_FIELDS.PLUGINS]: [
+            {
+              [AGENT_ENVIRONMENT_CONFIG_FIELDS.RUNTIME]: AGENT_RUNTIME.CLAUDE_CODE,
+              [AGENT_ENVIRONMENT_CONFIG_FIELDS.NAME]: pluginName,
+              [AGENT_ENVIRONMENT_CONFIG_FIELDS.MARKETPLACE]: marketplaceName,
+              [AGENT_ENVIRONMENT_CONFIG_FIELDS.VERSION]: pluginVersion,
+            },
+          ],
+          [AGENT_ENVIRONMENT_CONFIG_FIELDS.SKILLS]: [
+            {
+              [AGENT_ENVIRONMENT_CONFIG_FIELDS.RUNTIME]: AGENT_RUNTIME.CODEX,
+              [AGENT_ENVIRONMENT_CONFIG_FIELDS.NAME]: skillName,
+              [AGENT_ENVIRONMENT_CONFIG_FIELDS.SOURCE]: skillSource,
+            },
+          ],
+        },
+      };
+      return {
+        config: {
+          [AGENT_ENVIRONMENT_SECTION]: section,
+        },
+        expected: {
+          instructions: {
+            files: [
+              {
+                path: DEFAULT_AGENT_INSTRUCTION_FILE_PATH,
+                targetRuntimes: [
+                  AGENT_RUNTIME.CODEX,
+                  AGENT_RUNTIME.CLAUDE_CODE,
+                ],
+              },
+            ],
+          },
+          runtimes: {
+            [AGENT_RUNTIME.CODEX]: {
+              enabled: false,
+            },
+            [AGENT_RUNTIME.CLAUDE_CODE]: {
+              enabled: true,
+            },
+          },
+          pluginBootstrap: {
+            marketplaces: [
+              {
+                runtime: AGENT_RUNTIME.CLAUDE_CODE,
+                name: marketplaceName,
+                source: marketplaceSource,
+              },
+            ],
+            plugins: [
+              {
+                runtime: AGENT_RUNTIME.CLAUDE_CODE,
+                name: pluginName,
+                marketplace: marketplaceName,
+                version: pluginVersion,
+              },
+            ],
+            skills: [
+              {
+                runtime: AGENT_RUNTIME.CODEX,
+                name: skillName,
+                source: skillSource,
+              },
+            ],
+          },
+        },
+      };
+    });
 }
 
 function arbitraryTempPrefix(): fc.Arbitrary<string> {
