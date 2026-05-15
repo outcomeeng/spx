@@ -69,7 +69,7 @@ git cat-file -e origin/main:spx/23-spec-tree.enabler/spec-tree.md
 | Packet | Target node | Depends on | Output |
 | --- | --- | --- | --- |
 | C1 | `spx/16-config.enabler/54-canonical-descriptor-digest.enabler/` | none | Config-owned canonical descriptor JSON and descriptor digest API |
-| C2 | `spx/16-config.enabler/65-product-directory-api.enabler/` | none | Product-root vocabulary across config APIs, harnesses, and root helpers |
+| C2 | `spx/16-config.enabler/65-product-directory-api.enabler/` | none; prefer sequencing after C1 because both touch config modules | Product-root vocabulary across config APIs, harnesses, and root helpers |
 | F1 | `spx/17-file-inclusion.enabler/65-domain-path-filters.enabler/` | settled path-filter primitive | File-inclusion resolver accepts descriptor-owned domain path filters |
 | T1 | `spx/22-test-environment.enabler/32-spec-tree-fixtures.enabler/` | C2 | Remaining spec-tree tests use `withSpecTreeEnv` when they need materialized `spx/` fixtures |
 | T2 | `spx/41-testing.enabler/43-last-run-evidence.enabler/` | settled testing config, settled domain execution descriptor, C1, C2 | Persisted test observations and stale-status inputs |
@@ -82,9 +82,9 @@ git cat-file -e origin/main:spx/23-spec-tree.enabler/spec-tree.md
 | R3 | `spx/46-reviewing.enabler/43-review-state.enabler/` | R1, C1 | Persisted review observations and latest-review lookup |
 | R4 | `spx/46-reviewing.enabler/54-branch-review.enabler/` | R2, R3 | `spx review branch` target execution |
 | R5 | `spx/46-reviewing.enabler/65-pr-review.enabler/` | R2, R3 | `spx review pr <number>` target execution |
-| S1 | `spx/31-spec-domain.enabler/43-context-ingestion.enabler/` | settled `spx/31-spec-domain.enabler/` public surface on `origin/main` | Deterministic context-ingestion command surface |
+| S1 | `spx/31-spec-domain.enabler/43-context-ingestion.enabler/` | settled public-surface files on `origin/main`; S1 verifies surface completeness | Deterministic context-ingestion command surface |
 | E0 | `spx/33-agent-environment.enabler/` | none | Agent environment descriptor shape for instructions, runtime config, and plugin bootstrap |
-| E1 | `spx/33-agent-environment.enabler/21-agent-instructions.enabler/` | E0, E2 | Assign after E2 merges: deterministic instruction-file reconciliation |
+| E1 | `spx/33-agent-environment.enabler/21-agent-instructions.enabler/` | E0, E2; E0 is also transitive through E2 | Assign after E2 merges: deterministic instruction-file reconciliation |
 | E2 | `spx/33-agent-environment.enabler/32-runtime-config.enabler/` | E0 | Claude Code and Codex runtime config reconciliation |
 | E3 | `spx/33-agent-environment.enabler/43-plugin-bootstrap.enabler/` | E2 | Plugin marketplace, plugin, and skill bootstrap status |
 
