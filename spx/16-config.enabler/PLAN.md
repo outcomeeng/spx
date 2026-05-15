@@ -65,6 +65,8 @@ git cat-file -e origin/main:spx/31-spec-domain.enabler/spec-domain.md
 git cat-file -e origin/main:spx/23-spec-tree.enabler/spec-tree.md
 ```
 
+Dispatcher Verification covers already-settled prerequisites only. Packet outputs such as C1 and C2 are checked by dependent agents at branch time, so dispatchers may assign dependent packets while those prerequisites are in flight when they expect the agents to self-block until the sentinel exists.
+
 | Packet | Target node | Depends on | Output |
 | --- | --- | --- | --- |
 | C1 | `spx/16-config.enabler/54-canonical-descriptor-digest.enabler/` | none | Config-owned canonical descriptor JSON and descriptor digest API |
@@ -98,7 +100,7 @@ Start from fresh origin/main on a branch named work/{packet-slug}. Before branch
 
 The output sentinel file for each packet must strip the numeric prefix and `.enabler` suffix from the node directory slug, then add `.md`; for example, `54-canonical-descriptor-digest.enabler` produces `canonical-descriptor-digest.md`. A node-local PLAN may name a different sentinel path only when the target artifact is intentionally elsewhere.
 
-Fallback: If the runtime cannot load `spec-tree:opening-pr`, record the missing skill once in `spx/16-config.enabler/ISSUES.md`, then proceed using the product PR audit workflow in the top-level `CLAUDE.md` under "Pull request (PR) audit workflow" and "Executing PR workflow". `AGENTS.md` is a symlink to the same product instructions when present.
+Fallback: If the runtime cannot load `spec-tree:opening-pr`, record the missing skill once in `spx/16-config.enabler/ISSUES.md`, then proceed using the product PR audit workflow in the top-level `CLAUDE.md` under "Pull request (PR) audit workflow" and "Executing PR workflow". `AGENTS.md`, if configured as a symlink to `CLAUDE.md`, provides the same product instructions.
 
 Ownership and review loop:
 1. Own only {target-node} and the implementation files required by its assertions.
