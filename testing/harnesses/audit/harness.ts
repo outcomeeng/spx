@@ -1,7 +1,7 @@
 /**
  * Audit test harness — reusable fixture factory for audit domain tests.
  *
- * Provides temp project-root creation, pre-written verdict XML file
+ * Provides temp product directory creation, pre-written verdict XML file
  * construction, and `.spx/nodes/` directory setup. All path values derive
  * from DEFAULT_AUDIT_CONFIG — no hardcoded path separators or directory names.
  *
@@ -39,8 +39,8 @@ export interface AuditVerdictXmlFixture {
  * Audit test harness interface.
  */
 export interface AuditHarness {
-  /** Absolute path to the temp directory used as a fake project root. */
-  readonly projectRoot: string;
+  /** Absolute path to the temp directory used as a fake product directory. */
+  readonly productDir: string;
 
   /**
    * Returns the absolute path to the verdict directory for the given spec
@@ -57,7 +57,7 @@ export interface AuditHarness {
    */
   writeVerdict(nodePath: string, xml: string, now?: () => Date): Promise<string>;
 
-  /** Removes the temp project root and all contents. */
+  /** Removes the temp product directory and all contents. */
   cleanup(): Promise<void>;
 }
 
@@ -66,21 +66,25 @@ export interface AuditHarness {
  * `.spx/nodes/` subdirectory structure derived from DEFAULT_AUDIT_CONFIG.
  */
 export async function createAuditHarness(): Promise<AuditHarness> {
-  const projectRoot = await mkdtemp(join(tmpdir(), "spx-audit-harness-"));
+  const productDir = await mkdtemp(join(tmpdir(), "spx-audit-harness-"));
 
   await mkdir(
-    join(projectRoot, DEFAULT_AUDIT_CONFIG.spxDir, DEFAULT_AUDIT_CONFIG.nodesSubdir),
+    join(
+      productDir,
+      DEFAULT_AUDIT_CONFIG.storage.spxDir,
+      DEFAULT_AUDIT_CONFIG.storage.nodesDir,
+    ),
     { recursive: true },
   );
 
   const harness: AuditHarness = {
-    projectRoot,
+    productDir,
 
     nodeDir(nodePath: string): string {
       return join(
-        projectRoot,
-        DEFAULT_AUDIT_CONFIG.spxDir,
-        DEFAULT_AUDIT_CONFIG.nodesSubdir,
+        productDir,
+        DEFAULT_AUDIT_CONFIG.storage.spxDir,
+        DEFAULT_AUDIT_CONFIG.storage.nodesDir,
         encodeNodePath(nodePath),
       );
     },
@@ -89,14 +93,14 @@ export async function createAuditHarness(): Promise<AuditHarness> {
       const dir = harness.nodeDir(nodePath);
       await mkdir(dir, { recursive: true });
 
-      const filename = `${formatAuditTimestamp(now)}${DEFAULT_AUDIT_CONFIG.auditSuffix}`;
+      const filename = `${formatAuditTimestamp(now)}${DEFAULT_AUDIT_CONFIG.storage.verdictFileSuffix}`;
       const filePath = join(dir, filename);
       await writeFile(filePath, xml);
       return filePath;
     },
 
     async cleanup(): Promise<void> {
-      await rm(projectRoot, { recursive: true, force: true });
+      await rm(productDir, { recursive: true, force: true });
     },
   };
 

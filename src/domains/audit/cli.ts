@@ -5,10 +5,10 @@ import { runVerifyPipeline } from "./verify";
 
 export async function runVerifyCommand(
   filePath: string,
-  projectRoot: string,
+  productDir: string,
   writeLine: (line: string) => void,
 ): Promise<0 | 1> {
-  const result = await runVerifyPipeline(filePath, projectRoot);
+  const result = await runVerifyPipeline(filePath, productDir);
   if (result.exitCode === 0) {
     writeLine(result.verdict ?? "");
   } else {

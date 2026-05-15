@@ -2,11 +2,11 @@
  * Mapping tests for path validation.
  *
  * Test Level: 1 (Unit)
- * - Uses temp directories as project root; no external infrastructure
+ * - Uses temp directories as product directory; no external infrastructure
  *
  * Assertions covered from paths.md:
  * - M1: For each path-bearing element type (spec_file, test_file), when the path does not exist
- *       under the project root, then a "missing file" defect naming the path is reported
+ *       under the product directory, then a "missing file" defect naming the path is reported
  */
 
 import { AUDIT_PATH_DEFECT, validatePaths } from "@/domains/audit/paths";

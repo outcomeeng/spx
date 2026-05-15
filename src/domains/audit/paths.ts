@@ -3,13 +3,13 @@ import { relative, resolve } from "node:path";
 import { AuditVerdict } from "./reader";
 
 export const AUDIT_PATH_DEFECT = {
-  ESCAPES_ROOT: "path escapes project root",
+  ESCAPES_ROOT: "path escapes product directory",
   MISSING_FILE: "missing file",
 } as const;
 
-export function validatePaths(verdict: AuditVerdict, projectRoot: string): readonly string[] {
+export function validatePaths(verdict: AuditVerdict, productDir: string): readonly string[] {
   const defects: string[] = [];
-  const root = resolve(projectRoot);
+  const root = resolve(productDir);
 
   for (const gate of verdict.gates) {
     for (const finding of gate.findings) {
