@@ -1,3 +1,4 @@
+import { agentEnvironmentConfigDescriptor } from "@/domains/agent-environment/config";
 import { fileInclusionConfigDescriptor } from "@/lib/file-inclusion/config";
 import { precommitConfigDescriptor } from "@/lib/precommit/config";
 import { specTreeConfigDescriptor } from "@/lib/spec-tree/config";
@@ -12,4 +13,5 @@ export const productionRegistry: readonly ConfigDescriptor<unknown>[] = [
   testingConfigDescriptor,
   fileInclusionConfigDescriptor,
   precommitConfigDescriptor,
+  agentEnvironmentConfigDescriptor,
 ] as const;
