@@ -40,3 +40,4 @@ Remove ignore-source scope policy from file inclusion and keep this subtree focu
 
 - The existing `spx/17-file-inclusion.enabler/21-ignore-source.enabler/` child becomes deletion work once the testing descriptor consumes config-backed passing scope.
 - Delete stale ignore-source tests instead of migrating them in place when their assertions only prove `spx/EXCLUDE` behavior.
+- After T2 produces `spx/41-testing.enabler/43-last-run-evidence.enabler/last-run-evidence.md`, create a follow-up file-inclusion packet for deleting legacy ignore-source production paths if F1 records deletion candidates.
