@@ -8,7 +8,7 @@ CAN write Level 1 tests without reimplementing fixture setup or hardcoding path-
 
 ### Scenarios
 
-- Given no arguments, when `createAuditHarness()` is called, then a temp project root is created with a `.spx/nodes/` directory ([test](tests/audit-test-harness.unit.test.ts))
+- Given no arguments, when `createAuditHarness()` is called, then a temp product directory is created with a `.spx/nodes/` directory ([test](tests/audit-test-harness.unit.test.ts))
 - Given a harness and a spec node path, when `nodeDir(nodePath)` is called, then the returned path equals `.spx/nodes/` joined with the encoded node path, where encoding replaces every `/` with `-` per ADR `15-audit-directory` ([test](tests/audit-test-harness.unit.test.ts))
 - Given a harness, a spec node path, and a verdict XML string, when `writeVerdict(nodePath, xml)` is called, then a file named `{YYYY-MM-DD_HH-mm-ss}.audit.xml` (UTC timestamp) is created inside the path-encoded node directory per ADR `15-audit-directory` ([test](tests/audit-test-harness.unit.test.ts))
 - Given a harness, when `cleanup()` is called, then the temp directory and all contents are removed ([test](tests/audit-test-harness.unit.test.ts))
