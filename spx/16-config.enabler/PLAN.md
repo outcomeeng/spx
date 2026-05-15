@@ -54,11 +54,11 @@ Settled prerequisites on current `origin/main`:
 Verify the settled prerequisites before assigning dependent packets:
 
 ```bash
-git ls-tree origin/main -- spx/16-config.enabler/32-shared-config-primitives.enabler/shared-config-primitives.md
-git ls-tree origin/main -- spx/41-testing.enabler/32-testing-config.enabler/testing-config.md
-git ls-tree origin/main -- spx/16-config.enabler/43-domain-execution-descriptors.enabler/domain-execution-descriptors.md
-git ls-tree origin/main -- spx/31-spec-domain.enabler/spec-domain.md
-git ls-tree origin/main -- spx/23-spec-tree.enabler/spec-tree.md
+git cat-file -e origin/main:spx/16-config.enabler/32-shared-config-primitives.enabler/shared-config-primitives.md
+git cat-file -e origin/main:spx/41-testing.enabler/32-testing-config.enabler/testing-config.md
+git cat-file -e origin/main:spx/16-config.enabler/43-domain-execution-descriptors.enabler/domain-execution-descriptors.md
+git cat-file -e origin/main:spx/31-spec-domain.enabler/spec-domain.md
+git cat-file -e origin/main:spx/23-spec-tree.enabler/spec-tree.md
 ```
 
 | Packet | Target node | Depends on | Output |
@@ -70,7 +70,7 @@ git ls-tree origin/main -- spx/23-spec-tree.enabler/spec-tree.md
 | T2 | `spx/41-testing.enabler/43-last-run-evidence.enabler/` | settled testing config, settled domain execution descriptor, C1, C2 | Persisted test observations and stale-status inputs |
 | A1 | `spx/36-audit.enabler/43-audit-config.enabler/` | settled path-filter primitive | Registered audit config descriptor |
 | A2 | `spx/36-audit.enabler/54-branch-run-state.enabler/` | A1, C1 | Branch-scoped audit run state under `.spx/audit/{branch-slug}` |
-| A3 | `spx/36-audit.enabler/65-auditor-execution.enabler/` | A1, A2, E2 | Configured auditor execution with isolated state |
+| A3 | `spx/36-audit.enabler/65-auditor-execution.enabler/` | A1, A2, E0, E2 | Configured auditor execution with isolated state |
 | A4 | `spx/36-audit.enabler/87-audit-status.enabler/` | A2 | Audit list/status/latest reporting from persisted state |
 | R1 | `spx/46-reviewing.enabler/21-review-config.enabler/` | settled path-filter primitive | Registered review config descriptor |
 | R2 | `spx/46-reviewing.enabler/32-hermetic-review-execution.enabler/` | R1, E2 | Isolated reviewer execution substrate |
@@ -78,9 +78,9 @@ git ls-tree origin/main -- spx/23-spec-tree.enabler/spec-tree.md
 | R4 | `spx/46-reviewing.enabler/54-branch-review.enabler/` | R2, R3 | `spx review branch` target execution |
 | R5 | `spx/46-reviewing.enabler/65-pr-review.enabler/` | R2, R3 | `spx review pr <number>` target execution |
 | S1 | `spx/31-spec-domain.enabler/43-context-ingestion.enabler/` | settled `spx/31-spec-domain.enabler/` public surface on `origin/main` | Deterministic context-ingestion command surface |
-| E0 | `spx/33-agent-environment.enabler/` | none | Agent environment descriptor shape for instructions, runtime config, and plugin bootstrap |
+| E0 | `spx/33-agent-environment.enabler/` | none | Assign first: agent environment descriptor shape for instructions, runtime config, and plugin bootstrap |
 | E1 | `spx/33-agent-environment.enabler/21-agent-instructions.enabler/` | E0, E2 | Deterministic instruction-file reconciliation |
-| E2 | `spx/33-agent-environment.enabler/32-runtime-config.enabler/` | E0 | Claude Code and Codex runtime config reconciliation |
+| E2 | `spx/33-agent-environment.enabler/32-runtime-config.enabler/` | E0 | Assign after E0: Claude Code and Codex runtime config reconciliation |
 | E3 | `spx/33-agent-environment.enabler/43-plugin-bootstrap.enabler/` | E2 | Plugin marketplace, plugin, and skill bootstrap status |
 
 Critical path: E0 must settle before E2, and E2 gates A3, E1, R2, R4, and R5 transitively. Assign E0 and E2 early when audit or review execution packets are planned.
@@ -90,7 +90,7 @@ Critical path: E0 must settle before E2, and E2 gates A3, E1, R2, R4, and R5 tra
 Use this prompt skeleton for every packet, replacing `{target-node}` and `{packet-slug}` with the descriptive branch slug from the node-local prompt:
 
 ```text
-Start from fresh origin/main on a branch named work/{packet-slug}. Before branching, run `git ls-remote --exit-code --heads origin work/{packet-slug}`; if the branch already exists, stop and inspect the existing PR or branch before claiming the packet. Fetch origin main and verify every settled prerequisite sentinel file named by this PLAN exists on origin/main with `git ls-tree origin/main -- <path>`. Directory existence alone is not a settled-prerequisite check. If a prerequisite is absent, stop and record the gap in the owning PLAN.md before implementation. Invoke spec-tree:understanding if the foundation marker is absent, then invoke spec-tree:contextualizing for {target-node}. Read {target-node}/PLAN.md and every governing spec or decision named there. Then invoke spec-tree:applying before implementation, the relevant language architecture/testing/coding skills before changing tests or code, and spec-tree:committing-changes plus spec-tree:opening-pr before publishing the branch.
+Start from fresh origin/main on a branch named work/{packet-slug}. Before branching, run `git ls-remote --exit-code --heads origin work/{packet-slug}`; if the branch already exists, stop and inspect the existing PR or branch before claiming the packet. Fetch origin main and verify every settled prerequisite sentinel file named by this PLAN exists on origin/main with `git cat-file -e origin/main:<path>`; this command must exit 0 for each sentinel. Directory existence alone is not a settled-prerequisite check. If a prerequisite is absent, stop and record the gap in the owning PLAN.md before implementation. Invoke spec-tree:understanding if the foundation marker is absent, then invoke spec-tree:contextualizing for {target-node}. Read {target-node}/PLAN.md and every governing spec or decision named there. Then invoke spec-tree:applying before implementation, the relevant language architecture/testing/coding skills before changing tests or code, and spec-tree:committing-changes plus spec-tree:opening-pr before publishing the branch.
 
 Fallback: If the runtime cannot load `spec-tree:opening-pr`, record the missing skill as an imperfection in `{target-node}/ISSUES.md`, then proceed using the product PR audit workflow in the top-level `CLAUDE.md` under "Pull request (PR) audit workflow" and "Executing PR workflow". `AGENTS.md` is a symlink to the same product instructions when present.
 
@@ -118,3 +118,4 @@ Own only {target-node} and the implementation files required by its assertions. 
 - After T1-T2 settle, evaluate whether the parent `spx/41-testing.enabler/` spec needs a separate T0 packet for parent-level testing API alignment; create that packet only when a concrete parent-spec change is identified.
 - After F1 settles, evaluate whether the parent `spx/17-file-inclusion.enabler/` spec needs a separate F0 packet for parent-level file-inclusion API alignment; create that packet only when a concrete parent-spec change is identified.
 - After C1 or C2 merges, evaluate whether common pickup rules should move from this config tranche PLAN to a neutral coordination artifact before assigning cross-domain packets beyond the first wave.
+- If A3 or R2 discovers missing shared process-lifecycle behavior, record one shared coordination item here, inspect open process-lifecycle PRs, and open exactly one CLI/process-lifecycle PR before either packet proceeds.

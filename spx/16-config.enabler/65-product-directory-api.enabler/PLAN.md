@@ -29,10 +29,19 @@ Rename config and descriptor-facing tracked product-root APIs to `productDir`.
 
 This should be a focused rename PR because it touches many tests and helper imports.
 
+## Implementation Ownership
+
+- Own only product-root vocabulary changes: `projectRoot` or `projectDir` to `productDir`, plus helper names that still imply an unqualified repository root.
+- Update config modules, descriptor generators, spec-tree harnesses, and tests only where that vocabulary appears in the edited API surface.
+- Do not make architectural changes, logic refactors, unrelated test rewrites, or cleanup edits discovered during the rename sweep.
+- Remove compatibility aliases in the same pass rather than preserving legacy names.
+
 ## Agent Pickup Prompt
 
 ```text
 Before branching, follow the common packet rules in `spx/16-config.enabler/PLAN.md`, including the branch-existence guard and settled-prerequisite checks.
+
+This packet has no settled prerequisite sentinel files beyond the branch-existence guard.
 
 Start from fresh origin/main on work/product-directory-api. Invoke spec-tree:understanding if needed, then spec-tree:contextualizing for spx/16-config.enabler/65-product-directory-api.enabler/. Read this PLAN and the governing specs it names. Invoke spec-tree:applying, spec-tree:testing, typescript:testing-typescript, and typescript:coding-typescript before edits.
 
