@@ -220,6 +220,11 @@ function validateInstructions(raw: unknown): Result<AgentEnvironmentConfig["inst
     if (!file.ok) return file;
     files.push(file.value);
   }
+  const filePathUniqueness = validateInstructionFilePathUniqueness(
+    `${sectionPath}.${AGENT_ENVIRONMENT_CONFIG_FIELDS.FILES}`,
+    files,
+  );
+  if (!filePathUniqueness.ok) return filePathUniqueness;
   return { ok: true, value: { files } };
 }
 
@@ -375,6 +380,25 @@ function validateEntryArray<T>(
   return { ok: true, value: entries };
 }
 
+function validateInstructionFilePathUniqueness(
+  path: string,
+  files: readonly AgentInstructionFileConfig[],
+): Result<undefined> {
+  const paths = new Set<string>();
+  for (const [index, file] of files.entries()) {
+    if (paths.has(file.path)) {
+      return {
+        ok: false,
+        error: `${path}.${index}.${AGENT_ENVIRONMENT_CONFIG_FIELDS.PATH} ${
+          JSON.stringify(file.path)
+        } is already used by another instruction file entry`,
+      };
+    }
+    paths.add(file.path);
+  }
+  return { ok: true, value: undefined };
+}
+
 function validateNamedRuntimeEntryUniqueness(
   path: string,
   entries: readonly { readonly runtime: AgentRuntime; readonly name: string }[],
@@ -385,7 +409,9 @@ function validateNamedRuntimeEntryUniqueness(
     if (runtimeNames.has(entry.name)) {
       return {
         ok: false,
-        error: `${path}.${index}.${AGENT_ENVIRONMENT_CONFIG_FIELDS.NAME} must be unique for the same runtime`,
+        error: `${path}.${index}.${AGENT_ENVIRONMENT_CONFIG_FIELDS.NAME} ${
+          JSON.stringify(entry.name)
+        } is already used by another ${entry.runtime} entry`,
       };
     }
     runtimeNames.add(entry.name);

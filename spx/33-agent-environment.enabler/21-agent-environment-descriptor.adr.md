@@ -42,6 +42,7 @@ Alternatives considered:
 
 - Descriptor validation has no filesystem, process, network, or runtime side effects.
 - For a resolved `agentEnvironment` section, every instruction, marketplace, plugin, and skill entry references a registered runtime id.
+- Instruction file paths are unique within `instructions.files`.
 - Marketplace, plugin, and skill names are unique within each runtime.
 - Plugin entries that name a marketplace reference a configured marketplace for the same runtime.
 - Child reconcilers consume the descriptor's resolved values; they do not parse raw `spx.config.*` content.
