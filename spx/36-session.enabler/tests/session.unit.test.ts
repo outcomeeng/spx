@@ -1,9 +1,3 @@
-/**
- * Unit tests for worktree-aware session root detection and config resolution.
- *
- * Level 1: DI-injected execa for path logic, real git for worktree tests.
- */
-
 import { mkdirSync, mkdtempSync, realpathSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";

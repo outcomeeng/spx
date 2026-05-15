@@ -225,16 +225,3 @@ export async function resolveSessionConfig(
     warning: gitResult.warning,
   };
 }
-
-// Builds an absolute session file path from product directory and session ID.
-export function buildSessionPathFromProductDir(
-  productDir: string,
-  sessionId: string,
-  config: SessionDirectoryConfig,
-): string {
-  const filename = `${sessionId}.md`;
-
-  // Build absolute path: product directory + todo dir + filename
-  // All components come from config (no hardcoded strings)
-  return join(productDir, config.todoDir, filename);
-}
