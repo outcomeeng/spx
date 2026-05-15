@@ -183,7 +183,10 @@ function validateInstructionFile(path: string, raw: unknown): Result<AgentInstru
   );
   if (!unknown.ok) return unknown;
 
-  const filePath = validateNonEmptyString(`${path}.${AGENT_ENVIRONMENT_CONFIG_FIELDS.PATH}`, raw.path);
+  const filePath = validateNonEmptyString(
+    `${path}.${AGENT_ENVIRONMENT_CONFIG_FIELDS.PATH}`,
+    raw[AGENT_ENVIRONMENT_CONFIG_FIELDS.PATH],
+  );
   if (!filePath.ok) return filePath;
 
   const targetRuntimes = validateRuntimeArray(
@@ -206,6 +209,7 @@ function validateRuntimes(raw: unknown): Result<AgentEnvironmentConfig["runtimes
     [AGENT_RUNTIME.CLAUDE_CODE]: DEFAULT_AGENT_ENVIRONMENT_CONFIG.runtimes[AGENT_RUNTIME.CLAUDE_CODE],
   };
   for (const [runtimeName, runtimeRaw] of Object.entries(raw)) {
+    // Runtime ids are the field names, so unknown-field rejection is the runtime-id validation below.
     const runtime = validateRuntime(`${sectionPath}.${runtimeName}`, runtimeName);
     if (!runtime.ok) return runtime;
     const config = validateRuntimeConfig(`${sectionPath}.${runtimeName}`, runtimeRaw, runtimes[runtime.value]);
@@ -316,7 +320,10 @@ function validateMarketplace(path: string, raw: unknown): Result<AgentMarketplac
 
   const base = validateNamedRuntimeEntry(path, raw);
   if (!base.ok) return base;
-  const source = validateNonEmptyString(`${path}.${AGENT_ENVIRONMENT_CONFIG_FIELDS.SOURCE}`, raw.source);
+  const source = validateNonEmptyString(
+    `${path}.${AGENT_ENVIRONMENT_CONFIG_FIELDS.SOURCE}`,
+    raw[AGENT_ENVIRONMENT_CONFIG_FIELDS.SOURCE],
+  );
   if (!source.ok) return source;
   return { ok: true, value: { ...base.value, source: source.value } };
 }
@@ -337,9 +344,15 @@ function validatePlugin(path: string, raw: unknown): Result<AgentPluginConfig> {
 
   const base = validateNamedRuntimeEntry(path, raw);
   if (!base.ok) return base;
-  const marketplace = validateOptionalString(`${path}.${AGENT_ENVIRONMENT_CONFIG_FIELDS.MARKETPLACE}`, raw.marketplace);
+  const marketplace = validateOptionalString(
+    `${path}.${AGENT_ENVIRONMENT_CONFIG_FIELDS.MARKETPLACE}`,
+    raw[AGENT_ENVIRONMENT_CONFIG_FIELDS.MARKETPLACE],
+  );
   if (!marketplace.ok) return marketplace;
-  const version = validateOptionalString(`${path}.${AGENT_ENVIRONMENT_CONFIG_FIELDS.VERSION}`, raw.version);
+  const version = validateOptionalString(
+    `${path}.${AGENT_ENVIRONMENT_CONFIG_FIELDS.VERSION}`,
+    raw[AGENT_ENVIRONMENT_CONFIG_FIELDS.VERSION],
+  );
   if (!version.ok) return version;
   return {
     ok: true,
@@ -367,9 +380,15 @@ function validateSkill(path: string, raw: unknown): Result<AgentSkillConfig> {
 
   const base = validateNamedRuntimeEntry(path, raw);
   if (!base.ok) return base;
-  const source = validateOptionalString(`${path}.${AGENT_ENVIRONMENT_CONFIG_FIELDS.SOURCE}`, raw.source);
+  const source = validateOptionalString(
+    `${path}.${AGENT_ENVIRONMENT_CONFIG_FIELDS.SOURCE}`,
+    raw[AGENT_ENVIRONMENT_CONFIG_FIELDS.SOURCE],
+  );
   if (!source.ok) return source;
-  const version = validateOptionalString(`${path}.${AGENT_ENVIRONMENT_CONFIG_FIELDS.VERSION}`, raw.version);
+  const version = validateOptionalString(
+    `${path}.${AGENT_ENVIRONMENT_CONFIG_FIELDS.VERSION}`,
+    raw[AGENT_ENVIRONMENT_CONFIG_FIELDS.VERSION],
+  );
   if (!version.ok) return version;
   return {
     ok: true,
@@ -385,9 +404,15 @@ function validateNamedRuntimeEntry(
   path: string,
   raw: Record<string, unknown>,
 ): Result<{ readonly runtime: AgentRuntime; readonly name: string }> {
-  const runtime = validateRuntime(`${path}.${AGENT_ENVIRONMENT_CONFIG_FIELDS.RUNTIME}`, raw.runtime);
+  const runtime = validateRuntime(
+    `${path}.${AGENT_ENVIRONMENT_CONFIG_FIELDS.RUNTIME}`,
+    raw[AGENT_ENVIRONMENT_CONFIG_FIELDS.RUNTIME],
+  );
   if (!runtime.ok) return runtime;
-  const name = validateNonEmptyString(`${path}.${AGENT_ENVIRONMENT_CONFIG_FIELDS.NAME}`, raw.name);
+  const name = validateNonEmptyString(
+    `${path}.${AGENT_ENVIRONMENT_CONFIG_FIELDS.NAME}`,
+    raw[AGENT_ENVIRONMENT_CONFIG_FIELDS.NAME],
+  );
   if (!name.ok) return name;
   return { ok: true, value: { runtime: runtime.value, name: name.value } };
 }

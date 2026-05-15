@@ -267,11 +267,11 @@ function arbitraryAgentEnvironmentConfig(): fc.Arbitrary<GeneratedAgentEnvironme
   return fc
     .record({
       marketplaceName: arbitraryConfigKey(),
-      marketplaceSource: arbitraryConfigScalar(),
+      marketplaceSource: arbitraryConfigKey(),
       pluginName: arbitraryConfigKey(),
-      pluginVersion: arbitraryConfigScalar(),
+      pluginVersion: arbitraryConfigKey(),
       skillName: arbitraryConfigKey(),
-      skillSource: arbitraryConfigScalar(),
+      skillSource: arbitraryConfigKey(),
     })
     .map(({ marketplaceName, marketplaceSource, pluginName, pluginVersion, skillName, skillSource }) => {
       const section = {
