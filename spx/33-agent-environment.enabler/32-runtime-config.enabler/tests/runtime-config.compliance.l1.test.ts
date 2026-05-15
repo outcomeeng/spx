@@ -1,3 +1,5 @@
+import { readFile as readNodeFile } from "node:fs/promises";
+
 import { describe, expect, it } from "vitest";
 
 import {
@@ -14,6 +16,7 @@ import {
   RUNTIME_CONFIG_FORMAT,
   RUNTIME_CONFIG_STATE_FIELDS,
   RUNTIME_CONFIG_TARGET_KIND,
+  RUNTIME_CONFIG_TEXT_ENCODING,
   runtimeConfigPath,
 } from "@/domains/agent-environment/runtime-config";
 import { CONFIG_TEST_GENERATOR, sampleConfigTestValue } from "@testing/generators/config/descriptors";
@@ -116,6 +119,39 @@ describe("runtime config boundary compliance", () => {
       expect(result.value.target).toEqual(hermeticTarget);
       expect(result.value.files.every((file) => file.path.startsWith(stateDir))).toBe(true);
       expect(result.value.files.some((file) => file.path === invokingPath)).toBe(false);
+    });
+  });
+
+  it("writes hermetic runtime files under the supplied state directory only", async () => {
+    const agentEnvironment = enabledAgentEnvironment();
+    const stateDirName = sampleConfigTestValue(CONFIG_TEST_GENERATOR.key());
+
+    await withTestEnv({}, async ({ productDir, readFile }) => {
+      const stateDir = runtimeConfigPath(productDir, AGENT_RUNTIME.CODEX).replace(
+        CODEX_RUNTIME_CONFIG_RELATIVE_PATH,
+        stateDirName,
+      );
+      const hermeticTarget = {
+        kind: RUNTIME_CONFIG_TARGET_KIND.HERMETIC_EXECUTION,
+        stateDir,
+      } as const;
+      const hermeticCodexPath = runtimeConfigPath(productDir, AGENT_RUNTIME.CODEX, hermeticTarget);
+
+      const result = await reconcileRuntimeConfig({
+        productDir,
+        agentEnvironment,
+        target: hermeticTarget,
+      });
+
+      expect(result.ok).toBe(true);
+      if (!result.ok) throw new Error(result.error);
+      expect(readManagedState(parseToml(await readNodeFile(hermeticCodexPath, RUNTIME_CONFIG_TEXT_ENCODING)))).toEqual({
+        [RUNTIME_CONFIG_STATE_FIELDS.ENABLED]: true,
+        [RUNTIME_CONFIG_STATE_FIELDS.PRODUCT_DIR]: productDir,
+        [RUNTIME_CONFIG_STATE_FIELDS.RUNTIME]: AGENT_RUNTIME.CODEX,
+        [RUNTIME_CONFIG_STATE_FIELDS.TARGET_KIND]: RUNTIME_CONFIG_TARGET_KIND.HERMETIC_EXECUTION,
+      });
+      await expect(readFile(CODEX_RUNTIME_CONFIG_RELATIVE_PATH)).rejects.toThrow();
     });
   });
 
