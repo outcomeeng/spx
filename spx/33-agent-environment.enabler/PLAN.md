@@ -33,6 +33,10 @@ The three child nodes can proceed independently after their shared config shape 
 
 - Author the invoking-agent isolation decision before auditor execution or reviewer execution implementation chooses working-directory, environment-variable, or temporary-file sharing boundaries.
 
+## Gate Dependencies
+
+- `spx/33-agent-environment.enabler/21-agent-instructions.enabler/` is gated on `spx/33-agent-environment.enabler/32-runtime-config.enabler/`. Assign E2 before E1.
+
 ## Agent Pickup Prompt
 
 ```text
