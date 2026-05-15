@@ -32,6 +32,12 @@ Persist local review observations for status and latest-review lookup.
 
 This can proceed after review config and canonical descriptor digest are available.
 
+## Implementation Ownership
+
+- Own review-state modules, serializers, lookup helpers, and this node's co-located tests required by the review state assertions.
+- Store only under `.spx/review/{target-kind}/{target-slug}/runs/{run-directory}` at the Git common-dir product root.
+- Do not write audit state under `.spx/audit/{branch-slug}` or reuse audit run directories; consume only shared branch-slug helpers needed for branch review target names.
+
 ## Agent Pickup Prompt
 
 ```text

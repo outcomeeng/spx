@@ -83,7 +83,7 @@ git cat-file -e origin/main:spx/23-spec-tree.enabler/spec-tree.md
 | R5 | `spx/46-reviewing.enabler/65-pr-review.enabler/` | R2, R3 | `spx review pr <number>` target execution |
 | S1 | `spx/31-spec-domain.enabler/43-context-ingestion.enabler/` | settled public-surface files on `origin/main`; S1 verifies surface completeness | Deterministic context-ingestion command surface |
 | E0 | `spx/33-agent-environment.enabler/` | none | Agent environment descriptor shape for instructions, runtime config, and plugin bootstrap |
-| E1 | `spx/33-agent-environment.enabler/21-agent-instructions.enabler/` | E0, E2; E0 is direct and also implied by E2 | Assign after E2 merges: deterministic instruction-file reconciliation |
+| E1 | `spx/33-agent-environment.enabler/21-agent-instructions.enabler/` | E0, E2; E0 is direct and also implied by E2 | Assign after E2 merges: deterministic instruction-file reconciliation; sentinel `agent-instructions.md` |
 | E2 | `spx/33-agent-environment.enabler/32-runtime-config.enabler/` | E0 | Claude Code and Codex runtime config reconciliation |
 | E3 | `spx/33-agent-environment.enabler/43-plugin-bootstrap.enabler/` | E2 | Plugin marketplace, plugin, and skill bootstrap status |
 
