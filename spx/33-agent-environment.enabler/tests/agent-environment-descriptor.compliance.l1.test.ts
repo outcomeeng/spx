@@ -145,6 +145,34 @@ describe("agent environment config descriptor", () => {
     });
   });
 
+  it("rejects non-object descriptor subsections", async () => {
+    const malformedSections: readonly Config[] = [
+      {
+        [AGENT_ENVIRONMENT_SECTION]: {
+          [AGENT_ENVIRONMENT_CONFIG_FIELDS.INSTRUCTIONS]: sampleUnknownAgentEnvironmentValue(),
+        },
+      },
+      {
+        [AGENT_ENVIRONMENT_SECTION]: {
+          [AGENT_ENVIRONMENT_CONFIG_FIELDS.RUNTIMES]: [AGENT_RUNTIME.CODEX],
+        },
+      },
+      {
+        [AGENT_ENVIRONMENT_SECTION]: {
+          [AGENT_ENVIRONMENT_CONFIG_FIELDS.PLUGIN_BOOTSTRAP]: true,
+        },
+      },
+    ];
+
+    for (const productConfig of malformedSections) {
+      await withTestEnv(productConfig, async ({ productDir }) => {
+        const result = await resolveConfig(productDir, [agentEnvironmentConfigDescriptor]);
+
+        expectRejectedConfig(result);
+      });
+    }
+  });
+
   it("rejects instruction file entries with an empty target runtime list", async () => {
     const productConfig: Config = {
       [AGENT_ENVIRONMENT_SECTION]: {

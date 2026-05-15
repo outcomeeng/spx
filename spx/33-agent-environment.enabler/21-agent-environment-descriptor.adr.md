@@ -50,6 +50,7 @@ Alternatives considered:
 - Plugin entries that name a marketplace reference a configured marketplace for the same runtime.
 - Child reconcilers consume the descriptor's resolved values; they do not parse raw `spx.config.*` content.
 - E1 validates concrete instruction paths before writing files, and E3 validates marketplace source formats before resolving external inputs.
+- E3 treats marketplace `source` values and skill `source` values as different semantic fields even though they share the same config field name.
 
 ## Compliance
 
