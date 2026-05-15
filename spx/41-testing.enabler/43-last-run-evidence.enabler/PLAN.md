@@ -28,7 +28,7 @@ Persist spec-tree test observations so status commands can report fast test stat
 
 ## Parallelization
 
-This depends on the testing descriptor, canonical descriptor digest, and C2 product-directory API. It can proceed independently from audit state once those APIs exist.
+This depends on the testing descriptor, canonical descriptor digest, and C2 product-directory API. It can proceed independently from audit state once those APIs exist. The C2 dependency is a correctness dependency because persisted testing state records product-root vocabulary and paths; it is not only a rename-sweep collision.
 
 ## Agent Pickup Prompt
 
