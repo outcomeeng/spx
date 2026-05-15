@@ -263,10 +263,7 @@ function validateRuntimes(raw: unknown): Result<AgentEnvironmentConfig["runtimes
     return { ok: false, error: `${sectionPath} must be an object` };
   }
 
-  const runtimes: Record<AgentRuntime, AgentRuntimeConfig> = {
-    [AGENT_RUNTIME.CODEX]: DEFAULT_AGENT_ENVIRONMENT_CONFIG.runtimes[AGENT_RUNTIME.CODEX],
-    [AGENT_RUNTIME.CLAUDE_CODE]: DEFAULT_AGENT_ENVIRONMENT_CONFIG.runtimes[AGENT_RUNTIME.CLAUDE_CODE],
-  };
+  const runtimes: Record<AgentRuntime, AgentRuntimeConfig> = { ...DEFAULT_AGENT_ENVIRONMENT_CONFIG.runtimes };
   for (const [runtimeName, runtimeRaw] of Object.entries(raw)) {
     // Runtime ids are the field names, so unknown-field rejection is the runtime-id validation below.
     const runtime = validateRuntime(`${sectionPath}.${runtimeName}`, runtimeName);
@@ -492,7 +489,6 @@ function validatePlugin(path: string, raw: unknown): Result<AgentPluginConfig> {
     raw[AGENT_ENVIRONMENT_CONFIG_FIELDS.VERSION],
   );
   if (!version.ok) return version;
-  // Resolved config omits absent optional fields instead of materializing undefined values.
   return {
     ok: true,
     value: {
@@ -524,7 +520,6 @@ function validateSkill(path: string, raw: unknown): Result<AgentSkillConfig> {
     raw[AGENT_ENVIRONMENT_CONFIG_FIELDS.VERSION],
   );
   if (!version.ok) return version;
-  // Resolved config omits absent optional fields instead of materializing undefined values.
   return {
     ok: true,
     value: {

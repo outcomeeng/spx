@@ -30,14 +30,15 @@ Alternatives considered:
 
 ## Trade-offs accepted
 
-| Trade-off                                          | Mitigation / reasoning                                                                                             |
-| -------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------ |
-| The parent descriptor knows the supported runtimes | The descriptor must provide stable runtime ids for children; serializers and filesystem targets remain child-owned |
-| Unknown fields fail early                          | Early rejection protects operators from silent typos in a shared section consumed by multiple packets              |
-| Plugin bootstrap entries are structural            | E3 owns installed, missing, stale, failed, dry-run, and offline behavior; E0 only validates configured intent      |
-| Empty instruction file lists are allowed           | Omitted `instructions.files` keeps the default `AGENTS.md`; an explicit empty list disables instruction files      |
-| Instruction targets may include disabled runtimes  | Runtime enablement controls downstream participation; descriptor validation only requires registered runtime ids   |
-| New runtimes are not implicit instruction targets  | Instruction defaults stay explicit; adding a runtime requires choosing whether each instruction file targets it    |
+| Trade-off                                          | Mitigation / reasoning                                                                                                            |
+| -------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------- |
+| The parent descriptor knows the supported runtimes | The descriptor must provide stable runtime ids for children; serializers and filesystem targets remain child-owned                |
+| Unknown fields fail early                          | Early rejection protects operators from silent typos in a shared section consumed by multiple packets                             |
+| Plugin bootstrap entries are structural            | E3 owns installed, missing, stale, failed, dry-run, and offline behavior; E0 only validates configured intent                     |
+| Empty instruction file lists are allowed           | Omitted `instructions.files` keeps the default `AGENTS.md`; an explicit empty list disables instruction files                     |
+| Instruction targets may include disabled runtimes  | Runtime enablement controls downstream participation; descriptor validation only requires registered runtime ids                  |
+| New runtimes are not implicit instruction targets  | Instruction defaults stay explicit; adding a runtime requires choosing whether each instruction file targets it                   |
+| Names are unique per runtime                       | The same marketplace, plugin, or skill name may appear under different runtimes because child adapters are selected by runtime id |
 
 ## Invariants
 
@@ -48,6 +49,7 @@ Alternatives considered:
 - Marketplace, plugin, and skill names are unique within each runtime.
 - Plugin entries that name a marketplace reference a configured marketplace for the same runtime.
 - Child reconcilers consume the descriptor's resolved values; they do not parse raw `spx.config.*` content.
+- Child reconcilers validate concrete instruction paths and marketplace source formats before writing files or resolving external inputs.
 
 ## Compliance
 
@@ -66,3 +68,4 @@ A single `agentEnvironmentConfigDescriptor` exported from `src/domains/agent-env
 
 - Perform instruction-file reconciliation, runtime config writes, plugin installation, plugin updates, network access, or filesystem writes from the descriptor validator ([review])
 - Put runtime-specific serializers, concrete output paths, or hermetic audit/review state paths in E0; those details belong to E2, A3, and R2 ([review])
+- Validate traversal safety for instruction paths or protocol safety for marketplace sources in E0; those checks belong to child reconcilers that know the concrete target ([review])

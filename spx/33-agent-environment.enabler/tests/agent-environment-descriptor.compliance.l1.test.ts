@@ -92,6 +92,22 @@ describe("agent environment config descriptor", () => {
     });
   });
 
+  it("resolves default instruction files for an explicit empty instructions section", async () => {
+    const productConfig: Config = {
+      [AGENT_ENVIRONMENT_SECTION]: {
+        [AGENT_ENVIRONMENT_CONFIG_FIELDS.INSTRUCTIONS]: {},
+      },
+    };
+
+    await withTestEnv(productConfig, async ({ productDir }) => {
+      const result = await resolveConfig(productDir, [agentEnvironmentConfigDescriptor]);
+      const config = expectResolvedConfig(result);
+      const agentEnvironment = assertAgentEnvironmentConfig(config[AGENT_ENVIRONMENT_SECTION]);
+
+      expect(agentEnvironment.instructions).toEqual(agentEnvironmentConfigDescriptor.defaults.instructions);
+    });
+  });
+
   it("allows an empty instruction file list to disable instruction file management", async () => {
     const productConfig: Config = {
       [AGENT_ENVIRONMENT_SECTION]: {

@@ -264,7 +264,7 @@ function arbitraryTestingConfig(): fc.Arbitrary<GeneratedTestingConfig> {
 }
 
 function arbitraryAgentEnvironmentConfig(): fc.Arbitrary<GeneratedAgentEnvironmentConfig> {
-  // Fixed structure: explicit tests cover optional shapes; one disabled runtime covers the non-default branch.
+  // Fixed structure: explicit tests cover optional shapes; add narrower generators for consumers that need shape variability.
   return fc
     .record({
       marketplaceName: arbitraryConfigKey(),
