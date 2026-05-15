@@ -37,12 +37,14 @@ Alternatives considered:
 | Plugin bootstrap entries are structural            | E3 owns installed, missing, stale, failed, dry-run, and offline behavior; E0 only validates configured intent      |
 | Empty instruction file lists are allowed           | Omitted `instructions.files` keeps the default `AGENTS.md`; an explicit empty list disables instruction files      |
 | Instruction targets may include disabled runtimes  | Runtime enablement controls downstream participation; descriptor validation only requires registered runtime ids   |
+| New runtimes are not implicit instruction targets  | Instruction defaults stay explicit; adding a runtime requires choosing whether each instruction file targets it    |
 
 ## Invariants
 
 - Descriptor validation has no filesystem, process, network, or runtime side effects.
 - For a resolved `agentEnvironment` section, every instruction, marketplace, plugin, and skill entry references a registered runtime id.
 - Instruction file paths are unique within `instructions.files`.
+- Instruction file target runtime lists are non-empty and do not repeat runtimes.
 - Marketplace, plugin, and skill names are unique within each runtime.
 - Plugin entries that name a marketplace reference a configured marketplace for the same runtime.
 - Child reconcilers consume the descriptor's resolved values; they do not parse raw `spx.config.*` content.

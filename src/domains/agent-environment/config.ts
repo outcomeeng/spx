@@ -191,9 +191,14 @@ function validateRuntimeArray(path: string, value: unknown): Result<readonly Age
   }
 
   const runtimes: AgentRuntime[] = [];
+  const seen = new Set<AgentRuntime>();
   for (const [index, entry] of value.entries()) {
     const runtime = validateRuntime(`${path}.${index}`, entry);
     if (!runtime.ok) return runtime;
+    if (seen.has(runtime.value)) {
+      return { ok: false, error: `${path}.${index} repeats registered agent runtime ${runtime.value}` };
+    }
+    seen.add(runtime.value);
     runtimes.push(runtime.value);
   }
   return { ok: true, value: runtimes };
@@ -287,7 +292,7 @@ function validateRuntimeConfig(
   if (enabledRaw === undefined) return { ok: true, value: defaults };
   const enabled = validateBoolean(`${path}.${AGENT_ENVIRONMENT_CONFIG_FIELDS.ENABLED}`, enabledRaw);
   if (!enabled.ok) return enabled;
-  return { ok: true, value: { enabled: enabled.value } };
+  return { ok: true, value: { ...defaults, enabled: enabled.value } };
 }
 
 function validatePluginBootstrap(raw: unknown): Result<AgentEnvironmentConfig["pluginBootstrap"]> {

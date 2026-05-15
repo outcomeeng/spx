@@ -15,6 +15,22 @@ import { CONFIG_TEST_GENERATOR, sampleConfigTestValue } from "@testing/generator
 import type { Config } from "@testing/harnesses/spec-tree/spec-tree";
 import { withTestEnv } from "@testing/harnesses/spec-tree/spec-tree";
 
+function sampleUnknownAgentRuntime() {
+  return `unregistered-${sampleConfigTestValue(CONFIG_TEST_GENERATOR.key())}`;
+}
+
+function sampleUnknownAgentEnvironmentField() {
+  return `unknown-${sampleConfigTestValue(CONFIG_TEST_GENERATOR.key())}`;
+}
+
+function sampleUnknownAgentEnvironmentValue() {
+  return sampleConfigTestValue(CONFIG_TEST_GENERATOR.scalar());
+}
+
+function sampleAgentEnvironmentKey() {
+  return sampleConfigTestValue(CONFIG_TEST_GENERATOR.key());
+}
+
 function expectResolvedConfig(result: Awaited<ReturnType<typeof resolveConfig>>) {
   expect(result.ok).toBe(true);
   if (!result.ok) throw new Error(result.error);
@@ -79,7 +95,7 @@ describe("agent environment config descriptor", () => {
   });
 
   it("rejects unregistered runtime ids before child reconcilers run", async () => {
-    const unknownRuntime = sampleConfigTestValue(CONFIG_TEST_GENERATOR.key());
+    const unknownRuntime = sampleUnknownAgentRuntime();
     const productConfig: Config = {
       [AGENT_ENVIRONMENT_SECTION]: {
         [AGENT_ENVIRONMENT_CONFIG_FIELDS.RUNTIMES]: {
@@ -118,9 +134,29 @@ describe("agent environment config descriptor", () => {
     });
   });
 
+  it("rejects instruction file entries with duplicate target runtimes", async () => {
+    const productConfig: Config = {
+      [AGENT_ENVIRONMENT_SECTION]: {
+        [AGENT_ENVIRONMENT_CONFIG_FIELDS.INSTRUCTIONS]: {
+          [AGENT_ENVIRONMENT_CONFIG_FIELDS.FILES]: [
+            {
+              [AGENT_ENVIRONMENT_CONFIG_FIELDS.PATH]: DEFAULT_AGENT_INSTRUCTION_FILE_PATH,
+              [AGENT_ENVIRONMENT_CONFIG_FIELDS.TARGET_RUNTIMES]: [AGENT_RUNTIME.CODEX, AGENT_RUNTIME.CODEX],
+            },
+          ],
+        },
+      },
+    };
+
+    await withTestEnv(productConfig, async ({ productDir }) => {
+      const result = await resolveConfig(productDir, [agentEnvironmentConfigDescriptor]);
+
+      expectRejectedConfig(result);
+    });
+  });
+
   it("rejects malformed instruction file entries", async () => {
-    const key = sampleConfigTestValue(CONFIG_TEST_GENERATOR.key());
-    const unknownRuntime = `${key}${key}`;
+    const unknownRuntime = sampleUnknownAgentRuntime();
     const malformedSections: readonly Config[] = [
       {
         [AGENT_ENVIRONMENT_SECTION]: {
@@ -488,11 +524,10 @@ describe("agent environment config descriptor", () => {
   });
 
   it("rejects unknown descriptor fields instead of dropping configured intent", async () => {
-    const key = sampleConfigTestValue(CONFIG_TEST_GENERATOR.key());
-    const unknownField = `${key}${key}`;
+    const unknownField = sampleUnknownAgentEnvironmentField();
     const productConfig: Config = {
       [AGENT_ENVIRONMENT_SECTION]: {
-        [unknownField]: sampleConfigTestValue(CONFIG_TEST_GENERATOR.scalar()),
+        [unknownField]: sampleUnknownAgentEnvironmentValue(),
       },
     };
 
@@ -504,9 +539,9 @@ describe("agent environment config descriptor", () => {
   });
 
   it("rejects unknown nested descriptor fields instead of dropping configured intent", async () => {
-    const key = sampleConfigTestValue(CONFIG_TEST_GENERATOR.key());
-    const unknownField = `${key}${key}`;
-    const unknownValue = sampleConfigTestValue(CONFIG_TEST_GENERATOR.scalar());
+    const key = sampleAgentEnvironmentKey();
+    const unknownField = sampleUnknownAgentEnvironmentField();
+    const unknownValue = sampleUnknownAgentEnvironmentValue();
     const nestedSections: readonly Config[] = [
       {
         [AGENT_ENVIRONMENT_SECTION]: {
