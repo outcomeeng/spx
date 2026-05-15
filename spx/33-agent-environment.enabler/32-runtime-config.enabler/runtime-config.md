@@ -8,6 +8,6 @@ CAN use configured local runtime settings without manual setup drift
 
 ### Compliance
 
-- ALWAYS: runtime config reconciliation is idempotent for the same resolved config and product directory ([review])
-- ALWAYS: Claude Code and Codex settings are modeled as runtime-specific outputs under one agent-environment owner ([review])
-- NEVER: mix invoking-agent state with hermetic audit or review execution state ([review])
+- ALWAYS: runtime config reconciliation is idempotent for the same resolved config and product directory ([test](tests/runtime-config.scenario.l1.test.ts), [review])
+- ALWAYS: Claude Code and Codex settings are modeled as runtime-specific outputs under one agent-environment owner ([test](tests/runtime-config.compliance.l1.test.ts), [review])
+- NEVER: mix invoking-agent state with hermetic audit or review execution state ([test](tests/runtime-config.compliance.l1.test.ts), [review])
