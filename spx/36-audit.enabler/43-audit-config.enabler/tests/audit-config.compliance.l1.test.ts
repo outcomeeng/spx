@@ -8,6 +8,7 @@ import { productionRegistry } from "@/config/registry";
 import { RESULT_VALUE_KEY } from "@/config/types";
 import { runVerifyCommand } from "@/domains/audit/cli";
 import {
+  AUDIT_BRANCH_SLUG_MIN_MAX_BYTES,
   AUDIT_CONFIG_FIELDS,
   AUDIT_SECTION,
   type AuditConfig,
@@ -115,6 +116,16 @@ describe("audit config descriptor", () => {
           [AUDIT_SECTION]: {
             [AUDIT_CONFIG_FIELDS.BRANCH_SLUG]: {
               [AUDIT_CONFIG_FIELDS.MAX_BYTES]: DEFAULT_AUDIT_CONFIG.branchSlug.maxBytes * 0,
+            },
+          },
+        },
+        errorPath: auditPath(AUDIT_CONFIG_FIELDS.BRANCH_SLUG, AUDIT_CONFIG_FIELDS.MAX_BYTES),
+      },
+      {
+        config: {
+          [AUDIT_SECTION]: {
+            [AUDIT_CONFIG_FIELDS.BRANCH_SLUG]: {
+              [AUDIT_CONFIG_FIELDS.MAX_BYTES]: AUDIT_BRANCH_SLUG_MIN_MAX_BYTES - 1,
             },
           },
         },

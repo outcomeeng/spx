@@ -19,6 +19,8 @@ export const AUDIT_CONFIG_FIELDS = {
   TARGETS: "targets",
 } as const;
 
+export const AUDIT_BRANCH_SLUG_MIN_MAX_BYTES = 10;
+
 export interface AuditStorageConfig {
   readonly spxDir: string;
   readonly nodesDir: string;
@@ -205,11 +207,15 @@ function validateBranchSlug(raw: unknown): Result<AuditBranchSlugConfig> {
 
   const maxBytesRaw = raw[AUDIT_CONFIG_FIELDS.MAX_BYTES];
   if (maxBytesRaw === undefined) return { ok: true, value: DEFAULT_AUDIT_CONFIG.branchSlug };
-  if (typeof maxBytesRaw !== "number" || !Number.isInteger(maxBytesRaw) || maxBytesRaw <= 0) {
+  if (
+    typeof maxBytesRaw !== "number"
+    || !Number.isInteger(maxBytesRaw)
+    || maxBytesRaw < AUDIT_BRANCH_SLUG_MIN_MAX_BYTES
+  ) {
     return {
       ok: false,
       error:
-        `${AUDIT_SECTION}.${AUDIT_CONFIG_FIELDS.BRANCH_SLUG}.${AUDIT_CONFIG_FIELDS.MAX_BYTES} must be a positive integer`,
+        `${AUDIT_SECTION}.${AUDIT_CONFIG_FIELDS.BRANCH_SLUG}.${AUDIT_CONFIG_FIELDS.MAX_BYTES} must be an integer greater than or equal to ${AUDIT_BRANCH_SLUG_MIN_MAX_BYTES}`,
     };
   }
   return { ok: true, value: { maxBytes: maxBytesRaw } };
