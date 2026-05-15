@@ -83,7 +83,7 @@ describe("allowlist-existing scenario", () => {
     });
   });
 
-  it("adds the literal section when the default project config file exists without one", async () => {
+  it("adds the literal section when the default product config file exists without one", async () => {
     const literal = sampleLiteralTestValue(LITERAL_TEST_GENERATOR.domainLiteral());
     await withTestEnv(literalEmptyConfig(), async (env) => {
       await writeDuplicatedLiteralFixture(env, literal);

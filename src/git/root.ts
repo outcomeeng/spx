@@ -1,8 +1,8 @@
 /**
- * Git repository root detection utilities.
+ * Git product-directory detection utilities.
  *
- * Provides git root detection with dependency injection for testability.
- * Sessions should be created at the git repository root, not relative to cwd.
+ * Provides product-directory detection with dependency injection for testability.
+ * Sessions should be created at the Git common-dir product root, not relative to cwd.
  *
  * @module git/root
  */
@@ -15,11 +15,11 @@ import { DEFAULT_CONFIG } from "../config/defaults";
 import { withoutGitEnvironment } from "./environment";
 
 /**
- * Result from git root detection.
+ * Result from product-directory detection.
  */
-export interface GitRootResult {
-  /** Absolute path to git root (or cwd if not in git repo) */
-  root: string;
+export interface GitProductDirResult {
+  /** Absolute path to product directory (or cwd if not in git repo) */
+  productDir: string;
   /** Whether the directory is inside a git repository */
   isGitRepo: boolean;
   /** Warning message when not in a git repo (undefined if in repo) */
@@ -28,7 +28,7 @@ export interface GitRootResult {
 
 /**
  * Minimal result type for command execution.
- * Captures only the fields git root detection depends on.
+ * Captures only the fields product-directory detection depends on.
  */
 export interface ExecResult {
   /** Process exit code */
@@ -97,30 +97,30 @@ export const GIT_COMMON_DIR_ARGS = [
 ] as const;
 
 /**
- * Detects the git repository root directory.
+ * Detects the local worktree product directory.
  *
- * Uses `git rev-parse --show-toplevel` to find the repository root.
+ * Uses `git rev-parse --show-toplevel` to find the tracked-file product directory.
  * If not in a git repository, returns the current working directory with a warning.
  *
  * @param cwd - Current working directory (defaults to process.cwd())
  * @param deps - Injectable dependencies for testing
- * @returns GitRootResult with root path, git status, and optional warning
+ * @returns GitProductDirResult with productDir path, git status, and optional warning
  *
  * @example
  * ```typescript
  * // In a git repo subdirectory
- * const result = await detectGitRoot('/repo/src/components');
- * // => { root: '/repo', isGitRepo: true }
+ * const result = await detectWorktreeProductRoot('/repo/src/components');
+ * // => { productDir: '/repo', isGitRepo: true }
  *
  * // Not in a git repo
- * const result = await detectGitRoot('/tmp/random');
- * // => { root: '/tmp/random', isGitRepo: false, warning: '...' }
+ * const result = await detectWorktreeProductRoot('/tmp/random');
+ * // => { productDir: '/tmp/random', isGitRepo: false, warning: '...' }
  * ```
  */
-export async function detectGitRoot(
+export async function detectWorktreeProductRoot(
   cwd: string = process.cwd(),
   deps: GitDependencies = defaultDeps,
-): Promise<GitRootResult> {
+): Promise<GitProductDirResult> {
   try {
     const result = await deps.execa(
       GIT_ROOT_COMMAND.EXECUTABLE,
@@ -131,21 +131,21 @@ export async function detectGitRoot(
     // Git command succeeded - we're in a repo
     if (result.exitCode === 0 && result.stdout) {
       return {
-        root: extractStdout(result.stdout),
+        productDir: extractStdout(result.stdout),
         isGitRepo: true,
       };
     }
 
     // Git command failed - not in a repo
     return {
-      root: cwd,
+      productDir: cwd,
       isGitRepo: false,
       warning: NOT_GIT_REPO_WARNING,
     };
   } catch {
     // Command execution failed (git not installed, permission error, etc.)
     return {
-      root: cwd,
+      productDir: cwd,
       isGitRepo: false,
       warning: NOT_GIT_REPO_WARNING,
     };
@@ -162,25 +162,25 @@ function extractStdout(stdout: unknown): string {
 }
 
 /**
- * Detects the main repository root, resolving through git worktrees.
+ * Detects the Git common-dir product root, resolving through git worktrees.
  *
  * Uses `git rev-parse --git-common-dir` to find the shared `.git` directory,
- * then returns its parent as the main repository root. In a non-worktree
- * repository, this returns the same path as `detectGitRoot`.
+ * then returns its parent as the Git common-dir product root. In a non-worktree
+ * repository, this returns the same path as `detectWorktreeProductRoot`.
  *
  * This function supports `.spx/` operations where state must be shared across
  * all worktrees.
  *
  * @param cwd - Current working directory (defaults to process.cwd())
  * @param deps - Injectable dependencies for testing
- * @returns GitRootResult with main repo root path
+ * @returns GitProductDirResult with Git common-dir product root path
  */
-export async function detectMainRepoRoot(
+export async function detectGitCommonDirProductRoot(
   cwd: string = process.cwd(),
   deps: GitDependencies = defaultDeps,
-): Promise<GitRootResult> {
+): Promise<GitProductDirResult> {
   try {
-    // Step 1: Get the worktree/repo root via --show-toplevel
+    // Step 1: Get the local worktree product directory via --show-toplevel
     const toplevelResult = await deps.execa(
       GIT_ROOT_COMMAND.EXECUTABLE,
       [...GIT_SHOW_TOPLEVEL_ARGS],
@@ -189,7 +189,7 @@ export async function detectMainRepoRoot(
 
     if (toplevelResult.exitCode !== 0 || !toplevelResult.stdout) {
       return {
-        root: cwd,
+        productDir: cwd,
         isGitRepo: false,
         warning: NOT_GIT_REPO_WARNING,
       };
@@ -207,7 +207,7 @@ export async function detectMainRepoRoot(
     if (commonDirResult.exitCode !== 0 || !commonDirResult.stdout) {
       // Fallback: if --git-common-dir fails, use toplevel
       return {
-        root: toplevel,
+        productDir: toplevel,
         isGitRepo: true,
       };
     }
@@ -220,16 +220,16 @@ export async function detectMainRepoRoot(
       ? commonDir
       : resolve(toplevel, commonDir);
 
-    // Step 4: The main repo root is the parent of the common .git directory
-    const mainRepoRoot = dirname(absoluteCommonDir);
+    // Step 4: The Git common-dir product root is the parent of the common .git directory
+    const gitCommonDirProductRoot = dirname(absoluteCommonDir);
 
     return {
-      root: mainRepoRoot,
+      productDir: gitCommonDirProductRoot,
       isGitRepo: true,
     };
   } catch {
     return {
-      root: cwd,
+      productDir: cwd,
       isGitRepo: false,
       warning: NOT_GIT_REPO_WARNING,
     };
@@ -261,11 +261,11 @@ export interface ResolveSessionConfigResult {
 /**
  * Resolves session directory configuration with worktree-aware root detection.
  *
- * If `sessionsDir` is provided, uses it directly. Otherwise, detects the main
- * repository root via `detectMainRepoRoot` and builds absolute paths from
+ * If `sessionsDir` is provided, uses it directly. Otherwise, detects the Git
+ * common-dir product root via `detectGitCommonDirProductRoot` and builds absolute paths from
  * `DEFAULT_CONFIG`.
  *
- * Session operations resolve against the main repository root so that
+ * Session operations resolve against the Git common-dir product root so that
  * `.spx/sessions/` is shared across all worktrees.
  *
  * @param options - Resolution options
@@ -288,9 +288,9 @@ export async function resolveSessionConfig(
     };
   }
 
-  // Auto-detect main repo root for .spx/ operations
-  const gitResult = await detectMainRepoRoot(cwd, deps);
-  const baseDir = join(gitResult.root, DEFAULT_CONFIG.sessions.dir);
+  // Auto-detect Git common-dir product root for .spx/ operations
+  const gitResult = await detectGitCommonDirProductRoot(cwd, deps);
+  const baseDir = join(gitResult.productDir, DEFAULT_CONFIG.sessions.dir);
 
   return {
     config: {
@@ -303,19 +303,19 @@ export async function resolveSessionConfig(
 }
 
 /**
- * Builds an absolute session file path from git root and session ID.
+ * Builds an absolute session file path from product directory and session ID.
  *
  * Pure function that constructs the path without I/O.
  * All path components come from the config parameter (single source of truth).
  *
- * @param gitRoot - Absolute path to git repository root
+ * @param productDir - Absolute path to product directory
  * @param sessionId - Session timestamp ID (e.g., "2026-01-13_08-01-05")
  * @param config - Session directory configuration
  * @returns Absolute path to session file in todo directory
  *
  * @example
  * ```typescript
- * const path = buildSessionPathFromRoot(
+ * const path = buildSessionPathFromProductDir(
  *   '/Users/dev/myproject',
  *   '2026-01-13_08-01-05',
  *   DEFAULT_SESSION_CONFIG,
@@ -323,14 +323,14 @@ export async function resolveSessionConfig(
  * // => '/Users/dev/myproject/.spx/sessions/todo/2026-01-13_08-01-05.md'
  * ```
  */
-export function buildSessionPathFromRoot(
-  gitRoot: string,
+export function buildSessionPathFromProductDir(
+  productDir: string,
   sessionId: string,
   config: SessionDirectoryConfig,
 ): string {
   const filename = `${sessionId}.md`;
 
-  // Build absolute path: git root + todo dir + filename
+  // Build absolute path: product directory + todo dir + filename
   // All components come from config (no hardcoded strings)
-  return join(gitRoot, config.todoDir, filename);
+  return join(productDir, config.todoDir, filename);
 }

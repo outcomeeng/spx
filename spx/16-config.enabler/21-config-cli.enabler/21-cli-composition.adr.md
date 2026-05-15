@@ -16,10 +16,10 @@ The config CLI follows the domain composition pattern with one refinement — ex
 
 - `src/domains/config/index.ts` exports a `configDomain: Domain` value and registers three subcommands (`show`, `validate`, `defaults`) through `program.command("config").command("show")…` call chains.
 - Each subcommand imports its handler from `src/commands/config/{show,validate,defaults}.ts`.
-- Handlers have the signature `async function handler(options: Options, deps: CliDeps): Promise<CliResult>` where `CliDeps` bundles `{ resolveConfig: (projectRoot: string) => Promise<Result<Config>>, readProjectConfigFile: (projectRoot: string) => Promise<Result<ConfigFileReadResult>>, resolveConfigFromReadResult: (readResult: ConfigFileReadResult, descriptors: readonly ConfigDescriptor<unknown>[]) => Result<Config>, resolveProjectRoot: () => string, descriptors: readonly ConfigDescriptor<unknown>[] }` and `CliResult` is `{ stdout: string; stderr: string; exitCode: number }`. The `show` handler calls `deps.resolveProjectRoot()` first and passes the returned root to `deps.resolveConfig(root)`, honoring the parent ADR's `resolveConfig(projectRoot)` contract. The `validate` handler calls `deps.readProjectConfigFile(root)` once and passes that same read result to `deps.resolveConfigFromReadResult(...)`, so the validated bytes and the success-line filename come from one config-file discovery. The `defaults` handler iterates `deps.descriptors` directly, skipping config-file resolution entirely; its output reflects what each descriptor ships with, independent of any `spx.config.*` present at the root.
-- The domain registration layer builds a default `CliDeps` (pointing at the real `resolveConfig`, `readProjectConfigFile`, `resolveConfigFromReadResult`, and a real git-rooted resolver), invokes the handler, writes `stdout`/`stderr` to the process streams, and calls `process.exit(result.exitCode)`.
+- Handlers have the signature `async function handler(options: Options, deps: CliDeps): Promise<CliResult>` where `CliDeps` bundles `{ resolveConfig: (productDir: string) => Promise<Result<Config>>, readProductConfigFile: (productDir: string) => Promise<Result<ConfigFileReadResult>>, resolveConfigFromReadResult: (readResult: ConfigFileReadResult, descriptors: readonly ConfigDescriptor<unknown>[]) => Result<Config>, resolveProductDir: () => string, descriptors: readonly ConfigDescriptor<unknown>[] }` and `CliResult` is `{ stdout: string; stderr: string; exitCode: number }`. The `show` handler calls `deps.resolveProductDir()` first and passes the returned product directory to `deps.resolveConfig(productDir)`, honoring the parent ADR's `resolveConfig(productDir)` contract. The `validate` handler calls `deps.readProductConfigFile(productDir)` once and passes that same read result to `deps.resolveConfigFromReadResult(...)`, so the validated bytes and the success-line filename come from one config-file discovery. The `defaults` handler iterates `deps.descriptors` directly, skipping config-file resolution entirely; its output reflects what each descriptor ships with, independent of any `spx.config.*` present at the product directory.
+- The domain registration layer builds a default `CliDeps` (pointing at the real `resolveConfig`, `readProductConfigFile`, `resolveConfigFromReadResult`, and a real git-rooted resolver), invokes the handler, writes `stdout`/`stderr` to the process streams, and calls `process.exit(result.exitCode)`.
 - Output format: `show` and `defaults` emit the config module's default format by default; a `--json` flag routes through the config module's JSON serializer. `validate` emits a single success line on the ok path and a descriptor-qualified error on the reject path.
-- Root resolution: `resolveProjectRoot()` invokes `git rev-parse --show-toplevel` (tracked-file read per PDR-15, applicable because `spx.config.*` files are tracked files at the repo root) when inside a worktree. Outside a worktree it falls back to `process.cwd()` and emits a diagnostic warning per PDR-15's Compliance rule. Handlers never call git themselves.
+- Root resolution: `resolveProductDir()` invokes `git rev-parse --show-toplevel` (tracked-file read per PDR-15, applicable because `spx.config.*` files are tracked files at the product directory) when inside a worktree. Outside a worktree it falls back to `process.cwd()` and emits a diagnostic warning per PDR-15's Compliance rule. Handlers never call git themselves.
 
 ## Rationale
 
@@ -43,7 +43,7 @@ Alternatives considered:
 | Three handler files instead of one                        | Each file is small (~40 lines) and reads independently; the alternative (dispatcher) scales worse as the subcommand surface grows         |
 | DI plumbing for every handler (options + deps parameters) | The registration layer constructs the defaults once; handler call sites are one line; the benefit is Level 1 testability across the board |
 | CLI delegates format serialization to `src/config/`       | The config module is the format owner; CLI handlers only choose default output or JSON                                                    |
-| `resolveProjectRoot` is a thin wrapper over git           | Matches PDR-15's invariant; encapsulating the rev-parse invocation in one place avoids duplication and keeps the fallback consistent      |
+| `resolveProductDir` is a thin wrapper over git            | Matches PDR-15's invariant; encapsulating the rev-parse invocation in one place avoids duplication and keeps the fallback consistent      |
 
 ## Invariants
 
@@ -57,15 +57,15 @@ Alternatives considered:
 
 ### Recognized by
 
-Files under `src/domains/config/` and `src/commands/config/` contain the domain registration, handler implementations, a shared `CliDeps` / `CliResult` type module, and the `resolveProjectRoot` helper. No handler imports config resolution or config-file discovery functions from `@/config` directly — all handlers receive them through the `deps` parameter.
+Files under `src/domains/config/` and `src/commands/config/` contain the domain registration, handler implementations, a shared `CliDeps` / `CliResult` type module, and the `resolveProductDir` helper. No handler imports config resolution or config-file discovery functions from `@/config` directly — all handlers receive them through the `deps` parameter.
 
 ### MUST
 
 - Every handler in `src/commands/config/` accepts `(options: Options, deps: CliDeps): Promise<CliResult>` and returns a `CliResult` — never writes to `process.stdout` / `process.stderr` / `process.exit` itself ([review])
 - The domain registration layer builds the default `CliDeps` from real implementations and is the sole owner of process-stream writes and `process.exit` for this domain ([review])
-- `resolveProjectRoot` uses `git rev-parse --show-toplevel` inside a worktree; outside a worktree it falls back to `process.cwd()` and emits a diagnostic warning on stderr per PDR-15's Compliance rule ([test](tests/root-resolution.compliance.l1.test.ts))
+- `resolveProductDir` uses `git rev-parse --show-toplevel` inside a worktree; outside a worktree it falls back to `process.cwd()` and emits a diagnostic warning on stderr per PDR-15's Compliance rule ([test](tests/root-resolution.compliance.l1.test.ts))
 - Output format selection between default format and json lives in a single place per output handler and delegates serialization to `src/config/`; `validate` does not emit serialized config ([review])
-- Handler tests construct `CliDeps` with controlled implementations of `resolveConfig`, `readProjectConfigFile`, `resolveConfigFromReadResult`, `resolveProjectRoot`, and a test-scoped `descriptors` array — the production registry is not intercepted ([review])
+- Handler tests construct `CliDeps` with controlled implementations of `resolveConfig`, `readProductConfigFile`, `resolveConfigFromReadResult`, `resolveProductDir`, and a test-scoped `descriptors` array — the production registry is not intercepted ([review])
 
 ### NEVER
 

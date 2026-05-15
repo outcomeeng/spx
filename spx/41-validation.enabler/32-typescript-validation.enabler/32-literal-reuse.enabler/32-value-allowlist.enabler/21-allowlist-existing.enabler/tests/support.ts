@@ -6,7 +6,7 @@ import {
   CONFIG_FILE_FORMAT_ORDER,
   type ConfigFileFormat,
   parseConfigFileSections,
-  readProjectConfigFile,
+  readProductConfigFile,
   serializeConfigFileSections,
 } from "@/config/index";
 import {
@@ -67,12 +67,12 @@ export async function writeProjectConfig(
 }
 
 export async function readProjectConfigSections(env: SpecTreeEnv): Promise<Record<string, unknown>> {
-  const read = await readProjectConfigFile(env.productDir);
+  const read = await readProductConfigFile(env.productDir);
   if (!read.ok) {
     throw new Error(read.error);
   }
   if (read.value.kind !== "ok") {
-    throw new Error(`expected one project config file, got ${read.value.kind}`);
+    throw new Error(`expected one product config file, got ${read.value.kind}`);
   }
   const parsed = parseConfigFileSections(read.value.file);
   if (!parsed.ok) {

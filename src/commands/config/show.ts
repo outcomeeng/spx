@@ -6,8 +6,8 @@ import type { CliDeps, CliResult, ShowOptions } from "./types";
 const EXIT_CODE_ERROR = 1;
 
 export async function showCommand(options: ShowOptions, deps: CliDeps): Promise<CliResult> {
-  const projectRoot = deps.resolveProjectRoot();
-  const result = await deps.resolveConfig(projectRoot);
+  const productDir = deps.resolveProductDir();
+  const result = await deps.resolveConfig(productDir);
 
   if (!result.ok) {
     return {

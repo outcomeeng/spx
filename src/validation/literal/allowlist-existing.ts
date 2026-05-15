@@ -8,7 +8,7 @@ import {
   DEFAULT_CONFIG_FILE_FORMAT,
   formatConfigFileAmbiguityError,
   parseConfigFileSections,
-  readProjectConfigFile,
+  readProductConfigFile,
   serializeConfigFileSectionsWithSetIn,
 } from "@/config/index";
 import type { Result } from "@/config/types";
@@ -58,7 +58,7 @@ const RANDOM_PREFIX_SLICE = 2;
 const RANDOM_TOKEN_LENGTH = 10;
 
 export const productionReader: ConfigReader = {
-  read: readProjectConfigFile,
+  read: readProductConfigFile,
 };
 
 export const productionWriter: ConfigWriter = {

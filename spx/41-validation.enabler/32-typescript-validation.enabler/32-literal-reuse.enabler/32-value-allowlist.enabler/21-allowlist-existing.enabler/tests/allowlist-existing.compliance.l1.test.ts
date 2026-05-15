@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 
 import { LITERAL_EXIT_CODES } from "@/commands/validation/literal";
-import { CONFIG_FILE_FORMAT_ORDER, CONFIG_FILENAMES, readProjectConfigFile } from "@/config/index";
+import { CONFIG_FILE_FORMAT_ORDER, CONFIG_FILENAMES, readProductConfigFile } from "@/config/index";
 import { allowlistExisting } from "@/validation/literal/allowlist-existing";
 import { LITERAL_DEFAULTS, PRESET_NAMES } from "@/validation/literal/config";
 import {
@@ -141,7 +141,7 @@ describe("allowlist-existing compliance", () => {
         const result = await allowlistExisting({ projectRoot: env.productDir });
         expect(result.exitCode).toBe(LITERAL_EXIT_CODES.OK);
 
-        const read = await readProjectConfigFile(env.productDir);
+        const read = await readProductConfigFile(env.productDir);
         expect(read.ok).toBe(true);
         if (!read.ok || read.value.kind !== "ok") return;
         expect(read.value.file.format).toBe(format);

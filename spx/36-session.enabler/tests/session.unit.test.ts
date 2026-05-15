@@ -11,7 +11,12 @@ import { pathToFileURL } from "node:url";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 
 import { DEFAULT_CONFIG } from "@/config/defaults";
-import { detectGitRoot, detectMainRepoRoot, type GitDependencies, resolveSessionConfig } from "@/git/root";
+import {
+  detectGitCommonDirProductRoot,
+  detectWorktreeProductRoot,
+  type GitDependencies,
+  resolveSessionConfig,
+} from "@/git/root";
 import {
   GIT_TEST_CONFIG,
   GIT_TEST_FLAGS,
@@ -26,8 +31,8 @@ const POLLUTED_GIT_WORK_TREE = "/tmp/nonexistent-git-work-tree";
 const SESSION_ROOT_TEST_CWD_ENV = "SPX_SESSION_ROOT_TEST_CWD";
 
 interface DetectedRoots {
-  readonly gitRoot: string;
-  readonly mainRoot: string;
+  readonly worktreeProductRoot: string;
+  readonly gitCommonDirProductRoot: string;
 }
 
 // -- Helper: create a GitDependencies that returns controlled results --
@@ -52,12 +57,12 @@ function createMockDeps(responses: Array<{ stdout: string; exitCode: number }>):
 
 function parseDetectedRoots(stdout: string): DetectedRoots {
   const parsed = JSON.parse(stdout) as Partial<DetectedRoots>;
-  if (typeof parsed.gitRoot !== "string" || typeof parsed.mainRoot !== "string") {
+  if (typeof parsed.worktreeProductRoot !== "string" || typeof parsed.gitCommonDirProductRoot !== "string") {
     throw new Error("Session root child process returned invalid JSON");
   }
   return {
-    gitRoot: parsed.gitRoot,
-    mainRoot: parsed.mainRoot,
+    worktreeProductRoot: parsed.worktreeProductRoot,
+    gitCommonDirProductRoot: parsed.gitCommonDirProductRoot,
   };
 }
 
@@ -67,15 +72,15 @@ async function detectRootsInChildProcess(
 ): Promise<DetectedRoots> {
   const moduleUrl = pathToFileURL(join(process.cwd(), "src/git/root.ts")).href;
   const script = `
-    import { detectGitRoot, detectMainRepoRoot } from ${JSON.stringify(moduleUrl)};
+    import { detectWorktreeProductRoot, detectGitCommonDirProductRoot } from ${JSON.stringify(moduleUrl)};
     async function main() {
       const cwd = process.env.${SESSION_ROOT_TEST_CWD_ENV};
       if (cwd === undefined) {
         throw new Error("Missing ${SESSION_ROOT_TEST_CWD_ENV}");
       }
-      const gitRoot = await detectGitRoot(cwd);
-      const mainRoot = await detectMainRepoRoot(cwd);
-      console.log(JSON.stringify({ gitRoot: gitRoot.root, mainRoot: mainRoot.root }));
+      const worktreeProductRoot = await detectWorktreeProductRoot(cwd);
+      const gitCommonDirProductRoot = await detectGitCommonDirProductRoot(cwd);
+      console.log(JSON.stringify({ worktreeProductRoot: worktreeProductRoot.productDir, gitCommonDirProductRoot: gitCommonDirProductRoot.productDir }));
     }
     main().catch((error: unknown) => {
       console.error(error);
@@ -90,57 +95,57 @@ async function detectRootsInChildProcess(
 }
 
 // ============================================================
-// detectMainRepoRoot with DI (pure path logic)
+// detectGitCommonDirProductRoot with DI (pure path logic)
 // ============================================================
 
-describe("detectMainRepoRoot with dependency injection", () => {
+describe("detectGitCommonDirProductRoot with dependency injection", () => {
   it("GIVEN non-worktree repo WHEN --git-common-dir returns .git THEN root equals --show-toplevel", async () => {
-    const repoRoot = "/repo";
+    const productDir = "/repo";
     // In a non-worktree repo, --git-common-dir returns ".git" (relative)
-    // and --show-toplevel returns the repo root.
+    // and --show-toplevel returns the product directory.
     // dirname(resolve(toplevel, ".git")) === toplevel
     const deps = createMockDeps([
-      { stdout: repoRoot, exitCode: 0 }, // --show-toplevel
+      { stdout: productDir, exitCode: 0 }, // --show-toplevel
       { stdout: ".git", exitCode: 0 }, // --git-common-dir
     ]);
 
-    const result = await detectMainRepoRoot(join(repoRoot, "src"), deps);
+    const result = await detectGitCommonDirProductRoot(join(productDir, "src"), deps);
 
-    expect(result.root).toBe(repoRoot);
+    expect(result.productDir).toBe(productDir);
     expect(result.isGitRepo).toBe(true);
     expect(result.warning).toBeUndefined();
   });
 
   it("GIVEN worktree WHEN --git-common-dir returns absolute path THEN root is parent of common dir", async () => {
-    const mainRepoRoot = "/repo";
-    const worktreeRoot = join(mainRepoRoot, ".claude", "worktrees", "my-branch");
-    // In a worktree, --git-common-dir returns the absolute path to the main repo's .git
+    const gitCommonDirProductRoot = "/repo";
+    const worktreeRoot = join(gitCommonDirProductRoot, ".claude", "worktrees", "my-branch");
+    // In a worktree, --git-common-dir returns the absolute path to the Git common-dir product's .git
     const deps = createMockDeps([
       { stdout: worktreeRoot, exitCode: 0 }, // --show-toplevel
-      { stdout: join(mainRepoRoot, ".git"), exitCode: 0 }, // --git-common-dir
+      { stdout: join(gitCommonDirProductRoot, ".git"), exitCode: 0 }, // --git-common-dir
     ]);
 
-    const result = await detectMainRepoRoot(join(worktreeRoot, "src"), deps);
+    const result = await detectGitCommonDirProductRoot(join(worktreeRoot, "src"), deps);
 
-    expect(result.root).toBe(mainRepoRoot);
+    expect(result.productDir).toBe(gitCommonDirProductRoot);
     expect(result.isGitRepo).toBe(true);
     expect(result.warning).toBeUndefined();
   });
 
   it("GIVEN worktree WHEN --git-common-dir returns relative path THEN resolves against toplevel", async () => {
-    const mainRepoRoot = "/repo";
-    const worktreeRoot = join(mainRepoRoot, ".claude", "worktrees", "my-branch");
+    const gitCommonDirProductRoot = "/repo";
+    const worktreeRoot = join(gitCommonDirProductRoot, ".claude", "worktrees", "my-branch");
     // Some git versions return relative paths from --git-common-dir
     const deps = createMockDeps([
       { stdout: worktreeRoot, exitCode: 0 }, // --show-toplevel
       { stdout: "../../../.git", exitCode: 0 }, // --git-common-dir (relative)
     ]);
 
-    const result = await detectMainRepoRoot(worktreeRoot, deps);
+    const result = await detectGitCommonDirProductRoot(worktreeRoot, deps);
 
     // resolve("/repo/.claude/worktrees/my-branch", "../../../.git") = "/repo/.git"
     // dirname("/repo/.git") = "/repo"
-    expect(result.root).toBe(mainRepoRoot);
+    expect(result.productDir).toBe(gitCommonDirProductRoot);
     expect(result.isGitRepo).toBe(true);
   });
 
@@ -150,57 +155,60 @@ describe("detectMainRepoRoot with dependency injection", () => {
       { stdout: "", exitCode: 128 }, // --show-toplevel fails
     ]);
 
-    const result = await detectMainRepoRoot(cwd, deps);
+    const result = await detectGitCommonDirProductRoot(cwd, deps);
 
-    expect(result.root).toBe(cwd);
+    expect(result.productDir).toBe(cwd);
     expect(result.isGitRepo).toBe(false);
     expect(result.warning).toBeDefined();
   });
 });
 
 // ============================================================
-// detectMainRepoRoot vs detectGitRoot divergence in worktrees
+// detectGitCommonDirProductRoot vs detectWorktreeProductRoot divergence in worktrees
 // ============================================================
 
-describe("detectMainRepoRoot vs detectGitRoot in worktrees", () => {
+describe("detectGitCommonDirProductRoot vs detectWorktreeProductRoot in worktrees", () => {
   it("GIVEN worktree WHEN both functions called THEN they return different roots", async () => {
     const worktreeRoot = "/repo/.claude/worktrees/topic-branch";
-    const mainRepoRoot = "/repo";
+    const gitCommonDirProductRoot = "/repo";
 
-    // detectGitRoot uses --show-toplevel → worktree root
-    const gitRootDeps = createMockDeps([
+    // detectWorktreeProductRoot uses --show-toplevel → worktree root
+    const worktreeProductRootDeps = createMockDeps([
       { stdout: worktreeRoot, exitCode: 0 },
     ]);
-    const gitRootResult = await detectGitRoot(worktreeRoot, gitRootDeps);
+    const worktreeProductRootResult = await detectWorktreeProductRoot(worktreeRoot, worktreeProductRootDeps);
 
-    // detectMainRepoRoot uses --git-common-dir → main repo root
-    const mainRepoDeps = createMockDeps([
+    // detectGitCommonDirProductRoot uses --git-common-dir → Git common-dir product root
+    const gitCommonDirProductRootDeps = createMockDeps([
       { stdout: worktreeRoot, exitCode: 0 },
-      { stdout: `${mainRepoRoot}/.git`, exitCode: 0 },
+      { stdout: `${gitCommonDirProductRoot}/.git`, exitCode: 0 },
     ]);
-    const mainRepoResult = await detectMainRepoRoot(worktreeRoot, mainRepoDeps);
+    const gitCommonDirProductRootResult = await detectGitCommonDirProductRoot(
+      worktreeRoot,
+      gitCommonDirProductRootDeps,
+    );
 
-    expect(gitRootResult.root).toBe(worktreeRoot);
-    expect(mainRepoResult.root).toBe(mainRepoRoot);
-    expect(gitRootResult.root).not.toBe(mainRepoResult.root);
+    expect(worktreeProductRootResult.productDir).toBe(worktreeRoot);
+    expect(gitCommonDirProductRootResult.productDir).toBe(gitCommonDirProductRoot);
+    expect(worktreeProductRootResult.productDir).not.toBe(gitCommonDirProductRootResult.productDir);
   });
 
   it("GIVEN non-worktree repo WHEN both functions called THEN they return the same root", async () => {
-    const repoRoot = "/repo";
+    const productDir = "/repo";
 
-    const gitRootDeps = createMockDeps([
-      { stdout: repoRoot, exitCode: 0 },
+    const worktreeProductRootDeps = createMockDeps([
+      { stdout: productDir, exitCode: 0 },
     ]);
-    const gitRootResult = await detectGitRoot(repoRoot, gitRootDeps);
+    const worktreeProductRootResult = await detectWorktreeProductRoot(productDir, worktreeProductRootDeps);
 
-    const mainRepoDeps = createMockDeps([
-      { stdout: repoRoot, exitCode: 0 },
+    const gitCommonDirProductRootDeps = createMockDeps([
+      { stdout: productDir, exitCode: 0 },
       { stdout: ".git", exitCode: 0 },
     ]);
-    const mainRepoResult = await detectMainRepoRoot(repoRoot, mainRepoDeps);
+    const gitCommonDirProductRootResult = await detectGitCommonDirProductRoot(productDir, gitCommonDirProductRootDeps);
 
-    expect(gitRootResult.root).toBe(repoRoot);
-    expect(mainRepoResult.root).toBe(repoRoot);
+    expect(worktreeProductRootResult.productDir).toBe(productDir);
+    expect(gitCommonDirProductRootResult.productDir).toBe(productDir);
   });
 });
 
@@ -208,7 +216,7 @@ describe("detectMainRepoRoot vs detectGitRoot in worktrees", () => {
 // Real git worktree tests (Level 1 — git is a standard dev tool)
 // ============================================================
 
-describe("detectMainRepoRoot with real git worktrees", () => {
+describe("detectGitCommonDirProductRoot with real git worktrees", () => {
   let repoDir: string;
   let worktreeDir: string;
 
@@ -229,22 +237,22 @@ describe("detectMainRepoRoot with real git worktrees", () => {
     rmSync(repoDir, { recursive: true, force: true });
   });
 
-  it("GIVEN real worktree WHEN detectMainRepoRoot THEN returns main repo root", async () => {
+  it("GIVEN real worktree WHEN detectGitCommonDirProductRoot THEN returns Git common-dir product root", async () => {
     const wtPath = join(worktreeDir, "my-wt");
     await runGit(repoDir, [GIT_TEST_SUBCOMMANDS.WORKTREE, GIT_TEST_SUBCOMMANDS.ADD, wtPath, "-b", "test-branch"]);
     const canonicalWtPath = realpathSync(wtPath);
 
-    // detectGitRoot from worktree → worktree root
-    const gitRootResult = await detectGitRoot(canonicalWtPath);
-    expect(gitRootResult.root).toBe(canonicalWtPath);
+    // detectWorktreeProductRoot from worktree → worktree root
+    const worktreeProductRootResult = await detectWorktreeProductRoot(canonicalWtPath);
+    expect(worktreeProductRootResult.productDir).toBe(canonicalWtPath);
 
-    // detectMainRepoRoot from worktree → main repo root
-    const mainRepoResult = await detectMainRepoRoot(canonicalWtPath);
-    expect(mainRepoResult.root).toBe(repoDir);
-    expect(mainRepoResult.isGitRepo).toBe(true);
+    // detectGitCommonDirProductRoot from worktree → Git common-dir product root
+    const gitCommonDirProductRootResult = await detectGitCommonDirProductRoot(canonicalWtPath);
+    expect(gitCommonDirProductRootResult.productDir).toBe(repoDir);
+    expect(gitCommonDirProductRootResult.isGitRepo).toBe(true);
   });
 
-  it("GIVEN real worktree subdirectory WHEN detectMainRepoRoot THEN still returns main repo root", async () => {
+  it("GIVEN real worktree subdirectory WHEN detectGitCommonDirProductRoot THEN still returns Git common-dir product root", async () => {
     const wtPath = join(worktreeDir, "my-wt");
     await runGit(repoDir, [GIT_TEST_SUBCOMMANDS.WORKTREE, GIT_TEST_SUBCOMMANDS.ADD, wtPath, "-b", "test-branch"]);
 
@@ -252,26 +260,26 @@ describe("detectMainRepoRoot with real git worktrees", () => {
     mkdirSync(subDir, { recursive: true });
     const canonicalSubDir = realpathSync(subDir);
 
-    const result = await detectMainRepoRoot(canonicalSubDir);
-    expect(result.root).toBe(repoDir);
+    const result = await detectGitCommonDirProductRoot(canonicalSubDir);
+    expect(result.productDir).toBe(repoDir);
   });
 
-  it("GIVEN non-worktree repo WHEN detectMainRepoRoot THEN returns same as detectGitRoot", async () => {
-    const gitRootResult = await detectGitRoot(repoDir);
-    const mainRepoResult = await detectMainRepoRoot(repoDir);
+  it("GIVEN non-worktree repo WHEN detectGitCommonDirProductRoot THEN returns same as detectWorktreeProductRoot", async () => {
+    const worktreeProductRootResult = await detectWorktreeProductRoot(repoDir);
+    const gitCommonDirProductRootResult = await detectGitCommonDirProductRoot(repoDir);
 
-    expect(gitRootResult.root).toBe(mainRepoResult.root);
-    expect(mainRepoResult.root).toBe(repoDir);
+    expect(worktreeProductRootResult.productDir).toBe(gitCommonDirProductRootResult.productDir);
+    expect(gitCommonDirProductRootResult.productDir).toBe(repoDir);
   });
 
-  it("GIVEN hook Git variables WHEN detecting repo roots THEN cwd repo wins", async () => {
+  it("GIVEN hook Git variables WHEN detecting product directories THEN cwd repo wins", async () => {
     const roots = await detectRootsInChildProcess(repoDir, {
       GIT_DIR: POLLUTED_GIT_DIR,
       GIT_WORK_TREE: POLLUTED_GIT_WORK_TREE,
     });
 
-    expect(roots.gitRoot).toBe(repoDir);
-    expect(roots.mainRoot).toBe(repoDir);
+    expect(roots.worktreeProductRoot).toBe(repoDir);
+    expect(roots.gitCommonDirProductRoot).toBe(repoDir);
   });
 });
 
@@ -290,7 +298,7 @@ describe("resolveSessionConfig", () => {
     expect(result.warning).toBeUndefined();
   });
 
-  it("GIVEN no sessionsDir WHEN resolving THEN detects main repo root and builds absolute paths", async () => {
+  it("GIVEN no sessionsDir WHEN resolving THEN detects Git common-dir product root and builds absolute paths", async () => {
     const deps = createMockDeps([
       { stdout: "/repo", exitCode: 0 },
       { stdout: ".git", exitCode: 0 },
@@ -316,18 +324,18 @@ describe("resolveSessionConfig", () => {
     expect(result.warning).toBeDefined();
   });
 
-  it("GIVEN worktree WHEN resolving THEN uses main repo root not worktree root", async () => {
-    const mainRepoRoot = "/repo";
-    const worktreeRoot = join(mainRepoRoot, ".claude", "worktrees", "topic");
+  it("GIVEN worktree WHEN resolving THEN uses Git common-dir product root not worktree root", async () => {
+    const gitCommonDirProductRoot = "/repo";
+    const worktreeRoot = join(gitCommonDirProductRoot, ".claude", "worktrees", "topic");
     const deps = createMockDeps([
       { stdout: worktreeRoot, exitCode: 0 },
-      { stdout: join(mainRepoRoot, ".git"), exitCode: 0 },
+      { stdout: join(gitCommonDirProductRoot, ".git"), exitCode: 0 },
     ]);
 
     const result = await resolveSessionConfig({ deps });
 
     expect(result.config.todoDir).toBe(
-      join(mainRepoRoot, DEFAULT_CONFIG.sessions.dir, DEFAULT_CONFIG.sessions.statusDirs.todo),
+      join(gitCommonDirProductRoot, DEFAULT_CONFIG.sessions.dir, DEFAULT_CONFIG.sessions.statusDirs.todo),
     );
     expect(result.config.todoDir).not.toContain(worktreeRoot);
   });

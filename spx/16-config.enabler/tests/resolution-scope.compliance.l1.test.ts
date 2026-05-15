@@ -9,17 +9,17 @@ import {
   type ConfigFile,
   type ConfigFileFormat,
   parseConfigFileSections,
-  readProjectConfigFile,
+  readProductConfigFile,
   resolveConfig,
   serializeConfigFileSections,
 } from "@/config/index";
-import { CONFIG_TEST_GENERATOR, sampleConfigTestValue } from "@testing/generators/config/descriptors";
 import {
   KIND_REGISTRY,
   SPEC_TREE_KIND_CATEGORY,
   specTreeConfigDescriptor,
   type SpecTreeKindCategory,
 } from "@/lib/spec-tree/config";
+import { CONFIG_TEST_GENERATOR, sampleConfigTestValue } from "@testing/generators/config/descriptors";
 import type { Config } from "@testing/harnesses/spec-tree/spec-tree";
 import { withTestEnv } from "@testing/harnesses/spec-tree/spec-tree";
 
@@ -80,7 +80,7 @@ function parseSerialized(file: ConfigFile, raw: string): Record<string, unknown>
 }
 
 describe("resolveConfig — resolution scope (C1)", () => {
-  it("reads only the config file at the supplied projectRoot for every config-owned format", async () => {
+  it("reads only the config file at the supplied productDir for every config-owned format", async () => {
     const scope = sampleConfigTestValue(CONFIG_TEST_GENERATOR.resolutionScope());
     const parentOnly = sampleConfigTestValue(
       CONFIG_TEST_GENERATOR.kindOverride(SPEC_TREE_KIND_CATEGORY.NODE),
@@ -127,7 +127,7 @@ describe("resolveConfig — resolution scope (C1)", () => {
         }
         await writeRaw(CONFIG_FILE_DEFINITIONS[format].filename, serializeConfig(format, config));
 
-        const read = await readProjectConfigFile(productDir);
+        const read = await readProductConfigFile(productDir);
         expect(read.ok).toBe(true);
         if (!read.ok || read.value.kind !== "ok") return;
         expect(read.value.file.format).toBe(format);

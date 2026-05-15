@@ -33,7 +33,7 @@ Coordinate the refactor tranche that moves deterministic execution domains onto 
    - Work in `spx/16-config.enabler/65-product-directory-api.enabler/`.
    - Apply to config APIs, tests, harness helpers, and spec text in one coherent pass.
    - Do not leave compatibility aliases.
-   - Rename root-resolution helper names with ambiguous vocabulary, such as `detectMainRepoRoot`, to Git common-dir product-root vocabulary.
+   - Rename root-resolution helper names with ambiguous vocabulary to Git common-dir product-root vocabulary.
    - Treat existing runtime `projectRoot` names as pre-tranche debt; do not add new `projectRoot` call sites while this tranche is active.
 
 5. Add canonical descriptor digests.

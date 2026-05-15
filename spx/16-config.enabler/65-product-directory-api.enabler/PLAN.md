@@ -14,7 +14,7 @@ Rename config and descriptor-facing tracked product-root APIs to `productDir`.
 ## Implementation Notes
 
 - Rename config CLI dependency names, config test generators, harness fields, and spec text in one coherent pass.
-- Rename root-resolution helper names with ambiguous vocabulary, such as `detectMainRepoRoot`, to Git common-dir product-root vocabulary.
+- Rename root-resolution helper names with ambiguous vocabulary to Git common-dir product-root vocabulary.
 - Do not add `projectRoot` or `projectDir` aliases.
 - Keep non-product root-directory names only in text that is deleted in the same branch.
 

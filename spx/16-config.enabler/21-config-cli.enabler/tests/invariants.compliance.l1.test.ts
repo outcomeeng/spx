@@ -14,9 +14,9 @@ function makeDeps(resolved: Result<Config>): CliDeps {
 
   return {
     resolveConfig: async () => resolved,
-    readProjectConfigFile: async () => sampleConfigTestValue(CONFIG_TEST_GENERATOR.absentConfigFileReadResult()),
+    readProductConfigFile: async () => sampleConfigTestValue(CONFIG_TEST_GENERATOR.absentConfigFileReadResult()),
     resolveConfigFromReadResult: () => resolved,
-    resolveProjectRoot: () => productDir,
+    resolveProductDir: () => productDir,
     descriptors: [specTreeConfigDescriptor],
   };
 }

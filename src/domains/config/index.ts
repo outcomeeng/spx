@@ -8,26 +8,26 @@ import {
   CONFIG_FILE_FORMAT,
   DEFAULT_CONFIG_FILE_FORMAT,
   DEFAULT_CONFIG_FILENAME,
-  readProjectConfigFile,
+  readProductConfigFile,
   resolveConfig,
   resolveConfigFromReadResult,
 } from "@/config/index";
 import { productionRegistry } from "@/config/registry";
 
 import type { Domain } from "../types";
-import { resolveProjectRoot } from "./root";
+import { resolveProductDir } from "./root";
 
 function buildDefaultDeps(): CliDeps {
   return {
     resolveConfig,
-    readProjectConfigFile,
+    readProductConfigFile,
     resolveConfigFromReadResult,
-    resolveProjectRoot: (): string => {
-      const resolved = resolveProjectRoot();
+    resolveProductDir: (): string => {
+      const resolved = resolveProductDir();
       if (resolved.warning !== undefined) {
         process.stderr.write(`${resolved.warning}\n`);
       }
-      return resolved.projectRoot;
+      return resolved.productDir;
     },
     descriptors: productionRegistry,
   };
