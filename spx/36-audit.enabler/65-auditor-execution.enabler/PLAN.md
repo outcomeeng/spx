@@ -28,6 +28,12 @@ Run configured auditor agents locally while preserving hermetic separation from 
 
 This depends on audit config, branch-run-state, and agent environment primitives. It can proceed before status rendering if it writes the agreed state shape.
 
+## Implementation Ownership
+
+- Consume the existing `src/lib/process-lifecycle/` APIs for managed subprocesses.
+- Own audit-specific execution modules, adapters, and tests created for this node.
+- Do not edit `src/lib/process-lifecycle/` or `testing/harnesses/process-lifecycle/` in this packet. If the lifecycle runner lacks required behavior, record the gap here and open a separate CLI/process-lifecycle PR before A3 and R2 proceed.
+
 ## Agent Pickup Prompt
 
 ```text

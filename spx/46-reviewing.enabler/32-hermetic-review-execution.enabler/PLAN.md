@@ -28,6 +28,12 @@ Implement the isolated reviewer execution substrate shared by branch and PR revi
 
 This can proceed after review config and agent environment APIs are sketched.
 
+## Implementation Ownership
+
+- Consume the existing `src/lib/process-lifecycle/` APIs for managed reviewer subprocesses.
+- Own review-specific execution modules, adapters, and tests created for this node.
+- Do not edit `src/lib/process-lifecycle/` or `testing/harnesses/process-lifecycle/` in this packet. If the lifecycle runner lacks required behavior, record the gap here and open a separate CLI/process-lifecycle PR before A3 and R2 proceed.
+
 ## Agent Pickup Prompt
 
 ```text
