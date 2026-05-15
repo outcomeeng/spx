@@ -4,6 +4,8 @@
 
 - ⚠️ **NEVER answer ANY question without invoking at least one skill first** - If the question touches testing, specs, code, architecture, or any topic covered by a skill, invoke the relevant skill BEFORE answering. Skills are the authoritative source — not grep results, not existing files, not your training data. See skill table below.
 - ⚠️ **NEVER write code without invoking a skill first** - See skill table below
+- ⚠️ **ALWAYS invoke `/spec-tree:applying` before implementing any spec-tree work item** - Applying is the orchestration skill for spec-tree TDD. It requires methodology/context loading, language-specific architecture, test, and implementation steps, plus blocking audit gates before the work can be treated as ready.
+- ⚠️ **NEVER commit spec-tree implementation or test changes without the applying audit gates** - For TypeScript work, `/spec-tree:applying` requires `/typescript:auditing-typescript-tests` before implementation and `/typescript:auditing-typescript` before claiming readiness. Green tests and `pnpm run validate` are necessary but not sufficient for code/test changes.
 - ⚠️ **NEVER write tests in `tests/`** - Write in `spx/.../tests/` (co-located with specs)
 - ⚠️ **NEVER manually navigate `spx/` hierarchy** - Use `/contextualizing spx/path/to/node` skill
 - ⚠️ **ALWAYS read CLAUDE.md in subdirectories** - When working with files in `spx/`, or any other directory, read that directory's CLAUDE.md FIRST if it exists
@@ -47,11 +49,12 @@ The **spec-tree** plugin (`outcomeeng/claude/plugins/spec-tree`) is the active s
 | `/spec-tree:authoring`       | Create specs, ADRs, PDRs, enablers, outcomes                   |
 | `/spec-tree:decomposing`     | Break nodes into children with proper ordering                 |
 | `/spec-tree:testing`         | Manage spec-test lock file lifecycle                           |
+| `/spec-tree:applying`        | Orchestrate spec-tree implementation and audit gates           |
 | `/spec-tree:refactoring`     | Restructure the spec tree (move, consolidate, extract)         |
 | `/spec-tree:aligning`        | Review for gaps, contradictions, and consistency               |
 | `/spec-tree:opening-pr`      | Open draft PRs with branch hygiene and review-loop setup       |
 
-Additional skills ship with the plugin and are invoked by name: `applying`, `committing-changes`, `interviewing`, `auditing-tests`, `auditing-product-decisions`, `handing-off`, `picking-up`, `refocusing`, `bootstrapping`. See `outcomeeng/claude/plugins/spec-tree/skills/` for the full list.
+Additional skills ship with the plugin and are invoked by name: `committing-changes`, `interviewing`, `auditing-tests`, `auditing-product-decisions`, `handing-off`, `picking-up`, `refocusing`, `bootstrapping`. See `outcomeeng/claude/plugins/spec-tree/skills/` for the full list.
 
 ---
 
@@ -79,6 +82,9 @@ pnpm run publish:check
 
 Before committing ANY changes:
 
+- [ ] **`/spec-tree:applying` gates passed for spec-tree code/test work**: methodology/context loaded, architecture audit approved when applicable, test audit approved, code audit approved
+- [ ] **`/typescript:auditing-typescript-tests` passed for TypeScript test changes** before committing test-bearing work
+- [ ] **`/typescript:auditing-typescript` passed for TypeScript implementation changes** before committing code-bearing work
 - [ ] **`pnpm run validate`** passes (source CLI full pipeline)
 - [ ] **`pnpm test`** shows 0 failed tests
 
