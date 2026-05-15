@@ -1,11 +1,7 @@
 import * as fc from "fast-check";
 import { describe, expect, it } from "vitest";
 
-import {
-  PATH_FILTER_CONFIG_FIELDS,
-  type PathFilterConfig,
-  validatePathFilterConfig,
-} from "@/config/primitives/path-filter";
+import { type PathFilterConfig, validatePathFilterConfig } from "@/config/primitives/path-filter";
 import type { ConfigDescriptor, Result } from "@/config/types";
 import { CONFIG_TEST_GENERATOR, sampleConfigTestValue } from "@testing/generators/config/descriptors";
 
@@ -54,10 +50,7 @@ describe("path filter primitive compliance", () => {
 
     expect(result.ok).toBe(true);
     if (result.ok) {
-      expect(result.value).toEqual({
-        [PATH_FILTER_CONFIG_FIELDS.INCLUDE]: undefined,
-        [PATH_FILTER_CONFIG_FIELDS.EXCLUDE]: undefined,
-      });
+      expect(result.value).toEqual({});
     }
   });
 
@@ -69,10 +62,7 @@ describe("path filter primitive compliance", () => {
 
     expect(result.ok).toBe(true);
     if (result.ok) {
-      expect(result.value).toEqual({
-        [PATH_FILTER_CONFIG_FIELDS.INCLUDE]: undefined,
-        [PATH_FILTER_CONFIG_FIELDS.EXCLUDE]: undefined,
-      });
+      expect(result.value).toEqual({});
     }
   });
 
