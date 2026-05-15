@@ -41,11 +41,12 @@ export function validatePathFilterConfig(raw: unknown, path: string): Result<Pat
     };
   }
 
-  return {
-    ok: true,
-    value: {
-      include: include as readonly string[] | undefined,
-      exclude: exclude as readonly string[] | undefined,
-    },
-  };
+  const value: {
+    include?: readonly string[];
+    exclude?: readonly string[];
+  } = {};
+  if (include !== undefined) value.include = include as readonly string[];
+  if (exclude !== undefined) value.exclude = exclude as readonly string[];
+
+  return { ok: true, value };
 }

@@ -9,10 +9,15 @@ import {
 import { CONFIG_TEST_GENERATOR } from "@testing/generators/config/descriptors";
 
 function normalizePathFilter(filter: PathFilterConfig): PathFilterConfig {
-  return {
-    [PATH_FILTER_CONFIG_FIELDS.INCLUDE]: filter[PATH_FILTER_CONFIG_FIELDS.INCLUDE],
-    [PATH_FILTER_CONFIG_FIELDS.EXCLUDE]: filter[PATH_FILTER_CONFIG_FIELDS.EXCLUDE],
-  };
+  const normalized: {
+    include?: readonly string[];
+    exclude?: readonly string[];
+  } = {};
+  const include = filter[PATH_FILTER_CONFIG_FIELDS.INCLUDE];
+  const exclude = filter[PATH_FILTER_CONFIG_FIELDS.EXCLUDE];
+  if (include !== undefined) normalized[PATH_FILTER_CONFIG_FIELDS.INCLUDE] = include;
+  if (exclude !== undefined) normalized[PATH_FILTER_CONFIG_FIELDS.EXCLUDE] = exclude;
+  return normalized;
 }
 
 describe("path filter primitive", () => {

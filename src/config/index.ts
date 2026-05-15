@@ -291,3 +291,10 @@ function isFileNotFound(error: unknown): boolean {
 function toMessage(error: unknown): string {
   return error instanceof Error ? error.message : String(error);
 }
+
+export {
+  canonicalDescriptorJson,
+  type DescriptorJsonValue,
+  type DescriptorSectionDigest,
+  digestDescriptorSection,
+} from "./descriptor-digest";
