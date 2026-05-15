@@ -66,6 +66,10 @@ The API sketch is illustrative. The implementation pass owns the exact type name
 
 T1 may edit `testing/harnesses/spec-tree/assertions.ts`, `testing/harnesses/spec-tree/generators.ts`, `testing/harnesses/spec-tree/spec-tree.ts`, and `testing/generators/spec-tree/spec-tree.ts`. Migrate only tests in this node's directory. If a consumer test in a sibling node needs updating, record the file path in this PLAN's Open Coordination and let the owning packet migrate it.
 
+## Open Coordination
+
+- Record sibling consumer tests here when T1 discovers they need fixture-harness migration owned by another packet.
+
 ## Agent Pickup Prompt
 
 ```text
