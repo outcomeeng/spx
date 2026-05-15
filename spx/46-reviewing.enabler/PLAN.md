@@ -35,3 +35,9 @@ Child nodes can split after review config and hermetic execution contracts are a
 
 - A shared audit/review storage contract requires an ADR before review state can reuse audit state files.
 - Implementing agents load `spx/46-reviewing.enabler/` and `spx/33-agent-environment.enabler/` as governing truth; consult `spx/46-claude.outcome/` only as Claude-specific source material for reconciliation work.
+
+## Gate Dependencies
+
+The central packet table in `spx/16-config.enabler/PLAN.md` is authoritative; this section is a local reminder only.
+
+- `spx/46-reviewing.enabler/32-hermetic-review-execution.enabler/` is gated on `spx/33-agent-environment.enabler/32-runtime-config.enabler/`. Pick up `spx/33-agent-environment.enabler/` E0 and E2 before R2 when resources are available.

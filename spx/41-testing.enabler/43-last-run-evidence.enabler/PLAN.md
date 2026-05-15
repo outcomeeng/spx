@@ -28,4 +28,17 @@ Persist spec-tree test observations so status commands can report fast test stat
 
 ## Parallelization
 
-This depends on the testing descriptor and canonical descriptor digest. It can proceed independently from audit state once those APIs exist.
+This depends on the testing descriptor, canonical descriptor digest, and C2 product-directory API. It can proceed independently from audit state once those APIs exist. The C2 dependency is a correctness dependency because persisted testing state records product-root vocabulary and paths; it is not only a rename-sweep collision.
+
+The C1 canonical descriptor digest dependency is a hard prerequisite for testing last-run evidence; do not branch T2 until `spx/16-config.enabler/54-canonical-descriptor-digest.enabler/canonical-descriptor-digest.md` exists on `origin/main`.
+The C2 product-directory API dependency is also a hard prerequisite; do not branch T2 until `spx/16-config.enabler/65-product-directory-api.enabler/product-directory-api.md` exists on `origin/main`.
+
+## Agent Pickup Prompt
+
+```text
+Before branching, follow the common packet rules in `spx/16-config.enabler/PLAN.md`, including the branch-existence guard and settled-prerequisite checks.
+
+Start from fresh origin/main on work/testing-last-run-evidence after the testing config, domain execution descriptor, canonical descriptor digest API, and C2 product-directory API are available. Invoke spec-tree:understanding if needed, then spec-tree:contextualizing for spx/41-testing.enabler/43-last-run-evidence.enabler/. Read this PLAN and the governing specs it names. Invoke spec-tree:applying, spec-tree:testing, typescript:testing-typescript, and typescript:coding-typescript before edits.
+
+Before branching, verify all four prerequisites: `git cat-file -e origin/main:spx/41-testing.enabler/32-testing-config.enabler/testing-config.md`, `git cat-file -e origin/main:spx/16-config.enabler/43-domain-execution-descriptors.enabler/domain-execution-descriptors.md`, `git cat-file -e origin/main:spx/16-config.enabler/54-canonical-descriptor-digest.enabler/canonical-descriptor-digest.md`, and `git cat-file -e origin/main:spx/16-config.enabler/65-product-directory-api.enabler/product-directory-api.md` succeed for the settled testing descriptor, domain execution descriptor, C1, and C2 artifacts. Persist testing observations under `.spx/testing/{branch-slug}/runs/{run-directory}/state.json` at the Git common-dir product root. Compute discovery once per command and reuse the result for runner dispatch and staleness comparison. Record runner outcomes, timestamps, discovered path sets, content digests, descriptor-declared product input digests, and the resolved testing config digest. Prove deleting state changes only fast-status availability. Open one PR and ask reviewers to audit staleness inputs, state ownership, and no-policy-from-state behavior.
+```

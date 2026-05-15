@@ -28,3 +28,13 @@ Add the deterministic context-ingestion surface that replaces skill-only context
 ## Parallelization
 
 This can proceed independently from config-backed testing and audit once the branch starts from the merged spec-tree public surface.
+
+## Agent Pickup Prompt
+
+```text
+Before branching, follow the common packet rules in `spx/16-config.enabler/PLAN.md`, including the branch-existence guard and settled-prerequisite checks.
+
+Start from fresh origin/main on work/context-ingestion. Invoke spec-tree:understanding if needed, then spec-tree:contextualizing for spx/31-spec-domain.enabler/43-context-ingestion.enabler/. Read this PLAN and the governing specs it names. Invoke spec-tree:applying, spec-tree:testing, typescript:testing-typescript, and typescript:coding-typescript before edits.
+
+Before branching, verify `git cat-file -e origin/main:spx/31-spec-domain.enabler/spec-domain.md` and `git cat-file -e origin/main:spx/23-spec-tree.enabler/spec-tree.md` succeed for the settled public-surface files. Then inspect the exported command and library surfaces needed for context ingestion; if either public surface lacks a required entry point, record it in `spx/31-spec-domain.enabler/43-context-ingestion.enabler/ISSUES.md` and stop. A separate spec-fix PR must be opened as a separately assigned task before S1 implementation continues. Build deterministic context ingestion on the public spec-tree surface. Do not modify `spx/31-spec-domain.enabler/spec-domain.md` or `spx/23-spec-tree.enabler/spec-tree.md`. Return complete machine-readable and human-readable manifests for product root and nested targets. Preserve ordering rules: lower-index siblings constrain, same-index siblings are independent, and higher-index siblings are listed without being read as constraints. Include PLAN.md and ISSUES.md as escape-hatch context. Prove root target, nested target, same-index peers, lower-index siblings, missing target errors, manifest fields, output formats, and no suffix parsing in command modules; command modules must consume registry-node kind/path fields from the public spec-tree surface rather than inferring behavior from `.enabler` or `.outcome` suffix strings. Open one PR and ask reviewers to audit completeness and deterministic context boundaries.
+```

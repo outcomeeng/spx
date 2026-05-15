@@ -61,3 +61,21 @@ The API sketch is illustrative. The implementation pass owns the exact type name
 - [ ] Filesystem and in-memory fixture paths are generated from the same fixture model.
 - [x] Every materialized fixture is accepted by `readSpecTree`.
 - [x] Every helper that writes files remains constrained to the temp product directory.
+
+## Implementation Ownership
+
+T1 may edit `testing/harnesses/spec-tree/assertions.ts`, `testing/harnesses/spec-tree/generators.ts`, `testing/harnesses/spec-tree/spec-tree.ts`, `testing/generators/spec-tree/spec-tree.ts`, and `spx/22-test-environment.enabler/32-spec-tree-fixtures.enabler/tests/`. Migrate only tests in this node's directory. If a consumer test in a sibling node needs updating, record the file path in this PLAN's Open Coordination and let the owning packet migrate it.
+
+## Open Coordination
+
+- Record sibling consumer tests here when T1 discovers they need fixture-harness migration owned by another packet.
+
+## Agent Pickup Prompt
+
+```text
+Before branching, follow the common packet rules in `spx/16-config.enabler/PLAN.md`, including the branch-existence guard and settled-prerequisite checks.
+
+Start from fresh origin/main on work/spec-tree-fixture-migration after C2 (`spx/16-config.enabler/65-product-directory-api.enabler/`) merges. Invoke spec-tree:understanding if needed, then spec-tree:contextualizing for spx/22-test-environment.enabler/32-spec-tree-fixtures.enabler/. Read this PLAN and the governing specs it names. Invoke spec-tree:applying, spec-tree:testing, typescript:testing-typescript, and typescript:coding-typescript before edits.
+
+Before branching, verify `git cat-file -e origin/main:spx/16-config.enabler/65-product-directory-api.enabler/product-directory-api.md` succeeds for the C2 product-directory API artifacts. Replace direct withTestEnv usage only where the assertion needs a current spec-tree shape. Keep withTestEnv for primitive config and file tests that only need a temp productDir. Follow the Implementation Ownership section above for shared-helper edit boundaries. Prove filesystem and in-memory fixture paths come from the same fixture model. Open one PR and ask reviewers to audit fixture ownership, real-file coverage, and productDir vocabulary.
+```

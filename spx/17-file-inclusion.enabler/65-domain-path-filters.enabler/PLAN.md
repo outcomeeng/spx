@@ -28,3 +28,20 @@ Replace ignore-source scope policy with typed config-backed path-filter inputs.
 ## Parallelization
 
 This depends on the shared path-filter primitive. It can proceed before testing state persistence, but final deletion of ignore-source code depends on config-backed testing passing scope.
+
+## Implementation Ownership
+
+- Own the domain path-filter resolver changes and tests required by this node under `src/lib/file-inclusion/` and this node's co-located `tests/`.
+- Consume the shared path-filter primitive from `src/config/primitives/`; do not define a second path-filter shape or validator.
+- Preserve the existing standalone ignore-source production path in this packet. Do not delete `src/lib/file-inclusion/ignore-source.ts`, ignore-source predicates, or tool-adapter ignore-source wiring until the T2 sentinel `last-run-evidence.md` exists on `origin/main`.
+- Do not edit testing, audit, or review descriptor consumers in this packet except through stable file-inclusion call signatures required by this node.
+
+## Agent Pickup Prompt
+
+```text
+Before branching, follow the common packet rules in `spx/16-config.enabler/PLAN.md`, including the branch-existence guard and settled-prerequisite checks.
+
+Start from fresh origin/main on work/domain-path-filters. Invoke spec-tree:understanding if needed, then spec-tree:contextualizing for spx/17-file-inclusion.enabler/65-domain-path-filters.enabler/. Read this PLAN and the governing specs it names. Invoke spec-tree:applying, spec-tree:testing, typescript:testing-typescript, and typescript:coding-typescript before edits.
+
+Before branching, verify `git cat-file -e origin/main:spx/16-config.enabler/32-shared-config-primitives.enabler/shared-config-primitives.md` succeeds for the settled path-filter primitive. Make the file-inclusion resolver accept typed domain path filters supplied by callers. Preserve explicit caller-path override, artifact-directory filtering, hidden-prefix filtering, decision trails, and tool-adapter output. Do not delete or rewrite legacy standalone ignore-source production paths in this packet; record any deletion candidate for a follow-up after `git cat-file -e origin/main:spx/41-testing.enabler/43-last-run-evidence.enabler/last-run-evidence.md` succeeds for the T2 sentinel. Prove validation filters do not affect testing passing scope. Open one PR and ask reviewers to audit path-decision trails, caller override behavior, and descriptor-policy separation.
+```
