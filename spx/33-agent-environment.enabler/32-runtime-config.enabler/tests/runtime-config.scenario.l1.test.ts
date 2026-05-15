@@ -15,6 +15,7 @@ import {
   RUNTIME_CONFIG_STATE_FIELDS,
   RUNTIME_CONFIG_TARGET_KIND,
   type RuntimeConfigFileSystem,
+  runtimeConfigPath,
 } from "@/domains/agent-environment/runtime-config";
 import { CONFIG_TEST_GENERATOR, sampleConfigTestValue } from "@testing/generators/config/descriptors";
 import { withTestEnv } from "@testing/harnesses/spec-tree/spec-tree";
@@ -56,9 +57,57 @@ class FailingWriteFileSystem implements RuntimeConfigFileSystem {
     return undefined;
   }
 
+  async rm(): Promise<unknown> {
+    return undefined;
+  }
+
   async writeFile(): Promise<unknown> {
     throw new Error(this.message);
   }
+}
+
+class RuntimeConfigMemoryFileSystem implements RuntimeConfigFileSystem {
+  private readonly files = new Map<string, string>();
+
+  constructor(
+    private readonly failWritePath?: string,
+    private readonly failWriteMessage?: string,
+    private readonly readError?: Error,
+  ) {}
+
+  hasFile(path: string): boolean {
+    return this.files.has(path);
+  }
+
+  async readFile(path: string): Promise<string> {
+    if (this.readError !== undefined) throw this.readError;
+    const value = this.files.get(path);
+    if (value === undefined) throw fileNotFoundError();
+    return value;
+  }
+
+  async mkdir(): Promise<unknown> {
+    return undefined;
+  }
+
+  async rm(path: string): Promise<unknown> {
+    this.files.delete(path);
+    return undefined;
+  }
+
+  async writeFile(path: string, content: string): Promise<unknown> {
+    if (path === this.failWritePath) {
+      throw new Error(this.failWriteMessage);
+    }
+    this.files.set(path, content);
+    return undefined;
+  }
+}
+
+function fileNotFoundError(): NodeJS.ErrnoException {
+  const error = new Error() as NodeJS.ErrnoException;
+  error.code = RUNTIME_CONFIG_FILE_ERROR_CODES.FILE_NOT_FOUND;
+  return error;
 }
 
 describe("runtime config reconciliation scenarios", () => {
@@ -66,11 +115,12 @@ describe("runtime config reconciliation scenarios", () => {
     const agentEnvironment = enabledAgentEnvironment();
     const codexField = sampleConfigTestValue(CONFIG_TEST_GENERATOR.key());
     const codexValue = sampleConfigTestValue(CONFIG_TEST_GENERATOR.scalar());
+    const codexComment = sampleConfigTestValue(CONFIG_TEST_GENERATOR.scalar());
     const claudeCodeField = sampleConfigTestValue(CONFIG_TEST_GENERATOR.key());
     const claudeCodeValue = sampleConfigTestValue(CONFIG_TEST_GENERATOR.scalar());
 
     await withTestEnv({}, async ({ productDir, writeRaw, readFile }) => {
-      await writeRaw(CODEX_RUNTIME_CONFIG_RELATIVE_PATH, `${codexField} = "${codexValue}"\n`);
+      await writeRaw(CODEX_RUNTIME_CONFIG_RELATIVE_PATH, `# ${codexComment}\n${codexField} = "${codexValue}"\n`);
       await writeRaw(
         CLAUDE_CODE_RUNTIME_CONFIG_RELATIVE_PATH,
         `${JSON.stringify({ [claudeCodeField]: claudeCodeValue })}\n`,
@@ -90,6 +140,7 @@ describe("runtime config reconciliation scenarios", () => {
       const codex = readRecord(parseToml(codexRaw));
       const claudeCode = readRecord(JSON.parse(claudeCodeRaw));
 
+      expect(codexRaw).toContain(codexComment);
       expect(codex[codexField]).toBe(codexValue);
       expect(readManagedState(codex)).toEqual({
         [RUNTIME_CONFIG_STATE_FIELDS.ENABLED]: true,
@@ -135,6 +186,43 @@ describe("runtime config reconciliation scenarios", () => {
     });
   });
 
+  it("reports invalid existing Codex TOML before writing", async () => {
+    const agentEnvironment = enabledAgentEnvironment();
+    const malformedRuntimeConfig = sampleConfigTestValue(CONFIG_TEST_GENERATOR.key());
+
+    await withTestEnv({}, async ({ productDir, writeRaw }) => {
+      await writeRaw(CODEX_RUNTIME_CONFIG_RELATIVE_PATH, malformedRuntimeConfig);
+
+      const result = await reconcileRuntimeConfig({ productDir, agentEnvironment });
+
+      expect(result.ok).toBe(false);
+      if (!result.ok) {
+        expect(result.error).toContain(CODEX_RUNTIME_CONFIG_RELATIVE_PATH);
+        expect(result.error).toContain(RUNTIME_CONFIG_ERROR_MESSAGES.INVALID_TOML);
+      }
+    });
+  });
+
+  it("reports non-file-not-found read failures before writing", async () => {
+    const agentEnvironment = enabledAgentEnvironment();
+    const readFailureMessage = sampleConfigTestValue(CONFIG_TEST_GENERATOR.scalar());
+    const readError = new Error(readFailureMessage);
+
+    await withTestEnv({}, async ({ productDir }) => {
+      const result = await reconcileRuntimeConfig({
+        productDir,
+        agentEnvironment,
+        deps: { fs: new RuntimeConfigMemoryFileSystem(undefined, undefined, readError) },
+      });
+
+      expect(result.ok).toBe(false);
+      if (!result.ok) {
+        expect(result.error).toContain(CODEX_RUNTIME_CONFIG_RELATIVE_PATH);
+        expect(result.error).toContain(readFailureMessage);
+      }
+    });
+  });
+
   it("reports write failures as reconciliation diagnostics", async () => {
     const agentEnvironment = enabledAgentEnvironment();
     const writeFailureMessage = sampleConfigTestValue(CONFIG_TEST_GENERATOR.scalar());
@@ -151,6 +239,30 @@ describe("runtime config reconciliation scenarios", () => {
         expect(result.error).toContain(CODEX_RUNTIME_CONFIG_RELATIVE_PATH);
         expect(result.error).toContain(writeFailureMessage);
       }
+    });
+  });
+
+  it("rolls back earlier runtime writes when a later runtime write fails", async () => {
+    const agentEnvironment = enabledAgentEnvironment();
+    const writeFailureMessage = sampleConfigTestValue(CONFIG_TEST_GENERATOR.scalar());
+
+    await withTestEnv({}, async ({ productDir }) => {
+      const codexPath = runtimeConfigPath(productDir, AGENT_RUNTIME.CODEX);
+      const claudeCodePath = runtimeConfigPath(productDir, AGENT_RUNTIME.CLAUDE_CODE);
+      const fs = new RuntimeConfigMemoryFileSystem(claudeCodePath, writeFailureMessage);
+
+      const result = await reconcileRuntimeConfig({
+        productDir,
+        agentEnvironment,
+        deps: { fs },
+      });
+
+      expect(result.ok).toBe(false);
+      if (!result.ok) {
+        expect(result.error).toContain(CLAUDE_CODE_RUNTIME_CONFIG_RELATIVE_PATH);
+        expect(result.error).toContain(writeFailureMessage);
+      }
+      expect(fs.hasFile(codexPath)).toBe(false);
     });
   });
 

@@ -1,4 +1,4 @@
-import { mkdir, readFile, writeFile } from "node:fs/promises";
+import { mkdir, readFile, rm, writeFile } from "node:fs/promises";
 import { dirname, join } from "node:path";
 
 import { parse as parseToml, stringify as stringifyToml } from "smol-toml";
@@ -34,6 +34,7 @@ export const CODEX_RUNTIME_CONFIG_RELATIVE_PATH = ".codex/config.toml";
 export const CLAUDE_CODE_RUNTIME_CONFIG_RELATIVE_PATH = ".claude/settings.local.json";
 
 export const HERMETIC_RUNTIME_CONFIG_DIRECTORY = "agent-environment/runtime-config";
+export const CLAUDE_CODE_RUNTIME_CONFIG_DIRECTORY = "claude-code";
 
 export const RUNTIME_CONFIG_STATE_FIELDS = {
   SPX: "spx",
@@ -59,6 +60,7 @@ export type RuntimeConfigTarget =
   | { readonly kind: typeof RUNTIME_CONFIG_TARGET_KIND.INVOKING_AGENT }
   | {
     readonly kind: typeof RUNTIME_CONFIG_TARGET_KIND.HERMETIC_EXECUTION;
+    /** Owning hermetic execution domains pass a validated local state directory. */
     readonly stateDir: string;
   };
 
@@ -89,6 +91,7 @@ export interface RuntimeConfigReconciliation {
 export interface RuntimeConfigFileSystem {
   readFile(path: string, encoding: BufferEncoding): Promise<string>;
   mkdir(path: string, options: { readonly recursive: true }): Promise<unknown>;
+  rm(path: string, options: { readonly force: true }): Promise<unknown>;
   writeFile(path: string, content: string, encoding: BufferEncoding): Promise<unknown>;
 }
 
@@ -101,6 +104,14 @@ type RuntimeConfigState = {
   readonly [RUNTIME_CONFIG_STATE_FIELDS.PRODUCT_DIR]: string;
   readonly [RUNTIME_CONFIG_STATE_FIELDS.RUNTIME]: AgentRuntime;
   readonly [RUNTIME_CONFIG_STATE_FIELDS.TARGET_KIND]: RuntimeConfigTargetKind;
+};
+
+type InternalRuntimeConfigFilePlan = RuntimeConfigFilePlan & {
+  readonly previousContent?: string;
+};
+
+type InternalRuntimeConfigReconciliation = Omit<RuntimeConfigReconciliation, "files"> & {
+  readonly files: readonly InternalRuntimeConfigFilePlan[];
 };
 
 const DEFAULT_RUNTIME_CONFIG_TARGET: RuntimeConfigTarget = {
@@ -126,12 +137,15 @@ const RUNTIME_CONFIG_ORDER = [
 ] as const;
 
 const JSON_INDENT = 2;
-const UTF8_ENCODING = "utf8";
+export const RUNTIME_CONFIG_TEXT_ENCODING = "utf8";
+const TOML_MANAGED_TABLE_HEADER =
+  `[${RUNTIME_CONFIG_STATE_FIELDS.SPX}.${RUNTIME_CONFIG_STATE_FIELDS.AGENT_ENVIRONMENT}]`;
 
 const DEFAULT_RUNTIME_CONFIG_DEPENDENCIES: RuntimeConfigDependencies = {
   fs: {
     readFile,
     mkdir,
+    rm,
     writeFile,
   },
 };
@@ -139,9 +153,18 @@ const DEFAULT_RUNTIME_CONFIG_DEPENDENCIES: RuntimeConfigDependencies = {
 export async function planRuntimeConfigReconciliation(
   options: RuntimeConfigReconciliationOptions,
 ): Promise<Result<RuntimeConfigReconciliation>> {
-  const target = options.target ?? DEFAULT_RUNTIME_CONFIG_TARGET;
   const deps = options.deps ?? DEFAULT_RUNTIME_CONFIG_DEPENDENCIES;
-  const files: RuntimeConfigFilePlan[] = [];
+  const plan = await planRuntimeConfigReconciliationWithDeps(options, deps);
+  if (!plan.ok) return plan;
+  return { ok: true, value: publicRuntimeConfigReconciliation(plan.value) };
+}
+
+async function planRuntimeConfigReconciliationWithDeps(
+  options: RuntimeConfigReconciliationOptions,
+  deps: RuntimeConfigDependencies,
+): Promise<Result<InternalRuntimeConfigReconciliation>> {
+  const target = options.target ?? DEFAULT_RUNTIME_CONFIG_TARGET;
+  const files: InternalRuntimeConfigFilePlan[] = [];
 
   for (const runtime of RUNTIME_CONFIG_ORDER) {
     const runtimeConfig = options.agentEnvironment.runtimes[runtime];
@@ -188,19 +211,27 @@ export async function planRuntimeConfigReconciliation(
 export async function reconcileRuntimeConfig(
   options: RuntimeConfigReconciliationOptions,
 ): Promise<Result<RuntimeConfigReconciliation>> {
-  const plan = await planRuntimeConfigReconciliation(options);
-  if (!plan.ok) return plan;
   const deps = options.deps ?? DEFAULT_RUNTIME_CONFIG_DEPENDENCIES;
+  const plan = await planRuntimeConfigReconciliationWithDeps(options, deps);
+  if (!plan.ok) return plan;
 
   if (!plan.value.dryRun) {
+    const attempted: RuntimeConfigFilePlan[] = [];
     for (const file of plan.value.files) {
       if (file.content === undefined) continue;
+      attempted.push(file);
       const written = await writeRuntimeConfigFile(file.path, file.content, deps);
-      if (!written.ok) return written;
+      if (!written.ok) {
+        const rolledBack = await rollbackRuntimeConfigFiles(attempted, deps);
+        if (!rolledBack.ok) {
+          return { ok: false, error: `${written.error}; rollback failed: ${rolledBack.error}` };
+        }
+        return written;
+      }
     }
   }
 
-  return plan;
+  return { ok: true, value: publicRuntimeConfigReconciliation(plan.value) };
 }
 
 export function runtimeConfigPath(
@@ -222,7 +253,7 @@ async function reconcileRuntimeConfigFile(options: {
   readonly format: RuntimeConfigFormat;
   readonly path: string;
   readonly deps: RuntimeConfigDependencies;
-}): Promise<Result<RuntimeConfigFilePlan>> {
+}): Promise<Result<InternalRuntimeConfigFilePlan>> {
   const current = await readOptionalRuntimeConfigFile(options.path, options.deps);
   if (!current.ok) return current;
 
@@ -249,6 +280,7 @@ async function reconcileRuntimeConfigFile(options: {
       action: current.value === undefined ? RUNTIME_CONFIG_ACTION.CREATE : RUNTIME_CONFIG_ACTION.UPDATE,
       format: options.format,
       path: options.path,
+      previousContent: current.value,
       content: content.value,
     },
   };
@@ -259,7 +291,7 @@ async function readOptionalRuntimeConfigFile(
   deps: RuntimeConfigDependencies,
 ): Promise<Result<string | undefined>> {
   try {
-    return { ok: true, value: await deps.fs.readFile(path, UTF8_ENCODING) };
+    return { ok: true, value: await deps.fs.readFile(path, RUNTIME_CONFIG_TEXT_ENCODING) };
   } catch (error) {
     if (isFileNotFound(error)) return { ok: true, value: undefined };
     return { ok: false, error: `failed to read runtime config ${path}: ${toMessage(error)}` };
@@ -309,15 +341,7 @@ function mergeTomlRuntimeConfig(
     ? ({ ok: true as const, value: {} })
     : parseTomlRuntimeConfig(current, path);
   if (!parsed.ok) return parsed;
-  const next = {
-    ...parsed.value,
-    [RUNTIME_CONFIG_STATE_FIELDS.SPX]: {
-      ...readNestedRecord(parsed.value, RUNTIME_CONFIG_STATE_FIELDS.SPX),
-      [RUNTIME_CONFIG_STATE_FIELDS.AGENT_ENVIRONMENT]: state,
-    },
-  };
-
-  return { ok: true, value: stringifyToml(next) };
+  return { ok: true, value: mergeTomlManagedTable(current, renderTomlManagedTable(state)) };
 }
 
 function parseJsonRuntimeConfig(raw: string, path: string): Result<Record<string, unknown>> {
@@ -364,7 +388,7 @@ function runtimeDirectory(runtime: AgentRuntime): string {
     case AGENT_RUNTIME.CODEX:
       return AGENT_RUNTIME.CODEX;
     case AGENT_RUNTIME.CLAUDE_CODE:
-      return "claude-code";
+      return CLAUDE_CODE_RUNTIME_CONFIG_DIRECTORY;
   }
 }
 
@@ -383,11 +407,111 @@ async function writeRuntimeConfigFile(
 ): Promise<Result<undefined>> {
   try {
     await deps.fs.mkdir(dirname(path), { recursive: true });
-    await deps.fs.writeFile(path, content, UTF8_ENCODING);
+    await deps.fs.writeFile(path, content, RUNTIME_CONFIG_TEXT_ENCODING);
     return { ok: true, value: undefined };
   } catch (error) {
     return { ok: false, error: `failed to write runtime config ${path}: ${toMessage(error)}` };
   }
+}
+
+async function rollbackRuntimeConfigFiles(
+  files: readonly InternalRuntimeConfigFilePlan[],
+  deps: RuntimeConfigDependencies,
+): Promise<Result<undefined>> {
+  for (const file of [...files].reverse()) {
+    const rolledBack = await rollbackRuntimeConfigFile(file, deps);
+    if (!rolledBack.ok) return rolledBack;
+  }
+  return { ok: true, value: undefined };
+}
+
+async function rollbackRuntimeConfigFile(
+  file: InternalRuntimeConfigFilePlan,
+  deps: RuntimeConfigDependencies,
+): Promise<Result<undefined>> {
+  if (file.previousContent === undefined) {
+    return removeRuntimeConfigFile(file.path, deps);
+  }
+  return writeRuntimeConfigFile(file.path, file.previousContent, deps);
+}
+
+async function removeRuntimeConfigFile(
+  path: string,
+  deps: RuntimeConfigDependencies,
+): Promise<Result<undefined>> {
+  try {
+    await deps.fs.rm(path, { force: true });
+    return { ok: true, value: undefined };
+  } catch (error) {
+    return { ok: false, error: `failed to remove runtime config ${path}: ${toMessage(error)}` };
+  }
+}
+
+function renderTomlManagedTable(state: RuntimeConfigState): string {
+  return stringifyToml({
+    [RUNTIME_CONFIG_STATE_FIELDS.SPX]: {
+      [RUNTIME_CONFIG_STATE_FIELDS.AGENT_ENVIRONMENT]: state,
+    },
+  });
+}
+
+function mergeTomlManagedTable(current: string | undefined, managedTable: string): string {
+  const normalizedManagedTable = ensureTrailingNewline(managedTable);
+  if (current === undefined || current.trim() === "") return normalizedManagedTable;
+
+  const currentLines = trimTrailingNewline(current.replace(/\r\n/g, "\n")).split("\n");
+  const managedLines = trimTrailingNewline(normalizedManagedTable).split("\n");
+  const managedStart = currentLines.findIndex(isTomlManagedTableHeader);
+  if (managedStart === -1) {
+    return `${trimTrailingNewline(current)}\n\n${normalizedManagedTable}`;
+  }
+
+  const managedEnd = findNextTomlTableHeader(currentLines, managedStart + 1);
+  return `${
+    [
+      ...currentLines.slice(0, managedStart),
+      ...managedLines,
+      ...currentLines.slice(managedEnd),
+    ].join("\n")
+  }\n`;
+}
+
+function findNextTomlTableHeader(lines: readonly string[], start: number): number {
+  for (const [index, line] of lines.entries()) {
+    if (index < start) continue;
+    if (isTomlTableHeader(line)) return index;
+  }
+  return lines.length;
+}
+
+function isTomlManagedTableHeader(line: string): boolean {
+  return line.trim() === TOML_MANAGED_TABLE_HEADER;
+}
+
+function isTomlTableHeader(line: string): boolean {
+  return line.trimStart().startsWith("[");
+}
+
+function ensureTrailingNewline(value: string): string {
+  return value.endsWith("\n") ? value : `${value}\n`;
+}
+
+function trimTrailingNewline(value: string): string {
+  return value.replace(/\n+$/, "");
+}
+
+function publicRuntimeConfigReconciliation(
+  reconciliation: InternalRuntimeConfigReconciliation,
+): RuntimeConfigReconciliation {
+  return {
+    ...reconciliation,
+    files: reconciliation.files.map(publicRuntimeConfigFilePlan),
+  };
+}
+
+function publicRuntimeConfigFilePlan(file: InternalRuntimeConfigFilePlan): RuntimeConfigFilePlan {
+  const { previousContent: _previousContent, ...publicFile } = file;
+  return publicFile;
 }
 
 function isRecord(value: unknown): value is Record<string, unknown> {
