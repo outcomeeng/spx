@@ -155,6 +155,12 @@ Use small PRs with one purpose. A PR that changes specs, tests, architecture, ru
 
 Run the right local gate before publishing. Use `spx validation markdown` for markdown-only spec or instruction changes. Use `spx validation all` for everything else. Add targeted tests for the node or workflow changed, and name those commands in the PR body.
 
+### PR review guidance
+
+[REVIEW.md](REVIEW.md) is the canonical guidance for PR reviews. Automated and human reviewers must classify findings by required receiver action using only `BLOCKING`, `NEEDS-ANSWER`, `FOLLOW-UP`, and `NOTE`.
+
+`BLOCKING` and `NEEDS-ANSWER` are the only finding classes that enter the active PR loop. `FOLLOW-UP` items must name the owning tracking location when retention is useful. `NOTE` items are optional and should be omitted when they add noise.
+
 ### Executing PR workflow
 
 Use this `gh` sequence for the normal review loop:
@@ -187,10 +193,12 @@ Use `gh pr checks "$pr_number" --watch --interval 10` when waiting for CI to fin
 
 Ask the PR reviewers for adversarial auditing of all architecture, security-sensitive workflows, deployment and publishing paths, and any PR that changes production behavior. Set yourself a reminder to check on the PR reviews after 3 minutes. In the meantime, continue with non-blocking local work or merge only when the user explicitly asked for no review wait.
 
-### Treat PR review findings by severity
+### Treat PR review findings by receiver action
 
-- Critical, high, security, data-loss, production-safety, or architecture-break findings block the PR. Fix them in the same PR, rerun the focused tests and `spx validation all`, then update the PR.
-- Medium and lower findings do not keep widening a production-path PR once the high-severity queue is empty. Record them in the owning spec tree node's `ISSUES.md` or `PLAN.md` with evidence, impact, and resolution and Markdown links to all involved files and specs.
+- Fix `BLOCKING` findings in the same PR, rerun the focused tests and `spx validation all`, then update the PR.
+- Answer `NEEDS-ANSWER` findings in the PR. If the answer proves the concern affects merge safety, convert the item to `BLOCKING` handling.
+- Record retained `FOLLOW-UP` findings in the owning spec tree node's `ISSUES.md` or `PLAN.md` with evidence, impact, and resolution and Markdown links to all involved files and specs.
+- Treat `NOTE` findings as context only. Do not create work from a `NOTE`.
 - Findings that expose weak evidence require a test rearchitecture using the `/typescript:testing-typescript` skill before merge.
 
 ### Merge discipline
