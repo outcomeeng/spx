@@ -46,8 +46,7 @@ Each packet is intended for one agent on one branch. Agents start from fresh `or
 
 Settled prerequisites on current `origin/main`:
 
-This list reflects expected state; agents verify at branch time using the commands below.
-These sentinels were verified on `origin/main` during the refactor-tranche dispatch planning pass.
+This list reflects expected state. Agents verify these at branch time, and dispatchers use the commands below to confirm current state before packet assignment.
 
 - Shared path-filter primitive: `spx/16-config.enabler/32-shared-config-primitives.enabler/` owns the structural `{ include?: string[]; exclude?: string[] }` primitive. Dependent packets consume it and do not recreate path-filter validators.
 - Testing descriptor: `spx/41-testing.enabler/32-testing-config.enabler/` and `spx/16-config.enabler/43-domain-execution-descriptors.enabler/` own the registered testing descriptor. Dependent packets consume it and do not create a second testing descriptor.
@@ -69,7 +68,7 @@ git cat-file -e origin/main:spx/23-spec-tree.enabler/spec-tree.md
 | Packet | Target node | Depends on | Output |
 | --- | --- | --- | --- |
 | C1 | `spx/16-config.enabler/54-canonical-descriptor-digest.enabler/` | none | Config-owned canonical descriptor JSON and descriptor digest API |
-| C2 | `spx/16-config.enabler/65-product-directory-api.enabler/` | none; prefer sequencing after C1 because both touch config modules | Product-root vocabulary across config APIs, harnesses, and root helpers |
+| C2 | `spx/16-config.enabler/65-product-directory-api.enabler/` | none; dispatcher-enforced preference to sequence after C1 because both touch config modules | Product-root vocabulary across config APIs, harnesses, and root helpers |
 | F1 | `spx/17-file-inclusion.enabler/65-domain-path-filters.enabler/` | settled path-filter primitive | File-inclusion resolver accepts descriptor-owned domain path filters |
 | T1 | `spx/22-test-environment.enabler/32-spec-tree-fixtures.enabler/` | C2 | Remaining spec-tree tests use `withSpecTreeEnv` when they need materialized `spx/` fixtures |
 | T2 | `spx/41-testing.enabler/43-last-run-evidence.enabler/` | settled testing config, settled domain execution descriptor, C1, C2 | Persisted test observations and stale-status inputs |
@@ -84,11 +83,11 @@ git cat-file -e origin/main:spx/23-spec-tree.enabler/spec-tree.md
 | R5 | `spx/46-reviewing.enabler/65-pr-review.enabler/` | R2, R3 | `spx review pr <number>` target execution |
 | S1 | `spx/31-spec-domain.enabler/43-context-ingestion.enabler/` | settled public-surface files on `origin/main`; S1 verifies surface completeness | Deterministic context-ingestion command surface |
 | E0 | `spx/33-agent-environment.enabler/` | none | Agent environment descriptor shape for instructions, runtime config, and plugin bootstrap |
-| E1 | `spx/33-agent-environment.enabler/21-agent-instructions.enabler/` | E0, E2; E0 is also transitive through E2 | Assign after E2 merges: deterministic instruction-file reconciliation |
+| E1 | `spx/33-agent-environment.enabler/21-agent-instructions.enabler/` | E0, E2; E0 is direct and also implied by E2 | Assign after E2 merges: deterministic instruction-file reconciliation |
 | E2 | `spx/33-agent-environment.enabler/32-runtime-config.enabler/` | E0 | Claude Code and Codex runtime config reconciliation |
 | E3 | `spx/33-agent-environment.enabler/43-plugin-bootstrap.enabler/` | E2 | Plugin marketplace, plugin, and skill bootstrap status |
 
-Critical path: E0 must settle before E2, and E2 gates A3, E1, R2, R4, and R5 transitively. Assign E0 and E2 early when audit or review execution packets are planned. C1 and C2 can start independently, but both may touch config modules and descriptor generators; prefer sequencing C1 before C2 unless a human resolver is standing by. If C1 and C2 run in parallel, merge one first, then rebase the other and rerun validation before review.
+Critical path: E0 must settle before E2, and E2 gates A3, E1, R2, R4, and R5 transitively. Assign E0 and E2 early when audit or review execution packets are planned. C1 and C2 can start independently, but both may touch config modules and descriptor generators; the C1-before-C2 preference is dispatcher-enforced rather than agent-enforced. If C1 and C2 run in parallel, merge one first, then rebase the other and rerun validation before review.
 
 ## Common Agent Pickup Rules
 
@@ -112,6 +111,7 @@ Own only {target-node} and the implementation files required by its assertions. 
 - After A1-A4 settle, evaluate whether the parent `spx/36-audit.enabler/` spec needs a separate A0 packet for parent-level audit API alignment; create that packet only when a concrete parent-spec change is identified.
 - After R1-R5 settle, evaluate whether the parent `spx/46-reviewing.enabler/` spec needs a separate R0 packet for parent-level review API alignment; create that packet only when a concrete parent-spec change is identified.
 - After T1-T2 settle, evaluate whether the parent `spx/41-testing.enabler/` spec needs a separate T0 packet for parent-level testing API alignment; create that packet only when a concrete parent-spec change is identified.
+- After F1 and T2 settle, inspect F1's PLAN for ignore-source deletion candidates and create a follow-up packet only when a concrete production deletion remains.
 - After F1 settles, evaluate whether the parent `spx/17-file-inclusion.enabler/` spec needs a separate F0 packet for parent-level file-inclusion API alignment; create that packet only when a concrete parent-spec change is identified.
 - After C1 or C2 merges, evaluate whether common pickup rules should move from this config tranche PLAN to a neutral coordination artifact before assigning cross-domain packets such as E0 or S1.
 - If A3 or R2 discovers missing shared process-lifecycle behavior, A3 is the designated recorder. A3 records the gap only after Open Coordination, process-lifecycle branches, and process-lifecycle PRs are empty for that gap. R2 must re-read this section, inspect open process-lifecycle PRs and branches, and either claim the existing branch or record a blocker in its PLAN; R2 does not open the shared process-lifecycle branch.
