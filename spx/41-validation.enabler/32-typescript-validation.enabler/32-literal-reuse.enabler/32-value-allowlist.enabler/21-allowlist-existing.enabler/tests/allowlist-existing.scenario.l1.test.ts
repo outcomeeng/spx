@@ -26,7 +26,7 @@ import { withTestEnv } from "@testing/harnesses/spec-tree/spec-tree";
 import {
   buildBaselineConfig,
   readLiteralAllowlist,
-  readProjectConfigSections,
+  readProductConfigSections,
   writeDuplicatedLiteralFixture,
   writeMultipleLiteralFixtures,
 } from "./support";
@@ -45,11 +45,11 @@ describe("allowlist-existing scenario", () => {
     await withTestEnv(buildBaselineConfig(), async (env) => {
       await writeDuplicatedLiteralFixture(env, literal);
 
-      const result = await allowlistExisting({ projectRoot: env.productDir });
+      const result = await allowlistExisting({ productDir: env.productDir });
 
       expect(result.exitCode).toBe(LITERAL_EXIT_CODES.OK);
 
-      const parsed = await readProjectConfigSections(env);
+      const parsed = await readProductConfigSections(env);
       const allowlist = readLiteralAllowlist(parsed);
       expect(allowlist.include).toContain(literal);
 
@@ -59,7 +59,7 @@ describe("allowlist-existing scenario", () => {
       const updatedValidation = resolved.value[validationConfigDescriptor.section] as ValidationConfig;
 
       const second = await validateLiteralReuse({
-        projectRoot: env.productDir,
+        productDir: env.productDir,
         config: updatedValidation.literal.values,
       });
       expect(second.findings.srcReuse.length + second.findings.testDupe.length).toBe(
@@ -68,31 +68,31 @@ describe("allowlist-existing scenario", () => {
     });
   });
 
-  it("creates the config module's default file when no spx.config.* exists at the project root", async () => {
+  it("creates the config module's default file when no spx.config.* exists at the product directory", async () => {
     const literal = sampleLiteralTestValue(LITERAL_TEST_GENERATOR.domainLiteral());
     await withTestEnv(buildBaselineConfig(), async (env) => {
       await writeDuplicatedLiteralFixture(env, literal);
       await unlink(join(env.productDir, DEFAULT_CONFIG_FILENAME));
 
-      const result = await allowlistExisting({ projectRoot: env.productDir });
+      const result = await allowlistExisting({ productDir: env.productDir });
 
       expect(result.exitCode).toBe(LITERAL_EXIT_CODES.OK);
 
-      const allowlist = readLiteralAllowlist(await readProjectConfigSections(env));
+      const allowlist = readLiteralAllowlist(await readProductConfigSections(env));
       expect(allowlist.include).toContain(literal);
     });
   });
 
-  it("adds the literal section when the default project config file exists without one", async () => {
+  it("adds the literal section when the default product config file exists without one", async () => {
     const literal = sampleLiteralTestValue(LITERAL_TEST_GENERATOR.domainLiteral());
     await withTestEnv(literalEmptyConfig(), async (env) => {
       await writeDuplicatedLiteralFixture(env, literal);
 
-      const result = await allowlistExisting({ projectRoot: env.productDir });
+      const result = await allowlistExisting({ productDir: env.productDir });
 
       expect(result.exitCode).toBe(LITERAL_EXIT_CODES.OK);
 
-      const allowlist = readLiteralAllowlist(await readProjectConfigSections(env));
+      const allowlist = readLiteralAllowlist(await readProductConfigSections(env));
       expect(allowlist.include).toContain(literal);
     });
   });
@@ -102,10 +102,10 @@ describe("allowlist-existing scenario", () => {
     await withTestEnv(buildBaselineConfig(), async (env) => {
       await writeMultipleLiteralFixtures(env, literals);
 
-      const result = await allowlistExisting({ projectRoot: env.productDir });
+      const result = await allowlistExisting({ productDir: env.productDir });
       expect(result.exitCode).toBe(LITERAL_EXIT_CODES.OK);
 
-      const allowlist = readLiteralAllowlist(await readProjectConfigSections(env));
+      const allowlist = readLiteralAllowlist(await readProductConfigSections(env));
       const include = allowlist.include ?? [];
       const indices = literals.map((value) => include.indexOf(value));
       indices.forEach((idx) => expect(idx).toBeGreaterThan(-1));
@@ -124,7 +124,7 @@ describe("allowlist-existing scenario", () => {
       const jsonBefore = serializeEmptyJsonConfig();
       await env.writeRaw(CONFIG_FILENAMES.json, jsonBefore);
 
-      const result = await allowlistExisting({ projectRoot: env.productDir });
+      const result = await allowlistExisting({ productDir: env.productDir });
 
       expect(result.exitCode).not.toBe(LITERAL_EXIT_CODES.OK);
       expect(result.output).toContain(DEFAULT_CONFIG_FILENAME);

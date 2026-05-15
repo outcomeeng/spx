@@ -16,9 +16,9 @@ import { CONFIG_TEST_GENERATOR, sampleConfigTestValue } from "@testing/generator
 function makeDeps(resolved: Result<Config>): CliDeps {
   return {
     resolveConfig: async () => resolved,
-    readProjectConfigFile: async () => sampleConfigTestValue(CONFIG_TEST_GENERATOR.absentConfigFileReadResult()),
+    readProductConfigFile: async () => sampleConfigTestValue(CONFIG_TEST_GENERATOR.absentConfigFileReadResult()),
     resolveConfigFromReadResult: () => resolved,
-    resolveProjectRoot: () => sampleConfigTestValue(CONFIG_TEST_GENERATOR.productDir()),
+    resolveProductDir: () => sampleConfigTestValue(CONFIG_TEST_GENERATOR.productDir()),
     descriptors: [specTreeConfigDescriptor],
   };
 }

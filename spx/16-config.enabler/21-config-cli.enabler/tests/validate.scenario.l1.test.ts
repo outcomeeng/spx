@@ -22,9 +22,9 @@ function makeDeps(
     resolveConfig: async () => {
       throw new Error(sampleConfigTestValue(CONFIG_TEST_GENERATOR.scalar()));
     },
-    readProjectConfigFile: async () => fileResult,
+    readProductConfigFile: async () => fileResult,
     resolveConfigFromReadResult: () => resolved,
-    resolveProjectRoot: () => productDir,
+    resolveProductDir: () => productDir,
     descriptors: [specTreeConfigDescriptor],
   };
 }
@@ -115,24 +115,24 @@ describe("validateCommand — rejection path", () => {
 
 describe("validateCommand — mapping contract", () => {
   it("resolves the product directory through deps before reading the config file", async () => {
-    let observedRoot: string | undefined;
+    let observedProductDir: string | undefined;
     const productDir = sampleConfigTestValue(CONFIG_TEST_GENERATOR.productDir());
     const deps: CliDeps = {
       resolveConfig: async () => {
         throw new Error(sampleConfigTestValue(CONFIG_TEST_GENERATOR.scalar()));
       },
-      readProjectConfigFile: async (root) => {
-        observedRoot = root;
+      readProductConfigFile: async (resolvedProductDir) => {
+        observedProductDir = resolvedProductDir;
         return sampleConfigTestValue(CONFIG_TEST_GENERATOR.absentConfigFileReadResult());
       },
       resolveConfigFromReadResult: () => ({ ok: true, value: defaultsConfig() }),
-      resolveProjectRoot: () => productDir,
+      resolveProductDir: () => productDir,
       descriptors: [specTreeConfigDescriptor],
     };
 
     await validateCommand({}, deps);
 
-    expect(observedRoot).toBe(productDir);
+    expect(observedProductDir).toBe(productDir);
   });
 
   it("validates the same config-file read result that supplies the success filename", async () => {
@@ -149,12 +149,12 @@ describe("validateCommand — mapping contract", () => {
       resolveConfig: async () => {
         throw new Error(sampleConfigTestValue(CONFIG_TEST_GENERATOR.scalar()));
       },
-      readProjectConfigFile: async () => fileResult,
+      readProductConfigFile: async () => fileResult,
       resolveConfigFromReadResult: (readResult, descriptors) => {
         observedReadResult = readResult;
         return resolveConfigFromReadResult(readResult, descriptors);
       },
-      resolveProjectRoot: () => productDir,
+      resolveProductDir: () => productDir,
       descriptors: [specTreeConfigDescriptor],
     };
 

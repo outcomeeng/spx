@@ -1,4 +1,4 @@
-import { detectGitRoot, type GitDependencies } from "@/git/root";
+import { detectWorktreeProductRoot, type GitDependencies } from "@/git/root";
 import { SPEC_TREE_CONFIG } from "@/lib/spec-tree/config";
 
 export const SPEC_PRODUCT_DIR_WARNING = {
@@ -13,10 +13,10 @@ export async function resolveSpecProductDir(
   gitDependencies?: GitDependencies,
   onWarning?: SpecProductDirWarningHandler,
 ): Promise<string> {
-  const result = await detectGitRoot(cwd, gitDependencies);
+  const result = await detectWorktreeProductRoot(cwd, gitDependencies);
   if (!result.isGitRepo) {
     // Spec commands read tracked spx/ files, so the fallback warning names that domain.
     onWarning?.(SPEC_PRODUCT_DIR_WARNING.NOT_GIT_REPOSITORY);
   }
-  return result.root;
+  return result.productDir;
 }

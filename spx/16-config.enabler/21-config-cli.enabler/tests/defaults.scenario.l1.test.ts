@@ -18,13 +18,13 @@ function makeDeps(descriptors: readonly ConfigDescriptor<unknown>[]): CliDeps {
     resolveConfig: async () => {
       throw new Error("defaultsCommand must not call resolveConfig");
     },
-    readProjectConfigFile: async () => {
-      throw new Error("defaultsCommand must not call readProjectConfigFile");
+    readProductConfigFile: async () => {
+      throw new Error("defaultsCommand must not call readProductConfigFile");
     },
     resolveConfigFromReadResult: () => {
       throw new Error("defaultsCommand must not call resolveConfigFromReadResult");
     },
-    resolveProjectRoot: () => sampleConfigTestValue(CONFIG_TEST_GENERATOR.productDir()),
+    resolveProductDir: () => sampleConfigTestValue(CONFIG_TEST_GENERATOR.productDir()),
     descriptors,
   };
 }
@@ -55,7 +55,7 @@ describe("defaultsCommand — default-format output", () => {
     expect(parsed[generated.section]).toEqual(generated.defaults);
   });
 
-  it("does not call resolveConfig — output is independent of any project config file present at the root", async () => {
+  it("does not call resolveConfig — output is independent of any product config file present at the product directory", async () => {
     const deps = makeDeps([specTreeConfigDescriptor]);
 
     const result = await defaultsCommand({}, deps);

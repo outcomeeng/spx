@@ -113,7 +113,7 @@ After Step 2 establishes the test contract:
 
 1. **`src/validation/literal/index.ts`**
    - Add `pathConfig?: ValidationPathConfig` to `ValidateLiteralReuseInput`
-   - Replace `resolveScope(...)` with `runPipeline([artifactDirectoryLayer, hiddenPrefixLayer], projectRoot, request, DEFAULT_SCOPE_CONFIG, EMPTY_IGNORE_READER)` — `EMPTY_IGNORE_READER` constructed against a guaranteed-absent file
+   - Replace `resolveScope(...)` with `runPipeline([artifactDirectoryLayer, hiddenPrefixLayer], productDir, request, DEFAULT_SCOPE_CONFIG, EMPTY_IGNORE_READER)` — `EMPTY_IGNORE_READER` constructed against a guaranteed-absent file
    - After `scope.included`, apply `pathConfig` filtering: prefix-match `include` (keep) and `exclude` (drop), POSIX-normalized, prefix ends with `/` to avoid partial-directory matches
    - Remove unused `resolveScope` import
 2. **`src/validation/literal/allowlist-existing.ts`**

@@ -8,7 +8,7 @@ CAN refer to tracked product files through `productDir` and gitignored state thr
 
 ### Compliance
 
-- ALWAYS: config APIs, test harnesses, and descriptor tests name the tracked product root `productDir` ([review])
-- ALWAYS: root-directory APIs expose `productDir` rather than `projectRoot` or `projectDir` ([review])
-- ALWAYS: root-resolution helper names distinguish tracked product roots, local worktree roots, and Git common-dir product roots without main-repo vocabulary ([review])
-- NEVER: add compatibility aliases for non-product root-directory names ([review])
+- ALWAYS: config APIs, test harnesses, and descriptor tests name the tracked product root `productDir` ([test](tests/product-directory-api.compliance.l1.test.ts), [review])
+- ALWAYS: root-directory APIs expose `productDir` rather than `projectRoot` or `projectDir` ([test](tests/product-directory-api.compliance.l1.test.ts), [review])
+- ALWAYS: root-resolution helper names distinguish tracked product roots, local worktree roots, and Git common-dir product roots without main-repo vocabulary ([test](tests/product-directory-api.compliance.l1.test.ts), [review])
+- NEVER: add compatibility aliases for non-product root-directory names ([test](tests/product-directory-api.compliance.l1.test.ts), [review])

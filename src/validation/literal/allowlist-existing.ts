@@ -8,7 +8,7 @@ import {
   DEFAULT_CONFIG_FILE_FORMAT,
   formatConfigFileAmbiguityError,
   parseConfigFileSections,
-  readProjectConfigFile,
+  readProductConfigFile,
   serializeConfigFileSectionsWithSetIn,
 } from "@/config/index";
 import type { Result } from "@/config/types";
@@ -22,7 +22,7 @@ import { type LiteralConfig, literalConfigDescriptor } from "./config";
 import { validateLiteralReuse } from "./index";
 
 export interface ConfigReader {
-  read(projectRoot: string): Promise<Result<ConfigFileReadResult>>;
+  read(productDir: string): Promise<Result<ConfigFileReadResult>>;
 }
 
 export interface ConfigWriter {
@@ -30,7 +30,7 @@ export interface ConfigWriter {
 }
 
 export interface AllowlistExistingOptions {
-  readonly projectRoot: string;
+  readonly productDir: string;
   readonly reader?: ConfigReader;
   readonly writer?: ConfigWriter;
 }
@@ -58,7 +58,7 @@ const RANDOM_PREFIX_SLICE = 2;
 const RANDOM_TOKEN_LENGTH = 10;
 
 export const productionReader: ConfigReader = {
-  read: readProjectConfigFile,
+  read: readProductConfigFile,
 };
 
 export const productionWriter: ConfigWriter = {
@@ -79,7 +79,7 @@ export async function allowlistExisting(
   const reader = options.reader ?? productionReader;
   const writer = options.writer ?? productionWriter;
 
-  const readResult = await reader.read(options.projectRoot);
+  const readResult = await reader.read(options.productDir);
   if (!readResult.ok) {
     return { exitCode: EXIT_ERROR, output: readResult.error };
   }
@@ -95,7 +95,7 @@ export async function allowlistExisting(
   }
 
   const detection = await validateLiteralReuse({
-    projectRoot: options.projectRoot,
+    productDir: options.productDir,
     config: currentLiteralConfig.value,
   });
 
@@ -107,7 +107,7 @@ export async function allowlistExisting(
 
   const target: ConfigFile = configRead.kind === "ok"
     ? configRead.file
-    : configFileForFormat(options.projectRoot, DEFAULT_CONFIG_FILE_FORMAT);
+    : configFileForFormat(options.productDir, DEFAULT_CONFIG_FILE_FORMAT);
 
   const serialized = serializeWithUpdatedInclude(target, updatedInclude);
   if (!serialized.ok) {

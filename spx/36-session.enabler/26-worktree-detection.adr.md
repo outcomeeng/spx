@@ -12,14 +12,14 @@ This decision governs how the git root detection module implements the two root 
 
 ## Decision
 
-The git detection module exposes separate resolvers for tracked-file root resolution and gitignored-state root resolution. Session commands call the gitignored-state root resolver; spec-tree and validation commands call the tracked-file root resolver.
+The git detection module exposes separate product-directory resolvers for tracked-file resolution and gitignored-state resolution. Session commands call `detectGitCommonDirProductRoot`; spec-tree and validation commands call `detectWorktreeProductRoot`.
 
 ```
-tracked-file root resolver      → git rev-parse --show-toplevel   → local worktree root (for spx/)
-gitignored-state root resolver  → git rev-parse --git-common-dir  → Git common-dir product root (for .spx/)
+detectWorktreeProductRoot        → git rev-parse --show-toplevel   → local worktree root (for spx/)
+detectGitCommonDirProductRoot    → git rev-parse --git-common-dir  → Git common-dir product root (for .spx/)
 ```
 
-The gitignored-state root resolver:
+`detectGitCommonDirProductRoot`:
 
 1. Runs `git rev-parse --show-toplevel` to get the local worktree root
 2. Runs `git rev-parse --git-common-dir` to get the common `.git` directory path
@@ -32,7 +32,7 @@ In a non-worktree repository, `--git-common-dir` returns `.git` relative to the 
 
 ## Rationale
 
-Two resolver concepts map directly to the two rows in PDR-15's decision table. The tracked-file root resolver returns the local worktree root for tracked-file operations; the gitignored-state root resolver returns the Git common-dir product root for gitignored-state operations.
+Two resolver concepts map directly to the two rows in PDR-15's decision table. `detectWorktreeProductRoot` returns the local worktree root for tracked-file operations; `detectGitCommonDirProductRoot` returns the Git common-dir product root for gitignored-state operations.
 
 Resolving `--git-common-dir` against `--show-toplevel` handles both relative and absolute paths across git versions, avoiding dependence on `--path-format=absolute` (git 2.31+).
 
@@ -49,17 +49,17 @@ Resolving `--git-common-dir` against `--show-toplevel` handles both relative and
 
 ### Recognized by
 
-The gitignored-state root resolver calls `--git-common-dir` and derives the Git common-dir product root. Session commands call `resolveSessionConfig`, which delegates to the gitignored-state root resolver.
+`detectGitCommonDirProductRoot` calls `--git-common-dir` and derives the Git common-dir product root. Session commands call `resolveSessionConfig`, which delegates to `detectGitCommonDirProductRoot`.
 
 ### MUST
 
 - Use `--git-common-dir` to find the Git common-dir product root — `--show-toplevel` returns the local worktree root ([review])
 - Resolve `--git-common-dir` output against `--show-toplevel` when relative — handles all git versions ([review])
 - Reuse the existing `GitDependencies` injection interface — same testability pattern ([review])
-- Return the same `GitRootResult` type from both root resolvers — consistent API ([review])
+- Return the same `GitProductDirResult` type from both product-directory resolvers — consistent API ([review])
 
 ### NEVER
 
-- Modify the tracked-file root resolver to use `--git-common-dir` — breaks `spx/` operations per PDR-15 ([review])
+- Modify `detectWorktreeProductRoot` to use `--git-common-dir` — breaks `spx/` operations per PDR-15 ([review])
 - Check for `.git` file vs directory to detect worktrees — use git plumbing per PDR-15 ([review])
 - Let session commands use `DEFAULT_SESSION_CONFIG` with relative paths — breaks in worktrees ([review])

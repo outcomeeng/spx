@@ -8,19 +8,19 @@ export const VALIDATE_SUCCESS_TOKENS = {
   ABSENT_SUBJECT: "descriptor defaults",
 } as const;
 
-function buildPresentSuccessLine(filename: string, projectRoot: string): string {
-  return `${filename} at ${projectRoot} ${VALIDATE_SUCCESS_TOKENS.PASSES_SUFFIX}\n`;
+function buildPresentSuccessLine(filename: string, productDir: string): string {
+  return `${filename} at ${productDir} ${VALIDATE_SUCCESS_TOKENS.PASSES_SUFFIX}\n`;
 }
 
-function buildAbsentSuccessLine(projectRoot: string): string {
-  return `${VALIDATE_SUCCESS_TOKENS.ABSENT_PREFIX} at ${projectRoot}; `
+function buildAbsentSuccessLine(productDir: string): string {
+  return `${VALIDATE_SUCCESS_TOKENS.ABSENT_PREFIX} at ${productDir}; `
     + `${VALIDATE_SUCCESS_TOKENS.ABSENT_SUBJECT} ${VALIDATE_SUCCESS_TOKENS.PASSES_SUFFIX}\n`;
 }
 
 export async function validateCommand(_options: ValidateOptions, deps: CliDeps): Promise<CliResult> {
-  const projectRoot = deps.resolveProjectRoot();
+  const productDir = deps.resolveProductDir();
 
-  const fileResult = await deps.readProjectConfigFile(projectRoot);
+  const fileResult = await deps.readProductConfigFile(productDir);
   if (!fileResult.ok) {
     return {
       stdout: "",
@@ -40,8 +40,8 @@ export async function validateCommand(_options: ValidateOptions, deps: CliDeps):
 
   const file = fileResult.value;
   const stdout = file.kind === "ok"
-    ? buildPresentSuccessLine(file.file.filename, projectRoot)
-    : buildAbsentSuccessLine(projectRoot);
+    ? buildPresentSuccessLine(file.file.filename, productDir)
+    : buildAbsentSuccessLine(productDir);
 
   return { stdout, stderr: "", exitCode: 0 };
 }

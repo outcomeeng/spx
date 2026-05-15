@@ -3,11 +3,11 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 
+import { resolveProductDir } from "@/domains/config/root";
 import { CONFIG_TEST_GENERATOR, sampleConfigTestValue } from "@testing/generators/config/descriptors";
-import { resolveProjectRoot } from "@/domains/config/root";
 import { GIT_TEST_FLAGS, GIT_TEST_SUBCOMMANDS, runGit } from "@testing/harnesses/git-test-constants";
 
-describe("resolveProjectRoot — inside a git worktree", () => {
+describe("resolveProductDir — inside a git worktree", () => {
   let repo: string;
 
   beforeEach(async () => {
@@ -19,11 +19,11 @@ describe("resolveProjectRoot — inside a git worktree", () => {
     await rm(repo, { recursive: true, force: true });
   });
 
-  it("returns the worktree root when invoked from the repo root", async () => {
-    const resolved = resolveProjectRoot(repo);
+  it("returns the worktree root when invoked from the product directory", async () => {
+    const resolved = resolveProductDir(repo);
     const expectedRoot = await realpath(repo);
 
-    expect(await realpath(resolved.projectRoot)).toBe(expectedRoot);
+    expect(await realpath(resolved.productDir)).toBe(expectedRoot);
     expect(resolved.warning).toBeUndefined();
   });
 
@@ -31,15 +31,15 @@ describe("resolveProjectRoot — inside a git worktree", () => {
     const sub = join(repo, "nested", "deep");
     await mkdir(sub, { recursive: true });
 
-    const resolved = resolveProjectRoot(sub);
+    const resolved = resolveProductDir(sub);
     const expectedRoot = await realpath(repo);
 
-    expect(await realpath(resolved.projectRoot)).toBe(expectedRoot);
+    expect(await realpath(resolved.productDir)).toBe(expectedRoot);
     expect(resolved.warning).toBeUndefined();
   });
 });
 
-describe("resolveProjectRoot — outside a git worktree", () => {
+describe("resolveProductDir — outside a git worktree", () => {
   let nonRepo: string;
 
   beforeEach(async () => {
@@ -51,14 +51,14 @@ describe("resolveProjectRoot — outside a git worktree", () => {
   });
 
   it("falls back to the supplied cwd when git rev-parse finds no worktree", async () => {
-    const resolved = resolveProjectRoot(nonRepo);
+    const resolved = resolveProductDir(nonRepo);
     const expectedRoot = await realpath(nonRepo);
 
-    expect(await realpath(resolved.projectRoot)).toBe(expectedRoot);
+    expect(await realpath(resolved.productDir)).toBe(expectedRoot);
   });
 
   it("emits a warning describing the fallback", () => {
-    const resolved = resolveProjectRoot(nonRepo);
+    const resolved = resolveProductDir(nonRepo);
 
     expect(resolved.warning).toBeDefined();
     expect(resolved.warning?.length ?? 0).toBeGreaterThan(0);

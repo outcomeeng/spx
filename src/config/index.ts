@@ -63,10 +63,10 @@ export type ConfigFileReadResult =
 const JSON_INDENT = 2;
 
 export async function resolveConfig(
-  projectRoot: string,
+  productDir: string,
   descriptors: readonly ConfigDescriptor<unknown>[] = productionRegistry,
 ): Promise<Result<Config>> {
-  const detectedResult = await readProjectConfigFile(projectRoot);
+  const detectedResult = await readProductConfigFile(productDir);
   if (!detectedResult.ok) return detectedResult;
 
   return resolveConfigFromReadResult(detectedResult.value, descriptors);
@@ -105,11 +105,11 @@ export function resolveConfigFromReadResult(
   return { ok: true, value: resolved };
 }
 
-export async function readProjectConfigFile(projectRoot: string): Promise<Result<ConfigFileReadResult>> {
+export async function readProductConfigFile(productDir: string): Promise<Result<ConfigFileReadResult>> {
   const detected: ConfigFile[] = [];
   for (const format of CONFIG_FILE_FORMAT_ORDER) {
     const filename = CONFIG_FILE_DEFINITIONS[format].filename;
-    const path = join(projectRoot, filename);
+    const path = join(productDir, filename);
     let raw: string;
     try {
       raw = await readFile(path, "utf8");
@@ -133,7 +133,7 @@ export async function readProjectConfigFile(projectRoot: string): Promise<Result
 }
 
 export function configFileForFormat(
-  projectRoot: string,
+  productDir: string,
   format: ConfigFileFormat = DEFAULT_CONFIG_FILE_FORMAT,
   raw = "",
 ): ConfigFile {
@@ -141,7 +141,7 @@ export function configFileForFormat(
   return {
     filename,
     format,
-    path: join(projectRoot, filename),
+    path: join(productDir, filename),
     raw,
   };
 }

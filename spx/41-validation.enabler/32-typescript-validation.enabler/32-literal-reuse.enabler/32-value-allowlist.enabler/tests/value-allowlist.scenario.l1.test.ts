@@ -24,7 +24,7 @@ describe("value-allowlist — scenarios", () => {
       await env.writeTestFile("tests/test-b.test.ts", reportedLiteral);
 
       const config = { ...LITERAL_DEFAULTS, allowlist: { include: [allowedLiteral] } };
-      const result = await validateLiteralReuse({ projectRoot: env.productDir, config });
+      const result = await validateLiteralReuse({ productDir: env.productDir, config });
 
       expect(result.findings.srcReuse.some((f) => f.value === allowedLiteral)).toBe(false);
       expect(result.findings.srcReuse.some((f) => f.value === reportedLiteral)).toBe(true);
@@ -42,7 +42,7 @@ describe("value-allowlist — scenarios", () => {
         allowlist: { presets: [PRESET_NAMES.WEB] },
         minStringLength: 0,
       });
-      const result = await validateLiteralReuse({ projectRoot: env.productDir, config });
+      const result = await validateLiteralReuse({ productDir: env.productDir, config });
 
       expect(result.findings.srcReuse.some((f) => f.value === webToken)).toBe(false);
     });
@@ -59,7 +59,7 @@ describe("value-allowlist — scenarios", () => {
         allowlist: { presets: [PRESET_NAMES.WEB], exclude: [webToken] },
         minStringLength: 0,
       });
-      const result = await validateLiteralReuse({ projectRoot: env.productDir, config });
+      const result = await validateLiteralReuse({ productDir: env.productDir, config });
 
       expect(result.findings.srcReuse.some((f) => f.value === webToken)).toBe(true);
     });
@@ -72,7 +72,7 @@ describe("value-allowlist — scenarios", () => {
       await env.writeSourceFile("src/source.ts", literal);
       await env.writeTestFile("tests/test.test.ts", literal);
 
-      const result = await validateLiteralReuse({ projectRoot: env.productDir });
+      const result = await validateLiteralReuse({ productDir: env.productDir });
 
       expect(result.findings.srcReuse.some((f) => f.value === literal)).toBe(true);
     });

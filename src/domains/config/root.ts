@@ -4,12 +4,12 @@ import { resolve } from "node:path";
 const GIT_TOPLEVEL_CMD = "git rev-parse --show-toplevel";
 const GIT_NOT_REPO_MARKER = "not a git repository";
 
-export type ResolvedProjectRoot = {
-  readonly projectRoot: string;
+export type ResolvedProductDir = {
+  readonly productDir: string;
   readonly warning?: string;
 };
 
-export function resolveProjectRoot(cwd: string = process.cwd()): ResolvedProjectRoot {
+export function resolveProductDir(cwd: string = process.cwd()): ResolvedProductDir {
   const resolvedCwd = resolve(cwd);
   try {
     const stdout = execSync(GIT_TOPLEVEL_CMD, {
@@ -19,14 +19,14 @@ export function resolveProjectRoot(cwd: string = process.cwd()): ResolvedProject
     });
     const toplevel = stdout.trim();
     if (toplevel.length > 0) {
-      return { projectRoot: resolve(toplevel) };
+      return { productDir: resolve(toplevel) };
     }
   } catch {
     // fall through to cwd fallback
   }
 
   return {
-    projectRoot: resolvedCwd,
+    productDir: resolvedCwd,
     warning:
       `warning: ${resolvedCwd} is not inside a git worktree — falling back to the current working directory. ${GIT_NOT_REPO_MARKER}.`,
   };
