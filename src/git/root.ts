@@ -1,12 +1,3 @@
-/**
- * Git product-directory detection utilities.
- *
- * Provides product-directory detection with dependency injection for testability.
- * Sessions should be created at the Git common-dir product root, not relative to cwd.
- *
- * @module git/root
- */
-
 import { execa } from "execa";
 import { dirname, isAbsolute, join, resolve } from "node:path";
 
@@ -14,9 +5,7 @@ import { SessionDirectoryConfig } from "@/domains/session/show";
 import { DEFAULT_CONFIG } from "../config/defaults";
 import { withoutGitEnvironment } from "./environment";
 
-/**
- * Result from product-directory detection.
- */
+// Result from product-directory detection.
 export interface GitProductDirResult {
   /** Absolute path to product directory (or cwd if not in git repo) */
   productDir: string;
@@ -26,10 +15,7 @@ export interface GitProductDirResult {
   warning?: string;
 }
 
-/**
- * Minimal result type for command execution.
- * Captures only the fields product-directory detection depends on.
- */
+// Minimal command result shape used by product-directory detection.
 export interface ExecResult {
   /** Process exit code */
   exitCode: number;
@@ -39,18 +25,9 @@ export interface ExecResult {
   stderr: string;
 }
 
-/**
- * Dependencies for git operations (injectable for testing).
- */
+// Dependencies for git operations.
 export interface GitDependencies {
-  /**
-   * Execute a command.
-   *
-   * @param command - Command to execute
-   * @param args - Command arguments
-   * @param options - Execution options
-   * @returns Promise resolving to command result
-   */
+  // Execute a command.
   execa: (
     command: string,
     args: string[],
@@ -58,9 +35,7 @@ export interface GitDependencies {
   ) => Promise<ExecResult>;
 }
 
-/**
- * Default dependencies using real execa.
- */
+// Default dependencies using real execa.
 const defaultDeps: GitDependencies = {
   execa: async (command, args, options) => {
     const result = await execa(command, args, {
@@ -96,27 +71,7 @@ export const GIT_COMMON_DIR_ARGS = [
   GIT_ROOT_COMMAND.GIT_COMMON_DIR,
 ] as const;
 
-/**
- * Detects the local worktree product directory.
- *
- * Uses `git rev-parse --show-toplevel` to find the tracked-file product directory.
- * If not in a git repository, returns the current working directory with a warning.
- *
- * @param cwd - Current working directory (defaults to process.cwd())
- * @param deps - Injectable dependencies for testing
- * @returns GitProductDirResult with productDir path, git status, and optional warning
- *
- * @example
- * ```typescript
- * // In a git repo subdirectory
- * const result = await detectWorktreeProductRoot('/repo/src/components');
- * // => { productDir: '/repo', isGitRepo: true }
- *
- * // Not in a git repo
- * const result = await detectWorktreeProductRoot('/tmp/random');
- * // => { productDir: '/tmp/random', isGitRepo: false, warning: '...' }
- * ```
- */
+// Detects the local worktree product directory.
 export async function detectWorktreeProductRoot(
   cwd: string = process.cwd(),
   deps: GitDependencies = defaultDeps,
@@ -152,29 +107,14 @@ export async function detectWorktreeProductRoot(
   }
 }
 
-/**
- * Extracts a trimmed string from execa stdout, handling all possible output types.
- */
+// Extracts a trimmed string from execa stdout.
 function extractStdout(stdout: unknown): string {
   if (!stdout) return "";
   const str = typeof stdout === "string" ? stdout : String(stdout);
   return str.trim().replace(/\/+$/, "");
 }
 
-/**
- * Detects the Git common-dir product root, resolving through git worktrees.
- *
- * Uses `git rev-parse --git-common-dir` to find the shared `.git` directory,
- * then returns its parent as the Git common-dir product root. In a non-worktree
- * repository, this returns the same path as `detectWorktreeProductRoot`.
- *
- * This function supports `.spx/` operations where state must be shared across
- * all worktrees.
- *
- * @param cwd - Current working directory (defaults to process.cwd())
- * @param deps - Injectable dependencies for testing
- * @returns GitProductDirResult with Git common-dir product root path
- */
+// Detects the Git common-dir product root, resolving through git worktrees.
 export async function detectGitCommonDirProductRoot(
   cwd: string = process.cwd(),
   deps: GitDependencies = defaultDeps,
@@ -236,9 +176,7 @@ export async function detectGitCommonDirProductRoot(
   }
 }
 
-/**
- * Options for resolving session directory configuration.
- */
+// Options for resolving session directory configuration.
 export interface ResolveSessionConfigOptions {
   /** Explicit sessions directory (overrides auto-detection) */
   sessionsDir?: string;
@@ -248,9 +186,7 @@ export interface ResolveSessionConfigOptions {
   deps?: GitDependencies;
 }
 
-/**
- * Result of session config resolution.
- */
+// Result of session config resolution.
 export interface ResolveSessionConfigResult {
   /** Resolved session directory configuration with absolute paths */
   config: SessionDirectoryConfig;
@@ -258,19 +194,7 @@ export interface ResolveSessionConfigResult {
   warning?: string;
 }
 
-/**
- * Resolves session directory configuration with worktree-aware root detection.
- *
- * If `sessionsDir` is provided, uses it directly. Otherwise, detects the Git
- * common-dir product root via `detectGitCommonDirProductRoot` and builds absolute paths from
- * `DEFAULT_CONFIG`.
- *
- * Session operations resolve against the Git common-dir product root so that
- * `.spx/sessions/` is shared across all worktrees.
- *
- * @param options - Resolution options
- * @returns Resolved config with absolute paths and optional warning
- */
+// Resolves session directory configuration with worktree-aware root detection.
 export async function resolveSessionConfig(
   options: ResolveSessionConfigOptions = {},
 ): Promise<ResolveSessionConfigResult> {
@@ -302,27 +226,7 @@ export async function resolveSessionConfig(
   };
 }
 
-/**
- * Builds an absolute session file path from product directory and session ID.
- *
- * Pure function that constructs the path without I/O.
- * All path components come from the config parameter (single source of truth).
- *
- * @param productDir - Absolute path to product directory
- * @param sessionId - Session timestamp ID (e.g., "2026-01-13_08-01-05")
- * @param config - Session directory configuration
- * @returns Absolute path to session file in todo directory
- *
- * @example
- * ```typescript
- * const path = buildSessionPathFromProductDir(
- *   '/Users/dev/myproject',
- *   '2026-01-13_08-01-05',
- *   DEFAULT_SESSION_CONFIG,
- * );
- * // => '/Users/dev/myproject/.spx/sessions/todo/2026-01-13_08-01-05.md'
- * ```
- */
+// Builds an absolute session file path from product directory and session ID.
 export function buildSessionPathFromProductDir(
   productDir: string,
   sessionId: string,
