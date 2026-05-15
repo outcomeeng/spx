@@ -264,7 +264,8 @@ function arbitraryTestingConfig(): fc.Arbitrary<GeneratedTestingConfig> {
 }
 
 function arbitraryAgentEnvironmentConfig(): fc.Arbitrary<GeneratedAgentEnvironmentConfig> {
-  // Runtime enabled values intentionally differ to cover the non-default false branch alongside a true branch.
+  // Structural shape is fixed here; generated values vary names and scalar fields while explicit tests cover
+  // optional and partial shapes. Runtime enabled values intentionally differ to cover the non-default false branch.
   return fc
     .record({
       marketplaceName: arbitraryConfigKey(),

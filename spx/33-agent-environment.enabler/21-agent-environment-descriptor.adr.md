@@ -36,6 +36,7 @@ Alternatives considered:
 | Unknown fields fail early                          | Early rejection protects operators from silent typos in a shared section consumed by multiple packets              |
 | Plugin bootstrap entries are structural            | E3 owns installed, missing, stale, failed, dry-run, and offline behavior; E0 only validates configured intent      |
 | Empty instruction file lists are allowed           | Omitted `instructions.files` keeps the default `AGENTS.md`; an explicit empty list disables instruction files      |
+| Instruction targets may include disabled runtimes  | Runtime enablement controls downstream participation; descriptor validation only requires registered runtime ids   |
 
 ## Invariants
 

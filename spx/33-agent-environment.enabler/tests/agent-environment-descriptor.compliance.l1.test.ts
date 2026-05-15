@@ -118,6 +118,34 @@ describe("agent environment config descriptor", () => {
     });
   });
 
+  it("allows instruction targets to reference disabled runtimes", async () => {
+    const productConfig: Config = {
+      [AGENT_ENVIRONMENT_SECTION]: {
+        [AGENT_ENVIRONMENT_CONFIG_FIELDS.INSTRUCTIONS]: {
+          [AGENT_ENVIRONMENT_CONFIG_FIELDS.FILES]: [
+            {
+              [AGENT_ENVIRONMENT_CONFIG_FIELDS.PATH]: DEFAULT_AGENT_INSTRUCTION_FILE_PATH,
+              [AGENT_ENVIRONMENT_CONFIG_FIELDS.TARGET_RUNTIMES]: [AGENT_RUNTIME.CODEX],
+            },
+          ],
+        },
+        [AGENT_ENVIRONMENT_CONFIG_FIELDS.RUNTIMES]: {
+          [AGENT_RUNTIME.CODEX]: {
+            [AGENT_ENVIRONMENT_CONFIG_FIELDS.ENABLED]: false,
+          },
+        },
+      },
+    };
+
+    await withTestEnv(productConfig, async ({ productDir }) => {
+      const result = await resolveConfig(productDir, [agentEnvironmentConfigDescriptor]);
+      const config = expectResolvedConfig(result);
+      const agentEnvironment = assertAgentEnvironmentConfig(config[AGENT_ENVIRONMENT_SECTION]);
+
+      expect(agentEnvironment.instructions.files[0]?.targetRuntimes).toEqual([AGENT_RUNTIME.CODEX]);
+    });
+  });
+
   it("rejects malformed marketplace, plugin, and skill entries", async () => {
     const entryName = sampleConfigTestValue(CONFIG_TEST_GENERATOR.key());
     const malformedSections: readonly Config[] = [
@@ -164,6 +192,35 @@ describe("agent environment config descriptor", () => {
         expectRejectedConfig(result);
       });
     }
+  });
+
+  it("rejects duplicate marketplace names for the same runtime", async () => {
+    const marketplaceName = sampleConfigTestValue(CONFIG_TEST_GENERATOR.key());
+    const source = sampleConfigTestValue(CONFIG_TEST_GENERATOR.scalar());
+    const productConfig: Config = {
+      [AGENT_ENVIRONMENT_SECTION]: {
+        [AGENT_ENVIRONMENT_CONFIG_FIELDS.PLUGIN_BOOTSTRAP]: {
+          [AGENT_ENVIRONMENT_CONFIG_FIELDS.MARKETPLACES]: [
+            {
+              [AGENT_ENVIRONMENT_CONFIG_FIELDS.RUNTIME]: AGENT_RUNTIME.CLAUDE_CODE,
+              [AGENT_ENVIRONMENT_CONFIG_FIELDS.NAME]: marketplaceName,
+              [AGENT_ENVIRONMENT_CONFIG_FIELDS.SOURCE]: source,
+            },
+            {
+              [AGENT_ENVIRONMENT_CONFIG_FIELDS.RUNTIME]: AGENT_RUNTIME.CLAUDE_CODE,
+              [AGENT_ENVIRONMENT_CONFIG_FIELDS.NAME]: marketplaceName,
+              [AGENT_ENVIRONMENT_CONFIG_FIELDS.SOURCE]: source,
+            },
+          ],
+        },
+      },
+    };
+
+    await withTestEnv(productConfig, async ({ productDir }) => {
+      const result = await resolveConfig(productDir, [agentEnvironmentConfigDescriptor]);
+
+      expectRejectedConfig(result);
+    });
   });
 
   it("rejects plugin marketplace references that are not configured for the same runtime", async () => {
@@ -244,6 +301,79 @@ describe("agent environment config descriptor", () => {
       const result = await resolveConfig(productDir, [agentEnvironmentConfigDescriptor]);
 
       expect(result.ok).toBe(true);
+    });
+  });
+
+  it("accepts minimal and optional bootstrap entry shapes", async () => {
+    const pluginName = sampleConfigTestValue(CONFIG_TEST_GENERATOR.key());
+    const skillName = sampleConfigTestValue(CONFIG_TEST_GENERATOR.key());
+    const skillVersion = sampleConfigTestValue(CONFIG_TEST_GENERATOR.scalar());
+    const productConfig: Config = {
+      [AGENT_ENVIRONMENT_SECTION]: {
+        [AGENT_ENVIRONMENT_CONFIG_FIELDS.PLUGIN_BOOTSTRAP]: {
+          [AGENT_ENVIRONMENT_CONFIG_FIELDS.PLUGINS]: [
+            {
+              [AGENT_ENVIRONMENT_CONFIG_FIELDS.RUNTIME]: AGENT_RUNTIME.CODEX,
+              [AGENT_ENVIRONMENT_CONFIG_FIELDS.NAME]: pluginName,
+            },
+          ],
+          [AGENT_ENVIRONMENT_CONFIG_FIELDS.SKILLS]: [
+            {
+              [AGENT_ENVIRONMENT_CONFIG_FIELDS.RUNTIME]: AGENT_RUNTIME.CLAUDE_CODE,
+              [AGENT_ENVIRONMENT_CONFIG_FIELDS.NAME]: skillName,
+              [AGENT_ENVIRONMENT_CONFIG_FIELDS.VERSION]: skillVersion,
+            },
+            {
+              [AGENT_ENVIRONMENT_CONFIG_FIELDS.RUNTIME]: AGENT_RUNTIME.CODEX,
+              [AGENT_ENVIRONMENT_CONFIG_FIELDS.NAME]: skillName,
+            },
+          ],
+        },
+      },
+    };
+
+    await withTestEnv(productConfig, async ({ productDir }) => {
+      const result = await resolveConfig(productDir, [agentEnvironmentConfigDescriptor]);
+
+      expect(result.ok).toBe(true);
+    });
+  });
+
+  it("accepts multiple instruction files with different runtime target subsets", async () => {
+    const firstPath = sampleConfigTestValue(CONFIG_TEST_GENERATOR.key());
+    const secondPath = sampleConfigTestValue(CONFIG_TEST_GENERATOR.key());
+    const productConfig: Config = {
+      [AGENT_ENVIRONMENT_SECTION]: {
+        [AGENT_ENVIRONMENT_CONFIG_FIELDS.INSTRUCTIONS]: {
+          [AGENT_ENVIRONMENT_CONFIG_FIELDS.FILES]: [
+            {
+              [AGENT_ENVIRONMENT_CONFIG_FIELDS.PATH]: firstPath,
+              [AGENT_ENVIRONMENT_CONFIG_FIELDS.TARGET_RUNTIMES]: [AGENT_RUNTIME.CODEX],
+            },
+            {
+              [AGENT_ENVIRONMENT_CONFIG_FIELDS.PATH]: secondPath,
+              [AGENT_ENVIRONMENT_CONFIG_FIELDS.TARGET_RUNTIMES]: [AGENT_RUNTIME.CLAUDE_CODE],
+            },
+          ],
+        },
+      },
+    };
+
+    await withTestEnv(productConfig, async ({ productDir }) => {
+      const result = await resolveConfig(productDir, [agentEnvironmentConfigDescriptor]);
+      const config = expectResolvedConfig(result);
+      const agentEnvironment = assertAgentEnvironmentConfig(config[AGENT_ENVIRONMENT_SECTION]);
+
+      expect(agentEnvironment.instructions.files).toEqual([
+        {
+          path: firstPath,
+          targetRuntimes: [AGENT_RUNTIME.CODEX],
+        },
+        {
+          path: secondPath,
+          targetRuntimes: [AGENT_RUNTIME.CLAUDE_CODE],
+        },
+      ]);
     });
   });
 

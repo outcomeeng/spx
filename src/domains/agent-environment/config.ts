@@ -306,6 +306,12 @@ function validatePluginBootstrap(raw: unknown): Result<AgentEnvironmentConfig["p
   );
   if (!marketplaces.ok) return marketplaces;
 
+  const marketplaceUniqueness = validateMarketplaceUniqueness(
+    `${sectionPath}.${AGENT_ENVIRONMENT_CONFIG_FIELDS.MARKETPLACES}`,
+    marketplaces.value,
+  );
+  if (!marketplaceUniqueness.ok) return marketplaceUniqueness;
+
   const plugins = validateEntryArray(
     `${sectionPath}.${AGENT_ENVIRONMENT_CONFIG_FIELDS.PLUGINS}`,
     raw[AGENT_ENVIRONMENT_CONFIG_FIELDS.PLUGINS],
@@ -355,6 +361,25 @@ function validateEntryArray<T>(
     entries.push(result.value);
   }
   return { ok: true, value: entries };
+}
+
+function validateMarketplaceUniqueness(
+  path: string,
+  marketplaces: readonly AgentMarketplaceConfig[],
+): Result<undefined> {
+  const marketplacesByRuntime = new Map<AgentRuntime, Set<string>>();
+  for (const [index, marketplace] of marketplaces.entries()) {
+    const runtimeMarketplaces = marketplacesByRuntime.get(marketplace.runtime) ?? new Set<string>();
+    if (runtimeMarketplaces.has(marketplace.name)) {
+      return {
+        ok: false,
+        error: `${path}.${index}.${AGENT_ENVIRONMENT_CONFIG_FIELDS.NAME} must be unique for the same runtime`,
+      };
+    }
+    runtimeMarketplaces.add(marketplace.name);
+    marketplacesByRuntime.set(marketplace.runtime, runtimeMarketplaces);
+  }
+  return { ok: true, value: undefined };
 }
 
 function validatePluginMarketplaceReferences(
