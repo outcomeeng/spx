@@ -55,7 +55,7 @@ describe("defaultsCommand — default-format output", () => {
     expect(parsed[generated.section]).toEqual(generated.defaults);
   });
 
-  it("does not call resolveConfig — output is independent of any product config file present at the root", async () => {
+  it("does not call resolveConfig — output is independent of any product config file present at the product directory", async () => {
     const deps = makeDeps([specTreeConfigDescriptor]);
 
     const result = await defaultsCommand({}, deps);

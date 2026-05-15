@@ -14,11 +14,10 @@ import { withTestEnv } from "@testing/harnesses/spec-tree/spec-tree";
 function createGitDeps(worktreeProductDir: string, gitCommonDirProductDir?: string): GitDependencies {
   return {
     execa: async (_command, args) => {
-      const commandArgs = args.join(" ");
-      if (commandArgs.includes(GIT_ROOT_COMMAND.SHOW_TOPLEVEL)) {
+      if (args.includes(GIT_ROOT_COMMAND.SHOW_TOPLEVEL)) {
         return { exitCode: 0, stdout: worktreeProductDir, stderr: "" };
       }
-      if (commandArgs.includes(GIT_ROOT_COMMAND.GIT_COMMON_DIR) && gitCommonDirProductDir !== undefined) {
+      if (args.includes(GIT_ROOT_COMMAND.GIT_COMMON_DIR) && gitCommonDirProductDir !== undefined) {
         const commonDirName = sampleConfigTestValue(CONFIG_TEST_GENERATOR.key());
         return { exitCode: 0, stdout: join(gitCommonDirProductDir, commonDirName), stderr: "" };
       }
@@ -34,7 +33,6 @@ describe("product directory API result shape", () => {
       const legacyFields = { projectRoot: productDir, projectDir: productDir };
 
       expect(result.productDir).toBe(productDir);
-      // Object keys are the legacy field names; values keep the object shaped like the result.
       for (const legacyField of Object.keys(legacyFields)) {
         expect(legacyField in result).toBe(false);
       }
@@ -56,7 +54,6 @@ describe("product directory API result shape", () => {
 
     expect(worktreeResult.productDir).toBe(worktreeProductDir);
     expect(gitCommonDirResult.productDir).toBe(gitCommonDirProductDir);
-    // Object keys are the legacy field names; values keep the object shaped like the result.
     for (const legacyField of Object.keys(legacyFields)) {
       expect(legacyField in worktreeResult).toBe(false);
       expect(legacyField in gitCommonDirResult).toBe(false);

@@ -13,7 +13,7 @@ CAN inspect the resolved configuration, verify that the product `spx.config.*` f
 - Given any product directory, when `spx config show --json` runs, then stdout is a JSON document equivalent to the default-format output and the exit code is 0 ([test](tests/show.scenario.l1.test.ts))
 - Given a product directory whose `spx.config.*` passes every descriptor's validator, when `spx config validate` runs, then the exit code is 0 and stdout carries a success line naming the validated file ([test](tests/validate.scenario.l1.test.ts))
 - Given a product directory whose `spx.config.*` contains a section a descriptor rejects, when `spx config validate` runs, then the exit code is non-zero and stderr carries a descriptor-qualified error naming the offending section and the validator's message ([test](tests/validate.scenario.l1.test.ts))
-- Given any product directory, when `spx config defaults` runs, then stdout carries a default-format dump of each registered descriptor's `defaults` field, ignoring any `spx.config.*` present at the root, and the exit code is 0 ([test](tests/defaults.scenario.l1.test.ts))
+- Given any product directory, when `spx config defaults` runs, then stdout carries a default-format dump of each registered descriptor's `defaults` field, ignoring any `spx.config.*` present at the product directory, and the exit code is 0 ([test](tests/defaults.scenario.l1.test.ts))
 
 ### Mappings
 
