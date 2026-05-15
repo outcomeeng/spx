@@ -34,6 +34,7 @@ describe("product directory API result shape", () => {
     const legacyFields = { projectRoot: productDir, projectDir: productDir };
 
     expect(result.productDir).toBe(productDir);
+    // Object keys are the legacy field names; values keep the object shaped like the result.
     for (const legacyField of Object.keys(legacyFields)) {
       expect(legacyField in result).toBe(false);
     }
@@ -54,6 +55,7 @@ describe("product directory API result shape", () => {
 
     expect(worktreeResult.productDir).toBe(worktreeProductDir);
     expect(gitCommonDirResult.productDir).toBe(gitCommonDirProductDir);
+    // Object keys are the legacy field names; values keep the object shaped like the result.
     for (const legacyField of Object.keys(legacyFields)) {
       expect(legacyField in worktreeResult).toBe(false);
       expect(legacyField in gitCommonDirResult).toBe(false);
