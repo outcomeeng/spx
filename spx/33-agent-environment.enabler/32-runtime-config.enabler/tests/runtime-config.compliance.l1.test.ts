@@ -2,15 +2,12 @@ import { readFile as readNodeFile } from "node:fs/promises";
 
 import { describe, expect, it } from "vitest";
 
-import {
-  AGENT_RUNTIME,
-  type AgentEnvironmentConfig,
-  agentEnvironmentConfigDescriptor,
-} from "@/domains/agent-environment/config";
+import { AGENT_RUNTIME } from "@/domains/agent-environment/config";
 import {
   CLAUDE_CODE_RUNTIME_CONFIG_RELATIVE_PATH,
   CODEX_RUNTIME_CONFIG_RELATIVE_PATH,
   HERMETIC_RUNTIME_CONFIG_DIRECTORY,
+  planRuntimeConfigReconciliation,
   reconcileRuntimeConfig,
   RUNTIME_CONFIG_ACTION,
   RUNTIME_CONFIG_FORMAT,
@@ -20,31 +17,12 @@ import {
   runtimeConfigPath,
 } from "@/domains/agent-environment/runtime-config";
 import { CONFIG_TEST_GENERATOR, sampleConfigTestValue } from "@testing/generators/config/descriptors";
+import {
+  enabledAgentEnvironment,
+  readManagedRuntimeConfigState,
+} from "@testing/harnesses/agent-environment/runtime-config";
 import { withTestEnv } from "@testing/harnesses/spec-tree/spec-tree";
 import { parse as parseToml } from "smol-toml";
-
-function enabledAgentEnvironment(): AgentEnvironmentConfig {
-  return {
-    ...agentEnvironmentConfigDescriptor.defaults,
-    runtimes: {
-      [AGENT_RUNTIME.CODEX]: { enabled: true },
-      [AGENT_RUNTIME.CLAUDE_CODE]: { enabled: true },
-    },
-  };
-}
-
-function readRecord(value: unknown): Record<string, unknown> {
-  expect(value).not.toBeNull();
-  expect(value).toEqual(expect.any(Object));
-  expect(Array.isArray(value)).toBe(false);
-  return value as Record<string, unknown>;
-}
-
-function readManagedState(value: unknown): Record<string, unknown> {
-  const root = readRecord(value);
-  const spx = readRecord(root[RUNTIME_CONFIG_STATE_FIELDS.SPX]);
-  return readRecord(spx[RUNTIME_CONFIG_STATE_FIELDS.AGENT_ENVIRONMENT]);
-}
 
 describe("runtime config boundary compliance", () => {
   it("models Claude Code and Codex settings as runtime-specific outputs under agent environment ownership", async () => {
@@ -70,7 +48,7 @@ describe("runtime config boundary compliance", () => {
         ],
       ]);
 
-      const codexState = readManagedState(parseToml(await readFile(CODEX_RUNTIME_CONFIG_RELATIVE_PATH)));
+      const codexState = readManagedRuntimeConfigState(parseToml(await readFile(CODEX_RUNTIME_CONFIG_RELATIVE_PATH)));
       expect(codexState).toEqual({
         [RUNTIME_CONFIG_STATE_FIELDS.ENABLED]: true,
         [RUNTIME_CONFIG_STATE_FIELDS.PRODUCT_DIR]: productDir,
@@ -78,7 +56,9 @@ describe("runtime config boundary compliance", () => {
         [RUNTIME_CONFIG_STATE_FIELDS.TARGET_KIND]: RUNTIME_CONFIG_TARGET_KIND.INVOKING_AGENT,
       });
 
-      const claudeCodeState = readManagedState(JSON.parse(await readFile(CLAUDE_CODE_RUNTIME_CONFIG_RELATIVE_PATH)));
+      const claudeCodeState = readManagedRuntimeConfigState(
+        JSON.parse(await readFile(CLAUDE_CODE_RUNTIME_CONFIG_RELATIVE_PATH)),
+      );
       expect(claudeCodeState).toEqual({
         [RUNTIME_CONFIG_STATE_FIELDS.ENABLED]: true,
         [RUNTIME_CONFIG_STATE_FIELDS.PRODUCT_DIR]: productDir,
@@ -145,13 +125,34 @@ describe("runtime config boundary compliance", () => {
 
       expect(result.ok).toBe(true);
       if (!result.ok) throw new Error(result.error);
-      expect(readManagedState(parseToml(await readNodeFile(hermeticCodexPath, RUNTIME_CONFIG_TEXT_ENCODING)))).toEqual({
+      expect(
+        readManagedRuntimeConfigState(parseToml(await readNodeFile(hermeticCodexPath, RUNTIME_CONFIG_TEXT_ENCODING))),
+      ).toEqual({
         [RUNTIME_CONFIG_STATE_FIELDS.ENABLED]: true,
         [RUNTIME_CONFIG_STATE_FIELDS.PRODUCT_DIR]: productDir,
         [RUNTIME_CONFIG_STATE_FIELDS.RUNTIME]: AGENT_RUNTIME.CODEX,
         [RUNTIME_CONFIG_STATE_FIELDS.TARGET_KIND]: RUNTIME_CONFIG_TARGET_KIND.HERMETIC_EXECUTION,
       });
       await expect(readFile(CODEX_RUNTIME_CONFIG_RELATIVE_PATH)).rejects.toThrow();
+    });
+  });
+
+  it("plans runtime config changes without writing runtime files", async () => {
+    const agentEnvironment = enabledAgentEnvironment();
+
+    await withTestEnv({}, async ({ productDir, readFile }) => {
+      const result = await planRuntimeConfigReconciliation({ productDir, agentEnvironment, dryRun: true });
+
+      expect(result.ok).toBe(true);
+      if (!result.ok) throw new Error(result.error);
+      expect(result.value.dryRun).toBe(true);
+      expect(result.value.changed).toBe(true);
+      expect(result.value.files.map((file) => [file.runtime, file.action, file.content !== undefined])).toEqual([
+        [AGENT_RUNTIME.CODEX, RUNTIME_CONFIG_ACTION.CREATE, true],
+        [AGENT_RUNTIME.CLAUDE_CODE, RUNTIME_CONFIG_ACTION.CREATE, true],
+      ]);
+      await expect(readFile(CODEX_RUNTIME_CONFIG_RELATIVE_PATH)).rejects.toThrow();
+      await expect(readFile(CLAUDE_CODE_RUNTIME_CONFIG_RELATIVE_PATH)).rejects.toThrow();
     });
   });
 

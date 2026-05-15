@@ -34,7 +34,6 @@ export const CODEX_RUNTIME_CONFIG_RELATIVE_PATH = ".codex/config.toml";
 export const CLAUDE_CODE_RUNTIME_CONFIG_RELATIVE_PATH = ".claude/settings.local.json";
 
 export const HERMETIC_RUNTIME_CONFIG_DIRECTORY = "agent-environment/runtime-config";
-export const CLAUDE_CODE_RUNTIME_CONFIG_DIRECTORY = "claude-code";
 
 export const RUNTIME_CONFIG_STATE_FIELDS = {
   SPX: "spx",
@@ -48,6 +47,7 @@ export const RUNTIME_CONFIG_STATE_FIELDS = {
 export const RUNTIME_CONFIG_ERROR_MESSAGES = {
   INVALID_JSON: "not valid JSON runtime config",
   INVALID_TOML: "not valid TOML runtime config",
+  ROLLBACK_FAILED: "rollback failed",
 } as const;
 
 export const RUNTIME_CONFIG_FILE_ERROR_CODES = {
@@ -136,8 +136,10 @@ const RUNTIME_CONFIG_ORDER = [
   AGENT_RUNTIME.CLAUDE_CODE,
 ] as const;
 
+const CODEX_RUNTIME_CONFIG_DIRECTORY = "codex";
+const CLAUDE_CODE_RUNTIME_CONFIG_DIRECTORY = "claude-code";
 const JSON_INDENT = 2;
-export const RUNTIME_CONFIG_TEXT_ENCODING = "utf8";
+export const RUNTIME_CONFIG_TEXT_ENCODING = "utf-8";
 const TOML_MANAGED_TABLE_HEADER =
   `[${RUNTIME_CONFIG_STATE_FIELDS.SPX}.${RUNTIME_CONFIG_STATE_FIELDS.AGENT_ENVIRONMENT}]`;
 
@@ -224,7 +226,10 @@ export async function reconcileRuntimeConfig(
       if (!written.ok) {
         const rolledBack = await rollbackRuntimeConfigFiles(attempted, deps);
         if (!rolledBack.ok) {
-          return { ok: false, error: `${written.error}; rollback failed: ${rolledBack.error}` };
+          return {
+            ok: false,
+            error: `${written.error}; ${RUNTIME_CONFIG_ERROR_MESSAGES.ROLLBACK_FAILED}: ${rolledBack.error}`,
+          };
         }
         return written;
       }
@@ -386,7 +391,7 @@ function runtimeConfigState(
 function runtimeDirectory(runtime: AgentRuntime): string {
   switch (runtime) {
     case AGENT_RUNTIME.CODEX:
-      return AGENT_RUNTIME.CODEX;
+      return CODEX_RUNTIME_CONFIG_DIRECTORY;
     case AGENT_RUNTIME.CLAUDE_CODE:
       return CLAUDE_CODE_RUNTIME_CONFIG_DIRECTORY;
   }
@@ -477,11 +482,8 @@ function mergeTomlManagedTable(current: string | undefined, managedTable: string
 }
 
 function findNextTomlTableHeader(lines: readonly string[], start: number): number {
-  for (const [index, line] of lines.entries()) {
-    if (index < start) continue;
-    if (isTomlTableHeader(line)) return index;
-  }
-  return lines.length;
+  const offset = lines.slice(start).findIndex(isTomlTableHeader);
+  return offset === -1 ? lines.length : start + offset;
 }
 
 function isTomlManagedTableHeader(line: string): boolean {
