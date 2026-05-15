@@ -64,7 +64,7 @@ git ls-tree origin/main -- spx/16-config.enabler/43-domain-execution-descriptors
 | C2 | `spx/16-config.enabler/65-product-directory-api.enabler/` | none | Product-root vocabulary across config APIs, harnesses, and root helpers |
 | F1 | `spx/17-file-inclusion.enabler/65-domain-path-filters.enabler/` | settled path-filter primitive | File-inclusion resolver accepts descriptor-owned domain path filters |
 | T1 | `spx/22-test-environment.enabler/32-spec-tree-fixtures.enabler/` | C2 | Remaining spec-tree tests use `withSpecTreeEnv` when they need materialized `spx/` fixtures |
-| T2 | `spx/41-testing.enabler/43-last-run-evidence.enabler/` | settled testing descriptor, C1 | Persisted test observations and stale-status inputs |
+| T2 | `spx/41-testing.enabler/43-last-run-evidence.enabler/` | settled testing descriptor, C1, C2 | Persisted test observations and stale-status inputs |
 | A1 | `spx/36-audit.enabler/43-audit-config.enabler/` | settled path-filter primitive | Registered audit config descriptor |
 | A2 | `spx/36-audit.enabler/54-branch-run-state.enabler/` | A1, C1 | Branch-scoped audit run state under `.spx/audit/{branch-slug}` |
 | A3 | `spx/36-audit.enabler/65-auditor-execution.enabler/` | A1, A2, E2 | Configured auditor execution with isolated state |
@@ -76,7 +76,7 @@ git ls-tree origin/main -- spx/16-config.enabler/43-domain-execution-descriptors
 | R5 | `spx/46-reviewing.enabler/65-pr-review.enabler/` | R2, R3 | `spx review pr <number>` target execution |
 | S1 | `spx/31-spec-domain.enabler/43-context-ingestion.enabler/` | settled `spx/31-spec-domain.enabler/` public surface on `origin/main` | Deterministic context-ingestion command surface |
 | E0 | `spx/33-agent-environment.enabler/` | none | Agent environment descriptor shape for instructions, runtime config, and plugin bootstrap |
-| E1 | `spx/33-agent-environment.enabler/21-agent-instructions.enabler/` | E0 | Deterministic instruction-file reconciliation |
+| E1 | `spx/33-agent-environment.enabler/21-agent-instructions.enabler/` | E0, E2 | Deterministic instruction-file reconciliation |
 | E2 | `spx/33-agent-environment.enabler/32-runtime-config.enabler/` | E0 | Claude Code and Codex runtime config reconciliation |
 | E3 | `spx/33-agent-environment.enabler/43-plugin-bootstrap.enabler/` | E2 | Plugin marketplace, plugin, and skill bootstrap status |
 
