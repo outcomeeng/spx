@@ -68,8 +68,7 @@ export interface AgentEnvironmentConfig {
   };
 }
 
-const AGENT_RUNTIME_VALUES = Object.values(AGENT_RUNTIME);
-const AGENT_RUNTIME_SET: ReadonlySet<string> = new Set(AGENT_RUNTIME_VALUES);
+const AGENT_RUNTIME_SET: ReadonlySet<string> = new Set(Object.values(AGENT_RUNTIME));
 const DEFAULT_AGENT_INSTRUCTION_TARGET_RUNTIMES = [
   AGENT_RUNTIME.CODEX,
   AGENT_RUNTIME.CLAUDE_CODE,

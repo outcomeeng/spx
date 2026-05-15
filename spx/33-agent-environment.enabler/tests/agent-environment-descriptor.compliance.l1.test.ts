@@ -215,6 +215,38 @@ describe("agent environment config descriptor", () => {
     }
   });
 
+  it("accepts plugin marketplace references configured for the same runtime", async () => {
+    const marketplaceName = sampleConfigTestValue(CONFIG_TEST_GENERATOR.key());
+    const pluginName = sampleConfigTestValue(CONFIG_TEST_GENERATOR.key());
+    const source = sampleConfigTestValue(CONFIG_TEST_GENERATOR.scalar());
+    const productConfig: Config = {
+      [AGENT_ENVIRONMENT_SECTION]: {
+        [AGENT_ENVIRONMENT_CONFIG_FIELDS.PLUGIN_BOOTSTRAP]: {
+          [AGENT_ENVIRONMENT_CONFIG_FIELDS.MARKETPLACES]: [
+            {
+              [AGENT_ENVIRONMENT_CONFIG_FIELDS.RUNTIME]: AGENT_RUNTIME.CLAUDE_CODE,
+              [AGENT_ENVIRONMENT_CONFIG_FIELDS.NAME]: marketplaceName,
+              [AGENT_ENVIRONMENT_CONFIG_FIELDS.SOURCE]: source,
+            },
+          ],
+          [AGENT_ENVIRONMENT_CONFIG_FIELDS.PLUGINS]: [
+            {
+              [AGENT_ENVIRONMENT_CONFIG_FIELDS.RUNTIME]: AGENT_RUNTIME.CLAUDE_CODE,
+              [AGENT_ENVIRONMENT_CONFIG_FIELDS.NAME]: pluginName,
+              [AGENT_ENVIRONMENT_CONFIG_FIELDS.MARKETPLACE]: marketplaceName,
+            },
+          ],
+        },
+      },
+    };
+
+    await withTestEnv(productConfig, async ({ productDir }) => {
+      const result = await resolveConfig(productDir, [agentEnvironmentConfigDescriptor]);
+
+      expect(result.ok).toBe(true);
+    });
+  });
+
   it("rejects unknown descriptor fields instead of dropping configured intent", async () => {
     const unknownField = sampleConfigTestValue(CONFIG_TEST_GENERATOR.key());
     const productConfig: Config = {
