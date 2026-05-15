@@ -83,7 +83,7 @@ git ls-tree origin/main -- spx/23-spec-tree.enabler/spec-tree.md
 | E2 | `spx/33-agent-environment.enabler/32-runtime-config.enabler/` | E0 | Claude Code and Codex runtime config reconciliation |
 | E3 | `spx/33-agent-environment.enabler/43-plugin-bootstrap.enabler/` | E2 | Plugin marketplace, plugin, and skill bootstrap status |
 
-Critical path: E0 must settle before E2, and E2 gates A3, R2, R4, and R5 transitively. Assign E0 and E2 early when audit or review execution packets are planned.
+Critical path: E0 must settle before E2, and E2 gates A3, E1, R2, R4, and R5 transitively. Assign E0 and E2 early when audit or review execution packets are planned.
 
 ## Common Agent Pickup Rules
 
@@ -117,3 +117,4 @@ Own only {target-node} and the implementation files required by its assertions. 
 - After R1-R5 settle, evaluate whether the parent `spx/46-reviewing.enabler/` spec needs a separate R0 packet for parent-level review API alignment; create that packet only when a concrete parent-spec change is identified.
 - After T1-T2 settle, evaluate whether the parent `spx/41-testing.enabler/` spec needs a separate T0 packet for parent-level testing API alignment; create that packet only when a concrete parent-spec change is identified.
 - After F1 settles, evaluate whether the parent `spx/17-file-inclusion.enabler/` spec needs a separate F0 packet for parent-level file-inclusion API alignment; create that packet only when a concrete parent-spec change is identified.
+- After the first packet wave settles, evaluate whether common pickup rules should move from this config tranche PLAN to a neutral coordination artifact.
