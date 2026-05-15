@@ -30,6 +30,8 @@ Persist spec-tree test observations so status commands can report fast test stat
 
 This depends on the testing descriptor, canonical descriptor digest, and C2 product-directory API. It can proceed independently from audit state once those APIs exist. The C2 dependency is a correctness dependency because persisted testing state records product-root vocabulary and paths; it is not only a rename-sweep collision.
 
+The C1 canonical descriptor digest dependency is a hard prerequisite for testing last-run evidence; do not branch T2 until `spx/16-config.enabler/54-canonical-descriptor-digest.enabler/canonical-descriptor-digest.md` exists on `origin/main`.
+
 ## Agent Pickup Prompt
 
 ```text

@@ -29,6 +29,8 @@ Implement branch-scoped audit storage and terminal run-state lookup.
 
 This depends on audit config defaults. Auditor execution can integrate after the state writer API exists.
 
+The C1 canonical descriptor digest dependency is a hard prerequisite for branch-run-state implementation; do not branch A2 until `spx/16-config.enabler/54-canonical-descriptor-digest.enabler/canonical-descriptor-digest.md` exists on `origin/main`.
+
 ## Agent Pickup Prompt
 
 ```text

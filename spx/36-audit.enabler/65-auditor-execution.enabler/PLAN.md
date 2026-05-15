@@ -32,7 +32,7 @@ This depends on audit config, branch-run-state, and agent environment primitives
 
 - Consume the existing `src/lib/process-lifecycle/` APIs for managed subprocesses.
 - Own audit-specific execution modules, adapters, and tests created for this node.
-- Do not edit `src/lib/process-lifecycle/` or `testing/harnesses/process-lifecycle/` in this packet. If this packet discovers missing lifecycle-runner behavior, pause, record the shared gap in `spx/16-config.enabler/PLAN.md` Open Coordination as the A3-designated recorder, inspect open process-lifecycle PRs and branches, and open or claim one shared CLI/process-lifecycle PR before resuming this packet.
+- Do not edit `src/lib/process-lifecycle/` or `testing/harnesses/process-lifecycle/` in this packet. If this packet discovers missing lifecycle-runner behavior, pause, inspect `spx/16-config.enabler/PLAN.md` Open Coordination plus open process-lifecycle PRs and branches, then record the shared gap as the A3-designated recorder only when no existing owner is present. Open or claim one shared CLI/process-lifecycle PR before resuming this packet.
 
 ## Agent Pickup Prompt
 

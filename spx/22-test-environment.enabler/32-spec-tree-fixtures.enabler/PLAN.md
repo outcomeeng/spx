@@ -64,7 +64,7 @@ The API sketch is illustrative. The implementation pass owns the exact type name
 
 ## Implementation Ownership
 
-T1 may edit `testing/harnesses/spec-tree/assertions.ts`, `testing/harnesses/spec-tree/generators.ts`, `testing/harnesses/spec-tree/spec-tree.ts`, and `testing/generators/spec-tree/spec-tree.ts`. Migration of consumer tests outside this node belongs to the owning packet unless a focused acceptance test is needed here.
+T1 may edit `testing/harnesses/spec-tree/assertions.ts`, `testing/harnesses/spec-tree/generators.ts`, `testing/harnesses/spec-tree/spec-tree.ts`, and `testing/generators/spec-tree/spec-tree.ts`. Migrate only tests in this node's directory. If a consumer test in a sibling node needs updating, record the file path in this PLAN's Open Coordination and let the owning packet migrate it.
 
 ## Agent Pickup Prompt
 

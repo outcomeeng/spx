@@ -32,7 +32,7 @@ This can proceed after review config and agent environment APIs are sketched.
 
 - Consume the existing `src/lib/process-lifecycle/` APIs for managed reviewer subprocesses.
 - Own review-specific execution modules, adapters, and tests created for this node.
-- Do not edit `src/lib/process-lifecycle/` or `testing/harnesses/process-lifecycle/` in this packet. If this packet discovers missing lifecycle-runner behavior, pause, wait two minutes for A3 to record a shared gap, re-read `spx/16-config.enabler/PLAN.md` Open Coordination, inspect open process-lifecycle PRs and branches, and claim the existing shared CLI/process-lifecycle PR before resuming this packet.
+- Do not edit `src/lib/process-lifecycle/` or `testing/harnesses/process-lifecycle/` in this packet. If this packet discovers missing lifecycle-runner behavior, pause, wait two minutes for A3 to record a shared gap, re-read `spx/16-config.enabler/PLAN.md` Open Coordination, and inspect open process-lifecycle PRs and branches. Claim the existing shared CLI/process-lifecycle PR when one exists; if none exists, record a blocker in this PLAN instead of opening a shared branch from R2.
 
 ## Agent Pickup Prompt
 
