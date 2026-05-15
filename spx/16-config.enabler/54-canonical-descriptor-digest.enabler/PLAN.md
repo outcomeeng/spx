@@ -35,7 +35,7 @@ Before branching, follow the common packet rules in `spx/16-config.enabler/PLAN.
 
 This packet has no settled prerequisite sentinel files beyond the branch-existence guard.
 
-If C2 is already in flight or starts before C1 merges, check `spx/16-config.enabler/PLAN.md` for the dispatcher-enforced merge-ordering guard before parallel work proceeds.
+If either C1 or C2 branches before the other merges, check `spx/16-config.enabler/PLAN.md` for the dispatcher-enforced merge-ordering guard before parallel work proceeds.
 
 Start from fresh origin/main on work/config-descriptor-digest. Invoke spec-tree:understanding if needed, then spec-tree:contextualizing for spx/16-config.enabler/54-canonical-descriptor-digest.enabler/. Read this PLAN and the governing specs it names. Invoke spec-tree:applying, typescript:architecting-typescript for the public API shape if an ADR change becomes necessary, spec-tree:testing and typescript:testing-typescript before tests, then typescript:coding-typescript before implementation.
 

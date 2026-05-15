@@ -82,7 +82,7 @@ git cat-file -e origin/main:spx/23-spec-tree.enabler/spec-tree.md
 | R4 | `spx/46-reviewing.enabler/54-branch-review.enabler/` | R2, R3 | `spx review branch` target execution |
 | R5 | `spx/46-reviewing.enabler/65-pr-review.enabler/` | R2, R3 | `spx review pr <number>` target execution |
 | S1 | `spx/31-spec-domain.enabler/43-context-ingestion.enabler/` | settled public-surface files on `origin/main`; S1 verifies surface completeness | Deterministic context-ingestion command surface |
-| E0 | `spx/33-agent-environment.enabler/` | none | Agent environment descriptor shape for instructions, runtime config, and plugin bootstrap |
+| E0 | `spx/33-agent-environment.enabler/` | none; critical-path priority before E2 | Agent environment descriptor shape for instructions, runtime config, and plugin bootstrap |
 | E1 | `spx/33-agent-environment.enabler/21-agent-instructions.enabler/` | E0, E2; E0 is direct and also implied by E2 | Assign after E2 merges: deterministic instruction-file reconciliation; sentinel `agent-instructions.md` |
 | E2 | `spx/33-agent-environment.enabler/32-runtime-config.enabler/` | E0 | Claude Code and Codex runtime config reconciliation |
 | E3 | `spx/33-agent-environment.enabler/43-plugin-bootstrap.enabler/` | E2 | Plugin marketplace, plugin, and skill bootstrap status |
@@ -118,12 +118,12 @@ See packet-level PLAN files for per-node evidence items; this section records cr
 - Record shared gaps discovered during implementation here before opening a shared branch.
 - After config primitives land, update file-inclusion, testing, audit, and review implementation branches to consume the shared primitive rather than duplicating path-filter validation.
 - Agree on the canonical descriptor digest API shape before branches implementing testing last-run evidence, audit config digest, or review config digest integrate.
-- After A1-A4 settle, evaluate whether the parent `spx/36-audit.enabler/` spec needs a separate A0 packet for parent-level audit API alignment; create that packet only when a concrete parent-spec change is identified.
-- After R1-R5 settle, evaluate whether the parent `spx/46-reviewing.enabler/` spec needs a separate R0 packet for parent-level review API alignment; create that packet only when a concrete parent-spec change is identified.
-- After T1-T2 settle, evaluate whether the parent `spx/41-testing.enabler/` spec needs a separate T0 packet for parent-level testing API alignment; create that packet only when a concrete parent-spec change is identified.
+- After A1-A4 settle, evaluate whether the parent `spx/36-audit.enabler/` spec needs a separate parent-level audit API alignment packet; create that packet only when a concrete parent-spec change is identified.
+- After R1-R5 settle, evaluate whether the parent `spx/46-reviewing.enabler/` spec needs a separate parent-level review API alignment packet; create that packet only when a concrete parent-spec change is identified.
+- After T1-T2 settle, evaluate whether the parent `spx/41-testing.enabler/` spec needs a separate parent-level testing API alignment packet; create that packet only when a concrete parent-spec change is identified.
 - After T1 settles, evaluate whether the parent `spx/22-test-environment.enabler/` spec needs a separate parent-level fixture-harness alignment packet; create that packet only when a concrete parent-spec change is identified.
 - After F1 and T2 settle, inspect F1's PLAN for ignore-source deletion candidates and create a follow-up packet only when a concrete production deletion remains.
-- After F1 settles, evaluate whether the parent `spx/17-file-inclusion.enabler/` spec needs a separate F0 packet for parent-level file-inclusion API alignment; create that packet only when a concrete parent-spec change is identified.
+- After F1 settles, evaluate whether the parent `spx/17-file-inclusion.enabler/` spec needs a separate parent-level file-inclusion API alignment packet; create that packet only when a concrete parent-spec change is identified.
 - After C1 or C2 merges, evaluate whether common pickup rules should move from this config tranche PLAN to a neutral coordination artifact before assigning cross-domain packets such as E0 or S1.
 - If A3 or R2 discovers missing shared process-lifecycle behavior, A3 is the designated recorder. A3 records the gap only after Open Coordination, process-lifecycle branches, and process-lifecycle PRs are empty for that gap. R2 must re-read this section, inspect open process-lifecycle PRs and branches, and either claim the existing branch or record a blocker in its PLAN; R2 does not open the shared process-lifecycle branch.
 - `spx/41-testing.enabler/21-python-testing.enabler/` and `spx/41-testing.enabler/21-typescript-testing.enabler/` are current language-skill specs, not implementation packets for this config/status tranche.
