@@ -47,7 +47,7 @@ Each packet is intended for one agent on one branch. Agents start from fresh `or
 Settled prerequisites on current `origin/main`:
 
 This list reflects expected state; agents verify at branch time using the commands below.
-These sentinels were verified on `origin/main` while updating this PLAN for PR #35.
+These sentinels were verified on `origin/main` during the refactor-tranche dispatch planning pass.
 
 - Shared path-filter primitive: `spx/16-config.enabler/32-shared-config-primitives.enabler/` owns the structural `{ include?: string[]; exclude?: string[] }` primitive. Dependent packets consume it and do not recreate path-filter validators.
 - Testing descriptor: `spx/41-testing.enabler/32-testing-config.enabler/` and `spx/16-config.enabler/43-domain-execution-descriptors.enabler/` own the registered testing descriptor. Dependent packets consume it and do not create a second testing descriptor.
@@ -102,6 +102,19 @@ Fallback: If the runtime cannot load `spec-tree:opening-pr`, record the missing 
 Own only {target-node} and the implementation files required by its assertions. Do not edit sibling packet PLAN files except to record a scope-expanding review finding in the owning PLAN. If the packet touches shared helpers or cross-node harness files, add or follow an Implementation Ownership section before editing. Before opening a shared process-lifecycle PR, re-read the `## Open Coordination` section in this PLAN, then check `git ls-remote --heads origin 'work/process-lifecycle-*'` and `gh pr list --state open --search process-lifecycle`; if an existing branch, PR, or Open Coordination item owns that work, claim it rather than opening a duplicate. A3 is the designated recorder for shared process-lifecycle gaps. Before A3 records a gap or opens a process-lifecycle branch, it must verify that Open Coordination, process-lifecycle branches, and process-lifecycle PRs are empty for that gap. R2 must not open a process-lifecycle branch; if no A3-owned branch or PR exists after it re-reads Open Coordination and re-checks branches and PRs, R2 records a blocker in its PLAN. Do not use subagents for edits. Keep the PR focused, ask for adversarial review of the packet's API shape, evidence coverage, and behavior preservation, wait for PR checks and comments, patch actionable findings, rerun focused tests plus pnpm run validate and pnpm test, and repeat until the PR is merged or a repository-governed decision blocks progress.
 ```
 
+## Open Coordination
+
+- Record shared gaps discovered during implementation here before opening a shared branch.
+- After config primitives land, update file-inclusion, testing, audit, and review implementation branches to consume the shared primitive rather than duplicating path-filter validation.
+- Agree on the canonical descriptor digest API shape before branches implementing testing last-run evidence, audit config digest, or review config digest integrate.
+- After A1-A4 settle, evaluate whether the parent `spx/36-audit.enabler/` spec needs a separate A0 packet for parent-level audit API alignment; create that packet only when a concrete parent-spec change is identified.
+- After R1-R5 settle, evaluate whether the parent `spx/46-reviewing.enabler/` spec needs a separate R0 packet for parent-level review API alignment; create that packet only when a concrete parent-spec change is identified.
+- After T1-T2 settle, evaluate whether the parent `spx/41-testing.enabler/` spec needs a separate T0 packet for parent-level testing API alignment; create that packet only when a concrete parent-spec change is identified.
+- After F1 settles, evaluate whether the parent `spx/17-file-inclusion.enabler/` spec needs a separate F0 packet for parent-level file-inclusion API alignment; create that packet only when a concrete parent-spec change is identified.
+- After C1 or C2 merges, evaluate whether common pickup rules should move from this config tranche PLAN to a neutral coordination artifact before assigning cross-domain packets such as E0 or S1.
+- If A3 or R2 discovers missing shared process-lifecycle behavior, A3 is the designated recorder. A3 records the gap only after Open Coordination, process-lifecycle branches, and process-lifecycle PRs are empty for that gap. R2 must re-read this section, inspect open process-lifecycle PRs and branches, and either claim the existing branch or record a blocker in its PLAN; R2 does not open the shared process-lifecycle branch.
+- `spx/41-testing.enabler/21-python-testing.enabler/` and `spx/41-testing.enabler/21-typescript-testing.enabler/` are current language-skill specs, not implementation packets for this config/status tranche.
+
 ## Evidence Required
 
 - Config primitive tests cover valid/invalid include and exclude arrays, missing fields, empty config, and error paths.
@@ -113,15 +126,3 @@ Own only {target-node} and the implementation files required by its assertions. 
 - Canonical descriptor JSON tests prove object keys sort recursively, array order is preserved, primitive serialization matches JSON semantics, and digest input bytes are stable across equivalent resolved descriptor sections.
 - Canonical descriptor JSON tests prove validators reject `undefined`, `NaN`, `Infinity`, functions, symbols, and other non-JSON-representable values before digest computation.
 - Canonical descriptor JSON digest implementation uses Node.js `node:crypto`; no third-party crypto dependency is introduced.
-
-## Open Coordination
-
-- After config primitives land, update file-inclusion, testing, audit, and review implementation branches to consume the shared primitive rather than duplicating path-filter validation.
-- Agree on the canonical descriptor digest API shape before branches implementing testing last-run evidence, audit config digest, or review config digest integrate.
-- After A1-A4 settle, evaluate whether the parent `spx/36-audit.enabler/` spec needs a separate A0 packet for parent-level audit API alignment; create that packet only when a concrete parent-spec change is identified.
-- After R1-R5 settle, evaluate whether the parent `spx/46-reviewing.enabler/` spec needs a separate R0 packet for parent-level review API alignment; create that packet only when a concrete parent-spec change is identified.
-- After T1-T2 settle, evaluate whether the parent `spx/41-testing.enabler/` spec needs a separate T0 packet for parent-level testing API alignment; create that packet only when a concrete parent-spec change is identified.
-- After F1 settles, evaluate whether the parent `spx/17-file-inclusion.enabler/` spec needs a separate F0 packet for parent-level file-inclusion API alignment; create that packet only when a concrete parent-spec change is identified.
-- After C1 or C2 merges, evaluate whether common pickup rules should move from this config tranche PLAN to a neutral coordination artifact before assigning cross-domain packets such as E0 or S1.
-- If A3 or R2 discovers missing shared process-lifecycle behavior, A3 is the designated recorder. A3 records the gap only after Open Coordination, process-lifecycle branches, and process-lifecycle PRs are empty for that gap. R2 must re-read this section, inspect open process-lifecycle PRs and branches, and either claim the existing branch or record a blocker in its PLAN; R2 does not open the shared process-lifecycle branch.
-- `spx/41-testing.enabler/21-python-testing.enabler/` and `spx/41-testing.enabler/21-typescript-testing.enabler/` are current language-skill specs, not implementation packets for this config/status tranche.
