@@ -48,6 +48,7 @@ Settled prerequisites on current `origin/main`:
 
 - Shared path-filter primitive: `spx/16-config.enabler/32-shared-config-primitives.enabler/` owns the structural `{ include?: string[]; exclude?: string[] }` primitive. Dependent packets consume it and do not recreate path-filter validators.
 - Testing descriptor: `spx/41-testing.enabler/32-testing-config.enabler/` and `spx/16-config.enabler/43-domain-execution-descriptors.enabler/` own the registered testing descriptor. Dependent packets consume it and do not create a second testing descriptor.
+- Spec-domain public surface: `spx/31-spec-domain.enabler/spec-domain.md` and `spx/23-spec-tree.enabler/spec-tree.md` own the settled command and library surfaces S1 consumes.
 - F1, A1, and R1 are the packets that consume the settled path-filter primitive directly.
 
 Verify the settled prerequisites before assigning dependent packets:
@@ -56,6 +57,8 @@ Verify the settled prerequisites before assigning dependent packets:
 git ls-tree origin/main -- spx/16-config.enabler/32-shared-config-primitives.enabler/
 git ls-tree origin/main -- spx/41-testing.enabler/32-testing-config.enabler/
 git ls-tree origin/main -- spx/16-config.enabler/43-domain-execution-descriptors.enabler/
+git ls-tree origin/main -- spx/31-spec-domain.enabler/spec-domain.md
+git ls-tree origin/main -- spx/23-spec-tree.enabler/spec-tree.md
 ```
 
 | Packet | Target node | Depends on | Output |
