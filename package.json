@@ -51,6 +51,7 @@
     "publish:check": "pnpm run validate && pnpm run build && vitest run && pnpm run validate:published",
     "knip": "tsx src/cli.ts validation knip",
     "circular": "tsx src/cli.ts validation circular",
+    "clean": "find . \\( -name .DS_Store -o -name Thumbs.db -o -name __pycache__ -o -name '*.pyc' \\) -prune -exec rm -rf {} +",
     "format": "dprint fmt .",
     "format:check": "dprint check .",
     "prepare": "lefthook install",
