@@ -54,9 +54,9 @@ Settled prerequisites on current `origin/main`:
 Verify the settled prerequisites before assigning dependent packets:
 
 ```bash
-git ls-tree origin/main -- spx/16-config.enabler/32-shared-config-primitives.enabler/
-git ls-tree origin/main -- spx/41-testing.enabler/32-testing-config.enabler/
-git ls-tree origin/main -- spx/16-config.enabler/43-domain-execution-descriptors.enabler/
+git ls-tree origin/main -- spx/16-config.enabler/32-shared-config-primitives.enabler/shared-config-primitives.md
+git ls-tree origin/main -- spx/41-testing.enabler/32-testing-config.enabler/testing-config.md
+git ls-tree origin/main -- spx/16-config.enabler/43-domain-execution-descriptors.enabler/domain-execution-descriptors.md
 git ls-tree origin/main -- spx/31-spec-domain.enabler/spec-domain.md
 git ls-tree origin/main -- spx/23-spec-tree.enabler/spec-tree.md
 ```
@@ -90,9 +90,9 @@ Critical path: E0 must settle before E2, and E2 gates A3, R2, R4, and R5 transit
 Use this prompt skeleton for every packet, replacing `{target-node}` and `{packet-slug}` with the descriptive branch slug from the node-local prompt:
 
 ```text
-Start from fresh origin/main on a branch named work/{packet-slug}. Before branching, run `git ls-remote --exit-code --heads origin work/{packet-slug}`; if the branch already exists, stop and inspect the existing PR or branch before claiming the packet. Fetch origin main and verify every settled prerequisite path named by this table exists on origin/main with `git ls-tree origin/main -- <path>`. If a prerequisite is absent, stop and record the gap in the owning PLAN.md before implementation. Invoke spec-tree:understanding if the foundation marker is absent, then invoke spec-tree:contextualizing for {target-node}. Read {target-node}/PLAN.md and every governing spec or decision named there. Then invoke spec-tree:applying before implementation, the relevant language architecture/testing/coding skills before changing tests or code, and spec-tree:committing-changes plus spec-tree:opening-pr before publishing the branch.
+Start from fresh origin/main on a branch named work/{packet-slug}. Before branching, run `git ls-remote --exit-code --heads origin work/{packet-slug}`; if the branch already exists, stop and inspect the existing PR or branch before claiming the packet. Fetch origin main and verify every settled prerequisite sentinel file named by this PLAN exists on origin/main with `git ls-tree origin/main -- <path>`. Directory existence alone is not a settled-prerequisite check. If a prerequisite is absent, stop and record the gap in the owning PLAN.md before implementation. Invoke spec-tree:understanding if the foundation marker is absent, then invoke spec-tree:contextualizing for {target-node}. Read {target-node}/PLAN.md and every governing spec or decision named there. Then invoke spec-tree:applying before implementation, the relevant language architecture/testing/coding skills before changing tests or code, and spec-tree:committing-changes plus spec-tree:opening-pr before publishing the branch.
 
-Fallback: If the runtime cannot load `spec-tree:opening-pr`, record the missing skill as an imperfection, then proceed using the product PR audit workflow in AGENTS.md under "Pull request (PR) audit workflow" and "Executing PR workflow".
+Fallback: If the runtime cannot load `spec-tree:opening-pr`, record the missing skill as an imperfection, then proceed using the product PR audit workflow in the top-level `CLAUDE.md` under "Pull request (PR) audit workflow" and "Executing PR workflow". `AGENTS.md` is a symlink to the same product instructions when present.
 
 Own only {target-node} and the implementation files required by its assertions. Do not edit sibling packet PLAN files except to record a scope-expanding review finding in the owning PLAN. Do not use subagents for edits. Keep the PR focused, ask for adversarial review of the packet's API shape, evidence coverage, and behavior preservation, wait for PR checks and comments, patch actionable findings, rerun focused tests plus pnpm run validate and pnpm test, and repeat until the PR is merged or a repository-governed decision blocks progress.
 ```
