@@ -66,7 +66,7 @@ export async function writeProjectConfig(
   await env.writeRaw(CONFIG_FILE_DEFINITIONS[format].filename, serialized.value);
 }
 
-export async function readProjectConfigSections(env: SpecTreeEnv): Promise<Record<string, unknown>> {
+export async function readProductConfigSections(env: SpecTreeEnv): Promise<Record<string, unknown>> {
   const read = await readProductConfigFile(env.productDir);
   if (!read.ok) {
     throw new Error(read.error);

@@ -45,7 +45,7 @@ export type {
 } from "./detector";
 
 export interface ValidateLiteralReuseInput {
-  readonly projectRoot: string;
+  readonly productDir: string;
   readonly files?: readonly string[];
   readonly config?: LiteralConfig;
   readonly pathConfig?: ValidationPathConfig;
@@ -104,15 +104,15 @@ export async function validateLiteralReuse(
   const request = input.files
     ? {
       explicit: input.files.map((f) => {
-        const abs = isAbsolute(f) ? f : resolve(input.projectRoot, f);
-        return relative(input.projectRoot, abs).split(/[\\/]/g).join("/");
+        const abs = isAbsolute(f) ? f : resolve(input.productDir, f);
+        return relative(input.productDir, abs).split(/[\\/]/g).join("/");
       }),
     }
-    : { walkRoot: input.projectRoot };
+    : { walkRoot: input.productDir };
 
   const scope = await runPipeline(
     [artifactDirectoryLayer, hiddenPrefixLayer],
-    input.projectRoot,
+    input.productDir,
     request,
     DEFAULT_SCOPE_CONFIG,
     EMPTY_IGNORE_READER,
@@ -122,7 +122,7 @@ export async function validateLiteralReuse(
 
   const candidateFiles = filtered
     .filter((entry) => isTypescriptSource(entry.path))
-    .map((entry) => resolve(input.projectRoot, entry.path));
+    .map((entry) => resolve(input.productDir, entry.path));
 
   const collectOptions = {
     visitorKeys: defaultVisitorKeys,
@@ -135,7 +135,7 @@ export async function validateLiteralReuse(
   const indexedOccurrencesByFile = new Map<string, readonly LiteralOccurrence[]>();
 
   for (const abs of candidateFiles) {
-    const rel = relative(input.projectRoot, abs).split(/[\\/]/g).join("/");
+    const rel = relative(input.productDir, abs).split(/[\\/]/g).join("/");
 
     const content = await readSafe(abs);
     if (content === null) continue;

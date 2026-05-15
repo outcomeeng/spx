@@ -13,7 +13,7 @@ describe("ALWAYS: validation.paths.exclude suppresses files by path prefix", () 
       await env.writeSourceFile("excluded-b/nested/file.ts", prefix2Literal);
 
       const result = await validateLiteralReuse({
-        projectRoot: env.productDir,
+        productDir: env.productDir,
         pathConfig: { exclude: ["excluded-a", "excluded-b"] },
       });
 

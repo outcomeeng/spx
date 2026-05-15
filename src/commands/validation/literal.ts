@@ -126,7 +126,7 @@ export async function literalCommand(
   }
 
   const result = await validateLiteralReuse({
-    projectRoot: options.cwd,
+    productDir: options.cwd,
     files: options.files,
     config: resolvedLiteralConfig,
     pathConfig: resolvedPathConfig,

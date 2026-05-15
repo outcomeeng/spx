@@ -95,7 +95,7 @@ export async function allowlistExisting(
   }
 
   const detection = await validateLiteralReuse({
-    projectRoot: options.productDir,
+    productDir: options.productDir,
     config: currentLiteralConfig.value,
   });
 

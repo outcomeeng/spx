@@ -8,7 +8,7 @@ This decision governs how the literal-reuse detector resolves which literals to 
 
 **Business impact:** Every TypeScript project accumulates string literals that are noisy in a literal-reuse sense but carry no domain meaning in its context — HTTP verbs, HTML attribute names, framework-emitted tokens, common Node.js strings. A flat allowlist requires each project to enumerate these values individually; teams with similar stacks duplicate the same lists with slight variations and no sharing mechanism.
 
-**Technical constraints:** The allowlist is resolved once per detection run from the project config, loaded via `resolveConfig(projectRoot)` per the descriptor pattern from `16-config.enabler`. The config section key must be stable and short. The effective allowlist is a set of `(kind, value)` pairs computed before any file is walked; late resolution per finding is not possible without re-running the config load inside the detection loop.
+**Technical constraints:** The allowlist is resolved once per detection run from the product config, loaded via `resolveConfig(productDir)` per the descriptor pattern from `16-config.enabler`. The config section key must be stable and short. The effective allowlist is a set of `(kind, value)` pairs computed before any file is walked; late resolution per finding is not possible without re-running the config load inside the detection loop.
 
 ## Decision
 
@@ -26,7 +26,7 @@ The built-in preset `"web"` bundles strings common to web-framework boilerplate:
 
 The `"values"` nesting reserves the `"literal"` namespace for additional literal-reuse subsections (e.g., per-tool path filters at `validation.literal.paths.{exclude,include}` mirroring the global `validation.paths` semantic). The value allowlist is one such subsection.
 
-`literalCommand` loads the project config via `resolveConfig(projectRoot, [validationConfigDescriptor])`, extracts the resolved `ValidationConfig` from the `"validation"` section, and passes the `literal.values` and `paths` subsections to `validateLiteralReuse` before any file is walked. When `resolveConfig` returns an error, `literalCommand` exits non-zero with the error message and does not proceed to detection. `LiteralCommandOptions` accepts optional `enabled?: boolean`, `config?: LiteralConfig` (the value allowlist content), and `pathConfig?: ValidationPathConfig` for dependency injection in tests; when `config` is provided, `literalCommand` bypasses `resolveConfig`.
+`literalCommand` loads the product config via `resolveConfig(productDir, [validationConfigDescriptor])`, extracts the resolved `ValidationConfig` from the `"validation"` section, and passes the `literal.values` and `paths` subsections to `validateLiteralReuse` before any file is walked. When `resolveConfig` returns an error, `literalCommand` exits non-zero with the error message and does not proceed to detection. `LiteralCommandOptions` accepts optional `enabled?: boolean`, `config?: LiteralConfig` (the value allowlist content), and `pathConfig?: ValidationPathConfig` for dependency injection in tests; when `config` is provided, `literalCommand` bypasses `resolveConfig`.
 
 ## Rationale
 
@@ -70,7 +70,7 @@ The `"validation"` section validator in `src/validation/config.ts` accepts a `li
 - The effective allowlist computation is: union(preset bundles for each named preset) ∪ include \ exclude — evaluated once before detection begins ([review])
 - The section validator rejects any `validation.literal.values.presets` entry not found in the registered preset registry and returns an error naming the unrecognized identifier ([review])
 - `exclude` removes a value from the effective allowlist regardless of which source contributed it ([review])
-- `literalCommand` calls `resolveConfig(projectRoot, [validationConfigDescriptor])` before invoking `validateLiteralReuse` and passes the resolved `literal.values` and `paths` subsections — the allowlist and path config from the project config file reach the detector ([review])
+- `literalCommand` calls `resolveConfig(productDir, [validationConfigDescriptor])` before invoking `validateLiteralReuse` and passes the resolved `literal.values` and `paths` subsections — the allowlist and path config from the product config file reach the detector ([review])
 - `literalCommand` exits non-zero with the config error message when `resolveConfig` returns `{ ok: false }` — detection does not proceed on config errors ([review])
 - `LiteralCommandOptions` accepts `enabled?: boolean`, `config?: LiteralConfig` (the value allowlist content), and `pathConfig?: ValidationPathConfig` — when provided, `literalCommand` skips `resolveConfig` and passes them directly, enabling `l1` tests without config file I/O ([review])
 
@@ -79,4 +79,4 @@ The `"validation"` section validator in `src/validation/config.ts` accepts a `li
 - Resolve the allowlist lazily per finding — the effective set is computed once per run ([review])
 - Silently ignore an unrecognized preset name — unknown presets must produce a validation error ([review])
 - Allow a value in both `include` and `exclude` to appear in the effective allowlist — `exclude` wins unconditionally ([review])
-- Invoke `validateLiteralReuse` from `literalCommand` without first resolving the project's validation config — bypassing project config silently voids user-configured allowlist and path behavior ([review])
+- Invoke `validateLiteralReuse` from `literalCommand` without first resolving the product's validation config — bypassing product config silently voids user-configured allowlist and path behavior ([review])

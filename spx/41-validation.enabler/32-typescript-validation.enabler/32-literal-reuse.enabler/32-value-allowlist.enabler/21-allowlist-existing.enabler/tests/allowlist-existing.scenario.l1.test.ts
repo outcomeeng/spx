@@ -26,7 +26,7 @@ import { withTestEnv } from "@testing/harnesses/spec-tree/spec-tree";
 import {
   buildBaselineConfig,
   readLiteralAllowlist,
-  readProjectConfigSections,
+  readProductConfigSections,
   writeDuplicatedLiteralFixture,
   writeMultipleLiteralFixtures,
 } from "./support";
@@ -49,7 +49,7 @@ describe("allowlist-existing scenario", () => {
 
       expect(result.exitCode).toBe(LITERAL_EXIT_CODES.OK);
 
-      const parsed = await readProjectConfigSections(env);
+      const parsed = await readProductConfigSections(env);
       const allowlist = readLiteralAllowlist(parsed);
       expect(allowlist.include).toContain(literal);
 
@@ -59,7 +59,7 @@ describe("allowlist-existing scenario", () => {
       const updatedValidation = resolved.value[validationConfigDescriptor.section] as ValidationConfig;
 
       const second = await validateLiteralReuse({
-        projectRoot: env.productDir,
+        productDir: env.productDir,
         config: updatedValidation.literal.values,
       });
       expect(second.findings.srcReuse.length + second.findings.testDupe.length).toBe(
@@ -78,7 +78,7 @@ describe("allowlist-existing scenario", () => {
 
       expect(result.exitCode).toBe(LITERAL_EXIT_CODES.OK);
 
-      const allowlist = readLiteralAllowlist(await readProjectConfigSections(env));
+      const allowlist = readLiteralAllowlist(await readProductConfigSections(env));
       expect(allowlist.include).toContain(literal);
     });
   });
@@ -92,7 +92,7 @@ describe("allowlist-existing scenario", () => {
 
       expect(result.exitCode).toBe(LITERAL_EXIT_CODES.OK);
 
-      const allowlist = readLiteralAllowlist(await readProjectConfigSections(env));
+      const allowlist = readLiteralAllowlist(await readProductConfigSections(env));
       expect(allowlist.include).toContain(literal);
     });
   });
@@ -105,7 +105,7 @@ describe("allowlist-existing scenario", () => {
       const result = await allowlistExisting({ productDir: env.productDir });
       expect(result.exitCode).toBe(LITERAL_EXIT_CODES.OK);
 
-      const allowlist = readLiteralAllowlist(await readProjectConfigSections(env));
+      const allowlist = readLiteralAllowlist(await readProductConfigSections(env));
       const include = allowlist.include ?? [];
       const indices = literals.map((value) => include.indexOf(value));
       indices.forEach((idx) => expect(idx).toBeGreaterThan(-1));

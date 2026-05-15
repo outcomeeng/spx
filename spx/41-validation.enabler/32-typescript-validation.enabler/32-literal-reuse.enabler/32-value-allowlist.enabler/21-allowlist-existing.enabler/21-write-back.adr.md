@@ -58,7 +58,7 @@ A single write entry point in `src/validation/literal/allowlist-existing.ts` tha
 
 ### MUST
 
-- The write target equals the file detected by the config module for `projectRoot` — when config detection returns ambiguity, the helper exits non-zero with the same error and writes nothing ([review])
+- The write target equals the file detected by the config module for `productDir` — when config detection returns ambiguity, the helper exits non-zero with the same error and writes nothing ([review])
 - The post-write file syntax format equals the pre-read file syntax format (YAML round-trips to YAML, JSON to JSON, TOML to TOML); when no pre-read file exists, the helper creates `spx.config.yaml` ([review])
 - Format-preserving parsing and serialization route through `src/config/`; the helper never imports raw JSON, YAML, or TOML parsers ([review])
 - Writes are atomic: the helper writes to a sibling temp file in the project root, then renames over the destination — readers observe the old file or the new file, never a partial state ([review])

@@ -21,7 +21,7 @@ import {
   buildConfigWithAllowlist,
   buildConfigWithForeignSection,
   readLiteralAllowlist,
-  readProjectConfigSections,
+  readProductConfigSections,
   writeDuplicatedLiteralFixture,
   writeProjectConfig,
 } from "./support";
@@ -55,7 +55,7 @@ describe("allowlist-existing compliance", () => {
       const result = await allowlistExisting({ productDir: env.productDir });
       expect(result.exitCode).toBe(LITERAL_EXIT_CODES.OK);
 
-      const allowlist = readLiteralAllowlist(await readProjectConfigSections(env));
+      const allowlist = readLiteralAllowlist(await readProductConfigSections(env));
       expect(allowlist.presets).toEqual([PRESET_NAMES.WEB]);
       expect(allowlist.exclude).toEqual([excludeLiteral]);
     });
@@ -70,7 +70,7 @@ describe("allowlist-existing compliance", () => {
       const result = await allowlistExisting({ productDir: env.productDir });
       expect(result.exitCode).toBe(LITERAL_EXIT_CODES.OK);
 
-      const parsed = await readProjectConfigSections(env);
+      const parsed = await readProductConfigSections(env);
       expect(parsed[foreign.key]).toEqual(foreign.body);
     });
   });
@@ -83,11 +83,11 @@ describe("allowlist-existing compliance", () => {
 
       const first = await allowlistExisting({ productDir: env.productDir });
       expect(first.exitCode).toBe(LITERAL_EXIT_CODES.OK);
-      const allowlistAfterFirst = readLiteralAllowlist(await readProjectConfigSections(env));
+      const allowlistAfterFirst = readLiteralAllowlist(await readProductConfigSections(env));
 
       const second = await allowlistExisting({ productDir: env.productDir });
       expect(second.exitCode).toBe(LITERAL_EXIT_CODES.OK);
-      const allowlistAfterSecond = readLiteralAllowlist(await readProjectConfigSections(env));
+      const allowlistAfterSecond = readLiteralAllowlist(await readProductConfigSections(env));
 
       expect(allowlistAfterSecond.include).toEqual(allowlistAfterFirst.include);
     });
@@ -105,7 +105,7 @@ describe("allowlist-existing compliance", () => {
       const result = await allowlistExisting({ productDir: env.productDir });
       expect(result.exitCode).toBe(LITERAL_EXIT_CODES.OK);
 
-      const allowlist = readLiteralAllowlist(await readProjectConfigSections(env));
+      const allowlist = readLiteralAllowlist(await readProductConfigSections(env));
       const include = allowlist.include ?? [];
 
       expect(include.indexOf(existingFirst)).toBe(LITERAL_TEST_INDEXES.first);
@@ -122,7 +122,7 @@ describe("allowlist-existing compliance", () => {
       const result = await allowlistExisting({ productDir: env.productDir });
       expect(result.exitCode).toBe(LITERAL_EXIT_CODES.OK);
 
-      const allowlist = readLiteralAllowlist(await readProjectConfigSections(env));
+      const allowlist = readLiteralAllowlist(await readProductConfigSections(env));
       const include = allowlist.include ?? [];
       const occurrences = include.filter((value) => value === fixtureLiteral).length;
       expect(occurrences).toBe(LITERAL_TEST_GENERATOR_COUNTS.one);
@@ -146,7 +146,7 @@ describe("allowlist-existing compliance", () => {
         if (!read.ok || read.value.kind !== "ok") return;
         expect(read.value.file.format).toBe(format);
 
-        const allowlist = readLiteralAllowlist(await readProjectConfigSections(env));
+        const allowlist = readLiteralAllowlist(await readProductConfigSections(env));
         expect(allowlist.include).toContain(fixtureLiteral);
       });
     },
@@ -193,7 +193,7 @@ describe("allowlist-existing compliance", () => {
       expect(rawConfig).toContain(allowlistSectionComment);
       expect(rawConfig).toContain(includeListComment);
 
-      const allowlist = readLiteralAllowlist(await readProjectConfigSections(env));
+      const allowlist = readLiteralAllowlist(await readProductConfigSections(env));
       expect(allowlist.include).toContain(fixtureLiteral);
     });
   });
