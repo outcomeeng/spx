@@ -9,6 +9,7 @@ import {
   AGENT_RUNTIME,
   type AgentEnvironmentConfig,
   agentEnvironmentConfigDescriptor,
+  DEFAULT_AGENT_INSTRUCTION_FILE_PATH,
 } from "@/domains/agent-environment/config";
 import { CONFIG_TEST_GENERATOR, sampleConfigTestValue } from "@testing/generators/config/descriptors";
 import type { Config } from "@testing/harnesses/spec-tree/spec-tree";
@@ -85,6 +86,27 @@ describe("agent environment config descriptor", () => {
           [unknownRuntime]: {
             [AGENT_ENVIRONMENT_CONFIG_FIELDS.ENABLED]: true,
           },
+        },
+      },
+    };
+
+    await withTestEnv(productConfig, async ({ productDir }) => {
+      const result = await resolveConfig(productDir, [agentEnvironmentConfigDescriptor]);
+
+      expectRejectedConfig(result);
+    });
+  });
+
+  it("rejects instruction file entries with an empty target runtime list", async () => {
+    const productConfig: Config = {
+      [AGENT_ENVIRONMENT_SECTION]: {
+        [AGENT_ENVIRONMENT_CONFIG_FIELDS.INSTRUCTIONS]: {
+          [AGENT_ENVIRONMENT_CONFIG_FIELDS.FILES]: [
+            {
+              [AGENT_ENVIRONMENT_CONFIG_FIELDS.PATH]: DEFAULT_AGENT_INSTRUCTION_FILE_PATH,
+              [AGENT_ENVIRONMENT_CONFIG_FIELDS.TARGET_RUNTIMES]: [],
+            },
+          ],
         },
       },
     };

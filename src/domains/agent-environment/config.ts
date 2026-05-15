@@ -92,6 +92,51 @@ export const DEFAULT_AGENT_ENVIRONMENT_CONFIG: AgentEnvironmentConfig = {
   },
 };
 
+const AGENT_ENVIRONMENT_ALLOWED_FIELDS = new Set([
+  AGENT_ENVIRONMENT_CONFIG_FIELDS.INSTRUCTIONS,
+  AGENT_ENVIRONMENT_CONFIG_FIELDS.RUNTIMES,
+  AGENT_ENVIRONMENT_CONFIG_FIELDS.PLUGIN_BOOTSTRAP,
+]);
+
+const AGENT_ENVIRONMENT_INSTRUCTIONS_ALLOWED_FIELDS = new Set([
+  AGENT_ENVIRONMENT_CONFIG_FIELDS.FILES,
+]);
+
+const AGENT_ENVIRONMENT_INSTRUCTION_FILE_ALLOWED_FIELDS = new Set([
+  AGENT_ENVIRONMENT_CONFIG_FIELDS.PATH,
+  AGENT_ENVIRONMENT_CONFIG_FIELDS.TARGET_RUNTIMES,
+]);
+
+const AGENT_ENVIRONMENT_RUNTIME_CONFIG_ALLOWED_FIELDS = new Set([
+  AGENT_ENVIRONMENT_CONFIG_FIELDS.ENABLED,
+]);
+
+const AGENT_ENVIRONMENT_PLUGIN_BOOTSTRAP_ALLOWED_FIELDS = new Set([
+  AGENT_ENVIRONMENT_CONFIG_FIELDS.MARKETPLACES,
+  AGENT_ENVIRONMENT_CONFIG_FIELDS.PLUGINS,
+  AGENT_ENVIRONMENT_CONFIG_FIELDS.SKILLS,
+]);
+
+const AGENT_ENVIRONMENT_MARKETPLACE_ALLOWED_FIELDS = new Set([
+  AGENT_ENVIRONMENT_CONFIG_FIELDS.RUNTIME,
+  AGENT_ENVIRONMENT_CONFIG_FIELDS.NAME,
+  AGENT_ENVIRONMENT_CONFIG_FIELDS.SOURCE,
+]);
+
+const AGENT_ENVIRONMENT_PLUGIN_ALLOWED_FIELDS = new Set([
+  AGENT_ENVIRONMENT_CONFIG_FIELDS.RUNTIME,
+  AGENT_ENVIRONMENT_CONFIG_FIELDS.NAME,
+  AGENT_ENVIRONMENT_CONFIG_FIELDS.MARKETPLACE,
+  AGENT_ENVIRONMENT_CONFIG_FIELDS.VERSION,
+]);
+
+const AGENT_ENVIRONMENT_SKILL_ALLOWED_FIELDS = new Set([
+  AGENT_ENVIRONMENT_CONFIG_FIELDS.RUNTIME,
+  AGENT_ENVIRONMENT_CONFIG_FIELDS.NAME,
+  AGENT_ENVIRONMENT_CONFIG_FIELDS.SOURCE,
+  AGENT_ENVIRONMENT_CONFIG_FIELDS.VERSION,
+]);
+
 function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === "object" && value !== null && !Array.isArray(value);
 }
@@ -153,7 +198,7 @@ function validateInstructions(raw: unknown): Result<AgentEnvironmentConfig["inst
     return { ok: false, error: `${sectionPath} must be an object` };
   }
 
-  const unknown = rejectUnknownFields(sectionPath, raw, new Set([AGENT_ENVIRONMENT_CONFIG_FIELDS.FILES]));
+  const unknown = rejectUnknownFields(sectionPath, raw, AGENT_ENVIRONMENT_INSTRUCTIONS_ALLOWED_FIELDS);
   if (!unknown.ok) return unknown;
 
   const filesRaw = raw[AGENT_ENVIRONMENT_CONFIG_FIELDS.FILES];
@@ -176,10 +221,7 @@ function validateInstructionFile(path: string, raw: unknown): Result<AgentInstru
   const unknown = rejectUnknownFields(
     path,
     raw,
-    new Set([
-      AGENT_ENVIRONMENT_CONFIG_FIELDS.PATH,
-      AGENT_ENVIRONMENT_CONFIG_FIELDS.TARGET_RUNTIMES,
-    ]),
+    AGENT_ENVIRONMENT_INSTRUCTION_FILE_ALLOWED_FIELDS,
   );
   if (!unknown.ok) return unknown;
 
@@ -191,7 +233,7 @@ function validateInstructionFile(path: string, raw: unknown): Result<AgentInstru
 
   const targetRuntimes = validateRuntimeArray(
     `${path}.${AGENT_ENVIRONMENT_CONFIG_FIELDS.TARGET_RUNTIMES}`,
-    raw.targetRuntimes,
+    raw[AGENT_ENVIRONMENT_CONFIG_FIELDS.TARGET_RUNTIMES],
   );
   if (!targetRuntimes.ok) return targetRuntimes;
 
@@ -226,7 +268,7 @@ function validateRuntimeConfig(
   defaults: AgentRuntimeConfig,
 ): Result<AgentRuntimeConfig> {
   if (!isRecord(raw)) return { ok: false, error: `${path} must be an object` };
-  const unknown = rejectUnknownFields(path, raw, new Set([AGENT_ENVIRONMENT_CONFIG_FIELDS.ENABLED]));
+  const unknown = rejectUnknownFields(path, raw, AGENT_ENVIRONMENT_RUNTIME_CONFIG_ALLOWED_FIELDS);
   if (!unknown.ok) return unknown;
 
   const enabledRaw = raw[AGENT_ENVIRONMENT_CONFIG_FIELDS.ENABLED];
@@ -245,17 +287,13 @@ function validatePluginBootstrap(raw: unknown): Result<AgentEnvironmentConfig["p
   const unknown = rejectUnknownFields(
     sectionPath,
     raw,
-    new Set([
-      AGENT_ENVIRONMENT_CONFIG_FIELDS.MARKETPLACES,
-      AGENT_ENVIRONMENT_CONFIG_FIELDS.PLUGINS,
-      AGENT_ENVIRONMENT_CONFIG_FIELDS.SKILLS,
-    ]),
+    AGENT_ENVIRONMENT_PLUGIN_BOOTSTRAP_ALLOWED_FIELDS,
   );
   if (!unknown.ok) return unknown;
 
   const marketplaces = validateEntryArray(
     `${sectionPath}.${AGENT_ENVIRONMENT_CONFIG_FIELDS.MARKETPLACES}`,
-    raw.marketplaces,
+    raw[AGENT_ENVIRONMENT_CONFIG_FIELDS.MARKETPLACES],
     validateMarketplace,
     DEFAULT_AGENT_ENVIRONMENT_CONFIG.pluginBootstrap.marketplaces,
   );
@@ -263,7 +301,7 @@ function validatePluginBootstrap(raw: unknown): Result<AgentEnvironmentConfig["p
 
   const plugins = validateEntryArray(
     `${sectionPath}.${AGENT_ENVIRONMENT_CONFIG_FIELDS.PLUGINS}`,
-    raw.plugins,
+    raw[AGENT_ENVIRONMENT_CONFIG_FIELDS.PLUGINS],
     validatePlugin,
     DEFAULT_AGENT_ENVIRONMENT_CONFIG.pluginBootstrap.plugins,
   );
@@ -271,7 +309,7 @@ function validatePluginBootstrap(raw: unknown): Result<AgentEnvironmentConfig["p
 
   const skills = validateEntryArray(
     `${sectionPath}.${AGENT_ENVIRONMENT_CONFIG_FIELDS.SKILLS}`,
-    raw.skills,
+    raw[AGENT_ENVIRONMENT_CONFIG_FIELDS.SKILLS],
     validateSkill,
     DEFAULT_AGENT_ENVIRONMENT_CONFIG.pluginBootstrap.skills,
   );
@@ -310,11 +348,7 @@ function validateMarketplace(path: string, raw: unknown): Result<AgentMarketplac
   const unknown = rejectUnknownFields(
     path,
     raw,
-    new Set([
-      AGENT_ENVIRONMENT_CONFIG_FIELDS.RUNTIME,
-      AGENT_ENVIRONMENT_CONFIG_FIELDS.NAME,
-      AGENT_ENVIRONMENT_CONFIG_FIELDS.SOURCE,
-    ]),
+    AGENT_ENVIRONMENT_MARKETPLACE_ALLOWED_FIELDS,
   );
   if (!unknown.ok) return unknown;
 
@@ -333,12 +367,7 @@ function validatePlugin(path: string, raw: unknown): Result<AgentPluginConfig> {
   const unknown = rejectUnknownFields(
     path,
     raw,
-    new Set([
-      AGENT_ENVIRONMENT_CONFIG_FIELDS.RUNTIME,
-      AGENT_ENVIRONMENT_CONFIG_FIELDS.NAME,
-      AGENT_ENVIRONMENT_CONFIG_FIELDS.MARKETPLACE,
-      AGENT_ENVIRONMENT_CONFIG_FIELDS.VERSION,
-    ]),
+    AGENT_ENVIRONMENT_PLUGIN_ALLOWED_FIELDS,
   );
   if (!unknown.ok) return unknown;
 
@@ -369,12 +398,7 @@ function validateSkill(path: string, raw: unknown): Result<AgentSkillConfig> {
   const unknown = rejectUnknownFields(
     path,
     raw,
-    new Set([
-      AGENT_ENVIRONMENT_CONFIG_FIELDS.RUNTIME,
-      AGENT_ENVIRONMENT_CONFIG_FIELDS.NAME,
-      AGENT_ENVIRONMENT_CONFIG_FIELDS.SOURCE,
-      AGENT_ENVIRONMENT_CONFIG_FIELDS.VERSION,
-    ]),
+    AGENT_ENVIRONMENT_SKILL_ALLOWED_FIELDS,
   );
   if (!unknown.ok) return unknown;
 
@@ -432,11 +456,7 @@ function validate(value: unknown): Result<AgentEnvironmentConfig> {
   const unknown = rejectUnknownFields(
     AGENT_ENVIRONMENT_SECTION,
     value,
-    new Set([
-      AGENT_ENVIRONMENT_CONFIG_FIELDS.INSTRUCTIONS,
-      AGENT_ENVIRONMENT_CONFIG_FIELDS.RUNTIMES,
-      AGENT_ENVIRONMENT_CONFIG_FIELDS.PLUGIN_BOOTSTRAP,
-    ]),
+    AGENT_ENVIRONMENT_ALLOWED_FIELDS,
   );
   if (!unknown.ok) return unknown;
 
