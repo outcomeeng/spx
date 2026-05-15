@@ -459,6 +459,8 @@ describe("agent environment config descriptor", () => {
 
   it("accepts minimal and optional bootstrap entry shapes", async () => {
     const pluginName = sampleConfigTestValue(CONFIG_TEST_GENERATOR.key());
+    const pluginVersionOnlyName = sampleConfigTestValue(CONFIG_TEST_GENERATOR.key());
+    const pluginVersion = sampleConfigTestValue(CONFIG_TEST_GENERATOR.scalar());
     const skillName = sampleConfigTestValue(CONFIG_TEST_GENERATOR.key());
     const skillVersion = sampleConfigTestValue(CONFIG_TEST_GENERATOR.scalar());
     const productConfig: Config = {
@@ -468,6 +470,11 @@ describe("agent environment config descriptor", () => {
             {
               [AGENT_ENVIRONMENT_CONFIG_FIELDS.RUNTIME]: AGENT_RUNTIME.CODEX,
               [AGENT_ENVIRONMENT_CONFIG_FIELDS.NAME]: pluginName,
+            },
+            {
+              [AGENT_ENVIRONMENT_CONFIG_FIELDS.RUNTIME]: AGENT_RUNTIME.CLAUDE_CODE,
+              [AGENT_ENVIRONMENT_CONFIG_FIELDS.NAME]: pluginVersionOnlyName,
+              [AGENT_ENVIRONMENT_CONFIG_FIELDS.VERSION]: pluginVersion,
             },
           ],
           [AGENT_ENVIRONMENT_CONFIG_FIELDS.SKILLS]: [

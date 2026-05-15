@@ -49,7 +49,7 @@ Alternatives considered:
 - Marketplace, plugin, and skill names are unique within each runtime.
 - Plugin entries that name a marketplace reference a configured marketplace for the same runtime.
 - Child reconcilers consume the descriptor's resolved values; they do not parse raw `spx.config.*` content.
-- Child reconcilers validate concrete instruction paths and marketplace source formats before writing files or resolving external inputs.
+- E1 validates concrete instruction paths before writing files, and E3 validates marketplace source formats before resolving external inputs.
 
 ## Compliance
 
@@ -68,4 +68,4 @@ A single `agentEnvironmentConfigDescriptor` exported from `src/domains/agent-env
 
 - Perform instruction-file reconciliation, runtime config writes, plugin installation, plugin updates, network access, or filesystem writes from the descriptor validator ([review])
 - Put runtime-specific serializers, concrete output paths, or hermetic audit/review state paths in E0; those details belong to E2, A3, and R2 ([review])
-- Validate traversal safety for instruction paths or protocol safety for marketplace sources in E0; those checks belong to child reconcilers that know the concrete target ([review])
+- Validate traversal safety for instruction paths or protocol safety for marketplace sources in E0; E1 and E3 own those checks because they know the concrete target ([review])
