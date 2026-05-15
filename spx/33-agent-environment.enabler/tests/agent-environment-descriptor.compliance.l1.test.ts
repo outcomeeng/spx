@@ -180,4 +180,98 @@ describe("agent environment config descriptor", () => {
       expectRejectedConfig(result);
     });
   });
+
+  it("rejects unknown nested descriptor fields instead of dropping configured intent", async () => {
+    const key = sampleConfigTestValue(CONFIG_TEST_GENERATOR.key());
+    const unknownField = `${key}${key}`;
+    const unknownValue = sampleConfigTestValue(CONFIG_TEST_GENERATOR.scalar());
+    const nestedSections: readonly Config[] = [
+      {
+        [AGENT_ENVIRONMENT_SECTION]: {
+          [AGENT_ENVIRONMENT_CONFIG_FIELDS.INSTRUCTIONS]: {
+            [AGENT_ENVIRONMENT_CONFIG_FIELDS.FILES]: [],
+            [unknownField]: unknownValue,
+          },
+        },
+      },
+      {
+        [AGENT_ENVIRONMENT_SECTION]: {
+          [AGENT_ENVIRONMENT_CONFIG_FIELDS.INSTRUCTIONS]: {
+            [AGENT_ENVIRONMENT_CONFIG_FIELDS.FILES]: [
+              {
+                [AGENT_ENVIRONMENT_CONFIG_FIELDS.PATH]: DEFAULT_AGENT_INSTRUCTION_FILE_PATH,
+                [AGENT_ENVIRONMENT_CONFIG_FIELDS.TARGET_RUNTIMES]: [AGENT_RUNTIME.CODEX],
+                [unknownField]: unknownValue,
+              },
+            ],
+          },
+        },
+      },
+      {
+        [AGENT_ENVIRONMENT_SECTION]: {
+          [AGENT_ENVIRONMENT_CONFIG_FIELDS.RUNTIMES]: {
+            [AGENT_RUNTIME.CODEX]: {
+              [AGENT_ENVIRONMENT_CONFIG_FIELDS.ENABLED]: true,
+              [unknownField]: unknownValue,
+            },
+          },
+        },
+      },
+      {
+        [AGENT_ENVIRONMENT_SECTION]: {
+          [AGENT_ENVIRONMENT_CONFIG_FIELDS.PLUGIN_BOOTSTRAP]: {
+            [unknownField]: unknownValue,
+          },
+        },
+      },
+      {
+        [AGENT_ENVIRONMENT_SECTION]: {
+          [AGENT_ENVIRONMENT_CONFIG_FIELDS.PLUGIN_BOOTSTRAP]: {
+            [AGENT_ENVIRONMENT_CONFIG_FIELDS.MARKETPLACES]: [
+              {
+                [AGENT_ENVIRONMENT_CONFIG_FIELDS.RUNTIME]: AGENT_RUNTIME.CLAUDE_CODE,
+                [AGENT_ENVIRONMENT_CONFIG_FIELDS.NAME]: key,
+                [AGENT_ENVIRONMENT_CONFIG_FIELDS.SOURCE]: unknownValue,
+                [unknownField]: unknownValue,
+              },
+            ],
+          },
+        },
+      },
+      {
+        [AGENT_ENVIRONMENT_SECTION]: {
+          [AGENT_ENVIRONMENT_CONFIG_FIELDS.PLUGIN_BOOTSTRAP]: {
+            [AGENT_ENVIRONMENT_CONFIG_FIELDS.PLUGINS]: [
+              {
+                [AGENT_ENVIRONMENT_CONFIG_FIELDS.RUNTIME]: AGENT_RUNTIME.CLAUDE_CODE,
+                [AGENT_ENVIRONMENT_CONFIG_FIELDS.NAME]: key,
+                [unknownField]: unknownValue,
+              },
+            ],
+          },
+        },
+      },
+      {
+        [AGENT_ENVIRONMENT_SECTION]: {
+          [AGENT_ENVIRONMENT_CONFIG_FIELDS.PLUGIN_BOOTSTRAP]: {
+            [AGENT_ENVIRONMENT_CONFIG_FIELDS.SKILLS]: [
+              {
+                [AGENT_ENVIRONMENT_CONFIG_FIELDS.RUNTIME]: AGENT_RUNTIME.CODEX,
+                [AGENT_ENVIRONMENT_CONFIG_FIELDS.NAME]: key,
+                [unknownField]: unknownValue,
+              },
+            ],
+          },
+        },
+      },
+    ];
+
+    for (const productConfig of nestedSections) {
+      await withTestEnv(productConfig, async ({ productDir }) => {
+        const result = await resolveConfig(productDir, [agentEnvironmentConfigDescriptor]);
+
+        expectRejectedConfig(result);
+      });
+    }
+  });
 });

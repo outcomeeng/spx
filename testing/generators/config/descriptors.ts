@@ -265,7 +265,8 @@ function arbitraryTestingConfig(): fc.Arbitrary<GeneratedTestingConfig> {
 
 function arbitraryAgentEnvironmentConfig(): fc.Arbitrary<GeneratedAgentEnvironmentConfig> {
   // E0 mapping evidence uses one complete representative shape; child packets add broader shape coverage when
-  // they own partial runtime, instruction, or bootstrap behavior.
+  // they own partial runtime, instruction, or bootstrap behavior. Runtime enabled values intentionally differ
+  // to cover the non-default false branch alongside a true branch.
   return fc
     .record({
       marketplaceName: arbitraryConfigKey(),

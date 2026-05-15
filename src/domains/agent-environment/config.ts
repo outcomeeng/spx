@@ -69,6 +69,10 @@ export interface AgentEnvironmentConfig {
 }
 
 const AGENT_RUNTIME_VALUES = Object.values(AGENT_RUNTIME);
+const DEFAULT_AGENT_INSTRUCTION_TARGET_RUNTIMES = [
+  AGENT_RUNTIME.CODEX,
+  AGENT_RUNTIME.CLAUDE_CODE,
+] as const satisfies readonly AgentRuntime[];
 
 export const DEFAULT_AGENT_INSTRUCTION_FILE_PATH = "AGENTS.md";
 
@@ -77,7 +81,7 @@ export const DEFAULT_AGENT_ENVIRONMENT_CONFIG: AgentEnvironmentConfig = {
     files: [
       {
         path: DEFAULT_AGENT_INSTRUCTION_FILE_PATH,
-        targetRuntimes: AGENT_RUNTIME_VALUES,
+        targetRuntimes: DEFAULT_AGENT_INSTRUCTION_TARGET_RUNTIMES,
       },
     ],
   },
@@ -146,9 +150,12 @@ function rejectUnknownFields(
   value: Record<string, unknown>,
   allowed: ReadonlySet<string>,
 ): Result<undefined> {
-  const unknownField = Object.keys(value).find((field) => !allowed.has(field));
-  if (unknownField !== undefined) {
-    return { ok: false, error: `${path}.${unknownField} is not a recognized config field` };
+  const unknownFields = Object.keys(value).filter((field) => !allowed.has(field));
+  if (unknownFields.length === 1) {
+    return { ok: false, error: `${path}.${unknownFields[0]} is not a recognized config field` };
+  }
+  if (unknownFields.length > 1) {
+    return { ok: false, error: `${path} has unrecognized config fields: ${unknownFields.join(", ")}` };
   }
   return { ok: true, value: undefined };
 }
