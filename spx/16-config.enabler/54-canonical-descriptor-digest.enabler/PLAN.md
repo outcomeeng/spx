@@ -28,6 +28,12 @@ Implement canonical descriptor JSON and SHA-256 digests for resolved descriptor 
 
 This node can proceed in parallel with descriptor registration if both branches agree on the exported digest API before integrating.
 
+## Implementation Ownership
+
+- Own new config-owned canonical descriptor JSON and digest modules, their exports, and tests required by this node's assertions.
+- May update existing config registry or descriptor modules only to expose or consume the digest API required by this node.
+- Do not perform product-root vocabulary renames, harness-wide rename sweeps, or unrelated descriptor cleanup; those belong to C2 or later owning packets.
+
 ## Agent Pickup Prompt
 
 ```text

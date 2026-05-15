@@ -35,6 +35,7 @@ This should be a focused rename PR because it touches many tests and helper impo
 - Update config modules, descriptor generators, spec-tree harnesses, and tests only where that vocabulary appears in the edited API surface.
 - Do not make architectural changes, logic refactors, unrelated test rewrites, or cleanup edits discovered during the rename sweep.
 - Remove compatibility aliases in the same pass rather than preserving legacy names.
+- Do not introduce canonical descriptor digest APIs or digest tests; those belong to C1.
 
 ## Agent Pickup Prompt
 
