@@ -47,6 +47,7 @@ Each packet is intended for one agent on one branch. Agents start from fresh `or
 Settled prerequisites on current `origin/main`:
 
 This list reflects expected state; agents verify at branch time using the commands below.
+These sentinels were verified on `origin/main` while updating this PLAN for PR #35.
 
 - Shared path-filter primitive: `spx/16-config.enabler/32-shared-config-primitives.enabler/` owns the structural `{ include?: string[]; exclude?: string[] }` primitive. Dependent packets consume it and do not recreate path-filter validators.
 - Testing descriptor: `spx/41-testing.enabler/32-testing-config.enabler/` and `spx/16-config.enabler/43-domain-execution-descriptors.enabler/` own the registered testing descriptor. Dependent packets consume it and do not create a second testing descriptor.
@@ -81,11 +82,11 @@ git cat-file -e origin/main:spx/23-spec-tree.enabler/spec-tree.md
 | R5 | `spx/46-reviewing.enabler/65-pr-review.enabler/` | R2, R3 | `spx review pr <number>` target execution |
 | S1 | `spx/31-spec-domain.enabler/43-context-ingestion.enabler/` | settled `spx/31-spec-domain.enabler/` public surface on `origin/main` | Deterministic context-ingestion command surface |
 | E0 | `spx/33-agent-environment.enabler/` | none | Agent environment descriptor shape for instructions, runtime config, and plugin bootstrap |
-| E1 | `spx/33-agent-environment.enabler/21-agent-instructions.enabler/` | E0, E2 | Deterministic instruction-file reconciliation |
+| E1 | `spx/33-agent-environment.enabler/21-agent-instructions.enabler/` | E0, E2 | Assign after E2 merges: deterministic instruction-file reconciliation |
 | E2 | `spx/33-agent-environment.enabler/32-runtime-config.enabler/` | E0 | Claude Code and Codex runtime config reconciliation |
 | E3 | `spx/33-agent-environment.enabler/43-plugin-bootstrap.enabler/` | E2 | Plugin marketplace, plugin, and skill bootstrap status |
 
-Critical path: E0 must settle before E2, and E2 gates A3, E1, R2, R4, and R5 transitively. Assign E0 and E2 early when audit or review execution packets are planned.
+Critical path: E0 must settle before E2, and E2 gates A3, E1, R2, R4, and R5 transitively. Assign E0 and E2 early when audit or review execution packets are planned. C1 and C2 can start independently, but both may touch config modules and descriptor generators; fast-merge or sequence them when minimizing merge conflicts matters.
 
 ## Common Agent Pickup Rules
 
@@ -96,9 +97,9 @@ Start from fresh origin/main on a branch named work/{packet-slug}. Before branch
 
 The output sentinel file for each packet must strip the numeric prefix and `.enabler` suffix from the node directory slug, then add `.md`; for example, `54-canonical-descriptor-digest.enabler` produces `canonical-descriptor-digest.md`. A node-local PLAN may name a different sentinel path only when the target artifact is intentionally elsewhere.
 
-Fallback: If the runtime cannot load `spec-tree:opening-pr`, record the missing skill as an imperfection in `{target-node}/ISSUES.md`, then proceed using the product PR audit workflow in the top-level `CLAUDE.md` under "Pull request (PR) audit workflow" and "Executing PR workflow". `AGENTS.md` is a symlink to the same product instructions when present.
+Fallback: If the runtime cannot load `spec-tree:opening-pr`, record the missing skill once in `spx/16-config.enabler/ISSUES.md`, then proceed using the product PR audit workflow in the top-level `CLAUDE.md` under "Pull request (PR) audit workflow" and "Executing PR workflow". `AGENTS.md` is a symlink to the same product instructions when present.
 
-Own only {target-node} and the implementation files required by its assertions. Do not edit sibling packet PLAN files except to record a scope-expanding review finding in the owning PLAN. If the packet touches shared helpers or cross-node harness files, add or follow an Implementation Ownership section before editing. Before opening a shared process-lifecycle PR, re-read the Open Coordination section below, then check `git ls-remote --heads origin 'work/process-lifecycle-*'` and `gh pr list --state open --search process-lifecycle`; if an existing branch, PR, or Open Coordination item owns that work, claim it rather than opening a duplicate. A3 is the designated recorder for shared process-lifecycle gaps. Before A3 records a gap or opens a process-lifecycle branch, it must verify that Open Coordination, process-lifecycle branches, and process-lifecycle PRs are empty for that gap. R2 must not open a process-lifecycle branch; if no A3-owned branch or PR exists after it re-reads Open Coordination and re-checks branches and PRs, R2 records a blocker in its PLAN. Do not use subagents for edits. Keep the PR focused, ask for adversarial review of the packet's API shape, evidence coverage, and behavior preservation, wait for PR checks and comments, patch actionable findings, rerun focused tests plus pnpm run validate and pnpm test, and repeat until the PR is merged or a repository-governed decision blocks progress.
+Own only {target-node} and the implementation files required by its assertions. Do not edit sibling packet PLAN files except to record a scope-expanding review finding in the owning PLAN. If the packet touches shared helpers or cross-node harness files, add or follow an Implementation Ownership section before editing. Before opening a shared process-lifecycle PR, re-read the `## Open Coordination` section in this PLAN, then check `git ls-remote --heads origin 'work/process-lifecycle-*'` and `gh pr list --state open --search process-lifecycle`; if an existing branch, PR, or Open Coordination item owns that work, claim it rather than opening a duplicate. A3 is the designated recorder for shared process-lifecycle gaps. Before A3 records a gap or opens a process-lifecycle branch, it must verify that Open Coordination, process-lifecycle branches, and process-lifecycle PRs are empty for that gap. R2 must not open a process-lifecycle branch; if no A3-owned branch or PR exists after it re-reads Open Coordination and re-checks branches and PRs, R2 records a blocker in its PLAN. Do not use subagents for edits. Keep the PR focused, ask for adversarial review of the packet's API shape, evidence coverage, and behavior preservation, wait for PR checks and comments, patch actionable findings, rerun focused tests plus pnpm run validate and pnpm test, and repeat until the PR is merged or a repository-governed decision blocks progress.
 ```
 
 ## Evidence Required
