@@ -165,7 +165,7 @@ describe("audit config descriptor", () => {
         config: {
           [AUDIT_SECTION]: {
             [AUDIT_CONFIG_FIELDS.BRANCH_SLUG]: {
-              [AUDIT_CONFIG_FIELDS.MAX_BYTES]: DEFAULT_AUDIT_CONFIG.branchSlug.maxBytes * 0,
+              [AUDIT_CONFIG_FIELDS.MAX_BYTES]: 0,
             },
           },
         },

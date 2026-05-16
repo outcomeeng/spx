@@ -16,7 +16,7 @@ The audit production module tree under `src/domains/audit/` owns runtime audit c
 
 `src/domains/audit/config.ts` exports the audit config constant, the path-encoding function, and the timestamp formatter — the three shared utilities every audit consumer needs.
 
-`DEFAULT_AUDIT_CONFIG` is an `as const` typed constant with descriptor-owned storage defaults, base-ref defaults, branch-slug defaults, auditor defaults, and target-filter defaults. Storage defaults include the `.spx` directory name, the `nodes` subdirectory name, audit/run state directory names, verdict filenames, and state filenames.
+`DEFAULT_AUDIT_CONFIG` is a typed constant with descriptor-owned storage defaults, base-ref defaults, branch-slug defaults, auditor defaults, and target-filter defaults. Storage defaults include the `.spx` directory name, the `nodes` subdirectory name, audit/run state directory names, verdict filenames, and state filenames.
 
 `verdictFile` and `verdictFileSuffix` are separate storage vocabulary entries. `verdictFile` is the stable filename used when an audit run needs a well-known verdict artifact name inside a run directory. `verdictFileSuffix` is the suffix appended to timestamp stems for node-first verdict artifacts under `.spx/nodes/`. They may be configured independently; no cross-field suffix relationship is enforced.
 
@@ -51,7 +51,7 @@ The injectable clock in `formatAuditTimestamp` enables `l1` tests to verify the 
 ## Invariants
 
 - `encodeNodePath` is a pure function: same input always produces same output, no side effects
-- `DEFAULT_AUDIT_CONFIG` is `as const` — never mutated at runtime
+- `DEFAULT_AUDIT_CONFIG` is never mutated at runtime
 - Audit descriptor validators reject unknown audit-owned keys before merging descriptor defaults
 - `formatAuditTimestamp` uses `getUTC*` methods — timezone-independent
 
