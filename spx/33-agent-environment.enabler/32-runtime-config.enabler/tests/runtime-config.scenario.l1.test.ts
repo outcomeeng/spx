@@ -14,6 +14,7 @@ import {
   RUNTIME_CONFIG_FILE_ERROR_CODES,
   RUNTIME_CONFIG_STATE_FIELDS,
   RUNTIME_CONFIG_TARGET_KIND,
+  RUNTIME_CONFIG_TEXT_ENCODING,
   type RuntimeConfigFileSystem,
   runtimeConfigPath,
 } from "@/domains/agent-environment/runtime-config";
@@ -61,6 +62,10 @@ class RuntimeConfigMemoryFileSystem implements RuntimeConfigFileSystem {
 
   hasFile(path: string): boolean {
     return this.files.has(path);
+  }
+
+  setFile(path: string, content: string): void {
+    this.files.set(path, content);
   }
 
   async readFile(path: string, _encoding: BufferEncoding): Promise<string> {
@@ -201,6 +206,36 @@ describe("runtime config reconciliation scenarios", () => {
     });
   });
 
+  it("normalizes an inline Codex managed TOML assignment to the managed table", async () => {
+    const agentEnvironment = enabledAgentEnvironment();
+    const userField = sampleConfigTestValue(CONFIG_TEST_GENERATOR.key());
+    const userValue = sampleConfigTestValue(CONFIG_TEST_GENERATOR.scalar());
+
+    await withTestEnv({}, async ({ productDir, writeRaw, readFile }) => {
+      await writeRaw(
+        CODEX_RUNTIME_CONFIG_RELATIVE_PATH,
+        [
+          `${RUNTIME_CONFIG_STATE_FIELDS.SPX}.${RUNTIME_CONFIG_STATE_FIELDS.AGENT_ENVIRONMENT} = { ${RUNTIME_CONFIG_STATE_FIELDS.ENABLED} = false, ${RUNTIME_CONFIG_STATE_FIELDS.PRODUCT_DIR} = "${productDir}", ${RUNTIME_CONFIG_STATE_FIELDS.RUNTIME} = "${AGENT_RUNTIME.CODEX}", ${RUNTIME_CONFIG_STATE_FIELDS.TARGET_KIND} = "${RUNTIME_CONFIG_TARGET_KIND.INVOKING_AGENT}" }`,
+          `${userField} = "${userValue}"`,
+          "",
+        ].join("\n"),
+      );
+
+      const result = await reconcileRuntimeConfig({ productDir, agentEnvironment });
+      expect(result.ok).toBe(true);
+      if (!result.ok) throw new Error(result.error);
+
+      const codex = readRecord(parseToml(await readFile(CODEX_RUNTIME_CONFIG_RELATIVE_PATH)));
+      expect(codex[userField]).toBe(userValue);
+      expect(readManagedRuntimeConfigState(codex)).toEqual({
+        [RUNTIME_CONFIG_STATE_FIELDS.ENABLED]: true,
+        [RUNTIME_CONFIG_STATE_FIELDS.PRODUCT_DIR]: productDir,
+        [RUNTIME_CONFIG_STATE_FIELDS.RUNTIME]: AGENT_RUNTIME.CODEX,
+        [RUNTIME_CONFIG_STATE_FIELDS.TARGET_KIND]: RUNTIME_CONFIG_TARGET_KIND.INVOKING_AGENT,
+      });
+    });
+  });
+
   it("reports invalid existing runtime config before writing", async () => {
     const agentEnvironment = enabledAgentEnvironment();
     const malformedRuntimeConfig = sampleConfigTestValue(CONFIG_TEST_GENERATOR.key());
@@ -328,6 +363,74 @@ describe("runtime config reconciliation scenarios", () => {
         expect(result.error).toContain(rollbackFailureMessage);
       }
       expect(fs.hasFile(codexPath)).toBe(true);
+    });
+  });
+
+  it("continues rolling back remaining runtime files after one rollback step fails", async () => {
+    const agentEnvironment = enabledAgentEnvironment();
+    const writeFailureMessage = sampleConfigTestValue(CONFIG_TEST_GENERATOR.scalar());
+    const rollbackFailureMessage = sampleConfigTestValue(CONFIG_TEST_GENERATOR.scalar());
+
+    await withTestEnv({}, async ({ productDir }) => {
+      const codexPath = runtimeConfigPath(productDir, AGENT_RUNTIME.CODEX);
+      const claudeCodePath = runtimeConfigPath(productDir, AGENT_RUNTIME.CLAUDE_CODE);
+      const fs = new RuntimeConfigMemoryFileSystem(
+        claudeCodePath,
+        writeFailureMessage,
+        undefined,
+        claudeCodePath,
+        rollbackFailureMessage,
+      );
+
+      const result = await reconcileRuntimeConfig({
+        productDir,
+        agentEnvironment,
+        deps: { fs },
+      });
+
+      expect(result.ok).toBe(false);
+      if (!result.ok) {
+        expect(result.error).toContain(CLAUDE_CODE_RUNTIME_CONFIG_RELATIVE_PATH);
+        expect(result.error).toContain(writeFailureMessage);
+        expect(result.error).toContain(RUNTIME_CONFIG_ERROR_MESSAGES.ROLLBACK_FAILED);
+        expect(result.error).toContain(rollbackFailureMessage);
+      }
+      expect(fs.hasFile(codexPath)).toBe(false);
+    });
+  });
+
+  it("continues restoring previous runtime file content after one restore step fails", async () => {
+    const agentEnvironment = enabledAgentEnvironment();
+    const originalCodex = `${sampleConfigTestValue(CONFIG_TEST_GENERATOR.key())} = "${
+      sampleConfigTestValue(CONFIG_TEST_GENERATOR.scalar())
+    }"\n`;
+    const originalClaudeCode = `${
+      JSON.stringify({
+        [sampleConfigTestValue(CONFIG_TEST_GENERATOR.key())]: sampleConfigTestValue(CONFIG_TEST_GENERATOR.scalar()),
+      })
+    }\n`;
+    const writeFailureMessage = sampleConfigTestValue(CONFIG_TEST_GENERATOR.scalar());
+
+    await withTestEnv({}, async ({ productDir }) => {
+      const codexPath = runtimeConfigPath(productDir, AGENT_RUNTIME.CODEX);
+      const claudeCodePath = runtimeConfigPath(productDir, AGENT_RUNTIME.CLAUDE_CODE);
+      const fs = new RuntimeConfigMemoryFileSystem(claudeCodePath, writeFailureMessage);
+      fs.setFile(codexPath, originalCodex);
+      fs.setFile(claudeCodePath, originalClaudeCode);
+
+      const result = await reconcileRuntimeConfig({
+        productDir,
+        agentEnvironment,
+        deps: { fs },
+      });
+
+      expect(result.ok).toBe(false);
+      if (!result.ok) {
+        expect(result.error).toContain(CLAUDE_CODE_RUNTIME_CONFIG_RELATIVE_PATH);
+        expect(result.error).toContain(writeFailureMessage);
+        expect(result.error).toContain(RUNTIME_CONFIG_ERROR_MESSAGES.ROLLBACK_FAILED);
+      }
+      await expect(fs.readFile(codexPath, RUNTIME_CONFIG_TEXT_ENCODING)).resolves.toBe(originalCodex);
     });
   });
 
