@@ -2,19 +2,21 @@
 
 ## Purpose
 
-This decision governs the TypeScript module layout for the audit domain: where `DEFAULT_AUDIT_CONFIG` is defined, where path encoding lives, and how the test harness is placed.
+This decision governs the TypeScript module layout for the audit domain: where `DEFAULT_AUDIT_CONFIG` is defined, where branch run state lives, where path encoding lives, and how the test harness is placed.
 
 ## Context
 
 **Business impact:** `DEFAULT_AUDIT_CONFIG` is mandated as the single source of truth for audit path components. Without a decision on its TypeScript location and shape, every consumer independently invents the structure.
 
-**Technical constraints:** The audit domain is self-contained — it does not depend on `src/session/` or `src/validation/`. Path encoding (spec node path → directory name) is a pure function used by both test infrastructure and the production verify pipeline. Timestamp generation for verdict filenames must use UTC components to ensure timezone-independent lexicographic ordering.
+**Technical constraints:** The audit domain is self-contained — it does not depend on `src/session/` or `src/validation/`. Path encoding (spec node path → directory name) is a pure function used by both test infrastructure and the production verify pipeline. Branch run-state storage uses Git common-dir product roots, branch slugs, exclusive run-directory creation, terminal `state.json` files, and latest-run ordering from `spx/36-audit.enabler/15-audit-directory.adr.md`. Timestamp generation for verdict filenames must use UTC components to ensure timezone-independent lexicographic ordering.
 
 ## Decision
 
 The audit production module tree under `src/domains/audit/` owns runtime audit code. Audit test infrastructure lives under `testing/harnesses/audit/`.
 
-`src/domains/audit/config.ts` exports the audit config constant, the path-encoding function, and the timestamp formatter — the three shared utilities every audit consumer needs.
+`src/domains/audit/config.ts` exports the audit config descriptor, the audit config constant, the path-encoding function, and the timestamp formatter for node-first verdict artifacts.
+
+`src/domains/audit/run-state.ts` exports branch identity resolution, branch slugging, audit run-directory creation, terminal `state.json` writing, branch run-state lookup, and latest terminal-run selection.
 
 `DEFAULT_AUDIT_CONFIG` is an `as const` typed constant with descriptor-owned storage defaults, base-ref defaults, branch-slug defaults, auditor defaults, and target-filter defaults. Storage defaults include the `.spx` directory name, the `nodes` subdirectory name, audit/run state directory names, verdict filenames, and state filenames.
 
@@ -30,20 +32,24 @@ Keeping audit config in an audit-owned descriptor maintains the audit domain's s
 
 Placing `encodeNodePath` in `config.ts` co-locates it with the config it derives from — `DEFAULT_AUDIT_CONFIG.storage.spxDir` and `DEFAULT_AUDIT_CONFIG.storage.nodesDir` are the values that give encoding its meaning. The production verify pipeline and the test harness both import from `config.ts`, ensuring consistent encoding.
 
+Keeping branch run state in `run-state.ts` separates branch-scoped execution history from node-first verdict verification. The module imports descriptor-owned storage defaults from `config.ts` and owns the algorithms that operate on branch identities, run ids, terminal state files, and latest-run ordering.
+
 UTC timestamps are required because verdict files are lexicographically sorted to find the latest audit, and agents run across timezones. Local timestamps would produce non-reproducible orderings when comparing verdicts from different machines.
 
 The injectable clock in `formatAuditTimestamp` enables `l1` tests to verify the exact filename produced by `writeVerdict` without relying on real wall-clock time.
 
 ## Trade-offs accepted
 
-| Trade-off                                       | Mitigation / reasoning                                                                         |
-| ----------------------------------------------- | ---------------------------------------------------------------------------------------------- |
-| Audit config registered as a descriptor         | Keeps audit settings discoverable through shared config APIs without centralizing domain rules |
-| `encodeNodePath` in `config.ts` not in `paths/` | Encoding is a direct consequence of the config shape; co-location makes the dependency obvious |
+| Trade-off                                       | Mitigation / reasoning                                                                                |
+| ----------------------------------------------- | ----------------------------------------------------------------------------------------------------- |
+| Audit config registered as a descriptor         | Keeps audit settings discoverable through shared config APIs without centralizing domain rules        |
+| `encodeNodePath` in `config.ts` not in `paths/` | Encoding is a direct consequence of the config shape; co-location makes the dependency obvious        |
+| Branch run-state helpers in one module          | Keeps branch identity, storage, and lookup semantics together while leaving config ownership separate |
 
 ## Invariants
 
 - `encodeNodePath` is a pure function: same input always produces same output, no side effects
+- `src/domains/audit/run-state.ts` uses descriptor-owned storage defaults and never redefines audit path component strings
 - `DEFAULT_AUDIT_CONFIG` is `as const` — never mutated at runtime
 - `formatAuditTimestamp` uses `getUTC*` methods — timezone-independent
 
@@ -51,7 +57,7 @@ The injectable clock in `formatAuditTimestamp` enables `l1` tests to verify the 
 
 ### Recognized by
 
-`DEFAULT_AUDIT_CONFIG`, `encodeNodePath`, and `formatAuditTimestamp` originate from a single audit-domain module. All audit consumers import from that module — no path-component string literals appear at call sites.
+`DEFAULT_AUDIT_CONFIG`, `encodeNodePath`, and `formatAuditTimestamp` originate from the audit config module. Branch run-state consumers import branch identity, slugging, storage, terminal-state, and lookup APIs from the audit run-state module. No path-component string literals appear at call sites.
 
 ### MUST
 
@@ -60,9 +66,12 @@ The injectable clock in `formatAuditTimestamp` enables `l1` tests to verify the 
 - Use UTC methods (`getUTCFullYear`, `getUTCMonth`, etc.) in `formatAuditTimestamp` — timezone-independent sorting ([review])
 - Accept optional `now?: () => Date` in `formatAuditTimestamp` — injectable clock for deterministic `l1` tests ([review])
 - Import `DEFAULT_AUDIT_CONFIG`, `encodeNodePath`, and `formatAuditTimestamp` from `src/domains/audit/config.ts` in all consumers — no duplicate definitions ([review])
+- Import branch run-state APIs from `src/domains/audit/run-state.ts` in all branch-scoped audit consumers — no duplicate branch slugging, run-directory, terminal-state, or latest-run lookup definitions ([review])
+- Keep `src/domains/audit/run-state.ts` dependent on the audit config descriptor defaults for `.spx`, `audit`, `runs`, and `state.json` path components ([review])
 
 ### NEVER
 
 - Parse raw `spx.config.*` files in audit-domain code — config-owned APIs resolve descriptor values ([review])
 - Hardcode `.spx`, `nodes`, or `.audit.xml` as string literals outside `DEFAULT_AUDIT_CONFIG` — single source of truth for all audit path components ([review])
+- Hardcode `audit`, `runs`, or `state.json` as string literals outside `DEFAULT_AUDIT_CONFIG` — branch run-state storage uses descriptor-owned path components ([review])
 - Use `getFullYear`/`getHours` (local time) in `formatAuditTimestamp` — breaks timezone-independent ordering ([review])
