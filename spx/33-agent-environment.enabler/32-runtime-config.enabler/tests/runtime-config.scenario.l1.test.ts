@@ -209,6 +209,48 @@ describe("runtime config reconciliation scenarios", () => {
     });
   });
 
+  it("does not split managed Codex TOML replacement at multiline array continuation values", async () => {
+    const agentEnvironment = enabledAgentEnvironment();
+    const taskName = sampleConfigTestValue(CONFIG_TEST_GENERATOR.key());
+    const matrixField = sampleConfigTestValue(CONFIG_TEST_GENERATOR.key());
+
+    await withTestEnv({}, async ({ productDir, writeRaw, readFile }) => {
+      await writeRaw(
+        CODEX_RUNTIME_CONFIG_RELATIVE_PATH,
+        [
+          "[spx.agentEnvironment]",
+          "enabled = false",
+          `productDir = "${productDir}"`,
+          `runtime = "${AGENT_RUNTIME.CODEX}"`,
+          `targetKind = "${RUNTIME_CONFIG_TARGET_KIND.INVOKING_AGENT}"`,
+          `${matrixField} = [`,
+          "  [\"nested\"],",
+          "]",
+          "",
+          "[[tasks]]",
+          `name = "${taskName}"`,
+          "",
+        ].join("\n"),
+      );
+
+      const result = await reconcileRuntimeConfig({ productDir, agentEnvironment });
+      expect(result.ok).toBe(true);
+      if (!result.ok) throw new Error(result.error);
+
+      const codexRaw = await readFile(CODEX_RUNTIME_CONFIG_RELATIVE_PATH);
+      const codex = readRecord(parseToml(codexRaw));
+      expect(codex.tasks).toEqual([{ name: taskName }]);
+      const managedState = readManagedRuntimeConfigState(codex);
+      expect(managedState[matrixField]).toBeUndefined();
+      expect(managedState).toEqual({
+        [RUNTIME_CONFIG_STATE_FIELDS.ENABLED]: true,
+        [RUNTIME_CONFIG_STATE_FIELDS.PRODUCT_DIR]: productDir,
+        [RUNTIME_CONFIG_STATE_FIELDS.RUNTIME]: AGENT_RUNTIME.CODEX,
+        [RUNTIME_CONFIG_STATE_FIELDS.TARGET_KIND]: RUNTIME_CONFIG_TARGET_KIND.INVOKING_AGENT,
+      });
+    });
+  });
+
   it("normalizes an inline Codex managed TOML assignment to the managed table", async () => {
     const agentEnvironment = enabledAgentEnvironment();
     const userField = sampleConfigTestValue(CONFIG_TEST_GENERATOR.key());

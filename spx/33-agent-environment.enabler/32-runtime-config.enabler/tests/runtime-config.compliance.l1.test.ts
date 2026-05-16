@@ -141,7 +141,7 @@ describe("runtime config boundary compliance", () => {
     const agentEnvironment = enabledAgentEnvironment();
 
     await withTestEnv({}, async ({ productDir, readFile }) => {
-      const result = await planRuntimeConfigReconciliation({ productDir, agentEnvironment, dryRun: true });
+      const result = await planRuntimeConfigReconciliation({ productDir, agentEnvironment });
 
       expect(result.ok).toBe(true);
       if (!result.ok) throw new Error(result.error);
