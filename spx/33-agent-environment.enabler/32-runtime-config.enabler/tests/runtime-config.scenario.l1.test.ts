@@ -325,6 +325,76 @@ describe("runtime config reconciliation scenarios", () => {
     });
   });
 
+  it("normalizes Claude Code managed state key order once and reruns unchanged", async () => {
+    const userField = sampleConfigTestValue(CONFIG_TEST_GENERATOR.key());
+    const userValue = sampleConfigTestValue(CONFIG_TEST_GENERATOR.scalar());
+    const spxUserField = sampleConfigTestValue(CONFIG_TEST_GENERATOR.key());
+    const spxUserValue = sampleConfigTestValue(CONFIG_TEST_GENERATOR.scalar());
+    const agentEnvironment: AgentEnvironmentConfig = {
+      ...agentEnvironmentConfigDescriptor.defaults,
+      runtimes: {
+        [AGENT_RUNTIME.CODEX]: { enabled: false },
+        [AGENT_RUNTIME.CLAUDE_CODE]: { enabled: true },
+      },
+    };
+
+    await withTestEnv({}, async ({ productDir, writeRaw, readFile }) => {
+      await writeRaw(
+        CLAUDE_CODE_RUNTIME_CONFIG_RELATIVE_PATH,
+        `${
+          JSON.stringify(
+            {
+              [userField]: userValue,
+              [RUNTIME_CONFIG_STATE_FIELDS.SPX]: {
+                [spxUserField]: spxUserValue,
+                [RUNTIME_CONFIG_STATE_FIELDS.AGENT_ENVIRONMENT]: {
+                  [RUNTIME_CONFIG_STATE_FIELDS.RUNTIME]: AGENT_RUNTIME.CLAUDE_CODE,
+                  [RUNTIME_CONFIG_STATE_FIELDS.TARGET_KIND]: RUNTIME_CONFIG_TARGET_KIND.INVOKING_AGENT,
+                  [RUNTIME_CONFIG_STATE_FIELDS.PRODUCT_DIR]: productDir,
+                  [RUNTIME_CONFIG_STATE_FIELDS.ENABLED]: true,
+                },
+              },
+            },
+            null,
+            2,
+          )
+        }\n`,
+      );
+
+      const first = await reconcileRuntimeConfig({ productDir, agentEnvironment });
+      expect(first.ok).toBe(true);
+      if (!first.ok) throw new Error(first.error);
+      expect(first.value.changed).toBe(true);
+      expect(first.value.files.map((file) => file.action)).toEqual([
+        RUNTIME_CONFIG_ACTION.SKIP_DISABLED,
+        RUNTIME_CONFIG_ACTION.UPDATE,
+      ]);
+
+      const normalized = await readFile(CLAUDE_CODE_RUNTIME_CONFIG_RELATIVE_PATH);
+      const normalizedConfig = readRecord(JSON.parse(normalized));
+      const spxConfig = readRecord(normalizedConfig[RUNTIME_CONFIG_STATE_FIELDS.SPX]);
+
+      expect(normalizedConfig[userField]).toBe(userValue);
+      expect(spxConfig[spxUserField]).toBe(spxUserValue);
+      expect(readManagedRuntimeConfigState(normalizedConfig)).toEqual({
+        [RUNTIME_CONFIG_STATE_FIELDS.ENABLED]: true,
+        [RUNTIME_CONFIG_STATE_FIELDS.PRODUCT_DIR]: productDir,
+        [RUNTIME_CONFIG_STATE_FIELDS.RUNTIME]: AGENT_RUNTIME.CLAUDE_CODE,
+        [RUNTIME_CONFIG_STATE_FIELDS.TARGET_KIND]: RUNTIME_CONFIG_TARGET_KIND.INVOKING_AGENT,
+      });
+
+      const second = await reconcileRuntimeConfig({ productDir, agentEnvironment });
+      expect(second.ok).toBe(true);
+      if (!second.ok) throw new Error(second.error);
+      expect(second.value.changed).toBe(false);
+      expect(second.value.files.map((file) => file.action)).toEqual([
+        RUNTIME_CONFIG_ACTION.SKIP_DISABLED,
+        RUNTIME_CONFIG_ACTION.UNCHANGED,
+      ]);
+      expect(await readFile(CLAUDE_CODE_RUNTIME_CONFIG_RELATIVE_PATH)).toBe(normalized);
+    });
+  });
+
   it("reports invalid existing runtime config before writing", async () => {
     const agentEnvironment = enabledAgentEnvironment();
     const malformedRuntimeConfig = sampleConfigTestValue(CONFIG_TEST_GENERATOR.key());
