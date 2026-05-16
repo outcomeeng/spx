@@ -20,6 +20,7 @@ const MAX_AUDIT_RUN_DURATION_MS = 86_400_000;
 export const AUDIT_RUN_STATE_TEST_GENERATOR = {
   auditRunState: arbitraryAuditRunState,
   branchName: arbitraryBranchName,
+  branchNameSegment: CONFIG_TEST_GENERATOR.key,
   branchSlug: arbitraryBranchSlug,
   branchNameWithPunctuation: arbitraryBranchNameWithPunctuation,
   digest: arbitraryDigest,

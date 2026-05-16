@@ -7,6 +7,7 @@ import { describe, expect, it } from "vitest";
 import { DEFAULT_AUDIT_CONFIG } from "@/domains/audit/config";
 import { AUDIT_GATE_STATUS, AUDIT_VERDICT_VALUE } from "@/domains/audit/reader";
 import {
+  AUDIT_RUN_STATE_ERROR,
   AUDIT_RUN_STATE_INCOMPLETE_REASON,
   AUDIT_RUN_STATE_STATUS,
   auditRunsDir,
@@ -135,6 +136,16 @@ describe("audit branch run-state lookup", () => {
       if (!result.ok) throw new Error(result.error);
       expect(result.value.terminalRuns).toEqual([]);
       expect(result.value.incompleteRuns).toEqual([]);
+    });
+  });
+
+  it("rejects unnormalized branch slugs before reading branch runs", async () => {
+    const invalidBranchSlug = sampleAuditRunStateTestValue(AUDIT_RUN_STATE_TEST_GENERATOR.branchName());
+
+    await withTempProductDir(async (productDir) => {
+      const result = await readAuditBranchRuns(productDir, invalidBranchSlug);
+
+      expect(result).toEqual({ ok: false, error: AUDIT_RUN_STATE_ERROR.INVALID_BRANCH_SLUG });
     });
   });
 

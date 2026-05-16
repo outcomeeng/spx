@@ -15,6 +15,7 @@ const DETACHED_PREFIX = "detached-";
 const DETACHED_HEAD_SHA_HEX_LENGTH = 12;
 const PATH_SEPARATOR_PATTERN = /[\\/]/;
 const SLUG_CHARACTER_PATTERN = /^[a-z0-9-]+$/;
+const SLUG_SEPARATOR = "-";
 
 function hashPrefix(value: string): string {
   return createHash(SHA256_ALGORITHM).update(value).digest(HEX_ENCODING).slice(0, HASH_PREFIX_HEX_LENGTH);
@@ -49,6 +50,18 @@ describe("audit branch slugging", () => {
     const branchName = sampleAuditRunStateTestValue(AUDIT_RUN_STATE_TEST_GENERATOR.emptyNormalizedBranchName());
 
     expect(slugAuditBranchIdentity(branchName)).toBe(hashPrefix(branchName));
+  });
+
+  it("trims truncated prefixes before appending the hash suffix", () => {
+    const left = sampleAuditRunStateTestValue(AUDIT_RUN_STATE_TEST_GENERATOR.branchNameSegment());
+    const right = sampleAuditRunStateTestValue(AUDIT_RUN_STATE_TEST_GENERATOR.branchNameSegment());
+    const branchName = `${left}/${right}`;
+    const hash = hashPrefix(branchName);
+    const maxBytes = left.length + SLUG_SEPARATOR.length + hash.length + SLUG_SEPARATOR.length;
+    const slug = slugAuditBranchIdentity(branchName, maxBytes);
+
+    expect(slug).not.toContain("--");
+    expect(slug.endsWith(hash)).toBe(true);
   });
 
   it("resolves detached HEAD identity from the head SHA before slugging", () => {

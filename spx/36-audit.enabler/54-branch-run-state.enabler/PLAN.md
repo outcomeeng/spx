@@ -25,6 +25,13 @@ Implement branch-scoped audit storage and terminal run-state lookup.
 - State tests cover approved, rejected, failed, interrupted, missing state, partial state, parse-invalid state, and latest-run ordering.
 - Migration tests cover node-first `.spx/nodes/` explicit verification and exclusion from branch list/status.
 
+## Follow-Up Notes
+
+- Decide whether `writeTerminalAuditRunState` should remove same-directory temporary state files if the final rename fails, or document orphaned temp files as accepted interrupted-run debris.
+- Add explicit evidence for `STATE_ALREADY_EXISTS` double-write prevention when the terminal state writer is next expanded.
+- Add explicit evidence for non-`ENOENT` `readdir` failure propagation in `readAuditBranchRuns` when branch listing behavior is next expanded.
+- Revisit `AUDIT_RUN_STATE_TEST_GENERATOR.timestampDate()` before Q4 2026 so the generator's max date remains useful for future audit-run timestamps.
+
 ## Parallelization
 
 This depends on audit config defaults. Auditor execution can integrate after the state writer API exists.
