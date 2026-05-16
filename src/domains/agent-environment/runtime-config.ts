@@ -159,7 +159,7 @@ export async function planRuntimeConfigReconciliation(
   options: RuntimeConfigReconciliationOptions,
 ): Promise<Result<RuntimeConfigReconciliation>> {
   const deps = options.deps ?? DEFAULT_RUNTIME_CONFIG_DEPENDENCIES;
-  const plan = await planRuntimeConfigReconciliationWithDeps(options, deps);
+  const plan = await planRuntimeConfigReconciliationWithDeps({ ...options, dryRun: true }, deps);
   if (!plan.ok) return plan;
   return { ok: true, value: publicRuntimeConfigReconciliation(plan.value) };
 }
@@ -498,8 +498,10 @@ function mergeTomlManagedTable(current: string | undefined, managedTable: string
 }
 
 function findNextTomlTableHeader(lines: readonly string[], start: number): number {
-  const offset = lines.slice(start).findIndex(isTomlTableHeader);
-  return offset === -1 ? lines.length : start + offset;
+  for (let index = start; index < lines.length; index += 1) {
+    if (isTomlTableHeader(lines[index] ?? "")) return index;
+  }
+  return lines.length;
 }
 
 function trailingBlankLines(lines: readonly string[], start: number, end: number): readonly string[] {
@@ -519,7 +521,7 @@ function isTomlManagedInlineAssignment(line: string): boolean {
 }
 
 function isTomlTableHeader(line: string): boolean {
-  return line.trimStart().startsWith("[");
+  return /^\[\[?[^\]\r\n]+\]\]?\s*(?:#.*)?$/.test(line);
 }
 
 function ensureTrailingNewline(value: string): string {
