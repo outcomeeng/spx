@@ -224,6 +224,7 @@ export async function reconcileRuntimeConfig(
     const attempted: RuntimeConfigFilePlan[] = [];
     for (const file of plan.value.files) {
       if (file.content === undefined) continue;
+      // A failed write can still leave partial bytes, so rollback includes the file being written.
       attempted.push(file);
       const written = await writeRuntimeConfigFile(file.path, file.content, deps);
       if (!written.ok) {
@@ -485,10 +486,12 @@ function mergeTomlManagedTable(current: string | undefined, managedTable: string
   }
 
   const managedEnd = findNextTomlTableHeader(currentLines, managedStart + 1);
+  const separatorLines = trailingBlankLines(currentLines, managedStart + 1, managedEnd);
   return `${
     [
       ...currentLines.slice(0, managedStart),
       ...managedLines,
+      ...separatorLines,
       ...currentLines.slice(managedEnd),
     ].join("\n")
   }\n`;
@@ -497,6 +500,14 @@ function mergeTomlManagedTable(current: string | undefined, managedTable: string
 function findNextTomlTableHeader(lines: readonly string[], start: number): number {
   const offset = lines.slice(start).findIndex(isTomlTableHeader);
   return offset === -1 ? lines.length : start + offset;
+}
+
+function trailingBlankLines(lines: readonly string[], start: number, end: number): readonly string[] {
+  let separatorStart = end;
+  while (separatorStart > start && lines[separatorStart - 1]?.trim() === "") {
+    separatorStart -= 1;
+  }
+  return lines.slice(separatorStart, end);
 }
 
 function isTomlManagedTableHeader(line: string): boolean {
