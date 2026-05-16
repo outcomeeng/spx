@@ -142,6 +142,9 @@ const JSON_INDENT = 2;
 export const RUNTIME_CONFIG_TEXT_ENCODING = "utf-8";
 const TOML_MANAGED_TABLE_HEADER =
   `[${RUNTIME_CONFIG_STATE_FIELDS.SPX}.${RUNTIME_CONFIG_STATE_FIELDS.AGENT_ENVIRONMENT}]`;
+const TOML_MANAGED_INLINE_ASSIGNMENT_PATTERN = new RegExp(
+  `^${RUNTIME_CONFIG_STATE_FIELDS.SPX}\\s*\\.\\s*${RUNTIME_CONFIG_STATE_FIELDS.AGENT_ENVIRONMENT}\\s*=`,
+);
 
 const DEFAULT_RUNTIME_CONFIG_DEPENDENCIES: RuntimeConfigDependencies = {
   fs: {
@@ -423,10 +426,12 @@ async function rollbackRuntimeConfigFiles(
   files: readonly InternalRuntimeConfigFilePlan[],
   deps: RuntimeConfigDependencies,
 ): Promise<Result<undefined>> {
+  const errors: string[] = [];
   for (const file of [...files].reverse()) {
     const rolledBack = await rollbackRuntimeConfigFile(file, deps);
-    if (!rolledBack.ok) return rolledBack;
+    if (!rolledBack.ok) errors.push(rolledBack.error);
   }
+  if (errors.length > 0) return { ok: false, error: errors.join("; ") };
   return { ok: true, value: undefined };
 }
 
@@ -468,6 +473,14 @@ function mergeTomlManagedTable(current: string | undefined, managedTable: string
   const managedLines = trimTrailingNewline(normalizedManagedTable).split("\n");
   const managedStart = currentLines.findIndex(isTomlManagedTableHeader);
   if (managedStart === -1) {
+    const inlineManagedStart = currentLines.findIndex(isTomlManagedInlineAssignment);
+    if (inlineManagedStart !== -1) {
+      const currentWithoutInlineAssignment = [
+        ...currentLines.slice(0, inlineManagedStart),
+        ...currentLines.slice(inlineManagedStart + 1),
+      ].join("\n");
+      return `${trimTrailingNewline(currentWithoutInlineAssignment)}\n\n${normalizedManagedTable}`;
+    }
     return `${trimTrailingNewline(current)}\n\n${normalizedManagedTable}`;
   }
 
@@ -488,6 +501,10 @@ function findNextTomlTableHeader(lines: readonly string[], start: number): numbe
 
 function isTomlManagedTableHeader(line: string): boolean {
   return line.trim() === TOML_MANAGED_TABLE_HEADER;
+}
+
+function isTomlManagedInlineAssignment(line: string): boolean {
+  return TOML_MANAGED_INLINE_ASSIGNMENT_PATTERN.test(line.trimStart());
 }
 
 function isTomlTableHeader(line: string): boolean {
