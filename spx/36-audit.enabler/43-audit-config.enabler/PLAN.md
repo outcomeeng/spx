@@ -23,6 +23,10 @@ Add the audit config descriptor and wire audit command code to resolved audit se
 - Config-format tests cover the audit section in JSON, YAML, and TOML.
 - Validation proves audit code consumes resolved config rather than parsing raw config files.
 
+## Follow-Up Notes
+
+- If `AuditConfig` gains additional fields, extract the duplicated `assertAuditConfig` / `expectResolvedConfig` helpers from the co-located audit-config tests into a shared test helper owned by this node.
+
 ## Parallelization
 
 This depends on shared config primitives and can run in parallel with branch-run-state design once the descriptor shape is stable.

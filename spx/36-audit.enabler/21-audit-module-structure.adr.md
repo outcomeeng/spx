@@ -20,6 +20,8 @@ The audit production module tree under `src/domains/audit/` owns runtime audit c
 
 `DEFAULT_AUDIT_CONFIG` is an `as const` typed constant with descriptor-owned storage defaults, base-ref defaults, branch-slug defaults, auditor defaults, and target-filter defaults. Storage defaults include the `.spx` directory name, the `nodes` subdirectory name, audit/run state directory names, verdict filenames, and state filenames.
 
+Audit descriptor validators reject unknown keys at the `audit`, `audit.storage`, and `audit.branchSlug` levels. The stricter field policy catches misspelled audit execution settings before an audit run records state or computes descriptor digests. The shared target path-filter primitive retains its own structural policy and ignores unknown keys inside `audit.targets`.
+
 `encodeNodePath` is a pure function that converts a spec node path to a filesystem directory name by replacing every `/` with `-`.
 
 `formatAuditTimestamp` generates a `YYYY-MM-DD_HH-mm-ss` string using UTC components and accepts an optional injectable clock for deterministic testing.
@@ -34,6 +36,8 @@ Placing `encodeNodePath` in `config.ts` co-locates it with the config it derives
 
 Keeping branch run state in `run-state.ts` separates branch-scoped execution history from node-first verdict verification. The module imports descriptor-owned storage defaults from `config.ts` and owns the algorithms that operate on branch identities, run ids, terminal state files, and latest-run ordering.
 
+Resolving the default target filter through `validatePathFilterConfig({})` makes descriptor defaults use the same canonical path-filter shape as configured values. If the shared primitive changes its acceptance rules for the empty filter, the audit descriptor default fails at import time instead of drifting from configured target resolution.
+
 UTC timestamps are required because verdict files are lexicographically sorted to find the latest audit, and agents run across timezones. Local timestamps would produce non-reproducible orderings when comparing verdicts from different machines.
 
 The injectable clock in `formatAuditTimestamp` enables `l1` tests to verify the exact filename produced by `writeVerdict` without relying on real wall-clock time.
@@ -45,12 +49,14 @@ The injectable clock in `formatAuditTimestamp` enables `l1` tests to verify the 
 | Audit config registered as a descriptor         | Keeps audit settings discoverable through shared config APIs without centralizing domain rules        |
 | `encodeNodePath` in `config.ts` not in `paths/` | Encoding is a direct consequence of the config shape; co-location makes the dependency obvious        |
 | Branch run-state helpers in one module          | Keeps branch identity, storage, and lookup semantics together while leaving config ownership separate |
+| Unknown audit keys are rejected                 | Misspelled audit execution settings fail before they affect persisted audit state or digests          |
 
 ## Invariants
 
 - `encodeNodePath` is a pure function: same input always produces same output, no side effects
 - `src/domains/audit/run-state.ts` uses descriptor-owned storage defaults and never redefines audit path component strings
 - `DEFAULT_AUDIT_CONFIG` is `as const` — never mutated at runtime
+- Audit descriptor validators reject unknown audit-owned keys before merging descriptor defaults
 - `formatAuditTimestamp` uses `getUTC*` methods — timezone-independent
 
 ## Compliance
@@ -68,6 +74,7 @@ The injectable clock in `formatAuditTimestamp` enables `l1` tests to verify the 
 - Import `DEFAULT_AUDIT_CONFIG`, `encodeNodePath`, and `formatAuditTimestamp` from `src/domains/audit/config.ts` in all consumers — no duplicate definitions ([review])
 - Import branch run-state APIs from `src/domains/audit/run-state.ts` in all branch-scoped audit consumers — no duplicate branch slugging, run-directory, terminal-state, or latest-run lookup definitions ([review])
 - Keep `src/domains/audit/run-state.ts` dependent on the audit config descriptor defaults for `.spx`, `audit`, `runs`, and `state.json` path components ([review])
+- Reject unknown keys in audit-owned config objects before merging descriptor defaults; unknown keys inside shared `audit.targets` follow the shared path-filter primitive's policy ([review])
 
 ### NEVER
 
