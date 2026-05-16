@@ -195,10 +195,7 @@ describe("audit config descriptor", () => {
             [AUDIT_CONFIG_FIELDS.TARGETS]: invalidPathFilter.value,
           },
         },
-        errorPath: invalidPathFilter.error.replace(
-          invalidPathFilter.path,
-          auditPath(AUDIT_CONFIG_FIELDS.TARGETS),
-        ),
+        errorPath: auditPath(AUDIT_CONFIG_FIELDS.TARGETS),
       },
     ];
 

@@ -26,6 +26,8 @@ Add the audit config descriptor and wire audit command code to resolved audit se
 ## Follow-Up Notes
 
 - If `AuditConfig` gains additional fields, extract the duplicated `assertAuditConfig` / `expectResolvedConfig` helpers from the co-located audit-config tests into a shared test helper owned by this node.
+- If the audit storage validator is touched again, consider renaming `validateStringRecord` to `validateAuditStorageFields` so the function name reflects its audit-storage-specific return type.
+- If branch-slug policy is revised, document the product reason for `AUDIT_BRANCH_SLUG_MIN_MAX_BYTES` in the owning branch-run-state decision or spec before changing the constant.
 
 ## Parallelization
 
