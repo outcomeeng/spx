@@ -2,6 +2,9 @@
 .claude/*
 !.claude/settings.json
 
+# Agent runtime config
+.codex/
+
 # Dependencies
 node_modules/
 
@@ -34,3 +37,6 @@ npm-debug.log*
 # SPX session files
 .spx/sessions/
 .spx/nodes/
+.spx/audit/
+.spx/review/
+.spx/testing/
