@@ -77,6 +77,7 @@ describe("runtime config boundary compliance", () => {
         CODEX_RUNTIME_CONFIG_RELATIVE_PATH,
         stateDirName,
       );
+      expect(stateDir.startsWith(productDir)).toBe(true);
       const hermeticTarget = {
         kind: RUNTIME_CONFIG_TARGET_KIND.HERMETIC_EXECUTION,
         stateDir,
