@@ -8,11 +8,14 @@ import { DEFAULT_AUDIT_CONFIG } from "@/domains/audit/config";
 import {
   AUDIT_RUN_STATE_ERROR,
   type AuditRunStateFileSystem,
+  AUDIT_RUN_STATE_STATUS,
+  AUDIT_RUN_STATE_DISPLAY,
   auditRunsDir,
   createAuditRunDirectory,
   formatAuditRunTimestamp,
   writeTerminalAuditRunState,
 } from "@/domains/audit/run-state";
+import { AUDIT_VERDICT_VALUE } from "@/domains/audit/reader";
 import { AUDIT_RUN_STATE_TEST_GENERATOR, sampleAuditRunStateTestValue } from "@testing/generators/audit/run-state";
 import { CONFIG_TEST_GENERATOR, sampleConfigTestValue } from "@testing/generators/config/descriptors";
 
@@ -118,6 +121,20 @@ describe("audit run directory storage", () => {
       expect(result.error).toContain(AUDIT_RUN_STATE_ERROR.RUN_DIRECTORY_CREATE_FAILED);
       expect(result.error).toContain(errorMessage);
     });
+  });
+
+  it("rejects unnormalized branch slugs before constructing storage paths", async () => {
+    const invalidBranchSlug = sampleAuditRunStateTestValue(AUDIT_RUN_STATE_TEST_GENERATOR.branchName());
+
+    await withTempProductDir(async (productDir) => {
+      const result = await createAuditRunDirectory(productDir, invalidBranchSlug);
+
+      expect(result).toEqual({ ok: false, error: AUDIT_RUN_STATE_ERROR.INVALID_BRANCH_SLUG });
+    });
+  });
+
+  it("renders rejected terminal state with the audit verdict vocabulary", () => {
+    expect(AUDIT_RUN_STATE_DISPLAY[AUDIT_RUN_STATE_STATUS.REJECTED]).toBe(AUDIT_VERDICT_VALUE.REJECT);
   });
 
   it("writes terminal state through a same-directory temp file and final state file", async () => {

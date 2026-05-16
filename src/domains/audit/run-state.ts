@@ -11,6 +11,7 @@ import { join } from "node:path";
 import type { Result } from "@/config/types";
 
 import { type AuditStorageConfig, DEFAULT_AUDIT_CONFIG } from "./config";
+import { AUDIT_VERDICT_VALUE } from "./reader";
 
 export const AUDIT_RUN_STATE_STATUS = {
   APPROVED: "approved",
@@ -21,7 +22,7 @@ export const AUDIT_RUN_STATE_STATUS = {
 
 export const AUDIT_RUN_STATE_DISPLAY = {
   [AUDIT_RUN_STATE_STATUS.APPROVED]: "APPROVED",
-  [AUDIT_RUN_STATE_STATUS.REJECTED]: "REJECT",
+  [AUDIT_RUN_STATE_STATUS.REJECTED]: AUDIT_VERDICT_VALUE.REJECT,
   [AUDIT_RUN_STATE_STATUS.FAILED]: "FAILED",
   [AUDIT_RUN_STATE_STATUS.INTERRUPTED]: "INTERRUPTED",
 } as const;
@@ -49,6 +50,7 @@ export const AUDIT_RUN_STATE_INCOMPLETE_REASON = {
 export const AUDIT_RUN_STATE_ERROR = {
   RUN_DIRECTORY_COLLISION_LIMIT: "audit run directory collision limit exhausted",
   RUN_DIRECTORY_CREATE_FAILED: "audit run directory create failed",
+  INVALID_BRANCH_SLUG: "audit branch slug must be normalized before storage",
   STATE_ALREADY_EXISTS: "audit run state already exists",
   STATE_WRITE_FAILED: "audit run state write failed",
   INVALID_TERMINAL_STATE: "audit run state must be terminal",
@@ -151,6 +153,8 @@ const ERROR_CODE_FILE_EXISTS = "EEXIST";
 const ERROR_CODE_NOT_FOUND = "ENOENT";
 const PATH_SEPARATOR_PATTERN = /[^a-z0-9]+/g;
 const EDGE_SEPARATOR_PATTERN = /^-|-$/g;
+const TRAILING_SEPARATOR_PATTERN = /-+$/;
+const BRANCH_SLUG_PATTERN = /^[a-z0-9]+(?:-[a-z0-9]+)*$/;
 const SLUG_SEPARATOR = "-";
 const EMPTY_STRING = "";
 
@@ -215,7 +219,9 @@ export function auditBranchDir(
   branchSlug: string,
   storage: AuditStorageConfig = DEFAULT_AUDIT_CONFIG.storage,
 ): string {
-  return join(gitCommonDirProductDir, storage.spxDir, storage.auditDir, branchSlug);
+  const validated = validateAuditBranchSlug(branchSlug);
+  if (!validated.ok) throw new Error(validated.error);
+  return join(gitCommonDirProductDir, storage.spxDir, storage.auditDir, validated.value);
 }
 
 export function auditRunsDir(
@@ -233,11 +239,13 @@ export async function createAuditRunDirectory(
 ): Promise<Result<AuditRunDirectory>> {
   const fs = options.fs ?? defaultFileSystem;
   const storage = options.storage ?? DEFAULT_AUDIT_CONFIG.storage;
+  const validatedBranchSlug = validateAuditBranchSlug(branchSlug);
+  if (!validatedBranchSlug.ok) return validatedBranchSlug;
   const maxAttempts = options.maxAttempts ?? RUN_DIRECTORY_CREATE_ATTEMPTS;
   const startedDate = (options.now ?? (() => new Date()))();
   const startedAt = formatAuditRunTimestamp(startedDate);
-  const branchDir = auditBranchDir(gitCommonDirProductDir, branchSlug, storage);
-  const runsDir = auditRunsDir(gitCommonDirProductDir, branchSlug, storage);
+  const branchDir = auditBranchDir(gitCommonDirProductDir, validatedBranchSlug.value, storage);
+  const runsDir = auditRunsDir(gitCommonDirProductDir, validatedBranchSlug.value, storage);
   const randomBytes = options.randomBytes ?? nodeRandomBytes;
 
   try {
@@ -313,7 +321,9 @@ export async function readAuditBranchRuns(
 ): Promise<Result<AuditBranchRuns>> {
   const fs = options.fs ?? defaultFileSystem;
   const storage = options.storage ?? DEFAULT_AUDIT_CONFIG.storage;
-  const runsDir = auditRunsDir(gitCommonDirProductDir, branchSlug, storage);
+  const validatedBranchSlug = validateAuditBranchSlug(branchSlug);
+  if (!validatedBranchSlug.ok) return validatedBranchSlug;
+  const runsDir = auditRunsDir(gitCommonDirProductDir, validatedBranchSlug.value, storage);
   let entries: readonly AuditRunDirectoryEntry[];
   try {
     entries = await fs.readdir(runsDir, { withFileTypes: true });
@@ -471,9 +481,9 @@ function readString(value: Record<string, unknown>, field: string): Result<strin
 
 function readStringArray(value: Record<string, unknown>, field: string): Result<readonly string[]> {
   const raw = value[field];
-  return Array.isArray(raw) && raw.every((entry) => typeof entry === "string")
+  return Array.isArray(raw) && raw.every((entry) => typeof entry === "string" && entry.length > 0)
     ? { ok: true, value: raw }
-    : { ok: false, error: `${field} must be an array of strings` };
+    : { ok: false, error: `${field} must be an array of non-empty strings` };
 }
 
 function readStatus(value: Record<string, unknown>, field: string): Result<AuditRunStateStatus> {
@@ -500,7 +510,13 @@ function generateHexId(size: number, randomBytes: (size: number) => Buffer): str
 }
 
 function truncateNormalizedSlugPrefix(value: string, maxBytes: number): string {
-  return value.slice(0, maxBytes);
+  return value.slice(0, maxBytes).replace(TRAILING_SEPARATOR_PATTERN, EMPTY_STRING);
+}
+
+function validateAuditBranchSlug(branchSlug: string): Result<string> {
+  return BRANCH_SLUG_PATTERN.test(branchSlug)
+    ? { ok: true, value: branchSlug }
+    : { ok: false, error: AUDIT_RUN_STATE_ERROR.INVALID_BRANCH_SLUG };
 }
 
 function hasErrorCode(error: unknown, code: string): boolean {
