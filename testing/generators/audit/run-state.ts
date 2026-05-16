@@ -80,6 +80,7 @@ function arbitraryTimestampDate(): fc.Arbitrary<Date> {
   return fc.date({
     min: new Date(Date.UTC(2024, 0, 1)),
     max: new Date(Date.UTC(2026, 11, 31)),
+    noInvalidDate: true,
   });
 }
 

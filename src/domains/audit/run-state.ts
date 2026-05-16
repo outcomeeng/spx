@@ -219,12 +219,10 @@ export function generateAuditRunId(randomBytes: (size: number) => Buffer = nodeR
 
 function auditBranchDir(
   gitCommonDirProductDir: string,
-  branchSlug: string,
+  validatedBranchSlug: string,
   storage: AuditStorageConfig = DEFAULT_AUDIT_CONFIG.storage,
 ): string {
-  const validated = validateAuditBranchSlug(branchSlug);
-  if (!validated.ok) throw new Error(validated.error);
-  return join(gitCommonDirProductDir, storage.spxDir, storage.auditDir, validated.value);
+  return join(gitCommonDirProductDir, storage.spxDir, storage.auditDir, validatedBranchSlug);
 }
 
 function auditRunsDir(
