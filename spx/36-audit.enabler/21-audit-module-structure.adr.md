@@ -18,7 +18,7 @@ The audit production module tree under `src/domains/audit/` owns runtime audit c
 
 `src/domains/audit/run-state.ts` exports branch identity resolution, branch slugging, audit run-directory creation, terminal `state.json` writing, branch run-state lookup, and latest terminal-run selection.
 
-`DEFAULT_AUDIT_CONFIG` is an `as const` typed constant with descriptor-owned storage defaults, base-ref defaults, branch-slug defaults, auditor defaults, and target-filter defaults. Storage defaults include the `.spx` directory name, the `nodes` subdirectory name, audit/run state directory names, verdict filenames, and state filenames.
+`DEFAULT_AUDIT_CONFIG` is a typed constant with descriptor-owned storage defaults, base-ref defaults, branch-slug defaults, auditor defaults, and target-filter defaults. Storage defaults include the `.spx` directory name, the `nodes` subdirectory name, audit/run state directory names, verdict filenames, and state filenames.
 
 `verdictFile` and `verdictFileSuffix` are separate storage vocabulary entries. `verdictFile` is the stable filename used when an audit run needs a well-known verdict artifact name inside a run directory. `verdictFileSuffix` is the suffix appended to timestamp stems for node-first verdict artifacts under `.spx/nodes/`. They may be configured independently; no cross-field suffix relationship is enforced.
 
@@ -58,7 +58,7 @@ The injectable clock in `formatAuditTimestamp` enables `l1` tests to verify the 
 - `encodeNodePath` is a pure function: same input always produces same output, no side effects
 - `src/domains/audit/run-state.ts` uses descriptor-owned storage defaults and never redefines audit path component strings
 - Each exclusive-created audit run directory has exactly one terminal state writer; concurrent terminal writers for the same run directory are outside the audit run-state contract
-- `DEFAULT_AUDIT_CONFIG` is `as const` — never mutated at runtime
+- `DEFAULT_AUDIT_CONFIG` is never mutated at runtime
 - Audit descriptor validators reject unknown audit-owned keys before merging descriptor defaults
 - `formatAuditTimestamp` uses `getUTC*` methods — timezone-independent
 

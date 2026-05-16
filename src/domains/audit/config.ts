@@ -63,7 +63,7 @@ export const DEFAULT_AUDIT_CONFIG: AuditConfig = {
   },
   auditors: [],
   targets: resolveDefaultTargets(),
-} as const;
+};
 
 const AUDIT_ALLOWED_FIELDS = new Set<string>([
   AUDIT_CONFIG_FIELDS.STORAGE,
