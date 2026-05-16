@@ -16,11 +16,13 @@ Implement the isolated reviewer execution substrate shared by branch and PR revi
 - Prepare execution directories and runtime config before launching reviewers.
 - Use the shared process lifecycle runner for long-running reviewer processes.
 - Keep target checkout or diff materialization separate from reviewer runtime state.
+- Before invoking runtime config reconciliation for hermetic reviewer execution, validate the resolved runtime state directory is contained by the review execution state boundary and remains ignored local state.
 - Persist enough metadata for review state to identify target, reviewer, base, head, and config digest.
 
 ## Evidence Required
 
 - Isolation tests prove reviewer runs cannot mutate invoking-agent state.
+- Containment tests prove hermetic runtime config state cannot escape the review execution state boundary before reviewer launch.
 - Lifecycle tests prove SIGINT, SIGTERM, and pipe-close behavior reaps reviewer child processes.
 - Failure tests cover reviewer non-zero exit and malformed review output.
 
@@ -41,5 +43,5 @@ Before branching, follow the common packet rules in `spx/16-config.enabler/PLAN.
 
 Start from fresh origin/main on work/hermetic-review-execution after review config and spx/33-agent-environment.enabler/32-runtime-config.enabler/ are available. Invoke spec-tree:understanding if needed, then spec-tree:contextualizing for spx/46-reviewing.enabler/32-hermetic-review-execution.enabler/. Read this PLAN and the governing specs it names. Invoke spec-tree:applying, spec-tree:testing, typescript:testing-typescript, and typescript:coding-typescript before edits.
 
-Before branching, verify `git cat-file -e origin/main:spx/46-reviewing.enabler/21-review-config.enabler/review-config.md` and `git cat-file -e origin/main:spx/33-agent-environment.enabler/32-runtime-config.enabler/runtime-config.md` succeed for the R1 and E2 artifacts. Implement the isolated reviewer execution substrate shared by branch and PR review commands. Prepare execution directories and runtime config before launch, use the shared process lifecycle runner, separate target materialization from reviewer runtime state, and emit metadata needed by review state. Prove invoking-agent state is not mutated, lifecycle signals reap reviewer children, and non-zero or malformed reviewer outputs produce terminal failure state. Open one PR and ask reviewers to audit hermetic boundaries.
+Before branching, verify `git cat-file -e origin/main:spx/46-reviewing.enabler/21-review-config.enabler/review-config.md` and `git cat-file -e origin/main:spx/33-agent-environment.enabler/32-runtime-config.enabler/runtime-config.md` succeed for the R1 and E2 artifacts. Implement the isolated reviewer execution substrate shared by branch and PR review commands. Prepare execution directories and runtime config before launch, prove the runtime state directory is contained by the review execution state boundary and remains ignored local state, use the shared process lifecycle runner, separate target materialization from reviewer runtime state, and emit metadata needed by review state. Prove invoking-agent state is not mutated, lifecycle signals reap reviewer children, runtime state containment holds, and non-zero or malformed reviewer outputs produce terminal failure state. Open one PR and ask reviewers to audit hermetic boundaries.
 ```
