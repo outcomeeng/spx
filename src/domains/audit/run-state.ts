@@ -156,6 +156,7 @@ const PATH_SEPARATOR_PATTERN = /[^a-z0-9]+/g;
 const EDGE_SEPARATOR_PATTERN = /^-|-$/g;
 const TRAILING_SEPARATOR_PATTERN = /-+$/;
 const BRANCH_SLUG_PATTERN = /^[a-z0-9]+(?:-[a-z0-9]+)*$/;
+const RUN_DIRECTORY_NAME_PATTERN = /^\d{4}-\d{2}-\d{2}_\d{2}-\d{2}-\d{2}-\d{3}-[a-f0-9]{12}$/;
 const SLUG_SEPARATOR = "-";
 const EMPTY_STRING = "";
 
@@ -338,7 +339,7 @@ export async function readAuditBranchRuns(
 
   const terminalRuns: AuditTerminalRun[] = [];
   const incompleteRuns: AuditIncompleteRun[] = [];
-  for (const entry of entries.filter((candidate) => candidate.isDirectory())) {
+  for (const entry of entries.filter(isAuditRunDirectoryEntry)) {
     const runDir = join(runsDir, entry.name);
     const statePath = join(runDir, storage.stateFile);
     const stateResult = await readAuditRunStatePath(statePath, fs);
@@ -519,6 +520,10 @@ function validateAuditBranchSlug(branchSlug: string): Result<string> {
   return BRANCH_SLUG_PATTERN.test(branchSlug)
     ? { ok: true, value: branchSlug }
     : { ok: false, error: AUDIT_RUN_STATE_ERROR.INVALID_BRANCH_SLUG };
+}
+
+function isAuditRunDirectoryEntry(entry: AuditRunDirectoryEntry): boolean {
+  return entry.isDirectory() && RUN_DIRECTORY_NAME_PATTERN.test(entry.name);
 }
 
 function hasErrorCode(error: unknown, code: string): boolean {

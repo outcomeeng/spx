@@ -40,7 +40,7 @@ async function withTempProductDir(callback: (productDir: string) => Promise<void
   }
 }
 
-const DIRECTORY_ENTRY_NAME = sampleAuditRunStateTestValue(AUDIT_RUN_STATE_TEST_GENERATOR.runId());
+const RUN_DIRECTORY_NAME = sampleAuditRunStateTestValue(AUDIT_RUN_STATE_TEST_GENERATOR.runDirectoryName());
 
 function createReadFailingFileSystem(error: Error & { readonly code: string }): AuditRunStateFileSystem {
   return {
@@ -52,19 +52,40 @@ function createReadFailingFileSystem(error: Error & { readonly code: string }): 
     },
     readdir: async () => [
       {
-        name: DIRECTORY_ENTRY_NAME,
+        name: RUN_DIRECTORY_NAME,
         isDirectory: () => true,
       },
     ],
   };
 }
 
+function createRecordingReadFileSystem(
+  entries: readonly string[],
+  state: unknown,
+  readPaths: string[],
+): AuditRunStateFileSystem {
+  return {
+    mkdir: () => Promise.resolve(),
+    writeFile: () => Promise.resolve(),
+    rename: () => Promise.resolve(),
+    readFile: async (path) => {
+      readPaths.push(path);
+      return JSON.stringify(state);
+    },
+    readdir: async () =>
+      entries.map((name) => ({
+        name,
+        isDirectory: () => true,
+      })),
+  };
+}
+
 describe("audit branch run-state lookup", () => {
   it("classifies missing, partial, and shape-invalid state files as incomplete evidence", async () => {
     const branchSlug = sampleAuditRunStateTestValue(AUDIT_RUN_STATE_TEST_GENERATOR.branchSlug());
-    const missingRun = sampleAuditRunStateTestValue(AUDIT_RUN_STATE_TEST_GENERATOR.runId());
-    const partialRun = sampleAuditRunStateTestValue(AUDIT_RUN_STATE_TEST_GENERATOR.runId());
-    const invalidRun = sampleAuditRunStateTestValue(AUDIT_RUN_STATE_TEST_GENERATOR.runId());
+    const missingRun = sampleAuditRunStateTestValue(AUDIT_RUN_STATE_TEST_GENERATOR.runDirectoryName());
+    const partialRun = sampleAuditRunStateTestValue(AUDIT_RUN_STATE_TEST_GENERATOR.runDirectoryName());
+    const invalidRun = sampleAuditRunStateTestValue(AUDIT_RUN_STATE_TEST_GENERATOR.runDirectoryName());
 
     await withTempProductDir(async (productDir) => {
       await mkdir(join(auditBranchRunsDir(productDir, branchSlug), missingRun), { recursive: true });
@@ -108,11 +129,11 @@ describe("audit branch run-state lookup", () => {
       expect(result.value.terminalRuns).toEqual([]);
       expect(result.value.incompleteRuns).toEqual([
         {
-          runDirectoryName: DIRECTORY_ENTRY_NAME,
-          runDir: join(auditBranchRunsDir(productDir, branchSlug), DIRECTORY_ENTRY_NAME),
+          runDirectoryName: RUN_DIRECTORY_NAME,
+          runDir: join(auditBranchRunsDir(productDir, branchSlug), RUN_DIRECTORY_NAME),
           statePath: join(
             auditBranchRunsDir(productDir, branchSlug),
-            DIRECTORY_ENTRY_NAME,
+            RUN_DIRECTORY_NAME,
             DEFAULT_AUDIT_CONFIG.storage.stateFile,
           ),
           reason: AUDIT_RUN_STATE_INCOMPLETE_REASON.IO_ERROR,
@@ -122,12 +143,34 @@ describe("audit branch run-state lookup", () => {
     });
   });
 
+  it("ignores directory entries that are not audit run directories before reading state files", async () => {
+    const branchSlug = sampleAuditRunStateTestValue(AUDIT_RUN_STATE_TEST_GENERATOR.branchSlug());
+    const invalidEntryName = sampleAuditRunStateTestValue(AUDIT_RUN_STATE_TEST_GENERATOR.branchName());
+    const validRunDirectoryName = sampleAuditRunStateTestValue(AUDIT_RUN_STATE_TEST_GENERATOR.runDirectoryName());
+    const state = sampleAuditRunStateTestValue(AUDIT_RUN_STATE_TEST_GENERATOR.auditRunState());
+    const readPaths: string[] = [];
+
+    await withTempProductDir(async (productDir) => {
+      const result = await readAuditBranchRuns(productDir, branchSlug, {
+        fs: createRecordingReadFileSystem([invalidEntryName, validRunDirectoryName], state, readPaths),
+      });
+
+      expect(result.ok).toBe(true);
+      if (!result.ok) throw new Error(result.error);
+      expect(result.value.incompleteRuns).toEqual([]);
+      expect(result.value.terminalRuns.map((run) => run.runDirectoryName)).toEqual([validRunDirectoryName]);
+      expect(readPaths).toEqual([
+        join(auditBranchRunsDir(productDir, branchSlug), validRunDirectoryName, DEFAULT_AUDIT_CONFIG.storage.stateFile),
+      ]);
+    });
+  });
+
   it("selects the latest terminal run by completedAt, startedAt, then run directory name", async () => {
     const branchSlug = sampleAuditRunStateTestValue(AUDIT_RUN_STATE_TEST_GENERATOR.branchSlug());
     const baseState = sampleAuditRunStateTestValue(AUDIT_RUN_STATE_TEST_GENERATOR.auditRunState());
-    const earlierRun = sampleAuditRunStateTestValue(AUDIT_RUN_STATE_TEST_GENERATOR.runId());
-    const laterStartedRun = sampleAuditRunStateTestValue(AUDIT_RUN_STATE_TEST_GENERATOR.runId());
-    const tieBreakerRun = sampleAuditRunStateTestValue(AUDIT_RUN_STATE_TEST_GENERATOR.runId());
+    const earlierRun = sampleAuditRunStateTestValue(AUDIT_RUN_STATE_TEST_GENERATOR.runDirectoryName());
+    const laterStartedRun = sampleAuditRunStateTestValue(AUDIT_RUN_STATE_TEST_GENERATOR.runDirectoryName());
+    const tieBreakerRun = sampleAuditRunStateTestValue(AUDIT_RUN_STATE_TEST_GENERATOR.runDirectoryName());
     const baseDate = sampleAuditRunStateTestValue(AUDIT_RUN_STATE_TEST_GENERATOR.timestampDate());
     const earlierCompletedAt = formatAuditRunTimestamp(baseDate);
     const completedAt = formatAuditRunTimestamp(new Date(baseDate.getTime() + 1));

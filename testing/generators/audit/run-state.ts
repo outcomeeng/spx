@@ -27,6 +27,7 @@ export const AUDIT_RUN_STATE_TEST_GENERATOR = {
   emptyNormalizedBranchName: arbitraryEmptyNormalizedBranchName,
   headSha: arbitraryHeadSha,
   runId: arbitraryRunId,
+  runDirectoryName: arbitraryRunDirectoryName,
   status: arbitraryStatus,
   timestampDate: arbitraryTimestampDate,
 } as const;
@@ -63,6 +64,12 @@ function arbitraryHeadSha(): fc.Arbitrary<string> {
 
 function arbitraryRunId(): fc.Arbitrary<string> {
   return fc.stringMatching(RUN_ID_PATTERN);
+}
+
+function arbitraryRunDirectoryName(): fc.Arbitrary<string> {
+  return fc
+    .tuple(arbitraryTimestampDate(), arbitraryRunId())
+    .map(([date, runId]) => `${formatAuditRunTimestamp(date)}-${runId}`);
 }
 
 function arbitraryDigest(): fc.Arbitrary<string> {
