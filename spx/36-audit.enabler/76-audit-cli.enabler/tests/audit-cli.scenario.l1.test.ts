@@ -50,7 +50,7 @@ describe("runVerifyCommand: output routing (S2)", () => {
       const filePath = await harness.writeVerdict("test/node", VALID_XML);
       const lines: string[] = [];
 
-      const exitCode = await runVerifyCommand(filePath, harness.projectRoot, (l) => lines.push(l));
+      const exitCode = await runVerifyCommand(filePath, harness.productDir, (l) => lines.push(l));
 
       expect(exitCode).toBe(0);
       expect(lines).toHaveLength(1);

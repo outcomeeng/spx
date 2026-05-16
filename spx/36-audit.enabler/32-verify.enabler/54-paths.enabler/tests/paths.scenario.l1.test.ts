@@ -2,11 +2,11 @@
  * Scenario tests for path validation.
  *
  * Test Level: 1 (Unit)
- * - Uses temp directories as project root; no external infrastructure
+ * - Uses temp directories as product directory; no external infrastructure
  *
  * Assertions covered from paths.md:
- * - S1: All paths exist under project root → no defects
- * - S2: Path escapes project root → "path escapes project root" defect
+ * - S1: All paths exist under product directory → no defects
+ * - S2: Path escapes product directory → "path escapes product directory" defect
  */
 
 import { AUDIT_PATH_DEFECT, validatePaths } from "@/domains/audit/paths";
@@ -23,7 +23,7 @@ const VALID_HEADER = {
 };
 
 describe("validatePaths: scenarios", () => {
-  it("GIVEN a verdict whose findings reference files that all exist under the project root WHEN path validation runs THEN no defects are reported", async () => {
+  it("GIVEN a verdict whose findings reference files that all exist under the product directory WHEN path validation runs THEN no defects are reported", async () => {
     const root = await mkdtemp(join(tmpdir(), "spx-paths-test-"));
     try {
       await mkdir(join(root, "spx", "36-audit.enabler", "tests"), { recursive: true });
@@ -55,7 +55,7 @@ describe("validatePaths: scenarios", () => {
     }
   });
 
-  it("GIVEN a verdict with a path that escapes the project root WHEN path validation runs THEN it reports a 'path escapes project root' defect", async () => {
+  it("GIVEN a verdict with a path that escapes the product directory WHEN path validation runs THEN it reports a 'path escapes product directory' defect", async () => {
     const root = await mkdtemp(join(tmpdir(), "spx-paths-test-"));
     try {
       const escapingPath = "../../etc/passwd";

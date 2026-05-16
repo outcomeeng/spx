@@ -11,7 +11,7 @@ export interface VerifyOutput {
 
 export async function runVerifyPipeline(
   filePath: string,
-  projectRoot: string,
+  productDir: string,
 ): Promise<VerifyOutput> {
   let verdict;
   try {
@@ -31,7 +31,7 @@ export async function runVerifyPipeline(
     return { lines: semanticDefects.map((d) => `semantic: ${d}`), exitCode: 1 };
   }
 
-  const pathDefects = validatePaths(verdict, projectRoot);
+  const pathDefects = validatePaths(verdict, productDir);
   if (pathDefects.length > 0) {
     return { lines: pathDefects.map((d) => `paths: ${d}`), exitCode: 1 };
   }

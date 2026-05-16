@@ -6,7 +6,7 @@
  * - Verifies directory structure, file writing, cleanup
  *
  * Assertions covered from audit-test-harness.md:
- * - S1: createAuditHarness creates temp project root with .spx/nodes/ directory
+ * - S1: createAuditHarness creates temp product directory with .spx/nodes/ directory
  * - S2: nodeDir(nodePath) returns .spx/nodes/ joined with encoded node path (/ → -)
  * - S3: writeVerdict creates {YYYY-MM-DD_HH-mm-ss}.audit.xml in node directory
  * - S3a: writeVerdict accepts injectable clock for deterministic filename
@@ -19,19 +19,20 @@ import { readFile, stat } from "node:fs/promises";
 import { basename, isAbsolute, join } from "node:path";
 
 import { DEFAULT_AUDIT_CONFIG, encodeNodePath, formatAuditTimestamp } from "@/domains/audit/config";
-import { createAuditHarness } from "@testing/harnesses/audit/harness";
+import { CONFIG_TEST_GENERATOR, sampleConfigTestValue } from "@testing/generators/config/descriptors";
+import { auditBranchRunsDir, createAuditHarness } from "@testing/harnesses/audit/harness";
 import * as fc from "fast-check";
 import { describe, expect, it } from "vitest";
 
 const AUDIT_TIMESTAMP_PATTERN = /^\d{4}-\d{2}-\d{2}_\d{2}-\d{2}-\d{2}\.audit\.xml$/;
 
-const NODES_DIR = join(DEFAULT_AUDIT_CONFIG.spxDir, DEFAULT_AUDIT_CONFIG.nodesSubdir);
+const NODES_DIR = join(DEFAULT_AUDIT_CONFIG.storage.spxDir, DEFAULT_AUDIT_CONFIG.storage.nodesDir);
 
 describe("createAuditHarness", () => {
-  it("GIVEN no arguments WHEN created THEN temp project root exists with .spx/nodes/ directory", async () => {
+  it("GIVEN no arguments WHEN created THEN temp product directory exists with .spx/nodes/ directory", async () => {
     const harness = await createAuditHarness();
     try {
-      const nodesDir = join(harness.projectRoot, NODES_DIR);
+      const nodesDir = join(harness.productDir, NODES_DIR);
       const dirStat = await stat(nodesDir);
       expect(dirStat.isDirectory()).toBe(true);
     } finally {
@@ -41,7 +42,7 @@ describe("createAuditHarness", () => {
 
   it("GIVEN a harness WHEN cleanup is called THEN temp dir no longer exists", async () => {
     const harness = await createAuditHarness();
-    const dir = harness.projectRoot;
+    const dir = harness.productDir;
     expect(existsSync(dir)).toBe(true);
 
     await harness.cleanup();
@@ -55,7 +56,7 @@ describe("nodeDir", () => {
     const harness = await createAuditHarness();
     try {
       const nodePath = "spx/36-audit.enabler/21-audit-test-harness.enabler";
-      const expected = join(harness.projectRoot, NODES_DIR, encodeNodePath(nodePath));
+      const expected = join(harness.productDir, NODES_DIR, encodeNodePath(nodePath));
 
       expect(harness.nodeDir(nodePath)).toBe(expected);
     } finally {
@@ -87,6 +88,24 @@ describe("nodeDir", () => {
           return harness.nodeDir(nodePath) === harness.nodeDir(nodePath);
         }),
       );
+    } finally {
+      await harness.cleanup();
+    }
+  });
+});
+
+describe("auditBranchRunsDir", () => {
+  it("GIVEN a product directory and branch slug WHEN called THEN returns the branch run directory", async () => {
+    const branchSlug = sampleConfigTestValue(CONFIG_TEST_GENERATOR.key());
+    const auditRunsDir = join(
+      DEFAULT_AUDIT_CONFIG.storage.spxDir,
+      DEFAULT_AUDIT_CONFIG.storage.auditDir,
+      branchSlug,
+      DEFAULT_AUDIT_CONFIG.storage.runsDir,
+    );
+    const harness = await createAuditHarness();
+    try {
+      expect(auditBranchRunsDir(harness.productDir, branchSlug)).toBe(join(harness.productDir, auditRunsDir));
     } finally {
       await harness.cleanup();
     }
@@ -140,7 +159,7 @@ describe("writeVerdict", () => {
       const fixedDate = new Date("2024-06-15T10:30:45.000Z");
       const now = () => fixedDate;
       const filePath = await harness.writeVerdict("spx/36-audit.enabler", "<audit_verdict/>", now);
-      const expectedFilename = `${formatAuditTimestamp(now)}${DEFAULT_AUDIT_CONFIG.auditSuffix}`;
+      const expectedFilename = `${formatAuditTimestamp(now)}${DEFAULT_AUDIT_CONFIG.storage.verdictFileSuffix}`;
 
       expect(basename(filePath)).toBe(expectedFilename);
     } finally {

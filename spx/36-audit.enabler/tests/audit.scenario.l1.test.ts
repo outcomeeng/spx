@@ -47,7 +47,7 @@ describe("spx audit verify: top-level scenarios", () => {
       const filePath = await harness.writeVerdict("spx/36-audit.enabler", VALID_XML);
       const lines: string[] = [];
 
-      const exitCode = await runVerifyCommand(filePath, harness.projectRoot, (l) => lines.push(l));
+      const exitCode = await runVerifyCommand(filePath, harness.productDir, (l) => lines.push(l));
 
       expect(exitCode).toBe(0);
       expect(lines).toHaveLength(1);
@@ -63,7 +63,7 @@ describe("spx audit verify: top-level scenarios", () => {
       const filePath = await harness.writeVerdict("spx/36-audit.enabler", DEFECTIVE_XML);
       const lines: string[] = [];
 
-      const exitCode = await runVerifyCommand(filePath, harness.projectRoot, (l) => lines.push(l));
+      const exitCode = await runVerifyCommand(filePath, harness.productDir, (l) => lines.push(l));
 
       expect(exitCode).toBe(1);
       expect(lines.length).toBeGreaterThan(0);
