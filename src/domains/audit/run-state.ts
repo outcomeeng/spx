@@ -240,7 +240,11 @@ export async function createAuditRunDirectory(
   const runsDir = auditRunsDir(gitCommonDirProductDir, branchSlug, storage);
   const randomBytes = options.randomBytes ?? nodeRandomBytes;
 
-  await fs.mkdir(runsDir, { recursive: true });
+  try {
+    await fs.mkdir(runsDir, { recursive: true });
+  } catch (error) {
+    return { ok: false, error: `${AUDIT_RUN_STATE_ERROR.RUN_DIRECTORY_CREATE_FAILED}: ${toErrorMessage(error)}` };
+  }
 
   for (let attempt = 0; attempt < maxAttempts; attempt += 1) {
     const runId = generateAuditRunId(randomBytes);
