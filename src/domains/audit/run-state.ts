@@ -139,7 +139,6 @@ const HASH_PREFIX_HEX_LENGTH = 8;
 const DETACHED_HEAD_PREFIX = "detached";
 const DETACHED_HEAD_SHA_HEX_LENGTH = 12;
 const RUN_ID_BYTES = 6;
-const RUN_ID_HEX_LENGTH = 12;
 const RUN_DIRECTORY_CREATE_ATTEMPTS = 10;
 const TEMP_STATE_ID_BYTES = 6;
 const TEMP_STATE_FILE_PREFIX = ".state";
@@ -157,6 +156,7 @@ const EMPTY_STRING = "";
 
 const defaultFileSystem: AuditRunStateFileSystem = {
   mkdir: async (path, options) => {
+    // Normalize nodeMkdir's recursive overload to the injected fs contract.
     await nodeMkdir(path, options);
   },
   writeFile: nodeWriteFile,
@@ -190,7 +190,7 @@ export function slugAuditBranchIdentity(
   const availablePrefixBytes = maxBytes - HASH_PREFIX_HEX_LENGTH - SLUG_SEPARATOR.length;
   if (availablePrefixBytes <= 0) return hashPrefix;
 
-  const prefix = truncateAsciiToBytes(normalizedPrefix, availablePrefixBytes);
+  const prefix = truncateNormalizedSlugPrefix(normalizedPrefix, availablePrefixBytes);
   return prefix.length === 0 ? hashPrefix : `${prefix}${SLUG_SEPARATOR}${hashPrefix}`;
 }
 
@@ -207,7 +207,7 @@ export function formatAuditRunTimestamp(date: Date): string {
 }
 
 export function generateAuditRunId(randomBytes: (size: number) => Buffer = nodeRandomBytes): string {
-  return randomBytes(RUN_ID_BYTES).toString(HEX_ENCODING).slice(0, RUN_ID_HEX_LENGTH);
+  return randomBytes(RUN_ID_BYTES).toString(HEX_ENCODING);
 }
 
 export function auditBranchDir(
@@ -357,11 +357,17 @@ export function selectLatestTerminalAuditRun(
 }
 
 function compareTerminalRuns(left: AuditTerminalRun, right: AuditTerminalRun): number {
-  const completed = left.state.completedAt.localeCompare(right.state.completedAt);
+  const completed = compareAsciiStrings(left.state.completedAt, right.state.completedAt);
   if (completed !== 0) return completed;
-  const started = left.state.startedAt.localeCompare(right.state.startedAt);
+  const started = compareAsciiStrings(left.state.startedAt, right.state.startedAt);
   if (started !== 0) return started;
-  return left.runDirectoryName.localeCompare(right.runDirectoryName);
+  return compareAsciiStrings(left.runDirectoryName, right.runDirectoryName);
+}
+
+function compareAsciiStrings(left: string, right: string): number {
+  if (left < right) return -1;
+  if (left > right) return 1;
+  return 0;
 }
 
 async function readAuditRunStatePath(
@@ -489,7 +495,7 @@ function generateHexId(size: number, randomBytes: (size: number) => Buffer): str
   return randomBytes(size).toString(HEX_ENCODING);
 }
 
-function truncateAsciiToBytes(value: string, maxBytes: number): string {
+function truncateNormalizedSlugPrefix(value: string, maxBytes: number): string {
   return value.slice(0, maxBytes);
 }
 

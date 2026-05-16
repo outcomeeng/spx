@@ -39,6 +39,7 @@ Placing `encodeNodePath` in `config.ts` co-locates it with the config it derives
 Keeping branch run state in `run-state.ts` separates branch-scoped execution history from node-first verdict verification. The module imports descriptor-owned storage defaults from `config.ts` and owns the algorithms that operate on branch identities, run ids, terminal state files, and latest-run ordering.
 
 Resolving the default target filter through `validatePathFilterConfig({})` makes descriptor defaults use the same canonical path-filter shape as configured values. If the shared primitive changes its acceptance rules for the empty filter, the audit descriptor default fails at import time instead of drifting from configured target resolution.
+
 UTC timestamps are required because verdict files are lexicographically sorted to find the latest audit, and agents run across timezones. Local timestamps would produce non-reproducible orderings when comparing verdicts from different machines.
 
 The injectable clock in `formatAuditTimestamp` enables `l1` tests to verify the exact filename produced by `writeVerdict` without relying on real wall-clock time.
@@ -57,6 +58,7 @@ The injectable clock in `formatAuditTimestamp` enables `l1` tests to verify the 
 - `encodeNodePath` is a pure function: same input always produces same output, no side effects
 - `src/domains/audit/run-state.ts` uses descriptor-owned storage defaults and never redefines audit path component strings
 - `DEFAULT_AUDIT_CONFIG` is never mutated at runtime
+- Each exclusive-created audit run directory has exactly one terminal state writer; concurrent terminal writers for the same run directory are outside the audit run-state contract
 - Audit descriptor validators reject unknown audit-owned keys before merging descriptor defaults
 - `formatAuditTimestamp` uses `getUTC*` methods — timezone-independent
 
