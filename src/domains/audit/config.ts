@@ -150,7 +150,7 @@ function validateAuditConfig(raw: unknown): Result<AuditConfig> {
 
   const auditors = raw[AUDIT_CONFIG_FIELDS.AUDITORS] === undefined
     ? { ok: true as const, value: DEFAULT_AUDIT_CONFIG.auditors }
-    : validateNonEmptyStringArray(
+    : validateArrayOfNonEmptyStrings(
       `${AUDIT_SECTION}.${AUDIT_CONFIG_FIELDS.AUDITORS}`,
       raw[AUDIT_CONFIG_FIELDS.AUDITORS],
     );
@@ -227,6 +227,7 @@ function validateStringRecord(
   raw: Record<string, unknown>,
 ): Result<AuditStorageConfig> {
   const next: MutableAuditStorageConfig = { ...defaults };
+  // Unknown fields are rejected before this default merge.
   for (const field of Object.keys(defaults)) {
     const value = raw[field];
     if (value === undefined) continue;
@@ -244,7 +245,7 @@ function validateNonEmptyString(path: string, value: unknown): Result<string> {
   return { ok: true, value };
 }
 
-function validateNonEmptyStringArray(path: string, value: unknown): Result<readonly string[]> {
+function validateArrayOfNonEmptyStrings(path: string, value: unknown): Result<readonly string[]> {
   if (!Array.isArray(value)) {
     return { ok: false, error: `${path} must be an array of non-empty strings` };
   }

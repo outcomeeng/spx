@@ -137,7 +137,7 @@ describe("audit config descriptor", () => {
             [AUDIT_CONFIG_FIELDS.AUDITORS]: [DEFAULT_AUDIT_CONFIG.auditors],
           },
         },
-        errorPath: auditPath(AUDIT_CONFIG_FIELDS.AUDITORS),
+        errorPath: auditPath(AUDIT_CONFIG_FIELDS.AUDITORS, "0"),
       },
       {
         config: {

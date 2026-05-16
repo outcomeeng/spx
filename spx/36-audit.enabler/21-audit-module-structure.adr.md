@@ -18,6 +18,8 @@ The audit production module tree under `src/domains/audit/` owns runtime audit c
 
 `DEFAULT_AUDIT_CONFIG` is an `as const` typed constant with descriptor-owned storage defaults, base-ref defaults, branch-slug defaults, auditor defaults, and target-filter defaults. Storage defaults include the `.spx` directory name, the `nodes` subdirectory name, audit/run state directory names, verdict filenames, and state filenames.
 
+Audit descriptor validators reject unknown keys at the `audit`, `audit.storage`, and `audit.branchSlug` levels. The stricter field policy catches misspelled audit execution settings before an audit run records state or computes descriptor digests. The shared target path-filter primitive retains its own structural policy and ignores unknown keys inside `audit.targets`.
+
 `encodeNodePath` is a pure function that converts a spec node path to a filesystem directory name by replacing every `/` with `-`.
 
 `formatAuditTimestamp` generates a `YYYY-MM-DD_HH-mm-ss` string using UTC components and accepts an optional injectable clock for deterministic testing.
@@ -30,6 +32,8 @@ Keeping audit config in an audit-owned descriptor maintains the audit domain's s
 
 Placing `encodeNodePath` in `config.ts` co-locates it with the config it derives from — `DEFAULT_AUDIT_CONFIG.storage.spxDir` and `DEFAULT_AUDIT_CONFIG.storage.nodesDir` are the values that give encoding its meaning. The production verify pipeline and the test harness both import from `config.ts`, ensuring consistent encoding.
 
+Resolving the default target filter through `validatePathFilterConfig({})` makes descriptor defaults use the same canonical path-filter shape as configured values. If the shared primitive changes its acceptance rules for the empty filter, the audit descriptor default fails at import time instead of drifting from configured target resolution.
+
 UTC timestamps are required because verdict files are lexicographically sorted to find the latest audit, and agents run across timezones. Local timestamps would produce non-reproducible orderings when comparing verdicts from different machines.
 
 The injectable clock in `formatAuditTimestamp` enables `l1` tests to verify the exact filename produced by `writeVerdict` without relying on real wall-clock time.
@@ -40,11 +44,13 @@ The injectable clock in `formatAuditTimestamp` enables `l1` tests to verify the 
 | ----------------------------------------------- | ---------------------------------------------------------------------------------------------- |
 | Audit config registered as a descriptor         | Keeps audit settings discoverable through shared config APIs without centralizing domain rules |
 | `encodeNodePath` in `config.ts` not in `paths/` | Encoding is a direct consequence of the config shape; co-location makes the dependency obvious |
+| Unknown audit keys are rejected                 | Misspelled audit execution settings fail before they affect persisted audit state or digests   |
 
 ## Invariants
 
 - `encodeNodePath` is a pure function: same input always produces same output, no side effects
 - `DEFAULT_AUDIT_CONFIG` is `as const` — never mutated at runtime
+- Audit descriptor validators reject unknown audit-owned keys before merging descriptor defaults
 - `formatAuditTimestamp` uses `getUTC*` methods — timezone-independent
 
 ## Compliance
@@ -60,6 +66,7 @@ The injectable clock in `formatAuditTimestamp` enables `l1` tests to verify the 
 - Use UTC methods (`getUTCFullYear`, `getUTCMonth`, etc.) in `formatAuditTimestamp` — timezone-independent sorting ([review])
 - Accept optional `now?: () => Date` in `formatAuditTimestamp` — injectable clock for deterministic `l1` tests ([review])
 - Import `DEFAULT_AUDIT_CONFIG`, `encodeNodePath`, and `formatAuditTimestamp` from `src/domains/audit/config.ts` in all consumers — no duplicate definitions ([review])
+- Reject unknown keys in audit-owned config objects before merging descriptor defaults; unknown keys inside shared `audit.targets` follow the shared path-filter primitive's policy ([review])
 
 ### NEVER
 
