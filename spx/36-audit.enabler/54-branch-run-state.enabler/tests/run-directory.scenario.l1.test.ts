@@ -5,19 +5,19 @@ import { join } from "node:path";
 import { describe, expect, it } from "vitest";
 
 import { DEFAULT_AUDIT_CONFIG } from "@/domains/audit/config";
+import { AUDIT_VERDICT_VALUE } from "@/domains/audit/reader";
 import {
-  AUDIT_RUN_STATE_ERROR,
-  type AuditRunStateFileSystem,
-  AUDIT_RUN_STATE_STATUS,
   AUDIT_RUN_STATE_DISPLAY,
-  auditRunsDir,
+  AUDIT_RUN_STATE_ERROR,
+  AUDIT_RUN_STATE_STATUS,
+  type AuditRunStateFileSystem,
   createAuditRunDirectory,
   formatAuditRunTimestamp,
   writeTerminalAuditRunState,
 } from "@/domains/audit/run-state";
-import { AUDIT_VERDICT_VALUE } from "@/domains/audit/reader";
 import { AUDIT_RUN_STATE_TEST_GENERATOR, sampleAuditRunStateTestValue } from "@testing/generators/audit/run-state";
 import { CONFIG_TEST_GENERATOR, sampleConfigTestValue } from "@testing/generators/config/descriptors";
+import { auditBranchRunsDir } from "@testing/harnesses/audit/harness";
 
 function bufferFromHex(hex: string): Buffer {
   return Buffer.from(hex, "hex");
@@ -60,7 +60,7 @@ describe("audit run directory storage", () => {
 
       expect(result.ok).toBe(true);
       if (!result.ok) throw new Error(result.error);
-      expect(result.value.runsDir).toBe(auditRunsDir(productDir, branchSlug));
+      expect(result.value.runsDir).toBe(auditBranchRunsDir(productDir, branchSlug));
       expect(result.value.runDirectoryName).toBe(`${formatAuditRunTimestamp(startedDate)}-${runId}`);
       expect(result.value.runDir).toBe(join(result.value.runsDir, result.value.runDirectoryName));
     });
@@ -73,7 +73,7 @@ describe("audit run directory storage", () => {
     const secondRunId = sampleAuditRunStateTestValue(AUDIT_RUN_STATE_TEST_GENERATOR.runId());
 
     await withTempProductDir(async (productDir) => {
-      const runsDir = auditRunsDir(productDir, branchSlug);
+      const runsDir = auditBranchRunsDir(productDir, branchSlug);
       await mkdir(join(runsDir, `${formatAuditRunTimestamp(startedDate)}-${firstRunId}`), { recursive: true });
       const runIds = [firstRunId, secondRunId];
 
@@ -94,7 +94,7 @@ describe("audit run directory storage", () => {
     const runId = sampleAuditRunStateTestValue(AUDIT_RUN_STATE_TEST_GENERATOR.runId());
 
     await withTempProductDir(async (productDir) => {
-      const runsDir = auditRunsDir(productDir, branchSlug);
+      const runsDir = auditBranchRunsDir(productDir, branchSlug);
       await mkdir(join(runsDir, `${formatAuditRunTimestamp(startedDate)}-${runId}`), { recursive: true });
 
       const result = await createAuditRunDirectory(productDir, branchSlug, {

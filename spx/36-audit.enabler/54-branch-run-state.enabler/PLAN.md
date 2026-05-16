@@ -27,10 +27,8 @@ Implement branch-scoped audit storage and terminal run-state lookup.
 
 ## Follow-Up Notes
 
-- Decide whether `writeTerminalAuditRunState` should remove same-directory temporary state files if the final rename fails, or document orphaned temp files as accepted interrupted-run debris.
-- Add explicit evidence for `STATE_ALREADY_EXISTS` double-write prevention when the terminal state writer is next expanded.
-- Add explicit evidence for non-`ENOENT` `readdir` failure propagation in `readAuditBranchRuns` when branch listing behavior is next expanded.
 - Revisit `AUDIT_RUN_STATE_TEST_GENERATOR.timestampDate()` before Q4 2026 so the generator's max date remains useful for future audit-run timestamps.
+- Review-retained cleanup items live in `spx/36-audit.enabler/54-branch-run-state.enabler/ISSUES.md`.
 
 ## Parallelization
 

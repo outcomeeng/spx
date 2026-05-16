@@ -43,6 +43,7 @@ export const AUDIT_RUN_STATE_FIELDS = {
 
 export const AUDIT_RUN_STATE_INCOMPLETE_REASON = {
   MISSING_STATE: "missing-state",
+  IO_ERROR: "io-error",
   PARSE_INVALID_STATE: "parse-invalid-state",
   SHAPE_INVALID_STATE: "shape-invalid-state",
 } as const;
@@ -184,18 +185,19 @@ export function slugAuditBranchIdentity(
   maxBytes: number = DEFAULT_AUDIT_CONFIG.branchSlug.maxBytes,
 ): string {
   const hashPrefix = sha256Hex(branchIdentity).slice(0, HASH_PREFIX_HEX_LENGTH);
+  const boundedHashPrefix = hashPrefix.slice(0, Math.max(0, maxBytes));
   const normalizedPrefix = branchIdentity
     .toLowerCase()
     .replace(PATH_SEPARATOR_PATTERN, SLUG_SEPARATOR)
     .replace(EDGE_SEPARATOR_PATTERN, EMPTY_STRING);
 
-  if (normalizedPrefix.length === 0) return hashPrefix;
+  if (normalizedPrefix.length === 0) return boundedHashPrefix;
 
   const availablePrefixBytes = maxBytes - HASH_PREFIX_HEX_LENGTH - SLUG_SEPARATOR.length;
-  if (availablePrefixBytes <= 0) return hashPrefix;
+  if (availablePrefixBytes <= 0) return boundedHashPrefix;
 
   const prefix = truncateNormalizedSlugPrefix(normalizedPrefix, availablePrefixBytes);
-  return prefix.length === 0 ? hashPrefix : `${prefix}${SLUG_SEPARATOR}${hashPrefix}`;
+  return prefix.length === 0 ? boundedHashPrefix : `${prefix}${SLUG_SEPARATOR}${hashPrefix}`;
 }
 
 export function formatAuditRunTimestamp(date: Date): string {
@@ -214,7 +216,7 @@ export function generateAuditRunId(randomBytes: (size: number) => Buffer = nodeR
   return randomBytes(RUN_ID_BYTES).toString(HEX_ENCODING);
 }
 
-export function auditBranchDir(
+function auditBranchDir(
   gitCommonDirProductDir: string,
   branchSlug: string,
   storage: AuditStorageConfig = DEFAULT_AUDIT_CONFIG.storage,
@@ -224,7 +226,7 @@ export function auditBranchDir(
   return join(gitCommonDirProductDir, storage.spxDir, storage.auditDir, validated.value);
 }
 
-export function auditRunsDir(
+function auditRunsDir(
   gitCommonDirProductDir: string,
   branchSlug: string,
   storage: AuditStorageConfig = DEFAULT_AUDIT_CONFIG.storage,
@@ -400,7 +402,7 @@ async function readAuditRunStatePath(
     }
     return {
       ok: false,
-      reason: AUDIT_RUN_STATE_INCOMPLETE_REASON.PARSE_INVALID_STATE,
+      reason: AUDIT_RUN_STATE_INCOMPLETE_REASON.IO_ERROR,
       error: toErrorMessage(error),
     };
   }

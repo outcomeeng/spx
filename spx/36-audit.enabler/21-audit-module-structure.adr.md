@@ -58,7 +58,7 @@ The injectable clock in `formatAuditTimestamp` enables `l1` tests to verify the 
 - `encodeNodePath` is a pure function: same input always produces same output, no side effects
 - `src/domains/audit/run-state.ts` uses descriptor-owned storage defaults and never redefines audit path component strings
 - `DEFAULT_AUDIT_CONFIG` is never mutated at runtime
-- Each exclusive-created audit run directory has exactly one terminal state writer; concurrent terminal writers for the same run directory are outside the audit run-state contract
+- Each exclusive-created audit run directory has exactly one terminal state writer; sequential duplicate terminal writes are rejected, while concurrent terminal writers for the same run directory are outside the audit run-state contract and are prevented by the one-owner run-directory invariant
 - Audit descriptor validators reject unknown audit-owned keys before merging descriptor defaults
 - `formatAuditTimestamp` uses `getUTC*` methods — timezone-independent
 

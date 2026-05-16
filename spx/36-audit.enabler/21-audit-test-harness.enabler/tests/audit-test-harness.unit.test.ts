@@ -19,7 +19,8 @@ import { readFile, stat } from "node:fs/promises";
 import { basename, isAbsolute, join } from "node:path";
 
 import { DEFAULT_AUDIT_CONFIG, encodeNodePath, formatAuditTimestamp } from "@/domains/audit/config";
-import { createAuditHarness } from "@testing/harnesses/audit/harness";
+import { CONFIG_TEST_GENERATOR, sampleConfigTestValue } from "@testing/generators/config/descriptors";
+import { auditBranchRunsDir, createAuditHarness } from "@testing/harnesses/audit/harness";
 import * as fc from "fast-check";
 import { describe, expect, it } from "vitest";
 
@@ -87,6 +88,24 @@ describe("nodeDir", () => {
           return harness.nodeDir(nodePath) === harness.nodeDir(nodePath);
         }),
       );
+    } finally {
+      await harness.cleanup();
+    }
+  });
+});
+
+describe("auditBranchRunsDir", () => {
+  it("GIVEN a product directory and branch slug WHEN called THEN returns the branch run directory", async () => {
+    const branchSlug = sampleConfigTestValue(CONFIG_TEST_GENERATOR.key());
+    const auditRunsDir = join(
+      DEFAULT_AUDIT_CONFIG.storage.spxDir,
+      DEFAULT_AUDIT_CONFIG.storage.auditDir,
+      branchSlug,
+      DEFAULT_AUDIT_CONFIG.storage.runsDir,
+    );
+    const harness = await createAuditHarness();
+    try {
+      expect(auditBranchRunsDir(harness.productDir, branchSlug)).toBe(join(harness.productDir, auditRunsDir));
     } finally {
       await harness.cleanup();
     }

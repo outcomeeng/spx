@@ -52,6 +52,21 @@ describe("audit branch slugging", () => {
     expect(slugAuditBranchIdentity(branchName)).toBe(hashPrefix(branchName));
   });
 
+  it("respects explicit byte limits shorter than the hash prefix", () => {
+    fc.assert(
+      fc.property(
+        AUDIT_RUN_STATE_TEST_GENERATOR.branchName(),
+        fc.integer({ min: 0, max: HASH_PREFIX_HEX_LENGTH - 1 }),
+        (branchName, maxBytes) => {
+          const slug = slugAuditBranchIdentity(branchName, maxBytes);
+
+          expect(Buffer.byteLength(slug)).toBeLessThanOrEqual(maxBytes);
+          expect(slug).toBe(hashPrefix(branchName).slice(0, maxBytes));
+        },
+      ),
+    );
+  });
+
   it("trims truncated prefixes before appending the hash suffix", () => {
     const left = sampleAuditRunStateTestValue(AUDIT_RUN_STATE_TEST_GENERATOR.branchNameSegment());
     const right = sampleAuditRunStateTestValue(AUDIT_RUN_STATE_TEST_GENERATOR.branchNameSegment());

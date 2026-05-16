@@ -10,7 +10,7 @@ import {
   AUDIT_RUN_STATE_ERROR,
   AUDIT_RUN_STATE_INCOMPLETE_REASON,
   AUDIT_RUN_STATE_STATUS,
-  auditRunsDir,
+  type AuditRunStateFileSystem,
   formatAuditRunTimestamp,
   readAuditBranchRuns,
   selectLatestTerminalAuditRun,
@@ -18,7 +18,7 @@ import {
 import { runVerifyPipeline } from "@/domains/audit/verify";
 import { AUDIT_RUN_STATE_TEST_GENERATOR, sampleAuditRunStateTestValue } from "@testing/generators/audit/run-state";
 import { CONFIG_TEST_GENERATOR, sampleConfigTestValue } from "@testing/generators/config/descriptors";
-import { createAuditHarness, renderAuditVerdictXml } from "@testing/harnesses/audit/harness";
+import { auditBranchRunsDir, createAuditHarness, renderAuditVerdictXml } from "@testing/harnesses/audit/harness";
 
 async function writeState(
   productDir: string,
@@ -26,7 +26,7 @@ async function writeState(
   runDirectoryName: string,
   state: unknown,
 ): Promise<void> {
-  const runDir = join(auditRunsDir(productDir, branchSlug), runDirectoryName);
+  const runDir = join(auditBranchRunsDir(productDir, branchSlug), runDirectoryName);
   await mkdir(runDir, { recursive: true });
   await writeFile(join(runDir, DEFAULT_AUDIT_CONFIG.storage.stateFile), JSON.stringify(state));
 }
@@ -40,6 +40,25 @@ async function withTempProductDir(callback: (productDir: string) => Promise<void
   }
 }
 
+const DIRECTORY_ENTRY_NAME = sampleAuditRunStateTestValue(AUDIT_RUN_STATE_TEST_GENERATOR.runId());
+
+function createReadFailingFileSystem(error: Error & { readonly code: string }): AuditRunStateFileSystem {
+  return {
+    mkdir: () => Promise.resolve(),
+    writeFile: () => Promise.resolve(),
+    rename: () => Promise.resolve(),
+    readFile: async () => {
+      throw error;
+    },
+    readdir: async () => [
+      {
+        name: DIRECTORY_ENTRY_NAME,
+        isDirectory: () => true,
+      },
+    ],
+  };
+}
+
 describe("audit branch run-state lookup", () => {
   it("classifies missing, partial, and shape-invalid state files as incomplete evidence", async () => {
     const branchSlug = sampleAuditRunStateTestValue(AUDIT_RUN_STATE_TEST_GENERATOR.branchSlug());
@@ -48,10 +67,10 @@ describe("audit branch run-state lookup", () => {
     const invalidRun = sampleAuditRunStateTestValue(AUDIT_RUN_STATE_TEST_GENERATOR.runId());
 
     await withTempProductDir(async (productDir) => {
-      await mkdir(join(auditRunsDir(productDir, branchSlug), missingRun), { recursive: true });
-      await mkdir(join(auditRunsDir(productDir, branchSlug), partialRun), { recursive: true });
+      await mkdir(join(auditBranchRunsDir(productDir, branchSlug), missingRun), { recursive: true });
+      await mkdir(join(auditBranchRunsDir(productDir, branchSlug), partialRun), { recursive: true });
       await writeFile(
-        join(auditRunsDir(productDir, branchSlug), partialRun, DEFAULT_AUDIT_CONFIG.storage.stateFile),
+        join(auditBranchRunsDir(productDir, branchSlug), partialRun, DEFAULT_AUDIT_CONFIG.storage.stateFile),
         "{",
       );
       await writeState(productDir, branchSlug, invalidRun, {
@@ -71,6 +90,35 @@ describe("audit branch run-state lookup", () => {
           AUDIT_RUN_STATE_INCOMPLETE_REASON.SHAPE_INVALID_STATE,
         ].sort(),
       );
+    });
+  });
+
+  it("classifies state file read failures as I/O incomplete evidence", async () => {
+    const branchSlug = sampleAuditRunStateTestValue(AUDIT_RUN_STATE_TEST_GENERATOR.branchSlug());
+    const errorCode = sampleConfigTestValue(CONFIG_TEST_GENERATOR.key());
+    const error = Object.assign(new Error(errorCode), { code: errorCode });
+
+    await withTempProductDir(async (productDir) => {
+      const result = await readAuditBranchRuns(productDir, branchSlug, {
+        fs: createReadFailingFileSystem(error),
+      });
+
+      expect(result.ok).toBe(true);
+      if (!result.ok) throw new Error(result.error);
+      expect(result.value.terminalRuns).toEqual([]);
+      expect(result.value.incompleteRuns).toEqual([
+        {
+          runDirectoryName: DIRECTORY_ENTRY_NAME,
+          runDir: join(auditBranchRunsDir(productDir, branchSlug), DIRECTORY_ENTRY_NAME),
+          statePath: join(
+            auditBranchRunsDir(productDir, branchSlug),
+            DIRECTORY_ENTRY_NAME,
+            DEFAULT_AUDIT_CONFIG.storage.stateFile,
+          ),
+          reason: AUDIT_RUN_STATE_INCOMPLETE_REASON.IO_ERROR,
+          error: errorCode,
+        },
+      ]);
     });
   });
 
