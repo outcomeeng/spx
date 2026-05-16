@@ -25,6 +25,11 @@ Implement branch-scoped audit storage and terminal run-state lookup.
 - State tests cover approved, rejected, failed, interrupted, missing state, partial state, parse-invalid state, and latest-run ordering.
 - Migration tests cover node-first `.spx/nodes/` explicit verification and exclusion from branch list/status.
 
+## Follow-Up Notes
+
+- Revisit `AUDIT_RUN_STATE_TEST_GENERATOR.timestampDate()` before Q4 2026 so the generator's max date remains useful for future audit-run timestamps.
+- Review-retained cleanup items live in `spx/36-audit.enabler/54-branch-run-state.enabler/ISSUES.md`.
+
 ## Parallelization
 
 This depends on audit config defaults. Auditor execution can integrate after the state writer API exists.

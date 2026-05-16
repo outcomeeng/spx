@@ -107,6 +107,16 @@ export async function createAuditHarness(): Promise<AuditHarness> {
   return harness;
 }
 
+export function auditBranchRunsDir(productDir: string, branchSlug: string): string {
+  return join(
+    productDir,
+    DEFAULT_AUDIT_CONFIG.storage.spxDir,
+    DEFAULT_AUDIT_CONFIG.storage.auditDir,
+    branchSlug,
+    DEFAULT_AUDIT_CONFIG.storage.runsDir,
+  );
+}
+
 export function renderAuditVerdictXml(fixture: AuditVerdictXmlFixture): string {
   const gatesXml = fixture.gates.map(renderAuditGateXml).join("\n");
 
