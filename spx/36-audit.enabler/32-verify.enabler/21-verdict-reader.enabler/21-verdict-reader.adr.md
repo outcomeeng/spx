@@ -14,7 +14,7 @@ This decision governs the TypeScript module for parsing audit verdict XML files 
 
 `fast-xml-parser` is the XML parsing library. It is a pure-JavaScript parser with TypeScript types, detects malformed XML and reports parse errors, and supports attribute parsing without a DOM runtime.
 
-`src/audit/reader.ts` exports the `AuditVerdict` type, the component types (`AuditVerdictHeader`, `AuditGate`, `AuditFinding`), and the `readVerdictFile` function. Downstream stages import the type from this module.
+`src/domains/audit/reader.ts` exports the `AuditVerdict` type, the component types (`AuditVerdictHeader`, `AuditGate`, `AuditFinding`), and the `readVerdictFile` function. Downstream stages import the type from this module.
 
 `AuditVerdict` carries optional fields for all header children and gate children. This allows structurally incomplete documents (missing `<header>`, missing `<verdict>`, etc.) to be represented without the reader performing structural validation. The `gates` field defaults to an empty array when `<gates>` is absent. All fields are `readonly` to prevent downstream stages from mutating the parsed representation.
 
@@ -28,7 +28,7 @@ On ENOENT, `readVerdictFile` throws an `Error` whose message names the missing f
 
 Optional fields throughout `AuditVerdict` reflect that the reader's only obligation is well-formedness detection, not structural completeness. If the structural stage received only validated documents, it would have nothing to check. The reader returns whatever was in the XML; the structural stage narrows that to required-field presence.
 
-Exporting `AuditVerdict` from `src/audit/reader.ts` co-locates the type with the function that produces it. Downstream stages do not need their own type definitions; they import from the reader module, making the dependency direction explicit: structural/semantic/paths all import from reader, never from each other.
+Exporting `AuditVerdict` from `src/domains/audit/reader.ts` co-locates the type with the function that produces it. Downstream stages do not need their own type definitions; they import from the reader module, making the dependency direction explicit: structural/semantic/paths all import from reader, never from each other.
 
 No dependency injection of `readFile` is warranted. The module's external boundary is a file path string; the caller supplies that path, making the file-system read integral to the function's contract rather than an injectable concern. A file-system abstraction would add an interface layer without isolating any independently testable logic — the only logic worth exercising is the path → parsed-representation mapping, which requires a real file.
 
@@ -38,7 +38,7 @@ No dependency injection of `readFile` is warranted. The module's external bounda
 | --------------------------------------------------- | -------------------------------------------------------------------------------------------------------------- |
 | Adding `fast-xml-parser` as a production dependency | The package is widely adopted and maintained; no lighter-weight alternative detects malformed XML reliably     |
 | `AuditVerdict` fields are optional, not strict      | Structural validation is the downstream stage's concern; a strict type would force the reader to do validation |
-| Reader module exports both types and function       | Co-location of type and producer is clearer than a separate `src/audit/types.ts` with no producer              |
+| Reader module exports both types and function       | Co-location of type and producer is clearer than a separate `src/domains/audit/types.ts` with no producer      |
 
 ## Invariants
 
@@ -54,7 +54,7 @@ A single `readVerdictFile` function in a single module reads and parses verdict 
 
 ### MUST
 
-- Export `AuditVerdict`, `AuditVerdictHeader`, `AuditGate`, `AuditFinding` from `src/audit/reader.ts` — shared type contract for all stages ([review])
+- Export `AuditVerdict`, `AuditVerdictHeader`, `AuditGate`, `AuditFinding` from `src/domains/audit/reader.ts` — shared type contract for all stages ([review])
 - Throw an `Error` naming the file path on ENOENT ([review])
 - Throw an `Error` naming the file path on malformed XML ([review])
 - Set all `AuditVerdict`, `AuditGate`, and `AuditFinding` fields as `readonly` — prevents downstream mutation of the parsed representation ([review])
@@ -65,4 +65,4 @@ A single `readVerdictFile` function in a single module reads and parses verdict 
 - Validate structural completeness (required element presence) in the reader — that is the structural stage's responsibility ([review])
 - Validate enum membership (`APPROVED`/`REJECT`, `PASS`/`FAIL`/`SKIPPED`) in the reader — that is the structural stage's responsibility ([review])
 - Validate path existence in the reader — that is the paths stage's responsibility ([review])
-- Import or depend on `src/audit/testing/harness.ts` in the production reader module — harness is test infrastructure only ([review])
+- Import or depend on `testing/harnesses/audit/harness.ts` in the production reader module — harness is test infrastructure only ([review])

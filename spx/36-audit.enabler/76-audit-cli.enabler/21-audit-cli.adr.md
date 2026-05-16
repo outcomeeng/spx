@@ -16,7 +16,7 @@ The audit CLI module exports two items:
 
 1. `auditDomain: Domain` — the Commander.js domain object with `name: "audit"`. Its `register` method adds the `audit` command group to the root program and registers the `verify <file>` subcommand under it.
 
-2. `runVerifyCommand(filePath: string, projectRoot: string, writeLine: (line: string) => void): Promise<0 | 1>` — the command logic extracted for testability. It calls `runVerifyPipeline`, writes output via `writeLine`, and returns the exit code without calling `process.exit`. The Commander action handler calls `runVerifyCommand` with `console.log` and `process.cwd()`, then passes the returned exit code to `process.exit`.
+2. `runVerifyCommand(filePath: string, productDir: string, writeLine: (line: string) => void): Promise<0 | 1>` — the command logic extracted for testability. It calls `runVerifyPipeline`, writes output via `writeLine`, and returns the exit code without calling `process.exit`. The Commander action handler calls `runVerifyCommand` with `console.log` and `process.cwd()`, then passes the returned exit code to `process.exit`.
 
 Output behavior: when `exitCode` is `0`, `writeLine` is called once with the verdict value (`APPROVED` or `REJECT`). When `exitCode` is `1`, `writeLine` is called once per defect line.
 
@@ -32,10 +32,10 @@ Printing the verdict value (`APPROVED`/`REJECT`) on success lets callers know th
 
 ## Trade-offs accepted
 
-| Trade-off                             | Mitigation / reasoning                                                              |
-| ------------------------------------- | ----------------------------------------------------------------------------------- |
-| `writeLine` DI rather than direct I/O | Enables l1 testing without process-level harness or stdout mocking                  |
-| `process.cwd()` used as project root  | Correct for CLI context; tests pass a temp directory directly to `runVerifyCommand` |
+| Trade-off                                 | Mitigation / reasoning                                                              |
+| ----------------------------------------- | ----------------------------------------------------------------------------------- |
+| `writeLine` DI rather than direct I/O     | Enables l1 testing without process-level harness or stdout mocking                  |
+| `process.cwd()` used as product directory | Correct for CLI context; tests pass a temp directory directly to `runVerifyCommand` |
 
 ## Invariants
 

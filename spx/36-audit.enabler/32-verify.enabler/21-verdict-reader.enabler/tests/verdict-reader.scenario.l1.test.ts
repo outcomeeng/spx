@@ -30,7 +30,7 @@ describe("readVerdictFile: error scenarios", () => {
   it("GIVEN a file path that does not exist WHEN the reader reads it THEN throws an error naming the missing path", async () => {
     const harness = await createAuditHarness();
     try {
-      const missingPath = join(harness.projectRoot, "nonexistent-verdict.xml");
+      const missingPath = join(harness.productDir, "nonexistent-verdict.xml");
       await expect(readVerdictFile(missingPath)).rejects.toThrow(missingPath);
     } finally {
       await harness.cleanup();

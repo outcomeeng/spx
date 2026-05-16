@@ -69,8 +69,8 @@ describe("runVerifyPipeline: determinism property (P1)", () => {
 
           const filePath = await harness.writeVerdict(`prop-test/${verdict}`, xml);
 
-          const result1 = await runVerifyPipeline(filePath, harness.projectRoot);
-          const result2 = await runVerifyPipeline(filePath, harness.projectRoot);
+          const result1 = await runVerifyPipeline(filePath, harness.productDir);
+          const result2 = await runVerifyPipeline(filePath, harness.productDir);
 
           expect(result1.exitCode).toBe(result2.exitCode);
           expect(result1.lines).toEqual(result2.lines);

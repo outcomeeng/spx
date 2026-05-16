@@ -12,7 +12,7 @@ This decision governs the TypeScript module that orchestrates the four-stage aud
 
 ## Decision
 
-The verify pipeline module exports a single async function `runVerifyPipeline(filePath: string, projectRoot: string): Promise<VerifyOutput>` where `VerifyOutput` is `{ readonly lines: readonly string[]; readonly exitCode: 0 | 1 }`.
+The verify pipeline module exports a single async function `runVerifyPipeline(filePath: string, productDir: string): Promise<VerifyOutput>` where `VerifyOutput` is `{ readonly lines: readonly string[]; readonly exitCode: 0 | 1 }`.
 
 `lines` contains formatted defect strings, each conforming to `{stage}: {message}`. `exitCode` is `0` when all stages pass (lines is empty) and `1` when any stage fails.
 
@@ -21,7 +21,7 @@ The pipeline runs stages in order, stopping at the first stage that produces def
 1. Reader: called with `filePath`. If it throws, the error message is formatted as `reader: {message}` and the pipeline stops with exit code 1.
 2. Structural: called with the parsed verdict. If it returns defects, each is formatted as `structural: {defect}` and the pipeline stops with exit code 1.
 3. Semantic: called with the parsed verdict. If it returns defects, each is formatted as `semantic: {defect}` and the pipeline stops with exit code 1.
-4. Paths: called with the parsed verdict and `projectRoot`. If it returns defects, each is formatted as `paths: {defect}` and the pipeline stops with exit code 1.
+4. Paths: called with the parsed verdict and `productDir`. If it returns defects, each is formatted as `paths: {defect}` and the pipeline stops with exit code 1.
 
 If all stages pass, the pipeline returns `{ lines: [], exitCode: 0 }`.
 
@@ -38,7 +38,7 @@ Catching the reader's thrown error and formatting it as a `reader:` line maintai
 | Trade-off                        | Mitigation / reasoning                                                                                              |
 | -------------------------------- | ------------------------------------------------------------------------------------------------------------------- |
 | Sequential stop on first failure | Downstream stages are semantically dependent on earlier ones; noise from later stages on bad data is not actionable |
-| `projectRoot` passed by caller   | Consistent with the paths validator's contract; caller controls the project root                                    |
+| `productDir` passed by caller    | Consistent with the paths validator's contract; caller controls the product directory                               |
 
 ## Invariants
 
@@ -50,7 +50,7 @@ Catching the reader's thrown error and formatting it as a `reader:` line maintai
 
 ### Recognized by
 
-A single async function receives a file path and project root, orchestrates the four validation stages, and returns formatted lines with an exit code.
+A single async function receives a file path and product directory, orchestrates the four validation stages, and returns formatted lines with an exit code.
 
 ### MUST
 
