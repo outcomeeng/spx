@@ -20,6 +20,8 @@ The audit production module tree under `src/domains/audit/` owns runtime audit c
 
 `DEFAULT_AUDIT_CONFIG` is an `as const` typed constant with descriptor-owned storage defaults, base-ref defaults, branch-slug defaults, auditor defaults, and target-filter defaults. Storage defaults include the `.spx` directory name, the `nodes` subdirectory name, audit/run state directory names, verdict filenames, and state filenames.
 
+`verdictFile` and `verdictFileSuffix` are separate storage vocabulary entries. `verdictFile` is the stable filename used when an audit run needs a well-known verdict artifact name inside a run directory. `verdictFileSuffix` is the suffix appended to timestamp stems for node-first verdict artifacts under `.spx/nodes/`. They may be configured independently; no cross-field suffix relationship is enforced.
+
 Audit descriptor validators reject unknown keys at the `audit`, `audit.storage`, and `audit.branchSlug` levels. The stricter field policy catches misspelled audit execution settings before an audit run records state or computes descriptor digests. The shared target path-filter primitive retains its own structural policy and ignores unknown keys inside `audit.targets`.
 
 `encodeNodePath` is a pure function that converts a spec node path to a filesystem directory name by replacing every `/` with `-`.
