@@ -7,6 +7,7 @@ import { describe, expect, it } from "vitest";
 import { DEFAULT_AUDIT_CONFIG } from "@/domains/audit/config";
 import {
   AUDIT_RUN_STATE_ERROR,
+  type AuditRunStateFileSystem,
   auditRunsDir,
   createAuditRunDirectory,
   formatAuditRunTimestamp,
@@ -19,6 +20,18 @@ function bufferFromHex(hex: string): Buffer {
   return Buffer.from(hex, "hex");
 }
 
+function createFailingMkdirFileSystem(errorMessage: string): AuditRunStateFileSystem {
+  return {
+    mkdir: async () => {
+      throw new Error(errorMessage);
+    },
+    writeFile: () => Promise.resolve(),
+    rename: () => Promise.resolve(),
+    readFile: async () => EMPTY_JSON,
+    readdir: async () => [],
+  };
+}
+
 async function withTempProductDir(callback: (productDir: string) => Promise<void>): Promise<void> {
   const productDir = await mkdtemp(join(tmpdir(), sampleConfigTestValue(CONFIG_TEST_GENERATOR.tempPrefix())));
   try {
@@ -27,6 +40,8 @@ async function withTempProductDir(callback: (productDir: string) => Promise<void
     await rm(productDir, { recursive: true, force: true });
   }
 }
+
+const EMPTY_JSON = "{}";
 
 describe("audit run directory storage", () => {
   it("creates branch-scoped run directories under the audit descriptor storage root", async () => {
@@ -86,6 +101,22 @@ describe("audit run directory storage", () => {
       });
 
       expect(result).toEqual({ ok: false, error: AUDIT_RUN_STATE_ERROR.RUN_DIRECTORY_COLLISION_LIMIT });
+    });
+  });
+
+  it("returns a typed error when the root run directory cannot be created", async () => {
+    const branchSlug = sampleAuditRunStateTestValue(AUDIT_RUN_STATE_TEST_GENERATOR.branchSlug());
+    const errorMessage = sampleAuditRunStateTestValue(AUDIT_RUN_STATE_TEST_GENERATOR.branchName());
+
+    await withTempProductDir(async (productDir) => {
+      const result = await createAuditRunDirectory(productDir, branchSlug, {
+        fs: createFailingMkdirFileSystem(errorMessage),
+      });
+
+      expect(result.ok).toBe(false);
+      if (result.ok) throw new Error(result.value.runDir);
+      expect(result.error).toContain(AUDIT_RUN_STATE_ERROR.RUN_DIRECTORY_CREATE_FAILED);
+      expect(result.error).toContain(errorMessage);
     });
   });
 
