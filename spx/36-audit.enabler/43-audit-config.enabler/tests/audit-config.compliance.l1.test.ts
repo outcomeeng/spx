@@ -49,6 +49,10 @@ function auditPath(...segments: readonly string[]): string {
   return [AUDIT_SECTION, ...segments].join(".");
 }
 
+function sampleUnknownField(disallowed: readonly string[]): string {
+  return sampleConfigTestValue(CONFIG_TEST_GENERATOR.key().filter((key) => !disallowed.includes(key)));
+}
+
 describe("audit config descriptor", () => {
   it("registers the audit section in the production config registry", async () => {
     await withTestEnv({}, async ({ productDir }) => {
@@ -100,7 +104,53 @@ describe("audit config descriptor", () => {
 
   it("rejects invalid storage, branch slug, auditor, and target-filter shapes before audit execution", async () => {
     const invalidPathFilter = sampleConfigTestValue(CONFIG_TEST_GENERATOR.invalidPathFilter());
+    const unknownValue = sampleConfigTestValue(CONFIG_TEST_GENERATOR.scalar());
+    const unknownAuditField = sampleUnknownField([
+      AUDIT_CONFIG_FIELDS.STORAGE,
+      AUDIT_CONFIG_FIELDS.BASE_REF,
+      AUDIT_CONFIG_FIELDS.BRANCH_SLUG,
+      AUDIT_CONFIG_FIELDS.AUDITORS,
+      AUDIT_CONFIG_FIELDS.TARGETS,
+    ]);
+    const unknownStorageField = sampleUnknownField([
+      AUDIT_CONFIG_FIELDS.SPX_DIR,
+      AUDIT_CONFIG_FIELDS.NODES_DIR,
+      AUDIT_CONFIG_FIELDS.AUDIT_DIR,
+      AUDIT_CONFIG_FIELDS.RUNS_DIR,
+      AUDIT_CONFIG_FIELDS.VERDICT_FILE,
+      AUDIT_CONFIG_FIELDS.VERDICT_FILE_SUFFIX,
+      AUDIT_CONFIG_FIELDS.STATE_FILE,
+    ]);
+    const unknownBranchSlugField = sampleUnknownField([AUDIT_CONFIG_FIELDS.MAX_BYTES]);
     const cases: readonly { readonly config: Config; readonly errorPath: string }[] = [
+      {
+        config: {
+          [AUDIT_SECTION]: {
+            [unknownAuditField]: unknownValue,
+          },
+        },
+        errorPath: auditPath(unknownAuditField),
+      },
+      {
+        config: {
+          [AUDIT_SECTION]: {
+            [AUDIT_CONFIG_FIELDS.STORAGE]: {
+              [unknownStorageField]: unknownValue,
+            },
+          },
+        },
+        errorPath: auditPath(AUDIT_CONFIG_FIELDS.STORAGE, unknownStorageField),
+      },
+      {
+        config: {
+          [AUDIT_SECTION]: {
+            [AUDIT_CONFIG_FIELDS.BRANCH_SLUG]: {
+              [unknownBranchSlugField]: unknownValue,
+            },
+          },
+        },
+        errorPath: auditPath(AUDIT_CONFIG_FIELDS.BRANCH_SLUG, unknownBranchSlugField),
+      },
       {
         config: {
           [AUDIT_SECTION]: {
