@@ -15,6 +15,7 @@ const DIGEST_PATTERN = /^[a-f0-9]{64}$/;
 const PUNCTUATION_BRANCH_SEPARATOR = "/";
 const PUNCTUATION_BRANCH_MARK = "!";
 const EMPTY_NORMALIZED_BRANCH = "!!!";
+const MAX_AUDIT_RUN_DURATION_MS = 86_400_000;
 
 export const AUDIT_RUN_STATE_TEST_GENERATOR = {
   auditRunState: arbitraryAuditRunState,
@@ -88,7 +89,7 @@ function arbitraryAuditRunState(): fc.Arbitrary<AuditRunState> {
       auditors: fc.array(CONFIG_TEST_GENERATOR.key(), { minLength: 0, maxLength: 4 }),
       targets: fc.array(CONFIG_TEST_GENERATOR.key(), { minLength: 0, maxLength: 4 }),
       startedDate: arbitraryTimestampDate(),
-      completedDate: arbitraryTimestampDate(),
+      durationMs: fc.nat({ max: MAX_AUDIT_RUN_DURATION_MS }),
       status: arbitraryStatus(),
       verdictPath: fc.option(CONFIG_TEST_GENERATOR.key(), { nil: undefined }),
     })
@@ -102,13 +103,14 @@ function arbitraryAuditRunState(): fc.Arbitrary<AuditRunState> {
           auditors,
           targets,
           startedDate,
-          completedDate,
+          durationMs,
           status,
           verdictPath,
         },
       ) => {
         const branchSlug = slugAuditBranchIdentity(branchName);
         const startedAt = formatAuditRunTimestamp(startedDate);
+        const completedDate = new Date(startedDate.getTime() + durationMs);
         const completedAt = formatAuditRunTimestamp(completedDate);
         return {
           branchName,
