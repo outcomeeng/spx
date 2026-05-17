@@ -1,26 +1,28 @@
 # Session Identity
 
-PROVIDES timestamp-based session ID generation, ID parsing, and YAML front-matter metadata extraction
+PROVIDES timestamp-based session ID generation, ID parsing, and YAML front-matter metadata extraction per [`spx/36-session.enabler/11-session-frontmatter.pdr.md`](../11-session-frontmatter.pdr.md)
 SO THAT session-store, session-claim, session-retention, and session-cli enablers
-CAN identify sessions uniquely, determine sort order, and extract priority and file-injection targets without reimplementing parsing
+CAN identify sessions uniquely, determine sort order, and extract every governed frontmatter field without reimplementing parsing
 
 ## Assertions
 
 ### Scenarios
 
-- Given valid YAML front matter with priority and tags, when metadata is parsed, then the extracted priority and tags match the input ([test](tests/session-identity.unit.test.ts))
-- Given malformed YAML front matter, when metadata is parsed, then default metadata is returned without error ([test](tests/session-identity.unit.test.ts))
-- Given a session ID string in valid format, when parsed, then a Date object with matching components is returned ([test](tests/session-identity.unit.test.ts))
-- Given an invalid session ID string, when parsed, then null is returned ([test](tests/session-identity.unit.test.ts))
+- Given a session ID string in valid format, when parsed, then a Date object with matching components is returned ([test](tests/session-identity.scenario.l1.test.ts))
+- Given an invalid session ID string, when parsed, then null is returned ([test](tests/session-identity.scenario.l1.test.ts))
+- Given valid YAML front matter with `priority`, `branch`, `worktree`, `goal`, `next_step`, and `result` set, when metadata is parsed, then the extracted values match the input ([test](tests/session-identity.scenario.l1.test.ts))
+- Given YAML front matter with `specs: [...]` and `files: [...]` arrays of strings, when metadata is parsed, then `specs` and `files` are returned as the corresponding string arrays ([test](tests/session-identity.scenario.l1.test.ts))
+- Given malformed YAML front matter, when metadata is parsed, then default metadata is returned without error ([test](tests/session-identity.scenario.l1.test.ts))
 
 ### Properties
 
-- Session ID generation produces strings matching `YYYY-MM-DD_HH-mm-ss` with zero-padded components ([test](tests/session-identity.unit.test.ts))
-- Lexicographic ordering of session IDs matches chronological ordering ([test](tests/session-identity.unit.test.ts))
-- Session content without YAML front matter yields default metadata: priority "medium", empty tags array ([test](tests/session-identity.unit.test.ts))
+- For every valid Date instance produced by the arbitrary `arbitraryValidSessionInstant`, `generateSessionId` returns a string matching `/^\d{4}-\d{2}-\d{2}_\d{2}-\d{2}-\d{2}$/` ([test](tests/session-identity.property.l1.test.ts))
+- For every pair of distinct Date instances `d1`, `d2` produced by `arbitraryValidSessionInstant`, the lexicographic comparison of their generated IDs has the same sign as the chronological comparison of `d1` and `d2` ([test](tests/session-identity.property.l1.test.ts))
+- For every YAML content string `s` produced by `arbitraryNonFrontMatterContent` (the arbitrary `fc.string()` filtered to inputs whose first three characters are not `---`), `parseSessionMetadata(s)` returns `{ priority: "medium", specs: [], files: [], branch: "", worktree: "", goal: "", next_step: "", result: "" }` and never throws ([test](tests/session-identity.property.l1.test.ts))
 
 ### Compliance
 
-- ALWAYS: use underscores to separate date from time, hyphens within components per ADR 21-timestamp-format ([review](../21-timestamp-format.adr.md))
-- NEVER: use colons in session IDs per ADR 21-timestamp-format ([review](../21-timestamp-format.adr.md))
-- NEVER: omit leading zeros per ADR 21-timestamp-format ([review](../21-timestamp-format.adr.md))
+- ALWAYS: the session ID separator between date and time is `_` and the separator within date and time components is `-` per [`spx/36-session.enabler/21-timestamp-format.adr.md`](../21-timestamp-format.adr.md) ([test](tests/session-identity.compliance.l1.test.ts))
+- ALWAYS: `parseSessionMetadata` returns every frontmatter field declared by [`spx/36-session.enabler/11-session-frontmatter.pdr.md`](../11-session-frontmatter.pdr.md) — callers iterate over a uniform shape regardless of which keys the input file omits ([review])
+- NEVER: a session ID contains a colon character — the timestamp format excludes colons per [`spx/36-session.enabler/21-timestamp-format.adr.md`](../21-timestamp-format.adr.md) ([test](tests/session-identity.compliance.l1.test.ts))
+- NEVER: `parseSessionMetadata` returns a `tags` key — the frontmatter shape excludes `tags` per [`spx/36-session.enabler/11-session-frontmatter.pdr.md`](../11-session-frontmatter.pdr.md) ([test](tests/session-identity.compliance.l1.test.ts))

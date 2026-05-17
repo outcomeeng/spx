@@ -7,5 +7,9 @@
 
 23-spec-tree.enabler
 31-spec-domain.enabler
+36-session.enabler/32-session-identity.enabler
+36-session.enabler/54-auto-injection.enabler
+36-session.enabler/54-session-retention.enabler
+36-session.enabler/76-session-cli.enabler
 41-testing.enabler
 41-validation.enabler/32-python-validation.enabler
