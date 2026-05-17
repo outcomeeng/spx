@@ -95,3 +95,67 @@ Nothing else to change here. The plugin-side contract is already merged. If the 
 - Authoritative algorithm: `plugins/spec-tree/skills/handing-off/references/scope-resolution.md` (in the sibling `outcomeeng/plugins` repo)
 - SessionStart hook (lazy-create expectation): `plugins/spec-tree/bin/session-start` (in the sibling `outcomeeng/plugins` repo)
 - Current spx session command handlers (paths observed during plan drafting; confirm on entry): `src/commands/session/pickup.ts`, `src/commands/session/archive.ts`, `src/domains/session/index.ts`
+
+---
+
+# PLAN: Execute PDR-11 session frontmatter shape <!-- markdownlint-disable-line MD025 -->
+
+## Why this plan exists
+
+[`spx/36-session.enabler/11-session-frontmatter.pdr.md`](11-session-frontmatter.pdr.md) declares the canonical session frontmatter shape and its lifecycle. Five child specs have been amended to cite the PDR and to declare the per-command behaviors that follow from it. Tests and implementation have not been updated. Until they are, the test suite green-lights the previous shape while specs declare the new one — the lower layer is in violation per the truth-flows-down rule.
+
+Four [test]-tagged spec assertions reference test files that do not yet exist (canonical filenames). The owning nodes are listed in `spx/EXCLUDE` so markdown validation tolerates the forward references. EXCLUDE entries must be removed as the test files land.
+
+## Touch points
+
+### Specs (already amended in this plan's first commit)
+
+- [`spx/36-session.enabler/11-session-frontmatter.pdr.md`](11-session-frontmatter.pdr.md) — the PDR itself
+- [`43-session-store.enabler/session-store.md`](43-session-store.enabler/session-store.md)
+- [`32-session-identity.enabler/session-identity.md`](32-session-identity.enabler/session-identity.md)
+- [`54-auto-injection.enabler/auto-injection.md`](54-auto-injection.enabler/auto-injection.md)
+- [`54-session-retention.enabler/session-retention.md`](54-session-retention.enabler/session-retention.md)
+- [`76-session-cli.enabler/session-cli.md`](76-session-cli.enabler/session-cli.md)
+
+### Tests (Phase 2)
+
+- `git mv` legacy `.unit.test.ts` / `.integration.test.ts` filenames to canonical `<subject>.<evidence>.<level>[.<runner>].test.ts` per `spx/local/typescript-tests.md`
+- Author `testing/generators/session/` with at least:
+  - `arbitraryValidSessionInstant` (Date arbitrary spanning a representative range)
+  - `arbitraryNonFrontMatterContent` (`fc.string()` filtered to inputs whose first three characters are not `---`)
+  - `arbitraryRetentionFixture(todoCount, doingCount, archiveCount, keep)`
+  - `arbitraryArchiveFixture` (mix of parsable and unparsable IDs)
+  - `arbitraryBatchInputs(n, validCount)` (variadic CLI inputs)
+- Re-author every property assertion in the amended specs as `fc.assert(fc.property(<generator>, <predicate>))` — no handpicked-example masquerade
+- Re-author every CLI scenario in `76-session-cli.enabler` to run through `node bin/spx.js` via `execa` with exit-code checks; remove direct `archiveCommand({...})` / `releaseCommand({...})` calls that bypass the Commander binding
+- Strengthen `43-session-store.enabler` A1/A10/A11: read the on-disk file using `harness.statusDir(...)` and the emitted `<HANDOFF_ID>`; exercise `showCommand` and `deleteCommand` directly with real filesystem effects
+
+### Implementation (Phase 2)
+
+- `src/domains/session/types.ts` — extend `SESSION_FRONT_MATTER` with `BRANCH`, `WORKTREE`, `GOAL`, `NEXT_STEP`, `RESULT`; remove `TAGS`; update `SessionMetadata` interface
+- `src/domains/session/list.ts` — `parseSessionMetadata` returns `specs: []` and `files: []` when keys are missing or malformed; parses new string fields with `""` defaults; drops `tags` from the return shape
+- `src/commands/session/handoff.ts` — drop the `buildSessionContent` default-substitution branch; validate non-empty `goal` and `next_step` from parsed YAML; prefill `branch` from `git rev-parse --abbrev-ref HEAD` and `worktree` from the helper introduced in `src/git/root.ts`; reject empty content with `SessionInvalidContentError`
+- `src/commands/session/archive.ts` — read the session's `result` field through `SESSION_FRONT_MATTER.RESULT`; reject with `SessionInvalidResultError` when empty or absent; perform the move only after the result check passes
+- `src/git/root.ts` — add `computeRelativeWorktreePath(commonDir, toplevel): string` returning the relative path from the common-dir parent to the worktree root, or `""` for non-worktree repos
+- `src/domains/session/errors.ts` — add `SessionInvalidGoalError`, `SessionInvalidNextStepError`, `SessionInvalidResultError`; keep `SessionInvalidContentError` for the genuinely-empty case
+- `src/commands/session/show.ts` and the list renderer — surface `goal`, `next_step`, `result`, `branch`, `worktree` in display output; tolerate missing fields by rendering empty strings
+
+### Validation gates
+
+After each step, run `spx validation all` and `pnpm test` per the repo's pre-commit checklist. Phase 2 is complete when:
+
+- Every test file uses canonical naming
+- Every property assertion drives off a generator under `testing/generators/session/`
+- Every CLI scenario asserts through `node bin/spx.js`
+- `spx test passing` includes the four EXCLUDE-listed nodes again
+- `spx/EXCLUDE` no longer lists `36-session.enabler/32-session-identity.enabler`, `36-session.enabler/54-auto-injection.enabler`, `36-session.enabler/54-session-retention.enabler`, or `36-session.enabler/76-session-cli.enabler`
+- `pnpm run validate` and `pnpm test` pass against the updated implementation
+
+### Acceptance
+
+- `spx session handoff` with empty stdin exits non-zero with `SessionInvalidContentError`
+- `spx session handoff` with content omitting `goal` exits non-zero with `SessionInvalidGoalError`
+- `spx session archive` on a session with empty `result` exits non-zero with `SessionInvalidResultError`
+- `spx session list` renders `goal` and `next_step` for every session this PDR governs
+- A session whose frontmatter lacks structured fields still renders through `list`, `show`, `pickup`, and `release` without error
+- `pnpm run publish:check` passes
