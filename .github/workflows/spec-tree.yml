@@ -1,0 +1,64 @@
+# Copy this file to .github/workflows/spec-tree.yml in your repository
+#
+# Required setup:
+# 1. Add CLAUDE_CODE_OAUTH_TOKEN to repository secrets
+# 2. Plugins from .claude/settings.json are NOT installed by default. To
+#    enable the methodology skills for mention runs, set
+#    `use_project_plugins: true` below AND register the relevant
+#    marketplaces under `extraKnownMarketplaces` in your `.claude/settings.json`.
+
+name: Spec Tree
+
+on:
+  issue_comment:
+    types: [created, edited]
+  pull_request_review_comment:
+    types: [created, edited]
+  issues:
+    types: [opened, assigned]
+  pull_request_review:
+    types: [submitted]
+
+permissions:
+  contents: read
+  pull-requests: write
+  issues: write
+  id-token: write
+  actions: read
+
+jobs:
+  spec-tree:
+    uses: outcomeeng/gh-actions/.github/workflows/spec-tree.yml@main
+    secrets:
+      CLAUDE_CODE_OAUTH_TOKEN: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
+    # Authorization is automatic: the workflow accepts any actor with admin,
+    # maintain, or write permission on this repository (queried via the GitHub
+    # API). External contributors are rejected with a clear error.
+    #
+    # Uncomment and modify to customize:
+    # with:
+    #   trigger_phrase: '@claude'
+    #   concurrency_cancel: false
+    #
+    # Wall-clock budget for the Run Claude Code step (default 15 in the
+    # reusable workflow). Set to a tighter value when running on self-hosted
+    # runners so a hung mention frees the slot quickly:
+    #   timeout_minutes: '5'
+    # Or gate it on a repo variable so you can adjust without editing this
+    # file (Settings → Secrets and variables → Actions → Variables). The
+    # input is typed `string` so quoted forms pass through unchanged:
+    #   timeout_minutes: ${{ vars.CLAUDE_TIMEOUT_MINUTES || '15' }}
+    # Minimum 1; GitHub Actions silently rejects `0` at runtime.
+    #
+    # Plugins from .claude/settings.json are NOT installed by default — same
+    # as the generic `claude.yml` reusable. Plugin skills with auto-invocation
+    # directives can pull mention runs into long detours that aren't part of
+    # the original intent. To opt in:
+    #   use_project_plugins: true
+    #
+    # To install specific plugins on top of (or instead of) the project's
+    # settings.json declarations:
+    #   plugin_marketplaces: "acme-corp/plugins"  # marketplace owner/repo entries
+    #   extra_plugins: "internal-style@acme-corp" # plugins to install
+    #
+    # See README "Plugins and marketplaces" for the full rationale.
