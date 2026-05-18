@@ -38,6 +38,9 @@ jobs:
       - name: Build
         run: pnpm run build
 
+      - name: Validate packaged CLI
+        run: pnpm run validate:published
+
       - name: Verify tag matches package.json version
         run: |
           PKG_VERSION="v$(node -p 'require("./package.json").version')"
