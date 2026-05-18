@@ -83,7 +83,7 @@ A session file written by `spx session handoff` contains a YAML frontmatter with
 - `spx session archive` refuses any session whose `result` is empty or absent — the agent fills the field before invoking archive ([review])
 - `spx session list`, `spx session show`, `spx session pickup`, and `spx session release` render missing structured fields as empty strings without rejecting the session — read tolerance keeps sessions whose frontmatter omits structured fields usable ([review])
 - The `worktree` value is the empty string when the working copy is the main checkout — for both non-worktree repositories and the main worktree of a multi-worktree repository the picker needs no worktree switch, so both cases share the same observable `worktree` semantic ([review])
-- `spx session handoff` serializes `branch` and `worktree` through YAML scalar quoting before writing — the raw `git rev-parse` output and raw worktree-relative path string are not embedded verbatim in the frontmatter document, so branch names and paths containing YAML-special characters (`:`, `{`, `}`, `#`, `|`, `\`, quotes, spaces) round-trip cleanly through `parseSessionMetadata` ([review])
+- `spx session handoff` writes every string-typed frontmatter field through YAML scalar quoting — `branch` and `worktree` (raw git output), `agent_session_id` (raw environment variable), `goal` and `next_step` (raw caller-supplied content), and `created_at` (formatted timestamp) all flow through the `yaml` package's `stringify` so values containing YAML-special characters (`:`, `{`, `}`, `#`, `|`, `\`, quotes, spaces, newlines) round-trip cleanly through `parseSessionMetadata` ([review])
 
 ### NEVER
 
