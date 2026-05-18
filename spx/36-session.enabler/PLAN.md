@@ -1,6 +1,8 @@
-# PLAN: Wire the spx CLI half of the session-scope accumulator
+# PLAN
 
-## Why this plan exists
+## Plan A — Wire the spx CLI half of the session-scope accumulator
+
+### Why this plan exists
 
 The spec-tree plugin now specifies `.spx/sessions/$CLAUDE_SESSION_ID/` (or `$CODEX_THREAD_ID/` under Codex) as the authoritative accumulator for every session an agent has claimed during a runtime. The marketplace side is in place after commit `ad7d696`:
 
@@ -12,7 +14,7 @@ The corresponding `spx` CLI changes have not landed. Until they do, the filesyst
 
 This plan hands the CLI implementation off to an agent working in `~/Code/outcomeeng/spx/`.
 
-## Target behavior
+### Target behavior
 
 **On every successful `spx session pickup`:**
 
@@ -39,7 +41,7 @@ Relative symlink is deliberate — absolute paths break when the repo is checked
 
 **Unchanged:** `spx session list`, `spx session show`, `spx session handoff`, `spx session release`, `spx session prune`, `spx session delete`, `spx session todo`.
 
-## Contract specifics
+### Contract specifics
 
 - **Symlink format**: relative, exactly `../doing/<id>.md`. A symlink ending in anything else is invalid and must be treated as a bug, not as data.
 - **Dangling symlinks**: `spx session pickup` on a previously-dangling id must first remove the old symlink, then create the new one. Never overwrite without validating.
@@ -47,9 +49,9 @@ Relative symlink is deliberate — absolute paths break when the repo is checked
 - **File permissions**: the per-runtime directory and its symlinks inherit umask. Do not chmod explicitly.
 - **Concurrency**: pickup and archive are already atomic at the queue level. The accumulator steps happen before/after the queue move — a crash between queue move and symlink create leaves a session in `doing/` without a symlink (scope-resolution.md's "markers are a superset of filesystem" case — the marker cross-check catches this). A crash between symlink remove and archive move leaves a symlink with a target in `archive/` (resolution: the filesystem step classifies it as "already archived" and skips it). Both are acceptable recovery paths.
 
-## Work breakdown with audit gates
+### Work breakdown with audit gates
 
-### Step 1 — Spec the new behavior
+#### Step 1 — Spec the new behavior
 
 **Target node**: `spx/41-validation.enabler/21-validation-cli.enabler/` already hosts the CLI dispatch spec. The session subcommands live under a different enabler — confirm by `/contextualizing spx/` in the `spx` repo on first entry.
 
@@ -57,7 +59,7 @@ Relative symlink is deliberate — absolute paths break when the repo is checked
 2. Amend the spec to declare the two new assertions (pickup-creates-symlink, archive-removes-symlink) plus the per-session-dir scanning rule.
 3. **Audit gate**: run `/auditing-product-decisions` on any PDR changes and `/aligning` across the affected subtree.
 
-### Step 2 — Tests first (TDD)
+#### Step 2 — Tests first (TDD)
 
 Per the spx repo's test-language ADR (TypeScript + Vitest), write tests in the target node's `tests/` directory following `<subject>.<evidence>.<level>[.<runner>].test.ts`:
 
@@ -68,7 +70,7 @@ Per the spx repo's test-language ADR (TypeScript + Vitest), write tests in the t
 
 **Audit gate**: run `/auditing-tests` (via `/spec-tree:test-evidence-auditor` agent) to confirm coupling, falsifiability, alignment, coverage. Every new test must pass the 4-property evidence check.
 
-### Step 3 — Implementation
+#### Step 3 — Implementation
 
 - `src/commands/session/pickup.ts` (or wherever the handler lives) — add the resolve-runtime-id + mkdir -p + ln -sfn after the existing move.
 - `src/commands/session/archive.ts` — add the scan-and-unlink step before the existing move.
@@ -76,7 +78,7 @@ Per the spx repo's test-language ADR (TypeScript + Vitest), write tests in the t
 
 **Audit gate**: `spx validation all` in the spx repo after each file. Zero new findings.
 
-### Step 4 — End-to-end verification in the marketplace repo
+#### Step 4 — End-to-end verification in the marketplace repo
 
 Return to `~/Code/outcomeeng/plugins/`. Install the updated `spx` via `pnpm link`. Then:
 
@@ -85,11 +87,11 @@ Return to `~/Code/outcomeeng/plugins/`. Install the updated `spx` via `pnpm link
 3. Inspect `.spx/sessions/$CLAUDE_SESSION_ID/`. It must be empty or removed after closure.
 4. Context-compaction test: claim a session, run `/compact`, then `/handing-off`. Scope must still resolve correctly via the filesystem even though the `<SESSION_SCOPE>` marker is gone.
 
-## Touch points in the marketplace repo
+### Touch points in the marketplace repo
 
 Nothing else to change here. The plugin-side contract is already merged. If the spx agent finds a drift between what this PLAN.md describes and what `references/scope-resolution.md` prescribes, the `references/scope-resolution.md` is authoritative — update this PLAN.md, not the reference.
 
-## Pointers
+### Pointers
 
 - Marketplace commit implementing the plugin-side contract: `ad7d696`
 - Authoritative algorithm: `plugins/spec-tree/skills/handing-off/references/scope-resolution.md` (in the sibling `outcomeeng/plugins` repo)
@@ -98,17 +100,17 @@ Nothing else to change here. The plugin-side contract is already merged. If the 
 
 ---
 
-# PLAN: Execute PDR-11 session frontmatter shape <!-- markdownlint-disable-line MD025 -->
+## Plan B — Execute PDR-11 session frontmatter shape
 
-## Why this plan exists
+### Why Plan B exists
 
 [`spx/36-session.enabler/11-session-frontmatter.pdr.md`](11-session-frontmatter.pdr.md) declares the canonical session frontmatter shape and its lifecycle. Five child specs have been amended to cite the PDR and to declare the per-command behaviors that follow from it. Tests and implementation have not been updated. Until they are, the test suite green-lights the previous shape while specs declare the new one — the lower layer is in violation per the truth-flows-down rule.
 
 Four [test]-tagged spec assertions reference test files that do not yet exist (canonical filenames). The owning nodes are listed in `spx/EXCLUDE` so markdown validation tolerates the forward references. EXCLUDE entries must be removed as the test files land.
 
-## Touch points
+### Touch points
 
-### Specs (already amended in this plan's first commit)
+#### Specs (already amended in this plan's first commit)
 
 - [`spx/36-session.enabler/11-session-frontmatter.pdr.md`](11-session-frontmatter.pdr.md) — the PDR itself
 - [`43-session-store.enabler/session-store.md`](43-session-store.enabler/session-store.md)
@@ -117,12 +119,12 @@ Four [test]-tagged spec assertions reference test files that do not yet exist (c
 - [`54-session-retention.enabler/session-retention.md`](54-session-retention.enabler/session-retention.md)
 - [`76-session-cli.enabler/session-cli.md`](76-session-cli.enabler/session-cli.md)
 
-### Tests (Phase 2)
+#### Tests (Phase 2)
 
 - `git mv` legacy `.unit.test.ts` / `.integration.test.ts` filenames to canonical `<subject>.<evidence>.<level>[.<runner>].test.ts` per `spx/local/typescript-tests.md`
 - Author `testing/generators/session/` with at least:
   - `arbitraryValidSessionInstant` (Date arbitrary spanning a representative range)
-  - `arbitraryNonFrontMatterContent` (`fc.string()` filtered to inputs whose first three characters are not `---`)
+  - `arbitraryNonFrontMatterContent` (`fc.string()` filtered to inputs where `s.startsWith("---\n")` is `false` — strings that do not open a YAML frontmatter document)
   - `arbitraryRetentionFixture(todoCount, doingCount, archiveCount, keep)`
   - `arbitraryArchiveFixture` (mix of parsable and unparsable IDs)
   - `arbitraryBatchInputs(n, validCount)` (variadic CLI inputs)
@@ -132,7 +134,7 @@ Four [test]-tagged spec assertions reference test files that do not yet exist (c
 - Strengthen `43-session-store.enabler` A1/A10/A11: read the on-disk file using `harness.statusDir(...)` and the emitted `<HANDOFF_ID>`; exercise `showCommand` and `deleteCommand` directly with real filesystem effects
 - Author the enforcement mechanism for `session-store.md` compliance "no string literal frontmatter key at any call site" as a custom ESLint rule modeled on `eslint-rules/no-test-owned-domain-constants`. The rule flags quoted key strings outside `SESSION_FRONT_MATTER`'s definition module at edit time, which catches violations earlier than a grep-based compliance test would (the grep variant is rejected; it only catches at CI time). Author a sibling ADR at `spx/36-session.enabler/<next-index>-frontmatter-key-enforcement.adr.md` declaring the rule, and have the session-store compliance item cite the ADR. The test file `tests/session-store.compliance.l1.test.ts` exercises the rule against violating source-shaped fixtures. When the ADR lands, update `spx/36-session.enabler/43-session-store.enabler/session-store.md` Compliance to add the ADR citation alongside the existing PDR-11 citation on the "every frontmatter key … through `SESSION_FRONT_MATTER` constants" item
 
-### Implementation (Phase 2)
+#### Implementation (Phase 2)
 
 - `src/domains/session/types.ts` — `SESSION_FRONT_MATTER` already includes `BRANCH`; add `WORKTREE`, `GOAL`, `NEXT_STEP`, `RESULT`; remove `TAGS` and `WORKING_DIRECTORY` (the latter is superseded by `WORKTREE`); update `SessionMetadata` interface to drop `tags` and `workingDirectory`. YAML keys use underscore form (`next_step`); the TypeScript `SessionMetadata` interface uses the snake_case `next_step` key so `SESSION_FRONT_MATTER.NEXT_STEP` maps 1:1 to the YAML field name (consistent with `agent_session_id` and `created_at`)
 - `src/domains/session/list.ts` — `parseSessionMetadata` returns `specs: []` and `files: []` when keys are missing or malformed; parses new string fields with `""` defaults; drops `tags` and the `working_directory` read branch from the return shape
@@ -142,7 +144,7 @@ Four [test]-tagged spec assertions reference test files that do not yet exist (c
 - `src/domains/session/errors.ts` — add `SessionInvalidGoalError`, `SessionInvalidNextStepError`, `SessionInvalidResultError`, and `SessionDetachedHeadError`; keep `SessionInvalidContentError` for the genuinely-empty case
 - `src/commands/session/show.ts` and the list renderer — surface `goal`, `next_step`, `result`, `branch`, `worktree` in display output; tolerate missing fields by rendering empty strings
 
-### Validation gates
+#### Validation gates
 
 After each step, run `spx validation all` and `pnpm test` per the repo's pre-commit checklist. Phase 2 is complete when:
 
@@ -153,7 +155,7 @@ After each step, run `spx validation all` and `pnpm test` per the repo's pre-com
 - `spx/EXCLUDE` no longer lists `36-session.enabler/32-session-identity.enabler`, `36-session.enabler/54-auto-injection.enabler`, `36-session.enabler/54-session-retention.enabler`, or `36-session.enabler/76-session-cli.enabler`
 - `pnpm run validate` and `pnpm test` pass against the updated implementation
 
-### Acceptance
+#### Acceptance
 
 - `spx session handoff` with empty stdin exits non-zero with `SessionInvalidContentError`
 - `spx session handoff` with content omitting `goal` exits non-zero with `SessionInvalidGoalError`
