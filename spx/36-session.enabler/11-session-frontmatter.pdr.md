@@ -33,6 +33,8 @@ Goal, next_step, and result form the resume cycle: the handing-off agent declare
 
 Branch and worktree are the missing link in the worktree-sharing contract from `spx/15-worktree-resolution.pdr.md`. The PDR-15 design puts `.spx/sessions/` at the Git common-dir root so every worktree sees the same queue, but the queue alone tells the picker nothing about where to do the work. With `branch` and `worktree` in the frontmatter, the picker selects a session, switches to the named worktree, and continues. Without them, the picker has to read the body and infer.
 
+The `worktree` field is the empty string for both non-worktree repositories and the main worktree of a multi-worktree repository — the picker uses the empty value as a single signal that no worktree switch is required, and `branch` distinguishes the work context within whichever checkout the session was created in. A reader of an archived session sees `worktree: ""` and reads it as "main checkout" without needing to know whether the repository had linked worktrees at handoff time.
+
 Empty piped content is rejected at handoff. Substituting a default body for empty content satisfies the directory and filename contract but produces a session that carries no handoff information; rejecting empty content prevents that failure mode. The agent has the goal and next_step at the moment of handoff; requiring them costs nothing. `created_at` and `agent_session_id` are prefilled because the agent does not know them; everything else the agent does know.
 
 Tags are absent from the shape. The structured fields above serve every coordination use case tags would carry.
