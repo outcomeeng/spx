@@ -17,7 +17,7 @@ CAN deliver referenced file contents to the agent without additional read comman
 ### Properties
 
 - For every string `s` produced by the arbitrary `arbitraryNonFrontMatterContent`, `parseSessionMetadata(s).specs` equals `[]` and `parseSessionMetadata(s).files` equals `[]` per [`spx/36-session.enabler/11-session-frontmatter.pdr.md`](../11-session-frontmatter.pdr.md) ([test](tests/auto-injection.property.l1.test.ts))
-- For every YAML object whose `specs` key is any value other than an array of strings, `parseSessionMetadata` returns a result whose `specs` equals `[]`; the same holds for `files` ([test](tests/auto-injection.property.l1.test.ts))
+- For every value `v` produced by the arbitrary `arbitraryNonStringArrayValue` (any YAML scalar, object, or array containing non-string elements), `parseSessionMetadata` applied to a YAML document with `specs: v` returns a result whose `specs` equals `[]`; the same holds when the same arbitrary feeds the `files` key ([test](tests/auto-injection.property.l1.test.ts))
 
 ### Compliance
 
