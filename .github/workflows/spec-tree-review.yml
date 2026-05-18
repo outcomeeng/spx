@@ -39,44 +39,68 @@ jobs:
     # admin, maintain, or write permission on this repository (queried via the
     # GitHub API). External contributors are rejected with a clear error.
     #
-    # Uncomment and modify to customize. The reusable defaults
-    # `concurrency_cancel` to `true`; set it to `false` to let in-flight
-    # reviews complete on push.
-    # with:
-    #   concurrency_cancel: false
+    # All inputs are commented out below — uncomment to customize. Where the
+    # value is sourced from a `vars.*` repo variable, the fallback after `||`
+    # (or the boolean comparison) preserves the reusable's default behavior
+    # when the variable is unset, so you can leave the line in place and
+    # turn the variable on/off in repo Settings → Secrets and variables →
+    # Actions → Variables without editing the workflow file.
     #
-    # Wall-clock budget for the Run Claude Code Review step (default 15 in
-    # the reusable workflow). Set to a tighter value when running on
-    # self-hosted runners so a hung run frees the slot quickly:
-    #   timeout_minutes: '5'
-    # Or gate it on a repo variable so you can adjust without editing this
-    # file (Settings → Secrets and variables → Actions → Variables). The
-    # input is typed `string` so quoted forms pass through unchanged:
-    #   timeout_minutes: ${{ vars.CLAUDE_REVIEW_TIMEOUT_MINUTES || '15' }}
-    # Minimum 1; GitHub Actions silently rejects `0` at runtime.
+    # with:
+    #   # Runner selection. `vars.SPEC_TREE_REVIEW_RUNNER` lets you swap
+    #   # between GitHub-hosted (`ubuntu-slim`, `ubuntu-latest`) and
+    #   # self-hosted runners (`self-hosted`, or a JSON-array form like
+    #   # `'["self-hosted","laptop"]'`) without editing this file. The
+    #   # reusable detects which form was passed and dispatches correctly.
+    #   # Security: self-hosted runners must not be used on public repos
+    #   # or repos that accept PRs from untrusted forks.
+    #   runner: ${{ vars.SPEC_TREE_REVIEW_RUNNER || 'ubuntu-slim' }}
+    #
+    #   # Cancel in-progress reviews on push. Reusable default: true. Set
+    #   # `vars.SPEC_TREE_REVIEW_CONCURRENCY_CANCEL` to the string 'false'
+    #   # to let in-flight reviews complete on the next push; anything else
+    #   # (including unset) preserves the cancel-on-new behavior.
+    #   concurrency_cancel: ${{ vars.SPEC_TREE_REVIEW_CONCURRENCY_CANCEL != 'false' }}
+    #
+    #   # Wall-clock budget (minutes) for the Run Claude Code Review step.
+    #   # Default 15 in the reusable. Lower (e.g. '5') to fail fast when a
+    #   # run hangs, or raise for repositories where reviews legitimately
+    #   # take longer. The input is typed `string` so the quoted forms
+    #   # below pass through unchanged. Minimum 1; GitHub Actions silently
+    #   # rejects '0' at runtime.
+    #   timeout_minutes: ${{ vars.SPEC_TREE_REVIEW_TIMEOUT_MINUTES || '15' }}
+    #
+    #   # Install plugins declared in `.claude/settings.json`. Reusable
+    #   # default: false because this workflow's allowlist is narrow; most
+    #   # review plugins demand tools (Read, Grep, Glob, git) outside the
+    #   # baked-in allowlist, which produces long runs that never post a
+    #   # comment. Set `vars.SPEC_TREE_REVIEW_USE_PROJECT_PLUGINS` to the
+    #   # string 'true' to opt in; you'll also need to widen the allowlist
+    #   # via `append_allow_list` (below) to match the tools the plugins
+    #   # need.
+    #   use_project_plugins: ${{ vars.SPEC_TREE_REVIEW_USE_PROJECT_PLUGINS == 'true' }}
+    #   append_allow_list: "Read,Grep,Glob,Bash(git:*)"  # widen the allowlist to match
+    #
+    #   # To replace the entire baseline allowlist instead of appending:
+    #   override_allow_list: "Bash(gh pr view:*),Bash(gh pr comment:*)"
+    #   # WARNING: override_allow_list silently drops the
+    #   # `Bash(sed:*),Bash(grep:*),Bash(head:*)` spec-tree defaults that
+    #   # the baked-in prompt depends on for diff chunking and comment
+    #   # composition. The review will hit permission gates and waste
+    #   # turns. Use append_allow_list unless you have a hard reason to
+    #   # start from zero.
+    #
+    #   # To install specific plugins without enabling all of
+    #   # settings.json. Plain strings, not gated on `vars.*` by default
+    #   # because the values rarely change per-environment.
+    #   plugin_marketplaces: "acme-corp/plugins"  # marketplace owner/repo entries
+    #   extra_plugins: "internal-style@acme-corp" # plugins to install
     #
     # `spec-tree-review.yml` bakes in a REVIEW.md-aware review prompt;
     # `custom_prompt` is deliberately NOT exposed as an input.
     #
     # The baseline allowlist combines `Bash(gh issue|pr ...)` patterns for
     # PR context and comment posting with `Bash(sed:*),Bash(grep:*),
-    # Bash(head:*)` for diff chunking. Project plugins are NOT installed by
-    # default — most review plugins demand tools (Read, Grep, Glob, git)
-    # outside that allowlist, which produces long runs that never post a
-    # comment. To opt in:
-    #   use_project_plugins: true
-    #   append_allow_list: "Read,Grep,Glob,Bash(git:*)"  # widen the allowlist to match
-    #
-    # To replace the entire baseline allowlist instead of appending:
-    #   override_allow_list: "Bash(gh pr view:*),Bash(gh pr comment:*)"
-    # WARNING: override_allow_list silently drops the
-    # `Bash(sed:*),Bash(grep:*),Bash(head:*)` spec-tree defaults that the
-    # baked-in prompt depends on for diff chunking and comment composition.
-    # The review will hit permission gates and waste turns. Use
-    # append_allow_list unless you have a hard reason to start from zero.
-    #
-    # To install specific plugins without enabling all of settings.json:
-    #   plugin_marketplaces: "acme-corp/plugins"  # marketplace owner/repo entries
-    #   extra_plugins: "internal-style@acme-corp" # plugins to install
+    # Bash(head:*)` for diff chunking.
     #
     # See README "Plugins and marketplaces" for the full rationale.

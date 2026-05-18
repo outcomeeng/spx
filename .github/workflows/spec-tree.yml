@@ -4,8 +4,9 @@
 # 1. Add CLAUDE_CODE_OAUTH_TOKEN to repository secrets
 # 2. Plugins from .claude/settings.json are NOT installed by default. To
 #    enable the methodology skills for mention runs, set
-#    `use_project_plugins: true` below AND register the relevant
-#    marketplaces under `extraKnownMarketplaces` in your `.claude/settings.json`.
+#    `use_project_plugins: true` (or the SPEC_TREE_USE_PROJECT_PLUGINS
+#    repo variable, see below) AND register the relevant marketplaces
+#    under `extraKnownMarketplaces` in your `.claude/settings.json`.
 
 name: Spec Tree
 
@@ -41,29 +42,55 @@ jobs:
     # maintain, or write permission on this repository (queried via the GitHub
     # API). External contributors are rejected with a clear error.
     #
-    # Uncomment and modify to customize. The reusable defaults
-    # `trigger_phrase` to `@spec-tree`.
+    # All inputs are commented out below — uncomment to customize. Where the
+    # value is sourced from a `vars.*` repo variable, the fallback after `||`
+    # preserves the reusable's default behavior when the variable is unset,
+    # so you can leave the line in place and turn the variable on/off in
+    # repo Settings → Secrets and variables → Actions → Variables without
+    # editing the workflow file.
+    #
     # with:
+    #   # Runner selection. `vars.SPEC_TREE_RUNNER` lets you swap between
+    #   # GitHub-hosted (`ubuntu-slim`, `ubuntu-latest`) and self-hosted
+    #   # runners (`self-hosted`, or a JSON-array form like
+    #   # `'["self-hosted","laptop"]'`) without editing this file. The
+    #   # reusable detects which form was passed and dispatches correctly.
+    #   # Security: self-hosted runners must not be used on public repos or
+    #   # repos that accept PRs/comments from untrusted contributors.
+    #   runner: ${{ vars.SPEC_TREE_RUNNER || 'ubuntu-slim' }}
+    #
+    #   # Trigger phrase. Reusable defaults to `@spec-tree`. Not gated on a
+    #   # repo variable by design — the trigger phrase is security-adjacent
+    #   # (anyone who can comment can fire the run), so changing it should
+    #   # be an explicit workflow-file edit reviewed by repo maintainers.
     #   trigger_phrase: '@your-phrase'
-    #   concurrency_cancel: false
     #
-    # Wall-clock budget for the Run Claude Code step (default 15 in the
-    # reusable workflow). Set to a tighter value when running on self-hosted
-    # runners so a hung mention frees the slot quickly:
-    #   timeout_minutes: '5'
-    # Or gate it on a repo variable so you can adjust without editing this
-    # file (Settings → Secrets and variables → Actions → Variables). The
-    # input is typed `string` so quoted forms pass through unchanged:
-    #   timeout_minutes: ${{ vars.CLAUDE_TIMEOUT_MINUTES || '15' }}
-    # Minimum 1; GitHub Actions silently rejects `0` at runtime.
+    #   # Cancel in-progress runs on new mention. Reusable default: true.
+    #   # Set `vars.SPEC_TREE_CONCURRENCY_CANCEL` to the string 'false' to
+    #   # let in-flight runs complete on the next mention; anything else
+    #   # (including unset) preserves the cancel-on-new behavior.
+    #   concurrency_cancel: ${{ vars.SPEC_TREE_CONCURRENCY_CANCEL != 'false' }}
     #
-    # Plugins from .claude/settings.json are NOT installed by default.
-    # Plugin skills with auto-invocation directives can pull mention runs
-    # into long detours that aren't part of the original intent. To opt in:
-    #   use_project_plugins: true
+    #   # Wall-clock budget (minutes) for the Run Claude Code step. Default
+    #   # 15 in the reusable. Lower (e.g. '5') to fail fast when a run
+    #   # hangs, or raise for tasks that legitimately take longer. The
+    #   # input is typed `string` so the quoted forms below pass through
+    #   # unchanged. Minimum 1; GitHub Actions silently rejects '0' at
+    #   # runtime.
+    #   timeout_minutes: ${{ vars.SPEC_TREE_TIMEOUT_MINUTES || '15' }}
     #
-    # To install specific plugins on top of (or instead of) the project's
-    # settings.json declarations:
+    #   # Install plugins declared in `.claude/settings.json`. Reusable
+    #   # default: false (plugin skills with ALWAYS-invoke mandates can
+    #   # pull mention runs into long detours that aren't part of the
+    #   # original intent). Set `vars.SPEC_TREE_USE_PROJECT_PLUGINS` to
+    #   # the string 'true' to opt in; anything else (including unset)
+    #   # keeps the default-off behavior. Requires the marketplaces in
+    #   # `extraKnownMarketplaces` to be registered.
+    #   use_project_plugins: ${{ vars.SPEC_TREE_USE_PROJECT_PLUGINS == 'true' }}
+    #
+    #   # Install specific plugins on top of (or instead of) the project's
+    #   # settings.json declarations. Plain strings, not gated on `vars.*`
+    #   # by default because the values rarely change per-environment.
     #   plugin_marketplaces: "acme-corp/plugins"  # marketplace owner/repo entries
     #   extra_plugins: "internal-style@acme-corp" # plugins to install
     #
