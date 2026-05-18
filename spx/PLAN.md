@@ -29,7 +29,7 @@ Keep the product spec tree on the current node model and remove the deprecated t
 
 ## Remaining Work
 
-- Remove the ignore-source implementation and `spx/EXCLUDE` reader after testing passing scope consumes config.
+- Implement the git-tracking layer per the rewritten `spx/17-file-inclusion.enabler/11-ignore-defaults.pdr.md`: the existing `21-ignore-source.enabler/` becomes a git-plumbing reader, the `spx/EXCLUDE`-reader code is deleted, and the consumer adapters in validation, testing, audit, and review wire the override flags (`--no-ignore`, `--no-ignore-vcs`, `--ignore-file`) per the rewritten PDR.
 - Continue splitting `src/lib/spec-tree/index.ts` internally only after the public import surface stays stable.
 - Keep command modules consuming the public spec-tree surface; command modules must not parse suffixes or assemble hierarchy themselves.
 - Continue reducing test-owned constant debt until `eslint.test-owned-constant-debt-nodes.json` is empty.

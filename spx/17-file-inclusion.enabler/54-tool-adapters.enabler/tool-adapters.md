@@ -25,7 +25,7 @@ CAN obtain tool-specific ignore arguments from a resolved scope without reaching
 - ALWAYS: each tool adapter lives in its own module and exports a single function typed `(scope: ScopeResult, config: AdapterConfig) => readonly string[]` ([review])
 - ALWAYS: the adapter registry is composed through explicit static imports — one import statement per registered adapter, consistent with `../../16-config.enabler/21-descriptor-registration.adr.md` and `../../19-language-registration.adr.md` ([review])
 - ALWAYS: adapter configuration — the set of registered tool names, each tool's ignore-flag token — comes from the file-inclusion descriptor ([review])
-- NEVER: let an adapter consult a filter layer, read the ignore-source file, enumerate artifact-directory names, or match the hidden prefix — adapters read `ScopeResult` alone ([review])
+- NEVER: let an adapter consult a filter layer, invoke git plumbing, or compose its own scope — adapters read `ScopeResult` alone ([review])
 - NEVER: hardcode a tool's ignore-flag token inside an adapter module — every token is descriptor-declared ([review])
 - NEVER: introduce dynamic registry composition (filesystem scan, plugin loader) — registration is static at compile time ([review])
 - NEVER: use `vi.mock()`, `jest.mock()`, `memfs`, or any filesystem-mocking mechanism — tests exercise adapters against in-memory `ScopeResult` values ([review])
