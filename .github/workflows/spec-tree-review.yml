@@ -26,10 +26,13 @@ permissions:
 
 jobs:
   spec-tree-review:
-    # Pin to a full-length commit SHA per GitHub's hardening guidance — never @main or @v1.
-    # Renovate keeps this SHA current; the trailing `# main` comment is the branch
-    # Renovate tracks. See README "Security" for the full rationale.
-    uses: outcomeeng/gh-actions/.github/workflows/spec-tree-review.yml@1f897fc3ec53452b83f7bb789636a0ff2b591c69 # main
+    # BETA TESTER: deliberately tracks outcomeeng/gh-actions @main to surface
+    # upstream changes early without a per-release follow-up PR. Production
+    # callers must SHA-pin per the gh-actions README "Security" section
+    # (Documented exception subsection). Renovate cannot advance this
+    # reference; that is the point — pin it back to a SHA when this repo
+    # graduates to production usage.
+    uses: outcomeeng/gh-actions/.github/workflows/spec-tree-review.yml@main
     secrets:
       CLAUDE_CODE_OAUTH_TOKEN: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
     # Authorization is automatic: the review runs only when the PR author has
