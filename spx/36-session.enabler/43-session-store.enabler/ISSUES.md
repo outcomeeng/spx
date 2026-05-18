@@ -6,4 +6,4 @@ Per [`spx/36-session.enabler/11-session-frontmatter.pdr.md`](../11-session-front
 
 **Skills:** `typescript:coding-typescript`, `typescript:testing-typescript`.
 
-**Resolution:** Phase 2 implementation of `src/commands/session/handoff.ts` quotes both fields using a YAML-safe serializer (e.g., the `yaml` package's `stringify` with default scalar quoting). The Phase 2 test plan adds a scenario covering branch names containing every YAML-special character listed above, asserting that the round-trip through `parseSessionMetadata` returns the original branch string unchanged.
+**Resolution:** Phase 2 implementation of `src/commands/session/handoff.ts` quotes both fields using the `yaml` package's `stringify` (already a direct dependency per `package.json`) with default scalar quoting. No additional YAML library is added. The Phase 2 test plan adds a scenario covering branch names containing every YAML-special character listed above, asserting that the round-trip through `parseSessionMetadata` returns the original branch string unchanged.

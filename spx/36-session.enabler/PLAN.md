@@ -138,7 +138,7 @@ Four [test]-tagged spec assertions reference test files that do not yet exist (c
 - `src/commands/session/handoff.ts` — drop the `buildSessionContent` default-substitution branch; validate non-empty `goal` and `next_step` from parsed YAML; prefill `branch` from `git rev-parse --abbrev-ref HEAD` and `worktree` from the helper introduced in `src/git/root.ts`; reject empty content with `SessionInvalidContentError`
 - `src/commands/session/archive.ts` — read the session's `result` field through `SESSION_FRONT_MATTER.RESULT`; reject with `SessionInvalidResultError` when empty or absent; perform the move only after the result check passes. The two-step archive workflow (edit session file to populate `result`, then invoke `spx session archive`) is surfaced in the CLI help text for `spx session archive` so callers encounter the sequence before hitting the error
 - `src/git/root.ts` — add `computeRelativeWorktreePath(commonDir, toplevel): string` returning the relative path from the common-dir parent to the worktree root, or `""` for non-worktree repos
-- `src/domains/session/errors.ts` — add `SessionInvalidGoalError`, `SessionInvalidNextStepError`, `SessionInvalidResultError`; keep `SessionInvalidContentError` for the genuinely-empty case
+- `src/domains/session/errors.ts` — add `SessionInvalidGoalError`, `SessionInvalidNextStepError`, `SessionInvalidResultError`, and `SessionDetachedHeadError`; keep `SessionInvalidContentError` for the genuinely-empty case
 - `src/commands/session/show.ts` and the list renderer — surface `goal`, `next_step`, `result`, `branch`, `worktree` in display output; tolerate missing fields by rendering empty strings
 
 ### Validation gates
