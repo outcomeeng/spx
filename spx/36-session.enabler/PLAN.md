@@ -132,7 +132,7 @@ Four [test]-tagged spec assertions reference test files that do not yet exist (c
 
 ### Implementation (Phase 2)
 
-- `src/domains/session/types.ts` — extend `SESSION_FRONT_MATTER` with `BRANCH`, `WORKTREE`, `GOAL`, `NEXT_STEP`, `RESULT`; remove `TAGS`; update `SessionMetadata` interface
+- `src/domains/session/types.ts` — extend `SESSION_FRONT_MATTER` with `BRANCH`, `WORKTREE`, `GOAL`, `NEXT_STEP`, `RESULT`; remove `TAGS`; update `SessionMetadata` interface. YAML keys use underscore form (`next_step`); the TypeScript `SessionMetadata` interface uses the snake_case `next_step` key so `SESSION_FRONT_MATTER.NEXT_STEP` maps 1:1 to the YAML field name (consistent with `agent_session_id` and `created_at`)
 - `src/domains/session/list.ts` — `parseSessionMetadata` returns `specs: []` and `files: []` when keys are missing or malformed; parses new string fields with `""` defaults; drops `tags` from the return shape
 - `src/commands/session/handoff.ts` — drop the `buildSessionContent` default-substitution branch; validate non-empty `goal` and `next_step` from parsed YAML; prefill `branch` from `git rev-parse --abbrev-ref HEAD` and `worktree` from the helper introduced in `src/git/root.ts`; reject empty content with `SessionInvalidContentError`
 - `src/commands/session/archive.ts` — read the session's `result` field through `SESSION_FRONT_MATTER.RESULT`; reject with `SessionInvalidResultError` when empty or absent; perform the move only after the result check passes
