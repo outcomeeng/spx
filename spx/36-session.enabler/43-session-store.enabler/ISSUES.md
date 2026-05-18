@@ -18,3 +18,16 @@ Plan B's implementation step removes `WORKING_DIRECTORY` from `SESSION_FRONT_MAT
 - If a later refactor removes the field before Phase 2 entry, this issue and the corresponding PLAN.md bullets should be deleted rather than executed.
 
 Remove this entry once Phase 2 confirms removal or once the field is removed by other means.
+
+## Forward assertions inside already-canonical test files
+
+`session-store.md` adds new assertions inside the existing canonical files (no EXCLUDE entry needed for this node because the file paths resolve):
+
+- A3 — empty `goal` rejection with `SessionInvalidGoalError` ([test](tests/session-store.scenario.l1.test.ts))
+- A4 — empty `next_step` rejection with `SessionInvalidNextStepError` ([test](tests/session-store.scenario.l1.test.ts))
+- A8 — read-tolerance for sessions whose frontmatter omits structured fields ([test](tests/session-store.scenario.l1.test.ts))
+- Plus the new prefill scenarios for `branch`, `worktree`, the detached-HEAD rejection, and the new Compliance C2 wired to `tests/session-store.compliance.l1.test.ts`.
+
+`spx validation all` passes today because each test file exists on disk. The new assertions are forward references inside existing files — Phase 2 test re-author writes the bodies. The test audit gate (`/typescript:auditing-typescript-tests`) will reject these assertions until they have real test code.
+
+Remove this entry once Phase 2 lands the test bodies and the test audit on `43-session-store.enabler` clears.
