@@ -129,6 +129,7 @@ Four [test]-tagged spec assertions reference test files that do not yet exist (c
 - Re-author every property assertion in the amended specs as `fc.assert(fc.property(<generator>, <predicate>))` — no handpicked-example masquerade
 - Re-author every CLI scenario in `76-session-cli.enabler` to run through `node bin/spx.js` via `execa` with exit-code checks; remove direct `archiveCommand({...})` / `releaseCommand({...})` calls that bypass the Commander binding
 - Strengthen `43-session-store.enabler` A1/A10/A11: read the on-disk file using `harness.statusDir(...)` and the emitted `<HANDOFF_ID>`; exercise `showCommand` and `deleteCommand` directly with real filesystem effects
+- Decide the enforcement mechanism for `session-store.md` compliance "no string literal frontmatter key at any call site": either (a) a custom ESLint rule modeled on `eslint-rules/no-test-owned-domain-constants` that flags quoted key strings outside `SESSION_FRONT_MATTER`'s definition module, or (b) a compliance test that grep-asserts over `src/` for the same pattern. If a structural rule is chosen, author a sibling ADR (e.g., `spx/36-session.enabler/<next-index>-frontmatter-key-enforcement.adr.md`) and have the session-store compliance item cite the ADR
 
 ### Implementation (Phase 2)
 
