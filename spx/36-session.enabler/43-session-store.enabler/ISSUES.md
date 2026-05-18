@@ -1,15 +1,9 @@
 # Open Issues
 
-## Detached-HEAD handoff produces uninformative `branch` value
+## YAML injection from `branch` and `worktree` git output
 
-Per [`spx/36-session.enabler/11-session-frontmatter.pdr.md`](../11-session-frontmatter.pdr.md), `spx session handoff` prefills `branch` from `git rev-parse --abbrev-ref HEAD`. In a detached-HEAD state, that command returns the literal string `"HEAD"`. The non-empty validation passes, but the resulting `branch` value is indistinguishable from a branch literally named `HEAD` and does not identify the worktree's actual position.
+Per [`spx/36-session.enabler/11-session-frontmatter.pdr.md`](../11-session-frontmatter.pdr.md), `spx session handoff` writes `branch` verbatim from `git rev-parse --abbrev-ref HEAD` and `worktree` from a path-relative computation. Git permits branch names containing `:`, `{`, `}`, `#`, `|`, `\`, and other characters that have semantic meaning in YAML; worktree paths can contain spaces, quotes, and similar characters. Writing either value verbatim into the frontmatter risks producing a malformed YAML document that the parser then rejects.
 
-**Skills:** `spec-tree:applying`, `typescript:coding-typescript`.
+**Skills:** `typescript:coding-typescript`, `typescript:testing-typescript`.
 
-**Resolution candidates** for Phase 2 implementation of `src/commands/session/handoff.ts`:
-
-- Refuse handoff in detached-HEAD state with a clear error (e.g., `SessionDetachedHeadError`). Forces the caller to create a branch first.
-- Record the commit SHA as the `branch` value and document the convention.
-- Accept `"HEAD"` as-is and document the trade-off in PDR-11.
-
-The decision belongs in Phase 2 implementation work; the PDR governs only that `branch` is non-empty and corresponds to the current ref.
+**Resolution:** Phase 2 implementation of `src/commands/session/handoff.ts` quotes both fields using a YAML-safe serializer (e.g., the `yaml` package's `stringify` with default scalar quoting). The Phase 2 test plan adds a scenario covering branch names containing every YAML-special character listed above, asserting that the round-trip through `parseSessionMetadata` returns the original branch string unchanged.

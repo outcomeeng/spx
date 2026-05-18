@@ -13,6 +13,7 @@ CAN identify sessions uniquely, determine sort order, and extract every governed
 - Given valid YAML front matter with `priority`, `branch`, `worktree`, `goal`, `next_step`, and `result` set, when metadata is parsed, then the extracted values match the input ([test](tests/session-identity.scenario.l1.test.ts))
 - Given YAML front matter with `specs: [...]` and `files: [...]` arrays of strings, when metadata is parsed, then `specs` and `files` are returned as the corresponding string arrays ([test](tests/session-identity.scenario.l1.test.ts))
 - Given malformed YAML front matter, when metadata is parsed, then default metadata is returned without error ([test](tests/session-identity.scenario.l1.test.ts))
+- Given YAML front matter that contains a `tags` key (sessions written under the previous frontmatter shape), when metadata is parsed, then the returned object does not include a `tags` key and no error or warning is raised — the `tags` field is silently dropped per [`spx/36-session.enabler/11-session-frontmatter.pdr.md`](../11-session-frontmatter.pdr.md) ([test](tests/session-identity.scenario.l1.test.ts))
 
 ### Properties
 

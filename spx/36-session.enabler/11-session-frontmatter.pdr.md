@@ -14,18 +14,18 @@ This decision governs the canonical YAML frontmatter shape for every session fil
 
 Every session file carries the canonical frontmatter shape declared in this PDR. The shape has four populated-by-handoff fields, two prefilled-by-CLI fields, one populated-by-archive field, and two optional auto-injection arrays. The shape excludes `tags`. `spx session handoff` validates non-empty `goal` and `next_step`; `spx session archive` validates non-empty `result`. Sessions whose frontmatter omits structured fields remain readable through `list`, `show`, `pickup`, and `release` and are not re-emitted by handoff.
 
-| Field              | Type     | Lifecycle                                                                                             | Default                     | Validated by                                 |
-| ------------------ | -------- | ----------------------------------------------------------------------------------------------------- | --------------------------- | -------------------------------------------- |
-| `created_at`       | string   | Prefilled by `spx session handoff` from system clock                                                  | -                           | `spx session handoff` (presence)             |
-| `agent_session_id` | string   | Prefilled by `spx session handoff` from `$CLAUDE_SESSION_ID` then `$CODEX_THREAD_ID`                  | absent when neither set     | -                                            |
-| `priority`         | string   | Set by caller at handoff; defaults to `medium` when caller omits it                                   | `medium`                    | `spx session handoff` (registered priority)  |
-| `branch`           | string   | Prefilled by `spx session handoff` from `git rev-parse --abbrev-ref HEAD`                             | -                           | `spx session handoff` (non-empty)            |
-| `worktree`         | string   | Prefilled by `spx session handoff`; relative path from Git common-dir parent to current worktree root | `""` for non-worktree repos | `spx session handoff` (string, may be empty) |
-| `goal`             | string   | Provided by caller at handoff                                                                         | -                           | `spx session handoff` (non-empty)            |
-| `next_step`        | string   | Provided by caller at handoff                                                                         | -                           | `spx session handoff` (non-empty)            |
-| `result`           | string   | Written by the claiming agent before `spx session archive`                                            | absent at handoff           | `spx session archive` (non-empty)            |
-| `specs`            | string[] | Optional list of file paths for auto-injection on pickup                                              | `[]`                        | -                                            |
-| `files`            | string[] | Optional list of file paths for auto-injection on pickup                                              | `[]`                        | -                                            |
+| Field              | Type     | Lifecycle                                                                                                                      | Default                     | Validated by                                                                             |
+| ------------------ | -------- | ------------------------------------------------------------------------------------------------------------------------------ | --------------------------- | ---------------------------------------------------------------------------------------- |
+| `created_at`       | string   | Prefilled by `spx session handoff` from system clock                                                                           | -                           | `spx session handoff` (presence)                                                         |
+| `agent_session_id` | string   | Prefilled by `spx session handoff` from `$CLAUDE_SESSION_ID` then `$CODEX_THREAD_ID`                                           | absent when neither set     | -                                                                                        |
+| `priority`         | string   | Set by caller at handoff; defaults to `medium` when caller omits it                                                            | `medium`                    | `spx session handoff` (registered priority)                                              |
+| `branch`           | string   | Prefill-only by `spx session handoff` from `git rev-parse --abbrev-ref HEAD`; caller value ignored                             | -                           | `spx session handoff` (non-empty, refuses detached HEAD with `SessionDetachedHeadError`) |
+| `worktree`         | string   | Prefill-only by `spx session handoff`; relative path from Git common-dir parent to current worktree root; caller value ignored | `""` for non-worktree repos | `spx session handoff` (string, may be empty)                                             |
+| `goal`             | string   | Provided by caller at handoff                                                                                                  | -                           | `spx session handoff` (non-empty)                                                        |
+| `next_step`        | string   | Provided by caller at handoff                                                                                                  | -                           | `spx session handoff` (non-empty)                                                        |
+| `result`           | string   | Written by the claiming agent before `spx session archive`                                                                     | absent at handoff           | `spx session archive` (non-empty)                                                        |
+| `specs`            | string[] | Optional list of file paths for auto-injection on pickup                                                                       | `[]`                        | -                                                                                        |
+| `files`            | string[] | Optional list of file paths for auto-injection on pickup                                                                       | `[]`                        | -                                                                                        |
 
 ## Rationale
 
@@ -72,7 +72,8 @@ A session file written by `spx session handoff` contains a YAML frontmatter with
 ### MUST
 
 - `spx session handoff` rejects piped content that lacks a non-empty `goal` and a non-empty `next_step` — `goal` and `next_step` are the handoff payload ([review])
-- `spx session handoff` prefills `branch` from `git rev-parse --abbrev-ref HEAD` and `worktree` from the relative path between the Git common-dir parent and the current worktree root — caller-supplied values for these fields, if any, are overwritten ([review])
+- `spx session handoff` prefills `branch` from `git rev-parse --abbrev-ref HEAD` and `worktree` from the relative path between the Git common-dir parent and the current worktree root; both fields are prefill-only and caller-supplied values are ignored ([review])
+- `spx session handoff` refuses to write a session when HEAD is detached — the command exits non-zero with `SessionDetachedHeadError` because a detached HEAD has no branch ref that identifies the working context ([review])
 - `spx session handoff` prefills `created_at` as an ISO-8601 timestamp with timezone offset per `spx/36-session.enabler/21-timestamp-format.adr.md` ([review])
 - `spx session handoff` prefills `agent_session_id` from `$CLAUDE_SESSION_ID` when set, falling back to `$CODEX_THREAD_ID` — when neither is set, the field is absent from the frontmatter ([review])
 - `spx session archive` refuses any session whose `result` is empty or absent — the agent fills the field before invoking archive ([review])
@@ -86,3 +87,4 @@ A session file written by `spx session handoff` contains a YAML frontmatter with
 - The frontmatter carries a `tags` key on any session this PDR governs — the shape excludes `tags` ([review])
 - `spx session handoff` invents a value for `agent_session_id` when both environment variables are absent — the field is omitted, not populated with a placeholder ([review])
 - Any command embeds session lineage (`previous_session_id`, `previous_result`) in the frontmatter — each session carries its own goal/next_step/result ([review])
+- `spx session handoff` accepts caller-supplied `branch` or `worktree` values — both fields are sourced from git context regardless of frontmatter content ([review])
