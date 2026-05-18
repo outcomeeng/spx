@@ -2,85 +2,92 @@
 
 ## Purpose
 
-This decision governs how the configured ignore-source file is materialized as a shared TypeScript module that the path-predicates and scope-resolver children consume. It applies to every module in the `21-ignore-source.enabler/` subtree and to every file-inclusion consumer that queries ignore-source membership.
+This decision governs how the git-tracking reader is materialized as a shared TypeScript module that the path-predicates and scope-resolver children consume. It applies to every module in the `21-ignore-source.enabler/` subtree and to every file-inclusion consumer that queries the operator's effective scope.
 
 ## Context
 
-**Business impact:** The ignore-source layer appears in the file-inclusion composition sequence as the tracked-spec-tree exclusion surface. Downstream consumers (path-predicates evaluating the ignore-source layer, scope-resolver assembling decision trails, tool-adapters producing exclusion flags via the resolved scope) all derive from the same parsed state. Diverging implementations would produce layer-specific interpretations of the same file and silently ship inconsistent exclusion semantics.
+**Business impact:** The git-tracking layer is the single default scope source per `../11-ignore-defaults.pdr.md`. Downstream consumers (path-predicates evaluating the git-tracking layer, scope-resolver assembling decision trails, tool-adapters producing exclusion flags via the resolved scope) all derive from the same constructed reader. Diverging implementations would produce layer-specific interpretations of git's view and silently ship inconsistent scope semantics.
 
-**Technical constraints:** spx is TypeScript ESM. The ignore-source file format is line-oriented — one node path per non-comment, non-blank line. Its grammar is distinct from the typed-section yaml descriptor model of `../../16-config.enabler/21-descriptor-registration.adr.md`. Root resolution follows `../../15-worktree-resolution.pdr.md` — `git rev-parse --show-toplevel` for tracked-file reads, passed in as `projectRoot`. Every vocabulary constant the reader consumes — the ignore-source filename, the spec-tree root segment — comes from the file-inclusion config descriptor. Path matching operates on relative paths under the spec-tree root segment; the reader rejects entries that resolve outside the root at construction time.
+**Technical constraints:** spx is TypeScript ESM. Git plumbing — specifically `git ls-files --cached --others --exclude-standard --full-name` — enumerates the operator's effective scope under the working tree, resolved against every git ignore source. Root resolution follows `../../15-worktree-resolution.pdr.md` — `git rev-parse --show-toplevel` for tracked-file reads, passed in as `productDir`. The reader rejects construction when no git working tree is present. Override flags (`--no-ignore`, `--no-ignore-vcs`, `--ignore-file`) flow into the git plumbing arguments at construction.
 
 ## Decision
 
-The ignore-source layer exposes a single factory `createIgnoreSourceReader(projectRoot: string, config: IgnoreSourceReaderConfig): IgnoreSourceReader` that reads and parses the configured ignore-source file at construction and returns an immutable object whose public surface is a membership query (`isUnderIgnoreSource(relativePath: string): boolean`) and an entries accessor (`entries(): readonly IgnoreSourceEntry[]`). The factory is the sole reader of the configured ignore-source file; consumers never parse the file themselves.
+The git-tracking layer exposes a single factory `createIgnoreSourceReader(productDir: string, config: IgnoreSourceReaderConfig): IgnoreSourceReader` that invokes git plumbing once at construction against `productDir` and returns an immutable object whose public surface is a membership query (`isInIncludedSet(relativePath: string): boolean`) and an applied-overrides accessor (`appliedOverrides(): IgnoreSourceOverrides`). The factory is the sole shell-out to git for scope determination; consumers never invoke git themselves.
 
-`IgnoreSourceReaderConfig` carries pre-resolved vocabulary from the file-inclusion config descriptor:
+`IgnoreSourceReaderConfig` carries the override flags supplied by the caller:
 
 ```typescript
+type IgnoreSourceOverrides = {
+  readonly noIgnore: boolean;
+  readonly noIgnoreVcs: boolean;
+  readonly ignoreFile: string | undefined;
+};
+
 type IgnoreSourceReaderConfig = {
-  readonly ignoreSourceFilename: string;
-  readonly specTreeRootSegment: string;
+  readonly overrides: IgnoreSourceOverrides;
 };
 ```
 
-The caller resolves the file-inclusion config descriptor before constructing the reader and passes the relevant fields as `config`. The factory performs no config file I/O and remains fully synchronous.
+The caller resolves override flags from the invoking command's `ScopeRequest` and passes them as `config.overrides`. The factory translates overrides into git plumbing arguments (`--no-ignore` omits `--exclude-standard`; `--ignore-file <path>` adds `--exclude-from <path>`) and returns the constructed reader.
 
 ## Rationale
 
-Factory-with-injected-projectRoot mirrors `resolveConfig(projectRoot)` from `../../16-config.enabler/21-descriptor-registration.adr.md` — consumers already pass a resolved `projectRoot` per `../../15-worktree-resolution.pdr.md`, so the same contract applies. Tests construct readers against tmpdir fixtures containing real ignore-source files via `../../22-test-environment.enabler/`, making reader behavior verifiable at `l1` without filesystem mocking.
+Factory-with-injected-productDir mirrors `resolveConfig(productDir)` from `../../16-config.enabler/21-descriptor-registration.adr.md` — consumers already pass a resolved `productDir` per `../../15-worktree-resolution.pdr.md`, so the same contract applies. Tests construct readers against real temp git worktrees via `../../22-test-environment.enabler/`, making reader behavior verifiable at `l1` without filesystem or subprocess mocking.
 
-The reader's public surface is narrow by design. Parsing and membership queries live here; tool-specific flag generation lives in `../54-tool-adapters.enabler/`; composition with other filter layers lives in `../43-scope-resolver.enabler/`. A reader that exposes only what its immediate consumers require cannot be misused as a universal filter or a flag generator, and growth in downstream concerns does not distort its public surface.
+The reader's public surface is narrow by design. Git invocation and the constructed in-memory set live here; tool-specific flag generation lives in `../54-tool-adapters.enabler/`; composition with other filter layers lives in `../43-scope-resolver.enabler/`. A reader that exposes only what its immediate consumers require cannot be misused as a universal filter or a flag generator, and growth in downstream concerns does not distort its public surface.
 
-Immediate construction-time parsing collapses the "when does the file get read" question to one answer: exactly once, at `createIgnoreSourceReader`. Consumers cannot accidentally re-read mid-invocation, cannot observe partial parses, and cannot introduce caching behavior that drifts from the parsed state. Validation at parse time means malformed entries surface at construction with a named offender, rather than at query time when the error's connection to the file is lost.
+Immediate construction-time git invocation collapses the "when does git get called" question to one answer: exactly once, at `createIgnoreSourceReader`. Consumers cannot accidentally re-invoke git mid-pipeline, cannot observe partial enumerations, and cannot introduce caching behavior that drifts from git's view. Per-path membership queries become O(1) lookups against the constructed set.
 
-The ignore-source file is not registered as a yaml descriptor in the config registry. Its grammar is a line list with comments, not a typed yaml section, and its lifecycle (entries added and removed as implementation lands) is editorial rather than configurational. Forcing it through the yaml descriptor model would add ceremony without benefit and would obscure the one-node-per-line editing contract that agents and humans share.
+Delegating to git plumbing rather than parsing `.gitignore` files directly avoids reimplementing git's ignore-resolution logic (which compounds across `.gitignore`, nested `.gitignore`, `.git/info/exclude`, and `core.excludesFile`). The reader's behavior tracks git's behavior automatically; new git ignore-resolution features (e.g., `**` patterns, negations) are honored without spx changes.
+
+The override-flags shape is structured rather than free-form. Each named override (`noIgnore`, `noIgnoreVcs`, `ignoreFile`) corresponds to a ripgrep CLI flag per `../11-ignore-defaults.pdr.md`; the structure enforces that consumers cannot pass arbitrary git plumbing arguments through the override surface, which would expand the file-inclusion API beyond what the PDR declares.
 
 Alternatives considered:
 
-- **Pure functions `isUnderIgnoreSource(projectRoot, path)` and `entries(projectRoot)`.** Each call re-reads the file. Rejected because repeated I/O is wasteful within a single CLI invocation and the two call paths would process the same file independently, leaving a window for divergence if parse logic accumulates corner cases.
-- **Register as a config descriptor at `src/file-inclusion/ignore-source/config.ts`.** Rejected because the file's grammar is not yaml-sectional and its consumer model is not "domain resolves its section through typed accessor." The descriptor abstraction is designed for typed, defaulted, validator-owned configuration — not for a plain-text node list.
-- **Combined `isUnderIgnoreSource` + `toToolFlags` factory (the pre-decomposition shape).** Rejected because tool-flag production is the tool-adapters child's concern under the new file-inclusion composition; co-locating it here would recreate the pre-decomposition tangle and violate the layer-boundary invariants declared in `../15-scope-composition.adr.md`.
-- **Class-based `IgnoreSourceReader` with constructor reading the file.** Rejected because the harness uses factory functions (`resolveConfig`, `withTestEnv`) for this pattern. A class would introduce inconsistency without adding any factory functions lack.
+- **Pure functions `isInIncludedSet(productDir, path)` returning per-call results.** Each call would shell out to git. Rejected because repeated subprocess invocation within a single CLI invocation is wasteful, and the boundary between "construction" and "query" disappears, undermining the parent ADR's purity contract.
+- **Per-path `git check-ignore` invocation.** Each membership query invokes git. Rejected for the same subprocess-overhead reason and because `git ls-files` returns the entire effective scope in one call.
+- **Parse `.gitignore` files inside spx.** Reimplement git's ignore-resolution logic. Rejected because the resolution rules compound non-trivially across multiple ignore sources, and the implementation would drift from git's behavior as git evolves.
+- **Combined reader + tool-flag generator factory (the pre-decomposition shape).** Rejected because tool-flag production is the tool-adapters child's concern under the file-inclusion composition; co-locating it here would recreate the pre-decomposition tangle and violate the layer-boundary invariants declared in `../15-scope-composition.adr.md`.
+- **Class-based `IgnoreSourceReader` with constructor invoking git.** Rejected because the harness uses factory functions (`resolveConfig`, `withTestEnv`) for this pattern. A class would introduce inconsistency without adding any property factory functions lack.
 
 ## Trade-offs accepted
 
-| Trade-off                                                                                       | Mitigation / reasoning                                                                                                                                                                                                       |
-| ----------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Factory hides parse timing from callers                                                         | `createIgnoreSourceReader` is synchronous and idempotent; multiple reader instances within one invocation are cheap. Callers that edit the ignore-source mid-run receive stale results, but CLI invocations are short-lived. |
-| Caller must resolve config before constructing the reader                                       | The scope-resolver (the natural construction site) already resolves config once per invocation; passing the two relevant fields as `IgnoreSourceReaderConfig` adds no extra I/O and keeps the factory synchronous            |
-| Splitting tool-flag generation into `../54-tool-adapters.enabler/` costs one cross-child import | The split is a direct consequence of `../15-scope-composition.adr.md`; the cost is a static import boundary that the type system enforces                                                                                    |
-| Entries accessor exposes parsed state shape                                                     | The shape is intentionally narrow (a list of node-path strings and parse provenance); it is the evidence the scope-resolver needs for decision trails, and it is not a path to mutable state                                 |
+| Trade-off                                                                                       | Mitigation / reasoning                                                                                                                                                                                                                            |
+| ----------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Factory hides invocation timing from callers                                                    | `createIgnoreSourceReader` is synchronous and idempotent; multiple reader instances within one invocation each pay the git-plumbing cost once. Callers that edit `.gitignore` mid-run receive stale results, but CLI invocations are short-lived. |
+| Factory shells out to git at construction                                                       | Git is already required for worktree resolution per `../../15-worktree-resolution.pdr.md`; the same subprocess capability serves scope resolution                                                                                                 |
+| Caller must construct `IgnoreSourceReaderConfig` with structured override flags                 | The scope-resolver (the natural construction site) translates command-line flag values into the structured shape once per invocation                                                                                                              |
+| Splitting tool-flag generation into `../54-tool-adapters.enabler/` costs one cross-child import | The split is a direct consequence of `../15-scope-composition.adr.md`; the cost is a static import boundary that the type system enforces                                                                                                         |
 
 ## Invariants
 
-- The same `projectRoot`, the same `IgnoreSourceReaderConfig`, and the same ignore-source file content always produce equal `IgnoreSourceReader` behavior — equal `entries()` output and equal `isUnderIgnoreSource` decisions across all input paths
-- `isUnderIgnoreSource(p)` returns `true` if and only if `p` is inside a directory named by a non-comment, non-blank, validated entry of the ignore-source file (prefix match on `{spec-tree-root-segment}/{entry}/`)
-- The factory rejects entries that would resolve outside the configured spec-tree root segment — absolute paths, traversal sequences, separator patterns that escape the root — at construction, never at query time
-- The factory performs no config file I/O; all vocabulary constants it consumes are carried by the `IgnoreSourceReaderConfig` parameter supplied by the caller
-- No module outside this enabler reads the ignore-source file, parses its grammar, or validates its entries
+- The same `productDir`, the same `IgnoreSourceReaderConfig`, and the same git working-tree state always produce equal `IgnoreSourceReader` behavior — equal `isInIncludedSet` decisions across all input paths
+- `isInIncludedSet(p)` returns `true` if and only if `p` appears in the output of `git ls-files` invoked with the override-derived plumbing arguments against `productDir`
+- The factory invokes git exactly once at construction; query methods perform no filesystem or subprocess I/O
+- The factory fails fast with an actionable error when `productDir` is not inside a git working tree
+- No module outside this enabler invokes git plumbing for scope determination, parses git ignore files, or constructs an in-memory included set
 
 ## Compliance
 
 ### Recognized by
 
-One module inside this enabler exports `createIgnoreSourceReader(projectRoot: string, config: IgnoreSourceReaderConfig): IgnoreSourceReader` and the `IgnoreSourceReader`, `IgnoreSourceEntry`, and `IgnoreSourceReaderConfig` types. The path-predicates child's ignore-source predicate imports the reader factory and consults the reader through `isUnderIgnoreSource`. The scope-resolver constructs the reader by passing pre-resolved vocabulary as `IgnoreSourceReaderConfig`, then consumes `entries()` for decision-trail population. No other module across the spx codebase reads the ignore-source file, parses its grammar, or references its filename as a source literal.
+One module inside this enabler exports `createIgnoreSourceReader(productDir: string, config: IgnoreSourceReaderConfig): IgnoreSourceReader` and the `IgnoreSourceReader`, `IgnoreSourceOverrides`, and `IgnoreSourceReaderConfig` types. The path-predicates child's git-tracking predicate imports the reader factory and consults the reader through `isInIncludedSet`. The scope-resolver constructs the reader by passing override flags as `IgnoreSourceReaderConfig`, then consumes `appliedOverrides()` for decision-trail population. No other module across the spx codebase invokes git plumbing for scope determination or parses git ignore files.
 
 ### MUST
 
-- The reader is exposed as `createIgnoreSourceReader(projectRoot: string, config: IgnoreSourceReaderConfig): IgnoreSourceReader` — a factory function, not a class, not a method on another module ([review])
-- The factory accepts `projectRoot` as a parameter per `../../15-worktree-resolution.pdr.md` ([review])
-- The factory accepts `IgnoreSourceReaderConfig` as a second parameter carrying pre-resolved vocabulary; it performs no config file I/O and remains fully synchronous ([review])
-- The factory reads and parses the configured ignore-source file once at construction; query methods are pure over parsed state ([review])
-- Path validation runs during parse — malformed entries cause construction to fail with an error naming the offending entry and the parse position ([review])
-- The configured ignore-source filename and the configured spec-tree root segment are read through the file-inclusion descriptor at every use site within this enabler ([review])
-- Tests construct real ignore-source files under temp project roots via `../../22-test-environment.enabler/`; reader behavior is verified against those fixtures ([review])
+- The reader is exposed as `createIgnoreSourceReader(productDir: string, config: IgnoreSourceReaderConfig): IgnoreSourceReader` — a factory function, not a class, not a method on another module ([review])
+- The factory accepts `productDir` as a parameter per `../../15-worktree-resolution.pdr.md` ([review])
+- The factory accepts `IgnoreSourceReaderConfig` as a second parameter carrying structured override flags; it translates overrides into git plumbing arguments at construction ([review])
+- The factory invokes `git ls-files --cached --others --exclude-standard --full-name` (with override-derived arguments) exactly once at construction; query methods are pure over the constructed in-memory set ([review])
+- Construction fails with an actionable error when no git working tree exists at `productDir` ([review])
+- Tests construct real git worktrees under temp directories via `../../22-test-environment.enabler/`; reader behavior is verified against those fixtures ([review])
 
 ### NEVER
 
-- Read, parse, or reference the ignore-source file from any module outside this enabler ([review])
-- Call `resolveConfig` or any config resolution function inside the factory — vocabulary is passed as pre-resolved `IgnoreSourceReaderConfig` by the caller ([review])
-- `vi.mock()`, `jest.mock()`, `memfs`, or any filesystem-mocking mechanism for `node:fs` / `node:fs/promises` — tests use real fixtures under tmpdirs ([review])
-- Accept an entry that is absolute, contains traversal sequences, or resolves outside the configured spec-tree root segment — reject at parse time ([review])
+- Invoke git plumbing for scope determination from any module outside this enabler ([review])
+- Parse `.gitignore`, `.git/info/exclude`, or `core.excludesFile` content directly — git plumbing is the sole ignore-resolution authority ([review])
+- Call `resolveConfig` or any config resolution function inside the factory — overrides are passed as pre-structured `IgnoreSourceReaderConfig` by the caller ([review])
+- `vi.mock()`, `jest.mock()`, `memfs`, or any filesystem-mocking mechanism for `node:fs` / `node:fs/promises` or any subprocess-mocking mechanism — tests use real git worktrees under tmpdirs ([review])
 - Expose tool-specific flag generation from this enabler — that surface lives in `../54-tool-adapters.enabler/` ([review])
-- Write back to the ignore-source file or any other project configuration file — the reader is read-only; edits are editorial and happen outside the runtime ([review])
-- Hardcode the ignore-source filename, the spec-tree root segment, or any path literal with product meaning inside this enabler's modules — every such value is descriptor-resolved ([review])
+- Write to any file in the worktree or the git repository — the reader is read-only ([review])
+- Accept override flag names other than ripgrep's `noIgnore`, `noIgnoreVcs`, `ignoreFile` — the override vocabulary is fixed by `../11-ignore-defaults.pdr.md` ([review])

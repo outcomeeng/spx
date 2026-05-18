@@ -60,7 +60,7 @@ Every adapter module under `src/lib/file-inclusion/adapters/` exports exactly on
 ### NEVER
 
 - Hardcode a tool's ignore-flag token inside an adapter module — flag tokens come from the caller-supplied `AdapterConfig.ignoreFlag` ([review])
-- Let an adapter read `ScopeResult.included`, consult filter layers, read the ignore-source file, or enumerate artifact-directory names — adapters transform `scope.excluded` alone ([review])
+- Let an adapter read `ScopeResult.included`, consult filter layers, invoke git plumbing, or compose its own scope — adapters transform `scope.excluded` alone ([review])
 - Perform filesystem I/O inside any adapter function — adapters are pure over their arguments ([review])
 - Use dynamic registry composition (filesystem scan, plugin loader, `require()` calls) — registration is explicit at compile time ([review])
 - Use `vi.mock()`, `jest.mock()`, `memfs`, or any filesystem-mocking mechanism — tests exercise adapters against in-memory `ScopeResult` and `ToolAdaptersConfig` values ([review])

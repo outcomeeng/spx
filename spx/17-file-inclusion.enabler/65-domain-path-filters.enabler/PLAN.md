@@ -2,46 +2,29 @@
 
 ## Purpose
 
-Replace ignore-source scope policy with typed config-backed path-filter inputs.
+Wire typed config-backed domain path-filter inputs through the file-inclusion resolver so each consumer (validation, testing, audit, review) narrows scope within the git-tracking default per `../11-ignore-defaults.pdr.md`.
 
 ## Governing Specs
 
-- `spx/17-file-inclusion.enabler/file-inclusion.md`
-- `spx/17-file-inclusion.enabler/11-ignore-defaults.pdr.md`
-- `spx/17-file-inclusion.enabler/15-scope-composition.adr.md`
+- `../file-inclusion.md`
+- `../11-ignore-defaults.pdr.md`
+- `../15-scope-composition.adr.md`
 - `spx/16-config.enabler/32-shared-config-primitives.enabler/shared-config-primitives.md`
 
 ## Implementation Notes
 
-- Update scope resolver inputs to accept a domain path filter.
-- Preserve explicit override, artifact-directory, hidden-prefix, and adapter behavior.
-- Delete or rewrite tests that only prove standalone `spx/EXCLUDE` behavior.
-- Remove production imports of ignore-source reader helpers after testing passing scope consumes config.
+- The scope-resolver accepts a typed domain path filter alongside override flags and explicit caller paths.
+- Domain filters layer on top of the git-tracking default — they narrow or restrict within the git-tracked set, never replace git's view as the default scope source.
+- Operators who want ignored entries processed pass `--no-ignore`, `--no-ignore-vcs`, or `--ignore-file` per `../11-ignore-defaults.pdr.md`, not a domain filter `include` pattern.
 
 ## Evidence Required
 
-- Scope resolver tests cover include misses, exclude matches, artifact directories, hidden prefixes, and explicit override.
-- Tool adapter tests prove ignore flags derive from resolved excluded paths only.
+- Scope resolver tests cover include misses, exclude matches, and explicit override layered on top of the git-tracking default.
+- Tool adapter tests prove ignore flags derive from the resolved excluded paths only.
 - Regression tests prove validation filters do not affect testing passing scope.
-- Removal tests prove production code no longer reads `spx/EXCLUDE`.
-
-## Parallelization
-
-This depends on the shared path-filter primitive. It can proceed before testing state persistence, but final deletion of ignore-source code depends on config-backed testing passing scope.
 
 ## Implementation Ownership
 
 - Own the domain path-filter resolver changes and tests required by this node under `src/lib/file-inclusion/` and this node's co-located `tests/`.
 - Consume the shared path-filter primitive from `src/config/primitives/`; do not define a second path-filter shape or validator.
-- Preserve the existing standalone ignore-source production path in this packet. Do not delete `src/lib/file-inclusion/ignore-source.ts`, ignore-source predicates, or tool-adapter ignore-source wiring until the T2 sentinel `last-run-evidence.md` exists on `origin/main`.
-- Do not edit testing, audit, or review descriptor consumers in this packet except through stable file-inclusion call signatures required by this node.
-
-## Agent Pickup Prompt
-
-```text
-Before branching, follow the common packet rules in `spx/16-config.enabler/PLAN.md`, including the branch-existence guard and settled-prerequisite checks.
-
-Start from fresh origin/main on work/domain-path-filters. Invoke spec-tree:understanding if needed, then spec-tree:contextualizing for spx/17-file-inclusion.enabler/65-domain-path-filters.enabler/. Read this PLAN and the governing specs it names. Invoke spec-tree:applying, spec-tree:testing, typescript:testing-typescript, and typescript:coding-typescript before edits.
-
-Before branching, verify `git cat-file -e origin/main:spx/16-config.enabler/32-shared-config-primitives.enabler/shared-config-primitives.md` succeeds for the settled path-filter primitive. Make the file-inclusion resolver accept typed domain path filters supplied by callers. Preserve explicit caller-path override, artifact-directory filtering, hidden-prefix filtering, decision trails, and tool-adapter output. Do not delete or rewrite legacy standalone ignore-source production paths in this packet; record any deletion candidate for a follow-up after `git cat-file -e origin/main:spx/41-testing.enabler/43-last-run-evidence.enabler/last-run-evidence.md` succeeds for the T2 sentinel. Prove validation filters do not affect testing passing scope. Open one PR and ask reviewers to audit path-decision trails, caller override behavior, and descriptor-policy separation.
-```
+- Coordinate with the git-tracking reader work under `../21-ignore-source.enabler/` and the predicate work under `../32-path-predicates.enabler/`; this node depends on both being in place.

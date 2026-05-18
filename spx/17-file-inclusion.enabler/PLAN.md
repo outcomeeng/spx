@@ -1,41 +1,49 @@
-# Plan: Config-Backed File Inclusion
+# Plan: Git-Tracking File Inclusion
 
 ## Purpose
 
-Remove ignore-source scope policy from file inclusion and keep this subtree focused on reusable path predicates, scope resolution, decision trails, and tool-adapted invocation arguments.
+Implement the git-tracking layer model declared in `11-ignore-defaults.pdr.md` and `15-scope-composition.adr.md` across the file-inclusion subtree and the consumers that wire override flags.
 
 ## Governing Decisions
 
-- `spx/16-config.enabler/21-descriptor-registration.adr.md` owns shared config primitives and domain descriptors.
-- `spx/17-file-inclusion.enabler/11-ignore-defaults.pdr.md` owns default path inclusion behavior and explicit-caller override semantics.
+- `11-ignore-defaults.pdr.md` — git as the default scope source, ripgrep CLI vocabulary for invocation-time overrides, dotfile divergence
+- `15-scope-composition.adr.md` — pipeline assembly with the git-tracking layer constructed once per resolver invocation
+- `spx/16-config.enabler/21-descriptor-registration.adr.md` — shared config primitives and domain descriptors
+- `spx/15-worktree-resolution.pdr.md` — `productDir` resolution via `git rev-parse --show-toplevel`
 
 ## Current Tranche
 
-1. Replace ignore-source APIs with config-backed path-filter inputs.
-   - Work in `spx/17-file-inclusion.enabler/65-domain-path-filters.enabler/`.
-   - Update scope resolver inputs to accept a typed domain path filter.
-   - Keep existing standalone ignore-source production paths until testing passing scope consumes config-backed filters.
+1. Replace the `spx/EXCLUDE` reader with a git-plumbing reader under `21-ignore-source.enabler/`.
+   - `createIgnoreSourceReader` invokes `git ls-files --cached --others --exclude-standard --full-name` once at construction against the resolved worktree.
+   - Override flags (`--no-ignore`, `--no-ignore-vcs`, `--ignore-file`) translate to git plumbing arguments at construction.
+   - Construction fails with an actionable error outside a git working tree.
 
-2. Keep shared layers inside file inclusion.
-   - Artifact-directory predicates stay centralized.
-   - Hidden-prefix predicates stay centralized.
-   - Explicit caller-supplied paths continue to bypass every automatic filter layer.
+2. Update the path-predicate set under `32-path-predicates.enabler/`.
+   - Delete the artifact-directory and hidden-prefix predicates.
+   - Add the git-tracking predicate (delegating to the reader) and the domain-path-filter predicate.
 
-3. Keep domain policy outside file inclusion.
-   - Validation passes `validation.paths`.
-   - Testing passes its passing-scope filter.
-   - Audit and review pass target filters when their descriptors exist.
-   - File inclusion records the decision trail but does not decide why a domain excludes a path.
+3. Update the scope-resolver pipeline under `43-scope-resolver.enabler/`.
+   - Construct the ignore-source reader up front from `ScopeRequest`, including override flags.
+   - Compose the layer sequence as `[explicit-caller, domain-path-filter, git-tracking]`.
+
+4. Wire override flags into domain CLI commands.
+   - Each validation, testing, audit, and review command that walks files exposes `--no-ignore`, `--no-ignore-vcs`, `--ignore-file <path>` per `11-ignore-defaults.pdr.md`.
 
 ## Evidence Required
 
-- Scope resolver tests cover artifact-directory, hidden-prefix, domain path-filter, and explicit override layers independently.
-- Tool-adapter tests prove generated ignore flags are derived from the resolved excluded set only.
-- Regression tests prove validation paths do not affect testing passing scope and testing passing scope does not affect validation output.
-- Scope-resolver evidence updates prove `43-scope-resolver.enabler/tests/scope-resolver.property.l1.test.ts` covers the config-backed domain path-filter layer rather than the standalone ignore-source layer.
+- Git-tracking reader tests cover tracked, untracked-not-ignored, ignored-by-each-source (top-level, nested, info/exclude, global), submodule contents, and override-flag-modified behavior against real temp git worktrees.
+- Scope resolver tests cover explicit-override short-circuit, domain path-filter match, git-tracking exclusion, and override-flag application independently.
+- Tool adapter tests prove generated ignore flags derive from the resolved excluded set only.
+- Regression tests prove validation filters do not affect testing passing scope and testing passing scope does not affect validation output.
+- Removal tests prove no production code reads `spx/EXCLUDE` or parses git ignore files directly.
 
 ## Open Coordination
 
-- The existing `spx/17-file-inclusion.enabler/21-ignore-source.enabler/` child becomes deletion work once the testing descriptor consumes config-backed passing scope.
-- Delete stale ignore-source tests instead of migrating them in place when their assertions only prove `spx/EXCLUDE` behavior.
-- After T2 produces `spx/41-testing.enabler/43-last-run-evidence.enabler/last-run-evidence.md`, create a follow-up file-inclusion packet for deleting legacy ignore-source production paths if F1 records deletion candidates.
+- `spx/EXCLUDE` is no longer the scope source; the file may still be present for legacy reasons but reader code is deleted in this work.
+- Consumer commands (validation, testing, audit, review) wire override flags in the same tranche as the resolver changes so default behavior changes are matched by override availability.
+- Consumers that currently restate `node_modules`, `dist`, build artifacts, or other gitignored paths in domain descriptors can simplify their config; the git-tracking layer subsumes those entries.
+
+## Open Findings (from /aligning audit)
+
+- Compliance MUST/NEVER rules across the subtree (`file-inclusion.md`, `21-ignore-source.enabler/ignore-source.md`, `32-path-predicates.enabler/path-predicates.md`, `43-scope-resolver.enabler/scope-resolver.md`, `54-tool-adapters.enabler/tool-adapters.md`, `65-domain-path-filters.enabler/domain-path-filters.md`) carry `[review]` tags for rules that are falsifiable by automated test or lint rule. Re-tag to `[test]` and author the corresponding test files in the same tranche as the implementation work — coordinated cleanup avoids forward-reference markdown failures.
+- Architecture ADRs (`15-scope-composition.adr.md`, `43-scope-resolver.enabler/21-pipeline-assembly.adr.md`) carry inline `[test]` test references in MUST/NEVER lists. The methodology's `what-goes-where` table places test references in spec assertions. Evaluate whether to move the architectural-structure tests into a co-located spec or accept the pattern as an architectural-invariant convention.
