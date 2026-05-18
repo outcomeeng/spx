@@ -3,7 +3,7 @@
 # Required setup:
 # 1. Add CLAUDE_CODE_OAUTH_TOKEN to repository secrets
 # 2. Optionally provide a `REVIEW.md` at the repository root. The
-#    spec-tree-review wrapper's prompt reads it as the finding-classification
+#    spec-tree-review prompt reads it as the finding-classification
 #    taxonomy and comment shape; absent the file, the embedded
 #    BLOCKING/DEBT/FOLLOW-UP taxonomy is used.
 
@@ -22,10 +22,14 @@ permissions:
   pull-requests: write
   issues: write
   id-token: write
+  actions: read
 
 jobs:
   spec-tree-review:
-    uses: outcomeeng/gh-actions/.github/workflows/spec-tree-review.yml@main
+    # Pin to a full-length commit SHA per GitHub's hardening guidance — never @main or @v1.
+    # Renovate keeps this SHA current; the trailing `# main` comment is the branch
+    # Renovate tracks. See README "Security" for the full rationale.
+    uses: outcomeeng/gh-actions/.github/workflows/spec-tree-review.yml@1f897fc3ec53452b83f7bb789636a0ff2b591c69 # main
     secrets:
       CLAUDE_CODE_OAUTH_TOKEN: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
     # Authorization is automatic: the review runs only when the PR author has
@@ -48,22 +52,19 @@ jobs:
     #   timeout_minutes: ${{ vars.CLAUDE_REVIEW_TIMEOUT_MINUTES || '15' }}
     # Minimum 1; GitHub Actions silently rejects `0` at runtime.
     #
-    # The spec-tree-review wrapper bakes in its own REVIEW.md-aware review
-    # prompt — `custom_prompt` is deliberately NOT exposed as an input. To
-    # use a fully custom prompt, call `claude-code-review.yml` directly
-    # instead (see the generic example in this same directory).
+    # `spec-tree-review.yml` bakes in a REVIEW.md-aware review prompt;
+    # `custom_prompt` is deliberately NOT exposed as an input.
     #
-    # The spec-tree-review wrapper extends the base review allowlist with
-    # `Bash(sed:*),Bash(grep:*),Bash(head:*)` so the prompt's diff-chunking
-    # and comment-composing patterns do not hit the runner's permission gate.
-    # Project plugins are NOT installed by default — most review plugins
-    # demand tools (Read, Grep, Glob, git) that aren't on the wrapper's
-    # narrow allowlist, which produces long runs that never post a comment.
-    # To opt in:
+    # The baseline allowlist combines `Bash(gh issue|pr ...)` patterns for
+    # PR context and comment posting with `Bash(sed:*),Bash(grep:*),
+    # Bash(head:*)` for diff chunking. Project plugins are NOT installed by
+    # default — most review plugins demand tools (Read, Grep, Glob, git)
+    # outside that allowlist, which produces long runs that never post a
+    # comment. To opt in:
     #   use_project_plugins: true
     #   append_allow_list: "Read,Grep,Glob,Bash(git:*)"  # widen the allowlist to match
     #
-    # To replace the wrapper's entire allowlist instead of appending:
+    # To replace the entire baseline allowlist instead of appending:
     #   override_allow_list: "Bash(gh pr view:*),Bash(gh pr comment:*)"
     # WARNING: override_allow_list silently drops the
     # `Bash(sed:*),Bash(grep:*),Bash(head:*)` spec-tree defaults that the
