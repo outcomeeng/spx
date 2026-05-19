@@ -1,12 +1,12 @@
 # Copy this file to .github/workflows/spec-tree.yml in your repository
 #
 # Required setup:
-# 1. Add CLAUDE_CODE_OAUTH_TOKEN to repository secrets
-# 2. Plugins from .claude/settings.json are NOT installed by default. To
-#    enable the methodology skills for mention runs, set
-#    `use_project_plugins: true` (or the SPEC_TREE_USE_PROJECT_PLUGINS
-#    repo variable, see below) AND register the relevant marketplaces
-#    under `extraKnownMarketplaces` in your `.claude/settings.json`.
+# 1. Add CLAUDE_CODE_OAUTH_TOKEN to repository secrets.
+# 2. (Optional) Tune behavior via repo variables in Settings → Secrets and
+#    variables → Actions → Variables. See the `with:` block below — every
+#    entry reads a `vars.SPEC_TREE_*` value and falls back to the reusable's
+#    default when the variable is unset. No edits to this file are needed
+#    to change runner, timeout, model, etc.
 
 name: Spec Tree
 
@@ -38,60 +38,78 @@ jobs:
     uses: outcomeeng/gh-actions/.github/workflows/spec-tree.yml@main
     secrets:
       CLAUDE_CODE_OAUTH_TOKEN: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
+
     # Authorization is automatic: the workflow accepts any actor with admin,
     # maintain, or write permission on this repository (queried via the GitHub
     # API). External contributors are rejected with a clear error.
     #
-    # All inputs are commented out below — uncomment to customize. Where the
-    # value is sourced from a `vars.*` repo variable, the fallback after `||`
-    # preserves the reusable's default behavior when the variable is unset,
-    # so you can leave the line in place and turn the variable on/off in
-    # repo Settings → Secrets and variables → Actions → Variables without
-    # editing the workflow file.
-    #
-    # with:
-    #   # Runner selection. `vars.SPEC_TREE_RUNNER` lets you swap between
-    #   # GitHub-hosted (`ubuntu-slim`, `ubuntu-latest`) and self-hosted
-    #   # runners (`self-hosted`, or a JSON-array form like
-    #   # `'["self-hosted","laptop"]'`) without editing this file. The
-    #   # reusable detects which form was passed and dispatches correctly.
-    #   # Security: self-hosted runners must not be used on public repos or
-    #   # repos that accept PRs/comments from untrusted contributors.
-    #   runner: ${{ vars.SPEC_TREE_RUNNER || 'ubuntu-slim' }}
-    #
-    #   # Trigger phrase. Reusable defaults to `@spec-tree`. Not gated on a
-    #   # repo variable by design — the trigger phrase is security-adjacent
-    #   # (anyone who can comment can fire the run), so changing it should
-    #   # be an explicit workflow-file edit reviewed by repo maintainers.
-    #   trigger_phrase: '@your-phrase'
-    #
-    #   # Cancel in-progress runs on new mention. Reusable default: true.
-    #   # Set `vars.SPEC_TREE_CONCURRENCY_CANCEL` to the string 'false' to
-    #   # let in-flight runs complete on the next mention; anything else
-    #   # (including unset) preserves the cancel-on-new behavior.
-    #   concurrency_cancel: ${{ vars.SPEC_TREE_CONCURRENCY_CANCEL != 'false' }}
-    #
-    #   # Wall-clock budget (minutes) for the Run Claude Code step. Default
-    #   # 15 in the reusable. Lower (e.g. '5') to fail fast when a run
-    #   # hangs, or raise for tasks that legitimately take longer. The
-    #   # input is typed `string` so the quoted forms below pass through
-    #   # unchanged. Minimum 1; GitHub Actions silently rejects '0' at
-    #   # runtime.
-    #   timeout_minutes: ${{ vars.SPEC_TREE_TIMEOUT_MINUTES || '15' }}
-    #
-    #   # Install plugins declared in `.claude/settings.json`. Reusable
-    #   # default: false (plugin skills with ALWAYS-invoke mandates can
-    #   # pull mention runs into long detours that aren't part of the
-    #   # original intent). Set `vars.SPEC_TREE_USE_PROJECT_PLUGINS` to
-    #   # the string 'true' to opt in; anything else (including unset)
-    #   # keeps the default-off behavior. Requires the marketplaces in
-    #   # `extraKnownMarketplaces` to be registered.
-    #   use_project_plugins: ${{ vars.SPEC_TREE_USE_PROJECT_PLUGINS == 'true' }}
-    #
-    #   # Install specific plugins on top of (or instead of) the project's
-    #   # settings.json declarations. Plain strings, not gated on `vars.*`
-    #   # by default because the values rarely change per-environment.
-    #   plugin_marketplaces: "acme-corp/plugins"  # marketplace owner/repo entries
-    #   extra_plugins: "internal-style@acme-corp" # plugins to install
-    #
-    # See README "Plugins and marketplaces" for the full rationale.
+    # Every entry below is ACTIVE — the `vars.SPEC_TREE_*` lookup with the
+    # fallback after `||` (or the boolean comparison) reproduces the
+    # reusable's documented default when the variable is unset. Set the
+    # variable in repo Settings → Secrets and variables → Actions →
+    # Variables to override; the workflow file does not need to change.
+
+    with:
+      # Runner. Single label (`ubuntu-slim`, `ubuntu-latest`, `self-hosted`)
+      # or a JSON-array string for multi-label selectors like
+      # `'["self-hosted","laptop"]'`. The reusable detects which form was
+      # passed and dispatches correctly. Security: self-hosted runners must
+      # not be used on public repos or repos that accept PRs/comments from
+      # untrusted contributors.
+      runner: ${{ vars.SPEC_TREE_RUNNER || 'ubuntu-slim' }}
+
+      # Mention trigger phrase. Defaults to `@spec-tree`.
+      trigger_phrase: ${{ vars.SPEC_TREE_TRIGGER_PHRASE || '@spec-tree' }}
+
+      # Cancel in-progress mention runs when a new mention arrives. Reusable
+      # default: true. Set `vars.SPEC_TREE_CONCURRENCY_CANCEL='false'` to let
+      # in-flight runs complete; any other value (or unset) preserves cancel.
+      concurrency_cancel: ${{ vars.SPEC_TREE_CONCURRENCY_CANCEL != 'false' }}
+
+      # Wall-clock budget (minutes) for the Run Claude Code step. Reusable
+      # default: 15. Minimum 1; GitHub Actions silently rejects '0' at
+      # runtime. Typed as a string so quoted forms pass through unchanged.
+      timeout_minutes: ${{ vars.SPEC_TREE_TIMEOUT_MINUTES || '15' }}
+
+      # Claude model id (e.g. `claude-opus-4-7`). Empty = action default.
+      # Folded into claude_args as `--model <id>`.
+      model: ${{ vars.SPEC_TREE_MODEL || '' }}
+
+      # Extra Claude Code CLI args appended verbatim. Examples:
+      # `--max-turns 20`, `--debug`, `--allowed-tools "Read,Grep,Bash(gh pr:*)"`.
+      claude_args: ${{ vars.SPEC_TREE_CLAUDE_ARGS || '' }}
+
+      # Custom prompt to override the action's default behavior. Set
+      # `vars.SPEC_TREE_CUSTOM_PROMPT` to a single-line string (multi-line
+      # prompts are not well supported by repo vars; edit this file
+      # directly for those).
+      custom_prompt: ${{ vars.SPEC_TREE_CUSTOM_PROMPT || '' }}
+
+      # Install plugins declared in `.claude/settings.json`. Reusable
+      # default: false (plugin skills with ALWAYS-invoke mandates can pull
+      # mention runs off-task). Set `vars.SPEC_TREE_USE_PROJECT_PLUGINS='true'`
+      # to opt in; requires marketplaces to be registered under
+      # `extraKnownMarketplaces`.
+      use_project_plugins: ${{ vars.SPEC_TREE_USE_PROJECT_PLUGINS == 'true' }}
+
+      # Stream full per-turn JSON output to the job log. WARNING: may
+      # expose secrets in tool outputs. Set `vars.SPEC_TREE_SHOW_FULL_OUTPUT='true'`
+      # only when debugging in a non-sensitive context.
+      show_full_output: ${{ vars.SPEC_TREE_SHOW_FULL_OUTPUT == 'true' }}
+
+      # Plugin install lists (rarely change per-environment; uncomment and
+      # set directly to opt in without using vars):
+      # plugin_marketplaces: "acme-corp/plugins"   # marketplace owner/repo entries
+      # extra_plugins: "internal-style@acme-corp"  # plugins to install
+
+      # Cloud-provider routing (uncomment all three together):
+      # use_bedrock: ${{ vars.SPEC_TREE_USE_BEDROCK == 'true' }}
+      # use_vertex: ${{ vars.SPEC_TREE_USE_VERTEX == 'true' }}
+      # additional_env: ${{ vars.SPEC_TREE_ADDITIONAL_ENV || '{}' }}
+      # Caller is responsible for AWS/GCP auth in the calling workflow (e.g.
+      # aws-actions/configure-aws-credentials before this job). See README
+      # "Mention workflow inputs" for the full contract.
+
+    # See README "Per-environment overrides via repo variables" for the
+    # complete vars.SPEC_TREE_* table and README "Plugins and marketplaces"
+    # for the full rationale on plugin installation.
