@@ -730,6 +730,11 @@ export function noHardcodedSessionFrontmatterKeysCases(): ValidationGeneratedRul
         code: `type SessionFrontmatterKey = "${priority}"`,
         filename: VALIDATION_ESLINT_FILES.sessionCommandExample,
       },
+      {
+        name: "GIVEN frontmatter key literal in test description WHEN linting THEN no error",
+        code: `it("${priority}", () => undefined);`,
+        filename: VALIDATION_ESLINT_FILES.genericTest,
+      },
     ],
     invalid: [
       {
