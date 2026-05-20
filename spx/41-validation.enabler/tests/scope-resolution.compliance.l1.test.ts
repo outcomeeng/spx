@@ -209,14 +209,6 @@ describe("ALWAYS: TypeScript scope resolution uses the requested project root", 
           defaultTypeScriptDeps.writeFileSync(path, data);
         },
       };
-      await env.writeRaw(
-        TSCONFIG_FILES.full,
-        JSON.stringify({
-          compilerOptions: {
-            typeRoots: [VALIDATION_PIPELINE_DATA.sourceDirectoryName],
-          },
-        }),
-      );
 
       const result = await validateTypeScript(
         {
@@ -241,10 +233,7 @@ describe("ALWAYS: TypeScript scope resolution uses the requested project root", 
         include: [join(env.productDir, VALIDATION_PIPELINE_DATA.productionScopeFilePattern)],
         exclude: [join(env.productDir, VALIDATION_PIPELINE_DATA.productionScopeExcludePattern)],
       });
-      expect(writtenConfig.compilerOptions).toEqual({
-        noEmit: true,
-        typeRoots: [join(env.productDir, VALIDATION_PIPELINE_DATA.sourceDirectoryName)],
-      });
+      expect(writtenConfig.compilerOptions).toEqual({ noEmit: true });
     });
   });
 
@@ -430,6 +419,44 @@ describe("ALWAYS: TypeScript scope resolution uses the requested project root", 
       expect(paths).toEqual([join(env.productDir, VALIDATION_PIPELINE_DATA.scopeResolutionDirectoryName)]);
       expect(config?.baseDir).toBe(env.productDir);
       expect(config?.tsConfig).toBe(join(env.productDir, VALIDATION_PIPELINE_DATA.fullTsconfigFile));
+    });
+  });
+});
+
+describe("ALWAYS: the temporary tsconfig reproduces the project's TypeScript resolution", () => {
+  it("writes the temporary config inside the project root and fabricates no compiler options", async () => {
+    await withTestEnv({}, async (env) => {
+      const runner = new RecordingSpawnOptionsRunner();
+      const writtenConfigPaths: string[] = [];
+      const writtenConfigs: string[] = [];
+      const deps: TypeScriptDeps = {
+        ...defaultTypeScriptDeps,
+        writeFileSync(path, data) {
+          writtenConfigPaths.push(path.toString());
+          writtenConfigs.push(data.toString());
+          defaultTypeScriptDeps.writeFileSync(path, data);
+        },
+      };
+
+      const result = await validateTypeScript(
+        {
+          scope: VALIDATION_SCOPES.FULL,
+          projectRoot: env.productDir,
+          scopeConfig: {
+            directories: [VALIDATION_PIPELINE_DATA.sourceDirectoryName],
+            filePatterns: [VALIDATION_PIPELINE_DATA.productionScopeFilePattern],
+            excludePatterns: [VALIDATION_PIPELINE_DATA.productionScopeExcludePattern],
+            filteredByValidationPaths: true,
+          },
+        },
+        { runner, deps },
+      );
+
+      expect(result.success).toBe(true);
+      expect(writtenConfigPaths).toHaveLength(1);
+      expect(writtenConfigPaths[0]?.startsWith(env.productDir)).toBe(true);
+      const writtenConfig = JSON.parse(writtenConfigs[0] ?? "{}");
+      expect(writtenConfig.compilerOptions).toEqual({ noEmit: true });
     });
   });
 });
