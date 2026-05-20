@@ -41,8 +41,5 @@ npm-debug.log*
 .spx/review/
 .spx/testing/
 
-# SPX validation temporary configs
-.spx-validate-ts-*/
-
 # Git worktree directories
 .work/*

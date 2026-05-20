@@ -52,7 +52,7 @@
     "knip": "tsx src/cli.ts validation knip",
     "circular": "tsx src/cli.ts validation circular",
     "clean": "pnpm run clean:ignored",
-    "clean:ignored": "find . \\( -path '*/node_modules' -o -path './dist' -o -path './build' -o -path './coverage' -o -path '*/.git' \\) -prune -o \\( -type d \\( -name __pycache__ -o -name '.spx-validate-ts-*' \\) -prune -exec rm -rf {} + \\) -o \\( -type f \\( -name .DS_Store -o -name Thumbs.db -o -name '*.pyc' \\) -exec rm -f {} + \\)",
+    "clean:ignored": "find . \\( -path '*/node_modules' -o -path './dist' -o -path './build' -o -path './coverage' -o -path '*/.git' \\) -prune -o \\( -type d -name __pycache__ -prune -exec rm -rf {} + \\) -o \\( -type f \\( -name .DS_Store -o -name Thumbs.db -o -name '*.pyc' \\) -exec rm -f {} + \\)",
     "format": "dprint fmt .",
     "format:check": "dprint check .",
     "prepare": "lefthook install",

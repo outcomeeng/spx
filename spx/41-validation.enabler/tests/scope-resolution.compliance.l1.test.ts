@@ -16,7 +16,12 @@ import {
 } from "@/validation/steps/circular";
 import { KNIP_COMMAND_TOKENS, type KnipDeps, validateKnip } from "@/validation/steps/knip";
 import { VALIDATION_SUBPROCESS_EVENTS } from "@/validation/steps/subprocess-output";
-import { defaultTypeScriptDeps, type TypeScriptDeps, validateTypeScript } from "@/validation/steps/typescript";
+import {
+  defaultTypeScriptDeps,
+  TEMPORARY_TSCONFIG_PARENT_SEGMENTS,
+  type TypeScriptDeps,
+  validateTypeScript,
+} from "@/validation/steps/typescript";
 import { VALIDATION_SCOPES } from "@/validation/types";
 import { LITERAL_TEST_GENERATOR, sampleLiteralTestValue } from "@testing/generators/literal/literal";
 import { VALIDATION_PIPELINE_DATA } from "@testing/generators/validation/validation";
@@ -424,7 +429,7 @@ describe("ALWAYS: TypeScript scope resolution uses the requested project root", 
 });
 
 describe("ALWAYS: the temporary tsconfig reproduces the project's TypeScript resolution", () => {
-  it("writes the scope-filtered temporary config inside the project root and fabricates no compiler options", async () => {
+  it("writes the scope-filtered temporary config inside the project's node_modules and fabricates no compiler options", async () => {
     await withTestEnv({}, async (env) => {
       const runner = new RecordingSpawnOptionsRunner();
       const writtenConfigPaths: string[] = [];
@@ -454,14 +459,14 @@ describe("ALWAYS: the temporary tsconfig reproduces the project's TypeScript res
 
       expect(result.success).toBe(true);
       expect(writtenConfigPaths).toHaveLength(1);
-      expect(writtenConfigPaths[0]?.startsWith(env.productDir)).toBe(true);
+      expect(writtenConfigPaths[0]?.startsWith(join(env.productDir, ...TEMPORARY_TSCONFIG_PARENT_SEGMENTS))).toBe(true);
       const writtenConfig = JSON.parse(writtenConfigs[0] ?? "{}");
       expect(writtenConfig.extends).toBe(join(env.productDir, TSCONFIG_FILES.full));
       expect(writtenConfig.compilerOptions).toEqual({ noEmit: true });
     });
   });
 
-  it("writes the file-specific temporary config inside the project root and fabricates no compiler options", async () => {
+  it("writes the file-specific temporary config inside the project's node_modules and fabricates no compiler options", async () => {
     await withTestEnv({}, async (env) => {
       const runner = new RecordingSpawnOptionsRunner();
       const writtenConfigPaths: string[] = [];
@@ -486,7 +491,7 @@ describe("ALWAYS: the temporary tsconfig reproduces the project's TypeScript res
 
       expect(result.success).toBe(true);
       expect(writtenConfigPaths).toHaveLength(1);
-      expect(writtenConfigPaths[0]?.startsWith(env.productDir)).toBe(true);
+      expect(writtenConfigPaths[0]?.startsWith(join(env.productDir, ...TEMPORARY_TSCONFIG_PARENT_SEGMENTS))).toBe(true);
       const writtenConfig = JSON.parse(writtenConfigs[0] ?? "{}");
       expect(writtenConfig.extends).toBe(join(env.productDir, TSCONFIG_FILES.full));
       expect(writtenConfig.compilerOptions).toEqual({ noEmit: true });

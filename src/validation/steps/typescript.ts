@@ -6,7 +6,7 @@
  * @module validation/steps/typescript
  */
 
-import { existsSync, rmSync, writeFileSync } from "node:fs";
+import { existsSync, mkdirSync, rmSync, writeFileSync } from "node:fs";
 import { mkdtemp } from "node:fs/promises";
 import { isAbsolute, join } from "node:path";
 
@@ -35,6 +35,7 @@ export const defaultTypeScriptProcessRunner: ProcessRunner = lifecycleProcessRun
  */
 export interface TypeScriptDeps {
   mkdtemp: typeof mkdtemp;
+  mkdirSync: typeof mkdirSync;
   writeFileSync: typeof writeFileSync;
   rmSync: typeof rmSync;
   existsSync: typeof existsSync;
@@ -45,6 +46,7 @@ export interface TypeScriptDeps {
  */
 export const defaultTypeScriptDeps: TypeScriptDeps = {
   mkdtemp,
+  mkdirSync,
   writeFileSync,
   rmSync,
   existsSync,
@@ -69,9 +71,23 @@ export interface TypeScriptValidationOptions {
 const TEMPORARY_TSCONFIG_COMPILER_OPTIONS = { noEmit: true } as const;
 
 /**
- * Directory-name prefix for temporary validation configs, created inside the project root.
+ * Parent directory segments for temporary validation configs — kept under the project's `node_modules` so the temporary file never appears in the project's tracked working tree.
  */
-const TEMPORARY_TSCONFIG_DIR_PREFIX = ".spx-validate-ts-";
+export const TEMPORARY_TSCONFIG_PARENT_SEGMENTS = ["node_modules", ".cache", "spx"] as const;
+
+/**
+ * Directory-name prefix for temporary validation configs.
+ */
+const TEMPORARY_TSCONFIG_DIR_PREFIX = "validate-ts-";
+
+/**
+ * Create the temporary directory that holds one validation `tsconfig.json`.
+ */
+async function createTemporaryTsconfigDir(projectRoot: string, deps: TypeScriptDeps): Promise<string> {
+  const parent = join(projectRoot, ...TEMPORARY_TSCONFIG_PARENT_SEGMENTS);
+  deps.mkdirSync(parent, { recursive: true });
+  return deps.mkdtemp(join(parent, TEMPORARY_TSCONFIG_DIR_PREFIX));
+}
 
 // =============================================================================
 // PURE ARGUMENT BUILDER
@@ -115,7 +131,7 @@ export async function createFileSpecificTsconfig(
   deps: TypeScriptDeps = defaultTypeScriptDeps,
 ): Promise<{ configPath: string; tempDir: string; cleanup: () => void }> {
   // Create temporary directory
-  const tempDir = await deps.mkdtemp(join(projectRoot, TEMPORARY_TSCONFIG_DIR_PREFIX));
+  const tempDir = await createTemporaryTsconfigDir(projectRoot, deps);
   const configPath = join(tempDir, "tsconfig.json");
 
   // Get base config file
@@ -154,7 +170,7 @@ async function createScopeFilteredTsconfig(
   scopeConfig: ScopeConfig,
   deps: TypeScriptDeps = defaultTypeScriptDeps,
 ): Promise<{ configPath: string; tempDir: string; cleanup: () => void }> {
-  const tempDir = await deps.mkdtemp(join(projectRoot, TEMPORARY_TSCONFIG_DIR_PREFIX));
+  const tempDir = await createTemporaryTsconfigDir(projectRoot, deps);
   const configPath = join(tempDir, "tsconfig.json");
   const baseConfigFile = TSCONFIG_FILES[scope];
   const toProjectPathPattern = (pattern: string) => isAbsolute(pattern) ? pattern : join(projectRoot, pattern);
