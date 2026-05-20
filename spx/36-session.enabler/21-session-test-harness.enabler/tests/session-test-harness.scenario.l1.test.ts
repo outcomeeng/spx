@@ -17,10 +17,12 @@ import { existsSync } from "node:fs";
 import { readdir, readFile, stat } from "node:fs/promises";
 import { isAbsolute, join } from "node:path";
 import { describe, expect, it } from "vitest";
+import { parse as parseYaml } from "yaml";
 
 import { DEFAULT_CONFIG } from "@/config/defaults";
+import { SESSION_FRONT_MATTER_CLOSE, SESSION_FRONT_MATTER_OPEN } from "@/domains/session/create";
 import { parseSessionMetadata } from "@/domains/session/list";
-import { DEFAULT_PRIORITY, SESSION_PRIORITY, SESSION_STATUSES } from "@/domains/session/types";
+import { DEFAULT_PRIORITY, SESSION_FRONT_MATTER, SESSION_PRIORITY, SESSION_STATUSES } from "@/domains/session/types";
 import { createSessionHarness } from "@testing/harnesses/session/harness";
 
 const { statusDirs } = DEFAULT_CONFIG.sessions;
@@ -92,6 +94,26 @@ describe("writeSession", () => {
       const metadata = parseSessionMetadata(content);
 
       expect(metadata.priority).toBe(DEFAULT_PRIORITY);
+    } finally {
+      await harness.cleanup();
+    }
+  });
+
+  it("GIVEN no worktree override WHEN writeSession is called THEN raw frontmatter stores an empty string", async () => {
+    const harness = await createSessionHarness();
+    try {
+      const status = SESSION_STATUSES[0];
+      const id = "2026-01-12_10-00-00";
+
+      await harness.writeSession(status, id);
+
+      const filePath = join(harness.statusDir(status), `${id}.md`);
+      const content = await readFile(filePath, "utf-8");
+      const end = content.indexOf(SESSION_FRONT_MATTER_CLOSE, SESSION_FRONT_MATTER_OPEN.length);
+      const frontMatter = parseYaml(content.slice(SESSION_FRONT_MATTER_OPEN.length, end)) as Record<string, unknown>;
+
+      expect(frontMatter).toHaveProperty(SESSION_FRONT_MATTER.BRANCH, "main");
+      expect(frontMatter).toHaveProperty(SESSION_FRONT_MATTER.WORKTREE, "");
     } finally {
       await harness.cleanup();
     }
