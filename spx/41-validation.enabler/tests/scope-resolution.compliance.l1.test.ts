@@ -459,6 +459,7 @@ describe("ALWAYS: the temporary tsconfig reproduces the project's TypeScript res
 
       expect(result.success).toBe(true);
       expect(writtenConfigPaths).toHaveLength(1);
+      expect(writtenConfigPaths[0]?.startsWith(join(env.productDir, "node_modules"))).toBe(true);
       expect(writtenConfigPaths[0]?.startsWith(join(env.productDir, ...TEMPORARY_TSCONFIG_PARENT_SEGMENTS))).toBe(true);
       const writtenConfig = JSON.parse(writtenConfigs[0] ?? "{}");
       expect(writtenConfig.extends).toBe(join(env.productDir, TSCONFIG_FILES.full));
@@ -491,6 +492,7 @@ describe("ALWAYS: the temporary tsconfig reproduces the project's TypeScript res
 
       expect(result.success).toBe(true);
       expect(writtenConfigPaths).toHaveLength(1);
+      expect(writtenConfigPaths[0]?.startsWith(join(env.productDir, "node_modules"))).toBe(true);
       expect(writtenConfigPaths[0]?.startsWith(join(env.productDir, ...TEMPORARY_TSCONFIG_PARENT_SEGMENTS))).toBe(true);
       const writtenConfig = JSON.parse(writtenConfigs[0] ?? "{}");
       expect(writtenConfig.extends).toBe(join(env.productDir, TSCONFIG_FILES.full));
