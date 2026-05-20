@@ -57,7 +57,7 @@ Validation command handlers accept or derive a project root, resolve validation 
 - Pass production-scope ESLint excludes through the documented ESLint CLI ignore-pattern flag — keeps dynamic wrapper narrowing out of flat-config project policy ([review])
 - Validate global `validation.paths.{include,exclude}` and per-tool `validation.paths.<tool>.{include,exclude}` through the validation descriptor — supports wrapper-wide and stage-specific narrowing ([review])
 - Intersect explicit caller paths with project tool configuration and SPX validation path configuration — keeps invocation scope narrower than declared configuration ([review])
-- Write the temporary `tsconfig.json` generated for scope-filtered or file-specific TypeScript validation inside the project root, and inherit compiler options from the project's base configuration through `extends` — so TypeScript resolves type roots, type references, and path aliases against the project's own `node_modules` and base config exactly as a direct `tsc` run does ([review])
+- Write the temporary `tsconfig.json` generated for scope-filtered or file-specific TypeScript validation under the project's `node_modules/` directory (gitignored in every JavaScript/TypeScript project), and inherit compiler options from the base configuration through `extends` — so TypeScript resolves type roots, type references, and path aliases against the project's own `node_modules` exactly as a direct `tsc` run does, and the temporary file never appears in the project's tracked working tree ([review])
 
 ### NEVER
 
