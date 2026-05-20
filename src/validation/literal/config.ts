@@ -3,6 +3,9 @@ import type { ConfigDescriptor, Result } from "@/config/types";
 export const LITERAL_SECTION = "literal";
 export const DEFAULT_MIN_STRING_LENGTH = 4;
 export const DEFAULT_MIN_NUMBER_DIGITS = 4;
+export const LEGACY_LITERAL_ALLOWLIST_FIELD = "allowlist";
+export const LEGACY_LITERAL_ALLOWLIST_ERROR =
+  "validation.literal.values.allowlist is no longer valid; move its contents up one level to validation.literal.values.{presets,include,exclude}";
 
 export interface LiteralValueAllowlistConfig {
   readonly presets?: readonly string[];
@@ -82,6 +85,10 @@ function validate(value: unknown): Result<LiteralConfig> {
     return { ok: false, error: `${LITERAL_SECTION} section must be an object` };
   }
   const candidate = value as Record<string, unknown>;
+
+  if (candidate[LEGACY_LITERAL_ALLOWLIST_FIELD] !== undefined) {
+    return { ok: false, error: LEGACY_LITERAL_ALLOWLIST_ERROR };
+  }
 
   const presets = candidate["presets"];
   if (presets !== undefined) {
