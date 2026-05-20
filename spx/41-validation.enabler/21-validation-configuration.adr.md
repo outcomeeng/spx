@@ -57,6 +57,7 @@ Validation command handlers accept or derive a project root, resolve validation 
 - Pass production-scope ESLint excludes through the documented ESLint CLI ignore-pattern flag — keeps dynamic wrapper narrowing out of flat-config project policy ([review])
 - Validate global `validation.paths.{include,exclude}` and per-tool `validation.paths.<tool>.{include,exclude}` through the validation descriptor — supports wrapper-wide and stage-specific narrowing ([review])
 - Intersect explicit caller paths with project tool configuration and SPX validation path configuration — keeps invocation scope narrower than declared configuration ([review])
+- Write the temporary `tsconfig.json` generated for scope-filtered or file-specific TypeScript validation inside the project root, and inherit compiler options from the project's base configuration through `extends` — so TypeScript resolves type roots, type references, and path aliases against the project's own `node_modules` and base config exactly as a direct `tsc` run does ([review])
 
 ### NEVER
 
@@ -64,3 +65,4 @@ Validation command handlers accept or derive a project root, resolve validation 
 - Mutate `process.env` to influence a validation tool — command handlers and validation steps keep process state stable for sibling stages ([review])
 - Compute validation scope from `process.cwd()` when the command has a requested project root — shell state must not override the command target ([review])
 - Store SPX wrapper narrowing in tool-native ignore/config files — direct tool runs must remain governed by project tool configuration alone ([review])
+- Add TypeScript compiler options to a temporary `tsconfig.json` that the project's own configuration does not resolve to — a fabricated `typeRoots` or `types` entry makes the SPX wrapper run diverge from a direct `tsc` run ([review])
