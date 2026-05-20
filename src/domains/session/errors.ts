@@ -53,6 +53,46 @@ export class SessionInvalidContentError extends SessionError {
 }
 
 /**
+ * Error thrown when handoff content has no usable goal.
+ */
+export class SessionInvalidGoalError extends SessionError {
+  constructor() {
+    super("Invalid session goal: goal must be a non-empty string.");
+    this.name = "SessionInvalidGoalError";
+  }
+}
+
+/**
+ * Error thrown when handoff content has no usable next step.
+ */
+export class SessionInvalidNextStepError extends SessionError {
+  constructor() {
+    super("Invalid session next_step: next_step must be a non-empty string.");
+    this.name = "SessionInvalidNextStepError";
+  }
+}
+
+/**
+ * Error thrown when archive is attempted without a result.
+ */
+export class SessionInvalidResultError extends SessionError {
+  constructor(sessionId: string) {
+    super(`Invalid session result for ${sessionId}: result must be a non-empty string before archive.`);
+    this.name = "SessionInvalidResultError";
+  }
+}
+
+/**
+ * Error thrown when handoff cannot identify the current Git branch.
+ */
+export class SessionDetachedHeadError extends SessionError {
+  constructor() {
+    super("Cannot create a handoff session from a detached HEAD.");
+    this.name = "SessionDetachedHeadError";
+  }
+}
+
+/**
  * Error thrown when trying to release a session that is not currently claimed.
  */
 export class SessionNotClaimedError extends SessionError {

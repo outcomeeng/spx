@@ -10,6 +10,7 @@ import { NO_ASYNC_SPAWN_OUTSIDE_LIFECYCLE_RULE_ID } from "./eslint-rules/no-asyn
 import { NO_BARE_STRING_UNIONS_RULE_ID } from "./eslint-rules/no-bare-string-unions";
 import { NO_BDD_TRY_CATCH_ANTI_PATTERN_RULE_ID } from "./eslint-rules/no-bdd-try-catch-anti-pattern";
 import { NO_DEEP_RELATIVE_IMPORTS_RULE_ID } from "./eslint-rules/no-deep-relative-imports";
+import { NO_HARDCODED_SESSION_FRONTMATTER_KEYS_RULE_ID } from "./eslint-rules/no-hardcoded-session-frontmatter-keys";
 import { NO_HARDCODED_SPEC_TREE_NODE_KINDS_RULE_ID } from "./eslint-rules/no-hardcoded-spec-tree-node-kinds";
 import { NO_HARDCODED_SPEC_TREE_NODE_STATES_RULE_ID } from "./eslint-rules/no-hardcoded-spec-tree-node-states";
 import { NO_IMPORT_SOURCE_EXTENSIONS_RULE_ID } from "./eslint-rules/no-import-source-extensions";
@@ -237,6 +238,20 @@ export function buildEslintConfig(options: BuildEslintConfigOptions = {}) {
         [NO_DEEP_RELATIVE_IMPORTS_RULE_ID]: "error",
         [NO_IMPORT_SOURCE_EXTENSIONS_RULE_ID]: "error",
         [NO_SPEC_REFERENCES_RULE_ID]: "error",
+      },
+    },
+    {
+      files: [
+        "src/commands/session/**/*.ts",
+        "src/domains/session/**/*.ts",
+        "spx/36-session.enabler/**/*.ts",
+        "testing/harnesses/session/**/*.ts",
+      ],
+      plugins: {
+        spx: customRules,
+      },
+      rules: {
+        [NO_HARDCODED_SESSION_FRONTMATTER_KEYS_RULE_ID]: "error",
       },
     },
     // Custom rules for test files

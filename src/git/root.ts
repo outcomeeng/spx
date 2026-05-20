@@ -1,6 +1,7 @@
 import { execa } from "execa";
-import { dirname, isAbsolute, join, resolve } from "node:path";
+import { dirname, isAbsolute, join, relative, resolve } from "node:path";
 
+import { SessionDetachedHeadError } from "@/domains/session/errors";
 import { SessionDirectoryConfig } from "@/domains/session/show";
 import { DEFAULT_CONFIG } from "../config/defaults";
 import { withoutGitEnvironment } from "./environment";
@@ -57,7 +58,9 @@ const NOT_GIT_REPO_WARNING =
 export const GIT_ROOT_COMMAND = {
   EXECUTABLE: "git",
   REV_PARSE: "rev-parse",
+  ABBREV_REF: "--abbrev-ref",
   GIT_COMMON_DIR: "--git-common-dir",
+  HEAD: "HEAD",
   SHOW_TOPLEVEL: "--show-toplevel",
 } as const;
 
@@ -69,6 +72,12 @@ export const GIT_SHOW_TOPLEVEL_ARGS = [
 export const GIT_COMMON_DIR_ARGS = [
   GIT_ROOT_COMMAND.REV_PARSE,
   GIT_ROOT_COMMAND.GIT_COMMON_DIR,
+] as const;
+
+export const GIT_CURRENT_BRANCH_ARGS = [
+  GIT_ROOT_COMMAND.REV_PARSE,
+  GIT_ROOT_COMMAND.ABBREV_REF,
+  GIT_ROOT_COMMAND.HEAD,
 ] as const;
 
 // Detects the local worktree product directory.
@@ -174,6 +183,55 @@ export async function detectGitCommonDirProductRoot(
       warning: NOT_GIT_REPO_WARNING,
     };
   }
+}
+
+export interface SessionWorkContext {
+  readonly branch: string;
+  readonly worktree: string;
+}
+
+export function computeRelativeWorktreePath(commonDir: string, toplevel: string): string {
+  const absoluteCommonDir = isAbsolute(commonDir)
+    ? commonDir
+    : resolve(toplevel, commonDir);
+  const commonDirProductRoot = dirname(absoluteCommonDir);
+  const worktreePath = relative(commonDirProductRoot, toplevel);
+  return worktreePath === "" ? "" : worktreePath;
+}
+
+export async function detectSessionWorkContext(
+  cwd: string = process.cwd(),
+  deps: GitDependencies = defaultDeps,
+): Promise<SessionWorkContext> {
+  const branchResult = await deps.execa(
+    GIT_ROOT_COMMAND.EXECUTABLE,
+    [...GIT_CURRENT_BRANCH_ARGS],
+    { cwd, reject: false },
+  );
+
+  const branch = extractStdout(branchResult.stdout);
+  if (branchResult.exitCode !== 0 || branch.length === 0 || branch === GIT_ROOT_COMMAND.HEAD) {
+    throw new SessionDetachedHeadError();
+  }
+
+  const toplevelResult = await deps.execa(
+    GIT_ROOT_COMMAND.EXECUTABLE,
+    [...GIT_SHOW_TOPLEVEL_ARGS],
+    { cwd, reject: false },
+  );
+  const commonDirResult = await deps.execa(
+    GIT_ROOT_COMMAND.EXECUTABLE,
+    [...GIT_COMMON_DIR_ARGS],
+    { cwd, reject: false },
+  );
+
+  const toplevel = extractStdout(toplevelResult.stdout);
+  const commonDir = extractStdout(commonDirResult.stdout);
+  const worktree = toplevelResult.exitCode === 0 && commonDirResult.exitCode === 0
+    ? computeRelativeWorktreePath(commonDir, toplevel)
+    : "";
+
+  return { branch, worktree };
 }
 
 // Options for resolving session directory configuration.

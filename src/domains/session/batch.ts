@@ -62,7 +62,7 @@ export async function processBatch(
       const output = await handler(id);
       results.push({ id, ok: true, message: output });
     } catch (error) {
-      const message = error instanceof Error ? error.message : String(error);
+      const message = error instanceof Error ? `${error.name}: ${error.message}` : String(error);
       results.push({ id, ok: false, message });
     }
   }

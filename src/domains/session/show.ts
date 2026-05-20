@@ -15,8 +15,12 @@ export const SESSION_SHOW_LABEL = {
   STATUS: "Status",
   PRIORITY: "Priority",
   BRANCH: "Branch",
-  TAGS: "Tags",
+  WORKTREE: "Worktree",
+  GOAL: "Goal",
+  NEXT_STEP: "Next step",
+  RESULT: "Result",
   CREATED: "Created",
+  AGENT_SESSION: "Agent session",
 } as const;
 
 export const SESSION_SHOW_SEPARATOR_CHAR = "─";
@@ -119,20 +123,22 @@ export function formatShowOutput(
   const headerLines: string[] = [
     `${SESSION_SHOW_LABEL.STATUS}: ${options.status}`,
     `${SESSION_SHOW_LABEL.PRIORITY}: ${metadata.priority}`,
+    `${SESSION_SHOW_LABEL.BRANCH}: ${metadata.branch}`,
+    `${SESSION_SHOW_LABEL.WORKTREE}: ${metadata.worktree}`,
+    `${SESSION_SHOW_LABEL.GOAL}: ${metadata.goal}`,
+    `${SESSION_SHOW_LABEL.NEXT_STEP}: ${metadata.next_step}`,
+    `${SESSION_SHOW_LABEL.RESULT}: ${metadata.result}`,
   ];
 
   // Add optional metadata if present
   if (metadata.id) {
     headerLines.unshift(`${SESSION_SHOW_LABEL.ID}: ${metadata.id}`);
   }
-  if (metadata.branch) {
-    headerLines.push(`${SESSION_SHOW_LABEL.BRANCH}: ${metadata.branch}`);
+  if (metadata.created_at) {
+    headerLines.push(`${SESSION_SHOW_LABEL.CREATED}: ${metadata.created_at}`);
   }
-  if (metadata.tags.length > 0) {
-    headerLines.push(`${SESSION_SHOW_LABEL.TAGS}: ${metadata.tags.join(", ")}`);
-  }
-  if (metadata.createdAt) {
-    headerLines.push(`${SESSION_SHOW_LABEL.CREATED}: ${metadata.createdAt}`);
+  if (metadata.agent_session_id) {
+    headerLines.push(`${SESSION_SHOW_LABEL.AGENT_SESSION}: ${metadata.agent_session_id}`);
   }
 
   // Combine header with separator and original content

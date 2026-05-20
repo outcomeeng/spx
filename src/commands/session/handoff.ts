@@ -2,7 +2,7 @@
  * Session handoff CLI command handler.
  *
  * Creates a new session for handoff to another agent context.
- * Metadata (priority, tags) should be included in the content as YAML frontmatter.
+ * Session fields should be included in the content as YAML frontmatter.
  *
  * @module commands/session/handoff
  */
@@ -10,15 +10,15 @@
 import { mkdir, writeFile } from "node:fs/promises";
 import { join, resolve } from "node:path";
 
+import { preFillSessionContent, validateSessionContent } from "@/domains/session/create";
 import {
-  buildSessionFrontMatterContent,
-  preFillSessionContent,
-  validateSessionContent,
-} from "@/domains/session/create";
-import { SessionInvalidContentError } from "@/domains/session/errors";
+  SessionInvalidContentError,
+  SessionInvalidGoalError,
+  SessionInvalidNextStepError,
+} from "@/domains/session/errors";
+import { parseSessionMetadata } from "@/domains/session/list";
 import { generateSessionId } from "@/domains/session/timestamp";
-import { DEFAULT_PRIORITY, SESSION_FRONT_MATTER } from "@/domains/session/types";
-import { resolveSessionConfig } from "@/git/root";
+import { detectSessionWorkContext, type GitDependencies, resolveSessionConfig } from "@/git/root";
 
 /**
  * Regex to detect YAML frontmatter presence.
@@ -30,10 +30,14 @@ const FRONT_MATTER_START = /^---\r?\n/;
  * Options for the handoff command.
  */
 export interface HandoffOptions {
-  /** Session content (from stdin). Should include YAML frontmatter with priority/tags. */
+  /** Session content from stdin. */
   content?: string;
   /** Custom sessions directory */
   sessionsDir?: string;
+  /** Current working directory for Git context detection */
+  cwd?: string;
+  /** Injectable Git command dependencies for tests */
+  deps?: GitDependencies;
 }
 
 /**
@@ -47,30 +51,27 @@ export function hasFrontmatter(content: string): boolean {
 }
 
 /**
- * Builds session content, adding default frontmatter only if not present.
- *
- * If content already has frontmatter, returns as-is (preserves agent-provided metadata).
- * If content lacks frontmatter, adds default frontmatter with medium priority.
+ * Builds session content from stdin.
  *
  * @param content - Raw content from stdin
- * @returns Content ready to be written to session file
+ * @returns Non-empty content ready for validation
+ * @throws {SessionInvalidContentError} When content is empty
  */
 export function buildSessionContent(content: string | undefined): string {
-  // Default content if none provided
   if (!content || content.trim().length === 0) {
-    return buildSessionFrontMatterContent(
-      [`${SESSION_FRONT_MATTER.PRIORITY}: ${DEFAULT_PRIORITY}`],
-      "\n# New Session\n\nDescribe your task here.",
-    );
+    throw new SessionInvalidContentError("Session content cannot be empty");
   }
+  return content;
+}
 
-  // If content already has frontmatter, preserve it as-is
-  if (hasFrontmatter(content)) {
-    return content;
+function validateRequiredMetadata(content: string): void {
+  const metadata = parseSessionMetadata(content);
+  if (metadata.goal.trim().length === 0) {
+    throw new SessionInvalidGoalError();
   }
-
-  // Add default frontmatter to content without it
-  return buildSessionFrontMatterContent([`${SESSION_FRONT_MATTER.PRIORITY}: ${DEFAULT_PRIORITY}`], `\n${content}`);
+  if (metadata.next_step.trim().length === 0) {
+    throw new SessionInvalidNextStepError();
+  }
 }
 
 /**
@@ -82,11 +83,12 @@ export function buildSessionContent(content: string | undefined): string {
  * When no --sessions-dir is provided, sessions are created at the git repository root
  * (if in a git repo) to ensure consistent location across subdirectories.
  *
- * Metadata (priority, tags) should be included in the content as YAML frontmatter:
+ * Required metadata should be included in the content as YAML frontmatter:
  * ```
  * ---
  * priority: high
- * tags: [topic, api]
+ * goal: Fix login
+ * next_step: Run validation
  * ---
  * # Session content...
  * ```
@@ -96,22 +98,31 @@ export function buildSessionContent(content: string | undefined): string {
  * @throws {SessionInvalidContentError} When content validation fails
  */
 export async function handoffCommand(options: HandoffOptions): Promise<string> {
-  const { config, warning } = await resolveSessionConfig({ sessionsDir: options.sessionsDir });
+  const { config, warning } = await resolveSessionConfig({
+    sessionsDir: options.sessionsDir,
+    cwd: options.cwd,
+    deps: options.deps,
+  });
+
+  const baseContent = buildSessionContent(options.content);
+  const workContext = await detectSessionWorkContext(options.cwd, options.deps);
 
   // Generate session ID
   const sessionId = generateSessionId();
 
-  const baseContent = buildSessionContent(options.content);
   const agentSessionId = process.env.CLAUDE_SESSION_ID ?? process.env.CODEX_THREAD_ID;
   const fullContent = preFillSessionContent(baseContent, {
     createdAt: new Date(),
     agentSessionId,
+    branch: workContext.branch,
+    worktree: workContext.worktree,
   });
 
   const validation = validateSessionContent(fullContent);
   if (!validation.valid) {
     throw new SessionInvalidContentError(validation.error ?? "Unknown validation error");
   }
+  validateRequiredMetadata(fullContent);
 
   // Build path to session file
   const filename = `${sessionId}.md`;

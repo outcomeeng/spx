@@ -66,6 +66,8 @@ Manage work sessions for agent handoffs and task queuing:
 cat << 'EOF' | spx session handoff
 ---
 priority: high
+goal: Implement change X
+next_step: Run the focused validation
 ---
 # Implement change X
 EOF
@@ -82,7 +84,7 @@ spx session pickup --auto
 # Release one or more sessions back to the todo queue
 spx session release [id...]
 
-# Archive a session
+# Archive a session after adding a non-empty result field to its frontmatter
 spx session archive <session-id>
 
 # Show session content

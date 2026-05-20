@@ -22,6 +22,7 @@ import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { pickupCommand } from "@/commands/session/pickup";
 import { releaseCommand, SESSION_RELEASE_OUTPUT } from "@/commands/session/release";
 import { SessionNotAvailableError } from "@/domains/session/errors";
+import { DEFAULT_SESSION_METADATA } from "@/domains/session/list";
 import { buildClaimPaths, classifyClaimError, selectBestSession } from "@/domains/session/pickup";
 import { buildReleasePaths, findCurrentSession } from "@/domains/session/release";
 import {
@@ -44,8 +45,8 @@ function createTestSession(overrides: { id?: string; priority?: SessionPriority 
     status: TODO,
     path: `/test/sessions/${TODO}/${id}.md`,
     metadata: {
+      ...DEFAULT_SESSION_METADATA,
       priority: overrides.priority ?? DEFAULT_PRIORITY,
-      tags: [],
     },
   };
 }

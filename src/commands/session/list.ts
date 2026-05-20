@@ -97,8 +97,7 @@ function formatTextOutput(sessions: Session[]): string {
   return sessions
     .map((s) => {
       const priority = s.metadata.priority !== DEFAULT_PRIORITY ? ` [${s.metadata.priority}]` : "";
-      const tags = s.metadata.tags.length > 0 ? ` (${s.metadata.tags.join(", ")})` : "";
-      return `  ${s.id}${priority}${tags}`;
+      return `  ${s.id}${priority} ${s.metadata.goal} -> ${s.metadata.next_step}`;
     })
     .join("\n");
 }

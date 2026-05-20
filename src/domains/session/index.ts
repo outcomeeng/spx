@@ -49,7 +49,7 @@ async function readStdin(): Promise<string | undefined> {
  * Handles command errors with consistent formatting.
  */
 function handleError(error: unknown): never {
-  console.error("Error:", error instanceof Error ? error.message : String(error));
+  console.error("Error:", error instanceof Error ? `${error.name}: ${error.message}` : String(error));
   process.exit(1);
 }
 
@@ -157,8 +157,7 @@ function registerSessionCommands(sessionCmd: Command): void {
     });
 
   // handoff command
-  // Note: --priority and --tags removed. Metadata should be in content frontmatter.
-  // This makes the command deterministic for Claude Code permission pre-approval.
+  // Metadata is read from stdin frontmatter so the command has no prompt-time options.
   sessionCmd
     .command("handoff")
     .description("Create a handoff session (reads content with frontmatter from stdin)")

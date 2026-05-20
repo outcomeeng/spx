@@ -46,7 +46,7 @@ describe("batch archive", () => {
   it("S1: GIVEN 3 sessions in todo WHEN archive with 3 IDs THEN all 3 move to archive", async () => {
     const ids = ["2026-01-10_10-00-00", "2026-01-11_10-00-00", "2026-01-12_10-00-00"];
     for (const id of ids) {
-      await harness.writeSession(TODO, id);
+      await harness.writeSession(TODO, id, { result: "Archived through batch command" });
     }
 
     const output = await archiveCommand({
@@ -63,7 +63,7 @@ describe("batch archive", () => {
 
   it("S4: GIVEN 1 valid + 1 invalid ID WHEN archive THEN valid succeeds, invalid errors", async () => {
     const validId = "2026-01-10_10-00-00";
-    await harness.writeSession(TODO, validId);
+    await harness.writeSession(TODO, validId, { result: "Archived before missing ID" });
     const invalidId = "nonexistent";
 
     await expect(
@@ -79,7 +79,7 @@ describe("batch archive", () => {
 
   it("S5: GIVEN single ID WHEN archive THEN identical to single-ID behavior", async () => {
     const id = "2026-01-10_10-00-00";
-    await harness.writeSession(TODO, id);
+    await harness.writeSession(TODO, id, { result: "Archived single session" });
 
     const output = await archiveCommand({
       sessionIds: [id],
@@ -106,7 +106,7 @@ describe("batch delete", () => {
   it("S2: GIVEN 3 sessions WHEN delete with 3 IDs THEN all 3 removed", async () => {
     const ids = ["2026-01-10_10-00-00", "2026-01-11_10-00-00", "2026-01-12_10-00-00"];
     for (const id of ids) {
-      await harness.writeSession(TODO, id);
+      await harness.writeSession(TODO, id, { result: "Archived in input order" });
     }
 
     const output = await deleteCommand({
@@ -226,7 +226,7 @@ describe("batch properties", () => {
   it("P2: GIVEN ordered IDs WHEN archive THEN processed left-to-right", async () => {
     const ids = ["2026-01-10_10-00-00", "2026-01-11_10-00-00", "2026-01-12_10-00-00"];
     for (const id of ids) {
-      await harness.writeSession(TODO, id);
+      await harness.writeSession(TODO, id, { result: "Archived in input order" });
     }
 
     const output = await archiveCommand({

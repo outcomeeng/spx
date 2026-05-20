@@ -10,6 +10,9 @@ import noAsyncSpawnOutsideLifecycle, {
 import noBareStringUnions, { NO_BARE_STRING_UNIONS_RULE_NAME } from "./no-bare-string-unions";
 import noBddTryCatchAntiPattern, { NO_BDD_TRY_CATCH_ANTI_PATTERN_RULE_NAME } from "./no-bdd-try-catch-anti-pattern";
 import noDeepRelativeImports, { NO_DEEP_RELATIVE_IMPORTS_RULE_NAME } from "./no-deep-relative-imports";
+import noHardcodedSessionFrontmatterKeys, {
+  NO_HARDCODED_SESSION_FRONTMATTER_KEYS_RULE_NAME,
+} from "./no-hardcoded-session-frontmatter-keys";
 import noHardcodedSpecTreeNodeKinds, {
   NO_HARDCODED_SPEC_TREE_NODE_KINDS_RULE_NAME,
 } from "./no-hardcoded-spec-tree-node-kinds";
@@ -32,6 +35,7 @@ const eslintRules = {
     [NO_BDD_TRY_CATCH_ANTI_PATTERN_RULE_NAME]: noBddTryCatchAntiPattern,
     [NO_BARE_STRING_UNIONS_RULE_NAME]: noBareStringUnions,
     [NO_DEEP_RELATIVE_IMPORTS_RULE_NAME]: noDeepRelativeImports,
+    [NO_HARDCODED_SESSION_FRONTMATTER_KEYS_RULE_NAME]: noHardcodedSessionFrontmatterKeys,
     [NO_HARDCODED_SPEC_TREE_NODE_STATES_RULE_NAME]: noHardcodedSpecTreeNodeStates,
     [NO_HARDCODED_SPEC_TREE_NODE_KINDS_RULE_NAME]: noHardcodedSpecTreeNodeKinds,
     [NO_IMPORT_SOURCE_EXTENSIONS_RULE_NAME]: noImportSourceExtensions,

@@ -62,16 +62,18 @@ describe("writeSession", () => {
     try {
       const status = SESSION_STATUSES[0];
       const id = "2026-01-10_10-00-00";
-      const tags = ["test", "ci"];
+      const goal = "Exercise the harness";
+      const nextStep = "Read the generated file";
 
-      await harness.writeSession(status, id, { priority: SESSION_PRIORITY.HIGH, tags });
+      await harness.writeSession(status, id, { priority: SESSION_PRIORITY.HIGH, goal, next_step: nextStep });
 
       const filePath = join(harness.statusDir(status), `${id}.md`);
       const content = await readFile(filePath, "utf-8");
       const metadata = parseSessionMetadata(content);
 
       expect(metadata.priority).toBe(SESSION_PRIORITY.HIGH);
-      expect(metadata.tags).toEqual(tags);
+      expect(metadata.goal).toBe(goal);
+      expect(metadata.next_step).toBe(nextStep);
     } finally {
       await harness.cleanup();
     }

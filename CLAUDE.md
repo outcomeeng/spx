@@ -227,6 +227,8 @@ Use `spx session` to manage work handoffs between agent contexts.
 cat << 'EOF' | spx session handoff
 ---
 priority: high
+goal: Implement X
+next_step: Run the focused validation
 ---
 # Task: Implement X
 EOF
@@ -247,7 +249,7 @@ spx session release
 
 ### Creating Sessions with Content
 
-Metadata (priority, tags) is specified via YAML frontmatter in the content.
+Metadata is specified via YAML frontmatter in the content.
 This makes `spx session handoff` deterministic for permission pre-approval.
 
 ```bash
@@ -255,7 +257,12 @@ This makes `spx session handoff` deterministic for permission pre-approval.
 cat << 'EOF' | spx session handoff
 ---
 priority: high
-tags: [api]
+goal: Implement user authentication
+next_step: Add login/logout endpoint tests
+specs:
+  - spx/36-session.enabler/session.md
+files:
+  - src/auth/login.ts
 ---
 # Implement User Authentication
 
@@ -268,8 +275,8 @@ tags: [api]
 - src/auth/middleware.ts
 EOF
 
-# Quick session (adds default frontmatter: priority: medium)
-echo "# My task" | spx session handoff
+# Before archiving, edit the doing session and add:
+# result: Tests pass and endpoints are wired
 ```
 
 ### Session Commands Reference

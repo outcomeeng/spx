@@ -24,6 +24,25 @@ import {
 const FRONT_MATTER_PATTERN = /^---\r?\n([\s\S]*?)\r?\n(?:---|\.\.\.)\r?\n?/;
 const SESSION_PRIORITY_VALUES = Object.values(SESSION_PRIORITY);
 
+export const DEFAULT_SESSION_METADATA: SessionMetadata = {
+  priority: DEFAULT_PRIORITY,
+  branch: "",
+  worktree: "",
+  goal: "",
+  next_step: "",
+  result: "",
+  specs: [],
+  files: [],
+} as const;
+
+function defaultSessionMetadata(): SessionMetadata {
+  return {
+    ...DEFAULT_SESSION_METADATA,
+    specs: [],
+    files: [],
+  };
+}
+
 /**
  * Validates if a value is a valid priority.
  */
@@ -41,56 +60,58 @@ function isValidPriority(value: unknown): value is SessionPriority {
  * ```typescript
  * const metadata = parseSessionMetadata(`---
  * priority: high
- * tags: [bug, urgent]
+ * goal: Fix failing checks
+ * next_step: Run validation
  * ---
  * # Session content`);
- * // => { priority: 'high', tags: ['bug', 'urgent'] }
+ * // => { priority: 'high', goal: 'Fix failing checks', next_step: 'Run validation', ... }
  * ```
  */
 export function parseSessionMetadata(content: string): SessionMetadata {
   const match = FRONT_MATTER_PATTERN.exec(content);
 
   if (!match) {
-    return {
-      priority: DEFAULT_PRIORITY,
-      tags: [],
-    };
+    return defaultSessionMetadata();
   }
 
   try {
     const parsed = parseYaml(match[1]) as Record<string, unknown>;
 
     if (!parsed || typeof parsed !== "object") {
-      return {
-        priority: DEFAULT_PRIORITY,
-        tags: [],
-      };
+      return defaultSessionMetadata();
     }
 
     const rawPriority = parsed[SESSION_FRONT_MATTER.PRIORITY];
     const priority = isValidPriority(rawPriority) ? rawPriority : DEFAULT_PRIORITY;
 
-    const rawTags = parsed[SESSION_FRONT_MATTER.TAGS];
-    const tags: string[] = Array.isArray(rawTags)
-      ? rawTags.filter((t): t is string => typeof t === "string")
-      : [];
-
-    const metadata: SessionMetadata = { priority, tags };
+    const metadata: SessionMetadata = {
+      ...defaultSessionMetadata(),
+      priority,
+    };
 
     const id = parsed[SESSION_FRONT_MATTER.ID];
     if (typeof id === "string") metadata.id = id;
 
     const branch = parsed[SESSION_FRONT_MATTER.BRANCH];
-    if (typeof branch === "string") metadata.branch = branch;
+    metadata.branch = typeof branch === "string" ? branch : DEFAULT_SESSION_METADATA.branch;
+
+    const worktree = parsed[SESSION_FRONT_MATTER.WORKTREE];
+    metadata.worktree = typeof worktree === "string" ? worktree : DEFAULT_SESSION_METADATA.worktree;
+
+    const goal = parsed[SESSION_FRONT_MATTER.GOAL];
+    metadata.goal = typeof goal === "string" ? goal : DEFAULT_SESSION_METADATA.goal;
+
+    const nextStep = parsed[SESSION_FRONT_MATTER.NEXT_STEP];
+    metadata.next_step = typeof nextStep === "string" ? nextStep : DEFAULT_SESSION_METADATA.next_step;
+
+    const result = parsed[SESSION_FRONT_MATTER.RESULT];
+    metadata.result = typeof result === "string" ? result : DEFAULT_SESSION_METADATA.result;
 
     const createdAt = parsed[SESSION_FRONT_MATTER.CREATED_AT];
-    if (typeof createdAt === "string") metadata.createdAt = createdAt;
+    if (typeof createdAt === "string") metadata.created_at = createdAt;
 
     const agentSessionId = parsed[SESSION_FRONT_MATTER.AGENT_SESSION_ID];
-    if (typeof agentSessionId === "string") metadata.agentSessionId = agentSessionId;
-
-    const workingDirectory = parsed[SESSION_FRONT_MATTER.WORKING_DIRECTORY];
-    if (typeof workingDirectory === "string") metadata.workingDirectory = workingDirectory;
+    if (typeof agentSessionId === "string") metadata.agent_session_id = agentSessionId;
 
     const specs = parsed[SESSION_FRONT_MATTER.SPECS];
     if (Array.isArray(specs)) {
@@ -105,10 +126,7 @@ export function parseSessionMetadata(content: string): SessionMetadata {
     return metadata;
   } catch {
     // Malformed YAML, return defaults
-    return {
-      priority: DEFAULT_PRIORITY,
-      tags: [],
-    };
+    return defaultSessionMetadata();
   }
 }
 

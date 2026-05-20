@@ -8,13 +8,13 @@ CAN create, claim, release, and clean up work handoffs that remain accessible fr
 
 ### Scenarios
 
-- Given a git worktree, when a session command resolves its root directory, then the Git common-dir product root, not the local worktree root, is returned ([test](tests/session.unit.test.ts))
-- Given no explicit `--sessions-dir` option, when a session command resolves its config, then all session paths derive from the Git common-dir product root ([test](tests/session.unit.test.ts))
-- Given an explicit `--sessions-dir` option, when a session command resolves its config, then the provided directory is used and git detection is skipped ([test](tests/session.unit.test.ts))
+- Given a git worktree, when a session command resolves its root directory, then the Git common-dir product root, not the local worktree root, is returned ([test](tests/session.scenario.l1.test.ts))
+- Given no explicit `--sessions-dir` option, when a session command resolves its config, then all session paths derive from the Git common-dir product root ([test](tests/session.scenario.l1.test.ts))
+- Given an explicit `--sessions-dir` option, when a session command resolves its config, then the provided directory is used and git detection is skipped ([test](tests/session.scenario.l1.test.ts))
 
 ### Properties
 
-- The gitignored-state root resolver returns the same root as the tracked-file root resolver in non-worktree repositories and the Git common-dir product root in worktrees ([test](tests/session.unit.test.ts))
+- The gitignored-state root resolver returns the same root as the tracked-file root resolver in non-worktree repositories and the Git common-dir product root in worktrees ([test](tests/session.scenario.l1.test.ts))
 
 ### Compliance
 

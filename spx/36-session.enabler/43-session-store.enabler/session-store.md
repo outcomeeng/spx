@@ -35,7 +35,7 @@ The frontmatter shape every primitive writes and reads is governed by [`spx/36-s
 ### Compliance
 
 - ALWAYS: `created_at` is written in ISO-8601 format with timezone offset per [`spx/36-session.enabler/21-timestamp-format.adr.md`](../21-timestamp-format.adr.md) ([test](tests/session-store.compliance.l1.test.ts))
-- ALWAYS: every frontmatter key declared by [`spx/36-session.enabler/11-session-frontmatter.pdr.md`](../11-session-frontmatter.pdr.md) is read and written through `SESSION_FRONT_MATTER` constants — no string literal name appears at any call site ([test](tests/session-store.compliance.l1.test.ts))
+- ALWAYS: every frontmatter key declared by [`spx/36-session.enabler/11-session-frontmatter.pdr.md`](../11-session-frontmatter.pdr.md) is read and written through `SESSION_FRONT_MATTER` constants — no string literal name appears at any call site per [`spx/36-session.enabler/37-frontmatter-key-enforcement.adr.md`](../37-frontmatter-key-enforcement.adr.md) ([test](tests/session-store.compliance.l1.test.ts))
 - ALWAYS: every path component is derived from `DEFAULT_CONFIG` per [`spx/36-session.enabler/21-directory-structure.adr.md`](../21-directory-structure.adr.md) ([review])
 - NEVER: hardcode status strings (`"todo"`, `"doing"`, `"archive"`) outside of `SESSION_STATUSES` and `DEFAULT_CONFIG` per [`spx/36-session.enabler/21-directory-structure.adr.md`](../21-directory-structure.adr.md) ([review])
 - NEVER: a `tags` key is written to any session this PDR governs — the frontmatter shape excludes `tags` per [`spx/36-session.enabler/11-session-frontmatter.pdr.md`](../11-session-frontmatter.pdr.md) ([review])

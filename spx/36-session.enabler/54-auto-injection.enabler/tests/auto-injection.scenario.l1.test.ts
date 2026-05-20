@@ -29,12 +29,12 @@ describe("parseSessionMetadata — specs and files extraction (P1)", () => {
     expect(result.files).toEqual(["src/file.ts", "src/other.ts"]);
   });
 
-  it("GIVEN session without specs/files WHEN parsed THEN fields are undefined (not error)", () => {
+  it("GIVEN session without specs/files WHEN parsed THEN fields are empty arrays", () => {
     const content = `---\npriority: high\n---\n# Content`;
     const result = parseSessionMetadata(content);
 
-    expect(result.specs).toBeUndefined();
-    expect(result.files).toBeUndefined();
+    expect(result.specs).toEqual([]);
+    expect(result.files).toEqual([]);
   });
 
   it("GIVEN session with empty specs/files arrays WHEN parsed THEN returns empty arrays", () => {
@@ -60,11 +60,11 @@ describe("parseSessionMetadata — specs and files extraction (P1)", () => {
     expect(result.files).toEqual(["src/ok.ts"]);
   });
 
-  it("GIVEN no front matter WHEN parsed THEN specs and files undefined, never errors", () => {
+  it("GIVEN no front matter WHEN parsed THEN specs and files are empty arrays", () => {
     const result = parseSessionMetadata("# No frontmatter");
 
-    expect(result.specs).toBeUndefined();
-    expect(result.files).toBeUndefined();
+    expect(result.specs).toEqual([]);
+    expect(result.files).toEqual([]);
   });
 });
 

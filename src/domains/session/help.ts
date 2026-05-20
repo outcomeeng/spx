@@ -14,8 +14,12 @@ Session File Format:
   Sessions are markdown files with YAML frontmatter for metadata.
 
   ---
-  priority: high | medium | low
-  tags: [tag1, tag2]
+  priority: high
+  goal: Fix the failing release check
+  next_step: Run the focused session tests
+  result: Local validation passed
+  specs: []
+  files: []
   ---
   # Session Title
 
@@ -25,7 +29,7 @@ Workflow:
   1. handoff  - Create session (todo)
   2. pickup   - Claim session (todo -> doing)
   3. release  - Return session (doing -> todo)
-  4. archive  - Move session to archive
+  4. archive  - Move session with a result to archive
   5. delete   - Remove session permanently
 `;
 
@@ -34,29 +38,35 @@ Workflow:
  */
 export const HANDOFF_FRONTMATTER_HELP = `
 Usage:
-  Option 1: Pipe content with frontmatter via stdin
-  Option 2: Run without stdin, then edit the created file directly
+  Pipe content with frontmatter via stdin
 
 Frontmatter Format:
   ---
   priority: high      # high | medium | low (default: medium)
-  tags: [feat, api]   # optional labels for categorization
+  goal: Fix login     # required
+  next_step: Run validation  # required
+  specs: []           # optional pickup context
+  files: []           # optional pickup context
   ---
   # Your session content here...
 
+Prefilled by the CLI:
+  created_at, branch, worktree, agent_session_id when an agent session ID is available
+
+Before archive:
+  Add a non-empty result field to the frontmatter.
+
 Output Tags (for automation):
   <HANDOFF_ID>session-id</HANDOFF_ID>     - Session identifier
-  <SESSION_FILE>/path/to/file</SESSION_FILE> - Absolute path to edit
+  <SESSION_FILE>/path/to/file</SESSION_FILE> - Absolute path to created file
 
 Examples:
-  # With stdin content:
   echo '---
   priority: high
+  goal: Fix login
+  next_step: Run validation
   ---
   # Fix login' | spx session handoff
-
-  # Without stdin (creates empty session, edit file directly):
-  spx session handoff
 `;
 
 /**
