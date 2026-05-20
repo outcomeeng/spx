@@ -120,7 +120,7 @@ export const validationCliDefinition: ValidationCliDefinition = {
 export const literalValidationCliOptions = {
   allowlistExisting: {
     flag: "--allowlist-existing",
-    description: "Append every current problem's value to literal.allowlist.include and exit",
+    description: "Append every current problem's value to validation.literal.values.include and exit",
   },
   kind: {
     flag: "--kind <kind>",

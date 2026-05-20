@@ -41,7 +41,7 @@ function sampleForeignSection(): { readonly key: string; readonly body: Record<s
 }
 
 describe("allowlist-existing compliance", () => {
-  it("writes only to literal.allowlist.include — leaves presets and exclude unchanged", async () => {
+  it("writes only to validation.literal.values.include while leaving presets and exclude unchanged", async () => {
     const fixtureLiteral = sampleLiteralTestValue(LITERAL_TEST_GENERATOR.domainLiteral());
     const excludeLiteral = sampleLiteralTestValue(LITERAL_TEST_GENERATOR.domainLiteral());
     const config = buildConfigWithAllowlist({
@@ -130,7 +130,7 @@ describe("allowlist-existing compliance", () => {
   });
 
   it.each(CONFIG_FILE_FORMAT_ORDER)(
-    "preserves the config module's %s file format while updating literal.allowlist.include",
+    "preserves the config module's %s file format while updating validation.literal.values.include",
     async (format) => {
       const fixtureLiteral = sampleLiteralTestValue(LITERAL_TEST_GENERATOR.domainLiteral());
       const config = buildConfigWithAllowlist({ include: [] });
@@ -152,7 +152,7 @@ describe("allowlist-existing compliance", () => {
     },
   );
 
-  it("preserves YAML comments while updating literal.allowlist.include", async () => {
+  it("preserves YAML comments while updating validation.literal.values.include", async () => {
     const fixtureLiteral = sampleLiteralTestValue(LITERAL_TEST_GENERATOR.domainLiteral());
     const seedIncludeEntry = sampleLiteralTestValue(LITERAL_TEST_GENERATOR.domainLiteral());
     const projectConfigComment = sampleCommentText();

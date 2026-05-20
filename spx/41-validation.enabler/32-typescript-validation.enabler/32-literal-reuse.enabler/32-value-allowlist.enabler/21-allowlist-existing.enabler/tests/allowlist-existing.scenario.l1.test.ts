@@ -40,7 +40,7 @@ function serializeEmptyJsonConfig(): string {
 }
 
 describe("allowlist-existing scenario", () => {
-  it("appends current finding values to literal.allowlist.include and a subsequent run reports zero findings", async () => {
+  it("appends current finding values to validation.literal.values.include and a subsequent run reports zero findings", async () => {
     const literal = sampleLiteralTestValue(LITERAL_TEST_GENERATOR.domainLiteral());
     await withTestEnv(buildBaselineConfig(), async (env) => {
       await writeDuplicatedLiteralFixture(env, literal);
