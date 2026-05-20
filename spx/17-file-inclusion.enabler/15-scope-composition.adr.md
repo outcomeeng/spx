@@ -8,7 +8,7 @@ This decision governs how the file-inclusion service composes its filter layers,
 
 **Business impact:** The default-ignore policy (`11-ignore-defaults.pdr.md`) names what the service filters and what the caller can override; this decision names how those filters run and produce a result that external tools can consume. Without a consistent composition shape, each consumer integrates differently, each adapter re-derives which paths to exclude, and the drift class the service exists to prevent returns through the architecture itself.
 
-**Technical constraints:** spx is TypeScript ESM. The git-tracking layer queries git plumbing once per resolver invocation and exposes the result as an in-memory set; downstream evaluation is pure over `(path, layerState)`. Domain path filters are resolved by registered config descriptors and passed to file-inclusion as typed inputs. Root resolution follows `spx/15-worktree-resolution.pdr.md` — tracked-file reads use `git rev-parse --show-toplevel`, passed in as `productDir`. Every vocabulary constant the file-inclusion subtree owns comes from the file-inclusion config descriptor per `spx/16-config.enabler/21-descriptor-registration.adr.md`. Tool adapters produce argument arrays — no shelled-out invocations, no string concatenation into flag syntax.
+**Technical constraints:** spx is TypeScript ESM. The git-tracking layer queries git plumbing at resolver construction rather than per path and exposes the result as an in-memory set; downstream evaluation is pure over `(path, layerState)`. Domain path filters are resolved by registered config descriptors and passed to file-inclusion as typed inputs. Root resolution follows `spx/15-worktree-resolution.pdr.md` — tracked-file reads use `git rev-parse --show-toplevel`, passed in as `productDir`. Every vocabulary constant the file-inclusion subtree owns comes from the file-inclusion config descriptor per `spx/16-config.enabler/21-descriptor-registration.adr.md`. Tool adapters produce argument arrays — no shelled-out invocations, no string concatenation into flag syntax.
 
 ## Decision
 
@@ -24,7 +24,7 @@ Domain path filters are caller-supplied policy inputs. Validation, testing, audi
 
 The git-tracking layer reads its state once at resolver construction so that downstream predicate evaluation remains pure and synchronous over in-memory data. Shelling out to git per path would couple every membership check to a subprocess invocation and slow the pipeline by orders of magnitude; consulting `.gitignore` patterns directly inside spx would re-implement git's ignore-resolution logic and accumulate divergence from git's behavior over time. A single git invocation that returns the working tree's effective scope keeps the boundary thin and the implementation correct by construction.
 
-Override flags (`--no-ignore`, `--no-ignore-vcs`, `--ignore-file`) modify the git-plumbing arguments at construction time — `--no-ignore` translates to omitting `--exclude-standard`, `--ignore-file <path>` translates to adding `--exclude-from <path>`. The layer's predicate shape is unchanged; only its constructed state differs. This keeps override semantics architecturally local to the git-tracking layer and avoids fanning override flags out as separate layers.
+Override flags (`--no-ignore`, `--no-ignore-vcs`, `--ignore-file`) modify the git-plumbing arguments at construction time — `--no-ignore` translates to omitting `--exclude-standard`, `--ignore-file <path>` translates to adding `--exclude-from <path>`, and `--no-ignore-vcs` translates to omitting `--exclude-standard` and re-adding the non-VCS ignore sources (`.git/info/exclude` and the global excludes file) as explicit `--exclude-from` arguments; the precise per-flag translation is owned by `21-ignore-source.enabler/21-reader-shape.adr.md`. The layer's predicate shape is unchanged; only its constructed state differs. This keeps override semantics architecturally local to the git-tracking layer and avoids fanning override flags out as separate layers.
 
 Tool adapters as a boundary between the resolved scope and external tool invocation separate two concerns that otherwise entangle: deciding which paths are in scope (universal across tools, owned by the pipeline) and how a specific tool receives that decision (tool-specific, owned by each adapter). The adapter pattern mirrors the descriptor-registration pattern from `../16-config.enabler/21-descriptor-registration.adr.md` and the language-registration pattern from `../19-language-registration.adr.md`: each adapter declares its tool's flag shape in one module, and the registry iterates adapters without naming tools in orchestration code.
 
@@ -55,7 +55,7 @@ Alternatives considered:
 - Tool adapters are pure over `(ScopeResult, ToolName)` — the same resolved scope and the same tool name always produce the same argument array, regardless of which tool was adapted previously in the process
 - The pipeline's layer sequence is declared in one place and consumed through a single accessor; no module outside the pipeline composes its own layer order
 - The layer sequence is extensible: inserting a new layer at a declared position preserves the decision-trail ordering and membership decisions of every existing layer
-- The git-tracking layer's state is built from a single git-plumbing invocation per resolver construction; per-path membership queries are O(1) lookups against an in-memory set
+- The git-tracking layer's state is built by git-plumbing invocations at resolver construction only; per-path membership queries are O(1) lookups against an in-memory set and invoke no subprocess
 - Override flags (`--no-ignore`, `--no-ignore-vcs`, `--ignore-file`) modify the git-tracking layer's construction-time arguments and do not introduce additional layers
 - Every vocabulary constant the file-inclusion subtree consumes is declared in the file-inclusion config descriptor; the spec-tree root segment is consumed from the spec-tree descriptor per `spx/23-spec-tree.enabler/`
 - No module outside the file-inclusion subtree composes its own scope from git plumbing or invents its own exclusion mechanics
@@ -64,7 +64,7 @@ Alternatives considered:
 
 ### Recognized by
 
-One module declares the layer sequence. One module composes layers into the pipeline. One module per tool declares that tool's adapter. A registry imports each adapter through an explicit static import and exposes adapters by tool name. The public API of the file-inclusion service exposes `resolveScope(productDir, request)` and `toToolArguments(scopeResult, toolName)`; consumers never reach into layer modules directly.
+One module declares the layer sequence. One module composes layers into the pipeline. One module per tool declares that tool's adapter. A registry imports each adapter through an explicit static import and exposes adapters by tool name. The public API of the file-inclusion service exposes `resolveScope(productDir, request, config)` and `toToolArguments(scopeResult, toolName)`; consumers never reach into layer modules directly.
 
 ### MUST
 
