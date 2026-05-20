@@ -168,7 +168,7 @@ describe("listCommand", () => {
 
       const listed = await listCommand({ status: TODO, sessionsDir: harness.sessionsDir });
       expect(listed).toContain(sessionId);
-      expect(listed).toContain("->");
+      expect(listed).not.toContain(" ->");
 
       const shown = formatShowOutput(content, { status: TODO });
       expect(shown).toContain(`${SESSION_SHOW_LABEL.GOAL}: `);
@@ -325,6 +325,18 @@ describe("listCommand", () => {
       expect(output).toContain(`[${priority}]`);
       expect(output).toContain(`${goal} -> ${nextStep}`);
       expect(output).not.toContain(`[${DEFAULT_PRIORITY}]`);
+    });
+
+    it("THEN sessions without summaries do not show a dangling separator", async () => {
+      await harness.writeSession(TODO, "2026-01-12_10-00-00", {
+        goal: "",
+        next_step: "",
+      });
+
+      const output = await listCommand({ status: TODO, sessionsDir: harness.sessionsDir });
+
+      expect(output).toContain("2026-01-12_10-00-00");
+      expect(output).not.toContain(" ->");
     });
   });
 });

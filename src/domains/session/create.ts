@@ -60,6 +60,8 @@ export function preFillSessionContent(content: string, params: PreFillParams): s
 
 export interface SessionFrontMatterInput {
   readonly priority: SessionPriority;
+  readonly branch?: string;
+  readonly worktree?: string;
   readonly goal: string;
   readonly next_step: string;
   readonly result?: string;
@@ -70,6 +72,8 @@ export interface SessionFrontMatterInput {
 export function stringifySessionFrontMatter(input: SessionFrontMatterInput): string {
   return stringifyYaml({
     [SESSION_FRONT_MATTER.PRIORITY]: input.priority,
+    ...(input.branch === undefined ? {} : { [SESSION_FRONT_MATTER.BRANCH]: input.branch }),
+    ...(input.worktree === undefined ? {} : { [SESSION_FRONT_MATTER.WORKTREE]: input.worktree }),
     [SESSION_FRONT_MATTER.GOAL]: input.goal,
     [SESSION_FRONT_MATTER.NEXT_STEP]: input.next_step,
     ...(input.result === undefined ? {} : { [SESSION_FRONT_MATTER.RESULT]: input.result }),

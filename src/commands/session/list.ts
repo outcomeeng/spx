@@ -26,6 +26,7 @@ export const SESSION_LIST_FORMAT = {
 export type SessionListFormat = (typeof SESSION_LIST_FORMAT)[keyof typeof SESSION_LIST_FORMAT];
 
 export const SESSION_LIST_EMPTY_TEXT = "(no sessions)";
+const SESSION_LIST_SUMMARY_SEPARATOR = " -> ";
 
 /**
  * Options for the list command.
@@ -97,7 +98,10 @@ function formatTextOutput(sessions: Session[]): string {
   return sessions
     .map((s) => {
       const priority = s.metadata.priority !== DEFAULT_PRIORITY ? ` [${s.metadata.priority}]` : "";
-      return `  ${s.id}${priority} ${s.metadata.goal} -> ${s.metadata.next_step}`;
+      const summary = s.metadata.goal.length > 0 || s.metadata.next_step.length > 0
+        ? ` ${s.metadata.goal}${SESSION_LIST_SUMMARY_SEPARATOR}${s.metadata.next_step}`
+        : "";
+      return `  ${s.id}${priority}${summary}`;
     })
     .join("\n");
 }

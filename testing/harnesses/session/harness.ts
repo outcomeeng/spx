@@ -91,6 +91,8 @@ export async function createSessionHarness(): Promise<SessionHarness> {
     ): Promise<string> {
       const frontMatter = stringifySessionFrontMatter({
         priority: opts.priority ?? DEFAULT_PRIORITY,
+        branch: opts.branch ?? "main",
+        worktree: opts.worktree ?? "",
         goal: opts.goal ?? `Goal for ${id}`,
         next_step: opts.next_step ?? `Next step for ${id}`,
         result: opts.result,
@@ -99,8 +101,6 @@ export async function createSessionHarness(): Promise<SessionHarness> {
       });
       const lines = [
         ...frontMatter.split("\n"),
-        `branch: ${opts.branch ?? "main"}`,
-        `worktree: ${opts.worktree ?? ""}`,
         ...(opts.extraYaml ?? []),
       ];
 
