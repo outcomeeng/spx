@@ -12,11 +12,10 @@ Move spec-tree passing-scope behavior to `spx.config.{toml,json,yaml}` and prepa
 
 ## Current Tranche
 
-1. Add a testing config descriptor.
-   - Work in `spx/41-testing.enabler/32-testing-config.enabler/`.
-   - The first section owns passing scope only.
-   - Use the shared path-filter primitive from `spx/16-config.enabler/`.
-   - Keep normal `spx test` discovery independent from passing-scope filters.
+1. Settled on `origin/main`: testing config descriptor.
+   - `spx/41-testing.enabler/32-testing-config.enabler/` owns passing-scope configuration.
+   - The descriptor uses the shared path-filter primitive from `spx/16-config.enabler/`.
+   - Normal `spx test` discovery remains independent from passing-scope filters.
 
 2. Extend the existing `withSpecTreeEnv` harness.
    - Continue in `spx/22-test-environment.enabler/32-spec-tree-fixtures.enabler/`.
@@ -35,7 +34,6 @@ Move spec-tree passing-scope behavior to `spx.config.{toml,json,yaml}` and prepa
 
 ## Evidence Required
 
-- Testing descriptor tests cover defaults, valid passing-scope filters, invalid filters, and descriptor isolation from validation config.
 - `spx test passing` scenario tests prove filtered nodes are skipped before runner invocation.
 - `spx test` scenario tests prove filtered nodes still run when `passing` is absent.
 - `withSpecTreeEnv` tests prove one fixture definition can generate in-memory structures and real directories with `withTempDir` behavior.

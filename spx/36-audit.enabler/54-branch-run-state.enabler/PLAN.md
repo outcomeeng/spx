@@ -34,14 +34,9 @@ Implement branch-scoped audit storage and terminal run-state lookup.
 
 This depends on audit config defaults. Auditor execution can integrate after the state writer API exists.
 
-The C1 canonical descriptor digest dependency is a hard prerequisite for branch-run-state implementation; do not branch A2 until `spx/16-config.enabler/54-canonical-descriptor-digest.enabler/canonical-descriptor-digest.md` exists on `origin/main`.
+The C1 canonical descriptor digest and A1 audit config dependencies are settled on `origin/main`.
 
-## Agent Pickup Prompt
+## Settled work
 
-```text
-Before branching, follow the common packet rules in `spx/16-config.enabler/PLAN.md`, including the branch-existence guard and settled-prerequisite checks.
-
-Start from fresh origin/main on work/audit-branch-run-state after the audit descriptor shape is available. Invoke spec-tree:understanding if needed, then spec-tree:contextualizing for spx/36-audit.enabler/54-branch-run-state.enabler/. Read this PLAN and the governing specs it names. Invoke spec-tree:applying, spec-tree:testing, typescript:testing-typescript, and typescript:coding-typescript before edits.
-
-Before branching, verify `git cat-file -e origin/main:spx/36-audit.enabler/43-audit-config.enabler/audit-config.md` and `git cat-file -e origin/main:spx/16-config.enabler/54-canonical-descriptor-digest.enabler/canonical-descriptor-digest.md` succeed for the A1 and C1 artifacts. Implement branch slugging, exclusive run-directory creation, terminal `state.json` writing through same-directory temp file plus atomic rename, and latest terminal run lookup. Preserve explicit-file verification for node-first `.spx/nodes/` artifacts without indexing them for branch status. Prove slug byte limits, SHA-256 suffix preservation, detached HEAD identity, collision retry, terminal statuses, incomplete evidence, parse-invalid state, and latest-run ordering. Open one PR and ask reviewers to audit filesystem safety and terminal-state semantics.
-```
+- Branch-scoped audit run state is settled on `origin/main`.
+- Review-retained cleanup items live in `spx/36-audit.enabler/54-branch-run-state.enabler/ISSUES.md`.

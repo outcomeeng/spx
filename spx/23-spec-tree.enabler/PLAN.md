@@ -29,12 +29,12 @@ Keep the reusable spec-tree library as the foundation for the refactor. This nod
 ## Remaining work
 
 - [x] Audit every assertion link in this node and each child node against the current test file body.
-- [ ] Delete or rewrite tests whose only value is proving the old work-item model.
+- [x] Delete or rewrite tests whose only value is proving the old work-item model.
 - [ ] Move reusable fixture helpers into the `withSpecTreeEnv` harness instead of node-local support files.
 - [x] Keep source adapters free of command formatting, terminal labels, and CLI flag handling.
 - [ ] Keep command modules from parsing suffixes by preserving `src/lib/spec-tree/index.ts` as the public import boundary.
 - [ ] Split `src/lib/spec-tree/index.ts` internally only after the public tests pass and the extracted modules keep the same public surface.
-- [ ] Remove legacy source modules after all command and validation consumers read the current spec-tree library.
+- [x] Remove legacy source modules after all command and validation consumers read the current spec-tree library.
 
 ## Tracked Deferrals
 
@@ -45,7 +45,7 @@ Keep the reusable spec-tree library as the foundation for the refactor. This nod
 
 - [x] Run focused tests for `spx/22-test-environment.enabler/32-spec-tree-fixtures.enabler/`, `spx/23-spec-tree.enabler/`, and all child nodes.
 - [x] Run `spx validation all`.
-- [ ] Run the full package test gate after legacy modules are removed.
+- [x] Run the full package test gate after legacy modules are removed.
 
 ## Acceptance
 

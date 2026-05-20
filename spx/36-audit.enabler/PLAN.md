@@ -13,29 +13,15 @@ Move audit from verify-only artifact checking toward config-backed, branch-scope
 
 ## Current Tranche
 
-1. Add an audit config descriptor.
-   - Work in `spx/36-audit.enabler/43-audit-config.enabler/`.
-   - Defaults include `.spx`, `audit`, `runs`, verdict filenames, and state filenames.
-   - Descriptor owns auditor selection, base ref, target filters, and storage policy.
-   - Default `audit.baseRef` to `main` when no config override is present.
-   - Path filters use the shared config primitive when target selection needs include/exclude semantics.
+1. Settled on `origin/main`: audit config descriptor.
+   - `spx/36-audit.enabler/43-audit-config.enabler/` owns storage defaults, auditor selection, base ref, target filters, and storage policy.
 
-2. Implement branch slugging.
-   - Work in `spx/36-audit.enabler/54-branch-run-state.enabler/`.
-   - Branch names map to filesystem-safe slugs with no path separators.
-   - Branch slugs stay at or below 120 UTF-8 bytes and preserve the SHA-256 suffix after truncation.
-   - Branch slugs always append the first eight lowercase hex characters of the SHA-256 digest of the original branch identity.
-   - SHA-256 uses Node.js `node:crypto`; do not add a third-party crypto dependency.
-   - Run ids use `node:crypto` `randomBytes`; `Math.random` is not used.
-   - Run directory creation retries `EEXIST` collisions up to ten times and fails on non-collision creation errors.
-   - Detached HEAD state uses `detached-{short-sha}` as the branch identity and is test-covered.
+2. Settled on `origin/main`: branch slugging and branch-scoped run state.
+   - `spx/36-audit.enabler/54-branch-run-state.enabler/` owns branch slugging, exclusive run-directory creation, terminal state writes, and latest-run lookup.
 
-3. Move storage from node-first to branch-first.
-   - Work in `spx/36-audit.enabler/54-branch-run-state.enabler/` and expose reporting through `spx/36-audit.enabler/87-audit-status.enabler/`.
+3. Expose reporting through `spx/36-audit.enabler/87-audit-status.enabler/`.
    - Keep `spx audit verify <file>` accepting arbitrary file paths.
    - Keep explicit-file verification working for node-first `.spx/nodes/` verdict artifacts.
-   - Branch-scoped audit runs write under `.spx/audit/{branch-slug}/runs/{timestamp}/`.
-   - Write `state.json` once per run after the terminal status is known.
    - Surface run directories without `state.json` as incomplete/interrupted rather than silently dropping them.
    - Verify-only code remains the artifact consistency check inside the broader audit lifecycle.
 
@@ -72,4 +58,4 @@ Move audit from verify-only artifact checking toward config-backed, branch-scope
 
 The central packet table in `spx/16-config.enabler/PLAN.md` is authoritative; this section is a local reminder only.
 
-- `spx/36-audit.enabler/65-auditor-execution.enabler/` is gated on `spx/33-agent-environment.enabler/32-runtime-config.enabler/`. Pick up `spx/33-agent-environment.enabler/` E0 and E2 before A3 when resources are available.
+- `spx/36-audit.enabler/65-auditor-execution.enabler/` consumes settled `spx/33-agent-environment.enabler/32-runtime-config.enabler/` runtime config reconciliation.

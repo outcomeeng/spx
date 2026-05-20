@@ -34,21 +34,19 @@ The May 1, 2026 dependency update merge closed the open Dependabot alerts: GitHu
 
 **Resolution:** Triage repository-policy alerts separately from workflow-file alerts. For workflow-file alerts, audit token permissions and pin external actions before changing the automation.
 
-## Cross-file literal-reuse findings: 116 unsuppressed across 11 subtrees
+## Literal-reuse and test-owned literal cleanup remains
 
-`spx validation literal` reports 116 test files with literal-reuse findings — the cross-file detector running against an empty effective allowlist. The validator was migrated from `literal.allowlist.*` to `validation.literal.values.*` (commit `e629a1d`), but [spx.config.yaml](../spx.config.yaml) still uses the old `literal.allowlist.*` key. The validator silently reads schema defaults; the 100+ existing allowlist entries never reach the detector.
+Literal-reuse cleanup spans product config, CLI help text, value allowlist tests, and enabled spec-tree test files. Current [spx.config.yaml](../spx.config.yaml) uses the `validation` section and no longer carries the retired literal allowlist structure. The `--allowlist-existing` CLI description and value-allowlist test titles now name `validation.literal.values.include`.
 
-Two intertwined concerns:
+One concern remains:
 
-1. **Config-schema migration debt** — `spx.config.yaml` was not updated when the descriptor was migrated. Restoring the old allowlist content under the new key would suppress most findings, but that re-creates the suppression layer rather than fixing the underlying violations.
-
-2. **Real ADR-21 violations** — Many of the 116 findings reflect actual test-owned semantic constants per [21-typescript-conventions.adr.md](41-validation.enabler/32-typescript-validation.enabler/21-typescript-conventions.adr.md): output markers (`[dupe] "`, `[reuse] "`), CLI flag strings (`--files`, `--help`, `--json`), settings-permission strings (`Bash(git:*)`, `Bash(npm:*)`), file-extension constants (`.adr.md`, `.enabler`, `.outcome`). ADR-21 requires these to live in source modules with tests importing them.
+1. **ADR-21 test literal ownership** — Some findings reflect test-owned semantic constants per [21-typescript-conventions.adr.md](41-validation.enabler/32-typescript-validation.enabler/21-typescript-conventions.adr.md): output markers, CLI flag strings, settings-permission strings, and spec-tree file-extension constants. ADR-21 requires source-owned values or generated fixture data instead of duplicated test-owned constants.
 
 **Skills:** `/typescript:testing-typescript`, `/typescript:auditing-typescript-tests`, `/spec-tree:testing`.
 
-**Scope:** Multi-week; spans 11 of 11 active top-level `spx/` subtrees.
+**Scope:** Multi-node; clean up one owning subtree at a time.
 
-**Resolution:** For each finding, classify the literal — source-owned → export from owning module and import in tests; generator input → produce via `fast-check` arbitrary; real-world fixture data → move to a fixture file. Refactor tests accordingly. Once an entire subtree is clean, validate end-to-end. The current 100+ entries in `spx.config.yaml`'s stale allowlist serve as a checklist of values that need to become source-owned exports.
+**Resolution:** For each finding, classify the literal — source-owned value, generator input, or fixture data. Export source-owned values from the owning module, generate variable inputs through `fast-check`, or move durable real-world data to fixture files. Once an entire subtree is clean, validate end-to-end and remove the matching debt-manifest entry.
 
 ## PDR-11 scope does not cover testing
 
