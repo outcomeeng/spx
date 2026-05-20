@@ -4,14 +4,13 @@ export const LITERAL_SECTION = "literal";
 export const DEFAULT_MIN_STRING_LENGTH = 4;
 export const DEFAULT_MIN_NUMBER_DIGITS = 4;
 
-export interface LiteralAllowlistConfig {
+export interface LiteralValueAllowlistConfig {
   readonly presets?: readonly string[];
   readonly include?: readonly string[];
   readonly exclude?: readonly string[];
 }
 
-export interface LiteralConfig {
-  readonly allowlist: LiteralAllowlistConfig;
+export interface LiteralConfig extends LiteralValueAllowlistConfig {
   readonly minStringLength: number;
   readonly minNumberDigits: number;
 }
@@ -52,7 +51,7 @@ const PRESET_REGISTRY: ReadonlyMap<PresetName, ReadonlySet<string>> = new Map([
   [PRESET_NAMES.WEB, WEB_PRESET],
 ]);
 
-export function resolveAllowlist(config: LiteralAllowlistConfig): ReadonlySet<string> {
+export function resolveAllowlist(config: LiteralValueAllowlistConfig): ReadonlySet<string> {
   const effective = new Set<string>();
 
   for (const presetId of config.presets ?? []) {
@@ -74,7 +73,6 @@ export function resolveAllowlist(config: LiteralAllowlistConfig): ReadonlySet<st
 }
 
 export const LITERAL_DEFAULTS: LiteralConfig = {
-  allowlist: {},
   minStringLength: DEFAULT_MIN_STRING_LENGTH,
   minNumberDigits: DEFAULT_MIN_NUMBER_DIGITS,
 };
@@ -85,10 +83,26 @@ function validate(value: unknown): Result<LiteralConfig> {
   }
   const candidate = value as Record<string, unknown>;
 
-  const allowlistRaw = candidate["allowlist"] ?? {};
-  const allowlistResult = validateAllowlist(allowlistRaw);
-  if (!allowlistResult.ok) {
-    return allowlistResult;
+  const presets = candidate["presets"];
+  if (presets !== undefined) {
+    if (!Array.isArray(presets) || !presets.every((x) => typeof x === "string")) {
+      return { ok: false, error: `${LITERAL_SECTION}.presets must be an array of strings` };
+    }
+    for (const id of presets as string[]) {
+      if (!PRESET_REGISTRY.has(id as PresetName)) {
+        return { ok: false, error: `${LITERAL_SECTION}.presets: unrecognized preset "${id}"` };
+      }
+    }
+  }
+
+  const include = candidate["include"];
+  if (include !== undefined && (!Array.isArray(include) || !include.every((x) => typeof x === "string"))) {
+    return { ok: false, error: `${LITERAL_SECTION}.include must be an array of strings` };
+  }
+
+  const exclude = candidate["exclude"];
+  if (exclude !== undefined && (!Array.isArray(exclude) || !exclude.every((x) => typeof x === "string"))) {
+    return { ok: false, error: `${LITERAL_SECTION}.exclude must be an array of strings` };
   }
 
   const minStringLength = candidate["minStringLength"] ?? LITERAL_DEFAULTS.minStringLength;
@@ -107,43 +121,14 @@ function validate(value: unknown): Result<LiteralConfig> {
     };
   }
 
-  return { ok: true, value: { allowlist: allowlistResult.value, minStringLength, minNumberDigits } };
-}
-
-function validateAllowlist(raw: unknown): Result<LiteralAllowlistConfig> {
-  if (typeof raw !== "object" || raw === null || Array.isArray(raw)) {
-    return { ok: false, error: `${LITERAL_SECTION}.allowlist must be an object` };
-  }
-  const candidate = raw as Record<string, unknown>;
-
-  const presets = candidate["presets"];
-  if (presets !== undefined) {
-    if (!Array.isArray(presets) || !presets.every((x) => typeof x === "string")) {
-      return { ok: false, error: `${LITERAL_SECTION}.allowlist.presets must be an array of strings` };
-    }
-    for (const id of presets as string[]) {
-      if (!PRESET_REGISTRY.has(id as PresetName)) {
-        return { ok: false, error: `${LITERAL_SECTION}.allowlist.presets: unrecognized preset "${id}"` };
-      }
-    }
-  }
-
-  const include = candidate["include"];
-  if (include !== undefined && (!Array.isArray(include) || !include.every((x) => typeof x === "string"))) {
-    return { ok: false, error: `${LITERAL_SECTION}.allowlist.include must be an array of strings` };
-  }
-
-  const exclude = candidate["exclude"];
-  if (exclude !== undefined && (!Array.isArray(exclude) || !exclude.every((x) => typeof x === "string"))) {
-    return { ok: false, error: `${LITERAL_SECTION}.allowlist.exclude must be an array of strings` };
-  }
-
   return {
     ok: true,
     value: {
       presets: presets as readonly string[] | undefined,
       include: include as readonly string[] | undefined,
       exclude: exclude as readonly string[] | undefined,
+      minStringLength,
+      minNumberDigits,
     },
   };
 }

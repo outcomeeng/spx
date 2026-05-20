@@ -5,8 +5,8 @@ import {
   DEFAULT_MIN_NUMBER_DIGITS,
   DEFAULT_MIN_STRING_LENGTH,
   LITERAL_DEFAULTS,
-  type LiteralAllowlistConfig,
   type LiteralConfig,
+  type LiteralValueAllowlistConfig,
   PRESET_NAMES,
   type PresetName,
   WEB_PRESET_TOKENS,
@@ -222,9 +222,15 @@ export function arbitraryLiteralReuseFixtureInputs(): fc.Arbitrary<LiteralReuseF
     });
 }
 
-export function arbitraryLiteralAllowlistConfig(
-  overrides: LiteralAllowlistConfig = {},
-): fc.Arbitrary<LiteralAllowlistConfig> {
+export function arbitraryLiteralConfig(
+  overrides: Partial<LiteralConfig> = {},
+): fc.Arbitrary<LiteralConfig> {
+  return fc.constant(buildLiteralConfig(overrides));
+}
+
+export function arbitraryLiteralValueConfig(
+  overrides: LiteralValueAllowlistConfig = {},
+): fc.Arbitrary<LiteralValueAllowlistConfig> {
   return fc.constant(overrides);
 }
 
@@ -380,7 +386,8 @@ export const LITERAL_TEST_GENERATOR = {
   webPresetToken: arbitraryWebPresetToken,
   presetName: arbitraryPresetName,
   reuseFixtureInputs: arbitraryLiteralReuseFixtureInputs,
-  allowlistConfig: arbitraryLiteralAllowlistConfig,
+  literalConfig: arbitraryLiteralConfig,
+  literalValueConfig: arbitraryLiteralValueConfig,
   detectionResult: arbitraryDetectionResult,
 } as const;
 

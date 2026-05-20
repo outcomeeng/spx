@@ -51,7 +51,6 @@ const defaults: ValidationConfig = {
   literal: {
     enabled: true,
     values: {
-      allowlist: {},
       minStringLength: DEFAULT_MIN_STRING_LENGTH,
       minNumberDigits: DEFAULT_MIN_NUMBER_DIGITS,
     },

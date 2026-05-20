@@ -14,7 +14,7 @@ import {
   VALIDATION_LITERAL_VALUES_SUBSECTION,
   VALIDATION_SECTION,
 } from "@/validation/config/descriptor";
-import { LITERAL_DEFAULTS, type LiteralAllowlistConfig } from "@/validation/literal/config";
+import { LITERAL_DEFAULTS, type LiteralValueAllowlistConfig } from "@/validation/literal/config";
 import { LITERAL_TEST_GENERATOR, sampleLiteralTestValue } from "@testing/generators/literal/literal";
 import type { Config, SpecTreeEnv } from "@testing/harnesses/spec-tree/spec-tree";
 
@@ -32,8 +32,8 @@ export function buildBaselineConfig(): Config {
   return literalSection({ ...LITERAL_DEFAULTS });
 }
 
-export function buildConfigWithAllowlist(allowlist: LiteralAllowlistConfig): Config {
-  return literalSection({ ...LITERAL_DEFAULTS, allowlist });
+export function buildConfigWithAllowlist(allowlist: LiteralValueAllowlistConfig): Config {
+  return literalSection({ ...LITERAL_DEFAULTS, ...allowlist });
 }
 
 export function buildConfigWithForeignSection(
@@ -103,7 +103,7 @@ export async function writeMultipleLiteralFixtures(
   }
 }
 
-export function readLiteralAllowlist(parsedConfig: unknown): LiteralAllowlistConfig {
+export function readLiteralAllowlist(parsedConfig: unknown): LiteralValueAllowlistConfig {
   if (typeof parsedConfig !== "object" || parsedConfig === null) {
     throw new Error("parsed config is not an object");
   }
@@ -121,11 +121,5 @@ export function readLiteralAllowlist(parsedConfig: unknown): LiteralAllowlistCon
       `parsed config missing ${VALIDATION_SECTION}.${VALIDATION_LITERAL_SUBSECTION}.${VALIDATION_LITERAL_VALUES_SUBSECTION} section`,
     );
   }
-  const allowlist = (values as Record<string, unknown>)["allowlist"];
-  if (typeof allowlist !== "object" || allowlist === null) {
-    throw new Error(
-      `parsed config missing ${VALIDATION_SECTION}.${VALIDATION_LITERAL_SUBSECTION}.${VALIDATION_LITERAL_VALUES_SUBSECTION}.allowlist section`,
-    );
-  }
-  return allowlist as LiteralAllowlistConfig;
+  return values as LiteralValueAllowlistConfig;
 }

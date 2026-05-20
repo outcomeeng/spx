@@ -20,7 +20,7 @@ import {
 import { isTestFile, isTypescriptSource } from "./walker";
 
 export { literalConfigDescriptor, resolveAllowlist } from "./config";
-export type { LiteralAllowlistConfig, LiteralConfig } from "./config";
+export type { LiteralConfig } from "./config";
 export {
   buildIndex,
   collectLiterals,
@@ -153,7 +153,7 @@ export async function validateLiteralReuse(
   const findings = detectReuse({
     srcIndex,
     testOccurrencesByFile,
-    allowlist: resolveAllowlist(config.allowlist),
+    allowlist: resolveAllowlist(config),
   });
 
   return { findings, indexedOccurrencesByFile };
