@@ -121,6 +121,7 @@ export function formatShowOutput(
 
   // Build header with extracted metadata
   const headerLines: string[] = [
+    `${SESSION_SHOW_LABEL.ID}: ${metadata.id ?? ""}`,
     `${SESSION_SHOW_LABEL.STATUS}: ${options.status}`,
     `${SESSION_SHOW_LABEL.PRIORITY}: ${metadata.priority}`,
     `${SESSION_SHOW_LABEL.BRANCH}: ${metadata.branch}`,
@@ -128,18 +129,9 @@ export function formatShowOutput(
     `${SESSION_SHOW_LABEL.GOAL}: ${metadata.goal}`,
     `${SESSION_SHOW_LABEL.NEXT_STEP}: ${metadata.next_step}`,
     `${SESSION_SHOW_LABEL.RESULT}: ${metadata.result}`,
+    `${SESSION_SHOW_LABEL.CREATED}: ${metadata.created_at ?? ""}`,
+    `${SESSION_SHOW_LABEL.AGENT_SESSION}: ${metadata.agent_session_id ?? ""}`,
   ];
-
-  // Add optional metadata if present
-  if (metadata.id) {
-    headerLines.unshift(`${SESSION_SHOW_LABEL.ID}: ${metadata.id}`);
-  }
-  if (metadata.created_at) {
-    headerLines.push(`${SESSION_SHOW_LABEL.CREATED}: ${metadata.created_at}`);
-  }
-  if (metadata.agent_session_id) {
-    headerLines.push(`${SESSION_SHOW_LABEL.AGENT_SESSION}: ${metadata.agent_session_id}`);
-  }
 
   // Combine header with separator and original content
   const header = headerLines.join("\n");

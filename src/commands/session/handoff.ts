@@ -10,7 +10,7 @@
 import { mkdir, writeFile } from "node:fs/promises";
 import { join, resolve } from "node:path";
 
-import { preFillSessionContent, validateSessionContent } from "@/domains/session/create";
+import { preFillSessionContent } from "@/domains/session/create";
 import {
   SessionInvalidContentError,
   SessionInvalidGoalError,
@@ -118,10 +118,6 @@ export async function handoffCommand(options: HandoffOptions): Promise<string> {
     worktree: workContext.worktree,
   });
 
-  const validation = validateSessionContent(fullContent);
-  if (!validation.valid) {
-    throw new SessionInvalidContentError(validation.error ?? "Unknown validation error");
-  }
   validateRequiredMetadata(fullContent);
 
   // Build path to session file
