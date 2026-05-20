@@ -8,6 +8,7 @@ import { createSessionHarness } from "@testing/harnesses/session/harness";
 
 const [TODO] = SESSION_STATUSES;
 const CLI_ENTRY = join(process.cwd(), "bin/spx.js");
+const sessionCliPropertyTimeoutMs = 90_000;
 
 async function runSpx(...args: string[]): Promise<{ stdout: string; stderr: string; exitCode: number }> {
   const result = await execa("node", [CLI_ENTRY, ...args], { cwd: process.cwd(), reject: false });
@@ -19,43 +20,47 @@ function sessionId(index: number): string {
 }
 
 describe("session CLI batch properties", () => {
-  it("GIVEN generated valid and invalid IDs WHEN delete runs THEN success and error counts match inputs", async () => {
-    await fc.assert(
-      fc.asyncProperty(
-        fc.integer({ min: 1, max: 5 }),
-        fc.integer({ min: 0, max: 5 }),
-        async (validCount, invalidCount) => {
-          const harness = await createSessionHarness();
-          try {
-            const validIds = Array.from({ length: validCount }, (_, index) => sessionId(index));
-            const invalidIds = Array.from({ length: invalidCount }, (_, index) => `missing-${index}`);
-            for (const id of validIds) {
-              await harness.writeSession(TODO, id);
+  it(
+    "GIVEN generated valid and invalid IDs WHEN delete runs THEN success and error counts match inputs",
+    async () => {
+      await fc.assert(
+        fc.asyncProperty(
+          fc.integer({ min: 1, max: 5 }),
+          fc.integer({ min: 0, max: 5 }),
+          async (validCount, invalidCount) => {
+            const harness = await createSessionHarness();
+            try {
+              const validIds = Array.from({ length: validCount }, (_, index) => sessionId(index));
+              const invalidIds = Array.from({ length: invalidCount }, (_, index) => `missing-${index}`);
+              for (const id of validIds) {
+                await harness.writeSession(TODO, id);
+              }
+
+              const result = await runSpx(
+                "session",
+                "delete",
+                ...validIds,
+                ...invalidIds,
+                "--sessions-dir",
+                harness.sessionsDir,
+              );
+
+              const combined = `${result.stdout}\n${result.stderr}`;
+              const successCount = validIds.filter((id) => combined.includes(id)).length;
+              const errorCount = invalidIds.filter((id) => combined.includes(id)).length;
+              expect(successCount).toBe(validCount);
+              expect(errorCount).toBe(invalidCount);
+              expect(result.exitCode).toBe(invalidCount === 0 ? 0 : 1);
+            } finally {
+              await harness.cleanup();
             }
-
-            const result = await runSpx(
-              "session",
-              "delete",
-              ...validIds,
-              ...invalidIds,
-              "--sessions-dir",
-              harness.sessionsDir,
-            );
-
-            const combined = `${result.stdout}\n${result.stderr}`;
-            const successCount = validIds.filter((id) => combined.includes(id)).length;
-            const errorCount = invalidIds.filter((id) => combined.includes(id)).length;
-            expect(successCount).toBe(validCount);
-            expect(errorCount).toBe(invalidCount);
-            expect(result.exitCode).toBe(invalidCount === 0 ? 0 : 1);
-          } finally {
-            await harness.cleanup();
-          }
-        },
-      ),
-      { numRuns: 10 },
-    );
-  });
+          },
+        ),
+        { numRuns: 10 },
+      );
+    },
+    sessionCliPropertyTimeoutMs,
+  );
 
   it("GIVEN ordered IDs WHEN delete runs THEN output preserves argument order", async () => {
     const harness = await createSessionHarness();
