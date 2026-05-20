@@ -43,3 +43,22 @@ The current `validation.paths.{exclude,include}` config (governed by [`11-ignore
 **Scope:** Independent design pass per validation enabler. The validation descriptor already accepts per-tool path subsections under `validation.paths.<tool>`; each tool still needs its effective-scope composition wired through the owning enabler.
 
 **Out of scope for the current cycle:** the global `validation.paths` filter governed by 11-ignore-defaults.pdr.md is sufficient for the immediate need. This enhancement is queued for when a team requires the finer-grained per-tool control.
+
+---
+
+## Literal value config diagnostics use shortened paths
+
+The literal value config validator reports field errors with shortened paths
+such as `literal.presets`, `literal.include`, and `literal.exclude`, while the
+user-visible configuration path is `validation.literal.values.{field}`.
+
+**Impact:** users correcting invalid `spx.config.*` files must infer the
+containing `validation.literal.values` path from surrounding context instead of
+receiving the exact key path in the diagnostic.
+
+**Resolution:** update `src/validation/literal/config.ts` diagnostics to quote
+the full user-visible path for every literal value config field, then adjust the
+config validation tests to assert the full path strings.
+
+**Skills:** `spec-tree:aligning`, `typescript:testing-typescript`,
+`typescript:coding-typescript`, `typescript:auditing-typescript`.

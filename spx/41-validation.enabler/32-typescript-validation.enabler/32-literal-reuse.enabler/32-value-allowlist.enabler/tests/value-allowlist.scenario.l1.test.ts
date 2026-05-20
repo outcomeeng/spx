@@ -2,7 +2,12 @@ import { describe, expect, it } from "vitest";
 
 import { DEFAULT_CONFIG_FILENAME, resolveConfig } from "@/config/index";
 import { validationConfigDescriptor } from "@/validation/config/descriptor";
-import { LITERAL_DEFAULTS, PRESET_NAMES } from "@/validation/literal/config";
+import {
+  LEGACY_LITERAL_ALLOWLIST_ERROR,
+  LEGACY_LITERAL_ALLOWLIST_FIELD,
+  LITERAL_DEFAULTS,
+  PRESET_NAMES,
+} from "@/validation/literal/config";
 import { validateLiteralReuse } from "@/validation/literal/index";
 import {
   arbitraryDomainLiteral,
@@ -93,6 +98,24 @@ describe("value-allowlist — scenarios", () => {
       expect(resolved.ok).toBe(false);
       if (!resolved.ok) {
         expect(resolved.error).toContain(badPreset);
+      }
+    });
+  });
+
+  it("retired validation.literal.values.allowlist nesting causes resolveConfig to return an error naming the replacement path", async () => {
+    await withLiteralFixtureEnv({}, async (env) => {
+      const legacyLiteral = sampleLiteralTestValue(arbitraryDomainLiteral());
+
+      await env.writeRaw(
+        DEFAULT_CONFIG_FILENAME,
+        `validation:\n  literal:\n    values:\n      ${LEGACY_LITERAL_ALLOWLIST_FIELD}:\n        include:\n          - ${legacyLiteral}\n`,
+      );
+
+      const resolved = await resolveConfig(env.productDir, [validationConfigDescriptor]);
+
+      expect(resolved.ok).toBe(false);
+      if (!resolved.ok) {
+        expect(resolved.error).toContain(LEGACY_LITERAL_ALLOWLIST_ERROR);
       }
     });
   });
