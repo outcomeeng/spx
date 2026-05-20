@@ -1,7 +1,11 @@
 import { execa } from "execa";
 import { dirname, isAbsolute, join, relative, resolve } from "node:path";
 
-import { SessionDetachedHeadError } from "@/domains/session/errors";
+import {
+  SESSION_GIT_CONTEXT_ERROR_MESSAGE,
+  SessionDetachedHeadError,
+  SessionGitContextError,
+} from "@/domains/session/errors";
 import { SessionDirectoryConfig } from "@/domains/session/show";
 import { DEFAULT_CONFIG } from "../config/defaults";
 import { withoutGitEnvironment } from "./environment";
@@ -210,7 +214,13 @@ export async function detectSessionWorkContext(
   );
 
   const branch = extractStdout(branchResult.stdout);
-  if (branchResult.exitCode !== 0 || branch.length === 0 || branch === GIT_ROOT_COMMAND.HEAD) {
+  if (branchResult.exitCode !== 0) {
+    throw new SessionGitContextError(SESSION_GIT_CONTEXT_ERROR_MESSAGE.BRANCH_UNAVAILABLE);
+  }
+  if (branch.length === 0) {
+    throw new SessionGitContextError(SESSION_GIT_CONTEXT_ERROR_MESSAGE.EMPTY_BRANCH);
+  }
+  if (branch === GIT_ROOT_COMMAND.HEAD) {
     throw new SessionDetachedHeadError();
   }
 
