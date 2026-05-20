@@ -1,6 +1,7 @@
 import type { RuleTester } from "eslint";
 
 import { VALIDATION_EXIT_CODES, VALIDATION_PIPELINE } from "@/commands/validation/messages";
+import { SESSION_FRONT_MATTER } from "@/domains/session/types";
 import { NODE_KINDS, SPEC_TREE_NODE_STATE } from "@/lib/spec-tree/config";
 import { ASYNC_SPAWN_OUTSIDE_LIFECYCLE_MESSAGE_ID } from "@eslint-rules/no-async-spawn-outside-lifecycle";
 import {
@@ -19,6 +20,10 @@ import {
   NO_DEEP_RELATIVE_IMPORTS_RULE_ID,
   NO_DEEP_RELATIVE_IMPORTS_RULE_NAME,
 } from "@eslint-rules/no-deep-relative-imports";
+import {
+  NO_HARDCODED_SESSION_FRONTMATTER_KEYS_RULE_ID,
+  USE_SESSION_FRONTMATTER_MESSAGE_ID,
+} from "@eslint-rules/no-hardcoded-session-frontmatter-keys";
 import {
   NO_HARDCODED_SPEC_TREE_NODE_KINDS_RULE_ID,
   USE_SPEC_TREE_NODE_KINDS_MESSAGE_ID,
@@ -228,6 +233,7 @@ export const VALIDATION_ESLINT_FILES = {
   sourceState: "src/state.ts",
   sourceParser: "src/parser.ts",
   sourceScannerWalk: "src/scanner/walk.ts",
+  sessionTypes: "src/domains/session/types.ts",
   lifecycleModule: "src/lib/process-lifecycle/install.ts",
   lifecycleHarness: "testing/harnesses/process-lifecycle/spawn-fixture.ts",
   gitRoot: "src/git/root.ts",
@@ -276,6 +282,8 @@ export const VALIDATION_ESLINT_SNIPPETS = {
   sourceOwnedStates:
     `import { SPEC_TREE_NODE_STATE } from "@/lib/spec-tree/config"; expect(node.state).toBe(SPEC_TREE_NODE_STATE.DECLARED)`,
   sourceOwnedKinds: `import { NODE_KINDS } from "@/lib/spec-tree/config"; expect(node.kind).toBe(NODE_KINDS[0])`,
+  sourceOwnedSessionFrontmatter:
+    `import { SESSION_FRONT_MATTER } from "@/domains/session/types"; const key = SESSION_FRONT_MATTER.PRIORITY;`,
   declaredPathAssertion: `expect(file).toBe("declared.md")`,
   nestedDeclaredPathAssertion: `expect(path).toContain("tests/declared.md")`,
   kindRegex: `const pattern = /\\.(enabler|outcome)$/`,
@@ -701,6 +709,48 @@ export function noHardcodedSpecTreeNodeKindsCases(): ValidationGeneratedRuleTest
   };
 }
 
+export function noHardcodedSessionFrontmatterKeysCases(): ValidationGeneratedRuleTesterCases {
+  const priority = SESSION_FRONT_MATTER.PRIORITY;
+  const branch = SESSION_FRONT_MATTER.BRANCH;
+
+  return {
+    valid: [
+      {
+        name: "GIVEN imported SESSION_FRONT_MATTER registry WHEN linting THEN no error",
+        code: VALIDATION_ESLINT_SNIPPETS.sourceOwnedSessionFrontmatter,
+        filename: VALIDATION_ESLINT_FILES.sessionCommandExample,
+      },
+      {
+        name: "GIVEN registry definition module with frontmatter values WHEN linting THEN no error",
+        code: `export const SESSION_FRONT_MATTER = { PRIORITY: "${priority}", BRANCH: "${branch}" } as const;`,
+        filename: VALIDATION_ESLINT_FILES.sessionTypes,
+      },
+      {
+        name: "GIVEN frontmatter key literal in type position WHEN linting THEN no error",
+        code: `type SessionFrontmatterKey = "${priority}"`,
+        filename: VALIDATION_ESLINT_FILES.sessionCommandExample,
+      },
+    ],
+    invalid: [
+      {
+        name: "GIVEN session source hardcodes frontmatter key WHEN linting THEN error",
+        code: `const key = "${priority}";`,
+        filename: VALIDATION_ESLINT_FILES.sessionCommandExample,
+        errors: [{ messageId: USE_SESSION_FRONTMATTER_MESSAGE_ID }],
+      },
+      {
+        name: "GIVEN multiple session frontmatter keys are hardcoded WHEN linting THEN multiple errors",
+        code: `const priorityKey = "${priority}"; const branchKey = "${branch}";`,
+        filename: VALIDATION_ESLINT_FILES.sessionCommandExample,
+        errors: [
+          { messageId: USE_SESSION_FRONTMATTER_MESSAGE_ID },
+          { messageId: USE_SESSION_FRONTMATTER_MESSAGE_ID },
+        ],
+      },
+    ],
+  };
+}
+
 export function astRestrictedSyntaxRuns(): ValidationGeneratedRuleTesterRun[] {
   return [
     {
@@ -1003,6 +1053,7 @@ export const VALIDATION_ESLINT_RULE_IDS = {
   bareStringUnions: NO_BARE_STRING_UNIONS_RULE_ID,
   bddTryCatch: NO_BDD_TRY_CATCH_ANTI_PATTERN_RULE_ID,
   deepRelativeImports: NO_DEEP_RELATIVE_IMPORTS_RULE_ID,
+  hardcodedSessionFrontmatterKeys: NO_HARDCODED_SESSION_FRONTMATTER_KEYS_RULE_ID,
   hardcodedSpecTreeNodeStates: NO_HARDCODED_SPEC_TREE_NODE_STATES_RULE_ID,
   hardcodedSpecTreeNodeKinds: NO_HARDCODED_SPEC_TREE_NODE_KINDS_RULE_ID,
   importSourceExtensions: NO_IMPORT_SOURCE_EXTENSIONS_RULE_ID,
