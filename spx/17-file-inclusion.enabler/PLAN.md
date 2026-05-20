@@ -43,6 +43,16 @@ Implement the git-tracking layer model declared in `11-ignore-defaults.pdr.md` a
 - Consumer commands (validation, testing, audit, review) wire override flags in the same tranche as the resolver changes so default behavior changes are matched by override availability.
 - Consumers that currently restate `node_modules`, `dist`, build artifacts, or other gitignored paths in domain descriptors can simplify their config; the git-tracking layer subsumes those entries.
 
+## Resumption Notes — node 1 (`21-ignore-source.enabler/`)
+
+The git-worktree test harness needed for the reader's Step 5 tests now ships from `spx/22-test-environment.enabler/32-git-worktree.enabler/` — see [PR #55](https://github.com/outcomeeng/spx/pull/55) (`work/git-worktree-harness`). Once merged, resume on `work/git-tracking-reader` from `.work/spx-a`:
+
+- Rebase `work/git-tracking-reader` onto fresh `origin/main`.
+- Import `withGitWorktreeEnv` and supporting types from `@testing/harnesses/git-worktree/git-worktree`.
+- Write the reader's Step 5 tests against the harness — every git ignore source (top-level `.gitignore`, nested `.gitignore`, `.git/info/exclude`, the `core.excludesFile`-referenced file via `configureGlobalExcludes`), submodule exclusion, and the three override flags (`--no-ignore`, `--no-ignore-vcs`, `--ignore-file`).
+- The harness does not mutate `process.env.GIT_CONFIG_GLOBAL`; the reader's `git config --get core.excludesFile` resolves the path through local git config which the harness sets via `git config core.excludesFile <path>`. Both invocations are scoped to `productDir`.
+- The harness strips and restores every `GIT_*` variable around the callback so a reader inheriting `process.env` resolves from `productDir` even when the caller's environment is polluted.
+
 ## Open Findings (from /aligning audit)
 
 - Compliance MUST/NEVER rules across the subtree (`file-inclusion.md`, `21-ignore-source.enabler/ignore-source.md`, `32-path-predicates.enabler/path-predicates.md`, `43-scope-resolver.enabler/scope-resolver.md`, `54-tool-adapters.enabler/tool-adapters.md`, `65-domain-path-filters.enabler/domain-path-filters.md`) carry `[review]` tags for rules that are falsifiable by automated test or lint rule. Re-tag to `[test]` and author the corresponding test files in the same tranche as the implementation work — coordinated cleanup avoids forward-reference markdown failures.
