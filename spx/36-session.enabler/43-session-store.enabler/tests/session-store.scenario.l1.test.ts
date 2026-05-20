@@ -338,6 +338,26 @@ describe("listCommand", () => {
       expect(output).toContain("2026-01-12_10-00-00");
       expect(output).not.toContain(" ->");
     });
+
+    it("THEN sessions with partial summaries do not show a dangling separator", async () => {
+      const goalOnlySessionId = "2026-01-13_10-00-00";
+      const nextStepOnlySessionId = "2026-01-14_10-00-00";
+      await harness.writeSession(TODO, goalOnlySessionId, {
+        goal: "Fix CI",
+        next_step: "",
+      });
+      await harness.writeSession(TODO, nextStepOnlySessionId, {
+        goal: "",
+        next_step: "Run tests",
+      });
+
+      const output = await listCommand({ status: TODO, sessionsDir: harness.sessionsDir });
+
+      expect(output).toContain(goalOnlySessionId);
+      expect(output).toContain(nextStepOnlySessionId);
+      expect(output).not.toContain("Fix CI ->");
+      expect(output).not.toContain("-> Run tests");
+    });
   });
 });
 
