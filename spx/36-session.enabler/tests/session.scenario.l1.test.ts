@@ -5,11 +5,7 @@ import { pathToFileURL } from "node:url";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 
 import { DEFAULT_CONFIG } from "@/config/defaults";
-import {
-  SESSION_GIT_CONTEXT_ERROR_MESSAGE,
-  SessionDetachedHeadError,
-  SessionGitContextError,
-} from "@/domains/session/errors";
+import { SESSION_GIT_CONTEXT_ERROR_MESSAGE, SessionDetachedHeadError, SessionGitContextError } from "@/git/errors";
 import {
   computeRelativeWorktreePath,
   detectGitCommonDirProductRoot,

@@ -1,12 +1,8 @@
 import { execa } from "execa";
 import { dirname, isAbsolute, join, relative, resolve } from "node:path";
 
-import {
-  SESSION_GIT_CONTEXT_ERROR_MESSAGE,
-  SessionDetachedHeadError,
-  SessionGitContextError,
-} from "@/domains/session/errors";
 import { SessionDirectoryConfig } from "@/domains/session/show";
+import { SESSION_GIT_CONTEXT_ERROR_MESSAGE, SessionDetachedHeadError, SessionGitContextError } from "@/git/errors";
 import { DEFAULT_CONFIG } from "../config/defaults";
 import { withoutGitEnvironment } from "./environment";
 
