@@ -64,19 +64,12 @@ export interface TypeScriptValidationOptions {
 }
 
 /**
- * Compiler options applied to a temporary validation `tsconfig.json`.
- *
- * Validation type-checks without emitting output. Every other compiler option
- * is inherited from the project's base configuration through `extends`.
+ * Compiler options for a temporary `tsconfig.json`; all else is inherited via `extends`.
  */
 const TEMPORARY_TSCONFIG_COMPILER_OPTIONS = { noEmit: true } as const;
 
 /**
- * Directory-name prefix for temporary validation `tsconfig.json` directories.
- *
- * Temporary configs are created inside the project root so that TypeScript
- * resolves type roots, type references, and path aliases against the project's
- * own `node_modules` and base configuration. The prefix is gitignored.
+ * Directory-name prefix for temporary validation configs, created inside the project root.
  */
 const TEMPORARY_TSCONFIG_DIR_PREFIX = ".spx-validate-ts-";
 
