@@ -18,16 +18,27 @@ Define and implement deterministic management for agent instructions, runtime co
 - Make runtime config reconciliation deterministic and safe to run repeatedly.
 - Keep audit/review environment bootstrapping hermetically separate from the invoking agent.
 
+## Settled work
+
+- The parent agent-environment descriptor shape is settled on `origin/main`.
+- Runtime config reconciliation is settled on `origin/main`.
+- Runtime-state boundary notes are recorded for audit and review consumers.
+
+## Active work
+
+- Deterministic instruction-file reconciliation remains under `spx/33-agent-environment.enabler/21-agent-instructions.enabler/`.
+- Plugin marketplace, plugin, and skill bootstrap status remains under `spx/33-agent-environment.enabler/43-plugin-bootstrap.enabler/`.
+- `spx/46-claude.outcome/` reconciliation waits until instruction-file reconciliation and plugin bootstrap settle.
+
 ## Evidence Required
 
 - Tests or review evidence prove generated instruction files are deterministic.
-- Tests or review evidence prove runtime config reconciliation is idempotent.
 - Tests or review evidence prove plugin bootstrap can distinguish installed, missing, and misconfigured entries.
 - `spx validation all` passes.
 
 ## Parallelization
 
-The three child nodes can proceed independently after their shared config shape is agreed.
+Instruction-file reconciliation and plugin bootstrap can proceed independently after runtime config reconciliation.
 
 ## Open Coordination
 
@@ -38,16 +49,11 @@ The three child nodes can proceed independently after their shared config shape 
 
 The central packet table in `spx/16-config.enabler/PLAN.md` is authoritative; this section is a local reminder only.
 
-- `spx/33-agent-environment.enabler/21-agent-instructions.enabler/` is gated on `spx/33-agent-environment.enabler/32-runtime-config.enabler/`. Assign E2 before E1.
+- `spx/33-agent-environment.enabler/21-agent-instructions.enabler/` consumes settled runtime config reconciliation.
+- `spx/33-agent-environment.enabler/43-plugin-bootstrap.enabler/` consumes settled runtime config reconciliation.
 
 ## Agent Pickup Prompt
 
 ```text
-Before branching, follow the common packet rules in `spx/16-config.enabler/PLAN.md`, including the branch-existence guard and settled-prerequisite checks.
-
-This packet has no settled prerequisite sentinel files beyond the branch-existence guard.
-
-Start from fresh origin/main on work/agent-environment-descriptor. Invoke spec-tree:understanding if needed, then spec-tree:contextualizing for spx/33-agent-environment.enabler/. Read this PLAN and the governing child specs it names. Invoke spec-tree:applying, typescript:architecting-typescript if the descriptor shape needs an ADR, spec-tree:testing and typescript:testing-typescript before tests, then typescript:coding-typescript before implementation.
-
-Packet E0 defines the agent environment descriptor shape that E1, E2, and E3 consume. This packet gates E1, E2, and E3, and E2 transitively gates A3, R2, R4, and R5; stabilize and merge E0 before those packets are assigned. E1 additionally gates on E2; do not hand off E1 until E2 merges. Own only the parent `spx/33-agent-environment.enabler/` spec files and descriptor-shape implementation. Do not edit child-node specs or create implementation stubs for E1, E2, or E3. Export shared descriptor types and schema hooks from a parent-owned source path under `src/domains/agent-environment/`; leave instruction reconcilers, runtime config resolvers, and plugin bootstrap runners to E1, E2, and E3. Cover descriptor construction, schema validation, and ownership boundaries only; runtime-specific config targets, offline behavior, and hermetic state paths remain child-packet evidence. Keep runtime-specific serializers in child packets. Open one PR and ask reviewers to audit descriptor ownership, hermetic-state boundaries, and whether E1/E2/E3 have enough stable API to proceed.
+Use the child-node pickup prompts for E1 and E3. The parent descriptor and E2 runtime-config packets are settled on `origin/main`.
 ```

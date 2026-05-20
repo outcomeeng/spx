@@ -12,8 +12,8 @@ Move testing passing-scope policy from standalone files to the testing config de
 
 ## Implementation Notes
 
-- Add the testing descriptor after shared path filters exist.
-- Wire `spx test passing` through the descriptor and file-inclusion path filter mechanics.
+- The testing descriptor is settled on `origin/main`.
+- Wire `spx test passing` through the descriptor and file-inclusion path filter mechanics in the owning command packet.
 - Keep `spx test` running all discovered tests unless the user supplied explicit runner scope.
 - Remove stale `spx/EXCLUDE` test fixtures once config-backed passing scope is covered.
 
@@ -26,4 +26,4 @@ Move testing passing-scope policy from standalone files to the testing config de
 
 ## Parallelization
 
-This depends on shared path-filter primitives. Last-run evidence can begin after this descriptor exposes the digest inputs.
+Last-run evidence can consume the settled descriptor digest inputs.

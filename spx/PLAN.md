@@ -12,28 +12,29 @@ Keep the product spec tree on the current node model and remove the deprecated t
 - Current spec-tree fixtures use `withSpecTreeEnv` under `testing/harnesses/spec-tree/`.
 - Deprecated root spec subtrees and deleted compatibility source paths are not product truth.
 - Deprecated task-model directories, stale suffix excludes, and frozen legacy specs are removed from the product tree.
+- Deprecated `testing/fixtures/repos/` task-model fixtures are removed; current fixture coverage lives under registered spec-tree and validation harnesses.
 - Deprecated suffix debt manifest cleanup is complete; remaining deprecated suffix handling is enforcement-only.
 - Stale migration notes are removed from the current spec-tree refactor plan; any remaining release-note work lives in the owning validation issue.
 
 ## Current Tranche
 
-- Move deterministic execution scope onto `spx.config.{toml,json,yaml}` through `spx/16-config.enabler/32-shared-config-primitives.enabler/`, `spx/16-config.enabler/43-domain-execution-descriptors.enabler/`, and `spx/16-config.enabler/54-canonical-descriptor-digest.enabler/`.
-- Migrate testing passing scope and cached status evidence through `spx/41-testing.enabler/32-testing-config.enabler/` and `spx/41-testing.enabler/43-last-run-evidence.enabler/`.
-- Align file inclusion with reusable path-scope mechanics through `spx/17-file-inclusion.enabler/65-domain-path-filters.enabler/`.
-- Align auditing with config-backed branch-scoped state through `spx/36-audit.enabler/43-audit-config.enabler/`, `spx/36-audit.enabler/54-branch-run-state.enabler/`, `spx/36-audit.enabler/65-auditor-execution.enabler/`, and `spx/36-audit.enabler/87-audit-status.enabler/`.
-- Add deterministic agent environment management through `spx/33-agent-environment.enabler/`.
-- Add local hermetic review execution through `spx/46-reviewing.enabler/`.
-- Rename remaining config and harness root-directory APIs through `spx/16-config.enabler/65-product-directory-api.enabler/`.
+- Settled config packet foundations on `origin/main`: shared path-filter primitives, testing descriptor registration, canonical descriptor digest, and product-directory API vocabulary.
+- Settled audit packet foundations on `origin/main`: audit config descriptor and branch-scoped run state.
+- Settled agent-environment foundations on `origin/main`: agent-environment descriptor and runtime-config reconciliation.
+- Active testing packets: extend spec-tree fixture coverage through `spx/22-test-environment.enabler/32-spec-tree-fixtures.enabler/` and persist cached status evidence through `spx/41-testing.enabler/43-last-run-evidence.enabler/`.
+- Active file-inclusion packet: align reusable path-scope mechanics through `spx/17-file-inclusion.enabler/65-domain-path-filters.enabler/`; final ignore-source deletion follows testing passing-scope integration.
+- Active audit packets: implement configured auditor execution through `spx/36-audit.enabler/65-auditor-execution.enabler/` and audit status reporting through `spx/36-audit.enabler/87-audit-status.enabler/`.
+- Active agent-environment packets: add deterministic instruction-file management through `spx/33-agent-environment.enabler/21-agent-instructions.enabler/` and plugin bootstrap through `spx/33-agent-environment.enabler/43-plugin-bootstrap.enabler/`.
+- Active reviewing packets: implement review config, hermetic execution, review state, branch review, and PR review through `spx/46-reviewing.enabler/`.
 
 ## Remaining Work
 
-- Remove any remaining generic fixture names that still read like deprecated node vocabulary when they are not required for a negative validation assertion.
 - Remove the ignore-source implementation and `spx/EXCLUDE` reader after testing passing scope consumes config.
 - Continue splitting `src/lib/spec-tree/index.ts` internally only after the public import surface stays stable.
 - Keep command modules consuming the public spec-tree surface; command modules must not parse suffixes or assemble hierarchy themselves.
 - Continue reducing test-owned constant debt until `eslint.test-owned-constant-debt-nodes.json` is empty.
-- Rename remaining root-directory APIs and tests from `projectRoot` / `projectDir` to `productDir` in coherent owning tranches.
-- Reconcile or prune `spx/46-claude.outcome/` after `spx/33-agent-environment.enabler/` owns the durable agent-environment model.
+- Keep reducing root-directory API and test vocabulary from `projectRoot` / `projectDir` to `productDir` in coherent owning tranches where product-root boundaries are edited.
+- Reconcile or prune `spx/46-claude.outcome/` after agent instructions and plugin bootstrap settle under `spx/33-agent-environment.enabler/`.
 
 ## Acceptance
 

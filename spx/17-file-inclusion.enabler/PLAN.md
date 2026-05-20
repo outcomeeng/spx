@@ -13,9 +13,8 @@ Remove ignore-source scope policy from file inclusion and keep this subtree focu
 
 1. Replace ignore-source APIs with config-backed path-filter inputs.
    - Work in `spx/17-file-inclusion.enabler/65-domain-path-filters.enabler/`.
-   - Remove the configured ignore-source filename from the file-inclusion descriptor.
-   - Remove `spx/EXCLUDE` reader code and tests.
    - Update scope resolver inputs to accept a typed domain path filter.
+   - Keep existing standalone ignore-source production paths until testing passing scope consumes config-backed filters.
 
 2. Keep shared layers inside file inclusion.
    - Artifact-directory predicates stay centralized.
@@ -33,7 +32,6 @@ Remove ignore-source scope policy from file inclusion and keep this subtree focu
 - Scope resolver tests cover artifact-directory, hidden-prefix, domain path-filter, and explicit override layers independently.
 - Tool-adapter tests prove generated ignore flags are derived from the resolved excluded set only.
 - Regression tests prove validation paths do not affect testing passing scope and testing passing scope does not affect validation output.
-- Removal tests prove no production code reads `spx/EXCLUDE` or imports ignore-source helpers.
 - Scope-resolver evidence updates prove `43-scope-resolver.enabler/tests/scope-resolver.property.l1.test.ts` covers the config-backed domain path-filter layer rather than the standalone ignore-source layer.
 
 ## Open Coordination
