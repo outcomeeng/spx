@@ -11,13 +11,27 @@ export const GIT_TEST_SUBCOMMANDS = {
   COMMIT: "commit",
   CONFIG: "config",
   INIT: "init",
+  LS_FILES: "ls-files",
+  REV_PARSE: "rev-parse",
+  SUBMODULE: "submodule",
   WORKTREE: "worktree",
 } as const;
 
 export const GIT_TEST_FLAGS = {
   ALLOW_EMPTY: "--allow-empty",
+  CACHED: "--cached",
+  COMMIT_MESSAGE: "-m",
+  CONFIG_OVERRIDE: "-c",
+  EXCLUDE_STANDARD: "--exclude-standard",
+  FULL_NAME: "--full-name",
+  IS_INSIDE_WORK_TREE: "--is-inside-work-tree",
+  OTHERS: "--others",
   QUIET: "--quiet",
   SHOW_CURRENT: "--show-current",
+} as const;
+
+export const GIT_TEST_OUTPUT = {
+  IS_INSIDE_WORK_TREE_TRUE: "true",
 } as const;
 
 export const GIT_TEST_CONFIG = {
