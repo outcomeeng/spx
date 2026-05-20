@@ -33,3 +33,13 @@ Reported files outside this rollout included:
 - `spx/46-reviewing.enabler/15-review-directory.adr.md`
 
 Resolution condition: run the repository formatter in a dedicated formatting cleanup, keep the resulting diff isolated from behavior changes, and then remove this entry.
+
+## Session-aware git context crosses the domain boundary
+
+`src/git/root.ts` imports session-domain errors and messages from `src/domains/session/errors.ts` while also carrying session-aware branch detection and worktree path computation. This creates a `git/` infrastructure dependency on `domains/session/` and extends the existing session-domain coupling in the git helper.
+
+Observed in PR review: https://github.com/outcomeeng/spx/pull/52#issuecomment-4496698009.
+
+Impact: session-specific git behavior becomes harder to move or test independently as more session vocabulary enters the infrastructure layer.
+
+Resolution condition: move session-aware git context logic into the session domain layer or a dedicated session-git adapter module, leaving `src/git/root.ts` with generic git product-root primitives.
