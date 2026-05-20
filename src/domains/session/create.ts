@@ -11,8 +11,6 @@ import { SESSION_FRONT_MATTER, type SessionPriority } from "./types";
 export const MIN_CONTENT_LENGTH = 1;
 export const SESSION_CONTENT_ERROR = {
   EMPTY: "Session content cannot be empty",
-  GOAL: "Session goal cannot be empty",
-  NEXT_STEP: "Session next_step cannot be empty",
 } as const;
 export const SESSION_FRONT_MATTER_DELIMITER = "---";
 export const SESSION_FRONT_MATTER_DOCUMENT_END = "...";
