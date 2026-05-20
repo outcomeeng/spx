@@ -424,7 +424,7 @@ describe("ALWAYS: TypeScript scope resolution uses the requested project root", 
 });
 
 describe("ALWAYS: the temporary tsconfig reproduces the project's TypeScript resolution", () => {
-  it("writes the temporary config inside the project root and fabricates no compiler options", async () => {
+  it("writes the scope-filtered temporary config inside the project root and fabricates no compiler options", async () => {
     await withTestEnv({}, async (env) => {
       const runner = new RecordingSpawnOptionsRunner();
       const writtenConfigPaths: string[] = [];
@@ -448,6 +448,37 @@ describe("ALWAYS: the temporary tsconfig reproduces the project's TypeScript res
             excludePatterns: [VALIDATION_PIPELINE_DATA.productionScopeExcludePattern],
             filteredByValidationPaths: true,
           },
+        },
+        { runner, deps },
+      );
+
+      expect(result.success).toBe(true);
+      expect(writtenConfigPaths).toHaveLength(1);
+      expect(writtenConfigPaths[0]?.startsWith(env.productDir)).toBe(true);
+      const writtenConfig = JSON.parse(writtenConfigs[0] ?? "{}");
+      expect(writtenConfig.compilerOptions).toEqual({ noEmit: true });
+    });
+  });
+
+  it("writes the file-specific temporary config inside the project root and fabricates no compiler options", async () => {
+    await withTestEnv({}, async (env) => {
+      const runner = new RecordingSpawnOptionsRunner();
+      const writtenConfigPaths: string[] = [];
+      const writtenConfigs: string[] = [];
+      const deps: TypeScriptDeps = {
+        ...defaultTypeScriptDeps,
+        writeFileSync(path, data) {
+          writtenConfigPaths.push(path.toString());
+          writtenConfigs.push(data.toString());
+          defaultTypeScriptDeps.writeFileSync(path, data);
+        },
+      };
+
+      const result = await validateTypeScript(
+        {
+          scope: VALIDATION_SCOPES.FULL,
+          projectRoot: env.productDir,
+          files: [VALIDATION_PIPELINE_DATA.scopeResolutionSourceFile],
         },
         { runner, deps },
       );
