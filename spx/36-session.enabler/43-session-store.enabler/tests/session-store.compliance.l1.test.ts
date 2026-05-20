@@ -65,8 +65,12 @@ describe("session-store compliance — frontmatter key registry", () => {
           filename: "src/domains/session/types.ts",
         },
         {
-          code: `it("${SESSION_FRONT_MATTER.GOAL} is required", () => {});`,
+          code: `it("${SESSION_FRONT_MATTER.GOAL}", () => {});`,
           filename: "spx/36-session.enabler/43-session-store.enabler/tests/example.test.ts",
+        },
+        {
+          code: `type SessionFrontmatterShape = { "${SESSION_FRONT_MATTER.GOAL}": string };`,
+          filename: "src/domains/session/example.ts",
         },
       ],
       invalid: [
