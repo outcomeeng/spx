@@ -36,6 +36,13 @@ export interface ValidationResult {
   error?: string;
 }
 
+/**
+ * Adds CLI-owned session metadata to an existing frontmatter block.
+ *
+ * Existing YAML is parsed and re-emitted through the YAML library, so comments,
+ * delimiter style, quoting, and key order are normalized while metadata values
+ * round-trip through structured YAML.
+ */
 export function preFillSessionContent(content: string, params: PreFillParams): string {
   const match = FRONT_MATTER_BLOCK.exec(content);
   if (!match) return content;

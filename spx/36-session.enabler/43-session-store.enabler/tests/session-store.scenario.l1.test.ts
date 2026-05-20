@@ -54,6 +54,8 @@ import {
   buildSessionFrontMatterContent,
   SESSION_CONTENT_ERROR,
   SESSION_FRONT_MATTER_CLOSE,
+  SESSION_FRONT_MATTER_DOCUMENT_END,
+  preFillSessionContent,
   validateSessionContent,
 } from "@/domains/session/create";
 import { buildSessionMarkdownBody, createSessionHarness, SessionHarness } from "@testing/harnesses/session/harness";
@@ -629,6 +631,37 @@ describe("buildSessionContent → parseSessionMetadata roundtrip", () => {
     expect(metadata.priority).toBe(DEFAULT_PRIORITY);
     expect(metadata.goal).toBe("");
     expect(metadata.next_step).toBe("");
+  });
+});
+
+describe("preFillSessionContent", () => {
+  it("GIVEN comments and document-end delimiter WHEN pre-filled THEN YAML front matter is normalized", () => {
+    const createdAt = new Date("2026-01-13T10:00:00.000Z");
+    const content = buildSessionFrontMatterContent(
+      [
+        `${SESSION_FRONT_MATTER.PRIORITY}: ${SESSION_PRIORITY.HIGH}`,
+        "# reviewer: alice",
+        `${SESSION_FRONT_MATTER.GOAL}: ${JSON.stringify(TEST_GOAL)}`,
+        `${SESSION_FRONT_MATTER.NEXT_STEP}: ${JSON.stringify(TEST_NEXT_STEP)}`,
+      ],
+      "# Test handoff",
+      SESSION_FRONT_MATTER_DOCUMENT_END,
+    );
+
+    const filled = preFillSessionContent(content, {
+      createdAt,
+      branch: "topic/session-frontmatter",
+      worktree: "worktrees/topic",
+    });
+    const frontMatter = parseFrontMatter(filled);
+
+    expect(filled).not.toContain("# reviewer: alice");
+    expect(filled).not.toContain(`\n${SESSION_FRONT_MATTER_DOCUMENT_END}\n`);
+    expect(frontMatter).toHaveProperty(SESSION_FRONT_MATTER.CREATED_AT, createdAt.toISOString());
+    expect(frontMatter).toHaveProperty(SESSION_FRONT_MATTER.BRANCH, "topic/session-frontmatter");
+    expect(frontMatter).toHaveProperty(SESSION_FRONT_MATTER.WORKTREE, "worktrees/topic");
+    expect(frontMatter).toHaveProperty(SESSION_FRONT_MATTER.GOAL, TEST_GOAL);
+    expect(frontMatter).toHaveProperty(SESSION_FRONT_MATTER.NEXT_STEP, TEST_NEXT_STEP);
   });
 });
 
