@@ -8,11 +8,11 @@ This decision governs how the git-tracking reader is materialized as a shared Ty
 
 **Business impact:** The git-tracking layer is the single default scope source per `../11-ignore-defaults.pdr.md`. Downstream consumers (path-predicates evaluating the git-tracking layer, scope-resolver assembling decision trails, tool-adapters producing exclusion flags via the resolved scope) all derive from the same constructed reader. Diverging implementations would produce layer-specific interpretations of git's view and silently ship inconsistent scope semantics.
 
-**Technical constraints:** spx is TypeScript ESM. Git plumbing — specifically `git ls-files --cached --others --exclude-standard --full-name` — enumerates the operator's effective scope under the working tree, resolved against every git ignore source. Root resolution follows `../../15-worktree-resolution.pdr.md` — `git rev-parse --show-toplevel` for tracked-file reads, passed in as `productDir`. The reader rejects construction when no git working tree is present. Override flags (`--no-ignore`, `--no-ignore-vcs`, `--ignore-file`) flow into the git plumbing arguments at construction.
+**Technical constraints:** spx is TypeScript ESM. Git plumbing — specifically `git ls-files --cached --others --exclude-standard --full-name` — enumerates the operator's effective scope under the working tree, resolved against every git ignore source. Root resolution follows `../../15-worktree-resolution.pdr.md` — `git rev-parse --show-toplevel` for tracked-file reads, passed in as `productDir`. The reader rejects construction when no git working tree is present. Override flags (`--no-ignore`, `--no-ignore-vcs`, `--ignore-file`) flow into the git plumbing arguments at construction. Resolving `--no-ignore-vcs` additionally requires a `git config --get core.excludesFile` lookup to locate the global gitignore file, since git exposes no flag to enable a subset of the standard ignore sources.
 
 ## Decision
 
-The git-tracking layer exposes a single factory `createIgnoreSourceReader(productDir: string, config: IgnoreSourceReaderConfig): IgnoreSourceReader` that invokes git plumbing once at construction against `productDir` and returns an immutable object whose public surface is a membership query (`isInIncludedSet(relativePath: string): boolean`) and an applied-overrides accessor (`appliedOverrides(): IgnoreSourceOverrides`). The factory is the sole shell-out to git for scope determination; consumers never invoke git themselves.
+The git-tracking layer exposes a single factory `createIgnoreSourceReader(productDir: string, config: IgnoreSourceReaderConfig): IgnoreSourceReader` that invokes git plumbing at construction against `productDir` and returns an immutable object whose public surface is a membership query (`isInIncludedSet(relativePath: string): boolean`) and an applied-overrides accessor (`appliedOverrides(): IgnoreSourceOverrides`). The factory is the sole shell-out to git for scope determination; consumers never invoke git themselves.
 
 `IgnoreSourceReaderConfig` carries the override flags supplied by the caller:
 
@@ -28,7 +28,13 @@ type IgnoreSourceReaderConfig = {
 };
 ```
 
-The caller resolves override flags from the invoking command's `ScopeRequest` and passes them as `config.overrides`. The factory translates overrides into git plumbing arguments (`--no-ignore` omits `--exclude-standard`; `--ignore-file <path>` adds `--exclude-from <path>`) and returns the constructed reader.
+The caller resolves override flags from the invoking command's `ScopeRequest` and passes them as `config.overrides`. The factory translates overrides into git plumbing arguments and returns the constructed reader:
+
+- `--no-ignore` omits `--exclude-standard` from the `git ls-files` invocation, dropping every git ignore source.
+- `--ignore-file <path>` keeps `--exclude-standard` and adds `--exclude-from <path>`.
+- `--no-ignore-vcs` omits `--exclude-standard` and re-adds the non-VCS ignore sources as explicit arguments: `--exclude-from <productDir>/.git/info/exclude` plus `--exclude-from <global-excludes-path>`, where `<global-excludes-path>` is resolved by a `git config --get core.excludesFile` lookup performed once at construction. When `.git/info/exclude` is absent or the config lookup returns no value, the corresponding `--exclude-from` argument is omitted.
+
+The `--no-ignore-vcs` translation is the one override that requires a second git invocation (`git config`) beyond the `git ls-files` scope query. Both invocations happen at construction; neither runs per-path.
 
 ## Rationale
 
@@ -36,7 +42,7 @@ Factory-with-injected-productDir mirrors `resolveConfig(productDir)` from `../..
 
 The reader's public surface is narrow by design. Git invocation and the constructed in-memory set live here; tool-specific flag generation lives in `../54-tool-adapters.enabler/`; composition with other filter layers lives in `../43-scope-resolver.enabler/`. A reader that exposes only what its immediate consumers require cannot be misused as a universal filter or a flag generator, and growth in downstream concerns does not distort its public surface.
 
-Immediate construction-time git invocation collapses the "when does git get called" question to one answer: exactly once, at `createIgnoreSourceReader`. Consumers cannot accidentally re-invoke git mid-pipeline, cannot observe partial enumerations, and cannot introduce caching behavior that drifts from git's view. Per-path membership queries become O(1) lookups against the constructed set.
+Immediate construction-time git invocation collapses the "when does git get called" question to one answer: at construction, inside `createIgnoreSourceReader`, never per-path and never mid-pipeline. Consumers cannot accidentally re-invoke git, cannot observe partial enumerations, and cannot introduce caching behavior that drifts from git's view. Per-path membership queries become O(1) lookups against the constructed set.
 
 Delegating to git plumbing rather than parsing `.gitignore` files directly avoids reimplementing git's ignore-resolution logic (which compounds across `.gitignore`, nested `.gitignore`, `.git/info/exclude`, and `core.excludesFile`). The reader's behavior tracks git's behavior automatically; new git ignore-resolution features (e.g., `**` patterns, negations) are honored without spx changes.
 
@@ -63,7 +69,7 @@ Alternatives considered:
 
 - The same `productDir`, the same `IgnoreSourceReaderConfig`, and the same git working-tree state always produce equal `IgnoreSourceReader` behavior — equal `isInIncludedSet` decisions across all input paths
 - `isInIncludedSet(p)` returns `true` if and only if `p` appears in the output of `git ls-files` invoked with the override-derived plumbing arguments against `productDir`
-- The factory invokes git exactly once at construction; query methods perform no filesystem or subprocess I/O
+- The factory's git invocations all happen at construction — the `git ls-files` scope query, plus a `git config --get core.excludesFile` lookup when `--no-ignore-vcs` is active; query methods perform no filesystem or subprocess I/O
 - The factory fails fast with an actionable error when `productDir` is not inside a git working tree
 - No module outside this enabler invokes git plumbing for scope determination, parses git ignore files, or constructs an in-memory included set
 
@@ -78,7 +84,7 @@ One module inside this enabler exports `createIgnoreSourceReader(productDir: str
 - The reader is exposed as `createIgnoreSourceReader(productDir: string, config: IgnoreSourceReaderConfig): IgnoreSourceReader` — a factory function, not a class, not a method on another module ([review])
 - The factory accepts `productDir` as a parameter per `../../15-worktree-resolution.pdr.md` ([review])
 - The factory accepts `IgnoreSourceReaderConfig` as a second parameter carrying structured override flags; it translates overrides into git plumbing arguments at construction ([review])
-- The factory invokes `git ls-files --cached --others --exclude-standard --full-name` (with override-derived arguments) exactly once at construction; query methods are pure over the constructed in-memory set ([review])
+- The factory invokes `git ls-files` (with override-derived arguments) once at construction to enumerate scope, plus a single `git config --get core.excludesFile` lookup when `--no-ignore-vcs` is active; query methods are pure over the constructed in-memory set ([review])
 - Construction fails with an actionable error when no git working tree exists at `productDir` ([review])
 - Tests construct real git worktrees under temp directories via `../../22-test-environment.enabler/`; reader behavior is verified against those fixtures ([review])
 

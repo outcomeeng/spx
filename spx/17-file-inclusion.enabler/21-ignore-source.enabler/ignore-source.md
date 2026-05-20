@@ -1,8 +1,8 @@
 # Ignore Source
 
-PROVIDES the git-tracking reader — invokes `git ls-files --cached --others --exclude-standard --full-name` once at construction against the worktree resolved per `spx/15-worktree-resolution.pdr.md` and exposes membership queries over the resulting typed set of included paths, plus override-aware construction that translates `--no-ignore`, `--no-ignore-vcs`, and `--ignore-file` into the equivalent git plumbing arguments
+PROVIDES the git-tracking reader — invokes `git ls-files --cached --others --exclude-standard --full-name` at construction against the worktree resolved per `spx/15-worktree-resolution.pdr.md` and exposes membership queries over the resulting typed set of included paths, plus override-aware construction that translates `--no-ignore`, `--no-ignore-vcs`, and `--ignore-file` into the equivalent git plumbing arguments
 SO THAT the path-predicates child (`../32-path-predicates.enabler/`) evaluating the git-tracking layer and the scope-resolver child (`../43-scope-resolver.enabler/`) assembling decision trails
-CAN consult the operator's effective scope through a single read and a single typed surface without re-shelling out to git per path or re-implementing git's ignore-resolution logic
+CAN consult the operator's effective scope through one typed surface without re-shelling out to git per path or re-implementing git's ignore-resolution logic
 
 ## Assertions
 
@@ -27,7 +27,7 @@ CAN consult the operator's effective scope through a single read and a single ty
 
 ### Compliance
 
-- ALWAYS: the reader invokes git plumbing once at construction — query methods are pure over the constructed set and perform no filesystem or subprocess I/O ([review])
+- ALWAYS: the reader's git invocations all happen at construction — query methods are pure over the constructed set and perform no filesystem or subprocess I/O ([review])
 - ALWAYS: the reader resolves its worktree root per `spx/15-worktree-resolution.pdr.md` and passes it as the `-C` argument or `cwd` of every git invocation ([review])
 - ALWAYS: override-flag translation happens once at construction; the constructed reader records which overrides were applied so consumers can inspect them through the decision trail ([review])
 - NEVER: shell out to git from any module outside this enabler — git plumbing is invoked only here ([review])
