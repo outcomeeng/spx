@@ -14,7 +14,7 @@ import {
   SESSION_FRONT_MATTER_DELIMITER,
   SESSION_FRONT_MATTER_DOCUMENT_END,
 } from "@/domains/session/create";
-import { parseSessionMetadata } from "@/domains/session/list";
+import { DEFAULT_SESSION_METADATA, parseSessionMetadata } from "@/domains/session/list";
 import {
   generateSessionId,
   parseSessionId,
@@ -149,36 +149,60 @@ describe("generateSessionId → parseSessionId roundtrip (property-based)", () =
 });
 
 describe("parseSessionMetadata", () => {
-  it("GIVEN YAML front matter with priority and tags WHEN parsed THEN extracts all fields", () => {
+  it("GIVEN YAML front matter with canonical fields WHEN parsed THEN extracts all fields", () => {
     const expected = {
       id: "test",
       priority: SESSION_PRIORITY.HIGH,
-      tags: ["bug", "urgent"],
+      branch: "topic/session",
+      worktree: "worktrees/session",
+      goal: "Fix session parsing",
+      next_step: "Run session identity tests",
+      result: "Parsing verified",
+      created_at: "2026-01-13T10:00:00-08:00",
+      agent_session_id: "thread-session-identity",
+      specs: ["path/to/spec.md"],
+      files: ["src/file.ts"],
     };
     const content = buildSessionFrontMatterContent([
       `${SESSION_FRONT_MATTER.ID}: ${expected.id}`,
       `${SESSION_FRONT_MATTER.PRIORITY}: ${expected.priority}`,
-      `${SESSION_FRONT_MATTER.TAGS}: [${expected.tags.join(", ")}]`,
+      `${SESSION_FRONT_MATTER.BRANCH}: ${expected.branch}`,
+      `${SESSION_FRONT_MATTER.WORKTREE}: ${expected.worktree}`,
+      `${SESSION_FRONT_MATTER.GOAL}: ${JSON.stringify(expected.goal)}`,
+      `${SESSION_FRONT_MATTER.NEXT_STEP}: ${JSON.stringify(expected.next_step)}`,
+      `${SESSION_FRONT_MATTER.RESULT}: ${JSON.stringify(expected.result)}`,
+      `${SESSION_FRONT_MATTER.CREATED_AT}: ${expected.created_at}`,
+      `${SESSION_FRONT_MATTER.AGENT_SESSION_ID}: ${expected.agent_session_id}`,
+      `${SESSION_FRONT_MATTER.SPECS}:`,
+      `  - ${expected.specs[0]}`,
+      `${SESSION_FRONT_MATTER.FILES}:`,
+      `  - ${expected.files[0]}`,
     ], buildSessionMarkdownBody("identity metadata"));
     const result = parseSessionMetadata(content);
 
     expect(result.id).toBe(expected.id);
     expect(result.priority).toBe(expected.priority);
-    expect(result.tags).toEqual(expected.tags);
+    expect(result.branch).toBe(expected.branch);
+    expect(result.worktree).toBe(expected.worktree);
+    expect(result.goal).toBe(expected.goal);
+    expect(result.next_step).toBe(expected.next_step);
+    expect(result.result).toBe(expected.result);
+    expect(result.created_at).toBe(expected.created_at);
+    expect(result.agent_session_id).toBe(expected.agent_session_id);
+    expect(result.specs).toEqual(expected.specs);
+    expect(result.files).toEqual(expected.files);
   });
 
-  it("GIVEN no front matter WHEN parsed THEN returns DEFAULT_PRIORITY and empty tags", () => {
+  it("GIVEN no front matter WHEN parsed THEN returns canonical defaults", () => {
     const result = parseSessionMetadata("# Just content");
 
-    expect(result.priority).toBe(DEFAULT_PRIORITY);
-    expect(result.tags).toEqual([]);
+    expect(result).toEqual(DEFAULT_SESSION_METADATA);
   });
 
   it("GIVEN empty content WHEN parsed THEN returns defaults", () => {
     const result = parseSessionMetadata("");
 
-    expect(result.priority).toBe(DEFAULT_PRIORITY);
-    expect(result.tags).toEqual([]);
+    expect(result).toEqual(DEFAULT_SESSION_METADATA);
   });
 
   it("GIVEN malformed YAML WHEN parsed THEN returns defaults gracefully", () => {
@@ -187,24 +211,21 @@ describe("parseSessionMetadata", () => {
     ], buildSessionMarkdownBody("malformed metadata"));
     const result = parseSessionMetadata(content);
 
-    expect(result.priority).toBe(DEFAULT_PRIORITY);
-    expect(result.tags).toEqual([]);
+    expect(result).toEqual(DEFAULT_SESSION_METADATA);
   });
 
   it("GIVEN YAML that parses to null WHEN parsed THEN returns defaults", () => {
     const content = buildSessionFrontMatterContent(["null"], buildSessionMarkdownBody("null metadata"));
     const result = parseSessionMetadata(content);
 
-    expect(result.priority).toBe(DEFAULT_PRIORITY);
-    expect(result.tags).toEqual([]);
+    expect(result).toEqual(DEFAULT_SESSION_METADATA);
   });
 
   it("GIVEN YAML that parses to a scalar (non-object) WHEN parsed THEN returns defaults", () => {
     const content = buildSessionFrontMatterContent(["just a string"], buildSessionMarkdownBody("scalar metadata"));
     const result = parseSessionMetadata(content);
 
-    expect(result.priority).toBe(DEFAULT_PRIORITY);
-    expect(result.tags).toEqual([]);
+    expect(result).toEqual(DEFAULT_SESSION_METADATA);
   });
 
   it("GIVEN invalid priority value WHEN parsed THEN uses DEFAULT_PRIORITY", () => {
@@ -212,41 +233,6 @@ describe("parseSessionMetadata", () => {
     const result = parseSessionMetadata(content);
 
     expect(result.priority).toBe(DEFAULT_PRIORITY);
-  });
-
-  it("GIVEN full metadata WHEN parsed THEN extracts all optional fields", () => {
-    const expected = {
-      id: "2026-01-13_10-00-00",
-      priority: SESSION_PRIORITY.HIGH,
-      tags: ["metadata", "cli"],
-      branch: "topic/session",
-      createdAt: "2026-01-13T10:00:00-08:00",
-      workingDirectory: "/path/to/project",
-      specs: ["path/to/spec.md"],
-      files: ["src/file.ts"],
-    };
-    const content = buildSessionFrontMatterContent([
-      `${SESSION_FRONT_MATTER.ID}: ${expected.id}`,
-      `${SESSION_FRONT_MATTER.PRIORITY}: ${expected.priority}`,
-      `${SESSION_FRONT_MATTER.TAGS}: [${expected.tags.join(", ")}]`,
-      `${SESSION_FRONT_MATTER.BRANCH}: ${expected.branch}`,
-      `${SESSION_FRONT_MATTER.CREATED_AT}: ${expected.createdAt}`,
-      `${SESSION_FRONT_MATTER.WORKING_DIRECTORY}: ${expected.workingDirectory}`,
-      `${SESSION_FRONT_MATTER.SPECS}:`,
-      `  - ${expected.specs[0]}`,
-      `${SESSION_FRONT_MATTER.FILES}:`,
-      `  - ${expected.files[0]}`,
-    ], "# Session");
-    const result = parseSessionMetadata(content);
-
-    expect(result.id).toBe(expected.id);
-    expect(result.priority).toBe(expected.priority);
-    expect(result.tags).toEqual(expected.tags);
-    expect(result.branch).toBe(expected.branch);
-    expect(result.createdAt).toBe(expected.createdAt);
-    expect(result.workingDirectory).toBe(expected.workingDirectory);
-    expect(result.specs).toEqual(expected.specs);
-    expect(result.files).toEqual(expected.files);
   });
 
   it("GIVEN front matter with ... delimiter WHEN parsed THEN extracts correctly", () => {
@@ -261,14 +247,17 @@ describe("parseSessionMetadata", () => {
     expect(result.priority).toBe(expectedPriority);
   });
 
-  it("GIVEN tags with non-string values WHEN parsed THEN filters them out", () => {
-    const expectedTags = ["valid"];
+  it("GIVEN specs and files with non-string values WHEN parsed THEN filters them out", () => {
+    const expectedSpecs = ["valid.md"];
+    const expectedFiles = ["src/valid.ts"];
     const content = buildSessionFrontMatterContent([
-      `${SESSION_FRONT_MATTER.TAGS}: [${expectedTags[0]}, 123, true, null]`,
+      `${SESSION_FRONT_MATTER.SPECS}: [${expectedSpecs[0]}, 123, true, null]`,
+      `${SESSION_FRONT_MATTER.FILES}: [${expectedFiles[0]}, 456]`,
     ], "");
     const result = parseSessionMetadata(content);
 
-    expect(result.tags).toEqual(expectedTags);
+    expect(result.specs).toEqual(expectedSpecs);
+    expect(result.files).toEqual(expectedFiles);
   });
 });
 
@@ -310,8 +299,7 @@ describe("parseSessionMetadata properties (property-based)", () => {
         fc.string().filter((s) => !s.startsWith(SESSION_FRONT_MATTER_DELIMITER)),
         (content) => {
           const result = parseSessionMetadata(content);
-          expect(result.priority).toBe(DEFAULT_PRIORITY);
-          expect(result.tags).toEqual([]);
+          expect(result).toEqual(DEFAULT_SESSION_METADATA);
         },
       ),
     );

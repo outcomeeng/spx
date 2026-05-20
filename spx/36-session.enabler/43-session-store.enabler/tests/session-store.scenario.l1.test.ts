@@ -10,18 +10,23 @@
  * Spec: 43-session-store.enabler/session-store.md
  */
 
-import { readFile } from "node:fs/promises";
+import { readFile, writeFile } from "node:fs/promises";
+import { join } from "node:path";
 
 import fc from "fast-check";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 
 import { buildSessionContent, handoffCommand, hasFrontmatter } from "@/commands/session/handoff";
 import { listCommand, SESSION_LIST_EMPTY_TEXT, SESSION_LIST_FORMAT } from "@/commands/session/list";
+import { pickupCommand } from "@/commands/session/pickup";
+import { releaseCommand } from "@/commands/session/release";
 import { DEFAULT_CONFIG } from "@/config/defaults";
 import { resolveDeletePath } from "@/domains/session/delete";
 import {
   SessionError,
   SessionInvalidContentError,
+  SessionInvalidGoalError,
+  SessionInvalidNextStepError,
   SessionNotAvailableError,
   SessionNotFoundError,
 } from "@/domains/session/errors";
@@ -43,6 +48,7 @@ import {
   SESSION_STATUSES,
   type SessionPriority,
 } from "@/domains/session/types";
+import type { GitDependencies } from "@/git/root";
 
 import {
   buildSessionFrontMatterContent,
@@ -53,13 +59,34 @@ import {
 import { buildSessionMarkdownBody, createSessionHarness, SessionHarness } from "@testing/harnesses/session/harness";
 import { extractSessionFile, parseFrontMatter } from "./helpers";
 
-const [TODO] = SESSION_STATUSES;
+const [TODO, DOING] = SESSION_STATUSES;
 
 const ENV_KEYS = ["CLAUDE_SESSION_ID", "CODEX_THREAD_ID"] as const;
+const TEST_GOAL = "Exercise session handoff";
+const TEST_NEXT_STEP = "Inspect generated session";
 const PREFILL_SESSION_CONTENT = buildSessionFrontMatterContent(
-  [`${SESSION_FRONT_MATTER.PRIORITY}: ${DEFAULT_PRIORITY}`],
+  [
+    `${SESSION_FRONT_MATTER.PRIORITY}: ${DEFAULT_PRIORITY}`,
+    `${SESSION_FRONT_MATTER.GOAL}: ${JSON.stringify(TEST_GOAL)}`,
+    `${SESSION_FRONT_MATTER.NEXT_STEP}: ${JSON.stringify(TEST_NEXT_STEP)}`,
+  ],
   "# Test session",
 );
+const HANDOFF_GIT_DEPS: GitDependencies = {
+  execa: async (_command, args) => {
+    const argText = args.join(" ");
+    if (argText.includes("--abbrev-ref")) {
+      return { exitCode: 0, stdout: "topic/session-frontmatter", stderr: "" };
+    }
+    if (argText.includes("--show-toplevel")) {
+      return { exitCode: 0, stdout: "/repo/worktrees/topic", stderr: "" };
+    }
+    if (argText.includes("--git-common-dir")) {
+      return { exitCode: 0, stdout: "/repo/.git", stderr: "" };
+    }
+    return { exitCode: 1, stdout: "", stderr: "" };
+  },
+};
 
 describe("listCommand", () => {
   let harness: SessionHarness;
@@ -78,11 +105,13 @@ describe("listCommand", () => {
     it("THEN shows only DEFAULT_LIST_STATUSES, not others", async () => {
       await harness.writeSession(SESSION_STATUSES[0], "2026-01-10_10-00-00", {
         priority: SESSION_PRIORITY.LOW,
-        tags: ["backlog"],
+        goal: "Backlog task",
+        next_step: "Wait",
       });
       await harness.writeSession(SESSION_STATUSES[1], "2026-01-11_10-00-00", {
         priority: SESSION_PRIORITY.HIGH,
-        tags: ["active"],
+        goal: "Active task",
+        next_step: "Continue",
       });
       await harness.writeSession(SESSION_STATUSES[2], "2026-01-09_10-00-00");
 
@@ -126,6 +155,30 @@ describe("listCommand", () => {
           expect(output).not.toContain(`${status.toUpperCase()}:`);
         }
       }
+    });
+  });
+
+  describe("GIVEN session omits structured fields WHEN lifecycle commands read it", () => {
+    it("THEN list, show, pickup, and release tolerate missing values", async () => {
+      const sessionId = "2026-01-13_10-00-00";
+      const content = buildSessionFrontMatterContent([
+        `${SESSION_FRONT_MATTER.PRIORITY}: ${SESSION_PRIORITY.HIGH}`,
+      ], "# Sparse session");
+      await writeFile(join(harness.statusDir(TODO), `${sessionId}.md`), content);
+
+      const listed = await listCommand({ status: TODO, sessionsDir: harness.sessionsDir });
+      expect(listed).toContain(sessionId);
+      expect(listed).toContain("->");
+
+      const shown = formatShowOutput(content, { status: TODO });
+      expect(shown).toContain(`${SESSION_SHOW_LABEL.GOAL}: `);
+      expect(shown).toContain(`${SESSION_SHOW_LABEL.NEXT_STEP}: `);
+
+      await pickupCommand({ sessionId, sessionsDir: harness.sessionsDir });
+      expect(await listCommand({ status: DOING, sessionsDir: harness.sessionsDir })).toContain(sessionId);
+
+      await releaseCommand({ sessionIds: [sessionId], sessionsDir: harness.sessionsDir });
+      expect(await listCommand({ status: TODO, sessionsDir: harness.sessionsDir })).toContain(sessionId);
     });
   });
 
@@ -257,19 +310,20 @@ describe("listCommand", () => {
     });
   });
 
-  // -- Priority and tag display --
+  // -- Priority and summary display --
 
-  describe("GIVEN sessions with priorities and tags WHEN listed", () => {
-    it("THEN non-medium priorities are shown in brackets and tags in parens", async () => {
+  describe("GIVEN sessions with priorities and summaries WHEN listed", () => {
+    it("THEN non-medium priorities and goal-to-next-step summaries are shown", async () => {
       const priority = SESSION_PRIORITY.HIGH;
-      const tags = ["ci", "fix"];
-      await harness.writeSession(TODO, "2026-01-10_10-00-00", { priority, tags });
+      const goal = "Fix CI";
+      const nextStep = "Run validation";
+      await harness.writeSession(TODO, "2026-01-10_10-00-00", { priority, goal, next_step: nextStep });
       await harness.writeSession(TODO, "2026-01-11_10-00-00");
 
       const output = await listCommand({ status: TODO, sessionsDir: harness.sessionsDir });
 
       expect(output).toContain(`[${priority}]`);
-      expect(output).toContain(`(${tags.join(", ")})`);
+      expect(output).toContain(`${goal} -> ${nextStep}`);
       expect(output).not.toContain(`[${DEFAULT_PRIORITY}]`);
     });
   });
@@ -307,15 +361,23 @@ describe("formatShowOutput", () => {
       id: "test-session",
       priority: SESSION_PRIORITY.HIGH,
       branch: "topic/test",
-      tags: ["bug", "triage"],
-      createdAt: "2026-01-13T10:00:00Z",
+      worktree: "worktrees/topic-test",
+      goal: "Fix the session display",
+      nextStep: "Run display tests",
+      result: "Display verified",
+      created_at: "2026-01-13T10:00:00Z",
+      agent_session_id: "thread-123",
     };
     const content = buildSessionFrontMatterContent([
       `${SESSION_FRONT_MATTER.ID}: ${expected.id}`,
       `${SESSION_FRONT_MATTER.PRIORITY}: ${expected.priority}`,
       `${SESSION_FRONT_MATTER.BRANCH}: ${expected.branch}`,
-      `${SESSION_FRONT_MATTER.TAGS}: [${expected.tags.join(", ")}]`,
-      `${SESSION_FRONT_MATTER.CREATED_AT}: ${expected.createdAt}`,
+      `${SESSION_FRONT_MATTER.WORKTREE}: ${expected.worktree}`,
+      `${SESSION_FRONT_MATTER.GOAL}: ${JSON.stringify(expected.goal)}`,
+      `${SESSION_FRONT_MATTER.NEXT_STEP}: ${JSON.stringify(expected.nextStep)}`,
+      `${SESSION_FRONT_MATTER.RESULT}: ${JSON.stringify(expected.result)}`,
+      `${SESSION_FRONT_MATTER.CREATED_AT}: ${expected.created_at}`,
+      `${SESSION_FRONT_MATTER.AGENT_SESSION_ID}: ${expected.agent_session_id}`,
     ], buildSessionMarkdownBody("show metadata"));
     const result = formatShowOutput(content, { status: SESSION_STATUSES[1] });
 
@@ -323,8 +385,12 @@ describe("formatShowOutput", () => {
     expect(result).toContain(`${SESSION_SHOW_LABEL.STATUS}: ${SESSION_STATUSES[1]}`);
     expect(result).toContain(`${SESSION_SHOW_LABEL.PRIORITY}: ${expected.priority}`);
     expect(result).toContain(`${SESSION_SHOW_LABEL.BRANCH}: ${expected.branch}`);
-    expect(result).toContain(`${SESSION_SHOW_LABEL.TAGS}: ${expected.tags.join(", ")}`);
-    expect(result).toContain(`${SESSION_SHOW_LABEL.CREATED}: ${expected.createdAt}`);
+    expect(result).toContain(`${SESSION_SHOW_LABEL.WORKTREE}: ${expected.worktree}`);
+    expect(result).toContain(`${SESSION_SHOW_LABEL.GOAL}: ${expected.goal}`);
+    expect(result).toContain(`${SESSION_SHOW_LABEL.NEXT_STEP}: ${expected.nextStep}`);
+    expect(result).toContain(`${SESSION_SHOW_LABEL.RESULT}: ${expected.result}`);
+    expect(result).toContain(`${SESSION_SHOW_LABEL.CREATED}: ${expected.created_at}`);
+    expect(result).toContain(`${SESSION_SHOW_LABEL.AGENT_SESSION}: ${expected.agent_session_id}`);
   });
 
   it("GIVEN session content WHEN formatted THEN preserves original content", () => {
@@ -484,56 +550,53 @@ describe("buildSessionContent", () => {
   it("GIVEN content with frontmatter WHEN built THEN preserves as-is", () => {
     const content = buildSessionFrontMatterContent([
       `${SESSION_FRONT_MATTER.PRIORITY}: ${SESSION_PRIORITY.HIGH}`,
-      `${SESSION_FRONT_MATTER.TAGS}: [topic]`,
+      `${SESSION_FRONT_MATTER.GOAL}: ${JSON.stringify(TEST_GOAL)}`,
+      `${SESSION_FRONT_MATTER.NEXT_STEP}: ${JSON.stringify(TEST_NEXT_STEP)}`,
     ], "# Task");
     expect(buildSessionContent(content)).toBe(content);
   });
 
-  it("GIVEN content without frontmatter WHEN built THEN adds default frontmatter", () => {
+  it("GIVEN content without frontmatter WHEN built THEN preserves as-is", () => {
     const content = "# My Task\nSome details.";
     const result = buildSessionContent(content);
 
-    expect(hasFrontmatter(result)).toBe(true);
-    expect(parseSessionMetadata(result).priority).toBe(DEFAULT_PRIORITY);
-    expect(result).toContain(content);
+    expect(result).toBe(content);
   });
 
-  it("GIVEN empty content WHEN built THEN creates default session", () => {
-    const result = buildSessionContent("");
-
-    expect(hasFrontmatter(result)).toBe(true);
-    expect(parseSessionMetadata(result).priority).toBe(DEFAULT_PRIORITY);
+  it("GIVEN empty content WHEN built THEN rejects", () => {
+    expect(() => buildSessionContent("")).toThrow(SessionInvalidContentError);
   });
 
-  it("GIVEN undefined content WHEN built THEN creates default session", () => {
-    const result = buildSessionContent(undefined);
-
-    expect(hasFrontmatter(result)).toBe(true);
-    expect(parseSessionMetadata(result).priority).toBe(DEFAULT_PRIORITY);
+  it("GIVEN undefined content WHEN built THEN rejects", () => {
+    expect(() => buildSessionContent(undefined)).toThrow(SessionInvalidContentError);
   });
 });
 
 describe("buildSessionContent → parseSessionMetadata roundtrip", () => {
   it("GIVEN content with metadata WHEN built then parsed THEN metadata preserved", () => {
     const expectedPriority = SESSION_PRIORITY.HIGH;
-    const expectedTags = ["refactor", "cleanup"];
+    const expectedGoal = "Refactor cleanup";
+    const expectedNextStep = "Run tests";
     const content = buildSessionFrontMatterContent([
       `${SESSION_FRONT_MATTER.PRIORITY}: ${expectedPriority}`,
-      `${SESSION_FRONT_MATTER.TAGS}: [${expectedTags.join(", ")}]`,
+      `${SESSION_FRONT_MATTER.GOAL}: ${JSON.stringify(expectedGoal)}`,
+      `${SESSION_FRONT_MATTER.NEXT_STEP}: ${JSON.stringify(expectedNextStep)}`,
     ], "# Task");
     const built = buildSessionContent(content);
     const metadata = parseSessionMetadata(built);
 
     expect(metadata.priority).toBe(expectedPriority);
-    expect(metadata.tags).toEqual(expectedTags);
+    expect(metadata.goal).toBe(expectedGoal);
+    expect(metadata.next_step).toBe(expectedNextStep);
   });
 
-  it("GIVEN content without metadata WHEN built then parsed THEN defaults applied", () => {
+  it("GIVEN content without metadata WHEN built then parsed THEN readable defaults apply", () => {
     const built = buildSessionContent("# Plain task");
     const metadata = parseSessionMetadata(built);
 
     expect(metadata.priority).toBe(DEFAULT_PRIORITY);
-    expect(metadata.tags).toEqual([]);
+    expect(metadata.goal).toBe("");
+    expect(metadata.next_step).toBe("");
   });
 });
 
@@ -550,16 +613,103 @@ describe("handoffCommand with real filesystem", () => {
 
   it("GIVEN content piped to handoff WHEN executed THEN creates file in todo with HANDOFF_ID tag", async () => {
     const content = buildSessionFrontMatterContent(
-      [`${SESSION_FRONT_MATTER.PRIORITY}: ${SESSION_PRIORITY.HIGH}`],
+      [
+        `${SESSION_FRONT_MATTER.PRIORITY}: ${SESSION_PRIORITY.HIGH}`,
+        `${SESSION_FRONT_MATTER.GOAL}: ${JSON.stringify(TEST_GOAL)}`,
+        `${SESSION_FRONT_MATTER.NEXT_STEP}: ${JSON.stringify(TEST_NEXT_STEP)}`,
+      ],
       "# Test handoff",
     );
     const output = await handoffCommand({
       content,
       sessionsDir: harness.sessionsDir,
+      deps: HANDOFF_GIT_DEPS,
     });
 
     expect(output).toMatch(/<HANDOFF_ID>\d{4}-\d{2}-\d{2}_\d{2}-\d{2}-\d{2}<\/HANDOFF_ID>/);
     expect(output).toMatch(/<SESSION_FILE>.*\.md<\/SESSION_FILE>/);
+
+    const frontMatter = parseFrontMatter(await readFile(extractSessionFile(output), "utf-8"));
+    expect(frontMatter).toHaveProperty(SESSION_FRONT_MATTER.PRIORITY, SESSION_PRIORITY.HIGH);
+    expect(frontMatter).toHaveProperty(SESSION_FRONT_MATTER.BRANCH, "topic/session-frontmatter");
+    expect(frontMatter).toHaveProperty(SESSION_FRONT_MATTER.WORKTREE, "worktrees/topic");
+    expect(frontMatter).toHaveProperty(SESSION_FRONT_MATTER.GOAL, TEST_GOAL);
+    expect(frontMatter).toHaveProperty(SESSION_FRONT_MATTER.NEXT_STEP, TEST_NEXT_STEP);
+  });
+
+  it("GIVEN caller-supplied branch and worktree WHEN handoff executes THEN CLI-detected values are written", async () => {
+    const content = buildSessionFrontMatterContent(
+      [
+        `${SESSION_FRONT_MATTER.PRIORITY}: ${SESSION_PRIORITY.HIGH}`,
+        `${SESSION_FRONT_MATTER.BRANCH}: caller-branch`,
+        `${SESSION_FRONT_MATTER.WORKTREE}: caller-worktree`,
+        `${SESSION_FRONT_MATTER.GOAL}: ${JSON.stringify(TEST_GOAL)}`,
+        `${SESSION_FRONT_MATTER.NEXT_STEP}: ${JSON.stringify(TEST_NEXT_STEP)}`,
+      ],
+      "# Test handoff",
+    );
+
+    const output = await handoffCommand({
+      content,
+      sessionsDir: harness.sessionsDir,
+      deps: HANDOFF_GIT_DEPS,
+    });
+    const metadata = parseSessionMetadata(await readFile(extractSessionFile(output), "utf-8"));
+
+    expect(metadata.branch).toBe("topic/session-frontmatter");
+    expect(metadata.worktree).toBe("worktrees/topic");
+  });
+
+  it("GIVEN branch contains YAML-special characters WHEN handoff executes THEN metadata parses back unchanged", async () => {
+    const branch = "topic/{yaml}: branch # marker";
+    const deps: GitDependencies = {
+      execa: async (_command, args) => {
+        const argText = args.join(" ");
+        if (argText.includes("--abbrev-ref")) {
+          return { exitCode: 0, stdout: branch, stderr: "" };
+        }
+        if (argText.includes("--show-toplevel")) {
+          return { exitCode: 0, stdout: "/repo/worktrees/topic", stderr: "" };
+        }
+        if (argText.includes("--git-common-dir")) {
+          return { exitCode: 0, stdout: "/repo/.git", stderr: "" };
+        }
+        return { exitCode: 1, stdout: "", stderr: "" };
+      },
+    };
+
+    const output = await handoffCommand({
+      content: PREFILL_SESSION_CONTENT,
+      sessionsDir: harness.sessionsDir,
+      deps,
+    });
+    const metadata = parseSessionMetadata(await readFile(extractSessionFile(output), "utf-8"));
+
+    expect(metadata.branch).toBe(branch);
+  });
+
+  it("GIVEN empty goal piped to handoff WHEN executed THEN rejects before writing", async () => {
+    const content = buildSessionFrontMatterContent([
+      `${SESSION_FRONT_MATTER.PRIORITY}: ${SESSION_PRIORITY.HIGH}`,
+      `${SESSION_FRONT_MATTER.GOAL}: ""`,
+      `${SESSION_FRONT_MATTER.NEXT_STEP}: ${JSON.stringify(TEST_NEXT_STEP)}`,
+    ], "# Test handoff");
+
+    await expect(
+      handoffCommand({ content, sessionsDir: harness.sessionsDir, deps: HANDOFF_GIT_DEPS }),
+    ).rejects.toThrow(SessionInvalidGoalError);
+  });
+
+  it("GIVEN empty next_step piped to handoff WHEN executed THEN rejects before writing", async () => {
+    const content = buildSessionFrontMatterContent([
+      `${SESSION_FRONT_MATTER.PRIORITY}: ${SESSION_PRIORITY.HIGH}`,
+      `${SESSION_FRONT_MATTER.GOAL}: ${JSON.stringify(TEST_GOAL)}`,
+      `${SESSION_FRONT_MATTER.NEXT_STEP}: ""`,
+    ], "# Test handoff");
+
+    await expect(
+      handoffCommand({ content, sessionsDir: harness.sessionsDir, deps: HANDOFF_GIT_DEPS }),
+    ).rejects.toThrow(SessionInvalidNextStepError);
   });
 });
 
@@ -595,7 +745,16 @@ describe("sortSessions with unparsable IDs", () => {
       id,
       status: TODO,
       path: `/s/${TODO}/${id}.md`,
-      metadata: { priority, tags: [] },
+      metadata: {
+        priority,
+        branch: "",
+        worktree: "",
+        goal: "",
+        next_step: "",
+        result: "",
+        specs: [],
+        files: [],
+      },
     };
   }
 
@@ -651,7 +810,11 @@ describe("handoffCommand — created_at and agent_session_id pre-fill", () => {
   });
 
   it("GIVEN handoff is invoked WHEN session file is created THEN created_at is written to YAML front matter", async () => {
-    const output = await handoffCommand({ content: PREFILL_SESSION_CONTENT, sessionsDir: harness.sessionsDir });
+    const output = await handoffCommand({
+      content: PREFILL_SESSION_CONTENT,
+      sessionsDir: harness.sessionsDir,
+      deps: HANDOFF_GIT_DEPS,
+    });
     const frontMatter = parseFrontMatter(await readFile(extractSessionFile(output), "utf-8"));
 
     expect(frontMatter).toHaveProperty(SESSION_FRONT_MATTER.CREATED_AT);
@@ -662,7 +825,11 @@ describe("handoffCommand — created_at and agent_session_id pre-fill", () => {
     const agentSessionId = "fa0a91ee-f0bc-449e-8299-727ebe314a78";
     process.env.CLAUDE_SESSION_ID = agentSessionId;
 
-    const output = await handoffCommand({ content: PREFILL_SESSION_CONTENT, sessionsDir: harness.sessionsDir });
+    const output = await handoffCommand({
+      content: PREFILL_SESSION_CONTENT,
+      sessionsDir: harness.sessionsDir,
+      deps: HANDOFF_GIT_DEPS,
+    });
     const frontMatter = parseFrontMatter(await readFile(extractSessionFile(output), "utf-8"));
 
     expect(frontMatter).toHaveProperty(SESSION_FRONT_MATTER.AGENT_SESSION_ID, agentSessionId);
@@ -672,14 +839,22 @@ describe("handoffCommand — created_at and agent_session_id pre-fill", () => {
     const threadId = "thread-xyz-789";
     process.env.CODEX_THREAD_ID = threadId;
 
-    const output = await handoffCommand({ content: PREFILL_SESSION_CONTENT, sessionsDir: harness.sessionsDir });
+    const output = await handoffCommand({
+      content: PREFILL_SESSION_CONTENT,
+      sessionsDir: harness.sessionsDir,
+      deps: HANDOFF_GIT_DEPS,
+    });
     const frontMatter = parseFrontMatter(await readFile(extractSessionFile(output), "utf-8"));
 
     expect(frontMatter).toHaveProperty(SESSION_FRONT_MATTER.AGENT_SESSION_ID, threadId);
   });
 
   it("GIVEN neither CLAUDE_SESSION_ID nor CODEX_THREAD_ID set WHEN handoff creates session THEN agent_session_id does not appear in YAML front matter", async () => {
-    const output = await handoffCommand({ content: PREFILL_SESSION_CONTENT, sessionsDir: harness.sessionsDir });
+    const output = await handoffCommand({
+      content: PREFILL_SESSION_CONTENT,
+      sessionsDir: harness.sessionsDir,
+      deps: HANDOFF_GIT_DEPS,
+    });
     const frontMatter = parseFrontMatter(await readFile(extractSessionFile(output), "utf-8"));
 
     expect(frontMatter).not.toHaveProperty(SESSION_FRONT_MATTER.AGENT_SESSION_ID);

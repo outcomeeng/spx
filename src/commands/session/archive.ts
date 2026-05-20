@@ -4,7 +4,7 @@
  * @module commands/session/archive
  */
 
-import { mkdir, rename, stat } from "node:fs/promises";
+import { mkdir, readFile, rename, stat } from "node:fs/promises";
 import { dirname, join } from "node:path";
 
 import {
@@ -14,7 +14,8 @@ import {
   SESSION_FILE_EXTENSION,
 } from "@/domains/session/archive";
 import { processBatch } from "@/domains/session/batch";
-import { SessionNotFoundError } from "@/domains/session/errors";
+import { SessionInvalidResultError, SessionNotFoundError } from "@/domains/session/errors";
+import { parseSessionMetadata } from "@/domains/session/list";
 import { SessionDirectoryConfig } from "@/domains/session/show";
 import { resolveSessionConfig } from "@/git/root";
 
@@ -128,6 +129,11 @@ async function archiveSingle(
   config: SessionDirectoryConfig,
 ): Promise<string> {
   const { source, target } = await resolveArchivePaths(sessionId, config);
+  const content = await readFile(source, "utf-8");
+  const metadata = parseSessionMetadata(content);
+  if (metadata.result.trim().length === 0) {
+    throw new SessionInvalidResultError(sessionId);
+  }
   await mkdir(dirname(target), { recursive: true });
   await rename(source, target);
   return `${SESSION_ARCHIVE_OUTPUT.ARCHIVED}: ${sessionId}\n${SESSION_ARCHIVE_OUTPUT.ARCHIVE_LOCATION}: ${target}`;

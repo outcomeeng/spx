@@ -24,6 +24,7 @@ import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { archiveCommand, SESSION_ARCHIVE_OUTPUT } from "@/commands/session/archive";
 import { pruneCommand, SESSION_PRUNE_OUTPUT, validatePruneOptions } from "@/commands/session/prune";
 import { type ArchivableStatus, buildArchivePaths, findSessionForArchive } from "@/domains/session/archive";
+import { DEFAULT_SESSION_METADATA } from "@/domains/session/list";
 import { DEFAULT_KEEP_COUNT, selectSessionsToDelete } from "@/domains/session/prune";
 import { DEFAULT_PRIORITY, type Session, SESSION_STATUSES, type SessionPriority } from "@/domains/session/types";
 import type { SessionHarness } from "@testing/harnesses/session/harness";
@@ -44,8 +45,8 @@ function createTestSession(overrides: {
     status,
     path: `/test/sessions/${status}/${id}.md`,
     metadata: {
+      ...DEFAULT_SESSION_METADATA,
       priority: overrides.priority ?? DEFAULT_PRIORITY,
-      tags: [],
     },
   };
 }
@@ -253,7 +254,7 @@ describe("archiveCommand with real filesystem", () => {
 
   it("S3: GIVEN session in todo WHEN archive THEN moves to archive dir", async () => {
     const sessionId = "2026-01-13_08-00-00";
-    await harness.writeSession(TODO, sessionId);
+    await harness.writeSession(TODO, sessionId, { result: "Retained in archive" });
 
     const output = await archiveCommand({ sessionIds: [sessionId], sessionsDir: harness.sessionsDir });
 
@@ -264,7 +265,7 @@ describe("archiveCommand with real filesystem", () => {
 
   it("S3: GIVEN session in doing WHEN archive THEN moves to archive dir", async () => {
     const sessionId = "2026-01-13_08-00-00";
-    await harness.writeSession(DOING, sessionId);
+    await harness.writeSession(DOING, sessionId, { result: "Retained in archive" });
 
     const output = await archiveCommand({ sessionIds: [sessionId], sessionsDir: harness.sessionsDir });
 
@@ -280,5 +281,17 @@ describe("archiveCommand with real filesystem", () => {
     await expect(
       archiveCommand({ sessionIds: [sessionId], sessionsDir: harness.sessionsDir }),
     ).rejects.toThrow(/already archived/i);
+  });
+
+  it("GIVEN session without result WHEN archive THEN rejects without moving the file", async () => {
+    const sessionId = "2026-01-13_08-00-00";
+    await harness.writeSession(TODO, sessionId);
+
+    await expect(
+      archiveCommand({ sessionIds: [sessionId], sessionsDir: harness.sessionsDir }),
+    ).rejects.toThrow(/result/i);
+
+    expect(existsSync(join(harness.statusDir(TODO), `${sessionId}.md`))).toBe(true);
+    expect(existsSync(join(harness.statusDir(ARCHIVE), `${sessionId}.md`))).toBe(false);
   });
 });

@@ -53,12 +53,14 @@ export const DEFAULT_PRIORITY: SessionPriority = SESSION_PRIORITY.MEDIUM;
  */
 export const SESSION_FRONT_MATTER = {
   PRIORITY: "priority",
-  TAGS: "tags",
   ID: "id",
   BRANCH: "branch",
+  WORKTREE: "worktree",
+  GOAL: "goal",
+  NEXT_STEP: "next_step",
+  RESULT: "result",
   CREATED_AT: "created_at",
   AGENT_SESSION_ID: "agent_session_id",
-  WORKING_DIRECTORY: "working_directory",
   SPECS: "specs",
   FILES: "files",
 } as const;
@@ -71,20 +73,24 @@ export interface SessionMetadata {
   id?: string;
   /** Priority level for sorting */
   priority: SessionPriority;
-  /** Free-form tags for filtering */
-  tags: string[];
   /** Git branch associated with session */
-  branch?: string;
+  branch: string;
+  /** Worktree path relative to Git common-dir parent */
+  worktree: string;
+  /** Handoff goal */
+  goal: string;
+  /** First action for the next agent */
+  next_step: string;
+  /** Result recorded before archive */
+  result: string;
   /** Spec files to auto-inject on pickup */
-  specs?: string[];
+  specs: string[];
   /** Code files to auto-inject on pickup */
-  files?: string[];
+  files: string[];
   /** ISO 8601 timestamp when session was created */
-  createdAt?: string;
+  created_at?: string;
   /** Agent session ID from CLAUDE_SESSION_ID or CODEX_THREAD_ID at handoff time */
-  agentSessionId?: string;
-  /** Working directory path */
-  workingDirectory?: string;
+  agent_session_id?: string;
 }
 
 /**

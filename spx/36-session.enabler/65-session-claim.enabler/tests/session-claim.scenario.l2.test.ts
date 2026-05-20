@@ -2,7 +2,7 @@
  * Integration tests for session lifecycle — concurrent pickup atomicity.
  *
  * Test Level: 1 (Unit — fs.rename atomicity is OS-level, no external deps)
- * Named .integration.test.ts because it tests concurrent real-filesystem behavior.
+ * Uses level 2 because it tests concurrent real-filesystem behavior through command handlers.
  *
  * Assertion covered from session-lifecycle.md:
  * - P1: Concurrent pickup of the same session results in exactly one success

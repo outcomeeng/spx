@@ -5,8 +5,11 @@ import { pathToFileURL } from "node:url";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 
 import { DEFAULT_CONFIG } from "@/config/defaults";
+import { SessionDetachedHeadError } from "@/domains/session/errors";
 import {
+  computeRelativeWorktreePath,
   detectGitCommonDirProductRoot,
+  detectSessionWorkContext,
   detectWorktreeProductRoot,
   type GitDependencies,
   resolveSessionConfig,
@@ -203,6 +206,59 @@ describe("detectGitCommonDirProductRoot vs detectWorktreeProductRoot in worktree
 
     expect(worktreeProductRootResult.productDir).toBe(productDir);
     expect(gitCommonDirProductRootResult.productDir).toBe(productDir);
+  });
+});
+
+describe("detectSessionWorkContext", () => {
+  it("GIVEN worktree context WHEN detected THEN returns branch and relative worktree path", async () => {
+    const gitCommonDirProductRoot = "/repo";
+    const worktreeRoot = join(gitCommonDirProductRoot, ".codex", "worktrees", "topic");
+    const deps = createMockDeps([
+      { stdout: "topic/session-frontmatter", exitCode: 0 },
+      { stdout: worktreeRoot, exitCode: 0 },
+      { stdout: join(gitCommonDirProductRoot, ".git"), exitCode: 0 },
+    ]);
+
+    const result = await detectSessionWorkContext(worktreeRoot, deps);
+
+    expect(result.branch).toBe("topic/session-frontmatter");
+    expect(result.worktree).toBe(join(".codex", "worktrees", "topic"));
+  });
+
+  it("GIVEN non-worktree context WHEN detected THEN worktree path is empty", async () => {
+    const productDir = "/repo";
+    const deps = createMockDeps([
+      { stdout: "main", exitCode: 0 },
+      { stdout: productDir, exitCode: 0 },
+      { stdout: ".git", exitCode: 0 },
+    ]);
+
+    const result = await detectSessionWorkContext(productDir, deps);
+
+    expect(result.branch).toBe("main");
+    expect(result.worktree).toBe("");
+  });
+
+  it("GIVEN detached HEAD WHEN detected THEN rejects with SessionDetachedHeadError", async () => {
+    const deps = createMockDeps([
+      { stdout: "HEAD", exitCode: 0 },
+    ]);
+
+    await expect(detectSessionWorkContext("/repo", deps)).rejects.toThrow(SessionDetachedHeadError);
+  });
+});
+
+describe("computeRelativeWorktreePath", () => {
+  it("GIVEN common dir and toplevel for a worktree WHEN computed THEN returns path relative to common product root", () => {
+    const result = computeRelativeWorktreePath("/repo/.git", "/repo/.codex/worktrees/topic");
+
+    expect(result).toBe(join(".codex", "worktrees", "topic"));
+  });
+
+  it("GIVEN common dir and toplevel for main worktree WHEN computed THEN returns empty string", () => {
+    const result = computeRelativeWorktreePath(".git", "/repo");
+
+    expect(result).toBe("");
   });
 });
 
