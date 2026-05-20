@@ -98,7 +98,7 @@ function formatTextOutput(sessions: Session[]): string {
   return sessions
     .map((s) => {
       const priority = s.metadata.priority !== DEFAULT_PRIORITY ? ` [${s.metadata.priority}]` : "";
-      const summary = s.metadata.goal.length > 0 || s.metadata.next_step.length > 0
+      const summary = s.metadata.goal.length > 0 && s.metadata.next_step.length > 0
         ? ` ${s.metadata.goal}${SESSION_LIST_SUMMARY_SEPARATOR}${s.metadata.next_step}`
         : "";
       return `  ${s.id}${priority}${summary}`;
