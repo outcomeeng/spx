@@ -156,15 +156,12 @@ describe("allowlist-existing compliance", () => {
     const fixtureLiteral = sampleLiteralTestValue(LITERAL_TEST_GENERATOR.domainLiteral());
     const seedIncludeEntry = sampleLiteralTestValue(LITERAL_TEST_GENERATOR.domainLiteral());
     const projectConfigComment = sampleCommentText();
-    const allowlistSectionComment = sampleCommentText();
-    const includeListComment = sampleCommentText();
+    const includeSectionComment = sampleCommentText();
+    const minStringLengthComment = sampleCommentText();
     const sectionIndent = " ".repeat(LITERAL_YAML_LAYOUT.sectionIndentWidth);
     const nestedIndent = " ".repeat(LITERAL_YAML_LAYOUT.nestedIndentWidth);
     const valuesIndent = " ".repeat(LITERAL_YAML_LAYOUT.nestedIndentWidth + LITERAL_YAML_LAYOUT.sectionIndentWidth);
-    const allowlistIndent = " ".repeat(
-      LITERAL_YAML_LAYOUT.nestedIndentWidth + LITERAL_YAML_LAYOUT.nestedIndentWidth,
-    );
-    const listIndent = " ".repeat(LITERAL_YAML_LAYOUT.listIndentWidth + LITERAL_YAML_LAYOUT.nestedIndentWidth);
+    const listIndent = " ".repeat(LITERAL_YAML_LAYOUT.nestedIndentWidth + LITERAL_YAML_LAYOUT.nestedIndentWidth);
     await withTestEnv({}, async (env) => {
       await env.writeRaw(
         CONFIG_FILENAMES.yaml,
@@ -173,11 +170,10 @@ describe("allowlist-existing compliance", () => {
           "validation:",
           `${sectionIndent}literal:`,
           `${nestedIndent}values:`,
-          `${valuesIndent}${allowlistSectionComment}`,
-          `${valuesIndent}allowlist:`,
-          `${allowlistIndent}${includeListComment}`,
-          `${allowlistIndent}include:`,
+          `${valuesIndent}${includeSectionComment}`,
+          `${valuesIndent}include:`,
           `${listIndent}- ${seedIncludeEntry}`,
+          `${valuesIndent}${minStringLengthComment}`,
           `${valuesIndent}minStringLength: ${LITERAL_DEFAULTS.minStringLength}`,
           `${valuesIndent}minNumberDigits: ${LITERAL_DEFAULTS.minNumberDigits}`,
           "",
@@ -190,8 +186,8 @@ describe("allowlist-existing compliance", () => {
 
       const rawConfig = await env.readFile(CONFIG_FILENAMES.yaml);
       expect(rawConfig).toContain(projectConfigComment);
-      expect(rawConfig).toContain(allowlistSectionComment);
-      expect(rawConfig).toContain(includeListComment);
+      expect(rawConfig).toContain(includeSectionComment);
+      expect(rawConfig).toContain(minStringLengthComment);
 
       const allowlist = readLiteralAllowlist(await readProductConfigSections(env));
       expect(allowlist.include).toContain(fixtureLiteral);

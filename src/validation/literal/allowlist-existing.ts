@@ -42,13 +42,11 @@ export interface AllowlistExistingResult {
 
 const EXIT_OK = 0;
 const EXIT_ERROR = 1;
-const ALLOWLIST_FIELD = "allowlist";
 const INCLUDE_FIELD = "include";
 const ALLOWLIST_INCLUDE_PATH = [
   VALIDATION_SECTION,
   VALIDATION_LITERAL_SUBSECTION,
   VALIDATION_LITERAL_VALUES_SUBSECTION,
-  ALLOWLIST_FIELD,
   INCLUDE_FIELD,
 ] as const;
 const TEMP_FILE_PREFIX = ".spx-allowlist-existing-";
@@ -101,7 +99,7 @@ export async function allowlistExisting(
 
   const findingValues = collectFindingValues(detection.findings);
   const updatedInclude = computeUpdatedInclude(
-    currentLiteralConfig.value.allowlist.include,
+    currentLiteralConfig.value.include,
     findingValues,
   );
 

@@ -23,7 +23,7 @@ describe("value-allowlist — scenarios", () => {
       await env.writeTestFile("tests/test-a.test.ts", allowedLiteral);
       await env.writeTestFile("tests/test-b.test.ts", reportedLiteral);
 
-      const config = { ...LITERAL_DEFAULTS, allowlist: { include: [allowedLiteral] } };
+      const config = { ...LITERAL_DEFAULTS, include: [allowedLiteral] };
       const result = await validateLiteralReuse({ productDir: env.productDir, config });
 
       expect(result.findings.srcReuse.some((f) => f.value === allowedLiteral)).toBe(false);
@@ -39,7 +39,7 @@ describe("value-allowlist — scenarios", () => {
       await env.writeTestFile("tests/api.test.ts", webToken);
 
       const config = buildLiteralConfig({
-        allowlist: { presets: [PRESET_NAMES.WEB] },
+        presets: [PRESET_NAMES.WEB],
         minStringLength: 0,
       });
       const result = await validateLiteralReuse({ productDir: env.productDir, config });
@@ -56,7 +56,8 @@ describe("value-allowlist — scenarios", () => {
       await env.writeTestFile("tests/api.test.ts", webToken);
 
       const config = buildLiteralConfig({
-        allowlist: { presets: [PRESET_NAMES.WEB], exclude: [webToken] },
+        presets: [PRESET_NAMES.WEB],
+        exclude: [webToken],
         minStringLength: 0,
       });
       const result = await validateLiteralReuse({ productDir: env.productDir, config });
@@ -84,7 +85,7 @@ describe("value-allowlist — scenarios", () => {
 
       await env.writeRaw(
         DEFAULT_CONFIG_FILENAME,
-        `validation:\n  literal:\n    values:\n      allowlist:\n        presets:\n          - ${badPreset}\n`,
+        `validation:\n  literal:\n    values:\n      presets:\n        - ${badPreset}\n`,
       );
 
       const resolved = await resolveConfig(env.productDir, [validationConfigDescriptor]);
