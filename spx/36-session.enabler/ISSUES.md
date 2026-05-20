@@ -43,3 +43,13 @@ Observed in PR review: https://github.com/outcomeeng/spx/pull/52#issuecomment-44
 Impact: session-specific git behavior becomes harder to move or test independently as more session vocabulary enters the infrastructure layer.
 
 Resolution condition: move session-aware git context logic into the session domain layer or a dedicated session-git adapter module, leaving `src/git/root.ts` with generic git product-root primitives.
+
+## Session git context performs serial independent git reads
+
+`detectSessionWorkContext` awaits the product-root and common-git-dir reads sequentially even though neither command depends on the other. This adds avoidable serialized git process latency to every `spx session handoff` invocation.
+
+Observed in PR review: https://github.com/outcomeeng/spx/pull/52#issuecomment-4497421717.
+
+Impact: session handoff pays two independent git round-trips serially before it can write a session file.
+
+Resolution condition: run the independent product-root and common-git-dir commands concurrently and preserve the existing error semantics for each failed command.
