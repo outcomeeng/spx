@@ -6,11 +6,9 @@
  * @module validation/steps/typescript
  */
 
-import * as JSONC from "jsonc-parser";
-import { existsSync, readFileSync, rmSync, writeFileSync } from "node:fs";
+import { existsSync, rmSync, writeFileSync } from "node:fs";
 import { mkdtemp } from "node:fs/promises";
-import { tmpdir } from "node:os";
-import { dirname, isAbsolute, join } from "node:path";
+import { isAbsolute, join } from "node:path";
 
 import { lifecycleProcessRunner, type ProcessRunner, spawnManagedSubprocess } from "@/lib/process-lifecycle";
 import { TSCONFIG_FILES } from "../config/scope";
@@ -37,7 +35,6 @@ export const defaultTypeScriptProcessRunner: ProcessRunner = lifecycleProcessRun
  */
 export interface TypeScriptDeps {
   mkdtemp: typeof mkdtemp;
-  readFileSync: typeof readFileSync;
   writeFileSync: typeof writeFileSync;
   rmSync: typeof rmSync;
   existsSync: typeof existsSync;
@@ -48,16 +45,10 @@ export interface TypeScriptDeps {
  */
 export const defaultTypeScriptDeps: TypeScriptDeps = {
   mkdtemp,
-  readFileSync,
   writeFileSync,
   rmSync,
   existsSync,
 };
-
-export const TYPESCRIPT_TYPE_ROOT_SEGMENTS = {
-  NODE_MODULES: "node_modules",
-  AT_TYPES: "@types",
-} as const;
 
 export interface TypeScriptValidationContext {
   readonly scope: ValidationScope;
@@ -72,92 +63,22 @@ export interface TypeScriptValidationOptions {
   readonly outputStreams?: ValidationSubprocessOutputStreams;
 }
 
-interface TypeScriptConfigCompilerOptions {
-  readonly typeRoots?: readonly string[];
-}
+/**
+ * Compiler options applied to a temporary validation `tsconfig.json`.
+ *
+ * Validation type-checks without emitting output. Every other compiler option
+ * is inherited from the project's base configuration through `extends`.
+ */
+const TEMPORARY_TSCONFIG_COMPILER_OPTIONS = { noEmit: true } as const;
 
-interface TypeScriptConfigForCompilerOptions {
-  readonly extends?: string | readonly string[];
-  readonly compilerOptions?: TypeScriptConfigCompilerOptions;
-}
-
-function createDefaultTypeRoots(projectRoot: string): readonly string[] {
-  return [
-    join(projectRoot, TYPESCRIPT_TYPE_ROOT_SEGMENTS.NODE_MODULES, TYPESCRIPT_TYPE_ROOT_SEGMENTS.AT_TYPES),
-    join(projectRoot, TYPESCRIPT_TYPE_ROOT_SEGMENTS.NODE_MODULES),
-  ];
-}
-
-function createTemporaryCompilerOptions(
-  scope: ValidationScope,
-  projectRoot: string,
-  deps: TypeScriptDeps,
-): Record<string, unknown> {
-  return {
-    noEmit: true,
-    typeRoots: resolveInheritedTypeRoots(join(projectRoot, TSCONFIG_FILES[scope]), projectRoot, deps)
-      ?? createDefaultTypeRoots(projectRoot),
-  };
-}
-
-function resolveInheritedTypeRoots(
-  configPath: string,
-  projectRoot: string,
-  deps: TypeScriptDeps,
-  visitedConfigs: ReadonlySet<string> = new Set(),
-): readonly string[] | undefined {
-  if (visitedConfigs.has(configPath)) {
-    return undefined;
-  }
-
-  const config = parseCompilerOptionsConfig(configPath, deps);
-  if (config === undefined) {
-    return undefined;
-  }
-
-  let inheritedTypeRoots: readonly string[] | undefined;
-  for (const extendedConfig of normalizeExtends(config.extends)) {
-    const extendedTypeRoots = resolveInheritedTypeRoots(
-      resolveExtendedConfigPath(configPath, extendedConfig),
-      projectRoot,
-      deps,
-      new Set([...visitedConfigs, configPath]),
-    );
-    inheritedTypeRoots = extendedTypeRoots ?? inheritedTypeRoots;
-  }
-
-  return config.compilerOptions?.typeRoots?.map((typeRoot) => resolveTypeRootPath(configPath, typeRoot))
-    ?? inheritedTypeRoots;
-}
-
-function parseCompilerOptionsConfig(
-  configPath: string,
-  deps: TypeScriptDeps,
-): TypeScriptConfigForCompilerOptions | undefined {
-  try {
-    return JSONC.parse(deps.readFileSync(configPath, "utf-8")) as TypeScriptConfigForCompilerOptions;
-  } catch {
-    return undefined;
-  }
-}
-
-function normalizeExtends(extendsConfig: string | readonly string[] | undefined): readonly string[] {
-  if (extendsConfig === undefined) {
-    return [];
-  }
-  return typeof extendsConfig === "string" ? [extendsConfig] : extendsConfig;
-}
-
-function resolveExtendedConfigPath(configPath: string, extendedConfig: string): string {
-  if (isAbsolute(extendedConfig)) {
-    return extendedConfig;
-  }
-  return join(dirname(configPath), extendedConfig);
-}
-
-function resolveTypeRootPath(configPath: string, typeRoot: string): string {
-  return isAbsolute(typeRoot) ? typeRoot : join(dirname(configPath), typeRoot);
-}
+/**
+ * Directory-name prefix for temporary validation `tsconfig.json` directories.
+ *
+ * Temporary configs are created inside the project root so that TypeScript
+ * resolves type roots, type references, and path aliases against the project's
+ * own `node_modules` and base configuration. The prefix is gitignored.
+ */
+const TEMPORARY_TSCONFIG_DIR_PREFIX = ".spx-validate-ts-";
 
 // =============================================================================
 // PURE ARGUMENT BUILDER
@@ -201,7 +122,7 @@ export async function createFileSpecificTsconfig(
   deps: TypeScriptDeps = defaultTypeScriptDeps,
 ): Promise<{ configPath: string; tempDir: string; cleanup: () => void }> {
   // Create temporary directory
-  const tempDir = await deps.mkdtemp(join(tmpdir(), "validate-ts-"));
+  const tempDir = await deps.mkdtemp(join(projectRoot, TEMPORARY_TSCONFIG_DIR_PREFIX));
   const configPath = join(tempDir, "tsconfig.json");
 
   // Get base config file
@@ -216,7 +137,7 @@ export async function createFileSpecificTsconfig(
     files: absoluteFiles,
     include: [],
     exclude: [],
-    compilerOptions: createTemporaryCompilerOptions(scope, projectRoot, deps),
+    compilerOptions: TEMPORARY_TSCONFIG_COMPILER_OPTIONS,
   };
 
   // Write temporary config
@@ -240,7 +161,7 @@ async function createScopeFilteredTsconfig(
   scopeConfig: ScopeConfig,
   deps: TypeScriptDeps = defaultTypeScriptDeps,
 ): Promise<{ configPath: string; tempDir: string; cleanup: () => void }> {
-  const tempDir = await deps.mkdtemp(join(tmpdir(), "validate-ts-"));
+  const tempDir = await deps.mkdtemp(join(projectRoot, TEMPORARY_TSCONFIG_DIR_PREFIX));
   const configPath = join(tempDir, "tsconfig.json");
   const baseConfigFile = TSCONFIG_FILES[scope];
   const toProjectPathPattern = (pattern: string) => isAbsolute(pattern) ? pattern : join(projectRoot, pattern);
@@ -248,7 +169,7 @@ async function createScopeFilteredTsconfig(
     extends: join(projectRoot, baseConfigFile),
     include: scopeConfig.filePatterns.map(toProjectPathPattern),
     exclude: scopeConfig.excludePatterns.map(toProjectPathPattern),
-    compilerOptions: createTemporaryCompilerOptions(scope, projectRoot, deps),
+    compilerOptions: TEMPORARY_TSCONFIG_COMPILER_OPTIONS,
   };
 
   deps.writeFileSync(configPath, JSON.stringify(tempConfig, null, 2));
