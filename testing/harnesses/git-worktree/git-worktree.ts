@@ -12,8 +12,8 @@ import {
 } from "@testing/harnesses/git-test-constants";
 
 const TEMP_DIR_PREFIX = "spx-git-worktree-";
+const SUBMODULE_TEMP_DIR_PREFIX = "spx-git-worktree-submodule-";
 const GLOBAL_EXCLUDES_FILENAME = ".git-global-excludes";
-const SUBMODULES_TEMP_DIRECTORY = ".git-submodules";
 const GITIGNORE_FILENAME = ".gitignore";
 export const INFO_EXCLUDE_RELATIVE_PATH = ".git/info/exclude";
 const CORE_EXCLUDES_FILE_KEY = "core.excludesFile";
@@ -44,6 +44,7 @@ export async function withGitWorktreeEnv(
   const productDir = join(tmpdir(), `${TEMP_DIR_PREFIX}${randomUUID()}`);
   await mkdir(productDir, { recursive: true });
 
+  const innerRepoTempDirs: string[] = [];
   const captured = captureAndStripProcessGitEnv();
 
   let callbackError: unknown;
@@ -58,18 +59,22 @@ export async function withGitWorktreeEnv(
       [GIT_TEST_SUBCOMMANDS.CONFIG, GIT_TEST_CONFIG.USER_NAME_KEY, GIT_TEST_CONFIG.USER_NAME],
     );
 
-    const env: GitWorktreeEnv = buildEnv(productDir);
+    const env: GitWorktreeEnv = buildEnv(productDir, innerRepoTempDirs);
     await callback(env);
   } catch (error) {
     callbackError = error;
     callbackThrew = true;
   } finally {
     restoreProcessGitEnv(captured);
-    try {
-      await rm(productDir, { recursive: true, force: true });
-    } catch (error) {
-      cleanupError = error;
-      cleanupFailed = true;
+    for (const dir of [productDir, ...innerRepoTempDirs]) {
+      try {
+        await rm(dir, { recursive: true, force: true });
+      } catch (error) {
+        if (!cleanupFailed) {
+          cleanupError = error;
+          cleanupFailed = true;
+        }
+      }
     }
   }
   if (callbackThrew) {
@@ -80,7 +85,7 @@ export async function withGitWorktreeEnv(
   }
 }
 
-function buildEnv(productDir: string): GitWorktreeEnv {
+function buildEnv(productDir: string, innerRepoTempDirs: string[]): GitWorktreeEnv {
   return {
     productDir,
     writeTracked: async (relativePath, content) => {
@@ -106,7 +111,7 @@ function buildEnv(productDir: string): GitWorktreeEnv {
       await runGit(productDir, [GIT_TEST_SUBCOMMANDS.CONFIG, CORE_EXCLUDES_FILE_KEY, excludesPath]);
     },
     addSubmodule: async (relativePath) => {
-      await addLocalSubmodule(productDir, relativePath);
+      await addLocalSubmodule(productDir, relativePath, innerRepoTempDirs);
     },
     commit: async (message) => {
       await runGit(productDir, [GIT_TEST_SUBCOMMANDS.COMMIT, GIT_TEST_FLAGS.COMMIT_MESSAGE, message]);
@@ -123,8 +128,13 @@ async function writeUnderProductDir(productDir: string, relativePath: string, co
   await writeFile(absolute, content);
 }
 
-async function addLocalSubmodule(productDir: string, relativePath: string): Promise<void> {
-  const innerRepoDir = join(productDir, SUBMODULES_TEMP_DIRECTORY, randomUUID());
+async function addLocalSubmodule(
+  productDir: string,
+  relativePath: string,
+  innerRepoTempDirs: string[],
+): Promise<void> {
+  const innerRepoDir = join(tmpdir(), `${SUBMODULE_TEMP_DIR_PREFIX}${randomUUID()}`);
+  innerRepoTempDirs.push(innerRepoDir);
   await mkdir(innerRepoDir, { recursive: true });
   await runGit(innerRepoDir, [GIT_TEST_SUBCOMMANDS.INIT]);
   await runGit(innerRepoDir, [GIT_TEST_SUBCOMMANDS.CONFIG, GIT_TEST_CONFIG.EMAIL_KEY, GIT_TEST_CONFIG.EMAIL]);
