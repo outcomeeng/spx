@@ -24,7 +24,7 @@ describe("withGitWorktreeEnv — startup", () => {
 });
 
 describe("withGitWorktreeEnv — cleanup", () => {
-  it("removes productDir and restores every prior GIT_* value after the callback returns normally", async () => {
+  it("removes productDir and restores GIT_CONFIG_GLOBAL after the callback returns normally", async () => {
     const priorGitConfigGlobal = process.env.GIT_CONFIG_GLOBAL;
     let observedProductDir = "";
 
@@ -36,7 +36,7 @@ describe("withGitWorktreeEnv — cleanup", () => {
     expect(process.env.GIT_CONFIG_GLOBAL).toBe(priorGitConfigGlobal);
   });
 
-  it("removes productDir, restores every prior GIT_* value, and rethrows when the callback throws", async () => {
+  it("removes productDir, restores GIT_CONFIG_GLOBAL, and rethrows when the callback throws", async () => {
     const priorGitConfigGlobal = process.env.GIT_CONFIG_GLOBAL;
     let observedProductDir = "";
     const thrownError = new Error("intentional callback failure");
