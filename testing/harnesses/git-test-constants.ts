@@ -53,10 +53,14 @@ const TEST_TYPESCRIPT_EXECUTION_ARGS = ["exec", "tsx", "--input-type=module", "-
 
 export type GitTestEnvironmentOverrides = Readonly<Record<string, string>>;
 
+export const GITHUB_ACTIONS_REPORTER_TRIGGER_KEY = "GITHUB_ACTIONS";
+
 export function cleanGitTestEnvironment(env: NodeJS.ProcessEnv = process.env): NodeJS.ProcessEnv {
   const cleaned = withoutGitEnvironment(env);
   // Fixture repositories should not inherit a developer's global identity or hooks.
   cleaned.GIT_CONFIG_GLOBAL = "/dev/null";
+  // vitest activates its GitHub-Actions reporter on GITHUB_ACTIONS=true; strip it so subprocess runs do not post annotations to the parent CI run.
+  delete cleaned[GITHUB_ACTIONS_REPORTER_TRIGGER_KEY];
   return cleaned;
 }
 
