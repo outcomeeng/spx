@@ -178,12 +178,12 @@ Treat PR-level comments as authoritative review surfaces. This product rarely re
 Create PRs as drafts, then let `/spec-tree:managing-pr` drive the loop: inspect all review surfaces, classify findings, sync to base when needed, fix `BLOCKING` and `DEBT`, record accepted `FOLLOW-UP`, rerun the local closure gate before pushing, refresh the heartbeat, and evaluate the PR authority gate.
 
 ```bash
-pr_url="$(gh pr create --title "$title" --body "$body" --base main --head "$branch")"
+pr_url="$(gh pr create --draft --title "$title" --body "$body" --base main --head "$branch")"
 pr_number="${pr_url##*/}"
 ```
 
 ```bash
-gh pr view "$pr_number" --comments
+gh pr view "$pr_number" --json reviews,comments
 # Replace {organization}/{repo} by the actual organization and repository names
 gh api "repos/{organization}/{repo}/pulls/${pr_number}/comments" --paginate
 gh api "repos/{organization}/{repo}/issues/${pr_number}/comments" --paginate
