@@ -59,10 +59,7 @@ export function cleanGitTestEnvironment(env: NodeJS.ProcessEnv = process.env): N
   const cleaned = withoutGitEnvironment(env);
   // Fixture repositories should not inherit a developer's global identity or hooks.
   cleaned.GIT_CONFIG_GLOBAL = "/dev/null";
-  // Subprocess test runners spawned through this env (e.g. vitest under lefthook in withGitEnv)
-  // must not post annotations to the parent GitHub Actions run; vitest's GitHub-Actions reporter
-  // activates on GITHUB_ACTIONS=true, so deleting the variable at the subprocess boundary
-  // disables the reporter without affecting git, lefthook, or any consumer that does not read it.
+  // vitest activates its GitHub-Actions reporter on GITHUB_ACTIONS=true; strip it so subprocess runs do not post annotations to the parent CI run.
   delete cleaned[GITHUB_ACTIONS_REPORTER_TRIGGER_KEY];
   return cleaned;
 }
