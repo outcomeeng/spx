@@ -42,6 +42,8 @@ export const GIT_TEST_CONFIG = {
 } as const;
 
 export const GIT_TEST_ENVIRONMENT_KEYS = {
+  AUTHOR_NAME: "GIT_AUTHOR_NAME",
+  COMMITTER_EMAIL: "GIT_COMMITTER_EMAIL",
   DIR: "GIT_DIR",
   WORK_TREE: "GIT_WORK_TREE",
 } as const;
