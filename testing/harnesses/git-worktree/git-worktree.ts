@@ -1,7 +1,4 @@
-/**
- * Git-worktree test harness — callback-scoped temp git repository with isolated identity,
- * write helpers for every git ignore source, submodule support, and process.env restoration.
- */
+// Git-worktree test harness — callback-scoped temp git repo with isolated identity, helpers for every git ignore source, submodule support, and process.env GIT_* strip-and-restore.
 import { randomUUID } from "node:crypto";
 import { mkdir, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
@@ -62,7 +59,11 @@ export async function withGitWorktreeEnv(
     await callback(env);
   } finally {
     restoreProcessGitEnv(captured);
-    await rm(productDir, { recursive: true, force: true });
+    try {
+      await rm(productDir, { recursive: true, force: true });
+    } catch {
+      // Swallow cleanup errors so the original callback error always propagates.
+    }
   }
 }
 
@@ -88,8 +89,7 @@ function buildEnv(productDir: string): GitWorktreeEnv {
     configureGlobalExcludes: async (content) => {
       const excludesPath = join(productDir, GLOBAL_EXCLUDES_FILENAME);
       await writeFile(excludesPath, content);
-      // core.excludesFile applies at any config level; setting it locally is the simplest
-      // mechanism that avoids process.env.GIT_CONFIG_GLOBAL mutation across the harness scope.
+      // core.excludesFile applies at any config level; local config avoids GIT_CONFIG_GLOBAL mutation across the harness scope.
       await runGit(productDir, [GIT_TEST_SUBCOMMANDS.CONFIG, CORE_EXCLUDES_FILE_KEY, excludesPath]);
     },
     addSubmodule: async (relativePath) => {
