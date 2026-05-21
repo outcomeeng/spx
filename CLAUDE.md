@@ -183,10 +183,10 @@ pr_number="${pr_url##*/}"
 ```
 
 ```bash
+gh pr checks "$pr_number"
 gh pr view "$pr_number" --json reviews,comments
 # Replace {organization}/{repo} by the actual organization and repository names
 gh api "repos/{organization}/{repo}/pulls/${pr_number}/comments" --paginate
-gh api "repos/{organization}/{repo}/issues/${pr_number}/comments" --paginate
 ```
 
 Do not wait through shell polling, `sleep`, `gh pr checks --watch`, or workflow-run watchers. When checks or reviews need time, create or refresh the one heartbeat for the PR and re-enter `/spec-tree:managing-pr` on the next fire.
