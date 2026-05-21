@@ -20,7 +20,7 @@ This decision governs the API shape of the git-worktree test harness in `testing
 4. Builds an `env` object containing `{ productDir, writeTracked, writeUntracked, writeGitignore, writeInfoExclude, configureGlobalExcludes, addSubmodule, commit, runGit }` and invokes `callback(env)`.
 5. In a `finally` block, restores every captured `GIT_*` value (including unsetting variables that were absent before invocation), removes the temp `productDir`, and rethrows any caller error unchanged.
 
-Every git invocation made by the harness flows through `runGit` and `readGit` from `git-test-constants.ts`. Those primitives pass `extendEnv: false` together with `buildGitTestEnvironment()`, which routes through `cleanGitTestEnvironment` and `withoutGitEnvironment`.
+Every git invocation made by the harness flows through `runGit` and `readGit` from `git-test-constants.ts`. Those primitives internally invoke `buildGitTestEnvironment()` with `extendEnv: false`, which routes through `cleanGitTestEnvironment` and `withoutGitEnvironment`.
 
 Helpers operate as follows:
 
@@ -81,7 +81,7 @@ One module under `testing/harnesses/git-worktree/` exports `withGitWorktreeEnv` 
 ### MUST
 
 - `withGitWorktreeEnv(callback)` is the sole entry point — a single async factory function, not a class, not a method on another module ([review])
-- The harness consumes `runGit`, `readGit`, `buildGitTestEnvironment`, and the `GIT_TEST_CONFIG` / `GIT_TEST_SUBCOMMANDS` constants from `testing/harnesses/git-test-constants.ts` — git subprocess invocation logic is not duplicated inside the harness module ([review])
+- The harness consumes `runGit` and `readGit` (which internally invoke `buildGitTestEnvironment`) and the `GIT_TEST_CONFIG` / `GIT_TEST_SUBCOMMANDS` constants from `testing/harnesses/git-test-constants.ts` — git subprocess invocation logic is not duplicated inside the harness module ([review])
 - Cleanup runs in a `finally` block around the callback invocation — guaranteed on both return and throw paths ([review])
 - Every `GIT_*` variable is stripped from `process.env` for the duration of the callback; every captured value is restored in the `finally` block, including unsetting variables that were absent before invocation ([review])
 - The env object is a plain record of helpers — no mutable state, no private handles, no class instances ([review])
