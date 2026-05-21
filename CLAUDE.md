@@ -163,27 +163,23 @@ Run the right local gate before publishing. Use `spx validation markdown` for ma
 
 ### PR review guidance
 
-[REVIEW.md](REVIEW.md) is the canonical guidance for PR reviews. Automated and human reviewers must classify findings by required receiver action using only `BLOCKING`, `NEEDS-ANSWER`, `FOLLOW-UP`, and `NOTE`.
+`/spec-tree:managing-pr` is the active PR-loop workflow for PR reviews. Automated and human reviewers classify findings by required receiver action using only `BLOCKING`, `DEBT`, and `FOLLOW-UP`.
 
-`BLOCKING` and `NEEDS-ANSWER` are the only finding classes that enter the active PR loop. `FOLLOW-UP` items must name the owning tracking location when retention is useful. `NOTE` items are optional and should be omitted when they add noise.
+`BLOCKING` and `DEBT` enter the active PR loop and must be fixed in the same PR. `FOLLOW-UP` items must name the owning tracking location when retention is useful.
+
+Treat PR-level comments as authoritative review surfaces. This product rarely receives inline review-thread comments, and many PRs receive none. A reviewer comment posted in the PR conversation with `BLOCKING`, `DEBT`, or `FOLLOW-UP` findings is a review for the managing-PR gate even when the formal review list and inline review-thread list are empty. Still inspect all three surfaces on every PR pass:
+
+- Formal reviews and PR-level comments via `gh pr view <pr-number> --json reviews,comments`
+- Inline review-thread comments via `gh api repos/{organization}/{repo}/pulls/<pr-number>/comments --paginate`
+- Check results via `gh pr checks <pr-number>` and the PR `statusCheckRollup`
 
 ### Executing PR workflow
 
-Use this `gh` sequence for the normal review loop:
+Create PRs as drafts, then let `/spec-tree:managing-pr` drive the loop: inspect all review surfaces, classify findings, sync to base when needed, fix `BLOCKING` and `DEBT`, record accepted `FOLLOW-UP`, rerun the local closure gate before pushing, refresh the heartbeat, and evaluate the PR authority gate.
 
 ```bash
 pr_url="$(gh pr create --title "$title" --body "$body" --base main --head "$branch")"
 pr_number="${pr_url##*/}"
-```
-
-```bash
-# Always wait 3min first
-deadline=$((SECONDS + 180))
-while (( SECONDS < deadline )); do
-  gh pr checks "$pr_number"
-  gh pr view "$pr_number" --json comments,reviews,reviewDecision,statusCheckRollup
-  sleep 15
-done
 ```
 
 ```bash
@@ -193,7 +189,7 @@ gh api "repos/{organization}/{repo}/pulls/${pr_number}/comments" --paginate
 gh api "repos/{organization}/{repo}/issues/${pr_number}/comments" --paginate
 ```
 
-Use `gh pr checks "$pr_number" --watch --interval 10` when waiting for CI to finish and no other local work can proceed. Use the explicit three-minute loop above when waiting for PR reviews, because it keeps returning inspectable state and naturally stops after the review window.
+Do not wait through shell polling, `sleep`, `gh pr checks --watch`, or workflow-run watchers. When checks or reviews need time, create or refresh the one heartbeat for the PR and re-enter `/spec-tree:managing-pr` on the next fire.
 
 ### Ask for adversarial PR audit
 
@@ -202,9 +198,8 @@ Ask the PR reviewers for adversarial auditing of all architecture, security-sens
 ### Treat PR review findings by receiver action
 
 - Fix `BLOCKING` findings in the same PR, rerun the focused tests and `spx validation all`, then update the PR.
-- Answer `NEEDS-ANSWER` findings in the PR. If the answer proves the concern affects merge safety, convert the item to `BLOCKING` handling.
+- Fix `DEBT` findings in the same PR, rerun the focused tests and `spx validation all`, then update the PR.
 - Record retained `FOLLOW-UP` findings in the owning spec tree node's `ISSUES.md` or `PLAN.md` with evidence, impact, and resolution and Markdown links to all involved files and specs.
-- Treat `NOTE` findings as context only. Do not create work from a `NOTE`.
 - Findings that expose weak evidence require a test rearchitecture using the `/typescript:testing-typescript` skill before merge.
 
 ### Merge discipline
