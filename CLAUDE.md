@@ -193,7 +193,7 @@ Do not wait through shell polling, `sleep`, `gh pr checks --watch`, or workflow-
 
 ### Ask for adversarial PR audit
 
-Ask the PR reviewers for adversarial auditing of all architecture, security-sensitive workflows, deployment and publishing paths, and any PR that changes production behavior. Set yourself a reminder to check on the PR reviews after 3 minutes. In the meantime, continue with non-blocking local work or merge only when the user explicitly asked for no review wait.
+Ask the PR reviewers for adversarial auditing of all architecture, security-sensitive workflows, deployment and publishing paths, and any PR that changes production behavior. When checks or reviews need time, create or refresh the heartbeat for the PR and re-enter `/spec-tree:managing-pr` on the next fire. Continue with non-blocking local work while the heartbeat owns the wait.
 
 ### Treat PR review findings by receiver action
 
