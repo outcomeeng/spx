@@ -1,4 +1,3 @@
-// Git-worktree test harness — callback-scoped temp git repo with isolated identity, helpers for every git ignore source, submodule support, and process.env GIT_* strip-and-restore.
 import { randomUUID } from "node:crypto";
 import { mkdir, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
@@ -47,6 +46,10 @@ export async function withGitWorktreeEnv(
 
   const captured = captureAndStripProcessGitEnv();
 
+  let callbackError: unknown;
+  let callbackThrew = false;
+  let cleanupError: unknown;
+  let cleanupFailed = false;
   try {
     await runGit(productDir, [GIT_TEST_SUBCOMMANDS.INIT]);
     await runGit(productDir, [GIT_TEST_SUBCOMMANDS.CONFIG, GIT_TEST_CONFIG.EMAIL_KEY, GIT_TEST_CONFIG.EMAIL]);
@@ -57,13 +60,23 @@ export async function withGitWorktreeEnv(
 
     const env: GitWorktreeEnv = buildEnv(productDir);
     await callback(env);
+  } catch (error) {
+    callbackError = error;
+    callbackThrew = true;
   } finally {
     restoreProcessGitEnv(captured);
     try {
       await rm(productDir, { recursive: true, force: true });
-    } catch {
-      // Swallow cleanup errors so the original callback error always propagates.
+    } catch (error) {
+      cleanupError = error;
+      cleanupFailed = true;
     }
+  }
+  if (callbackThrew) {
+    throw callbackError;
+  }
+  if (cleanupFailed) {
+    throw cleanupError;
   }
 }
 
