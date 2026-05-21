@@ -63,6 +63,23 @@ describe("withGitWorktreeEnv — safety and GIT_* isolation", () => {
       }
     });
 
+    it("restores every set GIT_* variable to its sentinel value after the callback throws", async () => {
+      const thrownError = new Error("intentional safety-compliance throw");
+
+      await expect(
+        withGitWorktreeEnv(async () => {
+          for (const key of gitEnvKeys) {
+            expect(process.env[key]).toBeUndefined();
+          }
+          throw thrownError;
+        }),
+      ).rejects.toBe(thrownError);
+
+      for (const key of gitEnvKeys) {
+        expect(process.env[key]).toBe(sentinelValues.get(key));
+      }
+    });
+
     it("stripped GIT_DIR routes harness git invocations to productDir even when the caller set a bogus value", async () => {
       await withGitWorktreeEnv(async (env) => {
         const insideWorktree = await readGit(env.productDir, [
