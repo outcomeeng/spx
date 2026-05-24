@@ -11,7 +11,6 @@ import {
   LITERAL_SKIP_OUTPUT,
   VALIDATION_COMMAND_OUTPUT,
   VALIDATION_EXIT_CODES,
-  VALIDATION_PIPELINE,
   VALIDATION_STAGE_DISPLAY_NAMES,
   VALIDATION_STEP_DURATION_PATTERN,
   VALIDATION_STEP_LINE_PATTERN,
@@ -24,6 +23,7 @@ import {
   validationOptionPrefix,
 } from "@/domains/validation";
 import { TSCONFIG_FILES } from "@/validation/config/scope";
+import { VALIDATION_PIPELINE_TOTAL_STEPS } from "@/validation/registry";
 import { arbitraryDomainLiteral } from "@testing/generators/literal/literal";
 import { type FixtureName, HARNESS_TIMEOUT, PROJECT_FIXTURES } from "@testing/harnesses/with-validation-env";
 
@@ -142,10 +142,10 @@ export const VALIDATION_PIPELINE_DATA = {
   pythonExpectedChildren: new Set(["lint", "type-check", "ast-enforcement"]),
   allTimeout: PIPELINE_SUBPROCESS_TIMEOUT_MS,
   repeatedRunTimeout: PIPELINE_SUBPROCESS_TIMEOUT_MS * 2,
-  totalSteps: VALIDATION_PIPELINE.TOTAL_STEPS,
+  totalSteps: VALIDATION_PIPELINE_TOTAL_STEPS,
   stepLinePattern: VALIDATION_STEP_LINE_PATTERN,
   stepDurationPattern: VALIDATION_STEP_DURATION_PATTERN,
-  expectedStepNumbers: [1, 2, 3, 4, 5, 6],
+  expectedStepNumbers: Array.from({ length: VALIDATION_PIPELINE_TOTAL_STEPS }, (_, index) => index + 1),
   stepsIndependentOfTypeScript: [1, 2, 3, 5, 6],
   outputLineSeparator: OUTPUT_LINE_SEPARATOR,
   stageNames: VALIDATION_STAGE_DISPLAY_NAMES,

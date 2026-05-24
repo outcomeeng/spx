@@ -1,8 +1,10 @@
 import { describe, expect, it } from "vitest";
 
+import { markdownValidationLanguage } from "@/validation/languages/markdown";
+import { typescriptValidationLanguage } from "@/validation/languages/typescript";
 import { validationRegistry } from "@/validation/registry";
 
-describe("validation language registry — ADR-19 compliance", () => {
+describe("validation language registry composition", () => {
   it("exposes language descriptors with at least one named, callable stage each", () => {
     expect(validationRegistry.languages.length).toBeGreaterThan(0);
     for (const language of validationRegistry.languages) {
@@ -10,21 +12,19 @@ describe("validation language registry — ADR-19 compliance", () => {
       expect(language.stages.length).toBeGreaterThan(0);
       for (const stage of language.stages) {
         expect(stage.name.length).toBeGreaterThan(0);
-        expect(typeof stage.run).toBe("function");
+        expect(stage.run).toBeInstanceOf(Function);
       }
     }
   });
 
-  it("registers explicit typescript and markdown descriptors per spx/19-language-registration.adr.md", () => {
-    const names = validationRegistry.languages.map((language) => language.name);
-    expect(new Set(names)).toEqual(new Set(["typescript", "markdown"]));
+  it("registers exactly the explicitly imported typescript and markdown descriptors per spx/19-language-registration.adr.md", () => {
+    expect(validationRegistry.languages).toEqual([typescriptValidationLanguage, markdownValidationLanguage]);
   });
 
   it("total stage count is derived from the registry rather than a hardcoded pipeline constant", () => {
     const totalStagesFromRegistry = validationRegistry.languages.flatMap((language) => language.stages).length;
-    // The spec mapping in spx/41-validation.enabler/validation.md asserts:
-    //   TypeScript has 5 stages (lint, type check, AST enforcement, circular dep, literal reuse)
-    //   plus 1 markdown stage = 6 total
+    // TypeScript contributes 5 stages (circular deps, unused code, lint, type
+    // check, literal reuse) and markdown contributes 1 = 6 total.
     const expectedFromSpecMapping = 5 + 1;
     expect(totalStagesFromRegistry).toBe(expectedFromSpecMapping);
   });

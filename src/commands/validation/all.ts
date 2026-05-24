@@ -1,27 +1,13 @@
 /**
  * Run all validations command.
  *
- * Executes all validation steps in sequence:
- * 1. Circular dependencies (fastest)
- * 2. Knip (optional)
- * 3. ESLint
- * 4. TypeScript
- * 5. Markdown
- * 6. Literal reuse
+ * Iterates the language registry, executing each composed validation stage in
+ * registry order and reporting every stage's result. Stage participation and
+ * step count derive entirely from the registry — no stage is dispatched by name.
  */
-import { circularCommand } from "./circular";
+import { VALIDATION_PIPELINE_TOTAL_STEPS, validationPipelineStages } from "@/validation/registry";
 import { formatDuration, formatSummary } from "./format";
-import { knipCommand } from "./knip";
-import { lintCommand } from "./lint";
-import { literalCommand } from "./literal";
-import { markdownCommand } from "./markdown";
-import { LITERAL_SKIP_JSON_OUTPUT, LITERAL_SKIP_OUTPUT, VALIDATION_PIPELINE } from "./messages";
 import type { AllCommandOptions, ValidationCommandResult } from "./types";
-import { typescriptCommand } from "./typescript";
-
-/** Total number of validation steps */
-const TOTAL_STEPS = VALIDATION_PIPELINE.TOTAL_STEPS;
-export { LITERAL_SKIP_JSON_OUTPUT, LITERAL_SKIP_OUTPUT };
 
 /**
  * Format step output with step number and timing.
@@ -39,7 +25,7 @@ function formatStepWithTiming(
   if (quiet || !result.output) return "";
 
   const timing = result.durationMs === undefined ? "" : ` (${formatDuration(result.durationMs)})`;
-  return `[${stepNumber}/${TOTAL_STEPS}] ${result.output}${timing}`;
+  return `[${stepNumber}/${VALIDATION_PIPELINE_TOTAL_STEPS}] ${result.output}${timing}`;
 }
 
 /**
@@ -54,44 +40,16 @@ export async function allCommand(options: AllCommandOptions): Promise<Validation
   const outputs: string[] = [];
   let hasFailure = false;
 
-  // 1. Circular dependencies
-  const circularResult = await circularCommand({ cwd, quiet, json });
-  const circularOutput = formatStepWithTiming(1, circularResult, quiet);
-  if (circularOutput) outputs.push(circularOutput);
-  if (circularResult.exitCode !== 0) hasFailure = true;
+  const context = { cwd, scope, files, fix, quiet, json, skipLiteral };
 
-  // 2. Knip (optional - skip on failure, it's informational)
-  const knipResult = await knipCommand({ cwd, quiet, json });
-  const knipOutput = formatStepWithTiming(2, knipResult, quiet);
-  if (knipOutput) outputs.push(knipOutput);
-  // Don't fail on knip - it's optional
-
-  // 3. ESLint
-  const lintResult = await lintCommand({ cwd, scope, files, fix, quiet, json });
-  const lintOutput = formatStepWithTiming(3, lintResult, quiet);
-  if (lintOutput) outputs.push(lintOutput);
-  if (lintResult.exitCode !== 0) hasFailure = true;
-
-  // 4. TypeScript
-  const tsResult = await typescriptCommand({ cwd, scope, files, quiet, json });
-  const tsOutput = formatStepWithTiming(4, tsResult, quiet);
-  if (tsOutput) outputs.push(tsOutput);
-  if (tsResult.exitCode !== 0) hasFailure = true;
-
-  // 5. Markdown
-  const markdownResult = await markdownCommand({ cwd, files, quiet });
-  const markdownOutput = formatStepWithTiming(5, markdownResult, quiet);
-  if (markdownOutput) outputs.push(markdownOutput);
-  if (markdownResult.exitCode !== 0) hasFailure = true;
-
-  // 6. Literal reuse
-  const literalSkipOutput = json ? LITERAL_SKIP_JSON_OUTPUT : LITERAL_SKIP_OUTPUT;
-  const literalResult = skipLiteral
-    ? { exitCode: 0, output: quiet ? "" : literalSkipOutput }
-    : await literalCommand({ cwd, files, quiet, json });
-  const literalOutput = formatStepWithTiming(6, literalResult, quiet);
-  if (literalOutput) outputs.push(literalOutput);
-  if (literalResult.exitCode !== 0) hasFailure = true;
+  let stepNumber = 0;
+  for (const stage of validationPipelineStages) {
+    stepNumber += 1;
+    const result = await stage.run(context);
+    const stepOutput = formatStepWithTiming(stepNumber, result, quiet);
+    if (stepOutput) outputs.push(stepOutput);
+    if (stage.failsPipeline && result.exitCode !== 0) hasFailure = true;
+  }
 
   // Calculate total duration
   const totalDurationMs = Date.now() - startTime;

@@ -1,8 +1,9 @@
 import type { RuleTester } from "eslint";
 
-import { VALIDATION_EXIT_CODES, VALIDATION_PIPELINE } from "@/commands/validation/messages";
+import { VALIDATION_EXIT_CODES } from "@/commands/validation/messages";
 import { SESSION_FRONT_MATTER } from "@/domains/session/types";
 import { NODE_KINDS, SPEC_TREE_NODE_STATE } from "@/lib/spec-tree/config";
+import { VALIDATION_PIPELINE_TOTAL_STEPS } from "@/validation/registry";
 import { ASYNC_SPAWN_OUTSIDE_LIFECYCLE_MESSAGE_ID } from "@eslint-rules/no-async-spawn-outside-lifecycle";
 import {
   BARE_STRING_UNION_MESSAGE_ID,
@@ -214,7 +215,7 @@ export const VALIDATION_ESLINT_EXPECTED = {
   noDiagnostics: ZERO_DIAGNOSTICS,
   singleDiagnostic: SINGLE_DIAGNOSTIC,
   doubleDiagnostics: DOUBLE_DIAGNOSTIC,
-  totalPipelineSteps: VALIDATION_PIPELINE.TOTAL_STEPS,
+  totalPipelineSteps: VALIDATION_PIPELINE_TOTAL_STEPS,
   successExitCode: VALIDATION_EXIT_CODES.SUCCESS,
   failureExitCode: VALIDATION_EXIT_CODES.FAILURE,
   errorSeverity: ERROR_SEVERITY,
