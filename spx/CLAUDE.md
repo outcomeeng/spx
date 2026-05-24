@@ -2,7 +2,7 @@
 
 This guide explains the `spx/` directory structure and how to work with specification trees.
 
-Spec tree management is handled by the **spec-tree** Claude Code plugin (`outcomeeng/claude/plugins/spec-tree`). Use its skills for all spec operations:
+Spec tree management is handled by the **spec-tree** Claude Code plugin (`outcomeeng/plugins/plugins/spec-tree`). Use its skills for all spec operations:
 
 | Skill                        | Purpose                                                        |
 | ---------------------------- | -------------------------------------------------------------- |
@@ -15,7 +15,7 @@ Spec tree management is handled by the **spec-tree** Claude Code plugin (`outcom
 | `/spec-tree:aligning`        | Review for gaps, contradictions, and consistency               |
 | `/spec-tree:opening-pr`      | Open draft PRs with branch hygiene and review-loop setup       |
 
-Additional skills ship with the plugin and are invoked by name: `applying`, `committing-changes`, `interviewing`, `auditing-tests`, `auditing-product-decisions`, `handing-off`, `picking-up`, `refocusing`, `bootstrapping`. See `outcomeeng/claude/plugins/spec-tree/skills/` for the full list.
+Additional skills ship with the plugin and are invoked by name: `applying`, `committing-changes`, `interviewing`, `auditing-tests`, `auditing-product-decisions`, `handing-off`, `picking-up`, `refocusing`, `bootstrapping`. See `outcomeeng/plugins/plugins/spec-tree/skills/` for the full list.
 
 ## Structure Overview
 

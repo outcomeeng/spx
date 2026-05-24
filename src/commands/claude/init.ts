@@ -21,7 +21,7 @@ export interface InitOptions {
  *
  * Behavior:
  * 1. Check if outcomeeng marketplace exists via `claude plugin marketplace list`
- * 2. If missing: shell `claude plugin marketplace add outcomeeng/claude`
+ * 2. If missing: shell `claude plugin marketplace add outcomeeng/plugins`
  * 3. If exists: shell `claude plugin marketplace update outcomeeng`
  * 4. Parse output and return status message
  *
@@ -57,7 +57,7 @@ export async function initCommand(
       // Add marketplace
       await execa(
         "claude",
-        ["plugin", "marketplace", "add", "outcomeeng/claude"],
+        ["plugin", "marketplace", "add", "outcomeeng/plugins"],
         { cwd },
       );
 
