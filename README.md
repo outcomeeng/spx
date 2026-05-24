@@ -62,15 +62,13 @@ All validation commands support `--quiet` for CI and `--json` for machine-readab
 Manage work sessions for agent handoffs and task queuing:
 
 ```bash
-# Create a handoff session (reads content with frontmatter from stdin)
-cat << 'EOF' | spx session handoff
----
-priority: high
-goal: Implement change X
-next_step: Run the focused validation
----
-# Implement change X
-EOF
+# Create a handoff session (JSON header at start of stdin, then body bytes verbatim)
+printf '%s\n' \
+  '{"priority":"high","goal":"Implement change X","next_step":"Run the focused validation","specs":[],"files":[]}' \
+  '# Implement change X' \
+  '' \
+  'Body text — `#`, `---`, and code fences are literal because the body is not parsed.' \
+  | spx session handoff
 
 # List all sessions
 spx session list
