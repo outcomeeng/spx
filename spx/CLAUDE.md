@@ -201,4 +201,4 @@ Claude Code session handoffs are stored in `.spx/sessions/` (separate from spec 
 └── archive/       # Completed sessions
 ```
 
-Use `spx session handoff` to create and `spx session pickup` to claim (see the top-level `CLAUDE.md` for full CLI usage). The `/spec-tree:handing-off` and `/spec-tree:picking-up` skills drive the same lifecycle from within a conversation.
+Use `spx session handoff` to create and `spx session pickup` to claim (see `spx session --help` for full CLI usage). The `/spec-tree:handing-off` and `/spec-tree:picking-up` skills drive the same lifecycle from within a conversation.
