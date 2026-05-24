@@ -14,3 +14,9 @@
 - Evidence: `eslint-rules/no-hardcoded-session-frontmatter-keys.ts` monitors frontmatter key literals including `id`, `branch`, `result`, and `files`, while the compliance fixtures do not include non-frontmatter uses of those common strings in session-scoped files.
 - Impact: future edits can make the rule noisy by flagging ordinary identifier-like strings as frontmatter violations, or weaken the rule while preserving only the existing happy-path fixtures.
 - Resolution: add compliance fixture coverage for monitored ubiquitous tokens used outside frontmatter-key call sites before changing the frontmatter-key rule again.
+
+## Scenario regressions for YAML-significant characters in specs/files arrays
+
+- Evidence: `spx/36-session.enabler/43-session-store.enabler/tests/session-store.scenario.l1.test.ts` carries bug-report regressions for `#` in `goal`, `#` in `next_step`, and `:` in `next_step`, but no dedicated scenario regression documents the `specs` / `files` array round-trip for YAML-significant characters like `>`, `|`, or `{`. The `arbitraryHandoffHeader` property test covers the input domain (any unicode string in array entries), so the round-trip behavior is asserted, but a future failure shrinks through fast-check rather than landing on a named scenario.
+- Impact: a regression that affects only `specs` / `files` (and not `goal` / `next_step`) would surface as a property-test counterexample without a debug-pinpoint scenario; the named scenarios for `#` and `:` in `goal` / `next_step` are easier to triage when a single field's encoding regresses.
+- Resolution: add explicit scenarios under `describe("handoffCommand with real filesystem", ...)` exercising `specs: [">", "|", "{"]` and `files: [">", "|", "{"]` round-trip when this node is next touched.
