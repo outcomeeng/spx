@@ -84,6 +84,7 @@ describe("session CLI compliance", () => {
     const gitCwd = await createGitCwd();
     let omitsGoal: { stdout: string; stderr: string; exitCode: number };
     let legacyYaml: { stdout: string; stderr: string; exitCode: number };
+    let malformedJson: { stdout: string; stderr: string; exitCode: number };
     try {
       // JSON header that omits goal — semantic-content error per
       // 76-session-cli.enabler/session-cli.md.
@@ -99,6 +100,14 @@ describe("session CLI compliance", () => {
         "---\npriority: high\ngoal: Legacy shape\nnext_step: Should reject\n---\n# Body",
         gitCwd,
       );
+
+      // JSON header that opens with `{` but is not parseable — structural
+      // wire-format error.
+      malformedJson = await runSpx(
+        ["session", "handoff", "--sessions-dir", harness.sessionsDir],
+        `{"priority":"high","goal":"oops"`,
+        gitCwd,
+      );
     } finally {
       await rm(gitCwd, { recursive: true, force: true });
     }
@@ -108,6 +117,9 @@ describe("session CLI compliance", () => {
 
     expect(legacyYaml.exitCode).toBe(1);
     expect(legacyYaml.stderr).toContain("SessionLegacyFrontmatterInputError");
+
+    expect(malformedJson.exitCode).toBe(1);
+    expect(malformedJson.stderr).toContain("SessionInvalidJsonHeaderError");
 
     const sessionId = "2026-01-10_10-00-00";
     await harness.writeSession(TODO, sessionId);
