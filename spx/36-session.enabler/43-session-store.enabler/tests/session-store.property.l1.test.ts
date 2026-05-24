@@ -53,7 +53,10 @@ describe("handoff round-trip property", () => {
       await fc.assert(
         fc.asyncProperty(
           arbitraryHandoffHeader(),
-          fc.string(),
+          // Body must be non-empty so the `onDisk.endsWith(body)` check is
+          // falsifiable — `''.endsWith('')` is vacuously true regardless of
+          // what the implementation writes after the YAML frontmatter.
+          fc.string({ minLength: 1 }),
           async (header, body) => {
             const stdin = buildHandoffStdin(header, body);
 
