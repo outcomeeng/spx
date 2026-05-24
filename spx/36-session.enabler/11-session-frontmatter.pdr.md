@@ -27,6 +27,8 @@ Every session file carries the canonical frontmatter shape declared in this PDR.
 | `specs`            | string[] | Optional list of file paths for auto-injection on pickup                                                                       | `[]`                                                                           | -                                                                                        |
 | `files`            | string[] | Optional list of file paths for auto-injection on pickup                                                                       | `[]`                                                                           | -                                                                                        |
 
+`spx session handoff` accepts caller-supplied structured fields as a JSON object at the start of stdin, followed by the body as the remaining bytes verbatim. The on-disk frontmatter format remains YAML. Input opening with the YAML-frontmatter delimiter is rejected with `SessionLegacyFrontmatterInputError`.
+
 ## Rationale
 
 Goal, next_step, and result form the resume cycle: the handing-off agent declares why this session exists (`goal`) and what to do first (`next_step`); the claiming agent records what it accomplished (`result`) before archiving. A future agent reading `.spx/sessions/archive/` sees a readable history of completed work in one place, not scattered across markdown bodies of variable shape.
@@ -42,6 +44,8 @@ The `result` field is populated by direct edit of the session file under `.spx/s
 Tags are absent from the shape. The structured fields above serve every coordination use case tags would carry.
 
 The auto-injection arrays (`specs`, `files`) default to `[]` rather than `undefined` so consumers iterate uniformly. Auto-injection itself is governed by `spx/36-session.enabler/21-auto-injection.adr.md`.
+
+JSON is the input wire format because every caller-supplied string scalar is unambiguously quoted by definition — there is no plain-scalar mode, no comment syntax, and no leading-character ambiguity. The on-disk format remains YAML so markdown-aware tools fold the frontmatter on render and human edits of the `result` field use YAML block scalars. The wire format is the format in which agents construct input; the on-disk format is the format in which humans and tools read sessions; the two need not be the same.
 
 Alternatives considered:
 
@@ -66,6 +70,8 @@ Alternatives considered:
 - `spx session archive` refuses any session with an empty or absent `result` — the archive directory is a log of completed work, not a graveyard of unfinished sessions
 - `spx session pickup` of a session this PDR governs reveals which worktree and branch produced the work — the agent resumes in the right working copy without inferring from the body
 - A session whose frontmatter omits structured fields remains readable by every command — pickup, show, list, release tolerate missing structured fields and render them as empty
+- `spx session handoff` preserves every caller-supplied string field exactly — values containing any unicode codepoint round-trip identically from caller input to the parsed metadata of the written session file
+- `spx session handoff` rejects input opening with the YAML-frontmatter delimiter with a discoverable error — agents that emit the legacy shape receive a clear signal rather than silently truncated content
 
 ## Compliance
 
@@ -84,6 +90,7 @@ A session file written by `spx session handoff` contains a YAML frontmatter with
 - `spx session list`, `spx session show`, `spx session pickup`, and `spx session release` render missing structured fields as empty strings without rejecting the session — read tolerance keeps sessions whose frontmatter omits structured fields usable ([review])
 - The `worktree` value is the empty string when the working copy is the main checkout — for both non-worktree repositories and the main worktree of a multi-worktree repository the picker needs no worktree switch, so both cases share the same observable `worktree` semantic ([review])
 - `spx session handoff` writes every string-typed frontmatter field through YAML scalar quoting — `branch` and `worktree` (raw git output), `agent_session_id` (raw environment variable), `goal` and `next_step` (raw caller-supplied content), and `created_at` (formatted timestamp) all flow through the `yaml` package's `stringify` so values containing YAML-special characters (`:`, `{`, `}`, `#`, `|`, `\`, quotes, spaces, newlines) round-trip cleanly through `parseSessionMetadata` ([review])
+- `spx session handoff` accepts caller-supplied structured fields as a JSON object at the start of stdin and treats the bytes after the JSON object as the body verbatim — JSON quoting semantics preserve caller content without parse ambiguity ([review])
 
 ### NEVER
 
@@ -94,3 +101,4 @@ A session file written by `spx session handoff` contains a YAML frontmatter with
 - `spx session handoff` invents a value for `agent_session_id` when both environment variables are absent — the field is omitted, not populated with a placeholder ([review])
 - Any command embeds session lineage (`previous_session_id`, `previous_result`) in the frontmatter — each session carries its own goal/next_step/result ([review])
 - `spx session handoff` accepts caller-supplied `branch` or `worktree` values — both fields are sourced from git context regardless of frontmatter content ([review])
+- `spx session handoff` parses caller-supplied stdin as YAML — input opening with the YAML-frontmatter delimiter is rejected with `SessionLegacyFrontmatterInputError` ([review])
