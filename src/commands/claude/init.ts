@@ -23,6 +23,9 @@ export interface InitOptions {
  * 1. Check if outcomeeng marketplace exists via `claude plugin marketplace list`
  * 2. If missing: shell `claude plugin marketplace add outcomeeng/plugins`
  * 3. If exists: shell `claude plugin marketplace update outcomeeng`
+ *    (the marketplace registers under the org name "outcomeeng", so the
+ *     update command stays the same even if the source repo is renamed
+ *     within the org)
  * 4. Parse output and return status message
  *
  * @param options - Command options
