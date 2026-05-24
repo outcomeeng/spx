@@ -1,8 +1,11 @@
 /**
  * Session handoff CLI command handler.
  *
- * Creates a new session for handoff to another agent context.
- * Session fields should be included in the content as YAML frontmatter.
+ * Creates a new session for handoff to another agent context. Caller-supplied
+ * structured fields come from a JSON object at the start of stdin per
+ * `spx/36-session.enabler/11-session-frontmatter.pdr.md`; the body is the
+ * remaining bytes verbatim. The on-disk file format remains YAML frontmatter
+ * + markdown body, written through the `yaml` package's `stringify`.
  *
  * @module commands/session/handoff
  */
@@ -10,21 +13,18 @@
 import { mkdir, writeFile } from "node:fs/promises";
 import { join, resolve } from "node:path";
 
-import { preFillSessionContent } from "@/domains/session/create";
+import { stringify as stringifyYaml } from "yaml";
+
+import { SESSION_FRONT_MATTER_CLOSE, SESSION_FRONT_MATTER_OPEN } from "@/domains/session/create";
 import {
   SessionInvalidContentError,
   SessionInvalidGoalError,
   SessionInvalidNextStepError,
 } from "@/domains/session/errors";
-import { parseSessionMetadata } from "@/domains/session/list";
+import { parseHandoffInput } from "@/domains/session/parse-handoff-input";
 import { generateSessionId } from "@/domains/session/timestamp";
+import { SESSION_FRONT_MATTER } from "@/domains/session/types";
 import { detectSessionWorkContext, type GitDependencies, resolveSessionConfig } from "@/git/root";
-
-/**
- * Regex to detect YAML frontmatter presence.
- * Matches opening `---` at start of content.
- */
-const FRONT_MATTER_START = /^---\r?\n/;
 
 /**
  * Options for the handoff command.
@@ -41,61 +41,32 @@ export interface HandoffOptions {
 }
 
 /**
- * Checks if content has YAML frontmatter.
- *
- * @param content - Raw session content
- * @returns True if content starts with frontmatter delimiter
- */
-export function hasFrontmatter(content: string): boolean {
-  return FRONT_MATTER_START.test(content);
-}
-
-/**
- * Builds session content from stdin.
- *
- * @param content - Raw content from stdin
- * @returns Non-empty content ready for validation
- * @throws {SessionInvalidContentError} When content is empty
- */
-export function buildSessionContent(content: string | undefined): string {
-  if (!content || content.trim().length === 0) {
-    throw new SessionInvalidContentError("Session content cannot be empty");
-  }
-  return content;
-}
-
-function validateRequiredMetadata(content: string): void {
-  const metadata = parseSessionMetadata(content);
-  if (metadata.goal.trim().length === 0) {
-    throw new SessionInvalidGoalError();
-  }
-  if (metadata.next_step.trim().length === 0) {
-    throw new SessionInvalidNextStepError();
-  }
-}
-
-/**
  * Executes the handoff command.
  *
  * Creates a new session in the todo directory for pickup by another context.
- * Output includes `<HANDOFF_ID>` tag for easy parsing by automation tools.
+ * Output includes `<HANDOFF_ID>` and `<SESSION_FILE>` tags for parsing by
+ * automation tools.
  *
- * When no --sessions-dir is provided, sessions are created at the git repository root
- * (if in a git repo) to ensure consistent location across subdirectories.
+ * Caller-supplied structured fields come from a JSON object at the start of
+ * stdin; bytes after the JSON object form the markdown body verbatim. The
+ * CLI prefills `created_at` from the system clock, `branch` from
+ * `git rev-parse --abbrev-ref HEAD`, `worktree` from the relative path to
+ * the current worktree root, and `agent_session_id` from `$CLAUDE_SESSION_ID`
+ * (falling back to `$CODEX_THREAD_ID`).
  *
- * Required metadata should be included in the content as YAML frontmatter:
- * ```
- * ---
- * priority: high
- * goal: Fix login
- * next_step: Run validation
- * ---
- * # Session content...
- * ```
+ * Canonical invocation:
+ *
+ *   printf '%s\n' '{"priority":"high","goal":"...","next_step":"..."}' '# Body' | spx session handoff
  *
  * @param options - Command options
- * @returns Formatted output for display with parseable session ID
- * @throws {SessionInvalidContentError} When content validation fails
+ * @returns Output text with `<HANDOFF_ID>` and `<SESSION_FILE>` tags
+ * @throws {SessionInvalidContentError} When stdin is empty or whitespace-only
+ * @throws {SessionLegacyFrontmatterInputError} When stdin opens with `---\n`
+ * @throws {SessionInvalidJsonHeaderError} When the JSON header is malformed
+ *   or fails caller-field schema validation
+ * @throws {SessionInvalidGoalError} When the parsed `goal` is empty
+ * @throws {SessionInvalidNextStepError} When the parsed `next_step` is empty
+ * @throws {SessionDetachedHeadError} When git HEAD is detached
  */
 export async function handoffCommand(options: HandoffOptions): Promise<string> {
   const { config, warning } = await resolveSessionConfig({
@@ -104,34 +75,50 @@ export async function handoffCommand(options: HandoffOptions): Promise<string> {
     deps: options.deps,
   });
 
-  const baseContent = buildSessionContent(options.content);
+  const content = options.content;
+  if (content === undefined || content.trim().length === 0) {
+    throw new SessionInvalidContentError("Session content cannot be empty");
+  }
+
+  const { header, body } = parseHandoffInput(content);
+
   const workContext = await detectSessionWorkContext(options.cwd, options.deps);
 
-  // Generate session ID
+  if (header.goal.length === 0) {
+    throw new SessionInvalidGoalError();
+  }
+  if (header.next_step.length === 0) {
+    throw new SessionInvalidNextStepError();
+  }
+
   const sessionId = generateSessionId();
-
   const agentSessionId = process.env.CLAUDE_SESSION_ID ?? process.env.CODEX_THREAD_ID;
-  const fullContent = preFillSessionContent(baseContent, {
-    createdAt: new Date(),
-    agentSessionId,
-    branch: workContext.branch,
-    worktree: workContext.worktree,
-  });
+  const createdAt = new Date().toISOString();
 
-  validateRequiredMetadata(fullContent);
+  const frontMatterObject: Record<string, unknown> = {
+    [SESSION_FRONT_MATTER.PRIORITY]: header.priority,
+    [SESSION_FRONT_MATTER.CREATED_AT]: createdAt,
+    [SESSION_FRONT_MATTER.BRANCH]: workContext.branch,
+    [SESSION_FRONT_MATTER.WORKTREE]: workContext.worktree,
+    [SESSION_FRONT_MATTER.GOAL]: header.goal,
+    [SESSION_FRONT_MATTER.NEXT_STEP]: header.next_step,
+    [SESSION_FRONT_MATTER.SPECS]: [...header.specs],
+    [SESSION_FRONT_MATTER.FILES]: [...header.files],
+  };
+  if (agentSessionId !== undefined) {
+    frontMatterObject[SESSION_FRONT_MATTER.AGENT_SESSION_ID] = agentSessionId;
+  }
 
-  // Build path to session file
+  const yaml = stringifyYaml(frontMatterObject).trimEnd();
+  const fullContent = `${SESSION_FRONT_MATTER_OPEN}${yaml}${SESSION_FRONT_MATTER_CLOSE}${body}`;
+
   const filename = `${sessionId}.md`;
   const sessionPath = join(config.todoDir, filename);
   const absolutePath = resolve(sessionPath);
 
-  // Ensure directory exists
   await mkdir(config.todoDir, { recursive: true });
-
-  // Write file
   await writeFile(sessionPath, fullContent, "utf-8");
 
-  // Emit warning to stderr if not in git repo
   if (warning) {
     process.stderr.write(`${warning}\n`);
   }

@@ -82,19 +82,32 @@ describe("session CLI compliance", () => {
 
   it("ALWAYS: frontmatter validation diagnostics include error names", async () => {
     const gitCwd = await createGitCwd();
-    let handoff: { stdout: string; stderr: string; exitCode: number };
+    let omitsGoal: { stdout: string; stderr: string; exitCode: number };
+    let legacyYaml: { stdout: string; stderr: string; exitCode: number };
     try {
-      handoff = await runSpx(
+      // JSON header that omits goal — semantic-content error per
+      // 76-session-cli.enabler/session-cli.md.
+      omitsGoal = await runSpx(
         ["session", "handoff", "--sessions-dir", harness.sessionsDir],
-        "---\npriority: high\nnext_step: Run validation\n---\n# Session",
+        `{"priority":"high","next_step":"Run validation","specs":[],"files":[]}\n# Session`,
+        gitCwd,
+      );
+
+      // Stdin opening with the YAML-frontmatter delimiter — wire-format error.
+      legacyYaml = await runSpx(
+        ["session", "handoff", "--sessions-dir", harness.sessionsDir],
+        "---\npriority: high\ngoal: Legacy shape\nnext_step: Should reject\n---\n# Body",
         gitCwd,
       );
     } finally {
       await rm(gitCwd, { recursive: true, force: true });
     }
 
-    expect(handoff.exitCode).toBe(1);
-    expect(handoff.stderr).toContain("SessionInvalidGoalError");
+    expect(omitsGoal.exitCode).toBe(1);
+    expect(omitsGoal.stderr).toContain("SessionInvalidGoalError");
+
+    expect(legacyYaml.exitCode).toBe(1);
+    expect(legacyYaml.stderr).toContain("SessionLegacyFrontmatterInputError");
 
     const sessionId = "2026-01-10_10-00-00";
     await harness.writeSession(TODO, sessionId);
