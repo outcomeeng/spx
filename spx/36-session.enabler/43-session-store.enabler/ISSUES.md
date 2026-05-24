@@ -15,6 +15,12 @@
 - Impact: future edits can make the rule noisy by flagging ordinary identifier-like strings as frontmatter violations, or weaken the rule while preserving only the existing happy-path fixtures.
 - Resolution: add compliance fixture coverage for monitored ubiquitous tokens used outside frontmatter-key call sites before changing the frontmatter-key rule again.
 
+## CRLF separator between JSON header and body is not stripped
+
+- Evidence: `src/commands/session/parse-handoff-input.ts` separator-stripping logic tests only `NEWLINE_CHAR_CODE` (0x0A) at the body-start offset. A caller that emits a `\r\n` line terminator between the JSON header's closing `}` and the body — e.g., PowerShell `Write-Output`, a Windows-side shell, or a CRLF-normalising pipe — leaves the leading `\r` (0x0D) in `body`, which is then written verbatim to the session file. The current spec is silent on `\r\n` separators, so the implementation is internally consistent.
+- Impact: cross-platform behavior is unspecified — Windows callers piping through CRLF-normalising tools see a stray `\r` at the head of the body, surprising the "body bytes verbatim" expectation.
+- Resolution: extend PDR-11's input wire format clause to declare the separator semantics explicitly (either "single LF" with CRLF rejection, or "single LF or CRLF" with stripping). Then update `parseHandoffInput` to match the declared semantic and add a scenario test for the chosen behavior.
+
 ## Scenario regressions for YAML-significant characters in specs/files arrays
 
 - Evidence: `spx/36-session.enabler/43-session-store.enabler/tests/session-store.scenario.l1.test.ts` carries bug-report regressions for `#` in `goal`, `#` in `next_step`, and `:` in `next_step`, but no dedicated scenario regression documents the `specs` / `files` array round-trip for YAML-significant characters like `>`, `|`, or `{`, nor for empty-string entries that `fc.array(fc.string())` already generates inside the property test. The `arbitraryHandoffHeader` property test covers the input domain (any unicode string in array entries, including the empty string), so the round-trip behavior is asserted, but a future failure shrinks through fast-check rather than landing on a named scenario.
