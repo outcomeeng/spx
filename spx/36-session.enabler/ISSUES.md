@@ -53,3 +53,23 @@ Observed in PR review: https://github.com/outcomeeng/spx/pull/52#issuecomment-44
 Impact: session handoff pays two independent git round-trips serially before it can write a session file.
 
 Resolution condition: run the independent product-root and common-git-dir commands concurrently and preserve the existing error semantics for each failed command.
+
+## Bare numeric-prefix references in session-claim.md
+
+`spx/36-session.enabler/65-session-claim.enabler/session-claim.md` lines 25-26 reference the ADR as `per ADR 21-atomic-claiming` (bare numeric prefix plus slug). The Spec Tree convention is full paths from `spx/` in reference text — `per [spx/36-session.enabler/21-atomic-claiming.adr.md](../21-atomic-claiming.adr.md)`.
+
+Observed by `/spec-tree:aligning` during the JSON-prefix input contract rollout.
+
+Impact: text reference is ambiguous (numeric prefixes repeat under different parents); only the link target carries the unambiguous path.
+
+Resolution condition: rewrite both reference lines to full-path form in a separate PR scoped to reference-style cleanup; do not bundle with behavior changes.
+
+## ADR-32 stated path drifts from codebase reality
+
+`spx/36-session.enabler/32-domain-command-split.adr.md` Decision sentence reads "pure domain logic in `src/session/{concern}.ts` and I/O orchestration in `src/commands/session/{concern}.ts`." The codebase places domain logic at `src/domains/session/` (`src/domains/session/create.ts`, `src/domains/session/errors.ts`, `src/domains/session/list.ts`). The ADR's intent (pure logic in the domain layer) is honored; the literal path differs.
+
+Observed by `/typescript:auditing-typescript-architecture` during the JSON-prefix input contract rollout.
+
+Impact: ADR-32 reads as a literal path mandate, but the actual convention is `src/domains/session/`. New contributors reading ADR-32 may place files in `src/session/` and create true drift.
+
+Resolution condition: update ADR-32's Decision, Rationale, and Compliance sections to use `src/domains/session/` (the codebase reality) in a separate PR scoped to ADR-32 wording cleanup; do not bundle with behavior changes.
