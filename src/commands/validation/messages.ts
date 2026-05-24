@@ -3,10 +3,6 @@ export const VALIDATION_EXIT_CODES = {
   FAILURE: 1,
 } as const;
 
-export const VALIDATION_PIPELINE = {
-  TOTAL_STEPS: 6,
-} as const;
-
 export const VALIDATION_STAGE_DISPLAY_NAMES = {
   CIRCULAR: "Circular dependencies",
   KNIP: "Knip",
@@ -49,10 +45,9 @@ export const LITERAL_SKIP_JSON_OUTPUT = JSON.stringify({
   reason: VALIDATION_SKIP_LABELS.LITERAL_REASON,
 });
 
-export const VALIDATION_STEP_LINE_PATTERN = new RegExp(
-  String.raw`^\[(\d+)\/${VALIDATION_PIPELINE.TOTAL_STEPS}\]`,
-  "gm",
-);
+// Matches a pipeline step line `[N/M]`; the step count derives from the registry,
+// so the denominator is matched generically rather than pinned to a constant.
+export const VALIDATION_STEP_LINE_PATTERN = /^\[(\d+)\/(\d+)\]/gm;
 export const VALIDATION_STEP_DURATION_PATTERN = /\((\d+(?:\.\d+)?)(ms|s)\)\s*$/;
 
 export function formatTypeScriptAbsentSkipMessage(stageName: string): string {
