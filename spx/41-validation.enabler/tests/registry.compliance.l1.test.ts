@@ -23,8 +23,11 @@ describe("validation language registry composition", () => {
 
   it("total stage count is derived from the registry rather than a hardcoded pipeline constant", () => {
     const totalStagesFromRegistry = validationRegistry.languages.flatMap((language) => language.stages).length;
-    // TypeScript contributes 5 stages (circular deps, unused code, lint, type
-    // check, literal reuse) and markdown contributes 1 = 6 total.
+    // Independent oracle from the spec mapping in validation.md — TypeScript
+    // contributes 5 stages (circular deps, unused code, lint, type check,
+    // literal reuse) and markdown contributes 1. Deliberately NOT derived from
+    // the descriptors: deriving the expected count from the registry would make
+    // this assertion a tautology that no stage-count regression could fail.
     const expectedFromSpecMapping = 5 + 1;
     expect(totalStagesFromRegistry).toBe(expectedFromSpecMapping);
   });

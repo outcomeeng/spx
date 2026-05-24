@@ -23,7 +23,7 @@ import {
   validationOptionPrefix,
 } from "@/domains/validation";
 import { TSCONFIG_FILES } from "@/validation/config/scope";
-import { VALIDATION_PIPELINE_TOTAL_STEPS } from "@/validation/registry";
+import { VALIDATION_PIPELINE_TOTAL_STEPS, validationPipelineStages } from "@/validation/registry";
 import { arbitraryDomainLiteral } from "@testing/generators/literal/literal";
 import { type FixtureName, HARNESS_TIMEOUT, PROJECT_FIXTURES } from "@testing/harnesses/with-validation-env";
 
@@ -146,7 +146,14 @@ export const VALIDATION_PIPELINE_DATA = {
   stepLinePattern: VALIDATION_STEP_LINE_PATTERN,
   stepDurationPattern: VALIDATION_STEP_DURATION_PATTERN,
   expectedStepNumbers: Array.from({ length: VALIDATION_PIPELINE_TOTAL_STEPS }, (_, index) => index + 1),
-  stepsIndependentOfTypeScript: [1, 2, 3, 5, 6],
+  // Every pipeline step except the TypeScript type-check stage keeps its verdict
+  // when a type error is fixed. Derived from the registry by excluding that one
+  // stage, so inserting or reordering stages updates the set without staling a
+  // hardcoded index list.
+  stepsIndependentOfTypeScript: validationPipelineStages
+    .map((stage, index) => ({ stepNumber: index + 1, stageName: stage.name }))
+    .filter((step) => step.stageName !== VALIDATION_STAGE_DISPLAY_NAMES.TYPESCRIPT)
+    .map((step) => step.stepNumber),
   outputLineSeparator: OUTPUT_LINE_SEPARATOR,
   stageNames: VALIDATION_STAGE_DISPLAY_NAMES,
   exitCodes: VALIDATION_EXIT_CODES,
