@@ -31,8 +31,8 @@ import {
 
 import { extractSessionFile } from "./helpers";
 
-const PROPERTY_RUN_COUNT = 30;
-const TEST_TIMEOUT_MS = 30_000;
+const PROPERTY_RUN_COUNT = 100;
+const TEST_TIMEOUT_MS = 60_000;
 
 const PROPERTY_GIT_DEPS = createSessionGitDeps();
 
@@ -56,7 +56,9 @@ describe("handoff round-trip property", () => {
           // Body must be non-empty so the `onDisk.endsWith(body)` check is
           // falsifiable — `''.endsWith('')` is vacuously true regardless of
           // what the implementation writes after the YAML frontmatter.
-          fc.string({ minLength: 1 }),
+          // `unit: "binary"` covers the full Unicode range (0000-10FFFF) so
+          // the round-trip is exercised beyond BMP-only inputs.
+          fc.string({ unit: "binary", minLength: 1 }),
           async (header, body) => {
             const stdin = buildHandoffStdin(header, body);
 
