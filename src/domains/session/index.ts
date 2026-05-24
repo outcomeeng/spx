@@ -157,10 +157,12 @@ function registerSessionCommands(sessionCmd: Command): void {
     });
 
   // handoff command
-  // Metadata is read from stdin frontmatter so the command has no prompt-time options.
+  // Caller-supplied fields come from a JSON header at the start of stdin per
+  // spx/36-session.enabler/11-session-frontmatter.pdr.md; bytes after the
+  // header form the markdown body verbatim.
   sessionCmd
     .command("handoff")
-    .description("Create a handoff session (reads content with frontmatter from stdin)")
+    .description("Create a handoff session (reads JSON header + body from stdin)")
     .option("--sessions-dir <path>", "Custom sessions directory")
     .addHelpText("after", HANDOFF_FRONTMATTER_HELP)
     .action(async (options: { sessionsDir?: string }) => {

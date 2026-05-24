@@ -1,7 +1,12 @@
 import { handoffCommand } from "@/commands/session/handoff";
-import { SESSION_FRONT_MATTER } from "@/domains/session/types";
-import type { GitDependencies } from "@/git/root";
-import { createSessionHarness, SessionHarness } from "@testing/harnesses/session/harness";
+import { SessionLegacyFrontmatterInputError } from "@/domains/session/errors";
+import { SESSION_FRONT_MATTER, SESSION_PRIORITY } from "@/domains/session/types";
+import {
+  buildHandoffStdin,
+  createSessionGitDeps,
+  createSessionHarness,
+  SessionHarness,
+} from "@testing/harnesses/session/harness";
 import { readFile } from "node:fs/promises";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 
@@ -15,15 +20,7 @@ import { extractSessionFile, parseFrontMatter } from "./helpers";
 // ISO 8601 with timezone: YYYY-MM-DDTHH:mm:ss[.SSS](Z|±HH:MM)
 // Matches: 2026-01-13T10:00:00Z, 2026-01-13T10:00:00.000Z, 2026-01-13T10:00:00+00:00
 const ISO_8601_WITH_TIMEZONE_OFFSET = /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(?:\.\d+)?(?:Z|[+-]\d{2}:\d{2})$/;
-const COMPLIANCE_GIT_DEPS: GitDependencies = {
-  execa: async (_command, args) => {
-    const argText = args.join(" ");
-    if (argText.includes("--abbrev-ref")) return { exitCode: 0, stdout: "main", stderr: "" };
-    if (argText.includes("--show-toplevel")) return { exitCode: 0, stdout: "/repo", stderr: "" };
-    if (argText.includes("--git-common-dir")) return { exitCode: 0, stdout: "/repo/.git", stderr: "" };
-    return { exitCode: 1, stdout: "", stderr: "" };
-  },
-};
+const COMPLIANCE_GIT_DEPS = createSessionGitDeps();
 
 describe("session-store compliance — timestamp format", () => {
   let harness: SessionHarness;
@@ -37,8 +34,19 @@ describe("session-store compliance — timestamp format", () => {
   });
 
   it("ALWAYS: created_at in YAML front matter is ISO 8601 with timezone offset", async () => {
+    const stdin = buildHandoffStdin(
+      {
+        priority: SESSION_PRIORITY.MEDIUM,
+        goal: "Compliance check",
+        next_step: "Inspect created_at",
+        specs: [],
+        files: [],
+      },
+      "# Compliance test",
+    );
+
     const output = await handoffCommand({
-      content: `---\npriority: medium\ngoal: Compliance check\nnext_step: Inspect created_at\n---\n# Compliance test`,
+      content: stdin,
       sessionsDir: harness.sessionsDir,
       deps: COMPLIANCE_GIT_DEPS,
     });
@@ -46,6 +54,31 @@ describe("session-store compliance — timestamp format", () => {
 
     expect(frontMatter).toHaveProperty(SESSION_FRONT_MATTER.CREATED_AT);
     expect(frontMatter[SESSION_FRONT_MATTER.CREATED_AT]).toMatch(ISO_8601_WITH_TIMEZONE_OFFSET);
+  });
+});
+
+describe("session-store compliance — legacy YAML frontmatter input rejection", () => {
+  let harness: SessionHarness;
+
+  beforeEach(async () => {
+    harness = await createSessionHarness();
+  });
+
+  afterEach(async () => {
+    await harness.cleanup();
+  });
+
+  it("NEVER: handoff parses caller-supplied stdin as YAML — input opening with `---` is rejected", async () => {
+    // Well-formed legacy YAML frontmatter stdin that the previous wire-format would have accepted.
+    const legacyYamlStdin = "---\npriority: medium\ngoal: Legacy shape\nnext_step: Should reject\n---\n# Body";
+
+    await expect(
+      handoffCommand({
+        content: legacyYamlStdin,
+        sessionsDir: harness.sessionsDir,
+        deps: COMPLIANCE_GIT_DEPS,
+      }),
+    ).rejects.toBeInstanceOf(SessionLegacyFrontmatterInputError);
   });
 });
 

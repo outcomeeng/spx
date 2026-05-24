@@ -105,3 +105,42 @@ export class NoSessionsAvailableError extends SessionError {
     this.name = "NoSessionsAvailableError";
   }
 }
+
+/**
+ * Error thrown when handoff stdin opens with the legacy YAML-frontmatter
+ * delimiter.
+ *
+ * `spx session handoff` accepts caller-supplied structured fields as a JSON
+ * object at the start of stdin per `spx/36-session.enabler/11-session-frontmatter.pdr.md`.
+ * Input opening with `---\n` is the legacy wire format that destroys caller
+ * content for any string containing YAML-significant characters (`#`, `:` after
+ * a space, leading whitespace) and is rejected with this error.
+ */
+export class SessionLegacyFrontmatterInputError extends SessionError {
+  constructor() {
+    super(
+      "Invalid handoff input: stdin opens with the YAML-frontmatter delimiter `---`. "
+        + "Use the JSON-prefix wire format: a single JSON object holding caller-supplied "
+        + "fields followed by the body bytes verbatim. Example:\n\n"
+        + "  printf '%s\\n' '{\"priority\":\"high\",\"goal\":\"...\",\"next_step\":\"...\"}' '# Body' "
+        + "| spx session handoff",
+    );
+    this.name = "SessionLegacyFrontmatterInputError";
+  }
+}
+
+/**
+ * Error thrown when the JSON header at the start of handoff stdin is malformed
+ * or fails schema validation.
+ *
+ * Raised by `parseHandoffInput` when stdin does not open with `{`, the opening
+ * brace has no matching close, `JSON.parse` fails, or the parsed object does
+ * not satisfy the caller-field schema declared by
+ * `spx/36-session.enabler/11-session-frontmatter.pdr.md`.
+ */
+export class SessionInvalidJsonHeaderError extends SessionError {
+  constructor(reason: string) {
+    super(`Invalid JSON header for handoff: ${reason}`);
+    this.name = "SessionInvalidJsonHeaderError";
+  }
+}

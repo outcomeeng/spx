@@ -26,7 +26,7 @@ Session File Format:
   Session content...
 
 Workflow:
-  1. handoff  - Create session (todo)
+  1. handoff  - Create session (todo) — JSON header + body on stdin
   2. pickup   - Claim session (todo -> doing)
   3. release  - Return session (doing -> todo)
   4. archive  - Move session with a result to archive
@@ -34,39 +34,43 @@ Workflow:
 `;
 
 /**
- * Frontmatter details for handoff command.
+ * Input contract for the handoff command.
  */
 export const HANDOFF_FRONTMATTER_HELP = `
 Usage:
-  Pipe content with frontmatter via stdin
+  Pipe a JSON header followed by the body bytes to stdin.
 
-Frontmatter Format:
-  ---
-  priority: high      # high | medium | low (default: medium)
-  goal: Fix login     # required
-  next_step: Run validation  # required
-  specs: []           # optional pickup context
-  files: []           # optional pickup context
-  ---
-  # Your session content here...
+  The header is a single JSON object holding caller-supplied structured fields.
+  The body is the remaining bytes verbatim — no YAML, no escape rules, no
+  ambiguity from leading characters like '#' or '---'.
+
+JSON Header Fields:
+  priority    "high" | "medium" | "low" (default: medium)
+  goal        required, non-empty string
+  next_step   required, non-empty string
+  specs       optional string[], for pickup auto-injection
+  files       optional string[], for pickup auto-injection
 
 Prefilled by the CLI:
-  created_at, branch, worktree, agent_session_id when an agent session ID is available
+  created_at, branch, worktree, and agent_session_id when an agent session
+  ID is available.
 
 Before archive:
-  Add a non-empty result field to the frontmatter.
+  Edit the on-disk session file under .spx/sessions/doing/<id>.md and add a
+  non-empty 'result' field to the YAML frontmatter, then invoke
+  'spx session archive <id>'.
 
 Output Tags (for automation):
-  <HANDOFF_ID>session-id</HANDOFF_ID>     - Session identifier
-  <SESSION_FILE>/path/to/file</SESSION_FILE> - Absolute path to created file
+  <HANDOFF_ID>session-id</HANDOFF_ID>          Session identifier
+  <SESSION_FILE>/path/to/file</SESSION_FILE>   Absolute path to created file
 
-Examples:
-  echo '---
-  priority: high
-  goal: Fix login
-  next_step: Run validation
-  ---
-  # Fix login' | spx session handoff
+Canonical Invocation:
+  printf '%s\\n' \\
+    '{"priority":"high","goal":"Fix login","next_step":"Run validation","specs":[],"files":[]}' \\
+    '# Fix login' \\
+    '' \\
+    'Body text — # symbols, --- delimiters, and code fences are literal.' \\
+    | spx session handoff
 `;
 
 /**
