@@ -2,7 +2,7 @@
 
 ## Critical Rules
 
-- ⚠️ **NEVER answer ANY question without invoking at least one skill first** - If the question touches testing, specs, code, architecture, or any topic covered by a skill, invoke the relevant skill BEFORE answering. Skills are the authoritative source — not grep results, not existing files, not your training data. See skill table below.
+- ⚠️ **NEVER modify ANY file without invoking the required skills first** — If you are about to modify a file that touches specs, testing, code, architecture, or any topic covered by a skill (see `<skill_router>` below), invoke the relevant skill BEFORE modifying. Skills are the authoritative source — not grep results, not existing files, not your training data.
 - ⚠️ **NEVER write code without invoking a skill first** - See skill table below
 - ⚠️ **ALWAYS invoke `/spec-tree:applying` before implementing any spec-tree work item** - Applying is the orchestration skill for spec-tree TDD. It requires methodology/context loading, language-specific architecture, test, and implementation steps, plus blocking audit gates before the work can be treated as ready.
 - ⚠️ **NEVER commit spec-tree implementation or test changes without the applying audit gates** - For TypeScript work, `/spec-tree:applying` requires `/typescript:auditing-typescript-tests` before implementation and `/typescript:auditing-typescript` before claiming readiness. Green tests and `pnpm run validate` are necessary but not sufficient for code/test changes.
@@ -42,6 +42,8 @@
 
 The **spec-tree** plugin (`outcomeeng/plugins/plugins/spec-tree`) is the active system for managing specification trees. Core skills:
 
+<skill_router>
+
 | Skill                        | Purpose                                                        |
 | ---------------------------- | -------------------------------------------------------------- |
 | `/spec-tree:understanding`   | Load methodology foundation (node types, ordering, assertions) |
@@ -55,6 +57,8 @@ The **spec-tree** plugin (`outcomeeng/plugins/plugins/spec-tree`) is the active 
 | `/spec-tree:opening-pr`      | Open draft PRs with branch hygiene and review-loop setup       |
 
 Additional skills ship with the plugin and are invoked by name: `committing-changes`, `interviewing`, `auditing-tests`, `auditing-product-decisions`, `handing-off`, `picking-up`, `refocusing`, `bootstrapping`. See `outcomeeng/plugins/plugins/spec-tree/skills/` for the full list.
+
+</skill_router>
 
 ---
 
