@@ -17,7 +17,7 @@ describe("validation language registry composition", () => {
     }
   });
 
-  it("registers exactly the explicitly imported typescript and markdown descriptors per spx/19-language-registration.adr.md", () => {
+  it("registers exactly the explicitly imported typescript and markdown language descriptors", () => {
     expect(validationRegistry.languages).toEqual([typescriptValidationLanguage, markdownValidationLanguage]);
   });
 

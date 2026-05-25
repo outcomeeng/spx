@@ -285,6 +285,12 @@ function expectStepSequence(stdout: string): void {
   const stepMarkers = [...stdout.matchAll(VALIDATION_PIPELINE_DATA.stepLinePattern)];
   expect(stepMarkers).toHaveLength(VALIDATION_PIPELINE_DATA.totalSteps);
   expect(stepMarkers.map((match) => Number(match[1]))).toEqual(VALIDATION_PIPELINE_DATA.expectedStepNumbers);
+  // Every step line's denominator must equal the registry-derived step count,
+  // so a wrong denominator surfaced in CLI output (e.g. [1/5] while six stages
+  // run) fails rather than passing on step numbers alone.
+  expect(stepMarkers.map((match) => Number(match[2]))).toEqual(
+    VALIDATION_PIPELINE_DATA.expectedStepNumbers.map(() => VALIDATION_PIPELINE_DATA.totalSteps),
+  );
 }
 
 function extractStepOutcomes(stdout: string): Map<number, ValidationStepOutcome> {
