@@ -98,6 +98,7 @@ describe("generated paths parse through the filesystem read operation", () => {
           relativePath: path,
         });
         expect(entry?.type).toBe(SPEC_TREE_ENTRY_TYPE.NODE);
+        expect(entry?.id).toBe(path);
       }),
       { numRuns: 50 },
     );
@@ -111,6 +112,7 @@ describe("generated paths parse through the filesystem read operation", () => {
           relativePath: path,
         });
         expect(entry?.type).toBe(SPEC_TREE_ENTRY_TYPE.DECISION);
+        expect(entry?.id).toBe(path);
       }),
       { numRuns: 50 },
     );
