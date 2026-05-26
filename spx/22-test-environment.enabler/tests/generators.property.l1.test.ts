@@ -71,14 +71,21 @@ describe("arbitrarySpecTree — free-function form", () => {
   });
 });
 
-describe("free-function generators — shape parity", () => {
-  it("env-scoped and free-function generators produce values of the same shape", () => {
-    fc.assert(
-      fc.property(arbitraryNodePath(MINIMAL_SPEC_TREE_CONFIG), (free) => {
-        expect(hasRegisteredNodeSuffix(free)).toBe(true);
-      }),
-      { numRuns: 10 },
-    );
+describe("env-scoped and free-function generators — shape parity", () => {
+  it("env-scoped and free-function arbitraryNodePath both produce registered node-suffix paths", async () => {
+    await withTestEnv(MINIMAL_SPEC_TREE_CONFIG, async (env) => {
+      await fc.assert(
+        fc.asyncProperty(
+          env.arbitraryNodePath,
+          arbitraryNodePath(MINIMAL_SPEC_TREE_CONFIG),
+          async (scoped, free) => {
+            expect(hasRegisteredNodeSuffix(scoped)).toBe(true);
+            expect(hasRegisteredNodeSuffix(free)).toBe(true);
+          },
+        ),
+        { numRuns: 10 },
+      );
+    });
   });
 });
 
