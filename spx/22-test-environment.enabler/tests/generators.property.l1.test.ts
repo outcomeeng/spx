@@ -35,7 +35,7 @@ describe("arbitraryNodePath — free-function form", () => {
   it("generates paths whose trailing segment carries one of the Config's node suffixes", () => {
     fc.assert(
       fc.property(arbitraryNodePath(MINIMAL_SPEC_TREE_CONFIG), (path) => {
-        expect(path.endsWith("/") === false).toBe(true);
+        expect(path.endsWith("/")).toBe(false);
         expect(hasRegisteredNodeSuffix(path)).toBe(true);
       }),
       { numRuns: 50 },
