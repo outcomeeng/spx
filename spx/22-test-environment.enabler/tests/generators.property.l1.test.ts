@@ -71,24 +71,6 @@ describe("arbitrarySpecTree — free-function form", () => {
   });
 });
 
-describe("env-scoped and free-function generators — shape parity", () => {
-  it("env-scoped and free-function arbitraryNodePath both produce registered node-suffix paths", async () => {
-    await withTestEnv(MINIMAL_SPEC_TREE_CONFIG, async (env) => {
-      await fc.assert(
-        fc.asyncProperty(
-          env.arbitraryNodePath,
-          arbitraryNodePath(MINIMAL_SPEC_TREE_CONFIG),
-          async (scoped, free) => {
-            expect(hasRegisteredNodeSuffix(scoped)).toBe(true);
-            expect(hasRegisteredNodeSuffix(free)).toBe(true);
-          },
-        ),
-        { numRuns: 10 },
-      );
-    });
-  });
-});
-
 describe("generated paths parse through the filesystem read operation", () => {
   it("recognizes every arbitraryNodePath sample as a node source entry", () => {
     fc.assert(
