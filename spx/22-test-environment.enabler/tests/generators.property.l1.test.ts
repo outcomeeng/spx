@@ -107,7 +107,7 @@ describe("generated spec trees parse through readSpecTree", () => {
       fc.asyncProperty(arbitrarySpecTree(MINIMAL_SPEC_TREE_CONFIG), async (fixture) => {
         await withTestEnv(MINIMAL_SPEC_TREE_CONFIG, async (env) => {
           for (const entry of fixture.entries) {
-            if (hasRegisteredNodeSuffix(entry.path)) {
+            if (hasRegisteredNodeKind(entry.kind)) {
               await env.writeNode(`${SPEC_TREE_CONFIG.ROOT_DIRECTORY}/${entry.path}/node.md`, "# generated fixture\n");
             } else {
               await env.writeDecision(`${SPEC_TREE_CONFIG.ROOT_DIRECTORY}/${entry.path}`, "# generated fixture\n");
