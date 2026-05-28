@@ -6,7 +6,6 @@
     "spx/17-language-detection.enabler",
     "spx/17-language-detection.enabler/32-python.enabler",
     "spx/17-language-detection.enabler/32-typescript.enabler",
-    "spx/22-test-environment.enabler",
     "spx/23-spec-tree.enabler/54-spec-tree-assembly.enabler",
     "spx/36-audit.enabler",
     "spx/36-audit.enabler/21-audit-test-harness.enabler",
