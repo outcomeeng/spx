@@ -42,23 +42,21 @@ The API sketch is illustrative. The implementation pass owns the exact type name
 
 ## Remaining work
 
-- [ ] Replace direct `withTestEnv` usage in spec-tree and spec-domain tests when the assertion needs a current spec-tree shape.
-- [ ] Keep direct `withTestEnv` usage for primitive config/file tests that do not need a spec-tree fixture.
-- [ ] Move any reusable node-local fixture constants into top-level test infrastructure.
+- [x] Replace direct `withTestEnv` usage in spec-tree and spec-domain tests when the assertion needs a current spec-tree shape.
+- [x] Keep direct `withTestEnv` usage for primitive config/file tests that do not need a spec-tree fixture.
+- [x] Move any reusable node-local fixture constants into top-level test infrastructure.
 - [x] Remove deprecated fixture directories after current target tests no longer read them.
 - [x] Re-run the test-environment tests, `spx validation all`, and the full package test gate after the harness rename.
 
 ## Tracked Deferrals
 
-- [ ] Resolve the 5 warning-level `spx/no-test-owned-domain-constants` findings reported by `pnpm run validate` on May 12, 2026:
-  - `spx/22-test-environment.enabler/tests/generators.unit.test.ts`
-  - `spx/22-test-environment.enabler/tests/helpers.unit.test.ts`
+- [x] The `spx/no-test-owned-domain-constants` findings in the test-environment node are resolved: `pnpm run validate` reports zero, and `spx/22-test-environment.enabler` is removed from `eslint.test-owned-constant-debt-nodes.json`, so the rule enforces at error level for the node.
 
 ## Acceptance
 
-- [ ] No spec-tree test hand-writes a representative product/root/child/peer directory tree when `withSpecTreeEnv` can provide it.
+- [x] No spec-tree test hand-writes a representative product/root/child/peer directory tree when `withSpecTreeEnv` can provide it.
 - [x] No public test-environment API, spec assertion, or ADR prose uses legacy repository-root vocabulary.
-- [ ] Filesystem and in-memory fixture paths are generated from the same fixture model.
+- [x] Filesystem and in-memory fixture paths are generated from the same fixture model.
 - [x] Every materialized fixture is accepted by `readSpecTree`.
 - [x] Every helper that writes files remains constrained to the temp product directory.
 
