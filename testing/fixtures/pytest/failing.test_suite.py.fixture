@@ -1,0 +1,5 @@
+import spx_pytest_fixture_absent_module
+
+
+def test_python_runner_fixture_imports_missing_module():
+    assert spx_pytest_fixture_absent_module.value
