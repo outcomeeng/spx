@@ -29,7 +29,9 @@ export const PYTHON_PYTEST_IGNORE_FLAG_SUFFIX = "/";
 // pytest runs through `uv run` so the project's managed Python environment provides the tool;
 // pytest takes its rootdir, configuration, and environment from the command runner's working directory.
 const UV_COMMAND = "uv";
-const PYTEST_INVOKE_ARGS = ["run", "pytest"] as const;
+// Exported so a provisioning harness can locate the `pytest` command token structurally rather than
+// hardcoding its position when it splices an ephemeral `--with pytest`.
+export const PYTEST_INVOKE_ARGS = ["run", "pytest"] as const;
 
 function matchesTestFile(filePath: string): boolean {
   return basename(filePath).startsWith(PYTHON_TEST_FILE_PREFIX) && filePath.endsWith(PYTHON_TEST_FILE_EXTENSION);
