@@ -10,7 +10,7 @@ import { createSessionHarness, type SessionHarness } from "@testing/harnesses/se
 
 const [TODO, DOING, ARCHIVE] = SESSION_STATUSES;
 const CLI_ENTRY = join(process.cwd(), "bin/spx.js");
-const SESSION_FILE_TAG_PATTERN = /<SESSION_FILE>(.*)<\/SESSION_FILE>/;
+const SESSION_FILE_TAG_PATTERN = /<SESSION_FILE>(.*?)<\/SESSION_FILE>/;
 
 async function runSpx(
   args: readonly string[],
