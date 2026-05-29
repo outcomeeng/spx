@@ -30,6 +30,7 @@ export type TestingRunStateIncompleteReason =
   (typeof TESTING_RUN_STATE_INCOMPLETE_REASON)[keyof typeof TESTING_RUN_STATE_INCOMPLETE_REASON];
 
 export const TESTING_RUN_STATE_ERROR = {
+  INVALID_BRANCH_SLUG: "testing branch slug must be normalized before storage",
   RUN_DIRECTORY_COLLISION_LIMIT: "testing run directory collision limit exhausted",
   RUN_DIRECTORY_CREATE_FAILED: "testing run directory create failed",
   STATE_ALREADY_EXISTS: "testing run state already exists",
@@ -207,6 +208,17 @@ export function slugTestingBranchIdentity(branchIdentity: string, maxBytes?: num
     : slugAuditBranchIdentity(branchIdentity, maxBytes);
 }
 
+// A slug that `slugTestingBranchIdentity` produces: lowercase alphanumeric segments
+// joined by single hyphens. Storage and lookup reject anything else so an
+// unnormalized slug never reaches the filesystem, matching the audit branch guard.
+const BRANCH_SLUG_PATTERN = /^[a-z0-9]+(?:-[a-z0-9]+)*$/;
+
+function validateTestingBranchSlug(branchSlug: string): Result<string> {
+  return BRANCH_SLUG_PATTERN.test(branchSlug)
+    ? { ok: true, value: branchSlug }
+    : { ok: false, error: TESTING_RUN_STATE_ERROR.INVALID_BRANCH_SLUG };
+}
+
 export function formatTestRunTimestamp(date: Date): string {
   return formatAuditRunTimestamp(date);
 }
@@ -232,6 +244,8 @@ export async function createTestRunDirectory(
   branchSlug: string,
   options: CreateTestRunDirectoryOptions = {},
 ): Promise<Result<TestRunDirectory>> {
+  const validatedSlug = validateTestingBranchSlug(branchSlug);
+  if (!validatedSlug.ok) return validatedSlug;
   const fs = options.fs ?? defaultFileSystem;
   const storage = options.storage ?? DEFAULT_TESTING_STORAGE;
   const maxAttempts = options.maxAttempts ?? RUN_DIRECTORY_CREATE_ATTEMPTS;
@@ -299,6 +313,8 @@ export async function readTestingBranchRuns(
   branchSlug: string,
   options: ReadTestRunStateOptions = {},
 ): Promise<Result<TestingBranchRuns>> {
+  const validatedSlug = validateTestingBranchSlug(branchSlug);
+  if (!validatedSlug.ok) return validatedSlug;
   const fs = options.fs ?? defaultFileSystem;
   const storage = options.storage ?? DEFAULT_TESTING_STORAGE;
   const runsDir = testingRunsDir(gitCommonDirProductDir, branchSlug, storage);
