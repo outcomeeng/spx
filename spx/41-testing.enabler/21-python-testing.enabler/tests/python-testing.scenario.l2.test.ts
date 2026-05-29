@@ -9,9 +9,9 @@ import {
 
 describe("python test runner drives real pytest", () => {
   it("invokes pytest against a passing project and exits zero", async () => {
-    await withTempPytestProject(PYTEST_FIXTURE.PASSING, async (projectRoot) => {
+    await withTempPytestProject(PYTEST_FIXTURE.PASSING, async ({ projectRoot, suitePath }) => {
       const result = await pythonTestingLanguage.runTests(
-        { projectRoot, testPaths: [], excludedNodePaths: [] },
+        { projectRoot, testPaths: [suitePath], excludedNodePaths: [] },
         repoRootedPytestCommandRunner(projectRoot),
       );
 
@@ -21,9 +21,9 @@ describe("python test runner drives real pytest", () => {
   });
 
   it("invokes pytest against a project with a missing import and exits non-zero", async () => {
-    await withTempPytestProject(PYTEST_FIXTURE.FAILING, async (projectRoot) => {
+    await withTempPytestProject(PYTEST_FIXTURE.FAILING, async ({ projectRoot, suitePath }) => {
       const result = await pythonTestingLanguage.runTests(
-        { projectRoot, testPaths: [], excludedNodePaths: [] },
+        { projectRoot, testPaths: [suitePath], excludedNodePaths: [] },
         repoRootedPytestCommandRunner(projectRoot),
       );
 
