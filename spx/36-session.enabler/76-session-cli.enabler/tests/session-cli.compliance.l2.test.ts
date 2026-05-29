@@ -1,6 +1,6 @@
 import { execa } from "execa";
 import { existsSync } from "node:fs";
-import { mkdtemp, rm } from "node:fs/promises";
+import { mkdtemp, readFile, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
@@ -8,8 +8,9 @@ import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { SESSION_STATUSES } from "@/domains/session/types";
 import { createSessionHarness, type SessionHarness } from "@testing/harnesses/session/harness";
 
-const [TODO, , ARCHIVE] = SESSION_STATUSES;
+const [TODO, DOING, ARCHIVE] = SESSION_STATUSES;
 const CLI_ENTRY = join(process.cwd(), "bin/spx.js");
+const SESSION_FILE_TAG_PATTERN = /<SESSION_FILE>(.*)<\/SESSION_FILE>/;
 
 async function runSpx(
   args: readonly string[],
@@ -78,6 +79,50 @@ describe("session CLI compliance", () => {
 
     expect(result.exitCode).toBe(1);
     expect(existsSync(join(harness.statusDir(ARCHIVE), `${validId}.md`))).toBe(true);
+  });
+
+  it("NEVER: pickup drops IDs beyond the first", async () => {
+    const ids = ["2026-01-12_10-00-00", "2026-01-13_10-00-00"];
+    for (const id of ids) {
+      await harness.writeSession(TODO, id);
+    }
+
+    const result = await runSpx([
+      "session",
+      "pickup",
+      ...ids,
+      "--sessions-dir",
+      harness.sessionsDir,
+    ]);
+
+    expect(result.exitCode).toBe(0);
+    for (const id of ids) {
+      expect(existsSync(join(harness.statusDir(DOING), `${id}.md`))).toBe(true);
+      expect(result.stdout).toContain(`<PICKUP_ID>${id}</PICKUP_ID>`);
+    }
+  });
+
+  it("ALWAYS: handoff preserves body bytes after the JSON-prefix separator", async () => {
+    const gitCwd = await createGitCwd();
+    const body = "  # Body with edge whitespace  \n";
+    let result: { stdout: string; stderr: string; exitCode: number };
+    try {
+      result = await runSpx(
+        ["session", "handoff", "--sessions-dir", harness.sessionsDir],
+        `{"goal":"Preserve body","next_step":"Inspect session file"}\n${body}`,
+        gitCwd,
+      );
+    } finally {
+      await rm(gitCwd, { recursive: true, force: true });
+    }
+
+    const sessionFileMatch = result.stdout.match(SESSION_FILE_TAG_PATTERN);
+    expect(result.exitCode).toBe(0);
+    expect(sessionFileMatch).not.toBeNull();
+
+    const sessionFile = sessionFileMatch?.[1] ?? "";
+    const onDisk = await readFile(sessionFile, "utf-8");
+    expect(onDisk.endsWith(body)).toBe(true);
   });
 
   it("ALWAYS: frontmatter validation diagnostics include error names", async () => {

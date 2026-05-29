@@ -2,10 +2,10 @@
  * Session handoff CLI command handler.
  *
  * Creates a new session for handoff to another agent context. Caller-supplied
- * structured fields come from a JSON object at the start of stdin per
- * `spx/36-session.enabler/11-session-frontmatter.pdr.md`; the body is the
- * remaining bytes verbatim. The on-disk file format remains YAML frontmatter
- * + markdown body, written through the `yaml` package's `stringify`.
+ * structured fields come from a JSON object at the start of stdin; the body is
+ * the remaining bytes verbatim. The on-disk file format remains YAML
+ * frontmatter + markdown body, written through the `yaml` package's
+ * `stringify`.
  *
  * @module commands/session/handoff
  */

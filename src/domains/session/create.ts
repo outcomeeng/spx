@@ -3,8 +3,7 @@
  * `stringifySessionFrontMatter` writer used by `spx session handoff` and the
  * session test harness.
  *
- * The JSON-prefix input wire format declared by
- * `spx/36-session.enabler/11-session-frontmatter.pdr.md` is parsed by
+ * The JSON-prefix input wire format is parsed by
  * `src/domains/session/parse-handoff-input.ts`; this module is responsible
  * only for emitting the on-disk YAML frontmatter shape.
  *

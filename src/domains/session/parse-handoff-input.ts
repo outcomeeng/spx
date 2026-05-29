@@ -3,8 +3,8 @@
  *
  * The wire format is a single JSON object at the start of stdin holding
  * caller-supplied structured fields, immediately followed by the body bytes
- * verbatim. An optional single newline between the closing `}` and the body
- * is consumed as a separator.
+ * verbatim. An optional single LF or CRLF between the closing `}` and the
+ * body is consumed as a separator.
  *
  * @module domains/session/parse-handoff-input
  */
@@ -19,12 +19,15 @@ import {
 
 const LEGACY_FRONTMATTER_PREFIX = /^---\r?\n/;
 const JSON_OBJECT_OPEN_CHAR = "{";
+const CARRIAGE_RETURN_CHAR_CODE = "\r".charCodeAt(0);
 const NEWLINE_CHAR_CODE = "\n".charCodeAt(0);
 const BACKSLASH_CHAR_CODE = "\\".charCodeAt(0);
 const DOUBLE_QUOTE_CHAR_CODE = "\"".charCodeAt(0);
 const OPEN_BRACE_CHAR_CODE = "{".charCodeAt(0);
 const CLOSE_BRACE_CHAR_CODE = "}".charCodeAt(0);
 const UNBALANCED_HEADER_END = -1;
+const LF_SEPARATOR_LENGTH = 1;
+const CRLF_SEPARATOR_LENGTH = 2;
 
 const SESSION_PRIORITY_VALUES = new Set<string>(Object.values(SESSION_PRIORITY));
 
@@ -70,7 +73,7 @@ export interface ParsedHandoffInput {
  * 5. Validate the parsed object against the caller-field schema. Schema
  *    failures raise `SessionInvalidJsonHeaderError`.
  * 6. Return the parsed header and the body bytes after the closing `}` (with
- *    a single optional separator newline consumed).
+ *    a single optional `LF` or `CRLF` separator consumed).
  *
  * @param stdin - Raw stdin bytes
  * @returns Parsed header and body
@@ -107,12 +110,24 @@ export function parseHandoffInput(stdin: string): ParsedHandoffInput {
 
   const header = validateHandoffHeader(parsed);
 
-  let bodyStart = headerEnd + 1;
-  if (stdin.charCodeAt(bodyStart) === NEWLINE_CHAR_CODE) {
-    bodyStart += 1;
-  }
+  const bodyStart = consumeOptionalBodySeparator(stdin, headerEnd + 1);
 
   return { header, body: stdin.slice(bodyStart) };
+}
+
+function consumeOptionalBodySeparator(stdin: string, bodyStart: number): number {
+  if (
+    stdin.charCodeAt(bodyStart) === CARRIAGE_RETURN_CHAR_CODE
+    && stdin.charCodeAt(bodyStart + LF_SEPARATOR_LENGTH) === NEWLINE_CHAR_CODE
+  ) {
+    return bodyStart + CRLF_SEPARATOR_LENGTH;
+  }
+
+  if (stdin.charCodeAt(bodyStart) === NEWLINE_CHAR_CODE) {
+    return bodyStart + LF_SEPARATOR_LENGTH;
+  }
+
+  return bodyStart;
 }
 
 /**

@@ -7,6 +7,7 @@
 import { mkdir, readdir, readFile, rename } from "node:fs/promises";
 import { join } from "node:path";
 
+import { processBatch } from "@/domains/session/batch";
 import { NoSessionsAvailableError } from "@/domains/session/errors";
 import { parseSessionMetadata } from "@/domains/session/list";
 import { buildClaimPaths, classifyClaimError, selectBestSession } from "@/domains/session/pickup";
@@ -18,13 +19,14 @@ import { resolveSessionConfig } from "@/git/root";
 const PICKUP_SOURCE_STATUS: SessionStatus = SESSION_STATUSES[0]; // todo
 /** Status of sessions after being claimed. */
 const PICKUP_TARGET_STATUS: SessionStatus = SESSION_STATUSES[1]; // doing
+const SINGLE_SESSION_ID_COUNT = 1;
 
 /**
  * Options for the pickup command.
  */
 export interface PickupOptions {
-  /** Session ID to pickup (mutually exclusive with auto) */
-  sessionId?: string;
+  /** Session IDs to pickup. Empty array is valid only with auto. */
+  sessionIds: readonly string[];
   /** Auto-select highest priority session */
   auto?: boolean;
   /** Custom sessions directory */
@@ -65,23 +67,44 @@ async function loadTodoSessions(config: SessionDirectoryConfig): Promise<Session
 }
 
 /**
+ * Claims one session from the todo queue and moves it to doing.
+ */
+async function pickupSingle(sessionId: string, config: SessionDirectoryConfig): Promise<string> {
+  const paths = buildClaimPaths(sessionId, config);
+  await mkdir(config.doingDir, { recursive: true });
+
+  try {
+    await rename(paths.source, paths.target);
+  } catch (error) {
+    throw classifyClaimError(error, sessionId);
+  }
+
+  const content = await readFile(paths.target, "utf-8");
+  const output = formatShowOutput(content, { status: PICKUP_TARGET_STATUS });
+
+  return `Claimed session <PICKUP_ID>${sessionId}</PICKUP_ID>\n\n${output}`;
+}
+
+/**
  * Executes the pickup command.
  *
- * Claims a session from the todo queue and moves it to doing.
- * Output includes `<PICKUP_ID>` tag for easy parsing by automation tools.
+ * Claims one or more sessions from the todo queue and moves them to doing.
+ * Output includes one `<PICKUP_ID>` tag per claimed session for automation.
  *
  * @param options - Command options
- * @returns Formatted output for display with parseable session ID
+ * @returns Formatted output for display with parseable session IDs
  * @throws {NoSessionsAvailableError} When no sessions in todo for auto mode
- * @throws {SessionNotAvailableError} When session already claimed
+ * @throws {SessionNotAvailableError} When one or more sessions cannot be claimed
+ * @throws {BatchError} When one or more explicit IDs fail
  */
 export async function pickupCommand(options: PickupOptions): Promise<string> {
   const { config } = await resolveSessionConfig({ sessionsDir: options.sessionsDir });
 
-  let sessionId: string;
-
   if (options.auto) {
-    // Auto mode: select best session
+    if (options.sessionIds.length > 0) {
+      throw new Error("Session IDs cannot be combined with --auto");
+    }
+
     const sessions = await loadTodoSessions(config);
     const selected = selectBestSession(sessions);
 
@@ -89,28 +112,16 @@ export async function pickupCommand(options: PickupOptions): Promise<string> {
       throw new NoSessionsAvailableError();
     }
 
-    sessionId = selected.id;
-  } else if (options.sessionId) {
-    sessionId = options.sessionId;
-  } else {
+    return pickupSingle(selected.id, config);
+  }
+
+  if (options.sessionIds.length === 0) {
     throw new Error("Either session ID or --auto flag is required");
   }
 
-  // Build paths and ensure doing directory exists
-  const paths = buildClaimPaths(sessionId, config);
-  await mkdir(config.doingDir, { recursive: true });
-
-  // Perform atomic claim
-  try {
-    await rename(paths.source, paths.target);
-  } catch (error) {
-    throw classifyClaimError(error, sessionId);
+  if (options.sessionIds.length === SINGLE_SESSION_ID_COUNT) {
+    return pickupSingle(options.sessionIds[0], config);
   }
 
-  // Read and format content
-  const content = await readFile(paths.target, "utf-8");
-  const output = formatShowOutput(content, { status: PICKUP_TARGET_STATUS });
-
-  // Output with parseable PICKUP_ID tag
-  return `Claimed session <PICKUP_ID>${sessionId}</PICKUP_ID>\n\n${output}`;
+  return processBatch(options.sessionIds, (id) => pickupSingle(id, config));
 }

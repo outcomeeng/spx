@@ -36,7 +36,7 @@ async function readStdin(): Promise<string | undefined> {
       data += chunk;
     });
     process.stdin.on("end", () => {
-      resolve(data.trim() || undefined);
+      resolve(data.length === 0 ? undefined : data);
     });
     // Handle case where stdin closes without data
     process.stdin.on("error", () => {
@@ -117,19 +117,19 @@ function registerSessionCommands(sessionCmd: Command): void {
 
   // pickup command
   sessionCmd
-    .command("pickup [id]")
-    .description("Claim a session (move from todo to doing)")
+    .command("pickup [ids...]")
+    .description("Claim one or more sessions (move from todo to doing)")
     .option("--auto", "Auto-select highest priority session")
     .option("--sessions-dir <path>", "Custom sessions directory")
     .addHelpText("after", PICKUP_SELECTION_HELP)
-    .action(async (id: string | undefined, options: { auto?: boolean; sessionsDir?: string }) => {
+    .action(async (ids: string[], options: { auto?: boolean; sessionsDir?: string }) => {
       try {
-        if (!id && !options.auto) {
+        if (ids.length === 0 && !options.auto) {
           console.error("Error: Either session ID or --auto flag is required");
           process.exit(1);
         }
         const output = await pickupCommand({
-          sessionId: id,
+          sessionIds: ids,
           auto: options.auto,
           sessionsDir: options.sessionsDir,
         });
@@ -157,9 +157,8 @@ function registerSessionCommands(sessionCmd: Command): void {
     });
 
   // handoff command
-  // Caller-supplied fields come from a JSON header at the start of stdin per
-  // spx/36-session.enabler/11-session-frontmatter.pdr.md; bytes after the
-  // header form the markdown body verbatim.
+  // Caller-supplied fields come from a JSON header at the start of stdin;
+  // bytes after the header form the markdown body verbatim.
   sessionCmd
     .command("handoff")
     .description("Create a handoff session (reads JSON header + body from stdin)")

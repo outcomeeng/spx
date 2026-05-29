@@ -239,7 +239,7 @@ describe("pickupCommand with real filesystem", () => {
     await harness.writeSession(TODO, sessionId, { priority: SESSION_PRIORITY.HIGH });
 
     const output = await pickupCommand({
-      sessionId,
+      sessionIds: [sessionId],
       sessionsDir: harness.sessionsDir,
     });
 
@@ -256,6 +256,7 @@ describe("pickupCommand with real filesystem", () => {
     await harness.writeSession(TODO, highPrioritySessionId, { priority: SESSION_PRIORITY.HIGH });
 
     const output = await pickupCommand({
+      sessionIds: [],
       auto: true,
       sessionsDir: harness.sessionsDir,
     });
@@ -268,11 +269,11 @@ describe("pickupCommand with real filesystem", () => {
     await harness.writeSession(TODO, sessionId);
 
     // First pickup succeeds
-    await pickupCommand({ sessionId, sessionsDir: harness.sessionsDir });
+    await pickupCommand({ sessionIds: [sessionId], sessionsDir: harness.sessionsDir });
 
     // Second pickup fails
     await expect(
-      pickupCommand({ sessionId, sessionsDir: harness.sessionsDir }),
+      pickupCommand({ sessionIds: [sessionId], sessionsDir: harness.sessionsDir }),
     ).rejects.toThrow(SessionNotAvailableError);
   });
 });

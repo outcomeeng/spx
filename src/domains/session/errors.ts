@@ -111,7 +111,7 @@ export class NoSessionsAvailableError extends SessionError {
  * delimiter.
  *
  * `spx session handoff` accepts caller-supplied structured fields as a JSON
- * object at the start of stdin per `spx/36-session.enabler/11-session-frontmatter.pdr.md`.
+ * object at the start of stdin.
  * Input opening with `---\n` is the legacy wire format that destroys caller
  * content for any string containing YAML-significant characters (`#`, `:` after
  * a space, leading whitespace) and is rejected with this error.
@@ -135,8 +135,7 @@ export class SessionLegacyFrontmatterInputError extends SessionError {
  *
  * Raised by `parseHandoffInput` when stdin does not open with `{`, the opening
  * brace has no matching close, `JSON.parse` fails, or the parsed object does
- * not satisfy the caller-field schema declared by
- * `spx/36-session.enabler/11-session-frontmatter.pdr.md`.
+ * not satisfy the caller-field schema.
  */
 export class SessionInvalidJsonHeaderError extends SessionError {
   constructor(reason: string) {

@@ -38,7 +38,7 @@ describe("concurrent pickup atomicity (P1)", () => {
 
     // Launch concurrent pickups
     const results = await Promise.allSettled(
-      Array.from({ length: CONCURRENT_AGENTS }, () => pickupCommand({ sessionId, sessionsDir: harness.sessionsDir })),
+      Array.from({ length: CONCURRENT_AGENTS }, () => pickupCommand({ sessionIds: [sessionId], sessionsDir: harness.sessionsDir })),
     );
 
     const successes = results.filter((r) => r.status === "fulfilled");
@@ -61,7 +61,7 @@ describe("concurrent pickup atomicity (P1)", () => {
 
     // Launch concurrent auto-pickups (more agents than sessions)
     const results = await Promise.allSettled(
-      Array.from({ length: CONCURRENT_AGENTS }, () => pickupCommand({ auto: true, sessionsDir: harness.sessionsDir })),
+      Array.from({ length: CONCURRENT_AGENTS }, () => pickupCommand({ sessionIds: [], auto: true, sessionsDir: harness.sessionsDir })),
     );
 
     const successes = results.filter((r) => r.status === "fulfilled");
