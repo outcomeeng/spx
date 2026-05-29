@@ -27,7 +27,7 @@ Every session file carries the canonical frontmatter shape declared in this PDR.
 | `specs`            | string[] | Optional list of file paths for auto-injection on pickup                                                                       | `[]`                                                                           | -                                                                                        |
 | `files`            | string[] | Optional list of file paths for auto-injection on pickup                                                                       | `[]`                                                                           | -                                                                                        |
 
-`spx session handoff` accepts caller-supplied structured fields as a JSON object at the start of stdin, followed by the body as the remaining bytes verbatim. The on-disk frontmatter format remains YAML. Input opening with the YAML-frontmatter delimiter is rejected with `SessionLegacyFrontmatterInputError`.
+`spx session handoff` accepts caller-supplied structured fields as a JSON object at the start of stdin, followed by the body as the remaining bytes verbatim. A single `LF` or `CRLF` immediately after the JSON object's closing brace is consumed as a separator and is not part of the body. The on-disk frontmatter format remains YAML. Input opening with the YAML-frontmatter delimiter is rejected with `SessionLegacyFrontmatterInputError`.
 
 ## Rationale
 
@@ -45,7 +45,7 @@ Tags are absent from the shape. The structured fields above serve every coordina
 
 The auto-injection arrays (`specs`, `files`) default to `[]` rather than `undefined` so consumers iterate uniformly. Auto-injection itself is governed by `spx/36-session.enabler/21-auto-injection.adr.md`.
 
-JSON is the input wire format because every caller-supplied string scalar is unambiguously quoted by definition — there is no plain-scalar mode, no comment syntax, and no leading-character ambiguity. The on-disk format remains YAML so markdown-aware tools fold the frontmatter on render and human edits of the `result` field use YAML block scalars. The wire format is the format in which agents construct input; the on-disk format is the format in which humans and tools read sessions; the two need not be the same.
+JSON is the input wire format because every caller-supplied string scalar is unambiguously quoted by definition — there is no plain-scalar mode, no comment syntax, and no leading-character ambiguity. The optional separator accepts both `LF` and `CRLF` because shell pipelines on different platforms can normalize line endings before stdin reaches the CLI. The on-disk format remains YAML so markdown-aware tools fold the frontmatter on render and human edits of the `result` field use YAML block scalars. The wire format is the format in which agents construct input; the on-disk format is the format in which humans and tools read sessions; the two need not be the same.
 
 Alternatives considered:
 
@@ -90,7 +90,7 @@ A session file written by `spx session handoff` contains a YAML frontmatter with
 - `spx session list`, `spx session show`, `spx session pickup`, and `spx session release` render missing structured fields as empty strings without rejecting the session — read tolerance keeps sessions whose frontmatter omits structured fields usable ([review])
 - The `worktree` value is the empty string when the working copy is the main checkout — for both non-worktree repositories and the main worktree of a multi-worktree repository the picker needs no worktree switch, so both cases share the same observable `worktree` semantic ([review])
 - `spx session handoff` writes every string-typed frontmatter field through YAML scalar quoting — `branch` and `worktree` (raw git output), `agent_session_id` (raw environment variable), `goal` and `next_step` (raw caller-supplied content), and `created_at` (formatted timestamp) all flow through the `yaml` package's `stringify` so values containing YAML-special characters (`:`, `{`, `}`, `#`, `|`, `\`, quotes, spaces, newlines) round-trip cleanly through `parseSessionMetadata` ([review])
-- `spx session handoff` accepts caller-supplied structured fields as a JSON object at the start of stdin and treats the bytes after the JSON object as the body verbatim — JSON quoting semantics preserve caller content without parse ambiguity ([review])
+- `spx session handoff` accepts caller-supplied structured fields as a JSON object at the start of stdin, consumes at most one immediately following `LF` or `CRLF` separator, and treats the bytes after that separator as the body verbatim — JSON quoting semantics preserve caller content without parse ambiguity ([review])
 
 ### NEVER
 
