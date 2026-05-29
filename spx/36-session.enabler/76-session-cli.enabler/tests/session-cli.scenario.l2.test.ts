@@ -1,24 +1,3 @@
-/**
- * Unit tests for batch session operations.
- *
- * Test Level: 1 (Unit)
- * - Real filesystem via harness for archive/delete
- * - Pure output verification for show
- *
- * Assertions covered from session-cli.md:
- * - S1: archive 3 IDs → all 3 move
- * - S2: delete 3 IDs → all 3 removed
- * - S3: show 2 IDs → both printed with separators
- * - S4: archive 1 valid + 1 invalid → valid succeeds, invalid errors, exit non-zero
- * - S5: single ID → identical to current behavior
- * - S6: release 2 IDs in doing → both move to todo
- * - S7: release 1 valid + 1 invalid → valid released, invalid errors, exit non-zero
- * - Pickup 2 IDs in todo → both move to doing with parseable tags
- * - Pickup 1 valid + 1 invalid → valid claimed, invalid errors, exit non-zero
- * - P1: successes + errors = IDs count
- * - P2: processing order matches argument order
- */
-
 import { existsSync } from "node:fs";
 import { join } from "node:path";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
@@ -28,6 +7,7 @@ import { deleteCommand, SESSION_DELETE_OUTPUT } from "@/commands/session/delete"
 import { pickupCommand } from "@/commands/session/pickup";
 import { releaseCommand, SESSION_RELEASE_OUTPUT } from "@/commands/session/release";
 import { showCommand } from "@/commands/session/show";
+import { BatchError } from "@/domains/session/batch";
 import { SESSION_SHOW_LABEL } from "@/domains/session/show";
 import { SESSION_PRIORITY, SESSION_STATUSES } from "@/domains/session/types";
 import type { SessionHarness } from "@testing/harnesses/session/harness";
@@ -222,7 +202,7 @@ describe("batch pickup", () => {
         sessionIds: [validId, "nonexistent"],
         sessionsDir: harness.sessionsDir,
       }),
-    ).rejects.toThrow();
+    ).rejects.toThrow(BatchError);
 
     expect(existsSync(join(harness.statusDir(DOING), `${validId}.md`))).toBe(true);
     expect(existsSync(join(harness.statusDir(TODO), `${validId}.md`))).toBe(false);
