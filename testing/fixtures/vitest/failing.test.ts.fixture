@@ -1,0 +1,7 @@
+import { expect, test } from "vitest";
+
+import { missingExport } from "./does-not-exist";
+
+test("fixture suite fails on a missing import", () => {
+  expect(missingExport).toBe(true);
+});
