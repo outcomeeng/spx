@@ -6,6 +6,8 @@
  * injected command runner. Composing descriptors into a registry and dispatching
  * the `spx test` command are separate, higher-level concerns.
  */
+import { basename } from "node:path";
+
 import type {
   TestingLanguageDescriptor,
   TestRunInvocation,
@@ -29,17 +31,8 @@ export const PYTHON_PYTEST_IGNORE_FLAG_SUFFIX = "/";
 const UV_COMMAND = "uv";
 const PYTEST_INVOKE_ARGS = ["run", "pytest"] as const;
 
-const PATH_SEPARATOR = "/";
-const PATH_SEPARATOR_ABSENT = -1;
-
-function basename(filePath: string): string {
-  const lastSeparator = filePath.lastIndexOf(PATH_SEPARATOR);
-  return lastSeparator === PATH_SEPARATOR_ABSENT ? filePath : filePath.slice(lastSeparator + 1);
-}
-
 function matchesTestFile(filePath: string): boolean {
-  const fileName = basename(filePath);
-  return fileName.startsWith(PYTHON_TEST_FILE_PREFIX) && fileName.endsWith(PYTHON_TEST_FILE_EXTENSION);
+  return basename(filePath).startsWith(PYTHON_TEST_FILE_PREFIX) && filePath.endsWith(PYTHON_TEST_FILE_EXTENSION);
 }
 
 function excludeFlag(nodePath: string): string {
