@@ -1,0 +1,5 @@
+ignoredBuiltDependencies:
+  - esbuild
+  - lefthook
+overrides:
+  vite: 8.0.10
