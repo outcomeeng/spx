@@ -1,16 +1,20 @@
 import { execa } from "execa";
 import { existsSync } from "node:fs";
-import { mkdtemp, readFile, rm } from "node:fs/promises";
-import { tmpdir } from "node:os";
+import { readFile, readdir } from "node:fs/promises";
 import { join } from "node:path";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 
 import { SESSION_STATUSES } from "@/domains/session/types";
+import { SessionDetachedHeadError } from "@/git/errors";
+import { GIT_ROOT_COMMAND } from "@/git/root";
+import { GIT_TEST_FLAGS, GIT_TEST_SUBCOMMANDS } from "@testing/harnesses/git-test-constants";
+import { withGitWorktreeEnv } from "@testing/harnesses/git-worktree/git-worktree";
 import { createSessionHarness, type SessionHarness } from "@testing/harnesses/session/harness";
 
 const [TODO, DOING, ARCHIVE] = SESSION_STATUSES;
 const CLI_ENTRY = join(process.cwd(), "bin/spx.js");
 const SESSION_FILE_TAG_PATTERN = /<SESSION_FILE>(.*?)<\/SESSION_FILE>/;
+const GIT_FIXTURE_COMMIT_MESSAGE = "session cli fixture";
 
 async function runSpx(
   args: readonly string[],
@@ -25,13 +29,16 @@ async function runSpx(
   return { stdout: result.stdout, stderr: result.stderr, exitCode: result.exitCode ?? 1 };
 }
 
-async function createGitCwd(): Promise<string> {
-  const cwd = await mkdtemp(join(tmpdir(), "spx-session-cli-git-"));
-  await execa("git", ["init", "-b", "main"], { cwd });
-  await execa("git", ["config", "user.email", "test@example.com"], { cwd });
-  await execa("git", ["config", "user.name", "Test User"], { cwd });
-  await execa("git", ["commit", "--allow-empty", "-m", "initial"], { cwd });
-  return cwd;
+async function withCommittedGitCwd(callback: (cwd: string) => Promise<void>): Promise<void> {
+  await withGitWorktreeEnv(async (gitEnv) => {
+    await gitEnv.runGit([
+      GIT_TEST_SUBCOMMANDS.COMMIT,
+      GIT_TEST_FLAGS.ALLOW_EMPTY,
+      GIT_TEST_FLAGS.COMMIT_MESSAGE,
+      GIT_FIXTURE_COMMIT_MESSAGE,
+    ]);
+    await callback(gitEnv.productDir);
+  });
 }
 
 describe("session CLI compliance", () => {
@@ -123,44 +130,36 @@ describe("session CLI compliance", () => {
   });
 
   it("ALWAYS: handoff preserves body bytes after the JSON-prefix separator", async () => {
-    const gitCwd = await createGitCwd();
     const body = "  # Body with edge whitespace  \n";
-    let result: { stdout: string; stderr: string; exitCode: number };
-    try {
-      result = await runSpx(
+    await withCommittedGitCwd(async (gitCwd) => {
+      const result = await runSpx(
         ["session", "handoff", "--sessions-dir", harness.sessionsDir],
         `{"goal":"Preserve body","next_step":"Inspect session file"}\n${body}`,
         gitCwd,
       );
-    } finally {
-      await rm(gitCwd, { recursive: true, force: true });
-    }
 
-    expect(result.exitCode).toBe(0);
-    const sessionFileMatch = result.stdout.match(SESSION_FILE_TAG_PATTERN);
-    expect(sessionFileMatch).not.toBeNull();
+      expect(result.exitCode).toBe(0);
+      const sessionFileMatch = result.stdout.match(SESSION_FILE_TAG_PATTERN);
+      expect(sessionFileMatch).not.toBeNull();
 
-    const sessionFile = sessionFileMatch![1];
-    const onDisk = await readFile(sessionFile, "utf-8");
-    expect(onDisk.endsWith(body)).toBe(true);
+      const sessionFile = sessionFileMatch![1];
+      const onDisk = await readFile(sessionFile, "utf-8");
+      expect(onDisk.endsWith(body)).toBe(true);
+    });
   });
 
   it("ALWAYS: frontmatter validation diagnostics include error names", async () => {
-    const gitCwd = await createGitCwd();
-    let omitsGoal: { stdout: string; stderr: string; exitCode: number };
-    let legacyYaml: { stdout: string; stderr: string; exitCode: number };
-    let malformedJson: { stdout: string; stderr: string; exitCode: number };
-    try {
+    await withCommittedGitCwd(async (gitCwd) => {
       // JSON header that omits goal — semantic-content error per
       // 76-session-cli.enabler/session-cli.md.
-      omitsGoal = await runSpx(
+      const omitsGoal = await runSpx(
         ["session", "handoff", "--sessions-dir", harness.sessionsDir],
         `{"priority":"high","next_step":"Run validation","specs":[],"files":[]}\n# Session`,
         gitCwd,
       );
 
       // Stdin opening with the YAML-frontmatter delimiter — wire-format error.
-      legacyYaml = await runSpx(
+      const legacyYaml = await runSpx(
         ["session", "handoff", "--sessions-dir", harness.sessionsDir],
         "---\npriority: high\ngoal: Legacy shape\nnext_step: Should reject\n---\n# Body",
         gitCwd,
@@ -168,23 +167,21 @@ describe("session CLI compliance", () => {
 
       // JSON header that opens with `{` but is not parseable — structural
       // wire-format error.
-      malformedJson = await runSpx(
+      const malformedJson = await runSpx(
         ["session", "handoff", "--sessions-dir", harness.sessionsDir],
         `{"priority":"high","goal":"oops"`,
         gitCwd,
       );
-    } finally {
-      await rm(gitCwd, { recursive: true, force: true });
-    }
 
-    expect(omitsGoal.exitCode).toBe(1);
-    expect(omitsGoal.stderr).toContain("SessionInvalidGoalError");
+      expect(omitsGoal.exitCode).toBe(1);
+      expect(omitsGoal.stderr).toContain("SessionInvalidGoalError");
 
-    expect(legacyYaml.exitCode).toBe(1);
-    expect(legacyYaml.stderr).toContain("SessionLegacyFrontmatterInputError");
+      expect(legacyYaml.exitCode).toBe(1);
+      expect(legacyYaml.stderr).toContain("SessionLegacyFrontmatterInputError");
 
-    expect(malformedJson.exitCode).toBe(1);
-    expect(malformedJson.stderr).toContain("SessionInvalidJsonHeaderError");
+      expect(malformedJson.exitCode).toBe(1);
+      expect(malformedJson.stderr).toContain("SessionInvalidJsonHeaderError");
+    });
 
     const sessionId = "2026-01-10_10-00-00";
     await harness.writeSession(TODO, sessionId);
@@ -199,5 +196,28 @@ describe("session CLI compliance", () => {
     expect(archive.exitCode).toBe(1);
     expect(archive.stderr).toContain("SessionInvalidResultError");
     expect(archive.stderr).toContain(sessionId);
+  });
+
+  it("ALWAYS: handoff reports SessionDetachedHeadError through the CLI", async () => {
+    await withGitWorktreeEnv(async (gitEnv) => {
+      await gitEnv.runGit([
+        GIT_TEST_SUBCOMMANDS.COMMIT,
+        GIT_TEST_FLAGS.ALLOW_EMPTY,
+        GIT_TEST_FLAGS.COMMIT_MESSAGE,
+        GIT_FIXTURE_COMMIT_MESSAGE,
+      ]);
+      const headSha = await gitEnv.runGit([GIT_TEST_SUBCOMMANDS.REV_PARSE, GIT_ROOT_COMMAND.HEAD]);
+      await gitEnv.runGit([GIT_TEST_SUBCOMMANDS.CHECKOUT, headSha]);
+
+      const result = await runSpx(
+        ["session", "handoff", "--sessions-dir", harness.sessionsDir],
+        `{"goal":"Reject detached HEAD","next_step":"Report the git context error"}\n# Session`,
+        gitEnv.productDir,
+      );
+
+      expect(result.exitCode).toBe(1);
+      expect(result.stderr).toContain(new SessionDetachedHeadError().name);
+      expect(await readdir(harness.statusDir(TODO))).toEqual([]);
+    });
   });
 });
