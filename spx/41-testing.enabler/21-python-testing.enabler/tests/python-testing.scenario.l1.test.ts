@@ -48,6 +48,7 @@ describe("python test runner invocation", () => {
         const projectRoot = sampleConfigTestValue(CONFIG_TEST_GENERATOR.productDir());
         const runner = createRecordingCommandRunner({ present: true, exitCode });
 
+        // Exit-code propagation is independent of the forwarded paths, so this invariant uses empty testPaths.
         const result = await pythonTestingLanguage.runTests(
           { projectRoot, testPaths: [], excludedNodePaths: [] },
           runner,
