@@ -133,4 +133,20 @@ describe("session CLI batch properties", () => {
       await harness.cleanup();
     }
   });
+
+  it("GIVEN ordered IDs WHEN pickup runs THEN output preserves argument order", async () => {
+    const harness = await createSessionHarness();
+    try {
+      const ids = [sessionId(0), missingSessionId(0), sessionId(1), missingSessionId(1)];
+      await harness.writeSession(TODO, ids[0]);
+      await harness.writeSession(TODO, ids[2]);
+
+      const result = await runSpx("session", "pickup", ...ids, "--sessions-dir", harness.sessionsDir);
+      const combined = `${result.stdout}\n${result.stderr}`;
+      expect(result.exitCode).toBe(1);
+      expectIdsInOrder(combined, ids);
+    } finally {
+      await harness.cleanup();
+    }
+  });
 });
