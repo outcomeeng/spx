@@ -6,10 +6,16 @@ CAN report observed results and staleness without invoking test runners
 
 ## Assertions
 
+### Scenarios
+
+- Given a terminal test run, when its state is persisted, then the state is stored under `.spx/testing/{branch-slug}/runs/{run-directory}/state.json` at the Git common-dir product root, a settled state is never overwritten, malformed run directories are classified as incomplete evidence, and the latest terminal run is the one fast status reads ([test](tests/run-state.scenario.l1.test.ts))
+
+### Properties
+
+- Persisted state round-trips every recorded field — runner outcomes, timestamps, discovered test path set, discovered test content digest, descriptor-declared product input digests, and the resolved testing config digest — through write and read ([test](tests/run-state.property.l1.test.ts))
+- Cached evidence is stale when any recorded staleness input differs from the current input, and fresh only when the resolved testing config digest, discovered test path-set digest, discovered test content digest, and product input digests all match ([test](tests/staleness.property.l1.test.ts))
+
 ### Compliance
 
-- ALWAYS: persisted testing state records runner outcomes, timestamps, discovered test path sets, discovered test content digests, descriptor-declared product input digests, and the resolved testing config digest ([review])
-- ALWAYS: persisted testing state is stored under `.spx/testing/{branch-slug}/runs/{run-directory}/state.json` at the Git common-dir product root ([review](11-last-run-directory.adr.md))
-- ALWAYS: deleting persisted testing state changes only fast-status availability, never passing-scope policy ([review])
-- ALWAYS: cached evidence is stale when any recorded staleness input differs from the current input ([review])
-- NEVER: infer passing scope from persisted testing state ([review])
+- ALWAYS: deleting persisted testing state changes only fast-status availability, never passing-scope policy ([test](tests/passing-scope.compliance.l1.test.ts))
+- NEVER: infer passing scope from persisted testing state — passing scope resolves from the testing config descriptor, and the last-run state module exposes no passing-scope resolution ([review])
