@@ -41,8 +41,9 @@ Usage:
   Pipe a JSON header followed by the body bytes to stdin.
 
   The header is a single JSON object holding caller-supplied structured fields.
-  The body is the remaining bytes verbatim — no YAML, no escape rules, no
-  ambiguity from leading characters like '#' or '---'.
+  A single LF or CRLF after the header is consumed as a separator. The body
+  is the remaining bytes verbatim — no YAML, no escape rules, no ambiguity
+  from leading characters like '#' or '---'.
 
 JSON Header Fields:
   priority    "high" | "medium" | "low" (default: medium)
@@ -85,5 +86,5 @@ Selection Logic (--auto):
     4. Within same priority: oldest session first
 
 Output:
-  <PICKUP_ID>session-id</PICKUP_ID> tag for automation parsing
+  <PICKUP_ID>session-id</PICKUP_ID> tag for each claimed session
 `;

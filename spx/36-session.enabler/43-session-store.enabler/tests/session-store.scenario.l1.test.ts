@@ -165,7 +165,7 @@ describe("listCommand", () => {
       expect(shown).toContain(`${SESSION_SHOW_LABEL.GOAL}: `);
       expect(shown).toContain(`${SESSION_SHOW_LABEL.NEXT_STEP}: `);
 
-      await pickupCommand({ sessionId, sessionsDir: harness.sessionsDir });
+      await pickupCommand({ sessionIds: [sessionId], sessionsDir: harness.sessionsDir });
       expect(await listCommand({ status: DOING, sessionsDir: harness.sessionsDir })).toContain(sessionId);
 
       await releaseCommand({ sessionIds: [sessionId], sessionsDir: harness.sessionsDir });
@@ -600,6 +600,22 @@ describe("handoffCommand with real filesystem", () => {
     const metadata = parseSessionMetadata(await readFile(extractSessionFile(output), "utf-8"));
 
     expect(metadata.branch).toBe(branch);
+  });
+
+  it("GIVEN JSON header followed by CRLF separator WHEN handoff executes THEN body starts after the separator", async () => {
+    const body = "# CRLF-separated body";
+    const stdin = `${JSON.stringify(PREFILL_HANDOFF_HEADER)}\r\n${body}`;
+
+    const output = await handoffCommand({
+      content: stdin,
+      sessionsDir: harness.sessionsDir,
+      deps: HANDOFF_GIT_DEPS,
+    });
+    const onDisk = await readFile(extractSessionFile(output), "utf-8");
+
+    expect(onDisk).toContain(`---\n${body}`);
+    expect(onDisk.endsWith(body)).toBe(true);
+    expect(onDisk).not.toContain(`---\n\r${body}`);
   });
 
   it("GIVEN empty stdin WHEN handoff executes THEN rejects with SessionInvalidContentError before writing", async () => {

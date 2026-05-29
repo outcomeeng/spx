@@ -13,6 +13,8 @@
  * - S5: single ID → identical to current behavior
  * - S6: release 2 IDs in doing → both move to todo
  * - S7: release 1 valid + 1 invalid → valid released, invalid errors, exit non-zero
+ * - Pickup 2 IDs in todo → both move to doing with parseable tags
+ * - Pickup 1 valid + 1 invalid → valid claimed, invalid errors, exit non-zero
  * - P1: successes + errors = IDs count
  * - P2: processing order matches argument order
  */
@@ -23,6 +25,7 @@ import { afterEach, beforeEach, describe, expect, it } from "vitest";
 
 import { archiveCommand, SESSION_ARCHIVE_OUTPUT } from "@/commands/session/archive";
 import { deleteCommand, SESSION_DELETE_OUTPUT } from "@/commands/session/delete";
+import { pickupCommand } from "@/commands/session/pickup";
 import { releaseCommand, SESSION_RELEASE_OUTPUT } from "@/commands/session/release";
 import { showCommand } from "@/commands/session/show";
 import { SESSION_SHOW_LABEL } from "@/domains/session/show";
@@ -178,6 +181,51 @@ describe("batch release", () => {
 
     expect(existsSync(join(harness.statusDir(TODO), `${validId}.md`))).toBe(true);
     expect(existsSync(join(harness.statusDir(DOING), `${validId}.md`))).toBe(false);
+  });
+});
+
+describe("batch pickup", () => {
+  let harness: SessionHarness;
+
+  beforeEach(async () => {
+    harness = await createSessionHarness();
+  });
+
+  afterEach(async () => {
+    await harness.cleanup();
+  });
+
+  it("GIVEN 2 sessions in todo WHEN pickup with 2 IDs THEN both move to doing", async () => {
+    const ids = ["2026-05-10_10-00-00", "2026-05-11_10-00-00"];
+    for (const id of ids) {
+      await harness.writeSession(TODO, id);
+    }
+
+    const output = await pickupCommand({
+      sessionIds: ids,
+      sessionsDir: harness.sessionsDir,
+    });
+
+    for (const id of ids) {
+      expect(existsSync(join(harness.statusDir(DOING), `${id}.md`))).toBe(true);
+      expect(existsSync(join(harness.statusDir(TODO), `${id}.md`))).toBe(false);
+      expect(output).toContain(`<PICKUP_ID>${id}</PICKUP_ID>`);
+    }
+  });
+
+  it("GIVEN 1 valid in todo + 1 invalid ID WHEN pickup THEN valid claimed, invalid errors", async () => {
+    const validId = "2026-05-12_10-00-00";
+    await harness.writeSession(TODO, validId);
+
+    await expect(
+      pickupCommand({
+        sessionIds: [validId, "nonexistent"],
+        sessionsDir: harness.sessionsDir,
+      }),
+    ).rejects.toThrow();
+
+    expect(existsSync(join(harness.statusDir(DOING), `${validId}.md`))).toBe(true);
+    expect(existsSync(join(harness.statusDir(TODO), `${validId}.md`))).toBe(false);
   });
 });
 
