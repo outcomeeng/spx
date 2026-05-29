@@ -116,11 +116,11 @@ describe("session CLI compliance", () => {
       await rm(gitCwd, { recursive: true, force: true });
     }
 
-    const sessionFileMatch = result.stdout.match(SESSION_FILE_TAG_PATTERN);
     expect(result.exitCode).toBe(0);
+    const sessionFileMatch = result.stdout.match(SESSION_FILE_TAG_PATTERN);
     expect(sessionFileMatch).not.toBeNull();
 
-    const sessionFile = sessionFileMatch?.[1] ?? "";
+    const sessionFile = sessionFileMatch![1];
     const onDisk = await readFile(sessionFile, "utf-8");
     expect(onDisk.endsWith(body)).toBe(true);
   });
