@@ -164,6 +164,18 @@ describe("testing last-run state storage", () => {
     });
   });
 
+  it("rejects an unnormalized branch slug before any filesystem operation", async () => {
+    const unnormalizedSlug = sampleTestRunStateValue(TEST_RUN_STATE_TEST_GENERATOR.branchName());
+
+    await withTestingTempProductDir(async (productDir) => {
+      const created = await createTestRunDirectory(productDir, unnormalizedSlug);
+      expect(created).toEqual({ ok: false, error: TESTING_RUN_STATE_ERROR.INVALID_BRANCH_SLUG });
+
+      const runs = await readTestingBranchRuns(productDir, unnormalizedSlug);
+      expect(runs).toEqual({ ok: false, error: TESTING_RUN_STATE_ERROR.INVALID_BRANCH_SLUG });
+    });
+  });
+
   it("classifies missing, parse-invalid, and shape-invalid state files as incomplete evidence", async () => {
     const branchSlug = sampleTestRunStateValue(TEST_RUN_STATE_TEST_GENERATOR.branchSlug());
     const missingRun = sampleTestRunStateValue(TEST_RUN_STATE_TEST_GENERATOR.runDirectoryName());
