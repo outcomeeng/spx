@@ -508,9 +508,9 @@ function readString(value: Record<string, unknown>, field: string): Result<strin
 
 function readStringArray(value: Record<string, unknown>, field: string): Result<readonly string[]> {
   const raw = value[field];
-  return Array.isArray(raw) && raw.every((entry) => typeof entry === "string")
+  return Array.isArray(raw) && raw.every((entry) => typeof entry === "string" && entry.length > 0)
     ? { ok: true, value: raw }
-    : { ok: false, error: `${field} must be an array of strings` };
+    : { ok: false, error: `${field} must be an array of non-empty strings` };
 }
 
 function readStatus(raw: unknown): Result<TestRunStateStatus> {
