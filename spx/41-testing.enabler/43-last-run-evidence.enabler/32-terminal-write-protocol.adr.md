@@ -18,7 +18,7 @@ The module exports:
 
 1. `writeTerminalTestRunState(runDir, state, deps)` — temp-file + atomic rename, exclusive create, refuse overwrite
 2. `TESTING_RUN_STATE_INCOMPLETE_REASON` — the closed set of reasons a run directory is incomplete (missing, I/O error, parse-invalid, shape-invalid)
-3. `TESTING_RUN_STATE_ERROR` — the closed set of run-directory-creation and terminal-write failures (collision-limit, run-directory-create-failed, state-already-exists, write-failed); the terminal status needs no write-path guard because `TestRunState.status` is a closed terminal union and the read path validates deserialized status
+3. `TESTING_RUN_STATE_ERROR` — the closed run-state failure set: branch-slug validation (invalid-branch-slug), run-directory creation (collision-limit, run-directory-create-failed), and terminal write (state-already-exists, write-failed). The branch slug needs a guard because it is a plain `string`; the terminal status needs none because `TestRunState.status` is a closed terminal union and the read path validates deserialized status
 
 ## Rationale
 
