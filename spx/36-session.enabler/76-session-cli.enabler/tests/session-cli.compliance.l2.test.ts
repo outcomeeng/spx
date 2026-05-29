@@ -102,6 +102,26 @@ describe("session CLI compliance", () => {
     }
   });
 
+  it("ALWAYS: pickup partial failure exits non-zero while preserving successful work", async () => {
+    const validId = "2026-01-14_10-00-00";
+    const invalidId = "missing-id";
+    await harness.writeSession(TODO, validId);
+
+    const result = await runSpx([
+      "session",
+      "pickup",
+      validId,
+      invalidId,
+      "--sessions-dir",
+      harness.sessionsDir,
+    ]);
+
+    expect(result.exitCode).toBe(1);
+    expect(result.stderr).toContain(invalidId);
+    expect(result.stderr).toContain(validId);
+    expect(existsSync(join(harness.statusDir(DOING), `${validId}.md`))).toBe(true);
+  });
+
   it("ALWAYS: handoff preserves body bytes after the JSON-prefix separator", async () => {
     const gitCwd = await createGitCwd();
     const body = "  # Body with edge whitespace  \n";
