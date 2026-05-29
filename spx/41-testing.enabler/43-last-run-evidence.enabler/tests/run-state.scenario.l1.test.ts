@@ -207,6 +207,31 @@ describe("testing last-run state storage", () => {
     });
   });
 
+  it("classifies a runner outcome with an empty test path as shape-invalid evidence", async () => {
+    const branchSlug = sampleTestRunStateValue(TEST_RUN_STATE_TEST_GENERATOR.branchSlug());
+    const runDirectoryName = sampleTestRunStateValue(TEST_RUN_STATE_TEST_GENERATOR.runDirectoryName());
+    const base = sampleTestRunStateValue(TEST_RUN_STATE_TEST_GENERATOR.testRunState());
+    const runnerOutcome = sampleTestRunStateValue(TEST_RUN_STATE_TEST_GENERATOR.runnerOutcome());
+    const emptyTestPath = "";
+    const stateWithEmptyTestPath = {
+      ...base,
+      branchSlug,
+      runnerOutcomes: [{ ...runnerOutcome, testPaths: [emptyTestPath] }],
+    };
+
+    await withTestingTempProductDir(async (productDir) => {
+      await writeTestingStateFile(productDir, branchSlug, runDirectoryName, JSON.stringify(stateWithEmptyTestPath));
+
+      const runs = await readTestingBranchRuns(productDir, branchSlug);
+      expect(runs.ok).toBe(true);
+      if (!runs.ok) throw new Error(runs.error);
+      expect(runs.value.terminalRuns).toEqual([]);
+      expect(runs.value.incompleteRuns.map((run) => run.reason)).toEqual([
+        TESTING_RUN_STATE_INCOMPLETE_REASON.SHAPE_INVALID_STATE,
+      ]);
+    });
+  });
+
   it("classifies a state file read failure as IO incomplete evidence", async () => {
     const branchSlug = sampleTestRunStateValue(TEST_RUN_STATE_TEST_GENERATOR.branchSlug());
     const runDirectoryName = sampleTestRunStateValue(TEST_RUN_STATE_TEST_GENERATOR.runDirectoryName());
