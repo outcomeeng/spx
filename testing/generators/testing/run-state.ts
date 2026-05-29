@@ -12,13 +12,13 @@ import {
   type TestRunState,
   type TestRunStateStatus,
 } from "@/testing/run-state";
+import { CONFIG_TEST_GENERATOR, sampleConfigTestValue } from "@testing/generators/config/descriptors";
+import { arbitraryDomainLiteral, arbitrarySpecTreeTestFilePath } from "@testing/generators/literal/literal";
 
 type MutableStalenessDigestField =
   | typeof TEST_RUN_STATE_FIELDS.TESTING_CONFIG_DIGEST
   | typeof TEST_RUN_STATE_FIELDS.DISCOVERED_TEST_PATHS_DIGEST
   | typeof TEST_RUN_STATE_FIELDS.DISCOVERED_TEST_CONTENT_DIGEST;
-import { CONFIG_TEST_GENERATOR, sampleConfigTestValue } from "@testing/generators/config/descriptors";
-import { arbitraryDomainLiteral, arbitrarySpecTreeTestFilePath } from "@testing/generators/literal/literal";
 
 const HEAD_SHA_PATTERN = /^[a-f0-9]{40}$/;
 const RUN_ID_PATTERN = /^[a-f0-9]{12}$/;
