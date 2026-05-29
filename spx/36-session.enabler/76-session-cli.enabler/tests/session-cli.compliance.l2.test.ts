@@ -5,9 +5,7 @@ import { join } from "node:path";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 
 import { SESSION_STATUSES } from "@/domains/session/types";
-import { SessionDetachedHeadError } from "@/git/errors";
-import { GIT_ROOT_COMMAND } from "@/git/root";
-import { GIT_TEST_FLAGS, GIT_TEST_SUBCOMMANDS } from "@testing/harnesses/git-test-constants";
+import { GIT_TEST_FLAGS, GIT_TEST_REFS, GIT_TEST_SUBCOMMANDS } from "@testing/harnesses/git-test-constants";
 import { withGitWorktreeEnv } from "@testing/harnesses/git-worktree/git-worktree";
 import { createSessionHarness, type SessionHarness } from "@testing/harnesses/session/harness";
 
@@ -206,7 +204,7 @@ describe("session CLI compliance", () => {
         GIT_TEST_FLAGS.COMMIT_MESSAGE,
         GIT_FIXTURE_COMMIT_MESSAGE,
       ]);
-      const headSha = await gitEnv.runGit([GIT_TEST_SUBCOMMANDS.REV_PARSE, GIT_ROOT_COMMAND.HEAD]);
+      const headSha = await gitEnv.runGit([GIT_TEST_SUBCOMMANDS.REV_PARSE, GIT_TEST_REFS.HEAD]);
       await gitEnv.runGit([GIT_TEST_SUBCOMMANDS.CHECKOUT, headSha]);
 
       const result = await runSpx(
@@ -216,7 +214,7 @@ describe("session CLI compliance", () => {
       );
 
       expect(result.exitCode).toBe(1);
-      expect(result.stderr).toContain(new SessionDetachedHeadError().name);
+      expect(result.stderr).toContain("SessionDetachedHeadError");
       expect(await readdir(harness.statusDir(TODO))).toEqual([]);
     });
   });
