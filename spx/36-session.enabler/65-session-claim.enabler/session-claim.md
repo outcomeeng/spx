@@ -22,5 +22,5 @@ CAN offer `spx session pickup` and `spx session release` commands with guarantee
 
 ### Compliance
 
-- ALWAYS: use fs.rename() for status transitions per ADR 21-atomic-claiming ([review](../21-atomic-claiming.adr.md))
-- NEVER: use read-then-write pattern for claiming per ADR 21-atomic-claiming ([review](../21-atomic-claiming.adr.md))
+- ALWAYS: use fs.rename() for status transitions per [`spx/36-session.enabler/21-atomic-claiming.adr.md`](../21-atomic-claiming.adr.md) ([review])
+- NEVER: use read-then-write pattern for claiming per [`spx/36-session.enabler/21-atomic-claiming.adr.md`](../21-atomic-claiming.adr.md) ([review])
