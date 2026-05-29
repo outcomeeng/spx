@@ -6,6 +6,7 @@ import { describe, expect, it } from "vitest";
 import {
   createTestRunDirectory,
   DEFAULT_TESTING_STORAGE,
+  formatTestRunTimestamp,
   readTestingBranchRuns,
   selectLatestTerminalTestRun,
   TESTING_RUN_STATE_ERROR,
@@ -139,6 +140,27 @@ describe("testing last-run state storage", () => {
       if (!runs.ok) throw new Error(runs.error);
 
       expect(selectLatestTerminalTestRun(runs.value.terminalRuns)?.runDirectoryName).toBe(tieBreakerRun);
+    });
+  });
+
+  it("breaks a completedAt and startedAt tie by lexicographic run directory name", async () => {
+    const branchSlug = sampleTestRunStateValue(TEST_RUN_STATE_TEST_GENERATOR.branchSlug());
+    const base = sampleTestRunStateValue(TEST_RUN_STATE_TEST_GENERATOR.testRunState());
+    const sharedStamp = formatTestRunTimestamp(sampleTestRunStateValue(TEST_RUN_STATE_TEST_GENERATOR.timestampDate()));
+    const runOne = sampleTestRunStateValue(TEST_RUN_STATE_TEST_GENERATOR.runDirectoryName());
+    const runTwo = sampleTestRunStateValue(TEST_RUN_STATE_TEST_GENERATOR.runDirectoryName());
+    const [, lexicographicallyLaterRun] = [runOne, runTwo].sort();
+    const tiedState = JSON.stringify({ ...base, branchSlug, completedAt: sharedStamp, startedAt: sharedStamp });
+
+    await withTestingTempProductDir(async (productDir) => {
+      await writeTestingStateFile(productDir, branchSlug, runOne, tiedState);
+      await writeTestingStateFile(productDir, branchSlug, runTwo, tiedState);
+
+      const runs = await readTestingBranchRuns(productDir, branchSlug);
+      expect(runs.ok).toBe(true);
+      if (!runs.ok) throw new Error(runs.error);
+
+      expect(selectLatestTerminalTestRun(runs.value.terminalRuns)?.runDirectoryName).toBe(lexicographicallyLaterRun);
     });
   });
 
