@@ -19,6 +19,19 @@ function sessionId(index: number): string {
   return `2026-01-${String(index + 1).padStart(2, "0")}_10-00-00`;
 }
 
+function missingSessionId(index: number): string {
+  return `missing-${index}`;
+}
+
+function expectIdsInOrder(output: string, ids: readonly string[]): void {
+  let previousIndex = -1;
+  for (const id of ids) {
+    const index = output.indexOf(id);
+    expect(index).toBeGreaterThan(previousIndex);
+    previousIndex = index;
+  }
+}
+
 describe("session CLI batch properties", () => {
   it(
     "GIVEN generated valid and invalid IDs WHEN delete runs THEN success and error counts match inputs",
@@ -31,7 +44,7 @@ describe("session CLI batch properties", () => {
             const harness = await createSessionHarness();
             try {
               const validIds = Array.from({ length: validCount }, (_, index) => sessionId(index));
-              const invalidIds = Array.from({ length: invalidCount }, (_, index) => `missing-${index}`);
+              const invalidIds = Array.from({ length: invalidCount }, (_, index) => missingSessionId(index));
               for (const id of validIds) {
                 await harness.writeSession(TODO, id);
               }
@@ -62,21 +75,60 @@ describe("session CLI batch properties", () => {
     sessionCliPropertyTimeoutMs,
   );
 
+  it(
+    "GIVEN generated valid and invalid IDs WHEN pickup runs THEN success and error counts match inputs",
+    async () => {
+      await fc.assert(
+        fc.asyncProperty(
+          fc
+            .tuple(fc.integer({ min: 0, max: 5 }), fc.integer({ min: 0, max: 5 }))
+            .filter(([validCount, invalidCount]) => validCount + invalidCount > 0),
+          async ([validCount, invalidCount]) => {
+            const harness = await createSessionHarness();
+            try {
+              const validIds = Array.from({ length: validCount }, (_, index) => sessionId(index));
+              const invalidIds = Array.from({ length: invalidCount }, (_, index) => missingSessionId(index));
+              const ids = [...validIds, ...invalidIds];
+              for (const id of validIds) {
+                await harness.writeSession(TODO, id);
+              }
+
+              const result = await runSpx(
+                "session",
+                "pickup",
+                ...ids,
+                "--sessions-dir",
+                harness.sessionsDir,
+              );
+
+              const combined = `${result.stdout}\n${result.stderr}`;
+              const successCount = validIds.filter((id) => combined.includes(id)).length;
+              const errorCount = invalidIds.filter((id) => combined.includes(id)).length;
+              expect(successCount).toBe(validCount);
+              expect(errorCount).toBe(invalidCount);
+              expect(result.exitCode).toBe(invalidCount === 0 ? 0 : 1);
+              expectIdsInOrder(combined, ids);
+            } finally {
+              await harness.cleanup();
+            }
+          },
+        ),
+        { numRuns: 10 },
+      );
+    },
+    sessionCliPropertyTimeoutMs,
+  );
+
   it("GIVEN ordered IDs WHEN delete runs THEN output preserves argument order", async () => {
     const harness = await createSessionHarness();
     try {
-      const ids = [sessionId(0), "missing-0", sessionId(1), "missing-1"];
+      const ids = [sessionId(0), missingSessionId(0), sessionId(1), missingSessionId(1)];
       await harness.writeSession(TODO, ids[0]);
       await harness.writeSession(TODO, ids[2]);
 
       const result = await runSpx("session", "delete", ...ids, "--sessions-dir", harness.sessionsDir);
       const combined = `${result.stdout}\n${result.stderr}`;
-      let previousIndex = -1;
-      for (const id of ids) {
-        const index = combined.indexOf(id);
-        expect(index).toBeGreaterThan(previousIndex);
-        previousIndex = index;
-      }
+      expectIdsInOrder(combined, ids);
     } finally {
       await harness.cleanup();
     }
