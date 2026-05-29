@@ -63,6 +63,7 @@ Observable `TestRunStateFileSystem` parameter in all functions that perform stat
 - State is validated against the `TestRunState` schema on read, returning a `Result` with a descriptive error on shape failure — matches the audit run-state validation pattern ([review])
 - Default `deps` implementations use Node.js `fs.promises`; tests pass controlled implementations — no mocking required ([review])
 - `TestRunState` records branch name, branch slug, head SHA, and all staleness inputs (config digest, path-set digest, content digest, product input digests) — enables staleness comparison per `spx/41-testing.enabler/43-last-run-evidence.enabler/43-staleness-comparison.adr.md` ([review])
+- `createTestRunDirectory` and `readTestingBranchRuns` validate the branch slug against the normalized slug format before any filesystem operation, returning `INVALID_BRANCH_SLUG` for an unnormalized slug — an unnormalized slug never reaches the filesystem, mirroring the audit branch-slug guard ([review])
 
 ### NEVER
 
