@@ -4,6 +4,7 @@ import { tmpdir } from "node:os";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 
+import { PYTEST_INVOKE_ARGS } from "@/testing/languages/python";
 import type { TestRunCommandResult, TestRunnerDependencies } from "@/testing/languages/types";
 
 const PYTEST_FIXTURE_DIR = join(dirname(fileURLToPath(import.meta.url)), "..", "..", "fixtures", "pytest");
@@ -11,12 +12,13 @@ const TEMP_PROJECT_PREFIX = "spx-pytest-";
 // Copied to a fixed pytest-collectible basename the l2 test forwards as the runner's testPaths.
 const COPIED_SUITE_NAME = "test_suite.py";
 
-// `uv run` index where `--with pytest` is spliced: the descriptor builds `uv run pytest …`,
-// and the spx repository declares no managed Python environment, so the real-runner test
-// provisions pytest ephemerally without changing the descriptor's production command.
-const UV_RUN_SUBCOMMAND_INDEX = 1;
 const UV_WITH_FLAG = "--with";
 const PYTEST_PACKAGE = "pytest";
+// The descriptor builds `uv run pytest …`, and the spx repository declares no managed Python
+// environment, so the real-runner test splices an ephemeral `--with pytest` immediately before the
+// `pytest` command token. The position is derived from the descriptor's own command layout, so an
+// added intermediate uv-run flag cannot silently misplace the splice.
+const PYTEST_COMMAND_INDEX = PYTEST_INVOKE_ARGS.indexOf(PYTEST_PACKAGE);
 const EXIT_OK = 0;
 
 // Committed inert fixture suites copied into a temp project for the real-pytest run.
@@ -55,10 +57,10 @@ export function repoRootedPytestCommandRunner(projectRoot: string): TestRunnerDe
     isLanguagePresent: () => true,
     runCommand: async (command, args): Promise<TestRunCommandResult> => {
       const provisioned = [
-        ...args.slice(0, UV_RUN_SUBCOMMAND_INDEX),
+        ...args.slice(0, PYTEST_COMMAND_INDEX),
         UV_WITH_FLAG,
         PYTEST_PACKAGE,
-        ...args.slice(UV_RUN_SUBCOMMAND_INDEX),
+        ...args.slice(PYTEST_COMMAND_INDEX),
       ];
       const result = await execa(command, provisioned, { cwd: projectRoot, reject: false });
       return { exitCode: result.exitCode ?? EXIT_OK };
