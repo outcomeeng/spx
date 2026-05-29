@@ -3,8 +3,8 @@
  * how the CLI is invoked from package-script consumers (development source
  * vs. published distribution) and how the formatter pipeline is composed.
  *
- * Tests under `spx/13-cli.enabler/` import these constants to assert that
- * `package.json` scripts conform to the boundary contract.
+ * Higher-level tests import these constants to assert that package scripts
+ * conform to the boundary contract.
  */
 
 export const SOURCE_CLI_INVOCATION = "tsx src/cli.ts";
