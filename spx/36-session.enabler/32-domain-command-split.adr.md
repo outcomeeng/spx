@@ -8,11 +8,11 @@ This decision governs how session domain logic is separated from CLI command han
 
 **Business impact:** Dead code and inline duplication increase maintenance cost and create coverage gaps. Pure domain modules that no command handler imports are dead code tested only by legacy tests. Command handlers that reimplement pure logic inline create divergence risk.
 
-**Technical constraints:** The session domain has two source directories: `src/session/` (pure functions) and `src/commands/session/` (CLI handlers with I/O). Pure computation (path construction, selection algorithms, formatting) and I/O (readdir, readFile, rename, unlink) have different testability profiles: pure functions are Level 1 testable in isolation, while I/O requires filesystem setup. Command handlers that duplicate pure logic inline force all testing through the I/O layer and leave the pure module untested or tested redundantly.
+**Technical constraints:** The session domain has two source directories: `src/domains/session/` (pure functions) and `src/commands/session/` (CLI handlers with I/O). Pure computation (path construction, selection algorithms, formatting) and I/O (readdir, readFile, rename, unlink) have different testability profiles: pure functions are Level 1 testable in isolation, while I/O requires filesystem setup. Command handlers that duplicate pure logic inline force all testing through the I/O layer and leave the pure module untested or tested redundantly.
 
 ## Decision
 
-Every session operation follows a two-module split: pure domain logic in `src/session/{concern}.ts` and I/O orchestration in `src/commands/session/{concern}.ts`. The command handler imports from the domain module — never the reverse, never inline duplication.
+Every session operation follows a two-module split: pure domain logic in `src/domains/session/{concern}.ts` and I/O orchestration in `src/commands/session/{concern}.ts`. The command handler imports from the domain module — never the reverse, never inline duplication.
 
 ## Rationale
 
@@ -34,15 +34,15 @@ Alternatives rejected:
 
 ### Recognized by
 
-Command handlers in `src/commands/session/` import computation functions from `src/session/`. No `src/session/` module imports from `src/commands/session/`.
+Command handlers in `src/commands/session/` import computation functions from `src/domains/session/`. No `src/domains/session/` module imports from `src/commands/session/`.
 
 ### MUST
 
-- Command handlers import pure selection, formatting, and path-building functions from `src/session/` — enables Level 1 testing of computation ([review])
-- Pure domain modules in `src/session/` accept all external state as parameters — no direct filesystem or process access ([review])
+- Command handlers import pure selection, formatting, and path-building functions from `src/domains/session/` — enables Level 1 testing of computation ([review])
+- Pure domain modules in `src/domains/session/` accept all external state as parameters — no direct filesystem or process access ([review])
 - Command handlers are the sole site of I/O operations (readdir, readFile, writeFile, rename, unlink, mkdir) — keeps domain modules pure ([review])
 
 ### NEVER
 
-- Inline reimplementation of logic that exists in `src/session/` — creates divergence and dead code ([review])
-- Import from `src/commands/session/` into `src/session/` — violates dependency direction ([review])
+- Inline reimplementation of logic that exists in `src/domains/session/` — creates divergence and dead code ([review])
+- Import from `src/commands/session/` into `src/domains/session/` — violates dependency direction ([review])
