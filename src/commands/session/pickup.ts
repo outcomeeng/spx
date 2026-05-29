@@ -19,7 +19,6 @@ import { resolveSessionConfig } from "@/git/root";
 const PICKUP_SOURCE_STATUS: SessionStatus = SESSION_STATUSES[0]; // todo
 /** Status of sessions after being claimed. */
 const PICKUP_TARGET_STATUS: SessionStatus = SESSION_STATUSES[1]; // doing
-const SINGLE_SESSION_ID_COUNT = 1;
 
 /**
  * Options for the pickup command.
@@ -119,7 +118,7 @@ export async function pickupCommand(options: PickupOptions): Promise<string> {
     throw new Error("Either session ID or --auto flag is required");
   }
 
-  if (options.sessionIds.length === SINGLE_SESSION_ID_COUNT) {
+  if (options.sessionIds.length === 1) {
     return pickupSingle(options.sessionIds[0], config);
   }
 
