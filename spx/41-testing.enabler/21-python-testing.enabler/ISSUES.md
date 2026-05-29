@@ -17,3 +17,11 @@ These follow-ups concern how the (not-yet-built) `spx test` dispatch in `spx/41-
 **Resolution:** when the `spx test` dispatch is built, always pass the discovered spec-tree test paths so the run is scoped to spec-tree tests regardless of the consumer's working-directory contents; do not invoke the runner with empty `testPaths` against a real consumer project.
 
 **Evidence:** `spx/41-testing.enabler/21-python-testing.enabler/21-python-test-runner.adr.md` (the discovered-paths invocation contract); parallels the same follow-up on the TypeScript peer `spx/41-testing.enabler/21-typescript-testing.enabler/ISSUES.md`.
+
+## FOLLOW-UP: the dispatch must filter excluded-node files out of the forwarded paths
+
+pytest's `--ignore=path` excludes a path during collection *walking* only; an explicitly-passed file under an ignored directory still runs. So when the dispatch forwards discovered `testPaths` alongside `excludedNodePaths`, a forwarded file that lives under an excluded node still executes despite the runner's `--ignore=spx/{node}/` flag. The runner correctly passes both per its spec — the `--ignore` flag guards directory-walk discovery — but passing-scope filtering of explicit files is the dispatch's responsibility, per `spx/41-testing.enabler/testing.md` ("test files under that node are filtered out before any runner invocation").
+
+**Resolution:** when the `spx test passing` dispatch is built, remove files under excluded nodes from the discovered `testPaths` before invoking the runner; treat the runner's `--ignore` flags as collection-walk protection, not as a deselect mechanism for explicitly-forwarded paths.
+
+**Evidence:** `spx/41-testing.enabler/testing.md` (passing-scope filtering happens before runner invocation); pytest `--ignore` semantics (collection-walk exclusion, not explicit-path deselection).
