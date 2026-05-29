@@ -66,16 +66,24 @@ export function repoRootedPytestCommandRunner(projectRoot: string): TestRunnerDe
   };
 }
 
+// A temp pytest project: the temp root and the absolute path of the copied suite the
+// runner is asked to execute.
+export interface TempPytestProject {
+  readonly projectRoot: string;
+  readonly suitePath: string;
+}
+
 // Copies a committed fixture suite into a temp project outside the repo so pytest resolves
-// no inherited configuration and collects the suite from the temp working directory.
+// no inherited configuration, and hands back the suite path for the runner to execute.
 export async function withTempPytestProject(
   fixture: PytestFixture,
-  callback: (projectRoot: string) => Promise<void>,
+  callback: (project: TempPytestProject) => Promise<void>,
 ): Promise<void> {
   const projectRoot = await mkdtemp(join(tmpdir(), TEMP_PROJECT_PREFIX));
+  const suitePath = join(projectRoot, COPIED_SUITE_NAME);
   try {
-    await copyFile(join(PYTEST_FIXTURE_DIR, fixture), join(projectRoot, COPIED_SUITE_NAME));
-    await callback(projectRoot);
+    await copyFile(join(PYTEST_FIXTURE_DIR, fixture), suitePath);
+    await callback({ projectRoot, suitePath });
   } finally {
     await rm(projectRoot, { recursive: true, force: true });
   }
