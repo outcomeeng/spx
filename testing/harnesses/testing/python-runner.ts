@@ -8,7 +8,7 @@ import type { TestRunCommandResult, TestRunnerDependencies } from "@/testing/lan
 
 const PYTEST_FIXTURE_DIR = join(dirname(fileURLToPath(import.meta.url)), "..", "..", "fixtures", "pytest");
 const TEMP_PROJECT_PREFIX = "spx-pytest-";
-// Copied as a pytest-collectible basename so the runner's empty-scope run discovers it under the temp root.
+// Copied to a fixed pytest-collectible basename the l2 test forwards as the runner's testPaths.
 const COPIED_SUITE_NAME = "test_suite.py";
 
 // `uv run` index where `--with pytest` is spliced: the descriptor builds `uv run pytest …`,
