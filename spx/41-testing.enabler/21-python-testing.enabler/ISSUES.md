@@ -12,7 +12,7 @@ These follow-ups concern how the (not-yet-built) `spx test` dispatch in `spx/41-
 
 ## FOLLOW-UP: the dispatch must pass discovered spec-tree paths, not rely on empty-scope
 
-`runTests` with `testPaths: []` invokes `uv run pytest` with no positional paths, so pytest collects every `test_*.py` under the working directory — not only `spx/**/tests`. In the intended flow the parent dispatch discovers `spx/**/tests` and passes those paths explicitly (non-empty), so the runner runs exactly the spec-tree tests. The empty-`testPaths` "full scope under the working directory" behavior is used only by the runner's own `l2` fixture harness, which points the working directory at a temp project containing a single copied suite.
+`runTests` with `testPaths: []` invokes `uv run pytest` with no positional paths, so pytest collects every `test_*.py` under the working directory — not only `spx/**/tests`. In the intended flow the parent dispatch discovers `spx/**/tests` and passes those paths explicitly (non-empty), so the runner runs exactly the spec-tree tests; the `l2` fixture test forwards the copied suite's path to exercise that forwarding against real pytest. Empty `testPaths` remains a degenerate fallback that collects everything under the working directory.
 
 **Resolution:** when the `spx test` dispatch is built, always pass the discovered spec-tree test paths so the run is scoped to spec-tree tests regardless of the consumer's working-directory contents; do not invoke the runner with empty `testPaths` against a real consumer project.
 
