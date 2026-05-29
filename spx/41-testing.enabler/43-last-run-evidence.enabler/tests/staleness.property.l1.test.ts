@@ -44,6 +44,19 @@ describe("testing last-run staleness comparison", () => {
     );
   });
 
+  it("treats the product input digest set as unordered: reordering stays fresh", () => {
+    fc.assert(
+      fc.property(TEST_RUN_STATE_TEST_GENERATOR.stalenessInputs(), (recorded) => {
+        fc.pre(recorded.productInputDigests.length > 1);
+        const reordered: StalenessInputs = {
+          ...recorded,
+          productInputDigests: [...recorded.productInputDigests].reverse(),
+        };
+        expect(isStalenessMatch(recorded, reordered)).toBe(true);
+      }),
+    );
+  });
+
   it("derives the path-set digest deterministically and independent of order", () => {
     fc.assert(
       fc.property(TEST_RUN_STATE_TEST_GENERATOR.testPaths(), (paths) => {
