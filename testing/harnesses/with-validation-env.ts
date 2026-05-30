@@ -1,7 +1,8 @@
-import { withTempDir } from "@testing/harnesses/with-temp-dir";
 import { cp, symlink } from "node:fs/promises";
 import { dirname, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
+
+import { withTempDir } from "@testing/harnesses/with-temp-dir";
 import { FIXTURES_PATH } from "../fixtures";
 
 const __filename = fileURLToPath(import.meta.url);
