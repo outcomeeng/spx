@@ -1,7 +1,7 @@
 import { existsSync } from "node:fs";
 import { stat } from "node:fs/promises";
 import { tmpdir } from "node:os";
-import { resolve } from "node:path";
+import { resolve, sep } from "node:path";
 
 import { describe, expect, it } from "vitest";
 
@@ -18,10 +18,10 @@ describe("withTempDir — lifecycle", () => {
       observed = dir;
       const info = await stat(dir);
       expect(info.isDirectory()).toBe(true);
-      expect(resolve(dir).startsWith(resolve(tmpdir()))).toBe(true);
+      expect(resolve(dir).startsWith(resolve(tmpdir()) + sep)).toBe(true);
     });
 
-    expect(observed.startsWith(resolve(tmpdir()))).toBe(true);
+    expect(resolve(observed).startsWith(resolve(tmpdir()) + sep)).toBe(true);
   });
 
   it("returns the callback's result unchanged", async () => {
