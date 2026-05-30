@@ -1,12 +1,13 @@
 # Open Issues
 
-## Handoff and archive command error-path coverage
+## Handoff command-interface error-path coverage
 
 - Review: https://github.com/outcomeeng/spx/pull/52#issuecomment-4496092724
 - Follow-up review: https://github.com/outcomeeng/spx/pull/52#issuecomment-4496917494
-- Evidence: `spx/36-session.enabler/43-session-store.enabler/tests/session-store.scenario.l1.test.ts` covers successful `handoffCommand` git context through `HANDOFF_GIT_DEPS`, while the command-interface failure paths for git context and empty archive `result` are not covered through the public command handlers. It also does not cover the ordering edge case where content has valid frontmatter syntax but omits `goal` or `next_step` and git context detection throws first.
+- Evidence: `spx/36-session.enabler/43-session-store.enabler/tests/session-store.scenario.l1.test.ts` covers successful `handoffCommand` git context through `HANDOFF_GIT_DEPS`, but the command-interface failure path for `detectSessionWorkContext` is not covered through the public handler. The empty-`result` archive path is re-scoped to `spx/36-session.enabler/54-session-retention.enabler/ISSUES.md`, where `archiveCommand` and `SessionInvalidResultError` live.
+- Design decision — validation-vs-git ordering: `handoffCommand` runs `detectSessionWorkContext` before validating `goal` / `next_step`, so when both fail (for example a detached HEAD plus an omitted `goal`) the git error surfaces first and masks the actionable input error. Settle whether to assert the current git-first ordering or reorder input validation ahead of git detection before writing the scenario; the test pins whichever ordering the decision selects.
 - Impact: error classes can drift from their command-visible diagnostics without a public workflow test catching the mismatch.
-- Resolution: add command-interface scenario coverage for `detectSessionWorkContext` failure paths, validation-vs-git error ordering for missing `goal` / `next_step`, and `SessionInvalidResultError` before the next session error-handling change.
+- Resolution: settle the ordering decision, then add command-interface scenario coverage for the `detectSessionWorkContext` failure path and validation-vs-git ordering for missing `goal` / `next_step`.
 
 ## Frontmatter key rule ubiquitous-token false-positive coverage
 
