@@ -12,6 +12,7 @@ const MAX_NODE_DEPTH = 3;
 const MIN_NODE_PATHS = 1;
 const MAX_NODE_PATHS = 4;
 const MIN_TEST_PATHS = 0;
+const MIN_NON_EMPTY_TEST_PATHS = 1;
 const MAX_TEST_PATHS = 5;
 const MIN_EXIT_CODE = 0;
 const MIN_NON_ZERO_EXIT_CODE = 1;
@@ -30,6 +31,7 @@ export const PYTHON_RUNNER_TEST_GENERATOR = {
   nodePath: arbitraryNodePath,
   nodePaths: arbitraryNodePaths,
   testPaths: arbitraryTestPaths,
+  nonEmptyTestPaths: arbitraryNonEmptyTestPaths,
   exitCode: arbitraryExitCode,
   nonZeroExitCode: arbitraryNonZeroExitCode,
   present: arbitraryPresence,
@@ -80,6 +82,13 @@ function arbitraryNodePaths(): fc.Arbitrary<readonly string[]> {
 
 function arbitraryTestPaths(): fc.Arbitrary<readonly string[]> {
   return fc.uniqueArray(arbitraryPythonTestFilePath(), { minLength: MIN_TEST_PATHS, maxLength: MAX_TEST_PATHS });
+}
+
+function arbitraryNonEmptyTestPaths(): fc.Arbitrary<readonly string[]> {
+  return fc.uniqueArray(arbitraryPythonTestFilePath(), {
+    minLength: MIN_NON_EMPTY_TEST_PATHS,
+    maxLength: MAX_TEST_PATHS,
+  });
 }
 
 function arbitraryExitCode(): fc.Arbitrary<number> {
