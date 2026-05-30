@@ -5,7 +5,9 @@ import { join, relative, resolve } from "node:path";
 import { describe, expect, it } from "vitest";
 
 import { MINIMAL_SPEC_TREE_CONFIG } from "@testing/generators/config/config";
+import { arbitraryDomainLiteral, sampleLiteralTestValue } from "@testing/generators/literal/literal";
 import { withTestEnv } from "@testing/harnesses/spec-tree/spec-tree";
+import { removeTempDir } from "@testing/harnesses/with-temp-dir";
 
 describe("withTestEnv — filesystem safety", () => {
   it("roots every temp directory inside os.tmpdir()", async () => {
@@ -45,5 +47,13 @@ describe("withTestEnv — filesystem safety", () => {
       const resolvedProject = resolve(env.productDir);
       expect(resolvedProject.startsWith(tmpRoot)).toBe(true);
     });
+  });
+});
+
+describe("withTempDir — removal safety", () => {
+  it("refuses to remove a path that resolves outside os.tmpdir()", async () => {
+    const outside = resolve(tmpdir(), "..", sampleLiteralTestValue(arbitraryDomainLiteral()));
+
+    await expect(removeTempDir(outside)).rejects.toThrow();
   });
 });
