@@ -1,0 +1,34 @@
+import { join } from "node:path";
+
+import type { SpecTreeEvidenceProvider, SpecTreeNodeSourceEntry } from "@/lib/spec-tree";
+import { SPEC_TREE_CONFIG, type SpecTreeNodeState } from "@/lib/spec-tree/config";
+import { readNodeStatus } from "./read";
+
+/**
+ * Resolve the absolute directory of a spec-tree node under `productDir`.
+ *
+ * A node source entry's `id` is its directory path relative to the spec-tree
+ * root, so the node directory is `productDir/<root>/<id>`.
+ */
+function nodeDirectory(productDir: string, node: SpecTreeNodeSourceEntry): string {
+  return join(productDir, SPEC_TREE_CONFIG.ROOT_DIRECTORY, node.id);
+}
+
+/**
+ * Build a spec-tree evidence provider that overrides each node's live-derived
+ * state with the state persisted in its co-located `spx.status.json`.
+ *
+ * The provider closes over `productDir` because `stateForNode` receives only the
+ * node source entry and in-memory evidence — no filesystem path. A node with no
+ * persisted file yields `undefined`, which routes the spec-tree library back to
+ * live derivation.
+ *
+ * @param productDir - Absolute path to the product directory.
+ */
+export function createNodeStatusProvider(productDir: string): SpecTreeEvidenceProvider {
+  return {
+    stateForNode(node: SpecTreeNodeSourceEntry): SpecTreeNodeState | undefined {
+      return readNodeStatus(nodeDirectory(productDir, node));
+    },
+  };
+}
