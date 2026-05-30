@@ -9,7 +9,7 @@ import { createRecordingCommandRunner } from "@testing/harnesses/testing/python-
 describe("python test runner invocation", () => {
   it("invokes pytest with an ignore flag for each excluded node", async () => {
     const projectRoot = sampleConfigTestValue(CONFIG_TEST_GENERATOR.productDir());
-    const testPaths = samplePythonRunnerValue(PYTHON_RUNNER_TEST_GENERATOR.testPaths());
+    const testPaths = samplePythonRunnerValue(PYTHON_RUNNER_TEST_GENERATOR.nonEmptyTestPaths());
     const excludedNodePaths = samplePythonRunnerValue(PYTHON_RUNNER_TEST_GENERATOR.nodePaths());
     const exitCode = samplePythonRunnerValue(PYTHON_RUNNER_TEST_GENERATOR.exitCode());
     const runner = createRecordingCommandRunner({ present: true, exitCode });
@@ -22,6 +22,9 @@ describe("python test runner invocation", () => {
     expect(result.invoked).toBe(true);
     expect(runner.calls).toHaveLength(1);
     const invokedArgs = runner.calls[0]?.args ?? [];
+    for (const testPath of testPaths) {
+      expect(invokedArgs).toContain(testPath);
+    }
     for (const nodePath of excludedNodePaths) {
       expect(invokedArgs).toContain(pythonTestingLanguage.excludeFlag(nodePath));
     }
