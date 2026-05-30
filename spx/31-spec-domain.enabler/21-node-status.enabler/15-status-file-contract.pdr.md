@@ -36,7 +36,7 @@ Alternatives considered and rejected:
 
 - `spx spec status` reflects a node's last `spx spec status --update` result for any node with a committed `spx.status.json`.
 - A node with no `spx.status.json` reports the same live-derived state it did before any `--update` ran.
-- `spx spec status` without `--update` executes no node tests: it reports the persisted `spx.status.json` when present and the live structural derivation otherwise, returning within the product's per-command latency budget once the CLI process is running.
+- `spx spec status` without `--update` executes no node tests: it reports the persisted `spx.status.json` when present and the live structural derivation otherwise, returning within the product's per-command latency budget declared in `spx/spx.product.md` (under 100ms once the CLI process is running).
 - `spx spec status --update` is the only command path that executes node tests; test execution is what distinguishes refreshing recorded state from reporting it.
 
 ## Compliance
