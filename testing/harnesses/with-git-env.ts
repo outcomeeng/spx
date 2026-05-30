@@ -9,13 +9,12 @@
  * Used for Level 2 integration tests that verify real git + lefthook + vitest behavior.
  */
 import { execa, type Options as ExecaOptions } from "execa";
-import { randomUUID } from "node:crypto";
-import { mkdir, rm, symlink, writeFile as writeFileFs } from "node:fs/promises";
-import { tmpdir } from "node:os";
+import { mkdir, symlink, writeFile as writeFileFs } from "node:fs/promises";
 import { dirname, join, relative, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 
 import { PRECOMMIT_PATH } from "@/lib/precommit/precommit-path";
+import { withTempDir } from "@testing/harnesses/with-temp-dir";
 import { buildGitTestEnvironment, GIT_TEST_CONFIG, GIT_TEST_SUBCOMMANDS, runGit } from "./git-test-constants";
 
 const __filename = fileURLToPath(import.meta.url);
@@ -74,14 +73,12 @@ export interface GitTestEnvContext {
  *   expect(result.exitCode).toBe(0);
  * });
  */
-export async function withGitEnv<T>(
+export function withGitEnv<T>(
   fn: (ctx: GitTestEnvContext) => Promise<T>,
 ): Promise<T> {
-  const tempDir = join(tmpdir(), `spx-git-test-${randomUUID()}`);
-  const precommitRelativePath = relative(PRODUCT_ROOT, PRECOMMIT_PATH);
-  await mkdir(tempDir, { recursive: true });
+  return withTempDir("spx-git-test-", async (tempDir) => {
+    const precommitRelativePath = relative(PRODUCT_ROOT, PRECOMMIT_PATH);
 
-  try {
     // Symlink project config files (ensures tests verify ACTUAL configuration)
     const filesToSymlink = [
       "node_modules",
@@ -172,9 +169,5 @@ export async function withGitEnv<T>(
     };
 
     return await fn({ path: tempDir, exec, writeFile });
-  } finally {
-    await rm(tempDir, { recursive: true, force: true }).catch(() => {
-      // Ignore cleanup errors
-    });
-  }
+  });
 }

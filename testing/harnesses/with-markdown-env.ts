@@ -5,10 +5,11 @@
  * against them. Follows the harness pattern from /testing-typescript.
  */
 
-import { cp, mkdtemp, rm } from "node:fs/promises";
-import { tmpdir } from "node:os";
+import { cp } from "node:fs/promises";
 import { dirname, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
+
+import { withTempDir } from "@testing/harnesses/with-temp-dir";
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
@@ -47,13 +48,11 @@ export interface MarkdownEnvOptions {
  * 3. Runs the test callback with paths
  * 4. Cleans up after (even on failure)
  */
-export async function withMarkdownEnv(
+export function withMarkdownEnv(
   opts: MarkdownEnvOptions,
   testFn: (context: MarkdownEnvContext) => Promise<void>,
 ): Promise<void> {
-  const tempDir = await mkdtemp(join(tmpdir(), "mdlint-harness-"));
-
-  try {
+  return withTempDir("mdlint-harness-", async (tempDir) => {
     const fixtureSource = join(FIXTURES_ROOT, opts.fixture);
     await cp(fixtureSource, tempDir, { recursive: true });
 
@@ -62,11 +61,5 @@ export async function withMarkdownEnv(
       spxDir: join(tempDir, "spx"),
       docsDir: join(tempDir, "docs"),
     });
-  } finally {
-    try {
-      await rm(tempDir, { recursive: true, force: true });
-    } catch (cleanupError) {
-      console.warn(`Warning: Failed to clean up temp directory ${tempDir}:`, cleanupError);
-    }
-  }
+  });
 }

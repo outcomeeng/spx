@@ -1,5 +1,4 @@
-import { mkdir, mkdtemp, rm, writeFile } from "node:fs/promises";
-import { tmpdir } from "node:os";
+import { mkdir, writeFile } from "node:fs/promises";
 import { join } from "node:path";
 import { pathToFileURL } from "node:url";
 import { expect } from "vitest";
@@ -20,6 +19,7 @@ import {
   runGit,
   runTsxEval,
 } from "@testing/harnesses/git-test-constants";
+import { withTempDir } from "@testing/harnesses/with-temp-dir";
 
 interface SerializedLintPolicyResult {
   readonly ok: boolean;
@@ -47,13 +47,8 @@ export async function runValidationLintPolicyScenario(
   }
 }
 
-async function withPolicyProject(callback: (productDir: string) => Promise<void>): Promise<void> {
-  const productDir = await mkdtemp(join(tmpdir(), VALIDATION_LINT_POLICY_DATA.tempPrefix));
-  try {
-    await callback(productDir);
-  } finally {
-    await rm(productDir, { recursive: true, force: true });
-  }
+function withPolicyProject(callback: (productDir: string) => Promise<void>): Promise<void> {
+  return withTempDir(VALIDATION_LINT_POLICY_DATA.tempPrefix, callback);
 }
 
 async function writePolicyManifest(

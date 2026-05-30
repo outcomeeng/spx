@@ -1,6 +1,4 @@
-import { randomUUID } from "node:crypto";
-import { mkdir, rm, writeFile } from "node:fs/promises";
-import { tmpdir } from "node:os";
+import { mkdir, writeFile } from "node:fs/promises";
 import { dirname, join } from "node:path";
 
 import {
@@ -10,6 +8,7 @@ import {
   readGit,
   runGit,
 } from "@testing/harnesses/git-test-constants";
+import { createTempDir, removeTempDir } from "@testing/harnesses/with-temp-dir";
 
 const TEMP_DIR_PREFIX = "spx-git-worktree-";
 const SUBMODULE_TEMP_DIR_PREFIX = "spx-git-worktree-submodule-";
@@ -41,8 +40,7 @@ type CapturedGitEnv = ReadonlyMap<string, string | undefined>;
 export async function withGitWorktreeEnv(
   callback: (env: GitWorktreeEnv) => Promise<void>,
 ): Promise<void> {
-  const productDir = join(tmpdir(), `${TEMP_DIR_PREFIX}${randomUUID()}`);
-  await mkdir(productDir, { recursive: true });
+  const productDir = await createTempDir(TEMP_DIR_PREFIX);
 
   const innerRepoTempDirs: string[] = [];
   const captured = captureAndStripProcessGitEnv();
@@ -68,7 +66,7 @@ export async function withGitWorktreeEnv(
     restoreProcessGitEnv(captured);
     for (const dir of [productDir, ...innerRepoTempDirs]) {
       try {
-        await rm(dir, { recursive: true, force: true });
+        await removeTempDir(dir);
       } catch (error) {
         if (!cleanupFailed) {
           cleanupError = error;
@@ -133,9 +131,8 @@ async function addLocalSubmodule(
   relativePath: string,
   innerRepoTempDirs: string[],
 ): Promise<void> {
-  const innerRepoDir = join(tmpdir(), `${SUBMODULE_TEMP_DIR_PREFIX}${randomUUID()}`);
+  const innerRepoDir = await createTempDir(SUBMODULE_TEMP_DIR_PREFIX);
   innerRepoTempDirs.push(innerRepoDir);
-  await mkdir(innerRepoDir, { recursive: true });
   await runGit(innerRepoDir, [GIT_TEST_SUBCOMMANDS.INIT]);
   await runGit(innerRepoDir, [GIT_TEST_SUBCOMMANDS.CONFIG, GIT_TEST_CONFIG.EMAIL_KEY, GIT_TEST_CONFIG.EMAIL]);
   await runGit(

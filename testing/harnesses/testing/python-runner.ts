@@ -1,11 +1,11 @@
 import { execa } from "execa";
-import { copyFile, mkdtemp, rm } from "node:fs/promises";
-import { tmpdir } from "node:os";
+import { copyFile } from "node:fs/promises";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 
 import { PYTEST_INVOKE_ARGS } from "@/testing/languages/python";
 import type { TestRunCommandResult, TestRunnerDependencies } from "@/testing/languages/types";
+import { withTempDir } from "@testing/harnesses/with-temp-dir";
 
 const PYTEST_FIXTURE_DIR = join(dirname(fileURLToPath(import.meta.url)), "..", "..", "fixtures", "pytest");
 const TEMP_PROJECT_PREFIX = "spx-pytest-";
@@ -77,16 +77,13 @@ export interface TempPytestProject {
 
 // Copies a committed fixture suite into a temp project outside the repo so pytest resolves
 // no inherited configuration, and hands back the suite path for the runner to execute.
-export async function withTempPytestProject(
+export function withTempPytestProject(
   fixture: PytestFixture,
   callback: (project: TempPytestProject) => Promise<void>,
 ): Promise<void> {
-  const projectRoot = await mkdtemp(join(tmpdir(), TEMP_PROJECT_PREFIX));
-  const suitePath = join(projectRoot, COPIED_SUITE_NAME);
-  try {
+  return withTempDir(TEMP_PROJECT_PREFIX, async (projectRoot) => {
+    const suitePath = join(projectRoot, COPIED_SUITE_NAME);
     await copyFile(join(PYTEST_FIXTURE_DIR, fixture), suitePath);
     await callback({ projectRoot, suitePath });
-  } finally {
-    await rm(projectRoot, { recursive: true, force: true });
-  }
+  });
 }

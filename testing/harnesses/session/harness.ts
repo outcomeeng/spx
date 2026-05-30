@@ -8,8 +8,7 @@
  * @module session/testing/harness
  */
 
-import { mkdir, mkdtemp, rm, writeFile } from "node:fs/promises";
-import { tmpdir } from "node:os";
+import { mkdir, writeFile } from "node:fs/promises";
 import { join } from "node:path";
 
 import { DEFAULT_CONFIG } from "@/config/defaults";
@@ -17,6 +16,7 @@ import { buildSessionFrontMatterContent, stringifySessionFrontMatter } from "@/d
 import { DEFAULT_PRIORITY, SESSION_STATUSES, type SessionPriority, type SessionStatus } from "@/domains/session/types";
 import type { GitDependencies } from "@/git/root";
 import type { HandoffHeaderFixture } from "@testing/generators/session/session";
+import { createTempDir, removeTempDir } from "@testing/harnesses/with-temp-dir";
 
 const { statusDirs } = DEFAULT_CONFIG.sessions;
 
@@ -129,7 +129,7 @@ export interface SessionHarness {
  * @returns A harness with helpers for writing sessions and cleanup
  */
 export async function createSessionHarness(): Promise<SessionHarness> {
-  const sessionsDir = await mkdtemp(join(tmpdir(), "spx-session-harness-"));
+  const sessionsDir = await createTempDir("spx-session-harness-");
 
   // Create one subdirectory per status, derived from DEFAULT_CONFIG
   for (const status of SESSION_STATUSES) {
@@ -169,8 +169,8 @@ export async function createSessionHarness(): Promise<SessionHarness> {
       return filePath;
     },
 
-    async cleanup(): Promise<void> {
-      await rm(sessionsDir, { recursive: true, force: true });
+    cleanup(): Promise<void> {
+      return removeTempDir(sessionsDir);
     },
   };
 }

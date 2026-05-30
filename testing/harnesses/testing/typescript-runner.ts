@@ -1,10 +1,10 @@
 import { execa } from "execa";
-import { copyFile, mkdtemp, rm } from "node:fs/promises";
-import { tmpdir } from "node:os";
+import { copyFile } from "node:fs/promises";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 
 import type { TestRunnerDependencies } from "@/testing/languages/types";
+import { withTempDir } from "@testing/harnesses/with-temp-dir";
 
 const VITEST_FIXTURE_DIR = join(dirname(fileURLToPath(import.meta.url)), "..", "..", "fixtures", "vitest");
 const TEMP_PROJECT_PREFIX = "spx-vitest-";
@@ -53,15 +53,12 @@ export function repoRootedCommandRunner(): TestRunnerDependencies {
 
 // Copies a committed fixture suite into a temp project outside the repo so vitest
 // resolves no inherited config and runs the suite under defaults.
-export async function withTempVitestProject(
+export function withTempVitestProject(
   fixture: VitestFixture,
   callback: (projectRoot: string) => Promise<void>,
 ): Promise<void> {
-  const projectRoot = await mkdtemp(join(tmpdir(), TEMP_PROJECT_PREFIX));
-  try {
+  return withTempDir(TEMP_PROJECT_PREFIX, async (projectRoot) => {
     await copyFile(join(VITEST_FIXTURE_DIR, fixture), join(projectRoot, COPIED_SUITE_NAME));
     await callback(projectRoot);
-  } finally {
-    await rm(projectRoot, { recursive: true, force: true });
-  }
+  });
 }

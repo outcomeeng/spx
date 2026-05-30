@@ -1,6 +1,5 @@
-import { mkdir, mkdtemp, readFile as readNodeFile, rm, writeFile } from "node:fs/promises";
-import { tmpdir } from "node:os";
-import { dirname, join, resolve, sep } from "node:path";
+import { mkdir, readFile as readNodeFile, writeFile } from "node:fs/promises";
+import { dirname, resolve, sep } from "node:path";
 
 import * as fc from "fast-check";
 
@@ -24,6 +23,7 @@ import {
   createSource,
   type RepresentativeSpecTreeFixture,
 } from "@testing/generators/spec-tree/spec-tree";
+import { withTempDir } from "@testing/harnesses/with-temp-dir";
 export { SPEC_TREE_ENV_FIXTURE_WRITER_METHODS } from "@/domains/spec/fixture-writer-methods";
 
 export type { Config } from "@/config/types";
@@ -73,14 +73,11 @@ export type CurrentSpecTreeEnv = SpecTreeEnv & {
   projectFilesystem(): Promise<SpecTreeProjection>;
 };
 
-export async function withTestEnv(
+export function withTestEnv(
   config: Config,
   callback: (env: SpecTreeEnv) => Promise<void>,
 ): Promise<void> {
-  const tempRoot = resolve(tmpdir());
-  const productDir = await mkdtemp(join(tempRoot, TEMP_PREFIX));
-
-  try {
+  return withTempDir(TEMP_PREFIX, async (productDir) => {
     const configFile = configFileForFormat(productDir, DEFAULT_CONFIG_FILE_FORMAT);
     const serialized = serializeConfigFileSections(
       configFile.format,
@@ -109,9 +106,7 @@ export async function withTestEnv(
     };
 
     await callback(env);
-  } finally {
-    await safeRemove(productDir, tempRoot);
-  }
+  });
 }
 
 export async function withSpecTreeEnv(
@@ -322,13 +317,4 @@ function resolvePath(productDir: string, relativePath: string): string {
     throw new Error(`Path escapes product directory: ${relativePath}`);
   }
   return absolute;
-}
-
-async function safeRemove(productDir: string, tempRoot: string): Promise<void> {
-  const resolved = resolve(productDir);
-  const rootWithSep = tempRoot.endsWith(sep) ? tempRoot : tempRoot + sep;
-  if (!resolved.startsWith(rootWithSep)) {
-    throw new Error(`Refusing to remove path outside os.tmpdir(): ${resolved}`);
-  }
-  await rm(resolved, { recursive: true, force: true });
 }

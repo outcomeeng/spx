@@ -1,8 +1,5 @@
 import { Command, CommanderError } from "commander";
 import { execa } from "execa";
-import { mkdtemp, rm } from "node:fs/promises";
-import { tmpdir } from "node:os";
-import { join } from "node:path";
 import { expect } from "vitest";
 
 import { validationCliDefinition, validationDomain } from "@/domains/validation";
@@ -18,6 +15,7 @@ import {
   validationCliUnavailableExitCode,
   type ValidationSubprocessScenario,
 } from "@testing/generators/validation/validation";
+import { withTempDir } from "@testing/harnesses/with-temp-dir";
 
 export interface ValidationCliResult {
   readonly exitCode: number;
@@ -84,15 +82,10 @@ export async function runValidationInProcess(args: readonly string[]): Promise<V
   }
 }
 
-export async function withEmptyValidationProject(
+export function withEmptyValidationProject(
   testFn: (projectRoot: string) => Promise<void>,
 ): Promise<void> {
-  const projectRoot = await mkdtemp(join(tmpdir(), validationCliTempDirectoryPrefix()));
-  try {
-    await testFn(projectRoot);
-  } finally {
-    await rm(projectRoot, { force: true, recursive: true });
-  }
+  return withTempDir(validationCliTempDirectoryPrefix(), testFn);
 }
 
 export function validationCliPackagedArgs(args: readonly string[]): string[] {
