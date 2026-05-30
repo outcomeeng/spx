@@ -36,6 +36,8 @@ Alternatives considered and rejected:
 
 - `spx spec status` reflects a node's last `spx spec status --update` result for any node with a committed `spx.status.json`.
 - A node with no `spx.status.json` reports the same live-derived state it did before any `--update` ran.
+- `spx spec status` without `--update` executes no node tests: it reports the persisted `spx.status.json` when present and the live structural derivation otherwise, returning within the product's per-command latency budget once the CLI process is running.
+- `spx spec status --update` is the only command path that executes node tests; test execution is what distinguishes refreshing recorded state from reporting it.
 
 ## Compliance
 
@@ -48,8 +50,10 @@ Every refreshed node directory contains an `spx.status.json` whose `status` is o
 - Write `spx.status.json` only through the `spx spec status --update` path — every other path reads ([review])
 - Place each `spx.status.json` in the directory of the node it describes ([review])
 - Record the lifecycle state as a JSON `status` field whose value is one of `declared`, `specified`, `failing`, `passing` ([review])
+- Report only derivable state from `spx spec status` without `--update` — the persisted `spx.status.json` when present, otherwise the live structural derivation ([review])
 
 ### NEVER
 
 - Treat a missing `spx.status.json` as an error or a fixed state — absence routes to live derivation ([review])
 - Offer `spx.status.yaml` or `spx.status.toml` — the status file is machine-written JSON only ([review])
+- Execute node tests from any `spx spec status` invocation other than `--update` ([review])
