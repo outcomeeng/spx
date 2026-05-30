@@ -56,4 +56,8 @@ describe("withTempDir — removal safety", () => {
 
     await expect(removeTempDir(outside)).rejects.toThrow();
   });
+
+  it("refuses to remove the OS temp root itself", async () => {
+    await expect(removeTempDir(tmpdir())).rejects.toThrow();
+  });
 });
