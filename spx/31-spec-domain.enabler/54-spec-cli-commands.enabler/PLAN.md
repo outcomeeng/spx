@@ -1,10 +1,10 @@
 # Plan: 54-spec-cli-commands.enabler — wire node-status into the CLI
 
 This is the CLI half of PR alpha in `spx/31-spec-domain.enabler/PLAN.md`. The
-node-status library (`src/lib/node-status`) merged with PR #72 (spec) and #74
-(implementation). The `spx spec` command surface does not yet consume it.
+node-status library (`src/lib/node-status`) is merged on `main`. The `spx spec`
+command surface does not yet consume it.
 
-## Two wiring gaps (surfaced by review on PR #74)
+## Two wiring gaps
 
 1. **Write path — `spx spec status --update` is unreachable.**
    `src/domains/spec/index.ts` registers only `--json`/`--format` for
@@ -22,16 +22,18 @@ node-status library (`src/lib/node-status`) merged with PR #72 (spec) and #74
    `specified` derivation. The fix is to pass `createNodeStatusProvider(productDir)`
    as the `evidence` provider on the filesystem read path.
 
-   **Spec gap:** `spec-cli-commands.md` does not yet assert that `spx spec status`
-   honors a node's persisted `spx.status.json` when present. Line 11 says it
-   reports "derived node states from the current spec-tree surface" — silent on
-   persisted state. This needs a spec amendment (an assertion that a node with a
-   committed status file reports that recorded state, and a node without one
-   reports the live-derived state) BEFORE the read-path implementation.
+   The read-path behavior is now governed: `spec-cli-commands.md` carries the
+   read-path scenario assertion (a node with a committed `spx.status.json`
+   reports its recorded state and runs no tests) and a no-tests-on-read
+   compliance rule, and `15-status-file-contract.pdr.md` carries the matching
+   invariants. That scenario's `[test]` link is a forward contract: the covering
+   test case is authored in this node's implementation unit alongside the
+   provider wiring, not before it.
 
 ## Ordering
 
-Per the spec-then-implementation split: amend `spec-cli-commands.md` for the
-read-path assertion first (its own spec PR), then implement both wiring gaps via
-`/spec-tree:applying` on this node (architecture → tests → code, three audit
-gates), with a covering scenario test under `tests/`.
+The read-path governance landed as a spec change (PDR invariants + the
+`spec-cli-commands.md` assertion). The implementation unit then wires both gaps
+via `/spec-tree:applying` on this node (architecture → tests → code, three audit
+gates), authoring the covering scenario test under `tests/` as it wires the
+provider and registers `--update`.
