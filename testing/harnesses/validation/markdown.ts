@@ -1,8 +1,9 @@
 import { readdirSync } from "node:fs";
-import { mkdir, mkdtemp, rm, writeFile } from "node:fs/promises";
-import { tmpdir } from "node:os";
+import { mkdir, writeFile } from "node:fs/promises";
 import { join } from "node:path";
 import { expect } from "vitest";
+
+import { withTempDir } from "@testing/harnesses/with-temp-dir";
 
 import { allCommand } from "@/commands/validation/all";
 import { MARKDOWN_COMMAND_OUTPUT, markdownCommand } from "@/commands/validation/markdown";
@@ -438,18 +439,14 @@ async function writeValidMarkdownPair(spxDir: string): Promise<string> {
   return sourceFile;
 }
 
-async function withMarkdownTempProject(
+function withMarkdownTempProject(
   callback: (context: { readonly path: string; readonly spxDir: string }) => Promise<void>,
 ): Promise<void> {
-  const path = await mkdtemp(join(tmpdir(), MARKDOWN_VALIDATION_DATA.e2eTempPrefix));
-  try {
-    await callback({
+  return withTempDir(MARKDOWN_VALIDATION_DATA.e2eTempPrefix, (path) =>
+    callback({
       path,
       spxDir: join(path, MARKDOWN_VALIDATION_DATA.spxDirectoryName),
-    });
-  } finally {
-    await rm(path, { recursive: true, force: true });
-  }
+    }));
 }
 
 async function withMarkdownScenarioEnv(

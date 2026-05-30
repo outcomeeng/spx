@@ -1,5 +1,5 @@
-import { cp, mkdtemp, rm, symlink } from "node:fs/promises";
-import { tmpdir } from "node:os";
+import { withTempDir } from "@testing/harnesses/with-temp-dir";
+import { cp, symlink } from "node:fs/promises";
 import { dirname, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import { FIXTURES_PATH } from "../fixtures";
@@ -70,14 +70,11 @@ export interface TestEnvOptions {
  * });
  * ```
  */
-export async function withValidationEnv(
+export function withValidationEnv(
   opts: TestEnvOptions,
   testFn: (context: TestEnvContext) => Promise<void>,
 ): Promise<void> {
-  // Create temp directory with unique prefix
-  const tempDir = await mkdtemp(join(tmpdir(), "spx-test-"));
-
-  try {
+  return withTempDir("spx-test-", async (tempDir) => {
     // Copy fixture project to temp directory
     const fixtureSource = join(FIXTURES_PATH, opts.fixture);
     const fixtureDest = join(tempDir, opts.fixture);
@@ -89,14 +86,5 @@ export async function withValidationEnv(
 
     // Run test callback with context
     await testFn({ path: fixtureDest });
-  } finally {
-    // Always clean up temp directory, even if test fails
-    try {
-      await rm(tempDir, { recursive: true, force: true });
-    } catch (cleanupError) {
-      // Log cleanup errors but don't fail the test
-      // tempDir is system-generated via mkdtemp(), not user input - safe for format strings
-      console.warn(`Warning: Failed to clean up temp directory ${tempDir}:`, cleanupError); // nosemgrep
-    }
-  }
+  });
 }

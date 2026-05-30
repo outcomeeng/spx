@@ -10,9 +10,10 @@
 
 import { DEFAULT_AUDIT_CONFIG, encodeNodePath, formatAuditTimestamp } from "@/domains/audit/config";
 import { AUDIT_VERDICT_XML, AuditGateStatus, AuditVerdictValue } from "@/domains/audit/reader";
-import { mkdir, mkdtemp, rm, writeFile } from "node:fs/promises";
-import { tmpdir } from "node:os";
+import { mkdir, writeFile } from "node:fs/promises";
 import { join } from "node:path";
+
+import { createTempDir, removeTempDir } from "@testing/harnesses/with-temp-dir";
 
 export const AUDIT_VERDICT_XML_SKIPPED_REASON_FIXTURE = "Not applicable for this generated gate";
 
@@ -66,7 +67,7 @@ export interface AuditHarness {
  * `.spx/nodes/` subdirectory structure derived from DEFAULT_AUDIT_CONFIG.
  */
 export async function createAuditHarness(): Promise<AuditHarness> {
-  const productDir = await mkdtemp(join(tmpdir(), "spx-audit-harness-"));
+  const productDir = await createTempDir("spx-audit-harness-");
 
   await mkdir(
     join(
@@ -99,8 +100,8 @@ export async function createAuditHarness(): Promise<AuditHarness> {
       return filePath;
     },
 
-    async cleanup(): Promise<void> {
-      await rm(productDir, { recursive: true, force: true });
+    cleanup(): Promise<void> {
+      return removeTempDir(productDir);
     },
   };
 
