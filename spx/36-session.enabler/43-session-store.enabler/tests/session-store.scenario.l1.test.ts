@@ -618,6 +618,74 @@ describe("handoffCommand with real filesystem", () => {
     expect(onDisk).not.toContain(`---\n\r${body}`);
   });
 
+  it("GIVEN JSON header with YAML-significant characters in specs WHEN handoff executes THEN parsed specs round-trips unchanged", async () => {
+    const specs = [">", "|", "{"];
+    const stdin = buildHandoffStdin(
+      { priority: DEFAULT_PRIORITY, goal: TEST_GOAL, next_step: TEST_NEXT_STEP, specs, files: [] },
+      "# Test handoff",
+    );
+
+    const output = await handoffCommand({
+      content: stdin,
+      sessionsDir: harness.sessionsDir,
+      deps: HANDOFF_GIT_DEPS,
+    });
+    const metadata = parseSessionMetadata(await readFile(extractSessionFile(output), "utf-8"));
+
+    expect(metadata.specs).toEqual(specs);
+  });
+
+  it("GIVEN JSON header with YAML-significant characters in files WHEN handoff executes THEN parsed files round-trips unchanged", async () => {
+    const files = [">", "|", "{"];
+    const stdin = buildHandoffStdin(
+      { priority: DEFAULT_PRIORITY, goal: TEST_GOAL, next_step: TEST_NEXT_STEP, specs: [], files },
+      "# Test handoff",
+    );
+
+    const output = await handoffCommand({
+      content: stdin,
+      sessionsDir: harness.sessionsDir,
+      deps: HANDOFF_GIT_DEPS,
+    });
+    const metadata = parseSessionMetadata(await readFile(extractSessionFile(output), "utf-8"));
+
+    expect(metadata.files).toEqual(files);
+  });
+
+  it("GIVEN JSON header with a single empty-string entry in specs WHEN handoff executes THEN parsed specs round-trips unchanged", async () => {
+    const specs = [""];
+    const stdin = buildHandoffStdin(
+      { priority: DEFAULT_PRIORITY, goal: TEST_GOAL, next_step: TEST_NEXT_STEP, specs, files: [] },
+      "# Test handoff",
+    );
+
+    const output = await handoffCommand({
+      content: stdin,
+      sessionsDir: harness.sessionsDir,
+      deps: HANDOFF_GIT_DEPS,
+    });
+    const metadata = parseSessionMetadata(await readFile(extractSessionFile(output), "utf-8"));
+
+    expect(metadata.specs).toEqual(specs);
+  });
+
+  it("GIVEN JSON header with a single empty-string entry in files WHEN handoff executes THEN parsed files round-trips unchanged", async () => {
+    const files = [""];
+    const stdin = buildHandoffStdin(
+      { priority: DEFAULT_PRIORITY, goal: TEST_GOAL, next_step: TEST_NEXT_STEP, specs: [], files },
+      "# Test handoff",
+    );
+
+    const output = await handoffCommand({
+      content: stdin,
+      sessionsDir: harness.sessionsDir,
+      deps: HANDOFF_GIT_DEPS,
+    });
+    const metadata = parseSessionMetadata(await readFile(extractSessionFile(output), "utf-8"));
+
+    expect(metadata.files).toEqual(files);
+  });
+
   it("GIVEN empty stdin WHEN handoff executes THEN rejects with SessionInvalidContentError before writing", async () => {
     await expect(
       handoffCommand({ content: "", sessionsDir: harness.sessionsDir, deps: HANDOFF_GIT_DEPS }),
