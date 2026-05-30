@@ -29,7 +29,11 @@ export async function withTempDir<T>(
  * callback-scoped `withTempDir` — a factory harness that returns a handle creates here and
  * removes through `removeTempDir`.
  */
-export function createTempDir(prefix: string): Promise<string> {
+export async function createTempDir(prefix: string): Promise<string> {
+  const target = resolve(join(TEMP_ROOT, prefix));
+  if (!target.startsWith(TEMP_ROOT_WITH_SEP)) {
+    throw new Error(`Refusing to create temp directory outside os.tmpdir(): ${prefix}`);
+  }
   return mkdtemp(join(TEMP_ROOT, prefix));
 }
 

@@ -1,13 +1,13 @@
 import { existsSync, mkdirSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
-import { join, relative, resolve } from "node:path";
+import { join, relative, resolve, sep } from "node:path";
 
 import { describe, expect, it } from "vitest";
 
 import { MINIMAL_SPEC_TREE_CONFIG } from "@testing/generators/config/config";
 import { arbitraryDomainLiteral, sampleLiteralTestValue } from "@testing/generators/literal/literal";
 import { withTestEnv } from "@testing/harnesses/spec-tree/spec-tree";
-import { removeTempDir } from "@testing/harnesses/with-temp-dir";
+import { createTempDir, removeTempDir } from "@testing/harnesses/with-temp-dir";
 
 describe("withTestEnv — filesystem safety", () => {
   it("roots every temp directory inside os.tmpdir()", async () => {
@@ -59,5 +59,13 @@ describe("withTempDir — removal safety", () => {
 
   it("refuses to remove the OS temp root itself", async () => {
     await expect(removeTempDir(tmpdir())).rejects.toThrow();
+  });
+});
+
+describe("createTempDir — creation safety", () => {
+  it("refuses a prefix that escapes os.tmpdir() via path traversal", async () => {
+    const traversalPrefix = `..${sep}${sampleLiteralTestValue(arbitraryDomainLiteral())}`;
+
+    await expect(createTempDir(traversalPrefix)).rejects.toThrow();
   });
 });
