@@ -8,8 +8,9 @@ const TEMP_ROOT_WITH_SEP = TEMP_ROOT.endsWith(sep) ? TEMP_ROOT : TEMP_ROOT + sep
 /**
  * The base cleanup-owning temp-directory primitive: creates a fresh directory under
  * `os.tmpdir()`, invokes the callback with its path, removes the directory on both the
- * return and throw paths, and returns the callback's result (rethrowing its error after
- * cleanup). Callback-scoped harnesses compose on this primitive.
+ * return and throw paths, and returns the callback's result. A cleanup failure is swallowed
+ * so it never masks the callback's own result or error. Callback-scoped harnesses compose
+ * on this primitive.
  */
 export async function withTempDir<T>(
   prefix: string,
@@ -19,7 +20,7 @@ export async function withTempDir<T>(
   try {
     return await callback(dir);
   } finally {
-    await removeTempDir(dir);
+    await removeTempDir(dir).catch(() => {});
   }
 }
 
