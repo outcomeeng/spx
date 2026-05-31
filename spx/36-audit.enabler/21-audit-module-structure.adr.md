@@ -8,7 +8,7 @@ This decision governs the TypeScript module layout for the audit domain: where `
 
 **Business impact:** `DEFAULT_AUDIT_CONFIG` is mandated as the single source of truth for audit path components. Without a decision on its TypeScript location and shape, every consumer independently invents the structure.
 
-**Technical constraints:** The audit domain is self-contained — it does not depend on `src/domains/session/` or `src/domains/validation/`. Path encoding (spec node path → directory name) is a pure function used by both test infrastructure and the production verify pipeline. Branch run-state storage uses Git common-dir product roots, branch slugs, exclusive run-directory creation, terminal `state.json` files, and latest-run ordering from `spx/36-audit.enabler/15-audit-directory.adr.md`. Timestamp generation for verdict filenames must use UTC components to ensure timezone-independent lexicographic ordering.
+**Technical constraints:** The audit domain is self-contained — it does not depend on the session or validation domains at any layer. Path encoding (spec node path → directory name) is a pure function used by both test infrastructure and the production verify pipeline. Branch run-state storage uses Git common-dir product roots, branch slugs, exclusive run-directory creation, terminal `state.json` files, and latest-run ordering from `spx/36-audit.enabler/15-audit-directory.adr.md`. Timestamp generation for verdict filenames must use UTC components to ensure timezone-independent lexicographic ordering.
 
 ## Decision
 
