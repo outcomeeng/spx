@@ -169,11 +169,14 @@ function registerSessionCommands(sessionCmd: Command): void {
         // Read content from stdin if available
         const content = await readStdin();
 
-        const output = await handoffCommand({
+        const result = await handoffCommand({
           content,
           sessionsDir: options.sessionsDir,
         });
-        console.log(output);
+        if (result.warning !== undefined) {
+          process.stderr.write(`${result.warning}\n`);
+        }
+        console.log(result.output);
       } catch (error) {
         handleError(error);
       }

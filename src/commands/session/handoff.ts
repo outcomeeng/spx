@@ -41,6 +41,17 @@ export interface HandoffOptions {
 }
 
 /**
+ * Result of the handoff command. The descriptor writes `output` to stdout and
+ * `warning`, when present, to stderr. The handler does not touch process streams.
+ */
+export interface HandoffResult {
+  /** Stdout text including `<HANDOFF_ID>` and `<SESSION_FILE>` tags. */
+  output: string;
+  /** Optional stderr diagnostic surfaced by session-config resolution. */
+  warning?: string;
+}
+
+/**
  * Executes the handoff command.
  *
  * Creates a new session in the todo directory for pickup by another context.
@@ -68,7 +79,7 @@ export interface HandoffOptions {
  * @throws {SessionInvalidNextStepError} When the parsed `next_step` is empty
  * @throws {SessionDetachedHeadError} When git HEAD is detached
  */
-export async function handoffCommand(options: HandoffOptions): Promise<string> {
+export async function handoffCommand(options: HandoffOptions): Promise<HandoffResult> {
   const { config, warning } = await resolveSessionConfig({
     sessionsDir: options.sessionsDir,
     cwd: options.cwd,
@@ -119,9 +130,7 @@ export async function handoffCommand(options: HandoffOptions): Promise<string> {
   await mkdir(config.todoDir, { recursive: true });
   await writeFile(sessionPath, fullContent, "utf-8");
 
-  if (warning) {
-    process.stderr.write(`${warning}\n`);
-  }
-
-  return `Created handoff session <HANDOFF_ID>${sessionId}</HANDOFF_ID>\n<SESSION_FILE>${absolutePath}</SESSION_FILE>`;
+  const output =
+    `Created handoff session <HANDOFF_ID>${sessionId}</HANDOFF_ID>\n<SESSION_FILE>${absolutePath}</SESSION_FILE>`;
+  return warning ? { output, warning } : { output };
 }
