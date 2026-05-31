@@ -12,7 +12,7 @@ This decision governs the TypeScript module layout for the audit domain: where `
 
 ## Decision
 
-The audit production module tree under `src/domains/audit/` owns runtime audit code. Audit test infrastructure lives under `testing/harnesses/audit/`.
+The audit production code spans three layers per [`spx/14-cli-composition.adr.md`](../14-cli-composition.adr.md): pure modules under `src/domains/audit/`, the process-agnostic command handler under `src/commands/audit/`, and the Commander descriptor at `src/interfaces/cli/audit.ts`. Audit test infrastructure lives under `testing/harnesses/audit/`.
 
 `src/domains/audit/config.ts` exports the audit config descriptor, the audit config constant, the path-encoding function, and the timestamp formatter for node-first verdict artifacts.
 
