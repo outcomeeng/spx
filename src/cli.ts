@@ -4,12 +4,7 @@
 import { Command } from "commander";
 import { createRequire } from "node:module";
 
-import { auditDomain } from "./interfaces/cli/audit";
-import { claudeDomain } from "./interfaces/cli/claude";
-import { configDomain } from "./interfaces/cli/config";
-import { sessionDomain } from "./interfaces/cli/session";
-import { specDomain } from "./interfaces/cli/spec";
-import { validationDomain } from "./interfaces/cli/validation";
+import { CLI_DOMAINS } from "./interfaces/cli/registry";
 import { installLifecycle } from "./lib/process-lifecycle";
 
 installLifecycle();
@@ -24,12 +19,8 @@ program
   .description("Fast, deterministic CLI tool for spec workflow management")
   .version(version);
 
-// Register domains
-auditDomain.register(program);
-claudeDomain.register(program);
-configDomain.register(program);
-sessionDomain.register(program);
-specDomain.register(program);
-validationDomain.register(program);
+for (const domain of CLI_DOMAINS) {
+  domain.register(program);
+}
 
 program.parse();
