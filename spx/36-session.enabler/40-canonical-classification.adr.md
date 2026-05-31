@@ -50,7 +50,7 @@ A pure classifier function in `src/domains/session/` throws on non-canonical fro
 
 - The canonical classifier is a pure function that accepts session content and returns canonical metadata, deriving its accepted key set from `SESSION_FRONT_MATTER` and its required-key set from the five keys [`spx/36-session.enabler/11-session-frontmatter.pdr.md`](11-session-frontmatter.pdr.md) recognizes a canonical session by — `priority`, `branch`, `worktree`, `goal`, `next_step` — so pure input enables `l1` verification with literal content and no mocking ([review])
 - The canonical classifier throws a single typed session error for every non-conformance — a key outside the shape, a missing required handoff field, or unparseable frontmatter — so the archive orchestrator branches on one observable signal ([review])
-- Classification logic lives in `src/domains/session/` and archive I/O orchestration in `src/commands/session/`, consuming the classifier through a direct pure call per [`spx/36-session.enabler/32-domain-command-split.adr.md`](32-domain-command-split.adr.md) ([review])
+- Classification logic lives in `src/domains/session/` and archive I/O orchestration in `src/commands/session/`, consuming the classifier through a direct pure call per [`spx/14-cli-composition.adr.md`](../14-cli-composition.adr.md) ([review])
 - The archive orchestrator applies the non-empty-`result` requirement only when the classifier accepts the session, and archives without that requirement when the classifier throws ([review])
 
 ### NEVER
