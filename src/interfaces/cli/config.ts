@@ -14,8 +14,8 @@ import {
 } from "@/config/index";
 import { productionRegistry } from "@/config/registry";
 
-import type { Domain } from "../types";
-import { resolveProductDir } from "./root";
+import { resolveProductDir } from "@/domains/config/root";
+import type { Domain } from "@/domains/types";
 
 function buildDefaultDeps(): CliDeps {
   return {
