@@ -14,9 +14,10 @@ import {
   SESSION_FILE_EXTENSION,
 } from "@/domains/session/archive";
 import { processBatch } from "@/domains/session/batch";
-import { SessionInvalidResultError, SessionNotFoundError } from "@/domains/session/errors";
-import { parseSessionMetadata } from "@/domains/session/list";
+import { parseCanonicalSession } from "@/domains/session/canonical";
+import { SessionInvalidResultError, SessionNotCanonicalError, SessionNotFoundError } from "@/domains/session/errors";
 import { SessionDirectoryConfig } from "@/domains/session/show";
+import { type SessionMetadata } from "@/domains/session/types";
 import { resolveSessionConfig } from "@/git/root";
 
 export const SESSION_ARCHIVE_OUTPUT = {
@@ -114,13 +115,23 @@ export async function resolveArchivePaths(
 }
 
 /**
- * Executes the archive command.
+ * Classifies a session's content against the canonical frontmatter shape.
  *
- * @param options - Command options
- * @returns Formatted output for display
- * @throws {SessionNotFoundError} When session not found
- * @throws {SessionAlreadyArchivedError} When session is already archived
+ * @param content - Full session file content
+ * @returns Canonical metadata when the frontmatter conforms, or null when the
+ *   session is non-canonical
  */
+function classifyCanonicalSession(content: string): SessionMetadata | null {
+  try {
+    return parseCanonicalSession(content);
+  } catch (error) {
+    if (error instanceof SessionNotCanonicalError) {
+      return null;
+    }
+    throw error;
+  }
+}
+
 /**
  * Archives a single session by ID.
  */
@@ -130,10 +141,14 @@ async function archiveSingle(
 ): Promise<string> {
   const { source, target } = await resolveArchivePaths(sessionId, config);
   const content = await readFile(source, "utf-8");
-  const metadata = parseSessionMetadata(content);
-  if (metadata.result.trim().length === 0) {
+
+  // A canonical session must carry a non-empty result before archive. A
+  // non-canonical session predates that contract, so it is archived as-is.
+  const canonicalMetadata = classifyCanonicalSession(content);
+  if (canonicalMetadata !== null && canonicalMetadata.result.trim().length === 0) {
     throw new SessionInvalidResultError(sessionId);
   }
+
   await mkdir(dirname(target), { recursive: true });
   await rename(source, target);
   return `${SESSION_ARCHIVE_OUTPUT.ARCHIVED}: ${sessionId}\n${SESSION_ARCHIVE_OUTPUT.ARCHIVE_LOCATION}: ${target}`;
