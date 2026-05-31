@@ -1,11 +1,8 @@
-/**
- * Spec domain - Manage spec workflow
- */
 import type { Command } from "commander";
 
 import { nextCommand } from "@/commands/spec/next";
 import { OUTPUT_FORMAT, type OutputFormat, statusCommand } from "@/commands/spec/status";
-import type { Domain } from "../types";
+import type { Domain } from "@/domains/types";
 
 export const SPEC_DOMAIN_CLI = {
   COMMAND: "spec",
@@ -88,9 +85,6 @@ function writeWarning(warning: string): void {
   console.error(warning);
 }
 
-/**
- * Spec domain - Manage spec workflow
- */
 export const specDomain: Domain = {
   name: "spec",
   description: "Manage spec workflow",
