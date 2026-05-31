@@ -5,10 +5,10 @@ import { Command } from "commander";
 import { createRequire } from "node:module";
 
 import { auditDomain } from "./domains/audit/cli";
-import { configDomain } from "./domains/config";
 import { specDomain } from "./domains/spec";
 import { validationDomain } from "./domains/validation";
 import { claudeDomain } from "./interfaces/cli/claude";
+import { configDomain } from "./interfaces/cli/config";
 import { sessionDomain } from "./interfaces/cli/session";
 import { installLifecycle } from "./lib/process-lifecycle";
 
