@@ -39,7 +39,7 @@ export function stringifySessionFrontMatter(input: SessionFrontMatterInput): str
     ...(input.result === undefined ? {} : { [SESSION_FRONT_MATTER.RESULT]: input.result }),
     [SESSION_FRONT_MATTER.SPECS]: input.specs ?? [],
     [SESSION_FRONT_MATTER.FILES]: input.files ?? [],
-  }).trimEnd();
+  }, { defaultStringType: "QUOTE_DOUBLE" }).trimEnd();
 }
 
 export function buildSessionFrontMatterContent(
