@@ -21,3 +21,10 @@
 - Evidence: `spx/36-session.enabler/43-session-store.enabler/session-store.md` declares four named scenarios for the `specs` / `files` arrays with YAML-significant characters (`>`, `|`, `{`) and a single empty-string entry. The `arbitraryHandoffHeader` property assertion already proves round-trip fidelity for arbitrary unicode-string arrays, so the four scenarios are subsumed by it — they add named debug-pinpoint witnesses, not coverage breadth.
 - Impact: a reader scanning the Scenarios block may infer the property test is narrower than it is, and a future author adding more YAML-sensitive characters may reach for more scenarios rather than trusting the property.
 - Resolution: decide whether to replace the four scenario assertions with a cross-reference on the property assertion that names the YAML characters it exercises, or retain them as explicit regression anchors with a note on the property pointing at the named scenarios.
+
+## Session frontmatter serializer duplicated between handoff and the shared writer
+
+- Review: `spec-tree:reviewing-changes` on `fix/session-yaml-round-trip` — F-001 (architecture, follow_up)
+- Evidence: `src/commands/session/handoff.ts` builds its own `frontMatterObject` and calls `stringifyYaml` directly because it carries fields (`created_at`, `agent_session_id`) that the shared `stringifySessionFrontMatter` in `src/domains/session/create.ts` does not expose. The two writers are kept aligned by hand: the `defaultStringType: "QUOTE_DOUBLE"` round-trip option from `spx/36-session.enabler/11-session-frontmatter.pdr.md` MUST line 98 is applied at both call sites independently.
+- Impact: any future change to the session-frontmatter serialization contract has to be applied in two places, and a drift between the two writers can quietly violate PDR-11 again.
+- Resolution: extend `stringifySessionFrontMatter` (or a successor) to accept the optional `created_at` and `agent_session_id` fields so `handoffCommand` composes through it, leaving a single writer that owns the PDR-11 serialization invariant.
