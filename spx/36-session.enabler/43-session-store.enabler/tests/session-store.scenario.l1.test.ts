@@ -571,7 +571,7 @@ describe("handoffCommand with real filesystem", () => {
       "# Test handoff",
     );
 
-    const output = await handoffCommand({
+    const { output } = await handoffCommand({
       content: stdin,
       sessionsDir: harness.sessionsDir,
       deps: HANDOFF_GIT_DEPS,
@@ -592,7 +592,7 @@ describe("handoffCommand with real filesystem", () => {
     const branch = "topic/{yaml}: branch # marker";
     const deps = createSessionGitDeps({ branch, toplevel: "/repo/worktrees/topic" });
 
-    const output = await handoffCommand({
+    const { output } = await handoffCommand({
       content: PREFILL_HANDOFF_STDIN,
       sessionsDir: harness.sessionsDir,
       deps,
@@ -606,7 +606,7 @@ describe("handoffCommand with real filesystem", () => {
     const body = "# CRLF-separated body";
     const stdin = `${JSON.stringify(PREFILL_HANDOFF_HEADER)}\r\n${body}`;
 
-    const output = await handoffCommand({
+    const { output } = await handoffCommand({
       content: stdin,
       sessionsDir: harness.sessionsDir,
       deps: HANDOFF_GIT_DEPS,
@@ -625,7 +625,7 @@ describe("handoffCommand with real filesystem", () => {
       "# Test handoff",
     );
 
-    const output = await handoffCommand({
+    const { output } = await handoffCommand({
       content: stdin,
       sessionsDir: harness.sessionsDir,
       deps: HANDOFF_GIT_DEPS,
@@ -642,7 +642,7 @@ describe("handoffCommand with real filesystem", () => {
       "# Test handoff",
     );
 
-    const output = await handoffCommand({
+    const { output } = await handoffCommand({
       content: stdin,
       sessionsDir: harness.sessionsDir,
       deps: HANDOFF_GIT_DEPS,
@@ -659,7 +659,7 @@ describe("handoffCommand with real filesystem", () => {
       "# Test handoff",
     );
 
-    const output = await handoffCommand({
+    const { output } = await handoffCommand({
       content: stdin,
       sessionsDir: harness.sessionsDir,
       deps: HANDOFF_GIT_DEPS,
@@ -676,7 +676,7 @@ describe("handoffCommand with real filesystem", () => {
       "# Test handoff",
     );
 
-    const output = await handoffCommand({
+    const { output } = await handoffCommand({
       content: stdin,
       sessionsDir: harness.sessionsDir,
       deps: HANDOFF_GIT_DEPS,
@@ -745,7 +745,7 @@ describe("handoffCommand with real filesystem", () => {
       "# Body",
     );
 
-    const output = await handoffCommand({
+    const { output } = await handoffCommand({
       content: stdin,
       sessionsDir: harness.sessionsDir,
       deps: HANDOFF_GIT_DEPS,
@@ -762,7 +762,7 @@ describe("handoffCommand with real filesystem", () => {
       "# Body",
     );
 
-    const output = await handoffCommand({
+    const { output } = await handoffCommand({
       content: stdin,
       sessionsDir: harness.sessionsDir,
       deps: HANDOFF_GIT_DEPS,
@@ -779,7 +779,7 @@ describe("handoffCommand with real filesystem", () => {
       "# Body",
     );
 
-    const output = await handoffCommand({
+    const { output } = await handoffCommand({
       content: stdin,
       sessionsDir: harness.sessionsDir,
       deps: HANDOFF_GIT_DEPS,
@@ -865,7 +865,7 @@ describe("handoffCommand — created_at and agent_session_id pre-fill", () => {
   });
 
   it("GIVEN handoff is invoked WHEN session file is created THEN created_at is written to YAML front matter", async () => {
-    const output = await handoffCommand({
+    const { output } = await handoffCommand({
       content: PREFILL_HANDOFF_STDIN,
       sessionsDir: harness.sessionsDir,
       deps: HANDOFF_GIT_DEPS,
@@ -880,7 +880,7 @@ describe("handoffCommand — created_at and agent_session_id pre-fill", () => {
     const agentSessionId = "fa0a91ee-f0bc-449e-8299-727ebe314a78";
     process.env.CLAUDE_SESSION_ID = agentSessionId;
 
-    const output = await handoffCommand({
+    const { output } = await handoffCommand({
       content: PREFILL_HANDOFF_STDIN,
       sessionsDir: harness.sessionsDir,
       deps: HANDOFF_GIT_DEPS,
@@ -894,7 +894,7 @@ describe("handoffCommand — created_at and agent_session_id pre-fill", () => {
     const threadId = "thread-xyz-789";
     process.env.CODEX_THREAD_ID = threadId;
 
-    const output = await handoffCommand({
+    const { output } = await handoffCommand({
       content: PREFILL_HANDOFF_STDIN,
       sessionsDir: harness.sessionsDir,
       deps: HANDOFF_GIT_DEPS,
@@ -905,7 +905,7 @@ describe("handoffCommand — created_at and agent_session_id pre-fill", () => {
   });
 
   it("GIVEN neither CLAUDE_SESSION_ID nor CODEX_THREAD_ID set WHEN handoff creates session THEN agent_session_id does not appear in YAML front matter", async () => {
-    const output = await handoffCommand({
+    const { output } = await handoffCommand({
       content: PREFILL_HANDOFF_STDIN,
       sessionsDir: harness.sessionsDir,
       deps: HANDOFF_GIT_DEPS,

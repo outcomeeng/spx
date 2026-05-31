@@ -45,7 +45,7 @@ describe("session-store compliance — timestamp format", () => {
       "# Compliance test",
     );
 
-    const output = await handoffCommand({
+    const { output } = await handoffCommand({
       content: stdin,
       sessionsDir: harness.sessionsDir,
       deps: COMPLIANCE_GIT_DEPS,

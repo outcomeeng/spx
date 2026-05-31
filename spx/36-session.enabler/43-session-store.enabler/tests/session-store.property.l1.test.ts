@@ -62,7 +62,7 @@ describe("handoff round-trip property", () => {
           async (header, body) => {
             const stdin = buildHandoffStdin(header, body);
 
-            const output = await handoffCommand({
+            const { output } = await handoffCommand({
               content: stdin,
               sessionsDir: harness.sessionsDir,
               deps: PROPERTY_GIT_DEPS,
