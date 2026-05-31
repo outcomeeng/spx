@@ -3,8 +3,8 @@
  */
 import { initCommand } from "@/commands/claude/init";
 import { consolidateCommand } from "@/commands/claude/settings/consolidate";
+import type { Domain } from "@/domains/types";
 import type { Command } from "commander";
-import type { Domain } from "../types";
 
 /**
  * Register claude domain commands
