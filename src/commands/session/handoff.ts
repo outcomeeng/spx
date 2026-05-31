@@ -109,7 +109,7 @@ export async function handoffCommand(options: HandoffOptions): Promise<string> {
     frontMatterObject[SESSION_FRONT_MATTER.AGENT_SESSION_ID] = agentSessionId;
   }
 
-  const yaml = stringifyYaml(frontMatterObject).trimEnd();
+  const yaml = stringifyYaml(frontMatterObject, { defaultStringType: "QUOTE_DOUBLE" }).trimEnd();
   const fullContent = `${SESSION_FRONT_MATTER_OPEN}${yaml}${SESSION_FRONT_MATTER_CLOSE}${body}`;
 
   const filename = `${sessionId}.md`;
