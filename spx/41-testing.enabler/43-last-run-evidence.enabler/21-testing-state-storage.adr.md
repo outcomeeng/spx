@@ -2,7 +2,7 @@
 
 ## Purpose
 
-This decision governs the testing last-run state schema, its branch-scoped storage location under `.spx/testing/{branch-slug}/runs/{run-directory}/state.json`, and the read/select surface that consumes it, with interfaces designed for dependency injection and testable isolation. The atomic write protocol that publishes `state.json` is governed by `spx/41-testing.enabler/43-last-run-evidence.enabler/32-terminal-write-protocol.adr.md`.
+This decision governs the testing last-run state schema, its branch-scoped storage location under `.spx/testing/{branch-slug}/runs/{run-directory}/state.json`, and the read/select surface that consumes it, with interfaces designed for dependency injection and testable isolation. The atomic write protocol that publishes `state.json` is governed by [`spx/41-testing.enabler/43-last-run-evidence.enabler/32-terminal-write-protocol.adr.md`](32-terminal-write-protocol.adr.md).
 
 ## Context
 
@@ -12,7 +12,7 @@ This decision governs the testing last-run state schema, its branch-scoped stora
 
 ## Decision
 
-Define the immutable `TestRunState` schema, the branch-scoped storage-location helpers, and the read/select surface for terminal runs, with filesystem dependencies injected. The terminal-write protocol that publishes a single run's `state.json` is deferred to `spx/41-testing.enabler/43-last-run-evidence.enabler/32-terminal-write-protocol.adr.md`; this decision owns the shape, location, and the lookup that consumes written state.
+Define the immutable `TestRunState` schema, the branch-scoped storage-location helpers, and the read/select surface for terminal runs, with filesystem dependencies injected. The terminal-write protocol that publishes a single run's `state.json` is deferred to [`spx/41-testing.enabler/43-last-run-evidence.enabler/32-terminal-write-protocol.adr.md`](32-terminal-write-protocol.adr.md); this decision owns the shape, location, and the lookup that consumes written state.
 
 The module exports:
 
