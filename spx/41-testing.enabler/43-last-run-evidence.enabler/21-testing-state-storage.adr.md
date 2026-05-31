@@ -20,7 +20,7 @@ The module exports:
 2. `TestRunStateFileSystem` — the injected filesystem dependency surface (mkdir, writeFile, rename, readFile, readdir)
 3. `testingBranchDir` / `testingRunsDir` — branch-scoped storage-location helpers under `.spx/testing/{branch-slug}/runs/`
 4. `createTestRunDirectory(productDir, branchSlug, options)` — allocates a uniquely named run directory for a new run
-5. `readTestingBranchRuns(productDir, branchSlug, options)` — reads a branch's runs, partitioning terminal from incomplete (the incomplete taxonomy is owned by ADR-32)
+5. `readTestingBranchRuns(productDir, branchSlug, options)` — reads a branch's runs, partitioning terminal from incomplete (the incomplete taxonomy is owned by [`spx/41-testing.enabler/43-last-run-evidence.enabler/32-terminal-write-protocol.adr.md`](32-terminal-write-protocol.adr.md))
 6. `selectLatestTerminalTestRun(runs)` — selects the latest terminal run by `completedAt`, then `startedAt`, then run-directory name
 
 The branch slug and run-directory naming reuse the audit implementations per `spx/41-testing.enabler/43-last-run-evidence.enabler/11-last-run-directory.adr.md`.
