@@ -223,19 +223,44 @@ function arbitraryNoFrontmatter(): fc.Arbitrary<string> {
   return arbitrarySafeScalar().map((text) => `# ${text}\n`);
 }
 
+/** Canonical shape with one required string field carrying a non-string (array) value. */
+function arbitraryCanonicalWithWrongTypedField(): fc.Arbitrary<string> {
+  const wrongTypedKeys = [
+    SESSION_FRONT_MATTER.BRANCH,
+    SESSION_FRONT_MATTER.WORKTREE,
+    SESSION_FRONT_MATTER.GOAL,
+    SESSION_FRONT_MATTER.NEXT_STEP,
+  ] as const;
+  return fc
+    .tuple(
+      arbitrarySessionPriority(),
+      arbitrarySafeScalar(),
+      arbitrarySafeScalar(),
+      fc.constantFrom(...wrongTypedKeys),
+      fc.array(arbitrarySafeScalar(), { minLength: 1, maxLength: 2 }),
+    )
+    .map(([priority, goal, nextStep, wrongKey, wrongValue]) => {
+      const frontMatter = canonicalFrontMatter(priority, goal, nextStep);
+      frontMatter[wrongKey] = wrongValue;
+      return buildSessionContent(frontMatter);
+    });
+}
+
 /**
  * Arbitrary full session file content whose frontmatter does not parse into the
  * canonical shape — the domain for which `spx session archive` admits a session
  * without a result requirement. Spans the reliably non-canonical shapes: a
  * pre-structured `priority`/`tags` frontmatter, a canonical shape carrying an
- * excluded key, a canonical shape missing one required key, frontmatter whose
- * YAML cannot be parsed, and content with no frontmatter at all.
+ * excluded key, a canonical shape missing one required key, a canonical shape
+ * with a wrong-typed required field, frontmatter whose YAML cannot be parsed,
+ * and content with no frontmatter at all.
  */
 export function arbitraryNonCanonicalFrontmatter(): fc.Arbitrary<string> {
   return fc.oneof(
     arbitraryLegacyFrontmatter(),
     arbitraryCanonicalWithExcludedKey(),
     arbitraryCanonicalMissingRequiredKey(),
+    arbitraryCanonicalWithWrongTypedField(),
     arbitraryMalformedFrontmatter(),
     arbitraryNoFrontmatter(),
   );
