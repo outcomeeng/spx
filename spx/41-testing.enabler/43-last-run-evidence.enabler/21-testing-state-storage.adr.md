@@ -37,11 +37,11 @@ Alternatives considered:
 
 ## Trade-offs accepted
 
-| Trade-off                                            | Mitigation / reasoning                                                                                                                                                             |
-| ---------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Read and write live in separate decisions (21 vs 32) | The schema and lookup are stable; the write protocol carries its own atomicity concerns, so it owns its own decision                                                               |
-| Branch slug and run directory reuse audit helpers    | [`spx/41-testing.enabler/43-last-run-evidence.enabler/11-last-run-directory.adr.md`](11-last-run-directory.adr.md) mandates the reuse; one slug implementation serves both domains |
-| State immutability enforced by `readonly` only       | Tests verify mutations don't happen; readonly prevents accidental writes, not hostile misuse                                                                                       |
+| Trade-off                                            | Mitigation / reasoning                                                                                                                                                                                                                                            |
+| ---------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Schema and write protocol live in separate decisions | The schema and lookup defined here are stable; the write protocol in [`spx/41-testing.enabler/43-last-run-evidence.enabler/32-terminal-write-protocol.adr.md`](32-terminal-write-protocol.adr.md) carries its own atomicity concerns, so it owns its own decision |
+| Branch slug and run directory reuse audit helpers    | [`spx/41-testing.enabler/43-last-run-evidence.enabler/11-last-run-directory.adr.md`](11-last-run-directory.adr.md) mandates the reuse; one slug implementation serves both domains                                                                                |
+| State immutability enforced by `readonly` only       | Tests verify mutations don't happen; readonly prevents accidental writes, not hostile misuse                                                                                                                                                                      |
 
 ## Invariants
 
