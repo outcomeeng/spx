@@ -8,7 +8,7 @@ This decision governs the testing last-run state schema, its branch-scoped stora
 
 **Business impact:** Fast status commands need to read cached test observations without re-running test suites. Persisted state must be branch-scoped so one worktree branch never supplies status evidence for another.
 
-**Technical constraints:** Testing state is gitignored local state stored at `.spx/` (Git common-dir product root per `spx/15-worktree-resolution.pdr.md`). The directory structure and schema are governed by [`spx/41-testing.enabler/43-last-run-evidence.enabler/11-last-run-directory.adr.md`](11-last-run-directory.adr.md). State persistence must support isolated testing through dependency injection.
+**Technical constraints:** Testing state is gitignored local state stored at `.spx/` (Git common-dir product root per [`spx/15-worktree-resolution.pdr.md`](../../15-worktree-resolution.pdr.md)). The directory structure and schema are governed by [`spx/41-testing.enabler/43-last-run-evidence.enabler/11-last-run-directory.adr.md`](11-last-run-directory.adr.md). State persistence must support isolated testing through dependency injection.
 
 ## Decision
 
