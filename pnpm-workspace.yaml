@@ -1,5 +1,9 @@
-ignoredBuiltDependencies:
-  - esbuild
-  - lefthook
+# pnpm 11 requires an explicit per-dependency build decision (strictDepBuilds
+# defaults to true). esbuild ships its binary via the @esbuild/<platform>
+# optional dependency and lefthook runs through the prepare script, so neither
+# needs its own postinstall — keep both unbuilt.
+allowBuilds:
+  esbuild: false
+  lefthook: false
 overrides:
   vite: 8.0.10
