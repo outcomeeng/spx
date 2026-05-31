@@ -9,7 +9,7 @@
  * @module session/canonical
  */
 
-import { parse as parseYaml } from "yaml";
+import { parse as parseYaml, YAMLParseError } from "yaml";
 
 import { SessionNotCanonicalError } from "./errors";
 import { FRONT_MATTER_PATTERN, parseSessionMetadata } from "./list";
@@ -40,8 +40,11 @@ export function parseCanonicalSession(content: string): SessionMetadata {
   let parsed: unknown;
   try {
     parsed = parseYaml(match[1]);
-  } catch {
-    throw new SessionNotCanonicalError("frontmatter is not valid YAML");
+  } catch (error) {
+    if (error instanceof YAMLParseError) {
+      throw new SessionNotCanonicalError("frontmatter is not valid YAML");
+    }
+    throw error;
   }
 
   if (parsed === null || typeof parsed !== "object" || Array.isArray(parsed)) {
