@@ -12,7 +12,7 @@ This decision governs the canonical YAML frontmatter shape for every session fil
 
 ## Decision
 
-Every session file carries the canonical frontmatter shape declared in this PDR. The shape has four populated-by-handoff fields, two prefilled-by-CLI fields, one populated-by-archive field, and two optional auto-injection arrays. The shape excludes `tags`. `spx session handoff` validates non-empty `goal` and `next_step`; `spx session archive` validates non-empty `result`. Sessions whose frontmatter omits structured fields remain readable through `list`, `show`, `pickup`, and `release` and are not re-emitted by handoff.
+Every session file carries the canonical frontmatter shape declared in this PDR. The shape has four populated-by-handoff fields, two prefilled-by-CLI fields, one populated-by-archive field, and two optional auto-injection arrays. The shape excludes `tags`. `spx session handoff` validates non-empty `goal` and `next_step`. A session is **canonical** when its frontmatter parses into the shape this PDR declares and **non-canonical** when it does not. `spx session archive` validates non-empty `result` for a canonical session; it moves a non-canonical session to `archive/` unchanged without a `result` requirement. Sessions whose frontmatter omits structured fields remain readable through `list`, `show`, `pickup`, and `release` and are not re-emitted by handoff.
 
 | Field              | Type     | Lifecycle                                                                                                                      | Default                                                                        | Validated by                                                                             |
 | ------------------ | -------- | ------------------------------------------------------------------------------------------------------------------------------ | ------------------------------------------------------------------------------ | ---------------------------------------------------------------------------------------- |
@@ -41,6 +41,8 @@ Empty piped content is rejected at handoff. Substituting a default body for empt
 
 The `result` field is populated by direct edit of the session file under `.spx/sessions/doing/<id>.md` before `spx session archive` runs. The CLI surfaces no `spx session update` or `spx session set-result` command because the file is markdown and the agent already edits it during the working session — the act of writing `result` is the act of closing the work, not a separate transaction. The alternatives section above rejects the `--result "..."` flag for the same reason: a second path duplicates the edit without changing what the agent must do.
 
+The non-empty-`result` requirement binds only canonical sessions. `result` answers `goal`; a non-canonical session carries no `goal` for it to answer, so demanding a `result` before archive is incoherent, and refusing the archive would strand the session in `todo/` or `doing/` with no command able to satisfy the check. `spx session archive` classifies a session by whether its frontmatter parses into the shape this PDR declares: a parse that throws for any reason — frontmatter that omits the shape, frontmatter that carries excluded keys such as `tags`, or frontmatter that is malformed — marks the session non-canonical and archivable as-is. Archive moves the file by rename, so a non-canonical session keeps its original frontmatter and read tolerance keeps it legible in `archive/`.
+
 Tags are absent from the shape. The structured fields above serve every coordination use case tags would carry.
 
 The auto-injection arrays (`specs`, `files`) default to `[]` rather than `undefined` so consumers iterate uniformly. Auto-injection itself is governed by `spx/36-session.enabler/21-auto-injection.adr.md`.
@@ -56,18 +58,20 @@ Alternatives considered:
 
 ## Trade-offs accepted
 
-| Trade-off                                                                               | Mitigation / reasoning                                                                                                                    |
-| --------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------- |
-| Handoff requires git context to prefill branch and worktree                             | `spx session handoff` already resolves the Git common-dir per `spx/15-worktree-resolution.pdr.md`; the same call gives both fields        |
-| Archive cannot be a single command for sessions where result is still being filled      | The claiming agent edits the file as it works; archive is the explicit terminator and refusing on empty `result` keeps the log honest     |
-| Sessions whose frontmatter lacks structured fields render with empty values             | Read tolerance keeps those sessions visible without weakening the write contract; sessions handoff produces under this PDR render in full |
-| Worktree path encoded as relative to common-dir parent, not absolute                    | Absolute paths break when the repo is checked out at a different root; the relative form is portable across machines                      |
-| Five validated fields at handoff is more friction than a single content-non-empty check | A single non-empty-body check accepts sessions with no handoff payload; the per-field validation buys a structured resume                 |
+| Trade-off                                                                               | Mitigation / reasoning                                                                                                                                                                            |
+| --------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Handoff requires git context to prefill branch and worktree                             | `spx session handoff` already resolves the Git common-dir per `spx/15-worktree-resolution.pdr.md`; the same call gives both fields                                                                |
+| Archive cannot be a single command for sessions where result is still being filled      | The claiming agent edits the file as it works; archive is the explicit terminator and refusing on empty `result` keeps the log honest                                                             |
+| Sessions whose frontmatter lacks structured fields render with empty values             | Read tolerance keeps those sessions visible without weakening the write contract; sessions handoff produces under this PDR render in full                                                         |
+| Worktree path encoded as relative to common-dir parent, not absolute                    | Absolute paths break when the repo is checked out at a different root; the relative form is portable across machines                                                                              |
+| Five validated fields at handoff is more friction than a single content-non-empty check | A single non-empty-body check accepts sessions with no handoff payload; the per-field validation buys a structured resume                                                                         |
+| Archive admits a non-canonical session with no `result`                                 | The canonical-shape parse is the classifier — only sessions that already satisfy the shape are held to the `result` contract, and a non-canonical session would otherwise be unarchivable forever |
 
 ## Product invariants
 
 - `spx session list` shows the goal and next_step of every session this PDR governs — the agent picking a session reads the work to do without opening the file
-- `spx session archive` refuses any session with an empty or absent `result` — the archive directory is a log of completed work, not a graveyard of unfinished sessions
+- `spx session archive` refuses any canonical session with an empty or absent `result` — the archive directory is a log of completed work, not a graveyard of unfinished sessions
+- `spx session archive` moves a non-canonical session — one whose frontmatter does not parse into this PDR's shape — to `archive/` without a `result` requirement, so no session is permanently trapped in `todo/` or `doing/`
 - `spx session pickup` of a session this PDR governs reveals which worktree and branch produced the work — the agent resumes in the right working copy without inferring from the body
 - A session whose frontmatter omits structured fields remains readable by every command — pickup, show, list, release tolerate missing structured fields and render them as empty
 - `spx session handoff` preserves every caller-supplied string field exactly — values containing any unicode codepoint round-trip identically from caller input to the parsed metadata of the written session file
@@ -77,7 +81,7 @@ Alternatives considered:
 
 ### Recognized by
 
-A session file written by `spx session handoff` contains a YAML frontmatter with `priority`, `branch`, `worktree`, `goal`, `next_step` keys, where `goal` and `next_step` are non-empty strings and `worktree` is a path relative to the parent of the Git common directory. A session moved to `archive/` by `spx session archive` contains a non-empty `result` key.
+A session file written by `spx session handoff` contains a YAML frontmatter with `priority`, `branch`, `worktree`, `goal`, `next_step` keys, where `goal` and `next_step` are non-empty strings and `worktree` is a path relative to the parent of the Git common directory. A canonical session moved to `archive/` by `spx session archive` contains a non-empty `result` key; a non-canonical session — one whose frontmatter does not parse into this shape — can be moved to `archive/` with no `result` key.
 
 ### MUST
 
@@ -86,7 +90,9 @@ A session file written by `spx session handoff` contains a YAML frontmatter with
 - `spx session handoff` refuses to write a session when HEAD is detached — the command exits non-zero with `SessionDetachedHeadError` because a detached HEAD has no branch ref that identifies the working context ([review])
 - `spx session handoff` prefills `created_at` as an ISO-8601 timestamp with timezone offset per `spx/36-session.enabler/21-timestamp-format.adr.md` ([review])
 - `spx session handoff` prefills `agent_session_id` from `$CLAUDE_SESSION_ID` when set, falling back to `$CODEX_THREAD_ID` — when neither is set, the field is absent from the frontmatter ([review])
-- `spx session archive` refuses any session whose `result` is empty or absent — the agent fills the field before invoking archive ([review])
+- `spx session archive` refuses any canonical session whose `result` is empty or absent — the agent fills the field before invoking archive ([review])
+- `spx session archive` moves a non-canonical session — one whose frontmatter does not parse into this PDR's shape, for any parse failure — to `archive/` without requiring `result`, preserving the file's frontmatter unchanged ([review])
+- The parse that classifies a session as canonical conforms strictly to the shape this PDR declares: it throws when the frontmatter carries a key outside the shape (such as `tags` or `working_directory`) or omits the populated-by-handoff fields, so the canonical/non-canonical boundary does not depend on YAML-library leniency toward unrecognized keys ([review])
 - `spx session list`, `spx session show`, `spx session pickup`, and `spx session release` render missing structured fields as empty strings without rejecting the session — read tolerance keeps sessions whose frontmatter omits structured fields usable ([review])
 - The `worktree` value is the empty string when the working copy is the main checkout — for both non-worktree repositories and the main worktree of a multi-worktree repository the picker needs no worktree switch, so both cases share the same observable `worktree` semantic ([review])
 - `spx session handoff` writes every string-typed frontmatter field through YAML scalar quoting — `branch` and `worktree` (raw git output), `agent_session_id` (raw environment variable), `goal` and `next_step` (raw caller-supplied content), and `created_at` (formatted timestamp) all flow through the `yaml` package's `stringify` so values containing YAML-special characters (`:`, `{`, `}`, `#`, `|`, `\`, quotes, spaces, newlines) round-trip cleanly through `parseSessionMetadata` ([review])
@@ -95,9 +101,9 @@ A session file written by `spx session handoff` contains a YAML frontmatter with
 ### NEVER
 
 - `spx session handoff` substitutes a default body for empty piped content — empty handoffs are rejected with `SessionInvalidContentError` ([review])
-- `spx session archive` writes a session to `archive/` with an empty or absent `result` — archived sessions are completed work, not abandoned work ([review])
-- The frontmatter carries a `tags` key on any session this PDR governs — the shape excludes `tags` ([review])
-- The frontmatter carries a `working_directory` key on any session this PDR governs — the shape excludes `working_directory`, which is superseded by `worktree` ([review])
+- `spx session archive` writes a canonical session to `archive/` with an empty or absent `result` — archived sessions are completed work, not abandoned work ([review])
+- The frontmatter of a canonical session carries a `tags` key — the canonical shape excludes `tags`; a non-canonical session may carry it and is governed only by the archive path above ([review])
+- The frontmatter of a canonical session carries a `working_directory` key — the canonical shape excludes `working_directory`, which is superseded by `worktree`; a non-canonical session may carry it and is governed only by the archive path above ([review])
 - `spx session handoff` invents a value for `agent_session_id` when both environment variables are absent — the field is omitted, not populated with a placeholder ([review])
 - Any command embeds session lineage (`previous_session_id`, `previous_result`) in the frontmatter — each session carries its own goal/next_step/result ([review])
 - `spx session handoff` accepts caller-supplied `branch` or `worktree` values — both fields are sourced from git context regardless of frontmatter content ([review])
