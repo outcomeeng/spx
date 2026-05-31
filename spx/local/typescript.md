@@ -7,7 +7,7 @@ This file extends `/standardizing-typescript`, `/standardizing-typescript-tests`
 When a Commander subcommand is registered with `{ isDefault: true }`, Commander treats unknown tokens on the command line as positional arguments to that default command — it does **not** fire `.on("command:*", handler)`. The effect: unknown-subcommand dispatch handlers never run.
 
 - REQUIRED: if a domain needs to detect unknown subcommands (e.g., to sanitize + error), do **not** use `isDefault`. Users pass the full path (`spx validation all`); `command:*` then fires for anything else.
-- Verified in [src/domains/validation/index.ts](../../src/domains/validation/index.ts) after removing `isDefault: true` on `all` — see [21-validation-cli.enabler](../41-validation.enabler/21-validation-cli.enabler/validation-cli.md).
+- Verified in [src/interfaces/cli/validation.ts](../../src/interfaces/cli/validation.ts) after removing `isDefault: true` on `all` — see [21-validation-cli.enabler](../41-validation.enabler/21-validation-cli.enabler/validation-cli.md).
 
 ## tsup externals for `@typescript-eslint/parser`
 

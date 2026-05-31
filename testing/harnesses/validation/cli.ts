@@ -2,7 +2,7 @@ import { Command, CommanderError } from "commander";
 import { execa } from "execa";
 import { expect } from "vitest";
 
-import { validationCliDefinition, validationDomain } from "@/domains/validation";
+import { validationCliDefinition, validationDomain } from "@/interfaces/cli/validation";
 import { sampleLiteralTestValue } from "@testing/generators/literal/literal";
 import {
   VALIDATION_CLI_GENERATOR,

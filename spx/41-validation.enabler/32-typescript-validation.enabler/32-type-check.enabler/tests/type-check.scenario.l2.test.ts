@@ -20,7 +20,7 @@ import { describe, expect, it } from "vitest";
 
 import { VALIDATION_RUNTIME_ANTI_MARKERS } from "@/commands/validation/runtime-diagnostics";
 import { TYPESCRIPT_VALIDATION_MESSAGES } from "@/commands/validation/typescript";
-import { validationCliDefinition } from "@/domains/validation";
+import { validationCliDefinition } from "@/interfaces/cli/validation";
 import { CLI_PATH } from "@testing/harnesses/constants";
 import { HARNESS_TIMEOUT, PROJECT_FIXTURES, withValidationEnv } from "@testing/harnesses/with-validation-env";
 

@@ -21,7 +21,7 @@ import {
   validationCliDefinition,
   validationKnownOperands,
   validationOptionPrefix,
-} from "@/domains/validation";
+} from "@/interfaces/cli/validation";
 import { TSCONFIG_FILES } from "@/validation/config/scope";
 import { VALIDATION_PIPELINE_TOTAL_STEPS, validationPipelineStages } from "@/validation/registry";
 import { arbitraryDomainLiteral } from "@testing/generators/literal/literal";

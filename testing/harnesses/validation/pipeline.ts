@@ -4,7 +4,7 @@ import { dirname, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import { expect } from "vitest";
 
-import { validationCliDefinition } from "@/domains/validation";
+import { validationCliDefinition } from "@/interfaces/cli/validation";
 import {
   VALIDATION_PIPELINE_DATA,
   VALIDATION_PIPELINE_SCENARIO_KIND,
