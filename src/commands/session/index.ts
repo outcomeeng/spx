@@ -6,7 +6,7 @@ export type { ArchiveOptions } from "./archive";
 export { deleteCommand } from "./delete";
 export type { DeleteOptions } from "./delete";
 export { handoffCommand } from "./handoff";
-export type { HandoffOptions } from "./handoff";
+export type { HandoffOptions, HandoffResult } from "./handoff";
 export { listCommand } from "./list";
 export type { ListOptions } from "./list";
 export { pickupCommand } from "./pickup";
