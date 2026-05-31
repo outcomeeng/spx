@@ -10,10 +10,11 @@ The reconciliation rolls out incrementally — one descriptor relocation per PR,
 
 - The `session` descriptor moved from `src/domains/session/index.ts` to `src/interfaces/cli/session.ts`; `src/cli.ts` imports it from the new location; `src/domains/session/` holds only pure modules. Behaviour and the node's `node bin/spx.js` evidence are unchanged.
 - The `claude` descriptor moved from `src/domains/claude/index.ts` to `src/interfaces/cli/claude.ts` (PR #80). `src/domains/claude/` is now empty (directory removed). The relative `../types` import was rewritten to `@/domains/types`.
+- The `config` descriptor moved from `src/domains/config/index.ts` to `src/interfaces/cli/config.ts` (PR #83). `src/domains/config/` retains only `root.ts` (pure `resolveProductDir` helper). Relative imports rewritten to `@/domains/types` and `@/domains/config/root`. The local ADR `spx/16-config.enabler/21-config-cli.enabler/21-cli-composition.adr.md` updated to reflect the new location.
 
 ### Remaining
 
-- Relocate the remaining descriptors to `src/interfaces/cli/{domain}.ts`: `config`, `spec`, and `validation`. `audit` is the exception — it has no `src/commands/audit/` tier, so its reconciliation also creates that tier and extracts the handler logic (`runVerifyCommand`) out of `src/domains/audit/cli.ts`, leaving the domain layer pure.
+- Relocate the remaining descriptors to `src/interfaces/cli/{domain}.ts`: `spec` and `validation`. `audit` is the exception — it has no `src/commands/audit/` tier, so its reconciliation also creates that tier and extracts the handler logic (`runVerifyCommand`) out of `src/domains/audit/cli.ts`, leaving the domain layer pure.
 - Introduce the static descriptor registry in the CLI-interface layer once every descriptor lives there, switch `src/cli.ts` to register domains by iterating it instead of naming each by hand, and remove the dead `src/domains/registry.ts` (the imperative Map the static registry replaces).
 - Move process-boundary writes out of the command handlers into the descriptors — for example, `src/commands/session/handoff.ts:123` returns its warning text for the descriptor to emit instead of calling `process.stderr.write`.
 
