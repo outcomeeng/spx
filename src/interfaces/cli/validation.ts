@@ -1,9 +1,3 @@
-/**
- * Validation domain - Run code validation tools
- *
- * Provides CLI commands for running validation tools (TypeScript, ESLint, etc.)
- * as a globally-installed tool across TypeScript projects.
- */
 import type { Command } from "commander";
 
 import {
@@ -17,10 +11,10 @@ import {
   markdownCommand,
   typescriptCommand,
 } from "@/commands/validation";
+import type { Domain } from "@/domains/types";
 import { sanitizeCliArgument } from "@/interfaces/cli/sanitize";
 import { allowlistExisting } from "@/validation/literal/allowlist-existing";
 import type { ValidationScope } from "@/validation/types";
-import type { Domain } from "../types";
 
 interface ValidationDomainCommandDefinition {
   readonly commandName: string;
@@ -373,9 +367,6 @@ function parseLiteralProblemKind(value: string): LiteralProblemKind | undefined 
   return undefined;
 }
 
-/**
- * Validation domain - Run code validation tools
- */
 function handleUnknownSubcommand(operands: readonly string[]): never {
   const [first] = operands;
   const sanitized = sanitizeCliArgument(first);

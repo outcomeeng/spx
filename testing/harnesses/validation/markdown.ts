@@ -7,7 +7,7 @@ import { withTempDir } from "@testing/harnesses/with-temp-dir";
 
 import { allCommand } from "@/commands/validation/all";
 import { MARKDOWN_COMMAND_OUTPUT, markdownCommand } from "@/commands/validation/markdown";
-import { validationCliDefinition } from "@/domains/validation";
+import { validationCliDefinition } from "@/interfaces/cli/validation";
 import {
   buildMarkdownlintConfig,
   getDefaultDirectories,

@@ -1,7 +1,7 @@
 import * as fc from "fast-check";
 import { describe, expect, it } from "vitest";
 
-import { validationCliDefinition } from "@/domains/validation";
+import { validationCliDefinition } from "@/interfaces/cli/validation";
 import { sampleLiteralTestValue } from "@testing/generators/literal/literal";
 import { VALIDATION_CLI_GENERATOR } from "@testing/generators/validation/validation";
 import { runValidationSubprocess } from "@testing/harnesses/validation/cli";
