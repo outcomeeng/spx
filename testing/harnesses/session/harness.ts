@@ -118,6 +118,15 @@ export interface SessionHarness {
   /** Writes a session file with YAML front matter in the given status directory. */
   writeSession(status: SessionStatus, id: string, opts?: SessionMetadataOptions): Promise<string>;
 
+  /**
+   * Writes a session file with the exact `content` bytes in the given status
+   * directory. Unlike `writeSession`, this performs no frontmatter composition,
+   * so it can materialize non-canonical sessions — frontmatter that omits the
+   * declared shape or carries excluded keys — that the canonical writer cannot
+   * produce.
+   */
+  writeRawSession(status: SessionStatus, id: string, content: string): Promise<string>;
+
   /** Removes the temp directory and all contents. */
   cleanup(): Promise<void>;
 }
@@ -164,6 +173,16 @@ export async function createSessionHarness(): Promise<SessionHarness> {
       ];
 
       const content = buildSessionFrontMatterContent(lines, `# Session ${id}\n`);
+      const filePath = join(sessionsDir, statusDirs[status], `${id}.md`);
+      await writeFile(filePath, content);
+      return filePath;
+    },
+
+    async writeRawSession(
+      status: SessionStatus,
+      id: string,
+      content: string,
+    ): Promise<string> {
       const filePath = join(sessionsDir, statusDirs[status], `${id}.md`);
       await writeFile(filePath, content);
       return filePath;

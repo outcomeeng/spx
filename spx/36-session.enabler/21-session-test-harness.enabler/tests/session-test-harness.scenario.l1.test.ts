@@ -23,6 +23,7 @@ import { DEFAULT_CONFIG } from "@/config/defaults";
 import { SESSION_FRONT_MATTER_CLOSE, SESSION_FRONT_MATTER_OPEN } from "@/domains/session/create";
 import { parseSessionMetadata } from "@/domains/session/list";
 import { DEFAULT_PRIORITY, SESSION_FRONT_MATTER, SESSION_PRIORITY, SESSION_STATUSES } from "@/domains/session/types";
+import { sampleNonCanonicalSessionContent, sampleSessionId } from "@testing/generators/session/session";
 import { createSessionHarness } from "@testing/harnesses/session/harness";
 
 const { statusDirs } = DEFAULT_CONFIG.sessions;
@@ -143,6 +144,24 @@ describe("statusDir", () => {
         const expectedSuffix = statusDirs[status];
         expect(dir.endsWith(expectedSuffix)).toBe(true);
       }
+    } finally {
+      await harness.cleanup();
+    }
+  });
+});
+
+describe("writeRawSession", () => {
+  it("GIVEN raw content WHEN writeRawSession is called THEN the file contains exactly that content", async () => {
+    const harness = await createSessionHarness();
+    try {
+      const status = SESSION_STATUSES[0];
+      const id = sampleSessionId();
+      const content = sampleNonCanonicalSessionContent();
+
+      await harness.writeRawSession(status, id, content);
+
+      const filePath = join(harness.statusDir(status), `${id}.md`);
+      expect(await readFile(filePath, "utf-8")).toBe(content);
     } finally {
       await harness.cleanup();
     }

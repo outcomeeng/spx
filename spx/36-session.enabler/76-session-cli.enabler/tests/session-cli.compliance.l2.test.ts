@@ -1,10 +1,11 @@
 import { execa } from "execa";
 import { existsSync } from "node:fs";
-import { readFile, readdir } from "node:fs/promises";
+import { readdir, readFile } from "node:fs/promises";
 import { join } from "node:path";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 
 import { SESSION_STATUSES } from "@/domains/session/types";
+import { sampleNonCanonicalSessionContent, sampleSessionId } from "@testing/generators/session/session";
 import { GIT_TEST_FLAGS, GIT_TEST_REFS, GIT_TEST_SUBCOMMANDS } from "@testing/harnesses/git-test-constants";
 import { withGitWorktreeEnv } from "@testing/harnesses/git-worktree/git-worktree";
 import { createSessionHarness, type SessionHarness } from "@testing/harnesses/session/harness";
@@ -217,5 +218,22 @@ describe("session CLI compliance", () => {
       expect(result.stderr).toContain("SessionDetachedHeadError");
       expect(await readdir(harness.statusDir(TODO))).toEqual([]);
     });
+  });
+
+  it("ALWAYS: archive admits a non-canonical session without SessionInvalidResultError", async () => {
+    const sessionId = sampleSessionId();
+    await harness.writeRawSession(TODO, sessionId, sampleNonCanonicalSessionContent());
+
+    const result = await runSpx([
+      "session",
+      "archive",
+      sessionId,
+      "--sessions-dir",
+      harness.sessionsDir,
+    ]);
+
+    expect(result.exitCode).toBe(0);
+    expect(result.stderr).not.toContain("SessionInvalidResultError");
+    expect(existsSync(join(harness.statusDir(ARCHIVE), `${sessionId}.md`))).toBe(true);
   });
 });
