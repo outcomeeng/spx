@@ -29,6 +29,13 @@
 - Impact: a future change to the session-config warning text, the handler's pass-through, or the descriptor's stderr formatting can drift without an automated check catching the regression.
 - Resolution: add a scenario assertion that injects `GitDependencies` representing a non-git-repo and asserts `result.warning` matches the expected diagnostic, plus a scenario assertion under normal git context that asserts `result.warning === undefined`. Consider a Level 2 assertion that runs `spx session handoff` through the descriptor in a non-git-repo fixture and captures the stderr line.
 
+## Seven session command handlers silently drop the `resolveSessionConfig` warning
+
+- Review: CI `spec-tree-review` on PR #90 — F-001 (consistency, follow_up). [Comment](https://github.com/outcomeeng/spx/pull/90#issuecomment-4587827679).
+- Evidence: `src/commands/session/{list,delete,prune,pickup,release,archive,show}.ts` each call `resolveSessionConfig` but destructure only `{ config }`, dropping the optional `warning` field. `src/git/root.ts:258-260` documents the field as "Warning message if not in a git repository". After PR #90 propagates that diagnostic through the `handoff` descriptor, `handoff` is the only session command that surfaces the non-git-repo warning to the user.
+- Impact: A user invoking `spx session list` / `delete` / `prune` / `pickup` / `release` / `archive` / `show` outside a git repository receives no indication that session storage is resolving to a fallback path. The asymmetry across the seven peer commands is invisible until someone compares behaviors side-by-side.
+- Resolution: Decide whether to (a) return an enriched `{ output, warning? }` result type from each of the seven handlers parallel to `HandoffResult`, with their descriptors emitting the warning to stderr, or (b) introduce a shared `SessionCommandResult` shape every handler returns. Either path is wider scope than a single handler refactor and should land as its own PR once the shape decision is made.
+
 ## Session frontmatter serializer duplicated between handoff and the shared writer
 
 - Review: `spec-tree:reviewing-changes` on `fix/session-yaml-round-trip` — F-001 (architecture, follow_up)
