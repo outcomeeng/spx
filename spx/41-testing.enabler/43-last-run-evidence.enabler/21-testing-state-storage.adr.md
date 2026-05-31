@@ -8,7 +8,7 @@ This decision governs the testing last-run state schema, its branch-scoped stora
 
 **Business impact:** Fast status commands need to read cached test observations without re-running test suites. Persisted state must be branch-scoped so one worktree branch never supplies status evidence for another.
 
-**Technical constraints:** Testing state is gitignored local state stored at `.spx/` (Git common-dir product root per `spx/15-worktree-resolution.pdr.md`). The directory structure and schema are governed by `spx/41-testing.enabler/43-last-run-evidence.enabler/11-last-run-directory.adr.md`. State persistence must support isolated testing through dependency injection.
+**Technical constraints:** Testing state is gitignored local state stored at `.spx/` (Git common-dir product root per `spx/15-worktree-resolution.pdr.md`). The directory structure and schema are governed by [`spx/41-testing.enabler/43-last-run-evidence.enabler/11-last-run-directory.adr.md`](11-last-run-directory.adr.md). State persistence must support isolated testing through dependency injection.
 
 ## Decision
 
@@ -16,14 +16,14 @@ Define the immutable `TestRunState` schema, the branch-scoped storage-location h
 
 The module exports:
 
-1. `TestRunState` interface (immutable, readonly) matching the schema from `spx/41-testing.enabler/43-last-run-evidence.enabler/11-last-run-directory.adr.md`
+1. `TestRunState` interface (immutable, readonly) matching the schema from [`spx/41-testing.enabler/43-last-run-evidence.enabler/11-last-run-directory.adr.md`](11-last-run-directory.adr.md)
 2. `TestRunStateFileSystem` — the injected filesystem dependency surface (mkdir, writeFile, rename, readFile, readdir)
 3. `testingBranchDir` / `testingRunsDir` — branch-scoped storage-location helpers under `.spx/testing/{branch-slug}/runs/`
 4. `createTestRunDirectory(productDir, branchSlug, options)` — allocates a uniquely named run directory for a new run
 5. `readTestingBranchRuns(productDir, branchSlug, options)` — reads a branch's runs, partitioning terminal from incomplete (the incomplete taxonomy is owned by [`spx/41-testing.enabler/43-last-run-evidence.enabler/32-terminal-write-protocol.adr.md`](32-terminal-write-protocol.adr.md))
 6. `selectLatestTerminalTestRun(runs)` — selects the latest terminal run by `completedAt`, then `startedAt`, then run-directory name
 
-The branch slug and run-directory naming reuse the audit implementations per `spx/41-testing.enabler/43-last-run-evidence.enabler/11-last-run-directory.adr.md`.
+The branch slug and run-directory naming reuse the audit implementations per [`spx/41-testing.enabler/43-last-run-evidence.enabler/11-last-run-directory.adr.md`](11-last-run-directory.adr.md).
 
 ## Rationale
 
@@ -37,11 +37,11 @@ Alternatives considered:
 
 ## Trade-offs accepted
 
-| Trade-off                                            | Mitigation / reasoning                                                                                                                             |
-| ---------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Read and write live in separate decisions (21 vs 32) | The schema and lookup are stable; the write protocol carries its own atomicity concerns, so it owns its own decision                               |
-| Branch slug and run directory reuse audit helpers    | `spx/41-testing.enabler/43-last-run-evidence.enabler/11-last-run-directory.adr.md` mandates the reuse; one slug implementation serves both domains |
-| State immutability enforced by `readonly` only       | Tests verify mutations don't happen; readonly prevents accidental writes, not hostile misuse                                                       |
+| Trade-off                                            | Mitigation / reasoning                                                                                                                                                             |
+| ---------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Read and write live in separate decisions (21 vs 32) | The schema and lookup are stable; the write protocol carries its own atomicity concerns, so it owns its own decision                                                               |
+| Branch slug and run directory reuse audit helpers    | [`spx/41-testing.enabler/43-last-run-evidence.enabler/11-last-run-directory.adr.md`](11-last-run-directory.adr.md) mandates the reuse; one slug implementation serves both domains |
+| State immutability enforced by `readonly` only       | Tests verify mutations don't happen; readonly prevents accidental writes, not hostile misuse                                                                                       |
 
 ## Invariants
 
@@ -62,7 +62,7 @@ Observable `TestRunStateFileSystem` parameter in all functions that perform stat
 - `TestRunState` is defined with all fields as `readonly` — prevents accidental mutations ([review])
 - State is validated against the `TestRunState` schema on read, returning a `Result` with a descriptive error on shape failure — matches the audit run-state validation pattern ([review])
 - Default `deps` implementations use Node.js `fs.promises`; tests pass controlled implementations — no mocking required ([review])
-- `TestRunState` records branch name, branch slug, head SHA, and all staleness inputs (config digest, path-set digest, content digest, product input digests) — enables staleness comparison per `spx/41-testing.enabler/43-last-run-evidence.enabler/43-staleness-comparison.adr.md` ([review])
+- `TestRunState` records branch name, branch slug, head SHA, and all staleness inputs (config digest, path-set digest, content digest, product input digests) — enables staleness comparison per [`spx/41-testing.enabler/43-last-run-evidence.enabler/43-staleness-comparison.adr.md`](43-staleness-comparison.adr.md) ([review])
 - `createTestRunDirectory` and `readTestingBranchRuns` validate the branch slug against the normalized slug format before any filesystem operation, returning `INVALID_BRANCH_SLUG` for an unnormalized slug — an unnormalized slug never reaches the filesystem, mirroring the audit branch-slug guard ([review])
 
 ### NEVER
