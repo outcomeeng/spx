@@ -12,7 +12,7 @@ This decision governs how the session domain distinguishes a canonical session �
 
 ## Decision
 
-The session domain carries two parsers with opposite error contracts: the tolerant reader (`parseSessionMetadata`) that never throws, and a strict canonical classifier — a pure function that accepts session content and throws when the frontmatter carries a key outside `SESSION_FRONT_MATTER` or omits a required handoff field, and otherwise returns the canonical metadata.
+The session domain carries two parsers with opposite error contracts: the tolerant reader (`parseSessionMetadata`) that never throws, and a strict canonical classifier — a pure function that accepts session content and throws when the frontmatter carries a key outside `SESSION_FRONT_MATTER`, omits a required handoff field, or carries a field whose value does not match its declared type, and otherwise returns the canonical metadata.
 
 ## Rationale
 
@@ -38,7 +38,7 @@ Alternatives rejected:
 
 - For every session content string, the tolerant reader returns a value and never throws.
 - For every session content string, the canonical classifier either returns canonical metadata or throws — it has no third outcome.
-- A content string the classifier accepts has frontmatter whose key set is a subset of `SESSION_FRONT_MATTER` and includes every required handoff field; a content string it rejects violates at least one of those two conditions or carries no parseable frontmatter.
+- A content string the classifier accepts has frontmatter whose key set is a subset of `SESSION_FRONT_MATTER`, includes every required handoff field, and carries a value matching the declared type of each present field; a content string it rejects violates at least one of those conditions or carries no parseable frontmatter.
 
 ## Compliance
 
@@ -49,7 +49,7 @@ A pure classifier function in `src/domains/session/` throws on non-canonical fro
 ### MUST
 
 - The canonical classifier is a pure function that accepts session content and returns canonical metadata, deriving its accepted key set from `SESSION_FRONT_MATTER` and its required-key set from the five keys [`spx/36-session.enabler/11-session-frontmatter.pdr.md`](11-session-frontmatter.pdr.md) recognizes a canonical session by — `priority`, `branch`, `worktree`, `goal`, `next_step` — so pure input enables `l1` verification with literal content and no mocking ([review])
-- The canonical classifier throws a single typed session error for every non-conformance — a key outside the shape, a missing required handoff field, or unparseable frontmatter — so the archive orchestrator branches on one observable signal ([review])
+- The canonical classifier throws a single typed session error for every non-conformance — a key outside the shape, a missing required handoff field, a field whose value does not match its declared type, or unparseable frontmatter — so the archive orchestrator branches on one observable signal ([review])
 - Classification logic lives in `src/domains/session/` and archive I/O orchestration in `src/commands/session/`, consuming the classifier through a direct pure call per [`spx/14-cli-composition.adr.md`](../14-cli-composition.adr.md) ([review])
 - The archive orchestrator applies the non-empty-`result` requirement only when the classifier accepts the session, and archives without that requirement when the classifier throws ([review])
 
