@@ -10,6 +10,7 @@ import { showCommand } from "@/commands/session/show";
 import { BatchError } from "@/domains/session/batch";
 import { SESSION_SHOW_LABEL } from "@/domains/session/show";
 import { SESSION_PRIORITY, SESSION_STATUSES } from "@/domains/session/types";
+import { sampleNonCanonicalSessionContent, sampleSessionId } from "@testing/generators/session/session";
 import type { SessionHarness } from "@testing/harnesses/session/harness";
 import { createSessionHarness } from "@testing/harnesses/session/harness";
 
@@ -72,6 +73,16 @@ describe("batch archive", () => {
     expect(existsSync(join(harness.statusDir(ARCHIVE), `${id}.md`))).toBe(true);
     expect(output).toContain(SESSION_ARCHIVE_OUTPUT.ARCHIVED);
     expect(output).toContain(id);
+  });
+
+  it("GIVEN a non-canonical session WHEN archive THEN moves without requiring a result", async () => {
+    const id = sampleSessionId();
+    await harness.writeRawSession(TODO, id, sampleNonCanonicalSessionContent());
+
+    await archiveCommand({ sessionIds: [id], sessionsDir: harness.sessionsDir });
+
+    expect(existsSync(join(harness.statusDir(ARCHIVE), `${id}.md`))).toBe(true);
+    expect(existsSync(join(harness.statusDir(TODO), `${id}.md`))).toBe(false);
   });
 });
 

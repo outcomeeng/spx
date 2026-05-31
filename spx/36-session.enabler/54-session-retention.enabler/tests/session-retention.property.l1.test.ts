@@ -1,9 +1,14 @@
 import fc from "fast-check";
+import { existsSync } from "node:fs";
+import { join } from "node:path";
 import { describe, expect, it } from "vitest";
 
+import { archiveCommand } from "@/commands/session/archive";
 import { DEFAULT_SESSION_METADATA } from "@/domains/session/list";
 import { DEFAULT_KEEP_COUNT, selectSessionsToDelete } from "@/domains/session/prune";
 import { type Session, SESSION_STATUSES } from "@/domains/session/types";
+import { arbitraryNonCanonicalFrontmatter, arbitrarySessionId } from "@testing/generators/session/session";
+import { createSessionHarness } from "@testing/harnesses/session/harness";
 
 const [TODO, DOING, ARCHIVE] = SESSION_STATUSES;
 
@@ -19,6 +24,8 @@ function session(id: string, status: typeof SESSION_STATUSES[number] = ARCHIVE):
 function sessionId(day: number): string {
   return `2026-01-${String(day).padStart(2, "0")}_10-00-00`;
 }
+
+const NON_CANONICAL_ARCHIVE_RUNS = 40;
 
 describe("session retention properties", () => {
   it("GIVEN todo and doing sessions WHEN prune candidates are selected THEN active sessions are not selected by archive caller input", () => {
@@ -59,5 +66,22 @@ describe("session retention properties", () => {
 
     expect(selectSessionsToDelete(archive, { keep: DEFAULT_KEEP_COUNT - 3 }).map((item) => item.id))
       .toEqual(selectSessionsToDelete(archive, { keep: DEFAULT_KEEP_COUNT - 3 }).map((item) => item.id));
+  });
+
+  it("GIVEN any non-canonical session WHEN archive THEN it moves to archive without rejecting", async () => {
+    await fc.assert(
+      fc.asyncProperty(arbitraryNonCanonicalFrontmatter(), arbitrarySessionId(), async (content, id) => {
+        const harness = await createSessionHarness();
+        try {
+          await harness.writeRawSession(TODO, id, content);
+          await archiveCommand({ sessionIds: [id], sessionsDir: harness.sessionsDir });
+          return existsSync(join(harness.statusDir(ARCHIVE), `${id}.md`))
+            && !existsSync(join(harness.statusDir(TODO), `${id}.md`));
+        } finally {
+          await harness.cleanup();
+        }
+      }),
+      { numRuns: NON_CANONICAL_ARCHIVE_RUNS },
+    );
   });
 });
