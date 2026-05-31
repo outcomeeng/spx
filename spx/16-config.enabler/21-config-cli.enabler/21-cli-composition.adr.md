@@ -14,7 +14,7 @@ This decision governs the shape of the `spx config` CLI surface — subcommand r
 
 The config CLI follows the domain composition pattern with one refinement — explicit dependency injection of config resolution and config-file discovery, enabling handler-level unit tests.
 
-- `src/domains/config/index.ts` exports a `configDomain: Domain` value and registers three subcommands (`show`, `validate`, `defaults`) through `program.command("config").command("show")…` call chains.
+- `src/interfaces/cli/config.ts` exports a `configDomain: Domain` value and registers three subcommands (`show`, `validate`, `defaults`) through `program.command("config").command("show")…` call chains.
 - Each subcommand imports its handler from `src/commands/config/{show,validate,defaults}.ts`.
 - Handlers have the signature `async function handler(options: Options, deps: CliDeps): Promise<CliResult>` where `CliDeps` bundles `{ resolveConfig: (productDir: string) => Promise<Result<Config>>, readProductConfigFile: (productDir: string) => Promise<Result<ConfigFileReadResult>>, resolveConfigFromReadResult: (readResult: ConfigFileReadResult, descriptors: readonly ConfigDescriptor<unknown>[]) => Result<Config>, resolveProductDir: () => string, descriptors: readonly ConfigDescriptor<unknown>[] }` and `CliResult` is `{ stdout: string; stderr: string; exitCode: number }`. The `show` handler calls `deps.resolveProductDir()` first and passes the returned product directory to `deps.resolveConfig(productDir)`, honoring the parent ADR's `resolveConfig(productDir)` contract. The `validate` handler calls `deps.readProductConfigFile(productDir)` once and passes that same read result to `deps.resolveConfigFromReadResult(...)`, so the validated bytes and the success-line filename come from one config-file discovery. The `defaults` handler iterates `deps.descriptors` directly, skipping config-file resolution entirely; its output reflects what each descriptor ships with, independent of any `spx.config.*` present at the product directory.
 - The domain registration layer builds a default `CliDeps` (pointing at the real `resolveConfig`, `readProductConfigFile`, `resolveConfigFromReadResult`, and a real git-rooted resolver), invokes the handler, writes `stdout`/`stderr` to the process streams, and calls `process.exit(result.exitCode)`.
@@ -51,13 +51,13 @@ Alternatives considered:
 - `CliResult.exitCode === 0` if and only if the command succeeded in its declared contract (`show` and `defaults` always succeed when `resolveConfig` succeeds; `validate` succeeds only when one config-file read result resolves through every descriptor)
 - `CliResult.stdout` holds only the resolved Config (default format or json) or a single success line from `validate` — never diagnostic text
 - `CliResult.stderr` holds only diagnostic or error text — never the resolved Config
-- The registration layer in `src/domains/config/index.ts` is the sole caller of `process.stdout.write`, `process.stderr.write`, and `process.exit` for this domain
+- The registration layer in `src/interfaces/cli/config.ts` is the sole caller of `process.stdout.write`, `process.stderr.write`, and `process.exit` for this domain
 
 ## Compliance
 
 ### Recognized by
 
-Files under `src/domains/config/` and `src/commands/config/` contain the domain registration, handler implementations, a shared `CliDeps` / `CliResult` type module, and the `resolveProductDir` helper. No handler imports config resolution or config-file discovery functions from `@/config` directly — all handlers receive them through the `deps` parameter.
+`src/interfaces/cli/config.ts` contains the Commander registration descriptor; `src/commands/config/` contains handler implementations and a shared `CliDeps` / `CliResult` type module; `src/domains/config/` contains the `resolveProductDir` helper. No handler imports config resolution or config-file discovery functions from `@/config` directly — all handlers receive them through the `deps` parameter.
 
 ### MUST
 
