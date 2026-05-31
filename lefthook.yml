@@ -1,4 +1,4 @@
-# Lefthook configuration for pre-commit and pre-push enforcement.
+# Lefthook configuration for pre-commit, pre-push, and post-merge/post-rewrite hooks.
 # See ADR-021: Lefthook Pre-Commit Test Enforcement
 #
 # Pre-commit hook runs tests on modified files using the TypeScript
@@ -7,6 +7,11 @@
 #
 # Pre-push hook runs full build + validation + test suite to prevent
 # pushing code that hasn't been built or validated.
+#
+# Post-merge and post-rewrite hooks rebuild dist/ after a pull (merge or
+# rebase) so a published or pnpm-linked `spx` (which resolves to ./dist)
+# reflects the merged code. They rebuild only in the main worktree; linked
+# worktrees are dev checkouts and skip it.
 
 pre-commit:
   parallel: true
@@ -23,3 +28,40 @@ pre-push:
       run: env -u GIT_DIR -u GIT_WORK_TREE -u GIT_INDEX_FILE -u GIT_PREFIX -u GIT_COMMON_DIR pnpm run validate
     test:
       run: env -u GIT_DIR -u GIT_WORK_TREE -u GIT_INDEX_FILE -u GIT_PREFIX -u GIT_COMMON_DIR pnpm test
+
+post-merge:
+  commands:
+    # A linked worktree's --git-dir (.git/worktrees/<name>) differs from its
+    # --git-common-dir (.git); in the main worktree they are equal. Only the
+    # main worktree's dist/ feeds the published or pnpm-linked spx, so the
+    # rebuild runs there and no-ops elsewhere. CI=true keeps pnpm
+    # non-interactive so a node_modules purge on a pnpm version change proceeds
+    # instead of hanging behind lefthook's spinner.
+    rebuild-dist:
+      run: |
+        env -u GIT_DIR -u GIT_WORK_TREE -u GIT_INDEX_FILE -u GIT_PREFIX -u GIT_COMMON_DIR sh -c '
+          if [ "$(git rev-parse --git-dir)" = "$(git rev-parse --git-common-dir)" ]; then
+            export CI=true
+            pnpm install --frozen-lockfile && pnpm run build
+          else
+            echo "rebuild-dist: skipped (linked worktree, not the main worktree)"
+          fi
+        '
+
+# git pull --rebase and git rebase fire post-rewrite with "rebase" as the hook
+# argument; git commit --amend fires it with "amend". Only a rebased pull
+# updates src/, so guard on "rebase" and skip amends. Lefthook forwards the git
+# hook argument as {1}, passed into the subshell as $1.
+post-rewrite:
+  commands:
+    rebuild-dist:
+      run: |
+        env -u GIT_DIR -u GIT_WORK_TREE -u GIT_INDEX_FILE -u GIT_PREFIX -u GIT_COMMON_DIR sh -c '
+          [ "$1" = "rebase" ] || { echo "rebuild-dist: skipped ($1, not a rebase)"; exit 0; }
+          if [ "$(git rev-parse --git-dir)" = "$(git rev-parse --git-common-dir)" ]; then
+            export CI=true
+            pnpm install --frozen-lockfile && pnpm run build
+          else
+            echo "rebuild-dist: skipped (linked worktree, not the main worktree)"
+          fi
+        ' -- {1}
