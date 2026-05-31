@@ -70,7 +70,10 @@ export interface HandoffResult {
  *   printf '%s\n' '{"priority":"high","goal":"...","next_step":"..."}' '# Body' | spx session handoff
  *
  * @param options - Command options
- * @returns Output text with `<HANDOFF_ID>` and `<SESSION_FILE>` tags
+ * @returns A `HandoffResult` whose `output` carries the `<HANDOFF_ID>` and
+ *   `<SESSION_FILE>` tags for the descriptor to write to stdout, and whose
+ *   optional `warning` carries the session-config diagnostic for the
+ *   descriptor to write to stderr.
  * @throws {SessionInvalidContentError} When stdin is empty or whitespace-only
  * @throws {SessionLegacyFrontmatterInputError} When stdin opens with `---\n`
  * @throws {SessionInvalidJsonHeaderError} When the JSON header is malformed
