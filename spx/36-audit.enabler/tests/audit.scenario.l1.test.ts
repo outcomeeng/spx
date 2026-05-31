@@ -9,7 +9,7 @@
  * - S2: spx audit verify with defective verdict → exits 1, prints stage-prefixed defects
  */
 
-import { runVerifyCommand } from "@/domains/audit/cli";
+import { runVerifyCommand } from "@/commands/audit/verify";
 import { createAuditHarness } from "@testing/harnesses/audit/harness";
 import { describe, expect, it } from "vitest";
 

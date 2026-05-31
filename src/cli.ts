@@ -4,7 +4,7 @@
 import { Command } from "commander";
 import { createRequire } from "node:module";
 
-import { auditDomain } from "./domains/audit/cli";
+import { auditDomain } from "./interfaces/cli/audit";
 import { claudeDomain } from "./interfaces/cli/claude";
 import { configDomain } from "./interfaces/cli/config";
 import { sessionDomain } from "./interfaces/cli/session";

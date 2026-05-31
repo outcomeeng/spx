@@ -1,23 +1,7 @@
 import type { Command } from "commander";
 
+import { runVerifyCommand } from "@/commands/audit/verify";
 import type { Domain } from "@/domains/types";
-import { runVerifyPipeline } from "./verify";
-
-export async function runVerifyCommand(
-  filePath: string,
-  productDir: string,
-  writeLine: (line: string) => void,
-): Promise<0 | 1> {
-  const result = await runVerifyPipeline(filePath, productDir);
-  if (result.exitCode === 0) {
-    writeLine(result.verdict ?? "");
-  } else {
-    for (const line of result.lines) {
-      writeLine(line);
-    }
-  }
-  return result.exitCode;
-}
 
 export const auditDomain: Domain = {
   name: "audit",

@@ -2,11 +2,11 @@ import { join } from "node:path";
 
 import { describe, expect, it } from "vitest";
 
+import { runVerifyCommand } from "@/commands/audit/verify";
 import { resolveConfig } from "@/config/index";
 import { PATH_FILTER_CONFIG_FIELDS } from "@/config/primitives/path-filter";
 import { productionRegistry } from "@/config/registry";
 import { RESULT_VALUE_KEY } from "@/config/types";
-import { runVerifyCommand } from "@/domains/audit/cli";
 import {
   AUDIT_BRANCH_SLUG_MIN_MAX_BYTES,
   AUDIT_CONFIG_FIELDS,
