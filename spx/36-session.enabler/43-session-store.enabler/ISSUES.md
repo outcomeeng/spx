@@ -22,6 +22,13 @@
 - Impact: a reader scanning the Scenarios block may infer the property test is narrower than it is, and a future author adding more YAML-sensitive characters may reach for more scenarios rather than trusting the property.
 - Resolution: decide whether to replace the four scenario assertions with a cross-reference on the property assertion that names the YAML characters it exercises, or retain them as explicit regression anchors with a note on the property pointing at the named scenarios.
 
+## Handoff warning field is structurally exposed but behaviorally unverified
+
+- Review: `spec-tree:changes-reviewer` on `refactor/cli-session-handoff-stderr` — F-003 (evidence, follow_up)
+- Evidence: After ADR-14 reconciliation, `handoffCommand` returns `HandoffResult` with an optional `warning` field that the descriptor at `src/interfaces/cli/session.ts` writes to stderr. No scenario test in `spx/36-session.enabler/43-session-store.enabler/tests/` asserts that `warning` is populated when `resolveSessionConfig` emits its non-git-repo diagnostic, and no test asserts that `warning` is `undefined` under a normal git-repo invocation. The descriptor's stderr write is also unexercised.
+- Impact: a future change to the session-config warning text, the handler's pass-through, or the descriptor's stderr formatting can drift without an automated check catching the regression.
+- Resolution: add a scenario assertion that injects `GitDependencies` representing a non-git-repo and asserts `result.warning` matches the expected diagnostic, plus a scenario assertion under normal git context that asserts `result.warning === undefined`. Consider a Level 2 assertion that runs `spx session handoff` through the descriptor in a non-git-repo fixture and captures the stderr line.
+
 ## Session frontmatter serializer duplicated between handoff and the shared writer
 
 - Review: `spec-tree:reviewing-changes` on `fix/session-yaml-round-trip` — F-001 (architecture, follow_up)
