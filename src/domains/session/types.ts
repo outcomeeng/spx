@@ -66,6 +66,19 @@ export const SESSION_FRONT_MATTER = {
 } as const;
 
 /**
+ * Frontmatter keys a canonical session must carry. A session whose frontmatter
+ * omits any of these — or carries a key outside SESSION_FRONT_MATTER — is
+ * non-canonical, and archive admits it without a result requirement.
+ */
+export const CANONICAL_REQUIRED_KEYS = [
+  SESSION_FRONT_MATTER.PRIORITY,
+  SESSION_FRONT_MATTER.BRANCH,
+  SESSION_FRONT_MATTER.WORKTREE,
+  SESSION_FRONT_MATTER.GOAL,
+  SESSION_FRONT_MATTER.NEXT_STEP,
+] as const;
+
+/**
  * Metadata extracted from session YAML front matter.
  */
 export interface SessionMetadata {

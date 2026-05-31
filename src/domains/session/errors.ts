@@ -83,6 +83,22 @@ export class SessionInvalidResultError extends SessionError {
 }
 
 /**
+ * Error thrown when a session's frontmatter does not parse into the canonical
+ * shape — it has no frontmatter, the frontmatter YAML cannot be parsed, it
+ * carries a key outside the declared shape, or it omits a required handoff key.
+ *
+ * The archive path catches this internally to classify a session as
+ * non-canonical and admit it without a result requirement; it is not surfaced
+ * to callers as a command failure.
+ */
+export class SessionNotCanonicalError extends SessionError {
+  constructor(reason: string) {
+    super(`Session frontmatter is not canonical: ${reason}.`);
+    this.name = "SessionNotCanonicalError";
+  }
+}
+
+/**
  * Error thrown when trying to release a session that is not currently claimed.
  */
 export class SessionNotClaimedError extends SessionError {

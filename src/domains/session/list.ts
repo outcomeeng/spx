@@ -21,7 +21,7 @@ import {
  * Regular expression to match YAML front matter.
  * Matches content between opening `---` and closing `---` or `...`
  */
-const FRONT_MATTER_PATTERN = /^---\r?\n([\s\S]*?)\r?\n(?:---|\.\.\.)\r?\n?/;
+export const FRONT_MATTER_PATTERN = /^---\r?\n([\s\S]*?)\r?\n(?:---|\.\.\.)\r?\n?/;
 const SESSION_PRIORITY_VALUES = Object.values(SESSION_PRIORITY);
 
 export const DEFAULT_SESSION_METADATA: SessionMetadata = {
