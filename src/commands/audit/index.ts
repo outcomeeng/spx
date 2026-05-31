@@ -1,1 +1,0 @@
-export { runVerifyCommand } from "./verify";
