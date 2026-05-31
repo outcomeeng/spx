@@ -173,7 +173,7 @@ function registerSessionCommands(sessionCmd: Command): void {
           content,
           sessionsDir: options.sessionsDir,
         });
-        if (result.warning !== undefined) {
+        if (result.warning) {
           process.stderr.write(`${result.warning}\n`);
         }
         console.log(result.output);
