@@ -11,9 +11,9 @@
 ## Frontmatter key rule ubiquitous-token false-positive coverage
 
 - Review: https://github.com/outcomeeng/spx/pull/52#issuecomment-4499642506
-- Evidence: `eslint-rules/no-hardcoded-session-frontmatter-keys.ts` monitors frontmatter key literals including `id`, `branch`, and `files`, while the compliance fixtures do not include non-frontmatter uses of those common strings in session-scoped files.
+- Evidence: `eslint-rules/no-hardcoded-session-frontmatter-keys.ts` monitors frontmatter key literals including `id`, `git_ref`, and `files`, while the compliance fixtures do not include non-frontmatter uses of those common strings in session-scoped files.
 - Impact: future edits can make the rule noisy by flagging ordinary identifier-like strings as frontmatter violations, or weaken the rule while preserving only the existing happy-path fixtures.
-- Resolution: add compliance fixture coverage for monitored ubiquitous tokens used outside frontmatter-key call sites before changing the frontmatter-key rule again.
+- Resolution: add compliance fixture coverage for monitored ubiquitous tokens (including `git_ref`) used outside frontmatter-key call sites before the implementation PR renames the monitored constant and changes the frontmatter-key rule.
 
 ## Specs/files scenario assertions overlap the property assertion
 
