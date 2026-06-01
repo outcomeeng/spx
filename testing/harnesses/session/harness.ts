@@ -14,7 +14,7 @@ import { join } from "node:path";
 import { DEFAULT_CONFIG } from "@/config/defaults";
 import { buildSessionFrontMatterContent, stringifySessionFrontMatter } from "@/domains/session/create";
 import { DEFAULT_PRIORITY, SESSION_STATUSES, type SessionPriority, type SessionStatus } from "@/domains/session/types";
-import type { GitDependencies } from "@/git/root";
+import { GIT_HEAD_SHA_ARGS, type GitDependencies } from "@/git/root";
 import type { HandoffHeaderFixture } from "@testing/generators/session/session";
 import { createTempDir, removeTempDir } from "@testing/harnesses/with-temp-dir";
 
@@ -82,6 +82,11 @@ const DEFAULT_GIT_DEPS_DEFAULT_BRANCH = "main";
 const DIRTY_PORCELAIN_LINE = " M file.txt";
 const DETACHED_HEAD_REF = "HEAD";
 
+/** Whether a git arg vector equals the expected vector exactly. */
+function argsEqual(args: readonly string[], expected: readonly string[]): boolean {
+  return args.length === expected.length && args.every((arg, index) => arg === expected[index]);
+}
+
 /**
  * Builds a `GitDependencies` double that returns canned `git` output for the
  * command set the handoff-base resolution consults:
@@ -132,9 +137,10 @@ export function createSessionGitDeps(overrides: SessionGitDepsOverrides = {}): G
       if (args.includes(originDefaultRef) || args.includes(`refs/remotes/${originDefaultRef}`)) {
         return ok(ORIGIN_DEFAULT_SHA);
       }
-      // rev-parse HEAD — the HEAD commit SHA (exact positional match so the
-      // three-arg --abbrev-ref HEAD form cannot fall through to here)
-      if (args.length === 2 && args[0] === "rev-parse" && args[1] === DETACHED_HEAD_REF) return ok(headSha);
+      // rev-parse HEAD — the HEAD commit SHA. Match the production arg vector
+      // exactly so the double tracks GIT_HEAD_SHA_ARGS and the three-arg
+      // --abbrev-ref HEAD form cannot fall through to here.
+      if (argsEqual(args, GIT_HEAD_SHA_ARGS)) return ok(headSha);
 
       return { exitCode: 1, stdout: "", stderr: "" };
     },
