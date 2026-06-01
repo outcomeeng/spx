@@ -6,7 +6,7 @@ This decision governs enforcement for session frontmatter key usage in TypeScrip
 
 ## Context
 
-**Business impact:** Session frontmatter drives handoff selection, worktree routing, pickup context, and archive readability. A duplicated string key can silently drift from the canonical session schema and make agents miss the work to resume.
+**Business impact:** Session frontmatter drives handoff selection, pickup context, and archive readability. A duplicated string key can silently drift from the canonical session schema and make agents miss the work to resume.
 
 **Technical constraints:** The canonical key registry is `SESSION_FRONT_MATTER`. ESLint runs custom project rules during `spx validation all`, and custom rule tests exercise rule modules against source-shaped TypeScript fixtures.
 
