@@ -32,10 +32,6 @@ export const GIT_TEST_FLAGS = {
   SHOW_CURRENT: "--show-current",
 } as const;
 
-export const GIT_TEST_REFS = {
-  HEAD: "HEAD",
-} as const;
-
 export const GIT_TEST_OUTPUT = {
   IS_INSIDE_WORK_TREE_TRUE: "true",
 } as const;
