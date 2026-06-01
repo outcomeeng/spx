@@ -15,9 +15,9 @@ Session File Format:
 
   ---
   priority: high
+  git_ref: main
   goal: Fix the failing release check
   next_step: Run the focused session tests
-  result: Local validation passed
   specs: []
   files: []
   ---
@@ -29,7 +29,7 @@ Workflow:
   1. handoff  - Create session (todo) — JSON header + body on stdin
   2. pickup   - Claim session (todo -> doing)
   3. release  - Return session (doing -> todo)
-  4. archive  - Move session with a result to archive
+  4. archive  - Move session to archive
   5. delete   - Remove session permanently
 `;
 
@@ -53,13 +53,12 @@ JSON Header Fields:
   files       optional string[], for pickup auto-injection
 
 Prefilled by the CLI:
-  created_at, branch, worktree, and agent_session_id when an agent session
-  ID is available.
+  created_at, git_ref, and agent_session_id when an agent session ID is
+  available.
 
-Before archive:
-  Edit the on-disk session file under .spx/sessions/doing/<id>.md and add a
-  non-empty 'result' field to the YAML frontmatter, then invoke
-  'spx session archive <id>'.
+  git_ref records the branch name (root worktree on a branch), the HEAD SHA
+  (detached), or the origin/<default> tip SHA (clean detached linked worktree).
+  Handoff is refused from any other linked-worktree state.
 
 Output Tags (for automation):
   <HANDOFF_ID>session-id</HANDOFF_ID>          Session identifier

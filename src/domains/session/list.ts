@@ -21,16 +21,14 @@ import {
  * Regular expression to match YAML front matter.
  * Matches content between opening `---` and closing `---` or `...`
  */
-export const FRONT_MATTER_PATTERN = /^---\r?\n([\s\S]*?)\r?\n(?:---|\.\.\.)\r?\n?/;
+const FRONT_MATTER_PATTERN = /^---\r?\n([\s\S]*?)\r?\n(?:---|\.\.\.)\r?\n?/;
 const SESSION_PRIORITY_VALUES = Object.values(SESSION_PRIORITY);
 
 export const DEFAULT_SESSION_METADATA: SessionMetadata = {
   priority: DEFAULT_PRIORITY,
-  branch: "",
-  worktree: "",
+  git_ref: "",
   goal: "",
   next_step: "",
-  result: "",
   specs: [],
   files: [],
 } as const;
@@ -89,23 +87,14 @@ export function parseSessionMetadata(content: string): SessionMetadata {
       priority,
     };
 
-    const id = parsed[SESSION_FRONT_MATTER.ID];
-    if (typeof id === "string") metadata.id = id;
-
-    const branch = parsed[SESSION_FRONT_MATTER.BRANCH];
-    metadata.branch = typeof branch === "string" ? branch : DEFAULT_SESSION_METADATA.branch;
-
-    const worktree = parsed[SESSION_FRONT_MATTER.WORKTREE];
-    metadata.worktree = typeof worktree === "string" ? worktree : DEFAULT_SESSION_METADATA.worktree;
+    const gitRef = parsed[SESSION_FRONT_MATTER.GIT_REF];
+    metadata.git_ref = typeof gitRef === "string" ? gitRef : DEFAULT_SESSION_METADATA.git_ref;
 
     const goal = parsed[SESSION_FRONT_MATTER.GOAL];
     metadata.goal = typeof goal === "string" ? goal : DEFAULT_SESSION_METADATA.goal;
 
     const nextStep = parsed[SESSION_FRONT_MATTER.NEXT_STEP];
     metadata.next_step = typeof nextStep === "string" ? nextStep : DEFAULT_SESSION_METADATA.next_step;
-
-    const result = parsed[SESSION_FRONT_MATTER.RESULT];
-    metadata.result = typeof result === "string" ? result : DEFAULT_SESSION_METADATA.result;
 
     const createdAt = parsed[SESSION_FRONT_MATTER.CREATED_AT];
     if (typeof createdAt === "string") metadata.created_at = createdAt;

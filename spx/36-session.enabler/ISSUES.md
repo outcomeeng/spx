@@ -34,28 +34,12 @@ Reported files outside this rollout included:
 
 Resolution condition: run the repository formatter in a dedicated formatting cleanup, keep the resulting diff isolated from behavior changes, and then remove this entry.
 
-## Session-aware git context crosses the domain boundary
+## Session handoff performs serial independent git reads
 
-`src/git/root.ts` imports session-domain errors and messages from `src/domains/session/errors.ts` while also carrying session-aware branch detection and worktree path computation. This creates a `git/` infrastructure dependency on `domains/session/` and extends the existing session-domain coupling in the git helper.
-
-Observed in PR review: https://github.com/outcomeeng/spx/pull/52#issuecomment-4496698009.
-
-Impact: session-specific git behavior becomes harder to move or test independently as more session vocabulary enters the infrastructure layer.
-
-Resolution condition: move session-aware git context logic into the session domain layer or a dedicated session-git adapter module, leaving `src/git/root.ts` with generic git product-root primitives.
-
-## Session git context performs serial independent git reads
-
-`detectSessionWorkContext` awaits the product-root and common-git-dir reads sequentially even though neither command depends on the other. This adds avoidable serialized git process latency to every `spx session handoff` invocation.
+`resolveSessionGitRef` in `src/commands/session/handoff.ts` gathers the handoff-base git facts with several sequential `GitDependencies` reads, and `isRootWorktree` in `src/git/root.ts` awaits `rev-parse --show-toplevel` and `rev-parse --git-common-dir` one after the other even though neither command depends on the other. This adds avoidable serialized git process latency to every `spx session handoff` invocation.
 
 Observed in PR review: https://github.com/outcomeeng/spx/pull/52#issuecomment-4497421717.
 
-Impact: session handoff pays two independent git round-trips serially before it can write a session file.
+Impact: session handoff pays multiple independent git round-trips serially before it can write a session file.
 
-Resolution condition: run the independent product-root and common-git-dir commands concurrently and preserve the existing error semantics for each failed command.
-
-## FRONT_MATTER_PATTERN export becomes unused when the classifier is removed
-
-`FRONT_MATTER_PATTERN` is exported from `src/domains/session/list.ts` only so `src/domains/session/canonical.ts` could reuse the same frontmatter extraction. The session frontmatter revision in [`spx/36-session.enabler/11-session-frontmatter.pdr.md`](11-session-frontmatter.pdr.md) removes the canonical classifier, so the second consumer no longer exists.
-
-Resolution condition: in the implementation PR, delete `canonical.ts` and revert `FRONT_MATTER_PATTERN` to a private implementation detail of `list.ts` (or remove it if `list.ts` no longer needs it).
+Resolution condition: run the independent git reads concurrently and preserve the existing null/false semantics for each failed command.

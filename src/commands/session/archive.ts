@@ -4,7 +4,7 @@
  * @module commands/session/archive
  */
 
-import { mkdir, readFile, rename, stat } from "node:fs/promises";
+import { mkdir, rename, stat } from "node:fs/promises";
 import { dirname, join } from "node:path";
 
 import {
@@ -14,10 +14,8 @@ import {
   SESSION_FILE_EXTENSION,
 } from "@/domains/session/archive";
 import { processBatch } from "@/domains/session/batch";
-import { parseCanonicalSession } from "@/domains/session/canonical";
-import { SessionInvalidResultError, SessionNotCanonicalError, SessionNotFoundError } from "@/domains/session/errors";
+import { SessionNotFoundError } from "@/domains/session/errors";
 import { SessionDirectoryConfig } from "@/domains/session/show";
-import { type SessionMetadata } from "@/domains/session/types";
 import { resolveSessionConfig } from "@/git/root";
 
 export const SESSION_ARCHIVE_OUTPUT = {
@@ -115,39 +113,14 @@ export async function resolveArchivePaths(
 }
 
 /**
- * Classifies a session's content against the canonical frontmatter shape.
- *
- * @param content - Full session file content
- * @returns Canonical metadata when the frontmatter conforms, or null when the
- *   session is non-canonical
- */
-function classifyCanonicalSession(content: string): SessionMetadata | null {
-  try {
-    return parseCanonicalSession(content);
-  } catch (error) {
-    if (error instanceof SessionNotCanonicalError) {
-      return null;
-    }
-    throw error;
-  }
-}
-
-/**
- * Archives a single session by ID.
+ * Archives a single session by ID. Any session in todo or doing is moved to
+ * archive regardless of its frontmatter shape.
  */
 async function archiveSingle(
   sessionId: string,
   config: SessionDirectoryConfig,
 ): Promise<string> {
   const { source, target } = await resolveArchivePaths(sessionId, config);
-  const content = await readFile(source, "utf-8");
-
-  // A canonical session must carry a non-empty result before archive. A
-  // non-canonical session predates that contract, so it is archived as-is.
-  const canonicalMetadata = classifyCanonicalSession(content);
-  if (canonicalMetadata !== null && canonicalMetadata.result.trim().length === 0) {
-    throw new SessionInvalidResultError(sessionId);
-  }
 
   await mkdir(dirname(target), { recursive: true });
   await rename(source, target);

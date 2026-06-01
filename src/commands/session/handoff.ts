@@ -21,10 +21,21 @@ import {
   SessionInvalidGoalError,
   SessionInvalidNextStepError,
 } from "@/domains/session/errors";
+import { resolveHandoffGitRef } from "@/domains/session/handoff-base";
 import { parseHandoffInput } from "@/domains/session/parse-handoff-input";
 import { generateSessionId } from "@/domains/session/timestamp";
 import { SESSION_FRONT_MATTER } from "@/domains/session/types";
-import { detectSessionWorkContext, type GitDependencies, resolveSessionConfig } from "@/git/root";
+import {
+  getCurrentBranch,
+  getHeadSha,
+  type GitDependencies,
+  isRootWorktree,
+  isWorkingTreeClean,
+  ORIGIN_REF_PREFIX,
+  resolveDefaultBranch,
+  resolveRefSha,
+  resolveSessionConfig,
+} from "@/git/root";
 
 /**
  * Options for the handoff command.
@@ -52,6 +63,38 @@ export interface HandoffResult {
 }
 
 /**
+ * Gathers the git facts the handoff-base gate needs (I/O), then resolves the
+ * git ref to record. Origin facts are consulted only for a detached linked
+ * worktree; an on-branch linked worktree is refused without resolving origin.
+ */
+async function resolveSessionGitRef(
+  cwd: string | undefined,
+  deps: GitDependencies | undefined,
+): Promise<string> {
+  const isRoot = await isRootWorktree(cwd, deps);
+  const branch = await getCurrentBranch(cwd, deps);
+  const headSha = await getHeadSha(cwd, deps);
+
+  let isClean = false;
+  let defaultTipSha: string | null = null;
+  if (!isRoot && branch === null) {
+    isClean = await isWorkingTreeClean(cwd, deps);
+    const defaultBranch = await resolveDefaultBranch(cwd, deps);
+    defaultTipSha = defaultBranch === null
+      ? null
+      : await resolveRefSha(`${ORIGIN_REF_PREFIX}${defaultBranch}`, cwd, deps);
+  }
+
+  return resolveHandoffGitRef({
+    isRootWorktree: isRoot,
+    branch,
+    headSha,
+    isClean,
+    defaultTipSha,
+  });
+}
+
+/**
  * Executes the handoff command.
  *
  * Creates a new session in the todo directory for pickup by another context.
@@ -60,10 +103,11 @@ export interface HandoffResult {
  *
  * Caller-supplied structured fields come from a JSON object at the start of
  * stdin; bytes after the JSON object form the markdown body verbatim. The
- * CLI prefills `created_at` from the system clock, `branch` from
- * `git rev-parse --abbrev-ref HEAD`, `worktree` from the relative path to
- * the current worktree root, and `agent_session_id` from `$CLAUDE_SESSION_ID`
- * (falling back to `$CODEX_THREAD_ID`).
+ * CLI prefills `created_at` from the system clock, `git_ref` from the
+ * handoff-base gate (branch name in the root worktree on a branch, HEAD SHA
+ * when detached, or the `origin/<default>` tip SHA in a clean detached linked
+ * worktree), and `agent_session_id` from `$CLAUDE_SESSION_ID` (falling back to
+ * `$CODEX_THREAD_ID`).
  *
  * Canonical invocation:
  *
@@ -80,7 +124,7 @@ export interface HandoffResult {
  *   or fails caller-field schema validation
  * @throws {SessionInvalidGoalError} When the parsed `goal` is empty
  * @throws {SessionInvalidNextStepError} When the parsed `next_step` is empty
- * @throws {SessionDetachedHeadError} When git HEAD is detached
+ * @throws {SessionHandoffBaseError} When the git work context cannot anchor a base
  */
 export async function handoffCommand(options: HandoffOptions): Promise<HandoffResult> {
   const { config, warning } = await resolveSessionConfig({
@@ -96,7 +140,7 @@ export async function handoffCommand(options: HandoffOptions): Promise<HandoffRe
 
   const { header, body } = parseHandoffInput(content);
 
-  const workContext = await detectSessionWorkContext(options.cwd, options.deps);
+  const gitRef = await resolveSessionGitRef(options.cwd, options.deps);
 
   if (header.goal.length === 0) {
     throw new SessionInvalidGoalError();
@@ -112,8 +156,7 @@ export async function handoffCommand(options: HandoffOptions): Promise<HandoffRe
   const frontMatterObject: Record<string, unknown> = {
     [SESSION_FRONT_MATTER.PRIORITY]: header.priority,
     [SESSION_FRONT_MATTER.CREATED_AT]: createdAt,
-    [SESSION_FRONT_MATTER.BRANCH]: workContext.branch,
-    [SESSION_FRONT_MATTER.WORKTREE]: workContext.worktree,
+    [SESSION_FRONT_MATTER.GIT_REF]: gitRef,
     [SESSION_FRONT_MATTER.GOAL]: header.goal,
     [SESSION_FRONT_MATTER.NEXT_STEP]: header.next_step,
     [SESSION_FRONT_MATTER.SPECS]: [...header.specs],

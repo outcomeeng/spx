@@ -2,7 +2,6 @@ import { execa } from "execa";
 import { dirname, isAbsolute, join, relative, resolve } from "node:path";
 
 import { SessionDirectoryConfig } from "@/domains/session/show";
-import { SESSION_GIT_CONTEXT_ERROR_MESSAGE, SessionDetachedHeadError, SessionGitContextError } from "@/git/errors";
 import { DEFAULT_CONFIG } from "../config/defaults";
 import { withoutGitEnvironment } from "./environment";
 
@@ -62,7 +61,15 @@ export const GIT_ROOT_COMMAND = {
   GIT_COMMON_DIR: "--git-common-dir",
   HEAD: "HEAD",
   SHOW_TOPLEVEL: "--show-toplevel",
+  SYMBOLIC_REF: "symbolic-ref",
+  SHORT: "--short",
+  ORIGIN_HEAD_REF: "refs/remotes/origin/HEAD",
+  STATUS: "status",
+  PORCELAIN: "--porcelain",
 } as const;
+
+/** Prefix on the remote-tracking ref returned by `symbolic-ref refs/remotes/origin/HEAD`. */
+export const ORIGIN_REF_PREFIX = "origin/";
 
 export const GIT_SHOW_TOPLEVEL_ARGS = [
   GIT_ROOT_COMMAND.REV_PARSE,
@@ -78,6 +85,22 @@ export const GIT_CURRENT_BRANCH_ARGS = [
   GIT_ROOT_COMMAND.REV_PARSE,
   GIT_ROOT_COMMAND.ABBREV_REF,
   GIT_ROOT_COMMAND.HEAD,
+] as const;
+
+export const GIT_HEAD_SHA_ARGS = [
+  GIT_ROOT_COMMAND.REV_PARSE,
+  GIT_ROOT_COMMAND.HEAD,
+] as const;
+
+export const GIT_ORIGIN_HEAD_REF_ARGS = [
+  GIT_ROOT_COMMAND.SYMBOLIC_REF,
+  GIT_ROOT_COMMAND.SHORT,
+  GIT_ROOT_COMMAND.ORIGIN_HEAD_REF,
+] as const;
+
+export const GIT_STATUS_PORCELAIN_ARGS = [
+  GIT_ROOT_COMMAND.STATUS,
+  GIT_ROOT_COMMAND.PORCELAIN,
 ] as const;
 
 // Detects the local worktree product directory.
@@ -185,11 +208,6 @@ export async function detectGitCommonDirProductRoot(
   }
 }
 
-export interface SessionWorkContext {
-  readonly branch: string;
-  readonly worktree: string;
-}
-
 export function computeRelativeWorktreePath(commonDir: string, toplevel: string): string {
   const absoluteCommonDir = isAbsolute(commonDir)
     ? commonDir
@@ -199,27 +217,105 @@ export function computeRelativeWorktreePath(commonDir: string, toplevel: string)
   return worktreePath === "" ? "" : worktreePath;
 }
 
-export async function detectSessionWorkContext(
+/**
+ * Resolves the repository's default branch name from `origin/HEAD`
+ * (e.g. `"main"`). Returns null when `origin/HEAD` is unset or unresolvable.
+ */
+export async function resolveDefaultBranch(
   cwd: string = process.cwd(),
   deps: GitDependencies = defaultDeps,
-): Promise<SessionWorkContext> {
-  const branchResult = await deps.execa(
+): Promise<string | null> {
+  const result = await deps.execa(
+    GIT_ROOT_COMMAND.EXECUTABLE,
+    [...GIT_ORIGIN_HEAD_REF_ARGS],
+    { cwd, reject: false },
+  );
+  if (result.exitCode !== 0) return null;
+  const ref = extractStdout(result.stdout);
+  if (!ref.startsWith(ORIGIN_REF_PREFIX)) return null;
+  const branch = ref.slice(ORIGIN_REF_PREFIX.length);
+  return branch.length === 0 ? null : branch;
+}
+
+/**
+ * Returns the checked-out branch name, or null when HEAD is detached or the
+ * branch name is unavailable.
+ */
+export async function getCurrentBranch(
+  cwd: string = process.cwd(),
+  deps: GitDependencies = defaultDeps,
+): Promise<string | null> {
+  const result = await deps.execa(
     GIT_ROOT_COMMAND.EXECUTABLE,
     [...GIT_CURRENT_BRANCH_ARGS],
     { cwd, reject: false },
   );
+  if (result.exitCode !== 0) return null;
+  const branch = extractStdout(result.stdout);
+  if (branch.length === 0 || branch === GIT_ROOT_COMMAND.HEAD) return null;
+  return branch;
+}
 
-  const branch = extractStdout(branchResult.stdout);
-  if (branchResult.exitCode !== 0) {
-    throw new SessionGitContextError(SESSION_GIT_CONTEXT_ERROR_MESSAGE.BRANCH_UNAVAILABLE);
-  }
-  if (branch.length === 0) {
-    throw new SessionGitContextError(SESSION_GIT_CONTEXT_ERROR_MESSAGE.EMPTY_BRANCH);
-  }
-  if (branch === GIT_ROOT_COMMAND.HEAD) {
-    throw new SessionDetachedHeadError();
-  }
+/** Returns the HEAD commit SHA, or null when unavailable. */
+export async function getHeadSha(
+  cwd: string = process.cwd(),
+  deps: GitDependencies = defaultDeps,
+): Promise<string | null> {
+  const result = await deps.execa(
+    GIT_ROOT_COMMAND.EXECUTABLE,
+    [...GIT_HEAD_SHA_ARGS],
+    { cwd, reject: false },
+  );
+  if (result.exitCode !== 0) return null;
+  const sha = extractStdout(result.stdout);
+  return sha.length === 0 ? null : sha;
+}
 
+/**
+ * Returns the commit SHA at the tip of the given ref (e.g. `"origin/main"`),
+ * or null when the ref cannot be resolved.
+ */
+export async function resolveRefSha(
+  ref: string,
+  cwd: string = process.cwd(),
+  deps: GitDependencies = defaultDeps,
+): Promise<string | null> {
+  const result = await deps.execa(
+    GIT_ROOT_COMMAND.EXECUTABLE,
+    [GIT_ROOT_COMMAND.REV_PARSE, ref],
+    { cwd, reject: false },
+  );
+  if (result.exitCode !== 0) return null;
+  const sha = extractStdout(result.stdout);
+  return sha.length === 0 ? null : sha;
+}
+
+/**
+ * Whether the working tree at `cwd` is clean — `git status --porcelain` emits
+ * nothing. A non-zero git exit is treated as not clean.
+ */
+export async function isWorkingTreeClean(
+  cwd: string = process.cwd(),
+  deps: GitDependencies = defaultDeps,
+): Promise<boolean> {
+  const result = await deps.execa(
+    GIT_ROOT_COMMAND.EXECUTABLE,
+    [...GIT_STATUS_PORCELAIN_ARGS],
+    { cwd, reject: false },
+  );
+  if (result.exitCode !== 0) return false;
+  return extractStdout(result.stdout).length === 0;
+}
+
+/**
+ * Whether `cwd` resolves to the repository's root worktree — the working tree
+ * rooted at the Git common-dir product root (empty relative worktree path). A
+ * linked worktree resolves to a non-empty relative path.
+ */
+export async function isRootWorktree(
+  cwd: string = process.cwd(),
+  deps: GitDependencies = defaultDeps,
+): Promise<boolean> {
   const toplevelResult = await deps.execa(
     GIT_ROOT_COMMAND.EXECUTABLE,
     [...GIT_SHOW_TOPLEVEL_ARGS],
@@ -230,14 +326,10 @@ export async function detectSessionWorkContext(
     [...GIT_COMMON_DIR_ARGS],
     { cwd, reject: false },
   );
-
+  if (toplevelResult.exitCode !== 0 || commonDirResult.exitCode !== 0) return false;
   const toplevel = extractStdout(toplevelResult.stdout);
   const commonDir = extractStdout(commonDirResult.stdout);
-  const worktree = toplevelResult.exitCode === 0 && commonDirResult.exitCode === 0
-    ? computeRelativeWorktreePath(commonDir, toplevel)
-    : "";
-
-  return { branch, worktree };
+  return computeRelativeWorktreePath(commonDir, toplevel) === "";
 }
 
 // Options for resolving session directory configuration.

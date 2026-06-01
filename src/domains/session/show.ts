@@ -11,14 +11,11 @@ import { parseSessionMetadata } from "./list";
 import { SESSION_STATUSES, type SessionStatus } from "./types";
 
 export const SESSION_SHOW_LABEL = {
-  ID: "ID",
   STATUS: "Status",
   PRIORITY: "Priority",
-  BRANCH: "Branch",
-  WORKTREE: "Worktree",
+  GIT_REF: "Git ref",
   GOAL: "Goal",
   NEXT_STEP: "Next step",
-  RESULT: "Result",
   CREATED: "Created",
   AGENT_SESSION: "Agent session",
 } as const;
@@ -121,14 +118,11 @@ export function formatShowOutput(
 
   // Build header with extracted metadata
   const headerLines: string[] = [
-    `${SESSION_SHOW_LABEL.ID}: ${metadata.id ?? ""}`,
     `${SESSION_SHOW_LABEL.STATUS}: ${options.status}`,
     `${SESSION_SHOW_LABEL.PRIORITY}: ${metadata.priority}`,
-    `${SESSION_SHOW_LABEL.BRANCH}: ${metadata.branch}`,
-    `${SESSION_SHOW_LABEL.WORKTREE}: ${metadata.worktree}`,
+    `${SESSION_SHOW_LABEL.GIT_REF}: ${metadata.git_ref}`,
     `${SESSION_SHOW_LABEL.GOAL}: ${metadata.goal}`,
     `${SESSION_SHOW_LABEL.NEXT_STEP}: ${metadata.next_step}`,
-    `${SESSION_SHOW_LABEL.RESULT}: ${metadata.result}`,
     `${SESSION_SHOW_LABEL.CREATED}: ${metadata.created_at ?? ""}`,
     `${SESSION_SHOW_LABEL.AGENT_SESSION}: ${metadata.agent_session_id ?? ""}`,
   ];

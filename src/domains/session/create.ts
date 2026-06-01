@@ -20,11 +20,9 @@ export const SESSION_FRONT_MATTER_CLOSE = `\n${SESSION_FRONT_MATTER_DELIMITER}\n
 
 export interface SessionFrontMatterInput {
   readonly priority: SessionPriority;
-  readonly branch?: string;
-  readonly worktree?: string;
+  readonly git_ref?: string;
   readonly goal: string;
   readonly next_step: string;
-  readonly result?: string;
   readonly specs?: readonly string[];
   readonly files?: readonly string[];
 }
@@ -32,11 +30,9 @@ export interface SessionFrontMatterInput {
 export function stringifySessionFrontMatter(input: SessionFrontMatterInput): string {
   return stringifyYaml({
     [SESSION_FRONT_MATTER.PRIORITY]: input.priority,
-    ...(input.branch === undefined ? {} : { [SESSION_FRONT_MATTER.BRANCH]: input.branch }),
-    ...(input.worktree === undefined ? {} : { [SESSION_FRONT_MATTER.WORKTREE]: input.worktree }),
+    ...(input.git_ref === undefined ? {} : { [SESSION_FRONT_MATTER.GIT_REF]: input.git_ref }),
     [SESSION_FRONT_MATTER.GOAL]: input.goal,
     [SESSION_FRONT_MATTER.NEXT_STEP]: input.next_step,
-    ...(input.result === undefined ? {} : { [SESSION_FRONT_MATTER.RESULT]: input.result }),
     [SESSION_FRONT_MATTER.SPECS]: input.specs ?? [],
     [SESSION_FRONT_MATTER.FILES]: input.files ?? [],
   }, { defaultStringType: "QUOTE_DOUBLE" }).trimEnd();
