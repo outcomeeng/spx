@@ -10,7 +10,7 @@ CAN write Level 1 and Level 2 tests without hardcoding status strings or reimple
 
 - Given no arguments, when `createSessionHarness()` is called, then a temp directory is created with one subdirectory per member of `SESSION_STATUSES` ([test](tests/session-test-harness.scenario.l1.test.ts))
 - Given a harness, when `writeSession(status, id, metadata)` is called, then a markdown file with YAML front matter is created in the correct status subdirectory ([test](tests/session-test-harness.scenario.l1.test.ts))
-- Given a harness, when `writeRawSession(status, id, content)` is called, then a file containing exactly `content` is created in the correct status subdirectory with no frontmatter composition — so tests can materialize non-canonical sessions the canonical writer cannot produce ([test](tests/session-test-harness.scenario.l1.test.ts))
+- Given a harness, when `writeRawSession(status, id, content)` is called, then a file containing exactly `content` is created in the correct status subdirectory with no frontmatter composition — so tests can materialize sessions with arbitrary or legacy frontmatter the structured writer cannot produce ([test](tests/session-test-harness.scenario.l1.test.ts))
 - Given a harness, when `cleanup()` is called, then the temp directory and all contents are removed ([test](tests/session-test-harness.scenario.l1.test.ts))
 
 ### Properties
