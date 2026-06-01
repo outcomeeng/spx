@@ -22,7 +22,7 @@ Archive moves a session from `todo/` or `doing/` to `archive/` by rename, requir
 - For every input filesystem state produced by the arbitrary `arbitraryRetentionFixture(todoCount, doingCount, archiveCount, keep)`, the set of session files in `todo/` and `doing/` after `spx session prune` matches the set before `spx session prune` ([test](tests/session-retention.property.l1.test.ts))
 - For every pair `(archiveCount, keep)` where `keep >= archiveCount`, the set of session files in `archive/` after `spx session prune --keep <keep>` equals the set before ([test](tests/session-retention.property.l1.test.ts))
 - For every input archive fixture produced by `arbitraryArchiveFixture` where one or more session filenames are unparsable, the deterministic ordering function ranks every unparsable-ID session before every parsable-ID session of the same priority, and repeated calls on the same fixture produce the same ranking ([test](tests/session-retention.property.l1.test.ts))
-- For every session content produced by `arbitrarySessionContent` — any frontmatter shape, including valid canonical frontmatter (with and without a `result` key), legacy keys, missing fields, and malformed YAML — `spx session archive` moves the file to `archive/` and does not reject ([test](tests/session-retention.property.l1.test.ts))
+- For every session content produced by `arbitrarySessionContent` — any frontmatter shape, including valid canonical frontmatter, legacy-key frontmatter carrying keys absent from the current shape, missing fields, and malformed YAML — `spx session archive` moves the file to `archive/` and does not reject ([test](tests/session-retention.property.l1.test.ts))
 
 ### Compliance
 
