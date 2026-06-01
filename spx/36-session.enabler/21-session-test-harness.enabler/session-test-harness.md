@@ -18,7 +18,7 @@ CAN write Level 1 and Level 2 tests without hardcoding status strings or reimple
 - Status subdirectory names match `DEFAULT_CONFIG.sessions.statusDirs` for every member of `SESSION_STATUSES` ([test](tests/session-test-harness.scenario.l1.test.ts))
 - `statusDir(status)` returns an absolute path for every valid `SessionStatus` ([test](tests/session-test-harness.scenario.l1.test.ts))
 - No hardcoded status strings appear in the harness module — all values derive from `SESSION_STATUSES` and `DEFAULT_CONFIG` ([review])
-- The `arbitrarySessionContent` generator draws full session file content of any frontmatter shape — valid canonical frontmatter, legacy-key frontmatter carrying removed keys such as `result` and `worktree`, missing-field frontmatter, and malformed YAML — so retention and CLI tests assert `spx session archive` moves every shape ([test](tests/session-test-harness.scenario.l1.test.ts))
+- The `arbitrarySessionContent` generator draws full session file content of any frontmatter shape — valid canonical frontmatter, legacy-key frontmatter carrying keys absent from the current shape, missing-field frontmatter, and malformed YAML — so retention and CLI tests assert `spx session archive` moves every shape ([test](tests/session-test-harness.scenario.l1.test.ts))
 
 ### Compliance
 
