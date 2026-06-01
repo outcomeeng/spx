@@ -54,18 +54,8 @@ Impact: session handoff pays two independent git round-trips serially before it 
 
 Resolution condition: run the independent product-root and common-git-dir commands concurrently and preserve the existing error semantics for each failed command.
 
-## Canonical classifier has no direct l1 test
+## FRONT_MATTER_PATTERN export becomes unused when the classifier is removed
 
-`parseCanonicalSession` in `src/domains/session/canonical.ts` is exercised only through the archive integration path — the `session-retention` scenario, compliance, and property tests drive it via `archiveCommand`. The classifier's own contract from [`spx/36-session.enabler/40-canonical-classification.adr.md`](40-canonical-classification.adr.md) — "for every session content string, the classifier either returns canonical metadata or throws" — has no direct `l1` test with literal content covering each non-conformance branch (extra key, missing required key, malformed YAML, no frontmatter) and the accept path.
+`FRONT_MATTER_PATTERN` is exported from `src/domains/session/list.ts` only so `src/domains/session/canonical.ts` could reuse the same frontmatter extraction. The session frontmatter revision in [`spx/36-session.enabler/11-session-frontmatter.pdr.md`](11-session-frontmatter.pdr.md) removes the canonical classifier, so the second consumer no longer exists.
 
-Impact: a regression in one classifier branch surfaces only through the archive consequence, not at the classifier boundary the ADR's testability claim names.
-
-Resolution condition: add a direct `l1` test for `parseCanonicalSession` with literal content per branch, anchored to a classifier-level spec assertion (decide its owning node — retention consumer vs a session-identity-adjacent parsing assertion — through `/spec-tree:authoring`).
-
-## Frontmatter pattern is exported for a cross-module need
-
-`FRONT_MATTER_PATTERN` in `src/domains/session/list.ts` is exported so `src/domains/session/canonical.ts` can reuse the same frontmatter extraction. Both modules sit in the session domain, so there is no layer-boundary violation, but the export widens the `list` module's public surface to serve a sibling rather than expressing a first-class shared primitive.
-
-Impact: the frontmatter-extraction regex is owned by the reader module while a second consumer depends on it, so a change to either module's framing has to account for the other.
-
-Resolution condition: evaluate extracting the frontmatter delimiter and extraction pattern into a shared session parsing-primitives module so neither `list.ts` nor `canonical.ts` carries the pattern as an incidental public export.
+Resolution condition: in the implementation PR, delete `canonical.ts` and revert `FRONT_MATTER_PATTERN` to a private implementation detail of `list.ts` (or remove it if `list.ts` no longer needs it).
