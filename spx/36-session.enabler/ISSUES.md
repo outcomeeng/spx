@@ -34,12 +34,12 @@ Reported files outside this rollout included:
 
 Resolution condition: run the repository formatter in a dedicated formatting cleanup, keep the resulting diff isolated from behavior changes, and then remove this entry.
 
-## Session handoff performs serial independent git reads
+## Infrastructure layer imports a session-domain config type
 
-`resolveSessionGitRef` in `src/commands/session/handoff.ts` gathers the handoff-base git facts with several sequential `GitDependencies` reads, and `isRootWorktree` in `src/git/root.ts` awaits `rev-parse --show-toplevel` and `rev-parse --git-common-dir` one after the other even though neither command depends on the other. This adds avoidable serialized git process latency to every `spx session handoff` invocation.
+`src/git/root.ts` imports `SessionDirectoryConfig` from `@/domains/session/show` to type `resolveSessionConfig`, so the generic git infrastructure module still depends on the session domain. Removing `detectSessionWorkContext` cleared the session-domain error coupling, but this type coupling remains.
 
-Observed in PR review: https://github.com/outcomeeng/spx/pull/52#issuecomment-4497421717.
+Observed in PR review of the session-frontmatter implementation.
 
-Impact: session handoff pays multiple independent git round-trips serially before it can write a session file.
+Impact: `resolveSessionConfig` cannot move or be tested independently of the session domain, and the infrastructure layer carries session vocabulary.
 
-Resolution condition: run the independent git reads concurrently and preserve the existing null/false semantics for each failed command.
+Resolution condition: relocate `SessionDirectoryConfig` to a shared config module, or resolve the session directory configuration in the command layer, leaving `src/git/root.ts` free of session-domain imports.
