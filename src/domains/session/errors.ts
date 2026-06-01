@@ -73,28 +73,20 @@ export class SessionInvalidNextStepError extends SessionError {
 }
 
 /**
- * Error thrown when archive is attempted without a result.
- */
-export class SessionInvalidResultError extends SessionError {
-  constructor(sessionId: string) {
-    super(`Invalid session result for ${sessionId}: result must be a non-empty string before archive.`);
-    this.name = "SessionInvalidResultError";
-  }
-}
-
-/**
- * Error thrown when a session's frontmatter does not parse into the canonical
- * shape — it has no frontmatter, the frontmatter YAML cannot be parsed, it
- * carries a key outside the declared shape, or it omits a required handoff key.
+ * Error thrown when `spx session handoff` runs from a git work context that
+ * cannot anchor a session to a base another agent can reach.
  *
- * The archive path catches this internally to classify a session as
- * non-canonical and admit it without a result requirement; it is not surfaced
- * to callers as a command failure.
+ * Handoff is permitted from the root worktree (any HEAD) or from a linked
+ * worktree that is clean and detached at the tip of `origin/<default branch>`.
  */
-export class SessionNotCanonicalError extends SessionError {
-  constructor(reason: string) {
-    super(`Session frontmatter is not canonical: ${reason}.`);
-    this.name = "SessionNotCanonicalError";
+export class SessionHandoffBaseError extends SessionError {
+  constructor() {
+    super(
+      "Cannot create a handoff session from this git work context. Run handoff "
+        + "from the root worktree, or from a linked worktree with a clean working "
+        + "tree detached at the tip of origin/<default branch>.",
+    );
+    this.name = "SessionHandoffBaseError";
   }
 }
 

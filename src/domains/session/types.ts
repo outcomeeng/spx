@@ -53,12 +53,9 @@ export const DEFAULT_PRIORITY: SessionPriority = SESSION_PRIORITY.MEDIUM;
  */
 export const SESSION_FRONT_MATTER = {
   PRIORITY: "priority",
-  ID: "id",
-  BRANCH: "branch",
-  WORKTREE: "worktree",
+  GIT_REF: "git_ref",
   GOAL: "goal",
   NEXT_STEP: "next_step",
-  RESULT: "result",
   CREATED_AT: "created_at",
   AGENT_SESSION_ID: "agent_session_id",
   SPECS: "specs",
@@ -66,36 +63,17 @@ export const SESSION_FRONT_MATTER = {
 } as const;
 
 /**
- * Frontmatter keys a canonical session must carry. A session whose frontmatter
- * omits any of these — or carries a key outside SESSION_FRONT_MATTER — is
- * non-canonical, and archive admits it without a result requirement.
- */
-export const CANONICAL_REQUIRED_KEYS = [
-  SESSION_FRONT_MATTER.PRIORITY,
-  SESSION_FRONT_MATTER.BRANCH,
-  SESSION_FRONT_MATTER.WORKTREE,
-  SESSION_FRONT_MATTER.GOAL,
-  SESSION_FRONT_MATTER.NEXT_STEP,
-] as const;
-
-/**
  * Metadata extracted from session YAML front matter.
  */
 export interface SessionMetadata {
-  /** Session ID (from filename or YAML) */
-  id?: string;
   /** Priority level for sorting */
   priority: SessionPriority;
-  /** Git branch associated with session */
-  branch: string;
-  /** Worktree path relative to Git common-dir parent */
-  worktree: string;
+  /** Git ref the session was cut from — a branch name (root worktree on a branch) or a commit SHA (detached) */
+  git_ref: string;
   /** Handoff goal */
   goal: string;
   /** First action for the next agent */
   next_step: string;
-  /** Result recorded before archive */
-  result: string;
   /** Spec files to auto-inject on pickup */
   specs: string[];
   /** Code files to auto-inject on pickup */
