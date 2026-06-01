@@ -24,6 +24,7 @@ import { buildSessionFrontMatterContent } from "@/domains/session/create";
 import { resolveDeletePath } from "@/domains/session/delete";
 import {
   SessionError,
+  SessionHandoffBaseError,
   SessionInvalidContentError,
   SessionInvalidGoalError,
   SessionInvalidJsonHeaderError,
@@ -74,10 +75,8 @@ const PREFILL_HANDOFF_HEADER: HandoffHeaderFixture = {
   files: [],
 };
 const PREFILL_HANDOFF_STDIN = buildHandoffStdin(PREFILL_HANDOFF_HEADER, "# Test session");
-const HANDOFF_GIT_DEPS = createSessionGitDeps({
-  branch: "topic/session-frontmatter",
-  toplevel: "/repo/worktrees/topic",
-});
+const HANDOFF_GIT_REF = "topic/session-frontmatter";
+const HANDOFF_GIT_DEPS = createSessionGitDeps({ branch: HANDOFF_GIT_REF });
 
 describe("listCommand", () => {
   let harness: SessionHarness;
@@ -381,37 +380,28 @@ describe("formatShowOutput", () => {
 
   it("GIVEN session with full metadata WHEN formatted THEN includes all fields", () => {
     const expected = {
-      id: "test-session",
       priority: SESSION_PRIORITY.HIGH,
-      branch: "topic/test",
-      worktree: "worktrees/topic-test",
+      git_ref: "topic/test",
       goal: "Fix the session display",
       nextStep: "Run display tests",
-      result: "Display verified",
       created_at: "2026-01-13T10:00:00Z",
       agent_session_id: "thread-123",
     };
     const content = buildSessionFrontMatterContent([
-      `${SESSION_FRONT_MATTER.ID}: ${expected.id}`,
       `${SESSION_FRONT_MATTER.PRIORITY}: ${expected.priority}`,
-      `${SESSION_FRONT_MATTER.BRANCH}: ${expected.branch}`,
-      `${SESSION_FRONT_MATTER.WORKTREE}: ${expected.worktree}`,
+      `${SESSION_FRONT_MATTER.GIT_REF}: ${expected.git_ref}`,
       `${SESSION_FRONT_MATTER.GOAL}: ${JSON.stringify(expected.goal)}`,
       `${SESSION_FRONT_MATTER.NEXT_STEP}: ${JSON.stringify(expected.nextStep)}`,
-      `${SESSION_FRONT_MATTER.RESULT}: ${JSON.stringify(expected.result)}`,
       `${SESSION_FRONT_MATTER.CREATED_AT}: ${expected.created_at}`,
       `${SESSION_FRONT_MATTER.AGENT_SESSION_ID}: ${expected.agent_session_id}`,
     ], buildSessionMarkdownBody("show metadata"));
     const result = formatShowOutput(content, { status: SESSION_STATUSES[1] });
 
-    expect(result).toContain(`${SESSION_SHOW_LABEL.ID}: ${expected.id}`);
     expect(result).toContain(`${SESSION_SHOW_LABEL.STATUS}: ${SESSION_STATUSES[1]}`);
     expect(result).toContain(`${SESSION_SHOW_LABEL.PRIORITY}: ${expected.priority}`);
-    expect(result).toContain(`${SESSION_SHOW_LABEL.BRANCH}: ${expected.branch}`);
-    expect(result).toContain(`${SESSION_SHOW_LABEL.WORKTREE}: ${expected.worktree}`);
+    expect(result).toContain(`${SESSION_SHOW_LABEL.GIT_REF}: ${expected.git_ref}`);
     expect(result).toContain(`${SESSION_SHOW_LABEL.GOAL}: ${expected.goal}`);
     expect(result).toContain(`${SESSION_SHOW_LABEL.NEXT_STEP}: ${expected.nextStep}`);
-    expect(result).toContain(`${SESSION_SHOW_LABEL.RESULT}: ${expected.result}`);
     expect(result).toContain(`${SESSION_SHOW_LABEL.CREATED}: ${expected.created_at}`);
     expect(result).toContain(`${SESSION_SHOW_LABEL.AGENT_SESSION}: ${expected.agent_session_id}`);
   });
@@ -582,15 +572,14 @@ describe("handoffCommand with real filesystem", () => {
 
     const frontMatter = parseFrontMatter(await readFile(extractSessionFile(output), "utf-8"));
     expect(frontMatter).toHaveProperty(SESSION_FRONT_MATTER.PRIORITY, SESSION_PRIORITY.HIGH);
-    expect(frontMatter).toHaveProperty(SESSION_FRONT_MATTER.BRANCH, "topic/session-frontmatter");
-    expect(frontMatter).toHaveProperty(SESSION_FRONT_MATTER.WORKTREE, "worktrees/topic");
+    expect(frontMatter).toHaveProperty(SESSION_FRONT_MATTER.GIT_REF, HANDOFF_GIT_REF);
     expect(frontMatter).toHaveProperty(SESSION_FRONT_MATTER.GOAL, TEST_GOAL);
     expect(frontMatter).toHaveProperty(SESSION_FRONT_MATTER.NEXT_STEP, TEST_NEXT_STEP);
   });
 
-  it("GIVEN git output with YAML-special characters in branch WHEN handoff executes THEN metadata parses back unchanged", async () => {
-    const branch = "topic/{yaml}: branch # marker";
-    const deps = createSessionGitDeps({ branch, toplevel: "/repo/worktrees/topic" });
+  it("GIVEN git output with YAML-special characters in the git ref WHEN handoff executes THEN metadata parses back unchanged", async () => {
+    const gitRef = "topic/{yaml}: branch # marker";
+    const deps = createSessionGitDeps({ branch: gitRef });
 
     const { output } = await handoffCommand({
       content: PREFILL_HANDOFF_STDIN,
@@ -599,7 +588,7 @@ describe("handoffCommand with real filesystem", () => {
     });
     const metadata = parseSessionMetadata(await readFile(extractSessionFile(output), "utf-8"));
 
-    expect(metadata.branch).toBe(branch);
+    expect(metadata.git_ref).toBe(gitRef);
   });
 
   it("GIVEN JSON header followed by CRLF separator WHEN handoff executes THEN body starts after the separator", async () => {
@@ -802,11 +791,9 @@ describe("sortSessions with unparsable IDs", () => {
       path: `/s/${TODO}/${id}.md`,
       metadata: {
         priority,
-        branch: "",
-        worktree: "",
+        git_ref: "",
         goal: "",
         next_step: "",
-        result: "",
         specs: [],
         files: [],
       },
@@ -913,5 +900,75 @@ describe("handoffCommand — created_at and agent_session_id pre-fill", () => {
     const frontMatter = parseFrontMatter(await readFile(extractSessionFile(output), "utf-8"));
 
     expect(frontMatter).not.toHaveProperty(SESSION_FRONT_MATTER.AGENT_SESSION_ID);
+  });
+});
+
+// ============================================================
+// Handoff: handoff-base gate (git_ref resolution and refusal)
+// ============================================================
+
+describe("handoffCommand — handoff-base gate", () => {
+  let harness: SessionHarness;
+
+  beforeEach(async () => {
+    harness = await createSessionHarness();
+  });
+
+  afterEach(async () => {
+    await harness.cleanup();
+  });
+
+  const SHA_PATTERN = /^[0-9a-f]{40}$/;
+
+  it("GIVEN the root worktree with a detached HEAD WHEN handoff executes THEN git_ref is the HEAD commit SHA", async () => {
+    const { output } = await handoffCommand({
+      content: PREFILL_HANDOFF_STDIN,
+      sessionsDir: harness.sessionsDir,
+      deps: createSessionGitDeps({ branch: null }),
+    });
+    const metadata = parseSessionMetadata(await readFile(extractSessionFile(output), "utf-8"));
+
+    expect(metadata.git_ref).toMatch(SHA_PATTERN);
+  });
+
+  it("GIVEN a linked worktree clean and detached at origin/<default> WHEN handoff executes THEN git_ref is that commit SHA", async () => {
+    const { output } = await handoffCommand({
+      content: PREFILL_HANDOFF_STDIN,
+      sessionsDir: harness.sessionsDir,
+      deps: createSessionGitDeps({ worktreeKind: "linked", branch: null, clean: true, detachedAtDefaultTip: true }),
+    });
+    const metadata = parseSessionMetadata(await readFile(extractSessionFile(output), "utf-8"));
+
+    expect(metadata.git_ref).toMatch(SHA_PATTERN);
+  });
+
+  it("GIVEN a linked worktree with a dirty working tree WHEN handoff executes THEN rejects with SessionHandoffBaseError", async () => {
+    await expect(
+      handoffCommand({
+        content: PREFILL_HANDOFF_STDIN,
+        sessionsDir: harness.sessionsDir,
+        deps: createSessionGitDeps({ worktreeKind: "linked", branch: null, clean: false, detachedAtDefaultTip: true }),
+      }),
+    ).rejects.toBeInstanceOf(SessionHandoffBaseError);
+  });
+
+  it("GIVEN a linked worktree on a worktree-local branch WHEN handoff executes THEN rejects with SessionHandoffBaseError", async () => {
+    await expect(
+      handoffCommand({
+        content: PREFILL_HANDOFF_STDIN,
+        sessionsDir: harness.sessionsDir,
+        deps: createSessionGitDeps({ worktreeKind: "linked", branch: "feature/local", clean: true }),
+      }),
+    ).rejects.toBeInstanceOf(SessionHandoffBaseError);
+  });
+
+  it("GIVEN a linked worktree detached at a commit other than origin/<default> WHEN handoff executes THEN rejects with SessionHandoffBaseError", async () => {
+    await expect(
+      handoffCommand({
+        content: PREFILL_HANDOFF_STDIN,
+        sessionsDir: harness.sessionsDir,
+        deps: createSessionGitDeps({ worktreeKind: "linked", branch: null, clean: true, detachedAtDefaultTip: false }),
+      }),
+    ).rejects.toBeInstanceOf(SessionHandoffBaseError);
   });
 });

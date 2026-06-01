@@ -5,8 +5,8 @@ import { join } from "node:path";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 
 import { SESSION_STATUSES } from "@/domains/session/types";
-import { sampleNonCanonicalSessionContent, sampleSessionId } from "@testing/generators/session/session";
-import { GIT_TEST_FLAGS, GIT_TEST_REFS, GIT_TEST_SUBCOMMANDS } from "@testing/harnesses/git-test-constants";
+import { sampleSessionContent, sampleSessionId } from "@testing/generators/session/session";
+import { GIT_TEST_FLAGS, GIT_TEST_SUBCOMMANDS } from "@testing/harnesses/git-test-constants";
 import { withGitWorktreeEnv } from "@testing/harnesses/git-worktree/git-worktree";
 import { createSessionHarness, type SessionHarness } from "@testing/harnesses/session/harness";
 
@@ -14,6 +14,8 @@ const [TODO, DOING, ARCHIVE] = SESSION_STATUSES;
 const CLI_ENTRY = join(process.cwd(), "bin/spx.js");
 const SESSION_FILE_TAG_PATTERN = /<SESSION_FILE>(.*?)<\/SESSION_FILE>/;
 const GIT_FIXTURE_COMMIT_MESSAGE = "session cli fixture";
+const LINKED_WORKTREE_BRANCH = "feature/linked-local";
+const LINKED_WORKTREE_RELATIVE_PATH = ".worktrees/linked";
 
 async function runSpx(
   args: readonly string[],
@@ -72,7 +74,7 @@ describe("session CLI compliance", () => {
 
   it("ALWAYS: partial failure exits non-zero while preserving successful work", async () => {
     const validId = "2026-01-10_10-00-00";
-    await harness.writeSession(TODO, validId, { result: "Ready to archive" });
+    await harness.writeSession(TODO, validId);
 
     const result = await runSpx([
       "session",
@@ -181,23 +183,9 @@ describe("session CLI compliance", () => {
       expect(malformedJson.exitCode).toBe(1);
       expect(malformedJson.stderr).toContain("SessionInvalidJsonHeaderError");
     });
-
-    const sessionId = "2026-01-10_10-00-00";
-    await harness.writeSession(TODO, sessionId);
-    const archive = await runSpx([
-      "session",
-      "archive",
-      sessionId,
-      "--sessions-dir",
-      harness.sessionsDir,
-    ]);
-
-    expect(archive.exitCode).toBe(1);
-    expect(archive.stderr).toContain("SessionInvalidResultError");
-    expect(archive.stderr).toContain(sessionId);
   });
 
-  it("ALWAYS: handoff reports SessionDetachedHeadError through the CLI", async () => {
+  it("ALWAYS: handoff in a linked worktree on a worktree-local branch reports SessionHandoffBaseError through the CLI", async () => {
     await withGitWorktreeEnv(async (gitEnv) => {
       await gitEnv.runGit([
         GIT_TEST_SUBCOMMANDS.COMMIT,
@@ -205,24 +193,30 @@ describe("session CLI compliance", () => {
         GIT_TEST_FLAGS.COMMIT_MESSAGE,
         GIT_FIXTURE_COMMIT_MESSAGE,
       ]);
-      const headSha = await gitEnv.runGit([GIT_TEST_SUBCOMMANDS.REV_PARSE, GIT_TEST_REFS.HEAD]);
-      await gitEnv.runGit([GIT_TEST_SUBCOMMANDS.CHECKOUT, headSha]);
+      await gitEnv.runGit([GIT_TEST_SUBCOMMANDS.BRANCH, LINKED_WORKTREE_BRANCH]);
+      const linkedWorktreeDir = join(gitEnv.productDir, LINKED_WORKTREE_RELATIVE_PATH);
+      await gitEnv.runGit([
+        GIT_TEST_SUBCOMMANDS.WORKTREE,
+        GIT_TEST_SUBCOMMANDS.ADD,
+        linkedWorktreeDir,
+        LINKED_WORKTREE_BRANCH,
+      ]);
 
       const result = await runSpx(
         ["session", "handoff", "--sessions-dir", harness.sessionsDir],
-        `{"goal":"Reject detached HEAD","next_step":"Report the git context error"}\n# Session`,
-        gitEnv.productDir,
+        `{"goal":"Refuse a linked-worktree base","next_step":"Detach to origin default first"}\n# Session`,
+        linkedWorktreeDir,
       );
 
       expect(result.exitCode).toBe(1);
-      expect(result.stderr).toContain("SessionDetachedHeadError");
+      expect(result.stderr).toContain("SessionHandoffBaseError");
       expect(await readdir(harness.statusDir(TODO))).toEqual([]);
     });
   });
 
-  it("ALWAYS: archive admits a non-canonical session without SessionInvalidResultError", async () => {
+  it("ALWAYS: archive moves a session of any frontmatter shape through the CLI", async () => {
     const sessionId = sampleSessionId();
-    await harness.writeRawSession(TODO, sessionId, sampleNonCanonicalSessionContent());
+    await harness.writeRawSession(TODO, sessionId, sampleSessionContent());
 
     const result = await runSpx([
       "session",
@@ -233,7 +227,6 @@ describe("session CLI compliance", () => {
     ]);
 
     expect(result.exitCode).toBe(0);
-    expect(result.stderr).not.toContain("SessionInvalidResultError");
     expect(existsSync(join(harness.statusDir(ARCHIVE), `${sessionId}.md`))).toBe(true);
   });
 });

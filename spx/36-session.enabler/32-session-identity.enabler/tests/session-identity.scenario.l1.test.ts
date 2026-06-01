@@ -149,28 +149,22 @@ describe("generateSessionId → parseSessionId roundtrip (property-based)", () =
 });
 
 describe("parseSessionMetadata", () => {
-  it("GIVEN YAML front matter with canonical fields WHEN parsed THEN extracts all fields", () => {
+  it("GIVEN YAML front matter with the declared fields WHEN parsed THEN extracts all fields", () => {
     const expected = {
-      id: "test",
       priority: SESSION_PRIORITY.HIGH,
-      branch: "topic/session",
-      worktree: "worktrees/session",
+      git_ref: "topic/session",
       goal: "Fix session parsing",
       next_step: "Run session identity tests",
-      result: "Parsing verified",
       created_at: "2026-01-13T10:00:00-08:00",
       agent_session_id: "thread-session-identity",
       specs: ["path/to/spec.md"],
       files: ["src/file.ts"],
     };
     const content = buildSessionFrontMatterContent([
-      `${SESSION_FRONT_MATTER.ID}: ${expected.id}`,
       `${SESSION_FRONT_MATTER.PRIORITY}: ${expected.priority}`,
-      `${SESSION_FRONT_MATTER.BRANCH}: ${expected.branch}`,
-      `${SESSION_FRONT_MATTER.WORKTREE}: ${expected.worktree}`,
+      `${SESSION_FRONT_MATTER.GIT_REF}: ${expected.git_ref}`,
       `${SESSION_FRONT_MATTER.GOAL}: ${JSON.stringify(expected.goal)}`,
       `${SESSION_FRONT_MATTER.NEXT_STEP}: ${JSON.stringify(expected.next_step)}`,
-      `${SESSION_FRONT_MATTER.RESULT}: ${JSON.stringify(expected.result)}`,
       `${SESSION_FRONT_MATTER.CREATED_AT}: ${expected.created_at}`,
       `${SESSION_FRONT_MATTER.AGENT_SESSION_ID}: ${expected.agent_session_id}`,
       `${SESSION_FRONT_MATTER.SPECS}:`,
@@ -180,17 +174,35 @@ describe("parseSessionMetadata", () => {
     ], buildSessionMarkdownBody("identity metadata"));
     const result = parseSessionMetadata(content);
 
-    expect(result.id).toBe(expected.id);
     expect(result.priority).toBe(expected.priority);
-    expect(result.branch).toBe(expected.branch);
-    expect(result.worktree).toBe(expected.worktree);
+    expect(result.git_ref).toBe(expected.git_ref);
     expect(result.goal).toBe(expected.goal);
     expect(result.next_step).toBe(expected.next_step);
-    expect(result.result).toBe(expected.result);
     expect(result.created_at).toBe(expected.created_at);
     expect(result.agent_session_id).toBe(expected.agent_session_id);
     expect(result.specs).toEqual(expected.specs);
     expect(result.files).toEqual(expected.files);
+  });
+
+  it("GIVEN front matter carrying keys outside the declared shape WHEN parsed THEN only declared fields are returned and no error is raised", () => {
+    const content = buildSessionFrontMatterContent([
+      `${SESSION_FRONT_MATTER.PRIORITY}: ${SESSION_PRIORITY.HIGH}`,
+      `${SESSION_FRONT_MATTER.GIT_REF}: main`,
+      `${SESSION_FRONT_MATTER.GOAL}: ${JSON.stringify("Resume the work")}`,
+      `${SESSION_FRONT_MATTER.NEXT_STEP}: ${JSON.stringify("Open the file")}`,
+      "result: completed under the previous shape",
+      "worktree: .worktrees/wt",
+      "branch: feature/legacy",
+      "tags: [old, shape]",
+    ], buildSessionMarkdownBody("keys outside the declared shape"));
+    const result = parseSessionMetadata(content) as Record<string, unknown>;
+
+    expect(result.priority).toBe(SESSION_PRIORITY.HIGH);
+    expect(result.git_ref).toBe("main");
+    expect(result.result).toBeUndefined();
+    expect(result.worktree).toBeUndefined();
+    expect(result.branch).toBeUndefined();
+    expect(result.tags).toBeUndefined();
   });
 
   it("GIVEN no front matter WHEN parsed THEN returns canonical defaults", () => {

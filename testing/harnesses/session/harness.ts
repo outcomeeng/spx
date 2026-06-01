@@ -38,44 +38,96 @@ export function buildHandoffStdin(header: HandoffHeaderFixture, body: string): s
   return `${JSON.stringify(header)}\n${body}`;
 }
 
+/** Worktree kind the handoff git-context double simulates. */
+export const WORKTREE_KIND = {
+  ROOT: "root",
+  LINKED: "linked",
+} as const;
+
+export type WorktreeKind = (typeof WORKTREE_KIND)[keyof typeof WORKTREE_KIND];
+
 /**
- * Caller-overridable values for the git-context double used by handoff tests.
+ * Caller-overridable git state for the handoff git-context double.
  *
- * Defaults represent a non-worktree repository on `main`. Override `branch`
- * to assert branch-detection round-trips; override `toplevel` and `commonDir`
- * to simulate a linked worktree.
+ * The double simulates the worktree kind, HEAD state, default branch, and
+ * working-tree cleanliness that `spx session handoff` reads when it resolves
+ * `git_ref` and applies the handoff-base gate per
+ * `spx/36-session.enabler/11-session-frontmatter.pdr.md`. Defaults represent
+ * the common case: the root worktree on `main` with a clean tree.
  */
 export interface SessionGitDepsOverrides {
-  readonly branch?: string;
-  readonly toplevel?: string;
-  readonly commonDir?: string;
+  /** Root (working tree at the Git common-dir product root) or linked worktree. Default root. */
+  readonly worktreeKind?: WorktreeKind;
+  /** Checked-out branch name, or `null` when HEAD is detached. Default "main". */
+  readonly branch?: string | null;
+  /** Working tree clean (empty `git status --porcelain`). Default `true`. */
+  readonly clean?: boolean;
+  /** Default branch name resolved from `origin/HEAD`. Default "main". */
+  readonly defaultBranch?: string;
+  /** When HEAD is detached, whether it sits at the tip of `origin/<defaultBranch>`. Default `false`. */
+  readonly detachedAtDefaultTip?: boolean;
 }
 
+/** Toplevel + common-dir pairs that make `dirname(commonDir) === toplevel` hold only for the root worktree. */
+const ROOT_TOPLEVEL = "/repo";
+const LINKED_TOPLEVEL = "/repo/.worktrees/wt";
+const SHARED_COMMON_DIR = "/repo/.git";
+
+/** Distinct 40-hex SHAs so "HEAD is at the default tip" is decided by equality, not coincidence. */
+const HEAD_SHA = "1111111111111111111111111111111111111111";
+const ORIGIN_DEFAULT_SHA = "2222222222222222222222222222222222222222";
+
 const DEFAULT_GIT_DEPS_BRANCH = "main";
-const DEFAULT_GIT_DEPS_TOPLEVEL = "/repo";
-const DEFAULT_GIT_DEPS_COMMON_DIR = "/repo/.git";
+const DEFAULT_GIT_DEPS_DEFAULT_BRANCH = "main";
+const DIRTY_PORCELAIN_LINE = " M file.txt";
+const DETACHED_HEAD_REF = "HEAD";
 
 /**
- * Builds a `GitDependencies` double that returns canned `git rev-parse` output
- * for the three flags `handoffCommand` consults (`--abbrev-ref HEAD`,
- * `--show-toplevel`, `--git-common-dir`). The double is the canonical
- * Stage-5 Exception-1 (failure-mode / external-system) substitute used by
- * the session handoff tests under `tests/`.
+ * Builds a `GitDependencies` double that returns canned `git` output for the
+ * command set the handoff-base resolution consults:
  *
- * Any other `git` invocation routed through this double returns a non-zero
- * exit code so unexpected git calls surface as test failures rather than
- * silent success.
+ * - `rev-parse --show-toplevel` / `rev-parse --git-common-dir` — worktree kind
+ * - `rev-parse --abbrev-ref HEAD` — branch name, or `HEAD` when detached
+ * - `rev-parse HEAD` — the HEAD commit SHA
+ * - `symbolic-ref --short refs/remotes/origin/HEAD` — `origin/<default>`
+ * - `rev-parse origin/<default>` — the default branch's tip SHA
+ * - `status --porcelain` — empty when the working tree is clean
+ *
+ * This is the canonical Stage-5 Exception-1 (external-system) substitute used
+ * by the session handoff tests under `tests/`. Any other `git` invocation
+ * returns a non-zero exit code so unexpected git calls surface as test failures
+ * rather than silent success.
  */
 export function createSessionGitDeps(overrides: SessionGitDepsOverrides = {}): GitDependencies {
-  const branch = overrides.branch ?? DEFAULT_GIT_DEPS_BRANCH;
-  const toplevel = overrides.toplevel ?? DEFAULT_GIT_DEPS_TOPLEVEL;
-  const commonDir = overrides.commonDir ?? DEFAULT_GIT_DEPS_COMMON_DIR;
+  const worktreeKind = overrides.worktreeKind ?? WORKTREE_KIND.ROOT;
+  const branch = overrides.branch === undefined ? DEFAULT_GIT_DEPS_BRANCH : overrides.branch;
+  const clean = overrides.clean ?? true;
+  const defaultBranch = overrides.defaultBranch ?? DEFAULT_GIT_DEPS_DEFAULT_BRANCH;
+  const detachedAtDefaultTip = overrides.detachedAtDefaultTip ?? false;
+
+  const toplevel = worktreeKind === WORKTREE_KIND.ROOT ? ROOT_TOPLEVEL : LINKED_TOPLEVEL;
+  const headSha = branch === null && detachedAtDefaultTip ? ORIGIN_DEFAULT_SHA : HEAD_SHA;
+  const originDefaultRef = `origin/${defaultBranch}`;
+
   return {
     execa: async (_command, args) => {
       const argText = args.join(" ");
-      if (argText.includes("--abbrev-ref")) return { exitCode: 0, stdout: branch, stderr: "" };
-      if (argText.includes("--show-toplevel")) return { exitCode: 0, stdout: toplevel, stderr: "" };
-      if (argText.includes("--git-common-dir")) return { exitCode: 0, stdout: commonDir, stderr: "" };
+      const ok = (stdout: string): { exitCode: number; stdout: string; stderr: string } => ({
+        exitCode: 0,
+        stdout,
+        stderr: "",
+      });
+
+      if (argText.includes("--show-toplevel")) return ok(toplevel);
+      if (argText.includes("--git-common-dir")) return ok(SHARED_COMMON_DIR);
+      if (argText.includes("--abbrev-ref")) return ok(branch ?? DETACHED_HEAD_REF);
+      if (argText.includes("symbolic-ref") && argText.includes("origin/HEAD")) return ok(originDefaultRef);
+      if (argText.includes("status") && argText.includes("--porcelain")) return ok(clean ? "" : DIRTY_PORCELAIN_LINE);
+      if (args.includes(originDefaultRef) || args.includes(`refs/remotes/${originDefaultRef}`)) {
+        return ok(ORIGIN_DEFAULT_SHA);
+      }
+      if (args.includes("rev-parse") && args.includes(DETACHED_HEAD_REF)) return ok(headSha);
+
       return { exitCode: 1, stdout: "", stderr: "" };
     },
   };
@@ -87,16 +139,12 @@ export function createSessionGitDeps(overrides: SessionGitDepsOverrides = {}): G
 export interface SessionMetadataOptions {
   /** Priority level. Defaults to medium. */
   priority?: SessionPriority;
-  /** Git branch. */
-  branch?: string;
-  /** Worktree path relative to the common Git product root. */
-  worktree?: string;
+  /** Git ref the session was cut from — a branch name or a commit SHA. */
+  git_ref?: string;
   /** Handoff goal. */
   goal?: string;
   /** First next action. */
   next_step?: string;
-  /** Archive result. */
-  result?: string;
   /** Spec paths to inject on pickup. */
   specs?: readonly string[];
   /** File paths to inject on pickup. */
@@ -121,9 +169,9 @@ export interface SessionHarness {
   /**
    * Writes a session file with the exact `content` bytes in the given status
    * directory. Unlike `writeSession`, this performs no frontmatter composition,
-   * so it can materialize non-canonical sessions — frontmatter that omits the
-   * declared shape or carries excluded keys — that the canonical writer cannot
-   * produce.
+   * so it can materialize sessions of any frontmatter shape — frontmatter that
+   * omits a declared key or carries keys absent from the current shape — that
+   * the structured writer cannot produce.
    */
   writeRawSession(status: SessionStatus, id: string, content: string): Promise<string>;
 
@@ -159,11 +207,9 @@ export async function createSessionHarness(): Promise<SessionHarness> {
     ): Promise<string> {
       const frontMatter = stringifySessionFrontMatter({
         priority: opts.priority ?? DEFAULT_PRIORITY,
-        branch: opts.branch ?? "main",
-        worktree: opts.worktree ?? "",
+        git_ref: opts.git_ref ?? DEFAULT_GIT_DEPS_BRANCH,
         goal: opts.goal ?? `Goal for ${id}`,
         next_step: opts.next_step ?? `Next step for ${id}`,
-        result: opts.result,
         specs: opts.specs,
         files: opts.files,
       });
