@@ -74,8 +74,8 @@ const LINKED_TOPLEVEL = "/repo/.worktrees/wt";
 const SHARED_COMMON_DIR = "/repo/.git";
 
 /** Distinct 40-hex SHAs so "HEAD is at the default tip" is decided by equality, not coincidence. */
-const HEAD_SHA = "1111111111111111111111111111111111111111";
-const ORIGIN_DEFAULT_SHA = "2222222222222222222222222222222222222222";
+export const HEAD_SHA = "1111111111111111111111111111111111111111";
+export const ORIGIN_DEFAULT_SHA = "2222222222222222222222222222222222222222";
 
 const DEFAULT_GIT_DEPS_BRANCH = "main";
 const DEFAULT_GIT_DEPS_DEFAULT_BRANCH = "main";
@@ -118,15 +118,23 @@ export function createSessionGitDeps(overrides: SessionGitDepsOverrides = {}): G
         stderr: "",
       });
 
+      // rev-parse --show-toplevel — the worktree's toplevel
       if (argText.includes("--show-toplevel")) return ok(toplevel);
+      // rev-parse --git-common-dir — the shared common dir
       if (argText.includes("--git-common-dir")) return ok(SHARED_COMMON_DIR);
+      // rev-parse --abbrev-ref HEAD — branch name, or HEAD when detached
       if (argText.includes("--abbrev-ref")) return ok(branch ?? DETACHED_HEAD_REF);
+      // symbolic-ref --short refs/remotes/origin/HEAD — origin/<default>
       if (argText.includes("symbolic-ref") && argText.includes("origin/HEAD")) return ok(originDefaultRef);
+      // status --porcelain — empty when the working tree is clean
       if (argText.includes("status") && argText.includes("--porcelain")) return ok(clean ? "" : DIRTY_PORCELAIN_LINE);
+      // rev-parse origin/<default> — the default branch's tip SHA
       if (args.includes(originDefaultRef) || args.includes(`refs/remotes/${originDefaultRef}`)) {
         return ok(ORIGIN_DEFAULT_SHA);
       }
-      if (args.includes("rev-parse") && args.includes(DETACHED_HEAD_REF)) return ok(headSha);
+      // rev-parse HEAD — the HEAD commit SHA (exact positional match so the
+      // three-arg --abbrev-ref HEAD form cannot fall through to here)
+      if (args.length === 2 && args[0] === "rev-parse" && args[1] === DETACHED_HEAD_REF) return ok(headSha);
 
       return { exitCode: 1, stdout: "", stderr: "" };
     },

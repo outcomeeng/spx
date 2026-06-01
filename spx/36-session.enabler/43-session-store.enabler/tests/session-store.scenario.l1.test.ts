@@ -58,6 +58,8 @@ import {
   buildSessionMarkdownBody,
   createSessionGitDeps,
   createSessionHarness,
+  HEAD_SHA,
+  ORIGIN_DEFAULT_SHA,
   SessionHarness,
 } from "@testing/harnesses/session/harness";
 import { extractSessionFile, parseFrontMatter } from "./helpers";
@@ -918,8 +920,6 @@ describe("handoffCommand — handoff-base gate", () => {
     await harness.cleanup();
   });
 
-  const SHA_PATTERN = /^[0-9a-f]{40}$/;
-
   it("GIVEN the root worktree with a detached HEAD WHEN handoff executes THEN git_ref is the HEAD commit SHA", async () => {
     const { output } = await handoffCommand({
       content: PREFILL_HANDOFF_STDIN,
@@ -928,7 +928,7 @@ describe("handoffCommand — handoff-base gate", () => {
     });
     const metadata = parseSessionMetadata(await readFile(extractSessionFile(output), "utf-8"));
 
-    expect(metadata.git_ref).toMatch(SHA_PATTERN);
+    expect(metadata.git_ref).toBe(HEAD_SHA);
   });
 
   it("GIVEN a linked worktree clean and detached at origin/<default> WHEN handoff executes THEN git_ref is that commit SHA", async () => {
@@ -939,7 +939,7 @@ describe("handoffCommand — handoff-base gate", () => {
     });
     const metadata = parseSessionMetadata(await readFile(extractSessionFile(output), "utf-8"));
 
-    expect(metadata.git_ref).toMatch(SHA_PATTERN);
+    expect(metadata.git_ref).toBe(ORIGIN_DEFAULT_SHA);
   });
 
   it("GIVEN a linked worktree with a dirty working tree WHEN handoff executes THEN rejects with SessionHandoffBaseError", async () => {
