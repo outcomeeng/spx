@@ -316,16 +316,10 @@ export async function isRootWorktree(
   cwd: string = process.cwd(),
   deps: GitDependencies = defaultDeps,
 ): Promise<boolean> {
-  const toplevelResult = await deps.execa(
-    GIT_ROOT_COMMAND.EXECUTABLE,
-    [...GIT_SHOW_TOPLEVEL_ARGS],
-    { cwd, reject: false },
-  );
-  const commonDirResult = await deps.execa(
-    GIT_ROOT_COMMAND.EXECUTABLE,
-    [...GIT_COMMON_DIR_ARGS],
-    { cwd, reject: false },
-  );
+  const [toplevelResult, commonDirResult] = await Promise.all([
+    deps.execa(GIT_ROOT_COMMAND.EXECUTABLE, [...GIT_SHOW_TOPLEVEL_ARGS], { cwd, reject: false }),
+    deps.execa(GIT_ROOT_COMMAND.EXECUTABLE, [...GIT_COMMON_DIR_ARGS], { cwd, reject: false }),
+  ]);
   if (toplevelResult.exitCode !== 0 || commonDirResult.exitCode !== 0) return false;
   const toplevel = extractStdout(toplevelResult.stdout);
   const commonDir = extractStdout(commonDirResult.stdout);

@@ -71,15 +71,20 @@ async function resolveSessionGitRef(
   cwd: string | undefined,
   deps: GitDependencies | undefined,
 ): Promise<string> {
-  const isRoot = await isRootWorktree(cwd, deps);
-  const branch = await getCurrentBranch(cwd, deps);
-  const headSha = await getHeadSha(cwd, deps);
+  const [isRoot, branch, headSha] = await Promise.all([
+    isRootWorktree(cwd, deps),
+    getCurrentBranch(cwd, deps),
+    getHeadSha(cwd, deps),
+  ]);
 
   let isClean = false;
   let defaultTipSha: string | null = null;
   if (!isRoot && branch === null) {
-    isClean = await isWorkingTreeClean(cwd, deps);
-    const defaultBranch = await resolveDefaultBranch(cwd, deps);
+    const [clean, defaultBranch] = await Promise.all([
+      isWorkingTreeClean(cwd, deps),
+      resolveDefaultBranch(cwd, deps),
+    ]);
+    isClean = clean;
     defaultTipSha = defaultBranch === null
       ? null
       : await resolveRefSha(`${ORIGIN_REF_PREFIX}${defaultBranch}`, cwd, deps);
