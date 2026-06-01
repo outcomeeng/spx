@@ -1,6 +1,6 @@
 # Session Test Harness
 
-PROVIDES a reusable session fixture factory with temp directory creation, session file writing, and status directory lookup — all derived from `SESSION_STATUSES` and `DEFAULT_CONFIG`
+PROVIDES a reusable session fixture factory with temp directory creation, session file writing, and status directory lookup — all derived from `SESSION_STATUSES` and `DEFAULT_CONFIG` — together with the `arbitrarySessionContent` generator over every session frontmatter shape
 SO THAT core-operations, session-lifecycle, advanced-operations, and auto-injection outcome nodes
 CAN write Level 1 and Level 2 tests without hardcoding status strings or reimplementing fixture setup
 
@@ -18,6 +18,7 @@ CAN write Level 1 and Level 2 tests without hardcoding status strings or reimple
 - Status subdirectory names match `DEFAULT_CONFIG.sessions.statusDirs` for every member of `SESSION_STATUSES` ([test](tests/session-test-harness.scenario.l1.test.ts))
 - `statusDir(status)` returns an absolute path for every valid `SessionStatus` ([test](tests/session-test-harness.scenario.l1.test.ts))
 - No hardcoded status strings appear in the harness module — all values derive from `SESSION_STATUSES` and `DEFAULT_CONFIG` ([review])
+- The `arbitrarySessionContent` generator draws full session file content of any frontmatter shape — valid canonical frontmatter with and without a `result` key, legacy-key frontmatter, missing-field frontmatter, and malformed YAML — so retention and CLI tests assert `spx session archive` moves every shape ([test](tests/session-test-harness.scenario.l1.test.ts))
 
 ### Compliance
 
