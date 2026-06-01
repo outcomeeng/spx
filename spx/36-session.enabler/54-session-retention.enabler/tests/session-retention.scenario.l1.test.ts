@@ -27,7 +27,7 @@ import { type ArchivableStatus, buildArchivePaths, findSessionForArchive } from 
 import { DEFAULT_SESSION_METADATA } from "@/domains/session/list";
 import { DEFAULT_KEEP_COUNT, selectSessionsToDelete } from "@/domains/session/prune";
 import { DEFAULT_PRIORITY, type Session, SESSION_STATUSES, type SessionPriority } from "@/domains/session/types";
-import { sampleNonCanonicalSessionContent, sampleSessionId } from "@testing/generators/session/session";
+import { sampleSessionContent, sampleSessionId } from "@testing/generators/session/session";
 import type { SessionHarness } from "@testing/harnesses/session/harness";
 import { createSessionHarness } from "@testing/harnesses/session/harness";
 
@@ -255,7 +255,7 @@ describe("archiveCommand with real filesystem", () => {
 
   it("S3: GIVEN session in todo WHEN archive THEN moves to archive dir", async () => {
     const sessionId = "2026-01-13_08-00-00";
-    await harness.writeSession(TODO, sessionId, { result: "Retained in archive" });
+    await harness.writeSession(TODO, sessionId);
 
     const output = await archiveCommand({ sessionIds: [sessionId], sessionsDir: harness.sessionsDir });
 
@@ -266,7 +266,7 @@ describe("archiveCommand with real filesystem", () => {
 
   it("S3: GIVEN session in doing WHEN archive THEN moves to archive dir", async () => {
     const sessionId = "2026-01-13_08-00-00";
-    await harness.writeSession(DOING, sessionId, { result: "Retained in archive" });
+    await harness.writeSession(DOING, sessionId);
 
     const output = await archiveCommand({ sessionIds: [sessionId], sessionsDir: harness.sessionsDir });
 
@@ -284,21 +284,9 @@ describe("archiveCommand with real filesystem", () => {
     ).rejects.toThrow(/already archived/i);
   });
 
-  it("GIVEN canonical session without result WHEN archive THEN rejects without moving the file", async () => {
-    const sessionId = "2026-01-13_08-00-00";
-    await harness.writeSession(TODO, sessionId);
-
-    await expect(
-      archiveCommand({ sessionIds: [sessionId], sessionsDir: harness.sessionsDir }),
-    ).rejects.toThrow(/result/i);
-
-    expect(existsSync(join(harness.statusDir(TODO), `${sessionId}.md`))).toBe(true);
-    expect(existsSync(join(harness.statusDir(ARCHIVE), `${sessionId}.md`))).toBe(false);
-  });
-
-  it("GIVEN a non-canonical session WHEN archive THEN moves to archive without requiring a result", async () => {
+  it("GIVEN session content of any frontmatter shape WHEN archive THEN moves to archive", async () => {
     const sessionId = sampleSessionId();
-    await harness.writeRawSession(TODO, sessionId, sampleNonCanonicalSessionContent());
+    await harness.writeRawSession(TODO, sessionId, sampleSessionContent());
 
     const output = await archiveCommand({ sessionIds: [sessionId], sessionsDir: harness.sessionsDir });
 
@@ -307,7 +295,7 @@ describe("archiveCommand with real filesystem", () => {
     expect(existsSync(join(harness.statusDir(TODO), `${sessionId}.md`))).toBe(false);
   });
 
-  it("GIVEN a canonical-shape session carrying a key outside the shape WHEN archive THEN moves without requiring a result", async () => {
+  it("GIVEN a session carrying a key outside the declared shape WHEN archive THEN moves unchanged", async () => {
     const sessionId = sampleSessionId();
     await harness.writeSession(TODO, sessionId, { extraYaml: ["tags:", "  - rust"] });
 

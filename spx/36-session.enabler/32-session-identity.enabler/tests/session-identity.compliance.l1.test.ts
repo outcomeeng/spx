@@ -1,9 +1,10 @@
+import fc from "fast-check";
 import { describe, expect, it } from "vitest";
 
 import { buildSessionFrontMatterContent } from "@/domains/session/create";
 import { DEFAULT_SESSION_METADATA, parseSessionMetadata } from "@/domains/session/list";
 import { generateSessionId, SESSION_ID_SEPARATOR } from "@/domains/session/timestamp";
-import { SESSION_FRONT_MATTER } from "@/domains/session/types";
+import { SESSION_FRONT_MATTER, SESSION_PRIORITY } from "@/domains/session/types";
 
 describe("session identity compliance", () => {
   it("ALWAYS: session IDs use underscore between date and time and hyphen within components", () => {
@@ -33,13 +34,25 @@ describe("session identity compliance", () => {
     expect(id).not.toContain(":");
   });
 
-  it("NEVER: parsed metadata returns a tags key", () => {
-    const content = buildSessionFrontMatterContent([
-      `${SESSION_FRONT_MATTER.PRIORITY}: high`,
-      "tags: [old, shape]",
-    ], "# Session");
-    const metadata = parseSessionMetadata(content) as Record<string, unknown>;
+  it("NEVER: parseSessionMetadata returns a key outside the declared shape", () => {
+    const declaredKeys = new Set<string>(Object.values(SESSION_FRONT_MATTER));
+    fc.assert(
+      fc.property(
+        fc
+          .string({ minLength: 1, maxLength: 16 })
+          .map((raw) => `x_${raw.replace(/[^a-zA-Z0-9]/g, "")}`)
+          .filter((key) => key.length > 2 && !declaredKeys.has(key)),
+        fc.string({ minLength: 1, maxLength: 24 }).filter((value) => !value.includes("\n")),
+        (outsideKey, outsideValue) => {
+          const content = buildSessionFrontMatterContent([
+            `${SESSION_FRONT_MATTER.PRIORITY}: ${SESSION_PRIORITY.HIGH}`,
+            `${outsideKey}: ${JSON.stringify(outsideValue)}`,
+          ], "# Session");
+          const metadata = parseSessionMetadata(content) as Record<string, unknown>;
 
-    expect(metadata.tags).toBeUndefined();
+          expect(Object.prototype.hasOwnProperty.call(metadata, outsideKey)).toBe(false);
+        },
+      ),
+    );
   });
 });

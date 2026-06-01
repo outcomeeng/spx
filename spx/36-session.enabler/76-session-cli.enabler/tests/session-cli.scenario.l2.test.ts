@@ -10,7 +10,7 @@ import { showCommand } from "@/commands/session/show";
 import { BatchError } from "@/domains/session/batch";
 import { SESSION_SHOW_LABEL } from "@/domains/session/show";
 import { SESSION_PRIORITY, SESSION_STATUSES } from "@/domains/session/types";
-import { sampleNonCanonicalSessionContent, sampleSessionId } from "@testing/generators/session/session";
+import { sampleSessionContent, sampleSessionId } from "@testing/generators/session/session";
 import type { SessionHarness } from "@testing/harnesses/session/harness";
 import { createSessionHarness } from "@testing/harnesses/session/harness";
 
@@ -30,7 +30,7 @@ describe("batch archive", () => {
   it("S1: GIVEN 3 sessions in todo WHEN archive with 3 IDs THEN all 3 move to archive", async () => {
     const ids = ["2026-01-10_10-00-00", "2026-01-11_10-00-00", "2026-01-12_10-00-00"];
     for (const id of ids) {
-      await harness.writeSession(TODO, id, { result: "Archived through batch command" });
+      await harness.writeSession(TODO, id);
     }
 
     const output = await archiveCommand({
@@ -47,7 +47,7 @@ describe("batch archive", () => {
 
   it("S4: GIVEN 1 valid + 1 invalid ID WHEN archive THEN valid succeeds, invalid errors", async () => {
     const validId = "2026-01-10_10-00-00";
-    await harness.writeSession(TODO, validId, { result: "Archived before missing ID" });
+    await harness.writeSession(TODO, validId);
     const invalidId = "nonexistent";
 
     await expect(
@@ -63,7 +63,7 @@ describe("batch archive", () => {
 
   it("S5: GIVEN single ID WHEN archive THEN identical to single-ID behavior", async () => {
     const id = "2026-01-10_10-00-00";
-    await harness.writeSession(TODO, id, { result: "Archived single session" });
+    await harness.writeSession(TODO, id);
 
     const output = await archiveCommand({
       sessionIds: [id],
@@ -75,9 +75,9 @@ describe("batch archive", () => {
     expect(output).toContain(id);
   });
 
-  it("GIVEN a non-canonical session WHEN archive THEN moves without requiring a result", async () => {
+  it("GIVEN a session of any frontmatter shape WHEN archive THEN moves", async () => {
     const id = sampleSessionId();
-    await harness.writeRawSession(TODO, id, sampleNonCanonicalSessionContent());
+    await harness.writeRawSession(TODO, id, sampleSessionContent());
 
     await archiveCommand({ sessionIds: [id], sessionsDir: harness.sessionsDir });
 
@@ -100,7 +100,7 @@ describe("batch delete", () => {
   it("S2: GIVEN 3 sessions WHEN delete with 3 IDs THEN all 3 removed", async () => {
     const ids = ["2026-01-10_10-00-00", "2026-01-11_10-00-00", "2026-01-12_10-00-00"];
     for (const id of ids) {
-      await harness.writeSession(TODO, id, { result: "Archived in input order" });
+      await harness.writeSession(TODO, id);
     }
 
     const output = await deleteCommand({
@@ -265,7 +265,7 @@ describe("batch properties", () => {
   it("P2: GIVEN ordered IDs WHEN archive THEN processed left-to-right", async () => {
     const ids = ["2026-01-10_10-00-00", "2026-01-11_10-00-00", "2026-01-12_10-00-00"];
     for (const id of ids) {
-      await harness.writeSession(TODO, id, { result: "Archived in input order" });
+      await harness.writeSession(TODO, id);
     }
 
     const output = await archiveCommand({

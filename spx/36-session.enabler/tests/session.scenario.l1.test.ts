@@ -5,11 +5,9 @@ import { pathToFileURL } from "node:url";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 
 import { DEFAULT_CONFIG } from "@/config/defaults";
-import { SESSION_GIT_CONTEXT_ERROR_MESSAGE, SessionDetachedHeadError, SessionGitContextError } from "@/git/errors";
 import {
   computeRelativeWorktreePath,
   detectGitCommonDirProductRoot,
-  detectSessionWorkContext,
   detectWorktreeProductRoot,
   type GitDependencies,
   resolveSessionConfig,
@@ -206,73 +204,6 @@ describe("detectGitCommonDirProductRoot vs detectWorktreeProductRoot in worktree
 
     expect(worktreeProductRootResult.productDir).toBe(productDir);
     expect(gitCommonDirProductRootResult.productDir).toBe(productDir);
-  });
-});
-
-describe("detectSessionWorkContext", () => {
-  it("GIVEN worktree context WHEN detected THEN returns branch and relative worktree path", async () => {
-    const gitCommonDirProductRoot = "/repo";
-    const worktreeRoot = join(gitCommonDirProductRoot, ".codex", "worktrees", "topic");
-    const deps = createMockDeps([
-      { stdout: "topic/session-frontmatter", exitCode: 0 },
-      { stdout: worktreeRoot, exitCode: 0 },
-      { stdout: join(gitCommonDirProductRoot, ".git"), exitCode: 0 },
-    ]);
-
-    const result = await detectSessionWorkContext(worktreeRoot, deps);
-
-    expect(result.branch).toBe("topic/session-frontmatter");
-    expect(result.worktree).toBe(join(".codex", "worktrees", "topic"));
-  });
-
-  it("GIVEN non-worktree context WHEN detected THEN worktree path is empty", async () => {
-    const productDir = "/repo";
-    const deps = createMockDeps([
-      { stdout: "main", exitCode: 0 },
-      { stdout: productDir, exitCode: 0 },
-      { stdout: ".git", exitCode: 0 },
-    ]);
-
-    const result = await detectSessionWorkContext(productDir, deps);
-
-    expect(result.branch).toBe("main");
-    expect(result.worktree).toBe("");
-  });
-
-  it("GIVEN detached HEAD WHEN detected THEN rejects with SessionDetachedHeadError", async () => {
-    const deps = createMockDeps([
-      { stdout: "HEAD", exitCode: 0 },
-    ]);
-
-    await expect(detectSessionWorkContext("/repo", deps)).rejects.toThrow(SessionDetachedHeadError);
-  });
-
-  it("GIVEN branch detection fails WHEN detected THEN rejects with SessionGitContextError", async () => {
-    const classDeps = createMockDeps([
-      { stdout: "", exitCode: 128 },
-    ]);
-    const messageDeps = createMockDeps([
-      { stdout: "", exitCode: 128 },
-    ]);
-
-    await expect(detectSessionWorkContext("/repo", classDeps)).rejects.toThrow(SessionGitContextError);
-    await expect(detectSessionWorkContext("/repo", messageDeps)).rejects.toThrow(
-      SESSION_GIT_CONTEXT_ERROR_MESSAGE.BRANCH_UNAVAILABLE,
-    );
-  });
-
-  it("GIVEN branch detection returns empty output WHEN detected THEN rejects with SessionGitContextError", async () => {
-    const classDeps = createMockDeps([
-      { stdout: "", exitCode: 0 },
-    ]);
-    const messageDeps = createMockDeps([
-      { stdout: "", exitCode: 0 },
-    ]);
-
-    await expect(detectSessionWorkContext("/repo", classDeps)).rejects.toThrow(SessionGitContextError);
-    await expect(detectSessionWorkContext("/repo", messageDeps)).rejects.toThrow(
-      SESSION_GIT_CONTEXT_ERROR_MESSAGE.EMPTY_BRANCH,
-    );
   });
 });
 

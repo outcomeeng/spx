@@ -712,7 +712,7 @@ export function noHardcodedSpecTreeNodeKindsCases(): ValidationGeneratedRuleTest
 
 export function noHardcodedSessionFrontmatterKeysCases(): ValidationGeneratedRuleTesterCases {
   const priority = SESSION_FRONT_MATTER.PRIORITY;
-  const branch = SESSION_FRONT_MATTER.BRANCH;
+  const gitRef = SESSION_FRONT_MATTER.GIT_REF;
 
   return {
     valid: [
@@ -723,7 +723,7 @@ export function noHardcodedSessionFrontmatterKeysCases(): ValidationGeneratedRul
       },
       {
         name: "GIVEN registry definition module with frontmatter values WHEN linting THEN no error",
-        code: `export const SESSION_FRONT_MATTER = { PRIORITY: "${priority}", BRANCH: "${branch}" } as const;`,
+        code: `export const SESSION_FRONT_MATTER = { PRIORITY: "${priority}", GIT_REF: "${gitRef}" } as const;`,
         filename: VALIDATION_ESLINT_FILES.sessionTypes,
       },
       {
@@ -746,7 +746,7 @@ export function noHardcodedSessionFrontmatterKeysCases(): ValidationGeneratedRul
       },
       {
         name: "GIVEN multiple session frontmatter keys are hardcoded WHEN linting THEN multiple errors",
-        code: `const priorityKey = "${priority}"; const branchKey = "${branch}";`,
+        code: `const priorityKey = "${priority}"; const gitRefKey = "${gitRef}";`,
         filename: VALIDATION_ESLINT_FILES.sessionCommandExample,
         errors: [
           { messageId: USE_SESSION_FRONTMATTER_MESSAGE_ID },

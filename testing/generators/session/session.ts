@@ -2,7 +2,8 @@
  * Session test data generators.
  *
  * Provides fast-check arbitraries for property-based testing of the
- * `spx session handoff` input contract.
+ * `spx session handoff` input contract and the `spx session archive`
+ * any-frontmatter-shape contract.
  *
  * @module testing/generators/session
  */
@@ -12,21 +13,17 @@ import { stringify as stringifyYaml } from "yaml";
 
 import { SESSION_FRONT_MATTER_DELIMITER } from "@/domains/session/create";
 import { generateSessionId } from "@/domains/session/timestamp";
-import {
-  CANONICAL_REQUIRED_KEYS,
-  SESSION_FRONT_MATTER,
-  SESSION_PRIORITY,
-  type SessionPriority,
-} from "@/domains/session/types";
+import { SESSION_FRONT_MATTER, SESSION_PRIORITY, type SessionPriority } from "@/domains/session/types";
 
 const SESSION_PRIORITY_VALUES = Object.values(SESSION_PRIORITY) as readonly SessionPriority[];
 
 /**
  * Shape callers supply to `spx session handoff` as the JSON header at the
  * start of stdin: the caller-supplied fields (`priority`, `goal`, `next_step`,
- * `specs`, `files`). CLI-prefilled fields (`branch`, `worktree`, `created_at`,
+ * `specs`, `files`). Prefilled fields (`git_ref`, `created_at`,
  * `agent_session_id`) are not part of this shape — the handoff command sources
- * them from the git context and process environment.
+ * `git_ref` from the git context and the others from the process environment
+ * and system clock.
  */
 export interface HandoffHeaderFixture {
   readonly priority: SessionPriority;
@@ -110,15 +107,25 @@ export function arbitraryLegacyYamlFrontmatterStdin(): fc.Arbitrary<string> {
 }
 
 /**
- * Body for generated non-canonical session fixtures. Archive classification
- * reads only the frontmatter, so the body content is irrelevant to the domain.
+ * Body for generated session fixtures. Archive moves a session by its frontmatter
+ * shape regardless of body, so the body content is irrelevant to the domain.
  */
-const NON_CANONICAL_SESSION_BODY = "# Non-canonical session";
+const SESSION_FIXTURE_BODY = "# Session body";
 
 /** Fixed seed for single-value draws so scenario/compliance tests stay deterministic. */
-const NON_CANONICAL_SAMPLE_SEED = 0x5e5510;
+const SESSION_CONTENT_SAMPLE_SEED = 0x5e5510;
 
 const SESSION_FRONT_MATTER_KEY_SET = new Set<string>(Object.values(SESSION_FRONT_MATTER));
+
+/** The declared content keys a `spx session handoff` session file carries. */
+const DECLARED_CONTENT_KEYS = [
+  SESSION_FRONT_MATTER.PRIORITY,
+  SESSION_FRONT_MATTER.GIT_REF,
+  SESSION_FRONT_MATTER.GOAL,
+  SESSION_FRONT_MATTER.NEXT_STEP,
+  SESSION_FRONT_MATTER.SPECS,
+  SESSION_FRONT_MATTER.FILES,
+] as const;
 
 /** Safe single-line text for frontmatter scalar values — never a newline. */
 function arbitrarySafeScalar(): fc.Arbitrary<string> {
@@ -131,19 +138,19 @@ function arbitrarySafeScalar(): fc.Arbitrary<string> {
 /** Wraps a YAML-serializable frontmatter object into full session file content. */
 function buildSessionContent(frontMatter: Record<string, unknown>): string {
   const yaml = stringifyYaml(frontMatter).trimEnd();
-  return `${SESSION_FRONT_MATTER_DELIMITER}\n${yaml}\n${SESSION_FRONT_MATTER_DELIMITER}\n${NON_CANONICAL_SESSION_BODY}\n`;
+  return `${SESSION_FRONT_MATTER_DELIMITER}\n${yaml}\n${SESSION_FRONT_MATTER_DELIMITER}\n${SESSION_FIXTURE_BODY}\n`;
 }
 
-/** Frontmatter carrying every canonical required key with valid values. */
-function canonicalFrontMatter(
+/** Frontmatter carrying every declared content key with valid values. */
+function declaredFrontMatter(
   priority: SessionPriority,
+  gitRef: string,
   goal: string,
   nextStep: string,
 ): Record<string, unknown> {
   return {
     [SESSION_FRONT_MATTER.PRIORITY]: priority,
-    [SESSION_FRONT_MATTER.BRANCH]: "main",
-    [SESSION_FRONT_MATTER.WORKTREE]: "",
+    [SESSION_FRONT_MATTER.GIT_REF]: gitRef,
     [SESSION_FRONT_MATTER.GOAL]: goal,
     [SESSION_FRONT_MATTER.NEXT_STEP]: nextStep,
     [SESSION_FRONT_MATTER.SPECS]: [],
@@ -151,58 +158,62 @@ function canonicalFrontMatter(
   };
 }
 
-/** A frontmatter key outside the canonical shape (e.g. `tags`, `working_directory`). */
-function arbitraryExcludedKey(): fc.Arbitrary<string> {
+/**
+ * A frontmatter key absent from the current declared shape — keys a session
+ * written under a previous frontmatter shape carries (`result`, `worktree`,
+ * `branch`, `tags`, `working_directory`) plus arbitrary unknown keys. None of
+ * these belong to `SESSION_FRONT_MATTER`.
+ */
+function arbitraryAbsentKey(): fc.Arbitrary<string> {
   return fc.oneof(
-    fc.constantFrom("tags", "working_directory"),
+    fc.constantFrom("result", "worktree", "branch", "tags", "working_directory"),
     fc
       .string({ minLength: 1, maxLength: 12 })
       .map((value) => `extra_${value.replace(/[^a-zA-Z0-9]/g, "")}`)
-      .filter((key) => !SESSION_FRONT_MATTER_KEY_SET.has(key)),
+      .filter((key) => key.length > "extra_".length && !SESSION_FRONT_MATTER_KEY_SET.has(key)),
   );
 }
 
-/** Pre-structured frontmatter: only `priority` and a `tags` array. */
-function arbitraryLegacyFrontmatter(): fc.Arbitrary<string> {
+/** Valid canonical frontmatter — the declared shape, no absent keys. */
+function arbitraryCanonicalContent(): fc.Arbitrary<string> {
   return fc
-    .tuple(arbitrarySessionPriority(), fc.array(arbitrarySafeScalar(), { minLength: 1, maxLength: 3 }))
-    .map(([priority, tags]) =>
-      buildSessionContent({
-        [SESSION_FRONT_MATTER.PRIORITY]: priority,
-        tags,
-      })
+    .tuple(arbitrarySessionPriority(), arbitrarySafeScalar(), arbitrarySafeScalar(), arbitrarySafeScalar())
+    .map(([priority, gitRef, goal, nextStep]) =>
+      buildSessionContent(declaredFrontMatter(priority, gitRef, goal, nextStep))
     );
 }
 
-/** Canonical shape plus one key outside the declared shape. */
-function arbitraryCanonicalWithExcludedKey(): fc.Arbitrary<string> {
+/** Declared shape plus one or more keys absent from the current shape. */
+function arbitraryContentWithAbsentKey(): fc.Arbitrary<string> {
   return fc
     .tuple(
       arbitrarySessionPriority(),
       arbitrarySafeScalar(),
       arbitrarySafeScalar(),
-      arbitraryExcludedKey(),
+      arbitrarySafeScalar(),
+      arbitraryAbsentKey(),
       arbitrarySafeScalar(),
     )
-    .map(([priority, goal, nextStep, excludedKey, excludedValue]) =>
+    .map(([priority, gitRef, goal, nextStep, absentKey, absentValue]) =>
       buildSessionContent({
-        ...canonicalFrontMatter(priority, goal, nextStep),
-        [excludedKey]: excludedValue,
+        ...declaredFrontMatter(priority, gitRef, goal, nextStep),
+        [absentKey]: absentValue,
       })
     );
 }
 
-/** Canonical shape with one required key removed. */
-function arbitraryCanonicalMissingRequiredKey(): fc.Arbitrary<string> {
+/** Declared shape with one declared key removed. */
+function arbitraryContentMissingDeclaredKey(): fc.Arbitrary<string> {
   return fc
     .tuple(
       arbitrarySessionPriority(),
       arbitrarySafeScalar(),
       arbitrarySafeScalar(),
-      fc.constantFrom(...CANONICAL_REQUIRED_KEYS),
+      arbitrarySafeScalar(),
+      fc.constantFrom(...DECLARED_CONTENT_KEYS),
     )
-    .map(([priority, goal, nextStep, omittedKey]) => {
-      const frontMatter = canonicalFrontMatter(priority, goal, nextStep);
+    .map(([priority, gitRef, goal, nextStep, omittedKey]) => {
+      const frontMatter = declaredFrontMatter(priority, gitRef, goal, nextStep);
       delete frontMatter[omittedKey];
       return buildSessionContent(frontMatter);
     });
@@ -214,7 +225,7 @@ function arbitraryMalformedFrontmatter(): fc.Arbitrary<string> {
     `${SESSION_FRONT_MATTER_DELIMITER}\n`
     + `${SESSION_FRONT_MATTER.PRIORITY}: ${priority}\n`
     + `${SESSION_FRONT_MATTER.SPECS}: [\n`
-    + `${SESSION_FRONT_MATTER_DELIMITER}\n${NON_CANONICAL_SESSION_BODY}\n`
+    + `${SESSION_FRONT_MATTER_DELIMITER}\n${SESSION_FIXTURE_BODY}\n`
   );
 }
 
@@ -223,57 +234,31 @@ function arbitraryNoFrontmatter(): fc.Arbitrary<string> {
   return arbitrarySafeScalar().map((text) => `# ${text}\n`);
 }
 
-/** Canonical shape with one required string field carrying a non-string (array) value. */
-function arbitraryCanonicalWithWrongTypedField(): fc.Arbitrary<string> {
-  const wrongTypedKeys = [
-    SESSION_FRONT_MATTER.BRANCH,
-    SESSION_FRONT_MATTER.WORKTREE,
-    SESSION_FRONT_MATTER.GOAL,
-    SESSION_FRONT_MATTER.NEXT_STEP,
-  ] as const;
-  return fc
-    .tuple(
-      arbitrarySessionPriority(),
-      arbitrarySafeScalar(),
-      arbitrarySafeScalar(),
-      fc.constantFrom(...wrongTypedKeys),
-      fc.array(arbitrarySafeScalar(), { minLength: 1, maxLength: 2 }),
-    )
-    .map(([priority, goal, nextStep, wrongKey, wrongValue]) => {
-      const frontMatter = canonicalFrontMatter(priority, goal, nextStep);
-      frontMatter[wrongKey] = wrongValue;
-      return buildSessionContent(frontMatter);
-    });
-}
-
 /**
- * Arbitrary full session file content whose frontmatter does not parse into the
- * canonical shape — the domain for which `spx session archive` admits a session
- * without a result requirement. Spans the reliably non-canonical shapes: a
- * pre-structured `priority`/`tags` frontmatter, a canonical shape carrying an
- * excluded key, a canonical shape missing one required key, a canonical shape
- * with a wrong-typed required field, frontmatter whose YAML cannot be parsed,
- * and content with no frontmatter at all.
+ * Arbitrary full session file content of any frontmatter shape — the domain
+ * over which `spx session archive` moves a session unconditionally. Spans
+ * valid canonical frontmatter, declared frontmatter carrying keys absent from
+ * the current shape (e.g. a `result`/`worktree`/`branch` key written under a
+ * previous shape), frontmatter missing a declared key, frontmatter whose YAML
+ * cannot be parsed, and content with no frontmatter at all.
  */
-export function arbitraryNonCanonicalFrontmatter(): fc.Arbitrary<string> {
+export function arbitrarySessionContent(): fc.Arbitrary<string> {
   return fc.oneof(
-    arbitraryLegacyFrontmatter(),
-    arbitraryCanonicalWithExcludedKey(),
-    arbitraryCanonicalMissingRequiredKey(),
-    arbitraryCanonicalWithWrongTypedField(),
+    arbitraryCanonicalContent(),
+    arbitraryContentWithAbsentKey(),
+    arbitraryContentMissingDeclaredKey(),
     arbitraryMalformedFrontmatter(),
     arbitraryNoFrontmatter(),
   );
 }
 
 /**
- * Draws one deterministic non-canonical session content string for
- * scenario/compliance tests that exercise a real filesystem harness, where a
- * full property loop over `archiveCommand` would make the local-infrastructure
- * evidence too expensive.
+ * Draws one deterministic session content string for scenario/compliance tests
+ * that exercise a real filesystem harness, where a full property loop over
+ * `archiveCommand` would make the local-infrastructure evidence too expensive.
  */
-export function sampleNonCanonicalSessionContent(seed: number = NON_CANONICAL_SAMPLE_SEED): string {
-  return fc.sample(arbitraryNonCanonicalFrontmatter(), { numRuns: 1, seed })[0];
+export function sampleSessionContent(seed: number = SESSION_CONTENT_SAMPLE_SEED): string {
+  return fc.sample(arbitrarySessionContent(), { numRuns: 1, seed })[0];
 }
 
 /** Date bounds keep generated session instants within four-digit years so the ID format holds. */

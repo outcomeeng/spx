@@ -7,7 +7,7 @@ import { archiveCommand } from "@/commands/session/archive";
 import { DEFAULT_SESSION_METADATA } from "@/domains/session/list";
 import { DEFAULT_KEEP_COUNT, selectSessionsToDelete } from "@/domains/session/prune";
 import { type Session, SESSION_STATUSES } from "@/domains/session/types";
-import { arbitraryNonCanonicalFrontmatter, arbitrarySessionId } from "@testing/generators/session/session";
+import { arbitrarySessionContent, arbitrarySessionId } from "@testing/generators/session/session";
 import { createSessionHarness } from "@testing/harnesses/session/harness";
 
 const [TODO, DOING, ARCHIVE] = SESSION_STATUSES;
@@ -68,9 +68,9 @@ describe("session retention properties", () => {
       .toEqual(selectSessionsToDelete(archive, { keep: DEFAULT_KEEP_COUNT - 3 }).map((item) => item.id));
   });
 
-  it("GIVEN any non-canonical session WHEN archive THEN it moves to archive without rejecting", async () => {
+  it("GIVEN session content of any frontmatter shape WHEN archive THEN it moves to archive without rejecting", async () => {
     await fc.assert(
-      fc.asyncProperty(arbitraryNonCanonicalFrontmatter(), arbitrarySessionId(), async (content, id) => {
+      fc.asyncProperty(arbitrarySessionContent(), arbitrarySessionId(), async (content, id) => {
         const harness = await createSessionHarness();
         try {
           await harness.writeRawSession(TODO, id, content);

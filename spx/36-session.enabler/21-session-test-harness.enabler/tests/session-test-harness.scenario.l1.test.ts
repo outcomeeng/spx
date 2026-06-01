@@ -23,7 +23,7 @@ import { DEFAULT_CONFIG } from "@/config/defaults";
 import { SESSION_FRONT_MATTER_CLOSE, SESSION_FRONT_MATTER_OPEN } from "@/domains/session/create";
 import { parseSessionMetadata } from "@/domains/session/list";
 import { DEFAULT_PRIORITY, SESSION_FRONT_MATTER, SESSION_PRIORITY, SESSION_STATUSES } from "@/domains/session/types";
-import { sampleNonCanonicalSessionContent, sampleSessionId } from "@testing/generators/session/session";
+import { sampleSessionContent, sampleSessionId } from "@testing/generators/session/session";
 import { createSessionHarness } from "@testing/harnesses/session/harness";
 
 const { statusDirs } = DEFAULT_CONFIG.sessions;
@@ -100,7 +100,7 @@ describe("writeSession", () => {
     }
   });
 
-  it("GIVEN no worktree override WHEN writeSession is called THEN raw frontmatter stores an empty string", async () => {
+  it("GIVEN no git_ref override WHEN writeSession is called THEN raw frontmatter stores the default git ref", async () => {
     const harness = await createSessionHarness();
     try {
       const status = SESSION_STATUSES[0];
@@ -113,8 +113,7 @@ describe("writeSession", () => {
       const end = content.indexOf(SESSION_FRONT_MATTER_CLOSE, SESSION_FRONT_MATTER_OPEN.length);
       const frontMatter = parseYaml(content.slice(SESSION_FRONT_MATTER_OPEN.length, end)) as Record<string, unknown>;
 
-      expect(frontMatter).toHaveProperty(SESSION_FRONT_MATTER.BRANCH, "main");
-      expect(frontMatter).toHaveProperty(SESSION_FRONT_MATTER.WORKTREE, "");
+      expect(frontMatter).toHaveProperty(SESSION_FRONT_MATTER.GIT_REF, "main");
     } finally {
       await harness.cleanup();
     }
@@ -156,7 +155,7 @@ describe("writeRawSession", () => {
     try {
       const status = SESSION_STATUSES[0];
       const id = sampleSessionId();
-      const content = sampleNonCanonicalSessionContent();
+      const content = sampleSessionContent();
 
       await harness.writeRawSession(status, id, content);
 
