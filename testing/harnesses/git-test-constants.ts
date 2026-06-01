@@ -1,3 +1,5 @@
+import { join } from "node:path";
+
 import { execa } from "execa";
 
 import { withoutGitEnvironment } from "@/git/environment";
@@ -52,8 +54,8 @@ export const GIT_TEST_ENVIRONMENT_KEYS = {
   WORK_TREE: "GIT_WORK_TREE",
 } as const;
 
-const TEST_PACKAGE_MANAGER_COMMAND = "pnpm";
-const TEST_TYPESCRIPT_EXECUTION_ARGS = ["exec", "tsx", "--input-type=module", "--eval"] as const;
+const TEST_TYPESCRIPT_RUNNER_RELATIVE_PATH = ["node_modules", ".bin", "tsx"] as const;
+const TEST_TYPESCRIPT_EXECUTION_ARGS = ["--input-type=module", "--eval"] as const;
 
 export type GitTestEnvironmentOverrides = Readonly<Record<string, string>>;
 
@@ -104,7 +106,13 @@ export async function runTsxEval(
   script: string,
   envOverrides: GitTestEnvironmentOverrides = {},
 ): Promise<string> {
-  const result = await execa(TEST_PACKAGE_MANAGER_COMMAND, [...TEST_TYPESCRIPT_EXECUTION_ARGS, script], {
+  // Invoke the tsx binary directly rather than through `pnpm exec`. Under
+  // `pnpm exec`, pnpm's dependency verification prints "Already up to date" to
+  // stdout (unless an ancestor pnpm process suppresses it), which corrupts the
+  // JSON a caller parses from the script's stdout. `cwd` is the project root,
+  // where node_modules lives.
+  const tsxBinary = join(cwd, ...TEST_TYPESCRIPT_RUNNER_RELATIVE_PATH);
+  const result = await execa(tsxBinary, [...TEST_TYPESCRIPT_EXECUTION_ARGS, script], {
     cwd,
     env: {
       ...buildGitTestEnvironment(),
