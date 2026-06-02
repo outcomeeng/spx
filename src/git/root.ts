@@ -191,8 +191,9 @@ export async function detectGitCommonDirProductRoot(
 
     const commonDir = extractStdout(commonDirResult.stdout);
 
-    // Step 3: Resolve the common dir to an absolute path
-    // --git-common-dir may return a relative path (e.g., ".git" or "../../../.git")
+    // Step 3: Resolve the common dir to an absolute path. GIT_COMMON_DIR_ARGS
+    // requests --path-format=absolute, so git emits an absolute path; the
+    // relative branch is a defensive fallback for git builds that ignore it.
     const absoluteCommonDir = isAbsolute(commonDir)
       ? commonDir
       : resolve(toplevel, commonDir);
@@ -325,7 +326,11 @@ export async function isRootWorktree(
     deps.execa(GIT_ROOT_COMMAND.EXECUTABLE, [...GIT_SHOW_TOPLEVEL_ARGS], { cwd, reject: false }),
     deps.execa(GIT_ROOT_COMMAND.EXECUTABLE, [...GIT_COMMON_DIR_ARGS], { cwd, reject: false }),
   ]);
-  if (toplevelResult.exitCode !== 0 || commonDirResult.exitCode !== 0) return false;
+  if (toplevelResult.exitCode !== 0) return false;
+  // Mirror detectGitCommonDirProductRoot's fallback: when --git-common-dir is
+  // unavailable but --show-toplevel succeeded, treat the working tree as the
+  // root worktree rather than misclassifying it as linked.
+  if (commonDirResult.exitCode !== 0) return true;
   const toplevel = extractStdout(toplevelResult.stdout);
   const commonDir = extractStdout(commonDirResult.stdout);
   return computeRelativeWorktreePath(commonDir, toplevel) === "";
