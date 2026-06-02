@@ -1,20 +1,20 @@
 # Issues: 21-node-status.enabler
 
-## Open: ADR Compliance section omits two public exports
+## Open: ADR surface description omits two public exports
 
-`21-node-status-architecture.adr.md` lists the public surface as the classifier,
-reader, evidence-provider factory, and `spx spec status --update` orchestration.
-The actual `src/lib/node-status/index.ts` surface also exports
-`serializeNodeStatus` and the `NodeClassificationFacts` type. The ADR's
-`Recognized by` and `MUST` clauses name `classifyNodeStatus` but not these two,
-so the compliance description is narrower than the real surface.
+`21-node-status-architecture.adr.md` describes the public surface as the
+classifier, reader, evidence-provider factory, and `spx spec status --update`
+orchestration. The actual `src/lib/node-status/index.ts` surface also exports
+`serializeNodeStatus` and the `NodeClassificationFacts` type. The ADR's decision
+statement and Verification rules name `classifyNodeStatus` but not these two, so
+the surface description is narrower than the real barrel.
 
 **Impact:** Documentation-only. The exports are intentional and covered by tests;
 the gap is between the ADR's prose and the barrel.
 
-**Resolution:** Amend the ADR `Compliance > Recognized by` (and the public-surface
-MUST) to name `serializeNodeStatus` and `NodeClassificationFacts` alongside
-`classifyNodeStatus`, so the description matches `index.ts`.
+**Resolution:** Amend the ADR's decision statement and Verification rules to name
+`serializeNodeStatus` and `NodeClassificationFacts` alongside `classifyNodeStatus`,
+so the description matches `index.ts`.
 
 **Skills:** `spec-tree:authoring` (ADR edit).
 
@@ -36,3 +36,17 @@ or switch the slug arbitrary to a fixed readable pool / hyphen-free pattern
 matching the spec-tree generator convention.
 
 **Skills:** `typescript:testing-typescript` (generator edit).
+
+## Open: forward-contract test links for the status-to-testing delegation
+
+`node-status.md` carries `[test]` links on the stale/failing/absent-evidence
+delegation scenario (`tests/node-status.scenario.l1.test.ts`) and the
+delegation compliance rule (`tests/node-status.compliance.l1.test.ts`) whose
+covering cases are not yet authored — they are forward contracts. The
+delegation is `l1`-verifiable through the dependency-injected node-outcome
+resolver mandated by
+`spx/31-spec-domain.enabler/54-spec-cli-commands.enabler/21-status-testing-delegation.adr.md`;
+the covering cases are authored in the implementation unit that wires
+`spx spec status --update` to the resolver.
+
+**Skills:** `spec-tree:applying` (implementation), `typescript:testing-typescript` (tests).

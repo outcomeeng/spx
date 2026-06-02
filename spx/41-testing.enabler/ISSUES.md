@@ -17,3 +17,11 @@ The recording command runner (`createRecordingCommandRunner` and the `RecordingC
 **Resolution:** when a third language testing descriptor is added, extract the shared recording command runner to `testing/harnesses/testing/language-runner.ts` and the shared generator constants to `testing/generators/testing/language-runner.ts`, and re-point every language runner harness and generator at them.
 
 **Evidence:** spec-tree-review on PR #69; the shared contract `src/testing/languages/types.ts` both runners conform to.
+
+## FOLLOW-UP: forward-contract test link for the registry-based per-node run
+
+`testing.md` carries a `[test](tests/testing.integration.test.ts)` link on the per-node run scenario (a status consumer requests one node's outcome and the registry-based per-node run executes that node's tests and records fresh evidence) whose covering case is not yet authored — like the other `testing.md` `[test]` links, it is a forward contract because the `spx test` dispatch and the registry are not yet built.
+
+**Resolution:** when the central registry (`src/testing/registry.ts`) and the `spx test` dispatch are built per the registry FOLLOW-UP above, author the per-node run case in `tests/testing.integration.test.ts` and wire it to status per `spx/31-spec-domain.enabler/54-spec-cli-commands.enabler/21-status-testing-delegation.adr.md`.
+
+**Evidence:** spec-tree-review on the status/testing reconciliation; the per-node run surface declared in `testing.md` and consumed by the status delegation ADR.
