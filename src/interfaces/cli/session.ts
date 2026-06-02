@@ -19,6 +19,8 @@ import { HANDOFF_FRONTMATTER_HELP, PICKUP_SELECTION_HELP, SESSION_FORMAT_HELP } 
 import { SESSION_STATUSES } from "@/domains/session/types";
 import type { Domain } from "@/domains/types";
 
+import { writeWarning } from "./write-warning";
+
 /**
  * Reads content from stdin if available (piped input).
  * Returns undefined if stdin is a TTY (interactive terminal).
@@ -173,9 +175,7 @@ function registerSessionCommands(sessionCmd: Command): void {
           content,
           sessionsDir: options.sessionsDir,
         });
-        if (result.warning !== undefined) {
-          process.stderr.write(`${result.warning}\n`);
-        }
+        writeWarning(result.warning);
         console.log(result.output);
       } catch (error) {
         handleError(error);
