@@ -183,5 +183,5 @@ export async function handoffCommand(options: HandoffOptions): Promise<HandoffRe
 
   const output =
     `Created handoff session <HANDOFF_ID>${sessionId}</HANDOFF_ID>\n<SESSION_FILE>${absolutePath}</SESSION_FILE>`;
-  return warning ? { output, warning } : { output };
+  return { output, warning };
 }

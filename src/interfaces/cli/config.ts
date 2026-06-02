@@ -17,6 +17,8 @@ import { productionRegistry } from "@/config/registry";
 import { resolveProductDir } from "@/domains/config/root";
 import type { Domain } from "@/domains/types";
 
+import { writeWarning } from "./write-warning";
+
 function buildDefaultDeps(): CliDeps {
   return {
     resolveConfig,
@@ -24,9 +26,7 @@ function buildDefaultDeps(): CliDeps {
     resolveConfigFromReadResult,
     resolveProductDir: (): string => {
       const resolved = resolveProductDir();
-      if (resolved.warning !== undefined) {
-        process.stderr.write(`${resolved.warning}\n`);
-      }
+      writeWarning(resolved.warning);
       return resolved.productDir;
     },
     descriptors: productionRegistry,

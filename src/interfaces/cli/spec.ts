@@ -4,6 +4,8 @@ import { nextCommand } from "@/commands/spec/next";
 import { OUTPUT_FORMAT, type OutputFormat, statusCommand } from "@/commands/spec/status";
 import type { Domain } from "@/domains/types";
 
+import { writeWarning } from "./write-warning";
+
 export const SPEC_DOMAIN_CLI = {
   COMMAND: "spec",
   STATUS_COMMAND: "status",
@@ -79,10 +81,6 @@ function registerSpecCommands(specCmd: Command): void {
         handleCommandError(error);
       }
     });
-}
-
-function writeWarning(warning: string): void {
-  console.error(warning);
 }
 
 export const specDomain: Domain = {
