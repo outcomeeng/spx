@@ -145,14 +145,14 @@ export async function handoffCommand(options: HandoffOptions): Promise<HandoffRe
 
   const { header, body } = parseHandoffInput(content);
 
-  const gitRef = await resolveSessionGitRef(options.cwd, options.deps);
-
   if (header.goal.length === 0) {
     throw new SessionInvalidGoalError();
   }
   if (header.next_step.length === 0) {
     throw new SessionInvalidNextStepError();
   }
+
+  const gitRef = await resolveSessionGitRef(options.cwd, options.deps);
 
   const sessionId = generateSessionId();
   const agentSessionId = process.env.CLAUDE_SESSION_ID ?? process.env.CODEX_THREAD_ID;
