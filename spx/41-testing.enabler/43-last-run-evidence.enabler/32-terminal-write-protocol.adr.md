@@ -6,9 +6,9 @@ This decision governs how a single test run's terminal state is written to disk 
 
 ## Context
 
-**Business impact:** Fast status reads the latest terminal `state.json` for the current branch. A reader that observes a half-written file, or a writer that clobbers an existing terminal record, corrupts the evidence fast status depends on. Writes happen while other processes in other worktrees may read the shared Git common-dir product root concurrently.
+**Business impact:** Fast status reads the latest terminal `state.json` in the current worktree. A reader that observes a half-written file, or a writer that clobbers an existing terminal record, corrupts the evidence fast status depends on. Successive and concurrent runs in one worktree may write run state while a reader inspects it.
 
-**Technical constraints:** Testing state lives under `.spx/testing/{branch-slug}/runs/{run-directory}/state.json` per `spx/41-testing.enabler/43-last-run-evidence.enabler/11-last-run-directory.adr.md`. A run directory without a parse-valid `state.json` is incomplete evidence. The write path must be observable through dependency injection for isolated testing.
+**Technical constraints:** Testing state lives under `.spx/local/testing/runs/{run-directory}/state.json` at the local worktree root per `spx/41-testing.enabler/43-last-run-evidence.enabler/11-last-run-directory.adr.md`. A run directory without a parse-valid `state.json` is incomplete evidence. The write path must be observable through dependency injection for isolated testing.
 
 ## Decision
 
@@ -18,7 +18,7 @@ The module exports:
 
 1. `writeTerminalTestRunState(runDir, state, deps)` — temp-file + atomic rename, exclusive create, refuse overwrite
 2. `TESTING_RUN_STATE_INCOMPLETE_REASON` — the closed set of reasons a run directory is incomplete (missing, I/O error, parse-invalid, shape-invalid)
-3. `TESTING_RUN_STATE_ERROR` — the closed run-state failure set: branch-slug validation (invalid-branch-slug), run-directory creation (collision-limit, run-directory-create-failed), and terminal write (state-already-exists, write-failed). The branch slug needs a guard because it is a plain `string`; the terminal status needs none because `TestRunState.status` is a closed terminal union and the read path validates deserialized status
+3. `TESTING_RUN_STATE_ERROR` — the closed run-state failure set: run-directory creation (collision-limit, run-directory-create-failed) and terminal write (state-already-exists, write-failed). The terminal status needs no guard because `TestRunState.status` is a closed terminal union and the read path validates deserialized status
 
 ## Rationale
 
@@ -62,4 +62,4 @@ Observable `deps` parameter on the write and read functions. Terminal writes go 
 
 - Write `state.json` in place without the temp-file + rename step — exposes partial reads ([review])
 - Overwrite an existing terminal `state.json` — destroys prior evidence ([review])
-- Throw from a branch-run lookup because one run directory holds malformed state — malformed state is classified, not fatal ([review])
+- Throw from a run lookup because one run directory holds malformed state — malformed state is classified, not fatal ([review])
