@@ -66,6 +66,8 @@ Testing owns running tests (multi-language, via the registry) and produces ephem
 
 ### Cascade (top of the truth hierarchy down)
 
+Items 1–3 (PDRs, Specs, Architecture) are authored; item 4 (Code) is the remaining implementation unit, run through `/spec-tree:applying`.
+
 1. PDRs:
    - `spx/15-worktree-resolution.pdr.md` — add a new resolution tier where `.spx/local/*` resolves to the worktree root (via `git rev-parse --show-toplevel`), distinct from the existing common-dir `.spx/` root, so testing evidence can live in per-worktree `.spx/local/testing/`; the evidence-directory relocation in the Architecture step is the driver.
    - `spx/31-spec-domain.enabler/21-node-status.enabler/15-status-file-contract.pdr.md` — status reads latest valid evidence and invokes testing when it is stale, failing, or absent; remove "`--update` is the only path that executes node tests"; `spx.status.json` stays the committed per-worktree status artifact.
