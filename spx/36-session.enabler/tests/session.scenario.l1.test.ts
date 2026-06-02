@@ -10,6 +10,7 @@ import {
   detectGitCommonDirProductRoot,
   detectWorktreeProductRoot,
   type GitDependencies,
+  isRootWorktree,
   resolveSessionConfig,
 } from "@/git/root";
 import {
@@ -271,6 +272,20 @@ describe("detectGitCommonDirProductRoot with real git worktrees", () => {
 
     const result = await detectGitCommonDirProductRoot(canonicalSubDir);
     expect(result.productDir).toBe(repoDir);
+  });
+
+  it("GIVEN the root worktree WHEN isRootWorktree runs from a subdirectory THEN it returns true", async () => {
+    const subDir = join(repoDir, "src", "deep");
+    mkdirSync(subDir, { recursive: true });
+
+    expect(await isRootWorktree(realpathSync(subDir))).toBe(true);
+  });
+
+  it("GIVEN a linked worktree WHEN isRootWorktree runs THEN it returns false", async () => {
+    const wtPath = join(worktreeDir, "my-wt");
+    await runGit(repoDir, [GIT_TEST_SUBCOMMANDS.WORKTREE, GIT_TEST_SUBCOMMANDS.ADD, wtPath, "-b", "test-branch"]);
+
+    expect(await isRootWorktree(realpathSync(wtPath))).toBe(false);
   });
 
   it("GIVEN non-worktree repo WHEN detectGitCommonDirProductRoot THEN returns same as detectWorktreeProductRoot", async () => {
