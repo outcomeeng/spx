@@ -43,3 +43,13 @@ Observed in PR review of the session-frontmatter implementation.
 Impact: `resolveSessionConfig` cannot move or be tested independently of the session domain, and the infrastructure layer carries session vocabulary.
 
 Resolution condition: relocate `SessionDirectoryConfig` to a shared config module, or resolve the session directory configuration in the command layer, leaving `src/git/root.ts` free of session-domain imports.
+
+## Handoff re-derives git state in two places
+
+`handoffCommand` resolves the same git state twice for one `cwd`: `resolveSessionConfig` calls `detectGitCommonDirProductRoot` (`rev-parse --show-toplevel` + `--git-common-dir`) to locate the sessions directory, and `resolveSessionGitRef` calls `isRootWorktree` (the same two reads) to classify the worktree for the handoff-base gate.
+
+Observed in PR review of the session-frontmatter implementation.
+
+Impact: every `spx session handoff` issues two redundant git subprocess pairs on a hot path.
+
+Resolution condition: gather the toplevel and common-dir once and share the result between session-directory resolution and the handoff-base gate.
