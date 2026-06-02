@@ -33,6 +33,7 @@ import {
   SessionNotAvailableError,
   SessionNotFoundError,
 } from "@/domains/session/errors";
+import { resolveHandoffGitRef } from "@/domains/session/handoff-base";
 import { parseSessionMetadata, sortSessions } from "@/domains/session/list";
 import {
   DEFAULT_SESSION_CONFIG,
@@ -908,6 +909,94 @@ describe("handoffCommand — created_at and agent_session_id pre-fill", () => {
 // ============================================================
 // Handoff: handoff-base gate (git_ref resolution and refusal)
 // ============================================================
+
+describe("resolveHandoffGitRef (handoff-base gate)", () => {
+  const GATE_BRANCH = "topic/handoff-base";
+
+  it("GIVEN the root worktree on a branch THEN records the branch", () => {
+    expect(
+      resolveHandoffGitRef({
+        isRootWorktree: true,
+        branch: GATE_BRANCH,
+        headSha: HEAD_SHA,
+        isClean: true,
+        defaultTipSha: ORIGIN_DEFAULT_SHA,
+      }),
+    ).toBe(GATE_BRANCH);
+  });
+
+  it("GIVEN the root worktree detached with a HEAD SHA THEN records the HEAD SHA", () => {
+    expect(
+      resolveHandoffGitRef({
+        isRootWorktree: true,
+        branch: null,
+        headSha: HEAD_SHA,
+        isClean: true,
+        defaultTipSha: ORIGIN_DEFAULT_SHA,
+      }),
+    ).toBe(HEAD_SHA);
+  });
+
+  it("GIVEN the root worktree with no reachable HEAD THEN rejects with SessionHandoffBaseError", () => {
+    expect(() =>
+      resolveHandoffGitRef({
+        isRootWorktree: true,
+        branch: null,
+        headSha: null,
+        isClean: true,
+        defaultTipSha: ORIGIN_DEFAULT_SHA,
+      })
+    ).toThrow(SessionHandoffBaseError);
+  });
+
+  it("GIVEN a linked worktree on a branch THEN rejects with SessionHandoffBaseError", () => {
+    expect(() =>
+      resolveHandoffGitRef({
+        isRootWorktree: false,
+        branch: GATE_BRANCH,
+        headSha: HEAD_SHA,
+        isClean: true,
+        defaultTipSha: ORIGIN_DEFAULT_SHA,
+      })
+    ).toThrow(SessionHandoffBaseError);
+  });
+
+  it("GIVEN a dirty detached linked worktree THEN rejects with SessionHandoffBaseError", () => {
+    expect(() =>
+      resolveHandoffGitRef({
+        isRootWorktree: false,
+        branch: null,
+        headSha: ORIGIN_DEFAULT_SHA,
+        isClean: false,
+        defaultTipSha: ORIGIN_DEFAULT_SHA,
+      })
+    ).toThrow(SessionHandoffBaseError);
+  });
+
+  it("GIVEN a clean detached linked worktree off the origin tip THEN rejects with SessionHandoffBaseError", () => {
+    expect(() =>
+      resolveHandoffGitRef({
+        isRootWorktree: false,
+        branch: null,
+        headSha: HEAD_SHA,
+        isClean: true,
+        defaultTipSha: ORIGIN_DEFAULT_SHA,
+      })
+    ).toThrow(SessionHandoffBaseError);
+  });
+
+  it("GIVEN a clean detached linked worktree at the origin tip THEN records that SHA", () => {
+    expect(
+      resolveHandoffGitRef({
+        isRootWorktree: false,
+        branch: null,
+        headSha: ORIGIN_DEFAULT_SHA,
+        isClean: true,
+        defaultTipSha: ORIGIN_DEFAULT_SHA,
+      }),
+    ).toBe(ORIGIN_DEFAULT_SHA);
+  });
+});
 
 describe("handoffCommand — handoff-base gate", () => {
   let harness: SessionHarness;

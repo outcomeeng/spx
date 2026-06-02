@@ -95,14 +95,14 @@ async function detectRootsInChildProcess(
 // ============================================================
 
 describe("detectGitCommonDirProductRoot with dependency injection", () => {
-  it("GIVEN non-worktree repo WHEN --git-common-dir returns .git THEN root equals --show-toplevel", async () => {
+  it("GIVEN non-worktree repo WHEN --git-common-dir returns the absolute .git path THEN root equals --show-toplevel", async () => {
     const productDir = "/repo";
-    // In a non-worktree repo, --git-common-dir returns ".git" (relative)
-    // and --show-toplevel returns the product directory.
-    // dirname(resolve(toplevel, ".git")) === toplevel
+    // GIT_COMMON_DIR_ARGS requests --path-format=absolute, so git emits the
+    // absolute common dir; in a non-worktree repo it sits directly under toplevel.
+    // dirname("/repo/.git") === "/repo"
     const deps = createMockDeps([
       { stdout: productDir, exitCode: 0 }, // --show-toplevel
-      { stdout: ".git", exitCode: 0 }, // --git-common-dir
+      { stdout: join(productDir, ".git"), exitCode: 0 }, // --git-common-dir
     ]);
 
     const result = await detectGitCommonDirProductRoot(join(productDir, "src"), deps);
@@ -126,23 +126,6 @@ describe("detectGitCommonDirProductRoot with dependency injection", () => {
     expect(result.productDir).toBe(gitCommonDirProductRoot);
     expect(result.isGitRepo).toBe(true);
     expect(result.warning).toBeUndefined();
-  });
-
-  it("GIVEN worktree WHEN --git-common-dir returns relative path THEN resolves against toplevel", async () => {
-    const gitCommonDirProductRoot = "/repo";
-    const worktreeRoot = join(gitCommonDirProductRoot, ".claude", "worktrees", "my-branch");
-    // Some git versions return relative paths from --git-common-dir
-    const deps = createMockDeps([
-      { stdout: worktreeRoot, exitCode: 0 }, // --show-toplevel
-      { stdout: "../../../.git", exitCode: 0 }, // --git-common-dir (relative)
-    ]);
-
-    const result = await detectGitCommonDirProductRoot(worktreeRoot, deps);
-
-    // resolve("/repo/.claude/worktrees/my-branch", "../../../.git") = "/repo/.git"
-    // dirname("/repo/.git") = "/repo"
-    expect(result.productDir).toBe(gitCommonDirProductRoot);
-    expect(result.isGitRepo).toBe(true);
   });
 
   it("GIVEN not a git repo WHEN detecting THEN returns cwd with warning", async () => {
@@ -199,7 +182,7 @@ describe("detectGitCommonDirProductRoot vs detectWorktreeProductRoot in worktree
 
     const gitCommonDirProductRootDeps = createMockDeps([
       { stdout: productDir, exitCode: 0 },
-      { stdout: ".git", exitCode: 0 },
+      { stdout: join(productDir, ".git"), exitCode: 0 },
     ]);
     const gitCommonDirProductRootResult = await detectGitCommonDirProductRoot(productDir, gitCommonDirProductRootDeps);
 
@@ -219,6 +202,35 @@ describe("computeRelativeWorktreePath", () => {
     const result = computeRelativeWorktreePath(".git", "/repo");
 
     expect(result).toBe("");
+  });
+
+  it("GIVEN a relative multi-level common dir WHEN computed THEN resolves it against toplevel", () => {
+    // Defensive: GIT_COMMON_DIR_ARGS requests --path-format=absolute so production
+    // never feeds a relative common dir, but the helper still resolves one.
+    const result = computeRelativeWorktreePath("../../../.git", "/repo/.claude/worktrees/my-branch");
+
+    expect(result).toBe(join(".claude", "worktrees", "my-branch"));
+  });
+});
+
+describe("isRootWorktree with dependency injection", () => {
+  it("GIVEN --git-common-dir fails but --show-toplevel succeeds WHEN classifying THEN treats the working tree as root", async () => {
+    // Matches detectGitCommonDirProductRoot's fallback so the two never disagree.
+    const deps = createMockDeps([
+      { stdout: "/repo", exitCode: 0 }, // --show-toplevel
+      { stdout: "", exitCode: 128 }, // --git-common-dir fails
+    ]);
+
+    expect(await isRootWorktree("/repo", deps)).toBe(true);
+  });
+
+  it("GIVEN --show-toplevel fails WHEN classifying THEN it is not the root worktree", async () => {
+    const deps = createMockDeps([
+      { stdout: "", exitCode: 128 }, // --show-toplevel fails
+      { stdout: "", exitCode: 128 }, // --git-common-dir
+    ]);
+
+    expect(await isRootWorktree("/not/a/repo", deps)).toBe(false);
   });
 });
 
