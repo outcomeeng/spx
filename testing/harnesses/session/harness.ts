@@ -14,7 +14,16 @@ import { join } from "node:path";
 import { DEFAULT_CONFIG } from "@/config/defaults";
 import { buildSessionFrontMatterContent, stringifySessionFrontMatter } from "@/domains/session/create";
 import { DEFAULT_PRIORITY, SESSION_STATUSES, type SessionPriority, type SessionStatus } from "@/domains/session/types";
-import { GIT_HEAD_SHA_ARGS, type GitDependencies } from "@/git/root";
+import {
+  GIT_COMMON_DIR_ARGS,
+  GIT_CURRENT_BRANCH_ARGS,
+  GIT_HEAD_SHA_ARGS,
+  GIT_ORIGIN_HEAD_REF_ARGS,
+  GIT_ROOT_COMMAND,
+  GIT_SHOW_TOPLEVEL_ARGS,
+  GIT_STATUS_PORCELAIN_ARGS,
+  type GitDependencies,
+} from "@/git/root";
 import type { HandoffHeaderFixture } from "@testing/generators/session/session";
 import { createTempDir, removeTempDir } from "@testing/harnesses/with-temp-dir";
 
@@ -116,30 +125,21 @@ export function createSessionGitDeps(overrides: SessionGitDepsOverrides = {}): G
 
   return {
     execa: async (_command, args) => {
-      const argText = args.join(" ");
       const ok = (stdout: string): { exitCode: number; stdout: string; stderr: string } => ({
         exitCode: 0,
         stdout,
         stderr: "",
       });
 
-      // rev-parse --show-toplevel — the worktree's toplevel
-      if (argText.includes("--show-toplevel")) return ok(toplevel);
-      // rev-parse --git-common-dir — the shared common dir
-      if (argText.includes("--git-common-dir")) return ok(SHARED_COMMON_DIR);
-      // rev-parse --abbrev-ref HEAD — branch name, or HEAD when detached
-      if (argText.includes("--abbrev-ref")) return ok(branch ?? DETACHED_HEAD_REF);
-      // symbolic-ref --short refs/remotes/origin/HEAD — origin/<default>
-      if (argText.includes("symbolic-ref") && argText.includes("origin/HEAD")) return ok(originDefaultRef);
-      // status --porcelain — empty when the working tree is clean
-      if (argText.includes("status") && argText.includes("--porcelain")) return ok(clean ? "" : DIRTY_PORCELAIN_LINE);
-      // rev-parse origin/<default> — the default branch's tip SHA
-      if (args.includes(originDefaultRef) || args.includes(`refs/remotes/${originDefaultRef}`)) {
-        return ok(ORIGIN_DEFAULT_SHA);
-      }
-      // rev-parse HEAD — the HEAD commit SHA. Match the production arg vector
-      // exactly so the double tracks GIT_HEAD_SHA_ARGS and the three-arg
-      // --abbrev-ref HEAD form cannot fall through to here.
+      // Each branch matches the exact production arg vector from `@/git/root`,
+      // so the double tracks the pinned command set rather than substrings and
+      // the three-arg `--abbrev-ref HEAD` form cannot collide with `rev-parse HEAD`.
+      if (argsEqual(args, GIT_SHOW_TOPLEVEL_ARGS)) return ok(toplevel);
+      if (argsEqual(args, GIT_COMMON_DIR_ARGS)) return ok(SHARED_COMMON_DIR);
+      if (argsEqual(args, GIT_CURRENT_BRANCH_ARGS)) return ok(branch ?? DETACHED_HEAD_REF);
+      if (argsEqual(args, GIT_ORIGIN_HEAD_REF_ARGS)) return ok(originDefaultRef);
+      if (argsEqual(args, GIT_STATUS_PORCELAIN_ARGS)) return ok(clean ? "" : DIRTY_PORCELAIN_LINE);
+      if (argsEqual(args, [GIT_ROOT_COMMAND.REV_PARSE, originDefaultRef])) return ok(ORIGIN_DEFAULT_SHA);
       if (argsEqual(args, GIT_HEAD_SHA_ARGS)) return ok(headSha);
 
       return { exitCode: 1, stdout: "", stderr: "" };
