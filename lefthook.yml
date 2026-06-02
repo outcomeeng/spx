@@ -31,20 +31,25 @@ pre-push:
 
 post-merge:
   commands:
-    # A linked worktree's --git-dir (.git/worktrees/<name>) differs from its
-    # --git-common-dir (.git); in the main worktree they are equal. Only the
-    # main worktree's dist/ feeds the published or pnpm-linked spx, so the
-    # rebuild runs there and no-ops elsewhere. CI=true keeps pnpm
+    # Mirror the canonical isRootWorktree (src/git/root.ts): the root worktree is
+    # the one whose Git common dir sits directly under the worktree toplevel.
+    # --path-format=absolute makes --git-common-dir absolute regardless of cwd (as
+    # GIT_COMMON_DIR_ARGS does), so dirname(common-dir) == --show-toplevel holds
+    # only in the main worktree. A --git-common-dir failure (empty $gc) is treated
+    # as the root worktree so the rebuild is not silently skipped. Only the main
+    # worktree's dist/ feeds the published or pnpm-linked spx. CI=true keeps pnpm
     # non-interactive so a node_modules purge on a pnpm version change proceeds
     # instead of hanging behind lefthook's spinner.
     rebuild-dist:
       run: |
         env -u GIT_DIR -u GIT_WORK_TREE -u GIT_INDEX_FILE -u GIT_PREFIX -u GIT_COMMON_DIR sh -c '
-          if [ "$(git rev-parse --git-dir)" = "$(git rev-parse --git-common-dir)" ]; then
+          toplevel=$(git rev-parse --show-toplevel)
+          gc=$(git rev-parse --path-format=absolute --git-common-dir 2>/dev/null)
+          if [ -n "$gc" ] && [ "$(dirname "$gc")" != "$toplevel" ]; then
+            echo "rebuild-dist: skipped (linked worktree, not the main worktree)"
+          else
             export CI=true
             pnpm install --frozen-lockfile && pnpm run build
-          else
-            echo "rebuild-dist: skipped (linked worktree, not the main worktree)"
           fi
         '
 
@@ -58,10 +63,12 @@ post-rewrite:
       run: |
         env -u GIT_DIR -u GIT_WORK_TREE -u GIT_INDEX_FILE -u GIT_PREFIX -u GIT_COMMON_DIR sh -c '
           [ "$1" = "rebase" ] || { echo "rebuild-dist: skipped ($1, not a rebase)"; exit 0; }
-          if [ "$(git rev-parse --git-dir)" = "$(git rev-parse --git-common-dir)" ]; then
+          toplevel=$(git rev-parse --show-toplevel)
+          gc=$(git rev-parse --path-format=absolute --git-common-dir 2>/dev/null)
+          if [ -n "$gc" ] && [ "$(dirname "$gc")" != "$toplevel" ]; then
+            echo "rebuild-dist: skipped (linked worktree, not the main worktree)"
+          else
             export CI=true
             pnpm install --frozen-lockfile && pnpm run build
-          else
-            echo "rebuild-dist: skipped (linked worktree, not the main worktree)"
           fi
         ' -- {1}
