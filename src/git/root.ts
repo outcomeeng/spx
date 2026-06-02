@@ -66,6 +66,7 @@ export const GIT_ROOT_COMMAND = {
   ORIGIN_HEAD_REF: "refs/remotes/origin/HEAD",
   STATUS: "status",
   PORCELAIN: "--porcelain",
+  PATH_FORMAT_ABSOLUTE: "--path-format=absolute",
 } as const;
 
 /** Prefix on the remote-tracking ref returned by `symbolic-ref refs/remotes/origin/HEAD`. */
@@ -76,8 +77,12 @@ export const GIT_SHOW_TOPLEVEL_ARGS = [
   GIT_ROOT_COMMAND.SHOW_TOPLEVEL,
 ] as const;
 
+// `--path-format=absolute` makes git emit an absolute common dir regardless of
+// the working directory; without it `--git-common-dir` is relative to git's cwd
+// (e.g. `../../.git` from a subdirectory), which misresolves against the toplevel.
 export const GIT_COMMON_DIR_ARGS = [
   GIT_ROOT_COMMAND.REV_PARSE,
+  GIT_ROOT_COMMAND.PATH_FORMAT_ABSOLUTE,
   GIT_ROOT_COMMAND.GIT_COMMON_DIR,
 ] as const;
 
