@@ -8,7 +8,7 @@ CAN report observed results and staleness without invoking test runners
 
 ### Scenarios
 
-- Given a terminal test run, when its state is persisted, then the state is stored under `.spx/testing/{branch-slug}/runs/{run-directory}/state.json` at the Git common-dir product root, a settled state is never overwritten, malformed run directories are classified as incomplete evidence, and the latest terminal run is the one fast status reads ([test](tests/run-state.scenario.l1.test.ts))
+- Given a terminal test run, when its state is persisted, then the state is stored under `.spx/local/testing/runs/{run-directory}/state.json` at the local worktree root, a settled state is never overwritten, malformed run directories are classified as incomplete evidence, and, for each node, the latest terminal run covering that node is the one fast status reads ([test](tests/run-state.scenario.l1.test.ts))
 
 ### Properties
 
