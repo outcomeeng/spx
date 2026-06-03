@@ -1,9 +1,15 @@
 # Issues: 54-spec-cli-commands.enabler
 
-## Open: forward-contract test links pending the status/testing reconciliation
+## Open: forward-contract test links pending the status/testing delegation
 
-`spec-cli-commands.md` carries `[test](tests/spec-cli-commands.scenario.l1.test.ts)` links on the `spx spec status --update` write scenario, the no-tests read scenario, and the stale/failing/absent-evidence delegation scenario whose covering test cases are not yet authored — they are forward contracts. The delegation scenario is `l1`-verifiable through the dependency-injected node-outcome resolver mandated by `spx/31-spec-domain.enabler/54-spec-cli-commands.enabler/21-status-testing-delegation.adr.md`.
+`spec-cli-commands.md` carries `[test](tests/spec-cli-commands.scenario.l1.test.ts)` links on the `spx spec status --update` write scenario and the stale/failing/absent-evidence delegation scenario whose covering test cases are not yet authored — they are forward contracts. The read-back scenario (a committed `spx.status.json` surfacing through `spx spec status` without `--update`) is covered by `tests/spec-cli-commands.scenario.l1.test.ts` ("reports a node's committed spx.status.json state instead of re-deriving it"), with `statusCommand` wiring `createNodeStatusProvider` into the filesystem read path. The delegation scenario is `l1`-verifiable through the dependency-injected node-outcome resolver mandated by `spx/31-spec-domain.enabler/54-spec-cli-commands.enabler/21-status-testing-delegation.adr.md`. The remaining covering tests are authored when `spx spec status --update` is wired to the testing-evidence-plus-registry resolver.
 
-The status and testing responsibility reconciliation planned in `spx/PLAN.md` will revise these scenarios: status will consume testing's recorded evidence and delegate the per-node run to testing rather than running tests itself, and `spx spec status --update` (declared but unwired on `main`) will be implemented. The covering tests follow the reconciled spec, authored in the implementation unit per that cascade.
+**Skills:** `spec-tree:applying` (implementation), `typescript:testing-typescript` (tests).
 
-**Skills:** `spec-tree:authoring` (spec revision), `spec-tree:applying` (implementation).
+## FOLLOW-UP: spx spec next does not read persisted node status
+
+`spx spec status` reports a node's committed `spx.status.json` (read-back), but `spx spec next` (`src/commands/spec/next.ts`) selects the first non-passing node from live structural derivation only — it passes no evidence provider to `readSpecTree`. After `spx spec status --update` writes status files, `status` and `next` can disagree: `status` reports a node as `passing` from its recorded file while `next` re-flags it as non-passing from live derivation. `spec-cli-commands.md` asserts read-back only for `spx spec status`, so this is a spec question, not an implementation defect.
+
+**Resolution:** decide whether `spx spec next` should honor persisted node status; if so, add a `next` read-back assertion to `spec-cli-commands.md` and wire `createNodeStatusProvider` into `nextCommand`.
+
+**Skills:** `spec-tree:authoring` (spec decision), `spec-tree:applying` (implementation).
