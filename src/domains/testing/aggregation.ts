@@ -1,6 +1,6 @@
 import type { TestRunInvocation } from "@/testing/languages/types";
 
-const SUCCESS_EXIT_CODE = 0;
+export const SUCCESS_EXIT_CODE = 0;
 
 /**
  * Aggregates per-language runner invocations into a single command exit code:
