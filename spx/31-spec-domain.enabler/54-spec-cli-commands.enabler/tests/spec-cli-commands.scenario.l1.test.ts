@@ -320,10 +320,12 @@ describe("spx spec status --update command", () => {
       expect(firstRunner.calls.length).toBeGreaterThan(0);
       await expect(readRecordedStatus(env, rootPath)).resolves.toBe(SPEC_TREE_NODE_STATE.PASSING);
 
-      // The run just recorded is fresh and passed: a second --update runs nothing.
+      // The run just recorded is fresh and passed: a second --update runs nothing
+      // and reports the cached passing outcome through the production resolver.
       const secondRunner = createRecordingCommandRunner({ present: true, exitCode: 0 });
       await statusCommand({ cwd: env.productDir, update: true, resolveOutcomeFor: recordingResolverFor(secondRunner) });
       expect(secondRunner.calls).toEqual([]);
+      await expect(readRecordedStatus(env, rootPath)).resolves.toBe(SPEC_TREE_NODE_STATE.PASSING);
     });
   });
 
@@ -410,6 +412,21 @@ describe("spx spec status --update command", () => {
         statusCommand({ cwd: env.productDir, update: true, resolveOutcomeFor: recordingResolverFor(updateRunner) }),
       ).resolves.toBeDefined();
       expect(updateRunner.calls.length).toBeGreaterThan(0);
+    });
+  });
+
+  it("classifies a node failing when its test runner is absent rather than vacuously passing", async () => {
+    await withSpecTreeEnv(MINIMAL_SPEC_TREE_CONFIG, async (env) => {
+      await env.materialize();
+      const rootPath = formatNodePath(env.fixture.root.order, env.fixture.root.slug, env.fixture.root.kind);
+      await addNodeTestFile(env, rootPath);
+
+      // The language runner reports absent, so the per-node run executes nothing.
+      // A zero-outcome run must not classify the node passing.
+      const absentRunner = createRecordingCommandRunner({ present: false, exitCode: 0 });
+      await statusCommand({ cwd: env.productDir, update: true, resolveOutcomeFor: recordingResolverFor(absentRunner) });
+
+      await expect(readRecordedStatus(env, rootPath)).resolves.toBe(SPEC_TREE_NODE_STATE.FAILING);
     });
   });
 });
