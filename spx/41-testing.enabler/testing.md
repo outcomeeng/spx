@@ -8,23 +8,23 @@ CAN run all spec-tree tests with a single command, honor configured passing-scop
 
 ### Scenarios
 
-- Given a spec tree with tests in multiple languages, when `spx test` runs, then each language's testing enabler is invoked on the files matching its registered extension pattern ([test](tests/testing.integration.test.ts))
+- Given a spec tree with tests in multiple languages, when `spx test` runs, then each language's testing enabler is invoked on the files matching its registered extension pattern ([test](tests/testing.scenario.l1.test.ts))
 - Given `spx.config.{toml,json,yaml}` excludes a node path from the passing test scope, when `spx test passing` runs, then test files under that node are filtered out before any runner invocation ([test](tests/testing.integration.test.ts))
 - Given `spx.config.{toml,json,yaml}` excludes a node path from the passing test scope, when `spx test` runs without `passing`, then test files under that node are still invoked ([test](tests/testing.integration.test.ts))
 - Given `spx test` has recorded valid last-run evidence, when a status command reads that evidence, then the status output reports observed results and staleness without invoking a test runner ([review])
 - Given a status consumer requests one node's outcome and the recorded evidence for that node is stale, failing, or absent, when it invokes the registry-based per-node run, then that node's tests execute through the registered runner for each matching extension and fresh last-run evidence is recorded ([test](tests/testing.integration.test.ts))
-- Given test files whose extension does not match any registered testing enabler, when `spx test` runs, then those files are reported and skipped without error ([test](tests/testing.integration.test.ts))
-- Given one dispatched runner exits non-zero while another exits zero, when `spx test` completes, then the command exits non-zero ([test](tests/testing.integration.test.ts))
+- Given test files whose extension does not match any registered testing enabler, when `spx test` runs, then those files are reported and skipped without error ([test](tests/testing.scenario.l1.test.ts))
+- Given one dispatched runner exits non-zero while another exits zero, when `spx test` completes, then the command exits non-zero ([test](tests/testing.scenario.l1.test.ts))
 
 ### Mappings
 
-- Each language provides its test runner via a leaf enabler child registered per `../19-language-registration.adr.md` ([test](tests/testing.integration.test.ts))
-- Extension-based dispatch: test files route to the testing enabler whose registered extension pattern matches ([test](tests/testing.integration.test.ts))
+- Each language provides its test runner via a leaf enabler child registered per `../19-language-registration.adr.md` ([test](tests/testing.mapping.l1.test.ts))
+- Extension-based dispatch: test files route to the testing enabler whose registered extension pattern matches ([test](tests/testing.mapping.l1.test.ts))
 
 ### Properties
 
-- Test discovery is deterministic: the same spec tree structure always produces the same set of test files grouped by runner ([test](tests/testing.unit.test.ts))
-- Exit code aggregation: `spx test` exits non-zero if any dispatched runner exits non-zero, zero otherwise ([test](tests/testing.integration.test.ts))
+- Test discovery is deterministic: the same spec tree structure always produces the same set of test files grouped by runner ([test](tests/testing.property.l1.test.ts))
+- Exit code aggregation: `spx test` exits non-zero if any dispatched runner exits non-zero, zero otherwise ([test](tests/testing.property.l1.test.ts))
 - Last-run state is evidence, not product truth: deleting the state never changes which tests are in passing scope, only whether fast status has cached observations available ([review])
 - Last-run state is stale when the resolved testing config digest, discovered test file path set, discovered test file content digest, or descriptor-declared product input digest differs from the values recorded with the cached observation ([review])
 
