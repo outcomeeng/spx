@@ -24,3 +24,4 @@ CAN inspect current node state and select the next non-passing node without hand
 - NEVER: command handlers parse spec-tree suffixes or assemble hierarchy themselves — they consume `src/lib/spec-tree/index.ts` ([review])
 - ALWAYS: `spx spec status --update` obtains each node's pass/fail outcome from the testing domain's recorded evidence and its registry-based per-node run, never from a status-owned runner, per `spx/31-spec-domain.enabler/21-node-status.enabler/15-status-file-contract.pdr.md` ([review])
 - NEVER: `spx spec status` without `--update` executes node tests — it reports recorded or live-derived state, per `spx/31-spec-domain.enabler/21-node-status.enabler/15-status-file-contract.pdr.md` ([review])
+- ALWAYS: a `spx spec status --update` per-node run writes its output to stderr, so stdout carries only the status rollup and `--json` output stays machine-parseable ([test](tests/spec-cli-commands.scenario.l1.test.ts))
