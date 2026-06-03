@@ -85,7 +85,10 @@ export function renderSpecStatus(
 
 async function readCommandSnapshot(options: StatusOptions): Promise<SpecTreeSnapshot> {
   if (options.source !== undefined) {
-    // Injected sources bypass filesystem and git resolution.
+    // Injected sources are in-memory and carry no productDir, so the node-status
+    // read-back provider — which resolves each spx.status.json under productDir —
+    // cannot apply here; this path bypasses filesystem and git resolution and
+    // derives state live.
     return readSpecTree({ source: options.source });
   }
 
