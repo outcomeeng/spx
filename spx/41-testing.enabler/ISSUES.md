@@ -1,30 +1,54 @@
 # Issues: Testing
 
-Coordination notes for the `spx test` enabler. The dispatch, central registry, the passing-scope dispatch filter, and config-driven scope resolution are built; last-run evidence recording and the registry-based per-node run remain, so `41-testing.enabler` stays in `spx/EXCLUDE`. Three scenarios — the two passing-scope end-to-end scenarios and the per-node-run scenario — carry forward-contract `[test]` links to `tests/testing.integration.test.ts`, which does not exist yet (the sanctioned declared-state pattern for nodes under `spx/EXCLUDE`); the links are re-pointed to the canonical file when the integration harness lands. The passing-scope dispatch mechanism itself is proven now in `tests/testing.scenario.l1.test.ts`.
+Coordination notes for the `spx test` enabler. The `spx test` command, the registry-based dispatch, passing-scope filtering, last-run evidence recording, and the registry-based per-node run are built and proven (`tests/execution-recording.scenario.l1.test.ts`, `tests/testing.scenario.l1.test.ts`), so `41-testing.enabler` participates in the quality gate and is no longer listed in `spx/EXCLUDE`.
 
-## FOLLOW-UP: last-run evidence and the registry-based per-node run are not yet built
+## FOLLOW-UP: recorded product-input digests are empty until descriptors declare product inputs
 
-`testing.md` declares that `spx test` records last-run evidence and that a status consumer can run one node's tests through the registry, recording fresh evidence (the per-node run scenario, link `tests/testing.integration.test.ts`). The dispatch records no evidence and exposes no per-node surface.
+Last-run evidence records `productInputDigests: []` because no testing descriptor declares product inputs and the domain-execution-descriptor implementation (specified at `spx/16-config.enabler/43-domain-execution-descriptors.enabler/domain-execution-descriptors.md`) does not yet exist in `src/`. The staleness comparison's product-input dimension is therefore inert; the resolved testing config digest, the discovered test path-set digest, and the discovered test content digest carry staleness detection in the meantime.
 
-**Resolution:** record a `TestRunState` (via `src/testing/run-state.ts`) after a full run and after a per-node run; expose the registry-based per-node run that status consumes per `spx/31-spec-domain.enabler/54-spec-cli-commands.enabler/21-status-testing-delegation.adr.md`; author the per-node case; remove `41-testing.enabler` from `spx/EXCLUDE` once it lands.
+**Resolution:** when the domain-execution-descriptor surface lands and the testing descriptors declare their product inputs (e.g. `package.json`, `tsconfig.json`, `pyproject.toml`), have `recordRun` (`src/commands/testing/run-command.ts`) compute and record their digests in place of the empty list.
 
-**Evidence:** `testing.md` evidence and per-node assertions; `src/testing/run-state.ts` (the relocated evidence contract); the status delegation ADR.
+**Evidence:** `src/commands/testing/run-command.ts` `NO_PRODUCT_INPUT_DIGESTS`; `src/testing/run-state.ts` `ProductInputDigest`; `spx/41-testing.enabler/43-last-run-evidence.enabler/43-staleness-comparison.adr.md`.
 
-## FOLLOW-UP: the integration harness must prove passing-scope end-to-end
+## FOLLOW-UP: a zero-outcome run records a vacuous `passed` status
 
-The two passing-scope end-to-end scenarios in `testing.md` (`spx test passing` filters an excluded node / `spx test` runs it) forward-contract to `tests/testing.integration.test.ts`. The dispatch mechanism is proven now (the dispatch applies a supplied scope, `tests/testing.scenario.l1.test.ts`) and config-reading is the `ALWAYS` compliance `[review]`, but no automated test exercises `resolveTestingPassingScope` reading `spx.config.*` and the resolved scope reaching the runners end-to-end.
+`deriveStatus` in `src/commands/testing/run-command.ts` derives status with `outcomes.every(exitCode === SUCCESS_EXIT_CODE)`, so a run that dispatches no runner (no test files discovered, or every matching runner gated out by absent-language detection) records `status: passed` by vacuous truth. The status is not consumed today: a zero-outcome run's `runnerOutcomes` cover no node, so `selectLatestTerminalTestRunForNode` never selects it and the status-delegation resolver treats the node as absent and re-runs. The vacuous `passed` only misleads a consumer that reads `state.status` directly without coverage-gating.
 
-**Resolution:** when the integration harness `tests/testing.integration.test.ts` lands (with the last-run evidence and per-node run work above), add a CLI-boundary case that writes a `spx.config.*` carrying a `testing.passingScope` exclusion, runs `spx test passing`, and asserts the excluded node's files are not dispatched while `spx test` runs them — exercising `resolveTestingPassingScope` end-to-end — then re-point the two scenario links from `tests/testing.integration.test.ts` to the canonical case.
+**Resolution:** when the status-delegation resolver lands (unit 3), decide the zero-outcome status semantics (a distinct status, or a documented vacuous-pass contract justified by coverage-gating) and amend `spx/41-testing.enabler/71-execution-recording.adr.md` accordingly, with a recording test for the empty-outcome path. In the same pass, decide whether `runNodeCommand` should reject a `nodePath` that matches no discovered file — distinct from a matched node whose runner is gated out by absent-language detection — rather than silently recording an empty run, which only re-fires the resolver's per-node run.
 
-**Evidence:** local and CI changes review on PR-2b; `src/interfaces/cli/testing.ts` `resolveTestingPassingScope`; `testing.md` passing-scope scenarios and `ALWAYS` compliance assertion.
+**Evidence:** local changes review on PR-2c; `src/commands/testing/run-command.ts` `deriveStatus` and `runNodeCommand`; `src/testing/run-state.ts` `selectLatestTerminalTestRunForNode` coverage gating.
 
-## FOLLOW-UP: passing-scope prefixes are matched as full product-root paths
+## FOLLOW-UP: a failed dispatch orphans the reserved run directory
 
-`resolveTestingPassingScope` forwards the config `passingScope` straight to `applyPathFilter`, which matches prefixes against discovered test file paths rooted at the product directory (`spx/<node>/tests/…`). A `passingScope.exclude` value must therefore be a full path from the product root (`spx/41-testing.enabler`); a relative node path (`41-testing.enabler`) matches nothing and silently excludes no files, with no error or warning.
+`runTestsCommand` and `runNodeCommand` reserve the run directory (`createTestRunDirectory`) before dispatch so `startedAt` marks the run's start. If `runTests` throws after reservation, the directory is left without a `state.json`. `readTestingRuns` classifies it as an incomplete run, so it never corrupts the read path, but repeated dispatch failures accumulate stale directories under `.spx/local/testing/runs/`.
 
-**Resolution:** state the path-format contract on the `spx test passing` assertions in `testing.md`, and decide whether a `passingScope` prefix that matches no discovered file should warn — closing the silent-no-op gap; when the integration harness lands, cover the no-op case (a config prefix matching no discovered file) with either an asserted warning or a documented silent-no-op contract.
+**Resolution:** either defer directory creation until dispatch succeeds (accepting a later `startedAt`), or add a cleanup path that prunes incomplete run directories; decide alongside the terminal-write-protocol's lifecycle in `spx/41-testing.enabler/43-last-run-evidence.enabler/32-terminal-write-protocol.adr.md`.
 
-**Evidence:** local changes review on PR-2b; `spx/41-testing.enabler/tests/testing.scenario.l1.test.ts` exclusion-prefix construction; `src/config/primitives/path-filter.ts` `applyPathFilter`.
+**Evidence:** local changes review on PR-2c; `src/commands/testing/run-command.ts` `reserveRunDirectory`; `src/testing/run-state.ts` `readTestingRuns` incomplete-run classification.
+
+## FOLLOW-UP: command-layer coverage for content-digest staleness
+
+The recording tests assert `discoveredTestPathsDigest` over the covered files but do not exercise `discoveredTestContentDigest` changing when file bytes change. The property "last-run state is stale when the discovered test file content digest differs" is proven at the `run-state` unit (`staleness.property.l1.test.ts`) but not end-to-end through the command layer.
+
+**Resolution:** add a scenario that records a run, rewrites a covered test file's content, and asserts `isStalenessMatch` returns false against the freshly recorded content digest — covering the content-digest path through `runTestsCommand` / `runNodeCommand`.
+
+**Evidence:** local changes review on PR-2c; `src/commands/testing/run-command.ts` `readCoveredContents`; `spx/41-testing.enabler/43-last-run-evidence.enabler/43-staleness-comparison.adr.md`.
+
+## FOLLOW-UP: covered-content reads are serial
+
+`readCoveredContents` (`src/commands/testing/run-command.ts`) reads each covered test file with a serial `await` in a `for` loop. For a full-suite run over a large spec tree this is O(n) sequential I/O; concurrent reads would cut wall-clock time.
+
+**Resolution:** read the covered files concurrently (e.g. `Promise.all` over the mapped reads) when the file count justifies it, benchmarked against a realistic tree; weigh against the product's <100ms CLI-latency target in `spx/spx.product.md`.
+
+**Evidence:** local changes review on PR-2c; `src/commands/testing/run-command.ts` `readCoveredContents`.
+
+## FOLLOW-UP: enforce the invoked/exitCode invariant in the TestRunInvocation type
+
+`TestRunInvocation` (`src/testing/languages/types.ts`) documents that `exitCode` is "absent when the runner was not invoked" — when `invoked: true`, `exitCode` is present — but the type (`exitCode?: number`) does not enforce it. The dispatch's `exitCode: invocation.exitCode ?? SUCCESS_EXIT_CODE` (`src/commands/testing/dispatch.ts`) defaults a type-allowed-but-runner-impossible `invoked: true, exitCode: undefined` to success; both language runners always return an exit code when invoked, so the fallback never fires today.
+
+**Resolution:** narrow `TestRunInvocation` to a discriminated union (`{ invoked: true; exitCode: number } | { invoked: false }`) and update both runner implementations (`src/testing/languages/{typescript,python}.ts`); this statically enforces the invariant and removes the `?? SUCCESS_EXIT_CODE` fallback. Cross-node — touches the descriptor contract and both runners.
+
+**Evidence:** CI changes review on PR-2c; `src/testing/languages/types.ts` `TestRunInvocation`; `src/commands/testing/dispatch.ts` outcome construction.
 
 ## FOLLOW-UP: the testing language descriptor delegates detection to the composition root
 
@@ -46,6 +70,6 @@ The two passing-scope end-to-end scenarios in `testing.md` (`spx test passing` f
 
 The recording command runner (`createRecordingCommandRunner` and the `RecordingCommandRunner` interface) is duplicated between `testing/harnesses/testing/python-runner.ts` and `testing/harnesses/testing/typescript-runner.ts`, and the runner generators (`testing/generators/testing/python-runner.ts` and `…/typescript-runner.ts`) redeclare the same spec-tree path constants (`SPEC_ROOT`, `TESTS_DIR`, `NODE_SUFFIX`, the node-index and path-count bounds). Both operate purely on the shared `TestingLanguageDescriptor` contract (`src/testing/languages/types.ts`), so the structure is identical across languages. With two language runners the parallel structure is the cheaper choice; a third runner makes the duplication worth extracting and risks silent divergence.
 
-**Resolution:** when a third language testing descriptor is added, extract the shared recording command runner to `testing/harnesses/testing/language-runner.ts` and the shared generator constants to `testing/generators/testing/language-runner.ts`, and re-point every language runner harness and generator — and the dispatch-level test (`spx/41-testing.enabler/tests/testing.scenario.l1.test.ts`), which imports `createRecordingCommandRunner` from the typescript-runner harness — at the shared module.
+**Resolution:** when a third language testing descriptor is added, extract the shared recording command runner to `testing/harnesses/testing/language-runner.ts` and the shared generator constants to `testing/generators/testing/language-runner.ts`, and re-point every language runner harness and generator — and the dispatch-level tests (`spx/41-testing.enabler/tests/testing.scenario.l1.test.ts` and `tests/execution-recording.scenario.l1.test.ts`), which import `createRecordingCommandRunner` from the typescript-runner harness — at the shared module.
 
 **Evidence:** spec-tree-review on PR #69; the shared contract `src/testing/languages/types.ts` both runners conform to.
