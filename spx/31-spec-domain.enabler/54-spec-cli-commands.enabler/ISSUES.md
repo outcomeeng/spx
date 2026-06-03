@@ -1,11 +1,5 @@
 # Issues: 54-spec-cli-commands.enabler
 
-## Open: forward-contract test links pending the status/testing delegation
-
-`spec-cli-commands.md` carries `[test](tests/spec-cli-commands.scenario.l1.test.ts)` links on the `spx spec status --update` write scenario and the stale/failing/absent-evidence delegation scenario whose covering test cases are not yet authored — they are forward contracts. The read-back scenario (a committed `spx.status.json` surfacing through `spx spec status` without `--update`) is covered by `tests/spec-cli-commands.scenario.l1.test.ts` ("reports a node's committed spx.status.json state instead of re-deriving it"), with `statusCommand` wiring `createNodeStatusProvider` into the filesystem read path. The delegation scenario is `l1`-verifiable through the dependency-injected node-outcome resolver mandated by `spx/31-spec-domain.enabler/54-spec-cli-commands.enabler/21-status-testing-delegation.adr.md`. The remaining covering tests are authored when `spx spec status --update` is wired to the testing-evidence-plus-registry resolver.
-
-**Skills:** `spec-tree:applying` (implementation), `typescript:testing-typescript` (tests).
-
 ## FOLLOW-UP: spx spec next does not read persisted node status
 
 `spx spec status` reports a node's committed `spx.status.json` (read-back), but `spx spec next` (`src/commands/spec/next.ts`) selects the first non-passing node from live structural derivation only — it passes no evidence provider to `readSpecTree`. After `spx spec status --update` writes status files, `status` and `next` can disagree: `status` reports a node as `passing` from its recorded file while `next` re-flags it as non-passing from live derivation. `spec-cli-commands.md` asserts read-back only for `spx spec status`, so this is a spec question, not an implementation defect.
@@ -29,3 +23,17 @@ Wiring `createNodeStatusProvider` into `spx spec status` adds one synchronous `r
 **Resolution:** if the latency budget is ever threatened, either make `SpecTreeEvidenceProvider.stateForNode` async (and update `deriveState`/`readSpecTree`) or have the provider factory pre-read every `spx.status.json` in one async pass into an in-memory map the synchronous `stateForNode` consults. Both touch the spec-tree provider interface, so the change is governed by `spx/31-spec-domain.enabler/21-node-status.enabler/21-node-status-architecture.adr.md`.
 
 **Skills:** `spec-tree:applying` (implementation), `typescript:architecting-typescript` (interface change).
+
+## FOLLOW-UP: spx spec status --update pipes every per-node run's output
+
+The production outcome resolver composes `createRunnerDepsFor` (`src/interfaces/cli/testing-runner-deps.ts`), whose command runner pipes each child process's stdout/stderr to the CLI's own streams — correct for `spx test`, but for `spx spec status --update` it floods the terminal with every stale, failing, or absent node's test output before the status rollup prints.
+
+**Resolution:** give the status path a quieter runner (capture output rather than pipe it) while keeping `spx test` piped — e.g. a non-piping command-runner variant the spec descriptor composes.
+
+**Skills:** `spec-tree:applying` (implementation).
+
+## FOLLOW-UP: a node whose tests are all gated out re-runs on every --update
+
+A test-outcome-stage node whose tests are all in an absent language records a zero-outcome run that covers none of its discovered test paths, so `selectLatestTerminalTestRunForNode` never selects it and the resolver re-runs the node on every `--update`. The per-node run stays conservative-correct (it never miscaches), but it repeats work. This is the zero-outcome / per-node-non-match semantics tracked in `spx/41-testing.enabler/ISSUES.md`; the empty-run contract is decided there.
+
+**Skills:** `spec-tree:authoring` (decision in 41-testing), `spec-tree:applying` (implementation).
