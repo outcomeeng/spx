@@ -6,6 +6,7 @@ import { SPEC_PRODUCT_DIR_WARNING } from "@/commands/spec/root";
 import { OUTPUT_FORMAT, SPEC_STATUS_MESSAGE, statusCommand } from "@/commands/spec/status";
 import { DEFAULT_CONFIG_FILENAME } from "@/config/index";
 import { GIT_ROOT_COMMAND, GIT_SHOW_TOPLEVEL_ARGS, type GitDependencies } from "@/git/root";
+import { NODE_STATUS_FILENAME, serializeNodeStatus } from "@/lib/node-status";
 import {
   getKindDefinition,
   SPEC_TREE_ENTRY_TYPE,
@@ -38,6 +39,31 @@ describe("spx spec status", () => {
       expect(output).toContain(KIND_REGISTRY[env.fixture.root.kind].label);
       expect(output).toContain(rootPath);
       expect(output).toContain(SPEC_TREE_NODE_STATE.DECLARED);
+    });
+  });
+
+  it("reports a node's committed spx.status.json state instead of re-deriving it", async () => {
+    await withSpecTreeEnv(MINIMAL_SPEC_TREE_CONFIG, async (env) => {
+      await env.materialize();
+      const rootPath = formatNodePath(env.fixture.root.order, env.fixture.root.slug, env.fixture.root.kind);
+      // The root carries a co-located evidence file, so live derivation yields a
+      // non-trivial `specified`. A committed status file recording a different
+      // state proves `spx spec status` reports the recorded state rather than
+      // re-deriving it — overriding even a structurally-derived state.
+      const evidenceFile = sampleSpecTreeTestValue(SPEC_TREE_TEST_GENERATOR.evidenceFileName());
+      await env.writeRaw(
+        [SPEC_TREE_CONFIG.ROOT_DIRECTORY, rootPath, SPEC_TREE_EVIDENCE_FILE.DIRECTORY_NAME, evidenceFile].join("/"),
+        "",
+      );
+      await env.writeRaw(
+        [SPEC_TREE_CONFIG.ROOT_DIRECTORY, rootPath, NODE_STATUS_FILENAME].join("/"),
+        serializeNodeStatus(SPEC_TREE_NODE_STATE.PASSING),
+      );
+
+      const output = await statusCommand({ cwd: env.productDir });
+
+      expect(output).toContain(`${rootPath} [${SPEC_TREE_NODE_STATE.PASSING}]`);
+      expect(output).not.toContain(`${rootPath} [${SPEC_TREE_NODE_STATE.SPECIFIED}]`);
     });
   });
 

@@ -1,4 +1,5 @@
 import type { GitDependencies } from "@/git/root";
+import { createNodeStatusProvider } from "@/lib/node-status";
 import {
   createFilesystemSpecTreeSource,
   projectSpecTree,
@@ -94,7 +95,10 @@ async function readCommandSnapshot(options: StatusOptions): Promise<SpecTreeSnap
     options.onWarning,
   );
   const source = createFilesystemSpecTreeSource({ productDir });
-  return readSpecTree({ source });
+  // Read-back: a node's committed spx.status.json overrides live derivation; a node
+  // with no status file yields undefined, routing the spec-tree library back to live
+  // derivation. No tests run on this path — `--update` owns evidence refresh.
+  return readSpecTree({ source, evidence: createNodeStatusProvider(productDir) });
 }
 
 function formatJSON(projection: SpecTreeProjection): string {
