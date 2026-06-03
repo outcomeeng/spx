@@ -527,7 +527,10 @@ async function addNodePythonTestFile(env: CurrentSpecTreeEnv, nodePath: string):
 }
 
 async function readRecordedStatus(env: CurrentSpecTreeEnv, nodePath: string): Promise<string> {
-  const raw = await env.readFile([SPEC_TREE_CONFIG.ROOT_DIRECTORY, nodePath, NODE_STATUS_FILENAME].join("/"));
+  const statusPath = [SPEC_TREE_CONFIG.ROOT_DIRECTORY, nodePath, NODE_STATUS_FILENAME].join("/");
+  // Fail with a clear diagnostic if --update skipped the write, not a JSON parse error.
+  expect(existsSync(join(env.productDir, statusPath))).toBe(true);
+  const raw = await env.readFile(statusPath);
   return (JSON.parse(raw) as { readonly status: string }).status;
 }
 
