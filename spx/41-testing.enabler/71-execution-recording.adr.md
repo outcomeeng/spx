@@ -12,7 +12,7 @@ This decision governs the testing domain's provider surface that turns a test ru
 
 ## Decision
 
-Last-run evidence recording and the registry-based per-node run are command-layer handlers under `src/commands/testing/` that share one recording path: each handler resolves the discovered test files for its scope, dispatches the matching files through the testing registry, assembles a `TestRunState` from the runner outcomes plus the four staleness digests and the branch and head-SHA identity fields, and persists it through the injected `TestRunStateFileSystem`; the per-node run scopes discovery to a single node's tests and returns that node's runner outcome to its caller, while the full-suite run records over all discovered files.
+Last-run evidence recording and the registry-based per-node run are command-layer handlers under `src/commands/testing/` that share one recording path: each handler resolves the discovered test files for its scope, dispatches the matching files through the testing registry, assembles a `TestRunState` from the runner outcomes plus the four staleness digests and the branch and head-SHA identity fields, and persists it through the injected `TestRunStateFileSystem`; the per-node run scopes discovery to a single node's tests and returns that node's runner outcome to its caller, while the full-suite run records over all discovered files. The four staleness digests are derived by one shared current-staleness-inputs function — over the resolved testing config, the covered test paths and their contents, and the descriptor-declared product inputs — that both the recording path and the status resolver's freshness check consume, so a node's recorded staleness inputs and the current inputs later compared against them derive from one recipe.
 
 ## Rationale
 
@@ -38,6 +38,7 @@ Alternatives rejected:
 ## Invariants
 
 - The full-suite recording and the per-node recording assemble and persist their `TestRunState` through one shared recording function; the scopes differ only by the discovered-file subset they cover.
+- A node's recorded staleness inputs and the current staleness inputs the status resolver compares against them are derived by one shared current-staleness-inputs function; the record side and the read side never derive the four digests by separate recipes.
 - Every persisted `TestRunState` carries runner outcomes, the four staleness digests (config, path-set, content, product-input), and the branch and head-SHA identity fields.
 - The per-node run's result is the node's runner outcome returned to the caller; the testing domain imports neither the status nor the spec domain.
 
@@ -53,6 +54,7 @@ Evidence recording and the per-node run are exported from handlers under `src/co
 - The full-suite run and the per-node run assemble and persist their `TestRunState` through one shared recording function — so per-node and full-run evidence are identical in shape and staleness inputs ([review])
 - The per-node run dispatches through `src/testing/registry.ts` and selects the node's tests by its discovered test paths — so the single-node path names no language ([review])
 - The recording handler derives all four staleness digests (testing config digest, discovered path-set digest, discovered content digest, descriptor-declared product input digests) and records the branch name and head SHA, persisting through the injected `TestRunStateFileSystem` ([review])
+- Derive the four staleness digests through one shared current-staleness-inputs function that the recording path and the status resolver's freshness check both consume — so freshly recorded evidence is never read as stale through recipe drift ([review])
 - The per-node run returns the node's runner outcome to its caller for the injected status resolver to consume ([review])
 
 ### NEVER
