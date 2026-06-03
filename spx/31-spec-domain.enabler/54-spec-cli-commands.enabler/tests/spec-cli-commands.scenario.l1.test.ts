@@ -6,6 +6,7 @@ import { nextCommand, SPEC_NEXT_MESSAGE } from "@/commands/spec/next";
 import { createNodeOutcomeResolver } from "@/commands/spec/node-outcome-resolver";
 import { SPEC_PRODUCT_DIR_WARNING } from "@/commands/spec/root";
 import { OUTPUT_FORMAT, SPEC_STATUS_MESSAGE, statusCommand } from "@/commands/spec/status";
+import { runTestsCommand } from "@/commands/testing";
 import { DEFAULT_CONFIG_FILENAME } from "@/config/index";
 import { GIT_ROOT_COMMAND, GIT_SHOW_TOPLEVEL_ARGS, type GitDependencies } from "@/git/root";
 import { NODE_STATUS_FILENAME, serializeNodeStatus } from "@/lib/node-status";
@@ -358,6 +359,29 @@ describe("spx spec status --update command", () => {
       const rerunRunner = createRecordingCommandRunner({ present: true, exitCode: failingExit });
       await statusCommand({ cwd: env.productDir, update: true, resolveOutcomeFor: recordingResolverFor(rerunRunner) });
       expect(rerunRunner.calls.length).toBeGreaterThan(0);
+    });
+  });
+
+  it("treats a fresh passing full-product run as usable evidence for each node", async () => {
+    await withSpecTreeEnv(MINIMAL_SPEC_TREE_CONFIG, async (env) => {
+      await env.materialize();
+      const rootPath = formatNodePath(env.fixture.root.order, env.fixture.root.slug, env.fixture.root.kind);
+      const peerPath = formatNodePath(env.fixture.peer.order, env.fixture.peer.slug, env.fixture.peer.kind);
+      await addNodeTestFile(env, rootPath);
+      await addNodeTestFile(env, peerPath);
+
+      // A full run records evidence over a superset of any single node's tests.
+      const fullRunner = createRecordingCommandRunner({ present: true, exitCode: 0 });
+      await runTestsCommand(
+        { productDir: env.productDir, passing: false },
+        { registry: testingRegistry, runnerDepsFor: () => fullRunner },
+      );
+
+      // The fresh passing full run is usable for each covered node — freshness is
+      // judged over the run's covered paths — so --update re-runs none of them.
+      const updateRunner = createRecordingCommandRunner({ present: true, exitCode: 0 });
+      await statusCommand({ cwd: env.productDir, update: true, resolveOutcomeFor: recordingResolverFor(updateRunner) });
+      expect(updateRunner.calls).toEqual([]);
     });
   });
 });
