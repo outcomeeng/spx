@@ -46,13 +46,13 @@ interface ResolverEvidence {
  */
 export function createNodeOutcomeResolver(deps: NodeOutcomeResolverDependencies): NodeOutcomeResolver {
   let evidence: Promise<ResolverEvidence> | undefined;
-  const sharedEvidence = (): Promise<ResolverEvidence> => (evidence ??= loadResolverEvidence(deps.productDir));
+  const sharedEvidence = (): Promise<ResolverEvidence> => (evidence ??= loadResolverEvidence(deps));
 
   return async (nodeId: string): Promise<boolean> => {
     const { discoveredTestPaths, terminalRuns } = await sharedEvidence();
     const nodePath = `${SPEC_TREE_CONFIG.ROOT_DIRECTORY}${PATH_SEPARATOR}${nodeId}`;
     const nodeTestPaths = filterNodeTestPaths(discoveredTestPaths, nodePath);
-    const usable = await usableRecordedOutcome(deps, terminalRuns, nodeTestPaths);
+    const usable = await usableRecordedOutcome(deps, discoveredTestPaths, terminalRuns, nodeTestPaths);
     if (usable !== undefined) {
       return usable;
     }
@@ -64,9 +64,9 @@ export function createNodeOutcomeResolver(deps: NodeOutcomeResolverDependencies)
 // Reads the discovered test files and recorded terminal runs once for the whole
 // --update pass. A failed run-state read yields no terminal runs, so every node
 // reads as absent and re-runs — the conservative-correct fallback.
-async function loadResolverEvidence(productDir: string): Promise<ResolverEvidence> {
-  const discoveredTestPaths = await discoverTestFiles(productDir);
-  const runs = await readTestingRuns(productDir);
+async function loadResolverEvidence(deps: NodeOutcomeResolverDependencies): Promise<ResolverEvidence> {
+  const discoveredTestPaths = await discoverTestFiles(deps.productDir);
+  const runs = await readTestingRuns(deps.productDir, deps);
   return { discoveredTestPaths, terminalRuns: runs.ok ? runs.value.terminalRuns : [] };
 }
 
@@ -84,6 +84,7 @@ function filterNodeTestPaths(discoveredTestPaths: readonly string[], nodePath: s
 // evidence, signalling that a fresh per-node run is required.
 async function usableRecordedOutcome(
   deps: NodeOutcomeResolverDependencies,
+  discoveredTestPaths: readonly string[],
   terminalRuns: readonly TestTerminalRun[],
   nodeTestPaths: readonly string[],
 ): Promise<boolean | undefined> {
@@ -96,6 +97,12 @@ async function usableRecordedOutcome(
   // files are unchanged. Comparing over only the node's paths would judge a fresh
   // full-product run stale for any node smaller than the whole product.
   const runCoveredPaths = latest.state.runnerOutcomes.flatMap((outcome) => outcome.testPaths);
+  // A covered test file deleted or renamed since the run makes the recorded
+  // evidence stale; re-run rather than reading a path that no longer exists.
+  const presentTestPaths = new Set(discoveredTestPaths);
+  if (!runCoveredPaths.every((path) => presentTestPaths.has(path))) {
+    return undefined;
+  }
   const current = await currentStalenessInputs(deps.productDir, runCoveredPaths, deps);
   const fresh = isStalenessMatch(extractStalenessInputs(latest.state), current);
   return fresh && latest.state.status === TEST_RUN_STATE_STATUS.PASSED ? true : undefined;
