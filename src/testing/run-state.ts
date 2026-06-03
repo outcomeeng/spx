@@ -198,6 +198,8 @@ const defaultFileSystem: TestRunStateFileSystem = {
   readdir: nodeReaddir,
 };
 
+export { defaultFileSystem as defaultTestRunStateFileSystem };
+
 // Run-directory timestamps reuse the audit formatter so testing state and audit
 // state share one run-directory naming convention.
 export function formatTestRunTimestamp(date: Date): string {

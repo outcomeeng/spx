@@ -2,16 +2,12 @@ import type { ChildProcess } from "node:child_process";
 
 import type { Command } from "commander";
 
-import { runTests, type TestDispatchResult } from "@/commands/testing";
-import { resolveConfig } from "@/config/index";
-import type { PathFilterConfig } from "@/config/primitives";
-import type { Result } from "@/config/types";
+import { runTestsCommand, type TestDispatchResult } from "@/commands/testing";
 import type { Domain } from "@/domains/types";
 import { detectWorktreeProductRoot } from "@/git/root";
 import { writeWarning } from "@/interfaces/cli/write-warning";
 import { lifecycleProcessRunner, spawnManagedSubprocess } from "@/lib/process-lifecycle";
 import { SPEC_TREE_CONFIG } from "@/lib/spec-tree/config";
-import { type TestingConfig, testingConfigDescriptor } from "@/testing/config";
 import { pythonTestingLanguage } from "@/testing/languages/python";
 import type {
   TestingLanguageDescriptor,
@@ -32,7 +28,6 @@ const TESTING_CLI = {
 const PROCESS_FAILURE_EXIT_CODE = 1;
 const UNMATCHED_TEST_FILES_WARNING = "Skipped test files with no registered runner";
 const NO_PRESENCE_DETECTOR_ERROR = "no presence detector configured for testing language";
-const TESTING_CONFIG_ERROR = "failed to resolve testing config";
 
 const TESTING_PRODUCT_DIR_WARNING = {
   NOT_GIT_REPOSITORY:
@@ -81,12 +76,19 @@ async function resolveTestProductDir(): Promise<string> {
   return productDir;
 }
 
-async function resolveTestingPassingScope(productDir: string): Promise<Result<PathFilterConfig>> {
-  const loaded = await resolveConfig(productDir, [testingConfigDescriptor]);
-  if (!loaded.ok) {
-    return loaded;
+// Runs the testing command, surfacing its dispatch result; a config or recording
+// failure exits here, where the descriptor owns the process boundary.
+async function runTestsThroughCommand(productDir: string, passing: boolean): Promise<TestDispatchResult> {
+  try {
+    const result = await runTestsCommand(
+      { productDir, passing },
+      { registry: testingRegistry, runnerDepsFor: createRunnerDepsFor(productDir) },
+    );
+    return result.dispatch;
+  } catch (error) {
+    process.stderr.write(`${error instanceof Error ? error.message : String(error)}\n`);
+    process.exit(PROCESS_FAILURE_EXIT_CODE);
   }
-  return { ok: true, value: (loaded.value[testingConfigDescriptor.section] as TestingConfig).passingScope };
 }
 
 function reportAndExit(result: TestDispatchResult): never {
@@ -104,9 +106,7 @@ export const testingDomain: Domain = {
 
     testCmd.action(async () => {
       const productDir = await resolveTestProductDir();
-      reportAndExit(
-        await runTests({ productDir, registry: testingRegistry }, { runnerDepsFor: createRunnerDepsFor(productDir) }),
-      );
+      reportAndExit(await runTestsThroughCommand(productDir, false));
     });
 
     testCmd
@@ -114,17 +114,7 @@ export const testingDomain: Domain = {
       .description(TESTING_CLI.passingDescription)
       .action(async () => {
         const productDir = await resolveTestProductDir();
-        const passingScope = await resolveTestingPassingScope(productDir);
-        if (!passingScope.ok) {
-          process.stderr.write(`${TESTING_CONFIG_ERROR}: ${passingScope.error}\n`);
-          process.exit(PROCESS_FAILURE_EXIT_CODE);
-        }
-        reportAndExit(
-          await runTests(
-            { productDir, registry: testingRegistry, passingScope: passingScope.value },
-            { runnerDepsFor: createRunnerDepsFor(productDir) },
-          ),
-        );
+        reportAndExit(await runTestsThroughCommand(productDir, true));
       });
   },
 };

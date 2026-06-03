@@ -1,15 +1,21 @@
 import { applyPathFilter, type PathFilterConfig } from "@/config/primitives";
-import { aggregateTestExitCode, groupTestFiles, type LanguageTestGroup } from "@/domains/testing";
+import { aggregateTestExitCode, groupTestFiles, type LanguageTestGroup, SUCCESS_EXIT_CODE } from "@/domains/testing";
 import type { TestingLanguageDescriptor, TestRunInvocation, TestRunnerDependencies } from "@/testing/languages/types";
 import type { TestingRegistry } from "@/testing/registry";
+import type { TestRunnerOutcome } from "@/testing/run-state";
 
 import { discoverTestFiles } from "./discovery";
 
-/** Outcome of a `spx test` dispatch: aggregate exit code, the dispatched groups, and the skipped files. */
+/**
+ * Outcome of a `spx test` dispatch: aggregate exit code, the dispatched groups,
+ * the skipped files, and the per-runner outcomes the recording path consumes. The
+ * outcomes' test paths are the set this run covered.
+ */
 export interface TestDispatchResult {
   readonly exitCode: number;
   readonly groups: readonly LanguageTestGroup[];
   readonly unmatched: readonly string[];
+  readonly outcomes: readonly TestRunnerOutcome[];
 }
 
 export interface TestDispatchOptions {
@@ -44,6 +50,7 @@ export async function runTests(
   const { groups, unmatched } = groupTestFiles(testFiles, options.registry.languages);
 
   const invocations: TestRunInvocation[] = [];
+  const outcomes: TestRunnerOutcome[] = [];
   for (const group of groups) {
     const invocation = await group.language.runTests(
       {
@@ -54,7 +61,15 @@ export async function runTests(
       deps.runnerDepsFor(group.language),
     );
     invocations.push(invocation);
+    // A gated-out runner (not invoked) produces no observed outcome to record.
+    if (invocation.invoked) {
+      outcomes.push({
+        runnerId: group.language.name,
+        testPaths: group.testPaths,
+        exitCode: invocation.exitCode ?? SUCCESS_EXIT_CODE,
+      });
+    }
   }
 
-  return { exitCode: aggregateTestExitCode(invocations), groups, unmatched };
+  return { exitCode: aggregateTestExitCode(invocations), groups, unmatched, outcomes };
 }
