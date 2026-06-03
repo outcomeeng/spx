@@ -11,6 +11,7 @@ import {
   selectLatestTerminalTestRunForNode,
   TEST_RUN_STATE_STATUS,
   type TestRunStateFileSystem,
+  type TestTerminalRun,
 } from "@/testing/run-state";
 
 const PATH_SEPARATOR = "/";
@@ -25,19 +26,33 @@ export interface NodeOutcomeResolverDependencies {
   readonly now?: () => Date;
 }
 
+// The product-wide inputs the per-node freshness check reads, gathered once per
+// resolver rather than per node: the discovered test files and the recorded
+// terminal runs.
+interface ResolverEvidence {
+  readonly discoveredTestPaths: readonly string[];
+  readonly terminalRuns: readonly TestTerminalRun[];
+}
+
 /**
  * Builds the node-outcome resolver `spx spec status --update` injects into the
  * node-status orchestration: for a node it reports the latest usable recorded
  * testing evidence (fresh and passed) and runs the testing domain's registry-based
  * per-node run only when that evidence is stale, failing, or absent. Composed at
  * the command layer over the testing domain so the pure node-status library and
- * the testing library stay independent.
+ * the testing library stay independent. The discovered test files and recorded
+ * runs are read once and memoized across nodes, so resolving N nodes performs one
+ * tree walk and one run-directory read rather than N of each.
  */
 export function createNodeOutcomeResolver(deps: NodeOutcomeResolverDependencies): NodeOutcomeResolver {
+  let evidence: Promise<ResolverEvidence> | undefined;
+  const sharedEvidence = (): Promise<ResolverEvidence> => (evidence ??= loadResolverEvidence(deps.productDir));
+
   return async (nodeId: string): Promise<boolean> => {
+    const { discoveredTestPaths, terminalRuns } = await sharedEvidence();
     const nodePath = `${SPEC_TREE_CONFIG.ROOT_DIRECTORY}${PATH_SEPARATOR}${nodeId}`;
-    const nodeTestPaths = await nodeTestFilePaths(deps.productDir, nodePath);
-    const usable = await usableRecordedOutcome(deps, nodeTestPaths);
+    const nodeTestPaths = filterNodeTestPaths(discoveredTestPaths, nodePath);
+    const usable = await usableRecordedOutcome(deps, terminalRuns, nodeTestPaths);
     if (usable !== undefined) {
       return usable;
     }
@@ -46,13 +61,21 @@ export function createNodeOutcomeResolver(deps: NodeOutcomeResolverDependencies)
   };
 }
 
+// Reads the discovered test files and recorded terminal runs once for the whole
+// --update pass. A failed run-state read yields no terminal runs, so every node
+// reads as absent and re-runs — the conservative-correct fallback.
+async function loadResolverEvidence(productDir: string): Promise<ResolverEvidence> {
+  const discoveredTestPaths = await discoverTestFiles(productDir);
+  const runs = await readTestingRuns(productDir);
+  return { discoveredTestPaths, terminalRuns: runs.ok ? runs.value.terminalRuns : [] };
+}
+
 // A node's test paths are the discovered test files under its subtree — the same
 // set the per-node run records against, so coverage-gated evidence selection and
 // the per-node run agree on path identity.
-async function nodeTestFilePaths(productDir: string, nodePath: string): Promise<readonly string[]> {
-  const discovered = await discoverTestFiles(productDir);
+function filterNodeTestPaths(discoveredTestPaths: readonly string[], nodePath: string): readonly string[] {
   const prefix = `${nodePath}${PATH_SEPARATOR}`;
-  return discovered.filter((path) => path.startsWith(prefix));
+  return discoveredTestPaths.filter((path) => path.startsWith(prefix));
 }
 
 // Resolves a recorded outcome (true) only when the latest covering run is fresh —
@@ -61,13 +84,10 @@ async function nodeTestFilePaths(productDir: string, nodePath: string): Promise<
 // evidence, signalling that a fresh per-node run is required.
 async function usableRecordedOutcome(
   deps: NodeOutcomeResolverDependencies,
+  terminalRuns: readonly TestTerminalRun[],
   nodeTestPaths: readonly string[],
 ): Promise<boolean | undefined> {
-  const runs = await readTestingRuns(deps.productDir);
-  if (!runs.ok) {
-    return undefined;
-  }
-  const latest = selectLatestTerminalTestRunForNode(runs.value.terminalRuns, nodeTestPaths);
+  const latest = selectLatestTerminalTestRunForNode(terminalRuns, nodeTestPaths);
   if (latest === undefined) {
     return undefined;
   }
