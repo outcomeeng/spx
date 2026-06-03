@@ -11,9 +11,7 @@
 - Extract the shared timestamp helper into a neutral utility module that both `src/domains/audit/` and `src/testing/` import; or
 - Inline an independent timestamp formatter in the testing module conforming to the `{YYYY-MM-DD_HH-mm-ss-SSS}` shape declared in [`11-last-run-directory.adr.md`](11-last-run-directory.adr.md).
 
-**Code-layer note:** Removing `slugTestingBranchIdentity` and the `branchSlug` schema field is part of the per-worktree relocation's implementation unit.
-
-**Evidence:** Surfaced by the local changes review (finding F-004) on `work/typescript-testing-runner`; the slug half is resolved by the status/testing reconciliation.
+**Evidence:** Surfaced by the local changes review (finding F-004) on `work/typescript-testing-runner`. The per-worktree relocation has removed `slugTestingBranchIdentity` and the `branchSlug` schema field; only the `formatAuditRunTimestamp` reuse above remains.
 
 ## FOLLOW-UP: terminal-write no-overwrite is not atomic against concurrent same-directory writers
 
@@ -27,16 +25,6 @@
 
 **Evidence:** Surfaced by the Codex review (P2, `src/testing/run-state.ts` rename site) on PR #65.
 
-## FOLLOW-UP: tests and implementation assert the superseded branch-slug storage
-
-`tests/run-state.scenario.l1.test.ts`, `tests/run-state.property.l1.test.ts`, and `tests/passing-scope.compliance.l1.test.ts` assert the common-dir `.spx/testing/{branch-slug}/runs/.../state.json` path and the branch-slug API surface (`createTestRunDirectory(productDir, branchSlug)`, `readTestingBranchRuns(productDir, branchSlug)`, `testingBranchDir`/`testingRunsDir(productDir, branchSlug)`, and the `INVALID_BRANCH_SLUG` error). `src/testing/run-state.ts` still implements that surface. The spec layer relocates evidence to per-worktree `.spx/local/testing/` and drops the branch slug, so these tests and that implementation now describe a superseded contract.
-
-**Impact:** The tests pass against the current implementation, so the gate stays green, but they verify the old contract rather than the one the spec now declares — the normal spec-leads-code interim of the spec-then-implementation split.
-
-**Resolution (implementation unit):** In the code-layer PR, relocate `src/testing/run-state.ts` to resolve `.spx/local/testing/` under `productDir`, drop `branchSlug` from the schema and the directory helpers (renaming `readTestingBranchRuns` → `readTestingRuns`), remove `slugTestingBranchIdentity` and `INVALID_BRANCH_SLUG`, and update the three test files to the per-worktree path and API per `spx/41-testing.enabler/43-last-run-evidence.enabler/11-last-run-directory.adr.md` and `21-testing-state-storage.adr.md`.
-
-**Skills:** `spec-tree:applying` (implementation), `typescript:testing-typescript` (tests), `typescript:coding-typescript` (storage relocation).
-
 ## FOLLOW-UP: staleness must invalidate evidence across a within-worktree checkout change
 
 Per-worktree storage under `.spx/local/testing/` removes the branch-slug partition, and the staleness model in [`43-staleness-comparison.adr.md`](43-staleness-comparison.adr.md) compares only digests (testing config, test path set, test content, descriptor-declared product inputs) — not the recorded `branchName`/`headSha`. When a developer reuses one worktree and checks out another branch or commit, the previous checkout's `.spx/local/testing/` evidence remains; if the digests still match (for example a source change not covered by a descriptor-declared product input), `spx spec status --update` can treat that evidence as usable and skip the per-node run, recording a stale pass/fail for the new checkout. The prior common-dir `.spx/testing/{branch-slug}/` layout sidestepped the cross-branch case by partitioning on the slug.
@@ -48,3 +36,23 @@ Per-worktree storage under `.spx/local/testing/` removes the branch-slug partiti
 **Evidence:** Codex review on PR #98 (P2, `11-last-run-directory.adr.md` selection rule); the digest-only staleness inputs in [`43-staleness-comparison.adr.md`](43-staleness-comparison.adr.md) and the per-worktree relocation in [`11-last-run-directory.adr.md`](11-last-run-directory.adr.md).
 
 **Skills:** `spec-tree:applying` (implementation), `typescript:architecting-typescript` (staleness ADR), `typescript:coding-typescript` (staleness comparison).
+
+## FOLLOW-UP: node-scoped selection treats an empty node-path set as no coverage
+
+`selectLatestTerminalTestRunForNode` (via `runCoversNode`) returns `undefined` for a node whose `nodeTestPaths` is empty — no run is considered to cover a node that declares no test paths. This is the correct outcome under the delegation contract (`spx/31-spec-domain.enabler/54-spec-cli-commands.enabler/21-status-testing-delegation.adr.md`): only test-bearing, non-`EXCLUDE` nodes reach the resolver, and those always have at least one test path, so a `declared` node never selects evidence. The empty-paths branch is therefore a defensive guard the delegation contract makes unreachable.
+
+**Impact:** None in the intended flow. The branch is untested because the generator's `testPaths` arbitrary enforces `minLength: 1`; no scenario constructs an empty node-path set.
+
+**Resolution (deferred):** If a future caller can pass an empty node-path set, add a generator path and a scenario asserting the no-coverage outcome, or make the contract reject empty input explicitly. Until then the guard's behavior is contract-implied.
+
+**Evidence:** Local changes review on the per-worktree relocation PR (`runCoversNode` empty-paths early return in `src/testing/run-state.ts`).
+
+## FOLLOW-UP: selection ordering has example coverage but no property-based verification
+
+`selectLatestTerminalTestRunForNode` (via `compareTerminalRuns`) orders covering terminal runs by `completedAt`, then `startedAt`, then run-directory name, declared in [`21-testing-state-storage.adr.md`](21-testing-state-storage.adr.md) and [`11-last-run-directory.adr.md`](11-last-run-directory.adr.md). The scenario suite exercises each ordering axis with a dedicated example (a `completedAt` difference, a `completedAt` tie broken by `startedAt`, and a `completedAt`+`startedAt` tie broken by directory name), so every comparator level has deterministic coverage.
+
+**Impact:** None on the shipped behavior — each axis is covered. The example scenarios do not verify the total order transitively across an arbitrary pool of runs: a regression that broke the reduce-to-maximum over a large mixed pool (rather than a single axis) would escape the example suite.
+
+**Resolution (deferred — wider test architecture than this relocation):** Add a property test that generates a pool of terminal runs with varied timestamps, directory names, and coverage, and asserts `selectLatestTerminalTestRunForNode` returns a covering run that no other covering run compares greater than under the documented `completedAt → startedAt → directory-name` order. This needs a run-pool generator and belongs with the per-node run surface implementation, not this storage relocation.
+
+**Evidence:** Local changes review on the per-worktree relocation PR (F-002): the property suite covers only round-trip fidelity; selection ordering is example-covered only.
