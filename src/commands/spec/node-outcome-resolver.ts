@@ -91,7 +91,12 @@ async function usableRecordedOutcome(
   if (latest === undefined) {
     return undefined;
   }
-  const current = await currentStalenessInputs(deps.productDir, nodeTestPaths, deps);
+  // Compare freshness over the run's own covered paths — the set its recorded
+  // digests were derived from — so a covering run reads as fresh when its executed
+  // files are unchanged. Comparing over only the node's paths would judge a fresh
+  // full-product run stale for any node smaller than the whole product.
+  const runCoveredPaths = latest.state.runnerOutcomes.flatMap((outcome) => outcome.testPaths);
+  const current = await currentStalenessInputs(deps.productDir, runCoveredPaths, deps);
   const fresh = isStalenessMatch(extractStalenessInputs(latest.state), current);
   return fresh && latest.state.status === TEST_RUN_STATE_STATUS.PASSED ? true : undefined;
 }
