@@ -1,6 +1,7 @@
 import { existsSync } from "node:fs";
 import { rm } from "node:fs/promises";
 import { join } from "node:path";
+import { Writable } from "node:stream";
 import { describe, expect, it } from "vitest";
 
 import { nextCommand, SPEC_NEXT_MESSAGE } from "@/commands/spec/next";
@@ -10,6 +11,7 @@ import { OUTPUT_FORMAT, SPEC_STATUS_MESSAGE, statusCommand } from "@/commands/sp
 import { runTestsCommand } from "@/commands/testing";
 import { DEFAULT_CONFIG_FILENAME } from "@/config/index";
 import { GIT_ROOT_COMMAND, GIT_SHOW_TOPLEVEL_ARGS, type GitDependencies } from "@/git/root";
+import { createRunnerDepsFor } from "@/interfaces/cli/testing-runner-deps";
 import { NODE_STATUS_FILENAME, serializeNodeStatus } from "@/lib/node-status";
 import {
   getKindDefinition,
@@ -20,6 +22,7 @@ import {
   type SpecTreeNodeSourceEntry,
 } from "@/lib/spec-tree";
 import { KIND_REGISTRY, type NodeKind, SPEC_TREE_CONFIG } from "@/lib/spec-tree/config";
+import { typescriptTestingLanguage } from "@/testing/languages/typescript";
 import { testingRegistry } from "@/testing/registry";
 import { testingRunsDir } from "@/testing/run-state";
 import { MINIMAL_SPEC_TREE_CONFIG } from "@testing/generators/config/config";
@@ -412,6 +415,31 @@ describe("spx spec status --update command", () => {
         statusCommand({ cwd: env.productDir, update: true, resolveOutcomeFor: recordingResolverFor(updateRunner) }),
       ).resolves.toBeDefined();
       expect(updateRunner.calls.length).toBeGreaterThan(0);
+    });
+  });
+
+  it("routes a per-node run's stdout to the injected stream so --update stdout stays parseable", async () => {
+    await withTestEnv(MINIMAL_SPEC_TREE_CONFIG, async ({ productDir }) => {
+      // The status path injects process.stderr as the runner's stdout stream so the
+      // --json rollup is the only thing on stdout. Prove the runner forwards a child's
+      // stdout to the injected stream rather than to process.stdout.
+      const captured: Buffer[] = [];
+      const sink = new Writable({
+        write(chunk: Buffer, _encoding, done) {
+          captured.push(Buffer.from(chunk));
+          done();
+        },
+      });
+      const marker = sampleConfigTestValue(CONFIG_TEST_GENERATOR.key());
+      const runnerDeps = createRunnerDepsFor(productDir, sink)(typescriptTestingLanguage);
+
+      const result = await runnerDeps.runCommand(process.execPath, [
+        "-e",
+        `process.stdout.write(${JSON.stringify(marker)})`,
+      ]);
+
+      expect(result.exitCode).toBe(0);
+      expect(Buffer.concat(captured).toString()).toContain(marker);
     });
   });
 
