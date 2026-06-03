@@ -61,3 +61,11 @@ The `--update` scenario tests drive `createNodeOutcomeResolver` with a recording
 **Resolution:** throw a clear error when `source` and `update` are both set — the in-memory source has no productDir to refresh — rather than silently rendering without updating.
 
 **Skills:** `spec-tree:applying` (implementation).
+
+## FOLLOW-UP: --update freshness inherits the inert product-input staleness dimension
+
+`createNodeOutcomeResolver`'s freshness check compares recorded against current staleness inputs via `isStalenessMatch`, whose product-input dimension is empty (`NO_PRODUCT_INPUT_DIGESTS`). Editing implementation or product source while leaving the test files and the testing config unchanged therefore does not make recorded evidence stale, so `spx spec status --update` can report a node `passing` though its implementation changed since the last run. The three active digests (testing config, discovered path set, discovered test content) carry staleness detection in the meantime. Refusing cached evidence while product digests are empty is rejected: it would make the resolver re-run every node unconditionally, which `21-status-testing-delegation.adr.md` and the read-versus-refresh split of `spx/31-spec-domain.enabler/21-node-status.enabler/15-status-file-contract.pdr.md` forbid.
+
+**Resolution:** owned by `spx/41-testing.enabler/ISSUES.md` ("recorded product-input digests are empty until descriptors declare product inputs"); when the domain-execution-descriptor surface lands and `recordRun` records real product-input digests, `--update` freshness detects product-source changes automatically through the shared current-staleness-inputs recipe — no resolver change is required.
+
+**Skills:** `spec-tree:applying` (implementation, in 41-testing).
