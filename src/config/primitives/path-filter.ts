@@ -50,3 +50,36 @@ export function validatePathFilterConfig(raw: unknown, path: string): Result<Pat
 
   return { ok: true, value };
 }
+
+const PATH_SEGMENT_SEPARATOR = "/";
+
+function normalizePathPrefix(value: string): string {
+  return value.replace(/\/+$/, "");
+}
+
+function pathMatchesPrefix(path: string, prefix: string): boolean {
+  const normalizedPath = normalizePathPrefix(path);
+  const normalizedPrefix = normalizePathPrefix(prefix);
+  return normalizedPath === normalizedPrefix
+    || normalizedPath.startsWith(`${normalizedPrefix}${PATH_SEGMENT_SEPARATOR}`);
+}
+
+/**
+ * Keeps the paths a filter admits: a path survives when the include set is empty
+ * or some include prefix matches it, and no exclude prefix matches it. A prefix
+ * matches a path by exact equality or at a path-segment boundary, never by shared
+ * leading text alone.
+ */
+export function applyPathFilter(
+  paths: readonly string[],
+  config: PathFilterConfig,
+): readonly string[] {
+  const includePrefixes = config.include ?? [];
+  const excludePrefixes = config.exclude ?? [];
+  return paths.filter((path) => {
+    if (includePrefixes.length > 0 && !includePrefixes.some((prefix) => pathMatchesPrefix(path, prefix))) {
+      return false;
+    }
+    return !excludePrefixes.some((prefix) => pathMatchesPrefix(path, prefix));
+  });
+}
