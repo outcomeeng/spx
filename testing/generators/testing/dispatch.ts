@@ -55,10 +55,17 @@ function arbitraryNodePath(): fc.Arbitrary<string> {
     .map((segments) => segments.join(PATH_SEPARATOR));
 }
 
+// True when `prefix` equals `path` or is an ancestor segment of it — the relation
+// under which a passing-scope exclusion of `prefix` also covers `path`.
+function isNodePathPrefix(prefix: string, path: string): boolean {
+  return path === prefix || path.startsWith(`${prefix}${PATH_SEPARATOR}`);
+}
+
 function arbitraryDistinctNodePaths(): fc.Arbitrary<readonly [string, string]> {
   return fc
     .uniqueArray(arbitraryNodePath(), { minLength: NODE_PAIR_LENGTH, maxLength: NODE_PAIR_LENGTH })
-    .map(([first, second]) => [first, second] as const);
+    .map(([first, second]) => [first, second] as const)
+    .filter(([first, second]) => !isNodePathPrefix(first, second) && !isNodePathPrefix(second, first));
 }
 
 function testsDirectoryFor(nodePath: string): string {
