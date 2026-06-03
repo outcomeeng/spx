@@ -18,7 +18,7 @@ import type {
 const PYTHON_TESTING_LANGUAGE_NAME = "python";
 
 /** pytest test-file basename shape: a `test_` prefix and a `.py` extension. */
-const PYTHON_TEST_FILE_PREFIX = "test_";
+export const PYTHON_TEST_FILE_PREFIX = "test_";
 const PYTHON_TEST_FILE_EXTENSION = ".py";
 const PYTHON_TEST_FILE_PATTERNS = [`${PYTHON_TEST_FILE_PREFIX}*${PYTHON_TEST_FILE_EXTENSION}`] as const;
 

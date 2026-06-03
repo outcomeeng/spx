@@ -22,6 +22,7 @@ import {
   type SpecTreeNodeSourceEntry,
 } from "@/lib/spec-tree";
 import { KIND_REGISTRY, type NodeKind, SPEC_TREE_CONFIG } from "@/lib/spec-tree/config";
+import { PYTHON_TEST_FILE_PREFIX } from "@/testing/languages/python";
 import { typescriptTestingLanguage } from "@/testing/languages/typescript";
 import { testingRegistry } from "@/testing/registry";
 import { testingRunsDir } from "@/testing/run-state";
@@ -457,6 +458,31 @@ describe("spx spec status --update command", () => {
       await expect(readRecordedStatus(env, rootPath)).resolves.toBe(SPEC_TREE_NODE_STATE.FAILING);
     });
   });
+
+  it("classifies a node failing when one of its languages' runners is absent", async () => {
+    await withSpecTreeEnv(MINIMAL_SPEC_TREE_CONFIG, async (env) => {
+      await env.materialize();
+      const rootPath = formatNodePath(env.fixture.root.order, env.fixture.root.slug, env.fixture.root.kind);
+      await addNodeTestFile(env, rootPath);
+      await addNodePythonTestFile(env, rootPath);
+
+      // The TypeScript runner is present and passes; the Python runner is absent, so
+      // the node's Python test path never executes. A partial run must not classify
+      // the node passing even though the executed outcome passed.
+      const presentRunner = createRecordingCommandRunner({ present: true, exitCode: 0 });
+      const absentRunner = createRecordingCommandRunner({ present: false, exitCode: 0 });
+      const resolveOutcomeFor = (productDir: string) =>
+        createNodeOutcomeResolver({
+          productDir,
+          registry: testingRegistry,
+          runnerDepsFor: (language) => language.name === typescriptTestingLanguage.name ? presentRunner : absentRunner,
+        });
+
+      await statusCommand({ cwd: env.productDir, update: true, resolveOutcomeFor });
+
+      await expect(readRecordedStatus(env, rootPath)).resolves.toBe(SPEC_TREE_NODE_STATE.FAILING);
+    });
+  });
 });
 
 function recordingResolverFor(runner: ReturnType<typeof createRecordingCommandRunner>) {
@@ -477,6 +503,24 @@ async function addNodeTestFile(env: CurrentSpecTreeEnv, nodePath: string): Promi
     nodePath,
     SPEC_TREE_EVIDENCE_FILE.DIRECTORY_NAME,
     `${slug}.${mode}.${level}.${tail}`,
+  ].join("/");
+  await writeTestFileFixture(env.productDir, evidenceFile);
+  return evidenceFile;
+}
+
+async function addNodePythonTestFile(env: CurrentSpecTreeEnv, nodePath: string): Promise<string> {
+  // A spec-tree Python evidence file (`test_<slug>.<mode>.<level>.py`), so the node
+  // carries a second-language test path the Python runner — gated out in this env —
+  // leaves unexecuted.
+  const [mode] = SPEC_TREE_EVIDENCE_FILE.MODES;
+  const [level] = SPEC_TREE_EVIDENCE_FILE.LEVELS;
+  const slug = sampleSpecTreeTestValue(SPEC_TREE_TEST_GENERATOR.sourceSlug());
+  const tail = SPEC_TREE_EVIDENCE_FILE.TAILS.PYTHON.join(SPEC_TREE_EVIDENCE_FILE.SEGMENT_SEPARATOR);
+  const evidenceFile = [
+    SPEC_TREE_CONFIG.ROOT_DIRECTORY,
+    nodePath,
+    SPEC_TREE_EVIDENCE_FILE.DIRECTORY_NAME,
+    `${PYTHON_TEST_FILE_PREFIX}${slug}.${mode}.${level}.${tail}`,
   ].join("/");
   await writeTestFileFixture(env.productDir, evidenceFile);
   return evidenceFile;
