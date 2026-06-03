@@ -28,6 +28,25 @@ describe("spx spec process contract", () => {
     });
   });
 
+  it("accepts the status --update flag through the development CLI entry point", async () => {
+    await withSpecTreeEnv(MINIMAL_SPEC_TREE_CONFIG, async (env) => {
+      await env.materialize();
+
+      // The fixture nodes carry no co-located tests, so every node is `declared`
+      // and --update composes the production resolver but invokes no per-node run.
+      const { stdout, stderr, exitCode } = await runCli(
+        env.productDir,
+        SPEC_DOMAIN_CLI.COMMAND,
+        SPEC_DOMAIN_CLI.STATUS_COMMAND,
+        SPEC_DOMAIN_CLI.UPDATE_OPTION,
+      );
+
+      expect(exitCode, stderr).toBe(0);
+      expect(stdout).toContain(env.fixture.root.slug);
+      expect(stdout).toContain(SPEC_TREE_NODE_STATE.DECLARED);
+    });
+  });
+
   it("routes next through the development CLI entry point", async () => {
     await withSpecTreeEnv(MINIMAL_SPEC_TREE_CONFIG, async (env) => {
       await env.materialize();
