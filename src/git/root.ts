@@ -51,8 +51,8 @@ const defaultDeps: GitDependencies = {
   },
 };
 
-const NOT_GIT_REPO_WARNING =
-  "Warning: Not in a git repository. Sessions will be created relative to current directory.";
+export const NOT_GIT_REPO_WARNING =
+  "Warning: Not in a git repository; resolving session storage relative to the current directory.";
 
 export const GIT_ROOT_COMMAND = {
   EXECUTABLE: "git",

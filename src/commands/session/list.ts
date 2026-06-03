@@ -16,7 +16,7 @@ import {
   SESSION_STATUSES,
   SessionStatus,
 } from "@/domains/session/types";
-import { resolveSessionConfig } from "@/git/root";
+import { resolveSessionConfigSurfacingWarning, type SessionWarningHandler } from "./resolve-config";
 
 export const SESSION_LIST_FORMAT = {
   TEXT: "text",
@@ -38,6 +38,8 @@ export interface ListOptions {
   status?: string;
   /** Custom sessions directory */
   sessionsDir?: string;
+  /** Receives the non-git-repo diagnostic for the descriptor to surface. */
+  onWarning?: SessionWarningHandler;
   /** Output format */
   format?: SessionListFormat;
 }
@@ -126,7 +128,7 @@ function validateStatus(input: string): SessionStatus {
 }
 
 export async function listCommand(options: ListOptions): Promise<string> {
-  const { config } = await resolveSessionConfig({ sessionsDir: options.sessionsDir });
+  const config = await resolveSessionConfigSurfacingWarning(options.sessionsDir, options.onWarning);
 
   // Validate and resolve statuses before use.
   const statuses: readonly SessionStatus[] = options.status !== undefined

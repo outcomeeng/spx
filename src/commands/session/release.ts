@@ -10,7 +10,7 @@ import { processBatch } from "@/domains/session/batch";
 import { SessionNotClaimedError } from "@/domains/session/errors";
 import { buildReleasePaths, findCurrentSession } from "@/domains/session/release";
 import { SessionDirectoryConfig } from "@/domains/session/show";
-import { resolveSessionConfig } from "@/git/root";
+import { resolveSessionConfigSurfacingWarning, type SessionWarningHandler } from "./resolve-config";
 
 export const SESSION_RELEASE_OUTPUT = {
   RELEASED: "Released session",
@@ -25,6 +25,8 @@ export interface ReleaseOptions {
   sessionIds: string[];
   /** Custom sessions directory */
   sessionsDir?: string;
+  /** Receives the non-git-repo diagnostic for the descriptor to surface. */
+  onWarning?: SessionWarningHandler;
 }
 
 /**
@@ -74,7 +76,7 @@ async function releaseSingle(sessionId: string, config: SessionDirectoryConfig):
  * @throws {SessionNotClaimedError} When no session is claimed (empty IDs) or session not in doing (single ID)
  */
 export async function releaseCommand(options: ReleaseOptions): Promise<string> {
-  const { config } = await resolveSessionConfig({ sessionsDir: options.sessionsDir });
+  const config = await resolveSessionConfigSurfacingWarning(options.sessionsDir, options.onWarning);
 
   let ids = options.sessionIds;
 

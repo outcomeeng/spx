@@ -4,11 +4,19 @@ import { readdir, readFile } from "node:fs/promises";
 import { join } from "node:path";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 
-import { SESSION_STATUSES } from "@/domains/session/types";
-import { sampleSessionContent, sampleSessionId } from "@testing/generators/session/session";
+import { SESSION_STATUSES, type SessionStatus } from "@/domains/session/types";
+import { NOT_GIT_REPO_WARNING } from "@/git/root";
+import { sampleLiteralTestValue } from "@testing/generators/literal/literal";
+import { arbitraryHandoffHeader, sampleSessionContent, sampleSessionId } from "@testing/generators/session/session";
 import { GIT_TEST_FLAGS, GIT_TEST_SUBCOMMANDS } from "@testing/harnesses/git-test-constants";
 import { withGitWorktreeEnv } from "@testing/harnesses/git-worktree/git-worktree";
-import { createSessionHarness, type SessionHarness } from "@testing/harnesses/session/harness";
+import {
+  buildHandoffStdin,
+  buildSessionMarkdownBody,
+  createNonGitSessionEnv,
+  createSessionHarness,
+  type SessionHarness,
+} from "@testing/harnesses/session/harness";
 
 const [TODO, DOING, ARCHIVE] = SESSION_STATUSES;
 const CLI_ENTRY = join(process.cwd(), "bin/spx.js");
@@ -228,5 +236,64 @@ describe("session CLI compliance", () => {
 
     expect(result.exitCode).toBe(0);
     expect(existsSync(join(harness.statusDir(ARCHIVE), `${sessionId}.md`))).toBe(true);
+  });
+});
+
+describe("session CLI non-git warning", () => {
+  const SESSION_DOMAIN = "session";
+
+  // Each config-resolving subcommand paired with the status it consumes; `seed`
+  // is null when the subcommand takes no session id.
+  const WARNING_CASES: readonly { readonly subcommand: string; readonly seed: SessionStatus | null }[] = [
+    { subcommand: "list", seed: null },
+    { subcommand: "todo", seed: null },
+    { subcommand: "prune", seed: null },
+    { subcommand: "show", seed: TODO },
+    { subcommand: "delete", seed: TODO },
+    { subcommand: "pickup", seed: TODO },
+    { subcommand: "release", seed: DOING },
+    { subcommand: "archive", seed: TODO },
+  ];
+
+  for (const { subcommand, seed } of WARNING_CASES) {
+    it(`ALWAYS: spx session ${subcommand} surfaces the non-git diagnostic on stderr`, async () => {
+      const env = await createNonGitSessionEnv();
+      try {
+        const id = sampleSessionId();
+        if (seed !== null) {
+          await env.writeSession(seed, id);
+        }
+        const args = seed === null
+          ? [SESSION_DOMAIN, subcommand]
+          : [SESSION_DOMAIN, subcommand, id];
+
+        const result = await runSpx(args, undefined, env.cwd);
+
+        expect(result.stderr).toContain(NOT_GIT_REPO_WARNING);
+      } finally {
+        await env.cleanup();
+      }
+    });
+  }
+
+  it("ALWAYS: handoff surfaces no non-git diagnostic — it refuses a non-git base first", async () => {
+    const env = await createNonGitSessionEnv();
+    try {
+      const stdin = buildHandoffStdin(
+        sampleLiteralTestValue(arbitraryHandoffHeader()),
+        buildSessionMarkdownBody("Non-git handoff"),
+      );
+
+      const result = await runSpx([SESSION_DOMAIN, "handoff"], stdin, env.cwd);
+
+      expect(result.stderr).not.toContain(NOT_GIT_REPO_WARNING);
+      expect(result.stderr).toContain("SessionHandoffBaseError");
+    } finally {
+      await env.cleanup();
+    }
+  });
+
+  it("NEVER: the non-git diagnostic claims sessions will be created", () => {
+    expect(NOT_GIT_REPO_WARNING).not.toMatch(/creat/i);
   });
 });
