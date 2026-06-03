@@ -1,12 +1,11 @@
 import type { GitDependencies } from "@/git/root";
-import { createNodeStatusProvider } from "@/lib/node-status";
+import { createNodeStatusProvider, type NodeOutcomeResolver, updateNodeStatus } from "@/lib/node-status";
 import {
   createFilesystemSpecTreeSource,
   projectSpecTree,
   readSpecTree,
   type SpecTreeProjectedNode,
   type SpecTreeProjection,
-  type SpecTreeSnapshot,
   type SpecTreeSource,
 } from "@/lib/spec-tree";
 import { KIND_REGISTRY, SPEC_TREE_CONFIG } from "@/lib/spec-tree/config";
@@ -49,14 +48,51 @@ export interface StatusOptions {
   gitDependencies?: GitDependencies;
   onWarning?: SpecProductDirWarningHandler;
   source?: SpecTreeSource;
+  /** When true, refresh each node's spx.status.json before reporting the rollup. */
+  update?: boolean;
+  /** Builds the per-node outcome resolver --update injects; required when update is set. */
+  resolveOutcomeFor?: (productDir: string) => NodeOutcomeResolver;
 }
+
+const STATUS_UPDATE_REQUIRES_RESOLVER = "spx spec status --update requires a node-outcome resolver";
 
 export async function statusCommand(
   options: StatusOptions = {},
 ): Promise<string> {
-  const snapshot = await readCommandSnapshot(options);
-  const projection = projectSpecTree(snapshot);
-  return renderSpecStatus(projection, options.format);
+  if (options.source !== undefined) {
+    // Injected sources are in-memory and carry no productDir, so the node-status
+    // read-back provider — which resolves each spx.status.json under productDir —
+    // cannot apply here; this path bypasses filesystem and git resolution and
+    // derives state live.
+    return renderSpecStatus(projectSpecTree(await readSpecTree({ source: options.source })), options.format);
+  }
+
+  const productDir = await resolveSpecProductDir(
+    options.cwd ?? process.cwd(),
+    options.gitDependencies,
+    options.onWarning,
+  );
+  if (options.update === true) {
+    // --update refreshes each node's spx.status.json before the read-back below, so
+    // the reported rollup reflects the just-written state. The resolver is injected
+    // at the command edge; this handler composes no language runner.
+    await updateNodeStatus({ productDir, resolveOutcome: requireOutcomeResolver(options)(productDir) });
+  }
+  // Read-back: a node's committed spx.status.json overrides live derivation; a node
+  // with no status file yields undefined, routing the spec-tree library back to live
+  // derivation.
+  const snapshot = await readSpecTree({
+    source: createFilesystemSpecTreeSource({ productDir }),
+    evidence: createNodeStatusProvider(productDir),
+  });
+  return renderSpecStatus(projectSpecTree(snapshot), options.format);
+}
+
+function requireOutcomeResolver(options: StatusOptions): (productDir: string) => NodeOutcomeResolver {
+  if (options.resolveOutcomeFor === undefined) {
+    throw new Error(STATUS_UPDATE_REQUIRES_RESOLVER);
+  }
+  return options.resolveOutcomeFor;
 }
 
 export function renderSpecStatus(
@@ -81,27 +117,6 @@ export function renderSpecStatus(
       throw new RangeError(`Unsupported spec status output format: ${unsupportedFormat}`);
     }
   }
-}
-
-async function readCommandSnapshot(options: StatusOptions): Promise<SpecTreeSnapshot> {
-  if (options.source !== undefined) {
-    // Injected sources are in-memory and carry no productDir, so the node-status
-    // read-back provider — which resolves each spx.status.json under productDir —
-    // cannot apply here; this path bypasses filesystem and git resolution and
-    // derives state live.
-    return readSpecTree({ source: options.source });
-  }
-
-  const productDir = await resolveSpecProductDir(
-    options.cwd ?? process.cwd(),
-    options.gitDependencies,
-    options.onWarning,
-  );
-  const source = createFilesystemSpecTreeSource({ productDir });
-  // Read-back: a node's committed spx.status.json overrides live derivation; a node
-  // with no status file yields undefined, routing the spec-tree library back to live
-  // derivation. No tests run on this path — `--update` owns evidence refresh.
-  return readSpecTree({ source, evidence: createNodeStatusProvider(productDir) });
 }
 
 function formatJSON(projection: SpecTreeProjection): string {

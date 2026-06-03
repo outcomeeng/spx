@@ -1,9 +1,12 @@
 import type { Command } from "commander";
 
 import { nextCommand } from "@/commands/spec/next";
+import { createNodeOutcomeResolver } from "@/commands/spec/node-outcome-resolver";
 import { OUTPUT_FORMAT, type OutputFormat, statusCommand } from "@/commands/spec/status";
 import type { Domain } from "@/domains/types";
+import { testingRegistry } from "@/testing/registry";
 
+import { createRunnerDepsFor } from "./testing-runner-deps";
 import { writeWarning } from "./write-warning";
 
 export const SPEC_DOMAIN_CLI = {
@@ -13,6 +16,7 @@ export const SPEC_DOMAIN_CLI = {
   JSON_OPTION: "--json",
   FORMAT_OPTION_FLAG: "--format",
   FORMAT_OPTION_DEFINITION: "--format <format>",
+  UPDATE_OPTION: "--update",
 } as const;
 
 export const SPEC_STATUS_FORMAT_MESSAGE = {
@@ -57,12 +61,20 @@ function registerSpecCommands(specCmd: Command): void {
     .description("Get product status")
     .option(SPEC_DOMAIN_CLI.JSON_OPTION, "Output as JSON")
     .option(SPEC_DOMAIN_CLI.FORMAT_OPTION_DEFINITION, "Output format (text|json|markdown|table)")
-    .action(async (options: { json?: boolean; format?: string }) => {
+    .option(SPEC_DOMAIN_CLI.UPDATE_OPTION, "Refresh each node's spx.status.json before reporting")
+    .action(async (options: { json?: boolean; format?: string; update?: boolean }) => {
       try {
         const output = await statusCommand({
           cwd: process.cwd(),
           format: resolveStatusFormat(options),
           onWarning: writeWarning,
+          update: options.update === true,
+          resolveOutcomeFor: (productDir) =>
+            createNodeOutcomeResolver({
+              productDir,
+              registry: testingRegistry,
+              runnerDepsFor: createRunnerDepsFor(productDir),
+            }),
         });
         console.log(output);
       } catch (error) {
