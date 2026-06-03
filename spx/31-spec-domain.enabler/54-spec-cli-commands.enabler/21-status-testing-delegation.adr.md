@@ -15,6 +15,7 @@ A status-owned per-node runner is rejected: it duplicates the testing registry's
 - The resolver is consulted only for nodes whose classification reaches the test-outcome stage (co-located tests present, not in `spx/EXCLUDE`); `declared` and `specified` nodes classify structurally without a per-node run.
 - The resolver derives a node's current staleness inputs through the testing domain's shared current-staleness-inputs function — the same recipe the recording path records with per `spx/41-testing.enabler/71-execution-recording.adr.md` — so freshly recorded evidence is never judged stale through recipe drift.
 - The resolver identifies a node's test paths through the testing domain's discovery surface — the same one the per-node run records against — so coverage-gated evidence selection and the per-node run agree on path identity.
+- A fresh per-node run reports the node passing only when the run's recorded outcomes cover every one of the node's discovered test paths and its status is `passed`; a run that leaves any node test path unexecuted — a gated-out or unmatched language — never reports passing even when its executed outcomes passed.
 - The `--update` descriptor composes the per-node runner so the run's stdout is written to a non-stdout stream; stdout carries only the status rollup, keeping `--json` output machine-parseable.
 
 ## Verification
@@ -30,3 +31,4 @@ A status-owned per-node runner is rejected: it duplicates the testing registry's
 - NEVER: `spx spec status` without `--update` invokes the resolver or executes tests — only `--update` refreshes evidence ([audit])
 - NEVER: a node's outcome is resolved by mocking the testing domain — the resolver is exercised against a real testing surface or an injected test double implementing its interface, never `vi.mock()`/`jest.mock()` ([audit])
 - ALWAYS: a `spx spec status --update` per-node run's stdout is written off the process stdout stream so the rollup owns stdout and `--json` stays parseable ([audit])
+- ALWAYS: a fresh per-node run reports the node passing only when its recorded outcomes cover every one of the node's discovered test paths and its status is `passed`; a partial run never passes ([audit])
