@@ -42,19 +42,30 @@ export const SPEC_STATUS_TABLE_HEADER = formatTableRow([
 
 export type OutputFormat = (typeof OUTPUT_FORMAT)[keyof typeof OUTPUT_FORMAT];
 
-export interface StatusOptions {
+interface StatusBaseOptions {
   cwd?: string;
   format?: OutputFormat;
   gitDependencies?: GitDependencies;
   onWarning?: SpecProductDirWarningHandler;
   source?: SpecTreeSource;
-  /** When true, refresh each node's spx.status.json before reporting the rollup. */
-  update?: boolean;
-  /** Builds the per-node outcome resolver --update injects; required when update is set. */
-  resolveOutcomeFor?: (productDir: string) => NodeOutcomeResolver;
 }
 
-const STATUS_UPDATE_REQUIRES_RESOLVER = "spx spec status --update requires a node-outcome resolver";
+// The read path takes no resolver; the --update path requires one. Modeling the
+// co-dependency as a discriminated union makes `update: true` without a resolver a
+// compile-time error rather than a runtime throw.
+interface StatusReadOptions extends StatusBaseOptions {
+  update?: false;
+  resolveOutcomeFor?: undefined;
+}
+
+interface StatusUpdateOptions extends StatusBaseOptions {
+  /** Refresh each node's spx.status.json before reporting the rollup. */
+  update: true;
+  /** Builds the per-node outcome resolver --update injects. */
+  resolveOutcomeFor: (productDir: string) => NodeOutcomeResolver;
+}
+
+export type StatusOptions = StatusReadOptions | StatusUpdateOptions;
 
 export async function statusCommand(
   options: StatusOptions = {},
@@ -76,7 +87,7 @@ export async function statusCommand(
     // --update refreshes each node's spx.status.json before the read-back below, so
     // the reported rollup reflects the just-written state. The resolver is injected
     // at the command edge; this handler composes no language runner.
-    await updateNodeStatus({ productDir, resolveOutcome: requireOutcomeResolver(options)(productDir) });
+    await updateNodeStatus({ productDir, resolveOutcome: options.resolveOutcomeFor(productDir) });
   }
   // Read-back: a node's committed spx.status.json overrides live derivation; a node
   // with no status file yields undefined, routing the spec-tree library back to live
@@ -86,13 +97,6 @@ export async function statusCommand(
     evidence: createNodeStatusProvider(productDir),
   });
   return renderSpecStatus(projectSpecTree(snapshot), options.format);
-}
-
-function requireOutcomeResolver(options: StatusOptions): (productDir: string) => NodeOutcomeResolver {
-  if (options.resolveOutcomeFor === undefined) {
-    throw new Error(STATUS_UPDATE_REQUIRES_RESOLVER);
-  }
-  return options.resolveOutcomeFor;
 }
 
 export function renderSpecStatus(

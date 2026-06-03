@@ -64,18 +64,24 @@ function registerSpecCommands(specCmd: Command): void {
     .option(SPEC_DOMAIN_CLI.UPDATE_OPTION, "Refresh each node's spx.status.json before reporting")
     .action(async (options: { json?: boolean; format?: string; update?: boolean }) => {
       try {
-        const output = await statusCommand({
-          cwd: process.cwd(),
-          format: resolveStatusFormat(options),
-          onWarning: writeWarning,
-          update: options.update === true,
-          resolveOutcomeFor: (productDir) =>
-            createNodeOutcomeResolver({
-              productDir,
-              registry: testingRegistry,
-              runnerDepsFor: createRunnerDepsFor(productDir),
-            }),
-        });
+        const format = resolveStatusFormat(options);
+        // The per-node runner pipes child stdout to process.stderr here so stdout
+        // carries only the status rollup; a --json rollup therefore stays parseable
+        // even when --update runs a node's tests for stale, failing, or absent evidence.
+        const output = options.update === true
+          ? await statusCommand({
+            cwd: process.cwd(),
+            format,
+            onWarning: writeWarning,
+            update: true,
+            resolveOutcomeFor: (productDir) =>
+              createNodeOutcomeResolver({
+                productDir,
+                registry: testingRegistry,
+                runnerDepsFor: createRunnerDepsFor(productDir, process.stderr),
+              }),
+          })
+          : await statusCommand({ cwd: process.cwd(), format, onWarning: writeWarning });
         console.log(output);
       } catch (error) {
         handleCommandError(error);
