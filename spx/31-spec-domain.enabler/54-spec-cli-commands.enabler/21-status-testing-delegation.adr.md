@@ -6,7 +6,7 @@ For each node whose classification reaches the test-outcome stage — one with c
 
 Keeping the per-node outcome behind an injected resolver preserves the node-status classifier's `l1` verifiability — its precedence logic runs against supplied facts without executing a suite (`spx/31-spec-domain.enabler/21-node-status.enabler/21-node-status-architecture.adr.md`) — while the decision of how an outcome is obtained moves to the command edge. Composing the production resolver over the testing domain means one execution path, the testing registry (`spx/19-language-registration.adr.md`), produces every test outcome; the status command names no language and duplicates no runner dispatch. Reading recorded evidence first and invoking testing only on stale, failing, or absent evidence honors the read-versus-refresh split the status-file contract declares (`spx/31-spec-domain.enabler/21-node-status.enabler/15-status-file-contract.pdr.md`), so a plain status stays fast and `--update` does the minimum execution required. Composition lives at the command layer per `spx/14-cli-composition.adr.md`, so the pure node-status and testing libraries stay independent.
 
-A status-owned per-node runner is rejected: it duplicates the testing registry's dispatch and forces the status path to know each language's runner. Unconditional re-running of every node's tests is rejected: it ignores valid recorded evidence. The node-status library importing the testing domain directly is rejected: it couples pure classification to test execution and reverses the composition direction.
+A status-owned per-node runner is rejected: it duplicates the testing registry's dispatch and forces the status path to know each language's runner. Unconditional re-running of every node's tests is rejected: it ignores valid recorded evidence. The node-status library importing the testing domain directly is rejected: it couples pure classification to test execution and reverses the composition direction. Piping a per-node run's stdout to the process stdout stream is rejected: it interleaves test output with the status rollup and makes `spx spec status --update --json` unparseable for automation, so the descriptor routes the run's stdout to stderr and leaves stdout for the rollup alone.
 
 ## Invariants
 
@@ -15,6 +15,7 @@ A status-owned per-node runner is rejected: it duplicates the testing registry's
 - The resolver is consulted only for nodes whose classification reaches the test-outcome stage (co-located tests present, not in `spx/EXCLUDE`); `declared` and `specified` nodes classify structurally without a per-node run.
 - The resolver derives a node's current staleness inputs through the testing domain's shared current-staleness-inputs function — the same recipe the recording path records with per `spx/41-testing.enabler/71-execution-recording.adr.md` — so freshly recorded evidence is never judged stale through recipe drift.
 - The resolver identifies a node's test paths through the testing domain's discovery surface — the same one the per-node run records against — so coverage-gated evidence selection and the per-node run agree on path identity.
+- The `--update` descriptor composes the per-node runner so the run's stdout is written to a non-stdout stream; stdout carries only the status rollup, keeping `--json` output machine-parseable.
 
 ## Verification
 
@@ -28,3 +29,4 @@ A status-owned per-node runner is rejected: it duplicates the testing registry's
 - NEVER: the node-status library imports a language-specific test runner or the testing-domain runner directly — the outcome arrives through the injected resolver ([audit])
 - NEVER: `spx spec status` without `--update` invokes the resolver or executes tests — only `--update` refreshes evidence ([audit])
 - NEVER: a node's outcome is resolved by mocking the testing domain — the resolver is exercised against a real testing surface or an injected test double implementing its interface, never `vi.mock()`/`jest.mock()` ([audit])
+- ALWAYS: a `spx spec status --update` per-node run's stdout is written off the process stdout stream so the rollup owns stdout and `--json` stays parseable ([audit])
