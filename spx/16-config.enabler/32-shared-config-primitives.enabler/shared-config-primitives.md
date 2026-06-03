@@ -13,6 +13,7 @@ CAN share structural validation without sharing domain policy
 ### Properties
 
 - Path filter validation preserves generated include/exclude string arrays and omitted fields for every valid generated filter ([test](tests/path-filter.property.l1.test.ts))
+- Path filter application keeps exactly the paths admitted by the include set and not matched by the exclude set, matching a prefix by path-segment boundary ([test](tests/path-filter-apply.property.l1.test.ts))
 
 ### Compliance
 
