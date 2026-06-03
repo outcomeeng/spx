@@ -3,14 +3,10 @@ import { rm } from "node:fs/promises";
 import { describe, expect, it } from "vitest";
 
 import { TESTING_SECTION, testingConfigDescriptor } from "@/testing/config";
-import { readTestingBranchRuns } from "@/testing/run-state";
+import { readTestingRuns, testingRunsDir } from "@/testing/run-state";
 import { CONFIG_TEST_GENERATOR, sampleConfigTestValue } from "@testing/generators/config/descriptors";
 import { sampleTestRunStateValue, TEST_RUN_STATE_TEST_GENERATOR } from "@testing/generators/testing/run-state";
-import {
-  testingBranchRunsDir,
-  withTestingTempProductDir,
-  writeTestingStateFile,
-} from "@testing/harnesses/testing/harness";
+import { withTestingTempProductDir, writeTestingStateFile } from "@testing/harnesses/testing/harness";
 
 function resolvePassingScope(sectionValue: unknown): unknown {
   const result = testingConfigDescriptor.validate(sectionValue);
@@ -24,22 +20,21 @@ describe("passing scope is policy from config, never inferred from last-run stat
     const sectionValue = generated.config[TESTING_SECTION];
     const passingScopeBefore = resolvePassingScope(sectionValue);
 
-    const branchSlug = sampleTestRunStateValue(TEST_RUN_STATE_TEST_GENERATOR.branchSlug());
     const runDirectoryName = sampleTestRunStateValue(TEST_RUN_STATE_TEST_GENERATOR.runDirectoryName());
-    const state = { ...sampleTestRunStateValue(TEST_RUN_STATE_TEST_GENERATOR.testRunState()), branchSlug };
+    const state = sampleTestRunStateValue(TEST_RUN_STATE_TEST_GENERATOR.testRunState());
 
     await withTestingTempProductDir(async (productDir) => {
-      await writeTestingStateFile(productDir, branchSlug, runDirectoryName, JSON.stringify(state));
+      await writeTestingStateFile(productDir, runDirectoryName, JSON.stringify(state));
 
-      const withState = await readTestingBranchRuns(productDir, branchSlug);
+      const withState = await readTestingRuns(productDir);
       expect(withState.ok).toBe(true);
       if (!withState.ok) throw new Error(withState.error);
       expect(withState.value.terminalRuns.length).toBe(1);
       expect(resolvePassingScope(sectionValue)).toEqual(passingScopeBefore);
 
-      await rm(testingBranchRunsDir(productDir, branchSlug), { recursive: true, force: true });
+      await rm(testingRunsDir(productDir), { recursive: true, force: true });
 
-      const afterDelete = await readTestingBranchRuns(productDir, branchSlug);
+      const afterDelete = await readTestingRuns(productDir);
       expect(afterDelete.ok).toBe(true);
       if (!afterDelete.ok) throw new Error(afterDelete.error);
       expect(afterDelete.value.terminalRuns.length).toBe(0);
