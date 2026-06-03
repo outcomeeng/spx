@@ -119,6 +119,7 @@ export const CONFIG_TEST_GENERATOR = {
   kindOverride: arbitraryKindOverride,
   productDir: arbitraryProductDir,
   pathFilter: arbitraryPathFilter,
+  prefixCohort: arbitraryPrefixCohort,
   invalidPathFilter: arbitraryInvalidPathFilter,
   testingConfig: arbitraryTestingConfig,
   resolutionScope: arbitraryResolutionScope,
@@ -173,6 +174,27 @@ function arbitraryPathFilter(): fc.Arbitrary<PathFilterConfig> {
       [PATH_FILTER_CONFIG_FIELDS.EXCLUDE]: arbitraryPathFilterArray(),
     }),
   );
+}
+
+// Distinct path keys positioned relative to one prefix: `under` lives beneath
+// the prefix, `sibling` shares the prefix's leading text but crosses no segment
+// boundary, and `outside` lives under an unrelated prefix.
+export interface PathFilterPrefixCohort {
+  readonly prefix: string;
+  readonly under: string;
+  readonly sibling: string;
+  readonly outside: string;
+}
+
+function arbitraryPrefixCohort(): fc.Arbitrary<PathFilterPrefixCohort> {
+  return fc
+    .uniqueArray(arbitraryConfigKey(), { minLength: 4, maxLength: 4 })
+    .map(([prefix, child, suffix, other]) => ({
+      prefix,
+      under: `${prefix}/${child}`,
+      sibling: `${prefix}${suffix}`,
+      outside: `${other}/${child}`,
+    }));
 }
 
 function arbitraryInvalidPathFilter(): fc.Arbitrary<GeneratedInvalidPathFilter> {

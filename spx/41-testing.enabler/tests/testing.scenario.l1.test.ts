@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 
 import { runTests } from "@/commands/testing";
+import { SPEC_TREE_CONFIG } from "@/lib/spec-tree/config";
 import { pythonTestingLanguage } from "@/testing/languages/python";
 import type { TestingLanguageDescriptor } from "@/testing/languages/types";
 import { typescriptTestingLanguage } from "@/testing/languages/typescript";
@@ -99,6 +100,49 @@ describe("spx test dispatch over the language registry", () => {
       expect(absentRunner.calls).toHaveLength(0);
       expect(invokedArgs(presentRunner)).toContain(presentFile);
       expect(result.exitCode).toBe(0);
+    });
+  });
+
+  it("filters a passing-scope-excluded node's files before runner invocation", async () => {
+    const [excludedNode, includedNode] = sampleDispatchValue(TEST_DISPATCH_GENERATOR.distinctNodePaths());
+    const excludedFile = sampleDispatchValue(
+      TEST_DISPATCH_GENERATOR.testFileUnder(typescriptTestingLanguage, excludedNode),
+    );
+    const includedFile = sampleDispatchValue(
+      TEST_DISPATCH_GENERATOR.testFileUnder(typescriptTestingLanguage, includedNode),
+    );
+    const runner = createRecordingCommandRunner({ present: true, exitCode: 0 });
+    const passingScope = { exclude: [`${SPEC_TREE_CONFIG.ROOT_DIRECTORY}/${excludedNode}`] };
+
+    await withTestingTempProductDir(async (productDir) => {
+      await writeTestFileFixture(productDir, excludedFile);
+      await writeTestFileFixture(productDir, includedFile);
+
+      await runTests({ productDir, registry: testingRegistry, passingScope }, { runnerDepsFor: () => runner });
+
+      expect(invokedArgs(runner)).not.toContain(excludedFile);
+      expect(invokedArgs(runner)).toContain(includedFile);
+    });
+  });
+
+  it("runs a would-be-excluded node's files when no passing scope is applied", async () => {
+    const [excludedNode, includedNode] = sampleDispatchValue(TEST_DISPATCH_GENERATOR.distinctNodePaths());
+    const excludedFile = sampleDispatchValue(
+      TEST_DISPATCH_GENERATOR.testFileUnder(typescriptTestingLanguage, excludedNode),
+    );
+    const includedFile = sampleDispatchValue(
+      TEST_DISPATCH_GENERATOR.testFileUnder(typescriptTestingLanguage, includedNode),
+    );
+    const runner = createRecordingCommandRunner({ present: true, exitCode: 0 });
+
+    await withTestingTempProductDir(async (productDir) => {
+      await writeTestFileFixture(productDir, excludedFile);
+      await writeTestFileFixture(productDir, includedFile);
+
+      await runTests({ productDir, registry: testingRegistry }, { runnerDepsFor: () => runner });
+
+      expect(invokedArgs(runner)).toContain(excludedFile);
+      expect(invokedArgs(runner)).toContain(includedFile);
     });
   });
 });
