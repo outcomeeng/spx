@@ -1,3 +1,4 @@
+import { existsSync } from "node:fs";
 import { join } from "node:path";
 import { describe, expect, it } from "vitest";
 
@@ -16,6 +17,7 @@ import {
   type SpecTreeNodeSourceEntry,
 } from "@/lib/spec-tree";
 import { KIND_REGISTRY, type NodeKind, SPEC_TREE_CONFIG } from "@/lib/spec-tree/config";
+import { testingRunsDir } from "@/testing/run-state";
 import { MINIMAL_SPEC_TREE_CONFIG } from "@testing/generators/config/config";
 import { CONFIG_TEST_GENERATOR, sampleConfigTestValue } from "@testing/generators/config/descriptors";
 import {
@@ -64,6 +66,9 @@ describe("spx spec status", () => {
 
       expect(output).toContain(`${rootPath} [${SPEC_TREE_NODE_STATE.PASSING}]`);
       expect(output).not.toContain(`${rootPath} [${SPEC_TREE_NODE_STATE.SPECIFIED}]`);
+      // Read-back executes no node tests: a per-node run records evidence under the
+      // testing runs directory, so its absence proves status ran none.
+      expect(existsSync(testingRunsDir(env.productDir))).toBe(false);
     });
   });
 
