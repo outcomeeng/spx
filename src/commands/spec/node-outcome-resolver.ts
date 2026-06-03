@@ -7,6 +7,7 @@ import type { TestingRegistry } from "@/testing/registry";
 import {
   extractStalenessInputs,
   isStalenessMatch,
+  outcomesCoverPaths,
   readTestingRuns,
   selectLatestTerminalTestRunForNode,
   TEST_RUN_STATE_STATUS,
@@ -57,10 +58,10 @@ export function createNodeOutcomeResolver(deps: NodeOutcomeResolverDependencies)
       return usable;
     }
     const { dispatch, recorded } = await runNodeCommand({ productDir: deps.productDir, nodePath }, deps);
-    // A node whose language runner is absent executes nothing; a zero-outcome run
-    // derives a vacuous `passed`, so require an executed outcome before reporting
-    // the node passing rather than trusting the recorded status alone.
-    return dispatch.outcomes.length > 0 && recorded.status === TEST_RUN_STATE_STATUS.PASSED;
+    // Report the node passing only when the run executed every one of its test paths
+    // and passed; a gated-out or unmatched language leaves some path unexecuted, and
+    // a zero-outcome run covers nothing, so neither vacuously passes.
+    return outcomesCoverPaths(dispatch.outcomes, nodeTestPaths) && recorded.status === TEST_RUN_STATE_STATUS.PASSED;
   };
 }
 

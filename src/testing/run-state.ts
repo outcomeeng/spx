@@ -337,8 +337,21 @@ export function selectLatestTerminalTestRunForNode(
 }
 
 function runCoversNode(run: TestTerminalRun, nodeTestPaths: readonly string[]): boolean {
+  return outcomesCoverPaths(run.state.runnerOutcomes, nodeTestPaths);
+}
+
+/**
+ * True when the runner outcomes executed every one of the node's test paths. The
+ * recorded-evidence selection and a fresh per-node run's outcome both judge node
+ * coverage by this one predicate, so a run that left any node test path unexecuted —
+ * a gated-out or unmatched language — never counts as covering the node.
+ */
+export function outcomesCoverPaths(
+  outcomes: readonly TestRunnerOutcome[],
+  nodeTestPaths: readonly string[],
+): boolean {
   if (nodeTestPaths.length === 0) return false;
-  const executed = new Set(run.state.runnerOutcomes.flatMap((outcome) => outcome.testPaths));
+  const executed = new Set(outcomes.flatMap((outcome) => outcome.testPaths));
   return nodeTestPaths.every((path) => executed.has(path));
 }
 
