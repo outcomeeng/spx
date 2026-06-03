@@ -3,6 +3,7 @@ import { join } from "node:path";
 import { describe, expect, it } from "vitest";
 
 import { nextCommand, SPEC_NEXT_MESSAGE } from "@/commands/spec/next";
+import { createNodeOutcomeResolver } from "@/commands/spec/node-outcome-resolver";
 import { SPEC_PRODUCT_DIR_WARNING } from "@/commands/spec/root";
 import { OUTPUT_FORMAT, SPEC_STATUS_MESSAGE, statusCommand } from "@/commands/spec/status";
 import { DEFAULT_CONFIG_FILENAME } from "@/config/index";
@@ -17,6 +18,7 @@ import {
   type SpecTreeNodeSourceEntry,
 } from "@/lib/spec-tree";
 import { KIND_REGISTRY, type NodeKind, SPEC_TREE_CONFIG } from "@/lib/spec-tree/config";
+import { testingRegistry } from "@/testing/registry";
 import { testingRunsDir } from "@/testing/run-state";
 import { MINIMAL_SPEC_TREE_CONFIG } from "@testing/generators/config/config";
 import { CONFIG_TEST_GENERATOR, sampleConfigTestValue } from "@testing/generators/config/descriptors";
@@ -28,7 +30,9 @@ import {
   SPEC_TREE_TEST_GENERATOR,
 } from "@testing/generators/spec-tree/spec-tree";
 import { GIT_TEST_CONFIG, GIT_TEST_FLAGS, GIT_TEST_SUBCOMMANDS, runGit } from "@testing/harnesses/git-test-constants";
-import { withSpecTreeEnv, withTestEnv } from "@testing/harnesses/spec-tree/spec-tree";
+import { type CurrentSpecTreeEnv, withSpecTreeEnv, withTestEnv } from "@testing/harnesses/spec-tree/spec-tree";
+import { writeTestFileFixture } from "@testing/harnesses/testing/harness";
+import { createRecordingCommandRunner } from "@testing/harnesses/testing/typescript-runner";
 
 describe("spx spec status", () => {
   it("reports current spec-tree nodes from the tracked spx directory", async () => {
@@ -278,6 +282,94 @@ describe("spx spec next", () => {
     ).resolves.toBe(SPEC_NEXT_MESSAGE.COMPLETE);
   });
 });
+
+describe("spx spec status --update command", () => {
+  it("writes each node's classified state and reports the rollup spx spec status renders", async () => {
+    await withSpecTreeEnv(MINIMAL_SPEC_TREE_CONFIG, async (env) => {
+      await env.materialize();
+      const rootPath = formatNodePath(env.fixture.root.order, env.fixture.root.slug, env.fixture.root.kind);
+      await addNodeTestFile(env, rootPath);
+
+      // A stub resolver supplies the per-node outcome, so the write-and-rollup
+      // behavior is exercised independently of the production resolver's evidence
+      // logic (which scenario 7 covers).
+      const updateOutput = await statusCommand({
+        cwd: env.productDir,
+        update: true,
+        resolveOutcomeFor: () => () => Promise.resolve(true),
+      });
+      const plainOutput = await statusCommand({ cwd: env.productDir });
+
+      expect(updateOutput).toBe(plainOutput);
+      await expect(readRecordedStatus(env, rootPath)).resolves.toBe(SPEC_TREE_NODE_STATE.PASSING);
+    });
+  });
+
+  it("invokes the per-node run when recorded evidence is absent, then skips it when usable", async () => {
+    await withSpecTreeEnv(MINIMAL_SPEC_TREE_CONFIG, async (env) => {
+      await env.materialize();
+      const rootPath = formatNodePath(env.fixture.root.order, env.fixture.root.slug, env.fixture.root.kind);
+      await addNodeTestFile(env, rootPath);
+
+      // Absent evidence: --update runs the node's tests through the registry.
+      const firstRunner = createRecordingCommandRunner({ present: true, exitCode: 0 });
+      await statusCommand({ cwd: env.productDir, update: true, resolveOutcomeFor: recordingResolverFor(firstRunner) });
+      expect(firstRunner.calls.length).toBeGreaterThan(0);
+      await expect(readRecordedStatus(env, rootPath)).resolves.toBe(SPEC_TREE_NODE_STATE.PASSING);
+
+      // The run just recorded is fresh and passed: a second --update runs nothing.
+      const secondRunner = createRecordingCommandRunner({ present: true, exitCode: 0 });
+      await statusCommand({ cwd: env.productDir, update: true, resolveOutcomeFor: recordingResolverFor(secondRunner) });
+      expect(secondRunner.calls).toEqual([]);
+    });
+  });
+
+  it("invokes the per-node run when recorded evidence is stale", async () => {
+    await withSpecTreeEnv(MINIMAL_SPEC_TREE_CONFIG, async (env) => {
+      await env.materialize();
+      const rootPath = formatNodePath(env.fixture.root.order, env.fixture.root.slug, env.fixture.root.kind);
+      const testFile = await addNodeTestFile(env, rootPath);
+
+      const seedRunner = createRecordingCommandRunner({ present: true, exitCode: 0 });
+      await statusCommand({ cwd: env.productDir, update: true, resolveOutcomeFor: recordingResolverFor(seedRunner) });
+
+      // Rewriting a covered test file's content invalidates the recorded content digest.
+      await env.writeRaw(testFile, sampleConfigTestValue(CONFIG_TEST_GENERATOR.key()));
+
+      const staleRunner = createRecordingCommandRunner({ present: true, exitCode: 0 });
+      await statusCommand({ cwd: env.productDir, update: true, resolveOutcomeFor: recordingResolverFor(staleRunner) });
+      expect(staleRunner.calls.length).toBeGreaterThan(0);
+    });
+  });
+});
+
+function recordingResolverFor(runner: ReturnType<typeof createRecordingCommandRunner>) {
+  return (productDir: string) =>
+    createNodeOutcomeResolver({ productDir, registry: testingRegistry, runnerDepsFor: () => runner });
+}
+
+async function addNodeTestFile(env: CurrentSpecTreeEnv, nodePath: string): Promise<string> {
+  // A spec-tree TypeScript evidence file (`<slug>.<mode>.<level>.test.ts`), so the
+  // node both reaches the test-outcome stage that readSpecTree recognizes and is
+  // dispatched by the TypeScript runner.
+  const [mode] = SPEC_TREE_EVIDENCE_FILE.MODES;
+  const [level] = SPEC_TREE_EVIDENCE_FILE.LEVELS;
+  const slug = sampleSpecTreeTestValue(SPEC_TREE_TEST_GENERATOR.sourceSlug());
+  const tail = SPEC_TREE_EVIDENCE_FILE.TAILS.TYPESCRIPT.join(SPEC_TREE_EVIDENCE_FILE.SEGMENT_SEPARATOR);
+  const evidenceFile = [
+    SPEC_TREE_CONFIG.ROOT_DIRECTORY,
+    nodePath,
+    SPEC_TREE_EVIDENCE_FILE.DIRECTORY_NAME,
+    `${slug}.${mode}.${level}.${tail}`,
+  ].join("/");
+  await writeTestFileFixture(env.productDir, evidenceFile);
+  return evidenceFile;
+}
+
+async function readRecordedStatus(env: CurrentSpecTreeEnv, nodePath: string): Promise<string> {
+  const raw = await env.readFile([SPEC_TREE_CONFIG.ROOT_DIRECTORY, nodePath, NODE_STATUS_FILENAME].join("/"));
+  return (JSON.parse(raw) as { readonly status: string }).status;
+}
 
 function sampleSpecOrder(): number {
   return sampleSpecTreeTestValue(SPEC_TREE_TEST_GENERATOR.sourceOrder());
