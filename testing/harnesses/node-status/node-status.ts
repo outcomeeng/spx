@@ -24,7 +24,7 @@ export type ClassificationTreeNodeExpectation = {
 export type ClassificationTreeEnv = {
   readonly env: SpecTreeEnv;
   readonly expectations: readonly ClassificationTreeNodeExpectation[];
-  runNodeTests(nodeId: string): Promise<boolean>;
+  resolveOutcome(nodeId: string): Promise<boolean>;
 };
 
 // Materialize a generated classification tree into a temp product directory:
@@ -70,7 +70,7 @@ export async function withClassificationTree(
     await callback({
       env,
       expectations,
-      runNodeTests: (nodeId: string) => Promise.resolve(factsByNodeId.get(nodeId)?.testsPass ?? false),
+      resolveOutcome: (nodeId: string) => Promise.resolve(factsByNodeId.get(nodeId)?.testsPass ?? false),
     });
   });
 }

@@ -13,6 +13,7 @@ const NODE_STATUS_GENERATOR_OPTIONS = {
 } as const;
 
 const ENABLER_SUFFIX = KIND_REGISTRY.enabler.suffix;
+const CONSULTATION_CLASS_COUNT = 3;
 const SLUG_PATTERN = new RegExp(
   `^[a-z][a-z0-9-]{${NODE_STATUS_GENERATOR_OPTIONS.SLUG_MIN_LENGTH - 1},${
     NODE_STATUS_GENERATOR_OPTIONS.SLUG_MAX_LENGTH - 1
@@ -32,6 +33,7 @@ export type ClassificationTreeFixture = {
 export const NODE_STATUS_TEST_GENERATOR = {
   facts: arbitraryNodeClassificationFacts,
   classificationTree: arbitraryClassificationTree,
+  delegationTree: arbitraryDelegationTree,
 } as const;
 
 export function sampleNodeStatusValue<T>(arbitrary: fc.Arbitrary<T>): T {
@@ -81,5 +83,39 @@ export function arbitraryClassificationTree(): fc.Arbitrary<ClassificationTreeFi
         slug,
         facts,
       })),
+    }));
+}
+
+// A classification tree guaranteed to span all three consultation classes — one
+// test-outcome-stage node (co-located tests, not excluded), one declared (no
+// tests), and one specified (excluded) — so a delegation assertion always has a
+// discriminating partition rather than degenerating on an all-structural draw.
+export function arbitraryDelegationTree(): fc.Arbitrary<ClassificationTreeFixture> {
+  return fc
+    .uniqueArray(
+      fc.integer({ min: NODE_STATUS_GENERATOR_OPTIONS.ORDER_MIN, max: NODE_STATUS_GENERATOR_OPTIONS.ORDER_MAX }),
+      { minLength: CONSULTATION_CLASS_COUNT, maxLength: CONSULTATION_CLASS_COUNT },
+    )
+    .chain(([stageOrder, declaredOrder, specifiedOrder]) =>
+      fc.tuple(
+        delegationNode(stageOrder, true, false),
+        delegationNode(declaredOrder, false, false),
+        delegationNode(specifiedOrder, true, true),
+      )
+    )
+    .map((nodes) => ({ nodes }));
+}
+
+function delegationNode(
+  order: number,
+  hasTests: boolean,
+  isExcluded: boolean,
+): fc.Arbitrary<ClassificationTreeNode> {
+  return fc
+    .record({ slug: arbitraryNodeSlug(), testsPass: fc.boolean() })
+    .map(({ slug, testsPass }) => ({
+      dirName: `${order}-${slug}${ENABLER_SUFFIX}`,
+      slug,
+      facts: { hasTests, isExcluded, testsPass },
     }));
 }
