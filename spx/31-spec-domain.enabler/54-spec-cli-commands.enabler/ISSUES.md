@@ -26,9 +26,9 @@ Wiring `createNodeStatusProvider` into `spx spec status` adds one synchronous `r
 
 ## FOLLOW-UP: spx spec status --update pipes every per-node run's output
 
-The production outcome resolver composes `createRunnerDepsFor` (`src/interfaces/cli/testing-runner-deps.ts`), whose command runner pipes each child process's stdout/stderr to the CLI's own streams — correct for `spx test`, but for `spx spec status --update` it floods the terminal with every stale, failing, or absent node's test output before the status rollup prints.
+The production outcome resolver composes `createRunnerDepsFor` (`src/interfaces/cli/testing-runner-deps.ts`), whose command runner pipes each child process's stdout/stderr to the CLI's own streams — correct for `spx test`, but for `spx spec status --update` it floods the terminal with every stale, failing, or absent node's test output before the status rollup prints. In particular `spx spec status --update --json` emits that piped per-node output on stdout ahead of the JSON rollup, so automation consuming `--json` cannot parse the stream.
 
-**Resolution:** give the status path a quieter runner (capture output rather than pipe it) while keeping `spx test` piped — e.g. a non-piping command-runner variant the spec descriptor composes.
+**Resolution:** route the status path's per-node output off stdout — a non-piping command-runner variant the spec descriptor composes (capture, or pipe child stdout to stderr) — while keeping `spx test` piped to stdout, with an end-to-end `--update --json`-parseable real-runner test (see the real-runner integration follow-up).
 
 **Skills:** `spec-tree:applying` (implementation).
 
