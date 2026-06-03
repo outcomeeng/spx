@@ -13,7 +13,7 @@ import { parseSessionMetadata } from "@/domains/session/list";
 import { buildClaimPaths, classifyClaimError, selectBestSession } from "@/domains/session/pickup";
 import { formatShowOutput, SessionDirectoryConfig } from "@/domains/session/show";
 import { Session, SESSION_STATUSES, SessionStatus } from "@/domains/session/types";
-import { resolveSessionConfig } from "@/git/root";
+import { resolveSessionConfigSurfacingWarning, type SessionWarningHandler } from "./resolve-config";
 
 /** Status of sessions available for pickup. */
 const PICKUP_SOURCE_STATUS: SessionStatus = SESSION_STATUSES[0]; // todo
@@ -30,6 +30,8 @@ export interface PickupOptions {
   auto?: boolean;
   /** Custom sessions directory */
   sessionsDir?: string;
+  /** Receives the non-git-repo diagnostic for the descriptor to surface. */
+  onWarning?: SessionWarningHandler;
 }
 
 /**
@@ -97,7 +99,7 @@ async function pickupSingle(sessionId: string, config: SessionDirectoryConfig): 
  * @throws {BatchError} When one or more explicit IDs fail
  */
 export async function pickupCommand(options: PickupOptions): Promise<string> {
-  const { config } = await resolveSessionConfig({ sessionsDir: options.sessionsDir });
+  const config = await resolveSessionConfigSurfacingWarning(options.sessionsDir, options.onWarning);
 
   if (options.auto) {
     if (options.sessionIds.length > 0) {

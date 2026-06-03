@@ -52,14 +52,12 @@ export interface HandoffOptions {
 }
 
 /**
- * Result of the handoff command. The descriptor writes `output` to stdout and
- * `warning`, when present, to stderr. The handler does not touch process streams.
+ * Result of the handoff command. The descriptor writes `output` to stdout. The
+ * handler does not touch process streams.
  */
 export interface HandoffResult {
   /** Stdout text including `<HANDOFF_ID>` and `<SESSION_FILE>` tags. */
   output: string;
-  /** Optional stderr diagnostic surfaced by session-config resolution. */
-  warning?: string;
 }
 
 /**
@@ -120,9 +118,7 @@ async function resolveSessionGitRef(
  *
  * @param options - Command options
  * @returns A `HandoffResult` whose `output` carries the `<HANDOFF_ID>` and
- *   `<SESSION_FILE>` tags for the descriptor to write to stdout, and whose
- *   optional `warning` carries the session-config diagnostic for the
- *   descriptor to write to stderr.
+ *   `<SESSION_FILE>` tags for the descriptor to write to stdout.
  * @throws {SessionInvalidContentError} When stdin is empty or whitespace-only
  * @throws {SessionLegacyFrontmatterInputError} When stdin opens with `---\n`
  * @throws {SessionInvalidJsonHeaderError} When the JSON header is malformed
@@ -132,7 +128,7 @@ async function resolveSessionGitRef(
  * @throws {SessionHandoffBaseError} When the git work context cannot anchor a base
  */
 export async function handoffCommand(options: HandoffOptions): Promise<HandoffResult> {
-  const { config, warning } = await resolveSessionConfig({
+  const { config } = await resolveSessionConfig({
     sessionsDir: options.sessionsDir,
     cwd: options.cwd,
     deps: options.deps,
@@ -183,5 +179,5 @@ export async function handoffCommand(options: HandoffOptions): Promise<HandoffRe
 
   const output =
     `Created handoff session <HANDOFF_ID>${sessionId}</HANDOFF_ID>\n<SESSION_FILE>${absolutePath}</SESSION_FILE>`;
-  return { output, warning };
+  return { output };
 }

@@ -11,7 +11,7 @@ import { parseSessionMetadata } from "@/domains/session/list";
 import { DEFAULT_KEEP_COUNT, selectSessionsToDelete } from "@/domains/session/prune";
 import { SessionDirectoryConfig } from "@/domains/session/show";
 import { Session, SESSION_STATUSES, SessionStatus } from "@/domains/session/types";
-import { resolveSessionConfig } from "@/git/root";
+import { resolveSessionConfigSurfacingWarning, type SessionWarningHandler } from "./resolve-config";
 
 export { DEFAULT_KEEP_COUNT };
 
@@ -33,6 +33,8 @@ export interface PruneOptions {
   dryRun?: boolean;
   /** Custom sessions directory */
   sessionsDir?: string;
+  /** Receives the non-git-repo diagnostic for the descriptor to surface. */
+  onWarning?: SessionWarningHandler;
 }
 
 /**
@@ -108,7 +110,7 @@ export async function pruneCommand(options: PruneOptions): Promise<string> {
   const keep = options.keep ?? DEFAULT_KEEP_COUNT;
   const dryRun = options.dryRun ?? false;
 
-  const { config } = await resolveSessionConfig({ sessionsDir: options.sessionsDir });
+  const config = await resolveSessionConfigSurfacingWarning(options.sessionsDir, options.onWarning);
 
   // Load and sort sessions
   const sessions = await loadArchiveSessions(config);

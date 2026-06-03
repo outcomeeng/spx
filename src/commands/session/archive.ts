@@ -16,7 +16,7 @@ import {
 import { processBatch } from "@/domains/session/batch";
 import { SessionNotFoundError } from "@/domains/session/errors";
 import { SessionDirectoryConfig } from "@/domains/session/show";
-import { resolveSessionConfig } from "@/git/root";
+import { resolveSessionConfigSurfacingWarning, type SessionWarningHandler } from "./resolve-config";
 
 export const SESSION_ARCHIVE_OUTPUT = {
   ARCHIVED: "Archived session",
@@ -31,6 +31,8 @@ export interface ArchiveOptions {
   sessionIds: string[];
   /** Custom sessions directory */
   sessionsDir?: string;
+  /** Receives the non-git-repo diagnostic for the descriptor to surface. */
+  onWarning?: SessionWarningHandler;
 }
 
 /**
@@ -137,7 +139,7 @@ async function archiveSingle(
  * @throws {SessionAlreadyArchivedError} When session already archived (single ID)
  */
 export async function archiveCommand(options: ArchiveOptions): Promise<string> {
-  const { config } = await resolveSessionConfig({ sessionsDir: options.sessionsDir });
+  const config = await resolveSessionConfigSurfacingWarning(options.sessionsDir, options.onWarning);
 
   return processBatch(options.sessionIds, (id) => archiveSingle(id, config));
 }

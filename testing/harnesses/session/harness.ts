@@ -168,6 +168,36 @@ export interface SessionMetadataOptions {
 }
 
 /**
+ * Writes a session file with composed YAML front matter into
+ * `join(baseDir, statusDirs[status])`. Shared by the explicit-`sessionsDir`
+ * harness and the non-git fallback environment so both compose front matter the
+ * same way.
+ */
+async function writeSessionFileAt(
+  baseDir: string,
+  status: SessionStatus,
+  id: string,
+  opts: SessionMetadataOptions,
+): Promise<string> {
+  const frontMatter = stringifySessionFrontMatter({
+    priority: opts.priority ?? DEFAULT_PRIORITY,
+    git_ref: opts.git_ref ?? DEFAULT_GIT_DEPS_BRANCH,
+    goal: opts.goal ?? `Goal for ${id}`,
+    next_step: opts.next_step ?? `Next step for ${id}`,
+    specs: opts.specs,
+    files: opts.files,
+  });
+  const lines = [
+    ...frontMatter.split("\n"),
+    ...(opts.extraYaml ?? []),
+  ];
+  const content = buildSessionFrontMatterContent(lines, `# Session ${id}\n`);
+  const filePath = join(baseDir, statusDirs[status], `${id}.md`);
+  await writeFile(filePath, content);
+  return filePath;
+}
+
+/**
  * Session test harness interface.
  */
 export interface SessionHarness {
@@ -214,28 +244,12 @@ export async function createSessionHarness(): Promise<SessionHarness> {
       return join(sessionsDir, statusDirs[status]);
     },
 
-    async writeSession(
+    writeSession(
       status: SessionStatus,
       id: string,
       opts: SessionMetadataOptions = {},
     ): Promise<string> {
-      const frontMatter = stringifySessionFrontMatter({
-        priority: opts.priority ?? DEFAULT_PRIORITY,
-        git_ref: opts.git_ref ?? DEFAULT_GIT_DEPS_BRANCH,
-        goal: opts.goal ?? `Goal for ${id}`,
-        next_step: opts.next_step ?? `Next step for ${id}`,
-        specs: opts.specs,
-        files: opts.files,
-      });
-      const lines = [
-        ...frontMatter.split("\n"),
-        ...(opts.extraYaml ?? []),
-      ];
-
-      const content = buildSessionFrontMatterContent(lines, `# Session ${id}\n`);
-      const filePath = join(sessionsDir, statusDirs[status], `${id}.md`);
-      await writeFile(filePath, content);
-      return filePath;
+      return writeSessionFileAt(sessionsDir, status, id, opts);
     },
 
     async writeRawSession(
@@ -250,6 +264,58 @@ export async function createSessionHarness(): Promise<SessionHarness> {
 
     cleanup(): Promise<void> {
       return removeTempDir(sessionsDir);
+    },
+  };
+}
+
+/**
+ * Session environment rooted at a non-git temporary directory, laid out at the
+ * `.spx/sessions/` fallback location `resolveSessionConfig` resolves to when the
+ * working directory is outside a git repository.
+ *
+ * Invoke a session subcommand with `cwd` set to this directory and no
+ * `--sessions-dir`, so config resolution falls back to the current directory and
+ * emits its non-git diagnostic.
+ */
+export interface NonGitSessionEnv {
+  /** Absolute path to the non-git working directory to invoke the CLI from. */
+  readonly cwd: string;
+  /** Returns the absolute path to a fallback status directory under `.spx/sessions/`. */
+  statusDir(status: SessionStatus): string;
+  /** Writes a session file with YAML front matter into the given fallback status directory. */
+  writeSession(status: SessionStatus, id: string, opts?: SessionMetadataOptions): Promise<string>;
+  /** Removes the temp directory and all contents. */
+  cleanup(): Promise<void>;
+}
+
+/**
+ * Creates a non-git session environment: a temp directory holding the
+ * `.spx/sessions/{todo,doing,archive}` fallback layout, with no git repository.
+ */
+export async function createNonGitSessionEnv(): Promise<NonGitSessionEnv> {
+  const cwd = await createTempDir("spx-session-nongit-");
+  const sessionsRoot = join(cwd, DEFAULT_CONFIG.sessions.dir);
+  for (const status of SESSION_STATUSES) {
+    await mkdir(join(sessionsRoot, statusDirs[status]), { recursive: true });
+  }
+
+  return {
+    cwd,
+
+    statusDir(status: SessionStatus): string {
+      return join(sessionsRoot, statusDirs[status]);
+    },
+
+    writeSession(
+      status: SessionStatus,
+      id: string,
+      opts: SessionMetadataOptions = {},
+    ): Promise<string> {
+      return writeSessionFileAt(sessionsRoot, status, id, opts);
+    },
+
+    cleanup(): Promise<void> {
+      return removeTempDir(cwd);
     },
   };
 }

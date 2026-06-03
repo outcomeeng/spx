@@ -9,7 +9,7 @@ import { stat, unlink } from "node:fs/promises";
 import { processBatch } from "@/domains/session/batch";
 import { resolveDeletePath } from "@/domains/session/delete";
 import { resolveSessionPaths, SessionDirectoryConfig } from "@/domains/session/show";
-import { resolveSessionConfig } from "@/git/root";
+import { resolveSessionConfigSurfacingWarning, type SessionWarningHandler } from "./resolve-config";
 
 export const SESSION_DELETE_OUTPUT = {
   DELETED: "Deleted session",
@@ -23,6 +23,8 @@ export interface DeleteOptions {
   sessionIds: string[];
   /** Custom sessions directory */
   sessionsDir?: string;
+  /** Receives the non-git-repo diagnostic for the descriptor to surface. */
+  onWarning?: SessionWarningHandler;
 }
 
 /**
@@ -75,7 +77,7 @@ async function deleteSingle(
  * @throws {SessionNotFoundError} When session not found (single ID)
  */
 export async function deleteCommand(options: DeleteOptions): Promise<string> {
-  const { config } = await resolveSessionConfig({ sessionsDir: options.sessionsDir });
+  const config = await resolveSessionConfigSurfacingWarning(options.sessionsDir, options.onWarning);
 
   return processBatch(options.sessionIds, (id) => deleteSingle(id, config));
 }

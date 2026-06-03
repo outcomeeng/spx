@@ -74,6 +74,7 @@ function registerSessionCommands(sessionCmd: Command): void {
           status: options.status,
           format: options.json ? "json" : "text",
           sessionsDir: options.sessionsDir,
+          onWarning: writeWarning,
         });
         console.log(output);
       } catch (error) {
@@ -93,6 +94,7 @@ function registerSessionCommands(sessionCmd: Command): void {
           status: SESSION_STATUSES[0],
           format: options.json ? "json" : "text",
           sessionsDir: options.sessionsDir,
+          onWarning: writeWarning,
         });
         console.log(output);
       } catch (error) {
@@ -110,6 +112,7 @@ function registerSessionCommands(sessionCmd: Command): void {
         const output = await showCommand({
           sessionIds: ids,
           sessionsDir: options.sessionsDir,
+          onWarning: writeWarning,
         });
         console.log(output);
       } catch (error) {
@@ -134,6 +137,7 @@ function registerSessionCommands(sessionCmd: Command): void {
           sessionIds: ids,
           auto: options.auto,
           sessionsDir: options.sessionsDir,
+          onWarning: writeWarning,
         });
         console.log(output);
       } catch (error) {
@@ -151,6 +155,7 @@ function registerSessionCommands(sessionCmd: Command): void {
         const output = await releaseCommand({
           sessionIds: ids,
           sessionsDir: options.sessionsDir,
+          onWarning: writeWarning,
         });
         console.log(output);
       } catch (error) {
@@ -175,7 +180,6 @@ function registerSessionCommands(sessionCmd: Command): void {
           content,
           sessionsDir: options.sessionsDir,
         });
-        writeWarning(result.warning);
         console.log(result.output);
       } catch (error) {
         handleError(error);
@@ -192,6 +196,7 @@ function registerSessionCommands(sessionCmd: Command): void {
         const output = await deleteCommand({
           sessionIds: ids,
           sessionsDir: options.sessionsDir,
+          onWarning: writeWarning,
         });
         console.log(output);
       } catch (error) {
@@ -213,6 +218,7 @@ function registerSessionCommands(sessionCmd: Command): void {
           keep,
           dryRun: options.dryRun,
           sessionsDir: options.sessionsDir,
+          onWarning: writeWarning,
         });
         console.log(output);
       } catch (error) {
@@ -234,6 +240,7 @@ function registerSessionCommands(sessionCmd: Command): void {
         const output = await archiveCommand({
           sessionIds: ids,
           sessionsDir: options.sessionsDir,
+          onWarning: writeWarning,
         });
         console.log(output);
       } catch (error) {
