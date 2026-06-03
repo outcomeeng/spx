@@ -28,7 +28,7 @@ Wiring `createNodeStatusProvider` into `spx spec status` adds one synchronous `r
 
 `spx spec status --update` routes each per-node run's stdout to stderr (`createRunnerDepsFor(productDir, process.stderr)` in `src/interfaces/cli/spec.ts`), so stdout carries only the status rollup and `--json` stays machine-parseable. The output is still verbose: every stale, failing, or absent node's full test output prints to stderr before the rollup.
 
-**Resolution:** if the stderr verbosity is unwanted, give the status path a quiet or capturing runner variant that suppresses or summarizes per-node output, surfacing detail only on failure.
+**Resolution:** if the stderr verbosity is unwanted, give the status path a quiet or capturing runner variant that suppresses or summarizes per-node output, surfacing detail only on failure. That variant will also need `createCommandRunner` (`src/interfaces/cli/testing-runner-deps.ts`) to expose an `errStream` parameter analogous to `outStream` — it currently hardcodes `child.stderr?.pipe(process.stderr)` — so per-node stderr can be suppressed or captured alongside stdout.
 
 **Skills:** `spec-tree:applying` (implementation).
 
