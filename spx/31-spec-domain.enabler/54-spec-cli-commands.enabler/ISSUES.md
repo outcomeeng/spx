@@ -37,3 +37,19 @@ The production outcome resolver composes `createRunnerDepsFor` (`src/interfaces/
 A test-outcome-stage node whose tests are all in an absent language records a zero-outcome run that covers none of its discovered test paths, so `selectLatestTerminalTestRunForNode` never selects it and the resolver re-runs the node on every `--update`. The per-node run stays conservative-correct (it never miscaches), but it repeats work. This is the zero-outcome / per-node-non-match semantics tracked in `spx/41-testing.enabler/ISSUES.md`; the empty-run contract is decided there.
 
 **Skills:** `spec-tree:authoring` (decision in 41-testing), `spec-tree:applying` (implementation).
+
+## FOLLOW-UP: the production resolver lacks real-runner integration coverage
+
+The `--update` scenario tests drive `createNodeOutcomeResolver` with a recording command runner (`createRecordingCommandRunner`) that intercepts `runCommand` without executing vitest, and the l2 contract test exercises the process boundary only with no-test (declared) nodes where the resolver is never consulted. So no test runs a real vitest invocation through the resolver into a recorded outcome and a node classification.
+
+**Resolution:** add an l2 test that runs `spx spec status --update` over a node with a real co-located passing (and failing) test file through the actual registry runner, asserting the recorded `spx.status.json` reflects the real outcome.
+
+**Skills:** `typescript:testing-typescript` (l2 test).
+
+## FOLLOW-UP: statusCommand silently skips --update when an in-memory source is injected
+
+`statusCommand` returns from the injected-source branch before the `--update` path, so a caller passing both `source` and `update: true` gets a rendered rollup with no refresh and no diagnostic. The production CLI never sets `source` (it is the in-memory rendering test seam), so no caller hits this today, but the silent skip violates fail-fast.
+
+**Resolution:** throw a clear error when `source` and `update` are both set — the in-memory source has no productDir to refresh — rather than silently rendering without updating.
+
+**Skills:** `spec-tree:applying` (implementation).
