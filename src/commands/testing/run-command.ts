@@ -131,13 +131,16 @@ function deriveStatus(outcomes: readonly TestRunnerOutcome[]): TestRunStateStatu
 export async function currentStalenessInputs(
   productDir: string,
   coveredPaths: readonly string[],
-  deps: { readonly fs?: TestRunStateFileSystem } = {},
+  deps: { readonly fs?: TestRunStateFileSystem; readonly testingConfigDigest?: string } = {},
 ): Promise<StalenessInputs> {
   const fs = deps.fs ?? defaultTestRunStateFileSystem;
-  const { digest } = await resolveTestingConfig(productDir);
+  // A caller that already resolved the testing config (e.g. runTestsCommand reading
+  // passingScope) passes its digest so the config is read once per command; callers
+  // holding no config (the per-node run, the status resolver) resolve it here.
+  const testingConfigDigest = deps.testingConfigDigest ?? (await resolveTestingConfig(productDir)).digest;
   const contents = await readCoveredContents(productDir, coveredPaths, fs);
   return {
-    testingConfigDigest: digest,
+    testingConfigDigest,
     discoveredTestPathsDigest: digestTestPaths(coveredPaths),
     discoveredTestContentDigest: digestTestContents(contents),
     productInputDigests: NO_PRODUCT_INPUT_DIGESTS,
@@ -152,8 +155,12 @@ async function recordRun(
   productDir: string,
   dispatch: TestDispatchResult,
   recording: RecordingDependencies,
+  testingConfigDigest?: string,
 ): Promise<TestRunState> {
-  const staleness = await currentStalenessInputs(productDir, coveredTestPaths(dispatch), { fs: recording.fs });
+  const staleness = await currentStalenessInputs(productDir, coveredTestPaths(dispatch), {
+    fs: recording.fs,
+    testingConfigDigest,
+  });
   const branchName = (await getCurrentBranch(productDir, recording.git)) ?? NO_GIT_IDENTITY;
   const headSha = (await getHeadSha(productDir, recording.git)) ?? NO_GIT_IDENTITY;
 
@@ -197,7 +204,7 @@ export async function runTestsCommand(
   options: RunTestsCommandOptions,
   deps: TestCommandDependencies,
 ): Promise<RecordedTestRun> {
-  const { config } = await resolveTestingConfig(options.productDir);
+  const { config, digest } = await resolveTestingConfig(options.productDir);
   const passingScope = options.passing ? config.passingScope : undefined;
   const recording = resolveRecordingDependencies(deps);
   const directory = await reserveRunDirectory(options.productDir, recording);
@@ -205,7 +212,7 @@ export async function runTestsCommand(
     { productDir: options.productDir, registry: deps.registry, passingScope },
     { runnerDepsFor: deps.runnerDepsFor },
   );
-  const recorded = await recordRun(directory, options.productDir, dispatch, recording);
+  const recorded = await recordRun(directory, options.productDir, dispatch, recording, digest);
   return { dispatch, recorded };
 }
 
