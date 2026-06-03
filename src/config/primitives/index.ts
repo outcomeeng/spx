@@ -1,4 +1,5 @@
 export {
+  applyPathFilter,
   PATH_FILTER_CONFIG_FIELDS,
   type PathFilterConfig,
   validatePathFilterConfig,

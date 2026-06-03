@@ -1,3 +1,4 @@
+import { applyPathFilter, type PathFilterConfig } from "@/config/primitives";
 import { aggregateTestExitCode, groupTestFiles, type LanguageTestGroup } from "@/domains/testing";
 import type { TestingLanguageDescriptor, TestRunInvocation, TestRunnerDependencies } from "@/testing/languages/types";
 import type { TestingRegistry } from "@/testing/registry";
@@ -14,6 +15,8 @@ export interface TestDispatchResult {
 export interface TestDispatchOptions {
   readonly productDir: string;
   readonly registry: TestingRegistry;
+  /** When present, discovered files are filtered by this scope before dispatch (`spx test passing`). */
+  readonly passingScope?: PathFilterConfig;
 }
 
 export interface TestDispatchDependencies {
@@ -21,8 +24,8 @@ export interface TestDispatchDependencies {
   readonly runnerDepsFor: (language: TestingLanguageDescriptor) => TestRunnerDependencies;
 }
 
-// The full `spx test` run dispatches every discovered file; passing-scope
-// filtering and runner-level node exclusion are not part of this surface.
+// Passing-scope filtering removes files before grouping; the dispatch passes no
+// runner-level node exclusions, so each runner receives exactly the kept files.
 const NO_EXCLUDED_NODE_PATHS: readonly string[] = [];
 
 /**
@@ -34,7 +37,10 @@ export async function runTests(
   options: TestDispatchOptions,
   deps: TestDispatchDependencies,
 ): Promise<TestDispatchResult> {
-  const testFiles = await discoverTestFiles(options.productDir);
+  const discovered = await discoverTestFiles(options.productDir);
+  const testFiles = options.passingScope === undefined
+    ? discovered
+    : applyPathFilter(discovered, options.passingScope);
   const { groups, unmatched } = groupTestFiles(testFiles, options.registry.languages);
 
   const invocations: TestRunInvocation[] = [];
