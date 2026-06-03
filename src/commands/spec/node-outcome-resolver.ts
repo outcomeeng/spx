@@ -56,8 +56,11 @@ export function createNodeOutcomeResolver(deps: NodeOutcomeResolverDependencies)
     if (usable !== undefined) {
       return usable;
     }
-    const { recorded } = await runNodeCommand({ productDir: deps.productDir, nodePath }, deps);
-    return recorded.status === TEST_RUN_STATE_STATUS.PASSED;
+    const { dispatch, recorded } = await runNodeCommand({ productDir: deps.productDir, nodePath }, deps);
+    // A node whose language runner is absent executes nothing; a zero-outcome run
+    // derives a vacuous `passed`, so require an executed outcome before reporting
+    // the node passing rather than trusting the recorded status alone.
+    return dispatch.outcomes.length > 0 && recorded.status === TEST_RUN_STATE_STATUS.PASSED;
   };
 }
 
