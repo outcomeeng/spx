@@ -7,5 +7,4 @@
 
 23-spec-tree.enabler
 17-file-inclusion.enabler/32-path-predicates.enabler
-41-testing.enabler
 41-validation.enabler/32-python-validation.enabler
