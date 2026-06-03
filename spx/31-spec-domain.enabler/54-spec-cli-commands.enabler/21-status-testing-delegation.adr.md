@@ -13,6 +13,8 @@ A status-owned per-node runner is rejected: it duplicates the testing registry's
 - The `--update` orchestration obtains every per-node outcome through the injected resolver; it imports no language runner and no testing-domain runner directly.
 - The resolver invokes a fresh per-node run only when the node's recorded testing evidence is stale, failing, or absent; usable evidence — fresh and `passed` — triggers no run.
 - The resolver is consulted only for nodes whose classification reaches the test-outcome stage (co-located tests present, not in `spx/EXCLUDE`); `declared` and `specified` nodes classify structurally without a per-node run.
+- The resolver derives a node's current staleness inputs through the testing domain's shared current-staleness-inputs function — the same recipe the recording path records with per `spx/41-testing.enabler/71-execution-recording.adr.md` — so freshly recorded evidence is never judged stale through recipe drift.
+- The resolver identifies a node's test paths through the testing domain's discovery surface — the same one the per-node run records against — so coverage-gated evidence selection and the per-node run agree on path identity.
 
 ## Verification
 
@@ -20,6 +22,7 @@ A status-owned per-node runner is rejected: it duplicates the testing registry's
 
 - ALWAYS: `spx spec status --update` accepts the per-node outcome resolver as a dependency-injected parameter ([audit])
 - ALWAYS: the production resolver reports the node's latest usable last-run evidence and invokes the testing domain's registry-based per-node run only when that evidence is stale, failing, or absent ([audit])
+- ALWAYS: the resolver computes current staleness inputs through the testing domain's shared current-staleness-inputs function and selects a node's evidence by its discovered test paths from the testing discovery surface — recorded and current inputs share one recipe, and selection and the per-node run share one path identity ([audit])
 - ALWAYS: the per-node run reaches each language through `src/testing/registry.ts` per `spx/19-language-registration.adr.md` — the status path names no language ([audit])
 - ALWAYS: the status-to-testing resolver is composed at the command layer per `spx/14-cli-composition.adr.md`; the pure node-status and testing libraries stay independent ([audit])
 - NEVER: the node-status library imports a language-specific test runner or the testing-domain runner directly — the outcome arrives through the injected resolver ([audit])
