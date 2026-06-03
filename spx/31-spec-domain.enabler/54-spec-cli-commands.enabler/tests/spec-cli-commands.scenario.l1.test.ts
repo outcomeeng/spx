@@ -29,6 +29,7 @@ import {
   sampleSpecTreeTestValue,
   SPEC_TREE_TEST_GENERATOR,
 } from "@testing/generators/spec-tree/spec-tree";
+import { sampleDispatchValue, TEST_DISPATCH_GENERATOR } from "@testing/generators/testing/dispatch";
 import { GIT_TEST_CONFIG, GIT_TEST_FLAGS, GIT_TEST_SUBCOMMANDS, runGit } from "@testing/harnesses/git-test-constants";
 import { type CurrentSpecTreeEnv, withSpecTreeEnv, withTestEnv } from "@testing/harnesses/spec-tree/spec-tree";
 import { writeTestFileFixture } from "@testing/harnesses/testing/harness";
@@ -339,6 +340,24 @@ describe("spx spec status --update command", () => {
       const staleRunner = createRecordingCommandRunner({ present: true, exitCode: 0 });
       await statusCommand({ cwd: env.productDir, update: true, resolveOutcomeFor: recordingResolverFor(staleRunner) });
       expect(staleRunner.calls.length).toBeGreaterThan(0);
+    });
+  });
+
+  it("invokes the per-node run when recorded evidence is fresh but failing", async () => {
+    await withSpecTreeEnv(MINIMAL_SPEC_TREE_CONFIG, async (env) => {
+      await env.materialize();
+      const rootPath = formatNodePath(env.fixture.root.order, env.fixture.root.slug, env.fixture.root.kind);
+      await addNodeTestFile(env, rootPath);
+
+      // Seed a fresh run that failed (non-zero runner exit).
+      const failingExit = sampleDispatchValue(TEST_DISPATCH_GENERATOR.nonZeroExitCode());
+      const seedRunner = createRecordingCommandRunner({ present: true, exitCode: failingExit });
+      await statusCommand({ cwd: env.productDir, update: true, resolveOutcomeFor: recordingResolverFor(seedRunner) });
+
+      // Fresh-but-failing evidence is not usable, so a second --update re-runs the node.
+      const rerunRunner = createRecordingCommandRunner({ present: true, exitCode: failingExit });
+      await statusCommand({ cwd: env.productDir, update: true, resolveOutcomeFor: recordingResolverFor(rerunRunner) });
+      expect(rerunRunner.calls.length).toBeGreaterThan(0);
     });
   });
 });
