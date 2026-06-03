@@ -14,16 +14,15 @@ import { classifyNodeStatus, type NodeClassificationFacts, serializeNodeStatus }
 import { NODE_STATUS_FILENAME } from "./read";
 
 /**
- * Execute a node's test suite and report whether every test passed.
- *
- * Injected so the classifier's precedence logic is verifiable without running a
- * real suite.
+ * Resolves a node's pass/fail outcome — from recorded testing evidence when it is
+ * usable, otherwise by running the node's tests. Injected at the command edge so
+ * the classifier's precedence logic is verifiable without executing a real suite.
  */
-export type NodeTestRunner = (nodeId: string) => Promise<boolean>;
+export type NodeOutcomeResolver = (nodeId: string) => Promise<boolean>;
 
 export interface UpdateNodeStatusOptions {
   readonly productDir: string;
-  readonly runNodeTests: NodeTestRunner;
+  readonly resolveOutcome: NodeOutcomeResolver;
 }
 
 const NODE_STATUS_TEXT_ENCODING = "utf8";
@@ -33,7 +32,7 @@ const NODE_STATUS_TEXT_ENCODING = "utf8";
  * to a co-located `spx.status.json`. This is the only path that writes the file.
  */
 export async function updateNodeStatus(options: UpdateNodeStatusOptions): Promise<void> {
-  const { productDir, runNodeTests } = options;
+  const { productDir, resolveOutcome } = options;
   const snapshot = await readSpecTree({ source: createFilesystemSpecTreeSource({ productDir }) });
   const ignoreReader = createIgnoreSourceReader(productDir, {
     ignoreSourceFilename: IGNORE_SOURCE_FILENAME_DEFAULT,
@@ -45,7 +44,7 @@ export async function updateNodeStatus(options: UpdateNodeStatusOptions): Promis
     const facts = await classifyFacts(node, {
       hasTests: nodesWithTests.has(node.id),
       isExcluded: isNodeExcluded(ignoreReader, node),
-      runNodeTests,
+      resolveOutcome,
     });
     await writeNodeStatus(productDir, node.id, classifyNodeStatus(facts));
   }
@@ -54,14 +53,14 @@ export async function updateNodeStatus(options: UpdateNodeStatusOptions): Promis
 type ClassifyFactsInput = {
   readonly hasTests: boolean;
   readonly isExcluded: boolean;
-  readonly runNodeTests: NodeTestRunner;
+  readonly resolveOutcome: NodeOutcomeResolver;
 };
 
 async function classifyFacts(node: SpecTreeNode, input: ClassifyFactsInput): Promise<NodeClassificationFacts> {
-  // Tests are only executed when their outcome can change the classification —
-  // a node with no tests is declared, and an excluded node is specified, before
-  // any test outcome is consulted.
-  const testsPass = input.hasTests && !input.isExcluded ? await input.runNodeTests(node.id) : false;
+  // The resolver is consulted only when its outcome can change the classification
+  // — a node with no tests is declared, and an excluded node is specified, before
+  // any outcome is resolved.
+  const testsPass = input.hasTests && !input.isExcluded ? await input.resolveOutcome(node.id) : false;
   return { hasTests: input.hasTests, isExcluded: input.isExcluded, testsPass };
 }
 

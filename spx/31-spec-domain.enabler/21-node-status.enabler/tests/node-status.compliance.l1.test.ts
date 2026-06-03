@@ -24,7 +24,7 @@ describe("node-status write authority", () => {
       // Only the --update path creates the files.
       await updateNodeStatus({
         productDir: env.productDir,
-        runNodeTests: (nodeId: string) =>
+        resolveOutcome: (nodeId: string) =>
           Promise.resolve(expectations.find((e) => e.nodeId === nodeId)?.facts.testsPass ?? false),
       });
 
@@ -45,6 +45,33 @@ describe("node-status absence semantics", () => {
         const nodeDir = `${env.productDir}/${expectation.statusPath.replace(`/${NODE_STATUS_FILENAME}`, "")}`;
         expect(readNodeStatus(nodeDir)).toBeUndefined();
       }
+    });
+  });
+});
+
+describe("node-status delegation to the outcome resolver", () => {
+  it("ALWAYS: --update consults the resolver only for test-outcome-stage nodes", async () => {
+    // The delegation tree spans all three consultation classes, so the expected
+    // set is always non-empty and the assertion discriminates on every run.
+    const fixture = sampleNodeStatusValue(NODE_STATUS_TEST_GENERATOR.delegationTree());
+
+    await withClassificationTree(fixture, async ({ env, expectations, resolveOutcome }) => {
+      const consulted: string[] = [];
+      await updateNodeStatus({
+        productDir: env.productDir,
+        resolveOutcome: (nodeId: string) => {
+          consulted.push(nodeId);
+          return resolveOutcome(nodeId);
+        },
+      });
+
+      // Declared (no tests) and specified (excluded) nodes classify structurally,
+      // so only the test-outcome-stage node reaches the resolver.
+      const testOutcomeStage = expectations
+        .filter((expectation) => expectation.facts.hasTests && !expectation.facts.isExcluded)
+        .map((expectation) => expectation.nodeId)
+        .sort();
+      expect([...consulted].sort()).toEqual(testOutcomeStage);
     });
   });
 });

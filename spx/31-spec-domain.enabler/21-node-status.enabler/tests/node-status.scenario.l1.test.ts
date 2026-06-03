@@ -18,8 +18,8 @@ describe("spx spec status --update", () => {
   it("writes each node's classified lifecycle state to its co-located spx.status.json", async () => {
     const fixture = sampleNodeStatusValue(NODE_STATUS_TEST_GENERATOR.classificationTree());
 
-    await withClassificationTree(fixture, async ({ env, expectations, runNodeTests }) => {
-      await updateNodeStatus({ productDir: env.productDir, runNodeTests });
+    await withClassificationTree(fixture, async ({ env, expectations, resolveOutcome }) => {
+      await updateNodeStatus({ productDir: env.productDir, resolveOutcome });
 
       for (const expectation of expectations) {
         const recorded = JSON.parse(await env.readFile(expectation.statusPath));
