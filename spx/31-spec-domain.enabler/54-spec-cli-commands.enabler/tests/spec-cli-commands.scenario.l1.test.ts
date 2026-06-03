@@ -1,4 +1,5 @@
 import { existsSync } from "node:fs";
+import { rm } from "node:fs/promises";
 import { join } from "node:path";
 import { describe, expect, it } from "vitest";
 
@@ -382,6 +383,33 @@ describe("spx spec status --update command", () => {
       const updateRunner = createRecordingCommandRunner({ present: true, exitCode: 0 });
       await statusCommand({ cwd: env.productDir, update: true, resolveOutcomeFor: recordingResolverFor(updateRunner) });
       expect(updateRunner.calls).toEqual([]);
+    });
+  });
+
+  it("re-runs rather than failing when a covered test file was deleted after the run", async () => {
+    await withSpecTreeEnv(MINIMAL_SPEC_TREE_CONFIG, async (env) => {
+      await env.materialize();
+      const rootPath = formatNodePath(env.fixture.root.order, env.fixture.root.slug, env.fixture.root.kind);
+      const peerPath = formatNodePath(env.fixture.peer.order, env.fixture.peer.slug, env.fixture.peer.kind);
+      await addNodeTestFile(env, rootPath);
+      const peerTestFile = await addNodeTestFile(env, peerPath);
+
+      const fullRunner = createRecordingCommandRunner({ present: true, exitCode: 0 });
+      await runTestsCommand(
+        { productDir: env.productDir, passing: false },
+        { registry: testingRegistry, runnerDepsFor: () => fullRunner },
+      );
+
+      // A covered test file is deleted after the run, so the recorded evidence
+      // references a path that no longer exists. --update must read that as stale
+      // and re-run, not surface ENOENT for the missing covered path.
+      await rm(join(env.productDir, peerTestFile));
+
+      const updateRunner = createRecordingCommandRunner({ present: true, exitCode: 0 });
+      await expect(
+        statusCommand({ cwd: env.productDir, update: true, resolveOutcomeFor: recordingResolverFor(updateRunner) }),
+      ).resolves.toBeDefined();
+      expect(updateRunner.calls.length).toBeGreaterThan(0);
     });
   });
 });
