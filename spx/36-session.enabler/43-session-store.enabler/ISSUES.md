@@ -22,20 +22,6 @@
 - Impact: a reader scanning the Scenarios block may infer the property test is narrower than it is, and a future author adding more YAML-sensitive characters may reach for more scenarios rather than trusting the property.
 - Resolution: decide whether to replace the four scenario assertions with a cross-reference on the property assertion that names the YAML characters it exercises, or retain them as explicit regression anchors with a note on the property pointing at the named scenarios.
 
-## Handoff warning field is structurally exposed but behaviorally unverified
-
-- Review: `spec-tree:changes-reviewer` on `refactor/cli-session-handoff-stderr` — F-003 (evidence, follow_up)
-- Evidence: After ADR-14 reconciliation, `handoffCommand` returns `HandoffResult` with an optional `warning` field that the descriptor at `src/interfaces/cli/session.ts` writes to stderr. No scenario test in `spx/36-session.enabler/43-session-store.enabler/tests/` asserts that `warning` is populated when `resolveSessionConfig` emits its non-git-repo diagnostic, and no test asserts that `warning` is `undefined` under a normal git-repo invocation. The descriptor's stderr write is also unexercised. The descriptor now emits through the shared `writeWarning` helper at `src/interfaces/cli/write-warning.ts`, whose `undefined` short-circuit and trailing-newline behavior are likewise unexercised — and the same helper now backs the config and spec descriptors, so the gap spans all three warning-emitting CLI surfaces.
-- Impact: a future change to the session-config warning text, the handler's pass-through, the descriptor's stderr formatting, or the shared helper's emission can drift without an automated check catching the regression.
-- Resolution: add a scenario assertion that injects `GitDependencies` representing a non-git-repo and asserts `result.warning` matches the expected diagnostic, plus a scenario assertion under normal git context that asserts `result.warning === undefined`. Add a Level 2 assertion that runs `spx session handoff` through the descriptor in a non-git-repo fixture and captures the stderr line — this exercises the shared `writeWarning` helper end-to-end, which per `spx/14-cli-composition.adr.md` is verified through the built executable rather than by a unit test that mocks `process.stderr`.
-
-## Seven session command handlers silently drop the `resolveSessionConfig` warning
-
-- Review: CI `spec-tree-review` on PR #90 — F-001 (consistency, follow_up). [Comment](https://github.com/outcomeeng/spx/pull/90#issuecomment-4587827679).
-- Evidence: `src/commands/session/{list,delete,prune,pickup,release,archive,show}.ts` each call `resolveSessionConfig` but destructure only `{ config }`, dropping the optional `warning` field. `src/git/root.ts:258-260` documents the field as "Warning message if not in a git repository". After PR #90 propagates that diagnostic through the `handoff` descriptor, `handoff` is the only session command that surfaces the non-git-repo warning to the user.
-- Impact: A user invoking `spx session list` / `delete` / `prune` / `pickup` / `release` / `archive` / `show` outside a git repository receives no indication that session storage is resolving to a fallback path. The asymmetry across the seven peer commands is invisible until someone compares behaviors side-by-side.
-- Resolution: Decide whether to (a) return an enriched `{ output, warning? }` result type from each of the seven handlers parallel to `HandoffResult`, with their descriptors emitting the warning to stderr, or (b) introduce a shared `SessionCommandResult` shape every handler returns. Either path is wider scope than a single handler refactor and should land as its own PR once the shape decision is made.
-
 ## Session frontmatter serializer duplicated between handoff and the shared writer
 
 - Review: `spec-tree:reviewing-changes` on `fix/session-yaml-round-trip` — F-001 (architecture, follow_up)
