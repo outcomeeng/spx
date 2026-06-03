@@ -24,13 +24,21 @@ Wiring `createNodeStatusProvider` into `spx spec status` adds one synchronous `r
 
 **Skills:** `spec-tree:applying` (implementation), `typescript:architecting-typescript` (interface change).
 
-## FOLLOW-UP: spx spec status --update pipes every per-node run's output
+## FOLLOW-UP: spx spec status --update emits every per-node run's output to stderr
 
-The production outcome resolver composes `createRunnerDepsFor` (`src/interfaces/cli/testing-runner-deps.ts`), whose command runner pipes each child process's stdout/stderr to the CLI's own streams — correct for `spx test`, but for `spx spec status --update` it floods the terminal with every stale, failing, or absent node's test output before the status rollup prints. In particular `spx spec status --update --json` emits that piped per-node output on stdout ahead of the JSON rollup, so automation consuming `--json` cannot parse the stream.
+`spx spec status --update` routes each per-node run's stdout to stderr (`createRunnerDepsFor(productDir, process.stderr)` in `src/interfaces/cli/spec.ts`), so stdout carries only the status rollup and `--json` stays machine-parseable. The output is still verbose: every stale, failing, or absent node's full test output prints to stderr before the rollup.
 
-**Resolution:** route the status path's per-node output off stdout — a non-piping command-runner variant the spec descriptor composes (capture, or pipe child stdout to stderr) — while keeping `spx test` piped to stdout, with an end-to-end `--update --json`-parseable real-runner test (see the real-runner integration follow-up).
+**Resolution:** if the stderr verbosity is unwanted, give the status path a quiet or capturing runner variant that suppresses or summarizes per-node output, surfacing detail only on failure.
 
 **Skills:** `spec-tree:applying` (implementation).
+
+## FOLLOW-UP: a node's outcome covers its whole subtree, not only its co-located tests
+
+`createNodeOutcomeResolver` derives a node's test paths by subtree prefix (`filterNodeTestPaths`), and the per-node run scopes to the same subtree (`passingScope: { include: [nodePath] }`), so a node with both its own tests and tested descendants has its outcome reflect the descendants' tests — a failing child test can classify the parent failing even when the parent's own tests pass. This is the path identity `21-status-testing-delegation.adr.md` Invariant 17 mandates: the resolver's evidence selection and the per-node run agree on path identity, and the per-node run's scope is the subtree (`spx test <node>` legitimately tests a subtree). Narrowing a node's outcome to its co-located `tests/` directory is therefore an ADR decision, not a code change.
+
+**Resolution:** if a node's status should reflect only its own co-located tests, amend `21-status-testing-delegation.adr.md` to specify a co-located outcome scope and have the resolver pass a co-located (not subtree) scope to the per-node run, keeping `spx test <node>` subtree-scoped.
+
+**Skills:** `spec-tree:authoring` (ADR decision), `spec-tree:applying` (implementation).
 
 ## FOLLOW-UP: a node whose tests are all gated out re-runs on every --update
 
