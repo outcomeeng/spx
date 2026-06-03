@@ -9,7 +9,7 @@ import {
 import { join } from "node:path";
 
 import type { Result } from "@/config/types";
-import { formatAuditRunTimestamp, slugAuditBranchIdentity } from "@/domains/audit/run-state";
+import { formatAuditRunTimestamp } from "@/domains/audit/run-state";
 
 export const TEST_RUN_STATE_STATUS = {
   PASSED: "passed",
@@ -30,7 +30,6 @@ export type TestingRunStateIncompleteReason =
   (typeof TESTING_RUN_STATE_INCOMPLETE_REASON)[keyof typeof TESTING_RUN_STATE_INCOMPLETE_REASON];
 
 export const TESTING_RUN_STATE_ERROR = {
-  INVALID_BRANCH_SLUG: "testing branch slug must be normalized before storage",
   RUN_DIRECTORY_COLLISION_LIMIT: "testing run directory collision limit exhausted",
   RUN_DIRECTORY_CREATE_FAILED: "testing run directory create failed",
   STATE_ALREADY_EXISTS: "testing run state already exists",
@@ -39,7 +38,6 @@ export const TESTING_RUN_STATE_ERROR = {
 
 export const TEST_RUN_STATE_FIELDS = {
   BRANCH_NAME: "branchName",
-  BRANCH_SLUG: "branchSlug",
   HEAD_SHA: "headSha",
   TESTING_CONFIG_DIGEST: "testingConfigDigest",
   RUNNER_OUTCOMES: "runnerOutcomes",
@@ -75,7 +73,6 @@ export interface ProductInputDigest {
 
 export interface TestRunState {
   readonly branchName: string;
-  readonly branchSlug: string;
   readonly headSha: string;
   readonly testingConfigDigest: string;
   readonly runnerOutcomes: readonly TestRunnerOutcome[];
@@ -101,6 +98,7 @@ export interface TestContentEntry {
 
 export interface TestingStorageConfig {
   readonly spxDir: string;
+  readonly localDir: string;
   readonly testingDir: string;
   readonly runsDir: string;
   readonly stateFile: string;
@@ -108,13 +106,13 @@ export interface TestingStorageConfig {
 
 export const DEFAULT_TESTING_STORAGE: TestingStorageConfig = {
   spxDir: ".spx",
+  localDir: "local",
   testingDir: "testing",
   runsDir: "runs",
   stateFile: "state.json",
 };
 
 export interface TestRunDirectory {
-  readonly branchDir: string;
   readonly runsDir: string;
   readonly runDir: string;
   readonly runDirectoryName: string;
@@ -137,7 +135,7 @@ export interface TestIncompleteRun {
   readonly error?: string;
 }
 
-export interface TestingBranchRuns {
+export interface TestingRuns {
   readonly terminalRuns: readonly TestTerminalRun[];
   readonly incompleteRuns: readonly TestIncompleteRun[];
 }
@@ -183,7 +181,7 @@ const RUN_DIRECTORY_CREATE_ATTEMPTS = 10;
 const TEMP_STATE_FILE_PREFIX = ".state";
 const TEMP_STATE_FILE_SUFFIX = ".tmp";
 const JSON_INDENT_SPACES = 2;
-const SLUG_SEPARATOR = "-";
+const SEGMENT_SEPARATOR = "-";
 const EXCLUSIVE_CREATE_FLAG = "wx";
 const ERROR_CODE_FILE_EXISTS = "EEXIST";
 const ERROR_CODE_NOT_FOUND = "ENOENT";
@@ -200,59 +198,31 @@ const defaultFileSystem: TestRunStateFileSystem = {
   readdir: nodeReaddir,
 };
 
-// The branch slug and run-directory timestamp reuse the audit implementations so
-// testing state and audit state share one slugging and run-directory convention.
-export function slugTestingBranchIdentity(branchIdentity: string, maxBytes?: number): string {
-  return maxBytes === undefined
-    ? slugAuditBranchIdentity(branchIdentity)
-    : slugAuditBranchIdentity(branchIdentity, maxBytes);
-}
-
-// A slug that `slugTestingBranchIdentity` produces: lowercase alphanumeric segments
-// joined by single hyphens. Storage and lookup reject anything else so an
-// unnormalized slug never reaches the filesystem, matching the audit branch guard.
-const BRANCH_SLUG_PATTERN = /^[a-z0-9]+(?:-[a-z0-9]+)*$/;
-
-function validateTestingBranchSlug(branchSlug: string): Result<string> {
-  return BRANCH_SLUG_PATTERN.test(branchSlug)
-    ? { ok: true, value: branchSlug }
-    : { ok: false, error: TESTING_RUN_STATE_ERROR.INVALID_BRANCH_SLUG };
-}
-
+// Run-directory timestamps reuse the audit formatter so testing state and audit
+// state share one run-directory naming convention.
 export function formatTestRunTimestamp(date: Date): string {
   return formatAuditRunTimestamp(date);
 }
 
-export function testingBranchDir(
-  gitCommonDirProductDir: string,
-  branchSlug: string,
-  storage: TestingStorageConfig = DEFAULT_TESTING_STORAGE,
-): string {
-  return join(gitCommonDirProductDir, storage.spxDir, storage.testingDir, branchSlug);
-}
-
+// Per-worktree testing runs live under `.spx/local/testing/runs/` at the local
+// worktree root (`productDir`); no branch partition participates in the path.
 export function testingRunsDir(
-  gitCommonDirProductDir: string,
-  branchSlug: string,
+  productDir: string,
   storage: TestingStorageConfig = DEFAULT_TESTING_STORAGE,
 ): string {
-  return join(testingBranchDir(gitCommonDirProductDir, branchSlug, storage), storage.runsDir);
+  return join(productDir, storage.spxDir, storage.localDir, storage.testingDir, storage.runsDir);
 }
 
 export async function createTestRunDirectory(
-  gitCommonDirProductDir: string,
-  branchSlug: string,
+  productDir: string,
   options: CreateTestRunDirectoryOptions = {},
 ): Promise<Result<TestRunDirectory>> {
-  const validatedSlug = validateTestingBranchSlug(branchSlug);
-  if (!validatedSlug.ok) return validatedSlug;
   const fs = options.fs ?? defaultFileSystem;
   const storage = options.storage ?? DEFAULT_TESTING_STORAGE;
   const maxAttempts = options.maxAttempts ?? RUN_DIRECTORY_CREATE_ATTEMPTS;
   const startedDate = (options.now ?? (() => new Date()))();
   const startedAt = formatTestRunTimestamp(startedDate);
-  const branchDir = testingBranchDir(gitCommonDirProductDir, branchSlug, storage);
-  const runsDir = testingRunsDir(gitCommonDirProductDir, branchSlug, storage);
+  const runsDir = testingRunsDir(productDir, storage);
   const randomBytes = options.randomBytes ?? nodeRandomBytes;
 
   try {
@@ -263,11 +233,11 @@ export async function createTestRunDirectory(
 
   for (let attempt = 0; attempt < maxAttempts; attempt += 1) {
     const runId = generateHexId(RUN_ID_BYTES, randomBytes);
-    const runDirectoryName = `${startedAt}${SLUG_SEPARATOR}${runId}`;
+    const runDirectoryName = `${startedAt}${SEGMENT_SEPARATOR}${runId}`;
     const runDir = join(runsDir, runDirectoryName);
     try {
       await fs.mkdir(runDir);
-      return { ok: true, value: { branchDir, runsDir, runDir, runDirectoryName, runId, startedAt } };
+      return { ok: true, value: { runsDir, runDir, runDirectoryName, runId, startedAt } };
     } catch (error) {
       if (hasErrorCode(error, ERROR_CODE_FILE_EXISTS)) continue;
       return { ok: false, error: `${TESTING_RUN_STATE_ERROR.RUN_DIRECTORY_CREATE_FAILED}: ${toErrorMessage(error)}` };
@@ -308,16 +278,13 @@ export async function writeTerminalTestRunState(
   }
 }
 
-export async function readTestingBranchRuns(
-  gitCommonDirProductDir: string,
-  branchSlug: string,
+export async function readTestingRuns(
+  productDir: string,
   options: ReadTestRunStateOptions = {},
-): Promise<Result<TestingBranchRuns>> {
-  const validatedSlug = validateTestingBranchSlug(branchSlug);
-  if (!validatedSlug.ok) return validatedSlug;
+): Promise<Result<TestingRuns>> {
   const fs = options.fs ?? defaultFileSystem;
   const storage = options.storage ?? DEFAULT_TESTING_STORAGE;
-  const runsDir = testingRunsDir(gitCommonDirProductDir, branchSlug, storage);
+  const runsDir = testingRunsDir(productDir, storage);
 
   let entries: readonly TestRunDirectoryEntry[];
   try {
@@ -351,11 +318,26 @@ export async function readTestingBranchRuns(
   return { ok: true, value: { terminalRuns, incompleteRuns } };
 }
 
-export function selectLatestTerminalTestRun(runs: readonly TestTerminalRun[]): TestTerminalRun | undefined {
-  return runs.reduce<TestTerminalRun | undefined>((latest, candidate) => {
-    if (latest === undefined) return candidate;
-    return compareTerminalRuns(latest, candidate) < 0 ? candidate : latest;
-  }, undefined);
+// Selects the latest terminal run that covers a node — one whose recorded runner
+// outcomes executed all of the node's test paths — so a later run that exercised
+// other nodes never hides an earlier node's evidence. Returns undefined when no
+// run covers the node (including a node with no test paths).
+export function selectLatestTerminalTestRunForNode(
+  runs: readonly TestTerminalRun[],
+  nodeTestPaths: readonly string[],
+): TestTerminalRun | undefined {
+  return runs
+    .filter((run) => runCoversNode(run, nodeTestPaths))
+    .reduce<TestTerminalRun | undefined>((latest, candidate) => {
+      if (latest === undefined) return candidate;
+      return compareTerminalRuns(latest, candidate) < 0 ? candidate : latest;
+    }, undefined);
+}
+
+function runCoversNode(run: TestTerminalRun, nodeTestPaths: readonly string[]): boolean {
+  if (nodeTestPaths.length === 0) return false;
+  const executed = new Set(run.state.runnerOutcomes.flatMap((outcome) => outcome.testPaths));
+  return nodeTestPaths.every((path) => executed.has(path));
 }
 
 export function digestTestPaths(paths: readonly string[]): string {
@@ -420,8 +402,6 @@ function validateTestRunState(value: unknown): Result<TestRunState> {
 
   const branchName = readString(value, TEST_RUN_STATE_FIELDS.BRANCH_NAME);
   if (!branchName.ok) return branchName;
-  const branchSlug = readString(value, TEST_RUN_STATE_FIELDS.BRANCH_SLUG);
-  if (!branchSlug.ok) return branchSlug;
   const headSha = readString(value, TEST_RUN_STATE_FIELDS.HEAD_SHA);
   if (!headSha.ok) return headSha;
   const testingConfigDigest = readString(value, TEST_RUN_STATE_FIELDS.TESTING_CONFIG_DIGEST);
@@ -445,7 +425,6 @@ function validateTestRunState(value: unknown): Result<TestRunState> {
     ok: true,
     value: {
       branchName: branchName.value,
-      branchSlug: branchSlug.value,
       headSha: headSha.value,
       testingConfigDigest: testingConfigDigest.value,
       runnerOutcomes: runnerOutcomes.value,
@@ -541,7 +520,7 @@ function productInputDigestsEqual(
 function canonicalProductInputDigests(digests: readonly ProductInputDigest[]): string {
   const normalized = [...digests]
     .map((digest) => [digest.descriptorId, digest.digest])
-    .sort((left, right) => compareAsciiStrings(left.join(SLUG_SEPARATOR), right.join(SLUG_SEPARATOR)));
+    .sort((left, right) => compareAsciiStrings(left.join(SEGMENT_SEPARATOR), right.join(SEGMENT_SEPARATOR)));
   return JSON.stringify(normalized);
 }
 

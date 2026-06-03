@@ -3,7 +3,6 @@ import * as fc from "fast-check";
 import {
   formatTestRunTimestamp,
   type ProductInputDigest,
-  slugTestingBranchIdentity,
   type StalenessInputs,
   TEST_RUN_STATE_FIELDS,
   TEST_RUN_STATE_STATUS,
@@ -30,6 +29,8 @@ const MAX_RUNNER_OUTCOMES = 4;
 const MAX_PRODUCT_INPUT_DIGESTS = 4;
 const MIN_TEST_PATHS = 1;
 const MAX_TEST_PATHS = 6;
+const DISJOINT_PAIR_MIN_PATHS = 2;
+const DISJOINT_PAIR_MAX_PATHS = 12;
 const MIN_CONTENT_ENTRIES = 1;
 const MAX_CONTENT_ENTRIES = 6;
 
@@ -37,7 +38,6 @@ export const TEST_RUN_STATE_TEST_GENERATOR = {
   testRunState: arbitraryTestRunState,
   stalenessInputs: arbitraryStalenessInputs,
   branchName: arbitraryBranchName,
-  branchSlug: arbitraryBranchSlug,
   headSha: arbitraryHeadSha,
   digest: arbitraryDigest,
   runId: arbitraryRunId,
@@ -47,6 +47,7 @@ export const TEST_RUN_STATE_TEST_GENERATOR = {
   runnerOutcome: arbitraryRunnerOutcome,
   productInputDigest: arbitraryProductInputDigest,
   testPaths: arbitraryTestPaths,
+  disjointTestPathsPair: arbitraryDisjointTestPathsPair,
   testContentEntries: arbitraryTestContentEntries,
   mutableStalenessDigestField: arbitraryMutableStalenessDigestField,
 } as const;
@@ -67,10 +68,6 @@ function arbitraryBranchName(): fc.Arbitrary<string> {
   return fc
     .tuple(CONFIG_TEST_GENERATOR.key(), CONFIG_TEST_GENERATOR.key())
     .map(([first, second]) => `${first}${BRANCH_SEPARATOR}${second}`);
-}
-
-function arbitraryBranchSlug(): fc.Arbitrary<string> {
-  return arbitraryBranchName().map((name) => slugTestingBranchIdentity(name));
 }
 
 function arbitraryHeadSha(): fc.Arbitrary<string> {
@@ -108,6 +105,22 @@ function arbitraryTestPaths(): fc.Arbitrary<readonly string[]> {
     minLength: MIN_TEST_PATHS,
     maxLength: MAX_TEST_PATHS,
   });
+}
+
+// Two non-empty, disjoint sets of test paths drawn from one unique array and
+// partitioned, so a run covering the second set provably executes none of the
+// first set's paths (exercises the populated-but-missing branch of runCoversNode).
+function arbitraryDisjointTestPathsPair(): fc.Arbitrary<readonly [readonly string[], readonly string[]]> {
+  return fc
+    .uniqueArray(arbitrarySpecTreeTestFilePath(), {
+      minLength: DISJOINT_PAIR_MIN_PATHS,
+      maxLength: DISJOINT_PAIR_MAX_PATHS,
+    })
+    .chain((paths) =>
+      fc
+        .integer({ min: MIN_TEST_PATHS, max: paths.length - MIN_TEST_PATHS })
+        .map((splitAt) => [paths.slice(0, splitAt), paths.slice(splitAt)] as const)
+    );
 }
 
 function arbitraryRunnerOutcome(): fc.Arbitrary<TestRunnerOutcome> {
@@ -184,12 +197,10 @@ function arbitraryTestRunState(): fc.Arbitrary<TestRunState> {
           status,
         },
       ) => {
-        const branchSlug = slugTestingBranchIdentity(branchName);
         const startedAt = formatTestRunTimestamp(startedDate);
         const completedAt = formatTestRunTimestamp(new Date(startedDate.getTime() + durationMs));
         return {
           branchName,
-          branchSlug,
           headSha,
           testingConfigDigest,
           runnerOutcomes,
