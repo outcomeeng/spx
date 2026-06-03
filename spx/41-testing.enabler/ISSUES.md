@@ -1,14 +1,6 @@
 # Issues: Testing
 
-Coordination notes for the `spx test` enabler. The dispatch and central registry are built; passing-scope filtering, last-run evidence recording, and the registry-based per-node run remain, so `41-testing.enabler` stays in `spx/EXCLUDE`. The deferred assertions (passing-scope, per-node run) carry forward-contract `[test]` links to `tests/testing.integration.test.ts`, which does not exist yet — the sanctioned declared-state pattern for nodes under `spx/EXCLUDE`; each link is re-pointed to its canonical file when the feature lands.
-
-## FOLLOW-UP: passing-scope filtering for `spx test passing` is not yet built
-
-`spx/41-testing.enabler/testing.md` declares that `spx test passing` filters test files under passing-scope-excluded nodes before runner invocation. The dispatch (`src/commands/testing/dispatch.ts`) runs every discovered file and has no passing-scope path. Testing config models passing-scope as a `PathFilterConfig` (prefix include/exclude) in `src/testing/config.ts`, and no shared applier exists — `src/validation/literal/index.ts` hand-rolls prefix matching for its own `PathFilterConfig`.
-
-**Resolution:** add a `passing` subcommand and a `passing` parameter to `runTests`, resolve the testing config `passingScope`, and filter discovered files by prefix include/exclude before grouping; decide whether the applier is a shared primitive in `src/config/primitives/path-filter.ts` or local to the testing domain. Author the two passing-scope scenarios and re-point their `testing.md` links to the canonical scenario file.
-
-**Evidence:** `testing.md` passing-scope assertions; `src/testing/config.ts` `passingScope: PathFilterConfig`; `src/validation/literal/index.ts` `applyPathFilter` prefix matching.
+Coordination notes for the `spx test` enabler. The dispatch, central registry, the passing-scope dispatch filter, and config-driven scope resolution are built; last-run evidence recording and the registry-based per-node run remain, so `41-testing.enabler` stays in `spx/EXCLUDE`. Three scenarios — the two passing-scope end-to-end scenarios and the per-node-run scenario — carry forward-contract `[test]` links to `tests/testing.integration.test.ts`, which does not exist yet (the sanctioned declared-state pattern for nodes under `spx/EXCLUDE`); the links are re-pointed to the canonical file when the integration harness lands. The passing-scope dispatch mechanism itself is proven now in `tests/testing.scenario.l1.test.ts`.
 
 ## FOLLOW-UP: last-run evidence and the registry-based per-node run are not yet built
 
@@ -17,6 +9,22 @@ Coordination notes for the `spx test` enabler. The dispatch and central registry
 **Resolution:** record a `TestRunState` (via `src/testing/run-state.ts`) after a full run and after a per-node run; expose the registry-based per-node run that status consumes per `spx/31-spec-domain.enabler/54-spec-cli-commands.enabler/21-status-testing-delegation.adr.md`; author the per-node case; remove `41-testing.enabler` from `spx/EXCLUDE` once it lands.
 
 **Evidence:** `testing.md` evidence and per-node assertions; `src/testing/run-state.ts` (the relocated evidence contract); the status delegation ADR.
+
+## FOLLOW-UP: the integration harness must prove passing-scope end-to-end
+
+The two passing-scope end-to-end scenarios in `testing.md` (`spx test passing` filters an excluded node / `spx test` runs it) forward-contract to `tests/testing.integration.test.ts`. The dispatch mechanism is proven now (the dispatch applies a supplied scope, `tests/testing.scenario.l1.test.ts`) and config-reading is the `ALWAYS` compliance `[review]`, but no automated test exercises `resolveTestingPassingScope` reading `spx.config.*` and the resolved scope reaching the runners end-to-end.
+
+**Resolution:** when the integration harness `tests/testing.integration.test.ts` lands (with the last-run evidence and per-node run work above), add a CLI-boundary case that writes a `spx.config.*` carrying a `testing.passingScope` exclusion, runs `spx test passing`, and asserts the excluded node's files are not dispatched while `spx test` runs them — exercising `resolveTestingPassingScope` end-to-end — then re-point the two scenario links from `tests/testing.integration.test.ts` to the canonical case.
+
+**Evidence:** local and CI changes review on PR-2b; `src/interfaces/cli/testing.ts` `resolveTestingPassingScope`; `testing.md` passing-scope scenarios and `ALWAYS` compliance assertion.
+
+## FOLLOW-UP: passing-scope prefixes are matched as full product-root paths
+
+`resolveTestingPassingScope` forwards the config `passingScope` straight to `applyPathFilter`, which matches prefixes against discovered test file paths rooted at the product directory (`spx/<node>/tests/…`). A `passingScope.exclude` value must therefore be a full path from the product root (`spx/41-testing.enabler`); a relative node path (`41-testing.enabler`) matches nothing and silently excludes no files, with no error or warning.
+
+**Resolution:** state the path-format contract on the `spx test passing` assertions in `testing.md`, and decide whether a `passingScope` prefix that matches no discovered file should warn — closing the silent-no-op gap; when the integration harness lands, cover the no-op case (a config prefix matching no discovered file) with either an asserted warning or a documented silent-no-op contract.
+
+**Evidence:** local changes review on PR-2b; `spx/41-testing.enabler/tests/testing.scenario.l1.test.ts` exclusion-prefix construction; `src/config/primitives/path-filter.ts` `applyPathFilter`.
 
 ## FOLLOW-UP: the testing language descriptor delegates detection to the composition root
 
