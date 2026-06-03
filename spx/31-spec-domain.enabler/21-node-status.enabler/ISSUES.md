@@ -1,23 +1,5 @@
 # Issues: 21-node-status.enabler
 
-## Open: ADR surface description omits two public exports
-
-`21-node-status-architecture.adr.md` describes the public surface as the
-classifier, reader, evidence-provider factory, and `spx spec status --update`
-orchestration. The actual `src/lib/node-status/index.ts` surface also exports
-`serializeNodeStatus` and the `NodeClassificationFacts` type. The ADR's decision
-statement and Verification rules name `classifyNodeStatus` but not these two, so
-the surface description is narrower than the real barrel.
-
-**Impact:** Documentation-only. The exports are intentional and covered by tests;
-the gap is between the ADR's prose and the barrel.
-
-**Resolution:** Amend the ADR's decision statement and Verification rules to name
-`serializeNodeStatus` and `NodeClassificationFacts` alongside `classifyNodeStatus`,
-so the description matches `index.ts`.
-
-**Skills:** `spec-tree:authoring` (ADR edit).
-
 ## Open: node-slug arbitrary naming and hyphen legibility
 
 `testing/generators/node-status/node-status.ts` builds `SLUG_PATTERN` from
