@@ -5,6 +5,7 @@ import { claudeDomain } from "./claude";
 import { configDomain } from "./config";
 import { sessionDomain } from "./session";
 import { specDomain } from "./spec";
+import { testingDomain } from "./testing";
 import { validationDomain } from "./validation";
 
 export const CLI_DOMAINS: readonly Domain[] = [
@@ -13,5 +14,6 @@ export const CLI_DOMAINS: readonly Domain[] = [
   configDomain,
   sessionDomain,
   specDomain,
+  testingDomain,
   validationDomain,
 ];
