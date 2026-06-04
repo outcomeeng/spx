@@ -1,17 +1,8 @@
 /**
- * Unit tests for audit test harness.
+ * Scenario tests for the audit test harness: temp-directory creation, node-path
+ * encoding, verdict writing, branch-run-directory derivation, and cleanup.
  *
- * Test Level: 1 (Unit)
- * - Harness creates temp dirs (fs is Level 1)
- * - Verifies directory structure, file writing, cleanup
- *
- * Assertions covered from audit-test-harness.md:
- * - S1: createAuditHarness creates temp product directory with .spx/nodes/ directory
- * - S2: nodeDir(nodePath) returns .spx/nodes/ joined with encoded node path (/ → -)
- * - S3: writeVerdict creates {YYYY-MM-DD_HH-mm-ss}.audit.xml in node directory
- * - S3a: writeVerdict accepts injectable clock for deterministic filename
- * - S4: cleanup removes temp dir
- * - P1: nodeDir is deterministic for all spec node path strings
+ * Test Level: l1 — the harness creates temp dirs (fs is l1).
  */
 
 import { existsSync } from "node:fs";
@@ -21,7 +12,6 @@ import { basename, isAbsolute, join } from "node:path";
 import { DEFAULT_AUDIT_CONFIG, encodeNodePath, formatAuditTimestamp } from "@/domains/audit/config";
 import { CONFIG_TEST_GENERATOR, sampleConfigTestValue } from "@testing/generators/config/descriptors";
 import { auditBranchRunsDir, createAuditHarness } from "@testing/harnesses/audit/harness";
-import * as fc from "fast-check";
 import { describe, expect, it } from "vitest";
 
 const AUDIT_TIMESTAMP_PATTERN = /^\d{4}-\d{2}-\d{2}_\d{2}-\d{2}-\d{2}\.audit\.xml$/;
@@ -68,26 +58,6 @@ describe("nodeDir", () => {
     const harness = await createAuditHarness();
     try {
       expect(isAbsolute(harness.nodeDir("spx/36-audit.enabler"))).toBe(true);
-    } finally {
-      await harness.cleanup();
-    }
-  });
-
-  it("GIVEN any spec node path string WHEN nodeDir is called twice THEN both calls return the same path", async () => {
-    // Real bug class: encoding uses stateful counter, Date.now(), or random — all
-    // produce non-repeatable output and would fail this property.
-    const harness = await createAuditHarness();
-    try {
-      const segmentArb = fc.stringMatching(/^[a-z][a-z0-9\-.]{1,20}$/);
-      const pathArb = fc
-        .array(segmentArb, { minLength: 1, maxLength: 5 })
-        .map((segs) => segs.join("/"));
-
-      fc.assert(
-        fc.property(pathArb, (nodePath) => {
-          return harness.nodeDir(nodePath) === harness.nodeDir(nodePath);
-        }),
-      );
     } finally {
       await harness.cleanup();
     }
