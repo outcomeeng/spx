@@ -8,10 +8,10 @@ CONTRIBUTING TO eliminating permission drift by ensuring no project's settings a
 
 ### Scenarios
 
-- Given a directory tree with `settings.local.json` files inside `.claude/` directories at varying depths, when discovery runs, then all are found ([test](tests/discovery.unit.test.ts))
-- Given a `settings.local.json` with valid permissions, when parsing runs, then typed permission records are extracted ([test](tests/parser.unit.test.ts))
-- Given a `settings.local.json` with malformed JSON, when parsing runs, then the file is reported as an error without aborting the scan ([test](tests/parser.unit.test.ts))
+- Given a directory tree with `settings.local.json` files inside `.claude/` directories at varying depths, when discovery runs, then all are found ([test](tests/discovery.scenario.l1.test.ts))
+- Given a `settings.local.json` with valid permissions, when parsing runs, then typed permission records are extracted ([test](tests/parser.scenario.l1.test.ts))
+- Given a `settings.local.json` with malformed JSON, when parsing runs, then the file is reported as an error without aborting the scan ([test](tests/parser.scenario.l1.test.ts))
 
 ### Properties
 
-- Discovery is exhaustive: every `settings.local.json` under the root is found ([test](tests/discovery.unit.test.ts))
+- Discovery is exhaustive: every `settings.local.json` under the root is found ([test](tests/discovery.scenario.l1.test.ts))
