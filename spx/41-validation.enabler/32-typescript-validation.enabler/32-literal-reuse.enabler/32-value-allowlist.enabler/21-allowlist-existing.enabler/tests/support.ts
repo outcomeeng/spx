@@ -15,7 +15,12 @@ import {
   VALIDATION_SECTION,
 } from "@/validation/config/descriptor";
 import { LITERAL_DEFAULTS, type LiteralValueAllowlistConfig } from "@/validation/literal/config";
-import { LITERAL_TEST_GENERATOR, sampleLiteralTestValue } from "@testing/generators/literal/literal";
+import {
+  LITERAL_TEST_GENERATOR,
+  sampleDistinctSourceFilePaths,
+  sampleDistinctTestFilePaths,
+  sampleLiteralTestValue,
+} from "@testing/generators/literal/literal";
 import type { Config, SpecTreeEnv } from "@testing/harnesses/spec-tree/spec-tree";
 
 function literalSection(values: Record<string, unknown>): Config {
@@ -95,9 +100,14 @@ export async function writeMultipleLiteralFixtures(
   env: SpecTreeEnv,
   literals: readonly string[],
 ): Promise<void> {
+  const sourcePaths = sampleDistinctSourceFilePaths(literals.length);
+  const testPaths = sampleDistinctTestFilePaths(literals.length);
   for (const [index, literal] of literals.entries()) {
-    const sourcePath = sampleLiteralTestValue(LITERAL_TEST_GENERATOR.sourceFilePath());
-    const testPath = sampleLiteralTestValue(LITERAL_TEST_GENERATOR.testFilePath());
+    const sourcePath = sourcePaths[index];
+    const testPath = testPaths[index];
+    if (sourcePath === undefined || testPath === undefined) {
+      throw new Error("distinct fixture paths exhausted for multiple-literal fixtures");
+    }
     await env.writeRaw(sourcePath, `export const MULTI_VALUE_${index} = "${literal}";\n`);
     await env.writeRaw(testPath, `expect(value).toBe("${literal}");\n`);
   }
