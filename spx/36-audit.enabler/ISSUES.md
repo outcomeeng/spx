@@ -6,7 +6,7 @@
 
 Affected files:
 
-- `spx/36-audit.enabler/21-audit-test-harness.enabler/tests/audit-test-harness.unit.test.ts`
+- `spx/36-audit.enabler/21-audit-test-harness.enabler/tests/audit-test-harness.scenario.l1.test.ts`
 - `spx/36-audit.enabler/32-verify.enabler/32-structural.enabler/tests/structural.scenario.l1.test.ts`
 - `spx/36-audit.enabler/32-verify.enabler/43-semantic.enabler/tests/semantic.mapping.l1.test.ts`
 - `spx/36-audit.enabler/32-verify.enabler/43-semantic.enabler/tests/semantic.scenario.l1.test.ts`
