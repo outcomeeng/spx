@@ -58,8 +58,8 @@ The methodology treats test infrastructure — harnesses, generators, inert fixt
 
 ### Mandated shape
 
-- A top-level `infrastructure` enabler with a `testing` enabler child and three grandchildren `generators`, `fixtures`, `harnesses` (normative slugs), governed by `spx/15-test-infrastructure.pdr.md` (absent today).
-- Implementation stays in `testing/` at the project root, path-mapped to `@testing/`. No code moves; governance is added on top.
+- A top-level `infrastructure` enabler with a `testing` enabler child and three grandchildren `generators`, `fixtures`, `harnesses` (normative slugs), governed by `spx/21-test-infrastructure.pdr.md` (absent today).
+- Implementation stays in `testing/` at the product root, path-mapped to `@testing/`. No code moves; governance is added on top.
 
 ### Current governance (reconcile, do not duplicate)
 
@@ -70,7 +70,7 @@ The methodology treats test infrastructure — harnesses, generators, inert fixt
 
 ### Migration
 
-1. Author `spx/15-test-infrastructure.pdr.md` (the governing decision: mandated shape plus the `testing/` implementation location) via `/spec-tree:authoring`.
+1. Author `spx/21-test-infrastructure.pdr.md` (the governing decision: mandated shape plus the `testing/` implementation location) via `/spec-tree:authoring`. The methodology's example numbers this PDR 15, but spx assigns index 15 to `15-worktree-resolution.pdr.md`, so use the free root index 21 — placing the PDR just before `22-test-environment.enabler`, the test-infrastructure node it governs. The `infrastructure` enabler created in step 2 takes its own free root index (18 or 20).
 2. Create the `infrastructure.enabler/testing.enabler/{generators,fixtures,harnesses}` subtree via `/spec-tree:decomposing` and `/spec-tree:authoring`.
 3. Reconcile the existing test-infra enablers (`22-test-environment`, `36-audit/21-audit-test-harness`, `45-ts-snippet-generators`) via `/spec-tree:refactoring`: decide per node whether its governance moves under the new subtree or the subtree references it — domain-coupled infrastructure may stay near its domain with a reference; cross-cutting infrastructure centralizes.
 4. Author assertions for the ungoverned harnesses and generators under the new subtree; each then passes the code, test-evidence, and architecture audits per `/spec-tree:applying`.
