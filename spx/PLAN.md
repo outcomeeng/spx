@@ -52,38 +52,6 @@ Keep the product spec tree on the current node model and remove the deprecated t
 
 ---
 
-## Status and Testing Responsibility Reconciliation
-
-spx's spec tree declares `spx spec status --update` as the command that runs each node's tests and persists `spx.status.json` (`spx/31-spec-domain.enabler/21-node-status.enabler/15-status-file-contract.pdr.md`). That declaration conflicts with the testing model, where `spx test` runs node tests and status reads recorded evidence without running a runner; reconciling it also keeps test execution multi-language per `spx/19-language-registration.adr.md`. This section coordinates the correction; the authoritative decision content lands in the PDRs and ADRs named under Cascade.
-
-### Intent
-
-Testing owns running tests (multi-language, via the registry) and produces ephemeral per-worktree evidence; status owns reading that evidence and runs testing only when the evidence is insufficient. The decision shapes — the two-artifact split (committed `spx.status.json` vs. ephemeral `.spx/local/testing/`), the `.spx/local/*` per-worktree resolution, the status-to-testing delegation, and the no-language-in-status rule — are authored in the PDRs and ADRs named under Cascade, not held here.
-
-### Contradiction this resolves
-
-- `spx/31-spec-domain.enabler/21-node-status.enabler/15-status-file-contract.pdr.md` invariant "`spx spec status --update` is the only command path that executes node tests" contradicts `spx/41-testing.enabler/testing.md`, where `spx test` executes node tests and records last-run evidence and status reads that evidence without invoking a runner. The conflict is over which command executes tests. The two persisted artifacts are not duplicates and both survive: `spx.status.json` records lifecycle state (`declared`/`specified`/`failing`/`passing`); the testing `state.json` records raw run evidence (runner outcomes, digests, timestamps).
-
-### Cascade (top of the truth hierarchy down)
-
-Items 1–3 (PDRs, Specs, Architecture) are authored; item 4 (Code) is the remaining implementation unit, run through `/spec-tree:applying`.
-
-1. PDRs:
-   - `spx/15-worktree-resolution.pdr.md` — add a new resolution tier where `.spx/local/*` resolves to the worktree root (via `git rev-parse --show-toplevel`), distinct from the existing common-dir `.spx/` root, so testing evidence can live in per-worktree `.spx/local/testing/`; the evidence-directory relocation in the Architecture step is the driver.
-   - `spx/31-spec-domain.enabler/21-node-status.enabler/15-status-file-contract.pdr.md` — status reads latest valid evidence and invokes testing when it is stale, failing, or absent; remove "`--update` is the only path that executes node tests"; `spx.status.json` stays the committed per-worktree status artifact.
-2. Specs:
-   - `spx/41-testing.enabler/43-last-run-evidence.enabler/last-run-evidence.md` and `spx/41-testing.enabler/testing.md` — relocate evidence to the per-worktree `.spx/local/testing/` directory set by the ADR named in the Architecture step. Also revise `testing.md`'s status assertions: reading recorded evidence without invoking a runner holds only for valid evidence; status invoking testing when evidence is stale, failing, or absent is permitted.
-   - `spx/31-spec-domain.enabler/21-node-status.enabler/node-status.md` and `spx/31-spec-domain.enabler/54-spec-cli-commands.enabler/spec-cli-commands.md` — status consumes evidence and delegates to testing; the per-node test run is testing's registry-based, multi-language surface, not a status-owned runner.
-3. Architecture:
-   - `spx/41-testing.enabler/43-last-run-evidence.enabler/11-last-run-directory.adr.md` (and the sibling `21-testing-state-storage.adr.md`) — relocate the evidence directory from the common-dir `.spx/testing/{branch-slug}/runs/.../state.json` to per-worktree `.spx/local/testing/`, consistent with the `.spx/local/*` resolution encoded in `spx/15-worktree-resolution.pdr.md`.
-   - Author a status-to-testing wiring ADR under `spx/31-spec-domain.enabler/54-spec-cli-commands.enabler/` (none exists on `main`): status invokes testing's registry-based per-node run when evidence is insufficient and composes no language runner directly.
-   - Testing exposes a registry-based per-node run surface; the registry `src/testing/registry.ts` is unbuilt (see `spx/41-testing.enabler/ISSUES.md`).
-4. Code:
-   - `spx spec status --update` is declared but unwired on `main`, and the status read path does not consume persisted evidence. Implement both under the new model: `--update` reads evidence, invokes testing's multi-language per-node run when the evidence is insufficient, derives state, and writes `spx.status.json`; the plain read path reports recorded evidence and runs no tests.
-   - Testing writes its evidence under `.spx/local/testing/`.
-
----
-
 ## Test Infrastructure Governance
 
 The methodology treats test infrastructure — harnesses, generators, inert fixtures — as production code with a mandated spec-tree shape and the same audit obligations as product modules (`/spec-tree:understanding` `references/what-goes-where.md`). spx's implementation is rich (27 harnesses, 18 generators, fixtures under `testing/`), but its governance is partial: most harnesses and generators carry no spec assertions and no audit obligation. This section plans the adoption of the mandated governance.
