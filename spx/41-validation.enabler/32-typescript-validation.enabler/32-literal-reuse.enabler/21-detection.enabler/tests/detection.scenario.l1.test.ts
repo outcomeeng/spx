@@ -4,6 +4,7 @@ import { createEmptyLiteralAllowlist, detectReuse, LITERAL_KIND } from "@/valida
 import {
   arbitraryDomainLiteral,
   arbitraryDomainNumber,
+  arbitraryLiteralReuseFixtureInputs,
   arbitrarySourceFilePath,
   arbitraryTestFilePath,
   LITERAL_TEST_GENERATOR_COUNTS,
@@ -39,29 +40,25 @@ describe("literal-reuse detection — scenarios", () => {
   });
 
   it("string literal in two or more test files with no source occurrence produces a test↔test duplication finding citing every test location", () => {
-    const literal = sampleLiteralTestValue(arbitraryDomainLiteral());
-    const otherSourceLiteral = sampleLiteralTestValue(arbitraryDomainLiteral());
-    const sourceFile = sampleLiteralTestValue(arbitrarySourceFilePath());
-    const firstTestFile = sampleLiteralTestValue(arbitraryTestFilePath());
-    const secondTestFile = sampleLiteralTestValue(arbitraryTestFilePath());
+    const inputs = sampleLiteralTestValue(arbitraryLiteralReuseFixtureInputs());
 
-    const srcIndex = indexSources([sourceFile, buildStringDeclaration(otherSourceLiteral)]);
+    const srcIndex = indexSources([inputs.reuseSourceFile, buildStringDeclaration(inputs.reuseLiteral)]);
     const tests = testOccurrences(
-      [firstTestFile, buildStringAssertion(literal)],
-      [secondTestFile, buildStringAssertion(literal)],
+      [inputs.dupeFirstTestFile, buildStringAssertion(inputs.dupeLiteral)],
+      [inputs.dupeSecondTestFile, buildStringAssertion(inputs.dupeLiteral)],
     );
 
     const result = detectReuse({ srcIndex, testOccurrencesByFile: tests, allowlist: createEmptyLiteralAllowlist() });
 
-    const findings = result.testDupe.filter((f) => f.value === literal);
+    const findings = result.testDupe.filter((f) => f.value === inputs.dupeLiteral);
     expect(findings.length).toBeGreaterThanOrEqual(LITERAL_TEST_GENERATOR_COUNTS.one);
     const cited = new Set<string>();
     for (const finding of findings) {
       cited.add(finding.test.file);
       for (const other of finding.otherTests) cited.add(other.file);
     }
-    expect(cited.has(firstTestFile)).toBe(true);
-    expect(cited.has(secondTestFile)).toBe(true);
+    expect(cited.has(inputs.dupeFirstTestFile)).toBe(true);
+    expect(cited.has(inputs.dupeSecondTestFile)).toBe(true);
   });
 
   it("numeric literal of meaningful magnitude duplicating between source and test produces a src↔test reuse finding", () => {

@@ -306,6 +306,12 @@ export function sampleDistinctTestFilePaths(count: number): readonly string[] {
   );
 }
 
+export function sampleDistinctSourceFilePaths(count: number): readonly string[] {
+  return sampleLiteralTestValue(
+    fc.uniqueArray(arbitrarySourceFilePath(), { minLength: count, maxLength: count }),
+  );
+}
+
 export function sampleLiteralPair(): readonly [string, string] {
   const [first, second] = sampleIndependentDomainLiterals(LITERAL_TEST_GENERATOR_COUNTS.two);
   if (first === undefined || second === undefined) {
