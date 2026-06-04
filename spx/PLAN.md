@@ -81,3 +81,38 @@ Items 1–3 (PDRs, Specs, Architecture) are authored; item 4 (Code) is the remai
 4. Code:
    - `spx spec status --update` is declared but unwired on `main`, and the status read path does not consume persisted evidence. Implement both under the new model: `--update` reads evidence, invokes testing's multi-language per-node run when the evidence is insufficient, derives state, and writes `spx.status.json`; the plain read path reports recorded evidence and runs no tests.
    - Testing writes its evidence under `.spx/local/testing/`.
+
+---
+
+## Test Infrastructure Governance
+
+The methodology treats test infrastructure — harnesses, generators, inert fixtures — as production code with a mandated spec-tree shape and the same audit obligations as product modules (`/spec-tree:understanding` `references/what-goes-where.md`). spx's implementation is rich (27 harnesses, 18 generators, fixtures under `testing/`), but its governance is partial: most harnesses and generators carry no spec assertions and no audit obligation. This section plans the adoption of the mandated governance.
+
+### Mandated shape
+
+- A top-level `infrastructure` enabler with a `testing` enabler child and three grandchildren `generators`, `fixtures`, `harnesses` (normative slugs), governed by `spx/15-test-infrastructure.pdr.md` (absent today).
+- Implementation stays in `testing/` at the project root, path-mapped to `@testing/`. No code moves; governance is added on top.
+
+### Current governance (reconcile, do not duplicate)
+
+- `spx/22-test-environment.enabler/` governs the callback-scoped temp-dir primitive (`withTempDir`), the spec-tree env (`withTestEnv`/`withSpecTreeEnv`), the git-worktree harness, and spec-tree fixtures, under `21-callback-scoped-environment.adr.md`.
+- `spx/36-audit.enabler/21-audit-test-harness.enabler/` governs the audit harness.
+- `spx/41-validation.enabler/32-typescript-validation.enabler/32-literal-reuse.enabler/45-ts-snippet-generators.enabler/` governs the snippet generators.
+- Ungoverned today: the testing recording-runner (`testing/harnesses/testing/`) and the config, session, node-status, literal, precommit, file-inclusion, and most validation harnesses and generators.
+
+### Migration
+
+1. Author `spx/15-test-infrastructure.pdr.md` (the governing decision: mandated shape plus the `testing/` implementation location) via `/spec-tree:authoring`.
+2. Create the `infrastructure.enabler/testing.enabler/{generators,fixtures,harnesses}` subtree via `/spec-tree:decomposing` and `/spec-tree:authoring`.
+3. Reconcile the existing test-infra enablers (`22-test-environment`, `36-audit/21-audit-test-harness`, `45-ts-snippet-generators`) via `/spec-tree:refactoring`: decide per node whether its governance moves under the new subtree or the subtree references it — domain-coupled infrastructure may stay near its domain with a reference; cross-cutting infrastructure centralizes.
+4. Author assertions for the ungoverned harnesses and generators under the new subtree; each then passes the code, test-evidence, and architecture audits per `/spec-tree:applying`.
+
+### Related test-strategy gaps
+
+- **Canonical evidence naming (separate PR):** 10 test files use `.unit.`, which is not one of the five evidence types, and several mix property and scenario evidence in one file. Reclassify and split them into one-evidence-per-file canonical names, and add a validation rule enforcing the evidence token so it cannot regress. Skills: `/spec-tree:testing`, `/typescript:testing-typescript`, `/spec-tree:applying`.
+- **Fixture placement (minor):** `spx/13-cli.enabler/tests/fixtures/epipe-emitter.ts` is a subprocess fixture inside a `tests/` directory; the methodology homes inert fixtures under `testing/fixtures/`. Relocate it when the CLI node is next edited.
+- **Conformance coverage (minor):** the run-state `state.json` machine contract is covered by parsing and property tests, not a conformance assertion; the `spx spec status` JSON output is conformance-tested through `spx/31-spec-domain.enabler/32-spec-cli-rendering.enabler/`. Consider a conformance assertion for the recorded `state.json` shape when `41-testing`'s evidence schema is next edited.
+
+### Caveat
+
+Confirm whether the mandated test-infrastructure shape post-dates spx's current structure (a planned migration) versus an oversight; either way the target is the mandated shape.
