@@ -77,10 +77,34 @@ The methodology treats test infrastructure — harnesses, generators, inert fixt
 
 ### Related test-strategy gaps
 
-- **Canonical evidence naming (separate PR):** 10 test files use `.unit.`, which is not one of the five evidence types, and several mix property and scenario evidence in one file. Reclassify and split them into one-evidence-per-file canonical names, and add a validation rule enforcing the evidence token so it cannot regress. Skills: `/spec-tree:testing`, `/typescript:testing-typescript`, `/spec-tree:applying`.
+- **Canonical evidence naming:** in flight — see the "Canonical test-evidence naming cascade" section below for live status, the #2b enforcement-rule spec, and operating constraints.
 - **Fixture placement (minor):** `spx/13-cli.enabler/tests/fixtures/epipe-emitter.ts` is a subprocess fixture inside a `tests/` directory; the methodology homes inert fixtures under `testing/fixtures/`. Relocate it when the CLI node is next edited.
 - **Conformance coverage (minor):** the run-state `state.json` machine contract is covered by parsing and property tests, not a conformance assertion; the `spx spec status` JSON output is conformance-tested through `spx/31-spec-domain.enabler/32-spec-cli-rendering.enabler/`. Consider a conformance assertion for the recorded `state.json` shape when `41-testing`'s evidence schema is next edited.
 
 ### Caveat
 
 Confirm whether the mandated test-infrastructure shape post-dates spx's current structure (a planned migration) versus an oversight; either way the target is the mandated shape.
+
+---
+
+## Canonical test-evidence naming cascade
+
+Reclassify legacy test filenames to the canonical `<subject>.<evidence>.<level>[.<runner>].test.ts` form and add a validation rule that enforces the evidence and level tokens so they cannot regress. Skills: `/spec-tree:testing`, `/typescript:testing-typescript`, `/spec-tree:applying`, `/spec-tree:opening-pr`, `/spec-tree:managing-pr`. Operator authorization: "let it ride to merge".
+
+### Status
+
+- **Done — PR #110 (merged, mergeCommit `7e8763b`):** literal-reuse test determinism fix. Legacy independent `fc.sample({ numRuns: 1 })` draws the test logic assumed distinct could collide intermittently in CI (a colliding dupe/source literal flips a dupe finding into a reuse; two harness iterations drawing the same fixture path overwrite an occurrence). Routed distinctness-requiring values through guaranteed-distinct generators (`arbitraryLiteralReuseFixtureInputs`; new `sampleDistinctSourceFilePaths` mirroring `sampleDistinctTestFilePaths`). This put the deterministic suite on main and unblocked the rest of the cascade.
+- **In flight — PR #109 (branch `refactor/canonical-test-evidence-naming`, head `cbf1c6b`):** canonical renames (`.unit` → `<evidence>.l1` across `41-validation` and `46-claude`) plus the `36-audit/21-audit-test-harness` split into `.scenario.l1` + `.property.l1`, plus a `docs(audit)` commit repointing `36-audit/ISSUES.md`. Rebased onto the deterministic main; merge once CI is terminal-green. The CI reviewer's `[standards]` block-comment finding was dropped — its cited rule ("multi-line comment blocks — one short line max") exists in no `CLAUDE.md` or TypeScript standard, the review check passes regardless, and the audit node's prior `.unit` file already used a block comment.
+- **To build — #2b enforcement rule:** specified below.
+
+### #2b — test-evidence-naming enforcement rule (to build)
+
+A new `spx validation` check: every `spx/**/tests/*.test.ts` filename matches `<subject>.<evidence>.<level>[.<runner>].test.ts` with evidence in {scenario, mapping, conformance, property, compliance} and level in {l1, l2, l3}. Model it on `src/validation/literal/` (index/detector/config), `src/validation/registry.ts`, `src/validation/types.ts`, `src/validation/languages/`, the `validation all` composition, and the `spx validation <name>` registration in `src/interfaces/cli/`. Ship a debt-allowlist JSON keyed on node directories (mirror `eslint.test-owned-constant-debt-nodes.json`) of the still-non-canonical files — re-derive the live list with `git ls-files 'spx/**/tests/*.test.ts'` filtered to names that fail the canonical pattern (expected: the 8 `.integration`/`.e2e` files plus the 3 precommit `.unit` files `categorize`/`build-args`/`run`; trust the live list, not this count). Author the rule's node spec under `spx/41-validation.enabler/` via `/spec-tree:authoring`; implement plus a `[test]` against violating fixtures via `/spec-tree:applying` (run the architecture, test-evidence, and code audit gates via delegated isolated auditor agents); wire it into the pipeline and `validation all`. FOLLOW-UP in the rule node's ISSUES.md: reclassify the allowlisted files (`.integration`/`.e2e` → `<evidence>.l2`; the precommit `.unit` via the precommit rearchitecture) and shrink the allowlist.
+
+### Deferred
+
+The precommit test evidence-typing rearchitecture (the `.unit` split was reverted because `fc.property` evidence belongs in property files not mapping, and scenario/compliance assertions linked cross-module) is tracked in `spx/43-precommit.enabler/PLAN.md` and depends on the config-DI rearchitecture recorded there.
+
+### Operating constraints
+
+The sibling worktree `/Users/shz/Code/outcomeeng/spx` is off-limits; the pnpm-linked `spx` ships only when the operator ff+rebuilds it (`git -C /Users/shz/Code/outcomeeng/spx switch main && git -C /Users/shz/Code/outcomeeng/spx pull --ff-only && pnpm -C /Users/shz/Code/outcomeeng/spx run build`) — merged is not shipped. Merge with `gh pr merge <n> --repo outcomeeng/spx --rebase --delete-branch` (the local `--delete-branch` errors because main is checked out in the sibling worktree, but the merge lands; verify state MERGED, then fetch, detach, and delete the local and remote branch). Push with `--force-with-lease` only; never run more than one full suite per turn (the pre-push hook is that run); run `uptime` before heavy commands and defer when the 5-minute load exceeds the core count; verify reviewer citations against the cited authority before complying.
