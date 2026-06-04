@@ -40,5 +40,9 @@ npm-debug.log*
 # so new subdirectories (e.g. reviews/) do not drift out of coverage.
 .spx/
 
+# Generated per-node status files (spx spec status --update); regenerated on
+# demand, never committed.
+spx.status.json
+
 # Git worktree directories
 .work/*
