@@ -9,6 +9,7 @@ CAN carry human-readable notes that describe and group the release's changes
 ### Scenarios
 
 - Given computed release data, when the release-notes output path is resolved, then it is derived from that release data ([test](tests/release-notes.scenario.l1.test.ts))
+- Given computed release data, when release notes are generated, then the notes file exists at the path derived from that release data ([test](tests/release-notes.scenario.l1.test.ts))
 
 ### Conformance
 
