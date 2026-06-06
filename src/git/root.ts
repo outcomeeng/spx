@@ -47,7 +47,7 @@ export interface GitDependencies {
 }
 
 // Default dependencies using real execa.
-const defaultDeps: GitDependencies = {
+export const defaultGitDependencies: GitDependencies = {
   execa: async (command, args, options) => {
     const result = await execa(command, args, {
       ...options,
@@ -122,7 +122,7 @@ export const GIT_STATUS_PORCELAIN_ARGS = [
 // Detects the local worktree product directory.
 export async function detectWorktreeProductRoot(
   cwd: string = process.cwd(),
-  deps: GitDependencies = defaultDeps,
+  deps: GitDependencies = defaultGitDependencies,
 ): Promise<GitProductDirResult> {
   try {
     const result = await deps.execa(
@@ -165,7 +165,7 @@ function extractStdout(stdout: unknown): string {
 // Detects the Git common-dir product root, resolving through git worktrees.
 export async function detectGitCommonDirProductRoot(
   cwd: string = process.cwd(),
-  deps: GitDependencies = defaultDeps,
+  deps: GitDependencies = defaultGitDependencies,
 ): Promise<GitCommonDirProductDirResult> {
   try {
     // Step 1: Get the local worktree product directory via --show-toplevel
@@ -244,7 +244,7 @@ export function computeRelativeWorktreePath(commonDir: string, toplevel: string)
  */
 export async function resolveDefaultBranch(
   cwd: string = process.cwd(),
-  deps: GitDependencies = defaultDeps,
+  deps: GitDependencies = defaultGitDependencies,
 ): Promise<string | null> {
   const result = await deps.execa(
     GIT_ROOT_COMMAND.EXECUTABLE,
@@ -264,7 +264,7 @@ export async function resolveDefaultBranch(
  */
 export async function getCurrentBranch(
   cwd: string = process.cwd(),
-  deps: GitDependencies = defaultDeps,
+  deps: GitDependencies = defaultGitDependencies,
 ): Promise<string | null> {
   const result = await deps.execa(
     GIT_ROOT_COMMAND.EXECUTABLE,
@@ -280,7 +280,7 @@ export async function getCurrentBranch(
 /** Returns the HEAD commit SHA, or null when unavailable. */
 export async function getHeadSha(
   cwd: string = process.cwd(),
-  deps: GitDependencies = defaultDeps,
+  deps: GitDependencies = defaultGitDependencies,
 ): Promise<string | null> {
   const result = await deps.execa(
     GIT_ROOT_COMMAND.EXECUTABLE,
@@ -299,7 +299,7 @@ export async function getHeadSha(
 export async function resolveRefSha(
   ref: string,
   cwd: string = process.cwd(),
-  deps: GitDependencies = defaultDeps,
+  deps: GitDependencies = defaultGitDependencies,
 ): Promise<string | null> {
   const result = await deps.execa(
     GIT_ROOT_COMMAND.EXECUTABLE,
@@ -317,7 +317,7 @@ export async function resolveRefSha(
  */
 export async function isWorkingTreeClean(
   cwd: string = process.cwd(),
-  deps: GitDependencies = defaultDeps,
+  deps: GitDependencies = defaultGitDependencies,
 ): Promise<boolean> {
   const result = await deps.execa(
     GIT_ROOT_COMMAND.EXECUTABLE,
@@ -335,7 +335,7 @@ export async function isWorkingTreeClean(
  */
 export async function isRootWorktree(
   cwd: string = process.cwd(),
-  deps: GitDependencies = defaultDeps,
+  deps: GitDependencies = defaultGitDependencies,
 ): Promise<boolean> {
   const [toplevelResult, commonDirResult] = await Promise.all([
     deps.execa(GIT_ROOT_COMMAND.EXECUTABLE, [...GIT_SHOW_TOPLEVEL_ARGS], { cwd, reject: false }),
