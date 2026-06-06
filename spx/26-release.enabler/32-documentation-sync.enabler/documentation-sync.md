@@ -16,5 +16,5 @@ CAN reflect the released version's behavior and version references
 
 ### Compliance
 
-- ALWAYS: documentation sync's prompt is assembled only from the release data, so it depends on no spec-tree or domain state ([test](tests/documentation-sync.compliance.l1.test.ts))
+- ALWAYS: documentation sync's prompt is assembled only from the release data and the resolved documentation set, so it depends on no spec-tree or domain state ([test](tests/documentation-sync.compliance.l1.test.ts))
 - ALWAYS: documentation updates stay faithful to the released behavior and introduce no claim absent from the release's changes ([audit])

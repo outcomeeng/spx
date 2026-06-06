@@ -17,7 +17,7 @@ A release's deterministic core — the commits since the last tag, the version d
 
 - ALWAYS: git utilities — tag listing, commits-since-last-tag, changed-paths — accept a dependency-injected runner and run with a sanitized git environment, so they verify in isolation without ambient git state ([audit])
 - ALWAYS: agent-driven children invoke the Claude Agent SDK `query()` through a dependency-injected interface scoped to a caller-supplied working directory, a file read/write/edit tool allowlist, and a non-interactive permission mode ([audit])
-- ALWAYS: an agent-driven child's system prompt is assembled solely from release-data ([audit])
+- ALWAYS: an agent-driven child's system prompt is assembled only from release-data and the child's own resolved configuration (such as documentation sync's resolved documentation set), never spec-tree or domain state ([audit])
 - ALWAYS: each agent-produced artifact is read back from disk and validated against its contract — output path and Keep a Changelog structure for release notes; configured documentation set and updated version references for documentation — before the release proceeds ([audit])
 - ALWAYS: release command modules separate pure computation in `src/domains/release/`, process-agnostic handlers in `src/commands/release/`, and the Commander descriptor in `src/interfaces/cli/release.ts` per `spx/14-cli-composition.adr.md` ([audit])
 - NEVER: `vi.mock()`, `jest.mock()`, or filesystem mocking for git, agent invocation, or artifact validation — dependencies are injected and exercised against real temp fixtures ([audit])
