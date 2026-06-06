@@ -46,17 +46,17 @@ The **spec-tree** plugin (`outcomeeng/plugins/plugins/spec-tree`) is the active 
 
 <skill_router>
 
-| Skill                        | Purpose                                                        |
-| ---------------------------- | -------------------------------------------------------------- |
-| `/spec-tree:understanding`   | Load methodology foundation (node types, ordering, assertions) |
-| `/spec-tree:contextualizing` | Load context for a specific node (walks tree to target)        |
-| `/spec-tree:authoring`       | Create specs, ADRs, PDRs, enablers, outcomes                   |
-| `/spec-tree:decomposing`     | Break nodes into children with proper ordering                 |
-| `/spec-tree:testing`         | Manage spec-test lock file lifecycle                           |
-| `/spec-tree:applying`        | Orchestrate spec-tree implementation and audit gates           |
-| `/spec-tree:refactoring`     | Restructure the spec tree (move, consolidate, extract)         |
-| `/spec-tree:aligning`        | Review for gaps, contradictions, and consistency               |
-| `/spec-tree:opening-pr`      | Open draft PRs with branch hygiene and review-loop setup       |
+| Skill                        | Purpose                                                                    |
+| ---------------------------- | -------------------------------------------------------------------------- |
+| `/spec-tree:understanding`   | Load methodology foundation (node types, ordering, assertions)             |
+| `/spec-tree:contextualizing` | Load context for a specific node (walks tree to target)                    |
+| `/spec-tree:authoring`       | Create specs, ADRs, PDRs, enablers, outcomes                               |
+| `/spec-tree:decomposing`     | Break nodes into children with proper ordering                             |
+| `/spec-tree:testing`         | Manage spec-test lock file lifecycle                                       |
+| `/spec-tree:applying`        | Orchestrate spec-tree implementation and audit gates                       |
+| `/spec-tree:refactoring`     | Restructure the spec tree (move, consolidate, extract)                     |
+| `/spec-tree:aligning`        | Review for gaps, contradictions, and consistency                           |
+| `/spec-tree:opening-pr`      | Open ready PRs once REVIEW_READINESS holds (branch hygiene + local review) |
 
 Additional skills ship with the plugin and are invoked by name: `committing-changes`, `interviewing`, `auditing-tests`, `auditing-product-decisions`, `handoff`, `pickup`, `refocusing`, `bootstrapping`. See `outcomeeng/plugins/plugins/spec-tree/skills/` for the full list.
 
@@ -181,10 +181,10 @@ Treat PR-level comments as authoritative review surfaces. This product rarely re
 
 ### Executing PR workflow
 
-Create PRs as drafts, then let `/spec-tree:managing-pr` drive the loop: inspect all review surfaces, classify findings, sync to base when needed, fix `BLOCKING` and `DEBT`, record accepted `FOLLOW-UP`, rerun the local closure gate before pushing, refresh the heartbeat, and evaluate the PR authority gate.
+Open PRs ready once `REVIEW_READINESS` holds — `/spec-tree:opening-pr` runs the project's deterministic verification and the `changes-reviewer` agent, then creates the PR `ready_for_review` (no draft phase; a stacked PR held draft until its base merges is the one exception). Then let `/spec-tree:managing-pr` drive the merge loop: inspect all review surfaces, classify findings, sync to base when needed, fix `BLOCKING` and `DEBT`, record accepted `FOLLOW-UP`, rerun the local closure gate before pushing, refresh the heartbeat, and evaluate the merge authority gates.
 
 ```bash
-pr_url="$(gh pr create --draft --title "$title" --body "$body" --base main --head "$branch")"
+pr_url="$(gh pr create --title "$title" --body "$body" --base main --head "$branch")"
 pr_number="${pr_url##*/}"
 ```
 
@@ -211,7 +211,7 @@ Ask the PR reviewers for adversarial auditing of all architecture, security-sens
 ### Merge discipline
 
 - Merge stacked PRs in dependency order.
-- Do not deploy or publish from draft branches.
+- Do not deploy or publish from unmerged PR branches.
 - Use selective staging and one commit per concern before pushing using the `/spec-tree:committing-changes` skill.
 - After merge, sync local `main` and verify the worktree is clean before starting the next branch.
 
