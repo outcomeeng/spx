@@ -82,16 +82,22 @@ describe("product directory API result shape", () => {
     const worktreeProductDir = sampleConfigTestValue(CONFIG_TEST_GENERATOR.productDir());
     const gitCommonDirProductDir = sampleConfigTestValue(CONFIG_TEST_GENERATOR.productDir());
     const nonGitCwd = sampleConfigTestValue(CONFIG_TEST_GENERATOR.productDir());
+    // The resolver runs from a subdirectory of the worktree root — the real-world
+    // case. `--show-toplevel` returns the worktree root, a strict ancestor of the
+    // cwd, so on the git paths worktreeRoot must track the toplevel and never the
+    // cwd. Binding the cwd distinct from the toplevel makes the assertion falsifiable
+    // against a `worktreeRoot: cwd` regression.
+    const subdirCwd = join(worktreeProductDir, sampleConfigTestValue(CONFIG_TEST_GENERATOR.key()));
 
-    // Success: --show-toplevel and --git-common-dir both resolve; worktreeRoot is the toplevel.
+    // Success: --show-toplevel and --git-common-dir both resolve; worktreeRoot is the toplevel, not the cwd.
     const success = await detectGitCommonDirProductRoot(
-      worktreeProductDir,
+      subdirCwd,
       createGitDeps(worktreeProductDir, gitCommonDirProductDir),
     );
     expect(success.worktreeRoot).toBe(worktreeProductDir);
 
-    // Fallback: --git-common-dir fails while --show-toplevel succeeds; productDir and worktreeRoot are the toplevel.
-    const fallback = await detectGitCommonDirProductRoot(worktreeProductDir, createGitDeps(worktreeProductDir));
+    // Fallback: --git-common-dir fails while --show-toplevel succeeds; productDir and worktreeRoot are the toplevel, not the cwd.
+    const fallback = await detectGitCommonDirProductRoot(subdirCwd, createGitDeps(worktreeProductDir));
     expect(fallback.productDir).toBe(worktreeProductDir);
     expect(fallback.worktreeRoot).toBe(worktreeProductDir);
 
