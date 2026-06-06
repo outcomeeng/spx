@@ -12,7 +12,6 @@ const GIT_RELEASE_SUBCOMMAND = {
   DESCRIBE: "describe",
   LOG: "log",
   DIFF: "diff",
-  LS_FILES: "ls-files",
 } as const;
 
 const GIT_RELEASE_FLAG = {
@@ -35,6 +34,8 @@ const COMMIT_FIELD_SEPARATOR = String.fromCharCode(UNIT_SEPARATOR_CODE);
 /** Git pretty-format escape directing git to emit the unit-separator byte. */
 const GIT_FORMAT_UNIT_SEPARATOR = "%x1f";
 const COMMIT_LOG_FORMAT = `--format=%H${GIT_FORMAT_UNIT_SEPARATOR}%s`;
+/** Empty pretty-format, so `git log --name-only` emits only the changed paths. */
+const EMPTY_LOG_FORMAT = "--format=";
 const LINE_SEPARATOR = "\n";
 
 function nonEmptyLines(stdout: string): string[] {
@@ -123,9 +124,10 @@ function parseCommitRecord(line: string): GitCommit {
 }
 
 /**
- * Lists the paths changed between `fromTag` and `toRef`. When `fromTag` is null
- * the full set of tracked paths is returned — with no prior release, the whole
- * tree is the release's contents.
+ * Lists the paths changed between `fromTag` (exclusive) and `toRef` (inclusive).
+ * When `fromTag` is null the paths changed across the full history reachable from
+ * `toRef` are returned — the same commit set `commitsBetween` reports for the
+ * null case — so the two stay symmetric and both remain scoped to `toRef`.
  */
 export async function changedPathsBetween(
   fromTag: string | null,
@@ -133,16 +135,10 @@ export async function changedPathsBetween(
   cwd: string,
   deps: GitDependencies = defaultGitDependencies,
 ): Promise<string[]> {
-  const result = fromTag === null
-    ? await deps.execa(GIT_ROOT_COMMAND.EXECUTABLE, [GIT_RELEASE_SUBCOMMAND.LS_FILES], {
-      cwd,
-      reject: false,
-    })
-    : await deps.execa(
-      GIT_ROOT_COMMAND.EXECUTABLE,
-      [GIT_RELEASE_SUBCOMMAND.DIFF, GIT_RELEASE_FLAG.NAME_ONLY, fromTag, toRef],
-      { cwd, reject: false },
-    );
+  const args = fromTag === null
+    ? [GIT_RELEASE_SUBCOMMAND.LOG, EMPTY_LOG_FORMAT, GIT_RELEASE_FLAG.NAME_ONLY, toRef]
+    : [GIT_RELEASE_SUBCOMMAND.DIFF, GIT_RELEASE_FLAG.NAME_ONLY, fromTag, toRef];
+  const result = await deps.execa(GIT_ROOT_COMMAND.EXECUTABLE, args, { cwd, reject: false });
   if (result.exitCode !== 0) return [];
-  return nonEmptyLines(result.stdout);
+  return Array.from(new Set(nonEmptyLines(result.stdout)));
 }
