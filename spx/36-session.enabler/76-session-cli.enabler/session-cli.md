@@ -4,7 +4,7 @@ PROVIDES Commander.js bindings for all session subcommands with variadic ID pars
 SO THAT agents and automation tools
 CAN invoke session operations from the command line with predictable output and exit codes
 
-Frontmatter-validation and handoff-input errors raised by the underlying commands (`SessionInvalidContentError`, `SessionInvalidGoalError`, `SessionInvalidNextStepError`, `SessionHandoffBaseError`, `SessionLegacyFrontmatterInputError`, `SessionInvalidJsonHeaderError`) per [`spx/36-session.enabler/11-session-frontmatter.pdr.md`](../11-session-frontmatter.pdr.md) propagate through the binding as non-zero exits with a diagnostic on stderr.
+Frontmatter-validation and handoff-input errors raised by the underlying commands (`SessionInvalidContentError`, `SessionInvalidGoalError`, `SessionInvalidNextStepError`, `SessionHandoffBaseError`, `SessionLegacyFrontmatterInputError`, `SessionInvalidJsonHeaderError`) per [`spx/36-session.enabler/11-session-frontmatter.pdr.md`](../11-session-frontmatter.pdr.md) propagate through the binding as non-zero exits, each writing a diagnostic to stderr except the non-git `handoff` refusal, which surfaces no diagnostic per the non-git rule below.
 
 ## Assertions
 
