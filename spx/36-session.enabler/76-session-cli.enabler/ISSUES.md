@@ -10,20 +10,12 @@
 
 **Resolution:** Promote `extractSessionFile` to `testing/harnesses/session/harness.ts` or another shared session test harness module, then update the session-store and session-cli tests to import that helper.
 
-## Handoff-base checklist git-fact resolution site is unspecified
+## On-branch linked worktree folds into the detached-at-tip prerequisite
 
-The `SessionHandoffBaseError` checklist requires resolved git values on every line (resolved default branch, `origin/<default>` tip SHA, observed HEAD SHA, current worktree path, root-worktree path) per [`spx/36-session.enabler/11-session-frontmatter.pdr.md`](../11-session-frontmatter.pdr.md). [`session-cli.md`](session-cli.md) states the descriptor renders the checklist from those facts per [`spx/14-cli-composition.adr.md`](../../14-cli-composition.adr.md), but neither the spec nor that ADR pins where the facts are resolved.
+The handoff-base checklist enumerates two base prerequisites — a clean working tree and a HEAD detached at the default-branch tip per [`spx/36-session.enabler/11-session-frontmatter.pdr.md`](../11-session-frontmatter.pdr.md). A linked worktree checked out on a named branch resolves the clean prerequisite independently (it can read met) while the detached-at-tip prerequisite reads unmet, so the rendered checklist shows the tree as clean alongside an unmet at-tip line rather than naming "HEAD is on a branch" as its own concern.
 
-**Evidence:** [`spx/14-cli-composition.adr.md`](../../14-cli-composition.adr.md) makes the descriptor the sole site of stderr writes and fixes the `interfaces/cli → commands → domains` dependency direction, but it does not say whether the domain `SessionHandoffBaseError` object carries the resolved facts or the descriptor resolves them at render time.
+**Evidence:** [`session-cli.md`](session-cli.md) and the PDR enumerate exactly the clean-working-tree and detached-at-tip prerequisites; neither names an on-branch prerequisite. The implementation conforms — `detachedAtTipPrerequisite` marks the at-tip line unmet for any non-detached HEAD.
 
-**Impact:** The implementation PR could pick either resolution site without a recorded decision, leaving the layering choice implicit and prone to drift.
+**Impact:** None to correctness; the diagnostic is accurate and the remedy (detach to the tip or run handoff from the root worktree) is actionable. The open question is whether a future spec revision should surface "HEAD is on a branch" as a distinct prerequisite line for sharper agent diagnostics.
 
-**Resolution:** In the handoff-base implementation PR, make the resolution site explicit — either the domain error object carries the resolved git facts, or the descriptor resolves them at render time — and confirm or amend [`spx/14-cli-composition.adr.md`](../../14-cli-composition.adr.md) (and [`spx/36-session.enabler/11-session-frontmatter.pdr.md`](../11-session-frontmatter.pdr.md) if behavior is affected) to record it.
-
-## Non-git SessionHandoffBaseError refusal is silent — the implementation renders it distinctly from the checklist
-
-`spx session handoff` raises `SessionHandoffBaseError` in three contexts the implementation PR renders distinctly: a linked-worktree refusal renders the prerequisite checklist; a linked-worktree refusal where `origin/HEAD` is unset marks the base ref unresolved within that checklist (both specified in [`session-cli.md`](session-cli.md) and [`spx/36-session.enabler/11-session-frontmatter.pdr.md`](../11-session-frontmatter.pdr.md)); and a non-git base refuses with no diagnostic — a silent non-zero exit.
-
-**Evidence:** [`session-cli.md`](session-cli.md)'s opening statement, its non-git ALWAYS rule, and the companion NEVER rule now agree that the non-git refusal surfaces no diagnostic: the NEVER rule reads that the non-git-repo diagnostic "reads correctly for the read, claim, and retention subcommands that write it; `handoff` writes no non-git diagnostic". The checklist rules are scoped to the linked-worktree refusal and do not govern the non-git case, so the spec is internally consistent on `handoff`'s non-git silence.
-
-**Resolution:** In the handoff-base implementation PR, render the non-git refusal as a silent non-zero exit with no stderr output, distinct from the linked-worktree checklist, and confirm the implementation behavior matches the now-consistent rules — `handoff` writes no non-git diagnostic.
+**Resolution:** If sharper on-branch diagnostics are wanted, revise [`spx/36-session.enabler/11-session-frontmatter.pdr.md`](../11-session-frontmatter.pdr.md) and [`session-cli.md`](session-cli.md) through `/authoring` to enumerate the on-branch prerequisite, then extend the resolver and checklist to render it.

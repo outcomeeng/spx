@@ -16,6 +16,8 @@ export const GIT_TEST_SUBCOMMANDS = {
   LS_FILES: "ls-files",
   REV_PARSE: "rev-parse",
   SUBMODULE: "submodule",
+  SYMBOLIC_REF: "symbolic-ref",
+  UPDATE_REF: "update-ref",
   WORKTREE: "worktree",
 } as const;
 
@@ -24,12 +26,20 @@ export const GIT_TEST_FLAGS = {
   CACHED: "--cached",
   COMMIT_MESSAGE: "-m",
   CONFIG_OVERRIDE: "-c",
+  DETACH: "--detach",
   EXCLUDE_STANDARD: "--exclude-standard",
   FULL_NAME: "--full-name",
   IS_INSIDE_WORK_TREE: "--is-inside-work-tree",
   OTHERS: "--others",
   QUIET: "--quiet",
   SHOW_CURRENT: "--show-current",
+} as const;
+
+export const GIT_TEST_REF = {
+  /** Prefix on the full remote-tracking ref path for the `origin` remote. */
+  REMOTE_ORIGIN_PREFIX: "refs/remotes/origin/",
+  /** Name component `origin/HEAD` carries — the symbolic ref naming the default branch. */
+  HEAD_NAME: "HEAD",
 } as const;
 
 export const GIT_TEST_OUTPUT = {

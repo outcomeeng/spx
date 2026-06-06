@@ -4,6 +4,8 @@
  * @module session/errors
  */
 
+import { type HandoffBaseChecklist, SESSION_HANDOFF_BASE_ERROR_NAME } from "./handoff-base-checklist";
+
 /**
  * Base class for session errors.
  */
@@ -76,17 +78,34 @@ export class SessionInvalidNextStepError extends SessionError {
  * Error thrown when `spx session handoff` runs from a git work context that
  * cannot anchor a session to a base another agent can reach.
  *
- * Handoff is permitted from the root worktree (any HEAD) or from a linked
- * worktree that is clean and detached at the tip of `origin/<default branch>`.
+ * Handoff is permitted from the root worktree (any reachable HEAD) or from a
+ * linked worktree that is clean and detached at the tip of `origin/<default
+ * branch>`. A refusal renders one of three ways, distinguished by the carried
+ * fields:
+ *
+ * - **Linked-worktree refusal** carries a {@link HandoffBaseChecklist} the
+ *   descriptor renders to standard error.
+ * - **Non-git base** is `silent` — the descriptor writes nothing, only the
+ *   non-zero exit.
+ * - **Any other git refusal** (e.g. a root worktree with no reachable HEAD)
+ *   carries no checklist and is not silent, so the descriptor writes the message
+ *   as a plain diagnostic — only the non-git refusal is silent.
  */
 export class SessionHandoffBaseError extends SessionError {
-  constructor() {
+  /** The prerequisite checklist to render, or `null` for a non-checklist refusal. */
+  readonly checklist: HandoffBaseChecklist | null;
+  /** Whether the refusal surfaces no diagnostic — true only for a non-git base. */
+  readonly silent: boolean;
+
+  constructor(options: { checklist?: HandoffBaseChecklist | null; silent?: boolean } = {}) {
     super(
       "Cannot create a handoff session from this git work context. Run handoff "
         + "from the root worktree, or from a linked worktree with a clean working "
-        + "tree detached at the tip of origin/<default branch>.",
+        + "tree detached at the tip of the default branch.",
     );
-    this.name = "SessionHandoffBaseError";
+    this.name = SESSION_HANDOFF_BASE_ERROR_NAME;
+    this.checklist = options.checklist ?? null;
+    this.silent = options.silent ?? false;
   }
 }
 

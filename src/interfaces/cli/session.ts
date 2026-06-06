@@ -15,6 +15,8 @@ import {
   SessionAlreadyArchivedError,
   showCommand,
 } from "@/commands/session/index";
+import { SessionHandoffBaseError } from "@/domains/session/errors";
+import { renderHandoffBaseChecklist } from "@/domains/session/handoff-base-checklist";
 import { HANDOFF_FRONTMATTER_HELP, PICKUP_SELECTION_HELP, SESSION_FORMAT_HELP } from "@/domains/session/help";
 import { SESSION_STATUSES } from "@/domains/session/types";
 import type { Domain } from "@/domains/types";
@@ -182,6 +184,17 @@ function registerSessionCommands(sessionCmd: Command): void {
         });
         console.log(result.output);
       } catch (error) {
+        if (error instanceof SessionHandoffBaseError) {
+          // A linked-worktree refusal renders the prerequisite checklist; a
+          // non-git base refuses silently; any other git refusal writes the
+          // message as a plain diagnostic.
+          if (error.checklist !== null) {
+            console.error(renderHandoffBaseChecklist(error.checklist));
+          } else if (!error.silent) {
+            console.error("Error:", `${error.name}: ${error.message}`);
+          }
+          process.exit(1);
+        }
         handleError(error);
       }
     });
