@@ -17,6 +17,7 @@ export const GIT_TEST_SUBCOMMANDS = {
   REV_PARSE: "rev-parse",
   SUBMODULE: "submodule",
   SYMBOLIC_REF: "symbolic-ref",
+  TAG: "tag",
   UPDATE_REF: "update-ref",
   WORKTREE: "worktree",
 } as const;
