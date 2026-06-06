@@ -11,7 +11,7 @@ CAN convert raw backend records into typed source entries tagged valid, supersed
 - `{NN}-{slug}{nodeSuffix}` directory names map to node kind, order, and slug when `nodeSuffix` belongs to a registered node kind ([test](tests/entry-recognition.mapping.l1.test.ts))
 - `{NN}-{slug}{decisionSuffix}` filenames map to decision kind, order, and slug when `decisionSuffix` belongs to a registered decision kind ([test](tests/entry-recognition.mapping.l1.test.ts))
 - Product filenames ending in `.product.md` map to product entries with the product title derived from the filename slug ([test](tests/entry-recognition.mapping.l1.test.ts))
-- Filenames under a `tests/` directory whose form matches the canonical evidence-naming schema map to evidence entries ([test](tests/entry-recognition.mapping.l1.test.ts))
+- Filenames under a `tests/` directory whose form matches the canonical evidence-naming schema map to evidence entries ([test](tests/evidence-recognition.mapping.l1.test.ts))
 
 ### Mappings — version classification
 
