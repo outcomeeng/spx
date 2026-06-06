@@ -29,6 +29,8 @@ describe("computeReleaseData — release contents derive from git history", () =
       expect(subjects).toEqual(expect.arrayContaining(rest.map((commit) => commit.subject)));
       expect(subjects).not.toContain(base.subject);
       expect(data.commits).toHaveLength(rest.length);
+      expect(data.changedPaths).toEqual(expect.arrayContaining(rest.map((commit) => commit.path)));
+      expect(data.changedPaths).not.toContain(base.path);
     });
   });
 
@@ -50,6 +52,7 @@ describe("computeReleaseData — release contents derive from git history", () =
       expect(data.previousTag).toBe(earlier);
       expect(data.commits.map((commit) => commit.subject)).toContain(head.subject);
       expect(data.commits.length).toBeGreaterThan(0);
+      expect(data.changedPaths).toContain(head.path);
     });
   });
 
@@ -72,6 +75,7 @@ describe("computeReleaseData — release contents derive from git history", () =
         expect.arrayContaining(commits.map((commit) => commit.subject)),
       );
       expect(data.commits).toHaveLength(commits.length);
+      expect(data.changedPaths).toEqual(expect.arrayContaining(commits.map((commit) => commit.path)));
     });
   });
 });
