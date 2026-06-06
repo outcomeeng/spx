@@ -30,6 +30,7 @@ CONTRIBUTING TO higher engineering velocity — teams ship quality code faster b
 - Spec-tree execution — config-driven execution of testing, validation, auditing skills, and reviewing governed by `spx.config.{toml,json,yaml}`, with persisted state for fast status reporting and hermetic agent execution for branch and PR review targets
 - Agent environment management — deterministic management of `AGENTS.md`, Claude Code and Codex configuration, configured plugin marketplaces, plugins, and skills
 - Session management — work handoffs between agent contexts with priority ordering
+- Release — per-release generation of release notes and documentation updates from the product's git history, plus governed, provenance-bearing publication
 
 ## Product-level assertions
 
