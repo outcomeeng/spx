@@ -1,6 +1,6 @@
 # Release Data
 
-PROVIDES deterministic release data — the commits since the last release tag, the version delta, and the changed paths — computed from git without network access or LLM inference
+PROVIDES deterministic release data — the commits since the previous release tag, the version delta, and the changed paths — computed from git without network access or LLM inference
 SO THAT release-notes authoring, documentation sync, and publish dispatch
 CAN operate on one accurate, reproducible description of what a release contains
 
@@ -8,12 +8,13 @@ CAN operate on one accurate, reproducible description of what a release contains
 
 ### Scenarios
 
-- Given a repository with a previous release tag, when release data is computed, then it lists the commits between that tag and the current HEAD ([test](tests/release-data.scenario.l1.test.ts))
+- Given a previous release tag exists, when release data is computed for a release at HEAD, then it lists the commits between the most recent release tag preceding the release and HEAD ([test](tests/release-data.scenario.l1.test.ts))
+- Given the release commit is itself tagged, when release data is computed, then the delta anchors on the prior release tag rather than the tag at the release commit, so the release is not empty ([test](tests/release-data.scenario.l1.test.ts))
 - Given no previous release tag exists, when release data is computed, then it reports the full commit history as the release contents ([test](tests/release-data.scenario.l1.test.ts))
 
 ### Mappings
 
-- The package version and the latest release tag map to the version delta — major, minor, or patch — for the release ([test](tests/release-data.mapping.l1.test.ts))
+- The package version and the previous release tag map to the version delta — major, minor, or patch — for the release ([test](tests/release-data.mapping.l1.test.ts))
 
 ### Properties
 
