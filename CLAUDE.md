@@ -67,6 +67,28 @@ Additional skills ship with the plugin and are invoked by name: `committing-chan
 
 </skill_router>
 
+### Decision records: the decision-first ADR/PDR template
+
+The authoritative ADR and PDR templates are **decision-first**. The skills own them — `/spec-tree:authoring` (`templates/decisions/decision-name.adr.md` and `decision-name.pdr.md`) and `/typescript:architecting-typescript` for ADRs. Read the skill, never an existing decision file, for the shape.
+
+**ADR** — `# Title`, then the decision stated directly as 1–3 sentences of opening prose, then:
+
+- `## Rationale` — brief; name a rejected alternative only when it sharpens the decision
+- `## Invariants` — optional; algebraic properties holding for all governed code
+- `## Verification` — ALWAYS/NEVER rules grouped under `### Audit` (`[audit]`), `### Eval` (`[eval]`), `### Testing` (the evidence type: `[scenario]`/`[mapping]`/`[conformance]`/`[property]`/`[compliance]`). DI and no-mocking testability constraints are `### Audit` rules.
+
+**PDR** — `# Title`, then the decision stated directly as 1–3 sentences of user-observable behavior, then:
+
+- `## Rationale`
+- `## Product properties` — optional; ≤3 observable properties
+- `## Verification` — same subsection scheme as the ADR (ordered `### Testing`, `### Eval`, `### Audit` by decreasing enforcement strength)
+
+**What the decision-first template removes.** No `## Purpose`, no `## Context` (Business impact / Technical constraints), no `## Decision` heading (the decision IS the opening prose), no `## Trade-offs accepted` table, no `## Compliance` block with `### Recognized by` / `### MUST` / `### NEVER`, no `## Status`, no level-assignment tables. Trade-offs and business context fold into the decision statement and Rationale.
+
+**The blanket `[review]` tag is retired.** Each Verification rule carries the tag its subsection prescribes: `[audit]` under `### Audit`, `[eval]` under `### Eval`, the evidence type under `### Testing`. `[review]` is accepted only as the legacy spelling of `[audit]` during migration.
+
+**Legacy verbose decision records are no longer valid.** Any ADR or PDR carrying `## Purpose`, `## Context`, a `## Decision` heading, `## Trade-offs accepted`, or a `## Compliance` block — or blanket `[review]` tags — is in violation of the current template and slated for migration to the decision-first shape. It is NOT precedent: do not copy its structure, and never cite it to justify a new or migrated decision record's shape. When the spec-tree reviewer compares a decision-first file against a still-legacy sibling, the legacy sibling is the file in violation.
+
 ---
 
 ## Validation and Publish Gates
