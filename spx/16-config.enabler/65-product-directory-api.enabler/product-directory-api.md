@@ -12,4 +12,5 @@ CAN refer to tracked product files through `productDir` and gitignored state thr
 - ALWAYS: root-directory APIs expose `productDir` rather than `projectRoot` or `projectDir` ([test](tests/product-directory-api.compliance.l1.test.ts), [review])
 - ALWAYS: root-resolution helper names distinguish tracked product roots, local worktree roots, and Git common-dir product roots without main-repo vocabulary ([test](tests/product-directory-api.compliance.l1.test.ts), [review])
 - ALWAYS: the Git common-dir product-root resolver returns the local worktree root as a required `worktreeRoot` field so a caller needing both roots reads `--show-toplevel` once ([test](tests/product-directory-api.compliance.l1.test.ts), [review])
+- NEVER: a local worktree-root resolver result carries a `worktreeRoot` field — `detectWorktreeProductRoot` returns the base `GitProductDirResult` whose `productDir` is the worktree root ([test](tests/product-directory-api.compliance.l1.test.ts), [review])
 - NEVER: add compatibility aliases for non-product root-directory names ([test](tests/product-directory-api.compliance.l1.test.ts), [review])
