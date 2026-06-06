@@ -1,8 +1,8 @@
 # Entry Recognition
 
-PROVIDES registry-backed recognition of spec-tree product files, node directories, and decision files
+PROVIDES grammar-backed, version-aware recognition of spec-tree product files, node directories, decision files, and co-located evidence files — classifying each name against the versioned filename grammar
 SO THAT source adapters for filesystems, issue trackers, ORMs, and paper-ledger transcriptions
-CAN convert raw backend records into typed source entries without owning kind vocabulary
+CAN convert raw backend records into typed source entries tagged valid, superseded, or invalid, without owning grammar vocabulary or knowing prior naming-schema versions themselves
 
 ## Assertions
 
@@ -11,9 +11,15 @@ CAN convert raw backend records into typed source entries without owning kind vo
 - `{NN}-{slug}{nodeSuffix}` directory names map to node kind, order, and slug when `nodeSuffix` belongs to a registered node kind ([test](tests/entry-recognition.mapping.l1.test.ts))
 - `{NN}-{slug}{decisionSuffix}` filenames map to decision kind, order, and slug when `decisionSuffix` belongs to a registered decision kind ([test](tests/entry-recognition.mapping.l1.test.ts))
 - Product filenames ending in `.product.md` map to product entries with the product title derived from the filename slug ([test](tests/entry-recognition.mapping.l1.test.ts))
-- Directory and file suffixes absent from the semantic registry map to no current spec-tree entry ([test](tests/entry-recognition.mapping.l1.test.ts))
+- Filenames under a `tests/` directory whose form matches the canonical evidence-naming schema map to evidence entries ([test](tests/entry-recognition.mapping.l1.test.ts))
+
+### Mappings — version classification
+
+- A name matching the canonical naming-schema version maps to a valid entry of its kind ([test](tests/version-classification.mapping.l1.test.ts))
+- A name matching a prior naming-schema version, but not the canonical one, maps to a superseded entry that names the version it matched ([test](tests/version-classification.mapping.l1.test.ts))
+- A name matching no naming-schema version maps to an invalid entry ([test](tests/version-classification.mapping.l1.test.ts))
 
 ### Compliance
 
-- ALWAYS: entry recognition derives categories, suffixes, and labels from the semantic registry ([test](tests/entry-recognition.mapping.l1.test.ts))
-- NEVER: entry recognition contains compatibility branches for node suffixes absent from the semantic registry ([test](tests/entry-recognition.mapping.l1.test.ts))
+- ALWAYS: recognition derives categories, suffixes, labels, and accepted naming forms from the versioned grammar exposed by `spx/23-spec-tree.enabler/29-filename-grammar.enabler` ([test](tests/entry-recognition.mapping.l1.test.ts))
+- NEVER: recognition hardcodes a suffix or evidence-naming form, or branches on a prior naming form outside the ordered naming-schema versions — prior-version recognition derives from the grammar's schema set ([test](tests/version-classification.mapping.l1.test.ts))
