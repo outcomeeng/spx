@@ -15,7 +15,7 @@ Spec tree management is handled by the **spec-tree** Claude Code plugin (`outcom
 | `/spec-tree:aligning`        | Review for gaps, contradictions, and consistency               |
 | `/spec-tree:opening-pr`      | Open draft PRs with branch hygiene and review-loop setup       |
 
-Additional skills ship with the plugin and are invoked by name: `applying`, `committing-changes`, `interviewing`, `auditing-tests`, `auditing-product-decisions`, `handing-off`, `picking-up`, `refocusing`, `bootstrapping`. See `outcomeeng/plugins/plugins/spec-tree/skills/` for the full list.
+Additional skills ship with the plugin and are invoked by name: `applying`, `committing-changes`, `interviewing`, `auditing-tests`, `auditing-product-decisions`, `handoff`, `pickup`, `refocusing`, `bootstrapping`. See `outcomeeng/plugins/plugins/spec-tree/skills/` for the full list.
 
 ## Structure Overview
 
@@ -201,4 +201,4 @@ Claude Code session handoffs are stored in `.spx/sessions/` (separate from spec 
 └── archive/       # Completed sessions
 ```
 
-Use `spx session handoff` to create and `spx session pickup` to claim (see `spx session --help` for full CLI usage). The `/spec-tree:handing-off` and `/spec-tree:picking-up` skills drive the same lifecycle from within a conversation.
+Use `spx session handoff` to create and `spx session pickup` to claim (see `spx session --help` for full CLI usage). The `/spec-tree:handoff` and `/spec-tree:pickup` skills drive the same lifecycle from within a conversation.
