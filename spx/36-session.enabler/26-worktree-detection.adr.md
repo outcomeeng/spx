@@ -56,7 +56,7 @@ Resolving `--git-common-dir` against `--show-toplevel` handles both relative and
 - Use `--git-common-dir` to find the Git common-dir product root — `--show-toplevel` returns the local worktree root ([review])
 - Resolve `--git-common-dir` output against `--show-toplevel` when relative — handles all git versions ([review])
 - Reuse the existing `GitDependencies` injection interface — same testability pattern ([review])
-- Return the same `GitProductDirResult` type from both product-directory resolvers — consistent API ([review])
+- Return result shapes that share the base `GitProductDirResult`: `detectWorktreeProductRoot` returns the base shape, and `detectGitCommonDirProductRoot` returns a subtype adding the required `worktreeRoot` field, per `spx/16-config.enabler/65-product-directory-api.enabler/21-git-root-result-shape.adr.md` ([review])
 - Use `detectWorktreeProductRoot` for per-worktree `.spx/local/` state access — the same local-root resolution as `spx/` operations ([review])
 
 ### NEVER
