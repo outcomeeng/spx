@@ -1,0 +1,31 @@
+# Filename Grammar
+
+PROVIDES the single-sourced, versioned Spec-Tree filename grammar — the complete token vocabulary declared once, the dedicated naming-schema version, and the ordered set of prior-version schemas
+SO THAT entry recognition, source adapters, and the spec-domain grammar-emit surface
+CAN classify and render filenames against one authoritative grammar without re-declaring vocabulary or knowing prior naming-schema versions themselves
+
+## Assertions
+
+### Scenarios
+
+- Given the spec-tree descriptor is registered with the config module, when `resolveConfig(productDir)` runs with no yaml, then the resolved spec-tree section contains the full default kind list with their definitions ([test](tests/spec-tree-config.scenario.l1.test.ts))
+- Given `spx.config.yaml` selects a subset of kinds, when the spec-tree descriptor validates the yaml, then the resolved section contains only the selected kinds and an error names any kind absent from the registry ([test](tests/spec-tree-config.scenario.l1.test.ts))
+
+### Mappings
+
+- Every kind key maps to exactly one category value and one suffix through `KIND_REGISTRY` ([test](tests/kind-registry.mapping.l1.test.ts))
+- Filtering `KIND_REGISTRY` by category maps to the exported node and decision sub-registries, and their suffix projections match their members ([test](tests/kind-registry-subsets.mapping.l1.test.ts))
+- Every Spec-Tree filename grammar token — kind and product suffixes, evidence modes, execution levels, language tails, the runner token, segment and order separators, the order pattern, coordination-note names, and eval-lane names — resolves through the grammar registry surface ([test](tests/filename-grammar.mapping.l1.test.ts))
+
+### Properties
+
+- Derived kind types match derived values: `keyof typeof KIND_REGISTRY` enumerates the runtime keys, node and decision kind types partition that set, and entry definitions project from the registry ([test](tests/kind-registry-types.property.l1.test.ts))
+- Suffix uniqueness holds across the registry: no two node kinds share a directory suffix, no two decision kinds share a filename suffix, and no two registered kinds share the same suffix ([test](tests/kind-registry-suffixes.property.l1.test.ts))
+- Naming-schema versions are totally ordered and the highest is canonical; each version carries a self-contained set of accepted filename forms ([test](tests/naming-schema-versions.property.l1.test.ts))
+
+### Compliance
+
+- ALWAYS: `SPEC_TREE_CONFIG.KINDS` is declared as one flat `as const` object literal, `KIND_REGISTRY` projects from it, and every derived kind view comes from that registry ([test](tests/kind-registry-single-source.compliance.l1.test.ts), [review](../21-kind-registry.adr.md))
+- ALWAYS: config descriptors, source adapters, tree assembly, state derivation, and projections receive vocabulary through the semantic registry or a test-scoped registry fixture ([review](../21-kind-registry.adr.md))
+- ALWAYS: the dedicated naming-schema version is owned by the grammar registry and exposed through the spec-tree library surface ([test](tests/naming-version.compliance.l1.test.ts), [review](../26-filename-grammar.adr.md))
+- NEVER: declare a Spec-Tree filename grammar token in a parallel module-local constant outside the grammar registry surface ([test](tests/filename-grammar.mapping.l1.test.ts), [review](../26-filename-grammar.adr.md))
