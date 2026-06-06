@@ -53,3 +53,19 @@ Keep the reusable spec-tree library as the foundation for the refactor. This nod
 - [ ] Tests prove both in-memory and real-directory spec-tree structures where each assertion requires them.
 - [ ] Current `.enabler` and `.outcome` node vocabulary is accepted; deprecated node suffixes are rejected unless a separate current spec declares an explicit import path.
 - [ ] State and projection behavior are derived from source records and evidence providers, not stored command state.
+
+---
+
+## Decomposition intent: versioned filename grammar
+
+[`26-filename-grammar.adr.md`](26-filename-grammar.adr.md) (audit-APPROVED) makes the spec-tree library the canonical owner of the versioned Spec-Tree filename grammar. The new capability to structure under this node:
+
+- **Grammar registry + naming version.** All filename grammar tokens — kind and product suffixes, evidence modes, levels, language tails, the runner token, segment/order separators, the order pattern, coordination-note names, eval-lane names — single-sourced in the library `as const` registry surface (extending the kind registry, per `21-kind-registry.adr.md`), plus a dedicated naming-schema version and an ordered set of prior-version schemas. No codegen; hand-authored `as const`.
+- **Version-aware recognition.** The recognizer classifies every filesystem name valid (canonical schema) / superseded (a prior version, named) / invalid (no version). It accepts the schema set and a filesystem record as parameters (DI, no mocking).
+- **Residual retention.** The reader and snapshot retain every name the recognizer classifies as neither valid nor superseded, so the invalid set is the complement of recognition — no second traversal.
+
+Decomposition outcome: the versioned grammar is extracted as the child enabler [`29-filename-grammar.enabler`](29-filename-grammar.enabler/filename-grammar.md), consolidating the kind-registry vocabulary (its mapping/property/single-source assertions and their tests moved in) with the new versioned-grammar assertions (full-grammar single-sourcing, ordered schema versions, dedicated naming version).
+
+Remaining spec work: revise `43-entry-recognition.enabler` to the three-way valid / superseded / invalid classification, replacing "absent suffix maps to no entry"; revise `32-spec-tree-source.enabler` and `54-spec-tree-assembly.enabler` to retain the classified residual rather than drop unrecognized names. Then implementation per `/applying`.
+
+Out of scope for this node: the grammar emit command (`spx spec` surface under `spx/31-spec-domain.enabler`) and the shared multi-format reporter factoring — separate downstream work the ADR governs but this node does not own.
