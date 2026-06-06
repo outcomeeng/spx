@@ -8,7 +8,7 @@ CAN reach its registry with verified provenance, its release notes, and its upda
 
 ### Scenarios
 
-- Given a release tag and the package version, when publish dispatch verifies them, then it proceeds only when the tag matches the version and fails otherwise ([test](tests/publish-dispatch.scenario.l1.test.ts))
+- Given a release tag and the package version, when publish dispatch verifies them, then it proceeds only when the tag equals the package version prefixed with `v` (tag `v1.2.3` for version `1.2.3`) and fails otherwise ([test](tests/publish-dispatch.scenario.l1.test.ts))
 - Given the release notes and documentation generated for a release, when publish dispatch publishes it, then the published release carries those notes and documentation ([test](tests/publish-dispatch.scenario.l1.test.ts))
 
 ### Compliance
