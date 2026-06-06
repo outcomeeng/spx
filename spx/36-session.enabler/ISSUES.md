@@ -46,7 +46,7 @@ Resolution condition: relocate `SessionDirectoryConfig` to a shared config modul
 
 ## Handoff re-derives git state in two places
 
-`handoffCommand` resolves the same git state twice for one `cwd`: `resolveSessionConfig` calls `detectGitCommonDirProductRoot` (`rev-parse --show-toplevel` + `--git-common-dir`) to locate the sessions directory, and `resolveSessionGitRef` calls `isRootWorktree` (the same two reads) to classify the worktree for the handoff-base gate.
+`handoffCommand` resolves the same git state twice for one `cwd`: `resolveSessionConfig` calls `detectGitCommonDirProductRoot` (`rev-parse --show-toplevel` + `--git-common-dir`) to locate the sessions directory, and `resolveSessionGitRef` also calls `detectGitCommonDirProductRoot` (the same `--show-toplevel` + `--git-common-dir` reads) to derive the worktree roots for the handoff-base gate.
 
 Observed in PR review of the session-frontmatter implementation.
 

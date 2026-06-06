@@ -13,6 +13,13 @@ export interface GitProductDirResult {
   isGitRepo: boolean;
   /** Warning message when not in a git repo (undefined if in repo) */
   warning?: string;
+  /**
+   * The local worktree root (`git rev-parse --show-toplevel`), set by
+   * `detectGitCommonDirProductRoot` so a caller that needs both the worktree
+   * root and the Git common-dir product root reads `--show-toplevel` once.
+   * Falls back to `cwd` outside a git repository.
+   */
+  worktreeRoot?: string;
 }
 
 // Minimal command result shape used by product-directory detection.
@@ -169,6 +176,7 @@ export async function detectGitCommonDirProductRoot(
         productDir: cwd,
         isGitRepo: false,
         warning: NOT_GIT_REPO_WARNING,
+        worktreeRoot: cwd,
       };
     }
 
@@ -186,6 +194,7 @@ export async function detectGitCommonDirProductRoot(
       return {
         productDir: toplevel,
         isGitRepo: true,
+        worktreeRoot: toplevel,
       };
     }
 
@@ -204,12 +213,14 @@ export async function detectGitCommonDirProductRoot(
     return {
       productDir: gitCommonDirProductRoot,
       isGitRepo: true,
+      worktreeRoot: toplevel,
     };
   } catch {
     return {
       productDir: cwd,
       isGitRepo: false,
       warning: NOT_GIT_REPO_WARNING,
+      worktreeRoot: cwd,
     };
   }
 }

@@ -26,10 +26,10 @@ import { parseHandoffInput } from "@/domains/session/parse-handoff-input";
 import { generateSessionId } from "@/domains/session/timestamp";
 import { SESSION_FRONT_MATTER } from "@/domains/session/types";
 import {
+  detectGitCommonDirProductRoot,
   getCurrentBranch,
   getHeadSha,
   type GitDependencies,
-  isRootWorktree,
   isWorkingTreeClean,
   ORIGIN_REF_PREFIX,
   resolveDefaultBranch,
@@ -61,39 +61,58 @@ export interface HandoffResult {
 }
 
 /**
- * Gathers the git facts the handoff-base gate needs (I/O), then resolves the
- * git ref to record. Origin facts are consulted only for a detached linked
- * worktree; an on-branch linked worktree is refused without resolving origin.
+ * Gathers every git fact the handoff-base gate evaluates (I/O), then resolves
+ * the git ref to record. Every fact a linked-worktree refusal checklist renders
+ * is gathered regardless of branch state, so the resolver evaluates every base
+ * prerequisite and surfaces it — never short-circuiting on an earlier fact.
  */
 async function resolveSessionGitRef(
   cwd: string | undefined,
   deps: GitDependencies | undefined,
 ): Promise<string> {
-  const [isRoot, branch, headSha] = await Promise.all([
-    isRootWorktree(cwd, deps),
+  const [branch, headSha, gitRoots] = await Promise.all([
     getCurrentBranch(cwd, deps),
     getHeadSha(cwd, deps),
+    detectGitCommonDirProductRoot(cwd, deps),
   ]);
 
+  // `detectGitCommonDirProductRoot` reads `--show-toplevel` once and returns both
+  // the worktree root and the Git common-dir product root, so no second
+  // `--show-toplevel` is needed for the current-worktree path.
+  const currentWorktreePath = gitRoots.worktreeRoot ?? gitRoots.productDir;
+  const rootWorktreePath = gitRoots.productDir;
+  // The root worktree is the one whose toplevel is the Git common-dir product
+  // root; a linked worktree resolves to a path beneath it.
+  const isRoot = currentWorktreePath === rootWorktreePath;
+
+  // The clean-tree and origin facts feed only the linked-worktree refusal
+  // checklist; a root-worktree base (permitted regardless of HEAD state) and a
+  // non-git base never consult them, so gather them only for a linked worktree
+  // in a git repository. Every linked worktree — detached or on a branch — still
+  // gathers all of them, so the resolver evaluates every prerequisite.
   let isClean = false;
+  let defaultBranch: string | null = null;
   let defaultTipSha: string | null = null;
-  if (!isRoot && branch === null) {
-    const [clean, defaultBranch] = await Promise.all([
+  if (gitRoots.isGitRepo && !isRoot) {
+    [isClean, defaultBranch] = await Promise.all([
       isWorkingTreeClean(cwd, deps),
       resolveDefaultBranch(cwd, deps),
     ]);
-    isClean = clean;
     defaultTipSha = defaultBranch === null
       ? null
       : await resolveRefSha(`${ORIGIN_REF_PREFIX}${defaultBranch}`, cwd, deps);
   }
 
   return resolveHandoffGitRef({
+    isGitRepo: gitRoots.isGitRepo,
     isRootWorktree: isRoot,
     branch,
     headSha,
     isClean,
+    defaultBranch,
     defaultTipSha,
+    currentWorktreePath,
+    rootWorktreePath,
   });
 }
 

@@ -54,6 +54,7 @@ describe("product directory API result shape", () => {
 
     expect(worktreeResult.productDir).toBe(worktreeProductDir);
     expect(gitCommonDirResult.productDir).toBe(gitCommonDirProductDir);
+    expect(gitCommonDirResult.worktreeRoot).toBe(worktreeProductDir);
     for (const legacyField of Object.keys(legacyFields)) {
       expect(legacyField in worktreeResult).toBe(false);
       expect(legacyField in gitCommonDirResult).toBe(false);

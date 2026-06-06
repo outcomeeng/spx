@@ -33,7 +33,12 @@ import {
   SessionNotAvailableError,
   SessionNotFoundError,
 } from "@/domains/session/errors";
-import { resolveHandoffGitRef } from "@/domains/session/handoff-base";
+import { type HandoffGitFacts, resolveHandoffGitRef } from "@/domains/session/handoff-base";
+import {
+  HANDOFF_BASE_PREREQUISITE_LABEL,
+  HANDOFF_BASE_REMEDY,
+  type HandoffBasePrerequisite,
+} from "@/domains/session/handoff-base-checklist";
 import { parseSessionMetadata, sortSessions } from "@/domains/session/list";
 import {
   DEFAULT_SESSION_CONFIG,
@@ -912,89 +917,138 @@ describe("handoffCommand — created_at and agent_session_id pre-fill", () => {
 
 describe("resolveHandoffGitRef (handoff-base gate)", () => {
   const GATE_BRANCH = "topic/handoff-base";
+  const GATE_DEFAULT_BRANCH = "trunk";
+  const GATE_CURRENT_WORKTREE = "/product/.worktrees/handoff-base";
+  const GATE_ROOT_WORKTREE = "/product";
+
+  // A clean linked worktree detached at the origin tip; each test overrides only
+  // the facts that distinguish its case. The default branch and worktree paths
+  // are don't-cares for the return/throw assertions here — they feed the refusal
+  // checklist, which is exercised end-to-end through the CLI in the session-cli
+  // node's compliance tests.
+  function gateFacts(overrides: Partial<HandoffGitFacts>): HandoffGitFacts {
+    return {
+      isGitRepo: true,
+      isRootWorktree: false,
+      branch: null,
+      headSha: ORIGIN_DEFAULT_SHA,
+      isClean: true,
+      defaultBranch: GATE_DEFAULT_BRANCH,
+      defaultTipSha: ORIGIN_DEFAULT_SHA,
+      currentWorktreePath: GATE_CURRENT_WORKTREE,
+      rootWorktreePath: GATE_ROOT_WORKTREE,
+      ...overrides,
+    };
+  }
+
+  // Captures the refusal a non-permitted base raises, asserting it is the
+  // handoff-base error so each test can then inspect the carried checklist.
+  function captureHandoffBaseRefusal(facts: HandoffGitFacts): SessionHandoffBaseError {
+    let caught: unknown;
+    try {
+      resolveHandoffGitRef(facts);
+    } catch (error) {
+      caught = error;
+    }
+    expect(caught).toBeInstanceOf(SessionHandoffBaseError);
+    return caught as SessionHandoffBaseError;
+  }
+
+  // Asserts a prerequisite's identity, evaluation, and remedy together so a
+  // swapped order or a wrong met/remedy is caught at the unit level. A met
+  // prerequisite carries no remedy.
+  function expectPrerequisite(
+    prerequisite: HandoffBasePrerequisite,
+    label: string,
+    met: boolean,
+    remedy: string,
+  ): void {
+    expect(prerequisite.label).toBe(label);
+    expect(prerequisite.met).toBe(met);
+    expect(prerequisite.remedy).toBe(remedy);
+  }
 
   it("GIVEN the root worktree on a branch THEN records the branch", () => {
-    expect(
-      resolveHandoffGitRef({
-        isRootWorktree: true,
-        branch: GATE_BRANCH,
-        headSha: HEAD_SHA,
-        isClean: true,
-        defaultTipSha: ORIGIN_DEFAULT_SHA,
-      }),
-    ).toBe(GATE_BRANCH);
+    expect(resolveHandoffGitRef(gateFacts({ isRootWorktree: true, branch: GATE_BRANCH }))).toBe(GATE_BRANCH);
   });
 
   it("GIVEN the root worktree detached with a HEAD SHA THEN records the HEAD SHA", () => {
-    expect(
-      resolveHandoffGitRef({
-        isRootWorktree: true,
-        branch: null,
-        headSha: HEAD_SHA,
-        isClean: true,
-        defaultTipSha: ORIGIN_DEFAULT_SHA,
-      }),
-    ).toBe(HEAD_SHA);
+    expect(resolveHandoffGitRef(gateFacts({ isRootWorktree: true, headSha: HEAD_SHA }))).toBe(HEAD_SHA);
   });
 
-  it("GIVEN the root worktree with no reachable HEAD THEN rejects with SessionHandoffBaseError", () => {
-    expect(() =>
-      resolveHandoffGitRef({
-        isRootWorktree: true,
-        branch: null,
-        headSha: null,
-        isClean: true,
-        defaultTipSha: ORIGIN_DEFAULT_SHA,
-      })
-    ).toThrow(SessionHandoffBaseError);
+  it("GIVEN the root worktree with no reachable HEAD THEN refuses with a diagnostic, not silently and not a checklist", () => {
+    const error = captureHandoffBaseRefusal(gateFacts({ isRootWorktree: true, headSha: null }));
+    expect(error.checklist).toBeNull();
+    expect(error.silent).toBe(false);
   });
 
-  it("GIVEN a linked worktree on a branch THEN rejects with SessionHandoffBaseError", () => {
-    expect(() =>
-      resolveHandoffGitRef({
-        isRootWorktree: false,
-        branch: GATE_BRANCH,
-        headSha: HEAD_SHA,
-        isClean: true,
-        defaultTipSha: ORIGIN_DEFAULT_SHA,
-      })
-    ).toThrow(SessionHandoffBaseError);
+  it("GIVEN a linked worktree on a branch THEN refuses with clean met and at-tip unmet", () => {
+    const error = captureHandoffBaseRefusal(gateFacts({ branch: GATE_BRANCH, headSha: HEAD_SHA }));
+    const prerequisites = error.checklist?.prerequisites ?? [];
+    expect(prerequisites).toHaveLength(2);
+    expectPrerequisite(prerequisites[0], HANDOFF_BASE_PREREQUISITE_LABEL.CLEAN_WORKING_TREE, true, "");
+    expectPrerequisite(
+      prerequisites[1],
+      HANDOFF_BASE_PREREQUISITE_LABEL.DETACHED_AT_DEFAULT_TIP,
+      false,
+      HANDOFF_BASE_REMEDY.DETACH_TO_TIP_OR_ROOT,
+    );
   });
 
-  it("GIVEN a dirty detached linked worktree THEN rejects with SessionHandoffBaseError", () => {
-    expect(() =>
-      resolveHandoffGitRef({
-        isRootWorktree: false,
-        branch: null,
-        headSha: ORIGIN_DEFAULT_SHA,
-        isClean: false,
-        defaultTipSha: ORIGIN_DEFAULT_SHA,
-      })
-    ).toThrow(SessionHandoffBaseError);
+  it("GIVEN a dirty detached linked worktree THEN refuses with clean unmet and at-tip met", () => {
+    const error = captureHandoffBaseRefusal(gateFacts({ isClean: false }));
+    const prerequisites = error.checklist?.prerequisites ?? [];
+    expect(prerequisites).toHaveLength(2);
+    expectPrerequisite(
+      prerequisites[0],
+      HANDOFF_BASE_PREREQUISITE_LABEL.CLEAN_WORKING_TREE,
+      false,
+      HANDOFF_BASE_REMEDY.COMMIT_OR_ROOT,
+    );
+    expectPrerequisite(prerequisites[1], HANDOFF_BASE_PREREQUISITE_LABEL.DETACHED_AT_DEFAULT_TIP, true, "");
+    expect(error.checklist?.currentWorktreePath).toBe(GATE_CURRENT_WORKTREE);
+    expect(error.checklist?.rootWorktreePath).toBe(GATE_ROOT_WORKTREE);
   });
 
-  it("GIVEN a clean detached linked worktree off the origin tip THEN rejects with SessionHandoffBaseError", () => {
-    expect(() =>
-      resolveHandoffGitRef({
-        isRootWorktree: false,
-        branch: null,
-        headSha: HEAD_SHA,
-        isClean: true,
-        defaultTipSha: ORIGIN_DEFAULT_SHA,
-      })
-    ).toThrow(SessionHandoffBaseError);
+  it("GIVEN a clean detached linked worktree off the origin tip THEN refuses with clean met and at-tip unmet", () => {
+    const error = captureHandoffBaseRefusal(gateFacts({ headSha: HEAD_SHA }));
+    const prerequisites = error.checklist?.prerequisites ?? [];
+    expect(prerequisites).toHaveLength(2);
+    expectPrerequisite(prerequisites[0], HANDOFF_BASE_PREREQUISITE_LABEL.CLEAN_WORKING_TREE, true, "");
+    expectPrerequisite(
+      prerequisites[1],
+      HANDOFF_BASE_PREREQUISITE_LABEL.DETACHED_AT_DEFAULT_TIP,
+      false,
+      HANDOFF_BASE_REMEDY.DETACH_TO_TIP_OR_ROOT,
+    );
+  });
+
+  it("GIVEN a detached linked worktree whose default branch resolves but its tip does not THEN at-tip remedy is root-only", () => {
+    const error = captureHandoffBaseRefusal(
+      gateFacts({ headSha: HEAD_SHA, defaultBranch: GATE_DEFAULT_BRANCH, defaultTipSha: null }),
+    );
+    const prerequisites = error.checklist?.prerequisites ?? [];
+    expect(prerequisites).toHaveLength(2);
+    expectPrerequisite(prerequisites[0], HANDOFF_BASE_PREREQUISITE_LABEL.CLEAN_WORKING_TREE, true, "");
+    expectPrerequisite(
+      prerequisites[1],
+      HANDOFF_BASE_PREREQUISITE_LABEL.DETACHED_AT_DEFAULT_TIP,
+      false,
+      HANDOFF_BASE_REMEDY.ROOT_ONLY,
+    );
   });
 
   it("GIVEN a clean detached linked worktree at the origin tip THEN records that SHA", () => {
-    expect(
-      resolveHandoffGitRef({
-        isRootWorktree: false,
-        branch: null,
-        headSha: ORIGIN_DEFAULT_SHA,
-        isClean: true,
-        defaultTipSha: ORIGIN_DEFAULT_SHA,
-      }),
-    ).toBe(ORIGIN_DEFAULT_SHA);
+    expect(resolveHandoffGitRef(gateFacts({}))).toBe(ORIGIN_DEFAULT_SHA);
+  });
+
+  it("GIVEN a non-git base THEN refuses silently with no checklist", () => {
+    // A non-git context derives isRootWorktree true (both product-root detectors
+    // return the same cwd), so the isGitRepo guard must fire before the
+    // root-worktree branch — otherwise this would render as a root diagnostic.
+    const error = captureHandoffBaseRefusal(gateFacts({ isGitRepo: false, isRootWorktree: true }));
+    expect(error.checklist).toBeNull();
+    expect(error.silent).toBe(true);
   });
 });
 
