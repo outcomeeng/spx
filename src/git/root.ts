@@ -13,13 +13,17 @@ export interface GitProductDirResult {
   isGitRepo: boolean;
   /** Warning message when not in a git repo (undefined if in repo) */
   warning?: string;
-  /**
-   * The local worktree root (`git rev-parse --show-toplevel`), set by
-   * `detectGitCommonDirProductRoot` so a caller that needs both the worktree
-   * root and the Git common-dir product root reads `--show-toplevel` once.
-   * Falls back to `cwd` outside a git repository.
-   */
-  worktreeRoot?: string;
+}
+
+/**
+ * Result from Git common-dir product-root detection. Carries the local worktree
+ * root (`git rev-parse --show-toplevel`, or `cwd` outside a git repository) as a
+ * required field alongside the Git common-dir `productDir`, so a caller that
+ * needs both roots reads `--show-toplevel` once.
+ */
+export interface GitCommonDirProductDirResult extends GitProductDirResult {
+  /** The local worktree root — the `--show-toplevel` value, or `cwd` outside a git repository. */
+  worktreeRoot: string;
 }
 
 // Minimal command result shape used by product-directory detection.
@@ -162,7 +166,7 @@ function extractStdout(stdout: unknown): string {
 export async function detectGitCommonDirProductRoot(
   cwd: string = process.cwd(),
   deps: GitDependencies = defaultDeps,
-): Promise<GitProductDirResult> {
+): Promise<GitCommonDirProductDirResult> {
   try {
     // Step 1: Get the local worktree product directory via --show-toplevel
     const toplevelResult = await deps.execa(
