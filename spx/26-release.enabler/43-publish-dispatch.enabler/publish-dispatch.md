@@ -1,14 +1,15 @@
 # Publish Dispatch
 
-PROVIDES governed publication of a release — version-to-tag verification and provenance-bearing publish
+PROVIDES governed publication of a release — version-to-tag verification and a provenance-bearing publish that carries the release's generated notes and documentation
 SO THAT a tagged release
-CAN reach its registry with verified provenance
+CAN reach its registry with verified provenance, its release notes, and its updated documentation
 
 ## Assertions
 
 ### Scenarios
 
 - Given a release tag and the package version, when publish dispatch verifies them, then it proceeds only when the tag matches the version and fails otherwise ([test](tests/publish-dispatch.scenario.l1.test.ts))
+- Given the release notes and documentation generated for a release, when publish dispatch publishes it, then the published release carries those notes and documentation ([test](tests/publish-dispatch.scenario.l1.test.ts))
 
 ### Compliance
 
