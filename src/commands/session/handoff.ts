@@ -79,7 +79,7 @@ async function resolveSessionGitRef(
   // `detectGitCommonDirProductRoot` reads `--show-toplevel` once and returns both
   // the worktree root and the Git common-dir product root, so no second
   // `--show-toplevel` is needed for the current-worktree path.
-  const currentWorktreePath = gitRoots.worktreeRoot ?? gitRoots.productDir;
+  const currentWorktreePath = gitRoots.worktreeRoot;
   const rootWorktreePath = gitRoots.productDir;
   // The root worktree is the one whose toplevel is the Git common-dir product
   // root; a linked worktree resolves to a path beneath it.
