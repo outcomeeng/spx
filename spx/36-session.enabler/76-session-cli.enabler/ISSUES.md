@@ -19,3 +19,13 @@ The `SessionHandoffBaseError` checklist requires resolved git values on every li
 **Impact:** The implementation PR could pick either resolution site without a recorded decision, leaving the layering choice implicit and prone to drift.
 
 **Resolution:** In the handoff-base implementation PR, make the resolution site explicit — either the domain error object carries the resolved git facts, or the descriptor resolves them at render time — and confirm or amend [`spx/14-cli-composition.adr.md`](../../14-cli-composition.adr.md) (and [`spx/36-session.enabler/11-session-frontmatter.pdr.md`](../11-session-frontmatter.pdr.md) if behavior is affected) to record it.
+
+## Non-git SessionHandoffBaseError rendering is unreconciled between two session-cli statements
+
+`spx session handoff` raises `SessionHandoffBaseError` in three contexts: a linked-worktree refusal renders the prerequisite checklist; a linked-worktree refusal where `origin/HEAD` is unset marks the base ref unresolved within that checklist (both specified in [`session-cli.md`](session-cli.md) and [`spx/36-session.enabler/11-session-frontmatter.pdr.md`](../11-session-frontmatter.pdr.md)); and a non-git base refuses, whose stderr behavior two [`session-cli.md`](session-cli.md) statements describe differently.
+
+**Evidence:** [`session-cli.md`](session-cli.md)'s opening statement says `SessionHandoffBaseError` propagates through the binding "as non-zero exits with a diagnostic on stderr", while its non-git ALWAYS rule says `handoff` "refuses a non-git base with `SessionHandoffBaseError` and surfaces no diagnostic". For the non-git refusal these read as a contradiction: one requires a diagnostic, the other forbids one. The checklist rules are scoped to the linked-worktree refusal, so they do not govern the non-git case.
+
+**Impact:** The implementation PR has no single answer for what the non-git refusal writes to stderr — the `SessionHandoffBaseError` diagnostic, or nothing.
+
+**Resolution:** In the handoff-base implementation PR (or a prior spec change), reconcile the two statements: decide whether the non-git refusal writes the `SessionHandoffBaseError` diagnostic or exits silently, then make the opening statement and the non-git ALWAYS rule agree. The linked-worktree checklist (including the unresolved-`origin/HEAD` line) stays as specified.
