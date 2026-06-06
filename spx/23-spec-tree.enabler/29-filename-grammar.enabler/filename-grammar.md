@@ -26,6 +26,6 @@ CAN resolve and validate the configured vocabulary, and classify and render file
 ### Compliance
 
 - ALWAYS: `SPEC_TREE_CONFIG.KINDS` is declared as one flat `as const` object literal, `KIND_REGISTRY` projects from it, and every derived kind view comes from that registry ([test](tests/kind-registry-single-source.compliance.l1.test.ts), [review](../21-kind-registry.adr.md))
-- ALWAYS: config descriptors, source adapters, tree assembly, state derivation, and projections receive vocabulary through the semantic registry or a test-scoped registry fixture ([review](../21-kind-registry.adr.md))
+- ALWAYS: config descriptors, source adapters, tree assembly, state derivation, and projections receive vocabulary through the versioned grammar or a test-scoped registry fixture ([review](../26-filename-grammar.adr.md))
 - ALWAYS: the dedicated naming-schema version is owned by the grammar registry and exposed through the spec-tree library surface ([test](tests/naming-version.compliance.l1.test.ts), [review](../26-filename-grammar.adr.md))
 - NEVER: declare a Spec-Tree filename grammar token in a parallel module-local constant outside the grammar registry surface ([test](tests/filename-grammar.mapping.l1.test.ts), [review](../26-filename-grammar.adr.md))
