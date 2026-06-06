@@ -9,7 +9,10 @@ CAN reflect the released version's behavior and version references
 ### Scenarios
 
 - Given computed release data, when documentation sync runs, then version references in the configured documentation set are updated to the released version ([test](tests/documentation-sync.scenario.l1.test.ts))
-- The documentation set a release update covers is resolved from configuration, defaulting to the product README ([test](tests/documentation-sync.scenario.l1.test.ts))
+
+### Mappings
+
+- The documentation set a release update covers maps from configuration: the configured paths when set, the product README by default ([test](tests/documentation-sync.mapping.l1.test.ts))
 
 ### Compliance
 
