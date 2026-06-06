@@ -14,7 +14,7 @@ Git worktrees share one Git common directory while each keeps its own working co
 
 Resolving every directory to a single root fails one class or another: a single common-dir root reads the wrong branch's spec tree from sibling worktrees; a single worktree root strands session state where no other worktree can see it.
 
-## Product invariants
+## Product properties
 
 - `spx session` commands read and write the same `.spx/sessions/` directory from every worktree of the repository.
 - `spx validation` and spec-tree commands operate on the current worktree's tracked `spx/` files.
