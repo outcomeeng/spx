@@ -8,4 +8,4 @@ What an unchanged version means for a release is governed by publish dispatch, w
 
 **Skills:** `/spec-tree:authoring`, `/spec-tree:applying`, `/typescript:testing-typescript`.
 
-**Deferred until:** publish dispatch declares its tag-version precondition. Then specify `classifyVersionDelta`'s equal-version result — a distinct no-delta value or a rejected release — in [release-data.md](release-data.md), and add its test. Until then, callers must not rely on the delta for equal versions.
+**Deferred until:** publish dispatch declares its tag-version precondition. Then specify `classifyVersionDelta`'s equal-version result — a distinct no-delta value or a rejected release — in [release-data.md](release-data.md), and add its test. Until then, callers must not rely on the delta for equal versions. The mapping test ([release-data.mapping.l1.test.ts](tests/release-data.mapping.l1.test.ts)) accordingly exercises only versions that advance beyond the previous tag, matching the mapping assertion's stated scope.
