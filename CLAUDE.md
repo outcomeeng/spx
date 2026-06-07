@@ -87,7 +87,7 @@ The authoritative ADR and PDR templates are **decision-first**. The skills own t
 
 **The blanket `[review]` tag is retired.** Each Verification rule carries the tag its subsection prescribes: `[audit]` under `### Audit`, `[eval]` under `### Eval`, the evidence type under `### Testing`. `[review]` is accepted only as the legacy spelling of `[audit]` during migration.
 
-**Legacy verbose decision records are no longer valid.** Any ADR or PDR carrying `## Purpose`, `## Context`, a `## Decision` heading, `## Trade-offs accepted`, or a `## Compliance` block — or blanket `[review]` tags — is in violation of the current template and slated for migration to the decision-first shape. It is NOT precedent: do not copy its structure, and never cite it to justify a new or migrated decision record's shape. When the spec-tree reviewer compares a decision-first file against a still-legacy sibling, the legacy sibling is the file in violation.
+**Legacy verbose decision records are no longer valid.** Any ADR or PDR carrying `## Purpose`, `## Context`, a `## Decision` heading, `## Trade-offs accepted`, a `## Compliance` block, or the PDR-specific `## Product invariants` heading (the template's heading is `## Product properties`) — or blanket `[review]` tags — is in violation of the current template and slated for migration to the decision-first shape. It is NOT precedent: do not copy its structure, and never cite it to justify a new or migrated decision record's shape. When the spec-tree reviewer compares a decision-first file against a still-legacy sibling, the legacy sibling is the file in violation.
 
 ---
 
