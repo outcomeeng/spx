@@ -382,13 +382,15 @@ function recognizeDirectoryRecord(
   registry: SpecTreeRegistry,
   schemaVersions: readonly NamingSchemaVersion[],
 ): SpecTreeSourceEntry | null {
-  const nodeMatch = matchKindSuffix(name, registry, SPEC_TREE_KIND_CATEGORY.NODE);
-  if (nodeMatch !== null) {
-    const parsed = parseOrderedSlug(stripSuffix(name, nodeMatch.definition.suffix));
-    if (parsed !== null) {
+  const canonical = canonicalNamingSchemaVersion(schemaVersions);
+  const canonicalSuffix = matchNodeSuffixFromVersion(name, canonical);
+  if (canonicalSuffix !== null) {
+    const kind = nodeKindForSuffix(canonicalSuffix, registry);
+    const parsed = parseOrderedSlug(stripSuffix(name, canonicalSuffix));
+    if (kind !== null && parsed !== null) {
       return {
         type: SPEC_TREE_ENTRY_TYPE.NODE,
-        kind: nodeMatch.kind as NodeKind,
+        kind,
         id: record.relativePath,
         order: parsed.order,
         slug: parsed.slug,
@@ -418,6 +420,24 @@ function recognizeDirectoryRecord(
     };
   }
 
+  return null;
+}
+
+function matchNodeSuffixFromVersion(name: string, version: NamingSchemaVersion): string | null {
+  for (const suffix of version.nodeSuffixes) {
+    if (name.endsWith(suffix) && parseOrderedSlug(stripSuffix(name, suffix)) !== null) {
+      return suffix;
+    }
+  }
+  return null;
+}
+
+function nodeKindForSuffix(suffix: string, registry: SpecTreeRegistry): NodeKind | null {
+  for (const [kind, definition] of Object.entries(registry) as Array<[Kind, KindDefinition<Kind>]>) {
+    if (definition.category === SPEC_TREE_KIND_CATEGORY.NODE && definition.suffix === suffix) {
+      return kind as NodeKind;
+    }
+  }
   return null;
 }
 

@@ -35,6 +35,13 @@ export type RecognitionVersionScenario = {
   readonly invalidNodeSuffix: string;
 };
 
+export type DemotedRegistrySuffixScenario = {
+  readonly schemaVersions: readonly NamingSchemaVersion[];
+  readonly demotedRegistrySuffix: string;
+  readonly demotedVersion: string;
+  readonly canonicalRegistrySuffix: string;
+};
+
 export const NAMING_SCHEMA_VERSION_TEST_GENERATOR = {
   counts: {
     propertyRunCount: NAMING_SCHEMA_VERSION_GENERATOR_OPTIONS.PROPERTY_RUN_COUNT,
@@ -42,6 +49,7 @@ export const NAMING_SCHEMA_VERSION_TEST_GENERATOR = {
   version: arbitraryNamingSchemaVersion,
   versionTuple: arbitraryNamingSchemaVersionTuple,
   recognitionScenario: arbitraryRecognitionVersionScenario,
+  demotedRegistrySuffixScenario: arbitraryDemotedRegistrySuffixScenario,
 } as const;
 
 function arbitrarySemver(): fc.Arbitrary<string> {
@@ -166,4 +174,24 @@ function arbitraryRecognitionVersionScenario(): fc.Arbitrary<RecognitionVersionS
         invalidNodeSuffix,
       };
     });
+}
+
+function arbitraryDemotedRegistrySuffixScenario(): fc.Arbitrary<DemotedRegistrySuffixScenario> {
+  return fc.integer({ min: 0, max: NODE_SUFFIXES.length - 1 }).map((demotedIndex) => {
+    const demotedRegistrySuffix = NODE_SUFFIXES[demotedIndex];
+    const canonicalRegistrySuffixes = NODE_SUFFIXES.filter((_, index) => index !== demotedIndex);
+    const canonicalRegistrySuffix = canonicalRegistrySuffixes[0];
+    if (demotedRegistrySuffix === undefined || canonicalRegistrySuffix === undefined) {
+      throw new Error("Demoted-registry-suffix scenario requires at least two registry node suffixes");
+    }
+    return {
+      schemaVersions: [
+        buildNamingSchemaVersion(RECOGNITION_SCENARIO_VERSION.PRIOR, [demotedRegistrySuffix], DECISION_SUFFIXES),
+        buildNamingSchemaVersion(RECOGNITION_SCENARIO_VERSION.CANONICAL, canonicalRegistrySuffixes, DECISION_SUFFIXES),
+      ],
+      demotedRegistrySuffix,
+      demotedVersion: RECOGNITION_SCENARIO_VERSION.PRIOR,
+      canonicalRegistrySuffix,
+    };
+  });
 }
