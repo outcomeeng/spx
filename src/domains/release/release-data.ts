@@ -18,9 +18,10 @@ export const VERSION_DELTA = {
 export type VersionDelta = (typeof VERSION_DELTA)[keyof typeof VERSION_DELTA];
 
 /**
- * The deterministic description a release derives from git history — the commits
- * since the previous release tag, the version delta, and the changed paths.
- * Release notes, documentation sync, and publish dispatch all read this contract.
+ * The deterministic description a release derives from git history — the package
+ * version, the commits since the previous release tag, the version delta, and the
+ * changed paths. Release notes, documentation sync, and publish dispatch all read
+ * this contract.
  */
 export interface ReleaseData {
   /** The product's package version this release publishes, the one version downstream children read. */
@@ -73,10 +74,10 @@ export function classifyVersionDelta(previousTag: string, packageVersion: string
 }
 
 /**
- * Computes the release data for the release at HEAD of `productDir` — the
- * commits since the previous release tag, the version delta, and the changed
- * paths. Deterministic given the repository state and inputs; all git access
- * flows through the injected runner.
+ * Computes the release data for the release at HEAD of `productDir` — the package
+ * version, the commits since the previous release tag, the version delta, and the
+ * changed paths. Deterministic given the repository state and inputs; all git
+ * access flows through the injected runner.
  */
 export async function computeReleaseData(options: ComputeReleaseDataOptions): Promise<ReleaseData> {
   const { productDir, packageVersion, deps = defaultGitDependencies } = options;
