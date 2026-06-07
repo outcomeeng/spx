@@ -57,8 +57,12 @@ export const RELEASE_TEST_GENERATOR = {
   versionBumpFor: arbitraryVersionBumpFor,
 } as const;
 
+// Fixed seed so a single-sample draw is reproducible: a failing scenario,
+// mapping, or compliance test replays the same generated value on re-run.
+const RELEASE_SAMPLE_SEED = 20260607;
+
 export function sampleReleaseTestValue<T>(arbitrary: fc.Arbitrary<T>): T {
-  const [value] = fc.sample(arbitrary, { numRuns: 1 });
+  const [value] = fc.sample(arbitrary, { numRuns: 1, seed: RELEASE_SAMPLE_SEED });
   if (value === undefined) {
     throw new Error("Release test generator returned no sample");
   }
