@@ -17,6 +17,8 @@ Legacy markers to migrate: the verbose ADR/PDR form (`## Purpose` / `## Context`
 - Verbose ADRs include `spx/23-spec-tree.enabler/21-kind-registry.adr.md` and the `spx/41-validation.enabler/**` ADRs.
 - PDRs still carrying `## Product invariants`: `spx/17-file-inclusion.enabler/11-ignore-defaults.pdr.md`, `spx/31-spec-domain.enabler/21-node-status.enabler/15-status-file-contract.pdr.md`, `spx/36-session.enabler/11-session-frontmatter.pdr.md`, `spx/41-validation.enabler/11-tool-based-validation.pdr.md`, and `spx/36-audit.enabler/11-audit-scope.pdr.md`.
 
+Separate follow-up — spec-assertion `[review]` tags: many node spec files (`{slug}.md`) carry `[review]` evidence tags on `## Assertions`, the retired legacy spelling of `[audit]`. This is distinct from the decision-record template migration above and tree-wide; `spx/16-config.enabler/21-config-cli.enabler/config-cli.md` is one surfaced example. Migrate spec-assertion `[review]` → `[audit]` as its own pass (re-grep `spx/**/*.md` excluding `*.adr.md` / `*.pdr.md` for `[review]`).
+
 ## Canonical ADR template orders Verification subsections Audit-first
 
 The canonical ADR template (`plugins/spec-tree/skills/understanding/templates/decisions/decision-name.adr.md`) and `typescript:standardizing-typescript-architecture` list the `## Verification` subsections `### Audit` → `### Eval` → `### Testing`, while the PDR template orders them `### Testing` → `### Eval` → `### Audit` by decreasing enforcement strength, and the existing ADR corpus follows the PDR's Testing-first order. By operator decision, spx orders both record types Testing-first (decreasing enforcement strength); the ADR template's Audit-first listing is the upstream inconsistency.
