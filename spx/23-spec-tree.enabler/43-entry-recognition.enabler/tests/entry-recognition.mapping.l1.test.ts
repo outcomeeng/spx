@@ -80,16 +80,18 @@ describe("spec-tree entry recognition", () => {
     });
   });
 
-  it("returns no entry for unregistered node suffixes", () => {
+  it("classifies an ordered name with an unregistered suffix as an invalid entry", () => {
     const order = sampleSpecTreeTestValue(SPEC_TREE_TEST_GENERATOR.filesystemOrder());
     const slug = sampleSpecTreeTestValue(SPEC_TREE_TEST_GENERATOR.sourceSlug());
     const suffix = sampleSpecTreeTestValue(SPEC_TREE_TEST_GENERATOR.unregisteredNodeSuffix(KIND_REGISTRY));
 
-    expect(
+    const entry = expectPresent(
       recognizeSpecTreeFilesystemEntry({
         type: SPEC_TREE_FILESYSTEM_RECORD_TYPE.DIRECTORY,
         relativePath: `${order}-${slug}${suffix}`,
       }),
-    ).toBeNull();
+    );
+
+    expect(entry.type).toBe(SPEC_TREE_ENTRY_TYPE.INVALID);
   });
 });
