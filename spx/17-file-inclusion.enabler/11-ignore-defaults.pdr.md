@@ -1,6 +1,6 @@
 # Ignore Defaults
 
-The file-inclusion service takes git's view of the working tree as the default scope for automatic walks — tracked and untracked-not-ignored entries are included, everything git ignores and all submodule contents are excluded — and exposes ripgrep's CLI vocabulary (`--no-ignore`, `--no-ignore-vcs`, `--ignore-file`) plus explicit `--files`/positional paths as the invocation-time override surface, while a consumer-supplied domain path filter narrows or expands only its own domain's scope. Diverging deliberately from ripgrep, spx does **not** exclude dot-prefixed entries by default and exposes no `--hidden` flag, so product content under `.github/`, `.changeset/`, `.husky/`, and `.devcontainer/` is in scope unconditionally, subject only to the git-tracking layer.
+The file-inclusion service takes git's view of the working tree as the default scope for automatic walks, exposes ripgrep's CLI override vocabulary plus explicit caller paths as the invocation-time override surface, and lets a consumer-supplied domain path filter narrow or expand a domain's scope only within the git-tracked set. Diverging deliberately from ripgrep, spx does **not** exclude dot-prefixed entries by default and offers no hidden-file opt-out, so dot-prefixed product-content directories are in scope unconditionally, subject only to the git-tracking layer.
 
 ## Rationale
 

@@ -1,6 +1,6 @@
 # Scope Composition
 
-The file-inclusion service composes its filter layers — caller-supplied explicit paths, domain path filter, git-tracking — as a fixed-order pipeline that runs once per invocation and produces a single `ScopeResult` with per-path decision trails, short-circuiting on explicit-caller match so caller paths bypass every other layer by construction. Tool adapters consume the `ScopeResult` and a tool name to produce that tool's ignore-flag arguments and never consult the filter layers themselves.
+The file-inclusion service composes its filter layers as a fixed-order pipeline that runs once per invocation and produces a single `ScopeResult` with per-path decision trails, short-circuiting on explicit-caller match so caller paths bypass every other layer by construction. Tool adapters consume the `ScopeResult` and a tool name to produce that tool's ignore-flag arguments and never consult the filter layers themselves.
 
 ## Rationale
 
@@ -13,7 +13,7 @@ Rejected: a predicate list without explicit-override short-circuit (makes the ov
 - A caller-supplied explicit path always reaches `ScopeResult.included` with a decision trail whose first element names the explicit-override layer, regardless of any other layer's membership.
 - For every path not supplied explicitly, the pipeline evaluates each non-override layer in the declared sequence, and the path's decision trail contains exactly those layers that matched, one entry per matching layer in pipeline order.
 - Tool adapters are pure over `(ScopeResult, ToolName)` — the same resolved scope and tool name always produce the same argument array.
-- The pipeline's layer sequence is declared in one place and consumed through a single accessor; no module outside the pipeline composes its own layer order.
+- The pipeline's layer sequence — caller-supplied explicit paths, then domain path filter, then git-tracking — is declared in one place and consumed through a single accessor; no module outside the pipeline composes its own layer order.
 - The layer sequence is extensible: inserting a new layer at a declared position preserves the decision-trail ordering and membership decisions of every existing layer.
 - The git-tracking layer's state is built by git-plumbing invocations at resolver construction only; per-path membership queries are O(1) lookups against an in-memory set and invoke no subprocess.
 - Override flags (`--no-ignore`, `--no-ignore-vcs`, `--ignore-file`) modify the git-tracking layer's construction-time arguments and do not introduce additional layers.
