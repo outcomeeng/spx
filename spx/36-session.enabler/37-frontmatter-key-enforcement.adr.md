@@ -1,44 +1,16 @@
 # Frontmatter Key Enforcement
 
-## Purpose
-
-This decision governs enforcement for session frontmatter key usage in TypeScript source and tests.
-
-## Context
-
-**Business impact:** Session frontmatter drives handoff selection, pickup context, and archive readability. A duplicated string key can silently drift from the canonical session schema and make agents miss the work to resume.
-
-**Technical constraints:** The canonical key registry is `SESSION_FRONT_MATTER`. ESLint runs custom project rules during `spx validation all`, and custom rule tests exercise rule modules against source-shaped TypeScript fixtures.
-
-## Decision
-
-Session frontmatter key usage is enforced by a custom ESLint rule that reports string-literal frontmatter keys outside the `SESSION_FRONT_MATTER` definition module.
+Session frontmatter key usage is enforced by a custom ESLint rule that reports any string literal equal to a registered frontmatter key when it appears outside the `SESSION_FRONT_MATTER` registry definition module, so every key read or write stays tied to the one runtime source of truth.
 
 ## Rationale
 
-The frontmatter schema is a closed vocabulary with one runtime source of truth. ESLint catches key duplication at edit time and participates in the same validation path as the rest of the TypeScript quality gate.
+The frontmatter schema is a closed vocabulary with a single runtime source of truth (`SESSION_FRONT_MATTER`), so enforcement belongs at edit time in the same validation path as the rest of the TypeScript quality gate — ESLint catches a duplicated key literal before it can drift from the canonical schema and make agents miss the work to resume. A grep-based compliance test is rejected because it reports only during test execution, cannot reason about AST context, and is harder to exempt for the registry definition itself; a shared test helper is rejected because it would reduce duplication in tests without preventing production call sites from drifting. The rule limits its reports to string-literal values whose text equals a registered key, and it exempts the file that defines `SESSION_FRONT_MATTER` so the source of truth is not flagged while every consumer references the exported registry.
 
-A grep-based compliance test was rejected because it reports only during test execution, cannot reason about AST context, and is harder to exempt for the registry definition itself. A shared test helper was rejected because it would reduce duplication in tests without preventing production call sites from drifting.
+## Verification
 
-## Trade-offs accepted
+### Audit
 
-| Trade-off                                                    | Mitigation / reasoning                                                                                        |
-| ------------------------------------------------------------ | ------------------------------------------------------------------------------------------------------------- |
-| The rule must distinguish key literals from ordinary strings | AST context limits reports to string literal values whose text equals a registered frontmatter key            |
-| The registry definition module needs an exemption            | The rule allows the file that defines `SESSION_FRONT_MATTER`; all other modules consume the exported registry |
-
-## Compliance
-
-### Recognized by
-
-The ESLint plugin exports a rule that reports any string literal matching a `SESSION_FRONT_MATTER` value outside the registry definition module.
-
-### MUST
-
-- Every session frontmatter key read or write outside the registry definition module references `SESSION_FRONT_MATTER` — this keeps schema usage tied to the canonical runtime registry ([review])
-- The custom ESLint rule is covered by fixtures that include both a violating call site and the allowed registry definition module — this proves the rule reports drift without flagging the source of truth ([review])
-
-### NEVER
-
-- A module outside the registry definition module spells a session frontmatter key as a raw string literal — duplicated keys can drift from `spx/36-session.enabler/11-session-frontmatter.pdr.md` ([review])
-- Compliance for frontmatter key usage relies on grep or raw text scanning — textual search cannot model TypeScript syntax or the registry-definition exemption ([review])
+- ALWAYS: reference `SESSION_FRONT_MATTER` for every session frontmatter key read or written outside the registry definition module — schema usage stays tied to the canonical runtime registry ([audit])
+- ALWAYS: cover the custom ESLint rule with fixtures that include both a violating call site and the allowed registry definition module — proving the rule reports drift without flagging the source of truth ([audit])
+- NEVER: spell a session frontmatter key as a raw string literal in any module outside the registry definition module — duplicated keys drift from `spx/36-session.enabler/11-session-frontmatter.pdr.md` ([audit])
+- NEVER: rely on grep or raw text scanning for frontmatter-key compliance — textual search cannot model TypeScript syntax or the registry-definition exemption ([audit])

@@ -1,48 +1,22 @@
 # Session Timestamp Format
 
-## Purpose
-
-This decision governs the format of session identifiers. Session IDs double as filenames, so the format must be filesystem-safe, human-readable, and alphabetically sortable.
-
-## Context
-
-**Business impact:** Agents and users see session IDs in CLI output. Readable timestamps reduce cognitive load when scanning session lists.
-
-**Technical constraints:** Filenames must avoid colons (Windows-incompatible), be sortable lexicographically, and be unique per second.
-
-## Decision
-
-Session IDs use `YYYY-MM-DD_HH-mm-ss` format (e.g., `2026-01-13_08-01-05`).
+Session identifiers — which double as filenames — use the `YYYY-MM-DD_HH-mm-ss` format (for example `2026-01-13_08-01-05`): filesystem-safe, human-readable, and lexicographically sortable so alphabetical order matches chronological order.
 
 ## Rationale
 
-The format is human-readable (date and time visually separated), filesystem-safe (no special characters), and lexicographically sortable (alphabetical order matches chronological order). ISO 8601 Zulu format (`T` and `Z` suffixes) adds noise without benefit. Unix timestamps are unreadable. UUID v7 is over-engineering for single-user session creation.
-
-## Trade-offs accepted
-
-| Trade-off                         | Mitigation / reasoning                                                                   |
-| --------------------------------- | ---------------------------------------------------------------------------------------- |
-| No timezone indicator in filename | ISO 8601 with timezone stored in YAML front matter `created_at` field                    |
-| Second granularity only           | Sufficient for session creation; milliseconds can be added if collision becomes an issue |
+The format separates date from time visually (human-readable), uses no special characters (filesystem-safe), and sorts lexicographically into chronological order — the three properties session IDs need as both CLI-visible labels and on-disk filenames. ISO 8601 Zulu form (`T` and `Z`) adds noise without benefit, Unix timestamps are unreadable, and UUID v7 is over-engineering for single-user session creation. The filename omits a timezone indicator because the timezone-bearing ISO-8601 timestamp lives in the frontmatter `created_at` field governed by `spx/36-session.enabler/11-session-frontmatter.pdr.md`; second granularity is sufficient for session creation, with milliseconds available if collisions ever arise.
 
 ## Invariants
 
-- Lexicographic ordering of session IDs matches chronological ordering
-- Every session ID matches the regex `\d{4}-\d{2}-\d{2}_\d{2}-\d{2}-\d{2}`
+- Lexicographic ordering of session IDs matches chronological ordering.
+- Every session ID matches the regex `\d{4}-\d{2}-\d{2}_\d{2}-\d{2}-\d{2}`.
 
-## Compliance
+## Verification
 
-### Recognized by
+### Audit
 
-Session filenames match `YYYY-MM-DD_HH-mm-ss.md` with zero-padded components and 24-hour time.
-
-### MUST
-
-- Use underscores to separate date from time (`_`) ([review])
-- Use hyphens within date and time components (`-`) ([review])
-- Pad all components with leading zeros ([review])
-
-### NEVER
-
-- Use colons in filenames — Windows-incompatible ([review])
-- Omit leading zeros — breaks lexicographic sorting ([review])
+- ALWAYS: separate the date from the time with an underscore (`_`) ([audit])
+- ALWAYS: separate components within the date and within the time with hyphens (`-`) ([audit])
+- ALWAYS: zero-pad every component ([audit])
+- NEVER: use colons in filenames — they are Windows-incompatible ([audit])
+- NEVER: omit leading zeros — that breaks lexicographic sorting ([audit])

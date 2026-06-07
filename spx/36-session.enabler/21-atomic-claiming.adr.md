@@ -1,55 +1,22 @@
 # Atomic Session Claiming
 
-## Purpose
-
-This decision governs how concurrent session pickup is serialized. Multiple agents may attempt to claim the same session simultaneously.
-
-## Context
-
-**Business impact:** Users run multiple Claude Code instances against the same repository. Each agent picks up a different session. Double-claiming leads to duplicated work.
-
-**Technical constraints:** POSIX `rename()` is atomic within a filesystem — exactly one caller succeeds when two rename the same source. Node.js `fs.rename()` exposes this syscall.
-
-## Decision
-
-Session claiming uses filesystem `rename()` to atomically move session files between status directories.
+Session claiming moves a session file between status directories with `fs.rename()`. POSIX `rename()` is atomic within a filesystem, so when concurrent agents race to claim the same session exactly one rename succeeds and the others receive `ENOENT`.
 
 ## Rationale
 
-Atomic rename is a proven pattern with zero race conditions — the OS guarantees exactly one rename succeeds. Failed claimers receive `ENOENT` and can try the next session. No coordination infrastructure (lock files, databases, distributed locks) is needed. The directory-based structure (per ADR `21-directory-structure`) enables this naturally.
-
-Alternatives rejected:
-
-- **Lock files**: stale locks if agent crashes, more files to manage
-- **SQLite transactions**: external dependency for a simple file operation
-- **Distributed locks** (Redis, etcd): massive over-engineering for a local CLI tool
-- **Optimistic locking** (check-then-rename): race window between check and rename
-
-## Trade-offs accepted
-
-| Trade-off                              | Mitigation / reasoning                                                            |
-| -------------------------------------- | --------------------------------------------------------------------------------- |
-| Cross-filesystem rename fails          | All session directories reside under `.spx/sessions/` on a single filesystem      |
-| No queue ordering guarantee            | Acceptable — sessions are sorted by priority then timestamp; agents pick in order |
-| Failure detection is implicit (ENOENT) | Simple try/catch pattern; domain error types classify filesystem errors           |
+Atomic rename is a proven, zero-race-condition pattern — the OS guarantees exactly one rename succeeds, a losing claimer receives `ENOENT` and moves on to the next session, and no coordination infrastructure (lock files, databases, distributed locks) is needed; the directory-based status layout of `spx/36-session.enabler/21-directory-structure.adr.md` makes this natural. Lock files are rejected because a crashed agent leaves a stale lock and adds files to manage; SQLite transactions add an external dependency for a single file operation; distributed locks (Redis, etcd) are massive over-engineering for a local CLI; and check-then-rename optimistic locking reopens the very race window `rename()` closes.
 
 ## Invariants
 
-- At most one agent successfully claims any given session
-- A claimed session exists in `doing/` and does not exist in `todo/`
+- At most one agent successfully claims any given session.
+- A claimed session exists in `doing/` and does not exist in `todo/`.
+- All session status directories reside under `.spx/sessions/` on a single filesystem, so `rename()` between them is atomic.
 
-## Compliance
+## Verification
 
-### Recognized by
+### Audit
 
-Session status transitions use `fs.rename()`. No lock files or coordination mechanisms exist alongside session files.
-
-### MUST
-
-- Use `fs.rename()` for all status transitions — guarantees atomicity ([review])
-- Catch `ENOENT` errors and convert to `SessionNotAvailableError` — classifies claim race ([review])
-
-### NEVER
-
-- Use read-then-write pattern for claiming — introduces race condition ([review])
-- Use lock files for coordination — stale locks on agent crash ([review])
+- ALWAYS: use `fs.rename()` for every status transition — it guarantees atomicity ([audit])
+- ALWAYS: catch `ENOENT` and convert it to `SessionNotAvailableError` — this classifies the claim race ([audit])
+- NEVER: use a read-then-write pattern for claiming — it reintroduces the race condition ([audit])
+- NEVER: use lock files for coordination — a crashed agent leaves a stale lock ([audit])
