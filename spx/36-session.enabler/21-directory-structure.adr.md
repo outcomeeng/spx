@@ -1,64 +1,32 @@
 # Session Directory Structure
 
-## Purpose
-
-This decision governs how session files are organized on disk. Session status is encoded by directory location, not by filename prefix or file content.
-
-## Context
-
-**Business impact:** Agents query session status frequently. Directory-based status enables fast enumeration without parsing file contents.
-
-**Technical constraints:** POSIX `rename()` is atomic within a filesystem. Directory-based status enables atomic status transitions via `rename()` between sibling directories.
-
-## Decision
-
-Session files are organized in status-based subdirectories under `.spx/sessions/`:
-
-```
-.spx/sessions/
-├── todo/           # Available sessions
-├── doing/          # Claimed sessions
-└── archive/        # Archived sessions
-```
+Session status is encoded by directory location, not by filename prefix or file content: each session file lives in exactly one of `.spx/sessions/{todo,doing,archive}/`, and a status transition is an `fs.rename()` between sibling status directories.
 
 ## Rationale
 
-Directory-based status is faster than alternatives because `readdir()` returns only sessions of the desired status. Filename prefixes (e.g., `TODO_*.md`) require parsing every filename. YAML front matter status requires reading every file. A SQLite index adds an external dependency for a simple file-based workflow.
-
-Alternatives rejected:
-
-- **Filename prefixes** (`TODO_`, `DOING_`): mixes status with identity, clutters listings
-- **Status in YAML front matter**: requires parsing every file to determine status
-- **SQLite index**: over-engineering for a file-based workflow
-
-## Trade-offs accepted
-
-| Trade-off                                      | Mitigation / reasoning                                                                 |
-| ---------------------------------------------- | -------------------------------------------------------------------------------------- |
-| Three directories instead of one flat listing  | Directories are shallow, single-level; archive is optional                             |
-| All directories must be on the same filesystem | `.spx/sessions/` is a single directory tree — cross-filesystem layouts are unsupported |
+Directory-based status is faster than the alternatives because `readdir()` returns only the sessions of the desired status, with no per-file work: filename prefixes (e.g. `TODO_*.md`) would require parsing every filename, status in YAML frontmatter would require reading every file, and a SQLite index would add an external dependency to a simple file-based workflow. Rejected: filename prefixes (mix status with identity and clutter listings); status in YAML frontmatter (forces parsing every file to determine status); and a SQLite index (over-engineering for a file-based workflow).
 
 ## Invariants
 
-- A session file exists in exactly one status directory at any point in time
-- The set of valid status directories is {todo, doing, archive} — no other directories participate in status derivation
+- A session file exists in exactly one status directory at any point in time.
+- The set of valid status directories is `{todo, doing, archive}` — no other directory participates in status derivation.
+- All status directories are a single, shallow level under `.spx/sessions/` on one filesystem, so `rename()` between them stays atomic:
 
-## Compliance
+  ```text
+  .spx/sessions/
+  ├── todo/      # Available sessions
+  ├── doing/     # Claimed sessions
+  └── archive/   # Archived sessions
+  ```
 
-### Recognized by
+## Verification
 
-Session files named `{timestamp}.md` stored in `todo/`, `doing/`, or `archive/` subdirectories. No filename prefixes encode status.
+### Audit
 
-### MUST
-
-- Store available sessions in `todo/` directory — status is positional ([review])
-- Store claimed sessions in `doing/` directory — status is positional ([review])
-- Use `rename()` between directories for status transitions — preserves atomicity ([review])
-- Derive all path component names (directory segments like `sessions`, `todo`, `doing`, `archive`) from `DEFAULT_CONFIG` — single source of truth for naming; absolute paths are resolved at runtime by `resolveSessionConfig` per ADR `26-worktree-detection` ([review])
-
-### NEVER
-
-- Use filename prefixes for status (`TODO_`, `DOING_`) — violates positional status ([review])
-- Mix sessions of different statuses in the same directory — breaks fast enumeration ([review])
-- Parse filenames to determine session status — status is directory, not name ([review])
-- Hardcode path strings (`.spx`, `sessions`, `todo`) outside of `DEFAULT_CONFIG` — causes drift ([review])
+- ALWAYS: store available sessions in `todo/` and claimed sessions in `doing/` — status is positional ([audit])
+- ALWAYS: use `rename()` between directories for status transitions — it preserves atomicity ([audit])
+- ALWAYS: derive every path-component name (directory segments such as `sessions`, `todo`, `doing`, `archive`) from `DEFAULT_CONFIG`, with absolute paths resolved at runtime by `resolveSessionConfig` per `spx/36-session.enabler/26-worktree-detection.adr.md` — `DEFAULT_CONFIG` is the single source of truth for naming ([audit])
+- NEVER: use filename prefixes (`TODO_`, `DOING_`) for status — that violates positional status ([audit])
+- NEVER: mix sessions of different statuses in one directory — it breaks fast enumeration ([audit])
+- NEVER: parse filenames to determine session status — status is the directory, not the name ([audit])
+- NEVER: hardcode path strings (`.spx`, `sessions`, `todo`) outside `DEFAULT_CONFIG` — that causes drift ([audit])
