@@ -1,6 +1,6 @@
 # Release Model
 
-spx offers release as a capability applied to any product it runs against: it derives each release's contents from that product's git history — the commits since the last release tag, the version delta, and the changed paths — and turns them into Keep a Changelog release notes, updates to a configured documentation set, and a governed, provenance-bearing publication. A release depends on no in-tree domain.
+spx offers release as a capability applied to any product it runs against: it derives each release's contents from that product's git history — the package version, the commits since the last release tag, the version delta, and the changed paths — and turns them into Keep a Changelog release notes, updates to a configured documentation set, and a governed, provenance-bearing publication. A release depends on no in-tree domain.
 
 ## Rationale
 
@@ -16,7 +16,7 @@ A release describes the changes a product ships, so deriving it from git history
 
 ### Testing
 
-- ALWAYS: release data is the commits since the previous release tag, the version delta, and the changed paths, computed from the product's git history ([scenario])
+- ALWAYS: release data is the package version, the commits since the previous release tag, the version delta, and the changed paths, computed from the product's git history ([scenario])
 - ALWAYS: release-data computation is deterministic — identical repository state yields identical release data ([property])
 - ALWAYS: release notes conform to the Keep a Changelog structure ([conformance])
 - ALWAYS: publication proceeds only when the release tag equals the package version prefixed with `v` ([scenario])
