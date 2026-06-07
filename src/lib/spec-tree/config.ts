@@ -77,6 +77,129 @@ export const DECISION_KINDS: readonly DecisionKind[] = (Object.keys(KIND_REGISTR
 export const NODE_SUFFIXES: readonly string[] = NODE_KINDS.map((k) => KIND_REGISTRY[k].suffix);
 export const DECISION_SUFFIXES: readonly string[] = DECISION_KINDS.map((k) => KIND_REGISTRY[k].suffix);
 
+export const SPEC_TREE_GRAMMAR = {
+  PRODUCT_SUFFIX: SPEC_TREE_CONFIG.PRODUCT.SUFFIX,
+  EVIDENCE: {
+    DIRECTORY_NAME: "tests",
+    MODES: ["scenario", "mapping", "conformance", "property", "compliance"],
+    LEVELS: ["l1", "l2", "l3"],
+    TAILS: {
+      TYPESCRIPT: ["test", "ts"],
+      PYTHON: ["py"],
+      RUST: ["rs"],
+    },
+    SEGMENT_SEPARATOR: ".",
+  },
+  RUNNERS: ["vitest", "playwright", "subprocess"],
+  ORDER: {
+    SEPARATOR: "-",
+    PATTERN: /^\d+$/,
+  },
+  PATH_SEPARATOR: "/",
+  COORDINATION_NOTES: ["PLAN.md", "ISSUES.md"],
+  EVAL_LANE: ["eval.toml", "cases.jsonl", "prompt.md", "history.jsonl", "runs"],
+  DEPRECATED_NODE_SUFFIXES: [".capability", ".feature", ".story"],
+} as const;
+
+export const SPEC_TREE_EVIDENCE_FILE = SPEC_TREE_GRAMMAR.EVIDENCE;
+
+export type SpecTreeEvidenceGrammar = typeof SPEC_TREE_GRAMMAR.EVIDENCE;
+export type SpecTreeOrderGrammar = typeof SPEC_TREE_GRAMMAR.ORDER;
+
+export type NamingSchemaVersion = {
+  readonly version: string;
+  readonly nodeSuffixes: readonly string[];
+  readonly decisionSuffixes: readonly string[];
+  readonly productSuffix: string;
+  readonly evidence: SpecTreeEvidenceGrammar;
+  readonly runners: readonly string[];
+  readonly order: SpecTreeOrderGrammar;
+  readonly pathSeparator: string;
+  readonly coordinationNotes: readonly string[];
+  readonly evalLane: readonly string[];
+};
+
+const NAMING_SCHEMA_VERSION_ID = {
+  PRIOR: "1.0.0",
+  CANONICAL: "2.0.0",
+} as const;
+
+function namingSchemaVersionFromNodeSuffixes(version: string, nodeSuffixes: readonly string[]): NamingSchemaVersion {
+  return {
+    version,
+    nodeSuffixes,
+    decisionSuffixes: DECISION_SUFFIXES,
+    productSuffix: SPEC_TREE_GRAMMAR.PRODUCT_SUFFIX,
+    evidence: SPEC_TREE_GRAMMAR.EVIDENCE,
+    runners: SPEC_TREE_GRAMMAR.RUNNERS,
+    order: SPEC_TREE_GRAMMAR.ORDER,
+    pathSeparator: SPEC_TREE_GRAMMAR.PATH_SEPARATOR,
+    coordinationNotes: SPEC_TREE_GRAMMAR.COORDINATION_NOTES,
+    evalLane: SPEC_TREE_GRAMMAR.EVAL_LANE,
+  };
+}
+
+export const SPEC_TREE_NAMING_SCHEMA_VERSIONS: readonly NamingSchemaVersion[] = [
+  namingSchemaVersionFromNodeSuffixes(NAMING_SCHEMA_VERSION_ID.PRIOR, SPEC_TREE_GRAMMAR.DEPRECATED_NODE_SUFFIXES),
+  namingSchemaVersionFromNodeSuffixes(NAMING_SCHEMA_VERSION_ID.CANONICAL, NODE_SUFFIXES),
+];
+
+const SEMVER_COMPONENT_SEPARATOR = ".";
+const SEMVER_RADIX = 10;
+const SEMVER_MISSING_COMPONENT = 0;
+const VERSION_ORDER_EQUAL = 0;
+
+function compareSemverIdentifiers(left: string, right: string): number {
+  const leftComponents = left.split(SEMVER_COMPONENT_SEPARATOR).map((part) => Number.parseInt(part, SEMVER_RADIX));
+  const rightComponents = right.split(SEMVER_COMPONENT_SEPARATOR).map((part) => Number.parseInt(part, SEMVER_RADIX));
+  const length = Math.max(leftComponents.length, rightComponents.length);
+  for (let index = 0; index < length; index += 1) {
+    const difference = (leftComponents[index] ?? SEMVER_MISSING_COMPONENT)
+      - (rightComponents[index] ?? SEMVER_MISSING_COMPONENT);
+    if (difference !== VERSION_ORDER_EQUAL) {
+      return difference;
+    }
+  }
+  return VERSION_ORDER_EQUAL;
+}
+
+export function compareNamingSchemaVersions(left: NamingSchemaVersion, right: NamingSchemaVersion): number {
+  return compareSemverIdentifiers(left.version, right.version);
+}
+
+export function canonicalNamingSchemaVersion(versions: readonly NamingSchemaVersion[]): NamingSchemaVersion {
+  const [first, ...rest] = versions;
+  if (first === undefined) {
+    throw new Error("Naming-schema version tuple must declare at least one version");
+  }
+  return rest.reduce(
+    (max, version) => (compareNamingSchemaVersions(version, max) > VERSION_ORDER_EQUAL ? version : max),
+    first,
+  );
+}
+
+export function supersededNodeSuffixes(versions: readonly NamingSchemaVersion[]): readonly string[] {
+  const canonical = canonicalNamingSchemaVersion(versions);
+  const canonicalSuffixes = new Set(canonical.nodeSuffixes);
+  const superseded = new Set<string>();
+  for (const version of versions) {
+    if (version === canonical) {
+      continue;
+    }
+    for (const suffix of version.nodeSuffixes) {
+      if (!canonicalSuffixes.has(suffix)) {
+        superseded.add(suffix);
+      }
+    }
+  }
+  return [...superseded];
+}
+
+export const SPEC_TREE_NAMING_VERSION: string = canonicalNamingSchemaVersion(SPEC_TREE_NAMING_SCHEMA_VERSIONS).version;
+export const SPEC_TREE_SUPERSEDED_NODE_SUFFIXES: readonly string[] = supersededNodeSuffixes(
+  SPEC_TREE_NAMING_SCHEMA_VERSIONS,
+);
+
 export const SPEC_TREE_NODE_STATE = {
   DECLARED: "declared",
   SPECIFIED: "specified",
