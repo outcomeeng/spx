@@ -5,7 +5,6 @@
 #
 # Remove entries when implementation begins.
 
-23-spec-tree.enabler
 17-file-inclusion.enabler/32-path-predicates.enabler
 41-validation.enabler/32-python-validation.enabler
 26-release.enabler/32-release-notes.enabler
