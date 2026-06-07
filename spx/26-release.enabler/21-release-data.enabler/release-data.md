@@ -13,6 +13,7 @@ CAN operate on one accurate, reproducible description of what a release contains
 - Given the release commit carries more than one release tag, when release data is computed, then the delta anchors on the prior release tag rather than any tag at the release commit ([test](tests/release-data.scenario.l1.test.ts))
 - Given no previous release tag exists, when release data is computed, then it reports the full commit history as the release contents and the changed paths are the paths those commits touch ([test](tests/release-data.scenario.l1.test.ts))
 - Given commits change paths since the previous release tag, when release data is computed, then the changed paths are the paths those commits touch between that tag and HEAD ([test](tests/release-data.scenario.l1.test.ts))
+- Given a path is touched by more than one commit since the previous release tag, when release data is computed, then it appears exactly once in the changed paths ([test](tests/release-data.scenario.l1.test.ts))
 
 ### Mappings
 
