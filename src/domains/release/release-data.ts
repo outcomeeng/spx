@@ -23,6 +23,8 @@ export type VersionDelta = (typeof VERSION_DELTA)[keyof typeof VERSION_DELTA];
  * Release notes, documentation sync, and publish dispatch all read this contract.
  */
 export interface ReleaseData {
+  /** The product's package version this release publishes, the one version downstream children read. */
+  readonly version: string;
   /** The release tag the delta anchors on, or null when no prior release tag exists. */
   readonly previousTag: string | null;
   /** The commits since the previous release tag, or the full history when none exists. */
@@ -84,7 +86,7 @@ export async function computeReleaseData(options: ComputeReleaseDataOptions): Pr
   const changedPaths = await changedPathsBetween(previousTag, GIT_ROOT_COMMAND.HEAD, productDir, deps);
   const versionDelta = previousTag === null ? null : classifyVersionDelta(previousTag, packageVersion);
 
-  return { previousTag, commits, versionDelta, changedPaths };
+  return { version: packageVersion, previousTag, commits, versionDelta, changedPaths };
 }
 
 /**
