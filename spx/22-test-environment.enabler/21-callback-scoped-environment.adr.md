@@ -26,7 +26,7 @@ Rejected: per-harness hand-rolled `mkdtemp`/`rm` (duplicates the lifecycle and l
 - ALWAYS: cleanup runs in a `finally` block around the callback invocation — guaranteed on both return and throw paths ([audit])
 - ALWAYS: the spec-tree env object is a plain record of helpers and generators — no mutable state, no private handles, no class instances ([audit])
 - ALWAYS: generators read exclusively from the `Config` supplied to the environment — generator output varies with `Config` input, not with production registry state ([audit])
-- NEVER: hand-roll `mkdtemp` or a temp-directory `rm` in a harness or test body — compose on `withTempDir` ([audit])
+- NEVER: hand-roll `mkdtemp` or a temp-directory `rm` in a harness or test body — obtain the temp directory through `testing/harnesses/with-temp-dir.ts` (`withTempDir` for callback-scoped harnesses, `createTempDir` + `removeTempDir` for handle-returning harnesses) ([audit])
 - NEVER: make `withTestEnv` or `withSpecTreeEnv` a factory that returns a handle with a manual `cleanup()` method — the spec-tree environment is callback-scoped ([audit])
 - NEVER: import from `src/config/registry.ts` or any production registry source ([audit])
 - NEVER: remove a path that falls outside `os.tmpdir()` — the resolved path is validated before removal ([audit])
