@@ -3,6 +3,8 @@ import {
   closestReleaseTag,
   commitsBetween,
   type GitCommit,
+  RELEASE_TAG_PREFIX,
+  releaseTagsAt,
   resolveCommitSha,
 } from "@/git/release";
 import { defaultGitDependencies, GIT_ROOT_COMMAND, type GitDependencies } from "@/git/root";
@@ -41,7 +43,6 @@ export interface ComputeReleaseDataOptions {
   readonly deps?: GitDependencies;
 }
 
-const RELEASE_TAG_PREFIX = "v";
 const SEMVER_SEPARATOR = ".";
 const SEMVER_RADIX = 10;
 const ABSENT_COMPONENT = 0;
@@ -84,9 +85,11 @@ export async function computeReleaseData(options: ComputeReleaseDataOptions): Pr
 
 /**
  * Selects the release tag a release at HEAD anchors on — the closest release tag
- * reachable from HEAD that does not point at HEAD itself, so a tag created on the
- * release commit anchors the delta on the prior tag rather than on itself.
- * Returns null when no prior release tag exists.
+ * reachable from HEAD that does not point at HEAD itself, so tags created on the
+ * release commit anchor the delta on the prior tag rather than on themselves.
+ * Every release tag at HEAD is excluded, so a commit carrying more than one (a
+ * retried publish) still anchors on the prior commit's tag. Returns null when no
+ * prior release tag exists.
  */
 async function resolvePreviousReleaseTag(
   productDir: string,
@@ -95,13 +98,8 @@ async function resolvePreviousReleaseTag(
   const headSha = await resolveCommitSha(GIT_ROOT_COMMAND.HEAD, productDir, deps);
   if (headSha === null) return null;
 
-  const closest = await closestReleaseTag(GIT_ROOT_COMMAND.HEAD, [], productDir, deps);
-  if (closest === null) return null;
-
-  const closestSha = await resolveCommitSha(closest, productDir, deps);
-  if (closestSha !== headSha) return closest;
-
-  return closestReleaseTag(GIT_ROOT_COMMAND.HEAD, [closest], productDir, deps);
+  const tagsAtHead = await releaseTagsAt(GIT_ROOT_COMMAND.HEAD, productDir, deps);
+  return closestReleaseTag(GIT_ROOT_COMMAND.HEAD, tagsAtHead, productDir, deps);
 }
 
 function stripReleaseTagPrefix(tag: string): string {
