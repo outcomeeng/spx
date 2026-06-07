@@ -44,6 +44,11 @@ function nonEmptyLines(stdout: string): string[] {
   return stdout.split(LINE_SEPARATOR).filter((line) => line.length > 0);
 }
 
+/** The `git log` range for a tag pair: full history from `toRef` when `fromTag` is null, else `fromTag..toRef`. */
+function logRange(fromTag: string | null, toRef: string): string {
+  return fromTag === null ? toRef : `${fromTag}${RANGE_SEPARATOR}${toRef}`;
+}
+
 /**
  * Returns the closest release tag reachable from `ref`, excluding any tag names
  * in `excluded`. Reports git's describe result for the given ref and excludes;
@@ -104,10 +109,9 @@ export async function commitsBetween(
   cwd: string,
   deps: GitDependencies = defaultGitDependencies,
 ): Promise<GitCommit[]> {
-  const range = fromTag === null ? toRef : `${fromTag}${RANGE_SEPARATOR}${toRef}`;
   const result = await deps.execa(
     GIT_ROOT_COMMAND.EXECUTABLE,
-    [GIT_RELEASE_SUBCOMMAND.LOG, COMMIT_LOG_FORMAT, range],
+    [GIT_RELEASE_SUBCOMMAND.LOG, COMMIT_LOG_FORMAT, logRange(fromTag, toRef)],
     { cwd, reject: false },
   );
   if (result.exitCode !== 0) return [];
@@ -128,8 +132,8 @@ function parseCommitRecord(line: string): GitCommit {
 /**
  * Lists the distinct paths touched by the commits between `fromTag` (exclusive)
  * and `toRef` (inclusive), or across the full history reachable from `toRef` when
- * `fromTag` is null. Both cases read the same `git log` range `commitsBetween`
- * reports, so the changed paths and the commits stay drawn from one commit set.
+ * `fromTag` is null. Shares `logRange` with `commitsBetween`, so the changed paths
+ * and the commits are drawn from one commit set.
  */
 export async function changedPathsBetween(
   fromTag: string | null,
@@ -137,10 +141,9 @@ export async function changedPathsBetween(
   cwd: string,
   deps: GitDependencies = defaultGitDependencies,
 ): Promise<string[]> {
-  const range = fromTag === null ? toRef : `${fromTag}${RANGE_SEPARATOR}${toRef}`;
   const result = await deps.execa(
     GIT_ROOT_COMMAND.EXECUTABLE,
-    [GIT_RELEASE_SUBCOMMAND.LOG, EMPTY_LOG_FORMAT, GIT_RELEASE_FLAG.NAME_ONLY, range],
+    [GIT_RELEASE_SUBCOMMAND.LOG, EMPTY_LOG_FORMAT, GIT_RELEASE_FLAG.NAME_ONLY, logRange(fromTag, toRef)],
     { cwd, reject: false },
   );
   if (result.exitCode !== 0) return [];
