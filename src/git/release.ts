@@ -11,6 +11,7 @@ export interface GitCommit {
 const GIT_RELEASE_SUBCOMMAND = {
   DESCRIBE: "describe",
   LOG: "log",
+  TAG: "tag",
 } as const;
 
 const GIT_RELEASE_FLAG = {
@@ -19,10 +20,14 @@ const GIT_RELEASE_FLAG = {
   MATCH: "--match",
   EXCLUDE: "--exclude",
   NAME_ONLY: "--name-only",
+  POINTS_AT: "--points-at",
+  LIST: "--list",
 } as const;
 
-/** Glob matching the `v`-prefixed release tags publication produces. */
-const RELEASE_TAG_GLOB = "v*";
+/** The prefix publication puts on a release tag (`v1.2.3`). The single source the release domain and its test generator import so the prefix, the strip, and the glob never drift. */
+export const RELEASE_TAG_PREFIX = "v";
+/** Glob matching the release tags publication produces, derived from the prefix. */
+const RELEASE_TAG_GLOB = `${RELEASE_TAG_PREFIX}*`;
 /** Peels a ref to its commit object, dereferencing annotated tags. */
 const COMMIT_PEEL_SUFFIX = "^{commit}";
 /** Two-dot range listing commits reachable from the right side but not the left. */
@@ -89,6 +94,25 @@ export async function closestReleaseTag(
   if (result.exitCode !== 0) return null;
   const tag = result.stdout.trim();
   return tag.length === 0 ? null : tag;
+}
+
+/**
+ * Lists the release tags that point at `ref`. Reports what git reports for the
+ * ref; it holds no notion of which tag a release anchors on. A commit can carry
+ * more than one release tag (a retried publish), so the result is a set.
+ */
+export async function releaseTagsAt(
+  ref: string,
+  cwd: string,
+  deps: GitDependencies = defaultGitDependencies,
+): Promise<string[]> {
+  const result = await deps.execa(
+    GIT_ROOT_COMMAND.EXECUTABLE,
+    [GIT_RELEASE_SUBCOMMAND.TAG, GIT_RELEASE_FLAG.POINTS_AT, ref, GIT_RELEASE_FLAG.LIST, RELEASE_TAG_GLOB],
+    { cwd, reject: false },
+  );
+  if (result.exitCode !== 0) return [];
+  return nonEmptyLines(result.stdout);
 }
 
 /**

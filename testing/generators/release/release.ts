@@ -1,6 +1,7 @@
 import * as fc from "fast-check";
 
 import { VERSION_DELTA, type VersionDelta } from "@/domains/release/release-data";
+import { RELEASE_TAG_PREFIX } from "@/git/release";
 
 const PATH_SEGMENT_PATTERN = /^[a-z][a-z0-9-]{2,12}$/;
 const VERSION_COMPONENT_MIN = 0;
@@ -12,7 +13,6 @@ const COMMIT_SUBJECT_SUFFIX = " update";
 const SOURCE_FILE_SUFFIX = ".ts";
 const FILE_CONTENT_PREFIX = "// ";
 const FILE_CONTENT_NEWLINE = "\n";
-const RELEASE_TAG_PREFIX = "v";
 
 const COMMITS_AFTER_TAG = 2;
 const FULL_HISTORY_COMMITS = 2;
@@ -53,6 +53,7 @@ export const RELEASE_TEST_GENERATOR = {
   semver: arbitrarySemver,
   releaseTag: arbitraryReleaseTag,
   releaseTagPair: arbitraryReleaseTagPair,
+  distinctReleaseTags: arbitraryDistinctReleaseTags,
   commitSequence: arbitraryCommitSequence,
   versionBumpFor: arbitraryVersionBumpFor,
 } as const;
@@ -104,6 +105,12 @@ function arbitraryReleaseTagPair(): fc.Arbitrary<ReleaseTagPair> {
       earlier: formatReleaseTag(earlier),
       later: formatReleaseTag({ ...earlier, patch: earlier.patch + increment }),
     }));
+}
+
+function arbitraryDistinctReleaseTags(count: number): fc.Arbitrary<readonly string[]> {
+  return fc
+    .uniqueArray(arbitrarySemver(), { minLength: count, maxLength: count })
+    .map((versions) => versions.map((version) => `${RELEASE_TAG_PREFIX}${version}`));
 }
 
 function arbitraryPathSegment(): fc.Arbitrary<string> {

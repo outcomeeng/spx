@@ -50,9 +50,32 @@ describe("computeReleaseData — release contents derive from git history", () =
       const data = await computeReleaseData({ productDir: env.productDir, packageVersion });
 
       expect(data.previousTag).toBe(earlier);
-      expect(data.commits.map((commit) => commit.subject)).toContain(head.subject);
-      expect(data.commits.length).toBeGreaterThan(0);
+      expect(data.commits.map((commit) => commit.subject)).toEqual([head.subject]);
       expect(data.changedPaths).toContain(head.path);
+      expect(data.changedPaths).not.toContain(base.path);
+    });
+  });
+
+  it("anchors on the prior release tag when the release commit carries multiple release tags", async () => {
+    await withGitWorktreeEnv(async (env) => {
+      const [base, head] = sampleReleaseTestValue(RELEASE_TEST_GENERATOR.commitSequence(2));
+      const [prior, headTagA, headTagB] = sampleReleaseTestValue(
+        RELEASE_TEST_GENERATOR.distinctReleaseTags(3),
+      );
+      const packageVersion = sampleReleaseTestValue(RELEASE_TEST_GENERATOR.semver());
+
+      await env.writeTracked(base.path, base.content);
+      await env.commit(base.subject);
+      await env.runGit([GIT_TEST_SUBCOMMANDS.TAG, prior]);
+      await env.writeTracked(head.path, head.content);
+      await env.commit(head.subject);
+      await env.runGit([GIT_TEST_SUBCOMMANDS.TAG, headTagA]);
+      await env.runGit([GIT_TEST_SUBCOMMANDS.TAG, headTagB]);
+
+      const data = await computeReleaseData({ productDir: env.productDir, packageVersion });
+
+      expect(data.previousTag).toBe(prior);
+      expect(data.commits.map((commit) => commit.subject)).toEqual([head.subject]);
     });
   });
 
