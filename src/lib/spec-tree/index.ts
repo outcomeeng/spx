@@ -2,9 +2,24 @@ import { readdir, readFile } from "node:fs/promises";
 import { join } from "node:path";
 
 import type { DecisionKind, Kind, KindDefinition, NodeKind, SpecTreeKindCategory, SpecTreeNodeState } from "./config";
-import { KIND_REGISTRY, SPEC_TREE_CONFIG, SPEC_TREE_KIND_CATEGORY, SPEC_TREE_NODE_STATE } from "./config";
-export { SPEC_TREE_NODE_STATE } from "./config";
-export type { SpecTreeNodeState } from "./config";
+import {
+  KIND_REGISTRY,
+  SPEC_TREE_CONFIG,
+  SPEC_TREE_EVIDENCE_FILE,
+  SPEC_TREE_GRAMMAR,
+  SPEC_TREE_KIND_CATEGORY,
+  SPEC_TREE_NODE_STATE,
+} from "./config";
+export {
+  canonicalNamingSchemaVersion,
+  compareNamingSchemaVersions,
+  SPEC_TREE_NAMING_SCHEMA_VERSIONS,
+  SPEC_TREE_NAMING_VERSION,
+  SPEC_TREE_SUPERSEDED_NODE_SUFFIXES,
+  supersededNodeSuffixes,
+} from "./config";
+export { SPEC_TREE_EVIDENCE_FILE, SPEC_TREE_GRAMMAR, SPEC_TREE_NODE_STATE } from "./config";
+export type { NamingSchemaVersion, SpecTreeNodeState } from "./config";
 
 const SPEC_TREE_FIELD_KEY = {
   VERSION: "version",
@@ -44,18 +59,6 @@ export const SPEC_TREE_EVIDENCE_STATUS = {
 } as const;
 
 export type SpecTreeEvidenceStatus = (typeof SPEC_TREE_EVIDENCE_STATUS)[keyof typeof SPEC_TREE_EVIDENCE_STATUS];
-
-export const SPEC_TREE_EVIDENCE_FILE = {
-  DIRECTORY_NAME: "tests",
-  MODES: ["scenario", "mapping", "conformance", "property", "compliance"],
-  LEVELS: ["l1", "l2", "l3"],
-  TAILS: {
-    TYPESCRIPT: ["test", "ts"],
-    PYTHON: ["py"],
-    RUST: ["rs"],
-  },
-  SEGMENT_SEPARATOR: ".",
-} as const;
 
 const SPEC_TREE_EVIDENCE_FILE_TAILS = Object.values(SPEC_TREE_EVIDENCE_FILE.TAILS);
 
@@ -253,12 +256,12 @@ type OrderedEntry = {
 };
 
 const ORDER_COMPARISON_EQUAL = 0;
-const SPEC_TREE_PATH_SEPARATOR = "/";
-const SPEC_TREE_ORDER_SEPARATOR = "-";
+const SPEC_TREE_PATH_SEPARATOR = SPEC_TREE_GRAMMAR.PATH_SEPARATOR;
+const SPEC_TREE_ORDER_SEPARATOR = SPEC_TREE_GRAMMAR.ORDER.SEPARATOR;
 const SPEC_TREE_ORDER_RADIX = 10;
 const SPEC_TREE_TEXT_ENCODING = "utf8";
 const SPEC_TREE_EMPTY_RELATIVE_PATH = "";
-const SPEC_TREE_ORDER_PATTERN = /^\d+$/;
+const SPEC_TREE_ORDER_PATTERN = SPEC_TREE_GRAMMAR.ORDER.PATTERN;
 const SPEC_TREE_MIN_EVIDENCE_PATH_SEGMENTS = 2;
 const SPEC_TREE_PARENT_SEGMENT_OFFSET = 2;
 const SPEC_TREE_FIRST_EVIDENCE_MARKER_INDEX = 1;
