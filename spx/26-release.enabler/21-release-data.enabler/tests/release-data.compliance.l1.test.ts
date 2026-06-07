@@ -59,7 +59,7 @@ describe("computeReleaseData — git plumbing and the working tree are the only 
 
       expect(runner.invokedExecutables.length).toBeGreaterThan(0);
       expect(runner.invokedExecutables.every((executable) => executable === GIT_TEST_COMMAND)).toBe(true);
-      expect(data.commits.length).toBeGreaterThan(0);
+      expect(data.commits.map((commit) => commit.subject)).toEqual([head.subject]);
     });
   });
 });
