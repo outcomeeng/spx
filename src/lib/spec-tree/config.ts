@@ -98,7 +98,7 @@ export const SPEC_TREE_GRAMMAR = {
   PATH_SEPARATOR: "/",
   COORDINATION_NOTES: ["PLAN.md", "ISSUES.md"],
   EVAL_LANE: ["eval.toml", "cases.jsonl", "prompt.md", "history.jsonl", "runs"],
-  DEPRECATED_NODE_SUFFIXES: [".capability", ".feature", ".story"],
+  PRIOR_NODE_SUFFIXES: [".capability", ".feature", ".story"],
 } as const;
 
 export const SPEC_TREE_EVIDENCE_FILE = SPEC_TREE_GRAMMAR.EVIDENCE;
@@ -140,22 +140,34 @@ function namingSchemaVersionFromNodeSuffixes(version: string, nodeSuffixes: read
 }
 
 export const SPEC_TREE_NAMING_SCHEMA_VERSIONS: readonly NamingSchemaVersion[] = [
-  namingSchemaVersionFromNodeSuffixes(NAMING_SCHEMA_VERSION_ID.PRIOR, SPEC_TREE_GRAMMAR.DEPRECATED_NODE_SUFFIXES),
+  namingSchemaVersionFromNodeSuffixes(NAMING_SCHEMA_VERSION_ID.PRIOR, SPEC_TREE_GRAMMAR.PRIOR_NODE_SUFFIXES),
   namingSchemaVersionFromNodeSuffixes(NAMING_SCHEMA_VERSION_ID.CANONICAL, NODE_SUFFIXES),
 ];
 
-const SEMVER_COMPONENT_SEPARATOR = ".";
-const SEMVER_RADIX = 10;
-const SEMVER_MISSING_COMPONENT = 0;
+const VERSION_COMPONENT_SEPARATOR = ".";
+const VERSION_COMPONENT_RADIX = 10;
+const VERSION_MISSING_COMPONENT = 0;
 const VERSION_ORDER_EQUAL = 0;
+const VERSION_NUMERIC_COMPONENT = /^\d+$/;
 
-function compareSemverIdentifiers(left: string, right: string): number {
-  const leftComponents = left.split(SEMVER_COMPONENT_SEPARATOR).map((part) => Number.parseInt(part, SEMVER_RADIX));
-  const rightComponents = right.split(SEMVER_COMPONENT_SEPARATOR).map((part) => Number.parseInt(part, SEMVER_RADIX));
+function parseVersionComponents(version: string): number[] {
+  return version.split(VERSION_COMPONENT_SEPARATOR).map((part) => {
+    if (!VERSION_NUMERIC_COMPONENT.test(part)) {
+      throw new Error(
+        `Naming-schema version "${version}" must use numeric dotted components; "${part}" is not numeric`,
+      );
+    }
+    return Number.parseInt(part, VERSION_COMPONENT_RADIX);
+  });
+}
+
+function compareNumericVersionIdentifiers(left: string, right: string): number {
+  const leftComponents = parseVersionComponents(left);
+  const rightComponents = parseVersionComponents(right);
   const length = Math.max(leftComponents.length, rightComponents.length);
   for (let index = 0; index < length; index += 1) {
-    const difference = (leftComponents[index] ?? SEMVER_MISSING_COMPONENT)
-      - (rightComponents[index] ?? SEMVER_MISSING_COMPONENT);
+    const difference = (leftComponents[index] ?? VERSION_MISSING_COMPONENT)
+      - (rightComponents[index] ?? VERSION_MISSING_COMPONENT);
     if (difference !== VERSION_ORDER_EQUAL) {
       return difference;
     }
@@ -164,7 +176,7 @@ function compareSemverIdentifiers(left: string, right: string): number {
 }
 
 export function compareNamingSchemaVersions(left: NamingSchemaVersion, right: NamingSchemaVersion): number {
-  return compareSemverIdentifiers(left.version, right.version);
+  return compareNumericVersionIdentifiers(left.version, right.version);
 }
 
 export function canonicalNamingSchemaVersion(versions: readonly NamingSchemaVersion[]): NamingSchemaVersion {
