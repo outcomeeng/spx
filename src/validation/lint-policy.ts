@@ -4,7 +4,7 @@ import { join } from "node:path";
 
 import { withoutGitEnvironment } from "@/git/environment";
 import { SPEC_TREE_SUPERSEDED_NODE_SUFFIXES } from "@/lib/spec-tree";
-import { SPEC_TREE_CONFIG } from "@/lib/spec-tree/config";
+import { NODE_SUFFIXES, SPEC_TREE_CONFIG } from "@/lib/spec-tree/config";
 import { LINT_POLICY_BASE_REFS, LINT_POLICY_MANIFESTS, parseLintPolicyManifest } from "./lint-policy-constants";
 
 const TEST_LINT_DEBT_NODE_MANIFEST_FILE = LINT_POLICY_MANIFESTS.TEST_LINT_DEBT_NODES.file;
@@ -12,8 +12,11 @@ const TEST_LINT_DEBT_NODE_MANIFEST_KEY = LINT_POLICY_MANIFESTS.TEST_LINT_DEBT_NO
 const TEST_OWNED_CONSTANT_DEBT_NODE_MANIFEST_FILE = LINT_POLICY_MANIFESTS.TEST_OWNED_CONSTANT_DEBT_NODES.file;
 const TEST_OWNED_CONSTANT_DEBT_NODE_MANIFEST_KEY = LINT_POLICY_MANIFESTS.TEST_OWNED_CONSTANT_DEBT_NODES.key;
 const SPEC_TREE_ROOT = SPEC_TREE_CONFIG.ROOT_DIRECTORY;
-const SPEC_TREE_NODE_SUFFIX_PATTERN = /\.(enabler|outcome)$/;
 const BASE_BRANCH_REFS = [LINT_POLICY_BASE_REFS.REMOTE_MAIN, LINT_POLICY_BASE_REFS.LOCAL_MAIN] as const;
+
+function isSpecTreeNodePath(entry: string): boolean {
+  return NODE_SUFFIXES.some((suffix) => entry.endsWith(suffix));
+}
 
 export type LintPolicyResult =
   | { readonly ok: true }
@@ -66,7 +69,7 @@ function assertManifestEntries(
   productDir: string,
   file: string,
   entries: string[],
-  suffixPattern: RegExp,
+  suffixPredicate: (entry: string) => boolean,
   suffixDescription: string,
 ): void {
   const duplicates = entries.filter((entry, index) => entries.indexOf(entry) !== index);
@@ -90,7 +93,7 @@ function assertManifestEntries(
       throw new Error(`${file} entry must not contain '..': ${entry}`);
     }
 
-    if (!suffixPattern.test(entry)) {
+    if (!suffixPredicate(entry)) {
       throw new Error(`${file} entry must ${suffixDescription}: ${entry}`);
     }
 
@@ -204,7 +207,7 @@ function validateTestLintDebtNodeManifest(productDir: string, entries: string[])
     productDir,
     TEST_LINT_DEBT_NODE_MANIFEST_FILE,
     entries,
-    SPEC_TREE_NODE_SUFFIX_PATTERN,
+    isSpecTreeNodePath,
     "be a Spec Tree node path",
   );
   assertManifestDoesNotGrow(
@@ -220,7 +223,7 @@ function validateTestOwnedConstantDebtNodeManifest(productDir: string, entries: 
     productDir,
     TEST_OWNED_CONSTANT_DEBT_NODE_MANIFEST_FILE,
     entries,
-    SPEC_TREE_NODE_SUFFIX_PATTERN,
+    isSpecTreeNodePath,
     "be a Spec Tree node path",
   );
   assertManifestDoesNotGrow(
