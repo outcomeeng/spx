@@ -1,18 +1,19 @@
 import { describe, expect, it } from "vitest";
 
-import { readSpecTree, SPEC_TREE_GRAMMAR } from "@/lib/spec-tree";
+import { readSpecTree } from "@/lib/spec-tree";
 import { KIND_REGISTRY } from "@/lib/spec-tree/config";
 import {
   orderedDirectoryName,
   sampleSpecTreeTestValue,
   SPEC_TREE_TEST_GENERATOR,
 } from "@testing/generators/spec-tree/spec-tree";
-import { expectPresent } from "@testing/harnesses/spec-tree/assertions";
 import { withSpecTreeEnv, writeOrderedDirectory } from "@testing/harnesses/spec-tree/spec-tree";
 
 describe("residual snapshot", () => {
   it("carries superseded entries and the invalid residual distinct from the assembled valid tree", async () => {
-    const supersededDirectory = orderedDirectoryName(expectPresent(SPEC_TREE_GRAMMAR.DEPRECATED_NODE_SUFFIXES[0]));
+    const supersededDirectory = orderedDirectoryName(
+      sampleSpecTreeTestValue(SPEC_TREE_TEST_GENERATOR.deprecatedNodeSuffix()),
+    );
     const invalidDirectory = orderedDirectoryName(
       sampleSpecTreeTestValue(SPEC_TREE_TEST_GENERATOR.unregisteredNodeSuffix(KIND_REGISTRY)),
     );

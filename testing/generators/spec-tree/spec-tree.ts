@@ -89,6 +89,7 @@ export const SPEC_TREE_TEST_GENERATOR = {
   childSourceOrderAbove: arbitraryChildSourceOrderAbove,
   evidenceFileName: arbitraryEvidenceFileName,
   unregisteredNodeSuffix: arbitraryUnregisteredNodeSuffix,
+  deprecatedNodeSuffix: arbitraryDeprecatedNodeSuffix,
   sourceRef: arbitrarySourceRef,
   representativeFixture: arbitraryRepresentativeFixture,
 } as const;
@@ -383,6 +384,10 @@ function arbitraryDecisionKind(registry: SpecTreeRegistry): fc.Arbitrary<Decisio
   return fc.constantFrom(
     ...readKinds<DecisionKind>(registry, SPEC_TREE_KIND_CATEGORY.DECISION, "decision kind"),
   );
+}
+
+function arbitraryDeprecatedNodeSuffix(): fc.Arbitrary<string> {
+  return fc.constantFrom(...SPEC_TREE_GRAMMAR.DEPRECATED_NODE_SUFFIXES);
 }
 
 function arbitraryUnregisteredNodeSuffix(registry: SpecTreeRegistry): fc.Arbitrary<string> {

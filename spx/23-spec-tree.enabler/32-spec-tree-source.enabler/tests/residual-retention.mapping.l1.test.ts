@@ -4,7 +4,6 @@ import {
   canonicalNamingSchemaVersion,
   createFilesystemSpecTreeSource,
   readSpecTree,
-  SPEC_TREE_GRAMMAR,
   SPEC_TREE_NAMING_SCHEMA_VERSIONS,
 } from "@/lib/spec-tree";
 import { KIND_REGISTRY } from "@/lib/spec-tree/config";
@@ -27,7 +26,7 @@ function priorVersionAccepting(suffix: string): string {
 
 describe("residual retention", () => {
   it("emits a name matching a prior version as a superseded entry carrying that version", async () => {
-    const supersededSuffix = expectPresent(SPEC_TREE_GRAMMAR.DEPRECATED_NODE_SUFFIXES[0]);
+    const supersededSuffix = sampleSpecTreeTestValue(SPEC_TREE_TEST_GENERATOR.deprecatedNodeSuffix());
     const supersededDirectory = orderedDirectoryName(supersededSuffix);
 
     await withSpecTreeEnv({}, async (env) => {
