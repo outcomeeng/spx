@@ -31,6 +31,7 @@ describe("computeReleaseData — release contents derive from git history", () =
       expect(data.commits).toHaveLength(rest.length);
       expect(data.changedPaths).toEqual(expect.arrayContaining(rest.map((commit) => commit.path)));
       expect(data.changedPaths).not.toContain(base.path);
+      expect(data.changedPaths).toHaveLength(rest.length);
     });
   });
 
