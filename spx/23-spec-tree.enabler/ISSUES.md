@@ -31,3 +31,7 @@ The canonical ADR template (`plugins/spec-tree/skills/understanding/templates/de
 ## SPEC_TREE_ENTRY_TYPE mixes kind categories with classification outcomes
 
 `SPEC_TREE_ENTRY_TYPE` in `src/lib/spec-tree/index.ts` carries `PRODUCT` and `EVIDENCE` (entry roles), `NODE` and `DECISION` (projected from kind categories), and `SUPERSEDED` and `INVALID` (recognition outcomes) in one discriminated-union tag set. The union is coherent as a source-entry discriminant, but as it grows (the skill-conformance-oracle work will add forms) a clearer separation between entry role and classification outcome may aid exhaustive switches. Evaluate whether to factor the classification outcomes into their own dimension when that work lands.
+
+## Descent-gating lacks a superseded-directory-specific test
+
+`spx/23-spec-tree.enabler/43-entry-recognition.enabler/21-recognition-classification.adr.md` asserts "directory descent follows only valid node entries; superseded and invalid ordered directories are not traversed." The invalid-directory case is exercised by `32-spec-tree-source.enabler/tests/spec-tree-source.mapping.l1.test.ts` ("does not traverse registered descendants below unregistered ordered directories"), and superseded and invalid directories share the same non-NODE branch of `shouldDescendIntoDirectory`, so the path is covered. Add a superseded-directory-specific descent test (write a valid child under a superseded ordered directory, assert the child is absent from `allNodes`) for completeness.
