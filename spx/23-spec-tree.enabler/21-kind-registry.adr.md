@@ -15,6 +15,7 @@ Rejected: separate `NODE_KIND_REGISTRY` / `DECISION_KIND_REGISTRY` objects (the 
 - `keyof typeof KIND_REGISTRY` is the sole source of the `Kind` type; no parallel union-type declaration exists.
 - Derived sub-registries (`NODE_KINDS`, `DECISION_KINDS`, `NODE_SUFFIXES`, `DECISION_SUFFIXES`) are computed by filter/projection over the registry.
 - The spec-tree `ConfigDescriptor` is co-located with the registry in the same module; consumers import both through the `src/lib/spec-tree` library surface.
+- A config selecting a subset of registered kinds resolves to only the selected kinds; a config naming a kind or definition absent from the registry errors; absent any config selection, the section resolves to the full registry.
 
 ## Verification
 
