@@ -16,9 +16,12 @@ const NAMING_SCHEMA_VERSION_GENERATOR_OPTIONS = {
   RECOGNITION_FOREIGN_SUFFIX_COUNT: 2,
 } as const;
 
+// Fixture-scoped version identifiers, deliberately distinct from the production
+// NAMING_SCHEMA_VERSION_ID — the recognizer is generic over any version tuple, so
+// scenarios prove classification against arbitrary identifiers, not the owned ones.
 const RECOGNITION_SCENARIO_VERSION = {
-  PRIOR: "1.0.0",
-  CANONICAL: "2.0.0",
+  PRIOR: "0.1.0",
+  CANONICAL: "0.2.0",
 } as const;
 
 const SEMVER_COMPONENT_SEPARATOR = ".";

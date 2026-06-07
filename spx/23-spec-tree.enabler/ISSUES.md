@@ -27,10 +27,6 @@ The canonical ADR template (`plugins/spec-tree/skills/understanding/templates/de
 
 **Owner:** the fix is in `~/Code/outcomeeng/plugins` (the spec-tree plugin's canonical ADR template and the typescript architecting skill) — a separate product. Reorder the ADR template's `## Verification` subsections to `### Testing` → `### Eval` → `### Audit`. Until then, author spx ADRs Testing-first per `CLAUDE.md`.
 
-## Naming-schema test fixtures redeclare the production version identifiers
-
-`testing/generators/spec-tree/naming-schema-version.ts` declares `RECOGNITION_SCENARIO_VERSION = { PRIOR: "1.0.0", CANONICAL: "2.0.0" }`, coinciding with `NAMING_SCHEMA_VERSION_ID` in `src/lib/spec-tree/config.ts`. The fixture version identifiers are test-owned and need not match production, but the coincidence invites drift confusion. Decide whether the recognition fixtures should reuse the production identifiers (import them) or carry deliberately distinct fixture identifiers, then apply that once across the generator.
-
 ## SPEC_TREE_ENTRY_TYPE mixes kind categories with classification outcomes
 
 `SPEC_TREE_ENTRY_TYPE` in `src/lib/spec-tree/index.ts` carries `PRODUCT` and `EVIDENCE` (entry roles), `NODE` and `DECISION` (projected from kind categories), and `SUPERSEDED` and `INVALID` (recognition outcomes) in one discriminated-union tag set. The union is coherent as a source-entry discriminant, but as it grows (the skill-conformance-oracle work will add forms) a clearer separation between entry role and classification outcome may aid exhaustive switches. Evaluate whether to factor the classification outcomes into their own dimension when that work lands.
