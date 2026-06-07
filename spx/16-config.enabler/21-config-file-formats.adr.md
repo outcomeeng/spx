@@ -1,57 +1,22 @@
 # Config File Formats
 
-## Purpose
-
-This decision governs which file formats `spx.config.*` accepts in the product directory, how the config loader resolves which file to read when the product supplies one, and what happens when the product supplies more than one.
-
-## Context
-
-**Business impact:** spx is a multi-language tool. Products using it may be primarily TypeScript, Python, Rust, or a mix. Each language ecosystem has a preferred config format — JSON with schema validation for TypeScript/JavaScript products, YAML for configuration-heavy toolchains, TOML for Rust and Python products. Restricting spx to a single format forces teams to maintain a file in a format foreign to their stack. Supporting the three canonical formats lets each product use the format its tooling already understands.
-
-**Technical constraints:** JSON Schema validators and IDE tooling (VS Code, JetBrains) recognize `spx.config.json` natively when the file is associated with a published schema. YAML language servers support schema association via a file-level pragma. TOML has limited schema-validation tooling but is the idiomatic format for Rust (`Cargo.toml`) and Python (`pyproject.toml`) products. All three formats are structurally equivalent for the key-value shapes spx config requires.
-
-## Decision
-
-The config loader accepts `spx.config.json`, `spx.config.yaml`, and `spx.config.toml` in the product directory. Exactly one of these files may be present; when more than one is present, the loader returns an error naming all detected files and does not return a config. When none is present, all descriptors resolve to their declared defaults.
+The config loader accepts `spx.config.json`, `spx.config.yaml`, and `spx.config.toml` in the product directory; exactly one may be present, more than one is an error naming every detected file (no config is returned), and none means every descriptor resolves to its declared defaults.
 
 ## Rationale
 
-Three formats, no priority order, error on ambiguity is the strictest policy that allows format choice without hiding mistakes. A silent priority order (`json > yaml > toml`) lets a product accumulate stale config files without feedback — the winning file takes effect and the others are silently ignored. An error on ambiguity is the same policy tsconfig, prettierrc, and eslint.config use: the tool refuses to guess which file is authoritative.
-
-The three formats selected cover the canonical config ecosystems without adding formats that would require special handling or non-standard parsers. XML is excluded because no modern developer toolchain uses it for product config. JavaScript/TypeScript config files (e.g., `spx.config.ts`) are excluded because they require a runtime to evaluate and produce a security surface not appropriate for a validation tool.
-
-Alternatives considered:
-
-- **Single format (YAML only).** Rejected because it forces JSON-first and TOML-first products to maintain a file in a foreign format with no benefit to those products.
-- **Silent priority order (JSON > YAML > TOML).** Rejected because it silently ignores all but the highest-priority file when multiple are present, hiding stale or conflicting config without any diagnostic.
-- **Accept any format with runtime detection.** Rejected because it grows the parser surface without a corresponding benefit — the three canonical formats cover every product type spx targets.
-
-## Trade-offs accepted
-
-| Trade-off                                                                             | Mitigation / reasoning                                                                                          |
-| ------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------- |
-| TOML support adds a parsing dependency                                                | TOML is small and well-specified; the dependency is isolated to `src/config/`                                   |
-| Error on ambiguity is a breaking change for products that accidentally have two files | The error message names both files and the fix is a one-line deletion; the alternative (silent ignore) is worse |
-| No `spx.config.ts` support                                                            | TypeScript config files require a runtime evaluator; the complexity and security surface exceed the convenience |
+Three formats with no priority order, erroring on ambiguity, is the strictest policy that allows format choice without hiding mistakes: each product uses the format its tooling already understands (JSON with schema validation for TypeScript, YAML for configuration-heavy toolchains, TOML for Rust and Python), while a silent priority order (`json > yaml > toml`) would let stale config files accumulate unnoticed as the winning file takes effect and the others are silently ignored. Erroring on ambiguity matches `tsconfig`, `prettierrc`, and `eslint.config`: the tool refuses to guess which file is authoritative. XML is excluded because no modern product-config toolchain uses it; executable config (`spx.config.ts` / `spx.config.js`) is excluded because it requires a runtime evaluator and opens a security surface inappropriate for a validation tool.
 
 ## Invariants
 
-- The product directory contains at most one `spx.config.*` file at any time. Presence of two or more is an error, not a resolution problem.
+- The product directory contains at most one `spx.config.*` file at any time; presence of two or more is an error, not a resolution problem.
 
-## Compliance
+## Verification
 
-### Recognized by
+### Audit
 
-Format detection is encapsulated within the config module — no caller outside performs format probing. The config module probes for all three supported filenames on each load and errors on ambiguity before delegating to a format-specific parser.
-
-### MUST
-
-- Probe for all three filenames (`spx.config.json`, `spx.config.yaml`, `spx.config.toml`) on every config load — absence of two is not assumed ([review])
-- Return an error naming every detected file when more than one is present — do not silently pick a winner ([review])
-- Delegate YAML, JSON, and TOML parsing to a single parse site within `src/config/` — no caller outside that module handles raw file content ([review])
-
-### NEVER
-
-- Apply a silent priority order when multiple config files are present — ambiguity is always an error ([review])
-- Accept `spx.config.js`, `spx.config.ts`, or any executable config format — config files are data, not code ([review])
-- Search parent directories for a config file — resolution reads the product directory only, per `spx/16-config.enabler/21-descriptor-registration.adr.md` ([review])
+- ALWAYS: probe for all three filenames (`spx.config.json`, `spx.config.yaml`, `spx.config.toml`) on every config load — absence of two is not assumed ([audit])
+- ALWAYS: return an error naming every detected file when more than one is present — do not silently pick a winner ([audit])
+- ALWAYS: delegate YAML, JSON, and TOML parsing to a single parse site within `src/config/` — no caller outside that module handles raw file content ([audit])
+- NEVER: apply a silent priority order when multiple config files are present — ambiguity is always an error ([audit])
+- NEVER: accept `spx.config.js`, `spx.config.ts`, or any executable config format — config files are data, not code ([audit])
+- NEVER: search parent directories for a config file — resolution reads the product directory only, per `spx/16-config.enabler/21-descriptor-registration.adr.md` ([audit])
