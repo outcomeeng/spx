@@ -22,7 +22,7 @@ const grammarTokenGroupSizes: readonly number[] = [
   SPEC_TREE_GRAMMAR.PATH_SEPARATOR.length,
   SPEC_TREE_GRAMMAR.COORDINATION_NOTES.length,
   SPEC_TREE_GRAMMAR.EVAL_LANE.length,
-  SPEC_TREE_GRAMMAR.DEPRECATED_NODE_SUFFIXES.length,
+  SPEC_TREE_GRAMMAR.PRIOR_NODE_SUFFIXES.length,
 ];
 
 describe("filename grammar token vocabulary", () => {
@@ -42,16 +42,16 @@ describe("filename grammar token vocabulary", () => {
     expect([...canonical.decisionSuffixes].sort()).toEqual([...DECISION_SUFFIXES].sort());
   });
 
-  it("keeps deprecated node suffixes out of the live kind registry", () => {
+  it("keeps prior-version node suffixes out of the live kind registry", () => {
     const liveSuffixes = Object.values(KIND_REGISTRY).map((definition) => definition.suffix);
-    for (const suffix of SPEC_TREE_GRAMMAR.DEPRECATED_NODE_SUFFIXES) {
+    for (const suffix of SPEC_TREE_GRAMMAR.PRIOR_NODE_SUFFIXES) {
       expect(liveSuffixes).not.toContain(suffix);
     }
   });
 
-  it("declares the deprecated node suffixes only in the prior naming-schema versions", () => {
+  it("declares the prior-version node suffixes only in the prior naming-schema versions", () => {
     const canonicalNodeSuffixes = new Set(canonicalNamingSchemaVersion(SPEC_TREE_NAMING_SCHEMA_VERSIONS).nodeSuffixes);
-    for (const suffix of SPEC_TREE_GRAMMAR.DEPRECATED_NODE_SUFFIXES) {
+    for (const suffix of SPEC_TREE_GRAMMAR.PRIOR_NODE_SUFFIXES) {
       expect(canonicalNodeSuffixes.has(suffix)).toBe(false);
     }
   });

@@ -58,6 +58,18 @@ describe("naming-schema version ordering", () => {
       { numRuns: propertyRunCount },
     );
   });
+
+  it("rejects a non-numeric version identifier rather than mis-ordering it", () => {
+    fc.assert(
+      fc.property(NAMING_SCHEMA_VERSION_TEST_GENERATOR.version(), (version) => {
+        // A prerelease identifier is not a numeric dotted version; the comparator
+        // must fail loudly instead of parsing the prerelease component as zero.
+        const prerelease = { ...version, version: `${version.version}-alpha` };
+        expect(() => compareNamingSchemaVersions(prerelease, version)).toThrow();
+      }),
+      { numRuns: propertyRunCount },
+    );
+  });
 });
 
 describe("naming-schema superseded derivation", () => {
