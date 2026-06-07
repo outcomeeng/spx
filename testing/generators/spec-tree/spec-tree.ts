@@ -4,8 +4,8 @@ import {
   SPEC_TREE_ENTRY_TYPE,
   SPEC_TREE_EVIDENCE_FILE,
   SPEC_TREE_EVIDENCE_STATUS,
-  SPEC_TREE_GRAMMAR,
   SPEC_TREE_SOURCE_ENTRY_KEYS,
+  SPEC_TREE_SUPERSEDED_NODE_SUFFIXES,
   type SpecTreeDecisionSourceEntry,
   type SpecTreeEvidenceSourceEntry,
   type SpecTreeNodeSourceEntry,
@@ -89,7 +89,7 @@ export const SPEC_TREE_TEST_GENERATOR = {
   childSourceOrderAbove: arbitraryChildSourceOrderAbove,
   evidenceFileName: arbitraryEvidenceFileName,
   unregisteredNodeSuffix: arbitraryUnregisteredNodeSuffix,
-  deprecatedNodeSuffix: arbitraryDeprecatedNodeSuffix,
+  supersededNodeSuffix: arbitrarySupersededNodeSuffix,
   sourceRef: arbitrarySourceRef,
   representativeFixture: arbitraryRepresentativeFixture,
 } as const;
@@ -386,8 +386,8 @@ function arbitraryDecisionKind(registry: SpecTreeRegistry): fc.Arbitrary<Decisio
   );
 }
 
-function arbitraryDeprecatedNodeSuffix(): fc.Arbitrary<string> {
-  return fc.constantFrom(...SPEC_TREE_GRAMMAR.DEPRECATED_NODE_SUFFIXES);
+function arbitrarySupersededNodeSuffix(): fc.Arbitrary<string> {
+  return fc.constantFrom(...SPEC_TREE_SUPERSEDED_NODE_SUFFIXES);
 }
 
 function arbitraryUnregisteredNodeSuffix(registry: SpecTreeRegistry): fc.Arbitrary<string> {
@@ -395,7 +395,7 @@ function arbitraryUnregisteredNodeSuffix(registry: SpecTreeRegistry): fc.Arbitra
     ...Object.values(registry)
       .filter((definition) => definition.category === SPEC_TREE_KIND_CATEGORY.NODE)
       .map((definition) => definition.suffix),
-    ...SPEC_TREE_GRAMMAR.DEPRECATED_NODE_SUFFIXES,
+    ...SPEC_TREE_SUPERSEDED_NODE_SUFFIXES,
   ]);
   return fc.tuple(
     fc.constantFrom(...SPEC_TREE_TEST_SUFFIX_INITIAL_CHARACTERS),
