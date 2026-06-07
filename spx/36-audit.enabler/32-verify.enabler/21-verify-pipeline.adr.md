@@ -1,66 +1,27 @@
 # Verify Pipeline Module
 
-## Purpose
-
-This decision governs the TypeScript module that orchestrates the four-stage audit verdict verification pipeline: reader → structural → semantic → paths.
-
-## Context
-
-**Business impact:** The verify pipeline is the entry point for `spx audit verify <file>`. Consumers call a single function and receive a list of formatted defect lines and an exit code. The four-stage sequential design means a defect in an early stage prevents later stages from operating on potentially malformed data.
-
-**Technical constraints:** The pipeline composes four modules already governed by their own ADRs: the reader (`readVerdictFile`), structural (`validateStructure`), semantic (`validateSemantics`), and paths (`validatePaths`) validators. The pipeline must not duplicate their logic. The reader is asynchronous (file I/O); the other three are synchronous. The pipeline is therefore async.
-
-## Decision
-
-The verify pipeline module exports a single async function `runVerifyPipeline(filePath: string, productDir: string): Promise<VerifyOutput>` where `VerifyOutput` is `{ readonly lines: readonly string[]; readonly exitCode: 0 | 1 }`.
-
-`lines` contains formatted defect strings, each conforming to `{stage}: {message}`. `exitCode` is `0` when all stages pass (lines is empty) and `1` when any stage fails.
-
-The pipeline runs stages in order, stopping at the first stage that produces defects:
-
-1. Reader: called with `filePath`. If it throws, the error message is formatted as `reader: {message}` and the pipeline stops with exit code 1.
-2. Structural: called with the parsed verdict. If it returns defects, each is formatted as `structural: {defect}` and the pipeline stops with exit code 1.
-3. Semantic: called with the parsed verdict. If it returns defects, each is formatted as `semantic: {defect}` and the pipeline stops with exit code 1.
-4. Paths: called with the parsed verdict and `productDir`. If it returns defects, each is formatted as `paths: {defect}` and the pipeline stops with exit code 1.
-
-If all stages pass, the pipeline returns `{ lines: [], exitCode: 0 }`.
+The verify pipeline is a single async function, `runVerifyPipeline(filePath, productDir)`, that runs the four validation stages in sequence, stopping at the first stage that produces defects, and returns a typed `VerifyOutput` of formatted stage-prefixed defect lines and an exit code.
 
 ## Rationale
 
-A single `runVerifyPipeline` function with a typed `VerifyOutput` return gives the CLI caller everything it needs: lines to write to stdout and an exit code. Separating these concerns from the CLI layer keeps the pipeline testable without Commander.js.
-
-Stopping at the first failing stage follows from the dependency chain: structural defects leave the verdict in an undefined state for semantic validation; semantic defects leave findings in an undefined state for path checking. Running later stages on a defective verdict would produce noise, not signal.
-
-Catching the reader's thrown error and formatting it as a `reader:` line maintains the invariant that defect messages are always strings in `lines`, not exceptions the caller must handle separately.
-
-## Trade-offs accepted
-
-| Trade-off                        | Mitigation / reasoning                                                                                              |
-| -------------------------------- | ------------------------------------------------------------------------------------------------------------------- |
-| Sequential stop on first failure | Downstream stages are semantically dependent on earlier ones; noise from later stages on bad data is not actionable |
-| `productDir` passed by caller    | Consistent with the paths validator's contract; caller controls the product directory                               |
+A single function returning a typed `VerifyOutput` gives the CLI caller everything it needs — lines to write, an exit code, and the verdict value to print on success — and keeping that separate from the CLI layer makes the pipeline testable without Commander. Stopping at the first failing stage follows the dependency chain: structural defects leave the verdict undefined for semantic validation, and semantic defects leave findings undefined for path checking, so running later stages on a defective verdict produces noise, not signal. Catching the reader's thrown error and formatting it as a `reader:` line keeps defect messages uniformly strings in `lines`, never exceptions the caller must handle separately, and `productDir` is supplied by the caller to match the paths validator's contract. The pipeline is async because the reader performs asynchronous file I/O while the structural, semantic, and paths stages are synchronous.
 
 ## Invariants
 
-- `exitCode === 0` if and only if `lines.length === 0`
-- Each element of `lines` matches `^(reader|structural|semantic|paths):`
-- Same file + same filesystem state always produces the same output
+- `runVerifyPipeline(filePath, productDir)` returns `VerifyOutput`, which is `{ readonly lines: readonly string[]; readonly exitCode: 0 | 1; readonly verdict?: string }`.
+- On the success path (`exitCode === 0`), `VerifyOutput.verdict` carries the `<verdict>` element value from the parsed `AuditVerdict.header`; on the failure path it is absent.
+- `exitCode === 0` if and only if `lines.length === 0`.
+- Each element of `lines` matches `^(reader|structural|semantic|paths):`.
+- The same file and the same filesystem state always produce the same output.
 
-## Compliance
+## Verification
 
-### Recognized by
+### Audit
 
-A single async function receives a file path and product directory, orchestrates the four validation stages, and returns formatted lines with an exit code.
-
-### MUST
-
-- Return `exitCode: 0` when all stages pass and `exitCode: 1` when any stage fails ([review])
-- Format each defect as `{stage}: {message}` ([review])
-- Stop after the first failing stage ([review])
-- Catch reader exceptions and report them as `reader: {message}` lines ([review])
-
-### NEVER
-
-- Duplicate validation logic from the reader, structural, semantic, or paths modules ([review])
-- Write to the filesystem or modify the verdict file ([review])
-- Throw exceptions — errors are reported as `reader:` lines in the return value ([review])
+- ALWAYS: return `exitCode: 0` when all stages pass and `exitCode: 1` when any stage fails ([audit])
+- ALWAYS: format each defect as `{stage}: {message}` ([audit])
+- ALWAYS: stop after the first failing stage ([audit])
+- ALWAYS: catch reader exceptions and report them as `reader: {message}` lines ([audit])
+- NEVER: duplicate validation logic from the composed modules `readVerdictFile`, `validateStructure`, `validateSemantics`, or `validatePaths` — each is governed by its own ADR ([audit])
+- NEVER: write to the filesystem or modify the verdict file ([audit])
+- NEVER: throw exceptions — errors are reported as `reader:` lines in the return value ([audit])
