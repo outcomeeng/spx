@@ -56,6 +56,11 @@ interface SemverParts {
  * Classifies the version delta between a previous release tag and a package
  * version as major, minor, or patch — the most significant differing semantic
  * version component.
+ *
+ * @remarks Defined only for a package version that advances beyond the previous
+ * tag. For equal versions the return value is unspecified — re-releasing the
+ * same version is governed by publish dispatch's precondition (see PLAN.md), and
+ * callers must not rely on the delta until that decision lands.
  */
 export function classifyVersionDelta(previousTag: string, packageVersion: string): VersionDelta {
   const previous = parseSemver(stripReleaseTagPrefix(previousTag));
