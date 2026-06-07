@@ -26,4 +26,4 @@ The CLI-interface layer is the descriptor's home because the descriptor's whole 
 - NEVER: a module under `src/commands/{domain}/` imports Commander or writes to the process boundary (`process.exit`, `process.stdout`, `process.stderr`, `process.stdin`) — the process and framework boundary belongs to the descriptor ([audit])
 - NEVER: the composition root names individual domains in its registration control flow — domains are registered by iterating the registry ([audit])
 - NEVER: a runtime mutable registry populated by imperative registration calls stands in for the static descriptor registry — registration is explicit and enumerable at compile time ([audit])
-- NEVER: a descriptor is verified by mocking its command handlers, or a handler by mocking its domain functions — each layer is exercised with the real layer beneath it ([audit])
+- NEVER: a descriptor is verified by mocking its command handlers, or a handler by mocking its domain functions — each layer is exercised with the real layer beneath it (domain logic in isolation, handlers against temporary fixtures, descriptors through the built executable), so the split removes the need to mock ([audit])
