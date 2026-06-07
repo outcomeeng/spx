@@ -83,6 +83,8 @@ The authoritative ADR and PDR templates are **decision-first**. The skills own t
 - `## Product properties` — optional; ≤3 observable properties
 - `## Verification` — the same subsection scheme as the ADR: `### Testing`, `### Eval`, `### Audit`, ordered by decreasing enforcement strength
 
+**Verification subsection order.** Both record types order the subsections by decreasing enforcement strength — `### Testing` → `### Eval` → `### Audit`. The canonical ADR template currently lists them Audit-first; reordering it to match is an upstream fix tracked in `spx/23-spec-tree.enabler/ISSUES.md`.
+
 **What the decision-first template removes.** No `## Purpose`, no `## Context` (Business impact / Technical constraints), no `## Decision` heading (the decision IS the opening prose), no `## Trade-offs accepted` table, no `## Compliance` block with `### Recognized by` / `### MUST` / `### NEVER`, no `## Status`, no level-assignment tables. Trade-offs and business context fold into the decision statement and Rationale.
 
 **The blanket `[review]` tag is retired.** Each Verification rule carries the tag its subsection prescribes: `[audit]` under `### Audit`, `[eval]` under `### Eval`, the evidence type under `### Testing`. `[review]` is accepted only as the legacy spelling of `[audit]` during migration.
