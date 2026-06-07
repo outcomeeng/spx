@@ -6,6 +6,7 @@ import {
   orderedDirectoryName,
   sampleSpecTreeTestValue,
   SPEC_TREE_TEST_GENERATOR,
+  specTreeFixtureNodeDirectoryName,
 } from "@testing/generators/spec-tree/spec-tree";
 import { withSpecTreeEnv, writeOrderedDirectory } from "@testing/harnesses/spec-tree/spec-tree";
 
@@ -27,8 +28,9 @@ describe("residual snapshot", () => {
       const validIds = new Set(snapshot.allNodes.map((node) => node.id));
       const supersededIds = new Set(snapshot.superseded.map((entry) => entry.id));
       const residualIds = new Set(snapshot.residual.map((entry) => entry.id));
+      const materializedRootId = specTreeFixtureNodeDirectoryName(KIND_REGISTRY, env.fixture.root);
 
-      expect(validIds.size).toBeGreaterThan(0);
+      expect(validIds.has(materializedRootId)).toBe(true);
       expect(supersededIds.has(supersededDirectory)).toBe(true);
       expect(residualIds.has(invalidDirectory)).toBe(true);
 
