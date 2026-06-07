@@ -3,6 +3,7 @@ import { existsSync, readdirSync, readFileSync, statSync } from "node:fs";
 import { join } from "node:path";
 
 import { withoutGitEnvironment } from "@/git/environment";
+import { SPEC_TREE_SUPERSEDED_NODE_SUFFIXES } from "@/lib/spec-tree";
 import { LINT_POLICY_BASE_REFS, LINT_POLICY_MANIFESTS, parseLintPolicyManifest } from "./lint-policy-constants";
 
 const TEST_LINT_DEBT_NODE_MANIFEST_FILE = LINT_POLICY_MANIFESTS.TEST_LINT_DEBT_NODES.file;
@@ -11,7 +12,6 @@ const TEST_OWNED_CONSTANT_DEBT_NODE_MANIFEST_FILE = LINT_POLICY_MANIFESTS.TEST_O
 const TEST_OWNED_CONSTANT_DEBT_NODE_MANIFEST_KEY = LINT_POLICY_MANIFESTS.TEST_OWNED_CONSTANT_DEBT_NODES.key;
 const SPEC_TREE_ROOT = "spx";
 const SPEC_TREE_NODE_SUFFIX_PATTERN = /\.(enabler|outcome)$/;
-const DEPRECATED_SPEC_NODE_SUFFIX_PATTERN = /\.(capability|feature|story)$/;
 const BASE_BRANCH_REFS = [LINT_POLICY_BASE_REFS.REMOTE_MAIN, LINT_POLICY_BASE_REFS.LOCAL_MAIN] as const;
 
 export type LintPolicyResult =
@@ -40,7 +40,7 @@ function findDeprecatedSpecNodePath(productDir: string): string | undefined {
 
       const childPath = `${relativeDirectory}/${entry.name}`;
 
-      if (DEPRECATED_SPEC_NODE_SUFFIX_PATTERN.test(entry.name)) {
+      if (SPEC_TREE_SUPERSEDED_NODE_SUFFIXES.some((suffix) => entry.name.endsWith(suffix))) {
         return childPath;
       }
 
