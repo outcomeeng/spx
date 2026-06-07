@@ -29,9 +29,6 @@ describe("computeReleaseData — release contents derive from git history", () =
       expect(subjects).toEqual(expect.arrayContaining(rest.map((commit) => commit.subject)));
       expect(subjects).not.toContain(base.subject);
       expect(data.commits).toHaveLength(rest.length);
-      expect(data.changedPaths).toEqual(expect.arrayContaining(rest.map((commit) => commit.path)));
-      expect(data.changedPaths).not.toContain(base.path);
-      expect(data.changedPaths).toHaveLength(rest.length);
     });
   });
 
@@ -52,8 +49,6 @@ describe("computeReleaseData — release contents derive from git history", () =
 
       expect(data.previousTag).toBe(earlier);
       expect(data.commits.map((commit) => commit.subject)).toEqual([head.subject]);
-      expect(data.changedPaths).toContain(head.path);
-      expect(data.changedPaths).not.toContain(base.path);
     });
   });
 
@@ -77,12 +72,10 @@ describe("computeReleaseData — release contents derive from git history", () =
 
       expect(data.previousTag).toBe(prior);
       expect(data.commits.map((commit) => commit.subject)).toEqual([head.subject]);
-      expect(data.changedPaths).toContain(head.path);
-      expect(data.changedPaths).not.toContain(base.path);
     });
   });
 
-  it("reports the full commit history when no previous release tag exists", async () => {
+  it("reports the full commit history as the release contents when no previous release tag exists", async () => {
     await withGitWorktreeEnv(async (env) => {
       const commits = sampleReleaseTestValue(
         RELEASE_TEST_GENERATOR.commitSequence(RELEASE_TEST_GENERATOR.counts.fullHistoryCommits),
@@ -102,6 +95,30 @@ describe("computeReleaseData — release contents derive from git history", () =
       );
       expect(data.commits).toHaveLength(commits.length);
       expect(data.changedPaths).toEqual(expect.arrayContaining(commits.map((commit) => commit.path)));
+    });
+  });
+
+  it("lists exactly the paths the commits since the previous release tag touch", async () => {
+    await withGitWorktreeEnv(async (env) => {
+      const [base, ...rest] = sampleReleaseTestValue(
+        RELEASE_TEST_GENERATOR.commitSequence(RELEASE_TEST_GENERATOR.counts.commitsAfterTag + 1),
+      );
+      const tag = sampleReleaseTestValue(RELEASE_TEST_GENERATOR.releaseTag());
+      const packageVersion = sampleReleaseTestValue(RELEASE_TEST_GENERATOR.semver());
+
+      await env.writeTracked(base.path, base.content);
+      await env.commit(base.subject);
+      await env.runGit([GIT_TEST_SUBCOMMANDS.TAG, tag]);
+      for (const commit of rest) {
+        await env.writeTracked(commit.path, commit.content);
+        await env.commit(commit.subject);
+      }
+
+      const data = await computeReleaseData({ productDir: env.productDir, packageVersion });
+
+      expect(data.changedPaths).toEqual(expect.arrayContaining(rest.map((commit) => commit.path)));
+      expect(data.changedPaths).not.toContain(base.path);
+      expect(data.changedPaths).toHaveLength(rest.length);
     });
   });
 });
