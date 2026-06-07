@@ -122,4 +122,26 @@ describe("computeReleaseData — release contents derive from git history", () =
       expect(data.changedPaths).toHaveLength(rest.length);
     });
   });
+
+  it("reports a path changed by more than one commit since the tag only once", async () => {
+    await withGitWorktreeEnv(async (env) => {
+      const [base, second, third] = sampleReleaseTestValue(
+        RELEASE_TEST_GENERATOR.commitSequence(RELEASE_TEST_GENERATOR.counts.commitsAfterTag + 1),
+      );
+      const tag = sampleReleaseTestValue(RELEASE_TEST_GENERATOR.releaseTag());
+      const packageVersion = sampleReleaseTestValue(RELEASE_TEST_GENERATOR.semver());
+
+      await env.writeTracked(base.path, base.content);
+      await env.commit(base.subject);
+      await env.runGit([GIT_TEST_SUBCOMMANDS.TAG, tag]);
+      await env.writeTracked(base.path, second.content);
+      await env.commit(second.subject);
+      await env.writeTracked(base.path, third.content);
+      await env.commit(third.subject);
+
+      const data = await computeReleaseData({ productDir: env.productDir, packageVersion });
+
+      expect(data.changedPaths).toEqual([base.path]);
+    });
+  });
 });
