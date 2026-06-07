@@ -76,6 +76,8 @@ describe("computeReleaseData — release contents derive from git history", () =
 
       expect(data.previousTag).toBe(prior);
       expect(data.commits.map((commit) => commit.subject)).toEqual([head.subject]);
+      expect(data.changedPaths).toContain(head.path);
+      expect(data.changedPaths).not.toContain(base.path);
     });
   });
 
