@@ -2,11 +2,13 @@ import { describe, expect, it } from "vitest";
 
 import {
   canonicalNamingSchemaVersion,
+  createFilesystemSpecTreeSource,
   readSpecTree,
   SPEC_TREE_GRAMMAR,
   SPEC_TREE_NAMING_SCHEMA_VERSIONS,
 } from "@/lib/spec-tree";
 import { KIND_REGISTRY } from "@/lib/spec-tree/config";
+import { NAMING_SCHEMA_VERSION_TEST_GENERATOR } from "@testing/generators/spec-tree/naming-schema-version";
 import {
   orderedDirectoryName,
   sampleSpecTreeTestValue,
@@ -52,6 +54,27 @@ describe("residual retention", () => {
 
       expect(snapshot.residual.map((entry) => entry.id)).toContain(invalidDirectory);
       expect(snapshot.allNodes.map((node) => node.id)).not.toContain(invalidDirectory);
+    });
+  });
+
+  it("classifies against a version set injected through the filesystem source", async () => {
+    const scenario = sampleSpecTreeTestValue(NAMING_SCHEMA_VERSION_TEST_GENERATOR.demotedRegistrySuffixScenario());
+    const demotedDirectory = orderedDirectoryName(scenario.demotedRegistrySuffix);
+
+    await withSpecTreeEnv({}, async (env) => {
+      await writeOrderedDirectory(env, demotedDirectory);
+
+      const source = createFilesystemSpecTreeSource({
+        productDir: env.productDir,
+        schemaVersions: scenario.schemaVersions,
+      });
+      const snapshot = await readSpecTree({ source });
+      const superseded = expectPresent(snapshot.superseded.find((entry) => entry.id === demotedDirectory));
+
+      // Under the default versions the registry-live suffix is canonical; the injected
+      // set demotes it to a prior version, so the source must classify it superseded.
+      expect(superseded.version).toBe(scenario.demotedVersion);
+      expect(snapshot.allNodes.map((node) => node.id)).not.toContain(demotedDirectory);
     });
   });
 });
