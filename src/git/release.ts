@@ -28,8 +28,6 @@ const GIT_RELEASE_FLAG = {
 export const RELEASE_TAG_PREFIX = "v";
 /** Glob matching the release tags publication produces, derived from the prefix. */
 const RELEASE_TAG_GLOB = `${RELEASE_TAG_PREFIX}*`;
-/** Peels a ref to its commit object, dereferencing annotated tags. */
-const COMMIT_PEEL_SUFFIX = "^{commit}";
 /** Two-dot range listing commits reachable from the right side but not the left. */
 const RANGE_SEPARATOR = "..";
 /** The unit-separator byte (U+001F) git emits between a commit's SHA and subject. */
@@ -44,25 +42,6 @@ const LINE_SEPARATOR = "\n";
 
 function nonEmptyLines(stdout: string): string[] {
   return stdout.split(LINE_SEPARATOR).filter((line) => line.length > 0);
-}
-
-/**
- * Resolves the commit object `ref` points at, dereferencing annotated tags.
- * Returns null when the ref cannot be resolved.
- */
-export async function resolveCommitSha(
-  ref: string,
-  cwd: string,
-  deps: GitDependencies = defaultGitDependencies,
-): Promise<string | null> {
-  const result = await deps.execa(
-    GIT_ROOT_COMMAND.EXECUTABLE,
-    [GIT_ROOT_COMMAND.REV_PARSE, `${ref}${COMMIT_PEEL_SUFFIX}`],
-    { cwd, reject: false },
-  );
-  if (result.exitCode !== 0) return null;
-  const sha = result.stdout.trim();
-  return sha.length === 0 ? null : sha;
 }
 
 /**

@@ -5,7 +5,6 @@ import {
   type GitCommit,
   RELEASE_TAG_PREFIX,
   releaseTagsAt,
-  resolveCommitSha,
 } from "@/git/release";
 import { defaultGitDependencies, GIT_ROOT_COMMAND, type GitDependencies } from "@/git/root";
 
@@ -89,15 +88,12 @@ export async function computeReleaseData(options: ComputeReleaseDataOptions): Pr
  * release commit anchor the delta on the prior tag rather than on themselves.
  * Every release tag at HEAD is excluded, so a commit carrying more than one (a
  * retried publish) still anchors on the prior commit's tag. Returns null when no
- * prior release tag exists.
+ * prior release tag is reachable, including an empty repository.
  */
 async function resolvePreviousReleaseTag(
   productDir: string,
   deps: GitDependencies,
 ): Promise<string | null> {
-  const headSha = await resolveCommitSha(GIT_ROOT_COMMAND.HEAD, productDir, deps);
-  if (headSha === null) return null;
-
   const tagsAtHead = await releaseTagsAt(GIT_ROOT_COMMAND.HEAD, productDir, deps);
   return closestReleaseTag(GIT_ROOT_COMMAND.HEAD, tagsAtHead, productDir, deps);
 }
