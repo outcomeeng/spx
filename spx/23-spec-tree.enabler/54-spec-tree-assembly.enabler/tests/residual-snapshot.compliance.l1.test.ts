@@ -12,7 +12,7 @@ import { withSpecTreeEnv, writeOrderedDirectory } from "@testing/harnesses/spec-
 describe("residual snapshot", () => {
   it("carries superseded entries and the invalid residual distinct from the assembled valid tree", async () => {
     const supersededDirectory = orderedDirectoryName(
-      sampleSpecTreeTestValue(SPEC_TREE_TEST_GENERATOR.deprecatedNodeSuffix()),
+      sampleSpecTreeTestValue(SPEC_TREE_TEST_GENERATOR.supersededNodeSuffix()),
     );
     const invalidDirectory = orderedDirectoryName(
       sampleSpecTreeTestValue(SPEC_TREE_TEST_GENERATOR.unregisteredNodeSuffix(KIND_REGISTRY)),

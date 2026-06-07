@@ -26,7 +26,7 @@ function priorVersionAccepting(suffix: string): string {
 
 describe("residual retention", () => {
   it("emits a name matching a prior version as a superseded entry carrying that version", async () => {
-    const supersededSuffix = sampleSpecTreeTestValue(SPEC_TREE_TEST_GENERATOR.deprecatedNodeSuffix());
+    const supersededSuffix = sampleSpecTreeTestValue(SPEC_TREE_TEST_GENERATOR.supersededNodeSuffix());
     const supersededDirectory = orderedDirectoryName(supersededSuffix);
 
     await withSpecTreeEnv({}, async (env) => {
