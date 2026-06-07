@@ -412,6 +412,10 @@ function recognizeDirectoryRecord(
     };
   }
 
+  // An ordered-form attempt: parseOrderedSlug folds the unrecognized suffix into the
+  // slug component (it splits on the first separator and accepts any non-empty slug),
+  // so a `{NN}-{slug}{unknown-suffix}` directory parses here and is retained as invalid
+  // rather than dropped.
   if (parseOrderedSlug(name) !== null) {
     return {
       type: SPEC_TREE_ENTRY_TYPE.INVALID,
