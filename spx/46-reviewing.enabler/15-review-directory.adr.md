@@ -40,7 +40,7 @@ Storing review state under `.spx/review/` keeps review evidence distinct from au
 - ALWAYS: reuse the audit branch-slug implementation for branch review target slugs, per `spx/36-audit.enabler/15-audit-directory.adr.md` ([audit])
 - ALWAYS: keep target slugs at or below 120 UTF-8 bytes ([audit])
 - ALWAYS: encode pull-request target slugs as `pr-{number}` using an unsigned base-10 pull request number ([audit])
-- ALWAYS: store target kind, target slug, reviewer identifiers, base/head metadata, review config digest, run timestamps, output paths, and terminal status in `state.json` ([audit])
+- ALWAYS: store target kind, target slug, target display name, reviewer identifiers, base/head metadata, review config digest, run timestamps, output paths, and terminal status in `state.json` ([audit])
 - ALWAYS: record `baseSha` when the base ref resolves to a commit SHA before reviewer execution; omit `baseSha` only when the base ref cannot be resolved inside the local hermetic review boundary ([audit])
 - ALWAYS: record `headSha` for the reviewed target ([audit])
 - ALWAYS: treat run directories without parse-valid `state.json` as incomplete evidence for latest-review lookup ([audit])
