@@ -16,7 +16,8 @@ A consumer that recognizes or rejects filenames by grammar token — deprecated-
 
 ## Invariants
 
-- The suffix literals in the token vocabulary equal the union of the accepted suffix sets across all naming-schema versions.
+- The accepted suffix literals across all naming-schema versions are each sourced once: the historical suffixes no live kind uses live in the grammar vocabulary (`SPEC_TREE_GRAMMAR`), the canonical version's suffixes project from `KIND_REGISTRY`, the two are disjoint, and their union is the full accepted set.
+- The grammar vocabulary's node-suffix literals equal the union of the prior naming-schema versions' accepted node-suffix sets less the canonical version's set — the superseded suffixes.
 - The superseded suffix set equals the union of the earlier versions' accepted suffix sets less the canonical version's accepted suffix set.
 - The canonical naming-schema version is the maximum of the version tuple under semantic-version ordering.
 - A name's classification against a version is a function of that version's accepted token sets alone — independent of the other versions, process environment, and file contents.
@@ -34,7 +35,7 @@ A consumer that recognizes or rejects filenames by grammar token — deprecated-
 
 ### Audit
 
-- ALWAYS: the filename grammar token vocabulary is one `as const` surface in the spec-tree library carrying every accepted suffix literal across all naming-schema versions, including suffixes no live kind uses ([audit])
+- ALWAYS: the grammar vocabulary (`SPEC_TREE_GRAMMAR`) is the `as const` surface carrying the filename grammar token literals no live kind uses — the historical node suffixes among them; the canonical version's suffixes project from `KIND_REGISTRY` and are not re-declared in the grammar vocabulary ([audit])
 - ALWAYS: a consumer that classifies or rejects filenames by grammar token reads the token sets from the library registry surface ([audit])
 - NEVER: a grammar token literal is declared in more than one place — across versions, in the live kind registry, or in a consumer module ([audit])
 - NEVER: `vi.mock()`, `jest.mock()`, `memfs`, or any test-double stands in for the grammar registry or naming-schema versions — tests read the real registry surface and construct naming-schema-version fixtures as local `as const` objects passed as parameters ([audit])
