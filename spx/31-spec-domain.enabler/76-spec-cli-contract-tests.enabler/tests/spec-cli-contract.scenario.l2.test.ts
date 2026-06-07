@@ -72,7 +72,7 @@ describe("spx spec process contract", () => {
         SPEC_DOMAIN_CLI.COMMAND,
         SPEC_DOMAIN_CLI.STATUS_COMMAND,
         SPEC_DOMAIN_CLI.FORMAT_OPTION_FLAG,
-        "invalid",
+        "unsupported-format",
       );
 
       expect(result.exitCode).toBe(1);
