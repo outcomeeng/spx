@@ -15,7 +15,7 @@ CAN operate on one accurate, reproducible description of what a release contains
 
 ### Mappings
 
-- The package version and the previous release tag map to the version delta — major, minor, or patch — for the release ([test](tests/release-data.mapping.l1.test.ts))
+- The package version and the previous release tag map to the version delta — major, minor, or patch — for a release whose version advances beyond the previous tag ([test](tests/release-data.mapping.l1.test.ts))
 
 ### Properties
 
