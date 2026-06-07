@@ -1,6 +1,6 @@
 # Recognition Classification Result
 
-The recognizer classifies every filesystem record that attempts a recognized spec-tree form — a product file, a node directory, a decision file, or a co-located evidence file — into the spec-tree source-entry union, which carries a superseded entry type and an invalid entry type alongside the valid product, node, decision, and evidence types. An ordered `{NN}-{slug}{suffix}` directory whose suffix the canonical naming-schema version accepts classifies valid (a node), one whose suffix only a prior version accepts classifies superseded carrying that version, and one whose suffix no version accepts classifies invalid; product files, decision files, and evidence files matching the canonical form classify valid. A record attempting no recognized form yields no entry. The recognizer reads the naming-schema version set as an injected parameter defaulting to the library's owned versions; directory descent follows only valid node entries; and the snapshot carries the superseded entries and the invalid residual as fields distinct from the assembled valid tree. This refines [`26-filename-grammar.adr.md`](../26-filename-grammar.adr.md) and [`29-filename-grammar.enabler/21-versioned-grammar-model.adr.md`](../29-filename-grammar.enabler/21-versioned-grammar-model.adr.md).
+The recognizer classifies every ordered `{NN}-{slug}{suffix}` directory as a valid node when the canonical naming-schema version accepts its suffix, superseded — carrying the matched version — when only a prior version accepts it, and invalid when no version accepts it, while product, decision, and evidence files matching the canonical form classify valid and a record attempting no recognized form yields no entry. Superseded and invalid join the spec-tree source-entry union alongside product, node, decision, and evidence, so one entry stream partitions into the valid tree, the superseded list, and the invalid residual. The recognizer reads the naming-schema version set as an injected parameter defaulting to the library's owned versions, directory descent follows only valid node entries, and the snapshot carries the superseded entries and invalid residual distinct from the assembled valid tree — refining [`26-filename-grammar.adr.md`](../26-filename-grammar.adr.md) and [`29-filename-grammar.enabler/21-versioned-grammar-model.adr.md`](../29-filename-grammar.enabler/21-versioned-grammar-model.adr.md).
 
 ## Rationale
 
@@ -20,14 +20,19 @@ The schema set is an injected parameter so classification is verified by passing
 
 ## Verification
 
+### Testing
+
+- ALWAYS: every product file, evidence file, decision file, and ordered `{NN}-{slug}{suffix}` directory maps to a classified source entry — valid (product, node, decision, or evidence), superseded (a node carrying the matched version), or invalid (a node) ([mapping])
+- ALWAYS: the valid tree, the superseded list, and the invalid residual partition the classified ordered directories — each appears in exactly one ([compliance])
+- ALWAYS: a record's classification follows the injected naming-schema version set — a suffix the injected canonical demotes to a prior version classifies superseded, and a canonical-accepted suffix with no backing registry kind classifies invalid ([mapping])
+- ALWAYS: directory descent follows only valid node entries; superseded and invalid ordered directories are not traversed ([mapping])
+- ALWAYS: the snapshot carries the superseded entries and the invalid residual as fields distinct from the assembled valid tree ([compliance])
+- NEVER: an ordered `{NN}-{slug}{suffix}` directory is dropped — a suffix matching no version is retained as an invalid entry, not silently skipped ([mapping])
+
 ### Audit
 
-- ALWAYS: every product file, evidence file, decision file, and ordered `{NN}-{slug}{suffix}` directory maps to a classified source entry — valid (product, node, decision, or evidence), superseded (a node carrying the matched version), or invalid (a node) ([audit])
-- ALWAYS: superseded and invalid are members of the source-entry union, so one entry stream partitions into the valid tree, the superseded list, and the residual ([audit])
-- ALWAYS: the recognizer accepts the naming-schema version set as a parameter defaulting to the library's owned versions and derives accepted suffixes from that set ([audit])
-- ALWAYS: directory descent follows only valid node entries; superseded and invalid ordered directories are not traversed ([audit])
-- ALWAYS: the snapshot carries the superseded entries and the invalid residual as fields distinct from the assembled valid tree ([audit])
-- NEVER: an ordered `{NN}-{slug}{suffix}` directory is dropped — a suffix matching no version is retained as an invalid entry, not silently skipped ([audit])
+- ALWAYS: superseded and invalid are members of the source-entry union, so one entry stream carries every classification without a parallel channel or a separate scanner ([audit])
+- ALWAYS: the recognizer accepts the naming-schema version set as a parameter defaulting to the library's owned versions ([audit])
 - NEVER: a record attempting no recognized spec-tree form is forced into the residual — only node, product, decision, and evidence forms are classified ([audit])
 - NEVER: classification branches on a hardcoded suffix or a prior naming form outside the injected version set ([audit])
 - NEVER: `vi.mock()`, `jest.mock()`, `memfs`, or any test-double stands in for the recognizer or its version set — tests inject naming-schema-version fixtures as `as const` parameters and real filesystem records ([audit])

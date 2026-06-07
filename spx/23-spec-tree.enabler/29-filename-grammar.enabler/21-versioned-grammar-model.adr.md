@@ -21,15 +21,18 @@ A consumer that recognizes or rejects filenames by grammar token — deprecated-
 
 ## Verification
 
+### Testing
+
+- ALWAYS: naming-schema versions form an ordered tuple keyed by semantic version, the highest member canonical and earlier members superseded ([property])
+- ALWAYS: each naming-schema version is a composition that references token sets of the shared vocabulary and is independently evaluable without reading another version ([property])
+- ALWAYS: the canonical version's node and decision suffix sets project from `KIND_REGISTRY` rather than re-declaring suffix literals ([mapping])
+- ALWAYS: the dedicated naming-schema version exposed through the library surface is the canonical version's identifier computed as the maximum of the version tuple ([compliance])
+- NEVER: a superseded suffix is added to `KIND_REGISTRY` as a live kind to make a prior version self-contained — historical suffixes live in the grammar vocabulary, not the live kind registry ([mapping])
+- NEVER: the canonical identifier is declared apart from the version tuple — it is computed, not hardcoded ([compliance])
+
 ### Audit
 
 - ALWAYS: the filename grammar token vocabulary is one `as const` surface in the spec-tree library carrying every accepted suffix literal across all naming-schema versions, including suffixes no live kind uses ([audit])
-- ALWAYS: naming-schema versions form an ordered tuple keyed by semantic version, the highest member canonical and earlier members superseded ([audit])
-- ALWAYS: each naming-schema version is a composition that references token sets of the shared vocabulary and is independently evaluable without reading another version ([audit])
-- ALWAYS: the canonical version's node and decision suffix sets project from `KIND_REGISTRY` rather than re-declaring suffix literals ([audit])
-- ALWAYS: the dedicated naming-schema version exposed through the library surface is the canonical version's identifier computed as the maximum of the version tuple ([audit])
 - ALWAYS: a consumer that classifies or rejects filenames by grammar token reads the token sets from the library registry surface ([audit])
 - NEVER: a grammar token literal is declared in more than one place — across versions, in the live kind registry, or in a consumer module ([audit])
-- NEVER: a superseded suffix is added to `KIND_REGISTRY` as a live kind to make a prior version self-contained — historical suffixes live in the grammar vocabulary, not the live kind registry ([audit])
-- NEVER: the canonical identifier is declared apart from the version tuple — it is computed, not hardcoded ([audit])
 - NEVER: `vi.mock()`, `jest.mock()`, `memfs`, or any test-double stands in for the grammar registry or naming-schema versions — tests read the real registry surface and construct naming-schema-version fixtures as local `as const` objects passed as parameters ([audit])
