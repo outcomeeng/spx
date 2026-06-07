@@ -1,6 +1,7 @@
 import * as fc from "fast-check";
 
 import { type NamingSchemaVersion, SPEC_TREE_GRAMMAR } from "@/lib/spec-tree";
+import { DECISION_SUFFIXES, NODE_SUFFIXES } from "@/lib/spec-tree/config";
 
 const NAMING_SCHEMA_VERSION_GENERATOR_OPTIONS = {
   VERSION_COMPONENT_MAX: 25,
@@ -12,6 +13,12 @@ const NAMING_SCHEMA_VERSION_GENERATOR_OPTIONS = {
   VERSION_TUPLE_MIN: 2,
   VERSION_TUPLE_MAX: 5,
   PROPERTY_RUN_COUNT: 50,
+  RECOGNITION_FOREIGN_SUFFIX_COUNT: 2,
+} as const;
+
+const RECOGNITION_SCENARIO_VERSION = {
+  PRIOR: "1.0.0",
+  CANONICAL: "2.0.0",
 } as const;
 
 const SEMVER_COMPONENT_SEPARATOR = ".";
@@ -20,12 +27,21 @@ const SUFFIX_INITIAL_CHARACTERS = [..."abcdefghijklmnopqrstuvwxyz"];
 const SUFFIX_REST_CHARACTERS = [..."abcdefghijklmnopqrstuvwxyz-"];
 const SEMVER_COMPONENT_COUNT = 3;
 
+export type RecognitionVersionScenario = {
+  readonly schemaVersions: readonly NamingSchemaVersion[];
+  readonly validNodeSuffix: string;
+  readonly supersededNodeSuffix: string;
+  readonly supersededVersion: string;
+  readonly invalidNodeSuffix: string;
+};
+
 export const NAMING_SCHEMA_VERSION_TEST_GENERATOR = {
   counts: {
     propertyRunCount: NAMING_SCHEMA_VERSION_GENERATOR_OPTIONS.PROPERTY_RUN_COUNT,
   },
   version: arbitraryNamingSchemaVersion,
   versionTuple: arbitraryNamingSchemaVersionTuple,
+  recognitionScenario: arbitraryRecognitionVersionScenario,
 } as const;
 
 function arbitrarySemver(): fc.Arbitrary<string> {
@@ -117,4 +133,37 @@ function arbitraryNamingSchemaVersionTuple(): fc.Arbitrary<readonly NamingSchema
         ),
       )
     );
+}
+
+function arbitraryForeignNodeSuffix(): fc.Arbitrary<string> {
+  const canonicalSuffixes = new Set(NODE_SUFFIXES);
+  return arbitrarySuffix().filter((suffix) => !canonicalSuffixes.has(suffix));
+}
+
+function arbitraryRecognitionVersionScenario(): fc.Arbitrary<RecognitionVersionScenario> {
+  return fc
+    .record({
+      validNodeSuffix: fc.constantFrom(...NODE_SUFFIXES),
+      foreignSuffixes: fc.uniqueArray(arbitraryForeignNodeSuffix(), {
+        minLength: NAMING_SCHEMA_VERSION_GENERATOR_OPTIONS.RECOGNITION_FOREIGN_SUFFIX_COUNT,
+        maxLength: NAMING_SCHEMA_VERSION_GENERATOR_OPTIONS.RECOGNITION_FOREIGN_SUFFIX_COUNT,
+      }),
+    })
+    .map(({ validNodeSuffix, foreignSuffixes }) => {
+      const supersededNodeSuffix = foreignSuffixes[0];
+      const invalidNodeSuffix = foreignSuffixes[1];
+      if (supersededNodeSuffix === undefined || invalidNodeSuffix === undefined) {
+        throw new Error("Recognition scenario requires two distinct foreign node suffixes");
+      }
+      return {
+        schemaVersions: [
+          buildNamingSchemaVersion(RECOGNITION_SCENARIO_VERSION.PRIOR, [supersededNodeSuffix], DECISION_SUFFIXES),
+          buildNamingSchemaVersion(RECOGNITION_SCENARIO_VERSION.CANONICAL, NODE_SUFFIXES, DECISION_SUFFIXES),
+        ],
+        validNodeSuffix,
+        supersededNodeSuffix,
+        supersededVersion: RECOGNITION_SCENARIO_VERSION.PRIOR,
+        invalidNodeSuffix,
+      };
+    });
 }

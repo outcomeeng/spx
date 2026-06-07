@@ -11,6 +11,7 @@ import {
   getKindDefinition,
   projectSpecTree,
   readSpecTree,
+  SPEC_TREE_GRAMMAR,
   type SpecTreeProjection,
   type SpecTreeRegistry,
   type SpecTreeSnapshot,
@@ -30,6 +31,7 @@ export { SPEC_TREE_ENV_FIXTURE_WRITER_METHODS } from "@/domains/spec/fixture-wri
 export type { Config } from "@/config/types";
 
 const TEMP_PREFIX = "spx-test-env-";
+const RESIDUAL_PLACEHOLDER_FILE = "placeholder.md";
 const MIN_SPEC_ORDER_INDEX = 10;
 const MAX_SPEC_ORDER_INDEX = 99;
 const SLUG_POOL = ["foo", "bar", "baz", "widget", "gizmo", "spec", "stub", "sample", "probe", "fixture"];
@@ -73,6 +75,13 @@ export type CurrentSpecTreeEnv = SpecTreeEnv & {
   projectMemory(fixture?: RepresentativeSpecTreeFixture): Promise<SpecTreeProjection>;
   projectFilesystem(): Promise<SpecTreeProjection>;
 };
+
+export async function writeOrderedDirectory(env: SpecTreeEnv, directory: string): Promise<void> {
+  await env.writeRaw(
+    [SPEC_TREE_CONFIG.ROOT_DIRECTORY, directory, RESIDUAL_PLACEHOLDER_FILE].join(SPEC_TREE_GRAMMAR.PATH_SEPARATOR),
+    "",
+  );
+}
 
 export function withTestEnv(
   config: Config,

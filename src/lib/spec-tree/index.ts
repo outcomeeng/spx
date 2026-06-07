@@ -1,13 +1,24 @@
 import { readdir, readFile } from "node:fs/promises";
 import { join } from "node:path";
 
-import type { DecisionKind, Kind, KindDefinition, NodeKind, SpecTreeKindCategory, SpecTreeNodeState } from "./config";
+import type {
+  DecisionKind,
+  Kind,
+  KindDefinition,
+  NamingSchemaVersion,
+  NodeKind,
+  SpecTreeKindCategory,
+  SpecTreeNodeState,
+} from "./config";
 import {
+  canonicalNamingSchemaVersion,
+  compareNamingSchemaVersions,
   KIND_REGISTRY,
   SPEC_TREE_CONFIG,
   SPEC_TREE_EVIDENCE_FILE,
   SPEC_TREE_GRAMMAR,
   SPEC_TREE_KIND_CATEGORY,
+  SPEC_TREE_NAMING_SCHEMA_VERSIONS,
   SPEC_TREE_NODE_STATE,
 } from "./config";
 export {
@@ -40,6 +51,8 @@ export const SPEC_TREE_ENTRY_TYPE = {
   NODE: SPEC_TREE_KIND_CATEGORY.NODE,
   DECISION: SPEC_TREE_KIND_CATEGORY.DECISION,
   EVIDENCE: "evidence",
+  SUPERSEDED: "superseded",
+  INVALID: "invalid",
 } as const;
 
 export type SpecTreeEntryType = (typeof SPEC_TREE_ENTRY_TYPE)[keyof typeof SPEC_TREE_ENTRY_TYPE];
@@ -142,11 +155,24 @@ export type SpecTreeEvidenceSourceEntry = SpecTreeSourceEntryBase & {
   readonly status: SpecTreeEvidenceStatus;
 };
 
+export type SpecTreeSupersededSourceEntry = SpecTreeSourceEntryBase & {
+  readonly type: typeof SPEC_TREE_ENTRY_TYPE.SUPERSEDED;
+  readonly version: string;
+  readonly parentId?: string;
+};
+
+export type SpecTreeInvalidSourceEntry = SpecTreeSourceEntryBase & {
+  readonly type: typeof SPEC_TREE_ENTRY_TYPE.INVALID;
+  readonly parentId?: string;
+};
+
 export type SpecTreeSourceEntry =
   | SpecTreeProductSourceEntry
   | SpecTreeNodeSourceEntry
   | SpecTreeDecisionSourceEntry
-  | SpecTreeEvidenceSourceEntry;
+  | SpecTreeEvidenceSourceEntry
+  | SpecTreeSupersededSourceEntry
+  | SpecTreeInvalidSourceEntry;
 
 export type SpecTreeSource = {
   entries(): AsyncIterable<SpecTreeSourceEntry>;
@@ -165,6 +191,11 @@ export type FilesystemSpecTreeSourceOptions = {
   readonly productDir: string;
   readonly registry?: SpecTreeRegistry;
   readonly includePath?: SpecTreePathInclusionPredicate;
+};
+
+export type SpecTreeRecognitionOptions = {
+  readonly registry?: SpecTreeRegistry;
+  readonly schemaVersions?: readonly NamingSchemaVersion[];
 };
 
 export type SpecTreeEvidenceProvider = {
@@ -214,6 +245,8 @@ export type SpecTreeSnapshot = {
   readonly nodes: readonly SpecTreeNode[];
   readonly allNodes: readonly SpecTreeNode[];
   readonly decisions: readonly SpecTreeDecision[];
+  readonly superseded: readonly SpecTreeSupersededSourceEntry[];
+  readonly residual: readonly SpecTreeInvalidSourceEntry[];
   readonly entries: readonly SpecTreeSourceEntry[];
 };
 
@@ -291,8 +324,10 @@ export function createFilesystemSpecTreeSource(options: FilesystemSpecTreeSource
 
 export function recognizeSpecTreeFilesystemEntry(
   record: SpecTreeFilesystemRecord,
-  registry: SpecTreeRegistry = KIND_REGISTRY,
+  options: SpecTreeRecognitionOptions = {},
 ): SpecTreeSourceEntry | null {
+  const registry = options.registry ?? KIND_REGISTRY;
+  const schemaVersions = options.schemaVersions ?? SPEC_TREE_NAMING_SCHEMA_VERSIONS;
   const name = readLastPathSegment(record.relativePath);
 
   if (record.type === SPEC_TREE_FILESYSTEM_RECORD_TYPE.FILE && isProductFile(record.relativePath)) {
@@ -305,19 +340,7 @@ export function recognizeSpecTreeFilesystemEntry(
   }
 
   if (record.type === SPEC_TREE_FILESYSTEM_RECORD_TYPE.DIRECTORY) {
-    const nodeMatch = matchKindSuffix(name, registry, SPEC_TREE_KIND_CATEGORY.NODE);
-    if (nodeMatch === null) return null;
-    const parsed = parseOrderedSlug(stripSuffix(name, nodeMatch.definition.suffix));
-    if (parsed === null) return null;
-    return {
-      type: SPEC_TREE_ENTRY_TYPE.NODE,
-      kind: nodeMatch.kind as NodeKind,
-      id: record.relativePath,
-      order: parsed.order,
-      slug: parsed.slug,
-      parentId: record.parentId,
-      ref: sourceRefForNode(record.relativePath, parsed.slug),
-    };
+    return recognizeDirectoryRecord(record, name, registry, schemaVersions);
   }
 
   if (
@@ -353,9 +376,74 @@ export function recognizeSpecTreeFilesystemEntry(
   return null;
 }
 
+function recognizeDirectoryRecord(
+  record: SpecTreeFilesystemRecord,
+  name: string,
+  registry: SpecTreeRegistry,
+  schemaVersions: readonly NamingSchemaVersion[],
+): SpecTreeSourceEntry | null {
+  const nodeMatch = matchKindSuffix(name, registry, SPEC_TREE_KIND_CATEGORY.NODE);
+  if (nodeMatch !== null) {
+    const parsed = parseOrderedSlug(stripSuffix(name, nodeMatch.definition.suffix));
+    if (parsed !== null) {
+      return {
+        type: SPEC_TREE_ENTRY_TYPE.NODE,
+        kind: nodeMatch.kind as NodeKind,
+        id: record.relativePath,
+        order: parsed.order,
+        slug: parsed.slug,
+        parentId: record.parentId,
+        ref: sourceRefForNode(record.relativePath, parsed.slug),
+      };
+    }
+  }
+
+  const supersededVersion = matchSupersededNodeVersion(name, schemaVersions);
+  if (supersededVersion !== null) {
+    return {
+      type: SPEC_TREE_ENTRY_TYPE.SUPERSEDED,
+      id: record.relativePath,
+      version: supersededVersion,
+      parentId: record.parentId,
+      ref: sourceRefForRelativePath(record.relativePath),
+    };
+  }
+
+  if (parseOrderedSlug(name) !== null) {
+    return {
+      type: SPEC_TREE_ENTRY_TYPE.INVALID,
+      id: record.relativePath,
+      parentId: record.parentId,
+      ref: sourceRefForRelativePath(record.relativePath),
+    };
+  }
+
+  return null;
+}
+
+function matchSupersededNodeVersion(name: string, schemaVersions: readonly NamingSchemaVersion[]): string | null {
+  const canonical = canonicalNamingSchemaVersion(schemaVersions);
+  const canonicalSuffixes = new Set(canonical.nodeSuffixes);
+  const priorVersions = schemaVersions
+    .filter((version) => version !== canonical)
+    .sort((left, right) => compareNamingSchemaVersions(right, left));
+
+  for (const version of priorVersions) {
+    for (const suffix of version.nodeSuffixes) {
+      if (canonicalSuffixes.has(suffix)) continue;
+      if (name.endsWith(suffix) && parseOrderedSlug(stripSuffix(name, suffix)) !== null) {
+        return version.version;
+      }
+    }
+  }
+  return null;
+}
+
 export async function readSpecTree(options: SpecTreeOptions): Promise<SpecTreeSnapshot> {
   const entries = await collectSourceEntries(options.source);
   const product = entries.find(isProductEntry) ?? null;
+  const superseded = entries.filter(isSupersededEntry);
+  const residual = entries.filter(isInvalidEntry);
   const evidenceByParent = groupEvidence(entries.filter(isEvidenceEntry));
   const decisions = entries.filter(isDecisionEntry).map(toDecision).sort(compareOrderedEntries);
   const decisionsByParent = groupDecisions(decisions);
@@ -401,6 +489,8 @@ export async function readSpecTree(options: SpecTreeOptions): Promise<SpecTreeSn
     nodes: roots,
     allNodes,
     decisions,
+    superseded,
+    residual,
     entries,
   };
 }
@@ -450,6 +540,14 @@ function isDecisionEntry(entry: SpecTreeSourceEntry): entry is SpecTreeDecisionS
 
 function isEvidenceEntry(entry: SpecTreeSourceEntry): entry is SpecTreeEvidenceSourceEntry {
   return entry.type === SPEC_TREE_ENTRY_TYPE.EVIDENCE;
+}
+
+function isSupersededEntry(entry: SpecTreeSourceEntry): entry is SpecTreeSupersededSourceEntry {
+  return entry.type === SPEC_TREE_ENTRY_TYPE.SUPERSEDED;
+}
+
+function isInvalidEntry(entry: SpecTreeSourceEntry): entry is SpecTreeInvalidSourceEntry {
+  return entry.type === SPEC_TREE_ENTRY_TYPE.INVALID;
 }
 
 function toDecision(entry: SpecTreeDecisionSourceEntry): SpecTreeDecision {
@@ -586,11 +684,11 @@ async function* walkFilesystemDirectory(context: FilesystemWalkContext): AsyncIt
 
     const sourceEntry = recognizeSpecTreeFilesystemEntry(
       { type: recordType, relativePath, parentId: context.parentId },
-      context.registry,
+      { registry: context.registry },
     );
     if (sourceEntry !== null) yield sourceEntry;
 
-    if (entry.isDirectory() && shouldDescendIntoDirectory(entry.name, sourceEntry, context.registry)) {
+    if (entry.isDirectory() && shouldDescendIntoDirectory(sourceEntry)) {
       yield* walkFilesystemDirectory({
         absolutePath: join(context.absolutePath, entry.name),
         relativePath,
@@ -684,19 +782,8 @@ function segmentsEndWith(segments: readonly string[], suffix: readonly string[])
   return suffix.every((value, index) => segments[start + index] === value);
 }
 
-function shouldDescendIntoDirectory(
-  name: string,
-  sourceEntry: SpecTreeSourceEntry | null,
-  registry: SpecTreeRegistry,
-): boolean {
-  if (sourceEntry !== null) return true;
-  if (name === SPEC_TREE_EVIDENCE_FILE.DIRECTORY_NAME) return true;
-  return !isUnregisteredOrderedDirectory(name, registry);
-}
-
-function isUnregisteredOrderedDirectory(name: string, registry: SpecTreeRegistry): boolean {
-  if (matchKindSuffix(name, registry, SPEC_TREE_KIND_CATEGORY.NODE) !== null) return false;
-  return parseOrderedSlug(name) !== null;
+function shouldDescendIntoDirectory(sourceEntry: SpecTreeSourceEntry | null): boolean {
+  return sourceEntry === null || sourceEntry.type === SPEC_TREE_ENTRY_TYPE.NODE;
 }
 
 function sourceRefForRelativePath(relativePath: string): SpecTreeSourceRef {

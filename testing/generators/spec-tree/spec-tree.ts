@@ -4,6 +4,7 @@ import {
   SPEC_TREE_ENTRY_TYPE,
   SPEC_TREE_EVIDENCE_FILE,
   SPEC_TREE_EVIDENCE_STATUS,
+  SPEC_TREE_GRAMMAR,
   SPEC_TREE_SOURCE_ENTRY_KEYS,
   type SpecTreeDecisionSourceEntry,
   type SpecTreeEvidenceSourceEntry,
@@ -98,6 +99,12 @@ export function sampleSpecTreeTestValue<T>(arbitrary: fc.Arbitrary<T>): T {
     throw new Error("Spec-tree test generator returned no sample");
   }
   return value;
+}
+
+export function orderedDirectoryName(suffix: string): string {
+  const order = sampleSpecTreeTestValue(SPEC_TREE_TEST_GENERATOR.filesystemOrder());
+  const slug = sampleSpecTreeTestValue(SPEC_TREE_TEST_GENERATOR.sourceSlug());
+  return `${order}-${slug}${suffix}`;
 }
 
 export function createSource(entries: readonly SpecTreeSourceEntry[]): SpecTreeSource {
@@ -379,11 +386,12 @@ function arbitraryDecisionKind(registry: SpecTreeRegistry): fc.Arbitrary<Decisio
 }
 
 function arbitraryUnregisteredNodeSuffix(registry: SpecTreeRegistry): fc.Arbitrary<string> {
-  const nodeSuffixes = new Set<string>(
-    Object.values(registry)
+  const nodeSuffixes = new Set<string>([
+    ...Object.values(registry)
       .filter((definition) => definition.category === SPEC_TREE_KIND_CATEGORY.NODE)
       .map((definition) => definition.suffix),
-  );
+    ...SPEC_TREE_GRAMMAR.DEPRECATED_NODE_SUFFIXES,
+  ]);
   return fc.tuple(
     fc.constantFrom(...SPEC_TREE_TEST_SUFFIX_INITIAL_CHARACTERS),
     fc.string({
