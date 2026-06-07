@@ -10,6 +10,7 @@ CAN operate on one accurate, reproducible description of what a release contains
 
 - Given a previous release tag exists, when release data is computed for a release at HEAD, then it lists the commits between the most recent release tag preceding the release and HEAD ([test](tests/release-data.scenario.l1.test.ts))
 - Given the release commit is itself tagged, when release data is computed, then the delta anchors on the prior release tag rather than the tag at the release commit, so the release is not empty ([test](tests/release-data.scenario.l1.test.ts))
+- Given the release commit carries more than one release tag, when release data is computed, then the delta anchors on the prior release tag rather than any tag at the release commit ([test](tests/release-data.scenario.l1.test.ts))
 - Given no previous release tag exists, when release data is computed, then it reports the full commit history as the release contents ([test](tests/release-data.scenario.l1.test.ts))
 - Given commits change paths since the previous release tag, when release data is computed, then the changed paths list the paths modified between that tag and HEAD ([test](tests/release-data.scenario.l1.test.ts))
 
