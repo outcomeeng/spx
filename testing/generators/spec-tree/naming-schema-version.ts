@@ -42,6 +42,11 @@ export type DemotedRegistrySuffixScenario = {
   readonly canonicalRegistrySuffix: string;
 };
 
+export type CanonicalForeignSuffixScenario = {
+  readonly schemaVersions: readonly NamingSchemaVersion[];
+  readonly foreignCanonicalSuffix: string;
+};
+
 export const NAMING_SCHEMA_VERSION_TEST_GENERATOR = {
   counts: {
     propertyRunCount: NAMING_SCHEMA_VERSION_GENERATOR_OPTIONS.PROPERTY_RUN_COUNT,
@@ -50,6 +55,7 @@ export const NAMING_SCHEMA_VERSION_TEST_GENERATOR = {
   versionTuple: arbitraryNamingSchemaVersionTuple,
   recognitionScenario: arbitraryRecognitionVersionScenario,
   demotedRegistrySuffixScenario: arbitraryDemotedRegistrySuffixScenario,
+  canonicalForeignSuffixScenario: arbitraryCanonicalForeignSuffixScenario,
 } as const;
 
 function arbitrarySemver(): fc.Arbitrary<string> {
@@ -172,6 +178,28 @@ function arbitraryRecognitionVersionScenario(): fc.Arbitrary<RecognitionVersionS
         supersededNodeSuffix,
         supersededVersion: RECOGNITION_SCENARIO_VERSION.PRIOR,
         invalidNodeSuffix,
+      };
+    });
+}
+
+function arbitraryCanonicalForeignSuffixScenario(): fc.Arbitrary<CanonicalForeignSuffixScenario> {
+  return fc
+    .uniqueArray(arbitraryForeignNodeSuffix(), {
+      minLength: NAMING_SCHEMA_VERSION_GENERATOR_OPTIONS.RECOGNITION_FOREIGN_SUFFIX_COUNT,
+      maxLength: NAMING_SCHEMA_VERSION_GENERATOR_OPTIONS.RECOGNITION_FOREIGN_SUFFIX_COUNT,
+    })
+    .map((foreignSuffixes) => {
+      const foreignCanonicalSuffix = foreignSuffixes[0];
+      const foreignPriorSuffix = foreignSuffixes[1];
+      if (foreignCanonicalSuffix === undefined || foreignPriorSuffix === undefined) {
+        throw new Error("Canonical-foreign-suffix scenario requires two distinct foreign node suffixes");
+      }
+      return {
+        schemaVersions: [
+          buildNamingSchemaVersion(RECOGNITION_SCENARIO_VERSION.PRIOR, [foreignPriorSuffix], DECISION_SUFFIXES),
+          buildNamingSchemaVersion(RECOGNITION_SCENARIO_VERSION.CANONICAL, [foreignCanonicalSuffix], DECISION_SUFFIXES),
+        ],
+        foreignCanonicalSuffix,
       };
     });
 }
