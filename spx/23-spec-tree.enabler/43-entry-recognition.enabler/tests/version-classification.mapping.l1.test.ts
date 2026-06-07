@@ -79,4 +79,28 @@ describe("version classification", () => {
       { numRuns: propertyRunCount },
     );
   });
+
+  it("gates validity on the injected canonical version, not the live kind registry", () => {
+    fc.assert(
+      fc.property(
+        NAMING_SCHEMA_VERSION_TEST_GENERATOR.demotedRegistrySuffixScenario(),
+        SPEC_TREE_TEST_GENERATOR.filesystemOrder(),
+        SPEC_TREE_TEST_GENERATOR.sourceSlug(),
+        (scenario, order, slug) => {
+          // A registry-live suffix the injected canonical demotes to a prior version
+          // must classify superseded, not valid — classification follows the injected set.
+          const entry = expectPresent(
+            recognizeSpecTreeFilesystemEntry(directoryRecord(order, slug, scenario.demotedRegistrySuffix), {
+              schemaVersions: scenario.schemaVersions,
+            }),
+          );
+          expect(entry.type).toBe(SPEC_TREE_ENTRY_TYPE.SUPERSEDED);
+          if (entry.type === SPEC_TREE_ENTRY_TYPE.SUPERSEDED) {
+            expect(entry.version).toBe(scenario.demotedVersion);
+          }
+        },
+      ),
+      { numRuns: propertyRunCount },
+    );
+  });
 });
