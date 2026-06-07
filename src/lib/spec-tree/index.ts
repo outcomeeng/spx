@@ -385,19 +385,18 @@ function recognizeDirectoryRecord(
   schemaVersions: readonly NamingSchemaVersion[],
 ): SpecTreeSourceEntry | null {
   const canonical = canonicalNamingSchemaVersion(schemaVersions);
-  const canonicalSuffix = matchNodeSuffixFromVersion(name, canonical);
-  if (canonicalSuffix !== null) {
-    const kind = nodeKindForSuffix(canonicalSuffix, registry);
-    const parsed = parseOrderedSlug(stripSuffix(name, canonicalSuffix));
-    if (kind !== null && parsed !== null) {
+  const canonicalMatch = matchNodeSuffixFromVersion(name, canonical);
+  if (canonicalMatch !== null) {
+    const kind = nodeKindForSuffix(canonicalMatch.suffix, registry);
+    if (kind !== null) {
       return {
         type: SPEC_TREE_ENTRY_TYPE.NODE,
         kind,
         id: record.relativePath,
-        order: parsed.order,
-        slug: parsed.slug,
+        order: canonicalMatch.parsed.order,
+        slug: canonicalMatch.parsed.slug,
         parentId: record.parentId,
-        ref: sourceRefForNode(record.relativePath, parsed.slug),
+        ref: sourceRefForNode(record.relativePath, canonicalMatch.parsed.slug),
       };
     }
   }
@@ -425,10 +424,17 @@ function recognizeDirectoryRecord(
   return null;
 }
 
-function matchNodeSuffixFromVersion(name: string, version: NamingSchemaVersion): string | null {
+type NodeSuffixMatch = {
+  readonly suffix: string;
+  readonly parsed: OrderedSlug;
+};
+
+function matchNodeSuffixFromVersion(name: string, version: NamingSchemaVersion): NodeSuffixMatch | null {
   for (const suffix of version.nodeSuffixes) {
-    if (name.endsWith(suffix) && parseOrderedSlug(stripSuffix(name, suffix)) !== null) {
-      return suffix;
+    if (!name.endsWith(suffix)) continue;
+    const parsed = parseOrderedSlug(stripSuffix(name, suffix));
+    if (parsed !== null) {
+      return { suffix, parsed };
     }
   }
   return null;
