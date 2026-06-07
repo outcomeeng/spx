@@ -1,6 +1,6 @@
 # Known Issues: 23-spec-tree.enabler
 
-Both entries were discovered while authoring `26-filename-grammar.adr.md`. They are broader than this node; recorded here because the filename-grammar work lives here. Tracked, not blocking.
+The entries below are broader than this node; they are recorded here because the spec-tree governance work lives here. Tracked, not blocking.
 
 ## ADR template: the TypeScript architecting skills diverge from the canonical template
 
@@ -16,3 +16,9 @@ Legacy markers to migrate: the verbose ADR/PDR form (`## Purpose` / `## Context`
 
 - Verbose ADRs include `spx/23-spec-tree.enabler/21-kind-registry.adr.md` and the `spx/41-validation.enabler/**` ADRs.
 - PDRs still carrying `## Product invariants`: `spx/17-file-inclusion.enabler/11-ignore-defaults.pdr.md`, `spx/31-spec-domain.enabler/21-node-status.enabler/15-status-file-contract.pdr.md`, `spx/36-session.enabler/11-session-frontmatter.pdr.md`, `spx/41-validation.enabler/11-tool-based-validation.pdr.md`, and `spx/36-audit.enabler/11-audit-scope.pdr.md`.
+
+## Canonical ADR template orders Verification subsections Audit-first
+
+The canonical ADR template (`plugins/spec-tree/skills/understanding/templates/decisions/decision-name.adr.md`) and `typescript:standardizing-typescript-architecture` list the `## Verification` subsections `### Audit` → `### Eval` → `### Testing`, while the PDR template orders them `### Testing` → `### Eval` → `### Audit` by decreasing enforcement strength, and the existing ADR corpus follows the PDR's Testing-first order. By operator decision, spx orders both record types Testing-first (decreasing enforcement strength); the ADR template's Audit-first listing is the upstream inconsistency.
+
+**Owner:** the fix is in `~/Code/outcomeeng/plugins` (the spec-tree plugin's canonical ADR template and the typescript architecting skill) — a separate product. Reorder the ADR template's `## Verification` subsections to `### Testing` → `### Eval` → `### Audit`. Until then, author spx ADRs Testing-first per `CLAUDE.md`.
