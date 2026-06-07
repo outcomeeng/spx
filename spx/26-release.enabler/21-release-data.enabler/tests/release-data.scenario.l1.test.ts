@@ -6,6 +6,24 @@ import { GIT_TEST_SUBCOMMANDS } from "@testing/harnesses/git-test-constants";
 import { withGitWorktreeEnv } from "@testing/harnesses/git-worktree/git-worktree";
 
 describe("computeReleaseData — release contents derive from git history", () => {
+  it("carries the package version it was computed with, so downstream children read one version", async () => {
+    await withGitWorktreeEnv(async (env) => {
+      const commits = sampleReleaseTestValue(
+        RELEASE_TEST_GENERATOR.commitSequence(RELEASE_TEST_GENERATOR.counts.fullHistoryCommits),
+      );
+      const packageVersion = sampleReleaseTestValue(RELEASE_TEST_GENERATOR.semver());
+
+      for (const commit of commits) {
+        await env.writeTracked(commit.path, commit.content);
+        await env.commit(commit.subject);
+      }
+
+      const data = await computeReleaseData({ productDir: env.productDir, packageVersion });
+
+      expect(data.version).toBe(packageVersion);
+    });
+  });
+
   it("lists the commits between the most recent release tag preceding the release and HEAD", async () => {
     await withGitWorktreeEnv(async (env) => {
       const [base, ...rest] = sampleReleaseTestValue(
