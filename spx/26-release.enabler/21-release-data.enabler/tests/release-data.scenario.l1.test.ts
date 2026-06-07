@@ -95,6 +95,7 @@ describe("computeReleaseData — release contents derive from git history", () =
       );
       expect(data.commits).toHaveLength(commits.length);
       expect(data.changedPaths).toEqual(expect.arrayContaining(commits.map((commit) => commit.path)));
+      expect(data.changedPaths).toHaveLength(commits.length);
     });
   });
 
