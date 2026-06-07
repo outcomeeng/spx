@@ -11,7 +11,6 @@ export interface GitCommit {
 const GIT_RELEASE_SUBCOMMAND = {
   DESCRIBE: "describe",
   LOG: "log",
-  DIFF: "diff",
 } as const;
 
 const GIT_RELEASE_FLAG = {
@@ -124,10 +123,10 @@ function parseCommitRecord(line: string): GitCommit {
 }
 
 /**
- * Lists the paths changed between `fromTag` (exclusive) and `toRef` (inclusive).
- * When `fromTag` is null the paths changed across the full history reachable from
- * `toRef` are returned — the same commit set `commitsBetween` reports for the
- * null case — so the two stay symmetric and both remain scoped to `toRef`.
+ * Lists the distinct paths touched by the commits between `fromTag` (exclusive)
+ * and `toRef` (inclusive), or across the full history reachable from `toRef` when
+ * `fromTag` is null. Both cases read the same `git log` range `commitsBetween`
+ * reports, so the changed paths and the commits stay drawn from one commit set.
  */
 export async function changedPathsBetween(
   fromTag: string | null,
@@ -135,10 +134,12 @@ export async function changedPathsBetween(
   cwd: string,
   deps: GitDependencies = defaultGitDependencies,
 ): Promise<string[]> {
-  const args = fromTag === null
-    ? [GIT_RELEASE_SUBCOMMAND.LOG, EMPTY_LOG_FORMAT, GIT_RELEASE_FLAG.NAME_ONLY, toRef]
-    : [GIT_RELEASE_SUBCOMMAND.DIFF, GIT_RELEASE_FLAG.NAME_ONLY, fromTag, toRef];
-  const result = await deps.execa(GIT_ROOT_COMMAND.EXECUTABLE, args, { cwd, reject: false });
+  const range = fromTag === null ? toRef : `${fromTag}${RANGE_SEPARATOR}${toRef}`;
+  const result = await deps.execa(
+    GIT_ROOT_COMMAND.EXECUTABLE,
+    [GIT_RELEASE_SUBCOMMAND.LOG, EMPTY_LOG_FORMAT, GIT_RELEASE_FLAG.NAME_ONLY, range],
+    { cwd, reject: false },
+  );
   if (result.exitCode !== 0) return [];
   return Array.from(new Set(nonEmptyLines(result.stdout)));
 }
