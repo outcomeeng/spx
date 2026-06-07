@@ -103,4 +103,25 @@ describe("version classification", () => {
       { numRuns: propertyRunCount },
     );
   });
+
+  it("classifies a canonical-accepted suffix with no backing registry kind as invalid", () => {
+    fc.assert(
+      fc.property(
+        NAMING_SCHEMA_VERSION_TEST_GENERATOR.canonicalForeignSuffixScenario(),
+        SPEC_TREE_TEST_GENERATOR.filesystemOrder(),
+        SPEC_TREE_TEST_GENERATOR.sourceSlug(),
+        (scenario, order, slug) => {
+          // The injected canonical accepts the suffix, but no registry kind backs it,
+          // so it cannot form a typed node and classifies invalid rather than valid.
+          const entry = expectPresent(
+            recognizeSpecTreeFilesystemEntry(directoryRecord(order, slug, scenario.foreignCanonicalSuffix), {
+              schemaVersions: scenario.schemaVersions,
+            }),
+          );
+          expect(entry.type).toBe(SPEC_TREE_ENTRY_TYPE.INVALID);
+        },
+      ),
+      { numRuns: propertyRunCount },
+    );
+  });
 });
