@@ -75,13 +75,13 @@ The authoritative ADR and PDR templates are **decision-first**. The skills own t
 
 - `## Rationale` — brief; name a rejected alternative only when it sharpens the decision
 - `## Invariants` — optional; algebraic properties holding for all governed code
-- `## Verification` — ALWAYS/NEVER rules grouped under `### Audit` (`[audit]`), `### Eval` (`[eval]`), `### Testing` (the evidence type: `[scenario]`/`[mapping]`/`[conformance]`/`[property]`/`[compliance]`). DI and no-mocking testability constraints are `### Audit` rules.
+- `## Verification` — ALWAYS/NEVER rules grouped under the subsections that apply, ordered by decreasing enforcement strength: `### Testing` (the evidence type: `[scenario]`/`[mapping]`/`[conformance]`/`[property]`/`[compliance]`), `### Eval` (`[eval]`), `### Audit` (`[audit]`). DI and no-mocking testability constraints are `### Audit` rules.
 
 **PDR** — `# Title`, then the decision stated directly as 1–3 sentences of user-observable behavior, then:
 
 - `## Rationale`
 - `## Product properties` — optional; ≤3 observable properties
-- `## Verification` — same subsection scheme as the ADR (ordered `### Testing`, `### Eval`, `### Audit` by decreasing enforcement strength)
+- `## Verification` — the same subsection scheme as the ADR: `### Testing`, `### Eval`, `### Audit`, ordered by decreasing enforcement strength
 
 **What the decision-first template removes.** No `## Purpose`, no `## Context` (Business impact / Technical constraints), no `## Decision` heading (the decision IS the opening prose), no `## Trade-offs accepted` table, no `## Compliance` block with `### Recognized by` / `### MUST` / `### NEVER`, no `## Status`, no level-assignment tables. Trade-offs and business context fold into the decision statement and Rationale.
 
