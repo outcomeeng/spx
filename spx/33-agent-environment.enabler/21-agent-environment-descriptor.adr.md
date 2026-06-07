@@ -19,6 +19,9 @@ Rejected: separate config sections for instructions, runtimes, and bootstrap (th
 - Child reconcilers consume the descriptor's resolved values; they do not parse raw `spx.config.*` content.
 - The instruction-reconciliation child validates concrete instruction paths before writing files, and the plugin-bootstrap child validates marketplace source formats before resolving external inputs.
 - Marketplace `source` values and skill `source` values are different semantic fields even though they share the same config field name.
+- An omitted `instructions.files` keeps the default `AGENTS.md`; an explicit empty list disables instruction-file management.
+- Instruction targets may name disabled runtimes — descriptor validation requires only registered runtime ids, not enabled ones; runtime enablement governs downstream participation.
+- Adding a runtime does not make it an implicit instruction target; each instruction file's target runtimes are explicit.
 
 ## Verification
 
