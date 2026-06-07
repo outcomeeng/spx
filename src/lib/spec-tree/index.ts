@@ -190,6 +190,7 @@ export type SpecTreePathInclusionPredicate = (path: string) => boolean | Promise
 export type FilesystemSpecTreeSourceOptions = {
   readonly productDir: string;
   readonly registry?: SpecTreeRegistry;
+  readonly schemaVersions?: readonly NamingSchemaVersion[];
   readonly includePath?: SpecTreePathInclusionPredicate;
 };
 
@@ -309,10 +310,11 @@ export function getKindDefinition<K extends keyof SpecTreeRegistry>(
 
 export function createFilesystemSpecTreeSource(options: FilesystemSpecTreeSourceOptions): SpecTreeSource {
   const registry = options.registry ?? KIND_REGISTRY;
+  const schemaVersions = options.schemaVersions ?? SPEC_TREE_NAMING_SCHEMA_VERSIONS;
   const includePath = options.includePath ?? includeEverySpecTreePath;
 
   return {
-    entries: () => readFilesystemSourceEntries(options.productDir, registry, includePath),
+    entries: () => readFilesystemSourceEntries(options.productDir, registry, schemaVersions, includePath),
     async readText(ref: SpecTreeSourceRef): Promise<string> {
       if (ref.path === undefined) {
         throw new Error("Filesystem source refs require a path");
@@ -400,7 +402,7 @@ function recognizeDirectoryRecord(
     }
   }
 
-  const supersededVersion = matchSupersededNodeVersion(name, schemaVersions);
+  const supersededVersion = matchSupersededNodeVersion(name, schemaVersions, canonical);
   if (supersededVersion !== null) {
     return {
       type: SPEC_TREE_ENTRY_TYPE.SUPERSEDED,
@@ -441,8 +443,11 @@ function nodeKindForSuffix(suffix: string, registry: SpecTreeRegistry): NodeKind
   return null;
 }
 
-function matchSupersededNodeVersion(name: string, schemaVersions: readonly NamingSchemaVersion[]): string | null {
-  const canonical = canonicalNamingSchemaVersion(schemaVersions);
+function matchSupersededNodeVersion(
+  name: string,
+  schemaVersions: readonly NamingSchemaVersion[],
+  canonical: NamingSchemaVersion,
+): string | null {
   const canonicalSuffixes = new Set(canonical.nodeSuffixes);
   const priorVersions = schemaVersions
     .filter((version) => version !== canonical)
@@ -662,12 +667,14 @@ function compareOrderedEntries(left: OrderedEntry, right: OrderedEntry): number 
 async function* readFilesystemSourceEntries(
   productDir: string,
   registry: SpecTreeRegistry,
+  schemaVersions: readonly NamingSchemaVersion[],
   includePath: SpecTreePathInclusionPredicate,
 ): AsyncIterable<SpecTreeSourceEntry> {
   yield* walkFilesystemDirectory({
     absolutePath: join(productDir, SPEC_TREE_CONFIG.ROOT_DIRECTORY),
     relativePath: SPEC_TREE_EMPTY_RELATIVE_PATH,
     registry,
+    schemaVersions,
     includePath,
   });
 }
@@ -676,6 +683,7 @@ type FilesystemWalkContext = {
   readonly absolutePath: string;
   readonly relativePath: string;
   readonly registry: SpecTreeRegistry;
+  readonly schemaVersions: readonly NamingSchemaVersion[];
   readonly includePath: SpecTreePathInclusionPredicate;
   readonly parentId?: string;
 };
@@ -704,7 +712,7 @@ async function* walkFilesystemDirectory(context: FilesystemWalkContext): AsyncIt
 
     const sourceEntry = recognizeSpecTreeFilesystemEntry(
       { type: recordType, relativePath, parentId: context.parentId },
-      { registry: context.registry },
+      { registry: context.registry, schemaVersions: context.schemaVersions },
     );
     if (sourceEntry !== null) yield sourceEntry;
 
@@ -713,6 +721,7 @@ async function* walkFilesystemDirectory(context: FilesystemWalkContext): AsyncIt
         absolutePath: join(context.absolutePath, entry.name),
         relativePath,
         registry: context.registry,
+        schemaVersions: context.schemaVersions,
         includePath: context.includePath,
         parentId: sourceEntry?.type === SPEC_TREE_ENTRY_TYPE.NODE ? sourceEntry.id : context.parentId,
       });
