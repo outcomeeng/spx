@@ -10,6 +10,8 @@ Composition from a shared vocabulary is the only shape that satisfies "self-cont
 
 The vocabulary is a superset of the live kind registry because supersession is a property of grammar history, not of the live taxonomy. Historical suffix literals such as `.capability`, `.feature`, and `.story` are accepted by a prior version and by no live kind. Adding them to `KIND_REGISTRY` to make the prior version self-contained would resurrect them as valid kinds — re-deriving `NodeKind`, the node sub-registries, and every exhaustive switch over them — so they belong to the grammar vocabulary, separate from the live kinds. The canonical version's suffix sets, by contrast, are exactly the live kinds, so they project from `KIND_REGISTRY` rather than re-declaring `.enabler` and `.outcome`.
 
+A version's accepted node-suffix set is the set its era accepted, not a cumulative tally: a node-suffix taxonomy change replaces the set rather than extending it, so `.capability`/`.feature`/`.story` belong to the prior version alone and `.enabler`/`.outcome` to the canonical version alone — no suffix appears in both. The vocabulary still equals the union of the per-version sets because the union of two disjoint era-sets is their concatenation; a suffix appearing in two versions would mean both eras accepted it, which a replacing taxonomy change never produces.
+
 A consumer that recognizes or rejects filenames by grammar token — deprecated-suffix rejection among them — reads the token sets from the library surface for the reason [`21-kind-registry.adr.md`](../21-kind-registry.adr.md) gives for kinds: a token re-declared in a consumer is drift the recognizer that owns the true vocabulary cannot see.
 
 ## Invariants
