@@ -166,7 +166,7 @@ export function buildMarkdownlintConfig(directoryName: string): {
  * Get the default directories to validate.
  *
  * Returns absolute paths for spx/ and docs/ directories that exist
- * within the given project root. This is a pure function for testability.
+ * within the given project root.
  *
  * @param projectRoot - Absolute path to the project root
  * @returns Array of absolute paths to existing default directories
