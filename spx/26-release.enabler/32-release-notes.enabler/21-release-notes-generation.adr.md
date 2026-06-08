@@ -1,6 +1,6 @@
 # Release Notes Generation
 
-Release notes are produced by a composition in `src/domains/release/` that assembles a prompt from the release data, invokes an injected agent runner to write the notes to the path resolved from that release data, and reads the file back to validate its path and Keep a Changelog structure before the release proceeds. The agent runner — the Claude Agent SDK `query()` in production — lives behind a dependency-injected interface in `src/agent/`, scoped to a caller-supplied working directory, a file read/write/edit tool allowlist, and a non-interactive permission mode.
+Release notes are produced by a composition in `src/domains/release/` that assembles a prompt from the release data, invokes an injected agent runner to write the notes to the changelog path resolved from the resolved configuration within the product working tree, and reads the file back to validate its path and Keep a Changelog structure before the release proceeds. The agent runner — the Claude Agent SDK `query()` in production — lives behind a dependency-injected interface in `src/agent/`, scoped to a caller-supplied working directory, a file read/write/edit tool allowlist, and a non-interactive permission mode.
 
 ## Rationale
 
@@ -13,7 +13,7 @@ The dependency-injected agent runner, the sanitized boundary, the prohibition on
 ## Invariants
 
 - Release-notes generation is a function of the release data, the resolved configuration, and the injected agent runner: the prompt carries nothing but release-data-derived content and the child's own resolved configuration.
-- The release proceeds only when the written notes read back at the path resolved from the release data and conform to the Keep a Changelog structure.
+- The release proceeds only when the written notes read back at the changelog path resolved from the resolved configuration and conform to the Keep a Changelog structure.
 
 ## Verification
 
