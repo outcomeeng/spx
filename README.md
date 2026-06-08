@@ -29,7 +29,8 @@ npm install -g @outcomeeng/spx
 git clone https://github.com/outcomeeng/spx.git
 cd spx
 pnpm install && pnpm run build
-pnpm link --global
+pnpm add -g .   # `pnpm link --global` was removed in pnpm 11
+# if `spx` is not on PATH afterward: run `pnpm setup`, then restart your shell
 ```
 
 ## Usage
@@ -110,7 +111,7 @@ git clone https://github.com/outcomeeng/spx.git
 cd spx
 pnpm install
 pnpm run build
-pnpm link --global  # Optional: makes 'spx' available in your shell
+pnpm add -g .  # optional: makes 'spx' available in your shell (`pnpm link --global` was removed in pnpm 11; run `pnpm setup` if it's not on PATH)
 ```
 
 ### Build and Test
