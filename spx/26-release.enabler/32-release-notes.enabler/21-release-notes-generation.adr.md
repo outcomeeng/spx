@@ -14,6 +14,7 @@ The dependency-injected agent runner, the sanitized boundary, the prohibition on
 
 - Release-notes generation is a function of the release data, the resolved configuration, and the injected agent runner: the prompt carries nothing but release-data-derived content and the child's own resolved configuration.
 - The release proceeds only when the written notes read back at the changelog path resolved from the resolved configuration and conform to the Keep a Changelog structure.
+- The resolved changelog path is contained within the product working tree; a configured changelog path that escapes the working tree is rejected before the agent runner is invoked.
 
 ## Verification
 
