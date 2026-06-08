@@ -1,6 +1,6 @@
 # Python Test Runner Architecture
 
-The Python test runner is a `pythonTestingLanguage` descriptor exported from `src/testing/languages/python.ts`, conforming to the `TestingLanguageDescriptor` contract of `spx/19-language-registration.adr.md`. It detects Python presence, invokes pytest, and derives passing-scope exclusion flags entirely through injected dependencies — the command runner and the detection function — so command construction, the detection gate, and flag generation are verifiable at `l1` without the real tool. The descriptor exposes `name` (`python`), `testFilePatterns` (`test_*.py`) and a matching predicate over file paths, `detect(projectRoot, deps)` delegating to the injected `detectPython`, `excludeFlag(nodePath)` mapping an excluded node path to `--ignore=spx/{nodePath}/`, and `runTests(request, deps)` invoking `uv run pytest` through the injected command runner over the supplied test paths and exclusion flags and returning a runner outcome carrying the process exit code.
+The Python test runner is a `pythonTestingLanguage` descriptor exported from `src/testing/languages/python.ts`, conforming to the `TestingLanguageDescriptor` contract of `spx/19-language-registration.adr.md`. It detects Python presence, invokes pytest, and derives passing-scope exclusion flags entirely through injected dependencies — the command runner and the detection function — so command construction, the detection gate, and flag generation are verifiable at `l1` without the real tool. The descriptor exposes `name` (`python`), `testFilePatterns` (`test_*.py`) and a matching predicate over file paths, `detect(projectRoot, deps)` delegating to the injected `detectPython`, `excludeFlag(nodePath)` mapping an excluded node path to `--ignore=spx/{nodePath}/`, and `runTests(request, deps)` invoking `uv run pytest` through the injected command runner over the supplied test paths and exclusion flags and returning a runner outcome carrying the process exit code. The runner constructs no rootdir flag; pytest derives its rootdir, configuration discovery, and managed environment from the command runner's working directory and the supplied paths.
 
 ## Rationale
 
@@ -14,7 +14,6 @@ Writing exclusions into `pyproject.toml` was rejected because it mutates product
 - The detection gate short-circuits before any subprocess is spawned when Python is absent.
 - No product configuration file is written during detection, flag generation, or invocation.
 - An excluded node path maps to exactly one `--ignore=spx/{nodePath}/` flag.
-- The runner constructs no pytest rootdir flag; pytest derives its rootdir, configuration discovery, and managed environment from the command runner's working directory and the supplied paths.
 
 ## Verification
 
