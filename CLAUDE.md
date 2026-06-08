@@ -266,7 +266,48 @@ Ask the PR reviewers for adversarial auditing of all architecture, security-sens
 
 See the [Development section in README.md](README.md#development) for setup, build, and test commands.
 
-Use `pnpm run` scripts (e.g. `pnpm run validate`, `pnpm test`) for development — they work without a global link. The `spx` command requires `pnpm link --global` after building.
+### Which `spx` to invoke
+
+Two different things are named `spx`; they are **not** interchangeable.
+
+- **`spx` (on `PATH`)** runs the **`main` worktree's built `dist/cli.js`**. `pnpm add -g .` registers that worktree's package in the global pnpm store and symlinks it there, so the shim at `~/.local/share/pnpm/bin/spx` resolves through `~/.local/share/pnpm/global/v11/<hash>/node_modules/@outcomeeng/spx/bin/spx.js` to the `main` worktree's `bin/spx.js` → `dist/cli.js`. It is therefore a *build snapshot*: only as current as the last `pnpm run build` in the `main` worktree, and it never reflects a feature worktree's in-progress source. It is **shared infrastructure — agents and sessions across many repositories depend on `spx` being on `PATH`.** Keep it present and healthy; never route around it.
+- **`tsx src/cli.ts …`** (and the `pnpm run` wrappers that call it — `pnpm run validate`, `pnpm test`, `pnpm run lint`, …) runs the **current worktree's live source**, no build step. It always reflects exactly what you are editing.
+- **`node bin/spx.js …`** (`pnpm run validate:published`) runs the current worktree's built `dist/` — the packaged-artifact gate; requires `pnpm run build` first.
+
+Choose by what the command's result depends on:
+
+| Task                                                                      | Invoke                                                                                                     |
+| ------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------- |
+| Validate / test / lint / typecheck / `spec status` of work in progress    | `pnpm run <script>` or `tsx src/cli.ts …` — current source; a global `spx` would test `main`'s stale build |
+| Any command whose behavior you are changing on this branch                | `tsx src/cli.ts …` — exercise the live code, never a build                                                 |
+| Stable operational commands — `session handoff`/`list`/`pickup`/`archive` | `spx …` on `PATH` — canonical; `.spx/` state resolves to the shared common-dir from any worktree CWD       |
+| Validate the published executable (release gate)                          | `pnpm run build`, then `pnpm run validate:published`                                                       |
+| In doubt                                                                  | `tsx src/cli.ts …` — always correct (live source)                                                          |
+
+**NEVER substitute `tsx src/cli.ts` for `spx` because you assume `spx` is missing.** `spx` must always be on `PATH`; a failing `command -v spx` is a break to repair immediately (below), not a condition to route around.
+
+#### Fixing the global `spx`
+
+`pnpm link --global` was **removed in pnpm 11**; (re)create the global `spx` with `pnpm add -g .`, run from the **`main`** worktree (locate it with `git worktree list` — the one on `[main]`).
+
+- **Missing or broken** (`command -v spx` returns nothing, or `spx` errors): restore it immediately — external dependents rely on it. From the `main` worktree:
+
+  ```bash
+  git pull        # update main
+  pnpm install
+  pnpm add -g .   # register this package globally; the shim is symlinked from main
+  pnpm setup      # only if PATH lacks $PNPM_HOME/bin — appends it to the shell rc; reload the shell after
+  which spx       # verify
+  ```
+
+- **Stale** (present but an old build that lags `origin/main`): the global `spx` is symlinked from the `main` worktree, so refresh that worktree's `dist/` — its Lefthook `post-merge`/`post-rewrite` `rebuild-dist` hook rebuilds on pull:
+
+  ```bash
+  git pull        # in the main worktree; fires rebuild-dist
+  # or, if already current: pnpm run build
+  ```
+
+Because the global `spx` tracks the `main` worktree's build, feature worktrees use `pnpm run` / `tsx src/cli.ts` for their own work and never rely on `spx` reflecting uncommitted or unmerged changes.
 
 ## Architecture
 
