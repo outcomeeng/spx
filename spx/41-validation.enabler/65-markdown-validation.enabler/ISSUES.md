@@ -52,23 +52,3 @@ this node's `.integration`/`.e2e` tests tracked alongside the test-evidence-nami
 enforcement rule.
 
 **Skills:** `typescript:testing-typescript`, `spec-tree:applying`.
-
-## FOLLOW-UP: `getDefaultDirectories` docstring claims a purity it does not have
-
-`getDefaultDirectories` (`src/validation/steps/markdown.ts:174`) filters
-`MARKDOWN_DEFAULT_DIRECTORY_NAMES` through `existsSync` (line 177), so it reads
-the filesystem at call time and is not pure. Its docstring (line 169) still reads
-"This is a pure function for testability," contradicting the corrected
-`21-markdownlint-integration.adr.md`, which describes it as a filesystem-reading
-resolver `l1`-tested against fixture directories. The ADR is the authoritative
-layer; the docstring is the lower layer in violation.
-
-**Resolution:** when next editing `src/validation/steps/markdown.ts`, drop the
-"pure function" phrasing from the `getDefaultDirectories` docstring; the ADR
-already declares the accurate behavior.
-
-**Evidence:** CI spec-tree-review DEBT on PR #133;
-`src/validation/steps/markdown.ts:169,177`;
-`spx/41-validation.enabler/65-markdown-validation.enabler/21-markdownlint-integration.adr.md`.
-
-**Skills:** `typescript:coding-typescript`.
