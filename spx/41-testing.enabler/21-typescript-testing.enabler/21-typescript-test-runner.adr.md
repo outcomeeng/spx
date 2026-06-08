@@ -1,6 +1,6 @@
 # TypeScript Test Runner Architecture
 
-The TypeScript test runner is a `typescriptTestingLanguage` descriptor exported from `src/testing/languages/typescript.ts`, conforming to the `TestingLanguageDescriptor` contract of `spx/19-language-registration.adr.md`. It detects TypeScript presence, invokes vitest through the project's package manager, and derives passing-scope exclusion flags entirely through injected dependencies — the command runner and the detection function — so command construction, the detection gate, and flag generation are verifiable at `l1` without the real tool.
+The TypeScript test runner is a `typescriptTestingLanguage` descriptor exported from `src/testing/languages/typescript.ts`, conforming to the `TestingLanguageDescriptor` contract of `spx/19-language-registration.adr.md`. It detects TypeScript presence, invokes vitest through the project's package manager, and derives passing-scope exclusion flags entirely through injected dependencies — the command runner and the detection function — so command construction, the detection gate, and flag generation are verifiable at `l1` without the real tool. The descriptor exposes `name` (`typescript`), `testFilePatterns` (`*.test.ts`, `*.test.tsx`) and a matching predicate over file paths, `detect(projectRoot, deps)` delegating to the injected `detectTypeScript`, `excludeFlag(nodePath)` mapping an excluded node path to `--exclude=spx/{nodePath}/**`, and `runTests(request, deps)` invoking vitest through the injected command runner over the supplied paths and exclusion flags and returning a runner outcome carrying the process exit code.
 
 ## Rationale
 
@@ -9,8 +9,6 @@ Injecting the command runner and the detection function makes command constructi
 Writing exclusions into `vitest.config.ts` was rejected because it mutates product configuration the node must never write; resolving and spawning the vitest binary directly was rejected because it bypasses the package manager and its environment and hardcodes a path; detecting TypeScript inside the runner via direct filesystem reads was rejected because it duplicates `detectTypeScript` and couples the runner to the filesystem; skipping the detection gate to let vitest no-op on a non-TypeScript project was rejected because it invokes a subprocess pointlessly and conflates "absent" with "passed".
 
 ## Invariants
-
-The descriptor exposes `name` (`typescript`), `testFilePatterns` (`*.test.ts`, `*.test.tsx`) and a matching predicate over file paths, `detect(projectRoot, deps)` delegating to the injected `detectTypeScript`, `excludeFlag(nodePath)` mapping an excluded node path to `--exclude=spx/{nodePath}/**`, and `runTests(request, deps)` invoking vitest through the injected command runner over the supplied paths and exclusion flags and returning a runner outcome carrying the process exit code.
 
 - Command construction is a pure function of the supplied paths and exclusion flags.
 - The detection gate short-circuits before any subprocess is spawned when TypeScript is absent.
