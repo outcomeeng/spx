@@ -1,0 +1,13 @@
+# Open Issues
+
+## Direct filesystem read in the domain contradicts the CLI composition purity law
+
+[21-verdict-reader.adr.md](21-verdict-reader.adr.md) defines `readVerdictFile(filePath)` in `src/domains/audit/reader.ts` as a function that reads and parses an audit verdict XML **file** (it throws on ENOENT for a missing file). A direct filesystem read inside a `src/domains/` module contradicts `spx/14-cli-composition.adr.md`: "NEVER: a module under `src/domains/{domain}/` … accesses the filesystem or process."
+
+The ADR does not merely permit the violation — it forbids the conforming fix. Its Verification carries: "NEVER: inject the filesystem layer through an interface abstraction — the file path string is the module's external boundary, so the read is integral to the contract." That is the inverse of the governing product ADR and of the release-data pattern, where filesystem and process access flows through an injected dependency (`computeReleaseData` in `src/domains/release/release-data.ts` delegates git access to the injected `GitDependencies`).
+
+The conforming pattern separates the filesystem read from the parse: the read flows through an injected dependency or a `src/commands/audit/` handler, and the pure parse — XML string to the typed `AuditVerdict` — stays in the domain. The `readVerdictFile` contract conflates the two.
+
+A parallel instance of the same contradiction — `src/domains/audit/run-state.ts` performing run-directory creation and `state.json` writing — is tracked in [spx/36-audit.enabler/ISSUES.md](../../ISSUES.md). Both share the resolution path below; addressing one without the other leaves the contradiction half-resolved.
+
+**Resolution (deferred, separate work).** Per the truth hierarchy, `spx/14-cli-composition.adr.md` is the product ADR governing every domain; `21-verdict-reader.adr.md` is node-scoped and cannot override it, so its "NEVER inject the filesystem" rule is itself the rule in violation. The primary path is therefore to conform the node ADR and `src/domains/audit/reader.ts`: move the read behind an injected dependency or into a `src/commands/audit/` handler, keep the XML-string-to-`AuditVerdict` parse in the domain, and remove the "NEVER inject the filesystem" rule. A secondary, higher-impact option — requiring its own justification, since it deliberately weakens the product law — is to amend `spx/14-cli-composition.adr.md` to sanction leaf I/O-utility modules as an explicit exception and have this ADR cite it. The contradiction holds until one of these lands. Skills: `/spec-tree:contextualizing`, `/typescript:architecting-typescript`, `/typescript:auditing-typescript-architecture`.
