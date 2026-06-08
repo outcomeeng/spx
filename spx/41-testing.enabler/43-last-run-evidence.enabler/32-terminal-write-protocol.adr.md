@@ -1,6 +1,6 @@
 # Atomic Terminal-State Write Protocol
 
-A single test run's terminal state is published through a write-once protocol: serialize to a uniquely named temporary file in the run directory with an exclusive-create flag, then atomically rename it onto `state.json`, refusing the write when a `state.json` already exists. Reads classify any run directory whose `state.json` is missing, unreadable, unparseable, or shape-invalid as incomplete evidence rather than failing the whole lookup.
+A single test run's terminal state is published through a write-once protocol: serialize to a uniquely named temporary file in the run directory with an exclusive-create flag, then atomically rename it onto `state.json`, refusing the write when a `state.json` already exists. Reads classify any run directory whose `state.json` is missing, unreadable, unparseable, or shape-invalid as incomplete evidence rather than failing the whole lookup. The module exports `writeTerminalTestRunState(runDir, state, deps)` (temp-file + atomic rename, exclusive create, refuse overwrite); `TESTING_RUN_STATE_INCOMPLETE_REASON`, the closed set of reasons a run directory is incomplete (missing, I/O error, parse-invalid, shape-invalid); and `TESTING_RUN_STATE_ERROR`, the closed run-state failure set — run-directory creation (collision-limit, run-directory-create-failed) and terminal write (state-already-exists, write-failed). The terminal status needs no guard because `TestRunState.status` is a closed terminal union and the read path validates deserialized status.
 
 ## Rationale
 
@@ -9,8 +9,6 @@ Temp-file-plus-rename makes the publish of a terminal record atomic on POSIX fil
 Writing `state.json` in place was rejected because a reader can observe a partial file mid-write; overwriting an existing terminal record on re-run was rejected because it destroys prior evidence and races concurrent readers; failing the entire branch lookup on one unparseable `state.json` was rejected because one corrupt directory would blind fast status to all healthy runs.
 
 ## Invariants
-
-The module exports `writeTerminalTestRunState(runDir, state, deps)` (temp-file + atomic rename, exclusive create, refuse overwrite); `TESTING_RUN_STATE_INCOMPLETE_REASON`, the closed set of reasons a run directory is incomplete (missing, I/O error, parse-invalid, shape-invalid); and `TESTING_RUN_STATE_ERROR`, the closed run-state failure set — run-directory creation (collision-limit, run-directory-create-failed) and terminal write (state-already-exists, write-failed). The terminal status needs no guard because `TestRunState.status` is a closed terminal union and the read path validates deserialized status.
 
 - A reader observes `state.json` as either absent or complete — never partially written.
 - An existing terminal `state.json` is never overwritten by a subsequent write.
