@@ -295,9 +295,10 @@ Choose by what the command's result depends on:
   ```bash
   git pull        # update main
   pnpm install
+  pnpm run build  # ensure dist/cli.js exists — the global shim resolves bin/spx.js -> dist/cli.js
   pnpm add -g .   # register this package globally; the shim is symlinked from main
   # first run on a machine: if `pnpm add -g .` errors about the global bin directory,
-  # run `pnpm setup`, reload the shell, then re-run `pnpm add -g .`
+  # run `pnpm setup`, restart your shell, then re-run `pnpm add -g .`
   which spx       # verify
   ```
 
