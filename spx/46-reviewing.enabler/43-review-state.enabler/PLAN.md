@@ -10,7 +10,7 @@ Persist local review observations for status and latest-review lookup.
 - `spx/46-reviewing.enabler/15-review-directory.adr.md`
 - `spx/46-reviewing.enabler/21-review-config.enabler/review-config.md`
 - `spx/16-config.enabler/54-canonical-descriptor-digest.enabler/canonical-descriptor-digest.md`
-- `spx/15-worktree-resolution.pdr.md`
+- `spx/15-worktree-management.pdr.md`
 
 ## Implementation Notes
 

@@ -18,7 +18,7 @@ Rejected: a hidden-prefix layer excluding dot-prefixed entries (silently skips p
 
 ### Audit
 
-- ALWAYS: default automatic walks consult `git ls-files --cached --others --exclude-standard --full-name` against the working tree resolved per `spx/15-worktree-resolution.pdr.md` ([audit])
+- ALWAYS: default automatic walks consult `git ls-files --cached --others --exclude-standard --full-name` against the working tree resolved per `spx/15-worktree-management.pdr.md` ([audit])
 - ALWAYS: every consumer-supplied explicit path bypasses every shared layer and every domain path filter, and appears in the included set with a decision trail naming the explicit-override layer ([audit])
 - ALWAYS: a consumer-supplied domain path filter records include and exclude matches in the scope decision trail without affecting any other domain's scope ([audit])
 - ALWAYS: submodule contents are excluded from automatic walks; an explicit path under a submodule directory is honored as caller intent and reaches the included set ([audit])

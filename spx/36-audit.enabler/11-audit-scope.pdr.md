@@ -16,7 +16,7 @@ A CLI success criterion makes the auditing skill's completion state mechanical a
 
 ### Audit
 
-- ALWAYS: store verdict files in `.spx/audit/{branch-slug}/` at the Git common-dir product root per `spx/15-worktree-resolution.pdr.md` ([audit])
+- ALWAYS: store verdict files in `.spx/audit/{branch-slug}/` at the Git common-dir product root per `spx/15-worktree-management.pdr.md` ([audit])
 - ALWAYS: accept any file path as the argument to `spx audit verify` — the command is not restricted to `.spx/audit/` contents ([audit])
 - ALWAYS: register audit configuration through the config descriptor system per `spx/16-config.enabler/21-descriptor-registration.adr.md` rather than parsing raw `spx.config.*` content in audit code ([audit])
 - NEVER: write verdict files into the `spx/` spec tree ([audit])

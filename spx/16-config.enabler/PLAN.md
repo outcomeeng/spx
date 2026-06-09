@@ -8,7 +8,7 @@ Coordinate the refactor tranche that moves deterministic execution domains onto 
 
 - `spx/16-config.enabler/21-descriptor-registration.adr.md` owns the generic descriptor mechanism, shared config primitives, and registry composition.
 - `spx/16-config.enabler/21-config-file-formats.adr.md` owns `spx.config.{json,yaml,toml}` format resolution.
-- `spx/15-worktree-resolution.pdr.md` owns whether a domain resolves tracked product files from the local worktree root or gitignored state from the Git common-dir product root.
+- `spx/15-worktree-management.pdr.md` owns whether a domain resolves tracked product files from the local worktree root or gitignored state from the Git common-dir product root.
 
 ## Settled foundations
 

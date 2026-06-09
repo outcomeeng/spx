@@ -28,7 +28,7 @@ pnpm run format:check
 Reported files outside this rollout included:
 
 - `pnpm-lock.yaml`
-- `spx/15-worktree-resolution.pdr.md`
+- `spx/15-worktree-management.pdr.md`
 - `spx/16-config.enabler/PLAN.md`
 - `spx/46-reviewing.enabler/15-review-directory.adr.md`
 

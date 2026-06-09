@@ -8,7 +8,7 @@ Implement branch-scoped audit storage and terminal run-state lookup.
 
 - `spx/36-audit.enabler/15-audit-directory.adr.md`
 - `spx/36-audit.enabler/43-audit-config.enabler/audit-config.md`
-- `spx/15-worktree-resolution.pdr.md`
+- `spx/15-worktree-management.pdr.md`
 
 ## Implementation Notes
 

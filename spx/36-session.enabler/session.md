@@ -18,5 +18,5 @@ CAN create, claim, release, and clean up work handoffs that remain accessible fr
 
 ### Compliance
 
-- ALWAYS: resolve `.spx/sessions/` relative to the Git common-dir product root per PDR-15 ([review](../15-worktree-resolution.pdr.md))
-- NEVER: create `.spx/` directories inside git worktrees — session state is shared across all worktrees per PDR-15 ([review](../15-worktree-resolution.pdr.md))
+- ALWAYS: resolve `.spx/sessions/` relative to the Git common-dir product root per PDR-15 ([review](../15-worktree-management.pdr.md))
+- NEVER: create `.spx/` directories inside git worktrees — session state is shared across all worktrees per PDR-15 ([review](../15-worktree-management.pdr.md))

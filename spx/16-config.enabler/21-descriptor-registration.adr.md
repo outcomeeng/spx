@@ -31,7 +31,7 @@ Rejected: static top-level keys baked into the config module (every new concern 
 - ALWAYS: repeated structural config shapes are factored into shared config primitives and imported by descriptors; domains do not copy-paste validators for the same shape ([audit])
 - ALWAYS: descriptor-section digest inputs use canonical descriptor JSON — recursively sorted object keys, preserved array order, `JSON.stringify` primitive semantics, no insignificant whitespace, and UTF-8 bytes ([audit])
 - ALWAYS: descriptor validators reject non-JSON-representable values before digest computation — `undefined`, `NaN`, `Infinity`, functions, symbols, and any other value outside JSON primitives, arrays, and objects ([audit])
-- ALWAYS: `resolveConfig(productDir: string)` accepts `productDir` as its first parameter — callers pass in the resolved product directory per `spx/15-worktree-resolution.pdr.md` ([audit])
+- ALWAYS: `resolveConfig(productDir: string)` accepts `productDir` as its first parameter — callers pass in the resolved product directory per `spx/15-worktree-management.pdr.md` ([audit])
 - ALWAYS: tests for the config module and every registered descriptor construct fixtures programmatically through the shared spec-tree harness — directory trees and config content are generated, never hand-written ([audit])
 - NEVER: parse raw `spx.config.*` content or reference config-file keys anywhere outside `src/config/` and descriptor modules ([audit])
 - NEVER: import one descriptor from another descriptor — descriptors are isolated by design ([audit])

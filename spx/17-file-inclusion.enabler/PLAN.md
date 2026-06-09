@@ -9,7 +9,7 @@ Implement the git-tracking layer model declared in `11-ignore-defaults.pdr.md` a
 - `11-ignore-defaults.pdr.md` — git as the default scope source, ripgrep CLI vocabulary for invocation-time overrides, dotfile divergence
 - `15-scope-composition.adr.md` — pipeline assembly with the git-tracking layer constructed once per resolver invocation
 - `spx/16-config.enabler/21-descriptor-registration.adr.md` — shared config primitives and domain descriptors
-- `spx/15-worktree-resolution.pdr.md` — `productDir` resolution via `git rev-parse --show-toplevel`
+- `spx/15-worktree-management.pdr.md` — `productDir` resolution via `git rev-parse --show-toplevel`
 
 ## Current Tranche
 
