@@ -18,7 +18,7 @@ import { RELEASE_TEST_GENERATOR, sampleReleaseTestValue } from "@testing/generat
 import { RecordingWritingAgentRunner } from "@testing/harnesses/release/agent-runner";
 import { withReleaseNotesEnv } from "@testing/harnesses/release/release-notes-env";
 
-describe("composeReleaseNotes assembles the prompt only from release data and resolved config", () => {
+describe("composeReleaseNotes builds the prompt from the release data and resolved configuration", () => {
   it("includes the release version, the commit subjects, and the resolved changelog path in the prompt", async () => {
     await withReleaseNotesEnv(async ({ workingDirectory, readArtifact }) => {
       const releaseData = sampleReleaseTestValue(RELEASE_TEST_GENERATOR.releaseData());
