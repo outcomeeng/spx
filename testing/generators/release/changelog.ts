@@ -82,16 +82,43 @@ export function arbitraryConformantChangelog(
     .map((group) => conformantChangelogWith(group, version, subjects));
 }
 
+/** The source-owned change group the non-conformant cases use where a group heading must be present. */
+const SAMPLE_CHANGE_GROUP = CHANGELOG_CHANGE_GROUPS[0];
+
+/** A non-conformant changelog body paired with the structural defect it carries. */
+export interface NonConformantChangelogCase {
+  /** A description of the defect, for the test title. */
+  readonly label: string;
+  /** The non-conformant changelog body. */
+  readonly content: string;
+}
+
 /**
- * Non-conformant Keep a Changelog bodies for `version` that the read-back
- * validation must reject: a body missing the title, a body whose title is present
- * but with no section for the release version, and an empty body.
+ * The Keep a Changelog bodies the read-back validation must reject, one per
+ * structural defect — missing title, missing version section, missing change-group
+ * heading, and an empty body. Each isolates a single validator branch so every
+ * branch is exercised when the cases drive a parameterized test.
  */
-export function arbitraryNonConformantChangelog(
+export function nonConformantChangelogCases(
   version: string,
   subjects: readonly string[],
-): fc.Arbitrary<string> {
-  const missingTitle = [changelogVersionHeading(version), formatEntries(subjects), BLANK_LINE].join(LINE_SEPARATOR);
-  const missingVersionSection = [CHANGELOG_TITLE, BLANK_LINE, formatEntries(subjects), BLANK_LINE].join(LINE_SEPARATOR);
-  return fc.constantFrom(missingTitle, missingVersionSection, EMPTY_CHANGELOG);
+): readonly NonConformantChangelogCase[] {
+  const entries = formatEntries(subjects);
+  const groupHeading = changelogGroupHeading(SAMPLE_CHANGE_GROUP);
+  const versionHeading = changelogVersionHeading(version);
+  return [
+    {
+      label: "is missing the title",
+      content: [versionHeading, groupHeading, entries, BLANK_LINE].join(LINE_SEPARATOR),
+    },
+    {
+      label: "is missing the version section",
+      content: [CHANGELOG_TITLE, BLANK_LINE, groupHeading, entries, BLANK_LINE].join(LINE_SEPARATOR),
+    },
+    {
+      label: "is missing a change-group heading",
+      content: [CHANGELOG_TITLE, BLANK_LINE, versionHeading, entries, BLANK_LINE].join(LINE_SEPARATOR),
+    },
+    { label: "is empty", content: EMPTY_CHANGELOG },
+  ];
 }

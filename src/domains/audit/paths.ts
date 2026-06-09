@@ -1,5 +1,8 @@
 import { existsSync } from "node:fs";
-import { relative, resolve } from "node:path";
+import { resolve } from "node:path";
+
+import { isPathContained } from "@/lib/file-system/pathContainment";
+
 import { AuditVerdict } from "./reader";
 
 export const AUDIT_PATH_DEFECT = {
@@ -24,8 +27,7 @@ export function validatePaths(verdict: AuditVerdict, productDir: string): readon
 function checkPath(filePath: string | undefined, root: string, defects: string[]): void {
   if (!filePath) return;
 
-  const rel = relative(root, resolve(root, filePath));
-  if (rel.startsWith("..")) {
+  if (!isPathContained(root, filePath)) {
     defects.push(`${AUDIT_PATH_DEFECT.ESCAPES_ROOT}: ${filePath}`);
     return;
   }

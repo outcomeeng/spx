@@ -1,7 +1,8 @@
-import { isAbsolute, relative, resolve, sep } from "node:path";
+import { resolve } from "node:path";
 
 import type { AgentRunner } from "@/agent/agent-runner";
 import type { ReleaseData } from "@/domains/release/release-data";
+import { isPathContained } from "@/lib/file-system/pathContainment";
 
 /**
  * The injected read-back dependency. After the agent writes the changelog, the
@@ -19,9 +20,6 @@ export interface ReleaseNotesConfig {
 
 /** The default changelog path, relative to the product working tree. */
 export const DEFAULT_CHANGELOG_PATH = "CHANGELOG.md";
-
-/** The path segment that signals a relative path stepping above its base directory. */
-const PARENT_DIRECTORY = "..";
 
 /**
  * A release-notes generation failure: a configured changelog path escaping the
@@ -60,15 +58,10 @@ export function changelogGroupHeading(group: ChangelogChangeGroup): string {
  */
 export function resolveReleaseNotesPath(workingDirectory: string, config: ReleaseNotesConfig): string {
   const configuredPath = config.changelogPath ?? DEFAULT_CHANGELOG_PATH;
-  const resolved = resolve(workingDirectory, configuredPath);
-  const relativeToWorkingTree = relative(workingDirectory, resolved);
-  const escapesWorkingTree = relativeToWorkingTree === PARENT_DIRECTORY
-    || relativeToWorkingTree.startsWith(`${PARENT_DIRECTORY}${sep}`)
-    || isAbsolute(relativeToWorkingTree);
-  if (escapesWorkingTree) {
+  if (!isPathContained(workingDirectory, configuredPath)) {
     throw new ReleaseNotesError(`Configured changelog path escapes the product working tree: ${configuredPath}`);
   }
-  return resolved;
+  return resolve(workingDirectory, configuredPath);
 }
 
 export interface ComposeReleaseNotesOptions {
@@ -121,9 +114,9 @@ function buildReleaseNotesPrompt(releaseData: ReleaseData, changelogPath: string
 }
 
 /**
- * Validates that the read-back notes conform to the Keep a Changelog structure and
- * carry a section for the release version. Throws when the title or the version
- * section is absent.
+ * Validates that the read-back notes conform to the Keep a Changelog structure:
+ * the title, a section for the release version, and at least one change-group
+ * heading grouping that section's entries. Throws when any is absent.
  */
 function assertConformsToKeepAChangelog(notes: string, version: string): void {
   if (!notes.includes(CHANGELOG_TITLE)) {
@@ -133,6 +126,14 @@ function assertConformsToKeepAChangelog(notes: string, version: string): void {
   if (!notes.includes(versionHeading)) {
     throw new ReleaseNotesError(
       `Generated release notes are missing a section for version ${version}: "${versionHeading}"`,
+    );
+  }
+  const hasChangeGroup = CHANGELOG_CHANGE_GROUPS.some((group) => notes.includes(changelogGroupHeading(group)));
+  if (!hasChangeGroup) {
+    throw new ReleaseNotesError(
+      `Generated release notes are missing a Keep a Changelog change-group heading (one of: ${
+        CHANGELOG_CHANGE_GROUPS.join(", ")
+      })`,
     );
   }
 }
