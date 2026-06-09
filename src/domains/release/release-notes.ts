@@ -136,7 +136,8 @@ function assertConformsToKeepAChangelog(notes: string, version: string): void {
     );
   }
   const releaseSection = releaseSectionFrom(notes, versionIndex + versionHeading.length);
-  const hasChangeGroup = CHANGELOG_CHANGE_GROUPS.some((group) => releaseSection.includes(changelogGroupHeading(group)));
+  const allowedGroupHeadings = new Set(CHANGELOG_CHANGE_GROUPS.map((group) => changelogGroupHeading(group)));
+  const hasChangeGroup = releaseSection.split("\n").some((line) => allowedGroupHeadings.has(line.trimEnd()));
   if (!hasChangeGroup) {
     throw new ReleaseNotesError(
       `Generated release notes are missing a Keep a Changelog change-group heading under "${versionHeading}" (one of: ${
