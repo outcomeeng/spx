@@ -129,15 +129,17 @@ function assertConformsToKeepAChangelog(notes: string, version: string): void {
     );
   }
   const versionHeading = changelogVersionHeading(version);
-  const versionIndex = notes.indexOf(versionHeading);
-  if (versionIndex === -1) {
+  const lines = notes.split("\n");
+  const versionLineIndex = lines.findIndex((line) => line.startsWith(versionHeading));
+  if (versionLineIndex === -1) {
     throw new ReleaseNotesError(
       `Generated release notes are missing a section for version ${version}: "${versionHeading}"`,
     );
   }
-  const releaseSection = releaseSectionFrom(notes, versionIndex + versionHeading.length);
   const allowedGroupHeadings = new Set(CHANGELOG_CHANGE_GROUPS.map((group) => changelogGroupHeading(group)));
-  const hasChangeGroup = releaseSection.split("\n").some((line) => allowedGroupHeadings.has(line.trimEnd()));
+  const hasChangeGroup = releaseSectionLines(lines, versionLineIndex).some((line) =>
+    allowedGroupHeadings.has(line.trimEnd())
+  );
   if (!hasChangeGroup) {
     throw new ReleaseNotesError(
       `Generated release notes are missing a Keep a Changelog change-group heading under "${versionHeading}" (one of: ${
@@ -148,12 +150,12 @@ function assertConformsToKeepAChangelog(notes: string, version: string): void {
 }
 
 /**
- * The current release's section: the changelog text after its version heading up
- * to the next version section, so a prior section's change-group heading in an
+ * The current release's section lines: the lines after the version heading up to
+ * the next version section, so a prior section's change-group heading in an
  * accumulating changelog does not satisfy the current release's validation.
  */
-function releaseSectionFrom(notes: string, sectionStart: number): string {
-  const rest = notes.slice(sectionStart);
-  const nextSectionOffset = rest.indexOf(CHANGELOG_VERSION_SECTION_PREFIX);
-  return nextSectionOffset === -1 ? rest : rest.slice(0, nextSectionOffset);
+function releaseSectionLines(lines: readonly string[], versionLineIndex: number): readonly string[] {
+  const afterVersion = lines.slice(versionLineIndex + 1);
+  const nextSectionOffset = afterVersion.findIndex((line) => line.startsWith(CHANGELOG_VERSION_SECTION_PREFIX));
+  return nextSectionOffset === -1 ? afterVersion : afterVersion.slice(0, nextSectionOffset);
 }
