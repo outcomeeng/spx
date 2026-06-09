@@ -296,7 +296,8 @@ Choose by what the command's result depends on:
   git pull        # update main
   pnpm install
   pnpm add -g .   # register this package globally; the shim is symlinked from main
-  pnpm setup      # only if PATH lacks $PNPM_HOME/bin — appends it to the shell rc; reload the shell after
+  # first run on a machine: if `pnpm add -g .` errors about the global bin directory,
+  # run `pnpm setup`, reload the shell, then re-run `pnpm add -g .`
   which spx       # verify
   ```
 
