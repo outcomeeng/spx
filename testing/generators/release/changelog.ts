@@ -94,6 +94,9 @@ const PREAMBLE_LINE = "Release history.";
 /** An extra heading hash, for the case where the change-group heading is one level too deep. */
 const DEEPER_HEADING_HASH = "#";
 
+/** Extra title text, for the case where the first heading is not exactly the Keep a Changelog title. */
+const TITLE_SUFFIX = " (draft)";
+
 /** A non-conformant changelog body paired with the structural defect it carries. */
 export interface NonConformantChangelogCase {
   /** A description of the defect, for the test title. */
@@ -119,6 +122,11 @@ export function nonConformantChangelogCases(
     {
       label: "is missing the title",
       content: [versionHeading, groupHeading, entries, BLANK_LINE].join(LINE_SEPARATOR),
+    },
+    {
+      label: "appends extra text to the title heading",
+      content: [`${CHANGELOG_TITLE}${TITLE_SUFFIX}`, BLANK_LINE, versionHeading, groupHeading, entries, BLANK_LINE]
+        .join(LINE_SEPARATOR),
     },
     {
       label: "does not open with the title",
