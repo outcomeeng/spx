@@ -91,6 +91,9 @@ const PRIOR_VERSION_SUFFIX = "-prior";
 /** A non-title preamble line, for the case where the title is present but does not open the file. */
 const PREAMBLE_LINE = "Release history.";
 
+/** An extra heading hash, for the case where the change-group heading is one level too deep. */
+const DEEPER_HEADING_HASH = "#";
+
 /** A non-conformant changelog body paired with the structural defect it carries. */
 export interface NonConformantChangelogCase {
   /** A description of the defect, for the test title. */
@@ -138,6 +141,18 @@ export function nonConformantChangelogCases(
     {
       label: "is missing a change-group heading",
       content: [CHANGELOG_TITLE, BLANK_LINE, versionHeading, entries, BLANK_LINE].join(LINE_SEPARATOR),
+    },
+    {
+      label: "uses a heading one level too deep for the change group",
+      content: [
+        CHANGELOG_TITLE,
+        BLANK_LINE,
+        versionHeading,
+        `${DEEPER_HEADING_HASH}${groupHeading}`,
+        entries,
+        BLANK_LINE,
+      ]
+        .join(LINE_SEPARATOR),
     },
     {
       label: "groups a prior version's section but leaves the current release's ungrouped",
