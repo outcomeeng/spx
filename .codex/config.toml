@@ -1,6 +1,6 @@
 # Mirrors .claude/settings.json for this repository.
-# The global config keeps marketplaces available; this project layer narrows
-# enabled plugins so unrelated global plugins do not pollute context.
+# Global config keeps installed plugins available but disabled by default; this
+# project layer enables the repository-specific allowlist.
 
 [plugins."prose@outcomeeng"]
 enabled = true
@@ -20,36 +20,3 @@ enabled = true
 # SonarQube plugin is installed for Codex.
 [plugins."sonarqube@claude-plugins-official"]
 enabled = true
-
-[plugins."develop@outcomeeng"]
-enabled = false
-
-[plugins."python@outcomeeng"]
-enabled = false
-
-[plugins."rust@outcomeeng"]
-enabled = false
-
-[plugins."frontend@outcomeeng"]
-enabled = false
-
-[plugins."visual@outcomeeng"]
-enabled = false
-
-[plugins."vercel@openai-curated"]
-enabled = false
-
-[plugins."documents@openai-primary-runtime"]
-enabled = false
-
-[plugins."spreadsheets@openai-primary-runtime"]
-enabled = false
-
-[plugins."presentations@openai-primary-runtime"]
-enabled = false
-
-[plugins."impeccable@impeccable"]
-enabled = false
-
-[plugins."browser@openai-bundled"]
-enabled = false
