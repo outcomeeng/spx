@@ -1,0 +1,55 @@
+# Mirrors .claude/settings.json for this repository.
+# The global config keeps marketplaces available; this project layer narrows
+# enabled plugins so unrelated global plugins do not pollute context.
+
+[plugins."prose@outcomeeng"]
+enabled = true
+
+[plugins."typescript@outcomeeng"]
+enabled = true
+
+[plugins."spec-tree@outcomeeng"]
+enabled = true
+
+# Claude uses github@claude-plugins-official; Codex uses the installed
+# OpenAI-curated GitHub connector.
+[plugins."github@openai-curated"]
+enabled = true
+
+# Present in .claude/settings.json. Effective after the Claude-official
+# SonarQube plugin is installed for Codex.
+[plugins."sonarqube@claude-plugins-official"]
+enabled = true
+
+[plugins."develop@outcomeeng"]
+enabled = false
+
+[plugins."python@outcomeeng"]
+enabled = false
+
+[plugins."rust@outcomeeng"]
+enabled = false
+
+[plugins."frontend@outcomeeng"]
+enabled = false
+
+[plugins."visual@outcomeeng"]
+enabled = false
+
+[plugins."vercel@openai-curated"]
+enabled = false
+
+[plugins."documents@openai-primary-runtime"]
+enabled = false
+
+[plugins."spreadsheets@openai-primary-runtime"]
+enabled = false
+
+[plugins."presentations@openai-primary-runtime"]
+enabled = false
+
+[plugins."impeccable@impeccable"]
+enabled = false
+
+[plugins."browser@openai-bundled"]
+enabled = false

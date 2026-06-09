@@ -3,7 +3,8 @@
 !.claude/settings.json
 
 # Agent runtime config
-.codex/
+.codex/*
+!.codex/config.toml
 
 # Dependencies
 node_modules/
