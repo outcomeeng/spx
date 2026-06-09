@@ -8,6 +8,7 @@ import {
   DEFAULT_CHANGELOG_PATH,
   resolveReleaseNotesPath,
 } from "@/domains/release/release-notes";
+import { isPathContained } from "@/lib/file-system/pathContainment";
 import { arbitraryConfiguredChangelogPath, arbitraryConformantChangelog } from "@testing/generators/release/changelog";
 import { RELEASE_TEST_GENERATOR, sampleReleaseTestValue } from "@testing/generators/release/release";
 import { RecordingWritingAgentRunner } from "@testing/harnesses/release/agent-runner";
@@ -19,7 +20,7 @@ describe("resolveReleaseNotesPath resolves the changelog within the product work
       const resolved = resolveReleaseNotesPath(workingDirectory, {});
 
       expect(isAbsolute(resolved)).toBe(true);
-      expect(resolved.startsWith(workingDirectory)).toBe(true);
+      expect(isPathContained(workingDirectory, resolved)).toBe(true);
       expect(resolved.endsWith(DEFAULT_CHANGELOG_PATH)).toBe(true);
     });
   });
@@ -30,7 +31,7 @@ describe("resolveReleaseNotesPath resolves the changelog within the product work
 
       const resolved = resolveReleaseNotesPath(workingDirectory, { changelogPath });
 
-      expect(resolved.startsWith(workingDirectory)).toBe(true);
+      expect(isPathContained(workingDirectory, resolved)).toBe(true);
       expect(resolved.endsWith(changelogPath)).toBe(true);
     });
   });

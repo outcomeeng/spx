@@ -3,6 +3,7 @@ import { join } from "node:path";
 import { describe, expect, it } from "vitest";
 
 import { composeReleaseNotes, DEFAULT_CHANGELOG_PATH, resolveReleaseNotesPath } from "@/domains/release/release-notes";
+import { isPathContained } from "@/lib/file-system/pathContainment";
 import {
   arbitraryConfiguredChangelogPath,
   arbitraryConformantChangelog,
@@ -47,7 +48,7 @@ describe("composeReleaseNotes keeps the changelog path within the product workin
 
       await composeReleaseNotes({ releaseData, config, workingDirectory, agentRunner, readArtifact });
 
-      expect(resolvedPath.startsWith(workingDirectory)).toBe(true);
+      expect(isPathContained(workingDirectory, resolvedPath)).toBe(true);
       expect(agentRunner.requests).toHaveLength(1);
     });
   });

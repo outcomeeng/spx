@@ -35,6 +35,9 @@ export class ReleaseNotesError extends Error {
 /** The Keep a Changelog top-level heading every conformant changelog opens with. */
 export const CHANGELOG_TITLE = "# Changelog";
 
+/** The Keep a Changelog version-section prefix that every per-release heading opens with. */
+export const CHANGELOG_VERSION_SECTION_PREFIX = "## [";
+
 /** The Keep a Changelog change-group headings, the closed set a release section groups its entries under. */
 export const CHANGELOG_CHANGE_GROUPS = ["Added", "Changed", "Deprecated", "Removed", "Fixed", "Security"] as const;
 
@@ -42,7 +45,7 @@ export type ChangelogChangeGroup = (typeof CHANGELOG_CHANGE_GROUPS)[number];
 
 /** The Keep a Changelog per-release section heading for a version. */
 export function changelogVersionHeading(version: string): string {
-  return `## [${version}]`;
+  return `${CHANGELOG_VERSION_SECTION_PREFIX}${version}]`;
 }
 
 /** The Keep a Changelog change-group heading for a group. */
@@ -57,11 +60,12 @@ export function changelogGroupHeading(group: ChangelogChangeGroup): string {
  * outside `workingDirectory` is rejected.
  */
 export function resolveReleaseNotesPath(workingDirectory: string, config: ReleaseNotesConfig): string {
+  const root = resolve(workingDirectory);
   const configuredPath = config.changelogPath ?? DEFAULT_CHANGELOG_PATH;
-  if (!isPathContained(workingDirectory, configuredPath)) {
+  if (!isPathContained(root, configuredPath)) {
     throw new ReleaseNotesError(`Configured changelog path escapes the product working tree: ${configuredPath}`);
   }
-  return resolve(workingDirectory, configuredPath);
+  return resolve(root, configuredPath);
 }
 
 export interface ComposeReleaseNotesOptions {
@@ -123,17 +127,30 @@ function assertConformsToKeepAChangelog(notes: string, version: string): void {
     throw new ReleaseNotesError(`Generated release notes are missing the Keep a Changelog title "${CHANGELOG_TITLE}"`);
   }
   const versionHeading = changelogVersionHeading(version);
-  if (!notes.includes(versionHeading)) {
+  const versionIndex = notes.indexOf(versionHeading);
+  if (versionIndex === -1) {
     throw new ReleaseNotesError(
       `Generated release notes are missing a section for version ${version}: "${versionHeading}"`,
     );
   }
-  const hasChangeGroup = CHANGELOG_CHANGE_GROUPS.some((group) => notes.includes(changelogGroupHeading(group)));
+  const releaseSection = releaseSectionFrom(notes, versionIndex + versionHeading.length);
+  const hasChangeGroup = CHANGELOG_CHANGE_GROUPS.some((group) => releaseSection.includes(changelogGroupHeading(group)));
   if (!hasChangeGroup) {
     throw new ReleaseNotesError(
-      `Generated release notes are missing a Keep a Changelog change-group heading (one of: ${
+      `Generated release notes are missing a Keep a Changelog change-group heading under "${versionHeading}" (one of: ${
         CHANGELOG_CHANGE_GROUPS.join(", ")
       })`,
     );
   }
+}
+
+/**
+ * The current release's section: the changelog text after its version heading up
+ * to the next version section, so a prior section's change-group heading in an
+ * accumulating changelog does not satisfy the current release's validation.
+ */
+function releaseSectionFrom(notes: string, sectionStart: number): string {
+  const rest = notes.slice(sectionStart);
+  const nextSectionOffset = rest.indexOf(CHANGELOG_VERSION_SECTION_PREFIX);
+  return nextSectionOffset === -1 ? rest : rest.slice(0, nextSectionOffset);
 }
