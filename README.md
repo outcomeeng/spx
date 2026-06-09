@@ -30,7 +30,8 @@ git clone https://github.com/outcomeeng/spx.git
 cd spx
 pnpm install && pnpm run build
 pnpm add -g .   # `pnpm link --global` was removed in pnpm 11
-# if `spx` is not on PATH afterward: run `pnpm setup`, then restart your shell
+# first run on a machine: if `pnpm add -g .` fails with a global-bin-directory error,
+# run `pnpm setup`, restart your shell, then re-run `pnpm add -g .`
 ```
 
 ## Usage
@@ -111,7 +112,8 @@ git clone https://github.com/outcomeeng/spx.git
 cd spx
 pnpm install
 pnpm run build
-pnpm add -g .  # optional: makes 'spx' available in your shell (`pnpm link --global` was removed in pnpm 11; run `pnpm setup` if it's not on PATH)
+pnpm add -g .  # optional: makes 'spx' available in your shell (`pnpm link --global` was removed in pnpm 11)
+# if `pnpm add -g .` fails with a global-bin-directory error, run `pnpm setup`, restart your shell, then re-run it
 ```
 
 ### Build and Test
