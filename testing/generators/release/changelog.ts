@@ -88,6 +88,9 @@ const SAMPLE_CHANGE_GROUP = CHANGELOG_CHANGE_GROUPS[0];
 /** A suffix that makes a prior release's version heading distinct from the current one's. */
 const PRIOR_VERSION_SUFFIX = "-prior";
 
+/** A non-title preamble line, for the case where the title is present but does not open the file. */
+const PREAMBLE_LINE = "Release history.";
+
 /** A non-conformant changelog body paired with the structural defect it carries. */
 export interface NonConformantChangelogCase {
   /** A description of the defect, for the test title. */
@@ -113,6 +116,20 @@ export function nonConformantChangelogCases(
     {
       label: "is missing the title",
       content: [versionHeading, groupHeading, entries, BLANK_LINE].join(LINE_SEPARATOR),
+    },
+    {
+      label: "does not open with the title",
+      content: [
+        PREAMBLE_LINE,
+        BLANK_LINE,
+        CHANGELOG_TITLE,
+        BLANK_LINE,
+        versionHeading,
+        groupHeading,
+        entries,
+        BLANK_LINE,
+      ]
+        .join(LINE_SEPARATOR),
     },
     {
       label: "is missing the version section",

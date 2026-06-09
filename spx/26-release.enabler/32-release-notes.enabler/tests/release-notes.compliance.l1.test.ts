@@ -2,7 +2,12 @@ import { join } from "node:path";
 
 import { describe, expect, it } from "vitest";
 
-import { composeReleaseNotes, DEFAULT_CHANGELOG_PATH, resolveReleaseNotesPath } from "@/domains/release/release-notes";
+import {
+  composeReleaseNotes,
+  DEFAULT_CHANGELOG_PATH,
+  ReleaseNotesError,
+  resolveReleaseNotesPath,
+} from "@/domains/release/release-notes";
 import { isPathContained } from "@/lib/file-system/pathContainment";
 import {
   arbitraryConfiguredChangelogPath,
@@ -64,7 +69,7 @@ describe("composeReleaseNotes keeps the changelog path within the product workin
 
       await expect(
         composeReleaseNotes({ releaseData, config: { changelogPath }, workingDirectory, agentRunner, readArtifact }),
-      ).rejects.toThrow();
+      ).rejects.toThrow(ReleaseNotesError);
       expect(agentRunner.requests).toHaveLength(0);
     });
   });
