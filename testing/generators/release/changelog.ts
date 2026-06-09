@@ -139,6 +139,18 @@ export function nonConformantChangelogCases(
       content: [CHANGELOG_TITLE, BLANK_LINE, groupHeading, entries, BLANK_LINE].join(LINE_SEPARATOR),
     },
     {
+      label: "puts the version heading at the wrong level",
+      content: [
+        CHANGELOG_TITLE,
+        BLANK_LINE,
+        `${DEEPER_HEADING_HASH}${versionHeading}`,
+        groupHeading,
+        entries,
+        BLANK_LINE,
+      ]
+        .join(LINE_SEPARATOR),
+    },
+    {
       label: "is missing a change-group heading",
       content: [CHANGELOG_TITLE, BLANK_LINE, versionHeading, entries, BLANK_LINE].join(LINE_SEPARATOR),
     },
