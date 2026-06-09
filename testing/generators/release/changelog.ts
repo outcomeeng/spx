@@ -85,6 +85,9 @@ export function arbitraryConformantChangelog(
 /** The source-owned change group the non-conformant cases use where a group heading must be present. */
 const SAMPLE_CHANGE_GROUP = CHANGELOG_CHANGE_GROUPS[0];
 
+/** A suffix that makes a prior release's version heading distinct from the current one's. */
+const PRIOR_VERSION_SUFFIX = "-prior";
+
 /** A non-conformant changelog body paired with the structural defect it carries. */
 export interface NonConformantChangelogCase {
   /** A description of the defect, for the test title. */
@@ -118,6 +121,20 @@ export function nonConformantChangelogCases(
     {
       label: "is missing a change-group heading",
       content: [CHANGELOG_TITLE, BLANK_LINE, versionHeading, entries, BLANK_LINE].join(LINE_SEPARATOR),
+    },
+    {
+      label: "groups a prior version's section but leaves the current release's ungrouped",
+      content: [
+        CHANGELOG_TITLE,
+        BLANK_LINE,
+        versionHeading,
+        entries,
+        BLANK_LINE,
+        changelogVersionHeading(`${version}${PRIOR_VERSION_SUFFIX}`),
+        groupHeading,
+        entries,
+        BLANK_LINE,
+      ].join(LINE_SEPARATOR),
     },
     { label: "is empty", content: EMPTY_CHANGELOG },
   ];
