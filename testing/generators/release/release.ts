@@ -1,7 +1,7 @@
 import * as fc from "fast-check";
 
-import { VERSION_DELTA, type VersionDelta } from "@/domains/release/release-data";
-import { RELEASE_TAG_PREFIX } from "@/lib/git/release";
+import { type ReleaseData, VERSION_DELTA, type VersionDelta } from "@/domains/release/release-data";
+import { type GitCommit, RELEASE_TAG_PREFIX } from "@/lib/git/release";
 import { arbitraryPathSegment } from "@testing/generators/git-name/git-name";
 
 const VERSION_COMPONENT_MIN = 0;
@@ -19,6 +19,8 @@ const FULL_HISTORY_COMMITS = 2;
 const DETERMINISM_REPO_COMMITS = 3;
 const DETERMINISM_RUNS = 5;
 const COMPLIANCE_COMMITS = 2;
+const RELEASE_NOTES_COMMITS = 3;
+const COMMIT_SHA_PATTERN = /^[0-9a-f]{40}$/;
 
 export type ReleaseCommitFixture = {
   readonly path: string;
@@ -49,6 +51,7 @@ export const RELEASE_TEST_GENERATOR = {
     determinismRepoCommits: DETERMINISM_REPO_COMMITS,
     determinismRuns: DETERMINISM_RUNS,
     complianceCommits: COMPLIANCE_COMMITS,
+    releaseNotesCommits: RELEASE_NOTES_COMMITS,
   },
   semver: arbitrarySemver,
   releaseTag: arbitraryReleaseTag,
@@ -56,6 +59,7 @@ export const RELEASE_TEST_GENERATOR = {
   distinctReleaseTags: arbitraryDistinctReleaseTags,
   commitSequence: arbitraryCommitSequence,
   versionBumpFor: arbitraryVersionBumpFor,
+  releaseData: arbitraryReleaseData,
 } as const;
 
 // Fixed arbitrary seed so a single-sample draw is reproducible: a failing
@@ -125,6 +129,47 @@ function arbitraryCommitSequence(count: number): fc.Arbitrary<readonly ReleaseCo
         subject: `${segment}${COMMIT_SUBJECT_SUFFIX}`,
       }))
     );
+}
+
+function arbitraryCommitSha(): fc.Arbitrary<string> {
+  return fc.stringMatching(COMMIT_SHA_PATTERN);
+}
+
+function toGitCommit(fixture: ReleaseCommitFixture, sha: string | undefined): GitCommit {
+  if (sha === undefined) {
+    throw new Error("Release data generator drew fewer commit shas than commit fixtures");
+  }
+  return { sha, subject: fixture.subject };
+}
+
+/**
+ * A full ReleaseData drawn from the same commit-sequence fixtures the git-backed
+ * release-data tests use: the version and previous tag are semver-shaped, the
+ * commits carry the fixtures' subjects under generated shas, and the changed paths
+ * are the fixtures' paths. Release-notes generation reads only the version and the
+ * commit subjects, but the whole contract is populated so the value is a valid
+ * ReleaseData.
+ */
+function arbitraryReleaseData(): fc.Arbitrary<ReleaseData> {
+  return arbitraryCommitSequence(RELEASE_NOTES_COMMITS).chain((fixtures) =>
+    fc
+      .record({
+        version: arbitrarySemver(),
+        previousTag: arbitraryReleaseTag(),
+        versionDelta: fc.constantFrom(VERSION_DELTA.MAJOR, VERSION_DELTA.MINOR, VERSION_DELTA.PATCH),
+        shas: fc.uniqueArray(arbitraryCommitSha(), {
+          minLength: fixtures.length,
+          maxLength: fixtures.length,
+        }),
+      })
+      .map(({ version, previousTag, versionDelta, shas }): ReleaseData => ({
+        version,
+        previousTag,
+        versionDelta,
+        commits: fixtures.map((fixture, index) => toGitCommit(fixture, shas[index])),
+        changedPaths: fixtures.map((fixture) => fixture.path),
+      }))
+  );
 }
 
 function arbitraryVersionBumpFor(delta: VersionDelta): fc.Arbitrary<VersionBump> {

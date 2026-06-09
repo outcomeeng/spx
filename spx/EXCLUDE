@@ -10,7 +10,6 @@
 41-validation.enabler/32-python-validation.enabler/32-ast-enforcement.enabler
 41-validation.enabler/32-python-validation.enabler/32-lint.enabler
 41-validation.enabler/32-python-validation.enabler/32-type-check.enabler
-26-release.enabler/32-release-notes.enabler
 26-release.enabler/32-documentation-sync.enabler
 26-release.enabler/43-publish-dispatch.enabler
 34-verification.enabler/32-verify.enabler
