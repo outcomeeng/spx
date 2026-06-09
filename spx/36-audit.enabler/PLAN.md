@@ -9,7 +9,7 @@ Move audit from verify-only artifact checking toward config-backed, branch-scope
 - `spx/36-audit.enabler/11-audit-scope.pdr.md` owns audit domain scope.
 - `spx/36-audit.enabler/15-audit-directory.adr.md` owns branch-scoped audit storage.
 - `spx/16-config.enabler/21-descriptor-registration.adr.md` owns the audit descriptor registration mechanism.
-- `spx/15-worktree-resolution.pdr.md` owns main-repository-root resolution for gitignored `.spx/` state.
+- `spx/15-worktree-management.pdr.md` owns main-repository-root resolution for gitignored `.spx/` state.
 
 ## Current Tranche
 

@@ -1,6 +1,6 @@
 # Git Root Result Shape
 
-`detectGitCommonDirProductRoot` returns a result carrying the local worktree root as a required `worktreeRoot` field alongside the Git common-dir `productDir`, while `detectWorktreeProductRoot` returns the base `GitProductDirResult` without it — so a caller needing both roots reads `git rev-parse --show-toplevel` once. The two roots are those of [`spx/15-worktree-resolution.pdr.md`](../../15-worktree-resolution.pdr.md): the local worktree root from `--show-toplevel`, and the Git common-dir product root from the parent of `--git-common-dir`.
+`detectGitCommonDirProductRoot` returns a result carrying the local worktree root as a required `worktreeRoot` field alongside the Git common-dir `productDir`, while `detectWorktreeProductRoot` returns the base `GitProductDirResult` without it — so a caller needing both roots reads `git rev-parse --show-toplevel` once. The two roots are those of [`spx/15-worktree-management.pdr.md`](../../15-worktree-management.pdr.md): the local worktree root from `--show-toplevel`, and the Git common-dir product root from the parent of `--git-common-dir`.
 
 ## Rationale
 
@@ -16,7 +16,7 @@
 ### Testing
 
 - ALWAYS: `detectGitCommonDirProductRoot` returns `worktreeRoot` as a required field on every return path, equal to the `git rev-parse --show-toplevel` value (or `cwd` outside a git repository) ([compliance])
-- ALWAYS: the result's `productDir` is the Git common-dir product root — the parent of `git rev-parse --git-common-dir` — per [`spx/15-worktree-resolution.pdr.md`](../../15-worktree-resolution.pdr.md) ([compliance])
+- ALWAYS: the result's `productDir` is the Git common-dir product root — the parent of `git rev-parse --git-common-dir` — per [`spx/15-worktree-management.pdr.md`](../../15-worktree-management.pdr.md) ([compliance])
 - NEVER: a `detectWorktreeProductRoot` result carries `worktreeRoot` — the base `GitProductDirResult` shape omits it, and that resolver's `productDir` is the worktree root ([compliance])
 
 ### Audit

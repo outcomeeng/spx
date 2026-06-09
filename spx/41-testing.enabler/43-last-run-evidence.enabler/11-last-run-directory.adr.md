@@ -1,6 +1,6 @@
 # Testing Last-Run Directory Structure
 
-Spec-tree test run observations are stored under `.spx/local/testing/runs/{run-directory}/state.json` at the local worktree root (`spx/15-worktree-resolution.pdr.md`), where `run-directory` is `{YYYY-MM-DD_HH-mm-ss-SSS}-{run-id}`. Each terminal run writes one `state.json` envelope recording the checkout's branch name and head SHA, the resolved testing config digest, runner outcomes, the discovered-test path and content digests, descriptor-declared product input digests, timestamps, and terminal status; a run directory without a parse-valid `state.json` is incomplete evidence.
+Spec-tree test run observations are stored under `.spx/local/testing/runs/{run-directory}/state.json` at the local worktree root (`spx/15-worktree-management.pdr.md`), where `run-directory` is `{YYYY-MM-DD_HH-mm-ss-SSS}-{run-id}`. Each terminal run writes one `state.json` envelope recording the checkout's branch name and head SHA, the resolved testing config digest, runner outcomes, the discovered-test path and content digests, descriptor-declared product input digests, timestamps, and terminal status; a run directory without a parse-valid `state.json` is incomplete evidence.
 
 ```ts
 interface TestRunState {
@@ -46,7 +46,7 @@ Per-worktree state keeps a branch's observations with the working copy that prod
 
 ### Audit
 
-- ALWAYS: store testing last-run state under `.spx/local/testing/runs/{run-directory}/state.json` at the local worktree root per `spx/15-worktree-resolution.pdr.md` ([audit])
+- ALWAYS: store testing last-run state under `.spx/local/testing/runs/{run-directory}/state.json` at the local worktree root per `spx/15-worktree-management.pdr.md` ([audit])
 - ALWAYS: name run directories `{YYYY-MM-DD_HH-mm-ss-SSS}-{run-id}` ([audit])
 - ALWAYS: record branch name, head SHA, testing config digest, runner outcomes, discovered-test path and content digests, descriptor-declared product input digests, timestamps, and terminal status in `state.json` ([audit])
 - ALWAYS: treat a run directory without a parse-valid `state.json` as incomplete evidence ([audit])

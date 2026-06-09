@@ -18,7 +18,7 @@ CAN inspect current node state and select the next non-passing node without hand
 
 ### Compliance
 
-- ALWAYS: command handlers operate on tracked `spx/` files using worktree-local root resolution per `spx/15-worktree-resolution.pdr.md` ([review])
+- ALWAYS: command handlers operate on tracked `spx/` files using worktree-local root resolution per `spx/15-worktree-management.pdr.md` ([review])
 - ALWAYS: `spx spec status --update` writes node lifecycle state only as `spx.status.json` files within the tracked `spx/` tree, per `spx/31-spec-domain.enabler/21-node-status.enabler/15-status-file-contract.pdr.md` ([review])
 - NEVER: command handlers write to product configuration files such as `spx.config.toml`, `spx.config.json`, `spx.config.yaml`, `package.json`, `pyproject.toml`, or `tsconfig.json` ([test](../76-spec-cli-contract-tests.enabler/tests/spec-cli-contract.scenario.l2.test.ts))
 - NEVER: command handlers parse spec-tree suffixes or assemble hierarchy themselves — they consume `src/lib/spec-tree/index.ts` ([review])

@@ -16,5 +16,5 @@ CAN execute and inspect hermetically recorded audit evidence for the current bra
 ### Compliance
 
 - NEVER: write audit verdict files to the spec tree — verdict artifacts are stored in `.spx/audit/{branch-slug}` per ADR `15-audit-directory` ([audit](15-audit-directory.adr.md))
-- ALWAYS: resolve `.spx/audit/` relative to the Git common-dir product root, not the worktree root ([audit](../15-worktree-resolution.pdr.md))
+- ALWAYS: resolve `.spx/audit/` relative to the Git common-dir product root, not the worktree root ([audit](../15-worktree-management.pdr.md))
 - ALWAYS: audit config is a registered descriptor in the `spx/16-config.enabler/` config system; auditing does not parse raw `spx.config.*` content ([audit](../16-config.enabler/21-descriptor-registration.adr.md))

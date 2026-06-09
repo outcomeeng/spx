@@ -20,7 +20,7 @@ Rejected: handlers that read config files and call `resolveConfig` themselves (c
 
 ### Testing
 
-- ALWAYS: `resolveProductDir` uses `git rev-parse --show-toplevel` inside a worktree and falls back to `process.cwd()` with a diagnostic warning outside one, per `spx/15-worktree-resolution.pdr.md` ([compliance])
+- ALWAYS: `resolveProductDir` uses `git rev-parse --show-toplevel` inside a worktree and falls back to `process.cwd()` with a diagnostic warning outside one, per `spx/15-worktree-management.pdr.md` ([compliance])
 
 ### Audit
 

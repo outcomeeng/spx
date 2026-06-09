@@ -48,7 +48,7 @@ Rejected: a flat `.spx/audit/` (all branches share one directory, so locating a 
 - Latest terminal audit lookup orders terminal runs by `state.json` timestamps (`completedAt`, then `startedAt`) before using directory names as a tie-breaker.
 - Audit run directories within a branch directory are never renamed or moved — timestamps and run ids are assigned at write time and are stable.
 - Node-first `.spx/nodes/` verdict artifacts remain verifiable as explicit `spx audit verify <file>` arguments but are not indexed by branch-scoped list/status views; branch-scoped runs write only under `.spx/audit/{branch-slug}/runs/`.
-- The `.spx/audit/` root is always resolved relative to the Git common-dir product root per `spx/15-worktree-resolution.pdr.md`.
+- The `.spx/audit/` root is always resolved relative to the Git common-dir product root per `spx/15-worktree-management.pdr.md`.
 
 ## Verification
 
@@ -69,7 +69,7 @@ Rejected: a flat `.spx/audit/` (all branches share one directory, so locating a 
 - ALWAYS: select the latest terminal run by greatest `completedAt`, then greatest `startedAt`, then lexicographically greatest run directory name as a deterministic tie-breaker ([audit])
 - ALWAYS: store `state.json` statuses as lowercase machine tokens and render CLI status strings through the explicit persisted-status-to-display mapping ([audit])
 - ALWAYS: compute `auditConfigDigest` from config-owned canonical descriptor JSON for the resolved audit config descriptor section after defaults are applied, excluding unrelated descriptor sections and raw file formatting, per `spx/16-config.enabler/21-descriptor-registration.adr.md` ([audit])
-- ALWAYS: resolve `.spx/audit/` relative to the Git common-dir product root per `spx/15-worktree-resolution.pdr.md` ([audit])
+- ALWAYS: resolve `.spx/audit/` relative to the Git common-dir product root per `spx/15-worktree-management.pdr.md` ([audit])
 - ALWAYS: derive all path-component names (`.spx`, `audit`, `runs`) from the audit config descriptor defaults — single source of truth, per `spx/16-config.enabler/21-descriptor-registration.adr.md` ([audit])
 - ALWAYS: keep `spx audit verify <file>` accepting any explicit verdict file path supplied by the caller, including node-first `.spx/nodes/` and branch-scoped `.spx/audit/` artifacts ([audit])
 - NEVER: index, list, or migrate `.spx/nodes/` artifacts into branch-scoped audit status — node-first artifacts are explicit-file verification inputs only ([audit])

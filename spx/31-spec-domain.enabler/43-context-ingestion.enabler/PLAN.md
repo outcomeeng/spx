@@ -9,7 +9,7 @@ Add the deterministic context-ingestion surface that replaces skill-only context
 - `spx/spx.product.md`
 - `spx/31-spec-domain.enabler/spec-domain.md`
 - `spx/23-spec-tree.enabler/spec-tree.md`
-- `spx/15-worktree-resolution.pdr.md`
+- `spx/15-worktree-management.pdr.md`
 
 ## Implementation Notes
 
