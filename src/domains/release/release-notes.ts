@@ -123,13 +123,14 @@ function buildReleaseNotesPrompt(releaseData: ReleaseData, changelogPath: string
  * heading grouping that section's entries. Throws when any is absent.
  */
 function assertConformsToKeepAChangelog(notes: string, version: string): void {
-  if (!notes.trimStart().startsWith(CHANGELOG_TITLE)) {
+  const lines = notes.split("\n");
+  const firstContentLine = lines.find((line) => line.trim() !== "");
+  if (firstContentLine?.trimEnd() !== CHANGELOG_TITLE) {
     throw new ReleaseNotesError(
       `Generated release notes do not open with the Keep a Changelog title "${CHANGELOG_TITLE}"`,
     );
   }
   const versionHeading = changelogVersionHeading(version);
-  const lines = notes.split("\n");
   const versionLineIndex = lines.findIndex((line) => line.startsWith(versionHeading));
   if (versionLineIndex === -1) {
     throw new ReleaseNotesError(
