@@ -31,6 +31,7 @@ export const GIT_TEST_FLAGS = {
   EXCLUDE_STANDARD: "--exclude-standard",
   FULL_NAME: "--full-name",
   IS_INSIDE_WORK_TREE: "--is-inside-work-tree",
+  NEW_BRANCH: "-b",
   OTHERS: "--others",
   QUIET: "--quiet",
   SHOW_CURRENT: "--show-current",
