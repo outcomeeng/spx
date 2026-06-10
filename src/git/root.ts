@@ -1,5 +1,5 @@
 import { execa } from "execa";
-import { dirname, isAbsolute, join, relative, resolve } from "node:path";
+import { basename, dirname, isAbsolute, join, relative, resolve } from "node:path";
 
 import { SessionDirectoryConfig } from "@/domains/session/show";
 import { DEFAULT_CONFIG } from "../config/defaults";
@@ -24,6 +24,24 @@ export interface GitProductDirResult {
 export interface GitCommonDirProductDirResult extends GitProductDirResult {
   /** The local worktree root — the `--show-toplevel` value, or `cwd` outside a git repository. */
   worktreeRoot: string;
+}
+
+/**
+ * Git-plumbing observations describing one checkout, gathered by the probe and
+ * classified by {@link isMainCheckout}. Every field is a raw git read — no
+ * classification is performed during gathering.
+ */
+export interface GitFacts {
+  /** The local worktree root — `git rev-parse --show-toplevel`. */
+  worktreeRoot: string;
+  /** The absolute common directory — `git rev-parse --git-common-dir`. */
+  commonDir: string;
+  /** Whether the common directory is a bare repository — `git config --get core.bare` is `true`. */
+  commonDirIsBare: boolean;
+  /** The checked-out branch, or null when HEAD is detached or unborn. */
+  currentBranch: string | null;
+  /** The repository default branch (`origin/HEAD`'s target), or null when unset. */
+  defaultBranch: string | null;
 }
 
 // Minimal command result shape used by product-directory detection.
@@ -78,10 +96,16 @@ export const GIT_ROOT_COMMAND = {
   STATUS: "status",
   PORCELAIN: "--porcelain",
   PATH_FORMAT_ABSOLUTE: "--path-format=absolute",
+  CONFIG: "config",
+  CONFIG_GET: "--get",
+  CORE_BARE_KEY: "core.bare",
 } as const;
 
 /** Prefix on the remote-tracking ref returned by `symbolic-ref refs/remotes/origin/HEAD`. */
 export const ORIGIN_REF_PREFIX = "origin/";
+
+/** The `core.bare` config value a bare repository carries; every other value (including unset) is non-bare. */
+export const GIT_CORE_BARE_TRUE = "true";
 
 export const GIT_SHOW_TOPLEVEL_ARGS = [
   GIT_ROOT_COMMAND.REV_PARSE,
@@ -95,6 +119,18 @@ export const GIT_COMMON_DIR_ARGS = [
   GIT_ROOT_COMMAND.REV_PARSE,
   GIT_ROOT_COMMAND.PATH_FORMAT_ABSOLUTE,
   GIT_ROOT_COMMAND.GIT_COMMON_DIR,
+] as const;
+
+// `git config --get core.bare` reads the shared config the worktrees of a bare
+// pool inherit — it returns `true` from every pool worktree even though
+// `--is-bare-repository` returns `false` there, and `false` from a non-bare
+// repository's main and linked worktrees alike. It is the signal that separates
+// a bare pool (main checkout is the qualifying default-branch worktree) from a
+// non-bare repository (main checkout is the main working tree).
+export const GIT_CORE_BARE_ARGS = [
+  GIT_ROOT_COMMAND.CONFIG,
+  GIT_ROOT_COMMAND.CONFIG_GET,
+  GIT_ROOT_COMMAND.CORE_BARE_KEY,
 ] as const;
 
 export const GIT_CURRENT_BRANCH_ARGS = [
@@ -349,6 +385,96 @@ export async function isRootWorktree(
   const toplevel = extractStdout(toplevelResult.stdout);
   const commonDir = extractStdout(commonDirResult.stdout);
   return computeRelativeWorktreePath(commonDir, toplevel) === "";
+}
+
+/**
+ * Whether the observed {@link GitFacts} identify the repository's main checkout.
+ *
+ * Pure and total: a non-bare repository's main working tree — the parent of its
+ * common directory — is the main checkout whatever branch it holds and whether
+ * or not it has linked worktrees; a bare-repository pool worktree is the main
+ * checkout exactly when its common directory sits beside the worktree and the
+ * checked-out branch, the worktree directory name, and the default branch all
+ * agree.
+ */
+export function isMainCheckout(facts: GitFacts): boolean {
+  const commonDirParent = dirname(facts.commonDir);
+  // Non-bare repository: only the main working tree — the parent of the common
+  // directory — is the main checkout, whatever branch it holds and whether or
+  // not the repository has linked worktrees.
+  if (!facts.commonDirIsBare) return commonDirParent === facts.worktreeRoot;
+  // Bare-repository pool: the common directory is a sibling of the worktree, and
+  // the three signals of the pool rule all agree.
+  if (commonDirParent !== dirname(facts.worktreeRoot)) return false;
+  return (
+    facts.defaultBranch !== null
+    && facts.currentBranch === facts.defaultBranch
+    && basename(facts.worktreeRoot) === facts.defaultBranch
+  );
+}
+
+/**
+ * The absolute path of the repository's main checkout designated by the observed
+ * {@link GitFacts}, or null when no main checkout is designable.
+ *
+ * Pure and total: a non-bare repository designates its main working tree — the
+ * parent of the common directory — from any of its worktrees; a bare-repository
+ * pool designates the default-branch worktree beside the bare repository (the
+ * parent of the common directory joined with the default branch name) by
+ * inverting the three-signal rule, and designates no path when the pool resolves
+ * no default branch.
+ */
+export function mainCheckoutPath(facts: GitFacts): string | null {
+  const commonDirParent = dirname(facts.commonDir);
+  // Non-bare repository: the main checkout is the main working tree — the parent
+  // of the common directory — reachable from any of its worktrees.
+  if (!facts.commonDirIsBare) return commonDirParent;
+  // Bare-repository pool: invert the three-signal rule to construct the path.
+  if (facts.defaultBranch === null) return null;
+  return join(commonDirParent, facts.defaultBranch);
+}
+
+/**
+ * Reads the {@link GitFacts} for `cwd` through the injected git runner. Returns
+ * null when `cwd` is outside a git repository, where no checkout exists to
+ * classify.
+ */
+async function gatherGitFacts(
+  cwd: string = process.cwd(),
+  deps: GitDependencies = defaultGitDependencies,
+): Promise<GitFacts | null> {
+  const [toplevelResult, commonDirResult] = await Promise.all([
+    deps.execa(GIT_ROOT_COMMAND.EXECUTABLE, [...GIT_SHOW_TOPLEVEL_ARGS], { cwd, reject: false }),
+    deps.execa(GIT_ROOT_COMMAND.EXECUTABLE, [...GIT_COMMON_DIR_ARGS], { cwd, reject: false }),
+  ]);
+  if (toplevelResult.exitCode !== 0 || !toplevelResult.stdout) return null;
+  if (commonDirResult.exitCode !== 0 || !commonDirResult.stdout) return null;
+
+  const worktreeRoot = extractStdout(toplevelResult.stdout);
+  const rawCommonDir = extractStdout(commonDirResult.stdout);
+  const commonDir = isAbsolute(rawCommonDir) ? rawCommonDir : resolve(worktreeRoot, rawCommonDir);
+  const [currentBranch, defaultBranch, bareResult] = await Promise.all([
+    getCurrentBranch(cwd, deps),
+    resolveDefaultBranch(cwd, deps),
+    deps.execa(GIT_ROOT_COMMAND.EXECUTABLE, [...GIT_CORE_BARE_ARGS], { cwd, reject: false }),
+  ]);
+  const commonDirIsBare = bareResult.exitCode === 0
+    && extractStdout(bareResult.stdout) === GIT_CORE_BARE_TRUE;
+  return { worktreeRoot, commonDir, commonDirIsBare, currentBranch, defaultBranch };
+}
+
+/**
+ * Whether the checkout at `cwd` is the repository's main checkout, composing the
+ * probe with {@link isMainCheckout}. A `cwd` outside a git repository is not the
+ * main checkout.
+ */
+export async function detectMainCheckout(
+  cwd: string = process.cwd(),
+  deps: GitDependencies = defaultGitDependencies,
+): Promise<boolean> {
+  const facts = await gatherGitFacts(cwd, deps);
+  if (facts === null) return false;
+  return isMainCheckout(facts);
 }
 
 // Options for resolving session directory configuration.
