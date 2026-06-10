@@ -36,14 +36,6 @@ export type PoolFactsSample = {
   readonly defaultBranchUnset: GitFacts;
 };
 
-export const MAIN_CHECKOUT_TEST_GENERATOR = {
-  branchName: arbitraryBranchName,
-  poolFactsSample: arbitraryPoolFactsSample,
-  mainCheckoutPathCase: arbitraryMainCheckoutPathCase,
-  mainCheckoutFacts: arbitraryMainCheckoutFacts,
-  nonBareLinkedFacts: arbitraryNonBareLinkedFacts,
-} as const;
-
 export function sampleMainCheckoutTestValue<T>(arbitrary: fc.Arbitrary<T>): T {
   const [value] = fc.sample(arbitrary, { numRuns: 1 });
   if (value === undefined) {
