@@ -11,6 +11,15 @@ detector and wire its two consumers through `/spec-tree:applying`.
   main-checkout definition; all citations updated).
 - `spec(worktree-detection): own the git detection module in a top-level enabler`
   — this node's spec + `spx/EXCLUDE` entry.
+- `spec(worktree-detection): designate the main checkout and its path` — the
+  classifier ADR + the path-designation and non-bare-linked assertions.
+- `feat(worktree-detection): detect the main checkout and resolve its path` —
+  `isMainCheckout` / `mainCheckoutPath` (pure) + the probe in `src/git/root.ts`,
+  reading common-dir bareness from `git config --get core.bare` so a non-bare
+  repository with linked worktrees is never mistaken for a bare pool; co-located
+  mapping/scenario tests + the `testing/generators/main-checkout/` generator.
+- `docs(worktree-detection): track the unnamed non-bare-with-linked layout` —
+  `ISSUES.md`.
 
 ## Settled design decisions — do NOT re-ask
 
@@ -27,13 +36,24 @@ detector and wire its two consumers through `/spec-tree:applying`.
 
 ## Remaining work (in order)
 
-1. `/spec-tree:applying spx/24-worktree-detection.enabler` — implement `isMainCheckout`
-   in `src/git/root.ts` + co-located tests in this node's `tests/`. Mirror
-   `init_worktrees.py`'s facts/classify split: a pure `isMainCheckout(facts)` over
-   observed `GitFacts`, plus a probe reading them through the existing `GitDependencies`
-   DI (inject a fake `execa` — NO filesystem mocking, per the config/test-environment
-   no-mock rule). `resolveDefaultBranch` (origin/HEAD) already exists. Run the three
-   `/applying` audit gates. Remove this node from `spx/EXCLUDE` once tests pass.
+1. ~~Implement `isMainCheckout` + co-located tests through the `/applying` gates.~~
+   **Done** (committed above). Two evidence items remain before this node leaves
+   `spx/EXCLUDE`:
+   - **Bare-pool probe coverage**: the scenario test covers `detectMainCheckout`
+     end-to-end only for the non-bare layout (`core.bare == false`). Add a
+     scenario test that provisions a real bare-repository pool (clone `--bare` +
+     `worktree add`) and asserts `detectMainCheckout` returns `true` for the
+     main checkout and `false` for a feature worktree — exercising the real
+     `git config --get core.bare == true` path. Provision through a co-located
+     `@testing/harnesses/` module, not inline in the `tests/` file.
+   - **Resolver assertions**: `worktree-detection.md` declares root-resolution
+     (`tests/root-resolution.scenario.l1.test.ts`) and default-branch
+     (`tests/default-branch.scenario.l1.test.ts`) assertions whose tests are not
+     yet co-located — they verify `detectWorktreeProductRoot`,
+     `detectGitCommonDirProductRoot`, and `resolveDefaultBranch`, currently tested
+     under `spx/16-config.enabler/65-product-directory-api.enabler` and the session
+     nodes. Co-locating them is part of step 5 (resolver ownership). Until both
+     items land, this node stays in `spx/EXCLUDE`.
 
 2. Wire the consumers, replacing `isRootWorktree` with `isMainCheckout`:
    - `src/domains/session/handoff-base.ts`, `src/commands/session/handoff.ts`.
