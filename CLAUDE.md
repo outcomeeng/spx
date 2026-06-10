@@ -27,7 +27,7 @@
 - ⚠️ **`[audit]` vs `[test]` is the verification MECHANISM, not a lifecycle marker.** In a spec file's `## Assertions`, a testable assertion carries `[test]` (its co-located test is written via `/applying`), `[eval]` for LLM-driven behavior with a structurally scoreable verdict, or `[audit]` (legacy spelling `[review]`) for judgment constraints no automated test can verify — never an `[audit]` "placeholder" for something testable. PDR and ADR `## Verification` rules instead carry the tag their template prescribes: under `### Testing` the evidence type (`[scenario]`/`[mapping]`/`[conformance]`/`[property]`/`[compliance]`), under `### Eval` `[eval]`, under `### Audit` `[audit]`.
 - ⚠️ **NEVER discard or displace uncommitted work with `git checkout -- <path>`, `git restore`, `git reset --hard`, `git clean -f`, or `git stash`** — `git checkout -- <path>`, `git restore`, `git reset --hard`, and `git clean -f` discard uncommitted local changes irrecoverably; `git stash` hides them in the stash stack (recoverable, but it conceals in-progress state from concurrent agents). Hand these off to the user; if you need to discard changes, ask the user to do it.
 - ⚠️ **NEVER force-overwrite a shared remote ref with plain `git push --force`** — it unconditionally overwrites history a concurrent agent may have advanced. The PR-branch flows use `git push --force-with-lease` (which refuses when the remote advanced) instead, per the rule below.
-- ✅ **The `/spec-tree:opening-pr` and `/spec-tree:managing-pr` flows own their own PR branch's history** — per `/spec-tree:standardizing-merging`, those skills autonomously rebase the current PR branch onto its base (`git rebase origin/<base>`), push the rebased branch with `git push --force-with-lease` (never plain `--force` — `--force-with-lease` refuses when the remote advanced, so it cannot clobber a concurrent push), merge via `gh pr merge --rebase --delete-branch`, and delete a merged PR's branch. These are governed, single-author-branch operations, not the work-discarding operations above.
+- ✅ **The `/pr` lifecycle and its internal opening/managing flows own their own PR branch's history** — per `/spec-tree:standardizing-merging`, the lifecycle autonomously rebases the current PR branch onto its base (`git rebase origin/<base>`), pushes the rebased branch with `git push --force-with-lease` (never plain `--force` — `--force-with-lease` refuses when the remote advanced, so it cannot clobber a concurrent push), merges via `gh pr merge --rebase --delete-branch`, and deletes a merged PR's branch. These are governed, single-author-branch operations, not the work-discarding operations above.
 - ⚠️ **STOP TRIGGER: about to run `pnpm exec tsc --noEmit`, `npx tsc`, or any bare type-check command** — run `spx validation ts` instead. Bare `tsc` misses project-specific config, paths, and exclusions. This applies to every TypeScript check, not just commit-time.
 - ⚠️ **ALWAYS run `spx validation all` after code changes** — before audit, before commit, before claiming "done". `spx validation ts` alone is not the quality gate — it runs 1 of 5 checks. Never report a subset of checks as clean.
 - ⚠️ **NEVER mechanically extract typed literal union values to named constants** — `no-restricted-syntax` warnings on `expect(x).toBe("declared")` where `x: NodeState` are false positives. The type annotation IS the documentation; renaming `"declared"` → `STATE_DECLARED` adds zero information. The lint rule targets magic strings whose meaning is obscure; enum-like union members are already self-documenting. Suppress the warning inline or leave it; never rename. The `typescript:auditing-typescript-tests` skill's Gate 0 C1/L1 findings for typed protocol values (`"PASS"`, `"FAIL"`, `"APPROVED"`, `"REJECT"`) are the same class of false positive — a Gate 0 REJECT on these strings is not a work blocker when `pnpm run validate` passes and tests pass.
@@ -61,9 +61,9 @@ The **spec-tree** plugin (`outcomeeng/plugins/plugins/spec-tree`) is the active 
 | `/spec-tree:applying`        | Orchestrate spec-tree implementation and audit gates                       |
 | `/spec-tree:refactoring`     | Restructure the spec tree (move, consolidate, extract)                     |
 | `/spec-tree:aligning`        | Review for gaps, contradictions, and consistency                           |
-| `/spec-tree:opening-pr`      | Open ready PRs once REVIEW_READINESS holds (branch hygiene + local review) |
+| `/spec-tree:pr`              | Route PR lifecycle work through opening, managing, and merge gates          |
 
-Additional skills ship with the plugin and are invoked by name: `committing-changes`, `interviewing`, `auditing-tests`, `auditing-product-decisions`, `handoff`, `pickup`, `refocusing`, `bootstrapping`. See `outcomeeng/plugins/plugins/spec-tree/skills/` for the full list.
+Additional skills ship with the plugin and are invoked by name: `committing-changes`, `interviewing`, `auditing-tests`, `auditing-product-decisions`, `handoff`, `pickup`, `refocusing`, `bootstrapping`, `opening-pr`, `managing-pr`, `standardizing-merging`. See `outcomeeng/plugins/plugins/spec-tree/skills/` for the full list.
 
 </skill_router>
 
@@ -198,7 +198,7 @@ Run the right local gate before publishing. Use `spx validation markdown` for ma
 
 ### PR review guidance
 
-`/spec-tree:managing-pr` is the active PR-loop workflow for PR reviews. Automated and human reviewers classify findings by required receiver action using only `BLOCKING`, `DEBT`, and `FOLLOW-UP`.
+`/pr` is the active PR lifecycle for PR reviews. Its managing phase classifies automated and human findings by required receiver action using only `BLOCKING`, `DEBT`, and `FOLLOW-UP`.
 
 `BLOCKING` and `DEBT` enter the active PR loop and must be fixed in the same PR. `FOLLOW-UP` items must name the owning tracking location when retention is useful.
 
@@ -210,7 +210,7 @@ Treat PR-level comments as authoritative review surfaces. This product rarely re
 
 ### Executing PR workflow
 
-Open PRs ready once `REVIEW_READINESS` holds — `/spec-tree:opening-pr` runs the project's deterministic verification and the `changes-reviewer` agent, then creates the PR `ready_for_review` (no draft phase; a stacked PR held draft until its base merges is the one exception). Then let `/spec-tree:managing-pr` drive the merge loop: inspect all review surfaces, classify findings, sync to base when needed, fix `BLOCKING` and `DEBT`, record accepted `FOLLOW-UP`, rerun the local closure gate before pushing, refresh the heartbeat, and evaluate the merge authority gates.
+Run `/pr` for default-branch changes. It opens PRs ready once `REVIEW_READINESS` holds: the opening phase runs the product's deterministic verification and the `changes-reviewer` agent, then creates the PR `ready_for_review` (no draft phase; a stacked PR held draft until its base merges is the one exception). Its managing phase drives the merge loop: inspect all review surfaces, classify findings, sync to base when needed, fix `BLOCKING` and `DEBT`, record accepted `FOLLOW-UP`, rerun the local closure gate before pushing, refresh the heartbeat, and evaluate the merge authority gates.
 
 ```bash
 pr_url="$(gh pr create --title "$title" --body "$body" --base main --head "$branch")"
@@ -224,11 +224,11 @@ gh pr view "$pr_number" --json reviews,comments
 gh api "repos/{organization}/{repo}/pulls/${pr_number}/comments" --paginate
 ```
 
-Do not wait through shell polling, `sleep`, `gh pr checks --watch`, or workflow-run watchers. When checks or reviews need time, create or refresh the one heartbeat for the PR and re-enter `/spec-tree:managing-pr` on the next fire.
+Do not wait through shell polling, `sleep`, `gh pr checks --watch`, or workflow-run watchers. When checks or reviews need time, create or refresh the one heartbeat for the PR and re-enter `/pr` on the next fire.
 
 ### Ask for adversarial PR audit
 
-Ask the PR reviewers for adversarial auditing of all architecture, security-sensitive workflows, deployment and publishing paths, and any PR that changes production behavior. When checks or reviews need time, create or refresh the heartbeat for the PR and re-enter `/spec-tree:managing-pr` on the next fire. Continue with non-blocking local work while the heartbeat owns the wait.
+Ask the PR reviewers for adversarial auditing of all architecture, security-sensitive workflows, deployment and publishing paths, and any PR that changes production behavior. When checks or reviews need time, create or refresh the heartbeat for the PR and re-enter `/pr` on the next fire. Continue with non-blocking local work while the heartbeat owns the wait.
 
 ### Treat PR review findings by receiver action
 
