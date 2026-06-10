@@ -36,12 +36,12 @@ CONTRIBUTING TO higher engineering velocity — teams ship quality code faster b
 
 ### Compliance
 
-- ALWAYS: complete any CLI command in <100ms once the CLI process is running — agents depend on deterministic response times; this excludes Node.js process startup ([review])
-- ALWAYS: ingest spec-tree context deterministically from the tracked `spx/` tree, root decisions, ancestor specs, lower-index siblings, co-located evidence links, and node-local escape hatches ([review])
-- ALWAYS: govern spec-tree testing, validation, auditing skills, and reviewing through `spx.config.{toml,json,yaml}` rather than ad hoc files or command-local policy ([review])
-- ALWAYS: persist spec-tree execution state so status commands can report last-run results and staleness without re-running the configured execution ([review])
-- ALWAYS: isolate reviewing and auditing execution state from the invoking agent, including branch-scoped persisted state under `.spx/audit/{branch-slug}` where auditing state is recorded ([review])
-- ALWAYS: manage agent runtime configuration deterministically, including `AGENTS.md`, Claude Code and Codex configuration, configured plugin marketplaces, plugins, and skills ([review])
-- ALWAYS: resolve product root via `git rev-parse` with fallback to `$PWD` — consistent behavior across worktrees and subdirectories ([review])
-- NEVER: require network access for core operations — offline-first for development environments ([review])
-- NEVER: use LLM inference for operations that can be computed deterministically — tokens are for decisions, not file scanning ([review])
+- ALWAYS: complete any CLI command in <100ms once the CLI process is running — agents depend on deterministic response times; this excludes Node.js process startup ([audit])
+- ALWAYS: ingest spec-tree context deterministically from the tracked `spx/` tree, root decisions, ancestor specs, lower-index siblings, co-located evidence links, and node-local escape hatches ([audit])
+- ALWAYS: govern spec-tree testing, validation, auditing skills, and reviewing through `spx.config.{toml,json,yaml}` rather than ad hoc files or command-local policy ([audit])
+- ALWAYS: persist spec-tree execution state so status commands can report last-run results and staleness without re-running the configured execution ([audit])
+- ALWAYS: isolate reviewing and auditing execution state from the invoking agent, including branch-scoped persisted state under `.spx/audit/{branch-slug}` where auditing state is recorded ([audit])
+- ALWAYS: manage agent runtime configuration deterministically, including `AGENTS.md`, Claude Code and Codex configuration, configured plugin marketplaces, plugins, and skills ([audit])
+- ALWAYS: resolve product root via `git rev-parse` with fallback to `$PWD` — consistent behavior across worktrees and subdirectories ([audit])
+- NEVER: require network access for core operations — offline-first for development environments ([audit])
+- NEVER: use LLM inference for operations that can be computed deterministically — tokens are for decisions, not file scanning ([audit])
