@@ -17,5 +17,6 @@ CAN trust the verdict's file references point to actual files in the working tre
 
 ### Compliance
 
-- ALWAYS: resolve all paths relative to the product directory ([review])
-- NEVER: read, parse, or validate the content of referenced files — only check existence and containment within the product directory ([review])
+- ALWAYS: resolve all paths relative to the product directory ([audit])
+- ALWAYS: use the injected file-existence reader to decide missing-file defects ([test](tests/paths.scenario.l1.test.ts))
+- NEVER: read, parse, or validate the content of referenced files — only check existence and containment within the product directory ([audit])

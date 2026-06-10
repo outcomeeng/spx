@@ -17,9 +17,9 @@ CAN write Level 1 tests without reimplementing fixture setup or hardcoding path-
 ### Properties
 
 - `nodeDir(nodePath)` is deterministic: for all spec node path strings including paths with multiple segments, special characters, and varied depths, the same input always produces the same encoded output ([test](tests/audit-test-harness.property.l1.test.ts))
-- No hardcoded path segments appear in the harness module — all values derive from `DEFAULT_AUDIT_CONFIG` ([review])
+- No hardcoded path segments appear in the harness module — all values derive from `DEFAULT_AUDIT_CONFIG` ([audit])
 
 ### Compliance
 
-- ALWAYS: derive the `.spx/nodes/` root from `DEFAULT_AUDIT_CONFIG` per ADR `15-audit-directory` ([review](../15-audit-directory.adr.md))
-- NEVER: hardcode the string `"nodes"` or any path separator outside of `DEFAULT_AUDIT_CONFIG` ([review](../15-audit-directory.adr.md))
+- ALWAYS: derive the `.spx/nodes/` root from `DEFAULT_AUDIT_CONFIG` per ADR `15-audit-directory` ([audit](../15-audit-directory.adr.md))
+- NEVER: hardcode the string `"nodes"` or any path separator outside of `DEFAULT_AUDIT_CONFIG` ([audit](../15-audit-directory.adr.md))

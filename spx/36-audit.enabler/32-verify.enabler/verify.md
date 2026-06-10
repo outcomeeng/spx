@@ -29,4 +29,4 @@ CAN present a structured, actionable verdict on whether a recorded audit is inte
 ### Compliance
 
 - ALWAYS: exit 0 when all stages pass; exit 1 when any stage fails ([test](tests/verify.scenario.l1.test.ts))
-- NEVER: modify the verdict file or write any output to the filesystem ([review])
+- NEVER: modify the verdict file or write any output to the filesystem ([audit])
