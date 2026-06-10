@@ -15,6 +15,8 @@ CAN resolve shared, per-worktree, and tracked roots and gate main-checkout-only 
 ### Mappings
 
 - In a bare-repository pool the main checkout maps from three signals together — a worktree is the main checkout when its checked-out branch equals `origin/HEAD`'s target, its directory basename equals that branch name, and its git-common-dir's parent equals the worktree's parent; any signal disagreeing maps to not-the-main-checkout, and a pool with no agreeing worktree maps to no main checkout ([test](tests/main-checkout.mapping.l1.test.ts))
+- In a non-bare repository the main working tree — the parent of the git-common-dir — is the main checkout and every linked worktree is not, even when a linked worktree's directory basename and checked-out branch match the bare-pool rule, because bareness (`git config --get core.bare`), not directory shape, selects the layout ([test](tests/main-checkout.mapping.l1.test.ts))
+- The designated main-checkout path maps from the repository's layout: a non-bare repository — with or without linked worktrees — designates its main working tree, the parent of the git-common-dir, from any of its worktrees; a bare-repository pool designates the parent of the git-common-dir joined with the default branch name, or no path when its `origin/HEAD` is unset; and whenever a checkout is the main checkout, its own worktree root equals the designated path ([test](tests/main-checkout-path.mapping.l1.test.ts))
 
 ### Compliance
 
