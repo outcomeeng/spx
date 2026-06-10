@@ -1,43 +1,38 @@
+---
+template_version: "0.18.5"
+template_source: spec-tree
+languages: [typescript]
+---
+
 # spx/ Directory Guide (Spec Tree)
 
-This guide explains the `spx/` directory structure and how to work with specification trees.
+This guide explains WHEN to invoke spec-tree skills for this product. It is a **router** — the skills contain the HOW.
 
-Spec tree management is handled by the **spec-tree** Claude Code plugin (`outcomeeng/plugins/plugins/spec-tree`). Use its skills for all spec operations:
-
-| Skill                        | Purpose                                                                    |
-| ---------------------------- | -------------------------------------------------------------------------- |
-| `/spec-tree:understanding`   | Load methodology foundation (node types, ordering, assertions)             |
-| `/spec-tree:contextualizing` | Load context for a specific spec-tree node                                 |
-| `/spec-tree:authoring`       | Create specs, ADRs, PDRs, enablers, outcomes                               |
-| `/spec-tree:decomposing`     | Break nodes into children with proper ordering                             |
-| `/spec-tree:testing`         | Manage spec-test lock file lifecycle                                       |
-| `/spec-tree:refactoring`     | Restructure the spec tree                                                  |
-| `/spec-tree:aligning`        | Review for gaps, contradictions, and consistency                           |
-| `/spec-tree:opening-pr`      | Open ready PRs once REVIEW_READINESS holds (branch hygiene + local review) |
-
-Additional skills ship with the plugin and are invoked by name: `applying`, `committing-changes`, `interviewing`, `auditing-tests`, `auditing-product-decisions`, `handoff`, `pickup`, `refocusing`, `bootstrapping`. See `outcomeeng/plugins/plugins/spec-tree/skills/` for the full list.
+---
 
 ## Structure Overview
 
-The `spx/` tree is the always-current map of the product. Nothing moves because work is "done" — status is derived from tests.
+The `spx/` tree is a durable map of the product. Nothing moves because work is "done" — specs are permanent product truth, not a backlog.
 
-Two node types exist: **enablers** (infrastructure) and **outcomes** (user-behavior hypotheses).
+Two node types at any depth:
 
 ```text
 spx/
-  {product}.product.md                # Product requirements
-  NN-{slug}.pdr.md                    # Product decisions
-  NN-{slug}.adr.md                    # Architectural decisions
-  NN-{slug}.{enabler|outcome}/
-    {slug}.md                         # Spec file (no type suffix, no numeric prefix)
-    tests/
-      <subject>.<evidence>.<level>[.<runner>].test.ts
-      test_<subject>.<evidence>.<level>.py
-      <subject>.<evidence>.<level>[.<runner>].rs
-    PLAN.md                           # Escape hatch: deferred plan (ephemeral, not spec tree)
-    ISSUES.md                         # Escape hatch: known issues (ephemeral, not spec tree)
-    NN-{slug}.adr.md                  # Decisions scoped to this subtree
-    NN-{slug}.{enabler|outcome}/      # Nested children
+  {product-slug}.product.md            # Product spec (root)
+  NN-{slug}.adr.md                     # Architecture decision
+  NN-{slug}.pdr.md                     # Product decision
+  NN-{slug}.enabler/                   # Shared infrastructure
+    {slug}.md                          # Spec file
+    tests/                             # Co-located tests
+    PLAN.md                            # Coordination note: deferred plan (optional)
+    ISSUES.md                          # Coordination note: known issues (optional)
+    NN-{slug}.enabler/                 # Children: enablers only
+  NN-{slug}.outcome/                   # Hypothesis + assertions
+    {slug}.md                          # Spec file
+    tests/                             # Co-located tests
+    PLAN.md                            # Coordination note: deferred plan (optional)
+    ISSUES.md                          # Coordination note: known issues (optional)
+    NN-{slug}.{enabler|outcome}/       # Children: enablers and outcomes
 ```
 
 ---
@@ -45,160 +40,196 @@ spx/
 ## Key Principles
 
 1. **Durable map**: Specs stay in place. Nothing moves because work is "done."
-2. **Co-location**: Tests live with their spec in `tests/`. No graduation.
-3. **Truth flows down**: PDR/ADR → Spec → Test → Code. When layers disagree, the lower layer is in violation.
-4. **Two node types**: Enablers (infrastructure, `PROVIDES ... SO THAT ... CAN ...`) and outcomes (hypothesis, `WE BELIEVE THAT ... WILL ... CONTRIBUTING TO ...`). No other node types exist.
-5. **Nesting rule**: Outcomes may contain enablers and outcomes. **Enablers contain only enablers** — never outcome children. If a child under an enabler has genuine uncertainty about which output achieves a behavior change, the parent is mis-typed.
-6. **Atemporal voice**: Specs state product truth. Never narrate history or reference time.
+2. **Two node types**: Enabler (infrastructure, output is known) and outcome (hypothesis, output is a bet). Enablers can only contain enabler children. Outcomes can contain both.
+3. **Co-location**: Tests live with their spec in `tests/`.
+4. **Atemporal voice**: Specs state product truth. Never narrate history.
+5. **Deterministic context**: The tree path defines what context gets loaded for work on a target.
+6. **Decision records win by hierarchy**: If a spec contradicts an ADR or PDR in its ancestry, the spec is wrong. Rewrite the spec to align with the decision record before any implementation work.
+7. **Decision records updated in-place**: When a decision changes, update the ADR/PDR directly. No "superseded" workflow.
+8. **Coordination notes**: PLAN.md and ISSUES.md in node directories are committed coordination notes created during development or left by `/handoff`. They are committed to git only to carry coordination across sessions; they never hold spec assertions or decisions. They go stale unless acted upon, so verify a note before it steers work — reconcile it against the specs, decisions, assertions, tests, implementation, and current user intent. `/contextualizing` reads them automatically. Remove a resolved note; for ISSUES.md entries, either delete the fixed entry or convert unresolved product work into a spec node. These files exist to make coordination visible and may be committed independently from implementation work when collaborators need the state immediately.
 
 ---
 
-## Status Determination
+## Process Hygiene
 
-A node's state is derived from its spec and tests:
+The runtime spawns helper processes — a periodic `pgrep` to monitor backgrounded commands, plus a shell and its children for every command call — and does not reliably reap them. A construct that creates many short-lived children (a poll loop), a long-lived child the monitor keeps polling (`gh run watch`, a backgrounded `sleep`, an idle keep-alive command), or several heavy process trees at once will exhaust the per-user process limit: `posix_spawn` then returns `EAGAIN`, the monitor's `pgrep` crash-loops, and Claude is force-killed. The leak is outside repository control; these rules keep it from being triggered. Apply them with the tool names of the runtime you are in.
 
-| State         | Condition                                         | Required Action                                             |
-| ------------- | ------------------------------------------------- | ----------------------------------------------------------- |
-| **Declared**  | Spec exists, no tests                             | Write tests                                                 |
-| **Specified** | Spec and tests exist, implementation doesn't yet  | Implement or narrow passing-scope checks via `spx.config.*` |
-| **Failing**   | Spec, tests, and implementation exist; tests fail | Fix code                                                    |
-| **Passing**   | Spec, tests, and implementation exist; tests pass | None                                                        |
-
-Specified and failing are normal states — not problems to fix urgently. The spec leads; the code follows.
+- **Never wait or pace work with a shell construct.** No `while`/`until` poll loop. No `gh run watch`. No `sleep` to wait — foreground or backgrounded, alone or in a loop. To wait for a build, test run, process, or review to resolve, or to re-check on an interval, use the runtime's timer: in Claude Code, `/loop` for recurring work or `ScheduleWakeup` for a single delayed re-check; in Codex, a `codex_app.automation_update` thread heartbeat. The timer re-invokes you — the wait happens between turns, not inside a shell.
+- **Background commands: one at a time, short-lived, never a keep-alive.** Every backgrounded command is a process the monitor `pgrep`s on a timer; a pile of them — or one that never exits — is the `pgrep` storm itself.
+- **Heavy subprocess trees run sparingly, serially, load-aware.** A full test run, a build, and similar each fork dozens of children. Before launching one, read `uptime` and compare the sustained loadavg (the 5- and 15-minute figures) to the host's core count (`nproc`, or `sysctl -n hw.ncpu` on macOS); if loadavg exceeds it, defer rather than pile on. Never run two heavy commands concurrently. Run the test suite once before committing, not repeatedly "to be sure".
+- **Other forks add up.** Don't spawn subagents you don't need — each is its own process tree. Redirect a long-running command's output to a file and read it in a separate call, rather than piping through `grep`/`tail`/`head`.
+- **If a previous turn left something running** — a `sleep`, a poll loop, a `gh run watch`, an orphaned test runner — identify it and terminate it by PID before doing anything else.
 
 ---
 
-## Sparse Integer Ordering
+## Numeric Prefixes
 
-Numeric prefixes on directories and decision files encode **dependency order** within each directory. A lower-index item constrains every sibling with a higher index and that sibling's descendants. Same index means independent.
+Numeric prefixes drive deterministic context loading within each directory:
 
-- Lower index → dependency (others may rely on it)
-- Same index → independent of each other (all depend on the previous lower index)
-- Range `[10, 99]`; start at 21 to leave insertion room
-- Insert between existing indices at the midpoint (`(21 + 32) / 2 = 26`)
-- When integer gaps are exhausted, use **fractional indexing** as an escape hatch (`21.5-…`). Avoid when possible
+1. Lower-index sibling specs are read as constraining context for higher-index targets.
+2. Same-index siblings are listed but not read as target constraints.
+3. Higher-index siblings are listed but not read as target constraints.
+4. Files and directories share one number space. The numeric prefix sorts; the type suffix identifies the artifact.
+5. Numbers are sibling-unique only. The same integer can be reused under a different parent.
+
+Read an existing directory like this:
 
 ```text
-16-core-config.enabler/             ← Built first (shared config)
-36-session.enabler/                 ← Depends on core config
-41-validation.enabler/              ← Independent of 46-claude
-46-claude.outcome/                  ← Independent of 41-validation (same-range siblings)
+spx/
+  15-auth-strategy.adr.md
+  21-test-harness.enabler/
+  32-auth.outcome/
+  32-billing.outcome/
+  43-integration.outcome/
 ```
 
-**ALWAYS use full path when referencing spec-tree nodes:**
+Work on `spx/43-integration.outcome/` reads `spx/15-auth-strategy.adr.md`, `spx/21-test-harness.enabler/test-harness.md`, `spx/32-auth.outcome/auth.md`, and `spx/32-billing.outcome/billing.md` as prior context. Work on `spx/32-auth.outcome/` does not read `spx/32-billing.outcome/`; same-index siblings are unordered peers.
 
-| Wrong                  | Correct                                                            |
-| ---------------------- | ------------------------------------------------------------------ |
-| "session-identity"     | "36-session.enabler/32-session-identity.enabler"                   |
-| "implement validation" | "implement 41-validation.enabler/32-typescript-validation.enabler" |
+Use `/decomposing` to create or restructure child nodes. It owns concern boundaries, node types, ordering evidence, and sparse index assignment.
+
+**ALWAYS use full paths when referencing nodes, ADRs, and PDRs** — indices are sibling-unique, not globally unique, and bare decision filenames cannot be resolved:
+
+| Wrong                  | Correct                                    |
+| ---------------------- | ------------------------------------------ |
+| "32-parser.enabler"    | "spx/21-infra.enabler/32-parser.enabler"   |
+| "implement enabler-43" | "spx/21-infra.enabler/43-api.enabler"      |
+| "15-build.adr.md"      | "spx/21-spec-tree.enabler/15-build.adr.md" |
+| "21-pricing.pdr.md"    | "spx/32-billing.outcome/21-pricing.pdr.md" |
 
 ---
 
 ## When to Invoke Skills
 
-### Before Implementing ANY Spec-Tree Node → `/spec-tree:contextualizing`
+### Before ANY spec-tree work → `/understanding`
 
 **BLOCKING REQUIREMENT**
 
-**Trigger conditions:**
+Loads the Spec Tree methodology. Emits `<SPEC_TREE_FOUNDATION>` marker. Required once per session.
 
-- User says "implement X", "work on X", or references a node by its path
-- User references a spec-tree node file
-- You're about to write implementation code
-
-**What it does**: Walks the tree from product root to target node, collecting ancestor specs and context.
-
-### When Creating/Organizing Specs → `/spec-tree:authoring`
+### Before working on a specific node → `/contextualizing`
 
 **BLOCKING REQUIREMENT**
 
-**Trigger conditions:**
+Walks the tree from product root to target, reads all ancestor specs, lower-index siblings, and ADRs/PDRs.
 
-- User says "create a PDR", "add an ADR", "create an enabler", "create an outcome"
-- You need templates or ordering rules
+### When creating specs or nodes → `/authoring`
 
-**What it does**: Provides templates, sparse integer ordering, structure guidance.
+Create product specs, ADRs/PDRs, enabler nodes, outcome nodes.
 
-### When Asking "What's Next?" → `/spec-tree:contextualizing`
+### When composing or breaking down nodes → `/decomposing`
 
-Use contextualizing to understand current state, then authoring or testing to act on it.
+Compose top-level children with `/decomposing spx/`. Decompose an existing node when it has too many assertions (>7), contains independent concerns, or has `PLAN.md`/`ISSUES.md` structure intent.
+
+### When restructuring the tree → `/refactoring`
+
+Move nodes, re-scope assertions, extract shared enablers, consolidate duplicates.
+
+### When checking consistency → `/aligning`
+
+Review, audit, or quality check specs. Find contradictions or gaps.
+
+### When shipping PR work → `/pr` (lifecycle router)
+
+**BLOCKING REQUIREMENT**
+
+Every change destined for the default branch routes through `/pr` unless `spx/local/merging.md` declares a no-PR route or a product-specific lifecycle. `/pr` proposes the lifecycle before mutation, then invokes the internal PR protocols. The opening protocol passes through the `REVIEW_READINESS` gate before the PR opens. The gate holds when deterministic verification passes (the project's full validation-and-testing command) **and** the local review has converged. The opening protocol invokes the `changes-reviewer` agent on the working diff — falling back to the `/review-changes` slash command when the agent is not installed; both run the same `reviewing-changes` skill chain in an isolated context, so the verdict is not biased by what the operator's main agent has been doing. The agent acts on each finding by **validity and phase, never severity**: it validates each finding against its cited rule and drops any the citation does not support, applies every valid finding that belongs, and splits out of the changeset any whose fix is too large to belong (recording it in the relevant node's `ISSUES.md` or `PLAN.md`). Once `REVIEW_READINESS` holds the PR opens `ready_for_review`; `MERGE_READINESS` and `PRODUCTION_READINESS` then govern the merge. See `/standardizing-merging` `<authority_gates>` for the three-gate vocabulary.
 
 ---
 
-## Quick Reference: Skill Selection
+## Quick Reference: Skills and Agents
 
-| User Says...              | Invoke                       | Do NOT                     |
-| ------------------------- | ---------------------------- | -------------------------- |
-| "Implement &lt;node&gt;"  | `/spec-tree:contextualizing` | Read the spec directly     |
-| "Create a PDR"            | `/spec-tree:authoring`       | Search for templates       |
-| "What's next?"            | `/spec-tree:contextualizing` | Grep for nodes             |
-| "Create an enabler"       | `/spec-tree:authoring`       | Calculate indices yourself |
-| "Break this down"         | `/spec-tree:decomposing`     | Guess child structure      |
-| "Anything contradictory?" | `/spec-tree:aligning`        | Skim specs manually        |
+Skills run in the main conversation. Agents preload the skill and run autonomously as subagents, returning structured APPROVED/REJECTED verdicts. Use agents when running multiple audits in parallel; use skills when you want to discuss findings with the user.
+
+| User Says...             | Skill              | Agent                   |
+| ------------------------ | ------------------ | ----------------------- |
+| "Implement this outcome" | `/contextualizing` | —                       |
+| "Create an outcome"      | `/authoring`       | —                       |
+| "Add an ADR"             | `/authoring`       | —                       |
+| "This node is too big"   | `/decomposing`     | —                       |
+| "Move this under that"   | `/refactoring`     | —                       |
+| "Check these specs"      | `/aligning`        | —                       |
+| "Write tests for this"   | `/testing`         | —                       |
+| "Start the TDD flow"     | `/applying`        | `applier`               |
+| "Audit this PDR"         | `/audit-pdr`       | `audit-pdr`             |
+| "Audit this ADR"         | `/audit-adr`       | `audit-adr`             |
+| "Audit test evidence"    | `/auditing-tests`  | `test-evidence-auditor` |
+
+Per-language code, architecture, and test audits render for the product's enabled languages:
+
+| User Says...                | Skill                               | Agent                             |
+| --------------------------- | ----------------------------------- | --------------------------------- |
+| "Audit this code"           | `/auditing-typescript`              | `typescript-code-auditor`         |
+| "Audit ADRs for TypeScript" | `/auditing-typescript-architecture` | `typescript-architecture-auditor` |
+| "Audit these tests"         | `/auditing-typescript-tests`        | `typescript-test-auditor`         |
 
 ---
 
 ## Test Naming Convention
 
-Test filenames encode the subject, evidence mode, and execution level:
+Test level is encoded in the filename. This guide renders only the languages listed in its `languages` frontmatter; `/update-spx` re-renders from the installed template when the methodology advances.
 
-```text
-<subject>.<evidence>.<level>[.<runner>].test.ts
-test_<subject>.<evidence>.<level>.py
-<subject>.<evidence>.<level>[.<runner>].rs
-```
+### TypeScript
 
-| Segment  | Values                                                                    | Meaning                         |
-| -------- | ------------------------------------------------------------------------- | ------------------------------- |
-| evidence | `scenario`, `mapping`, `conformance`, `property`, `compliance`            | The proof the test provides     |
-| level    | `l1`, `l2`, `l3`                                                          | Execution pain and dependencies |
-| runner   | Optional runner qualifier such as `vitest`, `playwright`, or `subprocess` | Tool-specific disambiguation    |
-
-Execution level describes operational cost and environment dependence. Evidence mode describes the claim the test proves. Runner names describe the tool that executes the test.
+| Level | Pattern                           | Example                        |
+| ----- | --------------------------------- | ------------------------------ |
+| 1     | `{subject}.{evidence}.l1.test.ts` | `parsing.scenario.l1.test.ts`  |
+| 2     | `{subject}.{evidence}.l2.test.ts` | `cli.scenario.l2.test.ts`      |
+| 3     | `{subject}.{evidence}.l3.test.ts` | `workflow.scenario.l3.test.ts` |
 
 ---
 
-## Spec-Test Contract
+## Assertion Evidence Contract
 
-Nodes carry typed assertions with inline evidence links.
+Spec assertions link to their evidence inline:
 
 ```markdown
-## Assertions
-
 ### Scenarios
 
-- Given a valid config, when parsed, then fields are extracted ([test](tests/parsing.scenario.l1.test.ts))
-
-### Properties
-
-- Parsing is deterministic: same input always produces same output ([test](tests/parsing.property.l1.test.ts))
-
-### Compliance
-
-- NEVER: accept paths with traversal sequences ([test](tests/parsing.compliance.l1.test.ts))
+- Given X, when Y, then Z ([test](tests/test_slug.scenario.l1.py))
 ```
 
-**Five assertion types:**
+Use `[test](...)` for automated evidence verified by a test runner, `[eval](...)` for LLM-driven behavior verified by graded cases against a structured verdict, and `[audit]` for semantic constraints judged by an auditing skill that no deterministic test or eval can falsify (`[review]` is the legacy form of `[audit]`, still accepted during migration). Every assertion carries exactly one verification-type tag. The `[eval]` link points at a per-eval directory's `eval.toml`; the eval runner is declared per project.
 
-- **Scenario** — "there exists" (this specific case works). Example-based tests.
-- **Mapping** — "for all" over a finite, enumerable set. Parameterized tests.
-- **Conformance** — output must match an external schema, standard, or reference. Tool-based validation.
-- **Property** — "for all" over a type or value space (invariant always holds). Property-based tests.
-- **Compliance** — ALWAYS/NEVER behavioral rules from a decision or semantic constraint. Test or review.
+---
 
-**Two evidence mechanisms:** `[test]` (automated test exercises the behavior) and `[review]` (semantic constraint verified by human or agent judgment). See `/spec-tree:understanding` for full details.
+## Excluded Nodes
+
+Nodes with specs and tests but no implementation are listed in `spx/EXCLUDE`. The `spx` CLI reads this file and skips excluded nodes when running `spx test passing`. Linting always applies — style is checked regardless of implementation existence.
+
+`spx` never writes to product configuration files. It passes exclusion flags to each tool at invocation time.
+
+Remove entries when implementation begins and tests should start running.
 
 ---
 
 ## Session Management
 
-Claude Code session handoffs are stored in `.spx/sessions/` (separate from spec tree):
+Claude Code session handoffs are stored in `.spx/sessions/` (separate from the spec tree):
 
 ```text
 .spx/sessions/
-├── todo/          # Available for pickup
+├── todo/          # Available for /pickup
 ├── doing/         # Currently claimed
 └── archive/       # Completed sessions
 ```
 
-Use `spx session handoff` to create and `spx session pickup` to claim (see `spx session --help` for full CLI usage). The `/spec-tree:handoff` and `/spec-tree:pickup` skills drive the same lifecycle from within a conversation.
+Use `/handoff` to create, `/pickup` to claim, `spx session release` to return a claimed session to the queue.
+
+Session files use structured YAML frontmatter (rendered by the CLI from JSON input):
+
+```yaml
+---
+priority: medium
+git_ref: work/example
+goal: Implement X
+next_step: Run the focused validation
+specs:
+  - spx/36-session.enabler/session.md
+files:
+  - src/commands/session/handoff.ts
+created_at: 2026-05-30T14:22:00.000Z
+agent_session_id: abc123-def456
+---
+```
+
+`spx session handoff` reads a JSON header on the first line of stdin followed by the body bytes. It prefills `created_at`, `agent_session_id` when available, and `git_ref`. The handoff must provide non-empty `goal` and `next_step`. Before archiving a claimed session, add a non-empty `result` to that session's frontmatter.
