@@ -192,9 +192,9 @@ Use `[test](...)` for automated evidence verified by a test runner, `[eval](...)
 
 ---
 
-## Excluded Nodes
+## Passing-Scope Filters
 
-Nodes with specs and tests but no implementation are listed in `spx/EXCLUDE`. The `spx` CLI reads this file and skips excluded nodes when running `spx test passing`. Linting always applies — style is checked regardless of implementation existence.
+Nodes with specs and tests but no implementation are excluded from `spx test passing` through the testing descriptor in `spx.config.{toml,json,yaml}`. Normal `spx test` discovery remains independent from passing-scope filters. Linting always applies — style is checked regardless of implementation existence.
 
 `spx` never writes to product configuration files. It passes exclusion flags to each tool at invocation time.
 

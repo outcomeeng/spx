@@ -27,7 +27,7 @@
 - ⚠️ **`[audit]` vs `[test]` is the verification MECHANISM, not a lifecycle marker.** In a spec file's `## Assertions`, a testable assertion carries `[test]` (its co-located test is written via `/applying`), `[eval]` for LLM-driven behavior with a structurally scoreable verdict, or `[audit]` (legacy spelling `[review]`) for judgment constraints no automated test can verify — never an `[audit]` "placeholder" for something testable. PDR and ADR `## Verification` rules instead carry the tag their template prescribes: under `### Testing` the evidence type (`[scenario]`/`[mapping]`/`[conformance]`/`[property]`/`[compliance]`), under `### Eval` `[eval]`, under `### Audit` `[audit]`.
 - ⚠️ **NEVER discard or displace uncommitted work with `git checkout -- <path>`, `git restore`, `git reset --hard`, `git clean -f`, or `git stash`** — `git checkout -- <path>`, `git restore`, `git reset --hard`, and `git clean -f` discard uncommitted local changes irrecoverably; `git stash` hides them in the stash stack (recoverable, but it conceals in-progress state from concurrent agents). Hand these off to the user; if you need to discard changes, ask the user to do it.
 - ⚠️ **NEVER force-overwrite a shared remote ref with plain `git push --force`** — it unconditionally overwrites history a concurrent agent may have advanced. The PR-branch flows use `git push --force-with-lease` (which refuses when the remote advanced) instead, per the rule below.
-- ✅ **The `/pr` lifecycle and its internal opening/managing flows own their own PR branch's history** — per `/spec-tree:standardizing-merging`, the lifecycle autonomously rebases the current PR branch onto its base (`git rebase origin/<base>`), pushes the rebased branch with `git push --force-with-lease` (never plain `--force` — `--force-with-lease` refuses when the remote advanced, so it cannot clobber a concurrent push), merges via `gh pr merge --rebase --delete-branch`, and deletes a merged PR's branch. These are governed, single-author-branch operations, not the work-discarding operations above.
+- ✅ **The `/pr` lifecycle and its internal opening/managing flows own their own PR branch's history** — per `/spec-tree:standardizing-merging`, the lifecycle autonomously rebases the current PR branch onto its base (`git rebase origin/<base>`), pushes the rebased branch with `git push --force-with-lease` (never plain `--force` — `--force-with-lease` refuses when the remote advanced, so it cannot clobber a concurrent push), merges via `gh pr merge --rebase`, detaches the worktree onto the refreshed base tip, and deletes the merged PR branch locally and remotely. These are governed, single-author-branch operations, not the work-discarding operations above.
 - ⚠️ **STOP TRIGGER: about to run `pnpm exec tsc --noEmit`, `npx tsc`, or any bare type-check command** — run `spx validation ts` instead. Bare `tsc` misses project-specific config, paths, and exclusions. This applies to every TypeScript check, not just commit-time.
 - ⚠️ **ALWAYS run `spx validation all` after code changes** — before audit, before commit, before claiming "done". `spx validation ts` alone is not the quality gate — it runs 1 of 5 checks. Never report a subset of checks as clean.
 - ⚠️ **NEVER mechanically extract typed literal union values to named constants** — `no-restricted-syntax` warnings on `expect(x).toBe("declared")` where `x: NodeState` are false positives. The type annotation IS the documentation; renaming `"declared"` → `STATE_DECLARED` adds zero information. The lint rule targets magic strings whose meaning is obscure; enum-like union members are already self-documenting. Suppress the warning inline or leave it; never rename. The `typescript:auditing-typescript-tests` skill's Gate 0 C1/L1 findings for typed protocol values (`"PASS"`, `"FAIL"`, `"APPROVED"`, `"REJECT"`) are the same class of false positive — a Gate 0 REJECT on these strings is not a work blocker when `pnpm run validate` passes and tests pass.
@@ -47,7 +47,7 @@
 
 ## Spec Management
 
-The **spec-tree** plugin (`outcomeeng/plugins/plugins/spec-tree`) is the active system for managing specification trees. Core skills:
+The **spec-tree** plugin is the active system for managing specification trees. Core skills:
 
 <skill_router>
 
@@ -61,9 +61,9 @@ The **spec-tree** plugin (`outcomeeng/plugins/plugins/spec-tree`) is the active 
 | `/spec-tree:applying`        | Orchestrate spec-tree implementation and audit gates                       |
 | `/spec-tree:refactoring`     | Restructure the spec tree (move, consolidate, extract)                     |
 | `/spec-tree:aligning`        | Review for gaps, contradictions, and consistency                           |
-| `/spec-tree:pr`              | Route PR lifecycle work through opening, managing, and merge gates          |
+| `/pr`                        | Route PR lifecycle work through opening, managing, and merge gates          |
 
-Additional skills ship with the plugin and are invoked by name: `committing-changes`, `interviewing`, `auditing-tests`, `auditing-product-decisions`, `handoff`, `pickup`, `refocusing`, `bootstrapping`, `opening-pr`, `managing-pr`, `standardizing-merging`. See `outcomeeng/plugins/plugins/spec-tree/skills/` for the full list.
+Additional skills ship with the plugin and are invoked by name: `committing-changes`, `interviewing`, `auditing-tests`, `auditing-product-decisions`, `handoff`, `pickup`, `refocusing`, `bootstrapping`, `opening-pr`, `managing-pr`, `standardizing-merging`. See the spec-tree plugin's `skills/` directory for the full list.
 
 </skill_router>
 
