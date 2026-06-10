@@ -20,4 +20,4 @@ CAN trust they are operating on a well-formed verdict with no missing fields or 
 
 ### Compliance
 
-- NEVER: interpret semantic meaning of gate statuses or overall verdict — only validate presence and enumeration membership ([review])
+- NEVER: interpret semantic meaning of gate statuses or overall verdict — only validate presence and enumeration membership ([audit])

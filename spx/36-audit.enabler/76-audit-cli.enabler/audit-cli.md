@@ -13,4 +13,4 @@ CAN be invoked from the `spx` root command without the root command containing d
 
 ### Compliance
 
-- NEVER: implement audit business logic in the CLI domain — routing only; logic lives in child enablers ([review])
+- NEVER: implement audit business logic in the CLI domain — routing only; logic lives in child enablers ([audit])

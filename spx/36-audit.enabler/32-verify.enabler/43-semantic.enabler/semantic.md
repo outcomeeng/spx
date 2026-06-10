@@ -28,4 +28,4 @@ CAN trust the verdict is not internally contradictory
 
 ### Compliance
 
-- NEVER: check path existence or element presence — those are concerns of the paths and structural stages respectively ([review])
+- NEVER: check path existence or element presence — those are concerns of the paths and structural stages respectively ([audit])
