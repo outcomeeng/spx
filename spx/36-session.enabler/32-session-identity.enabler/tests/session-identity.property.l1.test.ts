@@ -5,8 +5,8 @@ import { buildSessionFrontMatterContent, SESSION_FRONT_MATTER_DELIMITER } from "
 import { DEFAULT_SESSION_METADATA, parseSessionMetadata } from "@/domains/session/list";
 import { generateSessionId, parseSessionId, SESSION_ID_PATTERN } from "@/domains/session/timestamp";
 
-const PROPERTY_DATE_MIN = new Date(2000, 0, 1, 0, 0, 0);
-const PROPERTY_DATE_MAX = new Date(2099, 11, 28, 23, 59, 59);
+const PROPERTY_DATE_MIN = new Date(Date.UTC(2000, 0, 1, 0, 0, 0));
+const PROPERTY_DATE_MAX = new Date(Date.UTC(2099, 11, 28, 23, 59, 59));
 
 function truncateToSecond(instant: Date): number {
   return instant.getTime() - instant.getMilliseconds();

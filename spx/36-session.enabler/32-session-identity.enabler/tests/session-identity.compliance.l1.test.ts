@@ -8,7 +8,7 @@ import { SESSION_FRONT_MATTER, SESSION_PRIORITY } from "@/domains/session/types"
 
 describe("session identity compliance", () => {
   it("ALWAYS: session IDs use underscore between date and time and hyphen within components", () => {
-    const id = generateSessionId({ now: () => new Date(2026, 0, 13, 8, 1, 5) });
+    const id = generateSessionId({ now: () => new Date(Date.UTC(2026, 0, 13, 8, 1, 5)) });
 
     expect(id).toBe(`2026-01-13${SESSION_ID_SEPARATOR}08-01-05`);
   });
@@ -29,7 +29,7 @@ describe("session identity compliance", () => {
   });
 
   it("NEVER: session IDs contain colon characters", () => {
-    const id = generateSessionId({ now: () => new Date(2026, 0, 13, 8, 1, 5) });
+    const id = generateSessionId({ now: () => new Date(Date.UTC(2026, 0, 13, 8, 1, 5)) });
 
     expect(id).not.toContain(":");
   });

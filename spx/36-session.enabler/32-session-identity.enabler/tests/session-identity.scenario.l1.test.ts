@@ -28,13 +28,13 @@ import { describe, expect, it } from "vitest";
 
 /** Valid priorities derived from the type, not hardcoded. */
 const VALID_PRIORITIES: readonly SessionPriority[] = Object.values(SESSION_PRIORITY);
-const PROPERTY_DATE_MIN = new Date(2000, 0, 1, 0, 0, 0);
-const PROPERTY_DATE_MAX = new Date(2099, 11, 28, 23, 59, 59);
+const PROPERTY_DATE_MIN = new Date(Date.UTC(2000, 0, 1, 0, 0, 0));
+const PROPERTY_DATE_MAX = new Date(Date.UTC(2099, 11, 28, 23, 59, 59));
 
 describe("generateSessionId", () => {
   it("GIVEN injected time WHEN generated THEN matches SESSION_ID_PATTERN", () => {
     const id = generateSessionId({
-      now: () => new Date(2026, 0, 13, 8, 1, 5),
+      now: () => new Date(Date.UTC(2026, 0, 13, 8, 1, 5)),
     });
 
     expect(id).toMatch(SESSION_ID_PATTERN);
@@ -43,7 +43,7 @@ describe("generateSessionId", () => {
 
   it("GIVEN single-digit components WHEN generated THEN zero-pads all fields", () => {
     const id = generateSessionId({
-      now: () => new Date(2026, 0, 3, 5, 7, 9),
+      now: () => new Date(Date.UTC(2026, 0, 3, 5, 7, 9)),
     });
 
     expect(id).toBe(`2026-01-03${SESSION_ID_SEPARATOR}05-07-09`);
@@ -51,7 +51,7 @@ describe("generateSessionId", () => {
 
   it("GIVEN end-of-day time WHEN generated THEN handles 23:59:59", () => {
     const id = generateSessionId({
-      now: () => new Date(2026, 11, 31, 23, 59, 59),
+      now: () => new Date(Date.UTC(2026, 11, 31, 23, 59, 59)),
     });
 
     expect(id).toBe(`2026-12-31${SESSION_ID_SEPARATOR}23-59-59`);
@@ -63,12 +63,12 @@ describe("parseSessionId", () => {
     const date = parseSessionId(`2026-01-13${SESSION_ID_SEPARATOR}08-01-05`);
 
     expect(date).not.toBeNull();
-    expect(date!.getFullYear()).toBe(2026);
-    expect(date!.getMonth()).toBe(0); // January = 0
-    expect(date!.getDate()).toBe(13);
-    expect(date!.getHours()).toBe(8);
-    expect(date!.getMinutes()).toBe(1);
-    expect(date!.getSeconds()).toBe(5);
+    expect(date!.getUTCFullYear()).toBe(2026);
+    expect(date!.getUTCMonth()).toBe(0); // January = 0
+    expect(date!.getUTCDate()).toBe(13);
+    expect(date!.getUTCHours()).toBe(8);
+    expect(date!.getUTCMinutes()).toBe(1);
+    expect(date!.getUTCSeconds()).toBe(5);
   });
 
   it("GIVEN invalid format WHEN parsed THEN returns null", () => {
@@ -109,12 +109,12 @@ describe("generateSessionId → parseSessionId roundtrip (property-based)", () =
         const parsed = parseSessionId(id);
 
         expect(parsed).not.toBeNull();
-        expect(parsed!.getFullYear()).toBe(original.getFullYear());
-        expect(parsed!.getMonth()).toBe(original.getMonth());
-        expect(parsed!.getDate()).toBe(original.getDate());
-        expect(parsed!.getHours()).toBe(original.getHours());
-        expect(parsed!.getMinutes()).toBe(original.getMinutes());
-        expect(parsed!.getSeconds()).toBe(original.getSeconds());
+        expect(parsed!.getUTCFullYear()).toBe(original.getUTCFullYear());
+        expect(parsed!.getUTCMonth()).toBe(original.getUTCMonth());
+        expect(parsed!.getUTCDate()).toBe(original.getUTCDate());
+        expect(parsed!.getUTCHours()).toBe(original.getUTCHours());
+        expect(parsed!.getUTCMinutes()).toBe(original.getUTCMinutes());
+        expect(parsed!.getUTCSeconds()).toBe(original.getUTCSeconds());
       }),
     );
   });
@@ -131,8 +131,8 @@ describe("generateSessionId → parseSessionId roundtrip (property-based)", () =
 
     fc.assert(
       fc.property(validDate, validDate, (a, b) => {
-        const dateA = new Date(a.year, a.month, a.day, a.hour, a.minute, a.second);
-        const dateB = new Date(b.year, b.month, b.day, b.hour, b.minute, b.second);
+        const dateA = new Date(Date.UTC(a.year, a.month, a.day, a.hour, a.minute, a.second));
+        const dateB = new Date(Date.UTC(b.year, b.month, b.day, b.hour, b.minute, b.second));
         const idA = generateSessionId({ now: () => dateA });
         const idB = generateSessionId({ now: () => dateB });
 
