@@ -1,5 +1,5 @@
 ---
-template_version: "0.18.5"
+template_version: "0.18.6"
 template_source: spec-tree
 languages: [typescript]
 ---
@@ -83,7 +83,7 @@ spx/
   43-integration.outcome/
 ```
 
-Work on `spx/43-integration.outcome/` reads `spx/15-auth-strategy.adr.md`, `spx/21-test-harness.enabler/test-harness.md`, `spx/32-auth.outcome/auth.md`, and `spx/32-billing.outcome/billing.md` as prior context. Work on `spx/32-auth.outcome/` does not read `spx/32-billing.outcome/`; same-index siblings are unordered peers.
+Work on `spx/NN-integration.outcome/` reads `spx/NN-auth-strategy.adr.md`, `spx/NN-test-harness.enabler/test-harness.md`, `spx/NN-auth.outcome/auth.md`, and `spx/NN-billing.outcome/billing.md` as prior context. Work on `spx/NN-auth.outcome/` does not read `spx/NN-billing.outcome/`; same-index siblings are unordered peers.
 
 Use `/decomposing` to create or restructure child nodes. It owns concern boundaries, node types, ordering evidence, and sparse index assignment.
 
@@ -91,10 +91,10 @@ Use `/decomposing` to create or restructure child nodes. It owns concern boundar
 
 | Wrong                  | Correct                                    |
 | ---------------------- | ------------------------------------------ |
-| "32-parser.enabler"    | "spx/21-infra.enabler/32-parser.enabler"   |
-| "implement enabler-43" | "spx/21-infra.enabler/43-api.enabler"      |
-| "15-build.adr.md"      | "spx/21-spec-tree.enabler/15-build.adr.md" |
-| "21-pricing.pdr.md"    | "spx/32-billing.outcome/21-pricing.pdr.md" |
+| "32-parser.enabler"    | "spx/NN-infra.enabler/NN-parser.enabler"   |
+| "implement enabler-43" | "spx/NN-infra.enabler/NN-api.enabler"      |
+| "15-build.adr.md"      | "spx/NN-spec-tree.enabler/NN-build.adr.md" |
+| "21-pricing.pdr.md"    | "spx/NN-billing.outcome/NN-pricing.pdr.md" |
 
 ---
 
@@ -224,7 +224,7 @@ git_ref: work/example
 goal: Implement X
 next_step: Run the focused validation
 specs:
-  - spx/36-session.enabler/session.md
+  - spx/NN-session.enabler/session.md
 files:
   - src/commands/session/handoff.ts
 created_at: 2026-05-30T14:22:00.000Z
