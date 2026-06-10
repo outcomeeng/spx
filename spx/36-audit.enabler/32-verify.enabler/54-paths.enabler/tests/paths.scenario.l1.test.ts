@@ -84,6 +84,31 @@ describe("validatePaths: scenarios", () => {
     }
   });
 
+  it("GIVEN an existing product file whose relative path starts with two dots WHEN path validation runs THEN no escape defect is reported", async () => {
+    const root = await mkdtemp(join(tmpdir(), "spx-paths-test-"));
+    try {
+      const insidePath = "..inside-product.md";
+      await writeFile(join(root, insidePath), "");
+      const verdict: AuditVerdict = {
+        header: VALID_HEADER,
+        gates: [
+          {
+            name: "architecture",
+            status: AUDIT_GATE_STATUS.PASS,
+            count: "1",
+            findings: [{ spec_file: insidePath }],
+          },
+        ],
+      };
+
+      const defects = validatePaths(verdict, root, existsSync);
+
+      expect(defects).toHaveLength(0);
+    } finally {
+      await rm(root, { recursive: true, force: true });
+    }
+  });
+
   it("GIVEN a verdict with a path that escapes the product directory WHEN path validation runs THEN it reports a 'path escapes product directory' defect", async () => {
     const root = await mkdtemp(join(tmpdir(), "spx-paths-test-"));
     try {
