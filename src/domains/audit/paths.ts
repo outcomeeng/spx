@@ -1,4 +1,4 @@
-import { relative, resolve } from "node:path";
+import { relative, resolve, sep } from "node:path";
 import { AuditVerdict } from "./reader";
 
 export const AUDIT_PATH_DEFECT = {
@@ -36,7 +36,7 @@ function checkPath(
 
   const absolutePath = resolve(root, filePath);
   const rel = relative(root, absolutePath);
-  if (rel.startsWith("..")) {
+  if (rel === ".." || rel.startsWith(`..${sep}`)) {
     defects.push(`${AUDIT_PATH_DEFECT.ESCAPES_ROOT}: ${filePath}`);
     return;
   }
