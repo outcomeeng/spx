@@ -61,3 +61,11 @@ PR #138 migrates product-level assertions in [spx.product.md](spx.product.md) fr
 **Impact:** Keeping testable product behavior under `[audit]` weakens the spec-test map and conflicts with the rule that `[audit]` is judgment evidence, not a placeholder for behavior the product can verify.
 
 **Resolution:** Revisit each product-level `[audit]` assertion and reclassify any deterministic behavior to `[test]` with co-located product-root evidence. Start with the `git rev-parse` fallback assertion and the no-network core-operations assertion. Keep judgment-only product properties as `[audit]`.
+
+## Spec-tree guide skill names need invocation-form alignment
+
+PR #138 refreshes [spx/CLAUDE.md](CLAUDE.md) from the spec-tree guide template. Review identified that the refreshed guide uses short spec-tree skill names such as `/contextualizing`, `/applying`, and `/auditing-tests`, while root [CLAUDE.md](../CLAUDE.md) uses plugin-qualified names such as `/spec-tree:contextualizing` and `/spec-tree:applying` for the same core skills.
+
+**Impact:** Mixed invocation forms force agents to infer aliases between two authoritative instruction layers, which can route a required skill invocation through the wrong or unavailable command surface.
+
+**Resolution:** Reconcile the spec-tree guide template and product root guidance so both layers use the same invocation form for core spec-tree skills, or explicitly document the short-form aliases in the root guide.

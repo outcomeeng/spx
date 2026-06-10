@@ -185,7 +185,7 @@ Spec assertions link to their evidence inline:
 ```markdown
 ### Scenarios
 
-- Given X, when Y, then Z ([test](tests/test_slug.scenario.l1.py))
+- Given X, when Y, then Z ([test](tests/test_slug.scenario.l1.test.ts))
 ```
 
 Use `[test](...)` for automated evidence verified by a test runner, `[eval](...)` for LLM-driven behavior verified by graded cases against a structured verdict, and `[audit]` for semantic constraints judged by an auditing skill that no deterministic test or eval can falsify (`[review]` is the legacy form of `[audit]`, still accepted during migration). Every assertion carries exactly one verification-type tag. The `[eval]` link points at a per-eval directory's `eval.toml`; the eval runner is declared per project.
