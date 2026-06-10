@@ -11,6 +11,7 @@
 
 import { AUDIT_PATH_DEFECT, validatePaths } from "@/domains/audit/paths";
 import { AUDIT_GATE_STATUS, AUDIT_VERDICT_VALUE, AuditVerdict } from "@/domains/audit/reader";
+import { existsSync } from "node:fs";
 import { mkdir, mkdtemp, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
@@ -47,9 +48,37 @@ describe("validatePaths: scenarios", () => {
         ],
       };
 
-      const defects = validatePaths(verdict, root);
+      const defects = validatePaths(verdict, root, existsSync);
 
       expect(defects).toHaveLength(0);
+    } finally {
+      await rm(root, { recursive: true, force: true });
+    }
+  });
+
+  it("GIVEN the injected existence reader reports false for an existing verdict path WHEN path validation runs THEN it reports a missing-file defect", async () => {
+    const root = await mkdtemp(join(tmpdir(), "spx-paths-test-"));
+    try {
+      const specPath = "spx/36-audit.enabler/structural.md";
+      await mkdir(join(root, "spx", "36-audit.enabler"), { recursive: true });
+      await writeFile(join(root, specPath), "");
+      const verdict: AuditVerdict = {
+        header: VALID_HEADER,
+        gates: [
+          {
+            name: "architecture",
+            status: AUDIT_GATE_STATUS.PASS,
+            count: "1",
+            findings: [{ spec_file: specPath }],
+          },
+        ],
+      };
+
+      const defects = validatePaths(verdict, root, () => false);
+
+      const defect = defects.find((d) => d.includes(AUDIT_PATH_DEFECT.MISSING_FILE));
+      expect(defect).toBeDefined();
+      expect(defect).toContain(specPath);
     } finally {
       await rm(root, { recursive: true, force: true });
     }
@@ -71,7 +100,7 @@ describe("validatePaths: scenarios", () => {
         ],
       };
 
-      const defects = validatePaths(verdict, root);
+      const defects = validatePaths(verdict, root, existsSync);
 
       const defect = defects.find((d) => d.includes(AUDIT_PATH_DEFECT.ESCAPES_ROOT));
       expect(defect).toBeDefined();

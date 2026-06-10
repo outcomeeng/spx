@@ -14,7 +14,7 @@
  * - C1: Each defect line conforms to "{stage}: {message}" format
  */
 
-import { runVerifyPipeline } from "@/domains/audit/verify";
+import { runVerifyFilePipeline } from "@/commands/audit/verify";
 import { AuditHarness, createAuditHarness } from "@testing/harnesses/audit/harness";
 import { mkdir, mkdtemp, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
@@ -95,7 +95,7 @@ const XML_PATHS_FAIL = `<audit_verdict>
   </gates>
 </audit_verdict>`;
 
-describe("runVerifyPipeline: scenarios", () => {
+describe("runVerifyFilePipeline: scenarios", () => {
   let harness: AuditHarness;
 
   beforeEach(async () => {
@@ -109,7 +109,7 @@ describe("runVerifyPipeline: scenarios", () => {
   it("GIVEN a well-formed audit verdict XML with coherent gate statuses WHEN the verify pipeline runs THEN all stages pass and exitCode is 0", async () => {
     const filePath = await harness.writeVerdict("test/node", XML_ALL_PASS);
 
-    const result = await runVerifyPipeline(filePath, harness.productDir);
+    const result = await runVerifyFilePipeline(filePath, harness.productDir);
 
     expect(result.exitCode).toBe(0);
     expect(result.lines).toHaveLength(0);
@@ -118,7 +118,7 @@ describe("runVerifyPipeline: scenarios", () => {
   it("GIVEN an audit verdict XML that fails structural validation WHEN the verify pipeline runs THEN structural defects appear and no semantic or paths lines are present", async () => {
     const filePath = await harness.writeVerdict("test/node", XML_MISSING_HEADER);
 
-    const result = await runVerifyPipeline(filePath, harness.productDir);
+    const result = await runVerifyFilePipeline(filePath, harness.productDir);
 
     expect(result.exitCode).toBe(1);
     expect(result.lines.some((l) => l.startsWith("structural:"))).toBe(true);
@@ -129,7 +129,7 @@ describe("runVerifyPipeline: scenarios", () => {
   it("GIVEN an audit verdict that passes structural validation but fails semantic validation WHEN the verify pipeline runs THEN semantic defects appear and no paths lines are present", async () => {
     const filePath = await harness.writeVerdict("test/node", XML_SEMANTIC_FAIL);
 
-    const result = await runVerifyPipeline(filePath, harness.productDir);
+    const result = await runVerifyFilePipeline(filePath, harness.productDir);
 
     expect(result.exitCode).toBe(1);
     expect(result.lines.some((l) => l.startsWith("semantic:"))).toBe(true);
@@ -139,7 +139,7 @@ describe("runVerifyPipeline: scenarios", () => {
   it("GIVEN an audit verdict whose paths reference non-existent files WHEN the verify pipeline runs THEN path defects are reported and exitCode is 1", async () => {
     const filePath = await harness.writeVerdict("test/node", XML_PATHS_FAIL);
 
-    const result = await runVerifyPipeline(filePath, harness.productDir);
+    const result = await runVerifyFilePipeline(filePath, harness.productDir);
 
     expect(result.exitCode).toBe(1);
     expect(result.lines.some((l) => l.startsWith("paths:"))).toBe(true);
@@ -152,7 +152,7 @@ describe("runVerifyPipeline: scenarios", () => {
       await writeFile(filePath, XML_ALL_PASS);
       await mkdir(join(tempDir, ".spx", "nodes"), { recursive: true });
 
-      const result = await runVerifyPipeline(filePath, tempDir);
+      const result = await runVerifyFilePipeline(filePath, tempDir);
 
       expect(result.exitCode).toBe(0);
       expect(result.lines).toHaveLength(0);
@@ -162,7 +162,7 @@ describe("runVerifyPipeline: scenarios", () => {
   });
 });
 
-describe("runVerifyPipeline: sequential stop mapping (M1)", () => {
+describe("runVerifyFilePipeline: sequential stop mapping (M1)", () => {
   const STAGE_FAILURE_CASES: Array<{
     label: string;
     xml: string;
@@ -196,7 +196,7 @@ describe("runVerifyPipeline: sequential stop mapping (M1)", () => {
       try {
         const filePath = await harness.writeVerdict("test/node", xml);
 
-        const result = await runVerifyPipeline(filePath, harness.productDir);
+        const result = await runVerifyFilePipeline(filePath, harness.productDir);
 
         expect(result.lines.some((l) => l.startsWith(`${failingStage}:`))).toBe(true);
         for (const stage of absentStages) {
@@ -209,13 +209,13 @@ describe("runVerifyPipeline: sequential stop mapping (M1)", () => {
   );
 });
 
-describe("runVerifyPipeline: defect line format conformance (C1)", () => {
+describe("runVerifyFilePipeline: defect line format conformance (C1)", () => {
   it("GIVEN any stage produces defects WHEN the verify pipeline runs THEN each defect line matches '{stage}: {message}' format", async () => {
     const harness = await createAuditHarness();
     try {
       const filePath = await harness.writeVerdict("test/node", XML_MISSING_HEADER);
 
-      const result = await runVerifyPipeline(filePath, harness.productDir);
+      const result = await runVerifyFilePipeline(filePath, harness.productDir);
 
       expect(result.lines.length).toBeGreaterThan(0);
       for (const line of result.lines) {

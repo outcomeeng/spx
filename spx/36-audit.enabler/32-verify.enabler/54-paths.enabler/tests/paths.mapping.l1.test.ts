@@ -11,6 +11,7 @@
 
 import { AUDIT_PATH_DEFECT, validatePaths } from "@/domains/audit/paths";
 import { AuditFinding, AuditVerdict } from "@/domains/audit/reader";
+import { existsSync } from "node:fs";
 import { mkdtemp, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
@@ -49,7 +50,7 @@ describe("validatePaths: path-bearing element mapping (M1)", () => {
           ],
         };
 
-        const defects = validatePaths(verdict, root);
+        const defects = validatePaths(verdict, root, existsSync);
 
         const defect = defects.find((d) => d.includes(DEFECT_MISSING_FILE));
         expect(defect).toBeDefined();

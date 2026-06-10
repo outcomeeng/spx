@@ -1,6 +1,6 @@
 /**
- * Audit verdict reader — parses an audit verdict XML file from disk into a
- * typed in-memory representation.
+ * Audit verdict reader — parses audit verdict XML content into a typed
+ * in-memory representation.
  *
  * All downstream verify stages (structural, semantic, paths) import
  * AuditVerdict from this module and operate on the parsed representation
@@ -8,8 +8,6 @@
  *
  * @module audit/reader
  */
-
-import { readFile } from "node:fs/promises";
 
 import { XMLParser, XMLValidator } from "fast-xml-parser";
 
@@ -81,24 +79,11 @@ const PARSER_OPTIONS = {
   isArray: (name: string) => ARRAY_TAGS.has(name),
 } as const;
 
-/**
- * Reads and parses an audit verdict XML file from disk.
- *
- * @throws {Error} When the file does not exist — message includes filePath.
- * @throws {Error} When the file is not well-formed XML — message includes filePath.
- */
-export async function readVerdictFile(filePath: string): Promise<AuditVerdict> {
-  let xml: string;
-  try {
-    xml = await readFile(filePath, "utf-8");
-  } catch (cause) {
-    throw new Error(`Failed to read verdict file: ${filePath}`, { cause });
-  }
-
+export function parseAuditVerdictXml(xml: string, sourceLabel: string): AuditVerdict {
   const validation = XMLValidator.validate(xml);
   if (validation !== true) {
     throw new Error(
-      `Malformed XML in verdict file: ${filePath}: ${validation.err.msg}`,
+      `Malformed XML in verdict file: ${sourceLabel}: ${validation.err.msg}`,
     );
   }
 

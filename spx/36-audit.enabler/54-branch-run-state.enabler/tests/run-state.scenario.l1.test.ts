@@ -4,18 +4,17 @@ import { join } from "node:path";
 
 import { describe, expect, it } from "vitest";
 
+import { type AuditRunStateFileSystem, readAuditBranchRuns } from "@/commands/audit/run-state";
+import { runVerifyFilePipeline } from "@/commands/audit/verify";
 import { DEFAULT_AUDIT_CONFIG } from "@/domains/audit/config";
 import { AUDIT_GATE_STATUS, AUDIT_VERDICT_VALUE } from "@/domains/audit/reader";
 import {
   AUDIT_RUN_STATE_ERROR,
   AUDIT_RUN_STATE_INCOMPLETE_REASON,
   AUDIT_RUN_STATE_STATUS,
-  type AuditRunStateFileSystem,
   formatAuditRunTimestamp,
-  readAuditBranchRuns,
   selectLatestTerminalAuditRun,
 } from "@/domains/audit/run-state";
-import { runVerifyPipeline } from "@/domains/audit/verify";
 import { AUDIT_RUN_STATE_TEST_GENERATOR, sampleAuditRunStateTestValue } from "@testing/generators/audit/run-state";
 import { CONFIG_TEST_GENERATOR, sampleConfigTestValue } from "@testing/generators/config/descriptors";
 import { auditBranchRunsDir, createAuditHarness, renderAuditVerdictXml } from "@testing/harnesses/audit/harness";
@@ -259,7 +258,7 @@ describe("audit branch run-state lookup", () => {
     try {
       const filePath = await harness.writeVerdict(nodePath, verdictXml);
 
-      const result = await runVerifyPipeline(filePath, harness.productDir);
+      const result = await runVerifyFilePipeline(filePath, harness.productDir);
 
       expect(result.exitCode).toBe(0);
       expect(result.verdict).toBe(AUDIT_VERDICT_VALUE.APPROVED);
