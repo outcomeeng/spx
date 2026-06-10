@@ -28,7 +28,7 @@ CAN surface security, maintainability, and reliability issues before they reach 
 
 - ALWAYS: validation runs all configured steps regardless of earlier failures — no short-circuit ([test](tests/validation.integration.test.ts))
 - ALWAYS: validation exit code is non-zero when any step fails ([test](tests/validation.integration.test.ts))
-- ALWAYS: each step uses "problem" as the canonical term for an item requiring developer attention — consistent with ESLint, ruff, and VS Code tooling conventions ([review])
+- ALWAYS: each step uses "problem" as the canonical term for an item requiring developer attention — consistent with ESLint, ruff, and VS Code tooling conventions ([audit])
 - ALWAYS: each step reports its own duration ([test](tests/validation.integration.test.ts))
 - ALWAYS: TypeScript-derived scope discovery reads project tool configuration and directories from the requested project root ([test](tests/scope-resolution.compliance.l1.test.ts))
 - ALWAYS: the temporary `tsconfig.json` generated for scope-filtered or file-specific TypeScript validation is written under the project's `node_modules/` directory and declares no `typeRoots` or `types` — it inherits type resolution from the base config through `extends`, so the temporary file never appears in the project's tracked working tree, per `spx/41-validation.enabler/21-validation-configuration.adr.md` ([test](tests/scope-resolution.compliance.l1.test.ts))

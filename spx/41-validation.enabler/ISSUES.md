@@ -19,6 +19,58 @@ replacement.
 
 ---
 
+## TypeScript `--files` directory scopes are passed to TypeScript as files
+
+`spx validation typescript --files <directory>` can fail before validation
+because directory scopes are forwarded into the generated TypeScript file list
+as if they were files.
+
+Observed on June 10, 2026 while validating audit-boundary code changes:
+
+```bash
+pnpm exec tsx src/cli.ts validation typescript --files src/commands/audit src/domains/audit spx/36-audit.enabler/32-verify.enabler/21-verdict-reader.enabler/tests spx/36-audit.enabler/32-verify.enabler/tests spx/36-audit.enabler/54-branch-run-state.enabler/tests
+```
+
+Output:
+
+```text
+error TS6231: Could not resolve the path '/Users/shz/Code/outcomeeng/spx/spx-a/src/commands/audit' with the extensions: '.ts', '.tsx', '.d.ts', '.cts', '.d.cts', '.mts', '.d.mts'.
+  The file is in the program because:
+    Part of 'files' list in tsconfig.json
+error TS6231: Could not resolve the path '/Users/shz/Code/outcomeeng/spx/spx-a/src/domains/audit' with the extensions: '.ts', '.tsx', '.d.ts', '.cts', '.d.cts', '.mts', '.d.mts'.
+  The file is in the program because:
+    Part of 'files' list in tsconfig.json
+TypeScript exited with code 2
+```
+
+An explicit-file version of the same focused check passed:
+
+```bash
+pnpm exec tsx src/cli.ts validation typescript --files src/commands/audit/reader.ts src/commands/audit/run-state.ts src/commands/audit/verify.ts src/domains/audit/reader.ts src/domains/audit/run-state.ts src/domains/audit/verify.ts spx/36-audit.enabler/32-verify.enabler/21-verdict-reader.enabler/tests/verdict-reader.scenario.l1.test.ts spx/36-audit.enabler/32-verify.enabler/21-verdict-reader.enabler/tests/verdict-reader.conformance.l1.test.ts spx/36-audit.enabler/32-verify.enabler/tests/verify.scenario.l1.test.ts spx/36-audit.enabler/32-verify.enabler/tests/verify.property.l1.test.ts spx/36-audit.enabler/54-branch-run-state.enabler/tests/run-directory.scenario.l1.test.ts spx/36-audit.enabler/54-branch-run-state.enabler/tests/run-state.scenario.l1.test.ts
+```
+
+```text
+TypeScript: ✓ No type errors
+```
+
+**Impact:** Focused TypeScript validation with directory scopes can fail for
+valid changes, forcing operators to expand directories to individual files or
+run the full validation gate.
+
+**Tracking classification:** Tracked deferral, chosen by the operator during the
+audit-boundary work on June 10, 2026.
+
+**Revisit condition:** Fix before changing TypeScript scope generation,
+file-inclusion directory expansion, or the planned positional-path replacement
+for `--files`; add evidence that directory scopes expand to TypeScript files
+before writing the temporary tsconfig.
+
+**Skills:** `spec-tree:contextualizing`, `spec-tree:applying`,
+`typescript:testing-typescript`, `typescript:coding-typescript`,
+`typescript:auditing-typescript-tests`, and `typescript:auditing-typescript`.
+
+---
+
 ## PR 19 review follow-ups for validation path filtering
 
 The review on

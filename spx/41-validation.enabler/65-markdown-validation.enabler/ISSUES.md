@@ -1,4 +1,53 @@
-# Resolved Issues: 65-markdown-validation.enabler
+# Issues: 65-markdown-validation.enabler
+
+## Relative markdown `--files` scopes are filtered out before validation
+
+`spx validation markdown --files <relative-markdown-file>` can skip valid Markdown
+file scopes before invoking markdownlint.
+
+Observed on June 10, 2026 while validating audit-boundary ADR and spec edits:
+
+```bash
+pnpm exec tsx src/cli.ts validation markdown --files spx/36-audit.enabler/21-audit-module-structure.adr.md spx/36-audit.enabler/32-verify.enabler/21-verdict-reader.enabler/21-verdict-reader.adr.md spx/36-audit.enabler/32-verify.enabler/21-verify-pipeline.adr.md spx/36-audit.enabler/32-verify.enabler/21-verdict-reader.enabler/verdict-reader.md spx/36-audit.enabler/32-verify.enabler/verify.md spx/36-audit.enabler/audit.md spx/36-audit.enabler/32-verify.enabler/32-structural.enabler/structural.md spx/36-audit.enabler/32-verify.enabler/43-semantic.enabler/semantic.md spx/36-audit.enabler/32-verify.enabler/54-paths.enabler/paths.md
+```
+
+Output:
+
+```text
+Markdown: skipped (no markdown files in --files scope)
+```
+
+The unscoped command passed on the same worktree:
+
+```bash
+pnpm exec tsx src/cli.ts validation markdown
+```
+
+```text
+Markdown: No issues found
+```
+
+Probable fault line: `src/commands/validation/markdown.ts` resolves file scopes
+through `resolveMarkdownValidationTarget(filePath)`, then filters targets with
+`pathPassesValidationFilter(relative(cwd, target.path), pathFilter)`. Relative
+input paths remain relative target paths, so the later `relative(cwd, target.path)`
+calculation can produce a path outside the validation path filter even though
+the file exists.
+
+**Impact:** Focused Markdown validation evidence can be false-green because the
+command exits 0 after skipping all relative file scopes.
+
+**Tracking classification:** Tracked deferral, chosen by the operator during the
+audit-boundary work on June 10, 2026.
+
+**Revisit condition:** Fix before changing Markdown validation scoping,
+validation path-filter semantics, or the planned positional-path replacement for
+`--files`; add integration evidence for relative file scopes and keep the
+unscoped Markdown gate as the fallback until then.
+
+**Skills:** `spec-tree:contextualizing`, `spec-tree:applying`,
+`typescript:testing-typescript`, `typescript:coding-typescript`,
+`typescript:auditing-typescript-tests`, and `typescript:auditing-typescript`.
 
 ## File-scoped markdown validation treated a markdown file path as a directory
 
