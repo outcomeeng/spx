@@ -8,8 +8,8 @@
  * - P1: The pipeline is deterministic: same input always produces same stage results and exit code
  */
 
+import { runVerifyFilePipeline } from "@/commands/audit/verify";
 import { AUDIT_GATE_STATUS, AUDIT_VERDICT_VALUE } from "@/domains/audit/reader";
-import { runVerifyPipeline } from "@/domains/audit/verify";
 import {
   AUDIT_VERDICT_XML_SKIPPED_REASON_FIXTURE,
   AuditHarness,
@@ -27,7 +27,7 @@ function buildFindings(count: number): readonly AuditVerdictXmlFindingFixture[] 
   }));
 }
 
-describe("runVerifyPipeline: determinism property (P1)", () => {
+describe("runVerifyFilePipeline: determinism property (P1)", () => {
   let harness: AuditHarness;
 
   beforeEach(async () => {
@@ -69,8 +69,8 @@ describe("runVerifyPipeline: determinism property (P1)", () => {
 
           const filePath = await harness.writeVerdict(`prop-test/${verdict}`, xml);
 
-          const result1 = await runVerifyPipeline(filePath, harness.productDir);
-          const result2 = await runVerifyPipeline(filePath, harness.productDir);
+          const result1 = await runVerifyFilePipeline(filePath, harness.productDir);
+          const result2 = await runVerifyFilePipeline(filePath, harness.productDir);
 
           expect(result1.exitCode).toBe(result2.exitCode);
           expect(result1.lines).toEqual(result2.lines);

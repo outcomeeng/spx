@@ -1,5 +1,5 @@
-import { validatePaths } from "./paths";
-import { readVerdictFile } from "./reader";
+import { type AuditPathExists, validatePaths } from "./paths";
+import type { AuditVerdict } from "./reader";
 import { validateSemantics } from "./semantic";
 import { validateStructure } from "./structural";
 
@@ -9,18 +9,15 @@ export interface VerifyOutput {
   readonly verdict?: string;
 }
 
-export async function runVerifyPipeline(
-  filePath: string,
-  productDir: string,
-): Promise<VerifyOutput> {
-  let verdict;
-  try {
-    verdict = await readVerdictFile(filePath);
-  } catch (error) {
-    const message = error instanceof Error ? error.message : String(error);
-    return { lines: [`reader: ${message}`], exitCode: 1 };
-  }
+export interface VerifyPipelineDependencies {
+  readonly fileExists: AuditPathExists;
+}
 
+export function runVerifyPipeline(
+  verdict: AuditVerdict,
+  productDir: string,
+  dependencies: VerifyPipelineDependencies,
+): VerifyOutput {
   const structuralDefects = validateStructure(verdict);
   if (structuralDefects.length > 0) {
     return { lines: structuralDefects.map((d) => `structural: ${d}`), exitCode: 1 };
@@ -31,7 +28,7 @@ export async function runVerifyPipeline(
     return { lines: semanticDefects.map((d) => `semantic: ${d}`), exitCode: 1 };
   }
 
-  const pathDefects = validatePaths(verdict, productDir);
+  const pathDefects = validatePaths(verdict, productDir, dependencies.fileExists);
   if (pathDefects.length > 0) {
     return { lines: pathDefects.map((d) => `paths: ${d}`), exitCode: 1 };
   }
