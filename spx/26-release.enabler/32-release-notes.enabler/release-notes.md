@@ -17,6 +17,7 @@ CAN carry human-readable notes that describe and group the release's changes
 
 ### Compliance
 
-- ALWAYS: the release-notes prompt is assembled only from the release data and the resolved configuration, so generation depends on no spec-tree or domain state ([test](tests/release-notes.compliance.l1.test.ts))
+- ALWAYS: the release-notes prompt carries the release version, the commit subjects, and the resolved changelog path ([test](tests/release-notes.compliance.l1.test.ts))
+- ALWAYS: release-notes generation depends on no spec-tree or domain state — the prompt is assembled from nothing beyond the release data and the resolved configuration ([audit])
 - ALWAYS: the resolved changelog path is contained within the product working tree, and a configured changelog path that escapes the working tree is rejected ([test](tests/release-notes.compliance.l1.test.ts))
 - ALWAYS: generated release notes describe and group the release's changes faithfully to the underlying commits, introducing no claim absent from them ([audit])

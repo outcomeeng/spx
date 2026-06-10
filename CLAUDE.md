@@ -315,6 +315,7 @@ Because the global `spx` tracks the `main` worktree's build, feature worktrees u
 
 ```
 src/
+├── agent/         # Agent SDK boundary (injected AgentRunner for agent-authored artifacts)
 ├── commands/      # CLI command implementations
 │   ├── claude/      # spx claude subcommands (deprecated)
 │   ├── session/     # spx session subcommands
@@ -326,6 +327,7 @@ src/
 │   ├── agent-environment/
 │   ├── audit/
 │   ├── config/
+│   ├── release/         # Release data and agent-authored release notes
 │   ├── session/
 │   ├── spec/        # (deprecated)
 │   └── validation/
