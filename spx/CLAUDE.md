@@ -148,7 +148,7 @@ Skills run in the main conversation. Agents preload the skill and run autonomous
 | "This node is too big"   | `/decomposing`     | —                       |
 | "Move this under that"   | `/refactoring`     | —                       |
 | "Check these specs"      | `/aligning`        | —                       |
-| "Write tests for this"   | `/testing`         | —                       |
+| "Write tests for this"   | `/applying`        | `applier`               |
 | "Start the TDD flow"     | `/applying`        | `applier`               |
 | "Audit this PDR"         | `/audit-pdr`       | `audit-pdr`             |
 | "Audit this ADR"         | `/audit-adr`       | `audit-adr`             |

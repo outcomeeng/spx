@@ -56,11 +56,11 @@ One concern remains:
 
 ## Product-level audit assertions need testability review
 
-PR #138 migrates product-level assertions in [spx.product.md](spx.product.md) from the legacy `[review]` marker to `[audit]`. Review identified product-level compliance assertions whose mechanism may be deterministic `[test]` evidence instead: root resolution via `git rev-parse` with `$PWD` fallback, and no network access for core operations.
+PR #138 migrates product-level assertions in [spx.product.md](spx.product.md) from the legacy `[review]` marker to `[audit]`. Review identified product-level compliance assertions whose mechanism may be deterministic `[test]` evidence instead: CLI latency after process startup, deterministic spec-tree context ingestion, `spx.config.{toml,json,yaml}` governance, persisted execution state, product-root resolution via `git rev-parse` with `$PWD` fallback, and no network access for core operations.
 
 **Impact:** Keeping testable product behavior under `[audit]` weakens the spec-test map and conflicts with the rule that `[audit]` is judgment evidence, not a placeholder for behavior the product can verify.
 
-**Resolution:** Revisit each product-level `[audit]` assertion and reclassify any deterministic behavior to `[test]` with co-located product-root evidence. Start with the `git rev-parse` fallback assertion and the no-network core-operations assertion. Keep judgment-only product properties as `[audit]`.
+**Resolution:** Revisit each product-level `[audit]` assertion and reclassify any deterministic behavior to `[test]` with co-located product-root evidence. Start with the CLI latency, deterministic context ingestion, config governance, persisted execution state, `git rev-parse` fallback, and no-network core-operations assertions. Keep judgment-only product properties as `[audit]`.
 
 ## Spec-tree guide skill names need invocation-form alignment
 
