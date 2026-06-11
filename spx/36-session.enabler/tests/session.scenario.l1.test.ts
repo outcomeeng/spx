@@ -6,11 +6,9 @@ import { afterEach, beforeEach, describe, expect, it } from "vitest";
 
 import { DEFAULT_CONFIG } from "@/config/defaults";
 import {
-  computeRelativeWorktreePath,
   detectGitCommonDirProductRoot,
   detectWorktreeProductRoot,
   type GitDependencies,
-  isRootWorktree,
   resolveSessionConfig,
 } from "@/git/root";
 import {
@@ -191,49 +189,6 @@ describe("detectGitCommonDirProductRoot vs detectWorktreeProductRoot in worktree
   });
 });
 
-describe("computeRelativeWorktreePath", () => {
-  it("GIVEN common dir and toplevel for a worktree WHEN computed THEN returns path relative to common product root", () => {
-    const result = computeRelativeWorktreePath("/repo/.git", "/repo/.codex/worktrees/topic");
-
-    expect(result).toBe(join(".codex", "worktrees", "topic"));
-  });
-
-  it("GIVEN common dir and toplevel for main worktree WHEN computed THEN returns empty string", () => {
-    const result = computeRelativeWorktreePath(".git", "/repo");
-
-    expect(result).toBe("");
-  });
-
-  it("GIVEN a relative multi-level common dir WHEN computed THEN resolves it against toplevel", () => {
-    // Defensive: GIT_COMMON_DIR_ARGS requests --path-format=absolute so production
-    // never feeds a relative common dir, but the helper still resolves one.
-    const result = computeRelativeWorktreePath("../../../.git", "/repo/.claude/worktrees/my-branch");
-
-    expect(result).toBe(join(".claude", "worktrees", "my-branch"));
-  });
-});
-
-describe("isRootWorktree with dependency injection", () => {
-  it("GIVEN --git-common-dir fails but --show-toplevel succeeds WHEN classifying THEN treats the working tree as root", async () => {
-    // Matches detectGitCommonDirProductRoot's fallback so the two never disagree.
-    const deps = createMockDeps([
-      { stdout: "/repo", exitCode: 0 }, // --show-toplevel
-      { stdout: "", exitCode: 128 }, // --git-common-dir fails
-    ]);
-
-    expect(await isRootWorktree("/repo", deps)).toBe(true);
-  });
-
-  it("GIVEN --show-toplevel fails WHEN classifying THEN it is not the root worktree", async () => {
-    const deps = createMockDeps([
-      { stdout: "", exitCode: 128 }, // --show-toplevel fails
-      { stdout: "", exitCode: 128 }, // --git-common-dir
-    ]);
-
-    expect(await isRootWorktree("/not/a/repo", deps)).toBe(false);
-  });
-});
-
 // ============================================================
 // Real git worktree tests (Level 1 — git is a standard dev tool)
 // ============================================================
@@ -284,20 +239,6 @@ describe("detectGitCommonDirProductRoot with real git worktrees", () => {
 
     const result = await detectGitCommonDirProductRoot(canonicalSubDir);
     expect(result.productDir).toBe(repoDir);
-  });
-
-  it("GIVEN the root worktree WHEN isRootWorktree runs from a subdirectory THEN it returns true", async () => {
-    const subDir = join(repoDir, "src", "deep");
-    mkdirSync(subDir, { recursive: true });
-
-    expect(await isRootWorktree(realpathSync(subDir))).toBe(true);
-  });
-
-  it("GIVEN a linked worktree WHEN isRootWorktree runs THEN it returns false", async () => {
-    const wtPath = join(worktreeDir, "my-wt");
-    await runGit(repoDir, [GIT_TEST_SUBCOMMANDS.WORKTREE, GIT_TEST_SUBCOMMANDS.ADD, wtPath, "-b", "test-branch"]);
-
-    expect(await isRootWorktree(realpathSync(wtPath))).toBe(false);
   });
 
   it("GIVEN non-worktree repo WHEN detectGitCommonDirProductRoot THEN returns same as detectWorktreeProductRoot", async () => {

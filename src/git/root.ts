@@ -1,5 +1,5 @@
 import { execa } from "execa";
-import { basename, dirname, isAbsolute, join, relative, resolve } from "node:path";
+import { basename, dirname, isAbsolute, join, resolve } from "node:path";
 
 import { SessionDirectoryConfig } from "@/domains/session/show";
 import { DEFAULT_CONFIG } from "../config/defaults";
@@ -285,15 +285,6 @@ export async function detectGitCommonDirProductRoot(
   }
 }
 
-export function computeRelativeWorktreePath(commonDir: string, toplevel: string): string {
-  const absoluteCommonDir = isAbsolute(commonDir)
-    ? commonDir
-    : resolve(toplevel, commonDir);
-  const commonDirProductRoot = dirname(absoluteCommonDir);
-  const worktreePath = relative(commonDirProductRoot, toplevel);
-  return worktreePath === "" ? "" : worktreePath;
-}
-
 /**
  * Resolves the repository's default branch name from `origin/HEAD`
  * (e.g. `"main"`). Returns null when `origin/HEAD` is unset or unresolvable.
@@ -385,29 +376,6 @@ export async function isWorkingTreeClean(
 }
 
 /**
- * Whether `cwd` resolves to the repository's root worktree — the working tree
- * rooted at the Git common-dir product root (empty relative worktree path). A
- * linked worktree resolves to a non-empty relative path.
- */
-export async function isRootWorktree(
-  cwd: string = process.cwd(),
-  deps: GitDependencies = defaultGitDependencies,
-): Promise<boolean> {
-  const [toplevelResult, commonDirResult] = await Promise.all([
-    deps.execa(GIT_ROOT_COMMAND.EXECUTABLE, [...GIT_SHOW_TOPLEVEL_ARGS], { cwd, reject: false }),
-    deps.execa(GIT_ROOT_COMMAND.EXECUTABLE, [...GIT_COMMON_DIR_ARGS], { cwd, reject: false }),
-  ]);
-  if (toplevelResult.exitCode !== 0) return false;
-  // Mirror detectGitCommonDirProductRoot's fallback: when --git-common-dir is
-  // unavailable but --show-toplevel succeeded, treat the working tree as the
-  // root worktree rather than misclassifying it as linked.
-  if (commonDirResult.exitCode !== 0) return true;
-  const toplevel = extractStdout(toplevelResult.stdout);
-  const commonDir = extractStdout(commonDirResult.stdout);
-  return computeRelativeWorktreePath(commonDir, toplevel) === "";
-}
-
-/**
  * The repository name an `origin` URL carries — its final path segment with a
  * trailing `.git` removed — or null when the URL is absent or carries no name.
  *
@@ -475,10 +443,10 @@ export function mainCheckoutPath(facts: GitFacts): string | null {
  * null only when `cwd` is outside a git repository — `git rev-parse
  * --show-toplevel` fails. When `--show-toplevel` succeeds but `--git-common-dir`
  * does not, it falls back to a non-bare single-tree shape (common dir
- * `<worktreeRoot>/.git`) so detection agrees with `detectGitCommonDirProductRoot`
- * and `isRootWorktree`, which fall back to the toplevel on the same failure.
+ * `<worktreeRoot>/.git`) so detection agrees with `detectGitCommonDirProductRoot`,
+ * which falls back to the toplevel on the same failure.
  */
-async function gatherGitFacts(
+export async function gatherGitFacts(
   cwd: string = process.cwd(),
   deps: GitDependencies = defaultGitDependencies,
 ): Promise<GitFacts | null> {
@@ -497,10 +465,10 @@ async function gatherGitFacts(
       ? extractStdout(originResult.stdout)
       : null;
 
-    // Mirror the `--git-common-dir` fallback of detectGitCommonDirProductRoot and
-    // isRootWorktree: a worktree whose common dir cannot be read is treated as a
-    // non-bare single tree rooted at the worktree, so all three resolvers agree
-    // rather than this one alone reporting "not a checkout".
+    // Mirror the `--git-common-dir` fallback of detectGitCommonDirProductRoot: a
+    // worktree whose common dir cannot be read is treated as a non-bare single
+    // tree rooted at the worktree, so both resolvers agree rather than this one
+    // alone reporting "not a checkout".
     if (commonDirResult.exitCode !== 0 || !commonDirResult.stdout) {
       return {
         worktreeRoot,
