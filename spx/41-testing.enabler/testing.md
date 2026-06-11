@@ -14,6 +14,7 @@ CAN run all spec-tree tests with a single command, honor configured passing-scop
 - Given a passing-scope exclusion that is not a full product-root path (a bare node path), when `spx test passing` runs, then it matches no discovered file and excludes nothing ([test](tests/execution-recording.scenario.l1.test.ts))
 - Given a passing scope that excludes a node path, when the test dispatch applies that scope, then files under that node are filtered out before runner invocation while files outside it are dispatched, and with no scope supplied every discovered file is dispatched ([test](tests/testing.scenario.l1.test.ts))
 - Given `spx test` runs, then it records last-run evidence covering the dispatched files for fast status reporting ([test](tests/execution-recording.scenario.l1.test.ts))
+- Given a testing language descriptor declares a product input path, when `spx test` records a run before and after that path appears, then the recorded product input digest changes ([test](tests/execution-recording.scenario.l1.test.ts))
 - Given `spx test` has recorded valid last-run evidence, when a status command reads that evidence, then the status output reports observed results and staleness without invoking a test runner ([review])
 - Given a status consumer requests one node's outcome and the recorded evidence for that node is stale, failing, or absent, when it invokes the registry-based per-node run, then that node's tests execute through the registered runner for each matching extension and fresh last-run evidence is recorded ([test](../31-spec-domain.enabler/54-spec-cli-commands.enabler/tests/spec-cli-commands.scenario.l1.test.ts))
 - Given test files whose extension does not match any registered testing enabler, when `spx test` runs, then those files are reported and skipped without error ([test](tests/testing.scenario.l1.test.ts))
@@ -29,7 +30,7 @@ CAN run all spec-tree tests with a single command, honor configured passing-scop
 - Test discovery is deterministic: the same spec tree structure always produces the same set of test files grouped by runner ([test](tests/testing.property.l1.test.ts))
 - Exit code aggregation: `spx test` exits non-zero if any dispatched runner exits non-zero, zero otherwise ([test](tests/testing.property.l1.test.ts))
 - Last-run state is evidence, not product truth: deleting the state never changes which tests are in passing scope, only whether fast status has cached observations available ([review])
-- Last-run state is stale when the resolved testing config digest, discovered test file path set, discovered test file content digest, or descriptor-declared product input digest differs from the values recorded with the cached observation ([review])
+- Last-run state is stale when the resolved testing config digest, discovered test file path set, discovered test file content digest, or descriptor-declared product input digest differs from the values recorded with the cached observation ([test](43-last-run-evidence.enabler/tests/staleness.property.l1.test.ts))
 
 ### Compliance
 

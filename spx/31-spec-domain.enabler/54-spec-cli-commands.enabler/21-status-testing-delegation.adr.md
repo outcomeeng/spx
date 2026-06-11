@@ -20,6 +20,10 @@ A status-owned per-node runner is rejected: it duplicates the testing registry's
 
 ## Verification
 
+### Testing
+
+- ALWAYS: within one `spx spec status --update` resolver instance, current staleness inputs are computed once for each identical covered test-path set and reused after terminal-run evidence refreshes, so full-product recorded evidence reused across multiple covered nodes does not reread the same covered files per node ([compliance])
+
 ### Audit
 
 - ALWAYS: `spx spec status --update` accepts the per-node outcome resolver as a dependency-injected parameter ([audit])
