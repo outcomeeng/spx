@@ -483,18 +483,16 @@ async function gatherGitFacts(
   deps: GitDependencies = defaultGitDependencies,
 ): Promise<GitFacts | null> {
   try {
-    const [toplevelResult, commonDirResult] = await Promise.all([
+    // The toplevel, common-dir, and origin reads are independent, so they run in
+    // one round-trip; only the bareness check depends on common-dir succeeding.
+    const [toplevelResult, commonDirResult, originResult] = await Promise.all([
       deps.execa(GIT_ROOT_COMMAND.EXECUTABLE, [...GIT_SHOW_TOPLEVEL_ARGS], { cwd, reject: false }),
       deps.execa(GIT_ROOT_COMMAND.EXECUTABLE, [...GIT_COMMON_DIR_ARGS], { cwd, reject: false }),
+      deps.execa(GIT_ROOT_COMMAND.EXECUTABLE, [...GIT_REMOTE_GET_URL_ORIGIN_ARGS], { cwd, reject: false }),
     ]);
     if (toplevelResult.exitCode !== 0 || !toplevelResult.stdout) return null;
 
     const worktreeRoot = extractStdout(toplevelResult.stdout);
-    const originResult = await deps.execa(
-      GIT_ROOT_COMMAND.EXECUTABLE,
-      [...GIT_REMOTE_GET_URL_ORIGIN_ARGS],
-      { cwd, reject: false },
-    );
     const originUrl = originResult.exitCode === 0 && originResult.stdout
       ? extractStdout(originResult.stdout)
       : null;
