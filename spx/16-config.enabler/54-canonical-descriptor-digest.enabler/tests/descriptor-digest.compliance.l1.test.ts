@@ -16,6 +16,7 @@ import {
 import { PATH_FILTER_CONFIG_FIELDS } from "@/config/primitives/path-filter";
 import { TESTING_CONFIG_FIELDS, TESTING_SECTION, testingConfigDescriptor } from "@/testing/config";
 import { CONFIG_TEST_GENERATOR, sampleConfigTestValue } from "@testing/generators/config/descriptors";
+import { WEB_CRYPTO_SHA256_ALGORITHM } from "@testing/harnesses/crypto";
 import type { Config } from "@testing/harnesses/spec-tree/spec-tree";
 import { withTestEnv } from "@testing/harnesses/spec-tree/spec-tree";
 
@@ -63,7 +64,7 @@ describe("descriptor section digest compliance", () => {
       [TESTING_CONFIG_FIELDS.PASSING_SCOPE]: filter,
     });
     const encoded = new TextEncoder().encode(digest.canonicalJson);
-    const expected = await webcrypto.subtle.digest("SHA-256", encoded);
+    const expected = await webcrypto.subtle.digest(WEB_CRYPTO_SHA256_ALGORITHM, encoded);
 
     expect(digest.sha256).toBe(hexFromBytes(expected));
     expect(digest.sha256).toHaveLength(expected.byteLength * 2);

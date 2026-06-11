@@ -10,6 +10,7 @@
 
 import { DEFAULT_AUDIT_CONFIG, encodeNodePath, formatAuditTimestamp } from "@/domains/audit/config";
 import { AUDIT_VERDICT_XML, AuditGateStatus, AuditVerdictValue } from "@/domains/audit/reader";
+import { branchScopeDir, runsDir, STATE_STORE_DOMAIN } from "@/lib/state-store";
 import { mkdir, writeFile } from "node:fs/promises";
 import { join } from "node:path";
 
@@ -109,13 +110,11 @@ export async function createAuditHarness(): Promise<AuditHarness> {
 }
 
 export function auditBranchRunsDir(productDir: string, branchSlug: string): string {
-  return join(
-    productDir,
-    DEFAULT_AUDIT_CONFIG.storage.spxDir,
-    DEFAULT_AUDIT_CONFIG.storage.auditDir,
-    branchSlug,
-    DEFAULT_AUDIT_CONFIG.storage.runsDir,
-  );
+  const branchDir = branchScopeDir(productDir, branchSlug);
+  if (!branchDir.ok) throw new Error(branchDir.error);
+  const auditRunsDir = runsDir(branchDir.value, STATE_STORE_DOMAIN.AUDIT);
+  if (!auditRunsDir.ok) throw new Error(auditRunsDir.error);
+  return auditRunsDir.value;
 }
 
 export function renderAuditVerdictXml(fixture: AuditVerdictXmlFixture): string {

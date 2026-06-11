@@ -13,7 +13,8 @@ Add the audit config descriptor and wire audit command code to resolved audit se
 
 ## Implementation Notes
 
-- Descriptor defaults include `.spx`, `audit`, `runs`, verdict filenames, state filenames, `baseRef`, and branch slug limits.
+- Descriptor defaults include `.spx`, node verdict filenames, `baseRef`, auditor selection, target filters, and branch slug limits.
+- Branch run directories, run filenames, and terminal JSONL records are state-store paths, not audit config fields.
 - Auditor selection and target filters belong in the descriptor.
 - Keep `spx audit verify <file>` accepting explicit files independent from descriptor target filters.
 
@@ -40,5 +41,5 @@ Before branching, follow the common packet rules in `spx/16-config.enabler/PLAN.
 
 Start from fresh origin/main on work/audit-config-descriptor. Invoke spec-tree:understanding if needed, then spec-tree:contextualizing for spx/36-audit.enabler/43-audit-config.enabler/. Read this PLAN and the governing specs it names. Invoke spec-tree:applying, spec-tree:testing, typescript:testing-typescript, and typescript:coding-typescript before edits.
 
-Before branching, verify `git cat-file -e origin/main:spx/16-config.enabler/32-shared-config-primitives.enabler/shared-config-primitives.md` succeeds for the settled path-filter primitive. Add the registered audit descriptor for storage defaults, baseRef, branch slug settings, auditor selection, and target filters. Use the shared path-filter primitive for include/exclude target selection. Keep `spx audit verify <file>` independent from descriptor target filters. Prove defaults, valid overrides, invalid storage values, target filters, auditor selection, config-format mapping, and descriptor isolation. Open one PR and ask reviewers to audit descriptor shape and separation from verify-only file handling.
+Before branching, verify `git cat-file -e origin/main:spx/16-config.enabler/32-shared-config-primitives.enabler/shared-config-primitives.md` succeeds for the settled path-filter primitive. Add the registered audit descriptor for verdict storage defaults, baseRef, branch slug settings, auditor selection, and target filters. Keep branch run directories, run filenames, and terminal JSONL records in state-store. Use the shared path-filter primitive for include/exclude target selection. Keep `spx audit verify <file>` independent from descriptor target filters. Prove defaults, valid overrides, invalid storage values, target filters, auditor selection, config-format mapping, and descriptor isolation. Open one PR and ask reviewers to audit descriptor shape and separation from verify-only file handling.
 ```

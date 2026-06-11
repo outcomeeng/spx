@@ -8,16 +8,17 @@ import { TESTING_SECTION, type TestingConfig, testingConfigDescriptor } from "@/
 import type { TestingLanguageDescriptor, TestRunnerDependencies } from "@/testing/languages/types";
 import type { TestingRegistry } from "@/testing/registry";
 import {
-  createTestRunDirectory,
+  createTestRunFile,
   defaultTestRunStateFileSystem,
   digestTestContents,
   digestTestPaths,
   formatTestRunTimestamp,
   type ProductInputDigest,
   type StalenessInputs,
+  TESTING_RUN_STATE_ERROR_CODE,
   TEST_RUN_STATE_STATUS,
   type TestContentEntry,
-  type TestRunDirectory,
+  type TestRunFile,
   type TestRunnerOutcome,
   type TestRunState,
   type TestRunStateFileSystem,
@@ -32,10 +33,11 @@ import { runTests, type TestDispatchResult } from "./dispatch";
 // satisfy the non-empty-string contract `readTestingRuns` enforces on read.
 export const NO_GIT_IDENTITY = "(unknown)";
 const TEXT_ENCODING = "utf8";
-// Descriptor-declared product inputs are not declared by any testing descriptor
-// yet, so no product-input digest participates in recorded staleness; the field is
-// populated once the domain-execution descriptor surface lands.
-const NO_PRODUCT_INPUT_DIGESTS: readonly ProductInputDigest[] = [];
+const PRODUCT_INPUT_FIELDS = {
+  PATH: "path",
+  PRESENT: "present",
+  CONTENT: "content",
+} as const;
 
 /** Shared command dependencies; filesystem, clock, and git default to real access. */
 export interface TestCommandDependencies {
@@ -66,8 +68,8 @@ export interface RunNodeCommandOptions {
   readonly nodePath: string;
 }
 
-// Recording dependencies with real-access defaults applied; the seams the ADR
-// requires injectable (filesystem, clock, git) resolve here once per command.
+// Recording dependencies with real-access defaults applied; the injectable
+// filesystem, clock, and git access resolve here once per command.
 interface RecordingDependencies {
   readonly fs: TestRunStateFileSystem;
   readonly now: () => Date;
@@ -116,6 +118,58 @@ async function readCoveredContents(
   return entries;
 }
 
+async function readProductInputEntries(
+  productDir: string,
+  paths: readonly string[],
+  fs: TestRunStateFileSystem,
+): Promise<readonly Record<string, string | boolean>[]> {
+  const entries: Array<Record<string, string | boolean>> = [];
+  for (const path of [...paths].sort(compareAsciiStrings)) {
+    try {
+      entries.push({
+        [PRODUCT_INPUT_FIELDS.PATH]: path,
+        [PRODUCT_INPUT_FIELDS.PRESENT]: true,
+        [PRODUCT_INPUT_FIELDS.CONTENT]: await fs.readFile(join(productDir, path), TEXT_ENCODING),
+      });
+    } catch (error) {
+      if (!hasErrorCode(error, TESTING_RUN_STATE_ERROR_CODE.NOT_FOUND)) throw error;
+      entries.push({
+        [PRODUCT_INPUT_FIELDS.PATH]: path,
+        [PRODUCT_INPUT_FIELDS.PRESENT]: false,
+      });
+    }
+  }
+  return entries;
+}
+
+async function digestLanguageProductInputs(
+  productDir: string,
+  language: TestingLanguageDescriptor,
+  fs: TestRunStateFileSystem,
+): Promise<string> {
+  const entries = await readProductInputEntries(productDir, language.productInputPaths, fs);
+  const digest = digestDescriptorSection(entries, `${language.name} product inputs`);
+  if (!digest.ok) {
+    throw new Error(`failed to digest ${language.name} product inputs: ${digest.error}`);
+  }
+  return digest.value.sha256;
+}
+
+async function productInputDigests(
+  productDir: string,
+  registry: TestingRegistry,
+  fs: TestRunStateFileSystem,
+): Promise<readonly ProductInputDigest[]> {
+  const digests: ProductInputDigest[] = [];
+  for (const language of registry.languages) {
+    digests.push({
+      descriptorId: language.name,
+      digest: await digestLanguageProductInputs(productDir, language, fs),
+    });
+  }
+  return digests;
+}
+
 function deriveStatus(outcomes: readonly TestRunnerOutcome[]): TestRunStateStatus {
   const allPassed = outcomes.every((outcome) => outcome.exitCode === SUCCESS_EXIT_CODE);
   return allPassed ? TEST_RUN_STATE_STATUS.PASSED : TEST_RUN_STATE_STATUS.FAILED;
@@ -131,7 +185,11 @@ function deriveStatus(outcomes: readonly TestRunnerOutcome[]): TestRunStateStatu
 export async function currentStalenessInputs(
   productDir: string,
   coveredPaths: readonly string[],
-  deps: { readonly fs?: TestRunStateFileSystem; readonly testingConfigDigest?: string } = {},
+  deps: {
+    readonly fs?: TestRunStateFileSystem;
+    readonly registry: TestingRegistry;
+    readonly testingConfigDigest?: string;
+  },
 ): Promise<StalenessInputs> {
   const fs = deps.fs ?? defaultTestRunStateFileSystem;
   // A caller that already resolved the testing config (e.g. runTestsCommand reading
@@ -143,7 +201,7 @@ export async function currentStalenessInputs(
     testingConfigDigest,
     discoveredTestPathsDigest: digestTestPaths(coveredPaths),
     discoveredTestContentDigest: digestTestContents(contents),
-    productInputDigests: NO_PRODUCT_INPUT_DIGESTS,
+    productInputDigests: await productInputDigests(productDir, deps.registry, fs),
   };
 }
 
@@ -151,14 +209,16 @@ export async function currentStalenessInputs(
 // assemble a TestRunState from the run's outcomes, the staleness digests over the
 // covered set, and the git identity, then persist it into the reserved directory.
 async function recordRun(
-  directory: TestRunDirectory,
+  runFile: TestRunFile,
   productDir: string,
   dispatch: TestDispatchResult,
   recording: RecordingDependencies,
+  registry: TestingRegistry,
   testingConfigDigest?: string,
 ): Promise<TestRunState> {
   const staleness = await currentStalenessInputs(productDir, coveredTestPaths(dispatch), {
     fs: recording.fs,
+    registry,
     testingConfigDigest,
   });
   const branchName = (await getCurrentBranch(productDir, recording.git)) ?? NO_GIT_IDENTITY;
@@ -172,27 +232,27 @@ async function recordRun(
     discoveredTestPathsDigest: staleness.discoveredTestPathsDigest,
     discoveredTestContentDigest: staleness.discoveredTestContentDigest,
     productInputDigests: staleness.productInputDigests,
-    startedAt: directory.startedAt,
+    startedAt: runFile.startedAt,
     completedAt: formatTestRunTimestamp(recording.now()),
     status: deriveStatus(dispatch.outcomes),
   };
 
-  const written = await writeTerminalTestRunState(directory.runDir, state, { fs: recording.fs });
+  const written = await writeTerminalTestRunState(runFile.runFilePath, state, { fs: recording.fs });
   if (!written.ok) {
     throw new Error(`failed to record test run: ${written.error}`);
   }
   return state;
 }
 
-async function reserveRunDirectory(
+async function reserveRunFile(
   productDir: string,
   recording: RecordingDependencies,
-): Promise<TestRunDirectory> {
-  const directory = await createTestRunDirectory(productDir, { fs: recording.fs, now: recording.now });
-  if (!directory.ok) {
-    throw new Error(`failed to create test run directory: ${directory.error}`);
+): Promise<TestRunFile> {
+  const runFile = await createTestRunFile(productDir, { fs: recording.fs, now: recording.now });
+  if (!runFile.ok) {
+    throw new Error(`failed to create test run file: ${runFile.error}`);
   }
-  return directory.value;
+  return runFile.value;
 }
 
 /**
@@ -207,12 +267,12 @@ export async function runTestsCommand(
   const { config, digest } = await resolveTestingConfig(options.productDir);
   const passingScope = options.passing ? config.passingScope : undefined;
   const recording = resolveRecordingDependencies(deps);
-  const directory = await reserveRunDirectory(options.productDir, recording);
+  const runFile = await reserveRunFile(options.productDir, recording);
   const dispatch = await runTests(
     { productDir: options.productDir, registry: deps.registry, passingScope },
     { runnerDepsFor: deps.runnerDepsFor },
   );
-  const recorded = await recordRun(directory, options.productDir, dispatch, recording, digest);
+  const recorded = await recordRun(runFile, options.productDir, dispatch, recording, deps.registry, digest);
   return { dispatch, recorded };
 }
 
@@ -226,11 +286,21 @@ export async function runNodeCommand(
   deps: TestCommandDependencies,
 ): Promise<RecordedTestRun> {
   const recording = resolveRecordingDependencies(deps);
-  const directory = await reserveRunDirectory(options.productDir, recording);
+  const runFile = await reserveRunFile(options.productDir, recording);
   const dispatch = await runTests(
     { productDir: options.productDir, registry: deps.registry, passingScope: { include: [options.nodePath] } },
     { runnerDepsFor: deps.runnerDepsFor },
   );
-  const recorded = await recordRun(directory, options.productDir, dispatch, recording);
+  const recorded = await recordRun(runFile, options.productDir, dispatch, recording, deps.registry);
   return { dispatch, recorded };
+}
+
+function compareAsciiStrings(left: string, right: string): number {
+  if (left < right) return -1;
+  if (left > right) return 1;
+  return 0;
+}
+
+function hasErrorCode(error: unknown, code: string): boolean {
+  return typeof error === "object" && error !== null && "code" in error && error.code === code;
 }

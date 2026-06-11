@@ -8,8 +8,8 @@ import { type AuditRunStateFileSystem, readAuditBranchRuns } from "@/commands/au
 import { runVerifyFilePipeline } from "@/commands/audit/verify";
 import { DEFAULT_AUDIT_CONFIG } from "@/domains/audit/config";
 import { AUDIT_GATE_STATUS, AUDIT_VERDICT_VALUE } from "@/domains/audit/reader";
+import { STATE_STORE_ERROR } from "@/lib/state-store";
 import {
-  AUDIT_RUN_STATE_ERROR,
   AUDIT_RUN_STATE_INCOMPLETE_REASON,
   AUDIT_RUN_STATE_STATUS,
   formatAuditRunTimestamp,
@@ -22,12 +22,12 @@ import { auditBranchRunsDir, createAuditHarness, renderAuditVerdictXml } from "@
 async function writeState(
   productDir: string,
   branchSlug: string,
-  runDirectoryName: string,
+  runFileName: string,
   state: unknown,
 ): Promise<void> {
-  const runDir = join(auditBranchRunsDir(productDir, branchSlug), runDirectoryName);
-  await mkdir(runDir, { recursive: true });
-  await writeFile(join(runDir, DEFAULT_AUDIT_CONFIG.storage.stateFile), JSON.stringify(state));
+  const runsDir = auditBranchRunsDir(productDir, branchSlug);
+  await mkdir(runsDir, { recursive: true });
+  await writeFile(join(runsDir, runFileName), `${JSON.stringify(state)}\n`);
 }
 
 async function withTempProductDir(callback: (productDir: string) => Promise<void>): Promise<void> {
@@ -39,20 +39,20 @@ async function withTempProductDir(callback: (productDir: string) => Promise<void
   }
 }
 
-const RUN_DIRECTORY_NAME = sampleAuditRunStateTestValue(AUDIT_RUN_STATE_TEST_GENERATOR.runDirectoryName());
+const RUN_FILE_NAME = sampleAuditRunStateTestValue(AUDIT_RUN_STATE_TEST_GENERATOR.runFileName());
 
 function createReadFailingFileSystem(error: Error & { readonly code: string }): AuditRunStateFileSystem {
   return {
     mkdir: () => Promise.resolve(),
     writeFile: () => Promise.resolve(),
-    rename: () => Promise.resolve(),
+    appendFile: () => Promise.resolve(),
     readFile: async () => {
       throw error;
     },
     readdir: async () => [
       {
-        name: RUN_DIRECTORY_NAME,
-        isDirectory: () => true,
+        name: RUN_FILE_NAME,
+        isFile: () => true,
       },
     ],
   };
@@ -66,7 +66,7 @@ function createRecordingReadFileSystem(
   return {
     mkdir: () => Promise.resolve(),
     writeFile: () => Promise.resolve(),
-    rename: () => Promise.resolve(),
+    appendFile: () => Promise.resolve(),
     readFile: async (path) => {
       readPaths.push(path);
       return JSON.stringify(state);
@@ -74,31 +74,40 @@ function createRecordingReadFileSystem(
     readdir: async () =>
       entries.map((name) => ({
         name,
-        isDirectory: () => true,
+        isFile: () => true,
       })),
   };
 }
 
 describe("audit branch run-state lookup", () => {
-  it("classifies missing, partial, and shape-invalid state files as incomplete evidence", async () => {
+  it("classifies missing, parse-invalid, and shape-invalid run files as incomplete evidence", async () => {
     const branchSlug = sampleAuditRunStateTestValue(AUDIT_RUN_STATE_TEST_GENERATOR.branchSlug());
-    const missingRun = sampleAuditRunStateTestValue(AUDIT_RUN_STATE_TEST_GENERATOR.runDirectoryName());
-    const partialRun = sampleAuditRunStateTestValue(AUDIT_RUN_STATE_TEST_GENERATOR.runDirectoryName());
-    const invalidRun = sampleAuditRunStateTestValue(AUDIT_RUN_STATE_TEST_GENERATOR.runDirectoryName());
+    const missingRun = sampleAuditRunStateTestValue(AUDIT_RUN_STATE_TEST_GENERATOR.runFileName());
+    const partialRun = sampleAuditRunStateTestValue(AUDIT_RUN_STATE_TEST_GENERATOR.runFileName());
+    const invalidRun = sampleAuditRunStateTestValue(AUDIT_RUN_STATE_TEST_GENERATOR.runFileName());
+    const missingError = Object.assign(new Error("missing"), { code: "ENOENT" });
 
     await withTempProductDir(async (productDir) => {
-      await mkdir(join(auditBranchRunsDir(productDir, branchSlug), missingRun), { recursive: true });
-      await mkdir(join(auditBranchRunsDir(productDir, branchSlug), partialRun), { recursive: true });
-      await writeFile(
-        join(auditBranchRunsDir(productDir, branchSlug), partialRun, DEFAULT_AUDIT_CONFIG.storage.stateFile),
-        "{",
-      );
-      await writeState(productDir, branchSlug, invalidRun, {
-        ...sampleAuditRunStateTestValue(AUDIT_RUN_STATE_TEST_GENERATOR.auditRunState()),
-        status: sampleAuditRunStateTestValue(AUDIT_RUN_STATE_TEST_GENERATOR.branchName()),
+      const result = await readAuditBranchRuns(productDir, branchSlug, {
+        fs: {
+          mkdir: () => Promise.resolve(),
+          writeFile: () => Promise.resolve(),
+          appendFile: () => Promise.resolve(),
+          readdir: async () => [
+            { name: missingRun, isFile: () => true },
+            { name: partialRun, isFile: () => true },
+            { name: invalidRun, isFile: () => true },
+          ],
+          readFile: async (path) => {
+            if (path.endsWith(missingRun)) throw missingError;
+            if (path.endsWith(partialRun)) return "{";
+            return JSON.stringify({
+              ...sampleAuditRunStateTestValue(AUDIT_RUN_STATE_TEST_GENERATOR.auditRunState()),
+              status: sampleAuditRunStateTestValue(AUDIT_RUN_STATE_TEST_GENERATOR.branchName()),
+            });
+          },
+        },
       });
-
-      const result = await readAuditBranchRuns(productDir, branchSlug);
 
       expect(result.ok).toBe(true);
       if (!result.ok) throw new Error(result.error);
@@ -128,13 +137,8 @@ describe("audit branch run-state lookup", () => {
       expect(result.value.terminalRuns).toEqual([]);
       expect(result.value.incompleteRuns).toEqual([
         {
-          runDirectoryName: RUN_DIRECTORY_NAME,
-          runDir: join(auditBranchRunsDir(productDir, branchSlug), RUN_DIRECTORY_NAME),
-          statePath: join(
-            auditBranchRunsDir(productDir, branchSlug),
-            RUN_DIRECTORY_NAME,
-            DEFAULT_AUDIT_CONFIG.storage.stateFile,
-          ),
+          runFileName: RUN_FILE_NAME,
+          runFilePath: join(auditBranchRunsDir(productDir, branchSlug), RUN_FILE_NAME),
           reason: AUDIT_RUN_STATE_INCOMPLETE_REASON.IO_ERROR,
           error: errorCode,
         },
@@ -142,34 +146,34 @@ describe("audit branch run-state lookup", () => {
     });
   });
 
-  it("ignores directory entries that are not audit run directories before reading state files", async () => {
+  it("ignores entries that are not audit run files before reading state", async () => {
     const branchSlug = sampleAuditRunStateTestValue(AUDIT_RUN_STATE_TEST_GENERATOR.branchSlug());
     const invalidEntryName = sampleAuditRunStateTestValue(AUDIT_RUN_STATE_TEST_GENERATOR.branchName());
-    const validRunDirectoryName = sampleAuditRunStateTestValue(AUDIT_RUN_STATE_TEST_GENERATOR.runDirectoryName());
+    const validRunFileName = sampleAuditRunStateTestValue(AUDIT_RUN_STATE_TEST_GENERATOR.runFileName());
     const state = sampleAuditRunStateTestValue(AUDIT_RUN_STATE_TEST_GENERATOR.auditRunState());
     const readPaths: string[] = [];
 
     await withTempProductDir(async (productDir) => {
       const result = await readAuditBranchRuns(productDir, branchSlug, {
-        fs: createRecordingReadFileSystem([invalidEntryName, validRunDirectoryName], state, readPaths),
+        fs: createRecordingReadFileSystem([invalidEntryName, validRunFileName], state, readPaths),
       });
 
       expect(result.ok).toBe(true);
       if (!result.ok) throw new Error(result.error);
       expect(result.value.incompleteRuns).toEqual([]);
-      expect(result.value.terminalRuns.map((run) => run.runDirectoryName)).toEqual([validRunDirectoryName]);
+      expect(result.value.terminalRuns.map((run) => run.runFileName)).toEqual([validRunFileName]);
       expect(readPaths).toEqual([
-        join(auditBranchRunsDir(productDir, branchSlug), validRunDirectoryName, DEFAULT_AUDIT_CONFIG.storage.stateFile),
+        join(auditBranchRunsDir(productDir, branchSlug), validRunFileName),
       ]);
     });
   });
 
-  it("selects the latest terminal run by completedAt, startedAt, then run directory name", async () => {
+  it("selects the latest terminal run by completedAt, startedAt, then run file name", async () => {
     const branchSlug = sampleAuditRunStateTestValue(AUDIT_RUN_STATE_TEST_GENERATOR.branchSlug());
     const baseState = sampleAuditRunStateTestValue(AUDIT_RUN_STATE_TEST_GENERATOR.auditRunState());
-    const earlierRun = sampleAuditRunStateTestValue(AUDIT_RUN_STATE_TEST_GENERATOR.runDirectoryName());
-    const laterStartedRun = sampleAuditRunStateTestValue(AUDIT_RUN_STATE_TEST_GENERATOR.runDirectoryName());
-    const tieBreakerRun = sampleAuditRunStateTestValue(AUDIT_RUN_STATE_TEST_GENERATOR.runDirectoryName());
+    const earlierRun = sampleAuditRunStateTestValue(AUDIT_RUN_STATE_TEST_GENERATOR.runFileName());
+    const laterStartedRun = sampleAuditRunStateTestValue(AUDIT_RUN_STATE_TEST_GENERATOR.runFileName());
+    const tieBreakerRun = sampleAuditRunStateTestValue(AUDIT_RUN_STATE_TEST_GENERATOR.runFileName());
     const baseDate = sampleAuditRunStateTestValue(AUDIT_RUN_STATE_TEST_GENERATOR.timestampDate());
     const earlierCompletedAt = formatAuditRunTimestamp(baseDate);
     const completedAt = formatAuditRunTimestamp(new Date(baseDate.getTime() + 1));
@@ -199,7 +203,7 @@ describe("audit branch run-state lookup", () => {
 
       expect(result.ok).toBe(true);
       if (!result.ok) throw new Error(result.error);
-      expect(selectLatestTerminalAuditRun(result.value.terminalRuns)?.runDirectoryName).toBe(tieBreakerRun);
+      expect(selectLatestTerminalAuditRun(result.value.terminalRuns)?.runFileName).toBe(tieBreakerRun);
     });
   });
 
@@ -235,7 +239,7 @@ describe("audit branch run-state lookup", () => {
     await withTempProductDir(async (productDir) => {
       const result = await readAuditBranchRuns(productDir, invalidBranchSlug);
 
-      expect(result).toEqual({ ok: false, error: AUDIT_RUN_STATE_ERROR.INVALID_BRANCH_SLUG });
+      expect(result).toEqual({ ok: false, error: STATE_STORE_ERROR.INVALID_BRANCH_SLUG });
     });
   });
 

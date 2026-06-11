@@ -7,6 +7,7 @@ import {
   pythonTestingLanguage,
 } from "@/testing/languages/python";
 import { PYTHON_RUNNER_TEST_GENERATOR } from "@testing/generators/testing/python-runner";
+import { EXPECTED_PYTEST_PRODUCT_INPUT_PATHS } from "@testing/harnesses/testing/python-product-inputs";
 
 describe("python test runner file matching and exclusion flags", () => {
   it("matches test_*.py files as Python test targets", () => {
@@ -33,5 +34,11 @@ describe("python test runner file matching and exclusion flags", () => {
         );
       }),
     );
+  });
+
+  it("declares pytest-discovered root config files as product inputs", () => {
+    expect(pythonTestingLanguage.productInputPaths).toEqual(expect.arrayContaining([
+      ...EXPECTED_PYTEST_PRODUCT_INPUT_PATHS,
+    ]));
   });
 });

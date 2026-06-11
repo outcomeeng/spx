@@ -14,6 +14,7 @@ import {
   SESSION_FRONT_MATTER_DELIMITER,
   SESSION_FRONT_MATTER_DOCUMENT_END,
 } from "@/domains/session/create";
+import { resolveAgentSessionId } from "@/domains/session/agent-session";
 import { DEFAULT_SESSION_METADATA, parseSessionMetadata } from "@/domains/session/list";
 import {
   generateSessionId,
@@ -22,14 +23,40 @@ import {
   SESSION_ID_SEPARATOR,
 } from "@/domains/session/timestamp";
 import { DEFAULT_PRIORITY, SESSION_FRONT_MATTER, SESSION_PRIORITY, SessionPriority } from "@/domains/session/types";
+import { sampleSessionId } from "@testing/generators/session/session";
 import { buildSessionMarkdownBody } from "@testing/harnesses/session/harness";
 import fc from "fast-check";
 import { describe, expect, it } from "vitest";
 
 /** Valid priorities derived from the type, not hardcoded. */
 const VALID_PRIORITIES: readonly SessionPriority[] = Object.values(SESSION_PRIORITY);
-const PROPERTY_DATE_MIN = new Date(Date.UTC(2000, 0, 1, 0, 0, 0));
-const PROPERTY_DATE_MAX = new Date(Date.UTC(2099, 11, 28, 23, 59, 59));
+const PROPERTY_DATE_MIN = new Date("2000-01-01T00:00:00.000Z");
+const PROPERTY_DATE_MAX = new Date("2099-12-28T23:59:59.000Z");
+const CODEX_SESSION_SAMPLE_SEED = 0xC0D3;
+
+describe("resolveAgentSessionId", () => {
+  it("GIVEN agent session environment values WHEN resolved THEN Claude takes precedence and Codex is the fallback", () => {
+    const claudeSession = sampleSessionId();
+    const codexSession = sampleSessionId(CODEX_SESSION_SAMPLE_SEED);
+
+    expect(resolveAgentSessionId({
+      CLAUDE_SESSION_ID: claudeSession,
+      CODEX_THREAD_ID: codexSession,
+    })).toBe(claudeSession);
+    expect(resolveAgentSessionId({
+      CODEX_THREAD_ID: codexSession,
+    })).toBe(codexSession);
+    expect(resolveAgentSessionId({
+      CLAUDE_SESSION_ID: "",
+      CODEX_THREAD_ID: codexSession,
+    })).toBe(codexSession);
+    expect(resolveAgentSessionId({
+      CLAUDE_SESSION_ID: "",
+      CODEX_THREAD_ID: "",
+    })).toBeUndefined();
+    expect(resolveAgentSessionId({})).toBeUndefined();
+  });
+});
 
 describe("generateSessionId", () => {
   it("GIVEN injected time WHEN generated THEN matches SESSION_ID_PATTERN", () => {
@@ -64,7 +91,7 @@ describe("parseSessionId", () => {
 
     expect(date).not.toBeNull();
     expect(date!.getUTCFullYear()).toBe(2026);
-    expect(date!.getUTCMonth()).toBe(0); // January = 0
+    expect(date!.getUTCMonth()).toBe(0);
     expect(date!.getUTCDate()).toBe(13);
     expect(date!.getUTCHours()).toBe(8);
     expect(date!.getUTCMinutes()).toBe(1);

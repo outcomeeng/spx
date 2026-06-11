@@ -1,10 +1,10 @@
 # Audit Domain Scope
 
-The `spx audit` domain manages the full lifecycle of the audit verdict artifacts that auditing skills produce — create, list, archive, verify, and branch-scoped state inspection — with `spx audit verify <file>` as the formal success criterion: exit 0 means the verdict is internally consistent and ready to act on, exit 1 means it is malformed and must be fixed. Verdict artifacts and run state are stored under `.spx/audit/{branch-slug}/`, never in the spec tree.
+The `spx audit` domain manages the full lifecycle of the audit verdict artifacts that auditing skills produce — create, list, archive, verify, and branch-scoped state inspection — with `spx audit verify <file>` as the formal success criterion: exit 0 means the verdict is internally consistent and ready to act on, exit 1 means it is malformed and must be fixed. Verdict artifacts and run state are stored under `.spx/branch/{branch-slug}/audit/`, never in the spec tree.
 
 ## Rationale
 
-A CLI success criterion makes the auditing skill's completion state mechanical and reproducible — without it, "audit complete" is a judgment call that varies across agents and sessions. Storing verdicts in `.spx/audit/{branch-slug}/` follows the same separation as sessions: the spec tree holds durable declarations, `.spx/` holds ephemeral local state, and branch scoping prevents one local audit run from contaminating another branch's evidence. Scoping the domain to the full artifact lifecycle (not verify alone) lets commands such as `spx audit list` enumerate prior audits per branch and prune them from branch-scoped local state, analogous to `spx session archive` and `spx session prune`; verify behavior remains the artifact-consistency check inside that broader lifecycle, and because verdict files are not committed, agents that need to share a verdict pass its file path explicitly. Audit execution settings — auditors, targets, base ref, storage policy — are read from the `audit` config descriptor in `spx.config.{toml,json,yaml}` so they resolve through the same registered descriptor system as every other domain rather than being parsed ad hoc.
+A CLI success criterion makes the auditing skill's completion state mechanical and reproducible — without it, "audit complete" is a judgment call that varies across agents and sessions. Storing verdicts in `.spx/branch/{branch-slug}/audit/` follows the same separation as sessions: the spec tree holds durable declarations, `.spx/` holds ephemeral local state, and branch scoping prevents one local audit run from contaminating another branch's evidence. Scoping the domain to the full artifact lifecycle (not verify alone) lets commands such as `spx audit list` enumerate prior audits per branch and prune them from branch-scoped local state, analogous to `spx session archive` and `spx session prune`; verify behavior remains the artifact-consistency check inside that broader lifecycle, and because verdict files are not committed, agents that need to share a verdict pass its file path explicitly. Audit execution settings — auditors, targets, base ref, storage policy — are read from the `audit` config descriptor in `spx.config.{toml,json,yaml}` so they resolve through the same registered descriptor system as every other domain rather than being parsed ad hoc.
 
 ## Product properties
 
@@ -16,8 +16,8 @@ A CLI success criterion makes the auditing skill's completion state mechanical a
 
 ### Audit
 
-- ALWAYS: store verdict files in `.spx/audit/{branch-slug}/` at the Git common-dir product root per `spx/15-worktree-management.pdr.md` ([audit])
-- ALWAYS: accept any file path as the argument to `spx audit verify` — the command is not restricted to `.spx/audit/` contents ([audit])
+- ALWAYS: store verdict files in `.spx/branch/{branch-slug}/audit/` at the Git common-dir product root per `spx/15-worktree-management.pdr.md` ([audit])
+- ALWAYS: accept any file path as the argument to `spx audit verify` — the command is not restricted to `.spx/branch/{branch-slug}/audit/` contents ([audit])
 - ALWAYS: register audit configuration through the config descriptor system per `spx/16-config.enabler/21-descriptor-registration.adr.md` rather than parsing raw `spx.config.*` content in audit code ([audit])
 - NEVER: write verdict files into the `spx/` spec tree ([audit])
 - NEVER: treat a non-zero exit from `spx audit verify` as a silent warning — it must surface as an error ([audit])

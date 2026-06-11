@@ -7,7 +7,7 @@ Persist spec-tree test observations so status commands can report fast test stat
 ## Governing Specs
 
 - `spx/41-testing.enabler/testing.md`
-- `spx/41-testing.enabler/43-last-run-evidence.enabler/11-last-run-directory.adr.md`
+- `spx/41-testing.enabler/43-last-run-evidence.enabler/11-last-run-file.adr.md`
 - `spx/41-testing.enabler/32-testing-config.enabler/testing-config.md`
 - `spx/16-config.enabler/54-canonical-descriptor-digest.enabler/canonical-descriptor-digest.md`
 - `spx/22-test-environment.enabler/32-spec-tree-fixtures.enabler/spec-tree-fixtures.md`
@@ -15,7 +15,7 @@ Persist spec-tree test observations so status commands can report fast test stat
 ## Implementation Notes
 
 - Compute discovery once per command and reuse it for runner dispatch and staleness comparison.
-- Store observed runner results and all staleness inputs in `.spx/local/testing/runs/{run-directory}/state.json` at the local worktree root.
+- Store observed runner results and all staleness inputs in `.spx/worktree/test/runs/run-{run-token}.jsonl` at the local worktree root.
 - Keep policy reads config-backed; state is only evidence.
 - Use `withSpecTreeEnv` for filesystem and in-memory fixture tests when assertions require a spec-tree shape.
 
@@ -40,5 +40,5 @@ Before branching, follow the common packet rules in `spx/16-config.enabler/PLAN.
 
 Start from fresh origin/main on work/testing-last-run-evidence after the testing config, domain execution descriptor, canonical descriptor digest API, and C2 product-directory API are available. Invoke spec-tree:understanding if needed, then spec-tree:contextualizing for spx/41-testing.enabler/43-last-run-evidence.enabler/. Read this PLAN and the governing specs it names. Invoke spec-tree:applying, spec-tree:testing, typescript:testing-typescript, and typescript:coding-typescript before edits.
 
-Before branching, verify all four prerequisites: `git cat-file -e origin/main:spx/41-testing.enabler/32-testing-config.enabler/testing-config.md`, `git cat-file -e origin/main:spx/16-config.enabler/43-domain-execution-descriptors.enabler/domain-execution-descriptors.md`, `git cat-file -e origin/main:spx/16-config.enabler/54-canonical-descriptor-digest.enabler/canonical-descriptor-digest.md`, and `git cat-file -e origin/main:spx/16-config.enabler/65-product-directory-api.enabler/product-directory-api.md` succeed for the settled testing descriptor, domain execution descriptor, C1, and C2 artifacts. Persist testing observations under `.spx/local/testing/runs/{run-directory}/state.json` at the local worktree root. Compute discovery once per command and reuse the result for runner dispatch and staleness comparison. Record runner outcomes, timestamps, discovered path sets, content digests, descriptor-declared product input digests, and the resolved testing config digest. Prove deleting state changes only fast-status availability. Open one PR and ask reviewers to audit staleness inputs, state ownership, and no-policy-from-state behavior.
+Before branching, verify all four prerequisites: `git cat-file -e origin/main:spx/41-testing.enabler/32-testing-config.enabler/testing-config.md`, `git cat-file -e origin/main:spx/16-config.enabler/43-domain-execution-descriptors.enabler/domain-execution-descriptors.md`, `git cat-file -e origin/main:spx/16-config.enabler/54-canonical-descriptor-digest.enabler/canonical-descriptor-digest.md`, and `git cat-file -e origin/main:spx/16-config.enabler/65-product-directory-api.enabler/product-directory-api.md` succeed for the settled testing descriptor, domain execution descriptor, C1, and C2 artifacts. Persist testing observations under `.spx/worktree/test/runs/run-{run-token}.jsonl` at the local worktree root. Compute discovery once per command and reuse the result for runner dispatch and staleness comparison. Record runner outcomes, timestamps, discovered path sets, content digests, descriptor-declared product input digests, and the resolved testing config digest. Prove deleting state changes only fast-status availability. Open one PR and ask reviewers to audit staleness inputs, state ownership, and no-policy-from-state behavior.
 ```

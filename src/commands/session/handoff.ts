@@ -15,6 +15,7 @@ import { join, resolve } from "node:path";
 
 import { stringify as stringifyYaml } from "yaml";
 
+import { resolveAgentSessionId, type AgentSessionEnvironment } from "@/domains/session/agent-session";
 import { SESSION_FRONT_MATTER_CLOSE, SESSION_FRONT_MATTER_OPEN } from "@/domains/session/create";
 import {
   SessionInvalidContentError,
@@ -51,6 +52,8 @@ export interface HandoffOptions {
   cwd?: string;
   /** Injectable Git command dependencies for tests */
   deps?: GitDependencies;
+  /** Environment values used to prefill agent identity */
+  env?: AgentSessionEnvironment;
 }
 
 /**
@@ -174,7 +177,7 @@ export async function handoffCommand(options: HandoffOptions): Promise<HandoffRe
   const gitRef = await resolveSessionGitRef(options.cwd, options.deps);
 
   const sessionId = generateSessionId();
-  const agentSessionId = process.env.CLAUDE_SESSION_ID ?? process.env.CODEX_THREAD_ID;
+  const agentSessionId = resolveAgentSessionId(options.env ?? process.env);
   const createdAt = new Date().toISOString();
 
   const frontMatterObject: Record<string, unknown> = {

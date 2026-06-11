@@ -1,18 +1,18 @@
-import { mkdir } from "node:fs/promises";
 import { join } from "node:path";
 
 import { describe, expect, it } from "vitest";
 
+import { STATE_STORE_DOMAIN, STATE_STORE_PATH } from "@/lib/state-store";
 import {
-  createTestRunDirectory,
-  DEFAULT_TESTING_STORAGE,
+  createTestRunFile,
   formatTestRunTimestamp,
   readTestingRuns,
   selectLatestTerminalTestRunForNode,
   TESTING_RUN_STATE_ERROR,
+  TESTING_RUN_STATE_ERROR_CODE,
   TESTING_RUN_STATE_INCOMPLETE_REASON,
   testingRunsDir,
-  type TestRunDirectoryEntry,
+  type TestRunFileEntry,
   type TestRunnerOutcome,
   type TestRunState,
   type TestRunStateFileSystem,
@@ -23,16 +23,16 @@ import { sampleTestRunStateValue, TEST_RUN_STATE_TEST_GENERATOR } from "@testing
 import { withTestingTempProductDir, writeTestingStateFile } from "@testing/harnesses/testing/harness";
 
 // A read-failing filesystem double (Stage 5 exception 1: failure simulation) — the
-// directory listing succeeds but reading the state file raises a non-ENOENT error.
+// file listing succeeds but reading the run file raises a non-ENOENT error.
 function createReadFailingFileSystem(
-  runDirectoryName: string,
+  runFileName: string,
   error: Error & { readonly code: string },
 ): TestRunStateFileSystem {
-  const entries: readonly TestRunDirectoryEntry[] = [{ name: runDirectoryName, isDirectory: () => true }];
+  const entries: readonly TestRunFileEntry[] = [{ name: runFileName, isFile: () => true }];
   return {
     mkdir: () => Promise.resolve(),
     writeFile: () => Promise.resolve(),
-    rename: () => Promise.resolve(),
+    appendFile: () => Promise.resolve(),
     readFile: () => Promise.reject(error),
     readdir: () => Promise.resolve(entries),
   };
@@ -77,15 +77,15 @@ function stateCoveringAcross(
 }
 
 describe("testing last-run state storage", () => {
-  it("publishes terminal state at .spx/local/testing/runs/{run-directory}/state.json under the worktree root", async () => {
+  it("publishes terminal state at .spx/worktree/test/runs/{run-file}.jsonl under the worktree root", async () => {
     const state = sampleTestRunStateValue(TEST_RUN_STATE_TEST_GENERATOR.testRunState());
 
     await withTestingTempProductDir(async (productDir) => {
-      const created = await createTestRunDirectory(productDir);
+      const created = await createTestRunFile(productDir);
       expect(created.ok).toBe(true);
       if (!created.ok) throw new Error(created.error);
 
-      const written = await writeTerminalTestRunState(created.value.runDir, state);
+      const written = await writeTerminalTestRunState(created.value.runFilePath, state);
       expect(written.ok).toBe(true);
       if (!written.ok) throw new Error(written.error);
 
@@ -93,12 +93,11 @@ describe("testing last-run state storage", () => {
       // module's own path helper, so a join bug in testingRunsDir cannot pass this assertion.
       const expectedPath = join(
         productDir,
-        DEFAULT_TESTING_STORAGE.spxDir,
-        DEFAULT_TESTING_STORAGE.localDir,
-        DEFAULT_TESTING_STORAGE.testingDir,
-        DEFAULT_TESTING_STORAGE.runsDir,
-        created.value.runDirectoryName,
-        DEFAULT_TESTING_STORAGE.stateFile,
+        STATE_STORE_PATH.SPX_DIR,
+        STATE_STORE_PATH.WORKTREE_SCOPE,
+        STATE_STORE_DOMAIN.TEST,
+        STATE_STORE_PATH.RUNS_DIR,
+        created.value.runFileName,
       );
       expect(written.value).toBe(expectedPath);
 
@@ -114,14 +113,14 @@ describe("testing last-run state storage", () => {
     const second = sampleTestRunStateValue(TEST_RUN_STATE_TEST_GENERATOR.testRunState());
 
     await withTestingTempProductDir(async (productDir) => {
-      const created = await createTestRunDirectory(productDir);
+      const created = await createTestRunFile(productDir);
       expect(created.ok).toBe(true);
       if (!created.ok) throw new Error(created.error);
 
-      const firstWrite = await writeTerminalTestRunState(created.value.runDir, first);
+      const firstWrite = await writeTerminalTestRunState(created.value.runFilePath, first);
       expect(firstWrite.ok).toBe(true);
 
-      const secondWrite = await writeTerminalTestRunState(created.value.runDir, second);
+      const secondWrite = await writeTerminalTestRunState(created.value.runFilePath, second);
       expect(secondWrite).toEqual({ ok: false, error: TESTING_RUN_STATE_ERROR.STATE_ALREADY_EXISTS });
 
       const runs = await readTestingRuns(productDir);
@@ -135,9 +134,9 @@ describe("testing last-run state storage", () => {
     const base = sampleTestRunStateValue(TEST_RUN_STATE_TEST_GENERATOR.testRunState());
     const baseDate = sampleTestRunStateValue(TEST_RUN_STATE_TEST_GENERATOR.timestampDate());
     const nodeTestPaths = sampleTestRunStateValue(TEST_RUN_STATE_TEST_GENERATOR.testPaths());
-    const olderCoveringRun = sampleTestRunStateValue(TEST_RUN_STATE_TEST_GENERATOR.runDirectoryName());
-    const laterCoveringRun = sampleTestRunStateValue(TEST_RUN_STATE_TEST_GENERATOR.runDirectoryName());
-    const newestNonCoveringRun = sampleTestRunStateValue(TEST_RUN_STATE_TEST_GENERATOR.runDirectoryName());
+    const olderCoveringRun = sampleTestRunStateValue(TEST_RUN_STATE_TEST_GENERATOR.runFileName());
+    const laterCoveringRun = sampleTestRunStateValue(TEST_RUN_STATE_TEST_GENERATOR.runFileName());
+    const newestNonCoveringRun = sampleTestRunStateValue(TEST_RUN_STATE_TEST_GENERATOR.runFileName());
 
     await withTestingTempProductDir(async (productDir) => {
       const olderAt = baseDate.toISOString();
@@ -166,7 +165,7 @@ describe("testing last-run state storage", () => {
       if (!runs.ok) throw new Error(runs.error);
 
       const selected = selectLatestTerminalTestRunForNode(runs.value.terminalRuns, nodeTestPaths);
-      expect(selected?.runDirectoryName).toBe(laterCoveringRun);
+      expect(selected?.runFileName).toBe(laterCoveringRun);
     });
   });
 
@@ -176,8 +175,8 @@ describe("testing last-run state storage", () => {
     const [nodeTestPaths, otherNodeTestPaths] = sampleTestRunStateValue(
       TEST_RUN_STATE_TEST_GENERATOR.disjointTestPathsPair(),
     );
-    const coveringRun = sampleTestRunStateValue(TEST_RUN_STATE_TEST_GENERATOR.runDirectoryName());
-    const newerOtherNodeRun = sampleTestRunStateValue(TEST_RUN_STATE_TEST_GENERATOR.runDirectoryName());
+    const coveringRun = sampleTestRunStateValue(TEST_RUN_STATE_TEST_GENERATOR.runFileName());
+    const newerOtherNodeRun = sampleTestRunStateValue(TEST_RUN_STATE_TEST_GENERATOR.runFileName());
 
     await withTestingTempProductDir(async (productDir) => {
       const coveringAt = baseDate.toISOString();
@@ -201,7 +200,7 @@ describe("testing last-run state storage", () => {
       if (!runs.ok) throw new Error(runs.error);
 
       const selected = selectLatestTerminalTestRunForNode(runs.value.terminalRuns, nodeTestPaths);
-      expect(selected?.runDirectoryName).toBe(coveringRun);
+      expect(selected?.runFileName).toBe(coveringRun);
     });
   });
 
@@ -212,7 +211,7 @@ describe("testing last-run state storage", () => {
       TEST_RUN_STATE_TEST_GENERATOR.disjointTestPathsPair(),
     );
     const nodeTestPaths = [...firstOutcomePaths, ...secondOutcomePaths];
-    const splitRun = sampleTestRunStateValue(TEST_RUN_STATE_TEST_GENERATOR.runDirectoryName());
+    const splitRun = sampleTestRunStateValue(TEST_RUN_STATE_TEST_GENERATOR.runFileName());
 
     await withTestingTempProductDir(async (productDir) => {
       const at = baseDate.toISOString();
@@ -229,7 +228,7 @@ describe("testing last-run state storage", () => {
       if (!runs.ok) throw new Error(runs.error);
 
       const selected = selectLatestTerminalTestRunForNode(runs.value.terminalRuns, nodeTestPaths);
-      expect(selected?.runDirectoryName).toBe(splitRun);
+      expect(selected?.runFileName).toBe(splitRun);
     });
   });
 
@@ -239,7 +238,7 @@ describe("testing last-run state storage", () => {
     const [nodeTestPaths, otherNodeTestPaths] = sampleTestRunStateValue(
       TEST_RUN_STATE_TEST_GENERATOR.disjointTestPathsPair(),
     );
-    const supersetRun = sampleTestRunStateValue(TEST_RUN_STATE_TEST_GENERATOR.runDirectoryName());
+    const supersetRun = sampleTestRunStateValue(TEST_RUN_STATE_TEST_GENERATOR.runFileName());
 
     await withTestingTempProductDir(async (productDir) => {
       const at = baseDate.toISOString();
@@ -256,7 +255,7 @@ describe("testing last-run state storage", () => {
       if (!runs.ok) throw new Error(runs.error);
 
       const selected = selectLatestTerminalTestRunForNode(runs.value.terminalRuns, nodeTestPaths);
-      expect(selected?.runDirectoryName).toBe(supersetRun);
+      expect(selected?.runFileName).toBe(supersetRun);
     });
   });
 
@@ -264,12 +263,12 @@ describe("testing last-run state storage", () => {
     const base = sampleTestRunStateValue(TEST_RUN_STATE_TEST_GENERATOR.testRunState());
     const baseDate = sampleTestRunStateValue(TEST_RUN_STATE_TEST_GENERATOR.timestampDate());
     const nodeTestPaths = sampleTestRunStateValue(TEST_RUN_STATE_TEST_GENERATOR.testPaths());
-    const earlierCompletedRun = sampleTestRunStateValue(TEST_RUN_STATE_TEST_GENERATOR.runDirectoryName());
-    const laterCompletedRun = sampleTestRunStateValue(TEST_RUN_STATE_TEST_GENERATOR.runDirectoryName());
+    const earlierCompletedRun = sampleTestRunStateValue(TEST_RUN_STATE_TEST_GENERATOR.runFileName());
+    const laterCompletedRun = sampleTestRunStateValue(TEST_RUN_STATE_TEST_GENERATOR.runFileName());
 
     await withTestingTempProductDir(async (productDir) => {
       // Both runs share startedAt; only completedAt distinguishes them, isolating
-      // the primary sort key from the startedAt and directory-name tie-breakers.
+      // the primary sort key from the startedAt and file-name tie-breakers.
       const sharedStartedAt = baseDate.toISOString();
       const earlierCompletedAt = new Date(baseDate.getTime() + 1).toISOString();
       const laterCompletedAt = new Date(baseDate.getTime() + 2).toISOString();
@@ -290,7 +289,7 @@ describe("testing last-run state storage", () => {
       if (!runs.ok) throw new Error(runs.error);
 
       const selected = selectLatestTerminalTestRunForNode(runs.value.terminalRuns, nodeTestPaths);
-      expect(selected?.runDirectoryName).toBe(laterCompletedRun);
+      expect(selected?.runFileName).toBe(laterCompletedRun);
     });
   });
 
@@ -298,8 +297,8 @@ describe("testing last-run state storage", () => {
     const base = sampleTestRunStateValue(TEST_RUN_STATE_TEST_GENERATOR.testRunState());
     const baseDate = sampleTestRunStateValue(TEST_RUN_STATE_TEST_GENERATOR.timestampDate());
     const nodeTestPaths = sampleTestRunStateValue(TEST_RUN_STATE_TEST_GENERATOR.testPaths());
-    const earlierStartedRun = sampleTestRunStateValue(TEST_RUN_STATE_TEST_GENERATOR.runDirectoryName());
-    const laterStartedRun = sampleTestRunStateValue(TEST_RUN_STATE_TEST_GENERATOR.runDirectoryName());
+    const earlierStartedRun = sampleTestRunStateValue(TEST_RUN_STATE_TEST_GENERATOR.runFileName());
+    const laterStartedRun = sampleTestRunStateValue(TEST_RUN_STATE_TEST_GENERATOR.runFileName());
 
     await withTestingTempProductDir(async (productDir) => {
       const sharedCompletedAt = new Date(baseDate.getTime() + 10).toISOString();
@@ -322,16 +321,16 @@ describe("testing last-run state storage", () => {
       if (!runs.ok) throw new Error(runs.error);
 
       const selected = selectLatestTerminalTestRunForNode(runs.value.terminalRuns, nodeTestPaths);
-      expect(selected?.runDirectoryName).toBe(laterStartedRun);
+      expect(selected?.runFileName).toBe(laterStartedRun);
     });
   });
 
-  it("breaks a covering-run completedAt and startedAt tie by lexicographic run directory name", async () => {
+  it("breaks a covering-run completedAt and startedAt tie by lexicographic run file name", async () => {
     const base = sampleTestRunStateValue(TEST_RUN_STATE_TEST_GENERATOR.testRunState());
     const nodeTestPaths = sampleTestRunStateValue(TEST_RUN_STATE_TEST_GENERATOR.testPaths());
     const sharedStamp = formatTestRunTimestamp(sampleTestRunStateValue(TEST_RUN_STATE_TEST_GENERATOR.timestampDate()));
-    const runOne = sampleTestRunStateValue(TEST_RUN_STATE_TEST_GENERATOR.runDirectoryName());
-    const runTwo = sampleTestRunStateValue(TEST_RUN_STATE_TEST_GENERATOR.runDirectoryName());
+    const runOne = sampleTestRunStateValue(TEST_RUN_STATE_TEST_GENERATOR.runFileName());
+    const runTwo = sampleTestRunStateValue(TEST_RUN_STATE_TEST_GENERATOR.runFileName());
     const [, lexicographicallyLaterRun] = [runOne, runTwo].sort();
     const tiedState = JSON.stringify(stateCovering(base, nodeTestPaths, sharedStamp, sharedStamp));
 
@@ -344,25 +343,35 @@ describe("testing last-run state storage", () => {
       if (!runs.ok) throw new Error(runs.error);
 
       const selected = selectLatestTerminalTestRunForNode(runs.value.terminalRuns, nodeTestPaths);
-      expect(selected?.runDirectoryName).toBe(lexicographicallyLaterRun);
+      expect(selected?.runFileName).toBe(lexicographicallyLaterRun);
     });
   });
 
-  it("classifies missing, parse-invalid, and shape-invalid state files as incomplete evidence", async () => {
-    const missingRun = sampleTestRunStateValue(TEST_RUN_STATE_TEST_GENERATOR.runDirectoryName());
-    const parseInvalidRun = sampleTestRunStateValue(TEST_RUN_STATE_TEST_GENERATOR.runDirectoryName());
-    const shapeInvalidRun = sampleTestRunStateValue(TEST_RUN_STATE_TEST_GENERATOR.runDirectoryName());
+  it("classifies missing, parse-invalid, and shape-invalid run files as incomplete evidence", async () => {
+    const missingRun = sampleTestRunStateValue(TEST_RUN_STATE_TEST_GENERATOR.runFileName());
+    const parseInvalidRun = sampleTestRunStateValue(TEST_RUN_STATE_TEST_GENERATOR.runFileName());
+    const shapeInvalidRun = sampleTestRunStateValue(TEST_RUN_STATE_TEST_GENERATOR.runFileName());
+    const missingError = Object.assign(new Error("missing"), { code: TESTING_RUN_STATE_ERROR_CODE.NOT_FOUND });
     const shapeInvalidState = {
       ...sampleTestRunStateValue(TEST_RUN_STATE_TEST_GENERATOR.testRunState()),
       status: sampleTestRunStateValue(TEST_RUN_STATE_TEST_GENERATOR.headSha()),
     };
 
     await withTestingTempProductDir(async (productDir) => {
-      await mkdir(join(testingRunsDir(productDir), missingRun), { recursive: true });
-      await writeTestingStateFile(productDir, parseInvalidRun, "{");
-      await writeTestingStateFile(productDir, shapeInvalidRun, JSON.stringify(shapeInvalidState));
-
-      const runs = await readTestingRuns(productDir);
+      const runs = await readTestingRuns(productDir, {
+        fs: {
+          readdir: async () => [
+            { name: missingRun, isFile: () => true },
+            { name: parseInvalidRun, isFile: () => true },
+            { name: shapeInvalidRun, isFile: () => true },
+          ],
+          readFile: async (path) => {
+            if (path.endsWith(missingRun)) throw missingError;
+            if (path.endsWith(parseInvalidRun)) return "{";
+            return JSON.stringify(shapeInvalidState);
+          },
+        },
+      });
       expect(runs.ok).toBe(true);
       if (!runs.ok) throw new Error(runs.error);
 
@@ -378,7 +387,7 @@ describe("testing last-run state storage", () => {
   });
 
   it("classifies a runner outcome with an empty test path as shape-invalid evidence", async () => {
-    const runDirectoryName = sampleTestRunStateValue(TEST_RUN_STATE_TEST_GENERATOR.runDirectoryName());
+    const runFileName = sampleTestRunStateValue(TEST_RUN_STATE_TEST_GENERATOR.runFileName());
     const base = sampleTestRunStateValue(TEST_RUN_STATE_TEST_GENERATOR.testRunState());
     const runnerOutcome = sampleTestRunStateValue(TEST_RUN_STATE_TEST_GENERATOR.runnerOutcome());
     const emptyTestPath = "";
@@ -388,7 +397,7 @@ describe("testing last-run state storage", () => {
     };
 
     await withTestingTempProductDir(async (productDir) => {
-      await writeTestingStateFile(productDir, runDirectoryName, JSON.stringify(stateWithEmptyTestPath));
+      await writeTestingStateFile(productDir, runFileName, JSON.stringify(stateWithEmptyTestPath));
 
       const runs = await readTestingRuns(productDir);
       expect(runs.ok).toBe(true);
@@ -400,14 +409,14 @@ describe("testing last-run state storage", () => {
     });
   });
 
-  it("classifies a state file read failure as IO incomplete evidence", async () => {
-    const runDirectoryName = sampleTestRunStateValue(TEST_RUN_STATE_TEST_GENERATOR.runDirectoryName());
+  it("classifies a run-file read failure as IO incomplete evidence", async () => {
+    const runFileName = sampleTestRunStateValue(TEST_RUN_STATE_TEST_GENERATOR.runFileName());
     const productDir = sampleConfigTestValue(CONFIG_TEST_GENERATOR.productDir());
     const errorCode = sampleConfigTestValue(CONFIG_TEST_GENERATOR.key());
     const error = Object.assign(new Error(errorCode), { code: errorCode });
 
     const runs = await readTestingRuns(productDir, {
-      fs: createReadFailingFileSystem(runDirectoryName, error),
+      fs: createReadFailingFileSystem(runFileName, error),
     });
 
     expect(runs.ok).toBe(true);
@@ -415,9 +424,8 @@ describe("testing last-run state storage", () => {
     expect(runs.value.terminalRuns).toEqual([]);
     expect(runs.value.incompleteRuns).toEqual([
       {
-        runDirectoryName,
-        runDir: join(testingRunsDir(productDir), runDirectoryName),
-        statePath: join(testingRunsDir(productDir), runDirectoryName, DEFAULT_TESTING_STORAGE.stateFile),
+        runFileName,
+        runFilePath: join(testingRunsDir(productDir), runFileName),
         reason: TESTING_RUN_STATE_INCOMPLETE_REASON.IO_ERROR,
         error: errorCode,
       },
