@@ -116,10 +116,14 @@ export function arbitraryPoolFactsSample(): fc.Arbitrary<PoolFactsSample> {
       repoName: arbitraryRepositoryName(),
       otherBasename: arbitraryPathSegment(),
     })
-    .filter(({ repoName, otherBasename }) => otherBasename !== repoName)
+    .filter(({ repoName, otherBasename, containerName, otherContainerName }) =>
+      otherBasename !== repoName && otherContainerName !== containerName
+    )
     .chain((parts) =>
       arbitraryOriginUrl(parts.repoName).map((originUrl) => {
         const container = `${POSIX_SEPARATOR}${parts.containerParent}${POSIX_SEPARATOR}${parts.containerName}`;
+        const otherContainer =
+          `${POSIX_SEPARATOR}${parts.containerParent}${POSIX_SEPARATOR}${parts.otherContainerName}`;
         const commonDir = `${container}${POSIX_SEPARATOR}${parts.bareRepoName}${GIT_URL_SUFFIX}`;
         const worktreeRoot = `${container}${POSIX_SEPARATOR}${parts.repoName}`;
         const mainCheckout: GitFacts = { worktreeRoot, commonDir, commonDirIsBare: true, originUrl };
@@ -129,10 +133,11 @@ export function arbitraryPoolFactsSample(): fc.Arbitrary<PoolFactsSample> {
             ...mainCheckout,
             worktreeRoot: `${container}${POSIX_SEPARATOR}${parts.otherBasename}`,
           },
+          // Same depth as the main checkout's container — only the container name
+          // differs — so the parent-equality signal alone decides the mismatch.
           siblingMismatch: {
             ...mainCheckout,
-            commonDir:
-              `${POSIX_SEPARATOR}${parts.otherContainerName}${POSIX_SEPARATOR}${parts.bareRepoName}${GIT_URL_SUFFIX}`,
+            commonDir: `${otherContainer}${POSIX_SEPARATOR}${parts.bareRepoName}${GIT_URL_SUFFIX}`,
           },
           originUnset: { ...mainCheckout, originUrl: null },
         };
