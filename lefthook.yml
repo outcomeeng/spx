@@ -33,10 +33,10 @@ post-merge:
   commands:
     # The main-checkout gate (src/lib/precommit/main-checkout-gate.ts) routes the
     # decision through the tested isMainCheckout classifier (src/git/root.ts), so
-    # it designates the main worktree correctly in both a non-bare repository and a
-    # bare-repository pool. It exits zero in the main worktree and non-zero in a
-    # linked worktree; an unreadable repository is treated as the main worktree so
-    # the rebuild is not silently skipped. Only the main worktree's dist/ feeds the
+    # it designates the main checkout correctly in both a non-bare repository and a
+    # bare-repository pool. It exits zero in the main checkout and non-zero in a
+    # non-main checkout; an unreadable repository is treated as the main checkout so
+    # the rebuild is not silently skipped. Only the main checkout's dist/ feeds the
     # published or pnpm-linked spx. CI=true keeps pnpm non-interactive so a
     # node_modules purge on a pnpm version change proceeds instead of hanging
     # behind lefthook's spinner.
@@ -47,7 +47,7 @@ post-merge:
             export CI=true
             pnpm install --frozen-lockfile && pnpm run build
           else
-            echo "rebuild-dist: skipped (linked worktree, not the main worktree)"
+            echo "rebuild-dist: skipped (non-main checkout)"
           fi
         '
 
@@ -68,6 +68,6 @@ post-rewrite:
             export CI=true
             pnpm install --frozen-lockfile && pnpm run build
           else
-            echo "rebuild-dist: skipped (linked worktree, not the main worktree)"
+            echo "rebuild-dist: skipped (non-main checkout)"
           fi
         ' -- {1}
