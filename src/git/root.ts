@@ -96,6 +96,7 @@ export const GIT_ROOT_COMMAND = {
   PATH_FORMAT_ABSOLUTE: "--path-format=absolute",
   CONFIG: "config",
   CONFIG_GET: "--get",
+  CONFIG_TYPE_BOOL: "--type=bool",
   CORE_BARE_KEY: "core.bare",
   REMOTE: "remote",
   GET_URL: "get-url",
@@ -128,15 +129,18 @@ export const GIT_COMMON_DIR_ARGS = [
   GIT_ROOT_COMMAND.GIT_COMMON_DIR,
 ] as const;
 
-// `git config --get core.bare` reads the shared config the worktrees of a bare
-// pool inherit — it returns `true` from every pool worktree even though
+// `git config --get --type=bool core.bare` reads the shared config the worktrees
+// of a bare pool inherit, normalizing every Git boolean spelling (`True`, `yes`,
+// `on`, `1`) to `true`/`false` so a non-canonical value is not misread as
+// non-bare: it returns `true` from every pool worktree even though
 // `--is-bare-repository` returns `false` there, and `false` from a non-bare
 // repository's main and linked worktrees alike. It is the signal that separates
-// a bare pool (main checkout is the qualifying default-branch worktree) from a
-// non-bare repository (main checkout is the main working tree).
+// a bare pool (main checkout is the repository-named worktree) from a non-bare
+// repository (main checkout is the main working tree).
 export const GIT_CORE_BARE_ARGS = [
   GIT_ROOT_COMMAND.CONFIG,
   GIT_ROOT_COMMAND.CONFIG_GET,
+  GIT_ROOT_COMMAND.CONFIG_TYPE_BOOL,
   GIT_ROOT_COMMAND.CORE_BARE_KEY,
 ] as const;
 
@@ -478,45 +482,51 @@ async function gatherGitFacts(
   cwd: string = process.cwd(),
   deps: GitDependencies = defaultGitDependencies,
 ): Promise<GitFacts | null> {
-  const [toplevelResult, commonDirResult] = await Promise.all([
-    deps.execa(GIT_ROOT_COMMAND.EXECUTABLE, [...GIT_SHOW_TOPLEVEL_ARGS], { cwd, reject: false }),
-    deps.execa(GIT_ROOT_COMMAND.EXECUTABLE, [...GIT_COMMON_DIR_ARGS], { cwd, reject: false }),
-  ]);
-  if (toplevelResult.exitCode !== 0 || !toplevelResult.stdout) return null;
+  try {
+    const [toplevelResult, commonDirResult] = await Promise.all([
+      deps.execa(GIT_ROOT_COMMAND.EXECUTABLE, [...GIT_SHOW_TOPLEVEL_ARGS], { cwd, reject: false }),
+      deps.execa(GIT_ROOT_COMMAND.EXECUTABLE, [...GIT_COMMON_DIR_ARGS], { cwd, reject: false }),
+    ]);
+    if (toplevelResult.exitCode !== 0 || !toplevelResult.stdout) return null;
 
-  const worktreeRoot = extractStdout(toplevelResult.stdout);
-  const originResult = await deps.execa(
-    GIT_ROOT_COMMAND.EXECUTABLE,
-    [...GIT_REMOTE_GET_URL_ORIGIN_ARGS],
-    { cwd, reject: false },
-  );
-  const originUrl = originResult.exitCode === 0 && originResult.stdout
-    ? extractStdout(originResult.stdout)
-    : null;
+    const worktreeRoot = extractStdout(toplevelResult.stdout);
+    const originResult = await deps.execa(
+      GIT_ROOT_COMMAND.EXECUTABLE,
+      [...GIT_REMOTE_GET_URL_ORIGIN_ARGS],
+      { cwd, reject: false },
+    );
+    const originUrl = originResult.exitCode === 0 && originResult.stdout
+      ? extractStdout(originResult.stdout)
+      : null;
 
-  // Mirror the `--git-common-dir` fallback of detectGitCommonDirProductRoot and
-  // isRootWorktree: a worktree whose common dir cannot be read is treated as a
-  // non-bare single tree rooted at the worktree, so all three resolvers agree
-  // rather than this one alone reporting "not a checkout".
-  if (commonDirResult.exitCode !== 0 || !commonDirResult.stdout) {
-    return {
-      worktreeRoot,
-      commonDir: join(worktreeRoot, GIT_DIR_BASENAME),
-      commonDirIsBare: false,
-      originUrl,
-    };
+    // Mirror the `--git-common-dir` fallback of detectGitCommonDirProductRoot and
+    // isRootWorktree: a worktree whose common dir cannot be read is treated as a
+    // non-bare single tree rooted at the worktree, so all three resolvers agree
+    // rather than this one alone reporting "not a checkout".
+    if (commonDirResult.exitCode !== 0 || !commonDirResult.stdout) {
+      return {
+        worktreeRoot,
+        commonDir: join(worktreeRoot, GIT_DIR_BASENAME),
+        commonDirIsBare: false,
+        originUrl,
+      };
+    }
+
+    const rawCommonDir = extractStdout(commonDirResult.stdout);
+    const commonDir = isAbsolute(rawCommonDir) ? rawCommonDir : resolve(worktreeRoot, rawCommonDir);
+    const bareResult = await deps.execa(
+      GIT_ROOT_COMMAND.EXECUTABLE,
+      [...GIT_CORE_BARE_ARGS],
+      { cwd, reject: false },
+    );
+    const commonDirIsBare = bareResult.exitCode === 0
+      && extractStdout(bareResult.stdout) === GIT_CORE_BARE_TRUE;
+    return { worktreeRoot, commonDir, commonDirIsBare, originUrl };
+  } catch {
+    // Command execution failed (git not installed, permission error, etc.) —
+    // the checkout cannot be classified, so it is not the main checkout.
+    return null;
   }
-
-  const rawCommonDir = extractStdout(commonDirResult.stdout);
-  const commonDir = isAbsolute(rawCommonDir) ? rawCommonDir : resolve(worktreeRoot, rawCommonDir);
-  const bareResult = await deps.execa(
-    GIT_ROOT_COMMAND.EXECUTABLE,
-    [...GIT_CORE_BARE_ARGS],
-    { cwd, reject: false },
-  );
-  const commonDirIsBare = bareResult.exitCode === 0
-    && extractStdout(bareResult.stdout) === GIT_CORE_BARE_TRUE;
-  return { worktreeRoot, commonDir, commonDirIsBare, originUrl };
 }
 
 /**
