@@ -1,5 +1,5 @@
 import { execa } from "execa";
-import { copyFile } from "node:fs/promises";
+import { copyFile, mkdir } from "node:fs/promises";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 
@@ -9,17 +9,23 @@ import { withTempDir } from "@testing/harnesses/with-temp-dir";
 
 const PYTEST_FIXTURE_DIR = join(dirname(fileURLToPath(import.meta.url)), "..", "..", "fixtures", "pytest");
 const TEMP_PROJECT_PREFIX = "spx-pytest-";
-// Copied to a fixed pytest-collectible basename the l2 test forwards as the runner's testPaths.
+const COPIED_SUITE_DIR = ".spx-pytest-cases";
+// Copied under a pytest-ignored directory so the l2 test proves explicit test-path forwarding.
 const COPIED_SUITE_NAME = "test_suite.py";
 
 const UV_WITH_FLAG = "--with";
+const UV_CACHE_DIR_ENV = "UV_CACHE_DIR";
+const UV_CACHE_DIR_NAME = ".uv-cache";
 const PYTEST_PACKAGE = "pytest";
 // The descriptor builds `uv run pytest …`, and the spx repository declares no managed Python
 // environment, so the real-runner test splices an ephemeral `--with pytest` immediately before the
 // `pytest` command token. The position is derived from the descriptor's own command layout, so an
 // added intermediate uv-run flag cannot silently misplace the splice.
 const PYTEST_COMMAND_INDEX = PYTEST_INVOKE_ARGS.indexOf(PYTEST_PACKAGE);
-const EXIT_OK = 0;
+export const PYTEST_EXIT_CODE = {
+  OK: 0,
+  NO_TESTS_COLLECTED: 5,
+} as const;
 
 // Committed inert fixture suites copied into a temp project for the real-pytest run.
 export const PYTEST_FIXTURE = {
@@ -62,8 +68,12 @@ export function repoRootedPytestCommandRunner(projectRoot: string): TestRunnerDe
         PYTEST_PACKAGE,
         ...args.slice(PYTEST_COMMAND_INDEX),
       ];
-      const result = await execa(command, provisioned, { cwd: projectRoot, reject: false });
-      return { exitCode: result.exitCode ?? EXIT_OK };
+      const result = await execa(command, provisioned, {
+        cwd: projectRoot,
+        env: { [UV_CACHE_DIR_ENV]: join(projectRoot, UV_CACHE_DIR_NAME) },
+        reject: false,
+      });
+      return { exitCode: result.exitCode ?? PYTEST_EXIT_CODE.OK };
     },
   };
 }
@@ -82,7 +92,9 @@ export function withTempPytestProject(
   callback: (project: TempPytestProject) => Promise<void>,
 ): Promise<void> {
   return withTempDir(TEMP_PROJECT_PREFIX, async (projectRoot) => {
-    const suitePath = join(projectRoot, COPIED_SUITE_NAME);
+    const suiteDir = join(projectRoot, COPIED_SUITE_DIR);
+    const suitePath = join(suiteDir, COPIED_SUITE_NAME);
+    await mkdir(suiteDir);
     await copyFile(join(PYTEST_FIXTURE_DIR, fixture), suitePath);
     await callback({ projectRoot, suitePath });
   });
