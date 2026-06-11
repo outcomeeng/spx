@@ -25,12 +25,12 @@ export const HANDOFF_BASE_PREREQUISITE_LABEL = {
 
 /** The non-stashing remedy each unmet prerequisite states. */
 export const HANDOFF_BASE_REMEDY = {
-  /** Unclean working tree: commit, or hand off from the root worktree. */
-  COMMIT_OR_ROOT: "commit the changes, or run handoff from the root worktree",
-  /** Off the default-branch tip: detach to it, or hand off from the root worktree. */
-  DETACH_TO_TIP_OR_ROOT: "detach HEAD to the default-branch tip, or run handoff from the root worktree",
-  /** Default branch unresolved: only the root worktree can anchor the base. */
-  ROOT_ONLY: "run handoff from the root worktree",
+  /** Unclean working tree: commit, or hand off from the main checkout. */
+  COMMIT_OR_MAIN_CHECKOUT: "commit the changes, or run handoff from the main checkout",
+  /** Off the default-branch tip: detach to it, or hand off from the main checkout. */
+  DETACH_TO_TIP_OR_MAIN_CHECKOUT: "detach HEAD to the default-branch tip, or run handoff from the main checkout",
+  /** Default branch unresolved: only the main checkout can anchor the base. */
+  MAIN_CHECKOUT_ONLY: "run handoff from the main checkout",
 } as const;
 
 /**
@@ -43,7 +43,7 @@ export const HANDOFF_BASE_FACT_LABEL = {
   DEFAULT_TIP: "origin tip",
   HEAD: "HEAD",
   CURRENT_WORKTREE: "current worktree",
-  ROOT_WORKTREE: "root worktree",
+  MAIN_CHECKOUT: "main checkout",
 } as const;
 
 /** Stated in place of a default branch or tip that does not resolve (`origin/HEAD` unset). */
@@ -78,8 +78,8 @@ export interface HandoffBaseChecklist {
   readonly headSha: string | null;
   /** The absolute path of the worktree handoff ran from. */
   readonly currentWorktreePath: string;
-  /** The absolute path of the repository's root worktree. */
-  readonly rootWorktreePath: string;
+  /** The absolute path of the repository's main checkout. */
+  readonly mainCheckoutPath: string;
   /** Every base prerequisite, each marked met or unmet. */
   readonly prerequisites: readonly HandoffBasePrerequisite[];
 }
@@ -90,7 +90,7 @@ const CHECKLIST_INDENT = "  ";
 const REMEDY_SEPARATOR = " — ";
 /** Opening line introducing the refusal and naming the error. */
 const CHECKLIST_HEADER =
-  `${SESSION_HANDOFF_BASE_ERROR_NAME}: cannot create a handoff session from this linked worktree.`;
+  `${SESSION_HANDOFF_BASE_ERROR_NAME}: cannot create a handoff session from this worktree — it is not the main checkout.`;
 
 /** Renders one resolved-fact line, stating `unresolved` for an absent value. */
 function renderFactLine(label: string, value: string | null): string {
@@ -107,7 +107,7 @@ function renderPrerequisiteLine(prerequisite: HandoffBasePrerequisite): string {
 /**
  * Renders a linked-worktree handoff refusal as the prerequisite checklist the
  * descriptor writes to standard error: the error name, the resolved git values
- * (default branch, origin tip SHA, observed HEAD SHA, current and root worktree
+ * (default branch, origin tip SHA, observed HEAD SHA, current and main checkout
  * paths — each stated `unresolved` when absent), and every base prerequisite on
  * its own line marked met or unmet with a non-stashing remedy when unmet.
  *
@@ -122,7 +122,7 @@ export function renderHandoffBaseChecklist(checklist: HandoffBaseChecklist): str
     renderFactLine(HANDOFF_BASE_FACT_LABEL.DEFAULT_TIP, checklist.defaultTipSha),
     renderFactLine(HANDOFF_BASE_FACT_LABEL.HEAD, checklist.headSha),
     renderFactLine(HANDOFF_BASE_FACT_LABEL.CURRENT_WORKTREE, checklist.currentWorktreePath),
-    renderFactLine(HANDOFF_BASE_FACT_LABEL.ROOT_WORKTREE, checklist.rootWorktreePath),
+    renderFactLine(HANDOFF_BASE_FACT_LABEL.MAIN_CHECKOUT, checklist.mainCheckoutPath),
     ...checklist.prerequisites.map(renderPrerequisiteLine),
   ].join("\n");
 }

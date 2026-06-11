@@ -78,8 +78,8 @@ export class SessionInvalidNextStepError extends SessionError {
  * Error thrown when `spx session handoff` runs from a git work context that
  * cannot anchor a session to a base another agent can reach.
  *
- * Handoff is permitted from the root worktree (any reachable HEAD) or from a
- * linked worktree that is clean and detached at the tip of `origin/<default
+ * Handoff is permitted from the main checkout (any reachable HEAD) or from a
+ * non-main checkout that is clean and detached at the tip of `origin/<default
  * branch>`. A refusal renders one of three ways, distinguished by the carried
  * fields:
  *
@@ -87,7 +87,7 @@ export class SessionInvalidNextStepError extends SessionError {
  *   descriptor renders to standard error.
  * - **Non-git base** is `silent` — the descriptor writes nothing, only the
  *   non-zero exit.
- * - **Any other git refusal** (e.g. a root worktree with no reachable HEAD)
+ * - **Any other git refusal** (e.g. a main checkout with no reachable HEAD)
  *   carries no checklist and is not silent, so the descriptor writes the message
  *   as a plain diagnostic — only the non-git refusal is silent.
  */
@@ -100,7 +100,7 @@ export class SessionHandoffBaseError extends SessionError {
   constructor(options: { checklist?: HandoffBaseChecklist | null; silent?: boolean } = {}) {
     super(
       "Cannot create a handoff session from this git work context. Run handoff "
-        + "from the root worktree, or from a linked worktree with a clean working "
+        + "from the main checkout, or from a non-main checkout with a clean working "
         + "tree detached at the tip of the default branch.",
     );
     this.name = SESSION_HANDOFF_BASE_ERROR_NAME;

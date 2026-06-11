@@ -919,7 +919,7 @@ describe("resolveHandoffGitRef (handoff-base gate)", () => {
   const GATE_BRANCH = "topic/handoff-base";
   const GATE_DEFAULT_BRANCH = "trunk";
   const GATE_CURRENT_WORKTREE = "/product/.worktrees/handoff-base";
-  const GATE_ROOT_WORKTREE = "/product";
+  const GATE_MAIN_CHECKOUT = "/product";
 
   // A clean linked worktree detached at the origin tip; each test overrides only
   // the facts that distinguish its case. The default branch and worktree paths
@@ -929,14 +929,14 @@ describe("resolveHandoffGitRef (handoff-base gate)", () => {
   function gateFacts(overrides: Partial<HandoffGitFacts>): HandoffGitFacts {
     return {
       isGitRepo: true,
-      isRootWorktree: false,
+      isMainCheckout: false,
       branch: null,
       headSha: ORIGIN_DEFAULT_SHA,
       isClean: true,
       defaultBranch: GATE_DEFAULT_BRANCH,
       defaultTipSha: ORIGIN_DEFAULT_SHA,
       currentWorktreePath: GATE_CURRENT_WORKTREE,
-      rootWorktreePath: GATE_ROOT_WORKTREE,
+      mainCheckoutPath: GATE_MAIN_CHECKOUT,
       ...overrides,
     };
   }
@@ -968,16 +968,16 @@ describe("resolveHandoffGitRef (handoff-base gate)", () => {
     expect(prerequisite.remedy).toBe(remedy);
   }
 
-  it("GIVEN the root worktree on a branch THEN records the branch", () => {
-    expect(resolveHandoffGitRef(gateFacts({ isRootWorktree: true, branch: GATE_BRANCH }))).toBe(GATE_BRANCH);
+  it("GIVEN the main checkout on a branch THEN records the branch", () => {
+    expect(resolveHandoffGitRef(gateFacts({ isMainCheckout: true, branch: GATE_BRANCH }))).toBe(GATE_BRANCH);
   });
 
-  it("GIVEN the root worktree detached with a HEAD SHA THEN records the HEAD SHA", () => {
-    expect(resolveHandoffGitRef(gateFacts({ isRootWorktree: true, headSha: HEAD_SHA }))).toBe(HEAD_SHA);
+  it("GIVEN the main checkout detached with a HEAD SHA THEN records the HEAD SHA", () => {
+    expect(resolveHandoffGitRef(gateFacts({ isMainCheckout: true, headSha: HEAD_SHA }))).toBe(HEAD_SHA);
   });
 
-  it("GIVEN the root worktree with no reachable HEAD THEN refuses with a diagnostic, not silently and not a checklist", () => {
-    const error = captureHandoffBaseRefusal(gateFacts({ isRootWorktree: true, headSha: null }));
+  it("GIVEN the main checkout with no reachable HEAD THEN refuses with a diagnostic, not silently and not a checklist", () => {
+    const error = captureHandoffBaseRefusal(gateFacts({ isMainCheckout: true, headSha: null }));
     expect(error.checklist).toBeNull();
     expect(error.silent).toBe(false);
   });
@@ -991,7 +991,7 @@ describe("resolveHandoffGitRef (handoff-base gate)", () => {
       prerequisites[1],
       HANDOFF_BASE_PREREQUISITE_LABEL.DETACHED_AT_DEFAULT_TIP,
       false,
-      HANDOFF_BASE_REMEDY.DETACH_TO_TIP_OR_ROOT,
+      HANDOFF_BASE_REMEDY.DETACH_TO_TIP_OR_MAIN_CHECKOUT,
     );
   });
 
@@ -1003,11 +1003,11 @@ describe("resolveHandoffGitRef (handoff-base gate)", () => {
       prerequisites[0],
       HANDOFF_BASE_PREREQUISITE_LABEL.CLEAN_WORKING_TREE,
       false,
-      HANDOFF_BASE_REMEDY.COMMIT_OR_ROOT,
+      HANDOFF_BASE_REMEDY.COMMIT_OR_MAIN_CHECKOUT,
     );
     expectPrerequisite(prerequisites[1], HANDOFF_BASE_PREREQUISITE_LABEL.DETACHED_AT_DEFAULT_TIP, true, "");
     expect(error.checklist?.currentWorktreePath).toBe(GATE_CURRENT_WORKTREE);
-    expect(error.checklist?.rootWorktreePath).toBe(GATE_ROOT_WORKTREE);
+    expect(error.checklist?.mainCheckoutPath).toBe(GATE_MAIN_CHECKOUT);
   });
 
   it("GIVEN a clean detached linked worktree off the origin tip THEN refuses with clean met and at-tip unmet", () => {
@@ -1019,7 +1019,7 @@ describe("resolveHandoffGitRef (handoff-base gate)", () => {
       prerequisites[1],
       HANDOFF_BASE_PREREQUISITE_LABEL.DETACHED_AT_DEFAULT_TIP,
       false,
-      HANDOFF_BASE_REMEDY.DETACH_TO_TIP_OR_ROOT,
+      HANDOFF_BASE_REMEDY.DETACH_TO_TIP_OR_MAIN_CHECKOUT,
     );
   });
 
@@ -1034,7 +1034,7 @@ describe("resolveHandoffGitRef (handoff-base gate)", () => {
       prerequisites[1],
       HANDOFF_BASE_PREREQUISITE_LABEL.DETACHED_AT_DEFAULT_TIP,
       false,
-      HANDOFF_BASE_REMEDY.ROOT_ONLY,
+      HANDOFF_BASE_REMEDY.MAIN_CHECKOUT_ONLY,
     );
   });
 
@@ -1043,10 +1043,10 @@ describe("resolveHandoffGitRef (handoff-base gate)", () => {
   });
 
   it("GIVEN a non-git base THEN refuses silently with no checklist", () => {
-    // A non-git context derives isRootWorktree true (both product-root detectors
-    // return the same cwd), so the isGitRepo guard must fire before the
-    // root-worktree branch — otherwise this would render as a root diagnostic.
-    const error = captureHandoffBaseRefusal(gateFacts({ isGitRepo: false, isRootWorktree: true }));
+    // A non-git context gathers no facts, so the main-checkout verdict is false;
+    // the isGitRepo guard must fire before the main-checkout branch regardless —
+    // otherwise this would render as a main-checkout diagnostic.
+    const error = captureHandoffBaseRefusal(gateFacts({ isGitRepo: false, isMainCheckout: false }));
     expect(error.checklist).toBeNull();
     expect(error.silent).toBe(true);
   });
@@ -1063,7 +1063,7 @@ describe("handoffCommand — handoff-base gate", () => {
     await harness.cleanup();
   });
 
-  it("GIVEN the root worktree with a detached HEAD WHEN handoff executes THEN git_ref is the HEAD commit SHA", async () => {
+  it("GIVEN the main checkout with a detached HEAD WHEN handoff executes THEN git_ref is the HEAD commit SHA", async () => {
     const { output } = await handoffCommand({
       content: PREFILL_HANDOFF_STDIN,
       sessionsDir: harness.sessionsDir,

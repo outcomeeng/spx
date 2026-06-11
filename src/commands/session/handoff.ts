@@ -26,11 +26,13 @@ import { parseHandoffInput } from "@/domains/session/parse-handoff-input";
 import { generateSessionId } from "@/domains/session/timestamp";
 import { SESSION_FRONT_MATTER } from "@/domains/session/types";
 import {
-  detectGitCommonDirProductRoot,
+  gatherGitFacts,
   getCurrentBranch,
   getHeadSha,
   type GitDependencies,
+  isMainCheckout,
   isWorkingTreeClean,
+  mainCheckoutPath,
   ORIGIN_REF_PREFIX,
   resolveDefaultBranch,
   resolveRefSha,
@@ -62,7 +64,7 @@ export interface HandoffResult {
 
 /**
  * Gathers every git fact the handoff-base gate evaluates (I/O), then resolves
- * the git ref to record. Every fact a linked-worktree refusal checklist renders
+ * the git ref to record. Every fact a non-main-checkout refusal checklist renders
  * is gathered regardless of branch state, so the resolver evaluates every base
  * prerequisite and surfaces it — never short-circuiting on an earlier fact.
  */
@@ -70,30 +72,31 @@ async function resolveSessionGitRef(
   cwd: string | undefined,
   deps: GitDependencies | undefined,
 ): Promise<string> {
-  const [branch, headSha, gitRoots] = await Promise.all([
+  const [branch, headSha, facts] = await Promise.all([
     getCurrentBranch(cwd, deps),
     getHeadSha(cwd, deps),
-    detectGitCommonDirProductRoot(cwd, deps),
+    gatherGitFacts(cwd, deps),
   ]);
 
-  // `detectGitCommonDirProductRoot` reads `--show-toplevel` once and returns both
-  // the worktree root and the Git common-dir product root, so no second
-  // `--show-toplevel` is needed for the current-worktree path.
-  const currentWorktreePath = gitRoots.worktreeRoot;
-  const rootWorktreePath = gitRoots.productDir;
-  // The root worktree is the one whose toplevel is the Git common-dir product
-  // root; a linked worktree resolves to a path beneath it.
-  const isRoot = currentWorktreePath === rootWorktreePath;
+  // The probe reads the worktree root once and returns the facts the main-checkout
+  // classifier needs, so the worktree path and the main-checkout verdict and path
+  // compose from one read.
+  const isGitRepo = facts !== null;
+  const currentWorktreePath = facts?.worktreeRoot ?? cwd ?? process.cwd();
+  const isMain = facts !== null && isMainCheckout(facts);
+  // The main checkout is where a resuming agent reaches the base; fall back to the
+  // current worktree when no main checkout is designable (e.g. a pool with no origin).
+  const designatedMainCheckout = (facts !== null ? mainCheckoutPath(facts) : null) ?? currentWorktreePath;
 
-  // The clean-tree and origin facts feed only the linked-worktree refusal
-  // checklist; a root-worktree base (permitted regardless of HEAD state) and a
-  // non-git base never consult them, so gather them only for a linked worktree
-  // in a git repository. Every linked worktree — detached or on a branch — still
-  // gathers all of them, so the resolver evaluates every prerequisite.
+  // The clean-tree and origin facts feed only the non-main-checkout refusal
+  // checklist; the main checkout (permitted regardless of HEAD state) and a non-git
+  // base never consult them, so gather them only for a non-main worktree in a git
+  // repository. Every non-main worktree — detached or on a branch — still gathers
+  // all of them, so the resolver evaluates every prerequisite.
   let isClean = false;
   let defaultBranch: string | null = null;
   let defaultTipSha: string | null = null;
-  if (gitRoots.isGitRepo && !isRoot) {
+  if (isGitRepo && !isMain) {
     [isClean, defaultBranch] = await Promise.all([
       isWorkingTreeClean(cwd, deps),
       resolveDefaultBranch(cwd, deps),
@@ -104,15 +107,15 @@ async function resolveSessionGitRef(
   }
 
   return resolveHandoffGitRef({
-    isGitRepo: gitRoots.isGitRepo,
-    isRootWorktree: isRoot,
+    isGitRepo,
+    isMainCheckout: isMain,
     branch,
     headSha,
     isClean,
     defaultBranch,
     defaultTipSha,
     currentWorktreePath,
-    rootWorktreePath,
+    mainCheckoutPath: designatedMainCheckout,
   });
 }
 
@@ -126,9 +129,9 @@ async function resolveSessionGitRef(
  * Caller-supplied structured fields come from a JSON object at the start of
  * stdin; bytes after the JSON object form the markdown body verbatim. The
  * CLI prefills `created_at` from the system clock, `git_ref` from the
- * handoff-base gate (branch name in the root worktree on a branch, HEAD SHA
- * when detached, or the `origin/<default>` tip SHA in a clean detached linked
- * worktree), and `agent_session_id` from `$CLAUDE_SESSION_ID` (falling back to
+ * handoff-base gate (branch name in the main checkout on a branch, HEAD SHA
+ * when detached, or the `origin/<default>` tip SHA in a clean detached non-main
+ * checkout), and `agent_session_id` from `$CLAUDE_SESSION_ID` (falling back to
  * `$CODEX_THREAD_ID`).
  *
  * Canonical invocation:
