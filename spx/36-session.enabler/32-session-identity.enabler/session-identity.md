@@ -21,6 +21,7 @@ CAN identify sessions uniquely, determine sort order, resolve agent-session toke
 - For every valid Date instance produced by the arbitrary `arbitraryValidSessionInstant`, `generateSessionId` returns a string matching `/^\d{4}-\d{2}-\d{2}_\d{2}-\d{2}-\d{2}$/` ([test](tests/session-identity.property.l1.test.ts))
 - For every pair of distinct Date instances `d1`, `d2` produced by `arbitraryValidSessionInstant`, the lexicographic comparison of their generated IDs has the same sign as the chronological comparison of `d1` and `d2` ([test](tests/session-identity.property.l1.test.ts))
 - For every YAML content string `s` produced by `arbitraryNonFrontMatterContent` (the arbitrary `fc.string()` filtered to inputs where `s.startsWith("---\n")` is `false` — strings that do not open a YAML frontmatter document), `parseSessionMetadata(s)` returns `{ priority: "medium", specs: [], files: [], git_ref: "", goal: "", next_step: "" }` and never throws ([test](tests/session-identity.property.l1.test.ts))
+- For every path-unsafe non-empty agent-session identity produced by `arbitraryPathUnsafeAgentSessionIdentity`, `resolveAgentSessionId` returns a deterministic token that matches `/^[A-Za-z0-9_-]+$/` and differs from the raw unsafe identity ([test](tests/session-identity.property.l1.test.ts))
 
 ### Compliance
 

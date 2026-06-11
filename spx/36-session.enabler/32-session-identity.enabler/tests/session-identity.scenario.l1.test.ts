@@ -1,14 +1,3 @@
-/**
- * Unit tests for session identity: timestamp ID generation/parsing and YAML metadata extraction.
- *
- * Test Level: 1 (Unit)
- * - Pure functions with DI (injected clock): generateSessionId, parseSessionId
- * - Pure function: parseSessionMetadata
- * - Property-based tests mandatory (parser roundtrips)
- *
- * Spec: 32-session-identity.enabler/session-identity.md
- */
-
 import {
   buildSessionFrontMatterContent,
   SESSION_FRONT_MATTER_DELIMITER,
