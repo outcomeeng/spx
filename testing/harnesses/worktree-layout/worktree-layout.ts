@@ -3,6 +3,7 @@ import { join } from "node:path";
 import {
   GIT_TEST_CONFIG,
   GIT_TEST_FLAGS,
+  GIT_TEST_REF,
   GIT_TEST_SUBCOMMANDS,
   readGit,
   runGit,
@@ -14,12 +15,8 @@ const SOURCE_PREFIX = "spx-worktree-layout-source-";
 const BARE_REPO_SUFFIX = ".git";
 const DEFAULT_BARE_NAME = "repo";
 const GIT_ENV_PREFIX = "GIT_";
+/** Commit message for the harness's seed commit — a fixture value, not a git CLI token. */
 const INITIAL_COMMIT_MESSAGE = "init";
-const REMOTE_ORIGIN_URL_KEY = "remote.origin.url";
-const WORKTREE_ADD_SUBCOMMAND = "add";
-const CLONE_SUBCOMMAND = "clone";
-const BARE_FLAG = "--bare";
-const HEAD_REV = "HEAD";
 
 /** One worktree to provision under the layout's container. */
 export type WorktreeSpec = {
@@ -107,7 +104,7 @@ async function initSourceRepo(source: string): Promise<string> {
     GIT_TEST_FLAGS.COMMIT_MESSAGE,
     INITIAL_COMMIT_MESSAGE,
   ]);
-  return readGit(source, [GIT_TEST_SUBCOMMANDS.REV_PARSE, HEAD_REV]);
+  return readGit(source, [GIT_TEST_SUBCOMMANDS.REV_PARSE, GIT_TEST_REF.HEAD_NAME]);
 }
 
 async function provisionBarePool(
@@ -117,7 +114,7 @@ async function provisionBarePool(
   headSha: string,
 ): Promise<Record<string, string>> {
   const bareDir = join(container, `${spec.bareName ?? DEFAULT_BARE_NAME}${BARE_REPO_SUFFIX}`);
-  await runGit(container, [CLONE_SUBCOMMAND, BARE_FLAG, source, bareDir]);
+  await runGit(container, [GIT_TEST_SUBCOMMANDS.CLONE, GIT_TEST_FLAGS.BARE, source, bareDir]);
   await setOrigin(bareDir, spec.origin);
   const worktrees: Record<string, string> = {};
   for (const wt of spec.worktrees) {
@@ -139,7 +136,7 @@ async function provisionNonBareRepo(
     throw new Error("A non-bare worktree layout needs at least the main working tree");
   }
   const mainDir = join(container, main.name);
-  await runGit(container, [CLONE_SUBCOMMAND, source, mainDir]);
+  await runGit(container, [GIT_TEST_SUBCOMMANDS.CLONE, source, mainDir]);
   await setOrigin(mainDir, spec.origin);
   if (main.branch !== undefined) {
     await runGit(mainDir, [GIT_TEST_SUBCOMMANDS.CHECKOUT, GIT_TEST_FLAGS.NEW_BRANCH, main.branch]);
@@ -155,7 +152,7 @@ async function provisionNonBareRepo(
 
 async function setOrigin(repoDir: string, origin: string | undefined): Promise<void> {
   if (origin === undefined) return;
-  await runGit(repoDir, [GIT_TEST_SUBCOMMANDS.CONFIG, REMOTE_ORIGIN_URL_KEY, origin]);
+  await runGit(repoDir, [GIT_TEST_SUBCOMMANDS.CONFIG, GIT_TEST_CONFIG.ORIGIN_URL_KEY, origin]);
 }
 
 /** Adds a worktree on a new branch, or detached at `headSha` when no branch is given. */
@@ -166,8 +163,8 @@ async function addWorktree(
   headSha: string,
 ): Promise<void> {
   const args = branch === undefined
-    ? [GIT_TEST_SUBCOMMANDS.WORKTREE, WORKTREE_ADD_SUBCOMMAND, path, headSha]
-    : [GIT_TEST_SUBCOMMANDS.WORKTREE, WORKTREE_ADD_SUBCOMMAND, GIT_TEST_FLAGS.NEW_BRANCH, branch, path, headSha];
+    ? [GIT_TEST_SUBCOMMANDS.WORKTREE, GIT_TEST_SUBCOMMANDS.ADD, path, headSha]
+    : [GIT_TEST_SUBCOMMANDS.WORKTREE, GIT_TEST_SUBCOMMANDS.ADD, GIT_TEST_FLAGS.NEW_BRANCH, branch, path, headSha];
   await runGit(repoDir, args);
 }
 
