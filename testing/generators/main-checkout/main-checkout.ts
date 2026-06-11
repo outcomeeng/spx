@@ -1,12 +1,10 @@
 import * as fc from "fast-check";
 
-import type { GitFacts } from "@/git/root";
+import { GIT_DIR_BASENAME, GIT_URL_SUFFIX, type GitFacts } from "@/git/root";
 import type { BarePoolSpec } from "@testing/harnesses/bare-pool/bare-pool";
 
 const PATH_SEGMENT_PATTERN = /^[a-z][a-z0-9-]{2,12}$/;
 const POSIX_SEPARATOR = "/";
-const BARE_REPO_SUFFIX = ".git";
-const GIT_DIR_NAME = ".git";
 const HTTPS_SCHEME = "https://";
 const SCP_USER = "git@";
 const HOST_TLD = ".com";
@@ -90,13 +88,13 @@ export function arbitraryOriginUrl(repoName: string): fc.Arbitrary<string> {
       const ownerSlashRepo = `${owner}${POSIX_SEPARATOR}${repoName}`;
       switch (form) {
         case ORIGIN_URL_FORM.HTTPS:
-          return `${HTTPS_SCHEME}${host}${HOST_TLD}${POSIX_SEPARATOR}${ownerSlashRepo}${BARE_REPO_SUFFIX}`;
+          return `${HTTPS_SCHEME}${host}${HOST_TLD}${POSIX_SEPARATOR}${ownerSlashRepo}${GIT_URL_SUFFIX}`;
         case ORIGIN_URL_FORM.HTTPS_NO_SUFFIX:
           return `${HTTPS_SCHEME}${host}${HOST_TLD}${POSIX_SEPARATOR}${ownerSlashRepo}`;
         case ORIGIN_URL_FORM.SCP:
-          return `${SCP_USER}${host}${HOST_TLD}${SCP_PATH_SEPARATOR}${ownerSlashRepo}${BARE_REPO_SUFFIX}`;
+          return `${SCP_USER}${host}${HOST_TLD}${SCP_PATH_SEPARATOR}${ownerSlashRepo}${GIT_URL_SUFFIX}`;
         default:
-          return `${POSIX_SEPARATOR}${ownerSlashRepo}${BARE_REPO_SUFFIX}`;
+          return `${POSIX_SEPARATOR}${ownerSlashRepo}${GIT_URL_SUFFIX}`;
       }
     });
 }
@@ -122,7 +120,7 @@ export function arbitraryPoolFactsSample(): fc.Arbitrary<PoolFactsSample> {
     .chain((parts) =>
       arbitraryOriginUrl(parts.repoName).map((originUrl) => {
         const container = `${POSIX_SEPARATOR}${parts.containerParent}${POSIX_SEPARATOR}${parts.containerName}`;
-        const commonDir = `${container}${POSIX_SEPARATOR}${parts.bareRepoName}${BARE_REPO_SUFFIX}`;
+        const commonDir = `${container}${POSIX_SEPARATOR}${parts.bareRepoName}${GIT_URL_SUFFIX}`;
         const worktreeRoot = `${container}${POSIX_SEPARATOR}${parts.repoName}`;
         const mainCheckout: GitFacts = { worktreeRoot, commonDir, commonDirIsBare: true, originUrl };
         return {
@@ -134,7 +132,7 @@ export function arbitraryPoolFactsSample(): fc.Arbitrary<PoolFactsSample> {
           siblingMismatch: {
             ...mainCheckout,
             commonDir:
-              `${POSIX_SEPARATOR}${parts.otherContainerName}${POSIX_SEPARATOR}${parts.bareRepoName}${BARE_REPO_SUFFIX}`,
+              `${POSIX_SEPARATOR}${parts.otherContainerName}${POSIX_SEPARATOR}${parts.bareRepoName}${GIT_URL_SUFFIX}`,
           },
           originUnset: { ...mainCheckout, originUrl: null },
         };
@@ -151,7 +149,7 @@ function arbitrarySingleTreePathCase(): fc.Arbitrary<MainCheckoutPathCase> {
     })
     .map(({ parent, repoName, originUrl }) => {
       const worktreeRoot = `${POSIX_SEPARATOR}${parent}${POSIX_SEPARATOR}${repoName}`;
-      const commonDir = `${worktreeRoot}${POSIX_SEPARATOR}${GIT_DIR_NAME}`;
+      const commonDir = `${worktreeRoot}${POSIX_SEPARATOR}${GIT_DIR_BASENAME}`;
       return {
         facts: { worktreeRoot, commonDir, commonDirIsBare: false, originUrl },
         expectedPath: worktreeRoot,
@@ -179,7 +177,7 @@ function arbitraryNonBareLinkedPathCase(): fc.Arbitrary<MainCheckoutPathCase> {
     .chain((parts) =>
       arbitraryOriginUrl(parts.linkedDir).map((originUrl) => {
         const mainTree = `${POSIX_SEPARATOR}${parts.parent}${POSIX_SEPARATOR}${parts.repoName}`;
-        const commonDir = `${mainTree}${POSIX_SEPARATOR}${GIT_DIR_NAME}`;
+        const commonDir = `${mainTree}${POSIX_SEPARATOR}${GIT_DIR_BASENAME}`;
         const worktreeRoot = `${mainTree}${POSIX_SEPARATOR}${parts.linkedDir}`;
         return {
           facts: { worktreeRoot, commonDir, commonDirIsBare: false, originUrl },
@@ -202,7 +200,7 @@ function arbitraryPoolPathCase(): fc.Arbitrary<MainCheckoutPathCase> {
     .chain((parts) =>
       arbitraryOriginUrl(parts.repoName).map((originUrl) => {
         const container = `${POSIX_SEPARATOR}${parts.containerParent}${POSIX_SEPARATOR}${parts.containerName}`;
-        const commonDir = `${container}${POSIX_SEPARATOR}${parts.bareRepoName}${BARE_REPO_SUFFIX}`;
+        const commonDir = `${container}${POSIX_SEPARATOR}${parts.bareRepoName}${GIT_URL_SUFFIX}`;
         const worktreeRoot = `${container}${POSIX_SEPARATOR}${parts.worktreeDir}`;
         return {
           facts: {
