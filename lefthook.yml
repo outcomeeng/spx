@@ -46,7 +46,7 @@ post-merge:
       run: |
         env -u GIT_DIR -u GIT_WORK_TREE -u GIT_INDEX_FILE -u GIT_PREFIX -u GIT_COMMON_DIR sh -c '
           export CI=true
-          pnpm install --frozen-lockfile
+          pnpm install --frozen-lockfile || exit 1
           if pnpm exec tsx src/lib/precommit/main-checkout-gate.ts; then
             pnpm run build
           else
@@ -68,7 +68,7 @@ post-rewrite:
         env -u GIT_DIR -u GIT_WORK_TREE -u GIT_INDEX_FILE -u GIT_PREFIX -u GIT_COMMON_DIR sh -c '
           [ "$1" = "rebase" ] || { echo "rebuild-dist: skipped ($1, not a rebase)"; exit 0; }
           export CI=true
-          pnpm install --frozen-lockfile
+          pnpm install --frozen-lockfile || exit 1
           if pnpm exec tsx src/lib/precommit/main-checkout-gate.ts; then
             pnpm run build
           else
