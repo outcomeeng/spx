@@ -1,7 +1,7 @@
 import * as fc from "fast-check";
 
 import { GIT_DIR_BASENAME, GIT_URL_SUFFIX, type GitFacts } from "@/git/root";
-import type { BarePoolSpec } from "@testing/harnesses/bare-pool/bare-pool";
+import type { WorktreeLayoutSpec } from "@testing/harnesses/worktree-layout/worktree-layout";
 
 const PATH_SEGMENT_PATTERN = /^[a-z][a-z0-9-]{2,12}$/;
 const POSIX_SEPARATOR = "/";
@@ -258,18 +258,72 @@ export function arbitraryNonBareMainFacts(): fc.Arbitrary<GitFacts> {
 }
 
 /**
- * Inputs for a real bare-repository pool: a feature worktree whose directory
- * differs from the `origin` repository name (so it is not the main checkout),
- * and an `origin` URL whose repository name equals the main checkout's directory.
+ * A `WorktreeLayoutSpec` paired with the worktree names a real-git test asserts
+ * against: `mainCheckoutName` is the worktree `detectMainCheckout` must accept, and
+ * `otherNames` are the worktrees it must reject.
  */
-export function arbitraryBarePoolSpec(): fc.Arbitrary<BarePoolSpec> {
+export type WorktreeLayoutCase = {
+  readonly spec: WorktreeLayoutSpec;
+  readonly mainCheckoutName: string;
+  readonly otherNames: readonly string[];
+};
+
+/** A non-bare single-tree layout: the lone working tree is the main checkout on any branch. */
+export function arbitrarySingleTreeLayoutCase(): fc.Arbitrary<WorktreeLayoutCase> {
+  return fc
+    .record({ name: arbitraryPathSegment(), branch: fc.option(arbitraryBranchName(), { nil: undefined }) })
+    .map(({ name, branch }) => ({
+      spec: { bare: false, worktrees: [{ name, branch }] },
+      mainCheckoutName: name,
+      otherNames: [],
+    }));
+}
+
+/**
+ * A non-bare repository with a linked worktree: the main working tree is the main
+ * checkout and the linked worktree is not — bareness, not directory shape, decides.
+ */
+export function arbitraryNonBareLinkedLayoutCase(): fc.Arbitrary<WorktreeLayoutCase> {
+  return fc
+    .record({
+      mainName: arbitraryPathSegment(),
+      linkedName: arbitraryPathSegment(),
+      linkedBranch: arbitraryBranchName(),
+    })
+    .filter(({ mainName, linkedName }) => mainName !== linkedName)
+    .map(({ mainName, linkedName, linkedBranch }) => ({
+      spec: { bare: false, worktrees: [{ name: mainName }, { name: linkedName, branch: linkedBranch }] },
+      mainCheckoutName: mainName,
+      otherNames: [linkedName],
+    }));
+}
+
+/**
+ * A bare-repository pool: the worktree named after the `origin` repository is the
+ * main checkout, and a differently-named feature worktree is not.
+ */
+export function arbitraryBarePoolLayoutCase(): fc.Arbitrary<WorktreeLayoutCase> {
   return fc
     .record({
       repoName: arbitraryRepositoryName(),
       bareName: arbitraryPathSegment(),
-      featureDir: arbitraryPathSegment(),
+      featureName: arbitraryPathSegment(),
       featureBranch: arbitraryBranchName(),
     })
-    .filter(({ repoName, featureDir }) => featureDir !== repoName)
-    .chain((parts) => arbitraryOriginUrl(parts.repoName).map((originUrl) => ({ ...parts, originUrl })));
+    .filter(({ repoName, featureName }) => featureName !== repoName)
+    .chain((parts) =>
+      arbitraryOriginUrl(parts.repoName).map((origin) => ({
+        spec: {
+          bare: true,
+          bareName: parts.bareName,
+          origin,
+          worktrees: [
+            { name: parts.repoName },
+            { name: parts.featureName, branch: parts.featureBranch },
+          ],
+        },
+        mainCheckoutName: parts.repoName,
+        otherNames: [parts.featureName],
+      }))
+    );
 }
