@@ -333,6 +333,31 @@ describe("spx spec status --update command", () => {
     });
   });
 
+  it("uses a parent run's newly recorded evidence for later child nodes in the same update", async () => {
+    await withSpecTreeEnv(MINIMAL_SPEC_TREE_CONFIG, async (env) => {
+      await env.materialize();
+      const rootPath = formatNodePath(env.fixture.root.order, env.fixture.root.slug, env.fixture.root.kind);
+      const childPath = `${rootPath}/${
+        formatNodePath(
+          env.fixture.child.order,
+          env.fixture.child.slug,
+          env.fixture.child.kind,
+        )
+      }`;
+      const rootTestFile = await addNodeTestFile(env, rootPath);
+      const childTestFile = await addNodeTestFile(env, childPath);
+
+      const runner = createRecordingCommandRunner({ present: true, exitCode: 0 });
+      await statusCommand({ cwd: env.productDir, update: true, resolveOutcomeFor: recordingResolverFor(runner) });
+
+      expect(runner.calls).toHaveLength(1);
+      expect(invokedArgs(runner)).toContain(rootTestFile);
+      expect(invokedArgs(runner)).toContain(childTestFile);
+      await expect(readRecordedStatus(env, rootPath)).resolves.toBe(SPEC_TREE_NODE_STATE.PASSING);
+      await expect(readRecordedStatus(env, childPath)).resolves.toBe(SPEC_TREE_NODE_STATE.PASSING);
+    });
+  });
+
   it("invokes the per-node run when recorded evidence is stale", async () => {
     await withSpecTreeEnv(MINIMAL_SPEC_TREE_CONFIG, async (env) => {
       await env.materialize();
@@ -488,6 +513,12 @@ describe("spx spec status --update command", () => {
 function recordingResolverFor(runner: ReturnType<typeof createRecordingCommandRunner>) {
   return (productDir: string) =>
     createNodeOutcomeResolver({ productDir, registry: testingRegistry, runnerDepsFor: () => runner });
+}
+
+function invokedArgs(
+  runner: { readonly calls: ReadonlyArray<{ readonly args: readonly string[] }> },
+): readonly string[] {
+  return runner.calls.flatMap((call) => call.args);
 }
 
 async function addNodeTestFile(env: CurrentSpecTreeEnv, nodePath: string): Promise<string> {

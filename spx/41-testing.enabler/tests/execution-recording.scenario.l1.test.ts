@@ -1,9 +1,11 @@
 import { writeFile } from "node:fs/promises";
 import { join } from "node:path";
 
+import * as fc from "fast-check";
 import { describe, expect, it } from "vitest";
 
 import { NO_GIT_IDENTITY, runNodeCommand, runTestsCommand } from "@/commands/testing";
+import { digestDescriptorSection } from "@/config/descriptor-digest";
 import type { GitDependencies } from "@/git/root";
 import { SPEC_TREE_CONFIG } from "@/lib/spec-tree/config";
 import { typescriptTestingLanguage } from "@/testing/languages/typescript";
@@ -14,7 +16,11 @@ import {
   selectLatestTerminalTestRunForNode,
   TEST_RUN_STATE_STATUS,
 } from "@/testing/run-state";
-import { arbitraryDomainLiteral, sampleLiteralPair, sampleLiteralTestValue } from "@testing/generators/literal/literal";
+import {
+  arbitraryDomainLiteral,
+  LITERAL_TEST_GENERATOR_COUNTS,
+  sampleLiteralTestValue,
+} from "@testing/generators/literal/literal";
 import { sampleDispatchValue, TEST_DISPATCH_GENERATOR } from "@testing/generators/testing/dispatch";
 import {
   withTestingTempProductDir,
@@ -50,6 +56,12 @@ function testCommandDeps(
 
 function recordedProductInputDigest(recorded: { readonly productInputDigests: readonly { readonly descriptorId: string; readonly digest: string }[] }, descriptorId: string): string | undefined {
   return recorded.productInputDigests.find((digest) => digest.descriptorId === descriptorId)?.digest;
+}
+
+function expectedTestContentDigest(path: string, content: string): string {
+  const digest = digestDescriptorSection([[path, content]]);
+  if (!digest.ok) throw new Error(digest.error);
+  return digest.value.sha256;
 }
 
 describe("spx test execution recording and per-node run", () => {
@@ -140,27 +152,105 @@ describe("spx test execution recording and per-node run", () => {
   it("records descriptor-declared product input digests and changes them when those inputs change", async () => {
     const nodePath = sampleDispatchValue(TEST_DISPATCH_GENERATOR.nodePath());
     const nodeFile = sampleDispatchValue(TEST_DISPATCH_GENERATOR.testFileUnder(typescriptTestingLanguage, nodePath));
-    const [firstInputContent, secondInputContent] = sampleLiteralPair();
     const [productInputPath] = typescriptTestingLanguage.productInputPaths;
     if (productInputPath === undefined) throw new Error("TypeScript descriptor declares no product input path");
 
-    await withTestingTempProductDir(async (productDir) => {
-      await writeTestFileFixture(productDir, nodeFile);
-      await writeFile(join(productDir, productInputPath), firstInputContent);
+    await fc.assert(
+      fc.asyncProperty(
+        fc.uniqueArray(arbitraryDomainLiteral(), {
+          minLength: LITERAL_TEST_GENERATOR_COUNTS.two,
+          maxLength: LITERAL_TEST_GENERATOR_COUNTS.two,
+        }),
+        async ([firstInputContent, secondInputContent]) => {
+          await withTestingTempProductDir(async (productDir) => {
+            await writeTestFileFixture(productDir, nodeFile);
+            await writeFile(join(productDir, productInputPath), firstInputContent);
 
-      const firstRunner = createRecordingCommandRunner({ present: true, exitCode: 0 });
-      const first = await runTestsCommand({ productDir, passing: false }, testCommandDeps(firstRunner));
-      const firstDigest = recordedProductInputDigest(first.recorded, typescriptTestingLanguage.name);
-      expect(firstDigest).toBeDefined();
+            const firstRunner = createRecordingCommandRunner({ present: true, exitCode: 0 });
+            const first = await runTestsCommand({ productDir, passing: false }, testCommandDeps(firstRunner));
+            const firstDigest = recordedProductInputDigest(first.recorded, typescriptTestingLanguage.name);
+            expect(firstDigest).toBeDefined();
 
-      await writeFile(join(productDir, productInputPath), secondInputContent);
+            await writeFile(join(productDir, productInputPath), secondInputContent);
 
-      const secondRunner = createRecordingCommandRunner({ present: true, exitCode: 0 });
-      const second = await runTestsCommand({ productDir, passing: false }, testCommandDeps(secondRunner));
-      const secondDigest = recordedProductInputDigest(second.recorded, typescriptTestingLanguage.name);
-      expect(secondDigest).toBeDefined();
-      expect(secondDigest).not.toBe(firstDigest);
-    });
+            const secondRunner = createRecordingCommandRunner({ present: true, exitCode: 0 });
+            const second = await runTestsCommand({ productDir, passing: false }, testCommandDeps(secondRunner));
+            const secondDigest = recordedProductInputDigest(second.recorded, typescriptTestingLanguage.name);
+            expect(secondDigest).toBeDefined();
+            expect(secondDigest).not.toBe(firstDigest);
+          });
+        },
+      ),
+      { numRuns: LITERAL_TEST_GENERATOR_COUNTS.smallPropertyRuns },
+    );
+  });
+
+  it("records descriptor-declared product input digests and changes them when missing inputs appear", async () => {
+    const nodePath = sampleDispatchValue(TEST_DISPATCH_GENERATOR.nodePath());
+    const nodeFile = sampleDispatchValue(TEST_DISPATCH_GENERATOR.testFileUnder(typescriptTestingLanguage, nodePath));
+    const [productInputPath] = typescriptTestingLanguage.productInputPaths;
+    if (productInputPath === undefined) throw new Error("TypeScript descriptor declares no product input path");
+
+    await fc.assert(
+      fc.asyncProperty(arbitraryDomainLiteral(), async (productInputContent) => {
+        await withTestingTempProductDir(async (productDir) => {
+          await writeTestFileFixture(productDir, nodeFile);
+
+          const missingInputRunner = createRecordingCommandRunner({ present: true, exitCode: 0 });
+          const missingInputRun = await runTestsCommand(
+            { productDir, passing: false },
+            testCommandDeps(missingInputRunner),
+          );
+          const missingInputDigest = recordedProductInputDigest(missingInputRun.recorded, typescriptTestingLanguage.name);
+          expect(missingInputDigest).toBeDefined();
+
+          await writeFile(join(productDir, productInputPath), productInputContent);
+
+          const presentInputRunner = createRecordingCommandRunner({ present: true, exitCode: 0 });
+          const presentInputRun = await runTestsCommand(
+            { productDir, passing: false },
+            testCommandDeps(presentInputRunner),
+          );
+          const presentInputDigest = recordedProductInputDigest(presentInputRun.recorded, typescriptTestingLanguage.name);
+          expect(presentInputDigest).toBeDefined();
+          expect(presentInputDigest).not.toBe(missingInputDigest);
+        });
+      }),
+      { numRuns: LITERAL_TEST_GENERATOR_COUNTS.smallPropertyRuns },
+    );
+  });
+
+  it("records discovered test content digests and changes them when covered files change", async () => {
+    const nodePath = sampleDispatchValue(TEST_DISPATCH_GENERATOR.nodePath());
+    const nodeFile = sampleDispatchValue(TEST_DISPATCH_GENERATOR.testFileUnder(typescriptTestingLanguage, nodePath));
+
+    await fc.assert(
+      fc.asyncProperty(
+        fc.uniqueArray(arbitraryDomainLiteral(), {
+          minLength: LITERAL_TEST_GENERATOR_COUNTS.two,
+          maxLength: LITERAL_TEST_GENERATOR_COUNTS.two,
+        }),
+        async ([firstContent, secondContent]) => {
+          await withTestingTempProductDir(async (productDir) => {
+            await writeTestFileFixture(productDir, nodeFile);
+            await writeFile(join(productDir, nodeFile), firstContent);
+
+            const firstRunner = createRecordingCommandRunner({ present: true, exitCode: 0 });
+            const first = await runTestsCommand({ productDir, passing: false }, testCommandDeps(firstRunner));
+
+            await writeFile(join(productDir, nodeFile), secondContent);
+
+            const secondRunner = createRecordingCommandRunner({ present: true, exitCode: 0 });
+            const second = await runTestsCommand({ productDir, passing: false }, testCommandDeps(secondRunner));
+
+            expect(first.recorded.discoveredTestContentDigest).toBe(expectedTestContentDigest(nodeFile, firstContent));
+            expect(second.recorded.discoveredTestContentDigest).toBe(expectedTestContentDigest(nodeFile, secondContent));
+            expect(second.recorded.discoveredTestContentDigest).not.toBe(first.recorded.discoveredTestContentDigest);
+          });
+        },
+      ),
+      { numRuns: LITERAL_TEST_GENERATOR_COUNTS.smallPropertyRuns },
+    );
   });
 
   it("executes a single node's tests through the registry and records fresh evidence", async () => {
