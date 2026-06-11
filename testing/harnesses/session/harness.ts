@@ -51,8 +51,8 @@ export function buildHandoffStdin(header: HandoffHeaderFixture, body: string): s
 
 /** Worktree kind the handoff git-context double simulates. */
 export const WORKTREE_KIND = {
-  ROOT: "root",
-  LINKED: "linked",
+  MAIN_CHECKOUT: "main-checkout",
+  NON_MAIN: "non-main",
 } as const;
 
 export type WorktreeKind = (typeof WORKTREE_KIND)[keyof typeof WORKTREE_KIND];
@@ -64,10 +64,10 @@ export type WorktreeKind = (typeof WORKTREE_KIND)[keyof typeof WORKTREE_KIND];
  * working-tree cleanliness that `spx session handoff` reads when it resolves
  * `git_ref` and applies the handoff-base gate per
  * `spx/36-session.enabler/11-session-frontmatter.pdr.md`. Defaults represent
- * the common case: the root worktree on `main` with a clean tree.
+ * the common case: the main checkout on `main` with a clean tree.
  */
 export interface SessionGitDepsOverrides {
-  /** Root (working tree at the Git common-dir product root) or linked worktree. Default root. */
+  /** Main checkout (working tree at the Git common-dir product root) or non-main checkout. Default main checkout. */
   readonly worktreeKind?: WorktreeKind;
   /** Checked-out branch name, or `null` when HEAD is detached. Default "main". */
   readonly branch?: string | null;
@@ -82,8 +82,8 @@ export interface SessionGitDepsOverrides {
 // Toplevel + common-dir pairs for a non-bare repository: `dirname(commonDir) ===
 // toplevel` holds only for the main working tree (`/repo`), so it is the main
 // checkout and the linked worktree is not.
-const ROOT_TOPLEVEL = "/repo";
-const LINKED_TOPLEVEL = "/repo/.worktrees/wt";
+const MAIN_CHECKOUT_TOPLEVEL = "/repo";
+const NON_MAIN_TOPLEVEL = "/repo/.worktrees/wt";
 const SHARED_COMMON_DIR = "/repo/.git";
 /** `core.bare` for the non-bare repository the double simulates. */
 const NON_BARE_CORE_BARE = "false";
@@ -121,13 +121,13 @@ function argsEqual(args: readonly string[], expected: readonly string[]): boolea
  * rather than silent success.
  */
 export function createSessionGitDeps(overrides: SessionGitDepsOverrides = {}): GitDependencies {
-  const worktreeKind = overrides.worktreeKind ?? WORKTREE_KIND.ROOT;
+  const worktreeKind = overrides.worktreeKind ?? WORKTREE_KIND.MAIN_CHECKOUT;
   const branch = overrides.branch === undefined ? DEFAULT_GIT_DEPS_BRANCH : overrides.branch;
   const clean = overrides.clean ?? true;
   const defaultBranch = overrides.defaultBranch ?? DEFAULT_GIT_DEPS_DEFAULT_BRANCH;
   const detachedAtDefaultTip = overrides.detachedAtDefaultTip ?? false;
 
-  const toplevel = worktreeKind === WORKTREE_KIND.ROOT ? ROOT_TOPLEVEL : LINKED_TOPLEVEL;
+  const toplevel = worktreeKind === WORKTREE_KIND.MAIN_CHECKOUT ? MAIN_CHECKOUT_TOPLEVEL : NON_MAIN_TOPLEVEL;
   const headSha = branch === null && detachedAtDefaultTip ? ORIGIN_DEFAULT_SHA : HEAD_SHA;
   const originDefaultRef = `origin/${defaultBranch}`;
 

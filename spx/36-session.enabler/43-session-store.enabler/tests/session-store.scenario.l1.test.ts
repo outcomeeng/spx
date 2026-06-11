@@ -1078,7 +1078,7 @@ describe("handoffCommand — handoff-base gate", () => {
     const { output } = await handoffCommand({
       content: PREFILL_HANDOFF_STDIN,
       sessionsDir: harness.sessionsDir,
-      deps: createSessionGitDeps({ worktreeKind: "linked", branch: null, clean: true, detachedAtDefaultTip: true }),
+      deps: createSessionGitDeps({ worktreeKind: "non-main", branch: null, clean: true, detachedAtDefaultTip: true }),
     });
     const metadata = parseSessionMetadata(await readFile(extractSessionFile(output), "utf-8"));
 
@@ -1090,7 +1090,7 @@ describe("handoffCommand — handoff-base gate", () => {
       handoffCommand({
         content: PREFILL_HANDOFF_STDIN,
         sessionsDir: harness.sessionsDir,
-        deps: createSessionGitDeps({ worktreeKind: "linked", branch: null, clean: false, detachedAtDefaultTip: true }),
+        deps: createSessionGitDeps({ worktreeKind: "non-main", branch: null, clean: false, detachedAtDefaultTip: true }),
       }),
     ).rejects.toBeInstanceOf(SessionHandoffBaseError);
   });
@@ -1100,7 +1100,7 @@ describe("handoffCommand — handoff-base gate", () => {
       handoffCommand({
         content: PREFILL_HANDOFF_STDIN,
         sessionsDir: harness.sessionsDir,
-        deps: createSessionGitDeps({ worktreeKind: "linked", branch: "feature/local", clean: true }),
+        deps: createSessionGitDeps({ worktreeKind: "non-main", branch: "feature/local", clean: true }),
       }),
     ).rejects.toBeInstanceOf(SessionHandoffBaseError);
   });
@@ -1110,7 +1110,7 @@ describe("handoffCommand — handoff-base gate", () => {
       handoffCommand({
         content: PREFILL_HANDOFF_STDIN,
         sessionsDir: harness.sessionsDir,
-        deps: createSessionGitDeps({ worktreeKind: "linked", branch: null, clean: true, detachedAtDefaultTip: false }),
+        deps: createSessionGitDeps({ worktreeKind: "non-main", branch: null, clean: true, detachedAtDefaultTip: false }),
       }),
     ).rejects.toBeInstanceOf(SessionHandoffBaseError);
   });
