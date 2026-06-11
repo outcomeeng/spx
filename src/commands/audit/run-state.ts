@@ -1,9 +1,3 @@
-import {
-  mkdir as nodeMkdir,
-  readFile as nodeReadFile,
-  readdir as nodeReaddir,
-  writeFile as nodeWriteFile,
-} from "node:fs/promises";
 import { join } from "node:path";
 
 import type { Result } from "@/config/types";
@@ -22,6 +16,7 @@ import {
 import {
   branchScopeDir,
   createJsonlRunFile,
+  defaultStateStoreFileSystem,
   isRunFileName,
   runsDir as stateStoreRunsDir,
   STATE_STORE_DOMAIN,
@@ -60,15 +55,7 @@ const ERROR_CODE_NOT_FOUND = "ENOENT";
 const EMPTY_STRING = "";
 const JSONL_LINE_SEPARATOR = "\n";
 
-const defaultFileSystem: StateStoreFileSystem = {
-  mkdir: async (path, options) => {
-    await nodeMkdir(path, options);
-  },
-  writeFile: nodeWriteFile,
-  appendFile: async () => {},
-  readFile: nodeReadFile,
-  readdir: nodeReaddir,
-};
+const defaultFileSystem: StateStoreFileSystem = defaultStateStoreFileSystem;
 
 export async function createAuditRunFile(
   gitCommonDirProductDir: string,
