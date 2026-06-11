@@ -19,7 +19,7 @@ Add local hermetic review execution for branch and pull request targets.
 - Keep review behavior local and hermetically separated from the invoking agent.
 - Model branch and PR targets separately because their target discovery differs.
 - Reuse shared config primitives and agent-environment APIs.
-- Persist review state separately from audit state unless an audit/review storage ADR unifies the storage contract.
+- Persist review state under its own `review` state-store consumer noun inside the shared branch scope.
 
 ## Evidence Required
 
@@ -33,7 +33,7 @@ Child nodes can split after review config and hermetic execution contracts are a
 
 ## Open Coordination
 
-- A shared audit/review storage contract requires an ADR before review state can reuse audit state files.
+- State-store owns shared branch scope and run-file naming; review state must use its own `review` domain records rather than audit records.
 - Implementing agents load `spx/46-reviewing.enabler/` and `spx/33-agent-environment.enabler/` as governing truth; consult `spx/46-claude.outcome/` only as Claude-specific source material for reconciliation work.
 
 ## Gate Dependencies

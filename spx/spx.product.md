@@ -40,7 +40,7 @@ CONTRIBUTING TO higher engineering velocity — teams ship quality code faster b
 - ALWAYS: ingest spec-tree context deterministically from the tracked `spx/` tree, root decisions, ancestor specs, lower-index siblings, co-located evidence links, and node-local escape hatches ([audit])
 - ALWAYS: govern spec-tree testing, validation, auditing skills, and reviewing through `spx.config.{toml,json,yaml}` rather than ad hoc files or command-local policy ([audit])
 - ALWAYS: persist spec-tree execution state so status commands can report last-run results and staleness without re-running the configured execution ([audit])
-- ALWAYS: isolate reviewing and auditing execution state from the invoking agent, including branch-scoped persisted state under `.spx/audit/{branch-slug}` where auditing state is recorded ([audit])
+- ALWAYS: isolate reviewing and auditing execution state from the invoking agent, including branch-scoped persisted state under `.spx/branch/{branch-slug}` where auditing and review state is recorded ([audit])
 - ALWAYS: manage agent runtime configuration deterministically, including `AGENTS.md`, Claude Code and Codex configuration, configured plugin marketplaces, plugins, and skills ([audit])
 - ALWAYS: resolve product root via `git rev-parse` with fallback to `$PWD` — consistent behavior across worktrees and subdirectories ([audit])
 - NEVER: require network access for core operations — offline-first for development environments ([audit])

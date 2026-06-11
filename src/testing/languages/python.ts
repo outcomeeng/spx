@@ -16,6 +16,18 @@ import type {
 } from "@/testing/languages/types";
 
 const PYTHON_TESTING_LANGUAGE_NAME = "python";
+export const PYTHON_PRODUCT_INPUT_PATH = {
+  HIDDEN_PYTEST_INI: ".pytest.ini",
+  HIDDEN_PYTEST_TOML: ".pytest.toml",
+  PYPROJECT: "pyproject.toml",
+  PYTEST_TOML: "pytest.toml",
+  PYTEST_INI: "pytest.ini",
+  SETUP_CFG: "setup.cfg",
+  SETUP_PY: "setup.py",
+  TOX_INI: "tox.ini",
+  UV_LOCK: "uv.lock",
+} as const;
+const PYTHON_PRODUCT_INPUT_PATHS = Object.values(PYTHON_PRODUCT_INPUT_PATH);
 
 /** pytest test-file basename shape: a `test_` prefix and a `.py` extension. */
 export const PYTHON_TEST_FILE_PREFIX = "test_";
@@ -63,6 +75,7 @@ async function runTests(request: TestRunRequest, deps: TestRunnerDependencies): 
 export const pythonTestingLanguage: TestingLanguageDescriptor = {
   name: PYTHON_TESTING_LANGUAGE_NAME,
   testFilePatterns: PYTHON_TEST_FILE_PATTERNS,
+  productInputPaths: PYTHON_PRODUCT_INPUT_PATHS,
   matchesTestFile,
   excludeFlag,
   detect,

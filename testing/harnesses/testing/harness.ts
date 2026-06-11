@@ -4,7 +4,7 @@ import { dirname, join } from "node:path";
 import { CONFIG_FILENAMES } from "@/config/index";
 import type { PathFilterConfig } from "@/config/primitives/path-filter";
 import { TESTING_CONFIG_FIELDS, TESTING_SECTION } from "@/testing/config";
-import { DEFAULT_TESTING_STORAGE, testingRunsDir } from "@/testing/run-state";
+import { testingRunsDir } from "@/testing/run-state";
 import { CONFIG_TEST_GENERATOR, sampleConfigTestValue } from "@testing/generators/config/descriptors";
 import { withTempDir } from "@testing/harnesses/with-temp-dir";
 
@@ -33,16 +33,16 @@ export async function writeTestingConfig(
   await writeFile(join(productDir, CONFIG_FILENAMES.json), JSON.stringify(config));
 }
 
-// Writes a raw state file at a chosen run directory, bypassing the write protocol so
-// read-side tests can stage controlled, including malformed, state content.
+// Writes a raw run file at a chosen name, bypassing the write protocol so
+// read-side tests can stage controlled, including malformed, JSONL content.
 export async function writeTestingStateFile(
   productDir: string,
-  runDirectoryName: string,
+  runFileName: string,
   rawState: string,
 ): Promise<string> {
-  const runDir = join(testingRunsDir(productDir), runDirectoryName);
-  await mkdir(runDir, { recursive: true });
-  const statePath = join(runDir, DEFAULT_TESTING_STORAGE.stateFile);
-  await writeFile(statePath, rawState);
-  return statePath;
+  const runsDir = testingRunsDir(productDir);
+  await mkdir(runsDir, { recursive: true });
+  const runFilePath = join(runsDir, runFileName);
+  await writeFile(runFilePath, rawState);
+  return runFilePath;
 }

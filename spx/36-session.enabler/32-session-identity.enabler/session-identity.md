@@ -1,8 +1,8 @@
 # Session Identity
 
-PROVIDES timestamp-based session ID generation, ID parsing, and YAML front-matter metadata extraction per [`spx/36-session.enabler/11-session-frontmatter.pdr.md`](../11-session-frontmatter.pdr.md)
-SO THAT session-store, session-claim, session-retention, and session-cli enablers
-CAN identify sessions uniquely, determine sort order, and extract every governed frontmatter field without reimplementing parsing
+PROVIDES timestamp-based session ID generation, agent-session environment identity resolution, ID parsing, and YAML front-matter metadata extraction per [`spx/36-session.enabler/11-session-frontmatter.pdr.md`](../11-session-frontmatter.pdr.md)
+SO THAT session-store, compact, session-claim, session-retention, and session-cli enablers
+CAN identify sessions uniquely, determine sort order, resolve agent-session tokens, and extract every governed frontmatter field without reimplementing parsing
 
 ## Assertions
 
@@ -14,6 +14,7 @@ CAN identify sessions uniquely, determine sort order, and extract every governed
 - Given YAML front matter with `specs: [...]` and `files: [...]` arrays of strings, when metadata is parsed, then `specs` and `files` are returned as the corresponding string arrays ([test](tests/session-identity.scenario.l1.test.ts))
 - Given malformed YAML front matter, when metadata is parsed, then default metadata is returned without error ([test](tests/session-identity.scenario.l1.test.ts))
 - Given YAML front matter that carries keys outside the declared shape, when metadata is parsed, then the returned object contains only the declared fields and no error or warning is raised — keys outside the shape are silently ignored per [`spx/36-session.enabler/11-session-frontmatter.pdr.md`](../11-session-frontmatter.pdr.md) ([test](tests/session-identity.scenario.l1.test.ts))
+- Given both agent-session environment identities, when agent-session identity is resolved, then `CLAUDE_SESSION_ID` is returned; given only `CODEX_THREAD_ID`, then it is returned; given an empty `CLAUDE_SESSION_ID` with a non-empty `CODEX_THREAD_ID`, then the Codex identity is returned; given neither or only empty identities, then no identity is returned ([test](tests/session-identity.scenario.l1.test.ts))
 
 ### Properties
 

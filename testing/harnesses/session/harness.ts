@@ -37,9 +37,8 @@ export function buildSessionMarkdownBody(title: string): string {
 
 /**
  * Compose stdin input for `spx session handoff` per the JSON-prefix input
- * contract declared by `spx/36-session.enabler/11-session-frontmatter.pdr.md`:
- * a single-line JSON object holding caller-supplied structured fields,
- * followed by a newline, followed by the body bytes verbatim.
+ * contract: a single-line JSON object holding caller-supplied structured
+ * fields, followed by a newline, followed by the body bytes verbatim.
  *
  * Uses `JSON.stringify` so every caller string is unambiguously quoted by
  * definition — no plain-scalar ambiguity, no `#`-as-comment truncation, no
@@ -62,9 +61,8 @@ export type WorktreeKind = (typeof WORKTREE_KIND)[keyof typeof WORKTREE_KIND];
  *
  * The double simulates the worktree kind, HEAD state, default branch, and
  * working-tree cleanliness that `spx session handoff` reads when it resolves
- * `git_ref` and applies the handoff-base gate per
- * `spx/36-session.enabler/11-session-frontmatter.pdr.md`. Defaults represent
- * the common case: the main checkout on `main` with a clean tree.
+ * `git_ref` and applies the handoff-base gate. Defaults represent the common
+ * case: the main checkout on `main` with a clean tree.
  */
 export interface SessionGitDepsOverrides {
   /** Main checkout (working tree at the Git common-dir product root) or non-main checkout. Default main checkout. */
@@ -89,6 +87,12 @@ const SHARED_COMMON_DIR = "/repo/.git";
 const NON_BARE_CORE_BARE = "false";
 /** The `origin` URL the double returns; a non-bare repository's designation ignores it. */
 const SIMULATED_ORIGIN_URL = "https://github.com/example/repo.git";
+
+export const SESSION_GIT_DEPS_PATHS = {
+  MAIN_CHECKOUT_TOPLEVEL,
+  NON_MAIN_TOPLEVEL,
+  SHARED_COMMON_DIR,
+} as const;
 
 /** Distinct 40-hex SHAs so "HEAD is at the default tip" is decided by equality, not coincidence. */
 export const HEAD_SHA = "1111111111111111111111111111111111111111";

@@ -1,0 +1,1 @@
+export const WEB_CRYPTO_SHA256_ALGORITHM = "SHA-256";
