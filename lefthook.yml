@@ -31,15 +31,18 @@ pre-push:
 
 post-merge:
   commands:
-    # Mirror the canonical isRootWorktree (src/git/root.ts): the root worktree is
-    # the one whose Git common dir sits directly under the worktree toplevel.
-    # --path-format=absolute makes --git-common-dir absolute regardless of cwd (as
-    # GIT_COMMON_DIR_ARGS does), so dirname(common-dir) == --show-toplevel holds
-    # only in the main worktree. A --git-common-dir failure (empty $gc) is treated
-    # as the root worktree so the rebuild is not silently skipped. Only the main
-    # worktree's dist/ feeds the published or pnpm-linked spx. CI=true keeps pnpm
-    # non-interactive so a node_modules purge on a pnpm version change proceeds
-    # instead of hanging behind lefthook's spinner.
+    # Canonical main-checkout classifier: isMainCheckout / detectMainCheckout
+    # (src/git/root.ts). The bash below is a known-stale approximation —
+    # dirname(common-dir) == --show-toplevel — that designates the main worktree
+    # in a non-bare repository but misfires in a bare-repository pool; rewiring
+    # this gate to detectMainCheckout is deferred to
+    # spx/24-worktree-detection.enabler/PLAN.md step 2. --path-format=absolute
+    # makes --git-common-dir absolute regardless of cwd (as GIT_COMMON_DIR_ARGS
+    # does). A --git-common-dir failure (empty $gc) is treated as the main worktree
+    # so the rebuild is not silently skipped. Only the main worktree's dist/ feeds
+    # the published or pnpm-linked spx. CI=true keeps pnpm non-interactive so a
+    # node_modules purge on a pnpm version change proceeds instead of hanging
+    # behind lefthook's spinner.
     rebuild-dist:
       run: |
         env -u GIT_DIR -u GIT_WORK_TREE -u GIT_INDEX_FILE -u GIT_PREFIX -u GIT_COMMON_DIR sh -c '
@@ -59,6 +62,10 @@ post-merge:
 # hook argument as {1}, passed into the subshell as $1.
 post-rewrite:
   commands:
+    # Same known-stale main-checkout approximation as post-merge (see above) — the
+    # canonical is isMainCheckout / detectMainCheckout (src/git/root.ts), and
+    # rewiring this gate to it is deferred to
+    # spx/24-worktree-detection.enabler/PLAN.md step 2.
     rebuild-dist:
       run: |
         env -u GIT_DIR -u GIT_WORK_TREE -u GIT_INDEX_FILE -u GIT_PREFIX -u GIT_COMMON_DIR sh -c '
