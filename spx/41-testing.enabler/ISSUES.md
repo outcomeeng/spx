@@ -2,14 +2,6 @@
 
 Coordination notes for the `spx test` enabler. The `spx test` command, the registry-based dispatch, passing-scope filtering, last-run evidence recording, and the registry-based per-node run are built and proven (`tests/execution-recording.scenario.l1.test.ts`, `tests/testing.scenario.l1.test.ts`), so `41-testing.enabler` participates in the quality gate and is no longer listed in `spx/EXCLUDE`.
 
-## FOLLOW-UP: recorded product-input digests are empty until descriptors declare product inputs
-
-Last-run evidence records `productInputDigests: []` because no testing descriptor declares product inputs and the domain-execution-descriptor implementation (specified at `spx/16-config.enabler/43-domain-execution-descriptors.enabler/domain-execution-descriptors.md`) does not yet exist in `src/`. The staleness comparison's product-input dimension is therefore inert; the resolved testing config digest, the discovered test path-set digest, and the discovered test content digest carry staleness detection in the meantime.
-
-**Resolution:** when the domain-execution-descriptor surface lands and the testing descriptors declare their product inputs (e.g. `package.json`, `tsconfig.json`, `pyproject.toml`), have `recordRun` (`src/commands/testing/run-command.ts`) compute and record their digests in place of the empty list.
-
-**Evidence:** `src/commands/testing/run-command.ts` `NO_PRODUCT_INPUT_DIGESTS`; `src/testing/run-state.ts` `ProductInputDigest`; `spx/41-testing.enabler/43-last-run-evidence.enabler/43-staleness-comparison.adr.md`.
-
 ## FOLLOW-UP: a zero-outcome run records a vacuous `passed` status
 
 `deriveStatus` in `src/commands/testing/run-command.ts` derives status with `outcomes.every(exitCode === SUCCESS_EXIT_CODE)`, so a run that dispatches no runner (no test files discovered, or every matching runner gated out by absent-language detection) records `status: passed` by vacuous truth. The status is not consumed today: a zero-outcome run's `runnerOutcomes` cover no node, so `selectLatestTerminalTestRunForNode` never selects it and the status-delegation resolver treats the node as absent and re-runs. The vacuous `passed` only misleads a consumer that reads `state.status` directly without coverage-gating.
@@ -18,13 +10,13 @@ Last-run evidence records `productInputDigests: []` because no testing descripto
 
 **Evidence:** local changes review on PR-2c; `src/commands/testing/run-command.ts` `deriveStatus` and `runNodeCommand`; `src/testing/run-state.ts` `selectLatestTerminalTestRunForNode` coverage gating.
 
-## FOLLOW-UP: a failed dispatch orphans the reserved run directory
+## FOLLOW-UP: a failed dispatch orphans the reserved run file
 
-`runTestsCommand` and `runNodeCommand` reserve the run directory (`createTestRunDirectory`) before dispatch so `startedAt` marks the run's start. If `runTests` throws after reservation, the directory is left without a `state.json`. `readTestingRuns` classifies it as an incomplete run, so it never corrupts the read path, but repeated dispatch failures accumulate stale directories under `.spx/local/testing/runs/`.
+`runTestsCommand` and `runNodeCommand` reserve the run file (`createTestRunFile`) before dispatch so `startedAt` marks the run's start. If `runTests` throws after reservation, the file is left empty. `readTestingRuns` classifies it as an incomplete run, so it never corrupts the read path, but repeated dispatch failures accumulate stale empty files under `.spx/worktree/test/runs/`.
 
-**Resolution:** either defer directory creation until dispatch succeeds (accepting a later `startedAt`), or add a cleanup path that prunes incomplete run directories; decide alongside the terminal-write-protocol's lifecycle in `spx/41-testing.enabler/43-last-run-evidence.enabler/32-terminal-write-protocol.adr.md`.
+**Resolution:** either defer run-file creation until dispatch succeeds (accepting a later `startedAt`), or add a cleanup path that prunes incomplete run files; decide alongside the terminal-write-protocol's lifecycle in `spx/41-testing.enabler/43-last-run-evidence.enabler/32-terminal-write-protocol.adr.md`.
 
-**Evidence:** local changes review on PR-2c; `src/commands/testing/run-command.ts` `reserveRunDirectory`; `src/testing/run-state.ts` `readTestingRuns` incomplete-run classification.
+**Evidence:** local changes review on PR-2c; `src/commands/testing/run-command.ts` `reserveRunFile`; `src/testing/run-state.ts` `readTestingRuns` incomplete-run classification.
 
 ## FOLLOW-UP: command-layer coverage for content-digest staleness
 

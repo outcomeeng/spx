@@ -1,15 +1,30 @@
-import { createHash, randomBytes as nodeRandomBytes } from "node:crypto";
+import { createHash } from "node:crypto";
 import {
   mkdir as nodeMkdir,
-  readdir as nodeReaddir,
   readFile as nodeReadFile,
-  rename as nodeRename,
+  readdir as nodeReaddir,
   writeFile as nodeWriteFile,
 } from "node:fs/promises";
 import { join } from "node:path";
 
 import type { Result } from "@/config/types";
-import { formatAuditRunTimestamp } from "@/domains/audit/run-state";
+import {
+  createJsonlRunFile,
+  formatRunTimestamp,
+  isRunFileName,
+  runFileName,
+  runsDir as stateStoreRunsDir,
+  STATE_STORE_ERROR,
+  STATE_STORE_DOMAIN,
+  type CreateRunFileOptions,
+  type JsonRecord,
+  type StateStoreFileEntry,
+  type StateStoreFileSystem,
+  type StateStoreJsonlReaderFileSystem,
+  type StateStoreRunReaderFileSystem,
+  worktreeScopeDir,
+  writeJsonlRunRecord,
+} from "@/lib/state-store";
 
 export const TEST_RUN_STATE_STATUS = {
   PASSED: "passed",
@@ -30,10 +45,14 @@ export type TestingRunStateIncompleteReason =
   (typeof TESTING_RUN_STATE_INCOMPLETE_REASON)[keyof typeof TESTING_RUN_STATE_INCOMPLETE_REASON];
 
 export const TESTING_RUN_STATE_ERROR = {
-  RUN_DIRECTORY_COLLISION_LIMIT: "testing run directory collision limit exhausted",
-  RUN_DIRECTORY_CREATE_FAILED: "testing run directory create failed",
+  RUN_FILE_COLLISION_LIMIT: "testing run file collision limit exhausted",
+  RUN_FILE_CREATE_FAILED: "testing run file create failed",
   STATE_ALREADY_EXISTS: "testing run state already exists",
   STATE_WRITE_FAILED: "testing run state write failed",
+} as const;
+
+export const TESTING_RUN_STATE_ERROR_CODE = {
+  NOT_FOUND: "ENOENT",
 } as const;
 
 export const TEST_RUN_STATE_FIELDS = {
@@ -96,41 +115,24 @@ export interface TestContentEntry {
   readonly content: string;
 }
 
-export interface TestingStorageConfig {
-  readonly spxDir: string;
-  readonly localDir: string;
-  readonly testingDir: string;
+export interface TestRunFile {
   readonly runsDir: string;
-  readonly stateFile: string;
-}
-
-export const DEFAULT_TESTING_STORAGE: TestingStorageConfig = {
-  spxDir: ".spx",
-  localDir: "local",
-  testingDir: "testing",
-  runsDir: "runs",
-  stateFile: "state.json",
-};
-
-export interface TestRunDirectory {
-  readonly runsDir: string;
-  readonly runDir: string;
-  readonly runDirectoryName: string;
+  readonly runFilePath: string;
+  readonly runFileName: string;
+  readonly runToken: string;
   readonly runId: string;
   readonly startedAt: string;
 }
 
 export interface TestTerminalRun {
-  readonly runDirectoryName: string;
-  readonly runDir: string;
-  readonly statePath: string;
+  readonly runFileName: string;
+  readonly runFilePath: string;
   readonly state: TestRunState;
 }
 
 export interface TestIncompleteRun {
-  readonly runDirectoryName: string;
-  readonly runDir: string;
-  readonly statePath: string;
+  readonly runFileName: string;
+  readonly runFilePath: string;
   readonly reason: TestingRunStateIncompleteReason;
   readonly error?: string;
 }
@@ -140,144 +142,78 @@ export interface TestingRuns {
   readonly incompleteRuns: readonly TestIncompleteRun[];
 }
 
-export interface TestRunDirectoryEntry {
-  readonly name: string;
-  isDirectory(): boolean;
-}
-
-export interface TestRunStateFileSystem {
-  mkdir(path: string, options?: { readonly recursive?: boolean }): Promise<void>;
-  writeFile(path: string, data: string, options?: { readonly flag?: string }): Promise<void>;
-  rename(source: string, target: string): Promise<void>;
-  readFile(path: string, encoding: "utf8"): Promise<string>;
-  readdir(path: string, options: { readonly withFileTypes: true }): Promise<readonly TestRunDirectoryEntry[]>;
-}
-
-export interface CreateTestRunDirectoryOptions {
-  readonly now?: () => Date;
-  readonly randomBytes?: (size: number) => Buffer;
-  readonly fs?: TestRunStateFileSystem;
-  readonly storage?: TestingStorageConfig;
-  readonly maxAttempts?: number;
-}
+export type TestRunFileEntry = StateStoreFileEntry;
+export type TestRunStateFileSystem = StateStoreFileSystem;
+export type CreateTestRunFileOptions = CreateRunFileOptions;
 
 export interface WriteTestRunStateOptions {
-  readonly randomBytes?: (size: number) => Buffer;
-  readonly fs?: TestRunStateFileSystem;
-  readonly storage?: TestingStorageConfig;
+  readonly fs?: StateStoreFileSystem;
 }
 
 export interface ReadTestRunStateOptions {
-  readonly fs?: TestRunStateFileSystem;
-  readonly storage?: TestingStorageConfig;
+  readonly fs?: StateStoreRunReaderFileSystem;
 }
 
 const SHA256_ALGORITHM = "sha256";
 const HEX_ENCODING = "hex";
-const UTF8_ENCODING = "utf8";
-const RUN_ID_BYTES = 6;
-const TEMP_STATE_ID_BYTES = 6;
-const RUN_DIRECTORY_CREATE_ATTEMPTS = 10;
-const TEMP_STATE_FILE_PREFIX = ".state";
-const TEMP_STATE_FILE_SUFFIX = ".tmp";
-const JSON_INDENT_SPACES = 2;
 const SEGMENT_SEPARATOR = "-";
-const EXCLUSIVE_CREATE_FLAG = "wx";
-const ERROR_CODE_FILE_EXISTS = "EEXIST";
-const ERROR_CODE_NOT_FOUND = "ENOENT";
-const RUN_DIRECTORY_NAME_PATTERN = /^\d{4}-\d{2}-\d{2}_\d{2}-\d{2}-\d{2}-\d{3}-[a-f0-9]{12}$/;
+const JSONL_LINE_SEPARATOR = "\n";
+const EMPTY_STRING = "";
 
-const defaultFileSystem: TestRunStateFileSystem = {
+const defaultFileSystem: StateStoreFileSystem = {
   mkdir: async (path, options) => {
-    // Normalize nodeMkdir's recursive overload to the injected fs contract.
     await nodeMkdir(path, options);
   },
   writeFile: nodeWriteFile,
-  rename: nodeRename,
+  appendFile: async () => {},
   readFile: nodeReadFile,
   readdir: nodeReaddir,
 };
 
 export { defaultFileSystem as defaultTestRunStateFileSystem };
 
-// Run-directory timestamps reuse the audit formatter so testing state and audit
-// state share one run-directory naming convention.
 export function formatTestRunTimestamp(date: Date): string {
-  return formatAuditRunTimestamp(date);
+  return formatRunTimestamp(date);
 }
 
-// Per-worktree testing runs live under `.spx/local/testing/runs/` at the local
-// worktree root (`productDir`); no branch partition participates in the path.
-export function testingRunsDir(
-  productDir: string,
-  storage: TestingStorageConfig = DEFAULT_TESTING_STORAGE,
-): string {
-  return join(productDir, storage.spxDir, storage.localDir, storage.testingDir, storage.runsDir);
+export function testingRunsDir(productDir: string): string {
+  const worktreeScope = worktreeScopeDir(productDir);
+  if (!worktreeScope.ok) throw new Error(worktreeScope.error);
+  const result = stateStoreRunsDir(worktreeScope.value, STATE_STORE_DOMAIN.TEST);
+  if (!result.ok) throw new Error(result.error);
+  return result.value;
 }
 
-export async function createTestRunDirectory(
+export async function createTestRunFile(
   productDir: string,
-  options: CreateTestRunDirectoryOptions = {},
-): Promise<Result<TestRunDirectory>> {
-  const fs = options.fs ?? defaultFileSystem;
-  const storage = options.storage ?? DEFAULT_TESTING_STORAGE;
-  const maxAttempts = options.maxAttempts ?? RUN_DIRECTORY_CREATE_ATTEMPTS;
-  const startedDate = (options.now ?? (() => new Date()))();
-  const startedAt = formatTestRunTimestamp(startedDate);
-  const runsDir = testingRunsDir(productDir, storage);
-  const randomBytes = options.randomBytes ?? nodeRandomBytes;
-
-  try {
-    await fs.mkdir(runsDir, { recursive: true });
-  } catch (error) {
-    return { ok: false, error: `${TESTING_RUN_STATE_ERROR.RUN_DIRECTORY_CREATE_FAILED}: ${toErrorMessage(error)}` };
-  }
-
-  for (let attempt = 0; attempt < maxAttempts; attempt += 1) {
-    const runId = generateHexId(RUN_ID_BYTES, randomBytes);
-    const runDirectoryName = `${startedAt}${SEGMENT_SEPARATOR}${runId}`;
-    const runDir = join(runsDir, runDirectoryName);
-    try {
-      await fs.mkdir(runDir);
-      return { ok: true, value: { runsDir, runDir, runDirectoryName, runId, startedAt } };
-    } catch (error) {
-      if (hasErrorCode(error, ERROR_CODE_FILE_EXISTS)) continue;
-      return { ok: false, error: `${TESTING_RUN_STATE_ERROR.RUN_DIRECTORY_CREATE_FAILED}: ${toErrorMessage(error)}` };
-    }
-  }
-
-  return { ok: false, error: TESTING_RUN_STATE_ERROR.RUN_DIRECTORY_COLLISION_LIMIT };
+  options: CreateTestRunFileOptions = {},
+): Promise<Result<TestRunFile>> {
+  const worktreeScope = worktreeScopeDir(productDir);
+  if (!worktreeScope.ok) return worktreeScope;
+  const created = await createJsonlRunFile(worktreeScope.value, STATE_STORE_DOMAIN.TEST, options);
+  if (!created.ok) return {
+    ok: false,
+    error: created.error
+      .replace(STATE_STORE_ERROR.RUN_FILE_CREATE_FAILED, TESTING_RUN_STATE_ERROR.RUN_FILE_CREATE_FAILED)
+      .replace(STATE_STORE_ERROR.RUN_FILE_COLLISION_LIMIT, TESTING_RUN_STATE_ERROR.RUN_FILE_COLLISION_LIMIT),
+  };
+  return { ok: true, value: created.value };
 }
 
 export async function writeTerminalTestRunState(
-  runDir: string,
+  runFilePath: string,
   state: TestRunState,
   options: WriteTestRunStateOptions = {},
 ): Promise<Result<string>> {
-  const fs = options.fs ?? defaultFileSystem;
-  const storage = options.storage ?? DEFAULT_TESTING_STORAGE;
-  const statePath = join(runDir, storage.stateFile);
-
-  try {
-    await fs.readFile(statePath, UTF8_ENCODING);
+  const written = await writeJsonlRunRecord(runFilePath, testRunStateRecord(state), options);
+  if (written.ok) return written;
+  if (written.error === STATE_STORE_ERROR.RECORD_ALREADY_EXISTS) {
     return { ok: false, error: TESTING_RUN_STATE_ERROR.STATE_ALREADY_EXISTS };
-  } catch (error) {
-    if (!hasErrorCode(error, ERROR_CODE_NOT_FOUND)) {
-      return { ok: false, error: `${TESTING_RUN_STATE_ERROR.STATE_WRITE_FAILED}: ${toErrorMessage(error)}` };
-    }
   }
-
-  const tempId = generateHexId(TEMP_STATE_ID_BYTES, options.randomBytes ?? nodeRandomBytes);
-  const tempPath = join(runDir, `${TEMP_STATE_FILE_PREFIX}-${tempId}${TEMP_STATE_FILE_SUFFIX}`);
-  const serialized = `${JSON.stringify(state, null, JSON_INDENT_SPACES)}\n`;
-
-  try {
-    await fs.writeFile(tempPath, serialized, { flag: EXCLUSIVE_CREATE_FLAG });
-    await fs.rename(tempPath, statePath);
-    return { ok: true, value: statePath };
-  } catch (error) {
-    return { ok: false, error: `${TESTING_RUN_STATE_ERROR.STATE_WRITE_FAILED}: ${toErrorMessage(error)}` };
-  }
+  return {
+    ok: false,
+    error: written.error.replace(STATE_STORE_ERROR.RECORD_WRITE_FAILED, TESTING_RUN_STATE_ERROR.STATE_WRITE_FAILED),
+  };
 }
 
 export async function readTestingRuns(
@@ -285,14 +221,13 @@ export async function readTestingRuns(
   options: ReadTestRunStateOptions = {},
 ): Promise<Result<TestingRuns>> {
   const fs = options.fs ?? defaultFileSystem;
-  const storage = options.storage ?? DEFAULT_TESTING_STORAGE;
-  const runsDir = testingRunsDir(productDir, storage);
+  const runsDir = testingRunsDir(productDir);
 
-  let entries: readonly TestRunDirectoryEntry[];
+  let entries: readonly TestRunFileEntry[];
   try {
     entries = await fs.readdir(runsDir, { withFileTypes: true });
   } catch (error) {
-    if (hasErrorCode(error, ERROR_CODE_NOT_FOUND)) {
+    if (hasErrorCode(error, TESTING_RUN_STATE_ERROR_CODE.NOT_FOUND)) {
       return { ok: true, value: { terminalRuns: [], incompleteRuns: [] } };
     }
     return { ok: false, error: toErrorMessage(error) };
@@ -300,17 +235,15 @@ export async function readTestingRuns(
 
   const terminalRuns: TestTerminalRun[] = [];
   const incompleteRuns: TestIncompleteRun[] = [];
-  for (const entry of entries.filter(isTestRunDirectoryEntry)) {
-    const runDir = join(runsDir, entry.name);
-    const statePath = join(runDir, storage.stateFile);
-    const stateResult = await readTestRunStatePath(statePath, fs);
+  for (const entry of entries.filter(isTestRunFileEntry)) {
+    const runFilePath = join(runsDir, entry.name);
+    const stateResult = await readTestRunStatePath(runFilePath, fs);
     if (stateResult.ok) {
-      terminalRuns.push({ runDirectoryName: entry.name, runDir, statePath, state: stateResult.value });
+      terminalRuns.push({ runFileName: entry.name, runFilePath, state: stateResult.value });
     } else {
       incompleteRuns.push({
-        runDirectoryName: entry.name,
-        runDir,
-        statePath,
+        runFileName: entry.name,
+        runFilePath,
         reason: stateResult.reason,
         ...(stateResult.error === undefined ? {} : { error: stateResult.error }),
       });
@@ -320,10 +253,6 @@ export async function readTestingRuns(
   return { ok: true, value: { terminalRuns, incompleteRuns } };
 }
 
-// Selects the latest terminal run that covers a node — one whose recorded runner
-// outcomes executed all of the node's test paths — so a later run that exercised
-// other nodes never hides an earlier node's evidence. Returns undefined when no
-// run covers the node (including a node with no test paths).
 export function selectLatestTerminalTestRunForNode(
   runs: readonly TestTerminalRun[],
   nodeTestPaths: readonly string[],
@@ -340,12 +269,6 @@ function runCoversNode(run: TestTerminalRun, nodeTestPaths: readonly string[]): 
   return outcomesCoverPaths(run.state.runnerOutcomes, nodeTestPaths);
 }
 
-/**
- * True when the runner outcomes executed every one of the node's test paths. The
- * recorded-evidence selection and a fresh per-node run's outcome both judge node
- * coverage by this one predicate, so a run that left any node test path unexecuted —
- * a gated-out or unmatched language — never counts as covering the node.
- */
 export function outcomesCoverPaths(
   outcomes: readonly TestRunnerOutcome[],
   nodeTestPaths: readonly string[],
@@ -383,26 +306,63 @@ export function extractStalenessInputs(state: TestRunState): StalenessInputs {
   };
 }
 
+export function testRunFileName(runToken: string): string {
+  return runFileName(runToken);
+}
+
+function testRunStateRecord(state: TestRunState): JsonRecord {
+  return {
+    branchName: state.branchName,
+    headSha: state.headSha,
+    testingConfigDigest: state.testingConfigDigest,
+    runnerOutcomes: state.runnerOutcomes.map((outcome) => ({
+      runnerId: outcome.runnerId,
+      testPaths: outcome.testPaths,
+      exitCode: outcome.exitCode,
+    })),
+    discoveredTestPathsDigest: state.discoveredTestPathsDigest,
+    discoveredTestContentDigest: state.discoveredTestContentDigest,
+    productInputDigests: state.productInputDigests.map((digest) => ({
+      descriptorId: digest.descriptorId,
+      digest: digest.digest,
+    })),
+    startedAt: state.startedAt,
+    completedAt: state.completedAt,
+    status: state.status,
+  };
+}
+
 type ReadStateResult =
   | { readonly ok: true; readonly value: TestRunState }
   | { readonly ok: false; readonly reason: TestingRunStateIncompleteReason; readonly error?: string };
 
-async function readTestRunStatePath(statePath: string, fs: TestRunStateFileSystem): Promise<ReadStateResult> {
-  let raw: string;
+async function readTestRunStatePath(
+  runFilePath: string,
+  fs: StateStoreJsonlReaderFileSystem,
+): Promise<ReadStateResult> {
+  let content: string;
   try {
-    raw = await fs.readFile(statePath, UTF8_ENCODING);
+    content = await fs.readFile(runFilePath, "utf8");
   } catch (error) {
-    if (hasErrorCode(error, ERROR_CODE_NOT_FOUND)) {
-      return { ok: false, reason: TESTING_RUN_STATE_INCOMPLETE_REASON.MISSING_STATE };
-    }
-    return { ok: false, reason: TESTING_RUN_STATE_INCOMPLETE_REASON.IO_ERROR, error: toErrorMessage(error) };
+    return {
+      ok: false,
+      reason: hasErrorCode(error, TESTING_RUN_STATE_ERROR_CODE.NOT_FOUND)
+        ? TESTING_RUN_STATE_INCOMPLETE_REASON.MISSING_STATE
+        : TESTING_RUN_STATE_INCOMPLETE_REASON.IO_ERROR,
+      error: toErrorMessage(error),
+    };
+  }
+
+  const latest = latestNonEmptyLine(content);
+  if (latest === undefined) {
+    return { ok: false, reason: TESTING_RUN_STATE_INCOMPLETE_REASON.PARSE_INVALID_STATE };
   }
 
   let parsed: unknown;
   try {
-    parsed = JSON.parse(raw) as unknown;
-  } catch (error) {
-    return { ok: false, reason: TESTING_RUN_STATE_INCOMPLETE_REASON.PARSE_INVALID_STATE, error: toErrorMessage(error) };
+    parsed = JSON.parse(latest) as unknown;
+  } catch {
+    return { ok: false, reason: TESTING_RUN_STATE_INCOMPLETE_REASON.PARSE_INVALID_STATE };
   }
 
   const validated = validateTestRunState(parsed);
@@ -522,7 +482,7 @@ function compareTerminalRuns(left: TestTerminalRun, right: TestTerminalRun): num
   if (completed !== 0) return completed;
   const started = compareAsciiStrings(left.state.startedAt, right.state.startedAt);
   if (started !== 0) return started;
-  return compareAsciiStrings(left.runDirectoryName, right.runDirectoryName);
+  return compareAsciiStrings(left.runFileName, right.runFileName);
 }
 
 function productInputDigestsEqual(
@@ -545,20 +505,25 @@ function compareAsciiStrings(left: string, right: string): number {
   return 0;
 }
 
-function isTestRunDirectoryEntry(entry: TestRunDirectoryEntry): boolean {
-  return entry.isDirectory() && RUN_DIRECTORY_NAME_PATTERN.test(entry.name);
+function isTestRunFileEntry(entry: TestRunFileEntry): boolean {
+  return entry.isFile() && isRunFileName(entry.name);
 }
 
 function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === "object" && value !== null && !Array.isArray(value);
 }
 
-function sha256Hex(value: string): string {
-  return createHash(SHA256_ALGORITHM).update(value).digest(HEX_ENCODING);
+function latestNonEmptyLine(content: string): string | undefined {
+  const lines = content.split(JSONL_LINE_SEPARATOR);
+  for (let index = lines.length - 1; index >= 0; index -= 1) {
+    const line = lines[index]?.trim() ?? EMPTY_STRING;
+    if (line.length > 0) return line;
+  }
+  return undefined;
 }
 
-function generateHexId(size: number, randomBytes: (size: number) => Buffer): string {
-  return randomBytes(size).toString(HEX_ENCODING);
+function sha256Hex(value: string): string {
+  return createHash(SHA256_ALGORITHM).update(value).digest(HEX_ENCODING);
 }
 
 function hasErrorCode(error: unknown, code: string): boolean {

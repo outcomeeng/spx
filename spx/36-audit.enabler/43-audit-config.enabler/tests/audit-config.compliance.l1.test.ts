@@ -68,11 +68,8 @@ describe("audit config descriptor", () => {
     const storage = {
       [AUDIT_CONFIG_FIELDS.SPX_DIR]: sampleConfigTestValue(CONFIG_TEST_GENERATOR.key()),
       [AUDIT_CONFIG_FIELDS.NODES_DIR]: sampleConfigTestValue(CONFIG_TEST_GENERATOR.key()),
-      [AUDIT_CONFIG_FIELDS.AUDIT_DIR]: sampleConfigTestValue(CONFIG_TEST_GENERATOR.key()),
-      [AUDIT_CONFIG_FIELDS.RUNS_DIR]: sampleConfigTestValue(CONFIG_TEST_GENERATOR.key()),
       [AUDIT_CONFIG_FIELDS.VERDICT_FILE]: sampleConfigTestValue(CONFIG_TEST_GENERATOR.key()),
       [AUDIT_CONFIG_FIELDS.VERDICT_FILE_SUFFIX]: sampleConfigTestValue(CONFIG_TEST_GENERATOR.key()),
-      [AUDIT_CONFIG_FIELDS.STATE_FILE]: sampleConfigTestValue(CONFIG_TEST_GENERATOR.key()),
     };
     const config: Config = {
       [AUDIT_SECTION]: {
@@ -115,11 +112,8 @@ describe("audit config descriptor", () => {
     const unknownStorageField = sampleUnknownField([
       AUDIT_CONFIG_FIELDS.SPX_DIR,
       AUDIT_CONFIG_FIELDS.NODES_DIR,
-      AUDIT_CONFIG_FIELDS.AUDIT_DIR,
-      AUDIT_CONFIG_FIELDS.RUNS_DIR,
       AUDIT_CONFIG_FIELDS.VERDICT_FILE,
       AUDIT_CONFIG_FIELDS.VERDICT_FILE_SUFFIX,
-      AUDIT_CONFIG_FIELDS.STATE_FILE,
     ]);
     const unknownBranchSlugField = sampleUnknownField([AUDIT_CONFIG_FIELDS.MAX_BYTES]);
     const cases: readonly { readonly config: Config; readonly errorPath: string }[] = [
@@ -155,11 +149,11 @@ describe("audit config descriptor", () => {
         config: {
           [AUDIT_SECTION]: {
             [AUDIT_CONFIG_FIELDS.STORAGE]: {
-              [AUDIT_CONFIG_FIELDS.AUDIT_DIR]: {},
+              [AUDIT_CONFIG_FIELDS.VERDICT_FILE]: {},
             },
           },
         },
-        errorPath: auditPath(AUDIT_CONFIG_FIELDS.STORAGE, AUDIT_CONFIG_FIELDS.AUDIT_DIR),
+        errorPath: auditPath(AUDIT_CONFIG_FIELDS.STORAGE, AUDIT_CONFIG_FIELDS.VERDICT_FILE),
       },
       {
         config: {

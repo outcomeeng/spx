@@ -7,11 +7,8 @@ export const AUDIT_CONFIG_FIELDS = {
   STORAGE: "storage",
   SPX_DIR: "spxDir",
   NODES_DIR: "nodesDir",
-  AUDIT_DIR: "auditDir",
-  RUNS_DIR: "runsDir",
   VERDICT_FILE: "verdictFile",
   VERDICT_FILE_SUFFIX: "verdictFileSuffix",
-  STATE_FILE: "stateFile",
   BASE_REF: "baseRef",
   BRANCH_SLUG: "branchSlug",
   MAX_BYTES: "maxBytes",
@@ -24,11 +21,8 @@ export const AUDIT_BRANCH_SLUG_MIN_MAX_BYTES = 10;
 export interface AuditStorageConfig {
   readonly spxDir: string;
   readonly nodesDir: string;
-  readonly auditDir: string;
-  readonly runsDir: string;
   readonly verdictFile: string;
   readonly verdictFileSuffix: string;
-  readonly stateFile: string;
 }
 
 type MutableAuditStorageConfig = {
@@ -51,11 +45,8 @@ export const DEFAULT_AUDIT_CONFIG: AuditConfig = {
   storage: {
     spxDir: ".spx",
     nodesDir: "nodes",
-    auditDir: "audit",
-    runsDir: "runs",
     verdictFile: "verdict.audit.xml",
     verdictFileSuffix: ".audit.xml",
-    stateFile: "state.json",
   },
   baseRef: "main",
   branchSlug: {
@@ -76,11 +67,8 @@ const AUDIT_ALLOWED_FIELDS = new Set<string>([
 const AUDIT_STORAGE_ALLOWED_FIELDS = new Set<string>([
   AUDIT_CONFIG_FIELDS.SPX_DIR,
   AUDIT_CONFIG_FIELDS.NODES_DIR,
-  AUDIT_CONFIG_FIELDS.AUDIT_DIR,
-  AUDIT_CONFIG_FIELDS.RUNS_DIR,
   AUDIT_CONFIG_FIELDS.VERDICT_FILE,
   AUDIT_CONFIG_FIELDS.VERDICT_FILE_SUFFIX,
-  AUDIT_CONFIG_FIELDS.STATE_FILE,
 ]);
 
 const AUDIT_BRANCH_SLUG_ALLOWED_FIELDS = new Set<string>([

@@ -44,6 +44,24 @@ describe("testing last-run staleness comparison", () => {
     );
   });
 
+  it("treats a same-size product input digest value change as stale", () => {
+    fc.assert(
+      fc.property(
+        TEST_RUN_STATE_TEST_GENERATOR.stalenessInputsWithProductInputs(),
+        TEST_RUN_STATE_TEST_GENERATOR.digest(),
+        (recorded, replacement) => {
+          const [first, ...remaining] = recorded.productInputDigests;
+          fc.pre(first.digest !== replacement);
+          const current: StalenessInputs = {
+            ...recorded,
+            productInputDigests: [{ ...first, digest: replacement }, ...remaining],
+          };
+          expect(isStalenessMatch(recorded, current)).toBe(false);
+        },
+      ),
+    );
+  });
+
   it("treats the product input digest set as unordered: reordering stays fresh", () => {
     fc.assert(
       fc.property(TEST_RUN_STATE_TEST_GENERATOR.stalenessInputs(), (recorded) => {

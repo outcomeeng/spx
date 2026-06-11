@@ -10,6 +10,7 @@ import {
   type TestRunnerOutcome,
   type TestRunState,
   type TestRunStateStatus,
+  testRunFileName,
 } from "@/testing/run-state";
 import { CONFIG_TEST_GENERATOR, sampleConfigTestValue } from "@testing/generators/config/descriptors";
 import { arbitraryDomainLiteral, arbitrarySpecTreeTestFilePath } from "@testing/generators/literal/literal";
@@ -37,11 +38,12 @@ const MAX_CONTENT_ENTRIES = 6;
 export const TEST_RUN_STATE_TEST_GENERATOR = {
   testRunState: arbitraryTestRunState,
   stalenessInputs: arbitraryStalenessInputs,
+  stalenessInputsWithProductInputs: arbitraryStalenessInputsWithProductInputs,
   branchName: arbitraryBranchName,
   headSha: arbitraryHeadSha,
   digest: arbitraryDigest,
   runId: arbitraryRunId,
-  runDirectoryName: arbitraryRunDirectoryName,
+  runFileName: arbitraryRunFileName,
   status: arbitraryStatus,
   timestampDate: arbitraryTimestampDate,
   runnerOutcome: arbitraryRunnerOutcome,
@@ -90,10 +92,10 @@ function arbitraryTimestampDate(): fc.Arbitrary<Date> {
   });
 }
 
-function arbitraryRunDirectoryName(): fc.Arbitrary<string> {
+function arbitraryRunFileName(): fc.Arbitrary<string> {
   return fc
     .tuple(arbitraryTimestampDate(), arbitraryRunId())
-    .map(([date, runId]) => `${formatTestRunTimestamp(date)}-${runId}`);
+    .map(([date, runId]) => testRunFileName(`${formatTestRunTimestamp(date)}-${runId}`));
 }
 
 function arbitraryStatus(): fc.Arbitrary<TestRunStateStatus> {
@@ -160,6 +162,18 @@ function arbitraryStalenessInputs(): fc.Arbitrary<StalenessInputs> {
     discoveredTestContentDigest: arbitraryDigest(),
     productInputDigests: fc.array(arbitraryProductInputDigest(), {
       minLength: 0,
+      maxLength: MAX_PRODUCT_INPUT_DIGESTS,
+    }),
+  });
+}
+
+function arbitraryStalenessInputsWithProductInputs(): fc.Arbitrary<StalenessInputs> {
+  return fc.record({
+    testingConfigDigest: arbitraryDigest(),
+    discoveredTestPathsDigest: arbitraryDigest(),
+    discoveredTestContentDigest: arbitraryDigest(),
+    productInputDigests: fc.array(arbitraryProductInputDigest(), {
+      minLength: 1,
       maxLength: MAX_PRODUCT_INPUT_DIGESTS,
     }),
   });

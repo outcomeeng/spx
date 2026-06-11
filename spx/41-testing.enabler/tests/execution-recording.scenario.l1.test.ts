@@ -1,3 +1,6 @@
+import { writeFile } from "node:fs/promises";
+import { join } from "node:path";
+
 import { describe, expect, it } from "vitest";
 
 import { NO_GIT_IDENTITY, runNodeCommand, runTestsCommand } from "@/commands/testing";
@@ -11,7 +14,7 @@ import {
   selectLatestTerminalTestRunForNode,
   TEST_RUN_STATE_STATUS,
 } from "@/testing/run-state";
-import { arbitraryDomainLiteral, sampleLiteralTestValue } from "@testing/generators/literal/literal";
+import { arbitraryDomainLiteral, sampleLiteralPair, sampleLiteralTestValue } from "@testing/generators/literal/literal";
 import { sampleDispatchValue, TEST_DISPATCH_GENERATOR } from "@testing/generators/testing/dispatch";
 import {
   withTestingTempProductDir,
@@ -43,6 +46,10 @@ function testCommandDeps(
   readonly git: GitDependencies;
 } {
   return { registry: testingRegistry, runnerDepsFor: () => runner, git: gitIdentityStub() };
+}
+
+function recordedProductInputDigest(recorded: { readonly productInputDigests: readonly { readonly descriptorId: string; readonly digest: string }[] }, descriptorId: string): string | undefined {
+  return recorded.productInputDigests.find((digest) => digest.descriptorId === descriptorId)?.digest;
 }
 
 describe("spx test execution recording and per-node run", () => {
@@ -127,6 +134,32 @@ describe("spx test execution recording and per-node run", () => {
         expect(run).toBeDefined();
         expect(run?.state.discoveredTestPathsDigest).toBe(digestTestPaths([nodeFile]));
       }
+    });
+  });
+
+  it("records descriptor-declared product input digests and changes them when those inputs change", async () => {
+    const nodePath = sampleDispatchValue(TEST_DISPATCH_GENERATOR.nodePath());
+    const nodeFile = sampleDispatchValue(TEST_DISPATCH_GENERATOR.testFileUnder(typescriptTestingLanguage, nodePath));
+    const [firstInputContent, secondInputContent] = sampleLiteralPair();
+    const [productInputPath] = typescriptTestingLanguage.productInputPaths;
+    if (productInputPath === undefined) throw new Error("TypeScript descriptor declares no product input path");
+
+    await withTestingTempProductDir(async (productDir) => {
+      await writeTestFileFixture(productDir, nodeFile);
+      await writeFile(join(productDir, productInputPath), firstInputContent);
+
+      const firstRunner = createRecordingCommandRunner({ present: true, exitCode: 0 });
+      const first = await runTestsCommand({ productDir, passing: false }, testCommandDeps(firstRunner));
+      const firstDigest = recordedProductInputDigest(first.recorded, typescriptTestingLanguage.name);
+      expect(firstDigest).toBeDefined();
+
+      await writeFile(join(productDir, productInputPath), secondInputContent);
+
+      const secondRunner = createRecordingCommandRunner({ present: true, exitCode: 0 });
+      const second = await runTestsCommand({ productDir, passing: false }, testCommandDeps(secondRunner));
+      const secondDigest = recordedProductInputDigest(second.recorded, typescriptTestingLanguage.name);
+      expect(secondDigest).toBeDefined();
+      expect(secondDigest).not.toBe(firstDigest);
     });
   });
 

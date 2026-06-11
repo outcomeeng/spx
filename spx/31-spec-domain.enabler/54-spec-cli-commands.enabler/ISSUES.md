@@ -62,17 +62,9 @@ The `--update` scenario tests drive `createNodeOutcomeResolver` with a recording
 
 **Skills:** `spec-tree:applying` (implementation).
 
-## FOLLOW-UP: --update freshness inherits the inert product-input staleness dimension
-
-`createNodeOutcomeResolver`'s freshness check compares recorded against current staleness inputs via `isStalenessMatch`, whose product-input dimension is empty (`NO_PRODUCT_INPUT_DIGESTS`). Editing implementation or product source while leaving the test files and the testing config unchanged therefore does not make recorded evidence stale, so `spx spec status --update` can report a node `passing` though its implementation changed since the last run. The three active digests (testing config, discovered path set, discovered test content) carry staleness detection in the meantime. Refusing cached evidence while product digests are empty is rejected: it would make the resolver re-run every node unconditionally, which `21-status-testing-delegation.adr.md` and the read-versus-refresh split of `spx/31-spec-domain.enabler/21-node-status.enabler/15-status-file-contract.pdr.md` forbid.
-
-**Resolution:** owned by `spx/41-testing.enabler/ISSUES.md` ("recorded product-input digests are empty until descriptors declare product inputs"); when the domain-execution-descriptor surface lands and `recordRun` records real product-input digests, `--update` freshness detects product-source changes automatically through the shared current-staleness-inputs recipe — no resolver change is required.
-
-**Skills:** `spec-tree:applying` (implementation, in 41-testing).
-
 ## FOLLOW-UP: the resolver reads covered test contents per node, not once per pass
 
-`createNodeOutcomeResolver` memoizes `discoverTestFiles` and `readTestingRuns` across nodes (`sharedEvidence`), but `usableRecordedOutcome` calls `currentStalenessInputs` once per node, and `currentStalenessInputs` (`src/commands/testing/run-command.ts`) reads every covered test file's content sequentially (`readCoveredContents`). When N test-outcome-stage nodes all select the same fresh full-product run covering K files, the happy path performs up to N×K sequential content reads rather than K — the memoization holds for discovery and run-directory reads but not for the staleness content digests, so the cost grows with the tree.
+`createNodeOutcomeResolver` memoizes `discoverTestFiles` and `readTestingRuns` across nodes (`sharedEvidence`), but `usableRecordedOutcome` calls `currentStalenessInputs` once per node, and `currentStalenessInputs` (`src/commands/testing/run-command.ts`) reads every covered test file's content sequentially (`readCoveredContents`). When N test-outcome-stage nodes all select the same fresh full-product run covering K files, the happy path performs up to N×K sequential content reads rather than K — the memoization holds for discovery and run-file reads but not for the staleness content digests, so the cost grows with the tree.
 
 **Resolution:** memoize the covered-content digest by covered-path-set across nodes within a single `--update` pass (or read each discovered file's content once and reuse), weighed against the product's sub-100ms CLI-latency target in `spx/spx.product.md`.
 

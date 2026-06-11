@@ -49,9 +49,10 @@ describe("audit config descriptor format mapping", () => {
     const config: Config = {
       [AUDIT_SECTION]: {
         [AUDIT_CONFIG_FIELDS.STORAGE]: {
-          [AUDIT_CONFIG_FIELDS.AUDIT_DIR]: sampleConfigTestValue(CONFIG_TEST_GENERATOR.key()),
-          [AUDIT_CONFIG_FIELDS.RUNS_DIR]: sampleConfigTestValue(CONFIG_TEST_GENERATOR.key()),
-          [AUDIT_CONFIG_FIELDS.STATE_FILE]: sampleConfigTestValue(CONFIG_TEST_GENERATOR.key()),
+          [AUDIT_CONFIG_FIELDS.SPX_DIR]: sampleConfigTestValue(CONFIG_TEST_GENERATOR.key()),
+          [AUDIT_CONFIG_FIELDS.NODES_DIR]: sampleConfigTestValue(CONFIG_TEST_GENERATOR.key()),
+          [AUDIT_CONFIG_FIELDS.VERDICT_FILE]: sampleConfigTestValue(CONFIG_TEST_GENERATOR.key()),
+          [AUDIT_CONFIG_FIELDS.VERDICT_FILE_SUFFIX]: sampleConfigTestValue(CONFIG_TEST_GENERATOR.key()),
         },
         [AUDIT_CONFIG_FIELDS.BASE_REF]: sampleConfigTestValue(CONFIG_TEST_GENERATOR.key()),
         [AUDIT_CONFIG_FIELDS.BRANCH_SLUG]: {

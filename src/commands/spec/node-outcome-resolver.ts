@@ -43,7 +43,7 @@ interface ResolverEvidence {
  * the command layer over the testing domain so the pure node-status library and
  * the testing library stay independent. The discovered test files and recorded
  * runs are read once and memoized across nodes, so resolving N nodes performs one
- * tree walk and one run-directory read rather than N of each.
+ * tree walk and one run-file read rather than N of each.
  */
 export function createNodeOutcomeResolver(deps: NodeOutcomeResolverDependencies): NodeOutcomeResolver {
   let evidence: Promise<ResolverEvidence> | undefined;

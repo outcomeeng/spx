@@ -181,6 +181,7 @@ function registerSessionCommands(sessionCmd: Command): void {
         const result = await handoffCommand({
           content,
           sessionsDir: options.sessionsDir,
+          env: process.env,
         });
         console.log(result.output);
       } catch (error) {

@@ -16,6 +16,15 @@ import type {
 const TYPESCRIPT_TESTING_LANGUAGE_NAME = "typescript";
 const TYPESCRIPT_TEST_FILE_PATTERNS = ["*.test.ts", "*.test.tsx"] as const;
 const TYPESCRIPT_TEST_FILE_SUFFIXES = [".test.ts", ".test.tsx"] as const;
+const TYPESCRIPT_PRODUCT_INPUT_PATHS = [
+  "package.json",
+  "pnpm-lock.yaml",
+  "tsconfig.json",
+  "vitest.config.js",
+  "vitest.config.mjs",
+  "vitest.config.ts",
+  "vitest.config.mts",
+] as const;
 
 /** vitest exclusion-flag format: an excluded node path maps to `--exclude=spx/{nodePath}/**`. */
 export const TYPESCRIPT_VITEST_EXCLUDE_FLAG_PREFIX = "--exclude=spx/";
@@ -59,6 +68,7 @@ async function runTests(request: TestRunRequest, deps: TestRunnerDependencies): 
 export const typescriptTestingLanguage: TestingLanguageDescriptor = {
   name: TYPESCRIPT_TESTING_LANGUAGE_NAME,
   testFilePatterns: TYPESCRIPT_TEST_FILE_PATTERNS,
+  productInputPaths: TYPESCRIPT_PRODUCT_INPUT_PATHS,
   matchesTestFile,
   excludeFlag,
   detect,

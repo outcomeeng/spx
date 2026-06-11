@@ -13,9 +13,9 @@ Implement branch-scoped audit storage and terminal run-state lookup.
 ## Implementation Notes
 
 - Implement branch slugging as a pure function with SHA-256 suffix and detached HEAD behavior.
-- Create run directories with exclusive create and bounded retry on `EEXIST`.
-- Write `state.json` exactly once at terminal completion through same-directory temp file and atomic rename.
-- Select latest terminal run by `completedAt`, then `startedAt`, then run directory name.
+- Create run files with exclusive create and bounded retry on `EEXIST`.
+- Write the terminal JSONL record exactly once at terminal completion.
+- Select latest terminal run by `completedAt`, then `startedAt`, then run file name.
 - Keep `.spx/nodes/` explicit-file verification working without indexing it for branch status.
 
 ## Evidence Required

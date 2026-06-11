@@ -53,3 +53,13 @@ Observed in PR review of the session-frontmatter implementation.
 Impact: every `spx session handoff` issues two redundant git subprocess pairs on a hot path.
 
 Resolution condition: gather the toplevel and common-dir once and share the result between session-directory resolution and the handoff-base gate.
+
+## Session specs carry shorthand PDR references
+
+`spx/36-session.enabler/session.md` and `spx/36-session.enabler/11-session-frontmatter.pdr.md` use the shorthand text `PDR-15` instead of a full spec-tree path reference.
+
+Observed while loading session context for compact-store design work.
+
+Skills: `/spec-tree:aligning` and `/spec-tree:authoring`.
+
+Resolution condition: replace shorthand `PDR-15` references with full path references to `spx/15-worktree-resolution.pdr.md`, then remove this entry.

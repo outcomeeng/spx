@@ -44,7 +44,7 @@ Keep the product spec tree on the current node model and remove the deprecated t
 - Deprecated node suffixes are rejected by lint policy without a debt manifest.
 - Testing passing-scope policy is read from the testing config descriptor.
 - Validation, testing, auditing, and reviewing consume shared config primitives where their descriptor shapes repeat.
-- Audit state is branch-scoped under `.spx/audit/{branch-slug}`.
+- Audit state is branch-scoped under `.spx/branch/{branch-slug}/audit/`.
 - Review execution has a current spec-tree node before implementation begins.
 - Agent environment management has a current spec-tree node before implementation begins.
 - `spx validation all` passes.
@@ -79,7 +79,7 @@ The methodology treats test infrastructure — harnesses, generators, inert fixt
 
 - **Canonical evidence naming:** in flight — see the "Canonical test-evidence naming cascade" section below for live status, the #2b enforcement-rule spec, and operating constraints.
 - **Fixture placement (minor):** `spx/13-cli.enabler/tests/fixtures/epipe-emitter.ts` is a subprocess fixture inside a `tests/` directory; the methodology homes inert fixtures under `testing/fixtures/`. Relocate it when the CLI node is next edited.
-- **Conformance coverage (minor):** the run-state `state.json` machine contract is covered by parsing and property tests, not a conformance assertion; the `spx spec status` JSON output is conformance-tested through `spx/31-spec-domain.enabler/32-spec-cli-rendering.enabler/`. Consider a conformance assertion for the recorded `state.json` shape when `41-testing`'s evidence schema is next edited.
+- **Conformance coverage (minor):** the run-state JSONL machine contract is covered by parsing and property tests, not a conformance assertion; the `spx spec status` JSON output is conformance-tested through `spx/31-spec-domain.enabler/32-spec-cli-rendering.enabler/`. Consider a conformance assertion for the recorded JSONL shape when `41-testing`'s evidence schema is next edited.
 
 ### Caveat
 
