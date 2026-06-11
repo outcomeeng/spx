@@ -68,7 +68,7 @@ export const SESSION_FRONT_MATTER = {
 export interface SessionMetadata {
   /** Priority level for sorting */
   priority: SessionPriority;
-  /** Git ref the session was cut from — a branch name (root worktree on a branch) or a commit SHA (detached) */
+  /** Git ref the session was cut from — a branch name (main checkout on a branch) or a commit SHA (detached) */
   git_ref: string;
   /** Handoff goal */
   goal: string;

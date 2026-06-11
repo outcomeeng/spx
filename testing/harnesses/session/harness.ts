@@ -16,9 +16,11 @@ import { buildSessionFrontMatterContent, stringifySessionFrontMatter } from "@/d
 import { DEFAULT_PRIORITY, SESSION_STATUSES, type SessionPriority, type SessionStatus } from "@/domains/session/types";
 import {
   GIT_COMMON_DIR_ARGS,
+  GIT_CORE_BARE_ARGS,
   GIT_CURRENT_BRANCH_ARGS,
   GIT_HEAD_SHA_ARGS,
   GIT_ORIGIN_HEAD_REF_ARGS,
+  GIT_REMOTE_GET_URL_ORIGIN_ARGS,
   GIT_ROOT_COMMAND,
   GIT_SHOW_TOPLEVEL_ARGS,
   GIT_STATUS_PORCELAIN_ARGS,
@@ -77,10 +79,16 @@ export interface SessionGitDepsOverrides {
   readonly detachedAtDefaultTip?: boolean;
 }
 
-/** Toplevel + common-dir pairs that make `dirname(commonDir) === toplevel` hold only for the root worktree. */
+// Toplevel + common-dir pairs for a non-bare repository: `dirname(commonDir) ===
+// toplevel` holds only for the main working tree (`/repo`), so it is the main
+// checkout and the linked worktree is not.
 const ROOT_TOPLEVEL = "/repo";
 const LINKED_TOPLEVEL = "/repo/.worktrees/wt";
 const SHARED_COMMON_DIR = "/repo/.git";
+/** `core.bare` for the non-bare repository the double simulates. */
+const NON_BARE_CORE_BARE = "false";
+/** The `origin` URL the double returns; a non-bare repository's designation ignores it. */
+const SIMULATED_ORIGIN_URL = "https://github.com/example/repo.git";
 
 /** Distinct 40-hex SHAs so "HEAD is at the default tip" is decided by equality, not coincidence. */
 export const HEAD_SHA = "1111111111111111111111111111111111111111";
@@ -141,6 +149,8 @@ export function createSessionGitDeps(overrides: SessionGitDepsOverrides = {}): G
       if (argsEqual(args, GIT_STATUS_PORCELAIN_ARGS)) return ok(clean ? "" : DIRTY_PORCELAIN_LINE);
       if (argsEqual(args, [GIT_ROOT_COMMAND.REV_PARSE, originDefaultRef])) return ok(ORIGIN_DEFAULT_SHA);
       if (argsEqual(args, GIT_HEAD_SHA_ARGS)) return ok(headSha);
+      if (argsEqual(args, GIT_REMOTE_GET_URL_ORIGIN_ARGS)) return ok(SIMULATED_ORIGIN_URL);
+      if (argsEqual(args, GIT_CORE_BARE_ARGS)) return ok(NON_BARE_CORE_BARE);
 
       return { exitCode: 1, stdout: "", stderr: "" };
     },

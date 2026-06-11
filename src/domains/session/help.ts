@@ -56,8 +56,8 @@ Prefilled by the CLI:
   created_at, git_ref, and agent_session_id when an agent session ID is
   available.
 
-  git_ref records the branch name (root worktree on a branch), the HEAD SHA
-  (detached), or the origin/<default> tip SHA (clean detached linked worktree).
+  git_ref records the branch name (main checkout on a branch), the HEAD SHA
+  (detached), or the origin/<default> tip SHA (clean detached non-main checkout).
   Handoff is refused from any other linked-worktree state.
 
 Output Tags (for automation):

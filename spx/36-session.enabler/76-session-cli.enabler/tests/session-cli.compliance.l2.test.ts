@@ -44,8 +44,8 @@ interface LinkedHandoffBaseScenario {
   readonly linkedWorktreeDir: string;
   /** `git rev-parse --show-toplevel` of the linked worktree — the rendered current-worktree path. */
   readonly currentWorktreeToplevel: string;
-  /** `git rev-parse --show-toplevel` of the root worktree — the rendered root-worktree path. */
-  readonly rootWorktreeToplevel: string;
+  /** `git rev-parse --show-toplevel` of the main checkout — the rendered main-checkout path. */
+  readonly mainCheckoutToplevel: string;
   /** The linked worktree's detached HEAD commit SHA. */
   readonly headSha: string;
   /** The `origin/<default>` tip commit SHA, or null when `origin/HEAD` is unset. */
@@ -123,7 +123,7 @@ async function withLinkedHandoffBase(
     await callback({
       linkedWorktreeDir,
       currentWorktreeToplevel: await readGit(linkedWorktreeDir, [...GIT_SHOW_TOPLEVEL_ARGS]),
-      rootWorktreeToplevel: await readGit(gitEnv.productDir, [...GIT_SHOW_TOPLEVEL_ARGS]),
+      mainCheckoutToplevel: await readGit(gitEnv.productDir, [...GIT_SHOW_TOPLEVEL_ARGS]),
       headSha: tipSha,
       originTipSha: opts.originResolved ? originTipSha : null,
       defaultBranch: opts.originResolved ? FIXTURE_DEFAULT_BRANCH : null,
@@ -382,9 +382,13 @@ describe("session CLI handoff-base refusal checklist", () => {
     return line ?? "";
   }
 
-  /** The resolved-fact line carrying a fact label, asserted to exist. */
+  /**
+   * The resolved-fact line carrying a fact label, asserted to exist. Anchored to
+   * the rendered `<label>: ` form so a label that also appears as prose in the
+   * header (e.g. "main checkout") never matches the header line by substring.
+   */
   function factLine(stderr: string, label: string): string {
-    const line = stderr.split("\n").find((candidate) => candidate.includes(label));
+    const line = stderr.split("\n").find((candidate) => candidate.trimStart().startsWith(`${label}: `));
     expect(line, `expected a fact line for "${label}"`).toBeDefined();
     return line ?? "";
   }
@@ -398,7 +402,7 @@ describe("session CLI handoff-base refusal checklist", () => {
 
       const cleanLine = prerequisiteLine(result.stderr, HANDOFF_BASE_PREREQUISITE_LABEL.CLEAN_WORKING_TREE);
       expect(cleanLine).toContain(HANDOFF_BASE_MARK.UNMET);
-      expect(cleanLine).toContain(HANDOFF_BASE_REMEDY.COMMIT_OR_ROOT);
+      expect(cleanLine).toContain(HANDOFF_BASE_REMEDY.COMMIT_OR_MAIN_CHECKOUT);
 
       const tipLine = prerequisiteLine(result.stderr, HANDOFF_BASE_PREREQUISITE_LABEL.DETACHED_AT_DEFAULT_TIP);
       expect(tipLine).toContain(HANDOFF_BASE_MARK.MET);
@@ -419,7 +423,7 @@ describe("session CLI handoff-base refusal checklist", () => {
 
       const tipLine = prerequisiteLine(result.stderr, HANDOFF_BASE_PREREQUISITE_LABEL.DETACHED_AT_DEFAULT_TIP);
       expect(tipLine).toContain(HANDOFF_BASE_MARK.UNMET);
-      expect(tipLine).toContain(HANDOFF_BASE_REMEDY.DETACH_TO_TIP_OR_ROOT);
+      expect(tipLine).toContain(HANDOFF_BASE_REMEDY.DETACH_TO_TIP_OR_MAIN_CHECKOUT);
 
       expect(factLine(result.stderr, HANDOFF_BASE_FACT_LABEL.HEAD)).toContain(scenario.headSha);
       expect(scenario.originTipSha).not.toBeNull();
@@ -429,7 +433,7 @@ describe("session CLI handoff-base refusal checklist", () => {
     });
   });
 
-  it("clean and detached but origin/HEAD unset: states the default branch and tip unresolved with a root-worktree remedy, never a fabricated branch", async () => {
+  it("clean and detached but origin/HEAD unset: states the default branch and tip unresolved with a main-checkout remedy, never a fabricated branch", async () => {
     await withLinkedHandoffBase({ atTip: true, clean: true, originResolved: false }, async (scenario) => {
       const result = await runHandoffFrom(scenario.linkedWorktreeDir);
 
@@ -438,12 +442,14 @@ describe("session CLI handoff-base refusal checklist", () => {
 
       const tipLine = prerequisiteLine(result.stderr, HANDOFF_BASE_PREREQUISITE_LABEL.DETACHED_AT_DEFAULT_TIP);
       expect(tipLine).toContain(HANDOFF_BASE_MARK.UNMET);
-      expect(tipLine).toContain(HANDOFF_BASE_REMEDY.ROOT_ONLY);
+      expect(tipLine).toContain(HANDOFF_BASE_REMEDY.MAIN_CHECKOUT_ONLY);
 
       expect(factLine(result.stderr, HANDOFF_BASE_FACT_LABEL.DEFAULT_BRANCH)).toContain(HANDOFF_BASE_UNRESOLVED);
       expect(factLine(result.stderr, HANDOFF_BASE_FACT_LABEL.DEFAULT_TIP)).toContain(HANDOFF_BASE_UNRESOLVED);
       expect(result.stderr).not.toContain(ORIGIN_DEFAULT_PLACEHOLDER);
-      expect(result.stderr).not.toContain(FIXTURE_DEFAULT_BRANCH);
+      // The default-branch fact must stay unresolved, never fabricated as the fixture branch.
+      // Scoped to the branch fact line — the header's "main checkout" prose legitimately carries "main".
+      expect(factLine(result.stderr, HANDOFF_BASE_FACT_LABEL.DEFAULT_BRANCH)).not.toContain(FIXTURE_DEFAULT_BRANCH);
       expect(await readdir(harness.statusDir(TODO))).toEqual([]);
     });
   });
@@ -457,9 +463,9 @@ describe("session CLI handoff-base refusal checklist", () => {
       const cleanLine = prerequisiteLine(result.stderr, HANDOFF_BASE_PREREQUISITE_LABEL.CLEAN_WORKING_TREE);
       const tipLine = prerequisiteLine(result.stderr, HANDOFF_BASE_PREREQUISITE_LABEL.DETACHED_AT_DEFAULT_TIP);
       expect(cleanLine).toContain(HANDOFF_BASE_MARK.UNMET);
-      expect(cleanLine).toContain(HANDOFF_BASE_REMEDY.COMMIT_OR_ROOT);
+      expect(cleanLine).toContain(HANDOFF_BASE_REMEDY.COMMIT_OR_MAIN_CHECKOUT);
       expect(tipLine).toContain(HANDOFF_BASE_MARK.UNMET);
-      expect(tipLine).toContain(HANDOFF_BASE_REMEDY.DETACH_TO_TIP_OR_ROOT);
+      expect(tipLine).toContain(HANDOFF_BASE_REMEDY.DETACH_TO_TIP_OR_MAIN_CHECKOUT);
       expect(cleanLine).not.toBe(tipLine);
 
       expect(scenario.defaultBranch).not.toBeNull();
@@ -469,7 +475,7 @@ describe("session CLI handoff-base refusal checklist", () => {
       expect(factLine(result.stderr, HANDOFF_BASE_FACT_LABEL.CURRENT_WORKTREE)).toContain(
         scenario.currentWorktreeToplevel,
       );
-      expect(factLine(result.stderr, HANDOFF_BASE_FACT_LABEL.ROOT_WORKTREE)).toContain(scenario.rootWorktreeToplevel);
+      expect(factLine(result.stderr, HANDOFF_BASE_FACT_LABEL.MAIN_CHECKOUT)).toContain(scenario.mainCheckoutToplevel);
 
       expect(result.stderr).not.toContain(FORBIDDEN_STASH_REMEDY);
       expect(await readdir(harness.statusDir(TODO))).toEqual([]);
@@ -488,7 +494,7 @@ describe("session CLI handoff-base refusal checklist", () => {
     });
   });
 
-  it("permitted: a root-worktree handoff writes the session and no checklist", async () => {
+  it("permitted: a main-checkout handoff writes the session and no checklist", async () => {
     await withCommittedGitCwd(async (rootCwd) => {
       const result = await runHandoffFrom(rootCwd);
 
@@ -514,14 +520,14 @@ describe("session CLI handoff-base refusal checklist", () => {
 
         const tipLine = prerequisiteLine(result.stderr, HANDOFF_BASE_PREREQUISITE_LABEL.DETACHED_AT_DEFAULT_TIP);
         expect(tipLine).toContain(HANDOFF_BASE_MARK.UNMET);
-        expect(tipLine).toContain(HANDOFF_BASE_REMEDY.DETACH_TO_TIP_OR_ROOT);
+        expect(tipLine).toContain(HANDOFF_BASE_REMEDY.DETACH_TO_TIP_OR_MAIN_CHECKOUT);
 
         expect(await readdir(harness.statusDir(TODO))).toEqual([]);
       },
     );
   });
 
-  it("root worktree with no commit: refuses with a diagnostic naming the error, not silently and not a checklist", async () => {
+  it("main checkout with no commit: refuses with a diagnostic naming the error, not silently and not a checklist", async () => {
     await withGitWorktreeEnv(async (gitEnv) => {
       const result = await runHandoffFrom(gitEnv.productDir);
 
