@@ -26,7 +26,7 @@ One worktree is canonical because a single working copy backs the repository's s
 
 ### Testing
 
-- ALWAYS: in a non-bare repository — with or without linked worktrees — the main checkout is the main working tree, the parent of the Git common directory, reachable from any worktree and independent of the branch checked out ([scenario])
+- ALWAYS: in a non-bare repository — with or without linked worktrees — the main checkout is the main working tree, the parent of the Git common directory, reachable from any worktree and independent of the branch checked out ([mapping])
 - ALWAYS: in a bare-repository worktree pool, a worktree is the main checkout exactly when it sits beside the bare repository (`dirname(git-common-dir)` equals the worktree root's parent) and its directory basename equals the `origin` remote's repository name; a pool with no such worktree has no main checkout, whatever branch any worktree holds ([mapping])
 
 ### Audit
