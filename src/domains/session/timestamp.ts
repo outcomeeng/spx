@@ -100,5 +100,17 @@ export function parseSessionId(id: string): Date | null {
   if (minutes < 0 || minutes > 59) return null;
   if (seconds < 0 || seconds > 59) return null;
 
-  return new Date(Date.UTC(year, month, day, hours, minutes, seconds));
+  const date = new Date(Date.UTC(year, month, day, hours, minutes, seconds));
+  if (
+    date.getUTCFullYear() !== year
+    || date.getUTCMonth() !== month
+    || date.getUTCDate() !== day
+    || date.getUTCHours() !== hours
+    || date.getUTCMinutes() !== minutes
+    || date.getUTCSeconds() !== seconds
+  ) {
+    return null;
+  }
+
+  return date;
 }
