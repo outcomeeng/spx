@@ -36,7 +36,7 @@ Thumbs.db
 npm-debug.log*
 
 # SPX ephemeral local state (sessions, nodes, audit, reviews, testing).
-# Per spx/15-worktree-resolution.pdr.md the entire .spx/ tree is gitignored
+# Per spx/15-worktree-management.pdr.md the entire .spx/ tree is gitignored
 # and exists only at the Git common-dir product root — ignore it wholesale
 # so new subdirectories (e.g. reviews/) do not drift out of coverage.
 .spx/
