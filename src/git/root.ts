@@ -105,6 +105,9 @@ export const GIT_ROOT_COMMAND = {
 /** The `.git` suffix a repository URL or bare directory carries; stripped to recover the repository name. */
 export const GIT_URL_SUFFIX = ".git";
 
+/** The basename of a non-bare worktree's local git directory — the common-dir fallback when `--git-common-dir` is unavailable. */
+export const GIT_DIR_BASENAME = ".git";
+
 /** Prefix on the remote-tracking ref returned by `symbolic-ref refs/remotes/origin/HEAD`. */
 export const ORIGIN_REF_PREFIX = "origin/";
 
@@ -465,8 +468,11 @@ export function mainCheckoutPath(facts: GitFacts): string | null {
 
 /**
  * Reads the {@link GitFacts} for `cwd` through the injected git runner. Returns
- * null when `cwd` is outside a git repository, where no checkout exists to
- * classify.
+ * null only when `cwd` is outside a git repository — `git rev-parse
+ * --show-toplevel` fails. When `--show-toplevel` succeeds but `--git-common-dir`
+ * does not, it falls back to a non-bare single-tree shape (common dir
+ * `<worktreeRoot>/.git`) so detection agrees with `detectGitCommonDirProductRoot`
+ * and `isRootWorktree`, which fall back to the toplevel on the same failure.
  */
 async function gatherGitFacts(
   cwd: string = process.cwd(),
@@ -477,18 +483,37 @@ async function gatherGitFacts(
     deps.execa(GIT_ROOT_COMMAND.EXECUTABLE, [...GIT_COMMON_DIR_ARGS], { cwd, reject: false }),
   ]);
   if (toplevelResult.exitCode !== 0 || !toplevelResult.stdout) return null;
-  if (commonDirResult.exitCode !== 0 || !commonDirResult.stdout) return null;
 
   const worktreeRoot = extractStdout(toplevelResult.stdout);
-  const rawCommonDir = extractStdout(commonDirResult.stdout);
-  const commonDir = isAbsolute(rawCommonDir) ? rawCommonDir : resolve(worktreeRoot, rawCommonDir);
-  const [originResult, bareResult] = await Promise.all([
-    deps.execa(GIT_ROOT_COMMAND.EXECUTABLE, [...GIT_REMOTE_GET_URL_ORIGIN_ARGS], { cwd, reject: false }),
-    deps.execa(GIT_ROOT_COMMAND.EXECUTABLE, [...GIT_CORE_BARE_ARGS], { cwd, reject: false }),
-  ]);
+  const originResult = await deps.execa(
+    GIT_ROOT_COMMAND.EXECUTABLE,
+    [...GIT_REMOTE_GET_URL_ORIGIN_ARGS],
+    { cwd, reject: false },
+  );
   const originUrl = originResult.exitCode === 0 && originResult.stdout
     ? extractStdout(originResult.stdout)
     : null;
+
+  // Mirror the `--git-common-dir` fallback of detectGitCommonDirProductRoot and
+  // isRootWorktree: a worktree whose common dir cannot be read is treated as a
+  // non-bare single tree rooted at the worktree, so all three resolvers agree
+  // rather than this one alone reporting "not a checkout".
+  if (commonDirResult.exitCode !== 0 || !commonDirResult.stdout) {
+    return {
+      worktreeRoot,
+      commonDir: join(worktreeRoot, GIT_DIR_BASENAME),
+      commonDirIsBare: false,
+      originUrl,
+    };
+  }
+
+  const rawCommonDir = extractStdout(commonDirResult.stdout);
+  const commonDir = isAbsolute(rawCommonDir) ? rawCommonDir : resolve(worktreeRoot, rawCommonDir);
+  const bareResult = await deps.execa(
+    GIT_ROOT_COMMAND.EXECUTABLE,
+    [...GIT_CORE_BARE_ARGS],
+    { cwd, reject: false },
+  );
   const commonDirIsBare = bareResult.exitCode === 0
     && extractStdout(bareResult.stdout) === GIT_CORE_BARE_TRUE;
   return { worktreeRoot, commonDir, commonDirIsBare, originUrl };
