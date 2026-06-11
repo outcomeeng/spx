@@ -4,7 +4,7 @@ import { join } from "node:path";
 import { describe, expect, it } from "vitest";
 
 import { COMPACT_MARKER, COMPACT_RECORD_FIELDS, COMPACT_STORE_PATH } from "@/domains/compact";
-import { AGENT_SESSION_ENV } from "@/domains/session/agent-session";
+import { AGENT_SESSION_ENV, resolveAgentSessionId } from "@/domains/session/agent-session";
 import { COMPACT_CLI } from "@/interfaces/cli/compact";
 import { STATE_STORE_DOMAIN, STATE_STORE_PATH } from "@/lib/state-store";
 import { COMPACT_TEST_GENERATOR, sampleCompactTestValue } from "@testing/generators/compact/compact";
@@ -23,6 +23,13 @@ async function runSpx(
 
 function agentSessionEnv(sessionToken: string): Readonly<Record<string, string>> {
   return { [AGENT_SESSION_ENV.CLAUDE_SESSION_ID]: sessionToken };
+}
+
+function codexAgentSessionEnv(sessionToken: string): Readonly<Record<string, string>> {
+  return {
+    [AGENT_SESSION_ENV.CLAUDE_SESSION_ID]: "",
+    [AGENT_SESSION_ENV.CODEX_THREAD_ID]: sessionToken,
+  };
 }
 
 function emptyAgentSessionEnv(): Readonly<Record<string, string>> {
@@ -147,6 +154,44 @@ describe("compact CLI", () => {
       expect(retrieved.exitCode).toBe(1);
       expect(retrieved.stdout).toHaveLength(0);
       expect(retrieved.stderr).toHaveLength(0);
+    });
+  });
+
+  it("stores and retrieves records when Codex provides a path-unsafe thread identity", async () => {
+    const unsafeSessionToken = sampleCompactTestValue(COMPACT_TEST_GENERATOR.unsafeSessionToken());
+    const node = sampleCompactTestValue(COMPACT_TEST_GENERATOR.nodePath());
+    const transcriptFileName = sampleCompactTestValue(COMPACT_TEST_GENERATOR.transcriptFileName());
+    const env = codexAgentSessionEnv(unsafeSessionToken);
+    const resolvedSessionToken = resolveAgentSessionId(env);
+    if (resolvedSessionToken === undefined) throw new Error("unsafe Codex session token did not resolve");
+
+    await withGitWorktreeEnv(async (gitEnv) => {
+      const transcriptPath = join(gitEnv.productDir, transcriptFileName);
+      await writeFile(transcriptPath, [
+        COMPACT_MARKER.FOUNDATION,
+        escapedMarker(node),
+      ].join("\n"));
+
+      const stored = await runSpx([
+        COMPACT_CLI.commandName,
+        COMPACT_CLI.storeCommandName,
+        COMPACT_CLI.transcriptFlag,
+        transcriptPath,
+      ], gitEnv.productDir, env);
+      const retrieved = await runSpx([
+        COMPACT_CLI.commandName,
+        COMPACT_CLI.retrieveCommandName,
+      ], gitEnv.productDir, env);
+
+      expect(stored.exitCode).toBe(0);
+      expect(stored.stdout).toHaveLength(0);
+      expect(retrieved.exitCode).toBe(0);
+      expect(JSON.parse(retrieved.stdout)).toEqual({
+        [COMPACT_RECORD_FIELDS.ACTIVE_NODE]: node,
+        [COMPACT_RECORD_FIELDS.HAS_FOUNDATION]: true,
+      });
+      const stash = await readFile(compactStashPath(gitEnv.productDir, resolvedSessionToken));
+      expect(stash.toString()).toContain(node);
     });
   });
 

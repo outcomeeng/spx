@@ -19,6 +19,7 @@ function nodePath(): fc.Arbitrary<string> {
 
 export const COMPACT_TEST_GENERATOR = {
   sessionToken: STATE_STORE_TEST_GENERATOR.scopeToken,
+  unsafeSessionToken: STATE_STORE_TEST_GENERATOR.scopeTokenContainingUnsafeMarker,
   commitMessage: STATE_STORE_TEST_GENERATOR.branchIdentity,
   nodePath,
   distinctNodePaths: (): fc.Arbitrary<readonly [string, string]> =>

@@ -2,11 +2,23 @@ import fc from "fast-check";
 import { describe, expect, it } from "vitest";
 
 import { buildSessionFrontMatterContent, SESSION_FRONT_MATTER_DELIMITER } from "@/domains/session/create";
-import { DEFAULT_SESSION_METADATA, parseSessionMetadata } from "@/domains/session/list";
-import { generateSessionId, parseSessionId, SESSION_ID_PATTERN } from "@/domains/session/timestamp";
+import { resolveAgentSessionId } from "@/domains/session/agent-session";
+import { parseSessionMetadata } from "@/domains/session/list";
+import { generateSessionId, parseSessionId } from "@/domains/session/timestamp";
+import { STATE_STORE_TEST_GENERATOR } from "@testing/generators/state-store/state-store";
 
 const PROPERTY_DATE_MIN = new Date("2000-01-01T00:00:00.000Z");
 const PROPERTY_DATE_MAX = new Date("2099-12-28T23:59:59.000Z");
+const SESSION_ID_SPEC_PATTERN = /^\d{4}-\d{2}-\d{2}_\d{2}-\d{2}-\d{2}$/;
+const SAFE_AGENT_SESSION_TOKEN_PATTERN = /^[A-Za-z0-9_-]+$/;
+const EXPECTED_DEFAULT_SESSION_METADATA = {
+  priority: "medium",
+  specs: [],
+  files: [],
+  git_ref: "",
+  goal: "",
+  next_step: "",
+} as const;
 
 function truncateToSecond(instant: Date): number {
   return instant.getTime() - instant.getMilliseconds();
@@ -18,7 +30,7 @@ describe("session identity properties", () => {
       fc.property(
         fc.date({ min: PROPERTY_DATE_MIN, max: PROPERTY_DATE_MAX, noInvalidDate: true }),
         (instant) => {
-          expect(generateSessionId({ now: () => instant })).toMatch(SESSION_ID_PATTERN);
+          expect(generateSessionId({ now: () => instant })).toMatch(SESSION_ID_SPEC_PATTERN);
         },
       ),
     );
@@ -50,7 +62,7 @@ describe("session identity properties", () => {
       fc.property(
         fc.string().filter((content) => !content.startsWith(SESSION_FRONT_MATTER_DELIMITER)),
         (content) => {
-          expect(parseSessionMetadata(content)).toEqual(DEFAULT_SESSION_METADATA);
+          expect(parseSessionMetadata(content)).toEqual(EXPECTED_DEFAULT_SESSION_METADATA);
         },
       ),
     );
@@ -67,7 +79,32 @@ describe("session identity properties", () => {
         (priority) => {
           const content = buildSessionFrontMatterContent([`priority: ${JSON.stringify(priority)}`], "# Session");
 
-          expect(parseSessionMetadata(content).priority).toBe(DEFAULT_SESSION_METADATA.priority);
+          expect(parseSessionMetadata(content).priority).toBe(EXPECTED_DEFAULT_SESSION_METADATA.priority);
+        },
+      ),
+    );
+  });
+
+  it("GIVEN path-unsafe agent session identities WHEN resolved THEN safe deterministic tokens are returned", () => {
+    fc.assert(
+      fc.property(
+        fc.oneof(
+          STATE_STORE_TEST_GENERATOR.scopeTokenContainingUnsafeMarker(),
+          STATE_STORE_TEST_GENERATOR.unsafeScopeToken(),
+        ),
+        (unsafeSessionToken) => {
+          const firstClaudeToken = resolveAgentSessionId({ CLAUDE_SESSION_ID: unsafeSessionToken });
+          const secondClaudeToken = resolveAgentSessionId({ CLAUDE_SESSION_ID: unsafeSessionToken });
+          const codexToken = resolveAgentSessionId({
+            CLAUDE_SESSION_ID: "",
+            CODEX_THREAD_ID: unsafeSessionToken,
+          });
+
+          expect(firstClaudeToken).toBeDefined();
+          expect(firstClaudeToken).toMatch(SAFE_AGENT_SESSION_TOKEN_PATTERN);
+          expect(firstClaudeToken).not.toBe(unsafeSessionToken);
+          expect(secondClaudeToken).toBe(firstClaudeToken);
+          expect(codexToken).toBe(firstClaudeToken);
         },
       ),
     );
