@@ -58,7 +58,7 @@ Prefilled by the CLI:
 
   git_ref records the branch name (main checkout on a branch), the HEAD SHA
   (detached), or the origin/<default> tip SHA (clean detached non-main checkout).
-  Handoff is refused from any other linked-worktree state.
+  Handoff is refused from any other non-main checkout state.
 
 Output Tags (for automation):
   <HANDOFF_ID>session-id</HANDOFF_ID>          Session identifier

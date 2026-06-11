@@ -185,7 +185,7 @@ function registerSessionCommands(sessionCmd: Command): void {
         console.log(result.output);
       } catch (error) {
         if (error instanceof SessionHandoffBaseError) {
-          // A linked-worktree refusal renders the prerequisite checklist; a
+          // A non-main-checkout refusal renders the prerequisite checklist; a
           // non-git base refuses silently; any other git refusal writes the
           // message as a plain diagnostic.
           if (error.checklist !== null) {

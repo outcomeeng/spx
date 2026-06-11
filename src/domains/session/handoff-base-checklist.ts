@@ -1,6 +1,6 @@
 /**
  * The handoff-base refusal checklist: the resolved git facts and per-prerequisite
- * evaluation a linked-worktree refusal carries, plus the source-owned vocabulary
+ * evaluation a non-main-checkout refusal carries, plus the source-owned vocabulary
  * the descriptor renders. Pure over the carried facts — the handler resolves the
  * facts, the resolver attaches them to {@link SessionHandoffBaseError}, and the
  * descriptor writes the rendered text to standard error.
@@ -17,7 +17,7 @@ export const HANDOFF_BASE_MARK = {
   UNMET: "✗",
 } as const;
 
-/** The base prerequisites a linked-worktree handoff must satisfy. */
+/** The base prerequisites a non-main-checkout handoff must satisfy. */
 export const HANDOFF_BASE_PREREQUISITE_LABEL = {
   CLEAN_WORKING_TREE: "working tree is clean",
   DETACHED_AT_DEFAULT_TIP: "HEAD is detached at the default-branch tip",
@@ -50,7 +50,7 @@ export const HANDOFF_BASE_FACT_LABEL = {
 export const HANDOFF_BASE_UNRESOLVED = "unresolved";
 
 /**
- * A single base prerequisite a linked-worktree refusal evaluates. Every
+ * A single base prerequisite a non-main-checkout refusal evaluates. Every
  * prerequisite is represented regardless of which are met, so the rendered
  * checklist omits none.
  */
@@ -64,7 +64,7 @@ export interface HandoffBasePrerequisite {
 }
 
 /**
- * The resolved git facts and per-prerequisite evaluation a linked-worktree
+ * The resolved git facts and per-prerequisite evaluation a non-main-checkout
  * handoff refusal carries. `null` for `defaultBranch` or `defaultTipSha` marks
  * the value unresolved — `origin/HEAD` is unset — never a fabricated branch or
  * SHA and never the literal placeholder `origin/<default>`.
@@ -105,7 +105,7 @@ function renderPrerequisiteLine(prerequisite: HandoffBasePrerequisite): string {
 }
 
 /**
- * Renders a linked-worktree handoff refusal as the prerequisite checklist the
+ * Renders a non-main-checkout handoff refusal as the prerequisite checklist the
  * descriptor writes to standard error: the error name, the resolved git values
  * (default branch, origin tip SHA, observed HEAD SHA, current and main checkout
  * paths — each stated `unresolved` when absent), and every base prerequisite on
