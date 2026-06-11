@@ -38,10 +38,8 @@ export interface GitFacts {
   commonDir: string;
   /** Whether the common directory is a bare repository — `git config --get core.bare` is `true`. */
   commonDirIsBare: boolean;
-  /** The checked-out branch, or null when HEAD is detached or unborn. */
-  currentBranch: string | null;
-  /** The repository default branch (`origin/HEAD`'s target), or null when unset. */
-  defaultBranch: string | null;
+  /** The `origin` remote URL — `git remote get-url origin` — or null when `origin` is unset. */
+  originUrl: string | null;
 }
 
 // Minimal command result shape used by product-directory detection.
@@ -99,7 +97,13 @@ export const GIT_ROOT_COMMAND = {
   CONFIG: "config",
   CONFIG_GET: "--get",
   CORE_BARE_KEY: "core.bare",
+  REMOTE: "remote",
+  GET_URL: "get-url",
+  ORIGIN: "origin",
 } as const;
+
+/** The `.git` suffix a repository URL or bare directory carries; stripped to recover the repository name. */
+export const GIT_URL_SUFFIX = ".git";
 
 /** Prefix on the remote-tracking ref returned by `symbolic-ref refs/remotes/origin/HEAD`. */
 export const ORIGIN_REF_PREFIX = "origin/";
@@ -131,6 +135,15 @@ export const GIT_CORE_BARE_ARGS = [
   GIT_ROOT_COMMAND.CONFIG,
   GIT_ROOT_COMMAND.CONFIG_GET,
   GIT_ROOT_COMMAND.CORE_BARE_KEY,
+] as const;
+
+// `git remote get-url origin` reads the `origin` remote URL the worktrees of a
+// bare pool share, from which the repository name — the final path segment minus
+// a `.git` suffix — is the directory name the pool's main checkout carries.
+export const GIT_REMOTE_GET_URL_ORIGIN_ARGS = [
+  GIT_ROOT_COMMAND.REMOTE,
+  GIT_ROOT_COMMAND.GET_URL,
+  GIT_ROOT_COMMAND.ORIGIN,
 ] as const;
 
 export const GIT_CURRENT_BRANCH_ARGS = [
@@ -388,14 +401,33 @@ export async function isRootWorktree(
 }
 
 /**
+ * The repository name an `origin` URL carries — its final path segment with a
+ * trailing `.git` removed — or null when the URL is absent or carries no name.
+ *
+ * Pure and total: parses every URL form git accepts (`https://host/owner/repo.git`,
+ * `git@host:owner/repo.git`, a local path, with or without the `.git` suffix or a
+ * trailing slash) by taking the segment after the last `/` or `:` separator.
+ */
+export function repositoryName(originUrl: string | null): string | null {
+  if (originUrl === null) return null;
+  const trimmed = originUrl.trim().replace(/\/+$/, "");
+  const lastSeparator = Math.max(trimmed.lastIndexOf("/"), trimmed.lastIndexOf(":"));
+  const segment = trimmed.slice(lastSeparator + 1);
+  const name = segment.endsWith(GIT_URL_SUFFIX)
+    ? segment.slice(0, -GIT_URL_SUFFIX.length)
+    : segment;
+  return name.length === 0 ? null : name;
+}
+
+/**
  * Whether the observed {@link GitFacts} identify the repository's main checkout.
  *
  * Pure and total: a non-bare repository's main working tree — the parent of its
  * common directory — is the main checkout whatever branch it holds and whether
  * or not it has linked worktrees; a bare-repository pool worktree is the main
- * checkout exactly when its common directory sits beside the worktree and the
- * checked-out branch, the worktree directory name, and the default branch all
- * agree.
+ * checkout exactly when its common directory sits beside the worktree and its
+ * directory basename equals the `origin` repository name. The verdict reads no
+ * branch.
  */
 export function isMainCheckout(facts: GitFacts): boolean {
   const commonDirParent = dirname(facts.commonDir);
@@ -404,13 +436,10 @@ export function isMainCheckout(facts: GitFacts): boolean {
   // not the repository has linked worktrees.
   if (!facts.commonDirIsBare) return commonDirParent === facts.worktreeRoot;
   // Bare-repository pool: the common directory is a sibling of the worktree, and
-  // the three signals of the pool rule all agree.
+  // the worktree directory is named after the `origin` repository.
   if (commonDirParent !== dirname(facts.worktreeRoot)) return false;
-  return (
-    facts.defaultBranch !== null
-    && facts.currentBranch === facts.defaultBranch
-    && basename(facts.worktreeRoot) === facts.defaultBranch
-  );
+  const name = repositoryName(facts.originUrl);
+  return name !== null && basename(facts.worktreeRoot) === name;
 }
 
 /**
@@ -419,19 +448,19 @@ export function isMainCheckout(facts: GitFacts): boolean {
  *
  * Pure and total: a non-bare repository designates its main working tree — the
  * parent of the common directory — from any of its worktrees; a bare-repository
- * pool designates the default-branch worktree beside the bare repository (the
- * parent of the common directory joined with the default branch name) by
- * inverting the three-signal rule, and designates no path when the pool resolves
- * no default branch.
+ * pool designates the `origin`-repository-named worktree beside the bare
+ * repository (the parent of the common directory joined with the repository name)
+ * by inverting the name-and-placement rule, and designates no path when the pool
+ * resolves no repository name.
  */
 export function mainCheckoutPath(facts: GitFacts): string | null {
   const commonDirParent = dirname(facts.commonDir);
   // Non-bare repository: the main checkout is the main working tree — the parent
   // of the common directory — reachable from any of its worktrees.
   if (!facts.commonDirIsBare) return commonDirParent;
-  // Bare-repository pool: invert the three-signal rule to construct the path.
-  if (facts.defaultBranch === null) return null;
-  return join(commonDirParent, facts.defaultBranch);
+  // Bare-repository pool: invert the name-and-placement rule to construct the path.
+  const name = repositoryName(facts.originUrl);
+  return name === null ? null : join(commonDirParent, name);
 }
 
 /**
@@ -453,14 +482,16 @@ async function gatherGitFacts(
   const worktreeRoot = extractStdout(toplevelResult.stdout);
   const rawCommonDir = extractStdout(commonDirResult.stdout);
   const commonDir = isAbsolute(rawCommonDir) ? rawCommonDir : resolve(worktreeRoot, rawCommonDir);
-  const [currentBranch, defaultBranch, bareResult] = await Promise.all([
-    getCurrentBranch(cwd, deps),
-    resolveDefaultBranch(cwd, deps),
+  const [originResult, bareResult] = await Promise.all([
+    deps.execa(GIT_ROOT_COMMAND.EXECUTABLE, [...GIT_REMOTE_GET_URL_ORIGIN_ARGS], { cwd, reject: false }),
     deps.execa(GIT_ROOT_COMMAND.EXECUTABLE, [...GIT_CORE_BARE_ARGS], { cwd, reject: false }),
   ]);
+  const originUrl = originResult.exitCode === 0 && originResult.stdout
+    ? extractStdout(originResult.stdout)
+    : null;
   const commonDirIsBare = bareResult.exitCode === 0
     && extractStdout(bareResult.stdout) === GIT_CORE_BARE_TRUE;
-  return { worktreeRoot, commonDir, commonDirIsBare, currentBranch, defaultBranch };
+  return { worktreeRoot, commonDir, commonDirIsBare, originUrl };
 }
 
 /**
