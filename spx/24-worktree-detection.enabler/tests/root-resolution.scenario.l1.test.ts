@@ -4,17 +4,20 @@ import { dirname } from "node:path";
 import { describe, expect, it } from "vitest";
 
 import { detectGitCommonDirProductRoot, detectWorktreeProductRoot } from "@/git/root";
-import { arbitraryBarePoolSpec, sampleMainCheckoutTestValue } from "@testing/generators/main-checkout/main-checkout";
-import { withBarePoolEnv } from "@testing/harnesses/bare-pool/bare-pool";
+import {
+  arbitraryBarePoolLayoutCase,
+  sampleMainCheckoutTestValue,
+} from "@testing/generators/main-checkout/main-checkout";
 import { withGitWorktreeEnv } from "@testing/harnesses/git-worktree/git-worktree";
 import { createTempDir, removeTempDir } from "@testing/harnesses/with-temp-dir";
+import { withWorktreeLayoutEnv } from "@testing/harnesses/worktree-layout/worktree-layout";
 
 describe("detectGitCommonDirProductRoot — shared root resolves to the common-dir parent", () => {
   it("resolves a bare-pool worktree to the parent of the git-common-dir and a single clone to its own worktree root", async () => {
-    const spec = sampleMainCheckoutTestValue(arbitraryBarePoolSpec());
-    await withBarePoolEnv(spec, async (env) => {
-      const mainCheckout = await realpath(env.mainCheckoutDir);
-      const result = await detectGitCommonDirProductRoot(env.mainCheckoutDir);
+    const layout = sampleMainCheckoutTestValue(arbitraryBarePoolLayoutCase());
+    await withWorktreeLayoutEnv(layout.spec, async (env) => {
+      const mainCheckout = await realpath(env.worktree(layout.mainCheckoutName));
+      const result = await detectGitCommonDirProductRoot(env.worktree(layout.mainCheckoutName));
       expect(result.isGitRepo).toBe(true);
       expect(result.worktreeRoot).toBe(mainCheckout);
       // The pool's shared root is the container — the parent of the bare repo and of every worktree.
