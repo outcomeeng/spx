@@ -1,15 +1,10 @@
 import { createHash } from "node:crypto";
-import {
-  mkdir as nodeMkdir,
-  readFile as nodeReadFile,
-  readdir as nodeReaddir,
-  writeFile as nodeWriteFile,
-} from "node:fs/promises";
 import { join } from "node:path";
 
 import type { Result } from "@/config/types";
 import {
   createJsonlRunFile,
+  defaultStateStoreFileSystem,
   formatRunTimestamp,
   isRunFileName,
   runFileName,
@@ -160,15 +155,7 @@ const SEGMENT_SEPARATOR = "-";
 const JSONL_LINE_SEPARATOR = "\n";
 const EMPTY_STRING = "";
 
-const defaultFileSystem: StateStoreFileSystem = {
-  mkdir: async (path, options) => {
-    await nodeMkdir(path, options);
-  },
-  writeFile: nodeWriteFile,
-  appendFile: async () => {},
-  readFile: nodeReadFile,
-  readdir: nodeReaddir,
-};
+const defaultFileSystem: StateStoreFileSystem = defaultStateStoreFileSystem;
 
 export { defaultFileSystem as defaultTestRunStateFileSystem };
 
