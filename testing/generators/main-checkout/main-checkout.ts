@@ -160,12 +160,14 @@ function arbitrarySingleTreePathCase(): fc.Arbitrary<MainCheckoutPathCase> {
 }
 
 /**
- * A `MainCheckoutPathCase` for a linked worktree of a non-bare repository: the
- * common directory's parent is the main working tree, and the linked worktree
- * resolves the same main-checkout path even though it is not itself the main
- * checkout. The linked worktree is named after the `origin` repository and sits
- * beside the main tree — the configuration the bare-pool rule would accept — so
- * the case proves bareness, not directory shape, drives designation.
+ * A `MainCheckoutPathCase` for a linked worktree of a non-bare repository, nested
+ * inside the main working tree at `mainTree/linkedDir`. Its parent is the main
+ * tree — which is also the common directory's parent — so both bare-pool signals
+ * hold (`basename === origin repository name`, and `dirname(worktreeRoot) ===` the
+ * common-dir parent); only `commonDirIsBare === false` stops it being designated,
+ * so the case proves bareness, not directory shape, drives designation. The
+ * linked worktree still resolves the same main-checkout path (the main tree)
+ * though it is not itself the main checkout.
  */
 function arbitraryNonBareLinkedPathCase(): fc.Arbitrary<MainCheckoutPathCase> {
   return fc
@@ -242,6 +244,14 @@ export function arbitraryMainCheckoutFacts(): fc.Arbitrary<GitFacts> {
  */
 export function arbitraryNonBareLinkedFacts(): fc.Arbitrary<GitFacts> {
   return arbitraryNonBareLinkedPathCase().map((pathCase) => pathCase.facts);
+}
+
+/**
+ * `GitFacts` for the main working tree of a non-bare repository — the parent of
+ * its common directory — which IS the main checkout whatever branch it holds.
+ */
+export function arbitraryNonBareMainFacts(): fc.Arbitrary<GitFacts> {
+  return arbitrarySingleTreePathCase().map((pathCase) => pathCase.facts);
 }
 
 /**
