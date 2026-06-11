@@ -10,6 +10,7 @@ export const GIT_TEST_SUBCOMMANDS = {
   ADD: "add",
   BRANCH: "branch",
   CHECKOUT: "checkout",
+  CLONE: "clone",
   COMMIT: "commit",
   CONFIG: "config",
   INIT: "init",
@@ -24,6 +25,7 @@ export const GIT_TEST_SUBCOMMANDS = {
 
 export const GIT_TEST_FLAGS = {
   ALLOW_EMPTY: "--allow-empty",
+  BARE: "--bare",
   CACHED: "--cached",
   COMMIT_MESSAGE: "-m",
   CONFIG_OVERRIDE: "-c",
@@ -51,6 +53,7 @@ export const GIT_TEST_OUTPUT = {
 export const GIT_TEST_CONFIG = {
   EMAIL: "test@test.local",
   EMAIL_KEY: "user.email",
+  ORIGIN_URL_KEY: "remote.origin.url",
   USER_NAME: "Test User",
   USER_NAME_KEY: "user.name",
 } as const;
