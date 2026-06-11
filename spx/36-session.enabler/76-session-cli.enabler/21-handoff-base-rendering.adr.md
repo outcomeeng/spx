@@ -6,22 +6,22 @@ The `spx session handoff` base refusal resolves its git facts in the command han
 
 A refusal that must print resolved git state fits the path the descriptor already owns: the descriptor catches domain errors and renders their diagnostics. Carrying the resolved facts on the error lets that single render path produce the checklist without the descriptor reaching for git. The descriptor re-resolving git facts at render time duplicates the reads the handler already performed, drags subprocess I/O into the layer [`spx/14-cli-composition.adr.md`](../../14-cli-composition.adr.md) reserves for stream writes, and admits a divergence between the facts the handler classified the base on and the facts the descriptor prints.
 
-The handler gathers every git fact a linked-worktree base prerequisite depends on before the resolver evaluates the prerequisites, because the checklist names every base prerequisite met or unmet. A resolution that gathers facts only for the first failing prerequisite leaves later prerequisites unevaluated, and an unevaluated prerequisite has no met/unmet mark and no resolved value to print. Evaluating every prerequisite over a complete fact set is what lets the checklist omit none.
+The handler gathers every git fact a non-main-checkout base prerequisite depends on before the resolver evaluates the prerequisites, because the checklist names every base prerequisite met or unmet. A resolution that gathers facts only for the first failing prerequisite leaves later prerequisites unevaluated, and an unevaluated prerequisite has no met/unmet mark and no resolved value to print. Evaluating every prerequisite over a complete fact set is what lets the checklist omit none.
 
 The checklist text — the per-prerequisite marks, the resolved default branch, the `origin/<default>` tip SHA, the observed HEAD SHA, the worktree paths, the unresolved-origin wording, and each remedy — is pure computation over the carried facts. Placing it in the domain per [`spx/14-cli-composition.adr.md`](../../14-cli-composition.adr.md) lets the formatting verify in isolation over injected facts and reduces the descriptor to one stream write and the exit code.
 
 ## Invariants
 
-- Every base prerequisite a linked-worktree refusal evaluates is represented in the thrown error, independent of which prerequisites are met — the count of rendered checklist lines equals the count of base prerequisites.
+- Every base prerequisite a non-main-checkout refusal evaluates is represented in the thrown error, independent of which prerequisites are met — the count of rendered checklist lines equals the count of base prerequisites.
 - The git values the descriptor writes to standard error equal the facts the handler resolved; the descriptor resolves no git state of its own.
 
 ## Verification
 
 ### Audit
 
-- ALWAYS: the command handler gathers every git fact the handoff-base gate evaluates — root-versus-linked classification, branch, HEAD SHA, working-tree cleanliness, resolved default branch, `origin/<default>` tip SHA, current worktree path, and root-worktree path — and passes them as parameters to the pure resolver ([audit])
-- ALWAYS: the pure resolver evaluates every linked-worktree base prerequisite before a refusal is raised, so each prerequisite carries a met-or-unmet result regardless of an earlier prerequisite's state ([audit])
-- ALWAYS: a refused handoff propagates as a thrown `SessionHandoffBaseError` carrying the resolved git facts and the per-prerequisite met/unmet evaluation as structured fields, plus the discriminant that separates a linked-worktree refusal from a non-git refusal ([audit])
+- ALWAYS: the command handler gathers every git fact the handoff-base gate evaluates — main-checkout-versus-non-main classification, branch, HEAD SHA, working-tree cleanliness, resolved default branch, `origin/<default>` tip SHA, current worktree path, and main-checkout path — and passes them as parameters to the pure resolver ([audit])
+- ALWAYS: the pure resolver evaluates every non-main-checkout base prerequisite before a refusal is raised, so each prerequisite carries a met-or-unmet result regardless of an earlier prerequisite's state ([audit])
+- ALWAYS: a refused handoff propagates as a thrown `SessionHandoffBaseError` carrying the resolved git facts and the per-prerequisite met/unmet evaluation as structured fields, plus the discriminant that separates a non-main-checkout refusal from a non-git refusal ([audit])
 - ALWAYS: the checklist text is produced by a pure formatter over the carried facts, and the descriptor writes that text to standard error and sets the non-zero exit code ([audit])
 - ALWAYS: the descriptor selects between rendering the checklist and writing nothing by the discriminant the error carries, so the non-git refusal stays silent without the descriptor inspecting git ([audit])
 - ALWAYS: the resolver and formatter accept the git facts as parameters and the handler accepts a dependency-injected git runner, so each verifies over supplied values ([audit])
