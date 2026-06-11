@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 
 import { pythonTestingLanguage } from "@/testing/languages/python";
 import {
+  PYTEST_EXIT_CODE,
   PYTEST_FIXTURE,
   repoRootedPytestCommandRunner,
   withTempPytestProject,
@@ -29,6 +30,7 @@ describe("python test runner drives real pytest", () => {
 
       expect(result.invoked).toBe(true);
       expect(result.exitCode).not.toBe(0);
+      expect(result.exitCode).not.toBe(PYTEST_EXIT_CODE.NO_TESTS_COLLECTED);
     });
   });
 });
