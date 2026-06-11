@@ -4,13 +4,13 @@ import { createHash } from "node:crypto";
 import * as fc from "fast-check";
 import { describe, expect, it } from "vitest";
 
-import { AUDIT_BRANCH_SLUG_MIN_MAX_BYTES, DEFAULT_AUDIT_CONFIG } from "@/domains/audit/config";
 import { resolveAuditBranchIdentity, slugAuditBranchIdentity } from "@/domains/audit/run-state";
 import { AUDIT_RUN_STATE_TEST_GENERATOR, sampleAuditRunStateTestValue } from "@testing/generators/audit/run-state";
 
 const SHA256_ALGORITHM = "sha256";
 const HEX_ENCODING = "hex";
 const HASH_PREFIX_HEX_LENGTH = 8;
+const DEFAULT_BRANCH_SLUG_MAX_BYTES = 120;
 const DETACHED_PREFIX = "detached-";
 const DETACHED_HEAD_SHA_HEX_LENGTH = 12;
 const PATH_SEPARATOR_PATTERN = /[\\/]/;
@@ -34,13 +34,12 @@ describe("audit branch slugging", () => {
     );
   });
 
-  it("preserves the hash suffix while respecting configured byte limits", () => {
+  it("preserves the hash suffix while respecting the default byte limit", () => {
     fc.assert(
       fc.property(AUDIT_RUN_STATE_TEST_GENERATOR.branchName(), (branchName) => {
-        const maxBytes = DEFAULT_AUDIT_CONFIG.branchSlug.maxBytes;
-        const slug = slugAuditBranchIdentity(branchName, maxBytes);
+        const slug = slugAuditBranchIdentity(branchName);
 
-        expect(Buffer.byteLength(slug)).toBeLessThanOrEqual(maxBytes);
+        expect(Buffer.byteLength(slug)).toBeLessThanOrEqual(DEFAULT_BRANCH_SLUG_MAX_BYTES);
         expect(slug.endsWith(hashPrefix(branchName))).toBe(true);
       }),
     );
@@ -84,6 +83,6 @@ describe("audit branch slugging", () => {
     const identity = resolveAuditBranchIdentity({ headSha });
 
     expect(identity).toBe(`${DETACHED_PREFIX}${headSha.slice(0, DETACHED_HEAD_SHA_HEX_LENGTH)}`);
-    expect(slugAuditBranchIdentity(identity, AUDIT_BRANCH_SLUG_MIN_MAX_BYTES)).toMatch(SLUG_CHARACTER_PATTERN);
+    expect(slugAuditBranchIdentity(identity, HASH_PREFIX_HEX_LENGTH)).toMatch(SLUG_CHARACTER_PATTERN);
   });
 });

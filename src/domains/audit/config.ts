@@ -10,13 +10,9 @@ export const AUDIT_CONFIG_FIELDS = {
   VERDICT_FILE: "verdictFile",
   VERDICT_FILE_SUFFIX: "verdictFileSuffix",
   BASE_REF: "baseRef",
-  BRANCH_SLUG: "branchSlug",
-  MAX_BYTES: "maxBytes",
   AUDITORS: "auditors",
   TARGETS: "targets",
 } as const;
-
-export const AUDIT_BRANCH_SLUG_MIN_MAX_BYTES = 10;
 
 export interface AuditStorageConfig {
   readonly spxDir: string;
@@ -29,14 +25,9 @@ type MutableAuditStorageConfig = {
   -readonly [Field in keyof AuditStorageConfig]: string;
 };
 
-export interface AuditBranchSlugConfig {
-  readonly maxBytes: number;
-}
-
 export interface AuditConfig {
   readonly storage: AuditStorageConfig;
   readonly baseRef: string;
-  readonly branchSlug: AuditBranchSlugConfig;
   readonly auditors: readonly string[];
   readonly targets: PathFilterConfig;
 }
@@ -49,9 +40,6 @@ export const DEFAULT_AUDIT_CONFIG: AuditConfig = {
     verdictFileSuffix: ".audit.xml",
   },
   baseRef: "main",
-  branchSlug: {
-    maxBytes: 120,
-  },
   auditors: [],
   targets: resolveDefaultTargets(),
 };
@@ -59,7 +47,6 @@ export const DEFAULT_AUDIT_CONFIG: AuditConfig = {
 const AUDIT_ALLOWED_FIELDS = new Set<string>([
   AUDIT_CONFIG_FIELDS.STORAGE,
   AUDIT_CONFIG_FIELDS.BASE_REF,
-  AUDIT_CONFIG_FIELDS.BRANCH_SLUG,
   AUDIT_CONFIG_FIELDS.AUDITORS,
   AUDIT_CONFIG_FIELDS.TARGETS,
 ]);
@@ -69,10 +56,6 @@ const AUDIT_STORAGE_ALLOWED_FIELDS = new Set<string>([
   AUDIT_CONFIG_FIELDS.NODES_DIR,
   AUDIT_CONFIG_FIELDS.VERDICT_FILE,
   AUDIT_CONFIG_FIELDS.VERDICT_FILE_SUFFIX,
-]);
-
-const AUDIT_BRANCH_SLUG_ALLOWED_FIELDS = new Set<string>([
-  AUDIT_CONFIG_FIELDS.MAX_BYTES,
 ]);
 
 const PATH_SEPARATOR = "/";
@@ -131,11 +114,6 @@ function validateAuditConfig(raw: unknown): Result<AuditConfig> {
     );
   if (!baseRef.ok) return baseRef;
 
-  const branchSlug = raw[AUDIT_CONFIG_FIELDS.BRANCH_SLUG] === undefined
-    ? { ok: true as const, value: DEFAULT_AUDIT_CONFIG.branchSlug }
-    : validateBranchSlug(raw[AUDIT_CONFIG_FIELDS.BRANCH_SLUG]);
-  if (!branchSlug.ok) return branchSlug;
-
   const auditors = raw[AUDIT_CONFIG_FIELDS.AUDITORS] === undefined
     ? { ok: true as const, value: DEFAULT_AUDIT_CONFIG.auditors }
     : validateArrayOfNonEmptyStrings(
@@ -157,7 +135,6 @@ function validateAuditConfig(raw: unknown): Result<AuditConfig> {
     value: {
       storage: storage.value,
       baseRef: baseRef.value,
-      branchSlug: branchSlug.value,
       auditors: auditors.value,
       targets: targets.value,
     },
@@ -180,33 +157,6 @@ function validateStorage(raw: unknown): Result<AuditStorageConfig> {
     DEFAULT_AUDIT_CONFIG.storage,
     raw,
   );
-}
-
-function validateBranchSlug(raw: unknown): Result<AuditBranchSlugConfig> {
-  if (!isRecord(raw)) {
-    return { ok: false, error: `${AUDIT_SECTION}.${AUDIT_CONFIG_FIELDS.BRANCH_SLUG} must be an object` };
-  }
-  const unknown = rejectUnknownFields(
-    `${AUDIT_SECTION}.${AUDIT_CONFIG_FIELDS.BRANCH_SLUG}`,
-    raw,
-    AUDIT_BRANCH_SLUG_ALLOWED_FIELDS,
-  );
-  if (!unknown.ok) return unknown;
-
-  const maxBytesRaw = raw[AUDIT_CONFIG_FIELDS.MAX_BYTES];
-  if (maxBytesRaw === undefined) return { ok: true, value: DEFAULT_AUDIT_CONFIG.branchSlug };
-  if (
-    typeof maxBytesRaw !== "number"
-    || !Number.isInteger(maxBytesRaw)
-    || maxBytesRaw < AUDIT_BRANCH_SLUG_MIN_MAX_BYTES
-  ) {
-    return {
-      ok: false,
-      error:
-        `${AUDIT_SECTION}.${AUDIT_CONFIG_FIELDS.BRANCH_SLUG}.${AUDIT_CONFIG_FIELDS.MAX_BYTES} must be an integer greater than or equal to ${AUDIT_BRANCH_SLUG_MIN_MAX_BYTES}`,
-    };
-  }
-  return { ok: true, value: { maxBytes: maxBytesRaw } };
 }
 
 function validateStringRecord(

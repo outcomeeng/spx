@@ -8,7 +8,6 @@ import { PATH_FILTER_CONFIG_FIELDS } from "@/config/primitives/path-filter";
 import { productionRegistry } from "@/config/registry";
 import { RESULT_VALUE_KEY } from "@/config/types";
 import {
-  AUDIT_BRANCH_SLUG_MIN_MAX_BYTES,
   AUDIT_CONFIG_FIELDS,
   AUDIT_SECTION,
   type AuditConfig,
@@ -39,7 +38,6 @@ function expectRejectedConfig(result: Awaited<ReturnType<typeof resolveConfig>>,
 function assertAuditConfig(value: unknown): AuditConfig {
   expect(value).toHaveProperty(AUDIT_CONFIG_FIELDS.STORAGE);
   expect(value).toHaveProperty(AUDIT_CONFIG_FIELDS.BASE_REF);
-  expect(value).toHaveProperty(AUDIT_CONFIG_FIELDS.BRANCH_SLUG);
   expect(value).toHaveProperty(AUDIT_CONFIG_FIELDS.AUDITORS);
   expect(value).toHaveProperty(AUDIT_CONFIG_FIELDS.TARGETS);
   return value as AuditConfig;
@@ -63,7 +61,7 @@ describe("audit config descriptor", () => {
     });
   });
 
-  it("resolves storage, base ref, branch slug, auditors, and target filters from config", async () => {
+  it("resolves storage, base ref, auditors, and target filters from config", async () => {
     const filter = sampleConfigTestValue(CONFIG_TEST_GENERATOR.pathFilter());
     const storage = {
       [AUDIT_CONFIG_FIELDS.SPX_DIR]: sampleConfigTestValue(CONFIG_TEST_GENERATOR.key()),
@@ -75,9 +73,6 @@ describe("audit config descriptor", () => {
       [AUDIT_SECTION]: {
         [AUDIT_CONFIG_FIELDS.STORAGE]: storage,
         [AUDIT_CONFIG_FIELDS.BASE_REF]: sampleConfigTestValue(CONFIG_TEST_GENERATOR.key()),
-        [AUDIT_CONFIG_FIELDS.BRANCH_SLUG]: {
-          [AUDIT_CONFIG_FIELDS.MAX_BYTES]: DEFAULT_AUDIT_CONFIG.branchSlug.maxBytes + 1,
-        },
         [AUDIT_CONFIG_FIELDS.AUDITORS]: [
           sampleConfigTestValue(CONFIG_TEST_GENERATOR.key()),
           sampleConfigTestValue(CONFIG_TEST_GENERATOR.key()),
@@ -93,19 +88,17 @@ describe("audit config descriptor", () => {
 
       expect(audit.storage).toEqual(storage);
       expect(audit.baseRef).toEqual(config[AUDIT_SECTION][AUDIT_CONFIG_FIELDS.BASE_REF]);
-      expect(audit.branchSlug).toEqual(config[AUDIT_SECTION][AUDIT_CONFIG_FIELDS.BRANCH_SLUG]);
       expect(audit.auditors).toEqual(config[AUDIT_SECTION][AUDIT_CONFIG_FIELDS.AUDITORS]);
       expect(audit.targets).toEqual(filter);
     });
   });
 
-  it("rejects invalid storage, branch slug, auditor, and target-filter shapes before audit execution", async () => {
+  it("rejects invalid storage, auditor, and target-filter shapes before audit execution", async () => {
     const invalidPathFilter = sampleConfigTestValue(CONFIG_TEST_GENERATOR.invalidPathFilter());
     const unknownValue = sampleConfigTestValue(CONFIG_TEST_GENERATOR.scalar());
     const unknownAuditField = sampleUnknownField([
       AUDIT_CONFIG_FIELDS.STORAGE,
       AUDIT_CONFIG_FIELDS.BASE_REF,
-      AUDIT_CONFIG_FIELDS.BRANCH_SLUG,
       AUDIT_CONFIG_FIELDS.AUDITORS,
       AUDIT_CONFIG_FIELDS.TARGETS,
     ]);
@@ -115,7 +108,6 @@ describe("audit config descriptor", () => {
       AUDIT_CONFIG_FIELDS.VERDICT_FILE,
       AUDIT_CONFIG_FIELDS.VERDICT_FILE_SUFFIX,
     ]);
-    const unknownBranchSlugField = sampleUnknownField([AUDIT_CONFIG_FIELDS.MAX_BYTES]);
     const cases: readonly { readonly config: Config; readonly errorPath: string }[] = [
       {
         config: {
@@ -138,42 +130,12 @@ describe("audit config descriptor", () => {
       {
         config: {
           [AUDIT_SECTION]: {
-            [AUDIT_CONFIG_FIELDS.BRANCH_SLUG]: {
-              [unknownBranchSlugField]: unknownValue,
-            },
-          },
-        },
-        errorPath: auditPath(AUDIT_CONFIG_FIELDS.BRANCH_SLUG, unknownBranchSlugField),
-      },
-      {
-        config: {
-          [AUDIT_SECTION]: {
             [AUDIT_CONFIG_FIELDS.STORAGE]: {
               [AUDIT_CONFIG_FIELDS.VERDICT_FILE]: {},
             },
           },
         },
         errorPath: auditPath(AUDIT_CONFIG_FIELDS.STORAGE, AUDIT_CONFIG_FIELDS.VERDICT_FILE),
-      },
-      {
-        config: {
-          [AUDIT_SECTION]: {
-            [AUDIT_CONFIG_FIELDS.BRANCH_SLUG]: {
-              [AUDIT_CONFIG_FIELDS.MAX_BYTES]: 0,
-            },
-          },
-        },
-        errorPath: auditPath(AUDIT_CONFIG_FIELDS.BRANCH_SLUG, AUDIT_CONFIG_FIELDS.MAX_BYTES),
-      },
-      {
-        config: {
-          [AUDIT_SECTION]: {
-            [AUDIT_CONFIG_FIELDS.BRANCH_SLUG]: {
-              [AUDIT_CONFIG_FIELDS.MAX_BYTES]: AUDIT_BRANCH_SLUG_MIN_MAX_BYTES - 1,
-            },
-          },
-        },
-        errorPath: auditPath(AUDIT_CONFIG_FIELDS.BRANCH_SLUG, AUDIT_CONFIG_FIELDS.MAX_BYTES),
       },
       {
         config: {

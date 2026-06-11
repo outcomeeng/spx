@@ -38,7 +38,6 @@ function expectResolvedConfig(result: Awaited<ReturnType<typeof resolveConfig>>)
 function assertAuditConfig(value: unknown): AuditConfig {
   expect(value).toHaveProperty(AUDIT_CONFIG_FIELDS.STORAGE);
   expect(value).toHaveProperty(AUDIT_CONFIG_FIELDS.BASE_REF);
-  expect(value).toHaveProperty(AUDIT_CONFIG_FIELDS.BRANCH_SLUG);
   expect(value).toHaveProperty(AUDIT_CONFIG_FIELDS.AUDITORS);
   expect(value).toHaveProperty(AUDIT_CONFIG_FIELDS.TARGETS);
   return value as AuditConfig;
@@ -55,9 +54,6 @@ describe("audit config descriptor format mapping", () => {
           [AUDIT_CONFIG_FIELDS.VERDICT_FILE_SUFFIX]: sampleConfigTestValue(CONFIG_TEST_GENERATOR.key()),
         },
         [AUDIT_CONFIG_FIELDS.BASE_REF]: sampleConfigTestValue(CONFIG_TEST_GENERATOR.key()),
-        [AUDIT_CONFIG_FIELDS.BRANCH_SLUG]: {
-          [AUDIT_CONFIG_FIELDS.MAX_BYTES]: DEFAULT_AUDIT_CONFIG.branchSlug.maxBytes + 1,
-        },
         [AUDIT_CONFIG_FIELDS.AUDITORS]: [sampleConfigTestValue(CONFIG_TEST_GENERATOR.key())],
         [AUDIT_CONFIG_FIELDS.TARGETS]: sampleConfigTestValue(CONFIG_TEST_GENERATOR.pathFilter()),
       },
