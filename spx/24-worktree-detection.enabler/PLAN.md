@@ -27,8 +27,9 @@ node has left `spx/EXCLUDE`. The remaining work below is consumer wiring, not th
   reading common-dir bareness from `git config --get core.bare` so a non-bare
   repository with linked worktrees is never mistaken for a bare pool; co-located
   mapping/scenario tests + the `testing/generators/main-checkout/` generator.
-- `docs(worktree-detection): track the unnamed non-bare-with-linked layout` —
-  `ISSUES.md`.
+
+(The non-bare-with-linked layout that an interim `ISSUES.md` tracked is now named
+directly in `spx/15-worktree-management.pdr.md`, so that `ISSUES.md` was removed.)
 
 ## Settled design decisions — do NOT re-ask
 
@@ -138,6 +139,15 @@ These are follow-ups to author in the plugins repo — described here, not yet f
   non-bare repository *with* a linked worktree is covered at mapping grade
   (`arbitraryNonBareLinkedFacts`) and the `core.bare == false` probe path is exercised by
   the single-tree scenario, but no scenario provisions a real non-bare repo with a linked
-  worktree and asserts `false` from the linked worktree through `gatherGitFacts`. Add that
-  scenario (a co-located `@testing/harnesses/` non-bare-linked provisioner) to lift the
-  third layout from mapping-grade to scenario-grade evidence.
+  worktree and asserts `false` from the linked worktree through `gatherGitFacts`. The
+  interviewed unified worktree-layout harness (`withWorktreeLayoutEnv`, the approved
+  follow-up) provisions all three layouts and lifts this to scenario grade.
+- **`[review]` tags on citation-renamed lines**: the PDR rename touched lines in
+  `ignore-source.md`, `spec-cli-commands.md`, `spec-domain.md`, `session.md`, and
+  `session-cli.md` that still carry the retired `[review]` tag. Re-tagging is **not** a
+  uniform `[review]`→`[audit]`: the file-inclusion subtree (incl. `ignore-source.md`) is
+  slated for `[review]`→`[test]` coupled with implementing tests per
+  `spx/17-file-inclusion.enabler/PLAN.md`, and the tree-wide spec-assertion migration is
+  its own classification-requiring pass per `spx/23-spec-tree.enabler/ISSUES.md`. The
+  citation here renamed only the PDR path, not the tags; the tag migration stays with those
+  owning passes (a blanket `[audit]` sed here would contradict the `[test]` plan).
