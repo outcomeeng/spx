@@ -1,6 +1,6 @@
 # Compact CLI
 
-The compact CLI exposes `spx compact store --transcript <path>` and `spx compact retrieve` as command handlers that compose pure compact-domain parsing, the session identity enabler's agent-session environment resolver, and state-store I/O. Store reads transcript text, derives the compact record, and appends it to `.spx/worktree/{session-token}/compact/stash.jsonl`; retrieve reads the latest record and prints the record JSON only.
+The compact CLI exposes `spx compact store --transcript <path>` and `spx compact retrieve` as command handlers that compose pure compact-domain parsing, the session identity enabler's agent-session environment resolver, and state-store I/O. Store reads JSONL transcript text, derives the compact record from parsed string-field values, and appends it to `.spx/worktree/{session-token}/compact/stash.jsonl`; retrieve reads the latest record and prints the record JSON only.
 
 ## Rationale
 
@@ -19,7 +19,7 @@ The CLI remains presentation-free because runtime hooks own their own resume pro
 
 ### Testing
 
-- ALWAYS: transcript extraction handles escaped and unescaped context-marker quotes ([mapping])
+- ALWAYS: transcript extraction parses JSONL lines before scanning string-field values, and handles escaped and unescaped context-marker quotes in decoded string values ([mapping])
 - ALWAYS: compact CLI commands write and read through worktree-session scoped state ([compliance])
 - ALWAYS: compact commands exit non-zero without writing or emitting stdout when no agent-session environment identity is available ([compliance])
 - ALWAYS: missing compact records produce non-zero retrieve exit with no stdout ([compliance])

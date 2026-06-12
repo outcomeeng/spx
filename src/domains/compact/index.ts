@@ -33,17 +33,22 @@ export interface CompactRecord extends JsonRecord {
   readonly has_foundation: true;
 }
 
-const CONTEXT_TARGET_PATTERN = /SPEC_TREE_CONTEXT\s+target=\\*"(spx\/[A-Za-z0-9._/-]+)/g;
 const EMPTY_ACTIVE_NODE = "";
+const JSONL_LINE_SEPARATOR = "\n";
+const ATTRIBUTE_ASSIGNMENT = "=";
+const ESCAPE_CHARACTER = "\\";
+const CONTEXT_TARGET_PREFIX = `${COMPACT_MARKER.TARGET_ATTRIBUTE}${ATTRIBUTE_ASSIGNMENT}`;
+const NODE_PATH_PREFIX = "spx/";
 
 export function extractCompactRecord(transcript: string): CompactRecord | undefined {
-  if (!transcript.includes(COMPACT_MARKER.FOUNDATION)) return undefined;
-
+  let hasFoundation = false;
   let activeNode = EMPTY_ACTIVE_NODE;
-  for (const match of transcript.matchAll(CONTEXT_TARGET_PATTERN)) {
-    activeNode = match[1] ?? EMPTY_ACTIVE_NODE;
+  for (const value of transcriptStringValues(transcript)) {
+    if (value.includes(COMPACT_MARKER.FOUNDATION)) hasFoundation = true;
+    activeNode = extractLastContextTarget(value) ?? activeNode;
   }
 
+  if (!hasFoundation) return undefined;
   return {
     [COMPACT_RECORD_FIELDS.ACTIVE_NODE]: activeNode,
     [COMPACT_RECORD_FIELDS.HAS_FOUNDATION]: true,
@@ -74,4 +79,79 @@ export function parseCompactRecord(value: unknown): Result<CompactRecord> {
     };
   }
   return { ok: false, error: COMPACT_ERROR.RECORD_SHAPE_INVALID };
+}
+
+function transcriptStringValues(transcript: string): readonly string[] {
+  const values: string[] = [];
+  for (const rawLine of transcript.split(JSONL_LINE_SEPARATOR)) {
+    const line = rawLine.trim();
+    if (line.length === 0) continue;
+    try {
+      collectStringValues(JSON.parse(line) as unknown, values);
+    } catch {
+      continue;
+    }
+  }
+  return values;
+}
+
+function collectStringValues(value: unknown, values: string[]): void {
+  if (typeof value === "string") {
+    values.push(value);
+    return;
+  }
+  if (Array.isArray(value)) {
+    for (const entry of value) collectStringValues(entry, values);
+    return;
+  }
+  if (typeof value === "object" && value !== null) {
+    for (const entry of Object.values(value)) collectStringValues(entry, values);
+  }
+}
+
+function extractLastContextTarget(value: string): string | undefined {
+  let activeNode: string | undefined;
+  let searchFrom = 0;
+  while (searchFrom < value.length) {
+    const contextIndex = value.indexOf(COMPACT_MARKER.CONTEXT, searchFrom);
+    if (contextIndex < 0) return activeNode;
+    const target = extractContextTargetAt(value, contextIndex + COMPACT_MARKER.CONTEXT.length);
+    if (target !== undefined) activeNode = target;
+    searchFrom = contextIndex + COMPACT_MARKER.CONTEXT.length;
+  }
+  return activeNode;
+}
+
+function extractContextTargetAt(value: string, searchFrom: number): string | undefined {
+  const targetIndex = value.indexOf(CONTEXT_TARGET_PREFIX, searchFrom);
+  if (targetIndex < 0) return undefined;
+  const quoteIndex = findOpeningTargetQuote(value, targetIndex + CONTEXT_TARGET_PREFIX.length);
+  if (quoteIndex === undefined) return undefined;
+  const target = readTargetPath(value, quoteIndex + COMPACT_MARKER.UNESCAPED_TARGET_QUOTE.length);
+  return target.startsWith(NODE_PATH_PREFIX) ? target : undefined;
+}
+
+function findOpeningTargetQuote(value: string, startIndex: number): number | undefined {
+  let index = startIndex;
+  while (value[index] === ESCAPE_CHARACTER) index += 1;
+  return value[index] === COMPACT_MARKER.UNESCAPED_TARGET_QUOTE ? index : undefined;
+}
+
+function readTargetPath(value: string, startIndex: number): string {
+  let endIndex = startIndex;
+  while (endIndex < value.length && isTargetPathCharacter(value[endIndex] ?? EMPTY_ACTIVE_NODE)) {
+    endIndex += 1;
+  }
+  return value.slice(startIndex, endIndex);
+}
+
+function isTargetPathCharacter(character: string): boolean {
+  const code = character.charCodeAt(0);
+  return (code >= 48 && code <= 57)
+    || (code >= 65 && code <= 90)
+    || (code >= 97 && code <= 122)
+    || character === "."
+    || character === "_"
+    || character === "-"
+    || character === "/";
 }
