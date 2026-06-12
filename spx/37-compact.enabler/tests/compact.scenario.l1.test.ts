@@ -30,13 +30,17 @@ function jsonlStringRecord(content: string): string {
   return JSON.stringify({ content });
 }
 
+function jsonlNestedStringRecord(content: string): string {
+  return jsonlStringRecord(JSON.stringify({ content }));
+}
+
 describe("compact transcript extraction", () => {
-  it("extracts the last active node from escaped transcript markers", () => {
+  it("extracts the last active node from JSONL string fields with escaped transcript markers", () => {
     const [firstNode, latestNode] = sampleCompactTestValue(COMPACT_TEST_GENERATOR.distinctNodePaths());
     const transcript = [
-      COMPACT_MARKER.FOUNDATION,
-      escapedMarker(firstNode),
-      escapedMarker(latestNode),
+      jsonlStringRecord(COMPACT_MARKER.FOUNDATION),
+      jsonlStringRecord(escapedMarker(firstNode)),
+      jsonlStringRecord(escapedMarker(latestNode)),
     ].join("\n");
 
     expect(extractCompactRecord(transcript)).toEqual({
@@ -45,12 +49,12 @@ describe("compact transcript extraction", () => {
     });
   });
 
-  it("extracts the last active node from unescaped transcript markers", () => {
+  it("extracts the last active node from JSONL string fields with unescaped transcript markers", () => {
     const [firstNode, latestNode] = sampleCompactTestValue(COMPACT_TEST_GENERATOR.distinctNodePaths());
     const transcript = [
-      COMPACT_MARKER.FOUNDATION,
-      unescapedMarker(firstNode),
-      unescapedMarker(latestNode),
+      jsonlStringRecord(COMPACT_MARKER.FOUNDATION),
+      jsonlStringRecord(unescapedMarker(firstNode)),
+      jsonlStringRecord(unescapedMarker(latestNode)),
     ].join("\n");
 
     expect(extractCompactRecord(transcript)).toEqual({
@@ -59,13 +63,13 @@ describe("compact transcript extraction", () => {
     });
   });
 
-  it("extracts the last active node from JSONL string-escaped transcript markers", () => {
+  it("extracts the last active node from JSONL nested string-encoded transcript markers", () => {
     fc.assert(
       fc.property(COMPACT_TEST_GENERATOR.distinctNodePaths(), ([firstNode, latestNode]) => {
         const transcript = [
           jsonlStringRecord(COMPACT_MARKER.FOUNDATION),
-          jsonlStringRecord(escapedMarker(firstNode)),
-          jsonlStringRecord(escapedMarker(latestNode)),
+          jsonlNestedStringRecord(unescapedMarker(firstNode)),
+          jsonlNestedStringRecord(unescapedMarker(latestNode)),
         ].join("\n");
 
         expect(extractCompactRecord(transcript)).toEqual({
@@ -76,10 +80,20 @@ describe("compact transcript extraction", () => {
     );
   });
 
+  it("ignores marker text outside JSON string field values", () => {
+    const node = sampleCompactTestValue(COMPACT_TEST_GENERATOR.nodePath());
+    const transcript = JSON.stringify({
+      [COMPACT_MARKER.FOUNDATION]: true,
+      [unescapedMarker(node)]: true,
+    });
+
+    expect(extractCompactRecord(transcript)).toBeUndefined();
+  });
+
   it("returns no record when the foundation marker is absent", () => {
     const node = sampleCompactTestValue(COMPACT_TEST_GENERATOR.nodePath());
 
-    expect(extractCompactRecord(escapedMarker(node))).toBeUndefined();
+    expect(extractCompactRecord(jsonlStringRecord(escapedMarker(node)))).toBeUndefined();
   });
 
   it("stores compact state under the local worktree session scope", async () => {

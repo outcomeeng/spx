@@ -62,6 +62,10 @@ function unescapedMarker(nodePath: string): string {
   }${nodePath}${COMPACT_MARKER.UNESCAPED_TARGET_QUOTE}`;
 }
 
+function transcriptJsonl(lines: readonly string[]): string {
+  return lines.map((content) => JSON.stringify({ content })).join("\n");
+}
+
 describe("compact CLI", () => {
   it("stores transcript context and retrieves the latest compact record", async () => {
     const sessionToken = sampleCompactTestValue(COMPACT_TEST_GENERATOR.sessionToken());
@@ -79,10 +83,10 @@ describe("compact CLI", () => {
       const transcriptPath = join(gitEnv.productDir, transcriptFileName);
       await writeFile(
         transcriptPath,
-        [
+        transcriptJsonl([
           COMPACT_MARKER.FOUNDATION,
           escapedMarker(firstNode),
-        ].join("\n"),
+        ]),
       );
 
       const firstStored = await runSpx([
@@ -96,10 +100,10 @@ describe("compact CLI", () => {
       expect(firstStored.stderr).toHaveLength(0);
       await writeFile(
         transcriptPath,
-        [
+        transcriptJsonl([
           COMPACT_MARKER.FOUNDATION,
           escapedMarker(latestNode),
-        ].join("\n"),
+        ]),
       );
 
       const latestStored = await runSpx([
@@ -135,7 +139,7 @@ describe("compact CLI", () => {
 
     await withGitWorktreeEnv(async (gitEnv) => {
       const transcriptPath = join(gitEnv.productDir, transcriptFileName);
-      await writeFile(transcriptPath, unescapedMarker(node));
+      await writeFile(transcriptPath, transcriptJsonl([unescapedMarker(node)]));
 
       const stored = await runSpx([
         COMPACT_CLI.commandName,
@@ -167,10 +171,10 @@ describe("compact CLI", () => {
 
     await withGitWorktreeEnv(async (gitEnv) => {
       const transcriptPath = join(gitEnv.productDir, transcriptFileName);
-      await writeFile(transcriptPath, [
+      await writeFile(transcriptPath, transcriptJsonl([
         COMPACT_MARKER.FOUNDATION,
         escapedMarker(node),
-      ].join("\n"));
+      ]));
 
       const stored = await runSpx([
         COMPACT_CLI.commandName,
@@ -217,10 +221,10 @@ describe("compact CLI", () => {
 
     await withGitWorktreeEnv(async (gitEnv) => {
       const transcriptPath = join(gitEnv.productDir, transcriptFileName);
-      await writeFile(transcriptPath, [
+      await writeFile(transcriptPath, transcriptJsonl([
         COMPACT_MARKER.FOUNDATION,
         escapedMarker(node),
-      ].join("\n"));
+      ]));
 
       const stored = await runSpx([
         COMPACT_CLI.commandName,
@@ -251,10 +255,10 @@ describe("compact CLI", () => {
 
     await withGitWorktreeEnv(async (gitEnv) => {
       const transcriptPath = join(gitEnv.productDir, transcriptFileName);
-      await writeFile(transcriptPath, [
+      await writeFile(transcriptPath, transcriptJsonl([
         COMPACT_MARKER.FOUNDATION,
         escapedMarker(node),
-      ].join("\n"));
+      ]));
 
       const stored = await runSpx([
         COMPACT_CLI.commandName,
