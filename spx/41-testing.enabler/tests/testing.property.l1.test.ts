@@ -12,7 +12,7 @@ describe("spx test exit-code aggregation", () => {
     fc.assert(
       fc.property(fc.array(TEST_DISPATCH_GENERATOR.invocation()), (invocations) => {
         const anyNonZero = invocations.some(
-          (invocation) => invocation.invoked && invocation.exitCode !== undefined && invocation.exitCode !== 0,
+          (invocation) => invocation.invoked && invocation.exitCode !== 0,
         );
         expect(aggregateTestExitCode(invocations) === 0).toBe(!anyNonZero);
       }),

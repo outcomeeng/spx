@@ -9,7 +9,7 @@ export const SUCCESS_EXIT_CODE = 0;
  */
 export function aggregateTestExitCode(invocations: readonly TestRunInvocation[]): number {
   for (const invocation of invocations) {
-    if (invocation.invoked && invocation.exitCode !== undefined && invocation.exitCode !== SUCCESS_EXIT_CODE) {
+    if (invocation.invoked && invocation.exitCode !== SUCCESS_EXIT_CODE) {
       return invocation.exitCode;
     }
   }
