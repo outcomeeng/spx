@@ -1023,7 +1023,7 @@ describe("resolveHandoffGitRef (handoff-base gate)", () => {
     );
   });
 
-  it("GIVEN a detached linked worktree whose default branch resolves but its tip does not THEN at-tip remedy is root-only", () => {
+  it("GIVEN a detached non-main checkout whose default branch resolves but its tip does not THEN at-tip remedy is main-checkout-only", () => {
     const error = captureHandoffBaseRefusal(
       gateFacts({ headSha: HEAD_SHA, defaultBranch: GATE_DEFAULT_BRANCH, defaultTipSha: null }),
     );
@@ -1090,7 +1090,12 @@ describe("handoffCommand — handoff-base gate", () => {
       handoffCommand({
         content: PREFILL_HANDOFF_STDIN,
         sessionsDir: harness.sessionsDir,
-        deps: createSessionGitDeps({ worktreeKind: "non-main", branch: null, clean: false, detachedAtDefaultTip: true }),
+        deps: createSessionGitDeps({
+          worktreeKind: "non-main",
+          branch: null,
+          clean: false,
+          detachedAtDefaultTip: true,
+        }),
       }),
     ).rejects.toBeInstanceOf(SessionHandoffBaseError);
   });
@@ -1110,7 +1115,12 @@ describe("handoffCommand — handoff-base gate", () => {
       handoffCommand({
         content: PREFILL_HANDOFF_STDIN,
         sessionsDir: harness.sessionsDir,
-        deps: createSessionGitDeps({ worktreeKind: "non-main", branch: null, clean: true, detachedAtDefaultTip: false }),
+        deps: createSessionGitDeps({
+          worktreeKind: "non-main",
+          branch: null,
+          clean: true,
+          detachedAtDefaultTip: false,
+        }),
       }),
     ).rejects.toBeInstanceOf(SessionHandoffBaseError);
   });
