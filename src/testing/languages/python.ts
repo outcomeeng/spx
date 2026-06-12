@@ -6,7 +6,7 @@
  * injected command runner. Composing descriptors into a registry and dispatching
  * the `spx test` command are separate, higher-level concerns.
  */
-import { basename } from "node:path";
+import { basename, dirname, join } from "node:path/posix";
 
 import type {
   TestingLanguageDescriptor,
@@ -50,6 +50,21 @@ function matchesTestFile(filePath: string): boolean {
   return basename(filePath).startsWith(PYTHON_TEST_FILE_PREFIX) && filePath.endsWith(PYTHON_TEST_FILE_EXTENSION);
 }
 
+function coveredProductInputPaths(coveredTestPaths: readonly string[]): readonly string[] {
+  const paths = new Set<string>();
+  for (const testPath of coveredTestPaths) {
+    if (!matchesTestFile(testPath)) continue;
+    let directory = dirname(testPath);
+    while (directory !== "." && directory.length > 0) {
+      paths.add(join(directory, PYTHON_PRODUCT_INPUT_PATH.CONFTEST));
+      const parent = dirname(directory);
+      if (parent === directory) break;
+      directory = parent;
+    }
+  }
+  return [...paths].sort(compareAsciiStrings);
+}
+
 function excludeFlag(nodePath: string): string {
   return `${PYTHON_PYTEST_IGNORE_FLAG_PREFIX}${nodePath}${PYTHON_PYTEST_IGNORE_FLAG_SUFFIX}`;
 }
@@ -77,8 +92,15 @@ export const pythonTestingLanguage: TestingLanguageDescriptor = {
   name: PYTHON_TESTING_LANGUAGE_NAME,
   testFilePatterns: PYTHON_TEST_FILE_PATTERNS,
   productInputPaths: PYTHON_PRODUCT_INPUT_PATHS,
+  coveredProductInputPaths,
   matchesTestFile,
   excludeFlag,
   detect,
   runTests,
 };
+
+function compareAsciiStrings(left: string, right: string): number {
+  if (left < right) return -1;
+  if (left > right) return 1;
+  return 0;
+}

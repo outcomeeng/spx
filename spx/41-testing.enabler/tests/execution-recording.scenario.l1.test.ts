@@ -1,5 +1,5 @@
 import { writeFile } from "node:fs/promises";
-import { join } from "node:path";
+import { dirname, join } from "node:path";
 
 import * as fc from "fast-check";
 import { describe, expect, it } from "vitest";
@@ -242,6 +242,41 @@ describe("spx test execution recording and per-node run", () => {
             expect(firstDigest).toBeDefined();
 
             await writeFile(join(productDir, PYTHON_PRODUCT_INPUT_PATH.CONFTEST), secondInputContent);
+
+            const secondRunner = createRecordingCommandRunner({ present: true, exitCode: 0 });
+            const second = await runTestsCommand({ productDir, passing: false }, testCommandDeps(secondRunner));
+            const secondDigest = recordedProductInputDigest(second.recorded, pythonTestingLanguage.name);
+            expect(secondDigest).toBeDefined();
+            expect(secondDigest).not.toBe(firstDigest);
+          });
+        },
+      ),
+      { numRuns: LITERAL_TEST_GENERATOR_COUNTS.smallPropertyRuns },
+    );
+  });
+
+  it("records Python product input digests and changes them when a covered tests conftest changes", async () => {
+    const nodePath = sampleDispatchValue(TEST_DISPATCH_GENERATOR.nodePath());
+    const nodeFile = sampleDispatchValue(TEST_DISPATCH_GENERATOR.testFileUnder(pythonTestingLanguage, nodePath));
+    const nestedConftestPath = join(dirname(nodeFile), PYTHON_PRODUCT_INPUT_PATH.CONFTEST);
+
+    await fc.assert(
+      fc.asyncProperty(
+        fc.uniqueArray(arbitraryDomainLiteral(), {
+          minLength: LITERAL_TEST_GENERATOR_COUNTS.two,
+          maxLength: LITERAL_TEST_GENERATOR_COUNTS.two,
+        }),
+        async ([firstInputContent, secondInputContent]) => {
+          await withTestingTempProductDir(async (productDir) => {
+            await writeTestFileFixture(productDir, nodeFile);
+            await writeFile(join(productDir, nestedConftestPath), firstInputContent);
+
+            const firstRunner = createRecordingCommandRunner({ present: true, exitCode: 0 });
+            const first = await runTestsCommand({ productDir, passing: false }, testCommandDeps(firstRunner));
+            const firstDigest = recordedProductInputDigest(first.recorded, pythonTestingLanguage.name);
+            expect(firstDigest).toBeDefined();
+
+            await writeFile(join(productDir, nestedConftestPath), secondInputContent);
 
             const secondRunner = createRecordingCommandRunner({ present: true, exitCode: 0 });
             const second = await runTestsCommand({ productDir, passing: false }, testCommandDeps(secondRunner));
