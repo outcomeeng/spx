@@ -19,3 +19,13 @@ The handoff-base checklist enumerates two base prerequisites — a clean working
 **Impact:** None to correctness; the diagnostic is accurate and the remedy (detach to the tip or run handoff from the main checkout) is actionable. The open question is whether a future spec revision should surface "HEAD is on a branch" as a distinct prerequisite line for sharper agent diagnostics.
 
 **Resolution:** If sharper on-branch diagnostics are wanted, revise [`spx/36-session.enabler/11-session-frontmatter.pdr.md`](../11-session-frontmatter.pdr.md) and [`session-cli.md`](session-cli.md) through `/authoring` to enumerate the on-branch prerequisite, then extend the resolver and checklist to render it.
+
+## Bare-pool non-main handoff refusal has no L2 coverage
+
+The `session-cli.compliance.l2` test exercises the `SessionHandoffBaseError` refusal only from a non-bare repository's linked worktree (via `withGitWorktreeEnv`). The bare-pool code path — where `mainCheckoutPath` constructs `join(container, repositoryName)` and the checklist renders that as the `main checkout:` fact line — has no end-to-end L2 coverage. The unit-level bare-pool classifier is covered in [`spx/24-worktree-detection.enabler/tests/main-checkout.scenario.l1.test.ts`](../../24-worktree-detection.enabler/tests/main-checkout.scenario.l1.test.ts), but the full `spx session handoff` flow from a bare-pool non-main worktree, including the rendered checklist path, is unexercised.
+
+**Evidence:** [`session-cli.md`](session-cli.md) asserts the checklist carries the main-checkout path; `session-cli.compliance.l2.test.ts` provisions only the non-bare linked-worktree topology.
+
+**Impact:** None observed; the classifier and the checklist rendering are each unit-tested. The gap is end-to-end assurance that the bare-pool path renders the checklist correctly through the CLI.
+
+**Resolution:** Add an L2 case that provisions a bare-repository pool (via `withWorktreeLayoutEnv`) and runs `spx session handoff` from a non-main worktree, asserting the rendered `main checkout:` fact line names the repository-named path.
