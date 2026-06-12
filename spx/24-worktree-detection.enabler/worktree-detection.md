@@ -12,6 +12,7 @@ CAN resolve shared, per-worktree, and tracked roots and gate main-checkout-only 
 - Given any checkout, when the local product root is resolved, then it is `git rev-parse --show-toplevel`; outside a git repository resolution falls back to the working directory with a warning ([test](tests/root-resolution.scenario.l1.test.ts))
 - Given a non-bare repository whose only working tree is its root, when the main checkout is resolved, then that lone working tree is the main checkout whatever branch it holds ([test](tests/main-checkout.scenario.l1.test.ts))
 - Given a real bare-repository pool with an `origin` remote, when the main checkout is resolved, then `detectMainCheckout` is true for the worktree named after the `origin` repository and false for a feature worktree ([test](tests/main-checkout.scenario.l1.test.ts))
+- Given a checkout where `git rev-parse --show-toplevel` fails, when `gatherGitFacts` probes, then it returns null; and given `--git-common-dir` fails while `--show-toplevel` succeeds, then it falls back to a non-bare single-tree shape whose common dir is `<worktreeRoot>/.git`, designating that worktree the main checkout so detection agrees with `detectGitCommonDirProductRoot` ([test](tests/git-facts.scenario.l1.test.ts))
 
 ### Mappings
 
