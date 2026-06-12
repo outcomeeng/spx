@@ -4,8 +4,10 @@
 
 [`spx/17-file-inclusion.enabler/11-ignore-defaults.pdr.md`](11-ignore-defaults.pdr.md)
 and [`spx/17-file-inclusion.enabler/file-inclusion.md`](file-inclusion.md)
-declare that caller-supplied explicit paths bypass every domain filter. The
-validation ADR declares the opposite for validation scope:
+declare that caller-supplied explicit paths bypass every domain filter, with
+[`spx/17-file-inclusion.enabler/15-scope-composition.adr.md`](15-scope-composition.adr.md)
+defining the explicit-override pipeline invariant. The validation ADR declares
+the opposite for validation scope:
 [`spx/41-validation.enabler/21-validation-configuration.adr.md`](../41-validation.enabler/21-validation-configuration.adr.md)
 says explicit caller paths intersect SPX validation path configuration.
 
