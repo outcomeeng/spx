@@ -4,7 +4,7 @@ import { dirname, join } from "node:path";
 import * as fc from "fast-check";
 import { describe, expect, it } from "vitest";
 
-import { NO_GIT_IDENTITY, runNodeCommand, runTestsCommand } from "@/commands/testing";
+import { currentStalenessInputs, NO_GIT_IDENTITY, runNodeCommand, runTestsCommand } from "@/commands/testing";
 import { digestDescriptorSection } from "@/config/descriptor-digest";
 import type { GitDependencies } from "@/git/root";
 import { SPEC_TREE_CONFIG } from "@/lib/spec-tree/config";
@@ -13,6 +13,8 @@ import { typescriptTestingLanguage } from "@/testing/languages/typescript";
 import { testingRegistry } from "@/testing/registry";
 import {
   digestTestPaths,
+  extractStalenessInputs,
+  isStalenessMatch,
   readTestingRuns,
   selectLatestTerminalTestRunForNode,
   TEST_RUN_STATE_STATUS,
@@ -316,6 +318,10 @@ describe("spx test execution recording and per-node run", () => {
             expect(first.recorded.discoveredTestContentDigest).toBe(expectedTestContentDigest(nodeFile, firstContent));
             expect(second.recorded.discoveredTestContentDigest).toBe(expectedTestContentDigest(nodeFile, secondContent));
             expect(second.recorded.discoveredTestContentDigest).not.toBe(first.recorded.discoveredTestContentDigest);
+
+            const currentInputs = await currentStalenessInputs(productDir, [nodeFile], { registry: testingRegistry });
+            expect(isStalenessMatch(extractStalenessInputs(first.recorded), currentInputs)).toBe(false);
+            expect(isStalenessMatch(extractStalenessInputs(second.recorded), currentInputs)).toBe(true);
           });
         },
       ),

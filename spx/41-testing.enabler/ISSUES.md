@@ -18,14 +18,6 @@ Coordination notes for the `spx test` enabler. The `spx test` command, the regis
 
 **Evidence:** local changes review on PR-2c; `src/commands/testing/run-command.ts` `reserveRunFile`; `src/testing/run-state.ts` `readTestingRuns` incomplete-run classification.
 
-## FOLLOW-UP: command-layer coverage for content-digest staleness
-
-The recording tests assert `discoveredTestPathsDigest` over the covered files but do not exercise `discoveredTestContentDigest` changing when file bytes change. The property "last-run state is stale when the discovered test file content digest differs" is proven at the `run-state` unit (`staleness.property.l1.test.ts`) but not end-to-end through the command layer.
-
-**Resolution:** add a scenario that records a run, rewrites a covered test file's content, and asserts `isStalenessMatch` returns false against the freshly recorded content digest — covering the content-digest path through `runTestsCommand` / `runNodeCommand`.
-
-**Evidence:** local changes review on PR-2c; `src/commands/testing/run-command.ts` `readCoveredContents`; `spx/41-testing.enabler/43-last-run-evidence.enabler/43-staleness-comparison.adr.md`.
-
 ## FOLLOW-UP: covered-content reads are serial
 
 `readCoveredContents` (`src/commands/testing/run-command.ts`) reads each covered test file with a serial `await` in a `for` loop. For a full-suite run over a large spec tree this is O(n) sequential I/O; concurrent reads would cut wall-clock time.
