@@ -78,8 +78,8 @@ export interface HandoffBaseChecklist {
   readonly headSha: string | null;
   /** The absolute path of the worktree handoff ran from. */
   readonly currentWorktreePath: string;
-  /** The absolute path of the repository's main checkout. */
-  readonly mainCheckoutPath: string;
+  /** The absolute path of the repository's main checkout, or null when none is designable (rendered "unresolved"). */
+  readonly mainCheckoutPath: string | null;
   /** Every base prerequisite, each marked met or unmet. */
   readonly prerequisites: readonly HandoffBasePrerequisite[];
 }

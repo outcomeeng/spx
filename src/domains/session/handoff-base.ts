@@ -45,8 +45,8 @@ export interface HandoffGitFacts {
   readonly defaultTipSha: string | null;
   /** The absolute path of the worktree handoff runs from. */
   readonly currentWorktreePath: string;
-  /** The absolute path of the repository's main checkout. */
-  readonly mainCheckoutPath: string;
+  /** The absolute path of the repository's main checkout, or null when none is designable. */
+  readonly mainCheckoutPath: string | null;
 }
 
 /**
