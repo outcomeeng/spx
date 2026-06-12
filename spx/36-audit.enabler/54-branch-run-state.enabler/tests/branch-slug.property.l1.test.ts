@@ -5,12 +5,12 @@ import * as fc from "fast-check";
 import { describe, expect, it } from "vitest";
 
 import { resolveAuditBranchIdentity, slugAuditBranchIdentity } from "@/domains/audit/run-state";
+import { STATE_STORE_BRANCH_SLUG } from "@/lib/state-store";
 import { AUDIT_RUN_STATE_TEST_GENERATOR, sampleAuditRunStateTestValue } from "@testing/generators/audit/run-state";
 
 const SHA256_ALGORITHM = "sha256";
 const HEX_ENCODING = "hex";
 const HASH_PREFIX_HEX_LENGTH = 8;
-const DEFAULT_BRANCH_SLUG_MAX_BYTES = 120;
 const DETACHED_PREFIX = "detached-";
 const DETACHED_HEAD_SHA_HEX_LENGTH = 12;
 const PATH_SEPARATOR_PATTERN = /[\\/]/;
@@ -39,7 +39,7 @@ describe("audit branch slugging", () => {
       fc.property(AUDIT_RUN_STATE_TEST_GENERATOR.branchName(), (branchName) => {
         const slug = slugAuditBranchIdentity(branchName);
 
-        expect(Buffer.byteLength(slug)).toBeLessThanOrEqual(DEFAULT_BRANCH_SLUG_MAX_BYTES);
+        expect(Buffer.byteLength(slug)).toBeLessThanOrEqual(STATE_STORE_BRANCH_SLUG.DEFAULT_MAX_BYTES);
         expect(slug.endsWith(hashPrefix(branchName))).toBe(true);
       }),
     );
