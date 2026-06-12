@@ -352,10 +352,7 @@ export async function readLatestJsonlRecord(
     return { ok: false, error: `${STATE_STORE_ERROR.RECORD_READ_FAILED}: ${toErrorMessage(error)}` };
   }
 
-  const lines = content.split(JSONL_LINE_SEPARATOR);
-  for (let index = lines.length - 1; index >= 0; index -= 1) {
-    const line = lines[index]?.trim() ?? EMPTY_STRING;
-    if (line.length === 0) continue;
+  for (const line of nonEmptyJsonlLinesNewestFirst(content)) {
     try {
       return { ok: true, value: JSON.parse(line) as unknown };
     } catch {
@@ -364,6 +361,10 @@ export async function readLatestJsonlRecord(
   }
 
   return { ok: true, value: undefined };
+}
+
+export function latestNonEmptyJsonlLine(content: string): string | undefined {
+  return nonEmptyJsonlLinesNewestFirst(content)[0];
 }
 
 export function serializeJsonlRecord(record: JsonRecord): string {
@@ -380,6 +381,16 @@ function truncateNormalizedSlugPrefix(normalizedPrefix: string, maxBytes: number
     prefix = prefix.slice(0, -1).replace(TRAILING_SEPARATOR_PATTERN, EMPTY_STRING);
   }
   return prefix;
+}
+
+function nonEmptyJsonlLinesNewestFirst(content: string): string[] {
+  const lines = content.split(JSONL_LINE_SEPARATOR);
+  const latestLines: string[] = [];
+  for (let index = lines.length - 1; index >= 0; index -= 1) {
+    const line = lines[index]?.trim() ?? EMPTY_STRING;
+    if (line.length > 0) latestLines.push(line);
+  }
+  return latestLines;
 }
 
 function hasErrorCode(error: unknown, code: string): boolean {

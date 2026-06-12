@@ -18,6 +18,7 @@ import {
   createJsonlRunFile,
   defaultStateStoreFileSystem,
   isRunFileName,
+  latestNonEmptyJsonlLine,
   runsDir as stateStoreRunsDir,
   STATE_STORE_DOMAIN,
   STATE_STORE_ERROR,
@@ -52,8 +53,6 @@ export interface ReadAuditRunStateOptions {
 }
 
 const ERROR_CODE_NOT_FOUND = "ENOENT";
-const EMPTY_STRING = "";
-const JSONL_LINE_SEPARATOR = "\n";
 
 const defaultFileSystem: StateStoreFileSystem = defaultStateStoreFileSystem;
 
@@ -164,7 +163,7 @@ async function readAuditRunStatePath(
     };
   }
 
-  const latest = latestNonEmptyLine(content);
+  const latest = latestNonEmptyJsonlLine(content);
   if (latest === undefined) {
     return { ok: false, reason: AUDIT_RUN_STATE_INCOMPLETE_REASON.PARSE_INVALID_STATE };
   }
@@ -174,15 +173,6 @@ async function readAuditRunStatePath(
 
 function isAuditRunFileEntry(entry: AuditRunFileEntry): boolean {
   return entry.isFile() && isRunFileName(entry.name);
-}
-
-function latestNonEmptyLine(content: string): string | undefined {
-  const lines = content.split(JSONL_LINE_SEPARATOR);
-  for (let index = lines.length - 1; index >= 0; index -= 1) {
-    const line = lines[index]?.trim() ?? EMPTY_STRING;
-    if (line.length > 0) return line;
-  }
-  return undefined;
 }
 
 function hasErrorCode(error: unknown, code: string): boolean {

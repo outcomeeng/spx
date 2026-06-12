@@ -7,6 +7,7 @@ import {
   defaultStateStoreFileSystem,
   formatRunTimestamp,
   isRunFileName,
+  latestNonEmptyJsonlLine,
   runFileName,
   runsDir as stateStoreRunsDir,
   STATE_STORE_ERROR,
@@ -152,8 +153,6 @@ export interface ReadTestRunStateOptions {
 const SHA256_ALGORITHM = "sha256";
 const HEX_ENCODING = "hex";
 const SEGMENT_SEPARATOR = "-";
-const JSONL_LINE_SEPARATOR = "\n";
-const EMPTY_STRING = "";
 
 const defaultFileSystem: StateStoreFileSystem = defaultStateStoreFileSystem;
 
@@ -340,7 +339,7 @@ async function readTestRunStatePath(
     };
   }
 
-  const latest = latestNonEmptyLine(content);
+  const latest = latestNonEmptyJsonlLine(content);
   if (latest === undefined) {
     return { ok: false, reason: TESTING_RUN_STATE_INCOMPLETE_REASON.PARSE_INVALID_STATE };
   }
@@ -498,15 +497,6 @@ function isTestRunFileEntry(entry: TestRunFileEntry): boolean {
 
 function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === "object" && value !== null && !Array.isArray(value);
-}
-
-function latestNonEmptyLine(content: string): string | undefined {
-  const lines = content.split(JSONL_LINE_SEPARATOR);
-  for (let index = lines.length - 1; index >= 0; index -= 1) {
-    const line = lines[index]?.trim() ?? EMPTY_STRING;
-    if (line.length > 0) return line;
-  }
-  return undefined;
 }
 
 function sha256Hex(value: string): string {

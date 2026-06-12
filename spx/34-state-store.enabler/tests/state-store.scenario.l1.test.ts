@@ -19,7 +19,6 @@ import {
   STATE_STORE_TEST_GENERATOR,
   sampleStateStoreTestValue,
 } from "@testing/generators/state-store/state-store";
-import { expectedStateStoreRunFileName } from "@testing/harnesses/state-store";
 import { createSessionGitDeps, SESSION_GIT_DEPS_PATHS, WORKTREE_KIND } from "@testing/harnesses/session/harness";
 
 function createNoopStateStoreFileSystem(): StateStoreFileSystem {
@@ -121,7 +120,12 @@ describe("state-store scope paths", () => {
 
     expect(created.ok).toBe(true);
     if (!created.ok) throw new Error(created.error);
-    expect(created.value.runFileName).toBe(expectedStateStoreRunFileName(created.value.runToken));
+    expect(created.value.runFileName).toBe(
+      `${STATE_STORE_PATH.RUN_FILE_PREFIX}${created.value.runToken}${STATE_STORE_PATH.JSONL_EXTENSION}`,
+    );
+    expect(created.value.runFileName).toMatch(
+      /^run-\d{4}-\d{2}-\d{2}_\d{2}-\d{2}-\d{2}-\d{3}-[a-f0-9]{12}\.jsonl$/,
+    );
     expect(created.value.runFilePath).toBe(join(
       scopeDir,
       STATE_STORE_DOMAIN.TEST,

@@ -4,7 +4,7 @@ import { join } from "node:path";
 
 import { afterEach, describe, expect, it } from "vitest";
 
-import { appendJsonlRecord, readLatestJsonlRecord } from "@/lib/state-store";
+import { appendJsonlRecord, latestNonEmptyJsonlLine, readLatestJsonlRecord } from "@/lib/state-store";
 import { STATE_STORE_TEST_GENERATOR, sampleStateStoreTestValue } from "@testing/generators/state-store/state-store";
 import { removeTempDir } from "@testing/harnesses/with-temp-dir";
 
@@ -35,9 +35,17 @@ describe("state-store JSONL records", () => {
   it("ignores blank trailing lines and malformed latest lines", async () => {
     const [firstRecord] = sampleStateStoreTestValue(STATE_STORE_TEST_GENERATOR.jsonRecordPair());
     const filePath = await createTempFile();
-    await writeFile(filePath, `${JSON.stringify(firstRecord)}\nnot-json\n\n`);
+    const malformedLine = sampleStateStoreTestValue(STATE_STORE_TEST_GENERATOR.scopeToken());
+    await writeFile(filePath, `${JSON.stringify(firstRecord)}\n${malformedLine}\n\n`);
 
     expect(await readLatestJsonlRecord(filePath)).toEqual({ ok: true, value: firstRecord });
+  });
+
+  it("returns the latest non-empty raw line", () => {
+    const [firstRecord] = sampleStateStoreTestValue(STATE_STORE_TEST_GENERATOR.jsonRecordPair());
+    const latestLine = sampleStateStoreTestValue(STATE_STORE_TEST_GENERATOR.scopeToken());
+
+    expect(latestNonEmptyJsonlLine(`${JSON.stringify(firstRecord)}\n${latestLine}\n\n`)).toBe(latestLine);
   });
 
   it("returns undefined when the file is absent", async () => {

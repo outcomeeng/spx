@@ -1,5 +1,6 @@
 import { join } from "node:path";
 
+import * as fc from "fast-check";
 import { describe, expect, it } from "vitest";
 
 import {
@@ -23,6 +24,10 @@ function unescapedMarker(nodePath: string): string {
   return `${COMPACT_MARKER.CONTEXT} ${COMPACT_MARKER.TARGET_ATTRIBUTE}=${
     COMPACT_MARKER.UNESCAPED_TARGET_QUOTE
   }${nodePath}${COMPACT_MARKER.UNESCAPED_TARGET_QUOTE}`;
+}
+
+function jsonlStringRecord(content: string): string {
+  return JSON.stringify({ content });
 }
 
 describe("compact transcript extraction", () => {
@@ -52,6 +57,23 @@ describe("compact transcript extraction", () => {
       [COMPACT_RECORD_FIELDS.ACTIVE_NODE]: latestNode,
       [COMPACT_RECORD_FIELDS.HAS_FOUNDATION]: true,
     });
+  });
+
+  it("extracts the last active node from JSONL string-escaped transcript markers", () => {
+    fc.assert(
+      fc.property(COMPACT_TEST_GENERATOR.distinctNodePaths(), ([firstNode, latestNode]) => {
+        const transcript = [
+          jsonlStringRecord(COMPACT_MARKER.FOUNDATION),
+          jsonlStringRecord(escapedMarker(firstNode)),
+          jsonlStringRecord(escapedMarker(latestNode)),
+        ].join("\n");
+
+        expect(extractCompactRecord(transcript)).toEqual({
+          [COMPACT_RECORD_FIELDS.ACTIVE_NODE]: latestNode,
+          [COMPACT_RECORD_FIELDS.HAS_FOUNDATION]: true,
+        });
+      }),
+    );
   });
 
   it("returns no record when the foundation marker is absent", () => {
