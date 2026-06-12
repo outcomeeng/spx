@@ -31,26 +31,29 @@ pre-push:
 
 post-merge:
   commands:
-    # The main-checkout gate (src/lib/precommit/main-checkout-gate.ts) routes the
-    # decision through the tested isMainCheckout classifier (src/git/root.ts), so
-    # it designates the main checkout correctly in both a non-bare repository and a
-    # bare-repository pool. It exits zero in the main checkout and non-zero in a
-    # non-main checkout; an unreadable repository is treated as the main checkout so
-    # the rebuild is not silently skipped. Only the main checkout's dist/ feeds the
-    # published or pnpm-linked spx. `pnpm install` runs before the gate so the gate's
-    # `tsx` resolves even right after a node_modules purge on a pnpm version change
-    # (a no-op when deps are current); only the main checkout then rebuilds dist/.
-    # CI=true keeps pnpm non-interactive so such a purge proceeds instead of hanging
+    # The rebuild-dist gate uses a bash heuristic — dirname(common-dir) ==
+    # --show-toplevel — that designates the main worktree in a non-bare repository
+    # but misfires in a bare-repository pool. The corrected main-checkout gate
+    # (over the tested isMainCheckout classifier in src/git/root.ts) is deferred to
+    # spx/24-worktree-detection.enabler/PLAN.md step 1; its draft is preserved on
+    # the wip/precommit-main-checkout-gate branch. --path-format=absolute makes
+    # --git-common-dir absolute regardless of cwd (as GIT_COMMON_DIR_ARGS does), so
+    # dirname(common-dir) == --show-toplevel holds only in the main worktree. A
+    # --git-common-dir failure (empty $gc) is treated as the main worktree so the
+    # rebuild is not silently skipped. Only the main worktree's dist/ feeds the
+    # published or pnpm-linked spx. CI=true keeps pnpm non-interactive so a
+    # node_modules purge on a pnpm version change proceeds instead of hanging
     # behind lefthook's spinner.
     rebuild-dist:
       run: |
         env -u GIT_DIR -u GIT_WORK_TREE -u GIT_INDEX_FILE -u GIT_PREFIX -u GIT_COMMON_DIR sh -c '
-          export CI=true
-          pnpm install --frozen-lockfile || exit 1
-          if pnpm exec tsx src/lib/precommit/main-checkout-gate.ts; then
-            pnpm run build
+          toplevel=$(git rev-parse --show-toplevel)
+          gc=$(git rev-parse --path-format=absolute --git-common-dir 2>/dev/null)
+          if [ -n "$gc" ] && [ "$(dirname "$gc")" != "$toplevel" ]; then
+            echo "rebuild-dist: skipped (linked worktree, not the main worktree)"
           else
-            echo "rebuild-dist: skipped (non-main checkout)"
+            export CI=true
+            pnpm install --frozen-lockfile && pnpm run build
           fi
         '
 
@@ -60,18 +63,16 @@ post-merge:
 # hook argument as {1}, passed into the subshell as $1.
 post-rewrite:
   commands:
-    # Same main-checkout gate as post-merge (see above), routed through the tested
-    # isMainCheckout classifier (src/git/root.ts via
-    # src/lib/precommit/main-checkout-gate.ts).
     rebuild-dist:
       run: |
         env -u GIT_DIR -u GIT_WORK_TREE -u GIT_INDEX_FILE -u GIT_PREFIX -u GIT_COMMON_DIR sh -c '
           [ "$1" = "rebase" ] || { echo "rebuild-dist: skipped ($1, not a rebase)"; exit 0; }
-          export CI=true
-          pnpm install --frozen-lockfile || exit 1
-          if pnpm exec tsx src/lib/precommit/main-checkout-gate.ts; then
-            pnpm run build
+          toplevel=$(git rev-parse --show-toplevel)
+          gc=$(git rev-parse --path-format=absolute --git-common-dir 2>/dev/null)
+          if [ -n "$gc" ] && [ "$(dirname "$gc")" != "$toplevel" ]; then
+            echo "rebuild-dist: skipped (linked worktree, not the main worktree)"
           else
-            echo "rebuild-dist: skipped (non-main checkout)"
+            export CI=true
+            pnpm install --frozen-lockfile && pnpm run build
           fi
         ' -- {1}
