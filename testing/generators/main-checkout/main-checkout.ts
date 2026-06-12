@@ -1,7 +1,7 @@
 import * as fc from "fast-check";
 
 import { GIT_DIR_BASENAME, GIT_URL_SUFFIX, type GitFacts } from "@/git/root";
-import type { WorktreeLayoutSpec } from "@testing/harnesses/worktree-layout/worktree-layout";
+import { SEED_BRANCH, type WorktreeLayoutSpec } from "@testing/harnesses/worktree-layout/worktree-layout";
 
 const PATH_SEGMENT_PATTERN = /^[a-z][a-z0-9-]{2,12}$/;
 const POSIX_SEPARATOR = "/";
@@ -272,6 +272,7 @@ export type WorktreeLayoutCase = {
 export function arbitrarySingleTreeLayoutCase(): fc.Arbitrary<WorktreeLayoutCase> {
   return fc
     .record({ name: arbitraryPathSegment(), branch: fc.option(arbitraryBranchName(), { nil: undefined }) })
+    .filter(({ branch }) => branch !== SEED_BRANCH)
     .map(({ name, branch }) => ({
       spec: { bare: false, worktrees: [{ name, branch }] },
       mainCheckoutName: name,
@@ -290,7 +291,7 @@ export function arbitraryNonBareLinkedLayoutCase(): fc.Arbitrary<WorktreeLayoutC
       linkedName: arbitraryPathSegment(),
       linkedBranch: arbitraryBranchName(),
     })
-    .filter(({ mainName, linkedName }) => mainName !== linkedName)
+    .filter(({ mainName, linkedName, linkedBranch }) => mainName !== linkedName && linkedBranch !== SEED_BRANCH)
     .map(({ mainName, linkedName, linkedBranch }) => ({
       spec: { bare: false, worktrees: [{ name: mainName }, { name: linkedName, branch: linkedBranch }] },
       mainCheckoutName: mainName,
@@ -310,7 +311,7 @@ export function arbitraryBarePoolLayoutCase(): fc.Arbitrary<WorktreeLayoutCase> 
       featureName: arbitraryPathSegment(),
       featureBranch: arbitraryBranchName(),
     })
-    .filter(({ repoName, featureName }) => featureName !== repoName)
+    .filter(({ repoName, featureName, featureBranch }) => featureName !== repoName && featureBranch !== SEED_BRANCH)
     .chain((parts) =>
       arbitraryOriginUrl(parts.repoName).map((origin) => ({
         spec: {
