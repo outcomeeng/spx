@@ -81,14 +81,6 @@ and the gate is unspecified, so it ships in its own governance PR. See Remaining
    resolvers are now owned by this node; `resolveSessionConfig` stays session-specific.
    Rescope/rename that ADR and reference this node. Decide whether config's
    `65-product-directory-api.enabler/21-git-root-result-shape.adr.md` moves up here.
-   - **Undesignable-vs-absent main checkout.** `mainCheckoutPath` is pure (no worktree
-     enumeration per the classifier ADR), so for a bare pool whose `origin` resolves a name
-     but whose repository-named worktree does not yet exist (the pre-`spx/main`→`spx/spx`
-     migration window), it returns the would-be path rather than null — the handoff checklist
-     then names a path that does not exist yet. The migration sequencing avoids this (the
-     rename creates the worktree before the new policy activates), but reconciling the
-     PDR's "a pool with no such worktree has no main checkout" with the pure design (which
-     cannot tell absent from designable without I/O) belongs with this ADR work.
 3. **Co-locate the resolver tests** (`tests/root-resolution.scenario.l1.test.ts`,
    `tests/default-branch.scenario.l1.test.ts`): they verify `detectWorktreeProductRoot`,
    `detectGitCommonDirProductRoot`, and `resolveDefaultBranch`, currently exercised under
