@@ -97,3 +97,68 @@ Nothing else to change here. The plugin-side contract is already merged. If the 
 - Authoritative algorithm: `plugins/spec-tree/skills/handoff/references/scope-resolution.md` (in the sibling `outcomeeng/plugins` repo)
 - SessionStart hook (lazy-create expectation): `plugins/spec-tree/bin/session-start` (in the sibling `outcomeeng/plugins` repo)
 - Current spx session command handlers (paths observed during plan drafting; confirm on entry): `src/commands/session/pickup.ts`, `src/commands/session/archive.ts`, `src/domains/session/index.ts`
+
+---
+
+## Plan B — Wire the spx CLI `compact-stash` / `compact-resume` commands
+
+### Why this plan exists
+
+The merged marketplace PR #154 moved post-compaction re-anchoring to **delegate to the spx CLI**. Two hooks in the sibling `outcomeeng/plugins` repo now shell out to commands that do not yet exist in this CLI:
+
+- PreCompact (`src/plugins/spec-tree/scripts/pre-compact.py`) calls `spx session compact-stash --session-id <id> --transcript <path>`.
+- PostCompact (`src/plugins/spec-tree/scripts/post-compact.py`) calls `spx session compact-resume --session-id <id>` and parses the JSON on stdout.
+
+Until both commands ship, `pre-compact.py` no-ops and `post-compact.py` falls back to parsing the active node out of the compact summary (the section-scoped, backtick-tolerant parser already in the hook). Re-anchoring **degrades, it does not break** — so this is not urgent, but the deterministic transcript path stays dark until the commands land.
+
+Stash storage/retrieval belongs in this CLI because `spx` already resolves `.spx/` correctly across a bare-repository worktree pool (`detectGitCommonDirProductRoot` returns both `productDir` and `worktreeRoot`) and has the multi-worktree test harness the plugins repo lacks. Governed plugin-side by `spx/21-spec-tree.enabler/76-sessions.enabler/21-compact-continuity.pdr.md` (in the plugins repo).
+
+### Contract (already merged in the plugins repo; do NOT change — satisfy it)
+
+Verified against the merged hook scripts at plugins `main` `39df4589`:
+
+**`spx session compact-stash --session-id <id> --transcript <path>`** (called by PreCompact)
+
+- The hook is fire-and-forget: `subprocess.run(..., check=False, capture_output=True)`, `OSError` swallowed. The hook ignores stdout/stderr and the exit code. Exit 0 on success and on no-op for cleanliness regardless.
+- Resolve the session dir `<.spx>/sessions/<id>/`, where `<.spx>` comes from the existing `resolveSessionConfig` / `detectGitCommonDirProductRoot` (`src/git/root.ts:166`, `:373`). It MUST resolve to the **same shared** `.spx/sessions/<id>/` from a root worktree and from any linked worktree of a bare pool. `session_id` gives the per-conversation isolation; placement is shared, **not** worktree-local (the `local/` idea was explicitly rejected in the merged PDR).
+- Read the transcript (JSONL). Markers appear JSON-string-escaped, e.g. `target=\"spx/...\"`. Extract:
+  - `has_foundation` = the literal `SPEC_TREE_FOUNDATION` appears anywhere in the file.
+  - `active_node` = the **last** match of `SPEC_TREE_CONTEXT target=\\?"(spx/[A-Za-z0-9._/-]+)` (tolerate the optional escaped quote; most-recent wins). May be empty.
+- If `has_foundation` is false → no-op, exit 0 (nothing to re-anchor).
+- Else → `mkdir -p` the session dir and write `compact-stash-<N>.json`, where N = (count of existing `compact-stash-*.json`) + 1, content `{"active_node": "<node-or-empty>", "has_foundation": true}`. One numbered record per compaction; never overwrite (the history is intentional).
+- Empirically verified during plan drafting: a real transcript holds ~29 `SPEC_TREE_CONTEXT` and ~59 `SPEC_TREE_FOUNDATION` occurrences, escaped as `target=\"spx/...\"`.
+
+**`spx session compact-resume --session-id <id>`** (called by PostCompact)
+
+- The hook reads `result.returncode` and `result.stdout`: on non-zero exit **or** empty stdout it falls back to summary-parsing; otherwise `json.loads(result.stdout)` and reads `active_node` + `has_foundation`.
+- Resolve the same `<.spx>/sessions/<id>/`, find the most recent `compact-stash-*.json` (highest N).
+- None → exit non-zero / no output.
+- Else → print the stash JSON to stdout: `{"active_node": "...", "has_foundation": true}`.
+
+`$SPX_BIN` overrides the `spx` executable in both hooks (the plugin tests point it at a fake recording argv).
+
+### Boundary (keep spx decoupled from the plugin's presentation)
+
+spx owns `.spx/` resolution, session-dir placement, transcript marker extraction, numbering, and retrieval. spx does **not** emit the re-anchoring instruction prose or any `/spec-tree:*` skill name — the PostCompact hook formats that from the JSON. The stash is conversation-ephemeral (`.spx/` is gitignored); it must not enter the session queue (`todo`/`doing`/`archive`) or the durable tree. It lives under `.spx/sessions/<id>/` alongside — but distinct from — the per-session accumulator (Plan A above).
+
+### Work breakdown with audit gates (run from a session rooted at this repo)
+
+1. **Context.** `/understanding`, then `/contextualizing spx/36-session.enabler`. The two commands are session-CLI subcommands; decide node placement with `/decomposing` (likely a new child enabler under `36-session.enabler`, sibling to `76-session-cli.enabler`, or assertions added to an existing one — let the methodology decide, do not pre-judge).
+2. **Spec.** Declare the assertions for both commands via `/authoring`. Cover: stash writes the last node from an escaped-marker transcript; no-op when the transcript has no foundation marker; successive writes number 1, 2, 3…; resume returns the latest and signals "none" (non-zero/empty) correctly; **the load-bearing assertion** — the stash resolves to the **same** shared `.spx/sessions/<id>/` from both a root worktree and a linked worktree of a bare pool.
+3. **Audit gate.** `/audit-pdr` on any PDR change and `/aligning` across the affected subtree.
+4. **Tests first (TDD).** vitest, under the target node's `tests/`, naming `<subject>.<evidence>.<level>[.<runner>].test.ts`. Use `createSessionGitDeps` (`testing/harnesses/session/harness.ts`) to simulate ROOT and LINKED worktree git contexts.
+5. **Audit gate.** `/auditing-tests` (via `spec-tree:test-evidence-auditor`) — 4-property evidence check.
+6. **Implement.** Command impls in `src/commands/session/`; register in `src/interfaces/cli/session.ts` (registration ~272-283); domain logic in `src/domains/session/`; paths from `src/config/defaults.ts` (`DEFAULT_CONFIG.sessions`).
+7. **Audit gate.** `spx validation ts` (never bare `tsc`) + `/auditing-typescript`. Zero new findings.
+8. **Ship.** `/committing-changes` then `/pr`. When done, report the exact command names, flags, stdout shape, and exit codes so the plugin hooks can be confirmed against the real surface.
+
+### Cross-repo verification (back in `~/Code/outcomeeng/plugins/`)
+
+After the commands land and `spx` is linked, exercise the real hooks: claim a session, `/compact`, confirm `compact-stash-1.json` is written under `.spx/sessions/<id>/`, and that PostCompact re-emits the `<SPEC-TREE_RESUMED active-node="..."/>` marker from the stash rather than the summary fallback.
+
+### Pointers (verified at plugins `main` `39df4589` / spx `origin/main` `af23d86`)
+
+- Plugin-side contract (do not change): `src/plugins/spec-tree/scripts/pre-compact.py`, `src/plugins/spec-tree/scripts/post-compact.py` (sibling `outcomeeng/plugins` repo).
+- Governing PDR: `spx/21-spec-tree.enabler/76-sessions.enabler/21-compact-continuity.pdr.md` (plugins repo).
+- This repo: `src/git/root.ts` (`detectGitCommonDirProductRoot:166`, `resolveSessionConfig:373`), `src/commands/session/handoff.ts` (command pattern), `src/interfaces/cli/session.ts` (subcommand registration), `src/config/defaults.ts`, `testing/harnesses/session/harness.ts`, `spx/36-session.enabler/43-session-store.enabler/tests/` (example tests). Runner: vitest (`vitest.config.ts`).
+- This Plan B was prepped from a plugins-rooted session (claimed session `2026-06-10_16-10-38`); the implementation runs from a session rooted at this worktree.
