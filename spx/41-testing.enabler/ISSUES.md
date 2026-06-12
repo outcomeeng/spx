@@ -26,14 +26,6 @@ Coordination notes for the `spx test` enabler. The `spx test` command, the regis
 
 **Evidence:** local changes review on PR-2c; `src/commands/testing/run-command.ts` `readCoveredContents`.
 
-## FOLLOW-UP: enforce the invoked/exitCode invariant in the TestRunInvocation type
-
-`TestRunInvocation` (`src/testing/languages/types.ts`) documents that `exitCode` is "absent when the runner was not invoked" — when `invoked: true`, `exitCode` is present — but the type (`exitCode?: number`) does not enforce it. The dispatch's `exitCode: invocation.exitCode ?? SUCCESS_EXIT_CODE` (`src/commands/testing/dispatch.ts`) defaults a type-allowed-but-runner-impossible `invoked: true, exitCode: undefined` to success; both language runners always return an exit code when invoked, so the fallback never fires today.
-
-**Resolution:** narrow `TestRunInvocation` to a discriminated union (`{ invoked: true; exitCode: number } | { invoked: false }`) and update both runner implementations (`src/testing/languages/{typescript,python}.ts`); this statically enforces the invariant and removes the `?? SUCCESS_EXIT_CODE` fallback. Cross-node — touches the descriptor contract and both runners.
-
-**Evidence:** CI changes review on PR-2c; `src/testing/languages/types.ts` `TestRunInvocation`; `src/commands/testing/dispatch.ts` outcome construction.
-
 ## FOLLOW-UP: the testing language descriptor delegates detection to the composition root
 
 `TestingLanguageDescriptor` (`src/testing/languages/types.ts`) delegates presence detection to an agnostic `isLanguagePresent(projectRoot)` in the injected dependencies rather than owning a detector. Because the descriptor carries no detection of its own, the CLI composition root maps each language to its concrete detector through a name-keyed table (`PRESENCE_BY_LANGUAGE_NAME` in `src/interfaces/cli/testing.ts`). Orchestration (`runTests`) stays registry-driven and names no language, so the table is boundary wiring, not an orchestration-layer language reference — but the mapping only exists because detection lives outside the descriptor. While the table exists, `spx/19-language-registration.adr.md`'s invariant — adding a language touches one descriptor module plus one registry entry and no other files — is not fully met, because a third language also needs a `PRESENCE_BY_LANGUAGE_NAME` entry in the CLI.

@@ -1,5 +1,5 @@
 import { applyPathFilter, type PathFilterConfig } from "@/config/primitives";
-import { aggregateTestExitCode, groupTestFiles, type LanguageTestGroup, SUCCESS_EXIT_CODE } from "@/domains/testing";
+import { aggregateTestExitCode, groupTestFiles, type LanguageTestGroup } from "@/domains/testing";
 import type { TestingLanguageDescriptor, TestRunInvocation, TestRunnerDependencies } from "@/testing/languages/types";
 import type { TestingRegistry } from "@/testing/registry";
 import type { TestRunnerOutcome } from "@/testing/run-state";
@@ -66,7 +66,7 @@ export async function runTests(
       outcomes.push({
         runnerId: group.language.name,
         testPaths: group.testPaths,
-        exitCode: invocation.exitCode ?? SUCCESS_EXIT_CODE,
+        exitCode: invocation.exitCode,
       });
     }
   }

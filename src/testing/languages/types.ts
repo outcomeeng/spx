@@ -31,13 +31,17 @@ export interface TestRunRequest {
   readonly excludedNodePaths: readonly string[];
 }
 
-/** Outcome of a `runTests` call: whether the runner was invoked and its exit code. */
-export interface TestRunInvocation {
-  /** False when detection gated the runner out; true when the runner ran. */
-  readonly invoked: boolean;
-  /** The runner's exit code; absent when the runner was not invoked. */
-  readonly exitCode?: number;
-}
+/** Outcome of a `runTests` call: gated out, or invoked with its terminal exit code. */
+export type TestRunInvocation =
+  | {
+    /** Detection gated the runner out before invocation. */
+    readonly invoked: false;
+  }
+  | {
+    /** The runner ran and returned this terminal exit code. */
+    readonly invoked: true;
+    readonly exitCode: number;
+  };
 
 /** A language's test-runner participation: detection, patterns, exclusion flags, and invocation. */
 export interface TestingLanguageDescriptor {

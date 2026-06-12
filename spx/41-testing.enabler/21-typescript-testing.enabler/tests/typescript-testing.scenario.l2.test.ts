@@ -16,6 +16,7 @@ describe("typescript test runner drives real vitest", () => {
       );
 
       expect(result.invoked).toBe(true);
+      if (!result.invoked) throw new Error();
       expect(result.exitCode).toBe(0);
     });
   });
@@ -28,6 +29,7 @@ describe("typescript test runner drives real vitest", () => {
       );
 
       expect(result.invoked).toBe(true);
+      if (!result.invoked) throw new Error();
       expect(result.exitCode).not.toBe(0);
     });
   });

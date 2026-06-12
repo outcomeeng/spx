@@ -17,6 +17,7 @@ describe("python test runner drives real pytest", () => {
       );
 
       expect(result.invoked).toBe(true);
+      if (!result.invoked) throw new Error();
       expect(result.exitCode).toBe(0);
     });
   });
@@ -29,6 +30,7 @@ describe("python test runner drives real pytest", () => {
       );
 
       expect(result.invoked).toBe(true);
+      if (!result.invoked) throw new Error();
       expect(result.exitCode).not.toBe(0);
       expect(result.exitCode).not.toBe(PYTEST_EXIT_CODE.NO_TESTS_COLLECTED);
     });
