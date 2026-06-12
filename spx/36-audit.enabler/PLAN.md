@@ -51,7 +51,6 @@ Move audit from verify-only artifact checking toward config-backed, branch-scope
 
 ## Open Coordination
 
-- Audit implementation and tests still refer to `.spx/nodes/`; before adding branch-scoped storage evidence, update or delete tests that assert `.spx/nodes/` as the default storage path while preserving explicit-file verification for node-first `.spx/nodes/` verdict artifacts.
 - Retention behavior belongs in this node after branch-scoped storage passes.
 
 ## Gate Dependencies

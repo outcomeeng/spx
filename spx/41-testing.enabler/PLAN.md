@@ -1,8 +1,8 @@
-# Plan: Testing Config And Status Evidence
+# Plan: Testing Fixture Coordination
 
 ## Purpose
 
-Move spec-tree passing-scope behavior to `spx.config.{toml,json,yaml}` and prepare persisted last-run evidence so status commands can report fast observations without re-running all tests.
+Track remaining fixture coordination after config-backed passing scope and persisted last-run evidence have settled.
 
 ## Governing Decisions
 
@@ -10,41 +10,25 @@ Move spec-tree passing-scope behavior to `spx.config.{toml,json,yaml}` and prepa
 - `spx/41-testing.enabler/testing.md` owns `spx test`, `spx test passing`, runner dispatch, passing-scope policy, and last-run evidence semantics.
 - `spx/22-test-environment.enabler/21-callback-scoped-environment.adr.md` owns `withTestEnv` and the existing `withSpecTreeEnv` wrapper.
 
+## Settled
+
+- `spx/41-testing.enabler/32-testing-config.enabler/` owns passing-scope configuration.
+- `spx test` and `spx test passing` dispatch discovered spec-tree tests through the language registry.
+- Persisted last-run evidence records runner outcomes and staleness inputs under `.spx/worktree/test/runs/`.
+- `spx spec status --update` reads last-run evidence and refreshes stale, failing, or absent per-node evidence through the testing registry.
+
 ## Current Tranche
 
-1. Settled on `origin/main`: testing config descriptor.
-   - `spx/41-testing.enabler/32-testing-config.enabler/` owns passing-scope configuration.
-   - The descriptor uses the shared path-filter primitive from `spx/16-config.enabler/`.
-   - Normal `spx test` discovery remains independent from passing-scope filters.
-
-2. Extend the existing `withSpecTreeEnv` harness.
-   - Continue in `spx/22-test-environment.enabler/32-spec-tree-fixtures.enabler/`.
-   - Keep `withTestEnv` as the cleanup-owning primitive.
-   - Ensure `withSpecTreeEnv` can materialize both in-memory spec-tree structures and real directory trees from the same fixture description.
-   - Add options for config file format, passing-scope filters, language-specific test files, and expected last-run state.
-   - Ensure every helper speaks `productDir`.
-
-3. Persist last-run evidence.
-   - Work in `spx/41-testing.enabler/43-last-run-evidence.enabler/`.
-   - Store runner outcomes, timestamps, discovered test inputs, config hash or comparable staleness input, and result summary.
-   - Mark cached evidence stale when the resolved testing config digest or discovered test file path set differs from recorded values.
-   - Compute discovery once per status/test command and reuse the discovered test file path set for both staleness comparison and runner dispatch.
-   - Treat persisted state as an evidence cache only.
-   - Status commands may read state for speed, but config remains the source for passing-scope policy.
+- Extend the existing `withSpecTreeEnv` harness in `spx/22-test-environment.enabler/32-spec-tree-fixtures.enabler/`.
+- Keep `withTestEnv` as the cleanup-owning primitive.
+- Ensure `withSpecTreeEnv` can materialize both in-memory spec-tree structures and real directory trees from the same fixture description.
+- Add options for config file format, passing-scope filters, language-specific test files, and expected last-run state.
+- Ensure every helper speaks `productDir`.
 
 ## Evidence Required
 
-- `spx test passing` scenario tests prove filtered nodes are skipped before runner invocation.
-- `spx test` scenario tests prove filtered nodes still run when `passing` is absent.
 - `withSpecTreeEnv` tests prove one fixture definition can generate in-memory structures and real directories with `withTempDir` behavior.
-- Last-run state tests prove the `testing.md` status scenario: status reads cached observations without invoking runners and reports observed results plus staleness.
-- Last-run state tests prove the `testing.md` evidence-cache property: deleting cached state changes only fast-status availability, never passing-scope policy.
-- Last-run state tests prove the `testing.md` staleness property: cached evidence is stale when the resolved testing config digest, discovered test path set, discovered test content digest, or descriptor-declared product input digest differs from the recorded values.
-- Testing digest tests prove the digest is computed from config-owned canonical descriptor JSON for the resolved testing config descriptor section after defaults are applied.
-- Last-run state tests prove status marks cached evidence stale when the discovered test file path set changes.
-- Performance regression tests or instrumentation prove staleness comparison reuses the discovery result instead of walking the spec tree twice in one command.
 
 ## Open Coordination
 
 - Route each new assertion through `spec-tree:testing` and the relevant language testing skill before adding test files.
-- Delete `spx/EXCLUDE`-based test fixtures after config-backed passing scope passes.
