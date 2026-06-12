@@ -17,6 +17,7 @@ import type {
 
 const PYTHON_TESTING_LANGUAGE_NAME = "python";
 export const PYTHON_PRODUCT_INPUT_PATH = {
+  CONFTEST: "conftest.py",
   HIDDEN_PYTEST_INI: ".pytest.ini",
   HIDDEN_PYTEST_TOML: ".pytest.toml",
   PYPROJECT: "pyproject.toml",

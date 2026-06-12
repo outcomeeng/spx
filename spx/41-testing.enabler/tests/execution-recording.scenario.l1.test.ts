@@ -8,6 +8,7 @@ import { NO_GIT_IDENTITY, runNodeCommand, runTestsCommand } from "@/commands/tes
 import { digestDescriptorSection } from "@/config/descriptor-digest";
 import type { GitDependencies } from "@/git/root";
 import { SPEC_TREE_CONFIG } from "@/lib/spec-tree/config";
+import { PYTHON_PRODUCT_INPUT_PATH, pythonTestingLanguage } from "@/testing/languages/python";
 import { typescriptTestingLanguage } from "@/testing/languages/typescript";
 import { testingRegistry } from "@/testing/registry";
 import {
@@ -216,6 +217,40 @@ describe("spx test execution recording and per-node run", () => {
           expect(presentInputDigest).not.toBe(missingInputDigest);
         });
       }),
+      { numRuns: LITERAL_TEST_GENERATOR_COUNTS.smallPropertyRuns },
+    );
+  });
+
+  it("records Python product input digests and changes them when product-root conftest changes", async () => {
+    const nodePath = sampleDispatchValue(TEST_DISPATCH_GENERATOR.nodePath());
+    const nodeFile = sampleDispatchValue(TEST_DISPATCH_GENERATOR.testFileUnder(pythonTestingLanguage, nodePath));
+
+    await fc.assert(
+      fc.asyncProperty(
+        fc.uniqueArray(arbitraryDomainLiteral(), {
+          minLength: LITERAL_TEST_GENERATOR_COUNTS.two,
+          maxLength: LITERAL_TEST_GENERATOR_COUNTS.two,
+        }),
+        async ([firstInputContent, secondInputContent]) => {
+          await withTestingTempProductDir(async (productDir) => {
+            await writeTestFileFixture(productDir, nodeFile);
+            await writeFile(join(productDir, PYTHON_PRODUCT_INPUT_PATH.CONFTEST), firstInputContent);
+
+            const firstRunner = createRecordingCommandRunner({ present: true, exitCode: 0 });
+            const first = await runTestsCommand({ productDir, passing: false }, testCommandDeps(firstRunner));
+            const firstDigest = recordedProductInputDigest(first.recorded, pythonTestingLanguage.name);
+            expect(firstDigest).toBeDefined();
+
+            await writeFile(join(productDir, PYTHON_PRODUCT_INPUT_PATH.CONFTEST), secondInputContent);
+
+            const secondRunner = createRecordingCommandRunner({ present: true, exitCode: 0 });
+            const second = await runTestsCommand({ productDir, passing: false }, testCommandDeps(secondRunner));
+            const secondDigest = recordedProductInputDigest(second.recorded, pythonTestingLanguage.name);
+            expect(secondDigest).toBeDefined();
+            expect(secondDigest).not.toBe(firstDigest);
+          });
+        },
+      ),
       { numRuns: LITERAL_TEST_GENERATOR_COUNTS.smallPropertyRuns },
     );
   });
