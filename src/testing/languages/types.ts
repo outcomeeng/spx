@@ -47,6 +47,8 @@ export interface TestingLanguageDescriptor {
   readonly testFilePatterns: readonly string[];
   /** Product-root files whose content influences this language's runner behavior. */
   readonly productInputPaths: readonly string[];
+  /** Product-root files derived from covered test paths whose content influences this language's runner behavior. */
+  readonly coveredProductInputPaths?: (coveredTestPaths: readonly string[]) => readonly string[];
   /** Whether a file path is one of this language's test files. */
   matchesTestFile(filePath: string): boolean;
   /** Maps an excluded node path to the runner's exclusion flag. */

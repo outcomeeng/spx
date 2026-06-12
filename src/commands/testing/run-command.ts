@@ -145,9 +145,10 @@ async function readProductInputEntries(
 async function digestLanguageProductInputs(
   productDir: string,
   language: TestingLanguageDescriptor,
+  coveredPaths: readonly string[],
   fs: TestRunStateFileSystem,
 ): Promise<string> {
-  const entries = await readProductInputEntries(productDir, language.productInputPaths, fs);
+  const entries = await readProductInputEntries(productDir, languageProductInputPaths(language, coveredPaths), fs);
   const digest = digestDescriptorSection(entries, `${language.name} product inputs`);
   if (!digest.ok) {
     throw new Error(`failed to digest ${language.name} product inputs: ${digest.error}`);
@@ -158,13 +159,14 @@ async function digestLanguageProductInputs(
 async function productInputDigests(
   productDir: string,
   registry: TestingRegistry,
+  coveredPaths: readonly string[],
   fs: TestRunStateFileSystem,
 ): Promise<readonly ProductInputDigest[]> {
   const digests: ProductInputDigest[] = [];
   for (const language of registry.languages) {
     digests.push({
       descriptorId: language.name,
-      digest: await digestLanguageProductInputs(productDir, language, fs),
+      digest: await digestLanguageProductInputs(productDir, language, coveredPaths, fs),
     });
   }
   return digests;
@@ -201,8 +203,20 @@ export async function currentStalenessInputs(
     testingConfigDigest,
     discoveredTestPathsDigest: digestTestPaths(coveredPaths),
     discoveredTestContentDigest: digestTestContents(contents),
-    productInputDigests: await productInputDigests(productDir, deps.registry, fs),
+    productInputDigests: await productInputDigests(productDir, deps.registry, coveredPaths, fs),
   };
+}
+
+function languageProductInputPaths(
+  language: TestingLanguageDescriptor,
+  coveredPaths: readonly string[],
+): readonly string[] {
+  return [
+    ...new Set([
+      ...language.productInputPaths,
+      ...(language.coveredProductInputPaths?.(coveredPaths) ?? []),
+    ]),
+  ].sort(compareAsciiStrings);
 }
 
 // The single recording path both the full run and the per-node run pass through:
