@@ -37,6 +37,7 @@ export const GIT_TEST_FLAGS = {
   OTHERS: "--others",
   QUIET: "--quiet",
   SHOW_CURRENT: "--show-current",
+  UNSET: "--unset",
 } as const;
 
 export const GIT_TEST_REF = {

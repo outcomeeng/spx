@@ -151,7 +151,17 @@ async function provisionNonBareRepo(
 }
 
 async function setOrigin(repoDir: string, origin: string | undefined): Promise<void> {
-  if (origin === undefined) return;
+  if (origin === undefined) {
+    // `git clone` creates remote.origin.url pointing at the temp source, so an
+    // omitted origin must actively unset it for the repository to carry no origin
+    // (and therefore no repository name). Tolerate the key being absent.
+    try {
+      await runGit(repoDir, [GIT_TEST_SUBCOMMANDS.CONFIG, GIT_TEST_FLAGS.UNSET, GIT_TEST_CONFIG.ORIGIN_URL_KEY]);
+    } catch {
+      // No origin configured on this repository — nothing to unset.
+    }
+    return;
+  }
   await runGit(repoDir, [GIT_TEST_SUBCOMMANDS.CONFIG, GIT_TEST_CONFIG.ORIGIN_URL_KEY, origin]);
 }
 
