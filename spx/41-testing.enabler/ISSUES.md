@@ -2,6 +2,31 @@
 
 Coordination notes for the `spx test` enabler. The `spx test` command, the registry-based dispatch, passing-scope filtering, last-run evidence recording, and the registry-based per-node run are built and proven (`tests/execution-recording.scenario.l1.test.ts`, `tests/testing.scenario.l1.test.ts`), so `41-testing.enabler` participates in the quality gate and is no longer listed in `spx/EXCLUDE`.
 
+## FOLLOW-UP: testing scenario fixtures remain split across helpers
+
+The completed fixture coordination plan listed a future combined fixture surface for
+config file formats, passing-scope filters, language-specific test files, and
+expected last-run state. The live helper surface is smaller and split by need:
+`withTestingTempProductDir`, `writeTestFileFixture`,
+`writeTestingConfig`, and `writeTestingStateFile` in
+`testing/harnesses/testing/harness.ts`, plus the per-language recording runners in
+`testing/harnesses/testing/{typescript,python}-runner.ts`. This keeps individual
+tests explicit, but it also means config-backed command tests currently stage
+`spx.config.json` through `writeTestingConfig`; they do not share a fixture that
+can vary JSON, TOML, and YAML config files from one scenario description.
+
+**Resolution:** keep the split helpers while test setup remains small. If another
+testing scenario needs the same combined setup, extract a dedicated scenario
+fixture that can materialize config format variants, passing-scope policy,
+language-specific test files, and optional last-run state from one description.
+When extracting it, cover the `spx.config.{toml,json,yaml}` command path rather
+than only the descriptor validator and JSON helper path.
+
+**Evidence:** `testing/harnesses/testing/harness.ts`;
+`spx/41-testing.enabler/testing.md`;
+`spx/41-testing.enabler/tests/execution-recording.scenario.l1.test.ts`;
+`spx/41-testing.enabler/32-testing-config.enabler/tests/testing-config.compliance.l1.test.ts`.
+
 ## FOLLOW-UP: a zero-outcome run records a vacuous `passed` status
 
 `deriveStatus` in `src/commands/testing/run-command.ts` derives status with `outcomes.every(exitCode === SUCCESS_EXIT_CODE)`, so a run that dispatches no runner (no test files discovered, or every matching runner gated out by absent-language detection) records `status: passed` by vacuous truth. The status is not consumed today: a zero-outcome run's `runnerOutcomes` cover no node, so `selectLatestTerminalTestRunForNode` never selects it and the status-delegation resolver treats the node as absent and re-runs. The vacuous `passed` only misleads a consumer that reads `state.status` directly without coverage-gating.
