@@ -28,16 +28,27 @@ as if they were files.
 Observed on June 10, 2026 while validating audit-boundary code changes:
 
 ```bash
-pnpm exec tsx src/cli.ts validation typescript --files src/commands/audit src/domains/audit spx/36-audit.enabler/32-verify.enabler/21-verdict-reader.enabler/tests spx/36-audit.enabler/32-verify.enabler/tests spx/36-audit.enabler/54-branch-run-state.enabler/tests
+pnpm exec tsx src/cli.ts validation typescript --files \
+  src/commands/audit \
+  src/domains/audit \
+  spx/36-audit.enabler/32-verify.enabler/21-verdict-reader.enabler/tests \
+  spx/36-audit.enabler/32-verify.enabler/tests \
+  spx/36-audit.enabler/54-branch-run-state.enabler/tests
 ```
 
 Output:
 
 ```text
-error TS6231: Could not resolve the path '/Users/shz/Code/outcomeeng/spx/spx-a/src/commands/audit' with the extensions: '.ts', '.tsx', '.d.ts', '.cts', '.d.cts', '.mts', '.d.mts'.
+error TS6231: Could not resolve the path
+'/Users/shz/Code/outcomeeng/spx/spx-a/src/commands/audit'
+with the extensions: '.ts', '.tsx', '.d.ts', '.cts', '.d.cts', '.mts',
+'.d.mts'.
   The file is in the program because:
     Part of 'files' list in tsconfig.json
-error TS6231: Could not resolve the path '/Users/shz/Code/outcomeeng/spx/spx-a/src/domains/audit' with the extensions: '.ts', '.tsx', '.d.ts', '.cts', '.d.cts', '.mts', '.d.mts'.
+error TS6231: Could not resolve the path
+'/Users/shz/Code/outcomeeng/spx/spx-a/src/domains/audit'
+with the extensions: '.ts', '.tsx', '.d.ts', '.cts', '.d.cts', '.mts',
+'.d.mts'.
   The file is in the program because:
     Part of 'files' list in tsconfig.json
 TypeScript exited with code 2
@@ -46,7 +57,23 @@ TypeScript exited with code 2
 An explicit-file version of the same focused check passed:
 
 ```bash
-pnpm exec tsx src/cli.ts validation typescript --files src/commands/audit/reader.ts src/commands/audit/run-state.ts src/commands/audit/verify.ts src/domains/audit/reader.ts src/domains/audit/run-state.ts src/domains/audit/verify.ts spx/36-audit.enabler/32-verify.enabler/21-verdict-reader.enabler/tests/verdict-reader.scenario.l1.test.ts spx/36-audit.enabler/32-verify.enabler/21-verdict-reader.enabler/tests/verdict-reader.conformance.l1.test.ts spx/36-audit.enabler/32-verify.enabler/tests/verify.scenario.l1.test.ts spx/36-audit.enabler/32-verify.enabler/tests/verify.property.l1.test.ts spx/36-audit.enabler/54-branch-run-state.enabler/tests/run-directory.scenario.l1.test.ts spx/36-audit.enabler/54-branch-run-state.enabler/tests/run-state.scenario.l1.test.ts
+verdict_reader_tests=spx/36-audit.enabler/32-verify.enabler/21-verdict-reader.enabler/tests
+verify_tests=spx/36-audit.enabler/32-verify.enabler/tests
+run_state_tests=spx/36-audit.enabler/54-branch-run-state.enabler/tests
+
+pnpm exec tsx src/cli.ts validation typescript --files \
+  src/commands/audit/reader.ts \
+  src/commands/audit/run-state.ts \
+  src/commands/audit/verify.ts \
+  src/domains/audit/reader.ts \
+  src/domains/audit/run-state.ts \
+  src/domains/audit/verify.ts \
+  "$verdict_reader_tests"/verdict-reader.scenario.l1.test.ts \
+  "$verdict_reader_tests"/verdict-reader.conformance.l1.test.ts \
+  "$verify_tests"/verify.scenario.l1.test.ts \
+  "$verify_tests"/verify.property.l1.test.ts \
+  "$run_state_tests"/run-directory.scenario.l1.test.ts \
+  "$run_state_tests"/run-state.scenario.l1.test.ts
 ```
 
 ```text
@@ -94,19 +121,14 @@ cleanup:
 
 **Scope:** follow-up work, not part of the managed subprocess lifecycle fix.
 
----
-
-## Resolved: validation pipeline composes through the language registry
-
-`src/commands/validation/all.ts` iterates the typed language registry exported by `src/validation/registry.ts`, which imports the `typescript` and `markdown` descriptors (`src/validation/languages/{typescript,markdown}.ts`) with explicit import statements. Each stage carries a uniform `run(context)` callable; stage participation and the step count derive from `validationPipelineStages`, so no stage is dispatched by name and no `TOTAL_STEPS` constant exists. This satisfies [language registration](../19-language-registration.adr.md): orchestration iterates the registry without naming any language or stage.
-
----
-
 ## Positional path arguments to replace `--files` flag
 
-All `spx validation <step>` subcommands currently accept `--files <paths...>` to scope which files are validated. The flag is redundant naming — paths are paths. ESLint, ruff, mypy, and cat all accept files and directories as positional arguments with no flag:
+All `spx validation <step>` subcommands currently accept `--files <paths...>` to
+scope which files are validated. The flag is redundant naming — paths are paths.
+ESLint, ruff, mypy, and cat all accept files and directories as positional
+arguments with no flag:
 
-```
+```bash
 eslint src/
 ruff check src/ tests/
 mypy src/
@@ -115,26 +137,39 @@ cat *.md /tmp/drafts/ > out.md
 
 The equivalent spx interface would be:
 
-```
+```bash
 spx validation literal              # whole project
 spx validation literal src/         # directory
 spx validation literal src/ tests/  # two directories
 spx validation all src/             # all validators scoped to src/
 ```
 
-**Scope:** every `spx validation <step>` subcommand and the `spx validation all` orchestrator. The orchestrator must thread positional paths through to each validator's stage runner.
+**Scope:** every `spx validation <step>` subcommand and the `spx validation all`
+orchestrator. The orchestrator must thread positional paths through to each
+validator's stage runner.
 
 **Affected nodes:**
 
 - `21-validation-cli.enabler` — CLI surface (argument parsing convention)
-- `17-file-inclusion.enabler` — directory expansion behavior (walking a directory to its language-appropriate files); current spec says nothing about directory input, only explicit file lists
-- Every leaf validator enabler (lint, type-check, ast-enforcement, circular-deps, literal-reuse, markdown)
+- `17-file-inclusion.enabler` — directory expansion behavior (walking a
+  directory to its language-appropriate files); current spec says nothing about
+  directory input, only explicit file lists
+- Every leaf validator enabler (lint, type-check, ast-enforcement,
+  circular-deps, literal-reuse, markdown)
 
-**Related gap:** `17-file-inclusion.enabler` does not currently declare directory expansion behavior. When a directory is supplied, the resolver should walk it and return all language-appropriate files (`.ts`/`.tsx` for TypeScript, `.py` for Python, etc.) as if they were supplied explicitly. This gap exists independently of the positional-args decision.
+**Related gap:** `17-file-inclusion.enabler` does not currently declare
+directory expansion behavior. When a directory is supplied, the resolver should
+walk it and return all language-appropriate files (`.ts`/`.tsx` for TypeScript,
+`.py` for Python, etc.) as if they were supplied explicitly. This gap exists
+independently of the positional-args decision.
 
-**Decision needed:** PDR at `41-validation.enabler` level establishing positional paths as the convention for all validation subcommands, with `--files` deprecated or removed.
+**Decision needed:** PDR at `41-validation.enabler` level establishing
+positional paths as the convention for all validation subcommands, with
+`--files` deprecated or removed.
 
-**Constraint:** `32-literal-reuse.enabler` output-mode redesign (in-flight) retains `--files` as-is. Apply the positional-args change after the PDR is authored and as a separate pass across all affected nodes.
+**Constraint:** `32-literal-reuse.enabler` output-mode redesign (in-flight)
+retains `--files` as-is. Apply the positional-args change after the PDR is
+authored and as a separate pass across all affected nodes.
 
 **Scope:** follow-up work, not part of any in-flight cycle.
 
@@ -177,33 +212,3 @@ add broad lockfile and cross-node formatting churn to a targeted validation PR.
 
 **Revisit condition:** run as a dedicated formatter cleanup pass before making
 `pnpm run format:check` a required PR gate.
-
----
-
-## Resolved: PR 15 review follow-ups for validation metadata and markdown targets
-
-The review on
-[`outcomeeng/spx#15`](https://github.com/outcomeeng/spx/pull/15#issuecomment-4398198837)
-identified non-blocking follow-ups after the validation-gate cleanup. The
-validation review cleanup branch resolved that list.
-
-The metadata cleanup now uses `formatTypeScriptAbsentSkipMessage(stageName)` for
-TypeScript-absence skip text, imports runtime anti-markers from their canonical
-runtime diagnostics module, derives validation step-line matching from
-`VALIDATION_PIPELINE.TOTAL_STEPS`, removes validation generator aliases that only
-renamed canonical metadata or samplers, and renames the ESLint expectation for no
-reported diagnostics to `noDiagnostics`.
-
-The subprocess cleanup now handles parent-stream backpressure while forwarding
-child output and gives ESLint validation the same injectable output-stream
-surface used by TypeScript validation.
-
-Markdown target cleanup keeps directory targets on the existing `**/*.md`
-discovery policy, while direct file targets still accept existing `.md` and
-`.markdown` files. Explicit file scopes that are missing or unrelated now emit a
-source-owned skipped-scope diagnostic. Target classification accepts injected
-filesystem state, and the markdown harness uses generator-owned diagnostics for
-missing fixture-backed scenarios.
-
-The no-spec-reference rule exemption for the ADR/PDR snippet generator now has a
-local comment explaining the test-data ownership.
