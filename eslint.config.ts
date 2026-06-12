@@ -23,6 +23,10 @@ import {
   testRestrictedSyntax,
   tsRestrictedSyntax,
 } from "./eslint-rules/restricted-syntax";
+import {
+  COMPACT_FORBIDDEN_SESSION_IMPORTS,
+  COMPACT_IMPORT_BOUNDARY_RULE_ID,
+} from "./src/domains/compact/import-boundary";
 import { readTypeScriptExcludeGlobs } from "./src/validation/eslint-config-exclusions";
 import { LINT_POLICY_MANIFESTS, parseLintPolicyManifest } from "./src/validation/lint-policy-constants";
 
@@ -252,6 +256,21 @@ export function buildEslintConfig(options: BuildEslintConfigOptions = {}) {
       },
       rules: {
         [NO_HARDCODED_SESSION_FRONTMATTER_KEYS_RULE_ID]: "error",
+      },
+    },
+    // Compact domain stays decoupled from the session domain per
+    // spx/48-compact.enabler/21-stash-resolution.adr.md.
+    {
+      files: ["src/domains/compact/**/*.ts", "src/commands/compact/**/*.ts"],
+      rules: {
+        [COMPACT_IMPORT_BOUNDARY_RULE_ID]: [
+          "error",
+          {
+            paths: COMPACT_FORBIDDEN_SESSION_IMPORTS.flatMap(({ module, names }) =>
+              names.map((name) => ({ name: module, importNames: [name] }))
+            ),
+          },
+        ],
       },
     },
     // Custom rules for test files
