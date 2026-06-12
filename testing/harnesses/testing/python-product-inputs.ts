@@ -1,11 +1,12 @@
 export const EXPECTED_PYTEST_PRODUCT_INPUT_PATHS = [
+  "conftest.py",
   ".pytest.ini",
   ".pytest.toml",
-  "conftest.py",
   "pyproject.toml",
   "pytest.ini",
   "pytest.toml",
   "setup.cfg",
   "setup.py",
   "tox.ini",
+  "uv.lock",
 ] as const;

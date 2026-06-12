@@ -36,9 +36,9 @@ describe("python test runner file matching and exclusion flags", () => {
     );
   });
 
-  it("declares pytest-discovered root config files as product inputs", () => {
-    expect(pythonTestingLanguage.productInputPaths).toEqual(expect.arrayContaining([
+  it("declares pytest-discovered product inputs", () => {
+    expect([...pythonTestingLanguage.productInputPaths].sort()).toEqual([
       ...EXPECTED_PYTEST_PRODUCT_INPUT_PATHS,
-    ]));
+    ].sort());
   });
 });
