@@ -61,11 +61,3 @@ The `--update` scenario tests drive `createNodeOutcomeResolver` with a recording
 **Resolution:** throw a clear error when `source` and `update` are both set — the in-memory source has no productDir to refresh — rather than silently rendering without updating.
 
 **Skills:** `spec-tree:applying` (implementation).
-
-## FOLLOW-UP: the resolver reads covered test contents per node, not once per pass
-
-`createNodeOutcomeResolver` memoizes `discoverTestFiles` and `readTestingRuns` across nodes (`sharedEvidence`), but `usableRecordedOutcome` calls `currentStalenessInputs` once per node, and `currentStalenessInputs` (`src/commands/testing/run-command.ts`) reads every covered test file's content sequentially (`readCoveredContents`). When N test-outcome-stage nodes all select the same fresh full-product run covering K files, the happy path performs up to N×K sequential content reads rather than K — the memoization holds for discovery and run-file reads but not for the staleness content digests, so the cost grows with the tree.
-
-**Resolution:** memoize the covered-content digest by covered-path-set across nodes within a single `--update` pass (or read each discovered file's content once and reuse), weighed against the product's sub-100ms CLI-latency target in `spx/spx.product.md`.
-
-**Skills:** `spec-tree:applying` (implementation).
