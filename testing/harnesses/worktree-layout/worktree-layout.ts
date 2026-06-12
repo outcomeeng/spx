@@ -17,6 +17,13 @@ const DEFAULT_BARE_NAME = "repo";
 const GIT_ENV_PREFIX = "GIT_";
 /** Commit message for the harness's seed commit — a fixture value, not a git CLI token. */
 const INITIAL_COMMIT_MESSAGE = "init";
+/**
+ * The source repository's initial branch, fixed so it does not depend on the
+ * machine's `init.defaultBranch`. Generators that add branch-bearing worktrees
+ * (`git worktree add -b`) must keep their generated branch names distinct from
+ * this, or `-b` fails creating a branch that already exists.
+ */
+export const SEED_BRANCH = "trunk";
 
 /** One worktree to provision under the layout's container. */
 export type WorktreeSpec = {
@@ -95,7 +102,7 @@ export async function withWorktreeLayoutEnv(
 
 /** Creates a non-bare source repository with one commit and returns its HEAD SHA. */
 async function initSourceRepo(source: string): Promise<string> {
-  await runGit(source, [GIT_TEST_SUBCOMMANDS.INIT]);
+  await runGit(source, [GIT_TEST_SUBCOMMANDS.INIT, GIT_TEST_FLAGS.NEW_BRANCH, SEED_BRANCH]);
   await runGit(source, [GIT_TEST_SUBCOMMANDS.CONFIG, GIT_TEST_CONFIG.EMAIL_KEY, GIT_TEST_CONFIG.EMAIL]);
   await runGit(source, [GIT_TEST_SUBCOMMANDS.CONFIG, GIT_TEST_CONFIG.USER_NAME_KEY, GIT_TEST_CONFIG.USER_NAME]);
   await runGit(source, [
