@@ -36,8 +36,8 @@ export const GIT_TEST_FLAGS = {
   NEW_BRANCH: "-b",
   OTHERS: "--others",
   QUIET: "--quiet",
+  REMOVE_SECTION: "--remove-section",
   SHOW_CURRENT: "--show-current",
-  UNSET: "--unset",
 } as const;
 
 export const GIT_TEST_REF = {
@@ -54,6 +54,7 @@ export const GIT_TEST_OUTPUT = {
 export const GIT_TEST_CONFIG = {
   EMAIL: "test@test.local",
   EMAIL_KEY: "user.email",
+  ORIGIN_SECTION: "remote.origin",
   ORIGIN_URL_KEY: "remote.origin.url",
   USER_NAME: "Test User",
   USER_NAME_KEY: "user.name",
