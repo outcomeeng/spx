@@ -3,7 +3,7 @@ import {
   SESSION_FRONT_MATTER_DELIMITER,
   SESSION_FRONT_MATTER_DOCUMENT_END,
 } from "@/domains/session/create";
-import { resolveAgentSessionId } from "@/domains/session/agent-session";
+import { AGENT_SESSION_TOKEN_PATTERN, resolveAgentSessionId } from "@/domains/session/agent-session";
 import { DEFAULT_SESSION_METADATA, parseSessionMetadata } from "@/domains/session/list";
 import {
   generateSessionId,
@@ -22,6 +22,7 @@ const VALID_PRIORITIES: readonly SessionPriority[] = Object.values(SESSION_PRIOR
 const PROPERTY_DATE_MIN = new Date("2000-01-01T00:00:00.000Z");
 const PROPERTY_DATE_MAX = new Date("2099-12-28T23:59:59.000Z");
 const CODEX_SESSION_SAMPLE_SEED = 0xC0D3;
+const PATH_UNSAFE_CODEX_THREAD_ID = "thread.id:with/slashes+plus";
 
 describe("resolveAgentSessionId", () => {
   it("GIVEN agent session environment values WHEN resolved THEN Claude takes precedence and Codex is the fallback", () => {
@@ -44,6 +45,16 @@ describe("resolveAgentSessionId", () => {
       CODEX_THREAD_ID: "",
     })).toBeUndefined();
     expect(resolveAgentSessionId({})).toBeUndefined();
+  });
+
+  it("GIVEN path-unsafe Codex thread identity WHEN resolved THEN returns a safe token", () => {
+    const resolved = resolveAgentSessionId({
+      CODEX_THREAD_ID: PATH_UNSAFE_CODEX_THREAD_ID,
+    });
+
+    expect(resolved).toBeDefined();
+    expect(resolved).toMatch(AGENT_SESSION_TOKEN_PATTERN);
+    expect(resolved).not.toBe(PATH_UNSAFE_CODEX_THREAD_ID);
   });
 });
 
