@@ -41,6 +41,13 @@ export const STATE_STORE_ERROR = {
   RECORD_READ_FAILED: "state-store record read failed",
 } as const;
 
+export type StateStoreErrorCode = (typeof STATE_STORE_ERROR)[keyof typeof STATE_STORE_ERROR];
+
+export interface StateStoreErrorInfo {
+  readonly code: StateStoreErrorCode;
+  readonly detail?: string;
+}
+
 export const STATE_STORE_BRANCH_IDENTITY = {
   DETACHED_HEAD_PREFIX: "detached",
   DETACHED_HEAD_SHA_HEX_LENGTH: 12,
@@ -135,6 +142,7 @@ const WRITE_EXISTING_FLAG = "r+";
 const ERROR_CODE_FILE_EXISTS = "EEXIST";
 const ERROR_CODE_NOT_FOUND = "ENOENT";
 const JSONL_LINE_SEPARATOR = "\n";
+const ERROR_DETAIL_SEPARATOR = ": ";
 
 const defaultFileSystem: StateStoreFileSystem = {
   mkdir: async (path, options) => {
@@ -281,7 +289,10 @@ export async function createJsonlRunFile(
   try {
     await fs.mkdir(domainRunsDir.value, { recursive: true });
   } catch (error) {
-    return { ok: false, error: `${STATE_STORE_ERROR.RUN_FILE_CREATE_FAILED}: ${toErrorMessage(error)}` };
+    return {
+      ok: false,
+      error: formatStateStoreError(STATE_STORE_ERROR.RUN_FILE_CREATE_FAILED, toErrorMessage(error)),
+    };
   }
 
   for (let attempt = 0; attempt < maxAttempts; attempt += 1) {
@@ -294,7 +305,10 @@ export async function createJsonlRunFile(
       return { ok: true, value: { runsDir: domainRunsDir.value, runFilePath: path, runFileName: name, runToken, runId, startedAt } };
     } catch (error) {
       if (hasErrorCode(error, ERROR_CODE_FILE_EXISTS)) continue;
-      return { ok: false, error: `${STATE_STORE_ERROR.RUN_FILE_CREATE_FAILED}: ${toErrorMessage(error)}` };
+      return {
+        ok: false,
+        error: formatStateStoreError(STATE_STORE_ERROR.RUN_FILE_CREATE_FAILED, toErrorMessage(error)),
+      };
     }
   }
 
@@ -312,7 +326,10 @@ export async function writeJsonlRunRecord(
     if (existing.trim().length > 0) return { ok: false, error: STATE_STORE_ERROR.RECORD_ALREADY_EXISTS };
   } catch (error) {
     if (!hasErrorCode(error, ERROR_CODE_NOT_FOUND)) {
-      return { ok: false, error: `${STATE_STORE_ERROR.RECORD_WRITE_FAILED}: ${toErrorMessage(error)}` };
+      return {
+        ok: false,
+        error: formatStateStoreError(STATE_STORE_ERROR.RECORD_WRITE_FAILED, toErrorMessage(error)),
+      };
     }
   }
 
@@ -320,7 +337,10 @@ export async function writeJsonlRunRecord(
     await fs.writeFile(runFilePath, serializeJsonlRecord(record), { flag: WRITE_EXISTING_FLAG });
     return { ok: true, value: runFilePath };
   } catch (error) {
-    return { ok: false, error: `${STATE_STORE_ERROR.RECORD_WRITE_FAILED}: ${toErrorMessage(error)}` };
+    return {
+      ok: false,
+      error: formatStateStoreError(STATE_STORE_ERROR.RECORD_WRITE_FAILED, toErrorMessage(error)),
+    };
   }
 }
 
@@ -335,7 +355,10 @@ export async function appendJsonlRecord(
     await fs.appendFile(filePath, serializeJsonlRecord(record));
     return { ok: true, value: filePath };
   } catch (error) {
-    return { ok: false, error: `${STATE_STORE_ERROR.RECORD_WRITE_FAILED}: ${toErrorMessage(error)}` };
+    return {
+      ok: false,
+      error: formatStateStoreError(STATE_STORE_ERROR.RECORD_WRITE_FAILED, toErrorMessage(error)),
+    };
   }
 }
 
@@ -349,7 +372,10 @@ export async function readLatestJsonlRecord(
     content = await fs.readFile(filePath, "utf8");
   } catch (error) {
     if (hasErrorCode(error, ERROR_CODE_NOT_FOUND)) return { ok: true, value: undefined };
-    return { ok: false, error: `${STATE_STORE_ERROR.RECORD_READ_FAILED}: ${toErrorMessage(error)}` };
+    return {
+      ok: false,
+      error: formatStateStoreError(STATE_STORE_ERROR.RECORD_READ_FAILED, toErrorMessage(error)),
+    };
   }
 
   for (const line of nonEmptyJsonlLinesNewestFirst(content)) {
@@ -365,6 +391,19 @@ export async function readLatestJsonlRecord(
 
 export function latestNonEmptyJsonlLine(content: string): string | undefined {
   return nonEmptyJsonlLinesNewestFirst(content)[0];
+}
+
+export function formatStateStoreError(code: StateStoreErrorCode, detail?: string): string {
+  return detail === undefined ? code : `${code}${ERROR_DETAIL_SEPARATOR}${detail}`;
+}
+
+export function parseStateStoreError(error: string): StateStoreErrorInfo | undefined {
+  for (const code of Object.values(STATE_STORE_ERROR)) {
+    if (error === code) return { code };
+    const prefix = `${code}${ERROR_DETAIL_SEPARATOR}`;
+    if (error.startsWith(prefix)) return { code, detail: error.slice(prefix.length) };
+  }
+  return undefined;
 }
 
 export function serializeJsonlRecord(record: JsonRecord): string {

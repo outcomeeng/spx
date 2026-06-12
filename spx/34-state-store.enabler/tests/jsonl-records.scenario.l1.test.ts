@@ -4,7 +4,14 @@ import { join } from "node:path";
 
 import { afterEach, describe, expect, it } from "vitest";
 
-import { appendJsonlRecord, latestNonEmptyJsonlLine, readLatestJsonlRecord } from "@/lib/state-store";
+import {
+  appendJsonlRecord,
+  formatStateStoreError,
+  latestNonEmptyJsonlLine,
+  parseStateStoreError,
+  readLatestJsonlRecord,
+  STATE_STORE_ERROR,
+} from "@/lib/state-store";
 import { STATE_STORE_TEST_GENERATOR, sampleStateStoreTestValue } from "@testing/generators/state-store/state-store";
 import { removeTempDir } from "@testing/harnesses/with-temp-dir";
 
@@ -46,6 +53,20 @@ describe("state-store JSONL records", () => {
     const latestLine = sampleStateStoreTestValue(STATE_STORE_TEST_GENERATOR.scopeToken());
 
     expect(latestNonEmptyJsonlLine(`${JSON.stringify(firstRecord)}\n${latestLine}\n\n`)).toBe(latestLine);
+  });
+
+  it("parses state-store error codes and details without consumer string replacement", () => {
+    const detail = sampleStateStoreTestValue(STATE_STORE_TEST_GENERATOR.branchIdentity());
+    const formatted = formatStateStoreError(STATE_STORE_ERROR.RECORD_WRITE_FAILED, detail);
+
+    expect(parseStateStoreError(STATE_STORE_ERROR.RECORD_ALREADY_EXISTS)).toEqual({
+      code: STATE_STORE_ERROR.RECORD_ALREADY_EXISTS,
+    });
+    expect(parseStateStoreError(formatted)).toEqual({
+      code: STATE_STORE_ERROR.RECORD_WRITE_FAILED,
+      detail,
+    });
+    expect(parseStateStoreError(detail)).toBeUndefined();
   });
 
   it("returns undefined when the file is absent", async () => {

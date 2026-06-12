@@ -19,6 +19,7 @@ import {
   defaultStateStoreFileSystem,
   isRunFileName,
   latestNonEmptyJsonlLine,
+  parseStateStoreError,
   runsDir as stateStoreRunsDir,
   STATE_STORE_DOMAIN,
   STATE_STORE_ERROR,
@@ -67,9 +68,7 @@ export async function createAuditRunFile(
   if (!created.ok) {
     return {
       ok: false,
-      error: created.error
-        .replace(STATE_STORE_ERROR.RUN_FILE_CREATE_FAILED, AUDIT_RUN_STATE_ERROR.RUN_FILE_CREATE_FAILED)
-        .replace(STATE_STORE_ERROR.RUN_FILE_COLLISION_LIMIT, AUDIT_RUN_STATE_ERROR.RUN_FILE_COLLISION_LIMIT),
+      error: auditRunFileError(created.error),
     };
   }
 
@@ -102,7 +101,7 @@ export async function writeTerminalAuditRunState(
   }
   return {
     ok: false,
-    error: written.error.replace(STATE_STORE_ERROR.RECORD_WRITE_FAILED, AUDIT_RUN_STATE_ERROR.STATE_WRITE_FAILED),
+    error: auditWriteError(written.error),
   };
 }
 
@@ -173,6 +172,29 @@ async function readAuditRunStatePath(
 
 function isAuditRunFileEntry(entry: AuditRunFileEntry): boolean {
   return entry.isFile() && isRunFileName(entry.name);
+}
+
+function auditRunFileError(error: string): string {
+  const stateStoreError = parseStateStoreError(error);
+  if (stateStoreError?.code === STATE_STORE_ERROR.RUN_FILE_COLLISION_LIMIT) {
+    return AUDIT_RUN_STATE_ERROR.RUN_FILE_COLLISION_LIMIT;
+  }
+  if (stateStoreError?.code === STATE_STORE_ERROR.RUN_FILE_CREATE_FAILED) {
+    return withDomainErrorDetail(AUDIT_RUN_STATE_ERROR.RUN_FILE_CREATE_FAILED, stateStoreError.detail);
+  }
+  return withDomainErrorDetail(AUDIT_RUN_STATE_ERROR.RUN_FILE_CREATE_FAILED, error);
+}
+
+function auditWriteError(error: string): string {
+  const stateStoreError = parseStateStoreError(error);
+  if (stateStoreError?.code === STATE_STORE_ERROR.RECORD_WRITE_FAILED) {
+    return withDomainErrorDetail(AUDIT_RUN_STATE_ERROR.STATE_WRITE_FAILED, stateStoreError.detail);
+  }
+  return withDomainErrorDetail(AUDIT_RUN_STATE_ERROR.STATE_WRITE_FAILED, error);
+}
+
+function withDomainErrorDetail(domainError: string, detail: string | undefined): string {
+  return detail === undefined ? domainError : `${domainError}: ${detail}`;
 }
 
 function hasErrorCode(error: unknown, code: string): boolean {

@@ -8,6 +8,7 @@ import {
   formatRunTimestamp,
   isRunFileName,
   latestNonEmptyJsonlLine,
+  parseStateStoreError,
   runFileName,
   runsDir as stateStoreRunsDir,
   STATE_STORE_ERROR,
@@ -179,9 +180,7 @@ export async function createTestRunFile(
   const created = await createJsonlRunFile(worktreeScope.value, STATE_STORE_DOMAIN.TEST, options);
   if (!created.ok) return {
     ok: false,
-    error: created.error
-      .replace(STATE_STORE_ERROR.RUN_FILE_CREATE_FAILED, TESTING_RUN_STATE_ERROR.RUN_FILE_CREATE_FAILED)
-      .replace(STATE_STORE_ERROR.RUN_FILE_COLLISION_LIMIT, TESTING_RUN_STATE_ERROR.RUN_FILE_COLLISION_LIMIT),
+    error: testingRunFileError(created.error),
   };
   return { ok: true, value: created.value };
 }
@@ -198,7 +197,7 @@ export async function writeTerminalTestRunState(
   }
   return {
     ok: false,
-    error: written.error.replace(STATE_STORE_ERROR.RECORD_WRITE_FAILED, TESTING_RUN_STATE_ERROR.STATE_WRITE_FAILED),
+    error: testingWriteError(written.error),
   };
 }
 
@@ -493,6 +492,29 @@ function compareAsciiStrings(left: string, right: string): number {
 
 function isTestRunFileEntry(entry: TestRunFileEntry): boolean {
   return entry.isFile() && isRunFileName(entry.name);
+}
+
+function testingRunFileError(error: string): string {
+  const stateStoreError = parseStateStoreError(error);
+  if (stateStoreError?.code === STATE_STORE_ERROR.RUN_FILE_COLLISION_LIMIT) {
+    return TESTING_RUN_STATE_ERROR.RUN_FILE_COLLISION_LIMIT;
+  }
+  if (stateStoreError?.code === STATE_STORE_ERROR.RUN_FILE_CREATE_FAILED) {
+    return withDomainErrorDetail(TESTING_RUN_STATE_ERROR.RUN_FILE_CREATE_FAILED, stateStoreError.detail);
+  }
+  return withDomainErrorDetail(TESTING_RUN_STATE_ERROR.RUN_FILE_CREATE_FAILED, error);
+}
+
+function testingWriteError(error: string): string {
+  const stateStoreError = parseStateStoreError(error);
+  if (stateStoreError?.code === STATE_STORE_ERROR.RECORD_WRITE_FAILED) {
+    return withDomainErrorDetail(TESTING_RUN_STATE_ERROR.STATE_WRITE_FAILED, stateStoreError.detail);
+  }
+  return withDomainErrorDetail(TESTING_RUN_STATE_ERROR.STATE_WRITE_FAILED, error);
+}
+
+function withDomainErrorDetail(domainError: string, detail: string | undefined): string {
+  return detail === undefined ? domainError : `${domainError}: ${detail}`;
 }
 
 function isRecord(value: unknown): value is Record<string, unknown> {
