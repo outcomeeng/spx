@@ -33,7 +33,7 @@ export interface CompactRecord extends JsonRecord {
   readonly has_foundation: true;
 }
 
-const CONTEXT_TARGET_PATTERN = /SPEC_TREE_CONTEXT\s+target=\\?"(spx\/[A-Za-z0-9._/-]+)/g;
+const CONTEXT_TARGET_PATTERN = /SPEC_TREE_CONTEXT\s+target=\\*"(spx\/[A-Za-z0-9._/-]+)/g;
 const EMPTY_ACTIVE_NODE = "";
 
 export function extractCompactRecord(transcript: string): CompactRecord | undefined {

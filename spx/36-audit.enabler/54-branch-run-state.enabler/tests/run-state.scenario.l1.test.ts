@@ -84,8 +84,10 @@ describe("audit branch run-state lookup", () => {
     const branchSlug = sampleAuditRunStateTestValue(AUDIT_RUN_STATE_TEST_GENERATOR.branchSlug());
     const missingRun = sampleAuditRunStateTestValue(AUDIT_RUN_STATE_TEST_GENERATOR.runFileName());
     const partialRun = sampleAuditRunStateTestValue(AUDIT_RUN_STATE_TEST_GENERATOR.runFileName());
+    const malformedLatestRun = sampleAuditRunStateTestValue(AUDIT_RUN_STATE_TEST_GENERATOR.runFileName());
     const invalidRun = sampleAuditRunStateTestValue(AUDIT_RUN_STATE_TEST_GENERATOR.runFileName());
     const missingError = Object.assign(new Error("missing"), { code: "ENOENT" });
+    const validState = sampleAuditRunStateTestValue(AUDIT_RUN_STATE_TEST_GENERATOR.auditRunState());
 
     await withTempProductDir(async (productDir) => {
       const result = await readAuditBranchRuns(productDir, branchSlug, {
@@ -96,13 +98,15 @@ describe("audit branch run-state lookup", () => {
           readdir: async () => [
             { name: missingRun, isFile: () => true },
             { name: partialRun, isFile: () => true },
+            { name: malformedLatestRun, isFile: () => true },
             { name: invalidRun, isFile: () => true },
           ],
           readFile: async (path) => {
             if (path.endsWith(missingRun)) throw missingError;
             if (path.endsWith(partialRun)) return "{";
+            if (path.endsWith(malformedLatestRun)) return `${JSON.stringify(validState)}\n{\n`;
             return JSON.stringify({
-              ...sampleAuditRunStateTestValue(AUDIT_RUN_STATE_TEST_GENERATOR.auditRunState()),
+              ...validState,
               status: sampleAuditRunStateTestValue(AUDIT_RUN_STATE_TEST_GENERATOR.branchName()),
             });
           },
@@ -115,6 +119,7 @@ describe("audit branch run-state lookup", () => {
       expect(result.value.incompleteRuns.map((run) => run.reason).sort()).toEqual(
         [
           AUDIT_RUN_STATE_INCOMPLETE_REASON.MISSING_STATE,
+          AUDIT_RUN_STATE_INCOMPLETE_REASON.PARSE_INVALID_STATE,
           AUDIT_RUN_STATE_INCOMPLETE_REASON.PARSE_INVALID_STATE,
           AUDIT_RUN_STATE_INCOMPLETE_REASON.SHAPE_INVALID_STATE,
         ].sort(),

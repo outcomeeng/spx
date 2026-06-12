@@ -350,10 +350,12 @@ describe("testing last-run state storage", () => {
   it("classifies missing, parse-invalid, and shape-invalid run files as incomplete evidence", async () => {
     const missingRun = sampleTestRunStateValue(TEST_RUN_STATE_TEST_GENERATOR.runFileName());
     const parseInvalidRun = sampleTestRunStateValue(TEST_RUN_STATE_TEST_GENERATOR.runFileName());
+    const malformedLatestRun = sampleTestRunStateValue(TEST_RUN_STATE_TEST_GENERATOR.runFileName());
     const shapeInvalidRun = sampleTestRunStateValue(TEST_RUN_STATE_TEST_GENERATOR.runFileName());
     const missingError = Object.assign(new Error("missing"), { code: TESTING_RUN_STATE_ERROR_CODE.NOT_FOUND });
+    const validState = sampleTestRunStateValue(TEST_RUN_STATE_TEST_GENERATOR.testRunState());
     const shapeInvalidState = {
-      ...sampleTestRunStateValue(TEST_RUN_STATE_TEST_GENERATOR.testRunState()),
+      ...validState,
       status: sampleTestRunStateValue(TEST_RUN_STATE_TEST_GENERATOR.headSha()),
     };
 
@@ -363,11 +365,13 @@ describe("testing last-run state storage", () => {
           readdir: async () => [
             { name: missingRun, isFile: () => true },
             { name: parseInvalidRun, isFile: () => true },
+            { name: malformedLatestRun, isFile: () => true },
             { name: shapeInvalidRun, isFile: () => true },
           ],
           readFile: async (path) => {
             if (path.endsWith(missingRun)) throw missingError;
             if (path.endsWith(parseInvalidRun)) return "{";
+            if (path.endsWith(malformedLatestRun)) return `${JSON.stringify(validState)}\n{\n`;
             return JSON.stringify(shapeInvalidState);
           },
         },
@@ -379,6 +383,7 @@ describe("testing last-run state storage", () => {
       expect(runs.value.incompleteRuns.map((run) => run.reason).sort()).toEqual(
         [
           TESTING_RUN_STATE_INCOMPLETE_REASON.MISSING_STATE,
+          TESTING_RUN_STATE_INCOMPLETE_REASON.PARSE_INVALID_STATE,
           TESTING_RUN_STATE_INCOMPLETE_REASON.PARSE_INVALID_STATE,
           TESTING_RUN_STATE_INCOMPLETE_REASON.SHAPE_INVALID_STATE,
         ].sort(),
