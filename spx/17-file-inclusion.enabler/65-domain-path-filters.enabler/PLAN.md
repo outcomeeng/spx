@@ -2,20 +2,20 @@
 
 ## Purpose
 
-Wire typed config-backed domain path-filter inputs through the file-inclusion resolver so each consumer (validation, testing, audit, review) narrows scope within the git-tracking default per `../11-ignore-defaults.pdr.md`.
+Wire typed config-backed domain path-filter inputs through the file-inclusion resolver so each consumer (validation, testing, audit, review) narrows scope within the git-tracking default per `spx/17-file-inclusion.enabler/11-ignore-defaults.pdr.md`.
 
-## Governing Specs
+## Governing Artifacts
 
-- `../file-inclusion.md`
-- `../11-ignore-defaults.pdr.md`
-- `../15-scope-composition.adr.md`
+- `spx/17-file-inclusion.enabler/file-inclusion.md`
+- `spx/17-file-inclusion.enabler/11-ignore-defaults.pdr.md`
+- `spx/17-file-inclusion.enabler/15-scope-composition.adr.md`
 - `spx/16-config.enabler/32-shared-config-primitives.enabler/shared-config-primitives.md`
 
 ## Implementation Notes
 
 - The scope-resolver accepts a typed domain path filter alongside override flags and explicit caller paths.
 - Domain filters layer on top of the git-tracking default — they narrow or restrict within the git-tracked set, never replace git's view as the default scope source.
-- Operators who want ignored entries processed pass `--no-ignore`, `--no-ignore-vcs`, or `--ignore-file` per `../11-ignore-defaults.pdr.md`, not a domain filter `include` pattern.
+- Operators who want ignored entries processed pass `--no-ignore`, `--no-ignore-vcs`, or `--ignore-file` per `spx/17-file-inclusion.enabler/11-ignore-defaults.pdr.md`, not a domain filter `include` pattern.
 
 ## Evidence Required
 
@@ -27,4 +27,4 @@ Wire typed config-backed domain path-filter inputs through the file-inclusion re
 
 - Own the domain path-filter resolver changes and tests required by this node under `src/lib/file-inclusion/` and this node's co-located `tests/`.
 - Consume the shared path-filter primitive from `src/config/primitives/`; do not define a second path-filter shape or validator.
-- Coordinate with the git-tracking reader work under `../21-ignore-source.enabler/` and the predicate work under `../32-path-predicates.enabler/`; this node depends on both being in place.
+- Coordinate with the git-tracking reader work under `spx/17-file-inclusion.enabler/21-ignore-source.enabler/` and the predicate work under `spx/17-file-inclusion.enabler/32-path-predicates.enabler/`; this node depends on both being in place.
