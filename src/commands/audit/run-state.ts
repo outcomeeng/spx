@@ -17,6 +17,7 @@ import {
   branchScopeDir,
   createJsonlRunFile,
   defaultStateStoreFileSystem,
+  hasErrorCode,
   isRunFileName,
   latestNonEmptyJsonlLine,
   parseStateStoreError,
@@ -195,10 +196,6 @@ function auditWriteError(error: string): string {
 
 function withDomainErrorDetail(domainError: string, detail: string | undefined): string {
   return detail === undefined ? domainError : `${domainError}: ${detail}`;
-}
-
-function hasErrorCode(error: unknown, code: string): boolean {
-  return typeof error === "object" && error !== null && "code" in error && (error as { readonly code?: unknown }).code === code;
 }
 
 function toErrorMessage(error: unknown): string {

@@ -3,9 +3,11 @@ import { join } from "node:path";
 
 import type { Result } from "@/config/types";
 import {
+  compareAsciiStrings,
   createJsonlRunFile,
   defaultStateStoreFileSystem,
   formatRunTimestamp,
+  hasErrorCode,
   isRunFileName,
   latestNonEmptyJsonlLine,
   parseStateStoreError,
@@ -484,12 +486,6 @@ function canonicalProductInputDigests(digests: readonly ProductInputDigest[]): s
   return JSON.stringify(normalized);
 }
 
-function compareAsciiStrings(left: string, right: string): number {
-  if (left < right) return -1;
-  if (left > right) return 1;
-  return 0;
-}
-
 function isTestRunFileEntry(entry: TestRunFileEntry): boolean {
   return entry.isFile() && isRunFileName(entry.name);
 }
@@ -523,10 +519,6 @@ function isRecord(value: unknown): value is Record<string, unknown> {
 
 function sha256Hex(value: string): string {
   return createHash(SHA256_ALGORITHM).update(value).digest(HEX_ENCODING);
-}
-
-function hasErrorCode(error: unknown, code: string): boolean {
-  return isRecord(error) && error.code === code;
 }
 
 function toErrorMessage(error: unknown): string {

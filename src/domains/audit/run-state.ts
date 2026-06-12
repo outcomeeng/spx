@@ -1,5 +1,6 @@
 import type { Result } from "@/config/types";
 import {
+  compareAsciiStrings,
   formatRunTimestamp,
   resolveBranchIdentity,
   runFileName,
@@ -100,12 +101,6 @@ function compareTerminalRuns(left: AuditTerminalRun, right: AuditTerminalRun): n
   const started = compareAsciiStrings(left.state.startedAt, right.state.startedAt);
   if (started !== 0) return started;
   return compareAsciiStrings(left.runFileName, right.runFileName);
-}
-
-function compareAsciiStrings(left: string, right: string): number {
-  if (left < right) return -1;
-  if (left > right) return 1;
-  return 0;
 }
 
 export function selectLatestTerminalAuditRun(

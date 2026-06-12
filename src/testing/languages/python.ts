@@ -14,6 +14,7 @@ import type {
   TestRunnerDependencies,
   TestRunRequest,
 } from "@/testing/languages/types";
+import { compareAsciiStrings } from "@/lib/state-store";
 
 const PYTHON_TESTING_LANGUAGE_NAME = "python";
 export const PYTHON_PRODUCT_INPUT_PATH = {
@@ -98,9 +99,3 @@ export const pythonTestingLanguage: TestingLanguageDescriptor = {
   detect,
   runTests,
 };
-
-function compareAsciiStrings(left: string, right: string): number {
-  if (left < right) return -1;
-  if (left > right) return 1;
-  return 0;
-}
