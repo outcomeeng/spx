@@ -56,6 +56,7 @@ describe("typescript test runner invocation", () => {
           runner,
         );
 
+        expect(result.invoked).toBe(true);
         if (!result.invoked) throw new Error();
         expect(result.exitCode).toBe(exitCode);
       }),
