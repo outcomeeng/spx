@@ -5,14 +5,12 @@ import * as fc from "fast-check";
 import { describe, expect, it } from "vitest";
 
 import { resolveAuditBranchIdentity, slugAuditBranchIdentity } from "@/domains/audit/run-state";
-import { STATE_STORE_BRANCH_SLUG } from "@/lib/state-store";
+import { STATE_STORE_BRANCH_IDENTITY, STATE_STORE_BRANCH_SLUG } from "@/lib/state-store";
 import { AUDIT_RUN_STATE_TEST_GENERATOR, sampleAuditRunStateTestValue } from "@testing/generators/audit/run-state";
 
 const SHA256_ALGORITHM = "sha256";
 const HEX_ENCODING = "hex";
 const HASH_PREFIX_HEX_LENGTH = 8;
-const DETACHED_PREFIX = "detached-";
-const DETACHED_HEAD_SHA_HEX_LENGTH = 12;
 const PATH_SEPARATOR_PATTERN = /[\\/]/;
 const SLUG_CHARACTER_PATTERN = /^[a-z0-9-]+$/;
 const SLUG_SEPARATOR = "-";
@@ -82,7 +80,12 @@ describe("audit branch slugging", () => {
     const headSha = sampleAuditRunStateTestValue(AUDIT_RUN_STATE_TEST_GENERATOR.headSha());
     const identity = resolveAuditBranchIdentity({ headSha });
 
-    expect(identity).toBe(`${DETACHED_PREFIX}${headSha.slice(0, DETACHED_HEAD_SHA_HEX_LENGTH)}`);
+    expect(identity).toBe(
+      `${STATE_STORE_BRANCH_IDENTITY.DETACHED_HEAD_PREFIX}-${headSha.slice(
+        0,
+        STATE_STORE_BRANCH_IDENTITY.DETACHED_HEAD_SHA_HEX_LENGTH,
+      )}`,
+    );
     expect(slugAuditBranchIdentity(identity, HASH_PREFIX_HEX_LENGTH)).toMatch(SLUG_CHARACTER_PATTERN);
   });
 });
