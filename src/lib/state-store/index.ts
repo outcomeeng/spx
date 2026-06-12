@@ -393,6 +393,12 @@ export function latestNonEmptyJsonlLine(content: string): string | undefined {
   return nonEmptyJsonlLinesNewestFirst(content)[0];
 }
 
+export function compareAsciiStrings(left: string, right: string): number {
+  if (left < right) return -1;
+  if (left > right) return 1;
+  return 0;
+}
+
 export function formatStateStoreError(code: StateStoreErrorCode, detail?: string): string {
   return detail === undefined ? code : `${code}${ERROR_DETAIL_SEPARATOR}${detail}`;
 }
@@ -432,8 +438,14 @@ function nonEmptyJsonlLinesNewestFirst(content: string): string[] {
   return latestLines;
 }
 
-function hasErrorCode(error: unknown, code: string): boolean {
-  return typeof error === "object" && error !== null && "code" in error && (error as { readonly code?: unknown }).code === code;
+export function hasErrorCode(error: unknown, code: string): boolean {
+  return (
+    typeof error === "object"
+    && error !== null
+    && !Array.isArray(error)
+    && "code" in error
+    && (error as { readonly code?: unknown }).code === code
+  );
 }
 
 function toErrorMessage(error: unknown): string {

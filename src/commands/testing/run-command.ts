@@ -4,6 +4,7 @@ import { digestDescriptorSection } from "@/config/descriptor-digest";
 import { resolveConfig } from "@/config/index";
 import { SUCCESS_EXIT_CODE } from "@/domains/testing";
 import { getCurrentBranch, getHeadSha, type GitDependencies } from "@/git/root";
+import { compareAsciiStrings, hasErrorCode } from "@/lib/state-store";
 import { TESTING_SECTION, type TestingConfig, testingConfigDescriptor } from "@/testing/config";
 import type { TestingLanguageDescriptor, TestRunnerDependencies } from "@/testing/languages/types";
 import type { TestingRegistry } from "@/testing/registry";
@@ -307,14 +308,4 @@ export async function runNodeCommand(
   );
   const recorded = await recordRun(runFile, options.productDir, dispatch, recording, deps.registry);
   return { dispatch, recorded };
-}
-
-function compareAsciiStrings(left: string, right: string): number {
-  if (left < right) return -1;
-  if (left > right) return 1;
-  return 0;
-}
-
-function hasErrorCode(error: unknown, code: string): boolean {
-  return typeof error === "object" && error !== null && "code" in error && error.code === code;
 }
