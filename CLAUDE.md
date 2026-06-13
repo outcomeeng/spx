@@ -2,7 +2,8 @@
 
 ## Critical Rules
 
-- ⚠️ **NEVER modify ANY file without invoking the required skills first** — If you are about to modify a file that touches specs, testing, code, architecture, or any topic covered by a skill (see `<skill_router>` below), invoke the relevant skill BEFORE modifying. Skills are the authoritative source — not grep results, not existing files, not your training data.
+- 🛑 **The MOMENT a task is recognized as touching the spec tree (`spx/**`) or any spec-governed source (`src/**`), invoke `/spec-tree:understanding` then `/spec-tree:contextualizing <node>` BEFORE any investigation.** Reading source files, running `git`/`gh` archaeology, comparing worktrees, diffing PRs, and drafting clarifying questions are all **work** — not pre-work. The gate fires on **task recognition, not file modification**: "I'm only reading," "I'm just gathering context for questions," and "I haven't changed anything yet" are the exact rationalizations this rule forbids. Context for good questions is precisely what `/contextualizing` loads, so it comes first. Skill-before-investigation, always.
+- ⚠️ **NEVER modify OR INVESTIGATE any spec-governed file without invoking the required skills first** — "investigate" includes reading source, grepping, and `git`/`gh` archaeology. If a file touches specs, testing, code, architecture, or any topic covered by a skill (see `<skill_router>` below), invoke the relevant skill BEFORE reading or modifying it. Skills are the authoritative source — not grep results, not existing files, not your training data.
 - ⚠️ **NEVER write code without invoking a skill first** - See skill table below
 - ⚠️ **ALWAYS invoke `/spec-tree:applying` before implementing any spec-tree work item** - Applying is the orchestration skill for spec-tree TDD. It requires methodology/context loading, language-specific architecture, test, and implementation steps, plus blocking audit gates before the work can be treated as ready.
 - ⚠️ **NEVER commit spec-tree implementation or test changes without the applying audit gates** - For TypeScript work, `/spec-tree:applying` requires `/typescript:auditing-typescript-tests` before implementation and `/typescript:auditing-typescript` before claiming readiness. Green tests and `pnpm run validate` are necessary but not sufficient for code/test changes.
@@ -51,17 +52,17 @@ The **spec-tree** plugin is the active system for managing specification trees. 
 
 <skill_router>
 
-| Skill                        | Purpose                                                                    |
-| ---------------------------- | -------------------------------------------------------------------------- |
-| `/spec-tree:understanding`   | Load methodology foundation (node types, ordering, assertions)             |
-| `/spec-tree:contextualizing` | Load context for a specific node (walks tree to target)                    |
-| `/spec-tree:authoring`       | Create specs, ADRs, PDRs, enablers, outcomes                               |
-| `/spec-tree:decomposing`     | Break nodes into children with proper ordering                             |
-| `/spec-tree:testing`         | Manage spec-test lock file lifecycle                                       |
-| `/spec-tree:applying`        | Orchestrate spec-tree implementation and audit gates                       |
-| `/spec-tree:refactoring`     | Restructure the spec tree (move, consolidate, extract)                     |
-| `/spec-tree:aligning`        | Review for gaps, contradictions, and consistency                           |
-| `/pr`                        | Route PR lifecycle work through opening, managing, and merge gates          |
+| Skill                        | Purpose                                                            |
+| ---------------------------- | ------------------------------------------------------------------ |
+| `/spec-tree:understanding`   | Load methodology foundation (node types, ordering, assertions)     |
+| `/spec-tree:contextualizing` | Load context for a specific node (walks tree to target)            |
+| `/spec-tree:authoring`       | Create specs, ADRs, PDRs, enablers, outcomes                       |
+| `/spec-tree:decomposing`     | Break nodes into children with proper ordering                     |
+| `/spec-tree:testing`         | Manage spec-test lock file lifecycle                               |
+| `/spec-tree:applying`        | Orchestrate spec-tree implementation and audit gates               |
+| `/spec-tree:refactoring`     | Restructure the spec tree (move, consolidate, extract)             |
+| `/spec-tree:aligning`        | Review for gaps, contradictions, and consistency                   |
+| `/pr`                        | Route PR lifecycle work through opening, managing, and merge gates |
 
 Additional skills ship with the plugin and are invoked by name: `committing-changes`, `interviewing`, `auditing-tests`, `auditing-product-decisions`, `handoff`, `pickup`, `refocusing`, `bootstrapping`, `opening-pr`, `managing-pr`, `standardizing-merging`. See the spec-tree plugin's `skills/` directory for the full list.
 
