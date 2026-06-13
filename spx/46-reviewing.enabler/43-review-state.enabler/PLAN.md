@@ -17,7 +17,7 @@ Persist local review observations for status and latest-review lookup.
 - Define review state shape before branch and PR commands write it.
 - Store branch review state under `.spx/branch/{branch-slug}/review/runs/run-{run-token}.jsonl` at the Git common-dir product root.
 - Include branch and PR target discriminators once PR-scoped state is designed in the state-store contract.
-- Reuse the branch slug implementation owned by `spx/34-state-store.enabler/21-state-store-architecture.adr.md` for branch review targets.
+- Reuse the branch slug implementation owned by `spx/18-state.enabler/32-scope-addressing.enabler/` (governed by `spx/17-state.adr.md`) for branch review targets.
 - Use canonical review descriptor digest for staleness.
 - Keep incomplete run behavior explicit and visible.
 

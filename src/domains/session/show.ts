@@ -7,6 +7,7 @@
 import { join } from "node:path";
 
 import { DEFAULT_CONFIG } from "@/config/defaults";
+import { STATE_STORE_PATH } from "@/lib/state-store";
 import { parseSessionMetadata } from "./list";
 import { SESSION_STATUSES, type SessionStatus } from "./types";
 
@@ -38,10 +39,12 @@ export interface SessionDirectoryConfig {
 /**
  * Default session directory configuration.
  *
- * Derived from DEFAULT_CONFIG to ensure single source of truth for all path components.
- * NEVER hardcode path strings like ".spx", "sessions", "todo" - always derive from config.
+ * The `.spx/sessions` base derives from the state module's path tokens, which own
+ * the `.spx/` layout; the status-directory names derive from DEFAULT_CONFIG. NEVER
+ * hardcode these path components - always derive them from their owning source.
  */
-const { dir: sessionsBaseDir, statusDirs } = DEFAULT_CONFIG.sessions;
+const sessionsBaseDir = join(STATE_STORE_PATH.SPX_DIR, STATE_STORE_PATH.SESSIONS_SCOPE);
+const { statusDirs } = DEFAULT_CONFIG.sessions;
 
 export const DEFAULT_SESSION_CONFIG: SessionDirectoryConfig = {
   todoDir: join(sessionsBaseDir, statusDirs.todo),

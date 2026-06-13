@@ -12,11 +12,7 @@ CAN create, claim, release, and clean up work handoffs that remain accessible fr
 - Given no explicit `--sessions-dir` option, when a session command resolves its config, then all session paths derive from the Git common-dir product root ([test](tests/session.scenario.l1.test.ts))
 - Given an explicit `--sessions-dir` option, when a session command resolves its config, then the provided directory is used and git detection is skipped ([test](tests/session.scenario.l1.test.ts))
 
-### Properties
-
-- The gitignored-state root resolver returns the same root as the tracked-file root resolver in non-worktree repositories and the Git common-dir product root in worktrees ([test](tests/session.scenario.l1.test.ts))
-
 ### Compliance
 
-- ALWAYS: resolve `.spx/sessions/` relative to the Git common-dir product root per `spx/15-worktree-management.pdr.md` ([review](../15-worktree-management.pdr.md))
-- NEVER: create `.spx/` directories inside git worktrees — session state is shared across all worktrees per `spx/15-worktree-management.pdr.md` ([review](../15-worktree-management.pdr.md))
+- ALWAYS: resolve `.spx/sessions/` relative to the Git common-dir product root per `spx/15-worktree-management.pdr.md` ([test](tests/session.scenario.l1.test.ts))
+- NEVER: create `.spx/` directories inside git worktrees — session state is shared across all worktrees per `spx/15-worktree-management.pdr.md` ([test](tests/session.scenario.l1.test.ts))

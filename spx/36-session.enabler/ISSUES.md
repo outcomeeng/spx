@@ -34,16 +34,6 @@ Reported files outside this rollout included:
 
 Resolution condition: run the repository formatter in a dedicated formatting cleanup, keep the resulting diff isolated from behavior changes, and then remove this entry.
 
-## Infrastructure layer imports a session-domain config type
-
-`src/git/root.ts` imports `SessionDirectoryConfig` from `@/domains/session/show` to type `resolveSessionConfig`, so the generic git infrastructure module still depends on the session domain. Removing `detectSessionWorkContext` cleared the session-domain error coupling, but this type coupling remains.
-
-Observed in PR review of the session-frontmatter implementation.
-
-Impact: `resolveSessionConfig` cannot move or be tested independently of the session domain, and the infrastructure layer carries session vocabulary.
-
-Resolution condition: relocate `SessionDirectoryConfig` to a shared config module, or resolve the session directory configuration in the command layer, leaving `src/git/root.ts` free of session-domain imports.
-
 ## Handoff re-derives git state in two places
 
 `handoffCommand` resolves the same git state twice for one `cwd`: `resolveSessionConfig` calls `detectGitCommonDirProductRoot` (`rev-parse --show-toplevel` + `--git-common-dir`) to locate the sessions directory, and `resolveSessionGitRef` also calls `detectGitCommonDirProductRoot` (the same `--show-toplevel` + `--git-common-dir` reads) to derive the worktree roots for the handoff-base gate.
