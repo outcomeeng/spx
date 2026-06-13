@@ -2,23 +2,20 @@ import { createHash, randomBytes as nodeRandomBytes } from "node:crypto";
 import {
   appendFile as nodeAppendFile,
   mkdir as nodeMkdir,
-  readFile as nodeReadFile,
   readdir as nodeReaddir,
+  readFile as nodeReadFile,
   writeFile as nodeWriteFile,
 } from "node:fs/promises";
 import { dirname, join } from "node:path";
 
 import type { Result } from "@/config/types";
-import {
-  detectGitCommonDirProductRoot,
-  detectWorktreeProductRoot,
-  type GitDependencies,
-} from "@/git/root";
+import { detectGitCommonDirProductRoot, detectWorktreeProductRoot, type GitDependencies } from "@/git/root";
 
 export const STATE_STORE_PATH = {
   SPX_DIR: ".spx",
   BRANCH_SCOPE: "branch",
   WORKTREE_SCOPE: "worktree",
+  SESSIONS_SCOPE: "sessions",
   RUNS_DIR: "runs",
   RUN_FILE_PREFIX: "run-",
   JSONL_EXTENSION: ".jsonl",
@@ -211,6 +208,28 @@ export async function resolveWorktreeScopeDir(options: ResolveScopeOptions = {})
   return worktreeScopeDir(gitResult.productDir);
 }
 
+/** The shared `.spx/sessions` scope dir plus the non-git-repo diagnostic, if any. */
+export interface ResolveSessionsScopeResult {
+  readonly sessionsDir: string;
+  readonly warning?: string;
+}
+
+/**
+ * Resolves the shared `.spx/sessions` scope directory from the Git common-dir
+ * product root so every worktree addresses the same sessions store. The result
+ * is the scope directory only — its consumer composes the status subdirectories
+ * on top. Surfaces the non-git-repo diagnostic when resolution falls back to cwd.
+ */
+export async function resolveSessionsScopeDir(
+  options: ResolveScopeOptions = {},
+): Promise<ResolveSessionsScopeResult> {
+  const gitResult = await detectGitCommonDirProductRoot(options.cwd, options.deps);
+  return {
+    sessionsDir: sessionsScopeDir(gitResult.productDir),
+    warning: gitResult.warning,
+  };
+}
+
 export function branchScopeDir(productDir: string, branchSlug: string): Result<string> {
   const validated = validateBranchSlug(branchSlug);
   if (!validated.ok) return validated;
@@ -222,6 +241,10 @@ export function branchScopeDir(productDir: string, branchSlug: string): Result<s
 
 export function worktreeScopeDir(productDir: string): Result<string> {
   return { ok: true, value: join(productDir, STATE_STORE_PATH.SPX_DIR, STATE_STORE_PATH.WORKTREE_SCOPE) };
+}
+
+export function sessionsScopeDir(productDir: string): string {
+  return join(productDir, STATE_STORE_PATH.SPX_DIR, STATE_STORE_PATH.SESSIONS_SCOPE);
 }
 
 export function composeScopeDir(baseScopeDir: string, ...tokens: readonly string[]): Result<string> {
@@ -302,7 +325,10 @@ export async function createJsonlRunFile(
     const path = join(domainRunsDir.value, name);
     try {
       await fs.writeFile(path, EMPTY_STRING, { flag: EXCLUSIVE_CREATE_FLAG });
-      return { ok: true, value: { runsDir: domainRunsDir.value, runFilePath: path, runFileName: name, runToken, runId, startedAt } };
+      return {
+        ok: true,
+        value: { runsDir: domainRunsDir.value, runFilePath: path, runFileName: name, runToken, runId, startedAt },
+      };
     } catch (error) {
       if (hasErrorCode(error, ERROR_CODE_FILE_EXISTS)) continue;
       return {

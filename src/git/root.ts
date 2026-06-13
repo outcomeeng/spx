@@ -1,8 +1,6 @@
 import { execa } from "execa";
 import { basename, dirname, isAbsolute, join, resolve } from "node:path";
 
-import { SessionDirectoryConfig } from "@/domains/session/show";
-import { DEFAULT_CONFIG } from "../config/defaults";
 import { withoutGitEnvironment } from "./environment";
 
 // Result from product-directory detection.
@@ -507,54 +505,4 @@ export async function detectMainCheckout(
   const facts = await gatherGitFacts(cwd, deps);
   if (facts === null) return false;
   return isMainCheckout(facts);
-}
-
-// Options for resolving session directory configuration.
-export interface ResolveSessionConfigOptions {
-  /** Explicit sessions directory (overrides auto-detection) */
-  sessionsDir?: string;
-  /** Current working directory for git detection */
-  cwd?: string;
-  /** Injectable dependencies for testing */
-  deps?: GitDependencies;
-}
-
-// Result of session config resolution.
-export interface ResolveSessionConfigResult {
-  /** Resolved session directory configuration with absolute paths */
-  config: SessionDirectoryConfig;
-  /** Warning message if not in a git repository */
-  warning?: string;
-}
-
-// Resolves session directory configuration with worktree-aware root detection.
-export async function resolveSessionConfig(
-  options: ResolveSessionConfigOptions = {},
-): Promise<ResolveSessionConfigResult> {
-  const { sessionsDir, cwd, deps } = options;
-  const { statusDirs } = DEFAULT_CONFIG.sessions;
-
-  // Explicit directory provided — use as-is
-  if (sessionsDir) {
-    return {
-      config: {
-        todoDir: join(sessionsDir, statusDirs.todo),
-        doingDir: join(sessionsDir, statusDirs.doing),
-        archiveDir: join(sessionsDir, statusDirs.archive),
-      },
-    };
-  }
-
-  // Auto-detect Git common-dir product root for .spx/ operations
-  const gitResult = await detectGitCommonDirProductRoot(cwd, deps);
-  const baseDir = join(gitResult.productDir, DEFAULT_CONFIG.sessions.dir);
-
-  return {
-    config: {
-      todoDir: join(baseDir, statusDirs.todo),
-      doingDir: join(baseDir, statusDirs.doing),
-      archiveDir: join(baseDir, statusDirs.archive),
-    },
-    warning: gitResult.warning,
-  };
 }

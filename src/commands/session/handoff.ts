@@ -15,7 +15,7 @@ import { join, resolve } from "node:path";
 
 import { stringify as stringifyYaml } from "yaml";
 
-import { resolveAgentSessionId, type AgentSessionEnvironment } from "@/domains/session/agent-session";
+import { type AgentSessionEnvironment, resolveAgentSessionId } from "@/domains/session/agent-session";
 import { SESSION_FRONT_MATTER_CLOSE, SESSION_FRONT_MATTER_OPEN } from "@/domains/session/create";
 import {
   SessionInvalidContentError,
@@ -37,8 +37,8 @@ import {
   ORIGIN_REF_PREFIX,
   resolveDefaultBranch,
   resolveRefSha,
-  resolveSessionConfig,
 } from "@/git/root";
+import { resolveSessionConfig } from "./resolve-config";
 
 /**
  * Options for the handoff command.

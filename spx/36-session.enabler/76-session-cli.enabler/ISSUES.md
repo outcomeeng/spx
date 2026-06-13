@@ -22,7 +22,7 @@ The handoff-base checklist enumerates two base prerequisites — a clean working
 
 ## Bare-pool non-main handoff refusal has no L2 coverage
 
-The `session-cli.compliance.l2` test exercises the `SessionHandoffBaseError` refusal only from a non-bare repository's linked worktree (via `withGitWorktreeEnv`). The bare-pool code path — where `mainCheckoutPath` constructs `join(container, repositoryName)` and the checklist renders that as the `main checkout:` fact line — has no end-to-end L2 coverage. The unit-level bare-pool classifier is covered in [`spx/24-worktree-detection.enabler/tests/main-checkout.scenario.l1.test.ts`](../../24-worktree-detection.enabler/tests/main-checkout.scenario.l1.test.ts), but the full `spx session handoff` flow from a bare-pool non-main worktree, including the rendered checklist path, is unexercised.
+The `session-cli.compliance.l2` test exercises the `SessionHandoffBaseError` refusal only from a non-bare repository's linked worktree (via `withGitWorktreeEnv`). The bare-pool code path — where `mainCheckoutPath` constructs `join(container, repositoryName)` and the checklist renders that as the `main checkout:` fact line — has no end-to-end L2 coverage. The unit-level bare-pool classifier is covered in [`spx/18-state.enabler/32-worktree-topology.enabler/tests/main-checkout.scenario.l1.test.ts`](../../18-state.enabler/32-worktree-topology.enabler/tests/main-checkout.scenario.l1.test.ts), but the full `spx session handoff` flow from a bare-pool non-main worktree, including the rendered checklist path, is unexercised.
 
 **Evidence:** [`session-cli.md`](session-cli.md) asserts the checklist carries the main-checkout path; `session-cli.compliance.l2.test.ts` provisions only the non-bare linked-worktree topology.
 

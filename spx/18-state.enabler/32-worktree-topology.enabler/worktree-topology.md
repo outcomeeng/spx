@@ -1,15 +1,13 @@
-# Worktree Detection
+# Worktree Topology
 
-PROVIDES the git worktree-detection module that resolves a checkout's product roots by state class, resolves the repository default branch, and designates the repository's main checkout
-SO THAT the session, release, spec-domain, testing, and precommit domains
-CAN resolve shared, per-worktree, and tracked roots and gate main-checkout-only behaviour without each re-deriving git topology, per `spx/15-worktree-management.pdr.md`
+PROVIDES repository main-checkout designation (`isMainCheckout`, `mainCheckoutPath`) and default-branch resolution over a `GitFacts` probe, per [`spx/18-state.enabler/32-worktree-topology.enabler/21-main-checkout-classifier.adr.md`](21-main-checkout-classifier.adr.md) and [`spx/15-worktree-management.pdr.md`](../../15-worktree-management.pdr.md)
+SO THAT session handoff's base gate and the precommit dist-rebuild gate
+CAN gate main-checkout-only behaviour and resolve the `origin/<default>` tip without each re-deriving git topology
 
 ## Assertions
 
 ### Scenarios
 
-- Given a worktree of a bare-repository pool, when the shared product root is resolved, then it is the parent of `git rev-parse --git-common-dir`, and given a non-worktree repository it equals the local worktree root ([test](tests/root-resolution.scenario.l1.test.ts))
-- Given any checkout, when the local product root is resolved, then it is `git rev-parse --show-toplevel`; outside a git repository resolution falls back to the working directory with a warning ([test](tests/root-resolution.scenario.l1.test.ts))
 - Given a non-bare repository whose only working tree is its root, when the main checkout is resolved, then that lone working tree is the main checkout whatever branch it holds ([test](tests/main-checkout.scenario.l1.test.ts))
 - Given a real bare-repository pool with an `origin` remote, when the main checkout is resolved, then `detectMainCheckout` is true for the worktree named after the `origin` repository and false for a feature worktree ([test](tests/main-checkout.scenario.l1.test.ts))
 - Given a checkout where `git rev-parse --show-toplevel` fails, when `gatherGitFacts` probes, then it returns null; and given `--git-common-dir` fails while `--show-toplevel` succeeds, then it falls back to a non-bare single-tree shape whose common dir is `<worktreeRoot>/.git`, designating that worktree the main checkout so detection agrees with `detectGitCommonDirProductRoot` ([test](tests/git-facts.scenario.l1.test.ts))

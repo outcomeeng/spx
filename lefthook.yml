@@ -34,8 +34,8 @@ post-merge:
     # The rebuild-dist gate uses a bash heuristic — dirname(common-dir) ==
     # --show-toplevel — that designates the main worktree in a non-bare repository
     # but misfires in a bare-repository pool. The corrected main-checkout gate
-    # (over the tested isMainCheckout classifier in src/git/root.ts) is deferred to
-    # spx/24-worktree-detection.enabler/PLAN.md step 1; its draft is preserved on
+    # (over the tested isMainCheckout classifier in src/git/root.ts) is deferred
+    # and tracked in spx/43-precommit.enabler/ISSUES.md; its draft is preserved on
     # the wip/precommit-main-checkout-gate branch. --path-format=absolute makes
     # --git-common-dir absolute regardless of cwd (as GIT_COMMON_DIR_ARGS does), so
     # dirname(common-dir) == --show-toplevel holds only in the main worktree. A

@@ -17,12 +17,6 @@ export interface SpxConfig {
    */
   sessions: {
     /**
-     * Directory for session handoff files
-     * @default ".spx/sessions"
-     */
-    dir: string;
-
-    /**
      * Status-based subdirectories for sessions
      */
     statusDirs: {
@@ -57,7 +51,6 @@ export interface SpxConfig {
  */
 export const DEFAULT_CONFIG = {
   sessions: {
-    dir: ".spx/sessions",
     statusDirs: {
       todo: "todo",
       doing: "doing",

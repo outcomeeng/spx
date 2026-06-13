@@ -26,6 +26,7 @@ import {
   GIT_STATUS_PORCELAIN_ARGS,
   type GitDependencies,
 } from "@/git/root";
+import { sessionsScopeDir } from "@/lib/state-store";
 import type { HandoffHeaderFixture } from "@testing/generators/session/session";
 import { createTempDir, removeTempDir } from "@testing/harnesses/with-temp-dir";
 
@@ -308,7 +309,7 @@ export interface NonGitSessionEnv {
  */
 export async function createNonGitSessionEnv(): Promise<NonGitSessionEnv> {
   const cwd = await createTempDir("spx-session-nongit-");
-  const sessionsRoot = join(cwd, DEFAULT_CONFIG.sessions.dir);
+  const sessionsRoot = sessionsScopeDir(cwd);
   for (const status of SESSION_STATUSES) {
     await mkdir(join(sessionsRoot, statusDirs[status]), { recursive: true });
   }
