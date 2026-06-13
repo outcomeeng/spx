@@ -1,11 +1,3 @@
-/**
- * Level 2 Integration Tests: Pre-Commit Test Enforcement
- *
- * These tests verify that lefthook and vitest work together to:
- * - Block commits when tests fail
- * - Allow commits when tests pass
- * - Skip tests for non-test-related files
- */
 import { withGitEnv } from "@testing/harnesses/with-git-env";
 import { describe, expect, it } from "vitest";
 

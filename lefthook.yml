@@ -1,5 +1,6 @@
 # Lefthook configuration for pre-commit, pre-push, and post-merge/post-rewrite hooks.
-# See ADR-021: Lefthook Pre-Commit Test Enforcement
+# Governed by spx/21-infrastructure.enabler/43-precommit.enabler/precommit.md
+# and spx/21-infrastructure.enabler/43-precommit.enabler/21-dist-rebuild-on-pull.adr.md.
 #
 # Pre-commit hook runs tests on modified files using the TypeScript
 # orchestration script. Uses tsx to run TypeScript directly, ensuring

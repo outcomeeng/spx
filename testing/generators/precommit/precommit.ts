@@ -4,6 +4,10 @@ import { PRECOMMIT_DEFAULTS, type PrecommitConfig } from "@/lib/precommit/config
 
 export const PRECOMMIT_TEST_GENERATOR = {
   config: arbitraryPrecommitConfig,
+  exitCode: arbitraryNonSuccessExitCode,
+  fileList: arbitraryFileList,
+  path: arbitraryPath,
+  pathFragment: arbitraryPathFragment,
   sourcePath: arbitrarySourcePath,
   testPath: arbitraryTestPath,
   otherPath: arbitraryOtherPath,
@@ -17,6 +21,10 @@ export function samplePrecommitTestValue<T>(arbitrary: fc.Arbitrary<T>): T {
 
 function arbitraryPathSegment(): fc.Arbitrary<string> {
   return fc.stringMatching(/^[a-z][a-z0-9-]{2,12}$/);
+}
+
+function arbitraryPathFragment(): fc.Arbitrary<string> {
+  return fc.array(arbitraryPathSegment(), { maxLength: 3 }).map((segments) => segments.join("/"));
 }
 
 function arbitraryPrecommitConfig(): fc.Arbitrary<PrecommitConfig> {
@@ -51,4 +59,23 @@ function arbitraryOtherPath(config: PrecommitConfig = PRECOMMIT_DEFAULTS): fc.Ar
   return arbitraryPathSegment()
     .map((slug) => `${slug}.md`)
     .filter((path) => !path.includes(config.testPattern) && !config.sourceDirs.some((d) => path.startsWith(d)));
+}
+
+function arbitraryPath(config: PrecommitConfig = PRECOMMIT_DEFAULTS): fc.Arbitrary<string> {
+  return fc.oneof(
+    arbitrarySourcePath(config),
+    arbitraryTestPath(config),
+    arbitraryOtherPath(config),
+    arbitraryPathFragment(),
+  );
+}
+
+function arbitraryFileList(config: PrecommitConfig = PRECOMMIT_DEFAULTS): fc.Arbitrary<string[]> {
+  return fc.array(arbitraryPath(config));
+}
+
+function arbitraryNonSuccessExitCode(): fc.Arbitrary<number> {
+  const minNonSuccessExitCode = 2;
+  const maxProcessExitCode = 255;
+  return fc.integer({ min: minNonSuccessExitCode, max: maxProcessExitCode });
 }

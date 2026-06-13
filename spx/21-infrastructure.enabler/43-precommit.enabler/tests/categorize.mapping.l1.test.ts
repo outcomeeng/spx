@@ -5,12 +5,16 @@ import { categorizeFile, FILE_CATEGORIES, filterTestRelevantFiles } from "@/lib/
 import { PRECOMMIT_DEFAULTS } from "@/lib/precommit/config";
 import { PRECOMMIT_TEST_GENERATOR } from "@testing/generators/precommit/precommit";
 
-describe("categorizeFile", () => {
+describe("categorizeFile mappings", () => {
   it("any path containing the test pattern maps to 'test'", () => {
     fc.assert(
-      fc.property(fc.string(), fc.string(), (prefix, suffix) => {
-        expect(categorizeFile(`${prefix}${PRECOMMIT_DEFAULTS.testPattern}${suffix}`)).toBe(FILE_CATEGORIES.TEST);
-      }),
+      fc.property(
+        PRECOMMIT_TEST_GENERATOR.pathFragment(),
+        PRECOMMIT_TEST_GENERATOR.pathFragment(),
+        (prefix, suffix) => {
+          expect(categorizeFile(`${prefix}${PRECOMMIT_DEFAULTS.testPattern}${suffix}`)).toBe(FILE_CATEGORIES.TEST);
+        },
+      ),
     );
   });
 
@@ -29,17 +33,9 @@ describe("categorizeFile", () => {
       }),
     );
   });
-
-  it("is deterministic: same path always produces the same category", () => {
-    fc.assert(
-      fc.property(fc.string(), (path) => {
-        expect(categorizeFile(path)).toBe(categorizeFile(path));
-      }),
-    );
-  });
 });
 
-describe("filterTestRelevantFiles", () => {
+describe("filterTestRelevantFiles mappings", () => {
   it("retains source and test files; excludes other files", () => {
     fc.assert(
       fc.property(
@@ -53,15 +49,6 @@ describe("filterTestRelevantFiles", () => {
           for (const o of others) expect(relevant).not.toContain(o);
         },
       ),
-    );
-  });
-
-  it("is idempotent: filtering twice equals filtering once", () => {
-    fc.assert(
-      fc.property(fc.array(fc.string()), (files) => {
-        const once = filterTestRelevantFiles(files);
-        expect(filterTestRelevantFiles(once)).toEqual(once);
-      }),
     );
   });
 

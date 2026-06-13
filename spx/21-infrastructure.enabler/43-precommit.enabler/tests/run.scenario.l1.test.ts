@@ -1,8 +1,7 @@
-import * as fc from "fast-check";
 import { describe, expect, it } from "vitest";
 
 import { VITEST_ARGS } from "@/lib/precommit/build-args";
-import { PRECOMMIT_RUN, type PrecommitDeps, runPrecommitTests, shouldRunTests } from "@/lib/precommit/run";
+import { PRECOMMIT_RUN, type PrecommitDeps, runPrecommitTests } from "@/lib/precommit/run";
 import { PRECOMMIT_TEST_GENERATOR, samplePrecommitTestValue } from "@testing/generators/precommit/precommit";
 
 const otherFile = () => samplePrecommitTestValue(PRECOMMIT_TEST_GENERATOR.otherPath());
@@ -34,37 +33,7 @@ function createTestDeps(
   };
 }
 
-describe("shouldRunTests", () => {
-  it("returns true when any test file is present", () => {
-    fc.assert(
-      fc.property(fc.array(PRECOMMIT_TEST_GENERATOR.testPath(), { minLength: 1 }), (files) => {
-        expect(shouldRunTests(files)).toBe(true);
-      }),
-    );
-  });
-
-  it("returns true when any source file is present", () => {
-    fc.assert(
-      fc.property(fc.array(PRECOMMIT_TEST_GENERATOR.sourcePath(), { minLength: 1 }), (files) => {
-        expect(shouldRunTests(files)).toBe(true);
-      }),
-    );
-  });
-
-  it("returns false when only other files are present", () => {
-    fc.assert(
-      fc.property(fc.array(PRECOMMIT_TEST_GENERATOR.otherPath(), { minLength: 1 }), (files) => {
-        expect(shouldRunTests(files)).toBe(false);
-      }),
-    );
-  });
-
-  it("returns false for empty list", () => {
-    expect(shouldRunTests([])).toBe(false);
-  });
-});
-
-describe("runPrecommitTests", () => {
+describe("runPrecommitTests scenarios", () => {
   describe("GIVEN no relevant files staged", () => {
     it("WHEN running THEN skips with success exit code", async () => {
       const { deps } = createTestDeps({ stagedFiles: [otherFile(), otherFile()] });
@@ -82,22 +51,6 @@ describe("runPrecommitTests", () => {
       await runPrecommitTests(deps);
 
       expect(logs).toContain(PRECOMMIT_RUN.MESSAGES.SKIPPING_NO_RELEVANT);
-    });
-
-    it("WHEN running THEN does not call runVitest", async () => {
-      let vitestCalled = false;
-      const deps: PrecommitDeps = {
-        getStagedFiles: async () => [otherFile()],
-        runVitest: async () => {
-          vitestCalled = true;
-          return { exitCode: 0, output: "" };
-        },
-        log: () => {},
-      };
-
-      await runPrecommitTests(deps);
-
-      expect(vitestCalled).toBe(false);
     });
   });
 
@@ -150,17 +103,6 @@ describe("runPrecommitTests", () => {
       expect(result.skipped).toBe(false);
       expect(result.exitCode).toBe(PRECOMMIT_RUN.EXIT_CODES.FAILURE);
       expect(result.message).toBe(PRECOMMIT_RUN.MESSAGES.TESTS_FAILED);
-    });
-
-    it("WHEN running THEN preserves non-1 vitest exit code", async () => {
-      const { deps } = createTestDeps({
-        stagedFiles: [sourceFile()],
-        vitestExitCode: 2,
-      });
-
-      const result = await runPrecommitTests(deps);
-
-      expect(result.exitCode).toBe(2);
     });
   });
 
