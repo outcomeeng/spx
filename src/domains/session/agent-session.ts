@@ -28,7 +28,7 @@ function hashAgentSessionToken(value: string): string {
     .slice(0, AGENT_SESSION_TOKEN_HASH_LENGTH);
 }
 
-function normalizeAgentSessionToken(value: string): string {
+export function normalizeAgentSessionToken(value: string): string {
   if (AGENT_SESSION_TOKEN_PATTERN.test(value)) return value;
 
   const normalized = value

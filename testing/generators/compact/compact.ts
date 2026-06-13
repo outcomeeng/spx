@@ -5,7 +5,10 @@ import { STATE_STORE_TEST_GENERATOR } from "@testing/generators/state-store/stat
 const SAMPLE_SEED = 0xC0A7;
 const NODE_SEGMENT_CHARACTERS = [..."abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789._-"] as const;
 
-function stringFromCharacters(characters: readonly string[], options: { readonly minLength: number; readonly maxLength: number }): fc.Arbitrary<string> {
+function stringFromCharacters(
+  characters: readonly string[],
+  options: { readonly minLength: number; readonly maxLength: number },
+): fc.Arbitrary<string> {
   return fc.array(fc.constantFrom(...characters), options).map((chars) => chars.join(""));
 }
 
@@ -17,15 +20,18 @@ function nodePath(): fc.Arbitrary<string> {
   return fc.array(nodeSegment(), { minLength: 1, maxLength: 4 }).map((segments) => `spx/${segments.join("/")}`);
 }
 
+const scopeToken = STATE_STORE_TEST_GENERATOR.scopeToken;
+
 export const COMPACT_TEST_GENERATOR = {
-  sessionToken: STATE_STORE_TEST_GENERATOR.scopeToken,
+  sessionToken: scopeToken,
   unsafeSessionToken: STATE_STORE_TEST_GENERATOR.scopeTokenContainingUnsafeMarker,
   commitMessage: STATE_STORE_TEST_GENERATOR.branchIdentity,
   nodePath,
   distinctNodePaths: (): fc.Arbitrary<readonly [string, string]> =>
     fc.tuple(nodePath(), nodePath()).filter(([first, second]) => first !== second),
-  transcriptFileName: (): fc.Arbitrary<string> =>
-    STATE_STORE_TEST_GENERATOR.scopeToken().map((token) => `${token}.jsonl`),
+  distinctSessionTokens: (): fc.Arbitrary<readonly [string, string]> =>
+    fc.tuple(scopeToken(), scopeToken()).filter(([first, second]) => first !== second),
+  transcriptFileName: (): fc.Arbitrary<string> => scopeToken().map((token) => `${token}.jsonl`),
 } as const;
 
 export function sampleCompactTestValue<T>(arbitrary: fc.Arbitrary<T>): T {

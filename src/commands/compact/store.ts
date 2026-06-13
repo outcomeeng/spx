@@ -1,14 +1,12 @@
 import { readFile } from "node:fs/promises";
 
-import {
-  compactStashPath,
-  extractCompactRecord,
-} from "@/domains/compact";
-import { resolveAgentSessionId, type AgentSessionEnvironment } from "@/domains/session/agent-session";
+import { compactStashPath, extractCompactRecord, resolveCompactSessionToken } from "@/domains/compact";
+import type { AgentSessionEnvironment } from "@/domains/session/agent-session";
 import { appendJsonlRecord, resolveWorktreeScopeDir } from "@/lib/state-store";
 
 export interface CompactStoreOptions {
   readonly transcript: string;
+  readonly sessionId?: string;
   readonly cwd?: string;
   readonly env?: AgentSessionEnvironment;
 }
@@ -16,7 +14,7 @@ export interface CompactStoreOptions {
 const UTF8_ENCODING = "utf8";
 
 export async function compactStoreCommand(options: CompactStoreOptions): Promise<0 | 1> {
-  const sessionToken = resolveAgentSessionId(options.env ?? process.env);
+  const sessionToken = resolveCompactSessionToken(options.sessionId, options.env ?? process.env);
   if (sessionToken === undefined) return 1;
 
   let transcript: string;
