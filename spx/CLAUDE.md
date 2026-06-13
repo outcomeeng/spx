@@ -1,5 +1,5 @@
 ---
-template_version: "0.18.8"
+template_version: "0.18.12"
 template_source: spec-tree
 languages: [typescript]
 ---
@@ -131,7 +131,21 @@ Review, audit, or quality check specs. Find contradictions or gaps.
 
 Every change destined for the default branch routes through `/merge`, the transport dispatcher. It reads `spx/local/merging.md` and selects the merge transport — a coordination-note-only changeset (only `PLAN.md` / `ISSUES.md`) to the direct-push transport, an overlay-declared `transport:` when present, else the GitHub-PR transport (`/github-pr`) as the default — then delegates to that transport's skills. The three authority gates and the finding-disposition rule are transport-neutral and live in `/standardizing-merging`; `/merge` owns transport selection only.
 
-For the GitHub-PR transport, `/github-pr` proposes the lifecycle before mutation, then invokes the internal PR protocols. The opening protocol passes through the `REVIEW_READINESS` gate before the PR opens. The gate holds when deterministic verification passes (the project's full validation-and-testing command) **and** the local review has converged. The opening protocol invokes the `changes-reviewer` agent on the working diff — falling back to the `/review-changes` slash command when the agent is not installed; both run the same `reviewing-changes` skill chain in an isolated context, so the verdict is not biased by what the operator's main agent has been doing. Claude acts on each finding by **validity and phase, never severity**: it validates each finding against its cited rule and drops any the citation does not support, applies every valid finding that belongs, and splits out of the changeset any whose fix is too large to belong (recording it in the relevant node's `ISSUES.md` or `PLAN.md`). Once `REVIEW_READINESS` holds the PR opens `ready_for_review`; `MERGE_READINESS` and `PRODUCTION_READINESS` then govern the merge. See `/standardizing-merging` `<authority_gates>` for the three-gate vocabulary.
+For the GitHub-PR transport, `/github-pr` proposes the lifecycle before mutation, then invokes the internal PR protocols. The opening protocol passes through the `REVIEW_READINESS` gate before the PR opens. The gate holds when deterministic verification passes (the project's full validation-and-testing command) **and** the local review has converged. The opening protocol invokes the `changes-reviewer` agent on the working diff — falling back to the `/review-changes` slash command when `changes-reviewer` is unavailable; both run the same `reviewing-changes` skill chain in an isolated context, so the verdict is not biased by what the operator's main agent has been doing. Claude acts on each finding by **validity and phase, never severity**: it validates each finding against its cited rule and drops any the citation does not support, applies every valid finding that belongs, and splits out of the changeset any whose fix is too large to belong (recording it in the relevant node's `ISSUES.md` or `PLAN.md`). Once `REVIEW_READINESS` holds the PR opens `ready_for_review`; `MERGE_READINESS` and `PRODUCTION_READINESS` then govern the merge. See `/standardizing-merging` `<authority_gates>` for the three-gate vocabulary.
+
+## Stop Triggers
+
+Default-branch work is complete only when merged — passing validation, tests, review, or audits is progress, not a stopping point, and an accepted proposal ("yes", "go", "do it") authorizes the whole lifecycle, not a pause. Each trigger below resolves the same way: finish the remaining independent work, then continue through `/committing-changes` and `/merge` until the change is merged.
+
+🛑 **About to summarize after edits, validation, tests, review, or audits passed** — do not conclude. Ensure the work is on a local branch, then drive `/committing-changes` and `/merge`.
+
+🛑 **About to report blocked, wait, or ask a question** — first do every action that does not need the answer: edits, verification, branch setup, commit, review. A blocker exists only when all three hold:
+
+- the immediate next action cannot proceed without the operator or an external-state change;
+- the local branch already holds every change makeable without the answer;
+- the applicable gates have run or produced concrete failing evidence.
+
+🛑 **About to finish on a detached HEAD or stop at a fresh commit** — `git status --short --branch` reporting `## HEAD (no branch)`, or a new local commit, is not an endpoint. Create or switch to a local branch preserving the worktree changes, then continue through `/merge` unless the user asked only for a local commit.
 
 ---
 
@@ -231,4 +245,4 @@ agent_session_id: abc123-def456
 ---
 ```
 
-`spx session handoff` reads a JSON header on the first line of stdin followed by the body bytes. It prefills `created_at`, `agent_session_id` when available, and `git_ref`. The handoff must provide non-empty `goal` and `next_step`. Before archiving a claimed session, add a non-empty `result` to that session's frontmatter.
+`spx session handoff` reads a JSON header on the first line of stdin followed by the body bytes. It prefills `created_at`, `agent_session_id` when available, and `git_ref`. The handoff must provide non-empty `goal` and `next_step`.
