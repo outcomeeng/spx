@@ -10,10 +10,18 @@ export const COMPACT_CLI = {
   description: "Store and retrieve compact resume state",
   transcriptFlag: "--transcript",
   transcriptOption: "--transcript <path>",
+  sessionIdFlag: "--session-id",
+  sessionIdOption: "--session-id <id>",
+  sessionIdDescription: "Agent session identity (overrides the agent-session environment)",
 } as const;
 
 interface CompactStoreCliOptions {
   readonly transcript: string;
+  readonly sessionId?: string;
+}
+
+interface CompactRetrieveCliOptions {
+  readonly sessionId?: string;
 }
 
 export const compactDomain: Domain = {
@@ -26,19 +34,25 @@ export const compactDomain: Domain = {
       .command(COMPACT_CLI.storeCommandName)
       .description("Store compact resume state")
       .requiredOption(COMPACT_CLI.transcriptOption, "Transcript JSONL path")
+      .option(COMPACT_CLI.sessionIdOption, COMPACT_CLI.sessionIdDescription)
       .action(async (options: CompactStoreCliOptions) => {
-        process.exit(await compactStoreCommand({
-          transcript: options.transcript,
-          cwd: process.cwd(),
-          env: process.env,
-        }));
+        process.exit(
+          await compactStoreCommand({
+            transcript: options.transcript,
+            sessionId: options.sessionId,
+            cwd: process.cwd(),
+            env: process.env,
+          }),
+        );
       });
 
     compactCmd
       .command(COMPACT_CLI.retrieveCommandName)
       .description("Retrieve compact resume state")
-      .action(async () => {
+      .option(COMPACT_CLI.sessionIdOption, COMPACT_CLI.sessionIdDescription)
+      .action(async (options: CompactRetrieveCliOptions) => {
         const result = await compactRetrieveCommand({
+          sessionId: options.sessionId,
           cwd: process.cwd(),
           env: process.env,
         });

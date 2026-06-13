@@ -2,10 +2,11 @@ import { join } from "node:path";
 
 import type { Result } from "@/config/types";
 import {
-  composeScopeDir,
-  STATE_STORE_DOMAIN,
-  type JsonRecord,
-} from "@/lib/state-store";
+  type AgentSessionEnvironment,
+  normalizeAgentSessionToken,
+  resolveAgentSessionId,
+} from "@/domains/session/agent-session";
+import { composeScopeDir, type JsonRecord, STATE_STORE_DOMAIN } from "@/lib/state-store";
 
 export const COMPACT_STORE_PATH = {
   STASH_FILE: "stash.jsonl",
@@ -39,6 +40,17 @@ const ATTRIBUTE_ASSIGNMENT = "=";
 const ESCAPE_CHARACTER = "\\";
 const CONTEXT_TARGET_PREFIX = `${COMPACT_MARKER.TARGET_ATTRIBUTE}${ATTRIBUTE_ASSIGNMENT}`;
 const NODE_PATH_PREFIX = "spx/";
+
+/** Normalized `--session-id` when supplied non-empty; otherwise the agent-session environment resolver. */
+export function resolveCompactSessionToken(
+  sessionId: string | undefined,
+  env: AgentSessionEnvironment,
+): string | undefined {
+  if (sessionId !== undefined && sessionId.length > 0) {
+    return normalizeAgentSessionToken(sessionId);
+  }
+  return resolveAgentSessionId(env);
+}
 
 export function extractCompactRecord(transcript: string): CompactRecord | undefined {
   let hasFoundation = false;
