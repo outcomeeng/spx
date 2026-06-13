@@ -3,7 +3,6 @@ import { copyFile, mkdir } from "node:fs/promises";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 
-import { PYTEST_INVOKE_ARGS } from "@/testing/languages/python";
 import type { TestRunCommandResult, TestRunnerDependencies } from "@/testing/languages/types";
 import { withTempDir } from "@testing/harnesses/with-temp-dir";
 
@@ -12,16 +11,8 @@ const TEMP_PROJECT_PREFIX = "spx-pytest-";
 const COPIED_SUITE_DIR = ".spx-pytest-cases";
 // Copied under a pytest-ignored directory so the l2 test proves explicit test-path forwarding.
 const COPIED_SUITE_NAME = "test_suite.py";
-
-const UV_WITH_FLAG = "--with";
-const UV_CACHE_DIR_ENV = "UV_CACHE_DIR";
 const UV_CACHE_DIR_NAME = ".uv-cache";
-const PYTEST_PACKAGE = "pytest";
-// The descriptor builds `uv run pytest …`, and the spx repository declares no managed Python
-// environment, so the real-runner test splices an ephemeral `--with pytest` immediately before the
-// `pytest` command token. The position is derived from the descriptor's own command layout, so an
-// added intermediate uv-run flag cannot silently misplace the splice.
-const PYTEST_COMMAND_INDEX = PYTEST_INVOKE_ARGS.indexOf(PYTEST_PACKAGE);
+
 export const PYTEST_EXIT_CODE = {
   OK: 0,
   NO_TESTS_COLLECTED: 5,
@@ -56,21 +47,17 @@ export function createRecordingCommandRunner(options: {
   };
 }
 
-// A real command runner that runs `uv` from the temp project so pytest collects from that
-// working directory; `--with pytest` provisions pytest ephemerally since the repo has none.
+// A real command runner that runs `uv` from the temp project so pytest collects
+// from that working directory. The environment must provide pytest before this
+// runner executes; the harness does not provision runner dependencies.
 export function repoRootedPytestCommandRunner(projectRoot: string): TestRunnerDependencies {
   return {
     isLanguagePresent: () => true,
     runCommand: async (command, args): Promise<TestRunCommandResult> => {
-      const provisioned = [
-        ...args.slice(0, PYTEST_COMMAND_INDEX),
-        UV_WITH_FLAG,
-        PYTEST_PACKAGE,
-        ...args.slice(PYTEST_COMMAND_INDEX),
-      ];
-      const result = await execa(command, provisioned, {
+      const result = await execa(command, [...args], {
         cwd: projectRoot,
-        env: { [UV_CACHE_DIR_ENV]: join(projectRoot, UV_CACHE_DIR_NAME) },
+        env: { ...process.env, UV_CACHE_DIR: join(projectRoot, UV_CACHE_DIR_NAME) },
+        extendEnv: false,
         reject: false,
       });
       return { exitCode: result.exitCode ?? PYTEST_EXIT_CODE.OK };
