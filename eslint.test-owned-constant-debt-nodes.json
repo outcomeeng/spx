@@ -18,7 +18,6 @@
     "spx/36-session.enabler/32-session-identity.enabler",
     "spx/36-session.enabler/43-session-store.enabler",
     "spx/36-session.enabler/65-session-claim.enabler",
-    "spx/43-precommit.enabler",
     "spx/46-claude.outcome/21-settings-consolidation.outcome/43-cli-integration.outcome"
   ]
 }
