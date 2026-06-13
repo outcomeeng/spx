@@ -1,7 +1,7 @@
 # Precommit
 
 PROVIDES a selective vitest runner that classifies git-staged files, invokes vitest only on the tests related to staged test-relevant files, and propagates the vitest exit code
-SO THAT `lefthook`'s pre-commit hook invoking the runner via `npx tsx src/precommit/run.ts`
+SO THAT `lefthook`'s pre-commit hook invoking the runner via `npx tsx src/lib/precommit/run.ts`
 CAN block commits when staged changes break their related tests without running the whole test suite on every commit
 
 ## Assertions
@@ -33,5 +33,5 @@ CAN block commits when staged changes break their related tests without running 
 - ALWAYS: the runner's exit code equals the vitest process exit code when vitest is invoked — lefthook observes vitest's verdict directly ([test](tests/run.unit.test.ts))
 - NEVER: invoke vitest when `filterTestRelevantFiles` returns an empty list — avoids running the suite for commits that touch no code ([test](tests/run.unit.test.ts))
 - NEVER: pass `other`-category paths to vitest as arguments — the runner forwards only the retained test-relevant files ([test](tests/build-args.unit.test.ts))
-- ALWAYS: `src/precommit/run.ts` is the command lefthook invokes for the `pre-commit.tests` hook, matching the `run:` entry in `lefthook.yml` ([review](../../lefthook.yml))
+- ALWAYS: `src/lib/precommit/run.ts` is the command lefthook invokes for the `pre-commit.tests` hook, matching the `run:` entry in `lefthook.yml` ([audit])
 - ALWAYS: subprocess commands spawned from precommit integration tests through the git environment harness run with `GITHUB_ACTIONS` stripped from the environment — vitest invocations that lefthook triggers inside the fixture report their results through the process exit code only, never by posting annotations to the parent GitHub Actions run ([test](tests/subprocess-env.compliance.l1.test.ts))

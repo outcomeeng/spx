@@ -52,40 +52,35 @@ Keep the product spec tree on the current node model and remove the deprecated t
 
 ---
 
-## Test Infrastructure Governance
+## Infrastructure Governance
 
-The methodology treats test infrastructure — harnesses, generators, inert fixtures — as production code with a mandated spec-tree shape and the same audit obligations as product modules (`/spec-tree:understanding` `references/what-goes-where.md`). spx's implementation is rich (27 harnesses, 18 generators, fixtures under `testing/`), but its governance is partial: most harnesses and generators carry no spec assertions and no audit obligation. This section plans the adoption of the mandated governance.
+spx groups global product machinery under `spx/21-infrastructure.enabler/`. Test infrastructure implementation modules can live together under the product-root `testing/` package, path-mapped to `@testing/`, while their specifications stay with the product domain that owns the behavior they verify. Only global machinery and cross-domain harnesses, generators, and fixtures belong under the infrastructure node.
 
-### Mandated shape
+### Placement model
 
-- A top-level `infrastructure` enabler with a `testing` enabler child and three grandchildren `generators`, `fixtures`, `harnesses` (normative slugs), governed by `spx/21-test-infrastructure.pdr.md` (absent today).
-- Implementation stays in `testing/` at the product root, path-mapped to `@testing/`. No code moves; governance is added on top.
+- `spx/21-infrastructure.enabler/` governs global operational substrate: hooks, shared workflow machinery, cross-domain worktree layout harnesses, and similar product-wide enablers.
+- Domain-owned harness, generator, and fixture specs stay with the domain they verify, even when the implementation modules live under `testing/`.
+- Code package layout never determines spec placement by itself; spec placement follows product concern ownership, dependency order, and verification scope.
 
 ### Current governance (reconcile, do not duplicate)
 
 - `spx/22-test-environment.enabler/` governs the callback-scoped temp-dir primitive (`withTempDir`), the spec-tree env (`withTestEnv`/`withSpecTreeEnv`), the git-worktree harness, and spec-tree fixtures, under `21-callback-scoped-environment.adr.md`.
 - `spx/36-audit.enabler/21-audit-test-harness.enabler/` governs the audit harness.
 - `spx/41-validation.enabler/32-typescript-validation.enabler/32-literal-reuse.enabler/45-ts-snippet-generators.enabler/` governs the snippet generators.
-- Ungoverned today: the testing recording-runner (`testing/harnesses/testing/`) and the config, session, node-status, literal, precommit, file-inclusion, and most validation harnesses and generators.
+- `spx/21-infrastructure.enabler/43-precommit.enabler/` governs Lefthook precommit behavior and precommit-specific test harnessing.
+- Ungoverned today: the testing recording-runner (`testing/harnesses/testing/`) and the config, session, node-status, literal, file-inclusion, and most validation harnesses and generators.
 
 ### Migration
 
-1. Author `spx/21-test-infrastructure.pdr.md` (the governing decision: mandated shape plus the `testing/` implementation location) via `/spec-tree:authoring`. The methodology's example numbers this PDR 15, but spx assigns index 15 to `15-worktree-management.pdr.md`, so use the free root index 21 — placing the PDR just before `22-test-environment.enabler`, the test-infrastructure node it governs. The `infrastructure` enabler created in step 2 takes its own free root index (18 or 20).
-2. Create the `infrastructure.enabler/testing.enabler/{generators,fixtures,harnesses}` subtree via `/spec-tree:decomposing` and `/spec-tree:authoring`.
-3. Reconcile the existing test-infra enablers (`22-test-environment`, `36-audit/21-audit-test-harness`, `45-ts-snippet-generators`) via `/spec-tree:refactoring`: decide per node whether its governance moves under the new subtree or the subtree references it — domain-coupled infrastructure may stay near its domain with a reference; cross-cutting infrastructure centralizes.
-4. Author assertions for the ungoverned harnesses and generators under the new subtree; each then passes the code, test-evidence, and architecture audits per `/spec-tree:applying`.
+1. Reconcile the existing test-infra enablers (`spx/22-test-environment.enabler`, `spx/36-audit.enabler/21-audit-test-harness.enabler`, `spx/41-validation.enabler/32-typescript-validation.enabler/32-literal-reuse.enabler/45-ts-snippet-generators.enabler`) via `/spec-tree:refactoring`: keep domain-coupled infrastructure with its domain and move only cross-domain machinery under `spx/21-infrastructure.enabler/`.
+2. Author assertions for the ungoverned harnesses and generators in their owning domains, or under `spx/21-infrastructure.enabler/` when they are global; each then passes the code, test-evidence, and architecture audits per `/spec-tree:applying`.
+3. Record the shared methodology drift separately: the installed spec-tree guidance says the spec tree itself must mirror `testing/{generators,fixtures,harnesses}`, while spx treats that as code package layout rather than spec placement.
 
 ### Related test-strategy gaps
 
 - **Canonical evidence naming:** in flight — see the "Canonical test-evidence naming cascade" section below for live status, the #2b enforcement-rule spec, and operating constraints.
 - **Fixture placement (minor):** `spx/13-cli.enabler/tests/fixtures/epipe-emitter.ts` is a subprocess fixture inside a `tests/` directory; the methodology homes inert fixtures under `testing/fixtures/`. Relocate it when the CLI node is next edited.
 - **Conformance coverage (minor):** the run-state JSONL machine contract is covered by parsing and property tests, not a conformance assertion; the `spx spec status` JSON output is conformance-tested through `spx/31-spec-domain.enabler/32-spec-cli-rendering.enabler/`. Consider a conformance assertion for the recorded JSONL shape when `41-testing`'s evidence schema is next edited.
-
-### Caveat
-
-Confirm whether the mandated test-infrastructure shape post-dates spx's current structure (a planned migration) versus an oversight; either way the target is the mandated shape.
-
----
 
 ## Canonical test-evidence naming cascade
 
@@ -103,7 +98,7 @@ A new `spx validation` check: every `spx/**/tests/*.test.ts` filename matches `<
 
 ### Deferred
 
-The precommit test evidence-typing rearchitecture (the `.unit` split was reverted because `fc.property` evidence belongs in property files not mapping, and scenario/compliance assertions linked cross-module) is tracked in `spx/43-precommit.enabler/PLAN.md` and depends on the config-DI rearchitecture recorded there.
+The precommit test evidence-typing rearchitecture (the `.unit` split was reverted because `fc.property` evidence belongs in property files not mapping, and scenario/compliance assertions linked cross-module) is tracked in `spx/21-infrastructure.enabler/43-precommit.enabler/PLAN.md` and depends on the config-DI rearchitecture recorded there.
 
 ### Operating constraints
 
