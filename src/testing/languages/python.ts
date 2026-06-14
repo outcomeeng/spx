@@ -15,6 +15,13 @@ import type {
   TestRunRequest,
 } from "@/testing/languages/types";
 import { compareAsciiStrings } from "@/lib/state-store";
+import { detectPython } from "@/validation/discovery/language-finder";
+import {
+  PYTEST_INVOKE_ARGS,
+  PYTHON_PYTEST_IGNORE_FLAG_PREFIX,
+  PYTHON_PYTEST_IGNORE_FLAG_SUFFIX,
+  UV_COMMAND,
+} from "./python-pytest-contract";
 
 const PYTHON_TESTING_LANGUAGE_NAME = "python";
 export const PYTHON_PRODUCT_INPUT_PATH = {
@@ -35,17 +42,6 @@ const PYTHON_PRODUCT_INPUT_PATHS = Object.values(PYTHON_PRODUCT_INPUT_PATH);
 export const PYTHON_TEST_FILE_PREFIX = "test_";
 const PYTHON_TEST_FILE_EXTENSION = ".py";
 const PYTHON_TEST_FILE_PATTERNS = [`${PYTHON_TEST_FILE_PREFIX}*${PYTHON_TEST_FILE_EXTENSION}`] as const;
-
-/** pytest exclusion-flag format: an excluded node path maps to `--ignore=spx/{nodePath}/`. */
-export const PYTHON_PYTEST_IGNORE_FLAG_PREFIX = "--ignore=spx/";
-export const PYTHON_PYTEST_IGNORE_FLAG_SUFFIX = "/";
-
-// pytest runs through `uv run` so the project's managed Python environment provides the tool;
-// pytest takes its rootdir, configuration, and environment from the command runner's working directory.
-const UV_COMMAND = "uv";
-// Exported so a provisioning harness can locate the `pytest` command token structurally rather than
-// hardcoding its position when it splices an ephemeral `--with pytest`.
-export const PYTEST_INVOKE_ARGS = ["run", "pytest"] as const;
 
 function matchesTestFile(filePath: string): boolean {
   return basename(filePath).startsWith(PYTHON_TEST_FILE_PREFIX) && filePath.endsWith(PYTHON_TEST_FILE_EXTENSION);
@@ -70,12 +66,12 @@ function excludeFlag(nodePath: string): string {
   return `${PYTHON_PYTEST_IGNORE_FLAG_PREFIX}${nodePath}${PYTHON_PYTEST_IGNORE_FLAG_SUFFIX}`;
 }
 
-function detect(projectRoot: string, deps: Pick<TestRunnerDependencies, "isLanguagePresent">): boolean {
-  return deps.isLanguagePresent(projectRoot);
+function detect(projectRoot: string, deps?: Pick<TestRunnerDependencies, "isLanguagePresent">): boolean {
+  return deps?.isLanguagePresent?.(projectRoot) ?? detectPython(projectRoot).present;
 }
 
 async function runTests(request: TestRunRequest, deps: TestRunnerDependencies): Promise<TestRunInvocation> {
-  if (!deps.isLanguagePresent(request.projectRoot)) {
+  if (!detect(request.projectRoot, deps)) {
     return { invoked: false };
   }
 

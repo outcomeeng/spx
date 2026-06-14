@@ -51,14 +51,6 @@ than only the descriptor validator and JSON helper path.
 
 **Evidence:** local changes review on PR-2c; `src/commands/testing/run-command.ts` `readCoveredContents`.
 
-## FOLLOW-UP: the testing language descriptor delegates detection to the composition root
-
-`TestingLanguageDescriptor` (`src/testing/languages/types.ts`) delegates presence detection to an agnostic `isLanguagePresent(projectRoot)` in the injected dependencies rather than owning a detector. Because the descriptor carries no detection of its own, the CLI composition root maps each language to its concrete detector through a name-keyed table (`PRESENCE_BY_LANGUAGE_NAME` in `src/interfaces/cli/testing.ts`). Orchestration (`runTests`) stays registry-driven and names no language, so the table is boundary wiring, not an orchestration-layer language reference — but the mapping only exists because detection lives outside the descriptor. While the table exists, `spx/19-language-registration.adr.md`'s invariant — adding a language touches one descriptor module plus one registry entry and no other files — is not fully met, because a third language also needs a `PRESENCE_BY_LANGUAGE_NAME` entry in the CLI.
-
-**Resolution:** move detection onto the descriptor (a `detect`/`isPresent` member or a detection marker on `TestingLanguageDescriptor`), implement it in `src/testing/languages/{typescript,python}.ts`, and replace the CLI's name-keyed table with `descriptor`-driven detection — eliminating the language-name lookup at the boundary.
-
-**Evidence:** local changes review on PR-2a (F-001); `src/interfaces/cli/testing.ts` `PRESENCE_BY_LANGUAGE_NAME`; the descriptor contract `src/testing/languages/types.ts`.
-
 ## FOLLOW-UP: testing runner contract names the root `projectRoot`, not `productDir`
 
 `TestRunRequest.projectRoot` and `TestRunnerDependencies.isLanguagePresent(projectRoot)` (`src/testing/languages/types.ts`) name the repository root with the deprecated term; `CLAUDE.md` prefers `productDir` for root-directory APIs. The dispatch and CLI already speak `productDir` and map it onto the descriptor's `projectRoot` field at the call boundary.

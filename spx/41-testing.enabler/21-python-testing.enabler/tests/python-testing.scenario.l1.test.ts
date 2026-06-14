@@ -2,6 +2,7 @@ import * as fc from "fast-check";
 import { describe, expect, it } from "vitest";
 
 import { pythonTestingLanguage } from "@/testing/languages/python";
+import { PYTEST_INVOKE_ARGS, UV_COMMAND } from "@/testing/languages/python-pytest-contract";
 import { CONFIG_TEST_GENERATOR, sampleConfigTestValue } from "@testing/generators/config/descriptors";
 import { PYTHON_RUNNER_TEST_GENERATOR, samplePythonRunnerValue } from "@testing/generators/testing/python-runner";
 import { createRecordingCommandRunner } from "@testing/harnesses/testing/python-runner";
@@ -21,7 +22,9 @@ describe("python test runner invocation", () => {
 
     expect(result.invoked).toBe(true);
     expect(runner.calls).toHaveLength(1);
+    expect(runner.calls[0]?.command).toBe(UV_COMMAND);
     const invokedArgs = runner.calls[0]?.args ?? [];
+    expect(invokedArgs.slice(0, PYTEST_INVOKE_ARGS.length)).toEqual([...PYTEST_INVOKE_ARGS]);
     for (const testPath of testPaths) {
       expect(invokedArgs).toContain(testPath);
     }

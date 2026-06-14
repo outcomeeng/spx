@@ -42,6 +42,13 @@ jobs:
       - name: Install managed Python
         run: uv python install 3.13
 
+      - name: Provision pytest
+        run: |
+          uv venv --python 3.13
+          uv pip install pytest
+          echo "VIRTUAL_ENV=$PWD/.venv" >> "$GITHUB_ENV"
+          echo "$PWD/.venv/bin" >> "$GITHUB_PATH"
+
       - name: Test
         run: pnpm test
 
