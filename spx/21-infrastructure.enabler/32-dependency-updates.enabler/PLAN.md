@@ -17,4 +17,7 @@ gh api -X DELETE repos/outcomeeng/spx/automated-security-fixes
 ```
 
 This disables Dependabot security-update pull requests while leaving Dependabot
-vulnerability alerts enabled. Remove this note once the setting is disabled.
+vulnerability alerts enabled. Run it as the immediate post-merge step; between
+this pull request merging and the call completing, Dependabot security-update
+pull requests and Renovate may both be briefly active. Remove this note once the
+setting is disabled.
