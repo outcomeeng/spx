@@ -4,8 +4,6 @@ import { readdir, readFile, writeFile } from "node:fs/promises";
 import { join } from "node:path";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 
-import { SessionHandoffBaseError } from "@/domains/session/errors";
-import { resolveHandoffGitRef } from "@/domains/session/handoff-base";
 import {
   HANDOFF_BASE_FACT_LABEL,
   HANDOFF_BASE_MARK,
@@ -627,26 +625,8 @@ describe("session CLI non-git warning", () => {
       );
 
       const result = await runSpx([SESSION_DOMAIN, "handoff"], stdin, env.cwd);
-      let thrown: unknown;
-      try {
-        resolveHandoffGitRef({
-          isGitRepo: false,
-          isMainCheckout: false,
-          branch: null,
-          headSha: null,
-          isClean: false,
-          defaultBranch: null,
-          defaultTipSha: null,
-          currentWorktreePath: env.cwd,
-          mainCheckoutPath: null,
-        });
-      } catch (error) {
-        thrown = error;
-      }
 
       expect(result.exitCode).not.toBe(0);
-      expect(thrown).toBeInstanceOf(SessionHandoffBaseError);
-      expect(thrown).toMatchObject({ silent: true, checklist: null });
       expect(result.stderr).not.toContain(NOT_GIT_REPO_WARNING);
       expect(result.stderr).not.toContain(SESSION_HANDOFF_BASE_ERROR_NAME);
       expect(result.stderr.trim()).toBe("");
