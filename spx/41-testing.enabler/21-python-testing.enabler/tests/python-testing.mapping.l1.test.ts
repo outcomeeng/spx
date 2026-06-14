@@ -1,11 +1,11 @@
 import * as fc from "fast-check";
 import { describe, expect, it } from "vitest";
 
+import { pythonTestingLanguage } from "@/testing/languages/python";
 import {
   PYTHON_PYTEST_IGNORE_FLAG_PREFIX,
   PYTHON_PYTEST_IGNORE_FLAG_SUFFIX,
-  pythonTestingLanguage,
-} from "@/testing/languages/python";
+} from "@/testing/languages/python-pytest-contract";
 import { PYTHON_RUNNER_TEST_GENERATOR } from "@testing/generators/testing/python-runner";
 import { EXPECTED_PYTEST_PRODUCT_INPUT_PATHS } from "@testing/harnesses/testing/python-product-inputs";
 

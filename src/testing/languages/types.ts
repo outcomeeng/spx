@@ -15,8 +15,8 @@ export interface TestRunCommandResult {
 
 /** Dependencies injected into a language runner's detection and invocation paths. */
 export interface TestRunnerDependencies {
-  /** Reports whether the language is present at the given project root. */
-  readonly isLanguagePresent: (projectRoot: string) => boolean;
+  /** Optional test override for descriptor-owned language presence detection. */
+  readonly isLanguagePresent?: (projectRoot: string) => boolean;
   /** Executes a command, returning its terminal exit code. */
   readonly runCommand: (command: string, args: readonly string[]) => Promise<TestRunCommandResult>;
 }
@@ -57,8 +57,8 @@ export interface TestingLanguageDescriptor {
   matchesTestFile(filePath: string): boolean;
   /** Maps an excluded node path to the runner's exclusion flag. */
   excludeFlag(nodePath: string): string;
-  /** Whether the language is present at the project root, via injected detection. */
-  detect(projectRoot: string, deps: Pick<TestRunnerDependencies, "isLanguagePresent">): boolean;
+  /** Whether the language is present at the project root. */
+  detect(projectRoot: string, deps?: Pick<TestRunnerDependencies, "isLanguagePresent">): boolean;
   /** Invokes the runner, gated on detection, through the injected command runner. */
   runTests(request: TestRunRequest, deps: TestRunnerDependencies): Promise<TestRunInvocation>;
 }

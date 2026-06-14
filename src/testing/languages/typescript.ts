@@ -12,6 +12,7 @@ import type {
   TestRunnerDependencies,
   TestRunRequest,
 } from "@/testing/languages/types";
+import { detectTypeScript } from "@/validation/discovery/language-finder";
 
 const TYPESCRIPT_TESTING_LANGUAGE_NAME = "typescript";
 const TYPESCRIPT_TEST_FILE_PATTERNS = ["*.test.ts", "*.test.tsx"] as const;
@@ -44,12 +45,12 @@ function excludeFlag(nodePath: string): string {
   return `${TYPESCRIPT_VITEST_EXCLUDE_FLAG_PREFIX}${nodePath}${TYPESCRIPT_VITEST_EXCLUDE_FLAG_SUFFIX}`;
 }
 
-function detect(projectRoot: string, deps: Pick<TestRunnerDependencies, "isLanguagePresent">): boolean {
-  return deps.isLanguagePresent(projectRoot);
+function detect(projectRoot: string, deps?: Pick<TestRunnerDependencies, "isLanguagePresent">): boolean {
+  return deps?.isLanguagePresent?.(projectRoot) ?? detectTypeScript(projectRoot).present;
 }
 
 async function runTests(request: TestRunRequest, deps: TestRunnerDependencies): Promise<TestRunInvocation> {
-  if (!deps.isLanguagePresent(request.projectRoot)) {
+  if (!detect(request.projectRoot, deps)) {
     return { invoked: false };
   }
 
