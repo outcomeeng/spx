@@ -1,0 +1,211 @@
+/**
+ * Agent run journal — a backend-agnostic event-store contract.
+ *
+ * Governed by spx/15-agent-run-journal.enabler. The journal computes sequence
+ * assignment, cursor reads, projection rendering, and seal state as pure
+ * functions over an injected backend port; concrete Appendable and Snapshot
+ * adapters supply storage from their own modules.
+ */
+
+export type JsonValue =
+  | string
+  | number
+  | boolean
+  | null
+  | readonly JsonValue[]
+  | { readonly [key: string]: JsonValue };
+
+/** CloudEvents v1.0 spec version every journal event carries. */
+export const CLOUDEVENTS_SPECVERSION = "1.0" as const;
+
+/** Sequence number assigned to the first event appended to a journal. */
+export const JOURNAL_SEQ_BASE = 1 as const;
+
+export const JOURNAL_BACKEND_KIND = {
+  APPENDABLE: "appendable",
+  SNAPSHOT: "snapshot",
+} as const;
+
+export type JournalBackendKind = (typeof JOURNAL_BACKEND_KIND)[keyof typeof JOURNAL_BACKEND_KIND];
+
+/** A CloudEvents v1.0 record bearing the agent-run-journal stream extensions. */
+export interface JournalEvent {
+  readonly id: string;
+  readonly source: string;
+  readonly type: string;
+  readonly specversion: typeof CLOUDEVENTS_SPECVERSION;
+  readonly time: string;
+  readonly streamid: string;
+  readonly seq: number;
+  readonly runid: string;
+  readonly attempt: number;
+  readonly data?: JsonValue;
+}
+
+/**
+ * The caller-supplied attributes of an event. The journal assigns `seq` and
+ * stamps `streamid`/`runid` from the journal identity at append time.
+ */
+export interface JournalEventInput {
+  readonly id: string;
+  readonly source: string;
+  readonly type: string;
+  readonly time: string;
+  readonly attempt: number;
+  readonly data?: JsonValue;
+}
+
+/** Storage that records the canonical event history. */
+export interface AppendableBackend {
+  readonly kind: typeof JOURNAL_BACKEND_KIND.APPENDABLE;
+  /** Persist an event. Rejects a record whose `seq` is already consumed. */
+  append(record: JournalEvent): Promise<void>;
+  /** The full event history, oldest first. */
+  readAll(): Promise<readonly JournalEvent[]>;
+  /** Mark the stream sealed; subsequent appends are rejected. */
+  seal(): Promise<void>;
+  isSealed(): Promise<boolean>;
+}
+
+/** A sink that receives rendered projections. */
+export interface SnapshotBackend {
+  readonly kind: typeof JOURNAL_BACKEND_KIND.SNAPSHOT;
+  write(rendered: string): Promise<void>;
+}
+
+export type JournalBackend = AppendableBackend | SnapshotBackend;
+
+/** A pure fold of an event prefix into projected output. */
+export type Projection<T> = (events: readonly JournalEvent[]) => T;
+
+export interface JournalIdentity {
+  readonly streamid: string;
+  readonly runid: string;
+}
+
+export const JOURNAL_ERROR = {
+  SEALED: "agent-run-journal is sealed",
+  SEQ_CONSUMED: "agent-run-journal sequence number already consumed",
+} as const;
+
+export type JournalErrorCode = (typeof JOURNAL_ERROR)[keyof typeof JOURNAL_ERROR];
+
+/** The closed set of CloudEvents core attributes and journal stream extensions every event carries. */
+export const JOURNAL_EVENT_ATTRIBUTES = [
+  "id",
+  "source",
+  "type",
+  "specversion",
+  "time",
+  "streamid",
+  "seq",
+  "runid",
+  "attempt",
+] as const;
+
+export type JournalEventConformance =
+  | { readonly ok: true }
+  | { readonly ok: false; readonly error: string };
+
+/** CloudEvents v1.0 attribute-naming convention: lowercase ASCII letters and digits only. */
+const ATTRIBUTE_NAME_PATTERN = /^[a-z0-9]+$/;
+const STRING_ATTRIBUTES = ["id", "source", "type", "time", "streamid", "runid"] as const;
+
+/**
+ * Validate a value against the journal's CloudEvents event schema: every attribute
+ * name conforms to the CloudEvents naming convention, the closed set of core
+ * attributes and stream extensions is present and typed, and `data` is the only
+ * optional attribute.
+ */
+export function checkJournalEventConformance(value: unknown): JournalEventConformance {
+  if (typeof value !== "object" || value === null || Array.isArray(value)) {
+    return { ok: false, error: "event must be an object" };
+  }
+  const record = value as Record<string, unknown>;
+  const allowed = new Set<string>([...JOURNAL_EVENT_ATTRIBUTES, "data"]);
+
+  for (const name of Object.keys(record)) {
+    if (!ATTRIBUTE_NAME_PATTERN.test(name)) {
+      return { ok: false, error: `attribute name "${name}" is not CloudEvents-conformant` };
+    }
+    if (!allowed.has(name)) {
+      return { ok: false, error: `unexpected attribute "${name}"` };
+    }
+  }
+  for (const name of JOURNAL_EVENT_ATTRIBUTES) {
+    if (!(name in record)) {
+      return { ok: false, error: `missing required attribute "${name}"` };
+    }
+  }
+  for (const name of STRING_ATTRIBUTES) {
+    if (typeof record[name] !== "string") {
+      return { ok: false, error: `attribute "${name}" must be a string` };
+    }
+  }
+  if (record.specversion !== CLOUDEVENTS_SPECVERSION) {
+    return { ok: false, error: `specversion must equal "${CLOUDEVENTS_SPECVERSION}"` };
+  }
+  if (typeof record.seq !== "number" || !Number.isInteger(record.seq)) {
+    return { ok: false, error: "attribute \"seq\" must be an integer" };
+  }
+  if (typeof record.attempt !== "number" || !Number.isInteger(record.attempt)) {
+    return { ok: false, error: "attribute \"attempt\" must be an integer" };
+  }
+
+  return { ok: true };
+}
+
+export interface Journal {
+  /** Append an event, assigning the next contiguous `seq`. Rejects when sealed. */
+  append(input: JournalEventInput): Promise<JournalEvent>;
+  /** Events at a `seq` at or above `fromCursor`, oldest first. */
+  read(fromCursor: number): Promise<readonly JournalEvent[]>;
+  /**
+   * Render a projection over the event prefix up to and including `throughSeq`
+   * (the full history when omitted) by replaying that prefix.
+   */
+  render<T>(projection: Projection<T>, throughSeq?: number): Promise<T>;
+  /** Seal the journal; further appends are rejected. */
+  seal(): Promise<void>;
+}
+
+/** Bind the journal contract to an Appendable backend for one run's stream. */
+export function createJournal(backend: AppendableBackend, identity: JournalIdentity): Journal {
+  return {
+    async append(input: JournalEventInput): Promise<JournalEvent> {
+      if (await backend.isSealed()) {
+        throw new Error(JOURNAL_ERROR.SEALED);
+      }
+      const history = await backend.readAll();
+      const event: JournalEvent = {
+        id: input.id,
+        source: input.source,
+        type: input.type,
+        specversion: CLOUDEVENTS_SPECVERSION,
+        time: input.time,
+        streamid: identity.streamid,
+        seq: JOURNAL_SEQ_BASE + history.length,
+        runid: identity.runid,
+        attempt: input.attempt,
+        ...(input.data === undefined ? {} : { data: input.data }),
+      };
+      await backend.append(event);
+      return event;
+    },
+
+    async read(fromCursor: number): Promise<readonly JournalEvent[]> {
+      const history = await backend.readAll();
+      return history.filter((event) => event.seq >= fromCursor);
+    },
+
+    async render<T>(projection: Projection<T>, throughSeq?: number): Promise<T> {
+      const history = await backend.readAll();
+      const prefix = throughSeq === undefined ? history : history.filter((event) => event.seq <= throughSeq);
+      return projection(prefix);
+    },
+
+    async seal(): Promise<void> {
+      await backend.seal();
+    },
+  };
+}
