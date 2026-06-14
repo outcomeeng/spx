@@ -43,6 +43,18 @@
     "labels": ["security"],
     "schedule": ["at any time"],
     "minimumReleaseAge": "0 days",
-    "automerge": true
+    "packageRules": [
+      {
+        "description": "Automerge non-major vulnerability fixes once required checks pass.",
+        "matchUpdateTypes": ["minor", "patch", "pin", "digest"],
+        "automerge": true
+      },
+      {
+        "description": "Hold major vulnerability fixes for manual approval through the dependency dashboard.",
+        "matchUpdateTypes": ["major"],
+        "automerge": false,
+        "dependencyDashboardApproval": true
+      }
+    ]
   }
 }
