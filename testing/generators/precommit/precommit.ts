@@ -7,10 +7,18 @@ export const PRECOMMIT_TEST_GENERATOR = {
   exitCode: arbitraryNonSuccessExitCode,
   fileList: arbitraryFileList,
   path: arbitraryPath,
+  pathSegment: arbitraryPathSegment,
   pathFragment: arbitraryPathFragment,
+  posixDirectoryPrefix: arbitraryPosixDirectoryPrefix,
+  windowsDirectoryPrefix: arbitraryWindowsDirectoryPrefix,
   sourcePath: arbitrarySourcePath,
   testPath: arbitraryTestPath,
   otherPath: arbitraryOtherPath,
+} as const;
+
+export const PRECOMMIT_TEST_FIXTURE = {
+  FAILING_TEST_NAME: "intentionally fails to test pre-commit blocking",
+  PASSING_TEST_NAME: "correctly tests addition",
 } as const;
 
 export function samplePrecommitTestValue<T>(arbitrary: fc.Arbitrary<T>): T {
@@ -25,6 +33,16 @@ function arbitraryPathSegment(): fc.Arbitrary<string> {
 
 function arbitraryPathFragment(): fc.Arbitrary<string> {
   return fc.array(arbitraryPathSegment(), { maxLength: 3 }).map((segments) => segments.join("/"));
+}
+
+function arbitraryPosixDirectoryPrefix(): fc.Arbitrary<string> {
+  return fc.array(arbitraryPathSegment(), { minLength: 1, maxLength: 4 }).map((segments) => `/${segments.join("/")}`);
+}
+
+function arbitraryWindowsDirectoryPrefix(): fc.Arbitrary<string> {
+  return fc
+    .array(arbitraryPathSegment(), { minLength: 1, maxLength: 4 })
+    .map((segments) => `C:\\${segments.join("\\")}`);
 }
 
 function arbitraryPrecommitConfig(): fc.Arbitrary<PrecommitConfig> {

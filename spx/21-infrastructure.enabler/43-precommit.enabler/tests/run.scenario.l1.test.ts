@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 
-import { VITEST_ARGS } from "@/lib/precommit/build-args";
 import { PRECOMMIT_RUN, type PrecommitDeps, runPrecommitTests } from "@/lib/precommit/run";
+import { VITEST_ARGS } from "@/lib/precommit/vitest-args";
 import { PRECOMMIT_TEST_GENERATOR, samplePrecommitTestValue } from "@testing/generators/precommit/precommit";
 
 const otherFile = () => samplePrecommitTestValue(PRECOMMIT_TEST_GENERATOR.otherPath());
@@ -107,7 +107,7 @@ describe("runPrecommitTests scenarios", () => {
   });
 
   describe("GIVEN test files staged", () => {
-    it("WHEN running THEN calls runVitest with --run flag", async () => {
+    it("WHEN running THEN calls runVitest with --run followed by those test files", async () => {
       const staged = testFile();
       let vitestArgs: string[] = [];
       const deps: PrecommitDeps = {
@@ -121,12 +121,12 @@ describe("runPrecommitTests scenarios", () => {
 
       await runPrecommitTests(deps);
 
-      expect(vitestArgs).toContain(VITEST_ARGS.RUN);
+      expect(vitestArgs).toEqual([VITEST_ARGS.RUN, staged]);
     });
   });
 
   describe("GIVEN source files staged", () => {
-    it("WHEN running THEN uses vitest related subcommand", async () => {
+    it("WHEN running THEN uses related --run followed by those source files", async () => {
       const staged = sourceFile();
       let vitestArgs: string[] = [];
       const deps: PrecommitDeps = {
@@ -140,8 +140,7 @@ describe("runPrecommitTests scenarios", () => {
 
       await runPrecommitTests(deps);
 
-      expect(vitestArgs).toContain(VITEST_ARGS.RELATED);
-      expect(vitestArgs).toContain(staged);
+      expect(vitestArgs).toEqual([VITEST_ARGS.RELATED, VITEST_ARGS.RUN, staged]);
     });
   });
 

@@ -1,7 +1,8 @@
 import * as fc from "fast-check";
 import { describe, expect, it } from "vitest";
 
-import { buildVitestArgs, isTestFile, VITEST_ARGS } from "@/lib/precommit/build-args";
+import { buildVitestArgs, isTestFile } from "@/lib/precommit/build-args";
+import { VITEST_ARGS } from "@/lib/precommit/vitest-args";
 import { PRECOMMIT_TEST_GENERATOR } from "@testing/generators/precommit/precommit";
 
 describe("isTestFile", () => {
@@ -35,28 +36,25 @@ describe("buildVitestArgs", () => {
     expect(buildVitestArgs([])).toEqual([]);
   });
 
-  it("test-files-only input: first arg is --run, all test files are included, no RELATED prefix", () => {
+  it("test-files-only input maps exactly to --run followed by the test files", () => {
     fc.assert(
       fc.property(fc.array(PRECOMMIT_TEST_GENERATOR.testPath(), { minLength: 1 }), (testFiles) => {
-        const args = buildVitestArgs(testFiles);
-        expect(args[0]).toBe(VITEST_ARGS.RUN);
-        expect(args).not.toContain(VITEST_ARGS.RELATED);
-        for (const f of testFiles) expect(args).toContain(f);
+        expect(buildVitestArgs(testFiles)).toEqual([VITEST_ARGS.RUN, ...testFiles]);
       }),
     );
   });
 
-  it("source-files-present input: starts with related --run, contains all source files, no test files", () => {
+  it("source-files-present input maps exactly to related --run followed by the source files", () => {
     fc.assert(
       fc.property(
         fc.array(PRECOMMIT_TEST_GENERATOR.sourcePath(), { minLength: 1 }),
         fc.array(PRECOMMIT_TEST_GENERATOR.testPath()),
         (sourceFiles, testFiles) => {
-          const args = buildVitestArgs([...sourceFiles, ...testFiles]);
-          expect(args[0]).toBe(VITEST_ARGS.RELATED);
-          expect(args[1]).toBe(VITEST_ARGS.RUN);
-          for (const f of sourceFiles) expect(args).toContain(f);
-          for (const f of testFiles) expect(args).not.toContain(f);
+          expect(buildVitestArgs([...sourceFiles, ...testFiles])).toEqual([
+            VITEST_ARGS.RELATED,
+            VITEST_ARGS.RUN,
+            ...sourceFiles,
+          ]);
         },
       ),
     );

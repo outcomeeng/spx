@@ -1,9 +1,5 @@
 import { PRECOMMIT_DEFAULTS, type PrecommitConfig } from "./config";
-
-export const VITEST_ARGS = {
-  RUN: "--run",
-  RELATED: "related",
-} as const;
+import { VITEST_ARGS } from "./vitest-args";
 
 export function isTestFile(filePath: string, config: PrecommitConfig = PRECOMMIT_DEFAULTS): boolean {
   return filePath.includes(config.testPattern);

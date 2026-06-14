@@ -1,8 +1,8 @@
 import * as fc from "fast-check";
 import { describe, expect, it } from "vitest";
 
-import { VITEST_ARGS } from "@/lib/precommit/build-args";
 import { PRECOMMIT_RUN, type PrecommitDeps, runPrecommitTests, shouldRunTests } from "@/lib/precommit/run";
+import { VITEST_ARGS } from "@/lib/precommit/vitest-args";
 import { PRECOMMIT_TEST_GENERATOR, samplePrecommitTestValue } from "@testing/generators/precommit/precommit";
 
 const otherFile = () => samplePrecommitTestValue(PRECOMMIT_TEST_GENERATOR.otherPath());
@@ -100,11 +100,31 @@ describe("runPrecommitTests compliance", () => {
 
           await runPrecommitTests(deps);
 
-          expect(vitestArgs[0]).toBe(VITEST_ARGS.RELATED);
-          expect(vitestArgs[1]).toBe(VITEST_ARGS.RUN);
-          for (const source of sourceFiles) expect(vitestArgs).toContain(source);
-          for (const test of testFiles) expect(vitestArgs).not.toContain(test);
-          for (const other of otherFiles) expect(vitestArgs).not.toContain(other);
+          expect(vitestArgs).toEqual([VITEST_ARGS.RELATED, VITEST_ARGS.RUN, ...sourceFiles]);
+        },
+      ),
+    );
+  });
+
+  it("passes only retained test paths to vitest when no source files are staged", async () => {
+    await fc.assert(
+      fc.asyncProperty(
+        fc.array(PRECOMMIT_TEST_GENERATOR.testPath(), { minLength: 1 }),
+        fc.array(PRECOMMIT_TEST_GENERATOR.otherPath(), { minLength: 1 }),
+        async (testFiles, otherFiles) => {
+          let vitestArgs: string[] = [];
+          const deps: PrecommitDeps = {
+            getStagedFiles: async () => [...testFiles, ...otherFiles],
+            runVitest: async (args) => {
+              vitestArgs = args;
+              return { exitCode: PRECOMMIT_RUN.EXIT_CODES.SUCCESS, output: "" };
+            },
+            log: () => {},
+          };
+
+          await runPrecommitTests(deps);
+
+          expect(vitestArgs).toEqual([VITEST_ARGS.RUN, ...testFiles]);
         },
       ),
     );
