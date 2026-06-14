@@ -34,9 +34,10 @@
       "dependencyDashboardApproval": true
     },
     {
-      "description": "Bump the pnpm package manager manually.",
+      "description": "Bump the pnpm package manager manually through the dependency dashboard.",
       "matchDepNames": ["pnpm"],
-      "automerge": false
+      "automerge": false,
+      "dependencyDashboardApproval": true
     }
   ],
   "vulnerabilityAlerts": {
@@ -52,6 +53,12 @@
       {
         "description": "Hold major vulnerability fixes for manual approval through the dependency dashboard.",
         "matchUpdateTypes": ["major"],
+        "automerge": false,
+        "dependencyDashboardApproval": true
+      },
+      {
+        "description": "Hold pnpm package-manager vulnerability fixes for manual approval, overriding the non-major automerge above by matching last.",
+        "matchDepNames": ["pnpm"],
         "automerge": false,
         "dependencyDashboardApproval": true
       }
