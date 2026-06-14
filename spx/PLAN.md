@@ -98,7 +98,7 @@ A new `spx validation` check: every `spx/**/tests/*.test.ts` filename matches `<
 
 ### Deferred
 
-The precommit test evidence-typing rearchitecture (the `.unit` split was reverted because `fc.property` evidence belongs in property files not mapping, and scenario/compliance assertions linked cross-module) is tracked in `spx/21-infrastructure.enabler/43-precommit.enabler/PLAN.md` and depends on the config-DI rearchitecture recorded there.
+The precommit test evidence-typing rearchitecture is owned by `spx/21-infrastructure.enabler/43-precommit.enabler/precommit.md`; future precommit test changes stay under that infrastructure node.
 
 ### Operating constraints
 

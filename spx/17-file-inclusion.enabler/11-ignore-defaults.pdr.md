@@ -1,12 +1,12 @@
 # Ignore Defaults
 
-The file-inclusion service takes git's view of the working tree as the default scope for automatic walks, exposes ripgrep's CLI override vocabulary plus explicit caller paths as the invocation-time override surface, and lets a consumer-supplied domain path filter narrow or expand a domain's scope only within the git-tracked set. Diverging deliberately from ripgrep, spx does **not** exclude dot-prefixed entries by default and offers no hidden-file opt-out, so dot-prefixed product-content directories are in scope unconditionally, subject only to the git-tracking layer.
+spx commands that discover files for validation, testing, auditing, or reviewing use the current worktree's git-visible file set as the default automatic scope. Explicit caller paths are always honored, command-specific configured filters may narrow only automatic scope, ignore override flags use ripgrep's vocabulary, and dot-prefixed product-content paths are included by default without a hidden-file opt-in.
 
 ## Rationale
 
-Git already maintains the authoritative declaration of "what is part of this product," and every git-aware code tool (ripgrep, fd, eslint, biome, oxlint, ruff, prettier) consults it; adopting git's view eliminates the duplication where operators would otherwise restate `.gitignore` patterns in each domain descriptor. Reusing ripgrep's `--no-ignore` / `--no-ignore-vcs` / `--ignore-file` names lets operators and agents transfer one mental model. The dotfile divergence is load-bearing: ripgrep's default-exclude-dotfiles serves an interactive operator who flips `--hidden` on seeing missing matches, but spx runs unattended in CI and pre-commit where silent dotfile exclusion produces false-clean verdicts no operator sees, and modern monorepos carry real product content under dot-prefixed directories. Trusting git fully — with no hardcoded universal-noise tail — keeps the model learnable (the one rule is "git is authoritative"; a noise path like `.DS_Store` is fixed once in global gitignore). Untracked-but-not-ignored files are included to match pre-commit expectation (a brand-new file is the one being edited); submodule contents are skipped to match git's opaque-pointer treatment.
+Git already declares product membership through tracked files and ignore rules, and every git-aware code tool (ripgrep, fd, eslint, biome, oxlint, ruff, prettier) consults that view. Reusing ripgrep's `--no-ignore` / `--no-ignore-vcs` / `--ignore-file` names lets operators and agents transfer one mental model. Dot-prefixed product paths are included because unattended CI and pre-commit runs cannot rely on an operator noticing a missing file and rerunning with a hidden-file flag. Untracked-but-not-ignored files are included because a brand-new file is often exactly what the command must check; submodule contents are skipped because git treats the submodule as an opaque pointer.
 
-Rejected: a hidden-prefix layer excluding dot-prefixed entries (silently skips product content in unattended contexts); a configured artifact-directory name list or a standalone ignore-source file like `spx/EXCLUDE` (duplicates `.gitignore`, creating the drift class the service exists to eliminate); default-include-everything (floods commands with `node_modules`/build outputs on first run); full ripgrep parity including dotfile exclusion (same silent-exclusion failure); and per-consumer ignore defaults (reproduces drift and duplication for shared scope).
+Rejected: excluding dot-prefixed entries by default (silently skips product content in unattended contexts); keeping spx-owned duplicate ignore lists (creates drift from git's view); default-include-everything (floods commands with dependency and build outputs on first run); full ripgrep parity including dotfile exclusion (same silent-exclusion failure); and per-command default ignore policies (reproduces drift and duplication for shared scope).
 
 ## Product properties
 
@@ -18,16 +18,16 @@ Rejected: a hidden-prefix layer excluding dot-prefixed entries (silently skips p
 
 ### Audit
 
-- ALWAYS: default automatic walks consult `git ls-files --cached --others --exclude-standard --full-name` against the working tree resolved per `spx/15-worktree-management.pdr.md` ([audit])
-- ALWAYS: every consumer-supplied explicit path bypasses every shared layer and every domain path filter, and appears in the included set with a decision trail naming the explicit-override layer ([audit])
-- ALWAYS: a consumer-supplied domain path filter records include and exclude matches in the scope decision trail without affecting any other domain's scope ([audit])
+- ALWAYS: default automatic walks include the product's tracked and untracked-not-ignored file set for the current worktree ([audit])
+- ALWAYS: every consumer-supplied explicit path appears in the included set even when git's view or a configured filter would exclude it, and output that explains scope decisions marks it as explicitly requested ([audit])
+- ALWAYS: a command-specific configured filter narrows only that command's automatic scope and does not affect any other command's scope ([audit])
 - ALWAYS: submodule contents are excluded from automatic walks; an explicit path under a submodule directory is honored as caller intent and reaches the included set ([audit])
 - ALWAYS: each domain command that exposes ignore-override flags names them identically to ripgrep: `--no-ignore`, `--no-ignore-vcs`, `--ignore-file <path>` ([audit])
 - ALWAYS: `--no-ignore` includes entries any git ignore source would exclude; `--no-ignore-vcs` includes entries `.gitignore` and nested `.gitignore` would exclude while still honoring `.git/info/exclude` and global gitignore; `--ignore-file <path>` additionally excludes entries matching patterns in the supplied file ([audit])
-- NEVER: exclude an entry from an automatic walk for any reason other than git's view of the working tree, a consumer-supplied domain path filter, or a submodule boundary ([audit])
+- NEVER: exclude an entry from an automatic walk for any reason other than git's view of the working tree, a command-specific configured filter, or a submodule boundary ([audit])
 - NEVER: exclude dot-prefixed entries by default — `.github/`, `.changeset/`, `.husky/`, `.devcontainer/`, and every other dot-prefixed product-content directory is walked unconditionally subject to git's view ([audit])
 - NEVER: expose a `--hidden` flag or any equivalent dotfile-inclusion override — dotfiles are included by default and require no opt-in ([audit])
-- NEVER: maintain an artifact-directory name list, hidden-prefix rule, universal-noise allowlist, or standalone ignore-source file inside spx — the git-tracking layer subsumes every such mechanism ([audit])
+- NEVER: maintain an spx-owned artifact-directory name list, hidden-prefix rule, universal-noise allowlist, or standalone ignore-source file that duplicates git's ignore rules ([audit])
 - NEVER: drop, rewrite, or silently filter a caller-supplied explicit path — the override is absolute regardless of git's view, domain filters, or submodule status ([audit])
-- NEVER: apply one domain's path filter to another domain's scope unless that other domain explicitly consumes the same descriptor section ([audit])
+- NEVER: apply one command's configured filter to another command's scope unless that command explicitly consumes the same configuration ([audit])
 - NEVER: adopt override-flag names other than ripgrep's `--no-ignore`, `--no-ignore-vcs`, and `--ignore-file` — flag-name drift across domains defeats the shared mental model ([audit])
