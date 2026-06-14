@@ -22,7 +22,7 @@ CAN block commits when staged changes break their related tests, keep the main c
 - Test relevance: paths mapped to `test` or `source` are retained by `filterTestRelevantFiles`; paths mapped to `other` are filtered out ([test](tests/categorize.mapping.l1.test.ts))
 - Vitest invocation shape: the empty list maps to `[]`; a test-files-only list maps to `["--run", ...testFiles]`; a list containing any source file maps to `["related", "--run", ...sourceFiles]` ([test](tests/build-args.mapping.l1.test.ts))
 - TypeScript hook entrypoint recognition maps POSIX and Windows argv paths for the invoked precommit script to direct execution, and maps a mismatched argv path to not-direct execution ([test](tests/entrypoint.mapping.l1.test.ts))
-- Main-checkout gate exit-code classification maps unreadable git facts and main-checkout facts to the rebuild exit code, and maps non-main checkout facts to the classified skip exit code ([test](tests/main-checkout-gate.mapping.l1.test.ts))
+- Main-checkout gate exit-code classification maps unreadable git facts, incomplete bare-pool worktree-list facts, and main-checkout facts to the rebuild exit code, and maps non-main checkout facts to the classified skip exit code ([test](tests/main-checkout-gate.mapping.l1.test.ts))
 
 ### Properties
 

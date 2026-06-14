@@ -8,11 +8,12 @@ import {
   arbitraryPoolFactsSample,
 } from "@testing/generators/main-checkout/main-checkout";
 
-describe("isMainCheckout — bare-pool two-signal mapping", () => {
-  it("identifies the main checkout only when the repository-name basename and sibling placement agree and origin resolves", () => {
+describe("isMainCheckout — bare-pool observed-root mapping", () => {
+  it("identifies the main checkout only when the repository-name basename, sibling placement, observed root, and origin agree", () => {
     fc.assert(
       fc.property(arbitraryPoolFactsSample(), (sample) => {
         expect(isMainCheckout(sample.mainCheckout)).toBe(true);
+        expect(isMainCheckout(sample.separatorVariantMainCheckout)).toBe(true);
         expect(isMainCheckout(sample.basenameMismatch)).toBe(false);
         expect(isMainCheckout(sample.siblingMismatch)).toBe(false);
         expect(isMainCheckout(sample.originUnset)).toBe(false);

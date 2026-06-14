@@ -5,14 +5,18 @@ import { describe, expect, it } from "vitest";
 import {
   gatherGitFacts,
   GIT_COMMON_DIR_ARGS,
+  GIT_CORE_BARE_ARGS,
+  GIT_CORE_BARE_TRUE,
   GIT_DIR_BASENAME,
   GIT_REMOTE_GET_URL_ORIGIN_ARGS,
   GIT_SHOW_TOPLEVEL_ARGS,
+  GIT_WORKTREE_LIST_PORCELAIN_ARGS,
   type GitDependencies,
   isMainCheckout,
 } from "@/git/root";
 import {
   arbitraryNonBareMainFacts,
+  arbitraryPoolFactsSample,
   sampleMainCheckoutTestValue,
 } from "@testing/generators/main-checkout/main-checkout";
 
@@ -29,6 +33,12 @@ function probeDeps(
   toplevel: { exitCode: number; stdout: string },
   commonDirExit: number,
   originUrl: string | null,
+  options: {
+    readonly commonDirStdout?: string;
+    readonly commonDirIsBare?: boolean;
+    readonly worktreeListStdout?: string;
+    readonly worktreeListExitCode?: number;
+  } = {},
 ): GitDependencies {
   return {
     execa: async (_command, args) => {
@@ -36,12 +46,26 @@ function probeDeps(
         return { exitCode: toplevel.exitCode, stdout: toplevel.stdout, stderr: "" };
       }
       if (argsEqual(args, GIT_COMMON_DIR_ARGS)) {
-        return { exitCode: commonDirExit, stdout: "", stderr: "" };
+        return { exitCode: commonDirExit, stdout: options.commonDirStdout ?? "", stderr: "" };
       }
       if (argsEqual(args, GIT_REMOTE_GET_URL_ORIGIN_ARGS)) {
         return originUrl === null
           ? { exitCode: 1, stdout: "", stderr: "" }
           : { exitCode: 0, stdout: originUrl, stderr: "" };
+      }
+      if (argsEqual(args, GIT_WORKTREE_LIST_PORCELAIN_ARGS)) {
+        return {
+          exitCode: options.worktreeListExitCode ?? 1,
+          stdout: options.worktreeListStdout ?? "",
+          stderr: "",
+        };
+      }
+      if (argsEqual(args, GIT_CORE_BARE_ARGS)) {
+        return {
+          exitCode: 0,
+          stdout: options.commonDirIsBare === true ? GIT_CORE_BARE_TRUE : GIT_CORE_BARE_TRUE.toUpperCase(),
+          stderr: "",
+        };
       }
       return { exitCode: 1, stdout: "", stderr: "" };
     },
@@ -64,12 +88,29 @@ describe("gatherGitFacts — git-probe fallbacks", () => {
 
     expect(result).toEqual({
       worktreeRoot: facts.worktreeRoot,
-      worktreeRoots: [facts.worktreeRoot],
+      worktreeRoots: [],
+      worktreeListRead: false,
       commonDir: join(facts.worktreeRoot, GIT_DIR_BASENAME),
       commonDirIsBare: false,
       originUrl: facts.originUrl,
     });
     // The fallback shape designates the main checkout, matching detectGitCommonDirProductRoot.
     expect(result !== null && isMainCheckout(result)).toBe(true);
+  });
+
+  it("GIVEN worktree list fails in a bare pool THEN the probe records no observed roots and classification is non-main", async () => {
+    const facts = sampleMainCheckoutTestValue(arbitraryPoolFactsSample()).mainCheckout;
+    const deps = probeDeps(
+      { exitCode: 0, stdout: facts.worktreeRoot },
+      0,
+      facts.originUrl,
+      { commonDirStdout: facts.commonDir, commonDirIsBare: true },
+    );
+
+    const result = await gatherGitFacts(facts.worktreeRoot, deps);
+
+    expect(result?.worktreeRoots).toEqual([]);
+    expect(result?.worktreeListRead).toBe(false);
+    expect(result !== null && isMainCheckout(result)).toBe(false);
   });
 });

@@ -11,6 +11,7 @@ CAN gate main-checkout-only behaviour and resolve the `origin/<default>` tip wit
 - Given a non-bare repository whose only working tree is its root, when the main checkout is resolved, then that lone working tree is the main checkout whatever branch it holds ([test](tests/main-checkout.scenario.l1.test.ts))
 - Given a real bare-repository pool with an `origin` remote, when the main checkout is resolved, then `detectMainCheckout` is true for the worktree named after the `origin` repository and false for a feature worktree ([test](tests/main-checkout.scenario.l1.test.ts))
 - Given a checkout where `git rev-parse --show-toplevel` fails, when `gatherGitFacts` probes, then it returns null; and given `--git-common-dir` fails while `--show-toplevel` succeeds, then it falls back to a non-bare single-tree shape whose common dir is `<worktreeRoot>/.git`, designating that worktree the main checkout so detection agrees with `detectGitCommonDirProductRoot` ([test](tests/git-facts.scenario.l1.test.ts))
+- Given `git worktree list --porcelain` fails in a bare-repository pool, when `gatherGitFacts` probes, then `GitFacts` records the unsuccessful worktree-list read and `isMainCheckout` returns false ([test](tests/git-facts.scenario.l1.test.ts))
 
 ### Mappings
 

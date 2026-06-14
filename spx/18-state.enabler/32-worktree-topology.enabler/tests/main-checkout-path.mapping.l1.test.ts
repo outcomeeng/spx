@@ -1,12 +1,11 @@
 import * as fc from "fast-check";
-import { join } from "node:path";
 import { describe, expect, it } from "vitest";
 
-import { GIT_URL_SUFFIX, mainCheckoutPath } from "@/git/root";
+import { mainCheckoutPath } from "@/git/root";
 import {
   arbitraryMainCheckoutFacts,
   arbitraryMainCheckoutPathCase,
-  arbitraryRepositoryName,
+  arbitraryPoolFactsSample,
 } from "@testing/generators/main-checkout/main-checkout";
 
 describe("mainCheckoutPath — designate the main checkout's path from layout", () => {
@@ -26,19 +25,12 @@ describe("mainCheckoutPath — designate the main checkout's path from layout", 
     );
   });
 
-  it("returns the observed worktree root when a bare-pool candidate matches with different path separators", () => {
+  it("keeps the designated checkout path equal to the checkout root when the observed worktree spelling differs by separators", () => {
     fc.assert(
-      fc.property(arbitraryRepositoryName(), arbitraryRepositoryName(), (containerName, repoName) => {
-        const commonDirParent = `/${containerName}`;
-        const observedRoot = join(commonDirParent, repoName).replaceAll("/", "\\");
-
-        expect(mainCheckoutPath({
-          worktreeRoot: observedRoot,
-          worktreeRoots: [observedRoot],
-          commonDir: `${commonDirParent}/${repoName}${GIT_URL_SUFFIX}`,
-          commonDirIsBare: true,
-          originUrl: `${repoName}${GIT_URL_SUFFIX}`,
-        })).toBe(observedRoot);
+      fc.property(arbitraryPoolFactsSample(), (sample) => {
+        expect(mainCheckoutPath(sample.separatorVariantMainCheckout)).toBe(
+          sample.separatorVariantMainCheckout.worktreeRoot,
+        );
       }),
     );
   });
