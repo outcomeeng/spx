@@ -16,6 +16,8 @@ describe("isMainCheckout — bare-pool two-signal mapping", () => {
         expect(isMainCheckout(sample.basenameMismatch)).toBe(false);
         expect(isMainCheckout(sample.siblingMismatch)).toBe(false);
         expect(isMainCheckout(sample.originUnset)).toBe(false);
+        expect(isMainCheckout(sample.missingDesignatedWorktree)).toBe(false);
+        expect(isMainCheckout(sample.unlistedMainCheckoutRoot)).toBe(false);
       }),
     );
   });

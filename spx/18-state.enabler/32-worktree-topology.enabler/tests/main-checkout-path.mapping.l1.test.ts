@@ -8,7 +8,7 @@ import {
 } from "@testing/generators/main-checkout/main-checkout";
 
 describe("mainCheckoutPath — designate the main checkout's path from layout", () => {
-  it("designates the lone worktree in a single-tree layout, the origin-repository-named sibling in a pool, and no path when a pool resolves no origin repository name", () => {
+  it("designates the lone worktree in a single-tree layout, an observed origin-repository-named sibling in a pool, and no path when the pool resolves no such worktree", () => {
     fc.assert(
       fc.property(arbitraryMainCheckoutPathCase(), ({ facts, expectedPath }) => {
         expect(mainCheckoutPath(facts)).toBe(expectedPath);

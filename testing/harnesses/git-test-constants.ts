@@ -49,6 +49,15 @@ export const GIT_TEST_REF = {
 
 export const GIT_TEST_OUTPUT = {
   IS_INSIDE_WORK_TREE_TRUE: "true",
+  MISSING_ENV_VALUE: "missing",
+} as const;
+
+export const GIT_TEST_EXECUTABLE = {
+  NODE: "node",
+} as const;
+
+export const LEFTHOOK_TEST_OUTPUT = {
+  SKIP_NO_MATCHING_STAGED_FILES: "tests (skip) no matching staged files",
 } as const;
 
 export const GIT_TEST_CONFIG = {

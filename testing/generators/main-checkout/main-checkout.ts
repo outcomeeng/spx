@@ -9,6 +9,8 @@ const HTTPS_SCHEME = "https://";
 const SCP_USER = "git@";
 const HOST_TLD = ".com";
 const SCP_PATH_SEPARATOR = ":";
+const WINDOWS_DRIVE_PREFIX = "C:\\";
+const WINDOWS_SEPARATOR = "\\";
 
 /** The `origin` URL forms git accepts, each carrying the repository name as its final segment. */
 const ORIGIN_URL_FORM = {
@@ -16,6 +18,7 @@ const ORIGIN_URL_FORM = {
   HTTPS_NO_SUFFIX: "https-no-suffix",
   SCP: "scp",
   LOCAL_PATH: "local-path",
+  WINDOWS_LOCAL_PATH: "windows-local-path",
 } as const;
 
 type OriginUrlForm = (typeof ORIGIN_URL_FORM)[keyof typeof ORIGIN_URL_FORM];
@@ -45,6 +48,10 @@ export type PoolFactsSample = {
   readonly siblingMismatch: GitFacts;
   /** `origin` is unset, so no repository name resolves. */
   readonly originUnset: GitFacts;
+  /** The repository name resolves, but the repository-named worktree is absent from the observed list. */
+  readonly missingDesignatedWorktree: GitFacts;
+  /** The current worktree looks like the main checkout, but the observed worktree list omits it. */
+  readonly unlistedMainCheckoutRoot: GitFacts;
 };
 
 export function sampleMainCheckoutTestValue<T>(arbitrary: fc.Arbitrary<T>): T {
@@ -82,19 +89,33 @@ export function arbitraryOriginUrl(repoName: string): fc.Arbitrary<string> {
         ORIGIN_URL_FORM.HTTPS_NO_SUFFIX,
         ORIGIN_URL_FORM.SCP,
         ORIGIN_URL_FORM.LOCAL_PATH,
+        ORIGIN_URL_FORM.WINDOWS_LOCAL_PATH,
       ),
+      hasTrailingSeparator: fc.boolean(),
     })
-    .map(({ host, owner, form }) => {
+    .map(({ host, owner, form, hasTrailingSeparator }) => {
       const ownerSlashRepo = `${owner}${POSIX_SEPARATOR}${repoName}`;
       switch (form) {
-        case ORIGIN_URL_FORM.HTTPS:
-          return `${HTTPS_SCHEME}${host}${HOST_TLD}${POSIX_SEPARATOR}${ownerSlashRepo}${GIT_URL_SUFFIX}`;
-        case ORIGIN_URL_FORM.HTTPS_NO_SUFFIX:
-          return `${HTTPS_SCHEME}${host}${HOST_TLD}${POSIX_SEPARATOR}${ownerSlashRepo}`;
-        case ORIGIN_URL_FORM.SCP:
-          return `${SCP_USER}${host}${HOST_TLD}${SCP_PATH_SEPARATOR}${ownerSlashRepo}${GIT_URL_SUFFIX}`;
-        default:
-          return `${POSIX_SEPARATOR}${ownerSlashRepo}${GIT_URL_SUFFIX}`;
+        case ORIGIN_URL_FORM.HTTPS: {
+          const url = `${HTTPS_SCHEME}${host}${HOST_TLD}${POSIX_SEPARATOR}${ownerSlashRepo}${GIT_URL_SUFFIX}`;
+          return hasTrailingSeparator ? `${url}${POSIX_SEPARATOR}` : url;
+        }
+        case ORIGIN_URL_FORM.HTTPS_NO_SUFFIX: {
+          const url = `${HTTPS_SCHEME}${host}${HOST_TLD}${POSIX_SEPARATOR}${ownerSlashRepo}`;
+          return hasTrailingSeparator ? `${url}${POSIX_SEPARATOR}` : url;
+        }
+        case ORIGIN_URL_FORM.SCP: {
+          const url = `${SCP_USER}${host}${HOST_TLD}${SCP_PATH_SEPARATOR}${ownerSlashRepo}${GIT_URL_SUFFIX}`;
+          return hasTrailingSeparator ? `${url}${POSIX_SEPARATOR}` : url;
+        }
+        case ORIGIN_URL_FORM.WINDOWS_LOCAL_PATH:
+          return `${WINDOWS_DRIVE_PREFIX}${owner}${WINDOWS_SEPARATOR}${repoName}${GIT_URL_SUFFIX}${
+            hasTrailingSeparator ? WINDOWS_SEPARATOR : ""
+          }`;
+        default: {
+          const url = `${POSIX_SEPARATOR}${ownerSlashRepo}${GIT_URL_SUFFIX}`;
+          return hasTrailingSeparator ? `${url}${POSIX_SEPARATOR}` : url;
+        }
       }
     });
 }
@@ -126,20 +147,38 @@ export function arbitraryPoolFactsSample(): fc.Arbitrary<PoolFactsSample> {
           `${POSIX_SEPARATOR}${parts.containerParent}${POSIX_SEPARATOR}${parts.otherContainerName}`;
         const commonDir = `${container}${POSIX_SEPARATOR}${parts.bareRepoName}${GIT_URL_SUFFIX}`;
         const worktreeRoot = `${container}${POSIX_SEPARATOR}${parts.repoName}`;
-        const mainCheckout: GitFacts = { worktreeRoot, commonDir, commonDirIsBare: true, originUrl };
+        const otherWorktreeRoot = `${container}${POSIX_SEPARATOR}${parts.otherBasename}`;
+        const mainCheckout: GitFacts = {
+          worktreeRoot,
+          worktreeRoots: [worktreeRoot],
+          commonDir,
+          commonDirIsBare: true,
+          originUrl,
+        };
         return {
           mainCheckout,
           basenameMismatch: {
             ...mainCheckout,
-            worktreeRoot: `${container}${POSIX_SEPARATOR}${parts.otherBasename}`,
+            worktreeRoot: otherWorktreeRoot,
+            worktreeRoots: [worktreeRoot, otherWorktreeRoot],
           },
           // Same depth as the main checkout's container — only the container name
           // differs — so the parent-equality signal alone decides the mismatch.
           siblingMismatch: {
             ...mainCheckout,
             commonDir: `${otherContainer}${POSIX_SEPARATOR}${parts.bareRepoName}${GIT_URL_SUFFIX}`,
+            worktreeRoots: [worktreeRoot],
           },
-          originUnset: { ...mainCheckout, originUrl: null },
+          originUnset: { ...mainCheckout, worktreeRoots: [worktreeRoot], originUrl: null },
+          missingDesignatedWorktree: {
+            ...mainCheckout,
+            worktreeRoot: otherWorktreeRoot,
+            worktreeRoots: [otherWorktreeRoot],
+          },
+          unlistedMainCheckoutRoot: {
+            ...mainCheckout,
+            worktreeRoots: [otherWorktreeRoot],
+          },
         };
       })
     );
@@ -156,7 +195,7 @@ function arbitrarySingleTreePathCase(): fc.Arbitrary<MainCheckoutPathCase> {
       const worktreeRoot = `${POSIX_SEPARATOR}${parent}${POSIX_SEPARATOR}${repoName}`;
       const commonDir = `${worktreeRoot}${POSIX_SEPARATOR}${GIT_DIR_BASENAME}`;
       return {
-        facts: { worktreeRoot, commonDir, commonDirIsBare: false, originUrl },
+        facts: { worktreeRoot, worktreeRoots: [worktreeRoot], commonDir, commonDirIsBare: false, originUrl },
         expectedPath: worktreeRoot,
       };
     });
@@ -185,7 +224,13 @@ function arbitraryNonBareLinkedPathCase(): fc.Arbitrary<MainCheckoutPathCase> {
         const commonDir = `${mainTree}${POSIX_SEPARATOR}${GIT_DIR_BASENAME}`;
         const worktreeRoot = `${mainTree}${POSIX_SEPARATOR}${parts.linkedDir}`;
         return {
-          facts: { worktreeRoot, commonDir, commonDirIsBare: false, originUrl },
+          facts: {
+            worktreeRoot,
+            worktreeRoots: [mainTree, worktreeRoot],
+            commonDir,
+            commonDirIsBare: false,
+            originUrl,
+          },
           expectedPath: mainTree,
         };
       })
@@ -201,20 +246,27 @@ function arbitraryPoolPathCase(): fc.Arbitrary<MainCheckoutPathCase> {
       worktreeDir: arbitraryPathSegment(),
       repoName: arbitraryRepositoryName(),
       hasOrigin: fc.boolean(),
+      hasDesignatedWorktree: fc.boolean(),
     })
+    .filter(({ hasDesignatedWorktree, worktreeDir, repoName }) => hasDesignatedWorktree || worktreeDir !== repoName)
     .chain((parts) =>
       arbitraryOriginUrl(parts.repoName).map((originUrl) => {
         const container = `${POSIX_SEPARATOR}${parts.containerParent}${POSIX_SEPARATOR}${parts.containerName}`;
         const commonDir = `${container}${POSIX_SEPARATOR}${parts.bareRepoName}${GIT_URL_SUFFIX}`;
         const worktreeRoot = `${container}${POSIX_SEPARATOR}${parts.worktreeDir}`;
+        const designatedWorktreeRoot = `${container}${POSIX_SEPARATOR}${parts.repoName}`;
+        const worktreeRoots = parts.hasDesignatedWorktree
+          ? [...new Set([worktreeRoot, designatedWorktreeRoot])]
+          : [worktreeRoot];
         return {
           facts: {
             worktreeRoot,
+            worktreeRoots,
             commonDir,
             commonDirIsBare: true,
             originUrl: parts.hasOrigin ? originUrl : null,
           },
-          expectedPath: parts.hasOrigin ? `${container}${POSIX_SEPARATOR}${parts.repoName}` : null,
+          expectedPath: parts.hasOrigin && parts.hasDesignatedWorktree ? designatedWorktreeRoot : null,
         };
       })
     );
@@ -266,6 +318,18 @@ export type WorktreeLayoutCase = {
   readonly spec: WorktreeLayoutSpec;
   readonly mainCheckoutName: string;
   readonly otherNames: readonly string[];
+};
+
+/** A bare-pool layout with no origin, so no main-checkout path is designable. */
+export type BarePoolWithoutOriginLayoutCase = {
+  readonly spec: WorktreeLayoutSpec;
+  readonly nonMainCheckoutName: string;
+};
+
+/** A bare-pool layout whose `origin` names a repository but whose named worktree is absent. */
+export type BarePoolWithoutMainCheckoutLayoutCase = {
+  readonly spec: WorktreeLayoutSpec;
+  readonly nonMainCheckoutName: string;
 };
 
 /** A non-bare single-tree layout: the lone working tree is the main checkout on any branch. */
@@ -325,6 +389,52 @@ export function arbitraryBarePoolLayoutCase(): fc.Arbitrary<WorktreeLayoutCase> 
         },
         mainCheckoutName: parts.repoName,
         otherNames: [parts.featureName],
+      }))
+    );
+}
+
+/**
+ * A bare-repository pool without an `origin` remote: every worktree is non-main
+ * and `mainCheckoutPath` resolves no path because no repository name exists.
+ */
+export function arbitraryBarePoolWithoutOriginLayoutCase(): fc.Arbitrary<BarePoolWithoutOriginLayoutCase> {
+  return fc
+    .record({
+      bareName: arbitraryPathSegment(),
+      featureName: arbitraryPathSegment(),
+    })
+    .map(({ bareName, featureName }) => ({
+      spec: {
+        bare: true,
+        bareName,
+        worktrees: [{ name: featureName }],
+      },
+      nonMainCheckoutName: featureName,
+    }));
+}
+
+/**
+ * A bare-repository pool with an `origin` remote but no worktree named after the
+ * origin repository: every existing worktree is non-main and no main-checkout
+ * path is designable.
+ */
+export function arbitraryBarePoolWithoutMainCheckoutLayoutCase(): fc.Arbitrary<BarePoolWithoutMainCheckoutLayoutCase> {
+  return fc
+    .record({
+      repoName: arbitraryRepositoryName(),
+      bareName: arbitraryPathSegment(),
+      featureName: arbitraryPathSegment(),
+    })
+    .filter(({ repoName, featureName }) => repoName !== featureName)
+    .chain((parts) =>
+      arbitraryOriginUrl(parts.repoName).map((origin) => ({
+        spec: {
+          bare: true,
+          bareName: parts.bareName,
+          origin,
+          worktrees: [{ name: parts.featureName }],
+        },
+        nonMainCheckoutName: parts.featureName,
       }))
     );
 }

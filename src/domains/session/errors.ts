@@ -83,7 +83,7 @@ export class SessionInvalidNextStepError extends SessionError {
  * branch>`. A refusal renders one of three ways, distinguished by the carried
  * fields:
  *
- * - **Linked-worktree refusal** carries a {@link HandoffBaseChecklist} the
+ * - **Non-main-checkout refusal** carries a {@link HandoffBaseChecklist} the
  *   descriptor renders to standard error.
  * - **Non-git base** is `silent` — the descriptor writes nothing, only the
  *   non-zero exit.
