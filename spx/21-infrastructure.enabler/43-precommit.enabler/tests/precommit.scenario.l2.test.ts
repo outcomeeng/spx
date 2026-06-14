@@ -1,7 +1,13 @@
 import { withGitEnv } from "@testing/harnesses/with-git-env";
 import { describe, expect, it } from "vitest";
 
-import { PRECOMMIT_TEST_GENERATOR, samplePrecommitTestValue } from "@testing/generators/precommit/precommit";
+import { PRECOMMIT_RUN } from "@/lib/precommit/run";
+import {
+  PRECOMMIT_TEST_FIXTURE,
+  PRECOMMIT_TEST_GENERATOR,
+  samplePrecommitTestValue,
+} from "@testing/generators/precommit/precommit";
+import { LEFTHOOK_TEST_OUTPUT } from "@testing/harnesses/git-test-constants";
 
 describe("Pre-Commit Test Enforcement", () => {
   describe("FI1: Pre-commit blocking behavior", () => {
@@ -20,7 +26,7 @@ describe("Pre-Commit Test Enforcement", () => {
           `import { expect, it } from "vitest";
 import { add } from "../../../src/math.js";
 
-it("intentionally fails to test pre-commit blocking", () => {
+it("${PRECOMMIT_TEST_FIXTURE.FAILING_TEST_NAME}", () => {
   expect(add(1, 1)).toBe(999);
 });
 `,
@@ -31,6 +37,7 @@ it("intentionally fails to test pre-commit blocking", () => {
         const result = await exec("git commit -m 'test commit'", { reject: false });
 
         expect(result.exitCode).not.toBe(0);
+        expect(`${result.stdout}\n${result.stderr}`).toContain(PRECOMMIT_TEST_FIXTURE.FAILING_TEST_NAME);
       });
     });
 
@@ -49,7 +56,7 @@ it("intentionally fails to test pre-commit blocking", () => {
           `import { expect, it } from "vitest";
 import { add } from "../../../src/math.js";
 
-it("correctly tests addition", () => {
+it("${PRECOMMIT_TEST_FIXTURE.PASSING_TEST_NAME}", () => {
   expect(add(1, 1)).toBe(2);
 });
 `,
@@ -75,6 +82,8 @@ it("correctly tests addition", () => {
         const result = await exec("git commit -m 'docs: add readme'", { reject: false });
 
         expect(result.exitCode).toBe(0);
+        expect(`${result.stdout}\n${result.stderr}`).toContain(LEFTHOOK_TEST_OUTPUT.SKIP_NO_MATCHING_STAGED_FILES);
+        expect(`${result.stdout}\n${result.stderr}`).not.toContain(PRECOMMIT_RUN.MESSAGES.RUNNING_TESTS);
       });
     });
   });

@@ -14,6 +14,7 @@
 import { buildVitestArgs } from "./build-args";
 import { filterTestRelevantFiles } from "./categorize";
 import { PRECOMMIT_DEFAULTS, type PrecommitConfig } from "./config";
+import { isDirectPrecommitEntrypoint, PRECOMMIT_ENTRYPOINT } from "./entrypoint";
 
 // =============================================================================
 // CONSTANTS
@@ -262,8 +263,11 @@ async function main(): Promise<void> {
 
 // Run if invoked directly
 const isDirectExecution = typeof import.meta.url === "string"
-  && import.meta.url.endsWith("/run.ts")
-  && process.argv[1]?.includes("precommit/run");
+  && isDirectPrecommitEntrypoint(
+    import.meta.url,
+    process.argv[1],
+    PRECOMMIT_ENTRYPOINT.RUN,
+  );
 
 if (isDirectExecution) {
   try {

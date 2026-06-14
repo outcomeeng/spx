@@ -1,0 +1,29 @@
+export type PrecommitEntrypoint = {
+  readonly sourceSuffix: string;
+  readonly argvFragment: string;
+};
+
+export const PRECOMMIT_ENTRYPOINT = {
+  RUN: {
+    sourceSuffix: "/run.ts",
+    argvFragment: "precommit/run",
+  },
+  MAIN_CHECKOUT_GATE: {
+    sourceSuffix: "/main-checkout-gate.ts",
+    argvFragment: "precommit/main-checkout-gate",
+  },
+} as const satisfies Record<string, PrecommitEntrypoint>;
+
+export function isDirectPrecommitEntrypoint(
+  importMetaUrl: string,
+  argvPath: string | undefined,
+  entrypoint: PrecommitEntrypoint,
+): boolean {
+  if (argvPath === undefined) return false;
+  const normalizedArgvPath = argvPath.replace(/\\/g, "/");
+  return importMetaUrl.endsWith(entrypoint.sourceSuffix)
+    && (
+      normalizedArgvPath.endsWith(`/${entrypoint.argvFragment}.ts`)
+      || normalizedArgvPath.endsWith(`/${entrypoint.argvFragment}.js`)
+    );
+}
