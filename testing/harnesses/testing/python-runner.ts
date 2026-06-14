@@ -56,8 +56,7 @@ export function repoRootedPytestCommandRunner(projectRoot: string): TestRunnerDe
     runCommand: async (command, args): Promise<TestRunCommandResult> => {
       const result = await execa(command, [...args], {
         cwd: projectRoot,
-        env: { ...process.env, UV_CACHE_DIR: join(projectRoot, UV_CACHE_DIR_NAME) },
-        extendEnv: false,
+        env: { UV_CACHE_DIR: join(projectRoot, UV_CACHE_DIR_NAME) },
         reject: false,
       });
       return { exitCode: result.exitCode ?? PYTEST_EXIT_CODE.OK };
