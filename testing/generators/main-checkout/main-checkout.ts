@@ -54,6 +54,10 @@ export type PoolFactsSample = {
   readonly missingDesignatedWorktree: GitFacts;
   /** The current worktree looks like the main checkout, but the observed worktree list omits it. */
   readonly unlistedMainCheckoutRoot: GitFacts;
+  /** The observed list contains the main checkout with native Windows separators. */
+  readonly separatorVariantMainCheckout: GitFacts;
+  /** The current worktree has the bare-pool main-checkout shape, but the worktree list read failed. */
+  readonly unreadableWorktreeList: GitFacts;
 };
 
 export function sampleMainCheckoutTestValue<T>(arbitrary: fc.Arbitrary<T>): T {
@@ -68,6 +72,10 @@ export function sampleMainCheckoutTestValue<T>(arbitrary: fc.Arbitrary<T>): T {
 
 function arbitraryPathSegment(): fc.Arbitrary<string> {
   return fc.stringMatching(PATH_SEGMENT_PATTERN);
+}
+
+function toWindowsPath(path: string): string {
+  return path.replaceAll(POSIX_SEPARATOR, WINDOWS_SEPARATOR);
 }
 
 export function arbitraryBranchName(): fc.Arbitrary<string> {
@@ -155,6 +163,7 @@ export function arbitraryPoolFactsSample(): fc.Arbitrary<PoolFactsSample> {
         const mainCheckout: GitFacts = {
           worktreeRoot,
           worktreeRoots: [worktreeRoot],
+          worktreeListRead: true,
           commonDir,
           commonDirIsBare: true,
           originUrl,
@@ -183,6 +192,15 @@ export function arbitraryPoolFactsSample(): fc.Arbitrary<PoolFactsSample> {
             ...mainCheckout,
             worktreeRoots: [otherWorktreeRoot],
           },
+          separatorVariantMainCheckout: {
+            ...mainCheckout,
+            worktreeRoots: [toWindowsPath(worktreeRoot)],
+          },
+          unreadableWorktreeList: {
+            ...mainCheckout,
+            worktreeRoots: [],
+            worktreeListRead: false,
+          },
         };
       })
     );
@@ -199,7 +217,14 @@ function arbitrarySingleTreePathCase(): fc.Arbitrary<MainCheckoutPathCase> {
       const worktreeRoot = `${POSIX_SEPARATOR}${parent}${POSIX_SEPARATOR}${repoName}`;
       const commonDir = `${worktreeRoot}${POSIX_SEPARATOR}${GIT_DIR_BASENAME}`;
       return {
-        facts: { worktreeRoot, worktreeRoots: [worktreeRoot], commonDir, commonDirIsBare: false, originUrl },
+        facts: {
+          worktreeRoot,
+          worktreeRoots: [worktreeRoot],
+          worktreeListRead: true,
+          commonDir,
+          commonDirIsBare: false,
+          originUrl,
+        },
         expectedPath: worktreeRoot,
       };
     });
@@ -231,6 +256,7 @@ function arbitraryNonBareLinkedPathCase(): fc.Arbitrary<MainCheckoutPathCase> {
           facts: {
             worktreeRoot,
             worktreeRoots: [mainTree, worktreeRoot],
+            worktreeListRead: true,
             commonDir,
             commonDirIsBare: false,
             originUrl,
@@ -266,6 +292,7 @@ function arbitraryPoolPathCase(): fc.Arbitrary<MainCheckoutPathCase> {
           facts: {
             worktreeRoot,
             worktreeRoots,
+            worktreeListRead: true,
             commonDir,
             commonDirIsBare: true,
             originUrl: parts.hasOrigin ? originUrl : null,

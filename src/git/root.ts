@@ -32,8 +32,10 @@ export interface GitCommonDirProductDirResult extends GitProductDirResult {
 export interface GitFacts {
   /** The local worktree root — `git rev-parse --show-toplevel`. */
   worktreeRoot: string;
-  /** The observed worktree roots from `git worktree list --porcelain`, including the local root. */
+  /** The roots observed from `git worktree list --porcelain`. */
   worktreeRoots: readonly string[];
+  /** Whether `git worktree list --porcelain` completed successfully. */
+  worktreeListRead: boolean;
   /** The absolute common directory — `git rev-parse --git-common-dir`. */
   commonDir: string;
   /** Whether the common directory is a bare repository — `git config --get core.bare` is `true`. */
@@ -424,9 +426,9 @@ function normalizedGitPathKey(path: string): string {
   return normalizeGitPath(path).replace(/\\/g, "/");
 }
 
-function findObservedWorktreeRoot(worktreeRoots: readonly string[], candidate: string): string | null {
+function isObservedWorktreeRoot(worktreeRoots: readonly string[], candidate: string): boolean {
   const candidateKey = normalizedGitPathKey(candidate);
-  return worktreeRoots.find((root) => normalizedGitPathKey(root) === candidateKey) ?? null;
+  return worktreeRoots.some((root) => normalizedGitPathKey(root) === candidateKey);
 }
 
 function parseWorktreeRoots(stdout: string): string[] {
@@ -442,8 +444,8 @@ function parseWorktreeRoots(stdout: string): string[] {
   return roots;
 }
 
-function observedWorktreeRoots(worktreeRoot: string, worktreeListResult: ExecResult): string[] {
-  if (worktreeListResult.exitCode !== 0) return [worktreeRoot];
+function observedWorktreeRoots(worktreeListResult: ExecResult): string[] {
+  if (worktreeListResult.exitCode !== 0) return [];
   return [...new Set(parseWorktreeRoots(worktreeListResult.stdout))];
 }
 
@@ -453,9 +455,9 @@ function observedWorktreeRoots(worktreeRoot: string, worktreeListResult: ExecRes
  * Pure and total: a non-bare repository's main working tree — the parent of its
  * common directory — is the main checkout whatever branch it holds and whether
  * or not it has linked worktrees; a bare-repository pool worktree is the main
- * checkout exactly when its common directory sits beside the worktree and its
- * directory basename equals the `origin` repository name. The verdict reads no
- * branch.
+ * checkout exactly when its common directory sits beside the worktree, its
+ * directory basename equals the `origin` repository name, and git reports the
+ * worktree root in the observed worktree list. The verdict reads no branch.
  */
 export function isMainCheckout(facts: GitFacts): boolean {
   const commonDirParent = dirname(facts.commonDir);
@@ -469,7 +471,8 @@ export function isMainCheckout(facts: GitFacts): boolean {
   const name = repositoryName(facts.originUrl);
   return name !== null
     && basename(facts.worktreeRoot) === name
-    && facts.worktreeRoots.includes(facts.worktreeRoot);
+    && facts.worktreeListRead
+    && isObservedWorktreeRoot(facts.worktreeRoots, facts.worktreeRoot);
 }
 
 /**
@@ -491,8 +494,9 @@ export function mainCheckoutPath(facts: GitFacts): string | null {
   // Bare-repository pool: invert the name-and-placement rule to construct the path.
   const name = repositoryName(facts.originUrl);
   if (name === null) return null;
+  if (!facts.worktreeListRead) return null;
   const candidate = join(commonDirParent, name);
-  return findObservedWorktreeRoot(facts.worktreeRoots, candidate);
+  return isObservedWorktreeRoot(facts.worktreeRoots, candidate) ? candidate : null;
 }
 
 /**
@@ -519,7 +523,8 @@ export async function gatherGitFacts(
     if (toplevelResult.exitCode !== 0 || !toplevelResult.stdout) return null;
 
     const worktreeRoot = extractStdout(toplevelResult.stdout);
-    const worktreeRoots = observedWorktreeRoots(worktreeRoot, worktreeListResult);
+    const worktreeListRead = worktreeListResult.exitCode === 0;
+    const worktreeRoots = observedWorktreeRoots(worktreeListResult);
     const originUrl = originResult.exitCode === 0 && originResult.stdout
       ? trimStdout(originResult.stdout)
       : null;
@@ -532,6 +537,7 @@ export async function gatherGitFacts(
       return {
         worktreeRoot,
         worktreeRoots,
+        worktreeListRead,
         commonDir: join(worktreeRoot, GIT_DIR_BASENAME),
         commonDirIsBare: false,
         originUrl,
@@ -547,7 +553,7 @@ export async function gatherGitFacts(
     );
     const commonDirIsBare = bareResult.exitCode === 0
       && extractStdout(bareResult.stdout) === GIT_CORE_BARE_TRUE;
-    return { worktreeRoot, worktreeRoots, commonDir, commonDirIsBare, originUrl };
+    return { worktreeRoot, worktreeRoots, worktreeListRead, commonDir, commonDirIsBare, originUrl };
   } catch {
     // Command execution failed (git not installed, permission error, etc.) —
     // the checkout cannot be classified, so it is not the main checkout.

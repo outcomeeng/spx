@@ -4,9 +4,10 @@
  * Exits zero when the current worktree is the repository's main checkout — the
  * only worktree whose `dist/` feeds the published or pnpm-linked `spx` — and
  * non-zero otherwise, so the `post-merge` / `post-rewrite` rebuild-dist hooks
- * rebuild only there. Routes the decision through the tested {@link isMainCheckout}
- * classifier instead of re-deriving worktree topology in shell, so the gate
- * stays correct for both a non-bare repository and a bare-repository pool.
+ * rebuild only there. Routes complete-topology decisions through the tested
+ * {@link isMainCheckout} classifier instead of re-deriving worktree topology in
+ * shell, so the gate stays correct for both a non-bare repository and a
+ * bare-repository pool.
  *
  * @module lib/precommit/main-checkout-gate
  */
@@ -27,9 +28,13 @@ export const MAIN_CHECKOUT_GATE_EXIT_CODE = {
 export type MainCheckoutGateExitCode =
   (typeof MAIN_CHECKOUT_GATE_EXIT_CODE)[keyof typeof MAIN_CHECKOUT_GATE_EXIT_CODE];
 
+function hasIncompleteBarePoolFacts(facts: GitFacts): boolean {
+  return facts.commonDirIsBare && !facts.worktreeListRead;
+}
+
 /** Maps gathered git facts to the hook-facing gate exit code. */
 export function mainCheckoutGateExitCode(facts: GitFacts | null): MainCheckoutGateExitCode {
-  return facts === null || isMainCheckout(facts)
+  return facts === null || hasIncompleteBarePoolFacts(facts) || isMainCheckout(facts)
     ? MAIN_CHECKOUT_GATE_EXIT_CODE.MAIN_CHECKOUT
     : MAIN_CHECKOUT_GATE_EXIT_CODE.NON_MAIN_CHECKOUT;
 }

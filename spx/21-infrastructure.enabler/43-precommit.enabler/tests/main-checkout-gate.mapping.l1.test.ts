@@ -20,6 +20,16 @@ describe("mainCheckoutGateExitCode", () => {
     );
   });
 
+  it("maps incomplete bare-pool worktree-list facts to the rebuild exit code", () => {
+    fc.assert(
+      fc.property(arbitraryPoolFactsSample(), (sample) => {
+        expect(mainCheckoutGateExitCode(sample.unreadableWorktreeList)).toBe(
+          MAIN_CHECKOUT_GATE_EXIT_CODE.MAIN_CHECKOUT,
+        );
+      }),
+    );
+  });
+
   it("maps non-main checkout facts to the classified skip exit code", () => {
     fc.assert(
       fc.property(
