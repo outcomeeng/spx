@@ -12,6 +12,7 @@
   "prHourlyLimit": 4,
   "prConcurrentLimit": 10,
   "platformAutomerge": true,
+  "osvVulnerabilityAlerts": false,
   "packageRules": [
     {
       "description": "Group and automerge GitHub Actions updates once required checks pass.",
