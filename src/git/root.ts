@@ -230,6 +230,12 @@ function extractStdout(stdout: unknown): string {
   return str.trim().replace(TRAILING_PATH_SEPARATORS_PATTERN, "");
 }
 
+function trimStdout(stdout: unknown): string {
+  if (!stdout) return "";
+  const str = typeof stdout === "string" ? stdout : String(stdout);
+  return str.trim();
+}
+
 // Detects the Git common-dir product root, resolving through git worktrees.
 export async function detectGitCommonDirProductRoot(
   cwd: string = process.cwd(),
@@ -506,7 +512,7 @@ export async function gatherGitFacts(
     const worktreeRoot = extractStdout(toplevelResult.stdout);
     const worktreeRoots = observedWorktreeRoots(worktreeRoot, worktreeListResult);
     const originUrl = originResult.exitCode === 0 && originResult.stdout
-      ? extractStdout(originResult.stdout)
+      ? trimStdout(originResult.stdout)
       : null;
 
     // Mirror the `--git-common-dir` fallback of detectGitCommonDirProductRoot: a
