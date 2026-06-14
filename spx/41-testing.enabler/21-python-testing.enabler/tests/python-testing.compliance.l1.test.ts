@@ -1,9 +1,13 @@
 import * as fc from "fast-check";
+import { writeFile } from "node:fs/promises";
+import { join } from "node:path";
 import { describe, expect, it } from "vitest";
 
 import { pythonTestingLanguage } from "@/testing/languages/python";
+import { PYTHON_MARKER } from "@/validation/discovery/language-finder";
 import { CONFIG_TEST_GENERATOR, sampleConfigTestValue } from "@testing/generators/config/descriptors";
 import { PYTHON_RUNNER_TEST_GENERATOR } from "@testing/generators/testing/python-runner";
+import { withTestingTempProductDir } from "@testing/harnesses/testing/harness";
 import { createRecordingCommandRunner } from "@testing/harnesses/testing/python-runner";
 
 describe("python test runner gating on Python presence", () => {
@@ -35,5 +39,15 @@ describe("python test runner gating on Python presence", () => {
         expect(pythonTestingLanguage.detect(projectRoot, { isLanguagePresent: () => present })).toBe(present);
       }),
     );
+  });
+
+  it("ALWAYS: detect falls back to marker-based Python detection without an override", async () => {
+    await withTestingTempProductDir(async (productDir) => {
+      expect(pythonTestingLanguage.detect(productDir)).toBe(false);
+
+      await writeFile(join(productDir, PYTHON_MARKER), "");
+
+      expect(pythonTestingLanguage.detect(productDir)).toBe(true);
+    });
   });
 });
