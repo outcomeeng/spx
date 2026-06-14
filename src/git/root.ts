@@ -420,6 +420,15 @@ function normalizeGitPath(path: string): string {
   return path.trim().replace(TRAILING_PATH_SEPARATORS_PATTERN, "");
 }
 
+function normalizedGitPathKey(path: string): string {
+  return normalizeGitPath(path).replace(/\\/g, "/");
+}
+
+function findObservedWorktreeRoot(worktreeRoots: readonly string[], candidate: string): string | null {
+  const candidateKey = normalizedGitPathKey(candidate);
+  return worktreeRoots.find((root) => normalizedGitPathKey(root) === candidateKey) ?? null;
+}
+
 function parseWorktreeRoots(stdout: string): string[] {
   const roots: string[] = [];
   for (const record of stdout.split(/\n\n+/)) {
@@ -483,7 +492,7 @@ export function mainCheckoutPath(facts: GitFacts): string | null {
   const name = repositoryName(facts.originUrl);
   if (name === null) return null;
   const candidate = join(commonDirParent, name);
-  return facts.worktreeRoots.includes(candidate) ? candidate : null;
+  return findObservedWorktreeRoot(facts.worktreeRoots, candidate);
 }
 
 /**

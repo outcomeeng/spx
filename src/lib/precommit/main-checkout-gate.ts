@@ -11,13 +11,28 @@
  * @module lib/precommit/main-checkout-gate
  */
 
-import { gatherGitFacts, isMainCheckout } from "@/git/root";
+import { gatherGitFacts, isMainCheckout, type GitFacts } from "@/git/root";
 import { isDirectPrecommitEntrypoint, PRECOMMIT_ENTRYPOINT } from "./entrypoint";
 
-/** Exit code signaling the current worktree IS the main checkout — rebuild `dist/`. */
-const EXIT_MAIN_CHECKOUT = 0;
-/** Exit code signaling a non-main worktree — skip the rebuild. */
-const EXIT_NON_MAIN_CHECKOUT = 1;
+/** Exit codes emitted by the main-checkout gate. */
+export const MAIN_CHECKOUT_GATE_EXIT_CODE = {
+  /** The current worktree is the main checkout — rebuild `dist/`. */
+  MAIN_CHECKOUT: 0,
+  /** The current worktree is not the main checkout — skip the rebuild. */
+  NON_MAIN_CHECKOUT: 78,
+  /** The gate itself failed, so the hook must fail instead of skipping. */
+  FAILURE: 1,
+} as const;
+
+export type MainCheckoutGateExitCode =
+  (typeof MAIN_CHECKOUT_GATE_EXIT_CODE)[keyof typeof MAIN_CHECKOUT_GATE_EXIT_CODE];
+
+/** Maps gathered git facts to the hook-facing gate exit code. */
+export function mainCheckoutGateExitCode(facts: GitFacts | null): MainCheckoutGateExitCode {
+  return facts === null || isMainCheckout(facts)
+    ? MAIN_CHECKOUT_GATE_EXIT_CODE.MAIN_CHECKOUT
+    : MAIN_CHECKOUT_GATE_EXIT_CODE.NON_MAIN_CHECKOUT;
+}
 
 /**
  * Resolves whether the current worktree is the main checkout. A null fact read
@@ -27,8 +42,7 @@ const EXIT_NON_MAIN_CHECKOUT = 1;
  */
 async function main(): Promise<void> {
   const facts = await gatherGitFacts();
-  const isMain = facts === null || isMainCheckout(facts);
-  process.exit(isMain ? EXIT_MAIN_CHECKOUT : EXIT_NON_MAIN_CHECKOUT);
+  process.exit(mainCheckoutGateExitCode(facts));
 }
 
 const isDirectExecution = typeof import.meta.url === "string"
@@ -43,6 +57,6 @@ if (isDirectExecution) {
     await main();
   } catch (error) {
     console.error("Main-checkout gate failed:", error);
-    process.exit(EXIT_MAIN_CHECKOUT);
+    process.exit(MAIN_CHECKOUT_GATE_EXIT_CODE.FAILURE);
   }
 }
