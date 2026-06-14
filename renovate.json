@@ -6,8 +6,6 @@
     ":semanticCommitTypeAll(build)",
     ":dependencyDashboard"
   ],
-  "timezone": "UTC",
-  "schedule": ["before 6am on monday"],
   "labels": ["dependencies"],
   "prHourlyLimit": 4,
   "prConcurrentLimit": 10,
