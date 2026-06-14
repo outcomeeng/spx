@@ -20,6 +20,6 @@ CAN execute TypeScript tests with exclusion flags derived from `spx.config.{toml
 
 ### Compliance
 
-- ALWAYS: vitest invocation is gated on `detectTypeScript` reporting present ([test](tests/typescript-testing.compliance.l1.test.ts))
+- ALWAYS: vitest invocation is gated on the TypeScript testing descriptor's detection result ([test](tests/typescript-testing.compliance.l1.test.ts))
 - ALWAYS: vitest runs via the project's package manager (`pnpm run test` or equivalent) so the project's `node_modules` provides the tool ([review])
 - NEVER: write vitest configuration into `vitest.config.ts`, `tsconfig.json`, or `package.json` — exclusion flags pass at invocation time ([review])

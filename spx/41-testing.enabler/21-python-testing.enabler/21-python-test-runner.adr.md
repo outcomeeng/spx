@@ -26,7 +26,7 @@ Writing exclusions into `pyproject.toml` was rejected because it mutates product
 - ALWAYS: test-file pattern matching for `test_*.py` is a pure function over file paths ([audit])
 - ALWAYS: the descriptor conforms to the `TestingLanguageDescriptor` contract per `spx/19-language-registration.adr.md` ([audit])
 - NEVER: write to `pyproject.toml` — exclusions pass as invocation-time flags ([audit])
-- NEVER: invoke pytest when the injected `detectPython` reports Python absent ([audit])
+- NEVER: invoke pytest when Python is absent — the descriptor's `detect` function calls `detectPython` directly when no test override is provided ([audit])
 - NEVER: import `execa` or `node:child_process` directly inside the runner functions — subprocess execution goes through the injected dependency ([audit])
 - NEVER: hardcode language dispatch in orchestration — registration is through the descriptor per `spx/19-language-registration.adr.md` ([audit])
 - NEVER: encode test-level vocabulary (pytest markers, `-m` selectors) in the descriptor — level lives in the test filename and is the parent dispatch's concern ([audit])
