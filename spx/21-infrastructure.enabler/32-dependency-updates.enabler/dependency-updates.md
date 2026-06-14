@@ -1,6 +1,6 @@
 # Dependency Updates
 
-PROVIDES a repository-root Renovate configuration that raises pull requests for outdated and vulnerable dependencies as updates are found, bounded by per-hour and concurrency limits
+PROVIDES a repository-root Renovate configuration that raises pull requests for outdated and vulnerable dependencies — routine updates throttled by per-hour and concurrency limits, vulnerability fixes at any time
 SO THAT the product's shipped artifacts and development toolchain
 CAN stay on current, advisory-clear dependency versions without manual tracking
 
