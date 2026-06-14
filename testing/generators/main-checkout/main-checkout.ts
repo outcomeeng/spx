@@ -11,6 +11,8 @@ const HOST_TLD = ".com";
 const SCP_PATH_SEPARATOR = ":";
 const WINDOWS_DRIVE_PREFIX = "C:\\";
 const WINDOWS_SEPARATOR = "\\";
+const MAIN_CHECKOUT_SAMPLE_SEED = 0x4d4348;
+let mainCheckoutSampleOffset = 0;
 
 /** The `origin` URL forms git accepts, each carrying the repository name as its final segment. */
 const ORIGIN_URL_FORM = {
@@ -55,7 +57,9 @@ export type PoolFactsSample = {
 };
 
 export function sampleMainCheckoutTestValue<T>(arbitrary: fc.Arbitrary<T>): T {
-  const [value] = fc.sample(arbitrary, { numRuns: 1 });
+  const seed = MAIN_CHECKOUT_SAMPLE_SEED + mainCheckoutSampleOffset;
+  mainCheckoutSampleOffset += 1;
+  const [value] = fc.sample(arbitrary, { numRuns: 1, seed });
   if (value === undefined) {
     throw new Error("Main-checkout test generator returned no sample");
   }
