@@ -11,18 +11,18 @@
   "labels": ["dependencies"],
   "prHourlyLimit": 4,
   "prConcurrentLimit": 10,
-  "platformAutomerge": true,
+  "platformAutomerge": false,
   "osvVulnerabilityAlerts": false,
   "packageRules": [
     {
-      "description": "Group and automerge GitHub Actions updates once required checks pass.",
+      "description": "Group and automerge GitHub Actions updates once its continuous-integration checks pass.",
       "matchManagers": ["github-actions"],
       "matchUpdateTypes": ["minor", "patch", "digest"],
       "groupName": "github-actions",
       "automerge": true
     },
     {
-      "description": "Automerge non-major devDependency updates once required checks pass.",
+      "description": "Automerge non-major devDependency updates once its continuous-integration checks pass.",
       "matchDepTypes": ["devDependencies"],
       "matchUpdateTypes": ["minor", "patch"],
       "groupName": "dev dependencies (non-major)",
@@ -47,7 +47,7 @@
     "minimumReleaseAge": "0 days",
     "packageRules": [
       {
-        "description": "Automerge non-major vulnerability fixes once required checks pass.",
+        "description": "Automerge non-major vulnerability fixes once its continuous-integration checks pass.",
         "matchUpdateTypes": ["minor", "patch", "pin", "digest"],
         "automerge": true
       },
