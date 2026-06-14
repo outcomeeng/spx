@@ -64,6 +64,7 @@ describe("gatherGitFacts — git-probe fallbacks", () => {
 
     expect(result).toEqual({
       worktreeRoot: facts.worktreeRoot,
+      worktreeRoots: [facts.worktreeRoot],
       commonDir: join(facts.worktreeRoot, GIT_DIR_BASENAME),
       commonDirIsBare: false,
       originUrl: facts.originUrl,
