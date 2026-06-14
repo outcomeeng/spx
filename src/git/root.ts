@@ -32,6 +32,8 @@ export interface GitCommonDirProductDirResult extends GitProductDirResult {
 export interface GitFacts {
   /** The local worktree root — `git rev-parse --show-toplevel`. */
   worktreeRoot: string;
+  /** The observed worktree roots from `git worktree list --porcelain`, including the local root. */
+  worktreeRoots: readonly string[];
   /** The absolute common directory — `git rev-parse --git-common-dir`. */
   commonDir: string;
   /** Whether the common directory is a bare repository — `git config --get core.bare` is `true`. */
@@ -90,6 +92,8 @@ export const GIT_ROOT_COMMAND = {
   SHORT: "--short",
   ORIGIN_HEAD_REF: "refs/remotes/origin/HEAD",
   STATUS: "status",
+  WORKTREE: "worktree",
+  LIST: "list",
   PORCELAIN: "--porcelain",
   PATH_FORMAT_ABSOLUTE: "--path-format=absolute",
   CONFIG: "config",
@@ -173,6 +177,16 @@ export const GIT_STATUS_PORCELAIN_ARGS = [
   GIT_ROOT_COMMAND.PORCELAIN,
 ] as const;
 
+export const GIT_WORKTREE_LIST_PORCELAIN_ARGS = [
+  GIT_ROOT_COMMAND.WORKTREE,
+  GIT_ROOT_COMMAND.LIST,
+  GIT_ROOT_COMMAND.PORCELAIN,
+] as const;
+
+const GIT_WORKTREE_PORCELAIN_ROOT_PREFIX = "worktree ";
+const GIT_WORKTREE_PORCELAIN_BARE_LINE = "bare";
+const TRAILING_PATH_SEPARATORS_PATTERN = /[\\/]+$/;
+
 // Detects the local worktree product directory.
 export async function detectWorktreeProductRoot(
   cwd: string = process.cwd(),
@@ -213,7 +227,7 @@ export async function detectWorktreeProductRoot(
 function extractStdout(stdout: unknown): string {
   if (!stdout) return "";
   const str = typeof stdout === "string" ? stdout : String(stdout);
-  return str.trim().replace(/\/+$/, "");
+  return str.trim().replace(TRAILING_PATH_SEPARATORS_PATTERN, "");
 }
 
 // Detects the Git common-dir product root, resolving through git worktrees.
@@ -379,17 +393,43 @@ export async function isWorkingTreeClean(
  *
  * Pure and total: parses every URL form git accepts (`https://host/owner/repo.git`,
  * `git@host:owner/repo.git`, a local path, with or without the `.git` suffix or a
- * trailing slash) by taking the segment after the last `/` or `:` separator.
+ * trailing slash) by taking the segment after the last `/`, `\`, or `:` separator.
  */
 export function repositoryName(originUrl: string | null): string | null {
   if (originUrl === null) return null;
-  const trimmed = originUrl.trim().replace(/\/+$/, "");
-  const lastSeparator = Math.max(trimmed.lastIndexOf("/"), trimmed.lastIndexOf(":"));
+  const trimmed = originUrl.trim().replace(TRAILING_PATH_SEPARATORS_PATTERN, "");
+  const lastSeparator = Math.max(
+    trimmed.lastIndexOf("/"),
+    trimmed.lastIndexOf("\\"),
+    trimmed.lastIndexOf(":"),
+  );
   const segment = trimmed.slice(lastSeparator + 1);
   const name = segment.endsWith(GIT_URL_SUFFIX)
     ? segment.slice(0, -GIT_URL_SUFFIX.length)
     : segment;
   return name.length === 0 ? null : name;
+}
+
+function normalizeGitPath(path: string): string {
+  return path.trim().replace(TRAILING_PATH_SEPARATORS_PATTERN, "");
+}
+
+function parseWorktreeRoots(stdout: string): string[] {
+  const roots: string[] = [];
+  for (const record of stdout.split(/\n\n+/)) {
+    const lines = record.split("\n");
+    if (lines.includes(GIT_WORKTREE_PORCELAIN_BARE_LINE)) continue;
+    const rootLine = lines.find((line) => line.startsWith(GIT_WORKTREE_PORCELAIN_ROOT_PREFIX));
+    if (rootLine === undefined) continue;
+    const root = normalizeGitPath(rootLine.slice(GIT_WORKTREE_PORCELAIN_ROOT_PREFIX.length));
+    if (root.length > 0) roots.push(root);
+  }
+  return roots;
+}
+
+function observedWorktreeRoots(worktreeRoot: string, worktreeListResult: ExecResult): string[] {
+  if (worktreeListResult.exitCode !== 0) return [worktreeRoot];
+  return [...new Set(parseWorktreeRoots(worktreeListResult.stdout))];
 }
 
 /**
@@ -412,7 +452,9 @@ export function isMainCheckout(facts: GitFacts): boolean {
   // the worktree directory is named after the `origin` repository.
   if (commonDirParent !== dirname(facts.worktreeRoot)) return false;
   const name = repositoryName(facts.originUrl);
-  return name !== null && basename(facts.worktreeRoot) === name;
+  return name !== null
+    && basename(facts.worktreeRoot) === name
+    && facts.worktreeRoots.includes(facts.worktreeRoot);
 }
 
 /**
@@ -423,8 +465,8 @@ export function isMainCheckout(facts: GitFacts): boolean {
  * parent of the common directory — from any of its worktrees; a bare-repository
  * pool designates the `origin`-repository-named worktree beside the bare
  * repository (the parent of the common directory joined with the repository name)
- * by inverting the name-and-placement rule, and designates no path when the pool
- * resolves no repository name.
+ * only when that worktree is observed, and designates no path when the pool
+ * resolves no repository name or the repository-named worktree does not exist.
  */
 export function mainCheckoutPath(facts: GitFacts): string | null {
   const commonDirParent = dirname(facts.commonDir);
@@ -433,7 +475,9 @@ export function mainCheckoutPath(facts: GitFacts): string | null {
   if (!facts.commonDirIsBare) return commonDirParent;
   // Bare-repository pool: invert the name-and-placement rule to construct the path.
   const name = repositoryName(facts.originUrl);
-  return name === null ? null : join(commonDirParent, name);
+  if (name === null) return null;
+  const candidate = join(commonDirParent, name);
+  return facts.worktreeRoots.includes(candidate) ? candidate : null;
 }
 
 /**
@@ -451,14 +495,16 @@ export async function gatherGitFacts(
   try {
     // The toplevel, common-dir, and origin reads are independent, so they run in
     // one round-trip; only the bareness check depends on common-dir succeeding.
-    const [toplevelResult, commonDirResult, originResult] = await Promise.all([
+    const [toplevelResult, commonDirResult, originResult, worktreeListResult] = await Promise.all([
       deps.execa(GIT_ROOT_COMMAND.EXECUTABLE, [...GIT_SHOW_TOPLEVEL_ARGS], { cwd, reject: false }),
       deps.execa(GIT_ROOT_COMMAND.EXECUTABLE, [...GIT_COMMON_DIR_ARGS], { cwd, reject: false }),
       deps.execa(GIT_ROOT_COMMAND.EXECUTABLE, [...GIT_REMOTE_GET_URL_ORIGIN_ARGS], { cwd, reject: false }),
+      deps.execa(GIT_ROOT_COMMAND.EXECUTABLE, [...GIT_WORKTREE_LIST_PORCELAIN_ARGS], { cwd, reject: false }),
     ]);
     if (toplevelResult.exitCode !== 0 || !toplevelResult.stdout) return null;
 
     const worktreeRoot = extractStdout(toplevelResult.stdout);
+    const worktreeRoots = observedWorktreeRoots(worktreeRoot, worktreeListResult);
     const originUrl = originResult.exitCode === 0 && originResult.stdout
       ? extractStdout(originResult.stdout)
       : null;
@@ -470,6 +516,7 @@ export async function gatherGitFacts(
     if (commonDirResult.exitCode !== 0 || !commonDirResult.stdout) {
       return {
         worktreeRoot,
+        worktreeRoots,
         commonDir: join(worktreeRoot, GIT_DIR_BASENAME),
         commonDirIsBare: false,
         originUrl,
@@ -485,7 +532,7 @@ export async function gatherGitFacts(
     );
     const commonDirIsBare = bareResult.exitCode === 0
       && extractStdout(bareResult.stdout) === GIT_CORE_BARE_TRUE;
-    return { worktreeRoot, commonDir, commonDirIsBare, originUrl };
+    return { worktreeRoot, worktreeRoots, commonDir, commonDirIsBare, originUrl };
   } catch {
     // Command execution failed (git not installed, permission error, etc.) —
     // the checkout cannot be classified, so it is not the main checkout.

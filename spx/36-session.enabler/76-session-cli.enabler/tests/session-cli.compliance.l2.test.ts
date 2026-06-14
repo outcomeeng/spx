@@ -4,6 +4,8 @@ import { readdir, readFile, writeFile } from "node:fs/promises";
 import { join } from "node:path";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 
+import { SessionHandoffBaseError } from "@/domains/session/errors";
+import { resolveHandoffGitRef } from "@/domains/session/handoff-base";
 import {
   HANDOFF_BASE_FACT_LABEL,
   HANDOFF_BASE_MARK,
@@ -15,6 +17,11 @@ import {
 import { SESSION_STATUSES, type SessionStatus } from "@/domains/session/types";
 import { GIT_HEAD_SHA_ARGS, GIT_SHOW_TOPLEVEL_ARGS, NOT_GIT_REPO_WARNING } from "@/git/root";
 import { sampleLiteralTestValue } from "@testing/generators/literal/literal";
+import {
+  arbitraryBarePoolWithoutMainCheckoutLayoutCase,
+  arbitraryBarePoolWithoutOriginLayoutCase,
+  sampleMainCheckoutTestValue,
+} from "@testing/generators/main-checkout/main-checkout";
 import { arbitraryHandoffHeader, sampleSessionContent, sampleSessionId } from "@testing/generators/session/session";
 import { GIT_TEST_FLAGS, GIT_TEST_REF, GIT_TEST_SUBCOMMANDS, readGit } from "@testing/harnesses/git-test-constants";
 import { withGitWorktreeEnv } from "@testing/harnesses/git-worktree/git-worktree";
@@ -25,6 +32,7 @@ import {
   createSessionHarness,
   type SessionHarness,
 } from "@testing/harnesses/session/harness";
+import { withWorktreeLayoutEnv } from "@testing/harnesses/worktree-layout/worktree-layout";
 
 /** The fixture default branch `origin/HEAD` names when the origin refs are set. */
 const FIXTURE_DEFAULT_BRANCH = "main";
@@ -298,12 +306,15 @@ describe("session CLI compliance", () => {
 
       expect(omitsGoal.exitCode).toBe(1);
       expect(omitsGoal.stderr).toContain("SessionInvalidGoalError");
+      expect(await readdir(harness.statusDir(TODO))).toEqual([]);
 
       expect(legacyYaml.exitCode).toBe(1);
       expect(legacyYaml.stderr).toContain("SessionLegacyFrontmatterInputError");
+      expect(await readdir(harness.statusDir(TODO))).toEqual([]);
 
       expect(malformedJson.exitCode).toBe(1);
       expect(malformedJson.stderr).toContain("SessionInvalidJsonHeaderError");
+      expect(await readdir(harness.statusDir(TODO))).toEqual([]);
     });
   });
 
@@ -393,6 +404,10 @@ describe("session CLI handoff-base refusal checklist", () => {
     return line ?? "";
   }
 
+  function expectFactValue(stderr: string, label: string, value: string): void {
+    expect(factLine(stderr, label).trim()).toBe(`${label}: ${value}`);
+  }
+
   it("dirty at the origin tip: marks the clean prerequisite unmet with a commit remedy and the at-tip prerequisite met, never git stash", async () => {
     await withLinkedHandoffBase({ atTip: true, clean: false, originResolved: true }, async (scenario) => {
       const result = await runHandoffFrom(scenario.linkedWorktreeDir);
@@ -450,6 +465,32 @@ describe("session CLI handoff-base refusal checklist", () => {
       // The default-branch fact must stay unresolved, never fabricated as the fixture branch.
       // Scoped to the branch fact line — the header's "main checkout" prose legitimately carries "main".
       expect(factLine(result.stderr, HANDOFF_BASE_FACT_LABEL.DEFAULT_BRANCH)).not.toContain(FIXTURE_DEFAULT_BRANCH);
+      expect(await readdir(harness.statusDir(TODO))).toEqual([]);
+    });
+  });
+
+  it("bare pool with no origin repository: states the main-checkout path unresolved", async () => {
+    const layout = sampleMainCheckoutTestValue(arbitraryBarePoolWithoutOriginLayoutCase());
+    await withWorktreeLayoutEnv(layout.spec, async (env) => {
+      const nonMainCheckoutDir = env.worktree(layout.nonMainCheckoutName);
+      const result = await runHandoffFrom(nonMainCheckoutDir);
+
+      expect(result.exitCode).not.toBe(0);
+      expect(result.stderr).toContain(SESSION_HANDOFF_BASE_ERROR_NAME);
+      expectFactValue(result.stderr, HANDOFF_BASE_FACT_LABEL.MAIN_CHECKOUT, HANDOFF_BASE_UNRESOLVED);
+      expect(await readdir(harness.statusDir(TODO))).toEqual([]);
+    });
+  });
+
+  it("bare pool with origin but no repository-named worktree: states the main-checkout path unresolved", async () => {
+    const layout = sampleMainCheckoutTestValue(arbitraryBarePoolWithoutMainCheckoutLayoutCase());
+    await withWorktreeLayoutEnv(layout.spec, async (env) => {
+      const nonMainCheckoutDir = env.worktree(layout.nonMainCheckoutName);
+      const result = await runHandoffFrom(nonMainCheckoutDir);
+
+      expect(result.exitCode).not.toBe(0);
+      expect(result.stderr).toContain(SESSION_HANDOFF_BASE_ERROR_NAME);
+      expectFactValue(result.stderr, HANDOFF_BASE_FACT_LABEL.MAIN_CHECKOUT, HANDOFF_BASE_UNRESOLVED);
       expect(await readdir(harness.statusDir(TODO))).toEqual([]);
     });
   });
@@ -586,8 +627,26 @@ describe("session CLI non-git warning", () => {
       );
 
       const result = await runSpx([SESSION_DOMAIN, "handoff"], stdin, env.cwd);
+      let thrown: unknown;
+      try {
+        resolveHandoffGitRef({
+          isGitRepo: false,
+          isMainCheckout: false,
+          branch: null,
+          headSha: null,
+          isClean: false,
+          defaultBranch: null,
+          defaultTipSha: null,
+          currentWorktreePath: env.cwd,
+          mainCheckoutPath: null,
+        });
+      } catch (error) {
+        thrown = error;
+      }
 
       expect(result.exitCode).not.toBe(0);
+      expect(thrown).toBeInstanceOf(SessionHandoffBaseError);
+      expect(thrown).toMatchObject({ silent: true, checklist: null });
       expect(result.stderr).not.toContain(NOT_GIT_REPO_WARNING);
       expect(result.stderr).not.toContain(SESSION_HANDOFF_BASE_ERROR_NAME);
       expect(result.stderr.trim()).toBe("");
@@ -597,7 +656,15 @@ describe("session CLI non-git warning", () => {
     }
   });
 
-  it("NEVER: the non-git diagnostic claims sessions will be created", () => {
-    expect(NOT_GIT_REPO_WARNING).not.toMatch(/creat/i);
+  it("NEVER: the non-git diagnostic claims sessions will be created", async () => {
+    const env = await createNonGitSessionEnv();
+    try {
+      const result = await runSpx([SESSION_DOMAIN, "list"], undefined, env.cwd);
+
+      expect(result.stderr.trim()).not.toBe("");
+      expect(result.stderr).not.toMatch(/creat/i);
+    } finally {
+      await env.cleanup();
+    }
   });
 });
