@@ -6,6 +6,7 @@
     ":semanticCommitTypeAll(build)",
     ":dependencyDashboard"
   ],
+  "schedule": ["at any time"],
   "labels": ["dependencies"],
   "prHourlyLimit": 4,
   "prConcurrentLimit": 10,
