@@ -11,8 +11,11 @@ import {
   GIT_REMOTE_GET_URL_ORIGIN_ARGS,
   GIT_SHOW_TOPLEVEL_ARGS,
   GIT_WORKTREE_LIST_PORCELAIN_ARGS,
+  GIT_WORKTREE_PORCELAIN_PRUNABLE_PREFIX,
+  GIT_WORKTREE_PORCELAIN_ROOT_PREFIX,
   type GitDependencies,
   isMainCheckout,
+  mainCheckoutPath,
 } from "@/git/root";
 import {
   arbitraryNonBareMainFacts,
@@ -112,5 +115,32 @@ describe("gatherGitFacts — git-probe fallbacks", () => {
     expect(result?.worktreeRoots).toEqual([]);
     expect(result?.worktreeListRead).toBe(false);
     expect(result !== null && isMainCheckout(result)).toBe(false);
+  });
+
+  it("GIVEN worktree list reports a prunable repository-named pool worktree THEN the probe excludes it from observed roots", async () => {
+    const facts = sampleMainCheckoutTestValue(arbitraryPoolFactsSample()).mainCheckout;
+    const deps = probeDeps(
+      { exitCode: 0, stdout: facts.worktreeRoot },
+      0,
+      facts.originUrl,
+      {
+        commonDirStdout: facts.commonDir,
+        commonDirIsBare: true,
+        worktreeListExitCode: 0,
+        worktreeListStdout: [
+          `${GIT_WORKTREE_PORCELAIN_ROOT_PREFIX}${facts.worktreeRoot}`,
+          `${GIT_WORKTREE_PORCELAIN_PRUNABLE_PREFIX}${facts.worktreeRoot}`,
+        ].join("\n"),
+      },
+    );
+
+    const result = await gatherGitFacts(facts.worktreeRoot, deps);
+
+    expect(result).not.toBeNull();
+    if (result === null) return;
+    expect(result.worktreeRoots).toEqual([]);
+    expect(result.worktreeListRead).toBe(true);
+    expect(isMainCheckout(result)).toBe(false);
+    expect(mainCheckoutPath(result)).toBeNull();
   });
 });

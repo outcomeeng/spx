@@ -26,13 +26,14 @@ export interface GitCommonDirProductDirResult extends GitProductDirResult {
 
 /**
  * Git-plumbing observations describing one checkout, gathered by the probe and
- * classified by {@link isMainCheckout}. Every field is a raw git read — no
- * classification is performed during gathering.
+ * classified by {@link isMainCheckout}. Every field is a git-plumbing
+ * observation normalized at the boundary; no main-checkout classification is
+ * performed during gathering.
  */
 export interface GitFacts {
   /** The local worktree root — `git rev-parse --show-toplevel`. */
   worktreeRoot: string;
-  /** The roots observed from `git worktree list --porcelain`. */
+  /** Active non-bare, non-prunable roots observed from `git worktree list --porcelain`. */
   worktreeRoots: readonly string[];
   /** Whether `git worktree list --porcelain` completed successfully. */
   worktreeListRead: boolean;
@@ -185,8 +186,11 @@ export const GIT_WORKTREE_LIST_PORCELAIN_ARGS = [
   GIT_ROOT_COMMAND.PORCELAIN,
 ] as const;
 
-const GIT_WORKTREE_PORCELAIN_ROOT_PREFIX = "worktree ";
-const GIT_WORKTREE_PORCELAIN_BARE_LINE = "bare";
+export const GIT_WORKTREE_PORCELAIN_ROOT_PREFIX = "worktree ";
+export const GIT_WORKTREE_PORCELAIN_BARE_LINE = "bare";
+export const GIT_WORKTREE_PORCELAIN_PRUNABLE_LINE = "prunable";
+export const GIT_WORKTREE_PORCELAIN_PRUNABLE_PREFIX =
+  `${GIT_WORKTREE_PORCELAIN_PRUNABLE_LINE} `;
 const TRAILING_PATH_SEPARATORS_PATTERN = /[\\/]+$/;
 
 // Detects the local worktree product directory.
@@ -431,11 +435,19 @@ function isObservedWorktreeRoot(worktreeRoots: readonly string[], candidate: str
   return worktreeRoots.some((root) => normalizedGitPathKey(root) === candidateKey);
 }
 
+function isPrunableWorktreeRecordLine(line: string): boolean {
+  return line === GIT_WORKTREE_PORCELAIN_PRUNABLE_LINE
+    || line.startsWith(GIT_WORKTREE_PORCELAIN_PRUNABLE_PREFIX);
+}
+
 function parseWorktreeRoots(stdout: string): string[] {
   const roots: string[] = [];
   for (const record of stdout.split(/\n\n+/)) {
     const lines = record.split("\n");
-    if (lines.includes(GIT_WORKTREE_PORCELAIN_BARE_LINE)) continue;
+    if (
+      lines.includes(GIT_WORKTREE_PORCELAIN_BARE_LINE)
+      || lines.some(isPrunableWorktreeRecordLine)
+    ) continue;
     const rootLine = lines.find((line) => line.startsWith(GIT_WORKTREE_PORCELAIN_ROOT_PREFIX));
     if (rootLine === undefined) continue;
     const root = normalizeGitPath(rootLine.slice(GIT_WORKTREE_PORCELAIN_ROOT_PREFIX.length));
