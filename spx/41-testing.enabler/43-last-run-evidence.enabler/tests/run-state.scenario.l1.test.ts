@@ -352,7 +352,9 @@ describe("testing last-run state storage", () => {
     const parseInvalidRun = sampleTestRunStateValue(TEST_RUN_STATE_TEST_GENERATOR.runFileName());
     const malformedLatestRun = sampleTestRunStateValue(TEST_RUN_STATE_TEST_GENERATOR.runFileName());
     const shapeInvalidRun = sampleTestRunStateValue(TEST_RUN_STATE_TEST_GENERATOR.runFileName());
-    const missingError = Object.assign(new Error("missing"), { code: TESTING_RUN_STATE_ERROR_CODE.NOT_FOUND });
+    const missingError = Object.assign(new Error(missingRun), {
+      code: TESTING_RUN_STATE_ERROR_CODE.NOT_FOUND,
+    });
     const validState = sampleTestRunStateValue(TEST_RUN_STATE_TEST_GENERATOR.testRunState());
     const shapeInvalidState = {
       ...validState,
