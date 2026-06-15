@@ -15,6 +15,11 @@ describe("worktree claim-name derivation", () => {
         expect(name).toBe(name.toLowerCase());
         expect(name).not.toMatch(/^-|-$/);
         expect(name).not.toMatch(/--/);
+        // The name is non-empty exactly when the basename carries a kept
+        // character (letter, digit, or underscore); an all-separator basename
+        // collapses to the empty string.
+        const hasKeptCharacter = /[a-z0-9_]/i.test(basename(raw));
+        expect(name.length > 0).toBe(hasKeptCharacter);
       }),
     );
   });
