@@ -41,9 +41,9 @@
       "dependencyDashboardApproval": true
     },
     {
-      "description": "Update the product's own outcomeeng/gh-actions reusable workflows immediately, bypassing the routine minimum-release-age wait — they are controlled and exercised continuously, so the ecosystem-soak delay does not apply.",
+      "description": "Leave outcomeeng/gh-actions referenced at @main without SHA-pinning — the spec-tree workflows deliberately track the branch to surface upstream changes early during beta, and pin to a digest only when the product graduates to production usage.",
       "matchDepNames": ["outcomeeng/gh-actions"],
-      "minimumReleaseAge": "0 days"
+      "pinDigests": false
     }
   ],
   "vulnerabilityAlerts": {
