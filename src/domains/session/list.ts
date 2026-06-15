@@ -6,6 +6,7 @@
 
 import { parse as parseYaml } from "yaml";
 
+import { SessionInvalidFieldError } from "./errors";
 import { parseSessionId } from "./timestamp";
 import {
   DEFAULT_PRIORITY,
@@ -15,6 +16,7 @@ import {
   SESSION_PRIORITY,
   type SessionMetadata,
   type SessionPriority,
+  type SessionStatus,
 } from "./types";
 
 /**
@@ -155,4 +157,140 @@ export function sortSessions(sessions: Session[]): Session[] {
 
     return dateB.getTime() - dateA.getTime();
   });
+}
+
+/** Separator between field names in a `--fields` selection string. */
+const FIELD_SELECTION_SEPARATOR = ",";
+
+/**
+ * The projectable fields of a session record: `id` and `status` (the record-only
+ * keys) plus every frontmatter key of `SESSION_FRONT_MATTER`. Each frontmatter
+ * key is referenced from the registry so the selectable namespace stays tied to
+ * one runtime source of truth. The order matches `toSessionRecord`'s key order
+ * — required fields first, the two optional fields last — so selecting every
+ * field reproduces the full record's key order exactly.
+ */
+export const SESSION_RECORD_FIELD = {
+  ID: "id",
+  STATUS: "status",
+  PRIORITY: SESSION_FRONT_MATTER.PRIORITY,
+  GIT_REF: SESSION_FRONT_MATTER.GIT_REF,
+  GOAL: SESSION_FRONT_MATTER.GOAL,
+  NEXT_STEP: SESSION_FRONT_MATTER.NEXT_STEP,
+  SPECS: SESSION_FRONT_MATTER.SPECS,
+  FILES: SESSION_FRONT_MATTER.FILES,
+  CREATED_AT: SESSION_FRONT_MATTER.CREATED_AT,
+  AGENT_SESSION_ID: SESSION_FRONT_MATTER.AGENT_SESSION_ID,
+} as const;
+
+export type SessionRecordField = (typeof SESSION_RECORD_FIELD)[keyof typeof SESSION_RECORD_FIELD];
+
+/** Every valid session-record field name, in registry order. */
+export const SESSION_RECORD_FIELDS: readonly SessionRecordField[] = Object.values(SESSION_RECORD_FIELD);
+
+/**
+ * Flat per-session record emitted by the JSON list output: `id` and `status`
+ * alongside the frontmatter fields, with no absolute file path. Optional fields
+ * are present only when the session carries them.
+ */
+export interface SessionRecord {
+  id: string;
+  status: SessionStatus;
+  priority: SessionPriority;
+  git_ref: string;
+  goal: string;
+  next_step: string;
+  specs: string[];
+  files: string[];
+  created_at?: string;
+  agent_session_id?: string;
+}
+
+/**
+ * Flattens a session into its JSON record — `id` and `status` hoisted alongside
+ * the metadata fields, with the absolute path dropped. Optional fields appear
+ * only when the session's metadata carries them.
+ *
+ * @param session - The session to flatten
+ * @returns The flat session record
+ */
+export function toSessionRecord(session: Session): SessionRecord {
+  const { id, status, metadata } = session;
+  const record: SessionRecord = {
+    id,
+    status,
+    priority: metadata.priority,
+    git_ref: metadata.git_ref,
+    goal: metadata.goal,
+    next_step: metadata.next_step,
+    specs: metadata.specs,
+    files: metadata.files,
+  };
+  if (metadata.created_at !== undefined) {
+    record.created_at = metadata.created_at;
+  }
+  if (metadata.agent_session_id !== undefined) {
+    record.agent_session_id = metadata.agent_session_id;
+  }
+  return record;
+}
+
+/**
+ * Projects a session record to only the named fields, in the order named. A
+ * named field whose value is absent on the record is omitted.
+ *
+ * @param record - The session record to project
+ * @param fields - The fields to retain, in output order
+ * @returns A record carrying only the selected, present fields
+ */
+export function projectSessionRecord(
+  record: SessionRecord,
+  fields: readonly SessionRecordField[],
+): Record<string, unknown> {
+  const projected: Record<string, unknown> = {};
+  for (const field of fields) {
+    const value = record[field as keyof SessionRecord];
+    if (value !== undefined) {
+      projected[field] = value;
+    }
+  }
+  return projected;
+}
+
+/**
+ * Type guard: whether a string is a valid session-record field name.
+ */
+function isSessionRecordField(value: string): value is SessionRecordField {
+  return (SESSION_RECORD_FIELDS as readonly string[]).includes(value);
+}
+
+/**
+ * Parses a comma-separated `--fields` selection into validated field names,
+ * preserving order. Throws `SessionInvalidFieldError` for any token outside the
+ * session-record field set, and for a selection that names no field at all (an
+ * empty value or one of only separators) — an empty selection would otherwise
+ * silently emit fieldless records.
+ *
+ * @param input - The raw `--fields` value
+ * @returns The validated field selection, in the order named
+ * @throws SessionInvalidFieldError when a token is not a valid field name, or when the selection names no field
+ */
+export function parseFieldSelection(input: string): SessionRecordField[] {
+  const tokens = input
+    .split(FIELD_SELECTION_SEPARATOR)
+    .map((token) => token.trim())
+    .filter((token) => token.length > 0);
+
+  if (tokens.length === 0) {
+    throw new SessionInvalidFieldError(input, SESSION_RECORD_FIELDS);
+  }
+
+  const selection: SessionRecordField[] = [];
+  for (const token of tokens) {
+    if (!isSessionRecordField(token)) {
+      throw new SessionInvalidFieldError(token, SESSION_RECORD_FIELDS);
+    }
+    selection.push(token);
+  }
+  return selection;
 }

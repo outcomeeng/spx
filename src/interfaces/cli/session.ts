@@ -15,6 +15,7 @@ import {
   SessionAlreadyArchivedError,
   showCommand,
 } from "@/commands/session/index";
+import { SESSION_LIST_FORMAT } from "@/commands/session/list";
 import { SessionHandoffBaseError } from "@/domains/session/errors";
 import { renderHandoffBaseChecklist } from "@/domains/session/handoff-base-checklist";
 import { HANDOFF_FRONTMATTER_HELP, PICKUP_SELECTION_HELP, SESSION_FORMAT_HELP } from "@/domains/session/help";
@@ -69,12 +70,14 @@ function registerSessionCommands(sessionCmd: Command): void {
     .description("List active sessions (doing + todo by default)")
     .option("--status <status>", "Filter by status (todo|doing|archive); defaults to doing + todo")
     .option("--json", "Output as JSON")
+    .option("--fields <fields>", "Comma-separated fields to emit as JSON (implies --json)")
     .option("--sessions-dir <path>", "Custom sessions directory")
-    .action(async (options: { status?: string; json?: boolean; sessionsDir?: string }) => {
+    .action(async (options: { status?: string; json?: boolean; fields?: string; sessionsDir?: string }) => {
       try {
         const output = await listCommand({
           status: options.status,
-          format: options.json ? "json" : "text",
+          format: options.json ? SESSION_LIST_FORMAT.JSON : SESSION_LIST_FORMAT.TEXT,
+          fields: options.fields,
           sessionsDir: options.sessionsDir,
           onWarning: writeWarning,
         });
@@ -89,12 +92,14 @@ function registerSessionCommands(sessionCmd: Command): void {
     .command("todo")
     .description("List todo sessions")
     .option("--json", "Output as JSON")
+    .option("--fields <fields>", "Comma-separated fields to emit as JSON (implies --json)")
     .option("--sessions-dir <path>", "Custom sessions directory")
-    .action(async (options: { json?: boolean; sessionsDir?: string }) => {
+    .action(async (options: { json?: boolean; fields?: string; sessionsDir?: string }) => {
       try {
         const output = await listCommand({
           status: SESSION_STATUSES[0],
-          format: options.json ? "json" : "text",
+          format: options.json ? SESSION_LIST_FORMAT.JSON : SESSION_LIST_FORMAT.TEXT,
+          fields: options.fields,
           sessionsDir: options.sessionsDir,
           onWarning: writeWarning,
         });

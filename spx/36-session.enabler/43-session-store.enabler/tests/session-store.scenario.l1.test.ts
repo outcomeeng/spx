@@ -26,6 +26,7 @@ import {
   SessionError,
   SessionHandoffBaseError,
   SessionInvalidContentError,
+  SessionInvalidFieldError,
   SessionInvalidGoalError,
   SessionInvalidJsonHeaderError,
   SessionInvalidNextStepError,
@@ -40,7 +41,18 @@ import {
   HANDOFF_BASE_REMEDY,
   type HandoffBasePrerequisite,
 } from "@/domains/session/handoff-base-checklist";
-import { parseSessionMetadata, sortSessions } from "@/domains/session/list";
+import {
+  DEFAULT_SESSION_METADATA,
+  parseFieldSelection,
+  parseSessionMetadata,
+  projectSessionRecord,
+  SESSION_RECORD_FIELD,
+  SESSION_RECORD_FIELDS,
+  type SessionRecord,
+  type SessionRecordField,
+  sortSessions,
+  toSessionRecord,
+} from "@/domains/session/list";
 import {
   DEFAULT_SESSION_CONFIG,
   formatShowOutput,
@@ -61,6 +73,7 @@ import {
 import { STATE_STORE_PATH } from "@/lib/state-store";
 
 import type { HandoffHeaderFixture } from "@testing/generators/session/session";
+import { arbitrarySessionId, arbitrarySessionPriority, sampleSessionId } from "@testing/generators/session/session";
 import {
   buildHandoffStdin,
   buildSessionMarkdownBody,
@@ -1257,5 +1270,275 @@ describe("handoffCommand — explicit work-branch ref", () => {
       }),
     ).rejects.toBeInstanceOf(SessionHandoffBaseError);
     expect(await todoFileCount()).toBe(0);
+  });
+});
+
+// ============================================================
+// Session record: flat shape, field projection, selection parsing
+// ============================================================
+
+describe("toSessionRecord", () => {
+  it("flattens a session to id + status plus metadata fields, excluding the path", () => {
+    fc.assert(
+      fc.property(arbitrarySessionId(), arbitrarySessionPriority(), (id, priority) => {
+        const record = toSessionRecord({
+          id,
+          status: TODO,
+          path: id,
+          metadata: { ...DEFAULT_SESSION_METADATA, priority },
+        });
+
+        expect(record).not.toHaveProperty("path");
+        expect(record.id).toBe(id);
+        expect(record.status).toBe(TODO);
+        expect(record.priority).toBe(priority);
+        for (
+          const field of [
+            SESSION_RECORD_FIELD.GIT_REF,
+            SESSION_RECORD_FIELD.GOAL,
+            SESSION_RECORD_FIELD.NEXT_STEP,
+            SESSION_RECORD_FIELD.SPECS,
+            SESSION_RECORD_FIELD.FILES,
+          ]
+        ) {
+          expect(record).toHaveProperty(field);
+        }
+        expect(record).not.toHaveProperty(SESSION_RECORD_FIELD.CREATED_AT);
+        expect(record).not.toHaveProperty(SESSION_RECORD_FIELD.AGENT_SESSION_ID);
+      }),
+    );
+  });
+});
+
+describe("projectSessionRecord", () => {
+  it("emits exactly the selected fields in the selected order", () => {
+    fc.assert(
+      fc.property(
+        arbitrarySessionId(),
+        arbitrarySessionPriority(),
+        arbitrarySessionId(),
+        fc.shuffledSubarray([...SESSION_RECORD_FIELDS], { minLength: 1 }),
+        (id, priority, agentSessionId, selection) => {
+          const record: SessionRecord = toSessionRecord({
+            id,
+            status: TODO,
+            path: id,
+            metadata: {
+              ...DEFAULT_SESSION_METADATA,
+              priority,
+              created_at: id,
+              agent_session_id: agentSessionId,
+            },
+          });
+
+          const projected = projectSessionRecord(record, selection as SessionRecordField[]);
+
+          expect(Object.keys(projected)).toEqual(selection);
+        },
+      ),
+    );
+  });
+
+  it("projecting over the full field set reproduces the full record's keys in order", () => {
+    fc.assert(
+      fc.property(
+        arbitrarySessionId(),
+        arbitrarySessionPriority(),
+        arbitrarySessionId(),
+        (id, priority, agentSessionId) => {
+          const record = toSessionRecord({
+            id,
+            status: TODO,
+            path: id,
+            metadata: {
+              ...DEFAULT_SESSION_METADATA,
+              priority,
+              created_at: id,
+              agent_session_id: agentSessionId,
+            },
+          });
+
+          const projected = projectSessionRecord(record, SESSION_RECORD_FIELDS);
+
+          expect(Object.keys(projected)).toEqual(Object.keys(record));
+        },
+      ),
+    );
+  });
+
+  it("omits selected fields a sparse record does not carry", () => {
+    fc.assert(
+      fc.property(arbitrarySessionId(), arbitrarySessionPriority(), (id, priority) => {
+        // A record with neither optional field present.
+        const record = toSessionRecord({
+          id,
+          status: TODO,
+          path: id,
+          metadata: { ...DEFAULT_SESSION_METADATA, priority },
+        });
+
+        // Selecting every field — including the two absent optionals — skips the
+        // absent ones, so the projection equals the sparse record exactly.
+        const projected = projectSessionRecord(record, SESSION_RECORD_FIELDS);
+
+        expect(Object.keys(projected)).toEqual(Object.keys(record));
+        expect(projected).not.toHaveProperty(SESSION_RECORD_FIELD.CREATED_AT);
+        expect(projected).not.toHaveProperty(SESSION_RECORD_FIELD.AGENT_SESSION_ID);
+      }),
+    );
+  });
+});
+
+describe("parseFieldSelection", () => {
+  it("accepts every registered field name and preserves selection order", () => {
+    fc.assert(
+      fc.property(fc.shuffledSubarray([...SESSION_RECORD_FIELDS], { minLength: 1 }), (selection) => {
+        expect(parseFieldSelection(selection.join(","))).toEqual(selection);
+      }),
+    );
+  });
+
+  it("rejects a token outside the field set, naming it and the valid field set", () => {
+    fc.assert(
+      fc.property(
+        fc.string({ minLength: 1 }).filter((token) =>
+          !token.includes(",") && token.trim().length > 0 && !SESSION_RECORD_FIELDS.includes(token.trim())
+        ),
+        (token) => {
+          let thrown: unknown;
+          try {
+            parseFieldSelection(token);
+          } catch (error) {
+            thrown = error;
+          }
+
+          expect(thrown).toBeInstanceOf(SessionInvalidFieldError);
+          const message = (thrown as Error).message;
+          expect(message).toContain(token.trim());
+          for (const field of SESSION_RECORD_FIELDS) {
+            expect(message).toContain(field);
+          }
+        },
+      ),
+    );
+  });
+
+  it("rejects a selection that names no field (empty or only separators)", () => {
+    expect(() => parseFieldSelection("")).toThrow(SessionInvalidFieldError);
+    // Strings of only whitespace and/or separators name no field: each segment
+    // trims to empty and is filtered out, leaving an empty selection.
+    fc.assert(
+      fc.property(fc.stringMatching(/^[\s,]+$/), (separatorsOnly) => {
+        expect(() => parseFieldSelection(separatorsOnly)).toThrow(SessionInvalidFieldError);
+      }),
+    );
+  });
+});
+
+describe("listCommand JSON records and field projection", () => {
+  let harness: SessionHarness;
+
+  beforeEach(async () => {
+    harness = await createSessionHarness();
+    for (const key of ENV_KEYS) {
+      delete process.env[key];
+    }
+  });
+
+  afterEach(async () => {
+    await harness.cleanup();
+    for (const key of ENV_KEYS) {
+      delete process.env[key];
+    }
+  });
+
+  it("emits flat per-session records keyed by status, without a path or metadata nesting", async () => {
+    const id = sampleSessionId();
+    await harness.writeSession(TODO, id);
+
+    const output = await listCommand({
+      status: TODO,
+      format: SESSION_LIST_FORMAT.JSON,
+      sessionsDir: harness.sessionsDir,
+    });
+    const parsed = JSON.parse(output) as Record<string, Array<Record<string, unknown>>>;
+    const [record] = parsed[TODO];
+
+    expect(record.id).toBe(id);
+    expect(record).not.toHaveProperty("path");
+    expect(record).not.toHaveProperty("metadata");
+    for (
+      const field of [
+        SESSION_RECORD_FIELD.ID,
+        SESSION_RECORD_FIELD.STATUS,
+        SESSION_RECORD_FIELD.PRIORITY,
+        SESSION_RECORD_FIELD.GIT_REF,
+        SESSION_RECORD_FIELD.GOAL,
+        SESSION_RECORD_FIELD.NEXT_STEP,
+        SESSION_RECORD_FIELD.SPECS,
+        SESSION_RECORD_FIELD.FILES,
+      ]
+    ) {
+      expect(record).toHaveProperty(field);
+    }
+  });
+
+  it("carries created_at and agent_session_id only when the session frontmatter holds them", async () => {
+    const agentSessionId = sampleSessionId();
+    process.env.CLAUDE_SESSION_ID = agentSessionId;
+    const { output: handoffOutput } = await handoffCommand({
+      content: PREFILL_HANDOFF_STDIN,
+      sessionsDir: harness.sessionsDir,
+      deps: HANDOFF_GIT_DEPS,
+    });
+    const carriedId = extractSessionFile(handoffOutput).split("/").pop()!.replace(".md", "");
+
+    const bareId = sampleSessionId();
+    await harness.writeSession(TODO, bareId);
+
+    const output = await listCommand({
+      status: TODO,
+      format: SESSION_LIST_FORMAT.JSON,
+      sessionsDir: harness.sessionsDir,
+    });
+    const records = (JSON.parse(output) as Record<string, Array<Record<string, unknown>>>)[TODO];
+    const carried = records.find((record) => record.id === carriedId);
+    const bare = records.find((record) => record.id === bareId);
+
+    expect(carried?.[SESSION_RECORD_FIELD.AGENT_SESSION_ID]).toBe(agentSessionId);
+    expect(typeof carried?.[SESSION_RECORD_FIELD.CREATED_AT]).toBe("string");
+    expect(bare).not.toHaveProperty(SESSION_RECORD_FIELD.CREATED_AT);
+    expect(bare).not.toHaveProperty(SESSION_RECORD_FIELD.AGENT_SESSION_ID);
+  });
+
+  it("projects a --fields selection to exactly the named fields and implies JSON output", async () => {
+    const id = sampleSessionId();
+    await harness.writeSession(TODO, id);
+    const selection: SessionRecordField[] = [
+      SESSION_RECORD_FIELD.ID,
+      SESSION_RECORD_FIELD.PRIORITY,
+      SESSION_RECORD_FIELD.GOAL,
+      SESSION_RECORD_FIELD.NEXT_STEP,
+      SESSION_RECORD_FIELD.GIT_REF,
+    ];
+
+    // No explicit format flag — a field selection implies JSON output.
+    const output = await listCommand({
+      status: TODO,
+      fields: selection.join(","),
+      sessionsDir: harness.sessionsDir,
+    });
+    const parsed = JSON.parse(output) as Record<string, Array<Record<string, unknown>>>;
+
+    expect(Object.keys(parsed[TODO][0])).toEqual(selection);
+  });
+
+  it("rejects an unknown --fields token with SessionInvalidFieldError", async () => {
+    await expect(
+      listCommand({
+        fields: sampleSessionId(),
+        sessionsDir: harness.sessionsDir,
+      }),
+    ).rejects.toBeInstanceOf(SessionInvalidFieldError);
   });
 });

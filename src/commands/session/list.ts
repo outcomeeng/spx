@@ -7,7 +7,14 @@
 import { readdir, readFile } from "node:fs/promises";
 import { join } from "node:path";
 
-import { parseSessionMetadata, sortSessions } from "@/domains/session/list";
+import {
+  parseFieldSelection,
+  parseSessionMetadata,
+  projectSessionRecord,
+  type SessionRecordField,
+  sortSessions,
+  toSessionRecord,
+} from "@/domains/session/list";
 import { SessionDirectoryConfig } from "@/domains/session/show";
 import {
   DEFAULT_LIST_STATUSES,
@@ -42,6 +49,8 @@ export interface ListOptions {
   onWarning?: SessionWarningHandler;
   /** Output format */
   format?: SessionListFormat;
+  /** Comma-separated field selection; implies JSON output. */
+  fields?: string;
 }
 
 /**
@@ -128,6 +137,12 @@ function validateStatus(input: string): SessionStatus {
 }
 
 export async function listCommand(options: ListOptions): Promise<string> {
+  // Parse the field selection first so an unknown field fails fast, before any
+  // filesystem work. A field selection implies JSON output.
+  const fieldSelection: SessionRecordField[] | undefined = options.fields !== undefined
+    ? parseFieldSelection(options.fields)
+    : undefined;
+
   const config = await resolveSessionConfigSurfacingWarning(options.sessionsDir, options.onWarning);
 
   // Validate and resolve statuses before use.
@@ -143,9 +158,18 @@ export async function listCommand(options: ListOptions): Promise<string> {
     sessionsByStatus[status] = sortSessions(sessions);
   }
 
-  // Format output
-  if (options.format === SESSION_LIST_FORMAT.JSON) {
-    return JSON.stringify(sessionsByStatus, null, 2);
+  // Format output. A JSON format flag or a field selection emits JSON; each
+  // session becomes a flat record (projected to the selected fields when given).
+  const emitJson = fieldSelection !== undefined || options.format === SESSION_LIST_FORMAT.JSON;
+  if (emitJson) {
+    const recordsByStatus: Partial<Record<SessionStatus, unknown[]>> = {};
+    for (const status of statuses) {
+      recordsByStatus[status] = (sessionsByStatus[status] ?? []).map((session) => {
+        const record = toSessionRecord(session);
+        return fieldSelection !== undefined ? projectSessionRecord(record, fieldSelection) : record;
+      });
+    }
+    return JSON.stringify(recordsByStatus, null, 2);
   }
 
   // Text format
