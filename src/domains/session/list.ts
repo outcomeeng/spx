@@ -160,7 +160,7 @@ export function sortSessions(sessions: Session[]): Session[] {
 }
 
 /** Separator between field names in a `--fields` selection string. */
-const FIELD_SELECTION_SEPARATOR = ",";
+export const FIELD_SELECTION_SEPARATOR = ",";
 
 /**
  * The projectable fields of a session record: `id` and `status` (the record-only
