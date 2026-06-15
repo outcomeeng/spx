@@ -134,10 +134,10 @@ const TRAILING_SEPARATOR_PATTERN = /-+$/;
 const BRANCH_SLUG_PATTERN = /^[a-z0-9]+(?:-[a-z0-9]+)*$/;
 const RUN_TOKEN_PATTERN = /^\d{4}-\d{2}-\d{2}_\d{2}-\d{2}-\d{2}-\d{3}-[a-f0-9]{12}$/;
 const TOKEN_PATTERN = /^[A-Za-z0-9_-]+$/;
-const EXCLUSIVE_CREATE_FLAG = "wx";
+export const EXCLUSIVE_CREATE_FLAG = "wx";
 const WRITE_EXISTING_FLAG = "r+";
-const ERROR_CODE_FILE_EXISTS = "EEXIST";
-const ERROR_CODE_NOT_FOUND = "ENOENT";
+export const ERROR_CODE_FILE_EXISTS = "EEXIST";
+export const ERROR_CODE_NOT_FOUND = "ENOENT";
 const JSONL_LINE_SEPARATOR = "\n";
 const ERROR_DETAIL_SEPARATOR = ": ";
 

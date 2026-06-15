@@ -1,11 +1,11 @@
-import type { StateStoreFileEntry, StateStoreFileSystem } from "@/lib/state-store";
+import {
+  ERROR_CODE_FILE_EXISTS,
+  ERROR_CODE_NOT_FOUND,
+  EXCLUSIVE_CREATE_FLAG,
+  type StateStoreFileEntry,
+  type StateStoreFileSystem,
+} from "@/lib/state-store";
 
-/** Node's "file not found" error code, raised by `readFile` on a missing path. */
-const NOT_FOUND_CODE = "ENOENT";
-/** Node's "file already exists" error code, raised by an exclusive-create `writeFile`. */
-const EXISTS_CODE = "EEXIST";
-/** Node's exclusive-create flag — `writeFile` rejects when the path already exists. */
-const EXCLUSIVE_CREATE_FLAG = "wx";
 const PATH_SEPARATOR = "/";
 
 /**
@@ -22,7 +22,7 @@ class InMemoryStateStoreFileSystem implements StateStoreFileSystem {
 
   async writeFile(path: string, data: string, options?: { readonly flag?: string }): Promise<void> {
     if (options?.flag === EXCLUSIVE_CREATE_FLAG && this.files.has(path)) {
-      throw Object.assign(new Error(EXISTS_CODE), { code: EXISTS_CODE });
+      throw Object.assign(new Error(ERROR_CODE_FILE_EXISTS), { code: ERROR_CODE_FILE_EXISTS });
     }
     this.files.set(path, data);
   }
@@ -33,7 +33,7 @@ class InMemoryStateStoreFileSystem implements StateStoreFileSystem {
 
   async readFile(path: string, _encoding: "utf8"): Promise<string> {
     const content = this.files.get(path);
-    if (content === undefined) throw Object.assign(new Error(NOT_FOUND_CODE), { code: NOT_FOUND_CODE });
+    if (content === undefined) throw Object.assign(new Error(ERROR_CODE_NOT_FOUND), { code: ERROR_CODE_NOT_FOUND });
     return content;
   }
 
