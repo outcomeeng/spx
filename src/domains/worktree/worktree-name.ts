@@ -7,19 +7,22 @@
 
 import { basename } from "node:path";
 
-const UNSAFE_NAME_CHARACTER = /[^a-z0-9_-]/;
+// A separator is anything outside the kept set — letters, digits, and
+// underscore. Hyphen is a separator, not kept, so a leading, trailing, or
+// repeated hyphen never survives into the claim name.
+const SEPARATOR_CHARACTER = /[^a-z0-9_]/;
 const NAME_SEPARATOR = "-";
 
 /**
- * The claim name for a worktree root path: its basename lowercased to a scope
- * token. Splitting on each unsafe character and rejoining the non-empty
- * segments collapses runs of unsafe characters to one separator and trims the
- * edges, without a quantified pattern.
+ * The claim name for a worktree root path: its basename lowercased, then split
+ * on each separator character and the non-empty segments rejoined with a single
+ * hyphen. Splitting on the separator collapses runs and drops edge separators
+ * without a quantified pattern, so the result is a safe scope token.
  */
 export function worktreeClaimName(worktreeRoot: string): string {
   return basename(worktreeRoot)
     .toLowerCase()
-    .split(UNSAFE_NAME_CHARACTER)
+    .split(SEPARATOR_CHARACTER)
     .filter((segment) => segment.length > 0)
     .join(NAME_SEPARATOR);
 }
