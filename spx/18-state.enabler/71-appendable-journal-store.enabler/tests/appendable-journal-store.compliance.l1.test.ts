@@ -44,7 +44,9 @@ describe("appendable journal store — compliance", () => {
     await expect(reopenedJournal.append(next)).rejects.toThrow(JOURNAL_ERROR.SEALED);
   });
 
-  it("skips a stored line that is valid JSON but not a conformant journal event", async () => {
+  // "{}" is parseable JSON that fails event conformance; "not-json" fails JSON.parse
+  // outright — readAll must skip both, exercising its conformance and parse-failure branches.
+  it.each(["{}", "not-json"])("skips a stored line readAll cannot accept as an event (%s)", async (corrupt) => {
     const [identity] = fc.sample(arbitraryJournalIdentity(), 1);
     const [input] = fc.sample(arbitraryJournalEventInput(), 1);
     const fs = createInMemoryStateStoreFileSystem();
@@ -53,9 +55,8 @@ describe("appendable journal store — compliance", () => {
     const journal = createJournal(store, identity);
 
     const event = await journal.append(input);
-    // a parseable but non-conformant object appended directly to the run file —
-    // its own line, separated by the line the journal already terminated
-    await fs.appendFile(runFilePath, "{}");
+    // appended on its own line, separated by the newline the journal already terminated
+    await fs.appendFile(runFilePath, corrupt);
 
     expect(await store.readAll()).toEqual([event]);
   });

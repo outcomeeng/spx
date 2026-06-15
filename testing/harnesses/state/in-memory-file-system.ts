@@ -22,7 +22,7 @@ class InMemoryStateStoreFileSystem implements StateStoreFileSystem {
     this.files.set(path, (this.files.get(path) ?? "") + data);
   }
 
-  async readFile(path: string): Promise<string> {
+  async readFile(path: string, _encoding: "utf8"): Promise<string> {
     const content = this.files.get(path);
     if (content === undefined) throw Object.assign(new Error(NOT_FOUND_CODE), { code: NOT_FOUND_CODE });
     return content;
