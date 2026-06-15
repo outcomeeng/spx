@@ -778,7 +778,7 @@ describe("session CLI — JSON list output and field selection", () => {
     }
   });
 
-  it("NEVER: a separators-only `--fields` value yields JSON — stderr lists the valid set, non-zero exit", async () => {
+  it("NEVER: a separators-only `--fields` value yields JSON — stderr names the token and the valid set, non-zero exit", async () => {
     const id = sampleSessionId();
     await harness.writeSession(TODO, id);
 
@@ -793,6 +793,7 @@ describe("session CLI — JSON list output and field selection", () => {
 
     expect(result.exitCode).not.toBe(0);
     expect(result.stdout.trim()).toBe("");
+    expect(result.stderr).toContain(FIELD_SELECTION_SEPARATOR);
     for (const field of Object.values(SESSION_RECORD_FIELD)) {
       expect(result.stderr).toContain(field);
     }
