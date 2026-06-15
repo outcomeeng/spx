@@ -19,7 +19,6 @@ Rejected: placing the journal under `src/domains/` (it is a shared library consu
 ### Audit
 
 - ALWAYS: the journal interface accepts its storage through an injected `JournalBackend` port parameter — enables `l1` verification against a real in-memory adapter ([audit])
-- ALWAYS: an appended event is constructed as a CloudEvents record bearing the stream extensions, with `seq` assigned by the journal at append time ([audit])
 - ALWAYS: each adapter declares whether it is Appendable or Snapshot and binds the port without widening or altering the journal contract ([audit])
 - NEVER: any module under `src/lib/agent-run-journal/` imports `node:fs`, `node:fs/promises`, process globals, or a network client — all I/O is the adapter's, behind the port ([audit])
 - NEVER: `vi.mock()`, `jest.mock()`, or module interception substitutes for the backend — tests inject a real in-memory `JournalBackend` and exercise the real journal code paths ([audit])
