@@ -1,5 +1,3 @@
-/** Agent-run journal — a backend-agnostic event store over an injected `JournalBackend` port. */
-
 export type JsonValue =
   | string
   | number
