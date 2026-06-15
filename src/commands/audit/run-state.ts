@@ -101,13 +101,15 @@ export async function writeTerminalAuditRunState(
   }
   const fs = options.fs ?? defaultFileSystem;
   const backend = createAppendableJournalStore({ runFilePath, fs });
-  // A sealed journal already holds this run's terminal record; reading the seal
-  // marker is the structured idempotency guard the directory ADR prescribes.
-  if (await backend.isSealed()) {
-    return { ok: false, error: AUDIT_RUN_STATE_ERROR.STATE_ALREADY_EXISTS };
-  }
   const journal = createJournal(backend, auditRunJournalIdentity(runFilePath));
   try {
+    // A sealed journal already holds this run's terminal record; reading the seal
+    // marker is the structured idempotency guard the directory ADR prescribes. The
+    // read is in the same try as append/seal so a seal-marker I/O failure returns
+    // a write error rather than throwing out of this Result-returning function.
+    if (await backend.isSealed()) {
+      return { ok: false, error: AUDIT_RUN_STATE_ERROR.STATE_ALREADY_EXISTS };
+    }
     await journal.append(
       auditRunCompletedEventInput(state, {
         id: `${basename(runFilePath)}:${AUDIT_RUN_EVENT.COMPLETED_TYPE}`,
