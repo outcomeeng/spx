@@ -50,6 +50,8 @@ export interface WriteAuditRunStateOptions {
 }
 
 export interface ReadAuditRunStateOptions {
+  // The read path binds the appendable journal store, whose construction takes
+  // the full StateStoreFileSystem even though folding a run exercises only readFile.
   readonly fs?: StateStoreFileSystem;
 }
 
