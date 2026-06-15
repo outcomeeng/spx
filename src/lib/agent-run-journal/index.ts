@@ -103,9 +103,26 @@ export const JOURNAL_EVENT_ATTRIBUTES = [
   "attempt",
 ] as const;
 
+/** The kind of CloudEvents-conformance failure a candidate journal event exhibits. */
+export const JOURNAL_CONFORMANCE_VIOLATION = {
+  NOT_OBJECT: "not-object",
+  ATTRIBUTE_NAME: "attribute-name",
+  UNEXPECTED_ATTRIBUTE: "unexpected-attribute",
+  MISSING_ATTRIBUTE: "missing-attribute",
+  WRONG_SPECVERSION: "wrong-specversion",
+  WRONG_TYPE: "wrong-type",
+} as const;
+
+export type JournalConformanceViolation =
+  (typeof JOURNAL_CONFORMANCE_VIOLATION)[keyof typeof JOURNAL_CONFORMANCE_VIOLATION];
+
 export type JournalEventConformance =
   | { readonly ok: true }
-  | { readonly ok: false; readonly error: string };
+  | {
+    readonly ok: false;
+    readonly violation: JournalConformanceViolation;
+    readonly error: string;
+  };
 
 /** CloudEvents v1.0 attribute-naming convention: lowercase ASCII letters and digits only. */
 const ATTRIBUTE_NAME_PATTERN = /^[a-z0-9]+$/;
@@ -115,41 +132,74 @@ const STRING_ATTRIBUTES = ["id", "source", "type", "time", "streamid", "runid"] 
  * Validate a value against the journal's CloudEvents event schema: every attribute
  * name conforms to the CloudEvents naming convention, the closed set of core
  * attributes and stream extensions is present and typed, and `data` is the only
- * optional attribute.
+ * optional attribute. A rejection names the specific violation so each rule is
+ * independently observable.
  */
 export function checkJournalEventConformance(value: unknown): JournalEventConformance {
   if (typeof value !== "object" || value === null || Array.isArray(value)) {
-    return { ok: false, error: "event must be an object" };
+    return {
+      ok: false,
+      violation: JOURNAL_CONFORMANCE_VIOLATION.NOT_OBJECT,
+      error: "event must be an object",
+    };
   }
   const record = value as Record<string, unknown>;
   const allowed = new Set<string>([...JOURNAL_EVENT_ATTRIBUTES, "data"]);
 
   for (const name of Object.keys(record)) {
     if (!ATTRIBUTE_NAME_PATTERN.test(name)) {
-      return { ok: false, error: `attribute name "${name}" is not CloudEvents-conformant` };
+      return {
+        ok: false,
+        violation: JOURNAL_CONFORMANCE_VIOLATION.ATTRIBUTE_NAME,
+        error: `attribute name "${name}" is not CloudEvents-conformant`,
+      };
     }
     if (!allowed.has(name)) {
-      return { ok: false, error: `unexpected attribute "${name}"` };
+      return {
+        ok: false,
+        violation: JOURNAL_CONFORMANCE_VIOLATION.UNEXPECTED_ATTRIBUTE,
+        error: `unexpected attribute "${name}"`,
+      };
     }
   }
   for (const name of JOURNAL_EVENT_ATTRIBUTES) {
     if (!(name in record)) {
-      return { ok: false, error: `missing required attribute "${name}"` };
+      return {
+        ok: false,
+        violation: JOURNAL_CONFORMANCE_VIOLATION.MISSING_ATTRIBUTE,
+        error: `missing required attribute "${name}"`,
+      };
     }
   }
   for (const name of STRING_ATTRIBUTES) {
     if (typeof record[name] !== "string") {
-      return { ok: false, error: `attribute "${name}" must be a string` };
+      return {
+        ok: false,
+        violation: JOURNAL_CONFORMANCE_VIOLATION.WRONG_TYPE,
+        error: `attribute "${name}" must be a string`,
+      };
     }
   }
   if (record.specversion !== CLOUDEVENTS_SPECVERSION) {
-    return { ok: false, error: `specversion must equal "${CLOUDEVENTS_SPECVERSION}"` };
+    return {
+      ok: false,
+      violation: JOURNAL_CONFORMANCE_VIOLATION.WRONG_SPECVERSION,
+      error: `specversion must equal "${CLOUDEVENTS_SPECVERSION}"`,
+    };
   }
   if (typeof record.seq !== "number" || !Number.isInteger(record.seq)) {
-    return { ok: false, error: "attribute \"seq\" must be an integer" };
+    return {
+      ok: false,
+      violation: JOURNAL_CONFORMANCE_VIOLATION.WRONG_TYPE,
+      error: "attribute \"seq\" must be an integer",
+    };
   }
   if (typeof record.attempt !== "number" || !Number.isInteger(record.attempt)) {
-    return { ok: false, error: "attribute \"attempt\" must be an integer" };
+    return {
+      ok: false,
+      violation: JOURNAL_CONFORMANCE_VIOLATION.WRONG_TYPE,
+      error: "attribute \"attempt\" must be an integer",
+    };
   }
 
   return { ok: true };
