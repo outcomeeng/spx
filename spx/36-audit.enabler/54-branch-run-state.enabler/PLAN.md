@@ -17,16 +17,15 @@ events append under a monotonic `seq`, the run `seal`s at terminal state, and th
 `AuditRunState` envelope is rendered as a projection of the event history rather than
 written as a bespoke terminal record.
 
-Two reconciliation depths — pick per scope at execution:
-
-- **Minimal (storage alignment):** route the existing single terminal `AuditRunState`
-  through the journal interface — one `append` carrying the envelope as event `data`,
-  then `seal`; `readAuditBranchRuns` renders the envelope from the journal. Behavior is
-  unchanged; only the storage routes through the journal + local adapter. Richer
-  per-finding events become a follow-up.
-- **Full (event history):** audit execution (`spx/36-audit.enabler/65-auditor-execution.enabler`)
-  emits incremental events (auditor-started, finding-reported, completed); the
-  `AuditRunState` projection folds the history. Larger — touches auditor execution.
+**Chosen depth: full event history.** Audit execution
+(`spx/36-audit.enabler/65-auditor-execution.enabler`) emits incremental events
+(auditor-started, finding-reported, completed) through the journal; the `AuditRunState`
+envelope is the projection folded from that history, and the run `seal`s at terminal
+state. This is the largest change surface but the one the journal contract intends and the
+one audit-in-CI needs (incremental persistence + rendered PR-comment / check projections).
+A storage-only alignment — routing today's single terminal record through the journal as
+one event — is the fallback if the execution-event scope proves too large for one slice:
+land the storage alignment first and track the per-finding events as a follow-up.
 
 ## Affected files (one `/applying` cycle, node kept Passing throughout)
 
@@ -39,6 +38,9 @@ Two reconciliation depths — pick per scope at execution:
   event; render the `AuditRunState` projection in `readAuditBranchRuns`.
 - `spx/36-audit.enabler/54-branch-run-state.enabler/tests/` — rewrite the 3 tests to the
   journal model (still l1 over a real in-memory `StateStoreFileSystem`).
+- `spx/36-audit.enabler/65-auditor-execution.enabler` (full depth) — emit the per-stage
+  events (auditor-started, finding-reported, completed) to the run's journal as execution
+  proceeds, so the `AuditRunState` projection folds a real history rather than one record.
 
 ## Then: review (symmetric)
 
