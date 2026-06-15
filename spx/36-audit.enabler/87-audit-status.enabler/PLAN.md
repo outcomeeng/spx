@@ -18,7 +18,7 @@ Expose audit state through CLI list, status, and latest-run reporting.
 
 ## Evidence Required
 
-- Scenario tests cover no runs, terminal runs, incomplete runs, parse-invalid journals, and mixed latest-run ordering.
+- Scenario tests cover no runs, terminal runs, incomplete runs, corrupt journals (classified as `MISSING_STATE`), and mixed latest-run ordering.
 - Mapping tests cover persisted status to display token rendering.
 
 ## Parallelization
@@ -34,5 +34,5 @@ Start from fresh origin/main on work/audit-status after branch-run-state is avai
 
 Before branching, verify `git cat-file -e origin/main:spx/36-audit.enabler/54-branch-run-state.enabler/branch-run-state.md` succeeds for the A2 state-shape artifact.
 
-Implement audit list, status, and latest-run reporting from persisted branch state. This packet may proceed before auditor execution by constructing branch-run-state fixtures directly, but it must consume the A2 state shape rather than defining a second shape. Render persisted lowercase statuses through the explicit display-token mapping. Show incomplete and parse-invalid run journals without treating them as terminal evidence. Prove no-runs, terminal runs, incomplete runs, parse-invalid journals, and mixed latest-run ordering. Open one PR and ask reviewers to audit status semantics and display mapping.
+Implement audit list, status, and latest-run reporting from persisted branch state. This packet may proceed before auditor execution by constructing branch-run-state fixtures directly, but it must consume the A2 state shape rather than defining a second shape. Render persisted lowercase statuses through the explicit display-token mapping. Show incomplete and corrupt run journals without treating them as terminal evidence. Prove no-runs, terminal runs, incomplete runs, corrupt journals (classified as `MISSING_STATE`), and mixed latest-run ordering. Open one PR and ask reviewers to audit status semantics and display mapping.
 ```

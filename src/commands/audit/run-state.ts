@@ -46,6 +46,8 @@ export type AuditRunStateFileSystem = StateStoreFileSystem;
 export type CreateAuditRunFileOptions = CreateRunFileOptions;
 
 export interface WriteAuditRunStateOptions {
+  // The write path appends and seals through the journal store, which needs the
+  // full StateStoreFileSystem (mkdir and writeFile for the run file and seal marker).
   readonly fs?: StateStoreFileSystem;
 }
 
