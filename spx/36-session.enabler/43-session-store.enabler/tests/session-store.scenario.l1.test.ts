@@ -43,6 +43,7 @@ import {
 } from "@/domains/session/handoff-base-checklist";
 import {
   DEFAULT_SESSION_METADATA,
+  FIELD_SELECTION_SEPARATOR,
   parseFieldSelection,
   parseSessionMetadata,
   projectSessionRecord,
@@ -1385,6 +1386,7 @@ describe("projectSessionRecord", () => {
         const projected = projectSessionRecord(record, SESSION_RECORD_FIELDS);
 
         expect(Object.keys(projected)).toEqual(Object.keys(record));
+        expect(projected).toEqual(record);
         expect(projected).not.toHaveProperty(SESSION_RECORD_FIELD.CREATED_AT);
         expect(projected).not.toHaveProperty(SESSION_RECORD_FIELD.AGENT_SESSION_ID);
       }),
@@ -1434,6 +1436,29 @@ describe("parseFieldSelection", () => {
       fc.property(fc.stringMatching(/^[\s,]+$/), (separatorsOnly) => {
         expect(() => parseFieldSelection(separatorsOnly)).toThrow(SessionInvalidFieldError);
       }),
+    );
+  });
+
+  it("rejects a selection mixing a valid field with an unknown token, naming the unknown token", () => {
+    fc.assert(
+      fc.property(
+        fc.constantFrom(...SESSION_RECORD_FIELDS),
+        fc.string({ minLength: 1 }).filter((token) =>
+          !token.includes(FIELD_SELECTION_SEPARATOR) && token.trim().length > 0
+          && !SESSION_RECORD_FIELDS.includes(token.trim())
+        ),
+        (validField, invalidToken) => {
+          let thrown: unknown;
+          try {
+            parseFieldSelection(`${validField}${FIELD_SELECTION_SEPARATOR}${invalidToken}`);
+          } catch (error) {
+            thrown = error;
+          }
+
+          expect(thrown).toBeInstanceOf(SessionInvalidFieldError);
+          expect((thrown as Error).message).toContain(invalidToken.trim());
+        },
+      ),
     );
   });
 });
@@ -1514,6 +1539,8 @@ describe("listCommand JSON records and field projection", () => {
     const carried = records.find((record) => record.id === carriedId);
     const bare = records.find((record) => record.id === bareId);
 
+    expect(carried).toBeDefined();
+    expect(bare).toBeDefined();
     expect(carried?.[SESSION_RECORD_FIELD.AGENT_SESSION_ID]).toBe(agentSessionId);
     expect(typeof carried?.[SESSION_RECORD_FIELD.CREATED_AT]).toBe("string");
     expect(bare).not.toHaveProperty(SESSION_RECORD_FIELD.CREATED_AT);
