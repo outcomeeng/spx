@@ -1,6 +1,8 @@
 import { handoffCommand } from "@/commands/session/handoff";
+import { listCommand, SESSION_LIST_FORMAT } from "@/commands/session/list";
 import { SessionLegacyFrontmatterInputError } from "@/domains/session/errors";
-import { SESSION_FRONT_MATTER, SESSION_PRIORITY } from "@/domains/session/types";
+import { SESSION_FRONT_MATTER, SESSION_PRIORITY, SESSION_STATUSES } from "@/domains/session/types";
+import { sampleSessionId } from "@testing/generators/session/session";
 import {
   buildHandoffStdin,
   createSessionGitDeps,
@@ -151,5 +153,35 @@ describe("session-store compliance — frontmatter key registry", () => {
         },
       ],
     },
+  });
+});
+
+describe("session-store compliance — JSON list output excludes the absolute path", () => {
+  const [TODO] = SESSION_STATUSES;
+  let harness: SessionHarness;
+
+  beforeEach(async () => {
+    harness = await createSessionHarness();
+  });
+
+  afterEach(async () => {
+    await harness.cleanup();
+  });
+
+  it("NEVER: the JSON list output exposes the absolute filesystem path of a session", async () => {
+    const id = sampleSessionId();
+    await harness.writeSession(TODO, id);
+
+    const output = await listCommand({
+      status: TODO,
+      format: SESSION_LIST_FORMAT.JSON,
+      sessionsDir: harness.sessionsDir,
+    });
+    const records = (JSON.parse(output) as Record<string, Array<Record<string, unknown>>>)[TODO];
+
+    expect(output).not.toContain(harness.sessionsDir);
+    for (const record of records) {
+      expect(record).not.toHaveProperty("path");
+    }
   });
 });

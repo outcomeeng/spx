@@ -13,7 +13,7 @@ import {
   HANDOFF_BASE_UNRESOLVED,
   SESSION_HANDOFF_BASE_ERROR_NAME,
 } from "@/domains/session/handoff-base-checklist";
-import { parseSessionMetadata } from "@/domains/session/list";
+import { parseSessionMetadata, SESSION_RECORD_FIELD } from "@/domains/session/list";
 import { SESSION_STATUSES, type SessionStatus } from "@/domains/session/types";
 import { GIT_HEAD_SHA_ARGS, GIT_SHOW_TOPLEVEL_ARGS, NOT_GIT_REPO_WARNING } from "@/git/root";
 import { sampleLiteralTestValue } from "@testing/generators/literal/literal";
@@ -692,6 +692,89 @@ describe("session CLI non-git warning", () => {
       expect(result.stderr).not.toMatch(/creat/i);
     } finally {
       await env.cleanup();
+    }
+  });
+});
+
+describe("session CLI — JSON list output and field selection", () => {
+  let harness: SessionHarness;
+
+  beforeEach(async () => {
+    harness = await createSessionHarness();
+  });
+
+  afterEach(async () => {
+    await harness.cleanup();
+  });
+
+  it("ALWAYS: `session list --json` writes parseable JSON keyed by status with flat records, exit 0", async () => {
+    const id = sampleSessionId();
+    await harness.writeSession(TODO, id);
+
+    const result = await runSpx(["session", "list", "--json", "--sessions-dir", harness.sessionsDir]);
+
+    expect(result.exitCode).toBe(0);
+    const parsed = JSON.parse(result.stdout) as Record<string, Array<Record<string, unknown>>>;
+    expect(parsed[TODO].some((record) => record.id === id)).toBe(true);
+    for (const record of parsed[TODO]) {
+      expect(record).not.toHaveProperty("path");
+      expect(record).not.toHaveProperty("metadata");
+    }
+  });
+
+  it("ALWAYS: `session list --fields` and `session todo --fields` emit exactly the named fields, exit 0", async () => {
+    const id = sampleSessionId();
+    await harness.writeSession(TODO, id);
+    const selection = [
+      SESSION_RECORD_FIELD.ID,
+      SESSION_RECORD_FIELD.PRIORITY,
+      SESSION_RECORD_FIELD.GOAL,
+      SESSION_RECORD_FIELD.NEXT_STEP,
+      SESSION_RECORD_FIELD.GIT_REF,
+    ];
+    const fieldsArg = selection.join(",");
+
+    for (const subcommand of ["list", "todo"]) {
+      const result = await runSpx([
+        "session",
+        subcommand,
+        "--fields",
+        fieldsArg,
+        "--sessions-dir",
+        harness.sessionsDir,
+      ]);
+
+      expect(result.exitCode).toBe(0);
+      const parsed = JSON.parse(result.stdout) as Record<string, Array<Record<string, unknown>>>;
+      expect(Object.keys(parsed[TODO][0])).toEqual(selection);
+    }
+  });
+
+  it("NEVER: an unknown `--fields` token yields JSON — stderr names the token and the valid set, non-zero exit", async () => {
+    const id = sampleSessionId();
+    await harness.writeSession(TODO, id);
+    const unknownToken = sampleSessionId();
+
+    const result = await runSpx(["session", "list", "--fields", unknownToken, "--sessions-dir", harness.sessionsDir]);
+
+    expect(result.exitCode).not.toBe(0);
+    expect(result.stdout.trim()).toBe("");
+    expect(result.stderr).toContain(unknownToken);
+    for (const field of Object.values(SESSION_RECORD_FIELD)) {
+      expect(result.stderr).toContain(field);
+    }
+  });
+
+  it("NEVER: an empty `--fields` value yields JSON — stderr lists the valid set, non-zero exit", async () => {
+    const id = sampleSessionId();
+    await harness.writeSession(TODO, id);
+
+    const result = await runSpx(["session", "list", "--fields", "", "--sessions-dir", harness.sessionsDir]);
+
+    expect(result.exitCode).not.toBe(0);
+    expect(result.stdout.trim()).toBe("");
+    for (const field of Object.values(SESSION_RECORD_FIELD)) {
+      expect(result.stderr).toContain(field);
     }
   });
 });

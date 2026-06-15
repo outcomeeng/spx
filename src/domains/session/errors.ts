@@ -65,6 +65,25 @@ export class SessionInvalidGoalError extends SessionError {
 }
 
 /**
+ * Error thrown when a `--fields` selection names a token outside the session
+ * record field set. Carries the offending token and the valid field set so the
+ * descriptor can render an actionable diagnostic.
+ */
+export class SessionInvalidFieldError extends SessionError {
+  /** The unknown field token the caller supplied. */
+  readonly field: string;
+  /** The full set of valid field names. */
+  readonly validFields: readonly string[];
+
+  constructor(field: string, validFields: readonly string[]) {
+    super(`Invalid field: "${field}". Valid fields: ${validFields.join(", ")}`);
+    this.name = "SessionInvalidFieldError";
+    this.field = field;
+    this.validFields = validFields;
+  }
+}
+
+/**
  * Error thrown when handoff content has no usable next step.
  */
 export class SessionInvalidNextStepError extends SessionError {
