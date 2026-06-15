@@ -1,4 +1,6 @@
 import { Buffer } from "node:buffer";
+import { mkdir } from "node:fs/promises";
+import { dirname, join } from "node:path";
 
 import { describe, expect, it } from "vitest";
 
@@ -18,7 +20,8 @@ import {
   formatAuditRunTimestamp,
   selectLatestTerminalAuditRun,
 } from "@/domains/audit/run-state";
-import { CLOUDEVENTS_SPECVERSION, JOURNAL_SEQ_BASE, type JournalEvent, type JsonValue } from "@/lib/agent-run-journal";
+import { createJournal, type JsonValue } from "@/lib/agent-run-journal";
+import { createAppendableJournalStore } from "@/lib/appendable-journal-store";
 import { STATE_STORE_ERROR } from "@/lib/state-store";
 import { AUDIT_RUN_STATE_TEST_GENERATOR, sampleAuditRunStateTestValue } from "@testing/generators/audit/run-state";
 import { CONFIG_TEST_GENERATOR, sampleConfigTestValue } from "@testing/generators/config/descriptors";
@@ -29,22 +32,6 @@ import {
   writeAuditRunJournalContent,
 } from "@testing/harnesses/audit/harness";
 
-function completedEvent(data: JsonValue, seq: number): JournalEvent {
-  const streamId = sampleConfigTestValue(CONFIG_TEST_GENERATOR.key());
-  return {
-    id: `${AUDIT_RUN_EVENT.COMPLETED_TYPE}:${seq}`,
-    source: AUDIT_RUN_EVENT.SOURCE,
-    type: AUDIT_RUN_EVENT.COMPLETED_TYPE,
-    specversion: CLOUDEVENTS_SPECVERSION,
-    time: formatAuditRunTimestamp(sampleAuditRunStateTestValue(AUDIT_RUN_STATE_TEST_GENERATOR.timestampDate())),
-    streamid: streamId,
-    seq,
-    runid: streamId,
-    attempt: seq,
-    data,
-  };
-}
-
 async function withAuditHarness(callback: (productDir: string) => Promise<void>): Promise<void> {
   const harness = await createAuditHarness();
   try {
@@ -54,15 +41,46 @@ async function withAuditHarness(callback: (productDir: string) => Promise<void>)
   }
 }
 
+/**
+ * Appends each payload as a completed event through the real appendable journal
+ * store — so the events folded are exactly what the store produces (the store
+ * stamps `seq`, `specversion`, and the stream identity) — then folds them.
+ */
+async function foldStoredCompletedEvents(
+  productDir: string,
+  branchSlug: string,
+  payloads: readonly JsonValue[],
+): Promise<ReturnType<typeof foldAuditRunState>> {
+  const runFileName = sampleAuditRunStateTestValue(AUDIT_RUN_STATE_TEST_GENERATOR.runFileName());
+  const runFilePath = join(auditBranchRunsDir(productDir, branchSlug), runFileName);
+  await mkdir(dirname(runFilePath), { recursive: true });
+  const backend = createAppendableJournalStore({ runFilePath });
+  const journal = createJournal(backend, { streamid: runFileName, runid: runFileName });
+  for (const [index, data] of payloads.entries()) {
+    await journal.append({
+      id: `${runFileName}:${index}`,
+      source: AUDIT_RUN_EVENT.SOURCE,
+      type: AUDIT_RUN_EVENT.COMPLETED_TYPE,
+      time: formatAuditRunTimestamp(sampleAuditRunStateTestValue(AUDIT_RUN_STATE_TEST_GENERATOR.timestampDate())),
+      attempt: index + 1,
+      data,
+    });
+  }
+  return foldAuditRunState(await backend.readAll());
+}
+
 describe("audit run-state projection fold", () => {
-  it("folds a completed event's payload into the AuditRunState envelope", () => {
+  it("folds a completed event's payload into the AuditRunState envelope", async () => {
     const state = sampleAuditRunStateTestValue(AUDIT_RUN_STATE_TEST_GENERATOR.auditRunState());
+    const branchSlug = sampleAuditRunStateTestValue(AUDIT_RUN_STATE_TEST_GENERATOR.branchSlug());
 
-    const result = foldAuditRunState([completedEvent(auditRunStateRecord(state) as JsonValue, JOURNAL_SEQ_BASE)]);
+    await withAuditHarness(async (productDir) => {
+      const result = await foldStoredCompletedEvents(productDir, branchSlug, [auditRunStateRecord(state)]);
 
-    expect(result.ok).toBe(true);
-    if (!result.ok) throw new Error(result.reason);
-    expect(result.value).toEqual(state);
+      expect(result.ok).toBe(true);
+      if (!result.ok) throw new Error(result.reason);
+      expect(result.value).toEqual(state);
+    });
   });
 
   it("treats a journal with no completed event as missing terminal state", () => {
@@ -71,28 +89,34 @@ describe("audit run-state projection fold", () => {
     expect(result).toEqual({ ok: false, reason: AUDIT_RUN_STATE_INCOMPLETE_REASON.MISSING_STATE });
   });
 
-  it("treats a completed event with an invalid payload as shape-invalid", () => {
+  it("treats a completed event with an invalid payload as shape-invalid", async () => {
     const invalidPayload = { status: sampleAuditRunStateTestValue(AUDIT_RUN_STATE_TEST_GENERATOR.branchName()) };
+    const branchSlug = sampleAuditRunStateTestValue(AUDIT_RUN_STATE_TEST_GENERATOR.branchSlug());
 
-    const result = foldAuditRunState([completedEvent(invalidPayload as JsonValue, JOURNAL_SEQ_BASE)]);
+    await withAuditHarness(async (productDir) => {
+      const result = await foldStoredCompletedEvents(productDir, branchSlug, [invalidPayload]);
 
-    expect(result.ok).toBe(false);
-    if (result.ok) throw new Error("expected shape-invalid fold");
-    expect(result.reason).toBe(AUDIT_RUN_STATE_INCOMPLETE_REASON.SHAPE_INVALID_STATE);
+      expect(result.ok).toBe(false);
+      if (result.ok) throw new Error("expected shape-invalid fold");
+      expect(result.reason).toBe(AUDIT_RUN_STATE_INCOMPLETE_REASON.SHAPE_INVALID_STATE);
+    });
   });
 
-  it("folds the latest completed event when several are present", () => {
+  it("folds the latest completed event when several are present", async () => {
     const earlier = sampleAuditRunStateTestValue(AUDIT_RUN_STATE_TEST_GENERATOR.auditRunState());
     const latest = sampleAuditRunStateTestValue(AUDIT_RUN_STATE_TEST_GENERATOR.auditRunState());
+    const branchSlug = sampleAuditRunStateTestValue(AUDIT_RUN_STATE_TEST_GENERATOR.branchSlug());
 
-    const result = foldAuditRunState([
-      completedEvent(auditRunStateRecord(earlier) as JsonValue, JOURNAL_SEQ_BASE),
-      completedEvent(auditRunStateRecord(latest) as JsonValue, JOURNAL_SEQ_BASE + 1),
-    ]);
+    await withAuditHarness(async (productDir) => {
+      const result = await foldStoredCompletedEvents(productDir, branchSlug, [
+        auditRunStateRecord(earlier),
+        auditRunStateRecord(latest),
+      ]);
 
-    expect(result.ok).toBe(true);
-    if (!result.ok) throw new Error(result.reason);
-    expect(result.value).toEqual(latest);
+      expect(result.ok).toBe(true);
+      if (!result.ok) throw new Error(result.reason);
+      expect(result.value).toEqual(latest);
+    });
   });
 });
 
@@ -226,6 +250,10 @@ describe("audit branch run-state lookup", () => {
 
       const duplicate = await writeTerminalAuditRunState(runFile.value.runFilePath, state);
       expect(duplicate).toEqual({ ok: false, error: AUDIT_RUN_STATE_ERROR.STATE_ALREADY_EXISTS });
+
+      const events = await createAppendableJournalStore({ runFilePath: runFile.value.runFilePath }).readAll();
+      const completed = events.filter((event) => event.type === AUDIT_RUN_EVENT.COMPLETED_TYPE);
+      expect(completed).toHaveLength(1);
     });
   });
 
