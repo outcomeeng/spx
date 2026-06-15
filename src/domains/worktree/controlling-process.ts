@@ -1,8 +1,8 @@
 /**
  * Controlling-process resolution — finds the holding agent process whose
- * liveness means the worktree is held, per
- * `spx/38-worktree.enabler/43-worktree-cli.enabler/21-worktree-command.adr.md`.
- * Pure over an injected process table.
+ * liveness means the worktree is held: an explicit pid override, else the
+ * nearest ancestor whose command names a known agent runtime, else the
+ * immediate parent. Pure over an injected process table.
  *
  * @module domains/worktree/controlling-process
  */
