@@ -1361,6 +1361,7 @@ describe("projectSessionRecord", () => {
           const projected = projectSessionRecord(record, SESSION_RECORD_FIELDS);
 
           expect(Object.keys(projected)).toEqual(Object.keys(record));
+          expect(projected).toEqual(record);
         },
       ),
     );
@@ -1455,31 +1456,37 @@ describe("listCommand JSON records and field projection", () => {
   it("emits flat per-session records keyed by status, without a path or metadata nesting", async () => {
     const id = sampleSessionId();
     await harness.writeSession(TODO, id);
+    await harness.writeSession(DOING, id);
 
+    // No status filter: the default lists both doing and todo, keyed by status directory.
     const output = await listCommand({
-      status: TODO,
       format: SESSION_LIST_FORMAT.JSON,
       sessionsDir: harness.sessionsDir,
     });
     const parsed = JSON.parse(output) as Record<string, Array<Record<string, unknown>>>;
-    const [record] = parsed[TODO];
 
-    expect(record.id).toBe(id);
-    expect(record).not.toHaveProperty("path");
-    expect(record).not.toHaveProperty("metadata");
-    for (
-      const field of [
-        SESSION_RECORD_FIELD.ID,
-        SESSION_RECORD_FIELD.STATUS,
-        SESSION_RECORD_FIELD.PRIORITY,
-        SESSION_RECORD_FIELD.GIT_REF,
-        SESSION_RECORD_FIELD.GOAL,
-        SESSION_RECORD_FIELD.NEXT_STEP,
-        SESSION_RECORD_FIELD.SPECS,
-        SESSION_RECORD_FIELD.FILES,
-      ]
-    ) {
-      expect(record).toHaveProperty(field);
+    for (const status of [TODO, DOING]) {
+      const records = parsed[status];
+      expect(records.length).toBeGreaterThan(0);
+      for (const record of records) {
+        expect(record.status).toBe(status);
+        expect(record).not.toHaveProperty("path");
+        expect(record).not.toHaveProperty("metadata");
+        for (
+          const field of [
+            SESSION_RECORD_FIELD.ID,
+            SESSION_RECORD_FIELD.STATUS,
+            SESSION_RECORD_FIELD.PRIORITY,
+            SESSION_RECORD_FIELD.GIT_REF,
+            SESSION_RECORD_FIELD.GOAL,
+            SESSION_RECORD_FIELD.NEXT_STEP,
+            SESSION_RECORD_FIELD.SPECS,
+            SESSION_RECORD_FIELD.FILES,
+          ]
+        ) {
+          expect(record).toHaveProperty(field);
+        }
+      }
     }
   });
 
