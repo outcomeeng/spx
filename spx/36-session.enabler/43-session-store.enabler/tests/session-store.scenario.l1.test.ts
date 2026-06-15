@@ -1437,6 +1437,7 @@ describe("parseFieldSelection", () => {
         thrown = error;
       }
       expect(thrown).toBeInstanceOf(SessionInvalidFieldError);
+      expect((thrown as SessionInvalidFieldError).field).toBe(input);
       for (const field of SESSION_RECORD_FIELDS) {
         expect((thrown as Error).message).toContain(field);
       }
