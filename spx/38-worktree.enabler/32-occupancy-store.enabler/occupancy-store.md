@@ -4,8 +4,6 @@ PROVIDES atomic claim-record I/O at `.spx/worktrees/<name>.claim` and an on-dema
 SO THAT the worktree-cli enabler
 CAN answer `spx worktree status`, write a claim for `spx worktree claim`, and remove it for `spx worktree release` without re-deriving `.spx/worktrees/` layout or the liveness rule
 
-The claim record carries the holding agent's session id, host, controlling-process id, and start time, governed by [`spx/38-worktree.enabler/21-occupancy-claim.adr.md`](../21-occupancy-claim.adr.md).
-
 ## Assertions
 
 ### Scenarios
