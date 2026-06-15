@@ -1,4 +1,5 @@
 import { Buffer } from "node:buffer";
+import { existsSync } from "node:fs";
 import { mkdir } from "node:fs/promises";
 import { dirname, join } from "node:path";
 
@@ -137,6 +138,9 @@ describe("audit branch run-state lookup", () => {
       if (!result.ok) throw new Error(result.error);
       expect(result.value.terminalRuns.map((run) => run.runFileName)).toEqual([terminalRun]);
       expect(result.value.terminalRuns[0]?.state).toEqual(state);
+      // The store silently drops the non-conformant line, so a corrupt journal
+      // is indistinguishable from one with no completed event: both fold to
+      // MISSING_STATE. There is no separate parse-invalid reason by design.
       expect(result.value.incompleteRuns).toEqual([
         {
           runFileName: malformedRun,
@@ -241,6 +245,7 @@ describe("audit branch run-state lookup", () => {
 
       const written = await writeTerminalAuditRunState(runFile.value.runFilePath, state);
       expect(written.ok).toBe(true);
+      expect(existsSync(`${runFile.value.runFilePath}.sealed`)).toBe(true);
 
       const read = await readAuditBranchRuns(productDir, branchSlug);
       expect(read.ok).toBe(true);
