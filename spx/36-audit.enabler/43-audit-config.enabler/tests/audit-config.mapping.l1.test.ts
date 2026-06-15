@@ -36,7 +36,6 @@ function expectResolvedConfig(result: Awaited<ReturnType<typeof resolveConfig>>)
 }
 
 function assertAuditConfig(value: unknown): AuditConfig {
-  expect(value).toHaveProperty(AUDIT_CONFIG_FIELDS.STORAGE);
   expect(value).toHaveProperty(AUDIT_CONFIG_FIELDS.BASE_REF);
   expect(value).toHaveProperty(AUDIT_CONFIG_FIELDS.AUDITORS);
   expect(value).toHaveProperty(AUDIT_CONFIG_FIELDS.TARGETS);
@@ -47,12 +46,6 @@ describe("audit config descriptor format mapping", () => {
   it("resolves equivalent audit sections from JSON, YAML, and TOML config files", async () => {
     const config: Config = {
       [AUDIT_SECTION]: {
-        [AUDIT_CONFIG_FIELDS.STORAGE]: {
-          [AUDIT_CONFIG_FIELDS.SPX_DIR]: sampleConfigTestValue(CONFIG_TEST_GENERATOR.key()),
-          [AUDIT_CONFIG_FIELDS.NODES_DIR]: sampleConfigTestValue(CONFIG_TEST_GENERATOR.key()),
-          [AUDIT_CONFIG_FIELDS.VERDICT_FILE]: sampleConfigTestValue(CONFIG_TEST_GENERATOR.key()),
-          [AUDIT_CONFIG_FIELDS.VERDICT_FILE_SUFFIX]: sampleConfigTestValue(CONFIG_TEST_GENERATOR.key()),
-        },
         [AUDIT_CONFIG_FIELDS.BASE_REF]: sampleConfigTestValue(CONFIG_TEST_GENERATOR.key()),
         [AUDIT_CONFIG_FIELDS.AUDITORS]: [sampleConfigTestValue(CONFIG_TEST_GENERATOR.key())],
         [AUDIT_CONFIG_FIELDS.TARGETS]: sampleConfigTestValue(CONFIG_TEST_GENERATOR.pathFilter()),
