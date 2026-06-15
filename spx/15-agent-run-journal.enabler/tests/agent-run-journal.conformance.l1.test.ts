@@ -1,7 +1,12 @@
 import fc from "fast-check";
 import { describe, expect, it } from "vitest";
 
-import { checkJournalEventConformance, createJournal, JOURNAL_CONFORMANCE_VIOLATION } from "@/lib/agent-run-journal";
+import {
+  checkJournalEventConformance,
+  createJournal,
+  JOURNAL_CONFORMANCE_VIOLATION,
+  type JournalConformanceViolation,
+} from "@/lib/agent-run-journal";
 import { arbitraryJournalEventInput, arbitraryJournalIdentity } from "@testing/generators/agent-run-journal";
 import { createInMemoryAppendableBackend } from "@testing/harnesses/agent-run-journal/in-memory-backend";
 
@@ -67,6 +72,32 @@ describe("agent-run-journal CloudEvents conformance", () => {
     expect(result.ok).toBe(false);
     if (!result.ok) {
       expect(result.violation).toBe(JOURNAL_CONFORMANCE_VIOLATION.MISSING_ATTRIBUTE);
+    }
+  });
+
+  it("names every remaining conformance violation independently", async () => {
+    const [input] = fc.sample(arbitraryJournalEventInput(), 1);
+    const [identity] = fc.sample(arbitraryJournalIdentity(), 1);
+    const journal = createJournal(createInMemoryAppendableBackend(), identity);
+    const event = await journal.append(input);
+
+    // Each candidate carries exactly one defect and reaches one named violation;
+    // with the naming and missing-attribute cases above, every member of
+    // JOURNAL_CONFORMANCE_VIOLATION is independently reached from a test.
+    const cases: ReadonlyArray<readonly [unknown, JournalConformanceViolation]> = [
+      ["not an event object", JOURNAL_CONFORMANCE_VIOLATION.NOT_OBJECT],
+      [{ ...event, extradata: event.id }, JOURNAL_CONFORMANCE_VIOLATION.UNEXPECTED_ATTRIBUTE],
+      [{ ...event, specversion: event.id }, JOURNAL_CONFORMANCE_VIOLATION.WRONG_SPECVERSION],
+      [{ ...event, id: event.seq }, JOURNAL_CONFORMANCE_VIOLATION.WRONG_TYPE],
+      [{ ...event, seq: event.seq + 0.5 }, JOURNAL_CONFORMANCE_VIOLATION.WRONG_TYPE],
+    ];
+
+    for (const [candidate, expected] of cases) {
+      const result = checkJournalEventConformance(candidate);
+      expect(result.ok).toBe(false);
+      if (!result.ok) {
+        expect(result.violation).toBe(expected);
+      }
     }
   });
 });
