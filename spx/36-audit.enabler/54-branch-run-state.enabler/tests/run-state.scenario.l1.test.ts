@@ -262,6 +262,25 @@ describe("audit branch run-state lookup", () => {
     });
   });
 
+  it("treats an unsealed run journal as incomplete even when it holds a completed event", async () => {
+    const branchSlug = sampleAuditRunStateTestValue(AUDIT_RUN_STATE_TEST_GENERATOR.branchSlug());
+    const runFileName = sampleAuditRunStateTestValue(AUDIT_RUN_STATE_TEST_GENERATOR.runFileName());
+    const state = sampleAuditRunStateTestValue(AUDIT_RUN_STATE_TEST_GENERATOR.auditRunState());
+
+    await withAuditHarness(async (productDir) => {
+      await writeAuditRunJournal(productDir, branchSlug, runFileName, [state], { seal: false });
+
+      const result = await readAuditBranchRuns(productDir, branchSlug);
+
+      expect(result.ok).toBe(true);
+      if (!result.ok) throw new Error(result.error);
+      expect(result.value.terminalRuns).toEqual([]);
+      expect(result.value.incompleteRuns.map((run) => run.reason)).toEqual([
+        AUDIT_RUN_STATE_INCOMPLETE_REASON.MISSING_STATE,
+      ]);
+    });
+  });
+
   it("rejects unnormalized branch slugs before reading branch runs", async () => {
     const invalidBranchSlug = sampleAuditRunStateTestValue(AUDIT_RUN_STATE_TEST_GENERATOR.branchName());
 

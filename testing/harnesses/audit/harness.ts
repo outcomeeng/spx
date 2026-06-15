@@ -49,16 +49,23 @@ export function auditBranchRunsDir(productDir: string, branchSlug: string): stri
   return auditRunsDir.value;
 }
 
+export interface WriteAuditRunJournalOptions {
+  /** Seal the run journal after appending, mirroring the production write path. Default true. */
+  readonly seal?: boolean;
+}
+
 /**
  * Writes a run journal for the given terminal states through the real
  * appendable journal store: each state becomes one completed event appended in
- * order under the run file.
+ * order under the run file. Sealing is the terminal commit; pass `seal: false`
+ * to leave the events unsealed, modeling a write interrupted before sealing.
  */
 export async function writeAuditRunJournal(
   productDir: string,
   branchSlug: string,
   runFileName: string,
   states: readonly AuditRunState[],
+  options: WriteAuditRunJournalOptions = {},
 ): Promise<string> {
   const runFilePath = join(auditBranchRunsDir(productDir, branchSlug), runFileName);
   await mkdir(dirname(runFilePath), { recursive: true });
@@ -75,8 +82,9 @@ export async function writeAuditRunJournal(
       }),
     );
   }
-  // Mirror the production write path: a completed run's journal is sealed.
-  await journal.seal();
+  if (options.seal ?? true) {
+    await journal.seal();
+  }
   return runFilePath;
 }
 
