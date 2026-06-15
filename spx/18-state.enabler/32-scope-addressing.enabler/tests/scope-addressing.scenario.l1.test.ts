@@ -7,6 +7,7 @@ import {
   resolveBranchScopeDir,
   resolveSessionsScopeDir,
   resolveWorktreeScopeDir,
+  resolveWorktreesScopeDir,
   slugBranchIdentity,
   STATE_STORE_DOMAIN,
   STATE_STORE_PATH,
@@ -75,6 +76,22 @@ describe("scope addressing", () => {
       STATE_STORE_PATH.SESSIONS_SCOPE,
     ));
     expect(nonMain.sessionsDir).toBe(mainCheckout.sessionsDir);
+  });
+
+  it("resolves worktrees scope to the shared Git common-dir product root from main and non-main worktrees", async () => {
+    const mainCheckout = await resolveWorktreesScopeDir({
+      deps: createSessionGitDeps({ worktreeKind: WORKTREE_KIND.MAIN_CHECKOUT }),
+    });
+    const nonMain = await resolveWorktreesScopeDir({
+      deps: createSessionGitDeps({ worktreeKind: WORKTREE_KIND.NON_MAIN }),
+    });
+
+    expect(mainCheckout.worktreesDir).toBe(join(
+      SESSION_GIT_DEPS_PATHS.MAIN_CHECKOUT_TOPLEVEL,
+      STATE_STORE_PATH.SPX_DIR,
+      STATE_STORE_PATH.WORKTREES_SCOPE,
+    ));
+    expect(nonMain.worktreesDir).toBe(mainCheckout.worktreesDir);
   });
 
   it("composes a session token inside the broader scope before the domain directory", () => {
