@@ -1,5 +1,5 @@
 ---
-template_version: "0.18.12"
+template_version: "0.18.13"
 template_source: spec-tree
 languages: [typescript]
 ---
@@ -105,7 +105,7 @@ Loads the Spec Tree methodology. Required once per session and again after every
 
 **ALWAYS** invoke `/contextualizing` before working on a spec node.
 
-**🛑 STOP TRIGGER — after every compaction event:** all loaded spec-tree context is gone. **Re-invoke `/contextualizing` on every node still in scope** before touching it again — not just the next one you work on.
+**🛑 STOP TRIGGER — after every compaction event:** all loaded spec-tree context is gone. **Re-invoke `/contextualizing` on every node still in scope** before touching it again — not just the next one being worked on.
 
 **NEVER** resume work on a node without having invoked `/contextualizing` since the last compaction.
 
@@ -131,7 +131,7 @@ Review, audit, or quality check specs. Find contradictions or gaps.
 
 Every change destined for the default branch routes through `/merge`, the transport dispatcher. It reads `spx/local/merging.md` and selects the merge transport — a coordination-note-only changeset (only `PLAN.md` / `ISSUES.md`) to the direct-push transport, an overlay-declared `transport:` when present, else the GitHub-PR transport (`/github-pr`) as the default — then delegates to that transport's skills. The three authority gates and the finding-disposition rule are transport-neutral and live in `/standardizing-merging`; `/merge` owns transport selection only.
 
-For the GitHub-PR transport, `/github-pr` proposes the lifecycle before mutation, then invokes the internal PR protocols. The opening protocol passes through the `REVIEW_READINESS` gate before the PR opens. The gate holds when deterministic verification passes (the project's full validation-and-testing command) **and** the local review has converged. The opening protocol invokes the `changes-reviewer` agent on the working diff — falling back to the `/review-changes` slash command when `changes-reviewer` is unavailable; both run the same `reviewing-changes` skill chain in an isolated context, so the verdict is not biased by what the operator's main agent has been doing. Claude acts on each finding by **validity and phase, never severity**: it validates each finding against its cited rule and drops any the citation does not support, applies every valid finding that belongs, and splits out of the changeset any whose fix is too large to belong (recording it in the relevant node's `ISSUES.md` or `PLAN.md`). Once `REVIEW_READINESS` holds the PR opens `ready_for_review`; `MERGE_READINESS` and `PRODUCTION_READINESS` then govern the merge. See `/standardizing-merging` `<authority_gates>` for the three-gate vocabulary.
+For the GitHub-PR transport, `/github-pr` drives the lifecycle — by default autonomously, presenting a pre-mutation confirmation first only when the merge overlay opts into one — then invokes the internal PR protocols. The opening protocol passes through the `REVIEW_READINESS` gate before the PR opens. The gate holds when deterministic verification passes (the project's full validation-and-testing command) **and** the local review has converged. The opening protocol invokes the `changes-reviewer` agent on the working diff — falling back to the `/review-changes` slash command when `changes-reviewer` is unavailable; both run the same `reviewing-changes` skill chain in an isolated context, so the verdict is not biased by what the operator's main agent has been doing. Claude acts on each finding by **validity and phase, never severity**: it validates each finding against its cited rule and drops any the citation does not support, applies every valid finding that belongs, and splits out of the changeset any whose fix is too large to belong (recording it in the relevant node's `ISSUES.md` or `PLAN.md`). Once `REVIEW_READINESS` holds the PR opens `ready_for_review`; `MERGE_READINESS` and `PRODUCTION_READINESS` then govern the merge. See `/standardizing-merging` `<authority_gates>` for the three-gate vocabulary.
 
 ## Stop Triggers
 
