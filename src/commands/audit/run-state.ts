@@ -14,7 +14,7 @@ import {
   foldAuditRunState,
   isAuditRunStateStatus,
 } from "@/domains/audit/run-state";
-import { createJournal, JOURNAL_ERROR, type JournalIdentity } from "@/lib/agent-run-journal";
+import { createJournal, type JournalIdentity } from "@/lib/agent-run-journal";
 import { createAppendableJournalStore } from "@/lib/appendable-journal-store";
 import {
   branchScopeDir,
@@ -98,10 +98,13 @@ export async function writeTerminalAuditRunState(
     return { ok: false, error: AUDIT_RUN_STATE_ERROR.INVALID_TERMINAL_STATE };
   }
   const fs = options.fs ?? defaultFileSystem;
-  const journal = createJournal(
-    createAppendableJournalStore({ runFilePath, fs }),
-    auditRunJournalIdentity(runFilePath),
-  );
+  const backend = createAppendableJournalStore({ runFilePath, fs });
+  // A sealed journal already holds this run's terminal record; reading the seal
+  // marker is the structured idempotency guard the directory ADR prescribes.
+  if (await backend.isSealed()) {
+    return { ok: false, error: AUDIT_RUN_STATE_ERROR.STATE_ALREADY_EXISTS };
+  }
+  const journal = createJournal(backend, auditRunJournalIdentity(runFilePath));
   try {
     await journal.append(
       auditRunCompletedEventInput(state, {
@@ -112,9 +115,6 @@ export async function writeTerminalAuditRunState(
     );
     await journal.seal();
   } catch (error) {
-    if (toErrorMessage(error) === JOURNAL_ERROR.SEALED) {
-      return { ok: false, error: AUDIT_RUN_STATE_ERROR.STATE_ALREADY_EXISTS };
-    }
     return {
       ok: false,
       error: withDomainErrorDetail(AUDIT_RUN_STATE_ERROR.STATE_WRITE_FAILED, toErrorMessage(error)),
