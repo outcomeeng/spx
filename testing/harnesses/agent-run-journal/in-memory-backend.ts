@@ -1,10 +1,4 @@
-/**
- * A real in-memory Appendable backend for agent-run-journal tests.
- *
- * Tests inject this real `JournalBackend` so the journal exercises real code
- * paths — dependency injection delivering a controlled real implementation,
- * not a mock.
- */
+/** A real in-memory Appendable backend injected into journal tests — never a mock. */
 
 import {
   type AppendableBackend,
