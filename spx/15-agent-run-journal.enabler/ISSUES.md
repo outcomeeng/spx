@@ -34,3 +34,19 @@ reject malformed CloudEvents values (and with what error contract), or does the
 recording agent guarantee them? Settle it with an ADR + a rejection assertion
 when the agent-side recording is specified (audit/review reconciliation), then
 implement via `/applying`. Surfaced by Codex review on PR #160.
+
+## FOLLOW-UP — seal enforcement has a time-of-check/time-of-use window
+
+`createJournal().append()` checks `backend.isSealed()` and then `backend.append()`
+in separate awaited steps; the backend gates only sequence exclusivity, not seal.
+Under a concurrent `seal()` interleaved between the check and the persist, an
+append can resolve after the stream is sealed, so the terminal-seal invariant
+([`21-event-sourced-journal.adr.md`](21-event-sourced-journal.adr.md)) is not
+race-proof.
+
+The invariant holds for the supported usage — one journal per run, a single
+writer, `seal()` after the last append — which the compliance test verifies.
+Closing the window (an atomic check-and-append, or backend-level seal rejection)
+is the same single-writer-vs-concurrent decision as the sequence-caching and
+input-validation follow-ups above; settle them together when a backend admits
+concurrent writers. Surfaced by Codex review on PR #160.
