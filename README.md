@@ -151,6 +151,18 @@ pnpm run validate:published   # Packaged executable validation; requires dist/cl
 
 `pnpm run publish:check` is the required pre-publish gate. It runs source validation, builds `dist/`, runs the test suite, and then runs `node bin/spx.js validation all --scope production` against the built executable.
 
+### Code Quality (SonarCloud)
+
+SonarCloud analyzes the repository through server-side [automatic analysis](https://docs.sonarsource.com/sonarcloud/advanced-setup/automatic-analysis/) on every push to `main` and every pull request, so there is no analysis step in the GitHub Actions workflows. The `.sonarcloud.properties` file at the repository root is its only required artifact; it pins the Python analysis target for the single Python test fixture so analysis does not warn about defaulting to all Python 3 versions.
+
+`.mcp.json` registers a SonarQube MCP server so agents can query the project's findings — quality gate, issues, coverage, duplication, and dependency risks. It complements the `sonarqube@claude-plugins-official` plugin enabled in `.claude/settings.json`: the plugin supplies the SonarQube skills (`/sonar-quality-gate`, `/sonar-analyze`, `/sonar-coverage`, `/sonar-duplication`, `/sonar-dependency-risks`), and this MCP server gives those skills and any MCP-aware agent access to the project's SonarCloud data — the two are complementary, not alternatives. To activate it, install the [`sonar` CLI](https://cli.sonarqube.com) from SonarSource's official instructions onto `PATH`, ensure a container runtime (Docker, Podman, or Nerdctl) is running — `sonar run mcp` starts the server in a container — and authenticate to the `outcomeeng` SonarCloud organization:
+
+```bash
+sonar auth login -o outcomeeng   # opens a browser; the token is stored in the OS keychain
+```
+
+Until then the MCP server entry is inert: it does not affect builds, tests, or validation.
+
 ## CI/CD
 
 The project uses GitHub Actions for continuous integration and publishing:
