@@ -12,8 +12,9 @@ now observable at a real backend.
 The dup-check cannot simply be dropped: the spec's
 [`appendable-journal-store.md`](appendable-journal-store.md) compliance assertion
 and the ADR require `append` to reject a consumed `seq` with `JOURNAL_ERROR.SEQ_CONSUMED`.
-The mitigation is therefore a cache, not a removal — maintain the highest persisted
-`seq` (or a seq set) in store-instance state, primed by one read at construction and
-advanced on each successful append, so the steady-state check is O(1). Settle this
-together with the journal's single-writer / sequence-caching follow-up, since both
-rest on the one-journal-per-run assumption.
+The mitigation is therefore a cache, not a removal — maintain the set of persisted
+`seq` values in store-instance state, primed by one read at construction and extended
+on each successful append, so the steady-state check is O(1). A max-seq cache is
+insufficient: the backend must reject any already-seen `seq`, not only one at or above
+the maximum. Settle this together with the journal's single-writer / sequence-caching
+follow-up, since both rest on the one-journal-per-run assumption.
