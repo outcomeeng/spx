@@ -57,23 +57,15 @@ TypeScript exited with code 2
 An explicit-file version of the same focused check passed:
 
 ```bash
-verdict_reader_tests=spx/36-audit.enabler/32-verify.enabler/21-verdict-reader.enabler/tests
-verify_tests=spx/36-audit.enabler/32-verify.enabler/tests
 run_state_tests=spx/36-audit.enabler/54-branch-run-state.enabler/tests
 
 pnpm exec tsx src/cli.ts validation typescript --files \
-  src/commands/audit/reader.ts \
   src/commands/audit/run-state.ts \
-  src/commands/audit/verify.ts \
-  src/domains/audit/reader.ts \
   src/domains/audit/run-state.ts \
-  src/domains/audit/verify.ts \
-  "$verdict_reader_tests"/verdict-reader.scenario.l1.test.ts \
-  "$verdict_reader_tests"/verdict-reader.conformance.l1.test.ts \
-  "$verify_tests"/verify.scenario.l1.test.ts \
-  "$verify_tests"/verify.property.l1.test.ts \
-  "$run_state_tests"/run-directory.scenario.l1.test.ts \
-  "$run_state_tests"/run-state.scenario.l1.test.ts
+  src/domains/audit/config.ts \
+  "$run_state_tests"/run-file.scenario.l1.test.ts \
+  "$run_state_tests"/run-state.scenario.l1.test.ts \
+  "$run_state_tests"/branch-slug.property.l1.test.ts
 ```
 
 ```text
