@@ -123,7 +123,7 @@ export type JournalEventConformance =
 
 /** CloudEvents v1.0 attribute-naming convention: lowercase ASCII letters and digits only. */
 const ATTRIBUTE_NAME_PATTERN = /^[a-z0-9]+$/;
-const STRING_ATTRIBUTES = ["id", "source", "type", "time", "streamid", "runid"] as const;
+const STRING_ATTRIBUTES = ["id", "source", "type", "time", "specversion", "streamid", "runid"] as const;
 
 /**
  * Validate a value against the journal's CloudEvents event schema: every attribute
