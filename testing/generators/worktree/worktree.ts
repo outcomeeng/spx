@@ -13,6 +13,9 @@ import type { WorktreeClaimRecord } from "@/domains/worktree/occupancy-store";
 
 const SAMPLE_SEED = 0x574f524b;
 const TOKEN_CHARACTERS = [..."abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789_-"] as const;
+// A character set that mixes safe token characters with characters the claim-name
+// derivation must lowercase or collapse: uppercase letters, dots, spaces, and slashes.
+const RAW_BASENAME_CHARACTERS = [..."abcXYZ012_-. /"] as const;
 const MIN_PID = 1;
 const MAX_PID = 4_194_304;
 const START_TIME_MIN = new Date("2026-01-01T00:00:00.000Z");
@@ -33,6 +36,9 @@ export const WORKTREE_TEST_GENERATOR = {
   tempPrefix: (): fc.Arbitrary<string> =>
     stringFromCharacters(TOKEN_CHARACTERS, { minLength: 1, maxLength: 16 }).map((token) => `${token}-`),
   worktreeName: (): fc.Arbitrary<string> => stringFromCharacters(TOKEN_CHARACTERS, { minLength: 1, maxLength: 48 }),
+  /** A raw worktree basename mixing safe and unsafe characters — stresses lowercasing and collapsing. */
+  rawBasename: (): fc.Arbitrary<string> =>
+    stringFromCharacters(RAW_BASENAME_CHARACTERS, { minLength: 1, maxLength: 48 }),
   host: (): fc.Arbitrary<string> => stringFromCharacters(TOKEN_CHARACTERS, { minLength: 1, maxLength: 32 }),
   sessionId: (): fc.Arbitrary<string> => stringFromCharacters(TOKEN_CHARACTERS, { minLength: 1, maxLength: 36 }),
   pid: (): fc.Arbitrary<number> => fc.integer({ min: MIN_PID, max: MAX_PID }),
