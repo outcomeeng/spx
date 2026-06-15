@@ -20,10 +20,11 @@ const SESSION_PRIORITY_VALUES = Object.values(SESSION_PRIORITY) as readonly Sess
 /**
  * Shape callers supply to `spx session handoff` as the JSON header at the
  * start of stdin: the caller-supplied fields (`priority`, `goal`, `next_step`,
- * `specs`, `files`). Prefilled fields (`git_ref`, `created_at`,
- * `agent_session_id`) are not part of this shape — the handoff command sources
- * `git_ref` from the git context and the others from the process environment
- * and system clock.
+ * `specs`, `files`, and the optional `git_ref` work-branch ref). When `git_ref`
+ * is present, the handoff command records it after confirming the branch exists
+ * on `origin`; when it is absent, the command derives `git_ref` from the git
+ * context. `created_at` and `agent_session_id` are never caller-supplied — the
+ * command sources them from the system clock and process environment.
  */
 export interface HandoffHeaderFixture {
   readonly priority: SessionPriority;
@@ -31,6 +32,8 @@ export interface HandoffHeaderFixture {
   readonly next_step: string;
   readonly specs: readonly string[];
   readonly files: readonly string[];
+  /** Optional explicit work-branch ref the command verifies on `origin` and records as `git_ref`. */
+  readonly git_ref?: string;
 }
 
 /**

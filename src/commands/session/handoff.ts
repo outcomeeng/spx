@@ -22,7 +22,7 @@ import {
   SessionInvalidGoalError,
   SessionInvalidNextStepError,
 } from "@/domains/session/errors";
-import { resolveHandoffGitRef } from "@/domains/session/handoff-base";
+import { resolveHandoffGitRef, resolveWorkBranchGitRef } from "@/domains/session/handoff-base";
 import { parseHandoffInput } from "@/domains/session/parse-handoff-input";
 import { generateSessionId } from "@/domains/session/timestamp";
 import { SESSION_FRONT_MATTER } from "@/domains/session/types";
@@ -35,6 +35,7 @@ import {
   isWorkingTreeClean,
   mainCheckoutPath,
   ORIGIN_REF_PREFIX,
+  originBranchExists,
   resolveDefaultBranch,
   resolveRefSha,
 } from "@/git/root";
@@ -124,6 +125,29 @@ async function resolveSessionGitRef(
 }
 
 /**
+ * Resolves the `git_ref` to record. When the caller supplies an explicit
+ * work-branch ref, probes `origin/<ref>` and records the ref once the branch is
+ * confirmed on `origin` (throwing {@link SessionWorkBranchNotOnOriginError}
+ * otherwise); when no ref is supplied, records the gate-derived base unchanged.
+ *
+ * An absent or empty ref is "no ref supplied" — the gate-derived base is
+ * recorded and no origin probe runs, so the common handoff issues no extra git
+ * call. The handoff-base gate has already validated the running worktree before
+ * this point, so an explicit ref changes only what is recorded, never whether
+ * the handoff is permitted.
+ */
+async function resolveRecordedGitRef(
+  suppliedRef: string | undefined,
+  gateRef: string,
+  cwd: string | undefined,
+  deps: GitDependencies | undefined,
+): Promise<string> {
+  if (suppliedRef === undefined || suppliedRef.length === 0) return gateRef;
+  const existsOnOrigin = await originBranchExists(suppliedRef, cwd, deps);
+  return resolveWorkBranchGitRef(suppliedRef, existsOnOrigin);
+}
+
+/**
  * Executes the handoff command.
  *
  * Creates a new session in the todo directory for pickup by another context.
@@ -132,11 +156,14 @@ async function resolveSessionGitRef(
  *
  * Caller-supplied structured fields come from a JSON object at the start of
  * stdin; bytes after the JSON object form the markdown body verbatim. The
- * CLI prefills `created_at` from the system clock, `git_ref` from the
- * handoff-base gate (branch name in the main checkout on a branch, HEAD SHA
+ * CLI prefills `created_at` from the system clock and `agent_session_id` from
+ * `$CLAUDE_SESSION_ID` (falling back to `$CODEX_THREAD_ID`). `git_ref` is the
+ * gate-derived base (branch name in the main checkout on a branch, HEAD SHA
  * when detached, or the `origin/<default>` tip SHA in a clean detached non-main
- * checkout), and `agent_session_id` from `$CLAUDE_SESSION_ID` (falling back to
- * `$CODEX_THREAD_ID`).
+ * checkout), overridden by an explicit work-branch ref the caller supplies in
+ * the header once the command confirms that branch exists on `origin`. The
+ * handoff-base gate is enforced first regardless, so an explicit ref changes
+ * only what is recorded, never whether the handoff is permitted.
  *
  * Canonical invocation:
  *
@@ -152,6 +179,8 @@ async function resolveSessionGitRef(
  * @throws {SessionInvalidGoalError} When the parsed `goal` is empty
  * @throws {SessionInvalidNextStepError} When the parsed `next_step` is empty
  * @throws {SessionHandoffBaseError} When the git work context cannot anchor a base
+ * @throws {SessionWorkBranchNotOnOriginError} When the caller-supplied
+ *   work-branch ref does not exist on `origin`
  */
 export async function handoffCommand(options: HandoffOptions): Promise<HandoffResult> {
   const { config } = await resolveSessionConfig({
@@ -174,7 +203,8 @@ export async function handoffCommand(options: HandoffOptions): Promise<HandoffRe
     throw new SessionInvalidNextStepError();
   }
 
-  const gitRef = await resolveSessionGitRef(options.cwd, options.deps);
+  const gateRef = await resolveSessionGitRef(options.cwd, options.deps);
+  const gitRef = await resolveRecordedGitRef(header.git_ref, gateRef, options.cwd, options.deps);
 
   const sessionId = generateSessionId();
   const agentSessionId = resolveAgentSessionId(options.env ?? process.env);

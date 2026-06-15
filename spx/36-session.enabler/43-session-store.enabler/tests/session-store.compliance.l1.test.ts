@@ -82,6 +82,43 @@ describe("session-store compliance — legacy YAML frontmatter input rejection",
   });
 });
 
+describe("session-store compliance — declared frontmatter shape", () => {
+  let harness: SessionHarness;
+
+  beforeEach(async () => {
+    harness = await createSessionHarness();
+  });
+
+  afterEach(async () => {
+    await harness.cleanup();
+  });
+
+  it("NEVER: handoff writes a frontmatter key outside the declared shape", async () => {
+    const stdin = buildHandoffStdin(
+      {
+        priority: SESSION_PRIORITY.MEDIUM,
+        goal: "Shape check",
+        next_step: "Inspect frontmatter keys",
+        specs: [],
+        files: [],
+      },
+      "# Shape test",
+    );
+
+    const { output } = await handoffCommand({
+      content: stdin,
+      sessionsDir: harness.sessionsDir,
+      deps: COMPLIANCE_GIT_DEPS,
+    });
+    const frontMatter = parseFrontMatter(await readFile(extractSessionFile(output), "utf-8"));
+
+    const declaredKeys = new Set<string>(Object.values(SESSION_FRONT_MATTER));
+    for (const key of Object.keys(frontMatter)) {
+      expect(declaredKeys.has(key), `unexpected frontmatter key: ${key}`).toBe(true);
+    }
+  });
+});
+
 describe("session-store compliance — frontmatter key registry", () => {
   runValidationRuleTester({
     ruleName: NO_HARDCODED_SESSION_FRONTMATTER_KEYS_RULE_NAME,

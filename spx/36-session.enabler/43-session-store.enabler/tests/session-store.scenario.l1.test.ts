@@ -9,7 +9,7 @@
  * Spec: 43-session-store.enabler/session-store.md
  */
 
-import { readFile, writeFile } from "node:fs/promises";
+import { readdir, readFile, writeFile } from "node:fs/promises";
 import { join } from "node:path";
 
 import fc from "fast-check";
@@ -32,8 +32,9 @@ import {
   SessionLegacyFrontmatterInputError,
   SessionNotAvailableError,
   SessionNotFoundError,
+  SessionWorkBranchNotOnOriginError,
 } from "@/domains/session/errors";
-import { type HandoffGitFacts, resolveHandoffGitRef } from "@/domains/session/handoff-base";
+import { type HandoffGitFacts, resolveHandoffGitRef, resolveWorkBranchGitRef } from "@/domains/session/handoff-base";
 import {
   HANDOFF_BASE_PREREQUISITE_LABEL,
   HANDOFF_BASE_REMEDY,
@@ -1125,5 +1126,136 @@ describe("handoffCommand — handoff-base gate", () => {
         }),
       }),
     ).rejects.toBeInstanceOf(SessionHandoffBaseError);
+  });
+});
+
+// ============================================================
+// Handoff: explicit work-branch ref (PDR-11 — verified on origin)
+// ============================================================
+
+describe("resolveWorkBranchGitRef (explicit work-branch ref)", () => {
+  const WORK_BRANCH = "feat/explicit-work-branch-ref";
+
+  it("GIVEN the supplied ref exists on origin THEN returns the ref unchanged", () => {
+    expect(resolveWorkBranchGitRef(WORK_BRANCH, true)).toBe(WORK_BRANCH);
+  });
+
+  it("GIVEN the supplied ref does not exist on origin THEN throws SessionWorkBranchNotOnOriginError naming the ref", () => {
+    let caught: unknown;
+    try {
+      resolveWorkBranchGitRef(WORK_BRANCH, false);
+    } catch (error) {
+      caught = error;
+    }
+    expect(caught).toBeInstanceOf(SessionWorkBranchNotOnOriginError);
+    expect((caught as SessionWorkBranchNotOnOriginError).workBranch).toBe(WORK_BRANCH);
+    expect((caught as SessionWorkBranchNotOnOriginError).message).toContain(WORK_BRANCH);
+  });
+});
+
+describe("handoffCommand — explicit work-branch ref", () => {
+  const WORK_BRANCH = "feat/explicit-work-branch-ref";
+  let harness: SessionHarness;
+
+  beforeEach(async () => {
+    harness = await createSessionHarness();
+  });
+
+  afterEach(async () => {
+    await harness.cleanup();
+  });
+
+  function handoffStdinWithGitRef(gitRef: string): string {
+    return buildHandoffStdin(
+      { priority: DEFAULT_PRIORITY, goal: TEST_GOAL, next_step: TEST_NEXT_STEP, specs: [], files: [], git_ref: gitRef },
+      "# Test handoff",
+    );
+  }
+
+  async function todoFileCount(): Promise<number> {
+    return (await readdir(harness.statusDir(TODO))).length;
+  }
+
+  it("GIVEN a header git_ref that exists on origin from a permitted base WHEN handoff executes THEN git_ref is the supplied work-branch ref, overriding the derived base", async () => {
+    const { output } = await handoffCommand({
+      content: handoffStdinWithGitRef(WORK_BRANCH),
+      sessionsDir: harness.sessionsDir,
+      deps: createSessionGitDeps({ originWorkBranches: [WORK_BRANCH] }),
+    });
+    const metadata = parseSessionMetadata(await readFile(extractSessionFile(output), "utf-8"));
+
+    expect(metadata.git_ref).toBe(WORK_BRANCH);
+  });
+
+  it("GIVEN an empty-string header git_ref WHEN handoff executes from a permitted base THEN git_ref is the gate-derived base, treating empty as no ref", async () => {
+    // A distinct main-checkout branch so the recorded ref proves the gate path,
+    // not the harness default. No originWorkBranches: an origin probe for the
+    // empty ref would resolve nothing, so a probe would reject — recording the
+    // branch instead proves the empty ref short-circuited to the gate base.
+    const gateBranch = "topic/empty-ref-gate-base";
+    const { output } = await handoffCommand({
+      content: handoffStdinWithGitRef(""),
+      sessionsDir: harness.sessionsDir,
+      deps: createSessionGitDeps({ branch: gateBranch }),
+    });
+    const metadata = parseSessionMetadata(await readFile(extractSessionFile(output), "utf-8"));
+
+    expect(metadata.git_ref).toBe(gateBranch);
+  });
+
+  it("GIVEN a header git_ref that does not exist on origin WHEN handoff executes THEN rejects with SessionWorkBranchNotOnOriginError before writing", async () => {
+    await expect(
+      handoffCommand({
+        content: handoffStdinWithGitRef(WORK_BRANCH),
+        sessionsDir: harness.sessionsDir,
+        deps: createSessionGitDeps({ originWorkBranches: [] }),
+      }),
+    ).rejects.toBeInstanceOf(SessionWorkBranchNotOnOriginError);
+    expect(await todoFileCount()).toBe(0);
+  });
+
+  it("GIVEN a header git_ref that is a revision expression on an existing branch WHEN handoff executes THEN rejects — only an exact remote branch is accepted, not a resolvable revision", async () => {
+    // `feat/...~1` resolves via rev-parse against the existing branch tip, but it
+    // is not an exact remote-tracking ref. The exact-ref check must reject it even
+    // though the base branch exists on origin.
+    await expect(
+      handoffCommand({
+        content: handoffStdinWithGitRef(`${WORK_BRANCH}~1`),
+        sessionsDir: harness.sessionsDir,
+        deps: createSessionGitDeps({ originWorkBranches: [WORK_BRANCH] }),
+      }),
+    ).rejects.toBeInstanceOf(SessionWorkBranchNotOnOriginError);
+    expect(await todoFileCount()).toBe(0);
+  });
+
+  it("GIVEN a header git_ref of HEAD WHEN handoff executes THEN rejects — origin/HEAD is the symbolic default pointer, not a work branch", async () => {
+    // `refs/remotes/origin/HEAD` exists in any clone, so an exact-ref existence
+    // check alone would accept the literal "HEAD" a detached worktree's
+    // `rev-parse --abbrev-ref HEAD` yields. It must be refused as a non-branch.
+    await expect(
+      handoffCommand({
+        content: handoffStdinWithGitRef("HEAD"),
+        sessionsDir: harness.sessionsDir,
+        deps: createSessionGitDeps(),
+      }),
+    ).rejects.toBeInstanceOf(SessionWorkBranchNotOnOriginError);
+    expect(await todoFileCount()).toBe(0);
+  });
+
+  it("GIVEN a header git_ref that exists on origin but a dirty linked worktree WHEN handoff executes THEN rejects with SessionHandoffBaseError — the ref does not bypass the gate", async () => {
+    await expect(
+      handoffCommand({
+        content: handoffStdinWithGitRef(WORK_BRANCH),
+        sessionsDir: harness.sessionsDir,
+        deps: createSessionGitDeps({
+          worktreeKind: "non-main",
+          branch: null,
+          clean: false,
+          detachedAtDefaultTip: true,
+          originWorkBranches: [WORK_BRANCH],
+        }),
+      }),
+    ).rejects.toBeInstanceOf(SessionHandoffBaseError);
+    expect(await todoFileCount()).toBe(0);
   });
 });

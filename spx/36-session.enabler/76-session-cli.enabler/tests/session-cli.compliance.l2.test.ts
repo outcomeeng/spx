@@ -4,6 +4,7 @@ import { readdir, readFile, writeFile } from "node:fs/promises";
 import { join } from "node:path";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 
+import { SessionWorkBranchNotOnOriginError } from "@/domains/session/errors";
 import {
   HANDOFF_BASE_FACT_LABEL,
   HANDOFF_BASE_MARK,
@@ -12,6 +13,7 @@ import {
   HANDOFF_BASE_UNRESOLVED,
   SESSION_HANDOFF_BASE_ERROR_NAME,
 } from "@/domains/session/handoff-base-checklist";
+import { parseSessionMetadata } from "@/domains/session/list";
 import { SESSION_STATUSES, type SessionStatus } from "@/domains/session/types";
 import { GIT_HEAD_SHA_ARGS, GIT_SHOW_TOPLEVEL_ARGS, NOT_GIT_REPO_WARNING } from "@/git/root";
 import { sampleLiteralTestValue } from "@testing/generators/literal/literal";
@@ -574,6 +576,51 @@ describe("session CLI handoff-base refusal checklist", () => {
       expect(result.stderr.trim()).not.toBe("");
       expect(result.stderr).toContain(SESSION_HANDOFF_BASE_ERROR_NAME);
       expect(result.stderr).not.toContain(HANDOFF_BASE_MARK.UNMET);
+      expect(await readdir(harness.statusDir(TODO))).toEqual([]);
+    });
+  });
+
+  it("explicit git_ref present on origin: records the work-branch ref and exits 0", async () => {
+    const workBranch = "feat/cli-explicit-ref";
+    await withGitWorktreeEnv(async (gitEnv) => {
+      await gitEnv.runGit([
+        GIT_TEST_SUBCOMMANDS.COMMIT,
+        GIT_TEST_FLAGS.ALLOW_EMPTY,
+        GIT_TEST_FLAGS.COMMIT_MESSAGE,
+        GIT_FIXTURE_COMMIT_MESSAGE,
+      ]);
+      const sha = await gitEnv.runGit([...GIT_HEAD_SHA_ARGS]);
+      await gitEnv.runGit([
+        GIT_TEST_SUBCOMMANDS.UPDATE_REF,
+        `${GIT_TEST_REF.REMOTE_ORIGIN_PREFIX}${workBranch}`,
+        sha,
+      ]);
+
+      const result = await runSpx(
+        ["session", "handoff", "--sessions-dir", harness.sessionsDir],
+        `{"goal":"Anchor at work branch","next_step":"Resume on the feature branch","git_ref":"${workBranch}"}\n# Session`,
+        gitEnv.productDir,
+      );
+
+      expect(result.exitCode).toBe(0);
+      const sessionFileMatch = result.stdout.match(SESSION_FILE_TAG_PATTERN);
+      expect(sessionFileMatch).not.toBeNull();
+      const metadata = parseSessionMetadata(await readFile(sessionFileMatch![1], "utf-8"));
+      expect(metadata.git_ref).toBe(workBranch);
+    });
+  });
+
+  it("explicit git_ref absent from origin: refuses naming SessionWorkBranchNotOnOriginError and writes no file", async () => {
+    const workBranch = "feat/cli-missing-on-origin";
+    await withCommittedGitCwd(async (cwd) => {
+      const result = await runSpx(
+        ["session", "handoff", "--sessions-dir", harness.sessionsDir],
+        `{"goal":"Anchor at work branch","next_step":"Resume on the feature branch","git_ref":"${workBranch}"}\n# Session`,
+        cwd,
+      );
+
+      expect(result.exitCode).not.toBe(0);
+      expect(result.stderr).toContain(SessionWorkBranchNotOnOriginError.name);
       expect(await readdir(harness.statusDir(TODO))).toEqual([]);
     });
   });

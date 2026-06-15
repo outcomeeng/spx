@@ -14,7 +14,7 @@
  * @module domains/session/handoff-base
  */
 
-import { SessionHandoffBaseError } from "./errors";
+import { SessionHandoffBaseError, SessionWorkBranchNotOnOriginError } from "./errors";
 import {
   HANDOFF_BASE_PREREQUISITE_LABEL,
   HANDOFF_BASE_REMEDY,
@@ -148,4 +148,28 @@ export function resolveHandoffGitRef(facts: HandoffGitFacts): string {
   }
 
   throw new SessionHandoffBaseError({ checklist: buildChecklist(facts, prerequisites) });
+}
+
+/**
+ * Resolves the `git_ref` to record when the caller supplies an explicit
+ * work-branch ref, enforcing that the branch exists on `origin`.
+ *
+ * Pure over the supplied facts — the handler performs the origin probe (via
+ * `originBranchExists`) and passes its existence verdict here. The recorded ref
+ * overrides the git-context base only after this verification; the handoff-base
+ * gate that validates the running worktree is enforced separately by
+ * {@link resolveHandoffGitRef} and is never bypassed by an explicit ref.
+ *
+ * @param workBranch - The caller-supplied work-branch ref.
+ * @param existsOnOrigin - Whether `origin/<workBranch>` exists as an exact
+ *   remote-tracking ref (from `git show-ref --verify --quiet`), which a revision
+ *   expression like `<branch>~1` or the `HEAD` symref does not satisfy.
+ * @returns The work-branch ref to record as `git_ref`.
+ * @throws {SessionWorkBranchNotOnOriginError} When the branch is absent from `origin`.
+ */
+export function resolveWorkBranchGitRef(workBranch: string, existsOnOrigin: boolean): string {
+  if (!existsOnOrigin) {
+    throw new SessionWorkBranchNotOnOriginError(workBranch);
+  }
+  return workBranch;
 }
