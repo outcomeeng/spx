@@ -1,10 +1,9 @@
 /**
  * Agent run journal — a backend-agnostic event-store contract.
  *
- * Governed by spx/15-agent-run-journal.enabler. The journal computes sequence
- * assignment, cursor reads, projection rendering, and seal state as pure
- * functions over an injected backend port; concrete Appendable and Snapshot
- * adapters supply storage from their own modules.
+ * The journal computes sequence assignment, cursor reads, projection rendering,
+ * and seal state as pure functions over an injected backend port; concrete
+ * Appendable and Snapshot adapters supply storage from their own modules.
  */
 
 export type JsonValue =
