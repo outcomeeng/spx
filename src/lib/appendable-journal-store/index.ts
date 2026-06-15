@@ -8,6 +8,7 @@ import {
 import {
   appendJsonlRecord,
   defaultStateStoreFileSystem,
+  hasErrorCode,
   type JsonRecord,
   type StateStoreFileSystem,
 } from "@/lib/state-store";
@@ -94,16 +95,7 @@ async function readFileOrUndefined(fs: StateStoreFileSystem, path: string): Prom
   try {
     return await fs.readFile(path, UTF8);
   } catch (error) {
-    if (isNotFound(error)) return undefined;
+    if (hasErrorCode(error, NOT_FOUND_CODE)) return undefined;
     throw error;
   }
-}
-
-function isNotFound(error: unknown): boolean {
-  return (
-    typeof error === "object"
-    && error !== null
-    && "code" in error
-    && (error as { readonly code?: unknown }).code === NOT_FOUND_CODE
-  );
 }
