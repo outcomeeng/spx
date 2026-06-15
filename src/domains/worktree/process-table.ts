@@ -21,7 +21,8 @@ export interface ProcessTable extends ProcessProbe {
   commandOf(pid: number): string | undefined;
 }
 
-const PS_COMMAND = "ps";
+// Absolute path to a fixed, unwriteable location so PATH cannot shadow `ps`.
+const PS_COMMAND = "/bin/ps";
 const PS_FIELD = {
   START_TIME: "lstart",
   PARENT_PID: "ppid",
