@@ -35,7 +35,7 @@ jobs:
     # (Documented exception subsection). Renovate cannot advance this
     # reference; that is the point — pin it back to a SHA when this repo
     # graduates to production usage.
-    uses: outcomeeng/gh-actions/.github/workflows/spec-tree.yml@main
+    uses: outcomeeng/gh-actions/.github/workflows/spec-tree.yml@e81ad84fb9a77bcc0554f099f498263ddad07450 # main
     secrets:
       CLAUDE_CODE_OAUTH_TOKEN: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
 
