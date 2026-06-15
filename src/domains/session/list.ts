@@ -181,7 +181,7 @@ export const SESSION_RECORD_FIELD = {
   FILES: SESSION_FRONT_MATTER.FILES,
   CREATED_AT: SESSION_FRONT_MATTER.CREATED_AT,
   AGENT_SESSION_ID: SESSION_FRONT_MATTER.AGENT_SESSION_ID,
-} as const;
+} as const satisfies Record<string, keyof SessionRecord>;
 
 export type SessionRecordField = (typeof SESSION_RECORD_FIELD)[keyof typeof SESSION_RECORD_FIELD];
 
@@ -249,7 +249,7 @@ export function projectSessionRecord(
 ): Record<string, unknown> {
   const projected: Record<string, unknown> = {};
   for (const field of fields) {
-    const value = record[field as keyof SessionRecord];
+    const value = record[field];
     if (value !== undefined) {
       projected[field] = value;
     }
