@@ -9,7 +9,6 @@ import {
   createAuditRunFile,
   writeTerminalAuditRunState,
 } from "@/commands/audit/run-state";
-import { AUDIT_VERDICT_VALUE } from "@/domains/audit/reader";
 import {
   AUDIT_RUN_STATE_DISPLAY,
   AUDIT_RUN_STATE_ERROR,
@@ -144,7 +143,7 @@ describe("audit run-file storage", () => {
   });
 
   it("renders rejected terminal state with the audit verdict vocabulary", () => {
-    expect(AUDIT_RUN_STATE_DISPLAY[AUDIT_RUN_STATE_STATUS.REJECTED]).toBe(AUDIT_VERDICT_VALUE.REJECT);
+    expect(AUDIT_RUN_STATE_DISPLAY[AUDIT_RUN_STATE_STATUS.REJECTED]).toBe("REJECT");
   });
 
   it("writes terminal state into the reserved JSONL run file", async () => {

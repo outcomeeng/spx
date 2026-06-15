@@ -1,8 +1,5 @@
-import { join } from "node:path";
-
 import { describe, expect, it } from "vitest";
 
-import { runVerifyCommand } from "@/commands/audit/verify";
 import { resolveConfig } from "@/config/index";
 import { PATH_FILTER_CONFIG_FIELDS } from "@/config/primitives/path-filter";
 import { productionRegistry } from "@/config/registry";
@@ -14,10 +11,8 @@ import {
   auditConfigDescriptor,
   DEFAULT_AUDIT_CONFIG,
 } from "@/domains/audit/config";
-import { AUDIT_GATE_STATUS, AUDIT_VERDICT_VALUE } from "@/domains/audit/reader";
 import { VALIDATION_SECTION, validationConfigDescriptor } from "@/validation/config/descriptor";
 import { CONFIG_TEST_GENERATOR, sampleConfigTestValue } from "@testing/generators/config/descriptors";
-import { renderAuditVerdictXml } from "@testing/harnesses/audit/harness";
 import type { Config } from "@testing/harnesses/spec-tree/spec-tree";
 import { withTestEnv } from "@testing/harnesses/spec-tree/spec-tree";
 
@@ -36,7 +31,6 @@ function expectRejectedConfig(result: Awaited<ReturnType<typeof resolveConfig>>,
 }
 
 function assertAuditConfig(value: unknown): AuditConfig {
-  expect(value).toHaveProperty(AUDIT_CONFIG_FIELDS.STORAGE);
   expect(value).toHaveProperty(AUDIT_CONFIG_FIELDS.BASE_REF);
   expect(value).toHaveProperty(AUDIT_CONFIG_FIELDS.AUDITORS);
   expect(value).toHaveProperty(AUDIT_CONFIG_FIELDS.TARGETS);
@@ -61,17 +55,10 @@ describe("audit config descriptor", () => {
     });
   });
 
-  it("resolves storage, base ref, auditors, and target filters from config", async () => {
+  it("resolves base ref, auditors, and target filters from config", async () => {
     const filter = sampleConfigTestValue(CONFIG_TEST_GENERATOR.pathFilter());
-    const storage = {
-      [AUDIT_CONFIG_FIELDS.SPX_DIR]: sampleConfigTestValue(CONFIG_TEST_GENERATOR.key()),
-      [AUDIT_CONFIG_FIELDS.NODES_DIR]: sampleConfigTestValue(CONFIG_TEST_GENERATOR.key()),
-      [AUDIT_CONFIG_FIELDS.VERDICT_FILE]: sampleConfigTestValue(CONFIG_TEST_GENERATOR.key()),
-      [AUDIT_CONFIG_FIELDS.VERDICT_FILE_SUFFIX]: sampleConfigTestValue(CONFIG_TEST_GENERATOR.key()),
-    };
     const config: Config = {
       [AUDIT_SECTION]: {
-        [AUDIT_CONFIG_FIELDS.STORAGE]: storage,
         [AUDIT_CONFIG_FIELDS.BASE_REF]: sampleConfigTestValue(CONFIG_TEST_GENERATOR.key()),
         [AUDIT_CONFIG_FIELDS.AUDITORS]: [
           sampleConfigTestValue(CONFIG_TEST_GENERATOR.key()),
@@ -86,27 +73,19 @@ describe("audit config descriptor", () => {
       const resolved = expectResolvedConfig(result);
       const audit = assertAuditConfig(resolved[AUDIT_SECTION]);
 
-      expect(audit.storage).toEqual(storage);
       expect(audit.baseRef).toEqual(config[AUDIT_SECTION][AUDIT_CONFIG_FIELDS.BASE_REF]);
       expect(audit.auditors).toEqual(config[AUDIT_SECTION][AUDIT_CONFIG_FIELDS.AUDITORS]);
       expect(audit.targets).toEqual(filter);
     });
   });
 
-  it("rejects invalid storage, auditor, and target-filter shapes before audit execution", async () => {
+  it("rejects unknown audit fields, invalid auditors, and invalid target-filter shapes before audit execution", async () => {
     const invalidPathFilter = sampleConfigTestValue(CONFIG_TEST_GENERATOR.invalidPathFilter());
     const unknownValue = sampleConfigTestValue(CONFIG_TEST_GENERATOR.scalar());
     const unknownAuditField = sampleUnknownField([
-      AUDIT_CONFIG_FIELDS.STORAGE,
       AUDIT_CONFIG_FIELDS.BASE_REF,
       AUDIT_CONFIG_FIELDS.AUDITORS,
       AUDIT_CONFIG_FIELDS.TARGETS,
-    ]);
-    const unknownStorageField = sampleUnknownField([
-      AUDIT_CONFIG_FIELDS.SPX_DIR,
-      AUDIT_CONFIG_FIELDS.NODES_DIR,
-      AUDIT_CONFIG_FIELDS.VERDICT_FILE,
-      AUDIT_CONFIG_FIELDS.VERDICT_FILE_SUFFIX,
     ]);
     const cases: readonly { readonly config: Config; readonly errorPath: string }[] = [
       {
@@ -116,26 +95,6 @@ describe("audit config descriptor", () => {
           },
         },
         errorPath: auditPath(unknownAuditField),
-      },
-      {
-        config: {
-          [AUDIT_SECTION]: {
-            [AUDIT_CONFIG_FIELDS.STORAGE]: {
-              [unknownStorageField]: unknownValue,
-            },
-          },
-        },
-        errorPath: auditPath(AUDIT_CONFIG_FIELDS.STORAGE, unknownStorageField),
-      },
-      {
-        config: {
-          [AUDIT_SECTION]: {
-            [AUDIT_CONFIG_FIELDS.STORAGE]: {
-              [AUDIT_CONFIG_FIELDS.VERDICT_FILE]: {},
-            },
-          },
-        },
-        errorPath: auditPath(AUDIT_CONFIG_FIELDS.STORAGE, AUDIT_CONFIG_FIELDS.VERDICT_FILE),
       },
       {
         config: {
@@ -168,7 +127,7 @@ describe("audit config descriptor", () => {
     const config: Config = {
       [AUDIT_SECTION]: {
         [AUDIT_CONFIG_FIELDS.TARGETS]: {
-          [PATH_FILTER_CONFIG_FIELDS.INCLUDE]: [DEFAULT_AUDIT_CONFIG.storage.spxDir],
+          [PATH_FILTER_CONFIG_FIELDS.INCLUDE]: [sampleConfigTestValue(CONFIG_TEST_GENERATOR.key())],
         },
       },
     };
@@ -182,45 +141,6 @@ describe("audit config descriptor", () => {
         config[AUDIT_SECTION][AUDIT_CONFIG_FIELDS.TARGETS],
       );
       expect(resolved[VALIDATION_SECTION]).toEqual(validationConfigDescriptor.defaults);
-    });
-  });
-
-  it("leaves explicit audit verdict verification independent from audit target filters", async () => {
-    const excludedTarget = sampleConfigTestValue(CONFIG_TEST_GENERATOR.key());
-    const config: Config = {
-      [AUDIT_SECTION]: {
-        [AUDIT_CONFIG_FIELDS.TARGETS]: {
-          [PATH_FILTER_CONFIG_FIELDS.EXCLUDE]: [excludedTarget],
-        },
-      },
-    };
-    const verdictXml = renderAuditVerdictXml({
-      specNode: sampleConfigTestValue(CONFIG_TEST_GENERATOR.key()),
-      verdict: AUDIT_VERDICT_VALUE.APPROVED,
-      timestamp: sampleConfigTestValue(CONFIG_TEST_GENERATOR.scalar()),
-      gates: [
-        {
-          name: sampleConfigTestValue(CONFIG_TEST_GENERATOR.key()),
-          status: AUDIT_GATE_STATUS.PASS,
-          findings: [],
-        },
-      ],
-    });
-
-    await withTestEnv(config, async ({ productDir, writeRaw }) => {
-      const configResult = await resolveConfig(productDir, [auditConfigDescriptor]);
-      expectResolvedConfig(configResult);
-      await writeRaw(DEFAULT_AUDIT_CONFIG.storage.verdictFile, verdictXml);
-      const output: string[] = [];
-
-      const exitCode = await runVerifyCommand(
-        join(productDir, DEFAULT_AUDIT_CONFIG.storage.verdictFile),
-        productDir,
-        (line) => output.push(line),
-      );
-
-      expect(exitCode).toBe(0);
-      expect(output).toEqual([AUDIT_VERDICT_VALUE.APPROVED]);
     });
   });
 });

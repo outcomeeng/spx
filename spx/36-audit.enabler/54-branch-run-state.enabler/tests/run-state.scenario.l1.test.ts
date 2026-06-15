@@ -1,149 +1,143 @@
-import { mkdir, mkdtemp, rm, writeFile } from "node:fs/promises";
-import { tmpdir } from "node:os";
-import { join } from "node:path";
-
 import { describe, expect, it } from "vitest";
 
 import { type AuditRunStateFileSystem, readAuditBranchRuns } from "@/commands/audit/run-state";
-import { runVerifyFilePipeline } from "@/commands/audit/verify";
-import { DEFAULT_AUDIT_CONFIG } from "@/domains/audit/config";
-import { AUDIT_GATE_STATUS, AUDIT_VERDICT_VALUE } from "@/domains/audit/reader";
-import { STATE_STORE_ERROR } from "@/lib/state-store";
 import {
+  AUDIT_RUN_EVENT,
   AUDIT_RUN_STATE_INCOMPLETE_REASON,
   AUDIT_RUN_STATE_STATUS,
+  auditRunStateRecord,
+  foldAuditRunState,
   formatAuditRunTimestamp,
   selectLatestTerminalAuditRun,
 } from "@/domains/audit/run-state";
+import { CLOUDEVENTS_SPECVERSION, JOURNAL_SEQ_BASE, type JournalEvent, type JsonValue } from "@/lib/agent-run-journal";
+import { STATE_STORE_ERROR } from "@/lib/state-store";
 import { AUDIT_RUN_STATE_TEST_GENERATOR, sampleAuditRunStateTestValue } from "@testing/generators/audit/run-state";
 import { CONFIG_TEST_GENERATOR, sampleConfigTestValue } from "@testing/generators/config/descriptors";
-import { auditBranchRunsDir, createAuditHarness, renderAuditVerdictXml } from "@testing/harnesses/audit/harness";
+import {
+  auditBranchRunsDir,
+  createAuditHarness,
+  writeAuditRunJournal,
+  writeAuditRunJournalContent,
+} from "@testing/harnesses/audit/harness";
 
-async function writeState(
-  productDir: string,
-  branchSlug: string,
-  runFileName: string,
-  state: unknown,
-): Promise<void> {
-  const runsDir = auditBranchRunsDir(productDir, branchSlug);
-  await mkdir(runsDir, { recursive: true });
-  await writeFile(join(runsDir, runFileName), `${JSON.stringify(state)}\n`);
+function completedEvent(data: JsonValue, seq: number): JournalEvent {
+  const streamId = sampleConfigTestValue(CONFIG_TEST_GENERATOR.key());
+  return {
+    id: `${AUDIT_RUN_EVENT.COMPLETED_TYPE}:${seq}`,
+    source: AUDIT_RUN_EVENT.SOURCE,
+    type: AUDIT_RUN_EVENT.COMPLETED_TYPE,
+    specversion: CLOUDEVENTS_SPECVERSION,
+    time: formatAuditRunTimestamp(sampleAuditRunStateTestValue(AUDIT_RUN_STATE_TEST_GENERATOR.timestampDate())),
+    streamid: streamId,
+    seq,
+    runid: streamId,
+    attempt: seq,
+    data,
+  };
 }
 
-async function withTempProductDir(callback: (productDir: string) => Promise<void>): Promise<void> {
-  const productDir = await mkdtemp(join(tmpdir(), sampleConfigTestValue(CONFIG_TEST_GENERATOR.tempPrefix())));
+async function withAuditHarness(callback: (productDir: string) => Promise<void>): Promise<void> {
+  const harness = await createAuditHarness();
   try {
-    await callback(productDir);
+    await callback(harness.productDir);
   } finally {
-    await rm(productDir, { recursive: true, force: true });
+    await harness.cleanup();
   }
 }
 
-const RUN_FILE_NAME = sampleAuditRunStateTestValue(AUDIT_RUN_STATE_TEST_GENERATOR.runFileName());
+describe("audit run-state projection fold", () => {
+  it("folds a completed event's payload into the AuditRunState envelope", () => {
+    const state = sampleAuditRunStateTestValue(AUDIT_RUN_STATE_TEST_GENERATOR.auditRunState());
 
-function createReadFailingFileSystem(error: Error & { readonly code: string }): AuditRunStateFileSystem {
-  return {
-    mkdir: () => Promise.resolve(),
-    writeFile: () => Promise.resolve(),
-    appendFile: () => Promise.resolve(),
-    readFile: async () => {
-      throw error;
-    },
-    readdir: async () => [
-      {
-        name: RUN_FILE_NAME,
-        isFile: () => true,
-      },
-    ],
-  };
-}
+    const result = foldAuditRunState([completedEvent(auditRunStateRecord(state) as JsonValue, JOURNAL_SEQ_BASE)]);
 
-function createRecordingReadFileSystem(
-  entries: readonly string[],
-  state: unknown,
-  readPaths: string[],
-): AuditRunStateFileSystem {
-  return {
-    mkdir: () => Promise.resolve(),
-    writeFile: () => Promise.resolve(),
-    appendFile: () => Promise.resolve(),
-    readFile: async (path) => {
-      readPaths.push(path);
-      return JSON.stringify(state);
-    },
-    readdir: async () =>
-      entries.map((name) => ({
-        name,
-        isFile: () => true,
-      })),
-  };
-}
+    expect(result.ok).toBe(true);
+    if (!result.ok) throw new Error(result.reason);
+    expect(result.value).toEqual(state);
+  });
+
+  it("treats a journal with no completed event as missing terminal state", () => {
+    const result = foldAuditRunState([]);
+
+    expect(result).toEqual({ ok: false, reason: AUDIT_RUN_STATE_INCOMPLETE_REASON.MISSING_STATE });
+  });
+
+  it("treats a completed event with an invalid payload as shape-invalid", () => {
+    const invalidPayload = { status: sampleAuditRunStateTestValue(AUDIT_RUN_STATE_TEST_GENERATOR.branchName()) };
+
+    const result = foldAuditRunState([completedEvent(invalidPayload as JsonValue, JOURNAL_SEQ_BASE)]);
+
+    expect(result.ok).toBe(false);
+    if (result.ok) throw new Error("expected shape-invalid fold");
+    expect(result.reason).toBe(AUDIT_RUN_STATE_INCOMPLETE_REASON.SHAPE_INVALID_STATE);
+  });
+
+  it("folds the latest completed event when several are present", () => {
+    const earlier = sampleAuditRunStateTestValue(AUDIT_RUN_STATE_TEST_GENERATOR.auditRunState());
+    const latest = sampleAuditRunStateTestValue(AUDIT_RUN_STATE_TEST_GENERATOR.auditRunState());
+
+    const result = foldAuditRunState([
+      completedEvent(auditRunStateRecord(earlier) as JsonValue, JOURNAL_SEQ_BASE),
+      completedEvent(auditRunStateRecord(latest) as JsonValue, JOURNAL_SEQ_BASE + 1),
+    ]);
+
+    expect(result.ok).toBe(true);
+    if (!result.ok) throw new Error(result.reason);
+    expect(result.value).toEqual(latest);
+  });
+});
 
 describe("audit branch run-state lookup", () => {
-  it("classifies missing, parse-invalid, and shape-invalid run files as incomplete evidence", async () => {
+  it("reads terminal run journals and classifies malformed journals as incomplete evidence", async () => {
     const branchSlug = sampleAuditRunStateTestValue(AUDIT_RUN_STATE_TEST_GENERATOR.branchSlug());
-    const missingRun = sampleAuditRunStateTestValue(AUDIT_RUN_STATE_TEST_GENERATOR.runFileName());
-    const partialRun = sampleAuditRunStateTestValue(AUDIT_RUN_STATE_TEST_GENERATOR.runFileName());
-    const malformedLatestRun = sampleAuditRunStateTestValue(AUDIT_RUN_STATE_TEST_GENERATOR.runFileName());
-    const invalidRun = sampleAuditRunStateTestValue(AUDIT_RUN_STATE_TEST_GENERATOR.runFileName());
-    const missingError = Object.assign(new Error("missing"), { code: "ENOENT" });
-    const validState = sampleAuditRunStateTestValue(AUDIT_RUN_STATE_TEST_GENERATOR.auditRunState());
+    const terminalRun = sampleAuditRunStateTestValue(AUDIT_RUN_STATE_TEST_GENERATOR.runFileName());
+    const malformedRun = sampleAuditRunStateTestValue(AUDIT_RUN_STATE_TEST_GENERATOR.runFileName());
+    const state = sampleAuditRunStateTestValue(AUDIT_RUN_STATE_TEST_GENERATOR.auditRunState());
 
-    await withTempProductDir(async (productDir) => {
-      const result = await readAuditBranchRuns(productDir, branchSlug, {
-        fs: {
-          mkdir: () => Promise.resolve(),
-          writeFile: () => Promise.resolve(),
-          appendFile: () => Promise.resolve(),
-          readdir: async () => [
-            { name: missingRun, isFile: () => true },
-            { name: partialRun, isFile: () => true },
-            { name: malformedLatestRun, isFile: () => true },
-            { name: invalidRun, isFile: () => true },
-          ],
-          readFile: async (path) => {
-            if (path.endsWith(missingRun)) throw missingError;
-            if (path.endsWith(partialRun)) return "{";
-            if (path.endsWith(malformedLatestRun)) return `${JSON.stringify(validState)}\n{\n`;
-            return JSON.stringify({
-              ...validState,
-              status: sampleAuditRunStateTestValue(AUDIT_RUN_STATE_TEST_GENERATOR.branchName()),
-            });
-          },
-        },
-      });
+    await withAuditHarness(async (productDir) => {
+      await writeAuditRunJournal(productDir, branchSlug, terminalRun, [state]);
+      await writeAuditRunJournalContent(productDir, branchSlug, malformedRun, "{\n");
+
+      const result = await readAuditBranchRuns(productDir, branchSlug);
 
       expect(result.ok).toBe(true);
       if (!result.ok) throw new Error(result.error);
-      expect(result.value.terminalRuns).toEqual([]);
-      expect(result.value.incompleteRuns.map((run) => run.reason).sort()).toEqual(
-        [
-          AUDIT_RUN_STATE_INCOMPLETE_REASON.MISSING_STATE,
-          AUDIT_RUN_STATE_INCOMPLETE_REASON.PARSE_INVALID_STATE,
-          AUDIT_RUN_STATE_INCOMPLETE_REASON.PARSE_INVALID_STATE,
-          AUDIT_RUN_STATE_INCOMPLETE_REASON.SHAPE_INVALID_STATE,
-        ].sort(),
-      );
+      expect(result.value.terminalRuns.map((run) => run.runFileName)).toEqual([terminalRun]);
+      expect(result.value.terminalRuns[0]?.state).toEqual(state);
+      expect(result.value.incompleteRuns).toEqual([
+        {
+          runFileName: malformedRun,
+          runFilePath: `${auditBranchRunsDir(productDir, branchSlug)}/${malformedRun}`,
+          reason: AUDIT_RUN_STATE_INCOMPLETE_REASON.MISSING_STATE,
+        },
+      ]);
     });
   });
 
-  it("classifies state file read failures as I/O incomplete evidence", async () => {
+  it("classifies run-journal read failures as I/O incomplete evidence", async () => {
     const branchSlug = sampleAuditRunStateTestValue(AUDIT_RUN_STATE_TEST_GENERATOR.branchSlug());
+    const runFileName = sampleAuditRunStateTestValue(AUDIT_RUN_STATE_TEST_GENERATOR.runFileName());
     const errorCode = sampleConfigTestValue(CONFIG_TEST_GENERATOR.key());
     const error = Object.assign(new Error(errorCode), { code: errorCode });
+    const fs: AuditRunStateFileSystem = {
+      mkdir: () => Promise.resolve(),
+      writeFile: () => Promise.resolve(),
+      appendFile: () => Promise.resolve(),
+      readFile: () => Promise.reject(error),
+      readdir: () => Promise.resolve([{ name: runFileName, isFile: () => true }]),
+    };
 
-    await withTempProductDir(async (productDir) => {
-      const result = await readAuditBranchRuns(productDir, branchSlug, {
-        fs: createReadFailingFileSystem(error),
-      });
+    await withAuditHarness(async (productDir) => {
+      const result = await readAuditBranchRuns(productDir, branchSlug, { fs });
 
       expect(result.ok).toBe(true);
       if (!result.ok) throw new Error(result.error);
       expect(result.value.terminalRuns).toEqual([]);
       expect(result.value.incompleteRuns).toEqual([
         {
-          runFileName: RUN_FILE_NAME,
-          runFilePath: join(auditBranchRunsDir(productDir, branchSlug), RUN_FILE_NAME),
+          runFileName,
+          runFilePath: `${auditBranchRunsDir(productDir, branchSlug)}/${runFileName}`,
           reason: AUDIT_RUN_STATE_INCOMPLETE_REASON.IO_ERROR,
           error: errorCode,
         },
@@ -151,25 +145,22 @@ describe("audit branch run-state lookup", () => {
     });
   });
 
-  it("ignores entries that are not audit run files before reading state", async () => {
+  it("ignores entries that are not audit run files", async () => {
     const branchSlug = sampleAuditRunStateTestValue(AUDIT_RUN_STATE_TEST_GENERATOR.branchSlug());
-    const invalidEntryName = sampleAuditRunStateTestValue(AUDIT_RUN_STATE_TEST_GENERATOR.branchName());
-    const validRunFileName = sampleAuditRunStateTestValue(AUDIT_RUN_STATE_TEST_GENERATOR.runFileName());
+    const runFileName = sampleAuditRunStateTestValue(AUDIT_RUN_STATE_TEST_GENERATOR.runFileName());
+    const nonRunFileName = sampleAuditRunStateTestValue(AUDIT_RUN_STATE_TEST_GENERATOR.branchName());
     const state = sampleAuditRunStateTestValue(AUDIT_RUN_STATE_TEST_GENERATOR.auditRunState());
-    const readPaths: string[] = [];
 
-    await withTempProductDir(async (productDir) => {
-      const result = await readAuditBranchRuns(productDir, branchSlug, {
-        fs: createRecordingReadFileSystem([invalidEntryName, validRunFileName], state, readPaths),
-      });
+    await withAuditHarness(async (productDir) => {
+      await writeAuditRunJournal(productDir, branchSlug, runFileName, [state]);
+      await writeAuditRunJournalContent(productDir, branchSlug, nonRunFileName, "{\n");
+
+      const result = await readAuditBranchRuns(productDir, branchSlug);
 
       expect(result.ok).toBe(true);
       if (!result.ok) throw new Error(result.error);
+      expect(result.value.terminalRuns.map((run) => run.runFileName)).toEqual([runFileName]);
       expect(result.value.incompleteRuns).toEqual([]);
-      expect(result.value.terminalRuns.map((run) => run.runFileName)).toEqual([validRunFileName]);
-      expect(readPaths).toEqual([
-        join(auditBranchRunsDir(productDir, branchSlug), validRunFileName),
-      ]);
     });
   });
 
@@ -185,24 +176,16 @@ describe("audit branch run-state lookup", () => {
     const earlierStartedAt = formatAuditRunTimestamp(baseDate);
     const laterStartedAt = formatAuditRunTimestamp(new Date(baseDate.getTime() + 2));
 
-    await withTempProductDir(async (productDir) => {
-      await writeState(productDir, branchSlug, earlierRun, {
-        ...baseState,
-        status: AUDIT_RUN_STATE_STATUS.APPROVED,
-        completedAt: earlierCompletedAt,
-      });
-      await writeState(productDir, branchSlug, laterStartedRun, {
-        ...baseState,
-        status: AUDIT_RUN_STATE_STATUS.REJECTED,
-        completedAt,
-        startedAt: earlierStartedAt,
-      });
-      await writeState(productDir, branchSlug, tieBreakerRun, {
-        ...baseState,
-        status: AUDIT_RUN_STATE_STATUS.FAILED,
-        completedAt,
-        startedAt: laterStartedAt,
-      });
+    await withAuditHarness(async (productDir) => {
+      await writeAuditRunJournal(productDir, branchSlug, earlierRun, [
+        { ...baseState, status: AUDIT_RUN_STATE_STATUS.APPROVED, completedAt: earlierCompletedAt },
+      ]);
+      await writeAuditRunJournal(productDir, branchSlug, laterStartedRun, [
+        { ...baseState, status: AUDIT_RUN_STATE_STATUS.REJECTED, completedAt, startedAt: earlierStartedAt },
+      ]);
+      await writeAuditRunJournal(productDir, branchSlug, tieBreakerRun, [
+        { ...baseState, status: AUDIT_RUN_STATE_STATUS.FAILED, completedAt, startedAt: laterStartedAt },
+      ]);
 
       const result = await readAuditBranchRuns(productDir, branchSlug);
 
@@ -212,67 +195,13 @@ describe("audit branch run-state lookup", () => {
     });
   });
 
-  it("does not index node-first verdict artifacts for branch run lookup", async () => {
-    const branchSlug = sampleAuditRunStateTestValue(AUDIT_RUN_STATE_TEST_GENERATOR.branchSlug());
-
-    await withTempProductDir(async (productDir) => {
-      await mkdir(join(productDir, DEFAULT_AUDIT_CONFIG.storage.spxDir, DEFAULT_AUDIT_CONFIG.storage.nodesDir), {
-        recursive: true,
-      });
-      await writeFile(
-        join(
-          productDir,
-          DEFAULT_AUDIT_CONFIG.storage.spxDir,
-          DEFAULT_AUDIT_CONFIG.storage.nodesDir,
-          DEFAULT_AUDIT_CONFIG.storage.verdictFile,
-        ),
-        sampleAuditRunStateTestValue(AUDIT_RUN_STATE_TEST_GENERATOR.branchName()),
-      );
-
-      const result = await readAuditBranchRuns(productDir, branchSlug);
-
-      expect(result.ok).toBe(true);
-      if (!result.ok) throw new Error(result.error);
-      expect(result.value.terminalRuns).toEqual([]);
-      expect(result.value.incompleteRuns).toEqual([]);
-    });
-  });
-
   it("rejects unnormalized branch slugs before reading branch runs", async () => {
     const invalidBranchSlug = sampleAuditRunStateTestValue(AUDIT_RUN_STATE_TEST_GENERATOR.branchName());
 
-    await withTempProductDir(async (productDir) => {
+    await withAuditHarness(async (productDir) => {
       const result = await readAuditBranchRuns(productDir, invalidBranchSlug);
 
       expect(result).toEqual({ ok: false, error: STATE_STORE_ERROR.INVALID_BRANCH_SLUG });
     });
-  });
-
-  it("keeps node-first verdict artifacts verifiable when supplied as explicit files", async () => {
-    const harness = await createAuditHarness();
-    const nodePath = sampleAuditRunStateTestValue(AUDIT_RUN_STATE_TEST_GENERATOR.branchName());
-    const verdictXml = renderAuditVerdictXml({
-      specNode: nodePath,
-      verdict: AUDIT_VERDICT_VALUE.APPROVED,
-      timestamp: formatAuditRunTimestamp(sampleAuditRunStateTestValue(AUDIT_RUN_STATE_TEST_GENERATOR.timestampDate())),
-      gates: [
-        {
-          name: sampleConfigTestValue(CONFIG_TEST_GENERATOR.key()),
-          status: AUDIT_GATE_STATUS.PASS,
-          findings: [],
-        },
-      ],
-    });
-
-    try {
-      const filePath = await harness.writeVerdict(nodePath, verdictXml);
-
-      const result = await runVerifyFilePipeline(filePath, harness.productDir);
-
-      expect(result.exitCode).toBe(0);
-      expect(result.verdict).toBe(AUDIT_VERDICT_VALUE.APPROVED);
-    } finally {
-      await harness.cleanup();
-    }
   });
 });

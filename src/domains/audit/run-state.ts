@@ -1,16 +1,19 @@
 import type { Result } from "@/config/types";
+import type { JournalEvent, JournalEventInput } from "@/lib/agent-run-journal";
 import {
   compareAsciiStrings,
   formatRunTimestamp,
+  type JsonRecord,
   resolveBranchIdentity,
   runFileName,
   slugBranchIdentity,
-  type JsonRecord,
 } from "@/lib/state-store";
 
-import { AUDIT_VERDICT_VALUE } from "./reader";
-
-export { formatRunTimestamp as formatAuditRunTimestamp, resolveBranchIdentity as resolveAuditBranchIdentity, slugBranchIdentity as slugAuditBranchIdentity };
+export {
+  formatRunTimestamp as formatAuditRunTimestamp,
+  resolveBranchIdentity as resolveAuditBranchIdentity,
+  slugBranchIdentity as slugAuditBranchIdentity,
+};
 
 export const AUDIT_RUN_STATE_STATUS = {
   APPROVED: "approved",
@@ -21,7 +24,7 @@ export const AUDIT_RUN_STATE_STATUS = {
 
 export const AUDIT_RUN_STATE_DISPLAY = {
   [AUDIT_RUN_STATE_STATUS.APPROVED]: "APPROVED",
-  [AUDIT_RUN_STATE_STATUS.REJECTED]: AUDIT_VERDICT_VALUE.REJECT,
+  [AUDIT_RUN_STATE_STATUS.REJECTED]: "REJECT",
   [AUDIT_RUN_STATE_STATUS.FAILED]: "FAILED",
   [AUDIT_RUN_STATE_STATUS.INTERRUPTED]: "INTERRUPTED",
 } as const;
@@ -43,7 +46,6 @@ export const AUDIT_RUN_STATE_FIELDS = {
 export const AUDIT_RUN_STATE_INCOMPLETE_REASON = {
   MISSING_STATE: "missing-state",
   IO_ERROR: "io-error",
-  PARSE_INVALID_STATE: "parse-invalid-state",
   SHAPE_INVALID_STATE: "shape-invalid-state",
 } as const;
 
@@ -132,19 +134,34 @@ export function auditRunStateRecord(state: AuditRunState): JsonRecord {
   };
 }
 
-export function parseAuditRunStateContent(raw: string): AuditRunStateParseResult {
-  let parsed: unknown;
-  try {
-    parsed = JSON.parse(raw) as unknown;
-  } catch (error) {
-    return {
-      ok: false,
-      reason: AUDIT_RUN_STATE_INCOMPLETE_REASON.PARSE_INVALID_STATE,
-      error: toErrorMessage(error),
-    };
-  }
+export const AUDIT_RUN_EVENT = {
+  SOURCE: "/spx/audit",
+  COMPLETED_TYPE: "com.outcomeeng.spx.audit.run.completed",
+} as const;
 
-  const validated = validateAuditRunState(parsed);
+export function auditRunCompletedEventInput(
+  state: AuditRunState,
+  meta: { readonly id: string; readonly time: string; readonly attempt: number },
+): JournalEventInput {
+  return {
+    id: meta.id,
+    source: AUDIT_RUN_EVENT.SOURCE,
+    type: AUDIT_RUN_EVENT.COMPLETED_TYPE,
+    time: meta.time,
+    attempt: meta.attempt,
+    data: auditRunStateRecord(state),
+  };
+}
+
+export function foldAuditRunState(events: readonly JournalEvent[]): AuditRunStateParseResult {
+  let completed: JournalEvent | undefined;
+  for (const event of events) {
+    if (event.type === AUDIT_RUN_EVENT.COMPLETED_TYPE) completed = event;
+  }
+  if (completed === undefined) {
+    return { ok: false, reason: AUDIT_RUN_STATE_INCOMPLETE_REASON.MISSING_STATE };
+  }
+  const validated = validateAuditRunState(completed.data);
   if (!validated.ok) {
     return {
       ok: false,
@@ -227,8 +244,4 @@ export function isAuditRunStateStatus(value: unknown): value is AuditRunStateSta
 
 function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === "object" && value !== null && !Array.isArray(value);
-}
-
-function toErrorMessage(error: unknown): string {
-  return error instanceof Error ? error.message : String(error);
 }

@@ -1,35 +1,34 @@
-import { join } from "node:path";
+import { basename, join } from "node:path";
 
 import type { Result } from "@/config/types";
 import {
+  AUDIT_RUN_EVENT,
   AUDIT_RUN_STATE_ERROR,
   AUDIT_RUN_STATE_INCOMPLETE_REASON,
-  auditRunStateRecord,
   type AuditBranchRuns,
   type AuditIncompleteRun,
+  auditRunCompletedEventInput,
   type AuditRunState,
   type AuditRunStateParseResult,
   type AuditTerminalRun,
+  foldAuditRunState,
   isAuditRunStateStatus,
-  parseAuditRunStateContent,
 } from "@/domains/audit/run-state";
+import { createJournal, JOURNAL_ERROR, type JournalIdentity } from "@/lib/agent-run-journal";
+import { createAppendableJournalStore } from "@/lib/appendable-journal-store";
 import {
   branchScopeDir,
   createJsonlRunFile,
+  type CreateRunFileOptions,
   defaultStateStoreFileSystem,
   hasErrorCode,
   isRunFileName,
-  latestNonEmptyJsonlLine,
   parseStateStoreError,
   runsDir as stateStoreRunsDir,
   STATE_STORE_DOMAIN,
   STATE_STORE_ERROR,
-  type CreateRunFileOptions,
   type StateStoreFileEntry,
   type StateStoreFileSystem,
-  type StateStoreJsonlReaderFileSystem,
-  type StateStoreRunReaderFileSystem,
-  writeJsonlRunRecord,
 } from "@/lib/state-store";
 
 export interface AuditRunFile {
@@ -51,10 +50,11 @@ export interface WriteAuditRunStateOptions {
 }
 
 export interface ReadAuditRunStateOptions {
-  readonly fs?: StateStoreRunReaderFileSystem;
+  readonly fs?: StateStoreFileSystem;
 }
 
 const ERROR_CODE_NOT_FOUND = "ENOENT";
+const AUDIT_RUN_COMPLETED_ATTEMPT = 1;
 
 const defaultFileSystem: StateStoreFileSystem = defaultStateStoreFileSystem;
 
@@ -95,15 +95,30 @@ export async function writeTerminalAuditRunState(
   if (!isAuditRunStateStatus(state.status)) {
     return { ok: false, error: AUDIT_RUN_STATE_ERROR.INVALID_TERMINAL_STATE };
   }
-  const written = await writeJsonlRunRecord(runFilePath, auditRunStateRecord(state), options);
-  if (written.ok) return written;
-  if (written.error === STATE_STORE_ERROR.RECORD_ALREADY_EXISTS) {
-    return { ok: false, error: AUDIT_RUN_STATE_ERROR.STATE_ALREADY_EXISTS };
+  const fs = options.fs ?? defaultFileSystem;
+  const journal = createJournal(
+    createAppendableJournalStore({ runFilePath, fs }),
+    auditRunJournalIdentity(runFilePath),
+  );
+  try {
+    await journal.append(
+      auditRunCompletedEventInput(state, {
+        id: `${basename(runFilePath)}:${AUDIT_RUN_EVENT.COMPLETED_TYPE}`,
+        time: state.completedAt,
+        attempt: AUDIT_RUN_COMPLETED_ATTEMPT,
+      }),
+    );
+    await journal.seal();
+  } catch (error) {
+    if (toErrorMessage(error) === JOURNAL_ERROR.SEALED) {
+      return { ok: false, error: AUDIT_RUN_STATE_ERROR.STATE_ALREADY_EXISTS };
+    }
+    return {
+      ok: false,
+      error: withDomainErrorDetail(AUDIT_RUN_STATE_ERROR.STATE_WRITE_FAILED, toErrorMessage(error)),
+    };
   }
-  return {
-    ok: false,
-    error: auditWriteError(written.error),
-  };
+  return { ok: true, value: runFilePath };
 }
 
 export async function readAuditBranchRuns(
@@ -130,15 +145,15 @@ export async function readAuditBranchRuns(
   const incompleteRuns: AuditIncompleteRun[] = [];
   for (const entry of entries.filter(isAuditRunFileEntry)) {
     const runFilePath = join(auditRunsDir.value, entry.name);
-    const stateResult = await readAuditRunStatePath(runFilePath, fs);
-    if (stateResult.ok) {
-      terminalRuns.push({ runFileName: entry.name, runFilePath, state: stateResult.value });
+    const foldResult = await foldAuditRunJournal(runFilePath, fs);
+    if (foldResult.ok) {
+      terminalRuns.push({ runFileName: entry.name, runFilePath, state: foldResult.value });
     } else {
       incompleteRuns.push({
         runFileName: entry.name,
         runFilePath,
-        reason: stateResult.reason,
-        ...(stateResult.error === undefined ? {} : { error: stateResult.error }),
+        reason: foldResult.reason,
+        ...(foldResult.error === undefined ? {} : { error: foldResult.error }),
       });
     }
   }
@@ -146,13 +161,13 @@ export async function readAuditBranchRuns(
   return { ok: true, value: { terminalRuns, incompleteRuns } };
 }
 
-async function readAuditRunStatePath(
+async function foldAuditRunJournal(
   runFilePath: string,
-  fs: StateStoreJsonlReaderFileSystem,
+  fs: StateStoreFileSystem,
 ): Promise<AuditRunStateParseResult> {
-  let content: string;
+  const backend = createAppendableJournalStore({ runFilePath, fs });
   try {
-    content = await fs.readFile(runFilePath, "utf8");
+    return foldAuditRunState(await backend.readAll());
   } catch (error) {
     return {
       ok: false,
@@ -162,13 +177,11 @@ async function readAuditRunStatePath(
       error: toErrorMessage(error),
     };
   }
+}
 
-  const latest = latestNonEmptyJsonlLine(content);
-  if (latest === undefined) {
-    return { ok: false, reason: AUDIT_RUN_STATE_INCOMPLETE_REASON.PARSE_INVALID_STATE };
-  }
-
-  return parseAuditRunStateContent(latest);
+function auditRunJournalIdentity(runFilePath: string): JournalIdentity {
+  const streamId = basename(runFilePath);
+  return { streamid: streamId, runid: streamId };
 }
 
 function isAuditRunFileEntry(entry: AuditRunFileEntry): boolean {
@@ -184,14 +197,6 @@ function auditRunFileError(error: string): string {
     return withDomainErrorDetail(AUDIT_RUN_STATE_ERROR.RUN_FILE_CREATE_FAILED, stateStoreError.detail);
   }
   return withDomainErrorDetail(AUDIT_RUN_STATE_ERROR.RUN_FILE_CREATE_FAILED, error);
-}
-
-function auditWriteError(error: string): string {
-  const stateStoreError = parseStateStoreError(error);
-  if (stateStoreError?.code === STATE_STORE_ERROR.RECORD_WRITE_FAILED) {
-    return withDomainErrorDetail(AUDIT_RUN_STATE_ERROR.STATE_WRITE_FAILED, stateStoreError.detail);
-  }
-  return withDomainErrorDetail(AUDIT_RUN_STATE_ERROR.STATE_WRITE_FAILED, error);
 }
 
 function withDomainErrorDetail(domainError: string, detail: string | undefined): string {
