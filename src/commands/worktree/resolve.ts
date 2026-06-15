@@ -9,6 +9,9 @@ import { worktreeClaimName } from "@/domains/worktree/worktree-name";
 import { detectWorktreeProductRoot, type GitDependencies } from "@/git/root";
 import { resolveWorktreesScopeDir } from "@/lib/state-store";
 
+/** Receives a non-git-repo diagnostic for the descriptor to surface to stderr. */
+export type WorktreeWarningHandler = (warning: string | undefined) => void;
+
 export interface WorktreeScopeOptions {
   /** Working directory the resolution runs from. Defaults to the process cwd. */
   readonly cwd?: string;
@@ -16,12 +19,15 @@ export interface WorktreeScopeOptions {
   readonly worktreesDir?: string;
   /** Injected git runner for resolution. */
   readonly gitDeps?: GitDependencies;
+  /** Receives the non-git-repo diagnostic the shared-root resolution surfaces. */
+  readonly onWarning?: WorktreeWarningHandler;
 }
 
 /** The shared `.spx/worktrees` scope directory — the explicit override or the git-resolved root. */
 export async function resolveWorktreesDir(options: WorktreeScopeOptions): Promise<string> {
   if (options.worktreesDir !== undefined) return options.worktreesDir;
   const resolved = await resolveWorktreesScopeDir({ cwd: options.cwd, deps: options.gitDeps });
+  options.onWarning?.(resolved.warning);
   return resolved.worktreesDir;
 }
 
