@@ -1,3 +1,5 @@
+import { dirname } from "node:path";
+
 import {
   type AppendableBackend,
   checkJournalEventConformance,
@@ -67,6 +69,7 @@ export function createAppendableJournalStore(options: AppendableJournalStoreOpti
     readAll,
 
     async seal(): Promise<void> {
+      await fs.mkdir(dirname(sealMarkerPath), { recursive: true });
       await fs.writeFile(sealMarkerPath, "");
     },
 
