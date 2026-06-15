@@ -1,9 +1,8 @@
 /**
  * Worktree-occupancy claim store — atomic claim-record I/O at
  * `.spx/worktrees/<name>.claim` and the on-demand process-liveness
- * classification, per `spx/38-worktree.enabler/32-occupancy-store.enabler` and
- * its governing occupancy-claim decision. The filesystem and the process probe
- * are injected so classification verifies over controlled inputs.
+ * classification. The filesystem and the process probe are injected so
+ * classification verifies over controlled inputs.
  *
  * @module domains/worktree/occupancy-store
  */
