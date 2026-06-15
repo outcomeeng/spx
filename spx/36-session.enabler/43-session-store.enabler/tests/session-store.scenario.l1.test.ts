@@ -1362,6 +1362,8 @@ describe("projectSessionRecord", () => {
 
           expect(Object.keys(projected)).toEqual(Object.keys(record));
           expect(projected).toEqual(record);
+          // JSON.stringify is key-order-sensitive, so this also pins the order.
+          expect(JSON.stringify(projected)).toBe(JSON.stringify(record));
         },
       ),
     );

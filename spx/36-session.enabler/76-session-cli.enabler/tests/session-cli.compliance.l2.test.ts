@@ -13,7 +13,7 @@ import {
   HANDOFF_BASE_UNRESOLVED,
   SESSION_HANDOFF_BASE_ERROR_NAME,
 } from "@/domains/session/handoff-base-checklist";
-import { parseSessionMetadata, SESSION_RECORD_FIELD } from "@/domains/session/list";
+import { FIELD_SELECTION_SEPARATOR, parseSessionMetadata, SESSION_RECORD_FIELD } from "@/domains/session/list";
 import { SESSION_STATUSES, type SessionStatus } from "@/domains/session/types";
 import { GIT_HEAD_SHA_ARGS, GIT_SHOW_TOPLEVEL_ARGS, NOT_GIT_REPO_WARNING } from "@/git/root";
 import { sampleLiteralTestValue } from "@testing/generators/literal/literal";
@@ -770,6 +770,26 @@ describe("session CLI — JSON list output and field selection", () => {
     await harness.writeSession(TODO, id);
 
     const result = await runSpx(["session", "list", "--fields", "", "--sessions-dir", harness.sessionsDir]);
+
+    expect(result.exitCode).not.toBe(0);
+    expect(result.stdout.trim()).toBe("");
+    for (const field of Object.values(SESSION_RECORD_FIELD)) {
+      expect(result.stderr).toContain(field);
+    }
+  });
+
+  it("NEVER: a separators-only `--fields` value yields JSON — stderr lists the valid set, non-zero exit", async () => {
+    const id = sampleSessionId();
+    await harness.writeSession(TODO, id);
+
+    const result = await runSpx([
+      "session",
+      "list",
+      "--fields",
+      FIELD_SELECTION_SEPARATOR,
+      "--sessions-dir",
+      harness.sessionsDir,
+    ]);
 
     expect(result.exitCode).not.toBe(0);
     expect(result.stdout.trim()).toBe("");
