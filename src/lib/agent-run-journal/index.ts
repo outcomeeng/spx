@@ -54,15 +54,21 @@ export interface JournalEventInput {
   readonly data?: JsonValue;
 }
 
-/** Storage that records the canonical event history. */
+/**
+ * Storage that records the canonical event history. The journal owns seal
+ * policy — it rejects an append once `isSealed()` reports true — so the backend
+ * `append` enforces only sequence exclusivity, and `seal`/`isSealed` persist and
+ * report the seal state rather than gating writes themselves.
+ */
 export interface AppendableBackend {
   readonly kind: typeof JOURNAL_BACKEND_KIND.APPENDABLE;
   /** Persist an event. Rejects a record whose `seq` is already consumed. */
   append(record: JournalEvent): Promise<void>;
   /** The full event history, oldest first. */
   readAll(): Promise<readonly JournalEvent[]>;
-  /** Mark the stream sealed; subsequent appends are rejected. */
+  /** Record that the stream is sealed; the journal rejects later appends via `isSealed`. */
   seal(): Promise<void>;
+  /** Whether the stream has been sealed. */
   isSealed(): Promise<boolean>;
 }
 
