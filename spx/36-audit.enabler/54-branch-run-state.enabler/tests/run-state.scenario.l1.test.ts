@@ -1,8 +1,16 @@
+import { Buffer } from "node:buffer";
+
 import { describe, expect, it } from "vitest";
 
-import { type AuditRunStateFileSystem, readAuditBranchRuns } from "@/commands/audit/run-state";
+import {
+  type AuditRunStateFileSystem,
+  createAuditRunFile,
+  readAuditBranchRuns,
+  writeTerminalAuditRunState,
+} from "@/commands/audit/run-state";
 import {
   AUDIT_RUN_EVENT,
+  AUDIT_RUN_STATE_ERROR,
   AUDIT_RUN_STATE_INCOMPLETE_REASON,
   AUDIT_RUN_STATE_STATUS,
   auditRunStateRecord,
@@ -192,6 +200,32 @@ describe("audit branch run-state lookup", () => {
       expect(result.ok).toBe(true);
       if (!result.ok) throw new Error(result.error);
       expect(selectLatestTerminalAuditRun(result.value.terminalRuns)?.runFileName).toBe(tieBreakerRun);
+    });
+  });
+
+  it("reads a run written through the production write path and rejects a duplicate terminal write", async () => {
+    const branchSlug = sampleAuditRunStateTestValue(AUDIT_RUN_STATE_TEST_GENERATOR.branchSlug());
+    const runId = sampleAuditRunStateTestValue(AUDIT_RUN_STATE_TEST_GENERATOR.runId());
+    const state = sampleAuditRunStateTestValue(AUDIT_RUN_STATE_TEST_GENERATOR.auditRunState());
+
+    await withAuditHarness(async (productDir) => {
+      const runFile = await createAuditRunFile(productDir, branchSlug, {
+        randomBytes: () => Buffer.from(runId, "hex"),
+      });
+      expect(runFile.ok).toBe(true);
+      if (!runFile.ok) throw new Error(runFile.error);
+
+      const written = await writeTerminalAuditRunState(runFile.value.runFilePath, state);
+      expect(written.ok).toBe(true);
+
+      const read = await readAuditBranchRuns(productDir, branchSlug);
+      expect(read.ok).toBe(true);
+      if (!read.ok) throw new Error(read.error);
+      expect(read.value.terminalRuns.map((run) => run.runFileName)).toEqual([runFile.value.runFileName]);
+      expect(read.value.terminalRuns[0]?.state).toEqual(state);
+
+      const duplicate = await writeTerminalAuditRunState(runFile.value.runFilePath, state);
+      expect(duplicate).toEqual({ ok: false, error: AUDIT_RUN_STATE_ERROR.STATE_ALREADY_EXISTS });
     });
   });
 
