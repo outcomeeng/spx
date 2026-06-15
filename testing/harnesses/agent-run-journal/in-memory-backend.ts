@@ -1,9 +1,9 @@
 /**
  * A real in-memory Appendable backend for agent-run-journal tests.
  *
- * Per spx/15-agent-run-journal.enabler/32-journal-module-structure.adr.md, tests
- * inject a real `JournalBackend` and exercise the real journal code paths — this
- * is dependency injection delivering a controlled real implementation, not a mock.
+ * Tests inject this real `JournalBackend` so the journal exercises real code
+ * paths — dependency injection delivering a controlled real implementation,
+ * not a mock.
  */
 
 import {
