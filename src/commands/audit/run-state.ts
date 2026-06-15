@@ -193,6 +193,10 @@ async function foldAuditRunJournal(
 }
 
 function auditRunJournalIdentity(runFilePath: string): JournalIdentity {
+  // One run file is one stream's whole history, and the store's readAll returns
+  // every line in it regardless of identity, so streamid/runid are stamped into
+  // event metadata only — never a read filter. Deriving both from the file name
+  // keeps them deterministic from the run path.
   const streamId = basename(runFilePath);
   return { streamid: streamId, runid: streamId };
 }
