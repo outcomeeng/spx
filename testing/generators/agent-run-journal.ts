@@ -39,3 +39,8 @@ export function arbitraryJournalIdentity(): fc.Arbitrary<JournalIdentity> {
     runid: fc.uuid(),
   });
 }
+
+/** A deterministic per-stream run file path for journal-store tests. */
+export function journalRunFilePath(streamid: string): string {
+  return `journal-runs/${streamid}`;
+}
