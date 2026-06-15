@@ -10,13 +10,13 @@ import {
 import {
   appendJsonlRecord,
   defaultStateStoreFileSystem,
+  ERROR_CODE_NOT_FOUND,
   hasErrorCode,
   type JsonRecord,
   type StateStoreFileSystem,
 } from "@/lib/state-store";
 
 const SEAL_MARKER_SUFFIX = ".sealed";
-const NOT_FOUND_CODE = "ENOENT";
 const LINE_SEPARATOR = "\n";
 const UTF8 = "utf8";
 
@@ -98,7 +98,7 @@ async function readFileOrUndefined(fs: StateStoreFileSystem, path: string): Prom
   try {
     return await fs.readFile(path, UTF8);
   } catch (error) {
-    if (hasErrorCode(error, NOT_FOUND_CODE)) return undefined;
+    if (hasErrorCode(error, ERROR_CODE_NOT_FOUND)) return undefined;
     throw error;
   }
 }
