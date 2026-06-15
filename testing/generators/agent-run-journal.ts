@@ -1,8 +1,4 @@
-/**
- * Input-domain generators for agent-run-journal tests. Event attributes and
- * journal identity vary across runs; the property tests explore that domain
- * rather than asserting on hand-picked values.
- */
+/** Input-domain generators for agent-run-journal tests. */
 
 import fc from "fast-check";
 

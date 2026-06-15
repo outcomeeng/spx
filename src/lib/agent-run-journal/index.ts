@@ -1,10 +1,4 @@
-/**
- * Agent run journal — a backend-agnostic event-store contract.
- *
- * The journal computes sequence assignment, cursor reads, projection rendering,
- * and seal state as pure functions over an injected backend port; concrete
- * Appendable and Snapshot adapters supply storage from their own modules.
- */
+/** Agent-run journal — a backend-agnostic event store over an injected `JournalBackend` port. */
 
 export type JsonValue =
   | string
