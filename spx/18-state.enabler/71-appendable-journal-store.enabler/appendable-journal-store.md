@@ -14,5 +14,6 @@ CAN store and replay each run's event history through the journal interface with
 
 - NEVER: an `append` whose `seq` is already persisted overwrites the stored event — the backend rejects it by throwing `JOURNAL_ERROR.SEQ_CONSUMED` ([test](tests/appendable-journal-store.compliance.l1.test.ts))
 - ALWAYS: after `seal`, `isSealed` reports sealed across a fresh backend over the same run history, and a journal bound to the reopened backend rejects further appends ([test](tests/appendable-journal-store.compliance.l1.test.ts))
+- NEVER: `readAll` emits a stored line that is not a conformant journal event — a malformed or non-conformant line is skipped, not returned ([test](tests/appendable-journal-store.compliance.l1.test.ts))
 - ALWAYS: the backend declares its kind as Appendable and binds the journal's `AppendableBackend` port without widening the `append` / `readAll` / `seal` / `isSealed` contract, per `spx/15-agent-run-journal.enabler/32-journal-module-structure.adr.md` ([audit])
 - ALWAYS: every filesystem access flows through an injected filesystem interface and the run path resolves through `spx/18-state.enabler/43-record-store.enabler`; the backend re-derives no git topology or `.spx/` layout, per `spx/17-state.adr.md` ([audit])
