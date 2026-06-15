@@ -157,6 +157,29 @@ export class SessionLegacyFrontmatterInputError extends SessionError {
 }
 
 /**
+ * Error thrown when `spx session handoff` is given an explicit work-branch ref
+ * in its stdin JSON header but that branch does not exist on `origin`.
+ *
+ * The recorded `git_ref` must name a base a resuming agent can reach from the
+ * shared queue; an origin branch satisfies that, an unpushed local name does
+ * not. Push the branch to `origin`, or omit `git_ref` to record the git
+ * context instead.
+ */
+export class SessionWorkBranchNotOnOriginError extends SessionError {
+  /** The work-branch ref the caller supplied that does not resolve on `origin`. */
+  readonly workBranch: string;
+
+  constructor(workBranch: string) {
+    super(
+      `Work-branch ref not found on origin: ${workBranch}. Push the branch to origin `
+        + "before recording it as the handoff base, or omit git_ref to record the git context.",
+    );
+    this.name = "SessionWorkBranchNotOnOriginError";
+    this.workBranch = workBranch;
+  }
+}
+
+/**
  * Error thrown when the JSON header at the start of handoff stdin is malformed
  * or fails schema validation.
  *

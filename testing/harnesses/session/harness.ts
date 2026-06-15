@@ -25,6 +25,7 @@ import {
   GIT_SHOW_TOPLEVEL_ARGS,
   GIT_STATUS_PORCELAIN_ARGS,
   type GitDependencies,
+  REMOTE_ORIGIN_REF_PREFIX,
 } from "@/git/root";
 import { sessionsScopeDir } from "@/lib/state-store";
 import type { HandoffHeaderFixture } from "@testing/generators/session/session";
@@ -76,6 +77,14 @@ export interface SessionGitDepsOverrides {
   readonly defaultBranch?: string;
   /** When HEAD is detached, whether it sits at the tip of `origin/<defaultBranch>`. Default `false`. */
   readonly detachedAtDefaultTip?: boolean;
+  /**
+   * Exact remote-branch names (no `origin/` prefix) that exist on `origin` — the
+   * double answers `show-ref --verify --quiet refs/remotes/origin/<name>` with
+   * exit 0 for each. Any other ref — including a revision expression like
+   * `<name>~1` — falls through to a non-zero exit, modeling a branch the
+   * handoff's explicit-ref verification cannot find on `origin`. Default empty.
+   */
+  readonly originWorkBranches?: readonly string[];
 }
 
 // Toplevel + common-dir pairs for a non-bare repository: `dirname(commonDir) ===
@@ -131,6 +140,9 @@ export function createSessionGitDeps(overrides: SessionGitDepsOverrides = {}): G
   const clean = overrides.clean ?? true;
   const defaultBranch = overrides.defaultBranch ?? DEFAULT_GIT_DEPS_DEFAULT_BRANCH;
   const detachedAtDefaultTip = overrides.detachedAtDefaultTip ?? false;
+  const originWorkRefs = new Set(
+    (overrides.originWorkBranches ?? []).map((name) => `${REMOTE_ORIGIN_REF_PREFIX}${name}`),
+  );
 
   const toplevel = worktreeKind === WORKTREE_KIND.MAIN_CHECKOUT ? MAIN_CHECKOUT_TOPLEVEL : NON_MAIN_TOPLEVEL;
   const headSha = branch === null && detachedAtDefaultTip ? ORIGIN_DEFAULT_SHA : HEAD_SHA;
@@ -153,6 +165,18 @@ export function createSessionGitDeps(overrides: SessionGitDepsOverrides = {}): G
       if (argsEqual(args, GIT_ORIGIN_HEAD_REF_ARGS)) return ok(originDefaultRef);
       if (argsEqual(args, GIT_STATUS_PORCELAIN_ARGS)) return ok(clean ? "" : DIRTY_PORCELAIN_LINE);
       if (argsEqual(args, [GIT_ROOT_COMMAND.REV_PARSE, originDefaultRef])) return ok(ORIGIN_DEFAULT_SHA);
+      // Exact remote-branch existence probe: `show-ref --verify --quiet refs/remotes/origin/<branch>`.
+      // Members exit 0 (no stdout); non-members fall through to the exit-1 catch-all, so a
+      // revision expression like `<branch>~1` — never an exact ref — is correctly rejected.
+      if (
+        args.length === 4
+        && args[0] === GIT_ROOT_COMMAND.SHOW_REF
+        && args[1] === GIT_ROOT_COMMAND.VERIFY
+        && args[2] === GIT_ROOT_COMMAND.QUIET
+        && originWorkRefs.has(args[3])
+      ) {
+        return ok("");
+      }
       if (argsEqual(args, GIT_HEAD_SHA_ARGS)) return ok(headSha);
       if (argsEqual(args, GIT_REMOTE_GET_URL_ORIGIN_ARGS)) return ok(SIMULATED_ORIGIN_URL);
       if (argsEqual(args, GIT_CORE_BARE_ARGS)) return ok(NON_BARE_CORE_BARE);

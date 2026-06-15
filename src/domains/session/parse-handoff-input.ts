@@ -34,10 +34,12 @@ const SESSION_PRIORITY_VALUES = new Set<string>(Object.values(SESSION_PRIORITY))
 /**
  * Caller-supplied structured fields recognized by `parseHandoffInput`.
  *
- * CLI-prefilled fields (`branch`, `worktree`, `created_at`, `agent_session_id`)
- * are not part of this shape and are silently ignored if the caller includes
- * them in the JSON object — the handoff command sources them from the git
- * context and process environment instead.
+ * `git_ref` is optional: when present it names a work-branch ref the handoff
+ * command records as the session base after confirming the branch exists on
+ * `origin`; when absent the command derives the base from the git context.
+ * `created_at` and `agent_session_id` are never caller-supplied — they are
+ * silently ignored if included and sourced from the system clock and process
+ * environment instead.
  */
 export interface HandoffHeader {
   readonly priority: SessionPriority;
@@ -45,6 +47,7 @@ export interface HandoffHeader {
   readonly next_step: string;
   readonly specs: readonly string[];
   readonly files: readonly string[];
+  readonly git_ref?: string;
 }
 
 /**
@@ -177,10 +180,11 @@ function findJsonObjectEnd(stdin: string): number {
  * Validates `parsed` against the JSON-prefix header schema and narrows the
  * result to `HandoffHeader`.
  *
- * Extra fields are silently dropped — callers who include CLI-prefilled
- * fields like `branch` or `worktree` in the JSON have those fields ignored,
- * preserving the "caller-supplied branch and worktree are ignored" invariant
- * by construction.
+ * The optional `git_ref` field is carried through when present; `created_at`
+ * and `agent_session_id` are silently dropped — callers who include those
+ * prefilled fields in the JSON have them ignored, preserving the
+ * "agent identity and timestamp are sourced by the command" invariant by
+ * construction.
  */
 function validateHandoffHeader(parsed: unknown): HandoffHeader {
   if (parsed === null || typeof parsed !== "object" || Array.isArray(parsed)) {
@@ -193,6 +197,7 @@ function validateHandoffHeader(parsed: unknown): HandoffHeader {
   const nextStep = ensureStringOrEmpty(obj[SESSION_FRONT_MATTER.NEXT_STEP], SESSION_FRONT_MATTER.NEXT_STEP);
   const specs = ensureStringArrayOrDefault(obj[SESSION_FRONT_MATTER.SPECS], SESSION_FRONT_MATTER.SPECS);
   const files = ensureStringArrayOrDefault(obj[SESSION_FRONT_MATTER.FILES], SESSION_FRONT_MATTER.FILES);
+  const gitRef = ensureOptionalString(obj[SESSION_FRONT_MATTER.GIT_REF], SESSION_FRONT_MATTER.GIT_REF);
 
   return {
     priority,
@@ -200,6 +205,7 @@ function validateHandoffHeader(parsed: unknown): HandoffHeader {
     next_step: nextStep,
     specs,
     files,
+    ...(gitRef === undefined ? {} : { git_ref: gitRef }),
   };
 }
 
@@ -232,6 +238,21 @@ function ensurePriorityOrDefault(value: unknown): SessionPriority {
  */
 function ensureStringOrEmpty(value: unknown, fieldName: string): string {
   if (value === undefined) return "";
+  if (typeof value !== "string") {
+    throw new SessionInvalidJsonHeaderError(`${fieldName} must be a string`);
+  }
+  return value;
+}
+
+/**
+ * Coerces an optional JSON value to a string or `undefined`.
+ *
+ * Returns `undefined` when the field is missing so the caller can distinguish
+ * "no value supplied" from an empty string. Throws
+ * `SessionInvalidJsonHeaderError` when the value is present but is not a string.
+ */
+function ensureOptionalString(value: unknown, fieldName: string): string | undefined {
+  if (value === undefined) return undefined;
   if (typeof value !== "string") {
     throw new SessionInvalidJsonHeaderError(`${fieldName} must be a string`);
   }

@@ -92,6 +92,9 @@ export const GIT_ROOT_COMMAND = {
   HEAD: "HEAD",
   SHOW_TOPLEVEL: "--show-toplevel",
   SYMBOLIC_REF: "symbolic-ref",
+  SHOW_REF: "show-ref",
+  VERIFY: "--verify",
+  QUIET: "--quiet",
   SHORT: "--short",
   ORIGIN_HEAD_REF: "refs/remotes/origin/HEAD",
   STATUS: "status",
@@ -116,6 +119,9 @@ export const GIT_DIR_BASENAME = ".git";
 
 /** Prefix on the remote-tracking ref returned by `symbolic-ref refs/remotes/origin/HEAD`. */
 export const ORIGIN_REF_PREFIX = "origin/";
+
+/** The full remote-tracking ref prefix for `origin` branches — the namespace `show-ref --verify` checks for exact existence. */
+export const REMOTE_ORIGIN_REF_PREFIX = "refs/remotes/origin/";
 
 /** The `core.bare` config value a bare repository carries; every other value (including unset) is non-bare. */
 export const GIT_CORE_BARE_TRUE = "true";
@@ -189,8 +195,7 @@ export const GIT_WORKTREE_LIST_PORCELAIN_ARGS = [
 export const GIT_WORKTREE_PORCELAIN_ROOT_PREFIX = "worktree ";
 export const GIT_WORKTREE_PORCELAIN_BARE_LINE = "bare";
 export const GIT_WORKTREE_PORCELAIN_PRUNABLE_LINE = "prunable";
-export const GIT_WORKTREE_PORCELAIN_PRUNABLE_PREFIX =
-  `${GIT_WORKTREE_PORCELAIN_PRUNABLE_LINE} `;
+export const GIT_WORKTREE_PORCELAIN_PRUNABLE_PREFIX = `${GIT_WORKTREE_PORCELAIN_PRUNABLE_LINE} `;
 const TRAILING_PATH_SEPARATORS_PATTERN = /[\\/]+$/;
 
 // Detects the local worktree product directory.
@@ -380,6 +385,39 @@ export async function resolveRefSha(
   if (result.exitCode !== 0) return null;
   const sha = extractStdout(result.stdout);
   return sha.length === 0 ? null : sha;
+}
+
+/**
+ * Whether `branch` names an exact remote-tracking branch on `origin` —
+ * `git show-ref --verify --quiet refs/remotes/origin/<branch>` exits zero.
+ *
+ * `show-ref --verify` matches the full ref path literally and applies no
+ * revision-expression syntax, so a revision expression like `main~1` or
+ * `main^{commit}`, or a bare SHA, never matches an existing remote branch —
+ * the check verifies a branch, not a resolvable revision.
+ *
+ * `HEAD` is excluded explicitly: `refs/remotes/origin/HEAD` is the symbolic
+ * default-branch pointer, the one non-branch entry in the `refs/remotes/origin/`
+ * namespace, so a literal `HEAD` (which a detached worktree's
+ * `rev-parse --abbrev-ref HEAD` yields) is not a work branch.
+ */
+export async function originBranchExists(
+  branch: string,
+  cwd: string = process.cwd(),
+  deps: GitDependencies = defaultGitDependencies,
+): Promise<boolean> {
+  if (branch === GIT_ROOT_COMMAND.HEAD) return false;
+  const result = await deps.execa(
+    GIT_ROOT_COMMAND.EXECUTABLE,
+    [
+      GIT_ROOT_COMMAND.SHOW_REF,
+      GIT_ROOT_COMMAND.VERIFY,
+      GIT_ROOT_COMMAND.QUIET,
+      `${REMOTE_ORIGIN_REF_PREFIX}${branch}`,
+    ],
+    { cwd, reject: false },
+  );
+  return result.exitCode === 0;
 }
 
 /**
