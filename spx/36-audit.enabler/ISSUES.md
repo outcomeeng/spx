@@ -11,10 +11,6 @@ Affected manifest entries:
 
 - `spx/36-audit.enabler`
 - `spx/36-audit.enabler/21-audit-test-harness.enabler`
-- `spx/36-audit.enabler/32-verify.enabler`
-- `spx/36-audit.enabler/32-verify.enabler/32-structural.enabler`
-- `spx/36-audit.enabler/32-verify.enabler/43-semantic.enabler`
-- `spx/36-audit.enabler/32-verify.enabler/54-paths.enabler`
 - `spx/36-audit.enabler/76-audit-cli.enabler`
 
 Resolution: replace each test-owned semantic constant with source-owned
