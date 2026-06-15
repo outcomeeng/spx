@@ -75,6 +75,8 @@ export async function writeAuditRunJournal(
       }),
     );
   }
+  // Mirror the production write path: a completed run's journal is sealed.
+  await journal.seal();
   return runFilePath;
 }
 

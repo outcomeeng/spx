@@ -167,6 +167,9 @@ async function foldAuditRunJournal(
 ): Promise<AuditRunStateParseResult> {
   const backend = createAppendableJournalStore({ runFilePath, fs });
   try {
+    // `readAll` skips malformed and non-conformant lines per the appendable
+    // journal store contract, so a partial or corrupt run file folds to
+    // MISSING_STATE (no completed event) rather than throwing.
     return foldAuditRunState(await backend.readAll());
   } catch (error) {
     return {
