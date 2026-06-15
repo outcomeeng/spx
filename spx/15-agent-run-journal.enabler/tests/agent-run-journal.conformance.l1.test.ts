@@ -88,6 +88,7 @@ describe("agent-run-journal CloudEvents conformance", () => {
       ["not an event object", JOURNAL_CONFORMANCE_VIOLATION.NOT_OBJECT],
       [{ ...event, extradata: event.id }, JOURNAL_CONFORMANCE_VIOLATION.UNEXPECTED_ATTRIBUTE],
       [{ ...event, specversion: event.id }, JOURNAL_CONFORMANCE_VIOLATION.WRONG_SPECVERSION],
+      [{ ...event, specversion: event.seq }, JOURNAL_CONFORMANCE_VIOLATION.WRONG_TYPE],
       [{ ...event, id: event.seq }, JOURNAL_CONFORMANCE_VIOLATION.WRONG_TYPE],
       [{ ...event, seq: event.seq + 0.5 }, JOURNAL_CONFORMANCE_VIOLATION.WRONG_TYPE],
     ];
