@@ -18,7 +18,9 @@ const TOKEN_CHARACTERS = [..."abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWX
 const RAW_BASENAME_CHARACTERS = [..."abcXYZ012_-. /"] as const;
 const MIN_PID = 1;
 const MAX_PID = 4_194_304;
-const START_TIME_MIN = new Date("2026-01-01T00:00:00.000Z");
+// Spans from the Unix epoch so the "occupancy never ages out" property is
+// exercised with arbitrarily old start times, not only recent ones.
+const START_TIME_MIN = new Date("1970-01-01T00:00:00.000Z");
 const START_TIME_MAX = new Date("2026-12-31T23:59:59.999Z");
 const ROUND_TRIP_RUN_COUNT = 25;
 
