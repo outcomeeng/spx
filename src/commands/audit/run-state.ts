@@ -14,7 +14,7 @@ import {
   foldAuditRunState,
   isAuditRunStateStatus,
 } from "@/domains/audit/run-state";
-import { createJournal, type JournalIdentity } from "@/lib/agent-run-journal";
+import { createJournal, type JournalEvent, type JournalIdentity } from "@/lib/agent-run-journal";
 import { createAppendableJournalStore } from "@/lib/appendable-journal-store";
 import {
   branchScopeDir,
@@ -170,20 +170,26 @@ async function foldAuditRunJournal(
   fs: StateStoreFileSystem,
 ): Promise<AuditRunStateParseResult> {
   const backend = createAppendableJournalStore({ runFilePath, fs });
+  let sealed: boolean;
+  let events: readonly JournalEvent[];
   try {
-    // `readAll` skips malformed and non-conformant lines per the appendable
-    // journal store contract, so a partial or corrupt run file folds to
-    // MISSING_STATE (no completed event) rather than throwing.
-    return foldAuditRunState(await backend.readAll());
+    // The seal marker commits a run as terminal; `readAll` skips malformed and
+    // non-conformant lines. Both swallow ENOENT, so only a real I/O failure throws.
+    sealed = await backend.isSealed();
+    events = await backend.readAll();
   } catch (error) {
     return {
       ok: false,
-      reason: hasErrorCode(error, ERROR_CODE_NOT_FOUND)
-        ? AUDIT_RUN_STATE_INCOMPLETE_REASON.MISSING_STATE
-        : AUDIT_RUN_STATE_INCOMPLETE_REASON.IO_ERROR,
+      reason: AUDIT_RUN_STATE_INCOMPLETE_REASON.IO_ERROR,
       error: toErrorMessage(error),
     };
   }
+  // An unsealed run is in progress or its write was interrupted before sealing:
+  // its events are not terminal evidence, whatever they hold.
+  if (!sealed) {
+    return { ok: false, reason: AUDIT_RUN_STATE_INCOMPLETE_REASON.MISSING_STATE };
+  }
+  return foldAuditRunState(events);
 }
 
 function auditRunJournalIdentity(runFilePath: string): JournalIdentity {

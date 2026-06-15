@@ -13,7 +13,7 @@ Rejected: a write-once terminal JSONL record (a single bespoke record carries no
 - A run file is the JSONL event history of exactly one journal stream; its seal-marker path is `{run-file-path}.sealed`.
 - The `AuditRunState` envelope is a pure projection of a run's event prefix: the same events always fold to the same envelope.
 - `AuditRunState` carries the run's branch name, branch slug, head commit SHA, resolved base ref, audit config digest, auditor identifiers, target paths, start and completion timestamps, an optional output path, and a terminal status of `approved`, `rejected`, `failed`, or `interrupted`.
-- A run whose event history holds no readable terminal-completion event is incomplete evidence and folds to no approved or rejected status.
+- A run is terminal evidence only when its journal is sealed; an unsealed run — or a sealed run whose history holds no readable terminal-completion event — is incomplete evidence and folds to no approved or rejected status.
 - The branch slug is a pure function of the state-store branch identity within the state module's default byte bound; detached HEAD maps to a branch identity of `detached-{short-sha}`, the first twelve lowercase hex characters of the `HEAD` commit SHA.
 - `baseRef` defaults to the audit descriptor's `main` when `audit.baseRef` is absent.
 - `AuditRunState.status` values are lowercase machine tokens rendered to CLI display through a fixed mapping: `approved` → `APPROVED`, `rejected` → `REJECT`, `failed` → `FAILED`, `interrupted` → `INTERRUPTED`.
@@ -30,7 +30,7 @@ Rejected: a write-once terminal JSONL record (a single bespoke record carries no
 - ALWAYS: construct branch slugs and run-file names through `spx/18-state.enabler/32-scope-addressing.enabler/` semantics, using the state module's default slug byte bound rather than audit configuration ([audit])
 - ALWAYS: resolve `.spx/branch/{branch-slug}/audit/` relative to the Git common-dir product root per `spx/15-worktree-management.pdr.md` ([audit])
 - ALWAYS: render persisted lowercase status tokens to CLI display through the fixed `approved` → `APPROVED`, `rejected` → `REJECT`, `failed` → `FAILED`, `interrupted` → `INTERRUPTED` mapping ([audit])
-- ALWAYS: surface a run whose history holds no readable terminal-completion event as incomplete, and exclude it from latest terminal audit lookup when a terminal run exists for the branch ([audit])
+- ALWAYS: gate terminal evidence on the seal marker read from the store — surface an unsealed run, or a sealed run whose history holds no readable terminal-completion event, as incomplete, and exclude it from latest terminal audit lookup when a terminal run exists for the branch ([audit])
 - ALWAYS: derive shared path-component names (`.spx`, `branch`, `audit`, `runs`, `run-`, `.jsonl`) from state-store defaults ([audit])
 - NEVER: persist audit run state as a write-once terminal JSONL record outside the event-journal contract ([audit])
 - NEVER: create, index, or read node-first `.spx/nodes/` verdict artifacts — audit persists only branch-scoped run journals ([audit])
