@@ -27,7 +27,10 @@ values — an empty `type`, a non-URI `source`, a non-RFC3339 `time` — would b
 journal history. `checkJournalEventConformance` and the conformance assertion
 verify *structural* conformance (the attribute set, types, and stream extensions),
 which the implementation satisfies; CloudEvents *value* rules (non-empty `id`/
-`type`, URI-reference `source`, RFC3339 `time`) are not asserted.
+`type`, URI-reference `source`, RFC3339 `time`) are not asserted, and
+`checkJournalEventConformance` does not deep-check that `data` is a serialisable
+`JsonValue` — a function, symbol, or `undefined` on a candidate event passes the
+structural check though the `JournalEvent` type forbids it.
 
 This is a contract decision, not a defect against the current spec: does `append`
 reject malformed CloudEvents values (and with what error contract), or does the
@@ -50,3 +53,19 @@ Closing the window (an atomic check-and-append, or backend-level seal rejection)
 is the same single-writer-vs-concurrent decision as the sequence-caching and
 input-validation follow-ups above; settle them together when a backend admits
 concurrent writers. Surfaced by Codex review on PR #160.
+
+## FOLLOW-UP — the backend's consumed-sequence error contract is implicit
+
+`AppendableBackend.append` is documented as rejecting a record whose `seq` is
+already consumed, but the interface names no error type or message; the journal
+propagates the backend's error unchanged. The compliance test asserts the thrown
+message equals `JOURNAL_ERROR.SEQ_CONSUMED`, which holds only because the
+in-memory backend imports and throws that exact constant. A real adapter
+(state-store, GitHub) that surfaced its own storage error would prevent the
+overwrite correctly yet break the test.
+
+Settle when the first real Appendable adapter is implemented: either document a
+required error type/message on `AppendableBackend.append` for the consumed-seq
+case, or have the journal catch and re-throw a typed `JournalError` so the
+contract is the journal's, not each backend's. Surfaced by spec-tree-review on
+PR #160.
