@@ -166,4 +166,35 @@ describe("audit run-file storage", () => {
       await expect(readFile(result.value, "utf8")).resolves.toContain(state.status);
     });
   });
+
+  it("returns a write error when the seal-marker read fails", async () => {
+    const branchSlug = sampleAuditRunStateTestValue(AUDIT_RUN_STATE_TEST_GENERATOR.branchSlug());
+    const runId = sampleAuditRunStateTestValue(AUDIT_RUN_STATE_TEST_GENERATOR.runId());
+    const state = sampleAuditRunStateTestValue(AUDIT_RUN_STATE_TEST_GENERATOR.auditRunState());
+    const errorCode = sampleConfigTestValue(CONFIG_TEST_GENERATOR.key());
+    const ioError = Object.assign(new Error(errorCode), { code: errorCode });
+
+    await withTempProductDir(async (productDir) => {
+      const runFile = await createAuditRunFile(productDir, branchSlug, {
+        randomBytes: () => bufferFromHex(runId),
+      });
+      expect(runFile.ok).toBe(true);
+      if (!runFile.ok) throw new Error(runFile.error);
+
+      const failingSealReadFileSystem: AuditRunStateFileSystem = {
+        mkdir: () => Promise.resolve(),
+        writeFile: () => Promise.resolve(),
+        appendFile: () => Promise.resolve(),
+        readFile: () => Promise.reject(ioError),
+        readdir: () => Promise.resolve([]),
+      };
+      const result = await writeTerminalAuditRunState(runFile.value.runFilePath, state, {
+        fs: failingSealReadFileSystem,
+      });
+
+      expect(result.ok).toBe(false);
+      if (result.ok) throw new Error("expected a write error");
+      expect(result.error).toContain(AUDIT_RUN_STATE_ERROR.STATE_WRITE_FAILED);
+    });
+  });
 });
