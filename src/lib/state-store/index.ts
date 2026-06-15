@@ -16,6 +16,7 @@ export const STATE_STORE_PATH = {
   BRANCH_SCOPE: "branch",
   WORKTREE_SCOPE: "worktree",
   SESSIONS_SCOPE: "sessions",
+  WORKTREES_SCOPE: "worktrees",
   RUNS_DIR: "runs",
   RUN_FILE_PREFIX: "run-",
   JSONL_EXTENSION: ".jsonl",
@@ -214,6 +215,12 @@ export interface ResolveSessionsScopeResult {
   readonly warning?: string;
 }
 
+/** The shared `.spx/worktrees` scope dir plus the non-git-repo diagnostic, if any. */
+export interface ResolveWorktreesScopeResult {
+  readonly worktreesDir: string;
+  readonly warning?: string;
+}
+
 /**
  * Resolves the shared `.spx/sessions` scope directory from the Git common-dir
  * product root so every worktree addresses the same sessions store. The result
@@ -245,6 +252,26 @@ export function worktreeScopeDir(productDir: string): Result<string> {
 
 export function sessionsScopeDir(productDir: string): string {
   return join(productDir, STATE_STORE_PATH.SPX_DIR, STATE_STORE_PATH.SESSIONS_SCOPE);
+}
+
+/**
+ * Resolves the shared `.spx/worktrees` scope directory from the Git common-dir
+ * product root so every worktree of the repository addresses the same
+ * worktree-occupancy claim store. Surfaces the non-git-repo diagnostic when
+ * resolution falls back to cwd.
+ */
+export async function resolveWorktreesScopeDir(
+  options: ResolveScopeOptions = {},
+): Promise<ResolveWorktreesScopeResult> {
+  const gitResult = await detectGitCommonDirProductRoot(options.cwd, options.deps);
+  return {
+    worktreesDir: worktreesScopeDir(gitResult.productDir),
+    warning: gitResult.warning,
+  };
+}
+
+export function worktreesScopeDir(productDir: string): string {
+  return join(productDir, STATE_STORE_PATH.SPX_DIR, STATE_STORE_PATH.WORKTREES_SCOPE);
 }
 
 export function composeScopeDir(baseScopeDir: string, ...tokens: readonly string[]): Result<string> {
