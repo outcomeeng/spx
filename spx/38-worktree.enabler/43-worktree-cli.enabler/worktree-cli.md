@@ -4,8 +4,6 @@ PROVIDES Commander.js bindings for `spx worktree status <worktree>`, `spx worktr
 SO THAT the SessionStart hook, `/handoff`, and `/pickup`
 CAN claim, query, and release worktree occupancy as a subprocess with predictable output and exit codes
 
-Controlling-process resolution and the command surface are governed by [`spx/38-worktree.enabler/43-worktree-cli.enabler/21-worktree-command.adr.md`](21-worktree-command.adr.md). The claim store and classification are provided by [`spx/38-worktree.enabler/32-occupancy-store.enabler`](../32-occupancy-store.enabler/occupancy-store.md).
-
 ## Assertions
 
 ### Scenarios
@@ -16,6 +14,10 @@ Controlling-process resolution and the command surface are governed by [`spx/38-
 - Given an unclaimed worktree, when the claim handler runs for that worktree, then a claim for the worktree is written under the resolved `.spx/worktrees` scope and the handler reports success ([test](tests/worktree-cli.scenario.l1.test.ts))
 - Given a worktree whose claim holder is live on the same host, when the status handler runs, then it reports occupied; an unclaimed worktree reports unclaimed and a dead holder reports stale ([test](tests/worktree-cli.scenario.l1.test.ts))
 - Given the running worktree holds a claim, when the release handler runs, then the claim is removed ([test](tests/worktree-cli.scenario.l1.test.ts))
+
+### Properties
+
+- The worktree claim name derived from any basename is a safe scope token: lowercased, drawn only from letters, digits, hyphen, and underscore, with no leading, trailing, or repeated hyphen from collapsing unsafe runs ([test](tests/worktree-name.property.l1.test.ts))
 
 ### Compliance
 
