@@ -1428,13 +1428,26 @@ describe("parseFieldSelection", () => {
     );
   });
 
-  it("rejects a selection that names no field (empty or only separators)", () => {
-    expect(() => parseFieldSelection("")).toThrow(SessionInvalidFieldError);
+  it("rejects a selection that names no field (empty or only separators), listing the valid field set", () => {
+    const expectNoFieldRejection = (input: string): void => {
+      let thrown: unknown;
+      try {
+        parseFieldSelection(input);
+      } catch (error) {
+        thrown = error;
+      }
+      expect(thrown).toBeInstanceOf(SessionInvalidFieldError);
+      for (const field of SESSION_RECORD_FIELDS) {
+        expect((thrown as Error).message).toContain(field);
+      }
+    };
+
+    expectNoFieldRejection("");
     // Strings of only whitespace and/or separators name no field: each segment
     // trims to empty and is filtered out, leaving an empty selection.
     fc.assert(
       fc.property(fc.stringMatching(/^[\s,]+$/), (separatorsOnly) => {
-        expect(() => parseFieldSelection(separatorsOnly)).toThrow(SessionInvalidFieldError);
+        expectNoFieldRejection(separatorsOnly);
       }),
     );
   });
