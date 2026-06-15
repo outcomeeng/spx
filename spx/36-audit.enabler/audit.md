@@ -1,20 +1,15 @@
 # Audit
 
-PROVIDES the `spx audit` command family — config-backed, branch-scoped lifecycle management for audit verdict artifacts produced by auditing skills: executing configured auditors, persisting audit state, verifying artifact consistency, and reporting defects by stage
+PROVIDES the `spx audit` command family — config-backed, branch-scoped lifecycle for the audit runs produced by executing configured auditors: resolving and running auditors, persisting each run as an append-only event journal, and reporting verdicts and history by branch
 SO THAT CI pipelines, agents, and developers running `spx audit`
 CAN execute and inspect hermetically recorded audit evidence for the current branch before acting on it
 
 ## Assertions
 
-### Scenarios
-
-- Given `spx audit verify <file>` is run with a valid audit verdict XML, when all four verification stages pass, then the command exits 0 and prints `APPROVED` or `REJECT` to stdout ([test](tests/audit.scenario.l1.test.ts))
-- Given `spx audit verify <file>` is run with a defective audit verdict XML, when one or more stages fail, then the command exits 1 and prints each defect to stdout preceded by its stage name ([test](tests/audit.scenario.l1.test.ts))
-- Given `spx.config.{toml,json,yaml}` declares audit execution settings, when `spx audit` runs, then it resolves auditors, targets, and storage policy from the audit descriptor ([audit])
-- Given an audit run persists state, when the branch slug is known, then the state is written under `.spx/branch/{branch-slug}/audit/` at the Git common-dir product root ([audit])
-
 ### Compliance
 
-- NEVER: write audit verdict files to the spec tree — verdict artifacts are stored in `.spx/branch/{branch-slug}/audit/` per ADR `15-audit-directory` ([audit](15-audit-directory.adr.md))
-- ALWAYS: resolve `.spx/branch/{branch-slug}/audit/` relative to the Git common-dir product root, not the worktree root ([audit](../15-worktree-management.pdr.md))
-- ALWAYS: audit config is a registered descriptor in the `spx/16-config.enabler/` config system; auditing does not parse raw `spx.config.*` content ([audit](../16-config.enabler/21-descriptor-registration.adr.md))
+- ALWAYS: `spx audit` resolves auditors, targets, and base ref from the audit descriptor and records each run under `.spx/branch/{branch-slug}/audit/` as an append-only event journal per `spx/36-audit.enabler/15-audit-directory.adr.md` ([audit])
+- ALWAYS: list and status report a branch's audit verdicts and history by folding recorded run journals, without re-running the auditors ([audit])
+- ALWAYS: audit configuration resolves through a registered descriptor in the `spx/16-config.enabler/` config system per `spx/16-config.enabler/21-descriptor-registration.adr.md` ([audit])
+- NEVER: write audit evidence into the spec tree — runs persist only under `.spx/branch/{branch-slug}/audit/` per `spx/36-audit.enabler/15-audit-directory.adr.md` ([audit])
+- NEVER: persist a run as anything but an append-only event journal — no write-once terminal record and no verdict-XML artifact ([audit])

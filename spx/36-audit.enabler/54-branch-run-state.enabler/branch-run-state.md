@@ -1,15 +1,15 @@
 # Branch Run State
 
-PROVIDES branch-scoped audit run files and terminal JSONL records
+PROVIDES branch-scoped audit run journals and the `AuditRunState` projection folded from a run's event history
 SO THAT audit list, status, and latest-run lookup
-CAN inspect local audit evidence without parsing verdict XML
+CAN inspect local audit evidence without re-running the auditors
 
 ## Assertions
 
 ### Compliance
 
-- ALWAYS: audit run state is stored under `.spx/branch/{branch-slug}/audit/runs/run-{run-token}.jsonl` at the Git common-dir product root ([test](tests/run-file.scenario.l1.test.ts))
-- ALWAYS: branch slugs, run ids, retry limits, terminal JSONL records, and latest-run ordering follow `spx/36-audit.enabler/15-audit-directory.adr.md` ([test](tests/branch-slug.property.l1.test.ts), [test](tests/run-file.scenario.l1.test.ts), [test](tests/run-state.scenario.l1.test.ts))
-- ALWAYS: branch run lookup ignores entries whose file names do not match the audit run-file format before constructing run-file paths ([test](tests/run-state.scenario.l1.test.ts))
-- ALWAYS: node-first `.spx/nodes/` artifacts remain explicit-file verification inputs only ([test](tests/run-state.scenario.l1.test.ts))
-- NEVER: treat missing, unreadable, empty, or parse-invalid JSONL records as approved or rejected audit evidence ([test](tests/run-state.scenario.l1.test.ts))
+- ALWAYS: an audit run is an append-only event journal stored under `.spx/branch/{branch-slug}/audit/runs/run-{run-token}.jsonl` at the Git common-dir product root ([test](tests/run-file.scenario.l1.test.ts))
+- ALWAYS: branch slugs, run-file naming, run journals, the `AuditRunState` projection, and latest-run ordering follow `spx/36-audit.enabler/15-audit-directory.adr.md` ([test](tests/branch-slug.property.l1.test.ts), [test](tests/run-file.scenario.l1.test.ts), [test](tests/run-state.scenario.l1.test.ts))
+- ALWAYS: the `AuditRunState` envelope is folded as a projection of a run's event history, and a run is sealed at terminal completion ([test](tests/run-state.scenario.l1.test.ts))
+- ALWAYS: branch run lookup ignores entries whose file names do not match the run-file format before constructing run-file paths ([test](tests/run-state.scenario.l1.test.ts))
+- NEVER: treat a run whose history holds no readable terminal-completion event as approved or rejected audit evidence ([test](tests/run-state.scenario.l1.test.ts))

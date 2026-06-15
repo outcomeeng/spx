@@ -1,23 +1,22 @@
 # Audit Domain Scope
 
-The `spx audit` domain manages the full lifecycle of the audit verdict artifacts that auditing skills produce — create, list, archive, verify, and branch-scoped state inspection — with `spx audit verify <file>` as the formal success criterion: exit 0 means the verdict is internally consistent and ready to act on, exit 1 means it is malformed and must be fixed. Verdict artifacts and run state are stored under `.spx/branch/{branch-slug}/audit/`, never in the spec tree.
+`spx audit` runs the configured auditor agents over the current branch's target files and records each run as branch-scoped local evidence — a terminal verdict (approved, rejected, failed, or interrupted) together with the run's history — that `spx audit` list and status commands inspect without re-running the auditors. Audit evidence stays local: it is never written to the spec tree and never committed.
 
 ## Rationale
 
-A CLI success criterion makes the auditing skill's completion state mechanical and reproducible — without it, "audit complete" is a judgment call that varies across agents and sessions. Storing verdicts in `.spx/branch/{branch-slug}/audit/` follows the same separation as sessions: the spec tree holds durable declarations, `.spx/` holds ephemeral local state, and branch scoping prevents one local audit run from contaminating another branch's evidence. Scoping the domain to the full artifact lifecycle (not verify alone) lets commands such as `spx audit list` enumerate prior audits per branch and prune them from branch-scoped local state, analogous to `spx session archive` and `spx session prune`; verify behavior remains the artifact-consistency check inside that broader lifecycle, and because verdict files are not committed, agents that need to share a verdict pass its file path explicitly. Audit execution settings — auditors, targets, base ref, storage policy — are read from the `audit` config descriptor in `spx.config.{toml,json,yaml}` so they resolve through the same registered descriptor system as every other domain rather than being parsed ad hoc.
+Branch-scoping aligns audit evidence with the reviewable unit, so one branch's runs never contaminate another's, and keeping the evidence local and uncommitted keeps verdicts out of the repository, diffs, and pull requests — an agent that needs to share a verdict resolves it from the recorded run rather than a tracked file. Recording each run as inspectable history lets list and status report the latest verdict and surface incomplete runs without paying to re-run the auditors. A run's scope is read from product configuration so auditors, targets, and base ref are configurable rather than fixed.
 
 ## Product properties
 
-1. `spx audit verify` exit code 0 is the sole completion criterion for the `typescript:auditing-typescript-tests` skill.
-2. Audit history is isolated per branch — an audit surfaces only the current branch's verdicts, never another branch's.
-3. Audit verdict artifacts stay local: they are never committed, so they never appear in the repository, a diff, or a pull request.
+1. An audit run records a terminal verdict — approved, rejected, failed, or interrupted — that list and status inspect without re-running the auditors.
+2. Audit history is isolated per branch — an audit surfaces only the current branch's runs, never another branch's.
+3. Audit evidence stays local — it is never committed, so it never appears in the repository, a diff, or a pull request.
 
 ## Verification
 
 ### Audit
 
-- ALWAYS: store verdict files in `.spx/branch/{branch-slug}/audit/` at the Git common-dir product root per `spx/15-worktree-management.pdr.md` ([audit])
-- ALWAYS: accept any file path as the argument to `spx audit verify` — the command is not restricted to `.spx/branch/{branch-slug}/audit/` contents ([audit])
-- ALWAYS: register audit configuration through the config descriptor system per `spx/16-config.enabler/21-descriptor-registration.adr.md` rather than parsing raw `spx.config.*` content in audit code ([audit])
-- NEVER: write verdict files into the `spx/` spec tree ([audit])
-- NEVER: treat a non-zero exit from `spx audit verify` as a silent warning — it must surface as an error ([audit])
+- ALWAYS: `spx audit` runs the configured auditors over the current branch's target files and records the run as inspectable local evidence ([audit])
+- ALWAYS: list, status, and latest-run views render from recorded run history without re-running the auditors ([audit])
+- NEVER: write audit evidence into the `spx/` spec tree ([audit])
+- NEVER: commit audit evidence — audit runs are local branch-scoped state ([audit])

@@ -1,24 +1,24 @@
 # Audit CLI Domain
 
-The `spx audit` Commander domain follows the three-layer CLI composition of [`spx/14-cli-composition.adr.md`](../../14-cli-composition.adr.md). The domain is routing and output only — all audit validation logic lives in the child enablers.
+The `spx audit` Commander domain follows the three-layer CLI composition of [`spx/14-cli-composition.adr.md`](../../14-cli-composition.adr.md): the descriptor at `src/interfaces/cli/audit.ts` is routing and the process boundary only — every subcommand delegates to a process-agnostic handler under `src/commands/audit/` that returns its result, and the Commander action is the sole caller of `process.exit`. The static CLI descriptor registry enumerates the audit domain exactly when audit exposes an implemented subcommand; a domain with no implemented subcommand is absent from the registry rather than registered as an empty command group.
 
 ## Rationale
 
-Extracting the command handler behind a `writeLine` callback keeps the testable logic separate from `process.exit`, so tests drive it with a collector array and never touch the process lifecycle. Keeping output formatting in the handler rather than the Commander action leaves the action a thin dispatcher — parse args, call the handler, exit — consistent with the other domains. The handler takes `productDir` as a parameter so it carries no implicit dependency on the working directory. Printing the verdict value on success lets callers see the outcome at a glance, and the pipeline's empty `lines` array is not printed because it carries no user-visible information.
+Keeping audit subcommand logic in process-agnostic handlers under `src/commands/audit/` and the process boundary in the Commander action keeps each handler testable with a collector for output and an exit code in the return value, never `process.exit` — consistent with every other domain and with `spx/14-cli-composition.adr.md`. Enumerating a domain in the registry only once it exposes an implemented subcommand keeps `spx audit --help` from advertising a command group that does nothing: a registered descriptor with no action is a dead entry the static registry would otherwise carry into the build.
 
 ## Invariants
 
 - `auditDomain.name === "audit"`.
-- `runVerifyCommand` never calls `process.exit`.
-- The Commander action is the only caller of `process.exit`.
+- No handler under `src/commands/audit/` calls `process.exit`; the Commander action is the only caller.
+- The static CLI descriptor registry enumerates the audit domain only when audit exposes at least one implemented subcommand.
 
 ## Verification
 
 ### Audit
 
-- ALWAYS: export `auditDomain` from `src/interfaces/cli/audit.ts`, register it through `src/cli.ts`, and add `verify <file>` as its subcommand ([audit])
-- ALWAYS: expose the process-agnostic handler `runVerifyCommand(filePath, productDir, writeLine): Promise<0 | 1>` in `src/commands/audit/verify.ts`, emitting each output line through `writeLine` and returning the exit code ([audit])
-- ALWAYS: the Commander action handler in `src/interfaces/cli/audit.ts` passes `process.cwd()` as `productDir` when calling `runVerifyCommand` ([audit])
-- ALWAYS: print the verdict value (`APPROVED`/`REJECT`) on success and one line per defect on failure ([audit])
-- NEVER: implement audit validation logic in the CLI domain — routing and output only ([audit])
-- NEVER: call `process.exit` inside `runVerifyCommand` — the Commander action is the only caller of `process.exit` ([audit])
+- ALWAYS: keep `src/interfaces/cli/audit.ts` routing and process I/O only — exit codes and standard streams — with all audit logic in child enabler handlers per `spx/14-cli-composition.adr.md` ([audit])
+- ALWAYS: expose each audit subcommand as a process-agnostic handler under `src/commands/audit/` that emits output through an injected writer and returns its exit code ([audit])
+- ALWAYS: enumerate the audit domain in the static CLI descriptor registry only when it exposes an implemented subcommand ([audit])
+- NEVER: implement audit business logic in the CLI descriptor — routing and output only ([audit])
+- NEVER: call `process.exit` inside an audit command handler — the Commander action is the only caller ([audit])
+- NEVER: register an audit command group that exposes no implemented subcommand ([audit])
