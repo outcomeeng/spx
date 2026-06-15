@@ -30,6 +30,7 @@ describe("worktree occupancy compliance", () => {
 
     expect(fromMain.worktreesDir).toBe(sharedWorktreesDir);
     expect(fromNonMain.worktreesDir).toBe(sharedWorktreesDir);
+    expect(fromNonMain.worktreesDir).toBe(fromMain.worktreesDir);
 
     const name = sampleWorktreeTestValue(WORKTREE_TEST_GENERATOR.worktreeName());
     const claimPath = claimFilePath(fromMain.worktreesDir, name);
