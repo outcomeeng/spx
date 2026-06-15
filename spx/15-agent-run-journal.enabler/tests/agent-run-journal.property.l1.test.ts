@@ -73,6 +73,33 @@ describe("agent-run-journal sequence, cursor, and render properties", () => {
     );
   });
 
+  it("renders the full history identically across backends and repeated calls when no through-sequence is given", async () => {
+    await fc.assert(
+      fc.asyncProperty(
+        arbitraryJournalEventInputs(),
+        arbitraryJournalIdentity(),
+        async (inputs, identity) => {
+          const journalA = createJournal(createInMemoryAppendableBackend(), identity);
+          const journalB = createJournal(createInMemoryAppendableBackend(), identity);
+          for (const input of inputs) {
+            await journalA.append(input);
+            await journalB.append(input);
+          }
+          // render() with no through-sequence folds the entire history — the
+          // default-prefix branch distinct from a bounded throughSeq.
+          const firstCall = await journalA.render(digestProjection);
+          const repeatedCall = await journalA.render(digestProjection);
+          const otherBackend = await journalB.render(digestProjection);
+          expect(repeatedCall).toBe(firstCall);
+          expect(otherBackend).toBe(firstCall);
+          // the unbounded render equals a render bounded at the last appended seq
+          const throughLast = await journalA.render(digestProjection, JOURNAL_SEQ_BASE + inputs.length - 1);
+          expect(firstCall).toBe(throughLast);
+        },
+      ),
+    );
+  });
+
   it("assigns a sequence number that identifies an event identically across backends, restarts, and re-run attempts", async () => {
     await fc.assert(
       fc.asyncProperty(
