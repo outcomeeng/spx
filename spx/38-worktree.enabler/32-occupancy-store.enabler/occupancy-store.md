@@ -16,7 +16,7 @@ The claim record carries the holding agent's session id, host, controlling-proce
 ### Mappings
 
 - Occupancy classification maps from the claim signals: no claim file maps to unclaimed; a claim whose host matches and whose process is alive with a matching start time maps to occupied; a claim whose process is dead, whose host differs, or whose start time no longer matches the live process maps to stale ([test](tests/occupancy-store.mapping.l1.test.ts))
-- Claim-name validity maps to the claim path: a safe scope-token name maps to a `<name>.claim` path under the worktrees directory; an empty name or a name containing a path separator or relative segment maps to the INVALID_NAME rejection ([test](tests/occupancy-store.mapping.l1.test.ts))
+- Claim-name validity maps to the claim path: a safe scope-token name maps to a `<name>.claim` path under the worktrees directory; an empty name or a name carrying any character outside the safe scope-token set — letters, digits, hyphen, and underscore — maps to the INVALID_NAME rejection ([test](tests/occupancy-store.mapping.l1.test.ts))
 
 ### Properties
 
