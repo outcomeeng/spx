@@ -1,5 +1,3 @@
-/** Input-domain generators for agent-run-journal tests. */
-
 import fc from "fast-check";
 
 import type { JournalEventInput, JournalIdentity, JsonValue } from "@/lib/agent-run-journal";
