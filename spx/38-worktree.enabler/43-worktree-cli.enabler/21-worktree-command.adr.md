@@ -22,6 +22,6 @@ A worktree's claim key is its worktree-root identity, not a raw path token. Reso
 
 - ALWAYS: controlling-process resolution and every worktree command handler take the process table, the host provider, and the environment as injected parameters ([audit])
 - ALWAYS: the worktree domain registers through the static descriptor registry via one explicit import, per [`spx/14-cli-composition.adr.md`](../../14-cli-composition.adr.md) ([audit])
-- ALWAYS: status resolves its path argument — defaulting to the running directory when omitted — to a worktree root through the same git worktree-root resolution claim and release use, and refuses a path that resolves to no worktree rather than reporting it unclaimed ([audit])
+- ALWAYS: status resolves its path argument — defaulting to the running directory when omitted — to a worktree root through the same git worktree-root resolution claim and release use, derives both the claim name and the `.spx/worktrees` scope from that resolved worktree rather than the caller's directory, and refuses a path that resolves to no worktree rather than reporting it unclaimed ([audit])
 - NEVER: a worktree command handler reads the process table, the host, or the environment except through its injected dependencies ([audit])
 - NEVER: `vi.mock()`, `jest.mock()`, or `memfs` substitutes for the process table or filesystem — tests inject a controlled table and exercise the real resolution and rendering code paths ([audit])
