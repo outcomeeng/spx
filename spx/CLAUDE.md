@@ -1,5 +1,5 @@
 ---
-template_version: "0.18.13"
+template_version: "0.18.14"
 template_source: spec-tree
 languages: [typescript]
 ---
@@ -245,4 +245,4 @@ agent_session_id: abc123-def456
 ---
 ```
 
-`spx session handoff` reads a JSON header on the first line of stdin followed by the body bytes. It prefills `created_at`, `agent_session_id` when available, and `git_ref`. The handoff must provide non-empty `goal` and `next_step`.
+`spx session handoff` reads a JSON header on the first line of stdin followed by the body bytes. It prefills `created_at` and `agent_session_id` when available, and records the header's `git_ref` — the work branch `/handoff` supplies — after confirming that branch exists on `origin`; when `git_ref` is omitted it derives the base from the git context. The handoff must provide non-empty `goal` and `next_step`.
