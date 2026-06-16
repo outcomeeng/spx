@@ -44,22 +44,30 @@ export async function resolveCurrentWorktreeName(options: WorktreeScopeOptions):
   return worktreeClaimName(worktree.productDir);
 }
 
+/** A status target's claim name and the worktree root both its name and its `.spx/worktrees` scope derive from. */
+export interface ResolvedTargetWorktree {
+  readonly name: string;
+  readonly worktreeRoot: string;
+}
+
 /**
- * The claim name for the worktree a status target denotes. The target is the
- * `worktree` path resolved against the running directory, or the running
- * directory itself when omitted; its worktree root is resolved through the same
- * git resolution claim and release use, so any path inside a worktree — the
- * root, `.`, or a path within — keys the same claim. A target that resolves to
- * no worktree is refused rather than keyed on a bare path segment.
+ * The worktree a status target denotes. The target is the `worktree` path
+ * resolved against the running directory, or the running directory itself when
+ * omitted; its worktree root is resolved through the same git resolution claim
+ * and release use, so any path inside a worktree — the root, `.`, or a path
+ * within — names the same claim. The resolved root is returned so the claim
+ * scope resolves from the same worktree the name does, never from the caller's
+ * unrelated working directory. A target that resolves to no worktree is refused
+ * rather than keyed on a bare path segment.
  */
-export async function resolveTargetWorktreeName(
+export async function resolveTargetWorktree(
   options: WorktreeScopeOptions & { readonly worktree?: string },
-): Promise<Result<string>> {
+): Promise<Result<ResolvedTargetWorktree>> {
   const base = options.cwd ?? process.cwd();
   const targetPath = options.worktree === undefined ? base : resolve(base, options.worktree);
   const worktree = await detectWorktreeProductRoot(targetPath, options.gitDeps);
   if (!worktree.isGitRepo) {
     return { ok: false, error: `${WORKTREE_RESOLVE_ERROR.NOT_A_WORKTREE}: ${options.worktree ?? base}` };
   }
-  return { ok: true, value: worktreeClaimName(worktree.productDir) };
+  return { ok: true, value: { name: worktreeClaimName(worktree.productDir), worktreeRoot: worktree.productDir } };
 }
