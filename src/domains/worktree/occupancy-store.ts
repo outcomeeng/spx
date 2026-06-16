@@ -104,10 +104,13 @@ export function claimFilePath(worktreesDir: string, name: string): Result<string
 
 /**
  * Classifies a worktree's occupancy from its claim and the process table: no
- * claim is unclaimed; a same-host claim whose process is alive with a matching
- * start time is occupied; a dead process, a different host, or a start-time
- * mismatch (a recycled pid) is stale and therefore free. The decision reads no
- * clock, so a live holder never ages out.
+ * claim is unclaimed; a different host or a dead process is stale and therefore
+ * free; a live same-host process whose start time is readable and differs is a
+ * recycled pid and reads stale. A live same-host process whose start time
+ * matches — or cannot be read at all — reads occupied: a live holder is never
+ * reported free on the strength of an unreadable start time, the conservative
+ * choice that keeps one agent out of another live agent's worktree. The
+ * decision reads no clock, so a live holder never ages out.
  */
 export function classifyOccupancy(
   claim: WorktreeClaimRecord | undefined,
@@ -116,7 +119,8 @@ export function classifyOccupancy(
   if (claim === undefined) return OCCUPANCY_STATUS.UNCLAIMED;
   if (claim.host !== probe.currentHost()) return OCCUPANCY_STATUS.STALE;
   if (!probe.isAlive(claim.pid)) return OCCUPANCY_STATUS.STALE;
-  if (probe.startTimeOf(claim.pid) !== claim.startedAt) return OCCUPANCY_STATUS.STALE;
+  const liveStartTime = probe.startTimeOf(claim.pid);
+  if (liveStartTime !== undefined && liveStartTime !== claim.startedAt) return OCCUPANCY_STATUS.STALE;
   return OCCUPANCY_STATUS.OCCUPIED;
 }
 

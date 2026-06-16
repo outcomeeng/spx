@@ -22,6 +22,9 @@ export interface ProcessTable extends ProcessProbe {
 }
 
 // Absolute path to a fixed, unwriteable location so PATH cannot shadow `ps`.
+// Where `/bin/ps` is absent, `startTimeOf` returns undefined; classification
+// treats a live same-host process with an unreadable start time as occupied
+// (see classifyOccupancy), so a live holder is never freed by a missing `ps`.
 const PS_COMMAND = "/bin/ps";
 const PS_FIELD = {
   START_TIME: "lstart",
