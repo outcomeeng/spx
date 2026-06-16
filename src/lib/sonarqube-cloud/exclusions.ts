@@ -1,16 +1,16 @@
 /**
- * Fixture-exclusion drift logic for SonarCloud automatic analysis.
+ * Fixture-exclusion drift logic for SonarQube Cloud automatic analysis.
  *
- * SonarCloud automatic analysis reads `.sonarcloud.properties` but does not accept
- * wildcard patterns, so the test-fixture exclusion is a hand-enumerated exact-path
- * list. This module parses that list and compares it to the tracked files under the
- * fixture root, so a Lefthook pre-commit hook can block a commit whose exclusion
- * list has drifted from the fixture tree.
+ * SonarQube Cloud automatic analysis reads `.sonarcloud.properties` but does not
+ * accept wildcard patterns, so the test-fixture exclusion is a hand-enumerated
+ * exact-path list. This module parses that list and compares it to the tracked
+ * files under the fixture root, so a Lefthook pre-commit hook can block a commit
+ * whose exclusion list has drifted from the fixture tree.
  *
  * All logic here is pure: the git listing and the `.sonarcloud.properties` read are
  * supplied by the caller through {@link ExclusionCheckDeps}.
  *
- * @module lib/sonarcloud/exclusions
+ * @module lib/sonarqube-cloud/exclusions
  */
 
 /** Repository-relative root of the deliberate test fixtures. */
