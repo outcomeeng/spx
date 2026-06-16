@@ -15,8 +15,8 @@ import { withWorktreeLayoutEnv } from "@testing/harnesses/worktree-layout/worktr
 
 async function runSpx(
   args: readonly string[],
+  env: Readonly<Record<string, string>>,
   cwd: string,
-  env: Readonly<Record<string, string>> = {},
 ): Promise<{ stdout: string; stderr: string; exitCode: number }> {
   const result = await execa(NODE_EXECUTABLE, [CLI_PATH, ...args], {
     cwd,
@@ -54,8 +54,8 @@ describe("worktree CLI occupancy round-trip", () => {
             WORKTREE_CLI.WORKTREES_DIR_FLAG,
             worktreesDir,
           ],
-          worktreePath,
           { [CONTROLLING_PID_ENV]: controllingPid },
+          worktreePath,
         );
         expect(claim.exitCode).toBe(0);
 
@@ -81,7 +81,7 @@ describe("worktree CLI occupancy round-trip", () => {
               WORKTREE_CLI.WORKTREES_DIR_FLAG,
               worktreesDir,
             ];
-          const status = await runSpx(args, worktreePath, { [CONTROLLING_PID_ENV]: controllingPid });
+          const status = await runSpx(args, { [CONTROLLING_PID_ENV]: controllingPid }, worktreePath);
           expect(status.exitCode, `form "${form}"`).toBe(0);
           expect(parsedStatus(status.stdout), `form "${form}"`).toBe(OCCUPANCY_STATUS.OCCUPIED);
         }
@@ -95,6 +95,7 @@ describe("worktree CLI occupancy round-trip", () => {
             WORKTREE_CLI.WORKTREES_DIR_FLAG,
             worktreesDir,
           ],
+          {},
           worktreePath,
         );
         expect(nonWorktree.exitCode).not.toBe(0);
