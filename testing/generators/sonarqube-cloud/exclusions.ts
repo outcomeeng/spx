@@ -1,6 +1,6 @@
 import fc from "fast-check";
 
-import { FIXTURE_ROOT } from "@/lib/sonarqube-cloud/exclusions";
+import { comparePathEntries, FIXTURE_ROOT } from "@/lib/sonarqube-cloud/exclusions";
 
 const PATH_SEGMENT = fc.stringMatching(/^[a-z][a-z0-9-]{0,11}$/);
 const FILE_EXTENSION = fc.constantFrom("ts", "py", "json", "md", "xml", "txt", "fixture");
@@ -21,7 +21,7 @@ export function arbitraryFixturePath(): fc.Arbitrary<string> {
 export function arbitraryFixturePathSet(): fc.Arbitrary<string[]> {
   return fc
     .uniqueArray(arbitraryFixturePath(), { minLength: 1, maxLength: 12 })
-    .map((paths) => [...paths].sort());
+    .map((paths) => [...paths].sort(comparePathEntries));
 }
 
 /**

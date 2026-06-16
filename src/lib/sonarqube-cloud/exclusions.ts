@@ -54,6 +54,11 @@ export interface ExclusionCheckResult {
   readonly drift: ExclusionDrift;
 }
 
+/** Sort comparator for repository-relative paths. */
+export function comparePathEntries(left: string, right: string): number {
+  return left.localeCompare(right);
+}
+
 function isUnderFixtureRoot(path: string): boolean {
   return path === FIXTURE_ROOT || path.startsWith(`${FIXTURE_ROOT}/`);
 }
@@ -123,8 +128,8 @@ export function computeFixtureExclusionDrift(params: {
 }): ExclusionDrift {
   const tracked = new Set(params.trackedFixtureFiles);
   const fixtureEntries = new Set(params.exclusionEntries.filter(isUnderFixtureRoot));
-  const missing = [...tracked].filter((file) => !fixtureEntries.has(file)).sort();
-  const extra = [...fixtureEntries].filter((entry) => !tracked.has(entry)).sort();
+  const missing = [...tracked].filter((file) => !fixtureEntries.has(file)).sort(comparePathEntries);
+  const extra = [...fixtureEntries].filter((entry) => !tracked.has(entry)).sort(comparePathEntries);
   return { missing, extra };
 }
 
