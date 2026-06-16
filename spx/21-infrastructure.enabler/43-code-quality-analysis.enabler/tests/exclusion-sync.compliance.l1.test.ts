@@ -1,7 +1,12 @@
 import fc from "fast-check";
 import { describe, expect, it } from "vitest";
 
-import { runFixtureExclusionCheck } from "@/lib/sonarqube-cloud/check-fixture-exclusions";
+import {
+  createFixtureExclusionEntrypointDeps,
+  gitListCachedFixtureFilesArgs,
+  gitShowPropertiesIndexArgs,
+  runFixtureExclusionCheck,
+} from "@/lib/sonarqube-cloud/check-fixture-exclusions";
 import {
   checkFixtureExclusions,
   computeFixtureExclusionDrift,
@@ -111,6 +116,27 @@ describe("checkFixtureExclusions", () => {
         });
         expect(result.ok).toBe(false);
         expect(result.drift.extra).toEqual([extra]);
+      }),
+    );
+  });
+});
+
+describe("createFixtureExclusionEntrypointDeps", () => {
+  it("reads the properties file and tracked fixtures from the git index snapshot", () => {
+    fc.assert(
+      fc.property(arbitraryFixturePath(), (fixturePath) => {
+        const propertiesText = `${SONAR_EXCLUSIONS_KEY}=${fixturePath}\n`;
+        const gitCalls: string[][] = [];
+        const deps = createFixtureExclusionEntrypointDeps({
+          execGit: (args) => {
+            gitCalls.push([...args]);
+            return gitCalls.length === 1 ? propertiesText : `${fixturePath}\0`;
+          },
+          writeError: () => undefined,
+        });
+        expect(deps.readProperties()).toBe(propertiesText);
+        expect(deps.listTrackedFixtureFiles()).toEqual([fixturePath]);
+        expect(gitCalls).toEqual([gitShowPropertiesIndexArgs(), gitListCachedFixtureFilesArgs()]);
       }),
     );
   });

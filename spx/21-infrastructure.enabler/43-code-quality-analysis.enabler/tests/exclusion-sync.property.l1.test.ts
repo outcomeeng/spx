@@ -1,7 +1,7 @@
 import fc from "fast-check";
 import { describe, expect, it } from "vitest";
 
-import { parseSonarExclusions, SONAR_EXCLUSIONS_KEY } from "@/lib/sonarqube-cloud/exclusions";
+import { comparePathEntries, parseSonarExclusions, SONAR_EXCLUSIONS_KEY } from "@/lib/sonarqube-cloud/exclusions";
 import { arbitraryFixturePathSet } from "@testing/generators/sonarqube-cloud/exclusions";
 
 function renderSingleLine(entries: readonly string[]): string {
@@ -27,7 +27,9 @@ describe("parseSonarExclusions", () => {
   it("recovers exactly the entries that were written", () => {
     fc.assert(
       fc.property(arbitraryFixturePathSet(), (entries) => {
-        expect([...parseSonarExclusions(renderContinuationLines(entries))].sort()).toEqual([...entries].sort());
+        expect([...parseSonarExclusions(renderContinuationLines(entries))].sort(comparePathEntries)).toEqual(
+          [...entries].sort(comparePathEntries),
+        );
       }),
     );
   });
@@ -36,7 +38,7 @@ describe("parseSonarExclusions", () => {
     fc.assert(
       fc.property(arbitraryFixturePathSet(), (entries) => {
         const text = `# a comment\nsonar.python.version=3.13, 3.14\n${renderContinuationLines(entries)}`;
-        expect([...parseSonarExclusions(text)].sort()).toEqual([...entries].sort());
+        expect([...parseSonarExclusions(text)].sort(comparePathEntries)).toEqual([...entries].sort(comparePathEntries));
       }),
     );
   });
