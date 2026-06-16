@@ -1,8 +1,8 @@
 import fc from "fast-check";
 import { describe, expect, it } from "vitest";
 
-import { parseSonarExclusions, SONAR_EXCLUSIONS_KEY } from "@/lib/sonarcloud/exclusions";
-import { arbitraryFixturePathSet } from "@testing/generators/sonarcloud/exclusions";
+import { parseSonarExclusions, SONAR_EXCLUSIONS_KEY } from "@/lib/sonarqube-cloud/exclusions";
+import { arbitraryFixturePathSet } from "@testing/generators/sonarqube-cloud/exclusions";
 
 function renderSingleLine(entries: readonly string[]): string {
   return `${SONAR_EXCLUSIONS_KEY}=${entries.join(",")}\n`;

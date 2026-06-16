@@ -5,12 +5,12 @@ import {
   checkFixtureExclusions,
   computeFixtureExclusionDrift,
   SONAR_EXCLUSIONS_KEY,
-} from "@/lib/sonarcloud/exclusions";
+} from "@/lib/sonarqube-cloud/exclusions";
 import {
   arbitraryFixturePath,
   arbitraryFixturePathSet,
   arbitraryNonFixturePath,
-} from "@testing/generators/sonarcloud/exclusions";
+} from "@testing/generators/sonarqube-cloud/exclusions";
 
 describe("computeFixtureExclusionDrift", () => {
   it("reports clean exactly when the exclusion entries equal the tracked fixture files", () => {

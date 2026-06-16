@@ -1,6 +1,6 @@
 import fc from "fast-check";
 
-import { FIXTURE_ROOT } from "@/lib/sonarcloud/exclusions";
+import { FIXTURE_ROOT } from "@/lib/sonarqube-cloud/exclusions";
 
 const PATH_SEGMENT = fc.stringMatching(/^[a-z][a-z0-9-]{0,11}$/);
 const FILE_EXTENSION = fc.constantFrom("ts", "py", "json", "md", "xml", "txt", "fixture");

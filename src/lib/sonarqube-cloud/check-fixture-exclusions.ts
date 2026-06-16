@@ -6,7 +6,7 @@
  * a drift report when the lists disagree, and maps the result to an exit code.
  * Lefthook invokes this on pre-commit; see `lefthook.yml`.
  *
- * @module lib/sonarcloud/check-fixture-exclusions
+ * @module lib/sonarqube-cloud/check-fixture-exclusions
  */
 
 import { execFileSync } from "node:child_process";
@@ -20,7 +20,7 @@ import {
   formatDriftReport,
 } from "./exclusions";
 
-const SONARCLOUD_PROPERTIES = ".sonarcloud.properties";
+const SONARQUBE_CLOUD_PROPERTIES_FILE = ".sonarcloud.properties";
 const ENTRYPOINT_SUFFIX = "/check-fixture-exclusions.ts";
 // NUL-terminated output so paths are raw bytes regardless of git's core.quotePath.
 const GIT_LS_FILES_SEPARATOR = "\0";
@@ -31,7 +31,7 @@ interface EntrypointDeps extends ExclusionCheckDeps {
 
 function realDeps(): EntrypointDeps {
   return {
-    readProperties: () => readFileSync(SONARCLOUD_PROPERTIES, "utf8"),
+    readProperties: () => readFileSync(SONARQUBE_CLOUD_PROPERTIES_FILE, "utf8"),
     listTrackedFixtureFiles: () =>
       execFileSync("git", ["ls-files", "-z", FIXTURE_ROOT], { encoding: "utf8" })
         .split(GIT_LS_FILES_SEPARATOR)
