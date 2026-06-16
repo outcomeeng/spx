@@ -5,6 +5,7 @@
  * @module commands/worktree/resolve
  */
 
+import { stat } from "node:fs/promises";
 import { resolve } from "node:path";
 
 import type { Result } from "@/config/types";
@@ -65,9 +66,21 @@ export async function resolveTargetWorktree(
 ): Promise<Result<ResolvedTargetWorktree>> {
   const base = options.cwd ?? process.cwd();
   const targetPath = options.worktree === undefined ? base : resolve(base, options.worktree);
+  if (await isExistingNonDirectory(targetPath)) {
+    return { ok: false, error: `${WORKTREE_RESOLVE_ERROR.NOT_A_WORKTREE}: ${options.worktree ?? base}` };
+  }
   const worktree = await detectWorktreeProductRoot(targetPath, options.gitDeps);
   if (!worktree.isGitRepo) {
     return { ok: false, error: `${WORKTREE_RESOLVE_ERROR.NOT_A_WORKTREE}: ${options.worktree ?? base}` };
   }
   return { ok: true, value: { name: worktreeClaimName(worktree.productDir), worktreeRoot: worktree.productDir } };
+}
+
+async function isExistingNonDirectory(path: string): Promise<boolean> {
+  try {
+    const pathStats = await stat(path);
+    return !pathStats.isDirectory();
+  } catch {
+    return false;
+  }
 }
