@@ -30,7 +30,6 @@ describe("worktree CLI occupancy round-trip", () => {
         await mkdir(subdirPath);
         const controllingPid = String(process.pid);
 
-        // Claim the current worktree; the live test process is the holder.
         const claim = await runWorktreeCli(
           [
             WORKTREE_CLI.COMMAND,
@@ -45,8 +44,6 @@ describe("worktree CLI occupancy round-trip", () => {
         );
         expect(claim.exitCode).toBe(0);
 
-        // Every form that denotes the claimed worktree reports occupied: no
-        // argument (current worktree), `.`, the absolute root, and a subdir.
         const denotingForms: readonly string[] = ["", ".", worktreePath, subdirPath];
         for (const form of denotingForms) {
           const args = form.length > 0
@@ -72,7 +69,6 @@ describe("worktree CLI occupancy round-trip", () => {
           expect(parsedStatus(status.stdout), `form "${form}"`).toBe(OCCUPANCY_STATUS.OCCUPIED);
         }
 
-        // A path that is not a worktree is refused, not reported unclaimed.
         const nonWorktree = await runWorktreeCli(
           [
             WORKTREE_CLI.COMMAND,
