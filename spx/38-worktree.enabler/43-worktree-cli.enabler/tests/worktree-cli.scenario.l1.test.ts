@@ -81,6 +81,17 @@ describe("worktree command handlers", () => {
       if (!occupied.ok) throw new Error(occupied.error);
       expect(occupied.value).toContain(OCCUPANCY_STATUS.OCCUPIED);
 
+      // The no-argument form resolves the same worktree from cwd, so it reports
+      // the same occupancy as supplying the worktree root path.
+      const occupiedNoArg = await statusCommand({
+        cwd: env.worktreePath,
+        worktreesDir: env.worktreesDir,
+        processTable: env.processTable,
+      });
+      expect(occupiedNoArg.ok).toBe(true);
+      if (!occupiedNoArg.ok) throw new Error(occupiedNoArg.error);
+      expect(occupiedNoArg.value).toContain(OCCUPANCY_STATUS.OCCUPIED);
+
       const stale = await statusCommand({
         worktree: env.worktreePath,
         cwd: env.worktreePath,
