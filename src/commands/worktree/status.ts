@@ -9,7 +9,7 @@ import type { Result } from "@/config/types";
 import { type OccupancyFileSystem, type OccupancyStatus, readOccupancy } from "@/domains/worktree/occupancy-store";
 import { defaultProcessTable, type ProcessTable } from "@/domains/worktree/process-table";
 
-import { resolveTargetWorktreeName, resolveWorktreesDir, type WorktreeScopeOptions } from "./resolve";
+import { resolveTargetWorktree, resolveWorktreesDir, type WorktreeScopeOptions } from "./resolve";
 
 export const WORKTREE_STATUS_FORMAT = {
   JSON: "json",
@@ -31,13 +31,13 @@ export interface StatusCommandOptions extends WorktreeScopeOptions {
 
 /** Reads the target worktree's occupancy and renders it in the requested format. */
 export async function statusCommand(options: StatusCommandOptions): Promise<Result<string>> {
-  const resolvedName = await resolveTargetWorktreeName(options);
-  if (!resolvedName.ok) return resolvedName;
-  const worktreesDir = await resolveWorktreesDir(options);
+  const target = await resolveTargetWorktree(options);
+  if (!target.ok) return target;
+  const worktreesDir = await resolveWorktreesDir({ ...options, cwd: target.value.worktreeRoot });
   const table = options.processTable ?? defaultProcessTable;
-  const occupancy = await readOccupancy(worktreesDir, resolvedName.value, table, { fs: options.fs });
+  const occupancy = await readOccupancy(worktreesDir, target.value.name, table, { fs: options.fs });
   if (!occupancy.ok) return occupancy;
-  return { ok: true, value: renderStatus(resolvedName.value, occupancy.value, options.format) };
+  return { ok: true, value: renderStatus(target.value.name, occupancy.value, options.format) };
 }
 
 function renderStatus(name: string, status: OccupancyStatus, format: string | undefined): string {
