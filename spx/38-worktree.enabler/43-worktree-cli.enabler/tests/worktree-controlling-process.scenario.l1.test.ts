@@ -43,6 +43,28 @@ describe("worktree controlling-process resolution", () => {
     expect(result.value).toEqual({ pid: agentPid, startedAt, host });
   });
 
+  it("detects an agent invoked through an interpreter rather than falling back to the hook", () => {
+    const host = sampleWorktreeTestValue(WORKTREE_TEST_GENERATOR.host());
+    const startedAt = sampleWorktreeTestValue(WORKTREE_TEST_GENERATOR.startTime());
+    const [selfPid, hookPid, agentPid] = sampleWorktreeTestValue(WORKTREE_TEST_GENERATOR.distinctPids());
+    const hookCommand = sampleWorktreeTestValue(WORKTREE_TEST_GENERATOR.nonAgentCommand());
+    const agentCommand = sampleWorktreeTestValue(WORKTREE_TEST_GENERATOR.interpretedAgentCommand());
+    const table = createProcessTable({
+      host,
+      processes: new Map<number, ProcessTableEntry>([
+        [selfPid, { ppid: hookPid }],
+        [hookPid, { ppid: agentPid, command: hookCommand }],
+        [agentPid, { command: agentCommand, startTime: startedAt, alive: true }],
+      ]),
+    });
+
+    const result = resolveControllingProcess(selfPid, table, {});
+
+    expect(result.ok).toBe(true);
+    if (!result.ok) throw new Error(result.error);
+    expect(result.value).toEqual({ pid: agentPid, startedAt, host });
+  });
+
   it("falls back to the immediate parent when no ancestor names an agent runtime", () => {
     const host = sampleWorktreeTestValue(WORKTREE_TEST_GENERATOR.host());
     const startedAt = sampleWorktreeTestValue(WORKTREE_TEST_GENERATOR.startTime());

@@ -16,6 +16,9 @@ const TOKEN_CHARACTERS = [..."abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWX
 // A character set that mixes safe token characters with characters the claim-name
 // derivation must lowercase or collapse: uppercase letters, dots, spaces, and slashes.
 const RAW_BASENAME_CHARACTERS = [..."abcXYZ012_-. /"] as const;
+// Interpreters that run a shebang-installed agent script, so `ps -o args=` reports
+// the interpreter followed by the agent script path. None names an agent runtime.
+const AGENT_INTERPRETERS = ["node", "python3"] as const;
 const MIN_PID = 1;
 const MAX_PID = 4_194_304;
 // Spans from the Unix epoch so the "occupancy never ages out" property is
@@ -77,14 +80,32 @@ export const WORKTREE_TEST_GENERATOR = {
     fc
       .uniqueArray(fc.integer({ min: MIN_PID, max: MAX_PID }), { minLength: 4, maxLength: 4 })
       .map(([a, b, c, d]) => [a, b, c, d] as [number, number, number, number]),
-  /** A process command naming a known agent runtime, as a path segment. */
+  /**
+   * A full command line naming a known agent runtime, in either form `ps -o
+   * args=` reports: a native executable path, or an interpreter invoking the
+   * agent script (the shebang case where `comm` would read only the
+   * interpreter).
+   */
   agentCommand: (): fc.Arbitrary<string> =>
     fc
       .tuple(
         stringFromCharacters(TOKEN_CHARACTERS, { minLength: 1, maxLength: 16 }),
         fc.constantFrom(...AGENT_RUNTIME_NAMES),
+        fc.constantFrom(...AGENT_INTERPRETERS),
+        fc.boolean(),
       )
-      .map(([dir, name]) => `/${dir}/${name}`),
+      .map(([dir, name, interpreter, interpreted]) =>
+        interpreted ? `/usr/bin/${interpreter} /${dir}/${name}` : `/${dir}/${name}`
+      ),
+  /** A full command line where an interpreter invokes the agent script — the shebang case. */
+  interpretedAgentCommand: (): fc.Arbitrary<string> =>
+    fc
+      .tuple(
+        fc.constantFrom(...AGENT_INTERPRETERS),
+        stringFromCharacters(TOKEN_CHARACTERS, { minLength: 1, maxLength: 16 }),
+        fc.constantFrom(...AGENT_RUNTIME_NAMES),
+      )
+      .map(([interpreter, dir, name]) => `/usr/bin/${interpreter} /${dir}/${name}`),
   /** A process command that does not name any agent runtime. */
   nonAgentCommand: (): fc.Arbitrary<string> =>
     stringFromCharacters(TOKEN_CHARACTERS, { minLength: 1, maxLength: 24 })
