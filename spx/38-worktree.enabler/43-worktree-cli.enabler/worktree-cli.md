@@ -15,6 +15,7 @@ CAN claim, query, and release worktree occupancy as a subprocess with predictabl
 - Given a worktree whose claim holder is live on the same host, when the status handler runs, then it reports occupied; an unclaimed worktree reports unclaimed and a dead holder reports stale ([test](tests/worktree-cli.scenario.l1.test.ts))
 - Given the running worktree holds a claim, when the release handler runs, then the claim is removed ([test](tests/worktree-cli.scenario.l1.test.ts))
 - Given no worktree argument, when the status handler runs from within a worktree, then it reports that worktree's occupancy, the same claim and release resolve from the running directory ([test](tests/worktree-cli.scenario.l1.test.ts))
+- Given a worktree claimed under its own git-common-dir scope, when the status handler runs with that worktree's path from an unrelated directory, then it resolves the claim scope from the target worktree, not the caller's directory, and reports occupied ([test](tests/worktree-cli.scenario.l1.test.ts))
 - Given a claimed pool worktree, when `spx worktree status` is executed through `node bin/spx.js` from inside it, against its root path, and against a path within it, then each reports the same occupancy as the claim, and `spx worktree status` of a path that is not a worktree exits non-zero ([test](tests/worktree-cli.scenario.l2.test.ts))
 
 ### Mappings
