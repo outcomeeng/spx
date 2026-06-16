@@ -15,7 +15,7 @@ export const WORKTREE_CLI = {
   CLAIM: "claim",
   STATUS: "status",
   RELEASE: "release",
-  WORKTREE_ARGUMENT: "[worktree]",
+  WORKTREE_ARGUMENT: "[worktrees...]",
   SESSION_ID_FLAG: "--session-id",
   FORMAT_FLAG: "--format",
   WORKTREES_DIR_FLAG: "--worktrees-dir",
@@ -50,9 +50,9 @@ function registerWorktreeCommands(worktreeCmd: Command): void {
     .description("Report a worktree's occupancy (occupied | unclaimed | stale)")
     .option(`${WORKTREE_CLI.FORMAT_FLAG} <format>`, "Output format (text|json)", WORKTREE_STATUS_FORMAT.TEXT)
     .option(`${WORKTREE_CLI.WORKTREES_DIR_FLAG} <path>`, "Explicit .spx/worktrees directory")
-    .action(async (worktree: string | undefined, options: { format?: string; worktreesDir?: string }) => {
+    .action(async (worktrees: string[] | undefined, options: { format?: string; worktreesDir?: string }) => {
       const result = await statusCommand({
-        worktree,
+        worktrees,
         format: options.format,
         worktreesDir: options.worktreesDir,
         onWarning: writeWarning,
