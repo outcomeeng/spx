@@ -11,3 +11,4 @@
 26-release.enabler/32-documentation-sync.enabler
 26-release.enabler/43-publish-dispatch.enabler
 46-reviewing.enabler/43-review-state.enabler
+21-infrastructure.enabler/43-github-ci.enabler/21-snapshot-adapter.enabler
