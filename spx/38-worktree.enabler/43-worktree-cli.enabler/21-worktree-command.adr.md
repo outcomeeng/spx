@@ -10,6 +10,8 @@ Process-table access, the host, and the environment are injected so controlling-
 
 A worktree's claim key is its worktree-root identity, not a raw path token. Resolving every command's target through the same git worktree-root resolution keeps the key independent of which path inside the worktree names it — the root, the running directory, or any path within — so the claim `claim` writes is the claim `status` reads. Keying `status` on the bare argument instead would let a path other than the exact root miss the claim, reading a held worktree free — the failure occupancy detection exists to prevent. Multi-target status treats shell-expanded pool listings as candidate worktree paths: every resolved worktree is reported under its derived claim name, while a path that resolves to no worktree is never rendered as unclaimed. A single path that resolves to no worktree is refused rather than reported free, so a mistyped or non-worktree path is never mistaken for an unclaimed worktree.
 
+JSON status output discriminates by request shape: a single-target invocation — zero or one path argument — emits one occupancy object with `worktree` and `status` keys, while a multi-target invocation — more than one path argument — emits an array of those objects, even when only one supplied path resolves. The request-shape discriminant preserves the legacy single-target contract and gives shell-expanded callers one stable collection shape.
+
 ## Invariants
 
 - The set of `spx` command nouns equals the static descriptor registry's enumeration; the worktree domain joins by one descriptor and one registry entry.
