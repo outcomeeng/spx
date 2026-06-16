@@ -24,7 +24,7 @@ pre-commit:
     # fixture changes.
     sonarqube-cloud-exclusions:
       glob: "{.sonarcloud.properties,testing/fixtures/**}"
-      run: env -u GIT_DIR -u GIT_WORK_TREE -u GIT_INDEX_FILE -u GIT_PREFIX -u GIT_COMMON_DIR npx tsx src/lib/sonarqube-cloud/check-fixture-exclusions.ts
+      run: env -u GIT_DIR -u GIT_WORK_TREE -u GIT_PREFIX -u GIT_COMMON_DIR npx tsx src/lib/sonarqube-cloud/check-fixture-exclusions.ts
 
 pre-push:
   commands:
