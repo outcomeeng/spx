@@ -55,7 +55,7 @@ describe("worktree command handlers", () => {
       const deadTable = createProcessTable({ host: holder.host, processes: new Map<number, ProcessTableEntry>() });
 
       const unclaimed = await statusCommand({
-        worktree: env.worktreePath,
+        worktrees: [env.worktreePath],
         cwd: env.worktreePath,
         worktreesDir: env.worktreesDir,
         processTable: env.processTable,
@@ -73,7 +73,7 @@ describe("worktree command handlers", () => {
       });
 
       const occupied = await statusCommand({
-        worktree: env.worktreePath,
+        worktrees: [env.worktreePath],
         cwd: env.worktreePath,
         worktreesDir: env.worktreesDir,
         processTable: env.processTable,
@@ -92,7 +92,7 @@ describe("worktree command handlers", () => {
       expect(occupiedNoArg.value).toContain(OCCUPANCY_STATUS.OCCUPIED);
 
       const stale = await statusCommand({
-        worktree: env.worktreePath,
+        worktrees: [env.worktreePath],
         cwd: env.worktreePath,
         worktreesDir: env.worktreesDir,
         processTable: deadTable,
@@ -175,7 +175,7 @@ describe("worktree command handlers", () => {
 
       await withTempDir(callerPrefix, async (callerDir) => {
         const status = await statusCommand({
-          worktree: worktreePath,
+          worktrees: [worktreePath],
           cwd: callerDir,
           processTable: probe,
         });

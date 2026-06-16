@@ -1,3 +1,4 @@
+import { writeFile } from "node:fs/promises";
 import { join } from "node:path";
 
 import { describe, expect, it } from "vitest";
@@ -18,13 +19,35 @@ describe("worktree status non-worktree path compliance", () => {
       const nonWorktreePath = join(env.container, absentName);
 
       const status = await statusCommand({
-        worktree: nonWorktreePath,
+        worktrees: [nonWorktreePath],
         worktreesDir: env.worktreesDir,
         processTable: env.processTable,
       });
 
       // A path that resolves to no worktree must be refused, never rendered as a
       // free (unclaimed) worktree.
+      expect(status.ok).toBe(false);
+      if (status.ok) {
+        throw new Error(`expected refusal, got status "${status.value}"`);
+      }
+      expect(status.error).not.toContain(OCCUPANCY_STATUS.UNCLAIMED);
+    });
+  });
+
+  it("NEVER reports an existing non-directory path as an unclaimed worktree", async () => {
+    const [worktreeName, fileName] = sampleWorktreeTestValue(WORKTREE_TEST_GENERATOR.distinctPoolWorktreeNames());
+    const holder = sampleWorktreeTestValue(WORKTREE_TEST_GENERATOR.poolHolder());
+
+    await withWorktreePool({ worktreeName, holder }, async (env) => {
+      const nonWorktreeFilePath = join(env.container, fileName);
+      await writeFile(nonWorktreeFilePath, fileName);
+
+      const status = await statusCommand({
+        worktrees: [nonWorktreeFilePath],
+        worktreesDir: env.worktreesDir,
+        processTable: env.processTable,
+      });
+
       expect(status.ok).toBe(false);
       if (status.ok) {
         throw new Error(`expected refusal, got status "${status.value}"`);

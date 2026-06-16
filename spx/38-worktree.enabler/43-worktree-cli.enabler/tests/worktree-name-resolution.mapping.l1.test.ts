@@ -35,7 +35,7 @@ describe("worktree status path-form resolution", () => {
       const forms = [env.worktreePath, ".", "./", subdirPath];
       for (const form of forms) {
         const status = await statusCommand({
-          worktree: form,
+          worktrees: [form],
           cwd: env.worktreePath,
           worktreesDir: env.worktreesDir,
           processTable: env.processTable,
