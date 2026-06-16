@@ -11,6 +11,8 @@
 
 import { execFileSync } from "node:child_process";
 import { readFileSync } from "node:fs";
+import { resolve } from "node:path";
+import { fileURLToPath } from "node:url";
 
 import {
   checkFixtureExclusions,
@@ -21,7 +23,6 @@ import {
 } from "./exclusions";
 
 const SONARQUBE_CLOUD_PROPERTIES_FILE = ".sonarcloud.properties";
-const ENTRYPOINT_SUFFIX = "/check-fixture-exclusions.ts";
 // NUL-terminated output so paths are raw bytes regardless of git's core.quotePath.
 const GIT_LS_FILES_SEPARATOR = "\0";
 
@@ -55,6 +56,10 @@ export function runFixtureExclusionCheck(deps: EntrypointDeps): number {
   return EXCLUSION_CHECK_EXIT.DRIFT;
 }
 
-if (import.meta.url.endsWith(ENTRYPOINT_SUFFIX)) {
+function isDirectEntrypoint(metaUrl: string, argvPath: string | undefined): boolean {
+  return argvPath !== undefined && fileURLToPath(metaUrl) === resolve(argvPath);
+}
+
+if (isDirectEntrypoint(import.meta.url, process.argv[1])) {
   process.exit(runFixtureExclusionCheck(realDeps()));
 }

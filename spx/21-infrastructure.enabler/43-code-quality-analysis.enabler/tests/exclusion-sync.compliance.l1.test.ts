@@ -1,9 +1,11 @@
 import fc from "fast-check";
 import { describe, expect, it } from "vitest";
 
+import { runFixtureExclusionCheck } from "@/lib/sonarqube-cloud/check-fixture-exclusions";
 import {
   checkFixtureExclusions,
   computeFixtureExclusionDrift,
+  EXCLUSION_CHECK_EXIT,
   SONAR_EXCLUSIONS_KEY,
 } from "@/lib/sonarqube-cloud/exclusions";
 import {
@@ -109,6 +111,43 @@ describe("checkFixtureExclusions", () => {
         });
         expect(result.ok).toBe(false);
         expect(result.drift.extra).toEqual([extra]);
+      }),
+    );
+  });
+});
+
+describe("runFixtureExclusionCheck", () => {
+  it("maps a clean check to the clean exit code and writes no drift report", () => {
+    fc.assert(
+      fc.property(arbitraryFixturePathSet(), (tracked) => {
+        const reports: string[] = [];
+        const exitCode = runFixtureExclusionCheck({
+          readProperties: () => `${SONAR_EXCLUSIONS_KEY}=${tracked.join(",")}\n`,
+          listTrackedFixtureFiles: () => tracked,
+          writeError: (message) => reports.push(message),
+        });
+        expect(exitCode).toBe(EXCLUSION_CHECK_EXIT.CLEAN);
+        expect(reports).toEqual([]);
+      }),
+    );
+  });
+
+  it("maps drift to the drift exit code and names missing and extra paths", () => {
+    fc.assert(
+      fc.property(arbitraryFixturePathSet(), arbitraryFixturePath(), (tracked, extra) => {
+        fc.pre(tracked.length >= 2);
+        fc.pre(!tracked.includes(extra));
+        const [dropped, ...kept] = tracked;
+        const reports: string[] = [];
+        const exitCode = runFixtureExclusionCheck({
+          readProperties: () => `${SONAR_EXCLUSIONS_KEY}=${[...kept, extra].join(",")}\n`,
+          listTrackedFixtureFiles: () => tracked,
+          writeError: (message) => reports.push(message),
+        });
+        expect(exitCode).toBe(EXCLUSION_CHECK_EXIT.DRIFT);
+        expect(reports).toHaveLength(1);
+        expect(reports[0]).toContain(dropped);
+        expect(reports[0]).toContain(extra);
       }),
     );
   });
