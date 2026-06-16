@@ -9,6 +9,7 @@ import { worktreeClaimName } from "@/domains/worktree/worktree-name";
 import { sampleWorktreeTestValue, WORKTREE_TEST_GENERATOR } from "@testing/generators/worktree/worktree";
 import { createSessionGitDeps, SESSION_GIT_DEPS_PATHS, WORKTREE_KIND } from "@testing/harnesses/session/harness";
 import { withTempDir } from "@testing/harnesses/with-temp-dir";
+import { withWorktreeLayoutEnv } from "@testing/harnesses/worktree-layout/worktree-layout";
 import { createProcessTable, type ProcessTableEntry, withWorktreePool } from "@testing/harnesses/worktree/harness";
 
 describe("worktree command handlers", () => {
@@ -81,8 +82,6 @@ describe("worktree command handlers", () => {
       if (!occupied.ok) throw new Error(occupied.error);
       expect(occupied.value).toContain(OCCUPANCY_STATUS.OCCUPIED);
 
-      // The no-argument form resolves the same worktree from cwd, so it reports
-      // the same occupancy as supplying the worktree root path.
       const occupiedNoArg = await statusCommand({
         cwd: env.worktreePath,
         worktreesDir: env.worktreesDir,
@@ -140,8 +139,6 @@ describe("worktree command handlers", () => {
       expect(claim.ok).toBe(true);
       if (!claim.ok) throw new Error(claim.error);
 
-      // No worktree argument: status resolves the current worktree from cwd, the
-      // same way claim and release do, and reports its occupancy.
       const status = await statusCommand({
         cwd: env.worktreePath,
         worktreesDir: env.worktreesDir,
@@ -150,6 +147,42 @@ describe("worktree command handlers", () => {
       expect(status.ok).toBe(true);
       if (!status.ok) throw new Error(status.error);
       expect(status.value).toContain(OCCUPANCY_STATUS.OCCUPIED);
+    });
+  });
+
+  it("resolves the claim scope from the target worktree, not the caller's directory", async () => {
+    const worktreeName = sampleWorktreeTestValue(WORKTREE_TEST_GENERATOR.poolWorktreeName());
+    const holder = sampleWorktreeTestValue(WORKTREE_TEST_GENERATOR.poolHolder());
+    const sessionId = sampleWorktreeTestValue(WORKTREE_TEST_GENERATOR.sessionId());
+    const callerPrefix = sampleWorktreeTestValue(WORKTREE_TEST_GENERATOR.tempPrefix());
+    const probe = createProcessTable({
+      host: holder.host,
+      processes: new Map<number, ProcessTableEntry>([[holder.pid, { startTime: holder.startedAt, alive: true }]]),
+    });
+
+    await withWorktreeLayoutEnv({ bare: true, worktrees: [{ name: worktreeName }] }, async (layout) => {
+      const worktreePath = layout.worktree(worktreeName);
+      // Claim from the worktree with no explicit scope, so the claim is written
+      // under the worktree's own git-common-dir `.spx/worktrees`.
+      const claim = await claimCommand({
+        sessionId,
+        cwd: worktreePath,
+        processTable: probe,
+        env: { [CONTROLLING_PID_ENV]: String(holder.pid) },
+      });
+      expect(claim.ok).toBe(true);
+      if (!claim.ok) throw new Error(claim.error);
+
+      await withTempDir(callerPrefix, async (callerDir) => {
+        const status = await statusCommand({
+          worktree: worktreePath,
+          cwd: callerDir,
+          processTable: probe,
+        });
+        expect(status.ok).toBe(true);
+        if (!status.ok) throw new Error(status.error);
+        expect(status.value).toContain(OCCUPANCY_STATUS.OCCUPIED);
+      });
     });
   });
 });

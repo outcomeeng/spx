@@ -32,9 +32,6 @@ describe("worktree status path-form resolution", () => {
       const subdirPath = join(env.worktreePath, subdir);
       await mkdir(subdirPath);
 
-      // Each form denotes the same worktree env.worktreePath — its root, the
-      // current-directory tokens `.` and `./`, and a path inside it — so each
-      // maps to the occupancy the claim recorded.
       const forms = [env.worktreePath, ".", "./", subdirPath];
       for (const form of forms) {
         const status = await statusCommand({
