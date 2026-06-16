@@ -10,6 +10,7 @@ import { WORKTREE_CLI } from "@/interfaces/cli/worktree";
 import { sampleWorktreeTestValue, WORKTREE_TEST_GENERATOR } from "@testing/generators/worktree/worktree";
 import { CLI_PATH, NODE_EXECUTABLE } from "@testing/harnesses/constants";
 import { withTempDir } from "@testing/harnesses/with-temp-dir";
+import { withWorktreeLayoutEnv } from "@testing/harnesses/worktree-layout/worktree-layout";
 
 async function runSpx(
   args: readonly string[],
@@ -52,69 +53,71 @@ describe("worktree CLI compliance", () => {
 
   it("ALWAYS: status --format json writes a parseable record and exits 0", async () => {
     const prefix = sampleWorktreeTestValue(WORKTREE_TEST_GENERATOR.tempPrefix());
-    const worktreeName = sampleWorktreeTestValue(WORKTREE_TEST_GENERATOR.worktreeName());
+    const worktreeName = sampleWorktreeTestValue(WORKTREE_TEST_GENERATOR.poolWorktreeName());
 
-    await withTempDir(prefix, async (worktreesDir) => {
-      const result = await runSpx(
-        [
-          WORKTREE_CLI.COMMAND,
-          WORKTREE_CLI.STATUS,
-          worktreeName,
-          WORKTREE_CLI.FORMAT_FLAG,
-          WORKTREE_STATUS_FORMAT.JSON,
-          WORKTREE_CLI.WORKTREES_DIR_FLAG,
-          worktreesDir,
-        ],
-        {},
-        worktreesDir,
-      );
+    await withWorktreeLayoutEnv({ bare: true, worktrees: [{ name: worktreeName }] }, async (layout) => {
+      await withTempDir(prefix, async (worktreesDir) => {
+        const result = await runSpx(
+          [
+            WORKTREE_CLI.COMMAND,
+            WORKTREE_CLI.STATUS,
+            ".",
+            WORKTREE_CLI.FORMAT_FLAG,
+            WORKTREE_STATUS_FORMAT.JSON,
+            WORKTREE_CLI.WORKTREES_DIR_FLAG,
+            worktreesDir,
+          ],
+          {},
+          layout.worktree(worktreeName),
+        );
 
-      expect(result.exitCode).toBe(0);
-      const parsed = JSON.parse(result.stdout) as { status: string };
-      expect(parsed.status).toBe(OCCUPANCY_STATUS.UNCLAIMED);
+        expect(result.exitCode).toBe(0);
+        const parsed = JSON.parse(result.stdout) as { status: string };
+        expect(parsed.status).toBe(OCCUPANCY_STATUS.UNCLAIMED);
+      });
     });
   });
 
   it("ALWAYS: a live holder reads occupied when claim and status run under different timezones", async () => {
     const prefix = sampleWorktreeTestValue(WORKTREE_TEST_GENERATOR.tempPrefix());
+    const worktreeName = sampleWorktreeTestValue(WORKTREE_TEST_GENERATOR.poolWorktreeName());
     const sessionId = sampleWorktreeTestValue(WORKTREE_TEST_GENERATOR.sessionId());
 
-    await withTempDir(prefix, async (worktreesDir) => {
-      const claim = await runSpx(
-        [
-          WORKTREE_CLI.COMMAND,
-          WORKTREE_CLI.CLAIM,
-          WORKTREE_CLI.SESSION_ID_FLAG,
-          sessionId,
-          WORKTREE_CLI.WORKTREES_DIR_FLAG,
-          worktreesDir,
-        ],
-        { [CONTROLLING_PID_ENV]: String(process.pid), TZ: "America/New_York" },
-        worktreesDir,
-      );
-      expect(claim.exitCode).toBe(0);
+    await withWorktreeLayoutEnv({ bare: true, worktrees: [{ name: worktreeName }] }, async (layout) => {
+      await withTempDir(prefix, async (worktreesDir) => {
+        const worktreePath = layout.worktree(worktreeName);
+        const claim = await runSpx(
+          [
+            WORKTREE_CLI.COMMAND,
+            WORKTREE_CLI.CLAIM,
+            WORKTREE_CLI.SESSION_ID_FLAG,
+            sessionId,
+            WORKTREE_CLI.WORKTREES_DIR_FLAG,
+            worktreesDir,
+          ],
+          { [CONTROLLING_PID_ENV]: String(process.pid), TZ: "America/New_York" },
+          worktreePath,
+        );
+        expect(claim.exitCode).toBe(0);
 
-      const claimFile = (await readdir(worktreesDir)).find((file) => file.endsWith(OCCUPANCY_CLAIM.FILE_EXTENSION));
-      expect(claimFile).toBeDefined();
-      const worktreeName = claimFile?.slice(0, -OCCUPANCY_CLAIM.FILE_EXTENSION.length) ?? "";
+        const status = await runSpx(
+          [
+            WORKTREE_CLI.COMMAND,
+            WORKTREE_CLI.STATUS,
+            ".",
+            WORKTREE_CLI.FORMAT_FLAG,
+            WORKTREE_STATUS_FORMAT.JSON,
+            WORKTREE_CLI.WORKTREES_DIR_FLAG,
+            worktreesDir,
+          ],
+          { [CONTROLLING_PID_ENV]: String(process.pid), TZ: "Asia/Tokyo" },
+          worktreePath,
+        );
 
-      const status = await runSpx(
-        [
-          WORKTREE_CLI.COMMAND,
-          WORKTREE_CLI.STATUS,
-          worktreeName,
-          WORKTREE_CLI.FORMAT_FLAG,
-          WORKTREE_STATUS_FORMAT.JSON,
-          WORKTREE_CLI.WORKTREES_DIR_FLAG,
-          worktreesDir,
-        ],
-        { TZ: "Asia/Tokyo" },
-        worktreesDir,
-      );
-
-      expect(status.exitCode).toBe(0);
-      const parsed = JSON.parse(status.stdout) as { status: string };
-      expect(parsed.status).toBe(OCCUPANCY_STATUS.OCCUPIED);
+        expect(status.exitCode).toBe(0);
+        const parsed = JSON.parse(status.stdout) as { status: string };
+        expect(parsed.status).toBe(OCCUPANCY_STATUS.OCCUPIED);
+      });
     });
   });
 

@@ -10,6 +10,8 @@
 
 import type { OccupancyFileSystem, ProcessProbe, WorktreeClaimRecord } from "@/domains/worktree/occupancy-store";
 import type { ProcessTable } from "@/domains/worktree/process-table";
+import { withTempDir } from "@testing/harnesses/with-temp-dir";
+import { withWorktreeLayoutEnv } from "@testing/harnesses/worktree-layout/worktree-layout";
 
 export interface ProcessProbeState {
   readonly host: string;
@@ -136,4 +138,58 @@ export function createRecordingOccupancyFileSystem(backing: OccupancyFileSystem)
       await backing.rm(path, options);
     },
   };
+}
+
+/** The process the {@link withWorktreePool} table reports alive on its host. */
+export interface WorktreePoolHolder {
+  readonly pid: number;
+  readonly host: string;
+  readonly startedAt: string;
+}
+
+/** A real pool worktree plus the controlled occupancy machinery a claim/status round-trip needs. */
+export interface WorktreePoolEnv {
+  /** Absolute path of the provisioned pool worktree. */
+  readonly worktreePath: string;
+  /** The pool container directory (parent of the worktree). */
+  readonly container: string;
+  /** A temp `.spx/worktrees` scope directory the claim and status share. */
+  readonly worktreesDir: string;
+  /** A controlled process table reporting the holder alive on its host. */
+  readonly processTable: ProcessTable;
+  /** The holder process the table reports alive. */
+  readonly holder: WorktreePoolHolder;
+}
+
+const WORKTREE_POOL_WORKTREES_PREFIX = "spx-occupancy-worktrees-";
+
+/**
+ * Composes a real bare-repository pool worktree (via {@link withWorktreeLayoutEnv})
+ * with a temp `.spx/worktrees` directory and a controlled process table reporting
+ * `holder` alive, so a claim from the worktree and a later status against it share a
+ * deterministic liveness axis — isolating the worktree-name resolution under test.
+ */
+export async function withWorktreePool(
+  options: { readonly worktreeName: string; readonly holder: WorktreePoolHolder },
+  callback: (env: WorktreePoolEnv) => Promise<void>,
+): Promise<void> {
+  await withWorktreeLayoutEnv(
+    { bare: true, worktrees: [{ name: options.worktreeName }] },
+    (layout) =>
+      withTempDir(WORKTREE_POOL_WORKTREES_PREFIX, async (worktreesDir) => {
+        const processTable = createProcessTable({
+          host: options.holder.host,
+          processes: new Map<number, ProcessTableEntry>([
+            [options.holder.pid, { alive: true, startTime: options.holder.startedAt }],
+          ]),
+        });
+        await callback({
+          worktreePath: layout.worktree(options.worktreeName),
+          container: layout.container,
+          worktreesDir,
+          processTable,
+          holder: options.holder,
+        });
+      }),
+  );
 }

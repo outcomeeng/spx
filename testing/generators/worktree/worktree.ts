@@ -41,6 +41,17 @@ export const WORKTREE_TEST_GENERATOR = {
   tempPrefix: (): fc.Arbitrary<string> =>
     stringFromCharacters(TOKEN_CHARACTERS, { minLength: 1, maxLength: 16 }).map((token) => `${token}-`),
   worktreeName: (): fc.Arbitrary<string> => stringFromCharacters(TOKEN_CHARACTERS, { minLength: 1, maxLength: 48 }),
+  /** A lowercase, filesystem-safe pool worktree directory name (no case-folding surprises on disk). */
+  poolWorktreeName: (): fc.Arbitrary<string> =>
+    stringFromCharacters([..."abcdefghijklmnopqrstuvwxyz0123456789"], { minLength: 4, maxLength: 16 }),
+  /** Two distinct pool worktree names — the second models a sibling that is not the provisioned worktree. */
+  distinctPoolWorktreeNames: (): fc.Arbitrary<readonly [string, string]> =>
+    fc
+      .tuple(
+        stringFromCharacters([..."abcdefghijklmnopqrstuvwxyz0123456789"], { minLength: 4, maxLength: 16 }),
+        stringFromCharacters([..."abcdefghijklmnopqrstuvwxyz0123456789"], { minLength: 4, maxLength: 16 }),
+      )
+      .filter(([first, second]) => first !== second),
   /** A raw worktree basename mixing safe and unsafe characters — stresses lowercasing and collapsing. */
   rawBasename: (): fc.Arbitrary<string> =>
     stringFromCharacters(RAW_BASENAME_CHARACTERS, { minLength: 1, maxLength: 48 }),
@@ -49,6 +60,15 @@ export const WORKTREE_TEST_GENERATOR = {
   pid: (): fc.Arbitrary<number> => fc.integer({ min: MIN_PID, max: MAX_PID }),
   startTime: (): fc.Arbitrary<string> =>
     fc.date({ min: START_TIME_MIN, max: START_TIME_MAX, noInvalidDate: true }).map((date) => date.toISOString()),
+  /** A holder process for {@link withWorktreePool}: pid, host, and start time of a live claim holder. */
+  poolHolder: (): fc.Arbitrary<{ readonly pid: number; readonly host: string; readonly startedAt: string }> =>
+    fc.record({
+      pid: fc.integer({ min: MIN_PID, max: MAX_PID }),
+      host: stringFromCharacters(TOKEN_CHARACTERS, { minLength: 1, maxLength: 32 }),
+      startedAt: fc.date({ min: START_TIME_MIN, max: START_TIME_MAX, noInvalidDate: true }).map((date) =>
+        date.toISOString()
+      ),
+    }),
   claimRecord: (): fc.Arbitrary<WorktreeClaimRecord> =>
     fc.record({
       sessionId: stringFromCharacters(TOKEN_CHARACTERS, { minLength: 1, maxLength: 36 }),
