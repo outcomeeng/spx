@@ -14,6 +14,7 @@ import {
   createForeignHostProbe,
   createLiveHolderProbe,
   createRecycledPidProbe,
+  createUnreadableStartTimeProbe,
 } from "@testing/harnesses/worktree/harness";
 
 describe("worktree occupancy classification mapping", () => {
@@ -42,6 +43,11 @@ describe("worktree occupancy classification mapping", () => {
     const [claimStart, liveStart] = sampleWorktreeTestValue(WORKTREE_TEST_GENERATOR.distinctStartTimes());
     const record = { ...sampleWorktreeTestValue(WORKTREE_TEST_GENERATOR.claimRecord()), startedAt: claimStart };
     expect(classifyOccupancy(record, createRecycledPidProbe(record, liveStart))).toBe(OCCUPANCY_STATUS.STALE);
+  });
+
+  it("maps a live same-host holder whose start time cannot be read to occupied", () => {
+    const record = sampleWorktreeTestValue(WORKTREE_TEST_GENERATOR.claimRecord());
+    expect(classifyOccupancy(record, createUnreadableStartTimeProbe(record))).toBe(OCCUPANCY_STATUS.OCCUPIED);
   });
 
   it("maps a safe name to a claim path and an empty or unsafe name to the INVALID_NAME rejection", () => {

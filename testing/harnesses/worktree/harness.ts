@@ -57,6 +57,11 @@ export function createRecycledPidProbe(record: WorktreeClaimRecord, liveStartTim
   });
 }
 
+/** A probe where `record`'s pid is alive on the same host but its start time is unreadable. */
+export function createUnreadableStartTimeProbe(record: WorktreeClaimRecord): ProcessProbe {
+  return createProcessProbe({ host: record.host, alivePids: new Set([record.pid]), startTimes: new Map() });
+}
+
 /** One process's facts in a controlled {@link createProcessTable}. */
 export interface ProcessTableEntry {
   readonly ppid?: number;
