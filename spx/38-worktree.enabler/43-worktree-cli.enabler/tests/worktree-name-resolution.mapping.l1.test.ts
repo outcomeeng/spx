@@ -1,4 +1,4 @@
-import { mkdir } from "node:fs/promises";
+import { mkdir, writeFile } from "node:fs/promises";
 import { join } from "node:path";
 
 import { describe, expect, it } from "vitest";
@@ -14,7 +14,7 @@ describe("worktree status path-form resolution", () => {
     const worktreeName = sampleWorktreeTestValue(WORKTREE_TEST_GENERATOR.poolWorktreeName());
     const holder = sampleWorktreeTestValue(WORKTREE_TEST_GENERATOR.poolHolder());
     const sessionId = sampleWorktreeTestValue(WORKTREE_TEST_GENERATOR.sessionId());
-    const subdir = sampleWorktreeTestValue(WORKTREE_TEST_GENERATOR.poolWorktreeName());
+    const [subdir, fileName] = sampleWorktreeTestValue(WORKTREE_TEST_GENERATOR.distinctPoolWorktreeNames());
 
     await withWorktreePool({ worktreeName, holder }, async (env) => {
       const claim = await claimCommand({
@@ -32,7 +32,10 @@ describe("worktree status path-form resolution", () => {
       const subdirPath = join(env.worktreePath, subdir);
       await mkdir(subdirPath);
 
-      const forms = [env.worktreePath, ".", "./", subdirPath];
+      const filePath = join(env.worktreePath, fileName);
+      await writeFile(filePath, fileName);
+
+      const forms = [env.worktreePath, ".", "./", subdirPath, filePath];
       for (const form of forms) {
         const status = await statusCommand({
           worktrees: [form],
