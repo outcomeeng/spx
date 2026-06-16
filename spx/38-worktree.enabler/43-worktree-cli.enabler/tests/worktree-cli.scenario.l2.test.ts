@@ -1,7 +1,6 @@
 import { mkdir } from "node:fs/promises";
 import { join } from "node:path";
 
-import { execa } from "execa";
 import { describe, expect, it } from "vitest";
 
 import { WORKTREE_STATUS_FORMAT } from "@/commands/worktree/index";
@@ -9,22 +8,9 @@ import { CONTROLLING_PID_ENV } from "@/domains/worktree/controlling-process";
 import { OCCUPANCY_STATUS } from "@/domains/worktree/occupancy-store";
 import { WORKTREE_CLI } from "@/interfaces/cli/worktree";
 import { sampleWorktreeTestValue, WORKTREE_TEST_GENERATOR } from "@testing/generators/worktree/worktree";
-import { CLI_PATH, NODE_EXECUTABLE } from "@testing/harnesses/constants";
 import { withTempDir } from "@testing/harnesses/with-temp-dir";
 import { withWorktreeLayoutEnv } from "@testing/harnesses/worktree-layout/worktree-layout";
-
-async function runSpx(
-  args: readonly string[],
-  env: Readonly<Record<string, string>>,
-  cwd: string,
-): Promise<{ stdout: string; stderr: string; exitCode: number }> {
-  const result = await execa(NODE_EXECUTABLE, [CLI_PATH, ...args], {
-    cwd,
-    env: { ...process.env, ...env },
-    reject: false,
-  });
-  return { stdout: result.stdout, stderr: result.stderr, exitCode: result.exitCode ?? 1 };
-}
+import { runWorktreeCli } from "@testing/harnesses/worktree/harness";
 
 function parsedStatus(stdout: string): string {
   return (JSON.parse(stdout) as { status: string }).status;
@@ -45,7 +31,7 @@ describe("worktree CLI occupancy round-trip", () => {
         const controllingPid = String(process.pid);
 
         // Claim the current worktree; the live test process is the holder.
-        const claim = await runSpx(
+        const claim = await runWorktreeCli(
           [
             WORKTREE_CLI.COMMAND,
             WORKTREE_CLI.CLAIM,
@@ -81,13 +67,13 @@ describe("worktree CLI occupancy round-trip", () => {
               WORKTREE_CLI.WORKTREES_DIR_FLAG,
               worktreesDir,
             ];
-          const status = await runSpx(args, { [CONTROLLING_PID_ENV]: controllingPid }, worktreePath);
+          const status = await runWorktreeCli(args, { [CONTROLLING_PID_ENV]: controllingPid }, worktreePath);
           expect(status.exitCode, `form "${form}"`).toBe(0);
           expect(parsedStatus(status.stdout), `form "${form}"`).toBe(OCCUPANCY_STATUS.OCCUPIED);
         }
 
         // A path that is not a worktree is refused, not reported unclaimed.
-        const nonWorktree = await runSpx(
+        const nonWorktree = await runWorktreeCli(
           [
             WORKTREE_CLI.COMMAND,
             WORKTREE_CLI.STATUS,

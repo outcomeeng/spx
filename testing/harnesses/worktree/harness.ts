@@ -8,10 +8,34 @@
  * @module testing/harnesses/worktree/harness
  */
 
+import { execa } from "execa";
+
 import type { OccupancyFileSystem, ProcessProbe, WorktreeClaimRecord } from "@/domains/worktree/occupancy-store";
 import type { ProcessTable } from "@/domains/worktree/process-table";
+import { CLI_PATH, NODE_EXECUTABLE } from "@testing/harnesses/constants";
 import { withTempDir } from "@testing/harnesses/with-temp-dir";
 import { withWorktreeLayoutEnv } from "@testing/harnesses/worktree-layout/worktree-layout";
+
+/** The result of running the built `spx` executable in a worktree CLI test. */
+export interface SpxCliResult {
+  readonly stdout: string;
+  readonly stderr: string;
+  readonly exitCode: number;
+}
+
+/** Runs the built `spx` executable with `args`, the given environment overlay, and working directory. */
+export async function runWorktreeCli(
+  args: readonly string[],
+  env: Readonly<Record<string, string>>,
+  cwd: string,
+): Promise<SpxCliResult> {
+  const result = await execa(NODE_EXECUTABLE, [CLI_PATH, ...args], {
+    cwd,
+    env: { ...process.env, ...env },
+    reject: false,
+  });
+  return { stdout: result.stdout, stderr: result.stderr, exitCode: result.exitCode ?? 1 };
+}
 
 export interface ProcessProbeState {
   readonly host: string;
