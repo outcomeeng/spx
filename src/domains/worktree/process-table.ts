@@ -38,9 +38,17 @@ const PS_FIELD = {
 const SIGNAL_LIVENESS_PROBE = 0;
 const PROCESS_EXISTS_NO_PERMISSION = "EPERM";
 const PID_RADIX = 10;
+// A fixed timezone and locale so a formatted start time (`lstart`) is identical
+// across callers. The claim and a later status read run in different agent
+// environments; without this the same process's start time would format
+// differently and a live holder would compare unequal and read stale.
+const STABLE_PS_ENV = { ...process.env, TZ: "UTC", LC_ALL: "C" } as const;
 
 function psField(pid: number, field: string): string | undefined {
-  const result = spawnSync(PS_COMMAND, ["-o", `${field}=`, "-p", String(pid)], { encoding: "utf8" });
+  const result = spawnSync(PS_COMMAND, ["-o", `${field}=`, "-p", String(pid)], {
+    encoding: "utf8",
+    env: STABLE_PS_ENV,
+  });
   if (result.status !== 0 || typeof result.stdout !== "string") return undefined;
   const value = result.stdout.trim();
   return value.length > 0 ? value : undefined;
