@@ -12,11 +12,14 @@ SonarQube Cloud automatic analysis does not honor wildcard patterns in `.sonarcl
 
 ## Verification
 
+### Testing
+
+- ALWAYS: parsing of `.sonarcloud.properties` resolves Java `.properties` backslash line continuation, so a multi-line `sonar.exclusions` value yields the same path set as the equivalent single-line value ([property])
+- ALWAYS: the hook exits non-zero and names the offending paths when the sets differ, and exits zero when they match ([compliance])
+
 ### Audit
 
 - ALWAYS: the drift comparison is a pure function over an injected expected set (tracked fixture files) and actual set (parsed `sonar.exclusions` entries under `testing/fixtures`), returning the missing and extra paths — no git or filesystem reads inside the comparison ([audit])
 - ALWAYS: the `git ls-files testing/fixtures` listing and the `.sonarcloud.properties` read are reached through dependency-injected runners so the comparison is verifiable with explicit inputs ([audit])
-- ALWAYS: parsing of `.sonarcloud.properties` resolves Java `.properties` backslash line continuation, so a multi-line `sonar.exclusions` value yields the same path set as the equivalent single-line value ([audit])
-- ALWAYS: the hook exits non-zero and names the offending paths when the sets differ, and exits zero when they match ([audit])
 - NEVER: the check runs as a step in the `spx validation` product pipeline — it enforces the product's own SonarQube Cloud configuration and is local hook machinery ([audit])
 - NEVER: tests for the check replace git or filesystem modules through framework-level module replacement; they exercise real exported functions over explicit inputs ([audit])
