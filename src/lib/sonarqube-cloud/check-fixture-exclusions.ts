@@ -10,9 +10,8 @@
  */
 
 import { execFileSync } from "node:child_process";
-import { resolve } from "node:path";
-import { fileURLToPath } from "node:url";
 
+import { isDirectPrecommitEntrypoint, PRECOMMIT_ENTRYPOINT } from "../precommit/entrypoint";
 import {
   checkFixtureExclusions,
   EXCLUSION_CHECK_EXIT,
@@ -81,10 +80,6 @@ export function runFixtureExclusionCheck(deps: EntrypointDeps): number {
   return EXCLUSION_CHECK_EXIT.DRIFT;
 }
 
-function isDirectEntrypoint(metaUrl: string, argvPath: string | undefined): boolean {
-  return argvPath !== undefined && fileURLToPath(metaUrl) === resolve(argvPath);
-}
-
-if (isDirectEntrypoint(import.meta.url, process.argv[1])) {
+if (isDirectPrecommitEntrypoint(import.meta.url, process.argv[1], PRECOMMIT_ENTRYPOINT.SONARQUBE_CLOUD_EXCLUSIONS)) {
   process.exit(runFixtureExclusionCheck(realDeps()));
 }

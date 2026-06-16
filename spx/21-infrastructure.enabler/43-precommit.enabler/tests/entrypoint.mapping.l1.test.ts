@@ -4,6 +4,8 @@ import { describe, expect, it } from "vitest";
 import { isDirectPrecommitEntrypoint, PRECOMMIT_ENTRYPOINT } from "@/lib/precommit/entrypoint";
 import { PRECOMMIT_TEST_GENERATOR } from "@testing/generators/precommit/precommit";
 
+const precommitEntrypoints = Object.values(PRECOMMIT_ENTRYPOINT);
+
 describe("isDirectPrecommitEntrypoint", () => {
   it("maps POSIX and Windows argv paths for the invoked precommit script to direct execution", () => {
     fc.assert(
@@ -11,7 +13,7 @@ describe("isDirectPrecommitEntrypoint", () => {
         PRECOMMIT_TEST_GENERATOR.posixDirectoryPrefix(),
         PRECOMMIT_TEST_GENERATOR.windowsDirectoryPrefix(),
         (posixPrefix, windowsPrefix) => {
-          for (const entrypoint of [PRECOMMIT_ENTRYPOINT.RUN, PRECOMMIT_ENTRYPOINT.MAIN_CHECKOUT_GATE]) {
+          for (const entrypoint of precommitEntrypoints) {
             const importMetaUrl = `file://${posixPrefix}${entrypoint.sourceSuffix}`;
             const posixArgvPath = `${posixPrefix}/${entrypoint.argvFragment}.ts`;
             const windowsArgvFragment = entrypoint.argvFragment.replaceAll("/", "\\");

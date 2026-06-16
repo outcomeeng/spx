@@ -67,6 +67,14 @@ function isUnderFixtureRoot(path: string): boolean {
  * Collapse Java `.properties` backslash line continuation into logical lines.
  * Leading whitespace on a continuation line is stripped, per the `.properties` format.
  */
+function hasLineContinuation(line: string): boolean {
+  let trailingBackslashes = 0;
+  for (let index = line.length - 1; index >= 0 && line[index] === PROPERTIES_CONTINUATION; index -= 1) {
+    trailingBackslashes += 1;
+  }
+  return trailingBackslashes % 2 === 1;
+}
+
 function toLogicalLines(propertiesText: string): string[] {
   const logicalLines: string[] = [];
   let buffer = "";
@@ -74,7 +82,7 @@ function toLogicalLines(propertiesText: string): string[] {
 
   for (const rawLine of propertiesText.split("\n")) {
     const line = continuing ? rawLine.replace(/^\s+/, "") : rawLine;
-    if (line.endsWith(PROPERTIES_CONTINUATION)) {
+    if (hasLineContinuation(line)) {
       buffer += line.slice(0, -PROPERTIES_CONTINUATION.length);
       continuing = true;
       continue;
@@ -96,6 +104,7 @@ function toLogicalLines(propertiesText: string): string[] {
  * other keys. Returns an empty list when the key is absent.
  */
 export function parseSonarExclusions(propertiesText: string): string[] {
+  let exclusions: string[] = [];
   for (const logicalLine of toLogicalLines(propertiesText)) {
     const trimmed = logicalLine.trim();
     if (trimmed.length === 0 || PROPERTIES_COMMENT_PREFIXES.some((prefix) => trimmed.startsWith(prefix))) {
@@ -108,13 +117,13 @@ export function parseSonarExclusions(propertiesText: string): string[] {
     if (trimmed.slice(0, separatorIndex).trim() !== SONAR_EXCLUSIONS_KEY) {
       continue;
     }
-    return trimmed
+    exclusions = trimmed
       .slice(separatorIndex + KEY_VALUE_SEPARATOR.length)
       .split(ENTRY_SEPARATOR)
       .map((entry) => entry.trim())
       .filter((entry) => entry.length > 0);
   }
-  return [];
+  return exclusions;
 }
 
 /**

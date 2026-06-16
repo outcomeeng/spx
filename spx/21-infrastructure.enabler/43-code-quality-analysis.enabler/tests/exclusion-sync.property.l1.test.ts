@@ -42,4 +42,27 @@ describe("parseSonarExclusions", () => {
       }),
     );
   });
+
+  it("uses the last sonar.exclusions value when the key appears more than once", () => {
+    fc.assert(
+      fc.property(arbitraryFixturePathSet(), arbitraryFixturePathSet(), (firstEntries, lastEntries) => {
+        const text = `${renderSingleLine(firstEntries)}${renderContinuationLines(lastEntries)}`;
+        expect([...parseSonarExclusions(text)].sort(comparePathEntries)).toEqual(
+          [...lastEntries].sort(comparePathEntries),
+        );
+      }),
+    );
+  });
+
+  it("does not treat an escaped trailing backslash as a continuation marker", () => {
+    fc.assert(
+      fc.property(arbitraryFixturePathSet(), arbitraryFixturePathSet(), (firstEntries, lastEntries) => {
+        const escapedBackslashLine = `${SONAR_EXCLUSIONS_KEY}=${firstEntries.join(",")}\\\\\n`;
+        const text = `${escapedBackslashLine}${renderContinuationLines(lastEntries)}`;
+        expect([...parseSonarExclusions(text)].sort(comparePathEntries)).toEqual(
+          [...lastEntries].sort(comparePathEntries),
+        );
+      }),
+    );
+  });
 });
