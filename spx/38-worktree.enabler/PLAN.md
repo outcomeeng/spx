@@ -12,4 +12,4 @@ The marketplace half is merged and live (outcomeeng/plugins, spec-tree 0.57.23).
 - `spx worktree status <pool-worktree>` — invoked by `/pickup` before checking a work branch out into a pool worktree. Reports occupied, unclaimed, or stale through a parseable shape (`--format json`). `/pickup` enters only an unclaimed-or-stale worktree.
 - `spx worktree release` — invoked by `/handoff` at session close. Frees the running worktree's claim. Best-effort: a missing command, non-zero exit, or slow release is harmless because a dead holder's claim already reads as stale at the next status check.
 
-The authoritative design lives on `origin/main` of `~/Code/outcomeeng/plugins/` at `spx/21-spec-tree.enabler/19-worktree-occupancy.enabler/` and `spx/21-spec-tree.enabler/76-sessions.enabler/ISSUES.md`.
+The authoritative design lives on `origin/main` of `github.com/outcomeeng/plugins` at `spx/21-spec-tree.enabler/19-worktree-occupancy.enabler/` and `spx/21-spec-tree.enabler/76-sessions.enabler/ISSUES.md`.
