@@ -29,7 +29,11 @@ const PS_COMMAND = "/bin/ps";
 const PS_FIELD = {
   START_TIME: "lstart",
   PARENT_PID: "ppid",
-  COMMAND: "comm",
+  // The full command line, not `comm` — `comm` reports only the executable
+  // basename, so a shebang-installed agent run through an interpreter reads as
+  // the interpreter (e.g. `node`) and the agent-runtime match misses it. `args`
+  // carries the script path, so both native and interpreted agents are matched.
+  COMMAND: "args",
 } as const;
 const SIGNAL_LIVENESS_PROBE = 0;
 const PROCESS_EXISTS_NO_PERMISSION = "EPERM";
