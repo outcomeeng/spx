@@ -13,7 +13,7 @@ CAN answer `spx worktree status`, write a claim for `spx worktree claim`, and re
 
 ### Mappings
 
-- Occupancy classification maps from the claim signals: no claim file maps to unclaimed; a claim whose host matches and whose process is alive with a matching start time maps to occupied; a claim whose process is dead, whose host differs, or whose start time no longer matches the live process maps to stale ([test](tests/occupancy-store.mapping.l1.test.ts))
+- Occupancy classification maps from the claim signals: no claim file maps to unclaimed; a claim whose host matches and whose process is alive maps to occupied when the live start time matches or cannot be read; a claim whose process is dead, whose host differs, or whose live start time is readable and differs maps to stale ([test](tests/occupancy-store.mapping.l1.test.ts))
 - Claim-name validity maps to the claim path: a safe scope-token name maps to a `<name>.claim` path under the worktrees directory; an empty name or a name carrying any character outside the safe scope-token set — letters, digits, hyphen, and underscore — maps to the INVALID_NAME rejection ([test](tests/occupancy-store.mapping.l1.test.ts))
 
 ### Properties

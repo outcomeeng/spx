@@ -13,6 +13,7 @@ The claim's filesystem I/O, the process-liveness probe, and the process-table re
 - Occupancy classification is a pure function of claim presence, host match, process liveness, and start-time match for fixed inputs.
 - A never-written or released claim reads as free.
 - Occupancy never depends on elapsed time: a live, same-host holder reads occupied however old its recorded start time.
+- A live same-host holder is never reported free on the strength of an unreadable start time: only a readable start time that differs marks a recycled pid stale.
 
 ## Verification
 
@@ -24,5 +25,6 @@ The claim's filesystem I/O, the process-liveness probe, and the process-table re
 - ALWAYS: `.spx/worktrees/` is addressed through the state scope-addressing API and resolves to the shared Git common-dir product root, per [`spx/15-worktree-management.pdr.md`](../15-worktree-management.pdr.md) and [`spx/17-state.adr.md`](../17-state.adr.md) ([audit])
 - ALWAYS: the `spx` CLI is the single owner of every `.spx/worktrees/` read, write, and removal ([audit])
 - NEVER: a heartbeat, TTL, or refresh timer participates in the occupancy decision — process liveness is the only signal ([audit])
+- NEVER: a live same-host process is classified stale because its start time could not be read — a readable, differing start time is the only signal that marks a recycled pid stale, so an unreadable start time leaves a live holder occupied ([audit])
 - NEVER: git working-tree state — cleanliness, detached HEAD, or branch tip — is read as an occupancy signal ([audit])
 - NEVER: `vi.mock()`, `jest.mock()`, or `memfs` substitutes for the filesystem, process, or git boundary — tests inject controlled implementations and exercise the real classification code paths ([audit])
