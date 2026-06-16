@@ -75,6 +75,49 @@ describe("worktree CLI compliance", () => {
     });
   });
 
+  it("ALWAYS: a live holder reads occupied when claim and status run under different timezones", async () => {
+    const prefix = sampleWorktreeTestValue(WORKTREE_TEST_GENERATOR.tempPrefix());
+    const sessionId = sampleWorktreeTestValue(WORKTREE_TEST_GENERATOR.sessionId());
+
+    await withTempDir(prefix, async (worktreesDir) => {
+      const claim = await runSpx(
+        [
+          WORKTREE_CLI.COMMAND,
+          WORKTREE_CLI.CLAIM,
+          WORKTREE_CLI.SESSION_ID_FLAG,
+          sessionId,
+          WORKTREE_CLI.WORKTREES_DIR_FLAG,
+          worktreesDir,
+        ],
+        { [CONTROLLING_PID_ENV]: String(process.pid), TZ: "America/New_York" },
+        worktreesDir,
+      );
+      expect(claim.exitCode).toBe(0);
+
+      const claimFile = (await readdir(worktreesDir)).find((file) => file.endsWith(OCCUPANCY_CLAIM.FILE_EXTENSION));
+      expect(claimFile).toBeDefined();
+      const worktreeName = claimFile?.slice(0, -OCCUPANCY_CLAIM.FILE_EXTENSION.length) ?? "";
+
+      const status = await runSpx(
+        [
+          WORKTREE_CLI.COMMAND,
+          WORKTREE_CLI.STATUS,
+          worktreeName,
+          WORKTREE_CLI.FORMAT_FLAG,
+          WORKTREE_STATUS_FORMAT.JSON,
+          WORKTREE_CLI.WORKTREES_DIR_FLAG,
+          worktreesDir,
+        ],
+        { TZ: "Asia/Tokyo" },
+        worktreesDir,
+      );
+
+      expect(status.exitCode).toBe(0);
+      const parsed = JSON.parse(status.stdout) as { status: string };
+      expect(parsed.status).toBe(OCCUPANCY_STATUS.OCCUPIED);
+    });
+  });
+
   it("ALWAYS: a subcommand exits non-zero with a stderr diagnostic when its operation fails", async () => {
     const prefix = sampleWorktreeTestValue(WORKTREE_TEST_GENERATOR.tempPrefix());
 
