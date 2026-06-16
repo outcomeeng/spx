@@ -1,6 +1,6 @@
 # Worktree CLI
 
-PROVIDES Commander.js bindings for `spx worktree status [worktree]`, `spx worktree claim --session-id <id>`, and `spx worktree release`, with shared worktree-root resolution, controlling-process resolution, the silent-stdout claim contract, machine-parseable status output, and exit codes the marketplace consumers depend on
+PROVIDES Commander.js bindings for `spx worktree status [worktree...]`, `spx worktree claim --session-id <id>`, and `spx worktree release`, with shared worktree-root resolution, controlling-process resolution, the silent-stdout claim contract, machine-parseable status output, and exit codes the marketplace consumers depend on
 SO THAT the SessionStart hook, `/handoff`, and `/pickup`
 CAN claim, query, and release worktree occupancy as a subprocess with predictable output and exit codes
 
@@ -16,7 +16,8 @@ CAN claim, query, and release worktree occupancy as a subprocess with predictabl
 - Given the running worktree holds a claim, when the release handler runs, then the claim is removed ([test](tests/worktree-cli.scenario.l1.test.ts))
 - Given no worktree argument, when the status handler runs from within a worktree, then it reports that worktree's occupancy, the same claim and release resolve from the running directory ([test](tests/worktree-cli.scenario.l1.test.ts))
 - Given a worktree claimed under its own git-common-dir scope, when the status handler runs with that worktree's path from an unrelated directory, then it resolves the claim scope from the target worktree, not the caller's directory, and reports occupied ([test](tests/worktree-cli.scenario.l1.test.ts))
-- Given a claimed pool worktree, when `spx worktree status` is executed through `node bin/spx.js` from inside it, against its root path, and against a path within it, then each reports the same occupancy as the claim, and `spx worktree status` of a path that is not a worktree exits non-zero ([test](tests/worktree-cli.scenario.l2.test.ts))
+- Given shell expansion supplies multiple sibling paths to `spx worktree status`, when at least one path resolves to a worktree, then text output reports one line for each resolved worktree with that worktree's derived claim name and occupancy, emits no line whose worktree name is `undefined`, and exits 0 ([test](tests/worktree-cli.scenario.l2.test.ts))
+- Given a claimed pool worktree, when `spx worktree status` is executed through `node bin/spx.js` from inside it, against its root path, and against a path within it, then each reports the same occupancy as the claim, and `spx worktree status` of a single path that is not a worktree exits non-zero ([test](tests/worktree-cli.scenario.l2.test.ts))
 
 ### Mappings
 
@@ -29,6 +30,6 @@ CAN claim, query, and release worktree occupancy as a subprocess with predictabl
 ### Compliance
 
 - ALWAYS: a successful `spx worktree claim` executed through `node bin/spx.js` writes nothing to stdout and exits 0 — the SessionStart hook injects a command's stdout into the agent's context, so the claim must stay silent ([test](tests/worktree-cli.compliance.l2.test.ts))
-- ALWAYS: `spx worktree status [worktree] --format json` executed through `node bin/spx.js` writes a parseable JSON record naming the occupancy status and exits 0, so `/pickup` can branch on occupied, unclaimed, or stale ([test](tests/worktree-cli.compliance.l2.test.ts))
+- ALWAYS: `spx worktree status [worktree...] --format json` executed through `node bin/spx.js` writes parseable JSON naming each reported worktree's occupancy status and exits 0 when at least one worktree is reported, so `/pickup` can branch on occupied, unclaimed, or stale ([test](tests/worktree-cli.compliance.l2.test.ts))
 - ALWAYS: a `spx worktree` subcommand executed through `node bin/spx.js` exits non-zero when its operation fails, writing a diagnostic to stderr ([test](tests/worktree-cli.compliance.l2.test.ts))
-- NEVER: status reports a path outside every worktree as an unclaimed worktree — a path that resolves to no worktree is refused with a diagnostic rather than rendered as occupancy ([test](tests/worktree-name-resolution.compliance.l1.test.ts))
+- NEVER: status reports a path outside every worktree as an unclaimed worktree — single-target status refuses such a path with a diagnostic, and multi-target status excludes unresolved paths from reported occupancy ([test](tests/worktree-name-resolution.compliance.l1.test.ts))
