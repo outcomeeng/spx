@@ -1,10 +1,13 @@
 import { readdir } from "node:fs/promises";
 
+import { join } from "node:path";
+
 import { describe, expect, it } from "vitest";
 
 import { WORKTREE_STATUS_FORMAT } from "@/commands/worktree/index";
 import { CONTROLLING_PID_ENV } from "@/domains/worktree/controlling-process";
 import { OCCUPANCY_CLAIM, OCCUPANCY_STATUS } from "@/domains/worktree/occupancy-store";
+import { worktreeClaimName } from "@/domains/worktree/worktree-name";
 import { WORKTREE_CLI } from "@/interfaces/cli/worktree";
 import { sampleWorktreeTestValue, WORKTREE_TEST_GENERATOR } from "@testing/generators/worktree/worktree";
 import { withTempDir } from "@testing/harnesses/with-temp-dir";
@@ -61,6 +64,63 @@ describe("worktree CLI compliance", () => {
         const parsed = JSON.parse(result.stdout) as { status: string };
         expect(parsed.status).toBe(OCCUPANCY_STATUS.UNCLAIMED);
       });
+    });
+  });
+
+  it("ALWAYS: multi-target status --format json writes parseable records and exits 0", async () => {
+    const [firstName, secondName] = sampleWorktreeTestValue(WORKTREE_TEST_GENERATOR.distinctPoolWorktreeNames());
+
+    await withWorktreeLayoutEnv(
+      { bare: true, worktrees: [{ name: firstName }, { name: secondName }] },
+      async (layout) => {
+        const firstPath = layout.worktree(firstName);
+        const secondPath = layout.worktree(secondName);
+        const result = await runWorktreeCli(
+          [
+            WORKTREE_CLI.COMMAND,
+            WORKTREE_CLI.STATUS,
+            WORKTREE_CLI.FORMAT_FLAG,
+            WORKTREE_STATUS_FORMAT.JSON,
+            firstPath,
+            secondPath,
+          ],
+          {},
+          layout.container,
+        );
+
+        expect(result.exitCode).toBe(0);
+        const parsed = JSON.parse(result.stdout) as readonly { worktree: string; status: string }[];
+        expect(parsed).toEqual([
+          { worktree: worktreeClaimName(firstPath), status: OCCUPANCY_STATUS.UNCLAIMED },
+          { worktree: worktreeClaimName(secondPath), status: OCCUPANCY_STATUS.UNCLAIMED },
+        ]);
+      },
+    );
+  });
+
+  it("ALWAYS: multi-target status --format json returns an array when one candidate resolves", async () => {
+    const [worktreeName, absentName] = sampleWorktreeTestValue(WORKTREE_TEST_GENERATOR.distinctPoolWorktreeNames());
+
+    await withWorktreeLayoutEnv({ bare: true, worktrees: [{ name: worktreeName }] }, async (layout) => {
+      const worktreePath = layout.worktree(worktreeName);
+      const absentPath = join(layout.container, absentName);
+      const result = await runWorktreeCli(
+        [
+          WORKTREE_CLI.COMMAND,
+          WORKTREE_CLI.STATUS,
+          WORKTREE_CLI.FORMAT_FLAG,
+          WORKTREE_STATUS_FORMAT.JSON,
+          worktreePath,
+          absentPath,
+        ],
+        {},
+        layout.container,
+      );
+
+      expect(result.exitCode).toBe(0);
+      expect(JSON.parse(result.stdout)).toEqual([
+        { worktree: worktreeClaimName(worktreePath), status: OCCUPANCY_STATUS.UNCLAIMED },
+      ]);
     });
   });
 
