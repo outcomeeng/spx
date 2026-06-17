@@ -12,7 +12,7 @@ Observed on June 18, 2026 while verifying the circular-validation skip slice: `p
 
 ## Spec-tree guide template is stale
 
-[spx/CLAUDE.md](CLAUDE.md) declares `template_version: "0.18.14"`, while the installed `spec-tree:understanding` template at `/Users/shz/.codex/plugins/cache/outcomeeng/spec-tree/0.57.35/skills/understanding/templates/spx-claude.md` declares `template_version: "0.18.15"`.
+[spx/CLAUDE.md](CLAUDE.md) declares `template_version: "0.18.14"`, while the installed `spec-tree:understanding` template declares `template_version: "0.18.15"`.
 
 **Impact:** Required skill-routing guidance may lag the installed methodology template, leaving agents with older stop triggers or workflow descriptions.
 

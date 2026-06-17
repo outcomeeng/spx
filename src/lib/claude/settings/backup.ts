@@ -16,8 +16,8 @@ import fs from "fs/promises";
  *
  * @example
  * ```typescript
- * const backupPath = await createBackup("/Users/shz/.claude/settings.json");
- * // Returns: "/Users/shz/.claude/settings.json.backup.2026-01-08-143022"
+ * const backupPath = await createBackup("/Users/example/.claude/settings.json");
+ * // Returns: "/Users/example/.claude/settings.json.backup.2026-01-08-143022"
  * ```
  */
 export async function createBackup(settingsPath: string): Promise<string> {

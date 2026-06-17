@@ -53,4 +53,45 @@ describe("worktree session-start CLI compliance", () => {
       });
     });
   });
+
+  it("ALWAYS: session-start writes the hook env file named by the CLI flag", async () => {
+    const prefix = sampleWorktreeTestValue(WORKTREE_TEST_GENERATOR.tempPrefix());
+    const worktreeName = sampleWorktreeTestValue(WORKTREE_TEST_GENERATOR.poolWorktreeName());
+    const sessionId = sampleWorktreeTestValue(WORKTREE_TEST_GENERATOR.sessionId());
+    const envFileName = sampleWorktreeTestValue(WORKTREE_TEST_GENERATOR.envFileName());
+
+    await withWorktreeLayoutEnv({ bare: true, worktrees: [{ name: worktreeName }] }, async (layout) => {
+      await withTempDir(prefix, async (worktreesDir) => {
+        const worktreePath = layout.worktree(worktreeName);
+        const envFile = join(worktreesDir, envFileName);
+        const result = await runWorktreeCli(
+          [
+            WORKTREE_CLI.COMMAND,
+            WORKTREE_CLI.SESSION_START,
+            WORKTREE_CLI.ENV_FILE_FLAG,
+            envFile,
+            WORKTREE_CLI.WORKTREES_DIR_FLAG,
+            worktreesDir,
+          ],
+          { [CONTROLLING_PID_ENV]: String(process.pid) },
+          worktreePath,
+          JSON.stringify({
+            [WORKTREE_SESSION_START_PAYLOAD.SESSION_ID]: sessionId,
+            [WORKTREE_SESSION_START_PAYLOAD.CWD]: worktreePath,
+          }),
+        );
+
+        expect(result.exitCode).toBe(0);
+        expect(result.stdout).toHaveLength(0);
+
+        const envContent = await readFile(envFile, WORKTREE_SESSION_START_ENV_FILE.ENCODING);
+        expect(envContent).toContain(
+          `${WORKTREE_SESSION_START_ENV_FILE.EXPORT_PREFIX}${WORKTREE_SESSION_START_ENV.CLAUDE_SESSION_ID}=${sessionId}`,
+        );
+        expect(envContent).toContain(
+          `${WORKTREE_SESSION_START_ENV_FILE.EXPORT_PREFIX}${WORKTREE_SESSION_START_ENV.CLAUDE_WORKTREE_CLAIMED}=${WORKTREE_SESSION_START_CLAIMED.TRUE}`,
+        );
+      });
+    });
+  });
 });

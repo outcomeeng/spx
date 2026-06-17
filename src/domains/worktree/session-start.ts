@@ -44,7 +44,7 @@ export interface WorktreeSessionStartPayload {
 
 export interface WorktreeSessionStartEnvRenderInput {
   readonly claimed: boolean;
-  readonly projectDir: string;
+  readonly productDir: string;
   readonly sessionId: string;
 }
 
@@ -92,7 +92,7 @@ export function resolveWorktreeSessionStartSessionId(
   );
 }
 
-export function resolveWorktreeSessionStartProjectDir(
+export function resolveWorktreeSessionStartProductDir(
   payload: WorktreeSessionStartPayload,
   cwd: string,
 ): string {
@@ -111,8 +111,8 @@ export function renderWorktreeSessionStartEnvFile(input: WorktreeSessionStartEnv
     "",
     ENV_FILE_HEADER,
     renderExportLine(WORKTREE_SESSION_START_ENV.CLAUDE_SESSION_ID, input.sessionId),
-    renderExportLine(WORKTREE_SESSION_START_ENV.CLAUDE_PROJECT_DIR, input.projectDir),
-    renderExportLine(WORKTREE_SESSION_START_ENV.PROJECT_DIR, input.projectDir),
+    renderExportLine(WORKTREE_SESSION_START_ENV.CLAUDE_PROJECT_DIR, input.productDir),
+    renderExportLine(WORKTREE_SESSION_START_ENV.PROJECT_DIR, input.productDir),
     renderExportLine(
       WORKTREE_SESSION_START_ENV.CLAUDE_WORKTREE_CLAIMED,
       input.claimed ? WORKTREE_SESSION_START_CLAIMED.TRUE : WORKTREE_SESSION_START_CLAIMED.FALSE,

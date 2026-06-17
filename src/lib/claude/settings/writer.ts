@@ -51,7 +51,7 @@ const realFs: FileSystem = {
  *     allow: ["Bash(git:*)", "Bash(npm:*)"]
  *   }
  * };
- * await writeSettings("/Users/shz/.claude/settings.json", settings);
+ * await writeSettings("/Users/example/.claude/settings.json", settings);
  * ```
  */
 export async function writeSettings(

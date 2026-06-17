@@ -22,7 +22,7 @@ export const WORKTREE_CLI = {
   SESSION_START: "session-start",
   STATUS: "status",
   RELEASE: "release",
-  ENV_FILE_FLAG: "--env-file",
+  ENV_FILE_FLAG: "--hook-env-file",
   WORKTREE_ARGUMENT: "[worktrees...]",
   SESSION_ID_FLAG: "--session-id",
   FORMAT_FLAG: "--format",
@@ -92,11 +92,11 @@ function registerWorktreeCommands(worktreeCmd: Command): void {
     .description("Claim the running worktree from a SessionStart hook payload")
     .option(`${WORKTREE_CLI.ENV_FILE_FLAG} <path>`, "Hook env file to append; defaults to $CLAUDE_ENV_FILE")
     .option(`${WORKTREE_CLI.WORKTREES_DIR_FLAG} <path>`, "Explicit .spx/worktrees directory")
-    .action(async (options: { envFile?: string; worktreesDir?: string }) => {
+    .action(async (options: { hookEnvFile?: string; worktreesDir?: string }) => {
       const content = await readStdin();
       const result = await sessionStartCommand({
         content,
-        envFile: options.envFile,
+        envFile: options.hookEnvFile,
         worktreesDir: options.worktreesDir,
         onWarning: writeWarning,
       });
