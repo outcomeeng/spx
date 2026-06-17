@@ -1,5 +1,5 @@
 ---
-template_version: "0.18.14"
+template_version: "0.18.15"
 template_source: spec-tree
 languages: [typescript]
 ---
@@ -46,7 +46,7 @@ Coordination notes (`PLAN.md`, `ISSUES.md`) carry cross-session working context.
 1. **Durable map**: Decisions, spec nodes and their co-located tests, evals and coordination notes stay in place over their entire lifecycle. They are deleted if they are to be removed from the product. This is a completely normal part of the product lifecycle. Imagine an outcome that required several different implementations to achieve the desired user behavior. The no longer enabled features are deleted, their code loses coverage and is garbage collected.
 2. **Two node types**: Enabler (infrastructure, output is known) and outcome (hypothesis, output is a bet). Enablers can only contain enabler children. Outcomes can contain both.
 3. **Co-location**: Verification (tests and evals) live with their spec in `tests/` and `evals/`.
-4. **Atemporal voice**: Specs state product truth. Never narrate history. Any historical context is provided by git and PRs, never in the Spec Tree.
+4. **Atemporal voice**: Specs state product truth. Never narrate history. Any historical context is provided by git history and merge records, never in the Spec Tree.
 5. **Deterministic context injection**: The tree structure defines what context gets loaded for work on a target and is injected by the `/contextualizing` skill.
 6. **Decision records win by hierarchy**: If a spec contradicts an ADR or PDR in its ancestry, the spec is wrong. Rewrite the spec to align with the decision record before any implementation work.
 7. **Decision records updated in-place**: When a decision changes, update the ADR/PDR directly. No "superseded" workflow.
@@ -129,15 +129,17 @@ Review, audit, or quality check specs. Find contradictions or gaps.
 
 **BLOCKING REQUIREMENT**
 
-Every change destined for the default branch routes through `/merge`, the transport dispatcher. It reads `spx/local/merging.md` and selects the merge transport — a coordination-note-only changeset (only `PLAN.md` / `ISSUES.md`) to the direct-push transport, an overlay-declared `transport:` when present, else the GitHub-PR transport (`/github-pr`) as the default — then delegates to that transport's skills. The three authority gates and the finding-disposition rule are transport-neutral and live in `/standardizing-merging`; `/merge` owns transport selection only.
+Every change destined for the default branch routes through `/merge`, the transport dispatcher. It reads `spx/local/merging.md`, classifies the changeset, selects the merge transport, and delegates to the selected transport's skills. The delivered-value boundary, the three authority gates, and the finding-disposition rule are transport-neutral and live in `/standardizing-merging`; `/merge` owns transport selection only.
 
-For the GitHub-PR transport, `/github-pr` drives the lifecycle — by default autonomously, presenting a pre-mutation confirmation first only when the merge overlay opts into one — then invokes the internal PR protocols. The opening protocol passes through the `REVIEW_READINESS` gate before the PR opens. The gate holds when deterministic verification passes (the project's full validation-and-testing command) **and** the local review has converged. The opening protocol invokes the `changes-reviewer` agent on the working diff — falling back to the `/review-changes` slash command when `changes-reviewer` is unavailable; both run the same `reviewing-changes` skill chain in an isolated context, so the verdict is not biased by what the operator's main agent has been doing. Claude acts on each finding by **validity and phase, never severity**: it validates each finding against its cited rule and drops any the citation does not support, applies every valid finding that belongs, and splits out of the changeset any whose fix is too large to belong (recording it in the relevant node's `ISSUES.md` or `PLAN.md`). Once `REVIEW_READINESS` holds the PR opens `ready_for_review`; `MERGE_READINESS` and `PRODUCTION_READINESS` then govern the merge. See `/standardizing-merging` `<authority_gates>` for the three-gate vocabulary.
+Delivered value exists only when the changeset reaches the default branch on origin through `/merge`. A branch with committed changes ahead of its resolved base is unfinished even when the working tree is clean and deterministic verification, tests, local review, or audits have passed. A status assessment may report local evidence, then carry the changeset into the selected merge lifecycle; local readiness is not a reason to ask what to do next. Do not ask for confirmation before entering `/merge` unless `spx/local/merging.md` explicitly opts into pre-mutation confirmation or an explicit lifecycle gate requires operator input.
+
+The selected transport binds publication mechanics and gate predicates without changing the gate set. `REVIEW_READINESS` holds when deterministic verification passes (the project's full validation-and-testing command) **and** the local review has converged. The local review invokes the `changes-reviewer` agent on the working diff — falling back to the `/review-changes` slash command when `changes-reviewer` is unavailable; both run the same `reviewing-changes` skill chain in an isolated context, so the verdict is not biased by the operator's main context. Findings are handled by **validity and phase, never severity**: validate each finding against its cited rule and drop any the citation does not support, apply every valid finding that belongs, and split out of the changeset only a fix too large to belong (recording it in the relevant node's `ISSUES.md` or `PLAN.md`). `MERGE_READINESS` and `PRODUCTION_READINESS` then govern the merge. See `/standardizing-merging` `<authority_gates>` for the three-gate vocabulary.
 
 ## Stop Triggers
 
-Default-branch work is complete only when merged — passing validation, tests, review, or audits is progress, not a stopping point, and an accepted proposal ("yes", "go", "do it") authorizes the whole lifecycle, not a pause. Each trigger below resolves the same way: finish the remaining independent work, then continue through `/committing-changes` and `/merge` until the change is merged.
+Default-branch work is complete only when it reaches the default branch on origin through `/merge` — passing validation, tests, review, or audits is progress, not a stopping point, and an accepted proposal ("yes", "go", "do it") authorizes the whole lifecycle, not a pause. Each trigger below resolves the same way: finish the remaining independent work, then continue through `/committing-changes` and `/merge` until the change reaches the default branch on origin or an explicit lifecycle gate stops.
 
-🛑 **About to summarize after edits, validation, tests, review, or audits passed** — do not conclude. Ensure the work is on a local branch, then drive `/committing-changes` and `/merge`.
+🛑 **About to summarize after edits, validation, tests, review, or audits passed** — do not conclude. Ensure the work is committed on a local branch, then drive `/merge`.
 
 🛑 **About to report blocked, wait, or ask a question** — first do every action that does not need the answer: edits, verification, branch setup, commit, review. A blocker exists only when all three hold:
 
@@ -145,7 +147,7 @@ Default-branch work is complete only when merged — passing validation, tests, 
 - the local branch already holds every change makeable without the answer;
 - the applicable gates have run or produced concrete failing evidence.
 
-🛑 **About to finish on a detached HEAD or stop at a fresh commit** — `git status --short --branch` reporting `## HEAD (no branch)`, or a new local commit, is not an endpoint. Create or switch to a local branch preserving the worktree changes, then continue through `/merge` unless the user asked only for a local commit.
+🛑 **About to finish on a detached HEAD or stop at a fresh commit** — `git status --short --branch` reporting `## HEAD (no branch)`, or a new local commit, is not an endpoint. Create or switch to a local branch preserving the worktree changes, then continue through `/merge` unless the user explicitly limited the task to local-only work.
 
 ---
 
