@@ -6,29 +6,36 @@ import {
   SNAPSHOT_RUN_ARTIFACT_PREFIX,
   SNAPSHOT_SURFACE_KIND,
 } from "@/lib/github-snapshot-sink";
-import { arbitraryRunToken } from "@testing/generators/github-snapshot";
+import {
+  arbitraryProjection,
+  arbitraryProjectionHistory,
+  arbitraryPullNumber,
+  arbitraryRunToken,
+  arbitrarySnapshotMarker,
+} from "@testing/generators/github-snapshot";
 import { RecordingGithubSnapshotClient } from "@testing/harnesses/github-snapshot-client";
-
-const arbitraryProjections = (): fc.Arbitrary<readonly string[]> => fc.array(fc.string(), { minLength: 1 });
-const arbitraryMarker = (): fc.Arbitrary<string> => fc.string({ minLength: 1 });
-const arbitraryPullNumber = (): fc.Arbitrary<number> => fc.integer({ min: 1 });
 
 describe("a snapshot write persists a projection, never an appended event history", () => {
   it("writes each projection to a mutable surface verbatim — not a transformed or accumulated log", async () => {
     await fc.assert(
-      fc.asyncProperty(arbitraryPullNumber(), arbitraryMarker(), fc.string(), async (pullNumber, marker, rendered) => {
-        const client = new RecordingGithubSnapshotClient();
-        const sink = createGithubSnapshotSink({
-          target: { kind: SNAPSHOT_SURFACE_KIND.PULL_REQUEST_COMMENT, pullNumber, marker },
-          client,
-        });
+      fc.asyncProperty(
+        arbitraryPullNumber(),
+        arbitrarySnapshotMarker(),
+        arbitraryProjection(),
+        async (pullNumber, marker, rendered) => {
+          const client = new RecordingGithubSnapshotClient();
+          const sink = createGithubSnapshotSink({
+            target: { kind: SNAPSHOT_SURFACE_KIND.PULL_REQUEST_COMMENT, pullNumber, marker },
+            client,
+          });
 
-        await sink.write(rendered);
+          await sink.write(rendered);
 
-        // the surface holds exactly the rendered projection — the sink is a projection sink,
-        // it does not wrap, prefix, or append the rendered string to prior content
-        expect(client.comments[0]?.body).toBe(rendered);
-      }),
+          // the surface holds exactly the rendered projection — the sink is a projection sink,
+          // it does not wrap, prefix, or append the rendered string to prior content
+          expect(client.comments[0]?.body).toBe(rendered);
+        },
+      ),
     );
   });
 
@@ -36,8 +43,8 @@ describe("a snapshot write persists a projection, never an appended event histor
     await fc.assert(
       fc.asyncProperty(
         arbitraryPullNumber(),
-        arbitraryMarker(),
-        arbitraryProjections(),
+        arbitrarySnapshotMarker(),
+        arbitraryProjectionHistory(),
         async (pullNumber, marker, projections) => {
           const client = new RecordingGithubSnapshotClient();
           const sink = createGithubSnapshotSink({
@@ -63,8 +70,8 @@ describe("a snapshot write persists a projection, never an appended event histor
       fc.asyncProperty(
         arbitraryRunToken(),
         arbitraryRunToken(),
-        fc.string(),
-        fc.string(),
+        arbitraryProjection(),
+        arbitraryProjection(),
         async (earlierToken, laterToken, earlier, later) => {
           fc.pre(earlierToken !== laterToken);
           const client = new RecordingGithubSnapshotClient();
@@ -95,8 +102,8 @@ describe("a snapshot write persists a projection, never an appended event histor
       fc.asyncProperty(
         arbitraryRunToken(),
         arbitraryRunToken(),
-        fc.string(),
-        fc.string(),
+        arbitraryProjection(),
+        arbitraryProjection(),
         async (earlierToken, laterToken, earlier, later) => {
           fc.pre(earlierToken !== laterToken);
           const client = new RecordingGithubSnapshotClient();

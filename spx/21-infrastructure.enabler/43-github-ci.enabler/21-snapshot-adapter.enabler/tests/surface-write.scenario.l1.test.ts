@@ -8,29 +8,34 @@ import {
   SNAPSHOT_RUN_CACHE_PREFIX,
   SNAPSHOT_SURFACE_KIND,
 } from "@/lib/github-snapshot-sink";
-import { arbitraryRunToken } from "@testing/generators/github-snapshot";
+import {
+  arbitraryProjection,
+  arbitraryPullNumber,
+  arbitraryRunToken,
+  arbitrarySnapshotMarker,
+} from "@testing/generators/github-snapshot";
 import { RecordingGithubSnapshotClient } from "@testing/harnesses/github-snapshot-client";
-
-const arbitraryProjection = (): fc.Arbitrary<string> => fc.string();
-const arbitraryMarker = (): fc.Arbitrary<string> => fc.string({ minLength: 1 });
-const arbitraryPullNumber = (): fc.Arbitrary<number> => fc.integer({ min: 1 });
 
 describe("github snapshot sink publishes a projection to each configured surface", () => {
   it("declares the Snapshot backend kind", () => {
-    const client = new RecordingGithubSnapshotClient();
-    const sink = createGithubSnapshotSink({
-      target: { kind: SNAPSHOT_SURFACE_KIND.ACTIONS_CACHE, runToken: "run" },
-      client,
-    });
+    fc.assert(
+      fc.property(arbitraryRunToken(), (runToken) => {
+        const client = new RecordingGithubSnapshotClient();
+        const sink = createGithubSnapshotSink({
+          target: { kind: SNAPSHOT_SURFACE_KIND.ACTIONS_CACHE, runToken },
+          client,
+        });
 
-    expect(sink.kind).toBe(JOURNAL_BACKEND_KIND.SNAPSHOT);
+        expect(sink.kind).toBe(JOURNAL_BACKEND_KIND.SNAPSHOT);
+      }),
+    );
   });
 
   it("upserts the projection as a pull-request comment", async () => {
     await fc.assert(
       fc.asyncProperty(
         arbitraryPullNumber(),
-        arbitraryMarker(),
+        arbitrarySnapshotMarker(),
         arbitraryProjection(),
         async (pullNumber, marker, rendered) => {
           const client = new RecordingGithubSnapshotClient();

@@ -1,5 +1,7 @@
 import * as fc from "fast-check";
 
+import { STATE_STORE_RUN_TOKEN } from "@/lib/state-store";
+
 const SAMPLE_SEED = 0x535458;
 const HEX_ALPHABET = [..."0123456789abcdef"] as const;
 const BRANCH_SEGMENT_CHARACTERS = [..."abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789._/-"] as const;
@@ -44,7 +46,10 @@ export const STATE_STORE_TEST_GENERATOR = {
       max: new Date("2026-12-31T23:59:59.999Z"),
     }),
   runIdBytes: (): fc.Arbitrary<Buffer> =>
-    fc.uint8Array({ minLength: 6, maxLength: 6 }).map((bytes) => Buffer.from(bytes)),
+    fc.uint8Array({
+      minLength: STATE_STORE_RUN_TOKEN.ID_BYTES,
+      maxLength: STATE_STORE_RUN_TOKEN.ID_BYTES,
+    }).map((bytes) => Buffer.from(bytes)),
   jsonRecordPair: (): fc.Arbitrary<readonly [{ readonly [key: string]: string }, { readonly [key: string]: string }]> =>
     fc.tuple(
       stringFromCharacters(TOKEN_CHARACTERS, { minLength: 1, maxLength: 16 }),

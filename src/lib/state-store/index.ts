@@ -56,6 +56,11 @@ export const STATE_STORE_BRANCH_SLUG = {
   HASH_PREFIX_HEX_LENGTH: 8,
 } as const;
 
+export const STATE_STORE_RUN_TOKEN = {
+  ID_BYTES: 6,
+  TIMESTAMP_MILLISECOND_DIGITS: 3,
+} as const;
+
 export const STATE_STORE_FILE_SYSTEM_METHOD = {
   READ_FILE: "readFile",
   READDIR: "readdir",
@@ -94,13 +99,21 @@ export interface JsonlReadOptions {
   readonly fs?: StateStoreJsonlReaderFileSystem;
 }
 
-export interface StateStoreRunFile {
-  readonly runsDir: string;
-  readonly runFilePath: string;
-  readonly runFileName: string;
+export interface StateStoreRunToken {
   readonly runToken: string;
   readonly runId: string;
   readonly startedAt: string;
+}
+
+export interface StateStoreRunFile extends StateStoreRunToken {
+  readonly runsDir: string;
+  readonly runFilePath: string;
+  readonly runFileName: string;
+}
+
+export interface CreateStateStoreRunTokenOptions {
+  readonly date: Date;
+  readonly randomBytes?: (size: number) => Buffer;
 }
 
 export type JsonValue =
@@ -123,10 +136,8 @@ export type StateStoreRunReaderFileSystem = Pick<
 
 const SHA256_ALGORITHM = "sha256";
 const HEX_ENCODING = "hex";
-const RUN_ID_BYTES = 6;
 const RUN_FILE_CREATE_ATTEMPTS = 10;
 const RUN_TIMESTAMP_SEPARATOR = "_";
-const RUN_TIMESTAMP_MILLISECOND_DIGITS = 3;
 const SLUG_SEPARATOR = "-";
 const EMPTY_STRING = "";
 const PATH_SEPARATOR_PATTERN = /[^a-z0-9]+/g;
@@ -301,13 +312,22 @@ export function formatRunTimestamp(date: Date): string {
   const hours = String(date.getUTCHours()).padStart(2, "0");
   const minutes = String(date.getUTCMinutes()).padStart(2, "0");
   const seconds = String(date.getUTCSeconds()).padStart(2, "0");
-  const milliseconds = String(date.getUTCMilliseconds()).padStart(RUN_TIMESTAMP_MILLISECOND_DIGITS, "0");
+  const milliseconds = String(date.getUTCMilliseconds()).padStart(
+    STATE_STORE_RUN_TOKEN.TIMESTAMP_MILLISECOND_DIGITS,
+    "0",
+  );
 
   return `${year}-${month}-${day}${RUN_TIMESTAMP_SEPARATOR}${hours}-${minutes}-${seconds}-${milliseconds}`;
 }
 
 export function generateRunId(randomBytes: (size: number) => Buffer = nodeRandomBytes): string {
-  return randomBytes(RUN_ID_BYTES).toString(HEX_ENCODING);
+  return randomBytes(STATE_STORE_RUN_TOKEN.ID_BYTES).toString(HEX_ENCODING);
+}
+
+export function createStateStoreRunToken(options: CreateStateStoreRunTokenOptions): StateStoreRunToken {
+  const startedAt = formatRunTimestamp(options.date);
+  const runId = generateRunId(options.randomBytes);
+  return { runToken: `${startedAt}${SLUG_SEPARATOR}${runId}`, runId, startedAt };
 }
 
 export function runFileName(runToken: string): string {
@@ -333,7 +353,6 @@ export async function createJsonlRunFile(
   if (!domainRunsDir.ok) return domainRunsDir;
   const maxAttempts = options.maxAttempts ?? RUN_FILE_CREATE_ATTEMPTS;
   const startedDate = (options.now ?? (() => new Date()))();
-  const startedAt = formatRunTimestamp(startedDate);
   const randomBytes = options.randomBytes ?? nodeRandomBytes;
 
   try {
@@ -346,15 +365,14 @@ export async function createJsonlRunFile(
   }
 
   for (let attempt = 0; attempt < maxAttempts; attempt += 1) {
-    const runId = generateRunId(randomBytes);
-    const runToken = `${startedAt}${SLUG_SEPARATOR}${runId}`;
-    const name = runFileName(runToken);
+    const token = createStateStoreRunToken({ date: startedDate, randomBytes });
+    const name = runFileName(token.runToken);
     const path = join(domainRunsDir.value, name);
     try {
       await fs.writeFile(path, EMPTY_STRING, { flag: EXCLUSIVE_CREATE_FLAG });
       return {
         ok: true,
-        value: { runsDir: domainRunsDir.value, runFilePath: path, runFileName: name, runToken, runId, startedAt },
+        value: { runsDir: domainRunsDir.value, runFilePath: path, runFileName: name, ...token },
       };
     } catch (error) {
       if (hasErrorCode(error, ERROR_CODE_FILE_EXISTS)) continue;
