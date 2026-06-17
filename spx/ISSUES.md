@@ -44,6 +44,16 @@ The root `renovate.json` — declared by [`spx/21-infrastructure.enabler/32-depe
 
 **Resolution:** Triage the repository-policy alerts (Branch-Protection, Code-Review, Security-Policy, SAST, CII-Best-Practices) separately from the workflow-file alerts. For the two Pinned-Dependencies alerts, pin the external actions in `.github/workflows/spec-tree.yml` and `.github/workflows/spec-tree-review.yml` to commit digests before changing the automation.
 
+## GitHub dependency vulnerability alerts remain open
+
+The pre-push hook for `feat/snapshot-adapter-impl` reported: "GitHub found 2 vulnerabilities on outcomeeng/spx's default branch (2 moderate)" and linked `https://github.com/outcomeeng/spx/security/dependabot`.
+
+**Impact:** The default branch carries unresolved dependency vulnerability alerts. The snapshot-adapter PR does not modify dependencies, so remediation belongs in a separate dependency-security changeset.
+
+**Skills:** GitHub security triage and the dependency-update implementation workflow for any manifest or lockfile changes.
+
+**Resolution:** Inspect the Dependabot security alerts, identify affected packages and patched ranges, update dependencies through `pnpm add` / `pnpm remove` so `package.json` and `pnpm-lock.yaml` stay synchronized, then run `pnpm run validate`, `pnpm test`, and the security alert closure check.
+
 ## Literal-reuse and test-owned literal cleanup remains
 
 Literal-reuse cleanup spans product config, CLI help text, value allowlist tests, and enabled spec-tree test files. Current [spx.config.yaml](../spx.config.yaml) uses the `validation` section and no longer carries the retired literal allowlist structure. The `--allowlist-existing` CLI description and value-allowlist test titles now name `validation.literal.values.include`.
