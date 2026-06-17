@@ -79,11 +79,11 @@ claude plugin marketplace list | sed -nEe 's#.*Directory.*\((.*outcomeeng.*)\).*
 
 That directory is a shared installed plugin repository used directly by other agents. Do not edit it from a product workflow.
 
-When a product workflow observes an imperfection whose durable fix belongs in the plugin repository, record it in the current-turn ledger and continue the product workflow. Do not surface it repeatedly during normal progress updates.
+When a product workflow observes an imperfection whose durable fix belongs in the plugin repository, keep a note in the active conversation state for the next handoff and continue the product workflow. Do not surface it repeatedly during normal progress updates.
 
 Mention the observation only during SPX session handoff. The handoff note should include:
 
-- the installed plugin path from the fallback command
+- the installed plugin path from the command above
 - the observed source path and affected product artifact
 - the concrete defect
 - the intended follow-up: inject an SPX session for the plugin repository from an unoccupied worktree
