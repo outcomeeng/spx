@@ -9,11 +9,7 @@ export const SNAPSHOT_SURFACE_KIND = {
 
 export type SnapshotSurfaceKind = (typeof SNAPSHOT_SURFACE_KIND)[keyof typeof SNAPSHOT_SURFACE_KIND];
 
-/**
- * A resolved GitHub surface a run's projection is published to. A pull-request
- * comment is mutable (upserted in place); an Actions artifact and an Actions
- * cache entry are immutable once written, so each is addressed per run.
- */
+/** Resolved GitHub surface target for one rendered projection write. */
 export type SnapshotSurfaceTarget =
   | {
     readonly kind: typeof SNAPSHOT_SURFACE_KIND.PULL_REQUEST_COMMENT;
@@ -23,11 +19,7 @@ export type SnapshotSurfaceTarget =
   | { readonly kind: typeof SNAPSHOT_SURFACE_KIND.ACTIONS_ARTIFACT; readonly runToken: string }
   | { readonly kind: typeof SNAPSHOT_SURFACE_KIND.ACTIONS_CACHE; readonly runToken: string };
 
-/**
- * The injected GitHub client. Every network and Actions-runtime access the sink
- * performs is a call on this interface, so the sink's dispatch verifies over a
- * controlled implementation and the real client binds only at the outermost edge.
- */
+/** Injected client boundary for GitHub and Actions-runtime writes. */
 export interface GithubSnapshotClient {
   upsertPullRequestComment(args: { pullNumber: number; marker: string; body: string }): Promise<void>;
   uploadActionsArtifact(args: { name: string; body: string }): Promise<void>;
@@ -43,12 +35,7 @@ export interface GithubSnapshotSinkOptions {
 export const SNAPSHOT_RUN_ARTIFACT_PREFIX = "spx-run-artifact-" as const;
 export const SNAPSHOT_RUN_CACHE_PREFIX = "spx-run-cache-" as const;
 
-/**
- * Bind the agent-run journal's `SnapshotBackend` port for one GitHub surface:
- * `write` publishes a rendered projection through the injected client, upserting
- * a mutable pull-request comment in place and addressing an immutable artifact or
- * cache entry per run so the latest projection is resolvable without overwriting.
- */
+/** Creates a Snapshot backend that writes rendered projections to one GitHub surface. */
 export function createGithubSnapshotSink(options: GithubSnapshotSinkOptions): SnapshotBackend {
   const { target, client } = options;
   return {
