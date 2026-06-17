@@ -15,7 +15,7 @@ import {
   parseWorktreeSessionStartPayload,
   renderWorktreeSessionStartEnvFile,
   resolveWorktreeSessionStartEnvFile,
-  resolveWorktreeSessionStartProjectDir,
+  resolveWorktreeSessionStartProductDir,
   resolveWorktreeSessionStartSessionId,
   type WorktreeSessionStartEnv,
   WORKTREE_SESSION_START_ERROR,
@@ -32,7 +32,7 @@ export interface WorktreeSessionStartFileSystem {
 export interface SessionStartCommandResult {
   readonly claimed: boolean;
   readonly envFileWritten: boolean;
-  readonly projectDir: string;
+  readonly productDir: string;
   readonly sessionId?: string;
 }
 
@@ -68,14 +68,14 @@ export async function sessionStartCommand(options: SessionStartCommandOptions): 
 
   const env = options.env ?? process.env;
   const cwd = options.cwd ?? process.cwd();
-  const projectDir = resolveWorktreeSessionStartProjectDir(payloadResult.value, cwd);
+  const productDir = resolveWorktreeSessionStartProductDir(payloadResult.value, cwd);
   const sessionId = resolveWorktreeSessionStartSessionId(payloadResult.value, env);
 
   let claimed = false;
   if (sessionId !== undefined) {
     const claim = await claimCommand({
       ...options,
-      cwd: projectDir,
+      cwd: productDir,
       env,
       sessionId,
     });
@@ -86,7 +86,7 @@ export async function sessionStartCommand(options: SessionStartCommandOptions): 
   const envFileWritten = await writeEnvFileIfConfigured({
     claimed,
     envFile,
-    projectDir,
+    productDir,
     sessionId,
     envFileSystem: options.envFileSystem ?? defaultSessionStartFileSystem,
   });
@@ -97,7 +97,7 @@ export async function sessionStartCommand(options: SessionStartCommandOptions): 
     value: {
       claimed,
       envFileWritten: envFileWritten.value,
-      projectDir,
+      productDir,
       ...(sessionId === undefined ? {} : { sessionId }),
     },
   };
@@ -106,7 +106,7 @@ export async function sessionStartCommand(options: SessionStartCommandOptions): 
 async function writeEnvFileIfConfigured(options: {
   readonly claimed: boolean;
   readonly envFile: string | undefined;
-  readonly projectDir: string;
+  readonly productDir: string;
   readonly sessionId: string | undefined;
   readonly envFileSystem: WorktreeSessionStartFileSystem;
 }): Promise<Result<boolean>> {
@@ -117,7 +117,7 @@ async function writeEnvFileIfConfigured(options: {
       options.envFile,
       renderWorktreeSessionStartEnvFile({
         claimed: options.claimed,
-        projectDir: options.projectDir,
+        productDir: options.productDir,
         sessionId: options.sessionId,
       }),
       WORKTREE_SESSION_START_ENV_FILE.ENCODING,

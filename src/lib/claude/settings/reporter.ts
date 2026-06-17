@@ -33,10 +33,10 @@ import type { ConsolidationResult } from "../permissions/types";
  *   },
  *   subsumed: ["Bash(git log:*)", "Bash(git worktree:*)"],
  *   conflictsResolved: 1,
- *   backupPath: "/Users/shz/.claude/settings.json.backup.2026-01-08-143022"
+ *   backupPath: "/Users/example/.claude/settings.json.backup.2026-01-08-143022"
  * };
  *
- * console.log(formatReport(result, true, "/Users/shz/.claude/settings.json"));
+ * console.log(formatReport(result, true, "/Users/example/.claude/settings.json"));
  * // Outputs formatted report with instructions
  * ```
  */
