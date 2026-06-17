@@ -28,10 +28,12 @@ export async function runWorktreeCli(
   args: readonly string[],
   env: Readonly<Record<string, string>>,
   cwd: string,
+  input?: string,
 ): Promise<SpxCliResult> {
   const result = await execa(NODE_EXECUTABLE, [CLI_PATH, ...args], {
     cwd,
     env: { ...process.env, ...env },
+    input,
     reject: false,
   });
   return { stdout: result.stdout, stderr: result.stderr, exitCode: result.exitCode ?? 1 };

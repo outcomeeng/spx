@@ -4,7 +4,13 @@
  */
 import type { Command } from "commander";
 
-import { claimCommand, releaseCommand, statusCommand, WORKTREE_STATUS_FORMAT } from "@/commands/worktree/index";
+import {
+  claimCommand,
+  releaseCommand,
+  sessionStartCommand,
+  statusCommand,
+  WORKTREE_STATUS_FORMAT,
+} from "@/commands/worktree/index";
 import type { Domain } from "@/domains/types";
 
 import { writeWarning } from "./write-warning";
@@ -13,8 +19,10 @@ import { writeWarning } from "./write-warning";
 export const WORKTREE_CLI = {
   COMMAND: "worktree",
   CLAIM: "claim",
+  SESSION_START: "session-start",
   STATUS: "status",
   RELEASE: "release",
+  ENV_FILE_FLAG: "--env-file",
   WORKTREE_ARGUMENT: "[worktrees...]",
   SESSION_ID_FLAG: "--session-id",
   FORMAT_FLAG: "--format",
@@ -26,6 +34,24 @@ const WORKTREE_DOMAIN_DESCRIPTION = "Coordinate worktree occupancy across a bare
 function handleError(error: string): never {
   console.error("Error:", error);
   process.exit(1);
+}
+
+async function readStdin(): Promise<string | undefined> {
+  if (process.stdin.isTTY) return undefined;
+
+  return new Promise((resolve) => {
+    let data = "";
+    process.stdin.setEncoding("utf-8");
+    process.stdin.on("data", (chunk) => {
+      data += chunk;
+    });
+    process.stdin.on("end", () => {
+      resolve(data.length === 0 ? undefined : data);
+    });
+    process.stdin.on("error", () => {
+      resolve(undefined);
+    });
+  });
 }
 
 function registerWorktreeCommands(worktreeCmd: Command): void {
@@ -59,6 +85,22 @@ function registerWorktreeCommands(worktreeCmd: Command): void {
       });
       if (!result.ok) handleError(result.error);
       console.log(result.value);
+    });
+
+  worktreeCmd
+    .command(WORKTREE_CLI.SESSION_START)
+    .description("Claim the running worktree from a SessionStart hook payload")
+    .option(`${WORKTREE_CLI.ENV_FILE_FLAG} <path>`, "Hook env file to append; defaults to $CLAUDE_ENV_FILE")
+    .option(`${WORKTREE_CLI.WORKTREES_DIR_FLAG} <path>`, "Explicit .spx/worktrees directory")
+    .action(async (options: { envFile?: string; worktreesDir?: string }) => {
+      const content = await readStdin();
+      const result = await sessionStartCommand({
+        content,
+        envFile: options.envFile,
+        worktreesDir: options.worktreesDir,
+        onWarning: writeWarning,
+      });
+      if (!result.ok) handleError(result.error);
     });
 
   worktreeCmd
