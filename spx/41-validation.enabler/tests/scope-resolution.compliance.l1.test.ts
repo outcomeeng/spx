@@ -12,6 +12,10 @@ import {
   CIRCULAR_DEPS_KEYS,
   type CircularDependencyGraphRunner,
   type CircularDeps,
+  defaultCircularDeps,
+  DEPENDENCY_CRUISER_MODULE_SYSTEMS,
+  DEPENDENCY_CRUISER_PACKAGE_EXCLUDE_PATTERN,
+  DEPENDENCY_CRUISER_TS_PRE_COMPILATION_DEPS,
   validateCircularDependencies,
 } from "@/validation/steps/circular";
 import { KNIP_COMMAND_TOKENS, type KnipDeps, validateKnip } from "@/validation/steps/knip";
@@ -41,16 +45,20 @@ function createRootRecordingDeps(projectRoot: string, checkedPaths: string[]): T
 
 function createDependencyGraphResult(): Awaited<ReturnType<CircularDependencyGraphRunner>> {
   return {
-    obj: () => ({}),
-    warnings: () => ({ skipped: [] }),
-    circular: () => [],
-    circularGraph: () => ({}),
-    depends: () => [],
-    orphans: () => [],
-    leaves: () => [],
-    dot: async () => "",
-    image: async () => "",
-    svg: async () => Buffer.from(""),
+    output: {
+      modules: [],
+      summary: {
+        error: 0,
+        ignore: 0,
+        info: 0,
+        optionsUsed: {},
+        totalCruised: 0,
+        totalDependenciesCruised: 0,
+        violations: [],
+        warn: 0,
+      },
+    },
+    exitCode: VALIDATION_EXIT_CODES.SUCCESS,
   };
 }
 
@@ -397,13 +405,25 @@ describe("ALWAYS: TypeScript scope resolution uses the requested project root", 
     });
   });
 
-  it("runs circular validation with project-root-anchored Madge inputs", async () => {
+  it("runs circular validation with project-root-anchored dependency-cruiser inputs", async () => {
     await withTestEnv({}, async (env) => {
+      const tsconfigExcludePatternWithGlob = "dist+(cache)/**/*";
+      const dependencyCruiserExcludePattern = String.raw`dist\+\(cache\)`;
+      await env.writeRaw(
+        TSCONFIG_FILES.full,
+        JSON.stringify({ include: [VALIDATION_PIPELINE_DATA.scopeResolutionSourceFile] }),
+      );
+      await env.writeRaw(VALIDATION_PIPELINE_DATA.scopeResolutionSourceFile, "");
       const dependencyGraphCalls: Parameters<CircularDependencyGraphRunner>[] = [];
+      const extractedTypeScriptConfigFiles: string[] = [];
       const deps: CircularDeps = {
-        [CIRCULAR_DEPS_KEYS.MADGE]: async (...call) => {
+        [CIRCULAR_DEPS_KEYS.DEPENDENCY_CRUISER]: async (...call) => {
           dependencyGraphCalls.push(call);
           return createDependencyGraphResult();
+        },
+        [CIRCULAR_DEPS_KEYS.EXTRACT_TYPESCRIPT_CONFIG]: (tsConfigFile) => {
+          extractedTypeScriptConfigFiles.push(tsConfigFile);
+          return defaultCircularDeps[CIRCULAR_DEPS_KEYS.EXTRACT_TYPESCRIPT_CONFIG](tsConfigFile);
         },
       };
 
@@ -412,7 +432,7 @@ describe("ALWAYS: TypeScript scope resolution uses the requested project root", 
         {
           directories: [VALIDATION_PIPELINE_DATA.scopeResolutionDirectoryName],
           filePatterns: [],
-          excludePatterns: [],
+          excludePatterns: [tsconfigExcludePatternWithGlob],
         },
         env.productDir,
         deps,
@@ -420,10 +440,18 @@ describe("ALWAYS: TypeScript scope resolution uses the requested project root", 
 
       expect(result.success).toBe(true);
       expect(dependencyGraphCalls).toHaveLength(1);
-      const [paths, config] = dependencyGraphCalls[0] ?? [];
-      expect(paths).toEqual([join(env.productDir, VALIDATION_PIPELINE_DATA.scopeResolutionDirectoryName)]);
+      const [paths, config, resolveOptions, transpileOptions] = dependencyGraphCalls[0] ?? [];
+      expect(paths).toEqual([VALIDATION_PIPELINE_DATA.scopeResolutionDirectoryName]);
       expect(config?.baseDir).toBe(env.productDir);
-      expect(config?.tsConfig).toBe(join(env.productDir, VALIDATION_PIPELINE_DATA.fullTsconfigFile));
+      expect(config?.tsConfig?.fileName).toBe(join(env.productDir, TSCONFIG_FILES.full));
+      expect(config?.tsPreCompilationDeps).toBe(DEPENDENCY_CRUISER_TS_PRE_COMPILATION_DEPS);
+      expect(config?.moduleSystems).toEqual([...DEPENDENCY_CRUISER_MODULE_SYSTEMS]);
+      expect(config?.exclude).toEqual({
+        path: [DEPENDENCY_CRUISER_PACKAGE_EXCLUDE_PATTERN, dependencyCruiserExcludePattern],
+      });
+      expect(resolveOptions).toBeUndefined();
+      expect(transpileOptions?.tsConfig).toBeDefined();
+      expect(extractedTypeScriptConfigFiles).toEqual([join(env.productDir, TSCONFIG_FILES.full)]);
     });
   });
 });

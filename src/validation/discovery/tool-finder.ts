@@ -1,16 +1,16 @@
 /**
  * Tool discovery for validation infrastructure.
  *
- * Discovers validation tools (eslint, tsc, madge, etc.) using a three-tier
- * priority system: bundled → project → global.
+ * Discovers validation tools (eslint, tsc, dependency-cruiser, etc.) using a
+ * three-tier priority system: bundled → project → global.
  *
  * @module validation/discovery/tool-finder
  */
 
-import { execSync } from "node:child_process";
 import fs from "node:fs";
 import { createRequire } from "node:module";
 import path from "node:path";
+import { fileURLToPath } from "node:url";
 
 import { TOOL_DISCOVERY, type ToolSource } from "./constants";
 
@@ -55,6 +55,12 @@ export interface ToolDiscoveryDeps {
   resolveModule: (modulePath: string) => string | null;
 
   /**
+   * Resolve an ESM import specifier, returns the resolved path or null if not found.
+   * @param modulePath - The module path to resolve (e.g., "dependency-cruiser")
+   */
+  resolveImport?: (modulePath: string) => string | null;
+
+  /**
    * Check if a file exists at the given path.
    * @param filePath - The path to check
    */
@@ -73,6 +79,54 @@ export interface ToolDiscoveryDeps {
  * Uses import.meta.url to create a require that resolves from this package.
  */
 const require = createRequire(import.meta.url);
+const FILE_URL_PROTOCOL = new URL(import.meta.url).protocol;
+const PACKAGE_MANIFEST_FILENAME = "package.json";
+const PATH_ENVIRONMENT_VARIABLE = "PATH";
+const WINDOWS_EXECUTABLE_EXTENSIONS_VARIABLE = "PATHEXT";
+const WINDOWS_DEFAULT_EXECUTABLE_EXTENSIONS = [".COM", ".EXE", ".BAT", ".CMD"] as const;
+
+function executableExtensions(): readonly string[] {
+  if (process.platform !== "win32") {
+    return [""];
+  }
+  const pathExtensions = process.env[WINDOWS_EXECUTABLE_EXTENSIONS_VARIABLE]?.split(path.delimiter).filter(Boolean);
+  return pathExtensions && pathExtensions.length > 0 ? pathExtensions : WINDOWS_DEFAULT_EXECUTABLE_EXTENSIONS;
+}
+
+function executableCandidateNames(tool: string): readonly string[] {
+  if (process.platform !== "win32" || path.extname(tool) !== "") {
+    return [tool];
+  }
+  return executableExtensions().map((extension) => `${tool}${extension}`);
+}
+
+function isExecutableFile(filePath: string): boolean {
+  try {
+    fs.accessSync(filePath, fs.constants.X_OK);
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+function findExecutableOnPath(tool: string): string | null {
+  const pathValue = process.env[PATH_ENVIRONMENT_VARIABLE];
+  if (!pathValue) {
+    return null;
+  }
+  for (const directory of pathValue.split(path.delimiter)) {
+    if (!directory) {
+      continue;
+    }
+    for (const candidateName of executableCandidateNames(tool)) {
+      const candidatePath = path.join(directory, candidateName);
+      if (isExecutableFile(candidatePath)) {
+        return candidatePath;
+      }
+    }
+  }
+  return null;
+}
 
 /**
  * Default production dependencies for tool discovery.
@@ -86,20 +140,46 @@ export const defaultToolDiscoveryDeps: ToolDiscoveryDeps = {
     }
   },
 
-  existsSync: fs.existsSync,
-
-  whichSync: (tool: string): string | null => {
+  resolveImport: (modulePath: string): string | null => {
     try {
-      const result = execSync(`which ${tool}`, {
-        encoding: "utf-8",
-        stdio: ["pipe", "pipe", "pipe"],
-      });
-      return result.trim() || null;
+      return import.meta.resolve(modulePath);
     } catch {
       return null;
     }
   },
+
+  existsSync: fs.existsSync,
+
+  whichSync: findExecutableOnPath,
 };
+
+function resolvedModulePath(resolvedPath: string): string {
+  try {
+    const resolvedUrl = new URL(resolvedPath);
+    return resolvedUrl.protocol === FILE_URL_PROTOCOL ? fileURLToPath(resolvedUrl) : resolvedPath;
+  } catch {
+    return resolvedPath;
+  }
+}
+
+function nearestPackageRoot(filePath: string, existsSync: (path: string) => boolean): string | null {
+  let currentDirectory = path.dirname(filePath);
+  while (true) {
+    if (existsSync(path.join(currentDirectory, PACKAGE_MANIFEST_FILENAME))) {
+      return currentDirectory;
+    }
+    const parentDirectory = path.dirname(currentDirectory);
+    if (parentDirectory === currentDirectory) {
+      return null;
+    }
+    currentDirectory = parentDirectory;
+  }
+}
+
+function bundledToolPath(resolvedPath: string, existsSync: (path: string) => boolean): string {
+  const bundledFilePath = resolvedModulePath(resolvedPath);
+  return nearestPackageRoot(bundledFilePath, existsSync) ?? path.dirname(bundledFilePath);
+}
 
 /**
  * Options for tool discovery.
@@ -126,7 +206,7 @@ export interface DiscoverToolOptions {
  * 2. **Project**: Check project's node_modules/.bin directory
  * 3. **Global**: Check system PATH via `which` command
  *
- * @param tool - The tool name to discover (e.g., "eslint", "typescript", "madge")
+ * @param tool - The tool name to discover (e.g., "eslint", "typescript", "dependency-cruiser")
  * @param options - Discovery options including projectRoot and dependencies
  * @returns Discovery result with found location or not found reason
  *
@@ -148,13 +228,13 @@ export async function discoverTool(
   const { projectRoot = process.cwd(), deps = defaultToolDiscoveryDeps } = options;
 
   // Tier 1: Check if bundled with spx-cli
-  const bundledPath = deps.resolveModule(`${tool}/package.json`);
+  const bundledPath = deps.resolveModule(`${tool}/package.json`) ?? deps.resolveImport?.(tool);
   if (bundledPath) {
     return {
       found: true,
       location: {
         tool,
-        path: path.dirname(bundledPath),
+        path: bundledToolPath(bundledPath, deps.existsSync),
         source: TOOL_DISCOVERY.SOURCES.BUNDLED,
       },
     };
@@ -205,9 +285,9 @@ export async function discoverTool(
  *
  * @example
  * ```typescript
- * const result = await discoverTool("madge");
+ * const result = await discoverTool("dependency-cruiser");
  * const message = formatSkipMessage("Circular dependency check", result);
- * // "⏭ Skipping Circular dependency check (madge not available)"
+ * // "⏭ Skipping Circular dependency check (dependency-cruiser not available)"
  * ```
  */
 export function formatSkipMessage(

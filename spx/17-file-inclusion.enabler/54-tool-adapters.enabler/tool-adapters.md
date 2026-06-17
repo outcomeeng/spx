@@ -1,7 +1,7 @@
 # Tool Adapters
 
 PROVIDES per-tool ignore-flag adapters — one pure function per registered downstream tool that translates a `ScopeResult` into that tool's native argv form — plus a registry that exposes adapters by tool name
-SO THAT every spx consumer invoking a downstream tool (eslint, tsc, madge, knip, markdownlint, pytest, vitest)
+SO THAT every spx consumer invoking a downstream tool (eslint, tsc, knip, markdownlint, pytest, vitest)
 CAN obtain tool-specific ignore arguments from a resolved scope without reaching into filter layers, reimplementing flag syntax, or enumerating excluded paths
 
 ## Assertions

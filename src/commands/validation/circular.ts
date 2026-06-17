@@ -1,7 +1,7 @@
 /**
  * Circular dependency check command.
  *
- * Runs madge to detect circular dependencies.
+ * Runs dependency-cruiser to detect circular dependencies.
  */
 import { resolveConfig } from "@/config/index";
 import {
@@ -29,9 +29,9 @@ export const CIRCULAR_DEPENDENCY_OUTPUT = {
 /**
  * Check for circular dependencies.
  *
- * Gates madge execution on TypeScript language detection: madge walks the
- * TypeScript import graph and has nothing to examine in non-TypeScript
- * projects.
+ * Gates dependency-cruiser execution on TypeScript language detection:
+ * dependency-cruiser walks the TypeScript import graph and has nothing to
+ * examine in non-TypeScript projects.
  *
  * @param options - Command options
  * @returns Command result with exit code and output
@@ -51,7 +51,7 @@ export async function circularCommand(options: CircularCommandOptions): Promise<
   }
 
   // Gate 2: tool discovery.
-  const toolResult = await discoverTool("madge", { projectRoot: cwd });
+  const toolResult = await discoverTool("dependency-cruiser", { projectRoot: cwd });
   if (!toolResult.found) {
     const skipMessage = formatSkipMessage("circular dependency check", toolResult);
     return { exitCode: 0, output: skipMessage, durationMs: Date.now() - startTime };
