@@ -2,7 +2,7 @@
  * Validation module for spx CLI.
  *
  * Provides validation infrastructure for TypeScript projects including:
- * - Tool discovery (eslint, tsc, madge)
+ * - Tool discovery (eslint, tsc, dependency-cruiser)
  * - Validation steps (circular, eslint, typescript, knip)
  * - Scope resolution from tsconfig
  * - Graceful degradation

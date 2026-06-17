@@ -19,7 +19,7 @@ replacement.
 
 ---
 
-## TypeScript `--files` directory scopes are passed to TypeScript as files
+## TypeScript `--files` path scopes are passed to TypeScript as files
 
 `spx validation typescript --files <directory>` can fail before validation
 because directory scopes are forwarded into the generated TypeScript file list
@@ -52,6 +52,28 @@ with the extensions: '.ts', '.tsx', '.d.ts', '.cts', '.d.cts', '.mts',
   The file is in the program because:
     Part of 'files' list in tsconfig.json
 TypeScript exited with code 2
+```
+
+Observed on June 17, 2026 while validating a mixed focused set containing
+TypeScript source, TypeScript tests, and a Markdown spec:
+
+```bash
+pnpm run validate --files \
+  src/validation/discovery/tool-finder.ts \
+  spx/41-validation.enabler/tests/tool-discovery.compliance.l1.test.ts \
+  spx/41-validation.enabler/validation.md \
+  src/commands/validation/circular.ts \
+  src/validation/steps/circular.ts \
+  spx/41-validation.enabler/tests/scope-resolution.compliance.l1.test.ts
+```
+
+Output:
+
+```text
+error TS6054: File
+'/Users/shz/Code/outcomeeng/spx/spx-c/spx/41-validation.enabler/validation.md'
+has an unsupported extension. The only supported extensions are '.ts', '.tsx',
+'.d.ts', '.cts', '.d.cts', '.mts', '.d.mts'.
 ```
 
 An explicit-file version of the same focused check passed:

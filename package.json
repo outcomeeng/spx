@@ -69,7 +69,6 @@
   "devDependencies": {
     "@faker-js/faker": "^10.4.0",
     "@types/estree": "^1.0.8",
-    "@types/madge": "^5.0.3",
     "@types/node": "^22.19.21",
     "@vitest/coverage-v8": "^4.1.5",
     "eslint": "^9.39.4",
@@ -81,7 +80,6 @@
     "lefthook": "^2.1.9",
     "tsup": "^8.5.1",
     "tsx": "^4.21.0",
-    "typescript": "^5.9.3",
     "typescript-eslint": "^8.59.1",
     "vitest": "^4.1.5"
   },
@@ -90,12 +88,13 @@
     "@typescript-eslint/visitor-keys": "^8.59.1",
     "chalk": "^5.6.2",
     "commander": "^11.1.0",
+    "dependency-cruiser": "16.10.4",
     "eslint-visitor-keys": "^5.0.1",
     "execa": "^9.6.1",
-    "madge": "^8.0.0",
     "markdownlint-cli2": "^0.22.1",
     "markdownlint-rule-relative-links": "^5.1.0",
     "smol-toml": "^1.6.1",
+    "typescript": "^5.9.3",
     "yaml": "^2.8.3"
   },
   "packageManager": "pnpm@11.5.0+sha512.dbfcc4f81cf48597afd4bc391ffdf12c11f1a9fb83a395bfa6b0a2d9cc2fd8ffebafdb1ccbd529632153f793904c2615b7f09fe1a345473fd1c35845172a8eb1"

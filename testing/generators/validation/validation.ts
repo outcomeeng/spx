@@ -308,6 +308,18 @@ export function validationCircularSubprocessScenarios(): ValidationSubprocessSce
       combinedExcludes: runtimeAntiMarkers,
     },
     {
+      title: "type-only circular TypeScript fixture reports no circular dependencies",
+      fixture: PROJECT_FIXTURES.WITH_TYPE_ONLY_CIRCULAR_DEPS,
+      args,
+      timeout: HARNESS_TIMEOUT,
+      expectedExitCode: VALIDATION_EXIT_CODES.SUCCESS,
+      stdoutIncludes: [VALIDATION_COMMAND_OUTPUT.CIRCULAR_NONE_FOUND],
+      combinedIncludes: [],
+      stdoutExcludes: [VALIDATION_COMMAND_OUTPUT.CIRCULAR_FOUND, circularSkip, ...runtimeAntiMarkers],
+      stderrExcludes: runtimeAntiMarkers,
+      combinedExcludes: runtimeAntiMarkers,
+    },
+    {
       title: "bare fixture skips circular dependency detection",
       fixture: PROJECT_FIXTURES.BARE_PROJECT,
       args,

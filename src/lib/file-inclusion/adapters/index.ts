@@ -3,7 +3,6 @@ import type { AdapterConfig, ToolAdapterFn, ToolAdaptersConfig } from "../types"
 
 import { eslintAdapter } from "./eslint";
 import { knipAdapter } from "./knip";
-import { madgeAdapter } from "./madge";
 import { markdownlintAdapter } from "./markdownlint";
 import { pytestAdapter } from "./pytest";
 import { tscAdapter } from "./tsc";
@@ -14,7 +13,6 @@ export type { AdapterConfig, ToolAdapterFn, ToolAdaptersConfig };
 export const TOOL_DEFAULT_FLAGS: Readonly<Record<string, string>> = {
   eslint: "--ignore-pattern",
   tsc: "--exclude",
-  madge: "--exclude",
   knip: "--exclude",
   markdownlint: "--ignore",
   pytest: "--ignore",
@@ -24,7 +22,6 @@ export const TOOL_DEFAULT_FLAGS: Readonly<Record<string, string>> = {
 const ADAPTER_MAP: Readonly<Record<string, ToolAdapterFn>> = {
   eslint: eslintAdapter,
   tsc: tscAdapter,
-  madge: madgeAdapter,
   knip: knipAdapter,
   markdownlint: markdownlintAdapter,
   pytest: pytestAdapter,

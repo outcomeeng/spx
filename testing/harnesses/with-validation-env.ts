@@ -25,6 +25,7 @@ export const PROJECT_FIXTURES = {
   WITH_TYPE_ERRORS: "projects/with-type-errors",
   WITH_LINT_ERRORS: "projects/with-lint-errors",
   WITH_CIRCULAR_DEPS: "projects/with-circular-deps",
+  WITH_TYPE_ONLY_CIRCULAR_DEPS: "projects/with-type-only-circular-deps",
   CLEAN_PROJECT: "projects/clean-project",
   PYTHON_PROJECT: "projects/python-project",
   BARE_PROJECT: "projects/bare-project",

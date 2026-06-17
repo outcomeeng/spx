@@ -1,16 +1,63 @@
 /**
  * Circular dependency validation step.
  *
- * Uses madge to detect circular imports in the codebase.
+ * Uses dependency-cruiser to detect circular imports in the codebase.
  *
  * @module validation/steps/circular
  */
 
-import madge from "madge";
+import {
+  cruise as dependencyCruiser,
+  type ICruiseOptions,
+  type ICruiseResult,
+  type IDependency,
+  type IReporterOutput,
+} from "dependency-cruiser";
+import extractTypeScriptConfig from "dependency-cruiser/config-utl/extract-ts-config";
 import { join } from "node:path";
 
 import { TSCONFIG_FILES } from "../config/scope";
 import type { CircularDependencyResult, ScopeConfig, ValidationScope } from "../types";
+
+export const DEPENDENCY_CRUISER_MODULE_SYSTEMS = ["es6", "cjs"] as const;
+const TSCONFIG_EXCLUDE_SUFFIX_PATTERN = /\/\*\*?\/\*$/u;
+const REGEX_SPECIAL_CHARACTER_PATTERN = /[.*+?^${}()|[\]\\]/gu;
+const REGEX_ESCAPE_REPLACEMENT = String.raw`\$&`;
+const CYCLE_KEY_SEPARATOR = "\u0000";
+export const DEPENDENCY_CRUISER_PACKAGE_EXCLUDE_PATTERN = "(^|/)node_modules(/|$)";
+export const DEPENDENCY_CRUISER_DEPENDENCY_TYPES = {
+  AMD_DEFINE: "amd-define",
+  AMD_EXOTIC_REQUIRE: "amd-exotic-require",
+  AMD_REQUIRE: "amd-require",
+  DYNAMIC_IMPORT: "dynamic-import",
+  EXPORT: "export",
+  EXOTIC_REQUIRE: "exotic-require",
+  IMPORT: "import",
+  IMPORT_EQUALS: "import-equals",
+  LOCAL: "local",
+  PRE_COMPILATION_ONLY: "pre-compilation-only",
+  REQUIRE: "require",
+  TYPE_IMPORT: "type-import",
+  // dependency-cruiser 16.10.4 emits this for TypeScript `import type` edges.
+  TYPE_ONLY: "type-only",
+} as const;
+export const DEPENDENCY_CRUISER_TS_PRE_COMPILATION_DEPS = "specify";
+const ERASURE_ONLY_DEPENDENCY_TYPES: ReadonlySet<string> = new Set([
+  DEPENDENCY_CRUISER_DEPENDENCY_TYPES.PRE_COMPILATION_ONLY,
+  DEPENDENCY_CRUISER_DEPENDENCY_TYPES.TYPE_IMPORT,
+  DEPENDENCY_CRUISER_DEPENDENCY_TYPES.TYPE_ONLY,
+]);
+const RUNTIME_DEPENDENCY_TYPES: ReadonlySet<string> = new Set([
+  DEPENDENCY_CRUISER_DEPENDENCY_TYPES.AMD_DEFINE,
+  DEPENDENCY_CRUISER_DEPENDENCY_TYPES.AMD_EXOTIC_REQUIRE,
+  DEPENDENCY_CRUISER_DEPENDENCY_TYPES.AMD_REQUIRE,
+  DEPENDENCY_CRUISER_DEPENDENCY_TYPES.DYNAMIC_IMPORT,
+  DEPENDENCY_CRUISER_DEPENDENCY_TYPES.EXPORT,
+  DEPENDENCY_CRUISER_DEPENDENCY_TYPES.EXOTIC_REQUIRE,
+  DEPENDENCY_CRUISER_DEPENDENCY_TYPES.IMPORT,
+  DEPENDENCY_CRUISER_DEPENDENCY_TYPES.IMPORT_EQUALS,
+  DEPENDENCY_CRUISER_DEPENDENCY_TYPES.REQUIRE,
+]);
 
 // =============================================================================
 // DEPENDENCY INJECTION INTERFACES
@@ -22,32 +69,153 @@ import type { CircularDependencyResult, ScopeConfig, ValidationScope } from "../
  * Enables dependency injection for testing.
  */
 export interface CircularDeps {
-  madge: typeof madge;
+  dependencyCruiser: typeof dependencyCruiser;
+  extractTypeScriptConfig: typeof extractTypeScriptConfig;
 }
 
 export const CIRCULAR_DEPS_KEYS = {
-  MADGE: "madge",
+  DEPENDENCY_CRUISER: "dependencyCruiser",
+  EXTRACT_TYPESCRIPT_CONFIG: "extractTypeScriptConfig",
 } as const;
 
-export type CircularDependencyGraphRunner = CircularDeps[typeof CIRCULAR_DEPS_KEYS.MADGE];
+export type CircularDependencyGraphRunner = CircularDeps[typeof CIRCULAR_DEPS_KEYS.DEPENDENCY_CRUISER];
 
 /**
  * Default production dependencies.
  */
 export const defaultCircularDeps: CircularDeps = {
-  [CIRCULAR_DEPS_KEYS.MADGE]: madge,
+  [CIRCULAR_DEPS_KEYS.DEPENDENCY_CRUISER]: dependencyCruiser,
+  [CIRCULAR_DEPS_KEYS.EXTRACT_TYPESCRIPT_CONFIG]: extractTypeScriptConfig,
 };
 
 // =============================================================================
 // VALIDATION FUNCTION
 // =============================================================================
 
+function toDependencyCruiserExcludePatterns(patterns: readonly string[]): string[] {
+  return patterns.map((pattern) => {
+    const cleanPattern = pattern.replace(TSCONFIG_EXCLUDE_SUFFIX_PATTERN, "");
+    return cleanPattern.replace(REGEX_SPECIAL_CHARACTER_PATTERN, REGEX_ESCAPE_REPLACEMENT);
+  });
+}
+
+function buildDependencyCruiserOptions(
+  typescriptScope: ScopeConfig,
+  projectRoot: string,
+  tsConfigFile: string,
+): ICruiseOptions {
+  const excludePatterns = [
+    DEPENDENCY_CRUISER_PACKAGE_EXCLUDE_PATTERN,
+    ...toDependencyCruiserExcludePatterns(typescriptScope.excludePatterns),
+  ];
+
+  return {
+    baseDir: projectRoot,
+    exclude: { path: excludePatterns },
+    moduleSystems: [...DEPENDENCY_CRUISER_MODULE_SYSTEMS],
+    tsConfig: { fileName: tsConfigFile },
+    tsPreCompilationDeps: DEPENDENCY_CRUISER_TS_PRE_COMPILATION_DEPS,
+  };
+}
+
+function isCruiseResult(output: IReporterOutput["output"]): output is ICruiseResult {
+  return typeof output === "object" && output !== null && "modules" in output && "summary" in output;
+}
+
+function closeCycle(cycle: readonly string[]): string[] {
+  const first = cycle[0];
+  const last = cycle.at(-1);
+  if (first === undefined) {
+    return [];
+  }
+  return last === first ? [...cycle] : [...cycle, first];
+}
+
+function dependencyTypesSurviveRuntime(dependencyTypes: readonly string[]): boolean {
+  // PRE_COMPILATION_ONLY means dependency-cruiser found no emitted JavaScript
+  // edge. TYPE_IMPORT and TYPE_ONLY may be merged with a value edge, so runtime
+  // labels remain authoritative for those mixed dependency records.
+  if (dependencyTypes.includes(DEPENDENCY_CRUISER_DEPENDENCY_TYPES.PRE_COMPILATION_ONLY)) {
+    return false;
+  }
+  if (dependencyTypes.some((dependencyType) => RUNTIME_DEPENDENCY_TYPES.has(dependencyType))) {
+    return true;
+  }
+  return dependencyTypes.every((dependencyType) => !ERASURE_ONLY_DEPENDENCY_TYPES.has(dependencyType));
+}
+
+function dependencySurvivesRuntime(dependency: IDependency): boolean {
+  return !dependency.typeOnly && !dependency.preCompilationOnly;
+}
+
+function dependencyCycleSurvivesRuntime(dependency: IDependency): boolean {
+  return dependencySurvivesRuntime(dependency)
+    && (dependency.cycle?.every((cycleDependency) => dependencyTypesSurviveRuntime(cycleDependency.dependencyTypes))
+      ?? true);
+}
+
+function dependencyCycleForModule(moduleSource: string, dependency: IDependency): string[] | null {
+  if (!dependency.circular || !dependencyCycleSurvivesRuntime(dependency)) {
+    return null;
+  }
+  const cycleTail = dependency.cycle?.map((cycleDependency) => cycleDependency.name) ?? [dependency.resolved];
+  return closeCycle([moduleSource, ...cycleTail]);
+}
+
+function openCycle(cycle: readonly string[]): string[] {
+  if (cycle.length > 1 && cycle[0] === cycle.at(-1)) {
+    return cycle.slice(0, -1);
+  }
+  return [...cycle];
+}
+
+function cycleRotations(cycle: readonly string[]): string[] {
+  return cycle.map((_, index) =>
+    [
+      ...cycle.slice(index),
+      ...cycle.slice(0, index),
+    ].join(CYCLE_KEY_SEPARATOR)
+  );
+}
+
+function canonicalCycleKey(cycle: readonly string[]): string {
+  const opened = openCycle(cycle);
+  const reversed = [...opened].reverse();
+  const keys = [...cycleRotations(opened), ...cycleRotations(reversed)].sort((left, right) =>
+    left.localeCompare(right)
+  );
+  return keys[0] ?? "";
+}
+
+function uniqueCycles(cycles: readonly string[][]): string[][] {
+  const seen = new Set<string>();
+  const result: string[][] = [];
+  for (const cycle of cycles) {
+    const key = canonicalCycleKey(cycle);
+    if (!seen.has(key)) {
+      seen.add(key);
+      result.push(cycle);
+    }
+  }
+  return result;
+}
+
+function circularDependencyCycles(result: ICruiseResult): string[][] {
+  const cycles = result.modules.flatMap((module) =>
+    module.dependencies.flatMap((dependency) => {
+      const cycle = dependencyCycleForModule(module.source, dependency);
+      return cycle === null ? [] : [cycle];
+    })
+  );
+  return uniqueCycles(cycles);
+}
+
 /**
  * Validate circular dependencies using TypeScript-derived scope.
  *
  * @param scope - Validation scope
  * @param typescriptScope - Scope configuration from tsconfig
- * @param projectRoot - Project root for Madge input and tsconfig resolution
+ * @param projectRoot - Project root for dependency-cruiser input and tsconfig resolution
  * @param deps - Injectable dependencies
  * @returns Result with success status and any circular dependencies found
  *
@@ -66,33 +234,23 @@ export async function validateCircularDependencies(
   deps: CircularDeps = defaultCircularDeps,
 ): Promise<CircularDependencyResult> {
   try {
-    // Use TypeScript-derived directories for perfect scope alignment
-    const analyzeDirectories = typescriptScope.directories.map((directory) => join(projectRoot, directory));
+    const analyzeDirectories = typescriptScope.directories;
 
     if (analyzeDirectories.length === 0) {
       return { success: true };
     }
 
-    // Use the appropriate TypeScript config based on scope
     const tsConfigFile = join(projectRoot, TSCONFIG_FILES[scope]);
-
-    // Convert tsconfig exclude patterns to madge excludeRegExp
-    const excludeRegExps = typescriptScope.excludePatterns.map((pattern) => {
-      // Remove trailing /**/* or /* for cleaner matching
-      const cleanPattern = pattern.replace(/\/\*\*?\/\*$/, "");
-      // Escape regex special chars and create regex
-      const escaped = cleanPattern.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
-      return new RegExp(escaped);
-    });
-
-    const result = await deps.madge(analyzeDirectories, {
-      baseDir: projectRoot,
-      fileExtensions: ["ts", "tsx"],
-      tsConfig: tsConfigFile,
-      excludeRegExp: excludeRegExps,
-    });
-
-    const circular = result.circular();
+    const result = await deps.dependencyCruiser(
+      analyzeDirectories,
+      buildDependencyCruiserOptions(typescriptScope, projectRoot, tsConfigFile),
+      undefined,
+      { tsConfig: deps.extractTypeScriptConfig(tsConfigFile) },
+    );
+    if (!isCruiseResult(result.output)) {
+      return { success: false, error: "dependency-cruiser returned non-structured output" };
+    }
+    const circular = circularDependencyCycles(result.output);
 
     if (circular.length === 0) {
       return { success: true };
