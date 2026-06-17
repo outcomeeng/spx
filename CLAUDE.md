@@ -69,6 +69,29 @@ Additional skills ship with the plugin and are invoked by name: `committing-chan
 
 </skill_router>
 
+<skill_sources>
+
+Outcome Engineering plugin skills are installed in the directory resolved by:
+
+```bash
+claude plugin marketplace list | sed -nEe 's#.*Directory.*\((.*outcomeeng.*)\).*#\1/src/plugins#p'
+```
+
+That directory is a shared installed plugin repository used directly by other agents. Do not edit it from a product workflow.
+
+When a product workflow observes an imperfection whose durable fix belongs in the plugin repository, record it in the current-turn ledger and continue the product workflow. Do not surface it repeatedly during normal progress updates.
+
+Mention the observation only during SPX session handoff. The handoff note should include:
+
+- the installed plugin path from the fallback command
+- the observed source path and affected product artifact
+- the concrete defect
+- the intended follow-up: inject an SPX session for the plugin repository from an unoccupied worktree
+
+Do not create files, edit plugin source, or open a PR in the plugin repository from the product workflow merely to record the observation.
+
+</skill_sources>
+
 ### Decision records: the decision-first ADR/PDR template
 
 The authoritative ADR and PDR templates are **decision-first**. The skills own them — `/spec-tree:authoring` (`templates/decisions/decision-name.adr.md` and `decision-name.pdr.md`) and `/typescript:architecting-typescript` for ADRs. Read the skill, never an existing decision file, for the shape.
