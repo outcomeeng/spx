@@ -56,6 +56,10 @@ export const WORKTREE_TEST_GENERATOR = {
   rawBasename: (): fc.Arbitrary<string> =>
     stringFromCharacters(RAW_BASENAME_CHARACTERS, { minLength: 1, maxLength: 48 }),
   host: (): fc.Arbitrary<string> => stringFromCharacters(TOKEN_CHARACTERS, { minLength: 1, maxLength: 32 }),
+  envFileName: (): fc.Arbitrary<string> =>
+    stringFromCharacters([..."abcdefghijklmnopqrstuvwxyz0123456789"], { minLength: 4, maxLength: 16 }).map((token) =>
+      `${token}.env`
+    ),
   sessionId: (): fc.Arbitrary<string> => stringFromCharacters(TOKEN_CHARACTERS, { minLength: 1, maxLength: 36 }),
   pid: (): fc.Arbitrary<number> => fc.integer({ min: MIN_PID, max: MAX_PID }),
   startTime: (): fc.Arbitrary<string> =>
