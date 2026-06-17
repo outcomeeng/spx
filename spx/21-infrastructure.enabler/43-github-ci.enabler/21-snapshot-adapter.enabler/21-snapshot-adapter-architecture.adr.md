@@ -18,9 +18,12 @@ Rejected: writing GitHub access inside the journal library (`spx/15-agent-run-jo
 
 ## Verification
 
+### Testing
+
+- ALWAYS: a mutable surface (a pull-request comment) is presented by an in-place upsert, and an immutable surface (an Actions artifact or Actions cache entry) is addressed per run so the latest projection is resolvable, never overwritten ([property])
+
 ### Audit
 
 - ALWAYS: the sink is a `src/lib/` module binding the journal's `SnapshotBackend` — the Snapshot kind of `JournalBackend` — and exposing the `write` contract without widening or altering the journal contract, per `spx/15-agent-run-journal.enabler/32-journal-module-structure.adr.md` ([audit])
 - ALWAYS: every GitHub API and Actions-runtime access routes through a client interface accepted as an injected parameter, so the sink's dispatch and surface-selection logic verifies over a controlled client at `l1` and the real client binds only at the outermost edge, mirroring `spx/17-state.adr.md` ([audit])
-- ALWAYS: a mutable surface (a pull-request comment) is presented by an in-place upsert, and an immutable surface (an Actions artifact or Actions cache entry) is addressed per run so the latest projection is resolvable, never overwritten ([audit])
 - NEVER: `vi.mock()`, `jest.mock()`, or module interception substitutes for the GitHub client — tests inject a controlled client implementing the same interface and exercise the real sink code paths ([audit])
