@@ -4,7 +4,7 @@ import { basename, join } from "node:path";
 import { describe, expect, it } from "vitest";
 
 import { sessionStartCommand } from "@/commands/worktree/index";
-import { CONTROLLING_PID_ENV } from "@/domains/worktree/controlling-process";
+import { CONTROLLING_PID_ENV, CONTROLLING_PROCESS_ERROR } from "@/domains/worktree/controlling-process";
 import { readClaim } from "@/domains/worktree/occupancy-store";
 import {
   WORKTREE_SESSION_START_CLAIMED,
@@ -108,6 +108,34 @@ describe("worktree session-start handler", () => {
       expect(envContent).toContain(
         `${WORKTREE_SESSION_START_ENV_FILE.EXPORT_PREFIX}${WORKTREE_SESSION_START_ENV.CLAUDE_SESSION_ID}=${threadId}`,
       );
+    });
+  });
+
+  it("fails without writing hook env exports when the claim cannot resolve a holder", async () => {
+    const worktreeName = sampleWorktreeTestValue(WORKTREE_TEST_GENERATOR.poolWorktreeName());
+    const holder = sampleWorktreeTestValue(WORKTREE_TEST_GENERATOR.poolHolder());
+    const sessionId = sampleWorktreeTestValue(WORKTREE_TEST_GENERATOR.sessionId());
+    const envFileName = sampleWorktreeTestValue(WORKTREE_TEST_GENERATOR.envFileName());
+
+    await withWorktreePool({ worktreeName, holder }, async (env) => {
+      const envFile = join(env.container, envFileName);
+      const result = await sessionStartCommand({
+        content: JSON.stringify({
+          [WORKTREE_SESSION_START_PAYLOAD.SESSION_ID]: sessionId,
+          [WORKTREE_SESSION_START_PAYLOAD.CWD]: env.worktreePath,
+        }),
+        cwd: env.container,
+        worktreesDir: env.worktreesDir,
+        processTable: env.processTable,
+        env: {
+          [WORKTREE_SESSION_START_ENV.CLAUDE_ENV_FILE]: envFile,
+        },
+      });
+
+      expect(result.ok).toBe(false);
+      if (result.ok) throw new Error("expected session-start claim failure");
+      expect(result.error).toBe(CONTROLLING_PROCESS_ERROR.UNRESOLVED);
+      await expect(readFile(envFile, WORKTREE_SESSION_START_ENV_FILE.ENCODING)).rejects.toThrow();
     });
   });
 });
