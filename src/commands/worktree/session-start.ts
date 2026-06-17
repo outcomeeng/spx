@@ -79,7 +79,8 @@ export async function sessionStartCommand(options: SessionStartCommandOptions): 
       env,
       sessionId,
     });
-    claimed = claim.ok;
+    if (!claim.ok) return claim;
+    claimed = true;
   }
 
   const envFile = resolveWorktreeSessionStartEnvFile(env, options.envFile);
