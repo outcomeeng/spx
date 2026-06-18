@@ -2,30 +2,6 @@
 
 The entries below are broader than this node; they are recorded here because the spec-tree governance work lives here. Tracked, not blocking.
 
-## FOLLOW-UP: spx directory guide is behind the installed template
-
-`spx/CLAUDE.md` records `template_version: "0.18.14"`, while the
-installed spec-tree guide template records `template_version: "0.18.15"`.
-
-**Impact:** context-loading sessions can read guide instructions one template
-revision behind the installed spec-tree skill package. The foundation drift
-check reports this as a stale guide until the rendered guide is refreshed.
-
-**Resolution:** run `spec-tree:update-spx` and review the generated
-`spx/CLAUDE.md` update. Clear this entry once the guide template version and
-recorded language list match the installed template and the product's detected
-languages.
-
-**Tracking classification:** Tracked deferral, chosen by the operator during
-agent test-output feature work on June 17, 2026.
-
-**Evidence:** `spx/CLAUDE.md` frontmatter; installed template
-`/Users/shz/.codex/plugins/cache/outcomeeng/spec-tree/0.59.0/skills/understand/templates/spx-claude.md`
-frontmatter.
-
-**Skills:** `spec-tree:update-spx`, `spec-tree:understand`, and
-`spec-tree:contextualize`.
-
 ## ADR template: the TypeScript architecting skills diverge from the canonical template
 
 `typescript:standardizing-typescript-architecture` and `typescript:architecting-typescript` describe an ADR template — `## Purpose` / `## Context` / `## Decision` / `## Rationale` / `## Trade-offs` / `## Invariants` / `## Compliance` with `([review])` tags — that contradicts the canonical `/understanding` template they claim to derive from: decision-first (no `## Purpose` heading), `## Rationale`, `## Invariants`, `## Verification` with `### Audit` / `### Eval` / `### Testing` carrying `([audit])` / `([eval])` / evidence-type tags. `spec-tree:audit-adr` audits against the canonical template, so an ADR authored to the TypeScript skills' described template rejects on section structure and tag validity.
