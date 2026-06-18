@@ -18,9 +18,11 @@ import { render } from "ink-testing-library";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 
 import { pickupCommand } from "@/commands/session/pickup";
+import { ELLIPSIS } from "@/domains/session/pick-model";
 import { type Session, SESSION_PRIORITY } from "@/domains/session/types";
 import {
   SESSION_PICKER_EMPTY_TEXT,
+  SESSION_PICKER_HINT,
   SessionPicker,
   type SessionPickerProps,
 } from "@/interfaces/cli/session/pick/SessionPicker";
@@ -177,5 +179,39 @@ describe("SessionPicker rendering", () => {
     unmount();
 
     expect(claimed).toBe(false);
+  });
+
+  it("renders single-line truncated rows, padded preview labels, and the hint on its own footer line", () => {
+    const longGoal =
+      "Refactor the session retention sweep so archived entries older than the keep-window are pruned deterministically across every worktree without races";
+    const sessions = [
+      makeSession({
+        id: OLDER_ID,
+        status: "todo",
+        priority: SESSION_PRIORITY.HIGH,
+        goal: longGoal,
+        next_step: "Run the focused retention tests",
+      }),
+    ];
+    const { lastFrame, unmount } = renderPicker({ sessions, onClaim: () => {}, onCancel: () => {} });
+    const frame = lastFrame() ?? "";
+    const lines = frame.split("\n");
+
+    // The row carrying the id is a single truncated line: it ends in the ellipsis
+    // and drops the goal's tail, which the full-text preview still shows below.
+    const idLines = lines.filter((line) => line.includes(OLDER_ID));
+    expect(idLines).toHaveLength(1);
+    expect(idLines[0]).toContain(ELLIPSIS);
+    expect(idLines[0]).not.toContain("without races");
+
+    // The keybinding hint renders on its own line, never crammed into the title.
+    const titleLine = lines.find((line) => line.includes("Pick a session to claim")) ?? "";
+    expect(titleLine).not.toContain("filter");
+    expect(frame).toContain(SESSION_PICKER_HINT);
+
+    // Preview labels are separated from their values by a space.
+    expect(frame).toMatch(/goal:\s+\S/);
+    expect(frame).toMatch(/next:\s+\S/);
+    unmount();
   });
 });

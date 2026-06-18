@@ -9,7 +9,7 @@
  * @module interfaces/cli/session/pick/SessionPicker
  */
 
-import { Box, Text, useInput } from "ink";
+import { Box, Text, useInput, useStdout } from "ink";
 import { type ReactElement, useState } from "react";
 
 import {
@@ -19,12 +19,21 @@ import {
   type PickerKey,
   reducePicker,
   selectedSession,
+  truncateToWidth,
   visibleCandidates,
 } from "@/domains/session/pick-model";
 import { DEFAULT_PRIORITY, type Session, SESSION_PRIORITY, type SessionPriority } from "@/domains/session/types";
 
 /** The empty-state line shown when no claimable session matches. */
 export const SESSION_PICKER_EMPTY_TEXT = "No claimable sessions.";
+
+/** The keybinding hint, rendered on its own footer line below the list. */
+export const SESSION_PICKER_HINT = "↑/↓ move · type to filter · ⏎ claim · esc cancel";
+
+/** Terminal width assumed when the output stream reports none. */
+const FALLBACK_COLUMNS = 80;
+/** Smallest goal width a row keeps after reserving room for marker, id, and badge. */
+const MIN_GOAL_WIDTH = 8;
 
 /** Ink color per priority, so the queue's urgency reads at a glance. */
 const PRIORITY_COLOR: Record<SessionPriority, string> = {
@@ -55,48 +64,61 @@ function toPickerKey(input: string, key: Parameters<Parameters<typeof useInput>[
   };
 }
 
-/** One session row, marked when selected and colored by priority. */
-function SessionRow({ session, selected }: { readonly session: Session; readonly selected: boolean }): ReactElement {
+/**
+ * One session row on a single line: the goal is truncated to the width left
+ * after the marker, id, and priority badge, so a long goal never wraps.
+ */
+function SessionRow(
+  { session, selected, columns }: { readonly session: Session; readonly selected: boolean; readonly columns: number },
+): ReactElement {
   const priority = session.metadata.priority;
   const marker = selected ? "❯" : " ";
   const badge = priority === DEFAULT_PRIORITY ? "" : ` [${priority}]`;
+  // Reserve the fixed-width lead — "{marker} {id}{badge} " — then truncate the goal to what is left.
+  const reserved = marker.length + 1 + session.id.length + badge.length + 1;
+  const goal = truncateToWidth(session.metadata.goal, Math.max(MIN_GOAL_WIDTH, columns - reserved));
   return (
-    <Text color={selected ? "cyan" : undefined}>
+    <Text wrap="truncate" color={selected ? "cyan" : undefined}>
       {marker} {session.id}
-      <Text color={PRIORITY_COLOR[priority]}>{badge}</Text> {session.metadata.goal}
+      <Text color={PRIORITY_COLOR[priority]}>{badge}</Text> {goal}
     </Text>
   );
+}
+
+/**
+ * A `label: value` line. Label and value share one Text node so the separating
+ * space sits mid-string and survives Ink's whitespace trimming at span edges.
+ */
+function PreviewField({ label, value }: { readonly label: string; readonly value: string }): ReactElement {
+  return <Text>{`${label} ${value}`}</Text>;
 }
 
 /** The preview pane for the selected session: its goal and next step. */
 function PreviewPane({ session }: { readonly session: Session | null }): ReactElement {
   if (session === null) {
     return (
-      <Box flexDirection="column" marginTop={1}>
+      <Box marginTop={1}>
         <Text dimColor>{SESSION_PICKER_EMPTY_TEXT}</Text>
       </Box>
     );
   }
   return (
     <Box flexDirection="column" marginTop={1}>
-      <Text>
-        <Text bold>goal:</Text>
-        {session.metadata.goal}
-      </Text>
-      <Text>
-        <Text bold>next:</Text>
-        {session.metadata.next_step}
-      </Text>
+      <PreviewField label="goal:" value={session.metadata.goal} />
+      <PreviewField label="next:" value={session.metadata.next_step} />
     </Box>
   );
 }
 
 /**
- * The interactive picker. Renders the claimable queue with a filter line and a
- * preview pane, moves the selection on the arrow keys, narrows on typed text,
- * claims the selected session on Enter, and cancels on Esc.
+ * The interactive picker. Renders the claimable queue as single-line rows with
+ * a filter line, a preview pane, and a footer hint, moves the selection on the
+ * arrow keys, narrows on typed text, claims the selected session on Enter, and
+ * cancels on Esc.
  */
 export function SessionPicker({ sessions, onClaim, onCancel }: SessionPickerProps): ReactElement {
+  const { stdout } = useStdout();
+  const columns = stdout?.columns ?? FALLBACK_COLUMNS;
   const [state, setState] = useState(() => initialPickerState(sessions));
 
   useInput((input, key) => {
@@ -119,17 +141,17 @@ export function SessionPicker({ sessions, onClaim, onCancel }: SessionPickerProp
 
   return (
     <Box flexDirection="column">
-      <Text>
-        <Text bold>Pick a session to claim</Text>
-        <Text dimColor>(type to filter, ↑↓ to move, ⏎ to claim, esc to cancel)</Text>
-      </Text>
+      <Text bold>Pick a session to claim</Text>
       <Text dimColor>filter: {state.query}</Text>
       {visible.length === 0
         ? <Text dimColor>{SESSION_PICKER_EMPTY_TEXT}</Text>
         : visible.map((session, index) => (
-          <SessionRow key={session.id} session={session} selected={index === state.selectedIndex} />
+          <SessionRow key={session.id} session={session} selected={index === state.selectedIndex} columns={columns} />
         ))}
       <PreviewPane session={selected} />
+      <Box marginTop={1}>
+        <Text dimColor>{SESSION_PICKER_HINT}</Text>
+      </Box>
     </Box>
   );
 }

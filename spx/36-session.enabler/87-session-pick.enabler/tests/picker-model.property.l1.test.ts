@@ -9,12 +9,14 @@ import * as fc from "fast-check";
 import { describe, it } from "vitest";
 
 import {
+  ELLIPSIS,
   filterCandidates,
   initialPickerState,
   keyToAction,
   type PickerKey,
   type PickerState,
   reducePicker,
+  truncateToWidth,
   visibleCandidates,
 } from "@/domains/session/pick-model";
 import { arbitrarySession } from "@testing/generators/session/session";
@@ -75,6 +77,17 @@ describe("picker model invariants", () => {
           return true;
         },
       ),
+    );
+  });
+
+  it("truncates to at most the given width, preserving a fitting string and ellipsizing an overflow", () => {
+    fc.assert(
+      fc.property(fc.string(), fc.integer({ min: 1, max: 200 }), (text, max) => {
+        const result = truncateToWidth(text, max);
+        if (result.length > max) return false;
+        if (text.length <= max) return result === text;
+        return result.length === max && result.endsWith(ELLIPSIS);
+      }),
     );
   });
 });

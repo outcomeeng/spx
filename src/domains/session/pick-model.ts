@@ -12,6 +12,22 @@
 import { sortSessions } from "./list";
 import { CLAIMABLE_STATUS, type Session } from "./types";
 
+/** The single character that marks a truncated string. */
+export const ELLIPSIS = "…";
+
+/**
+ * Truncates `text` to at most `max` characters, appending a single ellipsis
+ * when it overflows. Returns the input unchanged when it already fits, the
+ * empty string for a non-positive width, and just the ellipsis at width 1.
+ * Renderer-agnostic so the picker's row layout verifies without a terminal.
+ */
+export function truncateToWidth(text: string, max: number): string {
+  if (max <= 0) return "";
+  if (text.length <= max) return text;
+  if (max === 1) return ELLIPSIS;
+  return text.slice(0, max - 1) + ELLIPSIS;
+}
+
 /** The action a key resolves to. */
 export const PICKER_ACTION = {
   MOVE: "move",
