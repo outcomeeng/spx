@@ -1,10 +1,18 @@
+import { Command } from "commander";
 import { join } from "node:path";
 
 import { describe, expect, it } from "vitest";
 
 import type { RecordedTestRun } from "@/commands/testing";
 import { SUCCESS_EXIT_CODE } from "@/domains/testing";
+import {
+  createTestingDomain,
+  TESTING_CLI,
+  TESTING_CLI_COMMANDER,
+  type TestingCliDependencies,
+} from "@/interfaces/cli/testing";
 import { AGENT_TEST_OUTPUT_TEXT, formatAgentTestOutput } from "@/interfaces/cli/testing-agent-output";
+import { pythonTestingLanguage } from "@/testing/languages/python";
 import { typescriptTestingLanguage } from "@/testing/languages/typescript";
 import {
   TEST_RUN_STATE_FIELDS,
@@ -19,6 +27,17 @@ import {
   sampleLiteralTestValue,
 } from "@testing/generators/literal/literal";
 import { sampleDispatchValue, TEST_DISPATCH_GENERATOR } from "@testing/generators/testing/dispatch";
+
+interface TestingCliCall {
+  readonly productDir: string;
+  readonly passing: boolean;
+}
+
+interface TestingCliResult {
+  readonly stdout: string;
+  readonly stderr: string;
+  readonly exitCodes: readonly number[];
+}
 
 function sampleText(): string {
   return sampleLiteralTestValue(arbitraryDomainLiteral());
@@ -50,11 +69,61 @@ function testRunState(runStatus: TestRunStateStatus): TestRunState {
   };
 }
 
+function testingCliDeps(
+  productDir: string,
+  run: RecordedTestRun,
+  agentCalls: TestingCliCall[],
+  streamCalls: TestingCliCall[],
+): TestingCliDependencies {
+  return {
+    resolveProductDir: () => Promise.resolve(productDir),
+    runTests: (resolvedProductDir, passing) => {
+      streamCalls.push({ productDir: resolvedProductDir, passing });
+      return Promise.resolve(run);
+    },
+    runAgentTests: (resolvedProductDir, passing) => {
+      agentCalls.push({ productDir: resolvedProductDir, passing });
+      return Promise.resolve(run);
+    },
+    writeStdout: () => undefined,
+    setExitCode: () => undefined,
+    exit: () => {
+      throw new Error();
+    },
+  };
+}
+
+async function runTestingCli(args: readonly string[], deps: TestingCliDependencies): Promise<TestingCliResult> {
+  const program = new Command();
+  const stdout: string[] = [];
+  const stderr: string[] = [];
+  const exitCodes: number[] = [];
+  program.exitOverride();
+  program.configureOutput({
+    writeOut: (output) => stdout.push(output),
+    writeErr: (output) => stderr.push(output),
+  });
+  createTestingDomain({
+    ...deps,
+    writeStdout: (output) => stdout.push(output),
+    setExitCode: (exitCode) => exitCodes.push(exitCode),
+  }).register(program);
+
+  await program.parseAsync([
+    TESTING_CLI_COMMANDER.nodeExecutable,
+    TESTING_CLI_COMMANDER.scriptName,
+    ...args,
+  ], { from: TESTING_CLI_COMMANDER.nodeExecutable });
+
+  return { stdout: stdout.join(""), stderr: stderr.join(""), exitCodes };
+}
+
 describe("agent test-output summary", () => {
   it("reports failed runner identity, failed paths, state, exit code, and artifacts", () => {
     const productDir = sampleConfigTestValue(CONFIG_TEST_GENERATOR.productDir());
     const nodePath = sampleDispatchValue(TEST_DISPATCH_GENERATOR.nodePath());
     const failingPath = sampleDispatchValue(TEST_DISPATCH_GENERATOR.testFileUnder(typescriptTestingLanguage, nodePath));
+    const passingPath = sampleDispatchValue(TEST_DISPATCH_GENERATOR.testFileUnder(typescriptTestingLanguage, nodePath));
     const stdoutPath = join(productDir, AGENT_TEST_OUTPUT_TEXT.STDOUT);
     const stderrPath = join(productDir, AGENT_TEST_OUTPUT_TEXT.STDERR);
     const runFilePath = join(productDir, AGENT_TEST_OUTPUT_TEXT.STATE_FILE);
@@ -66,9 +135,9 @@ describe("agent test-output summary", () => {
         unmatched: [],
         reports: [{
           runnerId: typescriptTestingLanguage.name,
-          testPaths: [failingPath],
+          testPaths: [failingPath, passingPath],
           exitCode: failingExitCode,
-          output: { stdoutPath, stderrPath },
+          output: { stdoutPath, stderrPath, failingTestPaths: [failingPath] },
         }],
         outcomes: [],
       },
@@ -86,6 +155,76 @@ describe("agent test-output summary", () => {
     expect(output).toContain(stdoutPath);
     expect(output).toContain(stderrPath);
     expect(output).toContain(failingPath);
+    expect(output).not.toContain(passingPath);
+  });
+
+  it("reports requested paths for failing runners without narrowed failure metadata", () => {
+    const productDir = sampleConfigTestValue(CONFIG_TEST_GENERATOR.productDir());
+    const nodePath = sampleDispatchValue(TEST_DISPATCH_GENERATOR.nodePath());
+    const failingPath = sampleDispatchValue(TEST_DISPATCH_GENERATOR.testFileUnder(pythonTestingLanguage, nodePath));
+    const failingExitCode = sampleDispatchValue(TEST_DISPATCH_GENERATOR.nonZeroExitCode());
+    const run: RecordedTestRun = {
+      dispatch: {
+        exitCode: failingExitCode,
+        groups: [],
+        unmatched: [],
+        reports: [{
+          runnerId: pythonTestingLanguage.name,
+          testPaths: [failingPath],
+          exitCode: failingExitCode,
+          output: {
+            stdoutPath: join(productDir, AGENT_TEST_OUTPUT_TEXT.STDOUT),
+            stderrPath: join(productDir, AGENT_TEST_OUTPUT_TEXT.STDERR),
+          },
+        }],
+        outcomes: [],
+      },
+      runFile: testRunFile(join(productDir, AGENT_TEST_OUTPUT_TEXT.STATE_FILE)),
+      recorded: testRunState(TEST_RUN_STATE_STATUS.FAILED),
+    };
+
+    const output = formatAgentTestOutput(run);
+
+    expect(output).toContain(`${AGENT_TEST_OUTPUT_TEXT.RUNNER}: ${pythonTestingLanguage.name}`);
+    expect(output).toContain(AGENT_TEST_OUTPUT_TEXT.FAILING_TESTS);
+    expect(output).toContain(failingPath);
+  });
+
+  it("routes passing agent mode through captured output without forcing process exit", async () => {
+    const productDir = sampleConfigTestValue(CONFIG_TEST_GENERATOR.productDir());
+    const stdoutPath = join(productDir, AGENT_TEST_OUTPUT_TEXT.STDOUT);
+    const stderrPath = join(productDir, AGENT_TEST_OUTPUT_TEXT.STDERR);
+    const agentCalls: TestingCliCall[] = [];
+    const streamCalls: TestingCliCall[] = [];
+    const run: RecordedTestRun = {
+      dispatch: {
+        exitCode: SUCCESS_EXIT_CODE,
+        groups: [],
+        unmatched: [],
+        reports: [{
+          runnerId: typescriptTestingLanguage.name,
+          testPaths: [],
+          exitCode: SUCCESS_EXIT_CODE,
+          output: { stdoutPath, stderrPath },
+        }],
+        outcomes: [],
+      },
+      runFile: testRunFile(join(productDir, AGENT_TEST_OUTPUT_TEXT.STATE_FILE)),
+      recorded: testRunState(TEST_RUN_STATE_STATUS.PASSED),
+    };
+
+    const result = await runTestingCli([
+      TESTING_CLI.commandName,
+      TESTING_CLI.passingSubcommand,
+      TESTING_CLI.agentOption,
+    ], testingCliDeps(productDir, run, agentCalls, streamCalls));
+
+    expect(agentCalls).toEqual([{ productDir, passing: true }]);
+    expect(streamCalls).toEqual([]);
+    expect(result.exitCodes).toEqual([SUCCESS_EXIT_CODE]);
+    expect(result.stdout).toContain(AGENT_TEST_OUTPUT_TEXT.HEADER);
+    expect(result.stdout).toContain(stdoutPath);
+    expect(result.stdout).toContain(stderrPath);
   });
 
   it("reports passing runner counts and artifacts without listing passing test paths", () => {

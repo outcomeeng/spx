@@ -18,6 +18,7 @@ export interface TestRunCommandResult {
 export interface TestRunCommandOutput {
   readonly stdoutPath: string;
   readonly stderrPath: string;
+  readonly failingTestPaths?: readonly string[];
 }
 
 /** Dependencies injected into a language runner's detection and invocation paths. */
