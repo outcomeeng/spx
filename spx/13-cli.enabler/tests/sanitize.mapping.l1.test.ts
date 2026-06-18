@@ -8,7 +8,7 @@ import {
   formatHexEscape,
   MAX_CLI_ARGUMENT_DISPLAY_LENGTH,
   sanitizeCliArgument,
-} from "@/interfaces/cli/sanitize";
+} from "@/lib/sanitize-cli-argument";
 
 describe("control-character input maps to its \\xNN escape", () => {
   it("for every code point in [0x00, CONTROL_CHAR_UPPER_BOUND], the sanitizer emits formatHexEscape(code)", () => {

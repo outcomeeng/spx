@@ -12,7 +12,7 @@ import {
   typescriptCommand,
 } from "@/commands/validation";
 import type { Domain } from "@/domains/types";
-import { sanitizeCliArgument } from "@/interfaces/cli/sanitize";
+import { sanitizeCliArgument } from "@/lib/sanitize-cli-argument";
 import { allowlistExisting } from "@/validation/literal/allowlist-existing";
 import type { ValidationScope } from "@/validation/types";
 
