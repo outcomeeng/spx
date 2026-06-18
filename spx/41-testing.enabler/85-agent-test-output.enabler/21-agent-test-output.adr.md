@@ -1,6 +1,6 @@
 # Agent Test Output Architecture
 
-Agent test output uses an explicit CLI mode that swaps the normal streaming runner dependency for a captured-output runner dependency. The captured-output runner writes each child process's stdout and stderr to OS-temp artifact files, returns those paths in the live dispatch result, and leaves persisted last-run state limited to runner identity, covered test paths, exit codes, and staleness inputs.
+Agent test output uses an explicit CLI mode that swaps the normal streaming runner dependency for a captured-output runner dependency. The captured-output runner writes each child process's stdout and stderr to OS-temp artifact files, returns those paths and any runner-reported failing test paths in the live dispatch result, and leaves persisted last-run state on the schema governed by `spx/41-testing.enabler/43-last-run-evidence.enabler/11-last-run-file.adr.md`.
 
 ## Rationale
 
@@ -23,4 +23,6 @@ The normal `spx test` path stays useful for developers who want the runner's nat
 ### Audit
 
 - ALWAYS: command handlers return run data and do not write process stdout/stderr; the CLI descriptor owns terminal rendering per `spx/14-cli-composition.adr.md` ([audit])
+- ALWAYS: captured runner dependencies accept injected process and environment boundaries, so tests exercise behavior without replacing modules ([audit])
+- NEVER: use framework mocks for captured runner execution, artifact writing, or terminal summary formatting; inject controlled implementations through explicit dependency parameters instead ([audit])
 - NEVER: persist raw runner stdout or stderr inside `TestRunState`; last-run evidence remains the state schema governed by `spx/41-testing.enabler/43-last-run-evidence.enabler/11-last-run-file.adr.md` ([audit])
