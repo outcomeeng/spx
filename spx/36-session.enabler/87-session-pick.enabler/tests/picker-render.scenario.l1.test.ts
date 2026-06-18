@@ -100,6 +100,11 @@ describe("SessionPicker rendering", () => {
     expect(frame).toContain(OLDER_ID);
     expect(frame).not.toContain(NEWER_ID);
     expect(frame).toContain("Alpha objective");
+    // next_step renders only in the preview pane (never in a list row), so
+    // asserting it confirms the preview followed the selection — not merely
+    // that the goal text appears somewhere in the frame.
+    expect(frame).toContain("step a");
+    expect(frame).not.toContain("step b");
     unmount();
   });
 
