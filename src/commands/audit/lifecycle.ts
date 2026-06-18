@@ -7,6 +7,7 @@ import type { PathFilterConfig } from "@/config/primitives/path-filter";
 import { AUDIT_SECTION, auditConfigDescriptor, type AuditConfig } from "@/domains/audit/config";
 import {
   AUDIT_RUN_EVENT,
+  AUDIT_RUN_STATE_ERROR,
   AUDIT_RUN_STATE_DISPLAY,
   AUDIT_RUN_STATE_STATUS,
   type AuditRunProgressState,
@@ -26,14 +27,15 @@ import {
   getHeadSha,
   type GitDependencies,
 } from "@/git/root";
-import { createJournal, type JournalEvent, type JournalIdentity } from "@/lib/agent-run-journal";
-import { createAppendableJournalStore } from "@/lib/appendable-journal-store";
-import { sanitizeCliArgument } from "@/lib/cli-sanitize";
+import type { JournalEvent } from "@/lib/agent-run-journal";
+import { escapeCliArgument, sanitizeCliArgument } from "@/lib/cli-sanitize";
 import { sha256Hex } from "@/lib/state-store";
 
 import {
+  appendAuditRunEvent,
   createAuditRunFile,
   readAuditBranchRuns,
+  readAuditRunEvents,
   resolveAuditRunFilePath,
   writeTerminalAuditRunState,
   type AuditRunFile,
@@ -97,6 +99,19 @@ export interface AuditStatusOptions {
   readonly json?: boolean;
 }
 
+interface AuditStatusPayload {
+  readonly branchName: string;
+  readonly branchSlug: string;
+  readonly latest: ReturnType<typeof selectLatestTerminalAuditRun>;
+  readonly terminalRuns: readonly unknown[];
+  readonly incompleteRuns: readonly unknown[];
+}
+
+const AUDIT_STATUS_RENDER_LABEL = {
+  LIST: "audit list",
+  STATUS: "audit status",
+} as const;
+
 export async function auditInitCommand(
   options: AuditInitOptions,
   deps: AuditLifecycleDeps = {},
@@ -136,7 +151,7 @@ export async function auditInitCommand(
       time: runFile.value.startedAt,
       attempt: 1,
     }),
-    deps.fs,
+    { fs: deps.fs },
   );
   if (!appended.ok) return errorResult(appended.error, options.json);
 
@@ -150,6 +165,11 @@ export async function auditProgressCommand(
 ): Promise<AuditCommandResult> {
   const runFile = await resolveCommandRunFile(options.runFile, deps);
   if (!runFile.ok) return errorResult(runFile.error, options.json);
+  const events = await readAuditRunEvents(runFile.value.runFilePath, { fs: deps.fs });
+  if (!events.ok) return errorResult(events.error, options.json);
+  if (latestStartedState(events.value) === undefined) {
+    return errorResult(AUDIT_RUN_STATE_ERROR.MISSING_INIT_EVENT, options.json);
+  }
   const at = formatAuditRunTimestamp((deps.now ?? (() => new Date()))());
   const progress: AuditRunProgressState = {
     step: options.step,
@@ -163,7 +183,7 @@ export async function auditProgressCommand(
       time: at,
       attempt: 1,
     }),
-    deps.fs,
+    { fs: deps.fs },
   );
   if (!appended.ok) return errorResult(appended.error, options.json);
 
@@ -179,11 +199,11 @@ export async function auditCloseCommand(
   }
   const runFile = await resolveCommandRunFile(options.runFile, deps);
   if (!runFile.ok) return errorResult(runFile.error, options.json);
-  const events = await readAuditRunEvents(runFile.value.runFilePath, deps.fs);
+  const events = await readAuditRunEvents(runFile.value.runFilePath, { fs: deps.fs });
   if (!events.ok) return errorResult(events.error, options.json);
   const started = latestStartedState(events.value);
   if (started === undefined) {
-    return errorResult("audit run has no init event", options.json);
+    return errorResult(AUDIT_RUN_STATE_ERROR.MISSING_INIT_EVENT, options.json);
   }
 
   const completedAt = formatAuditRunTimestamp((deps.now ?? (() => new Date()))());
@@ -203,6 +223,24 @@ export async function auditStatusCommand(
   options: AuditStatusOptions,
   deps: AuditLifecycleDeps = {},
 ): Promise<AuditCommandResult> {
+  const payload = await auditStatusPayload(options, deps);
+  if (!payload.ok) return errorResult(payload.error, options.json);
+  return okResult(payload.value, renderStatus(payload.value, AUDIT_STATUS_RENDER_LABEL.STATUS), options.json);
+}
+
+export async function auditListCommand(
+  options: AuditStatusOptions,
+  deps: AuditLifecycleDeps = {},
+): Promise<AuditCommandResult> {
+  const payload = await auditStatusPayload(options, deps);
+  if (!payload.ok) return errorResult(payload.error, options.json);
+  return okResult(payload.value, renderStatus(payload.value, AUDIT_STATUS_RENDER_LABEL.LIST), options.json);
+}
+
+async function auditStatusPayload(
+  options: AuditStatusOptions,
+  deps: AuditLifecycleDeps,
+): Promise<Result<AuditStatusPayload>> {
   const cwd = deps.cwd ?? process.cwd();
   const git = deps.git ?? defaultGitDependencies;
   const product = await detectGitCommonDirProductRoot(cwd, git);
@@ -211,32 +249,19 @@ export async function auditStatusCommand(
   const branchName = resolveAuditBranchIdentity({ branchName: currentBranch, headSha });
   const branchSlug = slugAuditBranchIdentity(branchName);
   const runs = await readAuditBranchRuns(product.productDir, branchSlug, { fs: deps.fs });
-  if (!runs.ok) return errorResult(runs.error, options.json);
+  if (!runs.ok) return runs;
 
   const latest = selectLatestTerminalAuditRun(runs.value.terminalRuns);
-  const payload = {
-    branchName,
-    branchSlug,
-    latest,
-    terminalRuns: runs.value.terminalRuns,
-    incompleteRuns: runs.value.incompleteRuns,
+  return {
+    ok: true,
+    value: {
+      branchName,
+      branchSlug,
+      latest,
+      terminalRuns: runs.value.terminalRuns,
+      incompleteRuns: runs.value.incompleteRuns,
+    },
   };
-  return okResult(payload, renderStatus(payload), options.json);
-}
-
-async function appendAuditRunEvent(
-  runFilePath: string,
-  event: Parameters<ReturnType<typeof createJournal>["append"]>[0],
-  fs?: AuditRunStateFileSystem,
-): Promise<Result<string>> {
-  const backend = createAppendableJournalStore({ runFilePath, fs });
-  const journal = createJournal(backend, auditRunJournalIdentity(runFilePath));
-  try {
-    await journal.append(event);
-    return { ok: true, value: runFilePath };
-  } catch (error) {
-    return { ok: false, error: error instanceof Error ? error.message : String(error) };
-  }
 }
 
 async function resolveCommandRunFile(
@@ -248,20 +273,6 @@ async function resolveCommandRunFile(
   const product = await detectGitCommonDirProductRoot(cwd, git);
   const resolved = resolveAuditRunFilePath(product.productDir, runFilePath, { cwd });
   return resolved.ok ? { ok: true, value: { runFilePath: resolved.value.runFilePath } } : resolved;
-}
-
-async function readAuditRunEvents(
-  runFilePath: string,
-  fs?: AuditRunStateFileSystem,
-): Promise<Result<readonly JournalEvent[]>> {
-  try {
-    return {
-      ok: true,
-      value: await createAppendableJournalStore({ runFilePath, fs }).readAll(),
-    };
-  } catch (error) {
-    return { ok: false, error: error instanceof Error ? error.message : String(error) };
-  }
 }
 
 function latestStartedState(events: readonly JournalEvent[]): AuditRunStartedState | undefined {
@@ -286,11 +297,6 @@ function isAuditRunStartedState(value: unknown): value is AuditRunStartedState {
     && Array.isArray(record.targets)
     && record.targets.every((entry) => typeof entry === "string")
     && typeof record.startedAt === "string";
-}
-
-function auditRunJournalIdentity(runFilePath: string): JournalIdentity {
-  const streamId = basename(runFilePath);
-  return { streamid: streamId, runid: streamId };
 }
 
 async function resolveAuditConfig(productDir: string): Promise<Result<AuditConfig>> {
@@ -350,7 +356,7 @@ function renderInit(payload: AuditRunFile & AuditRunStartedState): string {
     `branch: ${sanitizeCliArgument(payload.branchName)}`,
     `auditors: ${sanitizeCliList(payload.auditors)}`,
     `targets: ${sanitizeCliList(payload.targets)}`,
-    `run file: ${sanitizeCliArgument(payload.runFilePath)}`,
+    `run file: ${escapeCliArgument(payload.runFilePath)}`,
   ].join("\n");
 }
 
@@ -364,18 +370,15 @@ function renderClose(state: AuditRunState): string {
   return `audit close: ${AUDIT_RUN_STATE_DISPLAY[state.status]}`;
 }
 
-function renderStatus(payload: {
-  readonly branchName: string;
-  readonly branchSlug: string;
-  readonly latest: ReturnType<typeof selectLatestTerminalAuditRun>;
-  readonly terminalRuns: readonly unknown[];
-  readonly incompleteRuns: readonly unknown[];
-}): string {
+function renderStatus(
+  payload: AuditStatusPayload,
+  label: (typeof AUDIT_STATUS_RENDER_LABEL)[keyof typeof AUDIT_STATUS_RENDER_LABEL],
+): string {
   const latest = payload.latest === undefined
     ? "none"
     : AUDIT_RUN_STATE_DISPLAY[payload.latest.state.status];
   return [
-    `audit status: ${latest}`,
+    `${label}: ${latest}`,
     `branch: ${sanitizeCliArgument(payload.branchName)} (${sanitizeCliArgument(payload.branchSlug)})`,
     `terminal runs: ${payload.terminalRuns.length}`,
     `incomplete runs: ${payload.incompleteRuns.length}`,

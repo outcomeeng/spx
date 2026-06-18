@@ -59,6 +59,7 @@ export const AUDIT_RUN_STATE_ERROR = {
   RUN_FILE_COLLISION_LIMIT: "audit run file collision limit exhausted",
   RUN_FILE_CREATE_FAILED: "audit run file create failed",
   INVALID_RUN_FILE_PATH: "audit run file must be a branch-scoped audit run file",
+  MISSING_INIT_EVENT: "audit run has no init event",
   INVALID_TERMINAL_STATE: "audit run state must be terminal",
   STATE_ALREADY_EXISTS: "audit run state already exists",
   STATE_WRITE_FAILED: "audit run state write failed",
