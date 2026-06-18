@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 
 import { CONTROLLING_PID_ENV, resolveControllingProcess } from "@/domains/worktree/controlling-process";
+import { unreadableStartedAt } from "@/domains/worktree/occupancy-store";
 import { sampleWorktreeTestValue, WORKTREE_TEST_GENERATOR } from "@testing/generators/worktree/worktree";
 import { createProcessTable, type ProcessTableEntry } from "@testing/harnesses/worktree/harness";
 
@@ -19,6 +20,21 @@ describe("worktree controlling-process resolution", () => {
     expect(result.ok).toBe(true);
     if (!result.ok) throw new Error(result.error);
     expect(result.value).toEqual({ pid: overridePid, startedAt, host });
+  });
+
+  it("records an unreadable start token when the override names a live process whose start time cannot be read", () => {
+    const host = sampleWorktreeTestValue(WORKTREE_TEST_GENERATOR.host());
+    const [selfPid, overridePid] = sampleWorktreeTestValue(WORKTREE_TEST_GENERATOR.distinctPids());
+    const table = createProcessTable({
+      host,
+      processes: new Map<number, ProcessTableEntry>([[overridePid, { alive: true }]]),
+    });
+
+    const result = resolveControllingProcess(selfPid, table, { [CONTROLLING_PID_ENV]: String(overridePid) });
+
+    expect(result.ok).toBe(true);
+    if (!result.ok) throw new Error(result.error);
+    expect(result.value).toEqual({ pid: overridePid, startedAt: unreadableStartedAt(overridePid), host });
   });
 
   it("walks past the transient hook to the ancestor whose command names an agent runtime", () => {

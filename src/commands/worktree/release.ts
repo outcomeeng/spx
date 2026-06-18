@@ -6,12 +6,11 @@
 
 import type { Result } from "@/config/types";
 import { type OccupancyFileSystem, removeClaim } from "@/domains/worktree/occupancy-store";
-
-import { resolveCurrentWorktreeName, resolveWorktreesDir, type WorktreeScopeOptions } from "./resolve";
+import { resolveCurrentWorktreeName, resolveWorktreesDir, type WorktreeScopeOptions } from "@/domains/worktree/resolve";
 
 export interface ReleaseCommandOptions extends WorktreeScopeOptions {
   /** Injected claim filesystem. */
-  readonly fs?: OccupancyFileSystem;
+  readonly fs: OccupancyFileSystem;
 }
 
 /** Removes the running worktree's claim. Idempotent — a missing claim is success. */

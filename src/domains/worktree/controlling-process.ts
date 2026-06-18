@@ -9,6 +9,7 @@
 
 import type { Result } from "@/config/types";
 
+import { unreadableStartedAt } from "./occupancy-store";
 import type { ProcessTable } from "./process-table";
 
 export const CONTROLLING_PID_ENV = "SPX_WORKTREE_CONTROLLING_PID";
@@ -46,6 +47,7 @@ export function resolveControllingProcess(
   for (const pid of controllingPidCandidates(selfPid, table, env)) {
     const startedAt = table.startTimeOf(pid);
     if (startedAt !== undefined) return { ok: true, value: { pid, startedAt, host } };
+    if (table.isAlive(pid)) return { ok: true, value: { pid, startedAt: unreadableStartedAt(pid), host } };
   }
   return { ok: false, error: CONTROLLING_PROCESS_ERROR.UNRESOLVED };
 }

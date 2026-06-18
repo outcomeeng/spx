@@ -61,6 +61,14 @@ export const WORKTREE_TEST_GENERATOR = {
       `${token}.env`
     ),
   sessionId: (): fc.Arbitrary<string> => stringFromCharacters(TOKEN_CHARACTERS, { minLength: 1, maxLength: 36 }),
+  writeToken: (): fc.Arbitrary<string> => stringFromCharacters(TOKEN_CHARACTERS, { minLength: 8, maxLength: 24 }),
+  distinctWriteTokens: (): fc.Arbitrary<readonly [string, string]> =>
+    fc
+      .tuple(
+        stringFromCharacters(TOKEN_CHARACTERS, { minLength: 8, maxLength: 24 }),
+        stringFromCharacters(TOKEN_CHARACTERS, { minLength: 8, maxLength: 24 }),
+      )
+      .filter(([first, second]) => first !== second),
   pid: (): fc.Arbitrary<number> => fc.integer({ min: MIN_PID, max: MAX_PID }),
   startTime: (): fc.Arbitrary<string> =>
     fc.date({ min: START_TIME_MIN, max: START_TIME_MAX, noInvalidDate: true }).map((date) => date.toISOString()),

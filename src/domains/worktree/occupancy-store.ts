@@ -1,19 +1,12 @@
 /**
- * Worktree-occupancy claim store — atomic claim-record I/O at
+ * Worktree-occupancy claim store — atomic claim-record I/O paths at
  * `.spx/worktrees/<name>.claim` and the on-demand process-liveness
- * classification. The filesystem and the process probe are injected so
- * classification verifies over controlled inputs.
+ * classification. The filesystem, writer token, and process probe are injected
+ * so classification and I/O sequencing verify over controlled inputs.
  *
  * @module domains/worktree/occupancy-store
  */
 
-import {
-  mkdir as nodeMkdir,
-  readFile as nodeReadFile,
-  rename as nodeRename,
-  rm as nodeRm,
-  writeFile as nodeWriteFile,
-} from "node:fs/promises";
 import { join } from "node:path";
 
 import type { Result } from "@/config/types";
@@ -30,10 +23,12 @@ export type OccupancyStatus = (typeof OCCUPANCY_STATUS)[keyof typeof OCCUPANCY_S
 export const OCCUPANCY_CLAIM = {
   FILE_EXTENSION: ".claim",
   TEMP_EXTENSION: ".tmp",
+  UNREADABLE_STARTED_AT_PREFIX: "unreadable:",
 } as const;
 
 export const OCCUPANCY_ERROR = {
   INVALID_NAME: "worktree occupancy claim name must be a safe path segment",
+  INVALID_WRITE_TOKEN: "worktree occupancy claim write token must be a safe path segment",
   CLAIM_WRITE_FAILED: "worktree occupancy claim write failed",
   CLAIM_READ_FAILED: "worktree occupancy claim read failed",
   CLAIM_REMOVE_FAILED: "worktree occupancy claim remove failed",
@@ -73,22 +68,12 @@ export interface ProcessProbe {
 }
 
 export interface OccupancyFsOptions {
-  readonly fs?: OccupancyFileSystem;
+  readonly fs: OccupancyFileSystem;
 }
 
-export const defaultOccupancyFileSystem: OccupancyFileSystem = {
-  mkdir: async (path, options) => {
-    await nodeMkdir(path, options);
-  },
-  writeFile: async (path, data) => {
-    await nodeWriteFile(path, data);
-  },
-  rename: nodeRename,
-  readFile: nodeReadFile,
-  rm: async (path, options) => {
-    await nodeRm(path, options);
-  },
-};
+export interface OccupancyWriteOptions extends OccupancyFsOptions {
+  readonly writeToken: string;
+}
 
 /** The claim filename for a worktree `name` — `<name>.claim`. */
 export function claimFileName(name: string): string {
@@ -100,6 +85,13 @@ export function claimFilePath(worktreesDir: string, name: string): Result<string
   const validated = validateScopeToken(name);
   if (!validated.ok) return { ok: false, error: OCCUPANCY_ERROR.INVALID_NAME };
   return { ok: true, value: join(worktreesDir, claimFileName(validated.value)) };
+}
+
+/** Composes the writer-unique temporary claim path for an atomic claim write. */
+export function claimTempFilePath(claimPath: string, writeToken: string): Result<string> {
+  const validated = validateScopeToken(writeToken);
+  if (!validated.ok) return { ok: false, error: OCCUPANCY_ERROR.INVALID_WRITE_TOKEN };
+  return { ok: true, value: `${claimPath}.${validated.value}${OCCUPANCY_CLAIM.TEMP_EXTENSION}` };
 }
 
 /**
@@ -120,8 +112,14 @@ export function classifyOccupancy(
   if (claim.host !== probe.currentHost()) return OCCUPANCY_STATUS.STALE;
   if (!probe.isAlive(claim.pid)) return OCCUPANCY_STATUS.STALE;
   const liveStartTime = probe.startTimeOf(claim.pid);
+  if (claim.startedAt === unreadableStartedAt(claim.pid)) return OCCUPANCY_STATUS.OCCUPIED;
   if (liveStartTime !== undefined && liveStartTime !== claim.startedAt) return OCCUPANCY_STATUS.STALE;
   return OCCUPANCY_STATUS.OCCUPIED;
+}
+
+/** A source-owned claim start token for live processes whose start time cannot be read. */
+export function unreadableStartedAt(pid: number): string {
+  return `${OCCUPANCY_CLAIM.UNREADABLE_STARTED_AT_PREFIX}${pid}`;
 }
 
 /**
@@ -133,18 +131,18 @@ export async function writeClaim(
   worktreesDir: string,
   name: string,
   record: WorktreeClaimRecord,
-  options: OccupancyFsOptions = {},
+  options: OccupancyWriteOptions,
 ): Promise<Result<string>> {
-  const fs = options.fs ?? defaultOccupancyFileSystem;
   const pathResult = claimFilePath(worktreesDir, name);
   if (!pathResult.ok) return pathResult;
   const claimPath = pathResult.value;
-  const tempPath = `${claimPath}${OCCUPANCY_CLAIM.TEMP_EXTENSION}`;
+  const tempPath = claimTempFilePath(claimPath, options.writeToken);
+  if (!tempPath.ok) return tempPath;
 
   try {
-    await fs.mkdir(worktreesDir, { recursive: true });
-    await fs.writeFile(tempPath, serializeClaim(record));
-    await fs.rename(tempPath, claimPath);
+    await options.fs.mkdir(worktreesDir, { recursive: true });
+    await options.fs.writeFile(tempPath.value, serializeClaim(record));
+    await options.fs.rename(tempPath.value, claimPath);
     return { ok: true, value: claimPath };
   } catch (error) {
     return { ok: false, error: formatOccupancyError(OCCUPANCY_ERROR.CLAIM_WRITE_FAILED, toErrorMessage(error)) };
@@ -155,15 +153,14 @@ export async function writeClaim(
 export async function readClaim(
   worktreesDir: string,
   name: string,
-  options: OccupancyFsOptions = {},
+  options: OccupancyFsOptions,
 ): Promise<Result<WorktreeClaimRecord | undefined>> {
-  const fs = options.fs ?? defaultOccupancyFileSystem;
   const pathResult = claimFilePath(worktreesDir, name);
   if (!pathResult.ok) return pathResult;
 
   let content: string;
   try {
-    content = await fs.readFile(pathResult.value, "utf8");
+    content = await options.fs.readFile(pathResult.value, "utf8");
   } catch (error) {
     if (hasErrorCode(error, ERROR_CODE_NOT_FOUND)) return { ok: true, value: undefined };
     return { ok: false, error: formatOccupancyError(OCCUPANCY_ERROR.CLAIM_READ_FAILED, toErrorMessage(error)) };
@@ -176,14 +173,13 @@ export async function readClaim(
 export async function removeClaim(
   worktreesDir: string,
   name: string,
-  options: OccupancyFsOptions = {},
+  options: OccupancyFsOptions,
 ): Promise<Result<void>> {
-  const fs = options.fs ?? defaultOccupancyFileSystem;
   const pathResult = claimFilePath(worktreesDir, name);
   if (!pathResult.ok) return pathResult;
 
   try {
-    await fs.rm(pathResult.value, { force: true });
+    await options.fs.rm(pathResult.value, { force: true });
     return { ok: true, value: undefined };
   } catch (error) {
     return { ok: false, error: formatOccupancyError(OCCUPANCY_ERROR.CLAIM_REMOVE_FAILED, toErrorMessage(error)) };
@@ -195,7 +191,7 @@ export async function readOccupancy(
   worktreesDir: string,
   name: string,
   probe: ProcessProbe,
-  options: OccupancyFsOptions = {},
+  options: OccupancyFsOptions,
 ): Promise<Result<OccupancyStatus>> {
   const claimResult = await readClaim(worktreesDir, name, options);
   if (!claimResult.ok) return claimResult;
