@@ -15,8 +15,6 @@ import { formatShowOutput, SessionDirectoryConfig } from "@/domains/session/show
 import { CLAIMABLE_STATUS, Session, SESSION_STATUSES, SessionStatus } from "@/domains/session/types";
 import { resolveSessionConfigSurfacingWarning, type SessionWarningHandler } from "./resolve-config";
 
-/** Status of sessions available for pickup. */
-const PICKUP_SOURCE_STATUS: SessionStatus = CLAIMABLE_STATUS;
 /** Status of sessions after being claimed. */
 const PICKUP_TARGET_STATUS: SessionStatus = SESSION_STATUSES[1]; // doing
 
@@ -52,7 +50,7 @@ export async function loadTodoSessions(config: SessionDirectoryConfig): Promise<
 
       sessions.push({
         id,
-        status: PICKUP_SOURCE_STATUS,
+        status: CLAIMABLE_STATUS,
         path: filePath,
         metadata,
       });
