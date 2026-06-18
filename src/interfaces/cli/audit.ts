@@ -39,6 +39,7 @@ export const AUDIT_CLI_FLAG = {
   RUN_FILE: optionFlag(AUDIT_CLI.runFileOption),
   STATUS: optionFlag(AUDIT_CLI.statusOption),
   STEP: optionFlag(AUDIT_CLI.stepOption),
+  VERDICT_PATH: optionFlag(AUDIT_CLI.verdictPathOption),
 } as const;
 
 function optionFlag(option: string): string {
@@ -145,5 +146,5 @@ async function report(result: AuditCommandResult): Promise<void> {
   } else {
     process.stderr.write(result.output);
   }
-  process.exitCode = result.exitCode;
+  process.exit(result.exitCode);
 }
