@@ -1,4 +1,9 @@
 import type { Result } from "@/config/types";
+import {
+  PATH_FILTER_CONFIG_FIELDS,
+  type PathFilterConfig,
+  validatePathFilterConfig,
+} from "@/config/primitives/path-filter";
 import type { JournalEvent, JournalEventInput } from "@/lib/agent-run-journal";
 import {
   compareAsciiStrings,
@@ -88,7 +93,7 @@ export interface AuditRunState {
   readonly baseRef: string;
   readonly auditConfigDigest: string;
   readonly auditors: readonly string[];
-  readonly targets: readonly string[];
+  readonly targets: PathFilterConfig;
   readonly startedAt: string;
   readonly completedAt: string;
   readonly verdictPath?: string;
@@ -102,7 +107,7 @@ export interface AuditRunStartedState {
   readonly baseRef: string;
   readonly auditConfigDigest: string;
   readonly auditors: readonly string[];
-  readonly targets: readonly string[];
+  readonly targets: PathFilterConfig;
   readonly startedAt: string;
 }
 
@@ -163,7 +168,7 @@ export function auditRunStateRecord(state: AuditRunState): JsonRecord {
     baseRef: state.baseRef,
     auditConfigDigest: state.auditConfigDigest,
     auditors: state.auditors,
-    targets: state.targets,
+    targets: pathFilterRecord(state.targets),
     startedAt: state.startedAt,
     completedAt: state.completedAt,
     ...(state.verdictPath === undefined ? {} : { verdictPath: state.verdictPath }),
@@ -195,7 +200,7 @@ export function auditRunStartedEventInput(
       baseRef: state.baseRef,
       auditConfigDigest: state.auditConfigDigest,
       auditors: state.auditors,
-      targets: state.targets,
+      targets: pathFilterRecord(state.targets),
       startedAt: state.startedAt,
     },
   };
@@ -270,7 +275,7 @@ function validateAuditRunState(value: unknown): Result<AuditRunState> {
   if (!auditConfigDigest.ok) return auditConfigDigest;
   const auditors = readStringArray(value, AUDIT_RUN_STATE_FIELDS.AUDITORS);
   if (!auditors.ok) return auditors;
-  const targets = readStringArray(value, AUDIT_RUN_STATE_FIELDS.TARGETS);
+  const targets = readPathFilter(value, AUDIT_RUN_STATE_FIELDS.TARGETS);
   if (!targets.ok) return targets;
   const startedAt = readString(value, AUDIT_RUN_STATE_FIELDS.STARTED_AT);
   if (!startedAt.ok) return startedAt;
@@ -313,6 +318,17 @@ function readStringArray(value: Record<string, unknown>, field: string): Result<
   return Array.isArray(raw) && raw.every((entry) => typeof entry === "string" && entry.length > 0)
     ? { ok: true, value: raw }
     : { ok: false, error: `${field} must be an array of non-empty strings` };
+}
+
+function readPathFilter(value: Record<string, unknown>, field: string): Result<PathFilterConfig> {
+  return validatePathFilterConfig(value[field], field);
+}
+
+function pathFilterRecord(filter: PathFilterConfig): JsonRecord {
+  return {
+    ...(filter.include === undefined ? {} : { [PATH_FILTER_CONFIG_FIELDS.INCLUDE]: filter.include }),
+    ...(filter.exclude === undefined ? {} : { [PATH_FILTER_CONFIG_FIELDS.EXCLUDE]: filter.exclude }),
+  };
 }
 
 function readStatus(value: Record<string, unknown>, field: string): Result<AuditRunStateStatus> {

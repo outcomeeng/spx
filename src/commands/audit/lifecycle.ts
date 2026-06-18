@@ -3,7 +3,7 @@ import { basename } from "node:path";
 import { resolveConfig } from "@/config/index";
 import { digestDescriptorSection } from "@/config/descriptor-digest";
 import type { Result } from "@/config/types";
-import type { PathFilterConfig } from "@/config/primitives/path-filter";
+import { PATH_FILTER_CONFIG_FIELDS, type PathFilterConfig } from "@/config/primitives/path-filter";
 import { AUDIT_SECTION, auditConfigDescriptor, type AuditConfig } from "@/domains/audit/config";
 import {
   AUDIT_RUN_EVENT,
@@ -31,8 +31,7 @@ import {
   type GitDependencies,
 } from "@/git/root";
 import type { JournalEvent } from "@/lib/agent-run-journal";
-import { escapeCliArgument, sanitizeCliArgument } from "@/lib/cli-sanitize";
-import { sha256Hex } from "@/lib/state-store";
+import { escapeCliArgument, sanitizeCliArgument } from "@/lib/sanitize-cli-argument";
 
 import {
   appendAuditRunEvent,
@@ -113,6 +112,11 @@ export const AUDIT_LIFECYCLE_TEXT_LABEL = {
   RUN_FILE: "run file: ",
 } as const;
 const ROLLBACK_ERROR_SEPARATOR = "; rollback failed: ";
+const AUDIT_TARGET_FILTER_DISPLAY = {
+  EXCLUDE_PREFIX: "!",
+  MATCH_ALL: "*",
+} as const;
+const AUDIT_CONFIG_DIGEST_ERROR_PREFIX = "failed to digest audit config";
 
 export async function auditInitCommand(
   options: AuditInitOptions,
@@ -127,8 +131,8 @@ export async function auditInitCommand(
   const branchSlug = slugAuditBranchIdentity(branchIdentity);
   const auditConfig = await resolveAuditConfig(product.worktreeRoot);
   if (!auditConfig.ok) return errorResult(auditConfig.error, options.json);
-  const resolvedTargets = targetPaths(auditConfig.value.targets);
   const digest = digestAuditConfig(auditConfig.value);
+  if (!digest.ok) return errorResult(digest.error, options.json);
   const startedDate = (deps.now ?? (() => new Date()))();
   const runFile = await createAuditRunFile(product.productDir, branchSlug, {
     fs: deps.fs,
@@ -141,9 +145,9 @@ export async function auditInitCommand(
     branchSlug,
     headSha,
     baseRef: auditConfig.value.baseRef,
-    auditConfigDigest: digest,
+    auditConfigDigest: digest.value,
     auditors: auditConfig.value.auditors,
-    targets: resolvedTargets,
+    targets: auditConfig.value.targets,
     startedAt: runFile.value.startedAt,
   };
   const appended = await appendAuditRunEvent(
@@ -311,9 +315,17 @@ function isAuditRunStartedState(value: unknown): value is AuditRunStartedState {
     && typeof record.auditConfigDigest === "string"
     && Array.isArray(record.auditors)
     && record.auditors.every((entry) => typeof entry === "string")
-    && Array.isArray(record.targets)
-    && record.targets.every((entry) => typeof entry === "string")
+    && isAuditTargetFilter(record.targets)
     && typeof record.startedAt === "string";
+}
+
+function isAuditTargetFilter(value: unknown): value is PathFilterConfig {
+  if (typeof value !== "object" || value === null || Array.isArray(value)) return false;
+  const record = value as Record<string, unknown>;
+  const include = record[PATH_FILTER_CONFIG_FIELDS.INCLUDE];
+  const exclude = record[PATH_FILTER_CONFIG_FIELDS.EXCLUDE];
+  return (include === undefined || (Array.isArray(include) && include.every((entry) => typeof entry === "string")))
+    && (exclude === undefined || (Array.isArray(exclude) && exclude.every((entry) => typeof entry === "string")));
 }
 
 async function resolveAuditConfig(productDir: string): Promise<Result<AuditConfig>> {
@@ -335,13 +347,11 @@ function isAuditConfig(value: unknown): value is AuditConfig {
     && (value as { readonly targets?: unknown }).targets !== null;
 }
 
-function digestAuditConfig(config: AuditConfig): string {
-  const digest = digestDescriptorSection(config, "audit");
-  return digest.ok ? digest.value.sha256 : sha256Hex(JSON.stringify(config));
-}
-
-function targetPaths(targets: PathFilterConfig): readonly string[] {
-  return targets.include ?? [];
+function digestAuditConfig(config: AuditConfig): Result<string> {
+  const digest = digestDescriptorSection(config, AUDIT_SECTION);
+  return digest.ok
+    ? { ok: true, value: digest.value.sha256 }
+    : { ok: false, error: `${AUDIT_CONFIG_DIGEST_ERROR_PREFIX}: ${digest.error}` };
 }
 
 function isAuditCloseStatus(value: string): value is AuditRunState["status"] {
@@ -369,9 +379,17 @@ function renderInit(payload: AuditRunFile & AuditRunStartedState): string {
     `audit init: ${sanitizeCliArgument(payload.runToken)}`,
     `branch: ${sanitizeCliArgument(payload.branchName)}`,
     `auditors: ${sanitizeCliList(payload.auditors)}`,
-    `targets: ${sanitizeCliList(payload.targets)}`,
+    `targets: ${sanitizeCliList(renderTargetFilter(payload.targets))}`,
     `${AUDIT_LIFECYCLE_TEXT_LABEL.RUN_FILE}${escapeCliArgument(payload.runFilePath)}`,
   ].join("\n");
+}
+
+function renderTargetFilter(targets: PathFilterConfig): readonly string[] {
+  const include = targets.include === undefined || targets.include.length === 0
+    ? [AUDIT_TARGET_FILTER_DISPLAY.MATCH_ALL]
+    : targets.include;
+  const exclude = (targets.exclude ?? []).map((target) => `${AUDIT_TARGET_FILTER_DISPLAY.EXCLUDE_PREFIX}${target}`);
+  return [...include, ...exclude];
 }
 
 function renderProgress(progress: AuditRunProgressState): string {

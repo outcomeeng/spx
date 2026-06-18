@@ -9,7 +9,16 @@ import { existsSync } from "node:fs";
 import { readFile } from "node:fs/promises";
 import { isAbsolute, join } from "node:path";
 
-import { STATE_STORE_DOMAIN, STATE_STORE_PATH, STATE_STORE_TEXT_ENCODING } from "@/lib/state-store";
+import {
+  AUDIT_RUN_STATE_STATUS,
+  type AuditRunState,
+} from "@/domains/audit/run-state";
+import type { JournalEvent } from "@/lib/agent-run-journal";
+import {
+  STATE_STORE_DOMAIN,
+  STATE_STORE_PATH,
+  STATE_STORE_TEXT_ENCODING,
+} from "@/lib/state-store";
 import { AUDIT_RUN_STATE_TEST_GENERATOR, sampleAuditRunStateTestValue } from "@testing/generators/audit/run-state";
 import { CONFIG_TEST_GENERATOR, sampleConfigTestValue } from "@testing/generators/config/descriptors";
 import {
@@ -64,15 +73,27 @@ describe("writeAuditRunJournal", () => {
   it("GIVEN a terminal state WHEN a run journal is written THEN the run file holds the run's events under the branch runs dir", async () => {
     const branchSlug = sampleAuditRunStateTestValue(AUDIT_RUN_STATE_TEST_GENERATOR.branchSlug());
     const runFileName = sampleAuditRunStateTestValue(AUDIT_RUN_STATE_TEST_GENERATOR.runFileName());
-    const state = sampleAuditRunStateTestValue(AUDIT_RUN_STATE_TEST_GENERATOR.auditRunState());
+    const states: readonly AuditRunState[] = [
+      {
+        ...sampleAuditRunStateTestValue(AUDIT_RUN_STATE_TEST_GENERATOR.auditRunState()),
+        status: AUDIT_RUN_STATE_STATUS.APPROVED,
+      },
+      {
+        ...sampleAuditRunStateTestValue(AUDIT_RUN_STATE_TEST_GENERATOR.auditRunState()),
+        status: AUDIT_RUN_STATE_STATUS.REJECTED,
+      },
+    ];
     const harness = await createAuditHarness();
     try {
-      const runFilePath = await writeAuditRunJournal(harness.productDir, branchSlug, runFileName, [state]);
+      const runFilePath = await writeAuditRunJournal(harness.productDir, branchSlug, runFileName, states);
 
       expect(runFilePath).toBe(join(resolveAuditBranchRunsDir(harness.productDir, branchSlug), runFileName));
       const content = await readFile(runFilePath, STATE_STORE_TEXT_ENCODING);
-      expect(content).toContain(state.status);
-      expect(content.trim().split("\n")).toHaveLength(1);
+      const events = content.trim().split("\n").map((line) => JSON.parse(line) as JournalEvent);
+      expect(events).toHaveLength(states.length);
+      for (const [index, event] of events.entries()) {
+        expect(event.data).toMatchObject({ status: states[index]?.status });
+      }
     } finally {
       await harness.cleanup();
     }
