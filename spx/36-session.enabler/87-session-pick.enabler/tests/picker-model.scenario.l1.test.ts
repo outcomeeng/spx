@@ -59,7 +59,8 @@ describe("filterCandidates", () => {
 
   it("matches case-insensitively and preserves candidate order", () => {
     const matched = filterCandidates(candidates, "THE");
-    // "Wire the sync-base skill" and "spec-tree" both miss; only the first goal carries "the".
+    // candidates[1] "Split guide templates" and candidates[2] "Runtime token rollout" / "Convert
+    // spec-tree" both lack "the"; only candidates[0]'s goal "Wire the sync-base skill" carries it.
     expect(matched.map((session) => session.id)).toEqual(["2026-06-01_00-00-00"]);
   });
 
