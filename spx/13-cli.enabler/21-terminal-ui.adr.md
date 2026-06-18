@@ -1,6 +1,6 @@
 # Terminal User Interface Runtime
 
-Interactive terminal interfaces in spx render through Ink — a React renderer for the terminal — with the interactive component tree and all raw-mode terminal input and output confined to the CLI-interface layer under `src/interfaces/cli/`, the selection, filter, and key-action model held as pure computation in the domain layer under `src/domains/`, and terminal restoration on exit or signal owned by the Ink application's unmount, wired into the process-lifecycle signal handlers of [`spx/13-cli.enabler/15-cli-architecture.adr.md`](15-cli-architecture.adr.md) so a signal received mid-render leaves the terminal restored before the parent process exits.
+Interactive terminal interfaces in spx render through Ink — a React renderer for the terminal — with the interactive component tree and all raw-mode terminal input and output confined to the CLI-interface layer under `src/interfaces/cli/`, the selection, filter, and key-action model held as pure computation in the domain layer under `src/domains/`, and terminal restoration owned by the Ink application, which restores the terminal on unmount and on the process `exit` event so a SIGINT or SIGTERM that reaches the process-lifecycle handlers of [`spx/13-cli.enabler/15-cli-architecture.adr.md`](15-cli-architecture.adr.md) and exits the process still leaves the terminal restored, with no Ink-specific teardown held in the process-lifecycle module.
 
 ## Rationale
 
@@ -8,12 +8,12 @@ A browse-and-preview interface — a scrollable list, a selected row, a multi-li
 
 The domain-versus-interface split is [`spx/14-cli-composition.adr.md`](../14-cli-composition.adr.md) applied to rendering: the projection schema, the sort and filter, and the key-action reducer are pure values over injected inputs, so they verify with no terminal attached and a non-terminal renderer (a browser interface) reuses them unchanged. Sharing rendered components between a browser React tree and a terminal React tree leaks DOM and terminal concerns into each other; sharing the model layer does not. The Ink component tree is the CLI-interface layer's process-and-framework concern, the same boundary the descriptor already owns for standard streams.
 
-Terminal restoration is the single concern Ink and the process-lifecycle handlers both touch: Ink places the terminal in raw mode and an alternate screen, while the handlers of [`spx/13-cli.enabler/15-cli-architecture.adr.md`](15-cli-architecture.adr.md) forward SIGINT and SIGTERM. One owner — Ink's unmount, triggered by the lifecycle handler before the parent exits — resolves the signal-mid-render race so the terminal never stays in raw mode after the process ends. Two independent owners admit a wedged terminal. The React reconciler and Yoga are runtime dependencies the ESM and Node floor of [`spx/12-node-runtime.adr.md`](../12-node-runtime.adr.md) admits, and JSX compiles through the existing esbuild-based build.
+Terminal restoration belongs to Ink, not to the process-lifecycle module. Ink places the terminal in raw mode and an alternate screen and restores it both on `unmount()` and on the process `exit` event through its own exit handler. Because that restoration runs on the `exit` event, the SIGINT and SIGTERM handlers of [`spx/13-cli.enabler/15-cli-architecture.adr.md`](15-cli-architecture.adr.md) restore the terminal merely by exiting the process — they need no Ink-specific teardown, and the generic lifecycle module stays free of any UI-library coupling. Teaching the lifecycle module to reach into a mounted Ink application would invert that: a module whose concern is child-subprocess signal forwarding would gain a dependency on a specific renderer. The React reconciler and Yoga are runtime dependencies the ESM and Node floor of [`spx/12-node-runtime.adr.md`](../12-node-runtime.adr.md) admits, and JSX compiles through the esbuild-based build.
 
 ## Invariants
 
 - For every interactive terminal interface, the selection, filter, and key-action model is a pure function of injected inputs, evaluable with no terminal attached.
-- For every Ink application that enters raw mode, the terminal is restored to its prior mode on unmount, whether unmount is reached by user exit, completion, or a forwarded signal.
+- For every Ink application that enters raw mode, the terminal is restored to its prior mode on unmount and on process exit, whether reached by user exit, completion, or a SIGINT or SIGTERM forwarded by the process-lifecycle handlers.
 
 ## Verification
 
@@ -21,7 +21,7 @@ Terminal restoration is the single concern Ink and the process-lifecycle handler
 
 - ALWAYS: interactive terminal interfaces render through Ink, and the component tree together with all raw-mode and alternate-screen terminal I/O lives under `src/interfaces/cli/` per [`spx/14-cli-composition.adr.md`](../14-cli-composition.adr.md) ([audit])
 - ALWAYS: the selection, filter, and key-action model is pure computation under `src/domains/`, accepting the candidate set and key events as parameters and returning the next state, with no React, Ink, or terminal import ([audit])
-- ALWAYS: the process-lifecycle SIGINT and SIGTERM handlers of [`spx/13-cli.enabler/15-cli-architecture.adr.md`](15-cli-architecture.adr.md) trigger the mounted Ink application's unmount, so terminal restoration completes before the parent process exits ([audit])
+- ALWAYS: an Ink application restores the terminal — exits raw mode and the alternate screen — on unmount and on the process `exit` event, so a SIGINT or SIGTERM handled by the process-lifecycle handlers of [`spx/13-cli.enabler/15-cli-architecture.adr.md`](15-cli-architecture.adr.md) restores the terminal by exiting the process, with no Ink-specific teardown in the lifecycle module ([audit])
 - ALWAYS: an Ink application receives its input stream, output stream, and exit callback through injected props or render options, so the component tree verifies through `ink-testing-library` over a string buffer ([audit])
 - NEVER: a module under `src/domains/` imports React, Ink, or a terminal API — the model layer stays renderer-agnostic so a non-terminal interface reuses it ([audit])
 - NEVER: an interactive Ink interface renders when its output or input stream is not a TTY — a non-interactive context refuses rather than rendering to a non-terminal stream ([audit])
