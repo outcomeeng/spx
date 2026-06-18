@@ -1,8 +1,15 @@
 import { describe, expect, it } from "vitest";
 
+import { EventEmitter } from "node:events";
+
 import type { Result } from "@/config/types";
 import { defaultGitDependencies } from "@/git/root";
-import { runHookCli, type HookProcessIo } from "@/interfaces/hooks/cli-runner";
+import {
+  createProcessHookIo,
+  HOOK_PROCESS_IO_EVENT,
+  runHookCli,
+  type HookProcessIo,
+} from "@/interfaces/hooks/cli-runner";
 import { HOOK_EVENT } from "@/interfaces/hooks/registry";
 import { defaultOccupancyFileSystem } from "@/lib/worktree-occupancy-file-system";
 import { sampleWorktreeTestValue, WORKTREE_TEST_GENERATOR } from "@testing/generators/worktree/worktree";
@@ -24,6 +31,24 @@ class RecordingHookIo implements HookProcessIo {
 
   writeStderr(content: string): void {
     this.stderr.push(content);
+  }
+}
+
+class ErroringHookInput extends EventEmitter {
+  readonly isTTY = false;
+  private encoding: BufferEncoding | undefined;
+
+  constructor(private readonly failure: Error) {
+    super();
+  }
+
+  setEncoding(encoding: BufferEncoding): void {
+    this.encoding = encoding;
+  }
+
+  start(): void {
+    if (this.encoding === undefined) throw new Error("expected hook input encoding to be configured");
+    this.emit(HOOK_PROCESS_IO_EVENT.ERROR, this.failure);
   }
 }
 
@@ -86,5 +111,27 @@ describe("hook CLI runner", () => {
     expect(result.error).toBe(handlerFailure);
     expect(io.stderr).toEqual([stdinFailure, handlerFailure]);
     expect(io.stdout).toEqual([]);
+  });
+
+  it("records stdin error details from process hook IO", async () => {
+    const errorMessage = sampleWorktreeTestValue(WORKTREE_TEST_GENERATOR.sessionId());
+    const stdin = new ErroringHookInput(new Error(errorMessage));
+    const stdout: string[] = [];
+    const stderr: string[] = [];
+    const io = createProcessHookIo({
+      stdin,
+      stdout: { write: (content) => stdout.push(content) },
+      stderr: { write: (content) => stderr.push(content) },
+    });
+
+    const read = io.readStdin();
+    stdin.start();
+    const result = await read;
+
+    expect(result.ok).toBe(false);
+    if (result.ok) throw new Error("expected stdin read to fail");
+    expect(result.error).toContain(errorMessage);
+    expect(stdout).toEqual([]);
+    expect(stderr).toEqual([]);
   });
 });

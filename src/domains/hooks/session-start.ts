@@ -85,8 +85,8 @@ export function resolveHookSessionStartSessionId(
 ): string | undefined {
   return (
     payload.sessionId
-    ?? nonEmptyString(env[HOOK_SESSION_START_ENV.CODEX_THREAD_ID])
     ?? nonEmptyString(env[HOOK_SESSION_START_ENV.CLAUDE_SESSION_ID])
+    ?? nonEmptyString(env[HOOK_SESSION_START_ENV.CODEX_THREAD_ID])
   );
 }
 
