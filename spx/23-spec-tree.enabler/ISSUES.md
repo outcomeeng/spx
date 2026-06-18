@@ -23,8 +23,8 @@ agent test-output feature work on June 17, 2026.
 `/Users/shz/.codex/plugins/cache/outcomeeng/spec-tree/0.59.0/skills/understand/templates/spx-claude.md`
 frontmatter.
 
-**Skills:** `spec-tree:update-spx`, `spec-tree:understanding`, and
-`spec-tree:contextualizing`.
+**Skills:** `spec-tree:update-spx`, `spec-tree:understand`, and
+`spec-tree:contextualize`.
 
 ## ADR template: the TypeScript architecting skills diverge from the canonical template
 

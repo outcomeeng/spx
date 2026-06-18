@@ -1,16 +1,15 @@
 # Test Runner Environments
 
-`spx test` runs a product's selected test runner in an explicit environment: `operator`, `agent`, or `ci`. The default environment is `operator`, where child runner output streams to the terminal for local least-surprise behavior; `agent` captures child output to artifacts and prints a compact summary; `ci` emits machine-readable evidence for continuous integration.
+`spx test` runs a product's selected test runner in an explicit environment: `operator` or `agent`. The default environment is `operator`, where child runner output streams to the terminal for local least-surprise behavior; `agent` captures child output to artifacts and prints a compact summary.
 
 ## Rationale
 
-Agents need bounded, inspectable test evidence, developers need native local runner behavior, and CI needs structured output, but all three environments must exercise the same selected runner and the same selected test files. Consumer products do not all use the same runner, so `spx test` makes runner support explicit and reports unsupported selections clearly.
+Agents need bounded, inspectable test evidence and developers need native local runner behavior, but both environments must exercise the same selected runner and the same selected test files. Consumer products do not all use the same runner, so `spx test` makes runner support explicit and reports unsupported selections clearly.
 
 ## Product properties
 
 1. Unqualified `spx test` and `spx test passing` run in `operator` environment with native child stdout and stderr streaming.
 2. `agent` environment writes child stdout and stderr to artifact files and reports a compact terminal summary without child stream passthrough.
-3. `ci` environment provides a machine-readable test evidence stream while preserving the same runner selection and test selection as the other environments.
 
 ## Verification
 
