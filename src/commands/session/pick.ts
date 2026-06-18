@@ -1,0 +1,38 @@
+/**
+ * Session pick CLI command handler.
+ *
+ * Loads the claimable candidate set for the interactive picker. This is the
+ * handler layer per `spx/14-cli-composition.adr.md`: it resolves config and
+ * reads the session store, performing no Commander binding and no process I/O —
+ * the descriptor mounts the terminal interface and the descriptor claims the
+ * chosen session through `pickupCommand`.
+ *
+ * @module commands/session/pick
+ */
+
+import type { Session } from "@/domains/session/types";
+import { loadTodoSessions } from "./pickup";
+import { resolveSessionConfigSurfacingWarning, type SessionWarningHandler } from "./resolve-config";
+
+/**
+ * Options for loading picker candidates.
+ */
+export interface PickCandidatesOptions {
+  /** Custom sessions directory. */
+  sessionsDir?: string;
+  /** Receives the non-git-repo diagnostic for the descriptor to surface. */
+  onWarning?: SessionWarningHandler;
+}
+
+/**
+ * Loads the claimable sessions the picker offers — the `todo` queue, the same
+ * source `spx session pickup` claims from. The picker orders and filters this
+ * pool through its own model (`buildCandidates`); this loader only reads it.
+ *
+ * @param options - Resolution options
+ * @returns The claimable `todo` sessions
+ */
+export async function loadPickCandidates(options: PickCandidatesOptions): Promise<Session[]> {
+  const config = await resolveSessionConfigSurfacingWarning(options.sessionsDir, options.onWarning);
+  return loadTodoSessions(config);
+}

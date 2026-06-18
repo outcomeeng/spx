@@ -37,7 +37,7 @@ export interface PickupOptions {
 /**
  * Loads sessions from the todo directory.
  */
-async function loadTodoSessions(config: SessionDirectoryConfig): Promise<Session[]> {
+export async function loadTodoSessions(config: SessionDirectoryConfig): Promise<Session[]> {
   try {
     const files = await readdir(config.todoDir);
     const sessions: Session[] = [];

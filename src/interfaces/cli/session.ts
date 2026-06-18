@@ -8,6 +8,7 @@ import {
   deleteCommand,
   handoffCommand,
   listCommand,
+  loadPickCandidates,
   pickupCommand,
   pruneCommand,
   PruneValidationError,
@@ -21,6 +22,7 @@ import { renderHandoffBaseChecklist } from "@/domains/session/handoff-base-check
 import { HANDOFF_FRONTMATTER_HELP, PICKUP_SELECTION_HELP, SESSION_FORMAT_HELP } from "@/domains/session/help";
 import { SESSION_STATUSES } from "@/domains/session/types";
 import type { Domain } from "@/domains/types";
+import { PICK_NON_TTY_MESSAGE, runPicker } from "./session/pick/run-picker";
 
 import { writeWarning } from "./write-warning";
 
@@ -82,6 +84,37 @@ function registerSessionCommands(sessionCmd: Command): void {
           onWarning: writeWarning,
         });
         console.log(output);
+      } catch (error) {
+        handleError(error);
+      }
+    });
+
+  // pick command — interactive picker over the todo queue; claims on selection.
+  sessionCmd
+    .command("pick")
+    .description("Interactively pick and claim a session (move from todo to doing)")
+    .option("--sessions-dir <path>", "Custom sessions directory")
+    .action(async (options: { sessionsDir?: string }) => {
+      try {
+        // The picker needs a real terminal; refuse a non-interactive context
+        // rather than render to a non-TTY stream.
+        if (!process.stdin.isTTY || !process.stdout.isTTY) {
+          console.error(PICK_NON_TTY_MESSAGE);
+          process.exit(1);
+        }
+        const sessions = await loadPickCandidates({
+          sessionsDir: options.sessionsDir,
+          onWarning: writeWarning,
+        });
+        const claimed = await runPicker(sessions);
+        if (claimed !== null) {
+          const output = await pickupCommand({
+            sessionIds: [claimed.id],
+            sessionsDir: options.sessionsDir,
+            onWarning: writeWarning,
+          });
+          console.log(output);
+        }
       } catch (error) {
         handleError(error);
       }
