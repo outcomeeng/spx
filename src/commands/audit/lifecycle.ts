@@ -10,9 +10,11 @@ import {
   AUDIT_RUN_STATE_ERROR,
   AUDIT_RUN_STATE_DISPLAY,
   AUDIT_RUN_STATE_STATUS,
+  type AuditIncompleteRun,
   type AuditRunProgressState,
   type AuditRunStartedState,
   type AuditRunState,
+  type AuditTerminalRun,
   auditRunProgressEventInput,
   auditRunStartedEventInput,
   formatAuditRunTimestamp,
@@ -97,8 +99,8 @@ interface AuditStatusPayload {
   readonly branchName: string;
   readonly branchSlug: string;
   readonly latest: ReturnType<typeof selectLatestTerminalAuditRun>;
-  readonly terminalRuns: readonly unknown[];
-  readonly incompleteRuns: readonly unknown[];
+  readonly terminalRuns: readonly AuditTerminalRun[];
+  readonly incompleteRuns: readonly AuditIncompleteRun[];
 }
 
 const AUDIT_STATUS_RENDER_LABEL = {
@@ -379,7 +381,14 @@ function renderStatus(
     `branch: ${sanitizeCliArgument(payload.branchName)} (${sanitizeCliArgument(payload.branchSlug)})`,
     `terminal runs: ${payload.terminalRuns.length}`,
     `incomplete runs: ${payload.incompleteRuns.length}`,
+    ...payload.incompleteRuns.map(renderIncompleteRun),
   ].join("\n");
+}
+
+function renderIncompleteRun(run: AuditIncompleteRun): string {
+  return `incomplete: ${sanitizeCliArgument(run.runFileName)} (${sanitizeCliArgument(run.reason)})${
+    run.error === undefined ? "" : ` - ${sanitizeCliArgument(run.error)}`
+  }`;
 }
 
 function sanitizeCliList(values: readonly string[]): string {
