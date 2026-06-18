@@ -337,22 +337,8 @@ describe("audit CLI lifecycle commands", () => {
   it("rejects run-file paths outside branch-scoped audit run storage", async () => {
     const harness = await createAuditHarness();
     try {
-      await writeAuditConfig(harness.productDir, {
-        baseRef: BASE_REF,
-        auditors: [AUDITOR],
-        include: [TARGET],
-      });
-      const init = await runSpxAudit([
-        "init",
-        "--branch",
-        BRANCH,
-        "--head-sha",
-        HEAD_SHA,
-        "--json",
-      ], harness.productDir);
-      expect(init.exitCode).toBe(0);
-      const initPayload = JSON.parse(init.output) as { readonly runFilePath: string };
-      const outsideRunFile = join(harness.productDir, basename(initPayload.runFilePath));
+      const runFilePath = await initializeDefaultAuditRun(harness.productDir);
+      const outsideRunFile = join(harness.productDir, basename(runFilePath));
 
       const progress = await runSpxAudit([
         "progress",
@@ -388,23 +374,9 @@ describe("audit CLI lifecycle commands", () => {
   it("rejects missing branch-scoped run files without creating them", async () => {
     const harness = await createAuditHarness();
     try {
-      await writeAuditConfig(harness.productDir, {
-        baseRef: BASE_REF,
-        auditors: [AUDITOR],
-        include: [TARGET],
-      });
-      const init = await runSpxAudit([
-        "init",
-        "--branch",
-        BRANCH,
-        "--head-sha",
-        HEAD_SHA,
-        "--json",
-      ], harness.productDir);
-      expect(init.exitCode).toBe(0);
-      const initPayload = JSON.parse(init.output) as { readonly runFilePath: string };
+      const runFilePath = await initializeDefaultAuditRun(harness.productDir);
       const missingRunFileName = sampleAuditRunStateTestValue(AUDIT_RUN_STATE_TEST_GENERATOR.missingRunFileName());
-      const missingRunFile = join(dirname(initPayload.runFilePath), missingRunFileName);
+      const missingRunFile = join(dirname(runFilePath), missingRunFileName);
 
       const progress = await runSpxAudit([
         "progress",
@@ -476,6 +448,24 @@ async function runSpxAudit(args: readonly string[], cwd: string): Promise<{
 }> {
   const result = await execa(NODE_EXECUTABLE, [CLI_PATH, "audit", ...args], { cwd, reject: false });
   return { output: result.stdout, errorOutput: result.stderr, exitCode: result.exitCode ?? 1 };
+}
+
+async function initializeDefaultAuditRun(productDir: string): Promise<string> {
+  await writeAuditConfig(productDir, {
+    baseRef: BASE_REF,
+    auditors: [AUDITOR],
+    include: [TARGET],
+  });
+  const init = await runSpxAudit([
+    "init",
+    "--branch",
+    BRANCH,
+    "--head-sha",
+    HEAD_SHA,
+    "--json",
+  ], productDir);
+  expect(init.exitCode).toBe(0);
+  return (JSON.parse(init.output) as { readonly runFilePath: string }).runFilePath;
 }
 
 async function writeAuditConfig(productDir: string, config: {
