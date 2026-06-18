@@ -14,6 +14,7 @@ import { stringify as stringifyYaml } from "yaml";
 import { SESSION_FRONT_MATTER_DELIMITER } from "@/domains/session/create";
 import { generateSessionId } from "@/domains/session/timestamp";
 import {
+  CLAIMABLE_STATUS,
   DEFAULT_PRIORITY,
   type Session,
   SESSION_FRONT_MATTER,
@@ -291,7 +292,7 @@ export interface MakeSessionOptions {
  */
 export function makeSession(opts: MakeSessionOptions = {}): Session {
   const id = opts.id ?? sampleSessionId();
-  const status = opts.status ?? SESSION_STATUSES[0];
+  const status = opts.status ?? CLAIMABLE_STATUS;
   return {
     id,
     status,
