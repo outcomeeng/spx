@@ -1,6 +1,6 @@
 # Agent Test Output
 
-PROVIDES compact agent-facing output for `spx test` runs, with raw runner stdout and stderr captured as artifacts
+PROVIDES the `agent` runner environment for `spx test` runs, with compact agent-facing output and raw runner stdout and stderr captured as artifacts
 SO THAT agents and developers running spec-tree tests through non-interactive terminals
 CAN detect failures from one run without streaming passing-test noise into the transcript or losing raw diagnostics
 
@@ -15,5 +15,5 @@ CAN detect failures from one run without streaming passing-test noise into the t
 
 - ALWAYS: agent-output runner execution writes child stdout and stderr to files and returns those file paths with the runner result ([test](tests/agent-test-output.compliance.l1.test.ts))
 - ALWAYS: agent-output runner execution sets `CI=1` for the child process while preserving the product directory as the child working directory ([test](tests/agent-test-output.compliance.l1.test.ts))
-- ALWAYS: agent-output TypeScript runner execution resolves the descriptor's Vitest invocation to the product-local Vitest binary before spawning ([test](tests/agent-test-output.compliance.l1.test.ts))
+- ALWAYS: agent-output runner execution preserves the selected runner command and arguments while changing only output capture ([test](tests/agent-test-output.compliance.l1.test.ts))
 - NEVER: agent-output runner execution writes child stdout or stderr directly to the invoking terminal stream ([test](tests/agent-test-output.compliance.l1.test.ts))
