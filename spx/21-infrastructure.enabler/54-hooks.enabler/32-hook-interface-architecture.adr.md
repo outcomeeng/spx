@@ -21,7 +21,8 @@ semantics separate while still sharing domain logic with command surfaces.
 
 - Hook event handlers depend on domain services and shared libraries, not on command handlers.
 - Command handlers and hook handlers never import each other.
-- The hook event registry is the complete set of event names accepted by `spx hook run <event>`.
+- The hook event registry is the complete set of lowercase hyphenated event
+  operands accepted by `spx hook run <event>`.
 - Hook adapters are the only modules that interpret hook payload stdin, hook
   env-file paths, and hook-specific stdout semantics.
 
@@ -35,16 +36,22 @@ semantics separate while still sharing domain logic with command surfaces.
   registry without embedding event behavior in the CLI command descriptor
   ([audit])
 - ALWAYS: shared operations used by both `spx worktree claim` and
-  `spx hook run SessionStart` live below the command and hook interface layers,
+  `spx hook run session-start` live below the command and hook interface layers,
   so both surfaces call the same worktree occupancy logic without one depending
   on the other ([audit])
 - ALWAYS: hook adapters own hook process I/O — stdin payload, hook runtime env,
   stdout context, stderr diagnostics, and env-file writes — because those are
   hook interface concerns rather than domain concerns ([audit])
-- ALWAYS: the `SessionStart` hook adapter owns worktree occupancy setup for the
+- ALWAYS: hook adapters isolate hook runtime reads, output writes, and env-file
+  writes behind typed boundary functions or injected dependencies so event logic
+  verifies without replacing modules through a mocking framework ([audit])
+- NEVER: hook tests use `vi.mock()` or `jest.mock()` to replace hook event
+  modules, command handlers, or shared domain services; tests exercise real
+  registry dispatch or typed injected boundary objects ([audit])
+- ALWAYS: the `session-start` hook adapter owns worktree occupancy setup for the
   agent session, and the `PreToolUse` hook adapter does not perform a
   status-then-claim occupancy repair loop ([audit])
-- ALWAYS: the `SessionStart` hook adapter writes hook env-file exports for
+- ALWAYS: the `session-start` hook adapter writes hook env-file exports for
   `CLAUDE_SESSION_ID`, `CLAUDE_PROJECT_DIR`, `PROJECT_DIR`, and
   `CLAUDE_WORKTREE_CLAIMED` when the hook runtime supplies an env-file path
   and enough identity or project information to compute each value ([audit])

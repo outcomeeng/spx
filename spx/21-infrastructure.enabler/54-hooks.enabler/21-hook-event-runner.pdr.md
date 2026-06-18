@@ -1,13 +1,13 @@
 # Hook Event Runner
 
 SPX exposes agent lifecycle hooks as a product-level event runner invoked as
-`spx hook run <event>`. Hook events are named by the upstream agent lifecycle
-event they serve, consume the hook payload and hook runtime environment, and may
-coordinate multiple SPX domains without becoming commands in any one domain.
-`SessionStart` is the first required event: it
-provides Spec Tree startup behavior, reports session and project identity,
-reports whether the worktree is held by the agent session, and surfaces startup
-guidance when guidance applies.
+`spx hook run <event>`. Hook events are named by lowercase hyphenated operands
+derived from the upstream agent lifecycle event they serve, consume the hook
+payload and hook runtime environment, and may coordinate multiple SPX domains
+without becoming commands in any one domain. `session-start` is the first
+required event: its first observable slice reports session and project identity,
+writes hook-runtime exports, and reports whether the worktree is held by the
+agent session.
 
 ## Rationale
 
@@ -21,12 +21,11 @@ surfaces remain focused on explicit operator actions.
 
 1. A plugin invokes SPX hook behavior by naming an agent lifecycle event and
    providing that event's payload and runtime context.
-2. `SessionStart` produces session identity, project identity, and worktree
+2. `session-start` produces session identity, project identity, and worktree
    occupancy state when the hook payload and runtime context provide enough
    information to resolve them.
-3. `SessionStart` presents only applicable startup guidance, reports degraded
-   responsibilities explicitly, and does not block session startup because one
-   responsibility degrades.
+3. `session-start` reports degraded responsibilities explicitly and does not
+   block session startup because one responsibility degrades.
 
 ## Verification
 
@@ -36,11 +35,11 @@ surfaces remain focused on explicit operator actions.
   SPX hook event behavior, not as a command in the worktree, session, or Spec
   Tree domains ([audit])
 - ALWAYS: the public hook invocation contract is `spx hook run <event>`, and
-  `SessionStart` is the first required event operand ([audit])
-- ALWAYS: `SessionStart` provides Spec Tree startup behavior: session identity,
-  project identity, worktree occupancy state, the foundation directive, the
-  stale-base directive, and queued-work discoverability ([audit])
-- ALWAYS: a failed `SessionStart` responsibility degrades by recording an
+  `session-start` is the first required event operand ([audit])
+- ALWAYS: `session-start` provides the first startup behavior slice: session
+  identity, project identity, worktree occupancy state, and hook-runtime env
+  exports ([audit])
+- ALWAYS: a failed `session-start` responsibility degrades by recording an
   explicit marker or diagnostic while allowing the hook invocation to complete
   successfully ([audit])
 - NEVER: hook stdout carries diagnostics; stdout is reserved for hook-specific

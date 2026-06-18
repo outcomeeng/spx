@@ -1,11 +1,10 @@
 /**
- * Shared worktree-command resolution: the `.spx/worktrees` scope directory and
- * the running worktree's claim name.
+ * Shared worktree resolution: the `.spx/worktrees` scope directory and the
+ * running worktree's claim name.
  *
- * @module commands/worktree/resolve
+ * @module domains/worktree/resolve
  */
 
-import { stat } from "node:fs/promises";
 import { dirname, resolve } from "node:path";
 
 import type { Result } from "@/config/types";
@@ -17,16 +16,20 @@ export const WORKTREE_RESOLVE_ERROR = {
   NOT_A_WORKTREE: "path resolves to no worktree",
 } as const;
 
-/** Receives a non-git-repo diagnostic for the descriptor to surface to stderr. */
+/** Receives a non-git-repo diagnostic for an interface boundary to surface. */
 export type WorktreeWarningHandler = (warning: string | undefined) => void;
 
+export interface WorktreePathInfo {
+  isExistingNonDirectory(path: string): Promise<boolean>;
+}
+
 export interface WorktreeScopeOptions {
-  /** Working directory the resolution runs from. Defaults to the process cwd. */
-  readonly cwd?: string;
+  /** Working directory the resolution runs from. */
+  readonly cwd: string;
   /** Explicit `.spx/worktrees` directory; bypasses git resolution when provided. */
   readonly worktreesDir?: string;
   /** Injected git runner for resolution. */
-  readonly gitDeps?: GitDependencies;
+  readonly gitDeps: GitDependencies;
   /** Receives the non-git-repo diagnostic the shared-root resolution surfaces. */
   readonly onWarning?: WorktreeWarningHandler;
 }
@@ -62,23 +65,14 @@ export interface ResolvedTargetWorktree {
  * rather than keyed on a bare path segment.
  */
 export async function resolveTargetWorktree(
-  options: WorktreeScopeOptions & { readonly worktree?: string },
+  options: WorktreeScopeOptions & { readonly pathInfo: WorktreePathInfo; readonly worktree?: string },
 ): Promise<Result<ResolvedTargetWorktree>> {
-  const base = options.cwd ?? process.cwd();
+  const base = options.cwd;
   const targetPath = options.worktree === undefined ? base : resolve(base, options.worktree);
-  const targetGitPath = (await isExistingNonDirectory(targetPath)) ? dirname(targetPath) : targetPath;
+  const targetGitPath = (await options.pathInfo.isExistingNonDirectory(targetPath)) ? dirname(targetPath) : targetPath;
   const worktree = await detectWorktreeProductRoot(targetGitPath, options.gitDeps);
   if (!worktree.isGitRepo) {
     return { ok: false, error: `${WORKTREE_RESOLVE_ERROR.NOT_A_WORKTREE}: ${options.worktree ?? base}` };
   }
   return { ok: true, value: { name: worktreeClaimName(worktree.productDir), worktreeRoot: worktree.productDir } };
-}
-
-async function isExistingNonDirectory(path: string): Promise<boolean> {
-  try {
-    const pathStats = await stat(path);
-    return !pathStats.isDirectory();
-  } catch {
-    return false;
-  }
 }

@@ -5,6 +5,8 @@ import { describe, expect, it } from "vitest";
 
 import { statusCommand } from "@/commands/worktree/index";
 import { OCCUPANCY_STATUS } from "@/domains/worktree/occupancy-store";
+import { defaultGitDependencies } from "@/git/root";
+import { defaultWorktreePathInfo } from "@/lib/worktree-path-info";
 import { sampleWorktreeTestValue, WORKTREE_TEST_GENERATOR } from "@testing/generators/worktree/worktree";
 import { withWorktreePool } from "@testing/harnesses/worktree/harness";
 
@@ -19,9 +21,13 @@ describe("worktree status non-worktree path compliance", () => {
       const nonWorktreePath = join(env.container, absentName);
 
       const status = await statusCommand({
+        cwd: env.worktreePath,
+        fs: env.fs,
+        gitDeps: defaultGitDependencies,
         worktrees: [nonWorktreePath],
         worktreesDir: env.worktreesDir,
         processTable: env.processTable,
+        pathInfo: defaultWorktreePathInfo,
       });
 
       // A path that resolves to no worktree must be refused, never rendered as a
@@ -43,9 +49,13 @@ describe("worktree status non-worktree path compliance", () => {
       await writeFile(nonWorktreeFilePath, fileName);
 
       const status = await statusCommand({
+        cwd: env.worktreePath,
+        fs: env.fs,
+        gitDeps: defaultGitDependencies,
         worktrees: [nonWorktreeFilePath],
         worktreesDir: env.worktreesDir,
         processTable: env.processTable,
+        pathInfo: defaultWorktreePathInfo,
       });
 
       expect(status.ok).toBe(false);

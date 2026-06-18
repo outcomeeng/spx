@@ -6,7 +6,7 @@ Worktree occupancy is a write-once per-agent claim file at `.spx/worktrees/<name
 
 Process liveness is the authoritative held-or-free signal the operating system already maintains, and `kill(pid, 0)` reads it in constant time. A claim refreshed every turn and aged out by a TTL is `O(turns)` of token and I/O cost and reinvents that signal; it is rejected for that reason. Git working-tree state is rejected as an occupancy signal because a worktree that is clean and detached at the default-branch tip can still be actively held by a live agent between commits or mid-think — reading "clean implies free" lets one agent operate inside another live agent's worktree. A recycled process id is guarded by comparing the claim's recorded start time against the live process, so a reused pid does not read as the original holder. A crashed holder needs no cleanup: its claim reads as stale at the next check, which is why release is best-effort.
 
-The claim's filesystem I/O, the process-liveness probe, and the process-table read are dependency-injected, so occupancy classification verifies over controlled inputs without a real process, a real clock, or a real repository, and without mocking. The shared root for `.spx/worktrees/` is governed by [`spx/15-worktree-management.pdr.md`](../15-worktree-management.pdr.md) and addressed through the state scope-addressing API per [`spx/17-state.adr.md`](../17-state.adr.md); the `spx worktree` command surface follows the domain triple of [`spx/14-cli-composition.adr.md`](../14-cli-composition.adr.md).
+The claim's filesystem I/O, writer-unique temp token, process-liveness probe, and process-table read are dependency-injected, so occupancy classification verifies over controlled inputs without a real process, a real clock, or a real repository, and without mocking. The shared root for `.spx/worktrees/` is governed by [`spx/15-worktree-management.pdr.md`](../15-worktree-management.pdr.md) and addressed through the state scope-addressing API per [`spx/17-state.adr.md`](../17-state.adr.md); SPX-owned CLI and hook interfaces provide the process-boundary defaults and follow the domain triple of [`spx/14-cli-composition.adr.md`](../14-cli-composition.adr.md).
 
 ## Invariants
 
@@ -19,11 +19,11 @@ The claim's filesystem I/O, the process-liveness probe, and the process-table re
 
 ### Audit
 
-- ALWAYS: the filesystem, the process-liveness probe, and the process-table read are dependency-injected parameters, so occupancy classification and the PID-reuse guard verify over controlled inputs ([audit])
-- ALWAYS: a claim is written atomically — to a temporary file then `rename()`d into place — so a concurrent read observes either no claim or the complete record ([audit])
+- ALWAYS: the filesystem, writer-unique temp token, process-liveness probe, and process-table read are dependency-injected parameters, so occupancy classification, concurrent write behavior, and the PID-reuse guard verify over controlled inputs ([audit])
+- ALWAYS: a claim is written atomically — to a writer-unique temporary file then `rename()`d into place — so overlapping writes cannot remove another writer's temp file and concurrent reads observe either no claim or the complete record ([audit])
 - ALWAYS: a claim is written once at claim time and removed at release; occupancy reads never rewrite, refresh, or re-stamp it ([audit])
 - ALWAYS: `.spx/worktrees/` is addressed through the state scope-addressing API and resolves to the shared Git common-dir product root, per [`spx/15-worktree-management.pdr.md`](../15-worktree-management.pdr.md) and [`spx/17-state.adr.md`](../17-state.adr.md) ([audit])
-- ALWAYS: the `spx` CLI is the single owner of every `.spx/worktrees/` read, write, and removal ([audit])
+- ALWAYS: SPX-owned interfaces are the single owner of every `.spx/worktrees/` read, write, and removal; plugin hooks invoke them through `spx hook run ...`, never through plugin-side filesystem mutation ([audit])
 - NEVER: a heartbeat, TTL, or refresh timer participates in the occupancy decision — process liveness is the only signal ([audit])
 - NEVER: a live same-host process is classified stale because its start time could not be read — a readable, differing start time is the only signal that marks a recycled pid stale, so an unreadable start time leaves a live holder occupied ([audit])
 - NEVER: git working-tree state — cleanliness, detached HEAD, or branch tip — is read as an occupancy signal ([audit])

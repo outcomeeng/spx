@@ -7,9 +7,15 @@
 
 import type { Result } from "@/config/types";
 import { type OccupancyFileSystem, type OccupancyStatus, readOccupancy } from "@/domains/worktree/occupancy-store";
-import { defaultProcessTable, type ProcessTable } from "@/domains/worktree/process-table";
+import type { ProcessTable } from "@/domains/worktree/process-table";
 
-import { resolveTargetWorktree, resolveWorktreesDir, type ResolvedTargetWorktree, type WorktreeScopeOptions } from "./resolve";
+import {
+  resolveTargetWorktree,
+  resolveWorktreesDir,
+  type ResolvedTargetWorktree,
+  type WorktreePathInfo,
+  type WorktreeScopeOptions,
+} from "@/domains/worktree/resolve";
 
 export const WORKTREE_STATUS_FORMAT = {
   JSON: "json",
@@ -23,10 +29,12 @@ export interface StatusCommandOptions extends WorktreeScopeOptions {
   readonly worktrees?: readonly string[];
   /** Output format; defaults to text. */
   readonly format?: string;
-  /** Injected process table. Defaults to the real process table. */
-  readonly processTable?: ProcessTable;
+  /** Injected process table. */
+  readonly processTable: ProcessTable;
   /** Injected claim filesystem. */
-  readonly fs?: OccupancyFileSystem;
+  readonly fs: OccupancyFileSystem;
+  /** Injected path-info probe for target status paths. */
+  readonly pathInfo: WorktreePathInfo;
 }
 
 interface WorktreeStatusRecord {
@@ -36,7 +44,6 @@ interface WorktreeStatusRecord {
 
 /** Reads target worktree occupancy and renders it in the requested format. */
 export async function statusCommand(options: StatusCommandOptions): Promise<Result<string>> {
-  const table = options.processTable ?? defaultProcessTable;
   const multiTargetRequest = options.worktrees !== undefined && options.worktrees.length > 1;
   const targets = await resolveStatusTargets(options);
   if (!targets.ok) return targets;
@@ -44,7 +51,7 @@ export async function statusCommand(options: StatusCommandOptions): Promise<Resu
   const records: WorktreeStatusRecord[] = [];
   for (const target of targets.value) {
     const worktreesDir = await resolveWorktreesDir({ ...options, cwd: target.worktreeRoot });
-    const occupancy = await readOccupancy(worktreesDir, target.name, table, { fs: options.fs });
+    const occupancy = await readOccupancy(worktreesDir, target.name, options.processTable, { fs: options.fs });
     if (!occupancy.ok) return occupancy;
     records.push({ worktree: target.name, status: occupancy.value });
   }

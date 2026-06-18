@@ -6,6 +6,9 @@ import { claimCommand, releaseCommand, statusCommand, WORKTREE_STATUS_FORMAT } f
 import { CONTROLLING_PID_ENV } from "@/domains/worktree/controlling-process";
 import { OCCUPANCY_STATUS, readClaim, writeClaim } from "@/domains/worktree/occupancy-store";
 import { worktreeClaimName } from "@/domains/worktree/worktree-name";
+import { defaultGitDependencies } from "@/git/root";
+import { defaultOccupancyFileSystem } from "@/lib/worktree-occupancy-file-system";
+import { defaultWorktreePathInfo } from "@/lib/worktree-path-info";
 import { sampleWorktreeTestValue, WORKTREE_TEST_GENERATOR } from "@testing/generators/worktree/worktree";
 import { createSessionGitDeps, SESSION_GIT_DEPS_PATHS, WORKTREE_KIND } from "@testing/harnesses/session/harness";
 import { withTempDir } from "@testing/harnesses/with-temp-dir";
@@ -18,6 +21,7 @@ describe("worktree command handlers", () => {
     const host = sampleWorktreeTestValue(WORKTREE_TEST_GENERATOR.host());
     const startedAt = sampleWorktreeTestValue(WORKTREE_TEST_GENERATOR.startTime());
     const sessionId = sampleWorktreeTestValue(WORKTREE_TEST_GENERATOR.sessionId());
+    const claimWriteToken = sampleWorktreeTestValue(WORKTREE_TEST_GENERATOR.writeToken());
     const [selfPid, agentPid] = sampleWorktreeTestValue(WORKTREE_TEST_GENERATOR.distinctPids());
     const gitDeps = createSessionGitDeps({ worktreeKind: WORKTREE_KIND.MAIN_CHECKOUT });
     const expectedName = worktreeClaimName(SESSION_GIT_DEPS_PATHS.MAIN_CHECKOUT_TOPLEVEL);
@@ -28,6 +32,9 @@ describe("worktree command handlers", () => {
 
     await withTempDir(prefix, async (worktreesDir) => {
       const result = await claimCommand({
+        claimWriteToken,
+        cwd: SESSION_GIT_DEPS_PATHS.MAIN_CHECKOUT_TOPLEVEL,
+        fs: defaultOccupancyFileSystem,
         sessionId,
         worktreesDir,
         gitDeps,
@@ -38,7 +45,7 @@ describe("worktree command handlers", () => {
       expect(result.ok).toBe(true);
       if (!result.ok) throw new Error(result.error);
 
-      const claim = await readClaim(worktreesDir, expectedName);
+      const claim = await readClaim(worktreesDir, expectedName, { fs: defaultOccupancyFileSystem });
       expect(claim.ok).toBe(true);
       if (!claim.ok) throw new Error(claim.error);
       expect(claim.value).toEqual({ sessionId, host, pid: agentPid, startedAt });
@@ -57,26 +64,37 @@ describe("worktree command handlers", () => {
       const unclaimed = await statusCommand({
         worktrees: [env.worktreePath],
         cwd: env.worktreePath,
+        fs: env.fs,
+        gitDeps: defaultGitDependencies,
         worktreesDir: env.worktreesDir,
         processTable: env.processTable,
         format: WORKTREE_STATUS_FORMAT.JSON,
+        pathInfo: defaultWorktreePathInfo,
       });
       expect(unclaimed.ok).toBe(true);
       if (!unclaimed.ok) throw new Error(unclaimed.error);
       expect(JSON.parse(unclaimed.value)).toEqual({ worktree: name, status: OCCUPANCY_STATUS.UNCLAIMED });
 
-      await writeClaim(env.worktreesDir, name, {
-        sessionId,
-        host: holder.host,
-        pid: holder.pid,
-        startedAt: holder.startedAt,
-      });
+      await writeClaim(
+        env.worktreesDir,
+        name,
+        {
+          sessionId,
+          host: holder.host,
+          pid: holder.pid,
+          startedAt: holder.startedAt,
+        },
+        { fs: env.fs, writeToken: sampleWorktreeTestValue(WORKTREE_TEST_GENERATOR.writeToken()) },
+      );
 
       const occupied = await statusCommand({
         worktrees: [env.worktreePath],
         cwd: env.worktreePath,
+        fs: env.fs,
+        gitDeps: defaultGitDependencies,
         worktreesDir: env.worktreesDir,
         processTable: env.processTable,
+        pathInfo: defaultWorktreePathInfo,
       });
       expect(occupied.ok).toBe(true);
       if (!occupied.ok) throw new Error(occupied.error);
@@ -84,8 +102,11 @@ describe("worktree command handlers", () => {
 
       const occupiedNoArg = await statusCommand({
         cwd: env.worktreePath,
+        fs: env.fs,
+        gitDeps: defaultGitDependencies,
         worktreesDir: env.worktreesDir,
         processTable: env.processTable,
+        pathInfo: defaultWorktreePathInfo,
       });
       expect(occupiedNoArg.ok).toBe(true);
       if (!occupiedNoArg.ok) throw new Error(occupiedNoArg.error);
@@ -94,8 +115,11 @@ describe("worktree command handlers", () => {
       const stale = await statusCommand({
         worktrees: [env.worktreePath],
         cwd: env.worktreePath,
+        fs: env.fs,
+        gitDeps: defaultGitDependencies,
         worktreesDir: env.worktreesDir,
         processTable: deadTable,
+        pathInfo: defaultWorktreePathInfo,
       });
       expect(stale.ok).toBe(true);
       if (!stale.ok) throw new Error(stale.error);
@@ -106,17 +130,23 @@ describe("worktree command handlers", () => {
   it("removes the running worktree's claim", async () => {
     const prefix = sampleWorktreeTestValue(WORKTREE_TEST_GENERATOR.tempPrefix());
     const record = sampleWorktreeTestValue(WORKTREE_TEST_GENERATOR.claimRecord());
+    const writeToken = sampleWorktreeTestValue(WORKTREE_TEST_GENERATOR.writeToken());
     const gitDeps = createSessionGitDeps({ worktreeKind: WORKTREE_KIND.MAIN_CHECKOUT });
     const name = worktreeClaimName(SESSION_GIT_DEPS_PATHS.MAIN_CHECKOUT_TOPLEVEL);
 
     await withTempDir(prefix, async (worktreesDir) => {
-      await writeClaim(worktreesDir, name, record);
+      await writeClaim(worktreesDir, name, record, { fs: defaultOccupancyFileSystem, writeToken });
 
-      const result = await releaseCommand({ worktreesDir, gitDeps });
+      const result = await releaseCommand({
+        cwd: SESSION_GIT_DEPS_PATHS.MAIN_CHECKOUT_TOPLEVEL,
+        fs: defaultOccupancyFileSystem,
+        worktreesDir,
+        gitDeps,
+      });
       expect(result.ok).toBe(true);
       if (!result.ok) throw new Error(result.error);
 
-      const after = await readClaim(worktreesDir, name);
+      const after = await readClaim(worktreesDir, name, { fs: defaultOccupancyFileSystem });
       expect(after.ok).toBe(true);
       if (!after.ok) throw new Error(after.error);
       expect(after.value).toBeUndefined();
@@ -127,13 +157,18 @@ describe("worktree command handlers", () => {
     const worktreeName = sampleWorktreeTestValue(WORKTREE_TEST_GENERATOR.poolWorktreeName());
     const holder = sampleWorktreeTestValue(WORKTREE_TEST_GENERATOR.poolHolder());
     const sessionId = sampleWorktreeTestValue(WORKTREE_TEST_GENERATOR.sessionId());
+    const claimWriteToken = sampleWorktreeTestValue(WORKTREE_TEST_GENERATOR.writeToken());
 
     await withWorktreePool({ worktreeName, holder }, async (env) => {
       const claim = await claimCommand({
+        claimWriteToken,
         sessionId,
         cwd: env.worktreePath,
+        fs: env.fs,
+        gitDeps: defaultGitDependencies,
         worktreesDir: env.worktreesDir,
         processTable: env.processTable,
+        selfPid: holder.pid,
         env: { [CONTROLLING_PID_ENV]: String(holder.pid) },
       });
       expect(claim.ok).toBe(true);
@@ -141,8 +176,11 @@ describe("worktree command handlers", () => {
 
       const status = await statusCommand({
         cwd: env.worktreePath,
+        fs: env.fs,
+        gitDeps: defaultGitDependencies,
         worktreesDir: env.worktreesDir,
         processTable: env.processTable,
+        pathInfo: defaultWorktreePathInfo,
       });
       expect(status.ok).toBe(true);
       if (!status.ok) throw new Error(status.error);
@@ -154,6 +192,7 @@ describe("worktree command handlers", () => {
     const worktreeName = sampleWorktreeTestValue(WORKTREE_TEST_GENERATOR.poolWorktreeName());
     const holder = sampleWorktreeTestValue(WORKTREE_TEST_GENERATOR.poolHolder());
     const sessionId = sampleWorktreeTestValue(WORKTREE_TEST_GENERATOR.sessionId());
+    const claimWriteToken = sampleWorktreeTestValue(WORKTREE_TEST_GENERATOR.writeToken());
     const callerPrefix = sampleWorktreeTestValue(WORKTREE_TEST_GENERATOR.tempPrefix());
     const probe = createProcessTable({
       host: holder.host,
@@ -165,9 +204,13 @@ describe("worktree command handlers", () => {
       // Claim from the worktree with no explicit scope, so the claim is written
       // under the worktree's own git-common-dir `.spx/worktrees`.
       const claim = await claimCommand({
+        claimWriteToken,
         sessionId,
         cwd: worktreePath,
+        fs: defaultOccupancyFileSystem,
+        gitDeps: defaultGitDependencies,
         processTable: probe,
+        selfPid: holder.pid,
         env: { [CONTROLLING_PID_ENV]: String(holder.pid) },
       });
       expect(claim.ok).toBe(true);
@@ -177,7 +220,10 @@ describe("worktree command handlers", () => {
         const status = await statusCommand({
           worktrees: [worktreePath],
           cwd: callerDir,
+          fs: defaultOccupancyFileSystem,
+          gitDeps: defaultGitDependencies,
           processTable: probe,
+          pathInfo: defaultWorktreePathInfo,
         });
         expect(status.ok).toBe(true);
         if (!status.ok) throw new Error(status.error);

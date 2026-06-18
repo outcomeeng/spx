@@ -12,6 +12,7 @@ import { execa } from "execa";
 
 import type { OccupancyFileSystem, ProcessProbe, WorktreeClaimRecord } from "@/domains/worktree/occupancy-store";
 import type { ProcessTable } from "@/domains/worktree/process-table";
+import { defaultOccupancyFileSystem } from "@/lib/worktree-occupancy-file-system";
 import { CLI_PATH, NODE_EXECUTABLE } from "@testing/harnesses/constants";
 import { withTempDir } from "@testing/harnesses/with-temp-dir";
 import { withWorktreeLayoutEnv } from "@testing/harnesses/worktree-layout/worktree-layout";
@@ -183,6 +184,8 @@ export interface WorktreePoolEnv {
   readonly worktreesDir: string;
   /** A controlled process table reporting the holder alive on its host. */
   readonly processTable: ProcessTable;
+  /** The real filesystem adapter used by command-level occupancy tests. */
+  readonly fs: OccupancyFileSystem;
   /** The holder process the table reports alive. */
   readonly holder: WorktreePoolHolder;
 }
@@ -214,6 +217,7 @@ export async function withWorktreePool(
           container: layout.container,
           worktreesDir,
           processTable,
+          fs: defaultOccupancyFileSystem,
           holder: options.holder,
         });
       }),

@@ -4,14 +4,13 @@
  */
 import type { Command } from "commander";
 
-import {
-  claimCommand,
-  releaseCommand,
-  sessionStartCommand,
-  statusCommand,
-  WORKTREE_STATUS_FORMAT,
-} from "@/commands/worktree/index";
+import { claimCommand, releaseCommand, statusCommand, WORKTREE_STATUS_FORMAT } from "@/commands/worktree/index";
 import type { Domain } from "@/domains/types";
+import { defaultGitDependencies } from "@/git/root";
+import { createClaimWriteToken } from "@/lib/worktree-claim-write-token";
+import { defaultOccupancyFileSystem } from "@/lib/worktree-occupancy-file-system";
+import { defaultWorktreePathInfo } from "@/lib/worktree-path-info";
+import { defaultProcessTable } from "@/lib/worktree-process-table";
 
 import { writeWarning } from "./write-warning";
 
@@ -19,10 +18,8 @@ import { writeWarning } from "./write-warning";
 export const WORKTREE_CLI = {
   COMMAND: "worktree",
   CLAIM: "claim",
-  SESSION_START: "session-start",
   STATUS: "status",
   RELEASE: "release",
-  ENV_FILE_FLAG: "--hook-env-file",
   WORKTREE_ARGUMENT: "[worktrees...]",
   SESSION_ID_FLAG: "--session-id",
   FORMAT_FLAG: "--format",
@@ -36,24 +33,6 @@ function handleError(error: string): never {
   process.exit(1);
 }
 
-async function readStdin(): Promise<string | undefined> {
-  if (process.stdin.isTTY) return undefined;
-
-  return new Promise((resolve) => {
-    let data = "";
-    process.stdin.setEncoding("utf-8");
-    process.stdin.on("data", (chunk) => {
-      data += chunk;
-    });
-    process.stdin.on("end", () => {
-      resolve(data.length === 0 ? undefined : data);
-    });
-    process.stdin.on("error", () => {
-      resolve(undefined);
-    });
-  });
-}
-
 function registerWorktreeCommands(worktreeCmd: Command): void {
   worktreeCmd
     .command(WORKTREE_CLI.CLAIM)
@@ -62,13 +41,20 @@ function registerWorktreeCommands(worktreeCmd: Command): void {
     .option(`${WORKTREE_CLI.WORKTREES_DIR_FLAG} <path>`, "Explicit .spx/worktrees directory")
     .action(async (options: { sessionId: string; worktreesDir?: string }) => {
       const result = await claimCommand({
+        claimWriteToken: createClaimWriteToken(),
+        cwd: process.cwd(),
+        env: process.env,
+        fs: defaultOccupancyFileSystem,
+        gitDeps: defaultGitDependencies,
+        processTable: defaultProcessTable,
+        selfPid: process.pid,
         sessionId: options.sessionId,
         worktreesDir: options.worktreesDir,
         onWarning: writeWarning,
       });
       if (!result.ok) handleError(result.error);
-      // A successful claim writes nothing to stdout — the SessionStart hook
-      // injects a command's stdout into the agent's context.
+      // A successful claim writes nothing to stdout so command callers can use it
+      // from hook flows without adding model-visible context.
     });
 
   worktreeCmd
@@ -78,8 +64,13 @@ function registerWorktreeCommands(worktreeCmd: Command): void {
     .option(`${WORKTREE_CLI.WORKTREES_DIR_FLAG} <path>`, "Explicit .spx/worktrees directory")
     .action(async (worktrees: string[] | undefined, options: { format?: string; worktreesDir?: string }) => {
       const result = await statusCommand({
+        cwd: process.cwd(),
+        fs: defaultOccupancyFileSystem,
+        gitDeps: defaultGitDependencies,
         worktrees,
         format: options.format,
+        pathInfo: defaultWorktreePathInfo,
+        processTable: defaultProcessTable,
         worktreesDir: options.worktreesDir,
         onWarning: writeWarning,
       });
@@ -88,27 +79,17 @@ function registerWorktreeCommands(worktreeCmd: Command): void {
     });
 
   worktreeCmd
-    .command(WORKTREE_CLI.SESSION_START)
-    .description("Claim the running worktree from a SessionStart hook payload")
-    .option(`${WORKTREE_CLI.ENV_FILE_FLAG} <path>`, "Hook env file to append; defaults to $CLAUDE_ENV_FILE")
-    .option(`${WORKTREE_CLI.WORKTREES_DIR_FLAG} <path>`, "Explicit .spx/worktrees directory")
-    .action(async (options: { hookEnvFile?: string; worktreesDir?: string }) => {
-      const content = await readStdin();
-      const result = await sessionStartCommand({
-        content,
-        envFile: options.hookEnvFile,
-        worktreesDir: options.worktreesDir,
-        onWarning: writeWarning,
-      });
-      if (!result.ok) handleError(result.error);
-    });
-
-  worktreeCmd
     .command(WORKTREE_CLI.RELEASE)
     .description("Release the running worktree's occupancy claim")
     .option(`${WORKTREE_CLI.WORKTREES_DIR_FLAG} <path>`, "Explicit .spx/worktrees directory")
     .action(async (options: { worktreesDir?: string }) => {
-      const result = await releaseCommand({ worktreesDir: options.worktreesDir, onWarning: writeWarning });
+      const result = await releaseCommand({
+        cwd: process.cwd(),
+        fs: defaultOccupancyFileSystem,
+        gitDeps: defaultGitDependencies,
+        worktreesDir: options.worktreesDir,
+        onWarning: writeWarning,
+      });
       if (!result.ok) handleError(result.error);
     });
 }
