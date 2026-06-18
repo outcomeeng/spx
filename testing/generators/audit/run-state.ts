@@ -1,6 +1,7 @@
 import * as fc from "fast-check";
 
 import {
+  AUDIT_PROGRESS_STEP,
   AUDIT_RUN_STATE_STATUS,
   type AuditRunState,
   type AuditRunStateStatus,
@@ -34,6 +35,8 @@ export const AUDIT_RUN_STATE_TEST_GENERATOR = {
   runFileName: arbitraryRunFileName,
   status: arbitraryStatus,
   timestampDate: arbitraryTimestampDate,
+  unknownProgressStep: arbitraryUnknownProgressStep,
+  unknownProgressStepCohort: arbitraryUnknownProgressStepCohort,
 } as const;
 
 export function sampleAuditRunStateTestValue<T>(arbitrary: fc.Arbitrary<T>): T {
@@ -96,6 +99,28 @@ function arbitraryTimestampDate(): fc.Arbitrary<Date> {
 
 function arbitraryStatus(): fc.Arbitrary<AuditRunStateStatus> {
   return fc.constantFrom(...Object.values(AUDIT_RUN_STATE_STATUS));
+}
+
+function arbitraryUnknownProgressStep(): fc.Arbitrary<string> {
+  return fc.oneof(
+    CONFIG_TEST_GENERATOR.key(),
+    CONFIG_TEST_GENERATOR.key().map((key) => `${key}${PUNCTUATION_BRANCH_MARK}`),
+    CONFIG_TEST_GENERATOR.key().map((key) => `${PUNCTUATION_BRANCH_MARK}${key}`),
+    arbitraryBranchNameWithPunctuation(),
+    fc.constantFrom(...Object.values(AUDIT_PROGRESS_STEP)).map((step) => `${step}${PUNCTUATION_BRANCH_MARK}`),
+    fc.constantFrom(...Object.values(AUDIT_PROGRESS_STEP)).map((step) => `${PUNCTUATION_BRANCH_MARK}${step}`),
+  );
+}
+
+function arbitraryUnknownProgressStepCohort(): fc.Arbitrary<readonly string[]> {
+  return fc.tuple(
+    CONFIG_TEST_GENERATOR.key(),
+    CONFIG_TEST_GENERATOR.key().map((key) => `${key}${PUNCTUATION_BRANCH_MARK}`),
+    CONFIG_TEST_GENERATOR.key().map((key) => `${PUNCTUATION_BRANCH_MARK}${key}`),
+    arbitraryBranchNameWithPunctuation(),
+    fc.constantFrom(...Object.values(AUDIT_PROGRESS_STEP)).map((step) => `${step}${PUNCTUATION_BRANCH_MARK}`),
+    fc.constantFrom(...Object.values(AUDIT_PROGRESS_STEP)).map((step) => `${PUNCTUATION_BRANCH_MARK}${step}`),
+  );
 }
 
 function arbitraryAuditRunState(): fc.Arbitrary<AuditRunState> {
