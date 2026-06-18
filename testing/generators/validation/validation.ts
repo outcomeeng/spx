@@ -61,7 +61,7 @@ const LITERAL_SKIP_TEST_SEGMENTS = [
   "tests",
   "literal-skip.scenario.l1.test.ts",
 ] as const;
-const TEST_DIRECTORY_NAME = LITERAL_SKIP_TEST_SEGMENTS[2];
+const TEST_DIRECTORY_NAME = "tests" as const;
 const LITERAL_SKIP_TOKEN = "validation-all-skip-literal-token";
 const TYPE_ERROR_SOURCE_SEGMENTS = ["src", "has-type-error.ts"] as const;
 const PRODUCTION_SCOPE_FILE_PATTERN = "src/**/*";

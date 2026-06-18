@@ -54,7 +54,7 @@ export async function circularCommand(options: CircularCommandOptions): Promise<
   // Gate 2: tool discovery.
   const toolResult = await discoverTool("dependency-cruiser", { projectRoot: cwd });
   if (!toolResult.found) {
-    const skipMessage = formatSkipMessage("circular dependency check", toolResult);
+    const skipMessage = formatSkipMessage(VALIDATION_STAGE_DISPLAY_NAMES.CIRCULAR, toolResult);
     return { exitCode: 0, output: skipMessage, durationMs: Date.now() - startTime };
   }
 
