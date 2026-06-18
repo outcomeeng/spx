@@ -12,11 +12,11 @@ import { NoSessionsAvailableError } from "@/domains/session/errors";
 import { parseSessionMetadata } from "@/domains/session/list";
 import { buildClaimPaths, classifyClaimError, selectBestSession } from "@/domains/session/pickup";
 import { formatShowOutput, SessionDirectoryConfig } from "@/domains/session/show";
-import { Session, SESSION_STATUSES, SessionStatus } from "@/domains/session/types";
+import { CLAIMABLE_STATUS, Session, SESSION_STATUSES, SessionStatus } from "@/domains/session/types";
 import { resolveSessionConfigSurfacingWarning, type SessionWarningHandler } from "./resolve-config";
 
 /** Status of sessions available for pickup. */
-const PICKUP_SOURCE_STATUS: SessionStatus = SESSION_STATUSES[0]; // todo
+const PICKUP_SOURCE_STATUS: SessionStatus = CLAIMABLE_STATUS;
 /** Status of sessions after being claimed. */
 const PICKUP_TARGET_STATUS: SessionStatus = SESSION_STATUSES[1]; // doing
 

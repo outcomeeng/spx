@@ -33,6 +33,9 @@ export type SessionStatus = (typeof SESSION_STATUSES)[number];
  */
 export const DEFAULT_LIST_STATUSES: readonly SessionStatus[] = ["doing", "todo"] as const;
 
+/** The status a session is claimable from — the source `pickup` and `pick` move it out of. */
+export const CLAIMABLE_STATUS: SessionStatus = SESSION_STATUSES[0]; // todo
+
 /**
  * Priority sort order (lower number = higher priority).
  */
