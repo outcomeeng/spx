@@ -3,6 +3,7 @@ import { createWriteStream } from "node:fs";
 import { mkdtemp } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
+import type { Writable } from "node:stream";
 import { finished } from "node:stream/promises";
 
 import { lifecycleProcessRunner, type ProcessRunner, spawnManagedSubprocess } from "@/lib/process-lifecycle";
@@ -39,6 +40,7 @@ export interface AgentRunnerOptions {
   readonly tmpDir?: string;
   readonly processRunner?: ProcessRunner;
   readonly env?: NodeJS.ProcessEnv;
+  readonly createArtifactWriteStream?: (path: string) => Writable;
 }
 
 // Spawns a managed child through the lifecycle runner, forwards its stdout to the
@@ -89,6 +91,8 @@ function createAgentOutputCommandRunner(
   const artifactRoot = mkdtemp(join(options.tmpDir ?? tmpdir(), AGENT_ARTIFACT_DIR_PREFIX));
   const processRunner = options.processRunner ?? lifecycleProcessRunner;
   const inheritedEnv = options.env ?? process.env;
+  const createArtifactWriteStream = options.createArtifactWriteStream
+    ?? ((path: string): Writable => createWriteStream(path, { flags: ARTIFACT_FILE_FLAGS }));
   let nextArtifactIndex = 0;
 
   return async (command, args = EMPTY_RUNNER_ARGS) => {
@@ -96,10 +100,17 @@ function createAgentOutputCommandRunner(
     const root = await artifactRoot;
     const stdoutPath = join(root, artifactFileName(nextArtifactIndex, STDOUT_FILE_SUFFIX));
     const stderrPath = join(root, artifactFileName(nextArtifactIndex, STDERR_FILE_SUFFIX));
-    const stdoutFile = createWriteStream(stdoutPath, { flags: ARTIFACT_FILE_FLAGS });
-    const stderrFile = createWriteStream(stderrPath, { flags: ARTIFACT_FILE_FLAGS });
+    const stdoutFile = createArtifactWriteStream(stdoutPath);
+    const stderrFile = createArtifactWriteStream(stderrPath);
+    const artifactCompletion = Promise.all([finished(stdoutFile), finished(stderrFile)]);
 
     return new Promise<TestRunCommandResult>((resolveResult) => {
+      let settled = false;
+      const resolveOnce = (result: TestRunCommandResult): void => {
+        if (settled) return;
+        settled = true;
+        resolveResult(result);
+      };
       const child: ChildProcess = spawnManagedSubprocess(processRunner, command, args, {
         cwd: productDir,
         env: {
@@ -113,13 +124,13 @@ function createAgentOutputCommandRunner(
       const finishFiles = async (): Promise<void> => {
         stdoutFile.end();
         stderrFile.end();
-        await Promise.all([finished(stdoutFile), finished(stderrFile)]);
+        await artifactCompletion;
       };
 
       const resolveWithExitCode = (exitCode: number): void => {
         finishFiles()
           .then(() => {
-            resolveResult({
+            resolveOnce({
               exitCode,
               output: {
                 stdoutPath,
@@ -128,10 +139,14 @@ function createAgentOutputCommandRunner(
             });
           })
           .catch(() => {
-            resolveResult({ exitCode, output: { stdoutPath, stderrPath } });
+            resolveOnce({ exitCode: PROCESS_FAILURE_EXIT_CODE });
           });
       };
 
+      artifactCompletion.catch(() => {
+        child.kill();
+        resolveOnce({ exitCode: PROCESS_FAILURE_EXIT_CODE });
+      });
       child.on("close", (code) => resolveWithExitCode(code ?? PROCESS_FAILURE_EXIT_CODE));
       child.on("error", () => resolveWithExitCode(PROCESS_FAILURE_EXIT_CODE));
     });

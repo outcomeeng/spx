@@ -1,5 +1,6 @@
 import { readFile, realpath } from "node:fs/promises";
 import { join } from "node:path";
+import { Writable } from "node:stream";
 import { pathToFileURL } from "node:url";
 
 import { describe, expect, it } from "vitest";
@@ -12,6 +13,7 @@ import {
   AGENT_TEST_OUTPUT_PROCESS_EVENT,
   AGENT_TEST_OUTPUT_STREAM_METHOD,
   AGENT_TEST_OUTPUT_TEXT_ENCODING,
+  PROCESS_FAILURE_EXIT_CODE,
   createAgentOutputCommandRunner,
 } from "@/interfaces/cli/testing-runner-deps";
 import { lifecycleProcessRunner, type ProcessRunner, spawnManagedSubprocess } from "@/lib/process-lifecycle";
@@ -39,6 +41,21 @@ function recordingProcessRunner(calls: RecordedProcessSpawn[]): ProcessRunner {
       return spawnManagedSubprocess(lifecycleProcessRunner, process.execPath, [
         AGENT_TEST_OUTPUT_COMMAND.NODE_EVAL_ARG,
         "",
+      ], { cwd: options?.cwd, env: options?.env });
+    },
+  };
+}
+
+function persistentProcessRunner(): ProcessRunner {
+  return {
+    spawn(command, args, options) {
+      const script = [
+        outputScript(command, args.join("")),
+        "setInterval(() => {}, Number.MAX_SAFE_INTEGER);",
+      ].join("");
+      return spawnManagedSubprocess(lifecycleProcessRunner, process.execPath, [
+        AGENT_TEST_OUTPUT_COMMAND.NODE_EVAL_ARG,
+        script,
       ], { cwd: options?.cwd, env: options?.env });
     },
   };
@@ -81,6 +98,14 @@ function outputScript(stdoutContent: string, stderrContent: string): string {
     `${stdoutWrite}(${cwdRead});`,
     `${stderrWrite}(${envRead} ?? "");`,
   ].join("");
+}
+
+function failingArtifactWriteStream(message: string): Writable {
+  return new Writable({
+    final(callback) {
+      callback(new Error(message));
+    },
+  });
 }
 
 describe("agent test-output runner", () => {
@@ -130,6 +155,26 @@ describe("agent test-output runner", () => {
           runnerArg,
         ],
       }]);
+    });
+  });
+
+  it("fails without artifact paths when artifact writing fails", async () => {
+    const failureMessage = sampleLiteralTestValue(arbitraryDomainLiteral());
+
+    await withTempDir(AGENT_ARTIFACT_DIR_PREFIX, async (productDir) => {
+      const runCommand = createAgentOutputCommandRunner(productDir, {
+        tmpDir: productDir,
+        env: {},
+        processRunner: persistentProcessRunner(),
+        createArtifactWriteStream: () => failingArtifactWriteStream(failureMessage),
+      });
+
+      const result = await runCommand(
+        sampleLiteralTestValue(arbitraryDomainLiteral()),
+        [sampleLiteralTestValue(arbitraryDomainLiteral())],
+      );
+
+      expect(result).toEqual({ exitCode: PROCESS_FAILURE_EXIT_CODE });
     });
   });
 
