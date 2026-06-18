@@ -2,7 +2,9 @@ import * as fc from "fast-check";
 import { describe, expect, it } from "vitest";
 
 import {
+  CONTROL_CHAR_UPPER_BOUND,
   DEL_CHAR_CODE,
+  ELLIPSIS_TOKEN,
   FIRST_PRINTABLE_CHAR_CODE,
   MAX_CLI_ARGUMENT_DISPLAY_LENGTH,
   sanitizeCliArgument,
@@ -38,6 +40,40 @@ describe("sanitizeCliArgument invariants", () => {
       fc.property(fc.string(), (input) => {
         expect(sanitizeCliArgument(input).length).toBeLessThanOrEqual(MAX_CLI_ARGUMENT_DISPLAY_LENGTH);
       }),
+    );
+  });
+
+  it("overlong input is truncated to the display bound and ends with ELLIPSIS_TOKEN", () => {
+    fc.assert(
+      fc.property(
+        fc.string({
+          minLength: MAX_CLI_ARGUMENT_DISPLAY_LENGTH + 1,
+          maxLength: MAX_CLI_ARGUMENT_DISPLAY_LENGTH * 4,
+        }),
+        (input) => {
+          const output = sanitizeCliArgument(input);
+          expect(output.length).toBe(MAX_CLI_ARGUMENT_DISPLAY_LENGTH);
+          expect(output.endsWith(ELLIPSIS_TOKEN)).toBe(true);
+        },
+      ),
+    );
+  });
+
+  it("bounded printable input is preserved", () => {
+    fc.assert(
+      fc.property(
+        fc
+          .string({ minLength: 1, maxLength: MAX_CLI_ARGUMENT_DISPLAY_LENGTH })
+          .filter((input) =>
+            [...input].every((char) => {
+              const code = char.codePointAt(0);
+              return code !== undefined && code > CONTROL_CHAR_UPPER_BOUND && code !== DEL_CHAR_CODE;
+            })
+          ),
+        (input) => {
+          expect(sanitizeCliArgument(input)).toBe(input);
+        },
+      ),
     );
   });
 });

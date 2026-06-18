@@ -510,15 +510,18 @@ describe("audit run-file storage", () => {
 
       const failingSealWriteFileSystem: AuditRunStateFileSystem = {
         mkdir: () => Promise.resolve(),
-        writeFile: (path, data, options) => {
-          if (path === sealMarkerPath) throw new Error(sealWriteError);
+        writeFile: async (path, data, options) => {
+          if (path === sealMarkerPath) {
+            await writeFile(path, data, options);
+            throw new Error(sealWriteError);
+          }
           return writeFile(path, data, options);
         },
         appendFile: (path, data) => appendFile(path, data),
         readFile: (path, encoding) => readFile(path, encoding),
         readdir: () => Promise.resolve([]),
         lstat: (path) => lstat(path),
-        rm: () => Promise.resolve(),
+        rm: (path, options) => rm(path, options),
       };
 
       const result = await writeTerminalAuditRunState(productDir, runFile.value.runFilePath, state, {
@@ -530,6 +533,9 @@ describe("audit run-file storage", () => {
       expect(result.error).toContain(AUDIT_RUN_STATE_ERROR.STATE_WRITE_FAILED);
       expect(result.error).toContain(sealWriteError);
       await expect(readFile(runFile.value.runFilePath, STATE_STORE_TEXT_ENCODING)).resolves.toBe(originalContent);
+      await expect(readFile(sealMarkerPath, STATE_STORE_TEXT_ENCODING)).rejects.toMatchObject({
+        code: ERROR_CODE_NOT_FOUND,
+      });
       await expect(readAuditRunEvents(productDir, runFile.value.runFilePath)).resolves.toEqual({
         ok: true,
         value: [],

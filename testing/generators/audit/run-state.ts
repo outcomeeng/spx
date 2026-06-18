@@ -131,7 +131,7 @@ function arbitraryAuditRunState(): fc.Arbitrary<AuditRunState> {
       baseRef: CONFIG_TEST_GENERATOR.key(),
       auditConfigDigest: arbitraryDigest(),
       auditors: fc.array(CONFIG_TEST_GENERATOR.key(), { minLength: 0, maxLength: 4 }),
-      targets: fc.array(CONFIG_TEST_GENERATOR.key(), { minLength: 0, maxLength: 4 }),
+      targets: CONFIG_TEST_GENERATOR.pathFilter(),
       startedDate: arbitraryTimestampDate(),
       durationMs: fc.nat({ max: MAX_AUDIT_RUN_DURATION_MS }),
       status: arbitraryStatus(),

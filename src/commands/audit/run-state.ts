@@ -15,22 +15,19 @@ import {
   isAuditRunStateStatus,
 } from "@/domains/audit/run-state";
 import {
-  CLOUDEVENTS_SPECVERSION,
+  createJournal,
   type JournalEvent,
   type JournalEventInput,
   type JournalIdentity,
-  JOURNAL_SEQ_BASE,
 } from "@/lib/agent-run-journal";
 import { appendableJournalSealMarkerPath, createAppendableJournalStore } from "@/lib/appendable-journal-store";
 import {
-  appendJsonlRecord,
   branchScopeDir,
   createJsonlRunFile,
   type CreateRunFileOptions,
   defaultStateStoreFileSystem,
   hasErrorCode,
   isRunFileName,
-  type JsonRecord,
   parseStateStoreError,
   runsDir as stateStoreRunsDir,
   STATE_STORE_DOMAIN,
@@ -148,21 +145,22 @@ export async function writeTerminalAuditRunState(
       return { ok: false, error: AUDIT_RUN_STATE_ERROR.STATE_ALREADY_EXISTS };
     }
     previousContent = await fs.readFile(resolvedRunFilePath, STATE_STORE_TEXT_ENCODING);
-    await appendAuditJournalEvent(
-      resolvedRunFilePath,
-      auditRunCompletedEventInput(state, {
-        id: `${basename(resolvedRunFilePath)}:${AUDIT_RUN_EVENT.COMPLETED_TYPE}`,
-        time: state.completedAt,
-        attempt: AUDIT_RUN_COMPLETED_ATTEMPT,
-      }),
-      history,
-      fs,
-    );
+    await appendAuditJournalEvent(backend, resolvedRunFilePath, auditRunCompletedEventInput(state, {
+      id: `${basename(resolvedRunFilePath)}:${AUDIT_RUN_EVENT.COMPLETED_TYPE}`,
+      time: state.completedAt,
+      attempt: AUDIT_RUN_COMPLETED_ATTEMPT,
+    }));
     terminalEventAppended = true;
     await backend.seal();
   } catch (error) {
     const rollback = terminalEventAppended && previousContent !== undefined
-      ? await restoreAuditRunFileContent(gitCommonDirProductDir, resolvedRunFilePath, previousContent, fs)
+      ? await rollbackTerminalAuditWrite(
+        gitCommonDirProductDir,
+        resolvedRunFilePath,
+        appendableJournalSealMarkerPath(resolvedRunFilePath),
+        previousContent,
+        fs,
+      )
       : { ok: true as const, value: undefined };
     const detail = rollback.ok
       ? toErrorMessage(error)
@@ -218,7 +216,7 @@ export async function appendAuditRunEvent(
     if (history.some((existing) => existing.type === AUDIT_RUN_EVENT.COMPLETED_TYPE)) {
       return { ok: false, error: AUDIT_RUN_STATE_ERROR.STATE_ALREADY_EXISTS };
     }
-    await appendAuditJournalEvent(resolvedRunFilePath, event, history, fs);
+    await appendAuditJournalEvent(backend, resolvedRunFilePath, event);
     return { ok: true, value: resolvedRunFilePath };
   } catch (error) {
     return { ok: false, error: toErrorMessage(error) };
@@ -360,41 +358,11 @@ function auditRunJournalIdentity(runFilePath: string): JournalIdentity {
 }
 
 async function appendAuditJournalEvent(
+  backend: ReturnType<typeof createAppendableJournalStore>,
   runFilePath: string,
   input: JournalEventInput,
-  history: readonly JournalEvent[],
-  fs: StateStoreFileSystem,
 ): Promise<void> {
-  const identity = auditRunJournalIdentity(runFilePath);
-  const event: JournalEvent = {
-    id: input.id,
-    source: input.source,
-    type: input.type,
-    specversion: CLOUDEVENTS_SPECVERSION,
-    time: input.time,
-    streamid: identity.streamid,
-    seq: JOURNAL_SEQ_BASE + history.length,
-    runid: identity.runid,
-    attempt: input.attempt,
-    ...(input.data === undefined ? {} : { data: input.data }),
-  };
-  const result = await appendJsonlRecord(runFilePath, journalEventJsonRecord(event), { fs });
-  if (!result.ok) throw new Error(result.error);
-}
-
-function journalEventJsonRecord(event: JournalEvent): JsonRecord {
-  return {
-    id: event.id,
-    source: event.source,
-    type: event.type,
-    specversion: event.specversion,
-    time: event.time,
-    streamid: event.streamid,
-    seq: event.seq,
-    runid: event.runid,
-    attempt: event.attempt,
-    ...(event.data === undefined ? {} : { data: event.data }),
-  };
+  await createJournal(backend, auditRunJournalIdentity(runFilePath)).append(input);
 }
 
 function isAuditRunFileEntry(entry: AuditRunFileEntry): boolean {
@@ -431,6 +399,24 @@ async function restoreAuditRunFileContent(
       error: withDomainErrorDetail(AUDIT_RUN_STATE_ERROR.STATE_WRITE_FAILED, toErrorMessage(error)),
     };
   }
+}
+
+async function rollbackTerminalAuditWrite(
+  gitCommonDirProductDir: string,
+  runFilePath: string,
+  sealMarkerPath: string,
+  content: string,
+  fs: StateStoreFileSystem,
+): Promise<Result<void>> {
+  try {
+    await fs.rm(sealMarkerPath, { force: true });
+  } catch (error) {
+    return {
+      ok: false,
+      error: withDomainErrorDetail(AUDIT_RUN_STATE_ERROR.STATE_WRITE_FAILED, toErrorMessage(error)),
+    };
+  }
+  return restoreAuditRunFileContent(gitCommonDirProductDir, runFilePath, content, fs);
 }
 
 async function validateAuditStateFilePath(

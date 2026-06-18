@@ -14,6 +14,7 @@ import {
 } from "@/commands/audit/lifecycle";
 import { readAuditBranchRuns, readAuditRunEvents, type AuditRunStateFileSystem } from "@/commands/audit/run-state";
 import { DEFAULT_CONFIG_FILENAME } from "@/config/index";
+import type { PathFilterConfig } from "@/config/primitives/path-filter";
 import { AUDIT_CONFIG_FIELDS, AUDIT_SECTION } from "@/domains/audit/config";
 import {
   AUDIT_RUN_EVENT,
@@ -28,7 +29,7 @@ import { AUDIT_CLI, AUDIT_CLI_FLAG } from "@/interfaces/cli/audit";
 import { CLI_DOMAINS } from "@/interfaces/cli/registry";
 import { createJournal } from "@/lib/agent-run-journal";
 import { appendableJournalSealMarkerPath, createAppendableJournalStore } from "@/lib/appendable-journal-store";
-import { ELLIPSIS_TOKEN, MAX_CLI_ARGUMENT_DISPLAY_LENGTH } from "@/lib/cli-sanitize";
+import { ELLIPSIS_TOKEN, MAX_CLI_ARGUMENT_DISPLAY_LENGTH } from "@/lib/sanitize-cli-argument";
 import {
   defaultStateStoreFileSystem,
   ERROR_CODE_NOT_FOUND,
@@ -271,7 +272,7 @@ describe("audit CLI lifecycle commands", () => {
     }
   });
 
-  it("resolves base ref, auditors, and target paths from audit config when CLI overrides are absent", async () => {
+  it("resolves base ref, auditors, and target filter from audit config when CLI overrides are absent", async () => {
     const harness = await createAuditHarness();
     try {
       await writeAuditConfig(harness.productDir, {
@@ -294,11 +295,11 @@ describe("audit CLI lifecycle commands", () => {
       const initPayload = JSON.parse(init.output) as {
         readonly baseRef: string;
         readonly auditors: readonly string[];
-        readonly targets: readonly string[];
+        readonly targets: PathFilterConfig;
       };
       expect(initPayload.baseRef).toBe(configBaseRef);
       expect(initPayload.auditors).toEqual([configAuditor]);
-      expect(initPayload.targets).toEqual([configTargetInclude]);
+      expect(initPayload.targets).toEqual({ include: [configTargetInclude], exclude: [configTargetExclude] });
     } finally {
       await harness.cleanup();
     }
@@ -883,7 +884,7 @@ async function appendUnsealedCompletedEvent(runFilePath: string): Promise<void> 
       baseRef: baseRef,
       auditConfigDigest: headSha,
       auditors: [auditor],
-      targets: [target],
+      targets: { include: [target] },
       startedAt: new Date().toISOString(),
       completedAt: new Date().toISOString(),
       status: AUDIT_RUN_STATE_STATUS.APPROVED,

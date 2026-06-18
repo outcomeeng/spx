@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { LITERAL_PROBLEM_KIND } from "@/commands/validation";
+import { LITERAL_PROBLEM_KIND, VALIDATION_COMMAND_OUTPUT } from "@/commands/validation";
 import { sanitizeCliArgument, SENTINEL_EMPTY } from "@/lib/sanitize-cli-argument";
 import {
   allValidationCliOptions,
@@ -10,6 +10,7 @@ import {
 import { sampleLiteralTestValue } from "@testing/generators/literal/literal";
 import {
   VALIDATION_CLI_GENERATOR,
+  VALIDATION_PIPELINE_DATA,
   validationCliEmptyOutputLength,
   validationCliSuccessExitCodeUpperBound,
 } from "@testing/generators/validation/validation";
@@ -23,9 +24,36 @@ import {
 
 describe("spx validation dispatch — observable scenarios", () => {
   it("registered subcommand runs its handler without dispatch failure", async () => {
-    const result = await runValidationSubprocess([validationCliDefinition.subcommands.all.commandName]);
+    const result = await runValidationSubprocess([
+      validationCliDefinition.subcommands.all.commandName,
+      allValidationCliOptions.skipCircular.flag,
+      allValidationCliOptions.skipLiteral.flag,
+    ], { timeout: VALIDATION_PIPELINE_DATA.allTimeout });
 
+    expect(result.exitCode).toBeLessThan(validationCliSuccessExitCodeUpperBound());
+    expect(result.stdout).toContain(VALIDATION_COMMAND_OUTPUT.TYPESCRIPT_SUCCESS);
+    expect(result.stdout).toContain(VALIDATION_COMMAND_OUTPUT.MARKDOWN_NO_ISSUES);
     expect(result.stderr).not.toContain(validationCliDefinition.diagnostics.unknownSubcommand.messageLabel);
+  });
+
+  it("registered subcommand propagates a non-zero handler exit code", async () => {
+    await withEmptyValidationProject(async (projectRoot) => {
+      const unsafeKind = sampleLiteralTestValue(VALIDATION_CLI_GENERATOR.invalidLiteralProblemKind());
+      const result = await runValidationSubprocess(
+        [
+          validationCliDefinition.subcommands.literal.commandName,
+          validationCliOptionName(literalValidationCliOptions.kind),
+          unsafeKind,
+        ],
+        { cwd: projectRoot },
+      );
+
+      expect(result.exitCode).toBe(validationCliDefinition.diagnostics.unknownLiteralProblemKind.exitCode);
+      expect(result.stdout).toBe(validationCliEmptyOutput());
+      expect(result.stderr).toContain(validationCliDefinition.diagnostics.unknownLiteralProblemKind.messageLabel);
+      expect(result.stderr).toContain(sanitizeCliArgument(unsafeKind));
+      expect(result.stderr).not.toContain(validationCliDefinition.diagnostics.unknownSubcommand.messageLabel);
+    });
   });
 
   it("unknown subcommand reaches the sanitized diagnostic path", async () => {
@@ -124,24 +152,5 @@ describe("spx validation dispatch — observable scenarios", () => {
     expect(result.exitCode).toBe(validationCliDefinition.diagnostics.unknownSubcommand.exitCode);
     expect(result.stdout).toBe(validationCliEmptyOutput());
     expect(result.stderr).toContain(allValidationCliOptions.skipCircular.flag);
-  });
-
-  it("unknown literal problem kind is rejected before detection", async () => {
-    await withEmptyValidationProject(async (projectRoot) => {
-      const unsafeKind = sampleLiteralTestValue(VALIDATION_CLI_GENERATOR.invalidLiteralProblemKind());
-      const result = await runValidationSubprocess(
-        [
-          validationCliDefinition.subcommands.literal.commandName,
-          validationCliOptionName(literalValidationCliOptions.kind),
-          unsafeKind,
-        ],
-        { cwd: projectRoot },
-      );
-
-      expect(result.exitCode).toBe(validationCliDefinition.diagnostics.unknownLiteralProblemKind.exitCode);
-      expect(result.stdout).toBe(validationCliEmptyOutput());
-      expect(result.stderr).toContain(validationCliDefinition.diagnostics.unknownLiteralProblemKind.messageLabel);
-      expect(result.stderr).toContain(sanitizeCliArgument(unsafeKind));
-    });
   });
 });
