@@ -1,4 +1,3 @@
-import { execa } from "execa";
 import * as fc from "fast-check";
 import { describe, expect, it } from "vitest";
 
@@ -8,8 +7,7 @@ import { AUDIT_CLI, AUDIT_CLI_FLAG } from "@/interfaces/cli/audit";
 import { createAppendableJournalStore } from "@/lib/appendable-journal-store";
 import { AUDIT_RUN_STATE_TEST_GENERATOR, sampleAuditRunStateTestValue } from "@testing/generators/audit/run-state";
 import { CONFIG_TEST_GENERATOR, sampleConfigTestValue } from "@testing/generators/config/descriptors";
-import { CLI_PATH, NODE_EXECUTABLE } from "@testing/harnesses/constants";
-import { createAuditHarness, writeAuditConfig } from "@testing/harnesses/audit/harness";
+import { createAuditHarness, runSpxAudit, writeAuditConfig } from "@testing/harnesses/audit/harness";
 
 const auditor = sampleConfigTestValue(CONFIG_TEST_GENERATOR.key());
 const target = sampleConfigTestValue(CONFIG_TEST_GENERATOR.key());
@@ -66,15 +64,6 @@ describe("audit CLI progress step properties", () => {
     }
   }, unknownProgressStepTimeoutMs);
 });
-
-async function runSpxAudit(args: readonly string[], cwd: string): Promise<{
-  readonly output: string;
-  readonly errorOutput: string;
-  readonly exitCode: number;
-}> {
-  const result = await execa(NODE_EXECUTABLE, [CLI_PATH, AUDIT_CLI.commandName, ...args], { cwd, reject: false });
-  return { output: result.stdout, errorOutput: result.stderr, exitCode: result.exitCode ?? 1 };
-}
 
 async function initializeDefaultAuditRun(productDir: string): Promise<string> {
   await writeAuditConfig(productDir, {

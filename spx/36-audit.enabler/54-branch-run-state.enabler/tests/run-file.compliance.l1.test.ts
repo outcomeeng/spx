@@ -6,6 +6,7 @@ import { describe, expect, it } from "vitest";
 
 import { auditInitCommand } from "@/commands/audit/lifecycle";
 import {
+  type AuditRunFile,
   type AuditRunStateFileSystem,
   appendAuditRunEvent,
   createAuditRunFile,
@@ -16,6 +17,7 @@ import {
   AUDIT_RUN_STATE_ERROR,
   AUDIT_RUN_EVENT,
   AUDIT_PROGRESS_STEP,
+  type AuditRunState,
   auditRunProgressEventInput,
   auditRunStartedEventInput,
   auditRunFileName,
@@ -59,6 +61,35 @@ async function withTempProductDir(callback: (productDir: string) => Promise<void
   } finally {
     await rm(productDir, { recursive: true, force: true });
   }
+}
+
+async function reserveAuditRunFile(productDir: string, branchSlug: string, runId: string): Promise<AuditRunFile> {
+  const runFile = await createAuditRunFile(productDir, branchSlug, {
+    randomBytes: () => bufferFromHex(runId),
+  });
+  expect(runFile.ok).toBe(true);
+  if (!runFile.ok) throw new Error(runFile.error);
+  return runFile.value;
+}
+
+async function createStartedAuditRun(
+  productDir: string,
+  branchSlug: string,
+  runId: string,
+  state: AuditRunState,
+): Promise<AuditRunFile> {
+  const runFile = await reserveAuditRunFile(productDir, branchSlug, runId);
+  const started = await appendAuditRunEvent(
+    productDir,
+    runFile.runFilePath,
+    auditRunStartedEventInput(state, {
+      id: runFile.runFileName,
+      time: state.startedAt,
+      attempt: 1,
+    }),
+  );
+  expect(started.ok).toBe(true);
+  return runFile;
 }
 
 const emptyJson = "{}";
@@ -235,27 +266,13 @@ describe("audit run-file storage", () => {
     const state = sampleAuditRunStateTestValue(AUDIT_RUN_STATE_TEST_GENERATOR.auditRunState());
 
     await withTempProductDir(async (productDir) => {
-      const runFile = await createAuditRunFile(productDir, branchSlug, {
-        randomBytes: () => bufferFromHex(runId),
-      });
-      expect(runFile.ok).toBe(true);
-      if (!runFile.ok) throw new Error(runFile.error);
-      const started = await appendAuditRunEvent(
-        productDir,
-        runFile.value.runFilePath,
-        auditRunStartedEventInput(state, {
-          id: runFile.value.runFileName,
-          time: state.startedAt,
-          attempt: 1,
-        }),
-      );
-      expect(started.ok).toBe(true);
+      const runFile = await createStartedAuditRun(productDir, branchSlug, runId, state);
 
-      const result = await writeTerminalAuditRunState(productDir, runFile.value.runFilePath, state);
+      const result = await writeTerminalAuditRunState(productDir, runFile.runFilePath, state);
 
       expect(result.ok).toBe(true);
       if (!result.ok) throw new Error(result.error);
-      expect(result.value).toBe(runFile.value.runFilePath);
+      expect(result.value).toBe(runFile.runFilePath);
       const events = await readAuditRunEvents(productDir, result.value);
       expect(events.ok).toBe(true);
       if (!events.ok) throw new Error(events.error);
@@ -276,42 +293,28 @@ describe("audit run-file storage", () => {
     const state = sampleAuditRunStateTestValue(AUDIT_RUN_STATE_TEST_GENERATOR.auditRunState());
 
     await withTempProductDir(async (productDir) => {
-      const runFile = await createAuditRunFile(productDir, branchSlug, {
-        randomBytes: () => bufferFromHex(runId),
-      });
-      expect(runFile.ok).toBe(true);
-      if (!runFile.ok) throw new Error(runFile.error);
-      const started = await appendAuditRunEvent(
-        productDir,
-        runFile.value.runFilePath,
-        auditRunStartedEventInput(state, {
-          id: runFile.value.runFileName,
-          time: state.startedAt,
-          attempt: 1,
-        }),
-      );
-      expect(started.ok).toBe(true);
-      const closed = await writeTerminalAuditRunState(productDir, runFile.value.runFilePath, state);
+      const runFile = await createStartedAuditRun(productDir, branchSlug, runId, state);
+      const closed = await writeTerminalAuditRunState(productDir, runFile.runFilePath, state);
       expect(closed.ok).toBe(true);
-      const beforeAppend = await readAuditRunEvents(productDir, runFile.value.runFilePath);
+      const beforeAppend = await readAuditRunEvents(productDir, runFile.runFilePath);
       expect(beforeAppend.ok).toBe(true);
       if (!beforeAppend.ok) throw new Error(beforeAppend.error);
 
       const appended = await appendAuditRunEvent(
         productDir,
-        runFile.value.runFilePath,
+        runFile.runFilePath,
         auditRunProgressEventInput({
           step: AUDIT_PROGRESS_STEP.DONE,
           at: state.completedAt,
         }, {
-          id: `${runFile.value.runFileName}:${AUDIT_RUN_EVENT.PROGRESS_TYPE}`,
+          id: `${runFile.runFileName}:${AUDIT_RUN_EVENT.PROGRESS_TYPE}`,
           time: state.completedAt,
           attempt: 1,
         }),
       );
 
       expect(appended).toEqual({ ok: false, error: AUDIT_RUN_STATE_ERROR.STATE_ALREADY_EXISTS });
-      await expect(readAuditRunEvents(productDir, runFile.value.runFilePath)).resolves.toEqual(beforeAppend);
+      await expect(readAuditRunEvents(productDir, runFile.runFilePath)).resolves.toEqual(beforeAppend);
     });
   });
 
@@ -321,22 +324,18 @@ describe("audit run-file storage", () => {
     const state = sampleAuditRunStateTestValue(AUDIT_RUN_STATE_TEST_GENERATOR.auditRunState());
 
     await withTempProductDir(async (productDir) => {
-      const runFile = await createAuditRunFile(productDir, branchSlug, {
-        randomBytes: () => bufferFromHex(runId),
-      });
-      expect(runFile.ok).toBe(true);
-      if (!runFile.ok) throw new Error(runFile.error);
-      const firstWrite = await writeTerminalAuditRunState(productDir, runFile.value.runFilePath, state);
+      const runFile = await reserveAuditRunFile(productDir, branchSlug, runId);
+      const firstWrite = await writeTerminalAuditRunState(productDir, runFile.runFilePath, state);
       expect(firstWrite.ok).toBe(true);
-      await rm(appendableJournalSealMarkerPath(runFile.value.runFilePath));
-      const beforeRetry = await readAuditRunEvents(productDir, runFile.value.runFilePath);
+      await rm(appendableJournalSealMarkerPath(runFile.runFilePath));
+      const beforeRetry = await readAuditRunEvents(productDir, runFile.runFilePath);
       expect(beforeRetry.ok).toBe(true);
       if (!beforeRetry.ok) throw new Error(beforeRetry.error);
 
-      const retry = await writeTerminalAuditRunState(productDir, runFile.value.runFilePath, state);
+      const retry = await writeTerminalAuditRunState(productDir, runFile.runFilePath, state);
 
       expect(retry).toEqual({ ok: false, error: AUDIT_RUN_STATE_ERROR.STATE_ALREADY_EXISTS });
-      await expect(readAuditRunEvents(productDir, runFile.value.runFilePath)).resolves.toEqual(beforeRetry);
+      await expect(readAuditRunEvents(productDir, runFile.runFilePath)).resolves.toEqual(beforeRetry);
     });
   });
 
@@ -346,18 +345,14 @@ describe("audit run-file storage", () => {
     const state = sampleAuditRunStateTestValue(AUDIT_RUN_STATE_TEST_GENERATOR.auditRunState());
 
     await withTempProductDir(async (productDir) => {
-      const runFile = await createAuditRunFile(productDir, branchSlug, {
-        randomBytes: () => bufferFromHex(runId),
-      });
-      expect(runFile.ok).toBe(true);
-      if (!runFile.ok) throw new Error(runFile.error);
-      const outsideRunFilePath = join(productDir, runFile.value.runFileName);
+      const runFile = await reserveAuditRunFile(productDir, branchSlug, runId);
+      const outsideRunFilePath = join(productDir, runFile.runFileName);
 
       const append = await appendAuditRunEvent(
         productDir,
         outsideRunFilePath,
         auditRunStartedEventInput(state, {
-          id: runFile.value.runFileName,
+          id: runFile.runFileName,
           time: state.startedAt,
           attempt: 1,
         }),
@@ -382,28 +377,24 @@ describe("audit run-file storage", () => {
     await withTempProductDir(async (productDir) => {
       const outsideProductDir = await mkdtemp(join(tmpdir(), sampleConfigTestValue(CONFIG_TEST_GENERATOR.tempPrefix())));
       try {
-        const runFile = await createAuditRunFile(outsideProductDir, branchSlug, {
-          randomBytes: () => bufferFromHex(outsideRunId),
-        });
-        expect(runFile.ok).toBe(true);
-        if (!runFile.ok) throw new Error(runFile.error);
+        const runFile = await reserveAuditRunFile(outsideProductDir, branchSlug, outsideRunId);
 
         const append = await appendAuditRunEvent(
           productDir,
-          runFile.value.runFilePath,
+          runFile.runFilePath,
           auditRunStartedEventInput(state, {
-            id: runFile.value.runFileName,
+            id: runFile.runFileName,
             time: state.startedAt,
             attempt: 1,
           }),
         );
-        const read = await readAuditRunEvents(productDir, runFile.value.runFilePath);
-        const write = await writeTerminalAuditRunState(productDir, runFile.value.runFilePath, state);
+        const read = await readAuditRunEvents(productDir, runFile.runFilePath);
+        const write = await writeTerminalAuditRunState(productDir, runFile.runFilePath, state);
 
         expect(append).toEqual({ ok: false, error: AUDIT_RUN_STATE_ERROR.INVALID_RUN_FILE_PATH });
         expect(read).toEqual({ ok: false, error: AUDIT_RUN_STATE_ERROR.INVALID_RUN_FILE_PATH });
         expect(write).toEqual({ ok: false, error: AUDIT_RUN_STATE_ERROR.INVALID_RUN_FILE_PATH });
-        await expect(readFile(runFile.value.runFilePath, STATE_STORE_TEXT_ENCODING)).resolves.toBe(emptyText);
+        await expect(readFile(runFile.runFilePath, STATE_STORE_TEXT_ENCODING)).resolves.toBe(emptyText);
       } finally {
         await rm(outsideProductDir, { recursive: true, force: true });
       }
@@ -416,20 +407,16 @@ describe("audit run-file storage", () => {
     const symlinkTargetName = sampleConfigTestValue(CONFIG_TEST_GENERATOR.key());
 
     await withTempProductDir(async (productDir) => {
-      const runFile = await createAuditRunFile(productDir, branchSlug, {
-        randomBytes: () => bufferFromHex(runId),
-      });
-      expect(runFile.ok).toBe(true);
-      if (!runFile.ok) throw new Error(runFile.error);
+      const runFile = await reserveAuditRunFile(productDir, branchSlug, runId);
       const symlinkTargetPath = join(productDir, symlinkTargetName);
       await writeFile(symlinkTargetPath, emptyJson);
-      await rm(runFile.value.runFilePath);
-      await symlink(symlinkTargetPath, runFile.value.runFilePath);
+      await rm(runFile.runFilePath);
+      await symlink(symlinkTargetPath, runFile.runFilePath);
 
       const raceWindowFileSystem: AuditRunStateFileSystem = {
         ...defaultStateStoreFileSystem,
         lstat: (path) => {
-          if (path === runFile.value.runFilePath) {
+          if (path === runFile.runFilePath) {
             return Promise.resolve({
               isDirectory: () => false,
               isFile: () => true,
@@ -440,7 +427,7 @@ describe("audit run-file storage", () => {
         },
       };
 
-      const result = await readAuditRunEvents(productDir, runFile.value.runFilePath, {
+      const result = await readAuditRunEvents(productDir, runFile.runFilePath, {
         fs: raceWindowFileSystem,
       });
 
@@ -458,12 +445,8 @@ describe("audit run-file storage", () => {
     const ioError = Object.assign(new Error(errorCode), { code: errorCode });
 
     await withTempProductDir(async (productDir) => {
-      const runFile = await createAuditRunFile(productDir, branchSlug, {
-        randomBytes: () => bufferFromHex(runId),
-      });
-      expect(runFile.ok).toBe(true);
-      if (!runFile.ok) throw new Error(runFile.error);
-      const sealMarkerPath = appendableJournalSealMarkerPath(runFile.value.runFilePath);
+      const runFile = await reserveAuditRunFile(productDir, branchSlug, runId);
+      const sealMarkerPath = appendableJournalSealMarkerPath(runFile.runFilePath);
 
       const failingSealReadFileSystem: AuditRunStateFileSystem = {
         mkdir: () => Promise.resolve(),
@@ -477,13 +460,13 @@ describe("audit run-file storage", () => {
             return Promise.reject(Object.assign(new Error(ERROR_CODE_NOT_FOUND), { code: ERROR_CODE_NOT_FOUND }));
           }
           return Promise.resolve({
-            isDirectory: () => path !== runFile.value.runFilePath,
-            isFile: () => path === runFile.value.runFilePath,
+            isDirectory: () => path !== runFile.runFilePath,
+            isFile: () => path === runFile.runFilePath,
             isSymbolicLink: () => false,
           });
         },
       };
-      const result = await writeTerminalAuditRunState(productDir, runFile.value.runFilePath, state, {
+      const result = await writeTerminalAuditRunState(productDir, runFile.runFilePath, state, {
         fs: failingSealReadFileSystem,
       });
 
@@ -500,13 +483,9 @@ describe("audit run-file storage", () => {
     const sealWriteError = sampleAuditRunStateTestValue(AUDIT_RUN_STATE_TEST_GENERATOR.branchName());
 
     await withTempProductDir(async (productDir) => {
-      const runFile = await createAuditRunFile(productDir, branchSlug, {
-        randomBytes: () => bufferFromHex(runId),
-      });
-      expect(runFile.ok).toBe(true);
-      if (!runFile.ok) throw new Error(runFile.error);
-      const originalContent = await readFile(runFile.value.runFilePath, STATE_STORE_TEXT_ENCODING);
-      const sealMarkerPath = appendableJournalSealMarkerPath(runFile.value.runFilePath);
+      const runFile = await reserveAuditRunFile(productDir, branchSlug, runId);
+      const originalContent = await readFile(runFile.runFilePath, STATE_STORE_TEXT_ENCODING);
+      const sealMarkerPath = appendableJournalSealMarkerPath(runFile.runFilePath);
 
       const failingSealWriteFileSystem: AuditRunStateFileSystem = {
         mkdir: () => Promise.resolve(),
@@ -524,7 +503,7 @@ describe("audit run-file storage", () => {
         rm: (path, options) => rm(path, options),
       };
 
-      const result = await writeTerminalAuditRunState(productDir, runFile.value.runFilePath, state, {
+      const result = await writeTerminalAuditRunState(productDir, runFile.runFilePath, state, {
         fs: failingSealWriteFileSystem,
       });
 
@@ -532,11 +511,11 @@ describe("audit run-file storage", () => {
       if (result.ok) throw new Error("expected a seal write error");
       expect(result.error).toContain(AUDIT_RUN_STATE_ERROR.STATE_WRITE_FAILED);
       expect(result.error).toContain(sealWriteError);
-      await expect(readFile(runFile.value.runFilePath, STATE_STORE_TEXT_ENCODING)).resolves.toBe(originalContent);
+      await expect(readFile(runFile.runFilePath, STATE_STORE_TEXT_ENCODING)).resolves.toBe(originalContent);
       await expect(readFile(sealMarkerPath, STATE_STORE_TEXT_ENCODING)).rejects.toMatchObject({
         code: ERROR_CODE_NOT_FOUND,
       });
-      await expect(readAuditRunEvents(productDir, runFile.value.runFilePath)).resolves.toEqual({
+      await expect(readAuditRunEvents(productDir, runFile.runFilePath)).resolves.toEqual({
         ok: true,
         value: [],
       });

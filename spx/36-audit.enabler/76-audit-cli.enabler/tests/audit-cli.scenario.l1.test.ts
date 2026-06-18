@@ -1,7 +1,6 @@
 import { mkdir, readFile, rm, symlink, writeFile } from "node:fs/promises";
 import { basename, dirname, join } from "node:path";
 
-import { execa } from "execa";
 import { Command } from "commander";
 import { describe, expect, it } from "vitest";
 
@@ -39,8 +38,7 @@ import {
 } from "@/lib/state-store";
 import { AUDIT_RUN_STATE_TEST_GENERATOR, sampleAuditRunStateTestValue } from "@testing/generators/audit/run-state";
 import { CONFIG_TEST_GENERATOR, sampleConfigTestValue } from "@testing/generators/config/descriptors";
-import { CLI_PATH, NODE_EXECUTABLE } from "@testing/harnesses/constants";
-import { auditBranchRunsDir, createAuditHarness, writeAuditConfig } from "@testing/harnesses/audit/harness";
+import { auditBranchRunsDir, createAuditHarness, runSpxAudit, writeAuditConfig } from "@testing/harnesses/audit/harness";
 import {
   GIT_TEST_CONFIG,
   GIT_TEST_FLAGS,
@@ -206,23 +204,7 @@ describe("audit CLI lifecycle commands", () => {
   it("uses detached HEAD identity when no branch name is available", async () => {
     const harness = await createAuditHarness();
     try {
-      await runGit(harness.productDir, [GIT_TEST_SUBCOMMANDS.INIT]);
-      await runGit(harness.productDir, [
-        GIT_TEST_SUBCOMMANDS.CONFIG,
-        GIT_TEST_CONFIG.EMAIL_KEY,
-        GIT_TEST_CONFIG.EMAIL,
-      ]);
-      await runGit(harness.productDir, [
-        GIT_TEST_SUBCOMMANDS.CONFIG,
-        GIT_TEST_CONFIG.USER_NAME_KEY,
-        GIT_TEST_CONFIG.USER_NAME,
-      ]);
-      await runGit(harness.productDir, [
-        GIT_TEST_SUBCOMMANDS.COMMIT,
-        GIT_TEST_FLAGS.ALLOW_EMPTY,
-        GIT_TEST_FLAGS.COMMIT_MESSAGE,
-        sampleConfigTestValue(CONFIG_TEST_GENERATOR.key()),
-      ]);
+      await initializeGitProduct(harness.productDir);
       await runGit(harness.productDir, [
         GIT_TEST_SUBCOMMANDS.CHECKOUT,
         GIT_TEST_FLAGS.DETACH,
@@ -310,23 +292,7 @@ describe("audit CLI lifecycle commands", () => {
     const linkedParentDir = await createTempDir("spx-audit-linked-parent-");
     const linkedProductDir = join(linkedParentDir, linkedWorktreeDirectory);
     try {
-      await runGit(harness.productDir, [GIT_TEST_SUBCOMMANDS.INIT]);
-      await runGit(harness.productDir, [
-        GIT_TEST_SUBCOMMANDS.CONFIG,
-        GIT_TEST_CONFIG.EMAIL_KEY,
-        GIT_TEST_CONFIG.EMAIL,
-      ]);
-      await runGit(harness.productDir, [
-        GIT_TEST_SUBCOMMANDS.CONFIG,
-        GIT_TEST_CONFIG.USER_NAME_KEY,
-        GIT_TEST_CONFIG.USER_NAME,
-      ]);
-      await runGit(harness.productDir, [
-        GIT_TEST_SUBCOMMANDS.COMMIT,
-        GIT_TEST_FLAGS.ALLOW_EMPTY,
-        GIT_TEST_FLAGS.COMMIT_MESSAGE,
-        sampleConfigTestValue(CONFIG_TEST_GENERATOR.key()),
-      ]);
+      await initializeGitProduct(harness.productDir);
       await runGit(harness.productDir, [
         GIT_TEST_SUBCOMMANDS.WORKTREE,
         GIT_TEST_SUBCOMMANDS.ADD,
@@ -567,17 +533,8 @@ describe("audit CLI lifecycle commands", () => {
         AUDIT_RUN_STATE_ERROR.INVALID_RUN_FILE_PATH,
       );
 
-      const close = await runSpxAudit([
-        AUDIT_CLI.closeCommandName,
-        AUDIT_CLI_FLAG.RUN_FILE,
-        runFilePath,
-        AUDIT_CLI_FLAG.STATUS,
-        AUDIT_RUN_STATE_STATUS.APPROVED,
-        AUDIT_CLI_FLAG.JSON,
-      ], harness.productDir);
-      expect(close.exitCode).toBe(1);
-      expect((JSON.parse(close.errorOutput) as { readonly error: string }).error).toBe(
-        AUDIT_RUN_STATE_ERROR.INVALID_RUN_FILE_PATH,
+      await expectAuditCliInvalidRunFilePath(
+        runSpxAudit(auditCloseArgs(runFilePath), harness.productDir),
       );
       expect(await readFile(symlinkTarget, STATE_STORE_TEXT_ENCODING)).toBe(symlinkTargetContent);
     } finally {
@@ -595,17 +552,8 @@ describe("audit CLI lifecycle commands", () => {
       await writeFile(symlinkTarget, symlinkTargetContent);
       await symlink(symlinkTarget, sealMarkerPath);
 
-      const close = await runSpxAudit([
-        AUDIT_CLI.closeCommandName,
-        AUDIT_CLI_FLAG.RUN_FILE,
-        runFilePath,
-        AUDIT_CLI_FLAG.STATUS,
-        AUDIT_RUN_STATE_STATUS.APPROVED,
-        AUDIT_CLI_FLAG.JSON,
-      ], harness.productDir);
-      expect(close.exitCode).toBe(1);
-      expect((JSON.parse(close.errorOutput) as { readonly error: string }).error).toBe(
-        AUDIT_RUN_STATE_ERROR.INVALID_RUN_FILE_PATH,
+      await expectAuditCliInvalidRunFilePath(
+        runSpxAudit(auditCloseArgs(runFilePath), harness.productDir),
       );
       expect(await readFile(symlinkTarget, STATE_STORE_TEXT_ENCODING)).toBe(symlinkTargetContent);
     } finally {
@@ -658,17 +606,7 @@ describe("audit CLI lifecycle commands", () => {
         AUDIT_RUN_STATE_ERROR.INVALID_RUN_FILE_PATH,
       );
 
-      const status = await runSpxAudit([AUDIT_CLI.statusCommandName, AUDIT_CLI_FLAG.BRANCH, branch, AUDIT_CLI_FLAG.JSON], harness.productDir);
-      expect(status.exitCode).toBe(1);
-      expect((JSON.parse(status.errorOutput) as { readonly error: string }).error).toBe(
-        AUDIT_RUN_STATE_ERROR.INVALID_RUN_FILE_PATH,
-      );
-
-      const list = await runSpxAudit([AUDIT_CLI.listCommandName, AUDIT_CLI_FLAG.BRANCH, branch, AUDIT_CLI_FLAG.JSON], harness.productDir);
-      expect(list.exitCode).toBe(1);
-      expect((JSON.parse(list.errorOutput) as { readonly error: string }).error).toBe(
-        AUDIT_RUN_STATE_ERROR.INVALID_RUN_FILE_PATH,
-      );
+      await expectBranchReadCommandsRejectInvalidRunFilePath(harness.productDir);
       expect(await readFile(symlinkTargetPath, STATE_STORE_TEXT_ENCODING)).toBe(symlinkTargetContent);
     } finally {
       await harness.cleanup();
@@ -694,17 +632,7 @@ describe("audit CLI lifecycle commands", () => {
       const directBranchRuns = await readAuditBranchRuns(harness.productDir, slugAuditBranchIdentity(branch));
       expect(directBranchRuns).toEqual({ ok: false, error: AUDIT_RUN_STATE_ERROR.INVALID_RUN_FILE_PATH });
 
-      const status = await runSpxAudit([AUDIT_CLI.statusCommandName, AUDIT_CLI_FLAG.BRANCH, branch, AUDIT_CLI_FLAG.JSON], harness.productDir);
-      expect(status.exitCode).toBe(1);
-      expect((JSON.parse(status.errorOutput) as { readonly error: string }).error).toBe(
-        AUDIT_RUN_STATE_ERROR.INVALID_RUN_FILE_PATH,
-      );
-
-      const list = await runSpxAudit([AUDIT_CLI.listCommandName, AUDIT_CLI_FLAG.BRANCH, branch, AUDIT_CLI_FLAG.JSON], harness.productDir);
-      expect(list.exitCode).toBe(1);
-      expect((JSON.parse(list.errorOutput) as { readonly error: string }).error).toBe(
-        AUDIT_RUN_STATE_ERROR.INVALID_RUN_FILE_PATH,
-      );
+      await expectBranchReadCommandsRejectInvalidRunFilePath(harness.productDir);
       expect(await readFile(symlinkTargetPath, STATE_STORE_TEXT_ENCODING)).toBe(symlinkTargetContent);
     } finally {
       await harness.cleanup();
@@ -825,15 +753,6 @@ describe("audit CLI lifecycle commands", () => {
   });
 });
 
-async function runSpxAudit(args: readonly string[], cwd: string): Promise<{
-  readonly output: string;
-  readonly errorOutput: string;
-  readonly exitCode: number;
-}> {
-  const result = await execa(NODE_EXECUTABLE, [CLI_PATH, AUDIT_CLI.commandName, ...args], { cwd, reject: false });
-  return { output: result.stdout, errorOutput: result.stderr, exitCode: result.exitCode ?? 1 };
-}
-
 async function initializeDefaultAuditRun(productDir: string): Promise<string> {
   await writeAuditConfig(productDir, {
     baseRef: baseRef,
@@ -850,6 +769,54 @@ async function initializeDefaultAuditRun(productDir: string): Promise<string> {
   ], productDir);
   expect(init.exitCode).toBe(0);
   return (JSON.parse(init.output) as { readonly runFilePath: string }).runFilePath;
+}
+
+async function initializeGitProduct(productDir: string): Promise<void> {
+  await runGit(productDir, [GIT_TEST_SUBCOMMANDS.INIT]);
+  await runGit(productDir, [
+    GIT_TEST_SUBCOMMANDS.CONFIG,
+    GIT_TEST_CONFIG.EMAIL_KEY,
+    GIT_TEST_CONFIG.EMAIL,
+  ]);
+  await runGit(productDir, [
+    GIT_TEST_SUBCOMMANDS.CONFIG,
+    GIT_TEST_CONFIG.USER_NAME_KEY,
+    GIT_TEST_CONFIG.USER_NAME,
+  ]);
+  await runGit(productDir, [
+    GIT_TEST_SUBCOMMANDS.COMMIT,
+    GIT_TEST_FLAGS.ALLOW_EMPTY,
+    GIT_TEST_FLAGS.COMMIT_MESSAGE,
+    sampleConfigTestValue(CONFIG_TEST_GENERATOR.key()),
+  ]);
+}
+
+function auditCloseArgs(runFilePath: string): readonly string[] {
+  return [
+    AUDIT_CLI.closeCommandName,
+    AUDIT_CLI_FLAG.RUN_FILE,
+    runFilePath,
+    AUDIT_CLI_FLAG.STATUS,
+    AUDIT_RUN_STATE_STATUS.APPROVED,
+    AUDIT_CLI_FLAG.JSON,
+  ];
+}
+
+async function expectBranchReadCommandsRejectInvalidRunFilePath(productDir: string): Promise<void> {
+  await expectAuditCliInvalidRunFilePath(
+    runSpxAudit([AUDIT_CLI.statusCommandName, AUDIT_CLI_FLAG.BRANCH, branch, AUDIT_CLI_FLAG.JSON], productDir),
+  );
+  await expectAuditCliInvalidRunFilePath(
+    runSpxAudit([AUDIT_CLI.listCommandName, AUDIT_CLI_FLAG.BRANCH, branch, AUDIT_CLI_FLAG.JSON], productDir),
+  );
+}
+
+async function expectAuditCliInvalidRunFilePath(resultPromise: Promise<{ readonly errorOutput: string; readonly exitCode: number }>): Promise<void> {
+  const result = await resultPromise;
+  expect(result.exitCode).toBe(1);
+  expect((JSON.parse(result.errorOutput) as { readonly error: string }).error).toBe(
+    AUDIT_RUN_STATE_ERROR.INVALID_RUN_FILE_PATH,
+  );
 }
 
 async function appendInvalidCompletedEvent(runFilePath: string): Promise<void> {
