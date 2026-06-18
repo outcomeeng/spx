@@ -16,6 +16,7 @@ import {
   auditRunProgressEventInput,
   auditRunStartedEventInput,
   formatAuditRunTimestamp,
+  isAuditProgressStep,
   resolveAuditBranchIdentity,
   selectLatestTerminalAuditRun,
   slugAuditBranchIdentity,
@@ -52,14 +53,7 @@ export const AUDIT_COMMAND_RESULT_FORMAT = {
   TEXT: "text",
 } as const;
 
-export const AUDIT_PROGRESS_STEP = {
-  CHANGESET_DETERMINED: "changeset-determined",
-  DIFF_ANALYZED: "diff-analyzed",
-  ADDITIONAL_FILE_INSPECTED: "additional-file-inspected",
-  VERDICT_CREATED: "verdict-created",
-  FILES_PASSED_FORMAT_CHECK: "files-passed-format-check",
-  DONE: "done",
-} as const;
+export { AUDIT_PROGRESS_STEP, type AuditProgressStep } from "@/domains/audit/run-state";
 
 export interface AuditCommandResult {
   readonly exitCode: number;
@@ -163,6 +157,9 @@ export async function auditProgressCommand(
   options: AuditProgressOptions,
   deps: AuditLifecycleDeps = {},
 ): Promise<AuditCommandResult> {
+  if (!isAuditProgressStep(options.step)) {
+    return errorResult(AUDIT_RUN_STATE_ERROR.UNKNOWN_PROGRESS_STEP, options.json);
+  }
   const runFile = await resolveCommandRunFile(options.runFile, deps);
   if (!runFile.ok) return errorResult(runFile.error, options.json);
   const events = await readAuditRunEvents(runFile.value.runFilePath, { fs: deps.fs });

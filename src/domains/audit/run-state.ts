@@ -49,6 +49,15 @@ export const AUDIT_RUN_PROGRESS_FIELDS = {
   AT: "at",
 } as const;
 
+export const AUDIT_PROGRESS_STEP = {
+  CHANGESET_DETERMINED: "changeset-determined",
+  DIFF_ANALYZED: "diff-analyzed",
+  ADDITIONAL_FILE_INSPECTED: "additional-file-inspected",
+  VERDICT_CREATED: "verdict-created",
+  FILES_PASSED_FORMAT_CHECK: "files-passed-format-check",
+  DONE: "done",
+} as const;
+
 export const AUDIT_RUN_STATE_INCOMPLETE_REASON = {
   MISSING_STATE: "missing-state",
   IO_ERROR: "io-error",
@@ -60,12 +69,14 @@ export const AUDIT_RUN_STATE_ERROR = {
   RUN_FILE_CREATE_FAILED: "audit run file create failed",
   INVALID_RUN_FILE_PATH: "audit run file must be a branch-scoped audit run file",
   MISSING_INIT_EVENT: "audit run has no init event",
+  UNKNOWN_PROGRESS_STEP: "unknown audit progress step",
   INVALID_TERMINAL_STATE: "audit run state must be terminal",
   STATE_ALREADY_EXISTS: "audit run state already exists",
   STATE_WRITE_FAILED: "audit run state write failed",
 } as const;
 
 export type AuditRunStateStatus = (typeof AUDIT_RUN_STATE_STATUS)[keyof typeof AUDIT_RUN_STATE_STATUS];
+export type AuditProgressStep = (typeof AUDIT_PROGRESS_STEP)[keyof typeof AUDIT_PROGRESS_STEP];
 export type AuditRunStateIncompleteReason =
   (typeof AUDIT_RUN_STATE_INCOMPLETE_REASON)[keyof typeof AUDIT_RUN_STATE_INCOMPLETE_REASON];
 
@@ -95,7 +106,7 @@ export interface AuditRunStartedState {
 }
 
 export interface AuditRunProgressState {
-  readonly step: string;
+  readonly step: AuditProgressStep;
   readonly message?: string;
   readonly at: string;
 }
@@ -205,6 +216,10 @@ export function auditRunProgressEventInput(
       at: state.at,
     },
   };
+}
+
+export function isAuditProgressStep(value: string): value is AuditProgressStep {
+  return Object.values(AUDIT_PROGRESS_STEP).includes(value as AuditProgressStep);
 }
 
 export function auditRunCompletedEventInput(
