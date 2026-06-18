@@ -10,16 +10,6 @@ Observed on June 18, 2026 while verifying the circular-validation skip slice: `p
 
 **Resolution:** Run a dedicated formatter-baseline slice, review the dprint output by owning subtree, apply the formatting changes in one focused changeset, then rerun `pnpm run format:check`, `pnpm run validate`, and `pnpm test`.
 
-## Spec-tree guide template is stale
-
-[spx/CLAUDE.md](CLAUDE.md) declares `template_version: "0.18.14"`, while the installed `spec-tree:understanding` template declares `template_version: "0.18.15"`.
-
-**Impact:** Required skill-routing guidance may lag the installed methodology template, leaving agents with older stop triggers or workflow descriptions.
-
-**Skills:** `spec-tree:update-spx`.
-
-**Resolution:** Run the governed update-spx workflow and review the rendered guide changes before committing them.
-
 ## Worktree-management PDR names git plumbing in its decision content
 
 `spx/15-worktree-management.pdr.md` carries a "Git mechanism" column in its state-class table and several `### Audit` rules that name specific git commands (`git rev-parse --git-common-dir`, `git rev-parse --show-toplevel`, `git config --get core.bare`) and a code-naming constraint (root-resolution helper-name alignment). A PDR audit argued these describe how root resolution is implemented rather than what users observe, and belong in [`spx/17-state.adr.md`](17-state.adr.md).
