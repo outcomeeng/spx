@@ -15,6 +15,7 @@ CAN browse the session queue and claim work in a single interactive step instead
 - Given a mounted picker over at least two sessions, when the down arrow then Enter is pressed, then the picker claims the second session through the `pickup` handler, whose result carries the session's `<PICKUP_ID>` tag, and unmounts ([test](tests/picker-render.scenario.l1.test.ts))
 - Given a mounted picker, when Esc is pressed, then the picker unmounts with no session claimed, no `<PICKUP_ID>` tag emitted, and the queue unchanged ([test](tests/picker-render.scenario.l1.test.ts))
 - Given an empty claimable queue, when the picker mounts, then the frame shows the empty-state message and Enter claims nothing ([test](tests/picker-render.scenario.l1.test.ts))
+- Given a session whose goal exceeds the row's available width, when the picker mounts, then the session occupies a single row with its goal truncated to that width and no row wraps to a second line, the keybinding hint renders on its own line below the title, and each preview label is separated from its value by a space ([test](tests/picker-render.scenario.l1.test.ts))
 
 ### Mappings
 
@@ -24,6 +25,7 @@ CAN browse the session queue and claim work in a single interactive step instead
 
 - For every candidate set and key sequence, the selected index stays within `[0, max(0, visibleCount - 1)]` — selection never leaves the visible range ([test](tests/picker-model.property.l1.test.ts))
 - For every candidate set and query, the filtered set is a subsequence of the candidate set — filtering never reorders or invents candidates ([test](tests/picker-model.property.l1.test.ts))
+- For every string and every width `n` at least 1, truncating the string to width `n` returns a string no wider than `n` — the input unchanged when it already fits, otherwise a prefix ending in a single ellipsis character ([test](tests/picker-model.property.l1.test.ts))
 
 ### Compliance
 
