@@ -106,9 +106,9 @@ file-inclusion directory expansion, or the planned positional-path replacement
 for `--files`; add evidence that directory scopes expand to TypeScript files
 before writing the temporary tsconfig.
 
-**Skills:** `spec-tree:contextualizing`, `spec-tree:applying`,
-`typescript:testing-typescript`, `typescript:coding-typescript`,
-`typescript:auditing-typescript-tests`, and `typescript:auditing-typescript`.
+**Skills:** `spec-tree:contextualize`, `spec-tree:apply`,
+`typescript:test-typescript`, `typescript:code-typescript`,
+`typescript:audit-typescript-tests`, and `typescript:audit-typescript`.
 
 ---
 
@@ -257,8 +257,8 @@ validation-wide cleanup visible from the parent node.
 
 **Impact:** the filenames hide which assertion type and execution level each
 file proves, and several specs link many assertion classes to one legacy file.
-That weakens agent routing through `spec-tree:testing` and
-`typescript:testing-typescript`.
+That weakens agent routing through `spec-tree:test` and
+`typescript:test-typescript`.
 
 **Resolution:** split or rename each legacy file into canonical evidence files
 such as `validation.scenario.l2.test.ts`,
@@ -272,7 +272,7 @@ test-suite agent-output research on June 17, 2026.
 **Revisit condition:** fix before changing validation test discovery, validation
 test command output, or spec-tree test-evidence naming enforcement.
 
-**Skills:** `spec-tree:contextualizing`, `spec-tree:applying`,
-`spec-tree:testing`, `typescript:testing-typescript`,
-`typescript:coding-typescript`, `typescript:auditing-typescript-tests`, and
-`typescript:auditing-typescript`.
+**Skills:** `spec-tree:contextualize`, `spec-tree:apply`,
+`spec-tree:test`, `typescript:test-typescript`,
+`typescript:code-typescript`, `typescript:audit-typescript-tests`, and
+`typescript:audit-typescript`.

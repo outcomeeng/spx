@@ -128,10 +128,10 @@ June 17, 2026.
 requiring agents to run `pnpm run build`, `pnpm run test`, or `pnpm run
 publish:check` as their default verification entrypoints.
 
-**Skills:** `spec-tree:contextualizing`, `spec-tree:applying`,
-`typescript:coding-typescript`, `typescript:testing-typescript`,
-`typescript:auditing-typescript-tests`, and
-`typescript:auditing-typescript`.
+**Skills:** `spec-tree:contextualize`, `spec-tree:apply`,
+`typescript:code-typescript`, `typescript:test-typescript`,
+`typescript:audit-typescript-tests`, and
+`typescript:audit-typescript`.
 
 ## FOLLOW-UP: `spx test` lacks explicit target arguments
 
@@ -196,7 +196,7 @@ non-dogfooding, and missing precommit ownership rule.
 **Revisit condition:** fix before documenting `spx test --agent` as the default
 focused verification command for agents.
 
-**Skills:** `spec-tree:contextualizing`, `spec-tree:applying`,
-`typescript:coding-typescript`, `typescript:testing-typescript`,
-`typescript:auditing-typescript-tests`, and
-`typescript:auditing-typescript`.
+**Skills:** `spec-tree:contextualize`, `spec-tree:apply`,
+`typescript:code-typescript`, `typescript:test-typescript`,
+`typescript:audit-typescript-tests`, and
+`typescript:audit-typescript`.

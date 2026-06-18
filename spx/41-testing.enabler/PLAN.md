@@ -27,7 +27,7 @@ name concrete runners.
 
 ## Product Decision Shape
 
-The PDR should define three runner environments:
+The long-term runner-environment model distinguishes three environments:
 
 - `operator`: default environment. Native runner stdout and stderr stream to the
   terminal. This is the default by the principle of least surprise: an
@@ -37,10 +37,9 @@ The PDR should define three runner environments:
   exit code, failing runner identity, relevant failing or requested test paths,
   last-run state path, and artifact paths. Child streams do not pass through to
   the invoking terminal.
-- `ci`: machine-readable environment. CI receives a structured progress/output
+- `ci`: future machine-readable environment. CI receives a structured progress/output
   stream, likely JSONL or another event stream declared by its ADR. CI mode is
-  acknowledged by the PDR but does not need full implementation in the current
-  slice unless scope expands.
+  not part of the slice 1 PDR because this branch ships no CI implementation.
 
 The PDR should state these observable invariants:
 
@@ -166,9 +165,10 @@ Verification:
 
 1. Add `spx/41-testing.enabler/11-test-runner-environments.pdr.md`.
    - Use decision-first PDR shape.
-   - Encode the three environments and adapter interface.
+   - Encode the implemented `operator` and `agent` environments.
    - Default environment is `operator`.
-   - State that agent and CI environments are explicit.
+   - Keep CI output as a future slice until its command path and evidence
+     schema are implemented.
 
 2. Align `spx/41-testing.enabler/testing.md`.
    - Declare that `spx test` dispatches through configured/supported runner
