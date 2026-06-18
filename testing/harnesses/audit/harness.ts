@@ -12,14 +12,18 @@
 import { mkdir, writeFile } from "node:fs/promises";
 import { dirname, join } from "node:path";
 
+import { execa } from "execa";
+
 import { DEFAULT_CONFIG_FILENAME } from "@/config/index";
 import { PATH_FILTER_CONFIG_FIELDS } from "@/config/primitives/path-filter";
 import { AUDIT_CONFIG_FIELDS, AUDIT_SECTION } from "@/domains/audit/config";
+import { AUDIT_CLI } from "@/interfaces/cli/audit";
 import { AUDIT_RUN_EVENT, auditRunCompletedEventInput, type AuditRunState } from "@/domains/audit/run-state";
 import { createJournal } from "@/lib/agent-run-journal";
 import { createAppendableJournalStore } from "@/lib/appendable-journal-store";
 import { branchScopeDir, runsDir, STATE_STORE_DOMAIN } from "@/lib/state-store";
 
+import { CLI_PATH, NODE_EXECUTABLE } from "@testing/harnesses/constants";
 import { createTempDir, removeTempDir } from "@testing/harnesses/with-temp-dir";
 
 /** Audit test harness interface. */
@@ -140,4 +144,16 @@ export async function writeAuditRunJournalContent(
   await mkdir(dirname(runFilePath), { recursive: true });
   await writeFile(runFilePath, content);
   return runFilePath;
+}
+
+export interface AuditCliResult {
+  readonly output: string;
+  readonly errorOutput: string;
+  readonly exitCode: number;
+}
+
+/** Runs the source CLI audit command from a test product directory. */
+export async function runSpxAudit(args: readonly string[], cwd: string): Promise<AuditCliResult> {
+  const result = await execa(NODE_EXECUTABLE, [CLI_PATH, AUDIT_CLI.commandName, ...args], { cwd, reject: false });
+  return { output: result.stdout, errorOutput: result.stderr, exitCode: result.exitCode ?? 1 };
 }

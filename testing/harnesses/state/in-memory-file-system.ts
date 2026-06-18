@@ -88,26 +88,9 @@ class InMemoryStateStoreFileSystem implements StateStoreFileSystem {
     if (!this.directories.has(directory)) {
       throw Object.assign(new Error(ERROR_CODE_NOT_FOUND), { code: ERROR_CODE_NOT_FOUND });
     }
-    const prefix = directory === CURRENT_DIRECTORY || directory === ROOT_DIRECTORY
-      ? directory
-      : `${directory}${PATH_SEPARATOR}`;
-    const directFiles = new Set<string>();
-    const subdirectories = new Set<string>();
-    for (const filePath of this.files.keys()) {
-      if (!filePath.startsWith(prefix)) continue;
-      const rest = filePath.slice(prefix.length);
-      const separatorIndex = rest.indexOf(PATH_SEPARATOR);
-      if (separatorIndex === -1) directFiles.add(rest);
-      else subdirectories.add(rest.slice(0, separatorIndex));
-    }
-    for (const directoryPath of this.directories) {
-      if (directoryPath === directory || !directoryPath.startsWith(prefix)) continue;
-      const rest = directoryPath.slice(prefix.length);
-      if (rest.length === 0) continue;
-      const separatorIndex = rest.indexOf(PATH_SEPARATOR);
-      if (separatorIndex === -1) subdirectories.add(rest);
-      else subdirectories.add(rest.slice(0, separatorIndex));
-    }
+    const prefix = directoryChildPrefix(directory);
+    const directFiles = collectDirectChildNames(this.files.keys(), prefix);
+    const subdirectories = collectDirectoryChildNames(this.files.keys(), this.directories, directory, prefix);
     return [
       ...[...directFiles].map((name): StateStoreFileEntry => ({ name, isFile: () => true })),
       ...[...subdirectories].map((name): StateStoreFileEntry => ({ name, isFile: () => false })),
@@ -128,6 +111,63 @@ function normalizeDirectoryPath(path: string): string {
     ? path.slice(0, -PATH_SEPARATOR.length)
     : path;
   return trimmed.length === 0 ? CURRENT_DIRECTORY : trimmed;
+}
+
+function directoryChildPrefix(directory: string): string {
+  return directory === CURRENT_DIRECTORY || directory === ROOT_DIRECTORY
+    ? directory
+    : `${directory}${PATH_SEPARATOR}`;
+}
+
+function collectDirectChildNames(paths: Iterable<string>, prefix: string): Set<string> {
+  const names = new Set<string>();
+  for (const path of paths) {
+    const name = directChildName(path, prefix);
+    if (name !== undefined) names.add(name);
+  }
+  return names;
+}
+
+function collectDirectoryChildNames(
+  filePaths: Iterable<string>,
+  directoryPaths: Iterable<string>,
+  directory: string,
+  prefix: string,
+): Set<string> {
+  const names = collectNestedParentNames(filePaths, prefix);
+  for (const directoryPath of directoryPaths) {
+    if (directoryPath === directory) continue;
+    const name = childName(directoryPath, prefix);
+    if (name !== undefined) names.add(name);
+  }
+  return names;
+}
+
+function collectNestedParentNames(paths: Iterable<string>, prefix: string): Set<string> {
+  const names = new Set<string>();
+  for (const path of paths) {
+    const remainder = childRemainder(path, prefix);
+    const separatorIndex = remainder?.indexOf(PATH_SEPARATOR);
+    if (remainder !== undefined && separatorIndex !== undefined && separatorIndex >= 0) names.add(remainder.slice(0, separatorIndex));
+  }
+  return names;
+}
+
+function directChildName(path: string, prefix: string): string | undefined {
+  const remainder = childRemainder(path, prefix);
+  if (remainder === undefined || remainder.includes(PATH_SEPARATOR)) return undefined;
+  return remainder;
+}
+
+function childName(path: string, prefix: string): string | undefined {
+  const remainder = childRemainder(path, prefix);
+  if (remainder === undefined || remainder.length === 0) return undefined;
+  const separatorIndex = remainder.indexOf(PATH_SEPARATOR);
+  return separatorIndex === -1 ? remainder : remainder.slice(0, separatorIndex);
+}
+
+function childRemainder(path: string, prefix: string): string | undefined {
+  return path.startsWith(prefix) ? path.slice(prefix.length) : undefined;
 }
 
 function directoryChain(path: string): readonly string[] {
