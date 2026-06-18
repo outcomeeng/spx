@@ -13,12 +13,12 @@ import {
   ERROR_CODE_NOT_FOUND,
   hasErrorCode,
   type JsonRecord,
+  STATE_STORE_TEXT_ENCODING,
   type StateStoreFileSystem,
 } from "@/lib/state-store";
 
 const SEAL_MARKER_SUFFIX = ".sealed";
 const LINE_SEPARATOR = "\n";
-const UTF8 = "utf8";
 
 export interface AppendableJournalStoreOptions {
   /** The resolved `.spx/` run file path that holds this stream's JSONL history. */
@@ -100,7 +100,7 @@ function toJsonRecord(event: JournalEvent): JsonRecord {
 
 async function readFileOrUndefined(fs: StateStoreFileSystem, path: string): Promise<string | undefined> {
   try {
-    return await fs.readFile(path, UTF8);
+    return await fs.readFile(path, STATE_STORE_TEXT_ENCODING);
   } catch (error) {
     if (hasErrorCode(error, ERROR_CODE_NOT_FOUND)) return undefined;
     throw error;

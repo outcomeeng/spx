@@ -1,10 +1,8 @@
 validation:
   paths:
     exclude:
-      - spx/36-audit.enabler/
       - spx/36-session.enabler/
       - spx/46-claude.outcome/
-      - .work/
   literal:
     values:
       include:

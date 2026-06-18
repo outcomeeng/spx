@@ -85,8 +85,8 @@ pnpm exec tsx src/cli.ts validation typescript --files \
   src/commands/audit/run-state.ts \
   src/domains/audit/run-state.ts \
   src/domains/audit/config.ts \
-  "$run_state_tests"/run-file.scenario.l1.test.ts \
-  "$run_state_tests"/run-state.scenario.l1.test.ts \
+  "$run_state_tests"/run-file.compliance.l1.test.ts \
+  "$run_state_tests"/run-state.compliance.l1.test.ts \
   "$run_state_tests"/branch-slug.property.l1.test.ts
 ```
 

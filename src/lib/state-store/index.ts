@@ -5,7 +5,7 @@ import {
   mkdir as nodeMkdir,
   open as nodeOpen,
   readdir as nodeReaddir,
-  readFile as nodeReadFile,
+  rm as nodeRm,
 } from "node:fs/promises";
 import { dirname, join } from "node:path";
 
@@ -85,6 +85,7 @@ export interface StateStoreFileSystem {
   readFile(path: string, encoding: "utf8"): Promise<string>;
   readdir(path: string, options: { readonly withFileTypes: true }): Promise<readonly StateStoreFileEntry[]>;
   lstat(path: string): Promise<StateStorePathStats>;
+  rm(path: string, options?: { readonly force?: boolean }): Promise<void>;
 }
 
 export interface ResolveScopeOptions {
@@ -144,6 +145,7 @@ export type StateStoreRunReaderFileSystem = Pick<
 
 const SHA256_ALGORITHM = "sha256";
 const HEX_ENCODING = "hex";
+export const STATE_STORE_TEXT_ENCODING = "utf8";
 const RUN_FILE_CREATE_ATTEMPTS = 10;
 const RUN_TIMESTAMP_SEPARATOR = "_";
 const SLUG_SEPARATOR = "-";
@@ -155,9 +157,10 @@ const BRANCH_SLUG_PATTERN = /^[a-z0-9]+(?:-[a-z0-9]+)*$/;
 const RUN_TOKEN_PATTERN = /^\d{4}-\d{2}-\d{2}_\d{2}-\d{2}-\d{2}-\d{3}-[a-f0-9]{12}$/;
 const TOKEN_PATTERN = /^[A-Za-z0-9_-]+$/;
 export const EXCLUSIVE_CREATE_FLAG = "wx";
-const WRITE_EXISTING_FLAG = "r+";
+export const WRITE_EXISTING_FLAG = "r+";
 export const ERROR_CODE_FILE_EXISTS = "EEXIST";
 export const ERROR_CODE_NOT_FOUND = "ENOENT";
+export const ERROR_CODE_TOO_MANY_SYMBOLIC_LINKS = "ELOOP";
 const JSONL_LINE_SEPARATOR = "\n";
 const ERROR_DETAIL_SEPARATOR = ": ";
 
@@ -184,9 +187,19 @@ const defaultFileSystem: StateStoreFileSystem = {
       await handle.close();
     }
   },
-  readFile: nodeReadFile,
+  readFile: async (path, encoding) => {
+    const handle = await nodeOpen(path, fsConstants.O_RDONLY | fsConstants.O_NOFOLLOW);
+    try {
+      return await handle.readFile({ encoding });
+    } finally {
+      await handle.close();
+    }
+  },
   readdir: nodeReaddir,
   lstat: nodeLstat,
+  rm: async (path, options) => {
+    await nodeRm(path, options);
+  },
 };
 
 export { defaultFileSystem as defaultStateStoreFileSystem };
@@ -419,7 +432,7 @@ export async function writeJsonlRunRecord(
 ): Promise<Result<string>> {
   const fs = options.fs ?? defaultFileSystem;
   try {
-    const existing = await fs.readFile(runFilePath, "utf8");
+    const existing = await fs.readFile(runFilePath, STATE_STORE_TEXT_ENCODING);
     if (existing.trim().length > 0) return { ok: false, error: STATE_STORE_ERROR.RECORD_ALREADY_EXISTS };
   } catch (error) {
     if (!hasErrorCode(error, ERROR_CODE_NOT_FOUND)) {
@@ -466,7 +479,7 @@ export async function readLatestJsonlRecord(
   const fs = options.fs ?? defaultFileSystem;
   let content: string;
   try {
-    content = await fs.readFile(filePath, "utf8");
+    content = await fs.readFile(filePath, STATE_STORE_TEXT_ENCODING);
   } catch (error) {
     if (hasErrorCode(error, ERROR_CODE_NOT_FOUND)) return { ok: true, value: undefined };
     return {

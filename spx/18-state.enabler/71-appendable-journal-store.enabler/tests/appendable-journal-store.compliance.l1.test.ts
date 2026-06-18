@@ -23,6 +23,7 @@ describe("appendable journal store — compliance", () => {
 
     // re-presenting an event whose seq is already persisted must not overwrite it
     await expect(store.append(event)).rejects.toThrow(JOURNAL_ERROR.SEQ_CONSUMED);
+    await expect(store.readAll()).resolves.toEqual([event]);
   });
 
   it("reports the persisted seal across a fresh store and rejects a journal append after seal", async () => {

@@ -39,6 +39,7 @@ import {
   createAuditRunFile,
   readAuditBranchRuns,
   readAuditRunEvents,
+  removeAuditRunFile,
   resolveAuditRunFilePath,
   writeTerminalAuditRunState,
   type AuditRunFile,
@@ -107,6 +108,11 @@ const AUDIT_STATUS_RENDER_LABEL = {
   LIST: "audit list",
   STATUS: "audit status",
 } as const;
+export const AUDIT_LIFECYCLE_TEXT_LABEL = {
+  INCOMPLETE: "incomplete: ",
+  RUN_FILE: "run file: ",
+} as const;
+const ROLLBACK_ERROR_SEPARATOR = "; rollback failed: ";
 
 export async function auditInitCommand(
   options: AuditInitOptions,
@@ -121,7 +127,7 @@ export async function auditInitCommand(
   const branchSlug = slugAuditBranchIdentity(branchIdentity);
   const auditConfig = await resolveAuditConfig(product.worktreeRoot);
   if (!auditConfig.ok) return errorResult(auditConfig.error, options.json);
-  const resolvedTargets = targetFilterEntries(auditConfig.value.targets);
+  const resolvedTargets = targetPaths(auditConfig.value.targets);
   const digest = digestAuditConfig(auditConfig.value);
   const startedDate = (deps.now ?? (() => new Date()))();
   const runFile = await createAuditRunFile(product.productDir, branchSlug, {
@@ -141,6 +147,7 @@ export async function auditInitCommand(
     startedAt: runFile.value.startedAt,
   };
   const appended = await appendAuditRunEvent(
+    product.productDir,
     runFile.value.runFilePath,
     auditRunStartedEventInput(started, {
       id: `${runFile.value.runFileName}:${AUDIT_RUN_EVENT.STARTED_TYPE}`,
@@ -149,7 +156,13 @@ export async function auditInitCommand(
     }),
     { fs: deps.fs },
   );
-  if (!appended.ok) return errorResult(appended.error, options.json);
+  if (!appended.ok) {
+    const rollback = await removeAuditRunFile(product.productDir, runFile.value.runFilePath, { fs: deps.fs });
+    if (!rollback.ok) {
+      return errorResult(`${appended.error}${ROLLBACK_ERROR_SEPARATOR}${rollback.error}`, options.json);
+    }
+    return errorResult(appended.error, options.json);
+  }
 
   const payload = { ...runFile.value, ...started };
   return okResult(payload, renderInit(payload), options.json);
@@ -164,7 +177,7 @@ export async function auditProgressCommand(
   }
   const runFile = await resolveCommandRunFile(options.runFile, deps);
   if (!runFile.ok) return errorResult(runFile.error, options.json);
-  const events = await readAuditRunEvents(runFile.value.runFilePath, { fs: deps.fs });
+  const events = await readAuditRunEvents(runFile.value.productDir, runFile.value.runFilePath, { fs: deps.fs });
   if (!events.ok) return errorResult(events.error, options.json);
   if (latestStartedState(events.value) === undefined) {
     return errorResult(AUDIT_RUN_STATE_ERROR.MISSING_INIT_EVENT, options.json);
@@ -176,6 +189,7 @@ export async function auditProgressCommand(
     at,
   };
   const appended = await appendAuditRunEvent(
+    runFile.value.productDir,
     runFile.value.runFilePath,
     auditRunProgressEventInput(progress, {
       id: `${basename(runFile.value.runFilePath)}:${AUDIT_RUN_EVENT.PROGRESS_TYPE}:${at}`,
@@ -198,7 +212,7 @@ export async function auditCloseCommand(
   }
   const runFile = await resolveCommandRunFile(options.runFile, deps);
   if (!runFile.ok) return errorResult(runFile.error, options.json);
-  const events = await readAuditRunEvents(runFile.value.runFilePath, { fs: deps.fs });
+  const events = await readAuditRunEvents(runFile.value.productDir, runFile.value.runFilePath, { fs: deps.fs });
   if (!events.ok) return errorResult(events.error, options.json);
   const started = latestStartedState(events.value);
   if (started === undefined) {
@@ -212,7 +226,9 @@ export async function auditCloseCommand(
     ...(options.verdictPath === undefined ? {} : { verdictPath: options.verdictPath }),
     status: options.status,
   };
-  const written = await writeTerminalAuditRunState(runFile.value.runFilePath, state, { fs: deps.fs });
+  const written = await writeTerminalAuditRunState(runFile.value.productDir, runFile.value.runFilePath, state, {
+    fs: deps.fs,
+  });
   if (!written.ok) return errorResult(written.error, options.json);
 
   return okResult({ runFile: runFile.value.runFilePath, state }, renderClose(state), options.json);
@@ -266,12 +282,14 @@ async function auditStatusPayload(
 async function resolveCommandRunFile(
   runFilePath: string,
   deps: AuditLifecycleDeps,
-): Promise<Result<{ readonly runFilePath: string }>> {
+): Promise<Result<{ readonly productDir: string; readonly runFilePath: string }>> {
   const cwd = deps.cwd ?? process.cwd();
   const git = deps.git ?? defaultGitDependencies;
   const product = await detectGitCommonDirProductRoot(cwd, git);
   const resolved = resolveAuditRunFilePath(product.productDir, runFilePath, { cwd });
-  return resolved.ok ? { ok: true, value: { runFilePath: resolved.value.runFilePath } } : resolved;
+  return resolved.ok
+    ? { ok: true, value: { productDir: product.productDir, runFilePath: resolved.value.runFilePath } }
+    : resolved;
 }
 
 function latestStartedState(events: readonly JournalEvent[]): AuditRunStartedState | undefined {
@@ -322,11 +340,8 @@ function digestAuditConfig(config: AuditConfig): string {
   return digest.ok ? digest.value.sha256 : sha256Hex(JSON.stringify(config));
 }
 
-function targetFilterEntries(targets: PathFilterConfig): readonly string[] {
-  return [
-    ...(targets.include ?? []).map((path) => `include:${path}`),
-    ...(targets.exclude ?? []).map((path) => `exclude:${path}`),
-  ];
+function targetPaths(targets: PathFilterConfig): readonly string[] {
+  return targets.include ?? [];
 }
 
 function isAuditCloseStatus(value: string): value is AuditRunState["status"] {
@@ -355,7 +370,7 @@ function renderInit(payload: AuditRunFile & AuditRunStartedState): string {
     `branch: ${sanitizeCliArgument(payload.branchName)}`,
     `auditors: ${sanitizeCliList(payload.auditors)}`,
     `targets: ${sanitizeCliList(payload.targets)}`,
-    `run file: ${escapeCliArgument(payload.runFilePath)}`,
+    `${AUDIT_LIFECYCLE_TEXT_LABEL.RUN_FILE}${escapeCliArgument(payload.runFilePath)}`,
   ].join("\n");
 }
 
@@ -386,7 +401,7 @@ function renderStatus(
 }
 
 function renderIncompleteRun(run: AuditIncompleteRun): string {
-  return `incomplete: ${sanitizeCliArgument(run.runFileName)} (${sanitizeCliArgument(run.reason)})${
+  return `${AUDIT_LIFECYCLE_TEXT_LABEL.INCOMPLETE}${sanitizeCliArgument(run.runFileName)} (${sanitizeCliArgument(run.reason)})${
     run.error === undefined ? "" : ` - ${sanitizeCliArgument(run.error)}`
   }`;
 }

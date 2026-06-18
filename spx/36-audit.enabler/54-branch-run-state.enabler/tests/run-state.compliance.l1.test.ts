@@ -163,6 +163,7 @@ describe("audit branch run-state lookup", () => {
       readFile: () => Promise.reject(error),
       readdir: () => Promise.resolve([{ name: runFileName, isFile: () => true }]),
       lstat: () => Promise.resolve({ isDirectory: () => true, isFile: () => false, isSymbolicLink: () => false }),
+      rm: () => Promise.resolve(),
     };
 
     await withAuditHarness(async (productDir) => {
@@ -244,7 +245,7 @@ describe("audit branch run-state lookup", () => {
       expect(runFile.ok).toBe(true);
       if (!runFile.ok) throw new Error(runFile.error);
 
-      const written = await writeTerminalAuditRunState(runFile.value.runFilePath, state);
+      const written = await writeTerminalAuditRunState(productDir, runFile.value.runFilePath, state);
       expect(written.ok).toBe(true);
       expect(existsSync(appendableJournalSealMarkerPath(runFile.value.runFilePath))).toBe(true);
 
@@ -254,7 +255,7 @@ describe("audit branch run-state lookup", () => {
       expect(read.value.terminalRuns.map((run) => run.runFileName)).toEqual([runFile.value.runFileName]);
       expect(read.value.terminalRuns[0]?.state).toEqual(state);
 
-      const duplicate = await writeTerminalAuditRunState(runFile.value.runFilePath, state);
+      const duplicate = await writeTerminalAuditRunState(productDir, runFile.value.runFilePath, state);
       expect(duplicate).toEqual({ ok: false, error: AUDIT_RUN_STATE_ERROR.STATE_ALREADY_EXISTS });
 
       const events = await createAppendableJournalStore({ runFilePath: runFile.value.runFilePath }).readAll();

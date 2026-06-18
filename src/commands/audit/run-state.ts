@@ -14,20 +14,29 @@ import {
   foldAuditRunState,
   isAuditRunStateStatus,
 } from "@/domains/audit/run-state";
-import { createJournal, type JournalEvent, type JournalIdentity } from "@/lib/agent-run-journal";
+import {
+  CLOUDEVENTS_SPECVERSION,
+  type JournalEvent,
+  type JournalEventInput,
+  type JournalIdentity,
+  JOURNAL_SEQ_BASE,
+} from "@/lib/agent-run-journal";
 import { appendableJournalSealMarkerPath, createAppendableJournalStore } from "@/lib/appendable-journal-store";
 import {
+  appendJsonlRecord,
   branchScopeDir,
   createJsonlRunFile,
   type CreateRunFileOptions,
   defaultStateStoreFileSystem,
   hasErrorCode,
   isRunFileName,
+  type JsonRecord,
   parseStateStoreError,
   runsDir as stateStoreRunsDir,
   STATE_STORE_DOMAIN,
   STATE_STORE_ERROR,
   STATE_STORE_PATH,
+  STATE_STORE_TEXT_ENCODING,
   validateBranchSlug,
   type StateStoreFileEntry,
   type StateStoreFileSystem,
@@ -80,8 +89,13 @@ export async function createAuditRunFile(
   branchSlug: string,
   options: CreateAuditRunFileOptions = {},
 ): Promise<Result<AuditRunFile>> {
+  const fs = options.fs ?? defaultFileSystem;
   const branchDir = branchScopeDir(gitCommonDirProductDir, branchSlug);
   if (!branchDir.ok) return branchDir;
+  const auditRunsDir = stateStoreRunsDir(branchDir.value, STATE_STORE_DOMAIN.AUDIT);
+  if (!auditRunsDir.ok) return auditRunsDir;
+  const runsDirSafety = await validateAuditStateDirectoryPath(auditRunsDir.value, fs);
+  if (!runsDirSafety.ok) return runsDirSafety;
   const created = await createJsonlRunFile(branchDir.value, STATE_STORE_DOMAIN.AUDIT, options);
   if (!created.ok) {
     return {
@@ -105,6 +119,7 @@ export async function createAuditRunFile(
 }
 
 export async function writeTerminalAuditRunState(
+  gitCommonDirProductDir: string,
   runFilePath: string,
   state: AuditRunState,
   options: WriteAuditRunStateOptions = {},
@@ -113,64 +128,114 @@ export async function writeTerminalAuditRunState(
     return { ok: false, error: AUDIT_RUN_STATE_ERROR.INVALID_TERMINAL_STATE };
   }
   const fs = options.fs ?? defaultFileSystem;
-  const runFileSafety = await validateExistingAuditRunFile(runFilePath, fs);
+  const runFileSafety = await validateExistingAuditRunFile(gitCommonDirProductDir, runFilePath, fs);
   if (!runFileSafety.ok) return runFileSafety;
-  const sealMarkerSafety = await validateAuditStateFilePath(appendableJournalSealMarkerPath(runFilePath), fs);
+  const resolvedRunFilePath = runFileSafety.value;
+  const sealMarkerSafety = await validateAuditStateFilePath(appendableJournalSealMarkerPath(resolvedRunFilePath), fs);
   if (!sealMarkerSafety.ok) return sealMarkerSafety;
-  const backend = createAppendableJournalStore({ runFilePath, fs });
-  const journal = createJournal(backend, auditRunJournalIdentity(runFilePath));
+  const backend = createAppendableJournalStore({ runFilePath: resolvedRunFilePath, fs });
+  let previousContent: string | undefined;
+  let terminalEventAppended = false;
   try {
-    // A sealed journal already holds this run's terminal record; reading the seal
-    // marker is the structured idempotency guard the directory ADR prescribes. The
-    // read is in the same try as append/seal so a seal-marker I/O failure returns
-    // a write error rather than throwing out of this Result-returning function.
+    // A sealed journal already holds this run's terminal record; the marker read
+    // shares the append/seal try block so a marker I/O failure returns a write
+    // error rather than throwing out of this Result-returning function.
     if (await backend.isSealed()) {
       return { ok: false, error: AUDIT_RUN_STATE_ERROR.STATE_ALREADY_EXISTS };
     }
-    await journal.append(
+    const history = await backend.readAll();
+    if (history.some((existing) => existing.type === AUDIT_RUN_EVENT.COMPLETED_TYPE)) {
+      return { ok: false, error: AUDIT_RUN_STATE_ERROR.STATE_ALREADY_EXISTS };
+    }
+    previousContent = await fs.readFile(resolvedRunFilePath, STATE_STORE_TEXT_ENCODING);
+    await appendAuditJournalEvent(
+      resolvedRunFilePath,
       auditRunCompletedEventInput(state, {
-        id: `${basename(runFilePath)}:${AUDIT_RUN_EVENT.COMPLETED_TYPE}`,
+        id: `${basename(resolvedRunFilePath)}:${AUDIT_RUN_EVENT.COMPLETED_TYPE}`,
         time: state.completedAt,
         attempt: AUDIT_RUN_COMPLETED_ATTEMPT,
       }),
+      history,
+      fs,
     );
-    await journal.seal();
+    terminalEventAppended = true;
+    await backend.seal();
+  } catch (error) {
+    const rollback = terminalEventAppended && previousContent !== undefined
+      ? await restoreAuditRunFileContent(gitCommonDirProductDir, resolvedRunFilePath, previousContent, fs)
+      : { ok: true as const, value: undefined };
+    const detail = rollback.ok
+      ? toErrorMessage(error)
+      : `${toErrorMessage(error)}; rollback failed: ${rollback.error}`;
+    return {
+      ok: false,
+      error: withDomainErrorDetail(AUDIT_RUN_STATE_ERROR.STATE_WRITE_FAILED, detail),
+    };
+  }
+  return { ok: true, value: resolvedRunFilePath };
+}
+
+export async function removeAuditRunFile(
+  gitCommonDirProductDir: string,
+  runFilePath: string,
+  options: WriteAuditRunStateOptions = {},
+): Promise<Result<string>> {
+  const fs = options.fs ?? defaultFileSystem;
+  const runFileSafety = await validateExistingAuditRunFile(gitCommonDirProductDir, runFilePath, fs);
+  if (!runFileSafety.ok) return runFileSafety;
+  const resolvedRunFilePath = runFileSafety.value;
+  const sealMarkerPath = appendableJournalSealMarkerPath(resolvedRunFilePath);
+  const sealMarkerSafety = await validateAuditStateFilePath(sealMarkerPath, fs);
+  if (!sealMarkerSafety.ok) return sealMarkerSafety;
+  try {
+    await fs.rm(sealMarkerPath, { force: true });
+    await fs.rm(resolvedRunFilePath, { force: true });
+    return { ok: true, value: resolvedRunFilePath };
   } catch (error) {
     return {
       ok: false,
       error: withDomainErrorDetail(AUDIT_RUN_STATE_ERROR.STATE_WRITE_FAILED, toErrorMessage(error)),
     };
   }
-  return { ok: true, value: runFilePath };
 }
 
 export async function appendAuditRunEvent(
+  gitCommonDirProductDir: string,
   runFilePath: string,
-  event: Parameters<ReturnType<typeof createJournal>["append"]>[0],
+  event: JournalEventInput,
   options: WriteAuditRunStateOptions = {},
 ): Promise<Result<string>> {
   const fs = options.fs ?? defaultFileSystem;
-  const runFileSafety = await validateExistingAuditRunFile(runFilePath, fs);
+  const runFileSafety = await validateExistingAuditRunFile(gitCommonDirProductDir, runFilePath, fs);
   if (!runFileSafety.ok) return runFileSafety;
-  const backend = createAppendableJournalStore({ runFilePath, fs });
-  const journal = createJournal(backend, auditRunJournalIdentity(runFilePath));
+  const resolvedRunFilePath = runFileSafety.value;
+  const backend = createAppendableJournalStore({ runFilePath: resolvedRunFilePath, fs });
   try {
-    await journal.append(event);
-    return { ok: true, value: runFilePath };
+    if (await backend.isSealed()) {
+      return { ok: false, error: AUDIT_RUN_STATE_ERROR.STATE_ALREADY_EXISTS };
+    }
+    const history = await backend.readAll();
+    if (history.some((existing) => existing.type === AUDIT_RUN_EVENT.COMPLETED_TYPE)) {
+      return { ok: false, error: AUDIT_RUN_STATE_ERROR.STATE_ALREADY_EXISTS };
+    }
+    await appendAuditJournalEvent(resolvedRunFilePath, event, history, fs);
+    return { ok: true, value: resolvedRunFilePath };
   } catch (error) {
     return { ok: false, error: toErrorMessage(error) };
   }
 }
 
 export async function readAuditRunEvents(
+  gitCommonDirProductDir: string,
   runFilePath: string,
   options: ReadAuditRunStateOptions = {},
 ): Promise<Result<readonly JournalEvent[]>> {
   const fs = options.fs ?? defaultFileSystem;
-  const runFileSafety = await validateExistingAuditRunFile(runFilePath, fs);
+  const runFileSafety = await validateExistingAuditRunFile(gitCommonDirProductDir, runFilePath, fs);
   if (!runFileSafety.ok) return runFileSafety;
+  const resolvedRunFilePath = runFileSafety.value;
   try {
-    return { ok: true, value: await createAppendableJournalStore({ runFilePath, fs }).readAll() };
+    return { ok: true, value: await createAppendableJournalStore({ runFilePath: resolvedRunFilePath, fs }).readAll() };
   } catch (error) {
     return { ok: false, error: toErrorMessage(error) };
   }
@@ -294,28 +359,78 @@ function auditRunJournalIdentity(runFilePath: string): JournalIdentity {
   return { streamid: streamId, runid: streamId };
 }
 
+async function appendAuditJournalEvent(
+  runFilePath: string,
+  input: JournalEventInput,
+  history: readonly JournalEvent[],
+  fs: StateStoreFileSystem,
+): Promise<void> {
+  const identity = auditRunJournalIdentity(runFilePath);
+  const event: JournalEvent = {
+    id: input.id,
+    source: input.source,
+    type: input.type,
+    specversion: CLOUDEVENTS_SPECVERSION,
+    time: input.time,
+    streamid: identity.streamid,
+    seq: JOURNAL_SEQ_BASE + history.length,
+    runid: identity.runid,
+    attempt: input.attempt,
+    ...(input.data === undefined ? {} : { data: input.data }),
+  };
+  const result = await appendJsonlRecord(runFilePath, journalEventJsonRecord(event), { fs });
+  if (!result.ok) throw new Error(result.error);
+}
+
+function journalEventJsonRecord(event: JournalEvent): JsonRecord {
+  return {
+    id: event.id,
+    source: event.source,
+    type: event.type,
+    specversion: event.specversion,
+    time: event.time,
+    streamid: event.streamid,
+    seq: event.seq,
+    runid: event.runid,
+    attempt: event.attempt,
+    ...(event.data === undefined ? {} : { data: event.data }),
+  };
+}
+
 function isAuditRunFileEntry(entry: AuditRunFileEntry): boolean {
   return entry.isFile() && isRunFileName(entry.name);
 }
 
 async function validateExistingAuditRunFile(
+  gitCommonDirProductDir: string,
   runFilePath: string,
   fs: StateStoreFileSystem,
-): Promise<Result<void>> {
-  const pathSafety = validateAuditRunFilePathShape(runFilePath);
-  if (!pathSafety.ok) return pathSafety;
-  return validateAuditStateFilePath(runFilePath, fs);
+): Promise<Result<string>> {
+  const resolved = resolveAuditRunFilePath(gitCommonDirProductDir, runFilePath, {
+    cwd: gitCommonDirProductDir,
+  });
+  if (!resolved.ok) return resolved;
+  const fileSafety = await validateAuditStateFilePath(resolved.value.runFilePath, fs);
+  return fileSafety.ok ? { ok: true, value: resolved.value.runFilePath } : fileSafety;
 }
 
-function validateAuditRunFilePathShape(runFilePath: string): Result<void> {
-  const pathSegments = runFilePath.split(sep).slice(-AUDIT_RUN_FILE_RELATIVE_SEGMENT_COUNT);
-  if (!isAuditRunFileRelativePath(pathSegments)) {
-    return { ok: false, error: AUDIT_RUN_STATE_ERROR.INVALID_RUN_FILE_PATH };
+async function restoreAuditRunFileContent(
+  gitCommonDirProductDir: string,
+  runFilePath: string,
+  content: string,
+  fs: StateStoreFileSystem,
+): Promise<Result<void>> {
+  const runFileSafety = await validateExistingAuditRunFile(gitCommonDirProductDir, runFilePath, fs);
+  if (!runFileSafety.ok) return runFileSafety;
+  try {
+    await fs.writeFile(runFileSafety.value, content);
+    return { ok: true, value: undefined };
+  } catch (error) {
+    return {
+      ok: false,
+      error: withDomainErrorDetail(AUDIT_RUN_STATE_ERROR.STATE_WRITE_FAILED, toErrorMessage(error)),
+    };
   }
-  const branchSlug = pathSegments[AUDIT_RUN_FILE_BRANCH_SLUG_INDEX];
-  const validatedBranchSlug = validateBranchSlug(branchSlug);
-  if (!validatedBranchSlug.ok) return { ok: false, error: AUDIT_RUN_STATE_ERROR.INVALID_RUN_FILE_PATH };
-  return { ok: true, value: undefined };
 }
 
 async function validateAuditStateFilePath(

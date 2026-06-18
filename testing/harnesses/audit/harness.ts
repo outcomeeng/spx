@@ -12,6 +12,9 @@
 import { mkdir, writeFile } from "node:fs/promises";
 import { dirname, join } from "node:path";
 
+import { DEFAULT_CONFIG_FILENAME } from "@/config/index";
+import { PATH_FILTER_CONFIG_FIELDS } from "@/config/primitives/path-filter";
+import { AUDIT_CONFIG_FIELDS, AUDIT_SECTION } from "@/domains/audit/config";
 import { AUDIT_RUN_EVENT, auditRunCompletedEventInput, type AuditRunState } from "@/domains/audit/run-state";
 import { createJournal } from "@/lib/agent-run-journal";
 import { createAppendableJournalStore } from "@/lib/appendable-journal-store";
@@ -47,6 +50,44 @@ export function auditBranchRunsDir(productDir: string, branchSlug: string): stri
   const auditRunsDir = runsDir(branchDir.value, STATE_STORE_DOMAIN.AUDIT);
   if (!auditRunsDir.ok) throw new Error(auditRunsDir.error);
   return auditRunsDir.value;
+}
+
+export interface WriteAuditConfigOptions {
+  readonly baseRef: string;
+  readonly auditors: readonly string[];
+  readonly include?: readonly string[];
+  readonly exclude?: readonly string[];
+}
+
+/** Writes the product audit config file used by CLI lifecycle tests. */
+export async function writeAuditConfig(productDir: string, config: WriteAuditConfigOptions): Promise<void> {
+  await writeFile(
+    join(productDir, DEFAULT_CONFIG_FILENAME),
+    [
+      `${AUDIT_SECTION}:`,
+      `  ${AUDIT_CONFIG_FIELDS.BASE_REF}: ${config.baseRef}`,
+      `  ${AUDIT_CONFIG_FIELDS.AUDITORS}:`,
+      ...config.auditors.map((auditor) => `    - ${auditor}`),
+      ...(config.include === undefined && config.exclude === undefined
+        ? []
+        : [
+          `  ${AUDIT_CONFIG_FIELDS.TARGETS}:`,
+          ...(config.include === undefined
+            ? []
+            : [
+              `    ${PATH_FILTER_CONFIG_FIELDS.INCLUDE}:`,
+              ...config.include.map((target) => `      - ${target}`),
+            ]),
+          ...(config.exclude === undefined
+            ? []
+            : [
+              `    ${PATH_FILTER_CONFIG_FIELDS.EXCLUDE}:`,
+              ...config.exclude.map((target) => `      - ${target}`),
+            ]),
+        ]),
+      "",
+    ].join("\n"),
+  );
 }
 
 export interface WriteAuditRunJournalOptions {
