@@ -8,6 +8,7 @@ import { readClaim } from "@/domains/worktree/occupancy-store";
 import {
   HOOK_ENV_FILE,
   HOOK_SESSION_START_CLAIMED,
+  type HookSessionStartEnv,
   HOOK_SESSION_START_ENV,
   HOOK_SESSION_START_PAYLOAD,
 } from "@/domains/hooks/session-start";
@@ -15,7 +16,62 @@ import { defaultGitDependencies } from "@/git/root";
 import { worktreeClaimName } from "@/domains/worktree/worktree-name";
 import { runSessionStartHook } from "@/interfaces/hooks/session-start";
 import { sampleWorktreeTestValue, WORKTREE_TEST_GENERATOR } from "@testing/generators/worktree/worktree";
-import { withWorktreePool } from "@testing/harnesses/worktree/harness";
+import { type WorktreePoolEnv, withWorktreePool } from "@testing/harnesses/worktree/harness";
+
+interface SessionStartHookScenarioInput {
+  readonly claimWriteToken: string;
+  readonly content: string;
+  readonly env: HookSessionStartEnv;
+}
+
+function hookContent(env: WorktreePoolEnv, sessionId?: string): string {
+  return JSON.stringify({
+    ...(sessionId === undefined ? {} : { [HOOK_SESSION_START_PAYLOAD.SESSION_ID]: sessionId }),
+    [HOOK_SESSION_START_PAYLOAD.CWD]: env.worktreePath,
+  });
+}
+
+function hookEnvFilePath(env: WorktreePoolEnv, envFileName: string): string {
+  return join(env.container, envFileName);
+}
+
+function hookEnvWithHolder(env: WorktreePoolEnv, envFile: string, overlay: HookSessionStartEnv = {}): HookSessionStartEnv {
+  return {
+    [CONTROLLING_PID_ENV]: String(env.holder.pid),
+    [HOOK_SESSION_START_ENV.CLAUDE_ENV_FILE]: envFile,
+    ...overlay,
+  };
+}
+
+async function runSessionStartHookScenario(env: WorktreePoolEnv, input: SessionStartHookScenarioInput) {
+  return runSessionStartHook({
+    claimWriteToken: input.claimWriteToken,
+    content: input.content,
+    cwd: env.container,
+    fs: env.fs,
+    gitDeps: defaultGitDependencies,
+    worktreesDir: env.worktreesDir,
+    processTable: env.processTable,
+    selfPid: env.holder.pid,
+    env: input.env,
+  });
+}
+
+async function readWorktreeClaim(env: WorktreePoolEnv) {
+  return readClaim(env.worktreesDir, worktreeClaimName(basename(env.worktreePath)), { fs: env.fs });
+}
+
+async function readHookEnvFile(envFile: string): Promise<string> {
+  return readFile(envFile, HOOK_ENV_FILE.ENCODING);
+}
+
+function expectHookEnvExport(envContent: string, name: string, value: string): void {
+  expect(envContent).toContain(`${HOOK_ENV_FILE.EXPORT_PREFIX}${name}=${value}`);
+}
+
+function expectHookEnvClaimed(envContent: string, claimed: string): void {
+  expectHookEnvExport(envContent, HOOK_SESSION_START_ENV.CLAUDE_WORKTREE_CLAIMED, claimed);
+}
 
 describe("hook session-start adapter", () => {
   it("writes one claim and the hook env exports from a session-start payload", async () => {
@@ -26,23 +82,11 @@ describe("hook session-start adapter", () => {
     const claimWriteToken = sampleWorktreeTestValue(WORKTREE_TEST_GENERATOR.writeToken());
 
     await withWorktreePool({ worktreeName, holder }, async (env) => {
-      const envFile = join(env.container, envFileName);
-      const result = await runSessionStartHook({
+      const envFile = hookEnvFilePath(env, envFileName);
+      const result = await runSessionStartHookScenario(env, {
         claimWriteToken,
-        content: JSON.stringify({
-          [HOOK_SESSION_START_PAYLOAD.SESSION_ID]: sessionId,
-          [HOOK_SESSION_START_PAYLOAD.CWD]: env.worktreePath,
-        }),
-        cwd: env.container,
-        fs: env.fs,
-        gitDeps: defaultGitDependencies,
-        worktreesDir: env.worktreesDir,
-        processTable: env.processTable,
-        selfPid: holder.pid,
-        env: {
-          [CONTROLLING_PID_ENV]: String(holder.pid),
-          [HOOK_SESSION_START_ENV.CLAUDE_ENV_FILE]: envFile,
-        },
+        content: hookContent(env, sessionId),
+        env: hookEnvWithHolder(env, envFile),
       });
 
       expect(result.ok).toBe(true);
@@ -51,8 +95,7 @@ describe("hook session-start adapter", () => {
       expect(result.value.diagnostics).toEqual([]);
       expect(result.value.stdout).toHaveLength(0);
 
-      const claimName = worktreeClaimName(basename(env.worktreePath));
-      const claim = await readClaim(env.worktreesDir, claimName, { fs: env.fs });
+      const claim = await readWorktreeClaim(env);
       expect(claim.ok).toBe(true);
       if (!claim.ok) throw new Error(claim.error);
       expect(claim.value).toEqual({
@@ -62,19 +105,11 @@ describe("hook session-start adapter", () => {
         startedAt: holder.startedAt,
       });
 
-      const envContent = await readFile(envFile, HOOK_ENV_FILE.ENCODING);
-      expect(envContent).toContain(
-        `${HOOK_ENV_FILE.EXPORT_PREFIX}${HOOK_SESSION_START_ENV.CLAUDE_SESSION_ID}=${sessionId}`,
-      );
-      expect(envContent).toContain(
-        `${HOOK_ENV_FILE.EXPORT_PREFIX}${HOOK_SESSION_START_ENV.CLAUDE_PROJECT_DIR}='${env.worktreePath}'`,
-      );
-      expect(envContent).toContain(
-        `${HOOK_ENV_FILE.EXPORT_PREFIX}${HOOK_SESSION_START_ENV.PROJECT_DIR}='${env.worktreePath}'`,
-      );
-      expect(envContent).toContain(
-        `${HOOK_ENV_FILE.EXPORT_PREFIX}${HOOK_SESSION_START_ENV.CLAUDE_WORKTREE_CLAIMED}=${HOOK_SESSION_START_CLAIMED.TRUE}`,
-      );
+      const envContent = await readHookEnvFile(envFile);
+      expectHookEnvExport(envContent, HOOK_SESSION_START_ENV.CLAUDE_SESSION_ID, sessionId);
+      expectHookEnvExport(envContent, HOOK_SESSION_START_ENV.CLAUDE_PROJECT_DIR, `'${env.worktreePath}'`);
+      expectHookEnvExport(envContent, HOOK_SESSION_START_ENV.PROJECT_DIR, `'${env.worktreePath}'`);
+      expectHookEnvClaimed(envContent, HOOK_SESSION_START_CLAIMED.TRUE);
     });
   });
 
@@ -86,37 +121,24 @@ describe("hook session-start adapter", () => {
     const claimWriteToken = sampleWorktreeTestValue(WORKTREE_TEST_GENERATOR.writeToken());
 
     await withWorktreePool({ worktreeName, holder }, async (env) => {
-      const envFile = join(env.container, envFileName);
-      const result = await runSessionStartHook({
+      const envFile = hookEnvFilePath(env, envFileName);
+      const result = await runSessionStartHookScenario(env, {
         claimWriteToken,
-        content: JSON.stringify({ [HOOK_SESSION_START_PAYLOAD.CWD]: env.worktreePath }),
-        cwd: env.container,
-        fs: env.fs,
-        gitDeps: defaultGitDependencies,
-        worktreesDir: env.worktreesDir,
-        processTable: env.processTable,
-        selfPid: holder.pid,
-        env: {
-          [CONTROLLING_PID_ENV]: String(holder.pid),
-          [HOOK_SESSION_START_ENV.CLAUDE_ENV_FILE]: envFile,
-          [HOOK_SESSION_START_ENV.CODEX_THREAD_ID]: threadId,
-        },
+        content: hookContent(env),
+        env: hookEnvWithHolder(env, envFile, { [HOOK_SESSION_START_ENV.CODEX_THREAD_ID]: threadId }),
       });
 
       expect(result.ok).toBe(true);
       if (!result.ok) throw new Error(result.error);
       expect(result.value.sessionId).toBe(threadId);
 
-      const claimName = worktreeClaimName(basename(env.worktreePath));
-      const claim = await readClaim(env.worktreesDir, claimName, { fs: env.fs });
+      const claim = await readWorktreeClaim(env);
       expect(claim.ok).toBe(true);
       if (!claim.ok) throw new Error(claim.error);
       expect(claim.value?.sessionId).toBe(threadId);
 
-      const envContent = await readFile(envFile, HOOK_ENV_FILE.ENCODING);
-      expect(envContent).toContain(
-        `${HOOK_ENV_FILE.EXPORT_PREFIX}${HOOK_SESSION_START_ENV.CLAUDE_SESSION_ID}=${threadId}`,
-      );
+      const envContent = await readHookEnvFile(envFile);
+      expectHookEnvExport(envContent, HOOK_SESSION_START_ENV.CLAUDE_SESSION_ID, threadId);
     });
   });
 
@@ -127,20 +149,11 @@ describe("hook session-start adapter", () => {
     const claimWriteToken = sampleWorktreeTestValue(WORKTREE_TEST_GENERATOR.writeToken());
 
     await withWorktreePool({ worktreeName, holder }, async (env) => {
-      const envFile = join(env.container, envFileName);
-      const result = await runSessionStartHook({
+      const envFile = hookEnvFilePath(env, envFileName);
+      const result = await runSessionStartHookScenario(env, {
         claimWriteToken,
-        content: JSON.stringify({ [HOOK_SESSION_START_PAYLOAD.CWD]: env.worktreePath }),
-        cwd: env.container,
-        fs: env.fs,
-        gitDeps: defaultGitDependencies,
-        worktreesDir: env.worktreesDir,
-        processTable: env.processTable,
-        selfPid: holder.pid,
-        env: {
-          [CONTROLLING_PID_ENV]: String(holder.pid),
-          [HOOK_SESSION_START_ENV.CLAUDE_ENV_FILE]: envFile,
-        },
+        content: hookContent(env),
+        env: hookEnvWithHolder(env, envFile),
       });
 
       expect(result.ok).toBe(true);
@@ -148,16 +161,10 @@ describe("hook session-start adapter", () => {
       expect(result.value.claimed).toBe(false);
       expect(result.value.sessionId).toBeUndefined();
 
-      const envContent = await readFile(envFile, HOOK_ENV_FILE.ENCODING);
-      expect(envContent).toContain(
-        `${HOOK_ENV_FILE.EXPORT_PREFIX}${HOOK_SESSION_START_ENV.CLAUDE_PROJECT_DIR}='${env.worktreePath}'`,
-      );
-      expect(envContent).toContain(
-        `${HOOK_ENV_FILE.EXPORT_PREFIX}${HOOK_SESSION_START_ENV.PROJECT_DIR}='${env.worktreePath}'`,
-      );
-      expect(envContent).toContain(
-        `${HOOK_ENV_FILE.EXPORT_PREFIX}${HOOK_SESSION_START_ENV.CLAUDE_WORKTREE_CLAIMED}=${HOOK_SESSION_START_CLAIMED.FALSE}`,
-      );
+      const envContent = await readHookEnvFile(envFile);
+      expectHookEnvExport(envContent, HOOK_SESSION_START_ENV.CLAUDE_PROJECT_DIR, `'${env.worktreePath}'`);
+      expectHookEnvExport(envContent, HOOK_SESSION_START_ENV.PROJECT_DIR, `'${env.worktreePath}'`);
+      expectHookEnvClaimed(envContent, HOOK_SESSION_START_CLAIMED.FALSE);
     });
   });
 
@@ -169,19 +176,10 @@ describe("hook session-start adapter", () => {
     const claimWriteToken = sampleWorktreeTestValue(WORKTREE_TEST_GENERATOR.writeToken());
 
     await withWorktreePool({ worktreeName, holder }, async (env) => {
-      const envFile = join(env.container, envFileName);
-      const result = await runSessionStartHook({
+      const envFile = hookEnvFilePath(env, envFileName);
+      const result = await runSessionStartHookScenario(env, {
         claimWriteToken,
-        content: JSON.stringify({
-          [HOOK_SESSION_START_PAYLOAD.SESSION_ID]: sessionId,
-          [HOOK_SESSION_START_PAYLOAD.CWD]: env.worktreePath,
-        }),
-        cwd: env.container,
-        fs: env.fs,
-        gitDeps: defaultGitDependencies,
-        worktreesDir: env.worktreesDir,
-        processTable: env.processTable,
-        selfPid: holder.pid,
+        content: hookContent(env, sessionId),
         env: {
           [HOOK_SESSION_START_ENV.CLAUDE_ENV_FILE]: envFile,
         },
@@ -192,10 +190,8 @@ describe("hook session-start adapter", () => {
       expect(result.value.claimed).toBe(false);
       expect(result.value.diagnostics).toContain(CONTROLLING_PROCESS_ERROR.UNRESOLVED);
 
-      const envContent = await readFile(envFile, HOOK_ENV_FILE.ENCODING);
-      expect(envContent).toContain(
-        `${HOOK_ENV_FILE.EXPORT_PREFIX}${HOOK_SESSION_START_ENV.CLAUDE_WORKTREE_CLAIMED}=${HOOK_SESSION_START_CLAIMED.FALSE}`,
-      );
+      const envContent = await readHookEnvFile(envFile);
+      expectHookEnvClaimed(envContent, HOOK_SESSION_START_CLAIMED.FALSE);
     });
   });
 });
