@@ -149,6 +149,25 @@ describe("ALWAYS: TypeScript scope resolution uses the requested project root", 
     });
   });
 
+  it("does not discover directories outside explicit TypeScript include patterns", async () => {
+    await withTestEnv({}, async (env) => {
+      const testScopeDirectoryName = "tests";
+      await env.writeRaw(
+        join(VALIDATION_PIPELINE_DATA.sourceDirectoryName, VALIDATION_PIPELINE_DATA.cleanSourceFileName),
+        "",
+      );
+      await env.writeRaw(join(testScopeDirectoryName, "cycle-a.ts"), "");
+      await env.writeRaw(
+        TSCONFIG_FILES.production,
+        JSON.stringify({ include: [VALIDATION_PIPELINE_DATA.productionScopeFilePattern] }),
+      );
+
+      const scope = getTypeScriptScope(VALIDATION_SCOPES.PRODUCTION, env.productDir);
+
+      expect(scope.directories).toEqual([VALIDATION_PIPELINE_DATA.sourceDirectoryName]);
+    });
+  });
+
   it("lets child TypeScript exclude replace inherited excludes", async () => {
     await withTestEnv({}, async (env) => {
       await env.writeRaw(

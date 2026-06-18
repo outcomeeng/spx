@@ -13,6 +13,7 @@ import { applyValidationPathFilterToScope, validationPathFilterForTool } from "@
 import { getTypeScriptScope } from "@/validation/config/scope";
 import { detectTypeScript, discoverTool, formatSkipMessage } from "@/validation/discovery/index";
 import { validateCircularDependencies } from "@/validation/steps/circular";
+import { VALIDATION_SCOPES } from "@/validation/types";
 import {
   formatTypeScriptAbsentSkipMessage,
   VALIDATION_COMMAND_OUTPUT,
@@ -37,7 +38,7 @@ export const CIRCULAR_DEPENDENCY_OUTPUT = {
  * @returns Command result with exit code and output
  */
 export async function circularCommand(options: CircularCommandOptions): Promise<ValidationCommandResult> {
-  const { cwd, quiet } = options;
+  const { cwd, quiet, scope = VALIDATION_SCOPES.FULL } = options;
   const startTime = Date.now();
 
   // Gate 1: language detection. No TypeScript = skip cleanly.
@@ -67,12 +68,12 @@ export async function circularCommand(options: CircularCommandOptions): Promise<
   }
   const validationConfig = loaded.value[validationConfigDescriptor.section] as ValidationConfig;
   const scopeConfig = applyValidationPathFilterToScope(
-    getTypeScriptScope("full", cwd),
+    getTypeScriptScope(scope, cwd),
     validationPathFilterForTool(validationConfig.paths, VALIDATION_PATH_TOOL_SUBSECTIONS.CIRCULAR),
   );
 
   // Run circular dependency validation
-  const result = await validateCircularDependencies("full", scopeConfig, cwd);
+  const result = await validateCircularDependencies(scope, scopeConfig, cwd);
   const durationMs = Date.now() - startTime;
 
   // Map result to command output

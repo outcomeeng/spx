@@ -200,6 +200,10 @@ export function getTopLevelDirectoriesWithTypeScript(
 
   // Check if each directory should be included based on tsconfig include/exclude patterns
   for (const dir of topLevelDirs) {
+    if (!directoryPassesIncludePatterns(dir, config.include ?? [])) {
+      continue;
+    }
+
     // Check if directory is explicitly excluded
     const isExcluded = config.exclude?.some((pattern) => {
       // Handle directory-recursive patterns like "docs/**/*"
@@ -247,6 +251,17 @@ function getLiteralTopLevelPatternDirectory(pattern: string): string | null {
     return null;
   }
   return topLevelDir;
+}
+
+function includePatternsConstrainTopLevelDirectories(patterns: readonly string[]): boolean {
+  return patterns.some((pattern) => getLiteralTopLevelPatternDirectory(pattern) !== null);
+}
+
+function directoryPassesIncludePatterns(directory: string, patterns: readonly string[]): boolean {
+  if (!includePatternsConstrainTopLevelDirectories(patterns)) {
+    return true;
+  }
+  return patterns.some((pattern) => getLiteralTopLevelPatternDirectory(pattern) === directory);
 }
 
 function filterActiveIncludePatterns(
