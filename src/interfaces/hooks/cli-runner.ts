@@ -36,7 +36,26 @@ export interface HookCliRunOptions {
   readonly worktreesDir?: string;
 }
 
+export interface HookProcessIoStreams {
+  readonly stdin: {
+    readonly isTTY?: boolean;
+    setEncoding(encoding: BufferEncoding): void;
+    on(event: "data", listener: (chunk: string) => void): unknown;
+    on(event: "end", listener: () => void): unknown;
+    on(event: "error", listener: (error: unknown) => void): unknown;
+  };
+  readonly stdout: { write(content: string): unknown };
+  readonly stderr: { write(content: string): unknown };
+}
+
+export const HOOK_PROCESS_IO_EVENT = {
+  DATA: "data",
+  END: "end",
+  ERROR: "error",
+} as const;
+
 const LINE_SEPARATOR = "\n";
+const ERROR_DETAIL_SEPARATOR = ": ";
 const STDIN_READ_ERROR = "hook stdin read failed";
 
 /** Runs a hook event from a CLI transport, including hook-owned process I/O. */
@@ -82,28 +101,40 @@ export async function runHookCli(options: HookCliRunOptions): Promise<Result<voi
   return { ok: true, value: undefined };
 }
 
-export const processHookIo: HookProcessIo = {
-  readStdin: async () => {
-    if (process.stdin.isTTY) return { ok: true, value: undefined };
+export function createProcessHookIo(streams: HookProcessIoStreams): HookProcessIo {
+  return {
+    readStdin: async () => {
+      if (streams.stdin.isTTY) return { ok: true, value: undefined };
 
-    return new Promise((resolve) => {
-      let data = "";
-      process.stdin.setEncoding("utf-8");
-      process.stdin.on("data", (chunk) => {
-        data += chunk;
+      return new Promise((resolve) => {
+        let data = "";
+        streams.stdin.setEncoding("utf-8");
+        streams.stdin.on(HOOK_PROCESS_IO_EVENT.DATA, (chunk) => {
+          data += chunk;
+        });
+        streams.stdin.on(HOOK_PROCESS_IO_EVENT.END, () => {
+          resolve({ ok: true, value: data.length === 0 ? undefined : data });
+        });
+        streams.stdin.on(HOOK_PROCESS_IO_EVENT.ERROR, (error) => {
+          resolve({ ok: false, error: formatStdinReadError(error) });
+        });
       });
-      process.stdin.on("end", () => {
-        resolve({ ok: true, value: data.length === 0 ? undefined : data });
-      });
-      process.stdin.on("error", () => {
-        resolve({ ok: false, error: STDIN_READ_ERROR });
-      });
-    });
-  },
-  writeStdout: (content) => {
-    process.stdout.write(`${content}${LINE_SEPARATOR}`);
-  },
-  writeStderr: (content) => {
-    process.stderr.write(`${content}${LINE_SEPARATOR}`);
-  },
-};
+    },
+    writeStdout: (content) => {
+      streams.stdout.write(`${content}${LINE_SEPARATOR}`);
+    },
+    writeStderr: (content) => {
+      streams.stderr.write(`${content}${LINE_SEPARATOR}`);
+    },
+  };
+}
+
+function formatStdinReadError(error: unknown): string {
+  return `${STDIN_READ_ERROR}${ERROR_DETAIL_SEPARATOR}${error instanceof Error ? error.message : String(error)}`;
+}
+
+export const processHookIo: HookProcessIo = createProcessHookIo({
+  stdin: process.stdin,
+  stdout: process.stdout,
+  stderr: process.stderr,
+});

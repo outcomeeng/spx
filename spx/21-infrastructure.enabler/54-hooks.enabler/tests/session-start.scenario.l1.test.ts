@@ -142,6 +142,38 @@ describe("hook session-start adapter", () => {
     });
   });
 
+  it("uses CLAUDE_SESSION_ID before CODEX_THREAD_ID when both env values exist", async () => {
+    const worktreeName = sampleWorktreeTestValue(WORKTREE_TEST_GENERATOR.poolWorktreeName());
+    const holder = sampleWorktreeTestValue(WORKTREE_TEST_GENERATOR.poolHolder());
+    const [claudeSessionId, codexThreadId] = sampleWorktreeTestValue(WORKTREE_TEST_GENERATOR.distinctWriteTokens());
+    const envFileName = sampleWorktreeTestValue(WORKTREE_TEST_GENERATOR.envFileName());
+    const claimWriteToken = sampleWorktreeTestValue(WORKTREE_TEST_GENERATOR.writeToken());
+
+    await withWorktreePool({ worktreeName, holder }, async (env) => {
+      const envFile = hookEnvFilePath(env, envFileName);
+      const result = await runSessionStartHookScenario(env, {
+        claimWriteToken,
+        content: hookContent(env),
+        env: hookEnvWithHolder(env, envFile, {
+          [HOOK_SESSION_START_ENV.CLAUDE_SESSION_ID]: claudeSessionId,
+          [HOOK_SESSION_START_ENV.CODEX_THREAD_ID]: codexThreadId,
+        }),
+      });
+
+      expect(result.ok).toBe(true);
+      if (!result.ok) throw new Error(result.error);
+      expect(result.value.sessionId).toBe(claudeSessionId);
+
+      const claim = await readWorktreeClaim(env);
+      expect(claim.ok).toBe(true);
+      if (!claim.ok) throw new Error(claim.error);
+      expect(claim.value?.sessionId).toBe(claudeSessionId);
+
+      const envContent = await readHookEnvFile(envFile);
+      expectHookEnvExport(envContent, HOOK_SESSION_START_ENV.CLAUDE_SESSION_ID, claudeSessionId);
+    });
+  });
+
   it("writes project exports when no session identity is available", async () => {
     const worktreeName = sampleWorktreeTestValue(WORKTREE_TEST_GENERATOR.poolWorktreeName());
     const holder = sampleWorktreeTestValue(WORKTREE_TEST_GENERATOR.poolHolder());
