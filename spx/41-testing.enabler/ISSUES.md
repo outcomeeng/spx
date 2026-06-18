@@ -132,3 +132,71 @@ publish:check` as their default verification entrypoints.
 `typescript:coding-typescript`, `typescript:testing-typescript`,
 `typescript:auditing-typescript-tests`, and
 `typescript:auditing-typescript`.
+
+## FOLLOW-UP: `spx test` lacks explicit target arguments
+
+Agents expect focused verification through the product CLI, for example:
+
+```bash
+spx test passing -- spx/10-my-feature.enabler
+```
+
+The live `spx test` command discovers every `spx/**/tests/` file and optionally
+applies the configured `testing.passingScope`; it does not accept explicit
+caller-supplied node or test-file paths. The testing command already has a
+registry-based per-node run surface for status consumers, and
+`spx/17-file-inclusion.enabler/file-inclusion.md` declares that explicit caller
+paths bypass normal filters, but that explicit-path contract is not exposed on
+the `spx test` CLI. Agents therefore fall back to direct runner commands such as
+`./node_modules/.bin/vitest run <test files>` for focused checks, bypassing the
+agent-output path whose behavior they are trying to verify.
+
+**Impact:** the full package suite is too expensive for every agent iteration.
+On an idle machine it takes roughly 45 seconds; under high load it can stretch to
+about 20 minutes. Parallel PR work multiplies that cost: each agent repeatedly
+runs broad tests such as pre-commit-hook coverage, including git-heavy TMPDIR
+fixtures, during every push-readiness loop. A ten-agent workload turns a missing
+targeted-test surface into repository-wide resource contention and review-loop
+latency. The product needs a first-class targeted path so agents can verify the
+files or node they changed without exercising unrelated hook, git, and fixture
+work on every iteration.
+
+**Resolution:** add explicit target operands after `--` to `spx test` and
+`spx test passing`. Resolve each operand as either a node path whose co-located
+tests should run or a concrete test file path, route the selected tests through
+the existing testing registry, preserve passing-scope behavior for `passing`,
+and keep `--agent` output/artifact handling on the same selected set. The
+targeted path should be the expected agent verification command for iterative
+push-readiness work; the full package suite should remain an explicit broad gate,
+not the only product-owned way to obtain trustworthy test evidence.
+
+**Additional gaps to close in the same area:**
+
+- Selective changeset testing: `spx test passing` means configured passing scope,
+  not tests affected by the current diff. The product has no `spx test --changed`,
+  no `--base origin/main`, no planner from changed files to affected nodes or test
+  files, and no product-owned Vitest `--related` integration through `spx`.
+- Dogfooding: package scripts and CI still use raw Vitest through `pnpm test`
+  (`pnpm run build && vitest run`) rather than `spx test`, so the product-owned
+  test verb exists without owning the default local or CI verification path.
+- Precommit ownership mapping: hook tests can be selected manually or through
+  Vitest's related-file selection, but `spx` does not own a rule such as "this
+  changeset touched precommit code, run only the precommit node tests." The
+  changed-file-to-node/test planner must account for hook, git, and TMPDIR-heavy
+  test nodes so agents do not rerun them for unrelated changes.
+
+**Evidence:** agent-output feature work on June 18, 2026; targeted verification
+used direct Vitest because `spx test --agent` has no explicit-target CLI. The
+operator reported the full suite taking about 45 seconds idle and about 20
+minutes under load 200, with multiple agents repeatedly running unrelated
+pre-commit-hook and TMPDIR-heavy tests during PR push loops. A second agent
+review called out the absent `--changed`/`--base` planner, package-script and CI
+non-dogfooding, and missing precommit ownership rule.
+
+**Revisit condition:** fix before documenting `spx test --agent` as the default
+focused verification command for agents.
+
+**Skills:** `spec-tree:contextualizing`, `spec-tree:applying`,
+`typescript:coding-typescript`, `typescript:testing-typescript`,
+`typescript:auditing-typescript-tests`, and
+`typescript:auditing-typescript`.
