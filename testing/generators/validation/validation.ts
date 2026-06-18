@@ -61,9 +61,11 @@ const LITERAL_SKIP_TEST_SEGMENTS = [
   "tests",
   "literal-skip.scenario.l1.test.ts",
 ] as const;
+const TEST_DIRECTORY_NAME = LITERAL_SKIP_TEST_SEGMENTS[2];
 const LITERAL_SKIP_TOKEN = "validation-all-skip-literal-token";
 const TYPE_ERROR_SOURCE_SEGMENTS = ["src", "has-type-error.ts"] as const;
 const PRODUCTION_SCOPE_FILE_PATTERN = "src/**/*";
+const TEST_SCOPE_FILE_PATTERN = `${TEST_DIRECTORY_NAME}/**/*`;
 // Mirrors an actual tsconfig.production.json exclude entry.
 const PRODUCTION_SCOPE_EXCLUDE_PATTERN = "docs/**/*";
 const ABSENT_SCOPE_FILE_PATTERN = "scripts/**/*";
@@ -176,6 +178,8 @@ export const VALIDATION_PIPELINE_DATA = {
   filesFlag: "--files",
   productionScope: "production",
   productionScopeFilePattern: PRODUCTION_SCOPE_FILE_PATTERN,
+  testDirectoryName: TEST_DIRECTORY_NAME,
+  testScopeFilePattern: TEST_SCOPE_FILE_PATTERN,
   productionScopeExcludePattern: PRODUCTION_SCOPE_EXCLUDE_PATTERN,
   absentScopeFilePattern: ABSENT_SCOPE_FILE_PATTERN,
   fullTsconfigFile: TSCONFIG_FILES.full,

@@ -11,10 +11,10 @@ import {
   validationCircularSubprocessScenarios,
 } from "@testing/generators/validation/validation";
 import { expectValidationSubprocessResult, runValidationSubprocess } from "@testing/harnesses/validation/cli";
-import { PROJECT_FIXTURES, withValidationEnv } from "@testing/harnesses/with-validation-env";
+import { HARNESS_TIMEOUT, PROJECT_FIXTURES, withValidationEnv } from "@testing/harnesses/with-validation-env";
 
 async function writeTestOnlyCycle(path: string): Promise<void> {
-  const testsDir = join(path, "tests");
+  const testsDir = join(path, VALIDATION_PIPELINE_DATA.testDirectoryName);
   await mkdir(testsDir, { recursive: true });
   await writeFile(
     join(path, TSCONFIG_FILES.full),
@@ -27,14 +27,17 @@ async function writeTestOnlyCycle(path: string): Promise<void> {
         skipLibCheck: true,
         forceConsistentCasingInFileNames: true,
       },
-      include: ["src/**/*", "tests/**/*"],
+      include: [
+        VALIDATION_PIPELINE_DATA.productionScopeFilePattern,
+        VALIDATION_PIPELINE_DATA.testScopeFilePattern,
+      ],
     }),
   );
   await writeFile(
     join(path, TSCONFIG_FILES.production),
     JSON.stringify({
       extends: `./${TSCONFIG_FILES.full}`,
-      include: ["src/**/*"],
+      include: [VALIDATION_PIPELINE_DATA.productionScopeFilePattern],
     }),
   );
   await writeFile(
@@ -67,7 +70,7 @@ describe("circular dependency validation subprocess", () => {
 
   it(
     "production scope ignores circular dependencies outside production TypeScript scope",
-    { timeout: 30_000 },
+    { timeout: HARNESS_TIMEOUT },
     async () => {
       await withValidationEnv({ fixture: PROJECT_FIXTURES.CLEAN_PROJECT }, async ({ path }) => {
         await writeTestOnlyCycle(path);
