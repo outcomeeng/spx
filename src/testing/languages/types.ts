@@ -11,6 +11,13 @@
 /** Result of a single command-runner invocation. */
 export interface TestRunCommandResult {
   readonly exitCode: number;
+  readonly output?: TestRunCommandOutput;
+}
+
+/** File artifacts containing a command runner's raw output streams. */
+export interface TestRunCommandOutput {
+  readonly stdoutPath: string;
+  readonly stderrPath: string;
 }
 
 /** Dependencies injected into a language runner's detection and invocation paths. */
@@ -41,6 +48,7 @@ export type TestRunInvocation =
     /** The runner ran and returned this terminal exit code. */
     readonly invoked: true;
     readonly exitCode: number;
+    readonly output?: TestRunCommandOutput;
   };
 
 /** A language's test-runner participation: detection, patterns, exclusion flags, and invocation. */

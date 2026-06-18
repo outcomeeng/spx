@@ -1,6 +1,11 @@
 import type { ChildProcess } from "node:child_process";
+import { createWriteStream } from "node:fs";
+import { mkdtemp } from "node:fs/promises";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
+import { finished } from "node:stream/promises";
 
-import { lifecycleProcessRunner, spawnManagedSubprocess } from "@/lib/process-lifecycle";
+import { lifecycleProcessRunner, type ProcessRunner, spawnManagedSubprocess } from "@/lib/process-lifecycle";
 import type {
   TestingLanguageDescriptor,
   TestRunCommandResult,
@@ -8,6 +13,37 @@ import type {
 } from "@/testing/languages/types";
 
 export const PROCESS_FAILURE_EXIT_CODE = 1;
+export const AGENT_TEST_OUTPUT_ENV = {
+  CI: "1",
+} as const;
+export const AGENT_TEST_OUTPUT_COMMAND = {
+  PACKAGE_MANAGER: "pnpm",
+  PACKAGE_MANAGER_EXEC_ARG: "exec",
+  VITEST: "vitest",
+  LOCAL_BINARY_DIR: "node_modules/.bin",
+  NODE_EVAL_ARG: "-e",
+} as const;
+export const AGENT_TEST_OUTPUT_STREAM_METHOD = "write";
+export const AGENT_TEST_OUTPUT_TEXT_ENCODING = "utf8";
+export const AGENT_ARTIFACT_DIR_PREFIX = "spx-test-agent-";
+
+const STDOUT_FILE_SUFFIX = "stdout.log";
+const STDERR_FILE_SUFFIX = "stderr.log";
+const ARTIFACT_INDEX_WIDTH = 3;
+const ARTIFACT_INDEX_RADIX = 10;
+const ARTIFACT_FILE_FLAGS = "wx";
+const EMPTY_RUNNER_ARGS: readonly string[] = [];
+
+export interface AgentRunnerOptions {
+  readonly tmpDir?: string;
+  readonly processRunner?: ProcessRunner;
+  readonly env?: NodeJS.ProcessEnv;
+}
+
+interface ResolvedCommand {
+  readonly command: string;
+  readonly args: readonly string[];
+}
 
 // Spawns a managed child through the lifecycle runner, forwards its stdout to the
 // caller-chosen stream and its stderr to the CLI's error stream, and resolves with
@@ -20,7 +56,8 @@ function createCommandRunner(
 ): TestRunnerDependencies["runCommand"] {
   return (command, args) =>
     new Promise<TestRunCommandResult>((resolveResult) => {
-      const child: ChildProcess = spawnManagedSubprocess(lifecycleProcessRunner, command, args, {
+      const resolved = resolveTestingCommand(productDir, command, args);
+      const child: ChildProcess = spawnManagedSubprocess(lifecycleProcessRunner, resolved.command, resolved.args, {
         cwd: productDir,
       });
       child.stdout?.pipe(outStream);
@@ -45,3 +82,87 @@ export function createRunnerDepsFor(
   const runCommand = createCommandRunner(productDir, outStream);
   return () => ({ runCommand });
 }
+
+function resolveTestingCommand(productDir: string, command: string, args: readonly string[]): ResolvedCommand {
+  const [firstArg, secondArg, ...remainingArgs] = args;
+  if (
+    command === AGENT_TEST_OUTPUT_COMMAND.PACKAGE_MANAGER
+    && firstArg === AGENT_TEST_OUTPUT_COMMAND.PACKAGE_MANAGER_EXEC_ARG
+    && secondArg === AGENT_TEST_OUTPUT_COMMAND.VITEST
+  ) {
+    return {
+      command: join(
+        productDir,
+        AGENT_TEST_OUTPUT_COMMAND.LOCAL_BINARY_DIR,
+        AGENT_TEST_OUTPUT_COMMAND.VITEST,
+      ),
+      args: remainingArgs,
+    };
+  }
+  return { command, args };
+}
+
+function artifactFileName(index: number, suffix: string): string {
+  return `${index.toString(ARTIFACT_INDEX_RADIX).padStart(ARTIFACT_INDEX_WIDTH, "0")}-${suffix}`;
+}
+
+function createAgentOutputCommandRunner(
+  productDir: string,
+  options: AgentRunnerOptions = {},
+): TestRunnerDependencies["runCommand"] {
+  const artifactRoot = mkdtemp(join(options.tmpDir ?? tmpdir(), AGENT_ARTIFACT_DIR_PREFIX));
+  const processRunner = options.processRunner ?? lifecycleProcessRunner;
+  const inheritedEnv = options.env ?? process.env;
+  let nextArtifactIndex = 0;
+
+  return async (command, args = EMPTY_RUNNER_ARGS) => {
+    nextArtifactIndex += 1;
+    const root = await artifactRoot;
+    const stdoutPath = join(root, artifactFileName(nextArtifactIndex, STDOUT_FILE_SUFFIX));
+    const stderrPath = join(root, artifactFileName(nextArtifactIndex, STDERR_FILE_SUFFIX));
+    const stdoutFile = createWriteStream(stdoutPath, { flags: ARTIFACT_FILE_FLAGS });
+    const stderrFile = createWriteStream(stderrPath, { flags: ARTIFACT_FILE_FLAGS });
+    const resolved = resolveTestingCommand(productDir, command, args);
+
+    return new Promise<TestRunCommandResult>((resolveResult) => {
+      const child: ChildProcess = spawnManagedSubprocess(processRunner, resolved.command, resolved.args, {
+        cwd: productDir,
+        env: {
+          ...inheritedEnv,
+          ...AGENT_TEST_OUTPUT_ENV,
+        },
+      });
+      child.stdout?.pipe(stdoutFile);
+      child.stderr?.pipe(stderrFile);
+
+      const finishFiles = async (): Promise<void> => {
+        stdoutFile.end();
+        stderrFile.end();
+        await Promise.all([finished(stdoutFile), finished(stderrFile)]);
+      };
+
+      const resolveWithExitCode = (exitCode: number): void => {
+        finishFiles()
+          .then(() => {
+            resolveResult({ exitCode, output: { stdoutPath, stderrPath } });
+          })
+          .catch(() => {
+            resolveResult({ exitCode, output: { stdoutPath, stderrPath } });
+          });
+      };
+
+      child.on("close", (code) => resolveWithExitCode(code ?? PROCESS_FAILURE_EXIT_CODE));
+      child.on("error", () => resolveWithExitCode(PROCESS_FAILURE_EXIT_CODE));
+    });
+  };
+}
+
+export function createAgentRunnerDepsFor(
+  productDir: string,
+  options: AgentRunnerOptions = {},
+): (language: TestingLanguageDescriptor) => TestRunnerDependencies {
+  const runCommand = createAgentOutputCommandRunner(productDir, options);
+  return () => ({ runCommand });
+}
+
+export { createAgentOutputCommandRunner, resolveTestingCommand };
