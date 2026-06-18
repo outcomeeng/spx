@@ -1,4 +1,4 @@
-import { basename, join } from "node:path";
+import { basename, dirname, isAbsolute, join, relative, resolve, sep } from "node:path";
 
 import type { Result } from "@/config/types";
 import {
@@ -27,6 +27,8 @@ import {
   runsDir as stateStoreRunsDir,
   STATE_STORE_DOMAIN,
   STATE_STORE_ERROR,
+  STATE_STORE_PATH,
+  validateBranchSlug,
   type StateStoreFileEntry,
   type StateStoreFileSystem,
 } from "@/lib/state-store";
@@ -39,6 +41,12 @@ export interface AuditRunFile {
   readonly runToken: string;
   readonly runId: string;
   readonly startedAt: string;
+}
+
+export interface ResolvedAuditRunFilePath {
+  readonly branchSlug: string;
+  readonly runsDir: string;
+  readonly runFilePath: string;
 }
 
 export type AuditRunFileEntry = StateStoreFileEntry;
@@ -59,6 +67,9 @@ export interface ReadAuditRunStateOptions {
 
 const ERROR_CODE_NOT_FOUND = "ENOENT";
 const AUDIT_RUN_COMPLETED_ATTEMPT = 1;
+const AUDIT_RUN_FILE_RELATIVE_SEGMENT_COUNT = 6;
+const AUDIT_RUN_FILE_BRANCH_SLUG_INDEX = 2;
+const AUDIT_RUN_FILE_NAME_INDEX = 5;
 
 const defaultFileSystem: StateStoreFileSystem = defaultStateStoreFileSystem;
 
@@ -125,6 +136,46 @@ export async function writeTerminalAuditRunState(
     };
   }
   return { ok: true, value: runFilePath };
+}
+
+export function resolveAuditRunFilePath(
+  gitCommonDirProductDir: string,
+  runFilePath: string,
+  options: { readonly cwd: string },
+): Result<ResolvedAuditRunFilePath> {
+  const productDir = resolve(gitCommonDirProductDir);
+  const resolvedRunFilePath = resolve(options.cwd, runFilePath);
+  const productRelativePath = relative(productDir, resolvedRunFilePath);
+  if (isOutsideDirectory(productRelativePath)) {
+    return { ok: false, error: AUDIT_RUN_STATE_ERROR.INVALID_RUN_FILE_PATH };
+  }
+
+  const segments = productRelativePath.split(sep);
+  if (!isAuditRunFileRelativePath(segments)) {
+    return { ok: false, error: AUDIT_RUN_STATE_ERROR.INVALID_RUN_FILE_PATH };
+  }
+
+  const branchSlug = segments[AUDIT_RUN_FILE_BRANCH_SLUG_INDEX];
+  const validatedBranchSlug = validateBranchSlug(branchSlug);
+  if (!validatedBranchSlug.ok) return { ok: false, error: AUDIT_RUN_STATE_ERROR.INVALID_RUN_FILE_PATH };
+
+  const branchDir = branchScopeDir(productDir, validatedBranchSlug.value);
+  if (!branchDir.ok) return branchDir;
+  const auditRunsDir = stateStoreRunsDir(branchDir.value, STATE_STORE_DOMAIN.AUDIT);
+  if (!auditRunsDir.ok) return auditRunsDir;
+
+  if (resolve(dirname(resolvedRunFilePath)) !== resolve(auditRunsDir.value)) {
+    return { ok: false, error: AUDIT_RUN_STATE_ERROR.INVALID_RUN_FILE_PATH };
+  }
+
+  return {
+    ok: true,
+    value: {
+      branchSlug: validatedBranchSlug.value,
+      runsDir: auditRunsDir.value,
+      runFilePath: resolvedRunFilePath,
+    },
+  };
 }
 
 export async function readAuditBranchRuns(
@@ -205,6 +256,19 @@ function auditRunJournalIdentity(runFilePath: string): JournalIdentity {
 
 function isAuditRunFileEntry(entry: AuditRunFileEntry): boolean {
   return entry.isFile() && isRunFileName(entry.name);
+}
+
+function isOutsideDirectory(relativePath: string): boolean {
+  return relativePath.length === 0 || relativePath.startsWith("..") || isAbsolute(relativePath);
+}
+
+function isAuditRunFileRelativePath(segments: readonly string[]): boolean {
+  return segments.length === AUDIT_RUN_FILE_RELATIVE_SEGMENT_COUNT
+    && segments[0] === STATE_STORE_PATH.SPX_DIR
+    && segments[1] === STATE_STORE_PATH.BRANCH_SCOPE
+    && segments[3] === STATE_STORE_DOMAIN.AUDIT
+    && segments[4] === STATE_STORE_PATH.RUNS_DIR
+    && isRunFileName(segments[AUDIT_RUN_FILE_NAME_INDEX]);
 }
 
 function auditRunFileError(error: string): string {
