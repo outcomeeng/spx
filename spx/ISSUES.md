@@ -1,5 +1,15 @@
 # Open Issues
 
+## Product-wide formatter baseline fails
+
+Observed on June 18, 2026 while verifying the circular-validation skip slice: `pnpm run format:check` exited 20 and reported 26 files that dprint would rewrite, including `pnpm-lock.yaml`, `src/testing/run-state.ts`, `src/commands/worktree/status.ts`, `testing/generators/state-store/state-store.ts`, and several spec-node test files.
+
+**Impact:** The product-wide formatter gate cannot be used as a clean readiness signal until the baseline is reconciled. Including those rewrites in a narrow validation CLI change would combine formatter churn with behavior changes.
+
+**Skills:** formatting workflow, `spec-tree:contextualize`, `spec-tree:apply`, and the language-specific implementation and test-audit skills for any touched TypeScript files.
+
+**Resolution:** Run a dedicated formatter-baseline slice, review the dprint output by owning subtree, apply the formatting changes in one focused changeset, then rerun `pnpm run format:check`, `pnpm run validate`, and `pnpm test`.
+
 ## Worktree-management PDR names git plumbing in its decision content
 
 `spx/15-worktree-management.pdr.md` carries a "Git mechanism" column in its state-class table and several `### Audit` rules that name specific git commands (`git rev-parse --git-common-dir`, `git rev-parse --show-toplevel`, `git config --get core.bare`) and a code-naming constraint (root-resolution helper-name alignment). A PDR audit argued these describe how root resolution is implemented rather than what users observe, and belong in [`spx/17-state.adr.md`](17-state.adr.md).
