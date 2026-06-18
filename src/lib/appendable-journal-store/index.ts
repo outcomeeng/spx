@@ -27,11 +27,15 @@ export interface AppendableJournalStoreOptions {
   readonly fs?: StateStoreFileSystem;
 }
 
+export function appendableJournalSealMarkerPath(runFilePath: string): string {
+  return `${runFilePath}${SEAL_MARKER_SUFFIX}`;
+}
+
 /** Bind the agent-run-journal `AppendableBackend` port to a JSONL run file on an injected filesystem. */
 export function createAppendableJournalStore(options: AppendableJournalStoreOptions): AppendableBackend {
   const fs = options.fs ?? defaultStateStoreFileSystem;
   const { runFilePath } = options;
-  const sealMarkerPath = `${runFilePath}${SEAL_MARKER_SUFFIX}`;
+  const sealMarkerPath = appendableJournalSealMarkerPath(runFilePath);
 
   async function readAll(): Promise<readonly JournalEvent[]> {
     const content = await readFileOrUndefined(fs, runFilePath);

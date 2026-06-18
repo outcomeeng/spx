@@ -1,10 +1,11 @@
 import { createHash, randomBytes as nodeRandomBytes } from "node:crypto";
+import { constants as fsConstants } from "node:fs";
 import {
-  appendFile as nodeAppendFile,
+  lstat as nodeLstat,
   mkdir as nodeMkdir,
+  open as nodeOpen,
   readdir as nodeReaddir,
   readFile as nodeReadFile,
-  writeFile as nodeWriteFile,
 } from "node:fs/promises";
 import { dirname, join } from "node:path";
 
@@ -71,12 +72,19 @@ export interface StateStoreFileEntry {
   isFile(): boolean;
 }
 
+export interface StateStorePathStats {
+  isDirectory(): boolean;
+  isFile(): boolean;
+  isSymbolicLink(): boolean;
+}
+
 export interface StateStoreFileSystem {
   mkdir(path: string, options?: { readonly recursive?: boolean }): Promise<void>;
   writeFile(path: string, data: string, options?: { readonly flag?: string }): Promise<void>;
   appendFile(path: string, data: string): Promise<void>;
   readFile(path: string, encoding: "utf8"): Promise<string>;
   readdir(path: string, options: { readonly withFileTypes: true }): Promise<readonly StateStoreFileEntry[]>;
+  lstat(path: string): Promise<StateStorePathStats>;
 }
 
 export interface ResolveScopeOptions {
@@ -157,10 +165,28 @@ const defaultFileSystem: StateStoreFileSystem = {
   mkdir: async (path, options) => {
     await nodeMkdir(path, options);
   },
-  writeFile: nodeWriteFile,
-  appendFile: nodeAppendFile,
+  writeFile: async (path, data, options) => {
+    const handle = await nodeOpen(path, noFollowWriteFlag(options?.flag));
+    try {
+      await handle.writeFile(data);
+    } finally {
+      await handle.close();
+    }
+  },
+  appendFile: async (path, data) => {
+    const handle = await nodeOpen(
+      path,
+      fsConstants.O_WRONLY | fsConstants.O_CREAT | fsConstants.O_APPEND | fsConstants.O_NOFOLLOW,
+    );
+    try {
+      await handle.writeFile(data);
+    } finally {
+      await handle.close();
+    }
+  },
   readFile: nodeReadFile,
   readdir: nodeReaddir,
+  lstat: nodeLstat,
 };
 
 export { defaultFileSystem as defaultStateStoreFileSystem };
@@ -507,6 +533,18 @@ function nonEmptyJsonlLinesNewestFirst(content: string): string[] {
     if (line.length > 0) latestLines.push(line);
   }
   return latestLines;
+}
+
+function noFollowWriteFlag(flag: string | undefined): number {
+  if (flag === EXCLUSIVE_CREATE_FLAG) {
+    return fsConstants.O_WRONLY
+      | fsConstants.O_CREAT
+      | fsConstants.O_EXCL
+      | fsConstants.O_TRUNC
+      | fsConstants.O_NOFOLLOW;
+  }
+  if (flag === WRITE_EXISTING_FLAG) return fsConstants.O_RDWR | fsConstants.O_NOFOLLOW;
+  return fsConstants.O_WRONLY | fsConstants.O_CREAT | fsConstants.O_TRUNC | fsConstants.O_NOFOLLOW;
 }
 
 export function hasErrorCode(error: unknown, code: string): boolean {

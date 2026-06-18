@@ -5,6 +5,7 @@ import { execa } from "execa";
 import * as fc from "fast-check";
 import { describe, expect, it } from "vitest";
 
+import { auditProgressCommand } from "@/commands/audit/lifecycle";
 import { AUDIT_RUN_EVENT, AUDIT_RUN_STATE_ERROR } from "@/domains/audit/run-state";
 import { createAppendableJournalStore } from "@/lib/appendable-journal-store";
 import { AUDIT_RUN_STATE_TEST_GENERATOR } from "@testing/generators/audit/run-state";
@@ -40,6 +41,16 @@ describe("audit CLI progress step properties", () => {
 
               expect(progress.exitCode).toBe(1);
               expect((JSON.parse(progress.errorOutput) as { readonly error: string }).error).toBe(
+                AUDIT_RUN_STATE_ERROR.UNKNOWN_PROGRESS_STEP,
+              );
+
+              const directProgress = await auditProgressCommand({
+                runFile: runFilePath,
+                step: generatedStep,
+                json: true,
+              });
+              expect(directProgress.exitCode).toBe(1);
+              expect((JSON.parse(directProgress.output) as { readonly error: string }).error).toBe(
                 AUDIT_RUN_STATE_ERROR.UNKNOWN_PROGRESS_STEP,
               );
 

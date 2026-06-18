@@ -35,6 +35,11 @@ function createReadFailingFileSystem(
     appendFile: () => Promise.resolve(),
     readFile: () => Promise.reject(error),
     readdir: () => Promise.resolve(entries),
+    lstat: (path) => Promise.resolve({
+      isDirectory: () => !path.endsWith(runFileName),
+      isFile: () => path.endsWith(runFileName),
+      isSymbolicLink: () => false,
+    }),
   };
 }
 
