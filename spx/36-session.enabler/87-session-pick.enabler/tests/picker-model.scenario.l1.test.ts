@@ -1,8 +1,7 @@
 /**
  * Picker-model scenarios: candidate-set construction and filtering.
  *
- * Verifies the pure model of `spx/36-session.enabler/87-session-pick.enabler`
- * over in-memory sessions — no terminal, no Ink.
+ * Verifies the pure picker model over in-memory sessions — no terminal, no Ink.
  */
 
 import { describe, expect, it } from "vitest";

@@ -4,8 +4,7 @@
  * Holds the candidate set, the filter query, and the selected index, and
  * reduces key actions to the next state. This module is renderer-agnostic: it
  * imports no React, Ink, or terminal API, so it verifies as a pure function and
- * a non-terminal interface reuses it, per
- * `spx/13-cli.enabler/21-terminal-ui.adr.md`.
+ * a non-terminal interface reuses it.
  *
  * @module session/pick-model
  */
