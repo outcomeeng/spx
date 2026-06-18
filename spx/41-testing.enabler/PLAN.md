@@ -149,67 +149,20 @@ Failure behavior:
 - runner cannot narrow failing paths: summary lists the requested test paths for
   that failing group
 
-Verification:
+## Slice 1 Execution Notes
 
-- PDR audit after authoring
-- ADR audit after aligning affected ADRs
-- focused TypeScript tests for `spx test --agent` summary and artifact behavior
-- TypeScript test audit
-- TypeScript code audit
-- targeted Vitest files only during this branch's local loop, per operator
-  instruction
-- `changes-reviewer` before every push
-- CI supplies broad verification after push
+The `agent-test-output` branch ships the implemented `operator` and `agent`
+runner environments. It adds the decision-first PDR, aligns the parent testing
+spec plus TypeScript and agent-output decisions, removes the invalid command
+rewrite to `node_modules/.bin/vitest`, preserves descriptor-selected runner
+commands and arguments, captures child stdout and stderr to artifacts, fails
+without artifact paths when artifact writing fails, and preserves the supplied
+child environment.
 
-## Required Artifact Changes for Slice 1
-
-1. Add `spx/41-testing.enabler/11-test-runner-environments.pdr.md`.
-   - Use decision-first PDR shape.
-   - Encode the implemented `operator` and `agent` environments.
-   - Default environment is `operator`.
-   - Keep CI output as a future slice until its command path and evidence
-     schema are implemented.
-
-2. Align `spx/41-testing.enabler/testing.md`.
-   - Declare that `spx test` dispatches through configured/supported runner
-     adapters.
-   - Declare the implemented agent-output capture behavior at the parent
-     testing capability level.
-   - Keep CI output and targeted execution as first-class follow-ups if not
-     implemented in this slice.
-
-3. Align `spx/41-testing.enabler/21-typescript-testing.enabler/21-typescript-test-runner.adr.md`.
-   - Remove any universal claim that TypeScript testing equals Vitest.
-   - Remove `node_modules/.bin` or package-manager-layout assumptions from
-     product truth.
-   - Scope Vitest to the current TypeScript adapter, or defer adapter
-     configurability if that is a follow-up.
-
-4. Align `spx/41-testing.enabler/85-agent-test-output.enabler/21-agent-test-output.adr.md`.
-   - Reframe it as the architecture for the `agent` runner environment.
-   - Remove TypeScript/Vitest binary resolution from agent-output
-     responsibilities.
-   - Preserve the invariant that agent mode changes only output handling and
-     terminal formatting.
-
-5. Align `spx/41-testing.enabler/85-agent-test-output.enabler/agent-test-output.md`.
-   - Keep compact summary and artifact assertions.
-   - Replace Vitest-specific compliance with runner-agnostic assertions.
-
-6. Fix implementation.
-   - Remove command rewriting from `pnpm exec vitest` to
-     `node_modules/.bin/vitest`.
-   - Ensure agent mode executes the same descriptor-selected command as
-     operator mode.
-   - Keep stdout/stderr artifact capture and compact summary.
-   - Preserve fallback reporting of requested paths for failing runners without
-     narrowed failure metadata.
-
-7. Fix tests.
-   - Remove tests that require `node_modules/.bin`.
-   - Add tests proving agent mode preserves runner selection and arguments while
-     changing only output handling.
-   - Keep the non-Vitest failing-runner fallback test.
+Verification for this slice used targeted local evidence per operator
+instruction: focused agent-output Vitest files, scoped validation for touched
+files, PDR/ADR/TypeScript architecture/test/code audits, and `changes-reviewer`
+before every push. CI supplies broad verification after push.
 
 ## Future Slices
 
@@ -278,14 +231,3 @@ diagnostics.
   plus JSON artifact, or both.
 - Whether unsupported custom runners should fail closed in v1 or be allowed
   through a generic shell-command adapter with reduced guarantees.
-
-## Slice 1 Execution Notes
-
-The current `agent-test-output` branch removes the invalid implementation
-assumption that rewrites a runner command to `node_modules/.bin/vitest`. This
-slice ships the agent environment behavior after the PDR and lower artifacts
-make the runner contract clear.
-
-Slice 1 intentionally does not implement targeted operands, changed-set
-planning, or CI output. Those remain in the future slices above so a later
-implementation can add each behavior behind its own testable user path.
