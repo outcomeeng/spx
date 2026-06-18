@@ -55,7 +55,11 @@ export function formatAgentTestOutput(run: RecordedTestRun): string {
       );
     }
     if (report.exitCode !== SUCCESS_EXIT_CODE) {
-      appendPathList(lines, AGENT_TEST_OUTPUT_TEXT.FAILING_TESTS, report.testPaths);
+      appendPathList(
+        lines,
+        AGENT_TEST_OUTPUT_TEXT.FAILING_TESTS,
+        report.output?.failingTestPaths ?? report.testPaths,
+      );
     }
   }
 

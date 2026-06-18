@@ -10,13 +10,18 @@ import { testingRegistry } from "@/testing/registry";
 
 import { createAgentRunnerDepsFor, createRunnerDepsFor, PROCESS_FAILURE_EXIT_CODE } from "./testing-runner-deps";
 
-const TESTING_CLI = {
+export const TESTING_CLI = {
   commandName: "test",
   description: "Run spec-tree tests across product languages",
   agentOption: "--agent",
   agentDescription: "Capture raw runner output and print a compact agent summary",
   passingSubcommand: "passing",
   passingDescription: "Run only the tests within the configured passing scope",
+} as const;
+
+export const TESTING_CLI_COMMANDER = {
+  nodeExecutable: "node",
+  scriptName: "spx",
 } as const;
 
 const UNMATCHED_TEST_FILES_WARNING = "Skipped test files with no registered runner";
@@ -58,38 +63,82 @@ async function runAgentTestsThroughCommand(productDir: string, passing: boolean)
   }
 }
 
-function reportAndExit(result: TestDispatchResult): never {
+function reportAndExit(result: TestDispatchResult, exit: TestingCliDependencies["exit"]): never {
   if (result.unmatched.length > 0) {
     writeWarning(`${UNMATCHED_TEST_FILES_WARNING}:\n${result.unmatched.join("\n")}`);
   }
-  process.exit(result.exitCode);
+  exit(result.exitCode);
 }
 
-export const testingDomain: Domain = {
-  name: TESTING_CLI.commandName,
-  description: TESTING_CLI.description,
-  register: (program: Command) => {
+interface TestingCliActionOptions {
+  readonly agent?: boolean;
+}
+
+function requestsAgentMode(options: TestingCliActionOptions, command: Command): boolean {
+  const commandOptions = command.opts<TestingCliActionOptions>();
+  const parentOptions = command.parent?.opts<TestingCliActionOptions>() ?? {};
+  return options.agent === true || commandOptions.agent === true || parentOptions.agent === true;
+}
+
+export interface TestingCliDependencies {
+  readonly resolveProductDir: () => Promise<string>;
+  readonly runTests: (productDir: string, passing: boolean) => Promise<RecordedTestRun>;
+  readonly runAgentTests: (productDir: string, passing: boolean) => Promise<RecordedTestRun>;
+  readonly writeStdout: (output: string) => void;
+  readonly setExitCode: (exitCode: number) => void;
+  readonly exit: (exitCode: number) => never;
+}
+
+const defaultTestingCliDependencies: TestingCliDependencies = {
+  resolveProductDir: resolveTestProductDir,
+  runTests: runTestsThroughCommand,
+  runAgentTests: runAgentTestsThroughCommand,
+  writeStdout: (output) => {
+    process.stdout.write(output);
+  },
+  setExitCode: (exitCode) => {
+    process.exitCode = exitCode;
+  },
+  exit: (exitCode) => process.exit(exitCode),
+};
+
+async function runTestingAction(
+  deps: TestingCliDependencies,
+  passing: boolean,
+  options: TestingCliActionOptions,
+): Promise<void> {
+  const productDir = await deps.resolveProductDir();
+  if (options.agent === true) {
+    const result = await deps.runAgentTests(productDir, passing);
+    deps.writeStdout(formatAgentTestOutput(result));
+    deps.setExitCode(result.dispatch.exitCode);
+    return;
+  }
+  const result = await deps.runTests(productDir, passing);
+  reportAndExit(result.dispatch, deps.exit);
+}
+
+export function createTestingDomain(deps: TestingCliDependencies = defaultTestingCliDependencies): Domain {
+  return {
+    name: TESTING_CLI.commandName,
+    description: TESTING_CLI.description,
+    register: (program: Command) => {
     const testCmd = program.command(TESTING_CLI.commandName).description(TESTING_CLI.description);
     testCmd.option(TESTING_CLI.agentOption, TESTING_CLI.agentDescription);
 
-    testCmd.action(async (options: { readonly agent?: boolean }) => {
-      const productDir = await resolveTestProductDir();
-      if (options.agent === true) {
-        const result = await runAgentTestsThroughCommand(productDir, false);
-        process.stdout.write(formatAgentTestOutput(result));
-        process.exit(result.dispatch.exitCode);
-      }
-      const result = await runTestsThroughCommand(productDir, false);
-      reportAndExit(result.dispatch);
+    testCmd.action(async (options: TestingCliActionOptions, command: Command) => {
+      await runTestingAction(deps, false, { agent: requestsAgentMode(options, command) });
     });
 
     testCmd
       .command(TESTING_CLI.passingSubcommand)
       .description(TESTING_CLI.passingDescription)
-      .action(async () => {
-        const productDir = await resolveTestProductDir();
-        const result = await runTestsThroughCommand(productDir, true);
-        reportAndExit(result.dispatch);
+      .option(TESTING_CLI.agentOption, TESTING_CLI.agentDescription)
+      .action(async (options: TestingCliActionOptions, command: Command) => {
+        await runTestingAction(deps, true, { agent: requestsAgentMode(options, command) });
       });
   },
 };
+}
+
+export const testingDomain: Domain = createTestingDomain();

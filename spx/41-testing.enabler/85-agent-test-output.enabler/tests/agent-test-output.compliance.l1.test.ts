@@ -1,5 +1,6 @@
 import { readFile, realpath } from "node:fs/promises";
 import { join } from "node:path";
+import { pathToFileURL } from "node:url";
 
 import { describe, expect, it } from "vitest";
 
@@ -8,18 +9,70 @@ import {
   AGENT_ARTIFACT_DIR_PREFIX,
   AGENT_TEST_OUTPUT_COMMAND,
   AGENT_TEST_OUTPUT_ENV,
+  AGENT_TEST_OUTPUT_PROCESS_EVENT,
   AGENT_TEST_OUTPUT_STREAM_METHOD,
   AGENT_TEST_OUTPUT_TEXT_ENCODING,
   createAgentOutputCommandRunner,
-  resolveTestingCommand,
+  extractVitestFailurePaths,
+  VITEST_FAILURE_LINE_MARKERS,
 } from "@/interfaces/cli/testing-runner-deps";
-import { CONFIG_TEST_GENERATOR, sampleConfigTestValue } from "@testing/generators/config/descriptors";
+import { lifecycleProcessRunner, type ProcessRunner, spawnManagedSubprocess } from "@/lib/process-lifecycle";
+import { typescriptTestingLanguage } from "@/testing/languages/typescript";
 import {
   arbitraryDomainLiteral,
   sampleLiteralTestValue,
 } from "@testing/generators/literal/literal";
 import { sampleDispatchValue, TEST_DISPATCH_GENERATOR } from "@testing/generators/testing/dispatch";
 import { withTempDir } from "@testing/harnesses/with-temp-dir";
+
+interface SpawnResult {
+  readonly stdout: string;
+  readonly stderr: string;
+  readonly exitCode: number;
+}
+
+interface RecordedProcessSpawn {
+  readonly command: string;
+  readonly args: readonly string[];
+}
+
+function recordingProcessRunner(calls: RecordedProcessSpawn[]): ProcessRunner {
+  return {
+    spawn(command, args, options) {
+      calls.push({ command, args });
+      return spawnManagedSubprocess(lifecycleProcessRunner, process.execPath, [
+        AGENT_TEST_OUTPUT_COMMAND.NODE_EVAL_ARG,
+        "",
+      ], { cwd: options?.cwd, env: options?.env });
+    },
+  };
+}
+
+function runNodeProcess(args: readonly string[], cwd: string): Promise<SpawnResult> {
+  return new Promise((resolve, reject) => {
+    const child = spawnManagedSubprocess(lifecycleProcessRunner, process.execPath, args, { cwd });
+    let stdout = "";
+    let stderr = "";
+    if (child.stdout === null || child.stderr === null) {
+      reject(new Error("managed subprocess stdio streams are required"));
+      return;
+    }
+    const childStdout = child.stdout;
+    const childStderr = child.stderr;
+    childStdout.setEncoding(AGENT_TEST_OUTPUT_TEXT_ENCODING);
+    childStderr.setEncoding(AGENT_TEST_OUTPUT_TEXT_ENCODING);
+    childStdout.on(AGENT_TEST_OUTPUT_PROCESS_EVENT.DATA, (chunk: string) => {
+      stdout += chunk;
+    });
+    childStderr.on(AGENT_TEST_OUTPUT_PROCESS_EVENT.DATA, (chunk: string) => {
+      stderr += chunk;
+    });
+    child.on(AGENT_TEST_OUTPUT_PROCESS_EVENT.ERROR, reject);
+    child.on(AGENT_TEST_OUTPUT_PROCESS_EVENT.CLOSE, (code) => {
+      resolve({ stdout, stderr, exitCode: code ?? 1 });
+    });
+  });
+}
 
 function outputScript(stdoutContent: string, stderrContent: string): string {
   const stdoutWrite = ["process", AGENT_TEST_OUTPUT_TEXT.STDOUT, AGENT_TEST_OUTPUT_STREAM_METHOD].join(".");
@@ -57,21 +110,79 @@ describe("agent test-output runner", () => {
     });
   });
 
-  it("resolves pnpm exec vitest to the product-local vitest binary in agent mode", () => {
-    const productDir = sampleConfigTestValue(CONFIG_TEST_GENERATOR.productDir());
-    const testPath = sampleDispatchValue(TEST_DISPATCH_GENERATOR.testFilePath());
+  it("resolves the TypeScript descriptor's Vitest command to the product-local binary in agent mode", async () => {
+    await withTempDir(AGENT_ARTIFACT_DIR_PREFIX, async (productDir) => {
+      const calls: RecordedProcessSpawn[] = [];
+      const runCommand = createAgentOutputCommandRunner(productDir, {
+        tmpDir: productDir,
+        processRunner: recordingProcessRunner(calls),
+        env: {},
+      });
+      const testPath = sampleDispatchValue(TEST_DISPATCH_GENERATOR.testFilePath());
 
-    const resolved = resolveTestingCommand(productDir, AGENT_TEST_OUTPUT_COMMAND.PACKAGE_MANAGER, [
-      AGENT_TEST_OUTPUT_COMMAND.PACKAGE_MANAGER_EXEC_ARG,
-      AGENT_TEST_OUTPUT_COMMAND.VITEST,
-      testPath,
-    ]);
+      const invocation = await typescriptTestingLanguage.runTests(
+        { projectRoot: productDir, testPaths: [testPath], excludedNodePaths: [] },
+        { runCommand, isLanguagePresent: () => true },
+      );
 
-    expect(resolved.command).toBe(join(
-      productDir,
-      AGENT_TEST_OUTPUT_COMMAND.LOCAL_BINARY_DIR,
-      AGENT_TEST_OUTPUT_COMMAND.VITEST,
-    ));
-    expect(resolved.args).toEqual([testPath]);
+      expect(invocation.invoked).toBe(true);
+      expect(calls).toEqual([{
+        command: join(
+          productDir,
+          AGENT_TEST_OUTPUT_COMMAND.LOCAL_BINARY_DIR,
+          AGENT_TEST_OUTPUT_COMMAND.VITEST,
+        ),
+        args: [
+          AGENT_TEST_OUTPUT_COMMAND.VITEST_RUN_ARG,
+          AGENT_TEST_OUTPUT_COMMAND.VITEST_ROOT_FLAG,
+          productDir,
+          testPath,
+        ],
+      }]);
+    });
+  });
+
+  it("extracts failed Vitest paths without including passing requested paths", () => {
+    const nodePath = sampleDispatchValue(TEST_DISPATCH_GENERATOR.nodePath());
+    const failingPath = sampleDispatchValue(TEST_DISPATCH_GENERATOR.testFileUnder(typescriptTestingLanguage, nodePath));
+    const passingPath = sampleDispatchValue(TEST_DISPATCH_GENERATOR.testFileUnder(typescriptTestingLanguage, nodePath));
+    const output = [
+      `${VITEST_FAILURE_LINE_MARKERS[0]} ${failingPath}`,
+      passingPath,
+    ].join("\n");
+
+    expect(extractVitestFailurePaths(output, [failingPath, passingPath])).toEqual([failingPath]);
+  });
+
+  it("keeps captured child output off the invoking terminal streams", async () => {
+    const stdoutContent = sampleLiteralTestValue(arbitraryDomainLiteral());
+    const stderrContent = sampleLiteralTestValue(arbitraryDomainLiteral());
+
+    await withTempDir(AGENT_ARTIFACT_DIR_PREFIX, async (productDir) => {
+      const resultPath = join(productDir, AGENT_TEST_OUTPUT_TEXT.STATE_FILE);
+      const repoDir = process.cwd();
+      const moduleUrl = pathToFileURL(join(repoDir, "src/interfaces/cli/testing-runner-deps.ts")).href;
+      const script = [
+        `const productDir = ${JSON.stringify(productDir)};`,
+        `const resultPath = ${JSON.stringify(resultPath)};`,
+        `const { createAgentOutputCommandRunner, AGENT_TEST_OUTPUT_COMMAND } = await import(${JSON.stringify(moduleUrl)});`,
+        `const { writeFile } = await import(${JSON.stringify("node:fs/promises")});`,
+        `const runCommand = createAgentOutputCommandRunner(productDir, { tmpDir: productDir, env: {} });`,
+        `const result = await runCommand(process.execPath, [AGENT_TEST_OUTPUT_COMMAND.NODE_EVAL_ARG, ${JSON.stringify(outputScript(stdoutContent, stderrContent))}]);`,
+        `await writeFile(resultPath, JSON.stringify(result), ${JSON.stringify(AGENT_TEST_OUTPUT_TEXT_ENCODING)});`,
+      ].join("");
+
+      const result = await runNodeProcess([
+        "--import",
+        "tsx",
+        AGENT_TEST_OUTPUT_COMMAND.NODE_EVAL_ARG,
+        script,
+      ], repoDir);
+
+      expect(result.exitCode).toBe(0);
+      expect(result.stdout).not.toContain(stdoutContent);
+      expect(result.stderr).not.toContain(stderrContent);
+      expect(await readFile(resultPath, AGENT_TEST_OUTPUT_TEXT_ENCODING)).toContain(AGENT_TEST_OUTPUT_TEXT.STDOUT);
+    });
   });
 });
