@@ -36,6 +36,23 @@ const ARTIFACT_INDEX_RADIX = 10;
 const ARTIFACT_FILE_FLAGS = "wx";
 const EMPTY_RUNNER_ARGS: readonly string[] = [];
 
+interface ArtifactWriters {
+  readonly stdoutPath: string;
+  readonly stderrPath: string;
+  readonly stdoutFile: Writable;
+  readonly stderrFile: Writable;
+  readonly completion: Promise<readonly [void, void]>;
+}
+
+interface CapturedCommandRequest {
+  readonly productDir: string;
+  readonly command: string;
+  readonly args: readonly string[];
+  readonly processRunner: ProcessRunner;
+  readonly inheritedEnv: NodeJS.ProcessEnv;
+  readonly writers: ArtifactWriters;
+}
+
 export interface AgentRunnerOptions {
   readonly tmpDir?: string;
   readonly processRunner?: ProcessRunner;
@@ -84,6 +101,65 @@ function artifactFileName(index: number, suffix: string): string {
   return `${index.toString(ARTIFACT_INDEX_RADIX).padStart(ARTIFACT_INDEX_WIDTH, "0")}-${suffix}`;
 }
 
+function createArtifactWriters(
+  root: string,
+  index: number,
+  createArtifactWriteStream: (path: string) => Writable,
+): ArtifactWriters {
+  const stdoutPath = join(root, artifactFileName(index, STDOUT_FILE_SUFFIX));
+  const stderrPath = join(root, artifactFileName(index, STDERR_FILE_SUFFIX));
+  const stdoutFile = createArtifactWriteStream(stdoutPath);
+  const stderrFile = createArtifactWriteStream(stderrPath);
+  return {
+    stdoutPath,
+    stderrPath,
+    stdoutFile,
+    stderrFile,
+    completion: Promise.all([finished(stdoutFile), finished(stderrFile)]),
+  };
+}
+
+async function finishArtifactWriters(writers: ArtifactWriters): Promise<TestRunCommandResult["output"]> {
+  writers.stdoutFile.end();
+  writers.stderrFile.end();
+  await writers.completion;
+  return {
+    stdoutPath: writers.stdoutPath,
+    stderrPath: writers.stderrPath,
+  };
+}
+
+function runCapturedCommand(request: CapturedCommandRequest): Promise<TestRunCommandResult> {
+  return new Promise<TestRunCommandResult>((resolveResult) => {
+    let settled = false;
+    const resolveOnce = (result: TestRunCommandResult): void => {
+      if (settled) return;
+      settled = true;
+      resolveResult(result);
+    };
+    const child: ChildProcess = spawnManagedSubprocess(request.processRunner, request.command, request.args, {
+      cwd: request.productDir,
+      env: {
+        ...request.inheritedEnv,
+        ...AGENT_TEST_OUTPUT_ENV,
+      },
+    });
+    child.stdout?.pipe(request.writers.stdoutFile);
+    child.stderr?.pipe(request.writers.stderrFile);
+    const resolveWithExitCode = (exitCode: number): void => {
+      finishArtifactWriters(request.writers)
+        .then((output) => resolveOnce({ exitCode, output }))
+        .catch(() => resolveOnce({ exitCode: PROCESS_FAILURE_EXIT_CODE }));
+    };
+    request.writers.completion.catch(() => {
+      child.kill();
+      resolveOnce({ exitCode: PROCESS_FAILURE_EXIT_CODE });
+    });
+    child.on("close", (code) => resolveWithExitCode(code ?? PROCESS_FAILURE_EXIT_CODE));
+    child.on("error", () => resolveWithExitCode(PROCESS_FAILURE_EXIT_CODE));
+  });
+}
+
 function createAgentOutputCommandRunner(
   productDir: string,
   options: AgentRunnerOptions = {},
@@ -98,57 +174,13 @@ function createAgentOutputCommandRunner(
   return async (command, args = EMPTY_RUNNER_ARGS) => {
     nextArtifactIndex += 1;
     const root = await artifactRoot;
-    const stdoutPath = join(root, artifactFileName(nextArtifactIndex, STDOUT_FILE_SUFFIX));
-    const stderrPath = join(root, artifactFileName(nextArtifactIndex, STDERR_FILE_SUFFIX));
-    const stdoutFile = createArtifactWriteStream(stdoutPath);
-    const stderrFile = createArtifactWriteStream(stderrPath);
-    const artifactCompletion = Promise.all([finished(stdoutFile), finished(stderrFile)]);
-
-    return new Promise<TestRunCommandResult>((resolveResult) => {
-      let settled = false;
-      const resolveOnce = (result: TestRunCommandResult): void => {
-        if (settled) return;
-        settled = true;
-        resolveResult(result);
-      };
-      const child: ChildProcess = spawnManagedSubprocess(processRunner, command, args, {
-        cwd: productDir,
-        env: {
-          ...inheritedEnv,
-          ...AGENT_TEST_OUTPUT_ENV,
-        },
-      });
-      child.stdout?.pipe(stdoutFile);
-      child.stderr?.pipe(stderrFile);
-
-      const finishFiles = async (): Promise<void> => {
-        stdoutFile.end();
-        stderrFile.end();
-        await artifactCompletion;
-      };
-
-      const resolveWithExitCode = (exitCode: number): void => {
-        finishFiles()
-          .then(() => {
-            resolveOnce({
-              exitCode,
-              output: {
-                stdoutPath,
-                stderrPath,
-              },
-            });
-          })
-          .catch(() => {
-            resolveOnce({ exitCode: PROCESS_FAILURE_EXIT_CODE });
-          });
-      };
-
-      artifactCompletion.catch(() => {
-        child.kill();
-        resolveOnce({ exitCode: PROCESS_FAILURE_EXIT_CODE });
-      });
-      child.on("close", (code) => resolveWithExitCode(code ?? PROCESS_FAILURE_EXIT_CODE));
-      child.on("error", () => resolveWithExitCode(PROCESS_FAILURE_EXIT_CODE));
+    return runCapturedCommand({
+      productDir,
+      command,
+      args,
+      processRunner,
+      inheritedEnv,
+      writers: createArtifactWriters(root, nextArtifactIndex, createArtifactWriteStream),
     });
   };
 }
