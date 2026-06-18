@@ -22,7 +22,7 @@ import {
   selectLatestTerminalAuditRun,
 } from "@/domains/audit/run-state";
 import { createJournal, type JsonValue } from "@/lib/agent-run-journal";
-import { createAppendableJournalStore } from "@/lib/appendable-journal-store";
+import { appendableJournalSealMarkerPath, createAppendableJournalStore } from "@/lib/appendable-journal-store";
 import { STATE_STORE_ERROR } from "@/lib/state-store";
 import { AUDIT_RUN_STATE_TEST_GENERATOR, sampleAuditRunStateTestValue } from "@testing/generators/audit/run-state";
 import { CONFIG_TEST_GENERATOR, sampleConfigTestValue } from "@testing/generators/config/descriptors";
@@ -162,6 +162,7 @@ describe("audit branch run-state lookup", () => {
       appendFile: () => Promise.resolve(),
       readFile: () => Promise.reject(error),
       readdir: () => Promise.resolve([{ name: runFileName, isFile: () => true }]),
+      lstat: () => Promise.resolve({ isDirectory: () => true, isFile: () => false, isSymbolicLink: () => false }),
     };
 
     await withAuditHarness(async (productDir) => {
@@ -245,7 +246,7 @@ describe("audit branch run-state lookup", () => {
 
       const written = await writeTerminalAuditRunState(runFile.value.runFilePath, state);
       expect(written.ok).toBe(true);
-      expect(existsSync(`${runFile.value.runFilePath}.sealed`)).toBe(true);
+      expect(existsSync(appendableJournalSealMarkerPath(runFile.value.runFilePath))).toBe(true);
 
       const read = await readAuditBranchRuns(productDir, branchSlug);
       expect(read.ok).toBe(true);

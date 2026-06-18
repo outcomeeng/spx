@@ -15,7 +15,7 @@ import {
   isAuditRunStateStatus,
 } from "@/domains/audit/run-state";
 import { createJournal, type JournalEvent, type JournalIdentity } from "@/lib/agent-run-journal";
-import { createAppendableJournalStore } from "@/lib/appendable-journal-store";
+import { appendableJournalSealMarkerPath, createAppendableJournalStore } from "@/lib/appendable-journal-store";
 import {
   branchScopeDir,
   createJsonlRunFile,
@@ -70,6 +70,8 @@ const AUDIT_RUN_COMPLETED_ATTEMPT = 1;
 const AUDIT_RUN_FILE_RELATIVE_SEGMENT_COUNT = 6;
 const AUDIT_RUN_FILE_BRANCH_SLUG_INDEX = 2;
 const AUDIT_RUN_FILE_NAME_INDEX = 5;
+const AUDIT_RUN_FILE_SCOPE_PARENT_COUNT = 5;
+const AUDIT_RUNS_DIRECTORY_SCOPE_PARENT_COUNT = 4;
 
 const defaultFileSystem: StateStoreFileSystem = defaultStateStoreFileSystem;
 
@@ -111,6 +113,10 @@ export async function writeTerminalAuditRunState(
     return { ok: false, error: AUDIT_RUN_STATE_ERROR.INVALID_TERMINAL_STATE };
   }
   const fs = options.fs ?? defaultFileSystem;
+  const runFileSafety = await validateExistingAuditRunFile(runFilePath, fs);
+  if (!runFileSafety.ok) return runFileSafety;
+  const sealMarkerSafety = await validateAuditStateFilePath(appendableJournalSealMarkerPath(runFilePath), fs);
+  if (!sealMarkerSafety.ok) return sealMarkerSafety;
   const backend = createAppendableJournalStore({ runFilePath, fs });
   const journal = createJournal(backend, auditRunJournalIdentity(runFilePath));
   try {
@@ -144,6 +150,8 @@ export async function appendAuditRunEvent(
   options: WriteAuditRunStateOptions = {},
 ): Promise<Result<string>> {
   const fs = options.fs ?? defaultFileSystem;
+  const runFileSafety = await validateExistingAuditRunFile(runFilePath, fs);
+  if (!runFileSafety.ok) return runFileSafety;
   const backend = createAppendableJournalStore({ runFilePath, fs });
   const journal = createJournal(backend, auditRunJournalIdentity(runFilePath));
   try {
@@ -159,6 +167,8 @@ export async function readAuditRunEvents(
   options: ReadAuditRunStateOptions = {},
 ): Promise<Result<readonly JournalEvent[]>> {
   const fs = options.fs ?? defaultFileSystem;
+  const runFileSafety = await validateExistingAuditRunFile(runFilePath, fs);
+  if (!runFileSafety.ok) return runFileSafety;
   try {
     return { ok: true, value: await createAppendableJournalStore({ runFilePath, fs }).readAll() };
   } catch (error) {
@@ -216,6 +226,8 @@ export async function readAuditBranchRuns(
   if (!branchDir.ok) return branchDir;
   const auditRunsDir = stateStoreRunsDir(branchDir.value, STATE_STORE_DOMAIN.AUDIT);
   if (!auditRunsDir.ok) return auditRunsDir;
+  const runsDirSafety = await validateAuditStateDirectoryPath(auditRunsDir.value, fs);
+  if (!runsDirSafety.ok) return runsDirSafety;
   let entries: readonly AuditRunFileEntry[];
   try {
     entries = await fs.readdir(auditRunsDir.value, { withFileTypes: true });
@@ -284,6 +296,81 @@ function auditRunJournalIdentity(runFilePath: string): JournalIdentity {
 
 function isAuditRunFileEntry(entry: AuditRunFileEntry): boolean {
   return entry.isFile() && isRunFileName(entry.name);
+}
+
+async function validateExistingAuditRunFile(
+  runFilePath: string,
+  fs: StateStoreFileSystem,
+): Promise<Result<void>> {
+  const pathSafety = validateAuditRunFilePathShape(runFilePath);
+  if (!pathSafety.ok) return pathSafety;
+  return validateAuditStateFilePath(runFilePath, fs);
+}
+
+function validateAuditRunFilePathShape(runFilePath: string): Result<void> {
+  const pathSegments = runFilePath.split(sep).slice(-AUDIT_RUN_FILE_RELATIVE_SEGMENT_COUNT);
+  if (!isAuditRunFileRelativePath(pathSegments)) {
+    return { ok: false, error: AUDIT_RUN_STATE_ERROR.INVALID_RUN_FILE_PATH };
+  }
+  const branchSlug = pathSegments[AUDIT_RUN_FILE_BRANCH_SLUG_INDEX];
+  const validatedBranchSlug = validateBranchSlug(branchSlug);
+  if (!validatedBranchSlug.ok) return { ok: false, error: AUDIT_RUN_STATE_ERROR.INVALID_RUN_FILE_PATH };
+  return { ok: true, value: undefined };
+}
+
+async function validateAuditStateFilePath(
+  path: string,
+  fs: StateStoreFileSystem,
+): Promise<Result<void>> {
+  const parentSafety = await validateAuditStateParents(path, fs.lstat, AUDIT_RUN_FILE_SCOPE_PARENT_COUNT);
+  if (!parentSafety.ok) return parentSafety;
+  try {
+    const stats = await fs.lstat(path);
+    return stats.isFile() && !stats.isSymbolicLink()
+      ? { ok: true, value: undefined }
+      : { ok: false, error: AUDIT_RUN_STATE_ERROR.INVALID_RUN_FILE_PATH };
+  } catch (error) {
+    if (hasErrorCode(error, ERROR_CODE_NOT_FOUND)) return { ok: true, value: undefined };
+    return { ok: false, error: toErrorMessage(error) };
+  }
+}
+
+async function validateAuditStateDirectoryPath(
+  path: string,
+  fs: StateStoreFileSystem,
+): Promise<Result<void>> {
+  const directorySafety = await validateAuditStateDirectory(path, fs.lstat);
+  if (!directorySafety.ok) return directorySafety;
+  return validateAuditStateParents(path, fs.lstat, AUDIT_RUNS_DIRECTORY_SCOPE_PARENT_COUNT);
+}
+
+async function validateAuditStateParents(
+  path: string,
+  lstat: NonNullable<StateStoreFileSystem["lstat"]>,
+  parentCount: number,
+): Promise<Result<void>> {
+  let parentPath = dirname(path);
+  for (let depth = 0; depth < parentCount; depth += 1) {
+    const directorySafety = await validateAuditStateDirectory(parentPath, lstat);
+    if (!directorySafety.ok) return directorySafety;
+    parentPath = dirname(parentPath);
+  }
+  return { ok: true, value: undefined };
+}
+
+async function validateAuditStateDirectory(
+  path: string,
+  lstat: NonNullable<StateStoreFileSystem["lstat"]>,
+): Promise<Result<void>> {
+  try {
+    const stats = await lstat(path);
+    return stats.isDirectory() && !stats.isSymbolicLink()
+      ? { ok: true, value: undefined }
+      : { ok: false, error: AUDIT_RUN_STATE_ERROR.INVALID_RUN_FILE_PATH };
+  } catch (error) {
+    if (hasErrorCode(error, ERROR_CODE_NOT_FOUND)) return { ok: true, value: undefined };
+    return { ok: false, error: toErrorMessage(error) };
+  }
 }
 
 function isOutsideDirectory(relativePath: string): boolean {

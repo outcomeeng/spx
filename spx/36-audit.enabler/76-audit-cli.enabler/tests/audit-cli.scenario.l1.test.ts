@@ -1,11 +1,12 @@
-import { readFile, writeFile } from "node:fs/promises";
+import { mkdir, readFile, rm, symlink, writeFile } from "node:fs/promises";
 import { basename, dirname, join } from "node:path";
 
 import { execa } from "execa";
 import { Command } from "commander";
 import { describe, expect, it } from "vitest";
 
-import { AUDIT_PROGRESS_STEP } from "@/commands/audit/lifecycle";
+import { AUDIT_PROGRESS_STEP, auditCloseCommand, auditProgressCommand } from "@/commands/audit/lifecycle";
+import { readAuditBranchRuns, readAuditRunEvents } from "@/commands/audit/run-state";
 import {
   AUDIT_RUN_EVENT,
   AUDIT_RUN_STATE_FIELDS,
@@ -18,7 +19,7 @@ import {
 import { AUDIT_CLI } from "@/interfaces/cli/audit";
 import { CLI_DOMAINS } from "@/interfaces/cli/registry";
 import { createJournal } from "@/lib/agent-run-journal";
-import { createAppendableJournalStore } from "@/lib/appendable-journal-store";
+import { appendableJournalSealMarkerPath, createAppendableJournalStore } from "@/lib/appendable-journal-store";
 import { ELLIPSIS_TOKEN, MAX_CLI_ARGUMENT_DISPLAY_LENGTH } from "@/lib/cli-sanitize";
 import { AUDIT_RUN_STATE_TEST_GENERATOR, sampleAuditRunStateTestValue } from "@testing/generators/audit/run-state";
 import { CLI_PATH, NODE_EXECUTABLE } from "@testing/harnesses/constants";
@@ -37,6 +38,7 @@ const CONFIG_TARGET_INCLUDE = "spx/36-audit.enabler";
 const CONFIG_TARGET_EXCLUDE = "spx/36-audit.enabler/ISSUES.md";
 const LINKED_WORKTREE_BRANCH = "linked-audit-config";
 const RUN_FILE_LABEL = "run file: ";
+const INVALID_CLOSE_STATUS = "invalid-status";
 
 describe("audit CLI lifecycle commands", () => {
   it("registers the audit command group through the root CLI registry", () => {
@@ -87,6 +89,30 @@ describe("audit CLI lifecycle commands", () => {
       expect(initPayload.branchSlug).toBe(slugAuditBranchIdentity(BRANCH));
       expect(runFile).toContain(initPayload.startedAt);
 
+      const invalidCloseStatus = await runSpxAudit([
+        "close",
+        "--run-file",
+        runFile,
+        "--status",
+        INVALID_CLOSE_STATUS,
+        "--json",
+      ], harness.productDir);
+      expect(invalidCloseStatus.exitCode).toBe(1);
+      expect((JSON.parse(invalidCloseStatus.errorOutput) as { readonly error: string }).error).toBe(
+        AUDIT_RUN_STATE_ERROR.UNKNOWN_CLOSE_STATUS,
+      );
+      expect(invalidCloseStatus.errorOutput).not.toContain(INVALID_CLOSE_STATUS);
+
+      const directInvalidCloseStatus = await auditCloseCommand({
+        runFile,
+        status: INVALID_CLOSE_STATUS,
+        json: true,
+      });
+      expect(directInvalidCloseStatus.exitCode).toBe(1);
+      expect((JSON.parse(directInvalidCloseStatus.output) as { readonly error: string }).error).toBe(
+        AUDIT_RUN_STATE_ERROR.UNKNOWN_CLOSE_STATUS,
+      );
+
       for (const step of [
         AUDIT_PROGRESS_STEP.CHANGESET_DETERMINED,
         AUDIT_PROGRESS_STEP.DIFF_ANALYZED,
@@ -108,7 +134,7 @@ describe("audit CLI lifecycle commands", () => {
       }
 
       const close = await runSpxAudit([
-        "close",
+        "closure",
         "--run-file",
         runFile,
         "--status",
@@ -430,6 +456,196 @@ describe("audit CLI lifecycle commands", () => {
         AUDIT_RUN_STATE_ERROR.MISSING_INIT_EVENT,
       );
       expect(await fileExists(missingRunFile)).toBe(false);
+    } finally {
+      await harness.cleanup();
+    }
+  });
+
+  it("rejects branch-scoped run files replaced by symlinks without writing through them", async () => {
+    const harness = await createAuditHarness();
+    try {
+      const runFilePath = await initializeDefaultAuditRun(harness.productDir);
+      const symlinkTarget = join(harness.productDir, "outside-audit-run-target.jsonl");
+      const symlinkTargetContent = "external target\n";
+      await writeFile(symlinkTarget, symlinkTargetContent);
+      await rm(runFilePath);
+      await symlink(symlinkTarget, runFilePath);
+
+      const directRead = await readAuditRunEvents(runFilePath);
+      expect(directRead).toEqual({ ok: false, error: AUDIT_RUN_STATE_ERROR.INVALID_RUN_FILE_PATH });
+
+      const directProgress = await auditProgressCommand({
+        runFile: runFilePath,
+        step: AUDIT_PROGRESS_STEP.CHANGESET_DETERMINED,
+        json: true,
+      }, { cwd: harness.productDir });
+      expect(directProgress.exitCode).toBe(1);
+      expect((JSON.parse(directProgress.output) as { readonly error: string }).error).toBe(
+        AUDIT_RUN_STATE_ERROR.INVALID_RUN_FILE_PATH,
+      );
+
+      const progress = await runSpxAudit([
+        "progress",
+        "--run-file",
+        runFilePath,
+        "--step",
+        AUDIT_PROGRESS_STEP.CHANGESET_DETERMINED,
+        "--json",
+      ], harness.productDir);
+      expect(progress.exitCode).toBe(1);
+      expect((JSON.parse(progress.errorOutput) as { readonly error: string }).error).toBe(
+        AUDIT_RUN_STATE_ERROR.INVALID_RUN_FILE_PATH,
+      );
+
+      const directClose = await auditCloseCommand({
+        runFile: runFilePath,
+        status: AUDIT_RUN_STATE_STATUS.APPROVED,
+        json: true,
+      }, { cwd: harness.productDir });
+      expect(directClose.exitCode).toBe(1);
+      expect((JSON.parse(directClose.output) as { readonly error: string }).error).toBe(
+        AUDIT_RUN_STATE_ERROR.INVALID_RUN_FILE_PATH,
+      );
+
+      const close = await runSpxAudit([
+        "close",
+        "--run-file",
+        runFilePath,
+        "--status",
+        AUDIT_RUN_STATE_STATUS.APPROVED,
+        "--json",
+      ], harness.productDir);
+      expect(close.exitCode).toBe(1);
+      expect((JSON.parse(close.errorOutput) as { readonly error: string }).error).toBe(
+        AUDIT_RUN_STATE_ERROR.INVALID_RUN_FILE_PATH,
+      );
+      expect(await readFile(symlinkTarget, "utf8")).toBe(symlinkTargetContent);
+    } finally {
+      await harness.cleanup();
+    }
+  });
+
+  it("rejects branch-scoped run files with symlinked seal markers without writing through them", async () => {
+    const harness = await createAuditHarness();
+    try {
+      const runFilePath = await initializeDefaultAuditRun(harness.productDir);
+      const sealMarkerPath = appendableJournalSealMarkerPath(runFilePath);
+      const symlinkTarget = join(harness.productDir, "outside-audit-seal-target");
+      const symlinkTargetContent = "external seal target\n";
+      await writeFile(symlinkTarget, symlinkTargetContent);
+      await symlink(symlinkTarget, sealMarkerPath);
+
+      const close = await runSpxAudit([
+        "close",
+        "--run-file",
+        runFilePath,
+        "--status",
+        AUDIT_RUN_STATE_STATUS.APPROVED,
+        "--json",
+      ], harness.productDir);
+      expect(close.exitCode).toBe(1);
+      expect((JSON.parse(close.errorOutput) as { readonly error: string }).error).toBe(
+        AUDIT_RUN_STATE_ERROR.INVALID_RUN_FILE_PATH,
+      );
+      expect(await readFile(symlinkTarget, "utf8")).toBe(symlinkTargetContent);
+    } finally {
+      await harness.cleanup();
+    }
+  });
+
+  it("rejects branch-scoped run files under symlinked run directories without writing through them", async () => {
+    const harness = await createAuditHarness();
+    try {
+      const runFilePath = await initializeDefaultAuditRun(harness.productDir);
+      const runsDir = dirname(runFilePath);
+      const runFileName = basename(runFilePath);
+      const symlinkTargetDir = join(harness.productDir, "outside-audit-runs");
+      const symlinkTargetPath = join(symlinkTargetDir, runFileName);
+      const symlinkTargetContent = "external directory target\n";
+      await mkdir(symlinkTargetDir);
+      await writeFile(symlinkTargetPath, symlinkTargetContent);
+      await rm(runsDir, { recursive: true });
+      await symlink(symlinkTargetDir, runsDir);
+
+      const directRead = await readAuditRunEvents(runFilePath);
+      expect(directRead).toEqual({ ok: false, error: AUDIT_RUN_STATE_ERROR.INVALID_RUN_FILE_PATH });
+      const directBranchRuns = await readAuditBranchRuns(harness.productDir, slugAuditBranchIdentity(BRANCH));
+      expect(directBranchRuns).toEqual({ ok: false, error: AUDIT_RUN_STATE_ERROR.INVALID_RUN_FILE_PATH });
+
+      const progress = await runSpxAudit([
+        "progress",
+        "--run-file",
+        runFilePath,
+        "--step",
+        AUDIT_PROGRESS_STEP.CHANGESET_DETERMINED,
+        "--json",
+      ], harness.productDir);
+      expect(progress.exitCode).toBe(1);
+      expect((JSON.parse(progress.errorOutput) as { readonly error: string }).error).toBe(
+        AUDIT_RUN_STATE_ERROR.INVALID_RUN_FILE_PATH,
+      );
+
+      const close = await runSpxAudit([
+        "close",
+        "--run-file",
+        runFilePath,
+        "--status",
+        AUDIT_RUN_STATE_STATUS.APPROVED,
+        "--json",
+      ], harness.productDir);
+      expect(close.exitCode).toBe(1);
+      expect((JSON.parse(close.errorOutput) as { readonly error: string }).error).toBe(
+        AUDIT_RUN_STATE_ERROR.INVALID_RUN_FILE_PATH,
+      );
+
+      const status = await runSpxAudit(["status", "--branch", BRANCH, "--json"], harness.productDir);
+      expect(status.exitCode).toBe(1);
+      expect((JSON.parse(status.errorOutput) as { readonly error: string }).error).toBe(
+        AUDIT_RUN_STATE_ERROR.INVALID_RUN_FILE_PATH,
+      );
+
+      const list = await runSpxAudit(["list", "--branch", BRANCH, "--json"], harness.productDir);
+      expect(list.exitCode).toBe(1);
+      expect((JSON.parse(list.errorOutput) as { readonly error: string }).error).toBe(
+        AUDIT_RUN_STATE_ERROR.INVALID_RUN_FILE_PATH,
+      );
+      expect(await readFile(symlinkTargetPath, "utf8")).toBe(symlinkTargetContent);
+    } finally {
+      await harness.cleanup();
+    }
+  });
+
+  it("rejects branch-scoped run files under symlinked branch directories without reading through them", async () => {
+    const harness = await createAuditHarness();
+    try {
+      const runFilePath = await initializeDefaultAuditRun(harness.productDir);
+      const runsDir = dirname(runFilePath);
+      const branchDir = dirname(dirname(runsDir));
+      const runFileName = basename(runFilePath);
+      const symlinkTargetDir = join(harness.productDir, "outside-audit-branch");
+      const symlinkTargetRunsDir = join(symlinkTargetDir, "audit", "runs");
+      const symlinkTargetPath = join(symlinkTargetRunsDir, runFileName);
+      const symlinkTargetContent = "external branch target\n";
+      await mkdir(symlinkTargetRunsDir, { recursive: true });
+      await writeFile(symlinkTargetPath, symlinkTargetContent);
+      await rm(branchDir, { recursive: true });
+      await symlink(symlinkTargetDir, branchDir);
+
+      const directBranchRuns = await readAuditBranchRuns(harness.productDir, slugAuditBranchIdentity(BRANCH));
+      expect(directBranchRuns).toEqual({ ok: false, error: AUDIT_RUN_STATE_ERROR.INVALID_RUN_FILE_PATH });
+
+      const status = await runSpxAudit(["status", "--branch", BRANCH, "--json"], harness.productDir);
+      expect(status.exitCode).toBe(1);
+      expect((JSON.parse(status.errorOutput) as { readonly error: string }).error).toBe(
+        AUDIT_RUN_STATE_ERROR.INVALID_RUN_FILE_PATH,
+      );
+
+      const list = await runSpxAudit(["list", "--branch", BRANCH, "--json"], harness.productDir);
+      expect(list.exitCode).toBe(1);
+      expect((JSON.parse(list.errorOutput) as { readonly error: string }).error).toBe(
+        AUDIT_RUN_STATE_ERROR.INVALID_RUN_FILE_PATH,
+      );
+      expect(await readFile(symlinkTargetPath, "utf8")).toBe(symlinkTargetContent);
     } finally {
       await harness.cleanup();
     }

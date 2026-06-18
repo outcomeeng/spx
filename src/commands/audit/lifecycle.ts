@@ -194,7 +194,7 @@ export async function auditCloseCommand(
   deps: AuditLifecycleDeps = {},
 ): Promise<AuditCommandResult> {
   if (!isAuditCloseStatus(options.status)) {
-    return errorResult(`unknown audit status: ${options.status}`, options.json);
+    return errorResult(AUDIT_RUN_STATE_ERROR.UNKNOWN_CLOSE_STATUS, options.json);
   }
   const runFile = await resolveCommandRunFile(options.runFile, deps);
   if (!runFile.ok) return errorResult(runFile.error, options.json);

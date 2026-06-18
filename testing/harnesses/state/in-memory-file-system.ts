@@ -37,6 +37,21 @@ class InMemoryStateStoreFileSystem implements StateStoreFileSystem {
     return content;
   }
 
+  async lstat(path: string): Promise<{
+    isDirectory(): boolean;
+    isFile(): boolean;
+    isSymbolicLink(): boolean;
+  }> {
+    const directoryPrefix = path.endsWith(PATH_SEPARATOR) ? path : `${path}${PATH_SEPARATOR}`;
+    if (this.files.has(path)) {
+      return { isDirectory: () => false, isFile: () => true, isSymbolicLink: () => false };
+    }
+    if ([...this.files.keys()].some((filePath) => filePath.startsWith(directoryPrefix))) {
+      return { isDirectory: () => true, isFile: () => false, isSymbolicLink: () => false };
+    }
+    throw Object.assign(new Error(ERROR_CODE_NOT_FOUND), { code: ERROR_CODE_NOT_FOUND });
+  }
+
   async readdir(path: string, _options: { readonly withFileTypes: true }): Promise<readonly StateStoreFileEntry[]> {
     const prefix = path.endsWith(PATH_SEPARATOR) ? path : `${path}${PATH_SEPARATOR}`;
     const directFiles = new Set<string>();

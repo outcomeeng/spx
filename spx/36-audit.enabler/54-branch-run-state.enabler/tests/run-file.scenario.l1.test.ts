@@ -6,13 +6,16 @@ import { describe, expect, it } from "vitest";
 
 import {
   type AuditRunStateFileSystem,
+  appendAuditRunEvent,
   createAuditRunFile,
+  readAuditRunEvents,
   writeTerminalAuditRunState,
 } from "@/commands/audit/run-state";
 import {
   AUDIT_RUN_STATE_DISPLAY,
   AUDIT_RUN_STATE_ERROR,
   AUDIT_RUN_STATE_STATUS,
+  auditRunStartedEventInput,
   auditRunFileName,
   formatAuditRunTimestamp,
 } from "@/domains/audit/run-state";
@@ -33,6 +36,7 @@ function createFailingMkdirFileSystem(errorMessage: string): AuditRunStateFileSy
     appendFile: () => Promise.resolve(),
     readFile: async () => EMPTY_JSON,
     readdir: async () => [],
+    lstat: async () => ({ isDirectory: () => true, isFile: () => false, isSymbolicLink: () => false }),
   };
 }
 
@@ -167,6 +171,37 @@ describe("audit run-file storage", () => {
     });
   });
 
+  it("rejects direct run-state access outside branch-scoped audit storage", async () => {
+    const branchSlug = sampleAuditRunStateTestValue(AUDIT_RUN_STATE_TEST_GENERATOR.branchSlug());
+    const runId = sampleAuditRunStateTestValue(AUDIT_RUN_STATE_TEST_GENERATOR.runId());
+    const state = sampleAuditRunStateTestValue(AUDIT_RUN_STATE_TEST_GENERATOR.auditRunState());
+
+    await withTempProductDir(async (productDir) => {
+      const runFile = await createAuditRunFile(productDir, branchSlug, {
+        randomBytes: () => bufferFromHex(runId),
+      });
+      expect(runFile.ok).toBe(true);
+      if (!runFile.ok) throw new Error(runFile.error);
+      const outsideRunFilePath = join(productDir, runFile.value.runFileName);
+
+      const append = await appendAuditRunEvent(
+        outsideRunFilePath,
+        auditRunStartedEventInput(state, {
+          id: runFile.value.runFileName,
+          time: state.startedAt,
+          attempt: 1,
+        }),
+      );
+      const read = await readAuditRunEvents(outsideRunFilePath);
+      const write = await writeTerminalAuditRunState(outsideRunFilePath, state);
+
+      expect(append).toEqual({ ok: false, error: AUDIT_RUN_STATE_ERROR.INVALID_RUN_FILE_PATH });
+      expect(read).toEqual({ ok: false, error: AUDIT_RUN_STATE_ERROR.INVALID_RUN_FILE_PATH });
+      expect(write).toEqual({ ok: false, error: AUDIT_RUN_STATE_ERROR.INVALID_RUN_FILE_PATH });
+      await expect(readFile(outsideRunFilePath, "utf8")).rejects.toMatchObject({ code: "ENOENT" });
+    });
+  });
+
   it("returns a write error when the seal-marker read fails", async () => {
     const branchSlug = sampleAuditRunStateTestValue(AUDIT_RUN_STATE_TEST_GENERATOR.branchSlug());
     const runId = sampleAuditRunStateTestValue(AUDIT_RUN_STATE_TEST_GENERATOR.runId());
@@ -187,6 +222,16 @@ describe("audit run-file storage", () => {
         appendFile: () => Promise.resolve(),
         readFile: () => Promise.reject(ioError),
         readdir: () => Promise.resolve([]),
+        lstat: (path) => {
+          if (path.endsWith(".sealed")) {
+            return Promise.reject(Object.assign(new Error("ENOENT"), { code: "ENOENT" }));
+          }
+          return Promise.resolve({
+            isDirectory: () => !path.endsWith(".jsonl"),
+            isFile: () => path.endsWith(".jsonl"),
+            isSymbolicLink: () => false,
+          });
+        },
       };
       const result = await writeTerminalAuditRunState(runFile.value.runFilePath, state, {
         fs: failingSealReadFileSystem,
