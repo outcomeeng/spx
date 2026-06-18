@@ -40,6 +40,7 @@ function createReadFailingFileSystem(
       isFile: () => path.endsWith(runFileName),
       isSymbolicLink: () => false,
     }),
+    rm: () => Promise.resolve(),
   };
 }
 

@@ -31,6 +31,20 @@ export const AUDIT_CLI = {
   jsonOption: "--json",
 } as const;
 
+export const AUDIT_CLI_FLAG = {
+  BRANCH: optionFlag(AUDIT_CLI.branchOption),
+  HEAD_SHA: optionFlag(AUDIT_CLI.headShaOption),
+  JSON: AUDIT_CLI.jsonOption,
+  MESSAGE: optionFlag(AUDIT_CLI.messageOption),
+  RUN_FILE: optionFlag(AUDIT_CLI.runFileOption),
+  STATUS: optionFlag(AUDIT_CLI.statusOption),
+  STEP: optionFlag(AUDIT_CLI.stepOption),
+} as const;
+
+function optionFlag(option: string): string {
+  return option.match(/^\S+/u)?.[0] ?? option;
+}
+
 interface AuditInitCliOptions {
   readonly branch?: string;
   readonly headSha?: string;

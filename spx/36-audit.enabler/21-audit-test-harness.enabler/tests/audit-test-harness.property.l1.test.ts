@@ -6,11 +6,11 @@
  */
 
 import { AUDIT_RUN_STATE_TEST_GENERATOR } from "@testing/generators/audit/run-state";
-import { auditBranchRunsDir, createAuditHarness } from "@testing/harnesses/audit/harness";
+import { auditBranchRunsDir as resolveAuditBranchRunsDir, createAuditHarness } from "@testing/harnesses/audit/harness";
 import * as fc from "fast-check";
 import { describe, it } from "vitest";
 
-describe("auditBranchRunsDir", () => {
+describe("audit branch runs directory determinism", () => {
   it("GIVEN any branch slug WHEN called twice THEN both calls return the same path", async () => {
     // Real bug class: derivation that reads a stateful counter, Date.now(), or
     // random produces non-repeatable output and would fail this property.
@@ -18,8 +18,8 @@ describe("auditBranchRunsDir", () => {
     try {
       fc.assert(
         fc.property(AUDIT_RUN_STATE_TEST_GENERATOR.branchSlug(), (branchSlug) => {
-          return auditBranchRunsDir(harness.productDir, branchSlug)
-            === auditBranchRunsDir(harness.productDir, branchSlug);
+          return resolveAuditBranchRunsDir(harness.productDir, branchSlug)
+            === resolveAuditBranchRunsDir(harness.productDir, branchSlug);
         }),
       );
     } finally {

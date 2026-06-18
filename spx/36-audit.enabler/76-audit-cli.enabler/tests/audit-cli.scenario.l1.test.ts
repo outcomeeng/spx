@@ -5,8 +5,16 @@ import { execa } from "execa";
 import { Command } from "commander";
 import { describe, expect, it } from "vitest";
 
-import { AUDIT_PROGRESS_STEP, auditCloseCommand, auditProgressCommand } from "@/commands/audit/lifecycle";
-import { readAuditBranchRuns, readAuditRunEvents } from "@/commands/audit/run-state";
+import {
+  AUDIT_LIFECYCLE_TEXT_LABEL,
+  AUDIT_PROGRESS_STEP,
+  auditCloseCommand,
+  auditInitCommand,
+  auditProgressCommand,
+} from "@/commands/audit/lifecycle";
+import { readAuditBranchRuns, readAuditRunEvents, type AuditRunStateFileSystem } from "@/commands/audit/run-state";
+import { DEFAULT_CONFIG_FILENAME } from "@/config/index";
+import { AUDIT_CONFIG_FIELDS, AUDIT_SECTION } from "@/domains/audit/config";
 import {
   AUDIT_RUN_EVENT,
   AUDIT_RUN_STATE_FIELDS,
@@ -16,29 +24,48 @@ import {
   AUDIT_RUN_STATE_STATUS,
   slugAuditBranchIdentity,
 } from "@/domains/audit/run-state";
-import { AUDIT_CLI } from "@/interfaces/cli/audit";
+import { AUDIT_CLI, AUDIT_CLI_FLAG } from "@/interfaces/cli/audit";
 import { CLI_DOMAINS } from "@/interfaces/cli/registry";
 import { createJournal } from "@/lib/agent-run-journal";
 import { appendableJournalSealMarkerPath, createAppendableJournalStore } from "@/lib/appendable-journal-store";
 import { ELLIPSIS_TOKEN, MAX_CLI_ARGUMENT_DISPLAY_LENGTH } from "@/lib/cli-sanitize";
+import {
+  defaultStateStoreFileSystem,
+  ERROR_CODE_NOT_FOUND,
+  STATE_STORE_DOMAIN,
+  STATE_STORE_PATH,
+  STATE_STORE_TEXT_ENCODING,
+} from "@/lib/state-store";
 import { AUDIT_RUN_STATE_TEST_GENERATOR, sampleAuditRunStateTestValue } from "@testing/generators/audit/run-state";
+import { CONFIG_TEST_GENERATOR, sampleConfigTestValue } from "@testing/generators/config/descriptors";
 import { CLI_PATH, NODE_EXECUTABLE } from "@testing/harnesses/constants";
-import { createAuditHarness } from "@testing/harnesses/audit/harness";
-import { GIT_TEST_CONFIG, GIT_TEST_FLAGS, GIT_TEST_SUBCOMMANDS, readGit, runGit } from "@testing/harnesses/git-test-constants";
+import { auditBranchRunsDir, createAuditHarness, writeAuditConfig } from "@testing/harnesses/audit/harness";
+import {
+  GIT_TEST_CONFIG,
+  GIT_TEST_FLAGS,
+  GIT_TEST_REF,
+  GIT_TEST_SUBCOMMANDS,
+  readGit,
+  runGit,
+} from "@testing/harnesses/git-test-constants";
 import { createTempDir, removeTempDir } from "@testing/harnesses/with-temp-dir";
 
-const AUDITOR = "typescript-test-auditor";
-const TARGET = "src/plugins/typescript/skills/audit-typescript-tests";
-const BRANCH = "audit-lifecycle-slice";
-const HEAD_SHA = "0000000000000000000000000000000000000000";
-const BASE_REF = "origin/main";
-const CONFIG_BASE_REF = "release/base";
-const CONFIG_AUDITOR = "configured-test-auditor";
-const CONFIG_TARGET_INCLUDE = "spx/36-audit.enabler";
-const CONFIG_TARGET_EXCLUDE = "spx/36-audit.enabler/ISSUES.md";
-const LINKED_WORKTREE_BRANCH = "linked-audit-config";
-const RUN_FILE_LABEL = "run file: ";
-const INVALID_CLOSE_STATUS = "invalid-status";
+const auditor = sampleConfigTestValue(CONFIG_TEST_GENERATOR.key());
+const target = sampleConfigTestValue(CONFIG_TEST_GENERATOR.key());
+const branch = sampleAuditRunStateTestValue(AUDIT_RUN_STATE_TEST_GENERATOR.branchName());
+const headSha = sampleAuditRunStateTestValue(AUDIT_RUN_STATE_TEST_GENERATOR.headSha());
+const baseRef = sampleConfigTestValue(CONFIG_TEST_GENERATOR.key());
+const configBaseRef = sampleConfigTestValue(CONFIG_TEST_GENERATOR.key());
+const configAuditor = sampleConfigTestValue(CONFIG_TEST_GENERATOR.key());
+const configTargetInclude = sampleConfigTestValue(CONFIG_TEST_GENERATOR.key());
+const configTargetExclude = sampleConfigTestValue(CONFIG_TEST_GENERATOR.key());
+const linkedWorktreeBranch = sampleAuditRunStateTestValue(AUDIT_RUN_STATE_TEST_GENERATOR.branchName());
+const linkedWorktreeDirectory = sampleConfigTestValue(CONFIG_TEST_GENERATOR.key());
+const runFileLabel = AUDIT_LIFECYCLE_TEXT_LABEL.RUN_FILE;
+const invalidCloseStatusValue = sampleAuditRunStateTestValue(AUDIT_RUN_STATE_TEST_GENERATOR.unknownProgressStep());
+const millisecondsPerSecond = 10 ** 3;
+const auditLifecycleTimeoutMs = 60 * millisecondsPerSecond;
+const singleIncompleteRunCountText = "incomplete runs: 1";
 
 describe("audit CLI lifecycle commands", () => {
   it("registers the audit command group through the root CLI registry", () => {
@@ -64,17 +91,17 @@ describe("audit CLI lifecycle commands", () => {
     const harness = await createAuditHarness();
     try {
       await writeAuditConfig(harness.productDir, {
-        baseRef: BASE_REF,
-        auditors: [AUDITOR],
-        include: [TARGET],
+        baseRef: baseRef,
+        auditors: [auditor],
+        include: [target],
       });
       const init = await runSpxAudit([
-        "init",
-        "--branch",
-        BRANCH,
-        "--head-sha",
-        HEAD_SHA,
-        "--json",
+        AUDIT_CLI.initCommandName,
+        AUDIT_CLI_FLAG.BRANCH,
+        branch,
+        AUDIT_CLI_FLAG.HEAD_SHA,
+        headSha,
+        AUDIT_CLI_FLAG.JSON,
       ], harness.productDir);
 
       expect(init.exitCode).toBe(0);
@@ -85,27 +112,27 @@ describe("audit CLI lifecycle commands", () => {
         readonly startedAt: string;
       };
       const runFile = initPayload.runFilePath;
-      expect(initPayload.branchName).toBe(BRANCH);
-      expect(initPayload.branchSlug).toBe(slugAuditBranchIdentity(BRANCH));
+      expect(initPayload.branchName).toBe(branch);
+      expect(initPayload.branchSlug).toBe(slugAuditBranchIdentity(branch));
       expect(runFile).toContain(initPayload.startedAt);
 
-      const invalidCloseStatus = await runSpxAudit([
-        "close",
-        "--run-file",
+      const invalidCloseStatusResult = await runSpxAudit([
+        AUDIT_CLI.closeCommandName,
+        AUDIT_CLI_FLAG.RUN_FILE,
         runFile,
-        "--status",
-        INVALID_CLOSE_STATUS,
-        "--json",
+        AUDIT_CLI_FLAG.STATUS,
+        invalidCloseStatusValue,
+        AUDIT_CLI_FLAG.JSON,
       ], harness.productDir);
-      expect(invalidCloseStatus.exitCode).toBe(1);
-      expect((JSON.parse(invalidCloseStatus.errorOutput) as { readonly error: string }).error).toBe(
+      expect(invalidCloseStatusResult.exitCode).toBe(1);
+      expect((JSON.parse(invalidCloseStatusResult.errorOutput) as { readonly error: string }).error).toBe(
         AUDIT_RUN_STATE_ERROR.UNKNOWN_CLOSE_STATUS,
       );
-      expect(invalidCloseStatus.errorOutput).not.toContain(INVALID_CLOSE_STATUS);
+      expect(invalidCloseStatusResult.errorOutput).not.toContain(invalidCloseStatusValue);
 
       const directInvalidCloseStatus = await auditCloseCommand({
         runFile,
-        status: INVALID_CLOSE_STATUS,
+        status: invalidCloseStatusValue,
         json: true,
       });
       expect(directInvalidCloseStatus.exitCode).toBe(1);
@@ -122,27 +149,27 @@ describe("audit CLI lifecycle commands", () => {
         AUDIT_PROGRESS_STEP.DONE,
       ]) {
         const progress = await runSpxAudit([
-          "progress",
-          "--run-file",
+          AUDIT_CLI.progressCommandName,
+          AUDIT_CLI_FLAG.RUN_FILE,
           runFile,
-          "--step",
+          AUDIT_CLI_FLAG.STEP,
           step,
-          "--message",
+          AUDIT_CLI_FLAG.MESSAGE,
           step,
         ], harness.productDir);
         expect(progress.exitCode).toBe(0);
       }
 
       const close = await runSpxAudit([
-        "closure",
-        "--run-file",
+        AUDIT_CLI.closeAlias,
+        AUDIT_CLI_FLAG.RUN_FILE,
         runFile,
-        "--status",
+        AUDIT_CLI_FLAG.STATUS,
         AUDIT_RUN_STATE_STATUS.APPROVED,
       ], harness.productDir);
       expect(close.exitCode).toBe(0);
 
-      const status = await runSpxAudit(["status", "--branch", BRANCH, "--json"], harness.productDir);
+      const status = await runSpxAudit([AUDIT_CLI.statusCommandName, AUDIT_CLI_FLAG.BRANCH, branch, AUDIT_CLI_FLAG.JSON], harness.productDir);
       expect(status.exitCode).toBe(0);
       const statusPayload = JSON.parse(status.output) as {
         readonly latest: { readonly state: { readonly status: string; readonly auditors: readonly string[] } };
@@ -150,11 +177,11 @@ describe("audit CLI lifecycle commands", () => {
         readonly incompleteRuns: readonly unknown[];
       };
       expect(statusPayload.latest.state.status).toBe(AUDIT_RUN_STATE_STATUS.APPROVED);
-      expect(statusPayload.latest.state.auditors).toEqual([AUDITOR]);
+      expect(statusPayload.latest.state.auditors).toEqual([auditor]);
       expect(statusPayload.terminalRuns).toHaveLength(1);
       expect(statusPayload.incompleteRuns).toHaveLength(0);
 
-      const list = await runSpxAudit(["list", "--branch", BRANCH], harness.productDir);
+      const list = await runSpxAudit([AUDIT_CLI.listCommandName, AUDIT_CLI_FLAG.BRANCH, branch], harness.productDir);
       expect(list.exitCode).toBe(0);
       expect(list.output).toContain(`audit list: ${AUDIT_RUN_STATE_DISPLAY[AUDIT_RUN_STATE_STATUS.APPROVED]}`);
 
@@ -173,7 +200,7 @@ describe("audit CLI lifecycle commands", () => {
     } finally {
       await harness.cleanup();
     }
-  });
+  }, auditLifecycleTimeoutMs);
 
   it("uses detached HEAD identity when no branch name is available", async () => {
     const harness = await createAuditHarness();
@@ -193,19 +220,23 @@ describe("audit CLI lifecycle commands", () => {
         GIT_TEST_SUBCOMMANDS.COMMIT,
         GIT_TEST_FLAGS.ALLOW_EMPTY,
         GIT_TEST_FLAGS.COMMIT_MESSAGE,
-        "initial commit",
+        sampleConfigTestValue(CONFIG_TEST_GENERATOR.key()),
       ]);
-      await runGit(harness.productDir, [GIT_TEST_SUBCOMMANDS.CHECKOUT, GIT_TEST_FLAGS.DETACH, "HEAD"]);
-      const headSha = await readGit(harness.productDir, [GIT_TEST_SUBCOMMANDS.REV_PARSE, "HEAD"]);
+      await runGit(harness.productDir, [
+        GIT_TEST_SUBCOMMANDS.CHECKOUT,
+        GIT_TEST_FLAGS.DETACH,
+        GIT_TEST_REF.HEAD_NAME,
+      ]);
+      const headSha = await readGit(harness.productDir, [GIT_TEST_SUBCOMMANDS.REV_PARSE, GIT_TEST_REF.HEAD_NAME]);
       await writeAuditConfig(harness.productDir, {
-        baseRef: BASE_REF,
-        auditors: [AUDITOR],
-        include: [TARGET],
+        baseRef: baseRef,
+        auditors: [auditor],
+        include: [target],
       });
 
       const init = await runSpxAudit([
-        "init",
-        "--json",
+        AUDIT_CLI.initCommandName,
+        AUDIT_CLI_FLAG.JSON,
       ], harness.productDir);
 
       expect(init.exitCode).toBe(0);
@@ -217,15 +248,15 @@ describe("audit CLI lifecycle commands", () => {
       expect(initPayload.branchName).toBe(`detached-${headSha.slice(0, 12)}`);
 
       const close = await runSpxAudit([
-        "close",
-        "--run-file",
+        AUDIT_CLI.closeCommandName,
+        AUDIT_CLI_FLAG.RUN_FILE,
         initPayload.runFilePath,
-        "--status",
+        AUDIT_CLI_FLAG.STATUS,
         AUDIT_RUN_STATE_STATUS.APPROVED,
       ], harness.productDir);
       expect(close.exitCode).toBe(0);
 
-      const status = await runSpxAudit(["status", "--json"], harness.productDir);
+      const status = await runSpxAudit([AUDIT_CLI.statusCommandName, AUDIT_CLI_FLAG.JSON], harness.productDir);
       expect(status.exitCode).toBe(0);
       const statusPayload = JSON.parse(status.output) as {
         readonly branchName: string;
@@ -240,23 +271,23 @@ describe("audit CLI lifecycle commands", () => {
     }
   });
 
-  it("resolves base ref, auditors, and target filters from audit config when CLI overrides are absent", async () => {
+  it("resolves base ref, auditors, and target paths from audit config when CLI overrides are absent", async () => {
     const harness = await createAuditHarness();
     try {
       await writeAuditConfig(harness.productDir, {
-        baseRef: CONFIG_BASE_REF,
-        auditors: [CONFIG_AUDITOR],
-        include: [CONFIG_TARGET_INCLUDE],
-        exclude: [CONFIG_TARGET_EXCLUDE],
+        baseRef: configBaseRef,
+        auditors: [configAuditor],
+        include: [configTargetInclude],
+        exclude: [configTargetExclude],
       });
 
       const init = await runSpxAudit([
-        "init",
-        "--branch",
-        BRANCH,
-        "--head-sha",
-        HEAD_SHA,
-        "--json",
+        AUDIT_CLI.initCommandName,
+        AUDIT_CLI_FLAG.BRANCH,
+        branch,
+        AUDIT_CLI_FLAG.HEAD_SHA,
+        headSha,
+        AUDIT_CLI_FLAG.JSON,
       ], harness.productDir);
 
       expect(init.exitCode).toBe(0);
@@ -265,12 +296,9 @@ describe("audit CLI lifecycle commands", () => {
         readonly auditors: readonly string[];
         readonly targets: readonly string[];
       };
-      expect(initPayload.baseRef).toBe(CONFIG_BASE_REF);
-      expect(initPayload.auditors).toEqual([CONFIG_AUDITOR]);
-      expect(initPayload.targets).toEqual([
-        `include:${CONFIG_TARGET_INCLUDE}`,
-        `exclude:${CONFIG_TARGET_EXCLUDE}`,
-      ]);
+      expect(initPayload.baseRef).toBe(configBaseRef);
+      expect(initPayload.auditors).toEqual([configAuditor]);
+      expect(initPayload.targets).toEqual([configTargetInclude]);
     } finally {
       await harness.cleanup();
     }
@@ -279,7 +307,7 @@ describe("audit CLI lifecycle commands", () => {
   it("reads audit config from the current worktree while writing run state under the shared branch scope", async () => {
     const harness = await createAuditHarness();
     const linkedParentDir = await createTempDir("spx-audit-linked-parent-");
-    const linkedProductDir = join(linkedParentDir, "linked");
+    const linkedProductDir = join(linkedParentDir, linkedWorktreeDirectory);
     try {
       await runGit(harness.productDir, [GIT_TEST_SUBCOMMANDS.INIT]);
       await runGit(harness.productDir, [
@@ -296,28 +324,28 @@ describe("audit CLI lifecycle commands", () => {
         GIT_TEST_SUBCOMMANDS.COMMIT,
         GIT_TEST_FLAGS.ALLOW_EMPTY,
         GIT_TEST_FLAGS.COMMIT_MESSAGE,
-        "initial commit",
+        sampleConfigTestValue(CONFIG_TEST_GENERATOR.key()),
       ]);
       await runGit(harness.productDir, [
         GIT_TEST_SUBCOMMANDS.WORKTREE,
         GIT_TEST_SUBCOMMANDS.ADD,
         GIT_TEST_FLAGS.NEW_BRANCH,
-        LINKED_WORKTREE_BRANCH,
+        linkedWorktreeBranch,
         linkedProductDir,
       ]);
-      await writeFile(join(harness.productDir, "spx.config.yaml"), ["audit:", "  baseRef: 12", ""].join("\n"));
+      await writeInvalidAuditConfig(harness.productDir);
       await writeAuditConfig(linkedProductDir, {
-        baseRef: CONFIG_BASE_REF,
-        auditors: [CONFIG_AUDITOR],
+        baseRef: configBaseRef,
+        auditors: [configAuditor],
       });
 
       const init = await runSpxAudit([
-        "init",
-        "--branch",
-        BRANCH,
-        "--head-sha",
-        HEAD_SHA,
-        "--json",
+        AUDIT_CLI.initCommandName,
+        AUDIT_CLI_FLAG.BRANCH,
+        branch,
+        AUDIT_CLI_FLAG.HEAD_SHA,
+        headSha,
+        AUDIT_CLI_FLAG.JSON,
       ], linkedProductDir);
 
       expect(init.exitCode).toBe(0);
@@ -326,9 +354,9 @@ describe("audit CLI lifecycle commands", () => {
         readonly auditors: readonly string[];
         readonly runFilePath: string;
       };
-      expect(initPayload.baseRef).toBe(CONFIG_BASE_REF);
-      expect(initPayload.auditors).toEqual([CONFIG_AUDITOR]);
-      expect(initPayload.runFilePath).toContain(`/.spx/branch/${slugAuditBranchIdentity(BRANCH)}/audit/runs/`);
+      expect(initPayload.baseRef).toBe(configBaseRef);
+      expect(initPayload.auditors).toEqual([configAuditor]);
+      expect(initPayload.runFilePath).toContain(auditBranchRunsDir(harness.productDir, slugAuditBranchIdentity(branch)));
     } finally {
       await removeTempDir(linkedParentDir);
       await harness.cleanup();
@@ -338,19 +366,19 @@ describe("audit CLI lifecycle commands", () => {
   it("does not create a run journal when audit config validation fails", async () => {
     const harness = await createAuditHarness();
     try {
-      await writeFile(join(harness.productDir, "spx.config.yaml"), ["audit:", "  baseRef: 12", ""].join("\n"));
+      await writeInvalidAuditConfig(harness.productDir);
 
       const init = await runSpxAudit([
-        "init",
-        "--branch",
-        BRANCH,
-        "--head-sha",
-        HEAD_SHA,
-        "--json",
+        AUDIT_CLI.initCommandName,
+        AUDIT_CLI_FLAG.BRANCH,
+        branch,
+        AUDIT_CLI_FLAG.HEAD_SHA,
+        headSha,
+        AUDIT_CLI_FLAG.JSON,
       ], harness.productDir);
       expect(init.exitCode).toBe(1);
 
-      const status = await runSpxAudit(["status", "--branch", BRANCH, "--json"], harness.productDir);
+      const status = await runSpxAudit([AUDIT_CLI.statusCommandName, AUDIT_CLI_FLAG.BRANCH, branch, AUDIT_CLI_FLAG.JSON], harness.productDir);
       expect(status.exitCode).toBe(0);
       const statusPayload = JSON.parse(status.output) as {
         readonly terminalRuns: readonly unknown[];
@@ -368,11 +396,15 @@ describe("audit CLI lifecycle commands", () => {
     try {
       const runFilePath = await initializeDefaultAuditRun(harness.productDir);
 
-      const status = await runSpxAudit(["status", "--branch", BRANCH], harness.productDir);
+      const status = await runSpxAudit([AUDIT_CLI.statusCommandName, AUDIT_CLI_FLAG.BRANCH, branch], harness.productDir);
 
       expect(status.exitCode).toBe(0);
-      expect(status.output).toContain("incomplete runs: 1");
-      expect(status.output).toContain(`incomplete: ${basename(runFilePath)} (${AUDIT_RUN_STATE_INCOMPLETE_REASON.MISSING_STATE})`);
+      expect(status.output).toContain(singleIncompleteRunCountText);
+      expect(status.output).toContain(
+        `${AUDIT_LIFECYCLE_TEXT_LABEL.INCOMPLETE}${basename(runFilePath)} (${
+          AUDIT_RUN_STATE_INCOMPLETE_REASON.MISSING_STATE
+        })`,
+      );
     } finally {
       await harness.cleanup();
     }
@@ -384,15 +416,16 @@ describe("audit CLI lifecycle commands", () => {
       const runFilePath = await initializeDefaultAuditRun(harness.productDir);
       await appendInvalidCompletedEvent(runFilePath);
 
-      const status = await runSpxAudit(["status", "--branch", BRANCH], harness.productDir);
+      const status = await runSpxAudit([AUDIT_CLI.statusCommandName, AUDIT_CLI_FLAG.BRANCH, branch], harness.productDir);
 
       expect(status.exitCode).toBe(0);
-      expect(status.output).toContain("incomplete runs: 1");
+      expect(status.output).toContain(singleIncompleteRunCountText);
       expect(status.output).toContain(
-        `incomplete: ${basename(runFilePath)} (${AUDIT_RUN_STATE_INCOMPLETE_REASON.SHAPE_INVALID_STATE}) - ${
-          AUDIT_RUN_STATE_FIELDS.BRANCH_NAME
-        } must be a non-empty string`,
+        `${AUDIT_LIFECYCLE_TEXT_LABEL.INCOMPLETE}${basename(runFilePath)} (${
+          AUDIT_RUN_STATE_INCOMPLETE_REASON.SHAPE_INVALID_STATE
+        })`,
       );
+      expect(status.output).toContain(AUDIT_RUN_STATE_FIELDS.BRANCH_NAME);
     } finally {
       await harness.cleanup();
     }
@@ -405,12 +438,12 @@ describe("audit CLI lifecycle commands", () => {
       const outsideRunFile = join(harness.productDir, basename(runFilePath));
 
       const progress = await runSpxAudit([
-        "progress",
-        "--run-file",
+        AUDIT_CLI.progressCommandName,
+        AUDIT_CLI_FLAG.RUN_FILE,
         outsideRunFile,
-        "--step",
+        AUDIT_CLI_FLAG.STEP,
         AUDIT_PROGRESS_STEP.CHANGESET_DETERMINED,
-        "--json",
+        AUDIT_CLI_FLAG.JSON,
       ], harness.productDir);
       expect(progress.exitCode).toBe(1);
       expect((JSON.parse(progress.errorOutput) as { readonly error: string }).error).toBe(
@@ -418,12 +451,12 @@ describe("audit CLI lifecycle commands", () => {
       );
 
       const close = await runSpxAudit([
-        "close",
-        "--run-file",
+        AUDIT_CLI.closeCommandName,
+        AUDIT_CLI_FLAG.RUN_FILE,
         outsideRunFile,
-        "--status",
+        AUDIT_CLI_FLAG.STATUS,
         AUDIT_RUN_STATE_STATUS.APPROVED,
-        "--json",
+        AUDIT_CLI_FLAG.JSON,
       ], harness.productDir);
       expect(close.exitCode).toBe(1);
       expect((JSON.parse(close.errorOutput) as { readonly error: string }).error).toBe(
@@ -443,12 +476,12 @@ describe("audit CLI lifecycle commands", () => {
       const missingRunFile = join(dirname(runFilePath), missingRunFileName);
 
       const progress = await runSpxAudit([
-        "progress",
-        "--run-file",
+        AUDIT_CLI.progressCommandName,
+        AUDIT_CLI_FLAG.RUN_FILE,
         missingRunFile,
-        "--step",
+        AUDIT_CLI_FLAG.STEP,
         AUDIT_PROGRESS_STEP.CHANGESET_DETERMINED,
-        "--json",
+        AUDIT_CLI_FLAG.JSON,
       ], harness.productDir);
 
       expect(progress.exitCode).toBe(1);
@@ -456,6 +489,32 @@ describe("audit CLI lifecycle commands", () => {
         AUDIT_RUN_STATE_ERROR.MISSING_INIT_EVENT,
       );
       expect(await fileExists(missingRunFile)).toBe(false);
+    } finally {
+      await harness.cleanup();
+    }
+  });
+
+  it("rejects progress after an unsealed terminal completion event without changing the journal", async () => {
+    const harness = await createAuditHarness();
+    try {
+      const runFilePath = await initializeDefaultAuditRun(harness.productDir);
+      await appendUnsealedCompletedEvent(runFilePath);
+      const beforeProgress = await createAppendableJournalStore({ runFilePath }).readAll();
+
+      const progress = await runSpxAudit([
+        AUDIT_CLI.progressCommandName,
+        AUDIT_CLI_FLAG.RUN_FILE,
+        runFilePath,
+        AUDIT_CLI_FLAG.STEP,
+        AUDIT_PROGRESS_STEP.CHANGESET_DETERMINED,
+        AUDIT_CLI_FLAG.JSON,
+      ], harness.productDir);
+
+      expect(progress.exitCode).toBe(1);
+      expect((JSON.parse(progress.errorOutput) as { readonly error: string }).error).toBe(
+        AUDIT_RUN_STATE_ERROR.STATE_ALREADY_EXISTS,
+      );
+      await expect(createAppendableJournalStore({ runFilePath }).readAll()).resolves.toEqual(beforeProgress);
     } finally {
       await harness.cleanup();
     }
@@ -471,7 +530,7 @@ describe("audit CLI lifecycle commands", () => {
       await rm(runFilePath);
       await symlink(symlinkTarget, runFilePath);
 
-      const directRead = await readAuditRunEvents(runFilePath);
+      const directRead = await readAuditRunEvents(harness.productDir, runFilePath);
       expect(directRead).toEqual({ ok: false, error: AUDIT_RUN_STATE_ERROR.INVALID_RUN_FILE_PATH });
 
       const directProgress = await auditProgressCommand({
@@ -485,12 +544,12 @@ describe("audit CLI lifecycle commands", () => {
       );
 
       const progress = await runSpxAudit([
-        "progress",
-        "--run-file",
+        AUDIT_CLI.progressCommandName,
+        AUDIT_CLI_FLAG.RUN_FILE,
         runFilePath,
-        "--step",
+        AUDIT_CLI_FLAG.STEP,
         AUDIT_PROGRESS_STEP.CHANGESET_DETERMINED,
-        "--json",
+        AUDIT_CLI_FLAG.JSON,
       ], harness.productDir);
       expect(progress.exitCode).toBe(1);
       expect((JSON.parse(progress.errorOutput) as { readonly error: string }).error).toBe(
@@ -508,18 +567,18 @@ describe("audit CLI lifecycle commands", () => {
       );
 
       const close = await runSpxAudit([
-        "close",
-        "--run-file",
+        AUDIT_CLI.closeCommandName,
+        AUDIT_CLI_FLAG.RUN_FILE,
         runFilePath,
-        "--status",
+        AUDIT_CLI_FLAG.STATUS,
         AUDIT_RUN_STATE_STATUS.APPROVED,
-        "--json",
+        AUDIT_CLI_FLAG.JSON,
       ], harness.productDir);
       expect(close.exitCode).toBe(1);
       expect((JSON.parse(close.errorOutput) as { readonly error: string }).error).toBe(
         AUDIT_RUN_STATE_ERROR.INVALID_RUN_FILE_PATH,
       );
-      expect(await readFile(symlinkTarget, "utf8")).toBe(symlinkTargetContent);
+      expect(await readFile(symlinkTarget, STATE_STORE_TEXT_ENCODING)).toBe(symlinkTargetContent);
     } finally {
       await harness.cleanup();
     }
@@ -536,18 +595,18 @@ describe("audit CLI lifecycle commands", () => {
       await symlink(symlinkTarget, sealMarkerPath);
 
       const close = await runSpxAudit([
-        "close",
-        "--run-file",
+        AUDIT_CLI.closeCommandName,
+        AUDIT_CLI_FLAG.RUN_FILE,
         runFilePath,
-        "--status",
+        AUDIT_CLI_FLAG.STATUS,
         AUDIT_RUN_STATE_STATUS.APPROVED,
-        "--json",
+        AUDIT_CLI_FLAG.JSON,
       ], harness.productDir);
       expect(close.exitCode).toBe(1);
       expect((JSON.parse(close.errorOutput) as { readonly error: string }).error).toBe(
         AUDIT_RUN_STATE_ERROR.INVALID_RUN_FILE_PATH,
       );
-      expect(await readFile(symlinkTarget, "utf8")).toBe(symlinkTargetContent);
+      expect(await readFile(symlinkTarget, STATE_STORE_TEXT_ENCODING)).toBe(symlinkTargetContent);
     } finally {
       await harness.cleanup();
     }
@@ -567,18 +626,18 @@ describe("audit CLI lifecycle commands", () => {
       await rm(runsDir, { recursive: true });
       await symlink(symlinkTargetDir, runsDir);
 
-      const directRead = await readAuditRunEvents(runFilePath);
+      const directRead = await readAuditRunEvents(harness.productDir, runFilePath);
       expect(directRead).toEqual({ ok: false, error: AUDIT_RUN_STATE_ERROR.INVALID_RUN_FILE_PATH });
-      const directBranchRuns = await readAuditBranchRuns(harness.productDir, slugAuditBranchIdentity(BRANCH));
+      const directBranchRuns = await readAuditBranchRuns(harness.productDir, slugAuditBranchIdentity(branch));
       expect(directBranchRuns).toEqual({ ok: false, error: AUDIT_RUN_STATE_ERROR.INVALID_RUN_FILE_PATH });
 
       const progress = await runSpxAudit([
-        "progress",
-        "--run-file",
+        AUDIT_CLI.progressCommandName,
+        AUDIT_CLI_FLAG.RUN_FILE,
         runFilePath,
-        "--step",
+        AUDIT_CLI_FLAG.STEP,
         AUDIT_PROGRESS_STEP.CHANGESET_DETERMINED,
-        "--json",
+        AUDIT_CLI_FLAG.JSON,
       ], harness.productDir);
       expect(progress.exitCode).toBe(1);
       expect((JSON.parse(progress.errorOutput) as { readonly error: string }).error).toBe(
@@ -586,30 +645,30 @@ describe("audit CLI lifecycle commands", () => {
       );
 
       const close = await runSpxAudit([
-        "close",
-        "--run-file",
+        AUDIT_CLI.closeCommandName,
+        AUDIT_CLI_FLAG.RUN_FILE,
         runFilePath,
-        "--status",
+        AUDIT_CLI_FLAG.STATUS,
         AUDIT_RUN_STATE_STATUS.APPROVED,
-        "--json",
+        AUDIT_CLI_FLAG.JSON,
       ], harness.productDir);
       expect(close.exitCode).toBe(1);
       expect((JSON.parse(close.errorOutput) as { readonly error: string }).error).toBe(
         AUDIT_RUN_STATE_ERROR.INVALID_RUN_FILE_PATH,
       );
 
-      const status = await runSpxAudit(["status", "--branch", BRANCH, "--json"], harness.productDir);
+      const status = await runSpxAudit([AUDIT_CLI.statusCommandName, AUDIT_CLI_FLAG.BRANCH, branch, AUDIT_CLI_FLAG.JSON], harness.productDir);
       expect(status.exitCode).toBe(1);
       expect((JSON.parse(status.errorOutput) as { readonly error: string }).error).toBe(
         AUDIT_RUN_STATE_ERROR.INVALID_RUN_FILE_PATH,
       );
 
-      const list = await runSpxAudit(["list", "--branch", BRANCH, "--json"], harness.productDir);
+      const list = await runSpxAudit([AUDIT_CLI.listCommandName, AUDIT_CLI_FLAG.BRANCH, branch, AUDIT_CLI_FLAG.JSON], harness.productDir);
       expect(list.exitCode).toBe(1);
       expect((JSON.parse(list.errorOutput) as { readonly error: string }).error).toBe(
         AUDIT_RUN_STATE_ERROR.INVALID_RUN_FILE_PATH,
       );
-      expect(await readFile(symlinkTargetPath, "utf8")).toBe(symlinkTargetContent);
+      expect(await readFile(symlinkTargetPath, STATE_STORE_TEXT_ENCODING)).toBe(symlinkTargetContent);
     } finally {
       await harness.cleanup();
     }
@@ -623,7 +682,7 @@ describe("audit CLI lifecycle commands", () => {
       const branchDir = dirname(dirname(runsDir));
       const runFileName = basename(runFilePath);
       const symlinkTargetDir = join(harness.productDir, "outside-audit-branch");
-      const symlinkTargetRunsDir = join(symlinkTargetDir, "audit", "runs");
+      const symlinkTargetRunsDir = join(symlinkTargetDir, STATE_STORE_DOMAIN.AUDIT, STATE_STORE_PATH.RUNS_DIR);
       const symlinkTargetPath = join(symlinkTargetRunsDir, runFileName);
       const symlinkTargetContent = "external branch target\n";
       await mkdir(symlinkTargetRunsDir, { recursive: true });
@@ -631,21 +690,91 @@ describe("audit CLI lifecycle commands", () => {
       await rm(branchDir, { recursive: true });
       await symlink(symlinkTargetDir, branchDir);
 
-      const directBranchRuns = await readAuditBranchRuns(harness.productDir, slugAuditBranchIdentity(BRANCH));
+      const directBranchRuns = await readAuditBranchRuns(harness.productDir, slugAuditBranchIdentity(branch));
       expect(directBranchRuns).toEqual({ ok: false, error: AUDIT_RUN_STATE_ERROR.INVALID_RUN_FILE_PATH });
 
-      const status = await runSpxAudit(["status", "--branch", BRANCH, "--json"], harness.productDir);
+      const status = await runSpxAudit([AUDIT_CLI.statusCommandName, AUDIT_CLI_FLAG.BRANCH, branch, AUDIT_CLI_FLAG.JSON], harness.productDir);
       expect(status.exitCode).toBe(1);
       expect((JSON.parse(status.errorOutput) as { readonly error: string }).error).toBe(
         AUDIT_RUN_STATE_ERROR.INVALID_RUN_FILE_PATH,
       );
 
-      const list = await runSpxAudit(["list", "--branch", BRANCH, "--json"], harness.productDir);
+      const list = await runSpxAudit([AUDIT_CLI.listCommandName, AUDIT_CLI_FLAG.BRANCH, branch, AUDIT_CLI_FLAG.JSON], harness.productDir);
       expect(list.exitCode).toBe(1);
       expect((JSON.parse(list.errorOutput) as { readonly error: string }).error).toBe(
         AUDIT_RUN_STATE_ERROR.INVALID_RUN_FILE_PATH,
       );
-      expect(await readFile(symlinkTargetPath, "utf8")).toBe(symlinkTargetContent);
+      expect(await readFile(symlinkTargetPath, STATE_STORE_TEXT_ENCODING)).toBe(symlinkTargetContent);
+    } finally {
+      await harness.cleanup();
+    }
+  });
+
+  it("rejects init under symlinked branch directories without writing through them", async () => {
+    const harness = await createAuditHarness();
+    try {
+      await writeAuditConfig(harness.productDir, {
+        baseRef: baseRef,
+        auditors: [auditor],
+        include: [target],
+      });
+      const branchSlug = slugAuditBranchIdentity(branch);
+      const branchDir = dirname(dirname(auditBranchRunsDir(harness.productDir, branchSlug)));
+      const symlinkTargetDir = join(harness.productDir, "outside-audit-init-branch");
+      await mkdir(dirname(branchDir), { recursive: true });
+      await mkdir(symlinkTargetDir);
+      await symlink(symlinkTargetDir, branchDir);
+
+      const init = await runSpxAudit([
+        AUDIT_CLI.initCommandName,
+        AUDIT_CLI_FLAG.BRANCH,
+        branch,
+        AUDIT_CLI_FLAG.HEAD_SHA,
+        headSha,
+        AUDIT_CLI_FLAG.JSON,
+      ], harness.productDir);
+
+      expect(init.exitCode).toBe(1);
+      expect((JSON.parse(init.errorOutput) as { readonly error: string }).error).toBe(
+        AUDIT_RUN_STATE_ERROR.INVALID_RUN_FILE_PATH,
+      );
+      await expect(
+        readFile(join(symlinkTargetDir, STATE_STORE_DOMAIN.AUDIT, STATE_STORE_PATH.RUNS_DIR), STATE_STORE_TEXT_ENCODING),
+      ).rejects.toMatchObject({
+        code: ERROR_CODE_NOT_FOUND,
+      });
+    } finally {
+      await harness.cleanup();
+    }
+  });
+
+  it("removes the reserved run file when init cannot append its started event", async () => {
+    const harness = await createAuditHarness();
+    try {
+      await writeAuditConfig(harness.productDir, {
+        baseRef: baseRef,
+        auditors: [auditor],
+        include: [target],
+      });
+      const appendError = AUDIT_RUN_STATE_ERROR.STATE_WRITE_FAILED;
+      const failingStartedEventFileSystem: AuditRunStateFileSystem = {
+        ...defaultStateStoreFileSystem,
+        appendFile: () => Promise.reject(new Error(appendError)),
+      };
+
+      const init = await auditInitCommand({
+        branch: branch,
+        headSha: headSha,
+        json: true,
+      }, {
+        cwd: harness.productDir,
+        fs: failingStartedEventFileSystem,
+      });
+
+      expect(init.exitCode).toBe(1);
+      expect((JSON.parse(init.output) as { readonly error: string }).error).toContain(appendError);
+      const runs = await readAuditBranchRuns(harness.productDir, slugAuditBranchIdentity(branch));
+      expect(runs).toEqual({ ok: true, value: { terminalRuns: [], incompleteRuns: [] } });
     } finally {
       await harness.cleanup();
     }
@@ -656,36 +785,36 @@ describe("audit CLI lifecycle commands", () => {
     try {
       const branch = sampleAuditRunStateTestValue(AUDIT_RUN_STATE_TEST_GENERATOR.overlongBranchName());
       await writeAuditConfig(harness.productDir, {
-        baseRef: BASE_REF,
-        auditors: [AUDITOR],
-        include: [TARGET],
+        baseRef: baseRef,
+        auditors: [auditor],
+        include: [target],
       });
 
       const init = await runSpxAudit([
-        "init",
-        "--branch",
+        AUDIT_CLI.initCommandName,
+        AUDIT_CLI_FLAG.BRANCH,
         branch,
-        "--head-sha",
-        HEAD_SHA,
+        AUDIT_CLI_FLAG.HEAD_SHA,
+        headSha,
       ], harness.productDir);
 
       expect(init.exitCode).toBe(0);
       const runFileLine = init.output
         .split("\n")
-        .find((line) => line.startsWith(RUN_FILE_LABEL));
+        .find((line) => line.startsWith(runFileLabel));
       expect(runFileLine).toBeDefined();
       if (runFileLine === undefined) throw new Error("run file output line missing");
-      const runFilePath = runFileLine.slice(RUN_FILE_LABEL.length);
+      const runFilePath = runFileLine.slice(runFileLabel.length);
       expect(runFilePath.length).toBeGreaterThan(MAX_CLI_ARGUMENT_DISPLAY_LENGTH);
       expect(runFilePath.endsWith(ELLIPSIS_TOKEN)).toBe(false);
-      expect(runFilePath).toContain(`/.spx/branch/${slugAuditBranchIdentity(branch)}/audit/runs/`);
+      expect(runFilePath).toContain(auditBranchRunsDir(harness.productDir, slugAuditBranchIdentity(branch)));
       expect(await fileExists(runFilePath)).toBe(true);
 
       const progress = await runSpxAudit([
-        "progress",
-        "--run-file",
+        AUDIT_CLI.progressCommandName,
+        AUDIT_CLI_FLAG.RUN_FILE,
         runFilePath,
-        "--step",
+        AUDIT_CLI_FLAG.STEP,
         AUDIT_PROGRESS_STEP.CHANGESET_DETERMINED,
       ], harness.productDir);
       expect(progress.exitCode).toBe(0);
@@ -700,23 +829,23 @@ async function runSpxAudit(args: readonly string[], cwd: string): Promise<{
   readonly errorOutput: string;
   readonly exitCode: number;
 }> {
-  const result = await execa(NODE_EXECUTABLE, [CLI_PATH, "audit", ...args], { cwd, reject: false });
+  const result = await execa(NODE_EXECUTABLE, [CLI_PATH, AUDIT_CLI.commandName, ...args], { cwd, reject: false });
   return { output: result.stdout, errorOutput: result.stderr, exitCode: result.exitCode ?? 1 };
 }
 
 async function initializeDefaultAuditRun(productDir: string): Promise<string> {
   await writeAuditConfig(productDir, {
-    baseRef: BASE_REF,
-    auditors: [AUDITOR],
-    include: [TARGET],
+    baseRef: baseRef,
+    auditors: [auditor],
+    include: [target],
   });
   const init = await runSpxAudit([
-    "init",
-    "--branch",
-    BRANCH,
-    "--head-sha",
-    HEAD_SHA,
-    "--json",
+    AUDIT_CLI.initCommandName,
+    AUDIT_CLI_FLAG.BRANCH,
+    branch,
+    AUDIT_CLI_FLAG.HEAD_SHA,
+    headSha,
+    AUDIT_CLI_FLAG.JSON,
   ], productDir);
   expect(init.exitCode).toBe(0);
   return (JSON.parse(init.output) as { readonly runFilePath: string }).runFilePath;
@@ -737,26 +866,37 @@ async function appendInvalidCompletedEvent(runFilePath: string): Promise<void> {
   await journal.seal();
 }
 
-async function writeAuditConfig(productDir: string, config: {
-  readonly baseRef: string;
-  readonly auditors: readonly string[];
-  readonly include?: readonly string[];
-  readonly exclude?: readonly string[];
-}): Promise<void> {
+async function appendUnsealedCompletedEvent(runFilePath: string): Promise<void> {
+  const streamId = basename(runFilePath);
+  const store = createAppendableJournalStore({ runFilePath });
+  const journal = createJournal(store, { streamid: streamId, runid: streamId });
+  await journal.append({
+    id: `${streamId}:${AUDIT_RUN_EVENT.COMPLETED_TYPE}`,
+    source: AUDIT_RUN_EVENT.SOURCE,
+    type: AUDIT_RUN_EVENT.COMPLETED_TYPE,
+    time: new Date().toISOString(),
+    attempt: 1,
+    data: {
+      branchName: branch,
+      branchSlug: slugAuditBranchIdentity(branch),
+      headSha: headSha,
+      baseRef: baseRef,
+      auditConfigDigest: headSha,
+      auditors: [auditor],
+      targets: [target],
+      startedAt: new Date().toISOString(),
+      completedAt: new Date().toISOString(),
+      status: AUDIT_RUN_STATE_STATUS.APPROVED,
+    },
+  });
+}
+
+async function writeInvalidAuditConfig(productDir: string): Promise<void> {
   await writeFile(
-    join(productDir, "spx.config.yaml"),
+    join(productDir, DEFAULT_CONFIG_FILENAME),
     [
-      "audit:",
-      `  baseRef: ${config.baseRef}`,
-      "  auditors:",
-      ...config.auditors.map((auditor) => `    - ${auditor}`),
-      ...(config.include === undefined && config.exclude === undefined
-        ? []
-        : [
-          "  targets:",
-          ...(config.include === undefined ? [] : ["    include:", ...config.include.map((target) => `      - ${target}`)]),
-          ...(config.exclude === undefined ? [] : ["    exclude:", ...config.exclude.map((target) => `      - ${target}`)]),
-        ]),
+      `${AUDIT_SECTION}:`,
+      `  ${AUDIT_CONFIG_FIELDS.BASE_REF}: 12`,
       "",
     ].join("\n"),
   );
@@ -764,7 +904,7 @@ async function writeAuditConfig(productDir: string, config: {
 
 async function fileExists(path: string): Promise<boolean> {
   try {
-    await readFile(path, "utf8");
+    await readFile(path, STATE_STORE_TEXT_ENCODING);
     return true;
   } catch {
     return false;

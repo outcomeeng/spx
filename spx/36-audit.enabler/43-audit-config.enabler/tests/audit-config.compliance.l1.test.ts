@@ -37,6 +37,8 @@ function assertAuditConfig(value: unknown): AuditConfig {
   return value as AuditConfig;
 }
 
+type AuditTargetsOnly = Pick<AuditConfig, typeof AUDIT_CONFIG_FIELDS.TARGETS>;
+
 function auditPath(...segments: readonly string[]): string {
   return [AUDIT_SECTION, ...segments].join(".");
 }
@@ -72,9 +74,10 @@ describe("audit config descriptor", () => {
       const result = await resolveConfig(productDir, [auditConfigDescriptor]);
       const resolved = expectResolvedConfig(result);
       const audit = assertAuditConfig(resolved[AUDIT_SECTION]);
+      const expectedAudit = assertAuditConfig(config[AUDIT_SECTION]);
 
-      expect(audit.baseRef).toEqual(config[AUDIT_SECTION][AUDIT_CONFIG_FIELDS.BASE_REF]);
-      expect(audit.auditors).toEqual(config[AUDIT_SECTION][AUDIT_CONFIG_FIELDS.AUDITORS]);
+      expect(audit.baseRef).toEqual(expectedAudit.baseRef);
+      expect(audit.auditors).toEqual(expectedAudit.auditors);
       expect(audit.targets).toEqual(filter);
     });
   });
@@ -138,7 +141,7 @@ describe("audit config descriptor", () => {
       );
 
       expect(assertAuditConfig(resolved[AUDIT_SECTION]).targets).toEqual(
-        config[AUDIT_SECTION][AUDIT_CONFIG_FIELDS.TARGETS],
+        (config[AUDIT_SECTION] as AuditTargetsOnly).targets,
       );
       expect(resolved[VALIDATION_SECTION]).toEqual(validationConfigDescriptor.defaults);
     });

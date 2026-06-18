@@ -9,10 +9,14 @@ import { existsSync } from "node:fs";
 import { readFile } from "node:fs/promises";
 import { isAbsolute, join } from "node:path";
 
-import { STATE_STORE_DOMAIN, STATE_STORE_PATH } from "@/lib/state-store";
+import { STATE_STORE_DOMAIN, STATE_STORE_PATH, STATE_STORE_TEXT_ENCODING } from "@/lib/state-store";
 import { AUDIT_RUN_STATE_TEST_GENERATOR, sampleAuditRunStateTestValue } from "@testing/generators/audit/run-state";
 import { CONFIG_TEST_GENERATOR, sampleConfigTestValue } from "@testing/generators/config/descriptors";
-import { auditBranchRunsDir, createAuditHarness, writeAuditRunJournal } from "@testing/harnesses/audit/harness";
+import {
+  auditBranchRunsDir as resolveAuditBranchRunsDir,
+  createAuditHarness,
+  writeAuditRunJournal,
+} from "@testing/harnesses/audit/harness";
 import { describe, expect, it } from "vitest";
 
 describe("createAuditHarness", () => {
@@ -37,7 +41,7 @@ describe("createAuditHarness", () => {
   });
 });
 
-describe("auditBranchRunsDir", () => {
+describe("audit branch runs directory helper", () => {
   it("GIVEN a product directory and branch slug WHEN called THEN returns the branch run-file directory", async () => {
     const branchSlug = sampleConfigTestValue(CONFIG_TEST_GENERATOR.key());
     const auditRunsDir = join(
@@ -49,7 +53,7 @@ describe("auditBranchRunsDir", () => {
     );
     const harness = await createAuditHarness();
     try {
-      expect(auditBranchRunsDir(harness.productDir, branchSlug)).toBe(join(harness.productDir, auditRunsDir));
+      expect(resolveAuditBranchRunsDir(harness.productDir, branchSlug)).toBe(join(harness.productDir, auditRunsDir));
     } finally {
       await harness.cleanup();
     }
@@ -65,8 +69,8 @@ describe("writeAuditRunJournal", () => {
     try {
       const runFilePath = await writeAuditRunJournal(harness.productDir, branchSlug, runFileName, [state]);
 
-      expect(runFilePath).toBe(join(auditBranchRunsDir(harness.productDir, branchSlug), runFileName));
-      const content = await readFile(runFilePath, "utf8");
+      expect(runFilePath).toBe(join(resolveAuditBranchRunsDir(harness.productDir, branchSlug), runFileName));
+      const content = await readFile(runFilePath, STATE_STORE_TEXT_ENCODING);
       expect(content).toContain(state.status);
       expect(content.trim().split("\n")).toHaveLength(1);
     } finally {

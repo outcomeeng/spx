@@ -17,7 +17,6 @@ import {
   AUDIT_SECTION,
   type AuditConfig,
   auditConfigDescriptor,
-  DEFAULT_AUDIT_CONFIG,
 } from "@/domains/audit/config";
 import { CONFIG_TEST_GENERATOR, sampleConfigTestValue } from "@testing/generators/config/descriptors";
 import type { Config } from "@testing/harnesses/spec-tree/spec-tree";

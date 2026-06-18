@@ -13,6 +13,7 @@ function createNoopStateStoreFileSystem(): StateStoreFileSystem {
     readFile: () => Promise.resolve(""),
     readdir: () => Promise.resolve([]),
     lstat: () => Promise.resolve({ isDirectory: () => true, isFile: () => false, isSymbolicLink: () => false }),
+    rm: () => Promise.resolve(),
   };
 }
 
