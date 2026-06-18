@@ -8,6 +8,8 @@ import { describe, expect, it } from "vitest";
 import { AUDIT_PROGRESS_STEP } from "@/commands/audit/lifecycle";
 import {
   AUDIT_RUN_EVENT,
+  AUDIT_RUN_STATE_FIELDS,
+  AUDIT_RUN_STATE_INCOMPLETE_REASON,
   AUDIT_RUN_STATE_DISPLAY,
   AUDIT_RUN_STATE_ERROR,
   AUDIT_RUN_STATE_STATUS,
@@ -15,6 +17,7 @@ import {
 } from "@/domains/audit/run-state";
 import { AUDIT_CLI } from "@/interfaces/cli/audit";
 import { CLI_DOMAINS } from "@/interfaces/cli/registry";
+import { createJournal } from "@/lib/agent-run-journal";
 import { createAppendableJournalStore } from "@/lib/appendable-journal-store";
 import { ELLIPSIS_TOKEN, MAX_CLI_ARGUMENT_DISPLAY_LENGTH } from "@/lib/cli-sanitize";
 import { AUDIT_RUN_STATE_TEST_GENERATOR, sampleAuditRunStateTestValue } from "@testing/generators/audit/run-state";
@@ -334,6 +337,41 @@ describe("audit CLI lifecycle commands", () => {
     }
   });
 
+  it("prints incomplete run file names and reasons in text-mode status output", async () => {
+    const harness = await createAuditHarness();
+    try {
+      const runFilePath = await initializeDefaultAuditRun(harness.productDir);
+
+      const status = await runSpxAudit(["status", "--branch", BRANCH], harness.productDir);
+
+      expect(status.exitCode).toBe(0);
+      expect(status.output).toContain("incomplete runs: 1");
+      expect(status.output).toContain(`incomplete: ${basename(runFilePath)} (${AUDIT_RUN_STATE_INCOMPLETE_REASON.MISSING_STATE})`);
+    } finally {
+      await harness.cleanup();
+    }
+  });
+
+  it("prints incomplete run diagnostic details in text-mode status output", async () => {
+    const harness = await createAuditHarness();
+    try {
+      const runFilePath = await initializeDefaultAuditRun(harness.productDir);
+      await appendInvalidCompletedEvent(runFilePath);
+
+      const status = await runSpxAudit(["status", "--branch", BRANCH], harness.productDir);
+
+      expect(status.exitCode).toBe(0);
+      expect(status.output).toContain("incomplete runs: 1");
+      expect(status.output).toContain(
+        `incomplete: ${basename(runFilePath)} (${AUDIT_RUN_STATE_INCOMPLETE_REASON.SHAPE_INVALID_STATE}) - ${
+          AUDIT_RUN_STATE_FIELDS.BRANCH_NAME
+        } must be a non-empty string`,
+      );
+    } finally {
+      await harness.cleanup();
+    }
+  });
+
   it("rejects run-file paths outside branch-scoped audit run storage", async () => {
     const harness = await createAuditHarness();
     try {
@@ -466,6 +504,21 @@ async function initializeDefaultAuditRun(productDir: string): Promise<string> {
   ], productDir);
   expect(init.exitCode).toBe(0);
   return (JSON.parse(init.output) as { readonly runFilePath: string }).runFilePath;
+}
+
+async function appendInvalidCompletedEvent(runFilePath: string): Promise<void> {
+  const streamId = basename(runFilePath);
+  const store = createAppendableJournalStore({ runFilePath });
+  const journal = createJournal(store, { streamid: streamId, runid: streamId });
+  await journal.append({
+    id: `${streamId}:${AUDIT_RUN_EVENT.COMPLETED_TYPE}`,
+    source: AUDIT_RUN_EVENT.SOURCE,
+    type: AUDIT_RUN_EVENT.COMPLETED_TYPE,
+    time: new Date().toISOString(),
+    attempt: 1,
+    data: {},
+  });
+  await journal.seal();
 }
 
 async function writeAuditConfig(productDir: string, config: {
