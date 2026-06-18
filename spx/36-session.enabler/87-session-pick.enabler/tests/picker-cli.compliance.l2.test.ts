@@ -29,6 +29,8 @@ describe("session pick compliance", () => {
     expect(exitCode).not.toBe(0);
     expect(stdout).toBe("");
     expect(stderr).toContain("interactive terminal");
-    expect(stderr).toContain("pickup");
+    // The spec requires suggesting both `session pickup --auto` and `session pickup <id>`.
+    expect(stderr).toContain("session pickup --auto");
+    expect(stderr).toContain("session pickup <id>");
   });
 });
