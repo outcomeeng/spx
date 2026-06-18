@@ -80,7 +80,7 @@ describe("spx validation dispatch — observable scenarios", () => {
     expect(result.stdout).toContain(LITERAL_PROBLEM_KIND.DUPE);
   });
 
-  it("validation all help lists the literal skip flag", async () => {
+  it("validation all help lists full-pipeline skip flags", async () => {
     const result = await runValidationInProcess([
       validationCliDefinition.subcommands.all.commandName,
       validationCliDefinition.commanderHelpOperands.longFlag,
@@ -88,10 +88,11 @@ describe("spx validation dispatch — observable scenarios", () => {
 
     expect(result.exitCode).toBeLessThan(validationCliSuccessExitCodeUpperBound());
     expect(result.stderr).toHaveLength(validationCliEmptyOutputLength());
+    expect(result.stdout).toContain(allValidationCliOptions.skipCircular.flag);
     expect(result.stdout).toContain(allValidationCliOptions.skipLiteral.flag);
   });
 
-  it("literal help omits the full-pipeline literal skip flag", async () => {
+  it("literal help omits full-pipeline skip flags", async () => {
     const result = await runValidationInProcess([
       validationCliDefinition.subcommands.literal.commandName,
       validationCliDefinition.commanderHelpOperands.longFlag,
@@ -99,6 +100,7 @@ describe("spx validation dispatch — observable scenarios", () => {
 
     expect(result.exitCode).toBeLessThan(validationCliSuccessExitCodeUpperBound());
     expect(result.stderr).toHaveLength(validationCliEmptyOutputLength());
+    expect(result.stdout).not.toContain(allValidationCliOptions.skipCircular.flag);
     expect(result.stdout).not.toContain(allValidationCliOptions.skipLiteral.flag);
   });
 
@@ -111,6 +113,17 @@ describe("spx validation dispatch — observable scenarios", () => {
     expect(result.exitCode).toBe(validationCliDefinition.diagnostics.unknownSubcommand.exitCode);
     expect(result.stdout).toBe(validationCliEmptyOutput());
     expect(result.stderr).toContain(allValidationCliOptions.skipLiteral.flag);
+  });
+
+  it("circular command rejects the full-pipeline circular skip flag", async () => {
+    const result = await runValidationInProcess([
+      validationCliDefinition.subcommands.circular.commandName,
+      allValidationCliOptions.skipCircular.flag,
+    ]);
+
+    expect(result.exitCode).toBe(validationCliDefinition.diagnostics.unknownSubcommand.exitCode);
+    expect(result.stdout).toBe(validationCliEmptyOutput());
+    expect(result.stderr).toContain(allValidationCliOptions.skipCircular.flag);
   });
 
   it("unknown literal problem kind is rejected before detection", async () => {

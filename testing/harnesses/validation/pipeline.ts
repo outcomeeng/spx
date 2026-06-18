@@ -37,6 +37,8 @@ export async function runValidationPipelineScenario(scenario: ValidationPipeline
       return runFileScopeScenario(scenario);
     case VALIDATION_PIPELINE_SCENARIO_KIND.STEP_ORDER:
       return runStepOrderScenario(scenario);
+    case VALIDATION_PIPELINE_SCENARIO_KIND.SKIP_CIRCULAR:
+      return runSkipCircularScenario(scenario);
     case VALIDATION_PIPELINE_SCENARIO_KIND.SKIP_LITERAL:
       return runSkipLiteralScenario(scenario);
     case VALIDATION_PIPELINE_SCENARIO_KIND.NO_SHORT_CIRCUIT:
@@ -147,6 +149,72 @@ async function runStepOrderScenario(_scenario: ValidationPipelineScenario): Prom
 
     expectStepSequence(result.stdout);
   });
+}
+
+async function runSkipCircularScenario(_scenario: ValidationPipelineScenario): Promise<void> {
+  await withValidationEnv({ fixture: PROJECT_FIXTURES.CLEAN_PROJECT }, async ({ path }) => {
+    await writeCircularSkipFixture(path);
+
+    const result = await runAll(path, [VALIDATION_PIPELINE_DATA.skipCircularFlag]);
+
+    expect(result.exitCode).toBe(VALIDATION_PIPELINE_DATA.exitCodes.SUCCESS);
+    expectStepSequence(result.stdout);
+    expect(result.stdout).toContain(VALIDATION_PIPELINE_DATA.stageNames.CIRCULAR);
+    expect(result.stdout).toContain(VALIDATION_PIPELINE_DATA.stageNames.ESLINT);
+    expect(result.stdout).toContain(VALIDATION_PIPELINE_DATA.stageNames.TYPESCRIPT);
+    expect(result.stdout).toContain(VALIDATION_PIPELINE_DATA.stageNames.MARKDOWN);
+    expect(result.stdout).toContain(VALIDATION_PIPELINE_DATA.stageNames.LITERAL);
+    expect(result.stdout).toContain(VALIDATION_PIPELINE_DATA.circularSkipOutput);
+    expect(result.stdout).not.toContain(VALIDATION_PIPELINE_DATA.circularOutput.FOUND);
+
+    const quietResult = await runAll(path, [
+      VALIDATION_PIPELINE_DATA.skipCircularFlag,
+      VALIDATION_PIPELINE_DATA.quietFlag,
+    ]);
+
+    expect(quietResult.exitCode).toBe(VALIDATION_PIPELINE_DATA.exitCodes.SUCCESS);
+    expect(quietResult.stdout).not.toContain(VALIDATION_PIPELINE_DATA.circularSkipOutput);
+    expect(quietResult.stdout.trim()).toHaveLength(0);
+
+    const jsonResult = await runAll(path, [
+      VALIDATION_PIPELINE_DATA.skipCircularFlag,
+      VALIDATION_PIPELINE_DATA.jsonFlag,
+    ]);
+
+    expect(jsonResult.exitCode).toBe(VALIDATION_PIPELINE_DATA.exitCodes.SUCCESS);
+    expect(jsonResult.stdout).toContain(VALIDATION_PIPELINE_DATA.circularSkipJsonOutput);
+    expect(jsonResult.stdout).not.toContain(VALIDATION_PIPELINE_DATA.circularSkipOutput);
+
+    const productionResult = await runAll(path, [
+      VALIDATION_PIPELINE_DATA.scopeFlag,
+      VALIDATION_PIPELINE_DATA.productionScope,
+      VALIDATION_PIPELINE_DATA.skipCircularFlag,
+    ]);
+
+    expect(productionResult.exitCode).toBe(VALIDATION_PIPELINE_DATA.exitCodes.SUCCESS);
+    expectStepSequence(productionResult.stdout);
+    expect(productionResult.stdout).toContain(VALIDATION_PIPELINE_DATA.circularSkipOutput);
+  });
+}
+
+async function writeCircularSkipFixture(path: string): Promise<void> {
+  const srcDir = join(path, VALIDATION_PIPELINE_DATA.sourceDirectoryName);
+  await mkdir(srcDir, { recursive: true });
+  await writeFile(
+    join(path, ...VALIDATION_PIPELINE_DATA.circularSkipASourceSegments),
+    `import { circularSkipB } from "./circular-skip-b";\n\nexport function circularSkipA(): string {\n  return \`a-\${circularSkipB()}\`;\n}\n`,
+    "utf8",
+  );
+  await writeFile(
+    join(path, ...VALIDATION_PIPELINE_DATA.circularSkipBSourceSegments),
+    `import { circularSkipA } from "./circular-skip-a";\n\nexport function circularSkipB(): string {\n  return \`b-\${circularSkipA()}\`;\n}\n`,
+    "utf8",
+  );
+  await writeFile(
+    join(path, VALIDATION_PIPELINE_DATA.productionTsconfigFile),
+    `${VALIDATION_PIPELINE_DATA.productionTsconfigContent}\n`,
+    "utf8",
+  );
 }
 
 async function runSkipLiteralScenario(_scenario: ValidationPipelineScenario): Promise<void> {

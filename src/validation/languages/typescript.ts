@@ -12,6 +12,8 @@ import { knipCommand } from "@/commands/validation/knip";
 import { lintCommand } from "@/commands/validation/lint";
 import { literalCommand } from "@/commands/validation/literal";
 import {
+  CIRCULAR_SKIP_JSON_OUTPUT,
+  CIRCULAR_SKIP_OUTPUT,
   LITERAL_SKIP_JSON_OUTPUT,
   LITERAL_SKIP_OUTPUT,
   VALIDATION_STAGE_DISPLAY_NAMES,
@@ -21,6 +23,20 @@ import { typescriptCommand } from "@/commands/validation/typescript";
 import type { ValidationLanguageDescriptor, ValidationStageContext } from "@/validation/languages/types";
 
 const TYPESCRIPT_LANGUAGE_NAME = "typescript";
+
+/**
+ * Circular-dependency stage runner.
+ *
+ * A full-pipeline run may skip circular detection; the standalone circular
+ * command remains the explicit way to run this check.
+ */
+async function runCircularStage(context: ValidationStageContext): Promise<ValidationCommandResult> {
+  if (context.skipCircular) {
+    const skipOutput = context.json ? CIRCULAR_SKIP_JSON_OUTPUT : CIRCULAR_SKIP_OUTPUT;
+    return { exitCode: 0, output: context.quiet ? "" : skipOutput };
+  }
+  return circularCommand({ cwd: context.cwd, quiet: context.quiet, json: context.json });
+}
 
 /**
  * Literal-reuse stage runner.
@@ -47,7 +63,7 @@ export const typescriptValidationLanguage: ValidationLanguageDescriptor = {
     {
       name: VALIDATION_STAGE_DISPLAY_NAMES.CIRCULAR,
       failsPipeline: true,
-      run: (context) => circularCommand({ cwd: context.cwd, quiet: context.quiet, json: context.json }),
+      run: runCircularStage,
     },
     {
       name: VALIDATION_STAGE_DISPLAY_NAMES.KNIP,

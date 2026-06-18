@@ -64,6 +64,8 @@ export interface MarkdownCommandOptions {
 export interface AllCommandOptions extends CommonValidationOptions {
   /** Auto-fix ESLint issues */
   fix?: boolean;
+  /** Skip circular dependency detection for this full-pipeline run */
+  skipCircular?: boolean;
   /** Skip literal reuse detection for this full-pipeline run */
   skipLiteral?: boolean;
 }

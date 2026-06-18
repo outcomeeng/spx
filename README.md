@@ -131,12 +131,13 @@ pnpm run test:coverage  # Tests with coverage
 ### Validation (Required Before Commits)
 
 ```bash
-pnpm run validate              # Source CLI: full validation pipeline
-pnpm run validate:production   # Source CLI: production scope only
+pnpm run validate              # Source CLI: full validation pipeline, excluding circular checks
+pnpm run validate:production   # Source CLI: production scope only, excluding circular checks
 pnpm run lint                  # Source CLI: ESLint only
 pnpm run lint:fix              # Source CLI: ESLint with auto-fix
 pnpm run typecheck             # Source CLI: TypeScript only
 pnpm run circular              # Source CLI: circular dependency detection
+pnpm run circular:published    # Packaged executable circular dependency detection
 pnpm run knip                  # Source CLI: unused code detection
 ```
 
@@ -145,11 +146,11 @@ The development validation scripts run `tsx src/cli.ts`, so they validate the cu
 ### Publish Validation
 
 ```bash
-pnpm run publish:check        # Source validation, build, tests, packaged validation
-pnpm run validate:published   # Packaged executable validation; requires dist/cli.js
+pnpm run publish:check        # Source validation, circular check, build, tests, packaged validation
+pnpm run validate:published   # Packaged executable validation excluding circular checks; requires dist/cli.js
 ```
 
-`pnpm run publish:check` is the required pre-publish gate. It runs source validation, builds `dist/`, runs the test suite, and then runs `node bin/spx.js validation all --scope production` against the built executable.
+`pnpm run publish:check` is the required pre-publish gate. It runs source validation, source circular dependency detection, builds `dist/`, runs the test suite, and then runs packaged validation plus packaged circular dependency detection against the built executable.
 
 ### Code Quality (SonarCloud)
 

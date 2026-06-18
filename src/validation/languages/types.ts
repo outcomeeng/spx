@@ -23,6 +23,8 @@ export interface ValidationStageContext {
   readonly quiet?: boolean;
   /** Emit machine-readable output. */
   readonly json?: boolean;
+  /** Skip circular dependency detection for this full-pipeline run. */
+  readonly skipCircular?: boolean;
   /** Skip literal-reuse detection for this full-pipeline run. */
   readonly skipLiteral?: boolean;
 }

@@ -34,6 +34,9 @@ jobs:
       - name: "Validation: source"
         run: pnpm run validate
 
+      - name: "Validation: circular dependencies"
+        run: pnpm run circular
+
       # Provisions the pytest toolchain so the Python runner's real-tool test runs
       # against real pytest, before the suite step.
       - name: Install uv
@@ -59,6 +62,9 @@ jobs:
 
       - name: "Validation: packaged CLI"
         run: pnpm run validate:published
+
+      - name: "Validation: packaged circular dependencies"
+        run: pnpm run circular:published
 
       - name: Check package contents
         run: npm pack --dry-run
