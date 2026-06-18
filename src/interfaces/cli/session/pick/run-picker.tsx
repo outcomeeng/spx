@@ -1,10 +1,10 @@
 /**
  * Mounts the interactive session picker and resolves to the chosen session.
  *
- * This is the terminal-rendering concern of the CLI-interface layer per
- * `spx/13-cli.enabler/21-terminal-ui.adr.md`: it drives Ink's render loop and
- * Ink owns terminal restoration (on unmount and on the process `exit` event).
- * It resolves to the session the operator claimed, or `null` when they cancel;
+ * As the CLI-interface layer's terminal-rendering concern, it drives Ink's
+ * render loop, and Ink owns terminal restoration (on unmount and on the process
+ * `exit` event). It resolves to the session the operator claimed, or `null`
+ * when they cancel;
  * the descriptor owns the surrounding process I/O — the TTY gate, the claim
  * through `pickupCommand`, and the exit code.
  *

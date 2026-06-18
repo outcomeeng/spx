@@ -3,9 +3,8 @@
  *
  * Holds no claim or filter logic of its own: it renders the pure picker model
  * from `@/domains/session/pick-model` and routes key events through it,
- * delegating the claim and cancel effects to injected callbacks. This is the
- * CLI-interface layer's terminal-rendering concern per
- * `spx/13-cli.enabler/21-terminal-ui.adr.md`.
+ * delegating the claim and cancel effects to injected callbacks — the
+ * CLI-interface layer's terminal-rendering concern.
  *
  * @module interfaces/cli/session/pick/SessionPicker
  */

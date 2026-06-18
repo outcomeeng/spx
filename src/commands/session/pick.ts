@@ -1,11 +1,10 @@
 /**
  * Session pick CLI command handler.
  *
- * Loads the claimable candidate set for the interactive picker. This is the
- * handler layer per `spx/14-cli-composition.adr.md`: it resolves config and
- * reads the session store, performing no Commander binding and no process I/O —
- * the descriptor mounts the terminal interface and the descriptor claims the
- * chosen session through `pickupCommand`.
+ * Loads the claimable candidate set for the interactive picker. As a handler,
+ * it resolves config and reads the session store, performing no Commander
+ * binding and no process I/O — the descriptor mounts the terminal interface and
+ * claims the chosen session through `pickupCommand`.
  *
  * @module commands/session/pick
  */
