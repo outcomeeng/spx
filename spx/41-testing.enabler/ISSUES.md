@@ -66,3 +66,69 @@ The recording command runner (`createRecordingCommandRunner` and the `RecordingC
 **Resolution:** when a third language testing descriptor is added, extract the shared recording command runner to `testing/harnesses/testing/language-runner.ts` and the shared generator constants to `testing/generators/testing/language-runner.ts`, and re-point every language runner harness and generator — and the dispatch-level tests (`spx/41-testing.enabler/tests/testing.scenario.l1.test.ts` and `tests/execution-recording.scenario.l1.test.ts`), which import `createRecordingCommandRunner` from the typescript-runner harness — at the shared module.
 
 **Evidence:** spec-tree-review on PR #69; the shared contract `src/testing/languages/types.ts` both runners conform to.
+
+## FOLLOW-UP: pnpm script gates can enter dependency repair before the requested command
+
+During test-suite agent-output research and verification on June 17, 2026,
+package-manager entrypoints failed before reaching the requested tool. A local
+runner probe failed before invoking Vitest:
+
+```bash
+pnpm exec vitest --help
+```
+
+```text
+[ERR_PNPM_ABORTED_REMOVE_MODULES_DIR_NO_TTY] Aborted removal of modules directory due to no TTY
+```
+
+The direct local binary succeeded:
+
+```bash
+./node_modules/.bin/vitest --help
+```
+
+and reported `vitest/4.1.8` with `--reporter`, `--outputFile`,
+`--silent`, `--hideSkippedTests`, `--changed`, and `--bail`.
+
+The package build gate later failed the same way through a package script:
+
+```bash
+pnpm run build
+```
+
+```text
+[ERR_PNPM_ABORTED_REMOVE_MODULES_DIR_NO_TTY] Aborted removal of modules directory due to no TTY
+```
+
+With `CI=1`, pnpm recreated `node_modules` and then failed in `prepare` while
+Lefthook tried to replace a hook under the shared git directory:
+
+```text
+Error: could not replace the hook: remove /Users/shz/Code/outcomeeng/spx/spx.git/hooks/post-rewrite: operation not permitted
+```
+
+**Impact:** agent-run verification that shells through pnpm can fail before the
+requested test, build, or validation tool starts, producing package-manager setup
+output rather than evidence for the command the agent intended to run. The
+agent-output testing path resolves Vitest from the product-local toolchain before
+spawning, so `spx test --agent` does not depend on `pnpm exec` for TypeScript
+test execution; package-script gates can still hit pnpm's dependency repair path.
+
+**Resolution:** decide a package-script verification policy for non-interactive
+agents: either keep using pnpm with a configured non-interactive install/hook
+policy, or document direct local-binary equivalents for gates that do not require
+pnpm script semantics. The policy must preserve the requested command's evidence
+without package-manager setup output taking over the run.
+
+**Tracking classification:** Tracked deferral, chosen by the operator for the
+broader package-manager setup issue during agent test-output feature work on
+June 17, 2026.
+
+**Revisit condition:** fix before documenting agent package-script gates or
+requiring agents to run `pnpm run build`, `pnpm run test`, or `pnpm run
+publish:check` as their default verification entrypoints.
+
+**Skills:** `spec-tree:contextualizing`, `spec-tree:applying`,
+`typescript:coding-typescript`, `typescript:testing-typescript`,
+`typescript:auditing-typescript-tests`, and
+`typescript:auditing-typescript`.

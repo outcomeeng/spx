@@ -226,3 +226,53 @@ add broad lockfile and cross-node formatting churn to a targeted validation PR.
 
 **Revisit condition:** run as a dedicated formatter cleanup pass before making
 `pnpm run format:check` a required PR gate.
+
+---
+
+## Validation test evidence filenames still use legacy integration/e2e suffixes
+
+Several validation spec-tree tests still use legacy runner-style filenames rather
+than the canonical `<subject>.<evidence>.<level>.test.ts` model required by the
+testing methodology.
+
+Observed on June 17, 2026:
+
+```bash
+rg --files spx/41-validation.enabler | rg '(integration|e2e)\.test\.ts$'
+```
+
+```text
+spx/41-validation.enabler/65-markdown-validation.enabler/tests/markdown-validation.integration.test.ts
+spx/41-validation.enabler/65-markdown-validation.enabler/tests/markdown-validation.e2e.test.ts
+spx/41-validation.enabler/tests/validation.integration.test.ts
+spx/41-validation.enabler/32-typescript-validation.enabler/tests/typescript-validation.integration.test.ts
+spx/41-validation.enabler/32-typescript-validation.enabler/32-circular-deps.enabler/tests/circular-deps.integration.test.ts
+spx/41-validation.enabler/32-typescript-validation.enabler/32-lint.enabler/tests/lint.integration.test.ts
+```
+
+`spx/41-validation.enabler/65-markdown-validation.enabler/ISSUES.md` and
+`spx/41-validation.enabler/32-typescript-validation.enabler/32-lint.enabler/ISSUES.md`
+track parts of the same naming debt locally; this entry keeps the remaining
+validation-wide cleanup visible from the parent node.
+
+**Impact:** the filenames hide which assertion type and execution level each
+file proves, and several specs link many assertion classes to one legacy file.
+That weakens agent routing through `spec-tree:testing` and
+`typescript:testing-typescript`.
+
+**Resolution:** split or rename each legacy file into canonical evidence files
+such as `validation.scenario.l2.test.ts`,
+`typescript-validation.mapping.l2.test.ts`, and
+`circular-deps.compliance.l2.test.ts`, then update every affected `[test]` link
+in the owning spec.
+
+**Tracking classification:** Tracked deferral, chosen by the operator during
+test-suite agent-output research on June 17, 2026.
+
+**Revisit condition:** fix before changing validation test discovery, validation
+test command output, or spec-tree test-evidence naming enforcement.
+
+**Skills:** `spec-tree:contextualizing`, `spec-tree:applying`,
+`spec-tree:testing`, `typescript:testing-typescript`,
+`typescript:coding-typescript`, `typescript:auditing-typescript-tests`, and
+`typescript:auditing-typescript`.
