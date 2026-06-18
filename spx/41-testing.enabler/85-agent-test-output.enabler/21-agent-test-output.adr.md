@@ -17,7 +17,7 @@ The normal `spx test` path stays useful for developers who want the runner's nat
 
 - ALWAYS: captured runner results carry stdout and stderr artifact paths in the live dispatch result ([compliance])
 - ALWAYS: the agent summary reports aggregate status and failed runner details without listing passing test paths individually ([compliance])
-- ALWAYS: captured runner execution writes stdout and stderr to files, sets `CI=1`, keeps the child working directory at the product directory, and preserves the selected runner command and arguments ([compliance])
+- ALWAYS: captured runner execution writes stdout and stderr to files, keeps the child working directory at the product directory, preserves the selected runner command and arguments, and preserves the supplied child environment ([compliance])
 - NEVER: captured runner execution pipes child stdout or stderr to the invoking terminal stream ([compliance])
 
 ### Audit

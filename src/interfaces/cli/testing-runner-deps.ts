@@ -14,9 +14,6 @@ import type {
 } from "@/testing/languages/types";
 
 export const PROCESS_FAILURE_EXIT_CODE = 1;
-export const AGENT_TEST_OUTPUT_ENV = {
-  CI: "1",
-} as const;
 export const AGENT_TEST_OUTPUT_COMMAND = {
   NODE_EVAL_ARG: "-e",
 } as const;
@@ -139,10 +136,7 @@ function runCapturedCommand(request: CapturedCommandRequest): Promise<TestRunCom
     };
     const child: ChildProcess = spawnManagedSubprocess(request.processRunner, request.command, request.args, {
       cwd: request.productDir,
-      env: {
-        ...request.inheritedEnv,
-        ...AGENT_TEST_OUTPUT_ENV,
-      },
+      env: request.inheritedEnv,
     });
     child.stdout?.pipe(request.writers.stdoutFile);
     child.stderr?.pipe(request.writers.stderrFile);

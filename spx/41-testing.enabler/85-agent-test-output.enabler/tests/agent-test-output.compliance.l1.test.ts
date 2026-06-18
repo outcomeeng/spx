@@ -9,7 +9,6 @@ import { AGENT_TEST_OUTPUT_TEXT } from "@/interfaces/cli/testing-agent-output";
 import {
   AGENT_ARTIFACT_DIR_PREFIX,
   AGENT_TEST_OUTPUT_COMMAND,
-  AGENT_TEST_OUTPUT_ENV,
   AGENT_TEST_OUTPUT_PROCESS_EVENT,
   AGENT_TEST_OUTPUT_STREAM_METHOD,
   AGENT_TEST_OUTPUT_TEXT_ENCODING,
@@ -32,12 +31,13 @@ interface SpawnResult {
 interface RecordedProcessSpawn {
   readonly command: string;
   readonly args: readonly string[];
+  readonly env?: NodeJS.ProcessEnv;
 }
 
 function recordingProcessRunner(calls: RecordedProcessSpawn[]): ProcessRunner {
   return {
     spawn(command, args, options) {
-      calls.push({ command, args });
+      calls.push({ command, args, env: options?.env });
       return spawnManagedSubprocess(lifecycleProcessRunner, process.execPath, [
         AGENT_TEST_OUTPUT_COMMAND.NODE_EVAL_ARG,
         "",
@@ -50,7 +50,7 @@ function persistentProcessRunner(): ProcessRunner {
   return {
     spawn(command, args, options) {
       const script = [
-        outputScript(command, args.join("")),
+        outputScript(command, args.join(""), command),
         "setInterval(() => {}, Number.MAX_SAFE_INTEGER);",
       ].join("");
       return spawnManagedSubprocess(lifecycleProcessRunner, process.execPath, [
@@ -87,11 +87,11 @@ function runNodeProcess(args: readonly string[], cwd: string): Promise<SpawnResu
   });
 }
 
-function outputScript(stdoutContent: string, stderrContent: string): string {
+function outputScript(stdoutContent: string, stderrContent: string, envKey: string): string {
   const stdoutWrite = ["process", AGENT_TEST_OUTPUT_TEXT.STDOUT, AGENT_TEST_OUTPUT_STREAM_METHOD].join(".");
   const stderrWrite = ["process", AGENT_TEST_OUTPUT_TEXT.STDERR, AGENT_TEST_OUTPUT_STREAM_METHOD].join(".");
   const cwdRead = ["process", "cwd()"].join(".");
-  const envRead = ["process", "env", "CI"].join(".");
+  const envRead = `process.env[${JSON.stringify(envKey)}]`;
   return [
     `${stdoutWrite}(${JSON.stringify(stdoutContent)});`,
     `${stderrWrite}(${JSON.stringify(stderrContent)});`,
@@ -109,15 +109,20 @@ function failingArtifactWriteStream(message: string): Writable {
 }
 
 describe("agent test-output runner", () => {
-  it("captures stdout and stderr to artifact files while setting CI and cwd", async () => {
+  it("captures stdout and stderr to artifact files while preserving env and cwd", async () => {
     const stdoutContent = sampleLiteralTestValue(arbitraryDomainLiteral());
     const stderrContent = sampleLiteralTestValue(arbitraryDomainLiteral());
+    const envKey = sampleLiteralTestValue(arbitraryDomainLiteral());
+    const envValue = sampleLiteralTestValue(arbitraryDomainLiteral());
 
     await withTempDir(AGENT_ARTIFACT_DIR_PREFIX, async (productDir) => {
-      const runCommand = createAgentOutputCommandRunner(productDir, { tmpDir: productDir, env: {} });
+      const runCommand = createAgentOutputCommandRunner(productDir, {
+        tmpDir: productDir,
+        env: { [envKey]: envValue },
+      });
       const result = await runCommand(process.execPath, [
         AGENT_TEST_OUTPUT_COMMAND.NODE_EVAL_ARG,
-        outputScript(stdoutContent, stderrContent),
+        outputScript(stdoutContent, stderrContent, envKey),
       ]);
 
       expect(result.output).toBeDefined();
@@ -126,7 +131,7 @@ describe("agent test-output runner", () => {
         `${stdoutContent}${await realpath(productDir)}`,
       );
       expect(await readFile(result.output.stderrPath, AGENT_TEST_OUTPUT_TEXT_ENCODING)).toBe(
-        `${stderrContent}${AGENT_TEST_OUTPUT_ENV.CI}`,
+        `${stderrContent}${envValue}`,
       );
     });
   });
@@ -135,11 +140,13 @@ describe("agent test-output runner", () => {
     await withTempDir(AGENT_ARTIFACT_DIR_PREFIX, async (productDir) => {
       const runnerCommand = sampleLiteralTestValue(arbitraryDomainLiteral());
       const runnerArg = sampleLiteralTestValue(arbitraryDomainLiteral());
+      const envKey = sampleLiteralTestValue(arbitraryDomainLiteral());
+      const envValue = sampleLiteralTestValue(arbitraryDomainLiteral());
       const calls: RecordedProcessSpawn[] = [];
       const runCommand = createAgentOutputCommandRunner(productDir, {
         tmpDir: productDir,
         processRunner: recordingProcessRunner(calls),
-        env: {},
+        env: { [envKey]: envValue },
       });
 
       const result = await runCommand(runnerCommand, [
@@ -154,6 +161,7 @@ describe("agent test-output runner", () => {
           AGENT_TEST_OUTPUT_COMMAND.NODE_EVAL_ARG,
           runnerArg,
         ],
+        env: { [envKey]: envValue },
       }]);
     });
   });
@@ -181,6 +189,7 @@ describe("agent test-output runner", () => {
   it("keeps captured child output off the invoking terminal streams", async () => {
     const stdoutContent = sampleLiteralTestValue(arbitraryDomainLiteral());
     const stderrContent = sampleLiteralTestValue(arbitraryDomainLiteral());
+    const envKey = sampleLiteralTestValue(arbitraryDomainLiteral());
 
     await withTempDir(AGENT_ARTIFACT_DIR_PREFIX, async (productDir) => {
       const resultPath = join(productDir, AGENT_TEST_OUTPUT_TEXT.STATE_FILE);
@@ -192,7 +201,7 @@ describe("agent test-output runner", () => {
         `const { createAgentOutputCommandRunner, AGENT_TEST_OUTPUT_COMMAND } = await import(${JSON.stringify(moduleUrl)});`,
         `const { writeFile } = await import(${JSON.stringify("node:fs/promises")});`,
         `const runCommand = createAgentOutputCommandRunner(productDir, { tmpDir: productDir, env: {} });`,
-        `const result = await runCommand(process.execPath, [AGENT_TEST_OUTPUT_COMMAND.NODE_EVAL_ARG, ${JSON.stringify(outputScript(stdoutContent, stderrContent))}]);`,
+        `const result = await runCommand(process.execPath, [AGENT_TEST_OUTPUT_COMMAND.NODE_EVAL_ARG, ${JSON.stringify(outputScript(stdoutContent, stderrContent, envKey))}]);`,
         `await writeFile(resultPath, JSON.stringify(result), ${JSON.stringify(AGENT_TEST_OUTPUT_TEXT_ENCODING)});`,
       ].join("");
 
