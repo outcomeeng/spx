@@ -30,8 +30,8 @@
 - ⚠️ **NEVER `git reset` onto a remote-tracking ref (`origin/<base>`) — neither to rewrite your own commits nor to integrate the latest base** — `origin/<base>` moves as concurrent branches in the worktree pool merge, so resetting onto it silently re-bases your branch onto whatever it became; with `--soft` the working tree is left on the old basis while HEAD jumps forward, desyncing the tree (files present in HEAD show as deleted, files the new base changed show as modified, none of it your work). To reword or re-split your own commits, reset to a FIXED ancestor on your own branch — `git reset --soft HEAD~N` where N is the count of your own commits, or the fork-point SHA (`git merge-base HEAD origin/<base>`). To integrate the latest base, use `git rebase origin/<base>` (which updates the working tree), never a reset. After any history rewrite, verify `git diff --stat origin/<base>...HEAD` shows ONLY your intended files and `git status` has no surprise deletions; surprise files mean the base moved under you — STOP, do not commit.
 - ⚠️ **NEVER force-overwrite a shared remote ref with plain `git push --force`** — it unconditionally overwrites history a concurrent agent may have advanced. The PR-branch flows use `git push --force-with-lease` (which refuses when the remote advanced) instead, per the rule below.
 - ✅ **The `/pr` lifecycle and its internal opening/managing flows own their own PR branch's history** — per `/spec-tree:standardizing-merging`, the lifecycle autonomously rebases the current PR branch onto its base (`git rebase origin/<base>`), pushes the rebased branch with `git push --force-with-lease` (never plain `--force` — `--force-with-lease` refuses when the remote advanced, so it cannot clobber a concurrent push), merges via `gh pr merge --rebase`, detaches the worktree onto the refreshed base tip, and deletes the merged PR branch locally and remotely. These are governed, single-author-branch operations, not the work-discarding operations above.
-- ⚠️ **STOP TRIGGER: about to run `pnpm exec tsc --noEmit`, `npx tsc`, or any bare type-check command** — run `spx validation ts` instead. Bare `tsc` misses project-specific config, paths, and exclusions. This applies to every TypeScript check, not just commit-time.
-- ⚠️ **ALWAYS run `spx validation all` after code changes** — before audit, before commit, before claiming "done". `spx validation ts` alone is not the quality gate — it runs 1 of 5 checks. Never report a subset of checks as clean.
+- ⚠️ **STOP TRIGGER: about to run `pnpm exec tsc --noEmit`, `npx tsc`, or any bare type-check command** — run `pnpm run typecheck` instead. Bare `tsc` misses product-specific config, paths, and exclusions. This applies to every TypeScript check, not just commit-time.
+- ⚠️ **ALWAYS run the documented pnpm validation scripts after code changes** — before audit, before commit, before claiming "done". `pnpm run typecheck` alone is not the quality gate — it runs only TypeScript checking. Run `pnpm run validate` and `pnpm run circular` for source validation, plus the relevant tests.
 - ⚠️ **NEVER mechanically extract typed literal union values to named constants** — `no-restricted-syntax` warnings on `expect(x).toBe("declared")` where `x: NodeState` are false positives. The type annotation IS the documentation; renaming `"declared"` → `STATE_DECLARED` adds zero information. The lint rule targets magic strings whose meaning is obscure; enum-like union members are already self-documenting. Suppress the warning inline or leave it; never rename. The `typescript:auditing-typescript-tests` skill's Gate 0 C1/L1 findings for typed protocol values (`"PASS"`, `"FAIL"`, `"APPROVED"`, `"REJECT"`) are the same class of false positive — a Gate 0 REJECT on these strings is not a work blocker when `pnpm run validate` passes and tests pass.
 - ⚠️ **ALWAYS research related codebases before offering architectural options** — before presenting A/B/C choices via `AskUserQuestion`, grep/read related codebases (sibling monorepo paths like `~/Code/CraftFinal/root/`, existing `src/spec/apply/`, etc.) for established patterns. If a pattern already exists there, reference it rather than reinventing. "Read the existing code" beats any combination of options you can invent.
 
@@ -127,12 +127,12 @@ The authoritative ADR and PDR templates are **decision-first**. The skills own t
 pnpm run validate
 
 # Quick verification before committing
-pnpm run validate && pnpm test
+pnpm run validate && pnpm run circular && pnpm test
 
 # Build packaged output for the `spx` executable
 pnpm run build
 
-# Publish gate: source validation, build, tests, packaged validation
+# Publish gate: source validation, circular validation, build, tests, packaged validation
 pnpm run publish:check
 ```
 
@@ -145,7 +145,8 @@ Before committing ANY changes:
 - [ ] **`/spec-tree:applying` gates passed for spec-tree code/test work**: methodology/context loaded, architecture audit approved when applicable, test audit approved, code audit approved
 - [ ] **`/typescript:auditing-typescript-tests` passed for TypeScript test changes** before committing test-bearing work
 - [ ] **`/typescript:auditing-typescript` passed for TypeScript implementation changes** before committing code-bearing work
-- [ ] **`pnpm run validate`** passes (source CLI full pipeline)
+- [ ] **`pnpm run validate`** passes (source CLI aggregate pipeline, circular skipped)
+- [ ] **`pnpm run circular`** passes (source CLI circular dependency detection)
 - [ ] **`pnpm test`** shows 0 failed tests
 
 ### Pre-Push Checklist
@@ -154,6 +155,7 @@ Before pushing:
 
 - [ ] **`pnpm run build`** succeeds
 - [ ] **`pnpm run validate`** passes
+- [ ] **`pnpm run circular`** passes
 - [ ] **`pnpm test`** passes
 
 ### Pre-Publish Checklist
@@ -162,6 +164,7 @@ Before publishing or tagging a release:
 
 - [ ] **`pnpm run publish:check`** passes
 - [ ] **`pnpm run validate:published`** passes after the final build
+- [ ] **`pnpm run circular:published`** passes after the final build
 - [ ] The version in `package.json` matches the release tag
 
 ### Committing Changes
@@ -178,21 +181,22 @@ git add . && git commit -m "..."
 
 ### Available Validation Commands
 
-All validation runs through `spx validation` subcommands. Use pnpm scripts or call spx directly:
+The pnpm scripts are the authoritative workflow interface for local validation and publish gates:
 
-| pnpm Script                    | Executable path                                      | Purpose                         |
-| ------------------------------ | ---------------------------------------------------- | ------------------------------- |
-| `pnpm run validate`            | `tsx src/cli.ts validation all`                      | Source full validation pipeline |
-| `pnpm run validate:production` | `tsx src/cli.ts validation all --scope production`   | Source production scope only    |
-| `pnpm run validate:published`  | `node bin/spx.js validation all --scope production`  | Built executable validation     |
-| `pnpm run publish:check`       | source validation -> build -> tests -> packaged gate | Required pre-publish gate       |
-| `pnpm run lint`                | `tsx src/cli.ts validation lint`                     | ESLint only                     |
-| `pnpm run lint:fix`            | `tsx src/cli.ts validation lint --fix`               | Auto-fix ESLint issues          |
-| `pnpm run typecheck`           | `tsx src/cli.ts validation typescript`               | TypeScript only                 |
-| `pnpm run circular`            | `tsx src/cli.ts validation circular`                 | Check circular dependencies     |
-| `pnpm run knip`                | `tsx src/cli.ts validation knip`                     | Find unused code                |
+| pnpm Script                    | Purpose                                                      |
+| ------------------------------ | ------------------------------------------------------------ |
+| `pnpm run validate`            | Source aggregate validation, circular skipped                |
+| `pnpm run validate:production` | Source production validation, circular skipped               |
+| `pnpm run validate:published`  | Built executable production validation, circular skipped     |
+| `pnpm run publish:check`       | Source validation, circular, build, tests, and packaged gate |
+| `pnpm run lint`                | ESLint only                                                  |
+| `pnpm run lint:fix`            | Auto-fix ESLint issues                                       |
+| `pnpm run typecheck`           | TypeScript only                                              |
+| `pnpm run circular`            | Source circular dependency detection                         |
+| `pnpm run circular:published`  | Built executable circular dependency detection               |
+| `pnpm run knip`                | Find unused code                                             |
 
-**Options available on all spx validation subcommands:**
+**Common validation options:**
 
 - `--scope <scope>`: Validation scope (`full` or `production`)
 - `--files <paths...>`: Specific files/directories to validate
@@ -201,7 +205,7 @@ All validation runs through `spx validation` subcommands. Use pnpm scripts or ca
 
 **Scoping literal findings to a subtree:**
 
-`pnpm run validate` runs all 5 checks and floods output when there are many literal findings. To see only the files with problems in a specific subtree:
+`pnpm run validate` runs the aggregate validation pipeline with circular dependency detection skipped; run `pnpm run circular` beside it when a full local gate is required. Literal output can still flood when there are many findings. To see only the files with problems in a specific subtree:
 
 ```bash
 # Files with literal problems in a subtree
@@ -219,7 +223,7 @@ tsx src/cli.ts validation literal | grep spx/41-validation.enabler/32-typescript
 
 Use small PRs with one purpose. A PR that changes specs, tests, architecture, runtime code, deployment, and publishing workflows at once is too hard to review and too easy to merge for the wrong reason. Split the work into the smallest reviewable concern that can pass its own local gate.
 
-Run the right local gate before publishing. Use `spx validation markdown` for markdown-only spec or instruction changes. Use `spx validation all` for everything else. Add targeted tests for the node or workflow changed, and name those commands in the PR body.
+Run the right local gate before publishing. Use the documented pnpm validation scripts for default gates, add `pnpm run circular` when circular dependency detection is in scope, and add targeted tests for the node or workflow changed. Name those commands in the PR body.
 
 ### PR review guidance
 
@@ -257,8 +261,8 @@ Ask the PR reviewers for adversarial auditing of all architecture, security-sens
 
 ### Treat PR review findings by receiver action
 
-- Fix `BLOCKING` findings in the same PR, rerun the focused tests and `spx validation all`, then update the PR.
-- Fix `DEBT` findings in the same PR, rerun the focused tests and `spx validation all`, then update the PR.
+- Fix `BLOCKING` findings in the same PR, rerun the focused tests and relevant pnpm validation scripts, then update the PR.
+- Fix `DEBT` findings in the same PR, rerun the focused tests and relevant pnpm validation scripts, then update the PR.
 - Record retained `FOLLOW-UP` findings in the owning spec tree node's `ISSUES.md` or `PLAN.md` with evidence, impact, and resolution and Markdown links to all involved files and specs.
 - Findings that expose weak evidence require a test rearchitecture using the `/typescript:testing-typescript` skill before merge.
 
