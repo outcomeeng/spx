@@ -1,5 +1,10 @@
 import { resolveConfig } from "@/config/index";
 import {
+  formatTypeScriptAbsentSkipMessage,
+  VALIDATION_SKIP_LABELS,
+  VALIDATION_STAGE_DISPLAY_NAMES,
+} from "@/commands/validation/messages";
+import {
   VALIDATION_PATH_TOOL_SUBSECTIONS,
   type ValidationConfig,
   validationConfigDescriptor,
@@ -62,8 +67,11 @@ export const LITERAL_EXIT_CODES = {
   FINDINGS: 1,
   CONFIG_ERROR: 2,
 } as const;
-const TYPESCRIPT_ABSENT_MESSAGE = "⏭ Skipping Literal (TypeScript not detected in project)";
-export const LITERAL_DISABLED_MESSAGE = "⏭ Skipping Literal (disabled by validation.literal.enabled)";
+const TYPESCRIPT_ABSENT_MESSAGE = formatTypeScriptAbsentSkipMessage(
+  VALIDATION_STAGE_DISPLAY_NAMES.LITERAL,
+);
+export const LITERAL_DISABLED_MESSAGE =
+  `⏭ ${VALIDATION_SKIP_LABELS.VERB} ${VALIDATION_STAGE_DISPLAY_NAMES.LITERAL} (${VALIDATION_SKIP_LABELS.DISABLED_BY_PREFIX} validation.literal.enabled)`;
 export const NO_PROBLEMS_MESSAGE = "Literal: ✓ No problems";
 
 export function formatNoProblemsOfKind(kind: LiteralProblemKind): string {
