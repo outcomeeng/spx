@@ -17,7 +17,7 @@ import { execa } from "execa";
 import { DEFAULT_CONFIG_FILENAME } from "@/config/index";
 import { PATH_FILTER_CONFIG_FIELDS } from "@/config/primitives/path-filter";
 import { AUDIT_CONFIG_FIELDS, AUDIT_SECTION } from "@/domains/audit/config";
-import { AUDIT_CLI } from "@/interfaces/cli/audit";
+import { AUDIT_CLI, AUDIT_CLI_FLAG } from "@/interfaces/cli/audit";
 import { AUDIT_RUN_EVENT, auditRunCompletedEventInput, type AuditRunState } from "@/domains/audit/run-state";
 import { createJournal } from "@/lib/agent-run-journal";
 import { createAppendableJournalStore } from "@/lib/appendable-journal-store";
@@ -61,6 +61,11 @@ export interface WriteAuditConfigOptions {
   readonly auditors: readonly string[];
   readonly include?: readonly string[];
   readonly exclude?: readonly string[];
+}
+
+export interface InitializeAuditRunOptions extends WriteAuditConfigOptions {
+  readonly branch: string;
+  readonly headSha: string;
 }
 
 /** Writes the product audit config file used by CLI lifecycle tests. */
@@ -156,4 +161,19 @@ export interface AuditCliResult {
 export async function runSpxAudit(args: readonly string[], cwd: string): Promise<AuditCliResult> {
   const result = await execa(NODE_EXECUTABLE, [CLI_PATH, AUDIT_CLI.commandName, ...args], { cwd, reject: false });
   return { output: result.stdout, errorOutput: result.stderr, exitCode: result.exitCode ?? 1 };
+}
+
+/** Writes audit config, runs `spx audit init`, and returns the run file path. */
+export async function initializeAuditRun(productDir: string, options: InitializeAuditRunOptions): Promise<string> {
+  await writeAuditConfig(productDir, options);
+  const init = await runSpxAudit([
+    AUDIT_CLI.initCommandName,
+    AUDIT_CLI_FLAG.BRANCH,
+    options.branch,
+    AUDIT_CLI_FLAG.HEAD_SHA,
+    options.headSha,
+    AUDIT_CLI_FLAG.JSON,
+  ], productDir);
+  if (init.exitCode !== 0) throw new Error(init.errorOutput);
+  return (JSON.parse(init.output) as { readonly runFilePath: string }).runFilePath;
 }
