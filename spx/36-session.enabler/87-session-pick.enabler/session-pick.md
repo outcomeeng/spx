@@ -4,8 +4,6 @@ PROVIDES an interactive terminal picker that lists claimable sessions, filters t
 SO THAT agents and operators
 CAN browse the session queue and claim work in a single interactive step instead of reading `session list` output and copying an identifier into `session pickup`
 
-The picker renders through the terminal-UI runtime of [`spx/13-cli.enabler/21-terminal-ui.adr.md`](../../13-cli.enabler/21-terminal-ui.adr.md): its selection, filter, and key-action model is pure domain computation, its Ink component tree and terminal I/O live in the CLI-interface layer, and the claim it performs on selection reuses the [`spx/36-session.enabler/76-session-cli.enabler/session-cli.md`](../76-session-cli.enabler/session-cli.md) `pickup` handler.
-
 ## Assertions
 
 ### Scenarios
@@ -14,7 +12,7 @@ The picker renders through the terminal-UI runtime of [`spx/13-cli.enabler/21-te
 - Given a candidate set and a filter query, when the model filters, then it returns exactly the candidates whose identifier, goal, or next step contains the query, preserving candidate order ([test](tests/picker-model.scenario.l1.test.ts))
 - Given claimable sessions, when the picker mounts, then the frame lists each session with the highest-priority newest session selected and its goal and next step shown in the preview pane ([test](tests/picker-render.scenario.l1.test.ts))
 - Given a mounted picker, when filter text is typed, then the frame narrows to the matching sessions and the preview follows the new selection ([test](tests/picker-render.scenario.l1.test.ts))
-- Given a mounted picker over at least two sessions, when the down arrow then Enter is pressed, then the picker claims the second session, emits its `<PICKUP_ID>` tag to stdout, and unmounts ([test](tests/picker-render.scenario.l1.test.ts))
+- Given a mounted picker over at least two sessions, when the down arrow then Enter is pressed, then the picker claims the second session through the `pickup` handler, whose result carries the session's `<PICKUP_ID>` tag, and unmounts ([test](tests/picker-render.scenario.l1.test.ts))
 - Given a mounted picker, when Esc is pressed, then the picker unmounts with no session claimed, no `<PICKUP_ID>` tag emitted, and the queue unchanged ([test](tests/picker-render.scenario.l1.test.ts))
 - Given an empty claimable queue, when the picker mounts, then the frame shows the empty-state message and Enter claims nothing ([test](tests/picker-render.scenario.l1.test.ts))
 
