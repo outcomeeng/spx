@@ -12,7 +12,7 @@ import type { HookSessionStartEnv } from "@/domains/hooks/session-start";
 import type { GitDependencies } from "@/git/root";
 import { sanitizeCliArgument } from "@/lib/sanitize-cli-argument";
 
-import { HOOK_ERROR, isHookEvent, runHookEvent } from "./registry";
+import { HOOK_ERROR, isHookEvent, runHookEvent, type RunHookEventOptions } from "./registry";
 
 export interface HookProcessIo {
   readStdin(): Promise<Result<string | undefined>>;
@@ -31,6 +31,7 @@ export interface HookCliRunOptions {
   readonly io: HookProcessIo;
   readonly onWarning?: (warning: string | undefined) => void;
   readonly processTable: ProcessTable;
+  readonly runEvent?: (options: RunHookEventOptions) => ReturnType<typeof runHookEvent>;
   readonly selfPid: number;
   readonly worktreesDir?: string;
 }
@@ -49,7 +50,8 @@ export async function runHookCli(options: HookCliRunOptions): Promise<Result<voi
   const stdin = await options.io.readStdin();
   const content = stdin.ok ? stdin.value : undefined;
   if (!stdin.ok) diagnostics.push(stdin.error);
-  const result = await runHookEvent({
+  const runEvent = options.runEvent ?? runHookEvent;
+  const result = await runEvent({
     claimWriteToken: options.claimWriteToken,
     content,
     cwd: options.cwd,
@@ -63,14 +65,14 @@ export async function runHookCli(options: HookCliRunOptions): Promise<Result<voi
     selfPid: options.selfPid,
     worktreesDir: options.worktreesDir,
   });
+  for (const diagnostic of diagnostics) {
+    options.io.writeStderr(diagnostic);
+  }
   if (!result.ok) {
     options.io.writeStderr(result.error);
     return result;
   }
 
-  for (const diagnostic of diagnostics) {
-    options.io.writeStderr(diagnostic);
-  }
   for (const diagnostic of result.value.diagnostics) {
     options.io.writeStderr(diagnostic);
   }
