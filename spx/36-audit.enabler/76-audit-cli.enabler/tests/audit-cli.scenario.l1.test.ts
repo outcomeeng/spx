@@ -38,7 +38,7 @@ import {
 } from "@/lib/state-store";
 import { AUDIT_RUN_STATE_TEST_GENERATOR, sampleAuditRunStateTestValue } from "@testing/generators/audit/run-state";
 import { CONFIG_TEST_GENERATOR, sampleConfigTestValue } from "@testing/generators/config/descriptors";
-import { auditBranchRunsDir, createAuditHarness, runSpxAudit, writeAuditConfig } from "@testing/harnesses/audit/harness";
+import { auditBranchRunsDir, createAuditHarness, initializeAuditRun, runSpxAudit, writeAuditConfig } from "@testing/harnesses/audit/harness";
 import {
   GIT_TEST_CONFIG,
   GIT_TEST_FLAGS,
@@ -754,21 +754,13 @@ describe("audit CLI lifecycle commands", () => {
 });
 
 async function initializeDefaultAuditRun(productDir: string): Promise<string> {
-  await writeAuditConfig(productDir, {
+  return initializeAuditRun(productDir, {
     baseRef: baseRef,
     auditors: [auditor],
     include: [target],
-  });
-  const init = await runSpxAudit([
-    AUDIT_CLI.initCommandName,
-    AUDIT_CLI_FLAG.BRANCH,
     branch,
-    AUDIT_CLI_FLAG.HEAD_SHA,
     headSha,
-    AUDIT_CLI_FLAG.JSON,
-  ], productDir);
-  expect(init.exitCode).toBe(0);
-  return (JSON.parse(init.output) as { readonly runFilePath: string }).runFilePath;
+  });
 }
 
 async function initializeGitProduct(productDir: string): Promise<void> {

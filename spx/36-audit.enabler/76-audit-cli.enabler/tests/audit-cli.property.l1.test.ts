@@ -7,7 +7,7 @@ import { AUDIT_CLI, AUDIT_CLI_FLAG } from "@/interfaces/cli/audit";
 import { createAppendableJournalStore } from "@/lib/appendable-journal-store";
 import { AUDIT_RUN_STATE_TEST_GENERATOR, sampleAuditRunStateTestValue } from "@testing/generators/audit/run-state";
 import { CONFIG_TEST_GENERATOR, sampleConfigTestValue } from "@testing/generators/config/descriptors";
-import { createAuditHarness, runSpxAudit, writeAuditConfig } from "@testing/harnesses/audit/harness";
+import { createAuditHarness, initializeAuditRun, runSpxAudit } from "@testing/harnesses/audit/harness";
 
 const auditor = sampleConfigTestValue(CONFIG_TEST_GENERATOR.key());
 const target = sampleConfigTestValue(CONFIG_TEST_GENERATOR.key());
@@ -22,7 +22,13 @@ describe("audit CLI progress step properties", () => {
   it("rejects every generated unknown progress step without appending to the run journal", async () => {
     const harness = await createAuditHarness();
     try {
-      const runFilePath = await initializeDefaultAuditRun(harness.productDir);
+      const runFilePath = await initializeAuditRun(harness.productDir, {
+        baseRef,
+        auditors: [auditor],
+        include: [target],
+        branch,
+        headSha,
+      });
 
       await fc.assert(
         fc.asyncProperty(
@@ -64,21 +70,3 @@ describe("audit CLI progress step properties", () => {
     }
   }, unknownProgressStepTimeoutMs);
 });
-
-async function initializeDefaultAuditRun(productDir: string): Promise<string> {
-  await writeAuditConfig(productDir, {
-    baseRef,
-    auditors: [auditor],
-    include: [target],
-  });
-  const init = await runSpxAudit([
-    AUDIT_CLI.initCommandName,
-    AUDIT_CLI_FLAG.BRANCH,
-    branch,
-    AUDIT_CLI_FLAG.HEAD_SHA,
-    headSha,
-    AUDIT_CLI_FLAG.JSON,
-  ], productDir);
-  expect(init.exitCode).toBe(0);
-  return (JSON.parse(init.output) as { readonly runFilePath: string }).runFilePath;
-}
