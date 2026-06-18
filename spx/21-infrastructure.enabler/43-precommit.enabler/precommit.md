@@ -1,8 +1,8 @@
 # Precommit
 
-PROVIDES lefthook-managed local hook machinery: a selective vitest runner that classifies git-staged files and a main-checkout-gated dist rebuild path for pull and rebase events
+PROVIDES lefthook-managed local hook machinery: a selective vitest runner that classifies git-staged files, a fixture-exclusion drift check, and a main-checkout-gated dist rebuild path for pull and rebase events
 SO THAT `lefthook`'s pre-commit hook and rebuild-dist hooks
-CAN block commits when staged changes break their related tests, keep the main checkout's packaged `dist/` current after incoming changes, and skip rebuilds in non-main worktrees
+CAN block commits when staged changes break their related tests, block commits when fixture exclusion policy drifts, keep the main checkout's packaged `dist/` current after incoming changes, skip rebuilds in non-main worktrees, and leave full build/validation/test execution to CI or explicit operator commands
 
 ## Assertions
 
@@ -36,6 +36,7 @@ CAN block commits when staged changes break their related tests, keep the main c
 - NEVER: invoke vitest when `filterTestRelevantFiles` returns an empty list — avoids running the suite for commits that touch no code ([test](tests/run.compliance.l1.test.ts))
 - NEVER: pass `other`-category paths to vitest as arguments — the runner forwards only the retained test-relevant files ([test](tests/run.compliance.l1.test.ts))
 - ALWAYS: `src/lib/precommit/run.ts` is the command lefthook invokes for the `pre-commit.tests` hook, matching the `run:` entry in `lefthook.yml` ([audit])
+- ALWAYS: `lefthook.yml` keeps local pre-commit work selective and does not declare a `pre-push` hook that runs full build, validation, or test commands; those full gates run through CI or explicit operator commands ([audit])
 - ALWAYS: `lefthook.yml` declares `post-merge.rebuild-dist` and `post-rewrite.rebuild-dist` according to `spx/21-infrastructure.enabler/43-precommit.enabler/21-dist-rebuild-on-pull.adr.md` ([audit])
 - ALWAYS: `src/lib/precommit/main-checkout-gate.ts` is the command lefthook invokes to decide whether rebuild-dist runs in the current worktree, and that gate delegates to the main-checkout classifier governed by `spx/15-worktree-management.pdr.md` ([audit])
 - ALWAYS: subprocess commands spawned from precommit integration tests through the git environment harness run with `GITHUB_ACTIONS` stripped from the environment — vitest invocations that lefthook triggers inside the fixture report their results through the process exit code only, never by posting annotations to the parent GitHub Actions run ([test](tests/subprocess-env.compliance.l1.test.ts))

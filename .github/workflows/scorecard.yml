@@ -1,4 +1,4 @@
-name: OpenSSF Scorecard
+name: Security Scorecard
 
 on:
   branch_protection_rule:
@@ -12,7 +12,7 @@ permissions: {}
 
 jobs:
   scorecard:
-    name: Scorecard
+    name: OpenSSF Scorecard
     runs-on: ubuntu-latest
     permissions:
       security-events: write # Upload SARIF to Security tab

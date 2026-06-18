@@ -1,4 +1,4 @@
-name: CI
+name: Validation and Testing
 
 on:
   push:
@@ -11,7 +11,7 @@ permissions: {}
 
 jobs:
   test:
-    name: Test (Node ${{ matrix.node-version }})
+    name: Validation and Testing (Node ${{ matrix.node-version }})
     runs-on: ubuntu-latest
     permissions:
       contents: read
@@ -31,7 +31,7 @@ jobs:
 
       - run: pnpm install --frozen-lockfile
 
-      - name: Validate (circular deps, lint, typecheck)
+      - name: "Validation: source"
         run: pnpm run validate
 
       # Provisions the pytest toolchain so the Python runner's real-tool test runs
@@ -51,20 +51,20 @@ jobs:
           echo "VIRTUAL_ENV=$PWD/.venv" >> "$GITHUB_ENV"
           echo "$PWD/.venv/bin" >> "$GITHUB_PATH"
 
-      - name: Test
+      - name: Testing
         run: pnpm test
 
-      - name: Build
+      - name: Build packaged CLI
         run: pnpm run build
 
-      - name: Validate packaged CLI
+      - name: "Validation: packaged CLI"
         run: pnpm run validate:published
 
-      - name: Verify package contents
+      - name: Check package contents
         run: npm pack --dry-run
 
   dependency-review:
-    name: Dependency Review
+    name: Dependency Security Check
     runs-on: ubuntu-latest
     if: github.event_name == 'pull_request'
     permissions:

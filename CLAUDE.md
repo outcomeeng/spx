@@ -150,7 +150,7 @@ Before committing ANY changes:
 
 ### Pre-Push Checklist
 
-Before pushing (enforced by lefthook pre-push hook):
+Before pushing:
 
 - [ ] **`pnpm run build`** succeeds
 - [ ] **`pnpm run validate`** passes

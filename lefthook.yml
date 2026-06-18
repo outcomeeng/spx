@@ -1,12 +1,9 @@
-# Lefthook configuration for pre-commit, pre-push, and post-merge/post-rewrite hooks.
+# Lefthook configuration for pre-commit and post-merge/post-rewrite hooks.
 # Keeps local hook behavior aligned with the product's hook machinery.
 #
 # Pre-commit hook runs tests on modified files using the TypeScript
 # orchestration script. Uses tsx to run TypeScript directly, ensuring
 # the hook always uses the latest source code without needing a build step.
-#
-# Pre-push hook runs full build + validation + test suite to prevent
-# pushing code that hasn't been built or validated.
 #
 # Post-merge and post-rewrite hooks rebuild dist/ after a pull (merge or
 # rebase) so a published or pnpm-linked `spx` (which resolves to ./dist)
@@ -25,15 +22,6 @@ pre-commit:
     sonarqube-cloud-exclusions:
       glob: "{.sonarcloud.properties,testing/fixtures/**}"
       run: env -u GIT_DIR -u GIT_WORK_TREE -u GIT_PREFIX -u GIT_COMMON_DIR npx tsx src/lib/sonarqube-cloud/check-fixture-exclusions.ts
-
-pre-push:
-  commands:
-    build:
-      run: env -u GIT_DIR -u GIT_WORK_TREE -u GIT_INDEX_FILE -u GIT_PREFIX -u GIT_COMMON_DIR pnpm run build
-    validate:
-      run: env -u GIT_DIR -u GIT_WORK_TREE -u GIT_INDEX_FILE -u GIT_PREFIX -u GIT_COMMON_DIR pnpm run validate
-    test:
-      run: env -u GIT_DIR -u GIT_WORK_TREE -u GIT_INDEX_FILE -u GIT_PREFIX -u GIT_COMMON_DIR pnpm test
 
 post-merge:
   commands:
