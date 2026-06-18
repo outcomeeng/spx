@@ -19,5 +19,9 @@ export default defineConfig({
     "@typescript-eslint/visitor-keys",
     "@typescript-eslint/typescript-estree",
     "eslint-visitor-keys",
+    // The Ink terminal UI and its React renderer are runtime dependencies; keep
+    // them external rather than bundling the React reconciler into dist/.
+    "react",
+    "ink",
   ],
 });

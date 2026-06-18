@@ -13,7 +13,15 @@ import { stringify as stringifyYaml } from "yaml";
 
 import { SESSION_FRONT_MATTER_DELIMITER } from "@/domains/session/create";
 import { generateSessionId } from "@/domains/session/timestamp";
-import { SESSION_FRONT_MATTER, SESSION_PRIORITY, type SessionPriority } from "@/domains/session/types";
+import {
+  DEFAULT_PRIORITY,
+  type Session,
+  SESSION_FRONT_MATTER,
+  SESSION_PRIORITY,
+  SESSION_STATUSES,
+  type SessionPriority,
+  type SessionStatus,
+} from "@/domains/session/types";
 
 const SESSION_PRIORITY_VALUES = Object.values(SESSION_PRIORITY) as readonly SessionPriority[];
 
@@ -262,6 +270,58 @@ export function arbitrarySessionContent(): fc.Arbitrary<string> {
  */
 export function sampleSessionContent(seed: number = SESSION_CONTENT_SAMPLE_SEED): string {
   return fc.sample(arbitrarySessionContent(), { numRuns: 1, seed })[0];
+}
+
+/** Fields a test may override when constructing an in-memory `Session`. */
+export interface MakeSessionOptions {
+  id?: string;
+  status?: SessionStatus;
+  priority?: SessionPriority;
+  goal?: string;
+  next_step?: string;
+  git_ref?: string;
+  specs?: readonly string[];
+  files?: readonly string[];
+}
+
+/**
+ * Constructs an in-memory `Session` for tests that exercise session logic over
+ * objects rather than files (the picker model, sort and filter logic). The
+ * `path` is a synthetic value the in-memory consumers never read from disk.
+ */
+export function makeSession(opts: MakeSessionOptions = {}): Session {
+  const id = opts.id ?? sampleSessionId();
+  const status = opts.status ?? SESSION_STATUSES[0];
+  return {
+    id,
+    status,
+    path: `/tmp/${status}/${id}.md`,
+    metadata: {
+      priority: opts.priority ?? DEFAULT_PRIORITY,
+      git_ref: opts.git_ref ?? "",
+      goal: opts.goal ?? "",
+      next_step: opts.next_step ?? "",
+      specs: [...(opts.specs ?? [])],
+      files: [...(opts.files ?? [])],
+    },
+  };
+}
+
+/**
+ * Arbitrary in-memory `Session` drawing a valid timestamp ID, a status from
+ * `SESSION_STATUSES`, a priority from the registry, and unicode goal/next-step
+ * text — for property tests over the picker model.
+ */
+export function arbitrarySession(): fc.Arbitrary<Session> {
+  return fc
+    .record({
+      id: arbitrarySessionId(),
+      status: fc.constantFrom(...SESSION_STATUSES),
+      priority: arbitrarySessionPriority(),
+      goal: fc.string(),
+      next_step: fc.string(),
+    })
+    .map((fields) => makeSession(fields));
 }
 
 /** Date bounds keep generated session instants within four-digit years so the ID format holds. */

@@ -9,6 +9,8 @@ export { handoffCommand } from "./handoff";
 export type { HandoffOptions, HandoffResult } from "./handoff";
 export { listCommand } from "./list";
 export type { ListOptions } from "./list";
+export { loadPickCandidates } from "./pick";
+export type { PickCandidatesOptions } from "./pick";
 export { pickupCommand } from "./pickup";
 export type { PickupOptions } from "./pickup";
 export { pruneCommand, PruneValidationError } from "./prune";
