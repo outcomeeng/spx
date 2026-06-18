@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 
 import { LITERAL_PROBLEM_KIND } from "@/commands/validation";
-import { sanitizeCliArgument, SENTINEL_EMPTY } from "@/interfaces/cli/sanitize";
+import { sanitizeCliArgument, SENTINEL_EMPTY } from "@/lib/sanitize-cli-argument";
 import {
   allValidationCliOptions,
   literalValidationCliOptions,
