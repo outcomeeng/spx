@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { dirname } from "node:path/posix";
+import { dirname, join } from "node:path/posix";
 
 import type { ICruiseResult, IDependency, IModule, IReporterOutput } from "dependency-cruiser";
 import type { ParsedCommandLine } from "typescript";
@@ -8,7 +8,11 @@ import type { ParsedCommandLine } from "typescript";
 import {
   CIRCULAR_DEPS_KEYS,
   type CircularDeps,
+  type CircularDependencyGraphRunner,
   DEPENDENCY_CRUISER_DEPENDENCY_TYPES,
+  DEPENDENCY_CRUISER_TYPESCRIPT_RESOLVE_EXTENSIONS,
+  DEPENDENCY_CRUISER_TYPESCRIPT_SOURCE_GLOB_SUFFIXES,
+  DEPENDENCY_CRUISER_TYPESCRIPT_SOURCE_PATTERN,
   validateCircularDependencies,
 } from "@/validation/steps/circular";
 import { type ScopeConfig, VALIDATION_SCOPES } from "@/validation/types";
@@ -118,7 +122,44 @@ function createDeps(cruiseResult: ICruiseResult): CircularDeps {
   };
 }
 
+function expectedTypescriptSourcePatterns(directory: string): string[] {
+  return DEPENDENCY_CRUISER_TYPESCRIPT_SOURCE_GLOB_SUFFIXES.map((suffix) => join(directory, suffix));
+}
+
 describe("circular dependency filtering", () => {
+  it("limits dependency-cruiser cruise inputs and resolution to TypeScript sources", async () => {
+    const dependency = createCircularDependency([
+      DEPENDENCY_CRUISER_DEPENDENCY_TYPES.LOCAL,
+      DEPENDENCY_CRUISER_DEPENDENCY_TYPES.IMPORT,
+    ]);
+    const dependencyGraphCalls: Parameters<CircularDependencyGraphRunner>[] = [];
+    const deps: CircularDeps = {
+      [CIRCULAR_DEPS_KEYS.DEPENDENCY_CRUISER]: async (...call): Promise<IReporterOutput> => {
+        dependencyGraphCalls.push(call);
+        return {
+          exitCode: 0,
+          output: createCruiseResult(dependency),
+        };
+      },
+      [CIRCULAR_DEPS_KEYS.EXTRACT_TYPESCRIPT_CONFIG]: () => emptyTypescriptConfig,
+    };
+
+    await validateCircularDependencies(
+      VALIDATION_SCOPES.FULL,
+      typescriptScope,
+      projectRoot,
+      deps,
+    );
+
+    expect(dependencyGraphCalls).toHaveLength(1);
+    const [paths, config] = dependencyGraphCalls[0] ?? [];
+    expect(paths).toEqual(expectedTypescriptSourcePatterns(analyzeDirectory));
+    expect(config?.includeOnly).toEqual({ path: DEPENDENCY_CRUISER_TYPESCRIPT_SOURCE_PATTERN });
+    expect(config?.enhancedResolveOptions?.extensions).toEqual([
+      ...DEPENDENCY_CRUISER_TYPESCRIPT_RESOLVE_EXTENSIONS,
+    ]);
+  });
+
   it("ignores a cycle when the initial dependency survives runtime but a cycle vertex is type-erased", async () => {
     const dependency = createCircularDependencyWithCycle(
       [

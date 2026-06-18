@@ -20,6 +20,9 @@ import { TSCONFIG_FILES } from "../config/scope";
 import type { CircularDependencyResult, ScopeConfig, ValidationScope } from "../types";
 
 export const DEPENDENCY_CRUISER_MODULE_SYSTEMS = ["es6", "cjs"] as const;
+export const DEPENDENCY_CRUISER_TYPESCRIPT_SOURCE_GLOB_SUFFIXES = ["**/*.ts", "**/*.tsx"] as const;
+export const DEPENDENCY_CRUISER_TYPESCRIPT_SOURCE_PATTERN = String.raw`\.tsx?$`;
+export const DEPENDENCY_CRUISER_TYPESCRIPT_RESOLVE_EXTENSIONS = [".ts", ".tsx", ".d.ts"] as const;
 const TSCONFIG_EXCLUDE_SUFFIX_PATTERN = /\/\*\*?\/\*$/u;
 const REGEX_SPECIAL_CHARACTER_PATTERN = /[.*+?^${}()|[\]\\]/gu;
 const REGEX_ESCAPE_REPLACEMENT = String.raw`\$&`;
@@ -111,11 +114,19 @@ function buildDependencyCruiserOptions(
 
   return {
     baseDir: projectRoot,
+    enhancedResolveOptions: { extensions: [...DEPENDENCY_CRUISER_TYPESCRIPT_RESOLVE_EXTENSIONS] },
     exclude: { path: excludePatterns },
+    includeOnly: { path: DEPENDENCY_CRUISER_TYPESCRIPT_SOURCE_PATTERN },
     moduleSystems: [...DEPENDENCY_CRUISER_MODULE_SYSTEMS],
     tsConfig: { fileName: tsConfigFile },
     tsPreCompilationDeps: DEPENDENCY_CRUISER_TS_PRE_COMPILATION_DEPS,
   };
+}
+
+function toDependencyCruiserSourcePatterns(directories: readonly string[]): string[] {
+  return directories.flatMap((directory) =>
+    DEPENDENCY_CRUISER_TYPESCRIPT_SOURCE_GLOB_SUFFIXES.map((suffix) => `${directory}/${suffix}`),
+  );
 }
 
 function isCruiseResult(output: IReporterOutput["output"]): output is ICruiseResult {
@@ -234,15 +245,15 @@ export async function validateCircularDependencies(
   deps: CircularDeps = defaultCircularDeps,
 ): Promise<CircularDependencyResult> {
   try {
-    const analyzeDirectories = typescriptScope.directories;
+    const analyzeSourcePatterns = toDependencyCruiserSourcePatterns(typescriptScope.directories);
 
-    if (analyzeDirectories.length === 0) {
+    if (analyzeSourcePatterns.length === 0) {
       return { success: true };
     }
 
     const tsConfigFile = join(projectRoot, TSCONFIG_FILES[scope]);
     const result = await deps.dependencyCruiser(
-      analyzeDirectories,
+      analyzeSourcePatterns,
       buildDependencyCruiserOptions(typescriptScope, projectRoot, tsConfigFile),
       undefined,
       { tsConfig: deps.extractTypeScriptConfig(tsConfigFile) },
