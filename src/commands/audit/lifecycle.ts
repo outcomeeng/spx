@@ -332,19 +332,7 @@ async function resolveAuditConfig(productDir: string): Promise<Result<AuditConfi
   const result = await resolveConfig(productDir, [auditConfigDescriptor]);
   if (!result.ok) return result;
   const section = result.value[AUDIT_SECTION];
-  return isAuditConfig(section)
-    ? { ok: true, value: section }
-    : { ok: false, error: "resolved audit config has invalid shape" };
-}
-
-function isAuditConfig(value: unknown): value is AuditConfig {
-  return typeof value === "object"
-    && value !== null
-    && !Array.isArray(value)
-    && typeof (value as { readonly baseRef?: unknown }).baseRef === "string"
-    && Array.isArray((value as { readonly auditors?: unknown }).auditors)
-    && typeof (value as { readonly targets?: unknown }).targets === "object"
-    && (value as { readonly targets?: unknown }).targets !== null;
+  return auditConfigDescriptor.validate(section);
 }
 
 function digestAuditConfig(config: AuditConfig): Result<string> {
