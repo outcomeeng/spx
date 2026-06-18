@@ -16,6 +16,9 @@ import {
   DEPENDENCY_CRUISER_MODULE_SYSTEMS,
   DEPENDENCY_CRUISER_PACKAGE_EXCLUDE_PATTERN,
   DEPENDENCY_CRUISER_TS_PRE_COMPILATION_DEPS,
+  DEPENDENCY_CRUISER_TYPESCRIPT_RESOLVE_EXTENSIONS,
+  DEPENDENCY_CRUISER_TYPESCRIPT_SOURCE_GLOB_SUFFIXES,
+  DEPENDENCY_CRUISER_TYPESCRIPT_SOURCE_PATTERN,
   validateCircularDependencies,
 } from "@/validation/steps/circular";
 import { KNIP_COMMAND_TOKENS, type KnipDeps, validateKnip } from "@/validation/steps/knip";
@@ -60,6 +63,10 @@ function createDependencyGraphResult(): Awaited<ReturnType<CircularDependencyGra
     },
     exitCode: VALIDATION_EXIT_CODES.SUCCESS,
   };
+}
+
+function expectedDependencyCruiserSourcePatterns(directory: string): string[] {
+  return DEPENDENCY_CRUISER_TYPESCRIPT_SOURCE_GLOB_SUFFIXES.map((suffix) => join(directory, suffix));
 }
 
 class ErrorThenCloseRunner implements ProcessRunner {
@@ -441,11 +448,17 @@ describe("ALWAYS: TypeScript scope resolution uses the requested project root", 
       expect(result.success).toBe(true);
       expect(dependencyGraphCalls).toHaveLength(1);
       const [paths, config, resolveOptions, transpileOptions] = dependencyGraphCalls[0] ?? [];
-      expect(paths).toEqual([VALIDATION_PIPELINE_DATA.scopeResolutionDirectoryName]);
+      expect(paths).toEqual(
+        expectedDependencyCruiserSourcePatterns(VALIDATION_PIPELINE_DATA.scopeResolutionDirectoryName),
+      );
       expect(config?.baseDir).toBe(env.productDir);
       expect(config?.tsConfig?.fileName).toBe(join(env.productDir, TSCONFIG_FILES.full));
       expect(config?.tsPreCompilationDeps).toBe(DEPENDENCY_CRUISER_TS_PRE_COMPILATION_DEPS);
       expect(config?.moduleSystems).toEqual([...DEPENDENCY_CRUISER_MODULE_SYSTEMS]);
+      expect(config?.includeOnly).toEqual({ path: DEPENDENCY_CRUISER_TYPESCRIPT_SOURCE_PATTERN });
+      expect(config?.enhancedResolveOptions?.extensions).toEqual([
+        ...DEPENDENCY_CRUISER_TYPESCRIPT_RESOLVE_EXTENSIONS,
+      ]);
       expect(config?.exclude).toEqual({
         path: [DEPENDENCY_CRUISER_PACKAGE_EXCLUDE_PATTERN, dependencyCruiserExcludePattern],
       });
