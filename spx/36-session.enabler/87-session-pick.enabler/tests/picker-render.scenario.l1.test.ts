@@ -209,9 +209,9 @@ describe("SessionPicker rendering", () => {
     expect(titleLine).not.toContain("filter");
     expect(frame).toContain(SESSION_PICKER_HINT);
 
-    // Preview labels are separated from their values by a space.
-    expect(frame).toMatch(/goal:\s+\S/);
-    expect(frame).toMatch(/next:\s+\S/);
+    // Preview labels are separated from their values by exactly one space.
+    expect(frame).toMatch(/goal: \S/);
+    expect(frame).toMatch(/next: \S/);
     unmount();
   });
 });
