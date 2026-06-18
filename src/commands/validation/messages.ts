@@ -4,7 +4,7 @@ export const VALIDATION_EXIT_CODES = {
 } as const;
 
 export const VALIDATION_STAGE_DISPLAY_NAMES = {
-  CIRCULAR: "Circular dependencies",
+  CIRCULAR: "dependency-cruiser",
   KNIP: "Knip",
   ESLINT: "ESLint",
   TYPESCRIPT: "TypeScript",
@@ -16,6 +16,7 @@ export const VALIDATION_SKIP_LABELS = {
   VERB: "Skipping",
   CIRCULAR_REASON: "skip-circular",
   LITERAL_REASON: "skip-literal",
+  DISABLED_BY_PREFIX: "disabled by",
   TYPESCRIPT_ABSENT_REASON: "TypeScript not detected in project",
   VALIDATION_PATHS_NO_TARGETS_REASON: "validation paths matched no files",
   MARKDOWN_NO_SCOPE_REASON: "no markdown files in --files scope",
@@ -23,8 +24,8 @@ export const VALIDATION_SKIP_LABELS = {
 } as const;
 
 export const VALIDATION_COMMAND_OUTPUT = {
-  CIRCULAR_FOUND: `${VALIDATION_STAGE_DISPLAY_NAMES.CIRCULAR} found`,
-  CIRCULAR_NONE_FOUND: `${VALIDATION_STAGE_DISPLAY_NAMES.CIRCULAR}: ✓ None found`,
+  CIRCULAR_FOUND: `${VALIDATION_STAGE_DISPLAY_NAMES.CIRCULAR}: circular dependencies found`,
+  CIRCULAR_NONE_FOUND: `${VALIDATION_STAGE_DISPLAY_NAMES.CIRCULAR}: ✓ No circular dependencies found`,
   KNIP_CONFIG_ERROR: `${VALIDATION_STAGE_DISPLAY_NAMES.KNIP}: ✗ config error`,
   KNIP_DISABLED: `${VALIDATION_STAGE_DISPLAY_NAMES.KNIP}: skipped (disabled by validation.knip.enabled)`,
   KNIP_SUCCESS: `${VALIDATION_STAGE_DISPLAY_NAMES.KNIP}: ✓ No unused code found`,
@@ -39,7 +40,7 @@ export const VALIDATION_COMMAND_OUTPUT = {
 } as const;
 
 export const CIRCULAR_SKIP_OUTPUT =
-  `${VALIDATION_STAGE_DISPLAY_NAMES.CIRCULAR}: skipped (--${VALIDATION_SKIP_LABELS.CIRCULAR_REASON})`;
+  `${VALIDATION_STAGE_DISPLAY_NAMES.CIRCULAR}: skipped (${VALIDATION_SKIP_LABELS.DISABLED_BY_PREFIX} --${VALIDATION_SKIP_LABELS.CIRCULAR_REASON})`;
 
 export const CIRCULAR_SKIP_JSON_OUTPUT = JSON.stringify({
   skipped: true,

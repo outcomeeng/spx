@@ -36,7 +36,7 @@ describe("package scripts — CLI boundary compliance", () => {
     expect(scripts["validate:published"]).toBe(
       `${PACKAGED_CLI_INVOCATION} validation all --scope production --skip-circular`,
     );
-    expect(scripts["circular:published"]).toBe(`${PACKAGED_CLI_INVOCATION} validation circular`);
+    expect(scripts["circular:published"]).toBe(`${PACKAGED_CLI_INVOCATION} validation circular --scope production`);
     expect(scripts["publish:check"]).toBe(
       `pnpm run validate && pnpm run circular && ${BUILD_INVOCATION} && ${VITEST_RUN_INVOCATION} && pnpm run validate:published && pnpm run circular:published`,
     );
