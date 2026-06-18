@@ -60,6 +60,7 @@ export interface RunTestsCommandOptions {
 
 export interface RecordedTestRun {
   readonly dispatch: TestDispatchResult;
+  readonly runFile: TestRunFile;
   readonly recorded: TestRunState;
 }
 
@@ -288,7 +289,7 @@ export async function runTestsCommand(
     { runnerDepsFor: deps.runnerDepsFor },
   );
   const recorded = await recordRun(runFile, options.productDir, dispatch, recording, deps.registry, digest);
-  return { dispatch, recorded };
+  return { dispatch, runFile, recorded };
 }
 
 /**
@@ -307,5 +308,5 @@ export async function runNodeCommand(
     { runnerDepsFor: deps.runnerDepsFor },
   );
   const recorded = await recordRun(runFile, options.productDir, dispatch, recording, deps.registry);
-  return { dispatch, recorded };
+  return { dispatch, runFile, recorded };
 }

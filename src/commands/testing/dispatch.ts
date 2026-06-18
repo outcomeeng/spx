@@ -1,6 +1,11 @@
 import { applyPathFilter, type PathFilterConfig } from "@/config/primitives";
 import { aggregateTestExitCode, groupTestFiles, type LanguageTestGroup } from "@/domains/testing";
-import type { TestingLanguageDescriptor, TestRunInvocation, TestRunnerDependencies } from "@/testing/languages/types";
+import type {
+  TestingLanguageDescriptor,
+  TestRunCommandOutput,
+  TestRunInvocation,
+  TestRunnerDependencies,
+} from "@/testing/languages/types";
 import type { TestingRegistry } from "@/testing/registry";
 import type { TestRunnerOutcome } from "@/testing/run-state";
 
@@ -15,7 +20,15 @@ export interface TestDispatchResult {
   readonly exitCode: number;
   readonly groups: readonly LanguageTestGroup[];
   readonly unmatched: readonly string[];
+  readonly reports: readonly TestRunnerReport[];
   readonly outcomes: readonly TestRunnerOutcome[];
+}
+
+export interface TestRunnerReport {
+  readonly runnerId: string;
+  readonly testPaths: readonly string[];
+  readonly exitCode: number;
+  readonly output?: TestRunCommandOutput;
 }
 
 export interface TestDispatchOptions {
@@ -50,6 +63,7 @@ export async function runTests(
   const { groups, unmatched } = groupTestFiles(testFiles, options.registry.languages);
 
   const invocations: TestRunInvocation[] = [];
+  const reports: TestRunnerReport[] = [];
   const outcomes: TestRunnerOutcome[] = [];
   for (const group of groups) {
     const invocation = await group.language.runTests(
@@ -63,6 +77,12 @@ export async function runTests(
     invocations.push(invocation);
     // A gated-out runner (not invoked) produces no observed outcome to record.
     if (invocation.invoked) {
+      reports.push({
+        runnerId: group.language.name,
+        testPaths: group.testPaths,
+        exitCode: invocation.exitCode,
+        ...(invocation.output === undefined ? {} : { output: invocation.output }),
+      });
       outcomes.push({
         runnerId: group.language.name,
         testPaths: group.testPaths,
@@ -71,5 +91,5 @@ export async function runTests(
     }
   }
 
-  return { exitCode: aggregateTestExitCode(invocations), groups, unmatched, outcomes };
+  return { exitCode: aggregateTestExitCode(invocations), groups, unmatched, reports, outcomes };
 }

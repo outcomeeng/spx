@@ -1,8 +1,8 @@
 # Testing
 
-PROVIDES the `spx test` command and a registry-based per-node run surface — discovers test files by walking `spx/**/tests/`, groups them by file extension, dispatches each group to the language-specific testing enabler registered for that extension, runs a single node's tests through the same registry on request, and records last-run evidence for fast status reporting
+PROVIDES the `spx test` command and a registry-based per-node run surface — discovers test files by walking `spx/**/tests/`, groups them by file extension, dispatches each group to the language-specific testing enabler registered for that extension, runs a single node's tests through the same registry on request, records last-run evidence for fast status reporting, and offers compact agent-facing output with raw runner artifacts
 SO THAT developers and agents running `spx test` or `spx test passing`, and status consumers that need one node's current outcome,
-CAN run all spec-tree tests with a single command, honor configured passing-scope exclusions declared in `spx.config.{toml,json,yaml}`, obtain a node's pass/fail outcome through the multi-language registry without naming a runner, and read recent status without re-running every test
+CAN run all spec-tree tests with a single command, honor configured passing-scope exclusions declared in `spx.config.{toml,json,yaml}`, obtain a node's pass/fail outcome through the multi-language registry without naming a runner, read recent status without re-running every test, and inspect failures without streaming passing-test noise into an agent transcript
 
 ## Assertions
 

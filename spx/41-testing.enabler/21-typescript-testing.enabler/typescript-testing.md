@@ -1,6 +1,6 @@
 # TypeScript Testing
 
-PROVIDES vitest invocation for TypeScript test files in `spx/**/tests/`
+PROVIDES project-local Vitest invocation for TypeScript test files in `spx/**/tests/`
 SO THAT `spx test` and `spx test passing`
 CAN execute TypeScript tests with exclusion flags derived from `spx.config.{toml,json,yaml}`, without modifying `vitest.config.ts`, `tsconfig.json`, or `package.json`
 
@@ -21,5 +21,5 @@ CAN execute TypeScript tests with exclusion flags derived from `spx.config.{toml
 ### Compliance
 
 - ALWAYS: vitest invocation is gated on the TypeScript testing descriptor's detection result ([test](tests/typescript-testing.compliance.l1.test.ts))
-- ALWAYS: vitest runs via the project's package manager (`pnpm run test` or equivalent) so the project's `node_modules` provides the tool ([review])
+- ALWAYS: vitest resolves from the project's local `node_modules` toolchain without invoking `pnpm exec` in the spawned child ([audit])
 - NEVER: write vitest configuration into `vitest.config.ts`, `tsconfig.json`, or `package.json` — exclusion flags pass at invocation time ([review])

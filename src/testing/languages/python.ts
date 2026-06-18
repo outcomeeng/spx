@@ -82,7 +82,11 @@ async function runTests(request: TestRunRequest, deps: TestRunnerDependencies): 
   ];
 
   const result = await deps.runCommand(UV_COMMAND, args);
-  return { invoked: true, exitCode: result.exitCode };
+  return {
+    invoked: true,
+    exitCode: result.exitCode,
+    ...(result.output === undefined ? {} : { output: result.output }),
+  };
 }
 
 export const pythonTestingLanguage: TestingLanguageDescriptor = {
