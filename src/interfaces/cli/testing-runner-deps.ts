@@ -1,6 +1,6 @@
 import type { ChildProcess } from "node:child_process";
 import { createWriteStream } from "node:fs";
-import { mkdtemp, readFile } from "node:fs/promises";
+import { mkdtemp } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { finished } from "node:stream/promises";
@@ -17,12 +17,6 @@ export const AGENT_TEST_OUTPUT_ENV = {
   CI: "1",
 } as const;
 export const AGENT_TEST_OUTPUT_COMMAND = {
-  PACKAGE_MANAGER: "pnpm",
-  PACKAGE_MANAGER_EXEC_ARG: "exec",
-  VITEST: "vitest",
-  VITEST_RUN_ARG: "run",
-  VITEST_ROOT_FLAG: "--root",
-  LOCAL_BINARY_DIR: "node_modules/.bin",
   NODE_EVAL_ARG: "-e",
 } as const;
 export const AGENT_TEST_OUTPUT_STREAM_METHOD = "write";
@@ -40,17 +34,11 @@ const ARTIFACT_INDEX_WIDTH = 3;
 const ARTIFACT_INDEX_RADIX = 10;
 const ARTIFACT_FILE_FLAGS = "wx";
 const EMPTY_RUNNER_ARGS: readonly string[] = [];
-export const VITEST_FAILURE_LINE_MARKERS = [" FAIL ", " ❯ "] as const;
 
 export interface AgentRunnerOptions {
   readonly tmpDir?: string;
   readonly processRunner?: ProcessRunner;
   readonly env?: NodeJS.ProcessEnv;
-}
-
-interface ResolvedCommand {
-  readonly command: string;
-  readonly args: readonly string[];
 }
 
 // Spawns a managed child through the lifecycle runner, forwards its stdout to the
@@ -64,8 +52,7 @@ function createCommandRunner(
 ): TestRunnerDependencies["runCommand"] {
   return (command, args) =>
     new Promise<TestRunCommandResult>((resolveResult) => {
-      const resolved = resolveTestingCommand(productDir, command, args);
-      const child: ChildProcess = spawnManagedSubprocess(lifecycleProcessRunner, resolved.command, resolved.args, {
+      const child: ChildProcess = spawnManagedSubprocess(lifecycleProcessRunner, command, args, {
         cwd: productDir,
       });
       child.stdout?.pipe(outStream);
@@ -91,60 +78,6 @@ export function createRunnerDepsFor(
   return () => ({ runCommand });
 }
 
-function resolveTestingCommand(productDir: string, command: string, args: readonly string[]): ResolvedCommand {
-  const [firstArg, secondArg, ...remainingArgs] = args;
-  if (
-    command === AGENT_TEST_OUTPUT_COMMAND.PACKAGE_MANAGER
-    && firstArg === AGENT_TEST_OUTPUT_COMMAND.PACKAGE_MANAGER_EXEC_ARG
-    && secondArg === AGENT_TEST_OUTPUT_COMMAND.VITEST
-  ) {
-    return {
-      command: join(
-        productDir,
-        AGENT_TEST_OUTPUT_COMMAND.LOCAL_BINARY_DIR,
-        AGENT_TEST_OUTPUT_COMMAND.VITEST,
-      ),
-      args: remainingArgs,
-    };
-  }
-  return { command, args };
-}
-
-function isVitestInvocation(command: string, args: readonly string[]): boolean {
-  const [firstArg, secondArg] = args;
-  return command === AGENT_TEST_OUTPUT_COMMAND.PACKAGE_MANAGER
-    && firstArg === AGENT_TEST_OUTPUT_COMMAND.PACKAGE_MANAGER_EXEC_ARG
-    && secondArg === AGENT_TEST_OUTPUT_COMMAND.VITEST;
-}
-
-function vitestRequestedTestPaths(args: readonly string[]): readonly string[] {
-  const [, , ...vitestArgs] = args;
-  const testPaths: string[] = [];
-  for (let index = 0; index < vitestArgs.length; index += 1) {
-    const arg = vitestArgs[index];
-    if (arg === AGENT_TEST_OUTPUT_COMMAND.VITEST_RUN_ARG) continue;
-    if (arg === AGENT_TEST_OUTPUT_COMMAND.VITEST_ROOT_FLAG) {
-      index += 1;
-      continue;
-    }
-    if (arg.startsWith("-")) continue;
-    testPaths.push(arg);
-  }
-  return testPaths;
-}
-
-export function extractVitestFailurePaths(
-  output: string,
-  requestedTestPaths: readonly string[],
-): readonly string[] {
-  const lines = output.split("\n");
-  return requestedTestPaths.filter((testPath) =>
-    lines.some((line) =>
-      line.includes(testPath) && VITEST_FAILURE_LINE_MARKERS.some((marker) => line.includes(marker))
-    )
-  );
-}
-
 function artifactFileName(index: number, suffix: string): string {
   return `${index.toString(ARTIFACT_INDEX_RADIX).padStart(ARTIFACT_INDEX_WIDTH, "0")}-${suffix}`;
 }
@@ -165,11 +98,9 @@ function createAgentOutputCommandRunner(
     const stderrPath = join(root, artifactFileName(nextArtifactIndex, STDERR_FILE_SUFFIX));
     const stdoutFile = createWriteStream(stdoutPath, { flags: ARTIFACT_FILE_FLAGS });
     const stderrFile = createWriteStream(stderrPath, { flags: ARTIFACT_FILE_FLAGS });
-    const resolved = resolveTestingCommand(productDir, command, args);
-    const shouldExtractVitestFailures = isVitestInvocation(command, args);
 
     return new Promise<TestRunCommandResult>((resolveResult) => {
-      const child: ChildProcess = spawnManagedSubprocess(processRunner, resolved.command, resolved.args, {
+      const child: ChildProcess = spawnManagedSubprocess(processRunner, command, args, {
         cwd: productDir,
         env: {
           ...inheritedEnv,
@@ -187,19 +118,12 @@ function createAgentOutputCommandRunner(
 
       const resolveWithExitCode = (exitCode: number): void => {
         finishFiles()
-          .then(async () => {
-            const failingTestPaths = shouldExtractVitestFailures
-              ? extractVitestFailurePaths(
-                await readFile(stdoutPath, AGENT_TEST_OUTPUT_TEXT_ENCODING),
-                vitestRequestedTestPaths(args),
-              )
-              : [];
+          .then(() => {
             resolveResult({
               exitCode,
               output: {
                 stdoutPath,
                 stderrPath,
-                ...(failingTestPaths.length === 0 ? {} : { failingTestPaths }),
               },
             });
           })
@@ -222,4 +146,4 @@ export function createAgentRunnerDepsFor(
   return () => ({ runCommand });
 }
 
-export { createAgentOutputCommandRunner, resolveTestingCommand };
+export { createAgentOutputCommandRunner };
