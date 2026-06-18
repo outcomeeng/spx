@@ -110,9 +110,10 @@ Error: could not replace the hook: remove /Users/shz/Code/outcomeeng/spx/spx.git
 **Impact:** agent-run verification that shells through pnpm can fail before the
 requested test, build, or validation tool starts, producing package-manager setup
 output rather than evidence for the command the agent intended to run. The
-agent-output testing path resolves Vitest from the product-local toolchain before
-spawning, so `spx test --agent` does not depend on `pnpm exec` for TypeScript
-test execution; package-script gates can still hit pnpm's dependency repair path.
+agent-output testing path preserves the descriptor-selected command, so
+TypeScript `spx test --agent` still uses the `pnpm exec vitest` adapter path
+until runner-adapter policy changes; package-script gates can hit the same
+dependency repair path.
 
 **Resolution:** decide a package-script verification policy for non-interactive
 agents: either keep using pnpm with a configured non-interactive install/hook
