@@ -145,7 +145,7 @@ describe("hook session-start adapter", () => {
   it("uses CLAUDE_SESSION_ID before CODEX_THREAD_ID when both env values exist", async () => {
     const worktreeName = sampleWorktreeTestValue(WORKTREE_TEST_GENERATOR.poolWorktreeName());
     const holder = sampleWorktreeTestValue(WORKTREE_TEST_GENERATOR.poolHolder());
-    const [claudeSessionId, codexThreadId] = sampleWorktreeTestValue(WORKTREE_TEST_GENERATOR.distinctWriteTokens());
+    const [claudeSessionId, codexThreadId] = sampleWorktreeTestValue(WORKTREE_TEST_GENERATOR.distinctSessionIds());
     const envFileName = sampleWorktreeTestValue(WORKTREE_TEST_GENERATOR.envFileName());
     const claimWriteToken = sampleWorktreeTestValue(WORKTREE_TEST_GENERATOR.writeToken());
 
@@ -171,6 +171,35 @@ describe("hook session-start adapter", () => {
 
       const envContent = await readHookEnvFile(envFile);
       expectHookEnvExport(envContent, HOOK_SESSION_START_ENV.CLAUDE_SESSION_ID, claudeSessionId);
+    });
+  });
+
+  it("uses the hook payload session id before CLAUDE_SESSION_ID when both exist", async () => {
+    const worktreeName = sampleWorktreeTestValue(WORKTREE_TEST_GENERATOR.poolWorktreeName());
+    const holder = sampleWorktreeTestValue(WORKTREE_TEST_GENERATOR.poolHolder());
+    const [payloadSessionId, envSessionId] = sampleWorktreeTestValue(WORKTREE_TEST_GENERATOR.distinctSessionIds());
+    const envFileName = sampleWorktreeTestValue(WORKTREE_TEST_GENERATOR.envFileName());
+    const claimWriteToken = sampleWorktreeTestValue(WORKTREE_TEST_GENERATOR.writeToken());
+
+    await withWorktreePool({ worktreeName, holder }, async (env) => {
+      const envFile = hookEnvFilePath(env, envFileName);
+      const result = await runSessionStartHookScenario(env, {
+        claimWriteToken,
+        content: hookContent(env, payloadSessionId),
+        env: hookEnvWithHolder(env, envFile, { [HOOK_SESSION_START_ENV.CLAUDE_SESSION_ID]: envSessionId }),
+      });
+
+      expect(result.ok).toBe(true);
+      if (!result.ok) throw new Error(result.error);
+      expect(result.value.sessionId).toBe(payloadSessionId);
+
+      const claim = await readWorktreeClaim(env);
+      expect(claim.ok).toBe(true);
+      if (!claim.ok) throw new Error(claim.error);
+      expect(claim.value?.sessionId).toBe(payloadSessionId);
+
+      const envContent = await readHookEnvFile(envFile);
+      expectHookEnvExport(envContent, HOOK_SESSION_START_ENV.CLAUDE_SESSION_ID, payloadSessionId);
     });
   });
 

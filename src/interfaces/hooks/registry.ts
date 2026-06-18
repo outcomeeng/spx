@@ -22,12 +22,8 @@ export interface RunHookEventOptions extends SessionStartHookOptions {
   readonly event: string;
 }
 
-export function hookEventNames(): readonly HookEvent[] {
-  return [HOOK_EVENT.SESSION_START];
-}
-
 export function isHookEvent(event: string): event is HookEvent {
-  return hookEventNames().some((registered) => registered === event);
+  return (Object.values(HOOK_EVENT) as readonly string[]).includes(event);
 }
 
 export async function runHookEvent(options: RunHookEventOptions): Promise<Result<HookEventResult>> {
