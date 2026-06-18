@@ -60,6 +60,7 @@ const configTargetInclude = sampleConfigTestValue(CONFIG_TEST_GENERATOR.key());
 const configTargetExclude = sampleConfigTestValue(CONFIG_TEST_GENERATOR.key());
 const linkedWorktreeBranch = sampleAuditRunStateTestValue(AUDIT_RUN_STATE_TEST_GENERATOR.branchName());
 const linkedWorktreeDirectory = sampleConfigTestValue(CONFIG_TEST_GENERATOR.key());
+const verdictPath = sampleConfigTestValue(CONFIG_TEST_GENERATOR.key());
 const runFileLabel = AUDIT_LIFECYCLE_TEXT_LABEL.RUN_FILE;
 const invalidCloseStatusValue = sampleAuditRunStateTestValue(AUDIT_RUN_STATE_TEST_GENERATOR.unknownProgressStep());
 const millisecondsPerSecond = 10 ** 3;
@@ -165,18 +166,27 @@ describe("audit CLI lifecycle commands", () => {
         runFile,
         AUDIT_CLI_FLAG.STATUS,
         AUDIT_RUN_STATE_STATUS.APPROVED,
+        AUDIT_CLI_FLAG.VERDICT_PATH,
+        verdictPath,
       ], harness.productDir);
       expect(close.exitCode).toBe(0);
 
       const status = await runSpxAudit([AUDIT_CLI.statusCommandName, AUDIT_CLI_FLAG.BRANCH, branch, AUDIT_CLI_FLAG.JSON], harness.productDir);
       expect(status.exitCode).toBe(0);
       const statusPayload = JSON.parse(status.output) as {
-        readonly latest: { readonly state: { readonly status: string; readonly auditors: readonly string[] } };
+        readonly latest: {
+          readonly state: {
+            readonly status: string;
+            readonly auditors: readonly string[];
+            readonly verdictPath?: string;
+          };
+        };
         readonly terminalRuns: readonly unknown[];
         readonly incompleteRuns: readonly unknown[];
       };
       expect(statusPayload.latest.state.status).toBe(AUDIT_RUN_STATE_STATUS.APPROVED);
       expect(statusPayload.latest.state.auditors).toEqual([auditor]);
+      expect(statusPayload.latest.state.verdictPath).toBe(verdictPath);
       expect(statusPayload.terminalRuns).toHaveLength(1);
       expect(statusPayload.incompleteRuns).toHaveLength(0);
 
@@ -196,6 +206,7 @@ describe("audit CLI lifecycle commands", () => {
         AUDIT_RUN_EVENT.PROGRESS_TYPE,
         AUDIT_RUN_EVENT.COMPLETED_TYPE,
       ]);
+      expect(events[7]?.data).toMatchObject({ [AUDIT_RUN_STATE_FIELDS.VERDICT_PATH]: verdictPath });
     } finally {
       await harness.cleanup();
     }
