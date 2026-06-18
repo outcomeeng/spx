@@ -20,7 +20,10 @@ An operator runs `spx validation circular` or `spx validation all` against a Typ
    - Verify non-structured reporter output remains a clear validation failure.
    - Verify dependency-cruiser configuration keeps TypeScript source selection, TypeScript resolve extensions, package exclusion, tsconfig extraction, and pre-compilation dependency reporting aligned with the current circular-validation spec.
    - Verify runtime-cycle filtering covers the dependency-cruiser edge labels observed in the replacement work without relying on subprocess fixture repetition.
-5. Update specs, tests, implementation, and tracking notes in the same PR so no follow-up PR remains for dependency-cruiser/circular-validation cleanup.
+5. Resolve circular command `--files` parity:
+   - Either make `spx validation circular --files <paths...>` constrain the dependency-cruiser input set consistently with other validation subcommands, or reject the unsupported flag instead of silently accepting it.
+   - Cover the chosen behavior in the same command-level evidence set as the other circular CLI behavior.
+6. Update specs, tests, implementation, and tracking notes in the same PR so no follow-up PR remains for dependency-cruiser/circular-validation cleanup.
 
 ## Local review protocol
 
