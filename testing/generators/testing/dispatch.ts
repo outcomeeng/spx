@@ -1,3 +1,4 @@
+import type { Command } from "commander";
 import * as fc from "fast-check";
 
 import { SPEC_TREE_EVIDENCE_FILE } from "@/lib/spec-tree";
@@ -16,6 +17,11 @@ const MIN_NON_ZERO_EXIT_CODE = 1;
 const NODE_PAIR_LENGTH = 2;
 const GLOB_WILDCARD = "*";
 const PATH_SEPARATOR = "/";
+const COMMANDER_USER_PARSE_SOURCE = "user";
+
+export type TestingCliCommanderParseSource = NonNullable<
+  NonNullable<Parameters<Command["parseAsync"]>[1]>["from"]
+>;
 
 // Spec-tree path vocabulary owned by the spec-tree library, so generated fixture
 // paths track the production constants instead of restating them.
@@ -41,6 +47,10 @@ export const TEST_DISPATCH_GENERATOR = {
 
 export function sampleDispatchValue<T>(arbitrary: fc.Arbitrary<T>): T {
   return sampleConfigTestValue(arbitrary);
+}
+
+export function testingCliCommanderParseSource(): TestingCliCommanderParseSource {
+  return COMMANDER_USER_PARSE_SOURCE;
 }
 
 function arbitraryNodeSegment(): fc.Arbitrary<string> {

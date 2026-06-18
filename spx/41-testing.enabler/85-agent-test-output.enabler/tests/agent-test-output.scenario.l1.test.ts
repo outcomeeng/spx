@@ -8,7 +8,6 @@ import { SUCCESS_EXIT_CODE } from "@/domains/testing";
 import {
   createTestingDomain,
   TESTING_CLI,
-  TESTING_CLI_COMMANDER,
   type TestingCliDependencies,
 } from "@/interfaces/cli/testing";
 import { AGENT_TEST_OUTPUT_TEXT, formatAgentTestOutput } from "@/interfaces/cli/testing-agent-output";
@@ -26,7 +25,11 @@ import {
   arbitraryDomainLiteral,
   sampleLiteralTestValue,
 } from "@testing/generators/literal/literal";
-import { sampleDispatchValue, TEST_DISPATCH_GENERATOR } from "@testing/generators/testing/dispatch";
+import {
+  sampleDispatchValue,
+  TEST_DISPATCH_GENERATOR,
+  testingCliCommanderParseSource,
+} from "@testing/generators/testing/dispatch";
 
 interface TestingCliCall {
   readonly productDir: string;
@@ -109,11 +112,7 @@ async function runTestingCli(args: readonly string[], deps: TestingCliDependenci
     setExitCode: (exitCode) => exitCodes.push(exitCode),
   }).register(program);
 
-  await program.parseAsync([
-    TESTING_CLI_COMMANDER.nodeExecutable,
-    TESTING_CLI_COMMANDER.scriptName,
-    ...args,
-  ], { from: TESTING_CLI_COMMANDER.nodeExecutable });
+  await program.parseAsync([...args], { from: testingCliCommanderParseSource() });
 
   return { stdout: stdout.join(""), stderr: stderr.join(""), exitCodes };
 }
@@ -256,5 +255,27 @@ describe("agent test-output summary", () => {
     expect(output).toContain(stdoutPath);
     expect(output).toContain(stderrPath);
     expect(output).not.toContain(passingPath);
+  });
+
+  it("reports unmatched test paths under the unmatched label", () => {
+    const productDir = sampleConfigTestValue(CONFIG_TEST_GENERATOR.productDir());
+    const nodePath = sampleDispatchValue(TEST_DISPATCH_GENERATOR.nodePath());
+    const unmatchedPath = sampleDispatchValue(TEST_DISPATCH_GENERATOR.unmatchedTestFileUnder(nodePath));
+    const run: RecordedTestRun = {
+      dispatch: {
+        exitCode: SUCCESS_EXIT_CODE,
+        groups: [],
+        unmatched: [unmatchedPath],
+        reports: [],
+        outcomes: [],
+      },
+      runFile: testRunFile(join(productDir, AGENT_TEST_OUTPUT_TEXT.STATE_FILE)),
+      recorded: testRunState(TEST_RUN_STATE_STATUS.PASSED),
+    };
+
+    const output = formatAgentTestOutput(run);
+
+    expect(output).toContain(AGENT_TEST_OUTPUT_TEXT.UNMATCHED);
+    expect(output).toContain(unmatchedPath);
   });
 });

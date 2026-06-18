@@ -19,11 +19,6 @@ export const TESTING_CLI = {
   passingDescription: "Run only the tests within the configured passing scope",
 } as const;
 
-export const TESTING_CLI_COMMANDER = {
-  nodeExecutable: "node",
-  scriptName: "spx",
-} as const;
-
 const UNMATCHED_TEST_FILES_WARNING = "Skipped test files with no registered runner";
 
 const TESTING_PRODUCT_DIR_WARNING = {
@@ -75,9 +70,8 @@ interface TestingCliActionOptions {
 }
 
 function requestsAgentMode(options: TestingCliActionOptions, command: Command): boolean {
-  const commandOptions = command.opts<TestingCliActionOptions>();
   const parentOptions = command.parent?.opts<TestingCliActionOptions>() ?? {};
-  return options.agent === true || commandOptions.agent === true || parentOptions.agent === true;
+  return options.agent === true || parentOptions.agent === true;
 }
 
 export interface TestingCliDependencies {
