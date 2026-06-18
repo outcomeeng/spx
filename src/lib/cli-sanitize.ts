@@ -21,13 +21,16 @@ export function nonStringSentinel(type: string): string {
 }
 
 export function sanitizeCliArgument(input: unknown): string {
+  return truncate(escapeCliArgument(input));
+}
+
+export function escapeCliArgument(input: unknown): string {
   if (input === undefined) return SENTINEL_UNDEFINED;
   if (input === null) return SENTINEL_NULL;
   if (typeof input !== "string") return nonStringSentinel(typeof input);
   if (input.length === 0) return SENTINEL_EMPTY;
 
-  const escaped = escapeControlCharacters(input);
-  return truncate(escaped);
+  return escapeControlCharacters(input);
 }
 
 function escapeControlCharacters(value: string): string {

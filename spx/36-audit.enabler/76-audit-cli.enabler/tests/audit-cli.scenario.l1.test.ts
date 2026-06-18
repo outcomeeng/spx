@@ -1,15 +1,23 @@
 import { readFile, writeFile } from "node:fs/promises";
-import { basename, join } from "node:path";
+import { basename, dirname, join } from "node:path";
 
 import { execa } from "execa";
 import { Command } from "commander";
 import { describe, expect, it } from "vitest";
 
 import { AUDIT_PROGRESS_STEP } from "@/commands/audit/lifecycle";
-import { AUDIT_RUN_EVENT, AUDIT_RUN_STATE_ERROR, AUDIT_RUN_STATE_STATUS, slugAuditBranchIdentity } from "@/domains/audit/run-state";
+import {
+  AUDIT_RUN_EVENT,
+  AUDIT_RUN_STATE_DISPLAY,
+  AUDIT_RUN_STATE_ERROR,
+  AUDIT_RUN_STATE_STATUS,
+  slugAuditBranchIdentity,
+} from "@/domains/audit/run-state";
 import { AUDIT_CLI } from "@/interfaces/cli/audit";
 import { CLI_DOMAINS } from "@/interfaces/cli/registry";
 import { createAppendableJournalStore } from "@/lib/appendable-journal-store";
+import { ELLIPSIS_TOKEN, MAX_CLI_ARGUMENT_DISPLAY_LENGTH } from "@/lib/cli-sanitize";
+import { AUDIT_RUN_STATE_TEST_GENERATOR, sampleAuditRunStateTestValue } from "@testing/generators/audit/run-state";
 import { CLI_PATH, NODE_EXECUTABLE } from "@testing/harnesses/constants";
 import { createAuditHarness } from "@testing/harnesses/audit/harness";
 import { GIT_TEST_CONFIG, GIT_TEST_FLAGS, GIT_TEST_SUBCOMMANDS, readGit, runGit } from "@testing/harnesses/git-test-constants";
@@ -25,6 +33,7 @@ const CONFIG_AUDITOR = "configured-test-auditor";
 const CONFIG_TARGET_INCLUDE = "spx/36-audit.enabler";
 const CONFIG_TARGET_EXCLUDE = "spx/36-audit.enabler/ISSUES.md";
 const LINKED_WORKTREE_BRANCH = "linked-audit-config";
+const RUN_FILE_LABEL = "run file: ";
 
 describe("audit CLI lifecycle commands", () => {
   it("registers the audit command group through the root CLI registry", () => {
@@ -115,6 +124,10 @@ describe("audit CLI lifecycle commands", () => {
       expect(statusPayload.latest.state.auditors).toEqual([AUDITOR]);
       expect(statusPayload.terminalRuns).toHaveLength(1);
       expect(statusPayload.incompleteRuns).toHaveLength(0);
+
+      const list = await runSpxAudit(["list", "--branch", BRANCH], harness.productDir);
+      expect(list.exitCode).toBe(0);
+      expect(list.output).toContain(`audit list: ${AUDIT_RUN_STATE_DISPLAY[AUDIT_RUN_STATE_STATUS.APPROVED]}`);
 
       const events = await createAppendableJournalStore({ runFilePath: runFile }).readAll();
       expect(events[0]?.time).toBe(initPayload.startedAt);
@@ -367,6 +380,89 @@ describe("audit CLI lifecycle commands", () => {
         AUDIT_RUN_STATE_ERROR.INVALID_RUN_FILE_PATH,
       );
       expect(await fileExists(outsideRunFile)).toBe(false);
+    } finally {
+      await harness.cleanup();
+    }
+  });
+
+  it("rejects missing branch-scoped run files without creating them", async () => {
+    const harness = await createAuditHarness();
+    try {
+      await writeAuditConfig(harness.productDir, {
+        baseRef: BASE_REF,
+        auditors: [AUDITOR],
+        include: [TARGET],
+      });
+      const init = await runSpxAudit([
+        "init",
+        "--branch",
+        BRANCH,
+        "--head-sha",
+        HEAD_SHA,
+        "--json",
+      ], harness.productDir);
+      expect(init.exitCode).toBe(0);
+      const initPayload = JSON.parse(init.output) as { readonly runFilePath: string };
+      const missingRunFileName = sampleAuditRunStateTestValue(AUDIT_RUN_STATE_TEST_GENERATOR.missingRunFileName());
+      const missingRunFile = join(dirname(initPayload.runFilePath), missingRunFileName);
+
+      const progress = await runSpxAudit([
+        "progress",
+        "--run-file",
+        missingRunFile,
+        "--step",
+        AUDIT_PROGRESS_STEP.CHANGESET_DETERMINED,
+        "--json",
+      ], harness.productDir);
+
+      expect(progress.exitCode).toBe(1);
+      expect((JSON.parse(progress.errorOutput) as { readonly error: string }).error).toBe(
+        AUDIT_RUN_STATE_ERROR.MISSING_INIT_EVENT,
+      );
+      expect(await fileExists(missingRunFile)).toBe(false);
+    } finally {
+      await harness.cleanup();
+    }
+  });
+
+  it("prints the full text-mode run file path from init", async () => {
+    const harness = await createAuditHarness();
+    try {
+      const branch = sampleAuditRunStateTestValue(AUDIT_RUN_STATE_TEST_GENERATOR.overlongBranchName());
+      await writeAuditConfig(harness.productDir, {
+        baseRef: BASE_REF,
+        auditors: [AUDITOR],
+        include: [TARGET],
+      });
+
+      const init = await runSpxAudit([
+        "init",
+        "--branch",
+        branch,
+        "--head-sha",
+        HEAD_SHA,
+      ], harness.productDir);
+
+      expect(init.exitCode).toBe(0);
+      const runFileLine = init.output
+        .split("\n")
+        .find((line) => line.startsWith(RUN_FILE_LABEL));
+      expect(runFileLine).toBeDefined();
+      if (runFileLine === undefined) throw new Error("run file output line missing");
+      const runFilePath = runFileLine.slice(RUN_FILE_LABEL.length);
+      expect(runFilePath.length).toBeGreaterThan(MAX_CLI_ARGUMENT_DISPLAY_LENGTH);
+      expect(runFilePath.endsWith(ELLIPSIS_TOKEN)).toBe(false);
+      expect(runFilePath).toContain(`/.spx/branch/${slugAuditBranchIdentity(branch)}/audit/runs/`);
+      expect(await fileExists(runFilePath)).toBe(true);
+
+      const progress = await runSpxAudit([
+        "progress",
+        "--run-file",
+        runFilePath,
+        "--step",
+        AUDIT_PROGRESS_STEP.CHANGESET_DETERMINED,
+      ], harness.productDir);
+      expect(progress.exitCode).toBe(0);
     } finally {
       await harness.cleanup();
     }

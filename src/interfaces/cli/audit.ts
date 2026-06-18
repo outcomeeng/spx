@@ -4,13 +4,13 @@ import {
   AUDIT_PROGRESS_STEP,
   auditCloseCommand,
   auditInitCommand,
+  auditListCommand,
   auditProgressCommand,
   auditStatusCommand,
   type AuditCommandResult,
 } from "@/commands/audit/lifecycle";
 import { AUDIT_RUN_STATE_STATUS } from "@/domains/audit/run-state";
 import type { Domain } from "@/domains/types";
-import { sanitizeCliArgument } from "./sanitize";
 
 export const AUDIT_CLI = {
   commandName: "audit",
@@ -120,24 +120,16 @@ export const auditDomain: Domain = {
       .option(AUDIT_CLI.branchOption, "Branch name override")
       .option(AUDIT_CLI.jsonOption, "Emit JSON")
       .action(async (options: AuditStatusCliOptions) => {
-        await report(await auditStatusCommand(options));
+        await report(await auditListCommand(options));
       });
   },
 };
 
 async function report(result: AuditCommandResult): Promise<void> {
-  const output = result.format === "text" ? sanitizeCliOutput(result.output) : result.output;
   if (result.exitCode === 0) {
-    process.stdout.write(output);
+    process.stdout.write(result.output);
   } else {
-    process.stderr.write(output);
+    process.stderr.write(result.output);
   }
   process.exitCode = result.exitCode;
-}
-
-function sanitizeCliOutput(output: string): string {
-  return output
-    .split("\n")
-    .map((line) => line.length === 0 ? line : sanitizeCliArgument(line))
-    .join("\n");
 }

@@ -17,6 +17,7 @@ const PUNCTUATION_BRANCH_SEPARATOR = "/";
 const PUNCTUATION_BRANCH_MARK = "!";
 const EMPTY_NORMALIZED_BRANCH = "!!!";
 const MAX_AUDIT_RUN_DURATION_MS = 86_400_000;
+const OVERLONG_BRANCH_SEGMENT_COUNT = 24;
 
 export const AUDIT_RUN_STATE_TEST_GENERATOR = {
   auditRunState: arbitraryAuditRunState,
@@ -27,6 +28,8 @@ export const AUDIT_RUN_STATE_TEST_GENERATOR = {
   digest: arbitraryDigest,
   emptyNormalizedBranchName: arbitraryEmptyNormalizedBranchName,
   headSha: arbitraryHeadSha,
+  missingRunFileName: arbitraryRunFileName,
+  overlongBranchName: arbitraryOverlongBranchName,
   runId: arbitraryRunId,
   runFileName: arbitraryRunFileName,
   status: arbitraryStatus,
@@ -57,6 +60,12 @@ function arbitraryBranchSlug(): fc.Arbitrary<string> {
 
 function arbitraryEmptyNormalizedBranchName(): fc.Arbitrary<string> {
   return fc.constant(EMPTY_NORMALIZED_BRANCH);
+}
+
+function arbitraryOverlongBranchName(): fc.Arbitrary<string> {
+  return fc
+    .array(CONFIG_TEST_GENERATOR.key(), { minLength: OVERLONG_BRANCH_SEGMENT_COUNT, maxLength: OVERLONG_BRANCH_SEGMENT_COUNT })
+    .map((segments) => segments.join(PUNCTUATION_BRANCH_SEPARATOR));
 }
 
 function arbitraryHeadSha(): fc.Arbitrary<string> {

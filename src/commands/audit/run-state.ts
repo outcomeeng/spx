@@ -138,6 +138,34 @@ export async function writeTerminalAuditRunState(
   return { ok: true, value: runFilePath };
 }
 
+export async function appendAuditRunEvent(
+  runFilePath: string,
+  event: Parameters<ReturnType<typeof createJournal>["append"]>[0],
+  options: WriteAuditRunStateOptions = {},
+): Promise<Result<string>> {
+  const fs = options.fs ?? defaultFileSystem;
+  const backend = createAppendableJournalStore({ runFilePath, fs });
+  const journal = createJournal(backend, auditRunJournalIdentity(runFilePath));
+  try {
+    await journal.append(event);
+    return { ok: true, value: runFilePath };
+  } catch (error) {
+    return { ok: false, error: toErrorMessage(error) };
+  }
+}
+
+export async function readAuditRunEvents(
+  runFilePath: string,
+  options: ReadAuditRunStateOptions = {},
+): Promise<Result<readonly JournalEvent[]>> {
+  const fs = options.fs ?? defaultFileSystem;
+  try {
+    return { ok: true, value: await createAppendableJournalStore({ runFilePath, fs }).readAll() };
+  } catch (error) {
+    return { ok: false, error: toErrorMessage(error) };
+  }
+}
+
 export function resolveAuditRunFilePath(
   gitCommonDirProductDir: string,
   runFilePath: string,
