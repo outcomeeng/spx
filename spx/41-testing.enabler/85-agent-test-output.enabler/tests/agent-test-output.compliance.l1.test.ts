@@ -13,16 +13,12 @@ import {
   AGENT_TEST_OUTPUT_STREAM_METHOD,
   AGENT_TEST_OUTPUT_TEXT_ENCODING,
   createAgentOutputCommandRunner,
-  extractVitestFailurePaths,
-  VITEST_FAILURE_LINE_MARKERS,
 } from "@/interfaces/cli/testing-runner-deps";
 import { lifecycleProcessRunner, type ProcessRunner, spawnManagedSubprocess } from "@/lib/process-lifecycle";
-import { typescriptTestingLanguage } from "@/testing/languages/typescript";
 import {
   arbitraryDomainLiteral,
   sampleLiteralTestValue,
 } from "@testing/generators/literal/literal";
-import { sampleDispatchValue, TEST_DISPATCH_GENERATOR } from "@testing/generators/testing/dispatch";
 import { withTempDir } from "@testing/harnesses/with-temp-dir";
 
 interface SpawnResult {
@@ -110,48 +106,31 @@ describe("agent test-output runner", () => {
     });
   });
 
-  it("resolves the TypeScript descriptor's Vitest command to the product-local binary in agent mode", async () => {
+  it("preserves the selected runner command and arguments in agent mode", async () => {
     await withTempDir(AGENT_ARTIFACT_DIR_PREFIX, async (productDir) => {
+      const runnerCommand = sampleLiteralTestValue(arbitraryDomainLiteral());
+      const runnerArg = sampleLiteralTestValue(arbitraryDomainLiteral());
       const calls: RecordedProcessSpawn[] = [];
       const runCommand = createAgentOutputCommandRunner(productDir, {
         tmpDir: productDir,
         processRunner: recordingProcessRunner(calls),
         env: {},
       });
-      const testPath = sampleDispatchValue(TEST_DISPATCH_GENERATOR.testFilePath());
 
-      const invocation = await typescriptTestingLanguage.runTests(
-        { projectRoot: productDir, testPaths: [testPath], excludedNodePaths: [] },
-        { runCommand, isLanguagePresent: () => true },
-      );
+      const result = await runCommand(runnerCommand, [
+        AGENT_TEST_OUTPUT_COMMAND.NODE_EVAL_ARG,
+        runnerArg,
+      ]);
 
-      expect(invocation.invoked).toBe(true);
+      expect(result.exitCode).toBe(0);
       expect(calls).toEqual([{
-        command: join(
-          productDir,
-          AGENT_TEST_OUTPUT_COMMAND.LOCAL_BINARY_DIR,
-          AGENT_TEST_OUTPUT_COMMAND.VITEST,
-        ),
+        command: runnerCommand,
         args: [
-          AGENT_TEST_OUTPUT_COMMAND.VITEST_RUN_ARG,
-          AGENT_TEST_OUTPUT_COMMAND.VITEST_ROOT_FLAG,
-          productDir,
-          testPath,
+          AGENT_TEST_OUTPUT_COMMAND.NODE_EVAL_ARG,
+          runnerArg,
         ],
       }]);
     });
-  });
-
-  it("extracts failed Vitest paths without including passing requested paths", () => {
-    const nodePath = sampleDispatchValue(TEST_DISPATCH_GENERATOR.nodePath());
-    const failingPath = sampleDispatchValue(TEST_DISPATCH_GENERATOR.testFileUnder(typescriptTestingLanguage, nodePath));
-    const passingPath = sampleDispatchValue(TEST_DISPATCH_GENERATOR.testFileUnder(typescriptTestingLanguage, nodePath));
-    const output = [
-      `${VITEST_FAILURE_LINE_MARKERS[0]} ${failingPath}`,
-      passingPath,
-    ].join("\n");
-
-    expect(extractVitestFailurePaths(output, [failingPath, passingPath])).toEqual([failingPath]);
   });
 
   it("keeps captured child output off the invoking terminal streams", async () => {

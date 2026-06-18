@@ -4,7 +4,6 @@ import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 
 import type { TestRunnerDependencies } from "@/testing/languages/types";
-import { resolveTestingCommand } from "@/interfaces/cli/testing-runner-deps";
 import { withTempDir } from "@testing/harnesses/with-temp-dir";
 
 const VITEST_FIXTURE_DIR = join(dirname(fileURLToPath(import.meta.url)), "..", "..", "fixtures", "vitest");
@@ -46,8 +45,7 @@ export function repoRootedCommandRunner(): TestRunnerDependencies {
   return {
     isLanguagePresent: () => true,
     runCommand: async (command, args) => {
-      const resolved = resolveTestingCommand(process.cwd(), command, args);
-      const result = await execa(resolved.command, [...resolved.args], { cwd: process.cwd(), reject: false });
+      const result = await execa(command, [...args], { cwd: process.cwd(), reject: false });
       return { exitCode: result.exitCode ?? 0 };
     },
   };
