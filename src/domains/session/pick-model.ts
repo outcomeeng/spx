@@ -10,10 +10,7 @@
  */
 
 import { sortSessions } from "./list";
-import { type Session, SESSION_STATUSES, type SessionStatus } from "./types";
-
-/** The status sessions are claimable from — the picker's candidate source. */
-const PICKABLE_STATUS: SessionStatus = SESSION_STATUSES[0]; // todo
+import { CLAIMABLE_STATUS, type Session } from "./types";
 
 /** The action a key resolves to. */
 export const PICKER_ACTION = {
@@ -59,7 +56,7 @@ export interface PickerState {
  * ordered by priority then recency as `sortSessions` orders them.
  */
 export function buildCandidates(sessions: readonly Session[]): Session[] {
-  const claimable = sessions.filter((session) => session.status === PICKABLE_STATUS);
+  const claimable = sessions.filter((session) => session.status === CLAIMABLE_STATUS);
   return sortSessions(claimable);
 }
 
