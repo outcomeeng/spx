@@ -43,6 +43,12 @@ export const AUDIT_RUN_STATE_FIELDS = {
   STATUS: "status",
 } as const;
 
+export const AUDIT_RUN_PROGRESS_FIELDS = {
+  STEP: "step",
+  MESSAGE: "message",
+  AT: "at",
+} as const;
+
 export const AUDIT_RUN_STATE_INCOMPLETE_REASON = {
   MISSING_STATE: "missing-state",
   IO_ERROR: "io-error",
@@ -52,6 +58,7 @@ export const AUDIT_RUN_STATE_INCOMPLETE_REASON = {
 export const AUDIT_RUN_STATE_ERROR = {
   RUN_FILE_COLLISION_LIMIT: "audit run file collision limit exhausted",
   RUN_FILE_CREATE_FAILED: "audit run file create failed",
+  INVALID_RUN_FILE_PATH: "audit run file must be a branch-scoped audit run file",
   INVALID_TERMINAL_STATE: "audit run state must be terminal",
   STATE_ALREADY_EXISTS: "audit run state already exists",
   STATE_WRITE_FAILED: "audit run state write failed",
@@ -73,6 +80,23 @@ export interface AuditRunState {
   readonly completedAt: string;
   readonly verdictPath?: string;
   readonly status: AuditRunStateStatus;
+}
+
+export interface AuditRunStartedState {
+  readonly branchName: string;
+  readonly branchSlug: string;
+  readonly headSha: string;
+  readonly baseRef: string;
+  readonly auditConfigDigest: string;
+  readonly auditors: readonly string[];
+  readonly targets: readonly string[];
+  readonly startedAt: string;
+}
+
+export interface AuditRunProgressState {
+  readonly step: string;
+  readonly message?: string;
+  readonly at: string;
 }
 
 export interface AuditTerminalRun {
@@ -136,8 +160,51 @@ export function auditRunStateRecord(state: AuditRunState): JsonRecord {
 
 export const AUDIT_RUN_EVENT = {
   SOURCE: "/spx/audit",
+  STARTED_TYPE: "com.outcomeeng.spx.audit.run.started",
+  PROGRESS_TYPE: "com.outcomeeng.spx.audit.run.progress",
   COMPLETED_TYPE: "com.outcomeeng.spx.audit.run.completed",
 } as const;
+
+export function auditRunStartedEventInput(
+  state: AuditRunStartedState,
+  meta: { readonly id: string; readonly time: string; readonly attempt: number },
+): JournalEventInput {
+  return {
+    id: meta.id,
+    source: AUDIT_RUN_EVENT.SOURCE,
+    type: AUDIT_RUN_EVENT.STARTED_TYPE,
+    time: meta.time,
+    attempt: meta.attempt,
+    data: {
+      branchName: state.branchName,
+      branchSlug: state.branchSlug,
+      headSha: state.headSha,
+      baseRef: state.baseRef,
+      auditConfigDigest: state.auditConfigDigest,
+      auditors: state.auditors,
+      targets: state.targets,
+      startedAt: state.startedAt,
+    },
+  };
+}
+
+export function auditRunProgressEventInput(
+  state: AuditRunProgressState,
+  meta: { readonly id: string; readonly time: string; readonly attempt: number },
+): JournalEventInput {
+  return {
+    id: meta.id,
+    source: AUDIT_RUN_EVENT.SOURCE,
+    type: AUDIT_RUN_EVENT.PROGRESS_TYPE,
+    time: meta.time,
+    attempt: meta.attempt,
+    data: {
+      step: state.step,
+      ...(state.message === undefined ? {} : { message: state.message }),
+      at: state.at,
+    },
+  };
+}
 
 export function auditRunCompletedEventInput(
   state: AuditRunState,
