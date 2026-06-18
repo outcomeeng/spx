@@ -17,11 +17,15 @@ const PS_COMMAND = "/bin/ps";
 const PS_FIELD = {
   START_TIME: "lstart",
   PARENT_PID: "ppid",
+  // The full command line, not `comm`: interpreted agent runtimes otherwise
+  // report only the interpreter basename and miss the agent-command match.
   COMMAND: "args",
 } as const;
 const SIGNAL_LIVENESS_PROBE = 0;
 const PROCESS_EXISTS_NO_PERMISSION = "EPERM";
 const PID_RADIX = 10;
+// Keep formatted start times stable across claim and status reads, which may
+// run under different agent environments and compare the same live process.
 const STABLE_PS_ENV = { ...process.env, TZ: "UTC", LC_ALL: "C" } as const;
 
 function psField(pid: number, field: string): string | undefined {
