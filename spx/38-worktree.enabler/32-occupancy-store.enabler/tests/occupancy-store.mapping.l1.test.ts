@@ -25,10 +25,13 @@ import {
 } from "@testing/harnesses/worktree/harness";
 
 class RecordingClaimFileSystem implements OccupancyFileSystem {
+  readonly directories = new Set<string>();
   readonly files = new Map<string, string>();
   readonly renamedFrom: string[] = [];
 
-  async mkdir(): Promise<void> {}
+  async mkdir(path: string): Promise<void> {
+    this.directories.add(path);
+  }
 
   async writeFile(path: string, data: string): Promise<void> {
     this.files.set(path, data);
