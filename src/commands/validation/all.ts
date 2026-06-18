@@ -35,12 +35,12 @@ function formatStepWithTiming(
  * @returns Command result with exit code and output
  */
 export async function allCommand(options: AllCommandOptions): Promise<ValidationCommandResult> {
-  const { cwd, scope, files, fix, quiet = false, json, skipLiteral = false } = options;
+  const { cwd, scope, files, fix, quiet = false, json, skipCircular = false, skipLiteral = false } = options;
   const startTime = Date.now();
   const outputs: string[] = [];
   let hasFailure = false;
 
-  const context = { cwd, scope, files, fix, quiet, json, skipLiteral };
+  const context = { cwd, scope, files, fix, quiet, json, skipCircular, skipLiteral };
 
   let stepNumber = 0;
   for (const stage of validationPipelineStages) {

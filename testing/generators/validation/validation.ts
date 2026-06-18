@@ -6,6 +6,8 @@ import { LITERAL_PROBLEM_KIND } from "@/commands/validation";
 import { CIRCULAR_DEPENDENCY_OUTPUT } from "@/commands/validation/circular";
 import { VALIDATION_SUMMARY_STATUS } from "@/commands/validation/format";
 import {
+  CIRCULAR_SKIP_JSON_OUTPUT,
+  CIRCULAR_SKIP_OUTPUT,
   formatTypeScriptAbsentSkipMessage,
   LITERAL_SKIP_JSON_OUTPUT,
   LITERAL_SKIP_OUTPUT,
@@ -51,6 +53,8 @@ const VALIDATION_INDEX_SLUG_PATTERN = /^\d+-(.+)\.enabler$/;
 const TYPESCRIPT_VALIDATION_NODE = "32-typescript-validation.enabler";
 const PYTHON_VALIDATION_NODE = "32-python-validation.enabler";
 const LITERAL_SKIP_SOURCE_SEGMENTS = ["src", "literal-skip.ts"] as const;
+const CIRCULAR_SKIP_A_SOURCE_SEGMENTS = ["src", "circular-skip-a.ts"] as const;
+const CIRCULAR_SKIP_B_SOURCE_SEGMENTS = ["src", "circular-skip-b.ts"] as const;
 const LITERAL_SKIP_TEST_SEGMENTS = [
   "spx",
   "21-literal-skip.enabler",
@@ -110,6 +114,7 @@ export const VALIDATION_PIPELINE_SCENARIO_KIND = {
   PRODUCTION_SCOPE: "productionScope",
   FILE_SCOPE: "fileScope",
   STEP_ORDER: "stepOrder",
+  SKIP_CIRCULAR: "skipCircular",
   SKIP_LITERAL: "skipLiteral",
   NO_SHORT_CIRCUIT: "noShortCircuit",
   FAILURE_EXIT_CODE: "failureExitCode",
@@ -159,6 +164,9 @@ export const VALIDATION_PIPELINE_DATA = {
   exitCodes: VALIDATION_EXIT_CODES,
   summaryStatus: VALIDATION_SUMMARY_STATUS,
   circularOutput: CIRCULAR_DEPENDENCY_OUTPUT,
+  circularSkipOutput: CIRCULAR_SKIP_OUTPUT,
+  circularSkipJsonOutput: CIRCULAR_SKIP_JSON_OUTPUT,
+  skipCircularFlag: allValidationCliOptions.skipCircular.flag,
   literalSkipOutput: LITERAL_SKIP_OUTPUT,
   literalSkipJsonOutput: LITERAL_SKIP_JSON_OUTPUT,
   skipLiteralFlag: allValidationCliOptions.skipLiteral.flag,
@@ -173,6 +181,8 @@ export const VALIDATION_PIPELINE_DATA = {
   fullTsconfigFile: TSCONFIG_FILES.full,
   sourceDirectoryName: "src",
   cleanSourceFileName: "clean.ts",
+  circularSkipASourceSegments: CIRCULAR_SKIP_A_SOURCE_SEGMENTS,
+  circularSkipBSourceSegments: CIRCULAR_SKIP_B_SOURCE_SEGMENTS,
   literalSkipSourceSegments: LITERAL_SKIP_SOURCE_SEGMENTS,
   literalSkipTestSegments: LITERAL_SKIP_TEST_SEGMENTS,
   literalSkipToken: LITERAL_SKIP_TOKEN,
@@ -499,6 +509,11 @@ export function validationPipelineScenarios(): ValidationPipelineScenario[] {
     {
       title: "step completion lines stay in pipeline order",
       kind: VALIDATION_PIPELINE_SCENARIO_KIND.STEP_ORDER,
+      timeout: VALIDATION_PIPELINE_DATA.allTimeout,
+    },
+    {
+      title: "skip circular suppresses circular detection and respects quiet and json output",
+      kind: VALIDATION_PIPELINE_SCENARIO_KIND.SKIP_CIRCULAR,
       timeout: VALIDATION_PIPELINE_DATA.allTimeout,
     },
     {

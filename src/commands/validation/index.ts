@@ -25,6 +25,8 @@ export { LITERAL_PROBLEM_KIND, literalCommand } from "./literal";
 export type { LiteralProblemKind } from "./literal";
 export { markdownCommand } from "./markdown";
 export {
+  CIRCULAR_SKIP_JSON_OUTPUT,
+  CIRCULAR_SKIP_OUTPUT,
   LITERAL_SKIP_JSON_OUTPUT,
   LITERAL_SKIP_OUTPUT,
   VALIDATION_COMMAND_OUTPUT,

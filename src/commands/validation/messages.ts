@@ -14,6 +14,7 @@ export const VALIDATION_STAGE_DISPLAY_NAMES = {
 
 export const VALIDATION_SKIP_LABELS = {
   VERB: "Skipping",
+  CIRCULAR_REASON: "skip-circular",
   LITERAL_REASON: "skip-literal",
   TYPESCRIPT_ABSENT_REASON: "TypeScript not detected in project",
   VALIDATION_PATHS_NO_TARGETS_REASON: "validation paths matched no files",
@@ -36,6 +37,14 @@ export const VALIDATION_COMMAND_OUTPUT = {
   MARKDOWN_NO_ISSUES: `${VALIDATION_STAGE_DISPLAY_NAMES.MARKDOWN}: No issues found`,
   MARKDOWN_ERROR_SUMMARY_SUFFIX: "error(s) found",
 } as const;
+
+export const CIRCULAR_SKIP_OUTPUT =
+  `${VALIDATION_STAGE_DISPLAY_NAMES.CIRCULAR}: skipped (--${VALIDATION_SKIP_LABELS.CIRCULAR_REASON})`;
+
+export const CIRCULAR_SKIP_JSON_OUTPUT = JSON.stringify({
+  skipped: true,
+  reason: VALIDATION_SKIP_LABELS.CIRCULAR_REASON,
+});
 
 export const LITERAL_SKIP_OUTPUT =
   `${VALIDATION_STAGE_DISPLAY_NAMES.LITERAL}: skipped (--${VALIDATION_SKIP_LABELS.LITERAL_REASON})`;

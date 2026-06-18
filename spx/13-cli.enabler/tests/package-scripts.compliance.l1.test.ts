@@ -21,8 +21,8 @@ describe("package scripts — CLI boundary compliance", () => {
       lint: `${SOURCE_CLI_INVOCATION} validation lint`,
       "lint:fix": `${SOURCE_CLI_INVOCATION} validation lint --fix`,
       "lint:production": `${SOURCE_CLI_INVOCATION} validation lint --scope production`,
-      validate: `${SOURCE_CLI_INVOCATION} validation all`,
-      "validate:production": `${SOURCE_CLI_INVOCATION} validation all --scope production`,
+      validate: `${SOURCE_CLI_INVOCATION} validation all --skip-circular`,
+      "validate:production": `${SOURCE_CLI_INVOCATION} validation all --scope production --skip-circular`,
       knip: `${SOURCE_CLI_INVOCATION} validation knip`,
       circular: `${SOURCE_CLI_INVOCATION} validation circular`,
     };
@@ -33,9 +33,12 @@ describe("package scripts — CLI boundary compliance", () => {
   });
 
   it("publish validation runs only through the packaged executable after build", () => {
-    expect(scripts["validate:published"]).toBe(`${PACKAGED_CLI_INVOCATION} validation all --scope production`);
+    expect(scripts["validate:published"]).toBe(
+      `${PACKAGED_CLI_INVOCATION} validation all --scope production --skip-circular`,
+    );
+    expect(scripts["circular:published"]).toBe(`${PACKAGED_CLI_INVOCATION} validation circular`);
     expect(scripts["publish:check"]).toBe(
-      `pnpm run validate && ${BUILD_INVOCATION} && ${VITEST_RUN_INVOCATION} && pnpm run validate:published`,
+      `pnpm run validate && pnpm run circular && ${BUILD_INVOCATION} && ${VITEST_RUN_INVOCATION} && pnpm run validate:published && pnpm run circular:published`,
     );
     expect(scripts.prepublishOnly).toBe(PREPUBLISH_HOOK_INVOCATION);
   });

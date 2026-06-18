@@ -135,6 +135,10 @@ export const literalValidationCliOptions = {
 } as const;
 
 export const allValidationCliOptions = {
+  skipCircular: {
+    flag: "--skip-circular",
+    description: "Skip circular dependency detection for this validation all run",
+  },
   skipLiteral: {
     flag: "--skip-literal",
     description: "Skip literal reuse detection for this validation all run",
@@ -178,6 +182,7 @@ interface LiteralOptions extends CommonOptions {
 
 interface AllOptions extends CommonOptions {
   fix?: boolean;
+  skipCircular?: boolean;
   skipLiteral?: boolean;
 }
 
@@ -343,6 +348,7 @@ function registerValidationCommands(validationCmd: Command): void {
   // all command
   const allCmd = addValidationSubcommand(validationCmd, subcommands.all)
     .option("--fix", "Auto-fix ESLint issues")
+    .option(allValidationCliOptions.skipCircular.flag, allValidationCliOptions.skipCircular.description)
     .option(allValidationCliOptions.skipLiteral.flag, allValidationCliOptions.skipLiteral.description)
     .action(async (options: AllOptions) => {
       const result = await allCommand({
@@ -350,6 +356,7 @@ function registerValidationCommands(validationCmd: Command): void {
         scope: options.scope,
         files: options.files,
         fix: options.fix,
+        skipCircular: options.skipCircular,
         skipLiteral: options.skipLiteral,
         quiet: options.quiet,
         json: options.json,
