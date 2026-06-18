@@ -21,6 +21,7 @@ export const CONTROLLING_PROCESS_ERROR = {
 } as const;
 
 const MAX_ANCESTRY_DEPTH = 64;
+const MIN_VALID_PID = 1;
 const PID_RADIX = 10;
 
 /** The holding agent process recorded in a worktree claim. */
@@ -64,12 +65,12 @@ function* controllingPidCandidates(
   if (agent !== undefined) yield agent;
 
   const parent = table.parentOf(selfPid);
-  if (parent !== undefined) yield parent;
+  if (parent !== undefined && isValidPid(parent)) yield parent;
 }
 
 function findAgentAncestor(selfPid: number, table: ProcessTable): number | undefined {
   let pid = table.parentOf(selfPid);
-  for (let depth = 0; pid !== undefined && depth < MAX_ANCESTRY_DEPTH; depth += 1) {
+  for (let depth = 0; pid !== undefined && isValidPid(pid) && depth < MAX_ANCESTRY_DEPTH; depth += 1) {
     const command = table.commandOf(pid);
     if (command !== undefined && AGENT_COMMAND_PATTERN.test(command)) return pid;
     pid = table.parentOf(pid);
@@ -80,5 +81,9 @@ function findAgentAncestor(selfPid: number, table: ProcessTable): number | undef
 function parsePid(value: string | undefined): number | undefined {
   if (value === undefined || value.length === 0) return undefined;
   const parsed = Number.parseInt(value, PID_RADIX);
-  return Number.isInteger(parsed) && parsed > 0 ? parsed : undefined;
+  return isValidPid(parsed) ? parsed : undefined;
+}
+
+function isValidPid(pid: number): boolean {
+  return Number.isInteger(pid) && pid >= MIN_VALID_PID;
 }

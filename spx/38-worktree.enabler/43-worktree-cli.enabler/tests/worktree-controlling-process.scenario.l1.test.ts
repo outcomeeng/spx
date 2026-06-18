@@ -100,4 +100,20 @@ describe("worktree controlling-process resolution", () => {
     if (!result.ok) throw new Error(result.error);
     expect(result.value).toEqual({ pid: parentPid, startedAt, host });
   });
+
+  it("rejects pid zero before applying the unreadable-start fallback", () => {
+    const host = sampleWorktreeTestValue(WORKTREE_TEST_GENERATOR.host());
+    const selfPid = sampleWorktreeTestValue(WORKTREE_TEST_GENERATOR.pid());
+    const table = createProcessTable({
+      host,
+      processes: new Map<number, ProcessTableEntry>([
+        [selfPid, { ppid: 0 }],
+        [0, { alive: true }],
+      ]),
+    });
+
+    const result = resolveControllingProcess(selfPid, table, {});
+
+    expect(result.ok).toBe(false);
+  });
 });
