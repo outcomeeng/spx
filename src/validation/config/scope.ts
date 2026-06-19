@@ -394,6 +394,20 @@ export function typeScriptScopePatternNarrowsDirectory(pattern: string, director
   return !pathMatchesTypeScriptPattern(probePath, pattern);
 }
 
+export function typeScriptScopePatternCoversDirectory(pattern: string, directory: string): boolean {
+  const normalizedPattern = normalizeTypeScriptScopePath(pattern);
+  const normalizedDirectory = normalizeTypeScriptScopePath(directory);
+  if (!typeScriptScopePatternIntersectsDirectory(normalizedPattern, normalizedDirectory)) {
+    return false;
+  }
+  if (!typeScriptScopePatternHasGlob(normalizedPattern)) {
+    return normalizedPattern === normalizedDirectory
+      || pathMatchesLiteralPrefix(normalizedDirectory, normalizedPattern);
+  }
+  const probePath = `${normalizedDirectory}/${TYPESCRIPT_SCOPE_DIRECTORY_PROBE_FILENAME}`;
+  return pathMatchesTypeScriptPattern(probePath, normalizedPattern);
+}
+
 export function typeScriptScopePatternIntersectsDirectory(pattern: string, directory: string): boolean {
   const normalizedPattern = normalizeTypeScriptScopePath(pattern);
   const normalizedDirectory = normalizeTypeScriptScopePath(directory);
