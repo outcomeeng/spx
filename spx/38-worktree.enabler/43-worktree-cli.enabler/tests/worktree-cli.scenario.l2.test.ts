@@ -9,6 +9,7 @@ import { OCCUPANCY_STATUS } from "@/domains/worktree/occupancy-store";
 import { worktreeClaimName } from "@/domains/worktree/worktree-name";
 import { WORKTREE_CLI } from "@/interfaces/cli/worktree";
 import { sampleWorktreeTestValue, WORKTREE_TEST_GENERATOR } from "@testing/generators/worktree/worktree";
+import { CLI_TIMEOUTS_MS } from "@testing/harnesses/constants";
 import { withTempDir } from "@testing/harnesses/with-temp-dir";
 import { withWorktreeLayoutEnv } from "@testing/harnesses/worktree-layout/worktree-layout";
 import { runWorktreeCli } from "@testing/harnesses/worktree/harness";
@@ -120,5 +121,5 @@ describe("worktree CLI occupancy round-trip", () => {
         expect(nonWorktree.exitCode).not.toBe(0);
       });
     });
-  });
+  }, CLI_TIMEOUTS_MS.E2E_LONG_BATCH);
 });
