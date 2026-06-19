@@ -9,7 +9,9 @@ import { TYPESCRIPT_VALIDATION_MESSAGES, typescriptCommand } from "@/commands/va
 import type { ProcessRunner } from "@/lib/process-lifecycle";
 import { VALIDATION_PATHS_SUBSECTION, validationConfigDescriptor } from "@/validation/config/descriptor";
 import {
+  constrainTypeScriptScopeToExplicitTargets,
   defaultScopeDeps,
+  EXPLICIT_TYPESCRIPT_SCOPE_TARGET_KIND,
   getTypeScriptScope,
   pathPassesTypeScriptScope,
   TEMPORARY_TSCONFIG_PARENT_SEGMENTS,
@@ -528,6 +530,28 @@ describe("ALWAYS: TypeScript scope resolution uses the requested project root", 
 
     expect(pathPassesTypeScriptScope(nestedSourceFile, scope)).toBe(true);
     expect(pathPassesTypeScriptScope(topLevelSourceFile, scope)).toBe(false);
+  });
+
+  it("preserves literal TypeScript file patterns covered by explicit directory targets", () => {
+    const narrowedScope = constrainTypeScriptScopeToExplicitTargets(
+      {
+        directories: [VALIDATION_PIPELINE_DATA.sourceDirectoryName],
+        filePatterns: [nestedSourceFile],
+        excludePatterns: [],
+      },
+      [
+        {
+          kind: EXPLICIT_TYPESCRIPT_SCOPE_TARGET_KIND.DIRECTORY,
+          path: narrowSourceDirectory,
+        },
+      ],
+    );
+
+    expect(narrowedScope).toEqual({
+      directories: [narrowSourceDirectory],
+      filePatterns: [nestedSourceFile],
+      excludePatterns: [],
+    });
   });
 
   it("runs config-filtered Knip validation through a scoped temporary config", async () => {
