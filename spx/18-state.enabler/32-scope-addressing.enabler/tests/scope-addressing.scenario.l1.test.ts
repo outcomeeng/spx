@@ -46,16 +46,12 @@ describe("scope addressing", () => {
       deps: createSessionGitDeps({ worktreeKind: WORKTREE_KIND.NON_MAIN }),
     });
 
-    expect(mainCheckout.ok).toBe(true);
-    expect(nonMain.ok).toBe(true);
-    if (!mainCheckout.ok) throw new Error(mainCheckout.error);
-    if (!nonMain.ok) throw new Error(nonMain.error);
-    expect(mainCheckout.value).toBe(join(
+    expect(mainCheckout).toBe(join(
       SESSION_GIT_DEPS_PATHS.MAIN_CHECKOUT_TOPLEVEL,
       STATE_STORE_PATH.SPX_DIR,
       STATE_STORE_PATH.WORKTREE_SCOPE,
     ));
-    expect(nonMain.value).toBe(join(
+    expect(nonMain).toBe(join(
       SESSION_GIT_DEPS_PATHS.NON_MAIN_TOPLEVEL,
       STATE_STORE_PATH.SPX_DIR,
       STATE_STORE_PATH.WORKTREE_SCOPE,

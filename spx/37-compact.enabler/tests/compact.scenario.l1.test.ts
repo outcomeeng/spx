@@ -15,15 +15,11 @@ import { COMPACT_TEST_GENERATOR, sampleCompactTestValue } from "@testing/generat
 import { createSessionGitDeps, SESSION_GIT_DEPS_PATHS, WORKTREE_KIND } from "@testing/harnesses/session/harness";
 
 function escapedMarker(nodePath: string): string {
-  return `${COMPACT_MARKER.CONTEXT} ${COMPACT_MARKER.TARGET_ATTRIBUTE}=${
-    COMPACT_MARKER.ESCAPED_TARGET_QUOTE
-  }${nodePath}${COMPACT_MARKER.ESCAPED_TARGET_QUOTE}`;
+  return `${COMPACT_MARKER.CONTEXT} ${COMPACT_MARKER.TARGET_ATTRIBUTE}=${COMPACT_MARKER.ESCAPED_TARGET_QUOTE}${nodePath}${COMPACT_MARKER.ESCAPED_TARGET_QUOTE}`;
 }
 
 function unescapedMarker(nodePath: string): string {
-  return `${COMPACT_MARKER.CONTEXT} ${COMPACT_MARKER.TARGET_ATTRIBUTE}=${
-    COMPACT_MARKER.UNESCAPED_TARGET_QUOTE
-  }${nodePath}${COMPACT_MARKER.UNESCAPED_TARGET_QUOTE}`;
+  return `${COMPACT_MARKER.CONTEXT} ${COMPACT_MARKER.TARGET_ATTRIBUTE}=${COMPACT_MARKER.UNESCAPED_TARGET_QUOTE}${nodePath}${COMPACT_MARKER.UNESCAPED_TARGET_QUOTE}`;
 }
 
 function jsonlStringRecord(content: string): string {
@@ -104,12 +100,8 @@ describe("compact transcript extraction", () => {
     const nonMainScope = await resolveWorktreeScopeDir({
       deps: createSessionGitDeps({ worktreeKind: WORKTREE_KIND.NON_MAIN }),
     });
-    expect(mainCheckoutScope.ok).toBe(true);
-    expect(nonMainScope.ok).toBe(true);
-    if (!mainCheckoutScope.ok) throw new Error(mainCheckoutScope.error);
-    if (!nonMainScope.ok) throw new Error(nonMainScope.error);
-    const mainCheckout = compactStashPath(mainCheckoutScope.value, sessionToken);
-    const nonMain = compactStashPath(nonMainScope.value, sessionToken);
+    const mainCheckout = compactStashPath(mainCheckoutScope, sessionToken);
+    const nonMain = compactStashPath(nonMainScope, sessionToken);
 
     expect(mainCheckout.ok).toBe(true);
     expect(nonMain.ok).toBe(true);
