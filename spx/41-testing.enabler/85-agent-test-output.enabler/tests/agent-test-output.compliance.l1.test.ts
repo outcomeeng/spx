@@ -137,7 +137,7 @@ describe("agent test-output runner", () => {
       ]);
 
       expect(result.output).toBeDefined();
-      if (result.output === undefined) throw new Error();
+      if (result.output === undefined) throw new Error("Expected captured runner output");
       expect(await readFile(result.output.stdoutPath, AGENT_TEST_OUTPUT_TEXT_ENCODING)).toBe(
         `${stdoutContent}${await realpath(productDir)}`,
       );
