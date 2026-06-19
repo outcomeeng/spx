@@ -44,6 +44,13 @@ function sampleWidth(): number {
   return sample(fc.integer({ min: 80, max: 120 }));
 }
 
+/** Lexical string comparator (timestamp ids sort chronologically by lexical order). */
+function byLexicalOrder(left: string, right: string): number {
+  if (left < right) return -1;
+  if (left > right) return 1;
+  return 0;
+}
+
 describe("SessionPicker rendering", () => {
   let harness: SessionHarness;
 
@@ -82,9 +89,9 @@ describe("SessionPicker rendering", () => {
   });
 
   it("claims the down-selected session through pickupCommand and emits its PICKUP_ID", async () => {
-    // Sort lexically (timestamp ids sort chronologically) with an explicit comparator: older id first.
+    // Older id first (timestamp ids sort chronologically by lexical order).
     const [olderId, newerId] = [...sample(fc.uniqueArray(arbitrarySessionId(), { minLength: 2, maxLength: 2 }))]
-      .sort((left, right) => (left < right ? -1 : left > right ? 1 : 0));
+      .sort(byLexicalOrder);
     const priority = sample(arbitrarySessionPriority());
     await harness.writeSession("todo", olderId, { priority });
     await harness.writeSession("todo", newerId, { priority });

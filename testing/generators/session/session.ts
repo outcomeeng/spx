@@ -318,15 +318,15 @@ export function claimableSession(overrides: Omit<MakeSessionOptions, "status"> =
 }
 
 /** Characters that render predictably in a row or preview — no control chars, no wrapping surprises. */
-const RENDERABLE_UNIT = fc.constantFrom(...[..."abcdefghijklmnopqrstuvwxyz0123456789 "]);
+const RENDERABLE_UNIT = fc.constantFrom(..."abcdefghijklmnopqrstuvwxyz0123456789 ");
 /** Filter-haystack characters: digits and space only, disjoint from the needle's letters. */
-const HAYSTACK_UNIT = fc.constantFrom(...[..."0123456789 "]);
+const HAYSTACK_UNIT = fc.constantFrom(..."0123456789 ");
 /**
  * Needle characters: uppercase letters. Their lowercased form is still letters, so a needle —
  * and its lowercased form — can never occur in digit/space haystack text or in a timestamp id.
  * That disjointness is what makes a filter match deterministic rather than accidental.
  */
-const NEEDLE_UNIT = fc.constantFrom(...[..."ABCDEFGHIJKLMNOPQRSTUVWXYZ"]);
+const NEEDLE_UNIT = fc.constantFrom(..."ABCDEFGHIJKLMNOPQRSTUVWXYZ");
 
 /** Renderable free text of 1..`maxLength` characters (letters, digits, spaces). */
 export function arbitraryRenderableText(maxLength = 24): fc.Arbitrary<string> {
