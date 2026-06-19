@@ -1,10 +1,11 @@
 import type { Command } from "commander";
 
 import { runTestsCommand, type RecordedTestRun, type TestDispatchResult } from "@/commands/testing";
+import { SUCCESS_EXIT_CODE } from "@/domains/testing";
 import type { Domain } from "@/domains/types";
 import { detectWorktreeProductRoot } from "@/git/root";
 import { formatAgentTestOutput } from "@/interfaces/cli/testing-agent-output";
-import { writeWarning } from "@/interfaces/cli/write-warning";
+import { writeWarning as writeCliWarning } from "@/interfaces/cli/write-warning";
 import { SPEC_TREE_CONFIG } from "@/lib/spec-tree/config";
 import { testingRegistry } from "@/testing/registry";
 
@@ -20,6 +21,7 @@ export const TESTING_CLI = {
 } as const;
 
 const UNMATCHED_TEST_FILES_WARNING = "Skipped test files with no registered runner";
+const GATED_TEST_RUNNERS_WARNING = "Skipped test files because their registered runner was gated out";
 
 const TESTING_PRODUCT_DIR_WARNING = {
   NOT_GIT_REPOSITORY:
@@ -28,7 +30,7 @@ const TESTING_PRODUCT_DIR_WARNING = {
 
 async function resolveTestProductDir(): Promise<string> {
   const { productDir, isGitRepo } = await detectWorktreeProductRoot(process.cwd());
-  writeWarning(isGitRepo ? undefined : TESTING_PRODUCT_DIR_WARNING.NOT_GIT_REPOSITORY);
+  writeCliWarning(isGitRepo ? undefined : TESTING_PRODUCT_DIR_WARNING.NOT_GIT_REPOSITORY);
   return productDir;
 }
 
@@ -58,11 +60,33 @@ async function runAgentTestsThroughCommand(productDir: string, passing: boolean)
   }
 }
 
-function reportAndExit(result: TestDispatchResult, exit: TestingCliDependencies["exit"]): never {
+function unreportedGroups(result: TestDispatchResult): typeof result.groups {
+  const reportedRunnerIds = new Set(result.reports.map((report) => report.runnerId));
+  return result.groups.filter((group) => !reportedRunnerIds.has(group.language.name));
+}
+
+interface TestingCliExitDependencies {
+  readonly exit: TestingCliDependencies["exit"];
+  readonly writeWarning: TestingCliDependencies["writeWarning"];
+}
+
+function reportAndExit(result: TestDispatchResult, deps: TestingCliExitDependencies): never {
   if (result.unmatched.length > 0) {
-    writeWarning(`${UNMATCHED_TEST_FILES_WARNING}:\n${result.unmatched.join("\n")}`);
+    deps.writeWarning(`${UNMATCHED_TEST_FILES_WARNING}:\n${result.unmatched.join("\n")}`);
   }
-  exit(result.exitCode);
+  const gatedGroups = unreportedGroups(result);
+  if (result.exitCode !== SUCCESS_EXIT_CODE && gatedGroups.length > 0) {
+    deps.writeWarning(
+      [
+        GATED_TEST_RUNNERS_WARNING,
+        ...gatedGroups.flatMap((group) => [
+          group.language.name,
+          ...group.testPaths,
+        ]),
+      ].join("\n"),
+    );
+  }
+  deps.exit(result.exitCode);
 }
 
 interface TestingCliActionOptions {
@@ -79,6 +103,7 @@ export interface TestingCliDependencies {
   readonly runTests: (productDir: string, passing: boolean) => Promise<RecordedTestRun>;
   readonly runAgentTests: (productDir: string, passing: boolean) => Promise<RecordedTestRun>;
   readonly writeStdout: (output: string) => void;
+  readonly writeWarning: (warning: string | undefined) => void;
   readonly setExitCode: (exitCode: number) => void;
   readonly exit: (exitCode: number) => never;
 }
@@ -90,6 +115,7 @@ const defaultTestingCliDependencies: TestingCliDependencies = {
   writeStdout: (output) => {
     process.stdout.write(output);
   },
+  writeWarning: writeCliWarning,
   setExitCode: (exitCode) => {
     process.exitCode = exitCode;
   },
@@ -109,7 +135,7 @@ async function runTestingAction(
     return;
   }
   const result = await deps.runTests(productDir, passing);
-  reportAndExit(result.dispatch, deps.exit);
+  reportAndExit(result.dispatch, deps);
 }
 
 export function createTestingDomain(deps: TestingCliDependencies = defaultTestingCliDependencies): Domain {

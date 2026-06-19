@@ -14,17 +14,7 @@ import type {
 } from "@/testing/languages/types";
 
 export const PROCESS_FAILURE_EXIT_CODE = 1;
-export const AGENT_TEST_OUTPUT_COMMAND = {
-  NODE_EVAL_ARG: "-e",
-} as const;
-export const AGENT_TEST_OUTPUT_STREAM_METHOD = "write";
-export const AGENT_TEST_OUTPUT_TEXT_ENCODING = "utf8";
 export const AGENT_ARTIFACT_DIR_PREFIX = "spx-test-agent-";
-export const AGENT_TEST_OUTPUT_PROCESS_EVENT = {
-  CLOSE: "close",
-  DATA: "data",
-  ERROR: "error",
-} as const;
 
 const STDOUT_FILE_SUFFIX = "stdout.log";
 const STDERR_FILE_SUFFIX = "stderr.log";
