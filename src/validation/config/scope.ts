@@ -10,7 +10,7 @@
 
 import * as JSONC from "jsonc-parser";
 import { existsSync, readdirSync, readFileSync } from "node:fs";
-import { isAbsolute, join } from "node:path";
+import { extname, isAbsolute, join } from "node:path";
 
 import type { ScopeConfig, ValidationScope } from "../types";
 import { pathPassesValidationFilter } from "./path-filter";
@@ -265,7 +265,7 @@ function directoryPassesIncludePatterns(directory: string, patterns: readonly st
   return patterns.some((pattern) => getLiteralTopLevelPatternDirectory(pattern) === directory);
 }
 
-function normalizeScopePath(path: string): string {
+export function normalizeTypeScriptScopePath(path: string): string {
   return path
     .split(/[\\/]/gu)
     .join(PATH_SEGMENT_SEPARATOR)
@@ -274,14 +274,14 @@ function normalizeScopePath(path: string): string {
 }
 
 function pathMatchesLiteralPrefix(path: string, prefix: string): boolean {
-  const normalizedPath = normalizeScopePath(path);
-  const normalizedPrefix = normalizeScopePath(prefix);
+  const normalizedPath = normalizeTypeScriptScopePath(path);
+  const normalizedPrefix = normalizeTypeScriptScopePath(prefix);
   return normalizedPath === normalizedPrefix
     || normalizedPath.startsWith(`${normalizedPrefix}${PATH_SEGMENT_SEPARATOR}`);
 }
 
 function globLiteralPrefix(pattern: string): string {
-  const normalizedPattern = normalizeScopePath(pattern);
+  const normalizedPattern = normalizeTypeScriptScopePath(pattern);
   const globIndex = normalizedPattern.indexOf(GLOB_MARKER);
   if (globIndex === -1) {
     return normalizedPattern;
@@ -294,8 +294,13 @@ function pathMatchesTypeScriptPattern(path: string, pattern: string): boolean {
   return prefix.length === 0 || pathMatchesLiteralPrefix(path, prefix);
 }
 
-function pathHasTypeScriptSourceExtension(path: string): boolean {
-  return TYPESCRIPT_SOURCE_EXTENSIONS.some((extension) => path.endsWith(extension));
+export function pathHasTypeScriptSourceExtension(path: string): boolean {
+  const normalizedPath = normalizeTypeScriptScopePath(path);
+  return TYPESCRIPT_SOURCE_EXTENSIONS.some((extension) => normalizedPath.endsWith(extension));
+}
+
+function pathCanSelectTypeScriptScope(path: string): boolean {
+  return extname(normalizeTypeScriptScopePath(path)) === "" || pathHasTypeScriptSourceExtension(path);
 }
 
 function filterActiveIncludePatterns(
@@ -371,7 +376,7 @@ export function getTypeScriptScope(
 }
 
 export function pathPassesTypeScriptScope(path: string, scopeConfig: ScopeConfig): boolean {
-  if (!pathHasTypeScriptSourceExtension(path)) {
+  if (!pathCanSelectTypeScriptScope(path)) {
     return false;
   }
   const included = scopeConfig.directories.some((directory) => pathMatchesLiteralPrefix(path, directory))

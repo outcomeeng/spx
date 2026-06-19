@@ -15,7 +15,12 @@ import {
   toProjectRelativeValidationPath,
   validationPathFilterForTool,
 } from "@/validation/config/path-filter";
-import { getTypeScriptScope, pathPassesTypeScriptScope } from "@/validation/config/scope";
+import {
+  getTypeScriptScope,
+  normalizeTypeScriptScopePath,
+  pathHasTypeScriptSourceExtension,
+  pathPassesTypeScriptScope,
+} from "@/validation/config/scope";
 import { detectTypeScript, discoverTool, formatSkipMessage } from "@/validation/discovery/index";
 import { validateCircularDependencies } from "@/validation/steps/circular";
 import { VALIDATION_SCOPES } from "@/validation/types";
@@ -43,6 +48,17 @@ export interface CircularCommandDeps {
 export const defaultCircularCommandDeps: CircularCommandDeps = {
   validateCircularDependencies,
 };
+
+function toExplicitScopeConfig(
+  scopeConfig: ReturnType<typeof getTypeScriptScope>,
+  paths: readonly string[],
+): ReturnType<typeof getTypeScriptScope> {
+  return {
+    ...scopeConfig,
+    directories: paths.filter((path) => !pathHasTypeScriptSourceExtension(path)),
+    filePatterns: paths.filter((path) => pathHasTypeScriptSourceExtension(path)),
+  };
+}
 
 /**
  * Check for circular dependencies.
@@ -97,6 +113,7 @@ export async function circularCommand(
   );
   const filteredFiles = files
     ?.map((file) => toProjectRelativeValidationPath(cwd, file))
+    .map((file) => normalizeTypeScriptScopePath(file))
     .filter((file) => pathPassesValidationFilter(file, validationPathFilter))
     .filter((file) => pathPassesTypeScriptScope(file, scopeConfig));
 
@@ -111,7 +128,7 @@ export async function circularCommand(
     };
   }
   const effectiveScopeConfig = filteredFiles !== undefined && filteredFiles.length > 0
-    ? { ...scopeConfig, directories: [], filePatterns: filteredFiles }
+    ? toExplicitScopeConfig(scopeConfig, filteredFiles)
     : scopeConfig;
 
   // Run circular dependency validation

@@ -292,6 +292,36 @@ describe("circular dependency filtering", () => {
     expect(paths).toEqual([sourceModule]);
   });
 
+  it("keeps explicit file patterns when dependency-cruiser inputs also include directories", async () => {
+    const dependencyGraphCalls: Parameters<CircularDependencyGraphRunner>[] = [];
+    const deps: CircularDeps = {
+      [CIRCULAR_DEPS_KEYS.DEPENDENCY_CRUISER]: async (...call): Promise<IReporterOutput> => {
+        dependencyGraphCalls.push(call);
+        return {
+          exitCode: 0,
+          output: createEmptyCruiseResult(),
+        };
+      },
+      [CIRCULAR_DEPS_KEYS.EXTRACT_TYPESCRIPT_CONFIG]: () => emptyTypescriptConfig,
+    };
+
+    const result = await validateCircularDependencies(
+      VALIDATION_SCOPES.FULL,
+      {
+        directories: [analyzeDirectory],
+        filePatterns: [targetModule],
+        excludePatterns: [],
+      },
+      projectRoot,
+      deps,
+    );
+
+    expect(result.success).toBe(true);
+    expect(dependencyGraphCalls).toHaveLength(1);
+    const [paths] = dependencyGraphCalls[0] ?? [];
+    expect(paths).toEqual([...expectedTypescriptSourcePatterns(analyzeDirectory), targetModule]);
+  });
+
   it("fails clearly when dependency-cruiser returns non-structured reporter output", async () => {
     const result = await validateCircularDependencies(
       VALIDATION_SCOPES.FULL,
@@ -553,6 +583,36 @@ describe("circular command scope routing", () => {
             excludePatterns: [],
           },
           projectRoot: path,
+        },
+      ]);
+    });
+  });
+
+  it("forwards --files directories as dependency-cruiser directory scope", async () => {
+    await withValidationEnv({ fixture: PROJECT_FIXTURES.CLEAN_PROJECT }, async ({ path }) => {
+      const validationCalls: ScopeConfig[] = [];
+      const deps: CircularCommandDeps = {
+        validateCircularDependencies: async (_scope, scopeConfig) => {
+          validationCalls.push(scopeConfig);
+          return { success: true };
+        },
+      };
+
+      const result = await circularCommand(
+        {
+          cwd: path,
+          files: [`${VALIDATION_PIPELINE_DATA.sourceDirectoryName}/`],
+        },
+        deps,
+      );
+
+      expect(result.exitCode).toBe(VALIDATION_EXIT_CODES.SUCCESS);
+      expect(result.output).toBe(VALIDATION_COMMAND_OUTPUT.CIRCULAR_NONE_FOUND);
+      expect(validationCalls).toEqual([
+        {
+          directories: [VALIDATION_PIPELINE_DATA.sourceDirectoryName],
+          filePatterns: [],
+          excludePatterns: [],
         },
       ]);
     });
