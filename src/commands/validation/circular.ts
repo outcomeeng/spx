@@ -35,6 +35,9 @@ import {
 } from "./messages";
 import type { CircularCommandOptions, ValidationCommandResult } from "./types";
 
+type TypeScriptScopeConfig = ReturnType<typeof getTypeScriptScope>;
+type CircularValidationResult = Awaited<ReturnType<typeof validateCircularDependencies>>;
+
 const TYPESCRIPT_ABSENT_MESSAGE = formatTypeScriptAbsentSkipMessage(VALIDATION_STAGE_DISPLAY_NAMES.CIRCULAR);
 const CIRCULAR_CONFIG_ERROR_MESSAGE = `${VALIDATION_STAGE_DISPLAY_NAMES.CIRCULAR}: ✗ config error`;
 const CIRCULAR_VALIDATION_PATHS_NO_TARGETS_MESSAGE = formatValidationPathsNoTargetsSkipMessage(
@@ -56,6 +59,8 @@ const EXPLICIT_PATH_TARGET_KIND = {
   DIRECTORY: "directory",
   FILE: "file",
 } as const;
+
+const DEPENDENCY_CRUISER_PACKAGE_NAME = "dependency-cruiser";
 
 function pathIsDirectoryOperand(projectRoot: string, originalPath: string, relativePath: string): boolean {
   const candidatePath = join(projectRoot, relativePath);
@@ -107,6 +112,79 @@ function targetPassesProjectBoundary(projectRoot: string, originalPath: string):
   return pathStaysInsideProject(projectRoot, originalPath);
 }
 
+function filterExplicitPathTargets(
+  projectRoot: string,
+  files: readonly string[] | undefined,
+  validationPathFilter: ReturnType<typeof validationPathFilterForTool>,
+  scopeConfig: TypeScriptScopeConfig,
+): ExplicitPathTarget[] | undefined {
+  return files
+    ?.filter((file) => targetPassesProjectBoundary(projectRoot, file))
+    .map((file) => toExplicitPathTarget(projectRoot, file))
+    .filter((target) => targetPassesTypeScriptSourceKind(target))
+    .filter((target) => pathPassesValidationFilter(target.path, validationPathFilter))
+    .filter((target) => pathPassesTypeScriptScope(target.path, scopeConfig));
+}
+
+function explicitTargetsAreEmpty(
+  files: readonly string[] | undefined,
+  targets: readonly ExplicitPathTarget[] | undefined,
+): boolean {
+  return files !== undefined && files.length > 0 && targets?.length === 0;
+}
+
+function resolveEffectiveScopeConfig(
+  projectRoot: string,
+  scope: (typeof VALIDATION_SCOPES)[keyof typeof VALIDATION_SCOPES],
+  files: readonly string[] | undefined,
+  validationConfig: ValidationConfig,
+): TypeScriptScopeConfig | undefined {
+  const validationPathFilter = validationPathFilterForTool(
+    validationConfig.paths,
+    VALIDATION_PATH_TOOL_SUBSECTIONS.CIRCULAR,
+  );
+  const scopeConfig = applyValidationPathFilterToScope(
+    getTypeScriptScope(scope, projectRoot),
+    validationPathFilter,
+  );
+  const filteredTargets = filterExplicitPathTargets(projectRoot, files, validationPathFilter, scopeConfig);
+
+  if (scopeConfig.filteredByValidationPathNoMatches || explicitTargetsAreEmpty(files, filteredTargets)) {
+    return undefined;
+  }
+
+  return filteredTargets !== undefined && filteredTargets.length > 0
+    ? toExplicitScopeConfig(scopeConfig, filteredTargets)
+    : scopeConfig;
+}
+
+function formatCircularValidationResult(result: CircularValidationResult, quiet: boolean): {
+  readonly exitCode: number;
+  readonly output: string;
+} {
+  if (result.success) {
+    return {
+      exitCode: 0,
+      output: quiet ? "" : VALIDATION_COMMAND_OUTPUT.CIRCULAR_NONE_FOUND,
+    };
+  }
+
+  if (result.circularDependencies && result.circularDependencies.length > 0) {
+    const cycles = result.circularDependencies
+      .map((cycle) => `  ${cycle.join(" → ")}`)
+      .join("\n");
+    return {
+      exitCode: 1,
+      output: `${CIRCULAR_DEPENDENCY_OUTPUT.FOUND}:\n${cycles}`,
+    };
+  }
+
+  return {
+    exitCode: 1,
+    output: result.error ?? CIRCULAR_DEPENDENCY_OUTPUT.FOUND,
+  };
+}
+
 /**
  * Check for circular dependencies.
  *
@@ -135,7 +213,7 @@ export async function circularCommand(
   }
 
   // Gate 2: tool discovery.
-  const toolResult = await discoverTool("dependency-cruiser", { projectRoot: cwd });
+  const toolResult = await discoverTool(DEPENDENCY_CRUISER_PACKAGE_NAME, { projectRoot: cwd });
   if (!toolResult.found) {
     const skipMessage = formatSkipMessage(VALIDATION_STAGE_DISPLAY_NAMES.CIRCULAR, toolResult);
     return { exitCode: 0, output: skipMessage, durationMs: Date.now() - startTime };
@@ -150,52 +228,17 @@ export async function circularCommand(
     };
   }
   const validationConfig = loaded.value[validationConfigDescriptor.section] as ValidationConfig;
-  const validationPathFilter = validationPathFilterForTool(
-    validationConfig.paths,
-    VALIDATION_PATH_TOOL_SUBSECTIONS.CIRCULAR,
-  );
-  const scopeConfig = applyValidationPathFilterToScope(
-    getTypeScriptScope(scope, cwd),
-    validationPathFilter,
-  );
-  const filteredTargets = files
-    ?.filter((file) => targetPassesProjectBoundary(cwd, file))
-    .map((file) => toExplicitPathTarget(cwd, file))
-    .filter((target) => targetPassesTypeScriptSourceKind(target))
-    .filter((target) => pathPassesValidationFilter(target.path, validationPathFilter))
-    .filter((target) => pathPassesTypeScriptScope(target.path, scopeConfig));
-
-  if (
-    scopeConfig.filteredByValidationPathNoMatches
-    || (files !== undefined && files.length > 0 && filteredTargets?.length === 0)
-  ) {
+  const effectiveScopeConfig = resolveEffectiveScopeConfig(cwd, scope, files, validationConfig);
+  if (effectiveScopeConfig === undefined) {
     return {
       exitCode: 0,
       output: quiet ? "" : CIRCULAR_VALIDATION_PATHS_NO_TARGETS_MESSAGE,
       durationMs: Date.now() - startTime,
     };
   }
-  const effectiveScopeConfig = filteredTargets !== undefined && filteredTargets.length > 0
-    ? toExplicitScopeConfig(scopeConfig, filteredTargets)
-    : scopeConfig;
 
   // Run circular dependency validation
   const result = await deps.validateCircularDependencies(scope, effectiveScopeConfig, cwd);
   const durationMs = Date.now() - startTime;
-
-  // Map result to command output
-  if (result.success) {
-    const output = quiet ? "" : VALIDATION_COMMAND_OUTPUT.CIRCULAR_NONE_FOUND;
-    return { exitCode: 0, output, durationMs };
-  } else {
-    // Format circular dependency output
-    let output = result.error ?? CIRCULAR_DEPENDENCY_OUTPUT.FOUND;
-    if (result.circularDependencies && result.circularDependencies.length > 0) {
-      const cycles = result.circularDependencies
-        .map((cycle) => `  ${cycle.join(" → ")}`)
-        .join("\n");
-      output = `${CIRCULAR_DEPENDENCY_OUTPUT.FOUND}:\n${cycles}`;
-    }
-    return { exitCode: 1, output, durationMs };
-  }
+  return { ...formatCircularValidationResult(result, quiet === true), durationMs };
 }
