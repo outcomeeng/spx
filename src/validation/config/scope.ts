@@ -37,6 +37,7 @@ const HIDDEN_PATH_PREFIX = ".";
 const TERMINAL_EXTENSION_PATTERN = /\.[^.]+$/u;
 const TYPESCRIPT_SOURCE_EXTENSIONS = [".ts", ".tsx", ".mts", ".cts"] as const;
 const TYPESCRIPT_DECLARATION_EXTENSIONS = [".d.ts", ".d.mts", ".d.cts"] as const;
+const GLOB_DIRECTORY_MATCH_CACHE_KEY_SEPARATOR = "\u0000";
 export const TYPESCRIPT_SCOPE_DIRECTORY_PROBE_FILENAME = "__spx_scope_probe__.ts";
 export const TYPESCRIPT_FALLBACK_INCLUDE_PATTERNS = [
   "**/*.ts",
@@ -333,24 +334,55 @@ function globPatternCanMatchInsideDirectory(
   directorySegments: readonly string[],
   patternIndex = 0,
   directoryIndex = 0,
+  cache: Map<string, boolean> = new Map(),
 ): boolean {
+  const cacheKey = [
+    patternIndex,
+    directoryIndex,
+  ].join(GLOB_DIRECTORY_MATCH_CACHE_KEY_SEPARATOR);
+  const cachedResult = cache.get(cacheKey);
+  if (cachedResult !== undefined) {
+    return cachedResult;
+  }
+
+  let result: boolean;
   if (directoryIndex === directorySegments.length) {
-    return true;
-  }
-  if (patternIndex === patternSegments.length) {
-    return false;
+    result = true;
+  } else if (patternIndex === patternSegments.length) {
+    result = false;
+  } else {
+    const patternSegment = patternSegments[patternIndex];
+    if (patternSegment === RECURSIVE_GLOB_SEGMENT) {
+      result = globPatternCanMatchInsideDirectory(
+        patternSegments,
+        directorySegments,
+        patternIndex + 1,
+        directoryIndex,
+        cache,
+      )
+        || globPatternCanMatchInsideDirectory(
+          patternSegments,
+          directorySegments,
+          patternIndex,
+          directoryIndex + 1,
+          cache,
+        );
+    } else {
+      const directorySegment = directorySegments[directoryIndex];
+      result = directorySegment !== undefined
+        && globSegmentMatchesPathSegment(patternSegment, directorySegment)
+        && globPatternCanMatchInsideDirectory(
+          patternSegments,
+          directorySegments,
+          patternIndex + 1,
+          directoryIndex + 1,
+          cache,
+        );
+    }
   }
 
-  const patternSegment = patternSegments[patternIndex];
-  if (patternSegment === RECURSIVE_GLOB_SEGMENT) {
-    return globPatternCanMatchInsideDirectory(patternSegments, directorySegments, patternIndex + 1, directoryIndex)
-      || globPatternCanMatchInsideDirectory(patternSegments, directorySegments, patternIndex, directoryIndex + 1);
-  }
-
-  const directorySegment = directorySegments[directoryIndex];
-  return directorySegment !== undefined
-    && globSegmentMatchesPathSegment(patternSegment, directorySegment)
-    && globPatternCanMatchInsideDirectory(patternSegments, directorySegments, patternIndex + 1, directoryIndex + 1);
+  cache.set(cacheKey, result);
+  return result;
 }
 
 export function typeScriptScopePatternHasGlob(pattern: string): boolean {

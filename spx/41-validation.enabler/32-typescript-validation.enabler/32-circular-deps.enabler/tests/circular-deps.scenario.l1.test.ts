@@ -10,6 +10,7 @@ import {
   circularCommand,
   type CircularCommandDeps,
 } from "@/commands/validation/circular";
+import { CONFIG_FILENAMES } from "@/config/index";
 import {
   formatTypeScriptAbsentSkipMessage,
   formatValidationPathsNoTargetsSkipMessage,
@@ -18,7 +19,11 @@ import {
   VALIDATION_STAGE_DISPLAY_NAMES,
 } from "@/commands/validation/messages";
 import { validationCliDefinition } from "@/interfaces/cli/validation";
-import { TSCONFIG_FILES, TYPESCRIPT_SCOPE_DIRECTORY_PATTERN_SUFFIX } from "@/validation/config/scope";
+import {
+  TSCONFIG_FILES,
+  TYPESCRIPT_SCOPE_DIRECTORY_PATTERN_SUFFIX,
+  typeScriptScopePatternIntersectsDirectory,
+} from "@/validation/config/scope";
 import {
   CIRCULAR_DEPS_KEYS,
   type CircularDeps,
@@ -27,7 +32,6 @@ import {
   DEPENDENCY_CRUISER_MODULE_SYSTEMS,
   DEPENDENCY_CRUISER_NON_STRUCTURED_OUTPUT_ERROR,
   DEPENDENCY_CRUISER_PACKAGE_EXCLUDE_PATTERN,
-  DEPENDENCY_CRUISER_TYPESCRIPT_DECLARATION_RESOLVE_EXTENSIONS,
   DEPENDENCY_CRUISER_TS_PRE_COMPILATION_DEPS,
   DEPENDENCY_CRUISER_TYPESCRIPT_RESOLVE_EXTENSIONS,
   DEPENDENCY_CRUISER_TYPESCRIPT_SOURCE_GLOB_SUFFIXES,
@@ -345,9 +349,6 @@ describe("circular dependency filtering", () => {
     expect(config?.enhancedResolveOptions?.extensions).toEqual([
       ...DEPENDENCY_CRUISER_TYPESCRIPT_RESOLVE_EXTENSIONS,
     ]);
-    expect(config?.enhancedResolveOptions?.extensions).toEqual(
-      expect.arrayContaining([...DEPENDENCY_CRUISER_TYPESCRIPT_DECLARATION_RESOLVE_EXTENSIONS]),
-    );
     expect(config?.tsConfig?.fileName).toBe(join(projectRoot, TSCONFIG_FILES.full));
     expect(config?.tsPreCompilationDeps).toBe(DEPENDENCY_CRUISER_TS_PRE_COMPILATION_DEPS);
     expect(resolveOptions).toBeUndefined();
@@ -508,9 +509,60 @@ describe("circular dependency filtering", () => {
     expect(config?.exclude).toEqual({
       path: [
         DEPENDENCY_CRUISER_PACKAGE_EXCLUDE_PATTERN,
-        String.raw`^(?:.*\/)?[^/]*\.test\.ts$`,
+        String.raw`(^|/)(?:.*/|)[^/]*\.test\.ts$`,
       ],
     });
+  });
+
+  it("allows dependency-cruiser glob excludes to match prefixed module paths", async () => {
+    const { dependencyGraphCalls, result } = await validateCircularScopeWithRecording({
+      directories: [analyzeDirectory],
+      filePatterns: [],
+      excludePatterns: [VALIDATION_PIPELINE_DATA.prefixedDependencyExcludePattern],
+    });
+
+    expect(result.success).toBe(true);
+    expect(dependencyGraphCalls).toHaveLength(1);
+    const [, config] = dependencyGraphCalls[0] ?? [];
+    const expectedExcludePattern = String.raw`(^|/)dist(/.*|$)`;
+    expect(config?.exclude).toEqual({
+      path: [
+        DEPENDENCY_CRUISER_PACKAGE_EXCLUDE_PATTERN,
+        expectedExcludePattern,
+      ],
+    });
+    expect(new RegExp(expectedExcludePattern).test(VALIDATION_PIPELINE_DATA.prefixedDependencyExcludedFile)).toBe(true);
+    expect(new RegExp(expectedExcludePattern).test(`./${VALIDATION_PIPELINE_DATA.prefixedDependencyExcludedFile}`)).toBe(
+      true,
+    );
+  });
+
+  it("converts recursive dependency-cruiser glob excludes without unsafe regex shapes", async () => {
+    const { dependencyGraphCalls, result } = await validateCircularScopeWithRecording({
+      directories: [VALIDATION_PIPELINE_DATA.sourceDirectoryName],
+      filePatterns: [],
+      excludePatterns: [VALIDATION_PIPELINE_DATA.recursiveDependencyExcludePattern],
+    });
+
+    expect(result.success).toBe(true);
+    expect(dependencyGraphCalls).toHaveLength(1);
+    const [, config] = dependencyGraphCalls[0] ?? [];
+    const expectedExcludePattern = String.raw`(^|/)src(/.*/|/)generated(/.*|$)`;
+    expect(config?.exclude).toEqual({
+      path: [
+        DEPENDENCY_CRUISER_PACKAGE_EXCLUDE_PATTERN,
+        expectedExcludePattern,
+      ],
+    });
+    expect(new RegExp(expectedExcludePattern).test(VALIDATION_PIPELINE_DATA.recursiveDependencyRootExcludedFile)).toBe(
+      true,
+    );
+    expect(new RegExp(expectedExcludePattern).test(VALIDATION_PIPELINE_DATA.recursiveDependencyNestedExcludedFile)).toBe(
+      true,
+    );
+    expect(new RegExp(expectedExcludePattern).test(
+      `./${VALIDATION_PIPELINE_DATA.recursiveDependencyNestedExcludedFile}`,
+    )).toBe(true);
   });
 
   it("fails clearly when dependency-cruiser returns non-structured reporter output", async () => {
@@ -701,6 +753,39 @@ describe("circular command scope routing", () => {
     });
   });
 
+  it("honors recursive generated-file excludes accepted by dependency-cruiser", async () => {
+    await withValidationEnv({ fixture: PROJECT_FIXTURES.CLEAN_PROJECT }, async ({ path }) => {
+      const generatedDir = join(path, VALIDATION_PIPELINE_DATA.sourceDirectoryName, "generated");
+      await mkdir(generatedDir, { recursive: true });
+      await writeFile(
+        join(generatedDir, "cycle-a.ts"),
+        `import { cycleB } from "./cycle-b";\n\nexport function cycleA(): string {\n  return cycleB();\n}\n`,
+      );
+      await writeFile(
+        join(generatedDir, "cycle-b.ts"),
+        `import { cycleA } from "./cycle-a";\n\nexport function cycleB(): string {\n  return cycleA();\n}\n`,
+      );
+      await writeFile(
+        join(path, TSCONFIG_FILES.full),
+        JSON.stringify({
+          compilerOptions: {
+            target: "ES2020",
+            module: "commonjs",
+            strict: true,
+          },
+          include: [VALIDATION_PIPELINE_DATA.productionScopeFilePattern],
+          exclude: [VALIDATION_PIPELINE_DATA.recursiveDependencyExcludePattern],
+        }),
+      );
+
+      const result = await circularCommand({ cwd: path });
+
+      expect(result.exitCode).toBe(VALIDATION_EXIT_CODES.SUCCESS);
+      expect(result.output).toContain(VALIDATION_COMMAND_OUTPUT.CIRCULAR_NONE_FOUND);
+      expect(result.output).not.toContain(VALIDATION_COMMAND_OUTPUT.CIRCULAR_FOUND);
+    });
+  });
+
   it("skips circular validation without invoking dependency-cruiser when TypeScript is absent", async () => {
     await withValidationEnv({ fixture: PROJECT_FIXTURES.BARE_PROJECT }, async ({ path }) => {
       const { deps, validationCalls } = createRecordingCircularCommandDeps();
@@ -777,6 +862,50 @@ describe("circular command scope routing", () => {
             directories: [],
             filePatterns: [VALIDATION_PIPELINE_DATA.productionScopeFilePattern],
             excludePatterns: [],
+          },
+        ],
+      );
+    });
+  });
+
+  it("forwards --files directories covered by config include when tsconfig uses default includes", async () => {
+    await withValidationEnv({ fixture: PROJECT_FIXTURES.CLEAN_PROJECT }, async ({ path }) => {
+      const apiDirectory = join(VALIDATION_PIPELINE_DATA.sourceDirectoryName, "api");
+      await mkdir(join(path, apiDirectory), { recursive: true });
+      await writeFile(join(path, apiDirectory, VALIDATION_PIPELINE_DATA.cleanSourceFileName), "export const api = true;\n");
+      await writeFile(
+        join(path, TSCONFIG_FILES.full),
+        JSON.stringify({
+          compilerOptions: {
+            target: "ES2020",
+            module: "commonjs",
+            strict: true,
+          },
+        }),
+      );
+      await writeFile(
+        join(path, CONFIG_FILENAMES.yaml),
+        [
+          "validation:",
+          "  paths:",
+          "    circular:",
+          "      include:",
+          `        - ${VALIDATION_PIPELINE_DATA.sourceDirectoryName}`,
+          "",
+        ].join("\n"),
+      );
+
+      await expectCircularCommandScopes(
+        path,
+        [`${apiDirectory}/`],
+        [
+          {
+            directories: [apiDirectory],
+            filePatterns: [],
+            excludePatterns: [],
+            filteredByValidationPathIncludes: true,
+            filteredByValidationPathNoMatches: false,
+            filteredByValidationPaths: true,
           },
         ],
       );
@@ -1310,9 +1439,18 @@ describe("circular command scope routing", () => {
     expect(config?.exclude).toEqual({
       path: [
         DEPENDENCY_CRUISER_PACKAGE_EXCLUDE_PATTERN,
-        String.raw`^src\/[^/]\/ignored\.ts$`,
+        String.raw`(^|/)src/[^/]/ignored\.ts$`,
       ],
     });
+  });
+
+  it("resolves repeated recursive glob directory matching with bounded work", () => {
+    expect(
+      typeScriptScopePatternIntersectsDirectory(
+        VALIDATION_PIPELINE_DATA.recursiveGlobStressPattern,
+        VALIDATION_PIPELINE_DATA.recursiveGlobStressDirectory,
+      ),
+    ).toBe(true);
   });
 
   it("forwards explicit modern TypeScript module files as dependency-cruiser file scope", async () => {
