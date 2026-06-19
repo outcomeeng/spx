@@ -288,6 +288,43 @@ describe("ALWAYS: TypeScript scope resolution uses the requested project root", 
     });
   });
 
+  it.each(VALIDATION_PIPELINE_DATA.extensionSpecificExcludeScenarios)(
+    "ignores directories whose only TypeScript source matches $excludePattern",
+    async ({ excludePattern, sourceFileName }) => {
+      const excludedSourceFile = join(VALIDATION_PIPELINE_DATA.sourceDirectoryName, sourceFileName);
+      await withTestEnv({}, async (env) => {
+        await env.writeRaw(excludedSourceFile, "");
+        await env.writeRaw(TSCONFIG_FILES.full, JSON.stringify({ exclude: [excludePattern] }));
+
+        const scope = getTypeScriptScope(VALIDATION_SCOPES.FULL, env.productDir);
+
+        expect(scope.directories).not.toContain(VALIDATION_PIPELINE_DATA.sourceDirectoryName);
+        expect(pathPassesTypeScriptScope(excludedSourceFile, scope)).toBe(false);
+      });
+    },
+  );
+
+  it("keeps directories that contain TypeScript sources not matched by an extension-specific exclude", async () => {
+    await withTestEnv({}, async (env) => {
+      const excludedSourceFile = join(
+        VALIDATION_PIPELINE_DATA.sourceDirectoryName,
+        VALIDATION_PIPELINE_DATA.typeScriptJsxSourceFileName,
+      );
+      await env.writeRaw(excludedSourceFile, "");
+      await env.writeRaw(topLevelSourceFile, "");
+      await env.writeRaw(
+        TSCONFIG_FILES.full,
+        JSON.stringify({ exclude: [VALIDATION_PIPELINE_DATA.typeScriptJsxSourceFilePattern] }),
+      );
+
+      const scope = getTypeScriptScope(VALIDATION_SCOPES.FULL, env.productDir);
+
+      expect(scope.directories).toContain(VALIDATION_PIPELINE_DATA.sourceDirectoryName);
+      expect(pathPassesTypeScriptScope(excludedSourceFile, scope)).toBe(false);
+      expect(pathPassesTypeScriptScope(topLevelSourceFile, scope)).toBe(true);
+    });
+  });
+
   it("does not discover directories outside explicit TypeScript include patterns", async () => {
     await withTestEnv({}, async (env) => {
       await env.writeRaw(

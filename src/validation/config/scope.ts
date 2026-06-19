@@ -39,7 +39,8 @@ const TERMINAL_EXTENSION_PATTERN = /\.[^.]+$/u;
 const TYPESCRIPT_SOURCE_EXTENSIONS = [".ts", ".tsx", ".mts", ".cts"] as const;
 const TYPESCRIPT_DECLARATION_EXTENSIONS = [".d.ts", ".d.mts", ".d.cts"] as const;
 const GLOB_DIRECTORY_MATCH_CACHE_KEY_SEPARATOR = "\u0000";
-export const TYPESCRIPT_SCOPE_DIRECTORY_PROBE_FILENAME = "__spx_scope_probe__.ts";
+const TYPESCRIPT_SCOPE_DIRECTORY_PROBE_STEM = "__spx_scope_probe__";
+export const TYPESCRIPT_SCOPE_DIRECTORY_PROBE_FILENAME = `${TYPESCRIPT_SCOPE_DIRECTORY_PROBE_STEM}.ts`;
 export const TYPESCRIPT_SCOPE_PROJECT_ROOT = ".";
 export const TYPESCRIPT_FALLBACK_INCLUDE_PATTERNS = [
   "**/*.ts",
@@ -99,6 +100,11 @@ export interface ExplicitTypeScriptScopeTargetFilter {
   readonly validationPathFilter: ValidationPathFilterConfig;
   readonly scopeConfig: ScopeConfig;
   readonly requireExistingPaths?: boolean;
+}
+
+interface TypeScriptFileDiscoveryOptions {
+  readonly projectRoot?: string;
+  readonly excludePatterns?: readonly string[];
 }
 
 interface PatternDirectoryAdvance {
@@ -191,6 +197,7 @@ export function hasTypeScriptFilesRecursive(
   dirPath: string,
   maxDepth: number = 2,
   deps: ScopeDeps = defaultScopeDeps,
+  options: TypeScriptFileDiscoveryOptions = {},
 ): boolean {
   if (maxDepth <= 0) return false;
 
@@ -199,7 +206,10 @@ export function hasTypeScriptFilesRecursive(
 
     // Check for TypeScript files in current directory
     const hasDirectTsFiles = items.some(
-      (item) => item.isFile() && pathHasTypeScriptSourceExtension(item.name),
+      (item) =>
+        item.isFile()
+        && pathHasTypeScriptSourceExtension(item.name)
+        && pathPassesTypeScriptFileDiscoveryExcludes(join(dirPath, item.name), options),
     );
 
     if (hasDirectTsFiles) return true;
@@ -208,7 +218,7 @@ export function hasTypeScriptFilesRecursive(
     const subdirs = items.filter((item) => item.isDirectory() && !item.name.startsWith("."));
     for (const subdir of subdirs.slice(0, 5)) {
       // Limit to first 5 subdirs
-      if (hasTypeScriptFilesRecursive(join(dirPath, subdir.name), maxDepth - 1, deps)) {
+      if (hasTypeScriptFilesRecursive(join(dirPath, subdir.name), maxDepth - 1, deps, options)) {
         return true;
       }
     }
@@ -217,6 +227,18 @@ export function hasTypeScriptFilesRecursive(
   } catch {
     return false;
   }
+}
+
+function pathPassesTypeScriptFileDiscoveryExcludes(
+  path: string,
+  options: TypeScriptFileDiscoveryOptions,
+): boolean {
+  const { excludePatterns = [], projectRoot } = options;
+  if (projectRoot === undefined) {
+    return true;
+  }
+  const projectRelativePath = toProjectRelativeTypeScriptScopePath(projectRoot, path);
+  return !excludePatterns.some((pattern) => pathMatchesTypeScriptPattern(projectRelativePath, pattern));
 }
 
 /**
@@ -246,28 +268,18 @@ export function getTopLevelDirectoriesWithTypeScript(
       continue;
     }
 
-    // Check if directory is explicitly excluded
-    const isExcluded = config.exclude?.some((pattern) => {
-      // Handle directory-recursive patterns like "docs/**/*"
-      if (pattern.includes("/**")) {
-        const dirPattern = pattern.split("/**")[0];
-        return dirPattern === dir;
+    // Check if directory has TypeScript files that remain after tsconfig excludes.
+    try {
+      const hasTypeScriptFiles = hasTypeScriptFilesRecursive(join(projectRoot, dir), 2, deps, {
+        excludePatterns: config.exclude,
+        projectRoot,
+      });
+      if (hasTypeScriptFiles) {
+        directories.add(dir);
       }
-      // Handle exact matches and directory patterns
-      return pattern === dir || pattern.startsWith(dir + "/") || pattern === dir + "/**";
-    });
-
-    if (!isExcluded) {
-      // Check if directory has TypeScript files
-      try {
-        const hasTypeScriptFiles = hasTypeScriptFilesRecursive(join(projectRoot, dir), 2, deps);
-        if (hasTypeScriptFiles) {
-          directories.add(dir);
-        }
-      } catch {
-        // Directory access error, skip
-        continue;
-      }
+    } catch {
+      // Directory access error, skip
+      continue;
     }
   }
 
@@ -457,8 +469,13 @@ function typeScriptScopePatternCoversDirectory(pattern: string, directory: strin
     return normalizedPattern === normalizedDirectory
       || pathMatchesLiteralPrefix(normalizedDirectory, normalizedPattern);
   }
-  const probePath = `${normalizedDirectory}/${TYPESCRIPT_SCOPE_DIRECTORY_PROBE_FILENAME}`;
-  return pathMatchesTypeScriptPattern(probePath, normalizedPattern);
+  return typeScriptScopePatternMatchesAnyDirectorySourceProbe(normalizedPattern, normalizedDirectory);
+}
+
+function typeScriptScopePatternMatchesAnyDirectorySourceProbe(pattern: string, directory: string): boolean {
+  return TYPESCRIPT_SOURCE_EXTENSIONS.some((extension) =>
+    pathMatchesTypeScriptPattern(`${directory}/${TYPESCRIPT_SCOPE_DIRECTORY_PROBE_STEM}${extension}`, pattern)
+  );
 }
 
 export function typeScriptScopePatternCoversDirectorySourceSet(pattern: string, directory: string): boolean {

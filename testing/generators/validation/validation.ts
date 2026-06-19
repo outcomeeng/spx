@@ -77,6 +77,9 @@ const TEST_SCOPE_FILE_PATTERN = `${TEST_DIRECTORY_NAME}/**/*`;
 // Mirrors an actual tsconfig.production.json exclude entry.
 const PRODUCTION_SCOPE_EXCLUDE_PATTERN = "docs/**/*";
 const TEST_FILE_EXCLUDE_PATTERN = "**/*.test.ts";
+const TYPESCRIPT_JSX_SOURCE_FILE_PATTERN = "src/**/*.tsx";
+const MODERN_SOURCE_FILE_PATTERN = "src/**/*.mts";
+const COMMONJS_SOURCE_FILE_PATTERN = "src/**/*.cts";
 const PREFIXED_DEPENDENCY_EXCLUDE_PATTERN = "dist/**";
 const PREFIXED_DEPENDENCY_EXCLUDED_FILE = "dist/generated.ts";
 const RECURSIVE_DEPENDENCY_EXCLUDE_PATTERN = "src/**/generated/**/*";
@@ -84,6 +87,7 @@ const RECURSIVE_DEPENDENCY_ROOT_DIRECTORY_NAME = "generated";
 const RECURSIVE_DEPENDENCY_ROOT_EXCLUDED_FILE = "src/generated/output.ts";
 const RECURSIVE_DEPENDENCY_NESTED_EXCLUDED_FILE = "src/feature/generated/output.ts";
 const ABSENT_SCOPE_FILE_PATTERN = "scripts/**/*";
+const TYPESCRIPT_JSX_SOURCE_FILE_NAME = "component.tsx";
 const MODERN_SOURCE_FILE_NAME = "modern.mts";
 const COMMONJS_SOURCE_FILE_NAME = "commonjs.cts";
 const CLEAN_SOURCE_FILE_NAME = "clean.ts";
@@ -165,6 +169,11 @@ export interface ValidationStructuralMappingScenario {
   readonly expectedChildren: ReadonlySet<string>;
 }
 
+export interface ExtensionSpecificExcludeScenario {
+  readonly excludePattern: string;
+  readonly sourceFileName: string;
+}
+
 export const VALIDATION_PIPELINE_SCENARIO_KIND = {
   CLEAN_PROJECT: "cleanProject",
   FAILURE_IDENTIFIES_STEP: "failureIdentifiesStep",
@@ -188,6 +197,21 @@ export interface ValidationPipelineScenario {
   readonly kind: ValidationPipelineScenarioKind;
   readonly timeout: number;
 }
+
+const EXTENSION_SPECIFIC_EXCLUDE_SCENARIOS: readonly ExtensionSpecificExcludeScenario[] = [
+  {
+    excludePattern: TYPESCRIPT_JSX_SOURCE_FILE_PATTERN,
+    sourceFileName: TYPESCRIPT_JSX_SOURCE_FILE_NAME,
+  },
+  {
+    excludePattern: MODERN_SOURCE_FILE_PATTERN,
+    sourceFileName: MODERN_SOURCE_FILE_NAME,
+  },
+  {
+    excludePattern: COMMONJS_SOURCE_FILE_PATTERN,
+    sourceFileName: COMMONJS_SOURCE_FILE_NAME,
+  },
+];
 
 export const VALIDATION_PIPELINE_DATA = {
   enablerSuffix: VALIDATION_ENABLER_SUFFIX,
@@ -245,6 +269,9 @@ export const VALIDATION_PIPELINE_DATA = {
   testScopeFilePattern: TEST_SCOPE_FILE_PATTERN,
   productionScopeExcludePattern: PRODUCTION_SCOPE_EXCLUDE_PATTERN,
   testFileExcludePattern: TEST_FILE_EXCLUDE_PATTERN,
+  typeScriptJsxSourceFilePattern: TYPESCRIPT_JSX_SOURCE_FILE_PATTERN,
+  modernSourceFilePattern: MODERN_SOURCE_FILE_PATTERN,
+  commonjsSourceFilePattern: COMMONJS_SOURCE_FILE_PATTERN,
   prefixedDependencyExcludePattern: PREFIXED_DEPENDENCY_EXCLUDE_PATTERN,
   prefixedDependencyExcludedFile: PREFIXED_DEPENDENCY_EXCLUDED_FILE,
   recursiveDependencyExcludePattern: RECURSIVE_DEPENDENCY_EXCLUDE_PATTERN,
@@ -255,12 +282,14 @@ export const VALIDATION_PIPELINE_DATA = {
   fullTsconfigFile: TSCONFIG_FILES.full,
   sourceDirectoryName: "src",
   cleanSourceFileName: CLEAN_SOURCE_FILE_NAME,
+  typeScriptJsxSourceFileName: TYPESCRIPT_JSX_SOURCE_FILE_NAME,
   modernSourceFileName: MODERN_SOURCE_FILE_NAME,
   commonjsSourceFileName: COMMONJS_SOURCE_FILE_NAME,
   declarationSourceFileName: DECLARATION_SOURCE_FILE_NAME,
   modernDeclarationSourceFileName: MODERN_DECLARATION_SOURCE_FILE_NAME,
   commonjsDeclarationSourceFileName: COMMONJS_DECLARATION_SOURCE_FILE_NAME,
   extensionlessSourceFileName: EXTENSIONLESS_SOURCE_FILE_NAME,
+  extensionSpecificExcludeScenarios: EXTENSION_SPECIFIC_EXCLUDE_SCENARIOS,
   recursiveNamedSourceFilePattern: RECURSIVE_NAMED_SOURCE_FILE_PATTERN,
   singleLevelNamedSourceFilePattern: SINGLE_LEVEL_NAMED_SOURCE_FILE_PATTERN,
   recursiveMarkdownSourceFilePattern: RECURSIVE_MARKDOWN_SOURCE_FILE_PATTERN,
