@@ -25,11 +25,21 @@ import {
 } from "@/domains/session/pick-model";
 import { DEFAULT_PRIORITY, type Session, SESSION_PRIORITY, type SessionPriority } from "@/domains/session/types";
 
+/** The title rendered on the first line, above the filter and list. */
+export const SESSION_PICKER_TITLE = "Pick a session to claim";
+
 /** The empty-state line shown when no claimable session matches. */
 export const SESSION_PICKER_EMPTY_TEXT = "No claimable sessions.";
 
 /** The keybinding hint, rendered on its own footer line below the list. */
 export const SESSION_PICKER_HINT = "↑/↓ move · type to filter · ⏎ claim · esc cancel";
+
+/** The bold marker on the selected row. */
+export const SESSION_PICKER_SELECTED_MARKER = "❯";
+
+/** Preview-pane field labels (each followed by one space, then the value). */
+export const PREVIEW_GOAL_LABEL = "goal:";
+export const PREVIEW_NEXT_LABEL = "next:";
 
 /** Terminal width assumed when the output stream reports none. */
 const FALLBACK_COLUMNS = 80;
@@ -50,6 +60,8 @@ export interface SessionPickerProps {
   readonly onClaim: (session: Session) => void;
   /** Invoked when the operator cancels without claiming. */
   readonly onCancel: () => void;
+  /** Row width override; defaults to the terminal's column count, then `FALLBACK_COLUMNS`. */
+  readonly columns?: number;
 }
 
 /** Translates Ink's key object into the renderer-agnostic `PickerKey`. */
@@ -73,7 +85,7 @@ function SessionRow(
   { session, selected, columns }: { readonly session: Session; readonly selected: boolean; readonly columns: number },
 ): ReactElement {
   const priority = session.metadata.priority;
-  const marker = selected ? "❯" : " ";
+  const marker = selected ? SESSION_PICKER_SELECTED_MARKER : " ";
   const badge = priority === DEFAULT_PRIORITY ? "" : ` [${priority}]`;
   // Reserve the fixed-width lead — "{marker} {id}{badge} " — then truncate the goal to what is left.
   const reserved = marker.length + 1 + session.id.length + badge.length + 1;
@@ -106,8 +118,8 @@ function PreviewPane({ session }: { readonly session: Session | null }): ReactEl
   }
   return (
     <Box flexDirection="column" marginTop={1}>
-      <PreviewField label="goal:" value={session.metadata.goal} />
-      <PreviewField label="next:" value={session.metadata.next_step} />
+      <PreviewField label={PREVIEW_GOAL_LABEL} value={session.metadata.goal} />
+      <PreviewField label={PREVIEW_NEXT_LABEL} value={session.metadata.next_step} />
     </Box>
   );
 }
@@ -118,9 +130,11 @@ function PreviewPane({ session }: { readonly session: Session | null }): ReactEl
  * arrow keys, narrows on typed text, claims the selected session on Enter, and
  * cancels on Esc.
  */
-export function SessionPicker({ sessions, onClaim, onCancel }: SessionPickerProps): ReactElement {
+export function SessionPicker(
+  { sessions, onClaim, onCancel, columns: columnsProp }: SessionPickerProps,
+): ReactElement {
   const { stdout } = useStdout();
-  const columns = stdout?.columns ?? FALLBACK_COLUMNS;
+  const columns = columnsProp ?? stdout?.columns ?? FALLBACK_COLUMNS;
   const [state, setState] = useState(() => initialPickerState(sessions));
 
   useInput((input, key) => {
@@ -143,7 +157,7 @@ export function SessionPicker({ sessions, onClaim, onCancel }: SessionPickerProp
 
   return (
     <Box flexDirection="column">
-      <Text bold>Pick a session to claim</Text>
+      <Text bold>{SESSION_PICKER_TITLE}</Text>
       <Text dimColor>filter: {state.query}</Text>
       {visible.length === 0
         ? <Text dimColor>{SESSION_PICKER_EMPTY_TEXT}</Text>
