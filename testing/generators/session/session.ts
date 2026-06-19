@@ -317,8 +317,13 @@ export function claimableSession(overrides: Omit<MakeSessionOptions, "status"> =
   return makeSession({ ...overrides, status: CLAIMABLE_STATUS });
 }
 
-/** Characters that render predictably in a row or preview — no control chars, no wrapping surprises. */
-const RENDERABLE_UNIT = fc.constantFrom(..."abcdefghijklmnopqrstuvwxyz0123456789 ");
+/**
+ * Characters for text a render test reads back from the frame: letters and digits only, no
+ * whitespace. A render harness queries `frame.split("\n")` lines that Ink right-trims and the
+ * picker collapses via `toSingleLine`, so trailing/leading whitespace in generated text would not
+ * survive verbatim — whitespace-free tokens render exactly as generated, keeping `toContain` sound.
+ */
+const RENDERABLE_UNIT = fc.constantFrom(..."abcdefghijklmnopqrstuvwxyz0123456789");
 /** Filter-haystack characters: digits and space only, disjoint from the needle's letters. */
 const HAYSTACK_UNIT = fc.constantFrom(..."0123456789 ");
 /**
