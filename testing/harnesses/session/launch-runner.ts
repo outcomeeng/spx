@@ -14,7 +14,7 @@
 import type { ChildProcess, SpawnOptions } from "node:child_process";
 import { EventEmitter } from "node:events";
 
-import type { ProcessRunner } from "@/lib/process-lifecycle";
+import type { ProcessRunner, SignalSuspender } from "@/lib/process-lifecycle";
 
 const CHILD_EXIT_EVENT = "exit";
 const CHILD_ERROR_EVENT = "error";
@@ -58,5 +58,22 @@ export class RecordingLaunchRunner implements ProcessRunner {
     const child = new RecordingLaunchChild();
     this.children.push(child);
     return child.asChildProcess();
+  }
+}
+
+/**
+ * Records suspend and restore calls so a launcher test asserts that the handoff
+ * suspends the parent's signal handling before spawning and restores it on the
+ * agent's exit — without touching real process signals.
+ */
+export class RecordingSuspender implements SignalSuspender {
+  suspendCount = 0;
+  restoreCount = 0;
+
+  suspend(): () => void {
+    this.suspendCount += 1;
+    return () => {
+      this.restoreCount += 1;
+    };
   }
 }
