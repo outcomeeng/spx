@@ -66,4 +66,17 @@ describe("launchAgent exit status", () => {
     expect(await pending).toBeGreaterThan(0);
     expect(suspender.restoreCount).toBe(1);
   });
+
+  it("settles once when the agent emits both exit and error, restoring signals a single time", async () => {
+    const status = sample(fc.integer({ min: 0, max: 255 }));
+    const runner = new RecordingLaunchRunner();
+    const suspender = new RecordingSuspender();
+
+    const pending = launchAgent(runner, suspender, sampleCommand());
+    runner.children[0].emitExit(status);
+    runner.children[0].emitError(new Error(sample(fc.string())));
+
+    expect(await pending).toBe(status);
+    expect(suspender.restoreCount).toBe(1);
+  });
 });

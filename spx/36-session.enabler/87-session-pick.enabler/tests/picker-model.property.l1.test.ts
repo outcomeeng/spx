@@ -20,6 +20,7 @@ import {
   PICKER_RUNTIME,
   type PickerKey,
   type PickerState,
+  pickupReference,
   reducePicker,
   toSingleLine,
   truncateToWidth,
@@ -137,19 +138,32 @@ describe("picker model invariants", () => {
     );
   });
 
-  it("builds the agent command from the runtime, auto-continue flag, and session id", () => {
+  it("builds the agent command from the runtime, auto-continue flag, and session reference", () => {
     fc.assert(
       fc.property(
         fc.constantFrom(...Object.values(PICKER_RUNTIME)),
         fc.boolean(),
         arbitrarySessionId(),
-        (runtime, autoContinue, id) => {
-          const { command, args } = buildPickupCommand(runtime, autoContinue, id);
+        (runtime, autoContinue, reference) => {
+          const { command, args } = buildPickupCommand(runtime, autoContinue, reference);
           const prefix = runtime === PICKER_RUNTIME.CLAUDE ? "/" : "$";
-          const expectedPrompt = `${prefix}pickup ${id}${autoContinue ? " --auto-continue" : ""}`;
+          const expectedPrompt = `${prefix}pickup ${reference}${autoContinue ? " --auto-continue" : ""}`;
           return command === runtime && args.length === 1 && args[0] === expectedPrompt;
         },
       ),
+    );
+  });
+
+  it("references the picked session by id for the default store and by absolute path for a custom store", () => {
+    fc.assert(
+      fc.property(arbitraryClaimableSession(), fc.string({ minLength: 1 }), (session, customDir) => {
+        const byDefault = pickupReference(session, undefined);
+        const byCustom = pickupReference(session, customDir);
+        return byDefault === session.id
+          && byDefault !== session.path
+          && byCustom === session.path
+          && byCustom !== session.id;
+      }),
     );
   });
 
