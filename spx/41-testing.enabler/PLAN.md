@@ -168,14 +168,19 @@ before every push. CI supplies broad verification after push.
 
 ### Slice 2: Targeted Operands
 
+Structured into its own child enabler at
+`spx/41-testing.enabler/90-targeted-execution.enabler`; the resolved design
+decisions and implementation pointers live in that node's PLAN.md. Implement it
+through `/apply spx/41-testing.enabler/90-targeted-execution.enabler`.
+
 Observable path:
 
 ```bash
 spx test passing -- spx/10-my-feature.enabler
 ```
 
-This slice should add explicit target operands for node paths and concrete test
-file paths. It should resolve operands before passing-scope filtering and route
+This slice adds explicit target operands for node paths and concrete test
+file paths. It resolves operands before passing-scope filtering and routes
 the selected files through the same runner adapter/environment pipeline.
 
 This slice is urgent because broad `spx test passing` is too expensive for
