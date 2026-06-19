@@ -11,6 +11,7 @@ import {
 } from "@/commands/audit/lifecycle";
 import { AUDIT_RUN_STATE_STATUS } from "@/domains/audit/run-state";
 import type { Domain } from "@/domains/types";
+import { EPIPE_CODE } from "@/lib/process-lifecycle";
 
 export const AUDIT_CLI = {
   commandName: "audit",
@@ -141,15 +142,22 @@ export const auditDomain: Domain = {
 };
 
 async function report(result: AuditCommandResult): Promise<void> {
-  await writeOutput(result.exitCode === 0 ? process.stdout : process.stderr, result.output);
-  process.exit(result.exitCode);
+  const completed = await writeOutput(result.exitCode === 0 ? process.stdout : process.stderr, result.output);
+  if (completed) process.exit(result.exitCode);
 }
 
-async function writeOutput(stream: NodeJS.WriteStream, output: string): Promise<void> {
-  await new Promise<void>((resolve, reject) => {
+async function writeOutput(stream: NodeJS.WriteStream, output: string): Promise<boolean> {
+  return await new Promise<boolean>((resolve, reject) => {
     stream.write(output, (error?: Error | null) => {
-      if (error !== undefined && error !== null) reject(error);
-      else resolve();
+      if (error === undefined || error === null) {
+        resolve(true);
+        return;
+      }
+      if ((error as NodeJS.ErrnoException).code === EPIPE_CODE) {
+        resolve(false);
+        return;
+      }
+      reject(error);
     });
   });
 }
