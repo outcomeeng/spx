@@ -22,4 +22,20 @@ describe("circular dependency validation subprocess", () => {
       });
     },
   );
+
+  it(
+    "packaged CLI reports real circular dependencies",
+    { timeout: HARNESS_TIMEOUT },
+    async () => {
+      await withValidationEnv({ fixture: PROJECT_FIXTURES.WITH_CIRCULAR_DEPS }, async ({ path }) => {
+        const result = await runValidationSubprocess(
+          [validationCliDefinition.subcommands.circular.commandName],
+          { cwd: path },
+        );
+
+        expect(result.exitCode).not.toBe(VALIDATION_EXIT_CODES.SUCCESS);
+        expect(result.stdout).toContain(VALIDATION_COMMAND_OUTPUT.CIRCULAR_FOUND);
+      });
+    },
+  );
 });
