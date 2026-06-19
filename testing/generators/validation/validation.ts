@@ -71,6 +71,7 @@ const PRODUCTION_SCOPE_EXCLUDE_PATTERN = "docs/**/*";
 const TEST_FILE_EXCLUDE_PATTERN = "**/*.test.ts";
 const ABSENT_SCOPE_FILE_PATTERN = "scripts/**/*";
 const MODERN_SOURCE_FILE_NAME = "modern.mts";
+const MISSING_SOURCE_DIRECTORY_NAME = "missing";
 const TYPE_ERROR_REPLACEMENT_PATTERN = /const x:\s*number\s*=\s*"[^"]+";?/g;
 const TYPE_ERROR_REPLACEMENT = "const x: number = 0;";
 const OUTPUT_LINE_SEPARATOR = "\n";
@@ -189,6 +190,7 @@ export const VALIDATION_PIPELINE_DATA = {
   sourceDirectoryName: "src",
   cleanSourceFileName: "clean.ts",
   modernSourceFileName: MODERN_SOURCE_FILE_NAME,
+  missingSourceDirectoryName: MISSING_SOURCE_DIRECTORY_NAME,
   circularSkipASourceSegments: CIRCULAR_SKIP_A_SOURCE_SEGMENTS,
   circularSkipBSourceSegments: CIRCULAR_SKIP_B_SOURCE_SEGMENTS,
   literalSkipSourceSegments: LITERAL_SKIP_SOURCE_SEGMENTS,

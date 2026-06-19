@@ -59,16 +59,14 @@ const EXPLICIT_PATH_TARGET_KIND = {
 
 function pathIsDirectoryOperand(projectRoot: string, originalPath: string, relativePath: string): boolean {
   const candidatePath = join(projectRoot, relativePath);
-  if (existsSync(candidatePath)) {
-    return statSync(candidatePath).isDirectory();
-  }
-  return originalPath.endsWith("/") || originalPath.endsWith("\\");
+  return existsSync(candidatePath) && statSync(candidatePath).isDirectory();
 }
 
 function pathStaysInsideProject(projectRoot: string, path: string): boolean {
   const resolvedPath = isAbsolute(path) ? resolve(path) : resolve(projectRoot, path);
   const relativePath = relative(projectRoot, resolvedPath);
-  return relativePath.length === 0 || (!relativePath.startsWith("..") && !isAbsolute(relativePath));
+  const segments = normalizeTypeScriptScopePath(relativePath).split("/");
+  return relativePath.length === 0 || (!segments.includes("..") && !isAbsolute(relativePath));
 }
 
 function toExplicitScopeConfig(
