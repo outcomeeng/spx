@@ -355,6 +355,41 @@ describe("circular dependency filtering", () => {
     expect(paths).toEqual([...expectedTypescriptSourcePatterns(analyzeDirectory), rootTypeScriptFilePattern]);
   });
 
+  it("converts glob exclude patterns before passing them to dependency-cruiser", async () => {
+    const dependencyGraphCalls: Parameters<CircularDependencyGraphRunner>[] = [];
+    const deps: CircularDeps = {
+      [CIRCULAR_DEPS_KEYS.DEPENDENCY_CRUISER]: async (...call): Promise<IReporterOutput> => {
+        dependencyGraphCalls.push(call);
+        return {
+          exitCode: 0,
+          output: createEmptyCruiseResult(),
+        };
+      },
+      [CIRCULAR_DEPS_KEYS.EXTRACT_TYPESCRIPT_CONFIG]: () => emptyTypescriptConfig,
+    };
+
+    const result = await validateCircularDependencies(
+      VALIDATION_SCOPES.FULL,
+      {
+        directories: [analyzeDirectory],
+        filePatterns: [],
+        excludePatterns: [VALIDATION_PIPELINE_DATA.testFileExcludePattern],
+      },
+      projectRoot,
+      deps,
+    );
+
+    expect(result.success).toBe(true);
+    expect(dependencyGraphCalls).toHaveLength(1);
+    const [, config] = dependencyGraphCalls[0] ?? [];
+    expect(config?.exclude).toEqual({
+      path: [
+        DEPENDENCY_CRUISER_PACKAGE_EXCLUDE_PATTERN,
+        "^(?:.*\\/)?[^/]*\\.test\\.ts$",
+      ],
+    });
+  });
+
   it("fails clearly when dependency-cruiser returns non-structured reporter output", async () => {
     const result = await validateCircularDependencies(
       VALIDATION_SCOPES.FULL,

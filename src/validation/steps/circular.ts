@@ -16,7 +16,12 @@ import {
 import extractTypeScriptConfig from "dependency-cruiser/config-utl/extract-ts-config";
 import { join } from "node:path";
 
-import { normalizeTypeScriptScopePath, pathHasTypeScriptSourceExtension, TSCONFIG_FILES } from "../config/scope";
+import {
+  normalizeTypeScriptScopePath,
+  pathHasTypeScriptSourceExtension,
+  TSCONFIG_FILES,
+  typeScriptScopeGlobPatternToRegExp,
+} from "../config/scope";
 import type { CircularDependencyResult, ScopeConfig, ValidationScope } from "../types";
 
 export const DEPENDENCY_CRUISER_MODULE_SYSTEMS = ["es6", "cjs"] as const;
@@ -100,6 +105,9 @@ export const defaultCircularDeps: CircularDeps = {
 function toDependencyCruiserExcludePatterns(patterns: readonly string[]): string[] {
   return patterns.map((pattern) => {
     const cleanPattern = pattern.replace(TSCONFIG_EXCLUDE_SUFFIX_PATTERN, "");
+    if (cleanPattern.includes(GLOB_MARKER)) {
+      return typeScriptScopeGlobPatternToRegExp(cleanPattern).source;
+    }
     return cleanPattern.replace(REGEX_SPECIAL_CHARACTER_PATTERN, REGEX_ESCAPE_REPLACEMENT);
   });
 }
