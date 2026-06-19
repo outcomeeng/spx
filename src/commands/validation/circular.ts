@@ -23,11 +23,10 @@ import {
   RECURSIVE_GLOB_SEGMENT,
   normalizeTypeScriptScopePath,
   pathHasTypeScriptSourceExtension,
+  pathMatchesTypeScriptPattern,
   pathPassesTypeScriptScope,
   TYPESCRIPT_SCOPE_DIRECTORY_PROBE_FILENAME,
-  typeScriptScopeGlobPatternToRegExp,
   typeScriptScopePatternCoversDirectorySourceSet,
-  typeScriptScopePatternHasGlob,
   typeScriptScopePatternIntersectsDirectory,
   typeScriptScopePatternTargetsTypeScriptSource,
 } from "@/validation/config/scope";
@@ -160,18 +159,6 @@ function patternSegmentMatchesDirectorySegment(patternSegment: string | undefine
     && globSegmentMatchesPathSegment(patternSegment, directorySegment);
 }
 
-function pathMatchesScopePattern(path: string, pattern: string): boolean {
-  const normalizedPath = normalizeTypeScriptScopePath(path);
-  const normalizedPattern = normalizeTypeScriptScopePath(pattern);
-  if (typeScriptScopePatternHasGlob(normalizedPattern)) {
-    return typeScriptScopeGlobPatternToRegExp(normalizedPattern).test(normalizedPath);
-  }
-  if (normalizedPath === normalizedPattern || normalizedPath.startsWith(`${normalizedPattern}/`)) {
-    return true;
-  }
-  return false;
-}
-
 function toExplicitScopeConfig(
   scopeConfig: ReturnType<typeof getTypeScriptScope>,
   targets: readonly ExplicitPathTarget[],
@@ -215,7 +202,7 @@ function toExplicitScopeConfig(
       )
     );
   const uncoveredExplicitFileTargets = explicitFileTargets.filter((path) =>
-    !scopedFilePatternsForDirectoryTargets.some((pattern) => pathMatchesScopePattern(path, pattern))
+    !scopedFilePatternsForDirectoryTargets.some((pattern) => pathMatchesTypeScriptPattern(path, pattern))
   );
   return {
     ...scopeConfig,

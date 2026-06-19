@@ -381,7 +381,7 @@ export function typeScriptScopeGlobPatternToRegExp(pattern: string): RegExp {
   return new RegExp(`^${source}$`, "u");
 }
 
-function pathMatchesTypeScriptPattern(path: string, pattern: string): boolean {
+export function pathMatchesTypeScriptPattern(path: string, pattern: string): boolean {
   if (typeScriptScopePatternHasGlob(pattern)) {
     return typeScriptScopeGlobPatternToRegExp(pattern).test(normalizeTypeScriptScopePath(path));
   }
