@@ -553,7 +553,6 @@ function noFollowWriteFlag(flag: string | undefined): number {
     return fsConstants.O_WRONLY
       | fsConstants.O_CREAT
       | fsConstants.O_EXCL
-      | fsConstants.O_TRUNC
       | fsConstants.O_NOFOLLOW;
   }
   if (flag === WRITE_EXISTING_FLAG) return fsConstants.O_RDWR | fsConstants.O_NOFOLLOW;
