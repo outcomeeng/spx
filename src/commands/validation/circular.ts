@@ -65,6 +65,7 @@ const EXPLICIT_PATH_TARGET_KIND = {
 
 const DEPENDENCY_CRUISER_PACKAGE_NAME = "dependency-cruiser";
 const PROJECT_ROOT_SCOPE_PATH = ".";
+const RECURSIVE_GLOB_PREFIX = "**/";
 
 function pathIsDirectoryOperand(projectRoot: string, relativePath: string): boolean {
   const candidatePath = join(projectRoot, relativePath);
@@ -90,6 +91,18 @@ function toCanonicalProjectRelativePath(projectRoot: string, path: string): stri
     : normalizeTypeScriptScopePath(relativePath);
 }
 
+function constrainPatternToDirectory(pattern: string, directory: string): string {
+  const normalizedPattern = normalizeTypeScriptScopePath(pattern);
+  const normalizedDirectory = normalizeTypeScriptScopePath(directory);
+  if (normalizedPattern === normalizedDirectory || normalizedPattern.startsWith(`${normalizedDirectory}/`)) {
+    return normalizedPattern;
+  }
+  const terminalSegment = normalizedPattern.split("/").at(-1) ?? normalizedPattern;
+  return terminalSegment.includes("*")
+    ? `${normalizedDirectory}/${RECURSIVE_GLOB_PREFIX}${terminalSegment}`
+    : `${normalizedDirectory}/${terminalSegment}`;
+}
+
 function toExplicitScopeConfig(
   scopeConfig: ReturnType<typeof getTypeScriptScope>,
   targets: readonly ExplicitPathTarget[],
@@ -104,13 +117,15 @@ function toExplicitScopeConfig(
     normalizeTypeScriptScopePath(pattern) === normalizeTypeScriptScopePath(directory);
   const directoryIsCoveredByPattern = (directory: string): boolean =>
     scopeConfig.filePatterns.some((pattern) => typeScriptScopePatternCoversDirectorySourceSet(pattern, directory));
-  const scopedFilePatternsForDirectoryTargets = scopeConfig.filePatterns.filter((pattern) =>
-    directoryTargets.some((directory) =>
-      !patternMatchesDirectoryTarget(pattern, directory)
-      && !directoryIsCoveredByPattern(directory)
-      && typeScriptScopePatternTargetsTypeScriptSource(pattern)
-      && typeScriptScopePatternIntersectsDirectory(pattern, directory)
-    )
+  const scopedFilePatternsForDirectoryTargets = scopeConfig.filePatterns.flatMap((pattern) =>
+    directoryTargets
+      .filter((directory) =>
+        !patternMatchesDirectoryTarget(pattern, directory)
+        && !directoryIsCoveredByPattern(directory)
+        && typeScriptScopePatternTargetsTypeScriptSource(pattern)
+        && typeScriptScopePatternIntersectsDirectory(pattern, directory)
+      )
+      .map((directory) => constrainPatternToDirectory(pattern, directory))
   );
   const narrowedDirectories = new Set(
     directoryTargets.filter((directory) =>
@@ -166,8 +181,14 @@ function targetPassesTypeScriptScope(target: ExplicitPathTarget, scopeConfig: Ty
   if (target.path === PROJECT_ROOT_SCOPE_PATH) {
     return scopeConfig.directories.length > 0 || scopeConfig.filePatterns.length > 0;
   }
-  return pathPassesTypeScriptScope(join(target.path, TYPESCRIPT_SCOPE_DIRECTORY_PROBE_FILENAME), scopeConfig)
-    || scopeConfig.filePatterns.some((pattern) => typeScriptScopePatternIntersectsDirectory(pattern, target.path));
+  const typeScriptSourcePatterns = scopeConfig.filePatterns.filter((pattern) =>
+    typeScriptScopePatternTargetsTypeScriptSource(pattern)
+  );
+  if (typeScriptSourcePatterns.length > 0) {
+    return typeScriptSourcePatterns.some((pattern) => typeScriptScopePatternIntersectsDirectory(pattern, target.path));
+  }
+  return scopeConfig.filePatterns.length === 0
+    && pathPassesTypeScriptScope(join(target.path, TYPESCRIPT_SCOPE_DIRECTORY_PROBE_FILENAME), scopeConfig);
 }
 
 function targetPassesProjectBoundary(projectRoot: string, originalPath: string): boolean {

@@ -65,6 +65,7 @@ const TEST_DIRECTORY_NAME = "tests" as const;
 const LITERAL_SKIP_TOKEN = "validation-all-skip-literal-token";
 const TYPE_ERROR_SOURCE_SEGMENTS = ["src", "has-type-error.ts"] as const;
 const PRODUCTION_SCOPE_FILE_PATTERN = "src/**/*";
+const NARROW_SOURCE_DIRECTORY_NAME = "api";
 const NARROW_PRODUCTION_SCOPE_FILE_PATTERN = "src/api/**/*.ts";
 const TYPESCRIPT_ONLY_SOURCE_FILE_PATTERN = "src/**/*.ts";
 const TEST_SCOPE_FILE_PATTERN = `${TEST_DIRECTORY_NAME}/**/*`;
@@ -80,6 +81,9 @@ const SINGLE_LEVEL_NAMED_SOURCE_FILE_PATTERN = `src/*/${CLEAN_SOURCE_FILE_NAME}`
 const RECURSIVE_MARKDOWN_SOURCE_FILE_PATTERN = "src/**/*.md";
 const SINGLE_CHARACTER_SOURCE_INCLUDE_PATTERN = `src/?/${CLEAN_SOURCE_FILE_NAME}`;
 const SINGLE_CHARACTER_SOURCE_EXCLUDE_PATTERN = "src/?/ignored.ts";
+const MARKDOWN_ONLY_DIRECTORY_NAME = "docs";
+const MARKDOWN_ONLY_FILE_NAME = "readme.md";
+const MARKDOWN_ONLY_FILE_PATTERN = `${MARKDOWN_ONLY_DIRECTORY_NAME}/**/*.md`;
 const MISSING_SOURCE_DIRECTORY_NAME = "missing";
 const TYPE_ERROR_REPLACEMENT_PATTERN = /const x:\s*number\s*=\s*"[^"]+";?/g;
 const TYPE_ERROR_REPLACEMENT = "const x: number = 0;";
@@ -190,6 +194,7 @@ export const VALIDATION_PIPELINE_DATA = {
   filesFlag: "--files",
   productionScope: "production",
   productionScopeFilePattern: PRODUCTION_SCOPE_FILE_PATTERN,
+  narrowSourceDirectoryName: NARROW_SOURCE_DIRECTORY_NAME,
   narrowProductionScopeFilePattern: NARROW_PRODUCTION_SCOPE_FILE_PATTERN,
   typeScriptOnlySourceFilePattern: TYPESCRIPT_ONLY_SOURCE_FILE_PATTERN,
   testDirectoryName: TEST_DIRECTORY_NAME,
@@ -207,6 +212,9 @@ export const VALIDATION_PIPELINE_DATA = {
   recursiveMarkdownSourceFilePattern: RECURSIVE_MARKDOWN_SOURCE_FILE_PATTERN,
   singleCharacterSourceIncludePattern: SINGLE_CHARACTER_SOURCE_INCLUDE_PATTERN,
   singleCharacterSourceExcludePattern: SINGLE_CHARACTER_SOURCE_EXCLUDE_PATTERN,
+  markdownOnlyDirectoryName: MARKDOWN_ONLY_DIRECTORY_NAME,
+  markdownOnlyFileName: MARKDOWN_ONLY_FILE_NAME,
+  markdownOnlyFilePattern: MARKDOWN_ONLY_FILE_PATTERN,
   missingSourceDirectoryName: MISSING_SOURCE_DIRECTORY_NAME,
   circularSkipASourceSegments: CIRCULAR_SKIP_A_SOURCE_SEGMENTS,
   circularSkipBSourceSegments: CIRCULAR_SKIP_B_SOURCE_SEGMENTS,
