@@ -20,6 +20,7 @@ CAN render diagnostics with no unprintable bytes and bounded length, CAN invoke 
 ### Mappings
 
 - For every code point in `[0x00, 0x1F] ∪ {0x7F}`, the sanitizer maps a single-character input containing that code point to the string `\xNN` where `NN` is the lowercase two-digit hex of the code point ([test](tests/sanitize.mapping.l1.test.ts))
+- For every code point in `[0x00, 0x1F] ∪ {0x7F}`, `escapeCliArgument` maps a single-character input containing that code point to the string `\xNN` where `NN` is the lowercase two-digit hex of the code point ([test](tests/sanitize.mapping.l1.test.ts))
 - The lifecycle signal-to-exit-code mapping is: SIGINT → 130, SIGTERM → 143, EPIPE on stdout → 0, uncaught exception → 1 ([test](tests/lifecycle.mapping.l1.test.ts))
 
 ### Properties
@@ -29,6 +30,7 @@ CAN render diagnostics with no unprintable bytes and bounded length, CAN invoke 
 - Length bound: for every input, `sanitize(x).length ≤ MAX_CLI_ARGUMENT_DISPLAY_LENGTH` ([test](tests/sanitize.property.l1.test.ts))
 - Truncation shape: for every input string whose length exceeds `MAX_CLI_ARGUMENT_DISPLAY_LENGTH`, the sanitizer returns a string of exactly `MAX_CLI_ARGUMENT_DISPLAY_LENGTH` characters ending in `ELLIPSIS_TOKEN` ([test](tests/sanitize.property.l1.test.ts))
 - Printable preservation: for every non-empty input string whose length is at most `MAX_CLI_ARGUMENT_DISPLAY_LENGTH` and whose every code point is ≥ `FIRST_PRINTABLE_CHAR_CODE` and ≠ `DEL_CHAR_CODE`, the sanitizer returns the input unchanged ([test](tests/sanitize.property.l1.test.ts))
+- Escape-only preservation: for every printable input string whose length exceeds `MAX_CLI_ARGUMENT_DISPLAY_LENGTH`, `escapeCliArgument` returns the input unchanged rather than applying the sanitizer's display-length bound ([test](tests/sanitize.property.l1.test.ts))
 - Registry conservation: for every interleaved sequence of child-handle add and remove operations, the registry is empty when every added handle has been removed ([test](tests/lifecycle.property.l1.test.ts))
 - Cleanup idempotence: for every tracked child handle and every count `n ≥ 1`, invoking the SIGINT handler `n` times kills the child exactly once ([test](tests/lifecycle.property.l1.test.ts))
 - Spawn registration: for every call to `lifecycleProcessRunner.spawn(...)`, the resulting child handle is added to the registry before the spawn returns ([test](tests/lifecycle.property.l1.test.ts))

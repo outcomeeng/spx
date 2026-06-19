@@ -3,6 +3,7 @@ import { describe, expect, it } from "vitest";
 import {
   CONTROL_CHAR_UPPER_BOUND,
   DEL_CHAR_CODE,
+  escapeCliArgument,
   formatHexEscape,
   sanitizeCliArgument,
 } from "@/lib/sanitize-cli-argument";
@@ -16,6 +17,7 @@ describe("control-character input maps to its hex escape", () => {
     (code) => {
       const input = String.fromCodePoint(code);
       expect(sanitizeCliArgument(input)).toBe(formatHexEscape(code));
+      expect(escapeCliArgument(input)).toBe(formatHexEscape(code));
     },
   );
 });
