@@ -62,7 +62,7 @@ const EXPLICIT_PATH_TARGET_KIND = {
 
 const DEPENDENCY_CRUISER_PACKAGE_NAME = "dependency-cruiser";
 
-function pathIsDirectoryOperand(projectRoot: string, originalPath: string, relativePath: string): boolean {
+function pathIsDirectoryOperand(projectRoot: string, relativePath: string): boolean {
   const candidatePath = join(projectRoot, relativePath);
   return existsSync(candidatePath) && statSync(candidatePath).isDirectory();
 }
@@ -97,7 +97,7 @@ interface ExplicitPathTarget {
 function toExplicitPathTarget(projectRoot: string, originalPath: string): ExplicitPathTarget {
   const path = normalizeTypeScriptScopePath(toProjectRelativeValidationPath(projectRoot, originalPath));
   return {
-    kind: pathIsDirectoryOperand(projectRoot, originalPath, path)
+    kind: pathIsDirectoryOperand(projectRoot, path)
       ? EXPLICIT_PATH_TARGET_KIND.DIRECTORY
       : EXPLICIT_PATH_TARGET_KIND.FILE,
     path,
