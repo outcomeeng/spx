@@ -141,10 +141,15 @@ export const auditDomain: Domain = {
 };
 
 async function report(result: AuditCommandResult): Promise<void> {
-  if (result.exitCode === 0) {
-    process.stdout.write(result.output);
-  } else {
-    process.stderr.write(result.output);
-  }
+  await writeOutput(result.exitCode === 0 ? process.stdout : process.stderr, result.output);
   process.exit(result.exitCode);
+}
+
+async function writeOutput(stream: NodeJS.WriteStream, output: string): Promise<void> {
+  await new Promise<void>((resolve, reject) => {
+    stream.write(output, (error?: Error | null) => {
+      if (error !== undefined && error !== null) reject(error);
+      else resolve();
+    });
+  });
 }
