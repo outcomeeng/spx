@@ -71,6 +71,10 @@ function pathIsDirectoryOperand(projectRoot: string, relativePath: string): bool
   return existsSync(candidatePath) && statSync(candidatePath).isDirectory();
 }
 
+function pathExistsOperand(projectRoot: string, relativePath: string): boolean {
+  return existsSync(join(projectRoot, relativePath));
+}
+
 function pathStaysInsideProject(projectRoot: string, path: string): boolean {
   const resolvedPath = isAbsolute(path) ? resolve(path) : resolve(projectRoot, path);
   const relativePath = relative(projectRoot, resolvedPath);
@@ -176,9 +180,13 @@ function filterExplicitPathTargets(
   validationPathFilter: ReturnType<typeof validationPathFilterForTool>,
   scopeConfig: TypeScriptScopeConfig,
 ): ExplicitPathTarget[] | undefined {
+  if (files === undefined) {
+    return undefined;
+  }
   return files
-    ?.filter((file) => targetPassesProjectBoundary(projectRoot, file))
+    .filter((file) => targetPassesProjectBoundary(projectRoot, file))
     .map((file) => toExplicitPathTarget(projectRoot, file))
+    .filter((target) => pathExistsOperand(projectRoot, target.path))
     .filter((target) => targetPassesTypeScriptSourceKind(target))
     .filter((target) => pathPassesValidationFilter(target.path, validationPathFilter))
     .filter((target) => targetPassesTypeScriptScope(target, scopeConfig));
