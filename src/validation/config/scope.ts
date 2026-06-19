@@ -29,6 +29,7 @@ export const TSCONFIG_FILES = {
 const PATH_SEGMENT_SEPARATOR = "/";
 const GLOB_MARKER = "*";
 const HIDDEN_PATH_PREFIX = ".";
+const TYPESCRIPT_SOURCE_EXTENSIONS = [".ts", ".tsx"] as const;
 
 // =============================================================================
 // DEPENDENCY INJECTION INTERFACES
@@ -293,6 +294,10 @@ function pathMatchesTypeScriptPattern(path: string, pattern: string): boolean {
   return prefix.length === 0 || pathMatchesLiteralPrefix(path, prefix);
 }
 
+function pathHasTypeScriptSourceExtension(path: string): boolean {
+  return TYPESCRIPT_SOURCE_EXTENSIONS.some((extension) => path.endsWith(extension));
+}
+
 function filterActiveIncludePatterns(
   patterns: readonly string[],
   excludePatterns: readonly string[],
@@ -366,6 +371,9 @@ export function getTypeScriptScope(
 }
 
 export function pathPassesTypeScriptScope(path: string, scopeConfig: ScopeConfig): boolean {
+  if (!pathHasTypeScriptSourceExtension(path)) {
+    return false;
+  }
   const included = scopeConfig.directories.some((directory) => pathMatchesLiteralPrefix(path, directory))
     || scopeConfig.filePatterns.some((pattern) => pathMatchesTypeScriptPattern(path, pattern));
   const excluded = scopeConfig.excludePatterns.some((pattern) => pathMatchesTypeScriptPattern(path, pattern));

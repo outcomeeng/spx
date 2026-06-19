@@ -45,6 +45,7 @@ import { PROJECT_FIXTURES, withValidationEnv } from "@testing/harnesses/with-val
 const projectRoot = process.cwd();
 const [sourceModule, targetModule] = sampleSourceModulePair();
 const analyzeDirectory = dirname(sourceModule);
+const nonTypeScriptSourceFile = join(VALIDATION_PIPELINE_DATA.sourceDirectoryName, "readme.md");
 const emptyTypescriptConfig: ParsedCommandLine = {
   options: {},
   fileNames: [],
@@ -620,6 +621,31 @@ describe("circular command scope routing", () => {
           cwd: path,
           scope: VALIDATION_SCOPES.PRODUCTION,
           files: [testOnlyCyclePath],
+        },
+        deps,
+      );
+
+      expect(result.exitCode).toBe(VALIDATION_EXIT_CODES.SUCCESS);
+      expect(result.output).toBe(formatValidationPathsNoTargetsSkipMessage(VALIDATION_STAGE_DISPLAY_NAMES.CIRCULAR));
+      expect(validationCalls).toEqual([]);
+    });
+  });
+
+  it("skips explicit non-TypeScript files inside the TypeScript scope", async () => {
+    await withValidationEnv({ fixture: PROJECT_FIXTURES.CLEAN_PROJECT }, async ({ path }) => {
+      await writeFile(join(path, nonTypeScriptSourceFile), "documentation fixture\n");
+      const validationCalls: ScopeConfig[] = [];
+      const deps: CircularCommandDeps = {
+        validateCircularDependencies: async (_scope, scopeConfig) => {
+          validationCalls.push(scopeConfig);
+          return { success: true };
+        },
+      };
+
+      const result = await circularCommand(
+        {
+          cwd: path,
+          files: [nonTypeScriptSourceFile],
         },
         deps,
       );
