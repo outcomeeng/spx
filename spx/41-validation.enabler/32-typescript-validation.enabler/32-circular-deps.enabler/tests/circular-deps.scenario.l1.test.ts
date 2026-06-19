@@ -32,7 +32,9 @@ import {
   DEPENDENCY_CRUISER_MODULE_SYSTEMS,
   DEPENDENCY_CRUISER_NON_STRUCTURED_OUTPUT_ERROR,
   DEPENDENCY_CRUISER_PACKAGE_EXCLUDE_PATTERN,
+  DEPENDENCY_CRUISER_PATH_PREFIX_PATTERN,
   DEPENDENCY_CRUISER_TS_PRE_COMPILATION_DEPS,
+  DEPENDENCY_CRUISER_TRAILING_RECURSIVE_GLOB_PATTERN,
   DEPENDENCY_CRUISER_TYPESCRIPT_RESOLVE_EXTENSIONS,
   DEPENDENCY_CRUISER_TYPESCRIPT_SOURCE_GLOB_SUFFIXES,
   DEPENDENCY_CRUISER_TYPESCRIPT_SOURCE_PATTERN,
@@ -537,6 +539,38 @@ describe("circular dependency filtering", () => {
     );
   });
 
+  it("converts directory-subtree excludes to anchored dependency-cruiser patterns", async () => {
+    const { dependencyGraphCalls, result } = await validateCircularScopeWithRecording({
+      directories: [VALIDATION_PIPELINE_DATA.sourceDirectoryName],
+      filePatterns: [],
+      excludePatterns: [VALIDATION_PIPELINE_DATA.productionScopeExcludePattern],
+    });
+
+    expect(result.success).toBe(true);
+    expect(dependencyGraphCalls).toHaveLength(1);
+    const [, config] = dependencyGraphCalls[0] ?? [];
+    const expectedExcludePattern = [
+      DEPENDENCY_CRUISER_PATH_PREFIX_PATTERN,
+      VALIDATION_PIPELINE_DATA.markdownOnlyDirectoryName,
+      DEPENDENCY_CRUISER_TRAILING_RECURSIVE_GLOB_PATTERN,
+    ].join("");
+    expect(config?.exclude).toEqual({
+      path: [
+        DEPENDENCY_CRUISER_PACKAGE_EXCLUDE_PATTERN,
+        expectedExcludePattern,
+      ],
+    });
+    expect(new RegExp(expectedExcludePattern).test(VALIDATION_PIPELINE_DATA.markdownOnlyFilePattern)).toBe(true);
+    expect(
+      new RegExp(expectedExcludePattern).test(
+        join(
+          VALIDATION_PIPELINE_DATA.sourceDirectoryName,
+          `${VALIDATION_PIPELINE_DATA.markdownOnlyDirectoryName}.ts`,
+        ),
+      ),
+    ).toBe(false);
+  });
+
   it("converts recursive dependency-cruiser glob excludes without unsafe regex shapes", async () => {
     const { dependencyGraphCalls, result } = await validateCircularScopeWithRecording({
       directories: [VALIDATION_PIPELINE_DATA.sourceDirectoryName],
@@ -755,7 +789,11 @@ describe("circular command scope routing", () => {
 
   it("honors recursive generated-file excludes accepted by dependency-cruiser", async () => {
     await withValidationEnv({ fixture: PROJECT_FIXTURES.CLEAN_PROJECT }, async ({ path }) => {
-      const generatedDir = join(path, VALIDATION_PIPELINE_DATA.sourceDirectoryName, "generated");
+      const generatedDir = join(
+        path,
+        VALIDATION_PIPELINE_DATA.sourceDirectoryName,
+        VALIDATION_PIPELINE_DATA.recursiveDependencyRootDirectoryName,
+      );
       await mkdir(generatedDir, { recursive: true });
       await writeFile(
         join(generatedDir, "cycle-a.ts"),
@@ -1441,6 +1479,45 @@ describe("circular command scope routing", () => {
           excludePatterns: [VALIDATION_PIPELINE_DATA.testFileExcludePattern],
         },
       ]);
+    });
+  });
+
+  it("skips explicit directories covered by TypeScript exclude patterns", async () => {
+    await withValidationEnv({ fixture: PROJECT_FIXTURES.CLEAN_PROJECT }, async ({ path }) => {
+      const generatedDirectory = join(
+        VALIDATION_PIPELINE_DATA.sourceDirectoryName,
+        VALIDATION_PIPELINE_DATA.recursiveDependencyRootDirectoryName,
+      );
+      await mkdir(join(path, generatedDirectory), { recursive: true });
+      await writeFile(
+        join(path, generatedDirectory, VALIDATION_PIPELINE_DATA.cleanSourceFileName),
+        "export const generated = true;\n",
+      );
+      await writeFile(
+        join(path, TSCONFIG_FILES.full),
+        JSON.stringify({
+          compilerOptions: {
+            target: "ES2020",
+            module: "commonjs",
+            strict: true,
+          },
+          include: [VALIDATION_PIPELINE_DATA.productionScopeFilePattern],
+          exclude: [VALIDATION_PIPELINE_DATA.recursiveDependencyExcludePattern],
+        }),
+      );
+      const { deps, validationCalls } = createRecordingCircularCommandDeps();
+
+      const result = await circularCommand(
+        {
+          cwd: path,
+          files: [`${generatedDirectory}/`],
+        },
+        deps,
+      );
+
+      expect(result.exitCode).toBe(VALIDATION_EXIT_CODES.SUCCESS);
+      expect(result.output).toBe(formatValidationPathsNoTargetsSkipMessage(VALIDATION_STAGE_DISPLAY_NAMES.CIRCULAR));
+      expect(validationCalls).toEqual([]);
     });
   });
 

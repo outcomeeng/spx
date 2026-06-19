@@ -237,6 +237,14 @@ function targetPassesTypeScriptSourceKind(target: ExplicitPathTarget): boolean {
   return target.kind === EXPLICIT_PATH_TARGET_KIND.DIRECTORY || pathHasTypeScriptSourceExtension(target.path);
 }
 
+function directoryPassesTypeScriptExcludes(directory: string, scopeConfig: TypeScriptScopeConfig): boolean {
+  const probePath = join(directory, TYPESCRIPT_SCOPE_DIRECTORY_PROBE_FILENAME);
+  return !scopeConfig.excludePatterns.some((pattern) =>
+    typeScriptScopePatternCoversDirectorySourceSet(pattern, directory)
+    || pathMatchesTypeScriptPattern(probePath, pattern)
+  );
+}
+
 function targetPassesTypeScriptScope(target: ExplicitPathTarget, scopeConfig: TypeScriptScopeConfig): boolean {
   if (target.kind === EXPLICIT_PATH_TARGET_KIND.FILE) {
     return pathPassesTypeScriptScope(target.path, scopeConfig);
@@ -248,6 +256,9 @@ function targetPassesTypeScriptScope(target: ExplicitPathTarget, scopeConfig: Ty
   const typeScriptSourcePatterns = scopeConfig.filePatterns.filter((pattern) =>
     typeScriptScopePatternTargetsTypeScriptSource(pattern)
   );
+  if (!directoryPassesTypeScriptExcludes(target.path, scopeConfig)) {
+    return false;
+  }
   if (typeScriptSourcePatterns.length > 0) {
     return typeScriptSourcePatterns.some((pattern) => typeScriptScopePatternIntersectsDirectory(pattern, target.path));
   }

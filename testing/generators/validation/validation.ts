@@ -80,6 +80,7 @@ const TEST_FILE_EXCLUDE_PATTERN = "**/*.test.ts";
 const PREFIXED_DEPENDENCY_EXCLUDE_PATTERN = "dist/**";
 const PREFIXED_DEPENDENCY_EXCLUDED_FILE = "dist/generated.ts";
 const RECURSIVE_DEPENDENCY_EXCLUDE_PATTERN = "src/**/generated/**/*";
+const RECURSIVE_DEPENDENCY_ROOT_DIRECTORY_NAME = "generated";
 const RECURSIVE_DEPENDENCY_ROOT_EXCLUDED_FILE = "src/generated/output.ts";
 const RECURSIVE_DEPENDENCY_NESTED_EXCLUDED_FILE = "src/feature/generated/output.ts";
 const ABSENT_SCOPE_FILE_PATTERN = "scripts/**/*";
@@ -247,6 +248,7 @@ export const VALIDATION_PIPELINE_DATA = {
   prefixedDependencyExcludePattern: PREFIXED_DEPENDENCY_EXCLUDE_PATTERN,
   prefixedDependencyExcludedFile: PREFIXED_DEPENDENCY_EXCLUDED_FILE,
   recursiveDependencyExcludePattern: RECURSIVE_DEPENDENCY_EXCLUDE_PATTERN,
+  recursiveDependencyRootDirectoryName: RECURSIVE_DEPENDENCY_ROOT_DIRECTORY_NAME,
   recursiveDependencyRootExcludedFile: RECURSIVE_DEPENDENCY_ROOT_EXCLUDED_FILE,
   recursiveDependencyNestedExcludedFile: RECURSIVE_DEPENDENCY_NESTED_EXCLUDED_FILE,
   absentScopeFilePattern: ABSENT_SCOPE_FILE_PATTERN,

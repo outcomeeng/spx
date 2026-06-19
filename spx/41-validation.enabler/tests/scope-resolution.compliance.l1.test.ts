@@ -23,7 +23,9 @@ import {
   defaultCircularDeps,
   DEPENDENCY_CRUISER_MODULE_SYSTEMS,
   DEPENDENCY_CRUISER_PACKAGE_EXCLUDE_PATTERN,
+  DEPENDENCY_CRUISER_PATH_PREFIX_PATTERN,
   DEPENDENCY_CRUISER_TS_PRE_COMPILATION_DEPS,
+  DEPENDENCY_CRUISER_TRAILING_RECURSIVE_GLOB_PATTERN,
   DEPENDENCY_CRUISER_TYPESCRIPT_RESOLVE_EXTENSIONS,
   DEPENDENCY_CRUISER_TYPESCRIPT_SOURCE_GLOB_SUFFIXES,
   DEPENDENCY_CRUISER_TYPESCRIPT_SOURCE_PATTERN,
@@ -603,7 +605,11 @@ describe("ALWAYS: TypeScript scope resolution uses the requested project root", 
   it("runs circular validation with project-root-anchored dependency-cruiser inputs", async () => {
     await withTestEnv({}, async (env) => {
       const tsconfigExcludePatternWithGlob = "dist+(cache)/**/*";
-      const dependencyCruiserExcludePattern = String.raw`dist\+\(cache\)`;
+      const dependencyCruiserExcludePattern = [
+        DEPENDENCY_CRUISER_PATH_PREFIX_PATTERN,
+        String.raw`dist\+\(cache\)`,
+        DEPENDENCY_CRUISER_TRAILING_RECURSIVE_GLOB_PATTERN,
+      ].join("");
       await env.writeRaw(
         TSCONFIG_FILES.full,
         JSON.stringify({ include: [VALIDATION_PIPELINE_DATA.scopeResolutionSourceFile] }),

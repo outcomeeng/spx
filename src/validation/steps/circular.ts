@@ -49,11 +49,11 @@ const TSCONFIG_EXCLUDE_SUFFIX_PATTERN = /\/\*\*?\/\*$/u;
 const LITERAL_REGEX_SPECIAL_CHARACTER_PATTERN = /[.*+?^${}()|[\]\\]/gu;
 const REGEX_ESCAPE_REPLACEMENT = String.raw`\$&`;
 const CYCLE_KEY_SEPARATOR = "\u0000";
-const DEPENDENCY_CRUISER_PATH_PREFIX_PATTERN = "(^|/)";
+export const DEPENDENCY_CRUISER_PATH_PREFIX_PATTERN = "(^|/)";
 const DEPENDENCY_CRUISER_PATH_SEGMENT_SEPARATOR = "/";
 const DEPENDENCY_CRUISER_LEADING_RECURSIVE_GLOB_PATTERN = "(?:.*/|)";
 const DEPENDENCY_CRUISER_MIDDLE_RECURSIVE_GLOB_PATTERN = "(/.*/|/)";
-const DEPENDENCY_CRUISER_TRAILING_RECURSIVE_GLOB_PATTERN = "(/.*|$)";
+export const DEPENDENCY_CRUISER_TRAILING_RECURSIVE_GLOB_PATTERN = "(/.*|$)";
 export const DEPENDENCY_CRUISER_PACKAGE_EXCLUDE_PATTERN = "(^|/)node_modules(/|$)";
 export const DEPENDENCY_CRUISER_NON_STRUCTURED_OUTPUT_ERROR = "dependency-cruiser returned non-structured output";
 export const DEPENDENCY_CRUISER_DEPENDENCY_TYPES = {
@@ -127,7 +127,7 @@ function toDependencyCruiserExcludePatterns(patterns: readonly string[]): string
   return patterns.map((pattern) => {
     const matchesDirectorySubtree = TSCONFIG_EXCLUDE_SUFFIX_PATTERN.test(pattern);
     const cleanPattern = pattern.replace(TSCONFIG_EXCLUDE_SUFFIX_PATTERN, "");
-    if (typeScriptScopePatternHasGlob(cleanPattern)) {
+    if (matchesDirectorySubtree || typeScriptScopePatternHasGlob(cleanPattern)) {
       return typeScriptScopeGlobPatternToDependencyCruiserRegExpSource(cleanPattern, matchesDirectorySubtree);
     }
     return cleanPattern.replace(LITERAL_REGEX_SPECIAL_CHARACTER_PATTERN, REGEX_ESCAPE_REPLACEMENT);
