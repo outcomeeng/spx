@@ -35,6 +35,7 @@ import { AUDIT_RUN_STATE_TEST_GENERATOR, sampleAuditRunStateTestValue } from "@t
 import { CONFIG_TEST_GENERATOR, sampleConfigTestValue } from "@testing/generators/config/descriptors";
 import { auditBranchRunsDir, writeAuditConfig } from "@testing/harnesses/audit/harness";
 import { GIT_TEST_CONFIG, GIT_TEST_FLAGS, GIT_TEST_SUBCOMMANDS, runGit } from "@testing/harnesses/git-test-constants";
+import { createInMemoryStateStoreFileSystem } from "@testing/harnesses/state/in-memory-file-system";
 
 function bufferFromHex(hex: string): Buffer {
   return Buffer.from(hex, "hex");
@@ -114,6 +115,40 @@ describe("audit run-file storage", () => {
       expect(result.value.runFileName).toBe(auditRunFileName(result.value.runToken));
       expect(result.value.runFilePath).toBe(join(result.value.runsDir, result.value.runFileName));
       await expect(readFile(result.value.runFilePath, STATE_STORE_TEXT_ENCODING)).resolves.toBe(emptyText);
+    });
+  });
+
+  it("accepts state-store filesystem implementations with prototype methods", async () => {
+    const branchSlug = sampleAuditRunStateTestValue(AUDIT_RUN_STATE_TEST_GENERATOR.branchSlug());
+    const runId = sampleAuditRunStateTestValue(AUDIT_RUN_STATE_TEST_GENERATOR.runId());
+    const state = sampleAuditRunStateTestValue(AUDIT_RUN_STATE_TEST_GENERATOR.auditRunState());
+    const fs = createInMemoryStateStoreFileSystem();
+
+    await withTempProductDir(async (productDir) => {
+      const runFile = await createAuditRunFile(productDir, branchSlug, {
+        fs,
+        randomBytes: () => bufferFromHex(runId),
+      });
+      expect(runFile.ok).toBe(true);
+      if (!runFile.ok) throw new Error(runFile.error);
+
+      const appended = await appendAuditRunEvent(
+        productDir,
+        runFile.value.runFilePath,
+        auditRunStartedEventInput(state, {
+          id: runFile.value.runFileName,
+          time: state.startedAt,
+          attempt: 1,
+        }),
+        { fs },
+      );
+      const events = await readAuditRunEvents(productDir, runFile.value.runFilePath, { fs });
+
+      expect(appended).toEqual({ ok: true, value: runFile.value.runFilePath });
+      expect(events.ok).toBe(true);
+      if (!events.ok) throw new Error(events.error);
+      expect(events.value).toHaveLength(1);
+      expect(events.value[0]?.type).toBe(AUDIT_RUN_EVENT.STARTED_TYPE);
     });
   });
 

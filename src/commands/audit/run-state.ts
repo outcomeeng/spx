@@ -425,10 +425,11 @@ async function validateAuditStateFilePath(
   path: string,
   fs: StateStoreFileSystem,
 ): Promise<Result<void>> {
-  const parentSafety = await validateAuditStateParents(path, fs.lstat, AUDIT_RUN_FILE_SCOPE_PARENT_COUNT);
+  const lstat = boundLstat(fs);
+  const parentSafety = await validateAuditStateParents(path, lstat, AUDIT_RUN_FILE_SCOPE_PARENT_COUNT);
   if (!parentSafety.ok) return parentSafety;
   try {
-    const stats = await fs.lstat(path);
+    const stats = await lstat(path);
     return stats.isFile() && !stats.isSymbolicLink()
       ? { ok: true, value: undefined }
       : { ok: false, error: AUDIT_RUN_STATE_ERROR.INVALID_RUN_FILE_PATH };
@@ -442,9 +443,14 @@ async function validateAuditStateDirectoryPath(
   path: string,
   fs: StateStoreFileSystem,
 ): Promise<Result<void>> {
-  const directorySafety = await validateAuditStateDirectory(path, fs.lstat);
+  const lstat = boundLstat(fs);
+  const directorySafety = await validateAuditStateDirectory(path, lstat);
   if (!directorySafety.ok) return directorySafety;
-  return validateAuditStateParents(path, fs.lstat, AUDIT_RUNS_DIRECTORY_SCOPE_PARENT_COUNT);
+  return validateAuditStateParents(path, lstat, AUDIT_RUNS_DIRECTORY_SCOPE_PARENT_COUNT);
+}
+
+function boundLstat(fs: StateStoreFileSystem): StateStoreFileSystem["lstat"] {
+  return (path) => fs.lstat(path);
 }
 
 async function validateAuditStateParents(
