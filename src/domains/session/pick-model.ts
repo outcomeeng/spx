@@ -1,10 +1,11 @@
 /**
  * Pure model for the interactive session picker.
  *
- * Holds the candidate set, the filter query, and the selected index, and
- * reduces key actions to the next state. This module is renderer-agnostic: it
- * imports no React, Ink, or terminal API, so it verifies as a pure function and
- * a non-terminal interface reuses it.
+ * Holds the candidate set, the live filter query, the selected index, and the
+ * mode (browse or filter); reduces key actions to the next state; and resolves
+ * the agent command a launch keystroke runs. Renderer-agnostic — no React, Ink,
+ * or terminal import — so it verifies as pure functions and a non-terminal
+ * interface reuses it.
  *
  * @module session/pick-model
  */
@@ -14,6 +15,40 @@ import { CLAIMABLE_STATUS, type Session } from "./types";
 
 /** The single character that marks a truncated string. */
 export const ELLIPSIS = "…";
+
+/** The agent runtimes a launch keystroke can hand the session to. */
+export const PICKER_RUNTIME = {
+  CLAUDE: "claude",
+  CODEX: "codex",
+} as const;
+
+export type PickerRuntime = (typeof PICKER_RUNTIME)[keyof typeof PICKER_RUNTIME];
+
+/** The skill-invocation prefix each runtime uses in its prompt — `/pickup` vs `$pickup`. */
+const RUNTIME_SKILL_PREFIX: Record<PickerRuntime, string> = {
+  [PICKER_RUNTIME.CLAUDE]: "/",
+  [PICKER_RUNTIME.CODEX]: "$",
+};
+
+/** A resolved command to hand the terminal to: the runtime binary and its single prompt argument. */
+export interface LaunchCommand {
+  readonly command: string;
+  readonly args: readonly string[];
+}
+
+/**
+ * Resolves the agent command that resumes `sessionId`: the runtime's binary with a single prompt
+ * argument `<prefix>pickup <id>`, extended by ` --auto-continue` when `autoContinue` is set. The
+ * binary name is the runtime id; the prefix is `/` for claude and `$` for codex.
+ */
+export function buildPickupCommand(
+  runtime: PickerRuntime,
+  autoContinue: boolean,
+  sessionId: string,
+): LaunchCommand {
+  const prompt = `${RUNTIME_SKILL_PREFIX[runtime]}pickup ${sessionId}${autoContinue ? " --auto-continue" : ""}`;
+  return { command: runtime, args: [prompt] };
+}
 
 /**
  * Collapses every run of whitespace — including newlines and tabs — to a single
@@ -28,7 +63,6 @@ export function toSingleLine(text: string): string {
  * Truncates `text` to at most `max` characters, appending a single ellipsis
  * when it overflows. Returns the input unchanged when it already fits, the
  * empty string for a non-positive width, and just the ellipsis at width 1.
- * Renderer-agnostic so the picker's row layout verifies without a terminal.
  */
 export function truncateToWidth(text: string, max: number): string {
   if (max <= 0) return "";
@@ -37,21 +71,47 @@ export function truncateToWidth(text: string, max: number): string {
   return text.slice(0, max - 1) + ELLIPSIS;
 }
 
+/** The picker's two input modes: browsing the list, or editing the filter query. */
+export const PICKER_MODE = {
+  BROWSE: "browse",
+  FILTER: "filter",
+} as const;
+
+export type PickerMode = (typeof PICKER_MODE)[keyof typeof PICKER_MODE];
+
 /** The action a key resolves to. */
 export const PICKER_ACTION = {
   MOVE: "move",
+  ENTER_FILTER: "enter-filter",
+  APPLY_FILTER: "apply-filter",
+  CLEAR_FILTER: "clear-filter",
   FILTER_APPEND: "filter-append",
   FILTER_DELETE: "filter-delete",
-  CLAIM: "claim",
-  CANCEL: "cancel",
+  LAUNCH: "launch",
+  QUIT: "quit",
 } as const;
 
 export type PickerAction =
   | { type: typeof PICKER_ACTION.MOVE; delta: number }
+  | { type: typeof PICKER_ACTION.ENTER_FILTER }
+  | { type: typeof PICKER_ACTION.APPLY_FILTER }
+  | { type: typeof PICKER_ACTION.CLEAR_FILTER }
   | { type: typeof PICKER_ACTION.FILTER_APPEND; char: string }
   | { type: typeof PICKER_ACTION.FILTER_DELETE }
-  | { type: typeof PICKER_ACTION.CLAIM }
-  | { type: typeof PICKER_ACTION.CANCEL };
+  | { type: typeof PICKER_ACTION.LAUNCH; runtime: PickerRuntime; autoContinue: boolean }
+  | { type: typeof PICKER_ACTION.QUIT };
+
+/** The browse-mode key that opens the filter, and the one that quits. */
+const FILTER_KEY = "/";
+const QUIT_KEY = "q";
+
+/** Browse-mode launch keystrokes: the printable key to the runtime and auto-continue it launches. */
+const LAUNCH_KEYS: Record<string, { runtime: PickerRuntime; autoContinue: boolean }> = {
+  c: { runtime: PICKER_RUNTIME.CLAUDE, autoContinue: false },
+  C: { runtime: PICKER_RUNTIME.CLAUDE, autoContinue: true },
+  x: { runtime: PICKER_RUNTIME.CODEX, autoContinue: false },
+  X: { runtime: PICKER_RUNTIME.CODEX, autoContinue: true },
+};
 
 /**
  * A key event decoupled from any terminal library's representation. The fields
@@ -69,11 +129,12 @@ export interface PickerKey {
   delete?: boolean;
 }
 
-/** The picker's full state: its candidates, the live query, and the cursor. */
+/** The picker's full state: candidates, the live query, the cursor, and the mode. */
 export interface PickerState {
   readonly candidates: readonly Session[];
   readonly query: string;
   readonly selectedIndex: number;
+  readonly mode: PickerMode;
 }
 
 /**
@@ -112,24 +173,38 @@ export function selectedSession(state: PickerState): Session | null {
   return visible[state.selectedIndex] ?? null;
 }
 
-/** The initial picker state for a session pool: full candidates, no query, top selected. */
+/** The initial picker state for a session pool: full candidates, no query, top selected, browsing. */
 export function initialPickerState(sessions: readonly Session[]): PickerState {
-  return { candidates: buildCandidates(sessions), query: "", selectedIndex: 0 };
+  return { candidates: buildCandidates(sessions), query: "", selectedIndex: 0, mode: PICKER_MODE.BROWSE };
 }
 
 /**
- * Resolves a key event to the action it performs, or null when the key is
- * inert. Arrow keys move the selection, Enter claims, Esc cancels, Backspace or
- * Delete removes the last query character, and any other printable input
- * appends to the query.
+ * Resolves a key event to the action it performs in the given mode, or null
+ * when the key is inert. In browse mode the arrows move, the filter key opens
+ * filtering, the launch keys hand off to a runtime, and the quit key or Esc
+ * quits — a printable key that is not bound is ignored. In filter mode every
+ * printable key edits the query, so a launch character is filter text, not a
+ * launch, while a filter is open.
  */
-export function keyToAction(key: PickerKey): PickerAction | null {
+export function keyToAction(key: PickerKey, mode: PickerMode): PickerAction | null {
   if (key.downArrow) return { type: PICKER_ACTION.MOVE, delta: 1 };
   if (key.upArrow) return { type: PICKER_ACTION.MOVE, delta: -1 };
-  if (key.return) return { type: PICKER_ACTION.CLAIM };
-  if (key.escape) return { type: PICKER_ACTION.CANCEL };
-  if (key.backspace || key.delete) return { type: PICKER_ACTION.FILTER_DELETE };
-  if (key.input.length > 0) return { type: PICKER_ACTION.FILTER_APPEND, char: key.input };
+
+  if (mode === PICKER_MODE.FILTER) {
+    if (key.return) return { type: PICKER_ACTION.APPLY_FILTER };
+    if (key.escape) return { type: PICKER_ACTION.CLEAR_FILTER };
+    if (key.backspace || key.delete) return { type: PICKER_ACTION.FILTER_DELETE };
+    if (key.input.length > 0) return { type: PICKER_ACTION.FILTER_APPEND, char: key.input };
+    return null;
+  }
+
+  if (key.escape) return { type: PICKER_ACTION.QUIT };
+  if (key.input === FILTER_KEY) return { type: PICKER_ACTION.ENTER_FILTER };
+  if (key.input === QUIT_KEY) return { type: PICKER_ACTION.QUIT };
+  const launch = LAUNCH_KEYS[key.input];
+  if (launch !== undefined) {
+    return { type: PICKER_ACTION.LAUNCH, runtime: launch.runtime, autoContinue: launch.autoContinue };
+  }
   return null;
 }
 
@@ -143,15 +218,24 @@ function clampIndex(index: number, count: number): number {
 
 /**
  * Reduces an action to the next picker state. MOVE shifts the selection within
- * the visible range; FILTER_APPEND and FILTER_DELETE rewrite the query and
- * re-clamp the selection to the new visible count; CLAIM and CANCEL are
- * terminal effects the renderer handles and leave the state unchanged.
+ * the visible range; ENTER_FILTER/APPLY_FILTER/CLEAR_FILTER switch mode (clear
+ * resets the query); FILTER_APPEND and FILTER_DELETE rewrite the query and
+ * re-clamp the selection; LAUNCH and QUIT are terminal effects the renderer
+ * handles and leave the state unchanged.
  */
 export function reducePicker(state: PickerState, action: PickerAction): PickerState {
   switch (action.type) {
     case PICKER_ACTION.MOVE: {
       const count = visibleCandidates(state).length;
       return { ...state, selectedIndex: clampIndex(state.selectedIndex + action.delta, count) };
+    }
+    case PICKER_ACTION.ENTER_FILTER:
+      return { ...state, mode: PICKER_MODE.FILTER };
+    case PICKER_ACTION.APPLY_FILTER:
+      return { ...state, mode: PICKER_MODE.BROWSE };
+    case PICKER_ACTION.CLEAR_FILTER: {
+      const count = filterCandidates(state.candidates, "").length;
+      return { ...state, mode: PICKER_MODE.BROWSE, query: "", selectedIndex: clampIndex(state.selectedIndex, count) };
     }
     case PICKER_ACTION.FILTER_APPEND: {
       const query = state.query + action.char;
@@ -163,8 +247,8 @@ export function reducePicker(state: PickerState, action: PickerAction): PickerSt
       const count = filterCandidates(state.candidates, query).length;
       return { ...state, query, selectedIndex: clampIndex(state.selectedIndex, count) };
     }
-    case PICKER_ACTION.CLAIM:
-    case PICKER_ACTION.CANCEL:
+    case PICKER_ACTION.LAUNCH:
+    case PICKER_ACTION.QUIT:
       return state;
   }
 }

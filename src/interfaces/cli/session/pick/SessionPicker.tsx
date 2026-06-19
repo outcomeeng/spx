@@ -1,10 +1,10 @@
 /**
  * Ink component tree for the interactive session picker.
  *
- * Holds no claim or filter logic of its own: it renders the pure picker model
- * from `@/domains/session/pick-model` and routes key events through it,
- * delegating the claim and cancel effects to injected callbacks — the
- * CLI-interface layer's terminal-rendering concern.
+ * Renders the pure picker model from `@/domains/session/pick-model` and routes
+ * key events through it, delegating launch and quit to injected callbacks — the
+ * CLI-interface layer's terminal-rendering concern. It performs no claim: a
+ * launch keystroke hands the selected session out through `onLaunch`.
  *
  * @module interfaces/cli/session/pick/SessionPicker
  */
@@ -16,7 +16,9 @@ import {
   initialPickerState,
   keyToAction,
   PICKER_ACTION,
+  PICKER_MODE,
   type PickerKey,
+  type PickerRuntime,
   reducePicker,
   selectedSession,
   toSingleLine,
@@ -26,16 +28,22 @@ import {
 import { DEFAULT_PRIORITY, type Session, SESSION_PRIORITY, type SessionPriority } from "@/domains/session/types";
 
 /** The title rendered on the first line, above the filter and list. */
-export const SESSION_PICKER_TITLE = "Pick a session to claim";
+export const SESSION_PICKER_TITLE = "Pick a session to launch";
 
 /** The empty-state line shown when no claimable session matches. */
 export const SESSION_PICKER_EMPTY_TEXT = "No claimable sessions.";
 
-/** The keybinding hint, rendered on its own footer line below the list. */
-export const SESSION_PICKER_HINT = "↑/↓ move · type to filter · ⏎ claim · esc cancel";
+/** The footer hint while browsing the list. */
+export const SESSION_PICKER_BROWSE_HINT = "↑↓ move · / filter · c/C claude · x/X codex · q quit";
+
+/** The footer hint while editing the filter query. */
+export const SESSION_PICKER_FILTER_HINT = "type to filter · ↑↓ move · ⏎ apply · esc clear";
 
 /** The bold marker on the selected row. */
 export const SESSION_PICKER_SELECTED_MARKER = "❯";
+
+/** The label prefixing the live filter query line. */
+export const SESSION_PICKER_FILTER_LABEL = "filter:";
 
 /** Preview-pane field labels (each followed by one space, then the value). */
 export const PREVIEW_GOAL_LABEL = "goal:";
@@ -56,10 +64,10 @@ const PRIORITY_COLOR: Record<SessionPriority, string> = {
 export interface SessionPickerProps {
   /** The session pool to pick from; the model retains only the claimable ones. */
   readonly sessions: readonly Session[];
-  /** Invoked with the selected session when the operator claims it. */
-  readonly onClaim: (session: Session) => void;
-  /** Invoked when the operator cancels without claiming. */
-  readonly onCancel: () => void;
+  /** Invoked with the selected session, chosen runtime, and auto-continue flag on a launch keystroke. */
+  readonly onLaunch: (session: Session, runtime: PickerRuntime, autoContinue: boolean) => void;
+  /** Invoked when the operator quits without launching. */
+  readonly onQuit: () => void;
   /** Row width override; defaults to the terminal's column count, then `FALLBACK_COLUMNS`. */
   readonly columns?: number;
 }
@@ -87,9 +95,7 @@ function SessionRow(
   const priority = session.metadata.priority;
   const marker = selected ? SESSION_PICKER_SELECTED_MARKER : " ";
   const badge = priority === DEFAULT_PRIORITY ? "" : ` [${priority}]`;
-  // Reserve the fixed-width lead — "{marker} {id}{badge} " — then truncate the goal to what is left.
   const reserved = marker.length + 1 + session.id.length + badge.length + 1;
-  // Collapse any line breaks in the goal first, then truncate — a multiline goal must still be one row.
   const goal = truncateToWidth(toSingleLine(session.metadata.goal), Math.max(MIN_GOAL_WIDTH, columns - reserved));
   return (
     <Text wrap="truncate" color={selected ? "cyan" : undefined}>
@@ -99,10 +105,7 @@ function SessionRow(
   );
 }
 
-/**
- * A `label: value` line. Label and value share one Text node so the separating
- * space sits mid-string and survives Ink's whitespace trimming at span edges.
- */
+/** A `label: value` line; label and value share one Text so the separating space survives. */
 function PreviewField({ label, value }: { readonly label: string; readonly value: string }): ReactElement {
   return <Text>{`${label} ${value}`}</Text>;
 }
@@ -126,27 +129,27 @@ function PreviewPane({ session }: { readonly session: Session | null }): ReactEl
 
 /**
  * The interactive picker. Renders the claimable queue as single-line rows with
- * a filter line, a preview pane, and a footer hint, moves the selection on the
- * arrow keys, narrows on typed text, claims the selected session on Enter, and
- * cancels on Esc.
+ * a filter line, a preview pane, and a mode-specific footer hint; moves the
+ * selection on the arrows, opens filtering on `/`, hands the selected session
+ * to a runtime on a launch keystroke, and quits on `q` or Esc.
  */
 export function SessionPicker(
-  { sessions, onClaim, onCancel, columns: columnsProp }: SessionPickerProps,
+  { sessions, onLaunch, onQuit, columns: columnsProp }: SessionPickerProps,
 ): ReactElement {
   const { stdout } = useStdout();
   const columns = columnsProp ?? stdout?.columns ?? FALLBACK_COLUMNS;
   const [state, setState] = useState(() => initialPickerState(sessions));
 
   useInput((input, key) => {
-    const action = keyToAction(toPickerKey(input, key));
+    const action = keyToAction(toPickerKey(input, key), state.mode);
     if (action === null) return;
-    if (action.type === PICKER_ACTION.CLAIM) {
+    if (action.type === PICKER_ACTION.LAUNCH) {
       const selected = selectedSession(state);
-      if (selected !== null) onClaim(selected);
+      if (selected !== null) onLaunch(selected, action.runtime, action.autoContinue);
       return;
     }
-    if (action.type === PICKER_ACTION.CANCEL) {
-      onCancel();
+    if (action.type === PICKER_ACTION.QUIT) {
+      onQuit();
       return;
     }
     setState((previous) => reducePicker(previous, action));
@@ -154,11 +157,12 @@ export function SessionPicker(
 
   const visible = visibleCandidates(state);
   const selected = selectedSession(state);
+  const hint = state.mode === PICKER_MODE.FILTER ? SESSION_PICKER_FILTER_HINT : SESSION_PICKER_BROWSE_HINT;
 
   return (
     <Box flexDirection="column">
       <Text bold>{SESSION_PICKER_TITLE}</Text>
-      <Text dimColor>filter: {state.query}</Text>
+      <Text dimColor>{SESSION_PICKER_FILTER_LABEL} {state.query}</Text>
       {visible.length === 0
         ? <Text dimColor>{SESSION_PICKER_EMPTY_TEXT}</Text>
         : visible.map((session, index) => (
@@ -166,7 +170,7 @@ export function SessionPicker(
         ))}
       <PreviewPane session={selected} />
       <Box marginTop={1}>
-        <Text dimColor>{SESSION_PICKER_HINT}</Text>
+        <Text dimColor>{hint}</Text>
       </Box>
     </Box>
   );
