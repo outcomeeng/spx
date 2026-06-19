@@ -44,6 +44,7 @@ const LITERAL_REGEX_SPECIAL_CHARACTER_PATTERN = /[.*+?^${}()|[\]\\]/gu;
 const REGEX_ESCAPE_REPLACEMENT = String.raw`\$&`;
 const CYCLE_KEY_SEPARATOR = "\u0000";
 const GLOB_MARKER = "*";
+const BROAD_DIRECTORY_GLOB_SUFFIX = "**/*";
 export const DEPENDENCY_CRUISER_PACKAGE_EXCLUDE_PATTERN = "(^|/)node_modules(/|$)";
 export const DEPENDENCY_CRUISER_NON_STRUCTURED_OUTPUT_ERROR = "dependency-cruiser returned non-structured output";
 export const DEPENDENCY_CRUISER_DEPENDENCY_TYPES = {
@@ -181,8 +182,7 @@ function patternNarrowsDirectory(pattern: string, directory: string): boolean {
   if (globIndex === -1) {
     return false;
   }
-  const literalPrefix = normalizedPattern.slice(0, globIndex).replace(/\/+$/u, "");
-  return literalPrefix !== normalizedDirectory;
+  return normalizedPattern !== `${normalizedDirectory}/${BROAD_DIRECTORY_GLOB_SUFFIX}`;
 }
 
 function isCruiseResult(output: IReporterOutput["output"]): output is ICruiseResult {
