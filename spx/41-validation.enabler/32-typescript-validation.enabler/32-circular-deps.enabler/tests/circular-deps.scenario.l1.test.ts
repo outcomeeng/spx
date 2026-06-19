@@ -46,6 +46,8 @@ const projectRoot = process.cwd();
 const [sourceModule, targetModule] = sampleSourceModulePair();
 const analyzeDirectory = dirname(sourceModule);
 const nonTypeScriptSourceFile = join(VALIDATION_PIPELINE_DATA.sourceDirectoryName, "readme.md");
+const extensionlessSourceFile = join(VALIDATION_PIPELINE_DATA.sourceDirectoryName, "README");
+const dottedSourceDirectory = join(VALIDATION_PIPELINE_DATA.sourceDirectoryName, "feature.dir");
 const emptyTypescriptConfig: ParsedCommandLine = {
   options: {},
   fileNames: [],
@@ -618,6 +620,38 @@ describe("circular command scope routing", () => {
     });
   });
 
+  it("forwards existing dotted --files directories as dependency-cruiser directory scope", async () => {
+    await withValidationEnv({ fixture: PROJECT_FIXTURES.CLEAN_PROJECT }, async ({ path }) => {
+      await mkdir(join(path, dottedSourceDirectory), { recursive: true });
+      await writeFile(join(path, dottedSourceDirectory, "index.ts"), "export const dottedDirectory = true;\n");
+      const validationCalls: ScopeConfig[] = [];
+      const deps: CircularCommandDeps = {
+        validateCircularDependencies: async (_scope, scopeConfig) => {
+          validationCalls.push(scopeConfig);
+          return { success: true };
+        },
+      };
+
+      const result = await circularCommand(
+        {
+          cwd: path,
+          files: [`${dottedSourceDirectory}/`],
+        },
+        deps,
+      );
+
+      expect(result.exitCode).toBe(VALIDATION_EXIT_CODES.SUCCESS);
+      expect(result.output).toBe(VALIDATION_COMMAND_OUTPUT.CIRCULAR_NONE_FOUND);
+      expect(validationCalls).toEqual([
+        {
+          directories: [dottedSourceDirectory],
+          filePatterns: [],
+          excludePatterns: [],
+        },
+      ]);
+    });
+  });
+
   it("passes production TypeScript scope to dependency-cruiser", async () => {
     await withValidationEnv({ fixture: PROJECT_FIXTURES.CLEAN_PROJECT }, async ({ path }) => {
       await writeProductionTsConfigWithTestScope(path);
@@ -706,6 +740,31 @@ describe("circular command scope routing", () => {
         {
           cwd: path,
           files: [nonTypeScriptSourceFile],
+        },
+        deps,
+      );
+
+      expect(result.exitCode).toBe(VALIDATION_EXIT_CODES.SUCCESS);
+      expect(result.output).toBe(formatValidationPathsNoTargetsSkipMessage(VALIDATION_STAGE_DISPLAY_NAMES.CIRCULAR));
+      expect(validationCalls).toEqual([]);
+    });
+  });
+
+  it("skips existing extensionless files inside the TypeScript scope", async () => {
+    await withValidationEnv({ fixture: PROJECT_FIXTURES.CLEAN_PROJECT }, async ({ path }) => {
+      await writeFile(join(path, extensionlessSourceFile), "documentation fixture\n");
+      const validationCalls: ScopeConfig[] = [];
+      const deps: CircularCommandDeps = {
+        validateCircularDependencies: async (_scope, scopeConfig) => {
+          validationCalls.push(scopeConfig);
+          return { success: true };
+        },
+      };
+
+      const result = await circularCommand(
+        {
+          cwd: path,
+          files: [extensionlessSourceFile],
         },
         deps,
       );
