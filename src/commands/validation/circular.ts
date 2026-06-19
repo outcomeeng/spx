@@ -23,6 +23,7 @@ import {
   pathHasTypeScriptSourceExtension,
   pathPassesTypeScriptScope,
   TYPESCRIPT_SCOPE_DIRECTORY_PROBE_FILENAME,
+  typeScriptScopePatternCoversDirectory,
   typeScriptScopePatternIntersectsDirectory,
   typeScriptScopePatternNarrowsDirectory,
 } from "@/validation/config/scope";
@@ -97,9 +98,12 @@ function toExplicitScopeConfig(
   }
   const patternMatchesDirectoryTarget = (pattern: string, directory: string): boolean =>
     normalizeTypeScriptScopePath(pattern) === normalizeTypeScriptScopePath(directory);
+  const directoryIsCoveredByPattern = (directory: string): boolean =>
+    scopeConfig.filePatterns.some((pattern) => typeScriptScopePatternCoversDirectory(pattern, directory));
   const scopedFilePatternsForDirectoryTargets = scopeConfig.filePatterns.filter((pattern) =>
     directoryTargets.some((directory) =>
       !patternMatchesDirectoryTarget(pattern, directory)
+      && !directoryIsCoveredByPattern(directory)
       && typeScriptScopePatternNarrowsDirectory(pattern, directory)
     )
   );

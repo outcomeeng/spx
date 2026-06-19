@@ -22,6 +22,7 @@ import {
   TSCONFIG_FILES,
   typeScriptScopeGlobPatternToRegExp,
   typeScriptScopePatternHasGlob,
+  typeScriptScopePatternCoversDirectory,
   typeScriptScopePatternNarrowsDirectory,
 } from "../config/scope";
 import type { CircularDependencyResult, ScopeConfig, ValidationScope } from "../types";
@@ -147,8 +148,11 @@ function buildDependencyCruiserOptions(
 
 function toDependencyCruiserSourcePatterns(typescriptScope: ScopeConfig): string[] {
   const typeScriptFilePatterns = typescriptScope.filePatterns.filter((pattern) => patternTargetsTypeScriptSource(pattern));
+  const directoryIsCoveredByPattern = (directory: string): boolean =>
+    typescriptScope.filePatterns.some((pattern) => typeScriptScopePatternCoversDirectory(pattern, directory));
   const retainedDirectories = typescriptScope.directories.filter((directory) =>
-    !typeScriptFilePatterns.some((pattern) => typeScriptScopePatternNarrowsDirectory(pattern, directory))
+    directoryIsCoveredByPattern(directory)
+    || !typeScriptFilePatterns.some((pattern) => typeScriptScopePatternNarrowsDirectory(pattern, directory))
   );
   const directoryPatterns = retainedDirectories.flatMap((directory) =>
     DEPENDENCY_CRUISER_TYPESCRIPT_SOURCE_GLOB_SUFFIXES.map((suffix) => `${directory}/${suffix}`),
