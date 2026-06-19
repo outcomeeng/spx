@@ -8,8 +8,6 @@ CAN browse the session queue and claim work in a single interactive step instead
 
 ### Scenarios
 
-- Given the session queue, when the picker builds its candidate set, then only `todo` sessions appear, ordered by priority then recency as `sortSessions` orders them ([test](tests/picker-model.scenario.l1.test.ts))
-- Given a candidate set and a filter query, when the model filters, then it returns exactly the candidates whose identifier, goal, or next step contains the query, preserving candidate order ([test](tests/picker-model.scenario.l1.test.ts))
 - Given claimable sessions, when the picker mounts, then the frame lists each session with the highest-priority newest session selected and its goal and next step shown in the preview pane ([test](tests/picker-render.scenario.l1.test.ts))
 - Given a mounted picker, when filter text is typed, then the frame narrows to the matching sessions and the preview follows the new selection ([test](tests/picker-render.scenario.l1.test.ts))
 - Given a mounted picker over at least two sessions, when the down arrow then Enter is pressed, then the picker claims the second session through the `pickup` handler, whose result carries the session's `<PICKUP_ID>` tag, and unmounts ([test](tests/picker-render.scenario.l1.test.ts))
@@ -23,6 +21,8 @@ CAN browse the session queue and claim work in a single interactive step instead
 
 ### Properties
 
+- For every session set, building the candidate set yields exactly the `todo` sessions, ordered by priority then recency as `sortSessions` orders them ([test](tests/picker-model.property.l1.test.ts))
+- For every candidate set and query, filtering returns exactly the candidates whose identifier, goal, or next step contains the query, case-insensitively, in candidate order ([test](tests/picker-model.property.l1.test.ts))
 - For every candidate set and key sequence, the selected index stays within `[0, max(0, visibleCount - 1)]` — selection never leaves the visible range ([test](tests/picker-model.property.l1.test.ts))
 - For every candidate set and query, the filtered set is a subsequence of the candidate set — filtering never reorders or invents candidates ([test](tests/picker-model.property.l1.test.ts))
 - For every string and every width `n` at least 1, truncating the string to width `n` returns a string no wider than `n` — the input unchanged when it already fits, otherwise a prefix ending in a single ellipsis character ([test](tests/picker-model.property.l1.test.ts))
