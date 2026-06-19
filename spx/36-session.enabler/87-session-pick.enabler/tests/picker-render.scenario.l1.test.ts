@@ -1,25 +1,23 @@
 /**
  * Picker rendering scenarios.
  *
- * Sessions, widths, goals, and filter needles are all generated; every
- * expectation is derived from the generated input (the newest id, the matching
- * subset, the generated goal text), never a hand-picked literal or sentinel.
- * Each scenario mounts the picker through the render harness and queries the
- * frame by intent. The claim scenario wires the claim callback to the real
- * `pickupCommand` against a real session store.
+ * Sessions, widths, goals, and filter needles are generated; every expectation
+ * is derived from the generated input. Each scenario mounts the picker through
+ * the render harness and queries the frame by intent. The picker performs no
+ * claim — a launch keystroke is captured through the `onLaunch` callback.
  */
 
 import * as fc from "fast-check";
-import { afterEach, beforeEach, describe, expect, it } from "vitest";
+import { describe, expect, it } from "vitest";
 
-import { pickupCommand } from "@/commands/session/pickup";
-import { ELLIPSIS } from "@/domains/session/pick-model";
+import { ELLIPSIS, PICKER_RUNTIME, type PickerRuntime } from "@/domains/session/pick-model";
 import type { Session } from "@/domains/session/types";
 import {
   PREVIEW_GOAL_LABEL,
   PREVIEW_NEXT_LABEL,
+  SESSION_PICKER_BROWSE_HINT,
   SESSION_PICKER_EMPTY_TEXT,
-  SESSION_PICKER_HINT,
+  SESSION_PICKER_FILTER_HINT,
 } from "@/interfaces/cli/session/pick/SessionPicker";
 import {
   arbitraryClaimableSession,
@@ -28,10 +26,8 @@ import {
   arbitraryGoalWiderThan,
   arbitraryGoalWithNewline,
   arbitrarySessionId,
-  arbitrarySessionPriority,
   claimableSession,
 } from "@testing/generators/session/session";
-import { createSessionHarness, type SessionHarness } from "@testing/harnesses/session/harness";
 import { renderPickerView } from "@testing/harnesses/session/picker";
 
 /** Draw a single value from an arbitrary for an example-based scenario. */
@@ -44,24 +40,26 @@ function sampleWidth(): number {
   return sample(fc.integer({ min: 80, max: 120 }));
 }
 
-/** Lexical string comparator (timestamp ids sort chronologically by lexical order). */
-function byLexicalOrder(left: string, right: string): number {
-  if (left < right) return -1;
-  if (left > right) return 1;
-  return 0;
+interface LaunchRecord {
+  readonly session: Session;
+  readonly runtime: PickerRuntime;
+  readonly autoContinue: boolean;
 }
 
+interface LaunchCase {
+  readonly key: string;
+  readonly runtime: PickerRuntime;
+  readonly autoContinue: boolean;
+}
+
+const LAUNCH_CASES: readonly LaunchCase[] = [
+  { key: "c", runtime: PICKER_RUNTIME.CLAUDE, autoContinue: false },
+  { key: "C", runtime: PICKER_RUNTIME.CLAUDE, autoContinue: true },
+  { key: "x", runtime: PICKER_RUNTIME.CODEX, autoContinue: false },
+  { key: "X", runtime: PICKER_RUNTIME.CODEX, autoContinue: true },
+];
+
 describe("SessionPicker rendering", () => {
-  let harness: SessionHarness;
-
-  beforeEach(async () => {
-    harness = await createSessionHarness();
-  });
-
-  afterEach(async () => {
-    await harness.cleanup();
-  });
-
   it("lists every claimable session with the newest selected and previewed", () => {
     const sessions = sample(arbitraryClaimableSessionsSamePriority());
     const newest = sessions.reduce((best, session) => (session.id >= best.id ? session : best));
@@ -76,95 +74,106 @@ describe("SessionPicker rendering", () => {
     view.unmount();
   });
 
-  it("narrows the visible rows to exactly the candidates matching the typed query", async () => {
+  it("filters modally: `/` opens filter and narrows, Enter keeps the query, Esc clears it", async () => {
     const { candidates, needle, matchingIds } = sample(arbitraryFilterScenario("goal"));
+    const matches = (id: string): number => (matchingIds.includes(id) ? 1 : 0);
     const view = renderPickerView({ sessions: candidates, columns: sampleWidth() });
 
+    // `/` switches to filter mode (footer hint changes), and typing narrows the rows.
+    await view.type("/");
+    expect(view.footerLine()).toBe(SESSION_PICKER_FILTER_HINT);
     await view.type(needle);
-
     for (const candidate of candidates) {
-      expect(view.rowLinesFor(candidate.id)).toHaveLength(matchingIds.includes(candidate.id) ? 1 : 0);
+      expect(view.rowLinesFor(candidate.id)).toHaveLength(matches(candidate.id));
+    }
+
+    // Enter returns to browse mode keeping the query, so the rows stay narrowed.
+    await view.enter();
+    expect(view.footerLine()).toBe(SESSION_PICKER_BROWSE_HINT);
+    expect(view.filterLine()).toContain(needle);
+    for (const candidate of candidates) {
+      expect(view.rowLinesFor(candidate.id)).toHaveLength(matches(candidate.id));
+    }
+
+    // Re-opening filter then Esc returns to browse mode with the query cleared — every row visible.
+    await view.type("/");
+    await view.esc();
+    expect(view.footerLine()).toBe(SESSION_PICKER_BROWSE_HINT);
+    expect(view.filterLine()).not.toContain(needle);
+    for (const candidate of candidates) {
+      expect(view.rowLinesFor(candidate.id)).toHaveLength(1);
     }
     view.unmount();
   });
 
-  it("claims the down-selected session through pickupCommand and emits its PICKUP_ID", async () => {
-    // Older id first (timestamp ids sort chronologically by lexical order).
-    const [olderId, newerId] = [...sample(fc.uniqueArray(arbitrarySessionId(), { minLength: 2, maxLength: 2 }))]
-      .sort(byLexicalOrder);
-    const priority = sample(arbitrarySessionPriority());
-    await harness.writeSession("todo", olderId, { priority });
-    await harness.writeSession("todo", newerId, { priority });
-    const sessions = [claimableSession({ id: olderId, priority }), claimableSession({ id: newerId, priority })];
-
-    let claimOutput = "";
-    let claimPromise: Promise<void> = Promise.resolve();
-    const onClaim = (session: Session): void => {
-      claimPromise = pickupCommand({ sessionIds: [session.id], sessionsDir: harness.sessionsDir }).then((output) => {
-        claimOutput = output;
+  it.each(LAUNCH_CASES)(
+    "launches the selected session with $key as the chosen runtime and auto-continue",
+    async ({ key, runtime, autoContinue }) => {
+      const session = sample(arbitraryClaimableSession());
+      let launched: LaunchRecord | null = null;
+      const view = renderPickerView({
+        sessions: [session],
+        columns: sampleWidth(),
+        onLaunch: (launchedSession, launchedRuntime, launchedAuto) => {
+          launched = { session: launchedSession, runtime: launchedRuntime, autoContinue: launchedAuto };
+        },
       });
-    };
 
-    const view = renderPickerView({ sessions, columns: sampleWidth(), onClaim });
+      await view.type(key);
+      view.unmount();
 
-    // Visible order is newest-first; one row down selects the older session.
-    await view.arrowDown();
-    await view.enter();
-    await claimPromise;
-    view.unmount();
+      expect(launched).toEqual({ session, runtime, autoContinue });
+    },
+  );
 
-    expect(claimOutput).toContain(`<PICKUP_ID>${olderId}</PICKUP_ID>`);
-    expect(await harness.isInStatus("doing", olderId)).toBe(true);
-    expect(await harness.isInStatus("todo", olderId)).toBe(false);
+  it("quits on q and on Esc without launching", async () => {
+    for (const quitKey of ["q", "escape"] as const) {
+      const session = sample(arbitraryClaimableSession());
+      let launched = false;
+      let quit = false;
+      const view = renderPickerView({
+        sessions: [session],
+        columns: sampleWidth(),
+        onLaunch: () => {
+          launched = true;
+        },
+        onQuit: () => {
+          quit = true;
+        },
+      });
+
+      if (quitKey === "escape") await view.esc();
+      else await view.type(quitKey);
+      view.unmount();
+
+      expect(quit).toBe(true);
+      expect(launched).toBe(false);
+    }
   });
 
-  it("cancels on Esc without claiming", async () => {
-    const session = sample(arbitraryClaimableSession());
-    let claimed = false;
-    let cancelled = false;
-    const view = renderPickerView({
-      sessions: [session],
-      columns: sampleWidth(),
-      onClaim: () => {
-        claimed = true;
-      },
-      onCancel: () => {
-        cancelled = true;
-      },
-    });
-
-    await view.esc();
-    view.unmount();
-
-    expect(cancelled).toBe(true);
-    expect(claimed).toBe(false);
-  });
-
-  it("shows the empty state and claims nothing when no session is claimable", async () => {
-    let claimed = false;
+  it("shows the empty state and launches nothing when no session is claimable", async () => {
+    let launched = false;
     const view = renderPickerView({
       sessions: [],
       columns: sampleWidth(),
-      onClaim: () => {
-        claimed = true;
+      onLaunch: () => {
+        launched = true;
       },
     });
 
     expect(view.frame()).toContain(SESSION_PICKER_EMPTY_TEXT);
-    await view.enter();
+    await view.type("c");
     view.unmount();
 
-    expect(claimed).toBe(false);
+    expect(launched).toBe(false);
   });
 
-  it("renders the title, footer hint, and padded preview labels in their own places", () => {
+  it("renders the title, footer browse hint, and padded preview labels in their own places", () => {
     const session = sample(arbitraryClaimableSession());
     const view = renderPickerView({ sessions: [session], columns: sampleWidth() });
 
-    // The keybinding hint is on its own footer line, never crammed into the title.
-    expect(view.titleLine()).not.toContain(SESSION_PICKER_HINT);
-    expect(view.footerLine()).toBe(SESSION_PICKER_HINT);
-    // Each preview label is followed by exactly one padding space before its value.
+    expect(view.titleLine()).not.toContain(SESSION_PICKER_BROWSE_HINT);
+    expect(view.footerLine()).toBe(SESSION_PICKER_BROWSE_HINT);
     expect(view.preview()?.goalLine.startsWith(`${PREVIEW_GOAL_LABEL} `)).toBe(true);
     expect(view.preview()?.nextLine.startsWith(`${PREVIEW_NEXT_LABEL} `)).toBe(true);
     view.unmount();
@@ -194,7 +203,6 @@ describe("SessionPicker rendering", () => {
     const view = renderPickerView({ sessions: [claimableSession({ id, goal })], columns: sampleWidth() });
 
     const rows = view.rowLinesFor(id);
-    // One physical line, and the text after the break folded onto it.
     expect(rows).toHaveLength(1);
     expect(rows[0]).toContain(tail);
     view.unmount();
