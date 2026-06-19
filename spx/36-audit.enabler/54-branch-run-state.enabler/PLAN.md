@@ -29,6 +29,19 @@ Repeat the same event-depth model for `spx/46-reviewing.enabler/43-review-state.
 and `spx/46-reviewing.enabler/15-review-directory.adr.md`, so review runs also carry
 incremental journal history.
 
+## Follow-up: Storage Layer Symlink Assertions
+
+The review on
+[`outcomeeng/spx#200`](https://github.com/outcomeeng/spx/pull/200#issuecomment-4752019034)
+identified that branch run-state storage rejects symlinked and non-regular run-file
+paths in implementation and tests, while `branch-run-state.md` does not yet declare
+that storage-layer product truth directly.
+
+Add NEVER assertions to `branch-run-state.md` for symlink and non-regular-file
+rejection at the storage layer. Point the `[test]` markers to the existing
+`run-file.compliance.l1.test.ts` evidence and keep the CLI-level assertions in
+`spx/36-audit.enabler/76-audit-cli.enabler/audit-cli.md` as the user-facing surface.
+
 ## Approach
 
 Per node: `/understanding` -> `/contextualizing` -> `/applying` -> `/merge`. Keep the
