@@ -95,8 +95,13 @@ function toExplicitScopeConfig(
   if (directoryTargets.includes(PROJECT_ROOT_SCOPE_PATH)) {
     return scopeConfig;
   }
+  const patternMatchesDirectoryTarget = (pattern: string, directory: string): boolean =>
+    normalizeTypeScriptScopePath(pattern) === normalizeTypeScriptScopePath(directory);
   const scopedFilePatternsForDirectoryTargets = scopeConfig.filePatterns.filter((pattern) =>
-    directoryTargets.some((directory) => typeScriptScopePatternNarrowsDirectory(pattern, directory))
+    directoryTargets.some((directory) =>
+      !patternMatchesDirectoryTarget(pattern, directory)
+      && typeScriptScopePatternNarrowsDirectory(pattern, directory)
+    )
   );
   const narrowedDirectories = new Set(
     directoryTargets.filter((directory) =>

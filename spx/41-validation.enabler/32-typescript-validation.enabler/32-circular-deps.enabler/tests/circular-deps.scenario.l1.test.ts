@@ -942,6 +942,47 @@ describe("circular command scope routing", () => {
     });
   });
 
+  it("forwards explicit directories with TypeScript-like suffixes as directory scope", async () => {
+    await withValidationEnv({ fixture: PROJECT_FIXTURES.CLEAN_PROJECT }, async ({ path }) => {
+      const modernTypeScriptDirectory = modernTypeScriptSourceFile;
+      await mkdir(join(path, modernTypeScriptDirectory), { recursive: true });
+      await writeFile(
+        join(path, modernTypeScriptDirectory, VALIDATION_PIPELINE_DATA.cleanSourceFileName),
+        "export const modernDirectory = true;\n",
+      );
+      await writeFile(
+        join(path, TSCONFIG_FILES.full),
+        JSON.stringify({
+          compilerOptions: {
+            target: "ES2020",
+            module: "commonjs",
+            strict: true,
+          },
+          include: [modernTypeScriptDirectory],
+        }),
+      );
+      const { deps, validationCalls } = createRecordingCircularCommandDeps();
+
+      const result = await circularCommand(
+        {
+          cwd: path,
+          files: [`${modernTypeScriptDirectory}/`],
+        },
+        deps,
+      );
+
+      expect(result.exitCode).toBe(VALIDATION_EXIT_CODES.SUCCESS);
+      expect(result.output).toBe(VALIDATION_COMMAND_OUTPUT.CIRCULAR_NONE_FOUND);
+      expect(validationCalls).toEqual([
+        {
+          directories: [modernTypeScriptDirectory],
+          filePatterns: [],
+          excludePatterns: [],
+        },
+      ]);
+    });
+  });
+
   it("keeps explicit TypeScript files when glob-only excludes do not match them", async () => {
     await withValidationEnv({ fixture: PROJECT_FIXTURES.CLEAN_PROJECT }, async ({ path }) => {
       await writeFile(
