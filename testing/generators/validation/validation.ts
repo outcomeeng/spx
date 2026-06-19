@@ -79,8 +79,11 @@ const PRODUCTION_SCOPE_EXCLUDE_PATTERN = "docs/**/*";
 const TEST_FILE_EXCLUDE_PATTERN = "**/*.test.ts";
 const ABSENT_SCOPE_FILE_PATTERN = "scripts/**/*";
 const MODERN_SOURCE_FILE_NAME = "modern.mts";
+const COMMONJS_SOURCE_FILE_NAME = "commonjs.cts";
 const CLEAN_SOURCE_FILE_NAME = "clean.ts";
 const DECLARATION_SOURCE_FILE_NAME = "types.d.ts";
+const MODERN_DECLARATION_SOURCE_FILE_NAME = "types.d.mts";
+const COMMONJS_DECLARATION_SOURCE_FILE_NAME = "types.d.cts";
 const EXTENSIONLESS_SOURCE_FILE_NAME = "README";
 const RECURSIVE_NAMED_SOURCE_FILE_PATTERN = `src/**/${CLEAN_SOURCE_FILE_NAME}`;
 const SINGLE_LEVEL_NAMED_SOURCE_FILE_PATTERN = `src/*/${CLEAN_SOURCE_FILE_NAME}`;
@@ -217,7 +220,10 @@ export const VALIDATION_PIPELINE_DATA = {
   sourceDirectoryName: "src",
   cleanSourceFileName: CLEAN_SOURCE_FILE_NAME,
   modernSourceFileName: MODERN_SOURCE_FILE_NAME,
+  commonjsSourceFileName: COMMONJS_SOURCE_FILE_NAME,
   declarationSourceFileName: DECLARATION_SOURCE_FILE_NAME,
+  modernDeclarationSourceFileName: MODERN_DECLARATION_SOURCE_FILE_NAME,
+  commonjsDeclarationSourceFileName: COMMONJS_DECLARATION_SOURCE_FILE_NAME,
   extensionlessSourceFileName: EXTENSIONLESS_SOURCE_FILE_NAME,
   recursiveNamedSourceFilePattern: RECURSIVE_NAMED_SOURCE_FILE_PATTERN,
   singleLevelNamedSourceFilePattern: SINGLE_LEVEL_NAMED_SOURCE_FILE_PATTERN,

@@ -647,7 +647,11 @@ describe("ALWAYS: TypeScript scope resolution uses the requested project root", 
       const dependencyCruiserSourceMatcher = new RegExp(DEPENDENCY_CRUISER_TYPESCRIPT_SOURCE_PATTERN, "u");
       expect(dependencyCruiserSourceMatcher.test(VALIDATION_PIPELINE_DATA.cleanSourceFileName)).toBe(true);
       expect(dependencyCruiserSourceMatcher.test(VALIDATION_PIPELINE_DATA.modernSourceFileName)).toBe(true);
+      expect(dependencyCruiserSourceMatcher.test(VALIDATION_PIPELINE_DATA.commonjsSourceFileName)).toBe(true);
       expect(dependencyCruiserSourceMatcher.test(VALIDATION_PIPELINE_DATA.declarationSourceFileName)).toBe(false);
+      expect(dependencyCruiserSourceMatcher.test(VALIDATION_PIPELINE_DATA.modernDeclarationSourceFileName)).toBe(false);
+      expect(dependencyCruiserSourceMatcher.test(VALIDATION_PIPELINE_DATA.commonjsDeclarationSourceFileName))
+        .toBe(false);
       expect(config?.enhancedResolveOptions?.extensions).toEqual([
         ...DEPENDENCY_CRUISER_TYPESCRIPT_RESOLVE_EXTENSIONS,
       ]);
