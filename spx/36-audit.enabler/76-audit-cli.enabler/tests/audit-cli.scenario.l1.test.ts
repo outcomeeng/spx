@@ -64,6 +64,7 @@ const linkedWorktreeDirectory = sampleConfigTestValue(CONFIG_TEST_GENERATOR.key(
 const verdictPath = sampleConfigTestValue(CONFIG_TEST_GENERATOR.key());
 const runFileLabel = AUDIT_LIFECYCLE_TEXT_LABEL.RUN_FILE;
 const invalidCloseStatusValue = sampleAuditRunStateTestValue(AUDIT_RUN_STATE_TEST_GENERATOR.unknownProgressStep());
+const emptyAuditOverride = "";
 const auditLifecycleTimeoutMs = CLI_TIMEOUTS_MS.E2E_LONG_BATCH;
 const singleIncompleteRunCountText = "incomplete runs: 1";
 
@@ -293,6 +294,73 @@ describe("audit CLI lifecycle commands", () => {
       expect(initPayload.baseRef).toBe(configBaseRef);
       expect(initPayload.auditors).toEqual([configAuditor]);
       expect(initPayload.targets).toEqual({ include: [configTargetInclude], exclude: [configTargetExclude] });
+    } finally {
+      await harness.cleanup();
+    }
+  });
+
+  it("rejects empty branch and head-SHA overrides without creating a run journal", async () => {
+    const harness = await createAuditHarness();
+    try {
+      await writeAuditConfig(harness.productDir, {
+        baseRef: baseRef,
+        auditors: [auditor],
+        include: [target],
+      });
+
+      const emptyBranchInit = await runSpxAudit([
+        AUDIT_CLI.initCommandName,
+        AUDIT_CLI_FLAG.BRANCH,
+        emptyAuditOverride,
+        AUDIT_CLI_FLAG.HEAD_SHA,
+        headSha,
+        AUDIT_CLI_FLAG.JSON,
+      ], harness.productDir);
+      expect(emptyBranchInit.exitCode).toBe(1);
+      expect((JSON.parse(emptyBranchInit.errorOutput) as { readonly error: string }).error).toBe(
+        AUDIT_RUN_STATE_ERROR.EMPTY_BRANCH_OVERRIDE,
+      );
+
+      const emptyHeadShaInit = await runSpxAudit([
+        AUDIT_CLI.initCommandName,
+        AUDIT_CLI_FLAG.BRANCH,
+        branch,
+        AUDIT_CLI_FLAG.HEAD_SHA,
+        emptyAuditOverride,
+        AUDIT_CLI_FLAG.JSON,
+      ], harness.productDir);
+      expect(emptyHeadShaInit.exitCode).toBe(1);
+      expect((JSON.parse(emptyHeadShaInit.errorOutput) as { readonly error: string }).error).toBe(
+        AUDIT_RUN_STATE_ERROR.EMPTY_HEAD_SHA_OVERRIDE,
+      );
+
+      const emptyBranchStatus = await runSpxAudit([
+        AUDIT_CLI.statusCommandName,
+        AUDIT_CLI_FLAG.BRANCH,
+        emptyAuditOverride,
+        AUDIT_CLI_FLAG.JSON,
+      ], harness.productDir);
+      expect(emptyBranchStatus.exitCode).toBe(1);
+      expect((JSON.parse(emptyBranchStatus.errorOutput) as { readonly error: string }).error).toBe(
+        AUDIT_RUN_STATE_ERROR.EMPTY_BRANCH_OVERRIDE,
+      );
+
+      const emptyBranchList = await runSpxAudit([
+        AUDIT_CLI.listCommandName,
+        AUDIT_CLI_FLAG.BRANCH,
+        emptyAuditOverride,
+        AUDIT_CLI_FLAG.JSON,
+      ], harness.productDir);
+      expect(emptyBranchList.exitCode).toBe(1);
+      expect((JSON.parse(emptyBranchList.errorOutput) as { readonly error: string }).error).toBe(
+        AUDIT_RUN_STATE_ERROR.EMPTY_BRANCH_OVERRIDE,
+      );
+
+      const branchRuns = await readAuditBranchRuns(harness.productDir, slugAuditBranchIdentity(branch));
+      expect(branchRuns.ok).toBe(true);
+      if (!branchRuns.ok) throw new Error(branchRuns.error);
+      expect(branchRuns.value.terminalRuns).toEqual([]);
+      expect(branchRuns.value.incompleteRuns).toEqual([]);
     } finally {
       await harness.cleanup();
     }

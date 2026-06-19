@@ -125,8 +125,18 @@ export async function auditInitCommand(
   const cwd = deps.cwd ?? process.cwd();
   const git = deps.git ?? defaultGitDependencies;
   const product = await detectGitCommonDirProductRoot(cwd, git);
-  const currentBranch = options.branch ?? (await getCurrentBranch(cwd, git)) ?? undefined;
-  const headSha = options.headSha ?? (await getHeadSha(cwd, git)) ?? "unknown";
+  const branchOverride = validateOptionalOverride(
+    options.branch,
+    AUDIT_RUN_STATE_ERROR.EMPTY_BRANCH_OVERRIDE,
+  );
+  if (!branchOverride.ok) return errorResult(branchOverride.error, options.json);
+  const headShaOverride = validateOptionalOverride(
+    options.headSha,
+    AUDIT_RUN_STATE_ERROR.EMPTY_HEAD_SHA_OVERRIDE,
+  );
+  if (!headShaOverride.ok) return errorResult(headShaOverride.error, options.json);
+  const currentBranch = branchOverride.value ?? (await getCurrentBranch(cwd, git)) ?? undefined;
+  const headSha = headShaOverride.value ?? (await getHeadSha(cwd, git)) ?? "unknown";
   const branchIdentity = resolveAuditBranchIdentity({ branchName: currentBranch, headSha });
   const branchSlug = slugAuditBranchIdentity(branchIdentity);
   const auditConfig = await resolveAuditConfig(product.worktreeRoot);
@@ -263,7 +273,12 @@ async function auditStatusPayload(
   const cwd = deps.cwd ?? process.cwd();
   const git = deps.git ?? defaultGitDependencies;
   const product = await detectGitCommonDirProductRoot(cwd, git);
-  const currentBranch = options.branch ?? (await getCurrentBranch(cwd, git)) ?? undefined;
+  const branchOverride = validateOptionalOverride(
+    options.branch,
+    AUDIT_RUN_STATE_ERROR.EMPTY_BRANCH_OVERRIDE,
+  );
+  if (!branchOverride.ok) return branchOverride;
+  const currentBranch = branchOverride.value ?? (await getCurrentBranch(cwd, git)) ?? undefined;
   const headSha = (await getHeadSha(cwd, git)) ?? "unknown";
   const branchName = resolveAuditBranchIdentity({ branchName: currentBranch, headSha });
   const branchSlug = slugAuditBranchIdentity(branchName);
@@ -326,6 +341,14 @@ function isAuditTargetFilter(value: unknown): value is PathFilterConfig {
   const exclude = record[PATH_FILTER_CONFIG_FIELDS.EXCLUDE];
   return (include === undefined || (Array.isArray(include) && include.every((entry) => typeof entry === "string")))
     && (exclude === undefined || (Array.isArray(exclude) && exclude.every((entry) => typeof entry === "string")));
+}
+
+function validateOptionalOverride(
+  value: string | undefined,
+  error: string,
+): Result<string | undefined> {
+  if (value === undefined) return { ok: true, value: undefined };
+  return value.trim().length > 0 ? { ok: true, value } : { ok: false, error };
 }
 
 async function resolveAuditConfig(productDir: string): Promise<Result<AuditConfig>> {
