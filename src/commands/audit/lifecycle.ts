@@ -3,7 +3,7 @@ import { basename } from "node:path";
 import { resolveConfig } from "@/config/index";
 import { digestDescriptorSection } from "@/config/descriptor-digest";
 import type { Result } from "@/config/types";
-import { PATH_FILTER_CONFIG_FIELDS, type PathFilterConfig } from "@/config/primitives/path-filter";
+import type { PathFilterConfig } from "@/config/primitives/path-filter";
 import { AUDIT_SECTION, auditConfigDescriptor, type AuditConfig } from "@/domains/audit/config";
 import {
   AUDIT_RUN_EVENT,
@@ -19,6 +19,7 @@ import {
   formatAuditRunTimestamp,
   isAuditProgressStep,
   isAuditRunStateStatus,
+  latestStartedState,
   resolveAuditBranchIdentity,
   selectLatestTerminalAuditRun,
   slugAuditBranchIdentity,
@@ -30,7 +31,6 @@ import {
   getHeadSha,
   type GitDependencies,
 } from "@/git/root";
-import type { JournalEvent } from "@/lib/agent-run-journal";
 import { escapeCliArgument, sanitizeCliArgument } from "@/lib/sanitize-cli-argument";
 
 import {
@@ -309,38 +309,6 @@ async function resolveCommandRunFile(
   return resolved.ok
     ? { ok: true, value: { productDir: product.productDir, runFilePath: resolved.value.runFilePath } }
     : resolved;
-}
-
-function latestStartedState(events: readonly JournalEvent[]): AuditRunStartedState | undefined {
-  for (let index = events.length - 1; index >= 0; index -= 1) {
-    const event = events[index];
-    if (event?.type !== AUDIT_RUN_EVENT.STARTED_TYPE) continue;
-    return isAuditRunStartedState(event.data) ? event.data : undefined;
-  }
-  return undefined;
-}
-
-function isAuditRunStartedState(value: unknown): value is AuditRunStartedState {
-  if (typeof value !== "object" || value === null || Array.isArray(value)) return false;
-  const record = value as Record<string, unknown>;
-  return typeof record.branchName === "string"
-    && typeof record.branchSlug === "string"
-    && typeof record.headSha === "string"
-    && typeof record.baseRef === "string"
-    && typeof record.auditConfigDigest === "string"
-    && Array.isArray(record.auditors)
-    && record.auditors.every((entry) => typeof entry === "string")
-    && isAuditTargetFilter(record.targets)
-    && typeof record.startedAt === "string";
-}
-
-function isAuditTargetFilter(value: unknown): value is PathFilterConfig {
-  if (typeof value !== "object" || value === null || Array.isArray(value)) return false;
-  const record = value as Record<string, unknown>;
-  const include = record[PATH_FILTER_CONFIG_FIELDS.INCLUDE];
-  const exclude = record[PATH_FILTER_CONFIG_FIELDS.EXCLUDE];
-  return (include === undefined || (Array.isArray(include) && include.every((entry) => typeof entry === "string")))
-    && (exclude === undefined || (Array.isArray(exclude) && exclude.every((entry) => typeof entry === "string")));
 }
 
 function validateOptionalOverride(
