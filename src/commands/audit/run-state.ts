@@ -303,8 +303,10 @@ export async function readAuditBranchRuns(
 
   const terminalRuns: AuditTerminalRun[] = [];
   const incompleteRuns: AuditIncompleteRun[] = [];
-  for (const entry of entries.filter(isAuditRunFileEntry)) {
+  for (const entry of entries.filter(isAuditRunFileNameEntry)) {
     const runFilePath = join(auditRunsDir.value, entry.name);
+    const runFileSafety = await validateAuditStateFilePath(runFilePath, fs);
+    if (!runFileSafety.ok) return runFileSafety;
     const foldResult = await foldAuditRunJournal(runFilePath, fs);
     if (foldResult.ok) {
       terminalRuns.push({ runFileName: entry.name, runFilePath, state: foldResult.value });
@@ -365,8 +367,8 @@ async function appendAuditJournalEvent(
   await createJournal(backend, auditRunJournalIdentity(runFilePath)).append(input);
 }
 
-function isAuditRunFileEntry(entry: AuditRunFileEntry): boolean {
-  return entry.isFile() && isRunFileName(entry.name);
+function isAuditRunFileNameEntry(entry: AuditRunFileEntry): boolean {
+  return isRunFileName(entry.name);
 }
 
 async function validateExistingAuditRunFile(

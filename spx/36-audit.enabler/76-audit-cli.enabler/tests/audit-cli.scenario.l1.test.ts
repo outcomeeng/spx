@@ -579,6 +579,8 @@ describe("audit CLI lifecycle commands", () => {
 
       const directRead = await readAuditRunEvents(harness.productDir, runFilePath);
       expect(directRead).toEqual({ ok: false, error: AUDIT_RUN_STATE_ERROR.INVALID_RUN_FILE_PATH });
+      const directBranchRuns = await readAuditBranchRuns(harness.productDir, slugAuditBranchIdentity(branch));
+      expect(directBranchRuns).toEqual({ ok: false, error: AUDIT_RUN_STATE_ERROR.INVALID_RUN_FILE_PATH });
 
       const directProgress = await auditProgressCommand({
         runFile: runFilePath,
@@ -615,6 +617,27 @@ describe("audit CLI lifecycle commands", () => {
 
       await expectAuditCliInvalidRunFilePath(
         runSpxAudit(auditCloseArgs(runFilePath), harness.productDir),
+      );
+      const status = await runSpxAudit([
+        AUDIT_CLI.statusCommandName,
+        AUDIT_CLI_FLAG.BRANCH,
+        branch,
+        AUDIT_CLI_FLAG.JSON,
+      ], harness.productDir);
+      expect(status.exitCode).toBe(1);
+      expect((JSON.parse(status.errorOutput) as { readonly error: string }).error).toBe(
+        AUDIT_RUN_STATE_ERROR.INVALID_RUN_FILE_PATH,
+      );
+
+      const list = await runSpxAudit([
+        AUDIT_CLI.listCommandName,
+        AUDIT_CLI_FLAG.BRANCH,
+        branch,
+        AUDIT_CLI_FLAG.JSON,
+      ], harness.productDir);
+      expect(list.exitCode).toBe(1);
+      expect((JSON.parse(list.errorOutput) as { readonly error: string }).error).toBe(
+        AUDIT_RUN_STATE_ERROR.INVALID_RUN_FILE_PATH,
       );
       expect(await readFile(symlinkTarget, STATE_STORE_TEXT_ENCODING)).toBe(symlinkTargetContent);
     } finally {

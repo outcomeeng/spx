@@ -348,14 +348,14 @@ function validateOptionalOverride(
   error: string,
 ): Result<string | undefined> {
   if (value === undefined) return { ok: true, value: undefined };
-  return value.trim().length > 0 ? { ok: true, value } : { ok: false, error };
+  const trimmed = value.trim();
+  return trimmed.length > 0 ? { ok: true, value: trimmed } : { ok: false, error };
 }
 
 async function resolveAuditConfig(productDir: string): Promise<Result<AuditConfig>> {
   const result = await resolveConfig(productDir, [auditConfigDescriptor]);
   if (!result.ok) return result;
-  const section = result.value[AUDIT_SECTION];
-  return auditConfigDescriptor.validate(section);
+  return { ok: true, value: result.value[AUDIT_SECTION] as AuditConfig };
 }
 
 function digestAuditConfig(config: AuditConfig): Result<string> {
