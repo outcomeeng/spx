@@ -52,6 +52,11 @@ const modernTypeScriptSourceFile = join(
   VALIDATION_PIPELINE_DATA.sourceDirectoryName,
   VALIDATION_PIPELINE_DATA.modernSourceFileName,
 );
+const outOfRootRelativeSourceFile = join(
+  "..",
+  VALIDATION_PIPELINE_DATA.sourceDirectoryName,
+  VALIDATION_PIPELINE_DATA.cleanSourceFileName,
+);
 const rootTypeScriptFilePattern = "*.ts";
 const emptyTypescriptConfig: ParsedCommandLine = {
   options: {},
@@ -934,6 +939,30 @@ describe("circular command scope routing", () => {
         {
           cwd: path,
           files: [extensionlessSourceFile],
+        },
+        deps,
+      );
+
+      expect(result.exitCode).toBe(VALIDATION_EXIT_CODES.SUCCESS);
+      expect(result.output).toBe(formatValidationPathsNoTargetsSkipMessage(VALIDATION_STAGE_DISPLAY_NAMES.CIRCULAR));
+      expect(validationCalls).toEqual([]);
+    });
+  });
+
+  it("skips explicit relative paths that escape the project root", async () => {
+    await withValidationEnv({ fixture: PROJECT_FIXTURES.CLEAN_PROJECT }, async ({ path }) => {
+      const validationCalls: ScopeConfig[] = [];
+      const deps: CircularCommandDeps = {
+        validateCircularDependencies: async (_scope, scopeConfig) => {
+          validationCalls.push(scopeConfig);
+          return { success: true };
+        },
+      };
+
+      const result = await circularCommand(
+        {
+          cwd: path,
+          files: [outOfRootRelativeSourceFile],
         },
         deps,
       );
