@@ -5,11 +5,15 @@
  * remaps any key is caught.
  */
 
+import * as fc from "fast-check";
 import { describe, expect, it } from "vitest";
 
 import { keyToAction, PICKER_ACTION, type PickerKey } from "@/domains/session/pick-model";
 
 const NO_FLAGS: PickerKey = { input: "" };
+
+/** A generated printable character, so the printable-key case carries no hand-picked literal. */
+const PRINTABLE_CHAR = fc.sample(fc.string({ minLength: 1, maxLength: 1 }), 1)[0];
 
 interface KeyCase {
   readonly label: string;
@@ -24,7 +28,11 @@ const KEY_CASES: readonly KeyCase[] = [
   { label: "escape", key: { ...NO_FLAGS, escape: true }, expected: { type: PICKER_ACTION.CANCEL } },
   { label: "backspace", key: { ...NO_FLAGS, backspace: true }, expected: { type: PICKER_ACTION.FILTER_DELETE } },
   { label: "delete", key: { ...NO_FLAGS, delete: true }, expected: { type: PICKER_ACTION.FILTER_DELETE } },
-  { label: "printable", key: { input: "r" }, expected: { type: PICKER_ACTION.FILTER_APPEND, char: "r" } },
+  {
+    label: "printable",
+    key: { input: PRINTABLE_CHAR },
+    expected: { type: PICKER_ACTION.FILTER_APPEND, char: PRINTABLE_CHAR },
+  },
 ];
 
 describe("keyToAction", () => {

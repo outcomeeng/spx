@@ -8,7 +8,7 @@
  * @module session/testing/harness
  */
 
-import { mkdir, writeFile } from "node:fs/promises";
+import { access, mkdir, writeFile } from "node:fs/promises";
 import { join } from "node:path";
 
 import { DEFAULT_CONFIG } from "@/config/defaults";
@@ -258,6 +258,9 @@ export interface SessionHarness {
    */
   writeRawSession(status: SessionStatus, id: string, content: string): Promise<string>;
 
+  /** Whether the session `id` currently has a file in the given status directory. */
+  isInStatus(status: SessionStatus, id: string): Promise<boolean>;
+
   /** Removes the temp directory and all contents. */
   cleanup(): Promise<void>;
 }
@@ -299,6 +302,15 @@ export async function createSessionHarness(): Promise<SessionHarness> {
       const filePath = join(sessionsDir, statusDirs[status], `${id}.md`);
       await writeFile(filePath, content);
       return filePath;
+    },
+
+    async isInStatus(status: SessionStatus, id: string): Promise<boolean> {
+      try {
+        await access(join(sessionsDir, statusDirs[status], `${id}.md`));
+        return true;
+      } catch {
+        return false;
+      }
     },
 
     cleanup(): Promise<void> {
