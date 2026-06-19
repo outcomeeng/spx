@@ -60,6 +60,7 @@ const EXPLICIT_PATH_TARGET_KIND = {
 } as const;
 
 const DEPENDENCY_CRUISER_PACKAGE_NAME = "dependency-cruiser";
+const DIRECTORY_SCOPE_PROBE_FILENAME = "__spx_scope_probe__.ts";
 
 function pathIsDirectoryOperand(projectRoot: string, relativePath: string): boolean {
   const candidatePath = join(projectRoot, relativePath);
@@ -112,6 +113,13 @@ function targetPassesTypeScriptSourceKind(target: ExplicitPathTarget): boolean {
   return target.kind === EXPLICIT_PATH_TARGET_KIND.DIRECTORY || pathHasTypeScriptSourceExtension(target.path);
 }
 
+function targetPassesTypeScriptScope(target: ExplicitPathTarget, scopeConfig: TypeScriptScopeConfig): boolean {
+  if (target.kind === EXPLICIT_PATH_TARGET_KIND.FILE) {
+    return pathPassesTypeScriptScope(target.path, scopeConfig);
+  }
+  return pathPassesTypeScriptScope(join(target.path, DIRECTORY_SCOPE_PROBE_FILENAME), scopeConfig);
+}
+
 function targetPassesProjectBoundary(projectRoot: string, originalPath: string): boolean {
   return pathStaysInsideProject(projectRoot, originalPath);
 }
@@ -127,7 +135,7 @@ function filterExplicitPathTargets(
     .map((file) => toExplicitPathTarget(projectRoot, file))
     .filter((target) => targetPassesTypeScriptSourceKind(target))
     .filter((target) => pathPassesValidationFilter(target.path, validationPathFilter))
-    .filter((target) => pathPassesTypeScriptScope(target.path, scopeConfig));
+    .filter((target) => targetPassesTypeScriptScope(target, scopeConfig));
 }
 
 function explicitTargetsAreEmpty(

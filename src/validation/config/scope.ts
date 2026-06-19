@@ -405,8 +405,9 @@ export function getTypeScriptScope(
 }
 
 export function pathPassesTypeScriptScope(path: string, scopeConfig: ScopeConfig): boolean {
-  const included = scopeConfig.directories.some((directory) => pathMatchesLiteralPrefix(path, directory))
-    || scopeConfig.filePatterns.some((pattern) => pathMatchesTypeScriptPattern(path, pattern));
+  const included = scopeConfig.filePatterns.length > 0
+    ? scopeConfig.filePatterns.some((pattern) => pathMatchesTypeScriptPattern(path, pattern))
+    : scopeConfig.directories.some((directory) => pathMatchesLiteralPrefix(path, directory));
   const excluded = scopeConfig.excludePatterns.some((pattern) => pathMatchesTypeScriptPattern(path, pattern));
   return included && !excluded;
 }

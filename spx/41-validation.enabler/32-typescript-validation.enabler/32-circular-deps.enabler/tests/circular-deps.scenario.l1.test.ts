@@ -354,7 +354,7 @@ describe("circular dependency filtering", () => {
     expect(result.success).toBe(true);
     expect(dependencyGraphCalls).toHaveLength(1);
     const [paths] = dependencyGraphCalls[0] ?? [];
-    expect(paths).toEqual(expectedTypescriptSourcePatterns(analyzeDirectory));
+    expect(paths).toEqual([targetModule]);
   });
 
   it("keeps root-level TypeScript globs when dependency-cruiser inputs also include directories", async () => {
@@ -368,6 +368,19 @@ describe("circular dependency filtering", () => {
     expect(dependencyGraphCalls).toHaveLength(1);
     const [paths] = dependencyGraphCalls[0] ?? [];
     expect(paths).toEqual([...expectedTypescriptSourcePatterns(analyzeDirectory), rootTypeScriptFilePattern]);
+  });
+
+  it("keeps nested TypeScript include globs instead of widening them to their top-level directory", async () => {
+    const { dependencyGraphCalls, result } = await validateCircularScopeWithRecording({
+      directories: [VALIDATION_PIPELINE_DATA.sourceDirectoryName],
+      filePatterns: [VALIDATION_PIPELINE_DATA.narrowProductionScopeFilePattern],
+      excludePatterns: [],
+    });
+
+    expect(result.success).toBe(true);
+    expect(dependencyGraphCalls).toHaveLength(1);
+    const [paths] = dependencyGraphCalls[0] ?? [];
+    expect(paths).toEqual([VALIDATION_PIPELINE_DATA.narrowProductionScopeFilePattern]);
   });
 
   it("converts glob exclude patterns before passing them to dependency-cruiser", async () => {

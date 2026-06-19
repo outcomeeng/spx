@@ -10,6 +10,7 @@ import { VALIDATION_PATHS_SUBSECTION, validationConfigDescriptor } from "@/valid
 import {
   defaultScopeDeps,
   getTypeScriptScope,
+  pathPassesTypeScriptScope,
   TSCONFIG_FILES,
   TYPESCRIPT_FALLBACK_INCLUDE_PATTERNS,
 } from "@/validation/config/scope";
@@ -73,6 +74,10 @@ function createDependencyGraphResult(): Awaited<ReturnType<CircularDependencyGra
 function expectedDependencyCruiserSourcePatterns(directory: string): string[] {
   return DEPENDENCY_CRUISER_TYPESCRIPT_SOURCE_GLOB_SUFFIXES.map((suffix) => join(directory, suffix));
 }
+
+const narrowSourceDirectory = join(VALIDATION_PIPELINE_DATA.sourceDirectoryName, "api");
+const topLevelSourceFile = join(VALIDATION_PIPELINE_DATA.sourceDirectoryName, VALIDATION_PIPELINE_DATA.cleanSourceFileName);
+const nestedSourceFile = join(narrowSourceDirectory, VALIDATION_PIPELINE_DATA.cleanSourceFileName);
 
 class ErrorThenCloseRunner implements ProcessRunner {
   readonly options: SpawnOptions[] = [];
@@ -375,6 +380,17 @@ describe("ALWAYS: TypeScript scope resolution uses the requested project root", 
         expect(result.output).toBe(TYPESCRIPT_VALIDATION_MESSAGES.NO_VALIDATION_PATH_TARGETS);
       },
     );
+  });
+
+  it("requires explicit files to match TypeScript include patterns when directories are broader", () => {
+    const scope = {
+      directories: [VALIDATION_PIPELINE_DATA.sourceDirectoryName],
+      filePatterns: [VALIDATION_PIPELINE_DATA.narrowProductionScopeFilePattern],
+      excludePatterns: [],
+    };
+
+    expect(pathPassesTypeScriptScope(nestedSourceFile, scope)).toBe(true);
+    expect(pathPassesTypeScriptScope(topLevelSourceFile, scope)).toBe(false);
   });
 
   it("runs config-filtered Knip validation through a scoped temporary config", async () => {
