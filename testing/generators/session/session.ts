@@ -309,6 +309,137 @@ export function makeSession(opts: MakeSessionOptions = {}): Session {
 }
 
 /**
+ * A claimable session — one in the `todo` status the picker lists. Intent-named
+ * over `makeSession` so picker tests state "a claimable session" rather than
+ * re-specifying the status and field shape inline.
+ */
+export function claimableSession(overrides: Omit<MakeSessionOptions, "status"> = {}): Session {
+  return makeSession({ ...overrides, status: CLAIMABLE_STATUS });
+}
+
+/** Characters that render predictably in a row or preview — no control chars, no wrapping surprises. */
+const RENDERABLE_UNIT = fc.constantFrom(...[..."abcdefghijklmnopqrstuvwxyz0123456789 "]);
+/** Filter-haystack characters: digits and space only, disjoint from the needle's letters. */
+const HAYSTACK_UNIT = fc.constantFrom(...[..."0123456789 "]);
+/**
+ * Needle characters: uppercase letters. Their lowercased form is still letters, so a needle —
+ * and its lowercased form — can never occur in digit/space haystack text or in a timestamp id.
+ * That disjointness is what makes a filter match deterministic rather than accidental.
+ */
+const NEEDLE_UNIT = fc.constantFrom(...[..."ABCDEFGHIJKLMNOPQRSTUVWXYZ"]);
+
+/** Renderable free text of 1..`maxLength` characters (letters, digits, spaces). */
+export function arbitraryRenderableText(maxLength = 24): fc.Arbitrary<string> {
+  return fc.string({ unit: RENDERABLE_UNIT, minLength: 1, maxLength });
+}
+
+/** Free text of digits and spaces — a filter haystack that cannot contain a needle. */
+function arbitraryHaystackText(): fc.Arbitrary<string> {
+  return fc.string({ unit: HAYSTACK_UNIT, maxLength: 24 });
+}
+
+/** A search needle of letters, drawn from an alphabet disjoint from haystack text. */
+export function arbitraryNeedle(): fc.Arbitrary<string> {
+  return fc.string({ unit: NEEDLE_UNIT, minLength: 1, maxLength: 8 });
+}
+
+/** A claimable (todo) session with every field generated. */
+export function arbitraryClaimableSession(): fc.Arbitrary<Session> {
+  return fc
+    .record({
+      id: arbitrarySessionId(),
+      priority: arbitrarySessionPriority(),
+      goal: arbitraryRenderableText(),
+      next_step: arbitraryRenderableText(),
+    })
+    .map((fields) => claimableSession(fields));
+}
+
+/**
+ * 1..6 claimable sessions with distinct ids and one shared priority, so recency alone decides
+ * their order — a test derives "newest" as the lexically-greatest id (timestamps sort
+ * chronologically) without consulting the picker model it is checking.
+ */
+export function arbitraryClaimableSessionsSamePriority(): fc.Arbitrary<Session[]> {
+  return fc.uniqueArray(arbitrarySessionId(), { minLength: 1, maxLength: 6 }).chain((ids) =>
+    fc
+      .tuple(
+        arbitrarySessionPriority(),
+        fc.array(arbitraryRenderableText(), { minLength: ids.length, maxLength: ids.length }),
+        fc.array(arbitraryRenderableText(), { minLength: ids.length, maxLength: ids.length }),
+      )
+      .map(([priority, goals, nextSteps]) =>
+        ids.map((id, index) => claimableSession({ id, priority, goal: goals[index], next_step: nextSteps[index] }))
+      )
+  );
+}
+
+/** The searchable fields a filter scenario can inject its needle into. */
+export const FILTER_FIELD = { GOAL: "goal", NEXT_STEP: "next_step" } as const;
+
+/** Which searchable field a filter scenario injects its needle into. */
+export type FilterField = (typeof FILTER_FIELD)[keyof typeof FILTER_FIELD];
+
+/**
+ * A generated filter case: candidates whose text is drawn from the haystack alphabet, with the
+ * needle injected into `field` of a generated subset. `matchingIds` is that subset's ids in
+ * candidate order — the derived expectation the test compares against, never a hand-picked literal.
+ */
+export interface FilterScenario {
+  readonly candidates: Session[];
+  readonly needle: string;
+  readonly matchingIds: string[];
+}
+
+/** Builds a `FilterScenario` over distinct-id claimable sessions for the given searchable field. */
+export function arbitraryFilterScenario(field: FilterField): fc.Arbitrary<FilterScenario> {
+  return fc.uniqueArray(arbitrarySessionId(), { minLength: 1, maxLength: 8 }).chain((ids) =>
+    fc
+      .tuple(
+        fc.array(
+          fc.record({ goal: arbitraryHaystackText(), nextStep: arbitraryHaystackText(), matches: fc.boolean() }),
+          { minLength: ids.length, maxLength: ids.length },
+        ),
+        arbitraryNeedle(),
+      )
+      .map(([rows, needle]) => {
+        const candidates = ids.map((id, index) => {
+          const row = rows[index];
+          return claimableSession({
+            id,
+            goal: field === FILTER_FIELD.GOAL && row.matches ? row.goal + needle : row.goal,
+            next_step: field === FILTER_FIELD.NEXT_STEP && row.matches ? row.nextStep + needle : row.nextStep,
+          });
+        });
+        const matchingIds = ids.filter((_id, index) => rows[index].matches);
+        return { candidates, needle, matchingIds };
+      })
+  );
+}
+
+/**
+ * A goal carrying a newline, with its two non-empty segments exposed so a test can assert the
+ * post-break text folds onto the single row rather than asserting against a hand-typed string.
+ */
+export interface NewlineGoal {
+  readonly goal: string;
+  readonly head: string;
+  readonly tail: string;
+}
+
+/** Generates a `NewlineGoal` from two short renderable segments joined by a line break. */
+export function arbitraryGoalWithNewline(): fc.Arbitrary<NewlineGoal> {
+  return fc
+    .tuple(arbitraryRenderableText(12), arbitraryRenderableText(12))
+    .map(([head, tail]) => ({ head, tail, goal: `${head}\n${tail}` }));
+}
+
+/** A renderable goal strictly wider than `width`, so a row of that width must truncate it. */
+export function arbitraryGoalWiderThan(width: number): fc.Arbitrary<string> {
+  return fc.string({ unit: RENDERABLE_UNIT, minLength: width + 1, maxLength: width + 40 });
+}
+
+/**
  * Arbitrary in-memory `Session` drawing a valid timestamp ID, a status from
  * `SESSION_STATUSES`, a priority from the registry, and unicode goal/next-step
  * text — for property tests over the picker model.

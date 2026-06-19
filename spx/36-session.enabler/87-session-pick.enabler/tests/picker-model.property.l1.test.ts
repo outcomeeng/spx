@@ -1,14 +1,17 @@
 /**
  * Picker-model invariants over generated inputs.
  *
- * Property 1 — the selection never leaves the visible range under any key
- * sequence. Property 2 — filtering yields a subsequence of the candidates.
+ * Every input is generated and every expectation is derived from that input —
+ * no hand-picked literal, no sentinel constant. Candidate text and filter
+ * needles are drawn from disjoint alphabets (see the session generators) so a
+ * filter match is deterministic rather than accidental.
  */
 
 import * as fc from "fast-check";
 import { describe, it } from "vitest";
 
 import {
+  buildCandidates,
   ELLIPSIS,
   filterCandidates,
   initialPickerState,
@@ -20,7 +23,15 @@ import {
   truncateToWidth,
   visibleCandidates,
 } from "@/domains/session/pick-model";
-import { arbitrarySession } from "@testing/generators/session/session";
+import { CLAIMABLE_STATUS, PRIORITY_ORDER } from "@/domains/session/types";
+import {
+  arbitraryClaimableSession,
+  arbitraryFilterScenario,
+  arbitrarySession,
+  arbitrarySessionId,
+  claimableSession,
+  FILTER_FIELD,
+} from "@testing/generators/session/session";
 
 /** Arbitrary key event spanning the control keys and printable input. */
 function arbitraryPickerKey(): fc.Arbitrary<PickerKey> {
@@ -39,7 +50,35 @@ function indexInRange(state: PickerState): boolean {
   return state.selectedIndex >= 0 && state.selectedIndex <= upper;
 }
 
+function sameIds(actual: readonly string[], expected: readonly string[]): boolean {
+  return actual.length === expected.length && actual.every((id, index) => id === expected[index]);
+}
+
 describe("picker model invariants", () => {
+  it("builds candidates as exactly the todo sessions, ordered by priority then recency", () => {
+    fc.assert(
+      fc.property(fc.array(arbitrarySession(), { maxLength: 16 }), (sessions) => {
+        const result = buildCandidates(sessions);
+        const todo = sessions.filter((session) => session.status === CLAIMABLE_STATUS);
+
+        // Exactly the todo sessions: same membership, nothing else admitted or dropped.
+        if (result.length !== todo.length) return false;
+        if (!result.every((session) => todo.includes(session))) return false;
+
+        // Ordered by priority rank ascending, ties broken by the newer (lexically greater) id first.
+        for (let index = 1; index < result.length; index++) {
+          const previous = result[index - 1];
+          const current = result[index];
+          const previousRank = PRIORITY_ORDER[previous.metadata.priority];
+          const currentRank = PRIORITY_ORDER[current.metadata.priority];
+          if (previousRank > currentRank) return false;
+          if (previousRank === currentRank && previous.id < current.id) return false;
+        }
+        return true;
+      }),
+    );
+  });
+
   it("keeps the selected index within the visible range under any key sequence", () => {
     fc.assert(
       fc.property(
@@ -63,7 +102,7 @@ describe("picker model invariants", () => {
   it("filters to a subsequence of the candidate set", () => {
     fc.assert(
       fc.property(
-        fc.array(arbitrarySession(), { maxLength: 12 }),
+        fc.array(arbitraryClaimableSession(), { maxLength: 12 }),
         fc.string(),
         (candidates, query) => {
           const filtered = filterCandidates(candidates, query);
@@ -81,6 +120,46 @@ describe("picker model invariants", () => {
     );
   });
 
+  it.each(Object.values(FILTER_FIELD))(
+    "filters to exactly the candidates whose %s contains the query, case-insensitively, in order",
+    (field) => {
+      fc.assert(
+        fc.property(arbitraryFilterScenario(field), ({ candidates, needle, matchingIds }) => {
+          const exact = filterCandidates(candidates, needle).map((session) => session.id);
+          const lowered = filterCandidates(candidates, needle.toLowerCase()).map((session) => session.id);
+          return sameIds(exact, matchingIds) && sameIds(lowered, matchingIds);
+        }),
+      );
+    },
+  );
+
+  it("matches a candidate by its full identifier", () => {
+    fc.assert(
+      fc.property(
+        fc.uniqueArray(arbitrarySessionId(), { minLength: 1, maxLength: 6 }),
+        fc.nat(),
+        (ids, pick) => {
+          // Empty goal and next step isolate the identifier as the only searchable text.
+          const candidates = ids.map((id) => claimableSession({ id, goal: "", next_step: "" }));
+          const target = ids[pick % ids.length];
+          const matched = filterCandidates(candidates, target).map((session) => session.id);
+          // Distinct equal-length ids: none is a substring of another, so exactly one matches.
+          return matched.length === 1 && matched[0] === target;
+        },
+      ),
+    );
+  });
+
+  it("returns every candidate for a blank query", () => {
+    fc.assert(
+      fc.property(
+        fc.array(arbitraryClaimableSession(), { maxLength: 8 }),
+        fc.string({ unit: fc.constantFrom(" ", "\t"), maxLength: 4 }),
+        (candidates, blank) => filterCandidates(candidates, blank).length === candidates.length,
+      ),
+    );
+  });
+
   it("truncates to at most the given width, preserving a fitting string and ellipsizing an overflow", () => {
     fc.assert(
       fc.property(fc.string(), fc.integer({ min: 1, max: 200 }), (text, max) => {
@@ -92,7 +171,7 @@ describe("picker model invariants", () => {
     );
   });
 
-  it("reduces any string to a single line with no line breaks and no collapsed whitespace runs", () => {
+  it("reduces any string to a single line, collapsing every whitespace run to one space and trimming the ends", () => {
     fc.assert(
       fc.property(fc.string(), (text) => {
         const line = toSingleLine(text);

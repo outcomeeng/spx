@@ -1,63 +1,47 @@
 /**
- * Picker rendering scenarios via ink-testing-library.
+ * Picker rendering scenarios.
  *
- * Renders the real Ink component tree in-process to a string buffer and drives
- * it through its real key input — no mocked terminal. The claim scenario wires
- * the picker's claim callback to the real `pickupCommand`, so it proves the
- * picker claims through that handler against a real session store.
- *
- * The component is constructed with `createElement` rather than JSX so the test
- * keeps the canonical `.test.ts` extension; the JSX itself lives in the
- * component's `.tsx` source.
+ * Sessions, widths, goals, and filter needles are all generated; every
+ * expectation is derived from the generated input (the newest id, the matching
+ * subset, the generated goal text), never a hand-picked literal or sentinel.
+ * Each scenario mounts the picker through the render harness and queries the
+ * frame by intent. The claim scenario wires the claim callback to the real
+ * `pickupCommand` against a real session store.
  */
 
-import { access } from "node:fs/promises";
-import { createElement } from "react";
-
-import { render } from "ink-testing-library";
+import * as fc from "fast-check";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 
 import { pickupCommand } from "@/commands/session/pickup";
 import { ELLIPSIS } from "@/domains/session/pick-model";
-import { type Session, SESSION_PRIORITY } from "@/domains/session/types";
+import type { Session } from "@/domains/session/types";
 import {
+  PREVIEW_GOAL_LABEL,
+  PREVIEW_NEXT_LABEL,
   SESSION_PICKER_EMPTY_TEXT,
   SESSION_PICKER_HINT,
-  SessionPicker,
-  type SessionPickerProps,
 } from "@/interfaces/cli/session/pick/SessionPicker";
-import { makeSession } from "@testing/generators/session/session";
+import {
+  arbitraryClaimableSession,
+  arbitraryClaimableSessionsSamePriority,
+  arbitraryFilterScenario,
+  arbitraryGoalWiderThan,
+  arbitraryGoalWithNewline,
+  arbitrarySessionId,
+  arbitrarySessionPriority,
+  claimableSession,
+} from "@testing/generators/session/session";
 import { createSessionHarness, type SessionHarness } from "@testing/harnesses/session/harness";
+import { renderPickerView } from "@testing/harnesses/session/picker";
 
-const ARROW_DOWN = "[B";
-const ENTER = "\r";
-const ESCAPE = "";
-
-/** Renders the picker from props, avoiding JSX in a `.test.ts` file. */
-function renderPicker(props: SessionPickerProps): ReturnType<typeof render> {
-  return render(createElement(SessionPicker, props));
+/** Draw a single value from an arbitrary for an example-based scenario. */
+function sample<T>(arbitrary: fc.Arbitrary<T>): T {
+  return fc.sample(arbitrary, 1)[0];
 }
 
-/** Let Ink process the written input and React flush the resulting state. */
-function tick(): Promise<void> {
-  return new Promise((resolve) => setTimeout(resolve, 20));
-}
-
-/** Two high-priority todo sessions; sorted newest-first the visible order is [newer, older]. */
-const OLDER_ID = "2026-06-01_00-00-00";
-const NEWER_ID = "2026-06-02_00-00-00";
-
-function highTodo(id: string, goal: string, nextStep: string): Session {
-  return makeSession({ id, status: "todo", priority: SESSION_PRIORITY.HIGH, goal, next_step: nextStep });
-}
-
-async function fileExists(path: string): Promise<boolean> {
-  try {
-    await access(path);
-    return true;
-  } catch {
-    return false;
-  }
+/** A generated terminal width wide enough that short generated goals are not truncated. */
+function sampleWidth(): number {
+  return sample(fc.integer({ min: 80, max: 120 }));
 }
 
 describe("SessionPicker rendering", () => {
@@ -71,52 +55,38 @@ describe("SessionPicker rendering", () => {
     await harness.cleanup();
   });
 
-  it("lists claimable sessions with the newest high-priority one selected and previewed", () => {
-    const sessions = [
-      highTodo(OLDER_ID, "Older goal", "Older next step"),
-      highTodo(NEWER_ID, "Newer goal", "Newer next step"),
-    ];
-    const { lastFrame, unmount } = renderPicker({ sessions, onClaim: () => {}, onCancel: () => {} });
+  it("lists every claimable session with the newest selected and previewed", () => {
+    const sessions = sample(arbitraryClaimableSessionsSamePriority());
+    const newest = sessions.reduce((best, session) => (session.id >= best.id ? session : best));
+    const view = renderPickerView({ sessions, columns: sampleWidth() });
 
-    const frame = lastFrame() ?? "";
-    expect(frame).toContain(OLDER_ID);
-    expect(frame).toContain(NEWER_ID);
-    // Newest high-priority session is selected and shown in the preview.
-    expect(frame).toContain(`❯ ${NEWER_ID}`);
-    expect(frame).toContain("Newer goal");
-    expect(frame).toContain("Newer next step");
-    unmount();
+    for (const session of sessions) {
+      expect(view.rowLinesFor(session.id)).toHaveLength(1);
+    }
+    expect(view.selectedRow()).toContain(newest.id);
+    expect(view.preview()?.goalLine).toContain(newest.metadata.goal);
+    expect(view.preview()?.nextLine).toContain(newest.metadata.next_step);
+    view.unmount();
   });
 
-  it("narrows the visible list and preview as filter text is typed", async () => {
-    const sessions = [
-      highTodo(OLDER_ID, "Alpha objective", "step a"),
-      highTodo(NEWER_ID, "Beta objective", "step b"),
-    ];
-    const { lastFrame, stdin, unmount } = renderPicker({ sessions, onClaim: () => {}, onCancel: () => {} });
+  it("narrows the visible rows to exactly the candidates matching the typed query", async () => {
+    const { candidates, needle, matchingIds } = sample(arbitraryFilterScenario("goal"));
+    const view = renderPickerView({ sessions: candidates, columns: sampleWidth() });
 
-    stdin.write("alpha");
-    await tick();
+    await view.type(needle);
 
-    const frame = lastFrame() ?? "";
-    expect(frame).toContain(OLDER_ID);
-    expect(frame).not.toContain(NEWER_ID);
-    expect(frame).toContain("Alpha objective");
-    // next_step renders only in the preview pane (never in a list row), so
-    // asserting it confirms the preview followed the selection — not merely
-    // that the goal text appears somewhere in the frame.
-    expect(frame).toContain("step a");
-    expect(frame).not.toContain("step b");
-    unmount();
+    for (const candidate of candidates) {
+      expect(view.rowLinesFor(candidate.id)).toHaveLength(matchingIds.includes(candidate.id) ? 1 : 0);
+    }
+    view.unmount();
   });
 
-  it("claims the selected session through pickupCommand and emits its PICKUP_ID", async () => {
-    await harness.writeSession("todo", OLDER_ID, { priority: SESSION_PRIORITY.HIGH, goal: "Older goal" });
-    await harness.writeSession("todo", NEWER_ID, { priority: SESSION_PRIORITY.HIGH, goal: "Newer goal" });
-    const sessions = [
-      highTodo(OLDER_ID, "Older goal", "Older next step"),
-      highTodo(NEWER_ID, "Newer goal", "Newer next step"),
-    ];
+  it("claims the down-selected session through pickupCommand and emits its PICKUP_ID", async () => {
+    const [olderId, newerId] = [...sample(fc.uniqueArray(arbitrarySessionId(), { minLength: 2, maxLength: 2 }))].sort();
+    const priority = sample(arbitrarySessionPriority());
+    await harness.writeSession("todo", olderId, { priority });
+    await harness.writeSession("todo", newerId, { priority });
+    const sessions = [claimableSession({ id: olderId, priority }), claimableSession({ id: newerId, priority })];
 
     let claimOutput = "";
     let claimPromise: Promise<void> = Promise.resolve();
@@ -126,27 +96,26 @@ describe("SessionPicker rendering", () => {
       });
     };
 
-    const { stdin, unmount } = renderPicker({ sessions, onClaim, onCancel: () => {} });
+    const view = renderPickerView({ sessions, columns: sampleWidth(), onClaim });
 
-    // Visible order is [NEWER, OLDER]; one down selects OLDER, Enter claims it.
-    stdin.write(ARROW_DOWN);
-    await tick();
-    stdin.write(ENTER);
-    await tick();
+    // Visible order is newest-first; one row down selects the older session.
+    await view.arrowDown();
+    await view.enter();
     await claimPromise;
-    unmount();
+    view.unmount();
 
-    expect(claimOutput).toContain(`<PICKUP_ID>${OLDER_ID}</PICKUP_ID>`);
-    expect(await fileExists(`${harness.statusDir("doing")}/${OLDER_ID}.md`)).toBe(true);
-    expect(await fileExists(`${harness.statusDir("todo")}/${OLDER_ID}.md`)).toBe(false);
+    expect(claimOutput).toContain(`<PICKUP_ID>${olderId}</PICKUP_ID>`);
+    expect(await harness.isInStatus("doing", olderId)).toBe(true);
+    expect(await harness.isInStatus("todo", olderId)).toBe(false);
   });
 
   it("cancels on Esc without claiming", async () => {
-    const sessions = [highTodo(NEWER_ID, "Newer goal", "Newer next step")];
+    const session = sample(arbitraryClaimableSession());
     let claimed = false;
     let cancelled = false;
-    const { stdin, unmount } = renderPicker({
-      sessions,
+    const view = renderPickerView({
+      sessions: [session],
+      columns: sampleWidth(),
       onClaim: () => {
         claimed = true;
       },
@@ -155,9 +124,8 @@ describe("SessionPicker rendering", () => {
       },
     });
 
-    stdin.write(ESCAPE);
-    await tick();
-    unmount();
+    await view.esc();
+    view.unmount();
 
     expect(cancelled).toBe(true);
     expect(claimed).toBe(false);
@@ -165,74 +133,61 @@ describe("SessionPicker rendering", () => {
 
   it("shows the empty state and claims nothing when no session is claimable", async () => {
     let claimed = false;
-    const { lastFrame, stdin, unmount } = renderPicker({
+    const view = renderPickerView({
       sessions: [],
+      columns: sampleWidth(),
       onClaim: () => {
         claimed = true;
       },
-      onCancel: () => {},
     });
 
-    expect(lastFrame() ?? "").toContain(SESSION_PICKER_EMPTY_TEXT);
-    stdin.write(ENTER);
-    await tick();
-    unmount();
+    expect(view.frame()).toContain(SESSION_PICKER_EMPTY_TEXT);
+    await view.enter();
+    view.unmount();
 
     expect(claimed).toBe(false);
   });
 
-  it("renders single-line truncated rows, padded preview labels, and the hint on its own footer line", () => {
-    const longGoal =
-      "Refactor the session retention sweep so archived entries older than the keep-window are pruned deterministically across every worktree without races";
-    const sessions = [
-      makeSession({
-        id: OLDER_ID,
-        status: "todo",
-        priority: SESSION_PRIORITY.HIGH,
-        goal: longGoal,
-        next_step: "Run the focused retention tests",
-      }),
-    ];
-    const { lastFrame, unmount } = renderPicker({ sessions, onClaim: () => {}, onCancel: () => {} });
-    const frame = lastFrame() ?? "";
-    const lines = frame.split("\n");
+  it("renders the title, footer hint, and padded preview labels in their own places", () => {
+    const session = sample(arbitraryClaimableSession());
+    const view = renderPickerView({ sessions: [session], columns: sampleWidth() });
 
-    // The row carrying the id is a single truncated line: it ends in the ellipsis
-    // and drops the goal's tail, which the full-text preview still shows below.
-    const idLines = lines.filter((line) => line.includes(OLDER_ID));
-    expect(idLines).toHaveLength(1);
-    expect(idLines[0]).toContain(ELLIPSIS);
-    expect(idLines[0]).not.toContain("without races");
+    // The keybinding hint is on its own footer line, never crammed into the title.
+    expect(view.titleLine()).not.toContain(SESSION_PICKER_HINT);
+    expect(view.footerLine()).toBe(SESSION_PICKER_HINT);
+    // Each preview label is followed by exactly one padding space before its value.
+    expect(view.preview()?.goalLine.startsWith(`${PREVIEW_GOAL_LABEL} `)).toBe(true);
+    expect(view.preview()?.nextLine.startsWith(`${PREVIEW_NEXT_LABEL} `)).toBe(true);
+    view.unmount();
+  });
 
-    // The keybinding hint renders on its own line, never crammed into the title.
-    const titleLine = lines.find((line) => line.includes("Pick a session to claim")) ?? "";
-    expect(titleLine).not.toContain("filter");
-    expect(frame).toContain(SESSION_PICKER_HINT);
-
-    // Preview labels are separated from their values by exactly one space.
-    expect(frame).toMatch(/goal: \S/);
-    expect(frame).toMatch(/next: \S/);
-    unmount();
+  it("renders any row on a single line truncated to the row width", () => {
+    fc.assert(
+      fc.property(
+        fc.integer({ min: 60, max: 160 }).chain((columns) =>
+          fc.tuple(arbitraryGoalWiderThan(columns), arbitrarySessionId()).map(([goal, id]) => ({ columns, goal, id }))
+        ),
+        ({ columns, goal, id }) => {
+          const view = renderPickerView({ sessions: [claimableSession({ id, goal })], columns });
+          const rows = view.rowLinesFor(id);
+          const ok = rows.length === 1 && rows[0].trimEnd().length <= columns && rows[0].endsWith(ELLIPSIS);
+          view.unmount();
+          return ok;
+        },
+      ),
+      { numRuns: 25 },
+    );
   });
 
   it("collapses a newline in a goal so the row stays a single line", () => {
-    const sessions = [
-      makeSession({
-        id: OLDER_ID,
-        status: "todo",
-        priority: SESSION_PRIORITY.HIGH,
-        goal: "First part\nsecond part",
-        next_step: "n",
-      }),
-    ];
-    const { lastFrame, unmount } = renderPicker({ sessions, onClaim: () => {}, onCancel: () => {} });
-    const lines = (lastFrame() ?? "").split("\n");
-    const idLines = lines.filter((line) => line.includes(OLDER_ID));
+    const { goal, tail } = sample(arbitraryGoalWithNewline());
+    const id = sample(arbitrarySessionId());
+    const view = renderPickerView({ sessions: [claimableSession({ id, goal })], columns: sampleWidth() });
 
-    // The id row is a single line and the post-newline text folds onto it rather
-    // than dropping to a second line — proving the goal was reduced to one line.
-    expect(idLines).toHaveLength(1);
-    expect(idLines[0]).toContain("second part");
-    unmount();
+    const rows = view.rowLinesFor(id);
+    // One physical line, and the text after the break folded onto it.
+    expect(rows).toHaveLength(1);
+    expect(rows[0]).toContain(tail);
+    view.unmount();
   });
 });

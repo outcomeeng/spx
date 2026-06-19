@@ -11,6 +11,8 @@ import { join } from "node:path";
 import { execa } from "execa";
 import { describe, expect, it } from "vitest";
 
+import { PICK_NON_TTY_MESSAGE } from "@/interfaces/cli/session/pick/run-picker";
+
 const CLI_ENTRY = join(process.cwd(), "bin/spx.js");
 
 async function runSpx(
@@ -28,9 +30,8 @@ describe("session pick compliance", () => {
 
     expect(exitCode).not.toBe(0);
     expect(stdout).toBe("");
-    expect(stderr).toContain("interactive terminal");
-    // The spec requires suggesting both `session pickup --auto` and `session pickup <id>`.
-    expect(stderr).toContain("session pickup --auto");
-    expect(stderr).toContain("session pickup <id>");
+    // The diagnostic is the production message verbatim — asserted against the
+    // imported constant, not re-typed fragments.
+    expect(stderr).toContain(PICK_NON_TTY_MESSAGE);
   });
 });
