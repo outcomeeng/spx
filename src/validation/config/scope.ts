@@ -28,7 +28,7 @@ export const TSCONFIG_FILES = {
 } as const;
 const PATH_SEGMENT_SEPARATOR = "/";
 const GLOB_MARKER = "*";
-const REGEX_SPECIAL_CHARACTER_PATTERN = /[.+?^${}()|[\]\\]/gu;
+const GLOB_REGEX_SPECIAL_CHARACTER_PATTERN = /[.+?^${}()|[\]\\]/gu;
 const REGEX_ESCAPE_REPLACEMENT = String.raw`\$&`;
 const HIDDEN_PATH_PREFIX = ".";
 const TYPESCRIPT_SOURCE_EXTENSIONS = [".ts", ".tsx", ".mts", ".cts"] as const;
@@ -313,7 +313,7 @@ export function typeScriptScopeGlobPatternToRegExp(pattern: string): RegExp {
     } else if (character === GLOB_MARKER) {
       source += `[^${PATH_SEGMENT_SEPARATOR}]*`;
     } else {
-      source += character.replace(REGEX_SPECIAL_CHARACTER_PATTERN, REGEX_ESCAPE_REPLACEMENT);
+      source += character.replace(GLOB_REGEX_SPECIAL_CHARACTER_PATTERN, REGEX_ESCAPE_REPLACEMENT);
     }
   }
   return new RegExp(`^${source}$`, "u");

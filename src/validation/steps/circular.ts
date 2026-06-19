@@ -40,7 +40,7 @@ export const DEPENDENCY_CRUISER_TYPESCRIPT_RESOLVE_EXTENSIONS = [
   ".d.ts",
 ] as const;
 const TSCONFIG_EXCLUDE_SUFFIX_PATTERN = /\/\*\*?\/\*$/u;
-const REGEX_SPECIAL_CHARACTER_PATTERN = /[.*+?^${}()|[\]\\]/gu;
+const LITERAL_REGEX_SPECIAL_CHARACTER_PATTERN = /[.*+?^${}()|[\]\\]/gu;
 const REGEX_ESCAPE_REPLACEMENT = String.raw`\$&`;
 const CYCLE_KEY_SEPARATOR = "\u0000";
 const GLOB_MARKER = "*";
@@ -119,7 +119,7 @@ function toDependencyCruiserExcludePatterns(patterns: readonly string[]): string
     if (cleanPattern.includes(GLOB_MARKER)) {
       return typeScriptScopeGlobPatternToRegExp(cleanPattern).source;
     }
-    return cleanPattern.replace(REGEX_SPECIAL_CHARACTER_PATTERN, REGEX_ESCAPE_REPLACEMENT);
+    return cleanPattern.replace(LITERAL_REGEX_SPECIAL_CHARACTER_PATTERN, REGEX_ESCAPE_REPLACEMENT);
   });
 }
 
