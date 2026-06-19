@@ -159,6 +159,24 @@ describe("ALWAYS: TypeScript scope resolution uses the requested project root", 
     });
   });
 
+  it("ignores non-TypeScript include patterns when resolving TypeScript scope", async () => {
+    await withTestEnv({}, async (env) => {
+      await env.writeRaw(
+        join(VALIDATION_PIPELINE_DATA.sourceDirectoryName, VALIDATION_PIPELINE_DATA.markdownOnlyFileName),
+        "",
+      );
+      await env.writeRaw(
+        TSCONFIG_FILES.full,
+        JSON.stringify({ include: [VALIDATION_PIPELINE_DATA.recursiveMarkdownSourceFilePattern] }),
+      );
+
+      const scope = getTypeScriptScope(VALIDATION_SCOPES.FULL, env.productDir);
+
+      expect(scope.directories).toEqual([]);
+      expect(scope.filePatterns).toEqual([]);
+    });
+  });
+
   it("uses fallback TypeScript config patterns that include modern module files", async () => {
     await withTestEnv({}, async (env) => {
       await env.writeRaw(

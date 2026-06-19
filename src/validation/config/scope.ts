@@ -247,7 +247,7 @@ export function getTopLevelDirectoriesWithTypeScript(
   if (config.include) {
     for (const pattern of config.include) {
       // Extract directory from patterns like "scripts/**/*.ts", "tests/**/*.tsx"
-      if (pattern.includes(PATH_SEGMENT_SEPARATOR)) {
+      if (typeScriptScopePatternTargetsTypeScriptSource(pattern) && pattern.includes(PATH_SEGMENT_SEPARATOR)) {
         const topLevelDir = getLiteralTopLevelPatternDirectory(pattern);
         if (topLevelDir) {
           directories.add(topLevelDir);
@@ -269,7 +269,10 @@ function getLiteralTopLevelPatternDirectory(pattern: string): string | null {
 
 function directoryPassesIncludePatterns(directory: string, patterns: readonly string[]): boolean {
   return patterns.length === 0
-    || patterns.some((pattern) => typeScriptScopePatternIntersectsDirectory(pattern, directory));
+    || patterns.some((pattern) =>
+      typeScriptScopePatternTargetsTypeScriptSource(pattern)
+      && typeScriptScopePatternIntersectsDirectory(pattern, directory)
+    );
 }
 
 export function normalizeTypeScriptScopePath(path: string): string {
@@ -451,6 +454,7 @@ function filterActiveIncludePatterns(
   deps: ScopeDeps,
 ): string[] {
   return patterns
+    .filter((pattern) => typeScriptScopePatternTargetsTypeScriptSource(pattern))
     .filter((pattern) => {
       const topLevelDir = getLiteralTopLevelPatternDirectory(pattern);
       return topLevelDir === null || deps.existsSync(join(projectRoot, topLevelDir));

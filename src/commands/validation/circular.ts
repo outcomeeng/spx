@@ -251,7 +251,8 @@ function targetPassesTypeScriptScope(target: ExplicitPathTarget, scopeConfig: Ty
     return pathPassesTypeScriptScope(target.path, scopeConfig);
   }
   if (target.path === PROJECT_ROOT_SCOPE_PATH) {
-    return scopeConfig.directories.length > 0 || scopeConfig.filePatterns.length > 0;
+    return scopeConfig.directories.length > 0
+      || scopeConfig.filePatterns.some((pattern) => typeScriptScopePatternTargetsTypeScriptSource(pattern));
   }
   const typeScriptSourcePatterns = scopeConfig.filePatterns.filter((pattern) =>
     typeScriptScopePatternTargetsTypeScriptSource(pattern)
