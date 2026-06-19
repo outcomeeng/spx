@@ -62,6 +62,7 @@ const outOfRootRelativeSourceFile = join(
   VALIDATION_PIPELINE_DATA.sourceDirectoryName,
   VALIDATION_PIPELINE_DATA.cleanSourceFileName,
 );
+const dotSegmentedRootSourceFile = `${VALIDATION_PIPELINE_DATA.sourceDirectoryName}/../${VALIDATION_PIPELINE_DATA.cleanSourceFileName}`;
 const rootTypeScriptFilePattern = "*.ts";
 const emptyTypescriptConfig: ParsedCommandLine = {
   options: {},
@@ -837,6 +838,28 @@ describe("circular command scope routing", () => {
           cwd: path,
           scope: VALIDATION_SCOPES.PRODUCTION,
           files: [testOnlyCyclePath],
+        },
+        deps,
+      );
+
+      expect(result.exitCode).toBe(VALIDATION_EXIT_CODES.SUCCESS);
+      expect(result.output).toBe(formatValidationPathsNoTargetsSkipMessage(VALIDATION_STAGE_DISPLAY_NAMES.CIRCULAR));
+      expect(validationCalls).toEqual([]);
+    });
+  });
+
+  it("canonicalizes dot-segment explicit files before TypeScript scope checks", async () => {
+    await withValidationEnv({ fixture: PROJECT_FIXTURES.CLEAN_PROJECT }, async ({ path }) => {
+      await writeFile(
+        join(path, VALIDATION_PIPELINE_DATA.cleanSourceFileName),
+        "export const rootScopedAway = true;\n",
+      );
+      const { deps, validationCalls } = createRecordingCircularCommandDeps();
+
+      const result = await circularCommand(
+        {
+          cwd: path,
+          files: [dotSegmentedRootSourceFile],
         },
         deps,
       );
