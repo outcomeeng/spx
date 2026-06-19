@@ -72,10 +72,10 @@ jobs:
       concurrency_cancel: ${{ vars.SPEC_TREE_REVIEW_CONCURRENCY_CANCEL != 'false' }}
 
       # Wall-clock budget (minutes) for the Run Claude Code Review step.
-      # Reusable default: 30. Minimum 1; GitHub Actions silently rejects
+      # Reusable default: 15. Minimum 1; GitHub Actions silently rejects
       # '0' at runtime. Typed as a string so quoted forms pass through
       # unchanged.
-      timeout_minutes: ${{ vars.SPEC_TREE_REVIEW_TIMEOUT_MINUTES || '30' }}
+      timeout_minutes: ${{ vars.SPEC_TREE_REVIEW_TIMEOUT_MINUTES || '15' }}
 
       # Claude model id (e.g. `claude-opus-4-7`). Empty = action default.
       # Folded into claude_args as `--model <id>`.
