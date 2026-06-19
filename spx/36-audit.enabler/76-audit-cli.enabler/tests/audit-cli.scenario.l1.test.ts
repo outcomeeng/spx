@@ -207,7 +207,8 @@ describe("audit CLI lifecycle commands", () => {
         AUDIT_RUN_EVENT.PROGRESS_TYPE,
         AUDIT_RUN_EVENT.COMPLETED_TYPE,
       ]);
-      expect(events[7]?.data).toMatchObject({ [AUDIT_RUN_STATE_FIELDS.VERDICT_PATH]: verdictPath });
+      const completed = events.find((event) => event.type === AUDIT_RUN_EVENT.COMPLETED_TYPE);
+      expect(completed?.data).toMatchObject({ [AUDIT_RUN_STATE_FIELDS.VERDICT_PATH]: verdictPath });
     } finally {
       await harness.cleanup();
     }

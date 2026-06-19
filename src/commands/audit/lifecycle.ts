@@ -9,7 +9,6 @@ import {
   AUDIT_RUN_EVENT,
   AUDIT_RUN_STATE_ERROR,
   AUDIT_RUN_STATE_DISPLAY,
-  AUDIT_RUN_STATE_STATUS,
   type AuditIncompleteRun,
   type AuditRunProgressState,
   type AuditRunStartedState,
@@ -19,6 +18,7 @@ import {
   auditRunStartedEventInput,
   formatAuditRunTimestamp,
   isAuditProgressStep,
+  isAuditRunStateStatus,
   resolveAuditBranchIdentity,
   selectLatestTerminalAuditRun,
   slugAuditBranchIdentity,
@@ -221,7 +221,7 @@ export async function auditCloseCommand(
   options: AuditCloseOptions,
   deps: AuditLifecycleDeps = {},
 ): Promise<AuditCommandResult> {
-  if (!isAuditCloseStatus(options.status)) {
+  if (!isAuditRunStateStatus(options.status)) {
     return errorResult(AUDIT_RUN_STATE_ERROR.UNKNOWN_CLOSE_STATUS, options.json);
   }
   const runFile = await resolveCommandRunFile(options.runFile, deps);
@@ -363,10 +363,6 @@ function digestAuditConfig(config: AuditConfig): Result<string> {
   return digest.ok
     ? { ok: true, value: digest.value.sha256 }
     : { ok: false, error: `${AUDIT_CONFIG_DIGEST_ERROR_PREFIX}: ${digest.error}` };
-}
-
-function isAuditCloseStatus(value: string): value is AuditRunState["status"] {
-  return Object.values(AUDIT_RUN_STATE_STATUS).includes(value as AuditRunState["status"]);
 }
 
 function okResult(payload: unknown, text: string, json: boolean | undefined): AuditCommandResult {
