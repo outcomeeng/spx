@@ -27,9 +27,13 @@ export interface PickerInstance {
 /** Mounts the picker element to a {@link PickerInstance} — Ink's `render` in production. */
 export type PickerRenderer = (element: ReactElement) => PickerInstance;
 
-/** Diagnostic the descriptor emits when the picker cannot run without a TTY. */
+/**
+ * Diagnostic the descriptor emits when the picker cannot run without a TTY.
+ * The suggested commands are single-quoted so a shell does not expand `$pickup`
+ * (codex's skill prefix is `$`) before the agent receives the prompt.
+ */
 export const PICK_NON_TTY_MESSAGE =
-  "session pick requires an interactive terminal. Run `claude \"/pickup <id>\"` or `codex \"$pickup <id>\"` directly in a non-interactive context.";
+  "session pick requires an interactive terminal. Run `claude '/pickup <id>'` or `codex '$pickup <id>'` directly in a non-interactive context.";
 
 /** The session the operator chose to resume and how to resume it. */
 export interface LaunchChoice {
