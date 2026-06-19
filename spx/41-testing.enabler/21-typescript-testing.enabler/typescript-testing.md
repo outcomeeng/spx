@@ -22,4 +22,4 @@ CAN execute this product's TypeScript tests with exclusion flags derived from `s
 
 - ALWAYS: Vitest invocation is gated on the TypeScript testing descriptor's detection result ([test](tests/typescript-testing.compliance.l1.test.ts))
 - ALWAYS: TypeScript runner command construction, explicit test-file arguments, exclusion arguments, and tool invocation stay inside the selected TypeScript adapter per `spx/41-testing.enabler/11-test-runner-environments.pdr.md` ([audit])
-- NEVER: write vitest configuration into `vitest.config.ts`, `tsconfig.json`, or `package.json` — exclusion flags pass at invocation time ([review])
+- NEVER: write vitest configuration into `vitest.config.ts`, `tsconfig.json`, or `package.json` — exclusion flags pass at invocation time ([audit])
