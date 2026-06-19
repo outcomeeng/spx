@@ -7,7 +7,12 @@ import { VALIDATION_EXIT_CODES } from "@/commands/validation/messages";
 import { TYPESCRIPT_VALIDATION_MESSAGES, typescriptCommand } from "@/commands/validation/typescript";
 import type { ProcessRunner } from "@/lib/process-lifecycle";
 import { VALIDATION_PATHS_SUBSECTION, validationConfigDescriptor } from "@/validation/config/descriptor";
-import { getTypeScriptScope, TSCONFIG_FILES } from "@/validation/config/scope";
+import {
+  defaultScopeDeps,
+  getTypeScriptScope,
+  TSCONFIG_FILES,
+  TYPESCRIPT_FALLBACK_INCLUDE_PATTERNS,
+} from "@/validation/config/scope";
 import {
   CIRCULAR_DEPS_KEYS,
   type CircularDependencyGraphRunner,
@@ -146,6 +151,25 @@ describe("ALWAYS: TypeScript scope resolution uses the requested project root", 
       const scope = getTypeScriptScope(VALIDATION_SCOPES.PRODUCTION, env.productDir);
 
       expect(scope.filePatterns).toEqual([VALIDATION_PIPELINE_DATA.productionScopeFilePattern]);
+    });
+  });
+
+  it("uses fallback TypeScript config patterns that include modern module files", async () => {
+    await withTestEnv({}, async (env) => {
+      await env.writeRaw(
+        join(VALIDATION_PIPELINE_DATA.sourceDirectoryName, VALIDATION_PIPELINE_DATA.modernSourceFileName),
+        "",
+      );
+
+      const scope = getTypeScriptScope(VALIDATION_SCOPES.FULL, env.productDir, {
+        ...defaultScopeDeps,
+        readFileSync: () => {
+          throw new Error("unreadable fixture tsconfig");
+        },
+      });
+
+      expect(scope.directories).toEqual([VALIDATION_PIPELINE_DATA.sourceDirectoryName]);
+      expect(scope.filePatterns).toEqual([...TYPESCRIPT_FALLBACK_INCLUDE_PATTERNS]);
     });
   });
 
