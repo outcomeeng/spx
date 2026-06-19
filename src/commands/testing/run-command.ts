@@ -2,7 +2,7 @@ import { join } from "node:path";
 
 import { digestDescriptorSection } from "@/config/descriptor-digest";
 import { resolveConfig } from "@/config/index";
-import { SUCCESS_EXIT_CODE } from "@/domains/testing";
+import { SUCCESS_EXIT_CODE, type TargetSelection } from "@/domains/testing";
 import { getCurrentBranch, getHeadSha, type GitDependencies } from "@/git/root";
 import { compareAsciiStrings, hasErrorCode } from "@/lib/state-store";
 import { TESTING_SECTION, type TestingConfig, testingConfigDescriptor } from "@/testing/config";
@@ -16,9 +16,9 @@ import {
   formatTestRunTimestamp,
   type ProductInputDigest,
   type StalenessInputs,
-  TESTING_RUN_STATE_ERROR_CODE,
   TEST_RUN_STATE_STATUS,
   type TestContentEntry,
+  TESTING_RUN_STATE_ERROR_CODE,
   type TestRunFile,
   type TestRunState,
   type TestRunStateFileSystem,
@@ -55,6 +55,8 @@ export interface RunTestsCommandOptions {
   readonly productDir: string;
   /** True for `spx test passing` — apply the configured passing scope before dispatch. */
   readonly passing: boolean;
+  /** When present with operands, only the operand-selected files dispatch; passing scope still applies. */
+  readonly targets?: TargetSelection;
 }
 
 export interface RecordedTestRun {
@@ -285,7 +287,12 @@ export async function runTestsCommand(
   const recording = resolveRecordingDependencies(deps);
   const runFile = await reserveRunFile(options.productDir, recording);
   const dispatch = await runTests(
-    { productDir: options.productDir, registry: deps.registry, passingScope },
+    {
+      productDir: options.productDir,
+      registry: deps.registry,
+      passingScope,
+      ...(options.targets === undefined ? {} : { targets: options.targets }),
+    },
     { runnerDepsFor: deps.runnerDepsFor },
   );
   const recorded = await recordRun(runFile, options.productDir, dispatch, recording, deps.registry, digest);

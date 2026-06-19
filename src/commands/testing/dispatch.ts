@@ -1,5 +1,11 @@
 import { applyPathFilter, type PathFilterConfig } from "@/config/primitives";
-import { aggregateTestExitCode, groupTestFiles, type LanguageTestGroup } from "@/domains/testing";
+import {
+  aggregateTestExitCode,
+  groupTestFiles,
+  type LanguageTestGroup,
+  resolveTargetedTestFiles,
+  type TargetSelection,
+} from "@/domains/testing";
 import type {
   TestingLanguageDescriptor,
   TestRunCommandOutput,
@@ -20,6 +26,8 @@ export interface TestDispatchResult {
   readonly exitCode: number;
   readonly groups: readonly LanguageTestGroup[];
   readonly unmatched: readonly string[];
+  /** Operands that matched no discovered test file; non-empty makes the command fail. */
+  readonly unresolvedTargets: readonly string[];
   readonly reports: readonly TestRunnerReport[];
   readonly outcomes: readonly TestRunnerOutcome[];
 }
@@ -36,6 +44,8 @@ export interface TestDispatchOptions {
   readonly registry: TestingRegistry;
   /** When present, discovered files are filtered by this scope before dispatch (`spx test passing`). */
   readonly passingScope?: PathFilterConfig;
+  /** When present with operands, only the operand-selected files dispatch; passing scope still applies. */
+  readonly targets?: TargetSelection;
 }
 
 export interface TestDispatchDependencies {
@@ -57,9 +67,14 @@ export async function runTests(
   deps: TestDispatchDependencies,
 ): Promise<TestDispatchResult> {
   const discovered = await discoverTestFiles(options.productDir);
+  // Explicit operands narrow the discovered set before passing-scope; with no
+  // operands the full discovered set carries through unchanged.
+  const targeted = options.targets !== undefined && options.targets.operands.length > 0
+    ? resolveTargetedTestFiles(discovered, options.targets)
+    : { selected: discovered, unresolved: [] as readonly string[] };
   const testFiles = options.passingScope === undefined
-    ? discovered
-    : applyPathFilter(discovered, options.passingScope);
+    ? targeted.selected
+    : applyPathFilter(targeted.selected, options.passingScope);
   const { groups, unmatched } = groupTestFiles(testFiles, options.registry.languages);
 
   const invocations: TestRunInvocation[] = [];
@@ -92,9 +107,10 @@ export async function runTests(
   }
 
   return {
-    exitCode: aggregateTestExitCode(invocations, unmatched.length),
+    exitCode: aggregateTestExitCode(invocations, unmatched.length + targeted.unresolved.length),
     groups,
     unmatched,
+    unresolvedTargets: targeted.unresolved,
     reports,
     outcomes,
   };

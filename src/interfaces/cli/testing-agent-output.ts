@@ -1,5 +1,5 @@
-import { SUCCESS_EXIT_CODE } from "@/domains/testing";
 import type { RecordedTestRun } from "@/commands/testing";
+import { SUCCESS_EXIT_CODE } from "@/domains/testing";
 import { TEST_RUN_STATE_STATUS, type TestRunStateStatus } from "@/testing/run-state";
 
 export const AGENT_TEST_OUTPUT_TEXT = {
@@ -14,6 +14,7 @@ export const AGENT_TEST_OUTPUT_TEXT = {
   FAILING_TESTS: "failingTests",
   SKIPPED_TESTS: "skippedTests",
   UNMATCHED: "unmatched",
+  UNRESOLVED_TARGETS: "unresolvedTargets",
 } as const;
 
 const NEWLINE = "\n";
@@ -89,6 +90,10 @@ export function formatAgentTestOutput(run: RecordedTestRun): string {
       `${AGENT_TEST_OUTPUT_TEXT.RUNNER}: ${group.language.name}`,
     );
     appendPathList(lines, AGENT_TEST_OUTPUT_TEXT.SKIPPED_TESTS, group.testPaths);
+  }
+
+  if (run.dispatch.unresolvedTargets.length > 0) {
+    appendPathList(lines, AGENT_TEST_OUTPUT_TEXT.UNRESOLVED_TARGETS, run.dispatch.unresolvedTargets);
   }
 
   if (run.dispatch.unmatched.length > 0) {
