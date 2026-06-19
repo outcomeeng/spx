@@ -18,7 +18,9 @@ import {
   validationPathFilterForTool,
 } from "@/validation/config/path-filter";
 import {
+  globSegmentMatchesPathSegment,
   getTypeScriptScope,
+  RECURSIVE_GLOB_SEGMENT,
   normalizeTypeScriptScopePath,
   pathHasTypeScriptSourceExtension,
   pathPassesTypeScriptScope,
@@ -71,9 +73,6 @@ const EXPLICIT_PATH_TARGET_KIND = {
 
 const DEPENDENCY_CRUISER_PACKAGE_NAME = "dependency-cruiser";
 const PROJECT_ROOT_SCOPE_PATH = ".";
-const RECURSIVE_GLOB_SEGMENT = "**";
-const ANY_SEGMENT_GLOB = "*";
-const SINGLE_CHARACTER_SEGMENT_GLOB = "?";
 
 function pathIsDirectoryOperand(projectRoot: string, relativePath: string): boolean {
   const candidatePath = join(projectRoot, relativePath);
@@ -157,9 +156,8 @@ function advanceRecursiveGlobForDirectorySegment(
 }
 
 function patternSegmentMatchesDirectorySegment(patternSegment: string | undefined, directorySegment: string): boolean {
-  return patternSegment === directorySegment
-    || patternSegment === ANY_SEGMENT_GLOB
-    || patternSegment === SINGLE_CHARACTER_SEGMENT_GLOB;
+  return patternSegment !== undefined
+    && globSegmentMatchesPathSegment(patternSegment, directorySegment);
 }
 
 function pathMatchesScopePattern(path: string, pattern: string): boolean {
