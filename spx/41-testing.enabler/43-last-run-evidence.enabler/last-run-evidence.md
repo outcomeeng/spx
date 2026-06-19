@@ -18,4 +18,4 @@ CAN report observed results and staleness without invoking test runners
 ### Compliance
 
 - ALWAYS: deleting persisted testing state changes only fast-status availability, never passing-scope policy ([test](tests/passing-scope.compliance.l1.test.ts))
-- NEVER: infer passing scope from persisted testing state — passing scope resolves from the testing config descriptor, and the last-run state module exposes no passing-scope resolution ([review])
+- NEVER: infer passing scope from persisted testing state — passing scope resolves from the testing config descriptor, and the last-run state module exposes no passing-scope resolution ([audit])

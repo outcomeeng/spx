@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 
 import { runTests } from "@/commands/testing";
-import { UNSUPPORTED_TEST_SELECTION_EXIT_CODE } from "@/domains/testing";
+import { NO_RUNNER_INVOCATION_EXIT_CODE, UNSUPPORTED_TEST_SELECTION_EXIT_CODE } from "@/domains/testing";
 import { SPEC_TREE_CONFIG } from "@/lib/spec-tree/config";
 import { pythonTestingLanguage } from "@/testing/languages/python";
 import type { TestingLanguageDescriptor } from "@/testing/languages/types";
@@ -102,6 +102,22 @@ describe("spx test dispatch over the language registry", () => {
       expect(absentRunner.calls).toHaveLength(0);
       expect(invokedArgs(presentRunner)).toContain(presentFile);
       expect(result.exitCode).toBe(0);
+    });
+  });
+
+  it("fails when every selected language runner is absent", async () => {
+    const nodePath = sampleDispatchValue(TEST_DISPATCH_GENERATOR.nodePath());
+    const selectedFile = sampleDispatchValue(TEST_DISPATCH_GENERATOR.testFileUnder(typescriptTestingLanguage, nodePath));
+    const absentExitCode = sampleDispatchValue(TEST_DISPATCH_GENERATOR.nonZeroExitCode());
+    const absentRunner = createRecordingCommandRunner({ present: false, exitCode: absentExitCode });
+
+    await withTestingTempProductDir(async (productDir) => {
+      await writeTestFileFixture(productDir, selectedFile);
+
+      const result = await runTests({ productDir, registry: testingRegistry }, { runnerDepsFor: () => absentRunner });
+
+      expect(absentRunner.calls).toHaveLength(0);
+      expect(result.exitCode).toBe(NO_RUNNER_INVOCATION_EXIT_CODE);
     });
   });
 

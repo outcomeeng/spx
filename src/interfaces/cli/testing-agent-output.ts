@@ -1,5 +1,6 @@
 import { SUCCESS_EXIT_CODE } from "@/domains/testing";
 import type { RecordedTestRun } from "@/commands/testing";
+import { TEST_RUN_STATE_STATUS, type TestRunStateStatus } from "@/testing/run-state";
 
 export const AGENT_TEST_OUTPUT_TEXT = {
   HEADER: "spx test --agent",
@@ -34,10 +35,32 @@ function appendPathList(lines: string[], label: string, paths: readonly string[]
   }
 }
 
+function failingReportPaths(report: RecordedTestRun["dispatch"]["reports"][number]): readonly string[] {
+  if (report.output?.failingTestPaths !== undefined && report.output.failingTestPaths.length > 0) {
+    return report.output.failingTestPaths;
+  }
+  return report.testPaths;
+}
+
+function failedUnreportedGroups(run: RecordedTestRun): typeof run.dispatch.groups {
+  if (run.dispatch.exitCode === SUCCESS_EXIT_CODE) {
+    return [];
+  }
+  const reportedRunnerIds = new Set(run.dispatch.reports.map((report) => report.runnerId));
+  return run.dispatch.groups.filter((group) => !reportedRunnerIds.has(group.language.name));
+}
+
+function summaryStatus(run: RecordedTestRun): TestRunStateStatus {
+  if (run.dispatch.exitCode !== SUCCESS_EXIT_CODE) {
+    return TEST_RUN_STATE_STATUS.FAILED;
+  }
+  return run.recorded.status;
+}
+
 export function formatAgentTestOutput(run: RecordedTestRun): string {
   const lines = [
     AGENT_TEST_OUTPUT_TEXT.HEADER,
-    `${AGENT_TEST_OUTPUT_TEXT.STATUS}: ${run.recorded.status}`,
+    `${AGENT_TEST_OUTPUT_TEXT.STATUS}: ${summaryStatus(run)}`,
     `${AGENT_TEST_OUTPUT_TEXT.EXIT_CODE}: ${run.dispatch.exitCode}`,
     `${AGENT_TEST_OUTPUT_TEXT.STATE_FILE}: ${run.runFile.runFilePath}`,
   ];
@@ -58,9 +81,17 @@ export function formatAgentTestOutput(run: RecordedTestRun): string {
       appendPathList(
         lines,
         AGENT_TEST_OUTPUT_TEXT.FAILING_TESTS,
-        report.output?.failingTestPaths ?? report.testPaths,
+        failingReportPaths(report),
       );
     }
+  }
+
+  for (const group of failedUnreportedGroups(run)) {
+    lines.push(
+      `${AGENT_TEST_OUTPUT_TEXT.RUNNER}: ${group.language.name}`,
+      `${INDENT}${AGENT_TEST_OUTPUT_TEXT.EXIT_CODE}: ${run.dispatch.exitCode}`,
+    );
+    appendPathList(lines, AGENT_TEST_OUTPUT_TEXT.FAILING_TESTS, group.testPaths);
   }
 
   if (run.dispatch.unmatched.length > 0) {
