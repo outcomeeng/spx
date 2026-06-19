@@ -358,7 +358,7 @@ describe("circular dependency filtering", () => {
     expect(result.success).toBe(true);
     expect(dependencyGraphCalls).toHaveLength(1);
     const [paths] = dependencyGraphCalls[0] ?? [];
-    expect(paths).toEqual(expectedTypescriptSourcePatterns(analyzeDirectory));
+    expect(paths).toEqual([targetModule]);
   });
 
   it("keeps root-level TypeScript globs when dependency-cruiser inputs also include directories", async () => {
@@ -385,6 +385,23 @@ describe("circular dependency filtering", () => {
     expect(dependencyGraphCalls).toHaveLength(1);
     const [paths] = dependencyGraphCalls[0] ?? [];
     expect(paths).toEqual([VALIDATION_PIPELINE_DATA.narrowProductionScopeFilePattern]);
+  });
+
+  it("keeps literal TypeScript file includes from widening to their top-level directory", async () => {
+    const { dependencyGraphCalls, result } = await validateCircularScopeWithRecording({
+      directories: [VALIDATION_PIPELINE_DATA.sourceDirectoryName],
+      filePatterns: [
+        join(VALIDATION_PIPELINE_DATA.sourceDirectoryName, VALIDATION_PIPELINE_DATA.cleanSourceFileName),
+      ],
+      excludePatterns: [],
+    });
+
+    expect(result.success).toBe(true);
+    expect(dependencyGraphCalls).toHaveLength(1);
+    const [paths] = dependencyGraphCalls[0] ?? [];
+    expect(paths).toEqual([
+      join(VALIDATION_PIPELINE_DATA.sourceDirectoryName, VALIDATION_PIPELINE_DATA.cleanSourceFileName),
+    ]);
   });
 
   it("keeps wildcard-narrowed TypeScript include globs instead of widening them to their top-level directory", async () => {
@@ -702,6 +719,74 @@ describe("circular command scope routing", () => {
         {
           directories: [VALIDATION_PIPELINE_DATA.sourceDirectoryName],
           filePatterns: [],
+          excludePatterns: [],
+        },
+      ]);
+    });
+  });
+
+  it("drops explicit file operands already covered by explicit directory operands", async () => {
+    await withValidationEnv({ fixture: PROJECT_FIXTURES.CLEAN_PROJECT }, async ({ path }) => {
+      const { deps, validationCalls } = createRecordingCircularCommandDeps();
+
+      const result = await circularCommand(
+        {
+          cwd: path,
+          files: [
+            `${VALIDATION_PIPELINE_DATA.sourceDirectoryName}/`,
+            join(VALIDATION_PIPELINE_DATA.sourceDirectoryName, VALIDATION_PIPELINE_DATA.cleanSourceFileName),
+          ],
+        },
+        deps,
+      );
+
+      expect(result.exitCode).toBe(VALIDATION_EXIT_CODES.SUCCESS);
+      expect(result.output).toBe(VALIDATION_COMMAND_OUTPUT.CIRCULAR_NONE_FOUND);
+      expect(validationCalls).toEqual([
+        {
+          directories: [VALIDATION_PIPELINE_DATA.sourceDirectoryName],
+          filePatterns: [],
+          excludePatterns: [],
+        },
+      ]);
+    });
+  });
+
+  it("forwards --files directories that intersect wildcard-backed TypeScript includes", async () => {
+    await withValidationEnv({ fixture: PROJECT_FIXTURES.CLEAN_PROJECT }, async ({ path }) => {
+      const wildcardBackedDirectory = join(VALIDATION_PIPELINE_DATA.sourceDirectoryName, "api");
+      await mkdir(join(path, wildcardBackedDirectory), { recursive: true });
+      await writeFile(
+        join(path, wildcardBackedDirectory, VALIDATION_PIPELINE_DATA.cleanSourceFileName),
+        "export const wildcardBacked = true;\n",
+      );
+      await writeFile(
+        join(path, TSCONFIG_FILES.full),
+        JSON.stringify({
+          compilerOptions: {
+            target: "ES2020",
+            module: "commonjs",
+            strict: true,
+          },
+          include: [VALIDATION_PIPELINE_DATA.singleLevelNamedSourceFilePattern],
+        }),
+      );
+      const { deps, validationCalls } = createRecordingCircularCommandDeps();
+
+      const result = await circularCommand(
+        {
+          cwd: path,
+          files: [`${wildcardBackedDirectory}/`],
+        },
+        deps,
+      );
+
+      expect(result.exitCode).toBe(VALIDATION_EXIT_CODES.SUCCESS);
+      expect(result.output).toBe(VALIDATION_COMMAND_OUTPUT.CIRCULAR_NONE_FOUND);
+      expect(validationCalls).toEqual([
+        {
+          directories: [],
+          filePatterns: [VALIDATION_PIPELINE_DATA.singleLevelNamedSourceFilePattern],
           excludePatterns: [],
         },
       ]);

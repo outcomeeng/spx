@@ -28,12 +28,12 @@ export const TSCONFIG_FILES = {
 } as const;
 const PATH_SEGMENT_SEPARATOR = "/";
 const GLOB_MARKER = "*";
-const BROAD_DIRECTORY_GLOB_SUFFIX = "**/*";
 const GLOB_REGEX_SPECIAL_CHARACTER_PATTERN = /[.+?^${}()|[\]\\]/gu;
 const REGEX_ESCAPE_REPLACEMENT = String.raw`\$&`;
 const HIDDEN_PATH_PREFIX = ".";
 const TYPESCRIPT_SOURCE_EXTENSIONS = [".ts", ".tsx", ".mts", ".cts"] as const;
 const TYPESCRIPT_DECLARATION_EXTENSIONS = [".d.ts", ".d.mts", ".d.cts"] as const;
+export const TYPESCRIPT_SCOPE_DIRECTORY_PROBE_FILENAME = "__spx_scope_probe__.ts";
 export const TYPESCRIPT_FALLBACK_INCLUDE_PATTERNS = [
   "**/*.ts",
   "**/*.tsx",
@@ -330,16 +330,26 @@ function pathMatchesTypeScriptPattern(path: string, pattern: string): boolean {
 }
 
 export function typeScriptScopePatternNarrowsDirectory(pattern: string, directory: string): boolean {
+  const normalizedDirectory = normalizeTypeScriptScopePath(directory);
+  if (!typeScriptScopePatternIntersectsDirectory(pattern, directory)) {
+    return false;
+  }
+  if (!pattern.includes(GLOB_MARKER)) {
+    return true;
+  }
+  const probePath = `${normalizedDirectory}/${TYPESCRIPT_SCOPE_DIRECTORY_PROBE_FILENAME}`;
+  return !pathMatchesTypeScriptPattern(probePath, pattern);
+}
+
+export function typeScriptScopePatternIntersectsDirectory(pattern: string, directory: string): boolean {
   const normalizedPattern = normalizeTypeScriptScopePath(pattern);
   const normalizedDirectory = normalizeTypeScriptScopePath(directory);
-  if (!normalizedPattern.startsWith(`${normalizedDirectory}/`)) {
-    return false;
+  if (!normalizedPattern.includes(GLOB_MARKER)) {
+    return pathMatchesLiteralPrefix(normalizedPattern, normalizedDirectory);
   }
-  const globIndex = normalizedPattern.indexOf(GLOB_MARKER);
-  if (globIndex === -1) {
-    return false;
-  }
-  return normalizedPattern !== `${normalizedDirectory}/${BROAD_DIRECTORY_GLOB_SUFFIX}`;
+  const literalPrefix = globLiteralPrefix(normalizedPattern);
+  return pathMatchesLiteralPrefix(normalizedDirectory, literalPrefix)
+    || pathMatchesLiteralPrefix(literalPrefix, normalizedDirectory);
 }
 
 export function pathHasTypeScriptSourceExtension(path: string): boolean {
