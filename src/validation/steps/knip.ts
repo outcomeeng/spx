@@ -12,7 +12,7 @@ import { tmpdir } from "node:os";
 import { isAbsolute, join } from "node:path";
 
 import { lifecycleProcessRunner, type ProcessRunner, spawnManagedSubprocess } from "@/lib/process-lifecycle";
-import { TSCONFIG_FILES } from "@/validation/config/scope";
+import { TSCONFIG_FILES, TYPESCRIPT_FALLBACK_INCLUDE_PATTERNS } from "@/validation/config/scope";
 import type { ScopeConfig } from "../types";
 
 // =============================================================================
@@ -177,7 +177,9 @@ async function createScopedKnipTsconfig(
   const toProjectPathPattern = (pattern: string) => isAbsolute(pattern) ? pattern : join(projectRoot, pattern);
   const project = typescriptScope.filePatterns.length > 0
     ? typescriptScope.filePatterns
-    : typescriptScope.directories.map((directory) => `${directory}/**/*.{js,ts,tsx}`);
+    : typescriptScope.directories.flatMap((directory) =>
+      TYPESCRIPT_FALLBACK_INCLUDE_PATTERNS.map((pattern) => `${directory}/${pattern}`)
+    );
   const config = {
     extends: join(projectRoot, TSCONFIG_FILES.full),
     include: project.map(toProjectPathPattern),

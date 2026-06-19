@@ -79,6 +79,10 @@ function expectedDependencyCruiserSourcePatterns(directory: string): string[] {
   return DEPENDENCY_CRUISER_TYPESCRIPT_SOURCE_GLOB_SUFFIXES.map((suffix) => join(directory, suffix));
 }
 
+function expectedKnipDirectorySourcePatterns(directory: string): string[] {
+  return TYPESCRIPT_FALLBACK_INCLUDE_PATTERNS.map((pattern) => join(directory, pattern));
+}
+
 const narrowSourceDirectory = join(VALIDATION_PIPELINE_DATA.sourceDirectoryName, "api");
 const deepSourceDirectory = join(
   narrowSourceDirectory,
@@ -643,6 +647,44 @@ describe("ALWAYS: TypeScript scope resolution uses the requested project root", 
         extends: join(env.productDir, TSCONFIG_FILES.full),
         include: [join(env.productDir, VALIDATION_PIPELINE_DATA.scopeResolutionSourceFile)],
         exclude: [join(env.productDir, VALIDATION_PIPELINE_DATA.productionScopeExcludePattern)],
+      });
+    });
+  });
+
+  it("runs directory-scoped Knip validation with every TypeScript fallback pattern", async () => {
+    await withTestEnv({}, async (env) => {
+      const runner = new RecordingSpawnOptionsRunner();
+      const writtenConfigs: string[] = [];
+      const deps: KnipDeps = {
+        existsSync: () => false,
+        mkdtemp: defaultTypeScriptDeps.mkdtemp,
+        rm: async () => {},
+        writeFile: async (_path, data) => {
+          writtenConfigs.push(data.toString());
+        },
+      };
+
+      const result = await validateKnip(
+        {
+          projectRoot: env.productDir,
+          typescriptScope: {
+            directories: [VALIDATION_PIPELINE_DATA.sourceDirectoryName],
+            filePatterns: [],
+            excludePatterns: [],
+            filteredByValidationPaths: true,
+          },
+        },
+        runner,
+        deps,
+      );
+
+      expect(result).toEqual({ success: true });
+      expect(JSON.parse(writtenConfigs[0] ?? "{}")).toEqual({
+        extends: join(env.productDir, TSCONFIG_FILES.full),
+        include: expectedKnipDirectorySourcePatterns(VALIDATION_PIPELINE_DATA.sourceDirectoryName).map((pattern) =>
+          join(env.productDir, pattern)
+        ),
+        exclude: [],
       });
     });
   });
