@@ -1,31 +1,145 @@
-# Plan: Agent Run Journal downstream work
+# Plan: Verification restructure — the journal channel
+
+> This PLAN is the durable record of a restructure decided in discussion. It is the
+> central context; `spx/36-audit.enabler/PLAN.md` and `spx/46-reviewing.enabler/PLAN.md`
+> carry the collapse notes that point here. Details (exact node structure, indices,
+> env-var names, CLI verb shapes) are settled DURING execution via `/author`,
+> `/decompose`, `/refactor`, `/align`, `/apply`, `/merge` — do not assume this PLAN
+> already fixed them.
+
+## The decision
+
+spx does **not** orchestrate agentic verification. **Agents call spx.** The wrapper
+sub-agent that runs an auditing or reviewing skill calls the spx CLI to record and
+stream its run's events; spx is the journal/streaming channel, never the orchestrator.
+
+Consequences:
+
+- **Remove `spx audit` and `spx review` as subcommands.** Naming a subcommand after a
+  verification type is wrong: spx neither spawns nor drives auditors/reviewers, and spx
+  must not know the type names.
+- **Deterministic types keep their subcommands** — `spx test`, `spx validation` — because
+  there spx *does* the work (runs the tools, scores the verdict).
+- **One generic, type-agnostic domain: `journal`.** It owns the run-journal channel the
+  agentic verification skills bind. The verification type ("audit", "review", or whatever
+  comes later) is an **opaque parameter** (env var / option) spx treats as a scope label;
+  spx enumerates no types.
+- **Verification is the top-level mode.** `15-agent-run-journal.enabler` is demoted from
+  top-level to the journal-contract substrate under the verification/journal structure.
+
+## Why (the problem being solved)
+
+Observability. A minutes-long agentic audit/review must reveal its result incrementally
+and identically on a local surface and a hosted PR surface: scope advances, each finding
+appears as raised, then the final result. The journal streams to its backend on a
+~1/minute cadence (~10 updates per run), and **every new file the agent reads is one
+appended event**. The driving skill calls spx at each reasonably significant workflow
+event.
+
+## Governing decisions (truth flows down from the plugin repo)
+
+These live in the installed plugin product tree at
+`~/Code/outcomeeng/plugins/plugins/spx/` and govern this work. Read them before drafting:
+
+- `spx/14-verification.pdr.md` — verification taxonomy (five types, two axes); agentic =
+  reviewing + auditing; verifier-context isolation from author context.
+- `spx/21-spec-tree.enabler/16-verification.enabler/13-run-journal.adr.md` — the contract:
+  append-only journal is the run's sole source of truth; every surface (PR comment, report,
+  findings JSON, check summary) is a projection; the skill emits through **one
+  backend-neutral channel** binding the backend **at the edge** (local file vs hosted PR
+  comment), swappable without changing the skill; verbs `append`, `read --from <cursor>`,
+  `seal`, `render`.
+- `spx/21-spec-tree.enabler/16-verification.enabler/21-thread-store.enabler/21-backend-abstraction.adr.md`
+  — env-var backend selection (prior form `SPX_VERIFY_BACKEND` default `local`,
+  `SPX_VERIFY_BRANCH` scope override); CRUD facade; canonical branch-slug from
+  changeset-scope. This is the env-var/edge model spx must realize.
+- `spx/15-audit-result-delivery.pdr.md` — incremental reveal; same shape on local and PR
+  surfaces.
+- `spx/21-spec-tree.enabler/16-verification.enabler/PLAN.md` — "Verification run-journal
+  migration": states **the journal and its backends are owned by the spx CLI's local state
+  store and its run-journal verbs**, and that the marketplace skills are BLOCKED until spx
+  exposes them. This product is that blocker. (It still says `spx audit`/`spx review`; our
+  decision supersedes that to one generic `journal` domain — a later plugin-repo PLAN edit.)
+- `spx/21-spec-tree.enabler/17-auditing.adr.md` and the `15-verdict-toolchain.enabler` /
+  `68-auditing.enabler` state-surface specs — the Python `verdict.py` toolchain (the
+  `markdown+json` carrier between `<!-- AUDIT_VERDICT_JSON_BEGIN/END -->`) and the
+  `thread_store` are the SUPERSEDED stack, replaced by the spx journal channel.
+
+## The model spx realizes
+
+- **`journal` domain**, type-agnostic. Verbs: `open` / `append` / `read --from <cursor>` /
+  `seal` / `render`. Generic CloudEvents payloads; the agent supplies event type/data.
+- **Backend bound at the edge by environment.** No CI → `local` backend (`.spx/` files +
+  stdout). CI indicating GitHub + pull request → **GitHub-PR backend**: Snapshot
+  persistence (Actions artifact/cache) **and** every streamed event also appends a line to
+  the PR comment via the `gh` CLI, plus stdout. Explicit override available. Derive from CI
+  env vars; do not hard-code a single surface.
+- **Run scope** = branch slug (+ PR number under CI) + the opaque type label →
+  `.spx/branch/<slug>/<type>/...` locally. spx parameterizes on `<type>`; it does not
+  interpret it.
+- **Two backends survive as the edge implementations** (see the adapter sequence below):
+  the local Appendable backend and the GitHub Snapshot backend.
+
+## Teardown (this restructure removes)
+
+- **`spx/36-audit.enabler`** collapses: `43-audit-config` (auditors/targets),
+  `65-auditor-execution` (spx spawning auditors — VOID, spx never spawns agents),
+  `76-audit-cli`, `87-audit-status`, the audit run-state/lifecycle CLI — all removed or
+  generalized into the `journal` domain. spx stops knowing "audit".
+- **`spx/46-reviewing.enabler`** collapses the same way — DEFERRED per "audit first";
+  review migrates after the journal domain lands.
+- The audit run-state mechanics (event vocabulary, projection fold, terminal seal,
+  branch-scope run files) are not audit-specific — they generalize into the `journal`
+  domain, parameterized by `<type>`.
+
+## Out of scope for THIS product (plugin-repo, separate SPX sessions — handoff notes)
+
+- Modify the auditing/reviewing **skills** so the agent calls the spx `journal` CLI at each
+  significant event (file read, finding, scope, completion). Plugin path:
+  `~/Code/outcomeeng/plugins/plugins/src/plugins/spec-tree/skills/`.
+- Supersede the plugin `15-verdict-toolchain.enabler` and decide `21-thread-store.enabler`
+  fate (plugin PLAN items 1–2).
+- Update the plugin `16-verification.enabler/PLAN.md` wording from `spx audit`/`spx review`
+  to the generic `journal` domain.
+- Reviewing result-delivery governance (plugin PLAN item 6).
+
+## Open questions (settle during execution — not pre-decided here)
+
+- Exact env-var names and contract: backend selection, run scope/branch, PR number, and the
+  type label. (Prior plugin form: `SPX_VERIFY_BACKEND`, `SPX_VERIFY_BRANCH`.)
+- Exact node structure + indices for the new top-level `verification` enabler and the
+  `journal` domain under it — via `/decompose`; operator chooses indices.
+- How the generic verbs (`open`/`append`/`read --from cursor`/`seal`/`render`) reconcile
+  with the now-removed audit `init`/`progress`/`close`/`status` shape.
+- thread-store fate and reviewing result-delivery PDR (plugin decisions).
+
+## Execution order
+
+1. `/author` (+ `/decompose`) the spx top-level **`verification`** decision and the
+   **`journal`** domain structure, realizing `13-run-journal.adr.md` as spx product truth;
+   demote `15-agent-run-journal` under it.
+2. `/refactor` — `git rm` the collapsing `36-audit.enabler` (and later `46-reviewing`),
+   migrating the generic run-state mechanics into `journal`.
+3. `/align` the tree.
+4. `/apply` the `journal` domain CLI (verbs + backend selection + streaming).
+5. `/merge`.
+
+---
+
+## Adapter sequence (survives — these are the two edge backends)
 
 The event-store interface lives at `src/lib/agent-run-journal/` — the contract in
 [`21-event-sourced-journal.adr.md`](21-event-sourced-journal.adr.md), the module
 structure in [`32-journal-module-structure.adr.md`](32-journal-module-structure.adr.md).
-It names no backend; realizing it proceeds in sequence, each step its own change with
-the spec authored against a working adapter:
+It names no backend; the two backends the `journal` domain selects between at the edge:
 
-1. **Adapters** — bind the journal's `AppendableBackend` / `SnapshotBackend` ports from
-   their own nodes; each adapter node declares the one kind it binds and tests it.
-   - **Local Appendable adapter** — a child enabler of `spx/18-state.enabler` (index
-     above `43-record-store.enabler`, which it consumes), implemented under `src/lib/`.
-     Maps a journal stream onto the state-store's JSONL run mechanics:
-     - a journal stream (`streamid`) ↔ one `.spx/` run file (a deterministic scope path,
-       or `createJsonlRunFile`);
-     - `append(event)` ↔ `appendJsonlRecord` of the event as one JSONL line;
-     - `readAll()` ↔ read and parse every JSONL line into `JournalEvent`s ordered by `seq`;
-     - `seal()` / `isSealed()` ↔ a seal marker (a sentinel record or a sibling marker file).
-       The adapter enforces `seq` exclusivity by rejecting an append whose `seq` is already
-       present, throwing `JOURNAL_ERROR.SEQ_CONSUMED` — this settles the implicit-error-contract
-       follow-up in [`ISSUES.md`](ISSUES.md) by having the first real adapter honor the
-       journal's error constant. Revisit the append history-read (O(n)) follow-up here, where
-       a real backend's `readAll` cost is observable.
-   - **GitHub Snapshot adapter** — Actions artifact / Actions cache / PR comment, in the
-     GitHub-CI integration node; binds `SnapshotBackend.write`.
-2. **Audit** — `spx/36-audit.enabler/54-branch-run-state.enabler` and
-   `spx/36-audit.enabler/15-audit-directory.adr.md` authored against the journal interface
-   so audit runs persist as event journals (the original "audit does not exist in CI" gap).
-3. **Review** — `spx/46-reviewing.enabler/43-review-state.enabler` and
-   `spx/46-reviewing.enabler/15-review-directory.adr.md` authored against the journal
-   interface so review runs persist as event journals.
+- **Local Appendable adapter** — `spx/18-state.enabler/71-appendable-journal-store.enabler`
+  (consumes `43-record-store.enabler`). Maps a journal stream onto the state-store's JSONL
+  run mechanics: stream (`streamid`) ↔ one `.spx/` run file; `append(event)` ↔
+  `appendJsonlRecord`; `readAll()` ↔ parse every JSONL line into `JournalEvent`s ordered by
+  `seq`; `seal()`/`isSealed()` ↔ a seal marker; rejects a duplicate `seq` with
+  `JOURNAL_ERROR.SEQ_CONSUMED`.
+- **GitHub Snapshot adapter** —
+  `spx/21-infrastructure.enabler/43-github-ci.enabler/21-snapshot-adapter.enabler` —
+  Actions artifact / Actions cache / PR comment; binds `SnapshotBackend.write`. Under the
+  GitHub-PR backend, a streamed event also appends a PR-comment line via `gh`.
