@@ -94,6 +94,19 @@ describe("targeted execution operand resolution", () => {
     expect(resolution.selected).toContain(descendantFile);
   });
 
+  it("resolves a node operand with a trailing slash like one without", () => {
+    const nodePath = sampleDispatchValue(TEST_DISPATCH_GENERATOR.nodePath());
+    const ownFile = sampleDispatchValue(TEST_DISPATCH_GENERATOR.testFileUnder(typescriptTestingLanguage, nodePath));
+
+    const resolution = resolveTargetedTestFiles([ownFile], {
+      operands: [`${nodeOperand(nodePath)}/`],
+      recursive: false,
+    });
+
+    expect(resolution.selected).toContain(ownFile);
+    expect(resolution.unresolved).toEqual([]);
+  });
+
   it("reports an operand matching no discovered test file as unresolved", () => {
     const [nodeA, nodeB] = sampleDispatchValue(TEST_DISPATCH_GENERATOR.distinctNodePaths());
     const fileA = sampleDispatchValue(TEST_DISPATCH_GENERATOR.testFileUnder(typescriptTestingLanguage, nodeA));
