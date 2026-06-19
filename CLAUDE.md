@@ -53,17 +53,17 @@ The **spec-tree** plugin is the active system for managing specification trees. 
 
 <skill_router>
 
-| Skill                        | Purpose                                                            |
-| ---------------------------- | ------------------------------------------------------------------ |
-| `/understand`   | Load methodology foundation (node types, ordering, assertions)     |
+| Skill            | Purpose                                                            |
+| ---------------- | ------------------------------------------------------------------ |
+| `/understand`    | Load methodology foundation (node types, ordering, assertions)     |
 | `/contextualize` | Load context for a specific node (walks tree to target)            |
-| `/author`       | Create specs, ADRs, PDRs, enablers, outcomes                       |
+| `/author`        | Create specs, ADRs, PDRs, enablers, outcomes                       |
 | `/decompose`     | Break nodes into children with proper ordering                     |
-| `/test`         | Manage spec-test lock file lifecycle                               |
-| `/apply`        | Orchestrate spec-tree implementation and audit gates               |
-| `/refactor`     | Restructure the spec tree (move, consolidate, extract)             |
-| `/align`        | Review for gaps, contradictions, and consistency                   |
-| `/pr`                        | Route PR lifecycle work through opening, managing, and merge gates |
+| `/test`          | Manage spec-test lock file lifecycle                               |
+| `/apply`         | Orchestrate spec-tree implementation and audit gates               |
+| `/refactor`      | Restructure the spec tree (move, consolidate, extract)             |
+| `/align`         | Review for gaps, contradictions, and consistency                   |
+| `/pr`            | Route PR lifecycle work through opening, managing, and merge gates |
 
 Additional skills ship with the plugin and are invoked by name: `/commit-changes`, `/interview`, `/audit-tests`, `/audit-pdr`, `/handoff`, `/pickup`, `/refocus`, `/bootstrap`, `/open-pr`, `/manage-pr`, `/merging-standards`. See the spec-tree plugin's `skills/` directory for the full list.
 
@@ -115,6 +115,11 @@ The authoritative ADR and PDR templates are **decision-first**. The skills own t
 **The blanket `[review]` tag is retired.** Each Verification rule carries the tag its subsection prescribes: `[audit]` under `### Audit`, `[eval]` under `### Eval`, the evidence type under `### Testing`. `[review]` is accepted only as the legacy spelling of `[audit]` during migration.
 
 **Legacy verbose decision records are no longer valid.** Any ADR or PDR carrying `## Purpose`, `## Context`, a `## Decision` heading, `## Trade-offs accepted`, a `## Compliance` block, or the PDR-specific `## Product invariants` heading (the template's heading is `## Product properties`) — or blanket `[review]` tags — is in violation of the current template and slated for migration to the decision-first shape. It is NOT precedent: do not copy its structure, and never cite it to justify a new or migrated decision record's shape. When the spec-tree reviewer compares a decision-first file against a still-legacy sibling, the legacy sibling is the file in violation.
+
+**Decision records carry the detail their reach requires — they are placed so contextualization reads them as a node's governing context.** `/contextualize` loads the product spec plus the ADRs and PDRs along the path to a target node as that node's governing context, and by numeric-index order a decision record reaches its higher-index siblings and their descendants (lower index = provider, read by the higher-index consumers — see the numeric-index dependency-order rule in **Critical Rules** above). A decision record must therefore carry the specific detail the nodes in its reach need to do their work, including mechanism, path, and command detail that, read in isolation, can look like implementation belonging in a node or in code. That detail is governing context, and reach follows index placement: a record is indexed below the nodes that consume it so they read it, so pushing such detail down into a node narrows its reach to that node's own subtree, and removing it starves the dependent nodes' context. Do not flag a decision record's detail as misplaced merely because it names a git command, a file path, or a module; judge whether the nodes in its reach need that detail as context.
+
+- `spx/15-worktree-management.pdr.md` sits at the product root below the domains that resolve a root or address `.spx/` — the state, session, compact, worktree, validation, and release enablers are all indexed above 15 — so its root-resolution detail (which `.spx/` state class resolves to which root, and the `git rev-parse --git-common-dir`, `git rev-parse --show-toplevel`, and `git config --get core.bare` mechanisms behind them) reaches each of them as context.
+- `spx/18-state.enabler/11-state.pdr.md` heads the state enabler below its sibling state nodes, so its `.spx/` storage contract — the `.spx/branch/{branch-slug}/`, `.spx/worktree/`, and `.spx/sessions/{todo,doing,archive}/…` path formats — reaches every state node that reads or writes that store.
 
 ---
 
