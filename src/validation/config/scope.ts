@@ -414,6 +414,9 @@ export function typeScriptScopePatternCoversDirectorySourceSet(pattern: string, 
     return false;
   }
   const normalizedPattern = normalizeTypeScriptScopePath(pattern);
+  if (!typeScriptScopePatternHasGlob(normalizedPattern) && pathHasTypeScriptSourceExtension(normalizedPattern)) {
+    return false;
+  }
   const terminalSegment = splitTypeScriptScopePathSegments(normalizedPattern).at(-1) ?? normalizedPattern;
   return !TERMINAL_EXTENSION_PATTERN.test(terminalSegment);
 }
@@ -422,7 +425,8 @@ export function typeScriptScopePatternIntersectsDirectory(pattern: string, direc
   const normalizedPattern = normalizeTypeScriptScopePath(pattern);
   const normalizedDirectory = normalizeTypeScriptScopePath(directory);
   if (!typeScriptScopePatternHasGlob(normalizedPattern)) {
-    return pathMatchesLiteralPrefix(normalizedPattern, normalizedDirectory);
+    return pathMatchesLiteralPrefix(normalizedPattern, normalizedDirectory)
+      || pathMatchesLiteralPrefix(normalizedDirectory, normalizedPattern);
   }
   return globPatternCanMatchInsideDirectory(
     splitTypeScriptScopePathSegments(normalizedPattern),
