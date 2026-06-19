@@ -8,6 +8,8 @@ Resolution and storage mechanics are shared across release, spec-domain, session
 
 A consumer re-deriving git topology or hand-composing `.spx/` paths is rejected: it drifts from the shared layout and reopens the per-consumer git boundary the injection closes. Module-level interception of git or filesystem calls is rejected: it hides the boundary the injected dependencies make explicit and verifies against a fiction rather than real helper code paths.
 
+An async scope resolver returns a result struct carrying the product-root `warning` only when its consumer surfaces the not-in-git diagnostic; a resolver whose sole consumer is presentation-free returns the bare scope path, so no `warning` is threaded for a consumer to discard. The shape follows the consumer, not a uniform family signature.
+
 ## Invariants
 
 - Product-root resolution, scope composition, branch slugging, and run-path construction are deterministic for the same roots, tokens, and domain noun.
@@ -37,6 +39,7 @@ A consumer re-deriving git topology or hand-composing `.spx/` paths is rejected:
 - ALWAYS: the state module exports source-owned constants for the `.spx/` path tokens and run-file tokens its tests reference ([audit])
 - NEVER: a consumer re-derives git topology or composes `.spx/` paths itself — root resolution and scope layout live only in the state module ([audit])
 - NEVER: a scope-directory resolver that only joins an already-resolved product root wraps its return in `Result` — the `Result` shape is reserved for composition that validates an untrusted token or slug ([audit])
+- NEVER: thread the not-in-git `warning` through a scope resolver whose only consumer is presentation-free — the worktree-scope resolver returns a bare path for compact, which emits JSON or nothing, while resolvers feeding user-facing consumers return a struct carrying `warning` ([audit])
 - NEVER: the state module imports a consumer domain (release, spec, session, compact, audit, review, testing) ([audit])
 - NEVER: `vi.mock()`, `jest.mock()`, or `memfs` substitutes for the git or filesystem boundary — tests inject controlled git and filesystem implementations and exercise the real helper code paths ([audit])
 - NEVER: a consumer domain duplicates branch slugging ([audit])
