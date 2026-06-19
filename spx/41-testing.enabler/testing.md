@@ -21,6 +21,7 @@ CAN run spec-tree tests with a single command, honor configured passing-scope ex
 - Given test files whose extension does not match any registered testing enabler, when `spx test` runs, then those files are reported, skipped, and make the command fail ([test](tests/testing.scenario.l1.test.ts))
 - Given one dispatched runner exits non-zero while another exits zero, when `spx test` completes, then the command exits non-zero ([test](tests/testing.scenario.l1.test.ts))
 - Given every selected test file matches a registered language whose runner is gated out by language detection, when `spx test` runs, then no runner is invoked and the command exits non-zero ([test](tests/testing.scenario.l1.test.ts))
+- Given selected registered-language test groups include a runner gated out by language detection, when `spx test` runs in operator mode, then the command reports the skipped runner group and selected files even when another selected runner makes the aggregate exit code zero ([test](tests/testing.scenario.l1.test.ts))
 - Given `spx test` runs with agent output capture, then the selected runner adapter and selected test files remain the same and only output handling changes according to `spx/41-testing.enabler/11-test-runner-environments.pdr.md` ([test](85-agent-test-output.enabler/tests/agent-test-output.compliance.l1.test.ts))
 
 ### Mappings

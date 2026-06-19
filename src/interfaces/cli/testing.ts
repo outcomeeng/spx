@@ -1,7 +1,6 @@
 import type { Command } from "commander";
 
 import { runTestsCommand, type RecordedTestRun, type TestDispatchResult } from "@/commands/testing";
-import { SUCCESS_EXIT_CODE } from "@/domains/testing";
 import type { Domain } from "@/domains/types";
 import { detectWorktreeProductRoot } from "@/git/root";
 import { formatAgentTestOutput } from "@/interfaces/cli/testing-agent-output";
@@ -75,7 +74,7 @@ function reportAndExit(result: TestDispatchResult, deps: TestingCliExitDependenc
     deps.writeWarning(`${UNMATCHED_TEST_FILES_WARNING}:\n${result.unmatched.join("\n")}`);
   }
   const gatedGroups = unreportedGroups(result);
-  if (result.exitCode !== SUCCESS_EXIT_CODE && gatedGroups.length > 0) {
+  if (gatedGroups.length > 0) {
     deps.writeWarning(
       [
         GATED_TEST_RUNNERS_WARNING,

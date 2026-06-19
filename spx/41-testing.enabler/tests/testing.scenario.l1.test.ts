@@ -1,20 +1,127 @@
+import { Command } from "commander";
 import { describe, expect, it } from "vitest";
 
-import { runTests } from "@/commands/testing";
-import { NO_RUNNER_INVOCATION_EXIT_CODE, UNSUPPORTED_TEST_SELECTION_EXIT_CODE } from "@/domains/testing";
+import { runTests, type RecordedTestRun, type TestDispatchResult } from "@/commands/testing";
+import {
+  NO_RUNNER_INVOCATION_EXIT_CODE,
+  SUCCESS_EXIT_CODE,
+  UNSUPPORTED_TEST_SELECTION_EXIT_CODE,
+} from "@/domains/testing";
+import { createTestingDomain, TESTING_CLI, type TestingCliDependencies } from "@/interfaces/cli/testing";
 import { SPEC_TREE_CONFIG } from "@/lib/spec-tree/config";
 import { pythonTestingLanguage } from "@/testing/languages/python";
 import type { TestingLanguageDescriptor } from "@/testing/languages/types";
 import { typescriptTestingLanguage } from "@/testing/languages/typescript";
+import { TEST_RUN_STATE_FIELDS, TEST_RUN_STATE_STATUS } from "@/testing/run-state";
 import { testingRegistry } from "@/testing/registry";
-import { sampleDispatchValue, TEST_DISPATCH_GENERATOR } from "@testing/generators/testing/dispatch";
+import {
+  sampleDispatchValue,
+  TEST_DISPATCH_GENERATOR,
+  testingCliCommanderParseSource,
+} from "@testing/generators/testing/dispatch";
 import { withTestingTempProductDir, writeTestFileFixture } from "@testing/harnesses/testing/harness";
 import { createRecordingCommandRunner } from "@testing/harnesses/testing/typescript-runner";
+
+interface TestingCliCall {
+  readonly productDir: string;
+  readonly passing: boolean;
+}
+
+interface TestingCliResult {
+  readonly stderr: string;
+  readonly exitCodes: readonly number[];
+}
+
+class TestingCliExit extends Error {
+  constructor(readonly exitCode: number) {
+    super(`Testing command exited with code ${exitCode}`);
+  }
+}
 
 function invokedArgs(
   runner: { readonly calls: ReadonlyArray<{ readonly args: readonly string[] }> },
 ): readonly string[] {
   return runner.calls.flatMap((call) => call.args);
+}
+
+function testingCliDeps(
+  productDir: string,
+  run: RecordedTestRun,
+  agentCalls: TestingCliCall[],
+  streamCalls: TestingCliCall[],
+): TestingCliDependencies {
+  return {
+    resolveProductDir: () => Promise.resolve(productDir),
+    runTests: (resolvedProductDir, passing) => {
+      streamCalls.push({ productDir: resolvedProductDir, passing });
+      return Promise.resolve(run);
+    },
+    runAgentTests: (resolvedProductDir, passing) => {
+      agentCalls.push({ productDir: resolvedProductDir, passing });
+      return Promise.resolve(run);
+    },
+    writeStdout: () => undefined,
+    writeWarning: () => undefined,
+    setExitCode: () => undefined,
+    exit: () => {
+      throw new Error("Unexpected operator-mode exit in base dependency fixture");
+    },
+  };
+}
+
+async function runTestingCli(args: readonly string[], deps: TestingCliDependencies): Promise<TestingCliResult> {
+  const program = new Command();
+  const stderr: string[] = [];
+  const exitCodes: number[] = [];
+  program.exitOverride();
+  program.configureOutput({
+    writeOut: () => undefined,
+    writeErr: (output) => stderr.push(output),
+  });
+  createTestingDomain({
+    ...deps,
+    writeWarning: (warning) => {
+      if (warning !== undefined) stderr.push(`${warning}\n`);
+    },
+    exit: (exitCode) => {
+      exitCodes.push(exitCode);
+      throw new TestingCliExit(exitCode);
+    },
+  }).register(program);
+
+  try {
+    await program.parseAsync([...args], { from: testingCliCommanderParseSource() });
+  } catch (error) {
+    if (!(error instanceof TestingCliExit)) throw error;
+  }
+
+  return { stderr: stderr.join(""), exitCodes };
+}
+
+function recordedPassingRun(productDir: string, run: TestDispatchResult): RecordedTestRun {
+  return {
+    dispatch: run,
+    runFile: {
+      runsDir: productDir,
+      runFilePath: productDir,
+      runFileName: productDir,
+      runToken: productDir,
+      runId: productDir,
+      startedAt: productDir,
+    },
+    recorded: {
+      branchName: productDir,
+      headSha: productDir,
+      testingConfigDigest: productDir,
+      runnerOutcomes: [],
+      discoveredTestPathsDigest: productDir,
+      discoveredTestContentDigest: productDir,
+      productInputDigests: [],
+      startedAt: productDir,
+      completedAt: productDir,
+      [TEST_RUN_STATE_FIELDS.STATUS]: TEST_RUN_STATE_STATUS.PASSED,
+    },
+  };
 }
 
 describe("spx test dispatch over the language registry", () => {
@@ -103,6 +210,73 @@ describe("spx test dispatch over the language registry", () => {
       expect(invokedArgs(presentRunner)).toContain(presentFile);
       expect(result.exitCode).toBe(0);
     });
+  });
+
+  it("reports absent selected runner groups for passing operator-mode runs", async () => {
+    const productDir = sampleDispatchValue(TEST_DISPATCH_GENERATOR.nodePath());
+    const nodePath = sampleDispatchValue(TEST_DISPATCH_GENERATOR.nodePath());
+    const reportedPath = sampleDispatchValue(TEST_DISPATCH_GENERATOR.testFileUnder(typescriptTestingLanguage, nodePath));
+    const gatedPath = sampleDispatchValue(TEST_DISPATCH_GENERATOR.testFileUnder(pythonTestingLanguage, nodePath));
+    const agentCalls: TestingCliCall[] = [];
+    const streamCalls: TestingCliCall[] = [];
+    const run = recordedPassingRun(productDir, {
+      exitCode: SUCCESS_EXIT_CODE,
+      groups: [{
+        language: typescriptTestingLanguage,
+        testPaths: [reportedPath],
+      }, {
+        language: pythonTestingLanguage,
+        testPaths: [gatedPath],
+      }],
+      unmatched: [],
+      reports: [{
+        runnerId: typescriptTestingLanguage.name,
+        testPaths: [reportedPath],
+        exitCode: SUCCESS_EXIT_CODE,
+      }],
+      outcomes: [],
+    });
+
+    const result = await runTestingCli([
+      TESTING_CLI.commandName,
+      TESTING_CLI.passingSubcommand,
+    ], testingCliDeps(productDir, run, agentCalls, streamCalls));
+
+    expect(agentCalls).toEqual([]);
+    expect(streamCalls).toEqual([{ productDir, passing: true }]);
+    expect(result.exitCodes).toEqual([SUCCESS_EXIT_CODE]);
+    expect(result.stderr).toContain(pythonTestingLanguage.name);
+    expect(result.stderr).toContain(gatedPath);
+    expect(result.stderr).not.toContain(reportedPath);
+  });
+
+  it("reports absent selected runner groups for failing operator-mode runs", async () => {
+    const productDir = sampleDispatchValue(TEST_DISPATCH_GENERATOR.nodePath());
+    const nodePath = sampleDispatchValue(TEST_DISPATCH_GENERATOR.nodePath());
+    const selectedPath = sampleDispatchValue(TEST_DISPATCH_GENERATOR.testFileUnder(typescriptTestingLanguage, nodePath));
+    const agentCalls: TestingCliCall[] = [];
+    const streamCalls: TestingCliCall[] = [];
+    const run = recordedPassingRun(productDir, {
+      exitCode: NO_RUNNER_INVOCATION_EXIT_CODE,
+      groups: [{
+        language: typescriptTestingLanguage,
+        testPaths: [selectedPath],
+      }],
+      unmatched: [],
+      reports: [],
+      outcomes: [],
+    });
+
+    const result = await runTestingCli([
+      TESTING_CLI.commandName,
+      TESTING_CLI.passingSubcommand,
+    ], testingCliDeps(productDir, run, agentCalls, streamCalls));
+
+    expect(agentCalls).toEqual([]);
+    expect(streamCalls).toEqual([{ productDir, passing: true }]);
+    expect(result.exitCodes).toEqual([NO_RUNNER_INVOCATION_EXIT_CODE]);
+    expect(result.stderr).toContain(typescriptTestingLanguage.name);
+    expect(result.stderr).toContain(selectedPath);
   });
 
   it("fails when every selected language runner is absent", async () => {
