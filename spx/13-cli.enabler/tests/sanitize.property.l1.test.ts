@@ -5,6 +5,7 @@ import {
   CONTROL_CHAR_UPPER_BOUND,
   DEL_CHAR_CODE,
   ELLIPSIS_TOKEN,
+  escapeCliArgument,
   FIRST_PRINTABLE_CHAR_CODE,
   MAX_CLI_ARGUMENT_DISPLAY_LENGTH,
   sanitizeCliArgument,
@@ -72,6 +73,25 @@ describe("sanitizeCliArgument invariants", () => {
           ),
         (input) => {
           expect(sanitizeCliArgument(input)).toBe(input);
+        },
+      ),
+    );
+  });
+
+  it("escape-only output does not apply the display-length bound to printable input", () => {
+    fc.assert(
+      fc.property(
+        fc.array(
+          fc.integer({ min: FIRST_PRINTABLE_CHAR_CODE, max: DEL_CHAR_CODE - 1 }),
+          {
+            minLength: MAX_CLI_ARGUMENT_DISPLAY_LENGTH + 1,
+            maxLength: MAX_CLI_ARGUMENT_DISPLAY_LENGTH * 4,
+          },
+        ).map((codes) => String.fromCodePoint(...codes)),
+        (input) => {
+          const output = escapeCliArgument(input);
+          expect(output).toBe(input);
+          expect(output.length).toBeGreaterThan(MAX_CLI_ARGUMENT_DISPLAY_LENGTH);
         },
       ),
     );
