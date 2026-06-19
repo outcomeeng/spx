@@ -389,19 +389,7 @@ export function pathMatchesTypeScriptPattern(path: string, pattern: string): boo
   return prefix.length === 0 || pathMatchesLiteralPrefix(path, prefix);
 }
 
-export function typeScriptScopePatternNarrowsDirectory(pattern: string, directory: string): boolean {
-  const normalizedDirectory = normalizeTypeScriptScopePath(directory);
-  if (!typeScriptScopePatternIntersectsDirectory(pattern, directory)) {
-    return false;
-  }
-  if (!typeScriptScopePatternHasGlob(pattern)) {
-    return true;
-  }
-  const probePath = `${normalizedDirectory}/${TYPESCRIPT_SCOPE_DIRECTORY_PROBE_FILENAME}`;
-  return !pathMatchesTypeScriptPattern(probePath, pattern);
-}
-
-export function typeScriptScopePatternCoversDirectory(pattern: string, directory: string): boolean {
+function typeScriptScopePatternCoversDirectory(pattern: string, directory: string): boolean {
   const normalizedPattern = normalizeTypeScriptScopePath(pattern);
   const normalizedDirectory = normalizeTypeScriptScopePath(directory);
   if (!typeScriptScopePatternIntersectsDirectory(normalizedPattern, normalizedDirectory)) {
