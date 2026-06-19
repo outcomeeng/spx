@@ -30,7 +30,7 @@ import type { CircularDependencyResult, ScopeConfig, ValidationScope } from "../
 
 export const DEPENDENCY_CRUISER_MODULE_SYSTEMS = ["es6", "cjs"] as const;
 export const DEPENDENCY_CRUISER_TYPESCRIPT_SOURCE_GLOB_SUFFIXES = [...TYPESCRIPT_FALLBACK_INCLUDE_PATTERNS] as const;
-export const DEPENDENCY_CRUISER_TYPESCRIPT_SOURCE_PATTERN = String.raw`\.(?:[cm]?ts|tsx)$`;
+export const DEPENDENCY_CRUISER_TYPESCRIPT_SOURCE_PATTERN = String.raw`(?<!\.d)\.(?:[cm]?ts|tsx)$`;
 export const DEPENDENCY_CRUISER_TYPESCRIPT_DECLARATION_RESOLVE_EXTENSIONS = [
   ".d.ts",
   ".d.mts",

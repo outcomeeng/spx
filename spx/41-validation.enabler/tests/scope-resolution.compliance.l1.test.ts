@@ -13,6 +13,8 @@ import {
   pathPassesTypeScriptScope,
   TSCONFIG_FILES,
   TYPESCRIPT_FALLBACK_INCLUDE_PATTERNS,
+  TYPESCRIPT_SCOPE_DIRECTORY_PATTERN_SUFFIX,
+  typeScriptScopePatternTargetsTypeScriptSource,
 } from "@/validation/config/scope";
 import {
   CIRCULAR_DEPS_KEYS,
@@ -76,8 +78,18 @@ function expectedDependencyCruiserSourcePatterns(directory: string): string[] {
 }
 
 const narrowSourceDirectory = join(VALIDATION_PIPELINE_DATA.sourceDirectoryName, "api");
+const deepSourceDirectory = join(
+  narrowSourceDirectory,
+  VALIDATION_PIPELINE_DATA.deepSourceDirectoryName,
+  VALIDATION_PIPELINE_DATA.nestedSourceDirectoryName,
+);
 const topLevelSourceFile = join(VALIDATION_PIPELINE_DATA.sourceDirectoryName, VALIDATION_PIPELINE_DATA.cleanSourceFileName);
 const nestedSourceFile = join(narrowSourceDirectory, VALIDATION_PIPELINE_DATA.cleanSourceFileName);
+const deepSourceFile = join(deepSourceDirectory, VALIDATION_PIPELINE_DATA.cleanSourceFileName);
+const extensionlessNestedPath = join(
+  VALIDATION_PIPELINE_DATA.sourceDirectoryName,
+  VALIDATION_PIPELINE_DATA.extensionlessSourceFileName,
+);
 
 class ErrorThenCloseRunner implements ProcessRunner {
   readonly options: SpawnOptions[] = [];
@@ -169,6 +181,77 @@ describe("ALWAYS: TypeScript scope resolution uses the requested project root", 
         TSCONFIG_FILES.full,
         JSON.stringify({ include: [VALIDATION_PIPELINE_DATA.recursiveMarkdownSourceFilePattern] }),
       );
+
+      const scope = getTypeScriptScope(VALIDATION_SCOPES.FULL, env.productDir);
+
+      expect(scope.directories).toEqual([]);
+      expect(scope.filePatterns).toEqual([]);
+    });
+  });
+
+  it("classifies TypeScript source include patterns without widening extensionless files", () => {
+    expect(typeScriptScopePatternTargetsTypeScriptSource(VALIDATION_PIPELINE_DATA.sourceDirectoryName)).toBe(false);
+    expect(typeScriptScopePatternTargetsTypeScriptSource(VALIDATION_PIPELINE_DATA.productionScopeFilePattern)).toBe(true);
+    expect(typeScriptScopePatternTargetsTypeScriptSource(VALIDATION_PIPELINE_DATA.typeScriptOnlySourceFilePattern)).toBe(true);
+    expect(typeScriptScopePatternTargetsTypeScriptSource(topLevelSourceFile)).toBe(true);
+    expect(typeScriptScopePatternTargetsTypeScriptSource(extensionlessNestedPath)).toBe(false);
+    expect(typeScriptScopePatternTargetsTypeScriptSource(`**/${VALIDATION_PIPELINE_DATA.extensionlessSourceFileName}`))
+      .toBe(false);
+    expect(typeScriptScopePatternTargetsTypeScriptSource(VALIDATION_PIPELINE_DATA.recursiveMarkdownSourceFilePattern))
+      .toBe(false);
+  });
+
+  it("keeps literal nested directory includes scoped to their TypeScript subtree", async () => {
+    await withTestEnv({}, async (env) => {
+      await env.writeRaw(nestedSourceFile, "");
+      await env.writeRaw(topLevelSourceFile, "");
+      await env.writeRaw(TSCONFIG_FILES.full, JSON.stringify({ include: [narrowSourceDirectory] }));
+
+      const scope = getTypeScriptScope(VALIDATION_SCOPES.FULL, env.productDir);
+
+      expect(scope.filePatterns).toEqual([`${narrowSourceDirectory}${TYPESCRIPT_SCOPE_DIRECTORY_PATTERN_SUFFIX}`]);
+      expect(pathPassesTypeScriptScope(nestedSourceFile, scope)).toBe(true);
+      expect(pathPassesTypeScriptScope(topLevelSourceFile, scope)).toBe(false);
+    });
+  });
+
+  it("keeps literal directory includes recursive without probing subtree depth", async () => {
+    await withTestEnv({}, async (env) => {
+      await env.writeRaw(deepSourceFile, "");
+      await env.writeRaw(TSCONFIG_FILES.full, JSON.stringify({ include: [narrowSourceDirectory] }));
+
+      const scope = getTypeScriptScope(VALIDATION_SCOPES.FULL, env.productDir);
+
+      expect(scope.filePatterns).toEqual([`${narrowSourceDirectory}${TYPESCRIPT_SCOPE_DIRECTORY_PATTERN_SUFFIX}`]);
+      expect(pathPassesTypeScriptScope(deepSourceFile, scope)).toBe(true);
+    });
+  });
+
+  it("keeps literal directory includes whose final segment has a TypeScript suffix", async () => {
+    await withTestEnv({}, async (env) => {
+      const modernNamedDirectorySourceFile = join(
+        VALIDATION_PIPELINE_DATA.modernSourceFileName,
+        VALIDATION_PIPELINE_DATA.cleanSourceFileName,
+      );
+      await env.writeRaw(modernNamedDirectorySourceFile, "");
+      await env.writeRaw(
+        TSCONFIG_FILES.full,
+        JSON.stringify({ include: [VALIDATION_PIPELINE_DATA.modernSourceFileName] }),
+      );
+
+      const scope = getTypeScriptScope(VALIDATION_SCOPES.FULL, env.productDir);
+
+      expect(scope.filePatterns).toEqual([
+        `${VALIDATION_PIPELINE_DATA.modernSourceFileName}${TYPESCRIPT_SCOPE_DIRECTORY_PATTERN_SUFFIX}`,
+      ]);
+      expect(pathPassesTypeScriptScope(modernNamedDirectorySourceFile, scope)).toBe(true);
+    });
+  });
+
+  it("does not widen scope for dotless literal file includes", async () => {
+    await withTestEnv({}, async (env) => {
+      await env.writeRaw(extensionlessNestedPath, "");
+      await env.writeRaw(TSCONFIG_FILES.full, JSON.stringify({ include: [extensionlessNestedPath] }));
 
       const scope = getTypeScriptScope(VALIDATION_SCOPES.FULL, env.productDir);
 
@@ -561,6 +644,10 @@ describe("ALWAYS: TypeScript scope resolution uses the requested project root", 
       expect(config?.tsPreCompilationDeps).toBe(DEPENDENCY_CRUISER_TS_PRE_COMPILATION_DEPS);
       expect(config?.moduleSystems).toEqual([...DEPENDENCY_CRUISER_MODULE_SYSTEMS]);
       expect(config?.includeOnly).toEqual({ path: DEPENDENCY_CRUISER_TYPESCRIPT_SOURCE_PATTERN });
+      const dependencyCruiserSourceMatcher = new RegExp(DEPENDENCY_CRUISER_TYPESCRIPT_SOURCE_PATTERN, "u");
+      expect(dependencyCruiserSourceMatcher.test(VALIDATION_PIPELINE_DATA.cleanSourceFileName)).toBe(true);
+      expect(dependencyCruiserSourceMatcher.test(VALIDATION_PIPELINE_DATA.modernSourceFileName)).toBe(true);
+      expect(dependencyCruiserSourceMatcher.test(VALIDATION_PIPELINE_DATA.declarationSourceFileName)).toBe(false);
       expect(config?.enhancedResolveOptions?.extensions).toEqual([
         ...DEPENDENCY_CRUISER_TYPESCRIPT_RESOLVE_EXTENSIONS,
       ]);

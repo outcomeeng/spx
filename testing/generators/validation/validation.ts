@@ -68,6 +68,7 @@ const PRODUCTION_SCOPE_FILE_PATTERN = "src/**/*";
 const SCRIPT_SOURCE_DIRECTORY_NAME = "scripts";
 const NARROW_SOURCE_DIRECTORY_NAME = "api";
 const DEEP_SOURCE_DIRECTORY_NAME = "deeper";
+const NESTED_SOURCE_DIRECTORY_NAME = "validation-nested";
 const NARROW_PRODUCTION_SCOPE_FILE_PATTERN = "src/api/**/*.ts";
 const TYPESCRIPT_ONLY_SOURCE_FILE_PATTERN = "src/**/*.ts";
 const NESTED_FEATURE_SOURCE_DIRECTORY_NAME = "feature";
@@ -80,6 +81,7 @@ const ABSENT_SCOPE_FILE_PATTERN = "scripts/**/*";
 const MODERN_SOURCE_FILE_NAME = "modern.mts";
 const CLEAN_SOURCE_FILE_NAME = "clean.ts";
 const DECLARATION_SOURCE_FILE_NAME = "types.d.ts";
+const EXTENSIONLESS_SOURCE_FILE_NAME = "README";
 const RECURSIVE_NAMED_SOURCE_FILE_PATTERN = `src/**/${CLEAN_SOURCE_FILE_NAME}`;
 const SINGLE_LEVEL_NAMED_SOURCE_FILE_PATTERN = `src/*/${CLEAN_SOURCE_FILE_NAME}`;
 const RECURSIVE_MARKDOWN_SOURCE_FILE_PATTERN = "src/**/*.md";
@@ -201,6 +203,7 @@ export const VALIDATION_PIPELINE_DATA = {
   scriptSourceDirectoryName: SCRIPT_SOURCE_DIRECTORY_NAME,
   narrowSourceDirectoryName: NARROW_SOURCE_DIRECTORY_NAME,
   deepSourceDirectoryName: DEEP_SOURCE_DIRECTORY_NAME,
+  nestedSourceDirectoryName: NESTED_SOURCE_DIRECTORY_NAME,
   narrowProductionScopeFilePattern: NARROW_PRODUCTION_SCOPE_FILE_PATTERN,
   typeScriptOnlySourceFilePattern: TYPESCRIPT_ONLY_SOURCE_FILE_PATTERN,
   nestedFeatureSourceDirectoryName: NESTED_FEATURE_SOURCE_DIRECTORY_NAME,
@@ -215,6 +218,7 @@ export const VALIDATION_PIPELINE_DATA = {
   cleanSourceFileName: CLEAN_SOURCE_FILE_NAME,
   modernSourceFileName: MODERN_SOURCE_FILE_NAME,
   declarationSourceFileName: DECLARATION_SOURCE_FILE_NAME,
+  extensionlessSourceFileName: EXTENSIONLESS_SOURCE_FILE_NAME,
   recursiveNamedSourceFilePattern: RECURSIVE_NAMED_SOURCE_FILE_PATTERN,
   singleLevelNamedSourceFilePattern: SINGLE_LEVEL_NAMED_SOURCE_FILE_PATTERN,
   recursiveMarkdownSourceFilePattern: RECURSIVE_MARKDOWN_SOURCE_FILE_PATTERN,

@@ -50,7 +50,10 @@ const nonTypeScriptSourceFile = join(
   VALIDATION_PIPELINE_DATA.sourceDirectoryName,
   VALIDATION_PIPELINE_DATA.markdownOnlyFileName,
 );
-const extensionlessSourceFile = join(VALIDATION_PIPELINE_DATA.sourceDirectoryName, "README");
+const extensionlessSourceFile = join(
+  VALIDATION_PIPELINE_DATA.sourceDirectoryName,
+  VALIDATION_PIPELINE_DATA.extensionlessSourceFileName,
+);
 const dottedSourceDirectory = join(VALIDATION_PIPELINE_DATA.sourceDirectoryName, "feature.dir");
 const declarationSourceFile = join(
   VALIDATION_PIPELINE_DATA.sourceDirectoryName,
