@@ -66,6 +66,7 @@ const LITERAL_SKIP_TOKEN = "validation-all-skip-literal-token";
 const TYPE_ERROR_SOURCE_SEGMENTS = ["src", "has-type-error.ts"] as const;
 const PRODUCTION_SCOPE_FILE_PATTERN = "src/**/*";
 const NARROW_SOURCE_DIRECTORY_NAME = "api";
+const DEEP_SOURCE_DIRECTORY_NAME = "deeper";
 const NARROW_PRODUCTION_SCOPE_FILE_PATTERN = "src/api/**/*.ts";
 const TYPESCRIPT_ONLY_SOURCE_FILE_PATTERN = "src/**/*.ts";
 const NESTED_FEATURE_SOURCE_DIRECTORY_NAME = "feature";
@@ -197,6 +198,7 @@ export const VALIDATION_PIPELINE_DATA = {
   productionScope: "production",
   productionScopeFilePattern: PRODUCTION_SCOPE_FILE_PATTERN,
   narrowSourceDirectoryName: NARROW_SOURCE_DIRECTORY_NAME,
+  deepSourceDirectoryName: DEEP_SOURCE_DIRECTORY_NAME,
   narrowProductionScopeFilePattern: NARROW_PRODUCTION_SCOPE_FILE_PATTERN,
   typeScriptOnlySourceFilePattern: TYPESCRIPT_ONLY_SOURCE_FILE_PATTERN,
   nestedFeatureSourceDirectoryName: NESTED_FEATURE_SOURCE_DIRECTORY_NAME,

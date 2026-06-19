@@ -27,6 +27,7 @@ import {
   DEPENDENCY_CRUISER_MODULE_SYSTEMS,
   DEPENDENCY_CRUISER_NON_STRUCTURED_OUTPUT_ERROR,
   DEPENDENCY_CRUISER_PACKAGE_EXCLUDE_PATTERN,
+  DEPENDENCY_CRUISER_TYPESCRIPT_DECLARATION_RESOLVE_EXTENSIONS,
   DEPENDENCY_CRUISER_TS_PRE_COMPILATION_DEPS,
   DEPENDENCY_CRUISER_TYPESCRIPT_RESOLVE_EXTENSIONS,
   DEPENDENCY_CRUISER_TYPESCRIPT_SOURCE_GLOB_SUFFIXES,
@@ -321,6 +322,9 @@ describe("circular dependency filtering", () => {
     expect(config?.enhancedResolveOptions?.extensions).toEqual([
       ...DEPENDENCY_CRUISER_TYPESCRIPT_RESOLVE_EXTENSIONS,
     ]);
+    expect(config?.enhancedResolveOptions?.extensions).toEqual(
+      expect.arrayContaining([...DEPENDENCY_CRUISER_TYPESCRIPT_DECLARATION_RESOLVE_EXTENSIONS]),
+    );
     expect(config?.tsConfig?.fileName).toBe(join(projectRoot, TSCONFIG_FILES.full));
     expect(config?.tsPreCompilationDeps).toBe(DEPENDENCY_CRUISER_TS_PRE_COMPILATION_DEPS);
     expect(resolveOptions).toBeUndefined();
@@ -1106,15 +1110,19 @@ describe("circular command scope routing", () => {
         VALIDATION_PIPELINE_DATA.sourceDirectoryName,
         VALIDATION_PIPELINE_DATA.narrowSourceDirectoryName,
       );
+      const deeperFeatureDirectory = join(
+        narrowDirectory,
+        VALIDATION_PIPELINE_DATA.deepSourceDirectoryName,
+        VALIDATION_PIPELINE_DATA.nestedFeatureSourceDirectoryName,
+      );
       await mkdir(
-        join(path, narrowDirectory, VALIDATION_PIPELINE_DATA.nestedFeatureSourceDirectoryName),
+        join(path, deeperFeatureDirectory),
         { recursive: true },
       );
       await writeFile(
         join(
           path,
-          narrowDirectory,
-          VALIDATION_PIPELINE_DATA.nestedFeatureSourceDirectoryName,
+          deeperFeatureDirectory,
           VALIDATION_PIPELINE_DATA.cleanSourceFileName,
         ),
         "export const nestedFeatureFile = true;\n",
@@ -1146,7 +1154,7 @@ describe("circular command scope routing", () => {
         {
           directories: [],
           filePatterns: [
-            `${narrowDirectory}/${VALIDATION_PIPELINE_DATA.nestedFeatureSourceDirectoryName}/*.ts`,
+            `${narrowDirectory}/**/${VALIDATION_PIPELINE_DATA.nestedFeatureSourceDirectoryName}/*.ts`,
           ],
           excludePatterns: [],
         },
