@@ -169,7 +169,7 @@ before every push. CI supplies broad verification after push.
 ### Slice 2: Targeted Operands
 
 Shipped as `spx/41-testing.enabler/90-targeted-execution.enabler`: explicit
-node-path and test-file-path operands after `--` for `spx test` and
+positional node-path and test-file-path operands for `spx test` and
 `spx test passing`, an opt-in `--recursive`/`-r` flag for descendant nodes,
 passing-scope applied to the operand-selected set, and unmatched operands
 exiting non-zero.
