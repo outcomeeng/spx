@@ -374,6 +374,19 @@ describe("circular dependency filtering", () => {
     expect(paths).toEqual([...expectedTypescriptSourcePatterns(analyzeDirectory), rootTypeScriptFilePattern]);
   });
 
+  it("keeps directory inputs when non-TypeScript globs are present", async () => {
+    const { dependencyGraphCalls, result } = await validateCircularScopeWithRecording({
+      directories: [VALIDATION_PIPELINE_DATA.sourceDirectoryName],
+      filePatterns: [VALIDATION_PIPELINE_DATA.recursiveMarkdownSourceFilePattern],
+      excludePatterns: [],
+    });
+
+    expect(result.success).toBe(true);
+    expect(dependencyGraphCalls).toHaveLength(1);
+    const [paths] = dependencyGraphCalls[0] ?? [];
+    expect(paths).toEqual(expectedTypescriptSourcePatterns(VALIDATION_PIPELINE_DATA.sourceDirectoryName));
+  });
+
   it("keeps nested TypeScript include globs instead of widening them to their top-level directory", async () => {
     const { dependencyGraphCalls, result } = await validateCircularScopeWithRecording({
       directories: [VALIDATION_PIPELINE_DATA.sourceDirectoryName],

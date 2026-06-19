@@ -146,21 +146,22 @@ function buildDependencyCruiserOptions(
 }
 
 function toDependencyCruiserSourcePatterns(typescriptScope: ScopeConfig): string[] {
+  const typeScriptFilePatterns = typescriptScope.filePatterns.filter((pattern) => patternTargetsTypeScriptSource(pattern));
   const retainedDirectories = typescriptScope.directories.filter((directory) =>
-    !typescriptScope.filePatterns.some((pattern) => typeScriptScopePatternNarrowsDirectory(pattern, directory))
+    !typeScriptFilePatterns.some((pattern) => typeScriptScopePatternNarrowsDirectory(pattern, directory))
   );
   const directoryPatterns = retainedDirectories.flatMap((directory) =>
     DEPENDENCY_CRUISER_TYPESCRIPT_SOURCE_GLOB_SUFFIXES.map((suffix) => `${directory}/${suffix}`),
   );
-  const explicitFilePatterns = typescriptScope.filePatterns.filter((pattern) =>
+  const explicitFilePatterns = typeScriptFilePatterns.filter((pattern) =>
     !patternIsCoveredByDirectory(pattern, retainedDirectories)
-    && patternTargetsTypeScriptSource(pattern)
   );
   return [...directoryPatterns, ...explicitFilePatterns];
 }
 
 function patternTargetsTypeScriptSource(pattern: string): boolean {
-  return pattern.includes(GLOB_MARKER) || pathHasTypeScriptSourceExtension(pattern);
+  return DEPENDENCY_CRUISER_TYPESCRIPT_SOURCE_GLOB_SUFFIXES.some((suffix) => pattern.endsWith(suffix))
+    || pathHasTypeScriptSourceExtension(pattern);
 }
 
 function patternIsCoveredByDirectory(pattern: string, directories: readonly string[]): boolean {
