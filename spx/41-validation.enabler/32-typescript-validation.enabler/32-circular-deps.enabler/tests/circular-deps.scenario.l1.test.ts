@@ -180,6 +180,40 @@ function createDeps(cruiseResult: ICruiseResult): CircularDeps {
   };
 }
 
+function createRecordingDeps(cruiseResult: ICruiseResult = createEmptyCruiseResult()): {
+  readonly dependencyGraphCalls: Parameters<CircularDependencyGraphRunner>[];
+  readonly deps: CircularDeps;
+} {
+  const dependencyGraphCalls: Parameters<CircularDependencyGraphRunner>[] = [];
+  return {
+    dependencyGraphCalls,
+    deps: {
+      [CIRCULAR_DEPS_KEYS.DEPENDENCY_CRUISER]: async (...call): Promise<IReporterOutput> => {
+        dependencyGraphCalls.push(call);
+        return {
+          exitCode: 0,
+          output: cruiseResult,
+        };
+      },
+      [CIRCULAR_DEPS_KEYS.EXTRACT_TYPESCRIPT_CONFIG]: () => emptyTypescriptConfig,
+    },
+  };
+}
+
+async function validateCircularScopeWithRecording(scopeConfig: ScopeConfig): Promise<{
+  readonly dependencyGraphCalls: Parameters<CircularDependencyGraphRunner>[];
+  readonly result: Awaited<ReturnType<typeof validateCircularDependencies>>;
+}> {
+  const recording = createRecordingDeps();
+  const result = await validateCircularDependencies(
+    VALIDATION_SCOPES.FULL,
+    scopeConfig,
+    projectRoot,
+    recording.deps,
+  );
+  return { dependencyGraphCalls: recording.dependencyGraphCalls, result };
+}
+
 function createReporterOutputDeps(reporterOutput: string): CircularDeps {
   return {
     [CIRCULAR_DEPS_KEYS.DEPENDENCY_CRUISER]: async (): Promise<IReporterOutput> => ({
@@ -219,6 +253,22 @@ async function writeProductionTsConfigWithTestScope(path: string): Promise<void>
   );
 }
 
+function createRecordingCircularCommandDeps(): {
+  readonly deps: CircularCommandDeps;
+  readonly validationCalls: ScopeConfig[];
+} {
+  const validationCalls: ScopeConfig[] = [];
+  return {
+    deps: {
+      validateCircularDependencies: async (_scope, scopeConfig) => {
+        validationCalls.push(scopeConfig);
+        return { success: true };
+      },
+    },
+    validationCalls,
+  };
+}
+
 async function writeTestOnlyCycle(path: string): Promise<string> {
   const testsDir = join(path, VALIDATION_PIPELINE_DATA.testDirectoryName);
   const cycleAPath = join(VALIDATION_PIPELINE_DATA.testDirectoryName, "cycle-a.ts");
@@ -244,17 +294,7 @@ describe("circular dependency filtering", () => {
       DEPENDENCY_CRUISER_DEPENDENCY_TYPES.LOCAL,
       DEPENDENCY_CRUISER_DEPENDENCY_TYPES.IMPORT,
     ]);
-    const dependencyGraphCalls: Parameters<CircularDependencyGraphRunner>[] = [];
-    const deps: CircularDeps = {
-      [CIRCULAR_DEPS_KEYS.DEPENDENCY_CRUISER]: async (...call): Promise<IReporterOutput> => {
-        dependencyGraphCalls.push(call);
-        return {
-          exitCode: 0,
-          output: createCruiseResult(dependency),
-        };
-      },
-      [CIRCULAR_DEPS_KEYS.EXTRACT_TYPESCRIPT_CONFIG]: () => emptyTypescriptConfig,
-    };
+    const { dependencyGraphCalls, deps } = createRecordingDeps(createCruiseResult(dependency));
 
     await validateCircularDependencies(
       VALIDATION_SCOPES.FULL,
@@ -280,28 +320,11 @@ describe("circular dependency filtering", () => {
   });
 
   it("uses file patterns as dependency-cruiser inputs when the validation scope is explicit files", async () => {
-    const dependencyGraphCalls: Parameters<CircularDependencyGraphRunner>[] = [];
-    const deps: CircularDeps = {
-      [CIRCULAR_DEPS_KEYS.DEPENDENCY_CRUISER]: async (...call): Promise<IReporterOutput> => {
-        dependencyGraphCalls.push(call);
-        return {
-          exitCode: 0,
-          output: createEmptyCruiseResult(),
-        };
-      },
-      [CIRCULAR_DEPS_KEYS.EXTRACT_TYPESCRIPT_CONFIG]: () => emptyTypescriptConfig,
-    };
-
-    const result = await validateCircularDependencies(
-      VALIDATION_SCOPES.FULL,
-      {
-        directories: [],
-        filePatterns: [sourceModule],
-        excludePatterns: [],
-      },
-      projectRoot,
-      deps,
-    );
+    const { dependencyGraphCalls, result } = await validateCircularScopeWithRecording({
+      directories: [],
+      filePatterns: [sourceModule],
+      excludePatterns: [],
+    });
 
     expect(result.success).toBe(true);
     expect(dependencyGraphCalls).toHaveLength(1);
@@ -310,56 +333,22 @@ describe("circular dependency filtering", () => {
   });
 
   it("skips non-TypeScript fallback file patterns before invoking dependency-cruiser", async () => {
-    const dependencyGraphCalls: Parameters<CircularDependencyGraphRunner>[] = [];
-    const deps: CircularDeps = {
-      [CIRCULAR_DEPS_KEYS.DEPENDENCY_CRUISER]: async (...call): Promise<IReporterOutput> => {
-        dependencyGraphCalls.push(call);
-        return {
-          exitCode: 0,
-          output: createEmptyCruiseResult(),
-        };
-      },
-      [CIRCULAR_DEPS_KEYS.EXTRACT_TYPESCRIPT_CONFIG]: () => emptyTypescriptConfig,
-    };
-
-    const result = await validateCircularDependencies(
-      VALIDATION_SCOPES.FULL,
-      {
-        directories: [],
-        filePatterns: [nonTypeScriptSourceFile],
-        excludePatterns: [],
-      },
-      projectRoot,
-      deps,
-    );
+    const { dependencyGraphCalls, result } = await validateCircularScopeWithRecording({
+      directories: [],
+      filePatterns: [nonTypeScriptSourceFile],
+      excludePatterns: [],
+    });
 
     expect(result.success).toBe(true);
     expect(dependencyGraphCalls).toEqual([]);
   });
 
   it("does not duplicate explicit file patterns already covered by dependency-cruiser directory inputs", async () => {
-    const dependencyGraphCalls: Parameters<CircularDependencyGraphRunner>[] = [];
-    const deps: CircularDeps = {
-      [CIRCULAR_DEPS_KEYS.DEPENDENCY_CRUISER]: async (...call): Promise<IReporterOutput> => {
-        dependencyGraphCalls.push(call);
-        return {
-          exitCode: 0,
-          output: createEmptyCruiseResult(),
-        };
-      },
-      [CIRCULAR_DEPS_KEYS.EXTRACT_TYPESCRIPT_CONFIG]: () => emptyTypescriptConfig,
-    };
-
-    const result = await validateCircularDependencies(
-      VALIDATION_SCOPES.FULL,
-      {
-        directories: [analyzeDirectory],
-        filePatterns: [targetModule],
-        excludePatterns: [],
-      },
-      projectRoot,
-      deps,
-    );
+    const { dependencyGraphCalls, result } = await validateCircularScopeWithRecording({
+      directories: [analyzeDirectory],
+      filePatterns: [targetModule],
+      excludePatterns: [],
+    });
 
     expect(result.success).toBe(true);
     expect(dependencyGraphCalls).toHaveLength(1);
@@ -368,28 +357,11 @@ describe("circular dependency filtering", () => {
   });
 
   it("keeps root-level TypeScript globs when dependency-cruiser inputs also include directories", async () => {
-    const dependencyGraphCalls: Parameters<CircularDependencyGraphRunner>[] = [];
-    const deps: CircularDeps = {
-      [CIRCULAR_DEPS_KEYS.DEPENDENCY_CRUISER]: async (...call): Promise<IReporterOutput> => {
-        dependencyGraphCalls.push(call);
-        return {
-          exitCode: 0,
-          output: createEmptyCruiseResult(),
-        };
-      },
-      [CIRCULAR_DEPS_KEYS.EXTRACT_TYPESCRIPT_CONFIG]: () => emptyTypescriptConfig,
-    };
-
-    const result = await validateCircularDependencies(
-      VALIDATION_SCOPES.FULL,
-      {
-        directories: [analyzeDirectory],
-        filePatterns: [rootTypeScriptFilePattern],
-        excludePatterns: [],
-      },
-      projectRoot,
-      deps,
-    );
+    const { dependencyGraphCalls, result } = await validateCircularScopeWithRecording({
+      directories: [analyzeDirectory],
+      filePatterns: [rootTypeScriptFilePattern],
+      excludePatterns: [],
+    });
 
     expect(result.success).toBe(true);
     expect(dependencyGraphCalls).toHaveLength(1);
@@ -398,28 +370,11 @@ describe("circular dependency filtering", () => {
   });
 
   it("converts glob exclude patterns before passing them to dependency-cruiser", async () => {
-    const dependencyGraphCalls: Parameters<CircularDependencyGraphRunner>[] = [];
-    const deps: CircularDeps = {
-      [CIRCULAR_DEPS_KEYS.DEPENDENCY_CRUISER]: async (...call): Promise<IReporterOutput> => {
-        dependencyGraphCalls.push(call);
-        return {
-          exitCode: 0,
-          output: createEmptyCruiseResult(),
-        };
-      },
-      [CIRCULAR_DEPS_KEYS.EXTRACT_TYPESCRIPT_CONFIG]: () => emptyTypescriptConfig,
-    };
-
-    const result = await validateCircularDependencies(
-      VALIDATION_SCOPES.FULL,
-      {
-        directories: [analyzeDirectory],
-        filePatterns: [],
-        excludePatterns: [VALIDATION_PIPELINE_DATA.testFileExcludePattern],
-      },
-      projectRoot,
-      deps,
-    );
+    const { dependencyGraphCalls, result } = await validateCircularScopeWithRecording({
+      directories: [analyzeDirectory],
+      filePatterns: [],
+      excludePatterns: [VALIDATION_PIPELINE_DATA.testFileExcludePattern],
+    });
 
     expect(result.success).toBe(true);
     expect(dependencyGraphCalls).toHaveLength(1);
@@ -427,7 +382,7 @@ describe("circular dependency filtering", () => {
     expect(config?.exclude).toEqual({
       path: [
         DEPENDENCY_CRUISER_PACKAGE_EXCLUDE_PATTERN,
-        "^(?:.*\\/)?[^/]*\\.test\\.ts$",
+        String.raw`^(?:.*\/)?[^/]*\.test\.ts$`,
       ],
     });
   });
@@ -622,13 +577,7 @@ describe("circular command scope routing", () => {
 
   it("skips circular validation without invoking dependency-cruiser when TypeScript is absent", async () => {
     await withValidationEnv({ fixture: PROJECT_FIXTURES.BARE_PROJECT }, async ({ path }) => {
-      const validationCalls: ScopeConfig[] = [];
-      const deps: CircularCommandDeps = {
-        validateCircularDependencies: async (_scope, scopeConfig) => {
-          validationCalls.push(scopeConfig);
-          return { success: true };
-        },
-      };
+      const { deps, validationCalls } = createRecordingCircularCommandDeps();
 
       const result = await circularCommand({ cwd: path }, deps);
 
@@ -640,13 +589,7 @@ describe("circular command scope routing", () => {
 
   it("skips circular validation without invoking dependency-cruiser when tsconfig is absent", async () => {
     await withValidationEnv({ fixture: PROJECT_FIXTURES.TYPESCRIPT_NO_TSCONFIG }, async ({ path }) => {
-      const validationCalls: ScopeConfig[] = [];
-      const deps: CircularCommandDeps = {
-        validateCircularDependencies: async (_scope, scopeConfig) => {
-          validationCalls.push(scopeConfig);
-          return { success: true };
-        },
-      };
+      const { deps, validationCalls } = createRecordingCircularCommandDeps();
 
       const result = await circularCommand({ cwd: path }, deps);
 
