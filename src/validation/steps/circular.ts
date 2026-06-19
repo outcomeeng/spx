@@ -21,6 +21,7 @@ import {
   pathHasTypeScriptSourceExtension,
   TSCONFIG_FILES,
   typeScriptScopeGlobPatternToRegExp,
+  typeScriptScopePatternHasGlob,
   typeScriptScopePatternNarrowsDirectory,
 } from "../config/scope";
 import type { CircularDependencyResult, ScopeConfig, ValidationScope } from "../types";
@@ -44,7 +45,6 @@ const TSCONFIG_EXCLUDE_SUFFIX_PATTERN = /\/\*\*?\/\*$/u;
 const LITERAL_REGEX_SPECIAL_CHARACTER_PATTERN = /[.*+?^${}()|[\]\\]/gu;
 const REGEX_ESCAPE_REPLACEMENT = String.raw`\$&`;
 const CYCLE_KEY_SEPARATOR = "\u0000";
-const GLOB_MARKER = "*";
 export const DEPENDENCY_CRUISER_PACKAGE_EXCLUDE_PATTERN = "(^|/)node_modules(/|$)";
 export const DEPENDENCY_CRUISER_NON_STRUCTURED_OUTPUT_ERROR = "dependency-cruiser returned non-structured output";
 export const DEPENDENCY_CRUISER_DEPENDENCY_TYPES = {
@@ -117,7 +117,7 @@ export const defaultCircularDeps: CircularDeps = {
 function toDependencyCruiserExcludePatterns(patterns: readonly string[]): string[] {
   return patterns.map((pattern) => {
     const cleanPattern = pattern.replace(TSCONFIG_EXCLUDE_SUFFIX_PATTERN, "");
-    if (cleanPattern.includes(GLOB_MARKER)) {
+    if (typeScriptScopePatternHasGlob(cleanPattern)) {
       return typeScriptScopeGlobPatternToRegExp(cleanPattern).source;
     }
     return cleanPattern.replace(LITERAL_REGEX_SPECIAL_CHARACTER_PATTERN, REGEX_ESCAPE_REPLACEMENT);

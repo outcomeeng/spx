@@ -806,6 +806,47 @@ describe("circular command scope routing", () => {
     });
   });
 
+  it("forwards --files directories that intersect single-character wildcard TypeScript includes", async () => {
+    await withValidationEnv({ fixture: PROJECT_FIXTURES.CLEAN_PROJECT }, async ({ path }) => {
+      const singleCharacterDirectory = join(VALIDATION_PIPELINE_DATA.sourceDirectoryName, "a");
+      await mkdir(join(path, singleCharacterDirectory), { recursive: true });
+      await writeFile(
+        join(path, singleCharacterDirectory, VALIDATION_PIPELINE_DATA.cleanSourceFileName),
+        "export const singleCharacterWildcard = true;\n",
+      );
+      await writeFile(
+        join(path, TSCONFIG_FILES.full),
+        JSON.stringify({
+          compilerOptions: {
+            target: "ES2020",
+            module: "commonjs",
+            strict: true,
+          },
+          include: [VALIDATION_PIPELINE_DATA.singleCharacterSourceIncludePattern],
+        }),
+      );
+      const { deps, validationCalls } = createRecordingCircularCommandDeps();
+
+      const result = await circularCommand(
+        {
+          cwd: path,
+          files: [`${singleCharacterDirectory}/`],
+        },
+        deps,
+      );
+
+      expect(result.exitCode).toBe(VALIDATION_EXIT_CODES.SUCCESS);
+      expect(result.output).toBe(VALIDATION_COMMAND_OUTPUT.CIRCULAR_NONE_FOUND);
+      expect(validationCalls).toEqual([
+        {
+          directories: [],
+          filePatterns: [VALIDATION_PIPELINE_DATA.singleCharacterSourceIncludePattern],
+          excludePatterns: [],
+        },
+      ]);
+    });
+  });
+
   it("forwards root --files directories as the existing TypeScript scope", async () => {
     await withValidationEnv({ fixture: PROJECT_FIXTURES.CLEAN_PROJECT }, async ({ path }) => {
       const { deps, validationCalls } = createRecordingCircularCommandDeps();
@@ -900,6 +941,24 @@ describe("circular command scope routing", () => {
           excludePatterns: [VALIDATION_PIPELINE_DATA.testFileExcludePattern],
         },
       ]);
+    });
+  });
+
+  it("converts single-character wildcard exclude patterns before passing them to dependency-cruiser", async () => {
+    const { dependencyGraphCalls, result } = await validateCircularScopeWithRecording({
+      directories: [VALIDATION_PIPELINE_DATA.sourceDirectoryName],
+      filePatterns: [],
+      excludePatterns: [VALIDATION_PIPELINE_DATA.singleCharacterSourceExcludePattern],
+    });
+
+    expect(result.success).toBe(true);
+    expect(dependencyGraphCalls).toHaveLength(1);
+    const [, config] = dependencyGraphCalls[0] ?? [];
+    expect(config?.exclude).toEqual({
+      path: [
+        DEPENDENCY_CRUISER_PACKAGE_EXCLUDE_PATTERN,
+        String.raw`^src\/[^/]\/ignored\.ts$`,
+      ],
     });
   });
 

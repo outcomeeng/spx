@@ -28,6 +28,7 @@ export const TSCONFIG_FILES = {
 } as const;
 const PATH_SEGMENT_SEPARATOR = "/";
 const GLOB_MARKER = "*";
+const SINGLE_CHARACTER_GLOB_MARKER = "?";
 const GLOB_REGEX_SPECIAL_CHARACTER_PATTERN = /[.+?^${}()|[\]\\]/gu;
 const REGEX_ESCAPE_REPLACEMENT = String.raw`\$&`;
 const HIDDEN_PATH_PREFIX = ".";
@@ -258,7 +259,7 @@ export function getTopLevelDirectoriesWithTypeScript(
 
 function getLiteralTopLevelPatternDirectory(pattern: string): string | null {
   const topLevelDir = pattern.split(PATH_SEGMENT_SEPARATOR)[0];
-  if (!topLevelDir || topLevelDir.includes(GLOB_MARKER) || topLevelDir.startsWith(HIDDEN_PATH_PREFIX)) {
+  if (!topLevelDir || typeScriptScopePatternHasGlob(topLevelDir) || topLevelDir.startsWith(HIDDEN_PATH_PREFIX)) {
     return null;
   }
   return topLevelDir;
@@ -292,11 +293,23 @@ function pathMatchesLiteralPrefix(path: string, prefix: string): boolean {
 
 function globLiteralPrefix(pattern: string): string {
   const normalizedPattern = normalizeTypeScriptScopePath(pattern);
-  const globIndex = normalizedPattern.indexOf(GLOB_MARKER);
+  const globIndex = firstGlobMarkerIndex(normalizedPattern);
   if (globIndex === -1) {
     return normalizedPattern;
   }
   return normalizedPattern.slice(0, globIndex).replace(/\/+$/u, "");
+}
+
+function firstGlobMarkerIndex(path: string): number {
+  const globIndex = path.indexOf(GLOB_MARKER);
+  const singleCharacterGlobIndex = path.indexOf(SINGLE_CHARACTER_GLOB_MARKER);
+  if (globIndex === -1) return singleCharacterGlobIndex;
+  if (singleCharacterGlobIndex === -1) return globIndex;
+  return Math.min(globIndex, singleCharacterGlobIndex);
+}
+
+export function typeScriptScopePatternHasGlob(pattern: string): boolean {
+  return firstGlobMarkerIndex(pattern) !== -1;
 }
 
 export function typeScriptScopeGlobPatternToRegExp(pattern: string): RegExp {
@@ -314,6 +327,8 @@ export function typeScriptScopeGlobPatternToRegExp(pattern: string): RegExp {
       index += 1;
     } else if (character === GLOB_MARKER) {
       source += `[^${PATH_SEGMENT_SEPARATOR}]*`;
+    } else if (character === SINGLE_CHARACTER_GLOB_MARKER) {
+      source += `[^${PATH_SEGMENT_SEPARATOR}]`;
     } else {
       source += character.replace(GLOB_REGEX_SPECIAL_CHARACTER_PATTERN, REGEX_ESCAPE_REPLACEMENT);
     }
@@ -322,7 +337,7 @@ export function typeScriptScopeGlobPatternToRegExp(pattern: string): RegExp {
 }
 
 function pathMatchesTypeScriptPattern(path: string, pattern: string): boolean {
-  if (pattern.includes(GLOB_MARKER)) {
+  if (typeScriptScopePatternHasGlob(pattern)) {
     return typeScriptScopeGlobPatternToRegExp(pattern).test(normalizeTypeScriptScopePath(path));
   }
   const prefix = globLiteralPrefix(pattern);
@@ -334,7 +349,7 @@ export function typeScriptScopePatternNarrowsDirectory(pattern: string, director
   if (!typeScriptScopePatternIntersectsDirectory(pattern, directory)) {
     return false;
   }
-  if (!pattern.includes(GLOB_MARKER)) {
+  if (!typeScriptScopePatternHasGlob(pattern)) {
     return true;
   }
   const probePath = `${normalizedDirectory}/${TYPESCRIPT_SCOPE_DIRECTORY_PROBE_FILENAME}`;
@@ -344,7 +359,7 @@ export function typeScriptScopePatternNarrowsDirectory(pattern: string, director
 export function typeScriptScopePatternIntersectsDirectory(pattern: string, directory: string): boolean {
   const normalizedPattern = normalizeTypeScriptScopePath(pattern);
   const normalizedDirectory = normalizeTypeScriptScopePath(directory);
-  if (!normalizedPattern.includes(GLOB_MARKER)) {
+  if (!typeScriptScopePatternHasGlob(normalizedPattern)) {
     return pathMatchesLiteralPrefix(normalizedPattern, normalizedDirectory);
   }
   const literalPrefix = globLiteralPrefix(normalizedPattern);
