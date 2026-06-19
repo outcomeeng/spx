@@ -25,6 +25,7 @@ import type { ScopeConfig } from "../types";
 export const defaultKnipProcessRunner: ProcessRunner = lifecycleProcessRunner;
 export const KNIP_COMMAND_TOKENS = {
   COMMAND: "knip",
+  NPX_COMMAND: "npx",
   TSCONFIG_FLAG: "--tsConfig",
   USE_TSCONFIG_FILES_FLAG: "--use-tsconfig-files",
 } as const;
@@ -78,9 +79,12 @@ export async function validateKnip(
   try {
     const { projectRoot, typescriptScope } = context;
     // Use TypeScript-derived directories for perfect scope alignment
-    const analyzeDirectories = typescriptScope.directories;
+    const analyzeTargets = [
+      ...typescriptScope.directories,
+      ...typescriptScope.filePatterns,
+    ];
 
-    if (analyzeDirectories.length === 0) {
+    if (analyzeTargets.length === 0) {
       return { success: true };
     }
 
@@ -101,7 +105,7 @@ async function runKnipSubprocess(
     ? await createScopedKnipTsconfig(projectRoot, typescriptScope, deps)
     : undefined;
   const localBin = join(projectRoot, "node_modules", ".bin", "knip");
-  const binary = deps.existsSync(localBin) ? localBin : "npx";
+  const binary = deps.existsSync(localBin) ? localBin : KNIP_COMMAND_TOKENS.NPX_COMMAND;
   const baseArgs = scopedTsconfig === undefined
     ? []
     : [
@@ -109,7 +113,7 @@ async function runKnipSubprocess(
       KNIP_COMMAND_TOKENS.TSCONFIG_FLAG,
       scopedTsconfig.configPath,
     ];
-  const args = binary === "npx" ? [KNIP_COMMAND_TOKENS.COMMAND, ...baseArgs] : baseArgs;
+  const args = binary === KNIP_COMMAND_TOKENS.NPX_COMMAND ? [KNIP_COMMAND_TOKENS.COMMAND, ...baseArgs] : baseArgs;
   const knipProcess = spawnManagedSubprocess(runner, binary, args, {
     cwd: projectRoot,
   });

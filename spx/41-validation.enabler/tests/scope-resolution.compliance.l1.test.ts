@@ -602,6 +602,51 @@ describe("ALWAYS: TypeScript scope resolution uses the requested project root", 
     });
   });
 
+  it("runs file-scoped Knip validation through a scoped temporary config", async () => {
+    await withTestEnv({}, async (env) => {
+      const runner = new RecordingSpawnOptionsRunner();
+      const writtenConfigs: string[] = [];
+      const deps: KnipDeps = {
+        existsSync: () => false,
+        mkdtemp: defaultTypeScriptDeps.mkdtemp,
+        rm: async () => {},
+        writeFile: async (_path, data) => {
+          writtenConfigs.push(data.toString());
+        },
+      };
+
+      const result = await validateKnip(
+        {
+          projectRoot: env.productDir,
+          typescriptScope: {
+            directories: [],
+            filePatterns: [VALIDATION_PIPELINE_DATA.scopeResolutionSourceFile],
+            excludePatterns: [VALIDATION_PIPELINE_DATA.productionScopeExcludePattern],
+            filteredByValidationPaths: true,
+          },
+        },
+        runner,
+        deps,
+      );
+
+      expect(result).toEqual({ success: true });
+      expect(runner.commands).toEqual([KNIP_COMMAND_TOKENS.NPX_COMMAND]);
+      expect(runner.args).toEqual([
+        [
+          KNIP_COMMAND_TOKENS.COMMAND,
+          KNIP_COMMAND_TOKENS.USE_TSCONFIG_FILES_FLAG,
+          KNIP_COMMAND_TOKENS.TSCONFIG_FLAG,
+          expect.stringContaining(TSCONFIG_FILES.full),
+        ],
+      ]);
+      expect(JSON.parse(writtenConfigs[0] ?? "{}")).toEqual({
+        extends: join(env.productDir, TSCONFIG_FILES.full),
+        include: [join(env.productDir, VALIDATION_PIPELINE_DATA.scopeResolutionSourceFile)],
+        exclude: [join(env.productDir, VALIDATION_PIPELINE_DATA.productionScopeExcludePattern)],
+      });
+    });
+  });
+
   it("runs circular validation with project-root-anchored dependency-cruiser inputs", async () => {
     await withTestEnv({}, async (env) => {
       const tsconfigExcludePatternWithGlob = "dist+(cache)/**/*";

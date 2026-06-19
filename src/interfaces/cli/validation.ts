@@ -270,6 +270,7 @@ function registerValidationCommands(validationCmd: Command): void {
     .action(async (options: CommonOptions) => {
       const result = await knipCommand({
         cwd: process.cwd(),
+        files: options.files,
         quiet: options.quiet,
         json: options.json,
       });

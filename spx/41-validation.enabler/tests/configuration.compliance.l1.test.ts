@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 
+import type { KnipCommandOptions } from "@/commands/validation";
 import { knipCommand } from "@/commands/validation/knip";
 import { LITERAL_DISABLED_MESSAGE, literalCommand } from "@/commands/validation/literal";
 import { markdownCommand } from "@/commands/validation/markdown";
@@ -15,6 +16,9 @@ import {
   validationConfigDescriptor,
 } from "@/validation/config/descriptor";
 import { LITERAL_DEFAULTS } from "@/validation/literal/config";
+import { TOOL_DISCOVERY } from "@/validation/discovery/constants";
+import { runKnipStage, type KnipStageDeps } from "@/validation/languages/typescript";
+import type { ScopeConfig } from "@/validation/types";
 import { MARKDOWN_DEFAULT_DIRECTORY_NAMES, MARKDOWN_PRIMARY_FILE_EXTENSION } from "@/validation/steps/markdown";
 import {
   LITERAL_TEST_GENERATOR,
@@ -88,6 +92,90 @@ describe("ALWAYS: validation command participation is driven by spx config", () 
         expect(result.output).toBe(VALIDATION_COMMAND_OUTPUT.KNIP_DISABLED);
       },
     );
+  });
+
+  it("applies explicit file scope during knip execution", async () => {
+    await withLiteralFixtureEnv(
+      validationConfigSection(VALIDATION_KNIP_SUBSECTION, true),
+      async (env) => {
+        const sourceFilePath = sampleLiteralTestValue(LITERAL_TEST_GENERATOR.sourceFilePath());
+        const validationCalls: Array<{
+          readonly projectRoot: string;
+          readonly typescriptScope: ScopeConfig;
+        }> = [];
+        await env.writeTsConfigMarker();
+        await env.writeSourceFile(sourceFilePath, sampleLiteralTestValue(LITERAL_TEST_GENERATOR.domainLiteral()));
+
+        const result = await knipCommand(
+          {
+            cwd: env.productDir,
+            files: [sourceFilePath],
+          },
+          {
+            discoverTool: async () => ({
+              found: true,
+              location: {
+                tool: VALIDATION_PIPELINE_DATA.stageNames.KNIP,
+                path: env.productDir,
+                source: TOOL_DISCOVERY.SOURCES.PROJECT,
+              },
+            }),
+            validateKnip: async (context) => {
+              validationCalls.push(context);
+              return { success: true };
+            },
+          },
+        );
+
+        expect(result.exitCode).toBe(VALIDATION_EXIT_CODES.SUCCESS);
+        expect(validationCalls).toEqual([
+          {
+            projectRoot: env.productDir,
+            typescriptScope: {
+              directories: [],
+              filePatterns: [sourceFilePath],
+              excludePatterns: [],
+              filteredByValidationPaths: true,
+              filteredByValidationPathIncludes: true,
+              filteredByValidationPathNoMatches: false,
+            },
+          },
+        ]);
+      },
+    );
+  });
+
+  it("threads aggregate validation file scope to the knip stage", async () => {
+    await withLiteralFixtureEnv({}, async (env) => {
+      const sourceFilePath = sampleLiteralTestValue(LITERAL_TEST_GENERATOR.sourceFilePath());
+      const commandCalls: KnipCommandOptions[] = [];
+      const deps: KnipStageDeps = {
+        knipCommand: async (options) => {
+          commandCalls.push(options);
+          return { exitCode: VALIDATION_EXIT_CODES.SUCCESS, output: VALIDATION_COMMAND_OUTPUT.KNIP_SUCCESS };
+        },
+      };
+
+      const result = await runKnipStage(
+        {
+          cwd: env.productDir,
+          files: [sourceFilePath],
+          quiet: true,
+          json: true,
+        },
+        deps,
+      );
+
+      expect(result.exitCode).toBe(VALIDATION_EXIT_CODES.SUCCESS);
+      expect(commandCalls).toEqual([
+        {
+          cwd: env.productDir,
+          files: [sourceFilePath],
+          quiet: true,
+          json: true,
+        },
+      ]);
+    });
   });
 
   it("resolves per-tool validation path configuration through the descriptor", async () => {

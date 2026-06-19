@@ -43,11 +43,7 @@ export interface LintCommandOptions extends CommonValidationOptions {
 export type CircularCommandOptions = CommonValidationOptions;
 
 /** Options for knip command */
-export interface KnipCommandOptions {
-  cwd: string;
-  quiet?: boolean;
-  json?: boolean;
-}
+export type KnipCommandOptions = CommonValidationOptions;
 
 /** Options for markdown command */
 export interface MarkdownCommandOptions {
