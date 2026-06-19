@@ -49,6 +49,12 @@ interface TestingCliResult {
   readonly exitCodes: readonly number[];
 }
 
+interface PassingAgentRunFixture {
+  readonly run: RecordedTestRun;
+  readonly stdoutPath: string;
+  readonly stderrPath: string;
+}
+
 function sampleText(): string {
   return sampleLiteralTestValue(arbitraryDomainLiteral());
 }
@@ -98,7 +104,7 @@ function testingCliDeps(
     writeStdout: () => undefined,
     setExitCode: () => undefined,
     exit: () => {
-      throw new Error();
+      throw new Error("Unexpected streaming exit in agent-mode test");
     },
   };
 }
@@ -122,6 +128,60 @@ async function runTestingCli(args: readonly string[], deps: TestingCliDependenci
   await program.parseAsync([...args], { from: testingCliCommanderParseSource() });
 
   return { stdout: stdout.join(""), stderr: stderr.join(""), exitCodes };
+}
+
+function passingAgentRun(productDir: string, testPaths: readonly string[] = []): PassingAgentRunFixture {
+  const stdoutPath = join(productDir, AGENT_TEST_OUTPUT_TEXT.STDOUT);
+  const stderrPath = join(productDir, AGENT_TEST_OUTPUT_TEXT.STDERR);
+  return {
+    stdoutPath,
+    stderrPath,
+    run: {
+      dispatch: {
+        exitCode: SUCCESS_EXIT_CODE,
+        groups: [],
+        unmatched: [],
+        reports: [{
+          runnerId: typescriptTestingLanguage.name,
+          testPaths,
+          exitCode: SUCCESS_EXIT_CODE,
+          output: { stdoutPath, stderrPath },
+        }],
+        outcomes: [],
+      },
+      runFile: testRunFile(join(productDir, AGENT_TEST_OUTPUT_TEXT.STATE_FILE)),
+      recorded: testRunState(TEST_RUN_STATE_STATUS.PASSED),
+    },
+  };
+}
+
+function failingPythonRun(
+  productDir: string,
+  failingPath: string,
+  failingExitCode: number,
+  failingTestPaths?: readonly string[],
+): RecordedTestRun {
+  const failureOutput = {
+    stdoutPath: join(productDir, AGENT_TEST_OUTPUT_TEXT.STDOUT),
+    stderrPath: join(productDir, AGENT_TEST_OUTPUT_TEXT.STDERR),
+    ...(failingTestPaths === undefined ? {} : { failingTestPaths }),
+  };
+  return {
+    dispatch: {
+      exitCode: failingExitCode,
+      groups: [],
+      unmatched: [],
+      reports: [{
+        runnerId: pythonTestingLanguage.name,
+        testPaths: [failingPath],
+        exitCode: failingExitCode,
+        output: failureOutput,
+      }],
+      outcomes: [],
+    },
+    runFile: testRunFile(join(productDir, AGENT_TEST_OUTPUT_TEXT.STATE_FILE)),
+    recorded: testRunState(TEST_RUN_STATE_STATUS.FAILED),
+  };
 }
 
 describe("agent test-output summary", () => {
@@ -169,27 +229,8 @@ describe("agent test-output summary", () => {
     const nodePath = sampleDispatchValue(TEST_DISPATCH_GENERATOR.nodePath());
     const failingPath = sampleDispatchValue(TEST_DISPATCH_GENERATOR.testFileUnder(pythonTestingLanguage, nodePath));
     const failingExitCode = sampleDispatchValue(TEST_DISPATCH_GENERATOR.nonZeroExitCode());
-    const run: RecordedTestRun = {
-      dispatch: {
-        exitCode: failingExitCode,
-        groups: [],
-        unmatched: [],
-        reports: [{
-          runnerId: pythonTestingLanguage.name,
-          testPaths: [failingPath],
-          exitCode: failingExitCode,
-          output: {
-            stdoutPath: join(productDir, AGENT_TEST_OUTPUT_TEXT.STDOUT),
-            stderrPath: join(productDir, AGENT_TEST_OUTPUT_TEXT.STDERR),
-          },
-        }],
-        outcomes: [],
-      },
-      runFile: testRunFile(join(productDir, AGENT_TEST_OUTPUT_TEXT.STATE_FILE)),
-      recorded: testRunState(TEST_RUN_STATE_STATUS.FAILED),
-    };
 
-    const output = formatAgentTestOutput(run);
+    const output = formatAgentTestOutput(failingPythonRun(productDir, failingPath, failingExitCode));
 
     expect(output).toContain(`${AGENT_TEST_OUTPUT_TEXT.RUNNER}: ${pythonTestingLanguage.name}`);
     expect(output).toContain(AGENT_TEST_OUTPUT_TEXT.FAILING_TESTS);
@@ -201,28 +242,8 @@ describe("agent test-output summary", () => {
     const nodePath = sampleDispatchValue(TEST_DISPATCH_GENERATOR.nodePath());
     const failingPath = sampleDispatchValue(TEST_DISPATCH_GENERATOR.testFileUnder(pythonTestingLanguage, nodePath));
     const failingExitCode = sampleDispatchValue(TEST_DISPATCH_GENERATOR.nonZeroExitCode());
-    const run: RecordedTestRun = {
-      dispatch: {
-        exitCode: failingExitCode,
-        groups: [],
-        unmatched: [],
-        reports: [{
-          runnerId: pythonTestingLanguage.name,
-          testPaths: [failingPath],
-          exitCode: failingExitCode,
-          output: {
-            stdoutPath: join(productDir, AGENT_TEST_OUTPUT_TEXT.STDOUT),
-            stderrPath: join(productDir, AGENT_TEST_OUTPUT_TEXT.STDERR),
-            failingTestPaths: [],
-          },
-        }],
-        outcomes: [],
-      },
-      runFile: testRunFile(join(productDir, AGENT_TEST_OUTPUT_TEXT.STATE_FILE)),
-      recorded: testRunState(TEST_RUN_STATE_STATUS.FAILED),
-    };
 
-    const output = formatAgentTestOutput(run);
+    const output = formatAgentTestOutput(failingPythonRun(productDir, failingPath, failingExitCode, []));
 
     expect(output).toContain(AGENT_TEST_OUTPUT_TEXT.FAILING_TESTS);
     expect(output).toContain(failingPath);
@@ -230,26 +251,9 @@ describe("agent test-output summary", () => {
 
   it("routes passing agent mode through captured output without forcing process exit", async () => {
     const productDir = sampleConfigTestValue(CONFIG_TEST_GENERATOR.productDir());
-    const stdoutPath = join(productDir, AGENT_TEST_OUTPUT_TEXT.STDOUT);
-    const stderrPath = join(productDir, AGENT_TEST_OUTPUT_TEXT.STDERR);
     const agentCalls: TestingCliCall[] = [];
     const streamCalls: TestingCliCall[] = [];
-    const run: RecordedTestRun = {
-      dispatch: {
-        exitCode: SUCCESS_EXIT_CODE,
-        groups: [],
-        unmatched: [],
-        reports: [{
-          runnerId: typescriptTestingLanguage.name,
-          testPaths: [],
-          exitCode: SUCCESS_EXIT_CODE,
-          output: { stdoutPath, stderrPath },
-        }],
-        outcomes: [],
-      },
-      runFile: testRunFile(join(productDir, AGENT_TEST_OUTPUT_TEXT.STATE_FILE)),
-      recorded: testRunState(TEST_RUN_STATE_STATUS.PASSED),
-    };
+    const { run, stdoutPath, stderrPath } = passingAgentRun(productDir);
 
     const result = await runTestingCli([
       TESTING_CLI.commandName,
@@ -267,26 +271,9 @@ describe("agent test-output summary", () => {
 
   it("routes parent agent mode through captured output for passing scope", async () => {
     const productDir = sampleConfigTestValue(CONFIG_TEST_GENERATOR.productDir());
-    const stdoutPath = join(productDir, AGENT_TEST_OUTPUT_TEXT.STDOUT);
-    const stderrPath = join(productDir, AGENT_TEST_OUTPUT_TEXT.STDERR);
     const agentCalls: TestingCliCall[] = [];
     const streamCalls: TestingCliCall[] = [];
-    const run: RecordedTestRun = {
-      dispatch: {
-        exitCode: SUCCESS_EXIT_CODE,
-        groups: [],
-        unmatched: [],
-        reports: [{
-          runnerId: typescriptTestingLanguage.name,
-          testPaths: [],
-          exitCode: SUCCESS_EXIT_CODE,
-          output: { stdoutPath, stderrPath },
-        }],
-        outcomes: [],
-      },
-      runFile: testRunFile(join(productDir, AGENT_TEST_OUTPUT_TEXT.STATE_FILE)),
-      recorded: testRunState(TEST_RUN_STATE_STATUS.PASSED),
-    };
+    const { run, stdoutPath, stderrPath } = passingAgentRun(productDir);
 
     const result = await runTestingCli([
       TESTING_CLI.commandName,
