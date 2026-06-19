@@ -76,6 +76,7 @@ const CLEAN_SOURCE_FILE_NAME = "clean.ts";
 const DECLARATION_SOURCE_FILE_NAME = "types.d.ts";
 const RECURSIVE_NAMED_SOURCE_FILE_PATTERN = `src/**/${CLEAN_SOURCE_FILE_NAME}`;
 const SINGLE_LEVEL_NAMED_SOURCE_FILE_PATTERN = `src/*/${CLEAN_SOURCE_FILE_NAME}`;
+const RECURSIVE_MARKDOWN_SOURCE_FILE_PATTERN = "src/**/*.md";
 const MISSING_SOURCE_DIRECTORY_NAME = "missing";
 const TYPE_ERROR_REPLACEMENT_PATTERN = /const x:\s*number\s*=\s*"[^"]+";?/g;
 const TYPE_ERROR_REPLACEMENT = "const x: number = 0;";
@@ -199,6 +200,7 @@ export const VALIDATION_PIPELINE_DATA = {
   declarationSourceFileName: DECLARATION_SOURCE_FILE_NAME,
   recursiveNamedSourceFilePattern: RECURSIVE_NAMED_SOURCE_FILE_PATTERN,
   singleLevelNamedSourceFilePattern: SINGLE_LEVEL_NAMED_SOURCE_FILE_PATTERN,
+  recursiveMarkdownSourceFilePattern: RECURSIVE_MARKDOWN_SOURCE_FILE_PATTERN,
   missingSourceDirectoryName: MISSING_SOURCE_DIRECTORY_NAME,
   circularSkipASourceSegments: CIRCULAR_SKIP_A_SOURCE_SEGMENTS,
   circularSkipBSourceSegments: CIRCULAR_SKIP_B_SOURCE_SEGMENTS,
