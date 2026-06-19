@@ -12,6 +12,7 @@ export const AGENT_TEST_OUTPUT_TEXT = {
   STDOUT: "stdout",
   STDERR: "stderr",
   FAILING_TESTS: "failingTests",
+  SKIPPED_TESTS: "skippedTests",
   UNMATCHED: "unmatched",
 } as const;
 
@@ -42,10 +43,7 @@ function failingReportPaths(report: RecordedTestRun["dispatch"]["reports"][numbe
   return report.testPaths;
 }
 
-function failedUnreportedGroups(run: RecordedTestRun): typeof run.dispatch.groups {
-  if (run.dispatch.exitCode === SUCCESS_EXIT_CODE) {
-    return [];
-  }
+function unreportedGroups(run: RecordedTestRun): typeof run.dispatch.groups {
   const reportedRunnerIds = new Set(run.dispatch.reports.map((report) => report.runnerId));
   return run.dispatch.groups.filter((group) => !reportedRunnerIds.has(group.language.name));
 }
@@ -86,12 +84,11 @@ export function formatAgentTestOutput(run: RecordedTestRun): string {
     }
   }
 
-  for (const group of failedUnreportedGroups(run)) {
+  for (const group of unreportedGroups(run)) {
     lines.push(
       `${AGENT_TEST_OUTPUT_TEXT.RUNNER}: ${group.language.name}`,
-      `${INDENT}${AGENT_TEST_OUTPUT_TEXT.EXIT_CODE}: ${run.dispatch.exitCode}`,
     );
-    appendPathList(lines, AGENT_TEST_OUTPUT_TEXT.FAILING_TESTS, group.testPaths);
+    appendPathList(lines, AGENT_TEST_OUTPUT_TEXT.SKIPPED_TESTS, group.testPaths);
   }
 
   if (run.dispatch.unmatched.length > 0) {
