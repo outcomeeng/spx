@@ -256,6 +256,7 @@ function registerValidationCommands(validationCmd: Command): void {
       const result = await circularCommand({
         cwd: process.cwd(),
         scope: options.scope,
+        files: options.files,
         quiet: options.quiet,
         json: options.json,
       });
