@@ -28,6 +28,8 @@ export const TSCONFIG_FILES = {
 } as const;
 const PATH_SEGMENT_SEPARATOR = "/";
 const GLOB_MARKER = "*";
+const REGEX_SPECIAL_CHARACTER_PATTERN = /[.+?^${}()|[\]\\]/gu;
+const REGEX_ESCAPE_REPLACEMENT = String.raw`\$&`;
 const HIDDEN_PATH_PREFIX = ".";
 const TYPESCRIPT_SOURCE_EXTENSIONS = [".ts", ".tsx"] as const;
 
@@ -289,7 +291,32 @@ function globLiteralPrefix(pattern: string): string {
   return normalizedPattern.slice(0, globIndex).replace(/\/+$/u, "");
 }
 
+function globPatternToRegExp(pattern: string): RegExp {
+  const normalizedPattern = normalizeTypeScriptScopePath(pattern);
+  let source = "";
+  for (let index = 0; index < normalizedPattern.length; index += 1) {
+    const character = normalizedPattern[index];
+    const nextCharacter = normalizedPattern[index + 1];
+    const followingCharacter = normalizedPattern[index + 2];
+    if (character === GLOB_MARKER && nextCharacter === GLOB_MARKER && followingCharacter === PATH_SEGMENT_SEPARATOR) {
+      source += `(?:.*${PATH_SEGMENT_SEPARATOR})?`;
+      index += 2;
+    } else if (character === GLOB_MARKER && nextCharacter === GLOB_MARKER) {
+      source += ".*";
+      index += 1;
+    } else if (character === GLOB_MARKER) {
+      source += `[^${PATH_SEGMENT_SEPARATOR}]*`;
+    } else {
+      source += character.replace(REGEX_SPECIAL_CHARACTER_PATTERN, REGEX_ESCAPE_REPLACEMENT);
+    }
+  }
+  return new RegExp(`^${source}$`, "u");
+}
+
 function pathMatchesTypeScriptPattern(path: string, pattern: string): boolean {
+  if (pattern.includes(GLOB_MARKER)) {
+    return globPatternToRegExp(pattern).test(normalizeTypeScriptScopePath(path));
+  }
   const prefix = globLiteralPrefix(pattern);
   return prefix.length === 0 || pathMatchesLiteralPrefix(path, prefix);
 }

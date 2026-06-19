@@ -48,6 +48,7 @@ const analyzeDirectory = dirname(sourceModule);
 const nonTypeScriptSourceFile = join(VALIDATION_PIPELINE_DATA.sourceDirectoryName, "readme.md");
 const extensionlessSourceFile = join(VALIDATION_PIPELINE_DATA.sourceDirectoryName, "README");
 const dottedSourceDirectory = join(VALIDATION_PIPELINE_DATA.sourceDirectoryName, "feature.dir");
+const rootTypeScriptFilePattern = "*.ts";
 const emptyTypescriptConfig: ParsedCommandLine = {
   options: {},
   fileNames: [],
@@ -294,7 +295,7 @@ describe("circular dependency filtering", () => {
     expect(paths).toEqual([sourceModule]);
   });
 
-  it("keeps explicit file patterns when dependency-cruiser inputs also include directories", async () => {
+  it("does not duplicate explicit file patterns already covered by dependency-cruiser directory inputs", async () => {
     const dependencyGraphCalls: Parameters<CircularDependencyGraphRunner>[] = [];
     const deps: CircularDeps = {
       [CIRCULAR_DEPS_KEYS.DEPENDENCY_CRUISER]: async (...call): Promise<IReporterOutput> => {
@@ -321,7 +322,37 @@ describe("circular dependency filtering", () => {
     expect(result.success).toBe(true);
     expect(dependencyGraphCalls).toHaveLength(1);
     const [paths] = dependencyGraphCalls[0] ?? [];
-    expect(paths).toEqual([...expectedTypescriptSourcePatterns(analyzeDirectory), targetModule]);
+    expect(paths).toEqual(expectedTypescriptSourcePatterns(analyzeDirectory));
+  });
+
+  it("keeps root-level TypeScript globs when dependency-cruiser inputs also include directories", async () => {
+    const dependencyGraphCalls: Parameters<CircularDependencyGraphRunner>[] = [];
+    const deps: CircularDeps = {
+      [CIRCULAR_DEPS_KEYS.DEPENDENCY_CRUISER]: async (...call): Promise<IReporterOutput> => {
+        dependencyGraphCalls.push(call);
+        return {
+          exitCode: 0,
+          output: createEmptyCruiseResult(),
+        };
+      },
+      [CIRCULAR_DEPS_KEYS.EXTRACT_TYPESCRIPT_CONFIG]: () => emptyTypescriptConfig,
+    };
+
+    const result = await validateCircularDependencies(
+      VALIDATION_SCOPES.FULL,
+      {
+        directories: [analyzeDirectory],
+        filePatterns: [rootTypeScriptFilePattern],
+        excludePatterns: [],
+      },
+      projectRoot,
+      deps,
+    );
+
+    expect(result.success).toBe(true);
+    expect(dependencyGraphCalls).toHaveLength(1);
+    const [paths] = dependencyGraphCalls[0] ?? [];
+    expect(paths).toEqual([...expectedTypescriptSourcePatterns(analyzeDirectory), rootTypeScriptFilePattern]);
   });
 
   it("fails clearly when dependency-cruiser returns non-structured reporter output", async () => {
@@ -647,6 +678,47 @@ describe("circular command scope routing", () => {
           directories: [dottedSourceDirectory],
           filePatterns: [],
           excludePatterns: [],
+        },
+      ]);
+    });
+  });
+
+  it("keeps explicit TypeScript files when glob-only excludes do not match them", async () => {
+    await withValidationEnv({ fixture: PROJECT_FIXTURES.CLEAN_PROJECT }, async ({ path }) => {
+      await writeFile(
+        join(path, TSCONFIG_FILES.full),
+        JSON.stringify({
+          compilerOptions: {
+            target: "ES2020",
+            module: "commonjs",
+            strict: true,
+          },
+          include: [VALIDATION_PIPELINE_DATA.productionScopeFilePattern],
+          exclude: [VALIDATION_PIPELINE_DATA.testFileExcludePattern],
+        }),
+      );
+      const validationCalls: ScopeConfig[] = [];
+      const deps: CircularCommandDeps = {
+        validateCircularDependencies: async (_scope, scopeConfig) => {
+          validationCalls.push(scopeConfig);
+          return { success: true };
+        },
+      };
+
+      const result = await circularCommand(
+        {
+          cwd: path,
+          files: [join(VALIDATION_PIPELINE_DATA.sourceDirectoryName, VALIDATION_PIPELINE_DATA.cleanSourceFileName)],
+        },
+        deps,
+      );
+
+      expect(result.exitCode).toBe(VALIDATION_EXIT_CODES.SUCCESS);
+      expect(validationCalls).toEqual([
+        {
+          directories: [],
+          filePatterns: [join(VALIDATION_PIPELINE_DATA.sourceDirectoryName, VALIDATION_PIPELINE_DATA.cleanSourceFileName)],
+          excludePatterns: [VALIDATION_PIPELINE_DATA.testFileExcludePattern],
         },
       ]);
     });

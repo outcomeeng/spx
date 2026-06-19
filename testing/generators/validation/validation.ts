@@ -68,6 +68,7 @@ const PRODUCTION_SCOPE_FILE_PATTERN = "src/**/*";
 const TEST_SCOPE_FILE_PATTERN = `${TEST_DIRECTORY_NAME}/**/*`;
 // Mirrors an actual tsconfig.production.json exclude entry.
 const PRODUCTION_SCOPE_EXCLUDE_PATTERN = "docs/**/*";
+const TEST_FILE_EXCLUDE_PATTERN = "**/*.test.ts";
 const ABSENT_SCOPE_FILE_PATTERN = "scripts/**/*";
 const TYPE_ERROR_REPLACEMENT_PATTERN = /const x:\s*number\s*=\s*"[^"]+";?/g;
 const TYPE_ERROR_REPLACEMENT = "const x: number = 0;";
@@ -181,6 +182,7 @@ export const VALIDATION_PIPELINE_DATA = {
   testDirectoryName: TEST_DIRECTORY_NAME,
   testScopeFilePattern: TEST_SCOPE_FILE_PATTERN,
   productionScopeExcludePattern: PRODUCTION_SCOPE_EXCLUDE_PATTERN,
+  testFileExcludePattern: TEST_FILE_EXCLUDE_PATTERN,
   absentScopeFilePattern: ABSENT_SCOPE_FILE_PATTERN,
   fullTsconfigFile: TSCONFIG_FILES.full,
   sourceDirectoryName: "src",

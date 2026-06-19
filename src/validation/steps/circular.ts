@@ -16,7 +16,7 @@ import {
 import extractTypeScriptConfig from "dependency-cruiser/config-utl/extract-ts-config";
 import { join } from "node:path";
 
-import { pathHasTypeScriptSourceExtension, TSCONFIG_FILES } from "../config/scope";
+import { normalizeTypeScriptScopePath, pathHasTypeScriptSourceExtension, TSCONFIG_FILES } from "../config/scope";
 import type { CircularDependencyResult, ScopeConfig, ValidationScope } from "../types";
 
 export const DEPENDENCY_CRUISER_MODULE_SYSTEMS = ["es6", "cjs"] as const;
@@ -133,9 +133,19 @@ function toDependencyCruiserSourcePatterns(typescriptScope: ScopeConfig): string
     return [...typescriptScope.filePatterns];
   }
   const explicitFilePatterns = typescriptScope.filePatterns.filter((pattern) =>
-    !pattern.includes(GLOB_MARKER) && pathHasTypeScriptSourceExtension(pattern)
+    !patternIsCoveredByDirectory(pattern, typescriptScope.directories)
+    && (pattern.includes(GLOB_MARKER) || pathHasTypeScriptSourceExtension(pattern))
   );
   return [...directoryPatterns, ...explicitFilePatterns];
+}
+
+function patternIsCoveredByDirectory(pattern: string, directories: readonly string[]): boolean {
+  const normalizedPattern = normalizeTypeScriptScopePath(pattern);
+  return directories.some((directory) => {
+    const normalizedDirectory = normalizeTypeScriptScopePath(directory);
+    return normalizedPattern === normalizedDirectory
+      || normalizedPattern.startsWith(`${normalizedDirectory}/`);
+  });
 }
 
 function isCruiseResult(output: IReporterOutput["output"]): output is ICruiseResult {
