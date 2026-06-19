@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { runTests, type RecordedTestRun, type TestDispatchResult } from "@/commands/testing";
+import { type RecordedTestRun, runTests, type TestDispatchResult } from "@/commands/testing";
 import {
   NO_RUNNER_INVOCATION_EXIT_CODE,
   SUCCESS_EXIT_CODE,
@@ -11,10 +11,10 @@ import { SPEC_TREE_CONFIG } from "@/lib/spec-tree/config";
 import { pythonTestingLanguage } from "@/testing/languages/python";
 import type { TestingLanguageDescriptor } from "@/testing/languages/types";
 import { typescriptTestingLanguage } from "@/testing/languages/typescript";
-import { TEST_RUN_STATE_FIELDS, TEST_RUN_STATE_STATUS } from "@/testing/run-state";
 import { testingRegistry } from "@/testing/registry";
+import { TEST_RUN_STATE_FIELDS, TEST_RUN_STATE_STATUS } from "@/testing/run-state";
 import { sampleDispatchValue, TEST_DISPATCH_GENERATOR } from "@testing/generators/testing/dispatch";
-import { runTestingCli, testingCliDeps, type TestingCliCall } from "@testing/harnesses/testing/cli";
+import { runTestingCli, type TestingCliCall, testingCliDeps } from "@testing/harnesses/testing/cli";
 import { withTestingTempProductDir, writeTestFileFixture } from "@testing/harnesses/testing/harness";
 import { createRecordingCommandRunner } from "@testing/harnesses/testing/typescript-runner";
 
@@ -141,7 +141,9 @@ describe("spx test dispatch over the language registry", () => {
   it("reports absent selected runner groups for passing operator-mode runs", async () => {
     const productDir = sampleDispatchValue(TEST_DISPATCH_GENERATOR.nodePath());
     const nodePath = sampleDispatchValue(TEST_DISPATCH_GENERATOR.nodePath());
-    const reportedPath = sampleDispatchValue(TEST_DISPATCH_GENERATOR.testFileUnder(typescriptTestingLanguage, nodePath));
+    const reportedPath = sampleDispatchValue(
+      TEST_DISPATCH_GENERATOR.testFileUnder(typescriptTestingLanguage, nodePath),
+    );
     const gatedPath = sampleDispatchValue(TEST_DISPATCH_GENERATOR.testFileUnder(pythonTestingLanguage, nodePath));
     const agentCalls: TestingCliCall[] = [];
     const streamCalls: TestingCliCall[] = [];
@@ -155,6 +157,7 @@ describe("spx test dispatch over the language registry", () => {
         testPaths: [gatedPath],
       }],
       unmatched: [],
+      unresolvedTargets: [],
       reports: [{
         runnerId: typescriptTestingLanguage.name,
         testPaths: [reportedPath],
@@ -179,7 +182,9 @@ describe("spx test dispatch over the language registry", () => {
   it("reports absent selected runner groups for failing operator-mode runs", async () => {
     const productDir = sampleDispatchValue(TEST_DISPATCH_GENERATOR.nodePath());
     const nodePath = sampleDispatchValue(TEST_DISPATCH_GENERATOR.nodePath());
-    const selectedPath = sampleDispatchValue(TEST_DISPATCH_GENERATOR.testFileUnder(typescriptTestingLanguage, nodePath));
+    const selectedPath = sampleDispatchValue(
+      TEST_DISPATCH_GENERATOR.testFileUnder(typescriptTestingLanguage, nodePath),
+    );
     const agentCalls: TestingCliCall[] = [];
     const streamCalls: TestingCliCall[] = [];
     const run = recordedPassingRun(productDir, {
@@ -189,6 +194,7 @@ describe("spx test dispatch over the language registry", () => {
         testPaths: [selectedPath],
       }],
       unmatched: [],
+      unresolvedTargets: [],
       reports: [],
       outcomes: [],
     });
@@ -207,7 +213,9 @@ describe("spx test dispatch over the language registry", () => {
 
   it("fails when every selected language runner is absent", async () => {
     const nodePath = sampleDispatchValue(TEST_DISPATCH_GENERATOR.nodePath());
-    const selectedFile = sampleDispatchValue(TEST_DISPATCH_GENERATOR.testFileUnder(typescriptTestingLanguage, nodePath));
+    const selectedFile = sampleDispatchValue(
+      TEST_DISPATCH_GENERATOR.testFileUnder(typescriptTestingLanguage, nodePath),
+    );
     const absentExitCode = sampleDispatchValue(TEST_DISPATCH_GENERATOR.nonZeroExitCode());
     const absentRunner = createRecordingCommandRunner({ present: false, exitCode: absentExitCode });
 

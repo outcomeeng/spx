@@ -9,10 +9,7 @@ import {
   UNSUPPORTED_TEST_SELECTION_EXIT_CODE,
 } from "@/domains/testing";
 import { TESTING_CLI } from "@/interfaces/cli/testing";
-import {
-  AGENT_TEST_OUTPUT_TEXT,
-  formatAgentTestOutput,
-} from "@/interfaces/cli/testing-agent-output";
+import { AGENT_TEST_OUTPUT_TEXT, formatAgentTestOutput } from "@/interfaces/cli/testing-agent-output";
 import { pythonTestingLanguage } from "@/testing/languages/python";
 import { typescriptTestingLanguage } from "@/testing/languages/typescript";
 import {
@@ -23,15 +20,9 @@ import {
   type TestRunStateStatus,
 } from "@/testing/run-state";
 import { CONFIG_TEST_GENERATOR, sampleConfigTestValue } from "@testing/generators/config/descriptors";
-import {
-  arbitraryDomainLiteral,
-  sampleLiteralTestValue,
-} from "@testing/generators/literal/literal";
-import {
-  sampleDispatchValue,
-  TEST_DISPATCH_GENERATOR,
-} from "@testing/generators/testing/dispatch";
-import { runTestingCli, testingCliDeps, type TestingCliCall } from "@testing/harnesses/testing/cli";
+import { arbitraryDomainLiteral, sampleLiteralTestValue } from "@testing/generators/literal/literal";
+import { sampleDispatchValue, TEST_DISPATCH_GENERATOR } from "@testing/generators/testing/dispatch";
+import { runTestingCli, type TestingCliCall, testingCliDeps } from "@testing/harnesses/testing/cli";
 
 interface PassingAgentRunFixture {
   readonly run: RecordedTestRun;
@@ -80,6 +71,7 @@ function passingAgentRun(productDir: string, testPaths: readonly string[] = []):
         exitCode: SUCCESS_EXIT_CODE,
         groups: [],
         unmatched: [],
+        unresolvedTargets: [],
         reports: [{
           runnerId: typescriptTestingLanguage.name,
           testPaths,
@@ -110,6 +102,7 @@ function failingPythonRun(
       exitCode: failingExitCode,
       groups: [],
       unmatched: [],
+      unresolvedTargets: [],
       reports: [{
         runnerId: pythonTestingLanguage.name,
         testPaths: [failingPath],
@@ -138,6 +131,7 @@ describe("agent test-output summary", () => {
         exitCode: failingExitCode,
         groups: [],
         unmatched: [],
+        unresolvedTargets: [],
         reports: [{
           runnerId: typescriptTestingLanguage.name,
           testPaths: [failingPath, passingPath],
@@ -239,6 +233,7 @@ describe("agent test-output summary", () => {
         exitCode: SUCCESS_EXIT_CODE,
         groups: [],
         unmatched: [],
+        unresolvedTargets: [],
         reports: [{
           runnerId: typescriptTestingLanguage.name,
           testPaths: [passingPath],
@@ -262,7 +257,9 @@ describe("agent test-output summary", () => {
   it("reports failed status and requested paths when selected runner groups produce no reports", () => {
     const productDir = sampleConfigTestValue(CONFIG_TEST_GENERATOR.productDir());
     const nodePath = sampleDispatchValue(TEST_DISPATCH_GENERATOR.nodePath());
-    const selectedPath = sampleDispatchValue(TEST_DISPATCH_GENERATOR.testFileUnder(typescriptTestingLanguage, nodePath));
+    const selectedPath = sampleDispatchValue(
+      TEST_DISPATCH_GENERATOR.testFileUnder(typescriptTestingLanguage, nodePath),
+    );
     const run: RecordedTestRun = {
       dispatch: {
         exitCode: NO_RUNNER_INVOCATION_EXIT_CODE,
@@ -271,6 +268,7 @@ describe("agent test-output summary", () => {
           testPaths: [selectedPath],
         }],
         unmatched: [],
+        unresolvedTargets: [],
         reports: [],
         outcomes: [],
       },
@@ -304,6 +302,7 @@ describe("agent test-output summary", () => {
           testPaths: [unreportedPath],
         }],
         unmatched: [],
+        unresolvedTargets: [],
         reports: [{
           runnerId: typescriptTestingLanguage.name,
           testPaths: [failingPath],
@@ -327,7 +326,9 @@ describe("agent test-output summary", () => {
   it("reports unreported selected groups when reported runners pass", () => {
     const productDir = sampleConfigTestValue(CONFIG_TEST_GENERATOR.productDir());
     const nodePath = sampleDispatchValue(TEST_DISPATCH_GENERATOR.nodePath());
-    const reportedPath = sampleDispatchValue(TEST_DISPATCH_GENERATOR.testFileUnder(typescriptTestingLanguage, nodePath));
+    const reportedPath = sampleDispatchValue(
+      TEST_DISPATCH_GENERATOR.testFileUnder(typescriptTestingLanguage, nodePath),
+    );
     const unreportedPath = sampleDispatchValue(TEST_DISPATCH_GENERATOR.testFileUnder(pythonTestingLanguage, nodePath));
     const run: RecordedTestRun = {
       dispatch: {
@@ -340,6 +341,7 @@ describe("agent test-output summary", () => {
           testPaths: [unreportedPath],
         }],
         unmatched: [],
+        unresolvedTargets: [],
         reports: [{
           runnerId: typescriptTestingLanguage.name,
           testPaths: [reportedPath],
@@ -363,7 +365,9 @@ describe("agent test-output summary", () => {
   it("sets failed exit code when agent mode selects runner groups with no reports", async () => {
     const productDir = sampleConfigTestValue(CONFIG_TEST_GENERATOR.productDir());
     const nodePath = sampleDispatchValue(TEST_DISPATCH_GENERATOR.nodePath());
-    const selectedPath = sampleDispatchValue(TEST_DISPATCH_GENERATOR.testFileUnder(typescriptTestingLanguage, nodePath));
+    const selectedPath = sampleDispatchValue(
+      TEST_DISPATCH_GENERATOR.testFileUnder(typescriptTestingLanguage, nodePath),
+    );
     const agentCalls: TestingCliCall[] = [];
     const streamCalls: TestingCliCall[] = [];
     const run: RecordedTestRun = {
@@ -374,6 +378,7 @@ describe("agent test-output summary", () => {
           testPaths: [selectedPath],
         }],
         unmatched: [],
+        unresolvedTargets: [],
         reports: [],
         outcomes: [],
       },
@@ -402,6 +407,7 @@ describe("agent test-output summary", () => {
         exitCode: UNSUPPORTED_TEST_SELECTION_EXIT_CODE,
         groups: [],
         unmatched: [unmatchedPath],
+        unresolvedTargets: [],
         reports: [],
         outcomes: [],
       },
