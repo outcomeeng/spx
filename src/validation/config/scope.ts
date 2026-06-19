@@ -27,9 +27,9 @@ export const TSCONFIG_FILES = {
   production: "tsconfig.production.json",
 } as const;
 const PATH_SEGMENT_SEPARATOR = "/";
-const GLOB_MARKER = "*";
-const RECURSIVE_GLOB_SEGMENT = "**";
-const SINGLE_CHARACTER_GLOB_MARKER = "?";
+export const GLOB_MARKER = "*";
+export const RECURSIVE_GLOB_SEGMENT = "**";
+export const SINGLE_CHARACTER_GLOB_MARKER = "?";
 const GLOB_REGEX_SPECIAL_CHARACTER_PATTERN = /[.+?^${}()|[\]\\]/gu;
 const REGEX_ESCAPE_REPLACEMENT = String.raw`\$&`;
 const HIDDEN_PATH_PREFIX = ".";
@@ -312,7 +312,7 @@ function firstGlobMarkerIndex(path: string): number {
   return Math.min(globIndex, singleCharacterGlobIndex);
 }
 
-function globSegmentMatchesPathSegment(patternSegment: string, pathSegment: string): boolean {
+export function globSegmentMatchesPathSegment(patternSegment: string, pathSegment: string): boolean {
   return typeScriptScopeGlobPatternToRegExp(patternSegment).test(pathSegment);
 }
 
