@@ -48,6 +48,7 @@ const analyzeDirectory = dirname(sourceModule);
 const nonTypeScriptSourceFile = join(VALIDATION_PIPELINE_DATA.sourceDirectoryName, "readme.md");
 const extensionlessSourceFile = join(VALIDATION_PIPELINE_DATA.sourceDirectoryName, "README");
 const dottedSourceDirectory = join(VALIDATION_PIPELINE_DATA.sourceDirectoryName, "feature.dir");
+const modernTypeScriptSourceFile = join(VALIDATION_PIPELINE_DATA.sourceDirectoryName, "modern.mts");
 const rootTypeScriptFilePattern = "*.ts";
 const emptyTypescriptConfig: ParsedCommandLine = {
   options: {},
@@ -293,6 +294,34 @@ describe("circular dependency filtering", () => {
     expect(dependencyGraphCalls).toHaveLength(1);
     const [paths] = dependencyGraphCalls[0] ?? [];
     expect(paths).toEqual([sourceModule]);
+  });
+
+  it("skips non-TypeScript fallback file patterns before invoking dependency-cruiser", async () => {
+    const dependencyGraphCalls: Parameters<CircularDependencyGraphRunner>[] = [];
+    const deps: CircularDeps = {
+      [CIRCULAR_DEPS_KEYS.DEPENDENCY_CRUISER]: async (...call): Promise<IReporterOutput> => {
+        dependencyGraphCalls.push(call);
+        return {
+          exitCode: 0,
+          output: createEmptyCruiseResult(),
+        };
+      },
+      [CIRCULAR_DEPS_KEYS.EXTRACT_TYPESCRIPT_CONFIG]: () => emptyTypescriptConfig,
+    };
+
+    const result = await validateCircularDependencies(
+      VALIDATION_SCOPES.FULL,
+      {
+        directories: [],
+        filePatterns: [nonTypeScriptSourceFile],
+        excludePatterns: [],
+      },
+      projectRoot,
+      deps,
+    );
+
+    expect(result.success).toBe(true);
+    expect(dependencyGraphCalls).toEqual([]);
   });
 
   it("does not duplicate explicit file patterns already covered by dependency-cruiser directory inputs", async () => {
@@ -754,6 +783,36 @@ describe("circular command scope routing", () => {
           directories: [],
           filePatterns: [join(VALIDATION_PIPELINE_DATA.sourceDirectoryName, VALIDATION_PIPELINE_DATA.cleanSourceFileName)],
           excludePatterns: [VALIDATION_PIPELINE_DATA.testFileExcludePattern],
+        },
+      ]);
+    });
+  });
+
+  it("forwards explicit modern TypeScript module files as dependency-cruiser file scope", async () => {
+    await withValidationEnv({ fixture: PROJECT_FIXTURES.CLEAN_PROJECT }, async ({ path }) => {
+      await writeFile(join(path, modernTypeScriptSourceFile), "export const modernModule = true;\n");
+      const validationCalls: ScopeConfig[] = [];
+      const deps: CircularCommandDeps = {
+        validateCircularDependencies: async (_scope, scopeConfig) => {
+          validationCalls.push(scopeConfig);
+          return { success: true };
+        },
+      };
+
+      const result = await circularCommand(
+        {
+          cwd: path,
+          files: [modernTypeScriptSourceFile],
+        },
+        deps,
+      );
+
+      expect(result.exitCode).toBe(VALIDATION_EXIT_CODES.SUCCESS);
+      expect(validationCalls).toEqual([
+        {
+          directories: [],
+          filePatterns: [modernTypeScriptSourceFile],
+          excludePatterns: [],
         },
       ]);
     });
