@@ -17,10 +17,15 @@ describe("spx test exit-code aggregation", () => {
           const anyNonZero = invocations.some(
             (invocation) => invocation.invoked && invocation.exitCode !== 0,
           );
-          const anyUnsupportedSelections = unsupportedSelectionCount > 0;
-          expect(aggregateTestExitCode(invocations, unsupportedSelectionCount) === 0).toBe(
-            !anyNonZero && !anyUnsupportedSelections,
+          const firstNonZeroInvocation = invocations.find(
+            (invocation) => invocation.invoked && invocation.exitCode !== 0,
           );
+          const anyUnsupportedSelections = unsupportedSelectionCount > 0;
+          const result = aggregateTestExitCode(invocations, unsupportedSelectionCount);
+          expect(result === 0).toBe(!anyNonZero && !anyUnsupportedSelections);
+          if (firstNonZeroInvocation?.invoked === true) {
+            expect(result).toBe(firstNonZeroInvocation.exitCode);
+          }
         },
       ),
     );
