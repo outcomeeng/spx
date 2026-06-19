@@ -164,30 +164,17 @@ instruction: focused agent-output Vitest files, scoped validation for touched
 files, PDR/ADR/TypeScript architecture/test/code audits, and `changes-reviewer`
 before every push. CI supplies broad verification after push.
 
-## Future Slices
+## Delivered Slices
 
 ### Slice 2: Targeted Operands
 
-Structured into its own child enabler at
-`spx/41-testing.enabler/90-targeted-execution.enabler`; the resolved design
-decisions and implementation pointers live in that node's PLAN.md. Implement it
-through `/apply spx/41-testing.enabler/90-targeted-execution.enabler`.
+Shipped as `spx/41-testing.enabler/90-targeted-execution.enabler`: explicit
+node-path and test-file-path operands after `--` for `spx test` and
+`spx test passing`, an opt-in `--recursive`/`-r` flag for descendant nodes,
+passing-scope applied to the operand-selected set, and unmatched operands
+exiting non-zero.
 
-Observable path:
-
-```bash
-spx test passing -- spx/10-my-feature.enabler
-```
-
-This slice adds explicit target operands for node paths and concrete test
-file paths. It resolves operands before passing-scope filtering and routes
-the selected files through the same runner adapter/environment pipeline.
-
-This slice is urgent because broad `spx test passing` is too expensive for
-agent iteration. The observed full suite takes about 45 seconds idle and can
-stretch to about 20 minutes under load 200. Multiple agents rerunning unrelated
-precommit, git-heavy, and TMPDIR-heavy tests in every push loop creates avoidable
-resource contention.
+## Future Slices
 
 ### Slice 3: Changed-Set Planning
 
