@@ -48,6 +48,10 @@ const analyzeDirectory = dirname(sourceModule);
 const nonTypeScriptSourceFile = join(VALIDATION_PIPELINE_DATA.sourceDirectoryName, "readme.md");
 const extensionlessSourceFile = join(VALIDATION_PIPELINE_DATA.sourceDirectoryName, "README");
 const dottedSourceDirectory = join(VALIDATION_PIPELINE_DATA.sourceDirectoryName, "feature.dir");
+const declarationSourceFile = join(
+  VALIDATION_PIPELINE_DATA.sourceDirectoryName,
+  VALIDATION_PIPELINE_DATA.declarationSourceFileName,
+);
 const modernTypeScriptSourceFile = join(
   VALIDATION_PIPELINE_DATA.sourceDirectoryName,
   VALIDATION_PIPELINE_DATA.modernSourceFileName,
@@ -383,6 +387,25 @@ describe("circular dependency filtering", () => {
     expect(paths).toEqual([VALIDATION_PIPELINE_DATA.narrowProductionScopeFilePattern]);
   });
 
+  it("keeps wildcard-narrowed TypeScript include globs instead of widening them to their top-level directory", async () => {
+    const { dependencyGraphCalls, result } = await validateCircularScopeWithRecording({
+      directories: [VALIDATION_PIPELINE_DATA.sourceDirectoryName],
+      filePatterns: [
+        VALIDATION_PIPELINE_DATA.recursiveNamedSourceFilePattern,
+        VALIDATION_PIPELINE_DATA.singleLevelNamedSourceFilePattern,
+      ],
+      excludePatterns: [],
+    });
+
+    expect(result.success).toBe(true);
+    expect(dependencyGraphCalls).toHaveLength(1);
+    const [paths] = dependencyGraphCalls[0] ?? [];
+    expect(paths).toEqual([
+      VALIDATION_PIPELINE_DATA.recursiveNamedSourceFilePattern,
+      VALIDATION_PIPELINE_DATA.singleLevelNamedSourceFilePattern,
+    ]);
+  });
+
   it("converts glob exclude patterns before passing them to dependency-cruiser", async () => {
     const { dependencyGraphCalls, result } = await validateCircularScopeWithRecording({
       directories: [analyzeDirectory],
@@ -685,6 +708,30 @@ describe("circular command scope routing", () => {
     });
   });
 
+  it("forwards root --files directories as the existing TypeScript scope", async () => {
+    await withValidationEnv({ fixture: PROJECT_FIXTURES.CLEAN_PROJECT }, async ({ path }) => {
+      const { deps, validationCalls } = createRecordingCircularCommandDeps();
+
+      const result = await circularCommand(
+        {
+          cwd: path,
+          files: ["."],
+        },
+        deps,
+      );
+
+      expect(result.exitCode).toBe(VALIDATION_EXIT_CODES.SUCCESS);
+      expect(result.output).toBe(VALIDATION_COMMAND_OUTPUT.CIRCULAR_NONE_FOUND);
+      expect(validationCalls).toEqual([
+        {
+          directories: [VALIDATION_PIPELINE_DATA.sourceDirectoryName],
+          filePatterns: [VALIDATION_PIPELINE_DATA.productionScopeFilePattern],
+          excludePatterns: [],
+        },
+      ]);
+    });
+  });
+
   it("forwards existing dotted --files directories as dependency-cruiser directory scope", async () => {
     await withValidationEnv({ fixture: PROJECT_FIXTURES.CLEAN_PROJECT }, async ({ path }) => {
       await mkdir(join(path, dottedSourceDirectory), { recursive: true });
@@ -923,6 +970,25 @@ describe("circular command scope routing", () => {
         {
           cwd: path,
           files: [extensionlessSourceFile],
+        },
+        deps,
+      );
+
+      expect(result.exitCode).toBe(VALIDATION_EXIT_CODES.SUCCESS);
+      expect(result.output).toBe(formatValidationPathsNoTargetsSkipMessage(VALIDATION_STAGE_DISPLAY_NAMES.CIRCULAR));
+      expect(validationCalls).toEqual([]);
+    });
+  });
+
+  it("skips declaration files inside the TypeScript scope", async () => {
+    await withValidationEnv({ fixture: PROJECT_FIXTURES.CLEAN_PROJECT }, async ({ path }) => {
+      await writeFile(join(path, declarationSourceFile), "export interface DeclarationOnly {}\n");
+      const { deps, validationCalls } = createRecordingCircularCommandDeps();
+
+      const result = await circularCommand(
+        {
+          cwd: path,
+          files: [declarationSourceFile],
         },
         deps,
       );

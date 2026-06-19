@@ -32,6 +32,7 @@ const GLOB_REGEX_SPECIAL_CHARACTER_PATTERN = /[.+?^${}()|[\]\\]/gu;
 const REGEX_ESCAPE_REPLACEMENT = String.raw`\$&`;
 const HIDDEN_PATH_PREFIX = ".";
 const TYPESCRIPT_SOURCE_EXTENSIONS = [".ts", ".tsx", ".mts", ".cts"] as const;
+const TYPESCRIPT_DECLARATION_EXTENSIONS = [".d.ts", ".d.mts", ".d.cts"] as const;
 export const TYPESCRIPT_FALLBACK_INCLUDE_PATTERNS = [
   "**/*.ts",
   "**/*.tsx",
@@ -329,7 +330,8 @@ function pathMatchesTypeScriptPattern(path: string, pattern: string): boolean {
 
 export function pathHasTypeScriptSourceExtension(path: string): boolean {
   const normalizedPath = normalizeTypeScriptScopePath(path);
-  return TYPESCRIPT_SOURCE_EXTENSIONS.some((extension) => normalizedPath.endsWith(extension));
+  return TYPESCRIPT_SOURCE_EXTENSIONS.some((extension) => normalizedPath.endsWith(extension))
+    && !TYPESCRIPT_DECLARATION_EXTENSIONS.some((extension) => normalizedPath.endsWith(extension));
 }
 
 function filterActiveIncludePatterns(

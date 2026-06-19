@@ -61,6 +61,8 @@ const EXPLICIT_PATH_TARGET_KIND = {
 
 const DEPENDENCY_CRUISER_PACKAGE_NAME = "dependency-cruiser";
 const DIRECTORY_SCOPE_PROBE_FILENAME = "__spx_scope_probe__.ts";
+const PROJECT_ROOT_SCOPE_PATH = ".";
+const BROAD_DIRECTORY_GLOB_SUFFIX = "**/*";
 
 function pathIsDirectoryOperand(projectRoot: string, relativePath: string): boolean {
   const candidatePath = join(projectRoot, relativePath);
@@ -76,7 +78,10 @@ function pathStaysInsideProject(projectRoot: string, path: string): boolean {
 
 function toCanonicalProjectRelativePath(projectRoot: string, path: string): string {
   const resolvedPath = isAbsolute(path) ? resolve(path) : resolve(projectRoot, path);
-  return normalizeTypeScriptScopePath(relative(projectRoot, resolvedPath));
+  const relativePath = relative(projectRoot, resolvedPath);
+  return relativePath.length === 0
+    ? PROJECT_ROOT_SCOPE_PATH
+    : normalizeTypeScriptScopePath(relativePath);
 }
 
 function toExplicitScopeConfig(
@@ -86,6 +91,9 @@ function toExplicitScopeConfig(
   const directoryTargets = targets
     .filter((target) => target.kind === EXPLICIT_PATH_TARGET_KIND.DIRECTORY)
     .map((target) => target.path);
+  if (directoryTargets.includes(PROJECT_ROOT_SCOPE_PATH)) {
+    return scopeConfig;
+  }
   const scopedFilePatternsForDirectoryTargets = scopeConfig.filePatterns.filter((pattern) =>
     directoryTargets.some((directory) => typeScriptPatternNarrowsDirectory(pattern, directory))
   );
@@ -129,6 +137,9 @@ function targetPassesTypeScriptScope(target: ExplicitPathTarget, scopeConfig: Ty
   if (target.kind === EXPLICIT_PATH_TARGET_KIND.FILE) {
     return pathPassesTypeScriptScope(target.path, scopeConfig);
   }
+  if (target.path === PROJECT_ROOT_SCOPE_PATH) {
+    return scopeConfig.directories.length > 0 || scopeConfig.filePatterns.length > 0;
+  }
   return pathPassesTypeScriptScope(join(target.path, DIRECTORY_SCOPE_PROBE_FILENAME), scopeConfig)
     || scopeConfig.filePatterns.some((pattern) => typeScriptPatternIsInsideDirectory(pattern, target.path));
 }
@@ -153,8 +164,7 @@ function typeScriptPatternNarrowsDirectory(pattern: string, directory: string): 
   if (globIndex === -1) {
     return false;
   }
-  const literalPrefix = normalizedPattern.slice(0, globIndex).replace(/\/+$/u, "");
-  return literalPrefix !== normalizedDirectory;
+  return normalizedPattern !== `${normalizedDirectory}/${BROAD_DIRECTORY_GLOB_SUFFIX}`;
 }
 
 function filterExplicitPathTargets(
