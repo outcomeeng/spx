@@ -65,7 +65,7 @@ const EXPLICIT_PATH_TARGET_KIND = {
 
 const DEPENDENCY_CRUISER_PACKAGE_NAME = "dependency-cruiser";
 const PROJECT_ROOT_SCOPE_PATH = ".";
-const RECURSIVE_GLOB_PREFIX = "**/";
+const RECURSIVE_GLOB_SEGMENT = "**";
 
 function pathIsDirectoryOperand(projectRoot: string, relativePath: string): boolean {
   const candidatePath = join(projectRoot, relativePath);
@@ -97,10 +97,23 @@ function constrainPatternToDirectory(pattern: string, directory: string): string
   if (normalizedPattern === normalizedDirectory || normalizedPattern.startsWith(`${normalizedDirectory}/`)) {
     return normalizedPattern;
   }
-  const terminalSegment = normalizedPattern.split("/").at(-1) ?? normalizedPattern;
-  return terminalSegment.includes("*")
-    ? `${normalizedDirectory}/${RECURSIVE_GLOB_PREFIX}${terminalSegment}`
-    : `${normalizedDirectory}/${terminalSegment}`;
+  const patternSegments = normalizedPattern.split("/");
+  const directorySegments = normalizedDirectory.split("/");
+  let patternIndex = 0;
+  for (const directorySegment of directorySegments) {
+    while (patternSegments[patternIndex] === RECURSIVE_GLOB_SEGMENT) {
+      patternIndex += 1;
+    }
+    const patternSegment = patternSegments[patternIndex];
+    if (patternSegment === undefined || patternSegment !== directorySegment) {
+      break;
+    }
+    patternIndex += 1;
+  }
+  const suffixSegments = patternSegments.slice(patternIndex);
+  return suffixSegments.length === 0
+    ? normalizedDirectory
+    : [normalizedDirectory, ...suffixSegments].join("/");
 }
 
 function toExplicitScopeConfig(
