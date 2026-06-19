@@ -214,4 +214,25 @@ describe("SessionPicker rendering", () => {
     expect(frame).toMatch(/next: \S/);
     unmount();
   });
+
+  it("collapses a newline in a goal so the row stays a single line", () => {
+    const sessions = [
+      makeSession({
+        id: OLDER_ID,
+        status: "todo",
+        priority: SESSION_PRIORITY.HIGH,
+        goal: "First part\nsecond part",
+        next_step: "n",
+      }),
+    ];
+    const { lastFrame, unmount } = renderPicker({ sessions, onClaim: () => {}, onCancel: () => {} });
+    const lines = (lastFrame() ?? "").split("\n");
+    const idLines = lines.filter((line) => line.includes(OLDER_ID));
+
+    // The id row is a single line and the post-newline text folds onto it rather
+    // than dropping to a second line — proving the goal was reduced to one line.
+    expect(idLines).toHaveLength(1);
+    expect(idLines[0]).toContain("second part");
+    unmount();
+  });
 });

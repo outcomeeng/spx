@@ -19,6 +19,7 @@ import {
   type PickerKey,
   reducePicker,
   selectedSession,
+  toSingleLine,
   truncateToWidth,
   visibleCandidates,
 } from "@/domains/session/pick-model";
@@ -76,7 +77,8 @@ function SessionRow(
   const badge = priority === DEFAULT_PRIORITY ? "" : ` [${priority}]`;
   // Reserve the fixed-width lead — "{marker} {id}{badge} " — then truncate the goal to what is left.
   const reserved = marker.length + 1 + session.id.length + badge.length + 1;
-  const goal = truncateToWidth(session.metadata.goal, Math.max(MIN_GOAL_WIDTH, columns - reserved));
+  // Collapse any line breaks in the goal first, then truncate — a multiline goal must still be one row.
+  const goal = truncateToWidth(toSingleLine(session.metadata.goal), Math.max(MIN_GOAL_WIDTH, columns - reserved));
   return (
     <Text wrap="truncate" color={selected ? "cyan" : undefined}>
       {marker} {session.id}

@@ -26,6 +26,7 @@ CAN browse the session queue and claim work in a single interactive step instead
 - For every candidate set and key sequence, the selected index stays within `[0, max(0, visibleCount - 1)]` — selection never leaves the visible range ([test](tests/picker-model.property.l1.test.ts))
 - For every candidate set and query, the filtered set is a subsequence of the candidate set — filtering never reorders or invents candidates ([test](tests/picker-model.property.l1.test.ts))
 - For every string and every width `n` at least 1, truncating the string to width `n` returns a string no wider than `n` — the input unchanged when it already fits, otherwise a prefix ending in a single ellipsis character ([test](tests/picker-model.property.l1.test.ts))
+- For every string, reducing it to a single display line collapses every run of whitespace — including newlines and tabs — to one space and trims the ends, so a goal carrying line breaks never breaks the one-row layout ([test](tests/picker-model.property.l1.test.ts))
 
 ### Compliance
 
