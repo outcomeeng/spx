@@ -156,17 +156,22 @@ describe("audit branch run-state lookup", () => {
     const runFileName = sampleAuditRunStateTestValue(AUDIT_RUN_STATE_TEST_GENERATOR.runFileName());
     const errorCode = sampleConfigTestValue(CONFIG_TEST_GENERATOR.key());
     const error = Object.assign(new Error(errorCode), { code: errorCode });
-    const fs: AuditRunStateFileSystem = {
-      mkdir: () => Promise.resolve(),
-      writeFile: () => Promise.resolve(),
-      appendFile: () => Promise.resolve(),
-      readFile: () => Promise.reject(error),
-      readdir: () => Promise.resolve([{ name: runFileName, isFile: () => true }]),
-      lstat: () => Promise.resolve({ isDirectory: () => true, isFile: () => false, isSymbolicLink: () => false }),
-      rm: () => Promise.resolve(),
-    };
 
     await withAuditHarness(async (productDir) => {
+      const runFilePath = join(auditBranchRunsDir(productDir, branchSlug), runFileName);
+      const fs: AuditRunStateFileSystem = {
+        mkdir: () => Promise.resolve(),
+        writeFile: () => Promise.resolve(),
+        appendFile: () => Promise.resolve(),
+        readFile: () => Promise.reject(error),
+        readdir: () => Promise.resolve([{ name: runFileName, isFile: () => true }]),
+        lstat: (path) => Promise.resolve({
+          isDirectory: () => path !== runFilePath,
+          isFile: () => path === runFilePath,
+          isSymbolicLink: () => false,
+        }),
+        rm: () => Promise.resolve(),
+      };
       const result = await readAuditBranchRuns(productDir, branchSlug, { fs });
 
       expect(result.ok).toBe(true);
@@ -175,7 +180,7 @@ describe("audit branch run-state lookup", () => {
       expect(result.value.incompleteRuns).toEqual([
         {
           runFileName,
-          runFilePath: `${auditBranchRunsDir(productDir, branchSlug)}/${runFileName}`,
+          runFilePath,
           reason: AUDIT_RUN_STATE_INCOMPLETE_REASON.IO_ERROR,
           error: errorCode,
         },
