@@ -102,8 +102,11 @@ function outputScript(stdoutContent: string, stderrContent: string, envKey: stri
 
 function failingArtifactWriteStream(message: string): Writable {
   return new Writable({
-    final(callback) {
+    write(_chunk, _encoding, callback) {
       callback(new Error(message));
+    },
+    final(callback) {
+      callback();
     },
   });
 }
