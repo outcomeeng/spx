@@ -20,6 +20,8 @@ import type { Session } from "@/domains/session/types";
 import {
   PREVIEW_GOAL_LABEL,
   PREVIEW_NEXT_LABEL,
+  SESSION_PICKER_BROWSE_HINT,
+  SESSION_PICKER_FILTER_HINT,
   SESSION_PICKER_FILTER_LABEL,
   SESSION_PICKER_SELECTED_MARKER,
   SESSION_PICKER_TITLE,
@@ -83,7 +85,7 @@ export interface PickerView {
   selectedRow(): string | undefined;
   /** The preview block for the selected session, or null in the empty state. */
   preview(): PreviewView | null;
-  /** The footer hint line — the last non-empty rendered line. */
+  /** The footer hint line — the line carrying the browse or filter hint. */
   footerLine(): string | undefined;
   /** Move the selection down one row. */
   arrowDown(): Promise<void>;
@@ -132,7 +134,8 @@ export function renderPickerView(options: RenderPickerOptions): PickerView {
       const nextLine = lineStartingWith(PREVIEW_NEXT_LABEL);
       return goalLine !== undefined && nextLine !== undefined ? { goalLine, nextLine } : null;
     },
-    footerLine: () => lines().filter((line) => line.trim().length > 0).at(-1),
+    footerLine: () =>
+      lines().find((line) => line.includes(SESSION_PICKER_BROWSE_HINT) || line.includes(SESSION_PICKER_FILTER_HINT)),
     arrowDown: () => write(KEY.ARROW_DOWN),
     arrowUp: () => write(KEY.ARROW_UP),
     type: (text) => write(text),
