@@ -390,6 +390,19 @@ describe("circular dependency filtering", () => {
     expect(paths).toEqual(expectedTypescriptSourcePatterns(VALIDATION_PIPELINE_DATA.sourceDirectoryName));
   });
 
+  it("keeps TypeScript-only include globs from widening to every TypeScript extension", async () => {
+    const { dependencyGraphCalls, result } = await validateCircularScopeWithRecording({
+      directories: [VALIDATION_PIPELINE_DATA.sourceDirectoryName],
+      filePatterns: [VALIDATION_PIPELINE_DATA.typeScriptOnlySourceFilePattern],
+      excludePatterns: [],
+    });
+
+    expect(result.success).toBe(true);
+    expect(dependencyGraphCalls).toHaveLength(1);
+    const [paths] = dependencyGraphCalls[0] ?? [];
+    expect(paths).toEqual([VALIDATION_PIPELINE_DATA.typeScriptOnlySourceFilePattern]);
+  });
+
   it("keeps nested TypeScript include globs instead of widening them to their top-level directory", async () => {
     const { dependencyGraphCalls, result } = await validateCircularScopeWithRecording({
       directories: [VALIDATION_PIPELINE_DATA.sourceDirectoryName],
@@ -1106,6 +1119,45 @@ describe("circular command scope routing", () => {
         {
           directories: [],
           filePatterns: [modernTypeScriptSourceFile],
+          excludePatterns: [],
+        },
+      ]);
+    });
+  });
+
+  it("keeps explicit TypeScript files when tsconfig also includes non-TypeScript globs", async () => {
+    await withValidationEnv({ fixture: PROJECT_FIXTURES.CLEAN_PROJECT }, async ({ path }) => {
+      const cleanSourceFile = join(
+        VALIDATION_PIPELINE_DATA.sourceDirectoryName,
+        VALIDATION_PIPELINE_DATA.cleanSourceFileName,
+      );
+      await writeFile(join(path, cleanSourceFile), "export const cleanSource = true;\n");
+      await writeFile(
+        join(path, TSCONFIG_FILES.full),
+        JSON.stringify({
+          compilerOptions: {
+            target: "ES2020",
+            module: "commonjs",
+            strict: true,
+          },
+          include: [VALIDATION_PIPELINE_DATA.recursiveMarkdownSourceFilePattern],
+        }),
+      );
+      const { deps, validationCalls } = createRecordingCircularCommandDeps();
+
+      const result = await circularCommand(
+        {
+          cwd: path,
+          files: [cleanSourceFile],
+        },
+        deps,
+      );
+
+      expect(result.exitCode).toBe(VALIDATION_EXIT_CODES.SUCCESS);
+      expect(validationCalls).toEqual([
+        {
+          directories: [],
+          filePatterns: [cleanSourceFile],
           excludePatterns: [],
         },
       ]);
