@@ -27,6 +27,7 @@ import {
   pathPassesTypeScriptScope,
   TYPESCRIPT_SCOPE_DIRECTORY_PROBE_FILENAME,
   typeScriptScopePatternCoversDirectorySourceSet,
+  typeScriptScopePatternHasGlob,
   typeScriptScopePatternIntersectsDirectory,
   typeScriptScopePatternTargetsTypeScriptSource,
 } from "@/validation/config/scope";
@@ -114,9 +115,13 @@ function constrainPatternToDirectory(pattern: string, directory: string): string
   const constrainedSuffixSegments = directoryAdvance.recursiveGlobConsumedDirectory && suffixSegments.length > 0
     ? [RECURSIVE_GLOB_SEGMENT, ...suffixSegments]
     : suffixSegments;
-  return constrainedSuffixSegments.length === 0
-    ? normalizedDirectory
-    : [normalizedDirectory, ...constrainedSuffixSegments].join("/");
+  if (constrainedSuffixSegments.length > 0) {
+    return [normalizedDirectory, ...constrainedSuffixSegments].join("/");
+  }
+  return typeScriptScopePatternHasGlob(normalizedPattern)
+    && typeScriptScopePatternCoversDirectorySourceSet(normalizedPattern, normalizedDirectory)
+    ? `${normalizedDirectory}/**/*`
+    : normalizedDirectory;
 }
 
 function advancePatternPastDirectory(
@@ -171,13 +176,11 @@ function toExplicitScopeConfig(
   }
   const patternMatchesDirectoryTarget = (pattern: string, directory: string): boolean =>
     normalizeTypeScriptScopePath(pattern) === normalizeTypeScriptScopePath(directory);
-  const directoryIsCoveredByPattern = (directory: string): boolean =>
-    scopeConfig.filePatterns.some((pattern) => typeScriptScopePatternCoversDirectorySourceSet(pattern, directory));
   const scopedFilePatternsForDirectoryTargets = scopeConfig.filePatterns.flatMap((pattern) =>
     directoryTargets
       .filter((directory) =>
         !patternMatchesDirectoryTarget(pattern, directory)
-        && !directoryIsCoveredByPattern(directory)
+        && typeScriptScopePatternHasGlob(pattern)
         && typeScriptScopePatternTargetsTypeScriptSource(pattern)
         && typeScriptScopePatternIntersectsDirectory(pattern, directory)
       )
@@ -185,8 +188,6 @@ function toExplicitScopeConfig(
   );
   const narrowedDirectories = new Set(
     directoryTargets.filter((directory) =>
-      !directoryIsCoveredByPattern(directory)
-      &&
       scopedFilePatternsForDirectoryTargets.some((pattern) =>
         typeScriptScopePatternIntersectsDirectory(pattern, directory)
       )
