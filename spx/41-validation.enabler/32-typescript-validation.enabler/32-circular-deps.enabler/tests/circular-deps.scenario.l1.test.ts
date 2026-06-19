@@ -45,7 +45,10 @@ import { PROJECT_FIXTURES, withValidationEnv } from "@testing/harnesses/with-val
 const projectRoot = process.cwd();
 const [sourceModule, targetModule] = sampleSourceModulePair();
 const analyzeDirectory = dirname(sourceModule);
-const nonTypeScriptSourceFile = join(VALIDATION_PIPELINE_DATA.sourceDirectoryName, "readme.md");
+const nonTypeScriptSourceFile = join(
+  VALIDATION_PIPELINE_DATA.sourceDirectoryName,
+  VALIDATION_PIPELINE_DATA.markdownOnlyFileName,
+);
 const extensionlessSourceFile = join(VALIDATION_PIPELINE_DATA.sourceDirectoryName, "README");
 const dottedSourceDirectory = join(VALIDATION_PIPELINE_DATA.sourceDirectoryName, "feature.dir");
 const declarationSourceFile = join(
@@ -815,7 +818,9 @@ describe("circular command scope routing", () => {
       expect(validationCalls).toEqual([
         {
           directories: [],
-          filePatterns: [VALIDATION_PIPELINE_DATA.singleLevelNamedSourceFilePattern],
+          filePatterns: [
+            join(wildcardBackedDirectory, VALIDATION_PIPELINE_DATA.cleanSourceFileName),
+          ],
           excludePatterns: [],
         },
       ]);
@@ -856,7 +861,9 @@ describe("circular command scope routing", () => {
       expect(validationCalls).toEqual([
         {
           directories: [],
-          filePatterns: [VALIDATION_PIPELINE_DATA.singleCharacterSourceIncludePattern],
+          filePatterns: [
+            join(singleCharacterDirectory, VALIDATION_PIPELINE_DATA.cleanSourceFileName),
+          ],
           excludePatterns: [],
         },
       ]);
@@ -960,6 +967,88 @@ describe("circular command scope routing", () => {
           excludePatterns: [],
         },
       ]);
+    });
+  });
+
+  it("constrains TypeScript include globs to explicit directories", async () => {
+    await withValidationEnv({ fixture: PROJECT_FIXTURES.CLEAN_PROJECT }, async ({ path }) => {
+      const narrowDirectory = join(
+        VALIDATION_PIPELINE_DATA.sourceDirectoryName,
+        VALIDATION_PIPELINE_DATA.narrowSourceDirectoryName,
+      );
+      await mkdir(join(path, narrowDirectory), { recursive: true });
+      await writeFile(
+        join(path, narrowDirectory, VALIDATION_PIPELINE_DATA.cleanSourceFileName),
+        "export const narrowDirectoryFile = true;\n",
+      );
+      await writeFile(
+        join(path, TSCONFIG_FILES.full),
+        JSON.stringify({
+          compilerOptions: {
+            target: "ES2020",
+            module: "commonjs",
+            strict: true,
+          },
+          include: [VALIDATION_PIPELINE_DATA.typeScriptOnlySourceFilePattern],
+        }),
+      );
+      const { deps, validationCalls } = createRecordingCircularCommandDeps();
+
+      const result = await circularCommand(
+        {
+          cwd: path,
+          files: [`${narrowDirectory}/`],
+        },
+        deps,
+      );
+
+      expect(result.exitCode).toBe(VALIDATION_EXIT_CODES.SUCCESS);
+      expect(result.output).toBe(VALIDATION_COMMAND_OUTPUT.CIRCULAR_NONE_FOUND);
+      expect(validationCalls).toEqual([
+        {
+          directories: [],
+          filePatterns: [`${narrowDirectory}/**/*.ts`],
+          excludePatterns: [],
+        },
+      ]);
+    });
+  });
+
+  it("skips explicit directories that intersect only non-TypeScript include globs", async () => {
+    await withValidationEnv({ fixture: PROJECT_FIXTURES.CLEAN_PROJECT }, async ({ path }) => {
+      await mkdir(join(path, VALIDATION_PIPELINE_DATA.markdownOnlyDirectoryName), { recursive: true });
+      await writeFile(
+        join(
+          path,
+          VALIDATION_PIPELINE_DATA.markdownOnlyDirectoryName,
+          VALIDATION_PIPELINE_DATA.markdownOnlyFileName,
+        ),
+        "documentation fixture\n",
+      );
+      await writeFile(
+        join(path, TSCONFIG_FILES.full),
+        JSON.stringify({
+          compilerOptions: {
+            target: "ES2020",
+            module: "commonjs",
+            strict: true,
+          },
+          include: [VALIDATION_PIPELINE_DATA.markdownOnlyFilePattern],
+        }),
+      );
+      const { deps, validationCalls } = createRecordingCircularCommandDeps();
+
+      const result = await circularCommand(
+        {
+          cwd: path,
+          files: [`${VALIDATION_PIPELINE_DATA.markdownOnlyDirectoryName}/`],
+        },
+        deps,
+      );
+
+      expect(result.exitCode).toBe(VALIDATION_EXIT_CODES.SUCCESS);
+      expect(result.output).toBe(formatValidationPathsNoTargetsSkipMessage(VALIDATION_STAGE_DISPLAY_NAMES.CIRCULAR));
+      expect(validationCalls).toEqual([]);
     });
   });
 
