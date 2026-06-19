@@ -15,11 +15,12 @@
 import { render } from "ink-testing-library";
 import { createElement } from "react";
 
+import type { PickerRuntime } from "@/domains/session/pick-model";
 import type { Session } from "@/domains/session/types";
 import {
   PREVIEW_GOAL_LABEL,
   PREVIEW_NEXT_LABEL,
-  SESSION_PICKER_HINT,
+  SESSION_PICKER_FILTER_LABEL,
   SESSION_PICKER_SELECTED_MARKER,
   SESSION_PICKER_TITLE,
   SessionPicker,
@@ -54,8 +55,8 @@ async function flushEscape(): Promise<void> {
 /** Options for mounting the picker; callbacks default to no-ops. */
 export interface RenderPickerOptions {
   readonly sessions: readonly Session[];
-  readonly onClaim?: (session: Session) => void;
-  readonly onCancel?: () => void;
+  readonly onLaunch?: (session: Session, runtime: PickerRuntime, autoContinue: boolean) => void;
+  readonly onQuit?: () => void;
   /** Fixed row width, pinning the truncation input independently of the test terminal. */
   readonly columns?: number;
 }
@@ -74,23 +75,25 @@ export interface PickerView {
   frame(): string;
   /** The title line. */
   titleLine(): string;
+  /** The live filter-query line (the label and the current query). */
+  filterLine(): string;
   /** Every frame line mentioning the id — one for a rendered session, none when filtered out. */
   rowLinesFor(id: string): string[];
   /** The marked (selected) row, or undefined when no row is selected. */
   selectedRow(): string | undefined;
   /** The preview block for the selected session, or null in the empty state. */
   preview(): PreviewView | null;
-  /** The footer hint line, or undefined when absent. */
+  /** The footer hint line — the last non-empty rendered line. */
   footerLine(): string | undefined;
   /** Move the selection down one row. */
   arrowDown(): Promise<void>;
   /** Move the selection up one row. */
   arrowUp(): Promise<void>;
-  /** Type filter text. */
+  /** Type the given characters — filter text, or a browse-mode command key (`/`, `c`, `q`, …). */
   type(text: string): Promise<void>;
-  /** Claim the selected session. */
+  /** Press Enter (applies the filter in filter mode). */
   enter(): Promise<void>;
-  /** Cancel without claiming. */
+  /** Press Escape (quits in browse mode, clears the filter in filter mode). */
   esc(): Promise<void>;
   /** Tear the mounted app down. */
   unmount(): void;
@@ -103,8 +106,8 @@ export function renderPickerView(options: RenderPickerOptions): PickerView {
   const instance = render(
     createElement(SessionPicker, {
       sessions: options.sessions,
-      onClaim: options.onClaim ?? (() => {}),
-      onCancel: options.onCancel ?? (() => {}),
+      onLaunch: options.onLaunch ?? (() => {}),
+      onQuit: options.onQuit ?? (() => {}),
       columns: options.columns,
     }),
   );
@@ -121,6 +124,7 @@ export function renderPickerView(options: RenderPickerOptions): PickerView {
   return {
     frame: () => instance.lastFrame() ?? "",
     titleLine: () => lines().find((line) => line.includes(SESSION_PICKER_TITLE)) ?? "",
+    filterLine: () => lines().find((line) => line.trimStart().startsWith(SESSION_PICKER_FILTER_LABEL)) ?? "",
     rowLinesFor: (id) => lines().filter((line) => line.includes(id)),
     selectedRow: () => lines().find((line) => line.includes(SESSION_PICKER_SELECTED_MARKER)),
     preview: () => {
@@ -128,7 +132,7 @@ export function renderPickerView(options: RenderPickerOptions): PickerView {
       const nextLine = lineStartingWith(PREVIEW_NEXT_LABEL);
       return goalLine !== undefined && nextLine !== undefined ? { goalLine, nextLine } : null;
     },
-    footerLine: () => lines().find((line) => line.includes(SESSION_PICKER_HINT)),
+    footerLine: () => lines().filter((line) => line.trim().length > 0).at(-1),
     arrowDown: () => write(KEY.ARROW_DOWN),
     arrowUp: () => write(KEY.ARROW_UP),
     type: (text) => write(text),

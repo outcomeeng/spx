@@ -12,10 +12,12 @@ import { describe, it } from "vitest";
 
 import {
   buildCandidates,
+  buildPickupCommand,
   ELLIPSIS,
   filterCandidates,
   initialPickerState,
   keyToAction,
+  PICKER_RUNTIME,
   type PickerKey,
   type PickerState,
   reducePicker,
@@ -33,15 +35,15 @@ import {
   FILTER_FIELD,
 } from "@testing/generators/session/session";
 
-/** Arbitrary key event spanning the control keys and printable input. */
+/** Arbitrary key event spanning the control keys and the meaningful printable keys (both modes). */
 function arbitraryPickerKey(): fc.Arbitrary<PickerKey> {
   return fc.oneof(
     fc.constant<PickerKey>({ input: "", downArrow: true }),
     fc.constant<PickerKey>({ input: "", upArrow: true }),
-    fc.constant<PickerKey>({ input: "", backspace: true }),
     fc.constant<PickerKey>({ input: "", return: true }),
     fc.constant<PickerKey>({ input: "", escape: true }),
-    fc.string({ minLength: 1, maxLength: 1 }).map((input) => ({ input })),
+    fc.constant<PickerKey>({ input: "", backspace: true }),
+    fc.constantFrom("/", "c", "C", "x", "X", "q", "a", "1", " ").map((input) => ({ input })),
   );
 }
 
@@ -61,11 +63,9 @@ describe("picker model invariants", () => {
         const result = buildCandidates(sessions);
         const todo = sessions.filter((session) => session.status === CLAIMABLE_STATUS);
 
-        // Exactly the todo sessions: same membership, nothing else admitted or dropped.
         if (result.length !== todo.length) return false;
         if (!result.every((session) => todo.includes(session))) return false;
 
-        // Ordered by priority rank ascending, ties broken by the newer (lexically greater) id first.
         for (let index = 1; index < result.length; index++) {
           const previous = result[index - 1];
           const current = result[index];
@@ -79,40 +79,19 @@ describe("picker model invariants", () => {
     );
   });
 
-  it("keeps the selected index within the visible range under any key sequence", () => {
+  it("keeps the selected index within the visible range under any key sequence across modes", () => {
     fc.assert(
       fc.property(
         fc.array(arbitrarySession(), { maxLength: 12 }),
-        fc.array(arbitraryPickerKey(), { maxLength: 30 }),
+        fc.array(arbitraryPickerKey(), { maxLength: 40 }),
         (sessions, keys) => {
           let state = initialPickerState(sessions);
           if (!indexInRange(state)) return false;
           for (const key of keys) {
-            const action = keyToAction(key);
+            const action = keyToAction(key, state.mode);
             if (action === null) continue;
             state = reducePicker(state, action);
             if (!indexInRange(state)) return false;
-          }
-          return true;
-        },
-      ),
-    );
-  });
-
-  it("filters to a subsequence of the candidate set", () => {
-    fc.assert(
-      fc.property(
-        fc.array(arbitraryClaimableSession(), { maxLength: 12 }),
-        fc.string(),
-        (candidates, query) => {
-          const filtered = filterCandidates(candidates, query);
-          // Every filtered element appears in candidates, in candidate order,
-          // with no reordering or invention.
-          let cursor = 0;
-          for (const session of filtered) {
-            const found = candidates.indexOf(session, cursor);
-            if (found === -1) return false;
-            cursor = found + 1;
           }
           return true;
         },
@@ -139,11 +118,9 @@ describe("picker model invariants", () => {
         fc.uniqueArray(arbitrarySessionId(), { minLength: 1, maxLength: 6 }),
         fc.nat(),
         (ids, pick) => {
-          // Empty goal and next step isolate the identifier as the only searchable text.
           const candidates = ids.map((id) => claimableSession({ id, goal: "", next_step: "" }));
           const target = ids[pick % ids.length];
           const matched = filterCandidates(candidates, target).map((session) => session.id);
-          // Distinct equal-length ids: none is a substring of another, so exactly one matches.
           return matched.length === 1 && matched[0] === target;
         },
       ),
@@ -156,6 +133,41 @@ describe("picker model invariants", () => {
         fc.array(arbitraryClaimableSession(), { maxLength: 8 }),
         fc.string({ unit: fc.constantFrom(" ", "\t"), maxLength: 4 }),
         (candidates, blank) => filterCandidates(candidates, blank).length === candidates.length,
+      ),
+    );
+  });
+
+  it("builds the agent command from the runtime, auto-continue flag, and session id", () => {
+    fc.assert(
+      fc.property(
+        fc.constantFrom(...Object.values(PICKER_RUNTIME)),
+        fc.boolean(),
+        arbitrarySessionId(),
+        (runtime, autoContinue, id) => {
+          const { command, args } = buildPickupCommand(runtime, autoContinue, id);
+          const prefix = runtime === PICKER_RUNTIME.CLAUDE ? "/" : "$";
+          const expectedPrompt = `${prefix}pickup ${id}${autoContinue ? " --auto-continue" : ""}`;
+          return command === runtime && args.length === 1 && args[0] === expectedPrompt;
+        },
+      ),
+    );
+  });
+
+  it("filters to a subsequence of the candidate set", () => {
+    fc.assert(
+      fc.property(
+        fc.array(arbitraryClaimableSession(), { maxLength: 12 }),
+        fc.string(),
+        (candidates, query) => {
+          const filtered = filterCandidates(candidates, query);
+          let cursor = 0;
+          for (const session of filtered) {
+            const found = candidates.indexOf(session, cursor);
+            if (found === -1) return false;
+            cursor = found + 1;
+          }
+          return true;
+        },
       ),
     );
   });
