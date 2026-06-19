@@ -82,7 +82,9 @@ describe("SessionPicker rendering", () => {
   });
 
   it("claims the down-selected session through pickupCommand and emits its PICKUP_ID", async () => {
-    const [olderId, newerId] = [...sample(fc.uniqueArray(arbitrarySessionId(), { minLength: 2, maxLength: 2 }))].sort();
+    // Sort lexically (timestamp ids sort chronologically) with an explicit comparator: older id first.
+    const [olderId, newerId] = [...sample(fc.uniqueArray(arbitrarySessionId(), { minLength: 2, maxLength: 2 }))]
+      .sort((left, right) => (left < right ? -1 : left > right ? 1 : 0));
     const priority = sample(arbitrarySessionPriority());
     await harness.writeSession("todo", olderId, { priority });
     await harness.writeSession("todo", newerId, { priority });
