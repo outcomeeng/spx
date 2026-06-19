@@ -208,6 +208,49 @@ export function auditRunStartedEventInput(
   };
 }
 
+export function latestStartedState(events: readonly JournalEvent[]): AuditRunStartedState | undefined {
+  for (let index = events.length - 1; index >= 0; index -= 1) {
+    const event = events[index];
+    if (event?.type !== AUDIT_RUN_EVENT.STARTED_TYPE) continue;
+    return auditRunStartedState(event.data);
+  }
+  return undefined;
+}
+
+export function isAuditRunStartedState(value: unknown): value is AuditRunStartedState {
+  return auditRunStartedState(value) !== undefined;
+}
+
+function auditRunStartedState(value: unknown): AuditRunStartedState | undefined {
+  if (!isRecord(value)) return undefined;
+  const branchName = readString(value, AUDIT_RUN_STATE_FIELDS.BRANCH_NAME);
+  if (!branchName.ok) return undefined;
+  const branchSlug = readString(value, AUDIT_RUN_STATE_FIELDS.BRANCH_SLUG);
+  if (!branchSlug.ok) return undefined;
+  const headSha = readString(value, AUDIT_RUN_STATE_FIELDS.HEAD_SHA);
+  if (!headSha.ok) return undefined;
+  const baseRef = readString(value, AUDIT_RUN_STATE_FIELDS.BASE_REF);
+  if (!baseRef.ok) return undefined;
+  const auditConfigDigest = readString(value, AUDIT_RUN_STATE_FIELDS.AUDIT_CONFIG_DIGEST);
+  if (!auditConfigDigest.ok) return undefined;
+  const auditors = readStringArray(value, AUDIT_RUN_STATE_FIELDS.AUDITORS);
+  if (!auditors.ok) return undefined;
+  const targets = readPathFilter(value, AUDIT_RUN_STATE_FIELDS.TARGETS);
+  if (!targets.ok) return undefined;
+  const startedAt = readString(value, AUDIT_RUN_STATE_FIELDS.STARTED_AT);
+  if (!startedAt.ok) return undefined;
+  return {
+    branchName: branchName.value,
+    branchSlug: branchSlug.value,
+    headSha: headSha.value,
+    baseRef: baseRef.value,
+    auditConfigDigest: auditConfigDigest.value,
+    auditors: auditors.value,
+    targets: targets.value,
+    startedAt: startedAt.value,
+  };
+}
+
 export function auditRunProgressEventInput(
   state: AuditRunProgressState,
   meta: { readonly id: string; readonly time: string; readonly attempt: number },
