@@ -39,6 +39,7 @@ export const TEST_DISPATCH_GENERATOR = {
   invocation: arbitraryInvocation,
   nodePath: arbitraryNodePath,
   distinctNodePaths: arbitraryDistinctNodePaths,
+  nodeWithDescendant: arbitraryNodeWithDescendant,
   testFileUnder: arbitraryTestFileUnder,
   unmatchedTestFileUnder: arbitraryUnmatchedTestFileUnder,
   testFilePath: arbitraryTestFilePath,
@@ -53,6 +54,12 @@ export function sampleDispatchValue<T>(arbitrary: fc.Arbitrary<T>): T {
 
 export function testingCliCommanderParseSource(): TestingCliCommanderParseSource {
   return COMMANDER_USER_PARSE_SOURCE;
+}
+
+// The product-root-relative operand a caller passes for a node path after `--`,
+// derived from the source-owned spec-tree root so tests never compose it by hand.
+export function nodeOperand(nodePath: string): string {
+  return `${SPEC_ROOT}${PATH_SEPARATOR}${nodePath}`;
 }
 
 function arbitraryNodeSegment(): fc.Arbitrary<string> {
@@ -78,6 +85,15 @@ function arbitraryDistinctNodePaths(): fc.Arbitrary<readonly [string, string]> {
     .uniqueArray(arbitraryNodePath(), { minLength: NODE_PAIR_LENGTH, maxLength: NODE_PAIR_LENGTH })
     .map(([first, second]) => [first, second] as const)
     .filter(([first, second]) => !isNodePathPrefix(first, second) && !isNodePathPrefix(second, first));
+}
+
+// A node path paired with a strictly deeper descendant node path under it, so a
+// node operand's own-vs-recursive scope can be exercised: the parent's own tests
+// sit at `{parent}/tests/`, the descendant's at `{parent}/{segment}/tests/`.
+function arbitraryNodeWithDescendant(): fc.Arbitrary<readonly [string, string]> {
+  return fc
+    .tuple(arbitraryNodePath(), arbitraryNodeSegment())
+    .map(([parent, childSegment]) => [parent, `${parent}${PATH_SEPARATOR}${childSegment}`] as const);
 }
 
 function testsDirectoryFor(nodePath: string): string {
