@@ -15,7 +15,6 @@ import {
 import {
   applyValidationPathFilterToScope,
   pathPassesValidationFilter,
-  toProjectRelativeValidationPath,
   validationPathFilterForTool,
 } from "@/validation/config/path-filter";
 import {
@@ -74,6 +73,11 @@ function pathStaysInsideProject(projectRoot: string, path: string): boolean {
   return relativePath.length === 0 || (!segments.includes("..") && !isAbsolute(relativePath));
 }
 
+function toCanonicalProjectRelativePath(projectRoot: string, path: string): string {
+  const resolvedPath = isAbsolute(path) ? resolve(path) : resolve(projectRoot, path);
+  return normalizeTypeScriptScopePath(relative(projectRoot, resolvedPath));
+}
+
 function toExplicitScopeConfig(
   scopeConfig: ReturnType<typeof getTypeScriptScope>,
   targets: readonly ExplicitPathTarget[],
@@ -95,7 +99,7 @@ interface ExplicitPathTarget {
 }
 
 function toExplicitPathTarget(projectRoot: string, originalPath: string): ExplicitPathTarget {
-  const path = normalizeTypeScriptScopePath(toProjectRelativeValidationPath(projectRoot, originalPath));
+  const path = toCanonicalProjectRelativePath(projectRoot, originalPath);
   return {
     kind: pathIsDirectoryOperand(projectRoot, path)
       ? EXPLICIT_PATH_TARGET_KIND.DIRECTORY
