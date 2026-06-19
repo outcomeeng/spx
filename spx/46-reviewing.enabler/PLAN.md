@@ -1,57 +1,51 @@
-# Plan: Reviewing
+# Plan: Reviewing domain collapses into the generic `journal` domain (deferred)
 
-## Purpose
+> Central restructure context: `spx/15-agent-run-journal.enabler/PLAN.md`. Read it first.
+> This migration is DEFERRED — "audit first." Review is migrated after the `journal`
+> domain lands. The notes below record the target; do not execute them in the audit-first
+> changeset.
 
-Add local hermetic review execution for branch and pull request targets.
+## What happens to this domain
 
-## Governing Specs
+`spx/46-reviewing.enabler` is **removed** in the same way `spx/36-audit.enabler` is: spx
+does not orchestrate reviewing — agents call spx. There is no `spx review` subcommand and
+no review-aware code in spx. Review and audit differ ONLY by which sub-agent runs; both
+bind the one type-agnostic `journal` channel, with `review` as the opaque `<type>` label.
 
-- `spx/spx.product.md`
-- `spx/46-reviewing.enabler/21-review-config.enabler/review-config.md`
-- `spx/46-reviewing.enabler/32-hermetic-review-execution.enabler/hermetic-review-execution.md`
-- `spx/46-reviewing.enabler/43-review-state.enabler/review-state.md`
-- `spx/46-reviewing.enabler/54-branch-review.enabler/branch-review.md`
-- `spx/46-reviewing.enabler/65-pr-review.enabler/pr-review.md`
-- `spx/33-agent-environment.enabler/agent-environment.md`
+Node-by-node disposition (when this migration is taken up):
 
-## Implementation Notes
+- `32-hermetic-review-execution.enabler` and `65-pr-review.enabler` / `54-branch-review`
+  — **delete from spx.** Spawning/driving reviewers and resolving PR targets is the calling
+  skill/agent's concern; spx only journals the run.
+- `21-review-config.enabler` (reviewers, target filters) — **delete from spx.**
+- `43-review-state.enabler` — its `ReviewRunState` event-journal + projection + PR/branch
+  target scope is the **generic** run-state model. Its richer envelope (target kind,
+  `baseSha`, output paths) is the up-to-date shape; the audit side lagged it. **Fold the
+  union of both into the generic `journal` run-state** (this is the "review is not stale,
+  audit is" point — one model, no per-type differences).
 
-- Keep review behavior local and hermetically separated from the invoking agent.
-- Model branch and PR targets separately because their target discovery differs.
-- Reuse shared config primitives and agent-environment APIs.
-- Persist review state under its own `review` state-store consumer noun inside the shared branch scope.
+## Why (do not re-derive)
 
-## Evidence Required
-
-- Descriptor tests cover review defaults, target filters, reviewer selection, and isolation from audit config.
-- Execution tests cover branch and PR targets with isolated runtime state.
-- State tests cover persisted review outcomes and latest-review lookup.
-
-## Parallelization
-
-Child nodes can split after review config and hermetic execution contracts are agreed.
-
-## Open Coordination
-
-- State-store owns shared branch scope and run-file naming; review state must use its own `review` domain records rather than audit records.
-- Implementing agents load `spx/46-reviewing.enabler/` and `spx/33-agent-environment.enabler/` as governing truth; consult `spx/46-claude.outcome/` only as Claude-specific source material for reconciliation work.
+See central PLAN and the plugin governing decisions, especially
+`spx/21-spec-tree.enabler/16-verification.enabler/13-run-journal.adr.md`. Note plugin PLAN
+item 6: reviewing's result-delivery governance (broaden
+`spx/15-audit-result-delivery.pdr.md` to both agentic types, or a separate reviewing PDR)
+is an open plugin-repo decision.
 
 ## Deferred: legacy `[review]` tag migration
 
-The agentic verdict-mode reconcile moves verification tags onto the current contract — `[audit]` for judgment constraints, `[test]`/evidence type for falsifiable behavior. The audit subtree (`spx/36-audit.enabler/`) is migrated on the default branch. In this enabler, the journal-model reconcile of `spx/46-reviewing.enabler/15-review-directory.adr.md` and `spx/46-reviewing.enabler/43-review-state.enabler/review-state.md` — which moves their tags to `[audit]`/`[test]` — is carried by the in-flight review-state reconcile (PR #178) and is not yet on the default branch; until it merges, `review-state.md` on the default branch still carries `[review]`.
-
-The reviewing spec and decision files still carrying the legacy blanket `[review]` tag on the default branch are given by:
+The agentic verdict-mode reconcile moves verification tags onto the current contract —
+`[audit]` for judgment constraints, `[test]`/evidence type for falsifiable behavior. When
+this domain is migrated, settle each `[review]` tag against its actual evidence rather than
+rewriting blind. Files still carrying the legacy blanket `[review]` tag:
 
 ```bash
 git grep -lE '\[review\]' spx/46-reviewing.enabler
 ```
 
-Snapshot at time of writing: `reviewing.md`, `21-review-config.enabler/review-config.md`, `32-hermetic-review-execution.enabler/hermetic-review-execution.md`, `43-review-state.enabler/review-state.md` (cleared once PR #178 merges), `54-branch-review.enabler/branch-review.md`, and `65-pr-review.enabler/pr-review.md`.
-
-Migrate each `[review]` to `[audit]` (judgment constraint no deterministic test can falsify) or to `[test]`/its evidence type (falsifiable behavior with co-located evidence), per the verification-tag contract in `spx/CLAUDE.md`. Do this as reviewing is implemented through `/applying`, so each tag is settled against its actual evidence rather than rewritten blind.
-
-## Gate Dependencies
-
-The central packet table in `spx/16-config.enabler/PLAN.md` is authoritative; this section is a local reminder only.
-
-- `spx/46-reviewing.enabler/32-hermetic-review-execution.enabler/` is gated on `spx/33-agent-environment.enabler/32-runtime-config.enabler/`. Pick up `spx/33-agent-environment.enabler/` E0 and E2 before R2 when resources are available.
+Snapshot at time of writing: `reviewing.md`, `21-review-config.enabler/review-config.md`,
+`32-hermetic-review-execution.enabler/hermetic-review-execution.md`,
+`43-review-state.enabler/review-state.md`, `54-branch-review.enabler/branch-review.md`, and
+`65-pr-review.enabler/pr-review.md`. Migrate each `[review]` to `[audit]` (judgment
+constraint no deterministic test can falsify) or `[test]`/its evidence type (falsifiable
+behavior with co-located evidence), per the verification-tag contract in `spx/CLAUDE.md`.
