@@ -264,6 +264,35 @@ function directoryPassesIncludePatterns(directory: string, patterns: readonly st
   return patterns.some((pattern) => getLiteralTopLevelPatternDirectory(pattern) === directory);
 }
 
+function normalizeScopePath(path: string): string {
+  return path
+    .split(/[\\/]/gu)
+    .join(PATH_SEGMENT_SEPARATOR)
+    .replace(/^\.\//u, "")
+    .replace(/\/+$/u, "");
+}
+
+function pathMatchesLiteralPrefix(path: string, prefix: string): boolean {
+  const normalizedPath = normalizeScopePath(path);
+  const normalizedPrefix = normalizeScopePath(prefix);
+  return normalizedPath === normalizedPrefix
+    || normalizedPath.startsWith(`${normalizedPrefix}${PATH_SEGMENT_SEPARATOR}`);
+}
+
+function globLiteralPrefix(pattern: string): string {
+  const normalizedPattern = normalizeScopePath(pattern);
+  const globIndex = normalizedPattern.indexOf(GLOB_MARKER);
+  if (globIndex === -1) {
+    return normalizedPattern;
+  }
+  return normalizedPattern.slice(0, globIndex).replace(/\/+$/u, "");
+}
+
+function pathMatchesTypeScriptPattern(path: string, pattern: string): boolean {
+  const prefix = globLiteralPrefix(pattern);
+  return prefix.length === 0 || pathMatchesLiteralPrefix(path, prefix);
+}
+
 function filterActiveIncludePatterns(
   patterns: readonly string[],
   excludePatterns: readonly string[],
@@ -334,4 +363,11 @@ export function getTypeScriptScope(
     filePatterns: filterActiveIncludePatterns(config.include ?? [], config.exclude ?? [], projectRoot, deps),
     excludePatterns: config.exclude ?? [],
   };
+}
+
+export function pathPassesTypeScriptScope(path: string, scopeConfig: ScopeConfig): boolean {
+  const included = scopeConfig.directories.some((directory) => pathMatchesLiteralPrefix(path, directory))
+    || scopeConfig.filePatterns.some((pattern) => pathMatchesTypeScriptPattern(path, pattern));
+  const excluded = scopeConfig.excludePatterns.some((pattern) => pathMatchesTypeScriptPattern(path, pattern));
+  return included && !excluded;
 }

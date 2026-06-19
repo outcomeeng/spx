@@ -28,6 +28,7 @@ const REGEX_SPECIAL_CHARACTER_PATTERN = /[.*+?^${}()|[\]\\]/gu;
 const REGEX_ESCAPE_REPLACEMENT = String.raw`\$&`;
 const CYCLE_KEY_SEPARATOR = "\u0000";
 export const DEPENDENCY_CRUISER_PACKAGE_EXCLUDE_PATTERN = "(^|/)node_modules(/|$)";
+export const DEPENDENCY_CRUISER_NON_STRUCTURED_OUTPUT_ERROR = "dependency-cruiser returned non-structured output";
 export const DEPENDENCY_CRUISER_DEPENDENCY_TYPES = {
   AMD_DEFINE: "amd-define",
   AMD_EXOTIC_REQUIRE: "amd-exotic-require",
@@ -123,8 +124,11 @@ function buildDependencyCruiserOptions(
   };
 }
 
-function toDependencyCruiserSourcePatterns(directories: readonly string[]): string[] {
-  return directories.flatMap((directory) =>
+function toDependencyCruiserSourcePatterns(typescriptScope: ScopeConfig): string[] {
+  if (typescriptScope.directories.length === 0 && typescriptScope.filePatterns.length > 0) {
+    return [...typescriptScope.filePatterns];
+  }
+  return typescriptScope.directories.flatMap((directory) =>
     DEPENDENCY_CRUISER_TYPESCRIPT_SOURCE_GLOB_SUFFIXES.map((suffix) => `${directory}/${suffix}`),
   );
 }
@@ -245,7 +249,7 @@ export async function validateCircularDependencies(
   deps: CircularDeps = defaultCircularDeps,
 ): Promise<CircularDependencyResult> {
   try {
-    const analyzeSourcePatterns = toDependencyCruiserSourcePatterns(typescriptScope.directories);
+    const analyzeSourcePatterns = toDependencyCruiserSourcePatterns(typescriptScope);
 
     if (analyzeSourcePatterns.length === 0) {
       return { success: true };
@@ -259,7 +263,7 @@ export async function validateCircularDependencies(
       { tsConfig: deps.extractTypeScriptConfig(tsConfigFile) },
     );
     if (!isCruiseResult(result.output)) {
-      return { success: false, error: "dependency-cruiser returned non-structured output" };
+      return { success: false, error: DEPENDENCY_CRUISER_NON_STRUCTURED_OUTPUT_ERROR };
     }
     const circular = circularDependencyCycles(result.output);
 

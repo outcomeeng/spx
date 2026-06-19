@@ -35,7 +35,13 @@ async function runCircularStage(context: ValidationStageContext): Promise<Valida
     const skipOutput = context.json ? CIRCULAR_SKIP_JSON_OUTPUT : CIRCULAR_SKIP_OUTPUT;
     return { exitCode: 0, output: context.quiet ? "" : skipOutput };
   }
-  return circularCommand({ cwd: context.cwd, scope: context.scope, quiet: context.quiet, json: context.json });
+  return circularCommand({
+    cwd: context.cwd,
+    scope: context.scope,
+    files: context.files,
+    quiet: context.quiet,
+    json: context.json,
+  });
 }
 
 /**
