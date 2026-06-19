@@ -362,7 +362,7 @@ describe("agent test-output summary", () => {
     expect(output).toContain(`${AGENT_TEST_OUTPUT_TEXT.STATUS}: ${TEST_RUN_STATE_STATUS.FAILED}`);
     expect(output).toContain(`${AGENT_TEST_OUTPUT_TEXT.EXIT_CODE}: ${NO_RUNNER_INVOCATION_EXIT_CODE}`);
     expect(output).toContain(`${AGENT_TEST_OUTPUT_TEXT.RUNNER}: ${typescriptTestingLanguage.name}`);
-    expect(output).toContain(AGENT_TEST_OUTPUT_TEXT.FAILING_TESTS);
+    expect(output).toContain(AGENT_TEST_OUTPUT_TEXT.SKIPPED_TESTS);
     expect(output).toContain(selectedPath);
   });
 
@@ -399,10 +399,11 @@ describe("agent test-output summary", () => {
     expect(output).toContain(`${AGENT_TEST_OUTPUT_TEXT.RUNNER}: ${typescriptTestingLanguage.name}`);
     expect(output).toContain(failingPath);
     expect(output).toContain(`${AGENT_TEST_OUTPUT_TEXT.RUNNER}: ${pythonTestingLanguage.name}`);
+    expect(output).toContain(AGENT_TEST_OUTPUT_TEXT.SKIPPED_TESTS);
     expect(output).toContain(unreportedPath);
   });
 
-  it("hides unreported selected groups when reported runners pass", () => {
+  it("reports unreported selected groups when reported runners pass", () => {
     const productDir = sampleConfigTestValue(CONFIG_TEST_GENERATOR.productDir());
     const nodePath = sampleDispatchValue(TEST_DISPATCH_GENERATOR.nodePath());
     const reportedPath = sampleDispatchValue(TEST_DISPATCH_GENERATOR.testFileUnder(typescriptTestingLanguage, nodePath));
@@ -432,8 +433,10 @@ describe("agent test-output summary", () => {
     const output = formatAgentTestOutput(run);
 
     expect(output).toContain(`${AGENT_TEST_OUTPUT_TEXT.RUNNER}: ${typescriptTestingLanguage.name}`);
-    expect(output).not.toContain(`${AGENT_TEST_OUTPUT_TEXT.RUNNER}: ${pythonTestingLanguage.name}`);
-    expect(output).not.toContain(unreportedPath);
+    expect(output).toContain(`${AGENT_TEST_OUTPUT_TEXT.RUNNER}: ${pythonTestingLanguage.name}`);
+    expect(output).toContain(AGENT_TEST_OUTPUT_TEXT.SKIPPED_TESTS);
+    expect(output).toContain(unreportedPath);
+    expect(output).not.toContain(reportedPath);
   });
 
   it("sets failed exit code when agent mode selects runner groups with no reports", async () => {
