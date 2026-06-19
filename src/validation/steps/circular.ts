@@ -23,7 +23,6 @@ import {
   SINGLE_CHARACTER_GLOB_MARKER,
   TSCONFIG_FILES,
   TYPESCRIPT_FALLBACK_INCLUDE_PATTERNS,
-  typeScriptScopePatternCoversDirectorySourceSet,
   typeScriptScopePatternHasGlob,
   typeScriptScopePatternIntersectsDirectory,
   typeScriptScopePatternTargetsTypeScriptSource,
@@ -210,14 +209,11 @@ function toDependencyCruiserSourcePatterns(typescriptScope: ScopeConfig): string
   const typeScriptFilePatterns = typescriptScope.filePatterns.filter((pattern) =>
     typeScriptScopePatternTargetsTypeScriptSource(pattern)
   );
-  const directoryHasLiteralSourceSetPattern = (directory: string): boolean =>
-    typescriptScope.filePatterns.some((pattern) =>
-      !typeScriptScopePatternHasGlob(pattern)
-      && typeScriptScopePatternCoversDirectorySourceSet(pattern, directory)
-    );
   const directoryIsConstrainedByGlobPattern = (directory: string): boolean =>
-    !directoryHasLiteralSourceSetPattern(directory)
-    && typeScriptFilePatterns.some((pattern) => typeScriptScopePatternIntersectsDirectory(pattern, directory));
+    typeScriptFilePatterns.some((pattern) =>
+      typeScriptScopePatternHasGlob(pattern)
+      && typeScriptScopePatternIntersectsDirectory(pattern, directory)
+    );
   const retainedDirectories = typescriptScope.directories.filter((directory) =>
     !directoryIsConstrainedByGlobPattern(directory)
   );
