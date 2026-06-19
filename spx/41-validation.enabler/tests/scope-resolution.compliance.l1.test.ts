@@ -12,6 +12,7 @@ import {
   defaultScopeDeps,
   getTypeScriptScope,
   pathPassesTypeScriptScope,
+  TEMPORARY_TSCONFIG_PARENT_SEGMENTS,
   TSCONFIG_FILES,
   TYPESCRIPT_FALLBACK_INCLUDE_PATTERNS,
   TYPESCRIPT_SCOPE_DIRECTORY_PATTERN_SUFFIX,
@@ -36,7 +37,6 @@ import { KNIP_COMMAND_TOKENS, type KnipDeps, validateKnip } from "@/validation/s
 import { VALIDATION_SUBPROCESS_EVENTS } from "@/validation/steps/subprocess-output";
 import {
   defaultTypeScriptDeps,
-  TEMPORARY_TSCONFIG_PARENT_SEGMENTS,
   type TypeScriptDeps,
   validateTypeScript,
 } from "@/validation/steps/typescript";

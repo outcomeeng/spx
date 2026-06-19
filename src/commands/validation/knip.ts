@@ -20,7 +20,11 @@ import {
 } from "@/validation/config/scope";
 import { discoverTool, formatSkipMessage } from "@/validation/discovery/index";
 import { validateKnip } from "@/validation/steps/knip";
-import { VALIDATION_COMMAND_OUTPUT } from "./messages";
+import {
+  formatValidationPathsNoTargetsSkipMessage,
+  VALIDATION_COMMAND_OUTPUT,
+  VALIDATION_STAGE_DISPLAY_NAMES,
+} from "./messages";
 import type { KnipCommandOptions, ValidationCommandResult } from "./types";
 
 export interface KnipCommandDeps {
@@ -32,6 +36,9 @@ export const defaultKnipCommandDeps: KnipCommandDeps = {
   discoverTool,
   validateKnip,
 };
+const KNIP_VALIDATION_PATHS_NO_TARGETS_MESSAGE = formatValidationPathsNoTargetsSkipMessage(
+  VALIDATION_STAGE_DISPLAY_NAMES.KNIP,
+);
 
 /**
  * Detect unused code with knip.
@@ -81,6 +88,13 @@ export async function knipCommand(
     files,
     validationPathFilter,
   );
+  if (scopeConfig.filteredByValidationPathNoMatches) {
+    return {
+      exitCode: 0,
+      output: quiet ? "" : KNIP_VALIDATION_PATHS_NO_TARGETS_MESSAGE,
+      durationMs: Date.now() - startTime,
+    };
+  }
 
   // Run knip validation
   const result = await deps.validateKnip({ projectRoot: cwd, typescriptScope: scopeConfig });

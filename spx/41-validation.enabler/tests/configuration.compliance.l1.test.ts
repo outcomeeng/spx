@@ -4,7 +4,12 @@ import type { KnipCommandOptions } from "@/commands/validation";
 import { knipCommand } from "@/commands/validation/knip";
 import { LITERAL_DISABLED_MESSAGE, literalCommand } from "@/commands/validation/literal";
 import { markdownCommand } from "@/commands/validation/markdown";
-import { VALIDATION_COMMAND_OUTPUT, VALIDATION_EXIT_CODES } from "@/commands/validation/messages";
+import {
+  formatValidationPathsNoTargetsSkipMessage,
+  VALIDATION_COMMAND_OUTPUT,
+  VALIDATION_EXIT_CODES,
+  VALIDATION_STAGE_DISPLAY_NAMES,
+} from "@/commands/validation/messages";
 import { resolveConfig } from "@/config/index";
 import {
   VALIDATION_ENABLED_FIELD,
@@ -141,6 +146,45 @@ describe("ALWAYS: validation command participation is driven by spx config", () 
             },
           },
         ]);
+      },
+    );
+  });
+
+  it("reports a knip skip when explicit file scope matches no targets", async () => {
+    await withLiteralFixtureEnv(
+      validationConfigSection(VALIDATION_KNIP_SUBSECTION, true),
+      async (env) => {
+        const sourceFilePath = sampleLiteralTestValue(LITERAL_TEST_GENERATOR.sourceFilePath());
+        const validationCalls: Array<{
+          readonly projectRoot: string;
+          readonly typescriptScope: ScopeConfig;
+        }> = [];
+        await env.writeTsConfigMarker();
+
+        const result = await knipCommand(
+          {
+            cwd: env.productDir,
+            files: [sourceFilePath],
+          },
+          {
+            discoverTool: async () => ({
+              found: true,
+              location: {
+                tool: VALIDATION_PIPELINE_DATA.stageNames.KNIP,
+                path: env.productDir,
+                source: TOOL_DISCOVERY.SOURCES.PROJECT,
+              },
+            }),
+            validateKnip: async (context) => {
+              validationCalls.push(context);
+              return { success: true };
+            },
+          },
+        );
+
+        expect(result.exitCode).toBe(VALIDATION_EXIT_CODES.SUCCESS);
+        expect(result.output).toBe(formatValidationPathsNoTargetsSkipMessage(VALIDATION_STAGE_DISPLAY_NAMES.KNIP));
+        expect(validationCalls).toEqual([]);
       },
     );
   });
