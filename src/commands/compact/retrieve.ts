@@ -20,8 +20,7 @@ export async function compactRetrieveCommand(options: CompactRetrieveOptions): P
   if (sessionToken === undefined) return { exitCode: 1, output: EMPTY_OUTPUT };
 
   const worktreeScope = await resolveWorktreeScopeDir({ cwd: options.cwd });
-  if (!worktreeScope.ok) return { exitCode: 1, output: EMPTY_OUTPUT };
-  const stashPath = compactStashPath(worktreeScope.value, sessionToken);
+  const stashPath = compactStashPath(worktreeScope, sessionToken);
   if (!stashPath.ok) return { exitCode: 1, output: EMPTY_OUTPUT };
   const latest = await readLatestJsonlRecord(stashPath.value);
   if (!latest.ok || latest.value === undefined) return { exitCode: 1, output: EMPTY_OUTPUT };

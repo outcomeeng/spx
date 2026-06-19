@@ -215,7 +215,7 @@ export async function resolveBranchScopeDir(
   return branchScopeDir(gitResult.productDir, branchSlug);
 }
 
-export async function resolveWorktreeScopeDir(options: ResolveScopeOptions = {}): Promise<Result<string>> {
+export async function resolveWorktreeScopeDir(options: ResolveScopeOptions = {}): Promise<string> {
   const gitResult = await detectWorktreeProductRoot(options.cwd, options.deps);
   return worktreeScopeDir(gitResult.productDir);
 }
@@ -257,8 +257,8 @@ export function branchScopeDir(productDir: string, branchSlug: string): Result<s
   };
 }
 
-export function worktreeScopeDir(productDir: string): Result<string> {
-  return { ok: true, value: join(productDir, STATE_STORE_PATH.SPX_DIR, STATE_STORE_PATH.WORKTREE_SCOPE) };
+export function worktreeScopeDir(productDir: string): string {
+  return join(productDir, STATE_STORE_PATH.SPX_DIR, STATE_STORE_PATH.WORKTREE_SCOPE);
 }
 
 export function sessionsScopeDir(productDir: string): string {

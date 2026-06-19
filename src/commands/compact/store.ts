@@ -28,8 +28,7 @@ export async function compactStoreCommand(options: CompactStoreOptions): Promise
   if (record === undefined) return 0;
 
   const worktreeScope = await resolveWorktreeScopeDir({ cwd: options.cwd });
-  if (!worktreeScope.ok) return 1;
-  const stashPath = compactStashPath(worktreeScope.value, sessionToken);
+  const stashPath = compactStashPath(worktreeScope, sessionToken);
   if (!stashPath.ok) return 1;
   const written = await appendJsonlRecord(stashPath.value, record);
   return written.ok ? 0 : 1;

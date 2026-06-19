@@ -5,18 +5,18 @@ import type { Result } from "@/config/types";
 import {
   compareAsciiStrings,
   createJsonlRunFile,
+  type CreateRunFileOptions,
   defaultStateStoreFileSystem,
   formatRunTimestamp,
   hasErrorCode,
   isRunFileName,
+  type JsonRecord,
   latestNonEmptyJsonlLine,
   parseStateStoreError,
   runFileName,
   runsDir as stateStoreRunsDir,
-  STATE_STORE_ERROR,
   STATE_STORE_DOMAIN,
-  type CreateRunFileOptions,
-  type JsonRecord,
+  STATE_STORE_ERROR,
   type StateStoreFileEntry,
   type StateStoreFileSystem,
   type StateStoreJsonlReaderFileSystem,
@@ -167,8 +167,7 @@ export function formatTestRunTimestamp(date: Date): string {
 
 export function testingRunsDir(productDir: string): string {
   const worktreeScope = worktreeScopeDir(productDir);
-  if (!worktreeScope.ok) throw new Error(worktreeScope.error);
-  const result = stateStoreRunsDir(worktreeScope.value, STATE_STORE_DOMAIN.TEST);
+  const result = stateStoreRunsDir(worktreeScope, STATE_STORE_DOMAIN.TEST);
   if (!result.ok) throw new Error(result.error);
   return result.value;
 }
@@ -178,12 +177,13 @@ export async function createTestRunFile(
   options: CreateTestRunFileOptions = {},
 ): Promise<Result<TestRunFile>> {
   const worktreeScope = worktreeScopeDir(productDir);
-  if (!worktreeScope.ok) return worktreeScope;
-  const created = await createJsonlRunFile(worktreeScope.value, STATE_STORE_DOMAIN.TEST, options);
-  if (!created.ok) return {
-    ok: false,
-    error: testingRunFileError(created.error),
-  };
+  const created = await createJsonlRunFile(worktreeScope, STATE_STORE_DOMAIN.TEST, options);
+  if (!created.ok) {
+    return {
+      ok: false,
+      error: testingRunFileError(created.error),
+    };
+  }
   return { ok: true, value: created.value };
 }
 
