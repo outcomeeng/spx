@@ -17,4 +17,6 @@ CAN detect failures from one run without streaming passing-test noise into the t
 - ALWAYS: agent-output runner execution writes child stdout and stderr to files and returns those file paths with the runner result ([test](tests/agent-test-output.compliance.l1.test.ts))
 - ALWAYS: agent-output runner execution preserves the supplied child environment while preserving the product directory as the child working directory ([test](tests/agent-test-output.compliance.l1.test.ts))
 - ALWAYS: agent-output runner execution preserves the selected runner command and arguments while changing only output capture ([test](tests/agent-test-output.compliance.l1.test.ts))
+- ALWAYS: agent-output runner execution creates artifact directories only when a runner command executes ([test](tests/agent-test-output.compliance.l1.test.ts))
+- ALWAYS: agent-output runner execution fails without artifact paths when artifact writing fails ([test](tests/agent-test-output.compliance.l1.test.ts))
 - NEVER: agent-output runner execution writes child stdout or stderr directly to the invoking terminal stream ([test](tests/agent-test-output.compliance.l1.test.ts))
