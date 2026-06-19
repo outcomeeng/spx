@@ -291,7 +291,7 @@ function globLiteralPrefix(pattern: string): string {
   return normalizedPattern.slice(0, globIndex).replace(/\/+$/u, "");
 }
 
-function globPatternToRegExp(pattern: string): RegExp {
+export function typeScriptScopeGlobPatternToRegExp(pattern: string): RegExp {
   const normalizedPattern = normalizeTypeScriptScopePath(pattern);
   let source = "";
   for (let index = 0; index < normalizedPattern.length; index += 1) {
@@ -315,7 +315,7 @@ function globPatternToRegExp(pattern: string): RegExp {
 
 function pathMatchesTypeScriptPattern(path: string, pattern: string): boolean {
   if (pattern.includes(GLOB_MARKER)) {
-    return globPatternToRegExp(pattern).test(normalizeTypeScriptScopePath(path));
+    return typeScriptScopeGlobPatternToRegExp(pattern).test(normalizeTypeScriptScopePath(path));
   }
   const prefix = globLiteralPrefix(pattern);
   return prefix.length === 0 || pathMatchesLiteralPrefix(path, prefix);
