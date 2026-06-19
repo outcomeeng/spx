@@ -1,4 +1,3 @@
-import { Command } from "commander";
 import { join } from "node:path";
 
 import { describe, expect, it } from "vitest";
@@ -9,11 +8,7 @@ import {
   SUCCESS_EXIT_CODE,
   UNSUPPORTED_TEST_SELECTION_EXIT_CODE,
 } from "@/domains/testing";
-import {
-  createTestingDomain,
-  TESTING_CLI,
-  type TestingCliDependencies,
-} from "@/interfaces/cli/testing";
+import { TESTING_CLI } from "@/interfaces/cli/testing";
 import {
   AGENT_TEST_OUTPUT_TEXT,
   formatAgentTestOutput,
@@ -35,25 +30,8 @@ import {
 import {
   sampleDispatchValue,
   TEST_DISPATCH_GENERATOR,
-  testingCliCommanderParseSource,
 } from "@testing/generators/testing/dispatch";
-
-interface TestingCliCall {
-  readonly productDir: string;
-  readonly passing: boolean;
-}
-
-interface TestingCliResult {
-  readonly stdout: string;
-  readonly stderr: string;
-  readonly exitCodes: readonly number[];
-}
-
-class TestingCliExit extends Error {
-  constructor(readonly exitCode: number) {
-    super(`Testing CLI exited with code ${exitCode}`);
-  }
-}
+import { runTestingCli, testingCliDeps, type TestingCliCall } from "@testing/harnesses/testing/cli";
 
 interface PassingAgentRunFixture {
   readonly run: RecordedTestRun;
@@ -89,63 +67,6 @@ function testRunState(runStatus: TestRunStateStatus): TestRunState {
     completedAt: sampleText(),
     [TEST_RUN_STATE_FIELDS.STATUS]: runStatus,
   };
-}
-
-function testingCliDeps(
-  productDir: string,
-  run: RecordedTestRun,
-  agentCalls: TestingCliCall[],
-  streamCalls: TestingCliCall[],
-): TestingCliDependencies {
-  return {
-    resolveProductDir: () => Promise.resolve(productDir),
-    runTests: (resolvedProductDir, passing) => {
-      streamCalls.push({ productDir: resolvedProductDir, passing });
-      return Promise.resolve(run);
-    },
-    runAgentTests: (resolvedProductDir, passing) => {
-      agentCalls.push({ productDir: resolvedProductDir, passing });
-      return Promise.resolve(run);
-    },
-    writeStdout: () => undefined,
-    writeWarning: () => undefined,
-    setExitCode: () => undefined,
-    exit: () => {
-      throw new Error("Unexpected streaming exit in agent-mode test");
-    },
-  };
-}
-
-async function runTestingCli(args: readonly string[], deps: TestingCliDependencies): Promise<TestingCliResult> {
-  const program = new Command();
-  const stdout: string[] = [];
-  const stderr: string[] = [];
-  const exitCodes: number[] = [];
-  program.exitOverride();
-  program.configureOutput({
-    writeOut: (output) => stdout.push(output),
-    writeErr: (output) => stderr.push(output),
-  });
-  createTestingDomain({
-    ...deps,
-    writeStdout: (output) => stdout.push(output),
-    writeWarning: (warning) => {
-      if (warning !== undefined) stderr.push(`${warning}\n`);
-    },
-    setExitCode: (exitCode) => exitCodes.push(exitCode),
-    exit: (exitCode) => {
-      exitCodes.push(exitCode);
-      throw new TestingCliExit(exitCode);
-    },
-  }).register(program);
-
-  try {
-    await program.parseAsync([...args], { from: testingCliCommanderParseSource() });
-  } catch (error) {
-    if (!(error instanceof TestingCliExit)) throw error;
-  }
-
-  return { stdout: stdout.join(""), stderr: stderr.join(""), exitCodes };
 }
 
 function passingAgentRun(productDir: string, testPaths: readonly string[] = []): PassingAgentRunFixture {
