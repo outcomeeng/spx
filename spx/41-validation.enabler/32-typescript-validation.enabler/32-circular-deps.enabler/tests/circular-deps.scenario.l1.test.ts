@@ -1075,6 +1075,35 @@ describe("circular command scope routing", () => {
       expect(result.output).toBe(formatValidationPathsNoTargetsSkipMessage(VALIDATION_STAGE_DISPLAY_NAMES.CIRCULAR));
     });
   });
+
+  it("skips the project root when TypeScript config includes only non-TypeScript globs", async () => {
+    await withValidationEnv({ fixture: PROJECT_FIXTURES.CLEAN_PROJECT }, async ({ path }) => {
+      await writeFile(
+        join(path, VALIDATION_PIPELINE_DATA.sourceDirectoryName, VALIDATION_PIPELINE_DATA.markdownOnlyFileName),
+        "markdown only\n",
+      );
+      await writeFile(
+        join(path, TSCONFIG_FILES.full),
+        JSON.stringify({
+          compilerOptions: {
+            target: "ES2020",
+            module: "commonjs",
+            strict: true,
+          },
+          include: [VALIDATION_PIPELINE_DATA.recursiveMarkdownSourceFilePattern],
+        }),
+      );
+
+      const result = await circularCommand({
+        cwd: path,
+        files: ["."],
+      });
+
+      expect(result.exitCode).toBe(VALIDATION_EXIT_CODES.SUCCESS);
+      expect(result.output).toBe(formatValidationPathsNoTargetsSkipMessage(VALIDATION_STAGE_DISPLAY_NAMES.CIRCULAR));
+    });
+  });
+
   it("skips --files directories below single-character wildcard TypeScript includes", async () => {
     await withValidationEnv({ fixture: PROJECT_FIXTURES.CLEAN_PROJECT }, async ({ path }) => {
       const singleCharacterDirectory = join(VALIDATION_PIPELINE_DATA.sourceDirectoryName, "a");
@@ -1300,7 +1329,7 @@ describe("circular command scope routing", () => {
     });
   });
 
-  it("keeps explicit TypeScript files when tsconfig also includes non-TypeScript globs", async () => {
+  it("skips explicit TypeScript files outside resolved TypeScript config scope", async () => {
     await withValidationEnv({ fixture: PROJECT_FIXTURES.CLEAN_PROJECT }, async ({ path }) => {
       const cleanSourceFile = join(
         VALIDATION_PIPELINE_DATA.sourceDirectoryName,
@@ -1329,13 +1358,8 @@ describe("circular command scope routing", () => {
       );
 
       expect(result.exitCode).toBe(VALIDATION_EXIT_CODES.SUCCESS);
-      expect(validationCalls).toEqual([
-        {
-          directories: [],
-          filePatterns: [cleanSourceFile],
-          excludePatterns: [],
-        },
-      ]);
+      expect(result.output).toBe(formatValidationPathsNoTargetsSkipMessage(VALIDATION_STAGE_DISPLAY_NAMES.CIRCULAR));
+      expect(validationCalls).toEqual([]);
     });
   });
 
