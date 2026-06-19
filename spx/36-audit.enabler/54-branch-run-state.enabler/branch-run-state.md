@@ -13,3 +13,5 @@ CAN inspect local audit evidence without re-running the auditors
 - ALWAYS: the `AuditRunState` envelope is folded as a projection of a run's event history, and a run is sealed at terminal completion ([test](tests/run-state.compliance.l1.test.ts))
 - ALWAYS: branch run lookup ignores entries whose file names do not match the run-file format before constructing run-file paths ([test](tests/run-state.compliance.l1.test.ts))
 - NEVER: treat a run as approved or rejected audit evidence unless its journal is sealed and holds a readable terminal-completion event — an unsealed run is incomplete whatever events it holds ([test](tests/run-state.compliance.l1.test.ts))
+- NEVER: read from or write to a branch run file path that resolves to a symbolic link or non-regular file ([test](tests/run-file.compliance.l1.test.ts))
+- NEVER: read from or write through a branch audit storage directory that resolves to a symbolic link or non-directory ([test](tests/run-file.compliance.l1.test.ts))
