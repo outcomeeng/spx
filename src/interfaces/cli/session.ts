@@ -1,6 +1,8 @@
 /**
  * Session CLI — Commander registration descriptor for the session subcommands.
  */
+import { resolve } from "node:path";
+
 import type { Command } from "commander";
 
 import {
@@ -20,7 +22,7 @@ import { SESSION_LIST_FORMAT } from "@/commands/session/list";
 import { SessionHandoffBaseError } from "@/domains/session/errors";
 import { renderHandoffBaseChecklist } from "@/domains/session/handoff-base-checklist";
 import { HANDOFF_FRONTMATTER_HELP, PICKUP_SELECTION_HELP, SESSION_FORMAT_HELP } from "@/domains/session/help";
-import { buildPickupCommand } from "@/domains/session/pick-model";
+import { buildPickupCommand, pickupReference } from "@/domains/session/pick-model";
 import { SESSION_STATUSES } from "@/domains/session/types";
 import type { Domain } from "@/domains/types";
 import { foregroundProcessRunner, lifecycleSignalSuspender } from "@/lib/process-lifecycle";
@@ -106,15 +108,18 @@ function registerSessionCommands(sessionCmd: Command): void {
           console.error(PICK_NON_TTY_MESSAGE);
           process.exit(1);
         }
-        const sessions = await loadPickCandidates({
-          sessionsDir: options.sessionsDir,
-          onWarning: writeWarning,
-        });
+        // Resolve a custom store to an absolute path so the picked session's
+        // path is absolute — the launched agent, scoped to its own cwd, reads
+        // that path directly rather than resolving the id against its store.
+        const sessionsDir = options.sessionsDir === undefined ? undefined : resolve(options.sessionsDir);
+        const sessions = await loadPickCandidates({ sessionsDir, onWarning: writeWarning });
         const choice = await runPicker(sessions);
         if (choice !== null) {
           // Ink has unmounted and restored the terminal; hand it to the agent,
-          // then exit with the agent's status.
-          const command = buildPickupCommand(choice.runtime, choice.autoContinue, choice.session.id);
+          // then exit with the agent's status. With the default store the agent
+          // resolves the id; with a custom store it is given the absolute path.
+          const reference = pickupReference(choice.session, sessionsDir);
+          const command = buildPickupCommand(choice.runtime, choice.autoContinue, reference);
           const code = await launchAgent(foregroundProcessRunner, lifecycleSignalSuspender, command);
           process.exit(code);
         }
