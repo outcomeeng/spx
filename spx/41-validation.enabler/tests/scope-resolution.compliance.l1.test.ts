@@ -598,7 +598,12 @@ describe("ALWAYS: TypeScript scope resolution uses the requested project root", 
       expect(writtenConfigs).toHaveLength(1);
       expect(JSON.parse(writtenConfigs[0] ?? "{}")).toEqual({
         extends: join(env.productDir, TSCONFIG_FILES.full),
-        include: [join(env.productDir, VALIDATION_PIPELINE_DATA.productionScopeFilePattern)],
+        include: [
+          ...expectedKnipDirectorySourcePatterns(VALIDATION_PIPELINE_DATA.sourceDirectoryName).map((pattern) =>
+            join(env.productDir, pattern)
+          ),
+          join(env.productDir, VALIDATION_PIPELINE_DATA.productionScopeFilePattern),
+        ],
         exclude: [join(env.productDir, VALIDATION_PIPELINE_DATA.productionScopeExcludePattern)],
       });
     });
@@ -685,7 +690,7 @@ describe("ALWAYS: TypeScript scope resolution uses the requested project root", 
     });
   });
 
-  it("runs directory-scoped Knip validation with every TypeScript fallback pattern", async () => {
+  it("runs directory-scoped Knip validation with fallback patterns and retained literal file patterns", async () => {
     await withTestEnv({}, async (env) => {
       const runner = new RecordingSpawnOptionsRunner();
       const writtenConfigs: string[] = [];
@@ -706,7 +711,7 @@ describe("ALWAYS: TypeScript scope resolution uses the requested project root", 
           projectRoot: env.productDir,
           typescriptScope: {
             directories: [VALIDATION_PIPELINE_DATA.sourceDirectoryName],
-            filePatterns: [],
+            filePatterns: [nestedSourceFile],
             excludePatterns: [],
             filteredByValidationPaths: true,
           },
@@ -722,9 +727,12 @@ describe("ALWAYS: TypeScript scope resolution uses the requested project root", 
       );
       expect(JSON.parse(writtenConfigs[0] ?? "{}")).toEqual({
         extends: join(env.productDir, TSCONFIG_FILES.full),
-        include: expectedKnipDirectorySourcePatterns(VALIDATION_PIPELINE_DATA.sourceDirectoryName).map((pattern) =>
-          join(env.productDir, pattern)
-        ),
+        include: [
+          ...expectedKnipDirectorySourcePatterns(VALIDATION_PIPELINE_DATA.sourceDirectoryName).map((pattern) =>
+            join(env.productDir, pattern)
+          ),
+          join(env.productDir, nestedSourceFile),
+        ],
         exclude: [],
       });
     });

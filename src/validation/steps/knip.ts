@@ -182,11 +182,12 @@ async function createScopedKnipTsconfig(
   const tempDir = await deps.mkdtemp(join(tempParentDir, "validate-knip-"));
   const configPath = join(tempDir, TSCONFIG_FILES.full);
   const toProjectPathPattern = (pattern: string) => isAbsolute(pattern) ? pattern : join(projectRoot, pattern);
-  const project = typescriptScope.filePatterns.length > 0
-    ? typescriptScope.filePatterns
-    : typescriptScope.directories.flatMap((directory) =>
+  const project = [
+    ...typescriptScope.directories.flatMap((directory) =>
       TYPESCRIPT_FALLBACK_INCLUDE_PATTERNS.map((pattern) => `${directory}/${pattern}`)
-    );
+    ),
+    ...typescriptScope.filePatterns,
+  ];
   const config = {
     extends: join(projectRoot, TSCONFIG_FILES.full),
     include: project.map(toProjectPathPattern),

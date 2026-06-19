@@ -474,9 +474,22 @@ describe("circular dependency filtering", () => {
     expect(result.success).toBe(true);
     expect(dependencyGraphCalls).toHaveLength(1);
     const [paths] = dependencyGraphCalls[0] ?? [];
-    expect(paths).toEqual([
-      join(VALIDATION_PIPELINE_DATA.sourceDirectoryName, VALIDATION_PIPELINE_DATA.cleanSourceFileName),
-    ]);
+    expect(paths).toEqual(expectedTypescriptSourcePatterns(VALIDATION_PIPELINE_DATA.sourceDirectoryName));
+  });
+
+  it("keeps retained directory targets when literal TypeScript files also match", async () => {
+    const retainedDirectory = join(VALIDATION_PIPELINE_DATA.sourceDirectoryName, "api");
+    const retainedLiteralFile = join(retainedDirectory, VALIDATION_PIPELINE_DATA.cleanSourceFileName);
+    const { dependencyGraphCalls, result } = await validateCircularScopeWithRecording({
+      directories: [retainedDirectory],
+      filePatterns: [retainedLiteralFile],
+      excludePatterns: [],
+    });
+
+    expect(result.success).toBe(true);
+    expect(dependencyGraphCalls).toHaveLength(1);
+    const [paths] = dependencyGraphCalls[0] ?? [];
+    expect(paths).toEqual(expectedTypescriptSourcePatterns(retainedDirectory));
   });
 
   it("keeps wildcard-narrowed TypeScript include globs instead of widening them to their top-level directory", async () => {
