@@ -21,7 +21,7 @@ import {
 } from "@/testing/run-state";
 import { CONFIG_TEST_GENERATOR, sampleConfigTestValue } from "@testing/generators/config/descriptors";
 import { arbitraryDomainLiteral, sampleLiteralTestValue } from "@testing/generators/literal/literal";
-import { sampleDispatchValue, TEST_DISPATCH_GENERATOR } from "@testing/generators/testing/dispatch";
+import { nodeOperand, sampleDispatchValue, TEST_DISPATCH_GENERATOR } from "@testing/generators/testing/dispatch";
 import { runTestingCli, type TestingCliCall, testingCliDeps } from "@testing/harnesses/testing/cli";
 
 interface PassingAgentRunFixture {
@@ -419,5 +419,28 @@ describe("agent test-output summary", () => {
 
     expect(output).toContain(AGENT_TEST_OUTPUT_TEXT.UNMATCHED);
     expect(output).toContain(unmatchedPath);
+  });
+
+  it("reports unresolved target operands under the unresolved-targets label", () => {
+    const productDir = sampleConfigTestValue(CONFIG_TEST_GENERATOR.productDir());
+    const nodePath = sampleDispatchValue(TEST_DISPATCH_GENERATOR.nodePath());
+    const unresolvedOperand = nodeOperand(nodePath);
+    const run: RecordedTestRun = {
+      dispatch: {
+        exitCode: UNSUPPORTED_TEST_SELECTION_EXIT_CODE,
+        groups: [],
+        unmatched: [],
+        unresolvedTargets: [unresolvedOperand],
+        reports: [],
+        outcomes: [],
+      },
+      runFile: testRunFile(join(productDir, AGENT_TEST_OUTPUT_TEXT.STATE_FILE)),
+      recorded: testRunState(TEST_RUN_STATE_STATUS.FAILED),
+    };
+
+    const output = formatAgentTestOutput(run);
+
+    expect(output).toContain(AGENT_TEST_OUTPUT_TEXT.UNRESOLVED_TARGETS);
+    expect(output).toContain(unresolvedOperand);
   });
 });
