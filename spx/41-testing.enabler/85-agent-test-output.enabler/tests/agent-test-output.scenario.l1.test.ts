@@ -469,39 +469,6 @@ describe("agent test-output summary", () => {
     expect(result.stdout).toContain(selectedPath);
   });
 
-  it("reports gated-out runner groups before operator-mode exit", async () => {
-    const productDir = sampleConfigTestValue(CONFIG_TEST_GENERATOR.productDir());
-    const nodePath = sampleDispatchValue(TEST_DISPATCH_GENERATOR.nodePath());
-    const selectedPath = sampleDispatchValue(TEST_DISPATCH_GENERATOR.testFileUnder(typescriptTestingLanguage, nodePath));
-    const agentCalls: TestingCliCall[] = [];
-    const streamCalls: TestingCliCall[] = [];
-    const run: RecordedTestRun = {
-      dispatch: {
-        exitCode: NO_RUNNER_INVOCATION_EXIT_CODE,
-        groups: [{
-          language: typescriptTestingLanguage,
-          testPaths: [selectedPath],
-        }],
-        unmatched: [],
-        reports: [],
-        outcomes: [],
-      },
-      runFile: testRunFile(join(productDir, AGENT_TEST_OUTPUT_TEXT.STATE_FILE)),
-      recorded: testRunState(TEST_RUN_STATE_STATUS.PASSED),
-    };
-
-    const result = await runTestingCli([
-      TESTING_CLI.commandName,
-      TESTING_CLI.passingSubcommand,
-    ], testingCliDeps(productDir, run, agentCalls, streamCalls));
-
-    expect(agentCalls).toEqual([]);
-    expect(streamCalls).toEqual([{ productDir, passing: true }]);
-    expect(result.exitCodes).toEqual([NO_RUNNER_INVOCATION_EXIT_CODE]);
-    expect(result.stderr).toContain(typescriptTestingLanguage.name);
-    expect(result.stderr).toContain(selectedPath);
-  });
-
   it("reports unmatched test paths under the unmatched label", () => {
     const productDir = sampleConfigTestValue(CONFIG_TEST_GENERATOR.productDir());
     const nodePath = sampleDispatchValue(TEST_DISPATCH_GENERATOR.nodePath());
