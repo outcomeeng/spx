@@ -31,7 +31,7 @@ const GLOB_MARKER = "*";
 const REGEX_SPECIAL_CHARACTER_PATTERN = /[.+?^${}()|[\]\\]/gu;
 const REGEX_ESCAPE_REPLACEMENT = String.raw`\$&`;
 const HIDDEN_PATH_PREFIX = ".";
-const TYPESCRIPT_SOURCE_EXTENSIONS = [".ts", ".tsx"] as const;
+const TYPESCRIPT_SOURCE_EXTENSIONS = [".ts", ".tsx", ".mts", ".cts"] as const;
 
 // =============================================================================
 // DEPENDENCY INJECTION INTERFACES
@@ -160,7 +160,7 @@ export function hasTypeScriptFilesRecursive(
 
     // Check for TypeScript files in current directory
     const hasDirectTsFiles = items.some(
-      (item) => item.isFile() && (item.name.endsWith(".ts") || item.name.endsWith(".tsx")),
+      (item) => item.isFile() && pathHasTypeScriptSourceExtension(item.name),
     );
 
     if (hasDirectTsFiles) return true;

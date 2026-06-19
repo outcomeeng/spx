@@ -25,9 +25,20 @@ import {
 import type { CircularDependencyResult, ScopeConfig, ValidationScope } from "../types";
 
 export const DEPENDENCY_CRUISER_MODULE_SYSTEMS = ["es6", "cjs"] as const;
-export const DEPENDENCY_CRUISER_TYPESCRIPT_SOURCE_GLOB_SUFFIXES = ["**/*.ts", "**/*.tsx"] as const;
-export const DEPENDENCY_CRUISER_TYPESCRIPT_SOURCE_PATTERN = String.raw`\.tsx?$`;
-export const DEPENDENCY_CRUISER_TYPESCRIPT_RESOLVE_EXTENSIONS = [".ts", ".tsx", ".d.ts"] as const;
+export const DEPENDENCY_CRUISER_TYPESCRIPT_SOURCE_GLOB_SUFFIXES = [
+  "**/*.ts",
+  "**/*.tsx",
+  "**/*.mts",
+  "**/*.cts",
+] as const;
+export const DEPENDENCY_CRUISER_TYPESCRIPT_SOURCE_PATTERN = String.raw`\.(?:[cm]?ts|tsx)$`;
+export const DEPENDENCY_CRUISER_TYPESCRIPT_RESOLVE_EXTENSIONS = [
+  ".ts",
+  ".tsx",
+  ".mts",
+  ".cts",
+  ".d.ts",
+] as const;
 const TSCONFIG_EXCLUDE_SUFFIX_PATTERN = /\/\*\*?\/\*$/u;
 const REGEX_SPECIAL_CHARACTER_PATTERN = /[.*+?^${}()|[\]\\]/gu;
 const REGEX_ESCAPE_REPLACEMENT = String.raw`\$&`;
@@ -138,13 +149,17 @@ function toDependencyCruiserSourcePatterns(typescriptScope: ScopeConfig): string
     DEPENDENCY_CRUISER_TYPESCRIPT_SOURCE_GLOB_SUFFIXES.map((suffix) => `${directory}/${suffix}`),
   );
   if (typescriptScope.directories.length === 0 && typescriptScope.filePatterns.length > 0) {
-    return [...typescriptScope.filePatterns];
+    return typescriptScope.filePatterns.filter((pattern) => patternTargetsTypeScriptSource(pattern));
   }
   const explicitFilePatterns = typescriptScope.filePatterns.filter((pattern) =>
     !patternIsCoveredByDirectory(pattern, typescriptScope.directories)
-    && (pattern.includes(GLOB_MARKER) || pathHasTypeScriptSourceExtension(pattern))
+    && patternTargetsTypeScriptSource(pattern)
   );
   return [...directoryPatterns, ...explicitFilePatterns];
+}
+
+function patternTargetsTypeScriptSource(pattern: string): boolean {
+  return pathHasTypeScriptSourceExtension(pattern);
 }
 
 function patternIsCoveredByDirectory(pattern: string, directories: readonly string[]): boolean {
