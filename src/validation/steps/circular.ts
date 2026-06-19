@@ -21,6 +21,7 @@ import {
   pathHasTypeScriptSourceExtension,
   TSCONFIG_FILES,
   typeScriptScopeGlobPatternToRegExp,
+  typeScriptScopePatternNarrowsDirectory,
 } from "../config/scope";
 import type { CircularDependencyResult, ScopeConfig, ValidationScope } from "../types";
 
@@ -44,7 +45,6 @@ const LITERAL_REGEX_SPECIAL_CHARACTER_PATTERN = /[.*+?^${}()|[\]\\]/gu;
 const REGEX_ESCAPE_REPLACEMENT = String.raw`\$&`;
 const CYCLE_KEY_SEPARATOR = "\u0000";
 const GLOB_MARKER = "*";
-const BROAD_DIRECTORY_GLOB_SUFFIX = "**/*";
 export const DEPENDENCY_CRUISER_PACKAGE_EXCLUDE_PATTERN = "(^|/)node_modules(/|$)";
 export const DEPENDENCY_CRUISER_NON_STRUCTURED_OUTPUT_ERROR = "dependency-cruiser returned non-structured output";
 export const DEPENDENCY_CRUISER_DEPENDENCY_TYPES = {
@@ -147,7 +147,7 @@ function buildDependencyCruiserOptions(
 
 function toDependencyCruiserSourcePatterns(typescriptScope: ScopeConfig): string[] {
   const retainedDirectories = typescriptScope.directories.filter((directory) =>
-    !typescriptScope.filePatterns.some((pattern) => patternNarrowsDirectory(pattern, directory))
+    !typescriptScope.filePatterns.some((pattern) => typeScriptScopePatternNarrowsDirectory(pattern, directory))
   );
   const directoryPatterns = retainedDirectories.flatMap((directory) =>
     DEPENDENCY_CRUISER_TYPESCRIPT_SOURCE_GLOB_SUFFIXES.map((suffix) => `${directory}/${suffix}`),
@@ -170,19 +170,6 @@ function patternIsCoveredByDirectory(pattern: string, directories: readonly stri
     return normalizedPattern === normalizedDirectory
       || normalizedPattern.startsWith(`${normalizedDirectory}/`);
   });
-}
-
-function patternNarrowsDirectory(pattern: string, directory: string): boolean {
-  const normalizedPattern = normalizeTypeScriptScopePath(pattern);
-  const normalizedDirectory = normalizeTypeScriptScopePath(directory);
-  if (!normalizedPattern.startsWith(`${normalizedDirectory}/`)) {
-    return false;
-  }
-  const globIndex = normalizedPattern.indexOf(GLOB_MARKER);
-  if (globIndex === -1) {
-    return false;
-  }
-  return normalizedPattern !== `${normalizedDirectory}/${BROAD_DIRECTORY_GLOB_SUFFIX}`;
 }
 
 function isCruiseResult(output: IReporterOutput["output"]): output is ICruiseResult {
