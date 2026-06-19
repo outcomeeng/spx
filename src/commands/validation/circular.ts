@@ -66,6 +66,8 @@ const EXPLICIT_PATH_TARGET_KIND = {
 const DEPENDENCY_CRUISER_PACKAGE_NAME = "dependency-cruiser";
 const PROJECT_ROOT_SCOPE_PATH = ".";
 const RECURSIVE_GLOB_SEGMENT = "**";
+const ANY_SEGMENT_GLOB = "*";
+const SINGLE_CHARACTER_SEGMENT_GLOB = "?";
 
 function pathIsDirectoryOperand(projectRoot: string, relativePath: string): boolean {
   const candidatePath = join(projectRoot, relativePath);
@@ -105,7 +107,14 @@ function constrainPatternToDirectory(pattern: string, directory: string): string
       patternIndex += 1;
     }
     const patternSegment = patternSegments[patternIndex];
-    if (patternSegment === undefined || patternSegment !== directorySegment) {
+    if (
+      patternSegment === undefined
+      || (
+        patternSegment !== directorySegment
+        && patternSegment !== ANY_SEGMENT_GLOB
+        && patternSegment !== SINGLE_CHARACTER_SEGMENT_GLOB
+      )
+    ) {
       break;
     }
     patternIndex += 1;
