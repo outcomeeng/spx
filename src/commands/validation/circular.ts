@@ -139,7 +139,7 @@ function constrainPatternToDirectory(pattern: string, directory: string): string
     patternIndex += 1;
   }
   const suffixSegments = patternSegments.slice(patternIndex);
-  const constrainedSuffixSegments = recursiveGlobConsumedDirectory && suffixSegments.length === 1
+  const constrainedSuffixSegments = recursiveGlobConsumedDirectory && suffixSegments.length > 0
     ? [RECURSIVE_GLOB_SEGMENT, ...suffixSegments]
     : suffixSegments;
   return constrainedSuffixSegments.length === 0
