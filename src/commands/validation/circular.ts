@@ -83,14 +83,26 @@ function toExplicitScopeConfig(
   scopeConfig: ReturnType<typeof getTypeScriptScope>,
   targets: readonly ExplicitPathTarget[],
 ): ReturnType<typeof getTypeScriptScope> {
+  const directoryTargets = targets
+    .filter((target) => target.kind === EXPLICIT_PATH_TARGET_KIND.DIRECTORY)
+    .map((target) => target.path);
+  const scopedFilePatternsForDirectoryTargets = scopeConfig.filePatterns.filter((pattern) =>
+    directoryTargets.some((directory) => typeScriptPatternNarrowsDirectory(pattern, directory))
+  );
+  const narrowedDirectories = new Set(
+    directoryTargets.filter((directory) =>
+      scopedFilePatternsForDirectoryTargets.some((pattern) => typeScriptPatternNarrowsDirectory(pattern, directory))
+    ),
+  );
   return {
     ...scopeConfig,
-    directories: targets
-      .filter((target) => target.kind === EXPLICIT_PATH_TARGET_KIND.DIRECTORY)
-      .map((target) => target.path),
-    filePatterns: targets
+    directories: directoryTargets.filter((directory) => !narrowedDirectories.has(directory)),
+    filePatterns: [
+      ...scopedFilePatternsForDirectoryTargets,
+      ...targets
       .filter((target) => target.kind === EXPLICIT_PATH_TARGET_KIND.FILE)
       .map((target) => target.path),
+    ],
   };
 }
 
@@ -117,11 +129,32 @@ function targetPassesTypeScriptScope(target: ExplicitPathTarget, scopeConfig: Ty
   if (target.kind === EXPLICIT_PATH_TARGET_KIND.FILE) {
     return pathPassesTypeScriptScope(target.path, scopeConfig);
   }
-  return pathPassesTypeScriptScope(join(target.path, DIRECTORY_SCOPE_PROBE_FILENAME), scopeConfig);
+  return pathPassesTypeScriptScope(join(target.path, DIRECTORY_SCOPE_PROBE_FILENAME), scopeConfig)
+    || scopeConfig.filePatterns.some((pattern) => typeScriptPatternIsInsideDirectory(pattern, target.path));
 }
 
 function targetPassesProjectBoundary(projectRoot: string, originalPath: string): boolean {
   return pathStaysInsideProject(projectRoot, originalPath);
+}
+
+function typeScriptPatternIsInsideDirectory(pattern: string, directory: string): boolean {
+  const normalizedPattern = normalizeTypeScriptScopePath(pattern);
+  const normalizedDirectory = normalizeTypeScriptScopePath(directory);
+  return normalizedPattern === normalizedDirectory || normalizedPattern.startsWith(`${normalizedDirectory}/`);
+}
+
+function typeScriptPatternNarrowsDirectory(pattern: string, directory: string): boolean {
+  const normalizedPattern = normalizeTypeScriptScopePath(pattern);
+  const normalizedDirectory = normalizeTypeScriptScopePath(directory);
+  if (!normalizedPattern.startsWith(`${normalizedDirectory}/`)) {
+    return false;
+  }
+  const globIndex = normalizedPattern.indexOf("*");
+  if (globIndex === -1) {
+    return false;
+  }
+  const literalPrefix = normalizedPattern.slice(0, globIndex).replace(/\/+$/u, "");
+  return literalPrefix !== normalizedDirectory;
 }
 
 function filterExplicitPathTargets(

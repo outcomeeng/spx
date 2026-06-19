@@ -145,13 +145,16 @@ function buildDependencyCruiserOptions(
 }
 
 function toDependencyCruiserSourcePatterns(typescriptScope: ScopeConfig): string[] {
-  const unconstrainedDirectories = typescriptScope.directories.filter((directory) =>
-    !typescriptScope.filePatterns.some((pattern) => patternIsCoveredByDirectory(pattern, [directory]))
+  const retainedDirectories = typescriptScope.directories.filter((directory) =>
+    !typescriptScope.filePatterns.some((pattern) => patternNarrowsDirectory(pattern, directory))
   );
-  const directoryPatterns = unconstrainedDirectories.flatMap((directory) =>
+  const directoryPatterns = retainedDirectories.flatMap((directory) =>
     DEPENDENCY_CRUISER_TYPESCRIPT_SOURCE_GLOB_SUFFIXES.map((suffix) => `${directory}/${suffix}`),
   );
-  const explicitFilePatterns = typescriptScope.filePatterns.filter((pattern) => patternTargetsTypeScriptSource(pattern));
+  const explicitFilePatterns = typescriptScope.filePatterns.filter((pattern) =>
+    !patternIsCoveredByDirectory(pattern, retainedDirectories)
+    && patternTargetsTypeScriptSource(pattern)
+  );
   return [...directoryPatterns, ...explicitFilePatterns];
 }
 
@@ -166,6 +169,20 @@ function patternIsCoveredByDirectory(pattern: string, directories: readonly stri
     return normalizedPattern === normalizedDirectory
       || normalizedPattern.startsWith(`${normalizedDirectory}/`);
   });
+}
+
+function patternNarrowsDirectory(pattern: string, directory: string): boolean {
+  const normalizedPattern = normalizeTypeScriptScopePath(pattern);
+  const normalizedDirectory = normalizeTypeScriptScopePath(directory);
+  if (!normalizedPattern.startsWith(`${normalizedDirectory}/`)) {
+    return false;
+  }
+  const globIndex = normalizedPattern.indexOf(GLOB_MARKER);
+  if (globIndex === -1) {
+    return false;
+  }
+  const literalPrefix = normalizedPattern.slice(0, globIndex).replace(/\/+$/u, "");
+  return literalPrefix !== normalizedDirectory;
 }
 
 function isCruiseResult(output: IReporterOutput["output"]): output is ICruiseResult {
