@@ -19,6 +19,7 @@ import { join } from "node:path";
 import {
   normalizeTypeScriptScopePath,
   TSCONFIG_FILES,
+  TYPESCRIPT_FALLBACK_INCLUDE_PATTERNS,
   typeScriptScopeGlobPatternToRegExp,
   typeScriptScopePatternHasGlob,
   typeScriptScopePatternCoversDirectorySourceSet,
@@ -28,12 +29,7 @@ import {
 import type { CircularDependencyResult, ScopeConfig, ValidationScope } from "../types";
 
 export const DEPENDENCY_CRUISER_MODULE_SYSTEMS = ["es6", "cjs"] as const;
-export const DEPENDENCY_CRUISER_TYPESCRIPT_SOURCE_GLOB_SUFFIXES = [
-  "**/*.ts",
-  "**/*.tsx",
-  "**/*.mts",
-  "**/*.cts",
-] as const;
+export const DEPENDENCY_CRUISER_TYPESCRIPT_SOURCE_GLOB_SUFFIXES = [...TYPESCRIPT_FALLBACK_INCLUDE_PATTERNS] as const;
 export const DEPENDENCY_CRUISER_TYPESCRIPT_SOURCE_PATTERN = String.raw`\.(?:[cm]?ts|tsx)$`;
 export const DEPENDENCY_CRUISER_TYPESCRIPT_DECLARATION_RESOLVE_EXTENSIONS = [
   ".d.ts",
@@ -169,8 +165,7 @@ function toDependencyCruiserSourcePatterns(typescriptScope: ScopeConfig): string
 }
 
 function patternTargetsTypeScriptSource(pattern: string): boolean {
-  return DEPENDENCY_CRUISER_TYPESCRIPT_SOURCE_GLOB_SUFFIXES.some((suffix) => pattern.endsWith(suffix))
-    || typeScriptScopePatternTargetsTypeScriptSource(pattern);
+  return typeScriptScopePatternTargetsTypeScriptSource(pattern);
 }
 
 function patternIsCoveredByDirectory(pattern: string, directories: readonly string[]): boolean {
