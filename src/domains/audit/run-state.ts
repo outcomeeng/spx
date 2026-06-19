@@ -72,6 +72,8 @@ export const AUDIT_RUN_STATE_INCOMPLETE_REASON = {
 export const AUDIT_RUN_STATE_ERROR = {
   RUN_FILE_COLLISION_LIMIT: "audit run file collision limit exhausted",
   RUN_FILE_CREATE_FAILED: "audit run file create failed",
+  EMPTY_BRANCH_OVERRIDE: "audit branch override must be a non-empty string",
+  EMPTY_HEAD_SHA_OVERRIDE: "audit head SHA override must be a non-empty string",
   INVALID_RUN_FILE_PATH: "audit run file must be a branch-scoped audit run file",
   MISSING_INIT_EVENT: "audit run has no init event",
   UNKNOWN_CLOSE_STATUS: "unknown audit close status",
