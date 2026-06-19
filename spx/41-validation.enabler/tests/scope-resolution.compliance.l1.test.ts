@@ -196,6 +196,35 @@ describe("ALWAYS: TypeScript scope resolution uses the requested project root", 
     });
   });
 
+  it("keeps catch-all TypeScript include globs from narrowing top-level discovery", async () => {
+    await withTestEnv({}, async (env) => {
+      await env.writeRaw(
+        join(VALIDATION_PIPELINE_DATA.sourceDirectoryName, VALIDATION_PIPELINE_DATA.cleanSourceFileName),
+        "",
+      );
+      await env.writeRaw(
+        join(VALIDATION_PIPELINE_DATA.scriptSourceDirectoryName, VALIDATION_PIPELINE_DATA.cleanSourceFileName),
+        "",
+      );
+      await env.writeRaw(
+        TSCONFIG_FILES.full,
+        JSON.stringify({
+          include: [
+            VALIDATION_PIPELINE_DATA.typeScriptOnlySourceFilePattern,
+            ...TYPESCRIPT_FALLBACK_INCLUDE_PATTERNS,
+          ],
+        }),
+      );
+
+      const scope = getTypeScriptScope(VALIDATION_SCOPES.FULL, env.productDir);
+
+      expect(scope.directories).toEqual([
+        VALIDATION_PIPELINE_DATA.scriptSourceDirectoryName,
+        VALIDATION_PIPELINE_DATA.sourceDirectoryName,
+      ]);
+    });
+  });
+
   it("lets child TypeScript exclude replace inherited excludes", async () => {
     await withTestEnv({}, async (env) => {
       await env.writeRaw(
