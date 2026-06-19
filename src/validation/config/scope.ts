@@ -10,7 +10,7 @@
 
 import * as JSONC from "jsonc-parser";
 import { existsSync, readdirSync, readFileSync } from "node:fs";
-import { extname, isAbsolute, join } from "node:path";
+import { isAbsolute, join } from "node:path";
 
 import type { ScopeConfig, ValidationScope } from "../types";
 import { pathPassesValidationFilter } from "./path-filter";
@@ -299,10 +299,6 @@ export function pathHasTypeScriptSourceExtension(path: string): boolean {
   return TYPESCRIPT_SOURCE_EXTENSIONS.some((extension) => normalizedPath.endsWith(extension));
 }
 
-function pathCanSelectTypeScriptScope(path: string): boolean {
-  return extname(normalizeTypeScriptScopePath(path)) === "" || pathHasTypeScriptSourceExtension(path);
-}
-
 function filterActiveIncludePatterns(
   patterns: readonly string[],
   excludePatterns: readonly string[],
@@ -376,9 +372,6 @@ export function getTypeScriptScope(
 }
 
 export function pathPassesTypeScriptScope(path: string, scopeConfig: ScopeConfig): boolean {
-  if (!pathCanSelectTypeScriptScope(path)) {
-    return false;
-  }
   const included = scopeConfig.directories.some((directory) => pathMatchesLiteralPrefix(path, directory))
     || scopeConfig.filePatterns.some((pattern) => pathMatchesTypeScriptPattern(path, pattern));
   const excluded = scopeConfig.excludePatterns.some((pattern) => pathMatchesTypeScriptPattern(path, pattern));

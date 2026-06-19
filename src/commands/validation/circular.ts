@@ -3,6 +3,9 @@
  *
  * Runs dependency-cruiser to detect circular dependencies.
  */
+import { existsSync, statSync } from "node:fs";
+import { join } from "node:path";
+
 import { resolveConfig } from "@/config/index";
 import {
   VALIDATION_PATH_TOOL_SUBSECTIONS,
@@ -49,15 +52,51 @@ export const defaultCircularCommandDeps: CircularCommandDeps = {
   validateCircularDependencies,
 };
 
+const EXPLICIT_PATH_TARGET_KIND = {
+  DIRECTORY: "directory",
+  FILE: "file",
+} as const;
+
+function pathIsDirectoryOperand(projectRoot: string, originalPath: string, relativePath: string): boolean {
+  const candidatePath = join(projectRoot, relativePath);
+  if (existsSync(candidatePath)) {
+    return statSync(candidatePath).isDirectory();
+  }
+  return originalPath.endsWith("/") || originalPath.endsWith("\\");
+}
+
 function toExplicitScopeConfig(
   scopeConfig: ReturnType<typeof getTypeScriptScope>,
-  paths: readonly string[],
+  targets: readonly ExplicitPathTarget[],
 ): ReturnType<typeof getTypeScriptScope> {
   return {
     ...scopeConfig,
-    directories: paths.filter((path) => !pathHasTypeScriptSourceExtension(path)),
-    filePatterns: paths.filter((path) => pathHasTypeScriptSourceExtension(path)),
+    directories: targets
+      .filter((target) => target.kind === EXPLICIT_PATH_TARGET_KIND.DIRECTORY)
+      .map((target) => target.path),
+    filePatterns: targets
+      .filter((target) => target.kind === EXPLICIT_PATH_TARGET_KIND.FILE)
+      .map((target) => target.path),
   };
+}
+
+interface ExplicitPathTarget {
+  readonly kind: (typeof EXPLICIT_PATH_TARGET_KIND)[keyof typeof EXPLICIT_PATH_TARGET_KIND];
+  readonly path: string;
+}
+
+function toExplicitPathTarget(projectRoot: string, originalPath: string): ExplicitPathTarget {
+  const path = normalizeTypeScriptScopePath(toProjectRelativeValidationPath(projectRoot, originalPath));
+  return {
+    kind: pathIsDirectoryOperand(projectRoot, originalPath, path)
+      ? EXPLICIT_PATH_TARGET_KIND.DIRECTORY
+      : EXPLICIT_PATH_TARGET_KIND.FILE,
+    path,
+  };
+}
+
+function targetPassesTypeScriptSourceKind(target: ExplicitPathTarget): boolean {
+  return target.kind === EXPLICIT_PATH_TARGET_KIND.DIRECTORY || pathHasTypeScriptSourceExtension(target.path);
 }
 
 /**
@@ -111,15 +150,15 @@ export async function circularCommand(
     getTypeScriptScope(scope, cwd),
     validationPathFilter,
   );
-  const filteredFiles = files
-    ?.map((file) => toProjectRelativeValidationPath(cwd, file))
-    .map((file) => normalizeTypeScriptScopePath(file))
-    .filter((file) => pathPassesValidationFilter(file, validationPathFilter))
-    .filter((file) => pathPassesTypeScriptScope(file, scopeConfig));
+  const filteredTargets = files
+    ?.map((file) => toExplicitPathTarget(cwd, file))
+    .filter((target) => targetPassesTypeScriptSourceKind(target))
+    .filter((target) => pathPassesValidationFilter(target.path, validationPathFilter))
+    .filter((target) => pathPassesTypeScriptScope(target.path, scopeConfig));
 
   if (
     scopeConfig.filteredByValidationPathNoMatches
-    || (files !== undefined && files.length > 0 && filteredFiles?.length === 0)
+    || (files !== undefined && files.length > 0 && filteredTargets?.length === 0)
   ) {
     return {
       exitCode: 0,
@@ -127,8 +166,8 @@ export async function circularCommand(
       durationMs: Date.now() - startTime,
     };
   }
-  const effectiveScopeConfig = filteredFiles !== undefined && filteredFiles.length > 0
-    ? toExplicitScopeConfig(scopeConfig, filteredFiles)
+  const effectiveScopeConfig = filteredTargets !== undefined && filteredTargets.length > 0
+    ? toExplicitScopeConfig(scopeConfig, filteredTargets)
     : scopeConfig;
 
   // Run circular dependency validation
