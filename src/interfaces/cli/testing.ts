@@ -117,22 +117,22 @@ export function createTestingDomain(deps: TestingCliDependencies = defaultTestin
     name: TESTING_CLI.commandName,
     description: TESTING_CLI.description,
     register: (program: Command) => {
-    const testCmd = program.command(TESTING_CLI.commandName).description(TESTING_CLI.description);
-    testCmd.option(TESTING_CLI.agentOption, TESTING_CLI.agentDescription);
+      const testCmd = program.command(TESTING_CLI.commandName).description(TESTING_CLI.description);
+      testCmd.option(TESTING_CLI.agentOption, TESTING_CLI.agentDescription);
 
-    testCmd.action(async (options: TestingCliActionOptions, command: Command) => {
-      await runTestingAction(deps, false, { agent: requestsAgentMode(options, command) });
-    });
-
-    testCmd
-      .command(TESTING_CLI.passingSubcommand)
-      .description(TESTING_CLI.passingDescription)
-      .option(TESTING_CLI.agentOption, TESTING_CLI.agentDescription)
-      .action(async (options: TestingCliActionOptions, command: Command) => {
-        await runTestingAction(deps, true, { agent: requestsAgentMode(options, command) });
+      testCmd.action(async (options: TestingCliActionOptions, command: Command) => {
+        await runTestingAction(deps, false, { agent: requestsAgentMode(options, command) });
       });
-  },
-};
+
+      testCmd
+        .command(TESTING_CLI.passingSubcommand)
+        .description(TESTING_CLI.passingDescription)
+        .option(TESTING_CLI.agentOption, TESTING_CLI.agentDescription)
+        .action(async (options: TestingCliActionOptions, command: Command) => {
+          await runTestingAction(deps, true, { agent: requestsAgentMode(options, command) });
+        });
+    },
+  };
 }
 
 export const testingDomain: Domain = createTestingDomain();

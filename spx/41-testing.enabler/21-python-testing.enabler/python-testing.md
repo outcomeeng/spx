@@ -21,5 +21,5 @@ CAN execute Python tests with exclusion flags derived from `spx.config.{toml,jso
 ### Compliance
 
 - ALWAYS: pytest invocation is gated on the Python testing descriptor's detection result ([test](tests/python-testing.compliance.l1.test.ts))
-- ALWAYS: pytest runs via `uv run --active pytest` so the provisioned active Python environment provides the tool ([review])
-- NEVER: write pytest configuration into `pyproject.toml` — exclusion flags pass at invocation time ([review])
+- ALWAYS: pytest runs via `uv run --active pytest` so the provisioned active Python environment provides the tool ([audit])
+- NEVER: write pytest configuration into `pyproject.toml` — exclusion flags pass at invocation time ([audit])

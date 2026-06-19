@@ -20,6 +20,7 @@ CAN run spec-tree tests with a single command, honor configured passing-scope ex
 - Given a status consumer requests one node's outcome and the recorded evidence for that node is stale, failing, or absent, when it invokes the registry-based per-node run, then that node's tests execute through the registered runner for each matching extension and fresh last-run evidence is recorded ([test](../31-spec-domain.enabler/54-spec-cli-commands.enabler/tests/spec-cli-commands.scenario.l1.test.ts))
 - Given test files whose extension does not match any registered testing enabler, when `spx test` runs, then those files are reported, skipped, and make the command fail ([test](tests/testing.scenario.l1.test.ts))
 - Given one dispatched runner exits non-zero while another exits zero, when `spx test` completes, then the command exits non-zero ([test](tests/testing.scenario.l1.test.ts))
+- Given every selected test file matches a registered language whose runner is gated out by language detection, when `spx test` runs, then no runner is invoked and the command exits non-zero ([test](tests/testing.scenario.l1.test.ts))
 - Given `spx test` runs with agent output capture, then the selected runner adapter and selected test files remain the same and only output handling changes according to `spx/41-testing.enabler/11-test-runner-environments.pdr.md` ([test](85-agent-test-output.enabler/tests/agent-test-output.compliance.l1.test.ts))
 
 ### Mappings
@@ -30,7 +31,7 @@ CAN run spec-tree tests with a single command, honor configured passing-scope ex
 ### Properties
 
 - Test discovery is deterministic: the same spec tree structure always produces the same set of test files grouped by runner ([test](tests/testing.property.l1.test.ts))
-- Exit code aggregation: `spx test` exits non-zero if any dispatched runner exits non-zero or any selected test file matches no registered runner, zero otherwise ([test](tests/testing.property.l1.test.ts))
+- Exit code aggregation: `spx test` exits non-zero if any dispatched runner exits non-zero, any selected test file matches no registered runner, or every selected registered-language runner is gated out by language detection, zero otherwise ([test](tests/testing.property.l1.test.ts))
 - Last-run state is evidence, not product truth: deleting the state never changes which tests are in passing scope, only whether fast status has cached observations available ([audit])
 - Last-run state is stale when the resolved testing config digest, discovered test file path set, discovered test file content digest, or testing-language product input digest differs from the values recorded with the cached observation ([test](43-last-run-evidence.enabler/tests/staleness.property.l1.test.ts))
 
