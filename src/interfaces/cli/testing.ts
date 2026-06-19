@@ -16,7 +16,8 @@ export const TESTING_CLI = {
   description: "Run spec-tree tests across product languages",
   agentOption: "--agent",
   agentDescription: "Capture raw runner output and print a compact agent summary",
-  recursiveOption: "-r, --recursive",
+  recursiveShortFlag: "-r",
+  recursiveLongFlag: "--recursive",
   recursiveDescription: "Extend a node-path operand to its descendant nodes' tests",
   targetsArgument: "[targets...]",
   targetsDescription: "Node paths or test-file paths to run; omit to run the full discovered suite",
@@ -176,7 +177,10 @@ export function createTestingDomain(deps: TestingCliDependencies = defaultTestin
     register: (program: Command) => {
       const testCmd = program.command(TESTING_CLI.commandName).description(TESTING_CLI.description);
       testCmd.option(TESTING_CLI.agentOption, TESTING_CLI.agentDescription);
-      testCmd.option(TESTING_CLI.recursiveOption, TESTING_CLI.recursiveDescription);
+      testCmd.option(
+        `${TESTING_CLI.recursiveShortFlag}, ${TESTING_CLI.recursiveLongFlag}`,
+        TESTING_CLI.recursiveDescription,
+      );
       testCmd.argument(TESTING_CLI.targetsArgument, TESTING_CLI.targetsDescription);
 
       testCmd.action(async (targets: readonly string[], options: TestingCliActionOptions, command: Command) => {
@@ -192,7 +196,7 @@ export function createTestingDomain(deps: TestingCliDependencies = defaultTestin
         .command(TESTING_CLI.passingSubcommand)
         .description(TESTING_CLI.passingDescription)
         .option(TESTING_CLI.agentOption, TESTING_CLI.agentDescription)
-        .option(TESTING_CLI.recursiveOption, TESTING_CLI.recursiveDescription)
+        .option(`${TESTING_CLI.recursiveShortFlag}, ${TESTING_CLI.recursiveLongFlag}`, TESTING_CLI.recursiveDescription)
         .argument(TESTING_CLI.targetsArgument, TESTING_CLI.targetsDescription)
         .action(async (targets: readonly string[], options: TestingCliActionOptions, command: Command) => {
           await runTestingAction(
