@@ -1051,7 +1051,49 @@ describe("circular command scope routing", () => {
       expect(validationCalls).toEqual([
         {
           directories: [],
-          filePatterns: [`${narrowDirectory}/*.ts`],
+          filePatterns: [`${narrowDirectory}/**/*.ts`],
+          excludePatterns: [],
+        },
+      ]);
+    });
+  });
+
+  it("drops explicit files covered by constrained directory globs", async () => {
+    await withValidationEnv({ fixture: PROJECT_FIXTURES.CLEAN_PROJECT }, async ({ path }) => {
+      const narrowDirectory = join(
+        VALIDATION_PIPELINE_DATA.sourceDirectoryName,
+        VALIDATION_PIPELINE_DATA.narrowSourceDirectoryName,
+      );
+      const explicitSourceFile = join(narrowDirectory, VALIDATION_PIPELINE_DATA.cleanSourceFileName);
+      await mkdir(join(path, narrowDirectory), { recursive: true });
+      await writeFile(join(path, explicitSourceFile), "export const explicitFile = true;\n");
+      await writeFile(
+        join(path, TSCONFIG_FILES.full),
+        JSON.stringify({
+          compilerOptions: {
+            target: "ES2020",
+            module: "commonjs",
+            strict: true,
+          },
+          include: [join(narrowDirectory, "*.ts")],
+        }),
+      );
+      const { deps, validationCalls } = createRecordingCircularCommandDeps();
+
+      const result = await circularCommand(
+        {
+          cwd: path,
+          files: [`${narrowDirectory}/`, explicitSourceFile],
+        },
+        deps,
+      );
+
+      expect(result.exitCode).toBe(VALIDATION_EXIT_CODES.SUCCESS);
+      expect(result.output).toBe(VALIDATION_COMMAND_OUTPUT.CIRCULAR_NONE_FOUND);
+      expect(validationCalls).toEqual([
+        {
+          directories: [],
+          filePatterns: [join(narrowDirectory, "*.ts")],
           excludePatterns: [],
         },
       ]);

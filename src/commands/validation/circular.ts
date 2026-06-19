@@ -23,7 +23,9 @@ import {
   pathHasTypeScriptSourceExtension,
   pathPassesTypeScriptScope,
   TYPESCRIPT_SCOPE_DIRECTORY_PROBE_FILENAME,
+  typeScriptScopeGlobPatternToRegExp,
   typeScriptScopePatternCoversDirectorySourceSet,
+  typeScriptScopePatternHasGlob,
   typeScriptScopePatternIntersectsDirectory,
   typeScriptScopePatternTargetsTypeScriptSource,
 } from "@/validation/config/scope";
@@ -102,11 +104,25 @@ function constrainPatternToDirectory(pattern: string, directory: string): string
   const patternSegments = normalizedPattern.split("/");
   const directorySegments = normalizedDirectory.split("/");
   let patternIndex = 0;
+  let recursiveGlobConsumedDirectory = false;
   for (const directorySegment of directorySegments) {
     while (patternSegments[patternIndex] === RECURSIVE_GLOB_SEGMENT) {
-      patternIndex += 1;
+      const nextPatternSegment = patternSegments[patternIndex + 1];
+      if (
+        nextPatternSegment === directorySegment
+        || nextPatternSegment === ANY_SEGMENT_GLOB
+        || nextPatternSegment === SINGLE_CHARACTER_SEGMENT_GLOB
+      ) {
+        patternIndex += 1;
+        break;
+      }
+      recursiveGlobConsumedDirectory = true;
+      break;
     }
     const patternSegment = patternSegments[patternIndex];
+    if (patternSegment === RECURSIVE_GLOB_SEGMENT) {
+      continue;
+    }
     if (
       patternSegment === undefined
       || (
@@ -119,10 +135,28 @@ function constrainPatternToDirectory(pattern: string, directory: string): string
     }
     patternIndex += 1;
   }
+  while (patternSegments[patternIndex] === RECURSIVE_GLOB_SEGMENT) {
+    patternIndex += 1;
+  }
   const suffixSegments = patternSegments.slice(patternIndex);
-  return suffixSegments.length === 0
+  const constrainedSuffixSegments = recursiveGlobConsumedDirectory && suffixSegments.length === 1
+    ? [RECURSIVE_GLOB_SEGMENT, ...suffixSegments]
+    : suffixSegments;
+  return constrainedSuffixSegments.length === 0
     ? normalizedDirectory
-    : [normalizedDirectory, ...suffixSegments].join("/");
+    : [normalizedDirectory, ...constrainedSuffixSegments].join("/");
+}
+
+function pathMatchesScopePattern(path: string, pattern: string): boolean {
+  const normalizedPath = normalizeTypeScriptScopePath(path);
+  const normalizedPattern = normalizeTypeScriptScopePath(pattern);
+  if (typeScriptScopePatternHasGlob(normalizedPattern)) {
+    return typeScriptScopeGlobPatternToRegExp(normalizedPattern).test(normalizedPath);
+  }
+  if (normalizedPath === normalizedPattern || normalizedPath.startsWith(`${normalizedPattern}/`)) {
+    return true;
+  }
+  return false;
 }
 
 function toExplicitScopeConfig(
@@ -167,12 +201,15 @@ function toExplicitScopeConfig(
         path === directory || path.startsWith(`${directory}/`)
       )
     );
+  const uncoveredExplicitFileTargets = explicitFileTargets.filter((path) =>
+    !scopedFilePatternsForDirectoryTargets.some((pattern) => pathMatchesScopePattern(path, pattern))
+  );
   return {
     ...scopeConfig,
     directories: retainedDirectories,
     filePatterns: [
       ...scopedFilePatternsForDirectoryTargets,
-      ...explicitFileTargets,
+      ...uncoveredExplicitFileTargets,
     ],
   };
 }
