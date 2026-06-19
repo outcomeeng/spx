@@ -4,7 +4,7 @@
  * Runs dependency-cruiser to detect circular dependencies.
  */
 import { existsSync, statSync } from "node:fs";
-import { isAbsolute, join, relative, resolve } from "node:path";
+import { join } from "node:path";
 
 import { resolveConfig } from "@/config/index";
 import {
@@ -18,18 +18,14 @@ import {
   validationPathFilterForTool,
 } from "@/validation/config/path-filter";
 import {
-  globSegmentMatchesPathSegment,
+  constrainTypeScriptScopeToExplicitTargets,
+  EXPLICIT_TYPESCRIPT_SCOPE_TARGET_KIND,
+  explicitTypeScriptScopeTargetPassesScope,
+  explicitTypeScriptScopeTargetPassesSourceKind,
+  type ExplicitTypeScriptScopeTarget,
   getTypeScriptScope,
-  RECURSIVE_GLOB_SEGMENT,
-  normalizeTypeScriptScopePath,
-  pathHasTypeScriptSourceExtension,
-  pathMatchesTypeScriptPattern,
-  pathPassesTypeScriptScope,
-  TYPESCRIPT_SCOPE_DIRECTORY_PROBE_FILENAME,
-  typeScriptScopePatternCoversDirectorySourceSet,
-  typeScriptScopePatternHasGlob,
-  typeScriptScopePatternIntersectsDirectory,
-  typeScriptScopePatternTargetsTypeScriptSource,
+  pathStaysInsideTypeScriptScopeRoot,
+  toProjectRelativeTypeScriptScopePath,
 } from "@/validation/config/scope";
 import { detectTypeScript, discoverTool, formatSkipMessage } from "@/validation/discovery/index";
 import { validateCircularDependencies } from "@/validation/steps/circular";
@@ -44,10 +40,6 @@ import type { CircularCommandOptions, ValidationCommandResult } from "./types";
 
 type TypeScriptScopeConfig = ReturnType<typeof getTypeScriptScope>;
 type CircularValidationResult = Awaited<ReturnType<typeof validateCircularDependencies>>;
-interface PatternDirectoryAdvance {
-  readonly patternIndex: number;
-  readonly recursiveGlobConsumedDirectory: boolean;
-}
 
 const TYPESCRIPT_ABSENT_MESSAGE = formatTypeScriptAbsentSkipMessage(VALIDATION_STAGE_DISPLAY_NAMES.CIRCULAR);
 const CIRCULAR_CONFIG_ERROR_MESSAGE = `${VALIDATION_STAGE_DISPLAY_NAMES.CIRCULAR}: ✗ config error`;
@@ -66,13 +58,7 @@ export const defaultCircularCommandDeps: CircularCommandDeps = {
   validateCircularDependencies,
 };
 
-const EXPLICIT_PATH_TARGET_KIND = {
-  DIRECTORY: "directory",
-  FILE: "file",
-} as const;
-
 const DEPENDENCY_CRUISER_PACKAGE_NAME = "dependency-cruiser";
-const PROJECT_ROOT_SCOPE_PATH = ".";
 
 function pathIsDirectoryOperand(projectRoot: string, relativePath: string): boolean {
   try {
@@ -86,187 +72,18 @@ function pathExistsOperand(projectRoot: string, relativePath: string): boolean {
   return existsSync(join(projectRoot, relativePath));
 }
 
-function pathStaysInsideProject(projectRoot: string, path: string): boolean {
-  const resolvedPath = isAbsolute(path) ? resolve(path) : resolve(projectRoot, path);
-  const relativePath = relative(projectRoot, resolvedPath);
-  const segments = normalizeTypeScriptScopePath(relativePath).split("/");
-  return relativePath.length === 0 || (!segments.includes("..") && !isAbsolute(relativePath));
-}
-
-function toCanonicalProjectRelativePath(projectRoot: string, path: string): string {
-  const resolvedPath = isAbsolute(path) ? resolve(path) : resolve(projectRoot, path);
-  const relativePath = relative(projectRoot, resolvedPath);
-  return relativePath.length === 0
-    ? PROJECT_ROOT_SCOPE_PATH
-    : normalizeTypeScriptScopePath(relativePath);
-}
-
-function constrainPatternToDirectory(pattern: string, directory: string): string {
-  const normalizedPattern = normalizeTypeScriptScopePath(pattern);
-  const normalizedDirectory = normalizeTypeScriptScopePath(directory);
-  if (normalizedPattern === normalizedDirectory || normalizedPattern.startsWith(`${normalizedDirectory}/`)) {
-    return normalizedPattern;
-  }
-  const patternSegments = normalizedPattern.split("/");
-  const directorySegments = normalizedDirectory.split("/");
-  const directoryAdvance = advancePatternPastDirectory(patternSegments, directorySegments);
-  let { patternIndex } = directoryAdvance;
-  while (patternSegments[patternIndex] === RECURSIVE_GLOB_SEGMENT) {
-    patternIndex += 1;
-  }
-  const suffixSegments = patternSegments.slice(patternIndex);
-  const constrainedSuffixSegments = directoryAdvance.recursiveGlobConsumedDirectory && suffixSegments.length > 0
-    ? [RECURSIVE_GLOB_SEGMENT, ...suffixSegments]
-    : suffixSegments;
-  if (constrainedSuffixSegments.length > 0) {
-    return [normalizedDirectory, ...constrainedSuffixSegments].join("/");
-  }
-  return typeScriptScopePatternHasGlob(normalizedPattern)
-    && typeScriptScopePatternCoversDirectorySourceSet(normalizedPattern, normalizedDirectory)
-    ? `${normalizedDirectory}/**/*`
-    : normalizedDirectory;
-}
-
-function advancePatternPastDirectory(
-  patternSegments: readonly string[],
-  directorySegments: readonly string[],
-): PatternDirectoryAdvance {
-  let patternIndex = 0;
-  let recursiveGlobConsumedDirectory = false;
-  for (const directorySegment of directorySegments) {
-    const recursiveAdvance = advanceRecursiveGlobForDirectorySegment(patternSegments, patternIndex, directorySegment);
-    patternIndex = recursiveAdvance.patternIndex;
-    recursiveGlobConsumedDirectory = recursiveGlobConsumedDirectory || recursiveAdvance.recursiveGlobConsumedDirectory;
-    if (recursiveAdvance.recursiveGlobConsumedDirectory) {
-      continue;
-    }
-    if (!patternSegmentMatchesDirectorySegment(patternSegments[patternIndex], directorySegment)) {
-      break;
-    }
-    patternIndex += 1;
-  }
-  return { patternIndex, recursiveGlobConsumedDirectory };
-}
-
-function advanceRecursiveGlobForDirectorySegment(
-  patternSegments: readonly string[],
-  patternIndex: number,
-  directorySegment: string,
-): PatternDirectoryAdvance {
-  if (patternSegments[patternIndex] !== RECURSIVE_GLOB_SEGMENT) {
-    return { patternIndex, recursiveGlobConsumedDirectory: false };
-  }
-  const nextPatternSegment = patternSegments[patternIndex + 1];
-  return patternSegmentMatchesDirectorySegment(nextPatternSegment, directorySegment)
-    ? { patternIndex: patternIndex + 1, recursiveGlobConsumedDirectory: false }
-    : { patternIndex, recursiveGlobConsumedDirectory: true };
-}
-
-function patternSegmentMatchesDirectorySegment(patternSegment: string | undefined, directorySegment: string): boolean {
-  return patternSegment !== undefined
-    && globSegmentMatchesPathSegment(patternSegment, directorySegment);
-}
-
-function toExplicitScopeConfig(
-  scopeConfig: ReturnType<typeof getTypeScriptScope>,
-  targets: readonly ExplicitPathTarget[],
-): ReturnType<typeof getTypeScriptScope> {
-  const directoryTargets = targets
-    .filter((target) => target.kind === EXPLICIT_PATH_TARGET_KIND.DIRECTORY)
-    .map((target) => target.path);
-  if (directoryTargets.includes(PROJECT_ROOT_SCOPE_PATH)) {
-    return scopeConfig;
-  }
-  const patternMatchesDirectoryTarget = (pattern: string, directory: string): boolean =>
-    normalizeTypeScriptScopePath(pattern) === normalizeTypeScriptScopePath(directory);
-  const scopedFilePatternsForDirectoryTargets = scopeConfig.filePatterns.flatMap((pattern) =>
-    directoryTargets
-      .filter((directory) =>
-        !patternMatchesDirectoryTarget(pattern, directory)
-        && typeScriptScopePatternHasGlob(pattern)
-        && typeScriptScopePatternTargetsTypeScriptSource(pattern)
-        && typeScriptScopePatternIntersectsDirectory(pattern, directory)
-      )
-      .map((directory) => constrainPatternToDirectory(pattern, directory))
-  );
-  const narrowedDirectories = new Set(
-    directoryTargets.filter((directory) =>
-      scopedFilePatternsForDirectoryTargets.some((pattern) =>
-        typeScriptScopePatternIntersectsDirectory(pattern, directory)
-      )
-    ),
-  );
-  const retainedDirectories = directoryTargets.filter((directory) => !narrowedDirectories.has(directory));
-  const explicitFileTargets = targets
-    .filter((target) => target.kind === EXPLICIT_PATH_TARGET_KIND.FILE)
-    .map((target) => target.path)
-    .filter((path) =>
-      !retainedDirectories.some((directory) =>
-        path === directory || path.startsWith(`${directory}/`)
-      )
-    );
-  const uncoveredExplicitFileTargets = explicitFileTargets.filter((path) =>
-    !scopedFilePatternsForDirectoryTargets.some((pattern) => pathMatchesTypeScriptPattern(path, pattern))
-  );
-  return {
-    ...scopeConfig,
-    directories: retainedDirectories,
-    filePatterns: [
-      ...scopedFilePatternsForDirectoryTargets,
-      ...uncoveredExplicitFileTargets,
-    ],
-  };
-}
-
-interface ExplicitPathTarget {
-  readonly kind: (typeof EXPLICIT_PATH_TARGET_KIND)[keyof typeof EXPLICIT_PATH_TARGET_KIND];
-  readonly path: string;
-}
-
-function toExplicitPathTarget(projectRoot: string, originalPath: string): ExplicitPathTarget {
-  const path = toCanonicalProjectRelativePath(projectRoot, originalPath);
+function toExplicitPathTarget(projectRoot: string, originalPath: string): ExplicitTypeScriptScopeTarget {
+  const path = toProjectRelativeTypeScriptScopePath(projectRoot, originalPath);
   return {
     kind: pathIsDirectoryOperand(projectRoot, path)
-      ? EXPLICIT_PATH_TARGET_KIND.DIRECTORY
-      : EXPLICIT_PATH_TARGET_KIND.FILE,
+      ? EXPLICIT_TYPESCRIPT_SCOPE_TARGET_KIND.DIRECTORY
+      : EXPLICIT_TYPESCRIPT_SCOPE_TARGET_KIND.FILE,
     path,
   };
 }
 
-function targetPassesTypeScriptSourceKind(target: ExplicitPathTarget): boolean {
-  return target.kind === EXPLICIT_PATH_TARGET_KIND.DIRECTORY || pathHasTypeScriptSourceExtension(target.path);
-}
-
-function directoryPassesTypeScriptExcludes(directory: string, scopeConfig: TypeScriptScopeConfig): boolean {
-  const probePath = join(directory, TYPESCRIPT_SCOPE_DIRECTORY_PROBE_FILENAME);
-  return !scopeConfig.excludePatterns.some((pattern) =>
-    typeScriptScopePatternCoversDirectorySourceSet(pattern, directory)
-    || pathMatchesTypeScriptPattern(probePath, pattern)
-  );
-}
-
-function targetPassesTypeScriptScope(target: ExplicitPathTarget, scopeConfig: TypeScriptScopeConfig): boolean {
-  if (target.kind === EXPLICIT_PATH_TARGET_KIND.FILE) {
-    return pathPassesTypeScriptScope(target.path, scopeConfig);
-  }
-  if (target.path === PROJECT_ROOT_SCOPE_PATH) {
-    return scopeConfig.directories.length > 0
-      || scopeConfig.filePatterns.some((pattern) => typeScriptScopePatternTargetsTypeScriptSource(pattern));
-  }
-  const typeScriptSourcePatterns = scopeConfig.filePatterns.filter((pattern) =>
-    typeScriptScopePatternTargetsTypeScriptSource(pattern)
-  );
-  if (!directoryPassesTypeScriptExcludes(target.path, scopeConfig)) {
-    return false;
-  }
-  if (typeScriptSourcePatterns.length > 0) {
-    return typeScriptSourcePatterns.some((pattern) => typeScriptScopePatternIntersectsDirectory(pattern, target.path));
-  }
-  return pathPassesTypeScriptScope(join(target.path, TYPESCRIPT_SCOPE_DIRECTORY_PROBE_FILENAME), scopeConfig);
-}
-
 function targetPassesProjectBoundary(projectRoot: string, originalPath: string): boolean {
-  return pathStaysInsideProject(projectRoot, originalPath);
+  return pathStaysInsideTypeScriptScopeRoot(projectRoot, originalPath);
 }
 
 function filterExplicitPathTargets(
@@ -274,7 +91,7 @@ function filterExplicitPathTargets(
   files: readonly string[] | undefined,
   validationPathFilter: ReturnType<typeof validationPathFilterForTool>,
   scopeConfig: TypeScriptScopeConfig,
-): ExplicitPathTarget[] | undefined {
+): ExplicitTypeScriptScopeTarget[] | undefined {
   if (files === undefined) {
     return undefined;
   }
@@ -282,14 +99,14 @@ function filterExplicitPathTargets(
     .filter((file) => targetPassesProjectBoundary(projectRoot, file))
     .map((file) => toExplicitPathTarget(projectRoot, file))
     .filter((target) => pathExistsOperand(projectRoot, target.path))
-    .filter((target) => targetPassesTypeScriptSourceKind(target))
+    .filter((target) => explicitTypeScriptScopeTargetPassesSourceKind(target))
     .filter((target) => pathPassesValidationFilter(target.path, validationPathFilter))
-    .filter((target) => targetPassesTypeScriptScope(target, scopeConfig));
+    .filter((target) => explicitTypeScriptScopeTargetPassesScope(target, scopeConfig));
 }
 
 function explicitTargetsAreEmpty(
   files: readonly string[] | undefined,
-  targets: readonly ExplicitPathTarget[] | undefined,
+  targets: readonly ExplicitTypeScriptScopeTarget[] | undefined,
 ): boolean {
   return files !== undefined && files.length > 0 && targets?.length === 0;
 }
@@ -315,7 +132,7 @@ function resolveEffectiveScopeConfig(
   }
 
   return filteredTargets !== undefined && filteredTargets.length > 0
-    ? toExplicitScopeConfig(scopeConfig, filteredTargets)
+    ? constrainTypeScriptScopeToExplicitTargets(scopeConfig, filteredTargets)
     : scopeConfig;
 }
 
