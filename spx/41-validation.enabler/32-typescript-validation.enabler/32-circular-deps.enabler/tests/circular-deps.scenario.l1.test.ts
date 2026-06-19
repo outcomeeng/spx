@@ -819,7 +819,7 @@ describe("circular command scope routing", () => {
         {
           directories: [],
           filePatterns: [
-            join(wildcardBackedDirectory, VALIDATION_PIPELINE_DATA.cleanSourceFileName),
+            join(wildcardBackedDirectory, "*", VALIDATION_PIPELINE_DATA.cleanSourceFileName),
           ],
           excludePatterns: [],
         },
@@ -862,7 +862,7 @@ describe("circular command scope routing", () => {
         {
           directories: [],
           filePatterns: [
-            join(singleCharacterDirectory, VALIDATION_PIPELINE_DATA.cleanSourceFileName),
+            join(singleCharacterDirectory, "?", VALIDATION_PIPELINE_DATA.cleanSourceFileName),
           ],
           excludePatterns: [],
         },
@@ -1007,7 +1007,61 @@ describe("circular command scope routing", () => {
       expect(validationCalls).toEqual([
         {
           directories: [],
-          filePatterns: [`${narrowDirectory}/**/*.ts`],
+          filePatterns: [`${narrowDirectory}/*.ts`],
+          excludePatterns: [],
+        },
+      ]);
+    });
+  });
+
+  it("preserves nested TypeScript include suffixes when constraining explicit directories", async () => {
+    await withValidationEnv({ fixture: PROJECT_FIXTURES.CLEAN_PROJECT }, async ({ path }) => {
+      const narrowDirectory = join(
+        VALIDATION_PIPELINE_DATA.sourceDirectoryName,
+        VALIDATION_PIPELINE_DATA.narrowSourceDirectoryName,
+      );
+      await mkdir(
+        join(path, narrowDirectory, VALIDATION_PIPELINE_DATA.nestedFeatureSourceDirectoryName),
+        { recursive: true },
+      );
+      await writeFile(
+        join(
+          path,
+          narrowDirectory,
+          VALIDATION_PIPELINE_DATA.nestedFeatureSourceDirectoryName,
+          VALIDATION_PIPELINE_DATA.cleanSourceFileName,
+        ),
+        "export const nestedFeatureFile = true;\n",
+      );
+      await writeFile(
+        join(path, TSCONFIG_FILES.full),
+        JSON.stringify({
+          compilerOptions: {
+            target: "ES2020",
+            module: "commonjs",
+            strict: true,
+          },
+          include: [VALIDATION_PIPELINE_DATA.nestedFeatureSourceFilePattern],
+        }),
+      );
+      const { deps, validationCalls } = createRecordingCircularCommandDeps();
+
+      const result = await circularCommand(
+        {
+          cwd: path,
+          files: [`${narrowDirectory}/`],
+        },
+        deps,
+      );
+
+      expect(result.exitCode).toBe(VALIDATION_EXIT_CODES.SUCCESS);
+      expect(result.output).toBe(VALIDATION_COMMAND_OUTPUT.CIRCULAR_NONE_FOUND);
+      expect(validationCalls).toEqual([
+        {
+          directories: [],
+          filePatterns: [
+            `${narrowDirectory}/${VALIDATION_PIPELINE_DATA.nestedFeatureSourceDirectoryName}/*.ts`,
+          ],
           excludePatterns: [],
         },
       ]);
