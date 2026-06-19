@@ -1,5 +1,6 @@
 import { applyPathFilter } from "@/config/primitives/path-filter";
 import { SPEC_TREE_EVIDENCE_FILE } from "@/lib/spec-tree";
+import { compareAsciiStrings } from "@/lib/state-store";
 
 const TESTS_DIRECTORY_NAME = SPEC_TREE_EVIDENCE_FILE.DIRECTORY_NAME;
 const PATH_SEGMENT_SEPARATOR = "/";
@@ -63,11 +64,5 @@ export function resolveTargetedTestFiles(
     }
     for (const match of matches) selected.add(match);
   }
-  return { selected: [...selected].sort(compareAscii), unresolved };
-}
-
-function compareAscii(left: string, right: string): number {
-  if (left < right) return -1;
-  if (left > right) return 1;
-  return 0;
+  return { selected: [...selected].sort(compareAsciiStrings), unresolved };
 }
