@@ -24,6 +24,7 @@ import { appendableJournalSealMarkerPath, createAppendableJournalStore } from "@
 import {
   branchScopeDir,
   createJsonlRunFile,
+  ERROR_CODE_NOT_FOUND,
   type CreateRunFileOptions,
   defaultStateStoreFileSystem,
   hasErrorCode,
@@ -71,7 +72,6 @@ export interface ReadAuditRunStateOptions {
   readonly fs?: StateStoreFileSystem;
 }
 
-const ERROR_CODE_NOT_FOUND = "ENOENT";
 const AUDIT_RUN_COMPLETED_ATTEMPT = 1;
 const AUDIT_RUN_FILE_RELATIVE_SEGMENT_COUNT = 6;
 const AUDIT_RUN_FILE_BRANCH_SLUG_INDEX = 2;
