@@ -103,6 +103,30 @@ These live in the installed plugin product tree at
   to the generic `journal` domain.
 - Reviewing result-delivery governance (plugin PLAN item 6).
 
+## Structural finding: agent-run-journal placement (settle via /decompose)
+
+"agent-run-journal should not be top-level; verification should be" runs into a hard
+dependency constraint. The local Appendable backend (`spx/18-state.enabler/71-appendable-journal-store.enabler`)
+and the GitHub Snapshot backend (`spx/21-infrastructure.enabler/43-github-ci.enabler/21-snapshot-adapter.enabler`)
+both **depend on** the agent-run-journal contract (they bind its ports), so the contract
+must sit at a LOWER index than they do. The new `34-verification.enabler` channel CONSUMES
+those backends, so it sits ABOVE them (index > 21). Therefore the contract cannot nest
+under the verification channel without reversing dependency order.
+
+Resolution options (a `/decompose` decision — operator owns index among valid positions):
+
+1. Demote agent-run-journal under `spx/18-state.enabler` (joining its local backend there)
+   at an index below `71-appendable-journal-store` — minimal churn, preserves order, but
+   couples a cross-cutting contract to the state domain.
+2. Move the whole cluster (agent-run-journal + both backends) under `34-verification` —
+   dependency-valid (the cluster's external deps `43-record-store` at 18 and `github-ci` at
+   21 stay lower), but relocates the Snapshot adapter out of its github-ci home.
+3. Leave agent-run-journal top-level as a foundational contract; read "not top-level" as
+   "verification is the headline, not the journal."
+
+Until settled, the `34-verification` channel references the contract at its current path
+`spx/15-agent-run-journal.enabler`; update the 14 spec references when the move lands.
+
 ## Open questions (settle during execution — not pre-decided here)
 
 - Exact env-var names and contract: backend selection, run scope/branch, PR number, and the
