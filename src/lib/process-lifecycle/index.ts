@@ -9,8 +9,22 @@
  */
 
 export { EPIPE_EXIT_CODE, SIGINT_EXIT_CODE, SIGTERM_EXIT_CODE, UNCAUGHT_EXIT_CODE } from "./exit-codes";
+export {
+  createSignalSuspender,
+  FOREGROUND_SIGNALS,
+  type SignalListener,
+  type SignalSuspender,
+  type SignalTarget,
+} from "./foreground-handoff";
 export { createHandlers, SIGINT_NAME, SIGTERM_NAME } from "./handlers";
-export { EPIPE_CODE, installLifecycle, lifecycleProcessRunner, UNCAUGHT_EVENT_NAME } from "./install";
+export {
+  EPIPE_CODE,
+  foregroundProcessRunner,
+  installLifecycle,
+  lifecycleProcessRunner,
+  lifecycleSignalSuspender,
+  UNCAUGHT_EVENT_NAME,
+} from "./install";
 export {
   MANAGED_SUBPROCESS_STDIO,
   type ManagedSubprocessSpawnOptions,
