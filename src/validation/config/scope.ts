@@ -28,6 +28,7 @@ export const TSCONFIG_FILES = {
 } as const;
 const PATH_SEGMENT_SEPARATOR = "/";
 const GLOB_MARKER = "*";
+const RECURSIVE_GLOB_SEGMENT = "**";
 const SINGLE_CHARACTER_GLOB_MARKER = "?";
 const GLOB_REGEX_SPECIAL_CHARACTER_PATTERN = /[.+?^${}()|[\]\\]/gu;
 const REGEX_ESCAPE_REPLACEMENT = String.raw`\$&`;
@@ -291,6 +292,14 @@ function pathMatchesLiteralPrefix(path: string, prefix: string): boolean {
     || normalizedPath.startsWith(`${normalizedPrefix}${PATH_SEGMENT_SEPARATOR}`);
 }
 
+function splitTypeScriptScopePathSegments(path: string): string[] {
+  const normalizedPath = normalizeTypeScriptScopePath(path);
+  if (normalizedPath.length === 0 || normalizedPath === ".") {
+    return [];
+  }
+  return normalizedPath.split(PATH_SEGMENT_SEPARATOR);
+}
+
 function globLiteralPrefix(pattern: string): string {
   const normalizedPattern = normalizeTypeScriptScopePath(pattern);
   const globIndex = firstGlobMarkerIndex(normalizedPattern);
@@ -306,6 +315,35 @@ function firstGlobMarkerIndex(path: string): number {
   if (globIndex === -1) return singleCharacterGlobIndex;
   if (singleCharacterGlobIndex === -1) return globIndex;
   return Math.min(globIndex, singleCharacterGlobIndex);
+}
+
+function globSegmentMatchesPathSegment(patternSegment: string, pathSegment: string): boolean {
+  return typeScriptScopeGlobPatternToRegExp(patternSegment).test(pathSegment);
+}
+
+function globPatternCanMatchInsideDirectory(
+  patternSegments: readonly string[],
+  directorySegments: readonly string[],
+  patternIndex = 0,
+  directoryIndex = 0,
+): boolean {
+  if (directoryIndex === directorySegments.length) {
+    return true;
+  }
+  if (patternIndex === patternSegments.length) {
+    return false;
+  }
+
+  const patternSegment = patternSegments[patternIndex];
+  if (patternSegment === RECURSIVE_GLOB_SEGMENT) {
+    return globPatternCanMatchInsideDirectory(patternSegments, directorySegments, patternIndex + 1, directoryIndex)
+      || globPatternCanMatchInsideDirectory(patternSegments, directorySegments, patternIndex, directoryIndex + 1);
+  }
+
+  const directorySegment = directorySegments[directoryIndex];
+  return directorySegment !== undefined
+    && globSegmentMatchesPathSegment(patternSegment, directorySegment)
+    && globPatternCanMatchInsideDirectory(patternSegments, directorySegments, patternIndex + 1, directoryIndex + 1);
 }
 
 export function typeScriptScopePatternHasGlob(pattern: string): boolean {
@@ -362,9 +400,10 @@ export function typeScriptScopePatternIntersectsDirectory(pattern: string, direc
   if (!typeScriptScopePatternHasGlob(normalizedPattern)) {
     return pathMatchesLiteralPrefix(normalizedPattern, normalizedDirectory);
   }
-  const literalPrefix = globLiteralPrefix(normalizedPattern);
-  return pathMatchesLiteralPrefix(normalizedDirectory, literalPrefix)
-    || pathMatchesLiteralPrefix(literalPrefix, normalizedDirectory);
+  return globPatternCanMatchInsideDirectory(
+    splitTypeScriptScopePathSegments(normalizedPattern),
+    splitTypeScriptScopePathSegments(normalizedDirectory),
+  );
 }
 
 export function pathHasTypeScriptSourceExtension(path: string): boolean {
