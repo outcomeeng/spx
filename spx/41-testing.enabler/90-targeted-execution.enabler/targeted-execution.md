@@ -1,6 +1,6 @@
 # Targeted Execution
 
-PROVIDES explicit target-operand selection for `spx test` and `spx test passing` — resolving caller-supplied node-path and test-file-path operands after `--` to a concrete set of discovered test files, with an opt-in recursive flag that extends a node-path operand to its descendant nodes, and routing that set through the same runner adapters, runner environment, passing-scope policy, and last-run recording as a full run
+PROVIDES explicit target-operand selection for `spx test` and `spx test passing` — resolving caller-supplied node-path and test-file-path operands passed as positional command-line arguments (optionally after `--`) to a concrete set of discovered test files, with an opt-in recursive flag that extends a node-path operand to its descendant nodes, and routing that set through the same runner adapters, runner environment, passing-scope policy, and last-run recording as a full run
 SO THAT agents and developers running focused spec-tree verification
 CAN run only the tests for the node or file they changed instead of the full suite, while obtaining the same runner selection, agent output, and recorded evidence the full command produces
 
