@@ -417,7 +417,8 @@ export function typeScriptScopePatternCoversDirectorySourceSet(pattern: string, 
   if (!typeScriptScopePatternHasGlob(normalizedPattern) && pathHasTypeScriptSourceExtension(normalizedPattern)) {
     return false;
   }
-  const terminalSegment = splitTypeScriptScopePathSegments(normalizedPattern).at(-1) ?? normalizedPattern;
+  const patternSegments = splitTypeScriptScopePathSegments(normalizedPattern);
+  const terminalSegment = patternSegments.at(-1) ?? normalizedPattern;
   return !TERMINAL_EXTENSION_PATTERN.test(terminalSegment);
 }
 
