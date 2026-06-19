@@ -158,7 +158,7 @@ function createAgentOutputCommandRunner(
   productDir: string,
   options: AgentRunnerOptions = {},
 ): TestRunnerDependencies["runCommand"] {
-  const artifactRoot = mkdtemp(join(options.tmpDir ?? tmpdir(), AGENT_ARTIFACT_DIR_PREFIX));
+  let artifactRoot: Promise<string> | undefined;
   const processRunner = options.processRunner ?? lifecycleProcessRunner;
   const inheritedEnv = options.env ?? process.env;
   const createArtifactWriteStream = options.createArtifactWriteStream
@@ -167,6 +167,7 @@ function createAgentOutputCommandRunner(
 
   return async (command, args = EMPTY_RUNNER_ARGS) => {
     nextArtifactIndex += 1;
+    artifactRoot ??= mkdtemp(join(options.tmpDir ?? tmpdir(), AGENT_ARTIFACT_DIR_PREFIX));
     const root = await artifactRoot;
     return runCapturedCommand({
       productDir,

@@ -20,7 +20,6 @@ import {
   TEST_RUN_STATE_STATUS,
   type TestContentEntry,
   type TestRunFile,
-  type TestRunnerOutcome,
   type TestRunState,
   type TestRunStateFileSystem,
   type TestRunStateStatus,
@@ -174,8 +173,9 @@ async function productInputDigests(
   return digests;
 }
 
-function deriveStatus(outcomes: readonly TestRunnerOutcome[]): TestRunStateStatus {
-  const allPassed = outcomes.every((outcome) => outcome.exitCode === SUCCESS_EXIT_CODE);
+function deriveStatus(dispatch: TestDispatchResult): TestRunStateStatus {
+  const allPassed = dispatch.exitCode === SUCCESS_EXIT_CODE
+    && dispatch.outcomes.every((outcome) => outcome.exitCode === SUCCESS_EXIT_CODE);
   return allPassed ? TEST_RUN_STATE_STATUS.PASSED : TEST_RUN_STATE_STATUS.FAILED;
 }
 
@@ -250,7 +250,7 @@ async function recordRun(
     productInputDigests: staleness.productInputDigests,
     startedAt: runFile.startedAt,
     completedAt: formatTestRunTimestamp(recording.now()),
-    status: deriveStatus(dispatch.outcomes),
+    status: deriveStatus(dispatch),
   };
 
   const written = await writeTerminalTestRunState(runFile.runFilePath, state, { fs: recording.fs });
