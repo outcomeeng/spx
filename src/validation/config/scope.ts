@@ -30,6 +30,7 @@ const PATH_SEGMENT_SEPARATOR = "/";
 export const GLOB_MARKER = "*";
 export const RECURSIVE_GLOB_SEGMENT = "**";
 export const SINGLE_CHARACTER_GLOB_MARKER = "?";
+export const TYPESCRIPT_SCOPE_DIRECTORY_PATTERN_SUFFIX = "/**/*";
 const GLOB_REGEX_SPECIAL_CHARACTER_PATTERN = /[.+?^${}()|[\]\\]/gu;
 const REGEX_ESCAPE_REPLACEMENT = String.raw`\$&`;
 const HIDDEN_PATH_PREFIX = ".";
@@ -214,7 +215,7 @@ export function getTopLevelDirectoriesWithTypeScript(
 
   // Check if each directory should be included based on tsconfig include/exclude patterns
   for (const dir of topLevelDirs) {
-    if (!directoryPassesIncludePatterns(dir, config.include ?? [])) {
+    if (!directoryPassesIncludePatterns(dir, config.include ?? [], projectRoot, deps)) {
       continue;
     }
 
@@ -247,7 +248,10 @@ export function getTopLevelDirectoriesWithTypeScript(
   if (config.include) {
     for (const pattern of config.include) {
       // Extract directory from patterns like "scripts/**/*.ts", "tests/**/*.tsx"
-      if (typeScriptScopePatternTargetsTypeScriptSource(pattern) && pattern.includes(PATH_SEGMENT_SEPARATOR)) {
+      if (
+        includePatternTargetsTypeScriptScope(pattern, projectRoot, deps)
+        && pattern.includes(PATH_SEGMENT_SEPARATOR)
+      ) {
         const topLevelDir = getLiteralTopLevelPatternDirectory(pattern);
         if (topLevelDir) {
           directories.add(topLevelDir);
@@ -267,10 +271,15 @@ function getLiteralTopLevelPatternDirectory(pattern: string): string | null {
   return topLevelDir;
 }
 
-function directoryPassesIncludePatterns(directory: string, patterns: readonly string[]): boolean {
+function directoryPassesIncludePatterns(
+  directory: string,
+  patterns: readonly string[],
+  projectRoot: string,
+  deps: ScopeDeps,
+): boolean {
   return patterns.length === 0
     || patterns.some((pattern) =>
-      typeScriptScopePatternTargetsTypeScriptSource(pattern)
+      includePatternTargetsTypeScriptScope(pattern, projectRoot, deps)
       && typeScriptScopePatternIntersectsDirectory(pattern, directory)
     );
 }
@@ -439,12 +448,43 @@ export function pathHasTypeScriptSourceExtension(path: string): boolean {
 }
 
 export function typeScriptScopePatternTargetsTypeScriptSource(pattern: string): boolean {
-  if (pathHasTypeScriptSourceExtension(pattern)) {
+  const normalizedPattern = normalizeTypeScriptScopePath(pattern);
+  if (pathHasTypeScriptSourceExtension(normalizedPattern)) {
     return true;
   }
-  const normalizedPattern = normalizeTypeScriptScopePath(pattern);
+  if (!typeScriptScopePatternHasGlob(normalizedPattern)) {
+    return false;
+  }
   const terminalSegment = splitTypeScriptScopePathSegments(normalizedPattern).at(-1) ?? normalizedPattern;
-  return !TERMINAL_EXTENSION_PATTERN.test(terminalSegment);
+  return typeScriptScopePatternHasGlob(terminalSegment)
+    && !TERMINAL_EXTENSION_PATTERN.test(terminalSegment);
+}
+
+function includePatternTargetsTypeScriptScope(pattern: string, projectRoot: string, deps: ScopeDeps): boolean {
+  return includePatternIsLiteralDirectory(pattern, projectRoot, deps)
+    || typeScriptScopePatternTargetsTypeScriptSource(pattern);
+}
+
+function includePatternIsLiteralDirectory(pattern: string, projectRoot: string, deps: ScopeDeps): boolean {
+  const normalizedPattern = normalizeTypeScriptScopePath(pattern);
+  return !typeScriptScopePatternHasGlob(normalizedPattern)
+    && pathIsDirectory(resolveProjectPath(projectRoot, normalizedPattern), deps);
+}
+
+function pathIsDirectory(path: string, deps: ScopeDeps): boolean {
+  try {
+    deps.readdirSync(path, { withFileTypes: true });
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+function normalizeActiveIncludePattern(pattern: string, projectRoot: string, deps: ScopeDeps): string {
+  const normalizedPattern = normalizeTypeScriptScopePath(pattern);
+  return includePatternIsLiteralDirectory(normalizedPattern, projectRoot, deps)
+    ? `${normalizedPattern}${TYPESCRIPT_SCOPE_DIRECTORY_PATTERN_SUFFIX}`
+    : pattern;
 }
 
 function filterActiveIncludePatterns(
@@ -454,6 +494,7 @@ function filterActiveIncludePatterns(
   deps: ScopeDeps,
 ): string[] {
   return patterns
+    .map((pattern) => normalizeActiveIncludePattern(pattern, projectRoot, deps))
     .filter((pattern) => typeScriptScopePatternTargetsTypeScriptSource(pattern))
     .filter((pattern) => {
       const topLevelDir = getLiteralTopLevelPatternDirectory(pattern);
