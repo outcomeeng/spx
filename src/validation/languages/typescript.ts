@@ -24,6 +24,14 @@ import type { ValidationLanguageDescriptor, ValidationStageContext } from "@/val
 
 const TYPESCRIPT_LANGUAGE_NAME = "typescript";
 
+export interface KnipStageDeps {
+  readonly knipCommand: typeof knipCommand;
+}
+
+const defaultKnipStageDeps: KnipStageDeps = {
+  knipCommand,
+};
+
 /**
  * Circular-dependency stage runner.
  *
@@ -63,6 +71,18 @@ async function runLiteralStage(context: ValidationStageContext): Promise<Validat
   });
 }
 
+export async function runKnipStage(
+  context: ValidationStageContext,
+  deps: KnipStageDeps = defaultKnipStageDeps,
+): Promise<ValidationCommandResult> {
+  return deps.knipCommand({
+    cwd: context.cwd,
+    files: context.files,
+    quiet: context.quiet,
+    json: context.json,
+  });
+}
+
 export const typescriptValidationLanguage: ValidationLanguageDescriptor = {
   name: TYPESCRIPT_LANGUAGE_NAME,
   stages: [
@@ -75,7 +95,7 @@ export const typescriptValidationLanguage: ValidationLanguageDescriptor = {
       name: VALIDATION_STAGE_DISPLAY_NAMES.KNIP,
       // Knip is informational: unused-code findings never fail the pipeline.
       failsPipeline: false,
-      run: (context) => knipCommand({ cwd: context.cwd, quiet: context.quiet, json: context.json }),
+      run: runKnipStage,
     },
     {
       name: VALIDATION_STAGE_DISPLAY_NAMES.ESLINT,
