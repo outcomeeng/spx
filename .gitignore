@@ -16,6 +16,7 @@ build/
 
 # Test coverage
 coverage/
+coverage-*/
 
 # Environment
 .env
