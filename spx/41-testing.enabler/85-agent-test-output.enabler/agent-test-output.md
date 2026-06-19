@@ -12,6 +12,7 @@ CAN detect failures from one run without streaming passing-test noise into the t
 - Given an agent-output test run with a captured passing runner, when the agent summary is formatted, then the terminal output includes counts and artifact paths without listing every passing test path ([test](tests/agent-test-output.scenario.l1.test.ts))
 - Given an agent-output test run with selected runner groups that produce no runner reports, when the agent summary is formatted, then the terminal output reports the runner identity and requested test paths under a skipped-tests label, while failed aggregate runs still report failed status with the aggregate exit code ([test](tests/agent-test-output.scenario.l1.test.ts))
 - Given an agent-output test run with unmatched test files, when the agent summary is formatted, then the terminal output lists unmatched paths under the unmatched label ([test](tests/agent-test-output.scenario.l1.test.ts))
+- Given an agent-output test run with unresolved target operands, when the agent summary is formatted, then the terminal output lists the unresolved operands under the unresolved-targets label ([test](tests/agent-test-output.scenario.l1.test.ts))
 
 ### Compliance
 
