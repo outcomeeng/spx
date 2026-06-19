@@ -22,6 +22,7 @@ import {
   normalizeTypeScriptScopePath,
   pathHasTypeScriptSourceExtension,
   pathPassesTypeScriptScope,
+  typeScriptScopePatternNarrowsDirectory,
 } from "@/validation/config/scope";
 import { detectTypeScript, discoverTool, formatSkipMessage } from "@/validation/discovery/index";
 import { validateCircularDependencies } from "@/validation/steps/circular";
@@ -62,7 +63,6 @@ const EXPLICIT_PATH_TARGET_KIND = {
 const DEPENDENCY_CRUISER_PACKAGE_NAME = "dependency-cruiser";
 const DIRECTORY_SCOPE_PROBE_FILENAME = "__spx_scope_probe__.ts";
 const PROJECT_ROOT_SCOPE_PATH = ".";
-const BROAD_DIRECTORY_GLOB_SUFFIX = "**/*";
 
 function pathIsDirectoryOperand(projectRoot: string, relativePath: string): boolean {
   const candidatePath = join(projectRoot, relativePath);
@@ -95,11 +95,13 @@ function toExplicitScopeConfig(
     return scopeConfig;
   }
   const scopedFilePatternsForDirectoryTargets = scopeConfig.filePatterns.filter((pattern) =>
-    directoryTargets.some((directory) => typeScriptPatternNarrowsDirectory(pattern, directory))
+    directoryTargets.some((directory) => typeScriptScopePatternNarrowsDirectory(pattern, directory))
   );
   const narrowedDirectories = new Set(
     directoryTargets.filter((directory) =>
-      scopedFilePatternsForDirectoryTargets.some((pattern) => typeScriptPatternNarrowsDirectory(pattern, directory))
+      scopedFilePatternsForDirectoryTargets.some((pattern) =>
+        typeScriptScopePatternNarrowsDirectory(pattern, directory)
+      )
     ),
   );
   return {
@@ -152,19 +154,6 @@ function typeScriptPatternIsInsideDirectory(pattern: string, directory: string):
   const normalizedPattern = normalizeTypeScriptScopePath(pattern);
   const normalizedDirectory = normalizeTypeScriptScopePath(directory);
   return normalizedPattern === normalizedDirectory || normalizedPattern.startsWith(`${normalizedDirectory}/`);
-}
-
-function typeScriptPatternNarrowsDirectory(pattern: string, directory: string): boolean {
-  const normalizedPattern = normalizeTypeScriptScopePath(pattern);
-  const normalizedDirectory = normalizeTypeScriptScopePath(directory);
-  if (!normalizedPattern.startsWith(`${normalizedDirectory}/`)) {
-    return false;
-  }
-  const globIndex = normalizedPattern.indexOf("*");
-  if (globIndex === -1) {
-    return false;
-  }
-  return normalizedPattern !== `${normalizedDirectory}/${BROAD_DIRECTORY_GLOB_SUFFIX}`;
 }
 
 function filterExplicitPathTargets(

@@ -28,6 +28,7 @@ export const TSCONFIG_FILES = {
 } as const;
 const PATH_SEGMENT_SEPARATOR = "/";
 const GLOB_MARKER = "*";
+const BROAD_DIRECTORY_GLOB_SUFFIX = "**/*";
 const GLOB_REGEX_SPECIAL_CHARACTER_PATTERN = /[.+?^${}()|[\]\\]/gu;
 const REGEX_ESCAPE_REPLACEMENT = String.raw`\$&`;
 const HIDDEN_PATH_PREFIX = ".";
@@ -326,6 +327,19 @@ function pathMatchesTypeScriptPattern(path: string, pattern: string): boolean {
   }
   const prefix = globLiteralPrefix(pattern);
   return prefix.length === 0 || pathMatchesLiteralPrefix(path, prefix);
+}
+
+export function typeScriptScopePatternNarrowsDirectory(pattern: string, directory: string): boolean {
+  const normalizedPattern = normalizeTypeScriptScopePath(pattern);
+  const normalizedDirectory = normalizeTypeScriptScopePath(directory);
+  if (!normalizedPattern.startsWith(`${normalizedDirectory}/`)) {
+    return false;
+  }
+  const globIndex = normalizedPattern.indexOf(GLOB_MARKER);
+  if (globIndex === -1) {
+    return false;
+  }
+  return normalizedPattern !== `${normalizedDirectory}/${BROAD_DIRECTORY_GLOB_SUFFIX}`;
 }
 
 export function pathHasTypeScriptSourceExtension(path: string): boolean {
