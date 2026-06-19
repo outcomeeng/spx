@@ -23,7 +23,7 @@ import { HANDOFF_FRONTMATTER_HELP, PICKUP_SELECTION_HELP, SESSION_FORMAT_HELP } 
 import { buildPickupCommand } from "@/domains/session/pick-model";
 import { SESSION_STATUSES } from "@/domains/session/types";
 import type { Domain } from "@/domains/types";
-import { lifecycleProcessRunner } from "@/lib/process-lifecycle";
+import { foregroundProcessRunner, lifecycleSignalSuspender } from "@/lib/process-lifecycle";
 import { launchAgent } from "./session/pick/launch-agent";
 import { PICK_NON_TTY_MESSAGE, runPicker } from "./session/pick/run-picker";
 
@@ -115,7 +115,7 @@ function registerSessionCommands(sessionCmd: Command): void {
           // Ink has unmounted and restored the terminal; hand it to the agent,
           // then exit with the agent's status.
           const command = buildPickupCommand(choice.runtime, choice.autoContinue, choice.session.id);
-          const code = await launchAgent(lifecycleProcessRunner, command);
+          const code = await launchAgent(foregroundProcessRunner, lifecycleSignalSuspender, command);
           process.exit(code);
         }
       } catch (error) {

@@ -11,11 +11,21 @@
  */
 
 import { render } from "ink";
+import type { ReactElement } from "react";
 
 import type { PickerRuntime } from "@/domains/session/pick-model";
 import type { Session } from "@/domains/session/types";
 
 import { SessionPicker } from "./SessionPicker";
+
+/** The subset of Ink's render result that `runPicker` drives. */
+export interface PickerInstance {
+  unmount(): void;
+  waitUntilExit(): Promise<unknown>;
+}
+
+/** Mounts the picker element to a {@link PickerInstance} — Ink's `render` in production. */
+export type PickerRenderer = (element: ReactElement) => PickerInstance;
 
 /** Diagnostic the descriptor emits when the picker cannot run without a TTY. */
 export const PICK_NON_TTY_MESSAGE =
@@ -33,13 +43,17 @@ export interface LaunchChoice {
  * launches a session or quits.
  *
  * @param sessions - The claimable candidate sessions to display
+ * @param renderPicker - Mounts the element; defaults to Ink's `render`, injected in tests
  * @returns The launch choice, or `null` if the operator quit
  */
-export async function runPicker(sessions: readonly Session[]): Promise<LaunchChoice | null> {
+export async function runPicker(
+  sessions: readonly Session[],
+  renderPicker: PickerRenderer = render,
+): Promise<LaunchChoice | null> {
   let choice: LaunchChoice | null = null;
   let unmount = (): void => {};
 
-  const instance = render(
+  const instance = renderPicker(
     <SessionPicker
       sessions={sessions}
       onLaunch={(session, runtime, autoContinue) => {
