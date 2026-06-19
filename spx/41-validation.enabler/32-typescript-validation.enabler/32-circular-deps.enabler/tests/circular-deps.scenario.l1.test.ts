@@ -18,7 +18,7 @@ import {
   VALIDATION_STAGE_DISPLAY_NAMES,
 } from "@/commands/validation/messages";
 import { validationCliDefinition } from "@/interfaces/cli/validation";
-import { TSCONFIG_FILES } from "@/validation/config/scope";
+import { TSCONFIG_FILES, TYPESCRIPT_SCOPE_DIRECTORY_PATTERN_SUFFIX } from "@/validation/config/scope";
 import {
   CIRCULAR_DEPS_KEYS,
   type CircularDeps,
@@ -433,6 +433,19 @@ describe("circular dependency filtering", () => {
     expect(paths).toEqual([VALIDATION_PIPELINE_DATA.typeScriptOnlySourceFilePattern]);
   });
 
+  it("keeps broad TypeScript include globs from expanding to every TypeScript extension", async () => {
+    const { dependencyGraphCalls, result } = await validateCircularScopeWithRecording({
+      directories: [VALIDATION_PIPELINE_DATA.sourceDirectoryName],
+      filePatterns: [VALIDATION_PIPELINE_DATA.productionScopeFilePattern],
+      excludePatterns: [],
+    });
+
+    expect(result.success).toBe(true);
+    expect(dependencyGraphCalls).toHaveLength(1);
+    const [paths] = dependencyGraphCalls[0] ?? [];
+    expect(paths).toEqual([VALIDATION_PIPELINE_DATA.productionScopeFilePattern]);
+  });
+
   it("keeps nested TypeScript include globs instead of widening them to their top-level directory", async () => {
     const { dependencyGraphCalls, result } = await validateCircularScopeWithRecording({
       directories: [VALIDATION_PIPELINE_DATA.sourceDirectoryName],
@@ -754,15 +767,15 @@ describe("circular command scope routing", () => {
     });
   });
 
-  it("forwards --files directories as dependency-cruiser directory scope", async () => {
+  it("forwards --files directories as constrained TypeScript scope", async () => {
     await withValidationEnv({ fixture: PROJECT_FIXTURES.CLEAN_PROJECT }, async ({ path }) => {
       await expectCircularCommandScopes(
         path,
         [`${VALIDATION_PIPELINE_DATA.sourceDirectoryName}/`],
         [
           {
-            directories: [VALIDATION_PIPELINE_DATA.sourceDirectoryName],
-            filePatterns: [],
+            directories: [],
+            filePatterns: [VALIDATION_PIPELINE_DATA.productionScopeFilePattern],
             excludePatterns: [],
           },
         ],
@@ -780,8 +793,8 @@ describe("circular command scope routing", () => {
         ],
         [
           {
-            directories: [VALIDATION_PIPELINE_DATA.sourceDirectoryName],
-            filePatterns: [],
+            directories: [],
+            filePatterns: [VALIDATION_PIPELINE_DATA.productionScopeFilePattern],
             excludePatterns: [],
           },
         ],
@@ -857,7 +870,7 @@ describe("circular command scope routing", () => {
     });
   });
 
-  it("keeps explicit directories when TypeScript includes also name narrower files", async () => {
+  it("constrains explicit directories when TypeScript includes also name narrower files", async () => {
     await withValidationEnv({ fixture: PROJECT_FIXTURES.CLEAN_PROJECT }, async ({ path }) => {
       await mkdir(join(path, analyzeDirectory), { recursive: true });
       await writeFile(join(path, sourceModule), "export const narrowFile = true;\n");
@@ -878,8 +891,8 @@ describe("circular command scope routing", () => {
         [`${analyzeDirectory}/`],
         [
           {
-            directories: [analyzeDirectory],
-            filePatterns: [],
+            directories: [],
+            filePatterns: [`${analyzeDirectory}${TYPESCRIPT_SCOPE_DIRECTORY_PATTERN_SUFFIX}`],
             excludePatterns: [],
           },
         ],
@@ -887,7 +900,7 @@ describe("circular command scope routing", () => {
     });
   });
 
-  it("keeps explicit subdirectories under literal TypeScript directory includes", async () => {
+  it("constrains explicit subdirectories under literal TypeScript directory includes", async () => {
     await withValidationEnv({ fixture: PROJECT_FIXTURES.CLEAN_PROJECT }, async ({ path }) => {
       const narrowDirectory = join(
         VALIDATION_PIPELINE_DATA.sourceDirectoryName,
@@ -915,8 +928,8 @@ describe("circular command scope routing", () => {
         [`${narrowDirectory}/`],
         [
           {
-            directories: [narrowDirectory],
-            filePatterns: [],
+            directories: [],
+            filePatterns: [`${narrowDirectory}${TYPESCRIPT_SCOPE_DIRECTORY_PATTERN_SUFFIX}`],
             excludePatterns: [],
           },
         ],
@@ -1170,7 +1183,7 @@ describe("circular command scope routing", () => {
     });
   });
 
-  it("forwards existing dotted --files directories as dependency-cruiser directory scope", async () => {
+  it("forwards existing dotted --files directories as constrained TypeScript scope", async () => {
     await withValidationEnv({ fixture: PROJECT_FIXTURES.CLEAN_PROJECT }, async ({ path }) => {
       await mkdir(join(path, dottedSourceDirectory), { recursive: true });
       await writeFile(join(path, dottedSourceDirectory, "index.ts"), "export const dottedDirectory = true;\n");
@@ -1194,15 +1207,15 @@ describe("circular command scope routing", () => {
       expect(result.output).toBe(VALIDATION_COMMAND_OUTPUT.CIRCULAR_NONE_FOUND);
       expect(validationCalls).toEqual([
         {
-          directories: [dottedSourceDirectory],
-          filePatterns: [],
+          directories: [],
+          filePatterns: [`${dottedSourceDirectory}${TYPESCRIPT_SCOPE_DIRECTORY_PATTERN_SUFFIX}`],
           excludePatterns: [],
         },
       ]);
     });
   });
 
-  it("forwards explicit directories with TypeScript-like suffixes as directory scope", async () => {
+  it("forwards explicit directories with TypeScript-like suffixes as constrained TypeScript scope", async () => {
     await withValidationEnv({ fixture: PROJECT_FIXTURES.CLEAN_PROJECT }, async ({ path }) => {
       const modernTypeScriptDirectory = modernTypeScriptSourceFile;
       await mkdir(join(path, modernTypeScriptDirectory), { recursive: true });
@@ -1235,8 +1248,8 @@ describe("circular command scope routing", () => {
       expect(result.output).toBe(VALIDATION_COMMAND_OUTPUT.CIRCULAR_NONE_FOUND);
       expect(validationCalls).toEqual([
         {
-          directories: [modernTypeScriptDirectory],
-          filePatterns: [],
+          directories: [],
+          filePatterns: [`${modernTypeScriptDirectory}${TYPESCRIPT_SCOPE_DIRECTORY_PATTERN_SUFFIX}`],
           excludePatterns: [],
         },
       ]);

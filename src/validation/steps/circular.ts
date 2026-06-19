@@ -21,8 +21,8 @@ import {
   TSCONFIG_FILES,
   TYPESCRIPT_FALLBACK_INCLUDE_PATTERNS,
   typeScriptScopeGlobPatternToRegExp,
-  typeScriptScopePatternHasGlob,
   typeScriptScopePatternCoversDirectorySourceSet,
+  typeScriptScopePatternHasGlob,
   typeScriptScopePatternIntersectsDirectory,
   typeScriptScopePatternTargetsTypeScriptSource,
 } from "../config/scope";
@@ -149,11 +149,16 @@ function buildDependencyCruiserOptions(
 
 function toDependencyCruiserSourcePatterns(typescriptScope: ScopeConfig): string[] {
   const typeScriptFilePatterns = typescriptScope.filePatterns.filter((pattern) => patternTargetsTypeScriptSource(pattern));
-  const directoryIsCoveredByPattern = (directory: string): boolean =>
-    typescriptScope.filePatterns.some((pattern) => typeScriptScopePatternCoversDirectorySourceSet(pattern, directory));
+  const directoryHasLiteralSourceSetPattern = (directory: string): boolean =>
+    typescriptScope.filePatterns.some((pattern) =>
+      !typeScriptScopePatternHasGlob(pattern)
+      && typeScriptScopePatternCoversDirectorySourceSet(pattern, directory)
+    );
+  const directoryIsConstrainedByGlobPattern = (directory: string): boolean =>
+    !directoryHasLiteralSourceSetPattern(directory)
+    && typeScriptFilePatterns.some((pattern) => typeScriptScopePatternIntersectsDirectory(pattern, directory));
   const retainedDirectories = typescriptScope.directories.filter((directory) =>
-    directoryIsCoveredByPattern(directory)
-    || !typeScriptFilePatterns.some((pattern) => typeScriptScopePatternIntersectsDirectory(pattern, directory))
+    !directoryIsConstrainedByGlobPattern(directory)
   );
   const directoryPatterns = retainedDirectories.flatMap((directory) =>
     DEPENDENCY_CRUISER_TYPESCRIPT_SOURCE_GLOB_SUFFIXES.map((suffix) => `${directory}/${suffix}`),
