@@ -1237,6 +1237,28 @@ describe("circular command scope routing", () => {
     });
   });
 
+  it("skips missing explicit TypeScript files instead of invoking dependency-cruiser", async () => {
+    await withValidationEnv({ fixture: PROJECT_FIXTURES.CLEAN_PROJECT }, async ({ path }) => {
+      const missingSourceFile = join(
+        VALIDATION_PIPELINE_DATA.missingSourceDirectoryName,
+        VALIDATION_PIPELINE_DATA.cleanSourceFileName,
+      );
+      const { deps, validationCalls } = createRecordingCircularCommandDeps();
+
+      const result = await circularCommand(
+        {
+          cwd: path,
+          files: [missingSourceFile],
+        },
+        deps,
+      );
+
+      expect(result.exitCode).toBe(VALIDATION_EXIT_CODES.SUCCESS);
+      expect(result.output).toBe(formatValidationPathsNoTargetsSkipMessage(VALIDATION_STAGE_DISPLAY_NAMES.CIRCULAR));
+      expect(validationCalls).toEqual([]);
+    });
+  });
+
   it("canonicalizes dot-segment explicit files before TypeScript scope checks", async () => {
     await withValidationEnv({ fixture: PROJECT_FIXTURES.CLEAN_PROJECT }, async ({ path }) => {
       await writeFile(
