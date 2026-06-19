@@ -18,12 +18,12 @@ import { join } from "node:path";
 
 import {
   normalizeTypeScriptScopePath,
-  pathHasTypeScriptSourceExtension,
   TSCONFIG_FILES,
   typeScriptScopeGlobPatternToRegExp,
   typeScriptScopePatternHasGlob,
-  typeScriptScopePatternCoversDirectory,
-  typeScriptScopePatternNarrowsDirectory,
+  typeScriptScopePatternCoversDirectorySourceSet,
+  typeScriptScopePatternIntersectsDirectory,
+  typeScriptScopePatternTargetsTypeScriptSource,
 } from "../config/scope";
 import type { CircularDependencyResult, ScopeConfig, ValidationScope } from "../types";
 
@@ -149,10 +149,10 @@ function buildDependencyCruiserOptions(
 function toDependencyCruiserSourcePatterns(typescriptScope: ScopeConfig): string[] {
   const typeScriptFilePatterns = typescriptScope.filePatterns.filter((pattern) => patternTargetsTypeScriptSource(pattern));
   const directoryIsCoveredByPattern = (directory: string): boolean =>
-    typescriptScope.filePatterns.some((pattern) => typeScriptScopePatternCoversDirectory(pattern, directory));
+    typescriptScope.filePatterns.some((pattern) => typeScriptScopePatternCoversDirectorySourceSet(pattern, directory));
   const retainedDirectories = typescriptScope.directories.filter((directory) =>
     directoryIsCoveredByPattern(directory)
-    || !typeScriptFilePatterns.some((pattern) => typeScriptScopePatternNarrowsDirectory(pattern, directory))
+    || !typeScriptFilePatterns.some((pattern) => typeScriptScopePatternIntersectsDirectory(pattern, directory))
   );
   const directoryPatterns = retainedDirectories.flatMap((directory) =>
     DEPENDENCY_CRUISER_TYPESCRIPT_SOURCE_GLOB_SUFFIXES.map((suffix) => `${directory}/${suffix}`),
@@ -165,7 +165,7 @@ function toDependencyCruiserSourcePatterns(typescriptScope: ScopeConfig): string
 
 function patternTargetsTypeScriptSource(pattern: string): boolean {
   return DEPENDENCY_CRUISER_TYPESCRIPT_SOURCE_GLOB_SUFFIXES.some((suffix) => pattern.endsWith(suffix))
-    || pathHasTypeScriptSourceExtension(pattern);
+    || typeScriptScopePatternTargetsTypeScriptSource(pattern);
 }
 
 function patternIsCoveredByDirectory(pattern: string, directories: readonly string[]): boolean {

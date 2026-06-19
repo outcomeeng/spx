@@ -23,9 +23,9 @@ import {
   pathHasTypeScriptSourceExtension,
   pathPassesTypeScriptScope,
   TYPESCRIPT_SCOPE_DIRECTORY_PROBE_FILENAME,
-  typeScriptScopePatternCoversDirectory,
+  typeScriptScopePatternCoversDirectorySourceSet,
   typeScriptScopePatternIntersectsDirectory,
-  typeScriptScopePatternNarrowsDirectory,
+  typeScriptScopePatternTargetsTypeScriptSource,
 } from "@/validation/config/scope";
 import { detectTypeScript, discoverTool, formatSkipMessage } from "@/validation/discovery/index";
 import { validateCircularDependencies } from "@/validation/steps/circular";
@@ -99,18 +99,21 @@ function toExplicitScopeConfig(
   const patternMatchesDirectoryTarget = (pattern: string, directory: string): boolean =>
     normalizeTypeScriptScopePath(pattern) === normalizeTypeScriptScopePath(directory);
   const directoryIsCoveredByPattern = (directory: string): boolean =>
-    scopeConfig.filePatterns.some((pattern) => typeScriptScopePatternCoversDirectory(pattern, directory));
+    scopeConfig.filePatterns.some((pattern) => typeScriptScopePatternCoversDirectorySourceSet(pattern, directory));
   const scopedFilePatternsForDirectoryTargets = scopeConfig.filePatterns.filter((pattern) =>
     directoryTargets.some((directory) =>
       !patternMatchesDirectoryTarget(pattern, directory)
       && !directoryIsCoveredByPattern(directory)
-      && typeScriptScopePatternNarrowsDirectory(pattern, directory)
+      && typeScriptScopePatternTargetsTypeScriptSource(pattern)
+      && typeScriptScopePatternIntersectsDirectory(pattern, directory)
     )
   );
   const narrowedDirectories = new Set(
     directoryTargets.filter((directory) =>
+      !directoryIsCoveredByPattern(directory)
+      &&
       scopedFilePatternsForDirectoryTargets.some((pattern) =>
-        typeScriptScopePatternNarrowsDirectory(pattern, directory)
+        typeScriptScopePatternIntersectsDirectory(pattern, directory)
       )
     ),
   );

@@ -33,6 +33,7 @@ const SINGLE_CHARACTER_GLOB_MARKER = "?";
 const GLOB_REGEX_SPECIAL_CHARACTER_PATTERN = /[.+?^${}()|[\]\\]/gu;
 const REGEX_ESCAPE_REPLACEMENT = String.raw`\$&`;
 const HIDDEN_PATH_PREFIX = ".";
+const TERMINAL_EXTENSION_PATTERN = /\.[^.]+$/u;
 const TYPESCRIPT_SOURCE_EXTENSIONS = [".ts", ".tsx", ".mts", ".cts"] as const;
 const TYPESCRIPT_DECLARATION_EXTENSIONS = [".d.ts", ".d.mts", ".d.cts"] as const;
 export const TYPESCRIPT_SCOPE_DIRECTORY_PROBE_FILENAME = "__spx_scope_probe__.ts";
@@ -408,6 +409,15 @@ export function typeScriptScopePatternCoversDirectory(pattern: string, directory
   return pathMatchesTypeScriptPattern(probePath, normalizedPattern);
 }
 
+export function typeScriptScopePatternCoversDirectorySourceSet(pattern: string, directory: string): boolean {
+  if (!typeScriptScopePatternCoversDirectory(pattern, directory)) {
+    return false;
+  }
+  const normalizedPattern = normalizeTypeScriptScopePath(pattern);
+  const terminalSegment = splitTypeScriptScopePathSegments(normalizedPattern).at(-1) ?? normalizedPattern;
+  return !TERMINAL_EXTENSION_PATTERN.test(terminalSegment);
+}
+
 export function typeScriptScopePatternIntersectsDirectory(pattern: string, directory: string): boolean {
   const normalizedPattern = normalizeTypeScriptScopePath(pattern);
   const normalizedDirectory = normalizeTypeScriptScopePath(directory);
@@ -424,6 +434,15 @@ export function pathHasTypeScriptSourceExtension(path: string): boolean {
   const normalizedPath = normalizeTypeScriptScopePath(path);
   return TYPESCRIPT_SOURCE_EXTENSIONS.some((extension) => normalizedPath.endsWith(extension))
     && !TYPESCRIPT_DECLARATION_EXTENSIONS.some((extension) => normalizedPath.endsWith(extension));
+}
+
+export function typeScriptScopePatternTargetsTypeScriptSource(pattern: string): boolean {
+  if (pathHasTypeScriptSourceExtension(pattern)) {
+    return true;
+  }
+  const normalizedPattern = normalizeTypeScriptScopePath(pattern);
+  const terminalSegment = splitTypeScriptScopePathSegments(normalizedPattern).at(-1) ?? normalizedPattern;
+  return !TERMINAL_EXTENSION_PATTERN.test(terminalSegment);
 }
 
 function filterActiveIncludePatterns(
@@ -499,8 +518,11 @@ export function getTypeScriptScope(
 }
 
 export function pathPassesTypeScriptScope(path: string, scopeConfig: ScopeConfig): boolean {
-  const included = scopeConfig.filePatterns.length > 0
-    ? scopeConfig.filePatterns.some((pattern) => pathMatchesTypeScriptPattern(path, pattern))
+  const typeScriptSourcePatterns = scopeConfig.filePatterns.filter((pattern) =>
+    typeScriptScopePatternTargetsTypeScriptSource(pattern)
+  );
+  const included = typeScriptSourcePatterns.length > 0
+    ? typeScriptSourcePatterns.some((pattern) => pathMatchesTypeScriptPattern(path, pattern))
     : scopeConfig.directories.some((directory) => pathMatchesLiteralPrefix(path, directory));
   const excluded = scopeConfig.excludePatterns.some((pattern) => pathMatchesTypeScriptPattern(path, pattern));
   return included && !excluded;
