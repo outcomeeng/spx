@@ -354,7 +354,7 @@ describe("circular dependency filtering", () => {
     expect(result.success).toBe(true);
     expect(dependencyGraphCalls).toHaveLength(1);
     const [paths] = dependencyGraphCalls[0] ?? [];
-    expect(paths).toEqual([targetModule]);
+    expect(paths).toEqual(expectedTypescriptSourcePatterns(analyzeDirectory));
   });
 
   it("keeps root-level TypeScript globs when dependency-cruiser inputs also include directories", async () => {
