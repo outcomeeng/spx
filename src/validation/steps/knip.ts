@@ -7,12 +7,15 @@
  */
 
 import { existsSync } from "node:fs";
-import { mkdtemp, rm, writeFile } from "node:fs/promises";
-import { tmpdir } from "node:os";
+import { mkdir, mkdtemp, rm, writeFile } from "node:fs/promises";
 import { isAbsolute, join } from "node:path";
 
 import { lifecycleProcessRunner, type ProcessRunner, spawnManagedSubprocess } from "@/lib/process-lifecycle";
-import { TSCONFIG_FILES, TYPESCRIPT_FALLBACK_INCLUDE_PATTERNS } from "@/validation/config/scope";
+import {
+  TEMPORARY_TSCONFIG_PARENT_SEGMENTS,
+  TSCONFIG_FILES,
+  TYPESCRIPT_FALLBACK_INCLUDE_PATTERNS,
+} from "@/validation/config/scope";
 import type { ScopeConfig } from "../types";
 
 // =============================================================================
@@ -32,6 +35,7 @@ export const KNIP_COMMAND_TOKENS = {
 
 export interface KnipDeps {
   readonly existsSync: typeof existsSync;
+  readonly mkdir: typeof mkdir;
   readonly mkdtemp: typeof mkdtemp;
   readonly rm: typeof rm;
   readonly writeFile: typeof writeFile;
@@ -39,6 +43,7 @@ export interface KnipDeps {
 
 const defaultKnipDeps: KnipDeps = {
   existsSync,
+  mkdir,
   mkdtemp,
   rm,
   writeFile,
@@ -172,7 +177,9 @@ async function createScopedKnipTsconfig(
   typescriptScope: ScopeConfig,
   deps: KnipDeps,
 ): Promise<{ configPath: string; cleanup: () => Promise<void> }> {
-  const tempDir = await deps.mkdtemp(join(tmpdir(), "validate-knip-"));
+  const tempParentDir = join(projectRoot, ...TEMPORARY_TSCONFIG_PARENT_SEGMENTS);
+  await deps.mkdir(tempParentDir, { recursive: true });
+  const tempDir = await deps.mkdtemp(join(tempParentDir, "validate-knip-"));
   const configPath = join(tempDir, TSCONFIG_FILES.full);
   const toProjectPathPattern = (pattern: string) => isAbsolute(pattern) ? pattern : join(projectRoot, pattern);
   const project = typescriptScope.filePatterns.length > 0

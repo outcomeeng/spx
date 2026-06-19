@@ -1,4 +1,5 @@
 import type { ChildProcess, SpawnOptions } from "node:child_process";
+import { mkdir } from "node:fs/promises";
 import { join } from "node:path";
 
 import { describe, expect, it } from "vitest";
@@ -533,11 +534,14 @@ describe("ALWAYS: TypeScript scope resolution uses the requested project root", 
     await withTestEnv({}, async (env) => {
       const runner = new RecordingSpawnOptionsRunner();
       const writtenConfigs: string[] = [];
+      const writtenConfigPaths: string[] = [];
       const deps: KnipDeps = {
         existsSync: () => false,
+        mkdir,
         mkdtemp: defaultTypeScriptDeps.mkdtemp,
         rm: async () => {},
-        writeFile: async (_path, data) => {
+        writeFile: async (path, data) => {
+          writtenConfigPaths.push(path.toString());
           writtenConfigs.push(data.toString());
         },
       };
@@ -563,6 +567,10 @@ describe("ALWAYS: TypeScript scope resolution uses the requested project root", 
         KNIP_COMMAND_TOKENS.USE_TSCONFIG_FILES_FLAG,
         KNIP_COMMAND_TOKENS.TSCONFIG_FLAG,
       ]);
+      expect(writtenConfigPaths[0]?.startsWith(join(env.productDir, "node_modules"))).toBe(true);
+      expect(writtenConfigPaths[0]?.startsWith(join(env.productDir, ...TEMPORARY_TSCONFIG_PARENT_SEGMENTS))).toBe(
+        true,
+      );
       expect(writtenConfigs).toHaveLength(1);
       expect(JSON.parse(writtenConfigs[0] ?? "{}")).toEqual({
         extends: join(env.productDir, TSCONFIG_FILES.full),
@@ -579,6 +587,7 @@ describe("ALWAYS: TypeScript scope resolution uses the requested project root", 
       const cleanupTargets: string[] = [];
       const deps: KnipDeps = {
         existsSync: () => false,
+        mkdir,
         mkdtemp: defaultTypeScriptDeps.mkdtemp,
         rm: async (path) => {
           cleanupTargets.push(path.toString());
@@ -612,6 +621,7 @@ describe("ALWAYS: TypeScript scope resolution uses the requested project root", 
       const writtenConfigs: string[] = [];
       const deps: KnipDeps = {
         existsSync: () => false,
+        mkdir,
         mkdtemp: defaultTypeScriptDeps.mkdtemp,
         rm: async () => {},
         writeFile: async (_path, data) => {
@@ -655,11 +665,14 @@ describe("ALWAYS: TypeScript scope resolution uses the requested project root", 
     await withTestEnv({}, async (env) => {
       const runner = new RecordingSpawnOptionsRunner();
       const writtenConfigs: string[] = [];
+      const writtenConfigPaths: string[] = [];
       const deps: KnipDeps = {
         existsSync: () => false,
+        mkdir,
         mkdtemp: defaultTypeScriptDeps.mkdtemp,
         rm: async () => {},
-        writeFile: async (_path, data) => {
+        writeFile: async (path, data) => {
+          writtenConfigPaths.push(path.toString());
           writtenConfigs.push(data.toString());
         },
       };
@@ -679,6 +692,10 @@ describe("ALWAYS: TypeScript scope resolution uses the requested project root", 
       );
 
       expect(result).toEqual({ success: true });
+      expect(writtenConfigPaths[0]?.startsWith(join(env.productDir, "node_modules"))).toBe(true);
+      expect(writtenConfigPaths[0]?.startsWith(join(env.productDir, ...TEMPORARY_TSCONFIG_PARENT_SEGMENTS))).toBe(
+        true,
+      );
       expect(JSON.parse(writtenConfigs[0] ?? "{}")).toEqual({
         extends: join(env.productDir, TSCONFIG_FILES.full),
         include: expectedKnipDirectorySourcePatterns(VALIDATION_PIPELINE_DATA.sourceDirectoryName).map((pattern) =>

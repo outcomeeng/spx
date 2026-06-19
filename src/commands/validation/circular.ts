@@ -3,9 +3,6 @@
  *
  * Runs dependency-cruiser to detect circular dependencies.
  */
-import { existsSync, statSync } from "node:fs";
-import { join } from "node:path";
-
 import { resolveConfig } from "@/config/index";
 import {
   VALIDATION_PATH_TOOL_SUBSECTIONS,
@@ -14,18 +11,13 @@ import {
 } from "@/validation/config/descriptor";
 import {
   applyValidationPathFilterToScope,
-  pathPassesValidationFilter,
   validationPathFilterForTool,
 } from "@/validation/config/path-filter";
 import {
   constrainTypeScriptScopeToExplicitTargets,
-  EXPLICIT_TYPESCRIPT_SCOPE_TARGET_KIND,
-  explicitTypeScriptScopeTargetPassesScope,
-  explicitTypeScriptScopeTargetPassesSourceKind,
   type ExplicitTypeScriptScopeTarget,
+  filterExplicitTypeScriptScopeTargets,
   getTypeScriptScope,
-  pathStaysInsideTypeScriptScopeRoot,
-  toProjectRelativeTypeScriptScopePath,
 } from "@/validation/config/scope";
 import { detectTypeScript, discoverTool, formatSkipMessage } from "@/validation/discovery/index";
 import { validateCircularDependencies } from "@/validation/steps/circular";
@@ -60,48 +52,18 @@ export const defaultCircularCommandDeps: CircularCommandDeps = {
 
 const DEPENDENCY_CRUISER_PACKAGE_NAME = "dependency-cruiser";
 
-function pathIsDirectoryOperand(projectRoot: string, relativePath: string): boolean {
-  try {
-    return statSync(join(projectRoot, relativePath)).isDirectory();
-  } catch {
-    return false;
-  }
-}
-
-function pathExistsOperand(projectRoot: string, relativePath: string): boolean {
-  return existsSync(join(projectRoot, relativePath));
-}
-
-function toExplicitPathTarget(projectRoot: string, originalPath: string): ExplicitTypeScriptScopeTarget {
-  const path = toProjectRelativeTypeScriptScopePath(projectRoot, originalPath);
-  return {
-    kind: pathIsDirectoryOperand(projectRoot, path)
-      ? EXPLICIT_TYPESCRIPT_SCOPE_TARGET_KIND.DIRECTORY
-      : EXPLICIT_TYPESCRIPT_SCOPE_TARGET_KIND.FILE,
-    path,
-  };
-}
-
-function targetPassesProjectBoundary(projectRoot: string, originalPath: string): boolean {
-  return pathStaysInsideTypeScriptScopeRoot(projectRoot, originalPath);
-}
-
 function filterExplicitPathTargets(
   projectRoot: string,
   files: readonly string[] | undefined,
   validationPathFilter: ReturnType<typeof validationPathFilterForTool>,
   scopeConfig: TypeScriptScopeConfig,
 ): ExplicitTypeScriptScopeTarget[] | undefined {
-  if (files === undefined) {
-    return undefined;
-  }
-  return files
-    .filter((file) => targetPassesProjectBoundary(projectRoot, file))
-    .map((file) => toExplicitPathTarget(projectRoot, file))
-    .filter((target) => pathExistsOperand(projectRoot, target.path))
-    .filter((target) => explicitTypeScriptScopeTargetPassesSourceKind(target))
-    .filter((target) => pathPassesValidationFilter(target.path, validationPathFilter))
-    .filter((target) => explicitTypeScriptScopeTargetPassesScope(target, scopeConfig));
+  return filterExplicitTypeScriptScopeTargets({
+    paths: files,
+    projectRoot,
+    validationPathFilter,
+    scopeConfig,
+  });
 }
 
 function explicitTargetsAreEmpty(
