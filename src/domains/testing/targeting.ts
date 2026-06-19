@@ -30,11 +30,15 @@ function matchOperand(
   operand: string,
   recursive: boolean,
 ): readonly string[] {
-  if (recursive || discovered.includes(operand)) {
-    return applyPathFilter(discovered, { include: [operand] });
+  // Strip trailing slashes (e.g. from shell directory completion) so a node
+  // operand's own-tests prefix is `{node}/tests`, never `{node}//tests`, which
+  // applyPathFilter's segment matcher would never match against discovered paths.
+  const normalized = operand.replace(/\/+$/u, "");
+  if (recursive || discovered.includes(normalized)) {
+    return applyPathFilter(discovered, { include: [normalized] });
   }
   return applyPathFilter(discovered, {
-    include: [`${operand}${PATH_SEGMENT_SEPARATOR}${TESTS_DIRECTORY_NAME}`],
+    include: [`${normalized}${PATH_SEGMENT_SEPARATOR}${TESTS_DIRECTORY_NAME}`],
   });
 }
 
