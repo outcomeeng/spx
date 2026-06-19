@@ -52,6 +52,11 @@ const modernTypeScriptSourceFile = join(
   VALIDATION_PIPELINE_DATA.sourceDirectoryName,
   VALIDATION_PIPELINE_DATA.modernSourceFileName,
 );
+const dotPrefixedRootTypeScriptFile = "..foo.ts";
+const missingSourceDirectory = join(
+  VALIDATION_PIPELINE_DATA.sourceDirectoryName,
+  VALIDATION_PIPELINE_DATA.missingSourceDirectoryName,
+);
 const outOfRootRelativeSourceFile = join(
   "..",
   VALIDATION_PIPELINE_DATA.sourceDirectoryName,
@@ -963,6 +968,71 @@ describe("circular command scope routing", () => {
         {
           cwd: path,
           files: [outOfRootRelativeSourceFile],
+        },
+        deps,
+      );
+
+      expect(result.exitCode).toBe(VALIDATION_EXIT_CODES.SUCCESS);
+      expect(result.output).toBe(formatValidationPathsNoTargetsSkipMessage(VALIDATION_STAGE_DISPLAY_NAMES.CIRCULAR));
+      expect(validationCalls).toEqual([]);
+    });
+  });
+
+  it("keeps explicit root files whose names start with dot segments", async () => {
+    await withValidationEnv({ fixture: PROJECT_FIXTURES.CLEAN_PROJECT }, async ({ path }) => {
+      await writeFile(join(path, dotPrefixedRootTypeScriptFile), "export const dotPrefixed = true;\n");
+      await writeFile(
+        join(path, TSCONFIG_FILES.full),
+        JSON.stringify({
+          compilerOptions: {
+            target: "ES2020",
+            module: "commonjs",
+            strict: true,
+          },
+          include: [dotPrefixedRootTypeScriptFile],
+        }),
+      );
+      const validationCalls: ScopeConfig[] = [];
+      const deps: CircularCommandDeps = {
+        validateCircularDependencies: async (_scope, scopeConfig) => {
+          validationCalls.push(scopeConfig);
+          return { success: true };
+        },
+      };
+
+      const result = await circularCommand(
+        {
+          cwd: path,
+          files: [dotPrefixedRootTypeScriptFile],
+        },
+        deps,
+      );
+
+      expect(result.exitCode).toBe(VALIDATION_EXIT_CODES.SUCCESS);
+      expect(validationCalls).toEqual([
+        {
+          directories: [],
+          filePatterns: [dotPrefixedRootTypeScriptFile],
+          excludePatterns: [],
+        },
+      ]);
+    });
+  });
+
+  it("skips missing explicit directories instead of trusting trailing slashes", async () => {
+    await withValidationEnv({ fixture: PROJECT_FIXTURES.CLEAN_PROJECT }, async ({ path }) => {
+      const validationCalls: ScopeConfig[] = [];
+      const deps: CircularCommandDeps = {
+        validateCircularDependencies: async (_scope, scopeConfig) => {
+          validationCalls.push(scopeConfig);
+          return { success: true };
+        },
+      };
+
+      const result = await circularCommand(
+        {
+          cwd: path,
+          files: [`${missingSourceDirectory}/`],
         },
         deps,
       );
