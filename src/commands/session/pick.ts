@@ -1,10 +1,10 @@
 /**
  * Session pick CLI command handler.
  *
- * Loads the claimable candidate set for the interactive picker. As a handler,
+ * Loads the claimable candidate set for the interactive launcher. As a handler,
  * it resolves config and reads the session store, performing no Commander
  * binding and no process I/O — the descriptor mounts the terminal interface and
- * claims the chosen session through `pickupCommand`.
+ * hands the chosen session to the launched agent.
  *
  * @module commands/session/pick
  */

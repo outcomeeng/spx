@@ -20,8 +20,11 @@ import { SESSION_LIST_FORMAT } from "@/commands/session/list";
 import { SessionHandoffBaseError } from "@/domains/session/errors";
 import { renderHandoffBaseChecklist } from "@/domains/session/handoff-base-checklist";
 import { HANDOFF_FRONTMATTER_HELP, PICKUP_SELECTION_HELP, SESSION_FORMAT_HELP } from "@/domains/session/help";
+import { buildPickupCommand } from "@/domains/session/pick-model";
 import { SESSION_STATUSES } from "@/domains/session/types";
 import type { Domain } from "@/domains/types";
+import { lifecycleProcessRunner } from "@/lib/process-lifecycle";
+import { launchAgent } from "./session/pick/launch-agent";
 import { PICK_NON_TTY_MESSAGE, runPicker } from "./session/pick/run-picker";
 
 import { writeWarning } from "./write-warning";
@@ -89,10 +92,11 @@ function registerSessionCommands(sessionCmd: Command): void {
       }
     });
 
-  // pick command — interactive picker over the todo queue; claims on selection.
+  // pick command — interactive launcher: browse the todo queue, then hand the
+  // selected session to claude or codex via `/pickup`. The picker never claims.
   sessionCmd
     .command("pick")
-    .description("Interactively pick and claim a session (move from todo to doing)")
+    .description("Interactively pick a session and launch claude or codex to resume it")
     .option("--sessions-dir <path>", "Custom sessions directory")
     .action(async (options: { sessionsDir?: string }) => {
       try {
@@ -106,14 +110,13 @@ function registerSessionCommands(sessionCmd: Command): void {
           sessionsDir: options.sessionsDir,
           onWarning: writeWarning,
         });
-        const claimed = await runPicker(sessions);
-        if (claimed !== null) {
-          const output = await pickupCommand({
-            sessionIds: [claimed.id],
-            sessionsDir: options.sessionsDir,
-            onWarning: writeWarning,
-          });
-          console.log(output);
+        const choice = await runPicker(sessions);
+        if (choice !== null) {
+          // Ink has unmounted and restored the terminal; hand it to the agent,
+          // then exit with the agent's status.
+          const command = buildPickupCommand(choice.runtime, choice.autoContinue, choice.session.id);
+          const code = await launchAgent(lifecycleProcessRunner, command);
+          process.exit(code);
         }
       } catch (error) {
         handleError(error);
