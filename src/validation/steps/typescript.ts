@@ -11,7 +11,7 @@ import { mkdtemp } from "node:fs/promises";
 import { isAbsolute, join } from "node:path";
 
 import { lifecycleProcessRunner, type ProcessRunner, spawnManagedSubprocess } from "@/lib/process-lifecycle";
-import { TSCONFIG_FILES } from "../config/scope";
+import { TEMPORARY_TSCONFIG_PARENT_SEGMENTS, TSCONFIG_FILES } from "../config/scope";
 import type { ScopeConfig, ValidationScope } from "../types";
 import { VALIDATION_SCOPES } from "../types";
 import {
@@ -70,10 +70,7 @@ export interface TypeScriptValidationOptions {
  */
 const TEMPORARY_TSCONFIG_COMPILER_OPTIONS = { noEmit: true } as const;
 
-/**
- * Parent directory segments for temporary validation configs — kept under the project's `node_modules` so the temporary file never appears in the project's tracked working tree.
- */
-export const TEMPORARY_TSCONFIG_PARENT_SEGMENTS = ["node_modules", ".cache", "spx"] as const;
+export { TEMPORARY_TSCONFIG_PARENT_SEGMENTS } from "../config/scope";
 
 /**
  * Directory-name prefix for temporary validation configs.

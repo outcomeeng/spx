@@ -3,9 +3,6 @@
  *
  * Runs knip to find unused exports, dependencies, and files.
  */
-import { statSync } from "node:fs";
-import { join } from "node:path";
-
 import { resolveConfig } from "@/config/index";
 import {
   VALIDATION_PATH_TOOL_SUBSECTIONS,
@@ -14,18 +11,12 @@ import {
 } from "@/validation/config/descriptor";
 import {
   applyValidationPathFilterToScope,
-  pathPassesValidationFilter,
   validationPathFilterForTool,
 } from "@/validation/config/path-filter";
 import {
   constrainTypeScriptScopeToExplicitTargets,
-  EXPLICIT_TYPESCRIPT_SCOPE_TARGET_KIND,
-  explicitTypeScriptScopeTargetPassesScope,
-  explicitTypeScriptScopeTargetPassesSourceKind,
-  type ExplicitTypeScriptScopeTarget,
+  filterExplicitTypeScriptScopeTargets,
   getTypeScriptScope,
-  pathStaysInsideTypeScriptScopeRoot,
-  toProjectRelativeTypeScriptScopePath,
 } from "@/validation/config/scope";
 import { discoverTool, formatSkipMessage } from "@/validation/discovery/index";
 import { validateKnip } from "@/validation/steps/knip";
@@ -114,12 +105,12 @@ function applyExplicitFilesToKnipScope(
   if (files === undefined) {
     return scopeConfig;
   }
-  const explicitTargets = files
-    .filter((file) => pathStaysInsideTypeScriptScopeRoot(projectRoot, file))
-    .map((file) => toExplicitTypeScriptScopeTarget(projectRoot, file))
-    .filter((target) => explicitTypeScriptScopeTargetPassesSourceKind(target))
-    .filter((target) => pathPassesValidationFilter(target.path, validationPathFilter))
-    .filter((target) => explicitTypeScriptScopeTargetPassesScope(target, scopeConfig));
+  const explicitTargets = filterExplicitTypeScriptScopeTargets({
+    paths: files,
+    projectRoot,
+    validationPathFilter,
+    scopeConfig,
+  }) ?? [];
 
   if (explicitTargets.length === 0) {
     return {
@@ -138,22 +129,4 @@ function applyExplicitFilesToKnipScope(
     filteredByValidationPathIncludes: true,
     filteredByValidationPathNoMatches: false,
   };
-}
-
-function toExplicitTypeScriptScopeTarget(projectRoot: string, originalPath: string): ExplicitTypeScriptScopeTarget {
-  const path = toProjectRelativeTypeScriptScopePath(projectRoot, originalPath);
-  return {
-    kind: pathIsDirectoryOperand(projectRoot, path)
-      ? EXPLICIT_TYPESCRIPT_SCOPE_TARGET_KIND.DIRECTORY
-      : EXPLICIT_TYPESCRIPT_SCOPE_TARGET_KIND.FILE,
-    path,
-  };
-}
-
-function pathIsDirectoryOperand(projectRoot: string, relativePath: string): boolean {
-  try {
-    return statSync(join(projectRoot, relativePath)).isDirectory();
-  } catch {
-    return false;
-  }
 }

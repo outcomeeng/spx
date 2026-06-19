@@ -12,6 +12,7 @@ import * as JSONC from "jsonc-parser";
 import { existsSync, readdirSync, readFileSync } from "node:fs";
 import { isAbsolute, join, relative, resolve } from "node:path";
 
+import type { ValidationPathFilterConfig } from "@/validation/config/descriptor";
 import type { ScopeConfig, ValidationScope } from "../types";
 import { pathPassesValidationFilter } from "./path-filter";
 
@@ -46,6 +47,7 @@ export const TYPESCRIPT_FALLBACK_INCLUDE_PATTERNS = [
   "**/*.mts",
   "**/*.cts",
 ] as const;
+export const TEMPORARY_TSCONFIG_PARENT_SEGMENTS = ["node_modules", ".cache", "spx"] as const;
 
 // =============================================================================
 // DEPENDENCY INJECTION INTERFACES
@@ -89,6 +91,14 @@ export const EXPLICIT_TYPESCRIPT_SCOPE_TARGET_KIND = {
 export interface ExplicitTypeScriptScopeTarget {
   readonly kind: (typeof EXPLICIT_TYPESCRIPT_SCOPE_TARGET_KIND)[keyof typeof EXPLICIT_TYPESCRIPT_SCOPE_TARGET_KIND];
   readonly path: string;
+}
+
+export interface ExplicitTypeScriptScopeTargetFilter {
+  readonly projectRoot: string;
+  readonly paths: readonly string[] | undefined;
+  readonly validationPathFilter: ValidationPathFilterConfig;
+  readonly scopeConfig: ScopeConfig;
+  readonly requireExistingPaths?: boolean;
 }
 
 interface PatternDirectoryAdvance {
@@ -621,6 +631,45 @@ export function toProjectRelativeTypeScriptScopePath(projectRoot: string, path: 
   return relativePath.length === 0
     ? TYPESCRIPT_SCOPE_PROJECT_ROOT
     : normalizeTypeScriptScopePath(relativePath);
+}
+
+export function toExplicitTypeScriptScopeTarget(
+  projectRoot: string,
+  originalPath: string,
+  deps: ScopeDeps = defaultScopeDeps,
+): ExplicitTypeScriptScopeTarget {
+  const path = toProjectRelativeTypeScriptScopePath(projectRoot, originalPath);
+  return {
+    kind: pathIsDirectory(resolveProjectPath(projectRoot, path), deps)
+      ? EXPLICIT_TYPESCRIPT_SCOPE_TARGET_KIND.DIRECTORY
+      : EXPLICIT_TYPESCRIPT_SCOPE_TARGET_KIND.FILE,
+    path,
+  };
+}
+
+function explicitTypeScriptScopeTargetExists(
+  projectRoot: string,
+  target: ExplicitTypeScriptScopeTarget,
+  deps: ScopeDeps,
+): boolean {
+  return deps.existsSync(resolveProjectPath(projectRoot, target.path));
+}
+
+export function filterExplicitTypeScriptScopeTargets(
+  filter: ExplicitTypeScriptScopeTargetFilter,
+  deps: ScopeDeps = defaultScopeDeps,
+): ExplicitTypeScriptScopeTarget[] | undefined {
+  const { paths, projectRoot, requireExistingPaths = true, scopeConfig, validationPathFilter } = filter;
+  if (paths === undefined) {
+    return undefined;
+  }
+  return paths
+    .filter((path) => pathStaysInsideTypeScriptScopeRoot(projectRoot, path))
+    .map((path) => toExplicitTypeScriptScopeTarget(projectRoot, path, deps))
+    .filter((target) => !requireExistingPaths || explicitTypeScriptScopeTargetExists(projectRoot, target, deps))
+    .filter((target) => explicitTypeScriptScopeTargetPassesSourceKind(target))
+    .filter((target) => pathPassesValidationFilter(target.path, validationPathFilter))
+    .filter((target) => explicitTypeScriptScopeTargetPassesScope(target, scopeConfig));
 }
 
 export function explicitTypeScriptScopeTargetPassesSourceKind(
