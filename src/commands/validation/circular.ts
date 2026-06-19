@@ -22,6 +22,8 @@ import {
   normalizeTypeScriptScopePath,
   pathHasTypeScriptSourceExtension,
   pathPassesTypeScriptScope,
+  TYPESCRIPT_SCOPE_DIRECTORY_PROBE_FILENAME,
+  typeScriptScopePatternIntersectsDirectory,
   typeScriptScopePatternNarrowsDirectory,
 } from "@/validation/config/scope";
 import { detectTypeScript, discoverTool, formatSkipMessage } from "@/validation/discovery/index";
@@ -61,7 +63,6 @@ const EXPLICIT_PATH_TARGET_KIND = {
 } as const;
 
 const DEPENDENCY_CRUISER_PACKAGE_NAME = "dependency-cruiser";
-const DIRECTORY_SCOPE_PROBE_FILENAME = "__spx_scope_probe__.ts";
 const PROJECT_ROOT_SCOPE_PATH = ".";
 
 function pathIsDirectoryOperand(projectRoot: string, relativePath: string): boolean {
@@ -104,14 +105,21 @@ function toExplicitScopeConfig(
       )
     ),
   );
+  const retainedDirectories = directoryTargets.filter((directory) => !narrowedDirectories.has(directory));
+  const explicitFileTargets = targets
+    .filter((target) => target.kind === EXPLICIT_PATH_TARGET_KIND.FILE)
+    .map((target) => target.path)
+    .filter((path) =>
+      !retainedDirectories.some((directory) =>
+        path === directory || path.startsWith(`${directory}/`)
+      )
+    );
   return {
     ...scopeConfig,
-    directories: directoryTargets.filter((directory) => !narrowedDirectories.has(directory)),
+    directories: retainedDirectories,
     filePatterns: [
       ...scopedFilePatternsForDirectoryTargets,
-      ...targets
-      .filter((target) => target.kind === EXPLICIT_PATH_TARGET_KIND.FILE)
-      .map((target) => target.path),
+      ...explicitFileTargets,
     ],
   };
 }
@@ -142,18 +150,12 @@ function targetPassesTypeScriptScope(target: ExplicitPathTarget, scopeConfig: Ty
   if (target.path === PROJECT_ROOT_SCOPE_PATH) {
     return scopeConfig.directories.length > 0 || scopeConfig.filePatterns.length > 0;
   }
-  return pathPassesTypeScriptScope(join(target.path, DIRECTORY_SCOPE_PROBE_FILENAME), scopeConfig)
-    || scopeConfig.filePatterns.some((pattern) => typeScriptPatternIsInsideDirectory(pattern, target.path));
+  return pathPassesTypeScriptScope(join(target.path, TYPESCRIPT_SCOPE_DIRECTORY_PROBE_FILENAME), scopeConfig)
+    || scopeConfig.filePatterns.some((pattern) => typeScriptScopePatternIntersectsDirectory(pattern, target.path));
 }
 
 function targetPassesProjectBoundary(projectRoot: string, originalPath: string): boolean {
   return pathStaysInsideProject(projectRoot, originalPath);
-}
-
-function typeScriptPatternIsInsideDirectory(pattern: string, directory: string): boolean {
-  const normalizedPattern = normalizeTypeScriptScopePath(pattern);
-  const normalizedDirectory = normalizeTypeScriptScopePath(directory);
-  return normalizedPattern === normalizedDirectory || normalizedPattern.startsWith(`${normalizedDirectory}/`);
 }
 
 function filterExplicitPathTargets(
