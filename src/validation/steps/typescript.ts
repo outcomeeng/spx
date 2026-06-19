@@ -70,8 +70,6 @@ export interface TypeScriptValidationOptions {
  */
 const TEMPORARY_TSCONFIG_COMPILER_OPTIONS = { noEmit: true } as const;
 
-export { TEMPORARY_TSCONFIG_PARENT_SEGMENTS } from "../config/scope";
-
 /**
  * Directory-name prefix for temporary validation configs.
  */
