@@ -17,10 +17,12 @@ import extractTypeScriptConfig from "dependency-cruiser/config-utl/extract-ts-co
 import { join } from "node:path";
 
 import {
+  GLOB_MARKER,
   normalizeTypeScriptScopePath,
+  RECURSIVE_GLOB_SEGMENT,
+  SINGLE_CHARACTER_GLOB_MARKER,
   TSCONFIG_FILES,
   TYPESCRIPT_FALLBACK_INCLUDE_PATTERNS,
-  typeScriptScopeGlobPatternToRegExp,
   typeScriptScopePatternCoversDirectorySourceSet,
   typeScriptScopePatternHasGlob,
   typeScriptScopePatternIntersectsDirectory,
@@ -47,6 +49,11 @@ const TSCONFIG_EXCLUDE_SUFFIX_PATTERN = /\/\*\*?\/\*$/u;
 const LITERAL_REGEX_SPECIAL_CHARACTER_PATTERN = /[.*+?^${}()|[\]\\]/gu;
 const REGEX_ESCAPE_REPLACEMENT = String.raw`\$&`;
 const CYCLE_KEY_SEPARATOR = "\u0000";
+const DEPENDENCY_CRUISER_PATH_PREFIX_PATTERN = "(^|/)";
+const DEPENDENCY_CRUISER_PATH_SEGMENT_SEPARATOR = "/";
+const DEPENDENCY_CRUISER_LEADING_RECURSIVE_GLOB_PATTERN = "(?:.*/|)";
+const DEPENDENCY_CRUISER_MIDDLE_RECURSIVE_GLOB_PATTERN = "(/.*/|/)";
+const DEPENDENCY_CRUISER_TRAILING_RECURSIVE_GLOB_PATTERN = "(/.*|$)";
 export const DEPENDENCY_CRUISER_PACKAGE_EXCLUDE_PATTERN = "(^|/)node_modules(/|$)";
 export const DEPENDENCY_CRUISER_NON_STRUCTURED_OUTPUT_ERROR = "dependency-cruiser returned non-structured output";
 export const DEPENDENCY_CRUISER_DEPENDENCY_TYPES = {
@@ -118,12 +125,64 @@ export const defaultCircularDeps: CircularDeps = {
 
 function toDependencyCruiserExcludePatterns(patterns: readonly string[]): string[] {
   return patterns.map((pattern) => {
+    const matchesDirectorySubtree = TSCONFIG_EXCLUDE_SUFFIX_PATTERN.test(pattern);
     const cleanPattern = pattern.replace(TSCONFIG_EXCLUDE_SUFFIX_PATTERN, "");
     if (typeScriptScopePatternHasGlob(cleanPattern)) {
-      return typeScriptScopeGlobPatternToRegExp(cleanPattern).source;
+      return typeScriptScopeGlobPatternToDependencyCruiserRegExpSource(cleanPattern, matchesDirectorySubtree);
     }
     return cleanPattern.replace(LITERAL_REGEX_SPECIAL_CHARACTER_PATTERN, REGEX_ESCAPE_REPLACEMENT);
   });
+}
+
+function typeScriptScopeGlobPatternToDependencyCruiserRegExpSource(
+  pattern: string,
+  matchesDirectorySubtree: boolean,
+): string {
+  const segments = normalizeTypeScriptScopePath(pattern).split(DEPENDENCY_CRUISER_PATH_SEGMENT_SEPARATOR);
+  const source = segments.reduce((currentSource, segment, index) => {
+    const previousSegment = segments[index - 1];
+    if (segment === RECURSIVE_GLOB_SEGMENT) {
+      if (index === 0) {
+        return `${currentSource}${DEPENDENCY_CRUISER_LEADING_RECURSIVE_GLOB_PATTERN}`;
+      }
+      if (index === segments.length - 1) {
+        return `${currentSource}${DEPENDENCY_CRUISER_TRAILING_RECURSIVE_GLOB_PATTERN}`;
+      }
+      return `${currentSource}${DEPENDENCY_CRUISER_MIDDLE_RECURSIVE_GLOB_PATTERN}`;
+    }
+
+    const separator = index > 0 && previousSegment !== RECURSIVE_GLOB_SEGMENT
+      ? DEPENDENCY_CRUISER_PATH_SEGMENT_SEPARATOR
+      : "";
+    return `${currentSource}${separator}${dependencyCruiserGlobSegmentToRegExpSource(segment)}`;
+  }, DEPENDENCY_CRUISER_PATH_PREFIX_PATTERN);
+
+  if (matchesDirectorySubtree && segments.at(-1) !== RECURSIVE_GLOB_SEGMENT) {
+    return `${source}${DEPENDENCY_CRUISER_TRAILING_RECURSIVE_GLOB_PATTERN}`;
+  }
+  if (segments.at(-1) === RECURSIVE_GLOB_SEGMENT) {
+    return source;
+  }
+  return `${source}$`;
+}
+
+function dependencyCruiserGlobSegmentToRegExpSource(segment: string): string {
+  let source = "";
+  for (let index = 0; index < segment.length; index += 1) {
+    const character = segment[index];
+    const nextCharacter = segment[index + 1];
+    if (character === GLOB_MARKER && nextCharacter === GLOB_MARKER) {
+      source += ".*";
+      index += 1;
+    } else if (character === GLOB_MARKER) {
+      source += `[^${DEPENDENCY_CRUISER_PATH_SEGMENT_SEPARATOR}]*`;
+    } else if (character === SINGLE_CHARACTER_GLOB_MARKER) {
+      source += `[^${DEPENDENCY_CRUISER_PATH_SEGMENT_SEPARATOR}]`;
+    } else {
+      source += character?.replace(LITERAL_REGEX_SPECIAL_CHARACTER_PATTERN, REGEX_ESCAPE_REPLACEMENT) ?? "";
+    }
+  }
+  return source;
 }
 
 function buildDependencyCruiserOptions(

@@ -77,6 +77,11 @@ const TEST_SCOPE_FILE_PATTERN = `${TEST_DIRECTORY_NAME}/**/*`;
 // Mirrors an actual tsconfig.production.json exclude entry.
 const PRODUCTION_SCOPE_EXCLUDE_PATTERN = "docs/**/*";
 const TEST_FILE_EXCLUDE_PATTERN = "**/*.test.ts";
+const PREFIXED_DEPENDENCY_EXCLUDE_PATTERN = "dist/**";
+const PREFIXED_DEPENDENCY_EXCLUDED_FILE = "dist/generated.ts";
+const RECURSIVE_DEPENDENCY_EXCLUDE_PATTERN = "src/**/generated/**/*";
+const RECURSIVE_DEPENDENCY_ROOT_EXCLUDED_FILE = "src/generated/output.ts";
+const RECURSIVE_DEPENDENCY_NESTED_EXCLUDED_FILE = "src/feature/generated/output.ts";
 const ABSENT_SCOPE_FILE_PATTERN = "scripts/**/*";
 const MODERN_SOURCE_FILE_NAME = "modern.mts";
 const COMMONJS_SOURCE_FILE_NAME = "commonjs.cts";
@@ -90,6 +95,30 @@ const SINGLE_LEVEL_NAMED_SOURCE_FILE_PATTERN = `src/*/${CLEAN_SOURCE_FILE_NAME}`
 const RECURSIVE_MARKDOWN_SOURCE_FILE_PATTERN = "src/**/*.md";
 const SINGLE_CHARACTER_SOURCE_INCLUDE_PATTERN = `src/?/${CLEAN_SOURCE_FILE_NAME}`;
 const SINGLE_CHARACTER_SOURCE_EXCLUDE_PATTERN = "src/?/ignored.ts";
+const RECURSIVE_GLOB_STRESS_SEGMENT = "**";
+const RECURSIVE_GLOB_STRESS_SEGMENT_COUNT = 12;
+const RECURSIVE_GLOB_STRESS_PATTERN = [
+  ...Array.from({ length: RECURSIVE_GLOB_STRESS_SEGMENT_COUNT }, () => RECURSIVE_GLOB_STRESS_SEGMENT),
+  "target.ts",
+].join("/");
+const RECURSIVE_GLOB_STRESS_DIRECTORY = [
+  "src",
+  "segment-a",
+  "segment-b",
+  "segment-c",
+  "segment-d",
+  "segment-e",
+  "segment-f",
+  "segment-g",
+  "segment-h",
+  "segment-i",
+  "segment-j",
+  "segment-k",
+  "segment-l",
+  "segment-m",
+  "segment-n",
+  "segment-o",
+].join("/");
 const MARKDOWN_ONLY_DIRECTORY_NAME = "docs";
 const MARKDOWN_ONLY_FILE_NAME = "readme.md";
 const MARKDOWN_ONLY_FILE_PATTERN = `${MARKDOWN_ONLY_DIRECTORY_NAME}/**/*.md`;
@@ -215,6 +244,11 @@ export const VALIDATION_PIPELINE_DATA = {
   testScopeFilePattern: TEST_SCOPE_FILE_PATTERN,
   productionScopeExcludePattern: PRODUCTION_SCOPE_EXCLUDE_PATTERN,
   testFileExcludePattern: TEST_FILE_EXCLUDE_PATTERN,
+  prefixedDependencyExcludePattern: PREFIXED_DEPENDENCY_EXCLUDE_PATTERN,
+  prefixedDependencyExcludedFile: PREFIXED_DEPENDENCY_EXCLUDED_FILE,
+  recursiveDependencyExcludePattern: RECURSIVE_DEPENDENCY_EXCLUDE_PATTERN,
+  recursiveDependencyRootExcludedFile: RECURSIVE_DEPENDENCY_ROOT_EXCLUDED_FILE,
+  recursiveDependencyNestedExcludedFile: RECURSIVE_DEPENDENCY_NESTED_EXCLUDED_FILE,
   absentScopeFilePattern: ABSENT_SCOPE_FILE_PATTERN,
   fullTsconfigFile: TSCONFIG_FILES.full,
   sourceDirectoryName: "src",
@@ -230,6 +264,8 @@ export const VALIDATION_PIPELINE_DATA = {
   recursiveMarkdownSourceFilePattern: RECURSIVE_MARKDOWN_SOURCE_FILE_PATTERN,
   singleCharacterSourceIncludePattern: SINGLE_CHARACTER_SOURCE_INCLUDE_PATTERN,
   singleCharacterSourceExcludePattern: SINGLE_CHARACTER_SOURCE_EXCLUDE_PATTERN,
+  recursiveGlobStressPattern: RECURSIVE_GLOB_STRESS_PATTERN,
+  recursiveGlobStressDirectory: RECURSIVE_GLOB_STRESS_DIRECTORY,
   markdownOnlyDirectoryName: MARKDOWN_ONLY_DIRECTORY_NAME,
   markdownOnlyFileName: MARKDOWN_ONLY_FILE_NAME,
   markdownOnlyFilePattern: MARKDOWN_ONLY_FILE_PATTERN,

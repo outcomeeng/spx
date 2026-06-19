@@ -75,8 +75,11 @@ const DEPENDENCY_CRUISER_PACKAGE_NAME = "dependency-cruiser";
 const PROJECT_ROOT_SCOPE_PATH = ".";
 
 function pathIsDirectoryOperand(projectRoot: string, relativePath: string): boolean {
-  const candidatePath = join(projectRoot, relativePath);
-  return existsSync(candidatePath) && statSync(candidatePath).isDirectory();
+  try {
+    return statSync(join(projectRoot, relativePath)).isDirectory();
+  } catch {
+    return false;
+  }
 }
 
 function pathExistsOperand(projectRoot: string, relativePath: string): boolean {
@@ -248,8 +251,7 @@ function targetPassesTypeScriptScope(target: ExplicitPathTarget, scopeConfig: Ty
   if (typeScriptSourcePatterns.length > 0) {
     return typeScriptSourcePatterns.some((pattern) => typeScriptScopePatternIntersectsDirectory(pattern, target.path));
   }
-  return scopeConfig.filePatterns.length === 0
-    && pathPassesTypeScriptScope(join(target.path, TYPESCRIPT_SCOPE_DIRECTORY_PROBE_FILENAME), scopeConfig);
+  return pathPassesTypeScriptScope(join(target.path, TYPESCRIPT_SCOPE_DIRECTORY_PROBE_FILENAME), scopeConfig);
 }
 
 function targetPassesProjectBoundary(projectRoot: string, originalPath: string): boolean {
