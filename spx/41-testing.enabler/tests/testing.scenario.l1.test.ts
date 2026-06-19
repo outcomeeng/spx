@@ -1,4 +1,3 @@
-import { Command } from "commander";
 import { describe, expect, it } from "vitest";
 
 import { runTests, type RecordedTestRun, type TestDispatchResult } from "@/commands/testing";
@@ -7,95 +6,22 @@ import {
   SUCCESS_EXIT_CODE,
   UNSUPPORTED_TEST_SELECTION_EXIT_CODE,
 } from "@/domains/testing";
-import { createTestingDomain, TESTING_CLI, type TestingCliDependencies } from "@/interfaces/cli/testing";
+import { TESTING_CLI } from "@/interfaces/cli/testing";
 import { SPEC_TREE_CONFIG } from "@/lib/spec-tree/config";
 import { pythonTestingLanguage } from "@/testing/languages/python";
 import type { TestingLanguageDescriptor } from "@/testing/languages/types";
 import { typescriptTestingLanguage } from "@/testing/languages/typescript";
 import { TEST_RUN_STATE_FIELDS, TEST_RUN_STATE_STATUS } from "@/testing/run-state";
 import { testingRegistry } from "@/testing/registry";
-import {
-  sampleDispatchValue,
-  TEST_DISPATCH_GENERATOR,
-  testingCliCommanderParseSource,
-} from "@testing/generators/testing/dispatch";
+import { sampleDispatchValue, TEST_DISPATCH_GENERATOR } from "@testing/generators/testing/dispatch";
+import { runTestingCli, testingCliDeps, type TestingCliCall } from "@testing/harnesses/testing/cli";
 import { withTestingTempProductDir, writeTestFileFixture } from "@testing/harnesses/testing/harness";
 import { createRecordingCommandRunner } from "@testing/harnesses/testing/typescript-runner";
-
-interface TestingCliCall {
-  readonly productDir: string;
-  readonly passing: boolean;
-}
-
-interface TestingCliResult {
-  readonly stderr: string;
-  readonly exitCodes: readonly number[];
-}
-
-class TestingCliExit extends Error {
-  constructor(readonly exitCode: number) {
-    super(`Testing command exited with code ${exitCode}`);
-  }
-}
 
 function invokedArgs(
   runner: { readonly calls: ReadonlyArray<{ readonly args: readonly string[] }> },
 ): readonly string[] {
   return runner.calls.flatMap((call) => call.args);
-}
-
-function testingCliDeps(
-  productDir: string,
-  run: RecordedTestRun,
-  agentCalls: TestingCliCall[],
-  streamCalls: TestingCliCall[],
-): TestingCliDependencies {
-  return {
-    resolveProductDir: () => Promise.resolve(productDir),
-    runTests: (resolvedProductDir, passing) => {
-      streamCalls.push({ productDir: resolvedProductDir, passing });
-      return Promise.resolve(run);
-    },
-    runAgentTests: (resolvedProductDir, passing) => {
-      agentCalls.push({ productDir: resolvedProductDir, passing });
-      return Promise.resolve(run);
-    },
-    writeStdout: () => undefined,
-    writeWarning: () => undefined,
-    setExitCode: () => undefined,
-    exit: () => {
-      throw new Error("Unexpected operator-mode exit in base dependency fixture");
-    },
-  };
-}
-
-async function runTestingCli(args: readonly string[], deps: TestingCliDependencies): Promise<TestingCliResult> {
-  const program = new Command();
-  const stderr: string[] = [];
-  const exitCodes: number[] = [];
-  program.exitOverride();
-  program.configureOutput({
-    writeOut: () => undefined,
-    writeErr: (output) => stderr.push(output),
-  });
-  createTestingDomain({
-    ...deps,
-    writeWarning: (warning) => {
-      if (warning !== undefined) stderr.push(`${warning}\n`);
-    },
-    exit: (exitCode) => {
-      exitCodes.push(exitCode);
-      throw new TestingCliExit(exitCode);
-    },
-  }).register(program);
-
-  try {
-    await program.parseAsync([...args], { from: testingCliCommanderParseSource() });
-  } catch (error) {
-    if (!(error instanceof TestingCliExit)) throw error;
-  }
-
-  return { stderr: stderr.join(""), exitCodes };
 }
 
 function recordedPassingRun(productDir: string, run: TestDispatchResult): RecordedTestRun {
