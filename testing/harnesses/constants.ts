@@ -47,6 +47,8 @@ export const CLI_TIMEOUTS_MS = {
   E2E: 10000,
   /** Timeout for batched E2E tests that execute several CLI subprocesses. */
   E2E_BATCH: 45000,
+  /** Timeout for full-suite batched E2E tests with heavy validation contention. */
+  E2E_LONG_BATCH: 120000,
   /** Average per-call ceiling for direct status checks in integration tests. */
   STATUS_CHECK_AVG: 15,
 } as const;

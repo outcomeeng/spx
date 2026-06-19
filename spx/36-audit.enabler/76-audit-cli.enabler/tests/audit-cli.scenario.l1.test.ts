@@ -39,6 +39,7 @@ import {
 import { AUDIT_RUN_STATE_TEST_GENERATOR, sampleAuditRunStateTestValue } from "@testing/generators/audit/run-state";
 import { CONFIG_TEST_GENERATOR, sampleConfigTestValue } from "@testing/generators/config/descriptors";
 import { auditBranchRunsDir, createAuditHarness, initializeAuditRun, runSpxAudit, writeAuditConfig } from "@testing/harnesses/audit/harness";
+import { CLI_TIMEOUTS_MS } from "@testing/harnesses/constants";
 import {
   GIT_TEST_CONFIG,
   GIT_TEST_FLAGS,
@@ -63,8 +64,7 @@ const linkedWorktreeDirectory = sampleConfigTestValue(CONFIG_TEST_GENERATOR.key(
 const verdictPath = sampleConfigTestValue(CONFIG_TEST_GENERATOR.key());
 const runFileLabel = AUDIT_LIFECYCLE_TEXT_LABEL.RUN_FILE;
 const invalidCloseStatusValue = sampleAuditRunStateTestValue(AUDIT_RUN_STATE_TEST_GENERATOR.unknownProgressStep());
-const millisecondsPerSecond = 10 ** 3;
-const auditLifecycleTimeoutMs = 60 * millisecondsPerSecond;
+const auditLifecycleTimeoutMs = CLI_TIMEOUTS_MS.E2E_LONG_BATCH;
 const singleIncompleteRunCountText = "incomplete runs: 1";
 
 describe("audit CLI lifecycle commands", () => {

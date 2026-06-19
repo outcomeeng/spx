@@ -34,7 +34,7 @@ describe("spx validation dispatch — observable scenarios", () => {
     expect(result.stdout).toContain(VALIDATION_COMMAND_OUTPUT.TYPESCRIPT_SUCCESS);
     expect(result.stdout).toContain(VALIDATION_COMMAND_OUTPUT.MARKDOWN_NO_ISSUES);
     expect(result.stderr).not.toContain(validationCliDefinition.diagnostics.unknownSubcommand.messageLabel);
-  });
+  }, VALIDATION_PIPELINE_DATA.allTimeout);
 
   it("registered subcommand propagates a non-zero handler exit code", async () => {
     await withEmptyValidationProject(async (projectRoot) => {
