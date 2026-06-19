@@ -8,14 +8,21 @@ import { TEST_DISPATCH_GENERATOR } from "@testing/generators/testing/dispatch";
 import { withTestingTempProductDir, writeTestFileFixture } from "@testing/harnesses/testing/harness";
 
 describe("spx test exit-code aggregation", () => {
-  it("exits zero exactly when no invoked runner exited non-zero", () => {
+  it("exits zero exactly when no runner or unsupported selection failed", () => {
     fc.assert(
-      fc.property(fc.array(TEST_DISPATCH_GENERATOR.invocation()), (invocations) => {
-        const anyNonZero = invocations.some(
-          (invocation) => invocation.invoked && invocation.exitCode !== 0,
-        );
-        expect(aggregateTestExitCode(invocations) === 0).toBe(!anyNonZero);
-      }),
+      fc.property(
+        fc.array(TEST_DISPATCH_GENERATOR.invocation()),
+        TEST_DISPATCH_GENERATOR.unsupportedSelectionCount(),
+        (invocations, unsupportedSelectionCount) => {
+          const anyNonZero = invocations.some(
+            (invocation) => invocation.invoked && invocation.exitCode !== 0,
+          );
+          const anyUnsupportedSelections = unsupportedSelectionCount > 0;
+          expect(aggregateTestExitCode(invocations, unsupportedSelectionCount) === 0).toBe(
+            !anyNonZero && !anyUnsupportedSelections,
+          );
+        },
+      ),
     );
   });
 });

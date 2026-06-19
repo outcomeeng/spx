@@ -14,6 +14,7 @@ const MIN_NODE_DEPTH = 1;
 const MAX_NODE_DEPTH = 3;
 const MAX_EXIT_CODE = 255;
 const MIN_NON_ZERO_EXIT_CODE = 1;
+const MAX_UNSUPPORTED_SELECTION_COUNT = 6;
 const NODE_PAIR_LENGTH = 2;
 const GLOB_WILDCARD = "*";
 const PATH_SEPARATOR = "/";
@@ -43,6 +44,7 @@ export const TEST_DISPATCH_GENERATOR = {
   testFilePath: arbitraryTestFilePath,
   exitCode: arbitraryExitCode,
   nonZeroExitCode: arbitraryNonZeroExitCode,
+  unsupportedSelectionCount: arbitraryUnsupportedSelectionCount,
 } as const;
 
 export function sampleDispatchValue<T>(arbitrary: fc.Arbitrary<T>): T {
@@ -117,4 +119,8 @@ function arbitraryExitCode(): fc.Arbitrary<number> {
 
 function arbitraryNonZeroExitCode(): fc.Arbitrary<number> {
   return fc.integer({ min: MIN_NON_ZERO_EXIT_CODE, max: MAX_EXIT_CODE });
+}
+
+function arbitraryUnsupportedSelectionCount(): fc.Arbitrary<number> {
+  return fc.nat({ max: MAX_UNSUPPORTED_SELECTION_COUNT });
 }

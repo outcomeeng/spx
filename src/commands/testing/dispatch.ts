@@ -91,5 +91,11 @@ export async function runTests(
     }
   }
 
-  return { exitCode: aggregateTestExitCode(invocations), groups, unmatched, reports, outcomes };
+  return {
+    exitCode: aggregateTestExitCode(invocations, unmatched.length),
+    groups,
+    unmatched,
+    reports,
+    outcomes,
+  };
 }

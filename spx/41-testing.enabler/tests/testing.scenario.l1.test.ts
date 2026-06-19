@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 
 import { runTests } from "@/commands/testing";
+import { UNSUPPORTED_TEST_SELECTION_EXIT_CODE } from "@/domains/testing";
 import { SPEC_TREE_CONFIG } from "@/lib/spec-tree/config";
 import { pythonTestingLanguage } from "@/testing/languages/python";
 import type { TestingLanguageDescriptor } from "@/testing/languages/types";
@@ -38,7 +39,7 @@ describe("spx test dispatch over the language registry", () => {
     });
   });
 
-  it("reports and skips test files matching no registered runner", async () => {
+  it("reports, skips, and fails test files matching no registered runner", async () => {
     const nodePath = sampleDispatchValue(TEST_DISPATCH_GENERATOR.nodePath());
     const matchedFile = sampleDispatchValue(TEST_DISPATCH_GENERATOR.testFileUnder(typescriptTestingLanguage, nodePath));
     const unmatchedFile = sampleDispatchValue(TEST_DISPATCH_GENERATOR.unmatchedTestFileUnder(nodePath));
@@ -50,6 +51,7 @@ describe("spx test dispatch over the language registry", () => {
 
       const result = await runTests({ productDir, registry: testingRegistry }, { runnerDepsFor: () => runner });
 
+      expect(result.exitCode).toBe(UNSUPPORTED_TEST_SELECTION_EXIT_CODE);
       expect(result.unmatched).toContain(unmatchedFile);
       expect(invokedArgs(runner)).not.toContain(unmatchedFile);
     });

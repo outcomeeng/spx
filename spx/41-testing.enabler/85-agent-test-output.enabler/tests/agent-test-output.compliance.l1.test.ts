@@ -1,4 +1,4 @@
-import { readFile, realpath } from "node:fs/promises";
+import { readFile, readdir, realpath } from "node:fs/promises";
 import { join } from "node:path";
 import { Writable } from "node:stream";
 import { pathToFileURL } from "node:url";
@@ -109,6 +109,14 @@ function failingArtifactWriteStream(message: string): Writable {
 }
 
 describe("agent test-output runner", () => {
+  it("defers artifact directory creation until a runner command executes", async () => {
+    await withTempDir(AGENT_ARTIFACT_DIR_PREFIX, async (productDir) => {
+      createAgentOutputCommandRunner(productDir, { tmpDir: productDir });
+
+      expect(await readdir(productDir)).toEqual([]);
+    });
+  });
+
   it("captures stdout and stderr to artifact files while preserving env and cwd", async () => {
     const stdoutContent = sampleLiteralTestValue(arbitraryDomainLiteral());
     const stderrContent = sampleLiteralTestValue(arbitraryDomainLiteral());

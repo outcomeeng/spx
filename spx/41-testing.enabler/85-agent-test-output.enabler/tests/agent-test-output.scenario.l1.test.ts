@@ -4,7 +4,7 @@ import { join } from "node:path";
 import { describe, expect, it } from "vitest";
 
 import type { RecordedTestRun } from "@/commands/testing";
-import { SUCCESS_EXIT_CODE } from "@/domains/testing";
+import { SUCCESS_EXIT_CODE, UNSUPPORTED_TEST_SELECTION_EXIT_CODE } from "@/domains/testing";
 import {
   createTestingDomain,
   TESTING_CLI,
@@ -263,14 +263,14 @@ describe("agent test-output summary", () => {
     const unmatchedPath = sampleDispatchValue(TEST_DISPATCH_GENERATOR.unmatchedTestFileUnder(nodePath));
     const run: RecordedTestRun = {
       dispatch: {
-        exitCode: SUCCESS_EXIT_CODE,
+        exitCode: UNSUPPORTED_TEST_SELECTION_EXIT_CODE,
         groups: [],
         unmatched: [unmatchedPath],
         reports: [],
         outcomes: [],
       },
       runFile: testRunFile(join(productDir, AGENT_TEST_OUTPUT_TEXT.STATE_FILE)),
-      recorded: testRunState(TEST_RUN_STATE_STATUS.PASSED),
+      recorded: testRunState(TEST_RUN_STATE_STATUS.FAILED),
     };
 
     const output = formatAgentTestOutput(run);
