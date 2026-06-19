@@ -4,7 +4,7 @@
  * Runs dependency-cruiser to detect circular dependencies.
  */
 import { existsSync, statSync } from "node:fs";
-import { join } from "node:path";
+import { isAbsolute, join, relative, resolve } from "node:path";
 
 import { resolveConfig } from "@/config/index";
 import {
@@ -65,6 +65,12 @@ function pathIsDirectoryOperand(projectRoot: string, originalPath: string, relat
   return originalPath.endsWith("/") || originalPath.endsWith("\\");
 }
 
+function pathStaysInsideProject(projectRoot: string, path: string): boolean {
+  const resolvedPath = isAbsolute(path) ? resolve(path) : resolve(projectRoot, path);
+  const relativePath = relative(projectRoot, resolvedPath);
+  return relativePath.length === 0 || (!relativePath.startsWith("..") && !isAbsolute(relativePath));
+}
+
 function toExplicitScopeConfig(
   scopeConfig: ReturnType<typeof getTypeScriptScope>,
   targets: readonly ExplicitPathTarget[],
@@ -97,6 +103,10 @@ function toExplicitPathTarget(projectRoot: string, originalPath: string): Explic
 
 function targetPassesTypeScriptSourceKind(target: ExplicitPathTarget): boolean {
   return target.kind === EXPLICIT_PATH_TARGET_KIND.DIRECTORY || pathHasTypeScriptSourceExtension(target.path);
+}
+
+function targetPassesProjectBoundary(projectRoot: string, originalPath: string): boolean {
+  return pathStaysInsideProject(projectRoot, originalPath);
 }
 
 /**
@@ -151,7 +161,8 @@ export async function circularCommand(
     validationPathFilter,
   );
   const filteredTargets = files
-    ?.map((file) => toExplicitPathTarget(cwd, file))
+    ?.filter((file) => targetPassesProjectBoundary(cwd, file))
+    .map((file) => toExplicitPathTarget(cwd, file))
     .filter((target) => targetPassesTypeScriptSourceKind(target))
     .filter((target) => pathPassesValidationFilter(target.path, validationPathFilter))
     .filter((target) => pathPassesTypeScriptScope(target.path, scopeConfig));
