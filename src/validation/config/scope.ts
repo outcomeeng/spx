@@ -10,7 +10,7 @@
 
 import * as JSONC from "jsonc-parser";
 import { existsSync, readdirSync, readFileSync } from "node:fs";
-import { isAbsolute, join } from "node:path";
+import { isAbsolute, join, relative, resolve } from "node:path";
 
 import type { ScopeConfig, ValidationScope } from "../types";
 import { pathPassesValidationFilter } from "./path-filter";
@@ -39,6 +39,7 @@ const TYPESCRIPT_SOURCE_EXTENSIONS = [".ts", ".tsx", ".mts", ".cts"] as const;
 const TYPESCRIPT_DECLARATION_EXTENSIONS = [".d.ts", ".d.mts", ".d.cts"] as const;
 const GLOB_DIRECTORY_MATCH_CACHE_KEY_SEPARATOR = "\u0000";
 export const TYPESCRIPT_SCOPE_DIRECTORY_PROBE_FILENAME = "__spx_scope_probe__.ts";
+export const TYPESCRIPT_SCOPE_PROJECT_ROOT = ".";
 export const TYPESCRIPT_FALLBACK_INCLUDE_PATTERNS = [
   "**/*.ts",
   "**/*.tsx",
@@ -78,6 +79,21 @@ interface TypeScriptConfig {
   include?: string[];
   exclude?: string[];
   extends?: string | string[];
+}
+
+export const EXPLICIT_TYPESCRIPT_SCOPE_TARGET_KIND = {
+  DIRECTORY: "directory",
+  FILE: "file",
+} as const;
+
+export interface ExplicitTypeScriptScopeTarget {
+  readonly kind: (typeof EXPLICIT_TYPESCRIPT_SCOPE_TARGET_KIND)[keyof typeof EXPLICIT_TYPESCRIPT_SCOPE_TARGET_KIND];
+  readonly path: string;
+}
+
+interface PatternDirectoryAdvance {
+  readonly patternIndex: number;
+  readonly recursiveGlobConsumedDirectory: boolean;
 }
 
 function resolveProjectPath(projectRoot: string, path: string): string {
@@ -590,4 +606,177 @@ export function pathPassesTypeScriptScope(path: string, scopeConfig: ScopeConfig
     : scopeConfig.directories.some((directory) => pathMatchesLiteralPrefix(path, directory));
   const excluded = scopeConfig.excludePatterns.some((pattern) => pathMatchesTypeScriptPattern(path, pattern));
   return included && !excluded;
+}
+
+export function pathStaysInsideTypeScriptScopeRoot(projectRoot: string, path: string): boolean {
+  const resolvedPath = isAbsolute(path) ? resolve(path) : resolve(projectRoot, path);
+  const relativePath = relative(projectRoot, resolvedPath);
+  const segments = normalizeTypeScriptScopePath(relativePath).split(PATH_SEGMENT_SEPARATOR);
+  return relativePath.length === 0 || (!segments.includes("..") && !isAbsolute(relativePath));
+}
+
+export function toProjectRelativeTypeScriptScopePath(projectRoot: string, path: string): string {
+  const resolvedPath = isAbsolute(path) ? resolve(path) : resolve(projectRoot, path);
+  const relativePath = relative(projectRoot, resolvedPath);
+  return relativePath.length === 0
+    ? TYPESCRIPT_SCOPE_PROJECT_ROOT
+    : normalizeTypeScriptScopePath(relativePath);
+}
+
+export function explicitTypeScriptScopeTargetPassesSourceKind(
+  target: ExplicitTypeScriptScopeTarget,
+): boolean {
+  return target.kind === EXPLICIT_TYPESCRIPT_SCOPE_TARGET_KIND.DIRECTORY
+    || pathHasTypeScriptSourceExtension(target.path);
+}
+
+export function explicitTypeScriptScopeTargetPassesScope(
+  target: ExplicitTypeScriptScopeTarget,
+  scopeConfig: ScopeConfig,
+): boolean {
+  if (target.kind === EXPLICIT_TYPESCRIPT_SCOPE_TARGET_KIND.FILE) {
+    return pathPassesTypeScriptScope(target.path, scopeConfig);
+  }
+  if (target.path === TYPESCRIPT_SCOPE_PROJECT_ROOT) {
+    return scopeConfig.directories.length > 0
+      || scopeConfig.filePatterns.some((pattern) => typeScriptScopePatternTargetsTypeScriptSource(pattern));
+  }
+  const typeScriptSourcePatterns = scopeConfig.filePatterns.filter((pattern) =>
+    typeScriptScopePatternTargetsTypeScriptSource(pattern)
+  );
+  if (!directoryPassesTypeScriptExcludes(target.path, scopeConfig)) {
+    return false;
+  }
+  if (typeScriptSourcePatterns.length > 0) {
+    return typeScriptSourcePatterns.some((pattern) => typeScriptScopePatternIntersectsDirectory(pattern, target.path));
+  }
+  return pathPassesTypeScriptScope(join(target.path, TYPESCRIPT_SCOPE_DIRECTORY_PROBE_FILENAME), scopeConfig);
+}
+
+function directoryPassesTypeScriptExcludes(directory: string, scopeConfig: ScopeConfig): boolean {
+  const probePath = join(directory, TYPESCRIPT_SCOPE_DIRECTORY_PROBE_FILENAME);
+  return !scopeConfig.excludePatterns.some((pattern) =>
+    typeScriptScopePatternCoversDirectorySourceSet(pattern, directory)
+    || pathMatchesTypeScriptPattern(probePath, pattern)
+  );
+}
+
+export function constrainTypeScriptScopeToExplicitTargets(
+  scopeConfig: ScopeConfig,
+  targets: readonly ExplicitTypeScriptScopeTarget[],
+): ScopeConfig {
+  const directoryTargets = targets
+    .filter((target) => target.kind === EXPLICIT_TYPESCRIPT_SCOPE_TARGET_KIND.DIRECTORY)
+    .map((target) => target.path);
+  if (directoryTargets.includes(TYPESCRIPT_SCOPE_PROJECT_ROOT)) {
+    return scopeConfig;
+  }
+  const patternMatchesDirectoryTarget = (pattern: string, directory: string): boolean =>
+    normalizeTypeScriptScopePath(pattern) === normalizeTypeScriptScopePath(directory);
+  const scopedFilePatternsForDirectoryTargets = scopeConfig.filePatterns.flatMap((pattern) =>
+    directoryTargets
+      .filter((directory) =>
+        !patternMatchesDirectoryTarget(pattern, directory)
+        && typeScriptScopePatternHasGlob(pattern)
+        && typeScriptScopePatternTargetsTypeScriptSource(pattern)
+        && typeScriptScopePatternIntersectsDirectory(pattern, directory)
+      )
+      .map((directory) => constrainTypeScriptPatternToDirectory(pattern, directory))
+  );
+  const narrowedDirectories = new Set(
+    directoryTargets.filter((directory) =>
+      scopedFilePatternsForDirectoryTargets.some((pattern) =>
+        typeScriptScopePatternIntersectsDirectory(pattern, directory)
+      )
+    ),
+  );
+  const retainedDirectories = directoryTargets.filter((directory) => !narrowedDirectories.has(directory));
+  const explicitFileTargets = targets
+    .filter((target) => target.kind === EXPLICIT_TYPESCRIPT_SCOPE_TARGET_KIND.FILE)
+    .map((target) => target.path)
+    .filter((path) =>
+      !retainedDirectories.some((directory) =>
+        path === directory || path.startsWith(`${directory}${PATH_SEGMENT_SEPARATOR}`)
+      )
+    );
+  const uncoveredExplicitFileTargets = explicitFileTargets.filter((path) =>
+    !scopedFilePatternsForDirectoryTargets.some((pattern) => pathMatchesTypeScriptPattern(path, pattern))
+  );
+  return {
+    ...scopeConfig,
+    directories: retainedDirectories,
+    filePatterns: [
+      ...scopedFilePatternsForDirectoryTargets,
+      ...uncoveredExplicitFileTargets,
+    ],
+  };
+}
+
+function constrainTypeScriptPatternToDirectory(pattern: string, directory: string): string {
+  const normalizedPattern = normalizeTypeScriptScopePath(pattern);
+  const normalizedDirectory = normalizeTypeScriptScopePath(directory);
+  if (
+    normalizedPattern === normalizedDirectory
+    || normalizedPattern.startsWith(`${normalizedDirectory}${PATH_SEGMENT_SEPARATOR}`)
+  ) {
+    return normalizedPattern;
+  }
+  const patternSegments = splitTypeScriptScopePathSegments(normalizedPattern);
+  const directorySegments = splitTypeScriptScopePathSegments(normalizedDirectory);
+  const directoryAdvance = advanceTypeScriptPatternPastDirectory(patternSegments, directorySegments);
+  let { patternIndex } = directoryAdvance;
+  while (patternSegments[patternIndex] === RECURSIVE_GLOB_SEGMENT) {
+    patternIndex += 1;
+  }
+  const suffixSegments = patternSegments.slice(patternIndex);
+  const constrainedSuffixSegments = directoryAdvance.recursiveGlobConsumedDirectory && suffixSegments.length > 0
+    ? [RECURSIVE_GLOB_SEGMENT, ...suffixSegments]
+    : suffixSegments;
+  if (constrainedSuffixSegments.length > 0) {
+    return [normalizedDirectory, ...constrainedSuffixSegments].join(PATH_SEGMENT_SEPARATOR);
+  }
+  return typeScriptScopePatternHasGlob(normalizedPattern)
+    && typeScriptScopePatternCoversDirectorySourceSet(normalizedPattern, normalizedDirectory)
+    ? `${normalizedDirectory}${TYPESCRIPT_SCOPE_DIRECTORY_PATTERN_SUFFIX}`
+    : normalizedDirectory;
+}
+
+function advanceTypeScriptPatternPastDirectory(
+  patternSegments: readonly string[],
+  directorySegments: readonly string[],
+): PatternDirectoryAdvance {
+  let patternIndex = 0;
+  let recursiveGlobConsumedDirectory = false;
+  for (const directorySegment of directorySegments) {
+    const recursiveAdvance = advanceRecursiveGlobForDirectorySegment(patternSegments, patternIndex, directorySegment);
+    patternIndex = recursiveAdvance.patternIndex;
+    recursiveGlobConsumedDirectory = recursiveGlobConsumedDirectory || recursiveAdvance.recursiveGlobConsumedDirectory;
+    if (recursiveAdvance.recursiveGlobConsumedDirectory) {
+      continue;
+    }
+    if (!patternSegmentMatchesDirectorySegment(patternSegments[patternIndex], directorySegment)) {
+      break;
+    }
+    patternIndex += 1;
+  }
+  return { patternIndex, recursiveGlobConsumedDirectory };
+}
+
+function advanceRecursiveGlobForDirectorySegment(
+  patternSegments: readonly string[],
+  patternIndex: number,
+  directorySegment: string,
+): PatternDirectoryAdvance {
+  if (patternSegments[patternIndex] !== RECURSIVE_GLOB_SEGMENT) {
+    return { patternIndex, recursiveGlobConsumedDirectory: false };
+  }
+  const nextPatternSegment = patternSegments[patternIndex + 1];
+  return patternSegmentMatchesDirectorySegment(nextPatternSegment, directorySegment)
+    ? { patternIndex: patternIndex + 1, recursiveGlobConsumedDirectory: false }
+    : { patternIndex, recursiveGlobConsumedDirectory: true };
+}
+
+function patternSegmentMatchesDirectorySegment(patternSegment: string | undefined, directorySegment: string): boolean {
+  return patternSegment !== undefined
+    && globSegmentMatchesPathSegment(patternSegment, directorySegment);
 }
