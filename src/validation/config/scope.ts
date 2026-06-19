@@ -267,15 +267,9 @@ function getLiteralTopLevelPatternDirectory(pattern: string): string | null {
   return topLevelDir;
 }
 
-function includePatternsConstrainTopLevelDirectories(patterns: readonly string[]): boolean {
-  return patterns.some((pattern) => getLiteralTopLevelPatternDirectory(pattern) !== null);
-}
-
 function directoryPassesIncludePatterns(directory: string, patterns: readonly string[]): boolean {
-  if (!includePatternsConstrainTopLevelDirectories(patterns)) {
-    return true;
-  }
-  return patterns.some((pattern) => getLiteralTopLevelPatternDirectory(pattern) === directory);
+  return patterns.length === 0
+    || patterns.some((pattern) => typeScriptScopePatternIntersectsDirectory(pattern, directory));
 }
 
 export function normalizeTypeScriptScopePath(path: string): string {
