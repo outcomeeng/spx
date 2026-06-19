@@ -23,20 +23,7 @@ changed instead of the full suite.
   select the deduplicated union of their resolved files.
 - **Empty-match behavior:** an operand resolving to no discovered test file
   reports the unresolved operand and exits non-zero, consistent with the
-  existing unmatched-files failure and the explicit-caller-intent contract. This
-  is the chosen default; confirm during the `/apply` architecture step.
-
-## Implementation pointers (resolve through `/apply`)
-
-- Operand parsing on the `spx test` and `spx test passing` command surface:
-  `src/interfaces/cli/testing.ts` (variadic operands after `--`, `--recursive`/`-r`).
-- Operand-to-test-file resolution as a pure domain function (per
-  `spx/14-cli-composition.adr.md`): likely `src/domains/testing/`, consuming the
-  discovered file set from `src/commands/testing/discovery.ts`.
-- Routing the resolved set through the existing dispatch/registry/environment
-  pipeline: `src/commands/testing/dispatch.ts` and `run-command.ts`.
-- Confirm whether an ADR is needed for the operand-resolution approach
-  (file-inclusion reuse, recursion, layer placement) during the architecture gate.
+  existing unmatched-files failure and the explicit-caller-intent contract.
 
 ## Scope boundary
 
