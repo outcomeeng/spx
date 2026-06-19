@@ -16,6 +16,7 @@ import {
   type PickerKey,
   type PickerState,
   reducePicker,
+  toSingleLine,
   truncateToWidth,
   visibleCandidates,
 } from "@/domains/session/pick-model";
@@ -87,6 +88,17 @@ describe("picker model invariants", () => {
         if (result.length > max) return false;
         if (text.length <= max) return result === text;
         return result.length === max && result.endsWith(ELLIPSIS);
+      }),
+    );
+  });
+
+  it("reduces any string to a single line with no line breaks and no collapsed whitespace runs", () => {
+    fc.assert(
+      fc.property(fc.string(), (text) => {
+        const line = toSingleLine(text);
+        if (/[\n\r\t]/.test(line)) return false;
+        if (/ {2,}/.test(line)) return false;
+        return line === line.trim();
       }),
     );
   });

@@ -16,6 +16,15 @@ import { CLAIMABLE_STATUS, type Session } from "./types";
 export const ELLIPSIS = "…";
 
 /**
+ * Collapses every run of whitespace — including newlines and tabs — to a single
+ * space and trims the ends, so a goal carrying line breaks (which the session
+ * frontmatter permits) still renders on one row rather than wrapping the list.
+ */
+export function toSingleLine(text: string): string {
+  return text.replace(/\s+/g, " ").trim();
+}
+
+/**
  * Truncates `text` to at most `max` characters, appending a single ellipsis
  * when it overflows. Returns the input unchanged when it already fits, the
  * empty string for a non-positive width, and just the ellipsis at width 1.
