@@ -11,6 +11,7 @@ A consumer re-deriving git topology or hand-composing `.spx/` paths is rejected:
 ## Invariants
 
 - Product-root resolution, scope composition, branch slugging, and run-path construction are deterministic for the same roots, tokens, and domain noun.
+- Composing a `.spx/` scope directory from an already-resolved product root is total: it returns a bare path and never a `Result`. A `Result` return is reserved for composition that validates an untrusted scope token or branch slug.
 - Branch slugging is a pure function of the canonical branch identity.
 - A single-artifact run path is always a file path, never a directory path.
 - Every `detectGitCommonDirProductRoot` result sets `worktreeRoot` to a string on every return path; a `detectWorktreeProductRoot` result never carries `worktreeRoot`.
@@ -35,6 +36,7 @@ A consumer re-deriving git topology or hand-composing `.spx/` paths is rejected:
 - ALWAYS: branch identity and slugging are source-owned in the state module so every consumer shares one slug contract ([audit])
 - ALWAYS: the state module exports source-owned constants for the `.spx/` path tokens and run-file tokens its tests reference ([audit])
 - NEVER: a consumer re-derives git topology or composes `.spx/` paths itself — root resolution and scope layout live only in the state module ([audit])
+- NEVER: a scope-directory resolver that only joins an already-resolved product root wraps its return in `Result` — the `Result` shape is reserved for composition that validates an untrusted token or slug ([audit])
 - NEVER: the state module imports a consumer domain (release, spec, session, compact, audit, review, testing) ([audit])
 - NEVER: `vi.mock()`, `jest.mock()`, or `memfs` substitutes for the git or filesystem boundary — tests inject controlled git and filesystem implementations and exercise the real helper code paths ([audit])
 - NEVER: a consumer domain duplicates branch slugging ([audit])
