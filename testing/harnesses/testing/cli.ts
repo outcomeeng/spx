@@ -1,15 +1,14 @@
 import { Command } from "commander";
 
 import type { RecordedTestRun } from "@/commands/testing";
-import {
-  createTestingDomain,
-  type TestingCliDependencies,
-} from "@/interfaces/cli/testing";
+import type { TargetSelection } from "@/domains/testing";
+import { createTestingDomain, type TestingCliDependencies } from "@/interfaces/cli/testing";
 import { testingCliCommanderParseSource } from "@testing/generators/testing/dispatch";
 
 export interface TestingCliCall {
   readonly productDir: string;
   readonly passing: boolean;
+  readonly targets?: TargetSelection;
 }
 
 export interface TestingCliResult {
@@ -32,12 +31,12 @@ export function testingCliDeps(
 ): TestingCliDependencies {
   return {
     resolveProductDir: () => Promise.resolve(productDir),
-    runTests: (resolvedProductDir, passing) => {
-      streamCalls.push({ productDir: resolvedProductDir, passing });
+    runTests: (resolvedProductDir, passing, targets) => {
+      streamCalls.push({ productDir: resolvedProductDir, passing, ...(targets === undefined ? {} : { targets }) });
       return Promise.resolve(run);
     },
-    runAgentTests: (resolvedProductDir, passing) => {
-      agentCalls.push({ productDir: resolvedProductDir, passing });
+    runAgentTests: (resolvedProductDir, passing, targets) => {
+      agentCalls.push({ productDir: resolvedProductDir, passing, ...(targets === undefined ? {} : { targets }) });
       return Promise.resolve(run);
     },
     writeStdout: () => undefined,

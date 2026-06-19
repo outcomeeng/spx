@@ -143,9 +143,33 @@ describe("targeted execution operator output", () => {
       testingCliDeps(productDir, run, agentCalls, streamCalls),
     );
 
-    expect(streamCalls).toEqual([{ productDir, passing: false }]);
+    // The operand parsed by the CLI is forwarded as the selection, and the
+    // unresolved operand surfaces in the warning with a non-zero exit.
+    expect(streamCalls).toEqual([{ productDir, passing: false, targets: { operands: [operand], recursive: false } }]);
     expect(agentCalls).toEqual([]);
     expect(result.stderr).toContain(operand);
     expect(result.exitCodes).toEqual([UNSUPPORTED_TEST_SELECTION_EXIT_CODE]);
+  });
+
+  it("forwards the recursive flag as part of the operand selection", async () => {
+    const productDir = sampleConfigTestValue(CONFIG_TEST_GENERATOR.productDir());
+    const operand = nodeOperand(sampleDispatchValue(TEST_DISPATCH_GENERATOR.nodePath()));
+    const agentCalls: TestingCliCall[] = [];
+    const streamCalls: TestingCliCall[] = [];
+    const run = recordedRun(productDir, {
+      exitCode: UNSUPPORTED_TEST_SELECTION_EXIT_CODE,
+      groups: [],
+      unmatched: [],
+      unresolvedTargets: [operand],
+      reports: [],
+      outcomes: [],
+    });
+
+    await runTestingCli(
+      [TESTING_CLI.commandName, TESTING_CLI.recursiveLongFlag, operand],
+      testingCliDeps(productDir, run, agentCalls, streamCalls),
+    );
+
+    expect(streamCalls).toEqual([{ productDir, passing: false, targets: { operands: [operand], recursive: true } }]);
   });
 });
