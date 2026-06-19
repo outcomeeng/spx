@@ -42,6 +42,10 @@ import type { CircularCommandOptions, ValidationCommandResult } from "./types";
 
 type TypeScriptScopeConfig = ReturnType<typeof getTypeScriptScope>;
 type CircularValidationResult = Awaited<ReturnType<typeof validateCircularDependencies>>;
+interface PatternDirectoryAdvance {
+  readonly patternIndex: number;
+  readonly recursiveGlobConsumedDirectory: boolean;
+}
 
 const TYPESCRIPT_ABSENT_MESSAGE = formatTypeScriptAbsentSkipMessage(VALIDATION_STAGE_DISPLAY_NAMES.CIRCULAR);
 const CIRCULAR_CONFIG_ERROR_MESSAGE = `${VALIDATION_STAGE_DISPLAY_NAMES.CIRCULAR}: ✗ config error`;
@@ -103,48 +107,59 @@ function constrainPatternToDirectory(pattern: string, directory: string): string
   }
   const patternSegments = normalizedPattern.split("/");
   const directorySegments = normalizedDirectory.split("/");
-  let patternIndex = 0;
-  let recursiveGlobConsumedDirectory = false;
-  for (const directorySegment of directorySegments) {
-    while (patternSegments[patternIndex] === RECURSIVE_GLOB_SEGMENT) {
-      const nextPatternSegment = patternSegments[patternIndex + 1];
-      if (
-        nextPatternSegment === directorySegment
-        || nextPatternSegment === ANY_SEGMENT_GLOB
-        || nextPatternSegment === SINGLE_CHARACTER_SEGMENT_GLOB
-      ) {
-        patternIndex += 1;
-        break;
-      }
-      recursiveGlobConsumedDirectory = true;
-      break;
-    }
-    const patternSegment = patternSegments[patternIndex];
-    if (patternSegment === RECURSIVE_GLOB_SEGMENT) {
-      continue;
-    }
-    if (
-      patternSegment === undefined
-      || (
-        patternSegment !== directorySegment
-        && patternSegment !== ANY_SEGMENT_GLOB
-        && patternSegment !== SINGLE_CHARACTER_SEGMENT_GLOB
-      )
-    ) {
-      break;
-    }
-    patternIndex += 1;
-  }
+  const directoryAdvance = advancePatternPastDirectory(patternSegments, directorySegments);
+  let { patternIndex } = directoryAdvance;
   while (patternSegments[patternIndex] === RECURSIVE_GLOB_SEGMENT) {
     patternIndex += 1;
   }
   const suffixSegments = patternSegments.slice(patternIndex);
-  const constrainedSuffixSegments = recursiveGlobConsumedDirectory && suffixSegments.length > 0
+  const constrainedSuffixSegments = directoryAdvance.recursiveGlobConsumedDirectory && suffixSegments.length > 0
     ? [RECURSIVE_GLOB_SEGMENT, ...suffixSegments]
     : suffixSegments;
   return constrainedSuffixSegments.length === 0
     ? normalizedDirectory
     : [normalizedDirectory, ...constrainedSuffixSegments].join("/");
+}
+
+function advancePatternPastDirectory(
+  patternSegments: readonly string[],
+  directorySegments: readonly string[],
+): PatternDirectoryAdvance {
+  let patternIndex = 0;
+  let recursiveGlobConsumedDirectory = false;
+  for (const directorySegment of directorySegments) {
+    const recursiveAdvance = advanceRecursiveGlobForDirectorySegment(patternSegments, patternIndex, directorySegment);
+    patternIndex = recursiveAdvance.patternIndex;
+    recursiveGlobConsumedDirectory = recursiveGlobConsumedDirectory || recursiveAdvance.recursiveGlobConsumedDirectory;
+    if (recursiveAdvance.recursiveGlobConsumedDirectory) {
+      continue;
+    }
+    if (!patternSegmentMatchesDirectorySegment(patternSegments[patternIndex], directorySegment)) {
+      break;
+    }
+    patternIndex += 1;
+  }
+  return { patternIndex, recursiveGlobConsumedDirectory };
+}
+
+function advanceRecursiveGlobForDirectorySegment(
+  patternSegments: readonly string[],
+  patternIndex: number,
+  directorySegment: string,
+): PatternDirectoryAdvance {
+  if (patternSegments[patternIndex] !== RECURSIVE_GLOB_SEGMENT) {
+    return { patternIndex, recursiveGlobConsumedDirectory: false };
+  }
+  const nextPatternSegment = patternSegments[patternIndex + 1];
+  return patternSegmentMatchesDirectorySegment(nextPatternSegment, directorySegment)
+    ? { patternIndex: patternIndex + 1, recursiveGlobConsumedDirectory: false }
+    : { patternIndex, recursiveGlobConsumedDirectory: true };
+}
+
+function patternSegmentMatchesDirectorySegment(patternSegment: string | undefined, directorySegment: string): boolean {
+  return patternSegment === directorySegment
+    || patternSegment === ANY_SEGMENT_GLOB
+    || patternSegment === SINGLE_CHARACTER_SEGMENT_GLOB;
 }
 
 function pathMatchesScopePattern(path: string, pattern: string): boolean {
