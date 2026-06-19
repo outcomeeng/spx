@@ -14,6 +14,7 @@ CAN browse the session queue and hand a session to claude or codex in one keystr
 - Given a mounted picker, when the quit key or Esc is pressed in browse mode, then the picker unmounts with no launch and the queue unchanged ([test](tests/picker-render.scenario.l1.test.ts))
 - Given an empty claimable queue, when the picker mounts, then the frame shows the empty-state message and a launch key launches nothing ([test](tests/picker-render.scenario.l1.test.ts))
 - Given a session whose goal exceeds the row's available width, when the picker mounts, then the session occupies a single row with its goal truncated to that width and no row wraps to a second line, the keybinding hint renders on its own line below the title, and each preview label is separated from its value by a space ([test](tests/picker-render.scenario.l1.test.ts))
+- Given a resolved launch command, when the agent process exits with a status, then the launcher resolves that status — a non-zero status when the agent exits without one or its binary cannot be spawned — so the descriptor always exits with a defined status rather than hanging on an unresolved promise or crashing on an unhandled spawn error ([test](tests/launch-agent.scenario.l1.test.ts))
 
 ### Mappings
 
