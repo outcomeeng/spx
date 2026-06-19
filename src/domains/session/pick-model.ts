@@ -37,17 +37,30 @@ export interface LaunchCommand {
 }
 
 /**
- * Resolves the agent command that resumes `sessionId`: the runtime's binary with a single prompt
- * argument `<prefix>pickup <id>`, extended by ` --auto-continue` when `autoContinue` is set. The
- * binary name is the runtime id; the prefix is `/` for claude and `$` for codex.
+ * Resolves the agent command that resumes the session named by `reference`: the runtime's binary
+ * with a single prompt argument `<prefix>pickup <reference>`, extended by ` --auto-continue` when
+ * `autoContinue` is set. The binary name is the runtime id; the prefix is `/` for claude and `$` for
+ * codex. The reference is a bare session id (resolved by the agent against its own store) or an
+ * absolute session-file path (read by the agent directly) — see {@link pickupReference}.
  */
 export function buildPickupCommand(
   runtime: PickerRuntime,
   autoContinue: boolean,
-  sessionId: string,
+  reference: string,
 ): LaunchCommand {
-  const prompt = `${RUNTIME_SKILL_PREFIX[runtime]}pickup ${sessionId}${autoContinue ? " --auto-continue" : ""}`;
+  const prompt = `${RUNTIME_SKILL_PREFIX[runtime]}pickup ${reference}${autoContinue ? " --auto-continue" : ""}`;
   return { command: runtime, args: [prompt] };
+}
+
+/**
+ * The reference the launched agent resolves to the picked session. With the default cwd-scoped store
+ * (no `--sessions-dir`) it is the bare session id: the agent resolves the id against its own store,
+ * the same store the picker read. With a custom store the agent cannot resolve the id — it scopes to
+ * its own cwd, not the picker's `--sessions-dir` — so the reference is the session's absolute file
+ * path, which the agent reads directly.
+ */
+export function pickupReference(session: Session, sessionsDir: string | undefined): string {
+  return sessionsDir === undefined ? session.id : session.path;
 }
 
 /**
