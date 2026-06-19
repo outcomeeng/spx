@@ -852,6 +852,24 @@ describe("circular command scope routing", () => {
     });
   });
 
+  it("rejects out-of-project --files operands before circular validation runs", async () => {
+    await withValidationEnv({ fixture: PROJECT_FIXTURES.CLEAN_PROJECT }, async ({ path }) => {
+      const { deps, validationCalls } = createRecordingCircularCommandDeps();
+
+      const result = await circularCommand(
+        {
+          cwd: path,
+          files: [outOfRootRelativeSourceFile],
+        },
+        deps,
+      );
+
+      expect(result.exitCode).toBe(VALIDATION_EXIT_CODES.SUCCESS);
+      expect(result.output).toBe(formatValidationPathsNoTargetsSkipMessage(VALIDATION_STAGE_DISPLAY_NAMES.CIRCULAR));
+      expect(validationCalls).toEqual([]);
+    });
+  });
+
   it("forwards --files directories as constrained TypeScript scope", async () => {
     await withValidationEnv({ fixture: PROJECT_FIXTURES.CLEAN_PROJECT }, async ({ path }) => {
       await expectCircularCommandScopes(
