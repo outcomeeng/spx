@@ -16,6 +16,7 @@ CAN render diagnostics with no unprintable bytes and bounded length, CAN invoke 
 - Given one tracked child process and a SIGINT signal delivered to the parent, when the handler runs, then the child receives SIGINT and the parent exits with code 130 ([test](tests/lifecycle.scenario.l1.test.ts))
 - Given two or more tracked child processes and a SIGTERM signal delivered to the parent, when the handler runs, then every tracked child receives SIGTERM and the parent exits with code 143 ([test](tests/lifecycle.scenario.l1.test.ts))
 - Given one tracked child process and an uncaught exception reaching the top of the call stack, when the handler runs, then the child is killed and the parent exits with a non-zero code ([test](tests/lifecycle.scenario.l1.test.ts))
+- Given a signal target holding the parent's SIGINT and SIGTERM listeners, when a foreground handoff suspends signal handling, then each foreground signal's original listeners are removed and a single ignore listener is installed; when the returned restore runs, the ignore listener is removed and the original listeners are reinstated ([test](tests/foreground-handoff.scenario.l1.test.ts))
 
 ### Mappings
 
@@ -42,6 +43,8 @@ CAN render diagnostics with no unprintable bytes and bounded length, CAN invoke 
 - ALWAYS: `installLifecycle()` is the first call executed in `src/cli.ts` before any domain registration ([review])
 - ALWAYS: every production async `ProcessRunner` default in the validation steps points at the shared lifecycle runner exported from `src/lib/process-lifecycle/` ([test](tests/lifecycle.compliance.l1.test.ts))
 - ALWAYS: managed long-running subprocesses use the process-lifecycle helper that owns parent-piped stdio rather than setting stdio at the domain call site ([test](tests/lifecycle.compliance.l1.test.ts))
+- ALWAYS: the foreground exec-handoff runner spawns its child through the lifecycle module's `spawn` with inherited stdio and leaves the lifecycle registry untouched, so a terminal-owning child is neither tracked nor killed by the parent's signal cleanup ([audit])
+- ALWAYS: a foreground exec-handoff ignores SIGINT and SIGTERM on the parent for the child's lifetime, then restores the parent's signal handling and exits with the child's status ([audit])
 - NEVER: pass raw user-supplied strings to `console.error`, `process.stderr.write`, or shell execution paths without `sanitizeCliArgument` in the chain ([review])
 - NEVER: the packaged executable imports `src/cli.ts` when built output is absent; it exits with a build-required diagnostic instead ([review])
 - NEVER: import `child_process.spawn` for asynchronous child processes outside `src/lib/process-lifecycle/`; synchronous `execSync`/`spawnSync` are exempt because they self-reap before parent exit ([test](../41-validation.enabler/32-typescript-validation.enabler/32-ast-enforcement.enabler/tests/no-async-spawn-outside-lifecycle.mapping.l1.test.ts))
