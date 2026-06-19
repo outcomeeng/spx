@@ -1,12 +1,42 @@
 import { describe, expect, it } from "vitest";
 
-import { runTests } from "@/commands/testing";
-import { resolveTargetedTestFiles } from "@/domains/testing";
+import { type RecordedTestRun, runTests, type TestDispatchResult } from "@/commands/testing";
+import { resolveTargetedTestFiles, UNSUPPORTED_TEST_SELECTION_EXIT_CODE } from "@/domains/testing";
+import { TESTING_CLI } from "@/interfaces/cli/testing";
 import { typescriptTestingLanguage } from "@/testing/languages/typescript";
 import { testingRegistry } from "@/testing/registry";
+import { TEST_RUN_STATE_FIELDS, TEST_RUN_STATE_STATUS } from "@/testing/run-state";
+import { CONFIG_TEST_GENERATOR, sampleConfigTestValue } from "@testing/generators/config/descriptors";
 import { nodeOperand, sampleDispatchValue, TEST_DISPATCH_GENERATOR } from "@testing/generators/testing/dispatch";
+import { runTestingCli, type TestingCliCall, testingCliDeps } from "@testing/harnesses/testing/cli";
 import { withTestingTempProductDir, writeTestFileFixture } from "@testing/harnesses/testing/harness";
 import { createRecordingCommandRunner } from "@testing/harnesses/testing/typescript-runner";
+
+function recordedRun(productDir: string, dispatch: TestDispatchResult): RecordedTestRun {
+  return {
+    dispatch,
+    runFile: {
+      runsDir: productDir,
+      runFilePath: productDir,
+      runFileName: productDir,
+      runToken: productDir,
+      runId: productDir,
+      startedAt: productDir,
+    },
+    recorded: {
+      branchName: productDir,
+      headSha: productDir,
+      testingConfigDigest: productDir,
+      runnerOutcomes: [],
+      discoveredTestPathsDigest: productDir,
+      discoveredTestContentDigest: productDir,
+      productInputDigests: [],
+      startedAt: productDir,
+      completedAt: productDir,
+      [TEST_RUN_STATE_FIELDS.STATUS]: TEST_RUN_STATE_STATUS.FAILED,
+    },
+  };
+}
 
 describe("targeted execution operand resolution", () => {
   it("selects a test-file-path operand's own file and nothing else", () => {
@@ -90,5 +120,32 @@ describe("targeted execution operand resolution", () => {
       expect(result.unresolvedTargets).toEqual([nodeOperand(nodeB)]);
       expect(result.exitCode).not.toBe(0);
     });
+  });
+});
+
+describe("targeted execution operator output", () => {
+  it("warns and exits non-zero when an operand resolves to no test file", async () => {
+    const productDir = sampleConfigTestValue(CONFIG_TEST_GENERATOR.productDir());
+    const operand = nodeOperand(sampleDispatchValue(TEST_DISPATCH_GENERATOR.nodePath()));
+    const agentCalls: TestingCliCall[] = [];
+    const streamCalls: TestingCliCall[] = [];
+    const run = recordedRun(productDir, {
+      exitCode: UNSUPPORTED_TEST_SELECTION_EXIT_CODE,
+      groups: [],
+      unmatched: [],
+      unresolvedTargets: [operand],
+      reports: [],
+      outcomes: [],
+    });
+
+    const result = await runTestingCli(
+      [TESTING_CLI.commandName, operand],
+      testingCliDeps(productDir, run, agentCalls, streamCalls),
+    );
+
+    expect(streamCalls).toEqual([{ productDir, passing: false }]);
+    expect(agentCalls).toEqual([]);
+    expect(result.stderr).toContain(operand);
+    expect(result.exitCodes).toEqual([UNSUPPORTED_TEST_SELECTION_EXIT_CODE]);
   });
 });
