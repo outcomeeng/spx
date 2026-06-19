@@ -32,6 +32,12 @@ const REGEX_SPECIAL_CHARACTER_PATTERN = /[.+?^${}()|[\]\\]/gu;
 const REGEX_ESCAPE_REPLACEMENT = String.raw`\$&`;
 const HIDDEN_PATH_PREFIX = ".";
 const TYPESCRIPT_SOURCE_EXTENSIONS = [".ts", ".tsx", ".mts", ".cts"] as const;
+export const TYPESCRIPT_FALLBACK_INCLUDE_PATTERNS = [
+  "**/*.ts",
+  "**/*.tsx",
+  "**/*.mts",
+  "**/*.cts",
+] as const;
 
 // =============================================================================
 // DEPENDENCY INJECTION INTERFACES
@@ -93,7 +99,7 @@ export function parseTypeScriptConfig(
   } catch {
     // Fallback: return minimal config and let directory detection work
     return {
-      include: ["**/*.ts", "**/*.tsx"],
+      include: [...TYPESCRIPT_FALLBACK_INCLUDE_PATTERNS],
       exclude: ["node_modules/**", ".pnpm-store/**", "dist/**"],
     };
   }

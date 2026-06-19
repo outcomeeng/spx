@@ -48,7 +48,10 @@ const analyzeDirectory = dirname(sourceModule);
 const nonTypeScriptSourceFile = join(VALIDATION_PIPELINE_DATA.sourceDirectoryName, "readme.md");
 const extensionlessSourceFile = join(VALIDATION_PIPELINE_DATA.sourceDirectoryName, "README");
 const dottedSourceDirectory = join(VALIDATION_PIPELINE_DATA.sourceDirectoryName, "feature.dir");
-const modernTypeScriptSourceFile = join(VALIDATION_PIPELINE_DATA.sourceDirectoryName, "modern.mts");
+const modernTypeScriptSourceFile = join(
+  VALIDATION_PIPELINE_DATA.sourceDirectoryName,
+  VALIDATION_PIPELINE_DATA.modernSourceFileName,
+);
 const rootTypeScriptFilePattern = "*.ts";
 const emptyTypescriptConfig: ParsedCommandLine = {
   options: {},
