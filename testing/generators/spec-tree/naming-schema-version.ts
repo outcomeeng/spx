@@ -91,6 +91,7 @@ function buildNamingSchemaVersion(
   version: string,
   nodeSuffixes: readonly string[],
   decisionSuffixes: readonly string[],
+  specFileSuffix: string,
 ): NamingSchemaVersion {
   return {
     version,
@@ -103,7 +104,32 @@ function buildNamingSchemaVersion(
     pathSeparator: SPEC_TREE_GRAMMAR.PATH_SEPARATOR,
     coordinationNotes: SPEC_TREE_GRAMMAR.COORDINATION_NOTES,
     evalLane: SPEC_TREE_GRAMMAR.EVAL_LANE,
+    specFileSuffix,
   };
+}
+
+// The canonical (highest-version) member carries the spec document-kind suffix;
+// every prior member carries the bare suffix, mirroring the production model so a
+// generated tuple is a faithful naming-schema history rather than a uniform corpus.
+function specFileSuffixForRole(isCanonical: boolean): string {
+  return isCanonical ? SPEC_TREE_GRAMMAR.SPEC_FILE.CANONICAL_SUFFIX : SPEC_TREE_GRAMMAR.SPEC_FILE.PRIOR_SUFFIX;
+}
+
+function compareSemver(left: string, right: string): number {
+  const leftComponents = left.split(SEMVER_COMPONENT_SEPARATOR).map((part) => Number(part));
+  const rightComponents = right.split(SEMVER_COMPONENT_SEPARATOR).map((part) => Number(part));
+  const length = Math.max(leftComponents.length, rightComponents.length);
+  for (let index = 0; index < length; index += 1) {
+    const difference = (leftComponents[index] ?? 0) - (rightComponents[index] ?? 0);
+    if (difference !== 0) {
+      return difference;
+    }
+  }
+  return 0;
+}
+
+function maxSemver(versions: readonly string[]): string {
+  return versions.reduce((max, version) => (compareSemver(version, max) > 0 ? version : max));
 }
 
 function arbitraryNamingSchemaVersion(): fc.Arbitrary<NamingSchemaVersion> {
@@ -118,9 +144,13 @@ function arbitraryNamingSchemaVersion(): fc.Arbitrary<NamingSchemaVersion> {
         NAMING_SCHEMA_VERSION_GENERATOR_OPTIONS.DECISION_SUFFIX_SET_MIN,
         NAMING_SCHEMA_VERSION_GENERATOR_OPTIONS.DECISION_SUFFIX_SET_MAX,
       ),
+      specFileSuffix: fc.constantFrom(
+        SPEC_TREE_GRAMMAR.SPEC_FILE.PRIOR_SUFFIX,
+        SPEC_TREE_GRAMMAR.SPEC_FILE.CANONICAL_SUFFIX,
+      ),
     })
-    .map(({ version, nodeSuffixes, decisionSuffixes }) =>
-      buildNamingSchemaVersion(version, nodeSuffixes, decisionSuffixes)
+    .map(({ version, nodeSuffixes, decisionSuffixes, specFileSuffix }) =>
+      buildNamingSchemaVersion(version, nodeSuffixes, decisionSuffixes, specFileSuffix)
     );
 }
 
@@ -130,8 +160,9 @@ function arbitraryNamingSchemaVersionTuple(): fc.Arbitrary<readonly NamingSchema
       minLength: NAMING_SCHEMA_VERSION_GENERATOR_OPTIONS.VERSION_TUPLE_MIN,
       maxLength: NAMING_SCHEMA_VERSION_GENERATOR_OPTIONS.VERSION_TUPLE_MAX,
     })
-    .chain((versions) =>
-      fc.tuple(
+    .chain((versions) => {
+      const canonicalVersion = maxSemver(versions);
+      return fc.tuple(
         ...versions.map((version) =>
           fc
             .record({
@@ -145,11 +176,16 @@ function arbitraryNamingSchemaVersionTuple(): fc.Arbitrary<readonly NamingSchema
               ),
             })
             .map(({ nodeSuffixes, decisionSuffixes }) =>
-              buildNamingSchemaVersion(version, nodeSuffixes, decisionSuffixes)
+              buildNamingSchemaVersion(
+                version,
+                nodeSuffixes,
+                decisionSuffixes,
+                specFileSuffixForRole(version === canonicalVersion),
+              )
             )
         ),
-      )
-    );
+      );
+    });
 }
 
 function arbitraryForeignNodeSuffix(): fc.Arbitrary<string> {
@@ -174,8 +210,18 @@ function arbitraryRecognitionVersionScenario(): fc.Arbitrary<RecognitionVersionS
       }
       return {
         schemaVersions: [
-          buildNamingSchemaVersion(RECOGNITION_SCENARIO_VERSION.PRIOR, [supersededNodeSuffix], DECISION_SUFFIXES),
-          buildNamingSchemaVersion(RECOGNITION_SCENARIO_VERSION.CANONICAL, NODE_SUFFIXES, DECISION_SUFFIXES),
+          buildNamingSchemaVersion(
+            RECOGNITION_SCENARIO_VERSION.PRIOR,
+            [supersededNodeSuffix],
+            DECISION_SUFFIXES,
+            specFileSuffixForRole(false),
+          ),
+          buildNamingSchemaVersion(
+            RECOGNITION_SCENARIO_VERSION.CANONICAL,
+            NODE_SUFFIXES,
+            DECISION_SUFFIXES,
+            specFileSuffixForRole(true),
+          ),
         ],
         validNodeSuffix,
         supersededNodeSuffix,
@@ -199,8 +245,18 @@ function arbitraryCanonicalForeignSuffixScenario(): fc.Arbitrary<CanonicalForeig
       }
       return {
         schemaVersions: [
-          buildNamingSchemaVersion(RECOGNITION_SCENARIO_VERSION.PRIOR, [foreignPriorSuffix], DECISION_SUFFIXES),
-          buildNamingSchemaVersion(RECOGNITION_SCENARIO_VERSION.CANONICAL, [foreignCanonicalSuffix], DECISION_SUFFIXES),
+          buildNamingSchemaVersion(
+            RECOGNITION_SCENARIO_VERSION.PRIOR,
+            [foreignPriorSuffix],
+            DECISION_SUFFIXES,
+            specFileSuffixForRole(false),
+          ),
+          buildNamingSchemaVersion(
+            RECOGNITION_SCENARIO_VERSION.CANONICAL,
+            [foreignCanonicalSuffix],
+            DECISION_SUFFIXES,
+            specFileSuffixForRole(true),
+          ),
         ],
         foreignCanonicalSuffix,
       };
@@ -217,8 +273,18 @@ function arbitraryDemotedRegistrySuffixScenario(): fc.Arbitrary<DemotedRegistryS
     }
     return {
       schemaVersions: [
-        buildNamingSchemaVersion(RECOGNITION_SCENARIO_VERSION.PRIOR, [demotedRegistrySuffix], DECISION_SUFFIXES),
-        buildNamingSchemaVersion(RECOGNITION_SCENARIO_VERSION.CANONICAL, canonicalRegistrySuffixes, DECISION_SUFFIXES),
+        buildNamingSchemaVersion(
+          RECOGNITION_SCENARIO_VERSION.PRIOR,
+          [demotedRegistrySuffix],
+          DECISION_SUFFIXES,
+          specFileSuffixForRole(false),
+        ),
+        buildNamingSchemaVersion(
+          RECOGNITION_SCENARIO_VERSION.CANONICAL,
+          canonicalRegistrySuffixes,
+          DECISION_SUFFIXES,
+          specFileSuffixForRole(true),
+        ),
       ],
       demotedRegistrySuffix,
       demotedVersion: RECOGNITION_SCENARIO_VERSION.PRIOR,
