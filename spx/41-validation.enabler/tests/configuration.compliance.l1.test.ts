@@ -23,7 +23,7 @@ import {
 import { LITERAL_DEFAULTS } from "@/validation/literal/config";
 import { TOOL_DISCOVERY } from "@/validation/discovery/constants";
 import { runKnipStage, type KnipStageDeps } from "@/validation/languages/typescript";
-import type { ScopeConfig } from "@/validation/types";
+import { type ScopeConfig, VALIDATION_SCOPES } from "@/validation/types";
 import { MARKDOWN_DEFAULT_DIRECTORY_NAMES, MARKDOWN_PRIMARY_FILE_EXTENSION } from "@/validation/steps/markdown";
 import {
   LITERAL_TEST_GENERATOR,
@@ -150,6 +150,57 @@ describe("ALWAYS: validation command participation is driven by spx config", () 
     );
   });
 
+  it("applies production scope during knip execution", async () => {
+    await withLiteralFixtureEnv(
+      validationConfigSection(VALIDATION_KNIP_SUBSECTION, true),
+      async (env) => {
+        const sourceFilePath = sampleLiteralTestValue(LITERAL_TEST_GENERATOR.sourceFilePath());
+        const testFilePath = sampleLiteralTestValue(LITERAL_TEST_GENERATOR.testFilePath());
+        const validationCalls: Array<{
+          readonly projectRoot: string;
+          readonly typescriptScope: ScopeConfig;
+        }> = [];
+        await env.writeTsConfigMarker();
+        await env.writeRaw(
+          VALIDATION_PIPELINE_DATA.productionTsconfigFile,
+          VALIDATION_PIPELINE_DATA.productionTsconfigContent,
+        );
+        await env.writeSourceFile(sourceFilePath, sampleLiteralTestValue(LITERAL_TEST_GENERATOR.domainLiteral()));
+        await env.writeTestFile(testFilePath, sampleLiteralTestValue(LITERAL_TEST_GENERATOR.domainLiteral()));
+
+        const result = await knipCommand(
+          {
+            cwd: env.productDir,
+            scope: VALIDATION_SCOPES.PRODUCTION,
+          },
+          {
+            discoverTool: async () => ({
+              found: true,
+              location: {
+                tool: VALIDATION_PIPELINE_DATA.stageNames.KNIP,
+                path: env.productDir,
+                source: TOOL_DISCOVERY.SOURCES.PROJECT,
+              },
+            }),
+            validateKnip: async (context) => {
+              validationCalls.push(context);
+              return { success: true };
+            },
+          },
+        );
+
+        expect(result.exitCode).toBe(VALIDATION_EXIT_CODES.SUCCESS);
+        expect(validationCalls).toHaveLength(1);
+        expect(validationCalls[0]?.typescriptScope.filePatterns).toEqual([
+          VALIDATION_PIPELINE_DATA.productionScopeFilePattern,
+        ]);
+        expect(validationCalls[0]?.typescriptScope.directories).toEqual([
+          VALIDATION_PIPELINE_DATA.sourceDirectoryName,
+        ]);
+      },
+    );
+  });
+
   it("reports a knip skip when explicit file scope matches no targets", async () => {
     await withLiteralFixtureEnv(
       validationConfigSection(VALIDATION_KNIP_SUBSECTION, true),
@@ -203,6 +254,7 @@ describe("ALWAYS: validation command participation is driven by spx config", () 
       const result = await runKnipStage(
         {
           cwd: env.productDir,
+          scope: VALIDATION_SCOPES.PRODUCTION,
           files: [sourceFilePath],
           quiet: true,
           json: true,
@@ -214,6 +266,7 @@ describe("ALWAYS: validation command participation is driven by spx config", () 
       expect(commandCalls).toEqual([
         {
           cwd: env.productDir,
+          scope: VALIDATION_SCOPES.PRODUCTION,
           files: [sourceFilePath],
           quiet: true,
           json: true,
