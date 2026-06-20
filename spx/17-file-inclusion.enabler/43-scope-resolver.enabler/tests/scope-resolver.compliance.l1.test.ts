@@ -15,7 +15,7 @@ import {
   resolverConfig,
   writeExclude,
   writeTestFiles,
-} from "./support";
+} from "@testing/harnesses/file-inclusion/scope-resolver";
 
 describe("scope resolver — compliance", () => {
   it("LAYER_SEQUENCE is a non-empty ordered tuple — the declaration exports exactly one symbol with the expected shape", () => {

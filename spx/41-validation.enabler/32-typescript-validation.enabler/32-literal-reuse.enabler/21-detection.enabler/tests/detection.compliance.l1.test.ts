@@ -22,7 +22,7 @@ import {
 } from "@testing/generators/literal/literal";
 import { withLiteralFixtureEnv } from "@testing/harnesses/literal/harness";
 
-import { collectFromSource } from "./support";
+import { collectFromSource } from "@testing/harnesses/literal-reuse/detection";
 
 describe("ALWAYS: AST traversal descends only into fields the injected visitor-keys map declares", () => {
   it("unknown node types short-circuit: literals nested below un-registered types are not indexed", () => {

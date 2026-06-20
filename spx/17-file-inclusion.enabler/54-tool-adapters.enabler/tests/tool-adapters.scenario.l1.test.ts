@@ -4,7 +4,7 @@ import { arbitrarySourceFilePath, sampleLiteralTestValue } from "@testing/genera
 
 import { REGISTERED_TOOL_NAMES, toToolArguments } from "@/lib/file-inclusion/adapters";
 
-import { makeScope, makeToolAdaptersConfig, testAdapterFlag } from "./support";
+import { makeScope, makeToolAdaptersConfig, testAdapterFlag } from "@testing/harnesses/file-inclusion/tool-adapters";
 
 const testTool = REGISTERED_TOOL_NAMES[0];
 if (!testTool) throw new Error("adapters.scenario: no registered tools");

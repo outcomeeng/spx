@@ -29,7 +29,7 @@ import {
   SessionHarness,
 } from "@testing/harnesses/session/harness";
 
-import { extractSessionFile } from "./helpers";
+import { extractSessionFile } from "@testing/harnesses/session/session-store";
 
 const PROPERTY_RUN_COUNT = 100;
 const TEST_TIMEOUT_MS = 60_000;

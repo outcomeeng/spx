@@ -16,7 +16,7 @@ import {
   spxPath,
   writeExclude,
   writeExcludeRaw,
-} from "./support";
+} from "@testing/harnesses/file-inclusion/ignore-source";
 
 describe("ignore-source — scenarios", () => {
   it("ignore-source file lists a node path and the reader reports a path under that node directory as under-ignore-source", async () => {

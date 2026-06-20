@@ -16,7 +16,7 @@ import {
   resolverConfig,
   writeExclude,
   writeTestFiles,
-} from "./support";
+} from "@testing/harnesses/file-inclusion/scope-resolver";
 
 describe("scope resolver — scenarios", () => {
   it("an explicit path that also matches every non-override layer appears in included with explicit-override as the first trail entry", async () => {

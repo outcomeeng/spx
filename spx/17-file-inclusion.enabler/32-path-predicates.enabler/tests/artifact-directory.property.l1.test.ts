@@ -3,7 +3,7 @@ import { describe, expect, it } from "vitest";
 
 import { artifactDirectoryPredicate } from "@/lib/file-inclusion/predicates/artifact-directory";
 
-import { artifactDirs, PROPERTY_NUM_RUNS } from "./support";
+import { artifactDirs, PROPERTY_NUM_RUNS } from "@testing/harnesses/file-inclusion/path-predicates";
 
 describe("artifact-directory predicate — properties", () => {
   it("any path containing a configured artifact-directory segment reports matched: true regardless of the segment's position in the path", () => {

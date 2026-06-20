@@ -22,7 +22,7 @@ import {
   resolverConfig,
   writeExclude,
   writeTestFiles,
-} from "./support";
+} from "@testing/harnesses/file-inclusion/scope-resolver";
 
 describe("scope resolver — properties", () => {
   it("resolution is deterministic: same project root, request, and filesystem state produce the same ScopeResult on every call", async () => {

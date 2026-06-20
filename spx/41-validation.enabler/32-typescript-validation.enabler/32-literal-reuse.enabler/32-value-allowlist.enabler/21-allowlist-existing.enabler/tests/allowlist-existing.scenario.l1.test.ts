@@ -29,7 +29,7 @@ import {
   readProductConfigSections,
   writeDuplicatedLiteralFixture,
   writeMultipleLiteralFixtures,
-} from "./support";
+} from "@testing/harnesses/literal-reuse/allowlist-existing";
 
 function serializeEmptyJsonConfig(): string {
   const serialized = serializeConfigFileSections(CONFIG_FILE_FORMAT.JSON, literalEmptyConfig());

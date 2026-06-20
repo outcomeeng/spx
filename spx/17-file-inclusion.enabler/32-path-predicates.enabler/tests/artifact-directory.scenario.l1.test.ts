@@ -2,7 +2,7 @@ import { describe, expect, it } from "vitest";
 
 import { artifactDirectoryPredicate } from "@/lib/file-inclusion/predicates/artifact-directory";
 
-import { artifactDirConfig, artifactDirs } from "./support";
+import { artifactDirConfig, artifactDirs } from "@testing/harnesses/file-inclusion/path-predicates";
 
 describe("artifact-directory predicate — scenarios", () => {
   it("a path containing a segment equal to any configured artifact-directory name reports matched: true with that segment as the detail", () => {

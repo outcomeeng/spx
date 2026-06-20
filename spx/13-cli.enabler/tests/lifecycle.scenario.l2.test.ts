@@ -6,7 +6,7 @@ import { EPIPE_EXIT_CODE } from "@/lib/process-lifecycle";
 import { runSpawnFixture } from "@testing/harnesses/process-lifecycle/spawn-fixture";
 
 const repoRoot = resolve(__dirname, "..", "..", "..");
-const fixturePath = resolve(__dirname, "fixtures", "epipe-emitter.ts");
+const fixturePath = resolve(repoRoot, "testing", "fixtures", "cli", "epipe-emitter.ts");
 const stdoutBufferFillMs = 200;
 
 describe("Scenario L2: stdout closed mid-write under EPIPE", () => {

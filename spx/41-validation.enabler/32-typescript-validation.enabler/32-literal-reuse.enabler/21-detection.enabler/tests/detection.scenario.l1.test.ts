@@ -18,7 +18,7 @@ import {
   buildStringDeclaration,
 } from "@testing/harnesses/literal/snippets";
 
-import { indexSources, testOccurrences } from "./support";
+import { indexSources, testOccurrences } from "@testing/harnesses/literal-reuse/detection";
 
 describe("literal-reuse detection — scenarios", () => {
   it("string literal carrying domain meaning in a src file and a test file produces a src↔test reuse finding citing both locations", () => {
