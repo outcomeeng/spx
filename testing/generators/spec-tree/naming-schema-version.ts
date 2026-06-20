@@ -1,6 +1,6 @@
 import * as fc from "fast-check";
 
-import { type NamingSchemaVersion, SPEC_TREE_GRAMMAR } from "@/lib/spec-tree";
+import { canonicalNamingSchemaVersion, type NamingSchemaVersion, SPEC_TREE_GRAMMAR } from "@/lib/spec-tree";
 import { DECISION_SUFFIXES, NODE_SUFFIXES } from "@/lib/spec-tree/config";
 
 const NAMING_SCHEMA_VERSION_GENERATOR_OPTIONS = {
@@ -115,23 +115,6 @@ function specFileSuffixForRole(isCanonical: boolean): string {
   return isCanonical ? SPEC_TREE_GRAMMAR.SPEC_FILE.CANONICAL_SUFFIX : SPEC_TREE_GRAMMAR.SPEC_FILE.PRIOR_SUFFIX;
 }
 
-function compareSemver(left: string, right: string): number {
-  const leftComponents = left.split(SEMVER_COMPONENT_SEPARATOR).map((part) => Number(part));
-  const rightComponents = right.split(SEMVER_COMPONENT_SEPARATOR).map((part) => Number(part));
-  const length = Math.max(leftComponents.length, rightComponents.length);
-  for (let index = 0; index < length; index += 1) {
-    const difference = (leftComponents[index] ?? 0) - (rightComponents[index] ?? 0);
-    if (difference !== 0) {
-      return difference;
-    }
-  }
-  return 0;
-}
-
-function maxSemver(versions: readonly string[]): string {
-  return versions.reduce((max, version) => (compareSemver(version, max) > 0 ? version : max));
-}
-
 function arbitraryNamingSchemaVersion(): fc.Arbitrary<NamingSchemaVersion> {
   return fc
     .record({
@@ -160,32 +143,47 @@ function arbitraryNamingSchemaVersionTuple(): fc.Arbitrary<readonly NamingSchema
       minLength: NAMING_SCHEMA_VERSION_GENERATOR_OPTIONS.VERSION_TUPLE_MIN,
       maxLength: NAMING_SCHEMA_VERSION_GENERATOR_OPTIONS.VERSION_TUPLE_MAX,
     })
-    .chain((versions) => {
-      const canonicalVersion = maxSemver(versions);
-      return fc.tuple(
-        ...versions.map((version) =>
-          fc
-            .record({
-              nodeSuffixes: arbitrarySuffixSet(
-                NAMING_SCHEMA_VERSION_GENERATOR_OPTIONS.NODE_SUFFIX_SET_MIN,
-                NAMING_SCHEMA_VERSION_GENERATOR_OPTIONS.NODE_SUFFIX_SET_MAX,
-              ),
-              decisionSuffixes: arbitrarySuffixSet(
-                NAMING_SCHEMA_VERSION_GENERATOR_OPTIONS.DECISION_SUFFIX_SET_MIN,
-                NAMING_SCHEMA_VERSION_GENERATOR_OPTIONS.DECISION_SUFFIX_SET_MAX,
-              ),
-            })
-            .map(({ nodeSuffixes, decisionSuffixes }) =>
+    .chain((versions) =>
+      fc
+        .tuple(
+          ...versions.map((version) =>
+            fc
+              .record({
+                nodeSuffixes: arbitrarySuffixSet(
+                  NAMING_SCHEMA_VERSION_GENERATOR_OPTIONS.NODE_SUFFIX_SET_MIN,
+                  NAMING_SCHEMA_VERSION_GENERATOR_OPTIONS.NODE_SUFFIX_SET_MAX,
+                ),
+                decisionSuffixes: arbitrarySuffixSet(
+                  NAMING_SCHEMA_VERSION_GENERATOR_OPTIONS.DECISION_SUFFIX_SET_MIN,
+                  NAMING_SCHEMA_VERSION_GENERATOR_OPTIONS.DECISION_SUFFIX_SET_MAX,
+                ),
+              })
+              .map(({ nodeSuffixes, decisionSuffixes }) => ({ version, nodeSuffixes, decisionSuffixes }))
+          ),
+        )
+        .map((members) => {
+          // Determine the canonical member with the production comparator rather than a
+          // local copy, so the generator cannot drift from the ordering it generates for.
+          const canonicalVersion = canonicalNamingSchemaVersion(
+            members.map((member) =>
               buildNamingSchemaVersion(
-                version,
-                nodeSuffixes,
-                decisionSuffixes,
-                specFileSuffixForRole(version === canonicalVersion),
+                member.version,
+                member.nodeSuffixes,
+                member.decisionSuffixes,
+                SPEC_TREE_GRAMMAR.SPEC_FILE.PRIOR_SUFFIX,
               )
+            ),
+          ).version;
+          return members.map((member) =>
+            buildNamingSchemaVersion(
+              member.version,
+              member.nodeSuffixes,
+              member.decisionSuffixes,
+              specFileSuffixForRole(member.version === canonicalVersion),
             )
-        ),
-      );
-    });
+          );
+        })
+    );
 }
 
 function arbitraryForeignNodeSuffix(): fc.Arbitrary<string> {
