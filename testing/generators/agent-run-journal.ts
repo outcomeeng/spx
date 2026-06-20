@@ -1,6 +1,12 @@
 import fc from "fast-check";
 
-import type { JournalEventInput, JournalIdentity, JsonValue } from "@/lib/agent-run-journal";
+import {
+  CLOUDEVENTS_SPECVERSION,
+  type JournalEvent,
+  type JournalEventInput,
+  type JournalIdentity,
+  type JsonValue,
+} from "@/lib/agent-run-journal";
 
 /** Upper bound (ms since epoch) for generated event timestamps — start of year 2100. */
 const MILLIS_UPPER_BOUND = 4_102_444_800_000;
@@ -31,6 +37,22 @@ export function arbitraryJournalEventInput(): fc.Arbitrary<JournalEventInput> {
 /** A non-empty sequence of event inputs to append to a journal. */
 export function arbitraryJournalEventInputs(): fc.Arbitrary<readonly JournalEventInput[]> {
   return fc.array(arbitraryJournalEventInput(), { minLength: 1, maxLength: 12 });
+}
+
+/** A full journal event — a caller input plus the stream identity the journal assigns. */
+export function arbitraryJournalEvent(): fc.Arbitrary<JournalEvent> {
+  return fc.record({
+    id: fc.uuid(),
+    source: fc.webUrl(),
+    type: fc.string({ minLength: 1 }),
+    specversion: fc.constant(CLOUDEVENTS_SPECVERSION),
+    time: arbitraryRfc3339Time,
+    streamid: fc.uuid(),
+    seq: fc.integer({ min: 1 }),
+    runid: fc.uuid(),
+    attempt: fc.integer({ min: 1, max: 5 }),
+    data: fc.option(arbitraryJsonScalar, { nil: undefined }),
+  });
 }
 
 export function arbitraryJournalIdentity(): fc.Arbitrary<JournalIdentity> {
