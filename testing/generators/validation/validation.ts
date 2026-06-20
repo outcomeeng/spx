@@ -69,10 +69,13 @@ const SCRIPT_SOURCE_DIRECTORY_NAME = "scripts";
 const NARROW_SOURCE_DIRECTORY_NAME = "api";
 const DEEP_SOURCE_DIRECTORY_NAME = "deeper";
 const NESTED_SOURCE_DIRECTORY_NAME = "validation-nested";
+const DOTTED_SOURCE_DIRECTORY_NAME = "feature.dir";
 const NARROW_PRODUCTION_SCOPE_FILE_PATTERN = "src/api/**/*.ts";
+const NARROW_SINGLE_LEVEL_TYPESCRIPT_SOURCE_FILE_PATTERN = "src/api/*.ts";
 const TYPESCRIPT_ONLY_SOURCE_FILE_PATTERN = "src/**/*.ts";
 const NESTED_FEATURE_SOURCE_DIRECTORY_NAME = "feature";
 const NESTED_FEATURE_SOURCE_FILE_PATTERN = "src/**/feature/*.ts";
+const NARROW_NESTED_FEATURE_SOURCE_FILE_PATTERN = "src/api/**/feature/*.ts";
 const TEST_SCOPE_FILE_PATTERN = `${TEST_DIRECTORY_NAME}/**/*`;
 // Mirrors an actual tsconfig.production.json exclude entry.
 const PRODUCTION_SCOPE_EXCLUDE_PATTERN = "docs/**/*";
@@ -91,11 +94,13 @@ const TYPESCRIPT_JSX_SOURCE_FILE_NAME = "component.tsx";
 const MODERN_SOURCE_FILE_NAME = "modern.mts";
 const COMMONJS_SOURCE_FILE_NAME = "commonjs.cts";
 const CLEAN_SOURCE_FILE_NAME = "clean.ts";
+const DOT_PREFIXED_ROOT_SOURCE_FILE_NAME = "..foo.ts";
 const DECLARATION_SOURCE_FILE_NAME = "types.d.ts";
 const MODERN_DECLARATION_SOURCE_FILE_NAME = "types.d.mts";
 const COMMONJS_DECLARATION_SOURCE_FILE_NAME = "types.d.cts";
 const EXTENSIONLESS_SOURCE_FILE_NAME = "README";
 const RECURSIVE_NAMED_SOURCE_FILE_PATTERN = `src/**/${CLEAN_SOURCE_FILE_NAME}`;
+const ROOT_TYPESCRIPT_SOURCE_FILE_PATTERN = "*.ts";
 const SINGLE_LEVEL_NAMED_SOURCE_FILE_PATTERN = `src/*/${CLEAN_SOURCE_FILE_NAME}`;
 const RECURSIVE_MARKDOWN_SOURCE_FILE_PATTERN = "src/**/*.md";
 const SINGLE_CHARACTER_SOURCE_INCLUDE_PATTERN = `src/?/${CLEAN_SOURCE_FILE_NAME}`;
@@ -261,10 +266,13 @@ export const VALIDATION_PIPELINE_DATA = {
   narrowSourceDirectoryName: NARROW_SOURCE_DIRECTORY_NAME,
   deepSourceDirectoryName: DEEP_SOURCE_DIRECTORY_NAME,
   nestedSourceDirectoryName: NESTED_SOURCE_DIRECTORY_NAME,
+  dottedSourceDirectoryName: DOTTED_SOURCE_DIRECTORY_NAME,
   narrowProductionScopeFilePattern: NARROW_PRODUCTION_SCOPE_FILE_PATTERN,
+  narrowSingleLevelTypeScriptSourceFilePattern: NARROW_SINGLE_LEVEL_TYPESCRIPT_SOURCE_FILE_PATTERN,
   typeScriptOnlySourceFilePattern: TYPESCRIPT_ONLY_SOURCE_FILE_PATTERN,
   nestedFeatureSourceDirectoryName: NESTED_FEATURE_SOURCE_DIRECTORY_NAME,
   nestedFeatureSourceFilePattern: NESTED_FEATURE_SOURCE_FILE_PATTERN,
+  narrowNestedFeatureSourceFilePattern: NARROW_NESTED_FEATURE_SOURCE_FILE_PATTERN,
   testDirectoryName: TEST_DIRECTORY_NAME,
   testScopeFilePattern: TEST_SCOPE_FILE_PATTERN,
   productionScopeExcludePattern: PRODUCTION_SCOPE_EXCLUDE_PATTERN,
@@ -282,6 +290,7 @@ export const VALIDATION_PIPELINE_DATA = {
   fullTsconfigFile: TSCONFIG_FILES.full,
   sourceDirectoryName: "src",
   cleanSourceFileName: CLEAN_SOURCE_FILE_NAME,
+  dotPrefixedRootSourceFileName: DOT_PREFIXED_ROOT_SOURCE_FILE_NAME,
   typeScriptJsxSourceFileName: TYPESCRIPT_JSX_SOURCE_FILE_NAME,
   modernSourceFileName: MODERN_SOURCE_FILE_NAME,
   commonjsSourceFileName: COMMONJS_SOURCE_FILE_NAME,
@@ -291,6 +300,7 @@ export const VALIDATION_PIPELINE_DATA = {
   extensionlessSourceFileName: EXTENSIONLESS_SOURCE_FILE_NAME,
   extensionSpecificExcludeScenarios: EXTENSION_SPECIFIC_EXCLUDE_SCENARIOS,
   recursiveNamedSourceFilePattern: RECURSIVE_NAMED_SOURCE_FILE_PATTERN,
+  rootTypeScriptSourceFilePattern: ROOT_TYPESCRIPT_SOURCE_FILE_PATTERN,
   singleLevelNamedSourceFilePattern: SINGLE_LEVEL_NAMED_SOURCE_FILE_PATTERN,
   recursiveMarkdownSourceFilePattern: RECURSIVE_MARKDOWN_SOURCE_FILE_PATTERN,
   singleCharacterSourceIncludePattern: SINGLE_CHARACTER_SOURCE_INCLUDE_PATTERN,
