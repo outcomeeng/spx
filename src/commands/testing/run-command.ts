@@ -291,7 +291,7 @@ export async function runTestsCommand(
       productDir: options.productDir,
       registry: deps.registry,
       passingScope,
-      ...(options.targets === undefined ? {} : { targets: options.targets }),
+      targets: options.targets,
     },
     { runnerDepsFor: deps.runnerDepsFor },
   );

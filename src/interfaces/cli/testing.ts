@@ -49,7 +49,7 @@ async function runTestsThroughCommand(
 ): Promise<RecordedTestRun> {
   try {
     return await runTestsCommand(
-      { productDir, passing, ...(targets === undefined ? {} : { targets }) },
+      { productDir, passing, targets },
       { registry: testingRegistry, runnerDepsFor: createRunnerDepsFor(productDir) },
     );
   } catch (error) {
@@ -65,7 +65,7 @@ async function runAgentTestsThroughCommand(
 ): Promise<RecordedTestRun> {
   try {
     return await runTestsCommand(
-      { productDir, passing, ...(targets === undefined ? {} : { targets }) },
+      { productDir, passing, targets },
       { registry: testingRegistry, runnerDepsFor: createAgentRunnerDepsFor(productDir) },
     );
   } catch (error) {
