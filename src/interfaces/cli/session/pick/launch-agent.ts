@@ -4,12 +4,12 @@
  * Spawns the foreground child with inherited standard streams through the
  * injected non-registering `ProcessRunner`, so the agent (`claude`/`codex`)
  * owns the terminal, and resolves with the child's exit code for the descriptor
- * to exit on. This is the interactive exec-handoff of
- * `spx/13-cli.enabler/21-terminal-ui.adr.md` — distinct from the piped
- * managed-subprocess helper for background children. Because the agent owns the
- * terminal, the parent's SIGINT and SIGTERM handling is suspended for the
- * child's lifetime through the injected suspender, so a Ctrl-C reaches the
- * agent rather than killing it through the parent or preempting the exit.
+ * to exit on. Unlike the piped managed-subprocess helper, which drains a
+ * background child, this foreground handoff is not drained or tracked — the
+ * child succeeds the parent. Because the agent owns the terminal, the parent's
+ * SIGINT and SIGTERM handling is suspended for the child's lifetime through the
+ * injected suspender, so a Ctrl-C reaches the agent rather than killing it
+ * through the parent's signal cleanup or preempting the exit.
  *
  * @module interfaces/cli/session/pick/launch-agent
  */
