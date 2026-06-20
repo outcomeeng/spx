@@ -6,6 +6,10 @@ CAN open a changeset-scoped run, append one event per significant step, read the
 
 ## Assertions
 
+### Scenarios
+
+- Given a run scope whose branch and product root resolve from the git environment and whose backend binds local, when the `spx journal` commands `open`, `append`, `read --from <cursor>`, `seal`, and `render` run in sequence, then `open` reports a run token, `append` persists and streams each event, `read` returns the events at or after the cursor, `seal` closes the run, and `render` projects the event prefix ([test](tests/journal-cli.scenario.l1.test.ts))
+
 ### Mappings
 
 - Environment maps to backend: an unset `SPX_VERIFY_BACKEND` outside continuous integration, or `SPX_VERIFY_BACKEND=local`, selects the local file-and-standard-output backend; a continuous-integration GitHub pull-request environment, or `SPX_VERIFY_BACKEND=github-pr`, selects the GitHub pull-request backend; an unrecognized value is rejected naming the value and the registered backends ([test](tests/backend-selection.mapping.l1.test.ts))
