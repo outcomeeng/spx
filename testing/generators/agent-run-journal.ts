@@ -40,6 +40,15 @@ export function arbitraryJournalIdentity(): fc.Arbitrary<JournalIdentity> {
   });
 }
 
+const SAMPLE_SEED = 0x6a726e6c;
+
+/** Draw one deterministic value from an agent-run-journal arbitrary. */
+export function sampleAgentRunJournalValue<T>(arbitrary: fc.Arbitrary<T>): T {
+  const [value] = fc.sample(arbitrary, { seed: SAMPLE_SEED, numRuns: 1 });
+  if (value === undefined) throw new Error("agent-run-journal test generator returned no sample");
+  return value;
+}
+
 /** A deterministic per-stream run file path for journal-store tests. */
 export function journalRunFilePath(streamid: string): string {
   return `journal-runs/${streamid}`;
