@@ -1,6 +1,6 @@
 import * as fc from "fast-check";
 
-import { STATE_STORE_RUN_TOKEN } from "@/lib/state-store";
+import { createStateStoreRunToken, slugBranchIdentity, STATE_STORE_RUN_TOKEN } from "@/lib/state-store";
 
 const SAMPLE_SEED = 0x535458;
 const HEX_ALPHABET = [..."0123456789abcdef"] as const;
@@ -10,7 +10,10 @@ const TOKEN_CHARACTERS = [..."abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWX
 export const STATE_STORE_UNSAFE_SCOPE_TOKENS = [".", "..", "a/b", "a\\b", "a.b"] as const;
 export const STATE_STORE_UNSAFE_SCOPE_MARKERS = ["/", "\\", ".", ".."] as const;
 
-function stringFromCharacters(characters: readonly string[], options: { readonly minLength: number; readonly maxLength: number }): fc.Arbitrary<string> {
+function stringFromCharacters(
+  characters: readonly string[],
+  options: { readonly minLength: number; readonly maxLength: number },
+): fc.Arbitrary<string> {
   return fc.array(fc.constantFrom(...characters), options).map((chars) => chars.join(""));
 }
 
@@ -21,6 +24,22 @@ export const STATE_STORE_TEST_GENERATOR = {
     fc.string({ minLength: 1, maxLength: 32 }).filter((value) => !/[A-Za-z0-9]/.test(value)),
   headSha: (): fc.Arbitrary<string> => stringFromCharacters(HEX_ALPHABET, { minLength: 40, maxLength: 40 }),
   scopeToken: (): fc.Arbitrary<string> => stringFromCharacters(TOKEN_CHARACTERS, { minLength: 1, maxLength: 48 }),
+  branchSlug: (): fc.Arbitrary<string> =>
+    stringFromCharacters(BRANCH_SEGMENT_CHARACTERS, { minLength: 1, maxLength: 180 }).map(slugBranchIdentity),
+  runToken: (): fc.Arbitrary<string> =>
+    fc
+      .tuple(
+        fc.date({
+          min: new Date("2026-01-01T00:00:00.000Z"),
+          max: new Date("2026-12-31T23:59:59.999Z"),
+          noInvalidDate: true,
+        }),
+        fc.uint8Array({
+          minLength: STATE_STORE_RUN_TOKEN.ID_BYTES,
+          maxLength: STATE_STORE_RUN_TOKEN.ID_BYTES,
+        }).map((bytes) => Buffer.from(bytes)),
+      )
+      .map(([date, idBytes]) => createStateStoreRunToken({ date, randomBytes: () => idBytes }).runToken),
   unsafeScopeToken: (): fc.Arbitrary<string> => fc.constantFrom(...STATE_STORE_UNSAFE_SCOPE_TOKENS),
   scopeTokenContainingUnsafeMarker: (): fc.Arbitrary<string> =>
     fc
@@ -56,12 +75,13 @@ export const STATE_STORE_TEST_GENERATOR = {
       stringFromCharacters(TOKEN_CHARACTERS, { minLength: 1, maxLength: 16 }),
       stringFromCharacters(BRANCH_SEGMENT_CHARACTERS, { minLength: 1, maxLength: 32 }),
       stringFromCharacters(BRANCH_SEGMENT_CHARACTERS, { minLength: 1, maxLength: 32 }),
-    ).filter(([firstKey, secondKey, firstValue, secondValue]) =>
-      firstKey !== secondKey && firstValue !== secondValue
-    ).map(([firstKey, secondKey, firstValue, secondValue]) => [
-      { [firstKey]: firstValue },
-      { [secondKey]: secondValue },
-    ] as const),
+    ).filter(([firstKey, secondKey, firstValue, secondValue]) => firstKey !== secondKey && firstValue !== secondValue)
+      .map(([firstKey, secondKey, firstValue, secondValue]) =>
+        [
+          { [firstKey]: firstValue },
+          { [secondKey]: secondValue },
+        ] as const
+      ),
 } as const;
 
 export function sampleStateStoreTestValue<T>(arbitrary: fc.Arbitrary<T>): T {
