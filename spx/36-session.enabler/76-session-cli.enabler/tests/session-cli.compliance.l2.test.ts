@@ -1,4 +1,3 @@
-import { execa } from "execa";
 import { existsSync } from "node:fs";
 import { readdir, readFile, writeFile } from "node:fs/promises";
 import { join } from "node:path";
@@ -14,7 +13,7 @@ import {
   SESSION_HANDOFF_BASE_ERROR_NAME,
 } from "@/domains/session/handoff-base-checklist";
 import { FIELD_SELECTION_SEPARATOR, parseSessionMetadata, SESSION_RECORD_FIELD } from "@/domains/session/list";
-import { SESSION_STATUSES, type SessionStatus } from "@/domains/session/types";
+import { SESSION_PRIORITY, SESSION_STATUSES, type SessionStatus } from "@/domains/session/types";
 import { GIT_HEAD_SHA_ARGS, GIT_SHOW_TOPLEVEL_ARGS, NOT_GIT_REPO_WARNING } from "@/git/root";
 import { sampleLiteralTestValue } from "@testing/generators/literal/literal";
 import {
@@ -30,6 +29,8 @@ import {
   buildSessionMarkdownBody,
   createNonGitSessionEnv,
   createSessionHarness,
+  runSessionCli,
+  SESSION_CLI_ANSI_ESCAPE,
   type SessionHarness,
 } from "@testing/harnesses/session/harness";
 import { withWorktreeLayoutEnv } from "@testing/harnesses/worktree-layout/worktree-layout";
@@ -140,25 +141,11 @@ async function withLinkedHandoffBase(
 }
 
 const [TODO, DOING, ARCHIVE] = SESSION_STATUSES;
-const CLI_ENTRY = join(process.cwd(), "bin/spx.js");
 const SESSION_FILE_TAG_PATTERN = /<SESSION_FILE>(.*?)<\/SESSION_FILE>/;
 const HANDOFF_ID_TAG_PATTERN = /<HANDOFF_ID>\d{4}-\d{2}-\d{2}_\d{2}-\d{2}-\d{2}<\/HANDOFF_ID>/;
 const GIT_FIXTURE_COMMIT_MESSAGE = "session cli fixture";
 const LINKED_WORKTREE_BRANCH = "feature/linked-local";
 const LINKED_WORKTREE_RELATIVE_PATH = ".worktrees/linked";
-
-async function runSpx(
-  args: readonly string[],
-  input?: string,
-  cwd: string = process.cwd(),
-): Promise<{ stdout: string; stderr: string; exitCode: number }> {
-  const result = await execa("node", [CLI_ENTRY, ...args], {
-    cwd,
-    input,
-    reject: false,
-  });
-  return { stdout: result.stdout, stderr: result.stderr, exitCode: result.exitCode ?? 1 };
-}
 
 async function withCommittedGitCwd(callback: (cwd: string) => Promise<void>): Promise<void> {
   await withGitWorktreeEnv(async (gitEnv) => {
@@ -187,7 +174,7 @@ describe("session CLI compliance", () => {
     const validId = "2026-01-10_10-00-00";
     await harness.writeSession(TODO, validId);
 
-    const result = await runSpx([
+    const result = await runSessionCli([
       "session",
       "delete",
       "missing-id",
@@ -206,7 +193,7 @@ describe("session CLI compliance", () => {
     const validId = "2026-01-10_10-00-00";
     await harness.writeSession(TODO, validId);
 
-    const result = await runSpx([
+    const result = await runSessionCli([
       "session",
       "archive",
       validId,
@@ -225,7 +212,7 @@ describe("session CLI compliance", () => {
       await harness.writeSession(TODO, id);
     }
 
-    const result = await runSpx([
+    const result = await runSessionCli([
       "session",
       "pickup",
       ...ids,
@@ -245,7 +232,7 @@ describe("session CLI compliance", () => {
     const invalidId = "missing-id";
     await harness.writeSession(TODO, validId);
 
-    const result = await runSpx([
+    const result = await runSessionCli([
       "session",
       "pickup",
       validId,
@@ -263,7 +250,7 @@ describe("session CLI compliance", () => {
   it("ALWAYS: handoff preserves body bytes after the JSON-prefix separator", async () => {
     const body = "  # Body with edge whitespace  \n";
     await withCommittedGitCwd(async (gitCwd) => {
-      const result = await runSpx(
+      const result = await runSessionCli(
         ["session", "handoff", "--sessions-dir", harness.sessionsDir],
         `{"goal":"Preserve body","next_step":"Inspect session file"}\n${body}`,
         gitCwd,
@@ -283,14 +270,14 @@ describe("session CLI compliance", () => {
     await withCommittedGitCwd(async (gitCwd) => {
       // JSON header that omits goal — semantic-content error per
       // 76-session-cli.enabler/session-cli.md.
-      const omitsGoal = await runSpx(
+      const omitsGoal = await runSessionCli(
         ["session", "handoff", "--sessions-dir", harness.sessionsDir],
         `{"priority":"high","next_step":"Run validation","specs":[],"files":[]}\n# Session`,
         gitCwd,
       );
 
       // Stdin opening with the YAML-frontmatter delimiter — wire-format error.
-      const legacyYaml = await runSpx(
+      const legacyYaml = await runSessionCli(
         ["session", "handoff", "--sessions-dir", harness.sessionsDir],
         "---\npriority: high\ngoal: Legacy shape\nnext_step: Should reject\n---\n# Body",
         gitCwd,
@@ -298,7 +285,7 @@ describe("session CLI compliance", () => {
 
       // JSON header that opens with `{` but is not parseable — structural
       // wire-format error.
-      const malformedJson = await runSpx(
+      const malformedJson = await runSessionCli(
         ["session", "handoff", "--sessions-dir", harness.sessionsDir],
         `{"priority":"high","goal":"oops"`,
         gitCwd,
@@ -335,7 +322,7 @@ describe("session CLI compliance", () => {
         LINKED_WORKTREE_BRANCH,
       ]);
 
-      const result = await runSpx(
+      const result = await runSessionCli(
         ["session", "handoff", "--sessions-dir", harness.sessionsDir],
         `{"goal":"Refuse a linked-worktree base","next_step":"Detach to origin default first"}\n# Session`,
         linkedWorktreeDir,
@@ -351,7 +338,7 @@ describe("session CLI compliance", () => {
     const sessionId = sampleSessionId();
     await harness.writeRawSession(TODO, sessionId, sampleSessionContent());
 
-    const result = await runSpx([
+    const result = await runSessionCli([
       "session",
       "archive",
       sessionId,
@@ -376,7 +363,7 @@ describe("session CLI handoff-base refusal checklist", () => {
   });
 
   async function runHandoffFrom(cwd: string): Promise<{ stdout: string; stderr: string; exitCode: number }> {
-    return runSpx(
+    return runSessionCli(
       ["session", "handoff", "--sessions-dir", harness.sessionsDir],
       buildHandoffStdin(
         sampleLiteralTestValue(arbitraryHandoffHeader()),
@@ -596,7 +583,7 @@ describe("session CLI handoff-base refusal checklist", () => {
         sha,
       ]);
 
-      const result = await runSpx(
+      const result = await runSessionCli(
         ["session", "handoff", "--sessions-dir", harness.sessionsDir],
         `{"goal":"Anchor at work branch","next_step":"Resume on the feature branch","git_ref":"${workBranch}"}\n# Session`,
         gitEnv.productDir,
@@ -613,7 +600,7 @@ describe("session CLI handoff-base refusal checklist", () => {
   it("explicit git_ref absent from origin: refuses naming SessionWorkBranchNotOnOriginError and writes no file", async () => {
     const workBranch = "feat/cli-missing-on-origin";
     await withCommittedGitCwd(async (cwd) => {
-      const result = await runSpx(
+      const result = await runSessionCli(
         ["session", "handoff", "--sessions-dir", harness.sessionsDir],
         `{"goal":"Anchor at work branch","next_step":"Resume on the feature branch","git_ref":"${workBranch}"}\n# Session`,
         cwd,
@@ -654,7 +641,7 @@ describe("session CLI non-git warning", () => {
           ? [SESSION_DOMAIN, subcommand]
           : [SESSION_DOMAIN, subcommand, id];
 
-        const result = await runSpx(args, undefined, env.cwd);
+        const result = await runSessionCli(args, undefined, env.cwd);
 
         expect(result.stderr).toContain(NOT_GIT_REPO_WARNING);
       } finally {
@@ -671,7 +658,7 @@ describe("session CLI non-git warning", () => {
         buildSessionMarkdownBody("Non-git handoff"),
       );
 
-      const result = await runSpx([SESSION_DOMAIN, "handoff"], stdin, env.cwd);
+      const result = await runSessionCli([SESSION_DOMAIN, "handoff"], stdin, env.cwd);
 
       expect(result.exitCode).not.toBe(0);
       expect(result.stderr).not.toContain(NOT_GIT_REPO_WARNING);
@@ -686,7 +673,7 @@ describe("session CLI non-git warning", () => {
   it("NEVER: the non-git diagnostic claims sessions will be created", async () => {
     const env = await createNonGitSessionEnv();
     try {
-      const result = await runSpx([SESSION_DOMAIN, "list"], undefined, env.cwd);
+      const result = await runSessionCli([SESSION_DOMAIN, "list"], undefined, env.cwd);
 
       expect(result.stderr.trim()).not.toBe("");
       expect(result.stderr).not.toMatch(/creat/i);
@@ -711,7 +698,7 @@ describe("session CLI — JSON list output and field selection", () => {
     const id = sampleSessionId();
     await harness.writeSession(TODO, id);
 
-    const result = await runSpx(["session", "list", "--json", "--sessions-dir", harness.sessionsDir]);
+    const result = await runSessionCli(["session", "list", "--json", "--sessions-dir", harness.sessionsDir]);
 
     expect(result.exitCode).toBe(0);
     const parsed = JSON.parse(result.stdout) as Record<string, Array<Record<string, unknown>>>;
@@ -735,7 +722,7 @@ describe("session CLI — JSON list output and field selection", () => {
     const fieldsArg = selection.join(",");
 
     for (const subcommand of ["list", "todo"]) {
-      const result = await runSpx([
+      const result = await runSessionCli([
         "session",
         subcommand,
         "--fields",
@@ -755,7 +742,7 @@ describe("session CLI — JSON list output and field selection", () => {
     await harness.writeSession(TODO, id);
     const unknownToken = sampleSessionId();
 
-    const result = await runSpx(["session", "list", "--fields", unknownToken, "--sessions-dir", harness.sessionsDir]);
+    const result = await runSessionCli(["session", "list", "--fields", unknownToken, "--sessions-dir", harness.sessionsDir]);
 
     expect(result.exitCode).not.toBe(0);
     expect(result.stdout.trim()).toBe("");
@@ -769,7 +756,7 @@ describe("session CLI — JSON list output and field selection", () => {
     const id = sampleSessionId();
     await harness.writeSession(TODO, id);
 
-    const result = await runSpx(["session", "list", "--fields", "", "--sessions-dir", harness.sessionsDir]);
+    const result = await runSessionCli(["session", "list", "--fields", "", "--sessions-dir", harness.sessionsDir]);
 
     expect(result.exitCode).not.toBe(0);
     expect(result.stdout.trim()).toBe("");
@@ -782,7 +769,7 @@ describe("session CLI — JSON list output and field selection", () => {
     const id = sampleSessionId();
     await harness.writeSession(TODO, id);
 
-    const result = await runSpx([
+    const result = await runSessionCli([
       "session",
       "list",
       "--fields",
@@ -796,6 +783,71 @@ describe("session CLI — JSON list output and field selection", () => {
     expect(result.stderr).toContain(FIELD_SELECTION_SEPARATOR);
     for (const field of Object.values(SESSION_RECORD_FIELD)) {
       expect(result.stderr).toContain(field);
+    }
+  });
+});
+
+const LIST_COLOR_FIELDS = `${SESSION_RECORD_FIELD.ID}${FIELD_SELECTION_SEPARATOR}${SESSION_RECORD_FIELD.PRIORITY}`;
+
+/** A `spx session list`/`todo` invocation and whether its piped output should carry ANSI styling. */
+interface ListColorCase {
+  readonly title: string;
+  readonly args: readonly string[];
+  readonly env?: Record<string, string>;
+  readonly expectColor: boolean;
+}
+
+const LIST_COLOR_CASES: readonly ListColorCase[] = [
+  { title: "piped session list emits no ANSI escape (pipe-safe)", args: ["session", "list"], expectColor: false },
+  { title: "piped session todo emits no ANSI escape (pipe-safe)", args: ["session", "todo"], expectColor: false },
+  {
+    title: "--color emits ANSI escapes even when NO_COLOR is present (flag overrides env)",
+    args: ["session", "list", "--color"],
+    env: { NO_COLOR: "1" },
+    expectColor: true,
+  },
+  { title: "--no-color emits no ANSI escape", args: ["session", "list", "--no-color"], expectColor: false },
+  {
+    title: "the --json path emits no ANSI escape even with --color",
+    args: ["session", "list", "--json", "--color"],
+    expectColor: false,
+  },
+  {
+    title: "the --fields path emits no ANSI escape even with --color",
+    args: ["session", "list", "--fields", LIST_COLOR_FIELDS, "--color"],
+    expectColor: false,
+  },
+];
+
+describe("session CLI list color compliance", () => {
+  let harness: SessionHarness;
+
+  beforeEach(async () => {
+    harness = await createSessionHarness();
+    await harness.writeSession(TODO, sampleSessionId(), {
+      priority: SESSION_PRIORITY.HIGH,
+      goal: "uplift the list output",
+      next_step: "ship the formatter",
+    });
+  });
+
+  afterEach(async () => {
+    await harness.cleanup();
+  });
+
+  it.each(LIST_COLOR_CASES)("ALWAYS: $title", async ({ args, env, expectColor }) => {
+    const { stdout, exitCode } = await runSessionCli(
+      [...args, "--sessions-dir", harness.sessionsDir],
+      undefined,
+      process.cwd(),
+      env,
+    );
+
+    expect(exitCode).toBe(0);
+    if (expectColor) {
+      expect(stdout).toContain(SESSION_CLI_ANSI_ESCAPE);
+    } else {
+      expect(stdout).not.toContain(SESSION_CLI_ANSI_ESCAPE);
     }
   });
 });

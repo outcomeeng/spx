@@ -20,6 +20,13 @@ import { SESSION_LIST_FORMAT } from "@/commands/session/list";
 import { SessionHandoffBaseError } from "@/domains/session/errors";
 import { renderHandoffBaseChecklist } from "@/domains/session/handoff-base-checklist";
 import { HANDOFF_FRONTMATTER_HELP, PICKUP_SELECTION_HELP, SESSION_FORMAT_HELP } from "@/domains/session/help";
+import {
+  COLOR_FLAG,
+  type ColorFlag,
+  DEFAULT_LIST_WIDTH,
+  LIST_TEXT_MIN_WIDTH,
+  resolveListColor,
+} from "@/domains/session/list";
 import { buildPickupCommand, pickupReference } from "@/domains/session/pick-model";
 import { SESSION_STATUSES } from "@/domains/session/types";
 import type { Domain } from "@/domains/types";
@@ -63,6 +70,40 @@ function handleError(error: unknown): never {
   process.exit(1);
 }
 
+/** Maps Commander's tri-state `--color`/`--no-color` option to a `ColorFlag`. */
+function colorFlagFromOption(colorOption: boolean | undefined): ColorFlag {
+  if (colorOption === true) {
+    return COLOR_FLAG.ON;
+  }
+  if (colorOption === false) {
+    return COLOR_FLAG.OFF;
+  }
+  return COLOR_FLAG.AUTO;
+}
+
+/**
+ * Resolves the list/todo color decision from process state and the `--color`/
+ * `--no-color` flag. This is the descriptor's process I/O: it reads
+ * `process.stdout.isTTY` and `NO_COLOR`, then delegates the decision to the pure
+ * resolver so the formatter receives a plain boolean.
+ */
+function resolveListColorDecision(colorOption: boolean | undefined): boolean {
+  const noColor = (process.env.NO_COLOR ?? "") !== "";
+  return resolveListColor({
+    isTty: Boolean(process.stdout.isTTY),
+    noColor,
+    colorFlag: colorFlagFromOption(colorOption),
+  });
+}
+
+/**
+ * Reads the terminal width for list/todo truncation, clamped to the formatter's
+ * minimum and falling back to the default when stdout reports no columns.
+ */
+function resolveListWidth(): number {
+  return Math.max(LIST_TEXT_MIN_WIDTH, process.stdout.columns ?? DEFAULT_LIST_WIDTH);
+}
+
 /**
  * Register session domain commands
  *
@@ -76,21 +117,27 @@ function registerSessionCommands(sessionCmd: Command): void {
     .option("--status <status>", "Filter by status (todo|doing|archive); defaults to doing + todo")
     .option("--json", "Output as JSON")
     .option("--fields <fields>", "Comma-separated fields to emit as JSON (implies --json)")
+    .option("--color", "Force colored text output")
+    .option("--no-color", "Disable colored text output")
     .option("--sessions-dir <path>", "Custom sessions directory")
-    .action(async (options: { status?: string; json?: boolean; fields?: string; sessionsDir?: string }) => {
-      try {
-        const output = await listCommand({
-          status: options.status,
-          format: options.json ? SESSION_LIST_FORMAT.JSON : SESSION_LIST_FORMAT.TEXT,
-          fields: options.fields,
-          sessionsDir: options.sessionsDir,
-          onWarning: writeWarning,
-        });
-        console.log(output);
-      } catch (error) {
-        handleError(error);
-      }
-    });
+    .action(
+      async (options: { status?: string; json?: boolean; fields?: string; color?: boolean; sessionsDir?: string }) => {
+        try {
+          const output = await listCommand({
+            status: options.status,
+            format: options.json ? SESSION_LIST_FORMAT.JSON : SESSION_LIST_FORMAT.TEXT,
+            fields: options.fields,
+            color: resolveListColorDecision(options.color),
+            width: resolveListWidth(),
+            sessionsDir: options.sessionsDir,
+            onWarning: writeWarning,
+          });
+          console.log(output);
+        } catch (error) {
+          handleError(error);
+        }
+      },
+    );
 
   // pick command — interactive launcher: browse the todo queue, then hand the
   // selected session to claude or codex via `/pickup`. The picker never claims.
@@ -132,13 +179,17 @@ function registerSessionCommands(sessionCmd: Command): void {
     .description("List todo sessions")
     .option("--json", "Output as JSON")
     .option("--fields <fields>", "Comma-separated fields to emit as JSON (implies --json)")
+    .option("--color", "Force colored text output")
+    .option("--no-color", "Disable colored text output")
     .option("--sessions-dir <path>", "Custom sessions directory")
-    .action(async (options: { json?: boolean; fields?: string; sessionsDir?: string }) => {
+    .action(async (options: { json?: boolean; fields?: string; color?: boolean; sessionsDir?: string }) => {
       try {
         const output = await listCommand({
           status: SESSION_STATUSES[0],
           format: options.json ? SESSION_LIST_FORMAT.JSON : SESSION_LIST_FORMAT.TEXT,
           fields: options.fields,
+          color: resolveListColorDecision(options.color),
+          width: resolveListWidth(),
           sessionsDir: options.sessionsDir,
           onWarning: writeWarning,
         });
