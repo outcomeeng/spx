@@ -165,18 +165,28 @@ On branch `work/journal`, committed:
   `audit`/`review`/`test`/`compact`; under this restructure `<type>` is caller-supplied and
   validated only for path-safety by `domainDir`, so those enum entries generalize away —
   fold this into the teardown.
+- `src/domains/journal/run-state.ts` + `run-state.compliance.l1.test.ts` and
+  `projection.property.l1.test.ts` — the pure `foldJournalRunState(events, sealed)` over the
+  generic `com.outcomeeng.spx.journal.run.{started,progress,completed}` lifecycle vocabulary,
+  plus the `JournalRunState` envelope. Per operator decision the envelope is the FULL
+  audit+review union: `targetKind` (`branch`/`pull-request`) + optional `pullRequestNumber`,
+  `participants` (was auditors/reviewers), `baseRef`/optional `baseSha`/`headSha`,
+  `configDigest`, `scope` (PathFilterConfig, was targets), timestamps, `outputPaths` (plural),
+  terminal status. Seal+terminal coupling is honored as a pure function of `(events, sealed)`.
+  Added `testing/generators/journal/run-state.ts`. Tests + code audit gates APPROVED.
+  NOTE: latest-run ordering (`selectLatest…`) and the branch-runs reader types
+  (`TerminalRun`/`IncompleteRun`/`BranchRuns`) are NOT in this domain slice — `journal.md`
+  declares no ordering/lookup assertion at this node; they belong to the command/status slice
+  below alongside the `journal render` list/status assertion that consumes them.
 
 **Remaining journal-domain slices (each: source + co-located test, GREEN, lint, commit):**
 
-1. Run-state projection fold + terminal-status classification — generalize
-   `src/domains/audit/run-state.ts` (the `AuditRunState` fold, `AUDIT_RUN_STATE_STATUS`,
-   latest-run ordering) into `src/domains/journal/run-state.ts`, dropping the audit identity
-   (auditors/targets → generic participant/scope fields).
-2. Command orchestration — `src/commands/journal/`: bind the resolved backend + the
+1. Command orchestration — `src/commands/journal/`: bind the resolved backend + the
    agent-run-journal contract; implement `open`/`append`/`read --from cursor`/`seal`/
-   `render`; generalize `src/commands/audit/{run-state,lifecycle}.ts`.
-3. CLI descriptor — `src/interfaces/cli/journal.ts`, registered in the composition root.
-4. GitHub-PR backend streaming — the `gh pr comment` append surface bound under the
+   `render`; generalize `src/commands/audit/{run-state,lifecycle}.ts`. Carry the latest-run
+   ordering + branch-runs reader generalization here, where the status/list assertion lives.
+2. CLI descriptor — `src/interfaces/cli/journal.ts`, registered in the composition root.
+3. GitHub-PR backend streaming — the `gh pr comment` append surface bound under the
    `github-pr` backend (the Snapshot adapter persists; the comment streams).
 
 **Then teardown + ship:** `git rm` the audit domain specs + `src/{domains,commands,
