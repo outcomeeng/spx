@@ -1,8 +1,6 @@
 /**
  * Session CLI — Commander registration descriptor for the session subcommands.
  */
-import { resolve } from "node:path";
-
 import type { Command } from "commander";
 
 import {
@@ -108,17 +106,17 @@ function registerSessionCommands(sessionCmd: Command): void {
           console.error(PICK_NON_TTY_MESSAGE);
           process.exit(1);
         }
-        // Resolve a custom store to an absolute path so the picked session's
-        // path is absolute — the launched agent, scoped to its own cwd, reads
-        // that path directly rather than resolving the id against its store.
-        const sessionsDir = options.sessionsDir === undefined ? undefined : resolve(options.sessionsDir);
-        const sessions = await loadPickCandidates({ sessionsDir, onWarning: writeWarning });
+        const sessions = await loadPickCandidates({
+          sessionsDir: options.sessionsDir,
+          onWarning: writeWarning,
+        });
         const choice = await runPicker(sessions);
         if (choice !== null) {
           // Ink has unmounted and restored the terminal; hand it to the agent,
           // then exit with the agent's status. With the default store the agent
-          // resolves the id; with a custom store it is given the absolute path.
-          const reference = pickupReference(choice.session, sessionsDir);
+          // resolves the id; with a custom store it is given the session's path
+          // made absolute against the working directory so the agent can reach it.
+          const reference = pickupReference(choice.session, options.sessionsDir, process.cwd());
           const command = buildPickupCommand(choice.runtime, choice.autoContinue, reference);
           const code = await launchAgent(foregroundProcessRunner, lifecycleSignalSuspender, command);
           process.exit(code);
