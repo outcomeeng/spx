@@ -158,6 +158,33 @@ cleanup:
 
 **Scope:** follow-up work, not part of the managed subprocess lifecycle fix.
 
+---
+
+## TypeScript and lint `--files` scopes lack TypeScript-scope intersection
+
+The review on `outcomeeng/spx#211` identified that `circularCommand` and
+`knipCommand` now resolve explicit `--files` operands through
+`resolveTypeScriptValidationScope`, which intersects explicit paths with the
+effective TypeScript scope before forwarding them to their tools.
+`typescriptCommand` and `lintCommand` still apply validation path filters but do
+not drop explicit paths outside the tsconfig-backed TypeScript scope.
+
+**Impact:** An explicit path outside the effective TypeScript scope can be
+forwarded by TypeScript and lint while circular and Knip reject the same path,
+so validation subcommands do not share one effective-scope contract.
+
+**Tracking classification:** Follow-up from PR #211 review on June 20, 2026.
+
+**Revisit condition:** Resolve before further changing validation `--files`
+handling, TypeScript scope generation, lint target selection, or the planned
+positional-path replacement.
+
+**Skills:** `spec-tree:contextualize`, `spec-tree:apply`,
+`typescript:test-typescript`, `typescript:code-typescript`,
+`typescript:audit-typescript-tests`, and `typescript:audit-typescript`.
+
+---
+
 ## Positional path arguments to replace `--files` flag
 
 All `spx validation <step>` subcommands currently accept `--files <paths...>` to

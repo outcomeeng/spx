@@ -13,6 +13,7 @@ import { validationPathFilterForTool } from "@/validation/config/path-filter";
 import { resolveTypeScriptValidationScope } from "@/validation/config/scope";
 import { discoverTool, formatSkipMessage } from "@/validation/discovery/index";
 import { validateKnip } from "@/validation/steps/knip";
+import { VALIDATION_SCOPES } from "@/validation/types";
 import {
   formatValidationPathsNoTargetsSkipMessage,
   VALIDATION_COMMAND_OUTPUT,
@@ -43,7 +44,7 @@ export async function knipCommand(
   options: KnipCommandOptions,
   deps: KnipCommandDeps = defaultKnipCommandDeps,
 ): Promise<ValidationCommandResult> {
-  const { cwd, files, quiet, scope = "full" } = options;
+  const { cwd, files, quiet, scope = VALIDATION_SCOPES.FULL } = options;
   const startTime = Date.now();
 
   const loaded = await resolveConfig(cwd, [validationConfigDescriptor]);
