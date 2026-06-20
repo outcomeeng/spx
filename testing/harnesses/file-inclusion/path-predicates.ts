@@ -33,12 +33,12 @@ const readerConfig: IgnoreSourceReaderConfig = {
   specTreeRootSegment: spxRootSegment,
 };
 
-export const artifactDirs = ARTIFACT_DIRECTORIES_DEFAULT;
+export { ARTIFACT_DIRECTORIES_DEFAULT as artifactDirs } from "@/lib/file-inclusion/predicates/artifact-directory";
 export const artifactDirConfig: ArtifactDirectoryConfig = {
   artifactDirectories: [...ARTIFACT_DIRECTORIES_DEFAULT],
 };
 
-export const hiddenPrefix = HIDDEN_PREFIX_DEFAULT;
+export { HIDDEN_PREFIX_DEFAULT as hiddenPrefix } from "@/lib/file-inclusion/predicates/hidden-prefix";
 export const hiddenPrefixConfig: HiddenPrefixConfig = {
   hiddenPrefix: HIDDEN_PREFIX_DEFAULT,
 };

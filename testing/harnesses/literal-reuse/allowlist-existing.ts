@@ -63,7 +63,7 @@ export async function writeProjectConfig(
     );
   }
 
-  const serialized = serializeConfigFileSections(format, config as Record<string, unknown>);
+  const serialized = serializeConfigFileSections(format, config);
   if (!serialized.ok) {
     throw new Error(serialized.error);
   }
@@ -131,5 +131,5 @@ export function readLiteralAllowlist(parsedConfig: unknown): LiteralValueAllowli
       `parsed config missing ${VALIDATION_SECTION}.${VALIDATION_LITERAL_SUBSECTION}.${VALIDATION_LITERAL_VALUES_SUBSECTION} section`,
     );
   }
-  return values as LiteralValueAllowlistConfig;
+  return values;
 }
