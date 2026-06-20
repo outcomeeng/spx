@@ -12,3 +12,4 @@
 26-release.enabler/43-publish-dispatch.enabler
 46-reviewing.enabler/43-review-state.enabler
 23-spec-tree.enabler/48-skill-conformance-oracle.enabler
+34-verification.enabler/21-journal.enabler
