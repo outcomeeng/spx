@@ -11,8 +11,7 @@ import { BatchError } from "@/domains/session/batch";
 import { SESSION_SHOW_LABEL } from "@/domains/session/show";
 import { SESSION_PRIORITY, SESSION_STATUSES } from "@/domains/session/types";
 import { sampleSessionContent, sampleSessionId } from "@testing/generators/session/session";
-import type { SessionHarness } from "@testing/harnesses/session/harness";
-import { createSessionHarness } from "@testing/harnesses/session/harness";
+import { createSessionHarness, type SessionHarness } from "@testing/harnesses/session/harness";
 
 const [TODO, DOING, ARCHIVE] = SESSION_STATUSES;
 

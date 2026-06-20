@@ -8,6 +8,7 @@
  * @module session/testing/harness
  */
 
+import { execa } from "execa";
 import { access, mkdir, writeFile } from "node:fs/promises";
 import { join } from "node:path";
 
@@ -32,6 +33,38 @@ import type { HandoffHeaderFixture } from "@testing/generators/session/session";
 import { createTempDir, removeTempDir } from "@testing/harnesses/with-temp-dir";
 
 const { statusDirs } = DEFAULT_CONFIG.sessions;
+
+/** Absolute path to the built CLI entry the l2 session tests invoke via `node`. */
+export const SESSION_CLI_ENTRY = join(process.cwd(), "bin/spx.js");
+
+/** ANSI control introducer; its presence in CLI output marks styled text. */
+export const SESSION_CLI_ANSI_ESCAPE = String.fromCodePoint(0x1b);
+
+/** Captured streams and exit code of a built-executable CLI run. */
+export interface SessionCliResult {
+  readonly stdout: string;
+  readonly stderr: string;
+  readonly exitCode: number;
+}
+
+/**
+ * Runs the built `spx` executable through `node bin/spx.js` for l2 session
+ * tests. execa pipes stdio, so the child sees no TTY unless a flag forces it.
+ *
+ * @param args - CLI arguments after the entry path.
+ * @param input - Optional stdin content piped to the process.
+ * @param cwd - Working directory for the run (defaults to the test process cwd).
+ * @param env - Extra environment variables layered onto the child process.
+ */
+export async function runSessionCli(
+  args: readonly string[],
+  input?: string,
+  cwd: string = process.cwd(),
+  env?: Record<string, string>,
+): Promise<SessionCliResult> {
+  const result = await execa("node", [SESSION_CLI_ENTRY, ...args], { cwd, input, reject: false, env });
+  return { stdout: result.stdout, stderr: result.stderr, exitCode: result.exitCode ?? 1 };
+}
 
 export function buildSessionMarkdownBody(title: string): string {
   return `# ${title}`;

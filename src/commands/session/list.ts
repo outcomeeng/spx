@@ -8,6 +8,9 @@ import { readdir, readFile } from "node:fs/promises";
 import { join } from "node:path";
 
 import {
+  DEFAULT_LIST_WIDTH,
+  formatSessionListText,
+  formatStatusHeader,
   parseFieldSelection,
   parseSessionMetadata,
   projectSessionRecord,
@@ -16,13 +19,7 @@ import {
   toSessionRecord,
 } from "@/domains/session/list";
 import { SessionDirectoryConfig } from "@/domains/session/show";
-import {
-  DEFAULT_LIST_STATUSES,
-  DEFAULT_PRIORITY,
-  Session,
-  SESSION_STATUSES,
-  SessionStatus,
-} from "@/domains/session/types";
+import { DEFAULT_LIST_STATUSES, Session, SESSION_STATUSES, SessionStatus } from "@/domains/session/types";
 import { resolveSessionConfigSurfacingWarning, type SessionWarningHandler } from "./resolve-config";
 
 export const SESSION_LIST_FORMAT = {
@@ -33,7 +30,6 @@ export const SESSION_LIST_FORMAT = {
 export type SessionListFormat = (typeof SESSION_LIST_FORMAT)[keyof typeof SESSION_LIST_FORMAT];
 
 export const SESSION_LIST_EMPTY_TEXT = "(no sessions)";
-const SESSION_LIST_SUMMARY_SEPARATOR = " -> ";
 
 /**
  * Options for the list command.
@@ -51,6 +47,10 @@ export interface ListOptions {
   format?: SessionListFormat;
   /** Comma-separated field selection; implies JSON output. */
   fields?: string;
+  /** Whether the text output is styled; resolved by the descriptor. Defaults to plain. */
+  color?: boolean;
+  /** Terminal width the text output truncates to; resolved by the descriptor. */
+  width?: number;
 }
 
 /**
@@ -97,25 +97,6 @@ const STATUS_DIR_KEY: Record<SessionStatus, keyof SessionDirectoryConfig> = {
   doing: "doingDir",
   archive: "archiveDir",
 };
-
-/**
- * Formats sessions for text output.
- */
-function formatTextOutput(sessions: Session[]): string {
-  if (sessions.length === 0) {
-    return `  ${SESSION_LIST_EMPTY_TEXT}`;
-  }
-
-  return sessions
-    .map((s) => {
-      const priority = s.metadata.priority !== DEFAULT_PRIORITY ? ` [${s.metadata.priority}]` : "";
-      const summary = s.metadata.goal.length > 0 && s.metadata.next_step.length > 0
-        ? ` ${s.metadata.goal}${SESSION_LIST_SUMMARY_SEPARATOR}${s.metadata.next_step}`
-        : "";
-      return `  ${s.id}${priority}${summary}`;
-    })
-    .join("\n");
-}
 
 /**
  * Executes the list command.
@@ -172,13 +153,17 @@ export async function listCommand(options: ListOptions): Promise<string> {
     return JSON.stringify(recordsByStatus, null, 2);
   }
 
-  // Text format
+  // Text format. The descriptor resolves the color decision and terminal width
+  // as process I/O and passes them here; the formatter stays a pure function of
+  // its inputs and never reads `process.stdout` or the environment.
+  const color = options.color ?? false;
+  const width = options.width ?? DEFAULT_LIST_WIDTH;
   const lines: string[] = [];
 
   for (const status of statuses) {
-    lines.push(`${status.toUpperCase()}:`);
-    lines.push(formatTextOutput(sessionsByStatus[status] ?? []));
-    lines.push("");
+    const group = sessionsByStatus[status] ?? [];
+    const body = group.length === 0 ? `  ${SESSION_LIST_EMPTY_TEXT}` : formatSessionListText(group, { color, width });
+    lines.push(formatStatusHeader(status, color), body, "");
   }
 
   return lines.join("\n").trim();

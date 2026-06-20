@@ -4,6 +4,7 @@
  * @module session/list
  */
 
+import { Chalk, type ChalkInstance } from "chalk";
 import { parse as parseYaml } from "yaml";
 
 import { SessionInvalidFieldError } from "./errors";
@@ -293,4 +294,131 @@ export function parseFieldSelection(input: string): SessionRecordField[] {
     selection.push(token);
   }
   return selection;
+}
+
+/**
+ * Explicit color flags the `list`/`todo` descriptor maps from `--color` and
+ * `--no-color`. `AUTO` is the absence of both flags, so the resolver decides
+ * from the TTY state and `NO_COLOR`.
+ */
+export const COLOR_FLAG = {
+  /** `--color` was passed: force styled output. */
+  ON: "on",
+  /** `--no-color` was passed: force plain output. */
+  OFF: "off",
+  /** Neither flag was passed: decide from the TTY state and `NO_COLOR`. */
+  AUTO: "auto",
+} as const;
+
+export type ColorFlag = (typeof COLOR_FLAG)[keyof typeof COLOR_FLAG];
+
+/** Process facts the color decision reads, resolved by the descriptor. */
+export interface ColorDecisionInput {
+  /** Whether stdout is a TTY (`process.stdout.isTTY`). */
+  readonly isTty: boolean;
+  /** Whether `NO_COLOR` is present and non-empty in the environment. */
+  readonly noColor: boolean;
+  /** The explicit color flag, or `AUTO` when neither flag was passed. */
+  readonly colorFlag: ColorFlag;
+}
+
+/**
+ * Resolves whether the non-interactive list output is styled.
+ *
+ * `--color` (`ON`) forces styling and `--no-color` (`OFF`) forces plain output,
+ * each overriding both the TTY state and `NO_COLOR`. With neither flag (`AUTO`),
+ * styling is enabled only on a TTY that carries no `NO_COLOR`.
+ *
+ * @param input - The resolved TTY state, `NO_COLOR` presence, and color flag.
+ * @returns Whether the formatter should emit ANSI styling escapes.
+ */
+export function resolveListColor(input: ColorDecisionInput): boolean {
+  switch (input.colorFlag) {
+    case COLOR_FLAG.ON:
+      return true;
+    case COLOR_FLAG.OFF:
+      return false;
+    default:
+      return input.isTty && !input.noColor;
+  }
+}
+
+/** Floor width the formatter renders against; widths below it are not supplied. */
+export const LIST_TEXT_MIN_WIDTH = 8;
+/** Width used when the terminal width is unknown (non-TTY stdout has no columns). */
+export const DEFAULT_LIST_WIDTH = 80;
+/** Indent every rendered session line carries. */
+const LIST_INDENT = "  ";
+/** Joins a session's goal and next step in the summary segment. */
+const LIST_SUMMARY_SEPARATOR = " -> ";
+
+/** Options the pure list text formatter renders against. */
+export interface ListTextOptions {
+  /** Whether to emit ANSI styling escapes. */
+  readonly color: boolean;
+  /** Maximum display width every rendered line stays within. */
+  readonly width: number;
+}
+
+/**
+ * Priority badge style, keyed by `SESSION_PRIORITY` so a new priority value
+ * surfaces as a missing key at compile time rather than an unstyled badge.
+ */
+const PRIORITY_STYLE: Record<SessionPriority, (chalk: ChalkInstance, text: string) => string> = {
+  [SESSION_PRIORITY.HIGH]: (chalk, text) => chalk.red(text),
+  [SESSION_PRIORITY.MEDIUM]: (chalk, text) => chalk.yellow(text),
+  [SESSION_PRIORITY.LOW]: (chalk, text) => chalk.gray(text),
+};
+
+/**
+ * Renders one session as an indented line whose display width never exceeds
+ * `width`. Each visible segment (id, priority badge, goal/next-step summary)
+ * is budgeted against the remaining width before styling, so the styled line's
+ * display width equals the budgeted plain width.
+ */
+function formatSessionLine(session: Session, width: number, chalk: ChalkInstance): string {
+  const { id, metadata } = session;
+  const badge = metadata.priority === DEFAULT_PRIORITY ? "" : ` [${metadata.priority}]`;
+  const summary = metadata.goal.length > 0 && metadata.next_step.length > 0
+    ? ` ${metadata.goal}${LIST_SUMMARY_SEPARATOR}${metadata.next_step}`
+    : "";
+
+  let remaining = Math.max(0, width - LIST_INDENT.length);
+  const idShown = id.slice(0, remaining);
+  remaining -= idShown.length;
+  const badgeShown = badge.slice(0, remaining);
+  remaining -= badgeShown.length;
+  const summaryShown = summary.slice(0, remaining);
+
+  const styledBadge = badgeShown.length > 0 ? PRIORITY_STYLE[metadata.priority](chalk, badgeShown) : "";
+  return `${LIST_INDENT}${chalk.dim(idShown)}${styledBadge}${chalk.dim(summaryShown)}`;
+}
+
+/**
+ * Formats one status group's sessions as newline-joined text. Styling is
+ * applied through a chalk instance whose level is fixed from `opts.color`, so
+ * the output is a deterministic function of `(sessions, color, width)` and
+ * consults no environment state; every line stays within `opts.width`.
+ *
+ * @param sessions - The status group's sessions, already sorted by the caller.
+ * @param opts - Whether to style and the maximum display width per line.
+ * @returns The group's session lines joined by newlines.
+ */
+export function formatSessionListText(sessions: Session[], opts: ListTextOptions): string {
+  const chalk = new Chalk({ level: opts.color ? 1 : 0 });
+  return sessions.map((session) => formatSessionLine(session, opts.width, chalk)).join("\n");
+}
+
+/**
+ * Renders a status group's header — the uppercased status name followed by a
+ * colon — styled bold when color is enabled. Pure: the chalk level is fixed
+ * from `color`, never the environment.
+ *
+ * @param status - The status whose group the header introduces.
+ * @param color - Whether to emit ANSI styling escapes.
+ * @returns The styled header line.
+ */
+export function formatStatusHeader(status: SessionStatus, color: boolean): string {
+  const chalk = new Chalk({ level: color ? 1 : 0 });
+  return chalk.bold(`${status.toUpperCase()}:`);
 }
