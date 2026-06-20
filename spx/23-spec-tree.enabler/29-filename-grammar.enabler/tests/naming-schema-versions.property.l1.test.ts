@@ -1,7 +1,12 @@
 import * as fc from "fast-check";
 import { describe, expect, it } from "vitest";
 
-import { canonicalNamingSchemaVersion, compareNamingSchemaVersions, supersededNodeSuffixes } from "@/lib/spec-tree";
+import {
+  canonicalNamingSchemaVersion,
+  compareNamingSchemaVersions,
+  SPEC_TREE_GRAMMAR,
+  supersededNodeSuffixes,
+} from "@/lib/spec-tree";
 import { NAMING_SCHEMA_VERSION_TEST_GENERATOR } from "@testing/generators/spec-tree/naming-schema-version";
 
 const propertyRunCount = NAMING_SCHEMA_VERSION_TEST_GENERATOR.counts.propertyRunCount;
@@ -121,6 +126,23 @@ describe("naming-schema version self-containment", () => {
         expect(Array.isArray(version.coordinationNotes)).toBe(true);
         expect(Array.isArray(version.evalLane)).toBe(true);
         expect(version.specFileSuffix.length).toBeGreaterThan(0);
+      }),
+      { numRuns: propertyRunCount },
+    );
+  });
+});
+
+describe("naming-schema spec-file form by role", () => {
+  it("assigns the canonical suffix to exactly the canonical member and the bare suffix to every prior member", () => {
+    fc.assert(
+      fc.property(NAMING_SCHEMA_VERSION_TEST_GENERATOR.versionTuple(), (versions) => {
+        const canonical = canonicalNamingSchemaVersion(versions);
+        for (const version of versions) {
+          const expected = version === canonical
+            ? SPEC_TREE_GRAMMAR.SPEC_FILE.CANONICAL_SUFFIX
+            : SPEC_TREE_GRAMMAR.SPEC_FILE.PRIOR_SUFFIX;
+          expect(version.specFileSuffix).toBe(expected);
+        }
       }),
       { numRuns: propertyRunCount },
     );
