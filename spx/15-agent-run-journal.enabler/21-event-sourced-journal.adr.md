@@ -1,6 +1,6 @@
 # Event-Sourced Agent Run Journal
 
-Every audit or review run executed by a coding-agent skill is one named, append-only event journal, and that journal is the sole source of truth for the run. The PR comment, markdown report, findings JSON, and check summary are projections rendered from the journal's event history, never authoritative state. Backends differ only in where the journal and its projections are stored; the contract is invariant — events append under a monotonic sequence, consumers resume from a cursor, and projections render by replaying the event history.
+Every agentic verification run executed by a coding-agent skill is one named, append-only event journal, and that journal is the sole source of truth for the run. The PR comment, markdown report, findings JSON, and check summary are projections rendered from the journal's event history, never authoritative state. Backends differ only in where the journal and its projections are stored; the contract is invariant — events append under a monotonic sequence, consumers resume from a cursor, and projections render by replaying the event history.
 
 ## Rationale
 
