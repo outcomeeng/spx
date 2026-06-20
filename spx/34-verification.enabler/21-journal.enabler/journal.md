@@ -22,7 +22,7 @@ CAN open a changeset-scoped run, append one event per significant step, read the
 
 ### Compliance
 
-- ALWAYS: `append` both persists the event to the bound backend and emits it to the run's streaming surface — standard output under the local backend, the pull-request comment under the GitHub pull-request backend — so the run is observable as it advances ([test](tests/streaming.scenario.l1.test.ts))
+- ALWAYS: `append` both persists the event to the bound backend and emits it to the run's streaming surface — standard output under the local backend, the pull-request comment under the GitHub pull-request backend — so the run is observable as it advances ([test](tests/streaming.scenario.l1.test.ts), [test](tests/github-pr-sink.scenario.l1.test.ts))
 - ALWAYS: the terminal projection folds from the run's event history — branch and target scope, participant identifiers, base and head identifiers, config digest, timestamps, output paths, and a terminal status of `approved`, `rejected`, `failed`, or `interrupted` — never from a bespoke end-of-run record ([test](tests/run-state.compliance.l1.test.ts))
 - ALWAYS: a run is terminal evidence only when its journal is sealed and holds a terminal-completion event; an unsealed run folds to incomplete ([test](tests/run-state.compliance.l1.test.ts))
 - NEVER: the journal command references a verification-type name (`audit`, `review`) — the run is scoped by the opaque `<type>` segment alone ([audit])
