@@ -119,7 +119,11 @@ function arbitrarySupportFileUnder(
   descriptor: TestingLanguageDescriptor,
   nodePath: string,
 ): fc.Arbitrary<string> {
-  const sourceExtension = `.${descriptor.testFilePatterns[0]?.split(".").pop() ?? ""}`;
+  const [firstTestPattern] = descriptor.testFilePatterns;
+  if (firstTestPattern === undefined) {
+    throw new Error("arbitrarySupportFileUnder: descriptor declares no testFilePatterns");
+  }
+  const sourceExtension = `.${firstTestPattern.split(".").pop() ?? ""}`;
   return CONFIG_TEST_GENERATOR.key()
     .map((name) => `${testsDirectoryFor(nodePath)}${PATH_SEPARATOR}${name}${sourceExtension}`)
     .filter((path) => !descriptor.matchesTestFile(path));
