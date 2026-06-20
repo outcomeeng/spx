@@ -84,15 +84,17 @@ These live in the installed plugin product tree at
 
 ## Teardown (this restructure removes)
 
-- **`spx/36-audit.enabler`** collapses: `43-audit-config` (auditors/targets),
-  `65-auditor-execution` (spx spawning auditors — VOID, spx never spawns agents),
-  `76-audit-cli`, `87-audit-status`, the audit run-state/lifecycle CLI — all removed or
-  generalized into the `journal` domain. spx stops knowing "audit".
+- **`spx/36-audit.enabler` — DONE.** The whole audit subtree, `src/{domains,commands,
+  interfaces/cli}/audit*`, the audit test generators/harness/fixture, the `auditDomain` CLI
+  registration, the audit config descriptor, and the unused `audit`/`review`
+  `STATE_STORE_DOMAIN` entries are removed; `spx audit` no longer exists. The generic
+  run-state mechanics already live in `spx/34-verification.enabler/21-journal.enabler`.
+  References the removal invalidated (the agent-run-journal contract clause, the
+  agent-environment descriptor ADR, the snapshot-adapter note) now name the verification
+  channel.
 - **`spx/46-reviewing.enabler`** collapses the same way — DEFERRED per "audit first";
-  review migrates after the journal domain lands.
-- The audit run-state mechanics (event vocabulary, projection fold, terminal seal,
-  branch-scope run files) are not audit-specific — they generalize into the `journal`
-  domain, parameterized by `<type>`.
+  review migrates after the journal domain lands. `46-reviewing.enabler/43-review-state.enabler`
+  stays in `spx/EXCLUDE` until then.
 
 ## Out of scope for THIS product (plugin-repo, separate SPX sessions — handoff notes)
 
