@@ -5,6 +5,7 @@ import { claudeDomain } from "./claude";
 import { compactDomain } from "./compact";
 import { configDomain } from "./config";
 import { hookDomain } from "./hook";
+import { journalDomain } from "./journal";
 import { sessionDomain } from "./session";
 import { specDomain } from "./spec";
 import { testingDomain } from "./testing";
@@ -17,6 +18,7 @@ export const CLI_DOMAINS: readonly Domain[] = [
   compactDomain,
   configDomain,
   hookDomain,
+  journalDomain,
   sessionDomain,
   specDomain,
   testingDomain,
