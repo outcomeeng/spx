@@ -16,7 +16,7 @@ Rejected: extending entry recognition to classify spec files, notes, eval-lane f
 
 - Every path beneath the tree receives exactly one verdict; the valid and foreign sets partition the tree's paths.
 - A path's verdict is a function of the path, its ancestry context, and the injected naming-schema version set alone — independent of process environment, traversal order, and file contents.
-- The canonical spec-file form is the parent node directory slug followed by the spec document-kind suffix; the superseded spec-file form is the parent node directory slug alone.
+- The canonical spec-file form is the parent node directory slug followed by the spec document-kind suffix; the superseded spec-file form is that slug with a plain `.md` extension — the bare `{slug}.md` form.
 - The oracle's recognized-form set equals the forms the grammar declares; it adds none.
 
 ## Verification

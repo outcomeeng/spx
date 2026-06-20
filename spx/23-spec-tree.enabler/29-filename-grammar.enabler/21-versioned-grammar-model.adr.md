@@ -1,6 +1,6 @@
 # Versioned Filename Grammar Model
 
-The spec-tree library declares the Spec-Tree filename grammar as one `as const` token vocabulary together with an ordered tuple of naming-schema versions keyed by semantic version, the highest of which is canonical. Each version is a composition that names which token sets of the shared vocabulary it accepts, so no token literal is declared more than once; the canonical version's suffix sets project from `KIND_REGISTRY`, and the dedicated naming-schema version the library exposes is the canonical version's identifier computed as the maximum of the tuple. Each version also names a spec-file form among its composed token sets — the canonical version's is a node directory's slug followed by the spec document-kind suffix, and a prior version's is the bare slug — so the spec-file form is versioned alongside the node suffixes, and a breaking change to either is a major increment. This refines [`21-kind-registry.adr.md`](../21-kind-registry.adr.md) and [`26-filename-grammar.adr.md`](../26-filename-grammar.adr.md), fixing the concrete data shape their principles leave open.
+The spec-tree library declares the Spec-Tree filename grammar as one `as const` token vocabulary together with an ordered tuple of naming-schema versions keyed by semantic version, the highest of which is canonical. Each version is a composition that names which token sets of the shared vocabulary it accepts, so no token literal is declared more than once; the canonical version's suffix sets project from `KIND_REGISTRY`, and the dedicated naming-schema version the library exposes is the canonical version's identifier computed as the maximum of the tuple. Each version also names a spec-file form among its composed token sets — the canonical version's is a node directory's slug followed by the spec document-kind suffix, and a prior version's is that slug with a plain `.md` extension (the bare `{slug}.md` form) — so the spec-file form is versioned alongside the node suffixes, and a breaking change to either is a major increment. This refines [`21-kind-registry.adr.md`](../21-kind-registry.adr.md) and [`26-filename-grammar.adr.md`](../26-filename-grammar.adr.md), fixing the concrete data shape their principles leave open.
 
 ## Rationale
 
@@ -20,7 +20,7 @@ A consumer that recognizes or rejects filenames by grammar token — deprecated-
 - The grammar vocabulary's node-suffix literals equal the union of the prior naming-schema versions' accepted node-suffix sets less the canonical version's set — the superseded suffixes.
 - The superseded suffix set equals the union of the earlier versions' accepted suffix sets less the canonical version's accepted suffix set.
 - The canonical naming-schema version is the maximum of the version tuple under semantic-version ordering.
-- Each naming-schema version names a spec-file form: the canonical version's is a node directory's slug followed by the spec document-kind suffix, and a superseded version's is the bare node-directory slug.
+- Each naming-schema version names a spec-file form: the canonical version's is a node directory's slug followed by the spec document-kind suffix, and a superseded version's is that slug with a plain `.md` extension (the bare `{slug}.md` form).
 - A name's classification against a version is a function of that version's accepted token sets alone — independent of the other versions, process environment, and file contents.
 
 ## Verification
@@ -30,7 +30,7 @@ A consumer that recognizes or rejects filenames by grammar token — deprecated-
 - ALWAYS: naming-schema versions form an ordered tuple keyed by semantic version, the highest member canonical and earlier members superseded ([property])
 - ALWAYS: each naming-schema version is a composition that references token sets of the shared vocabulary and is independently evaluable without reading another version ([property])
 - ALWAYS: the canonical version's node and decision suffix sets project from `KIND_REGISTRY` rather than re-declaring suffix literals ([mapping])
-- ALWAYS: the canonical naming-schema version's spec-file form is a node directory's slug followed by the spec document-kind suffix, and a prior version's spec-file form is the bare slug ([mapping])
+- ALWAYS: the canonical naming-schema version's spec-file form is a node directory's slug followed by the spec document-kind suffix, and a prior version's spec-file form is that slug with a plain `.md` extension — the bare `{slug}.md` form ([mapping])
 - ALWAYS: the dedicated naming-schema version exposed through the library surface is the canonical version's identifier computed as the maximum of the version tuple ([compliance])
 - NEVER: a superseded suffix is added to `KIND_REGISTRY` as a live kind to make a prior version self-contained — historical suffixes live in the grammar vocabulary, not the live kind registry ([mapping])
 - NEVER: the canonical identifier is declared apart from the version tuple — it is computed, not hardcoded ([compliance])
