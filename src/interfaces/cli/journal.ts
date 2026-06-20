@@ -8,7 +8,9 @@ import {
   journalReadCommand,
   journalRenderCommand,
   journalSealCommand,
+  type JournalStreamBinding,
 } from "@/commands/journal/cli";
+import { createGithubPrCommentClient } from "@/commands/journal/github-client";
 import type { JournalStreamSink } from "@/commands/journal/runtime";
 import type { Result } from "@/config/types";
 import type { Domain } from "@/domains/types";
@@ -83,7 +85,7 @@ export const journalDomain: Domain = {
           await report({ exitCode: JOURNAL_CLI_EXIT_CODE.ERROR, output: input.error });
           return;
         }
-        const result = await journalAppendCommand(runScope(options), input.value, stdoutStreamSink());
+        const result = await journalAppendCommand(runScope(options), input.value, streamBinding());
         if (result.exitCode !== JOURNAL_CLI_EXIT_CODE.OK) await report(result);
         else process.exit(JOURNAL_CLI_EXIT_CODE.OK);
       });
@@ -121,11 +123,21 @@ export const journalDomain: Domain = {
   },
 };
 
+const GITHUB_REPOSITORY_ENV = "GITHUB_REPOSITORY";
+
 function stdoutStreamSink(): JournalStreamSink {
   return {
     async emit(event: JournalEvent): Promise<void> {
       await writeOutput(process.stdout, `${JSON.stringify(event)}${STREAM_LINE_SEPARATOR}`);
     },
+  };
+}
+
+/** The boundary surfaces the journal append streams through: stdout locally, the gh client under github-pr. */
+function streamBinding(): JournalStreamBinding {
+  return {
+    localSink: stdoutStreamSink(),
+    githubClient: createGithubPrCommentClient({ repository: process.env[GITHUB_REPOSITORY_ENV] ?? "" }),
   };
 }
 
