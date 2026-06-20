@@ -98,6 +98,10 @@ export const SPEC_TREE_GRAMMAR = {
   PATH_SEPARATOR: "/",
   COORDINATION_NOTES: ["PLAN.md", "ISSUES.md"],
   EVAL_LANE: ["eval.toml", "cases.jsonl", "prompt.md", "history.jsonl", "runs"],
+  SPEC_FILE: {
+    CANONICAL_SUFFIX: ".spec.md",
+    PRIOR_SUFFIX: ".md",
+  },
   PRIOR_NODE_SUFFIXES: [".capability", ".feature", ".story"],
 } as const;
 
@@ -117,14 +121,20 @@ export type NamingSchemaVersion = {
   readonly pathSeparator: string;
   readonly coordinationNotes: readonly string[];
   readonly evalLane: readonly string[];
+  readonly specFileSuffix: string;
 };
 
 const NAMING_SCHEMA_VERSION_ID = {
-  PRIOR: "1.0.0",
-  CANONICAL: "2.0.0",
+  PRIOR_NODES: "1.0.0",
+  PRIOR_SPEC: "2.0.0",
+  CANONICAL: "3.0.0",
 } as const;
 
-function namingSchemaVersionFromNodeSuffixes(version: string, nodeSuffixes: readonly string[]): NamingSchemaVersion {
+function namingSchemaVersion(
+  version: string,
+  nodeSuffixes: readonly string[],
+  specFileSuffix: string,
+): NamingSchemaVersion {
   return {
     version,
     nodeSuffixes,
@@ -136,12 +146,18 @@ function namingSchemaVersionFromNodeSuffixes(version: string, nodeSuffixes: read
     pathSeparator: SPEC_TREE_GRAMMAR.PATH_SEPARATOR,
     coordinationNotes: SPEC_TREE_GRAMMAR.COORDINATION_NOTES,
     evalLane: SPEC_TREE_GRAMMAR.EVAL_LANE,
+    specFileSuffix,
   };
 }
 
 export const SPEC_TREE_NAMING_SCHEMA_VERSIONS: readonly NamingSchemaVersion[] = [
-  namingSchemaVersionFromNodeSuffixes(NAMING_SCHEMA_VERSION_ID.PRIOR, SPEC_TREE_GRAMMAR.PRIOR_NODE_SUFFIXES),
-  namingSchemaVersionFromNodeSuffixes(NAMING_SCHEMA_VERSION_ID.CANONICAL, NODE_SUFFIXES),
+  namingSchemaVersion(
+    NAMING_SCHEMA_VERSION_ID.PRIOR_NODES,
+    SPEC_TREE_GRAMMAR.PRIOR_NODE_SUFFIXES,
+    SPEC_TREE_GRAMMAR.SPEC_FILE.PRIOR_SUFFIX,
+  ),
+  namingSchemaVersion(NAMING_SCHEMA_VERSION_ID.PRIOR_SPEC, NODE_SUFFIXES, SPEC_TREE_GRAMMAR.SPEC_FILE.PRIOR_SUFFIX),
+  namingSchemaVersion(NAMING_SCHEMA_VERSION_ID.CANONICAL, NODE_SUFFIXES, SPEC_TREE_GRAMMAR.SPEC_FILE.CANONICAL_SUFFIX),
 ];
 
 const VERSION_COMPONENT_SEPARATOR = ".";
