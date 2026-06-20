@@ -104,11 +104,8 @@ describe("spx test dispatch over the language registry", () => {
 
       const result = await runTests({ productDir, registry: testingRegistry }, { runnerDepsFor: () => runner });
 
-      // `tests/` holds assertion files only: a registered-language source file that
-      // is not a test file is reported unmatched and fails the command, while the
-      // actual test file still dispatches to its runner.
       expect(result.unmatched).toContain(supportFile);
-      expect(result.exitCode).not.toBe(SUCCESS_EXIT_CODE);
+      expect(result.exitCode).toBe(UNSUPPORTED_TEST_SELECTION_EXIT_CODE);
       expect(invokedArgs(runner)).toContain(testFile);
       expect(invokedArgs(runner)).not.toContain(supportFile);
     });
