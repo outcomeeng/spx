@@ -15,7 +15,7 @@ CAN resolve and validate the configured vocabulary, and classify and render file
 
 - Every kind key maps to exactly one category value and one suffix through `KIND_REGISTRY` ([test](tests/kind-registry.mapping.l1.test.ts))
 - Filtering `KIND_REGISTRY` by category maps to the exported node and decision sub-registries, and their suffix projections match their members ([test](tests/kind-registry-subsets.mapping.l1.test.ts))
-- Every Spec-Tree filename grammar token — kind and product suffixes, evidence modes, execution levels, language tails, the runner token, segment and order separators, the order pattern, coordination-note names, and eval-lane names — resolves through the grammar registry surface ([test](tests/filename-grammar.mapping.l1.test.ts))
+- Every Spec-Tree filename grammar token — kind and product suffixes, evidence modes, execution levels, language tails, the runner token, segment and order separators, the order pattern, coordination-note names, eval-lane names, and spec-file suffixes — resolves through the grammar registry surface ([test](tests/filename-grammar.mapping.l1.test.ts))
 - Each naming-schema version's spec-file form resolves through the grammar registry: the canonical version's is a node directory's slug followed by the spec document-kind suffix, and a prior version's is the bare slug ([test](tests/spec-file-form.mapping.l1.test.ts))
 
 ### Properties
