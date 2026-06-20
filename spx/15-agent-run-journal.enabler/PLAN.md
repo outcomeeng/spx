@@ -209,29 +209,39 @@ On branch `work/journal`, committed:
   built executable (open→append→read→seal→render; append-after-seal exits 1). Tests + code
   audit gates APPROVED (one code REJECT — unguarded stdin `JSON.parse` — fixed and re-approved).
 
+- `src/commands/journal/github-pr-sink.ts` + `github-pr-sink.scenario.l1.test.ts` — the
+  github-pr `JournalStreamSink`: on each emit it re-renders the run's projection and upserts
+  the one pull-request comment through the existing Snapshot adapter (`createGithubSnapshotSink`,
+  PULL_REQUEST_COMMENT), with the GitHub client injected. Added `arbitraryJournalEvent` to the
+  agent-run-journal generator. Tests + code audit gates APPROVED. This is the github-pr STREAMING
+  surface; the adapter still binds it (5b below).
+
 **All `journal.md` `[test]` assertions are now GREEN** (backend-selection, run-scope,
-run-state compliance, projection, journal-verbs, streaming, CLI round-trip + registry); the
-`[audit]` NEVER rules (no verification-type name, backend not flag-selected) are satisfied by
-the passing code audits. `spx journal` is invocable on the local backend. The node still needs
-the github-pr backend to realize the PR-comment streaming surface before it leaves `spx/EXCLUDE`.
+run-state compliance, projection, journal-verbs, streaming local+github-pr, CLI round-trip +
+registry); the `[audit]` NEVER rules are satisfied by the passing code audits. `spx journal`
+is invocable on the local backend. The audit-domain teardown is DONE (see above). The node
+remains in `spx/EXCLUDE` only until the github-pr adapter binding (5b) lands.
 
-**Remaining journal-domain slices (each: source + co-located test, GREEN, lint, commit):**
+**Remaining (each: source + co-located test, GREEN, lint, commit):**
 
-1. GitHub-PR backend streaming — the `gh pr comment` append surface bound under the
-   `github-pr` backend (the Snapshot adapter persists; the comment streams). Replaces the
-   command-layer adapter's current `BACKEND_UNAVAILABLE` error for `github-pr` with the real
-   binding, and adds the github-pr `JournalStreamSink`.
+1. **5b — github-pr adapter binding.** Wire `src/commands/journal/cli.ts` to bind the github-pr
+   backend instead of returning `BACKEND_UNAVAILABLE`: resolve the pull-request number and a
+   run-scoped comment marker from the CI environment, build the github-pr sink
+   (`createGithubPrStreamSink`) with the local Appendable backend as the event log and a
+   `renderBody` that renders the run's events, and inject the GitHub client. Add the concrete
+   `gh`-backed `GithubSnapshotClient` (subprocess) the descriptor provides. Then drop the
+   journal node from `spx/EXCLUDE`.
+2. **Review collapse** (`spx/46-reviewing.enabler`) — DEFERRED ("audit first"); migrates the
+   same way the audit domain did, with `46-reviewing.enabler/43-review-state.enabler` leaving
+   `spx/EXCLUDE` then.
+3. **`/merge`** — gated on the separate plugin-repo migration of the auditing skills from
+   `spx audit` to the `spx journal` verbs (the global `spx` rebuilds from `main`, so merging the
+   `spx audit` removal before the plugin skills migrate breaks them). See the out-of-scope notes.
 
 NOTE (deferred to the command/status slice, not yet built): latest-run ordering
 (`selectLatest…`) and the branch-runs reader types — `journal.md` declares no ordering/lookup
 assertion, so they land with the `journal render` list/status assertion that consumes them,
 if and when that surface is specified.
-
-**Then teardown + ship:** `git rm` the audit domain specs + `src/{domains,commands,
-interfaces/cli}/audit*`, unregister `spx audit` from the CLI registry, remove the audit
-EXCLUDE/STATE_STORE_DOMAIN entries; `/align`; remove `34-verification.enabler/21-journal.enabler`
-from `spx/EXCLUDE` once all assertions pass; `/merge`. Review (`46-reviewing`) follows in a
-later pass.
 
 ## Execution order
 
