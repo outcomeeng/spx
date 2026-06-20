@@ -32,7 +32,7 @@ CAN run spec-tree tests with a single command, honor configured passing-scope ex
 ### Properties
 
 - Test discovery is deterministic: the same spec tree structure always produces the same set of test files grouped by runner ([test](tests/testing.property.l1.test.ts))
-- Exit code aggregation: `spx test` exits non-zero if any dispatched runner exits non-zero, any selected test file matches no registered runner, any target operand resolves to no discovered test file, or every selected registered-language runner is gated out by language detection, zero otherwise ([test](tests/testing.property.l1.test.ts))
+- Exit code aggregation: `spx test` exits non-zero if any dispatched runner exits non-zero, any selected test file matches no registered runner, any target operand resolves to no discovered test file, or every selected registered-language runner is gated out by language detection, zero otherwise ([test](tests/testing.property.l1.test.ts), [test](90-targeted-execution.enabler/tests/targeted-execution.scenario.l1.test.ts))
 - Last-run state is evidence, not product truth: deleting the state never changes which tests are in passing scope, only whether fast status has cached observations available ([audit])
 - Last-run state is stale when the resolved testing config digest, discovered test file path set, discovered test file content digest, or testing-language product input digest differs from the values recorded with the cached observation ([test](43-last-run-evidence.enabler/tests/staleness.property.l1.test.ts))
 
