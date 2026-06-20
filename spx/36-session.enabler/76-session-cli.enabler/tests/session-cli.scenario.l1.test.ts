@@ -10,10 +10,13 @@ import { showCommand } from "@/commands/session/show";
 import { BatchError } from "@/domains/session/batch";
 import { SESSION_SHOW_LABEL } from "@/domains/session/show";
 import { SESSION_PRIORITY, SESSION_STATUSES } from "@/domains/session/types";
-import { sampleSessionContent, sampleSessionId } from "@testing/generators/session/session";
+import { sampleDistinctSessionIds, sampleSessionContent, sampleSessionId } from "@testing/generators/session/session";
 import { createSessionHarness, type SessionHarness } from "@testing/harnesses/session/harness";
 
 const [TODO, DOING, ARCHIVE] = SESSION_STATUSES;
+
+/** A session id that resolves to no session, exercising the per-ID failure path. */
+const ABSENT_SESSION_ID = "nonexistent";
 
 describe("batch archive", () => {
   let harness: SessionHarness;
@@ -27,15 +30,12 @@ describe("batch archive", () => {
   });
 
   it("S1: GIVEN 3 sessions in todo WHEN archive with 3 IDs THEN all 3 move to archive", async () => {
-    const ids = ["2026-01-10_10-00-00", "2026-01-11_10-00-00", "2026-01-12_10-00-00"];
+    const ids = [...sampleDistinctSessionIds(3)];
     for (const id of ids) {
       await harness.writeSession(TODO, id);
     }
 
-    const output = await archiveCommand({
-      sessionIds: ids,
-      sessionsDir: harness.sessionsDir,
-    });
+    const output = await archiveCommand({ sessionIds: ids, sessionsDir: harness.sessionsDir });
 
     for (const id of ids) {
       expect(existsSync(join(harness.statusDir(ARCHIVE), `${id}.md`))).toBe(true);
@@ -45,15 +45,11 @@ describe("batch archive", () => {
   });
 
   it("S4: GIVEN 1 valid + 1 invalid ID WHEN archive THEN valid succeeds, invalid errors", async () => {
-    const validId = "2026-01-10_10-00-00";
+    const validId = sampleSessionId();
     await harness.writeSession(TODO, validId);
-    const invalidId = "nonexistent";
 
     await expect(
-      archiveCommand({
-        sessionIds: [validId, invalidId],
-        sessionsDir: harness.sessionsDir,
-      }),
+      archiveCommand({ sessionIds: [validId, ABSENT_SESSION_ID], sessionsDir: harness.sessionsDir }),
     ).rejects.toThrow();
 
     // Valid one was still archived
@@ -61,13 +57,10 @@ describe("batch archive", () => {
   });
 
   it("S5: GIVEN single ID WHEN archive THEN identical to single-ID behavior", async () => {
-    const id = "2026-01-10_10-00-00";
+    const id = sampleSessionId();
     await harness.writeSession(TODO, id);
 
-    const output = await archiveCommand({
-      sessionIds: [id],
-      sessionsDir: harness.sessionsDir,
-    });
+    const output = await archiveCommand({ sessionIds: [id], sessionsDir: harness.sessionsDir });
 
     expect(existsSync(join(harness.statusDir(ARCHIVE), `${id}.md`))).toBe(true);
     expect(output).toContain(SESSION_ARCHIVE_OUTPUT.ARCHIVED);
@@ -97,15 +90,12 @@ describe("batch delete", () => {
   });
 
   it("S2: GIVEN 3 sessions WHEN delete with 3 IDs THEN all 3 removed", async () => {
-    const ids = ["2026-01-10_10-00-00", "2026-01-11_10-00-00", "2026-01-12_10-00-00"];
+    const ids = [...sampleDistinctSessionIds(3)];
     for (const id of ids) {
       await harness.writeSession(TODO, id);
     }
 
-    const output = await deleteCommand({
-      sessionIds: ids,
-      sessionsDir: harness.sessionsDir,
-    });
+    const output = await deleteCommand({ sessionIds: ids, sessionsDir: harness.sessionsDir });
 
     for (const id of ids) {
       expect(existsSync(join(harness.statusDir(TODO), `${id}.md`))).toBe(false);
@@ -114,14 +104,11 @@ describe("batch delete", () => {
   });
 
   it("S4: GIVEN 1 valid + 1 invalid WHEN delete THEN valid deleted, invalid errors", async () => {
-    const validId = "2026-01-10_10-00-00";
+    const validId = sampleSessionId();
     await harness.writeSession(TODO, validId);
 
     await expect(
-      deleteCommand({
-        sessionIds: [validId, "nonexistent"],
-        sessionsDir: harness.sessionsDir,
-      }),
+      deleteCommand({ sessionIds: [validId, ABSENT_SESSION_ID], sessionsDir: harness.sessionsDir }),
     ).rejects.toThrow();
 
     // Valid one was still deleted
@@ -141,15 +128,12 @@ describe("batch release", () => {
   });
 
   it("S6: GIVEN 2 sessions in doing WHEN release with 2 IDs THEN both move to todo", async () => {
-    const ids = ["2026-04-25_15-39-03", "2026-04-24_08-10-44"];
+    const ids = [...sampleDistinctSessionIds(2)];
     for (const id of ids) {
       await harness.writeSession(DOING, id);
     }
 
-    const output = await releaseCommand({
-      sessionIds: ids,
-      sessionsDir: harness.sessionsDir,
-    });
+    const output = await releaseCommand({ sessionIds: ids, sessionsDir: harness.sessionsDir });
 
     for (const id of ids) {
       expect(existsSync(join(harness.statusDir(TODO), `${id}.md`))).toBe(true);
@@ -159,14 +143,11 @@ describe("batch release", () => {
   });
 
   it("S7: GIVEN 1 valid in doing + 1 invalid ID WHEN release THEN valid released, invalid errors", async () => {
-    const validId = "2026-01-10_10-00-00";
+    const validId = sampleSessionId();
     await harness.writeSession(DOING, validId);
 
     await expect(
-      releaseCommand({
-        sessionIds: [validId, "nonexistent"],
-        sessionsDir: harness.sessionsDir,
-      }),
+      releaseCommand({ sessionIds: [validId, ABSENT_SESSION_ID], sessionsDir: harness.sessionsDir }),
     ).rejects.toThrow();
 
     expect(existsSync(join(harness.statusDir(TODO), `${validId}.md`))).toBe(true);
@@ -186,15 +167,12 @@ describe("batch pickup", () => {
   });
 
   it("GIVEN 2 sessions in todo WHEN pickup with 2 IDs THEN both move to doing", async () => {
-    const ids = ["2026-05-10_10-00-00", "2026-05-11_10-00-00"];
+    const ids = [...sampleDistinctSessionIds(2)];
     for (const id of ids) {
       await harness.writeSession(TODO, id);
     }
 
-    const output = await pickupCommand({
-      sessionIds: ids,
-      sessionsDir: harness.sessionsDir,
-    });
+    const output = await pickupCommand({ sessionIds: ids, sessionsDir: harness.sessionsDir });
 
     for (const id of ids) {
       expect(existsSync(join(harness.statusDir(DOING), `${id}.md`))).toBe(true);
@@ -204,14 +182,11 @@ describe("batch pickup", () => {
   });
 
   it("GIVEN 1 valid in todo + 1 invalid ID WHEN pickup THEN valid claimed, invalid errors", async () => {
-    const validId = "2026-05-12_10-00-00";
+    const validId = sampleSessionId();
     await harness.writeSession(TODO, validId);
 
     await expect(
-      pickupCommand({
-        sessionIds: [validId, "nonexistent"],
-        sessionsDir: harness.sessionsDir,
-      }),
+      pickupCommand({ sessionIds: [validId, ABSENT_SESSION_ID], sessionsDir: harness.sessionsDir }),
     ).rejects.toThrow(BatchError);
 
     expect(existsSync(join(harness.statusDir(DOING), `${validId}.md`))).toBe(true);
@@ -231,17 +206,13 @@ describe("batch show", () => {
   });
 
   it("S3: GIVEN 2 sessions WHEN show with 2 IDs THEN both contents printed", async () => {
-    const id1 = "2026-01-10_10-00-00";
-    const id2 = "2026-01-11_10-00-00";
+    const [id1, id2] = sampleDistinctSessionIds(2);
     const priority1 = SESSION_PRIORITY.HIGH;
     const priority2 = SESSION_PRIORITY.LOW;
     await harness.writeSession(TODO, id1, { priority: priority1 });
     await harness.writeSession(TODO, id2, { priority: priority2 });
 
-    const output = await showCommand({
-      sessionIds: [id1, id2],
-      sessionsDir: harness.sessionsDir,
-    });
+    const output = await showCommand({ sessionIds: [id1, id2], sessionsDir: harness.sessionsDir });
 
     expect(output).toContain(id1);
     expect(output).toContain(id2);
@@ -262,17 +233,14 @@ describe("batch properties", () => {
   });
 
   it("P2: GIVEN ordered IDs WHEN archive THEN processed left-to-right", async () => {
-    const ids = ["2026-01-10_10-00-00", "2026-01-11_10-00-00", "2026-01-12_10-00-00"];
+    const ids = [...sampleDistinctSessionIds(3)];
     for (const id of ids) {
       await harness.writeSession(TODO, id);
     }
 
-    const output = await archiveCommand({
-      sessionIds: ids,
-      sessionsDir: harness.sessionsDir,
-    });
+    const output = await archiveCommand({ sessionIds: ids, sessionsDir: harness.sessionsDir });
 
-    // Output should mention IDs in the same order they were provided
+    // Output mentions IDs in the same order they were provided.
     let lastIndex = -1;
     for (const id of ids) {
       const idx = output.indexOf(id);

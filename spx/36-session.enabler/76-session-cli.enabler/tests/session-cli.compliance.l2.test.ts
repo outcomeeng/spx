@@ -1,163 +1,58 @@
 import { existsSync } from "node:fs";
-import { readdir, readFile, writeFile } from "node:fs/promises";
-import { join } from "node:path";
+import { readdir, readFile } from "node:fs/promises";
+import { join, sep } from "node:path";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 
 import { SessionWorkBranchNotOnOriginError } from "@/domains/session/errors";
 import {
   HANDOFF_BASE_FACT_LABEL,
-  HANDOFF_BASE_MARK,
   HANDOFF_BASE_PREREQUISITE_LABEL,
-  HANDOFF_BASE_REMEDY,
   HANDOFF_BASE_UNRESOLVED,
   SESSION_HANDOFF_BASE_ERROR_NAME,
 } from "@/domains/session/handoff-base-checklist";
 import { FIELD_SELECTION_SEPARATOR, parseSessionMetadata, SESSION_RECORD_FIELD } from "@/domains/session/list";
 import { SESSION_PRIORITY, SESSION_STATUSES, type SessionStatus } from "@/domains/session/types";
-import { GIT_HEAD_SHA_ARGS, GIT_SHOW_TOPLEVEL_ARGS, NOT_GIT_REPO_WARNING } from "@/git/root";
+import { GIT_HEAD_SHA_ARGS, NOT_GIT_REPO_WARNING } from "@/git/root";
 import { sampleLiteralTestValue } from "@testing/generators/literal/literal";
 import {
-  arbitraryBarePoolWithoutMainCheckoutLayoutCase,
+  arbitraryBarePoolLayoutCase,
   arbitraryBarePoolWithoutOriginLayoutCase,
   sampleMainCheckoutTestValue,
 } from "@testing/generators/main-checkout/main-checkout";
-import { arbitraryHandoffHeader, sampleSessionContent, sampleSessionId } from "@testing/generators/session/session";
-import { GIT_TEST_FLAGS, GIT_TEST_REF, GIT_TEST_SUBCOMMANDS, readGit } from "@testing/harnesses/git-test-constants";
+import {
+  arbitraryHandoffHeader,
+  sampleDistinctSessionIds,
+  sampleSessionContent,
+  sampleSessionId,
+} from "@testing/generators/session/session";
+import { GIT_TEST_FLAGS, GIT_TEST_REF, GIT_TEST_SUBCOMMANDS } from "@testing/harnesses/git-test-constants";
 import { withGitWorktreeEnv } from "@testing/harnesses/git-worktree/git-worktree";
 import {
   buildHandoffStdin,
   buildSessionMarkdownBody,
   createNonGitSessionEnv,
   createSessionHarness,
+  HANDOFF_ID_TAG_PATTERN,
   runSessionCli,
+  runSpxSession,
   SESSION_CLI_ANSI_ESCAPE,
+  SESSION_FILE_TAG_PATTERN,
   type SessionHarness,
+  withCommittedGitCwd,
 } from "@testing/harnesses/session/harness";
 import { withWorktreeLayoutEnv } from "@testing/harnesses/worktree-layout/worktree-layout";
 
-/** The fixture default branch `origin/HEAD` names when the origin refs are set. */
-const FIXTURE_DEFAULT_BRANCH = "main";
-/** Literal placeholder the diagnostic must never render in place of a resolvable ref. */
-const ORIGIN_DEFAULT_PLACEHOLDER = "origin/<default>";
-/** Stash remedy the diagnostic must never suggest. */
-const FORBIDDEN_STASH_REMEDY = "git stash";
-/** Untracked file that makes a linked worktree's working tree dirty. */
-const DIRTY_FILE_NAME = "uncommitted.txt";
-const DIRTY_FILE_CONTENT = "uncommitted change\n";
-const HANDOFF_BASE_COMMIT_MESSAGE = "session cli handoff-base base";
-const HANDOFF_BASE_TIP_COMMIT_MESSAGE = "session cli handoff-base tip";
-
-/** Resolved git state of a linked-worktree handoff-base scenario, for assertions. */
-interface LinkedHandoffBaseScenario {
-  /** Absolute path of the detached linked worktree handoff runs from. */
-  readonly linkedWorktreeDir: string;
-  /** `git rev-parse --show-toplevel` of the linked worktree — the rendered current-worktree path. */
-  readonly currentWorktreeToplevel: string;
-  /** `git rev-parse --show-toplevel` of the main checkout — the rendered main-checkout path. */
-  readonly mainCheckoutToplevel: string;
-  /** The linked worktree's detached HEAD commit SHA. */
-  readonly headSha: string;
-  /** The `origin/<default>` tip commit SHA, or null when `origin/HEAD` is unset. */
-  readonly originTipSha: string | null;
-  /** The resolved default branch, or null when `origin/HEAD` is unset. */
-  readonly defaultBranch: string | null;
-}
-
-/**
- * Builds a real-git linked-worktree handoff base and runs `callback` with its
- * resolved state. Two `--allow-empty` commits give distinct base and tip SHAs;
- * the linked worktree detaches at the tip. `origin/<default>` and `origin/HEAD`
- * are created with `update-ref`/`symbolic-ref` — the exact refs the handoff-base
- * resolution reads — so the scenario needs no remote.
- *
- * - `atTip`: `origin/<default>` points at the linked HEAD (met) or the base commit (unmet).
- * - `clean`: leaves the worktree clean, or writes an untracked file (unmet).
- * - `originResolved`: sets `origin/<default>` and `origin/HEAD`, or leaves both unset.
- * - `onBranch`: checks the linked worktree out on a named branch (HEAD not
- *   detached, so the at-tip prerequisite is unmet) rather than detaching it.
- */
-async function withLinkedHandoffBase(
-  opts: {
-    readonly atTip: boolean;
-    readonly clean: boolean;
-    readonly originResolved: boolean;
-    readonly onBranch?: boolean;
-  },
-  callback: (scenario: LinkedHandoffBaseScenario) => Promise<void>,
-): Promise<void> {
-  await withGitWorktreeEnv(async (gitEnv) => {
-    const commit = (message: string): Promise<string> =>
-      gitEnv.runGit([
-        GIT_TEST_SUBCOMMANDS.COMMIT,
-        GIT_TEST_FLAGS.ALLOW_EMPTY,
-        GIT_TEST_FLAGS.COMMIT_MESSAGE,
-        message,
-      ]);
-
-    await commit(HANDOFF_BASE_COMMIT_MESSAGE);
-    const baseSha = await gitEnv.runGit([...GIT_HEAD_SHA_ARGS]);
-    await commit(HANDOFF_BASE_TIP_COMMIT_MESSAGE);
-    const tipSha = await gitEnv.runGit([...GIT_HEAD_SHA_ARGS]);
-
-    const originDefaultRef = `${GIT_TEST_REF.REMOTE_ORIGIN_PREFIX}${FIXTURE_DEFAULT_BRANCH}`;
-    const originHeadRef = `${GIT_TEST_REF.REMOTE_ORIGIN_PREFIX}${GIT_TEST_REF.HEAD_NAME}`;
-    const originTipSha = opts.atTip ? tipSha : baseSha;
-    if (opts.originResolved) {
-      await gitEnv.runGit([GIT_TEST_SUBCOMMANDS.UPDATE_REF, originDefaultRef, originTipSha]);
-      await gitEnv.runGit([GIT_TEST_SUBCOMMANDS.SYMBOLIC_REF, originHeadRef, originDefaultRef]);
-    }
-
-    const linkedWorktreeDir = join(gitEnv.productDir, ".worktrees/linked");
-    if (opts.onBranch) {
-      await gitEnv.runGit([GIT_TEST_SUBCOMMANDS.BRANCH, LINKED_WORKTREE_BRANCH, tipSha]);
-      await gitEnv.runGit([
-        GIT_TEST_SUBCOMMANDS.WORKTREE,
-        GIT_TEST_SUBCOMMANDS.ADD,
-        linkedWorktreeDir,
-        LINKED_WORKTREE_BRANCH,
-      ]);
-    } else {
-      await gitEnv.runGit([
-        GIT_TEST_SUBCOMMANDS.WORKTREE,
-        GIT_TEST_SUBCOMMANDS.ADD,
-        GIT_TEST_FLAGS.DETACH,
-        linkedWorktreeDir,
-        tipSha,
-      ]);
-    }
-    if (!opts.clean) {
-      await writeFile(join(linkedWorktreeDir, DIRTY_FILE_NAME), DIRTY_FILE_CONTENT);
-    }
-
-    await callback({
-      linkedWorktreeDir,
-      currentWorktreeToplevel: await readGit(linkedWorktreeDir, [...GIT_SHOW_TOPLEVEL_ARGS]),
-      mainCheckoutToplevel: await readGit(gitEnv.productDir, [...GIT_SHOW_TOPLEVEL_ARGS]),
-      headSha: tipSha,
-      originTipSha: opts.originResolved ? originTipSha : null,
-      defaultBranch: opts.originResolved ? FIXTURE_DEFAULT_BRANCH : null,
-    });
-  });
-}
-
 const [TODO, DOING, ARCHIVE] = SESSION_STATUSES;
-const SESSION_FILE_TAG_PATTERN = /<SESSION_FILE>(.*?)<\/SESSION_FILE>/;
-const HANDOFF_ID_TAG_PATTERN = /<HANDOFF_ID>\d{4}-\d{2}-\d{2}_\d{2}-\d{2}-\d{2}<\/HANDOFF_ID>/;
+
+/** Commit message for the seed commit the explicit-git_ref fixture writes — a fixture value, not a git token. */
 const GIT_FIXTURE_COMMIT_MESSAGE = "session cli fixture";
+/** A worktree-local branch and the linked worktree path the refusal wiring smoke provisions. */
 const LINKED_WORKTREE_BRANCH = "feature/linked-local";
 const LINKED_WORKTREE_RELATIVE_PATH = ".worktrees/linked";
-
-async function withCommittedGitCwd(callback: (cwd: string) => Promise<void>): Promise<void> {
-  await withGitWorktreeEnv(async (gitEnv) => {
-    await gitEnv.runGit([
-      GIT_TEST_SUBCOMMANDS.COMMIT,
-      GIT_TEST_FLAGS.ALLOW_EMPTY,
-      GIT_TEST_FLAGS.COMMIT_MESSAGE,
-      GIT_FIXTURE_COMMIT_MESSAGE,
-    ]);
-    await callback(gitEnv.productDir);
-  });
-}
+/** The default branch the permitted-base smoke points `origin/HEAD` at. */
+const FIXTURE_DEFAULT_BRANCH = "main";
+/** A session id that resolves to no session, exercising the per-ID failure path. */
+const ABSENT_SESSION_ID = "missing-id";
 
 describe("session CLI compliance", () => {
   let harness: SessionHarness;
@@ -171,33 +66,33 @@ describe("session CLI compliance", () => {
   });
 
   it("ALWAYS: variadic commands process IDs after a failed ID", async () => {
-    const validId = "2026-01-10_10-00-00";
+    const validId = sampleSessionId();
     await harness.writeSession(TODO, validId);
 
-    const result = await runSessionCli([
+    const result = await runSpxSession([
       "session",
       "delete",
-      "missing-id",
+      ABSENT_SESSION_ID,
       validId,
       "--sessions-dir",
       harness.sessionsDir,
     ]);
 
     expect(result.exitCode).toBe(1);
-    expect(result.stderr).toContain("missing-id");
+    expect(result.stderr).toContain(ABSENT_SESSION_ID);
     expect(result.stderr).toContain(validId);
     expect(existsSync(join(harness.statusDir(TODO), `${validId}.md`))).toBe(false);
   });
 
   it("ALWAYS: partial failure exits non-zero while preserving successful work", async () => {
-    const validId = "2026-01-10_10-00-00";
+    const validId = sampleSessionId();
     await harness.writeSession(TODO, validId);
 
-    const result = await runSessionCli([
+    const result = await runSpxSession([
       "session",
       "archive",
       validId,
-      "missing-id",
+      ABSENT_SESSION_ID,
       "--sessions-dir",
       harness.sessionsDir,
     ]);
@@ -207,12 +102,12 @@ describe("session CLI compliance", () => {
   });
 
   it("NEVER: pickup drops IDs beyond the first", async () => {
-    const ids = ["2026-01-12_10-00-00", "2026-01-13_10-00-00"];
+    const ids = [...sampleDistinctSessionIds(2)];
     for (const id of ids) {
       await harness.writeSession(TODO, id);
     }
 
-    const result = await runSessionCli([
+    const result = await runSpxSession([
       "session",
       "pickup",
       ...ids,
@@ -228,11 +123,11 @@ describe("session CLI compliance", () => {
   });
 
   it("ALWAYS: pickup partial failure exits non-zero while preserving successful work", async () => {
-    const validId = "2026-01-14_10-00-00";
-    const invalidId = "missing-id";
+    const validId = sampleSessionId();
+    const invalidId = ABSENT_SESSION_ID;
     await harness.writeSession(TODO, validId);
 
-    const result = await runSessionCli([
+    const result = await runSpxSession([
       "session",
       "pickup",
       validId,
@@ -250,7 +145,7 @@ describe("session CLI compliance", () => {
   it("ALWAYS: handoff preserves body bytes after the JSON-prefix separator", async () => {
     const body = "  # Body with edge whitespace  \n";
     await withCommittedGitCwd(async (gitCwd) => {
-      const result = await runSessionCli(
+      const result = await runSpxSession(
         ["session", "handoff", "--sessions-dir", harness.sessionsDir],
         `{"goal":"Preserve body","next_step":"Inspect session file"}\n${body}`,
         gitCwd,
@@ -270,14 +165,14 @@ describe("session CLI compliance", () => {
     await withCommittedGitCwd(async (gitCwd) => {
       // JSON header that omits goal — semantic-content error per
       // 76-session-cli.enabler/session-cli.md.
-      const omitsGoal = await runSessionCli(
+      const omitsGoal = await runSpxSession(
         ["session", "handoff", "--sessions-dir", harness.sessionsDir],
         `{"priority":"high","next_step":"Run validation","specs":[],"files":[]}\n# Session`,
         gitCwd,
       );
 
       // Stdin opening with the YAML-frontmatter delimiter — wire-format error.
-      const legacyYaml = await runSessionCli(
+      const legacyYaml = await runSpxSession(
         ["session", "handoff", "--sessions-dir", harness.sessionsDir],
         "---\npriority: high\ngoal: Legacy shape\nnext_step: Should reject\n---\n# Body",
         gitCwd,
@@ -285,7 +180,7 @@ describe("session CLI compliance", () => {
 
       // JSON header that opens with `{` but is not parseable — structural
       // wire-format error.
-      const malformedJson = await runSessionCli(
+      const malformedJson = await runSpxSession(
         ["session", "handoff", "--sessions-dir", harness.sessionsDir],
         `{"priority":"high","goal":"oops"`,
         gitCwd,
@@ -305,40 +200,11 @@ describe("session CLI compliance", () => {
     });
   });
 
-  it("ALWAYS: handoff in a linked worktree on a worktree-local branch reports SessionHandoffBaseError through the CLI", async () => {
-    await withGitWorktreeEnv(async (gitEnv) => {
-      await gitEnv.runGit([
-        GIT_TEST_SUBCOMMANDS.COMMIT,
-        GIT_TEST_FLAGS.ALLOW_EMPTY,
-        GIT_TEST_FLAGS.COMMIT_MESSAGE,
-        GIT_FIXTURE_COMMIT_MESSAGE,
-      ]);
-      await gitEnv.runGit([GIT_TEST_SUBCOMMANDS.BRANCH, LINKED_WORKTREE_BRANCH]);
-      const linkedWorktreeDir = join(gitEnv.productDir, LINKED_WORKTREE_RELATIVE_PATH);
-      await gitEnv.runGit([
-        GIT_TEST_SUBCOMMANDS.WORKTREE,
-        GIT_TEST_SUBCOMMANDS.ADD,
-        linkedWorktreeDir,
-        LINKED_WORKTREE_BRANCH,
-      ]);
-
-      const result = await runSessionCli(
-        ["session", "handoff", "--sessions-dir", harness.sessionsDir],
-        `{"goal":"Refuse a linked-worktree base","next_step":"Detach to origin default first"}\n# Session`,
-        linkedWorktreeDir,
-      );
-
-      expect(result.exitCode).toBe(1);
-      expect(result.stderr).toContain("SessionHandoffBaseError");
-      expect(await readdir(harness.statusDir(TODO))).toEqual([]);
-    });
-  });
-
   it("ALWAYS: archive moves a session of any frontmatter shape through the CLI", async () => {
     const sessionId = sampleSessionId();
     await harness.writeRawSession(TODO, sessionId, sampleSessionContent());
 
-    const result = await runSessionCli([
+    const result = await runSpxSession([
       "session",
       "archive",
       sessionId,
@@ -351,7 +217,7 @@ describe("session CLI compliance", () => {
   });
 });
 
-describe("session CLI handoff-base refusal checklist", () => {
+describe("session CLI handoff git_ref recording", () => {
   let harness: SessionHarness;
 
   beforeEach(async () => {
@@ -360,211 +226,6 @@ describe("session CLI handoff-base refusal checklist", () => {
 
   afterEach(async () => {
     await harness.cleanup();
-  });
-
-  async function runHandoffFrom(cwd: string): Promise<{ stdout: string; stderr: string; exitCode: number }> {
-    return runSessionCli(
-      ["session", "handoff", "--sessions-dir", harness.sessionsDir],
-      buildHandoffStdin(
-        sampleLiteralTestValue(arbitraryHandoffHeader()),
-        buildSessionMarkdownBody("Handoff base"),
-      ),
-      cwd,
-    );
-  }
-
-  /** The checklist line carrying a prerequisite label, asserted to exist. */
-  function prerequisiteLine(stderr: string, label: string): string {
-    const line = stderr.split("\n").find((candidate) => candidate.includes(label));
-    expect(line, `expected a checklist line for "${label}"`).toBeDefined();
-    return line ?? "";
-  }
-
-  /**
-   * The resolved-fact line carrying a fact label, asserted to exist. Anchored to
-   * the rendered `<label>: ` form so a label that also appears as prose in the
-   * header (e.g. "main checkout") never matches the header line by substring.
-   */
-  function factLine(stderr: string, label: string): string {
-    const line = stderr.split("\n").find((candidate) => candidate.trimStart().startsWith(`${label}: `));
-    expect(line, `expected a fact line for "${label}"`).toBeDefined();
-    return line ?? "";
-  }
-
-  function expectFactValue(stderr: string, label: string, value: string): void {
-    expect(factLine(stderr, label).trim()).toBe(`${label}: ${value}`);
-  }
-
-  it("dirty at the origin tip: marks the clean prerequisite unmet with a commit remedy and the at-tip prerequisite met, never git stash", async () => {
-    await withLinkedHandoffBase({ atTip: true, clean: false, originResolved: true }, async (scenario) => {
-      const result = await runHandoffFrom(scenario.linkedWorktreeDir);
-
-      expect(result.exitCode).not.toBe(0);
-      expect(result.stderr).toContain(SESSION_HANDOFF_BASE_ERROR_NAME);
-
-      const cleanLine = prerequisiteLine(result.stderr, HANDOFF_BASE_PREREQUISITE_LABEL.CLEAN_WORKING_TREE);
-      expect(cleanLine).toContain(HANDOFF_BASE_MARK.UNMET);
-      expect(cleanLine).toContain(HANDOFF_BASE_REMEDY.COMMIT_OR_MAIN_CHECKOUT);
-
-      const tipLine = prerequisiteLine(result.stderr, HANDOFF_BASE_PREREQUISITE_LABEL.DETACHED_AT_DEFAULT_TIP);
-      expect(tipLine).toContain(HANDOFF_BASE_MARK.MET);
-
-      expect(result.stderr).not.toContain(FORBIDDEN_STASH_REMEDY);
-      expect(await readdir(harness.statusDir(TODO))).toEqual([]);
-    });
-  });
-
-  it("off the origin tip while clean: marks the at-tip prerequisite unmet, prints the observed and origin-tip SHAs, never the literal placeholder", async () => {
-    await withLinkedHandoffBase({ atTip: false, clean: true, originResolved: true }, async (scenario) => {
-      const result = await runHandoffFrom(scenario.linkedWorktreeDir);
-
-      expect(result.exitCode).not.toBe(0);
-
-      const cleanLine = prerequisiteLine(result.stderr, HANDOFF_BASE_PREREQUISITE_LABEL.CLEAN_WORKING_TREE);
-      expect(cleanLine).toContain(HANDOFF_BASE_MARK.MET);
-
-      const tipLine = prerequisiteLine(result.stderr, HANDOFF_BASE_PREREQUISITE_LABEL.DETACHED_AT_DEFAULT_TIP);
-      expect(tipLine).toContain(HANDOFF_BASE_MARK.UNMET);
-      expect(tipLine).toContain(HANDOFF_BASE_REMEDY.DETACH_TO_TIP_OR_MAIN_CHECKOUT);
-
-      expect(factLine(result.stderr, HANDOFF_BASE_FACT_LABEL.HEAD)).toContain(scenario.headSha);
-      expect(scenario.originTipSha).not.toBeNull();
-      expect(factLine(result.stderr, HANDOFF_BASE_FACT_LABEL.DEFAULT_TIP)).toContain(scenario.originTipSha ?? "");
-      expect(result.stderr).not.toContain(ORIGIN_DEFAULT_PLACEHOLDER);
-      expect(await readdir(harness.statusDir(TODO))).toEqual([]);
-    });
-  });
-
-  it("clean and detached but origin/HEAD unset: states the default branch and tip unresolved with a main-checkout remedy, never a fabricated branch", async () => {
-    await withLinkedHandoffBase({ atTip: true, clean: true, originResolved: false }, async (scenario) => {
-      const result = await runHandoffFrom(scenario.linkedWorktreeDir);
-
-      expect(result.exitCode).not.toBe(0);
-      expect(scenario.defaultBranch).toBeNull();
-
-      const tipLine = prerequisiteLine(result.stderr, HANDOFF_BASE_PREREQUISITE_LABEL.DETACHED_AT_DEFAULT_TIP);
-      expect(tipLine).toContain(HANDOFF_BASE_MARK.UNMET);
-      expect(tipLine).toContain(HANDOFF_BASE_REMEDY.MAIN_CHECKOUT_ONLY);
-
-      expect(factLine(result.stderr, HANDOFF_BASE_FACT_LABEL.DEFAULT_BRANCH)).toContain(HANDOFF_BASE_UNRESOLVED);
-      expect(factLine(result.stderr, HANDOFF_BASE_FACT_LABEL.DEFAULT_TIP)).toContain(HANDOFF_BASE_UNRESOLVED);
-      expect(result.stderr).not.toContain(ORIGIN_DEFAULT_PLACEHOLDER);
-      // The default-branch fact must stay unresolved, never fabricated as the fixture branch.
-      // Scoped to the branch fact line — the header's "main checkout" prose legitimately carries "main".
-      expect(factLine(result.stderr, HANDOFF_BASE_FACT_LABEL.DEFAULT_BRANCH)).not.toContain(FIXTURE_DEFAULT_BRANCH);
-      expect(await readdir(harness.statusDir(TODO))).toEqual([]);
-    });
-  });
-
-  it("bare pool with no origin repository: states the main-checkout path unresolved", async () => {
-    const layout = sampleMainCheckoutTestValue(arbitraryBarePoolWithoutOriginLayoutCase());
-    await withWorktreeLayoutEnv(layout.spec, async (env) => {
-      const nonMainCheckoutDir = env.worktree(layout.nonMainCheckoutName);
-      const result = await runHandoffFrom(nonMainCheckoutDir);
-
-      expect(result.exitCode).not.toBe(0);
-      expect(result.stderr).toContain(SESSION_HANDOFF_BASE_ERROR_NAME);
-      expectFactValue(result.stderr, HANDOFF_BASE_FACT_LABEL.MAIN_CHECKOUT, HANDOFF_BASE_UNRESOLVED);
-      expect(await readdir(harness.statusDir(TODO))).toEqual([]);
-    });
-  });
-
-  it("bare pool with origin but no repository-named worktree: states the main-checkout path unresolved", async () => {
-    const layout = sampleMainCheckoutTestValue(arbitraryBarePoolWithoutMainCheckoutLayoutCase());
-    await withWorktreeLayoutEnv(layout.spec, async (env) => {
-      const nonMainCheckoutDir = env.worktree(layout.nonMainCheckoutName);
-      const result = await runHandoffFrom(nonMainCheckoutDir);
-
-      expect(result.exitCode).not.toBe(0);
-      expect(result.stderr).toContain(SESSION_HANDOFF_BASE_ERROR_NAME);
-      expectFactValue(result.stderr, HANDOFF_BASE_FACT_LABEL.MAIN_CHECKOUT, HANDOFF_BASE_UNRESOLVED);
-      expect(await readdir(harness.statusDir(TODO))).toEqual([]);
-    });
-  });
-
-  it("dirty and off the origin tip: marks both prerequisites unmet on their own lines and carries every resolved git value", async () => {
-    await withLinkedHandoffBase({ atTip: false, clean: false, originResolved: true }, async (scenario) => {
-      const result = await runHandoffFrom(scenario.linkedWorktreeDir);
-
-      expect(result.exitCode).not.toBe(0);
-
-      const cleanLine = prerequisiteLine(result.stderr, HANDOFF_BASE_PREREQUISITE_LABEL.CLEAN_WORKING_TREE);
-      const tipLine = prerequisiteLine(result.stderr, HANDOFF_BASE_PREREQUISITE_LABEL.DETACHED_AT_DEFAULT_TIP);
-      expect(cleanLine).toContain(HANDOFF_BASE_MARK.UNMET);
-      expect(cleanLine).toContain(HANDOFF_BASE_REMEDY.COMMIT_OR_MAIN_CHECKOUT);
-      expect(tipLine).toContain(HANDOFF_BASE_MARK.UNMET);
-      expect(tipLine).toContain(HANDOFF_BASE_REMEDY.DETACH_TO_TIP_OR_MAIN_CHECKOUT);
-      expect(cleanLine).not.toBe(tipLine);
-
-      expect(scenario.defaultBranch).not.toBeNull();
-      expect(factLine(result.stderr, HANDOFF_BASE_FACT_LABEL.DEFAULT_BRANCH)).toContain(scenario.defaultBranch ?? "");
-      expect(factLine(result.stderr, HANDOFF_BASE_FACT_LABEL.DEFAULT_TIP)).toContain(scenario.originTipSha ?? "");
-      expect(factLine(result.stderr, HANDOFF_BASE_FACT_LABEL.HEAD)).toContain(scenario.headSha);
-      expect(factLine(result.stderr, HANDOFF_BASE_FACT_LABEL.CURRENT_WORKTREE)).toContain(
-        scenario.currentWorktreeToplevel,
-      );
-      expect(factLine(result.stderr, HANDOFF_BASE_FACT_LABEL.MAIN_CHECKOUT)).toContain(scenario.mainCheckoutToplevel);
-
-      expect(result.stderr).not.toContain(FORBIDDEN_STASH_REMEDY);
-      expect(await readdir(harness.statusDir(TODO))).toEqual([]);
-    });
-  });
-
-  it("permitted: a clean linked worktree detached at the origin tip writes the session and no checklist", async () => {
-    await withLinkedHandoffBase({ atTip: true, clean: true, originResolved: true }, async (scenario) => {
-      const result = await runHandoffFrom(scenario.linkedWorktreeDir);
-
-      expect(result.exitCode).toBe(0);
-      expect(result.stdout).toMatch(HANDOFF_ID_TAG_PATTERN);
-      expect(result.stdout).toMatch(SESSION_FILE_TAG_PATTERN);
-      expect(result.stderr.trim()).toBe("");
-      expect(await readdir(harness.statusDir(TODO))).toHaveLength(1);
-    });
-  });
-
-  it("permitted: a main-checkout handoff writes the session and no checklist", async () => {
-    await withCommittedGitCwd(async (rootCwd) => {
-      const result = await runHandoffFrom(rootCwd);
-
-      expect(result.exitCode).toBe(0);
-      expect(result.stdout).toMatch(HANDOFF_ID_TAG_PATTERN);
-      expect(result.stdout).toMatch(SESSION_FILE_TAG_PATTERN);
-      expect(result.stderr.trim()).toBe("");
-      expect(await readdir(harness.statusDir(TODO))).toHaveLength(1);
-    });
-  });
-
-  it("on a named branch: marks the clean prerequisite met and the at-tip prerequisite unmet with a detach remedy", async () => {
-    await withLinkedHandoffBase(
-      { atTip: true, clean: true, originResolved: true, onBranch: true },
-      async (scenario) => {
-        const result = await runHandoffFrom(scenario.linkedWorktreeDir);
-
-        expect(result.exitCode).not.toBe(0);
-        expect(result.stderr).toContain(SESSION_HANDOFF_BASE_ERROR_NAME);
-
-        const cleanLine = prerequisiteLine(result.stderr, HANDOFF_BASE_PREREQUISITE_LABEL.CLEAN_WORKING_TREE);
-        expect(cleanLine).toContain(HANDOFF_BASE_MARK.MET);
-
-        const tipLine = prerequisiteLine(result.stderr, HANDOFF_BASE_PREREQUISITE_LABEL.DETACHED_AT_DEFAULT_TIP);
-        expect(tipLine).toContain(HANDOFF_BASE_MARK.UNMET);
-        expect(tipLine).toContain(HANDOFF_BASE_REMEDY.DETACH_TO_TIP_OR_MAIN_CHECKOUT);
-
-        expect(await readdir(harness.statusDir(TODO))).toEqual([]);
-      },
-    );
-  });
-
-  it("main checkout with no commit: refuses with a diagnostic naming the error, not silently and not a checklist", async () => {
-    await withGitWorktreeEnv(async (gitEnv) => {
-      const result = await runHandoffFrom(gitEnv.productDir);
-
-      expect(result.exitCode).not.toBe(0);
-      expect(result.stderr.trim()).not.toBe("");
-      expect(result.stderr).toContain(SESSION_HANDOFF_BASE_ERROR_NAME);
-      expect(result.stderr).not.toContain(HANDOFF_BASE_MARK.UNMET);
-      expect(await readdir(harness.statusDir(TODO))).toEqual([]);
-    });
   });
 
   it("explicit git_ref present on origin: records the work-branch ref and exits 0", async () => {
@@ -583,7 +244,7 @@ describe("session CLI handoff-base refusal checklist", () => {
         sha,
       ]);
 
-      const result = await runSessionCli(
+      const result = await runSpxSession(
         ["session", "handoff", "--sessions-dir", harness.sessionsDir],
         `{"goal":"Anchor at work branch","next_step":"Resume on the feature branch","git_ref":"${workBranch}"}\n# Session`,
         gitEnv.productDir,
@@ -600,7 +261,7 @@ describe("session CLI handoff-base refusal checklist", () => {
   it("explicit git_ref absent from origin: refuses naming SessionWorkBranchNotOnOriginError and writes no file", async () => {
     const workBranch = "feat/cli-missing-on-origin";
     await withCommittedGitCwd(async (cwd) => {
-      const result = await runSessionCli(
+      const result = await runSpxSession(
         ["session", "handoff", "--sessions-dir", harness.sessionsDir],
         `{"goal":"Anchor at work branch","next_step":"Resume on the feature branch","git_ref":"${workBranch}"}\n# Session`,
         cwd,
@@ -609,6 +270,144 @@ describe("session CLI handoff-base refusal checklist", () => {
       expect(result.exitCode).not.toBe(0);
       expect(result.stderr).toContain(SessionWorkBranchNotOnOriginError.name);
       expect(await readdir(harness.statusDir(TODO))).toEqual([]);
+    });
+  });
+});
+
+// Thin wiring smokes: the descriptor maps the handoff-base error to a non-zero
+// exit and writes the pure formatter's checklist to stderr, and a permitted base
+// writes the session with no checklist. The condition→checklist correspondence
+// and the rendered format are proven purely — the decision over HandoffGitFacts in
+// the session-store node's handoff-base gate tests, and the rendering over
+// HandoffBaseChecklist in handoff-base-render.property.l1 — so these exercise only
+// the CLI boundary, not every condition.
+describe("session CLI handoff-base wiring", () => {
+  let harness: SessionHarness;
+
+  beforeEach(async () => {
+    harness = await createSessionHarness();
+  });
+
+  afterEach(async () => {
+    await harness.cleanup();
+  });
+
+  function runHandoffFrom(cwd: string): ReturnType<typeof runSpxSession> {
+    return runSpxSession(
+      ["session", "handoff", "--sessions-dir", harness.sessionsDir],
+      buildHandoffStdin(sampleLiteralTestValue(arbitraryHandoffHeader()), buildSessionMarkdownBody("Wiring")),
+      cwd,
+    );
+  }
+
+  /** The rendered `main checkout:` fact line, anchored to its label so the header prose never matches. */
+  function mainCheckoutFactLine(stderr: string): string {
+    const label = `${HANDOFF_BASE_FACT_LABEL.MAIN_CHECKOUT}: `;
+    return stderr.split("\n").find((line) => line.trimStart().startsWith(label)) ?? "";
+  }
+
+  it("refused: a non-main checkout writes the rendered checklist to stderr and exits non-zero", async () => {
+    await withGitWorktreeEnv(async (gitEnv) => {
+      await gitEnv.runGit([
+        GIT_TEST_SUBCOMMANDS.COMMIT,
+        GIT_TEST_FLAGS.ALLOW_EMPTY,
+        GIT_TEST_FLAGS.COMMIT_MESSAGE,
+        GIT_FIXTURE_COMMIT_MESSAGE,
+      ]);
+      await gitEnv.runGit([GIT_TEST_SUBCOMMANDS.BRANCH, LINKED_WORKTREE_BRANCH]);
+      const linkedWorktreeDir = join(gitEnv.productDir, LINKED_WORKTREE_RELATIVE_PATH);
+      await gitEnv.runGit([
+        GIT_TEST_SUBCOMMANDS.WORKTREE,
+        GIT_TEST_SUBCOMMANDS.ADD,
+        linkedWorktreeDir,
+        LINKED_WORKTREE_BRANCH,
+      ]);
+
+      const result = await runHandoffFrom(linkedWorktreeDir);
+
+      expect(result.exitCode).not.toBe(0);
+      expect(result.stderr).toContain(SESSION_HANDOFF_BASE_ERROR_NAME);
+      // The descriptor wrote the pure formatter's checklist, not a bare message.
+      expect(result.stderr).toContain(HANDOFF_BASE_PREREQUISITE_LABEL.CLEAN_WORKING_TREE);
+      expect(await readdir(harness.statusDir(TODO))).toEqual([]);
+    });
+  });
+
+  it("permitted: a main-checkout handoff writes the session with no checklist and exits 0", async () => {
+    await withCommittedGitCwd(async (cwd) => {
+      const result = await runHandoffFrom(cwd);
+
+      expect(result.exitCode).toBe(0);
+      expect(result.stdout).toMatch(HANDOFF_ID_TAG_PATTERN);
+      expect(result.stdout).toMatch(SESSION_FILE_TAG_PATTERN);
+      expect(result.stderr.trim()).toBe("");
+      expect(await readdir(harness.statusDir(TODO))).toHaveLength(1);
+    });
+  });
+
+  it("bare pool with a repository-named worktree: the checklist names the resolved main-checkout path", async () => {
+    const layout = sampleMainCheckoutTestValue(arbitraryBarePoolLayoutCase());
+    await withWorktreeLayoutEnv(layout.spec, async (env) => {
+      const [nonMainName] = layout.otherNames;
+      const result = await runHandoffFrom(env.worktree(nonMainName));
+
+      expect(result.exitCode).not.toBe(0);
+      expect(result.stderr).toContain(SESSION_HANDOFF_BASE_ERROR_NAME);
+      // The bare-pool main checkout is the worktree named after the origin repository,
+      // asserted as a path segment to stay invariant to the temp-dir realpath prefix.
+      const factLine = mainCheckoutFactLine(result.stderr);
+      expect(factLine).toContain(`${sep}${layout.mainCheckoutName}`);
+      expect(factLine).not.toContain(HANDOFF_BASE_UNRESOLVED);
+      expect(await readdir(harness.statusDir(TODO))).toEqual([]);
+    });
+  });
+
+  it("bare pool with no origin: the checklist renders the main-checkout path unresolved", async () => {
+    const layout = sampleMainCheckoutTestValue(arbitraryBarePoolWithoutOriginLayoutCase());
+    await withWorktreeLayoutEnv(layout.spec, async (env) => {
+      const result = await runHandoffFrom(env.worktree(layout.nonMainCheckoutName));
+
+      expect(result.exitCode).not.toBe(0);
+      expect(result.stderr).toContain(SESSION_HANDOFF_BASE_ERROR_NAME);
+      expect(mainCheckoutFactLine(result.stderr).trim()).toBe(
+        `${HANDOFF_BASE_FACT_LABEL.MAIN_CHECKOUT}: ${HANDOFF_BASE_UNRESOLVED}`,
+      );
+      expect(await readdir(harness.statusDir(TODO))).toEqual([]);
+    });
+  });
+
+  it("permitted: a clean non-main worktree detached at the origin tip writes the session and no checklist", async () => {
+    await withGitWorktreeEnv(async (gitEnv) => {
+      await gitEnv.runGit([
+        GIT_TEST_SUBCOMMANDS.COMMIT,
+        GIT_TEST_FLAGS.ALLOW_EMPTY,
+        GIT_TEST_FLAGS.COMMIT_MESSAGE,
+        GIT_FIXTURE_COMMIT_MESSAGE,
+      ]);
+      const tipSha = await gitEnv.runGit([...GIT_HEAD_SHA_ARGS]);
+      const originDefaultRef = `${GIT_TEST_REF.REMOTE_ORIGIN_PREFIX}${FIXTURE_DEFAULT_BRANCH}`;
+      await gitEnv.runGit([GIT_TEST_SUBCOMMANDS.UPDATE_REF, originDefaultRef, tipSha]);
+      await gitEnv.runGit([
+        GIT_TEST_SUBCOMMANDS.SYMBOLIC_REF,
+        `${GIT_TEST_REF.REMOTE_ORIGIN_PREFIX}${GIT_TEST_REF.HEAD_NAME}`,
+        originDefaultRef,
+      ]);
+      const linkedWorktreeDir = join(gitEnv.productDir, LINKED_WORKTREE_RELATIVE_PATH);
+      await gitEnv.runGit([
+        GIT_TEST_SUBCOMMANDS.WORKTREE,
+        GIT_TEST_SUBCOMMANDS.ADD,
+        GIT_TEST_FLAGS.DETACH,
+        linkedWorktreeDir,
+        tipSha,
+      ]);
+
+      const result = await runHandoffFrom(linkedWorktreeDir);
+
+      expect(result.exitCode).toBe(0);
+      expect(result.stdout).toMatch(HANDOFF_ID_TAG_PATTERN);
+      expect(result.stdout).toMatch(SESSION_FILE_TAG_PATTERN);
+      expect(result.stderr.trim()).toBe("");
+      expect(await readdir(harness.statusDir(TODO))).toHaveLength(1);
     });
   });
 });
@@ -641,7 +440,7 @@ describe("session CLI non-git warning", () => {
           ? [SESSION_DOMAIN, subcommand]
           : [SESSION_DOMAIN, subcommand, id];
 
-        const result = await runSessionCli(args, undefined, env.cwd);
+        const result = await runSpxSession(args, undefined, env.cwd);
 
         expect(result.stderr).toContain(NOT_GIT_REPO_WARNING);
       } finally {
@@ -658,7 +457,7 @@ describe("session CLI non-git warning", () => {
         buildSessionMarkdownBody("Non-git handoff"),
       );
 
-      const result = await runSessionCli([SESSION_DOMAIN, "handoff"], stdin, env.cwd);
+      const result = await runSpxSession([SESSION_DOMAIN, "handoff"], stdin, env.cwd);
 
       expect(result.exitCode).not.toBe(0);
       expect(result.stderr).not.toContain(NOT_GIT_REPO_WARNING);
@@ -673,7 +472,7 @@ describe("session CLI non-git warning", () => {
   it("NEVER: the non-git diagnostic claims sessions will be created", async () => {
     const env = await createNonGitSessionEnv();
     try {
-      const result = await runSessionCli([SESSION_DOMAIN, "list"], undefined, env.cwd);
+      const result = await runSpxSession([SESSION_DOMAIN, "list"], undefined, env.cwd);
 
       expect(result.stderr.trim()).not.toBe("");
       expect(result.stderr).not.toMatch(/creat/i);
@@ -698,7 +497,7 @@ describe("session CLI — JSON list output and field selection", () => {
     const id = sampleSessionId();
     await harness.writeSession(TODO, id);
 
-    const result = await runSessionCli(["session", "list", "--json", "--sessions-dir", harness.sessionsDir]);
+    const result = await runSpxSession(["session", "list", "--json", "--sessions-dir", harness.sessionsDir]);
 
     expect(result.exitCode).toBe(0);
     const parsed = JSON.parse(result.stdout) as Record<string, Array<Record<string, unknown>>>;
@@ -722,7 +521,7 @@ describe("session CLI — JSON list output and field selection", () => {
     const fieldsArg = selection.join(",");
 
     for (const subcommand of ["list", "todo"]) {
-      const result = await runSessionCli([
+      const result = await runSpxSession([
         "session",
         subcommand,
         "--fields",
@@ -742,7 +541,14 @@ describe("session CLI — JSON list output and field selection", () => {
     await harness.writeSession(TODO, id);
     const unknownToken = sampleSessionId();
 
-    const result = await runSessionCli(["session", "list", "--fields", unknownToken, "--sessions-dir", harness.sessionsDir]);
+    const result = await runSpxSession([
+      "session",
+      "list",
+      "--fields",
+      unknownToken,
+      "--sessions-dir",
+      harness.sessionsDir,
+    ]);
 
     expect(result.exitCode).not.toBe(0);
     expect(result.stdout.trim()).toBe("");
@@ -756,7 +562,7 @@ describe("session CLI — JSON list output and field selection", () => {
     const id = sampleSessionId();
     await harness.writeSession(TODO, id);
 
-    const result = await runSessionCli(["session", "list", "--fields", "", "--sessions-dir", harness.sessionsDir]);
+    const result = await runSpxSession(["session", "list", "--fields", "", "--sessions-dir", harness.sessionsDir]);
 
     expect(result.exitCode).not.toBe(0);
     expect(result.stdout.trim()).toBe("");
@@ -769,7 +575,7 @@ describe("session CLI — JSON list output and field selection", () => {
     const id = sampleSessionId();
     await harness.writeSession(TODO, id);
 
-    const result = await runSessionCli([
+    const result = await runSpxSession([
       "session",
       "list",
       "--fields",

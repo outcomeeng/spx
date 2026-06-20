@@ -55,6 +55,7 @@ The frontmatter shape every primitive writes and reads is governed by [`spx/36-s
 
 - For every input array of sessions where one or more session IDs are unparsable, `sortSessions` produces the same output array on repeated calls and unparsable-ID sessions occupy positions after every parsable-ID session of the same priority ([test](tests/session-store.scenario.l1.test.ts))
 - For every JSON header with arbitrary unicode-string values for `priority` (drawn from the SESSION_PRIORITY enum), `goal`, `next_step`, and arbitrary unicode-string arrays for `specs` and `files`, the parsed metadata of the written session file equals the caller-supplied values exactly per [`spx/36-session.enabler/11-session-frontmatter.pdr.md`](../11-session-frontmatter.pdr.md) ([test](tests/session-store.property.l1.test.ts))
+- For every `HandoffGitFacts`, `resolveHandoffGitRef` records the reachable base — the branch or HEAD on a main checkout, the origin tip on a clean non-main checkout detached at that tip — or refuses: silently with no checklist for a non-git base, with a diagnostic and no checklist for a main checkout with no reachable HEAD, and otherwise with a two-prerequisite checklist marking the clean and detached-at-tip prerequisites met or unmet — each with its remedy — and carrying the input git facts per [`spx/36-session.enabler/11-session-frontmatter.pdr.md`](../11-session-frontmatter.pdr.md) ([test](tests/handoff-base-gate.property.l1.test.ts))
 
 ### Compliance
 
