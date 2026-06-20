@@ -37,7 +37,7 @@ describe("journal CLI", () => {
       const { runToken } = JSON.parse(opened.output) as { runToken: string };
 
       const sink = new RecordingJournalStreamSink();
-      const appended = await journalAppendCommand({ type, runToken }, input, sink, deps);
+      const appended = await journalAppendCommand({ type, runToken }, input, { localSink: sink }, deps);
       expect(appended.exitCode).toBe(JOURNAL_CLI_EXIT_CODE.OK);
       expect(sink.emitted.map((event) => event.seq)).toEqual([JOURNAL_SEQ_BASE]);
 
@@ -48,7 +48,7 @@ describe("journal CLI", () => {
       const sealed = await journalSealCommand({ type, runToken }, deps);
       expect(sealed.exitCode).toBe(JOURNAL_CLI_EXIT_CODE.OK);
 
-      const afterSeal = await journalAppendCommand({ type, runToken }, input, sink, deps);
+      const afterSeal = await journalAppendCommand({ type, runToken }, input, { localSink: sink }, deps);
       expect(afterSeal.exitCode).toBe(JOURNAL_CLI_EXIT_CODE.ERROR);
 
       const rendered = await journalRenderCommand({ type, runToken }, deps);

@@ -1,5 +1,10 @@
 import type { Result } from "@/config/types";
-import { JOURNAL_BACKEND, type JournalEnvironment, resolveJournalBackend } from "@/domains/journal/backend-selection";
+import {
+  JOURNAL_BACKEND,
+  type JournalBackendKind,
+  type JournalEnvironment,
+  resolveJournalBackend,
+} from "@/domains/journal/backend-selection";
 import {
   defaultGitDependencies,
   detectGitCommonDirProductRoot,
@@ -8,8 +13,10 @@ import {
   type GitDependencies,
 } from "@/git/root";
 import type { JournalEvent, JournalEventInput } from "@/lib/agent-run-journal";
+import type { GithubSnapshotClient } from "@/lib/github-snapshot-sink";
 import { resolveBranchIdentity, slugBranchIdentity, type StateStoreFileSystem } from "@/lib/state-store";
 
+import { createGithubPrStreamSink } from "./github-pr-sink";
 import {
   appendJournalEvent,
   type JournalRunRef,
@@ -30,14 +37,20 @@ export const JOURNAL_CLI_ENV = {
   BRANCH: "SPX_VERIFY_BRANCH",
   CONTINUOUS_INTEGRATION: "CI",
   GITHUB_EVENT_NAME: "GITHUB_EVENT_NAME",
+  GITHUB_REF: "GITHUB_REF",
 } as const;
 
 export const JOURNAL_CLI_ERROR = {
-  BACKEND_UNAVAILABLE: "journal backend not available on this surface",
+  GITHUB_CLIENT_UNAVAILABLE: "github pull-request backend needs a GitHub client",
+  PULL_REQUEST_UNRESOLVED: "github pull-request number is not resolvable from the environment",
   HEAD_SHA_UNAVAILABLE: "unknown",
 } as const;
 
+export const JOURNAL_COMMENT_MARKER_PREFIX = "spx-journal-run:" as const;
+
 const GITHUB_PULL_REQUEST_EVENT = "pull_request";
+const PULL_REQUEST_REF_PATTERN = /^refs\/pull\/(\d+)\//u;
+const DECIMAL_RADIX = 10;
 const TRUTHY_ENV_VALUES: readonly string[] = ["1", "true"];
 
 export interface JournalCliResult {
@@ -69,6 +82,15 @@ interface JournalRunContext {
   readonly productDir: string;
   readonly branchSlug: string;
   readonly type: string;
+  readonly backendKind: JournalBackendKind;
+}
+
+/** The boundary surfaces the descriptor binds for the journal streaming sink. */
+export interface JournalStreamBinding {
+  /** The local backend's streaming sink — standard output. */
+  readonly localSink: JournalStreamSink;
+  /** The GitHub client the github-pr backend upserts the pull-request comment through. */
+  readonly githubClient?: GithubSnapshotClient;
 }
 
 function isTruthyEnv(value: string | undefined): boolean {
@@ -102,9 +124,6 @@ async function resolveJournalRunContext(
 
   const backend = resolveJournalBackend(environment);
   if (!backend.ok) return backend;
-  if (backend.value !== JOURNAL_BACKEND.LOCAL) {
-    return { ok: false, error: `${JOURNAL_CLI_ERROR.BACKEND_UNAVAILABLE}: ${backend.value}` };
-  }
 
   const product = await detectGitCommonDirProductRoot(cwd, git);
   const branchName = scope.branch ?? deps.branch ?? cliEnvironment.branch ?? (await getCurrentBranch(cwd, git))
@@ -113,7 +132,57 @@ async function resolveJournalRunContext(
   const branchIdentity = resolveBranchIdentity({ ...(branchName === undefined ? {} : { branchName }), headSha });
   return {
     ok: true,
-    value: { productDir: product.productDir, branchSlug: slugBranchIdentity(branchIdentity), type: scope.type },
+    value: {
+      productDir: product.productDir,
+      branchSlug: slugBranchIdentity(branchIdentity),
+      type: scope.type,
+      backendKind: backend.value,
+    },
+  };
+}
+
+function resolvePullRequestNumber(processEnv: NodeJS.ProcessEnv): Result<number> {
+  const match = processEnv[JOURNAL_CLI_ENV.GITHUB_REF]?.match(PULL_REQUEST_REF_PATTERN);
+  const captured = match?.[1];
+  if (captured === undefined) return { ok: false, error: JOURNAL_CLI_ERROR.PULL_REQUEST_UNRESOLVED };
+  return { ok: true, value: Number.parseInt(captured, DECIMAL_RADIX) };
+}
+
+/** The upsertable pull-request comment marker that identifies one run's streamed projection. */
+export function journalCommentMarker(type: string, runToken: string): string {
+  return `${JOURNAL_COMMENT_MARKER_PREFIX}${type}:${runToken}`;
+}
+
+async function resolveAppendSink(
+  ref: JournalRunRef,
+  backendKind: JournalBackendKind,
+  binding: JournalStreamBinding,
+  deps: JournalCliDeps,
+): Promise<Result<JournalStreamSink>> {
+  if (backendKind === JOURNAL_BACKEND.LOCAL) return { ok: true, value: binding.localSink };
+  if (binding.githubClient === undefined) return { ok: false, error: JOURNAL_CLI_ERROR.GITHUB_CLIENT_UNAVAILABLE };
+  const pullNumber = resolvePullRequestNumber(deps.processEnv ?? process.env);
+  if (!pullNumber.ok) return pullNumber;
+  return {
+    ok: true,
+    value: createGithubPrStreamSink({
+      client: binding.githubClient,
+      pullNumber: pullNumber.value,
+      marker: journalCommentMarker(ref.type, ref.runToken),
+      renderBody: async () => {
+        const rendered = await renderJournalRun<readonly JournalEvent[]>(
+          ref,
+          (events) => [...events],
+          verbOptions(deps),
+        );
+        // Surface a render fault: throwing propagates through the sink's emit and
+        // appendJournalEvent's try/catch into an error result, so a failed render
+        // never overwrites the pull-request comment with an empty body under a
+        // success report.
+        if (!rendered.ok) throw new Error(rendered.error);
+        return JSON.stringify(rendered.value);
+      },
+    }),
   };
 }
 
@@ -150,16 +219,23 @@ export async function journalOpenCommand(scope: JournalCliScope, deps: JournalCl
   return okResult(JSON.stringify({ runToken: opened.value.ref.runToken, runFile: opened.value.runFilePath }));
 }
 
-/** Append a caller-supplied event to a run and stream it through the sink. */
+/**
+ * Append a caller-supplied event to a run and stream it through the surface the
+ * resolved backend binds — standard output under the local backend, the
+ * pull-request comment under the github-pr backend.
+ */
 export async function journalAppendCommand(
   scope: JournalRunCliScope,
   input: JournalEventInput,
-  sink: JournalStreamSink,
+  binding: JournalStreamBinding,
   deps: JournalCliDeps = {},
 ): Promise<JournalCliResult> {
   const context = await resolveJournalRunContext(scope, deps);
   if (!context.ok) return errorResult(context.error);
-  const appended = await appendJournalEvent(runRef(context.value, scope.runToken), input, sink, verbOptions(deps));
+  const ref = runRef(context.value, scope.runToken);
+  const sink = await resolveAppendSink(ref, context.value.backendKind, binding, deps);
+  if (!sink.ok) return errorResult(sink.error);
+  const appended = await appendJournalEvent(ref, input, sink.value, verbOptions(deps));
   if (!appended.ok) return errorResult(appended.error);
   return okResult(JSON.stringify({ seq: appended.value.seq }));
 }
