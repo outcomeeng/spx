@@ -16,7 +16,7 @@ import {
   spxPath,
   writeExclude,
   writeExcludeRaw,
-} from "./support";
+} from "@testing/harnesses/file-inclusion/ignore-source";
 
 const arbEmptySegmentEntry = fc.oneof(
   fc.tuple(arbNodeSegment, arbNodeSegment).map(([a, b]) => `${a}//${b}`),

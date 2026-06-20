@@ -79,7 +79,6 @@ spx groups global product machinery under `spx/21-infrastructure.enabler/`. Test
 ### Related test-strategy gaps
 
 - **Canonical evidence naming:** in flight — see the "Canonical test-evidence naming cascade" section below for live status, the #2b enforcement-rule spec, and operating constraints.
-- **Fixture placement (minor):** `spx/13-cli.enabler/tests/fixtures/epipe-emitter.ts` is a subprocess fixture inside a `tests/` directory; the methodology homes inert fixtures under `testing/fixtures/`. Relocate it when the CLI node is next edited.
 - **Conformance coverage (minor):** the run-state JSONL machine contract is covered by parsing and property tests, not a conformance assertion; the `spx spec status` JSON output is conformance-tested through `spx/31-spec-domain.enabler/32-spec-cli-rendering.enabler/`. Consider a conformance assertion for the recorded JSONL shape when `41-testing`'s evidence schema is next edited.
 
 ## Canonical test-evidence naming cascade

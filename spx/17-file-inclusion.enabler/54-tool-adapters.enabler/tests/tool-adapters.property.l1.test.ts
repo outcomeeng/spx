@@ -3,7 +3,7 @@ import { describe, expect, it } from "vitest";
 
 import { REGISTERED_TOOL_NAMES, toToolArguments } from "@/lib/file-inclusion/adapters";
 
-import { makeScope, makeToolAdaptersConfig, PROPERTY_NUM_RUNS } from "./support";
+import { makeScope, makeToolAdaptersConfig, PROPERTY_NUM_RUNS } from "@testing/harnesses/file-inclusion/tool-adapters";
 
 const testTool = REGISTERED_TOOL_NAMES[0];
 if (!testTool) throw new Error("adapters.property: no registered tools");

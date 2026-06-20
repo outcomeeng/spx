@@ -12,7 +12,7 @@ import {
 } from "@testing/generators/literal/literal";
 import { buildStringAssertion, buildStringDeclaration } from "@testing/harnesses/literal/snippets";
 
-import { collectFromSource, indexSources, testOccurrences } from "./support";
+import { collectFromSource, indexSources, testOccurrences } from "@testing/harnesses/literal-reuse/detection";
 
 describe("finding-kind → remediation mapping", () => {
   it("src↔test reuse findings carry remediation === REMEDIATION.IMPORT_FROM_SOURCE", () => {

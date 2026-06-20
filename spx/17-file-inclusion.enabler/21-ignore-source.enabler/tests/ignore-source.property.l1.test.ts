@@ -14,7 +14,7 @@ import {
   readerConfig,
   spxPath,
   writeExclude,
-} from "./support";
+} from "@testing/harnesses/file-inclusion/ignore-source";
 
 describe("ignore-source — properties", () => {
   it("the reader is deterministic: the same project root and the same ignore-source file content always produce the same parsed entry set and the same membership-query results", async () => {

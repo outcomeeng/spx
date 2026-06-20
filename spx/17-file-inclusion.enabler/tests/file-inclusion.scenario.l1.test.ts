@@ -27,7 +27,7 @@ import {
   resolverConfig,
   writeExclude,
   writeTestFiles,
-} from "../43-scope-resolver.enabler/tests/support";
+} from "@testing/harnesses/file-inclusion/scope-resolver";
 
 const testTool = REGISTERED_TOOL_NAMES[0];
 if (!testTool) throw new Error("file-inclusion: no registered tools");

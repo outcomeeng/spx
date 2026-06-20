@@ -84,7 +84,7 @@ import {
   ORIGIN_DEFAULT_SHA,
   SessionHarness,
 } from "@testing/harnesses/session/harness";
-import { extractSessionFile, parseFrontMatter } from "./helpers";
+import { extractSessionFile, parseFrontMatter } from "@testing/harnesses/session/session-store";
 
 const [TODO, DOING] = SESSION_STATUSES;
 

@@ -2,7 +2,7 @@ import { describe, expect, it } from "vitest";
 
 import { hiddenPrefixPredicate } from "@/lib/file-inclusion/predicates/hidden-prefix";
 
-import { hiddenPrefixConfig } from "./support";
+import { hiddenPrefixConfig } from "@testing/harnesses/file-inclusion/path-predicates";
 
 describe("hidden-prefix predicate — scenarios", () => {
   it("a path whose basename starts with the configured hidden prefix reports matched: true", () => {

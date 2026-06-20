@@ -17,7 +17,7 @@ import {
   readerConfig,
   spxPath,
   writeExclude,
-} from "./support";
+} from "@testing/harnesses/file-inclusion/ignore-source";
 
 describe("ignore-source — mappings", () => {
   it("an entry segment in the ignore-source file maps to the directory {specTreeRootSegment}/{segment}/ for prefix matching", async () => {

@@ -10,7 +10,7 @@ import {
   sampleLiteralTestValue,
 } from "@testing/generators/literal/literal";
 
-import { collectFromFile } from "./support";
+import { collectFromFile } from "@testing/harnesses/literal-reuse/fixture-classification";
 
 describe("ALWAYS: test-file classification recognizes POSIX /tests/, Windows \\tests\\, and .test. filename markers as test fixture paths", () => {
   it("a POSIX /tests/ path segment suppresses fixture-data variable contents", () => {

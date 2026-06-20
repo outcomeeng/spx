@@ -2,7 +2,7 @@ import { describe, expect, it } from "vitest";
 
 import { REGISTERED_TOOL_NAMES, TOOL_DEFAULT_FLAGS, toToolArguments } from "@/lib/file-inclusion/adapters";
 
-import { makeScope, makeToolAdaptersConfig, sampleExcludedPath } from "./support";
+import { makeScope, makeToolAdaptersConfig, sampleExcludedPath } from "@testing/harnesses/file-inclusion/tool-adapters";
 
 describe("tool adapters — mappings", () => {
   it.each(Object.entries(TOOL_DEFAULT_FLAGS))(

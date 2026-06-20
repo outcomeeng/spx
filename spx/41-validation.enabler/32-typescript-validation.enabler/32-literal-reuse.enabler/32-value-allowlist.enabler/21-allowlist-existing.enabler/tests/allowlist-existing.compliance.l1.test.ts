@@ -24,7 +24,7 @@ import {
   readProductConfigSections,
   writeDuplicatedLiteralFixture,
   writeProjectConfig,
-} from "./support";
+} from "@testing/harnesses/literal-reuse/allowlist-existing";
 
 function sampleCommentText(): string {
   return `# ${sampleLiteralTestValue(arbitraryDomainLiteral())}`;

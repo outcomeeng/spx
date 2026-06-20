@@ -15,7 +15,7 @@ import {
   makeIgnoreSourceConfig,
   PROPERTY_NUM_RUNS,
   spxPath,
-} from "./support";
+} from "@testing/harnesses/file-inclusion/path-predicates";
 
 describe("predicate independence — properties", () => {
   it("artifact-directory decision is unaffected by interleaved calls to the hidden-prefix predicate", () => {

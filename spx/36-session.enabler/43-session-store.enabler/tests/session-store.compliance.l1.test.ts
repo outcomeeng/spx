@@ -17,7 +17,7 @@ import rule, {
   USE_SESSION_FRONTMATTER_MESSAGE_ID,
 } from "@eslint-rules/no-hardcoded-session-frontmatter-keys";
 import { runValidationRuleTester } from "@testing/harnesses/validation/eslint";
-import { extractSessionFile, parseFrontMatter } from "./helpers";
+import { extractSessionFile, parseFrontMatter } from "@testing/harnesses/session/session-store";
 
 // ISO 8601 with timezone: YYYY-MM-DDTHH:mm:ss[.SSS](Z|±HH:MM)
 // Matches: 2026-01-13T10:00:00Z, 2026-01-13T10:00:00.000Z, 2026-01-13T10:00:00+00:00

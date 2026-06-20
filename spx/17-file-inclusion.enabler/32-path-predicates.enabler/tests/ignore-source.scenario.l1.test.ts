@@ -11,7 +11,7 @@ import {
   makeIgnoreSourceConfig,
   PROPERTY_NUM_RUNS,
   spxPath,
-} from "./support";
+} from "@testing/harnesses/file-inclusion/path-predicates";
 
 describe("ignore-source predicate — scenarios", () => {
   it("a path under a reader-reported node directory reports matched: true with the matched entry segment as the detail", async () => {

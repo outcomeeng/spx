@@ -11,7 +11,7 @@ import {
   sampleLiteralTriple,
 } from "@testing/generators/literal/literal";
 
-import { collectFromFile } from "./support";
+import { collectFromFile } from "@testing/harnesses/literal-reuse/fixture-classification";
 
 describe("fixture-classification — scenarios", () => {
   it("fixture-writer paths and payload strings do not contribute occurrences while assertion-position literals do", () => {

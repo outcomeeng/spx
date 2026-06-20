@@ -17,7 +17,7 @@ import {
   makeIgnoreSourceConfig,
   PROPERTY_NUM_RUNS,
   spxPath,
-} from "./support";
+} from "@testing/harnesses/file-inclusion/path-predicates";
 
 describe("predicate purity — properties", () => {
   it("artifact-directory predicate produces equal LayerDecision on repeated calls with equal (path, config)", () => {
