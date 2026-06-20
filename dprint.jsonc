@@ -1,0 +1,39 @@
+{
+  // Repo-tracked dprint config so `pnpm run format:check` is a reproducible
+  // readiness signal across every worktree, contributor, and CI runner,
+  // independent of any personal global dprint config. Scoped to the languages
+  // spx actually uses: TypeScript, JSON, Markdown, TOML, and YAML.
+  "includes": [
+    "**/*.{ts,tsx,js,json,jsonc,md,toml,yaml,yml}",
+  ],
+  "excludes": [
+    "**/node_modules",
+    // pnpm owns the lockfile format; dprint must not fight it.
+    "**/pnpm-lock.yaml",
+    // Test fixtures are deliberate inputs (intentional lint/type/circular and
+    // markdown defects); formatting them would corrupt the cases under test.
+    "testing/fixtures/**",
+  ],
+  "json": {
+    "trailingCommas": "jsonc",
+    "array.preferSingleLine": false,
+    "object.preferSingleLine": false,
+  },
+  "markdown": {
+    "emphasisKind": "asterisks",
+    "strongKind": "asterisks",
+    "textWrap": "maintain",
+    "unorderedListKind": "dashes",
+    "lineWidth": 9999,
+  },
+  "typescript": {},
+  "toml": {},
+  "yaml": {},
+  "plugins": [
+    "https://plugins.dprint.dev/typescript-0.95.13.wasm",
+    "https://plugins.dprint.dev/json-0.21.1.wasm",
+    "https://plugins.dprint.dev/markdown-0.20.0.wasm",
+    "https://plugins.dprint.dev/toml-0.7.0.wasm",
+    "https://plugins.dprint.dev/g-plane/pretty_yaml-v0.5.1.wasm",
+  ],
+}
