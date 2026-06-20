@@ -1,4 +1,5 @@
 allowBuilds:
+  dprint: false
   esbuild: false
   lefthook: false
 overrides:
