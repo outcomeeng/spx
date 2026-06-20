@@ -139,7 +139,10 @@ function expectTemporaryConfigPathInsideNodeModules(productDir: string, configPa
   expect(configPath?.startsWith(join(productDir, ...TEMPORARY_TSCONFIG_PARENT_SEGMENTS))).toBe(true);
 }
 
-const narrowSourceDirectory = join(VALIDATION_PIPELINE_DATA.sourceDirectoryName, "api");
+const narrowSourceDirectory = join(
+  VALIDATION_PIPELINE_DATA.sourceDirectoryName,
+  VALIDATION_PIPELINE_DATA.narrowSourceDirectoryName,
+);
 const deepSourceDirectory = join(
   narrowSourceDirectory,
   VALIDATION_PIPELINE_DATA.deepSourceDirectoryName,

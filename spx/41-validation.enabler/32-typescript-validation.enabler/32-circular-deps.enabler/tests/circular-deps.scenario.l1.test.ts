@@ -60,7 +60,10 @@ const extensionlessSourceFile = join(
   VALIDATION_PIPELINE_DATA.sourceDirectoryName,
   VALIDATION_PIPELINE_DATA.extensionlessSourceFileName,
 );
-const dottedSourceDirectory = join(VALIDATION_PIPELINE_DATA.sourceDirectoryName, "feature.dir");
+const dottedSourceDirectory = join(
+  VALIDATION_PIPELINE_DATA.sourceDirectoryName,
+  VALIDATION_PIPELINE_DATA.dottedSourceDirectoryName,
+);
 const declarationSourceFile = join(
   VALIDATION_PIPELINE_DATA.sourceDirectoryName,
   VALIDATION_PIPELINE_DATA.declarationSourceFileName,
@@ -69,7 +72,7 @@ const modernTypeScriptSourceFile = join(
   VALIDATION_PIPELINE_DATA.sourceDirectoryName,
   VALIDATION_PIPELINE_DATA.modernSourceFileName,
 );
-const dotPrefixedRootTypeScriptFile = "..foo.ts";
+const dotPrefixedRootTypeScriptFile = VALIDATION_PIPELINE_DATA.dotPrefixedRootSourceFileName;
 const missingSourceDirectory = join(
   VALIDATION_PIPELINE_DATA.sourceDirectoryName,
   VALIDATION_PIPELINE_DATA.missingSourceDirectoryName,
@@ -80,7 +83,7 @@ const outOfRootRelativeSourceFile = join(
   VALIDATION_PIPELINE_DATA.cleanSourceFileName,
 );
 const dotSegmentedRootSourceFile = `${VALIDATION_PIPELINE_DATA.sourceDirectoryName}/../${VALIDATION_PIPELINE_DATA.cleanSourceFileName}`;
-const rootTypeScriptFilePattern = "*.ts";
+const rootTypeScriptFilePattern = VALIDATION_PIPELINE_DATA.rootTypeScriptSourceFilePattern;
 const emptyTypescriptConfig: ParsedCommandLine = {
   options: {},
   fileNames: [],
@@ -505,7 +508,10 @@ describe("circular dependency filtering", () => {
   });
 
   it("keeps retained directory targets when literal TypeScript files also match", async () => {
-    const retainedDirectory = join(VALIDATION_PIPELINE_DATA.sourceDirectoryName, "api");
+    const retainedDirectory = join(
+      VALIDATION_PIPELINE_DATA.sourceDirectoryName,
+      VALIDATION_PIPELINE_DATA.narrowSourceDirectoryName,
+    );
     const retainedLiteralFile = join(retainedDirectory, VALIDATION_PIPELINE_DATA.cleanSourceFileName);
     const { dependencyGraphCalls, result } = await validateCircularScopeWithRecording({
       directories: [retainedDirectory],
@@ -966,7 +972,10 @@ describe("circular command scope routing", () => {
 
   it("forwards --files directories covered by config include when tsconfig uses default includes", async () => {
     await withValidationEnv({ fixture: PROJECT_FIXTURES.CLEAN_PROJECT }, async ({ path }) => {
-      const apiDirectory = join(VALIDATION_PIPELINE_DATA.sourceDirectoryName, "api");
+      const apiDirectory = join(
+        VALIDATION_PIPELINE_DATA.sourceDirectoryName,
+        VALIDATION_PIPELINE_DATA.narrowSourceDirectoryName,
+      );
       await mkdir(join(path, apiDirectory), { recursive: true });
       await writeFile(join(path, apiDirectory, VALIDATION_PIPELINE_DATA.cleanSourceFileName), "export const api = true;\n");
       await writeFile(
@@ -1029,7 +1038,10 @@ describe("circular command scope routing", () => {
 
   it("forwards --files directories that intersect wildcard-backed TypeScript includes", async () => {
     await withValidationEnv({ fixture: PROJECT_FIXTURES.CLEAN_PROJECT }, async ({ path }) => {
-      const wildcardBackedDirectory = join(VALIDATION_PIPELINE_DATA.sourceDirectoryName, "api");
+      const wildcardBackedDirectory = join(
+        VALIDATION_PIPELINE_DATA.sourceDirectoryName,
+        VALIDATION_PIPELINE_DATA.narrowSourceDirectoryName,
+      );
       await mkdir(join(path, wildcardBackedDirectory), { recursive: true });
       await writeFile(
         join(path, wildcardBackedDirectory, VALIDATION_PIPELINE_DATA.cleanSourceFileName),
@@ -1155,7 +1167,7 @@ describe("circular command scope routing", () => {
         [
           {
             directories: [],
-            filePatterns: [`${narrowDirectory}/**/*.ts`],
+            filePatterns: [VALIDATION_PIPELINE_DATA.narrowProductionScopeFilePattern],
             excludePatterns: [],
           },
         ],
@@ -1180,7 +1192,7 @@ describe("circular command scope routing", () => {
             module: "commonjs",
             strict: true,
           },
-          include: [join(narrowDirectory, "*.ts")],
+          include: [VALIDATION_PIPELINE_DATA.narrowSingleLevelTypeScriptSourceFilePattern],
         }),
       );
 
@@ -1190,7 +1202,7 @@ describe("circular command scope routing", () => {
         [
           {
             directories: [],
-            filePatterns: [join(narrowDirectory, "*.ts")],
+            filePatterns: [VALIDATION_PIPELINE_DATA.narrowSingleLevelTypeScriptSourceFilePattern],
             excludePatterns: [],
           },
         ],
@@ -1239,9 +1251,7 @@ describe("circular command scope routing", () => {
         [
           {
             directories: [],
-            filePatterns: [
-              `${narrowDirectory}/**/${VALIDATION_PIPELINE_DATA.nestedFeatureSourceDirectoryName}/*.ts`,
-            ],
+            filePatterns: [VALIDATION_PIPELINE_DATA.narrowNestedFeatureSourceFilePattern],
             excludePatterns: [],
           },
         ],
