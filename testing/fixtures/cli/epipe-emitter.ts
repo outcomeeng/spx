@@ -4,7 +4,7 @@
  * via tsx, lets the OS pipe buffer fill, then destroys the parent's read
  * end of the pipe so the next write triggers the EPIPE handler.
  *
- * @module spx/13-cli.enabler/tests/fixtures/epipe-emitter
+ * @module testing/fixtures/cli/epipe-emitter
  */
 
 import { installLifecycle } from "@/lib/process-lifecycle";
