@@ -238,9 +238,13 @@ audit-domain teardown is DONE and the journal node already left `spx/EXCLUDE` (t
 1. **Review collapse** (`spx/46-reviewing.enabler`) — DEFERRED ("audit first"); migrates the
    same way the audit domain did, with `46-reviewing.enabler/43-review-state.enabler` leaving
    `spx/EXCLUDE` then.
-2. **`/merge`** — gated on the separate plugin-repo migration of the auditing skills from
-   `spx audit` to the `spx journal` verbs (the global `spx` rebuilds from `main`, so merging the
-   `spx audit` removal before the plugin skills migrate breaks them). See the out-of-scope notes.
+2. **`/merge`** — NOT gated on the plugin-repo skill migration. spx exposes `spx audit` in no
+   plugin executable path — no skill, agent, or CI workflow calls it, and the plugin's live
+   verification model is thread-store + `verdict.py` — so removing `spx audit` breaks no plugin
+   consumer and the journal channel merges and publishes independently. The dependency runs the
+   other way: the plugin's migration to the run-journal channel needs `spx journal` PUBLISHED
+   first (to adopt it and bump `REQUIRED_SPX_VERSION`). Clean order: merge + publish spx journal,
+   THEN migrate the plugin. See the out-of-scope notes.
 
 NOTE (deferred to the command/status slice, not yet built): latest-run ordering
 (`selectLatest…`) and the branch-runs reader types — `journal.md` declares no ordering/lookup
