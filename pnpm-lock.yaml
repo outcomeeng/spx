@@ -37,7 +37,7 @@ importers:
         version: 9.6.1
       ink:
         specifier: ^7.0.6
-        version: 7.0.6(@types/react@19.2.17)(react@19.2.7)
+        version: 7.1.0(@types/react@19.2.17)(react@19.2.7)
       markdownlint-cli2:
         specifier: ^0.22.1
         version: 0.22.1
@@ -1623,6 +1623,10 @@ packages:
     resolution: {integrity: sha512-CQ+bEO+Tva/qlmw24dCejulK5pMzVnUOFOijVogd3KQs07HnRIgp8TGipvCCRT06xeYEbpbgwaCxglFyiuIcmA==}
     engines: {node: '>=18'}
 
+  get-east-asian-width@1.6.0:
+    resolution: {integrity: sha512-QRbvDIbx6YklUe6RxeTeleMR0yv3cYH6PsPZHcnVn7xv7zO1BHN8r0XETu8n6Ye3Q+ahtSarc3WgtNWmehIBfA==}
+    engines: {node: '>=18'}
+
   get-intrinsic@1.3.0:
     resolution: {integrity: sha512-9fSjSaos/fRIVIp+xSJlE6lfwhES7LNtKaCBIamHsjr2na1BiABJPo0mOjjz8GJDURarmCPGqaiVg5mfjb98CQ==}
     engines: {node: '>= 0.4'}
@@ -1744,8 +1748,8 @@ packages:
       '@types/react':
         optional: true
 
-  ink@7.0.6:
-    resolution: {integrity: sha512-/KG651f+LHln9gumb5ltieFqzNGJdhX1b/WwsCUd2Py7Htuk9KUzyFrk25ugmzjXyDneXSoXD3cm4ql4dWFGsQ==}
+  ink@7.1.0:
+    resolution: {integrity: sha512-VWE6/yeLtFCJBNLflyI2OSylyXK1Rc24LuXup8Qt+icwkmmycFNdbn8IkSp6Frc0h1iA0NOvvi1ajW44U/w3Qg==}
     engines: {node: '>=22'}
     peerDependencies:
       '@types/react': '>=19.2.0'
@@ -4416,6 +4420,8 @@ snapshots:
 
   get-east-asian-width@1.5.0: {}
 
+  get-east-asian-width@1.6.0: {}
+
   get-intrinsic@1.3.0:
     dependencies:
       call-bind-apply-helpers: 1.0.2
@@ -4528,7 +4534,7 @@ snapshots:
     optionalDependencies:
       '@types/react': 19.2.17
 
-  ink@7.0.6(@types/react@19.2.17)(react@19.2.7):
+  ink@7.1.0(@types/react@19.2.17)(react@19.2.7):
     dependencies:
       '@alcalzone/ansi-tokenize': 0.3.0
       ansi-escapes: 7.3.0
@@ -4627,7 +4633,7 @@ snapshots:
 
   is-fullwidth-code-point@5.1.0:
     dependencies:
-      get-east-asian-width: 1.5.0
+      get-east-asian-width: 1.6.0
 
   is-generator-function@1.1.2:
     dependencies:
@@ -5606,7 +5612,7 @@ snapshots:
 
   string-width@8.2.1:
     dependencies:
-      get-east-asian-width: 1.5.0
+      get-east-asian-width: 1.6.0
       strip-ansi: 7.2.0
 
   string.prototype.trim@1.2.10:
@@ -5939,7 +5945,7 @@ snapshots:
 
   widest-line@6.0.0:
     dependencies:
-      string-width: 8.1.0
+      string-width: 8.2.1
 
   word-wrap@1.2.5: {}
 
