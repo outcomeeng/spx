@@ -149,13 +149,38 @@ On branch `work/journal`, committed:
   spec; node is in `spx/EXCLUDE`) + `13-journal-module-structure.adr.md`.
 - Architecture audit APPROVED on both journal ADRs.
 
-**Resume at:** `/apply` on `spx/34-verification.enabler/21-journal.enabler` from Step 5
-(write tests), then implement (Step 7) by generalizing `src/domains/audit/run-state.ts`
-and `src/commands/audit/{run-state,lifecycle}.ts` into `src/domains/journal/` +
-`src/commands/journal/` (drop audit identity), adding the env-driven backend registry and
-the GitHub-PR streaming surface. Then refactor-out the audit domain (`git rm` audit specs +
-`src/{domains,commands,interfaces/cli}/audit*`, unregister `spx audit` from the CLI
-registry), `/align`, `/merge`. Review (`46-reviewing`) follows in a later pass.
+**Landed (implementation):**
+
+- `src/domains/journal/backend-selection.ts` + its mapping test — the pure env→backend
+  resolver (`SPX_VERIFY_BACKEND` override; CI+GitHub+PR → `github-pr`; else `local`).
+  Tested GREEN, linted, committed. The node stays in `spx/EXCLUDE` until every assertion
+  is implemented.
+
+**Remaining journal-domain slices (each: source + co-located test, GREEN, lint, commit):**
+
+1. Run-scope path — pure, composes the state-store helpers: `branchScopeDir(productDir,
+   branchSlug)` → `runsDir(scopeDir, <type>)` → `runFileName(runToken)`, giving
+   `.spx/branch/<slug>/<type>/runs/run-<token>.jsonl`. The opaque `<type>` is passed as the
+   `domainName` arg of `runsDir`. NOTE: `STATE_STORE_DOMAIN` (src/lib/state-store/index.ts)
+   currently enumerates `audit`/`review`/`test`/`compact`; under this restructure `<type>`
+   is caller-supplied and validated only for path-safety by `domainDir`, so those enum
+   entries generalize away — fold this into the teardown.
+2. Run-state projection fold + terminal-status classification — generalize
+   `src/domains/audit/run-state.ts` (the `AuditRunState` fold, `AUDIT_RUN_STATE_STATUS`,
+   latest-run ordering) into `src/domains/journal/run-state.ts`, dropping the audit identity
+   (auditors/targets → generic participant/scope fields).
+3. Command orchestration — `src/commands/journal/`: bind the resolved backend + the
+   agent-run-journal contract; implement `open`/`append`/`read --from cursor`/`seal`/
+   `render`; generalize `src/commands/audit/{run-state,lifecycle}.ts`.
+4. CLI descriptor — `src/interfaces/cli/journal.ts`, registered in the composition root.
+5. GitHub-PR backend streaming — the `gh pr comment` append surface bound under the
+   `github-pr` backend (the Snapshot adapter persists; the comment streams).
+
+**Then teardown + ship:** `git rm` the audit domain specs + `src/{domains,commands,
+interfaces/cli}/audit*`, unregister `spx audit` from the CLI registry, remove the audit
+EXCLUDE/STATE_STORE_DOMAIN entries; `/align`; remove `34-verification.enabler/21-journal.enabler`
+from `spx/EXCLUDE` once all assertions pass; `/merge`. Review (`46-reviewing`) follows in a
+later pass.
 
 ## Execution order
 
