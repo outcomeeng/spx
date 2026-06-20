@@ -8,9 +8,10 @@ CAN run only the tests for the node or file they changed instead of the full sui
 
 ### Scenarios
 
-- Given a test-file-path operand, when target scope is resolved, then that file is the selected set routed to its registered language runner ([test](tests/targeted-execution.scenario.l1.test.ts))
+- Given a test-file-path operand, when target scope is resolved, then that file is the selected set ([test](tests/targeted-execution.scenario.l1.test.ts))
 - Given a node-path operand without the recursive flag, when target scope is resolved, then only that node's own `tests/` files are selected and descendant nodes' files are excluded ([test](tests/targeted-execution.scenario.l1.test.ts))
 - Given a node-path operand with the recursive flag, when target scope is resolved, then the node's own `tests/` files and every descendant node's test files are selected ([test](tests/targeted-execution.scenario.l1.test.ts))
+- Given a node-path operand with a trailing slash, when target scope is resolved, then it selects the same tests as the operand without the trailing slash ([test](tests/targeted-execution.scenario.l1.test.ts))
 - Given an operand that resolves to no discovered test file, when target scope is resolved, then the operand is reported as unresolved and the command exits non-zero ([test](tests/targeted-execution.scenario.l1.test.ts))
 
 ### Properties
