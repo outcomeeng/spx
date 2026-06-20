@@ -7,32 +7,40 @@ import { typescriptTestingLanguage } from "@/testing/languages/typescript";
 import { testingRegistry } from "@/testing/registry";
 import { TEST_RUN_STATE_FIELDS, TEST_RUN_STATE_STATUS } from "@/testing/run-state";
 import { CONFIG_TEST_GENERATOR, sampleConfigTestValue } from "@testing/generators/config/descriptors";
+import { arbitraryDomainLiteral, sampleLiteralTestValue } from "@testing/generators/literal/literal";
 import { nodeOperand, sampleDispatchValue, TEST_DISPATCH_GENERATOR } from "@testing/generators/testing/dispatch";
 import { runTestingCli, type TestingCliCall, testingCliDeps } from "@testing/harnesses/testing/cli";
 import { withTestingTempProductDir, writeTestFileFixture } from "@testing/harnesses/testing/harness";
 import { createRecordingCommandRunner } from "@testing/harnesses/testing/typescript-runner";
 
-function recordedRun(productDir: string, dispatch: TestDispatchResult): RecordedTestRun {
+// Irrelevant stub fields for a RecordedTestRun whose dispatch is all this test
+// observes; each draws a generic literal rather than reusing a semantically
+// unrelated value, matching the sibling agent-test-output fixtures.
+function sampleText(): string {
+  return sampleLiteralTestValue(arbitraryDomainLiteral());
+}
+
+function recordedRun(dispatch: TestDispatchResult): RecordedTestRun {
   return {
     dispatch,
     runFile: {
-      runsDir: productDir,
-      runFilePath: productDir,
-      runFileName: productDir,
-      runToken: productDir,
-      runId: productDir,
-      startedAt: productDir,
+      runsDir: sampleText(),
+      runFilePath: sampleText(),
+      runFileName: sampleText(),
+      runToken: sampleText(),
+      runId: sampleText(),
+      startedAt: sampleText(),
     },
     recorded: {
-      branchName: productDir,
-      headSha: productDir,
-      testingConfigDigest: productDir,
+      branchName: sampleText(),
+      headSha: sampleText(),
+      testingConfigDigest: sampleText(),
       runnerOutcomes: [],
-      discoveredTestPathsDigest: productDir,
-      discoveredTestContentDigest: productDir,
+      discoveredTestPathsDigest: sampleText(),
+      discoveredTestContentDigest: sampleText(),
       productInputDigests: [],
-      startedAt: productDir,
-      completedAt: productDir,
+      startedAt: sampleText(),
+      completedAt: sampleText(),
       [TEST_RUN_STATE_FIELDS.STATUS]: TEST_RUN_STATE_STATUS.FAILED,
     },
   };
@@ -142,7 +150,7 @@ describe("targeted execution operator output", () => {
     const operand = nodeOperand(sampleDispatchValue(TEST_DISPATCH_GENERATOR.nodePath()));
     const agentCalls: TestingCliCall[] = [];
     const streamCalls: TestingCliCall[] = [];
-    const run = recordedRun(productDir, {
+    const run = recordedRun({
       exitCode: UNSUPPORTED_TEST_SELECTION_EXIT_CODE,
       groups: [],
       unmatched: [],
@@ -169,7 +177,7 @@ describe("targeted execution operator output", () => {
     const operand = nodeOperand(sampleDispatchValue(TEST_DISPATCH_GENERATOR.nodePath()));
     const agentCalls: TestingCliCall[] = [];
     const streamCalls: TestingCliCall[] = [];
-    const run = recordedRun(productDir, {
+    const run = recordedRun({
       exitCode: UNSUPPORTED_TEST_SELECTION_EXIT_CODE,
       groups: [],
       unmatched: [],
