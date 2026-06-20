@@ -24,9 +24,7 @@ export const STATE_STORE_PATH = {
 } as const;
 
 export const STATE_STORE_DOMAIN = {
-  AUDIT: "audit",
   COMPACT: "compact",
-  REVIEW: "review",
   TEST: "test",
 } as const;
 

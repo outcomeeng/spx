@@ -35,5 +35,5 @@ Rejected: separate config sections for instructions, runtimes, and bootstrap (th
 ### Audit
 
 - NEVER: perform instruction-file reconciliation, runtime config writes, plugin installation, plugin updates, network access, or filesystem writes from the descriptor validator ([audit])
-- NEVER: put runtime-specific serializers, concrete output paths, or hermetic audit/review state paths in this descriptor; those belong to the runtime-configuration child and to the audit and review hermetic-execution children under `spx/36-audit.enabler/` and `spx/46-reviewing.enabler/` ([audit])
+- NEVER: put runtime-specific serializers, concrete output paths, or verification run-state paths in this descriptor; those belong to the runtime-configuration child and to the verification run-journal channel `spx/34-verification.enabler` ([audit])
 - NEVER: validate traversal safety for instruction paths or protocol safety for marketplace sources in this descriptor; the children that know the concrete target own those checks ([audit])
