@@ -4,6 +4,7 @@ import { join } from "node:path";
 import { describe, expect, it } from "vitest";
 
 import { SESSION_STATUSES } from "@/domains/session/types";
+import { sampleDistinctSessionIds } from "@testing/generators/session/session";
 import { createSessionHarness } from "@testing/harnesses/session/harness";
 
 const [TODO] = SESSION_STATUSES;
@@ -15,10 +16,7 @@ async function runSpx(...args: string[]): Promise<{ stdout: string; stderr: stri
   return { stdout: result.stdout, stderr: result.stderr, exitCode: result.exitCode ?? 1 };
 }
 
-function sessionId(index: number): string {
-  return `2026-01-${String(index + 1).padStart(2, "0")}_10-00-00`;
-}
-
+/** A synthetic id that resolves to no session, exercising the per-ID failure path. */
 function missingSessionId(index: number): string {
   return `missing-${index}`;
 }
@@ -43,7 +41,7 @@ describe("session CLI batch properties", () => {
           async (validCount, invalidCount) => {
             const harness = await createSessionHarness();
             try {
-              const validIds = Array.from({ length: validCount }, (_, index) => sessionId(index));
+              const validIds = [...sampleDistinctSessionIds(validCount)];
               const invalidIds = Array.from({ length: invalidCount }, (_, index) => missingSessionId(index));
               for (const id of validIds) {
                 await harness.writeSession(TODO, id);
@@ -86,7 +84,7 @@ describe("session CLI batch properties", () => {
           async ([validCount, invalidCount]) => {
             const harness = await createSessionHarness();
             try {
-              const validIds = Array.from({ length: validCount }, (_, index) => sessionId(index));
+              const validIds = [...sampleDistinctSessionIds(validCount)];
               const invalidIds = Array.from({ length: invalidCount }, (_, index) => missingSessionId(index));
               const ids = [...validIds, ...invalidIds];
               for (const id of validIds) {
@@ -122,7 +120,8 @@ describe("session CLI batch properties", () => {
   it("GIVEN ordered IDs WHEN delete runs THEN output preserves argument order", async () => {
     const harness = await createSessionHarness();
     try {
-      const ids = [sessionId(0), missingSessionId(0), sessionId(1), missingSessionId(1)];
+      const [valid0, valid1] = sampleDistinctSessionIds(2);
+      const ids = [valid0, missingSessionId(0), valid1, missingSessionId(1)];
       await harness.writeSession(TODO, ids[0]);
       await harness.writeSession(TODO, ids[2]);
 
@@ -137,7 +136,8 @@ describe("session CLI batch properties", () => {
   it("GIVEN ordered IDs WHEN pickup runs THEN output preserves argument order", async () => {
     const harness = await createSessionHarness();
     try {
-      const ids = [sessionId(0), missingSessionId(0), sessionId(1), missingSessionId(1)];
+      const [valid0, valid1] = sampleDistinctSessionIds(2);
+      const ids = [valid0, missingSessionId(0), valid1, missingSessionId(1)];
       await harness.writeSession(TODO, ids[0]);
       await harness.writeSession(TODO, ids[2]);
 

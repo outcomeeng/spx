@@ -486,3 +486,14 @@ export function arbitrarySessionId(): fc.Arbitrary<string> {
 export function sampleSessionId(seed: number = SESSION_ID_SAMPLE_SEED): string {
   return fc.sample(arbitrarySessionId(), { numRuns: 1, seed })[0];
 }
+
+/**
+ * Draws `count` distinct deterministic session IDs for scenario tests that batch
+ * over several sessions, so the identifiers are generated rather than hand-picked.
+ */
+export function sampleDistinctSessionIds(count: number, seed: number = SESSION_ID_SAMPLE_SEED): readonly string[] {
+  return fc.sample(fc.uniqueArray(arbitrarySessionId(), { minLength: count, maxLength: count }), {
+    numRuns: 1,
+    seed,
+  })[0];
+}

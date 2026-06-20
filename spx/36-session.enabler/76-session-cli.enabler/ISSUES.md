@@ -20,12 +20,12 @@ The handoff-base checklist enumerates two base prerequisites — a clean working
 
 **Resolution:** If sharper on-branch diagnostics are wanted, revise [`spx/36-session.enabler/11-session-frontmatter.pdr.md`](../11-session-frontmatter.pdr.md) and [`session-cli.md`](session-cli.md) through `/authoring` to enumerate the on-branch prerequisite, then extend the resolver and checklist to render it.
 
-## Bare-pool non-main handoff refusal has no L2 coverage
+## Duplicate built-CLI runner in the session test harness
 
-The `session-cli.compliance.l2` test exercises the `SessionHandoffBaseError` refusal only from a non-bare repository's linked worktree (via `withGitWorktreeEnv`). The bare-pool code path — where `mainCheckoutPath` constructs `join(container, repositoryName)` and the checklist renders that as the `main checkout:` fact line — has no end-to-end L2 coverage. The unit-level bare-pool classifier is covered in [`spx/18-state.enabler/32-worktree-topology.enabler/tests/main-checkout.scenario.l1.test.ts`](../../18-state.enabler/32-worktree-topology.enabler/tests/main-checkout.scenario.l1.test.ts), but the full `spx session handoff` flow from a bare-pool non-main worktree, including the rendered checklist path, is unexercised.
+`testing/harnesses/session/harness.ts` exports two built-CLI runners: `runSessionCli` (the list-output suites) and `runSpxSession` (the handoff-base L2 suites). The two were extracted independently and `runSpxSession` is now a thin alias of `runSessionCli`.
 
-**Evidence:** [`session-cli.md`](session-cli.md) asserts the checklist carries the main-checkout path; `session-cli.compliance.l2.test.ts` provisions only the non-bare linked-worktree topology.
+**Evidence:** Both run `node bin/spx.js` through `execa` and return the same `SessionCliResult`. `runSpxSession` exists only so the handoff-base wiring smokes and git_ref tests in `session-cli.compliance.l2.test.ts` need no rename.
 
-**Impact:** None observed; the classifier and the checklist rendering are each unit-tested. The gap is end-to-end assurance that the bare-pool path renders the checklist correctly through the CLI.
+**Impact:** None to behavior; the alias forwards to `runSessionCli`. The two names are a drift point — a future runner change could touch one and not the caller's mental model.
 
-**Resolution:** Add an L2 case that provisions a bare-repository pool (via `withWorktreeLayoutEnv`) and runs `spx session handoff` from a non-main worktree, asserting the rendered `main checkout:` fact line names the repository-named path.
+**Resolution:** Re-point the `runSpxSession` call sites in `session-cli.compliance.l2.test.ts` to `runSessionCli`, then remove the `runSpxSession` alias.
