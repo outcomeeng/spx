@@ -86,6 +86,59 @@ function expectedKnipDirectorySourcePatterns(directory: string): string[] {
   return TYPESCRIPT_FALLBACK_INCLUDE_PATTERNS.map((pattern) => join(directory, pattern));
 }
 
+interface RecordingKnipDepsContext {
+  readonly writtenConfigs: string[];
+  readonly writtenConfigPaths: string[];
+  readonly deps: KnipDeps;
+}
+
+interface RecordingTypeScriptDepsContext {
+  readonly writtenConfigs: string[];
+  readonly writtenConfigPaths: string[];
+  readonly deps: TypeScriptDeps;
+}
+
+function createRecordingKnipDeps(): RecordingKnipDepsContext {
+  const writtenConfigs: string[] = [];
+  const writtenConfigPaths: string[] = [];
+  return {
+    writtenConfigs,
+    writtenConfigPaths,
+    deps: {
+      existsSync: () => false,
+      mkdir,
+      mkdtemp: defaultTypeScriptDeps.mkdtemp,
+      rm: async () => {},
+      writeFile: async (path, data) => {
+        writtenConfigPaths.push(path.toString());
+        writtenConfigs.push(data.toString());
+      },
+    },
+  };
+}
+
+function createRecordingTypeScriptDeps(): RecordingTypeScriptDepsContext {
+  const writtenConfigs: string[] = [];
+  const writtenConfigPaths: string[] = [];
+  return {
+    writtenConfigs,
+    writtenConfigPaths,
+    deps: {
+      ...defaultTypeScriptDeps,
+      writeFileSync(path, data) {
+        writtenConfigPaths.push(path.toString());
+        writtenConfigs.push(data.toString());
+        defaultTypeScriptDeps.writeFileSync(path, data);
+      },
+    },
+  };
+}
+
+function expectTemporaryConfigPathInsideNodeModules(productDir: string, configPath: string | undefined): void {
+  expect(configPath?.startsWith(join(productDir, "node_modules"))).toBe(true);
+  expect(configPath?.startsWith(join(productDir, ...TEMPORARY_TSCONFIG_PARENT_SEGMENTS))).toBe(true);
+}
+
 const narrowSourceDirectory = join(VALIDATION_PIPELINE_DATA.sourceDirectoryName, "api");
 const deepSourceDirectory = join(
   narrowSourceDirectory,
@@ -405,10 +458,7 @@ describe("ALWAYS: TypeScript scope resolution uses the requested project root", 
       const deps = createRootRecordingDeps(env.productDir, checkedPaths);
 
       const result = await validateTypeScript(
-        {
-          scope: VALIDATION_SCOPES.FULL,
-          projectRoot: env.productDir,
-        },
+        { scope: VALIDATION_SCOPES.FULL, projectRoot: env.productDir },
         { runner, deps },
       );
 
@@ -594,18 +644,7 @@ describe("ALWAYS: TypeScript scope resolution uses the requested project root", 
   it("runs config-filtered Knip validation through a scoped temporary config", async () => {
     await withTestEnv({}, async (env) => {
       const runner = new RecordingSpawnOptionsRunner();
-      const writtenConfigs: string[] = [];
-      const writtenConfigPaths: string[] = [];
-      const deps: KnipDeps = {
-        existsSync: () => false,
-        mkdir,
-        mkdtemp: defaultTypeScriptDeps.mkdtemp,
-        rm: async () => {},
-        writeFile: async (path, data) => {
-          writtenConfigPaths.push(path.toString());
-          writtenConfigs.push(data.toString());
-        },
-      };
+      const { deps, writtenConfigs, writtenConfigPaths } = createRecordingKnipDeps();
 
       const result = await validateKnip(
         {
@@ -628,10 +667,7 @@ describe("ALWAYS: TypeScript scope resolution uses the requested project root", 
         KNIP_COMMAND_TOKENS.USE_TSCONFIG_FILES_FLAG,
         KNIP_COMMAND_TOKENS.TSCONFIG_FLAG,
       ]);
-      expect(writtenConfigPaths[0]?.startsWith(join(env.productDir, "node_modules"))).toBe(true);
-      expect(writtenConfigPaths[0]?.startsWith(join(env.productDir, ...TEMPORARY_TSCONFIG_PARENT_SEGMENTS))).toBe(
-        true,
-      );
+      expectTemporaryConfigPathInsideNodeModules(env.productDir, writtenConfigPaths[0]);
       expect(writtenConfigs).toHaveLength(1);
       expect(JSON.parse(writtenConfigs[0] ?? "{}")).toEqual({
         extends: join(env.productDir, TSCONFIG_FILES.full),
@@ -684,16 +720,7 @@ describe("ALWAYS: TypeScript scope resolution uses the requested project root", 
   it("runs file-scoped Knip validation through a scoped temporary config", async () => {
     await withTestEnv({}, async (env) => {
       const runner = new RecordingSpawnOptionsRunner();
-      const writtenConfigs: string[] = [];
-      const deps: KnipDeps = {
-        existsSync: () => false,
-        mkdir,
-        mkdtemp: defaultTypeScriptDeps.mkdtemp,
-        rm: async () => {},
-        writeFile: async (_path, data) => {
-          writtenConfigs.push(data.toString());
-        },
-      };
+      const { deps, writtenConfigs } = createRecordingKnipDeps();
 
       const result = await validateKnip(
         {
@@ -730,18 +757,7 @@ describe("ALWAYS: TypeScript scope resolution uses the requested project root", 
   it("runs directory-scoped Knip validation with fallback patterns and retained literal file patterns", async () => {
     await withTestEnv({}, async (env) => {
       const runner = new RecordingSpawnOptionsRunner();
-      const writtenConfigs: string[] = [];
-      const writtenConfigPaths: string[] = [];
-      const deps: KnipDeps = {
-        existsSync: () => false,
-        mkdir,
-        mkdtemp: defaultTypeScriptDeps.mkdtemp,
-        rm: async () => {},
-        writeFile: async (path, data) => {
-          writtenConfigPaths.push(path.toString());
-          writtenConfigs.push(data.toString());
-        },
-      };
+      const { deps, writtenConfigs, writtenConfigPaths } = createRecordingKnipDeps();
 
       const result = await validateKnip(
         {
@@ -758,10 +774,7 @@ describe("ALWAYS: TypeScript scope resolution uses the requested project root", 
       );
 
       expect(result).toEqual({ success: true });
-      expect(writtenConfigPaths[0]?.startsWith(join(env.productDir, "node_modules"))).toBe(true);
-      expect(writtenConfigPaths[0]?.startsWith(join(env.productDir, ...TEMPORARY_TSCONFIG_PARENT_SEGMENTS))).toBe(
-        true,
-      );
+      expectTemporaryConfigPathInsideNodeModules(env.productDir, writtenConfigPaths[0]);
       expect(JSON.parse(writtenConfigs[0] ?? "{}")).toEqual({
         extends: join(env.productDir, TSCONFIG_FILES.full),
         include: [
@@ -848,16 +861,7 @@ describe("ALWAYS: the temporary tsconfig reproduces the project's TypeScript res
   it("writes the scope-filtered temporary config inside the project's node_modules and fabricates no compiler options", async () => {
     await withTestEnv({}, async (env) => {
       const runner = new RecordingSpawnOptionsRunner();
-      const writtenConfigPaths: string[] = [];
-      const writtenConfigs: string[] = [];
-      const deps: TypeScriptDeps = {
-        ...defaultTypeScriptDeps,
-        writeFileSync(path, data) {
-          writtenConfigPaths.push(path.toString());
-          writtenConfigs.push(data.toString());
-          defaultTypeScriptDeps.writeFileSync(path, data);
-        },
-      };
+      const { deps, writtenConfigs, writtenConfigPaths } = createRecordingTypeScriptDeps();
 
       const result = await validateTypeScript(
         {
@@ -875,8 +879,7 @@ describe("ALWAYS: the temporary tsconfig reproduces the project's TypeScript res
 
       expect(result.success).toBe(true);
       expect(writtenConfigPaths).toHaveLength(1);
-      expect(writtenConfigPaths[0]?.startsWith(join(env.productDir, "node_modules"))).toBe(true);
-      expect(writtenConfigPaths[0]?.startsWith(join(env.productDir, ...TEMPORARY_TSCONFIG_PARENT_SEGMENTS))).toBe(true);
+      expectTemporaryConfigPathInsideNodeModules(env.productDir, writtenConfigPaths[0]);
       const writtenConfig = JSON.parse(writtenConfigs[0] ?? "{}");
       expect(writtenConfig.extends).toBe(join(env.productDir, TSCONFIG_FILES.full));
       expect(writtenConfig.compilerOptions).toEqual({ noEmit: true });
@@ -886,16 +889,7 @@ describe("ALWAYS: the temporary tsconfig reproduces the project's TypeScript res
   it("writes the file-specific temporary config inside the project's node_modules and fabricates no compiler options", async () => {
     await withTestEnv({}, async (env) => {
       const runner = new RecordingSpawnOptionsRunner();
-      const writtenConfigPaths: string[] = [];
-      const writtenConfigs: string[] = [];
-      const deps: TypeScriptDeps = {
-        ...defaultTypeScriptDeps,
-        writeFileSync(path, data) {
-          writtenConfigPaths.push(path.toString());
-          writtenConfigs.push(data.toString());
-          defaultTypeScriptDeps.writeFileSync(path, data);
-        },
-      };
+      const { deps, writtenConfigs, writtenConfigPaths } = createRecordingTypeScriptDeps();
 
       const result = await validateTypeScript(
         {
@@ -908,8 +902,7 @@ describe("ALWAYS: the temporary tsconfig reproduces the project's TypeScript res
 
       expect(result.success).toBe(true);
       expect(writtenConfigPaths).toHaveLength(1);
-      expect(writtenConfigPaths[0]?.startsWith(join(env.productDir, "node_modules"))).toBe(true);
-      expect(writtenConfigPaths[0]?.startsWith(join(env.productDir, ...TEMPORARY_TSCONFIG_PARENT_SEGMENTS))).toBe(true);
+      expectTemporaryConfigPathInsideNodeModules(env.productDir, writtenConfigPaths[0]);
       const writtenConfig = JSON.parse(writtenConfigs[0] ?? "{}");
       expect(writtenConfig.extends).toBe(join(env.productDir, TSCONFIG_FILES.full));
       expect(writtenConfig.compilerOptions).toEqual({ noEmit: true });

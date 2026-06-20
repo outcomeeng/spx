@@ -218,6 +218,33 @@ function createRecordingDeps(cruiseResult: ICruiseResult = createEmptyCruiseResu
   };
 }
 
+async function writeNarrowDirectorySource(productDir: string): Promise<string> {
+  const narrowDirectory = join(
+    VALIDATION_PIPELINE_DATA.sourceDirectoryName,
+    VALIDATION_PIPELINE_DATA.narrowSourceDirectoryName,
+  );
+  await mkdir(join(productDir, narrowDirectory), { recursive: true });
+  await writeFile(
+    join(productDir, narrowDirectory, VALIDATION_PIPELINE_DATA.cleanSourceFileName),
+    "export {};\n",
+  );
+  return narrowDirectory;
+}
+
+async function writeTypeScriptConfig(productDir: string, include: readonly string[]): Promise<void> {
+  await writeFile(
+    join(productDir, TSCONFIG_FILES.full),
+    JSON.stringify({
+      compilerOptions: {
+        target: "ES2020",
+        module: "commonjs",
+        strict: true,
+      },
+      include,
+    }),
+  );
+}
+
 async function validateCircularScopeWithRecording(scopeConfig: ScopeConfig): Promise<{
   readonly dependencyGraphCalls: Parameters<CircularDependencyGraphRunner>[];
   readonly result: Awaited<ReturnType<typeof validateCircularDependencies>>;
@@ -1100,26 +1127,8 @@ describe("circular command scope routing", () => {
 
   it("constrains explicit subdirectories under literal TypeScript directory includes", async () => {
     await withValidationEnv({ fixture: PROJECT_FIXTURES.CLEAN_PROJECT }, async ({ path }) => {
-      const narrowDirectory = join(
-        VALIDATION_PIPELINE_DATA.sourceDirectoryName,
-        VALIDATION_PIPELINE_DATA.narrowSourceDirectoryName,
-      );
-      await mkdir(join(path, narrowDirectory), { recursive: true });
-      await writeFile(
-        join(path, narrowDirectory, VALIDATION_PIPELINE_DATA.cleanSourceFileName),
-        "export const literalCoveredFile = true;\n",
-      );
-      await writeFile(
-        join(path, TSCONFIG_FILES.full),
-        JSON.stringify({
-          compilerOptions: {
-            target: "ES2020",
-            module: "commonjs",
-            strict: true,
-          },
-          include: [VALIDATION_PIPELINE_DATA.sourceDirectoryName],
-        }),
-      );
+      const narrowDirectory = await writeNarrowDirectorySource(path);
+      await writeTypeScriptConfig(path, [VALIDATION_PIPELINE_DATA.sourceDirectoryName]);
 
       await expectCircularCommandScopes(
         path,
@@ -1137,26 +1146,8 @@ describe("circular command scope routing", () => {
 
   it("constrains TypeScript include globs to explicit directories", async () => {
     await withValidationEnv({ fixture: PROJECT_FIXTURES.CLEAN_PROJECT }, async ({ path }) => {
-      const narrowDirectory = join(
-        VALIDATION_PIPELINE_DATA.sourceDirectoryName,
-        VALIDATION_PIPELINE_DATA.narrowSourceDirectoryName,
-      );
-      await mkdir(join(path, narrowDirectory), { recursive: true });
-      await writeFile(
-        join(path, narrowDirectory, VALIDATION_PIPELINE_DATA.cleanSourceFileName),
-        "export const narrowDirectoryFile = true;\n",
-      );
-      await writeFile(
-        join(path, TSCONFIG_FILES.full),
-        JSON.stringify({
-          compilerOptions: {
-            target: "ES2020",
-            module: "commonjs",
-            strict: true,
-          },
-          include: [VALIDATION_PIPELINE_DATA.typeScriptOnlySourceFilePattern],
-        }),
-      );
+      const narrowDirectory = await writeNarrowDirectorySource(path);
+      await writeTypeScriptConfig(path, [VALIDATION_PIPELINE_DATA.typeScriptOnlySourceFilePattern]);
 
       await expectCircularCommandScopes(
         path,

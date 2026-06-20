@@ -34,6 +34,11 @@ import { VALIDATION_PIPELINE_DATA } from "@testing/generators/validation/validat
 import { withLiteralFixtureEnv } from "@testing/harnesses/literal/harness";
 import { type Config } from "@testing/harnesses/spec-tree/spec-tree";
 
+interface KnipValidationCall {
+  readonly projectRoot: string;
+  readonly typescriptScope: ScopeConfig;
+}
+
 function validationConfigSection(section: string, enabled: boolean): Config {
   return {
     [validationConfigDescriptor.section]: {
@@ -42,6 +47,26 @@ function validationConfigSection(section: string, enabled: boolean): Config {
       },
     },
   };
+}
+
+function createRecordingKnipCommandDeps(
+  projectRoot: string,
+  validationCalls: KnipValidationCall[],
+) {
+  return {
+    discoverTool: async () => ({
+      found: true,
+      location: {
+        tool: VALIDATION_PIPELINE_DATA.stageNames.KNIP,
+        path: projectRoot,
+        source: TOOL_DISCOVERY.SOURCES.PROJECT,
+      },
+    }),
+    validateKnip: async (context) => {
+      validationCalls.push(context);
+      return { success: true };
+    },
+  } satisfies Parameters<typeof knipCommand>[1];
 }
 
 describe("ALWAYS: validation command participation is driven by spx config", () => {
@@ -104,10 +129,7 @@ describe("ALWAYS: validation command participation is driven by spx config", () 
       validationConfigSection(VALIDATION_KNIP_SUBSECTION, true),
       async (env) => {
         const sourceFilePath = sampleLiteralTestValue(LITERAL_TEST_GENERATOR.sourceFilePath());
-        const validationCalls: Array<{
-          readonly projectRoot: string;
-          readonly typescriptScope: ScopeConfig;
-        }> = [];
+        const validationCalls: KnipValidationCall[] = [];
         await env.writeTsConfigMarker();
         await env.writeSourceFile(sourceFilePath, sampleLiteralTestValue(LITERAL_TEST_GENERATOR.domainLiteral()));
 
@@ -116,20 +138,7 @@ describe("ALWAYS: validation command participation is driven by spx config", () 
             cwd: env.productDir,
             files: [sourceFilePath],
           },
-          {
-            discoverTool: async () => ({
-              found: true,
-              location: {
-                tool: VALIDATION_PIPELINE_DATA.stageNames.KNIP,
-                path: env.productDir,
-                source: TOOL_DISCOVERY.SOURCES.PROJECT,
-              },
-            }),
-            validateKnip: async (context) => {
-              validationCalls.push(context);
-              return { success: true };
-            },
-          },
+          createRecordingKnipCommandDeps(env.productDir, validationCalls),
         );
 
         expect(result.exitCode).toBe(VALIDATION_EXIT_CODES.SUCCESS);
@@ -156,10 +165,7 @@ describe("ALWAYS: validation command participation is driven by spx config", () 
       async (env) => {
         const sourceFilePath = sampleLiteralTestValue(LITERAL_TEST_GENERATOR.sourceFilePath());
         const testFilePath = sampleLiteralTestValue(LITERAL_TEST_GENERATOR.testFilePath());
-        const validationCalls: Array<{
-          readonly projectRoot: string;
-          readonly typescriptScope: ScopeConfig;
-        }> = [];
+        const validationCalls: KnipValidationCall[] = [];
         await env.writeTsConfigMarker();
         await env.writeRaw(
           VALIDATION_PIPELINE_DATA.productionTsconfigFile,
@@ -173,20 +179,7 @@ describe("ALWAYS: validation command participation is driven by spx config", () 
             cwd: env.productDir,
             scope: VALIDATION_SCOPES.PRODUCTION,
           },
-          {
-            discoverTool: async () => ({
-              found: true,
-              location: {
-                tool: VALIDATION_PIPELINE_DATA.stageNames.KNIP,
-                path: env.productDir,
-                source: TOOL_DISCOVERY.SOURCES.PROJECT,
-              },
-            }),
-            validateKnip: async (context) => {
-              validationCalls.push(context);
-              return { success: true };
-            },
-          },
+          createRecordingKnipCommandDeps(env.productDir, validationCalls),
         );
 
         expect(result.exitCode).toBe(VALIDATION_EXIT_CODES.SUCCESS);
@@ -206,10 +199,7 @@ describe("ALWAYS: validation command participation is driven by spx config", () 
       validationConfigSection(VALIDATION_KNIP_SUBSECTION, true),
       async (env) => {
         const sourceFilePath = sampleLiteralTestValue(LITERAL_TEST_GENERATOR.sourceFilePath());
-        const validationCalls: Array<{
-          readonly projectRoot: string;
-          readonly typescriptScope: ScopeConfig;
-        }> = [];
+        const validationCalls: KnipValidationCall[] = [];
         await env.writeTsConfigMarker();
 
         const result = await knipCommand(
@@ -217,20 +207,7 @@ describe("ALWAYS: validation command participation is driven by spx config", () 
             cwd: env.productDir,
             files: [sourceFilePath],
           },
-          {
-            discoverTool: async () => ({
-              found: true,
-              location: {
-                tool: VALIDATION_PIPELINE_DATA.stageNames.KNIP,
-                path: env.productDir,
-                source: TOOL_DISCOVERY.SOURCES.PROJECT,
-              },
-            }),
-            validateKnip: async (context) => {
-              validationCalls.push(context);
-              return { success: true };
-            },
-          },
+          createRecordingKnipCommandDeps(env.productDir, validationCalls),
         );
 
         expect(result.exitCode).toBe(VALIDATION_EXIT_CODES.SUCCESS);
