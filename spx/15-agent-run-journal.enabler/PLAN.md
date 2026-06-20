@@ -179,15 +179,35 @@ On branch `work/journal`, committed:
   declares no ordering/lookup assertion at this node; they belong to the command/status slice
   below alongside the `journal render` list/status assertion that consumes them.
 
+- `src/commands/journal/runtime.ts` + `journal-verbs.mapping.l1.test.ts` and
+  `streaming.scenario.l1.test.ts` — the `open`/`append`/`read --from cursor`/`seal`/`render`
+  verbs binding the LOCAL Appendable backend and the agent-run-journal contract. `append`
+  persists and emits to an injected `JournalStreamSink` (the descriptor binds it to stdout,
+  keeping the process boundary out of the command layer). Added
+  `testing/harnesses/journal/harness.ts` (`createJournalHarness`/`withJournalHarness`/
+  `RecordingJournalStreamSink`) and `sampleAgentRunJournalValue`. Tests + code audit gates
+  APPROVED. The audit `init`/`progress`/`close`/`status` lifecycle did NOT port — the journal
+  verbs layer directly over the contract; the audit lifecycle generalization is unneeded.
+
+**All `journal.md` `[test]` assertions are now GREEN** (backend-selection, run-scope,
+run-state compliance, projection, journal-verbs, streaming); the `[audit]` NEVER rules
+(no verification-type name, backend not flag-selected) are satisfied by the passing code
+audits. The node still needs the CLI descriptor to make `spx journal` invocable, and the
+github-pr backend to realize the PR-comment streaming surface, before it leaves `spx/EXCLUDE`.
+
 **Remaining journal-domain slices (each: source + co-located test, GREEN, lint, commit):**
 
-1. Command orchestration — `src/commands/journal/`: bind the resolved backend + the
-   agent-run-journal contract; implement `open`/`append`/`read --from cursor`/`seal`/
-   `render`; generalize `src/commands/audit/{run-state,lifecycle}.ts`. Carry the latest-run
-   ordering + branch-runs reader generalization here, where the status/list assertion lives.
-2. CLI descriptor — `src/interfaces/cli/journal.ts`, registered in the composition root.
-3. GitHub-PR backend streaming — the `gh pr comment` append surface bound under the
-   `github-pr` backend (the Snapshot adapter persists; the comment streams).
+1. CLI descriptor — `src/interfaces/cli/journal.ts` registered in the composition root, binding
+   the stdout `JournalStreamSink` and the env→backend resolution at the edge. Exercised by the
+   built executable (l2). This makes `spx journal` invocable.
+2. GitHub-PR backend streaming — the `gh pr comment` append surface bound under the
+   `github-pr` backend (the Snapshot adapter persists; the comment streams). Carries the
+   `JournalStreamSink` github-pr binding the local slice deferred.
+
+NOTE (deferred to the command/status slice, not yet built): latest-run ordering
+(`selectLatest…`) and the branch-runs reader types — `journal.md` declares no ordering/lookup
+assertion, so they land with the `journal render` list/status assertion that consumes them,
+if and when that surface is specified.
 
 **Then teardown + ship:** `git rm` the audit domain specs + `src/{domains,commands,
 interfaces/cli}/audit*`, unregister `spx audit` from the CLI registry, remove the audit
