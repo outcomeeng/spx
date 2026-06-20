@@ -39,5 +39,10 @@ testable eval-lane assertion. Add it after the recognition tests pass.
    separate from entry-recognition, DI and no mocking.
 3. Align the oracle spec's spec-file assertion to the suffix-recognized form.
 4. Write tests covering every form, then implement the recognizer in
-   `src/lib/spec-tree/`.
+   `src/lib/spec-tree/`. Before the eval-lane placement rule can derive from the
+   grammar, add an eval-lane container directory token (`evals`) to
+   `SPEC_TREE_GRAMMAR` in `29-filename-grammar.enabler`: the grammar currently
+   carries only the inner eval-lane file names (`EVAL_LANE`), so recognizing the
+   `evals/{rule}/` container from the grammar surface — rather than a hard-coded
+   literal the oracle ADR forbids — needs the container name single-sourced there.
 5. Run audit gates, then add the deferred `[eval]` assertion.
