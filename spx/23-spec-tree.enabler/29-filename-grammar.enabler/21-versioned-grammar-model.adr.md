@@ -20,7 +20,7 @@ A consumer that recognizes or rejects filenames by grammar token — deprecated-
 - The grammar vocabulary's node-suffix literals equal the union of the prior naming-schema versions' accepted node-suffix sets less the canonical version's set — the superseded suffixes.
 - The superseded suffix set equals the union of the earlier versions' accepted suffix sets less the canonical version's accepted suffix set.
 - The canonical naming-schema version is the maximum of the version tuple under semantic-version ordering.
-- Each naming-schema version names a spec-file form: the canonical version's is a node directory's slug followed by the spec document-kind suffix, and a superseded version's is that slug with a plain `.md` extension (the bare `{slug}.md` form).
+- Each naming-schema version names a spec-file form: the canonical version's is a node directory's slug followed by the spec document-kind suffix, and a prior version's is that slug with a plain `.md` extension (the bare `{slug}.md` form).
 - A name's classification against a version is a function of that version's accepted token sets alone — independent of the other versions, process environment, and file contents.
 
 ## Verification
