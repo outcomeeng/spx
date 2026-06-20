@@ -9,15 +9,8 @@ import {
   type ValidationConfig,
   validationConfigDescriptor,
 } from "@/validation/config/descriptor";
-import {
-  applyValidationPathFilterToScope,
-  validationPathFilterForTool,
-} from "@/validation/config/path-filter";
-import {
-  constrainTypeScriptScopeToExplicitTargets,
-  filterExplicitTypeScriptScopeTargets,
-  getTypeScriptScope,
-} from "@/validation/config/scope";
+import { validationPathFilterForTool } from "@/validation/config/path-filter";
+import { resolveTypeScriptValidationScope } from "@/validation/config/scope";
 import { discoverTool, formatSkipMessage } from "@/validation/discovery/index";
 import { validateKnip } from "@/validation/steps/knip";
 import {
@@ -75,19 +68,13 @@ export async function knipCommand(
     return { exitCode: 0, output: skipMessage, durationMs: Date.now() - startTime };
   }
 
-  const validationPathFilter = validationPathFilterForTool(
-    validationConfig.paths,
-    VALIDATION_PATH_TOOL_SUBSECTIONS.KNIP,
-  );
-  const scopeConfig = applyExplicitFilesToKnipScope(
-    applyValidationPathFilterToScope(
-      getTypeScriptScope(scope, cwd),
-      validationPathFilter,
-    ),
-    cwd,
-    files,
-    validationPathFilter,
-  );
+  const scopeConfig = resolveTypeScriptValidationScope({
+    projectRoot: cwd,
+    scope,
+    paths: files,
+    validationPathFilter: validationPathFilterForTool(validationConfig.paths, VALIDATION_PATH_TOOL_SUBSECTIONS.KNIP),
+    markExplicitPathsAsValidationFilter: true,
+  });
   if (scopeConfig.filteredByValidationPathNoMatches) {
     return {
       exitCode: 0,
@@ -108,39 +95,4 @@ export async function knipCommand(
     const output = result.error ?? VALIDATION_COMMAND_OUTPUT.KNIP_FAILURE;
     return { exitCode: 1, output, durationMs };
   }
-}
-
-function applyExplicitFilesToKnipScope(
-  scopeConfig: ReturnType<typeof getTypeScriptScope>,
-  projectRoot: string,
-  files: readonly string[] | undefined,
-  validationPathFilter: ReturnType<typeof validationPathFilterForTool>,
-): ReturnType<typeof getTypeScriptScope> {
-  if (files === undefined) {
-    return scopeConfig;
-  }
-  const explicitTargets = filterExplicitTypeScriptScopeTargets({
-    paths: files,
-    projectRoot,
-    validationPathFilter,
-    scopeConfig,
-  }) ?? [];
-
-  if (explicitTargets.length === 0) {
-    return {
-      ...scopeConfig,
-      directories: [],
-      filePatterns: [],
-      filteredByValidationPaths: true,
-      filteredByValidationPathIncludes: true,
-      filteredByValidationPathNoMatches: files.length > 0,
-    };
-  }
-
-  return {
-    ...constrainTypeScriptScopeToExplicitTargets(scopeConfig, explicitTargets),
-    filteredByValidationPaths: true,
-    filteredByValidationPathIncludes: true,
-    filteredByValidationPathNoMatches: false,
-  };
 }

@@ -14,7 +14,7 @@ import { isAbsolute, join, relative, resolve } from "node:path";
 
 import type { ValidationPathFilterConfig } from "@/validation/config/descriptor";
 import type { ScopeConfig, ValidationScope } from "../types";
-import { pathPassesValidationFilter } from "./path-filter";
+import { applyValidationPathFilterToScope, pathPassesValidationFilter } from "./path-filter";
 
 // =============================================================================
 // CONSTANTS
@@ -100,6 +100,14 @@ export interface ExplicitTypeScriptScopeTargetFilter {
   readonly validationPathFilter: ValidationPathFilterConfig;
   readonly scopeConfig: ScopeConfig;
   readonly requireExistingPaths?: boolean;
+}
+
+export interface TypeScriptValidationScopeFilter {
+  readonly projectRoot: string;
+  readonly scope: ValidationScope;
+  readonly paths?: readonly string[];
+  readonly validationPathFilter: ValidationPathFilterConfig;
+  readonly markExplicitPathsAsValidationFilter?: boolean;
 }
 
 interface TypeScriptFileDiscoveryOptions {
@@ -784,6 +792,47 @@ export function constrainTypeScriptScopeToExplicitTargets(
       ...uncoveredExplicitFileTargets,
     ],
   };
+}
+
+export function resolveTypeScriptValidationScope(
+  filter: TypeScriptValidationScopeFilter,
+  deps: ScopeDeps = defaultScopeDeps,
+): ScopeConfig {
+  const scopeConfig = applyValidationPathFilterToScope(
+    getTypeScriptScope(filter.scope, filter.projectRoot, deps),
+    filter.validationPathFilter,
+  );
+  const explicitTargets = filterExplicitTypeScriptScopeTargets({
+    paths: filter.paths,
+    projectRoot: filter.projectRoot,
+    validationPathFilter: filter.validationPathFilter,
+    scopeConfig,
+  }, deps);
+
+  if (filter.paths !== undefined && filter.paths.length > 0 && explicitTargets?.length === 0) {
+    return {
+      ...scopeConfig,
+      directories: [],
+      filePatterns: [],
+      filteredByValidationPaths: true,
+      filteredByValidationPathIncludes: true,
+      filteredByValidationPathNoMatches: true,
+    };
+  }
+
+  if (explicitTargets !== undefined && explicitTargets.length > 0) {
+    const explicitScopeConfig = constrainTypeScriptScopeToExplicitTargets(scopeConfig, explicitTargets);
+    return filter.markExplicitPathsAsValidationFilter === true
+      ? {
+        ...explicitScopeConfig,
+        filteredByValidationPaths: true,
+        filteredByValidationPathIncludes: true,
+        filteredByValidationPathNoMatches: false,
+      }
+      : explicitScopeConfig;
+  }
+
+  return scopeConfig;
 }
 
 function constrainTypeScriptPatternToDirectory(pattern: string, directory: string): string {

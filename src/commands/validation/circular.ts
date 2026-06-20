@@ -9,16 +9,8 @@ import {
   type ValidationConfig,
   validationConfigDescriptor,
 } from "@/validation/config/descriptor";
-import {
-  applyValidationPathFilterToScope,
-  validationPathFilterForTool,
-} from "@/validation/config/path-filter";
-import {
-  constrainTypeScriptScopeToExplicitTargets,
-  type ExplicitTypeScriptScopeTarget,
-  filterExplicitTypeScriptScopeTargets,
-  getTypeScriptScope,
-} from "@/validation/config/scope";
+import { validationPathFilterForTool } from "@/validation/config/path-filter";
+import { resolveTypeScriptValidationScope } from "@/validation/config/scope";
 import { detectTypeScript, discoverTool, formatSkipMessage } from "@/validation/discovery/index";
 import { validateCircularDependencies } from "@/validation/steps/circular";
 import { VALIDATION_SCOPES } from "@/validation/types";
@@ -30,7 +22,6 @@ import {
 } from "./messages";
 import type { CircularCommandOptions, ValidationCommandResult } from "./types";
 
-type TypeScriptScopeConfig = ReturnType<typeof getTypeScriptScope>;
 type CircularValidationResult = Awaited<ReturnType<typeof validateCircularDependencies>>;
 
 const TYPESCRIPT_ABSENT_MESSAGE = formatTypeScriptAbsentSkipMessage(VALIDATION_STAGE_DISPLAY_NAMES.CIRCULAR);
@@ -51,52 +42,6 @@ export const defaultCircularCommandDeps: CircularCommandDeps = {
 };
 
 const DEPENDENCY_CRUISER_PACKAGE_NAME = "dependency-cruiser";
-
-function filterExplicitPathTargets(
-  projectRoot: string,
-  files: readonly string[] | undefined,
-  validationPathFilter: ReturnType<typeof validationPathFilterForTool>,
-  scopeConfig: TypeScriptScopeConfig,
-): ExplicitTypeScriptScopeTarget[] | undefined {
-  return filterExplicitTypeScriptScopeTargets({
-    paths: files,
-    projectRoot,
-    validationPathFilter,
-    scopeConfig,
-  });
-}
-
-function explicitTargetsAreEmpty(
-  files: readonly string[] | undefined,
-  targets: readonly ExplicitTypeScriptScopeTarget[] | undefined,
-): boolean {
-  return files !== undefined && files.length > 0 && targets?.length === 0;
-}
-
-function resolveEffectiveScopeConfig(
-  projectRoot: string,
-  scope: (typeof VALIDATION_SCOPES)[keyof typeof VALIDATION_SCOPES],
-  files: readonly string[] | undefined,
-  validationConfig: ValidationConfig,
-): TypeScriptScopeConfig | undefined {
-  const validationPathFilter = validationPathFilterForTool(
-    validationConfig.paths,
-    VALIDATION_PATH_TOOL_SUBSECTIONS.CIRCULAR,
-  );
-  const scopeConfig = applyValidationPathFilterToScope(
-    getTypeScriptScope(scope, projectRoot),
-    validationPathFilter,
-  );
-  const filteredTargets = filterExplicitPathTargets(projectRoot, files, validationPathFilter, scopeConfig);
-
-  if (scopeConfig.filteredByValidationPathNoMatches || explicitTargetsAreEmpty(files, filteredTargets)) {
-    return undefined;
-  }
-
-  return filteredTargets !== undefined && filteredTargets.length > 0
-    ? constrainTypeScriptScopeToExplicitTargets(scopeConfig, filteredTargets)
-    : scopeConfig;
-}
 
 function formatCircularValidationResult(result: CircularValidationResult, quiet: boolean): {
   readonly exitCode: number;
@@ -168,8 +113,16 @@ export async function circularCommand(
     };
   }
   const validationConfig = loaded.value[validationConfigDescriptor.section] as ValidationConfig;
-  const effectiveScopeConfig = resolveEffectiveScopeConfig(cwd, scope, files, validationConfig);
-  if (effectiveScopeConfig === undefined) {
+  const effectiveScopeConfig = resolveTypeScriptValidationScope({
+    projectRoot: cwd,
+    scope,
+    paths: files,
+    validationPathFilter: validationPathFilterForTool(
+      validationConfig.paths,
+      VALIDATION_PATH_TOOL_SUBSECTIONS.CIRCULAR,
+    ),
+  });
+  if (effectiveScopeConfig.filteredByValidationPathNoMatches) {
     return {
       exitCode: 0,
       output: quiet ? "" : CIRCULAR_VALIDATION_PATHS_NO_TARGETS_MESSAGE,
