@@ -90,6 +90,30 @@ describe("spx test dispatch over the language registry", () => {
     });
   });
 
+  it("reports a co-located non-test source file as unmatched and fails", async () => {
+    const nodePath = sampleDispatchValue(TEST_DISPATCH_GENERATOR.nodePath());
+    const testFile = sampleDispatchValue(TEST_DISPATCH_GENERATOR.testFileUnder(typescriptTestingLanguage, nodePath));
+    const supportFile = sampleDispatchValue(
+      TEST_DISPATCH_GENERATOR.supportFileUnder(typescriptTestingLanguage, nodePath),
+    );
+    const runner = createRecordingCommandRunner({ present: true, exitCode: 0 });
+
+    await withTestingTempProductDir(async (productDir) => {
+      await writeTestFileFixture(productDir, testFile);
+      await writeTestFileFixture(productDir, supportFile);
+
+      const result = await runTests({ productDir, registry: testingRegistry }, { runnerDepsFor: () => runner });
+
+      // `tests/` holds assertion files only: a registered-language source file that
+      // is not a test file is reported unmatched and fails the command, while the
+      // actual test file still dispatches to its runner.
+      expect(result.unmatched).toContain(supportFile);
+      expect(result.exitCode).not.toBe(SUCCESS_EXIT_CODE);
+      expect(invokedArgs(runner)).toContain(testFile);
+      expect(invokedArgs(runner)).not.toContain(supportFile);
+    });
+  });
+
   it("exits non-zero when any dispatched runner exits non-zero", async () => {
     const [tsNode, pyNode] = sampleDispatchValue(TEST_DISPATCH_GENERATOR.distinctNodePaths());
     const tsFile = sampleDispatchValue(TEST_DISPATCH_GENERATOR.testFileUnder(typescriptTestingLanguage, tsNode));
