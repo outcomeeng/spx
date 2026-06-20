@@ -69,6 +69,7 @@ spx groups global product machinery under `spx/21-infrastructure.enabler/`. Test
 - `spx/41-validation.enabler/32-typescript-validation.enabler/32-literal-reuse.enabler/45-ts-snippet-generators.enabler/` governs the snippet generators.
 - `spx/21-infrastructure.enabler/43-precommit.enabler/` governs Lefthook precommit behavior and precommit-specific test harnessing.
 - Ungoverned today: the testing recording-runner (`testing/harnesses/testing/`) and the config, session, node-status, literal, file-inclusion, and most validation harnesses and generators.
+- FOLLOW-UP (promoted, still ungoverned): relocating co-located test support out of `tests/` promoted these harness modules into the shared package without authoring their governing specs, extending the ungoverned surface — `testing/harnesses/file-inclusion/{ignore-source,path-predicates,scope-resolver,tool-adapters}.ts`, `testing/harnesses/literal-reuse/{detection,fixture-classification,allowlist-existing}.ts`, and `testing/harnesses/session/session-store.ts`. The next edit to any of these groups must route through `/spec-tree:refactoring` (Migration §1) then `/spec-tree:author` (Migration §2) before the harness is governed.
 
 ### Migration
 
