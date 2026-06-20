@@ -137,6 +137,26 @@ Until settled, the `34-verification` channel references the contract at its curr
   with the now-removed audit `init`/`progress`/`close`/`status` shape.
 - thread-store fate and reviewing result-delivery PDR (plugin decisions).
 
+## Progress (resume here)
+
+On branch `work/journal`, committed:
+
+- restructure context in the three affected PLANs;
+- `spx/34-verification.enabler/verification.md` + `13-journal-channel.adr.md` (the
+  type-agnostic channel decision);
+- the agent-run-journal placement constraint (above);
+- `spx/34-verification.enabler/21-journal.enabler/journal.md` (the journal CLI domain
+  spec; node is in `spx/EXCLUDE`) + `13-journal-module-structure.adr.md`.
+- Architecture audit APPROVED on both journal ADRs.
+
+**Resume at:** `/apply` on `spx/34-verification.enabler/21-journal.enabler` from Step 5
+(write tests), then implement (Step 7) by generalizing `src/domains/audit/run-state.ts`
+and `src/commands/audit/{run-state,lifecycle}.ts` into `src/domains/journal/` +
+`src/commands/journal/` (drop audit identity), adding the env-driven backend registry and
+the GitHub-PR streaming surface. Then refactor-out the audit domain (`git rm` audit specs +
+`src/{domains,commands,interfaces/cli}/audit*`, unregister `spx audit` from the CLI
+registry), `/align`, `/merge`. Review (`46-reviewing`) follows in a later pass.
+
 ## Execution order
 
 1. `/author` (+ `/decompose`) the spx top-level **`verification`** decision and the
