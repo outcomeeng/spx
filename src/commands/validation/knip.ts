@@ -50,7 +50,7 @@ export async function knipCommand(
   options: KnipCommandOptions,
   deps: KnipCommandDeps = defaultKnipCommandDeps,
 ): Promise<ValidationCommandResult> {
-  const { cwd, files, quiet } = options;
+  const { cwd, files, quiet, scope = "full" } = options;
   const startTime = Date.now();
 
   const loaded = await resolveConfig(cwd, [validationConfigDescriptor]);
@@ -81,7 +81,7 @@ export async function knipCommand(
   );
   const scopeConfig = applyExplicitFilesToKnipScope(
     applyValidationPathFilterToScope(
-      getTypeScriptScope("full", cwd),
+      getTypeScriptScope(scope, cwd),
       validationPathFilter,
     ),
     cwd,

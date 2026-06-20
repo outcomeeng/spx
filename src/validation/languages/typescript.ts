@@ -77,6 +77,7 @@ export async function runKnipStage(
 ): Promise<ValidationCommandResult> {
   return deps.knipCommand({
     cwd: context.cwd,
+    scope: context.scope,
     files: context.files,
     quiet: context.quiet,
     json: context.json,
