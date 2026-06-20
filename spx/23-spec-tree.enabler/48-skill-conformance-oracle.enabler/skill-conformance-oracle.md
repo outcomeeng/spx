@@ -9,7 +9,7 @@ CAN determine which paths are skill-produced without owning grammar vocabulary o
 ### Mappings
 
 - All recognized Spec-Tree path forms — node directories, decision records, product files, evidence files, spec files, coordination notes (`PLAN.md`, `ISSUES.md`), eval-lane directories (`evals/{rule}/`), and `spx/EXCLUDE` — map to the valid verdict; every path that matches no recognized form maps to foreign ([test](tests/skill-conformance-oracle.mapping.l1.test.ts))
-- A spec file is valid when its slug matches the parent node directory slug and foreign when the slug differs ([test](tests/spec-file.mapping.l1.test.ts))
+- A spec file carrying the canonical spec document-kind suffix directly within a node directory is valid by its suffix, independent of the parent slug; a bare `{slug}.md` file directly within a node directory is valid when its stem matches the parent node directory slug and foreign when it differs ([test](tests/spec-file.mapping.l1.test.ts))
 
 ### Properties
 
