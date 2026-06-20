@@ -7,6 +7,8 @@
  * filter match is deterministic rather than accidental.
  */
 
+import { isAbsolute } from "node:path";
+
 import * as fc from "fast-check";
 import { describe, it } from "vitest";
 
@@ -55,6 +57,22 @@ function indexInRange(state: PickerState): boolean {
 
 function sameIds(actual: readonly string[], expected: readonly string[]): boolean {
   return actual.length === expected.length && actual.every((id, index) => id === expected[index]);
+}
+
+/** A non-empty path segment built from path-safe characters. */
+const pathSegment = fc.array(fc.constantFrom(..."abcdefghijklmnopqrstuvwxyz0123456789"), { minLength: 1, maxLength: 6 })
+  .map(
+    (chars) => chars.join(""),
+  );
+
+/** A POSIX-absolute directory: a leading slash and one or more segments. */
+function arbitraryAbsoluteDir(): fc.Arbitrary<string> {
+  return fc.array(pathSegment, { minLength: 1, maxLength: 3 }).map((segments) => `/${segments.join("/")}`);
+}
+
+/** A relative session-file path: segments joined without a leading slash, ending in `.md`. */
+function arbitraryRelativePath(): fc.Arbitrary<string> {
+  return fc.array(pathSegment, { minLength: 1, maxLength: 3 }).map((segments) => `${segments.join("/")}.md`);
 }
 
 describe("picker model invariants", () => {
@@ -154,16 +172,37 @@ describe("picker model invariants", () => {
     );
   });
 
-  it("references the picked session by id for the default store and by absolute path for a custom store", () => {
+  it("references the picked session by id for the default store and by its path for a custom store", () => {
     fc.assert(
-      fc.property(arbitraryClaimableSession(), fc.string({ minLength: 1 }), (session, customDir) => {
-        const byDefault = pickupReference(session, undefined);
-        const byCustom = pickupReference(session, customDir);
-        return byDefault === session.id
-          && byDefault !== session.path
-          && byCustom === session.path
-          && byCustom !== session.id;
-      }),
+      fc.property(
+        arbitraryClaimableSession(),
+        fc.string({ minLength: 1 }),
+        arbitraryAbsoluteDir(),
+        (session, customDir, cwd) => {
+          const byDefault = pickupReference(session, undefined, cwd);
+          const byCustom = pickupReference(session, customDir, cwd);
+          // The generated session path is already absolute, so resolving against cwd is identity.
+          return byDefault === session.id
+            && byDefault !== session.path
+            && byCustom === session.path
+            && byCustom !== session.id;
+        },
+      ),
+    );
+  });
+
+  it("makes a relative session path absolute against the working directory for a custom store", () => {
+    fc.assert(
+      fc.property(
+        arbitraryClaimableSession(),
+        fc.string({ minLength: 1 }),
+        arbitraryAbsoluteDir(),
+        arbitraryRelativePath(),
+        (session, customDir, cwd, relativePath) => {
+          const reference = pickupReference({ ...session, path: relativePath }, customDir, cwd);
+          return isAbsolute(reference);
+        },
+      ),
     );
   });
 
