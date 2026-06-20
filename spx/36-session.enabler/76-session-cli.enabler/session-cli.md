@@ -4,8 +4,6 @@ PROVIDES Commander.js bindings for all session subcommands with variadic ID pars
 SO THAT agents and automation tools
 CAN invoke session operations from the command line with predictable output and exit codes
 
-Frontmatter-validation and handoff-input errors raised by the underlying commands (`SessionInvalidContentError`, `SessionInvalidGoalError`, `SessionInvalidNextStepError`, `SessionHandoffBaseError`, `SessionWorkBranchNotOnOriginError`, `SessionLegacyFrontmatterInputError`, `SessionInvalidJsonHeaderError`) per [`spx/36-session.enabler/11-session-frontmatter.pdr.md`](../11-session-frontmatter.pdr.md) propagate through the binding as non-zero exits, each writing a diagnostic to stderr except the non-git `handoff` refusal, which surfaces no diagnostic per the non-git rule below.
-
 ## Assertions
 
 ### Scenarios
@@ -33,10 +31,16 @@ Frontmatter-validation and handoff-input errors raised by the underlying command
 - Given a JSON header carrying a `git_ref` work-branch ref that does not exist on `origin`, when `spx session handoff` is executed through `node bin/spx.js`, then no file is written, a diagnostic line naming `SessionWorkBranchNotOnOriginError` is written to stderr, and the process exits non-zero per [`spx/36-session.enabler/11-session-frontmatter.pdr.md`](../11-session-frontmatter.pdr.md) ([test](tests/session-cli.compliance.l2.test.ts))
 - Given a single session ID, when any subcommand (`archive`, `delete`, `show`, `pickup`, `release`) is invoked with that ID, then behavior matches the single-ID interface — one `<HANDOFF_ID>` or `<PICKUP_ID>` tag emitted as applicable, one operation performed ([test](tests/session-cli.scenario.l2.test.ts))
 
+### Mappings
+
+- The list color decision maps each combination of `(stdout is a TTY, NO_COLOR is present, color flag ∈ {--color, --no-color, unset})` to enabled or disabled: enabled when stdout is a TTY with neither `NO_COLOR` nor `--no-color`, disabled when stdout is not a TTY or `NO_COLOR` is present, with `--color` forcing enabled and `--no-color` forcing disabled over both the TTY state and `NO_COLOR` ([test](tests/list-text.mapping.l1.test.ts))
+
 ### Properties
 
 - For every input list of session IDs `[id_1, ..., id_n]` produced by `arbitraryBatchInputs(n, validCount)` (with `n >= 1` and `0 <= validCount <= n`), running the variadic subcommand through `node bin/spx.js` produces exactly `validCount` success outputs and `n - validCount` error lines on stderr ([test](tests/session-cli.property.l2.test.ts))
 - For every input list of session IDs `[id_1, ..., id_n]`, the order of per-ID result outputs in stdout and stderr matches the order of `id_1, ..., id_n` on the command line ([test](tests/session-cli.property.l2.test.ts))
+- For every session list and every terminal width at or above the formatter's documented minimum, every line the text formatter renders has an escape-stripped display width no greater than that width ([test](tests/list-text.property.l1.test.ts))
+- For every non-empty session list, the text formatter renders no ANSI escape sequence when color is disabled and renders ANSI styling escapes when color is enabled ([test](tests/list-text.property.l1.test.ts))
 
 ### Compliance
 
@@ -54,3 +58,8 @@ Frontmatter-validation and handoff-input errors raised by the underlying command
 - ALWAYS: `spx session list --json` executed through `node bin/spx.js` writes parseable JSON to stdout keyed by status directory with each session a flat record per [`spx/36-session.enabler/43-session-store.enabler/session-store.md`](../43-session-store.enabler/session-store.md), and exits 0 ([test](tests/session-cli.compliance.l2.test.ts))
 - ALWAYS: `spx session list --fields id,priority,goal,next_step,git_ref` and `spx session todo --fields id,priority,goal,next_step,git_ref` executed through `node bin/spx.js` write parseable JSON whose every session record carries exactly those five fields, and exit 0 ([test](tests/session-cli.compliance.l2.test.ts))
 - NEVER: a `--fields` value that names no valid field — a token outside the session record field set, or a value naming no field at all (empty or only separators) — produces JSON on stdout; `node bin/spx.js` writes a diagnostic naming the offending value and the valid field set to stderr and exits non-zero ([test](tests/session-cli.compliance.l2.test.ts))
+- ALWAYS: when stdout is not a TTY, `spx session list` and `spx session todo` emit plain text carrying no ANSI escape sequence, so piped and redirected output stays parse-safe ([test](tests/session-cli.compliance.l2.test.ts))
+- ALWAYS: `--no-color` forces plain output and `--color` forces styled output even when `NO_COLOR` is present, so an explicit color flag overrides the environment ([test](tests/session-cli.compliance.l2.test.ts))
+- ALWAYS: `spx session list --json`, `spx session list --fields …`, and the same `spx session todo` projections emit neither color nor truncation regardless of TTY state or color flag, leaving the JSON projection of [`spx/36-session.enabler/43-session-store.enabler/session-store.md`](../43-session-store.enabler/session-store.md) unchanged ([test](tests/session-cli.compliance.l2.test.ts))
+- ALWAYS: priority styling derives its colors from the `SESSION_PRIORITY` values rather than hardcoded priority strings, so a new priority value cannot ship with an unstyled badge ([audit])
+- NEVER: the text formatter reads process state — `process.stdout.isTTY`, `process.env`, or `NO_COLOR` — the color decision and terminal width are resolved in the descriptor and passed to the formatter as parameters per [`spx/14-cli-composition.adr.md`](../../14-cli-composition.adr.md) ([audit])
