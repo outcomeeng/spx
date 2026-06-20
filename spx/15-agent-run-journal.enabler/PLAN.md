@@ -24,8 +24,10 @@ Consequences:
   agentic verification skills bind. The verification type ("audit", "review", or whatever
   comes later) is an **opaque parameter** (env var / option) spx treats as a scope label;
   spx enumerates no types.
-- **Verification is the top-level mode.** `15-agent-run-journal.enabler` is demoted from
-  top-level to the journal-contract substrate under the verification/journal structure.
+- **Verification is the top-level mode** (`34-verification.enabler`). The
+  `15-agent-run-journal.enabler` contract stays a foundational top-level node — it is a
+  cross-subtree shared substrate, not a verification-only one (see the SETTLED placement
+  finding below).
 
 ## Why (the problem being solved)
 
@@ -103,29 +105,34 @@ These live in the installed plugin product tree at
   to the generic `journal` domain.
 - Reviewing result-delivery governance (plugin PLAN item 6).
 
-## Structural finding: agent-run-journal placement (settle via /decompose)
+## Structural finding: agent-run-journal placement (SETTLED via /decompose — option 3)
 
-"agent-run-journal should not be top-level; verification should be" runs into a hard
-dependency constraint. The local Appendable backend (`spx/18-state.enabler/71-appendable-journal-store.enabler`)
-and the GitHub Snapshot backend (`spx/21-infrastructure.enabler/43-github-ci.enabler/21-snapshot-adapter.enabler`)
-both **depend on** the agent-run-journal contract (they bind its ports), so the contract
-must sit at a LOWER index than they do. The new `34-verification.enabler` channel CONSUMES
-those backends, so it sits ABOVE them (index > 21). Therefore the contract cannot nest
-under the verification channel without reversing dependency order.
+The agent-run-journal contract stays a foundational top-level node at `spx/15-agent-run-journal.enabler`.
+`34-verification.enabler` is the headline mode; "agent-run-journal should not be top-level"
+is read as "verification is the headline, not the journal", not as a move of the contract.
 
-Resolution options (a `/decompose` decision — operator owns index among valid positions):
+Ordering evidence (the deciding analysis): the contract is a cross-subtree **shared
+substrate** consumed by three different top-level subtrees —
+`spx/18-state.enabler/71-appendable-journal-store.enabler` (binds the `AppendableBackend`
+port), `spx/21-infrastructure.enabler/43-github-ci.enabler/21-snapshot-adapter.enabler`
+(binds the `SnapshotBackend` port), and `spx/34-verification.enabler` (drives the contract
+and consumes both backends). Only a low top-level index lets all three read the contract as
+governing context: `15 < 18 < 21 < 34`.
 
-1. Demote agent-run-journal under `spx/18-state.enabler` (joining its local backend there)
-   at an index below `71-appendable-journal-store` — minimal churn, preserves order, but
-   couples a cross-cutting contract to the state domain.
-2. Move the whole cluster (agent-run-journal + both backends) under `34-verification` —
-   dependency-valid (the cluster's external deps `43-record-store` at 18 and `github-ci` at
-   21 stay lower), but relocates the Snapshot adapter out of its github-ci home.
-3. Leave agent-run-journal top-level as a foundational contract; read "not top-level" as
-   "verification is the headline, not the journal."
+Why the other options were rejected:
 
-Until settled, the `34-verification` channel references the contract at its current path
-`spx/15-agent-run-journal.enabler`; update the 14 spec references when the move lands.
+- Demoting the contract under `spx/18-state.enabler` (option 1) hides it from the
+  infrastructure (21) and verification (34) subtrees — `/contextualize` on a higher-index
+  top-level sibling reads `18-state`'s own spec, not its deep descendants, so the snapshot
+  adapter and the channel would lose the contract from context.
+- Moving the whole cluster (contract + both backends) under `34-verification` (option 2) is
+  dependency-valid only by relocating the appendable store out of `state` (it binds
+  `43-record-store`) and the snapshot adapter out of `github-ci`, severing their conceptual
+  homes for no ordering benefit.
+
+Consequence: the teardown does NOT move agent-run-journal or the backends. The `34-verification`
+channel keeps referencing the contract at `spx/15-agent-run-journal.enabler`; no spec-reference
+rewrite is needed.
 
 ## Open questions (settle during execution — not pre-decided here)
 
