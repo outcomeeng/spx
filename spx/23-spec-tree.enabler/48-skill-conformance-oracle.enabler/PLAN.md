@@ -21,6 +21,17 @@ cross-product work. The recognition half (grammar version plus the oracle) ships
 first and accepts both forms, so nothing breaks while the product's spec files
 remain `{slug}.md`. The plugin-side update is an upstream follow-up.
 
+The filesystem source's node-ref builder `sourceRefForNode` in
+`src/lib/spec-tree/index.ts` hard-codes the spec-file ref as `{slug}.md`, so a node
+migrated to the canonical `{slug}.spec.md` form is not readable through
+`readText(node.ref)` until the builder selects the node's actual spec-file form. The
+fix belongs with the recognizer, not this grammar slice: switching the builder to the
+canonical suffix now would point every current node's ref at a non-existent
+`{slug}.spec.md` and break every read, since no file has migrated yet. The builder
+must read `{slug}.spec.md` when the node carries it and fall back to the superseded
+`{slug}.md` otherwise — dual-form resolution the recognizer owns, landing with the
+migration above.
+
 ## Deferred: eval-lane assertion
 
 The spec omits an `[eval]` assertion for the oracle itself. The intended eval — run a
