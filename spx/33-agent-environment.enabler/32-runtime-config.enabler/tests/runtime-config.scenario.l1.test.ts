@@ -25,7 +25,7 @@ import {
   readRecord,
 } from "@testing/harnesses/agent-environment/runtime-config";
 import { withTestEnv } from "@testing/harnesses/spec-tree/spec-tree";
-import { parse as parseToml } from "smol-toml";
+import { parse as parseToml, stringify as stringifyToml } from "smol-toml";
 
 class FailingWriteFileSystem implements RuntimeConfigFileSystem {
   constructor(private readonly message: string) {}
@@ -197,15 +197,17 @@ describe("runtime config reconciliation scenarios", () => {
         { name: firstTaskName },
         { name: secondTaskName },
       ]);
-      expect(codexRaw).toContain(
-        `${RUNTIME_CONFIG_STATE_FIELDS.TARGET_KIND} = "${RUNTIME_CONFIG_TARGET_KIND.INVOKING_AGENT}"\n\n[[tasks]]`,
-      );
-      expect(readManagedRuntimeConfigState(codex)).toEqual({
+      const managedState = {
         [RUNTIME_CONFIG_STATE_FIELDS.ENABLED]: true,
         [RUNTIME_CONFIG_STATE_FIELDS.PRODUCT_DIR]: productDir,
         [RUNTIME_CONFIG_STATE_FIELDS.RUNTIME]: AGENT_RUNTIME.CODEX,
         [RUNTIME_CONFIG_STATE_FIELDS.TARGET_KIND]: RUNTIME_CONFIG_TARGET_KIND.INVOKING_AGENT,
-      });
+      };
+      const managedTable = stringifyToml({
+        [RUNTIME_CONFIG_STATE_FIELDS.SPX]: { [RUNTIME_CONFIG_STATE_FIELDS.AGENT_ENVIRONMENT]: managedState },
+      }).trimEnd();
+      expect(codexRaw).toContain(`${managedTable}\n\n[[tasks]]`);
+      expect(readManagedRuntimeConfigState(codex)).toEqual(managedState);
     });
   });
 
@@ -560,9 +562,9 @@ describe("runtime config reconciliation scenarios", () => {
 
   it("continues restoring previous runtime file content after one restore step fails", async () => {
     const agentEnvironment = enabledAgentEnvironment();
-    const originalCodex = `${sampleConfigTestValue(CONFIG_TEST_GENERATOR.key())} = "${
-      sampleConfigTestValue(CONFIG_TEST_GENERATOR.scalar())
-    }"\n`;
+    const originalCodex = stringifyToml({
+      [sampleConfigTestValue(CONFIG_TEST_GENERATOR.key())]: sampleConfigTestValue(CONFIG_TEST_GENERATOR.scalar()),
+    });
     const originalClaudeCode = `${
       JSON.stringify({
         [sampleConfigTestValue(CONFIG_TEST_GENERATOR.key())]: sampleConfigTestValue(CONFIG_TEST_GENERATOR.scalar()),
