@@ -41,6 +41,7 @@ export const TEST_DISPATCH_GENERATOR = {
   distinctNodePaths: arbitraryDistinctNodePaths,
   nodeWithDescendant: arbitraryNodeWithDescendant,
   testFileUnder: arbitraryTestFileUnder,
+  supportFileUnder: arbitrarySupportFileUnder,
   unmatchedTestFileUnder: arbitraryUnmatchedTestFileUnder,
   testFilePath: arbitraryTestFilePath,
   exitCode: arbitraryExitCode,
@@ -107,6 +108,21 @@ function arbitraryTestFileUnder(
   return fc
     .tuple(fc.constantFrom(...descriptor.testFilePatterns), CONFIG_TEST_GENERATOR.key())
     .map(([pattern, name]) => `${testsDirectoryFor(nodePath)}${PATH_SEPARATOR}${pattern.replace(GLOB_WILDCARD, name)}`);
+}
+
+// A non-test source file of a registered language co-located under a node's
+// `tests/` directory — a support/helper/fixture module sharing the language's
+// source extension but not matching its test-file pattern, so the dispatch never
+// claims it as a test. The extension is the test pattern's trailing extension, so
+// it tracks the descriptor rather than restating a literal.
+function arbitrarySupportFileUnder(
+  descriptor: TestingLanguageDescriptor,
+  nodePath: string,
+): fc.Arbitrary<string> {
+  const sourceExtension = `.${descriptor.testFilePatterns[0]?.split(".").pop() ?? ""}`;
+  return CONFIG_TEST_GENERATOR.key()
+    .map((name) => `${testsDirectoryFor(nodePath)}${PATH_SEPARATOR}${name}${sourceExtension}`)
+    .filter((path) => !descriptor.matchesTestFile(path));
 }
 
 function arbitraryUnmatchedTestFileUnder(nodePath: string): fc.Arbitrary<string> {
