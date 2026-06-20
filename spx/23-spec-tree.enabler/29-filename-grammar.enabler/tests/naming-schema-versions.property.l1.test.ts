@@ -120,6 +120,7 @@ describe("naming-schema version self-containment", () => {
         expect(version.order).toBeDefined();
         expect(Array.isArray(version.coordinationNotes)).toBe(true);
         expect(Array.isArray(version.evalLane)).toBe(true);
+        expect(version.specFileSuffix.length).toBeGreaterThan(0);
       }),
       { numRuns: propertyRunCount },
     );
