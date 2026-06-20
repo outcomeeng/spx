@@ -1,14 +1,16 @@
 # Open Issues
 
-## Product-wide formatter baseline fails
+## Product-wide formatter baseline: reformat remaining
 
-Observed on June 18, 2026 while verifying the circular-validation skip slice: `pnpm run format:check` exited 20 and reported 26 files that dprint would rewrite, including `pnpm-lock.yaml`, `src/testing/run-state.ts`, `src/commands/worktree/status.ts`, `testing/generators/state-store/state-store.ts`, and several spec-node test files.
+A repo-tracked `dprint.jsonc` at the product root governs `pnpm run format:check`, so the gate is reproducible across every worktree, contributor, and CI runner instead of depending on a personal global dprint config. It is scoped to the languages spx uses (TypeScript, JSON, Markdown, TOML, YAML), pins each plugin version, excludes `pnpm-lock.yaml` (pnpm owns the lockfile format), and excludes `testing/fixtures/**` (deliberate lint/type/circular and markdown defect inputs that formatting would corrupt).
 
-**Impact:** The product-wide formatter gate cannot be used as a clean readiness signal until the baseline is reconciled. Including those rewrites in a narrow validation CLI change would combine formatter churn with behavior changes.
+`pnpm run format:check` still exits 20 against 54 files that predate the config: `CLAUDE.md`, 16 files under `src/`, 7 under `testing/`, and 30 spec-node `tests/` files. These are style-only diffs.
 
-**Skills:** formatting workflow, `spec-tree:contextualize`, `spec-tree:apply`, and the language-specific implementation and test-audit skills for any touched TypeScript files.
+**Impact:** The gate is now reproducible but not yet green. Mixing the 54-file reformat into a behavior change would combine formatter churn with logic changes.
 
-**Resolution:** Run a dedicated formatter-baseline slice, review the dprint output by owning subtree, apply the formatting changes in one focused changeset, then rerun `pnpm run format:check`, `pnpm run validate`, and `pnpm test`.
+**Skills:** formatting workflow; the language-specific implementation and test-audit skills for any touched TypeScript files.
+
+**Resolution:** Run `pnpm run format` to reformat the 54 files in one focused changeset, then rerun `pnpm run format:check`, `pnpm run validate`, and `pnpm test`. Once `format:check` is green, delete this note.
 
 ## Worktree-management PDR names git plumbing in its decision content
 
