@@ -521,6 +521,18 @@ function sha256Hex(value: string): string {
   return createHash(SHA256_ALGORITHM).update(value).digest(HEX_ENCODING);
 }
 
+const UNKNOWN_ERROR_MESSAGE = "unknown error";
+
 function toErrorMessage(error: unknown): string {
-  return error instanceof Error ? error.message : String(error);
+  if (error instanceof Error) {
+    return error.message;
+  }
+  if (typeof error === "string") {
+    return error;
+  }
+  try {
+    return JSON.stringify(error);
+  } catch {
+    return UNKNOWN_ERROR_MESSAGE;
+  }
 }

@@ -1,3 +1,5 @@
+import assert from "node:assert";
+
 import * as fc from "fast-check";
 import { describe, expect, it } from "vitest";
 
@@ -61,7 +63,7 @@ describe("python test runner invocation", () => {
         );
 
         expect(result.invoked).toBe(true);
-        if (!result.invoked) throw new Error();
+        assert(result.invoked);
         expect(result.exitCode).toBe(exitCode);
       }),
     );

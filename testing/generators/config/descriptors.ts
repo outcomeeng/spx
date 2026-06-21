@@ -449,7 +449,7 @@ function arbitrarySpecTreeArrayKindsConfig(): fc.Arbitrary<GeneratedSpecTreeArra
 
 function arbitraryInvalidSpecTreeConfig(): fc.Arbitrary<GeneratedInvalidSpecTreeConfig> {
   return arbitraryConfigKey()
-    .filter((kind) => !Object.prototype.hasOwnProperty.call(KIND_REGISTRY, kind))
+    .filter((kind) => !Object.hasOwn(KIND_REGISTRY, kind))
     .map((offendingKind) => ({
       offendingKind,
       error: `${SPEC_TREE_SECTION}.${SPEC_TREE_CONFIG_FIELDS.KINDS} contains unknown kind "${offendingKind}"`,
@@ -472,7 +472,7 @@ function arbitrarySpecTreeKindField(): fc.Arbitrary<string> {
 
 function arbitrarySpecTreeUnknownKindError(): fc.Arbitrary<string> {
   return arbitraryConfigKey()
-    .filter((kind) => !Object.prototype.hasOwnProperty.call(KIND_REGISTRY, kind))
+    .filter((kind) => !Object.hasOwn(KIND_REGISTRY, kind))
     .map((kind) => `${SPEC_TREE_SECTION}.${SPEC_TREE_CONFIG_FIELDS.KINDS} contains unknown kind "${kind}"`);
 }
 
@@ -533,7 +533,7 @@ function arbitraryModeDescriptor(): fc.Arbitrary<GeneratedModeDescriptor> {
 
 function arbitraryKindOverride(category: SpecTreeKindCategory): fc.Arbitrary<GeneratedKindOverride> {
   return arbitraryConfigKey()
-    .filter((kind) => !Object.prototype.hasOwnProperty.call(KIND_REGISTRY, kind))
+    .filter((kind) => !Object.hasOwn(KIND_REGISTRY, kind))
     .map((kind) => ({
       kind,
       definition: {

@@ -2,6 +2,7 @@ import { currentStalenessInputs, discoverTestFiles, runNodeCommand } from "@/com
 import type { GitDependencies } from "@/git/root";
 import type { NodeOutcomeResolver } from "@/lib/node-status";
 import { SPEC_TREE_CONFIG } from "@/lib/spec-tree/config";
+import { compareAsciiStrings } from "@/lib/state-store";
 import type { TestingLanguageDescriptor, TestRunnerDependencies } from "@/test/languages/types";
 import type { TestingRegistry } from "@/test/registry";
 import {
@@ -84,7 +85,7 @@ export function createNodeOutcomeResolver(deps: NodeOutcomeResolverDependencies)
 }
 
 function coveredPathCollectionKey(coveredPaths: readonly string[]): string {
-  return JSON.stringify([...coveredPaths].sort());
+  return JSON.stringify([...coveredPaths].sort(compareAsciiStrings));
 }
 
 // Reads the discovered test files and recorded terminal runs once for the whole

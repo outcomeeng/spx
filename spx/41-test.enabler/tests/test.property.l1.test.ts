@@ -8,6 +8,7 @@ import {
   NO_RUNNER_INVOCATION_EXIT_CODE,
   SUCCESS_EXIT_CODE,
 } from "@/domains/test";
+import { compareAsciiStrings } from "@/lib/state-store";
 import { testingRegistry } from "@/test/registry";
 import { TEST_DISPATCH_GENERATOR } from "@testing/generators/testing/dispatch";
 import { withTestingTempProductDir, writeTestFileFixture } from "@testing/harnesses/testing/harness";
@@ -26,8 +27,8 @@ describe("spx test exit-code aggregation", () => {
             (invocation) => invocation.invoked && invocation.exitCode !== SUCCESS_EXIT_CODE,
           );
           const anyUnsupportedSelections = unsupportedSelectionCount > 0;
-          const noSelectedRunnerInvoked =
-            invocations.length > 0 && invocations.every((invocation) => !invocation.invoked);
+          const noSelectedRunnerInvoked = invocations.length > 0
+            && invocations.every((invocation) => !invocation.invoked);
           const result = aggregateTestExitCode(invocations, unsupportedSelectionCount);
           expect(result === SUCCESS_EXIT_CODE).toBe(
             !anyNonZero && !anyUnsupportedSelections && !noSelectedRunnerInvoked,
@@ -57,7 +58,7 @@ describe("spx test discovery determinism", () => {
             const first = await discoverTestFiles(productDir);
             const second = await discoverTestFiles(productDir);
 
-            expect([...second].sort()).toEqual([...first].sort());
+            expect([...second].sort(compareAsciiStrings)).toEqual([...first].sort(compareAsciiStrings));
             expect(groupTestFiles(second, testingRegistry.languages)).toEqual(
               groupTestFiles(first, testingRegistry.languages),
             );
