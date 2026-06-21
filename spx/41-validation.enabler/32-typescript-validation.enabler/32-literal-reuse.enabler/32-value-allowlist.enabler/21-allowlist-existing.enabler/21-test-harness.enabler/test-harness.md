@@ -6,6 +6,11 @@ CAN build configs and reuse fixtures and read back their allowlist without resta
 
 ## Assertions
 
+### Scenarios
+
+- Given a config carrying an allowlist, when `writeProjectConfig` writes it through the env and `readProductConfigSections` reads it back, then the allowlist section survives the serialization round-trip ([test](tests/test-harness.scenario.l1.test.ts))
+- Given a domain literal, when `writeDuplicatedLiteralFixture` runs against the env, then a source fixture carrying that literal is materialized under the env ([test](tests/test-harness.scenario.l1.test.ts))
+
 ### Properties
 
 - For all allowlist include lists, `readLiteralAllowlist` applied to `buildConfigWithAllowlist`'s config returns the same include list, merged over the production literal defaults ([test](tests/test-harness.property.l1.test.ts))

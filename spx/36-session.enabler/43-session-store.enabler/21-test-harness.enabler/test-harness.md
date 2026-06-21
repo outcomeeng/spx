@@ -9,6 +9,7 @@ CAN read back frontmatter and handoff output without reimplementing the delimite
 ### Scenarios
 
 - Given session-file content whose frontmatter declares a key, when `parseFrontMatter` runs, then the returned record carries that key ([test](tests/test-harness.scenario.l1.test.ts))
+- Given handoff output enclosing a path in a `SESSION_FILE` tag, when `extractSessionFile` runs, then the enclosed path is returned; given output with no such tag, it throws ([test](tests/test-harness.scenario.l1.test.ts))
 
 ### Compliance
 
