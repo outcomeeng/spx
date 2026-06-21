@@ -48,7 +48,8 @@ export interface HookSessionStartEnvRenderInput {
   readonly sessionId?: string;
 }
 
-const ENV_NAME_PATTERN = /^[A-Za-z_][A-Za-z0-9_]*$/;
+// `\w` matches exactly `[A-Za-z0-9_]` in JavaScript regexes; env-var names are ASCII.
+const ENV_NAME_PATTERN = /^[A-Za-z_]\w*$/;
 const SAFE_SHELL_VALUE_PATTERN = /^[A-Za-z0-9_@%+=:,.-]+$/;
 const SINGLE_QUOTE = "'";
 const SHELL_SINGLE_QUOTE_ESCAPE = "'\"'\"'";
@@ -85,8 +86,8 @@ export function resolveHookSessionStartSessionId(
 ): string | undefined {
   return (
     payload.sessionId
-    ?? nonEmptyString(env[HOOK_SESSION_START_ENV.CLAUDE_SESSION_ID])
-    ?? nonEmptyString(env[HOOK_SESSION_START_ENV.CODEX_THREAD_ID])
+      ?? nonEmptyString(env[HOOK_SESSION_START_ENV.CLAUDE_SESSION_ID])
+      ?? nonEmptyString(env[HOOK_SESSION_START_ENV.CODEX_THREAD_ID])
   );
 }
 
@@ -105,7 +106,9 @@ export function renderHookSessionStartEnvFile(input: HookSessionStartEnvRenderIn
   return [
     "",
     ENV_FILE_HEADER,
-    ...(input.sessionId === undefined ? [] : [renderExportLine(HOOK_SESSION_START_ENV.CLAUDE_SESSION_ID, input.sessionId)]),
+    ...(input.sessionId === undefined
+      ? []
+      : [renderExportLine(HOOK_SESSION_START_ENV.CLAUDE_SESSION_ID, input.sessionId)]),
     renderExportLine(HOOK_SESSION_START_ENV.CLAUDE_PROJECT_DIR, input.productDir),
     renderExportLine(HOOK_SESSION_START_ENV.PROJECT_DIR, input.productDir),
     renderExportLine(

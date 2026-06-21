@@ -1,9 +1,10 @@
-import { resolveConfig } from "@/config/index";
 import {
   formatTypeScriptAbsentSkipMessage,
   VALIDATION_SKIP_LABELS,
   VALIDATION_STAGE_DISPLAY_NAMES,
 } from "@/commands/validation/messages";
+import { resolveConfig } from "@/config/index";
+import { compareAsciiStrings } from "@/lib/state-store";
 import {
   VALIDATION_PATH_TOOL_SUBSECTIONS,
   type ValidationConfig,
@@ -103,11 +104,7 @@ export async function literalCommand(
   let resolvedEnabled: boolean;
   let resolvedLiteralConfig: LiteralConfig;
   let resolvedPathConfig: ValidationPathConfig;
-  if (options.config !== undefined) {
-    resolvedEnabled = options.enabled ?? validationConfigDescriptor.defaults.literal.enabled;
-    resolvedLiteralConfig = options.config;
-    resolvedPathConfig = options.pathConfig ?? validationConfigDescriptor.defaults.paths;
-  } else {
+  if (options.config === undefined) {
     const loaded = await resolveConfig(options.cwd, [validationConfigDescriptor]);
     if (!loaded.ok) {
       return {
@@ -123,6 +120,10 @@ export async function literalCommand(
       validationConfig.paths,
       VALIDATION_PATH_TOOL_SUBSECTIONS.LITERAL,
     );
+  } else {
+    resolvedEnabled = options.enabled ?? validationConfigDescriptor.defaults.literal.enabled;
+    resolvedLiteralConfig = options.config;
+    resolvedPathConfig = options.pathConfig ?? validationConfigDescriptor.defaults.paths;
   }
 
   if (!resolvedEnabled) {
@@ -144,11 +145,14 @@ export async function literalCommand(
   const totalProblems = countLiteralProblems(filteredFindings);
   const exitCode = totalProblems === 0 ? LITERAL_EXIT_CODES.OK : LITERAL_EXIT_CODES.FINDINGS;
 
-  const output = options.json
-    ? JSON.stringify(filteredFindings)
-    : options.quiet
-    ? ""
-    : formatLiteralCommandOutput(filteredFindings, options);
+  let output: string;
+  if (options.json) {
+    output = JSON.stringify(filteredFindings);
+  } else if (options.quiet) {
+    output = "";
+  } else {
+    output = formatLiteralCommandOutput(filteredFindings, options);
+  }
 
   return { exitCode, output, durationMs: Date.now() - start };
 }
@@ -210,7 +214,7 @@ export function formatVerboseLiteralProblems(findings: DetectionResult): string 
 
 export function formatFilesWithProblems(findings: DetectionResult): string {
   return [...new Set(toLiteralProblems(findings).map((problem) => problem.test.file))]
-    .sort()
+    .sort(compareAsciiStrings)
     .join("\n");
 }
 
@@ -223,7 +227,7 @@ export function formatLiteralValues(findings: DetectionResult): string {
     });
   }
   return [...values.values()]
-    .sort((left, right) => left.value.localeCompare(right.value) || left.kind.localeCompare(right.kind))
+    .sort((left, right) => compareAsciiStrings(left.value, right.value) || compareAsciiStrings(left.kind, right.kind))
     .map((entry) => formatLiteralValue(entry.kind, entry.value))
     .join("\n");
 }
@@ -303,19 +307,19 @@ function compareFindings(
   right: { readonly kind: LiteralKind; readonly value: string; readonly test: LiteralLocation },
 ): number {
   return (
-    left.test.file.localeCompare(right.test.file)
+    compareAsciiStrings(left.test.file, right.test.file)
     || left.test.line - right.test.line
-    || left.kind.localeCompare(right.kind)
-    || left.value.localeCompare(right.value)
+    || compareAsciiStrings(left.kind, right.kind)
+    || compareAsciiStrings(left.value, right.value)
   );
 }
 
 function compareLiteralProblems(left: LiteralProblem, right: LiteralProblem): number {
   return (
-    left.test.file.localeCompare(right.test.file)
+    compareAsciiStrings(left.test.file, right.test.file)
     || left.test.line - right.test.line
-    || left.literalKind.localeCompare(right.literalKind)
-    || left.value.localeCompare(right.value)
+    || compareAsciiStrings(left.literalKind, right.literalKind)
+    || compareAsciiStrings(left.value, right.value)
   );
 }
 

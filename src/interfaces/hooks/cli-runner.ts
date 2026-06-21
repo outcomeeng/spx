@@ -5,10 +5,10 @@
  */
 
 import type { Result } from "@/config/types";
+import type { HookSessionStartEnv } from "@/domains/hooks/session-start";
 import type { ControllingProcessEnv } from "@/domains/worktree/controlling-process";
 import type { OccupancyFileSystem } from "@/domains/worktree/occupancy-store";
 import type { ProcessTable } from "@/domains/worktree/process-table";
-import type { HookSessionStartEnv } from "@/domains/hooks/session-start";
 import type { GitDependencies } from "@/git/root";
 import { sanitizeCliArgument } from "@/lib/sanitize-cli-argument";
 
@@ -130,7 +130,21 @@ export function createProcessHookIo(streams: HookProcessIoStreams): HookProcessI
 }
 
 function formatStdinReadError(error: unknown): string {
-  return `${STDIN_READ_ERROR}${ERROR_DETAIL_SEPARATOR}${error instanceof Error ? error.message : String(error)}`;
+  return `${STDIN_READ_ERROR}${ERROR_DETAIL_SEPARATOR}${describeStdinReadError(error)}`;
+}
+
+// Stringify a caught stdin-read error without throwing: an Error yields its
+// message, a string passes through verbatim, and any other value is serialized
+// explicitly (falling back to its type name for values JSON cannot represent,
+// such as a bigint or a circular object) so the handler never rethrows.
+function describeStdinReadError(error: unknown): string {
+  if (error instanceof Error) return error.message;
+  if (typeof error === "string") return error;
+  try {
+    return JSON.stringify(error) ?? `${typeof error}`;
+  } catch {
+    return `${typeof error}`;
+  }
 }
 
 export const processHookIo: HookProcessIo = createProcessHookIo({
