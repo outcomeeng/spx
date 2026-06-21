@@ -1,8 +1,4 @@
 import { execa } from "execa";
-import fc from "fast-check";
-import { mkdtemp, writeFile } from "node:fs/promises";
-import { tmpdir } from "node:os";
-import { join } from "node:path";
 import { describe, expect, it } from "vitest";
 
 import { overallExitCode } from "@/domains/diagnose/fold";
@@ -10,8 +6,8 @@ import { CHECK_NAME } from "@/domains/diagnose/manifest";
 import { DIAGNOSE_FORMAT, DIAGNOSE_TEXT_OVERALL_LABEL } from "@/domains/diagnose/report";
 import { OVERALL_VERDICT, type OverallVerdict, VERDICT_BUCKET } from "@/domains/diagnose/types";
 import { DIAGNOSE_CLI } from "@/interfaces/cli/diagnose";
-import { arbitrarySpxFloor } from "@testing/generators/diagnose/manifest";
 import { CLI_PATH, NODE_EXECUTABLE } from "@testing/harnesses/constants";
+import { writeSpxReachabilityManifest } from "@testing/harnesses/diagnose/cli";
 
 interface ReportShape {
   readonly checks: {
@@ -22,14 +18,6 @@ interface ReportShape {
     readonly remediation: string;
   }[];
   readonly overall: string;
-}
-
-async function writeSpxReachabilityManifest(): Promise<string> {
-  const [floor] = fc.sample(arbitrarySpxFloor(), { numRuns: 1, seed: 7 });
-  const dir = await mkdtemp(join(tmpdir(), "diagnose-cli-"));
-  const manifestPath = join(dir, "diagnose.json");
-  await writeFile(manifestPath, JSON.stringify({ checks: [CHECK_NAME.SPX_REACHABILITY], spx_floor: floor }));
-  return manifestPath;
 }
 
 async function runDiagnose(args: readonly string[]): Promise<{ readonly stdout: string; readonly exitCode: number }> {
