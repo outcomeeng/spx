@@ -4,7 +4,7 @@ spx resolves where a command runs and where its local execution state lives thro
 
 ## Rationale
 
-Resolution and storage mechanics are shared across release, spec-domain, session, compact, testing, audit, and review. Concentrating them behind injected dependencies keeps every consumer free of git plumbing and `.spx/` layout, and lets root resolution, scope composition, and record I/O verify over controlled roots and a controlled filesystem without a real repository. The result-shape split — a base product-directory result and a Git-common-dir subtype carrying the worktree root — lets a caller that needs both roots read `--show-toplevel` once rather than pairing two resolvers. Branch identity is source-owned in the module so every consumer shares one slug contract.
+Resolution and storage mechanics are shared across release, spec-domain, session, compact, testing, and verification. Concentrating them behind injected dependencies keeps every consumer free of git plumbing and `.spx/` layout, and lets root resolution, scope composition, and record I/O verify over controlled roots and a controlled filesystem without a real repository. The result-shape split — a base product-directory result and a Git-common-dir subtype carrying the worktree root — lets a caller that needs both roots read `--show-toplevel` once rather than pairing two resolvers. Branch identity is source-owned in the module so every consumer shares one slug contract.
 
 A consumer re-deriving git topology or hand-composing `.spx/` paths is rejected: it drifts from the shared layout and reopens the per-consumer git boundary the injection closes. Module-level interception of git or filesystem calls is rejected: it hides the boundary the injected dependencies make explicit and verifies against a fiction rather than real helper code paths.
 
@@ -40,6 +40,6 @@ An async scope resolver returns a result struct carrying the product-root `warni
 - NEVER: a consumer re-derives git topology or composes `.spx/` paths itself — root resolution and scope layout live only in the state module ([audit])
 - NEVER: a scope-directory resolver that only joins an already-resolved product root wraps its return in `Result` — the `Result` shape is reserved for composition that validates an untrusted token or slug ([audit])
 - NEVER: thread the not-in-git `warning` through a scope resolver whose only consumer is presentation-free — the worktree-scope resolver returns a bare path for compact, which emits JSON or nothing, while resolvers feeding user-facing consumers return a struct carrying `warning` ([audit])
-- NEVER: the state module imports a consumer domain (release, spec, session, compact, audit, review, testing) ([audit])
+- NEVER: the state module imports a consumer domain (release, spec, session, compact, testing, verification) ([audit])
 - NEVER: `vi.mock()`, `jest.mock()`, or `memfs` substitutes for the git or filesystem boundary — tests inject controlled git and filesystem implementations and exercise the real helper code paths ([audit])
 - NEVER: a consumer domain duplicates branch slugging ([audit])

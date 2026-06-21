@@ -1,7 +1,7 @@
 # Snapshot Adapter
 
 PROVIDES a GitHub Snapshot backend that binds the agent-run journal's `JournalBackend` port as its Snapshot kind, publishing a run's rendered projection to a PR comment, an Actions artifact, or an Actions cache entry
-SO THAT audit and review runs executing in GitHub Actions
+SO THAT agentic verification runs executing in GitHub Actions
 CAN surface each run's latest event-journal projection on a GitHub-native surface without the journal library performing network or filesystem I/O
 
 ## Assertions

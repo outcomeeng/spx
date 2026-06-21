@@ -4,7 +4,7 @@ spx offers release as a capability applied to any product it runs against: it de
 
 ## Rationale
 
-A release describes the changes a product ships, so deriving it from git history keeps it accurate and reproducible without coupling it to validation, testing, auditing, or reviewing; running those gates before a release is the product exercising its own commands, not a release dependency.
+A release describes the changes a product ships, so deriving it from git history keeps it accurate and reproducible without coupling it to validation, testing, or agentic verification; running those gates before a release is the product exercising its own commands, not a release dependency.
 
 ## Product properties
 
@@ -26,4 +26,4 @@ A release describes the changes a product ships, so deriving it from git history
 
 - ALWAYS: generated release notes and documentation updates stay faithful to the underlying commits and introduce no claim absent from the release's changes ([audit])
 - ALWAYS: publication carries build provenance through the registry's trusted-publishing mechanism ([audit])
-- NEVER: a release is gated on an in-tree domain — running validation, testing, auditing, or reviewing before a release is the product exercising its own commands, not a release dependency ([audit])
+- NEVER: a release is gated on an in-tree domain — running validation, testing, or agentic verification before a release is the product exercising its own commands, not a release dependency ([audit])
