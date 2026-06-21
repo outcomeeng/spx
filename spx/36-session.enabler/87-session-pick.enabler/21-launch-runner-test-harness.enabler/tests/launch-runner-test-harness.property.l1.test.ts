@@ -6,27 +6,37 @@ import { RecordingLaunchRunner, RecordingSuspender } from "@testing/harnesses/se
 describe("launch-runner test harness — properties", () => {
   it("RecordingLaunchRunner appends each spawn in order and RecordingSuspender counts suspend and restore", () => {
     fc.assert(
-      fc.property(fc.array(fc.tuple(fc.string(), fc.array(fc.string())), { minLength: 2 }), (spawns) => {
-        const runner = new RecordingLaunchRunner();
-        for (const [command, args] of spawns) {
-          runner.spawn(command, args);
-        }
+      fc.property(
+        fc.array(
+          fc.tuple(
+            fc.string(),
+            fc.array(fc.string()),
+            fc.option(fc.record({ cwd: fc.string() }), { nil: undefined }),
+          ),
+          { minLength: 2 },
+        ),
+        (spawns) => {
+          const runner = new RecordingLaunchRunner();
+          for (const [command, args, options] of spawns) {
+            runner.spawn(command, args, options);
+          }
 
-        expect(runner.commands).toEqual(spawns.map(([command]) => command));
-        expect(runner.args).toEqual(spawns.map(([, args]) => args));
-        expect(runner.options).toEqual(spawns.map(() => ({})));
-        expect(runner.children).toHaveLength(spawns.length);
+          expect(runner.commands).toEqual(spawns.map(([command]) => command));
+          expect(runner.args).toEqual(spawns.map(([, args]) => args));
+          expect(runner.options).toEqual(spawns.map(([, , options]) => options ?? {}));
+          expect(runner.children).toHaveLength(spawns.length);
 
-        const lastChild = runner.children[runner.children.length - 1];
-        expect(lastChild.kill()).toBe(true);
-        expect(lastChild.killed).toBe(true);
+          const lastChild = runner.children[runner.children.length - 1];
+          expect(lastChild.kill()).toBe(true);
+          expect(lastChild.killed).toBe(true);
 
-        const suspender = new RecordingSuspender();
-        suspender.suspend()();
+          const suspender = new RecordingSuspender();
+          suspender.suspend()();
 
-        expect(suspender.suspendCount).toBe(1);
-        expect(suspender.restoreCount).toBe(1);
-      }),
+          expect(suspender.suspendCount).toBe(1);
+          expect(suspender.restoreCount).toBe(1);
+        },
+      ),
     );
   });
 });
