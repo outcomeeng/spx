@@ -59,7 +59,7 @@ class RecordingClaimFileSystem implements OccupancyFileSystem {
 function identicalClaimRecordWithDistinctWriteTokens(): readonly [WorktreeClaimRecord, readonly [string, string]] {
   return sampleWorktreeTestValue(
     WORKTREE_TEST_GENERATOR.claimRecord().chain((record) =>
-      WORKTREE_TEST_GENERATOR.distinctWriteTokens().map((tokens) => [record, tokens] as const),
+      WORKTREE_TEST_GENERATOR.distinctWriteTokens().map((tokens) => [record, tokens] as const)
     ),
   );
 }

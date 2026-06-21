@@ -9,7 +9,8 @@ import { createRecordingOccupancyFileSystem, OCCUPANCY_FS_OP } from "@testing/ha
 
 type OccupancyReadFile = OccupancyFileSystem extends {
   readFile: infer ReadFile extends (...args: never[]) => Promise<string>;
-} ? ReadFile : never;
+} ? ReadFile
+  : never;
 
 class PausingClaimWriteFileSystem implements OccupancyFileSystem {
   private resumeWrite: (() => void) | undefined;
@@ -66,7 +67,10 @@ describe("worktree occupancy claim store properties", () => {
           WORKTREE_TEST_GENERATOR.claimRecord(),
           WORKTREE_TEST_GENERATOR.writeToken(),
           async (name, record, writeToken) => {
-            const written = await writeClaim(worktreesDir, name, record, { fs: defaultOccupancyFileSystem, writeToken });
+            const written = await writeClaim(worktreesDir, name, record, {
+              fs: defaultOccupancyFileSystem,
+              writeToken,
+            });
             expect(written.ok).toBe(true);
 
             const readBack = await readClaim(worktreesDir, name, { fs: defaultOccupancyFileSystem });

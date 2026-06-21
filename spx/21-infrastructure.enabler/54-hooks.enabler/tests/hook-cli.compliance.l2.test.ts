@@ -1,18 +1,18 @@
 import { readFile } from "node:fs/promises";
 import { describe, expect, it } from "vitest";
 
-import { CONTROLLING_PID_ENV } from "@/domains/worktree/controlling-process";
 import {
   HOOK_ENV_FILE,
   HOOK_SESSION_START_CLAIMED,
   HOOK_SESSION_START_ENV,
   HOOK_SESSION_START_PAYLOAD,
 } from "@/domains/hooks/session-start";
+import { CONTROLLING_PID_ENV } from "@/domains/worktree/controlling-process";
 import { HOOK_CLI } from "@/interfaces/cli/hook";
 import { HOOK_EVENT } from "@/interfaces/hooks/registry";
 import { sampleWorktreeTestValue, WORKTREE_TEST_GENERATOR } from "@testing/generators/worktree/worktree";
-import { withTempDir } from "@testing/harnesses/with-temp-dir";
 import { withHookCliWorktreeEnv } from "@testing/harnesses/hook-cli";
+import { withTempDir } from "@testing/harnesses/with-temp-dir";
 import { runWorktreeCli } from "@testing/harnesses/worktree/harness";
 
 interface SuccessfulHookCliRunInput {

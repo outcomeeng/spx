@@ -12,7 +12,7 @@
  * @module lib/precommit/main-checkout-gate
  */
 
-import { gatherGitFacts, isMainCheckout, type GitFacts } from "@/git/root";
+import { gatherGitFacts, type GitFacts, isMainCheckout } from "@/git/root";
 import { isDirectPrecommitEntrypoint, PRECOMMIT_ENTRYPOINT } from "./entrypoint";
 
 /** Exit codes emitted by the main-checkout gate. */
@@ -25,8 +25,7 @@ export const MAIN_CHECKOUT_GATE_EXIT_CODE = {
   FAILURE: 1,
 } as const;
 
-export type MainCheckoutGateExitCode =
-  (typeof MAIN_CHECKOUT_GATE_EXIT_CODE)[keyof typeof MAIN_CHECKOUT_GATE_EXIT_CODE];
+export type MainCheckoutGateExitCode = (typeof MAIN_CHECKOUT_GATE_EXIT_CODE)[keyof typeof MAIN_CHECKOUT_GATE_EXIT_CODE];
 
 function hasIncompleteBarePoolFacts(facts: GitFacts): boolean {
   return facts.commonDirIsBare && !facts.worktreeListRead;

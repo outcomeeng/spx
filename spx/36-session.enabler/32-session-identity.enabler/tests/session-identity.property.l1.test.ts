@@ -1,8 +1,8 @@
 import fc from "fast-check";
 import { describe, expect, it } from "vitest";
 
-import { buildSessionFrontMatterContent, SESSION_FRONT_MATTER_DELIMITER } from "@/domains/session/create";
 import { resolveAgentSessionId } from "@/domains/session/agent-session";
+import { buildSessionFrontMatterContent, SESSION_FRONT_MATTER_DELIMITER } from "@/domains/session/create";
 import { parseSessionMetadata } from "@/domains/session/list";
 import { generateSessionId, parseSessionId } from "@/domains/session/timestamp";
 import { STATE_STORE_TEST_GENERATOR } from "@testing/generators/state-store/state-store";

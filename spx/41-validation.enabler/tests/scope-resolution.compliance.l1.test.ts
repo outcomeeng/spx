@@ -28,8 +28,8 @@ import {
   DEPENDENCY_CRUISER_MODULE_SYSTEMS,
   DEPENDENCY_CRUISER_PACKAGE_EXCLUDE_PATTERN,
   DEPENDENCY_CRUISER_PATH_PREFIX_PATTERN,
-  DEPENDENCY_CRUISER_TS_PRE_COMPILATION_DEPS,
   DEPENDENCY_CRUISER_TRAILING_RECURSIVE_GLOB_PATTERN,
+  DEPENDENCY_CRUISER_TS_PRE_COMPILATION_DEPS,
   DEPENDENCY_CRUISER_TYPESCRIPT_RESOLVE_EXTENSIONS,
   DEPENDENCY_CRUISER_TYPESCRIPT_SOURCE_GLOB_SUFFIXES,
   DEPENDENCY_CRUISER_TYPESCRIPT_SOURCE_PATTERN,
@@ -37,11 +37,7 @@ import {
 } from "@/validation/steps/circular";
 import { KNIP_COMMAND_TOKENS, type KnipDeps, validateKnip } from "@/validation/steps/knip";
 import { VALIDATION_SUBPROCESS_EVENTS } from "@/validation/steps/subprocess-output";
-import {
-  defaultTypeScriptDeps,
-  type TypeScriptDeps,
-  validateTypeScript,
-} from "@/validation/steps/typescript";
+import { defaultTypeScriptDeps, type TypeScriptDeps, validateTypeScript } from "@/validation/steps/typescript";
 import { VALIDATION_SCOPES } from "@/validation/types";
 import { LITERAL_TEST_GENERATOR, sampleLiteralTestValue } from "@testing/generators/literal/literal";
 import { VALIDATION_PIPELINE_DATA } from "@testing/generators/validation/validation";
@@ -148,7 +144,10 @@ const deepSourceDirectory = join(
   VALIDATION_PIPELINE_DATA.deepSourceDirectoryName,
   VALIDATION_PIPELINE_DATA.nestedSourceDirectoryName,
 );
-const topLevelSourceFile = join(VALIDATION_PIPELINE_DATA.sourceDirectoryName, VALIDATION_PIPELINE_DATA.cleanSourceFileName);
+const topLevelSourceFile = join(
+  VALIDATION_PIPELINE_DATA.sourceDirectoryName,
+  VALIDATION_PIPELINE_DATA.cleanSourceFileName,
+);
 const nestedSourceFile = join(narrowSourceDirectory, VALIDATION_PIPELINE_DATA.cleanSourceFileName);
 const deepSourceFile = join(deepSourceDirectory, VALIDATION_PIPELINE_DATA.cleanSourceFileName);
 const extensionlessNestedPath = join(
@@ -256,8 +255,11 @@ describe("ALWAYS: TypeScript scope resolution uses the requested project root", 
 
   it("classifies TypeScript source include patterns without widening extensionless files", () => {
     expect(typeScriptScopePatternTargetsTypeScriptSource(VALIDATION_PIPELINE_DATA.sourceDirectoryName)).toBe(false);
-    expect(typeScriptScopePatternTargetsTypeScriptSource(VALIDATION_PIPELINE_DATA.productionScopeFilePattern)).toBe(true);
-    expect(typeScriptScopePatternTargetsTypeScriptSource(VALIDATION_PIPELINE_DATA.typeScriptOnlySourceFilePattern)).toBe(true);
+    expect(typeScriptScopePatternTargetsTypeScriptSource(VALIDATION_PIPELINE_DATA.productionScopeFilePattern)).toBe(
+      true,
+    );
+    expect(typeScriptScopePatternTargetsTypeScriptSource(VALIDATION_PIPELINE_DATA.typeScriptOnlySourceFilePattern))
+      .toBe(true);
     expect(typeScriptScopePatternTargetsTypeScriptSource(topLevelSourceFile)).toBe(true);
     expect(typeScriptScopePatternTargetsTypeScriptSource(extensionlessNestedPath)).toBe(false);
     expect(typeScriptScopePatternTargetsTypeScriptSource(`**/${VALIDATION_PIPELINE_DATA.extensionlessSourceFileName}`))

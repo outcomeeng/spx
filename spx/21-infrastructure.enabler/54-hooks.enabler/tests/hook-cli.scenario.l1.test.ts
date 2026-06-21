@@ -7,8 +7,8 @@ import { defaultGitDependencies } from "@/git/root";
 import {
   createProcessHookIo,
   HOOK_PROCESS_IO_EVENT,
-  runHookCli,
   type HookProcessIo,
+  runHookCli,
 } from "@/interfaces/hooks/cli-runner";
 import { HOOK_EVENT } from "@/interfaces/hooks/registry";
 import { defaultOccupancyFileSystem } from "@/lib/worktree-occupancy-file-system";

@@ -1,9 +1,9 @@
 import { describe, expect, it } from "vitest";
 
 import {
-  GITHUB_ACTIONS_REPORTER_TRIGGER_KEY,
   GIT_TEST_EXECUTABLE,
   GIT_TEST_OUTPUT,
+  GITHUB_ACTIONS_REPORTER_TRIGGER_KEY,
 } from "@testing/harnesses/git-test-constants";
 import { withGitEnv } from "@testing/harnesses/with-git-env";
 
@@ -17,7 +17,9 @@ describe("buildGitTestEnvironment — GitHub Actions reporter env hygiene", () =
         const result = await exec([
           GIT_TEST_EXECUTABLE.NODE,
           "-e",
-          `process.stdout.write(process.env[${JSON.stringify(GITHUB_ACTIONS_REPORTER_TRIGGER_KEY)}] ?? ${JSON.stringify(GIT_TEST_OUTPUT.MISSING_ENV_VALUE)})`,
+          `process.stdout.write(process.env[${JSON.stringify(GITHUB_ACTIONS_REPORTER_TRIGGER_KEY)}] ?? ${
+            JSON.stringify(GIT_TEST_OUTPUT.MISSING_ENV_VALUE)
+          })`,
         ]);
 
         expect(result.stdout).toBe(GIT_TEST_OUTPUT.MISSING_ENV_VALUE);

@@ -7,11 +7,6 @@
 import { appendFile as nodeAppendFile } from "node:fs/promises";
 
 import type { Result } from "@/config/types";
-import { claimWorktreeOccupancy } from "@/domains/worktree/claim";
-import type { ControllingProcessEnv } from "@/domains/worktree/controlling-process";
-import type { OccupancyFileSystem } from "@/domains/worktree/occupancy-store";
-import type { ProcessTable } from "@/domains/worktree/process-table";
-import type { WorktreeScopeOptions } from "@/domains/worktree/resolve";
 import {
   HOOK_ENV_FILE,
   HOOK_SESSION_START_ERROR,
@@ -22,6 +17,11 @@ import {
   resolveHookSessionStartProductDir,
   resolveHookSessionStartSessionId,
 } from "@/domains/hooks/session-start";
+import { claimWorktreeOccupancy } from "@/domains/worktree/claim";
+import type { ControllingProcessEnv } from "@/domains/worktree/controlling-process";
+import type { OccupancyFileSystem } from "@/domains/worktree/occupancy-store";
+import type { ProcessTable } from "@/domains/worktree/process-table";
+import type { WorktreeScopeOptions } from "@/domains/worktree/resolve";
 
 export interface HookEnvFileSystem {
   appendFile(path: string, data: string, encoding: "utf8"): Promise<void>;

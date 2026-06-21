@@ -4,9 +4,9 @@ import {
   ERROR_CODE_FILE_EXISTS,
   ERROR_CODE_NOT_FOUND,
   EXCLUSIVE_CREATE_FLAG,
-  WRITE_EXISTING_FLAG,
   type StateStoreFileEntry,
   type StateStoreFileSystem,
+  WRITE_EXISTING_FLAG,
 } from "@/lib/state-store";
 
 const PATH_SEPARATOR = "/";
@@ -65,7 +65,9 @@ class InMemoryStateStoreFileSystem implements StateStoreFileSystem {
   }
 
   async rm(path: string, options?: { readonly force?: boolean }): Promise<void> {
-    if (this.files.delete(path) || this.directories.delete(normalizeDirectoryPath(path)) || options?.force === true) return;
+    if (this.files.delete(path) || this.directories.delete(normalizeDirectoryPath(path)) || options?.force === true) {
+      return;
+    }
     throw Object.assign(new Error(ERROR_CODE_NOT_FOUND), { code: ERROR_CODE_NOT_FOUND });
   }
 
@@ -148,7 +150,9 @@ function collectNestedParentNames(paths: Iterable<string>, prefix: string): Set<
   for (const path of paths) {
     const remainder = childRemainder(path, prefix);
     const separatorIndex = remainder?.indexOf(PATH_SEPARATOR);
-    if (remainder !== undefined && separatorIndex !== undefined && separatorIndex >= 0) names.add(remainder.slice(0, separatorIndex));
+    if (remainder !== undefined && separatorIndex !== undefined && separatorIndex >= 0) {
+      names.add(remainder.slice(0, separatorIndex));
+    }
   }
   return names;
 }

@@ -57,7 +57,10 @@ function testCommandDeps(
   return { registry: testingRegistry, runnerDepsFor: () => runner, git: gitIdentityStub() };
 }
 
-function recordedProductInputDigest(recorded: { readonly productInputDigests: readonly { readonly descriptorId: string; readonly digest: string }[] }, descriptorId: string): string | undefined {
+function recordedProductInputDigest(
+  recorded: { readonly productInputDigests: readonly { readonly descriptorId: string; readonly digest: string }[] },
+  descriptorId: string,
+): string | undefined {
   return recorded.productInputDigests.find((digest) => digest.descriptorId === descriptorId)?.digest;
 }
 
@@ -204,7 +207,10 @@ describe("spx test execution recording and per-node run", () => {
             { productDir, passing: false },
             testCommandDeps(missingInputRunner),
           );
-          const missingInputDigest = recordedProductInputDigest(missingInputRun.recorded, typescriptTestingLanguage.name);
+          const missingInputDigest = recordedProductInputDigest(
+            missingInputRun.recorded,
+            typescriptTestingLanguage.name,
+          );
           expect(missingInputDigest).toBeDefined();
 
           await writeFile(join(productDir, productInputPath), productInputContent);
@@ -214,7 +220,10 @@ describe("spx test execution recording and per-node run", () => {
             { productDir, passing: false },
             testCommandDeps(presentInputRunner),
           );
-          const presentInputDigest = recordedProductInputDigest(presentInputRun.recorded, typescriptTestingLanguage.name);
+          const presentInputDigest = recordedProductInputDigest(
+            presentInputRun.recorded,
+            typescriptTestingLanguage.name,
+          );
           expect(presentInputDigest).toBeDefined();
           expect(presentInputDigest).not.toBe(missingInputDigest);
         });
@@ -316,7 +325,9 @@ describe("spx test execution recording and per-node run", () => {
             const second = await runTestsCommand({ productDir, passing: false }, testCommandDeps(secondRunner));
 
             expect(first.recorded.discoveredTestContentDigest).toBe(expectedTestContentDigest(nodeFile, firstContent));
-            expect(second.recorded.discoveredTestContentDigest).toBe(expectedTestContentDigest(nodeFile, secondContent));
+            expect(second.recorded.discoveredTestContentDigest).toBe(
+              expectedTestContentDigest(nodeFile, secondContent),
+            );
             expect(second.recorded.discoveredTestContentDigest).not.toBe(first.recorded.discoveredTestContentDigest);
 
             const currentInputs = await currentStalenessInputs(productDir, [nodeFile], { registry: testingRegistry });

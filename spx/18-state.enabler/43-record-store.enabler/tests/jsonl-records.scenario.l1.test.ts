@@ -12,7 +12,7 @@ import {
   readLatestJsonlRecord,
   STATE_STORE_ERROR,
 } from "@/lib/state-store";
-import { STATE_STORE_TEST_GENERATOR, sampleStateStoreTestValue } from "@testing/generators/state-store/state-store";
+import { sampleStateStoreTestValue, STATE_STORE_TEST_GENERATOR } from "@testing/generators/state-store/state-store";
 import { removeTempDir } from "@testing/harnesses/with-temp-dir";
 
 describe("state-store JSONL records", () => {

@@ -12,7 +12,7 @@ import {
   STATE_STORE_BRANCH_SLUG,
   validateBranchSlug,
 } from "@/lib/state-store";
-import { STATE_STORE_TEST_GENERATOR, sampleStateStoreTestValue } from "@testing/generators/state-store/state-store";
+import { sampleStateStoreTestValue, STATE_STORE_TEST_GENERATOR } from "@testing/generators/state-store/state-store";
 import { WEB_CRYPTO_SHA256_ALGORITHM } from "@testing/harnesses/crypto";
 
 async function hashPrefix(value: string): Promise<string> {
@@ -35,12 +35,16 @@ describe("state-store branch identity", () => {
 
   it("preserves the hash suffix while respecting configured byte limits", async () => {
     await fc.assert(
-      fc.asyncProperty(STATE_STORE_TEST_GENERATOR.branchIdentity(), fc.integer({ min: 9, max: 120 }), async (branchIdentity, maxBytes) => {
-        const slug = slugBranchIdentity(branchIdentity, maxBytes);
+      fc.asyncProperty(
+        STATE_STORE_TEST_GENERATOR.branchIdentity(),
+        fc.integer({ min: 9, max: 120 }),
+        async (branchIdentity, maxBytes) => {
+          const slug = slugBranchIdentity(branchIdentity, maxBytes);
 
-        expect(Buffer.byteLength(slug)).toBeLessThanOrEqual(maxBytes);
-        expect(slug.endsWith(await hashPrefix(branchIdentity))).toBe(true);
-      }),
+          expect(Buffer.byteLength(slug)).toBeLessThanOrEqual(maxBytes);
+          expect(slug.endsWith(await hashPrefix(branchIdentity))).toBe(true);
+        },
+      ),
     );
   });
 

@@ -6,11 +6,7 @@ import { dirname, join } from "node:path/posix";
 import type { ICruiseResult, IDependency, IModule, IReporterOutput } from "dependency-cruiser";
 import type { ParsedCommandLine } from "typescript";
 
-import {
-  circularCommand,
-  type CircularCommandDeps,
-} from "@/commands/validation/circular";
-import { CONFIG_FILENAMES } from "@/config/index";
+import { circularCommand, type CircularCommandDeps } from "@/commands/validation/circular";
 import {
   formatTypeScriptAbsentSkipMessage,
   formatValidationPathsNoTargetsSkipMessage,
@@ -18,6 +14,7 @@ import {
   VALIDATION_EXIT_CODES,
   VALIDATION_STAGE_DISPLAY_NAMES,
 } from "@/commands/validation/messages";
+import { CONFIG_FILENAMES } from "@/config/index";
 import { validationCliDefinition } from "@/interfaces/cli/validation";
 import {
   TSCONFIG_FILES,
@@ -26,15 +23,15 @@ import {
 } from "@/validation/config/scope";
 import {
   CIRCULAR_DEPS_KEYS,
-  type CircularDeps,
   type CircularDependencyGraphRunner,
+  type CircularDeps,
   DEPENDENCY_CRUISER_DEPENDENCY_TYPES,
   DEPENDENCY_CRUISER_MODULE_SYSTEMS,
   DEPENDENCY_CRUISER_NON_STRUCTURED_OUTPUT_ERROR,
   DEPENDENCY_CRUISER_PACKAGE_EXCLUDE_PATTERN,
   DEPENDENCY_CRUISER_PATH_PREFIX_PATTERN,
-  DEPENDENCY_CRUISER_TS_PRE_COMPILATION_DEPS,
   DEPENDENCY_CRUISER_TRAILING_RECURSIVE_GLOB_PATTERN,
+  DEPENDENCY_CRUISER_TS_PRE_COMPILATION_DEPS,
   DEPENDENCY_CRUISER_TYPESCRIPT_RESOLVE_EXTENSIONS,
   DEPENDENCY_CRUISER_TYPESCRIPT_SOURCE_GLOB_SUFFIXES,
   DEPENDENCY_CRUISER_TYPESCRIPT_SOURCE_PATTERN,
@@ -82,7 +79,8 @@ const outOfRootRelativeSourceFile = join(
   VALIDATION_PIPELINE_DATA.sourceDirectoryName,
   VALIDATION_PIPELINE_DATA.cleanSourceFileName,
 );
-const dotSegmentedRootSourceFile = `${VALIDATION_PIPELINE_DATA.sourceDirectoryName}/../${VALIDATION_PIPELINE_DATA.cleanSourceFileName}`;
+const dotSegmentedRootSourceFile =
+  `${VALIDATION_PIPELINE_DATA.sourceDirectoryName}/../${VALIDATION_PIPELINE_DATA.cleanSourceFileName}`;
 const rootTypeScriptFilePattern = VALIDATION_PIPELINE_DATA.rootTypeScriptSourceFilePattern;
 const emptyTypescriptConfig: ParsedCommandLine = {
   options: {},
@@ -580,9 +578,10 @@ describe("circular dependency filtering", () => {
       ],
     });
     expect(new RegExp(expectedExcludePattern).test(VALIDATION_PIPELINE_DATA.prefixedDependencyExcludedFile)).toBe(true);
-    expect(new RegExp(expectedExcludePattern).test(`./${VALIDATION_PIPELINE_DATA.prefixedDependencyExcludedFile}`)).toBe(
-      true,
-    );
+    expect(new RegExp(expectedExcludePattern).test(`./${VALIDATION_PIPELINE_DATA.prefixedDependencyExcludedFile}`))
+      .toBe(
+        true,
+      );
   });
 
   it("converts directory-subtree excludes to anchored dependency-cruiser patterns", async () => {
@@ -637,9 +636,10 @@ describe("circular dependency filtering", () => {
     expect(new RegExp(expectedExcludePattern).test(VALIDATION_PIPELINE_DATA.recursiveDependencyRootExcludedFile)).toBe(
       true,
     );
-    expect(new RegExp(expectedExcludePattern).test(VALIDATION_PIPELINE_DATA.recursiveDependencyNestedExcludedFile)).toBe(
-      true,
-    );
+    expect(new RegExp(expectedExcludePattern).test(VALIDATION_PIPELINE_DATA.recursiveDependencyNestedExcludedFile))
+      .toBe(
+        true,
+      );
     expect(new RegExp(expectedExcludePattern).test(
       `./${VALIDATION_PIPELINE_DATA.recursiveDependencyNestedExcludedFile}`,
     )).toBe(true);
@@ -927,7 +927,9 @@ describe("circular command scope routing", () => {
           scope: VALIDATION_SCOPES.FULL,
           typescriptScope: {
             directories: [],
-            filePatterns: [join(VALIDATION_PIPELINE_DATA.sourceDirectoryName, VALIDATION_PIPELINE_DATA.cleanSourceFileName)],
+            filePatterns: [
+              join(VALIDATION_PIPELINE_DATA.sourceDirectoryName, VALIDATION_PIPELINE_DATA.cleanSourceFileName),
+            ],
             excludePatterns: [],
           },
           projectRoot: path,
@@ -977,7 +979,10 @@ describe("circular command scope routing", () => {
         VALIDATION_PIPELINE_DATA.narrowSourceDirectoryName,
       );
       await mkdir(join(path, apiDirectory), { recursive: true });
-      await writeFile(join(path, apiDirectory, VALIDATION_PIPELINE_DATA.cleanSourceFileName), "export const api = true;\n");
+      await writeFile(
+        join(path, apiDirectory, VALIDATION_PIPELINE_DATA.cleanSourceFileName),
+        "export const api = true;\n",
+      );
       await writeFile(
         join(path, TSCONFIG_FILES.full),
         JSON.stringify({
@@ -1489,7 +1494,9 @@ describe("circular command scope routing", () => {
       expect(validationCalls).toEqual([
         {
           directories: [],
-          filePatterns: [join(VALIDATION_PIPELINE_DATA.sourceDirectoryName, VALIDATION_PIPELINE_DATA.cleanSourceFileName)],
+          filePatterns: [
+            join(VALIDATION_PIPELINE_DATA.sourceDirectoryName, VALIDATION_PIPELINE_DATA.cleanSourceFileName),
+          ],
           excludePatterns: [VALIDATION_PIPELINE_DATA.testFileExcludePattern],
         },
       ]);

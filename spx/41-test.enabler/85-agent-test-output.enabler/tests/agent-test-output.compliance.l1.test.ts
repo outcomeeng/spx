@@ -1,4 +1,4 @@
-import { readFile, readdir, realpath } from "node:fs/promises";
+import { readdir, readFile, realpath } from "node:fs/promises";
 import { join } from "node:path";
 import { Writable } from "node:stream";
 import { pathToFileURL } from "node:url";
@@ -8,15 +8,12 @@ import { describe, expect, it } from "vitest";
 import { AGENT_TEST_OUTPUT_TEXT } from "@/interfaces/cli/test-agent-output";
 import {
   AGENT_ARTIFACT_DIR_PREFIX,
-  PROCESS_FAILURE_EXIT_CODE,
   createAgentOutputCommandRunner,
+  PROCESS_FAILURE_EXIT_CODE,
 } from "@/interfaces/cli/test-runner-deps";
 import { lifecycleProcessRunner, type ProcessRunner, spawnManagedSubprocess } from "@/lib/process-lifecycle";
 import { VALIDATION_SUBPROCESS_EVENTS } from "@/validation/steps/subprocess-output";
-import {
-  arbitraryDomainLiteral,
-  sampleLiteralTestValue,
-} from "@testing/generators/literal/literal";
+import { arbitraryDomainLiteral, sampleLiteralTestValue } from "@testing/generators/literal/literal";
 import { withTempDir } from "@testing/harnesses/with-temp-dir";
 
 interface SpawnResult {
@@ -216,7 +213,9 @@ describe("agent test-output runner", () => {
         `const { createAgentOutputCommandRunner } = await import(${JSON.stringify(moduleUrl)});`,
         `const { writeFile } = await import(${JSON.stringify("node:fs/promises")});`,
         `const runCommand = createAgentOutputCommandRunner(productDir, { tmpDir: productDir, env: {} });`,
-        `const result = await runCommand(process.execPath, [${JSON.stringify(nodeEvalArg)}, ${JSON.stringify(outputScript(stdoutContent, stderrContent, envKey))}]);`,
+        `const result = await runCommand(process.execPath, [${JSON.stringify(nodeEvalArg)}, ${
+          JSON.stringify(outputScript(stdoutContent, stderrContent, envKey))
+        }]);`,
         "await writeFile(resultPath, Buffer.from(JSON.stringify(result)));",
       ].join("");
 

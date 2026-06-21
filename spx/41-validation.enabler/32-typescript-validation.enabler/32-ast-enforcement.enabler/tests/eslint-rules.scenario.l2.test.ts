@@ -73,9 +73,7 @@ describe("ESLint rules integration", () => {
     it("fails loudly when the configured TypeScript config cannot be read", () => {
       const testCase = validationTypeScriptExclusionsScenario();
 
-      expect(() =>
-        readTypeScriptExcludeGlobs(testCase.missingConfigFile)
-      ).toThrow(testCase.missingConfigFile);
+      expect(() => readTypeScriptExcludeGlobs(testCase.missingConfigFile)).toThrow(testCase.missingConfigFile);
     });
 
     it("reads exclusions through relative TypeScript config extends", async () => {

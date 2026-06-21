@@ -10,9 +10,9 @@ import { type OccupancyFileSystem, type OccupancyStatus, readOccupancy } from "@
 import type { ProcessTable } from "@/domains/worktree/process-table";
 
 import {
+  type ResolvedTargetWorktree,
   resolveTargetWorktree,
   resolveWorktreesDir,
-  type ResolvedTargetWorktree,
   type WorktreePathInfo,
   type WorktreeScopeOptions,
 } from "@/domains/worktree/resolve";
@@ -85,7 +85,11 @@ async function resolveStatusTargets(options: StatusCommandOptions): Promise<Resu
   return { ok: true, value: targets };
 }
 
-function renderStatus(records: readonly WorktreeStatusRecord[], format: string | undefined, multiTargetRequest: boolean): string {
+function renderStatus(
+  records: readonly WorktreeStatusRecord[],
+  format: string | undefined,
+  multiTargetRequest: boolean,
+): string {
   if (format === WORKTREE_STATUS_FORMAT.JSON) {
     return JSON.stringify(multiTargetRequest ? records : records[0]);
   }
