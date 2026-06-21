@@ -8,7 +8,7 @@ CAN assert the picker's rendered intent and key handling without splitting raw f
 
 ### Scenarios
 
-- Given a claimable session, when `renderPickerView` mounts the picker and the down- and up-arrow drivers are invoked, then the queried view surfaces a row for that session, a non-empty preview block, and a valid selection ([test](tests/picker-test-harness.scenario.l1.test.ts))
+- Given two claimable sessions, when `renderPickerView` mounts the picker, then the queried view surfaces a row for each session and a non-empty preview block; and when the down-arrow driver is invoked the selected row moves to the other session, and the up-arrow driver returns it ([test](tests/picker-test-harness.scenario.l1.test.ts))
 
 ### Compliance
 
