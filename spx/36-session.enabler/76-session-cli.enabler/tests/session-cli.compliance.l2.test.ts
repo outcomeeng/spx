@@ -1,11 +1,12 @@
 import { existsSync } from "node:fs";
-import { readdir, readFile } from "node:fs/promises";
+import { readdir, readFile, writeFile } from "node:fs/promises";
 import { basename, join, sep } from "node:path";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 
 import { SessionWorkBranchNotOnOriginError } from "@/domains/session/errors";
 import {
   HANDOFF_BASE_FACT_LABEL,
+  HANDOFF_BASE_MARK,
   HANDOFF_BASE_PREREQUISITE_LABEL,
   HANDOFF_BASE_UNRESOLVED,
   SESSION_HANDOFF_BASE_ERROR_NAME,
@@ -38,6 +39,7 @@ import {
   runSessionCli,
   SESSION_CLI_ANSI_ESCAPE,
   SESSION_FILE_TAG_PATTERN,
+  SESSION_FIXTURE_COMMIT_MESSAGE,
   type SessionHarness,
   withCommittedGitCwd,
 } from "@testing/harnesses/session/harness";
@@ -45,8 +47,6 @@ import { withWorktreeLayoutEnv } from "@testing/harnesses/worktree-layout/worktr
 
 const [TODO, DOING, ARCHIVE] = SESSION_STATUSES;
 
-/** Commit message for the seed commit the explicit-git_ref fixture writes — a fixture value, not a git token. */
-const GIT_FIXTURE_COMMIT_MESSAGE = "session cli fixture";
 /** A worktree-local branch and the linked worktree path the refusal wiring smoke provisions. */
 const LINKED_WORKTREE_BRANCH = "feature/linked-local";
 const LINKED_WORKTREE_RELATIVE_PATH = ".worktrees/linked";
@@ -67,6 +67,13 @@ function factLine(stderr: string, label: string): string {
   return line ?? "";
 }
 
+/** The rendered prerequisite line containing `label` (mark then label), asserted present so an absent line names the gap. */
+function prerequisiteLine(stderr: string, label: string): string {
+  const line = stderr.split("\n").find((candidate) => candidate.includes(label));
+  expect(line, `expected a prerequisite line for "${label}"`).toBeDefined();
+  return line ?? "";
+}
+
 /**
  * Seeds a commit and points `origin/HEAD` at `origin/<FIXTURE_DEFAULT_BRANCH>` = the seed commit,
  * so the handler's default-branch and origin-tip collection resolve to real values. Returns the
@@ -77,7 +84,7 @@ async function seedResolvedOrigin(gitEnv: GitWorktreeEnv): Promise<string> {
     GIT_TEST_SUBCOMMANDS.COMMIT,
     GIT_TEST_FLAGS.ALLOW_EMPTY,
     GIT_TEST_FLAGS.COMMIT_MESSAGE,
-    GIT_FIXTURE_COMMIT_MESSAGE,
+    SESSION_FIXTURE_COMMIT_MESSAGE,
   ]);
   const tipSha = await gitEnv.runGit([...GIT_HEAD_SHA_ARGS]);
   const originDefaultRef = `${GIT_TEST_REF.REMOTE_ORIGIN_PREFIX}${FIXTURE_DEFAULT_BRANCH}`;
@@ -88,6 +95,29 @@ async function seedResolvedOrigin(gitEnv: GitWorktreeEnv): Promise<string> {
     originDefaultRef,
   ]);
   return tipSha;
+}
+
+/**
+ * Seeds a commit and adds a linked worktree checked out on a named branch — a non-main checkout
+ * the handoff-base gate refuses. Returns the linked worktree path. Shared by the refused smokes
+ * that differ only in working-tree cleanliness.
+ */
+async function addLinkedWorktreeOnBranch(gitEnv: GitWorktreeEnv): Promise<string> {
+  await gitEnv.runGit([
+    GIT_TEST_SUBCOMMANDS.COMMIT,
+    GIT_TEST_FLAGS.ALLOW_EMPTY,
+    GIT_TEST_FLAGS.COMMIT_MESSAGE,
+    SESSION_FIXTURE_COMMIT_MESSAGE,
+  ]);
+  await gitEnv.runGit([GIT_TEST_SUBCOMMANDS.BRANCH, LINKED_WORKTREE_BRANCH]);
+  const linkedWorktreeDir = join(gitEnv.productDir, LINKED_WORKTREE_RELATIVE_PATH);
+  await gitEnv.runGit([
+    GIT_TEST_SUBCOMMANDS.WORKTREE,
+    GIT_TEST_SUBCOMMANDS.ADD,
+    linkedWorktreeDir,
+    LINKED_WORKTREE_BRANCH,
+  ]);
+  return linkedWorktreeDir;
 }
 
 /**
@@ -284,7 +314,7 @@ describe("session CLI handoff git_ref recording", () => {
         GIT_TEST_SUBCOMMANDS.COMMIT,
         GIT_TEST_FLAGS.ALLOW_EMPTY,
         GIT_TEST_FLAGS.COMMIT_MESSAGE,
-        GIT_FIXTURE_COMMIT_MESSAGE,
+        SESSION_FIXTURE_COMMIT_MESSAGE,
       ]);
       const sha = await gitEnv.runGit([...GIT_HEAD_SHA_ARGS]);
       await gitEnv.runGit([
@@ -351,20 +381,7 @@ describe("session CLI handoff-base wiring", () => {
 
   it("refused: a non-main checkout writes the rendered checklist to stderr and exits non-zero", async () => {
     await withGitWorktreeEnv(async (gitEnv) => {
-      await gitEnv.runGit([
-        GIT_TEST_SUBCOMMANDS.COMMIT,
-        GIT_TEST_FLAGS.ALLOW_EMPTY,
-        GIT_TEST_FLAGS.COMMIT_MESSAGE,
-        GIT_FIXTURE_COMMIT_MESSAGE,
-      ]);
-      await gitEnv.runGit([GIT_TEST_SUBCOMMANDS.BRANCH, LINKED_WORKTREE_BRANCH]);
-      const linkedWorktreeDir = join(gitEnv.productDir, LINKED_WORKTREE_RELATIVE_PATH);
-      await gitEnv.runGit([
-        GIT_TEST_SUBCOMMANDS.WORKTREE,
-        GIT_TEST_SUBCOMMANDS.ADD,
-        linkedWorktreeDir,
-        LINKED_WORKTREE_BRANCH,
-      ]);
+      const linkedWorktreeDir = await addLinkedWorktreeOnBranch(gitEnv);
       // The linked worktree shares the seed commit the branch was cut from, so the main
       // checkout's HEAD SHA is the value the handler must collect for the linked worktree.
       const headSha = await gitEnv.runGit([...GIT_HEAD_SHA_ARGS]);
@@ -396,6 +413,24 @@ describe("session CLI handoff-base wiring", () => {
       // stash, and an unresolved base never fabricates the literal placeholder.
       expect(result.stderr).not.toContain(FORBIDDEN_STASH_REMEDY);
       expect(result.stderr).not.toContain(FORBIDDEN_ORIGIN_PLACEHOLDER);
+      expect(await readdir(harness.statusDir(TODO))).toEqual([]);
+    });
+  });
+
+  it("refused: a dirty non-main checkout marks the clean-working-tree prerequisite unmet", async () => {
+    await withGitWorktreeEnv(async (gitEnv) => {
+      const linkedWorktreeDir = await addLinkedWorktreeOnBranch(gitEnv);
+      // An untracked file dirties the working tree, so the handler's git-status read sets the clean
+      // fact false — the collection path the clean refused smokes leave unexercised at the boundary.
+      await writeFile(join(linkedWorktreeDir, "uncommitted.txt"), "dirty");
+
+      const result = await runHandoffFrom(linkedWorktreeDir);
+
+      expect(result.exitCode).not.toBe(0);
+      expect(result.stderr).toContain(SESSION_HANDOFF_BASE_ERROR_NAME);
+      expect(prerequisiteLine(result.stderr, HANDOFF_BASE_PREREQUISITE_LABEL.CLEAN_WORKING_TREE)).toContain(
+        HANDOFF_BASE_MARK.UNMET,
+      );
       expect(await readdir(harness.statusDir(TODO))).toEqual([]);
     });
   });

@@ -68,8 +68,8 @@ export async function runSessionCli(
   return { stdout: result.stdout, stderr: result.stderr, exitCode: result.exitCode ?? 1 };
 }
 
-/** Commit message for the seed commit a committed-cwd fixture writes — a fixture value, not a git token. */
-const COMMITTED_CWD_COMMIT_MESSAGE = "session cli fixture";
+/** Commit message for the seed commit a session git fixture writes — a fixture value, not a git token. */
+export const SESSION_FIXTURE_COMMIT_MESSAGE = "session cli fixture";
 
 /** The `<SESSION_FILE>` tag `spx session handoff` emits on success, carrying the written session path. */
 export const SESSION_FILE_TAG_PATTERN = /<SESSION_FILE>(.*?)<\/SESSION_FILE>/;
@@ -92,7 +92,7 @@ export async function withCommittedGitCwd(callback: (cwd: string) => Promise<voi
       GIT_TEST_SUBCOMMANDS.COMMIT,
       GIT_TEST_FLAGS.ALLOW_EMPTY,
       GIT_TEST_FLAGS.COMMIT_MESSAGE,
-      COMMITTED_CWD_COMMIT_MESSAGE,
+      SESSION_FIXTURE_COMMIT_MESSAGE,
     ]);
     await callback(gitEnv.productDir);
   });
