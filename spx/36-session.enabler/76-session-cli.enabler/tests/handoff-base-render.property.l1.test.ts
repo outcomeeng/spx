@@ -79,6 +79,9 @@ describe("renderHandoffBaseChecklist", () => {
   });
 
   it("never fabricates the origin/<default> placeholder for an unresolved value", () => {
+    // The generator draws each fact as null or a real value, so the renderer can only map an
+    // absent fact to the unresolved sentinel. The property therefore guards the renderer's own
+    // formatting from emitting the literal placeholder, not an arbitrary-input injection boundary.
     fc.assert(
       fc.property(arbitraryHandoffBaseChecklist(), (checklist) => {
         expect(renderHandoffBaseChecklist(checklist)).not.toContain(FORBIDDEN_ORIGIN_PLACEHOLDER);
@@ -87,8 +90,11 @@ describe("renderHandoffBaseChecklist", () => {
   });
 
   it("never suggests a stashing remedy", () => {
-    // The closed remedy set the resolver assigns and the renderer emits carries
-    // no work-hiding remedy, so no refusal can ever direct the agent to stash.
+    // Two-part proof. The loop proves the closed remedy set the resolver assigns carries no
+    // work-hiding remedy. The property then proves the renderer's own formatting — header, fact
+    // labels, prerequisite marks — injects no stash string for any checklist shape; because the
+    // generator draws remedies only from that closed set, the property guards the renderer's
+    // static text rather than an arbitrary-remedy round-trip.
     for (const remedy of Object.values(HANDOFF_BASE_REMEDY)) {
       expect(remedy).not.toContain(FORBIDDEN_STASH_REMEDY);
     }
