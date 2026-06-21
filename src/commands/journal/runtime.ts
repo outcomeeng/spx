@@ -2,13 +2,22 @@ import type { Result } from "@/config/types";
 import { journalRunFilePath } from "@/domains/journal/run-scope";
 import { createJournal, type JournalEvent, type JournalEventInput, type Projection } from "@/lib/agent-run-journal";
 import { createAppendableJournalStore } from "@/lib/appendable-journal-store";
-import { branchScopeDir, createJsonlRunFile, runFileName, type StateStoreFileSystem } from "@/lib/state-store";
+import {
+  branchScopeDir,
+  createJsonlRunFile,
+  defaultStateStoreFileSystem,
+  ERROR_CODE_NOT_FOUND,
+  hasErrorCode,
+  runFileName,
+  type StateStoreFileSystem,
+} from "@/lib/state-store";
 
 export const JOURNAL_RUNTIME_ERROR = {
   APPEND_FAILED: "journal append failed",
   READ_FAILED: "journal read failed",
   SEAL_FAILED: "journal seal failed",
   RENDER_FAILED: "journal render failed",
+  RUN_NOT_FOUND: "journal run not found; open the run before operating on it",
 } as const;
 
 export type JournalRuntimeErrorCode = (typeof JOURNAL_RUNTIME_ERROR)[keyof typeof JOURNAL_RUNTIME_ERROR];
@@ -62,9 +71,28 @@ function bindRunFilePath(ref: JournalRunRef): Result<string> {
   });
 }
 
-function bindJournal(ref: JournalRunRef, fs?: StateStoreFileSystem) {
+async function runFileExists(fs: StateStoreFileSystem, runFilePath: string): Promise<boolean> {
+  try {
+    return (await fs.lstat(runFilePath)).isFile();
+  } catch (error) {
+    if (hasErrorCode(error, ERROR_CODE_NOT_FOUND)) return false;
+    throw error;
+  }
+}
+
+/**
+ * Bind the journal contract to a run that `open` already created. The four
+ * operate-verbs require the run file to exist so a mistyped or never-opened run
+ * token is rejected rather than silently creating a phantom run that reads back
+ * empty; `open` mints the token and creates the file, so it never binds here.
+ */
+async function bindJournal(ref: JournalRunRef, fs?: StateStoreFileSystem) {
   const runFilePath = bindRunFilePath(ref);
   if (!runFilePath.ok) return runFilePath;
+  const fileSystem = fs ?? defaultStateStoreFileSystem;
+  if (!(await runFileExists(fileSystem, runFilePath.value))) {
+    return { ok: false as const, error: JOURNAL_RUNTIME_ERROR.RUN_NOT_FOUND };
+  }
   const name = runFileName(ref.runToken);
   const backend = createAppendableJournalStore({ runFilePath: runFilePath.value, ...(fs === undefined ? {} : { fs }) });
   const journal = createJournal(backend, { streamid: name, runid: name });
@@ -112,15 +140,24 @@ export async function appendJournalEvent(
   sink: JournalStreamSink,
   options: JournalVerbOptions = {},
 ): Promise<Result<JournalEvent>> {
-  const bound = bindJournal(ref, options.fs);
+  const bound = await bindJournal(ref, options.fs);
   if (!bound.ok) return bound;
+  let event: JournalEvent;
   try {
-    const event = await bound.value.journal.append(input);
-    await sink.emit(event);
-    return { ok: true, value: event };
+    event = await bound.value.journal.append(input);
   } catch (error) {
     return { ok: false, error: `${JOURNAL_RUNTIME_ERROR.APPEND_FAILED}: ${toMessage(error)}` };
   }
+  // The event is durably recorded. Streaming is best-effort: reporting a failure
+  // here would make the caller retry and append the same event again at the next
+  // sequence, duplicating a committed fact. A missed emit self-heals because the
+  // next append (and seal) re-renders the full projection from history.
+  try {
+    await sink.emit(event);
+  } catch {
+    // best-effort streaming surface; the committed event stands
+  }
+  return { ok: true, value: event };
 }
 
 /** Read a run's events at or after `fromCursor`, oldest first. */
@@ -129,7 +166,7 @@ export async function readJournalEvents(
   fromCursor: number,
   options: JournalVerbOptions = {},
 ): Promise<Result<readonly JournalEvent[]>> {
-  const bound = bindJournal(ref, options.fs);
+  const bound = await bindJournal(ref, options.fs);
   if (!bound.ok) return bound;
   try {
     return { ok: true, value: await bound.value.journal.read(fromCursor) };
@@ -143,7 +180,7 @@ export async function sealJournalRun(
   ref: JournalRunRef,
   options: JournalVerbOptions = {},
 ): Promise<Result<void>> {
-  const bound = bindJournal(ref, options.fs);
+  const bound = await bindJournal(ref, options.fs);
   if (!bound.ok) return bound;
   try {
     await bound.value.journal.seal();
@@ -159,7 +196,7 @@ export async function renderJournalRun<T>(
   projection: Projection<T>,
   options: JournalVerbOptions = {},
 ): Promise<Result<T>> {
-  const bound = bindJournal(ref, options.fs);
+  const bound = await bindJournal(ref, options.fs);
   if (!bound.ok) return bound;
   try {
     return { ok: true, value: await bound.value.journal.render(projection) };
