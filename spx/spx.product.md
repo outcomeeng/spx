@@ -25,7 +25,7 @@ CONTRIBUTING TO higher engineering velocity — teams ship quality code faster b
 
 ### What's included
 
-- Code validation — configured source, test, dependency, documentation, and unused-code quality gates across project languages
+- Code validation — configured source, formatting, test, dependency, documentation, and unused-code quality gates across project languages
 - Deterministic context ingestion — spec-tree context loading from product root, ancestor specs, decisions, lower-index siblings, tests, and escape hatches without LLM inference
 - Spec-tree execution — config-driven execution of testing, validation, auditing skills, and reviewing governed by `spx.config.{toml,json,yaml}`, with persisted state for fast status reporting and hermetic agent execution for branch and PR review targets
 - Agent environment management — deterministic management of `AGENTS.md`, Claude Code and Codex configuration, configured plugin marketplaces, plugins, and skills

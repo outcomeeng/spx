@@ -7,6 +7,7 @@
 
 17-file-inclusion.enabler/32-path-predicates.enabler
 41-validation.enabler/32-python-validation.enabler
+41-validation.enabler/76-formatting.enabler
 26-release.enabler/32-release-notes.enabler
 26-release.enabler/32-documentation-sync.enabler
 26-release.enabler/43-publish-dispatch.enabler
