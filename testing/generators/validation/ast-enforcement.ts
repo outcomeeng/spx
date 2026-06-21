@@ -60,7 +60,6 @@ import {
 import { LITERAL_TEST_GENERATOR, sampleLiteralTestValue } from "@testing/generators/literal/literal";
 
 const RULE_TESTER_ECMA_VERSION = 2022;
-const AST_RULE_TESTER_ECMA_VERSION = 2023;
 const MODULE_SOURCE_TYPE = "module";
 const AFTER_ALL_HOOK_KEY = "afterAll";
 const ZERO_DIAGNOSTICS = 0;
@@ -197,16 +196,6 @@ export function validationEslintRuleTesterLanguageOptions(): {
 } {
   return {
     ecmaVersion: RULE_TESTER_ECMA_VERSION,
-    sourceType: MODULE_SOURCE_TYPE,
-  };
-}
-
-export function validationAstRuleTesterLanguageOptions(): {
-  readonly ecmaVersion: number;
-  readonly sourceType: typeof MODULE_SOURCE_TYPE;
-} {
-  return {
-    ecmaVersion: AST_RULE_TESTER_ECMA_VERSION,
     sourceType: MODULE_SOURCE_TYPE,
   };
 }
