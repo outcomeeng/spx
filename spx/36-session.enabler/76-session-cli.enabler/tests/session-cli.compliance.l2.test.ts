@@ -27,7 +27,7 @@ import {
   sampleSessionId,
 } from "@testing/generators/session/session";
 import { GIT_TEST_FLAGS, GIT_TEST_REF, GIT_TEST_SUBCOMMANDS } from "@testing/harnesses/git-test-constants";
-import { withGitWorktreeEnv } from "@testing/harnesses/git-worktree/git-worktree";
+import { type GitWorktreeEnv, withGitWorktreeEnv } from "@testing/harnesses/git-worktree/git-worktree";
 import {
   buildHandoffStdin,
   buildSessionMarkdownBody,
@@ -58,7 +58,34 @@ const ABSENT_SESSION_ID = "missing-id";
 /** The rendered fact line for `label`, anchored to its label prefix so the header prose never matches. */
 function factLine(stderr: string, label: string): string {
   const prefix = `${label}: `;
-  return stderr.split("\n").find((line) => line.trimStart().startsWith(prefix)) ?? "";
+  const line = stderr.split("\n").find((candidate) => candidate.trimStart().startsWith(prefix));
+  // Name the absent label on failure rather than letting an empty fallback surface as a bare
+  // "expected '' to contain …"; the assertion fires only when the fact line is missing.
+  expect(line, `expected a fact line for "${label}"`).toBeDefined();
+  return line ?? "";
+}
+
+/**
+ * Seeds a commit and points `origin/HEAD` at `origin/<FIXTURE_DEFAULT_BRANCH>` = the seed commit,
+ * so the handler's default-branch and origin-tip collection resolve to real values. Returns the
+ * resolved tip SHA. Shared by the permitted (detached-at-tip) and refused (on-branch) origin smokes.
+ */
+async function seedResolvedOrigin(gitEnv: GitWorktreeEnv): Promise<string> {
+  await gitEnv.runGit([
+    GIT_TEST_SUBCOMMANDS.COMMIT,
+    GIT_TEST_FLAGS.ALLOW_EMPTY,
+    GIT_TEST_FLAGS.COMMIT_MESSAGE,
+    GIT_FIXTURE_COMMIT_MESSAGE,
+  ]);
+  const tipSha = await gitEnv.runGit([...GIT_HEAD_SHA_ARGS]);
+  const originDefaultRef = `${GIT_TEST_REF.REMOTE_ORIGIN_PREFIX}${FIXTURE_DEFAULT_BRANCH}`;
+  await gitEnv.runGit([GIT_TEST_SUBCOMMANDS.UPDATE_REF, originDefaultRef, tipSha]);
+  await gitEnv.runGit([
+    GIT_TEST_SUBCOMMANDS.SYMBOLIC_REF,
+    `${GIT_TEST_REF.REMOTE_ORIGIN_PREFIX}${GIT_TEST_REF.HEAD_NAME}`,
+    originDefaultRef,
+  ]);
+  return tipSha;
 }
 
 /**
@@ -415,20 +442,7 @@ describe("session CLI handoff-base wiring", () => {
 
   it("permitted: a clean non-main worktree detached at the origin tip writes the session and no checklist", async () => {
     await withGitWorktreeEnv(async (gitEnv) => {
-      await gitEnv.runGit([
-        GIT_TEST_SUBCOMMANDS.COMMIT,
-        GIT_TEST_FLAGS.ALLOW_EMPTY,
-        GIT_TEST_FLAGS.COMMIT_MESSAGE,
-        GIT_FIXTURE_COMMIT_MESSAGE,
-      ]);
-      const tipSha = await gitEnv.runGit([...GIT_HEAD_SHA_ARGS]);
-      const originDefaultRef = `${GIT_TEST_REF.REMOTE_ORIGIN_PREFIX}${FIXTURE_DEFAULT_BRANCH}`;
-      await gitEnv.runGit([GIT_TEST_SUBCOMMANDS.UPDATE_REF, originDefaultRef, tipSha]);
-      await gitEnv.runGit([
-        GIT_TEST_SUBCOMMANDS.SYMBOLIC_REF,
-        `${GIT_TEST_REF.REMOTE_ORIGIN_PREFIX}${GIT_TEST_REF.HEAD_NAME}`,
-        originDefaultRef,
-      ]);
+      const tipSha = await seedResolvedOrigin(gitEnv);
       const linkedWorktreeDir = join(gitEnv.productDir, LINKED_WORKTREE_RELATIVE_PATH);
       await gitEnv.runGit([
         GIT_TEST_SUBCOMMANDS.WORKTREE,
@@ -445,6 +459,35 @@ describe("session CLI handoff-base wiring", () => {
       expect(result.stdout).toMatch(SESSION_FILE_TAG_PATTERN);
       expect(result.stderr.trim()).toBe("");
       expect(await readdir(harness.statusDir(TODO))).toHaveLength(1);
+    });
+  });
+
+  it("refused with a resolved origin: the checklist names the real default branch and origin tip", async () => {
+    await withGitWorktreeEnv(async (gitEnv) => {
+      const tipSha = await seedResolvedOrigin(gitEnv);
+      await gitEnv.runGit([GIT_TEST_SUBCOMMANDS.BRANCH, LINKED_WORKTREE_BRANCH]);
+      const linkedWorktreeDir = join(gitEnv.productDir, LINKED_WORKTREE_RELATIVE_PATH);
+      // On a named branch (not detached) the at-tip prerequisite is unmet, so the base refuses
+      // even though origin resolves — exercising the resolved-origin refused render the permitted
+      // smoke cannot, since success emits no checklist.
+      await gitEnv.runGit([
+        GIT_TEST_SUBCOMMANDS.WORKTREE,
+        GIT_TEST_SUBCOMMANDS.ADD,
+        linkedWorktreeDir,
+        LINKED_WORKTREE_BRANCH,
+      ]);
+
+      const result = await runHandoffFrom(linkedWorktreeDir);
+
+      expect(result.exitCode).not.toBe(0);
+      expect(result.stderr).toContain(SESSION_HANDOFF_BASE_ERROR_NAME);
+      // The default-branch and origin-tip fact lines carry the real collected values, proving the
+      // git-to-facts collection of the resolved-origin facts reaches the rendered checklist.
+      expect(factLine(result.stderr, HANDOFF_BASE_FACT_LABEL.DEFAULT_BRANCH).trim()).toBe(
+        `${HANDOFF_BASE_FACT_LABEL.DEFAULT_BRANCH}: ${FIXTURE_DEFAULT_BRANCH}`,
+      );
+      expect(factLine(result.stderr, HANDOFF_BASE_FACT_LABEL.DEFAULT_TIP)).toContain(tipSha);
+      expect(await readdir(harness.statusDir(TODO))).toEqual([]);
     });
   });
 });
