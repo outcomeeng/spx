@@ -34,7 +34,13 @@ function matchOperand(
   // Strip trailing slashes (e.g. from shell directory completion) so a node
   // operand's own-tests prefix is `{node}/tests`, never `{node}//tests`, which
   // applyPathFilter's segment matcher would never match against discovered paths.
-  const normalized = operand.replace(/\/+$/u, "");
+  // A character scan rather than a `/+$` regex keeps the strip linear and free of
+  // any backtracking.
+  let normalizedEnd = operand.length;
+  while (normalizedEnd > 0 && operand.charAt(normalizedEnd - 1) === PATH_SEGMENT_SEPARATOR) {
+    normalizedEnd -= 1;
+  }
+  const normalized = operand.slice(0, normalizedEnd);
   if (recursive || discovered.includes(normalized)) {
     return applyPathFilter(discovered, { include: [normalized] });
   }

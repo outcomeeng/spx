@@ -1,3 +1,5 @@
+import assert from "node:assert";
+
 import { describe, expect, it } from "vitest";
 
 import { pythonTestingLanguage } from "@/test/languages/python";
@@ -17,7 +19,7 @@ describe("python test runner drives real pytest", () => {
       );
 
       expect(result.invoked).toBe(true);
-      if (!result.invoked) throw new Error();
+      assert(result.invoked);
       expect(result.exitCode).toBe(0);
     });
   });
@@ -30,7 +32,7 @@ describe("python test runner drives real pytest", () => {
       );
 
       expect(result.invoked).toBe(true);
-      if (!result.invoked) throw new Error();
+      assert(result.invoked);
       expect(result.exitCode).not.toBe(0);
       expect(result.exitCode).not.toBe(PYTEST_EXIT_CODE.NO_TESTS_COLLECTED);
     });

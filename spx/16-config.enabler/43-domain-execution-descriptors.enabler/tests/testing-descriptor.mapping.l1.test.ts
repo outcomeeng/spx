@@ -3,6 +3,8 @@ import { join } from "node:path";
 
 import { describe, expect, it } from "vitest";
 
+import { compareAsciiStrings } from "@/lib/state-store";
+
 import {
   CONFIG_FILE_FORMAT,
   CONFIG_FILE_FORMAT_ORDER,
@@ -18,7 +20,7 @@ import type { Config } from "@testing/harnesses/spec-tree/spec-tree";
 import { withTestEnv } from "@testing/harnesses/spec-tree/spec-tree";
 
 function serializeConfig(format: ConfigFileFormat, config: Config): string {
-  const serialized = serializeConfigFileSections(format, config as Record<string, unknown>);
+  const serialized = serializeConfigFileSections(format, config);
   if (!serialized.ok) {
     throw new Error(serialized.error);
   }
@@ -41,7 +43,9 @@ describe("testing config descriptor format mapping", () => {
       });
     }
 
-    expect(Object.keys(results).sort()).toEqual([...CONFIG_FILE_FORMAT_ORDER].sort());
+    expect(Object.keys(results).sort(compareAsciiStrings)).toEqual(
+      [...CONFIG_FILE_FORMAT_ORDER].sort(compareAsciiStrings),
+    );
     expect(results[CONFIG_FILE_FORMAT.JSON]).toEqual(results[CONFIG_FILE_FORMAT.YAML]);
     expect(results[CONFIG_FILE_FORMAT.TOML]).toEqual(results[CONFIG_FILE_FORMAT.YAML]);
   });

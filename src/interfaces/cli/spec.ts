@@ -31,7 +31,15 @@ const VALID_STATUS_FORMATS: readonly OutputFormat[] = [
 ];
 
 function handleCommandError(error: unknown): never {
-  console.error("Error:", error instanceof Error ? error.message : String(error));
+  let message: string;
+  if (error instanceof Error) {
+    message = error.message;
+  } else if (typeof error === "string") {
+    message = error;
+  } else {
+    message = JSON.stringify(error);
+  }
+  console.error("Error:", message);
   process.exit(1);
 }
 

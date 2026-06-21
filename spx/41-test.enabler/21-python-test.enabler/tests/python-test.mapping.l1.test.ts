@@ -1,6 +1,7 @@
 import * as fc from "fast-check";
 import { describe, expect, it } from "vitest";
 
+import { compareAsciiStrings } from "@/lib/state-store";
 import { pythonTestingLanguage } from "@/test/languages/python";
 import {
   PYTHON_PYTEST_IGNORE_FLAG_PREFIX,
@@ -37,8 +38,8 @@ describe("python test runner file matching and exclusion flags", () => {
   });
 
   it("declares pytest-discovered product inputs", () => {
-    expect([...pythonTestingLanguage.productInputPaths].sort()).toEqual([
+    expect([...pythonTestingLanguage.productInputPaths].sort(compareAsciiStrings)).toEqual([
       ...EXPECTED_PYTEST_PRODUCT_INPUT_PATHS,
-    ].sort());
+    ].sort(compareAsciiStrings));
   });
 });

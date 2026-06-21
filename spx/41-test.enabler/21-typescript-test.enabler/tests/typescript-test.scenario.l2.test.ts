@@ -1,3 +1,5 @@
+import assert from "node:assert";
+
 import { describe, expect, it } from "vitest";
 
 import { typescriptTestingLanguage } from "@/test/languages/typescript";
@@ -16,7 +18,7 @@ describe("typescript test runner drives real vitest", () => {
       );
 
       expect(result.invoked).toBe(true);
-      if (!result.invoked) throw new Error();
+      assert(result.invoked);
       expect(result.exitCode).toBe(0);
     });
   });
@@ -29,7 +31,7 @@ describe("typescript test runner drives real vitest", () => {
       );
 
       expect(result.invoked).toBe(true);
-      if (!result.invoked) throw new Error();
+      assert(result.invoked);
       expect(result.exitCode).not.toBe(0);
     });
   });

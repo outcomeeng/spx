@@ -27,6 +27,11 @@ function assertTestingConfig(value: unknown): TestingConfig {
   return value as TestingConfig;
 }
 
+function assertValidationConfig(value: unknown): typeof validationConfigDescriptor.defaults {
+  expect(value).toHaveProperty(VALIDATION_PATHS_SUBSECTION);
+  return value as typeof validationConfigDescriptor.defaults;
+}
+
 describe("testing config descriptor registration", () => {
   it("is reachable through the default production config registry", async () => {
     const generated = sampleConfigTestValue(CONFIG_TEST_GENERATOR.testingConfig());
@@ -82,7 +87,7 @@ describe("testing config descriptor registration", () => {
     await withTestEnv(projectConfig, async ({ productDir }) => {
       const result = await resolveConfig(productDir, [validationConfigDescriptor, testingConfigDescriptor]);
       const config = expectResolvedConfig(result);
-      const validation = config[VALIDATION_SECTION] as typeof validationConfigDescriptor.defaults;
+      const validation = assertValidationConfig(config[VALIDATION_SECTION]);
       const testing = assertTestingConfig(config[TESTING_SECTION]);
 
       expect(validation.paths[PATH_FILTER_CONFIG_FIELDS.INCLUDE]).toEqual(

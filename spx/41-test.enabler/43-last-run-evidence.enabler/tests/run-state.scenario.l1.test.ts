@@ -2,7 +2,7 @@ import { join } from "node:path";
 
 import { describe, expect, it } from "vitest";
 
-import { STATE_STORE_DOMAIN, STATE_STORE_PATH } from "@/lib/state-store";
+import { compareAsciiStrings, STATE_STORE_DOMAIN, STATE_STORE_PATH } from "@/lib/state-store";
 import {
   createTestRunFile,
   formatTestRunTimestamp,
@@ -35,11 +35,12 @@ function createReadFailingFileSystem(
     appendFile: () => Promise.resolve(),
     readFile: () => Promise.reject(error),
     readdir: () => Promise.resolve(entries),
-    lstat: (path) => Promise.resolve({
-      isDirectory: () => !path.endsWith(runFileName),
-      isFile: () => path.endsWith(runFileName),
-      isSymbolicLink: () => false,
-    }),
+    lstat: (path) =>
+      Promise.resolve({
+        isDirectory: () => !path.endsWith(runFileName),
+        isFile: () => path.endsWith(runFileName),
+        isSymbolicLink: () => false,
+      }),
     rm: () => Promise.resolve(),
   };
 }
@@ -337,7 +338,7 @@ describe("testing last-run state storage", () => {
     const sharedStamp = formatTestRunTimestamp(sampleTestRunStateValue(TEST_RUN_STATE_TEST_GENERATOR.timestampDate()));
     const runOne = sampleTestRunStateValue(TEST_RUN_STATE_TEST_GENERATOR.runFileName());
     const runTwo = sampleTestRunStateValue(TEST_RUN_STATE_TEST_GENERATOR.runFileName());
-    const [, lexicographicallyLaterRun] = [runOne, runTwo].sort();
+    const [, lexicographicallyLaterRun] = [runOne, runTwo].sort(compareAsciiStrings);
     const tiedState = JSON.stringify(stateCovering(base, nodeTestPaths, sharedStamp, sharedStamp));
 
     await withTestingTempProductDir(async (productDir) => {
@@ -388,13 +389,13 @@ describe("testing last-run state storage", () => {
       if (!runs.ok) throw new Error(runs.error);
 
       expect(runs.value.terminalRuns).toEqual([]);
-      expect(runs.value.incompleteRuns.map((run) => run.reason).sort()).toEqual(
+      expect(runs.value.incompleteRuns.map((run) => run.reason).sort(compareAsciiStrings)).toEqual(
         [
           TESTING_RUN_STATE_INCOMPLETE_REASON.MISSING_STATE,
           TESTING_RUN_STATE_INCOMPLETE_REASON.PARSE_INVALID_STATE,
           TESTING_RUN_STATE_INCOMPLETE_REASON.PARSE_INVALID_STATE,
           TESTING_RUN_STATE_INCOMPLETE_REASON.SHAPE_INVALID_STATE,
-        ].sort(),
+        ].sort(compareAsciiStrings),
       );
     });
   });
