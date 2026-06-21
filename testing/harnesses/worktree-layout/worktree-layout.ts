@@ -63,7 +63,7 @@ export type WorktreeLayoutEnv = {
   worktree(name: string): string;
 };
 
-type CapturedGitEnv = ReadonlyMap<string, string | undefined>;
+type CapturedGitEnv = ReadonlyMap<string, string>;
 
 /**
  * Provisions a real git worktree layout in temp directories, invokes the callback
@@ -87,11 +87,10 @@ export async function withWorktreeLayoutEnv(
           container,
           worktrees,
           worktree(name) {
-            const path = worktrees[name];
-            if (path === undefined) {
+            if (!Object.hasOwn(worktrees, name)) {
               throw new Error(`No worktree named '${name}' in the provisioned layout`);
             }
-            return path;
+            return worktrees[name];
           },
         });
       }));
@@ -138,7 +137,8 @@ async function provisionNonBareRepo(
   spec: WorktreeLayoutSpec,
   headSha: string,
 ): Promise<Record<string, string>> {
-  const [main, ...linked] = spec.worktrees;
+  const main = spec.worktrees.at(0);
+  const linked = spec.worktrees.slice(1);
   if (main === undefined) {
     throw new Error("A non-bare worktree layout needs at least the main working tree");
   }
@@ -191,10 +191,10 @@ async function addWorktree(
 }
 
 function captureAndStripProcessGitEnv(): CapturedGitEnv {
-  const captured = new Map<string, string | undefined>();
-  for (const key of Object.keys(process.env)) {
-    if (key.startsWith(GIT_ENV_PREFIX)) {
-      captured.set(key, process.env[key]);
+  const captured = new Map<string, string>();
+  for (const [key, value] of Object.entries(process.env)) {
+    if (value !== undefined && key.startsWith(GIT_ENV_PREFIX)) {
+      captured.set(key, value);
       delete process.env[key];
     }
   }
@@ -203,10 +203,6 @@ function captureAndStripProcessGitEnv(): CapturedGitEnv {
 
 function restoreProcessGitEnv(captured: CapturedGitEnv): void {
   for (const [key, value] of captured) {
-    if (value === undefined) {
-      delete process.env[key];
-    } else {
-      process.env[key] = value;
-    }
+    process.env[key] = value;
   }
 }
