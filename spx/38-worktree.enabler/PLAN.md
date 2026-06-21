@@ -13,3 +13,11 @@ Plugin SessionStart hooks delegate startup behavior to `spx hook run session-sta
 - `spx worktree release` — invoked by `/handoff` at session close. Frees the running worktree's claim. Best-effort: a missing command, non-zero exit, or slow release is harmless because a dead holder's claim already reads as stale at the next status check.
 
 The plugin-side integration design is governed in `github.com/outcomeeng/plugins` at `spx/21-spec-tree.enabler/19-worktree-occupancy.enabler/` and `spx/21-spec-tree.enabler/76-sessions.enabler/ISSUES.md`.
+
+## Harness governance (queued)
+
+Govern the still-ungoverned worktree test harnesses and generators per the **Remaining harness governance program** in `spx/PLAN.md` (part of the State + worktree batch — coordinate with `spx/18-state.enabler/PLAN.md`).
+
+Modules: `testing/harnesses/worktree/harness.ts` (-> `spx/38-worktree.enabler/32-occupancy-store.enabler`), `testing/harnesses/worktree-layout/worktree-layout.ts`, and `testing/generators/worktree/*.ts`.
+
+Route: `/understand` -> `/contextualize spx/38-worktree.enabler` -> `/author` per-module test-harness/generator enablers -> `/apply` audit gates (spec-auditor + test-evidence-auditor, including the coverage gate) -> `/merge`.

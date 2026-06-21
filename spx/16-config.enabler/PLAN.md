@@ -142,3 +142,11 @@ See packet-level PLAN files for per-node evidence items; this section records cr
 - Canonical descriptor JSON tests prove object keys sort recursively, array order is preserved, primitive serialization matches JSON semantics, and digest input bytes are stable across equivalent resolved descriptor sections.
 - Canonical descriptor JSON tests prove validators reject `undefined`, `NaN`, `Infinity`, functions, symbols, and other non-JSON-representable values before digest computation.
 - Canonical descriptor JSON digest implementation uses Node.js `node:crypto`; no third-party crypto dependency is introduced.
+
+## Harness governance (queued)
+
+Govern the still-ungoverned config generators and shared helpers per the **Remaining harness governance program** in `spx/PLAN.md` (approach, audit gates, literal-collision lessons). One PR.
+
+Modules: `testing/generators/config/{config,descriptors}.ts`, `testing/harnesses/crypto.ts` (-> `spx/16-config.enabler/54-canonical-descriptor-digest.enabler`), `testing/harnesses/git-test-constants.ts` (-> `spx/16-config.enabler/21-config-cli.enabler`), `testing/harnesses/constants.ts` (govern beside its dominant consumer, or extract a shared infrastructure node if genuinely cross-domain).
+
+Route: `/understand` -> `/contextualize spx/16-config.enabler` -> `/author` per-module generator/test-harness enablers -> `/apply` audit gates (spec-auditor + test-evidence-auditor, including the coverage gate) -> `/merge`.

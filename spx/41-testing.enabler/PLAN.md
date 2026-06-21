@@ -223,3 +223,11 @@ diagnostics.
   plus JSON artifact, or both.
 - Whether unsupported custom runners should fail closed in v1 or be allowed
   through a generic shell-command adapter with reduced guarantees.
+
+## Harness governance (queued)
+
+Govern the still-ungoverned testing recording-runner harnesses and generators per the **Remaining harness governance program** in `spx/PLAN.md` (approach, audit gates, literal-collision lessons). One PR for this batch.
+
+Modules: `testing/harnesses/testing/{cli,harness,python-runner,typescript-runner,python-product-inputs}.ts` and `testing/generators/testing/{dispatch,python-runner,run-state,typescript-runner}.ts` — place each governing node beside `spx/41-testing.enabler` and its sub-enablers (`21-python-testing`, `21-typescript-testing`, `85-agent-test-output`). The `dispatch` generator already gained `nodeOperand`/`supportFileUnder` in prior work — reconcile, do not duplicate.
+
+Route: `/understand` -> `/contextualize spx/41-testing.enabler` -> `/author` per-module test-harness/generator enablers -> `/apply` audit gates (spec-auditor + test-evidence-auditor, including the coverage gate) -> `/merge`.
