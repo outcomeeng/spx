@@ -98,6 +98,16 @@ describe("journal CLI", () => {
         noGit,
       );
       expect(appended.exitCode).toBe(JOURNAL_CLI_EXIT_CODE.OK);
+
+      // The remaining verbs share the same git-free scope resolution and must also succeed.
+      const read = await journalReadCommand({ type, runToken }, String(JOURNAL_SEQ_BASE), noGit);
+      expect(read.exitCode).toBe(JOURNAL_CLI_EXIT_CODE.OK);
+
+      const sealed = await journalSealCommand({ type, runToken }, noGit);
+      expect(sealed.exitCode).toBe(JOURNAL_CLI_EXIT_CODE.OK);
+
+      const rendered = await journalRenderCommand({ type, runToken }, noGit);
+      expect(rendered.exitCode).toBe(JOURNAL_CLI_EXIT_CODE.OK);
     });
   });
 
