@@ -37,3 +37,26 @@ injected filesystem dependency and a test covering that path. `pull_request_targ
 workflows are common for jobs that need write permission to post PR comments —
 exactly the journal's github-pr surface — so this is a real enhancement, not a
 corner case.
+
+## FOLLOW-UP — github-pr comment upsert re-lists all PR comments on every append
+
+Under the github-pr backend, `upsertPullRequestComment` in
+`src/commands/journal/github-client.ts` lists every comment on the pull request
+(`gh api ... --paginate --slurp`) and scans the bodies for the run's marker on
+each append. For a run of N events on a pull request with M comments this is
+O(N × M) body scans and roughly N × (M / page-size) API calls.
+
+The N factor is intrinsic to the process model: each `spx journal append` is a
+separate CLI process, so each one re-discovers the comment from scratch — there
+is no in-memory state to carry the comment id across appends. Eliminating the
+re-list therefore requires persisting the resolved comment id in the run's local
+state and reading it back on the next append, which is a separate, larger change
+than the upsert call itself; that is why it is tracked here rather than fixed in
+the channel changeset. The cost is acceptable at current scale and, because
+streaming is best-effort, surfaces only as latency, never an error; it becomes a
+bottleneck if either axis grows (e.g. a long audit run on a busy pull request).
+
+Enhancement: persist the comment id (e.g. alongside the run state or in the
+run-scope directory) on first create/find, and have `upsertPullRequestComment`
+accept and prefer a known comment id — editing it directly and skipping the
+list — falling back to the marker scan only when the id is absent or stale.
