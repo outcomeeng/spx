@@ -3,13 +3,13 @@ import { describe, expect, it } from "vitest";
 import {
   JOURNAL_BACKEND,
   JOURNAL_BACKEND_ORDER,
-  type JournalBackendKind,
+  type JournalEdgeBackend,
   type JournalEnvironment,
   resolveJournalBackend,
 } from "@/domains/journal/backend-selection";
 
 describe("resolveJournalBackend", () => {
-  it.each<{ readonly env: JournalEnvironment; readonly expected: JournalBackendKind }>([
+  it.each<{ readonly env: JournalEnvironment; readonly expected: JournalEdgeBackend }>([
     {
       env: { continuousIntegration: false, githubPullRequest: false },
       expected: JOURNAL_BACKEND.LOCAL,

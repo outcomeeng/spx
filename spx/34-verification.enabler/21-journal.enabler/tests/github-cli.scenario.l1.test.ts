@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 
 import {
+  JOURNAL_CLI_ERROR,
   JOURNAL_CLI_EXIT_CODE,
   journalAppendCommand,
   type JournalCliDeps,
@@ -37,7 +38,7 @@ describe("journal CLI github-pr backend", () => {
       const appended = await journalAppendCommand(
         { type, runToken },
         input,
-        { localSink: new RecordingJournalStreamSink(), githubClient },
+        { localSink: new RecordingJournalStreamSink(), githubClient, githubRepository: "owner/repo" },
         deps,
       );
       expect(appended.exitCode).toBe(JOURNAL_CLI_EXIT_CODE.OK);
@@ -48,6 +49,39 @@ describe("journal CLI github-pr backend", () => {
       expect(comment?.marker).toBe(journalCommentMarker(type, runToken));
       const persisted = JSON.parse(comment?.body ?? "[]") as JournalEvent[];
       expect(persisted.map((event) => event.seq)).toEqual([JOURNAL_SEQ_BASE]);
+    });
+  });
+
+  it("rejects a github-pr append when GITHUB_REPOSITORY is absent", async () => {
+    const type = sampleStateStoreTestValue(STATE_STORE_TEST_GENERATOR.scopeToken());
+    const input = sampleAgentRunJournalValue(arbitraryJournalEventInput());
+    const pullNumber = sampleGithubSnapshotValue(arbitraryPullNumber());
+
+    await withGitEnv(async ({ path }) => {
+      const deps: JournalCliDeps = {
+        cwd: path,
+        env: { backendOverride: JOURNAL_BACKEND.GITHUB_PR, continuousIntegration: true, githubPullRequest: true },
+        processEnv: { GITHUB_REF: `refs/pull/${pullNumber}/merge` },
+      };
+
+      const opened = await journalOpenCommand({ type }, deps);
+      const { runToken } = JSON.parse(opened.output) as { runToken: string };
+
+      // The pull request number resolves, but the repository is empty — the verb
+      // must report the misconfiguration, not silently drop the comment.
+      const appended = await journalAppendCommand(
+        { type, runToken },
+        input,
+        {
+          localSink: new RecordingJournalStreamSink(),
+          githubClient: new RecordingGithubSnapshotClient(),
+          githubRepository: "",
+        },
+        deps,
+      );
+
+      expect(appended.exitCode).toBe(JOURNAL_CLI_EXIT_CODE.ERROR);
+      expect(appended.output).toBe(JOURNAL_CLI_ERROR.GITHUB_REPOSITORY_MISSING);
     });
   });
 });
