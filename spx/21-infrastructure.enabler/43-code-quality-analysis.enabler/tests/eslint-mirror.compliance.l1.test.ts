@@ -1,5 +1,6 @@
 import { Linter } from "eslint";
 import sonarjs from "eslint-plugin-sonarjs";
+import tseslint from "typescript-eslint";
 import { describe, expect, it } from "vitest";
 
 import { MIRROR_RULE_SEVERITY, MIRROR_RULES, TYPE_AWARE_PARSER_OPTIONS } from "@eslint-rules/sonarjs-mirror";
@@ -43,5 +44,23 @@ describe("type-aware lint mirror", () => {
     expect(
       messages.some((message) => message.ruleId?.startsWith(sonarjsPrefix)),
     ).toBe(true);
+  });
+
+  it("declares @typescript-eslint rule ids the plugin recognizes", () => {
+    // Reporting evidence for the type-aware @typescript-eslint rules needs a
+    // real TypeScript project, covered by the buildEslintConfig composition
+    // [audit]; here the rule ids are confirmed recognized by the plugin.
+    const typescriptRuleNames = Object.keys(MIRROR_RULES)
+      .filter((rule) => rule.startsWith(typescriptPrefix))
+      .map((rule) => rule.slice(typescriptPrefix.length));
+
+    // The runtime plugin exposes `rules`; the compat plugin type does not.
+    const pluginRules = (tseslint.plugin as { rules?: Record<string, unknown> })
+      .rules ?? {};
+
+    expect(typescriptRuleNames.length).toBeGreaterThan(0);
+    for (const ruleName of typescriptRuleNames) {
+      expect(pluginRules).toHaveProperty(ruleName);
+    }
   });
 });
