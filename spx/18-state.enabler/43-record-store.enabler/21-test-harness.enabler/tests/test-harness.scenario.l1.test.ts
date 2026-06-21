@@ -110,12 +110,13 @@ describe("in-memory StateStoreFileSystem double — enumeration", () => {
     await fs.writeFile(`/${root}/${directFile}`, initial, { flag: EXCLUSIVE_CREATE_FLAG });
     await fs.writeFile(`/${root}/${childDir}/${grandchild}`, initial, { flag: EXCLUSIVE_CREATE_FLAG });
 
+    const byName = (left: string, right: string): number => left.localeCompare(right);
     const entries = await fs.readdir(`/${root}`, { withFileTypes: true });
-    const files = entries.filter((entry) => entry.isFile()).map((entry) => entry.name).sort();
-    const directories = entries.filter((entry) => !entry.isFile()).map((entry) => entry.name).sort();
+    const files = entries.filter((entry) => entry.isFile()).map((entry) => entry.name).sort(byName);
+    const directories = entries.filter((entry) => !entry.isFile()).map((entry) => entry.name).sort(byName);
 
     expect(files).toEqual([directFile]);
-    expect(directories).toEqual([emptyDir, childDir].sort());
+    expect(directories).toEqual([emptyDir, childDir].sort(byName));
 
     await expectErrorCode(
       fs.readdir(`/${root}/${emptyDir}/${grandchild}`, { withFileTypes: true }),
