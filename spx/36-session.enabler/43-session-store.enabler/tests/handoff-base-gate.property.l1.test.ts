@@ -4,11 +4,8 @@ import { describe, expect, it } from "vitest";
 import { SessionHandoffBaseError } from "@/domains/session/errors";
 import { type HandoffGitFacts, resolveHandoffGitRef } from "@/domains/session/handoff-base";
 import { HANDOFF_BASE_PREREQUISITE_LABEL, HANDOFF_BASE_REMEDY } from "@/domains/session/handoff-base-checklist";
-import {
-  arbitraryBranchName,
-  arbitraryCommitSha,
-  arbitraryHandoffGitFacts,
-} from "@testing/generators/session/handoff-base";
+import { arbitraryBranchName } from "@testing/generators/git-name/git-name";
+import { arbitraryCommitSha, arbitraryHandoffGitFacts } from "@testing/generators/session/handoff-base";
 
 /** Resolves the ref, or returns the handoff-base refusal it raises. */
 function captureRefusal(facts: HandoffGitFacts): SessionHandoffBaseError {

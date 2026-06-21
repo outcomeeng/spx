@@ -1,6 +1,7 @@
 import * as fc from "fast-check";
 
-const PATH_SEGMENT_PATTERN = /^[a-z][a-z0-9-]{2,12}$/;
+import { arbitraryPathSegment } from "@testing/generators/git-name/git-name";
+
 const FILE_CONTENT_MIN_LENGTH = 8;
 const FILE_CONTENT_MAX_LENGTH = 64;
 const NESTED_DEPTH_MIN = 1;
@@ -24,10 +25,6 @@ export function sampleGitWorktreeTestValue<T>(arbitrary: fc.Arbitrary<T>): T {
     throw new Error("Git-worktree test generator returned no sample");
   }
   return value;
-}
-
-function arbitraryPathSegment(): fc.Arbitrary<string> {
-  return fc.stringMatching(PATH_SEGMENT_PATTERN);
 }
 
 function arbitraryTrackedFilePath(): fc.Arbitrary<string> {

@@ -2,8 +2,8 @@ import * as fc from "fast-check";
 
 import { VERSION_DELTA, type VersionDelta } from "@/domains/release/release-data";
 import { RELEASE_TAG_PREFIX } from "@/git/release";
+import { arbitraryPathSegment } from "@testing/generators/git-name/git-name";
 
-const PATH_SEGMENT_PATTERN = /^[a-z][a-z0-9-]{2,12}$/;
 const VERSION_COMPONENT_MIN = 0;
 const VERSION_COMPONENT_MAX = 40;
 const VERSION_COMPONENT_RESET = 0;
@@ -113,10 +113,6 @@ function arbitraryDistinctReleaseTags(count: number): fc.Arbitrary<readonly stri
   return fc
     .uniqueArray(arbitrarySemver(), { minLength: count, maxLength: count })
     .map((versions) => versions.map((version) => `${RELEASE_TAG_PREFIX}${version}`));
-}
-
-function arbitraryPathSegment(): fc.Arbitrary<string> {
-  return fc.stringMatching(PATH_SEGMENT_PATTERN);
 }
 
 function arbitraryCommitSequence(count: number): fc.Arbitrary<readonly ReleaseCommitFixture[]> {
