@@ -120,23 +120,12 @@ export function buildRepresentativeFixture(registry: SpecTreeRegistry): Represen
   return sampleSpecTreeTestValue(SPEC_TREE_TEST_GENERATOR.representativeFixture(registry));
 }
 
-export function buildRepresentativeEntries(registry: SpecTreeRegistry): readonly SpecTreeSourceEntry[] {
-  return buildRepresentativeFixture(registry).entries;
-}
-
 export function sampleNodeKind(registry: SpecTreeRegistry): NodeKind {
   return sampleSpecTreeTestValue(arbitraryNodeKind(registry));
 }
 
 export function sampleDecisionKind(registry: SpecTreeRegistry): DecisionKind {
   return sampleSpecTreeTestValue(arbitraryDecisionKind(registry));
-}
-
-export function withGeneratedSourceRef(entry: SpecTreeSourceEntry): SpecTreeSourceEntry {
-  return {
-    ...entry,
-    ref: sampleSpecTreeTestValue(SPEC_TREE_TEST_GENERATOR.sourceRef()),
-  };
 }
 
 export function specTreeFixtureNodeDirectoryName(
@@ -158,7 +147,7 @@ export function buildNodeEntry(
   };
 }
 
-export function buildDecisionEntry(
+function buildDecisionEntry(
   registry: SpecTreeRegistry,
   entry: Omit<SpecTreeDecisionSourceEntry, SpecTreeEntryDiscriminatorKey>,
 ): SpecTreeDecisionSourceEntry {
