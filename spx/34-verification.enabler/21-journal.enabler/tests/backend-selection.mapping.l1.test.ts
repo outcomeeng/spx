@@ -19,6 +19,10 @@ describe("resolveJournalBackend", () => {
       expected: JOURNAL_BACKEND.LOCAL,
     },
     {
+      env: { continuousIntegration: false, githubPullRequest: true },
+      expected: JOURNAL_BACKEND.LOCAL,
+    },
+    {
       env: { continuousIntegration: true, githubPullRequest: true },
       expected: JOURNAL_BACKEND.GITHUB_PR,
     },
