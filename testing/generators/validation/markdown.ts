@@ -37,14 +37,6 @@ const EXPECTED_ONE = 1;
 const EXPECTED_TWO = 2;
 const EXPECTED_THREE = 3;
 
-export const MARKDOWN_TEST_SLICE = {
-  UNIT: "unit",
-  INTEGRATION: "integration",
-  E2E: "e2e",
-} as const;
-
-export type MarkdownTestSlice = (typeof MARKDOWN_TEST_SLICE)[keyof typeof MARKDOWN_TEST_SLICE];
-
 export const MARKDOWN_SCENARIO_KIND = {
   CLEAN_TREE: "cleanTree",
   DATA_URI_ALLOWED: "dataUriAllowed",
