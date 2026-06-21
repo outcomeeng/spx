@@ -19,17 +19,15 @@ Keep the product spec tree on the current node model and remove the deprecated t
 ## Current Tranche
 
 - Settled config packet foundations on `origin/main`: shared path-filter primitives, testing descriptor registration, canonical descriptor digest, and product-directory API vocabulary.
-- Settled audit packet foundations on `origin/main`: audit config descriptor and branch-scoped run state.
+- The agentic verification domains (audit, review) collapsed into the type-agnostic run-journal channel at `spx/34-verification.enabler/21-journal.enabler/` and were removed; spx journals these runs through `spx journal` rather than orchestrating auditors or reviewers or persisting per-domain audit/review state.
 - Settled agent-environment foundations on `origin/main`: agent-environment descriptor and runtime-config reconciliation.
 - Active testing packets: extend spec-tree fixture coverage through `spx/22-test-environment.enabler/32-spec-tree-fixtures.enabler/` and persist cached status evidence through `spx/41-testing.enabler/43-last-run-evidence.enabler/`.
 - Active file-inclusion packet: align reusable path-scope mechanics through `spx/17-file-inclusion.enabler/65-domain-path-filters.enabler/`; final ignore-source deletion follows testing passing-scope integration.
-- Active audit packets: implement configured auditor execution through `spx/36-audit.enabler/65-auditor-execution.enabler/` and audit status reporting through `spx/36-audit.enabler/87-audit-status.enabler/`.
 - Active agent-environment packets: add deterministic instruction-file management through `spx/33-agent-environment.enabler/21-agent-instructions.enabler/` and plugin bootstrap through `spx/33-agent-environment.enabler/43-plugin-bootstrap.enabler/`.
-- Active reviewing packets: implement review config, hermetic execution, review state, branch review, and PR review through `spx/46-reviewing.enabler/`.
 
 ## Remaining Work
 
-- Implement the git-tracking layer per the rewritten `spx/17-file-inclusion.enabler/11-ignore-defaults.pdr.md`: the existing `21-ignore-source.enabler/` becomes a git-plumbing reader, the `spx/EXCLUDE`-reader code is deleted, and the consumer adapters in validation, testing, audit, and review wire the override flags (`--no-ignore`, `--no-ignore-vcs`, `--ignore-file`) per the rewritten PDR.
+- Implement the git-tracking layer per the rewritten `spx/17-file-inclusion.enabler/11-ignore-defaults.pdr.md`: the existing `21-ignore-source.enabler/` becomes a git-plumbing reader, the `spx/EXCLUDE`-reader code is deleted, and the consumer adapters in validation and testing wire the override flags (`--no-ignore`, `--no-ignore-vcs`, `--ignore-file`) per the rewritten PDR.
 - Continue splitting `src/lib/spec-tree/index.ts` internally only after the public import surface stays stable.
 - Keep command modules consuming the public spec-tree surface; command modules must not parse suffixes or assemble hierarchy themselves.
 - Continue reducing test-owned constant debt until `eslint.test-owned-constant-debt-nodes.json` is empty.
@@ -43,9 +41,7 @@ Keep the product spec tree on the current node model and remove the deprecated t
 - No validation rule, test helper, or public identifier uses deprecated task-model names.
 - Deprecated node suffixes are rejected by lint policy without a debt manifest.
 - Testing passing-scope policy is read from the testing config descriptor.
-- Validation, testing, auditing, and reviewing consume shared config primitives where their descriptor shapes repeat.
-- Audit state is branch-scoped under `.spx/branch/{branch-slug}/audit/`.
-- Review execution has a current spec-tree node before implementation begins.
+- Validation and testing consume shared config primitives where their descriptor shapes repeat.
 - Agent environment management has a current spec-tree node before implementation begins.
 - `spx validation all` passes.
 - The full package test gate passes.
@@ -65,7 +61,6 @@ spx groups global product machinery under `spx/21-infrastructure.enabler/`. Test
 ### Current governance (reconcile, do not duplicate)
 
 - `spx/22-test-environment.enabler/` governs the callback-scoped temp-dir primitive (`withTempDir`), the spec-tree env (`withTestEnv`/`withSpecTreeEnv`), the git-worktree harness, and spec-tree fixtures, under `21-callback-scoped-environment.adr.md`.
-- `spx/36-audit.enabler/21-audit-test-harness.enabler/` governs the audit harness.
 - `spx/41-validation.enabler/32-typescript-validation.enabler/32-literal-reuse.enabler/45-ts-snippet-generators.enabler/` governs the snippet generators.
 - `spx/21-infrastructure.enabler/43-precommit.enabler/` governs Lefthook precommit behavior and precommit-specific test harnessing.
 - A per-module `21-test-harness.enabler` governs each promoted harness beside its owning domain node: the file-inclusion harnesses under `spx/17-file-inclusion.enabler/{21-ignore-source,32-path-predicates,43-scope-resolver,54-tool-adapters}.enabler/`, the literal-reuse harnesses under `spx/41-validation.enabler/32-typescript-validation.enabler/32-literal-reuse.enabler/{21-detection,21-fixture-classification,32-value-allowlist.enabler/21-allowlist-existing}.enabler/`, and the session-store harness under `spx/36-session.enabler/43-session-store.enabler/`.
@@ -75,7 +70,7 @@ spx groups global product machinery under `spx/21-infrastructure.enabler/`. Test
 
 Bring every remaining ungoverned `testing/harnesses/**` and `testing/generators/**` module under a governing spec, batch by batch, one PR per batch. This is queued as SPX sessions; each session governs one batch.
 
-**Approach (uniform across batches).** For each harness/generator module, author a per-module `NN-test-harness.enabler` (or `NN-…-generators.enabler`) beside its owning domain node — the same pattern already applied to file-inclusion, literal-reuse, session-store, and session-pick. Follow the `spx/36-audit.enabler/21-audit-test-harness.enabler` exemplar: a `PROVIDES … SO THAT … CAN …` opening naming the fixture/builder surface, one `[test]` assertion exercising the harness's own behavior (property or scenario), and `[audit]` compliance for the disciplines no deterministic test verifies (no real process/terminal/network, fixtures drawn from generators, write through the spec-tree test env). Index each as a low-index provider child (`21-…`); when two harnesses serve one domain node they are same-index independent peers. Where two modules under one parent collide on the bare slug, give each a descriptive slug (`launch-runner-test-harness`, `picker-test-harness`).
+**Approach (uniform across batches).** For each harness/generator module, author a per-module `NN-test-harness.enabler` (or `NN-…-generators.enabler`) beside its owning domain node — the same pattern already applied to file-inclusion, literal-reuse, session-store, and session-pick. Follow that exemplar: a `PROVIDES … SO THAT … CAN …` opening naming the fixture/builder surface, one `[test]` assertion exercising the harness's own behavior (property or scenario), and `[audit]` compliance for the disciplines no deterministic test verifies (no real process/terminal/network, fixtures drawn from generators, write through the spec-tree test env). Index each as a low-index provider child (`21-…`); when two harnesses serve one domain node they are same-index independent peers. Where two modules under one parent collide on the bare slug, give each a descriptive slug (`launch-runner-test-harness`, `picker-test-harness`).
 
 **Builders, not drivers (refined while governing the validation batch's `eslint.ts`).** Govern only the reusable-builder surfaces — factories, recording objects, case-run constructors, env harnesses, generator factories. A **scenario-driver** harness — one whose single export runs a domain node's own scenarios and embeds their assertions (`runMarkdownValidationScenario`, `runValidationLintPolicyScenario`, `runValidationPipelineScenario`) — gets **no** governance node: its behaviour is the domain node's behaviour, already governed there, so a governance `[test]` would be vacuous (zero net-new coverage, which the coverage gate rejects). A module may split by evidence level — govern the l1 builder surface in the node and leave an l2 helper surface to its existing consumer. And a **fully consumer-covered** generator gets no node at all: when its every live builder is already exercised (cross-cutting config by a harness node, case factories by the owning domain's rule tests), the coverage gate has nothing net-new to govern — author no node, and remove any dead export the survey turns up (the validation batch's `testing/generators/validation/ast-enforcement.ts` was that case). Before authoring a node, confirm the module's actual consumers and owning sub-enabler from the import sites (the validation batch found `eslint.ts` consumed by `32-ast-enforcement`, not `32-lint`). See `spx/41-validation.enabler/PLAN.md` for the worked per-module disposition.
 
@@ -99,7 +94,7 @@ The owning node of each batch carries its own `PLAN.md` with the module list; th
 
 ### Migration
 
-1. Reconcile the existing test-infra enablers (`spx/22-test-environment.enabler`, `spx/36-audit.enabler/21-audit-test-harness.enabler`, `spx/41-validation.enabler/32-typescript-validation.enabler/32-literal-reuse.enabler/45-ts-snippet-generators.enabler`) via `/spec-tree:refactoring`: keep domain-coupled infrastructure with its domain and move only cross-domain machinery under `spx/21-infrastructure.enabler/`.
+1. Reconcile the existing test-infra enablers (`spx/22-test-environment.enabler`, `spx/41-validation.enabler/32-typescript-validation.enabler/32-literal-reuse.enabler/45-ts-snippet-generators.enabler`) via `/spec-tree:refactoring`: keep domain-coupled infrastructure with its domain and move only cross-domain machinery under `spx/21-infrastructure.enabler/`.
 2. Author assertions for the ungoverned harnesses and generators in their owning domains, or under `spx/21-infrastructure.enabler/` when they are global; each then passes the code, test-evidence, and architecture audits per `/spec-tree:applying`.
 3. Record the shared methodology drift separately: the installed spec-tree guidance says the spec tree itself must mirror `testing/{generators,fixtures,harnesses}`, while spx treats that as code package layout rather than spec placement.
 

@@ -8,8 +8,6 @@ Implement canonical descriptor JSON and SHA-256 digests for resolved descriptor 
 
 - `spx/16-config.enabler/21-descriptor-registration.adr.md`
 - `spx/41-testing.enabler/43-last-run-evidence.enabler/last-run-evidence.md`
-- `spx/36-audit.enabler/54-branch-run-state.enabler/branch-run-state.md`
-- `spx/46-reviewing.enabler/43-review-state.enabler/review-state.md`
 
 ## Implementation Notes
 
