@@ -87,8 +87,8 @@ export const journalDomain: Domain = {
           return;
         }
         const result = await journalAppendCommand(runScope(options), input.value, streamBinding());
-        if (result.exitCode !== JOURNAL_CLI_EXIT_CODE.OK) await report(result);
-        else process.exit(JOURNAL_CLI_EXIT_CODE.OK);
+        if (result.exitCode === JOURNAL_CLI_EXIT_CODE.OK) process.exit(JOURNAL_CLI_EXIT_CODE.OK);
+        else await report(result);
       });
 
     journalCmd

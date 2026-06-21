@@ -28,7 +28,7 @@ describe("github pull-request stream sink", () => {
             renderBody: () => Promise.resolve(bodies[Math.min(cursor++, bodies.length - 1)] ?? ""),
           });
 
-          for (let index = 0; index < bodies.length; index += 1) {
+          for (const _body of bodies) {
             await sink.emit(event);
           }
 
