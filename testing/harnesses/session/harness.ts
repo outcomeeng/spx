@@ -77,6 +77,9 @@ export const SESSION_FILE_TAG_PATTERN = /<SESSION_FILE>(.*?)<\/SESSION_FILE>/;
 /** The `<HANDOFF_ID>` tag `spx session handoff` emits on success, carrying the session id. */
 export const HANDOFF_ID_TAG_PATTERN = /<HANDOFF_ID>\d{4}-\d{2}-\d{2}_\d{2}-\d{2}-\d{2}<\/HANDOFF_ID>/;
 
+/** A session id that resolves to no session file, exercising the per-id failure path. */
+export const ABSENT_SESSION_ID = "nonexistent";
+
 /**
  * Runs the built `spx` CLI for the handoff-base L2 evidence. A thin alias of
  * {@link runSessionCli} kept distinct only until the two runners are unified —
