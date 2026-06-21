@@ -161,9 +161,8 @@ export function buildEslintConfig(options: BuildEslintConfigOptions = {}) {
 
     // Type-aware lint mirror — runs the SonarJS analyzer rules and the
     // type-aware @typescript-eslint rules locally, the deterministic offline
-    // floor of spx/21-infrastructure.enabler/43-code-quality-analysis.enabler.
-    // Warn-first while the backlog is cleared; each backlog session flips its
-    // rules to error.
+    // floor of code-quality enforcement. Warn-first while the backlog is
+    // cleared; each backlog session flips its rules to error.
     {
       // Scoped to the trees in tsconfig.json `include`, so the project service
       // resolves a project for every linted file. Root build-config files
