@@ -152,15 +152,14 @@ the `spx test` CLI. Agents therefore fall back to direct runner commands such as
 `./node_modules/.bin/vitest run <test files>` for focused checks, bypassing the
 agent-output path whose behavior they are trying to verify.
 
-**Impact:** the full package suite is too expensive for every agent iteration.
+**Impact:** the full package suite is too slow for every agent iteration.
 On an idle machine it takes roughly 45 seconds; under high load it can stretch to
 about 20 minutes. Parallel PR work multiplies that cost: each agent repeatedly
-runs broad tests such as pre-commit-hook coverage, including git-heavy TMPDIR
-fixtures, during every push-readiness loop. A ten-agent workload turns a missing
-targeted-test surface into repository-wide resource contention and review-loop
-latency. The product needs a first-class targeted path so agents can verify the
-files or node they changed without exercising unrelated hook, git, and fixture
-work on every iteration.
+runs the full suite during every push-readiness loop. A ten-agent workload turns a
+missing targeted-test surface into repository-wide resource contention and
+review-loop latency. The product needs a first-class targeted path so agents can
+verify the files or node they changed without exercising unrelated tests on every
+iteration.
 
 **Resolution:** add explicit target operands after `--` to `spx test` and
 `spx test passing`. Resolve each operand as either a node path whose co-located
@@ -180,19 +179,13 @@ not the only product-owned way to obtain trustworthy test evidence.
 - Dogfooding: package scripts and CI still use raw Vitest through `pnpm test`
   (`pnpm run build && vitest run`) rather than `spx test`, so the product-owned
   test verb exists without owning the default local or CI verification path.
-- Precommit ownership mapping: hook tests can be selected manually or through
-  Vitest's related-file selection, but `spx` does not own a rule such as "this
-  changeset touched precommit code, run only the precommit node tests." The
-  changed-file-to-node/test planner must account for hook, git, and TMPDIR-heavy
-  test nodes so agents do not rerun them for unrelated changes.
 
 **Evidence:** agent-output feature work on June 18, 2026; targeted verification
 used direct Vitest because `spx test --agent` has no explicit-target CLI. The
 operator reported the full suite taking about 45 seconds idle and about 20
-minutes under load 200, with multiple agents repeatedly running unrelated
-pre-commit-hook and TMPDIR-heavy tests during PR push loops. A second agent
-review called out the absent `--changed`/`--base` planner, package-script and CI
-non-dogfooding, and missing precommit ownership rule.
+minutes under load 200, with multiple agents repeatedly running the full suite
+during PR push loops. A second agent review called out the absent
+`--changed`/`--base` planner and package-script and CI non-dogfooding.
 
 **Revisit condition:** fix before documenting `spx test --agent` as the default
 focused verification command for agents.
