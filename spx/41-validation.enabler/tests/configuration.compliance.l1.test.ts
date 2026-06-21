@@ -20,11 +20,11 @@ import {
   type ValidationConfig,
   validationConfigDescriptor,
 } from "@/validation/config/descriptor";
-import { LITERAL_DEFAULTS } from "@/validation/literal/config";
 import { TOOL_DISCOVERY } from "@/validation/discovery/constants";
-import { runKnipStage, type KnipStageDeps } from "@/validation/languages/typescript";
-import { type ScopeConfig, VALIDATION_SCOPES } from "@/validation/types";
+import { type KnipStageDeps, runKnipStage } from "@/validation/languages/typescript";
+import { LITERAL_DEFAULTS } from "@/validation/literal/config";
 import { MARKDOWN_DEFAULT_DIRECTORY_NAMES, MARKDOWN_PRIMARY_FILE_EXTENSION } from "@/validation/steps/markdown";
+import { type ScopeConfig, VALIDATION_SCOPES } from "@/validation/types";
 import {
   LITERAL_TEST_GENERATOR,
   sampleDistinctDomainLiterals,

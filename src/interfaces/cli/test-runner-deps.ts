@@ -7,11 +7,7 @@ import type { Writable } from "node:stream";
 import { finished } from "node:stream/promises";
 
 import { lifecycleProcessRunner, type ProcessRunner, spawnManagedSubprocess } from "@/lib/process-lifecycle";
-import type {
-  TestingLanguageDescriptor,
-  TestRunCommandResult,
-  TestRunnerDependencies,
-} from "@/test/languages/types";
+import type { TestingLanguageDescriptor, TestRunCommandResult, TestRunnerDependencies } from "@/test/languages/types";
 
 export const PROCESS_FAILURE_EXIT_CODE = 1;
 export const AGENT_ARTIFACT_DIR_PREFIX = "spx-test-agent-";

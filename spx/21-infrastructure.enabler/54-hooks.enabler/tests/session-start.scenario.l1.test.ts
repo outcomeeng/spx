@@ -3,20 +3,20 @@ import { basename, join } from "node:path";
 
 import { describe, expect, it } from "vitest";
 
-import { CONTROLLING_PID_ENV, CONTROLLING_PROCESS_ERROR } from "@/domains/worktree/controlling-process";
-import { readClaim } from "@/domains/worktree/occupancy-store";
 import {
   HOOK_ENV_FILE,
   HOOK_SESSION_START_CLAIMED,
-  type HookSessionStartEnv,
   HOOK_SESSION_START_ENV,
   HOOK_SESSION_START_PAYLOAD,
+  type HookSessionStartEnv,
 } from "@/domains/hooks/session-start";
-import { defaultGitDependencies } from "@/git/root";
+import { CONTROLLING_PID_ENV, CONTROLLING_PROCESS_ERROR } from "@/domains/worktree/controlling-process";
+import { readClaim } from "@/domains/worktree/occupancy-store";
 import { worktreeClaimName } from "@/domains/worktree/worktree-name";
+import { defaultGitDependencies } from "@/git/root";
 import { runSessionStartHook } from "@/interfaces/hooks/session-start";
 import { sampleWorktreeTestValue, WORKTREE_TEST_GENERATOR } from "@testing/generators/worktree/worktree";
-import { type WorktreePoolEnv, withWorktreePool } from "@testing/harnesses/worktree/harness";
+import { withWorktreePool, type WorktreePoolEnv } from "@testing/harnesses/worktree/harness";
 
 interface SessionStartHookScenarioInput {
   readonly claimWriteToken: string;
@@ -35,7 +35,11 @@ function hookEnvFilePath(env: WorktreePoolEnv, envFileName: string): string {
   return join(env.container, envFileName);
 }
 
-function hookEnvWithHolder(env: WorktreePoolEnv, envFile: string, overlay: HookSessionStartEnv = {}): HookSessionStartEnv {
+function hookEnvWithHolder(
+  env: WorktreePoolEnv,
+  envFile: string,
+  overlay: HookSessionStartEnv = {},
+): HookSessionStartEnv {
   return {
     [CONTROLLING_PID_ENV]: String(env.holder.pid),
     [HOOK_SESSION_START_ENV.CLAUDE_ENV_FILE]: envFile,

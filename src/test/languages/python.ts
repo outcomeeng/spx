@@ -8,13 +8,13 @@
  */
 import { basename, dirname, join } from "node:path/posix";
 
+import { compareAsciiStrings } from "@/lib/state-store";
 import type {
   TestingLanguageDescriptor,
   TestRunInvocation,
   TestRunnerDependencies,
   TestRunRequest,
 } from "@/test/languages/types";
-import { compareAsciiStrings } from "@/lib/state-store";
 import { detectPython } from "@/validation/discovery/language-finder";
 import {
   PYTEST_INVOKE_ARGS,

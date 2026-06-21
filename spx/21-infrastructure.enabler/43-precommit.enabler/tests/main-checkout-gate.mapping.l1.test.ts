@@ -1,10 +1,7 @@
 import * as fc from "fast-check";
 import { describe, expect, it } from "vitest";
 
-import {
-  MAIN_CHECKOUT_GATE_EXIT_CODE,
-  mainCheckoutGateExitCode,
-} from "@/lib/precommit/main-checkout-gate";
+import { MAIN_CHECKOUT_GATE_EXIT_CODE, mainCheckoutGateExitCode } from "@/lib/precommit/main-checkout-gate";
 import {
   arbitraryMainCheckoutFacts,
   arbitraryNonBareLinkedFacts,

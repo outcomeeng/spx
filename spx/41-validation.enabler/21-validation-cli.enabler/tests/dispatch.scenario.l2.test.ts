@@ -1,12 +1,12 @@
 import { describe, expect, it } from "vitest";
 
 import { LITERAL_PROBLEM_KIND, VALIDATION_COMMAND_OUTPUT } from "@/commands/validation";
-import { sanitizeCliArgument, SENTINEL_EMPTY } from "@/lib/sanitize-cli-argument";
 import {
   allValidationCliOptions,
   literalValidationCliOptions,
   validationCliDefinition,
 } from "@/interfaces/cli/validation";
+import { sanitizeCliArgument, SENTINEL_EMPTY } from "@/lib/sanitize-cli-argument";
 import { sampleLiteralTestValue } from "@testing/generators/literal/literal";
 import {
   VALIDATION_CLI_GENERATOR,

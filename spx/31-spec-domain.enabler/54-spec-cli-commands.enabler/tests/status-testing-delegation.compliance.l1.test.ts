@@ -5,21 +5,12 @@ import { describe, expect, it } from "vitest";
 import { createNodeOutcomeResolver } from "@/commands/spec/node-outcome-resolver";
 import { statusCommand } from "@/commands/spec/status";
 import { runTestsCommand } from "@/commands/test";
-import {
-  getKindDefinition,
-  SPEC_TREE_EVIDENCE_FILE,
-} from "@/lib/spec-tree";
+import { getKindDefinition, SPEC_TREE_EVIDENCE_FILE } from "@/lib/spec-tree";
 import { type NodeKind, SPEC_TREE_CONFIG } from "@/lib/spec-tree/config";
 import { testingRegistry } from "@/test/registry";
-import {
-  defaultTestRunStateFileSystem,
-  type TestRunStateFileSystem,
-} from "@/test/run-state";
+import { defaultTestRunStateFileSystem, type TestRunStateFileSystem } from "@/test/run-state";
 import { MINIMAL_SPEC_TREE_CONFIG } from "@testing/generators/config/config";
-import {
-  sampleSpecTreeTestValue,
-  SPEC_TREE_TEST_GENERATOR,
-} from "@testing/generators/spec-tree/spec-tree";
+import { sampleSpecTreeTestValue, SPEC_TREE_TEST_GENERATOR } from "@testing/generators/spec-tree/spec-tree";
 import { type CurrentSpecTreeEnv, withSpecTreeEnv } from "@testing/harnesses/spec-tree/spec-tree";
 import { writeTestFileFixture } from "@testing/harnesses/testing/harness";
 import { createRecordingCommandRunner } from "@testing/harnesses/testing/typescript-runner";

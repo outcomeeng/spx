@@ -1,9 +1,9 @@
+import { AGENT_SESSION_TOKEN_PATTERN, resolveAgentSessionId } from "@/domains/session/agent-session";
 import {
   buildSessionFrontMatterContent,
   SESSION_FRONT_MATTER_DELIMITER,
   SESSION_FRONT_MATTER_DOCUMENT_END,
 } from "@/domains/session/create";
-import { AGENT_SESSION_TOKEN_PATTERN, resolveAgentSessionId } from "@/domains/session/agent-session";
 import { DEFAULT_SESSION_METADATA, parseSessionMetadata } from "@/domains/session/list";
 import {
   generateSessionId,
