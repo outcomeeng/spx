@@ -75,6 +75,32 @@ describe("journal CLI", () => {
     });
   });
 
+  it("operates under the fallback branch identity when git is unavailable", async () => {
+    const type = sampleStateStoreTestValue(STATE_STORE_TEST_GENERATOR.scopeToken());
+    const input = sampleAgentRunJournalValue(arbitraryJournalEventInput());
+
+    await withGitEnv(async ({ path }) => {
+      // A git runner that always fails, standing in for git not being installed:
+      // the root resolver falls back to cwd and the verbs must not throw.
+      const noGit: JournalCliDeps = {
+        ...localDeps(path),
+        git: { execa: () => Promise.reject(new Error("git not found")) },
+      };
+
+      const opened = await journalOpenCommand({ type }, noGit);
+      expect(opened.exitCode).toBe(JOURNAL_CLI_EXIT_CODE.OK);
+      const { runToken } = JSON.parse(opened.output) as { runToken: string };
+
+      const appended = await journalAppendCommand(
+        { type, runToken },
+        input,
+        { localSink: new RecordingJournalStreamSink() },
+        noGit,
+      );
+      expect(appended.exitCode).toBe(JOURNAL_CLI_EXIT_CODE.OK);
+    });
+  });
+
   it("rejects a read whose cursor is not a whole non-negative integer", async () => {
     const type = sampleStateStoreTestValue(STATE_STORE_TEST_GENERATOR.scopeToken());
 
