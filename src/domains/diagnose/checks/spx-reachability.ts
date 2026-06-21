@@ -44,7 +44,7 @@ interface SemverParts {
 }
 
 function parseSemver(value: string): SemverParts | null {
-  const match = /^\s*(\d+)\.(\d+)\.(\d+)/.exec(value);
+  const match = /^\s*(\d{1,9})\.(\d{1,9})\.(\d{1,9})/.exec(value);
   if (!match) return null;
   return { major: Number(match[1]), minor: Number(match[2]), patch: Number(match[3]) };
 }

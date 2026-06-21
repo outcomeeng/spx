@@ -16,7 +16,7 @@ describe("the process exit code maps the overall verdict", () => {
 
   it("assigns every overall verdict a distinct exit code, keying the code to the verdict", () => {
     const overalls = Object.values(OVERALL_VERDICT);
-    const codes = overalls.map(overallExitCode);
+    const codes = overalls.map((overall) => overallExitCode(overall));
     expect(new Set(codes).size).toBe(overalls.length);
   });
 

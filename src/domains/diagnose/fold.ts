@@ -35,9 +35,9 @@ export const VERDICT_EXIT_CODE: Readonly<Record<OverallVerdict, number>> = {
  * not-applicable, folds to healthy.
  */
 export function foldOverallVerdict(buckets: readonly VerdictBucket[]): OverallVerdict {
-  const decisive = buckets.filter((bucket): bucket is OverallVerdict => bucket !== VERDICT_BUCKET.NOT_APPLICABLE);
+  const decisive = new Set<VerdictBucket>(buckets.filter((bucket) => bucket !== VERDICT_BUCKET.NOT_APPLICABLE));
   for (const verdict of FOLD_PRECEDENCE) {
-    if (decisive.includes(verdict)) return verdict;
+    if (decisive.has(verdict)) return verdict;
   }
   return OVERALL_VERDICT.HEALTHY;
 }

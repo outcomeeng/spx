@@ -21,7 +21,7 @@ export const arbitrarySpxFloor = (): fc.Arbitrary<string> =>
 export const arbitraryNameToken = (): fc.Arbitrary<string> =>
   fc
     .string({ minLength: 1, maxLength: 24 })
-    .map((value) => value.replace(/\s/g, ""))
+    .map((value) => value.replaceAll(/\s/g, ""))
     .filter((value) => value.length > 0);
 
 /** A marketplace `owner/repo` source. */
