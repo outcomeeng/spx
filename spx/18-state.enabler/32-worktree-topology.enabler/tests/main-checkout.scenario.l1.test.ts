@@ -3,13 +3,13 @@ import { realpath } from "node:fs/promises";
 import { describe, expect, it } from "vitest";
 
 import { detectMainCheckout, gatherGitFacts } from "@/git/root";
+import { arbitraryBranchName } from "@testing/generators/git-name/git-name";
 import {
+  arbitraryBarePoolLayoutCase,
   arbitraryBarePoolWithoutMainCheckoutLayoutCase,
-  arbitraryBranchName,
+  arbitraryNonBareLinkedLayoutCase,
   arbitraryOriginUrl,
   arbitraryRepositoryName,
-  arbitraryBarePoolLayoutCase,
-  arbitraryNonBareLinkedLayoutCase,
   arbitrarySingleTreeLayoutCase,
   sampleMainCheckoutTestValue,
   type WorktreeLayoutCase,

@@ -1,7 +1,8 @@
 import { describe, expect, it } from "vitest";
 
 import { resolveDefaultBranch } from "@/git/root";
-import { arbitraryBranchName, sampleMainCheckoutTestValue } from "@testing/generators/main-checkout/main-checkout";
+import { arbitraryBranchName } from "@testing/generators/git-name/git-name";
+import { sampleMainCheckoutTestValue } from "@testing/generators/main-checkout/main-checkout";
 import { GIT_TEST_REF, GIT_TEST_SUBCOMMANDS } from "@testing/harnesses/git-test-constants";
 import { withGitWorktreeEnv } from "@testing/harnesses/git-worktree/git-worktree";
 
@@ -19,7 +20,9 @@ describe("resolveDefaultBranch — origin/HEAD's target", () => {
 
       expect(await resolveDefaultBranch(env.productDir)).toBe(branch);
 
-      const otherBranch = sampleMainCheckoutTestValue(arbitraryBranchName().filter((candidate) => candidate !== branch));
+      const otherBranch = sampleMainCheckoutTestValue(
+        arbitraryBranchName().filter((candidate) => candidate !== branch),
+      );
       await env.runGit([
         GIT_TEST_SUBCOMMANDS.SYMBOLIC_REF,
         `${GIT_TEST_REF.REMOTE_ORIGIN_PREFIX}${GIT_TEST_REF.HEAD_NAME}`,

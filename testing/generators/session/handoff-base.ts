@@ -17,11 +17,11 @@ import {
   type HandoffBaseChecklist,
   type HandoffBasePrerequisite,
 } from "@/domains/session/handoff-base-checklist";
+import { arbitraryBranchName, arbitraryPathSegment } from "@testing/generators/git-name/git-name";
 
 const PREREQUISITE_LABELS = Object.values(HANDOFF_BASE_PREREQUISITE_LABEL);
 const REMEDIES = Object.values(HANDOFF_BASE_REMEDY);
 const COMMIT_SHA_PATTERN = /^[a-f0-9]{40}$/;
-const PATH_SEGMENT_PATTERN = /^[a-z][a-z0-9-]{2,12}$/;
 const POSIX_SEPARATOR = "/";
 const MAX_PATH_SEGMENTS = 4;
 const MAX_PREREQUISITES = 4;
@@ -31,21 +31,11 @@ export function arbitraryCommitSha(): fc.Arbitrary<string> {
   return fc.stringMatching(COMMIT_SHA_PATTERN);
 }
 
-/** A single lowercase path segment. */
-function arbitraryPathSegment(): fc.Arbitrary<string> {
-  return fc.stringMatching(PATH_SEGMENT_PATTERN);
-}
-
 /** An absolute POSIX path with one or more segments. */
 export function arbitraryAbsolutePath(): fc.Arbitrary<string> {
   return fc
     .array(arbitraryPathSegment(), { minLength: 1, maxLength: MAX_PATH_SEGMENTS })
     .map((segments) => `${POSIX_SEPARATOR}${segments.join(POSIX_SEPARATOR)}`);
-}
-
-/** A git branch name. */
-export function arbitraryBranchName(): fc.Arbitrary<string> {
-  return arbitraryPathSegment();
 }
 
 /**

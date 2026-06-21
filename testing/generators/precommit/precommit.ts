@@ -1,6 +1,7 @@
 import * as fc from "fast-check";
 
 import { PRECOMMIT_DEFAULTS, type PrecommitConfig } from "@/lib/precommit/config";
+import { arbitraryPathSegment } from "@testing/generators/git-name/git-name";
 
 export const PRECOMMIT_TEST_GENERATOR = {
   config: arbitraryPrecommitConfig,
@@ -25,10 +26,6 @@ export function samplePrecommitTestValue<T>(arbitrary: fc.Arbitrary<T>): T {
   const [value] = fc.sample(arbitrary, { numRuns: 1 });
   if (value === undefined) throw new Error("Precommit test generator returned no sample");
   return value;
-}
-
-function arbitraryPathSegment(): fc.Arbitrary<string> {
-  return fc.stringMatching(/^[a-z][a-z0-9-]{2,12}$/);
 }
 
 function arbitraryPathFragment(): fc.Arbitrary<string> {

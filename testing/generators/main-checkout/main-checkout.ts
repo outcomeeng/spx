@@ -1,9 +1,9 @@
 import * as fc from "fast-check";
 
 import { GIT_DIR_BASENAME, GIT_URL_SUFFIX, type GitFacts } from "@/git/root";
+import { arbitraryBranchName, arbitraryPathSegment } from "@testing/generators/git-name/git-name";
 import { SEED_BRANCH, type WorktreeLayoutSpec } from "@testing/harnesses/worktree-layout/worktree-layout";
 
-const PATH_SEGMENT_PATTERN = /^[a-z][a-z0-9-]{2,12}$/;
 const POSIX_SEPARATOR = "/";
 const HTTPS_SCHEME = "https://";
 const SCP_USER = "git@";
@@ -70,16 +70,8 @@ export function sampleMainCheckoutTestValue<T>(arbitrary: fc.Arbitrary<T>): T {
   return value;
 }
 
-function arbitraryPathSegment(): fc.Arbitrary<string> {
-  return fc.stringMatching(PATH_SEGMENT_PATTERN);
-}
-
 function toWindowsPath(path: string): string {
   return path.replaceAll(POSIX_SEPARATOR, WINDOWS_SEPARATOR);
-}
-
-export function arbitraryBranchName(): fc.Arbitrary<string> {
-  return arbitraryPathSegment();
 }
 
 export function arbitraryRepositoryName(): fc.Arbitrary<string> {

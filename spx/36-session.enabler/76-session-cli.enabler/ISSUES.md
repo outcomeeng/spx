@@ -19,23 +19,3 @@ The handoff-base checklist enumerates two base prerequisites — a clean working
 **Impact:** None to correctness; the diagnostic is accurate and the remedy (detach to the tip or run handoff from the main checkout) is actionable. The open question is whether a future spec revision should surface "HEAD is on a branch" as a distinct prerequisite line for sharper agent diagnostics.
 
 **Resolution:** If sharper on-branch diagnostics are wanted, revise [`spx/36-session.enabler/11-session-frontmatter.pdr.md`](../11-session-frontmatter.pdr.md) and [`session-cli.md`](session-cli.md) through `/authoring` to enumerate the on-branch prerequisite, then extend the resolver and checklist to render it.
-
-## Path-segment and branch-name generators duplicated across testing generators
-
-`testing/generators/session/handoff-base.ts` privately defines `PATH_SEGMENT_PATTERN`, a path-segment arbitrary, and exports `arbitraryBranchName()` as that arbitrary — identical to copies in `testing/generators/main-checkout/main-checkout.ts`, `testing/generators/testing/run-state.ts`, and `testing/generators/audit/run-state.ts`. `PATH_SEGMENT_PATTERN` alone also recurs in `testing/generators/git-worktree/git-worktree.ts` and `testing/generators/release/release.ts`.
-
-**Evidence:** Every copy uses `/^[a-z][a-z0-9-]{2,12}$/` and `arbitraryBranchName` is defined four times. No shared module owns the git-name vocabulary, so the implementations agree only by hand.
-
-**Impact:** A domain-driven change to the path-segment pattern must be tracked down and replicated across every copy; a missed site drifts silently.
-
-**Resolution:** Extract `PATH_SEGMENT_PATTERN`, the path-segment arbitrary, and `arbitraryBranchName()` into one shared git-name generator module and re-point every site to it.
-
-## Handoff-base gate test sits at session-store while its rendering ADR sits at session-cli
-
-`handoff-base-gate.property.l1.test.ts` and its `session-store.md` property assertion (node 43) verify `resolveHandoffGitRef`, whose layering invariants are declared by [`spx/36-session.enabler/76-session-cli.enabler/21-handoff-base-rendering.adr.md`](21-handoff-base-rendering.adr.md) (node 76). A reader of that ADR finds the rendering `[test]` evidence co-located at node 76 but the gate-decision `[test]` evidence at node 43.
-
-**Evidence:** The gate decision is consumed by `handoffCommand`, which the session-store node owns, so the placement is defensible; the ADR's resolver rules are `[audit]` constraints, not `[test]` assertions, and node 76 already carries the render-property `[test]` assertions that trace to the ADR.
-
-**Impact:** Navigation only — a reader tracing the ADR's resolver invariants to executable evidence crosses a node boundary.
-
-**Resolution (open question):** Decide via `/refactor` whether the gate-decision property belongs at node 76 beside the rendering ADR, or stays at node 43 with the `handoffCommand` consumer it verifies. No move until that decision is made.
