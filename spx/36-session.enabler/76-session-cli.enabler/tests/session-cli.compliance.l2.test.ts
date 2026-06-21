@@ -29,6 +29,7 @@ import {
 import { GIT_TEST_FLAGS, GIT_TEST_REF, GIT_TEST_SUBCOMMANDS } from "@testing/harnesses/git-test-constants";
 import { type GitWorktreeEnv, withGitWorktreeEnv } from "@testing/harnesses/git-worktree/git-worktree";
 import {
+  ABSENT_SESSION_ID,
   buildHandoffStdin,
   buildSessionMarkdownBody,
   createNonGitSessionEnv,
@@ -52,8 +53,6 @@ const LINKED_WORKTREE_BRANCH = "feature/linked-local";
 const LINKED_WORKTREE_RELATIVE_PATH = ".worktrees/linked";
 /** The default branch the permitted-base smoke points `origin/HEAD` at. */
 const FIXTURE_DEFAULT_BRANCH = "main";
-/** A session id that resolves to no session, exercising the per-ID failure path. */
-const ABSENT_SESSION_ID = "missing-id";
 
 /** The rendered fact line for `label`, anchored to its label prefix so the header prose never matches. */
 function factLine(stderr: string, label: string): string {

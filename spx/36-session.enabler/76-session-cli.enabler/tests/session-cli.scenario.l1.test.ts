@@ -11,12 +11,9 @@ import { BatchError } from "@/domains/session/batch";
 import { SESSION_SHOW_LABEL } from "@/domains/session/show";
 import { SESSION_PRIORITY, SESSION_STATUSES } from "@/domains/session/types";
 import { sampleDistinctSessionIds, sampleSessionContent, sampleSessionId } from "@testing/generators/session/session";
-import { createSessionHarness, type SessionHarness } from "@testing/harnesses/session/harness";
+import { ABSENT_SESSION_ID, createSessionHarness, type SessionHarness } from "@testing/harnesses/session/harness";
 
 const [TODO, DOING, ARCHIVE] = SESSION_STATUSES;
-
-/** A session id that resolves to no session, exercising the per-ID failure path. */
-const ABSENT_SESSION_ID = "nonexistent";
 
 // Each batch test takes a fresh harness; the lifecycle is file-scoped so no describe repeats it.
 let harness: SessionHarness;
