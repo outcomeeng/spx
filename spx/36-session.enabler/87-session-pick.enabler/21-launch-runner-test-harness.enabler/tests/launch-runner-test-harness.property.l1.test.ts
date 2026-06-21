@@ -26,9 +26,10 @@ describe("launch-runner test harness — properties", () => {
           expect(runner.options).toEqual(spawns.map(([, , options]) => options ?? {}));
           expect(runner.children).toHaveLength(spawns.length);
 
-          const lastChild = runner.children[runner.children.length - 1];
-          expect(lastChild.kill()).toBe(true);
-          expect(lastChild.killed).toBe(true);
+          for (const child of runner.children) {
+            expect(child.kill()).toBe(true);
+            expect(child.killed).toBe(true);
+          }
 
           const suspender = new RecordingSuspender();
           suspender.suspend()();
