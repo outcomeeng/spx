@@ -65,7 +65,7 @@ The **spec-tree** plugin is the active system for managing specification trees. 
 | `/align`         | Review for gaps, contradictions, and consistency                   |
 | `/pr`            | Route PR lifecycle work through opening, managing, and merge gates |
 
-Additional skills ship with the plugin and are invoked by name: `/commit-changes`, `/interview`, `/audit-tests`, `/audit-pdr`, `/handoff`, `/pickup`, `/refocus`, `/bootstrap`, `/open-pr`, `/manage-pr`, `/merging-standards`. See the spec-tree plugin's `skills/` directory for the full list.
+Additional skills ship with the plugin and are invoked by name: `/commit-changes`, `/interview`, `/audit-tests`, `/audit-pdr`, `/audit-adr`, `/audit-specs`, `/handoff`, `/pickup`, `/refocus`, `/bootstrap`, `/open-pr`, `/manage-pr`, `/merging-standards`, `/diagnose`. See the spec-tree plugin's `skills/` directory for the full list.
 
 </skill_router>
 
