@@ -1,4 +1,4 @@
-# Testing Last-Run File Structure
+# Test Last-Run File Structure
 
 Spec-tree test run observations are stored under `.spx/worktree/test/runs/run-{run-token}.jsonl` at the local worktree root (`spx/15-worktree-management.pdr.md`), where `run-token` is `{YYYY-MM-DD_HH-mm-ss-SSS}-{run-id}`. Each terminal run writes one JSONL record recording the checkout's branch name and head SHA, the resolved testing config digest, runner outcomes, the discovered-test path and content digests, testing-language-declared product input digests, timestamps, and terminal status; a run file without a parse-valid JSONL terminal record is incomplete evidence.
 

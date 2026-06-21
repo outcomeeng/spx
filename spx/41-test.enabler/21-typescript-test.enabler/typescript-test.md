@@ -1,4 +1,4 @@
-# TypeScript Testing
+# TypeScript Test
 
 PROVIDES the current TypeScript Vitest runner adapter for TypeScript test files in `spx/**/tests/`
 SO THAT `spx test` and `spx test passing`

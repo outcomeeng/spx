@@ -1,4 +1,4 @@
-# Issues: Testing
+# Issues: Test
 
 Coordination notes for the `spx test` enabler. The `spx test` command, the registry-based dispatch, passing-scope filtering, last-run evidence recording, and the registry-based per-node run are built and proven (`tests/execution-recording.scenario.l1.test.ts`, `tests/test.scenario.l1.test.ts`), so `41-test.enabler` participates in the quality gate and is no longer listed in `spx/EXCLUDE`.
 
