@@ -6,7 +6,7 @@ The deterministic engine — manifest parsing with availability and conditional-
 
 ## Remaining checks (follow-up slices)
 
-`13-diagnose-engine.adr.md` names the full check vocabulary; the engine runs only the checks the build's registry provides, so a manifest naming an unbuilt check is rejected at the parse boundary. Each remaining check needs a child enabler node beside `43-spx-reachability.enabler`, a pure verdict function over its injected readings, and a runner registered in `DEFAULT_REGISTRY`:
+`src/domains/diagnose/manifest.ts` `CHECK_NAME` declares the full check vocabulary, and `13-diagnose-engine.adr.md` governs the engine that runs only the checks the build's registry provides, so a manifest naming an unbuilt check is rejected at the parse boundary. Each remaining check needs a child enabler node beside `43-spx-reachability.enabler`, a pure verdict function over its injected readings, and a runner registered in `DEFAULT_REGISTRY`:
 
 - `session-environment` — the `SessionStart`-hook round-trip (working / identity-only / silent-no-op / unknown / not-applicable).
 - `worktree-pool` — `git worktree list` joined to `spx worktree status` occupancy (compliant / stale-claims / non-compliant / unknown).
