@@ -27,7 +27,7 @@ CAN open a changeset-scoped run, append one event per significant step, read the
 
 ### Compliance
 
-- ALWAYS: `append` both persists the event to the bound backend and emits it to the run's streaming surface — standard output under the local backend, the pull-request comment under the GitHub pull-request backend — so the run is observable as it advances ([test](tests/streaming.scenario.l1.test.ts), [test](tests/github-pr-sink.scenario.l1.test.ts))
+- ALWAYS: `append` both persists the event to the bound backend and emits it to the run's streaming surface — standard output under the local backend, the pull-request comment under the GitHub pull-request backend — so the run is observable as it advances ([test](tests/streaming.scenario.l1.test.ts), [test](tests/github-pr-sink.scenario.l1.test.ts), [test](tests/github-cli.scenario.l1.test.ts))
 - ALWAYS: streaming is best-effort once the event is durably appended — a streaming-emit failure does not fail the append, so a retry cannot duplicate a committed event ([test](tests/streaming.scenario.l1.test.ts))
 - ALWAYS: `append`, `read`, `seal`, and `render` reject a run token that `open` did not create rather than operating on a phantom empty run, so a mistyped or unopened token is distinguishable from a real empty run ([test](tests/streaming.scenario.l1.test.ts))
 - ALWAYS: the journal verbs resolve a run outside a git repository — including where git is unavailable — using a fallback branch identity rather than failing, so the channel still records the run ([test](tests/journal-cli.scenario.l1.test.ts))
