@@ -1,4 +1,4 @@
-# Testing Config
+# Test Config
 
 PROVIDES a testing descriptor for spec-tree passing-scope policy
 SO THAT `spx test passing`, status reporting, and testing integrations

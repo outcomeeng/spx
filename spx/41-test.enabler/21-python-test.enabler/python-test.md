@@ -1,4 +1,4 @@
-# Python Testing
+# Python Test
 
 PROVIDES pytest invocation for Python test files in `spx/**/tests/`
 SO THAT `spx test` and `spx test passing`

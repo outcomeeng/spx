@@ -1,4 +1,4 @@
-# Issues: Testing Config
+# Issues: Test Config
 
 ## FOLLOW-UP: reconcile `spx/EXCLUDE` wording with testing passing scope
 
