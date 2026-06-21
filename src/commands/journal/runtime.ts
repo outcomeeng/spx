@@ -150,8 +150,9 @@ export async function appendJournalEvent(
   }
   // The event is durably recorded. Streaming is best-effort: reporting a failure
   // here would make the caller retry and append the same event again at the next
-  // sequence, duplicating a committed fact. A missed emit self-heals because the
-  // next append (and seal) re-renders the full projection from history.
+  // sequence, duplicating a committed fact. Under the github-pr backend the next
+  // append re-renders and upserts the full projection, superseding a missed
+  // intermediate emit; the local backend streams individual events to standard output.
   try {
     await sink.emit(event);
   } catch {

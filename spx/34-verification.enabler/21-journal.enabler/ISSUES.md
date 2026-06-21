@@ -1,5 +1,22 @@
 # Issues: Journal
 
+## FOLLOW-UP — seal does not re-render the projection on the github-pr backend
+
+`sealJournalRun` takes no streaming sink and calls only `journal.seal()`, so it
+never re-renders or upserts the pull-request comment. Under the github-pr
+backend each `append` re-renders and upserts the full projection, so an
+intermediate missed emit is superseded by the next append — but if the *last*
+append before seal fails to emit, the PR comment stays missing the terminal
+event, because seal does not re-render.
+
+Enhancement: thread a `JournalStreamSink` / `JournalStreamBinding` into
+`sealJournalRun` and `journalSealCommand` so the github-pr backend re-renders
+and upserts the terminal projection on seal, with a scenario test that appends
+through a failing sink, seals through a recording sink, and asserts the sink
+received the full event history. Until then the spec and code describe only the
+implemented best-effort behavior (a committed append is never failed by a
+streaming error), not a seal-time self-heal.
+
 ## FOLLOW-UP — full pull_request_target support needs event-payload PR-number resolution
 
 The journal recognizes only the `pull_request` GitHub event as a github-pr
