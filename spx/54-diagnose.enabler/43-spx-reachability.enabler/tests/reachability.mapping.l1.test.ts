@@ -66,6 +66,18 @@ describe("the spx-reachability check classifies spx against the manifest floor",
     );
   });
 
+  it("classifies a prerelease at the floor's numeric level as below-floor (bucket degraded)", () => {
+    fc.assert(
+      fc.property(arbitraryFloorParts(), arbitraryNameToken(), ([major, minor, patch], path) => {
+        const floor = `${major}.${minor}.${patch}`;
+        const version = `${major}.${minor}.${patch}-beta.1`;
+        const result = classifySpxReachability(spxReachabilityReading({ resolvedPath: path, version }), floor);
+        expect(result.verdict).toBe(SPX_REACHABILITY_VERDICT.BELOW_FLOOR);
+        expect(result.bucket).toBe(VERDICT_BUCKET.DEGRADED);
+      }),
+    );
+  });
+
   it("classifies a resolved but unreadable version as unknown (bucket unknown)", () => {
     fc.assert(
       fc.property(arbitrarySpxFloor(), arbitraryNameToken(), (floor, path) => {

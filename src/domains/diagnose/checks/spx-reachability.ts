@@ -41,18 +41,27 @@ interface SemverParts {
   readonly major: number;
   readonly minor: number;
   readonly patch: number;
+  /** True when a prerelease tag follows the numeric triple (e.g. `1.2.3-beta.1`). */
+  readonly prerelease: boolean;
 }
 
 function parseSemver(value: string): SemverParts | null {
-  const match = /^\s*(\d{1,9})\.(\d{1,9})\.(\d{1,9})/.exec(value);
+  const match = /^\s*(\d{1,9})\.(\d{1,9})\.(\d{1,9})(-[0-9A-Za-z.-]{1,64})?/.exec(value);
   if (!match) return null;
-  return { major: Number(match[1]), minor: Number(match[2]), patch: Number(match[3]) };
+  return {
+    major: Number(match[1]),
+    minor: Number(match[2]),
+    patch: Number(match[3]),
+    prerelease: match[4] !== undefined,
+  };
 }
 
 /**
- * Whether `version` is at or above `floor`. Returns null when either string is
- * not semver-shaped, so the check can fall back to an unknown verdict rather
- * than guess.
+ * Whether `version` is at or above `floor` by semver precedence. At equal
+ * major.minor.patch a prerelease version ranks below a release floor, so a
+ * prerelease does not satisfy a final-version floor. Returns null when either
+ * string is not semver-shaped, so the check falls back to an unknown verdict
+ * rather than guess.
  */
 export function meetsFloor(version: string, floor: string): boolean | null {
   const left = parseSemver(version);
@@ -60,7 +69,8 @@ export function meetsFloor(version: string, floor: string): boolean | null {
   if (left === null || right === null) return null;
   if (left.major !== right.major) return left.major > right.major;
   if (left.minor !== right.minor) return left.minor > right.minor;
-  return left.patch >= right.patch;
+  if (left.patch !== right.patch) return left.patch > right.patch;
+  return !(left.prerelease && !right.prerelease);
 }
 
 const REMEDIATION: Readonly<Record<SpxReachabilityVerdict, string>> = {
