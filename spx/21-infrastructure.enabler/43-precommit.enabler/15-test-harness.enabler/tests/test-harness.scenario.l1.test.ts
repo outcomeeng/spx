@@ -23,11 +23,14 @@ describe("precommit git environment test harness", () => {
       // String form, zero exit: stage the written file (proves writeFile created it under the env root).
       const staged = await exec(`${GIT_TEST_COMMAND} ${GIT_TEST_SUBCOMMANDS.ADD} ${fileName}`);
       expect(staged.exitCode).toBe(0);
+      expect(staged.stdout).toHaveLength(0);
+      expect(staged.stderr).toHaveLength(0);
 
       // Array form, zero exit: the staged index lists the written file.
       const listed = await exec([GIT_TEST_COMMAND, GIT_TEST_SUBCOMMANDS.LS_FILES, GIT_TEST_FLAGS.CACHED]);
       expect(listed.exitCode).toBe(0);
       expect(listed.stdout).toContain(fileName);
+      expect(listed.stderr).toHaveLength(0);
 
       // Array form, non-zero process exit: execa throws, the harness normalizes it into an ExecResult
       // rather than propagating the throw.
