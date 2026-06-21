@@ -61,10 +61,15 @@ const JOURNAL_EVENT_INPUT_STRING_FIELDS = ["id", "source", "type", "time"] as co
 
 export const JOURNAL_COMMENT_MARKER_PREFIX = "spx-journal-run:" as const;
 
-/** GitHub Actions event names that denote a pull-request CI context. */
+/**
+ * GitHub Actions event names that denote a pull-request CI context whose pull
+ * request number is resolvable from `GITHUB_REF`. `pull_request_target` is
+ * deliberately excluded: its `GITHUB_REF` is the base branch ref, so the PR
+ * number lives only in the event payload — full support is tracked in this
+ * node's ISSUES.md.
+ */
 export const GITHUB_PULL_REQUEST_EVENT_NAMES = {
   PULL_REQUEST: "pull_request",
-  PULL_REQUEST_TARGET: "pull_request_target",
 } as const;
 
 const GITHUB_PULL_REQUEST_EVENTS: ReadonlySet<string> = new Set(Object.values(GITHUB_PULL_REQUEST_EVENT_NAMES));
@@ -194,10 +199,10 @@ async function resolveAppendSink(
           (events) => [...events],
           verbOptions(deps),
         );
-        // Surface a render fault: throwing propagates through the sink's emit and
-        // appendJournalEvent's try/catch into an error result, so a failed render
-        // never overwrites the pull-request comment with an empty body under a
-        // success report.
+        // Throwing here prevents the sink's snapshot.write from running, so a
+        // failed render never overwrites the pull-request comment with an empty
+        // body; the throw is then caught by appendJournalEvent's best-effort
+        // streaming try/catch, which returns success on the already-committed event.
         if (!rendered.ok) throw new Error(rendered.error);
         return JSON.stringify(rendered.value);
       },
