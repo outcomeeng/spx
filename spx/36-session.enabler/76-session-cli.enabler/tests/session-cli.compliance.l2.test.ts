@@ -55,10 +55,10 @@ const FIXTURE_DEFAULT_BRANCH = "main";
 /** A session id that resolves to no session, exercising the per-ID failure path. */
 const ABSENT_SESSION_ID = "missing-id";
 
-/** The rendered `main checkout:` fact line, anchored to its label so the header prose never matches. */
-function mainCheckoutFactLine(stderr: string): string {
-  const label = `${HANDOFF_BASE_FACT_LABEL.MAIN_CHECKOUT}: `;
-  return stderr.split("\n").find((line) => line.trimStart().startsWith(label)) ?? "";
+/** The rendered fact line for `label`, anchored to its label prefix so the header prose never matches. */
+function factLine(stderr: string, label: string): string {
+  const prefix = `${label}: `;
+  return stderr.split("\n").find((line) => line.trimStart().startsWith(prefix)) ?? "";
 }
 
 /**
@@ -336,6 +336,9 @@ describe("session CLI handoff-base wiring", () => {
         linkedWorktreeDir,
         LINKED_WORKTREE_BRANCH,
       ]);
+      // The linked worktree shares the seed commit the branch was cut from, so the main
+      // checkout's HEAD SHA is the value the handler must collect for the linked worktree.
+      const headSha = await gitEnv.runGit([...GIT_HEAD_SHA_ARGS]);
 
       const result = await runHandoffFrom(linkedWorktreeDir);
 
@@ -343,6 +346,9 @@ describe("session CLI handoff-base wiring", () => {
       expect(result.stderr).toContain(SESSION_HANDOFF_BASE_ERROR_NAME);
       // The descriptor wrote the pure formatter's checklist, not a bare message.
       expect(result.stderr).toContain(HANDOFF_BASE_PREREQUISITE_LABEL.CLEAN_WORKING_TREE);
+      // The handler's git-to-facts collection populated the real HEAD SHA, not a stale or
+      // fabricated value — the rendered HEAD fact line carries the worktree's actual commit.
+      expect(factLine(result.stderr, HANDOFF_BASE_FACT_LABEL.HEAD)).toContain(headSha);
       expect(await readdir(harness.statusDir(TODO))).toEqual([]);
     });
   });
@@ -369,9 +375,9 @@ describe("session CLI handoff-base wiring", () => {
       expect(result.stderr).toContain(SESSION_HANDOFF_BASE_ERROR_NAME);
       // The bare-pool main checkout is the worktree named after the origin repository,
       // asserted as a path segment to stay invariant to the temp-dir realpath prefix.
-      const factLine = mainCheckoutFactLine(result.stderr);
-      expect(factLine).toContain(`${sep}${layout.mainCheckoutName}`);
-      expect(factLine).not.toContain(HANDOFF_BASE_UNRESOLVED);
+      const mainLine = factLine(result.stderr, HANDOFF_BASE_FACT_LABEL.MAIN_CHECKOUT);
+      expect(mainLine).toContain(`${sep}${layout.mainCheckoutName}`);
+      expect(mainLine).not.toContain(HANDOFF_BASE_UNRESOLVED);
       expect(await readdir(harness.statusDir(TODO))).toEqual([]);
     });
   });
@@ -385,7 +391,7 @@ describe("session CLI handoff-base wiring", () => {
 
         expect(result.exitCode).not.toBe(0);
         expect(result.stderr).toContain(SESSION_HANDOFF_BASE_ERROR_NAME);
-        expect(mainCheckoutFactLine(result.stderr).trim()).toBe(
+        expect(factLine(result.stderr, HANDOFF_BASE_FACT_LABEL.MAIN_CHECKOUT).trim()).toBe(
           `${HANDOFF_BASE_FACT_LABEL.MAIN_CHECKOUT}: ${HANDOFF_BASE_UNRESOLVED}`,
         );
         expect(await readdir(harness.statusDir(TODO))).toEqual([]);
