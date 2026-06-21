@@ -1,0 +1,66 @@
+/**
+ * Diagnose CLI — Commander registration descriptor for `spx diagnose`. Owns the
+ * `--manifest` / `--format` parsing, wires the default check registry over the
+ * real probes, and is the sole site of the process exit keyed to the overall
+ * verdict.
+ */
+import { readFile } from "node:fs/promises";
+
+import type { Command } from "commander";
+
+import { diagnoseCommand } from "@/commands/diagnose";
+import { spxReachabilityRunner } from "@/domains/diagnose/checks/spx-reachability";
+import type { CheckRegistry } from "@/domains/diagnose/engine";
+import { CHECK_NAME } from "@/domains/diagnose/manifest";
+import { DIAGNOSE_FORMAT, type DiagnoseFormat } from "@/domains/diagnose/report";
+import type { Domain } from "@/domains/types";
+import { defaultSpxReachabilityProbe } from "@/lib/diagnose/spx-reachability-probe";
+
+/** Source-owned `spx diagnose` command and flag vocabulary, shared with the CLI tests. */
+export const DIAGNOSE_CLI = {
+  COMMAND: "diagnose",
+  MANIFEST_FLAG: "--manifest",
+  FORMAT_FLAG: "--format",
+} as const;
+
+const DIAGNOSE_DOMAIN_DESCRIPTION = "Run deterministic environment-diagnostics checks from a declarative manifest";
+
+/** The check runners `spx diagnose` dispatches to, over the real probes. */
+const DEFAULT_REGISTRY: CheckRegistry = {
+  [CHECK_NAME.SPX_REACHABILITY]: spxReachabilityRunner(defaultSpxReachabilityProbe),
+};
+
+function resolveFormat(value: string | undefined): DiagnoseFormat {
+  return value === DIAGNOSE_FORMAT.JSON ? DIAGNOSE_FORMAT.JSON : DIAGNOSE_FORMAT.TEXT;
+}
+
+function handleError(error: string): never {
+  console.error("Error:", error);
+  process.exit(1);
+}
+
+/**
+ * Diagnose CLI — Commander registration descriptor for the `spx diagnose` command.
+ */
+export const diagnoseDomain: Domain = {
+  name: DIAGNOSE_CLI.COMMAND,
+  description: DIAGNOSE_DOMAIN_DESCRIPTION,
+  register: (program: Command) => {
+    program
+      .command(DIAGNOSE_CLI.COMMAND)
+      .description(DIAGNOSE_DOMAIN_DESCRIPTION)
+      .requiredOption(`${DIAGNOSE_CLI.MANIFEST_FLAG} <path>`, "Path to the declarative diagnose manifest")
+      .option(`${DIAGNOSE_CLI.FORMAT_FLAG} <format>`, "Output format (text|json)", DIAGNOSE_FORMAT.TEXT)
+      .action(async (options: { manifest: string; format?: string }) => {
+        const result = await diagnoseCommand({
+          manifestPath: options.manifest,
+          format: resolveFormat(options.format),
+          registry: DEFAULT_REGISTRY,
+          fs: { readFile: (path) => readFile(path, "utf8") },
+        });
+        if (!result.ok) handleError(result.error);
+        console.log(result.value.output);
+        process.exit(result.value.exitCode);
+      });
+  },
+};
