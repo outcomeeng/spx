@@ -1,7 +1,7 @@
 import { join } from "node:path";
 
 import type { Result } from "@/config/types";
-import { branchScopeDir, runFileName, runsDir } from "@/lib/state-store";
+import { branchScopeDir, runFileName, runsDir, validateScopeToken } from "@/lib/state-store";
 
 /**
  * The inputs that scope one journal run's local persistence path: the Git
@@ -22,14 +22,17 @@ export interface JournalRunScope {
 /**
  * Compose a journal run's local persistence path,
  * `.spx/branch/<branch-slug>/<type>/runs/run-<run-token>.jsonl`, at the Git
- * common-dir product root. The branch slug and the opaque `<type>` segment are
- * validated for path safety by the state-store; an invalid slug or type segment
- * rejects with the state-store error, never a partial path.
+ * common-dir product root. The branch slug, the opaque `<type>` segment, and the
+ * run token are validated for path safety by the state-store; an invalid slug,
+ * type segment, or run token rejects with the state-store error, never a partial
+ * path, so a caller-supplied run token cannot escape the run directory.
  */
 export function journalRunFilePath(scope: JournalRunScope): Result<string> {
   const branchScope = branchScopeDir(scope.productDir, scope.branchSlug);
   if (!branchScope.ok) return branchScope;
   const typeRunsDir = runsDir(branchScope.value, scope.type);
   if (!typeRunsDir.ok) return typeRunsDir;
-  return { ok: true, value: join(typeRunsDir.value, runFileName(scope.runToken)) };
+  const runToken = validateScopeToken(scope.runToken);
+  if (!runToken.ok) return runToken;
+  return { ok: true, value: join(typeRunsDir.value, runFileName(runToken.value)) };
 }
