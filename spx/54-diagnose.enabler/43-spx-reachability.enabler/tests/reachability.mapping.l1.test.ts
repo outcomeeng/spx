@@ -87,4 +87,16 @@ describe("the spx-reachability check classifies spx against the manifest floor",
       }),
     );
   });
+
+  it("classifies a resolved non-semver version as unknown (bucket unknown)", () => {
+    fc.assert(
+      fc.property(arbitrarySpxFloor(), arbitraryNameToken(), arbitraryNameToken(), (floor, path, version) => {
+        fc.pre(!/^\s*\d+\.\d+\.\d+/.test(version));
+        const result = classifySpxReachability(spxReachabilityReading({ resolvedPath: path, version }), floor);
+        expect(result.verdict).toBe(SPX_REACHABILITY_VERDICT.UNKNOWN);
+        expect(result.bucket).toBe(VERDICT_BUCKET.UNKNOWN);
+        expect(result.remediation.length).toBeGreaterThan(0);
+      }),
+    );
+  });
 });
