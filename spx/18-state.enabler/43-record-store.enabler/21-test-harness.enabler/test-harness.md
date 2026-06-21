@@ -9,7 +9,7 @@ CAN exercise the code under test over an injected filesystem boundary that runs 
 ### Scenarios
 
 - Given a recursive `mkdir`, when a nested directory path is created, then every ancestor directory in the chain exists; given a non-recursive `mkdir` whose parent is absent, then it raises the not-found error ([test](tests/test-harness.scenario.l1.test.ts))
-- Given `writeFile` with the exclusive-create flag to an existing path, then it raises the file-exists error; given `writeFile` with the write-existing flag to an absent path, then it raises the not-found error; given `appendFile`, then the data concatenates onto the existing content ([test](tests/test-harness.scenario.l1.test.ts))
+- Given `writeFile` with the exclusive-create flag to an existing path, then it raises the file-exists error; given `writeFile` with the write-existing flag to an absent path, then it raises the not-found error; given `appendFile`, then the data concatenates onto the existing content; given `writeFile` with no flag to an existing path, then the stored content is replaced ([test](tests/test-harness.scenario.l1.test.ts))
 - Given `rm` of a present file or directory, then the entry is absent afterward; given `rm` of an absent path without force, then it raises the not-found error, and with force it resolves ([test](tests/test-harness.scenario.l1.test.ts))
 - Given `lstat`, then a file path classifies as a file, a directory path as a directory, and an absent path raises the not-found error ([test](tests/test-harness.scenario.l1.test.ts))
 - Given `readdir` of a directory holding direct files and nested subdirectories, then it returns each direct child once, classifying files and directories ([test](tests/test-harness.scenario.l1.test.ts))

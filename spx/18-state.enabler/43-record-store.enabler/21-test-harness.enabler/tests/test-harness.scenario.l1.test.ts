@@ -47,6 +47,7 @@ describe("in-memory StateStoreFileSystem double — writes", () => {
     const [dir, file, absent, orphanParent, orphanLeaf] = distinctSegments(5);
     const initial = sampleConfigTestValue(CONFIG_TEST_GENERATOR.key());
     const appended = sampleConfigTestValue(CONFIG_TEST_GENERATOR.key());
+    const replacement = sampleConfigTestValue(CONFIG_TEST_GENERATOR.key());
     const filePath = `/${dir}/${file}`;
     await fs.mkdir(`/${dir}`, { recursive: true });
 
@@ -59,6 +60,9 @@ describe("in-memory StateStoreFileSystem double — writes", () => {
 
     await fs.appendFile(filePath, appended);
     expect(await fs.readFile(filePath, STATE_STORE_TEXT_ENCODING)).toBe(`${initial}${appended}`);
+
+    await fs.writeFile(filePath, replacement);
+    expect(await fs.readFile(filePath, STATE_STORE_TEXT_ENCODING)).toBe(replacement);
 
     await expectErrorCode(fs.writeFile(`/${orphanParent}/${orphanLeaf}`, initial), ERROR_CODE_NOT_FOUND);
     await expectErrorCode(fs.appendFile(`/${orphanParent}/${orphanLeaf}`, initial), ERROR_CODE_NOT_FOUND);
