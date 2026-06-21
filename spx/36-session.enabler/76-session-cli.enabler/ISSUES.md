@@ -29,3 +29,13 @@ The handoff-base checklist enumerates two base prerequisites — a clean working
 **Impact:** None to behavior; the alias forwards to `runSessionCli`. The two names are a drift point — a future runner change could touch one and not the caller's mental model.
 
 **Resolution:** Re-point the `runSpxSession` call sites in `session-cli.compliance.l2.test.ts` to `runSessionCli`, then remove the `runSpxSession` alias.
+
+## Path-segment and branch-name generators duplicated across testing generators
+
+`testing/generators/session/handoff-base.ts` privately defines `PATH_SEGMENT_PATTERN`, a path-segment arbitrary, and exports `arbitraryBranchName()` as that arbitrary — identical to copies in `testing/generators/main-checkout/main-checkout.ts`, `testing/generators/testing/run-state.ts`, and `testing/generators/audit/run-state.ts`. `PATH_SEGMENT_PATTERN` alone also recurs in `testing/generators/git-worktree/git-worktree.ts` and `testing/generators/release/release.ts`.
+
+**Evidence:** Every copy uses `/^[a-z][a-z0-9-]{2,12}$/` and `arbitraryBranchName` is defined four times. No shared module owns the git-name vocabulary, so the implementations agree only by hand.
+
+**Impact:** A domain-driven change to the path-segment pattern must be tracked down and replicated across every copy; a missed site drifts silently.
+
+**Resolution:** Extract `PATH_SEGMENT_PATTERN`, the path-segment arbitrary, and `arbitraryBranchName()` into one shared git-name generator module and re-point every site to it.
