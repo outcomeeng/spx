@@ -11,7 +11,7 @@
 import * as fc from "fast-check";
 
 /** A single lowercase git-name unit: a leading letter, then lowercase alphanumerics and hyphens. */
-export const PATH_SEGMENT_PATTERN = /^[a-z][a-z0-9-]{2,12}$/;
+const PATH_SEGMENT_PATTERN = /^[a-z][a-z0-9-]{2,12}$/;
 
 /** A single lowercase path segment. */
 export function arbitraryPathSegment(): fc.Arbitrary<string> {

@@ -7,8 +7,8 @@ const HEX_ALPHABET = [..."0123456789abcdef"] as const;
 const BRANCH_SEGMENT_CHARACTERS = [..."abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789._/-"] as const;
 const TOKEN_CHARACTERS = [..."abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789_-"] as const;
 
-export const STATE_STORE_UNSAFE_SCOPE_TOKENS = [".", "..", "a/b", "a\\b", "a.b"] as const;
-export const STATE_STORE_UNSAFE_SCOPE_MARKERS = ["/", "\\", ".", ".."] as const;
+const STATE_STORE_UNSAFE_SCOPE_TOKENS = [".", "..", "a/b", "a\\b", "a.b"] as const;
+const STATE_STORE_UNSAFE_SCOPE_MARKERS = ["/", "\\", ".", ".."] as const;
 
 function stringFromCharacters(
   characters: readonly string[],
