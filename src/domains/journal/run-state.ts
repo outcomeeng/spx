@@ -62,13 +62,8 @@ export type JournalTargetKind = (typeof JOURNAL_TARGET_KIND)[keyof typeof JOURNA
 export type JournalRunStateIncompleteReason =
   (typeof JOURNAL_RUN_STATE_INCOMPLETE_REASON)[keyof typeof JOURNAL_RUN_STATE_INCOMPLETE_REASON];
 
-/**
- * The terminal projection of one journal run, folded from its event history.
- * The union covers both branch- and pull-request-scoped runs and every agentic
- * verification kind; `pullRequestNumber` and `baseSha` are present only when the
- * run carries them.
- */
-export interface JournalRunState {
+/** The run-scope identity fields a journal run state carries. */
+interface JournalRunStateIdentity {
   readonly branchName: string;
   readonly branchSlug: string;
   readonly targetKind: JournalTargetKind;
@@ -76,6 +71,10 @@ export interface JournalRunState {
   readonly headSha: string;
   readonly baseRef: string;
   readonly baseSha?: string;
+}
+
+/** The run-outcome body fields a journal run state carries. */
+interface JournalRunStateBody {
   readonly configDigest: string;
   readonly participants: readonly string[];
   readonly scope: PathFilterConfig;
@@ -84,6 +83,14 @@ export interface JournalRunState {
   readonly outputPaths: readonly string[];
   readonly status: JournalRunStateStatus;
 }
+
+/**
+ * The terminal projection of one journal run, folded from its event history.
+ * The union covers both branch- and pull-request-scoped runs and every agentic
+ * verification kind; `pullRequestNumber` and `baseSha` are present only when the
+ * run carries them.
+ */
+export interface JournalRunState extends JournalRunStateIdentity, JournalRunStateBody {}
 
 export type JournalRunStateParseResult =
   | { readonly ok: true; readonly value: JournalRunState }
@@ -165,6 +172,14 @@ export function isJournalTargetKind(value: unknown): value is JournalTargetKind 
 
 function validateJournalRunState(value: unknown): Result<JournalRunState> {
   if (!isRecord(value)) return { ok: false, error: "journal run state must be an object" };
+  const identity = readRunStateIdentity(value);
+  if (!identity.ok) return identity;
+  const body = readRunStateBody(value);
+  if (!body.ok) return body;
+  return { ok: true, value: { ...identity.value, ...body.value } };
+}
+
+function readRunStateIdentity(value: Record<string, unknown>): Result<JournalRunStateIdentity> {
   const branchName = readString(value, JOURNAL_RUN_STATE_FIELDS.BRANCH_NAME);
   if (!branchName.ok) return branchName;
   const branchSlug = readString(value, JOURNAL_RUN_STATE_FIELDS.BRANCH_SLUG);
@@ -179,6 +194,21 @@ function validateJournalRunState(value: unknown): Result<JournalRunState> {
   if (!baseRef.ok) return baseRef;
   const baseSha = readOptionalString(value, JOURNAL_RUN_STATE_FIELDS.BASE_SHA);
   if (!baseSha.ok) return baseSha;
+  return {
+    ok: true,
+    value: {
+      branchName: branchName.value,
+      branchSlug: branchSlug.value,
+      targetKind: targetKind.value,
+      ...(pullRequestNumber.value === undefined ? {} : { pullRequestNumber: pullRequestNumber.value }),
+      headSha: headSha.value,
+      baseRef: baseRef.value,
+      ...(baseSha.value === undefined ? {} : { baseSha: baseSha.value }),
+    },
+  };
+}
+
+function readRunStateBody(value: Record<string, unknown>): Result<JournalRunStateBody> {
   const configDigest = readString(value, JOURNAL_RUN_STATE_FIELDS.CONFIG_DIGEST);
   if (!configDigest.ok) return configDigest;
   const participants = readStringArray(value, JOURNAL_RUN_STATE_FIELDS.PARTICIPANTS);
@@ -193,17 +223,9 @@ function validateJournalRunState(value: unknown): Result<JournalRunState> {
   if (!outputPaths.ok) return outputPaths;
   const status = readStatus(value, JOURNAL_RUN_STATE_FIELDS.STATUS);
   if (!status.ok) return status;
-
   return {
     ok: true,
     value: {
-      branchName: branchName.value,
-      branchSlug: branchSlug.value,
-      targetKind: targetKind.value,
-      ...(pullRequestNumber.value === undefined ? {} : { pullRequestNumber: pullRequestNumber.value }),
-      headSha: headSha.value,
-      baseRef: baseRef.value,
-      ...(baseSha.value === undefined ? {} : { baseSha: baseSha.value }),
       configDigest: configDigest.value,
       participants: participants.value,
       scope: scope.value,

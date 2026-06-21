@@ -52,7 +52,7 @@ export const JOURNAL_COMMENT_MARKER_PREFIX = "spx-journal-run:" as const;
 const GITHUB_PULL_REQUEST_EVENT = "pull_request";
 const PULL_REQUEST_REF_PATTERN = /^refs\/pull\/(\d+)\//u;
 const DECIMAL_RADIX = 10;
-const TRUTHY_ENV_VALUES: readonly string[] = ["1", "true"];
+const TRUTHY_ENV_VALUES: ReadonlySet<string> = new Set(["1", "true"]);
 
 export interface JournalCliResult {
   readonly exitCode: number;
@@ -95,7 +95,7 @@ export interface JournalStreamBinding {
 }
 
 function isTruthyEnv(value: string | undefined): boolean {
-  return value !== undefined && TRUTHY_ENV_VALUES.includes(value.toLowerCase());
+  return value !== undefined && TRUTHY_ENV_VALUES.has(value.toLowerCase());
 }
 
 /** Read the parts of the process environment that bind the journal backend at the edge. */
