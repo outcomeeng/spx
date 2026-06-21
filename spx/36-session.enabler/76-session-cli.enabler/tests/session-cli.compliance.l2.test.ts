@@ -16,6 +16,7 @@ import { GIT_HEAD_SHA_ARGS, NOT_GIT_REPO_WARNING } from "@/git/root";
 import { sampleLiteralTestValue } from "@testing/generators/literal/literal";
 import {
   arbitraryBarePoolLayoutCase,
+  arbitraryBarePoolWithoutMainCheckoutLayoutCase,
   arbitraryBarePoolWithoutOriginLayoutCase,
   sampleMainCheckoutTestValue,
 } from "@testing/generators/main-checkout/main-checkout";
@@ -53,6 +54,25 @@ const LINKED_WORKTREE_RELATIVE_PATH = ".worktrees/linked";
 const FIXTURE_DEFAULT_BRANCH = "main";
 /** A session id that resolves to no session, exercising the per-ID failure path. */
 const ABSENT_SESSION_ID = "missing-id";
+
+/** The rendered `main checkout:` fact line, anchored to its label so the header prose never matches. */
+function mainCheckoutFactLine(stderr: string): string {
+  const label = `${HANDOFF_BASE_FACT_LABEL.MAIN_CHECKOUT}: `;
+  return stderr.split("\n").find((line) => line.trimStart().startsWith(label)) ?? "";
+}
+
+/**
+ * The two bare-pool layouts whose main-checkout path resolves to nothing: one with no `origin`
+ * remote (no repository name to designate a worktree), and one whose `origin` names a repository
+ * but whose named worktree is absent. Both must render the main-checkout fact line unresolved.
+ */
+const UNRESOLVED_BARE_POOL_CASES: ReadonlyArray<{
+  readonly label: string;
+  readonly arbitrary: typeof arbitraryBarePoolWithoutOriginLayoutCase;
+}> = [
+  { label: "no origin remote", arbitrary: arbitraryBarePoolWithoutOriginLayoutCase },
+  { label: "an origin name no worktree bears", arbitrary: arbitraryBarePoolWithoutMainCheckoutLayoutCase },
+];
 
 describe("session CLI compliance", () => {
   let harness: SessionHarness;
@@ -300,12 +320,6 @@ describe("session CLI handoff-base wiring", () => {
     );
   }
 
-  /** The rendered `main checkout:` fact line, anchored to its label so the header prose never matches. */
-  function mainCheckoutFactLine(stderr: string): string {
-    const label = `${HANDOFF_BASE_FACT_LABEL.MAIN_CHECKOUT}: `;
-    return stderr.split("\n").find((line) => line.trimStart().startsWith(label)) ?? "";
-  }
-
   it("refused: a non-main checkout writes the rendered checklist to stderr and exits non-zero", async () => {
     await withGitWorktreeEnv(async (gitEnv) => {
       await gitEnv.runGit([
@@ -362,19 +376,22 @@ describe("session CLI handoff-base wiring", () => {
     });
   });
 
-  it("bare pool with no origin: the checklist renders the main-checkout path unresolved", async () => {
-    const layout = sampleMainCheckoutTestValue(arbitraryBarePoolWithoutOriginLayoutCase());
-    await withWorktreeLayoutEnv(layout.spec, async (env) => {
-      const result = await runHandoffFrom(env.worktree(layout.nonMainCheckoutName));
+  it.each(UNRESOLVED_BARE_POOL_CASES)(
+    "bare pool with $label: the checklist renders the main-checkout path unresolved",
+    async ({ arbitrary }) => {
+      const layout = sampleMainCheckoutTestValue(arbitrary());
+      await withWorktreeLayoutEnv(layout.spec, async (env) => {
+        const result = await runHandoffFrom(env.worktree(layout.nonMainCheckoutName));
 
-      expect(result.exitCode).not.toBe(0);
-      expect(result.stderr).toContain(SESSION_HANDOFF_BASE_ERROR_NAME);
-      expect(mainCheckoutFactLine(result.stderr).trim()).toBe(
-        `${HANDOFF_BASE_FACT_LABEL.MAIN_CHECKOUT}: ${HANDOFF_BASE_UNRESOLVED}`,
-      );
-      expect(await readdir(harness.statusDir(TODO))).toEqual([]);
-    });
-  });
+        expect(result.exitCode).not.toBe(0);
+        expect(result.stderr).toContain(SESSION_HANDOFF_BASE_ERROR_NAME);
+        expect(mainCheckoutFactLine(result.stderr).trim()).toBe(
+          `${HANDOFF_BASE_FACT_LABEL.MAIN_CHECKOUT}: ${HANDOFF_BASE_UNRESOLVED}`,
+        );
+        expect(await readdir(harness.statusDir(TODO))).toEqual([]);
+      });
+    },
+  );
 
   it("permitted: a clean non-main worktree detached at the origin tip writes the session and no checklist", async () => {
     await withGitWorktreeEnv(async (gitEnv) => {

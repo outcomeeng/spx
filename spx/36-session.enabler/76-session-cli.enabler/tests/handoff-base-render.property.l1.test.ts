@@ -20,8 +20,7 @@ import { arbitraryHandoffBaseChecklist } from "@testing/generators/session/hando
 const FORBIDDEN_ORIGIN_PLACEHOLDER = "origin/<default>";
 
 /**
- * The work-hiding remedy the refusal must never suggest per
- * `spx/36-session.enabler/11-session-frontmatter.pdr.md` — a refused base directs
+ * The work-hiding remedy the refusal must never suggest — a refused base directs
  * the agent to commit, detach, or hand off from the main checkout, never to stash.
  */
 const FORBIDDEN_STASH_REMEDY = "git stash";
