@@ -13,4 +13,4 @@ CAN assert the picker's rendered intent and key handling without splitting raw f
 ### Compliance
 
 - ALWAYS: frames are read through ink-testing-library's rendered output, and the arrow, type, enter, and esc key drivers each write a terminal byte sequence to the injected ink-testing-library stdin and await Ink's flush — the harness drives no real terminal, per [`spx/13-cli.enabler/21-terminal-ui.adr.md`](../../../13-cli.enabler/21-terminal-ui.adr.md) ([audit](../../../13-cli.enabler/21-terminal-ui.adr.md))
-- ALWAYS: the Escape key driver outwaits Ink's Escape-disambiguation window so a standalone Escape flushes as Escape rather than the start of an escape sequence ([audit])
+- ALWAYS: the Escape key driver outwaits Ink's Escape-disambiguation window so a standalone Escape flushes as Escape rather than the start of an escape sequence, per [`spx/13-cli.enabler/21-terminal-ui.adr.md`](../../../13-cli.enabler/21-terminal-ui.adr.md) ([audit](../../../13-cli.enabler/21-terminal-ui.adr.md))
