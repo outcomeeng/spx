@@ -15,6 +15,7 @@ import { CHECK_NAME } from "@/domains/diagnose/manifest";
 import { DIAGNOSE_FORMAT, type DiagnoseFormat } from "@/domains/diagnose/report";
 import type { Domain } from "@/domains/types";
 import { defaultSpxReachabilityProbe } from "@/lib/diagnose/spx-reachability-probe";
+import { sanitizeCliArgument } from "@/lib/sanitize-cli-argument";
 
 /** Source-owned `spx diagnose` command and flag vocabulary, shared with the CLI tests. */
 export const DIAGNOSE_CLI = {
@@ -35,7 +36,9 @@ function resolveFormat(value: string | undefined): DiagnoseFormat {
 }
 
 function handleError(error: string): never {
-  console.error("Error:", error);
+  // The error can embed user-supplied bytes — the manifest path and manifest-named
+  // checks — so sanitize before the diagnostic echo per spx/13-cli.enabler/cli.md.
+  console.error("Error:", sanitizeCliArgument(error));
   process.exit(1);
 }
 
