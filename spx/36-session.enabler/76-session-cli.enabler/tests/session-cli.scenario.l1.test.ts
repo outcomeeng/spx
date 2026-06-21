@@ -18,17 +18,18 @@ const [TODO, DOING, ARCHIVE] = SESSION_STATUSES;
 /** A session id that resolves to no session, exercising the per-ID failure path. */
 const ABSENT_SESSION_ID = "nonexistent";
 
+// Each batch test takes a fresh harness; the lifecycle is file-scoped so no describe repeats it.
+let harness: SessionHarness;
+
+beforeEach(async () => {
+  harness = await createSessionHarness();
+});
+
+afterEach(async () => {
+  await harness.cleanup();
+});
+
 describe("batch archive", () => {
-  let harness: SessionHarness;
-
-  beforeEach(async () => {
-    harness = await createSessionHarness();
-  });
-
-  afterEach(async () => {
-    await harness.cleanup();
-  });
-
   it("S1: GIVEN 3 sessions in todo WHEN archive with 3 IDs THEN all 3 move to archive", async () => {
     const ids = [...sampleDistinctSessionIds(3)];
     for (const id of ids) {
@@ -79,16 +80,6 @@ describe("batch archive", () => {
 });
 
 describe("batch delete", () => {
-  let harness: SessionHarness;
-
-  beforeEach(async () => {
-    harness = await createSessionHarness();
-  });
-
-  afterEach(async () => {
-    await harness.cleanup();
-  });
-
   it("S2: GIVEN 3 sessions WHEN delete with 3 IDs THEN all 3 removed", async () => {
     const ids = [...sampleDistinctSessionIds(3)];
     for (const id of ids) {
@@ -117,16 +108,6 @@ describe("batch delete", () => {
 });
 
 describe("batch release", () => {
-  let harness: SessionHarness;
-
-  beforeEach(async () => {
-    harness = await createSessionHarness();
-  });
-
-  afterEach(async () => {
-    await harness.cleanup();
-  });
-
   it("S6: GIVEN 2 sessions in doing WHEN release with 2 IDs THEN both move to todo", async () => {
     const ids = [...sampleDistinctSessionIds(2)];
     for (const id of ids) {
@@ -156,16 +137,6 @@ describe("batch release", () => {
 });
 
 describe("batch pickup", () => {
-  let harness: SessionHarness;
-
-  beforeEach(async () => {
-    harness = await createSessionHarness();
-  });
-
-  afterEach(async () => {
-    await harness.cleanup();
-  });
-
   it("GIVEN 2 sessions in todo WHEN pickup with 2 IDs THEN both move to doing", async () => {
     const ids = [...sampleDistinctSessionIds(2)];
     for (const id of ids) {
@@ -195,16 +166,6 @@ describe("batch pickup", () => {
 });
 
 describe("batch show", () => {
-  let harness: SessionHarness;
-
-  beforeEach(async () => {
-    harness = await createSessionHarness();
-  });
-
-  afterEach(async () => {
-    await harness.cleanup();
-  });
-
   it("S3: GIVEN 2 sessions WHEN show with 2 IDs THEN both contents printed", async () => {
     const [id1, id2] = sampleDistinctSessionIds(2);
     const priority1 = SESSION_PRIORITY.HIGH;
@@ -222,16 +183,6 @@ describe("batch show", () => {
 });
 
 describe("batch properties", () => {
-  let harness: SessionHarness;
-
-  beforeEach(async () => {
-    harness = await createSessionHarness();
-  });
-
-  afterEach(async () => {
-    await harness.cleanup();
-  });
-
   it("P2: GIVEN ordered IDs WHEN archive THEN processed left-to-right", async () => {
     const ids = [...sampleDistinctSessionIds(3)];
     for (const id of ids) {

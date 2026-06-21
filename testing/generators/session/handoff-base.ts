@@ -3,7 +3,7 @@
  * decides over ({@link HandoffGitFacts}) and the refusal checklist it carries
  * ({@link HandoffBaseChecklist}). These are pure value structs — the resolver
  * and formatter verify in isolation over generated instances rather than
- * hand-picked fixtures, per `spx/36-session.enabler/76-session-cli.enabler/21-handoff-base-rendering.adr.md`.
+ * hand-picked fixtures.
  *
  * @module session/testing/handoff-base
  */
