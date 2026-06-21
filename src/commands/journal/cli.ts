@@ -238,7 +238,8 @@ export function validateJournalEventInput(value: unknown): Result<JournalEventIn
   }
   const record = value as Record<string, unknown>;
   for (const field of JOURNAL_EVENT_INPUT_STRING_FIELDS) {
-    if (typeof record[field] !== "string" || (record[field] as string).length === 0) {
+    const candidate = record[field];
+    if (typeof candidate !== "string" || candidate.length === 0) {
       return { ok: false, error: JOURNAL_CLI_ERROR.INVALID_EVENT_INPUT };
     }
   }
