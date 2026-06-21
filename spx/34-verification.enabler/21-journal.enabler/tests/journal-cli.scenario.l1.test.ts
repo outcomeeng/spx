@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 
 import {
+  JOURNAL_CLI_ERROR,
   JOURNAL_CLI_EXIT_CODE,
   journalAppendCommand,
   type JournalCliDeps,
@@ -41,7 +42,7 @@ describe("journal CLI", () => {
       expect(appended.exitCode).toBe(JOURNAL_CLI_EXIT_CODE.OK);
       expect(sink.emitted.map((event) => event.seq)).toEqual([JOURNAL_SEQ_BASE]);
 
-      const read = await journalReadCommand({ type, runToken }, JOURNAL_SEQ_BASE, deps);
+      const read = await journalReadCommand({ type, runToken }, String(JOURNAL_SEQ_BASE), deps);
       expect(read.exitCode).toBe(JOURNAL_CLI_EXIT_CODE.OK);
       expect((JSON.parse(read.output) as JournalEvent[]).map((event) => event.seq)).toEqual([JOURNAL_SEQ_BASE]);
 
@@ -54,6 +55,38 @@ describe("journal CLI", () => {
       const rendered = await journalRenderCommand({ type, runToken }, deps);
       expect(rendered.exitCode).toBe(JOURNAL_CLI_EXIT_CODE.OK);
       expect((JSON.parse(rendered.output) as JournalEvent[]).map((event) => event.seq)).toEqual([JOURNAL_SEQ_BASE]);
+    });
+  });
+
+  it("rejects an append whose event input lacks a required CloudEvents field", async () => {
+    const type = sampleStateStoreTestValue(STATE_STORE_TEST_GENERATOR.scopeToken());
+
+    await withGitEnv(async ({ path }) => {
+      const deps = localDeps(path);
+      const opened = await journalOpenCommand({ type }, deps);
+      const { runToken } = JSON.parse(opened.output) as { runToken: string };
+
+      const sink = new RecordingJournalStreamSink();
+      const appended = await journalAppendCommand({ type, runToken }, {}, { localSink: sink }, deps);
+
+      expect(appended.exitCode).toBe(JOURNAL_CLI_EXIT_CODE.ERROR);
+      expect(appended.output).toBe(JOURNAL_CLI_ERROR.INVALID_EVENT_INPUT);
+      expect(sink.emitted).toHaveLength(0);
+    });
+  });
+
+  it("rejects a read whose cursor is not a whole non-negative integer", async () => {
+    const type = sampleStateStoreTestValue(STATE_STORE_TEST_GENERATOR.scopeToken());
+
+    await withGitEnv(async ({ path }) => {
+      const deps = localDeps(path);
+      const opened = await journalOpenCommand({ type }, deps);
+      const { runToken } = JSON.parse(opened.output) as { runToken: string };
+
+      const read = await journalReadCommand({ type, runToken }, "nope", deps);
+
+      expect(read.exitCode).toBe(JOURNAL_CLI_EXIT_CODE.ERROR);
+      expect(read.output).toBe(JOURNAL_CLI_ERROR.INVALID_CURSOR);
     });
   });
 });

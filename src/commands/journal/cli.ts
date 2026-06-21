@@ -45,7 +45,12 @@ export const JOURNAL_CLI_ERROR = {
   GITHUB_CLIENT_UNAVAILABLE: "github pull-request backend needs a GitHub client",
   PULL_REQUEST_UNRESOLVED: "github pull-request number is not resolvable from the environment",
   HEAD_SHA_UNAVAILABLE: "unknown",
+  INVALID_EVENT_INPUT: "journal append event input is missing a required CloudEvents field",
+  INVALID_CURSOR: "journal read cursor must be a whole non-negative integer",
 } as const;
+
+const CURSOR_PATTERN = /^\d+$/;
+const JOURNAL_EVENT_INPUT_STRING_FIELDS = ["id", "source", "type", "time"] as const;
 
 export const JOURNAL_COMMENT_MARKER_PREFIX = "spx-journal-run:" as const;
 
@@ -221,35 +226,69 @@ export async function journalOpenCommand(scope: JournalCliScope, deps: JournalCl
 }
 
 /**
+ * Validate that a parsed stdin value carries the required CloudEvents input
+ * fields before it is appended, so a structurally incomplete event is rejected
+ * at the boundary rather than persisted as a record the reader later skips.
+ * Deep CloudEvents value rules (URI `source`, RFC3339 `time`) are the deferred
+ * contract decision tracked in `spx/15-agent-run-journal.enabler/ISSUES.md`.
+ */
+export function validateJournalEventInput(value: unknown): Result<JournalEventInput> {
+  if (typeof value !== "object" || value === null || Array.isArray(value)) {
+    return { ok: false, error: JOURNAL_CLI_ERROR.INVALID_EVENT_INPUT };
+  }
+  const record = value as Record<string, unknown>;
+  for (const field of JOURNAL_EVENT_INPUT_STRING_FIELDS) {
+    if (typeof record[field] !== "string" || (record[field] as string).length === 0) {
+      return { ok: false, error: JOURNAL_CLI_ERROR.INVALID_EVENT_INPUT };
+    }
+  }
+  if (typeof record.attempt !== "number" || !Number.isInteger(record.attempt)) {
+    return { ok: false, error: JOURNAL_CLI_ERROR.INVALID_EVENT_INPUT };
+  }
+  return { ok: true, value: value as JournalEventInput };
+}
+
+/** Parse a `--from` cursor, rejecting a non-numeric or partially-numeric value before reading. */
+export function parseJournalCursor(raw: string): Result<number> {
+  if (!CURSOR_PATTERN.test(raw)) return { ok: false, error: JOURNAL_CLI_ERROR.INVALID_CURSOR };
+  const value = Number.parseInt(raw, DECIMAL_RADIX);
+  return Number.isSafeInteger(value) ? { ok: true, value } : { ok: false, error: JOURNAL_CLI_ERROR.INVALID_CURSOR };
+}
+
+/**
  * Append a caller-supplied event to a run and stream it through the surface the
  * resolved backend binds — standard output under the local backend, the
  * pull-request comment under the github-pr backend.
  */
 export async function journalAppendCommand(
   scope: JournalRunCliScope,
-  input: JournalEventInput,
+  input: unknown,
   binding: JournalStreamBinding,
   deps: JournalCliDeps = {},
 ): Promise<JournalCliResult> {
+  const validatedInput = validateJournalEventInput(input);
+  if (!validatedInput.ok) return errorResult(validatedInput.error);
   const context = await resolveJournalRunContext(scope, deps);
   if (!context.ok) return errorResult(context.error);
   const ref = runRef(context.value, scope.runToken);
   const sink = await resolveAppendSink(ref, context.value.backendKind, binding, deps);
   if (!sink.ok) return errorResult(sink.error);
-  const appended = await appendJournalEvent(ref, input, sink.value, verbOptions(deps));
+  const appended = await appendJournalEvent(ref, validatedInput.value, sink.value, verbOptions(deps));
   if (!appended.ok) return errorResult(appended.error);
   return okResult(JSON.stringify({ seq: appended.value.seq }));
 }
 
-/** Read a run's events at or after the cursor. */
+/** Read a run's events at or after the cursor, rejecting a malformed cursor before reading. */
 export async function journalReadCommand(
   scope: JournalRunCliScope,
-  fromCursor: number,
+  fromCursor: string,
   deps: JournalCliDeps = {},
 ): Promise<JournalCliResult> {
+  const cursor = parseJournalCursor(fromCursor);
+  if (!cursor.ok) return errorResult(cursor.error);
   const context = await resolveJournalRunContext(scope, deps);
   if (!context.ok) return errorResult(context.error);
-  const events = await readJournalEvents(runRef(context.value, scope.runToken), fromCursor, verbOptions(deps));
+  const events = await readJournalEvents(runRef(context.value, scope.runToken), cursor.value, verbOptions(deps));
   if (!events.ok) return errorResult(events.error);
   return okResult(JSON.stringify(events.value));
 }
