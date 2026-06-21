@@ -100,6 +100,7 @@ describe("journal CLI", () => {
         noGit,
       );
       expect(appended.exitCode).toBe(JOURNAL_CLI_EXIT_CODE.OK);
+      expect(appended.output).toHaveLength(0);
 
       // The remaining verbs share the same git-free scope resolution and must also succeed.
       const read = await journalReadCommand({ type, runToken }, String(JOURNAL_SEQ_BASE), noGit);

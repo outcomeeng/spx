@@ -42,6 +42,8 @@ describe("journal CLI github-pr backend", () => {
         deps,
       );
       expect(appended.exitCode).toBe(JOURNAL_CLI_EXIT_CODE.OK);
+      // append's event reaches the pull-request comment, so its result is empty.
+      expect(appended.output).toHaveLength(0);
 
       expect(githubClient.comments).toHaveLength(1);
       const comment = githubClient.comments[0];
