@@ -16,7 +16,7 @@ A continuous-integration job running `sonar-scanner` is rejected: it runs after 
 
 ### Testing
 
-- ALWAYS: the SonarJS mirror rule set, run through ESLint, reports a finding on source that violates a mirrored rule ([test])
+- ALWAYS: the SonarJS mirror rule set, run through ESLint, reports a finding on source that violates a mirrored rule ([compliance])
 
 ### Audit
 
