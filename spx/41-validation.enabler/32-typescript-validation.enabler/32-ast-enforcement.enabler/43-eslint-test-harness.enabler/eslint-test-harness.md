@@ -8,7 +8,7 @@ CAN assert custom and builtin ESLint rule behavior without re-specifying the Rul
 
 ### Scenarios
 
-- Given a source-owned rule run, when its cases are driven through a fresh tester, an explicit tester, and the parser-free tester, then every case is exercised without throwing ([test](tests/eslint-test-harness.scenario.l1.test.ts))
+- Given a source-owned rule run, when its cases are driven through a fresh tester, an explicit tester, the parser-free tester, and the builtin rule runner, then every case is exercised without throwing ([test](tests/eslint-test-harness.scenario.l1.test.ts))
 - Given a registered builtin rule name, when `validationBuiltinRule` resolves it, then the builtin rule module is returned; given an unregistered name, then it throws ([test](tests/eslint-test-harness.scenario.l1.test.ts))
 
 ### Properties
