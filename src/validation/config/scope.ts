@@ -12,6 +12,7 @@ import * as JSONC from "jsonc-parser";
 import { existsSync, readdirSync, readFileSync } from "node:fs";
 import { isAbsolute, join, relative, resolve } from "node:path";
 
+import { compareAsciiStrings } from "@/lib/state-store";
 import type { ValidationPathFilterConfig } from "@/validation/config/descriptor";
 import type { ScopeConfig, ValidationScope } from "../types";
 import { applyValidationPathFilterToScope, pathPassesValidationFilter } from "./path-filter";
@@ -261,53 +262,74 @@ export function getTopLevelDirectoriesWithTypeScript(
   projectRoot: string,
   deps: ScopeDeps = defaultScopeDeps,
 ): string[] {
-  const allTopLevelItems = deps.readdirSync(projectRoot, { withFileTypes: true });
   const directories = new Set<string>();
 
-  // Find all top-level directories
-  const topLevelDirs = allTopLevelItems
+  for (const dir of listTopLevelDirectories(projectRoot, deps)) {
+    if (directoryContributesTypeScriptScope(dir, config, projectRoot, deps)) {
+      directories.add(dir);
+    }
+  }
+
+  for (const dir of explicitIncludeTopLevelDirectories(config, projectRoot, deps)) {
+    directories.add(dir);
+  }
+
+  return Array.from(directories).sort(compareAsciiStrings);
+}
+
+// Top-level directories under the project root, excluding hidden directories.
+function listTopLevelDirectories(projectRoot: string, deps: ScopeDeps): string[] {
+  return deps.readdirSync(projectRoot, { withFileTypes: true })
     .filter((item) => item.isDirectory())
     .map((item) => item.name)
     .filter((name) => !name.startsWith("."));
+}
 
-  // Check if each directory should be included based on tsconfig include/exclude patterns
-  for (const dir of topLevelDirs) {
-    if (!directoryPassesIncludePatterns(dir, config.include ?? [], projectRoot, deps)) {
-      continue;
-    }
+// A top-level directory contributes scope when tsconfig include patterns admit it
+// and it still holds TypeScript files after tsconfig excludes. Directory access
+// errors exclude the directory rather than fail discovery.
+function directoryContributesTypeScriptScope(
+  dir: string,
+  config: TypeScriptConfig,
+  projectRoot: string,
+  deps: ScopeDeps,
+): boolean {
+  if (!directoryPassesIncludePatterns(dir, config.include ?? [], projectRoot, deps)) {
+    return false;
+  }
+  try {
+    return hasTypeScriptFilesRecursive(join(projectRoot, dir), 2, deps, {
+      excludePatterns: config.exclude,
+      projectRoot,
+    });
+  } catch {
+    return false;
+  }
+}
 
-    // Check if directory has TypeScript files that remain after tsconfig excludes.
-    try {
-      const hasTypeScriptFiles = hasTypeScriptFilesRecursive(join(projectRoot, dir), 2, deps, {
-        excludePatterns: config.exclude,
-        projectRoot,
-      });
-      if (hasTypeScriptFiles) {
-        directories.add(dir);
+// Top-level directories named literally by include patterns such as
+// "scripts/**/*.ts", which the directory scan above does not surface on its own.
+function explicitIncludeTopLevelDirectories(
+  config: TypeScriptConfig,
+  projectRoot: string,
+  deps: ScopeDeps,
+): string[] {
+  if (!config.include) {
+    return [];
+  }
+  const directories: string[] = [];
+  for (const pattern of config.include) {
+    if (
+      includePatternTargetsTypeScriptScope(pattern, projectRoot, deps)
+      && pattern.includes(PATH_SEGMENT_SEPARATOR)
+    ) {
+      const topLevelDir = getLiteralTopLevelPatternDirectory(pattern);
+      if (topLevelDir) {
+        directories.push(topLevelDir);
       }
-    } catch {
-      // Directory access error, skip
-      continue;
     }
   }
-
-  // Also add explicitly mentioned directories from include patterns
-  if (config.include) {
-    for (const pattern of config.include) {
-      // Extract directory from patterns like "scripts/**/*.ts", "tests/**/*.tsx"
-      if (
-        includePatternTargetsTypeScriptScope(pattern, projectRoot, deps)
-        && pattern.includes(PATH_SEGMENT_SEPARATOR)
-      ) {
-        const topLevelDir = getLiteralTopLevelPatternDirectory(pattern);
-        if (topLevelDir) {
-          directories.add(topLevelDir);
-        }
-      }
-    }
-  }
-
-  return Array.from(directories).sort();
+  return directories;
 }
 
 function getLiteralTopLevelPatternDirectory(pattern: string): string | null {
@@ -331,12 +353,21 @@ function directoryPassesIncludePatterns(
     );
 }
 
+// Trim trailing path separators without a backtracking-prone regex.
+function stripTrailingPathSeparators(value: string): string {
+  let end = value.length;
+  while (end > 0 && value.charAt(end - 1) === PATH_SEGMENT_SEPARATOR) {
+    end -= 1;
+  }
+  return value.slice(0, end);
+}
+
 export function normalizeTypeScriptScopePath(path: string): string {
-  return path
+  const joined = path
     .split(/[\\/]/gu)
     .join(PATH_SEGMENT_SEPARATOR)
-    .replace(/^\.\//u, "")
-    .replace(/\/+$/u, "");
+    .replace(/^\.\//u, "");
+  return stripTrailingPathSeparators(joined);
 }
 
 function pathMatchesLiteralPrefix(path: string, prefix: string): boolean {
@@ -360,7 +391,7 @@ function globLiteralPrefix(pattern: string): string {
   if (globIndex === -1) {
     return normalizedPattern;
   }
-  return normalizedPattern.slice(0, globIndex).replace(/\/+$/u, "");
+  return stripTrailingPathSeparators(normalizedPattern.slice(0, globIndex));
 }
 
 function firstGlobMarkerIndex(path: string): number {
@@ -453,7 +484,7 @@ export function typeScriptScopeGlobPatternToRegExp(pattern: string): RegExp {
     } else if (character === SINGLE_CHARACTER_GLOB_MARKER) {
       source += `[^${PATH_SEGMENT_SEPARATOR}]`;
     } else {
-      source += character.replace(GLOB_REGEX_SPECIAL_CHARACTER_PATTERN, REGEX_ESCAPE_REPLACEMENT);
+      source += character.replaceAll(GLOB_REGEX_SPECIAL_CHARACTER_PATTERN, REGEX_ESCAPE_REPLACEMENT);
     }
   }
   return new RegExp(`^${source}$`, "u");
@@ -768,9 +799,7 @@ export function constrainTypeScriptScopeToExplicitTargets(
   const retainedDirectoryFilePatterns = scopeConfig.filePatterns.filter((pattern) =>
     !typeScriptScopePatternHasGlob(pattern)
     && pathHasTypeScriptSourceExtension(pattern)
-    && retainedDirectories.some((directory) =>
-      pathMatchesLiteralPrefix(pattern, directory)
-    )
+    && retainedDirectories.some((directory) => pathMatchesLiteralPrefix(pattern, directory))
   );
   const explicitFileTargets = targets
     .filter((target) => target.kind === EXPLICIT_TYPESCRIPT_SCOPE_TARGET_KIND.FILE)
@@ -859,7 +888,7 @@ function constrainTypeScriptPatternToDirectory(pattern: string, directory: strin
     return [normalizedDirectory, ...constrainedSuffixSegments].join(PATH_SEGMENT_SEPARATOR);
   }
   return typeScriptScopePatternHasGlob(normalizedPattern)
-    && typeScriptScopePatternCoversDirectorySourceSet(normalizedPattern, normalizedDirectory)
+      && typeScriptScopePatternCoversDirectorySourceSet(normalizedPattern, normalizedDirectory)
     ? `${normalizedDirectory}${TYPESCRIPT_SCOPE_DIRECTORY_PATTERN_SUFFIX}`
     : normalizedDirectory;
 }

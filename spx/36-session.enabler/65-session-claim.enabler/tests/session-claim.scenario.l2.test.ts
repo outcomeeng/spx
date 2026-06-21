@@ -38,7 +38,10 @@ describe("concurrent pickup atomicity (P1)", () => {
 
     // Launch concurrent pickups
     const results = await Promise.allSettled(
-      Array.from({ length: CONCURRENT_AGENTS }, () => pickupCommand({ sessionIds: [sessionId], sessionsDir: harness.sessionsDir })),
+      Array.from(
+        { length: CONCURRENT_AGENTS },
+        () => pickupCommand({ sessionIds: [sessionId], sessionsDir: harness.sessionsDir }),
+      ),
     );
 
     const successes = results.filter((r) => r.status === "fulfilled");
@@ -48,7 +51,7 @@ describe("concurrent pickup atomicity (P1)", () => {
     expect(successes).toHaveLength(1);
     expect(failures).toHaveLength(CONCURRENT_AGENTS - 1);
 
-    // Session is in doing, not todo
+    // Session moved into the doing directory and left the available queue
     expect(existsSync(join(harness.statusDir(DOING), `${sessionId}.md`))).toBe(true);
     expect(existsSync(join(harness.statusDir(TODO), `${sessionId}.md`))).toBe(false);
   });
@@ -61,7 +64,10 @@ describe("concurrent pickup atomicity (P1)", () => {
 
     // Launch concurrent auto-pickups (more agents than sessions)
     const results = await Promise.allSettled(
-      Array.from({ length: CONCURRENT_AGENTS }, () => pickupCommand({ sessionIds: [], auto: true, sessionsDir: harness.sessionsDir })),
+      Array.from(
+        { length: CONCURRENT_AGENTS },
+        () => pickupCommand({ sessionIds: [], auto: true, sessionsDir: harness.sessionsDir }),
+      ),
     );
 
     const successes = results.filter((r) => r.status === "fulfilled");
@@ -73,7 +79,7 @@ describe("concurrent pickup atomicity (P1)", () => {
     // Each success claimed a different session (no duplicates)
     const claimedIds = successes.map((r) => {
       const output = (r as PromiseFulfilledResult<string>).value;
-      const match = output.match(/<PICKUP_ID>([^<]+)<\/PICKUP_ID>/);
+      const match = /<PICKUP_ID>([^<]+)<\/PICKUP_ID>/.exec(output);
       return match?.[1];
     });
     const uniqueIds = new Set(claimedIds);

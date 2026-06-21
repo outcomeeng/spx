@@ -16,6 +16,7 @@ import {
 import extractTypeScriptConfig from "dependency-cruiser/config-utl/extract-ts-config";
 import { join } from "node:path";
 
+import { compareAsciiStrings } from "@/lib/state-store";
 import {
   GLOB_MARKER,
   normalizeTypeScriptScopePath,
@@ -129,7 +130,7 @@ function toDependencyCruiserExcludePatterns(patterns: readonly string[]): string
     if (matchesDirectorySubtree || typeScriptScopePatternHasGlob(cleanPattern)) {
       return typeScriptScopeGlobPatternToDependencyCruiserRegExpSource(cleanPattern, matchesDirectorySubtree);
     }
-    return cleanPattern.replace(LITERAL_REGEX_SPECIAL_CHARACTER_PATTERN, REGEX_ESCAPE_REPLACEMENT);
+    return cleanPattern.replaceAll(LITERAL_REGEX_SPECIAL_CHARACTER_PATTERN, REGEX_ESCAPE_REPLACEMENT);
   });
 }
 
@@ -178,7 +179,7 @@ function dependencyCruiserGlobSegmentToRegExpSource(segment: string): string {
     } else if (character === SINGLE_CHARACTER_GLOB_MARKER) {
       source += `[^${DEPENDENCY_CRUISER_PATH_SEGMENT_SEPARATOR}]`;
     } else {
-      source += character?.replace(LITERAL_REGEX_SPECIAL_CHARACTER_PATTERN, REGEX_ESCAPE_REPLACEMENT) ?? "";
+      source += character?.replaceAll(LITERAL_REGEX_SPECIAL_CHARACTER_PATTERN, REGEX_ESCAPE_REPLACEMENT) ?? "";
     }
   }
   return source;
@@ -218,7 +219,7 @@ function toDependencyCruiserSourcePatterns(typescriptScope: ScopeConfig): string
     !directoryIsConstrainedByGlobPattern(directory)
   );
   const directoryPatterns = retainedDirectories.flatMap((directory) =>
-    DEPENDENCY_CRUISER_TYPESCRIPT_SOURCE_GLOB_SUFFIXES.map((suffix) => `${directory}/${suffix}`),
+    DEPENDENCY_CRUISER_TYPESCRIPT_SOURCE_GLOB_SUFFIXES.map((suffix) => `${directory}/${suffix}`)
   );
   const explicitFilePatterns = typeScriptFilePatterns.filter((pattern) =>
     !patternIsCoveredByDirectory(pattern, retainedDirectories)
@@ -298,9 +299,7 @@ function cycleRotations(cycle: readonly string[]): string[] {
 function canonicalCycleKey(cycle: readonly string[]): string {
   const opened = openCycle(cycle);
   const reversed = [...opened].reverse();
-  const keys = [...cycleRotations(opened), ...cycleRotations(reversed)].sort((left, right) =>
-    left.localeCompare(right)
-  );
+  const keys = [...cycleRotations(opened), ...cycleRotations(reversed)].sort(compareAsciiStrings);
   return keys[0] ?? "";
 }
 
