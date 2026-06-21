@@ -53,6 +53,10 @@ const LINKED_WORKTREE_BRANCH = "feature/linked-local";
 const LINKED_WORKTREE_RELATIVE_PATH = ".worktrees/linked";
 /** The default branch the permitted-base smoke points `origin/HEAD` at. */
 const FIXTURE_DEFAULT_BRANCH = "main";
+/** The work-hiding remedy the refusal diagnostic must never surface at the CLI boundary. */
+const FORBIDDEN_STASH_REMEDY = "git stash";
+/** The fabricated placeholder an unresolved base must never render as at the CLI boundary. */
+const FORBIDDEN_ORIGIN_PLACEHOLDER = "origin/<default>";
 
 /** The rendered fact line for `label`, anchored to its label prefix so the header prose never matches. */
 function factLine(stderr: string, label: string): string {
@@ -389,6 +393,10 @@ describe("session CLI handoff-base wiring", () => {
       expect(factLine(result.stderr, HANDOFF_BASE_FACT_LABEL.DEFAULT_TIP).trim()).toBe(
         `${HANDOFF_BASE_FACT_LABEL.DEFAULT_TIP}: ${HANDOFF_BASE_UNRESOLVED}`,
       );
+      // CLI-boundary invariants: the diagnostic the descriptor writes never directs the agent to
+      // stash, and an unresolved base never fabricates the literal placeholder.
+      expect(result.stderr).not.toContain(FORBIDDEN_STASH_REMEDY);
+      expect(result.stderr).not.toContain(FORBIDDEN_ORIGIN_PLACEHOLDER);
       expect(await readdir(harness.statusDir(TODO))).toEqual([]);
     });
   });
