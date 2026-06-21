@@ -75,7 +75,9 @@ export const GITHUB_PULL_REQUEST_EVENT_NAMES = {
 const GITHUB_PULL_REQUEST_EVENTS: ReadonlySet<string> = new Set(Object.values(GITHUB_PULL_REQUEST_EVENT_NAMES));
 const PULL_REQUEST_REF_PATTERN = /^refs\/pull\/(\d+)\//u;
 const DECIMAL_RADIX = 10;
-const TRUTHY_ENV_VALUES: ReadonlySet<string> = new Set(["1", "true"]);
+/** The environment-variable values `isTruthyEnv` accepts as true (case-insensitive). */
+export const TRUTHY_ENV_VALUES = ["1", "true"] as const;
+const TRUTHY_ENV_VALUE_SET: ReadonlySet<string> = new Set(TRUTHY_ENV_VALUES);
 
 export interface JournalCliResult {
   readonly exitCode: number;
@@ -118,7 +120,7 @@ export interface JournalStreamBinding {
 }
 
 function isTruthyEnv(value: string | undefined): boolean {
-  return value !== undefined && TRUTHY_ENV_VALUES.has(value.toLowerCase());
+  return value !== undefined && TRUTHY_ENV_VALUE_SET.has(value.toLowerCase());
 }
 
 /** Read the parts of the process environment that bind the journal backend at the edge. */
