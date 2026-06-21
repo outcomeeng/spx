@@ -34,7 +34,10 @@ describe("eslint rule-tester harness — runners", () => {
   });
 
   it("drives a resolved builtin rule run through the builtin tester", () => {
-    for (const run of astRestrictedSyntaxRuns()) {
+    const runs = astRestrictedSyntaxRuns();
+    expect(runs.length).toBeGreaterThan(0);
+
+    for (const run of runs) {
       expect(() => runValidationBuiltinRuleTester(run)).not.toThrow();
     }
   });
