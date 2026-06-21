@@ -16,11 +16,12 @@ A continuous-integration job running `sonar-scanner` is rejected: it runs after 
 
 ### Testing
 
-- ALWAYS: the TypeScript lint configuration enables type-aware linting and runs the SonarJS rule set, so `spx validation lint` fails on a mirrored finding ([test])
-- ALWAYS: the Lefthook pre-push hook runs `sonar analyze --base origin/main` and exits non-zero when it reports any finding ([test])
+- ALWAYS: the SonarJS mirror rule set, run through ESLint, reports a finding on source that violates a mirrored rule ([test])
 
 ### Audit
 
+- ALWAYS: `buildEslintConfig` composes the SonarJS mirror — type-aware parser options and the mirror rule set — into the flat config `spx validation lint` runs, so the mirror reaches the product's own source ([audit])
+- ALWAYS: the Lefthook pre-push hook runs `sonar analyze --base origin/main` and a finding blocks the push — the entry is config-only, and `sonar analyze`'s non-zero-on-finding behavior is a network-bound agentic path no offline test can falsify ([audit])
 - ALWAYS: code-quality findings are enforced locally before push, with server-side automatic analysis serving only as the post-merge backstop ([audit])
 - ALWAYS: offline-first governs the inner development loop — validation, testing, and context loading require no network — while the push and merge boundary may require network ([audit])
 - NEVER: the deterministic offline ESLint floor is weakened to make the non-deterministic agentic gate pass — a suspected-flaky agentic finding is re-verified by re-running the analysis, never suppressed ([audit])

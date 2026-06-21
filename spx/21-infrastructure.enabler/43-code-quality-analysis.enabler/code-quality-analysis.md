@@ -13,5 +13,8 @@ CAN surface code-quality, security, and reliability findings on the source witho
 - ALWAYS: the project's SonarQube Cloud quality gate fails on any new issue, any new duplicated line, or any unreviewed new security hotspot ([audit])
 - ALWAYS: the project's SonarQube Cloud quality gate fails on any overall bug, vulnerability, unreviewed security hotspot, or duplicated block ([audit])
 - ALWAYS: code-quality enforcement governed by `spx/21-infrastructure.enabler/43-code-quality-analysis.enabler/15-local-quality-enforcement.adr.md` runs locally before push — server-side automatic analysis is the post-merge backstop ([audit])
+- ALWAYS: the SonarJS mirror declares type-aware parser options and a SonarJS rule set that ESLint enforces — reporting a finding on source that violates a mirrored rule ([test](tests/eslint-mirror.compliance.l1.test.ts))
+- ALWAYS: `buildEslintConfig` composes the SonarJS mirror (type-aware parser options and the mirror rule set) into the flat config `spx validation lint` runs ([audit])
+- ALWAYS: `lefthook.yml` declares a pre-push hook that runs `sonar analyze --base origin/main`, so a finding blocks the push ([audit])
 - ALWAYS: a pre-commit check reports drift exactly when the `testing/fixtures` entries in `.sonarcloud.properties` `sonar.exclusions` differ from the tracked files under `testing/fixtures`, naming the missing and extra paths ([test](tests/exclusion-sync.compliance.l1.test.ts))
 - ALWAYS: parsing `.sonarcloud.properties` yields the same `sonar.exclusions` path set whether the value is written on one line or across `.properties` continuation lines ([test](tests/exclusion-sync.property.l1.test.ts))
