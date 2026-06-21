@@ -12,4 +12,4 @@ CAN drive the launcher's exit, spawn-failure, and signal-suspension paths withou
 
 ### Compliance
 
-- ALWAYS: `RecordingLaunchChild` models a clean exit, a signal exit, and a spawn failure through `emitExit` and `emitError` rather than a real child process — the harness spawns no real process and forwards no real signals ([audit])
+- ALWAYS: `RecordingLaunchChild` models a clean exit, a signal exit, and a spawn failure through `emitExit` and `emitError` rather than a real child process — the harness spawns no real process and forwards no real signals, injecting a controlled `ProcessRunner` rather than mocking the spawn primitive, per [`spx/13-cli.enabler/15-cli-architecture.adr.md`](../../../13-cli.enabler/15-cli-architecture.adr.md) ([audit](../../../13-cli.enabler/15-cli-architecture.adr.md))
