@@ -44,17 +44,30 @@ export const JOURNAL_CLI_ENV = {
 export const JOURNAL_CLI_ERROR = {
   GITHUB_CLIENT_UNAVAILABLE: "github pull-request backend needs a GitHub client",
   PULL_REQUEST_UNRESOLVED: "github pull-request number is not resolvable from the environment",
-  HEAD_SHA_UNAVAILABLE: "unknown",
   INVALID_EVENT_INPUT: "journal append event input is missing a required CloudEvents field",
   INVALID_CURSOR: "journal read cursor must be a whole non-negative integer",
 } as const;
+
+/**
+ * The branch-identity head-SHA placeholder used outside a git repository when no
+ * branch is pinned. It is a data fallback, not an error message, so it lives
+ * apart from JOURNAL_CLI_ERROR; spx commands operate outside git with a fallback
+ * per `spx/15-worktree-management.pdr.md` rather than failing.
+ */
+const MISSING_HEAD_SHA_FALLBACK = "unknown";
 
 const CURSOR_PATTERN = /^\d+$/;
 const JOURNAL_EVENT_INPUT_STRING_FIELDS = ["id", "source", "type", "time"] as const;
 
 export const JOURNAL_COMMENT_MARKER_PREFIX = "spx-journal-run:" as const;
 
-const GITHUB_PULL_REQUEST_EVENT = "pull_request";
+/** GitHub Actions event names that denote a pull-request CI context. */
+export const GITHUB_PULL_REQUEST_EVENT_NAMES = {
+  PULL_REQUEST: "pull_request",
+  PULL_REQUEST_TARGET: "pull_request_target",
+} as const;
+
+const GITHUB_PULL_REQUEST_EVENTS: ReadonlySet<string> = new Set(Object.values(GITHUB_PULL_REQUEST_EVENT_NAMES));
 const PULL_REQUEST_REF_PATTERN = /^refs\/pull\/(\d+)\//u;
 const DECIMAL_RADIX = 10;
 const TRUTHY_ENV_VALUES: ReadonlySet<string> = new Set(["1", "true"]);
@@ -113,7 +126,7 @@ export function readJournalCliEnvironment(
     backend: {
       ...(backendOverride === undefined ? {} : { backendOverride }),
       continuousIntegration: isTruthyEnv(processEnv[JOURNAL_CLI_ENV.CONTINUOUS_INTEGRATION]),
-      githubPullRequest: processEnv[JOURNAL_CLI_ENV.GITHUB_EVENT_NAME] === GITHUB_PULL_REQUEST_EVENT,
+      githubPullRequest: GITHUB_PULL_REQUEST_EVENTS.has(processEnv[JOURNAL_CLI_ENV.GITHUB_EVENT_NAME] ?? ""),
     },
     ...(branch === undefined ? {} : { branch }),
   };
@@ -134,7 +147,7 @@ async function resolveJournalRunContext(
   const product = await detectGitCommonDirProductRoot(cwd, git);
   const branchName = scope.branch ?? deps.branch ?? cliEnvironment.branch ?? (await getCurrentBranch(cwd, git))
     ?? undefined;
-  const headSha = (await getHeadSha(cwd, git)) ?? JOURNAL_CLI_ERROR.HEAD_SHA_UNAVAILABLE;
+  const headSha = (await getHeadSha(cwd, git)) ?? MISSING_HEAD_SHA_FALLBACK;
   const branchIdentity = resolveBranchIdentity({ ...(branchName === undefined ? {} : { branchName }), headSha });
   return {
     ok: true,
