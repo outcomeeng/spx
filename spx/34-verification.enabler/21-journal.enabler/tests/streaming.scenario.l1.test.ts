@@ -118,7 +118,7 @@ describe("journal run preconditions", () => {
       const runFilePath = journalRunFilePath(ref);
       expect(runFilePath.ok).toBe(true);
       if (!runFilePath.ok) return;
-      const redirectTarget = join(productDir, "redirect-target.jsonl");
+      const redirectTarget = join(productDir, "journal-redirect-target.jsonl");
       await writeFile(redirectTarget, `${JSON.stringify({ planted: true })}\n`, STATE_STORE_TEXT_ENCODING);
       await mkdir(dirname(runFilePath.value), { recursive: true });
       await symlink(redirectTarget, runFilePath.value);
