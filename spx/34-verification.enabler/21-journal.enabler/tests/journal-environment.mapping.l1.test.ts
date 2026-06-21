@@ -28,6 +28,13 @@ describe("readJournalCliEnvironment", () => {
     expect(result.backend.continuousIntegration).toBe(true);
   });
 
+  it("matches a truthy CI value case-insensitively", () => {
+    const upper = TRUTHY_ENV_VALUES[1].toUpperCase();
+    const result = readJournalCliEnvironment({ [JOURNAL_CLI_ENV.CONTINUOUS_INTEGRATION]: upper });
+
+    expect(result.backend.continuousIntegration).toBe(true);
+  });
+
   it("treats a non-truthy CI value as not continuous integration", () => {
     // Only the truthy values count; an arbitrary non-empty value does not.
     const result = readJournalCliEnvironment({ [JOURNAL_CLI_ENV.CONTINUOUS_INTEGRATION]: "yes" });
