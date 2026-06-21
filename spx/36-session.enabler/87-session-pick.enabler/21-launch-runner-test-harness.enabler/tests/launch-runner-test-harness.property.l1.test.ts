@@ -13,7 +13,7 @@ describe("launch-runner test harness — properties", () => {
             fc.array(fc.string()),
             fc.option(fc.record({ cwd: fc.string() }), { nil: undefined }),
           ),
-          { minLength: 2 },
+          { minLength: 0 },
         ),
         (spawns) => {
           const runner = new RecordingLaunchRunner();
