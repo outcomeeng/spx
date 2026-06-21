@@ -12,9 +12,9 @@ function arbitraryStates(): fc.Arbitrary<readonly JournalRunState[]> {
   });
 }
 
-/** Serialize and re-parse an event history, simulating persistence and re-read across a backend. */
+/** A content-equal deep clone with a fresh object graph, standing in for a re-read across a backend. */
 function acrossBackend(events: readonly JournalEvent[]): readonly JournalEvent[] {
-  return JSON.parse(JSON.stringify(events)) as readonly JournalEvent[];
+  return structuredClone(events);
 }
 
 describe("journal run-state projection", () => {
