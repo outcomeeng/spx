@@ -1,8 +1,10 @@
 # Plan: Config-Backed Execution Scope
 
+> **Audit and review packets are cancelled.** The audit and review domains collapsed into the type-agnostic run-journal channel at `spx/34-verification.enabler/21-journal.enabler/` and were removed (`git rm`); spx journals those runs through `spx journal` rather than orchestrating auditors or reviewers or governing their execution through config. Treat every audit (`A1`–`A4`, `spx/36-audit.enabler/…`) and review (`R1`–`R5`, `spx/46-reviewing.enabler/…`) reference below — the active-tranche items, the packet-table rows, and the critical-path and open-coordination notes — as void. Only the config, testing, file-inclusion, agent-environment, and spec-domain packets remain.
+
 ## Purpose
 
-Coordinate the refactor tranche that moves deterministic execution domains onto the shared config descriptor system: validation, testing, auditing, reviewing, agent environment management, context ingestion, and future execution domains.
+Coordinate the refactor tranche that moves deterministic execution domains onto the shared config descriptor system: validation, testing, agent environment management, context ingestion, and future execution domains.
 
 ## Governing Decisions
 
@@ -13,7 +15,7 @@ Coordinate the refactor tranche that moves deterministic execution domains onto 
 ## Settled foundations
 
 - `spx/16-config.enabler/32-shared-config-primitives.enabler/` owns the shared path-filter primitive.
-- `spx/16-config.enabler/43-domain-execution-descriptors.enabler/` owns the registered testing and audit descriptor extensions.
+- `spx/16-config.enabler/43-domain-execution-descriptors.enabler/` owns the registered testing descriptor extension.
 - `spx/16-config.enabler/54-canonical-descriptor-digest.enabler/` owns canonical descriptor JSON and digest computation.
 - `spx/16-config.enabler/65-product-directory-api.enabler/` owns product-directory API vocabulary for config-owned root resolution.
 - `spx/33-agent-environment.enabler/` owns the agent environment descriptor shape consumed by runtime and future agent-environment packets.

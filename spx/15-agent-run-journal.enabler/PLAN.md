@@ -1,8 +1,9 @@
 # Plan: Verification restructure — the journal channel
 
 > This PLAN is the durable record of a restructure decided in discussion. It is the
-> central context; `spx/36-audit.enabler/PLAN.md` and `spx/46-reviewing.enabler/PLAN.md`
-> carry the collapse notes that point here. Details (exact node structure, indices,
+> central context for the audit and review collapse — both domains are now removed
+> (`git rm`) and the journal channel has landed, so the per-domain collapse notes that
+> once pointed here are gone. Details (exact node structure, indices,
 > env-var names, CLI verb shapes) are settled DURING execution via `/author`,
 > `/decompose`, `/refactor`, `/align`, `/apply`, `/merge` — do not assume this PLAN
 > already fixed them.
@@ -257,7 +258,7 @@ if and when that surface is specified.
 1. `/author` (+ `/decompose`) the spx top-level **`verification`** decision and the
    **`journal`** domain structure, realizing `13-run-journal.adr.md` as spx product truth;
    demote `15-agent-run-journal` under it.
-2. `/refactor` — `git rm` the collapsing `36-audit.enabler` (and later `46-reviewing`),
+2. `/refactor` — `git rm` the collapsed `36-audit.enabler` and `46-reviewing.enabler` (both DONE),
    migrating the generic run-state mechanics into `journal`.
 3. `/align` the tree.
 4. `/apply` the `journal` domain CLI (verbs + backend selection + streaming).

@@ -2,7 +2,7 @@
 
 ## Purpose
 
-Register testing, audit, and review execution descriptors on top of the shared config descriptor mechanism.
+Register the testing execution descriptor on top of the shared config descriptor mechanism. The audit and review descriptors this node once also registered collapsed into the journal channel at `spx/34-verification.enabler/21-journal.enabler/` and were removed.
 
 ## Governing Specs
 
@@ -13,20 +13,18 @@ Register testing, audit, and review execution descriptors on top of the shared c
 ## Implementation Notes
 
 - Add descriptors in dependency order after shared primitives exist.
-- Validate descriptor behavior against the consumer specs in `spx/41-testing.enabler/32-testing-config.enabler/testing-config.md`, `spx/36-audit.enabler/43-audit-config.enabler/audit-config.md`, and `spx/46-reviewing.enabler/21-review-config.enabler/review-config.md`.
+- Validate descriptor behavior against the consumer spec in `spx/41-testing.enabler/32-testing-config.enabler/testing-config.md`; the audit and review consumer specs are gone with those domains' collapse into the journal channel.
 - Testing descriptor owns passing-scope policy only.
-- Audit descriptor owns storage defaults, branch slug settings, auditor selection, target filters, and base ref.
-- Review descriptor owns local hermetic review defaults for branch and PR targets.
 - Keep descriptor placement aligned with the companion-module rule in `spx/16-config.enabler/21-descriptor-registration.adr.md`.
 
 ## Evidence Required
 
 - Registry-extension tests prove descriptors compose without changing existing descriptor modules.
-- Config-format mapping tests cover JSON, YAML, and TOML sections for testing, audit, and review.
+- Config-format mapping tests cover JSON, YAML, and TOML sections for the testing descriptor.
 - Descriptor isolation tests prove malformed sections cannot affect other descriptors.
 - Validation confirms descriptor modules do not duplicate shared primitive validators.
-- Domain execution descriptor validators ignore unknown section keys by design: each descriptor reads declared fields and discards the rest. Audit and review descriptor tests should follow this pattern.
+- Domain execution descriptor validators ignore unknown section keys by design: each descriptor reads declared fields and discards the rest.
 
 ## Parallelization
 
-Testing, audit, and review descriptor implementation can split after the shared primitive API is merged.
+The testing descriptor is the sole remaining domain execution descriptor; the audit and review descriptors collapsed into the journal channel and were removed, so no cross-descriptor split remains.
