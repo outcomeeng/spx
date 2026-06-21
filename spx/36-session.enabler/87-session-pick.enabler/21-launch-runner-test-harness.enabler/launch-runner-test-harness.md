@@ -8,7 +8,7 @@ CAN drive the launcher's exit, spawn-failure, and signal-suspension paths withou
 
 ### Properties
 
-- For all commands and argument lists, `RecordingLaunchRunner.spawn` records the command, args, and options — an empty record when none are passed — in order and appends a `RecordingLaunchChild` whose `kill` returns `true` and records the kill, and a `RecordingSuspender`'s suspend returns a restore so the suspend and restore counts each reach one after a suspend-then-restore ([test](tests/launch-runner-test-harness.property.l1.test.ts))
+- For all spawn sequences, `RecordingLaunchRunner` records each spawn's command, args, and options — an empty record when none are passed — in order, appending one `RecordingLaunchChild` per spawn whose `kill` returns `true` and records the kill, and a `RecordingSuspender`'s suspend returns a restore so the suspend and restore counts each reach one after a suspend-then-restore ([test](tests/launch-runner-test-harness.property.l1.test.ts))
 
 ### Compliance
 
