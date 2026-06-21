@@ -12,6 +12,7 @@ describe("launch-runner test harness — properties", () => {
 
         expect(runner.commands).toEqual([command]);
         expect(runner.args).toEqual([args]);
+        expect(runner.options).toEqual([{}]);
         expect(runner.children).toHaveLength(1);
 
         const child = runner.children[0];
