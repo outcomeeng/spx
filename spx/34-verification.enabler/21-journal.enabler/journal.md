@@ -17,6 +17,7 @@ CAN open a changeset-scoped run, append one event per significant step, read the
 - Environment maps to backend: an unset `SPX_VERIFY_BACKEND` outside continuous integration, or `SPX_VERIFY_BACKEND=local`, selects the local file-and-standard-output backend; a continuous-integration GitHub pull-request environment, or `SPX_VERIFY_BACKEND=github-pr`, selects the GitHub pull-request backend; an unrecognized value is rejected naming the value and the registered backends ([test](tests/backend-selection.mapping.l1.test.ts))
 - Each verb maps to its agent-run-journal contract operation — `open` to a new sealed-on-terminal stream, `append` to a sequenced event, `read --from <cursor>` to the events at or after the cursor, `seal` to a terminal seal, `render` to a projection of the event prefix ([test](tests/journal-verbs.mapping.l1.test.ts))
 - GitHub event name maps to pull-request context: the `pull_request` event marks the run as a continuous-integration pull request whose number resolves from `GITHUB_REF`, and any other event name — including `pull_request_target`, whose `GITHUB_REF` is the base branch ref — does not ([test](tests/journal-environment.mapping.l1.test.ts))
+- The CLI reads the process environment into the journal environment snapshot: a truthy `CI` value (`1` or `true`, case-insensitive) marks continuous integration and any other value does not, `SPX_VERIFY_BACKEND` sets the backend override, and `SPX_VERIFY_BRANCH` sets the branch override ([test](tests/journal-environment.mapping.l1.test.ts))
 
 ### Properties
 
