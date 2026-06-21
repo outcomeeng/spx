@@ -51,8 +51,8 @@ export const JOURNAL_CLI_ERROR = {
 /**
  * The branch-identity head-SHA placeholder used outside a git repository when no
  * branch is pinned. It is a data fallback, not an error message, so it lives
- * apart from JOURNAL_CLI_ERROR; spx commands operate outside git with a fallback
- * per `spx/15-worktree-management.pdr.md` rather than failing.
+ * apart from JOURNAL_CLI_ERROR; the journal resolves a branch identity outside a
+ * git repository with this fallback rather than failing.
  */
 const MISSING_HEAD_SHA_FALLBACK = "unknown";
 
@@ -152,9 +152,13 @@ async function resolveJournalRunContext(
   if (!backend.ok) return backend;
 
   const product = await detectGitCommonDirProductRoot(cwd, git);
-  const branchName = scope.branch ?? deps.branch ?? cliEnvironment.branch ?? (await getCurrentBranch(cwd, git))
-    ?? undefined;
-  const headSha = (await getHeadSha(cwd, git)) ?? MISSING_HEAD_SHA_FALLBACK;
+  // Probe the branch and head only inside a git repository. Outside one (git
+  // absent, which makes the probes throw, or simply not a repo), the root
+  // resolver already fell back to cwd, so fall back to the caller/env branch and
+  // the missing-head-sha placeholder rather than letting the probes fail the verb.
+  const probedBranch = product.isGitRepo ? (await getCurrentBranch(cwd, git)) ?? undefined : undefined;
+  const branchName = scope.branch ?? deps.branch ?? cliEnvironment.branch ?? probedBranch;
+  const headSha = (product.isGitRepo ? await getHeadSha(cwd, git) : null) ?? MISSING_HEAD_SHA_FALLBACK;
   const branchIdentity = resolveBranchIdentity({ ...(branchName === undefined ? {} : { branchName }), headSha });
   return {
     ok: true,
@@ -249,8 +253,8 @@ export async function journalOpenCommand(scope: JournalCliScope, deps: JournalCl
  * Validate that a parsed stdin value carries the required CloudEvents input
  * fields before it is appended, so a structurally incomplete event is rejected
  * at the boundary rather than persisted as a record the reader later skips.
- * Deep CloudEvents value rules (URI `source`, RFC3339 `time`) are the deferred
- * contract decision tracked in `spx/15-agent-run-journal.enabler/ISSUES.md`.
+ * Deep CloudEvents value rules (URI `source`, RFC3339 `time`) are a deferred
+ * contract decision, not enforced here.
  */
 export function validateJournalEventInput(value: unknown): Result<JournalEventInput> {
   if (typeof value !== "object" || value === null || Array.isArray(value)) {
