@@ -53,6 +53,23 @@ describe("journalRunFilePath", () => {
     );
   });
 
+  it("rejects a run token containing an unsafe path marker", () => {
+    fc.assert(
+      fc.property(
+        STATE_STORE_TEST_GENERATOR.productRoot(),
+        STATE_STORE_TEST_GENERATOR.branchSlug(),
+        STATE_STORE_TEST_GENERATOR.scopeToken(),
+        STATE_STORE_TEST_GENERATOR.scopeTokenContainingUnsafeMarker(),
+        (productDir, branchSlug, type, runToken) => {
+          expect(journalRunFilePath({ productDir, branchSlug, type, runToken })).toEqual({
+            ok: false,
+            error: STATE_STORE_ERROR.INVALID_TOKEN,
+          });
+        },
+      ),
+    );
+  });
+
   it("rejects a branch slug that is not normalized for storage", () => {
     fc.assert(
       fc.property(
