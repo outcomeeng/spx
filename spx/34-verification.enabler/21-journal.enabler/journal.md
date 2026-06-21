@@ -9,6 +9,8 @@ CAN open a changeset-scoped run, append one event per significant step, read the
 ### Scenarios
 
 - Given a run scope whose branch and product root resolve from the git environment and whose backend binds local, when the `spx journal` commands `open`, `append`, `read --from <cursor>`, `seal`, and `render` run in sequence, then `open` reports a run token, `append` persists and streams each event, `read` returns the events at or after the cursor, `seal` closes the run, and `render` projects the event prefix ([test](tests/journal-cli.scenario.l1.test.ts), [test](tests/journal-cli-registry.scenario.l1.test.ts))
+- Given a run scope whose backend binds github-pr and whose pull-request number resolves from the git environment, when the `spx journal` `open` and `append` commands run in sequence, then `append` streams the appended event to the run's pull-request comment identified by the run's marker ([test](tests/github-cli.scenario.l1.test.ts))
+- Given the github-pr pull-request comment client and a run's projection, when the projection is upserted, then the client edits in place the one comment carrying the run's marker or creates it when absent, and rejects the Actions artifact and cache surfaces it does not serve ([test](tests/github-client.scenario.l1.test.ts))
 
 ### Mappings
 
