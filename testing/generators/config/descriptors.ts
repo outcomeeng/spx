@@ -20,7 +20,7 @@ import {
   SPEC_TREE_SECTION,
   type SpecTreeKindCategory,
 } from "@/lib/spec-tree/config";
-import { TESTING_CONFIG_FIELDS, TESTING_SECTION, type TestingConfig } from "@/testing/config";
+import { TESTING_CONFIG_FIELDS, TESTING_SECTION, type TestingConfig } from "@/test/config";
 
 export const CONFIG_TEST_FIELDS = {
   TOKEN: "token",

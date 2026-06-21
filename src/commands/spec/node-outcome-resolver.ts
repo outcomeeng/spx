@@ -1,9 +1,9 @@
-import { currentStalenessInputs, discoverTestFiles, runNodeCommand } from "@/commands/testing";
+import { currentStalenessInputs, discoverTestFiles, runNodeCommand } from "@/commands/test";
 import type { GitDependencies } from "@/git/root";
 import type { NodeOutcomeResolver } from "@/lib/node-status";
 import { SPEC_TREE_CONFIG } from "@/lib/spec-tree/config";
-import type { TestingLanguageDescriptor, TestRunnerDependencies } from "@/testing/languages/types";
-import type { TestingRegistry } from "@/testing/registry";
+import type { TestingLanguageDescriptor, TestRunnerDependencies } from "@/test/languages/types";
+import type { TestingRegistry } from "@/test/registry";
 import {
   extractStalenessInputs,
   isStalenessMatch,
@@ -14,7 +14,7 @@ import {
   TEST_RUN_STATE_STATUS,
   type TestRunStateFileSystem,
   type TestTerminalRun,
-} from "@/testing/run-state";
+} from "@/test/run-state";
 
 const PATH_SEPARATOR = "/";
 

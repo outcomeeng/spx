@@ -4,7 +4,7 @@ import { resolveConfig } from "@/config/index";
 import { PATH_FILTER_CONFIG_FIELDS } from "@/config/primitives/path-filter";
 import { productionRegistry } from "@/config/registry";
 import { RESULT_VALUE_KEY } from "@/config/types";
-import { TESTING_CONFIG_FIELDS, TESTING_SECTION, type TestingConfig, testingConfigDescriptor } from "@/testing/config";
+import { TESTING_CONFIG_FIELDS, TESTING_SECTION, type TestingConfig, testingConfigDescriptor } from "@/test/config";
 import {
   VALIDATION_PATHS_SUBSECTION,
   VALIDATION_SECTION,

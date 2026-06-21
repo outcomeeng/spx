@@ -1,6 +1,6 @@
 # Language Registration
 
-Each language declares its quality-gate participation — its detection function, the validation stages it contributes, and (for testing) its test-runner invocation — through a typed descriptor exported from one module per concern, `src/validation/languages/{language}.ts` for validation and `src/testing/languages/{language}.ts` for testing, and a central registry reaches every descriptor through an explicit import statement and exposes the enumeration to orchestration. This governs every language participating under `spx/41-validation.enabler/` and `spx/41-testing.enabler/`.
+Each language declares its quality-gate participation — its detection function, the validation stages it contributes, and (for testing) its test-runner invocation — through a typed descriptor exported from one module per concern, `src/validation/languages/{language}.ts` for validation and `src/test/languages/{language}.ts` for testing, and a central registry reaches every descriptor through an explicit import statement and exposes the enumeration to orchestration. This governs every language participating under `spx/41-validation.enabler/` and `spx/41-test.enabler/`.
 
 ## Rationale
 
@@ -15,7 +15,7 @@ Descriptor-based registration separates what a language does from how orchestrat
 
 ### Audit
 
-- ALWAYS: each language declares its quality-gate participation through a typed descriptor exported from `src/validation/languages/{language}.ts` (validation) or `src/testing/languages/{language}.ts` (testing) ([audit])
+- ALWAYS: each language declares its quality-gate participation through a typed descriptor exported from `src/validation/languages/{language}.ts` (validation) or `src/test/languages/{language}.ts` (testing) ([audit])
 - ALWAYS: the central registry imports each descriptor via an explicit import statement ([audit])
 - ALWAYS: orchestration code references languages only through the registry's enumeration ([audit])
 - NEVER: hardcode language-specific dispatch in orchestration code (`allCommand`, `testCommand`, pipeline composition) — orchestration iterates over the registry ([audit])

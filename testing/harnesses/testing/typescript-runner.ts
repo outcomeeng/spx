@@ -3,7 +3,7 @@ import { copyFile } from "node:fs/promises";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 
-import type { TestRunnerDependencies } from "@/testing/languages/types";
+import type { TestRunnerDependencies } from "@/test/languages/types";
 import { withTempDir } from "@testing/harnesses/with-temp-dir";
 
 const VITEST_FIXTURE_DIR = join(dirname(fileURLToPath(import.meta.url)), "..", "..", "fixtures", "vitest");

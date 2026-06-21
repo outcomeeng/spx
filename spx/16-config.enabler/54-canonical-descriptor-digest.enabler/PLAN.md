@@ -7,7 +7,7 @@ Implement canonical descriptor JSON and SHA-256 digests for resolved descriptor 
 ## Governing Specs
 
 - `spx/16-config.enabler/21-descriptor-registration.adr.md`
-- `spx/41-testing.enabler/43-last-run-evidence.enabler/last-run-evidence.md`
+- `spx/41-test.enabler/43-last-run-evidence.enabler/last-run-evidence.md`
 
 ## Implementation Notes
 

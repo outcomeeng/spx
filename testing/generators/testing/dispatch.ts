@@ -3,9 +3,9 @@ import * as fc from "fast-check";
 
 import { SPEC_TREE_EVIDENCE_FILE } from "@/lib/spec-tree";
 import { KIND_REGISTRY, SPEC_TREE_CONFIG } from "@/lib/spec-tree/config";
-import { pythonTestingLanguage } from "@/testing/languages/python";
-import type { TestingLanguageDescriptor, TestRunInvocation } from "@/testing/languages/types";
-import { typescriptTestingLanguage } from "@/testing/languages/typescript";
+import { pythonTestingLanguage } from "@/test/languages/python";
+import type { TestingLanguageDescriptor, TestRunInvocation } from "@/test/languages/types";
+import { typescriptTestingLanguage } from "@/test/languages/typescript";
 import { CONFIG_TEST_GENERATOR, sampleConfigTestValue } from "@testing/generators/config/descriptors";
 
 const NODE_INDEX_MIN = 10;

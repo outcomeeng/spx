@@ -3,7 +3,7 @@ import { copyFile, mkdir } from "node:fs/promises";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 
-import type { TestRunCommandResult, TestRunnerDependencies } from "@/testing/languages/types";
+import type { TestRunCommandResult, TestRunnerDependencies } from "@/test/languages/types";
 import { withTempDir } from "@testing/harnesses/with-temp-dir";
 
 const PYTEST_FIXTURE_DIR = join(dirname(fileURLToPath(import.meta.url)), "..", "..", "fixtures", "pytest");

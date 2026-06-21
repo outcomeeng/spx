@@ -14,7 +14,7 @@ import {
   serializeConfigFileSections,
 } from "@/config/index";
 import { PATH_FILTER_CONFIG_FIELDS } from "@/config/primitives/path-filter";
-import { TESTING_CONFIG_FIELDS, TESTING_SECTION, testingConfigDescriptor } from "@/testing/config";
+import { TESTING_CONFIG_FIELDS, TESTING_SECTION, testingConfigDescriptor } from "@/test/config";
 import { CONFIG_TEST_GENERATOR, sampleConfigTestValue } from "@testing/generators/config/descriptors";
 import { WEB_CRYPTO_SHA256_ALGORITHM } from "@testing/harnesses/crypto";
 import type { Config } from "@testing/harnesses/spec-tree/spec-tree";

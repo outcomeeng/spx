@@ -3,8 +3,8 @@ import { dirname, join } from "node:path";
 
 import { CONFIG_FILENAMES } from "@/config/index";
 import type { PathFilterConfig } from "@/config/primitives/path-filter";
-import { TESTING_CONFIG_FIELDS, TESTING_SECTION } from "@/testing/config";
-import { testingRunsDir } from "@/testing/run-state";
+import { TESTING_CONFIG_FIELDS, TESTING_SECTION } from "@/test/config";
+import { testingRunsDir } from "@/test/run-state";
 import { CONFIG_TEST_GENERATOR, sampleConfigTestValue } from "@testing/generators/config/descriptors";
 import { withTempDir } from "@testing/harnesses/with-temp-dir";
 

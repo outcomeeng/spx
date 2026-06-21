@@ -11,7 +11,7 @@ import {
   type TestRunState,
   type TestRunStateStatus,
   testRunFileName,
-} from "@/testing/run-state";
+} from "@/test/run-state";
 import { CONFIG_TEST_GENERATOR, sampleConfigTestValue } from "@testing/generators/config/descriptors";
 import { arbitraryDomainLiteral, arbitrarySpecTreeTestFilePath } from "@testing/generators/literal/literal";
 

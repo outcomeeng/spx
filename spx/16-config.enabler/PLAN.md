@@ -27,7 +27,7 @@ Coordinate the refactor tranche that moves deterministic execution domains onto 
    - Review owns local hermetic execution defaults for branch and PR targets.
 
 2. Complete testing status evidence.
-   - Work in `spx/41-testing.enabler/43-last-run-evidence.enabler/`.
+   - Work in `spx/41-test.enabler/43-last-run-evidence.enabler/`.
    - Consume the settled testing descriptor, domain execution descriptor, canonical descriptor digest, and product-directory API.
 
 3. Complete file-inclusion path-scope migration.
@@ -52,7 +52,7 @@ Settled prerequisites on current `origin/main`:
 This list reflects expected state. Agents verify these at branch time, and dispatchers use the commands below to confirm current state before packet assignment.
 
 - Shared path-filter primitive: `spx/16-config.enabler/32-shared-config-primitives.enabler/` owns the structural `{ include?: string[]; exclude?: string[] }` primitive. Dependent packets consume it and do not recreate path-filter validators.
-- Testing descriptor: `spx/41-testing.enabler/32-testing-config.enabler/` and `spx/16-config.enabler/43-domain-execution-descriptors.enabler/` own the registered testing descriptor. Dependent packets consume it and do not create a second testing descriptor.
+- Testing descriptor: `spx/41-test.enabler/32-test-config.enabler/` and `spx/16-config.enabler/43-domain-execution-descriptors.enabler/` own the registered testing descriptor. Dependent packets consume it and do not create a second testing descriptor.
 - Spec-domain public surface: `spx/31-spec-domain.enabler/spec-domain.md` and `spx/23-spec-tree.enabler/spec-tree.md` own the settled command and library surfaces S1 consumes.
 - F1, A1, and R1 are the packets that consume the settled path-filter primitive directly.
 
@@ -62,7 +62,7 @@ Verify the settled prerequisites before assigning dependent packets:
 
 ```bash
 git cat-file -e origin/main:spx/16-config.enabler/32-shared-config-primitives.enabler/shared-config-primitives.md
-git cat-file -e origin/main:spx/41-testing.enabler/32-testing-config.enabler/testing-config.md
+git cat-file -e origin/main:spx/41-test.enabler/32-test-config.enabler/test-config.md
 git cat-file -e origin/main:spx/16-config.enabler/43-domain-execution-descriptors.enabler/domain-execution-descriptors.md
 git cat-file -e origin/main:spx/31-spec-domain.enabler/spec-domain.md
 git cat-file -e origin/main:spx/23-spec-tree.enabler/spec-tree.md
@@ -76,7 +76,7 @@ Dispatcher Verification covers already-settled prerequisites only. Packet output
 | C2     | `spx/16-config.enabler/65-product-directory-api.enabler/`         | none; dispatcher-enforced preference to sequence after C1 because both touch config modules | Settled on `origin/main`: product-root vocabulary across config APIs, harnesses, and root helpers                   |
 | F1     | `spx/17-file-inclusion.enabler/65-domain-path-filters.enabler/`   | settled path-filter primitive                                                               | File-inclusion resolver accepts descriptor-owned domain path filters                                                |
 | T1     | `spx/22-test-environment.enabler/32-spec-tree-fixtures.enabler/`  | C2                                                                                          | Remaining spec-tree tests use `withSpecTreeEnv` when they need materialized `spx/` fixtures                         |
-| T2     | `spx/41-testing.enabler/43-last-run-evidence.enabler/`            | settled testing config, settled domain execution descriptor, C1, C2                         | Persisted test observations and stale-status inputs                                                                 |
+| T2     | `spx/41-test.enabler/43-last-run-evidence.enabler/`            | settled testing config, settled domain execution descriptor, C1, C2                         | Persisted test observations and stale-status inputs                                                                 |
 | A1     | `spx/36-audit.enabler/43-audit-config.enabler/`                   | settled path-filter primitive                                                               | Settled on `origin/main`: registered audit config descriptor                                                        |
 | A2     | `spx/36-audit.enabler/54-branch-run-state.enabler/`               | A1, C1                                                                                      | Settled on `origin/main`: branch-scoped audit run state under `.spx/branch/{branch-slug}/audit/`                    |
 | A3     | `spx/36-audit.enabler/65-auditor-execution.enabler/`              | A1, A2, E0, E2                                                                              | Configured auditor execution with isolated state                                                                    |
@@ -125,13 +125,13 @@ See packet-level PLAN files for per-node evidence items; this section records cr
 - Agree on the canonical descriptor digest API shape before branches implementing testing last-run evidence, audit config digest, or review config digest integrate.
 - After A1-A4 settle, evaluate whether the parent `spx/36-audit.enabler/` spec needs a separate parent-level audit API alignment packet; create that packet only when a concrete parent-spec change is identified.
 - After R1-R5 settle, evaluate whether the parent `spx/46-reviewing.enabler/` spec needs a separate parent-level review API alignment packet; create that packet only when a concrete parent-spec change is identified.
-- After T1-T2 settle, evaluate whether the parent `spx/41-testing.enabler/` spec needs a separate parent-level testing API alignment packet; create that packet only when a concrete parent-spec change is identified.
+- After T1-T2 settle, evaluate whether the parent `spx/41-test.enabler/` spec needs a separate parent-level testing API alignment packet; create that packet only when a concrete parent-spec change is identified.
 - After T1 settles, evaluate whether the parent `spx/22-test-environment.enabler/` spec needs a separate parent-level fixture-harness alignment packet; create that packet only when a concrete parent-spec change is identified.
 - After F1 and T2 settle, inspect F1's PLAN for ignore-source deletion candidates and create a follow-up packet only when a concrete production deletion remains.
 - After F1 settles, evaluate whether the parent `spx/17-file-inclusion.enabler/` spec needs a separate parent-level file-inclusion API alignment packet; create that packet only when a concrete parent-spec change is identified.
 - After C1 or C2 merges, evaluate whether common pickup rules should move from this config tranche PLAN to a neutral coordination artifact before assigning cross-domain packets such as E0 or S1.
 - If A3 or R2 discovers missing shared process-lifecycle behavior, A3 is the designated recorder. A3 records the gap only after Open Coordination, process-lifecycle branches, and process-lifecycle PRs are empty for that gap. R2 must re-read this section, inspect open process-lifecycle PRs and branches, and either claim the existing branch or record a blocker in its PLAN; R2 does not open the shared process-lifecycle branch.
-- `spx/41-testing.enabler/21-python-testing.enabler/` and `spx/41-testing.enabler/21-typescript-testing.enabler/` are current language-skill specs, not implementation packets for this config/status tranche.
+- `spx/41-test.enabler/21-python-test.enabler/` and `spx/41-test.enabler/21-typescript-test.enabler/` are current language-skill specs, not implementation packets for this config/status tranche.
 
 ## Evidence Required
 

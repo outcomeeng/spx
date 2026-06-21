@@ -37,7 +37,7 @@ The same command shape against a file outside `validation.paths.exclude` runs
 ESLint normally:
 
 ```bash
-tsx src/cli.ts validation lint --files spx/41-testing.enabler/tests/testing.scenario.l1.test.ts
+tsx src/cli.ts validation lint --files spx/41-test.enabler/tests/test.scenario.l1.test.ts
 ```
 
 ```text

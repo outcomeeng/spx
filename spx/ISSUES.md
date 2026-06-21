@@ -70,9 +70,9 @@ One concern remains:
 
 ## PDR-11 scope does not cover testing
 
-`spx/41-validation.enabler/11-tool-based-validation.pdr.md` governs aggregate-vs-leaf tool naming under the validation subtree. The same principle applies to `41-testing.enabler/` (aggregate tool-agnostic, leaves name tools — pytest, vitest), but the PDR's explicit scope excludes testing.
+`spx/41-validation.enabler/11-tool-based-validation.pdr.md` governs aggregate-vs-leaf tool naming under the validation subtree. The same principle applies to `41-test.enabler/` (aggregate tool-agnostic, leaves name tools — pytest, vitest), but the PDR's explicit scope excludes testing.
 
-**Resolution:** Either move the PDR to product root with broader scope ("every spec under `41-validation.enabler/` and `41-testing.enabler/`"), or author a sibling PDR for testing. Scope: follow-up work.
+**Resolution:** Either move the PDR to product root with broader scope ("every spec under `41-validation.enabler/` and `41-test.enabler/`"), or author a sibling PDR for testing. Scope: follow-up work.
 
 ## Product-level audit assertions need testability review
 

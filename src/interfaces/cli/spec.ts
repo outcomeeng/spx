@@ -4,9 +4,9 @@ import { nextCommand } from "@/commands/spec/next";
 import { createNodeOutcomeResolver } from "@/commands/spec/node-outcome-resolver";
 import { OUTPUT_FORMAT, type OutputFormat, statusCommand } from "@/commands/spec/status";
 import type { Domain } from "@/domains/types";
-import { testingRegistry } from "@/testing/registry";
+import { testingRegistry } from "@/test/registry";
 
-import { createRunnerDepsFor } from "./testing-runner-deps";
+import { createRunnerDepsFor } from "./test-runner-deps";
 import { writeWarning } from "./write-warning";
 
 export const SPEC_DOMAIN_CLI = {

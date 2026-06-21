@@ -4,17 +4,17 @@ import { describe, expect, it } from "vitest";
 
 import { createNodeOutcomeResolver } from "@/commands/spec/node-outcome-resolver";
 import { statusCommand } from "@/commands/spec/status";
-import { runTestsCommand } from "@/commands/testing";
+import { runTestsCommand } from "@/commands/test";
 import {
   getKindDefinition,
   SPEC_TREE_EVIDENCE_FILE,
 } from "@/lib/spec-tree";
 import { type NodeKind, SPEC_TREE_CONFIG } from "@/lib/spec-tree/config";
-import { testingRegistry } from "@/testing/registry";
+import { testingRegistry } from "@/test/registry";
 import {
   defaultTestRunStateFileSystem,
   type TestRunStateFileSystem,
-} from "@/testing/run-state";
+} from "@/test/run-state";
 import { MINIMAL_SPEC_TREE_CONFIG } from "@testing/generators/config/config";
 import {
   sampleSpecTreeTestValue,

@@ -6,7 +6,7 @@ Each spec-tree node's lifecycle state persists in a co-located, machine-written 
 
 Per-node co-location ties a node's recorded state to that node's own commits, so git history — not a field inside the file — answers "when did this node last pass?". A single writer keeps every other path a pure reader, so reading status never mutates the tree. Absence routing to live derivation makes the mechanism additive: status works on a fresh checkout before any `--update` has run, and a missing file is never an error.
 
-Status records a node's lifecycle classification; the testing domain owns test execution and its raw run evidence (`spx/41-testing.enabler/testing.md`). The two artifacts are distinct and both persist: `spx.status.json` records the four-state lifecycle classification, and the testing domain's run evidence records runner outcomes, digests, and timestamps. `spx spec status --update` consumes that evidence rather than executing tests itself, so one execution path — the testing domain's registry-based, multi-language run — produces every test outcome and status never embeds a language-specific runner.
+Status records a node's lifecycle classification; the testing domain owns test execution and its raw run evidence (`spx/41-test.enabler/test.md`). The two artifacts are distinct and both persist: `spx.status.json` records the four-state lifecycle classification, and the testing domain's run evidence records runner outcomes, digests, and timestamps. `spx spec status --update` consumes that evidence rather than executing tests itself, so one execution path — the testing domain's registry-based, multi-language run — produces every test outcome and status never embeds a language-specific runner.
 
 Alternatives rejected:
 
