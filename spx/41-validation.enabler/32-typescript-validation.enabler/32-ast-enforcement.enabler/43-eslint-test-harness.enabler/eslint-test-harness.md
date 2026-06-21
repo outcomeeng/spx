@@ -1,6 +1,6 @@
 # ESLint Rule-Tester Test Harness
 
-PROVIDES an ESLint `RuleTester` harness — tester factories over the shared validation language options with and without the TypeScript parser, runners that drive a rule's valid and invalid cases through a fresh tester, an explicit tester, or a resolved builtin rule, builtin-rule resolution, and a `severityOf` reader over a rule config
+PROVIDES an ESLint `RuleTester` harness — tester factories over the shared validation language options with and without the TypeScript parser, runners that drive a rule's valid and invalid cases through a fresh tester, an explicit tester, a parser-free tester, or a resolved builtin rule, builtin-rule resolution, a `severityOf` reader over a rule config, and a lifecycle-hook installer that wires the RuleTester `describe`, `it`, and `afterAll` hooks from the shared generator
 SO THAT the TypeScript AST-enforcement enabler's rule mapping tests and cross-domain custom-rule consumers
 CAN assert custom and builtin ESLint rule behavior without re-specifying the RuleTester language options, the TypeScript parser wiring, or builtin-rule lookup
 
@@ -8,7 +8,7 @@ CAN assert custom and builtin ESLint rule behavior without re-specifying the Rul
 
 ### Scenarios
 
-- Given a source-owned rule run, when its cases are driven through a fresh tester, an explicit tester, the parser-free tester, and the builtin rule runner, then every case is exercised without throwing ([test](tests/eslint-test-harness.scenario.l1.test.ts))
+- Given the RuleTester lifecycle hooks are installed, when a source-owned rule run's cases are driven through a fresh tester, an explicit tester, the parser-free tester, and the builtin rule runner, then every case is exercised without throwing ([test](tests/eslint-test-harness.scenario.l1.test.ts))
 - Given a registered builtin rule name, when `validationBuiltinRule` resolves it, then the builtin rule module is returned; given an unregistered name, then it throws ([test](tests/eslint-test-harness.scenario.l1.test.ts))
 
 ### Properties
