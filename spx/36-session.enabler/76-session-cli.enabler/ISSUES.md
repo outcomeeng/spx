@@ -20,16 +20,6 @@ The handoff-base checklist enumerates two base prerequisites — a clean working
 
 **Resolution:** If sharper on-branch diagnostics are wanted, revise [`spx/36-session.enabler/11-session-frontmatter.pdr.md`](../11-session-frontmatter.pdr.md) and [`session-cli.md`](session-cli.md) through `/authoring` to enumerate the on-branch prerequisite, then extend the resolver and checklist to render it.
 
-## Duplicate built-CLI runner in the session test harness
-
-`testing/harnesses/session/harness.ts` exports two built-CLI runners: `runSessionCli` (the list-output suites) and `runSpxSession` (the handoff-base L2 suites). The two were extracted independently and `runSpxSession` is now a thin alias of `runSessionCli`.
-
-**Evidence:** Both run `node bin/spx.js` through `execa` and return the same `SessionCliResult`. `runSpxSession` exists only so the handoff-base wiring smokes and git_ref tests in `session-cli.compliance.l2.test.ts` need no rename.
-
-**Impact:** None to behavior; the alias forwards to `runSessionCli`. The two names are a drift point — a future runner change could touch one and not the caller's mental model.
-
-**Resolution:** Re-point the `runSpxSession` call sites in `session-cli.compliance.l2.test.ts` to `runSessionCli`, then remove the `runSpxSession` alias.
-
 ## Path-segment and branch-name generators duplicated across testing generators
 
 `testing/generators/session/handoff-base.ts` privately defines `PATH_SEGMENT_PATTERN`, a path-segment arbitrary, and exports `arbitraryBranchName()` as that arbitrary — identical to copies in `testing/generators/main-checkout/main-checkout.ts`, `testing/generators/testing/run-state.ts`, and `testing/generators/audit/run-state.ts`. `PATH_SEGMENT_PATTERN` alone also recurs in `testing/generators/git-worktree/git-worktree.ts` and `testing/generators/release/release.ts`.

@@ -81,19 +81,6 @@ export const HANDOFF_ID_TAG_PATTERN = /<HANDOFF_ID>\d{4}-\d{2}-\d{2}_\d{2}-\d{2}
 export const ABSENT_SESSION_ID = "nonexistent";
 
 /**
- * Runs the built `spx` CLI for the handoff-base L2 evidence. A thin alias of
- * {@link runSessionCli} kept distinct only until the two runners are unified —
- * tracked in the session-cli node's ISSUES.md.
- */
-export async function runSpxSession(
-  args: readonly string[],
-  input?: string,
-  cwd: string = process.cwd(),
-): Promise<SessionCliResult> {
-  return runSessionCli(args, input, cwd);
-}
-
-/**
  * Provisions a non-bare git worktree with a single seed commit and invokes
  * `callback` with its toplevel — the main checkout from which `spx session
  * handoff` is permitted. Composes `withGitWorktreeEnv`, removing the temp
