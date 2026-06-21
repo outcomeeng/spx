@@ -1,5 +1,23 @@
 # Issues: Journal
 
+## FOLLOW-UP — an invalid SPX_VERIFY_BACKEND fails read/seal/render with a backend error
+
+`resolveJournalRunContext` resolves the backend up front for every verb, so a
+mistyped `SPX_VERIFY_BACKEND` returns "unknown journal backend: <value>
+(registered: local, github-pr)" from `read`, `seal`, and `render` too, even
+though only `append` branches on the backend. The error names the backend on
+verbs that need no backend selection, which reads as confusing.
+
+This is a minor UX nuance, not a rule violation: the channel ADR invariant
+"backend identity is resolved once, from the environment" is satisfied — the
+backend is resolved once, from the env — and rejecting a misconfigured
+environment consistently across all verbs is defensible fail-fast behavior. The
+improvement is to resolve the backend only where it is used (the `append`
+streaming path) so `read`/`seal`/`render` tolerate an unused, malformed backend
+override; that relocates backend resolution out of the shared
+`resolveJournalRunContext`, a deliberate refactor of the command layer rather
+than a bounded fix, so it is tracked here.
+
 ## FOLLOW-UP — seal does not re-render the projection on the github-pr backend
 
 `sealJournalRun` takes no streaming sink and calls only `journal.seal()`, so it
