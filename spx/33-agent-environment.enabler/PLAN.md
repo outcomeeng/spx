@@ -16,13 +16,13 @@ Define and implement deterministic management for agent instructions, runtime co
 - Keep this node broader than the Claude-only outcome subtree.
 - Treat `spx/46-claude.outcome/` as Claude-specific source material for reconciling runtime configuration and instruction-management assumptions into this node; it does not own agent-environment product truth.
 - Make runtime config reconciliation deterministic and safe to run repeatedly.
-- Keep audit/review environment bootstrapping hermetically separate from the invoking agent.
+- Keep agentic verification environment bootstrapping hermetically separate from the invoking agent.
 
 ## Settled work
 
 - The parent agent-environment descriptor shape is settled on `origin/main`.
 - Runtime config reconciliation is settled on `origin/main`.
-- Runtime-state boundary notes are recorded for audit and review consumers.
+- Runtime-state boundary notes are recorded for agentic verification consumers.
 
 ## Active work
 
@@ -42,7 +42,7 @@ Instruction-file reconciliation and plugin bootstrap can proceed independently a
 
 ## Open Coordination
 
-- Author the invoking-agent isolation decision before auditor execution or reviewer execution implementation chooses working-directory, environment-variable, or temporary-file sharing boundaries.
+- Author the invoking-agent isolation decision before an agentic verification run's implementation chooses working-directory, environment-variable, or temporary-file sharing boundaries.
 - When E1, E2, or E3 add descriptor-consuming tests, expand `CONFIG_TEST_GENERATOR.agentEnvironmentConfig()` beyond the E0 representative mapping shape or add narrower generator names for shape-specific evidence.
 
 ## Gate Dependencies
