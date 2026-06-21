@@ -8,7 +8,7 @@ CAN fold spx tool health into the overall environment verdict
 
 ### Mappings
 
-- The check classifies spx as reachable (resolved on PATH at or above the manifest floor; bucket healthy), below-floor (resolved but below the floor; bucket degraded), or unreachable (absent from PATH; bucket broken) from the PATH resolution and reported version, and as unknown (bucket unknown) when the probe errors, pairing each verdict with a remediation hint ([test](tests/reachability.mapping.l1.test.ts))
+- The check classifies spx as reachable (resolved on PATH at or above the manifest floor; bucket healthy), below-floor (resolved but below the floor; bucket degraded), or unreachable (absent from PATH; bucket broken) from the PATH resolution and reported version, and as unknown (bucket unknown) when the reading cannot be compared to the floor — the probe errors, the manifest carries no floor, or the reported version is absent or not semver-shaped — pairing each verdict with a remediation hint ([test](tests/reachability.mapping.l1.test.ts))
 
 ### Scenarios
 
