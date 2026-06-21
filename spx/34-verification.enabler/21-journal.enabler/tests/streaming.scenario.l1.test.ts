@@ -7,6 +7,7 @@ import {
   openJournalRun,
   readJournalEvents,
   renderJournalRun,
+  sealJournalRun,
 } from "@/commands/journal/runtime";
 import type { JournalEvent } from "@/lib/agent-run-journal";
 import { arbitraryJournalEventInput, sampleAgentRunJournalValue } from "@testing/generators/agent-run-journal";
@@ -86,6 +87,12 @@ describe("journal run preconditions", () => {
 
       const read = await readJournalEvents(ref, 1);
       expect(read).toEqual({ ok: false, error: JOURNAL_RUNTIME_ERROR.RUN_NOT_FOUND });
+
+      const sealed = await sealJournalRun(ref);
+      expect(sealed).toEqual({ ok: false, error: JOURNAL_RUNTIME_ERROR.RUN_NOT_FOUND });
+
+      const rendered = await renderJournalRun(ref, (events) => events.length);
+      expect(rendered).toEqual({ ok: false, error: JOURNAL_RUNTIME_ERROR.RUN_NOT_FOUND });
     });
   });
 });
