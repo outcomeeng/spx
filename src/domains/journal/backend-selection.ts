@@ -10,9 +10,9 @@ export const JOURNAL_BACKEND = {
   GITHUB_PR: "github-pr",
 } as const;
 
-export type JournalBackendKind = (typeof JOURNAL_BACKEND)[keyof typeof JOURNAL_BACKEND];
+export type JournalEdgeBackend = (typeof JOURNAL_BACKEND)[keyof typeof JOURNAL_BACKEND];
 
-export const JOURNAL_BACKEND_ORDER: readonly JournalBackendKind[] = [
+export const JOURNAL_BACKEND_ORDER: readonly JournalEdgeBackend[] = [
   JOURNAL_BACKEND.LOCAL,
   JOURNAL_BACKEND.GITHUB_PR,
 ];
@@ -36,7 +36,7 @@ export interface JournalEnvironment {
 }
 
 /** Whether `value` names a registered journal backend. */
-export function isJournalBackendKind(value: string): value is JournalBackendKind {
+export function isJournalEdgeBackend(value: string): value is JournalEdgeBackend {
   return (JOURNAL_BACKEND_ORDER as readonly string[]).includes(value);
 }
 
@@ -46,9 +46,9 @@ export function isJournalBackendKind(value: string): value is JournalBackendKind
  * otherwise; absent an override, a continuous-integration GitHub pull request
  * binds `github-pr` and every other environment binds `local`.
  */
-export function resolveJournalBackend(env: JournalEnvironment): Result<JournalBackendKind> {
+export function resolveJournalBackend(env: JournalEnvironment): Result<JournalEdgeBackend> {
   if (env.backendOverride !== undefined) {
-    if (!isJournalBackendKind(env.backendOverride)) {
+    if (!isJournalEdgeBackend(env.backendOverride)) {
       return {
         ok: false,
         error: `${JOURNAL_BACKEND_ERROR.UNKNOWN_BACKEND}: ${env.backendOverride} (registered: ${

@@ -124,9 +124,11 @@ function stdoutStreamSink(): JournalStreamSink {
 
 /** The boundary surfaces the journal append streams through: stdout locally, the gh client under github-pr. */
 function streamBinding(): JournalStreamBinding {
+  const repository = process.env[JOURNAL_CLI_ENV.GITHUB_REPOSITORY] ?? "";
   return {
     localSink: stdoutStreamSink(),
-    githubClient: createGithubPrCommentClient({ repository: process.env[JOURNAL_CLI_ENV.GITHUB_REPOSITORY] ?? "" }),
+    githubClient: createGithubPrCommentClient({ repository }),
+    githubRepository: repository,
   };
 }
 

@@ -1,7 +1,7 @@
 import type { Result } from "@/config/types";
 import {
   JOURNAL_BACKEND,
-  type JournalBackendKind,
+  type JournalEdgeBackend,
   type JournalEnvironment,
   resolveJournalBackend,
 } from "@/domains/journal/backend-selection";
@@ -43,6 +43,7 @@ export const JOURNAL_CLI_ENV = {
 
 export const JOURNAL_CLI_ERROR = {
   GITHUB_CLIENT_UNAVAILABLE: "github pull-request backend needs a GitHub client",
+  GITHUB_REPOSITORY_MISSING: "github pull-request backend requires a non-empty GITHUB_REPOSITORY",
   PULL_REQUEST_UNRESOLVED: "github pull-request number is not resolvable from the environment",
   INVALID_EVENT_INPUT: "journal append event input is missing a required CloudEvents field",
   INVALID_CURSOR: "journal read cursor must be a whole non-negative integer",
@@ -107,7 +108,7 @@ interface JournalRunContext {
   readonly productDir: string;
   readonly branchSlug: string;
   readonly type: string;
-  readonly backendKind: JournalBackendKind;
+  readonly backendKind: JournalEdgeBackend;
 }
 
 /** The boundary surfaces the descriptor binds for the journal streaming sink. */
@@ -116,6 +117,8 @@ export interface JournalStreamBinding {
   readonly localSink: JournalStreamSink;
   /** The GitHub client the github-pr backend upserts the pull-request comment through. */
   readonly githubClient?: GithubSnapshotClient;
+  /** The `owner/repo` the github-pr client targets; empty when `GITHUB_REPOSITORY` is unset. */
+  readonly githubRepository?: string;
 }
 
 function isTruthyEnv(value: string | undefined): boolean {
@@ -184,12 +187,15 @@ export function journalCommentMarker(type: string, runToken: string): string {
 
 async function resolveAppendSink(
   ref: JournalRunRef,
-  backendKind: JournalBackendKind,
+  backendKind: JournalEdgeBackend,
   binding: JournalStreamBinding,
   deps: JournalCliDeps,
 ): Promise<Result<JournalStreamSink>> {
   if (backendKind === JOURNAL_BACKEND.LOCAL) return { ok: true, value: binding.localSink };
   if (binding.githubClient === undefined) return { ok: false, error: JOURNAL_CLI_ERROR.GITHUB_CLIENT_UNAVAILABLE };
+  if (binding.githubRepository === undefined || binding.githubRepository.length === 0) {
+    return { ok: false, error: JOURNAL_CLI_ERROR.GITHUB_REPOSITORY_MISSING };
+  }
   const pullNumber = resolvePullRequestNumber(deps.processEnv ?? process.env);
   if (!pullNumber.ok) return pullNumber;
   return {
