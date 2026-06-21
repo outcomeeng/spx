@@ -21,3 +21,25 @@
 **Resolution (deferred):** If a future caller can pass an empty node-path set, add a generator path and a scenario asserting the no-coverage outcome, or make the contract reject empty input explicitly. Until then the guard's behavior is contract-implied.
 
 **Evidence:** Local changes review on the per-worktree relocation PR (`runCoversNode` empty-paths early return in `src/test/run-state.ts`).
+
+## FOLLOW-UP: `toErrorMessage` diverges from the `src/lib/state-store` copy
+
+Hardening `toErrorMessage` in `src/test/run-state.ts` to resolve SonarQube S6551
+(guarded `JSON.stringify` instead of `String(error)` for non-Error, non-string
+thrown values) made it diverge from the private `toErrorMessage` at
+`src/lib/state-store/index.ts:570`, which still uses `String(error)`. The two
+agree on the common Error/string path but differ on non-standard throws
+(`throw undefined`, `throw { … }`). A third copy lives in
+`src/domains/worktree/occupancy-store.ts`.
+
+**Resolution (deferred — blocked by the SonarQube whole-file gate):** consolidate
+into one exported `toErrorMessage` in `src/lib/state-store/index.ts` consumed by
+`run-state.ts`, the CLI error handler, and `occupancy-store.ts`. A one-line edit
+to `src/lib/state-store/index.ts` re-flags four pre-existing SonarQube findings in
+that file under the local whole-changed-file gate (verified by probe), which the
+SonarQube-zero-issues program owns. Do the consolidation in that program's pass,
+or when `src/lib/state-store/index.ts` is next edited for its own reason.
+
+**Evidence:** spec-tree-review on PR #239 (`run-state.ts` ↔
+`src/lib/state-store/index.ts:570`); local `sonar analyze` probe surfacing four
+state-store findings from a one-line edit.
