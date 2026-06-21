@@ -164,6 +164,8 @@ sonar auth login -o outcomeeng   # opens a browser; the token is stored in the O
 
 Until then the MCP server entry is inert: it does not affect builds, tests, or validation.
 
+A Lefthook **pre-push** hook runs `sonar analyze --base origin/main` so SonarQube Cloud findings on the pushed changeset surface before the code leaves your machine, and a finding blocks the push. It uses the same `sonar` CLI and authentication as the MCP server above, so install the CLI and run `sonar auth login` before pushing. When the CLI is genuinely unavailable, `LEFTHOOK_SKIP=sonar-analyze git push` bypasses the gate.
+
 ## CI/CD
 
 The project uses GitHub Actions for continuous integration and publishing:
