@@ -15,7 +15,7 @@ import { createGithubPrCommentClient } from "@/commands/journal/github-client";
 import type { JournalStreamSink } from "@/commands/journal/runtime";
 import type { Result } from "@/config/types";
 import type { Domain } from "@/domains/types";
-import type { JournalEvent, JournalEventInput } from "@/lib/agent-run-journal";
+import type { JournalEvent } from "@/lib/agent-run-journal";
 import { EPIPE_CODE } from "@/lib/process-lifecycle";
 
 export const JOURNAL_CLI = {
@@ -32,7 +32,6 @@ export const JOURNAL_CLI = {
   branchOption: "--branch <name>",
 } as const;
 
-const DECIMAL_RADIX = 10;
 const STREAM_LINE_SEPARATOR = "\n";
 const MALFORMED_EVENT_INPUT_ERROR = "journal append event input is not valid JSON";
 
@@ -99,7 +98,7 @@ export const journalDomain: Domain = {
       .requiredOption(JOURNAL_CLI.fromOption, "Sequence cursor; events at or after it are returned")
       .option(JOURNAL_CLI.branchOption, "Branch scope override")
       .action(async (options: JournalReadCliOptions) => {
-        await report(await journalReadCommand(runScope(options), Number.parseInt(options.from, DECIMAL_RADIX)));
+        await report(await journalReadCommand(runScope(options), options.from));
       });
 
     journalCmd
@@ -140,13 +139,13 @@ function streamBinding(): JournalStreamBinding {
   };
 }
 
-async function readStdinEventInput(): Promise<Result<JournalEventInput>> {
+async function readStdinEventInput(): Promise<Result<unknown>> {
   const chunks: Buffer[] = [];
   for await (const chunk of process.stdin) {
     chunks.push(Buffer.isBuffer(chunk) ? chunk : Buffer.from(chunk as string));
   }
   try {
-    return { ok: true, value: JSON.parse(Buffer.concat(chunks).toString("utf8")) as JournalEventInput };
+    return { ok: true, value: JSON.parse(Buffer.concat(chunks).toString("utf8")) as unknown };
   } catch {
     return { ok: false, error: MALFORMED_EVENT_INPUT_ERROR };
   }
