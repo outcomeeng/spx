@@ -80,6 +80,8 @@ export const journalDomain: Domain = {
           return;
         }
         const result = await journalAppendCommand(runScope(options), input.value, streamBinding());
+        // A successful append's result is empty — the event already reached the
+        // streaming surface — so exit without writing a result line; only report errors.
         if (result.exitCode === JOURNAL_CLI_EXIT_CODE.OK) process.exit(JOURNAL_CLI_EXIT_CODE.OK);
         else await report(result);
       });
