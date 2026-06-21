@@ -40,6 +40,8 @@ describe("journal CLI", () => {
       const sink = new RecordingJournalStreamSink();
       const appended = await journalAppendCommand({ type, runToken }, input, { localSink: sink }, deps);
       expect(appended.exitCode).toBe(JOURNAL_CLI_EXIT_CODE.OK);
+      // append's output is the streamed event, not a result line — its result is empty.
+      expect(appended.output).toHaveLength(0);
       expect(sink.emitted.map((event) => event.seq)).toEqual([JOURNAL_SEQ_BASE]);
 
       const read = await journalReadCommand({ type, runToken }, String(JOURNAL_SEQ_BASE), deps);
