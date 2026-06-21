@@ -12,7 +12,7 @@ import {
   resolveConfig,
   serializeConfigFileSections,
 } from "@/config/index";
-import { testingConfigDescriptor } from "@/testing/config";
+import { testingConfigDescriptor } from "@/test/config";
 import { CONFIG_TEST_GENERATOR, sampleConfigTestValue } from "@testing/generators/config/descriptors";
 import type { Config } from "@testing/harnesses/spec-tree/spec-tree";
 import { withTestEnv } from "@testing/harnesses/spec-tree/spec-tree";

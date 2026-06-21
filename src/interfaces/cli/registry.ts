@@ -7,7 +7,7 @@ import { hookDomain } from "./hook";
 import { journalDomain } from "./journal";
 import { sessionDomain } from "./session";
 import { specDomain } from "./spec";
-import { testingDomain } from "./testing";
+import { testingDomain } from "./test";
 import { validationDomain } from "./validation";
 import { worktreeDomain } from "./worktree";
 

@@ -28,7 +28,7 @@ Wiring `createNodeStatusProvider` into `spx spec status` adds one synchronous `r
 
 `spx spec status --update` routes each per-node run's stdout to stderr (`createRunnerDepsFor(productDir, process.stderr)` in `src/interfaces/cli/spec.ts`), so stdout carries only the status rollup and `--json` stays machine-parseable. The output is still verbose: every stale, failing, or absent node's full test output prints to stderr before the rollup.
 
-**Resolution:** if the stderr verbosity is unwanted, give the status path a quiet or capturing runner variant that suppresses or summarizes per-node output, surfacing detail only on failure. That variant will also need `createCommandRunner` (`src/interfaces/cli/testing-runner-deps.ts`) to expose an `errStream` parameter analogous to `outStream` — it currently hardcodes `child.stderr?.pipe(process.stderr)` — so per-node stderr can be suppressed or captured alongside stdout.
+**Resolution:** if the stderr verbosity is unwanted, give the status path a quiet or capturing runner variant that suppresses or summarizes per-node output, surfacing detail only on failure. That variant will also need `createCommandRunner` (`src/interfaces/cli/test-runner-deps.ts`) to expose an `errStream` parameter analogous to `outStream` — it currently hardcodes `child.stderr?.pipe(process.stderr)` — so per-node stderr can be suppressed or captured alongside stdout.
 
 **Skills:** `spec-tree:applying` (implementation).
 
@@ -42,9 +42,9 @@ Wiring `createNodeStatusProvider` into `spx spec status` adds one synchronous `r
 
 ## FOLLOW-UP: a node whose tests are all gated out re-runs on every --update
 
-A test-outcome-stage node whose tests are all in an absent language records a zero-outcome run that covers none of its discovered test paths, so `selectLatestTerminalTestRunForNode` never selects it and the resolver re-runs the node on every `--update`. A node with tests in more than one language where only some runners are present is the same case partially: the run executes the present languages but leaves the absent ones' paths unexecuted. The resolver classifies both as not-passing — it reports a node passing only when the run covers every node test path (`outcomesCoverPaths`) and passed, so a partial run never overclaims — and re-runs on every `--update`, staying conservative-correct but repeating work. The final semantics (whether an absent-language node is failing, specified, or judged only on its present languages) is the zero-outcome / per-node-non-match question tracked in `spx/41-testing.enabler/ISSUES.md`; the empty-run contract is decided there.
+A test-outcome-stage node whose tests are all in an absent language records a zero-outcome run that covers none of its discovered test paths, so `selectLatestTerminalTestRunForNode` never selects it and the resolver re-runs the node on every `--update`. A node with tests in more than one language where only some runners are present is the same case partially: the run executes the present languages but leaves the absent ones' paths unexecuted. The resolver classifies both as not-passing — it reports a node passing only when the run covers every node test path (`outcomesCoverPaths`) and passed, so a partial run never overclaims — and re-runs on every `--update`, staying conservative-correct but repeating work. The final semantics (whether an absent-language node is failing, specified, or judged only on its present languages) is the zero-outcome / per-node-non-match question tracked in `spx/41-test.enabler/ISSUES.md`; the empty-run contract is decided there.
 
-**Skills:** `spec-tree:authoring` (decision in 41-testing), `spec-tree:applying` (implementation).
+**Skills:** `spec-tree:authoring` (decision in 41-test), `spec-tree:applying` (implementation).
 
 ## FOLLOW-UP: the production resolver lacks real-runner integration coverage
 

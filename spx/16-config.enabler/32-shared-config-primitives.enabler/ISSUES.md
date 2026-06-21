@@ -14,12 +14,12 @@
 
 **Resolution (deferred — touches the validation domain, outside this primitive's node):** migrate `src/validation/literal/index.ts` and the prefix-matching core of `src/validation/config/path-filter.ts` to consume `applyPathFilter` from `@/config/primitives`, keeping any validation-specific intersection logic layered on top, so one prefix-matching implementation serves every domain; at that point re-introduce and cover the normalization the validation consumers require.
 
-**Evidence:** the shared `applyPathFilter` added for `spx test passing` passing-scope (`spx/41-testing.enabler/testing.md`); the two pre-existing validation appliers cited above.
+**Evidence:** the shared `applyPathFilter` added for `spx test passing` passing-scope (`spx/41-test.enabler/test.md`); the two pre-existing validation appliers cited above.
 
 ## FOLLOW-UP: provide a type-safe section accessor on the resolved config
 
-`resolveConfig` returns `Config` (a `Record<string, unknown>`), so every consumer reads its descriptor's section with an unchecked cast — `loaded.value[descriptor.section] as TestingConfig` in `src/interfaces/cli/testing.ts`, `loaded.value[descriptor.section] as ValidationConfig` in `src/commands/validation/circular.ts`. The cast compiles regardless of whether the descriptor was passed to `resolveConfig`, so a missing-descriptor or renamed-section drift surfaces only at runtime.
+`resolveConfig` returns `Config` (a `Record<string, unknown>`), so every consumer reads its descriptor's section with an unchecked cast — `loaded.value[descriptor.section] as TestingConfig` in `src/interfaces/cli/test.ts`, `loaded.value[descriptor.section] as ValidationConfig` in `src/commands/validation/circular.ts`. The cast compiles regardless of whether the descriptor was passed to `resolveConfig`, so a missing-descriptor or renamed-section drift surfaces only at runtime.
 
 **Resolution (deferred — touches the config domain, all descriptor consumers):** introduce a generic accessor on the config result, e.g. `getSection<T>(config: Config, descriptor: ConfigDescriptor<T>): T`, that derives the section key and the value type from the descriptor, and update the testing and validation consumers to use it instead of the inline cast.
 
-**Evidence:** local changes review on PR-2b; `src/interfaces/cli/testing.ts` `resolveTestingPassingScope`; `src/commands/validation/circular.ts` section cast; the `Config` contract from `resolveConfig`.
+**Evidence:** local changes review on PR-2b; `src/interfaces/cli/test.ts` `resolveTestingPassingScope`; `src/commands/validation/circular.ts` section cast; the `Config` contract from `resolveConfig`.

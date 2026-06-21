@@ -2,7 +2,7 @@ import { agentEnvironmentConfigDescriptor } from "@/domains/agent-environment/co
 import { fileInclusionConfigDescriptor } from "@/lib/file-inclusion/config";
 import { precommitConfigDescriptor } from "@/lib/precommit/config";
 import { specTreeConfigDescriptor } from "@/lib/spec-tree/config";
-import { testingConfigDescriptor } from "@/testing/config";
+import { testingConfigDescriptor } from "@/test/config";
 import { validationConfigDescriptor } from "@/validation/config/descriptor";
 
 import type { ConfigDescriptor } from "./types";

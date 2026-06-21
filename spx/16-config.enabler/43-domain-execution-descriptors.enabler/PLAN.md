@@ -13,7 +13,7 @@ Register the testing execution descriptor on top of the shared config descriptor
 ## Implementation Notes
 
 - Add descriptors in dependency order after shared primitives exist.
-- Validate descriptor behavior against the consumer spec in `spx/41-testing.enabler/32-testing-config.enabler/testing-config.md`; the audit and review consumer specs are gone with those domains' collapse into the journal channel.
+- Validate descriptor behavior against the consumer spec in `spx/41-test.enabler/32-test-config.enabler/test-config.md`; the audit and review consumer specs are gone with those domains' collapse into the journal channel.
 - Testing descriptor owns passing-scope policy only.
 - Keep descriptor placement aligned with the companion-module rule in `spx/16-config.enabler/21-descriptor-registration.adr.md`.
 

@@ -8,10 +8,10 @@ import { nextCommand, SPEC_NEXT_MESSAGE } from "@/commands/spec/next";
 import { createNodeOutcomeResolver } from "@/commands/spec/node-outcome-resolver";
 import { SPEC_PRODUCT_DIR_WARNING } from "@/commands/spec/root";
 import { OUTPUT_FORMAT, SPEC_STATUS_MESSAGE, statusCommand } from "@/commands/spec/status";
-import { runTestsCommand } from "@/commands/testing";
+import { runTestsCommand } from "@/commands/test";
 import { DEFAULT_CONFIG_FILENAME } from "@/config/index";
 import { GIT_ROOT_COMMAND, GIT_SHOW_TOPLEVEL_ARGS, type GitDependencies } from "@/git/root";
-import { createRunnerDepsFor } from "@/interfaces/cli/testing-runner-deps";
+import { createRunnerDepsFor } from "@/interfaces/cli/test-runner-deps";
 import { NODE_STATUS_FILENAME, serializeNodeStatus } from "@/lib/node-status";
 import {
   getKindDefinition,
@@ -22,10 +22,10 @@ import {
   type SpecTreeNodeSourceEntry,
 } from "@/lib/spec-tree";
 import { KIND_REGISTRY, type NodeKind, SPEC_TREE_CONFIG } from "@/lib/spec-tree/config";
-import { PYTHON_TEST_FILE_PREFIX } from "@/testing/languages/python";
-import { typescriptTestingLanguage } from "@/testing/languages/typescript";
-import { testingRegistry } from "@/testing/registry";
-import { testingRunsDir } from "@/testing/run-state";
+import { PYTHON_TEST_FILE_PREFIX } from "@/test/languages/python";
+import { typescriptTestingLanguage } from "@/test/languages/typescript";
+import { testingRegistry } from "@/test/registry";
+import { testingRunsDir } from "@/test/run-state";
 import { MINIMAL_SPEC_TREE_CONFIG } from "@testing/generators/config/config";
 import { CONFIG_TEST_GENERATOR, sampleConfigTestValue } from "@testing/generators/config/descriptors";
 import {
