@@ -1,4 +1,4 @@
-import { mkdir, symlink, writeFile } from "node:fs/promises";
+import { mkdir, readFile, symlink, writeFile } from "node:fs/promises";
 import { dirname, join } from "node:path";
 
 import { describe, expect, it } from "vitest";
@@ -119,7 +119,8 @@ describe("journal run preconditions", () => {
       expect(runFilePath.ok).toBe(true);
       if (!runFilePath.ok) return;
       const redirectTarget = join(productDir, "journal-redirect-target.jsonl");
-      await writeFile(redirectTarget, `${JSON.stringify({ planted: true })}\n`, STATE_STORE_TEXT_ENCODING);
+      const targetContent = `${JSON.stringify({ planted: true })}\n`;
+      await writeFile(redirectTarget, targetContent, STATE_STORE_TEXT_ENCODING);
       await mkdir(dirname(runFilePath.value), { recursive: true });
       await symlink(redirectTarget, runFilePath.value);
 
@@ -134,6 +135,9 @@ describe("journal run preconditions", () => {
 
       const rendered = await renderJournalRun(ref, (events) => events.length);
       expect(rendered).toEqual({ ok: false, error: JOURNAL_RUNTIME_ERROR.RUN_NOT_FOUND });
+
+      // The link target is untouched — append never followed the link to write through it.
+      await expect(readFile(redirectTarget, STATE_STORE_TEXT_ENCODING)).resolves.toBe(targetContent);
     });
   });
 });
