@@ -92,9 +92,13 @@ These live in the installed plugin product tree at
   References the removal invalidated (the agent-run-journal contract clause, the
   agent-environment descriptor ADR, the snapshot-adapter note) now name the verification
   channel.
-- **`spx/46-reviewing.enabler`** collapses the same way — DEFERRED per "audit first";
-  review migrates after the journal domain lands. `46-reviewing.enabler/43-review-state.enabler`
-  stays in `spx/EXCLUDE` until then.
+- **`spx/46-reviewing.enabler` — DONE.** The whole reviewing subtree is removed and its
+  `43-review-state.enabler` `spx/EXCLUDE` entry dropped, now that the journal channel has
+  landed. The run-state envelope it specified (target kind, base/head, output paths) was
+  already folded into the generic `JournalRunState`; its latest-run lookup, run-file
+  filtering, and status-display mapping served `spx review` status commands the type-agnostic
+  channel does not provide, so they retire with the domain, and the `pr-{number}` target slug
+  is superseded by the envelope's `targetKind`/`pullRequestNumber`.
 
 ## Out of scope for THIS product (plugin-repo, separate SPX sessions — handoff notes)
 
@@ -235,10 +239,7 @@ audit-domain teardown is DONE and the journal node already left `spx/EXCLUDE` (t
 
 **Remaining (each: source + co-located test, GREEN, lint, commit):**
 
-1. **Review collapse** (`spx/46-reviewing.enabler`) — DEFERRED ("audit first"); migrates the
-   same way the audit domain did, with `46-reviewing.enabler/43-review-state.enabler` leaving
-   `spx/EXCLUDE` then.
-2. **`/merge`** — NOT gated on the plugin-repo skill migration. spx exposes `spx audit` in no
+1. **`/merge`** — NOT gated on the plugin-repo skill migration. spx exposes `spx audit` in no
    plugin executable path — no skill, agent, or CI workflow calls it, and the plugin's live
    verification model is thread-store + `verdict.py` — so removing `spx audit` breaks no plugin
    consumer and the journal channel merges and publishes independently. The dependency runs the
