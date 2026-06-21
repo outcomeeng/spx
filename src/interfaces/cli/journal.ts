@@ -1,6 +1,7 @@
 import type { Command } from "commander";
 
 import {
+  JOURNAL_CLI_ENV,
   JOURNAL_CLI_EXIT_CODE,
   journalAppendCommand,
   type JournalCliResult,
@@ -123,8 +124,6 @@ export const journalDomain: Domain = {
   },
 };
 
-const GITHUB_REPOSITORY_ENV = "GITHUB_REPOSITORY";
-
 function stdoutStreamSink(): JournalStreamSink {
   return {
     async emit(event: JournalEvent): Promise<void> {
@@ -137,7 +136,7 @@ function stdoutStreamSink(): JournalStreamSink {
 function streamBinding(): JournalStreamBinding {
   return {
     localSink: stdoutStreamSink(),
-    githubClient: createGithubPrCommentClient({ repository: process.env[GITHUB_REPOSITORY_ENV] ?? "" }),
+    githubClient: createGithubPrCommentClient({ repository: process.env[JOURNAL_CLI_ENV.GITHUB_REPOSITORY] ?? "" }),
   };
 }
 
