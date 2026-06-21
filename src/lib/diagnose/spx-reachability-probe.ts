@@ -32,7 +32,7 @@ async function resolveOnPath(binary: string, pathValue: string | undefined): Pro
 }
 
 function extractVersion(output: string): string | null {
-  const match = /\d{1,9}\.\d{1,9}\.\d{1,9}/.exec(output);
+  const match = /\d{1,9}\.\d{1,9}\.\d{1,9}(?:-[0-9A-Za-z.-]{1,64})?/.exec(output);
   return match === null ? null : match[0];
 }
 
