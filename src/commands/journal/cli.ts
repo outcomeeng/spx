@@ -305,7 +305,11 @@ export async function journalAppendCommand(
   if (!sink.ok) return errorResult(sink.error);
   const appended = await appendJournalEvent(ref, validatedInput.value, sink.value, verbOptions(deps));
   if (!appended.ok) return errorResult(appended.error);
-  return okResult(JSON.stringify({ seq: appended.value.seq }));
+  // `append`'s output is the event delivered to the streaming surface (standard
+  // output locally, the pull-request comment under github-pr), not a result line.
+  // It returns an empty result so a successful append adds nothing beyond that
+  // surface, unlike the one-shot verbs that each return a JSON result.
+  return okResult("");
 }
 
 /** Read a run's events at or after the cursor, rejecting a malformed cursor before reading. */
