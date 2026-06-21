@@ -103,8 +103,8 @@ export function sampleSpecTreeTestValue<T>(arbitrary: fc.Arbitrary<T>): T {
 }
 
 export function orderedDirectoryName(suffix: string): string {
-  const order = sampleSpecTreeTestValue(SPEC_TREE_TEST_GENERATOR.filesystemOrder());
-  const slug = sampleSpecTreeTestValue(SPEC_TREE_TEST_GENERATOR.sourceSlug());
+  const order: number = sampleSpecTreeTestValue(SPEC_TREE_TEST_GENERATOR.filesystemOrder());
+  const slug: string = sampleSpecTreeTestValue(SPEC_TREE_TEST_GENERATOR.sourceSlug());
   return `${order}-${slug}${suffix}`;
 }
 
