@@ -24,10 +24,9 @@ pre-commit:
       run: env -u GIT_DIR -u GIT_WORK_TREE -u GIT_PREFIX -u GIT_COMMON_DIR npx tsx src/lib/sonarqube-cloud/check-fixture-exclusions.ts
 
 # Pre-push hook runs SonarQube Cloud analysis on the changeset before it leaves
-# the machine — the must-pass local gate of
-# spx/21-infrastructure.enabler/43-code-quality-analysis.enabler. A finding
-# blocks the push. Requires the `sonar` CLI authenticated to SonarQube Cloud; a
-# push is inherently online, so the network requirement is acceptable here while
+# the machine — the must-pass local code-quality gate. A finding blocks the
+# push. Requires the `sonar` CLI authenticated to SonarQube Cloud; a push is
+# inherently online, so the network requirement is acceptable here while
 # offline-first still governs the inner development loop.
 pre-push:
   commands:
