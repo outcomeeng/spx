@@ -180,6 +180,36 @@ describe("resolveHandoffGitRef — refusals", () => {
     );
   });
 
+  it("marks clean met and at-tip unmet on a clean non-main checkout sitting on a branch", () => {
+    fc.assert(
+      fc.property(
+        arbitraryHandoffGitFacts(),
+        arbitraryBranchName(),
+        fc.option(arbitraryCommitSha(), { nil: null }),
+        (facts, branch, defaultTipSha) => {
+          // A clean working tree with HEAD on a named branch (not detached) → the clean
+          // prerequisite reads met while the at-tip prerequisite reads unmet because HEAD
+          // is on a branch, its remedy following whether the tip resolved.
+          const refused = { ...facts, isGitRepo: true, isMainCheckout: false, isClean: true, branch, defaultTipSha };
+          const prerequisites = captureRefusal(refused).checklist?.prerequisites;
+
+          expect(prerequisites?.[0]).toEqual({
+            label: HANDOFF_BASE_PREREQUISITE_LABEL.CLEAN_WORKING_TREE,
+            met: true,
+            remedy: "",
+          });
+          expect(prerequisites?.[1]).toEqual({
+            label: HANDOFF_BASE_PREREQUISITE_LABEL.DETACHED_AT_DEFAULT_TIP,
+            met: false,
+            remedy: defaultTipSha === null
+              ? HANDOFF_BASE_REMEDY.MAIN_CHECKOUT_ONLY
+              : HANDOFF_BASE_REMEDY.DETACH_TO_TIP_OR_MAIN_CHECKOUT,
+          });
+        },
+      ),
+    );
+  });
+
   it("marks the at-tip prerequisite unmet with the main-checkout-only remedy when the tip is unresolved", () => {
     fc.assert(
       fc.property(arbitraryHandoffGitFacts(), (facts) => {
