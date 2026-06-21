@@ -27,7 +27,7 @@ CONTRIBUTING TO higher engineering velocity — teams ship quality code faster b
 
 - Code validation — configured source, formatting, test, dependency, documentation, and unused-code quality gates across project languages
 - Deterministic context ingestion — spec-tree context loading from product root, ancestor specs, decisions, lower-index siblings, tests, and escape hatches without LLM inference
-- Spec-tree execution — config-driven execution of deterministic testing and validation governed by `spx.config.{toml,json,yaml}`, with persisted state for fast status reporting, and a type-agnostic run-journal channel an agent drives to record and stream agentic verification (auditing, reviewing) runs
+- Spec-tree execution — config-driven execution of deterministic testing and validation governed by `spx.config.{toml,json,yaml}`, with persisted state for fast status reporting, and a type-agnostic run-journal channel an agent drives to record and stream agentic verification runs
 - Agent environment management — deterministic management of `AGENTS.md`, Claude Code and Codex configuration, configured plugin marketplaces, plugins, and skills
 - Session management — work handoffs between agent contexts with priority ordering
 - Release — per-release generation of release notes and documentation updates from the product's git history, plus governed, provenance-bearing publication

@@ -1,7 +1,7 @@
 # Canonical Descriptor Digest
 
 PROVIDES deterministic descriptor-section serialization and digest computation
-SO THAT testing, auditing, reviewing, and persisted execution state
+SO THAT testing and persisted execution state
 CAN detect stale observations without depending on raw config file formatting
 
 ## Assertions

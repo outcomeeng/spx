@@ -1,7 +1,7 @@
 # Domain Path Filters
 
 PROVIDES config-backed domain path-filter inputs to the file-inclusion resolver
-SO THAT validation, testing, auditing, and reviewing
+SO THAT validation and testing
 CAN select paths through shared mechanics while preserving descriptor-owned policy and layering domain-specific filtering on top of the git-tracking default
 
 ## Assertions

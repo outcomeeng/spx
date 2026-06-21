@@ -1,7 +1,7 @@
 # Appendable Journal Store
 
 PROVIDES a local Appendable backend that persists an agent-run journal's events as a JSONL run history over `spx/18-state.enabler/43-record-store.enabler`, binding the `AppendableBackend` port of `spx/15-agent-run-journal.enabler`
-SO THAT audit and review verdict-mode runs — and any journal consumer — on a developer checkout or CI runner
+SO THAT agentic verdict-mode verification runs — and any journal consumer — on a developer checkout or CI runner
 CAN store and replay each run's event history through the journal interface without the journal itself touching the filesystem or `.spx/` layout
 
 ## Assertions
