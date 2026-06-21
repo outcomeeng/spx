@@ -27,7 +27,7 @@ describe("record store run-file symlink safety", () => {
       const token = createStateStoreRunToken({ date, randomBytes: () => runBytes });
       const runsDir = join(scopeDir, STATE_STORE_DOMAIN.TEST, STATE_STORE_PATH.RUNS_DIR);
       const runFilePath = join(runsDir, runFileName(token.runToken));
-      const redirectTarget = join(scopeDir, "redirect-target.jsonl");
+      const redirectTarget = join(scopeDir, "record-store-redirect-target.jsonl");
       const targetContent = `${JSON.stringify({ planted: true })}\n`;
       await writeFile(redirectTarget, targetContent, STATE_STORE_TEXT_ENCODING);
       await mkdir(dirname(runFilePath), { recursive: true });
