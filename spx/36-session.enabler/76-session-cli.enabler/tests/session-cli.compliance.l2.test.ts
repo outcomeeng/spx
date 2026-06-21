@@ -1,6 +1,6 @@
 import { existsSync } from "node:fs";
 import { readdir, readFile } from "node:fs/promises";
-import { join, sep } from "node:path";
+import { basename, join, sep } from "node:path";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 
 import { SessionWorkBranchNotOnOriginError } from "@/domains/session/errors";
@@ -349,6 +349,20 @@ describe("session CLI handoff-base wiring", () => {
       // The handler's git-to-facts collection populated the real HEAD SHA, not a stale or
       // fabricated value — the rendered HEAD fact line carries the worktree's actual commit.
       expect(factLine(result.stderr, HANDOFF_BASE_FACT_LABEL.HEAD)).toContain(headSha);
+      // Every other git-collected fact also round-trips through the rendered checklist: the
+      // real current-worktree and main-checkout paths (asserted as path segments to stay
+      // invariant to the temp-dir realpath prefix), and — with no origin — the default branch
+      // and tip stated as unresolved rather than fabricated.
+      expect(factLine(result.stderr, HANDOFF_BASE_FACT_LABEL.CURRENT_WORKTREE)).toContain(
+        LINKED_WORKTREE_RELATIVE_PATH,
+      );
+      expect(factLine(result.stderr, HANDOFF_BASE_FACT_LABEL.MAIN_CHECKOUT)).toContain(basename(gitEnv.productDir));
+      expect(factLine(result.stderr, HANDOFF_BASE_FACT_LABEL.DEFAULT_BRANCH).trim()).toBe(
+        `${HANDOFF_BASE_FACT_LABEL.DEFAULT_BRANCH}: ${HANDOFF_BASE_UNRESOLVED}`,
+      );
+      expect(factLine(result.stderr, HANDOFF_BASE_FACT_LABEL.DEFAULT_TIP).trim()).toBe(
+        `${HANDOFF_BASE_FACT_LABEL.DEFAULT_TIP}: ${HANDOFF_BASE_UNRESOLVED}`,
+      );
       expect(await readdir(harness.statusDir(TODO))).toEqual([]);
     });
   });
