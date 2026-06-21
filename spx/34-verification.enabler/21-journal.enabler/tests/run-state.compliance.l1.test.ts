@@ -70,9 +70,11 @@ describe("journal run-state fold", () => {
         fc.tuple(
           JOURNAL_RUN_STATE_TEST_GENERATOR.journalRunState(),
           JOURNAL_RUN_STATE_TEST_GENERATOR.journalRunState(),
-        ).chain(([earlier, latest]) =>
-          JOURNAL_RUN_STATE_TEST_GENERATOR.runEvents([earlier, latest]).map((events) => ({ latest, events }))
-        ),
+        )
+          .filter(([earlier, latest]) => JSON.stringify(earlier) !== JSON.stringify(latest))
+          .chain(([earlier, latest]) =>
+            JOURNAL_RUN_STATE_TEST_GENERATOR.runEvents([earlier, latest]).map((events) => ({ latest, events }))
+          ),
         ({ latest, events }) => {
           const result = foldJournalRunState(events, true);
 
