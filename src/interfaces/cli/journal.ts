@@ -29,7 +29,6 @@ export const JOURNAL_CLI = {
   typeOption: "--type <type>",
   runOption: "--run <token>",
   fromOption: "--from <cursor>",
-  branchOption: "--branch <name>",
 } as const;
 
 const STREAM_LINE_SEPARATOR = "\n";
@@ -37,7 +36,6 @@ const MALFORMED_EVENT_INPUT_ERROR = "journal append event input is not valid JSO
 
 interface JournalScopeCliOptions {
   readonly type: string;
-  readonly branch?: string;
 }
 
 interface JournalRunCliOptions extends JournalScopeCliOptions {
@@ -48,13 +46,11 @@ interface JournalReadCliOptions extends JournalRunCliOptions {
   readonly from: string;
 }
 
-function scope(options: JournalScopeCliOptions): { readonly type: string; readonly branch?: string } {
-  return { type: options.type, ...(options.branch === undefined ? {} : { branch: options.branch }) };
+function scope(options: JournalScopeCliOptions): { readonly type: string } {
+  return { type: options.type };
 }
 
-function runScope(
-  options: JournalRunCliOptions,
-): { readonly type: string; readonly runToken: string; readonly branch?: string } {
+function runScope(options: JournalRunCliOptions): { readonly type: string; readonly runToken: string } {
   return { ...scope(options), runToken: options.run };
 }
 
@@ -68,7 +64,6 @@ export const journalDomain: Domain = {
       .command(JOURNAL_CLI.openCommandName)
       .description("Open a new run journal and report its run token")
       .requiredOption(JOURNAL_CLI.typeOption, "Opaque verification-type scope segment")
-      .option(JOURNAL_CLI.branchOption, "Branch scope override")
       .action(async (options: JournalScopeCliOptions) => {
         await report(await journalOpenCommand(scope(options)));
       });
@@ -78,7 +73,6 @@ export const journalDomain: Domain = {
       .description("Append a JSON event read from standard input and stream it")
       .requiredOption(JOURNAL_CLI.typeOption, "Opaque verification-type scope segment")
       .requiredOption(JOURNAL_CLI.runOption, "Run token reported by open")
-      .option(JOURNAL_CLI.branchOption, "Branch scope override")
       .action(async (options: JournalRunCliOptions) => {
         const input = await readStdinEventInput();
         if (!input.ok) {
@@ -96,7 +90,6 @@ export const journalDomain: Domain = {
       .requiredOption(JOURNAL_CLI.typeOption, "Opaque verification-type scope segment")
       .requiredOption(JOURNAL_CLI.runOption, "Run token reported by open")
       .requiredOption(JOURNAL_CLI.fromOption, "Sequence cursor; events at or after it are returned")
-      .option(JOURNAL_CLI.branchOption, "Branch scope override")
       .action(async (options: JournalReadCliOptions) => {
         await report(await journalReadCommand(runScope(options), options.from));
       });
@@ -106,7 +99,6 @@ export const journalDomain: Domain = {
       .description("Seal the run journal so further appends are rejected")
       .requiredOption(JOURNAL_CLI.typeOption, "Opaque verification-type scope segment")
       .requiredOption(JOURNAL_CLI.runOption, "Run token reported by open")
-      .option(JOURNAL_CLI.branchOption, "Branch scope override")
       .action(async (options: JournalRunCliOptions) => {
         await report(await journalSealCommand(runScope(options)));
       });
@@ -116,7 +108,6 @@ export const journalDomain: Domain = {
       .description("Render the run's event-prefix projection")
       .requiredOption(JOURNAL_CLI.typeOption, "Opaque verification-type scope segment")
       .requiredOption(JOURNAL_CLI.runOption, "Run token reported by open")
-      .option(JOURNAL_CLI.branchOption, "Branch scope override")
       .action(async (options: JournalRunCliOptions) => {
         await report(await journalRenderCommand(runScope(options)));
       });

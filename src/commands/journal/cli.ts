@@ -97,7 +97,6 @@ export interface JournalCliDeps {
 
 export interface JournalCliScope {
   readonly type: string;
-  readonly branch?: string;
 }
 
 export interface JournalRunCliScope extends JournalCliScope {
@@ -157,7 +156,7 @@ async function resolveJournalRunContext(
   // resolver already fell back to cwd, so fall back to the caller/env branch and
   // the missing-head-sha placeholder rather than letting the probes fail the verb.
   const probedBranch = product.isGitRepo ? (await getCurrentBranch(cwd, git)) ?? undefined : undefined;
-  const branchName = scope.branch ?? deps.branch ?? cliEnvironment.branch ?? probedBranch;
+  const branchName = deps.branch ?? cliEnvironment.branch ?? probedBranch;
   const headSha = (product.isGitRepo ? await getHeadSha(cwd, git) : null) ?? MISSING_HEAD_SHA_FALLBACK;
   const branchIdentity = resolveBranchIdentity({ ...(branchName === undefined ? {} : { branchName }), headSha });
   return {
