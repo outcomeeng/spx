@@ -14,10 +14,6 @@ Plugin SessionStart hooks delegate startup behavior to `spx hook run session-sta
 
 The plugin-side integration design is governed in `github.com/outcomeeng/plugins` at `spx/21-spec-tree.enabler/19-worktree-occupancy.enabler/` and `spx/21-spec-tree.enabler/76-sessions.enabler/ISSUES.md`.
 
-## Harness governance (queued)
+## Harness governance
 
-Govern the still-ungoverned worktree test harnesses and generators per the **Remaining harness governance program** in `spx/PLAN.md` (part of the State + worktree batch — coordinate with `spx/18-state.enabler/PLAN.md`).
-
-Modules: `testing/harnesses/worktree/harness.ts` (-> `spx/38-worktree.enabler/32-occupancy-store.enabler`), `testing/harnesses/worktree-layout/worktree-layout.ts`, and `testing/generators/worktree/*.ts`.
-
-Route: `/understand` -> `/contextualize spx/38-worktree.enabler` -> `/author` per-module test-harness/generator enablers -> `/apply` audit gates (spec-auditor + test-evidence-auditor, including the coverage gate) -> `/merge`.
+`testing/harnesses/worktree/harness.ts`'s recording `OccupancyFileSystem` double is governed by `spx/38-worktree.enabler/32-occupancy-store.enabler/21-test-harness.enabler` (the harness file reaches 100% statement coverage; its probes, process table, CLI runner, and pool-env builders are consumer-covered). The `worktree` generator is fully consumer-covered (no node). `testing/harnesses/worktree-layout/worktree-layout.ts` is a cross-cutting provisioner (6 consumer nodes) deferred to the infrastructure batch in `spx/PLAN.md`.

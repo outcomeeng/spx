@@ -1,14 +1,11 @@
 # Plan: State
 
-## Harness governance (queued)
+## Harness governance
 
-Govern the still-ungoverned state and worktree-layout test harnesses and generators per the **Remaining harness governance program** in `spx/PLAN.md` (uniform approach, audit gates, and literal-collision lessons). This batch spans `spx/18-state.enabler` and `spx/38-worktree.enabler`; one PR.
+Governed under the **Remaining harness governance program** in `spx/PLAN.md`. Coverage survey dispositions for the state+worktree modules:
 
-Modules to govern (place each governing node beside its owning sub-enabler):
-
-- `testing/harnesses/state/git-deps.ts`, `testing/harnesses/state/product-root-probe.ts`, `testing/harnesses/worktree-layout/worktree-layout.ts` → `spx/18-state.enabler/21-product-root.enabler` (some may already sit under `spx/18-state.enabler/15-state-test-harness.enabler` — **reconcile, do not duplicate**; if `15-state-test-harness.enabler` already governs them, only the ungoverned remainder needs nodes)
-- `testing/harnesses/state/in-memory-file-system.ts` → `spx/18-state.enabler/71-appendable-journal-store.enabler` (also consumed by `spx/36-audit.enabler/54-branch-run-state.enabler`)
-- `testing/harnesses/worktree/harness.ts`, `testing/harnesses/with-git-env.ts` → `spx/38-worktree.enabler/32-occupancy-store.enabler` (worktree harness) / `spx/21-infrastructure.enabler/43-precommit.enabler` (with-git-env — reconcile)
-- `testing/generators/{state-store,worktree,main-checkout,git-worktree}/*.ts` → the same owning sub-enablers
-
-Route: `/understand` → `/contextualize spx/18-state.enabler` (then `spx/38-worktree.enabler`) → `/author` per-module test-harness/generator enablers → `/apply` audit gates (spec-auditor + test-evidence-auditor, including the coverage gate) → `/merge`.
+- **Governed (new nodes):** `testing/harnesses/state/in-memory-file-system.ts` (the `StateStoreFileSystem` double, was 34% consumer-covered) → `spx/18-state.enabler/43-record-store.enabler/21-test-harness.enabler` (it doubles the record-store's FS port); `testing/harnesses/worktree/harness.ts`'s recording `OccupancyFileSystem` double (un-exercised `readFile`/`rm` recording) → `spx/38-worktree.enabler/32-occupancy-store.enabler/21-test-harness.enabler`. Both harness files reach 100% statement coverage.
+- **Already governed:** `git-deps.ts` (100%) and `product-root-probe.ts` are governed by `spx/18-state.enabler/15-state-test-harness.enabler`.
+- **Fully consumer-covered (no node):** the `state-store`, `worktree`, `main-checkout`, and `git-worktree` generators — every live export is consumer-exercised; dead exports were demoted to private consts.
+- **Deferred to batch 7 (infrastructure):** `testing/harnesses/worktree-layout/worktree-layout.ts` (6 consumer nodes across state/worktree/session) and `testing/harnesses/with-git-env.ts` (5 consumers across precommit/verification/worktree) are cross-cutting git/worktree provisioners that belong with the infrastructure batch, not a single domain node.
+- **Coverage follow-up:** `product-root-probe.ts`'s invalid-JSON error branch (one un-exercised line) is debt against `15-state-test-harness.enabler`; extend its `[test]` when that node is next edited.
