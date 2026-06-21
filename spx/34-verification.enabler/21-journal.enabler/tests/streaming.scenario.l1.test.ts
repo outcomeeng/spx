@@ -1,3 +1,6 @@
+import { mkdir, symlink, writeFile } from "node:fs/promises";
+import { dirname, join } from "node:path";
+
 import { describe, expect, it } from "vitest";
 
 import {
@@ -9,7 +12,9 @@ import {
   renderJournalRun,
   sealJournalRun,
 } from "@/commands/journal/runtime";
+import { journalRunFilePath } from "@/domains/journal/run-scope";
 import type { JournalEvent } from "@/lib/agent-run-journal";
+import { STATE_STORE_TEXT_ENCODING } from "@/lib/state-store";
 import { arbitraryJournalEventInput, sampleAgentRunJournalValue } from "@testing/generators/agent-run-journal";
 import { sampleStateStoreTestValue, STATE_STORE_TEST_GENERATOR } from "@testing/generators/state-store/state-store";
 import { RecordingJournalStreamSink, withJournalHarness } from "@testing/harnesses/journal/harness";
@@ -81,6 +86,42 @@ describe("journal run preconditions", () => {
 
     await withJournalHarness(async (productDir) => {
       const ref = { productDir, branchSlug, type, runToken };
+
+      const appended = await appendJournalEvent(ref, input, new RecordingJournalStreamSink());
+      expect(appended).toEqual({ ok: false, error: JOURNAL_RUNTIME_ERROR.RUN_NOT_FOUND });
+
+      const read = await readJournalEvents(ref, 1);
+      expect(read).toEqual({ ok: false, error: JOURNAL_RUNTIME_ERROR.RUN_NOT_FOUND });
+
+      const sealed = await sealJournalRun(ref);
+      expect(sealed).toEqual({ ok: false, error: JOURNAL_RUNTIME_ERROR.RUN_NOT_FOUND });
+
+      const rendered = await renderJournalRun(ref, (events) => events.length);
+      expect(rendered).toEqual({ ok: false, error: JOURNAL_RUNTIME_ERROR.RUN_NOT_FOUND });
+    });
+  });
+
+  it("rejects an operate-verb whose run-file path resolves to a symbolic link, never following it", async () => {
+    const branchSlug = sampleStateStoreTestValue(STATE_STORE_TEST_GENERATOR.branchSlug());
+    const type = sampleStateStoreTestValue(STATE_STORE_TEST_GENERATOR.scopeToken());
+    const runToken = sampleStateStoreTestValue(STATE_STORE_TEST_GENERATOR.runToken());
+    const input = sampleAgentRunJournalValue(arbitraryJournalEventInput());
+
+    await withJournalHarness(async (productDir) => {
+      const ref = { productDir, branchSlug, type, runToken };
+
+      // Plant a symbolic link at the run-file path pointing at a real, readable
+      // journal file. A verb that resolved the path with stat would follow the
+      // link and read the redirected events; the runtime lstats the path, so the
+      // link is a non-regular file and every verb rejects it as a run that open
+      // never created rather than operating through the link.
+      const runFilePath = journalRunFilePath(ref);
+      expect(runFilePath.ok).toBe(true);
+      if (!runFilePath.ok) return;
+      const redirectTarget = join(productDir, "redirect-target.jsonl");
+      await writeFile(redirectTarget, `${JSON.stringify({ planted: true })}\n`, STATE_STORE_TEXT_ENCODING);
+      await mkdir(dirname(runFilePath.value), { recursive: true });
+      await symlink(redirectTarget, runFilePath.value);
 
       const appended = await appendJournalEvent(ref, input, new RecordingJournalStreamSink());
       expect(appended).toEqual({ ok: false, error: JOURNAL_RUNTIME_ERROR.RUN_NOT_FOUND });
