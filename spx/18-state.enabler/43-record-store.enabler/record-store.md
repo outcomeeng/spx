@@ -13,3 +13,4 @@ CAN append run records and recover the latest complete record without reimplemen
 ### Compliance
 
 - ALWAYS: JSONL append and latest-record reads ignore blank trailing lines and return the last parse-valid record ([test](tests/jsonl-records.scenario.l1.test.ts))
+- NEVER: a run-file create writes through a candidate path that already resolves to a symbolic link or existing file — the exclusive-create open fails on any existing path, so a planted symlink is skipped and its target is never written through ([test](tests/run-file.compliance.l1.test.ts))
