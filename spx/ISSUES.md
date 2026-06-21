@@ -1,22 +1,5 @@
 # Open Issues
 
-## Product-wide formatter baseline: reformat, then enforce in CI
-
-A repo-tracked `dprint.jsonc` at the product root governs `pnpm run format:check`, and `dprint` is a pinned devDependency, so the gate is reproducible from a clean install on every worktree, contributor machine, and CI runner instead of depending on a personal global dprint install. The config is scoped to the languages spx uses (TypeScript, JSON, Markdown, TOML, YAML), pins each plugin version, excludes `pnpm-lock.yaml` (pnpm owns the lockfile format), and excludes `testing/fixtures/**` (deliberate lint/type/circular and markdown defect inputs that formatting would corrupt).
-
-`pnpm run format:check` still exits 20 against the files that predate the config (run it for the live list — currently around 50, spanning `CLAUDE.md`, `src/`, `testing/`, and spec-node `tests/` files). These are style-only diffs.
-
-**Impact:** The gate is reproducible but neither green nor enforced. It cannot be wired into CI until the baseline is green, because adding a failing `format:check` step would make every CI run red. Mixing the reformat into a behavior change would combine formatter churn with logic changes.
-
-**Skills:** formatting workflow; the language-specific implementation and test-audit skills for any touched TypeScript files.
-
-**Resolution (two ordered slices):**
-
-1. **Reformat.** Run `pnpm run format` to reformat the remaining files in one focused changeset, then rerun `pnpm run format:check`, `pnpm run validate`, and `pnpm test`.
-2. **Enforce in CI.** Once `format:check` is green on the default branch, add a `pnpm run format:check` step to `.github/workflows/ci.yml` (after `pnpm install`) so the gate runs on every push and pull request. This must follow slice 1 — enforcing it while files remain unformatted would make CI red.
-
-Delete this note once both slices land.
-
 ## Worktree-management PDR names git plumbing in its decision content
 
 `spx/15-worktree-management.pdr.md` carries a "Git mechanism" column in its state-class table and several `### Audit` rules that name specific git commands (`git rev-parse --git-common-dir`, `git rev-parse --show-toplevel`, `git config --get core.bare`) and a code-naming constraint (root-resolution helper-name alignment). A PDR audit argued these describe how root resolution is implemented rather than what users observe, and belong in [`spx/17-state.adr.md`](17-state.adr.md).
