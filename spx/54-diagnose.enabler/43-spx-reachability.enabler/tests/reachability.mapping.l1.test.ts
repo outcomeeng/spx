@@ -76,4 +76,15 @@ describe("the spx-reachability check classifies spx against the manifest floor",
       }),
     );
   });
+
+  it("classifies a resolved reading with no manifest floor as unknown (bucket unknown)", () => {
+    fc.assert(
+      fc.property(arbitraryNameToken(), arbitraryNameToken(), (path, version) => {
+        const result = classifySpxReachability(spxReachabilityReading({ resolvedPath: path, version }), undefined);
+        expect(result.verdict).toBe(SPX_REACHABILITY_VERDICT.UNKNOWN);
+        expect(result.bucket).toBe(VERDICT_BUCKET.UNKNOWN);
+        expect(result.remediation.length).toBeGreaterThan(0);
+      }),
+    );
+  });
 });
