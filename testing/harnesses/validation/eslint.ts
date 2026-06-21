@@ -1,12 +1,27 @@
-import type { Rule } from "eslint";
+import type { Linter, Rule } from "eslint";
 import { ESLint, RuleTester } from "eslint";
 import { builtinRules } from "eslint/use-at-your-own-risk";
 import tseslint from "typescript-eslint";
 
+import { MIRROR_RULES } from "@eslint-rules/sonarjs-mirror";
 import {
   validationEslintRuleTesterLanguageOptions,
   validationRuleTesterHooks,
 } from "@testing/generators/validation/ast-enforcement";
+
+// The validation harness lints virtual text through `lintText`, which cannot
+// satisfy the type-aware project service the production mirror enables. Disable
+// the mirror for the harness instance so the syntactic custom rules under test
+// still run; type-aware enforcement is covered by the code-quality node tests.
+const SYNTACTIC_MIRROR_OVERRIDE: Linter.Config = {
+  languageOptions: { parserOptions: { projectService: false } },
+  rules: Object.fromEntries(
+    Object.keys(MIRROR_RULES).map((rule): [string, Linter.RuleEntry] => [
+      rule,
+      "off",
+    ]),
+  ),
+};
 
 export interface ValidationRuleTesterCases {
   readonly valid: RuleTester.ValidTestCase[] | string[];
@@ -78,7 +93,10 @@ export function validationBuiltinRule(name: string): Rule.RuleModule {
 }
 
 export function createValidationEslint(): ESLint {
-  return new ESLint({ cwd: process.cwd() });
+  return new ESLint({
+    cwd: process.cwd(),
+    overrideConfig: [SYNTACTIC_MIRROR_OVERRIDE],
+  });
 }
 
 export function severityOf(ruleConfig: unknown): number | undefined {

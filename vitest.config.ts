@@ -24,7 +24,7 @@ export default defineConfig({
     coverage: {
       provider: "v8",
       reporter: ["text", "json", "html"],
-      include: ["src/**/*.ts", "scripts/**/*.ts", "testing/harnesses/**/*.ts"],
+      include: ["src/**/*.ts", "scripts/**/*.ts", "testing/harnesses/**/*.ts", "eslint-rules/**/*.ts"],
       exclude: [
         "node_modules/",
         "dist/",

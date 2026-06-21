@@ -1,5 +1,6 @@
 import js from "@eslint/js";
 import importPlugin from "eslint-plugin-import";
+import sonarjs from "eslint-plugin-sonarjs";
 import globals from "globals";
 import { readFileSync } from "node:fs";
 import tseslint from "typescript-eslint";
@@ -23,6 +24,7 @@ import {
   testRestrictedSyntax,
   tsRestrictedSyntax,
 } from "./eslint-rules/restricted-syntax";
+import { MIRROR_RULES, TYPE_AWARE_PARSER_OPTIONS } from "./eslint-rules/sonarjs-mirror";
 import { readTypeScriptExcludeGlobs } from "./src/validation/eslint-config-exclusions";
 import { LINT_POLICY_MANIFESTS, parseLintPolicyManifest } from "./src/validation/lint-policy-constants";
 
@@ -155,6 +157,34 @@ export function buildEslintConfig(options: BuildEslintConfigOptions = {}) {
         // Ban enums, "as any", "<any>" assertions
         "no-restricted-syntax": ["error", ...tsRestrictedSyntax],
       },
+    },
+
+    // Type-aware lint mirror — runs the SonarJS analyzer rules and the
+    // type-aware @typescript-eslint rules locally, the deterministic offline
+    // floor of spx/21-infrastructure.enabler/43-code-quality-analysis.enabler.
+    // Warn-first while the backlog is cleared; each backlog session flips its
+    // rules to error.
+    {
+      // Scoped to the trees in tsconfig.json `include`, so the project service
+      // resolves a project for every linted file. Root build-config files
+      // (eslint.config.ts, vitest.config.ts, …) sit outside the project and are
+      // left on syntax-only parsing.
+      files: [
+        "src/**/*.{ts,tsx}",
+        "bin/**/*.{ts,tsx}",
+        "scripts/**/*.{ts,tsx}",
+        "testing/**/*.{ts,tsx}",
+        "spx/**/*.{ts,tsx}",
+      ],
+      plugins: {
+        "@typescript-eslint": tseslint.plugin,
+        sonarjs,
+      },
+      languageOptions: {
+        parser: tseslint.parser,
+        parserOptions: TYPE_AWARE_PARSER_OPTIONS,
+      },
+      rules: MIRROR_RULES,
     },
 
     // ESLint config files and other script files
