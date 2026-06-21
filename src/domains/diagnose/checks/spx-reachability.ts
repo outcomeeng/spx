@@ -67,7 +67,8 @@ const REMEDIATION: Readonly<Record<SpxReachabilityVerdict, string>> = {
   [SPX_REACHABILITY_VERDICT.REACHABLE]: "spx is on PATH at or above the required floor; no action needed.",
   [SPX_REACHABILITY_VERDICT.BELOW_FLOOR]: "Update spx to at least the required floor (pnpm add -g @outcomeeng/spx).",
   [SPX_REACHABILITY_VERDICT.UNREACHABLE]: "Install spx and ensure it resolves on PATH (pnpm add -g @outcomeeng/spx).",
-  [SPX_REACHABILITY_VERDICT.UNKNOWN]: "Re-run diagnose; if the spx probe keeps erroring, inspect the PATH resolution.",
+  [SPX_REACHABILITY_VERDICT.UNKNOWN]:
+    "Re-run diagnose; if it persists, verify the manifest carries a valid spx_floor, that spx is on PATH, and that spx --version reports a semver version.",
 };
 
 function record(
