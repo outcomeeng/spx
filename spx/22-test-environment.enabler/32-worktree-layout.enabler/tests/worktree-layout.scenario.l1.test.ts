@@ -46,4 +46,28 @@ describe("worktree layout test harness", () => {
       }
     }
   });
+
+  it("restores a GIT_* variable after the callback throws", async () => {
+    const key = GIT_TEST_ENVIRONMENT_KEYS.DIR;
+    const sentinel = sampleConfigTestValue(CONFIG_TEST_GENERATOR.key());
+    const name = sampleConfigTestValue(CONFIG_TEST_GENERATOR.key());
+    const prior = process.env[key];
+    process.env[key] = sentinel;
+
+    try {
+      await expect(
+        withWorktreeLayoutEnv(
+          { bare: false, worktrees: [{ name }] },
+          () => Promise.reject(new Error(sentinel)),
+        ),
+      ).rejects.toThrow();
+      expect(process.env[key]).toBe(sentinel);
+    } finally {
+      if (prior === undefined) {
+        delete process.env[key];
+      } else {
+        process.env[key] = prior;
+      }
+    }
+  });
 });
