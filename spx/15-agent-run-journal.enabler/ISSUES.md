@@ -38,6 +38,13 @@ recording agent guarantee them? Settle it with an ADR + a rejection assertion
 when the agent-side recording is specified (audit/review reconciliation), then
 implement via `/applying`. Surfaced by Codex review on PR #160.
 
+Partially addressed at the CLI boundary on PR #226: `validateJournalEventInput`
+in `src/commands/journal/cli.ts` rejects an `append` whose input lacks a required
+CloudEvents input field (`id`/`source`/`type`/`time` non-empty strings, integer
+`attempt`) before it reaches the journal. The deferred decision is now narrowed to
+deep *value* rules — URI-reference `source`, RFC3339 `time`, serialisable-`JsonValue`
+`data` — at the library `append`, still unspecified.
+
 ## FOLLOW-UP — seal enforcement has a time-of-check/time-of-use window
 
 `createJournal().append()` checks `backend.isSealed()` and then `backend.append()`
