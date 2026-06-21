@@ -9,6 +9,7 @@ CAN assemble the source and test indexes `detectReuse` consumes without re-speci
 ### Scenarios
 
 - Given a source snippet declaring a domain literal, when `collectFromSource` runs, then the returned occurrences include that literal as a string occurrence ([test](tests/test-harness.scenario.l1.test.ts))
+- Given a source snippet and a test snippet that share a domain literal, when `indexSources` and `testOccurrences` feed `detectReuse`, then a src↔test reuse finding for that literal is produced ([test](tests/test-harness.scenario.l1.test.ts))
 
 ### Compliance
 

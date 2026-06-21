@@ -9,6 +9,7 @@ CAN construct scope results and adapter configs without restating the adapter co
 ### Properties
 
 - For all tool-to-flag maps, `makeToolAdaptersConfig` builds an adapter config that maps each tool name to an adapter config carrying that tool's ignore flag ([test](tests/test-harness.property.l1.test.ts))
+- For all excluded and included path lists, `makeScope` builds a scope result whose excluded and included entries carry exactly those paths ([test](tests/test-harness.property.l1.test.ts))
 
 ### Compliance
 
