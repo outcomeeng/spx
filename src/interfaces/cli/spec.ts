@@ -30,6 +30,8 @@ const VALID_STATUS_FORMATS: readonly OutputFormat[] = [
   OUTPUT_FORMAT.TABLE,
 ];
 
+const UNPRINTABLE_ERROR_MESSAGE = "unprintable error";
+
 function handleCommandError(error: unknown): never {
   let message: string;
   if (error instanceof Error) {
@@ -37,7 +39,11 @@ function handleCommandError(error: unknown): never {
   } else if (typeof error === "string") {
     message = error;
   } else {
-    message = JSON.stringify(error);
+    try {
+      message = JSON.stringify(error);
+    } catch {
+      message = UNPRINTABLE_ERROR_MESSAGE;
+    }
   }
   console.error("Error:", message);
   process.exit(1);
