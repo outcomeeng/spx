@@ -43,8 +43,8 @@ export function renderReportText(report: DiagnoseReport): string {
   const lines: string[] = [];
   for (const check of report.checks) {
     lines.push(`${check.name}: ${check.verdict} [${check.bucket}]`);
-    for (const [reading, value] of Object.entries(check.readings)) {
-      lines.push(`  ${reading}: ${value}`);
+    for (const reading of Object.keys(check.readings)) {
+      lines.push(`  ${reading}: ${check.readings[reading]}`);
     }
     lines.push(`  remediation: ${check.remediation}`);
   }

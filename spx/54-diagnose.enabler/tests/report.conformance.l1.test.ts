@@ -26,7 +26,9 @@ describe("the JSON report conforms to the report schema", () => {
         expect(parsed.checks).toHaveLength(report.checks.length);
 
         parsed.checks.forEach((check, index) => {
-          expect(Object.keys(check).sort()).toEqual([...CHECK_RECORD_FIELDS].sort());
+          expect(Object.keys(check).sort((a, b) => a.localeCompare(b))).toEqual(
+            [...CHECK_RECORD_FIELDS].sort((a, b) => a.localeCompare(b)),
+          );
           expect(Object.values(CHECK_NAME)).toContain(check.name);
           expect(Object.values(VERDICT_BUCKET)).toContain(check.bucket);
           expect(check.verdict).toBe(report.checks[index].verdict);
