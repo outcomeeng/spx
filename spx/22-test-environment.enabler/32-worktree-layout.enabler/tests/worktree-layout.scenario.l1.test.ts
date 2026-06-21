@@ -1,3 +1,5 @@
+import { isAbsolute } from "node:path";
+
 import { describe, expect, it } from "vitest";
 
 import { CONFIG_TEST_GENERATOR, sampleConfigTestValue } from "@testing/generators/config/descriptors";
@@ -13,6 +15,7 @@ describe("worktree layout test harness", () => {
 
     await withWorktreeLayoutEnv({ bare: false, worktrees: [{ name }] }, async (env) => {
       expect(env.worktree(name)).toBe(env.worktrees[name]);
+      expect(isAbsolute(env.worktree(name))).toBe(true);
       expect(() => env.worktree(missing)).toThrow();
     });
   });
