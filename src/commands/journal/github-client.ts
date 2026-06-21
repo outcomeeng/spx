@@ -12,15 +12,17 @@ export const GITHUB_CLI = {
   fieldFlag: "-f",
   methodFlag: "-X",
   paginateFlag: "--paginate",
+  slurpFlag: "--slurp",
   postMethod: "POST",
   patchMethod: "PATCH",
   bodyField: "body",
 } as const;
 
 /** Injected boundary that runs one `gh` invocation and returns its standard output. */
-export interface GhRunner {
-  (args: readonly string[], options?: { readonly input?: string }): Promise<{ readonly stdout: string }>;
-}
+export type GhRunner = (
+  args: readonly string[],
+  options?: { readonly input?: string },
+) => Promise<{ readonly stdout: string }>;
 
 export interface GithubPrCommentClientOptions {
   /** The `owner/repo` slug the comment lives under. */
@@ -70,8 +72,12 @@ export function createGithubPrCommentClient(options: GithubPrCommentClientOption
         GITHUB_CLI.apiCommand,
         issueCommentsPath(options.repository, pullNumber),
         GITHUB_CLI.paginateFlag,
+        GITHUB_CLI.slurpFlag,
       ]);
-      const comments = JSON.parse(listed.stdout) as readonly GithubComment[];
+      // `--paginate --slurp` wraps each page's comment array in one outer array;
+      // flatten the pages so a paginated pull request does not throw before the
+      // marker lookup and stop the run's streaming.
+      const comments = (JSON.parse(listed.stdout) as readonly (readonly GithubComment[])[]).flat();
       const existing = comments.find((comment) => comment.body.includes(githubCommentMarkerTag(marker)));
       if (existing === undefined) {
         await run([

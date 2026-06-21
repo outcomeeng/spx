@@ -35,7 +35,7 @@ describe("github pull-request comment client", () => {
     const pullNumber = sampleGithubSnapshotValue(arbitraryPullNumber());
     const marker = sampleGithubSnapshotValue(arbitrarySnapshotMarker());
     const body = sampleGithubSnapshotValue(arbitraryProjection());
-    const runner = new RecordingGhRunner("[]");
+    const runner = new RecordingGhRunner("[[]]");
 
     await createGithubPrCommentClient({ repository: repository(), run: runner.run })
       .upsertPullRequestComment({ pullNumber, marker, body });
@@ -55,7 +55,7 @@ describe("github pull-request comment client", () => {
     const marker = sampleGithubSnapshotValue(arbitrarySnapshotMarker());
     const body = sampleGithubSnapshotValue(arbitraryProjection());
     const commentId = sampleGithubSnapshotValue(arbitraryPullNumber());
-    const listed = JSON.stringify([{ id: commentId, body: `prior ${githubCommentMarkerTag(marker)}` }]);
+    const listed = JSON.stringify([[{ id: commentId, body: `prior ${githubCommentMarkerTag(marker)}` }]]);
     const runner = new RecordingGhRunner(listed);
 
     await createGithubPrCommentClient({ repository: repository(), run: runner.run })
