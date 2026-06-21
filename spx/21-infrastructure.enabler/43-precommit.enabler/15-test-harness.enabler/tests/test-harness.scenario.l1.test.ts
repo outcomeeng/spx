@@ -1,3 +1,6 @@
+import { tmpdir } from "node:os";
+import { join } from "node:path";
+
 import { describe, expect, it } from "vitest";
 
 import { CONFIG_TEST_GENERATOR, sampleConfigTestValue } from "@testing/generators/config/descriptors";
@@ -37,7 +40,10 @@ describe("precommit git environment test harness", () => {
 
   it("propagates the error when a command cannot be spawned", async () => {
     await withGitEnv(async ({ exec }) => {
-      const missingBinary = sampleConfigTestValue(CONFIG_TEST_GENERATOR.key());
+      // An absolute path under the OS temp dir is never resolved through PATH and the
+      // random basename does not exist, so the spawn fails structurally rather than by
+      // chance — a bare generated name could collide with a real binary on PATH.
+      const missingBinary = join(tmpdir(), sampleConfigTestValue(CONFIG_TEST_GENERATOR.key()));
 
       await expect(exec([missingBinary])).rejects.toThrow();
     });
