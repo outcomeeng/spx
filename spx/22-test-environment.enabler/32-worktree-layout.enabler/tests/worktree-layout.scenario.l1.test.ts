@@ -7,7 +7,9 @@ import { withWorktreeLayoutEnv } from "@testing/harnesses/worktree-layout/worktr
 describe("worktree layout test harness", () => {
   it("resolves a provisioned worktree by name and throws for an unprovisioned name", async () => {
     const name = sampleConfigTestValue(CONFIG_TEST_GENERATOR.key());
-    const missing = sampleConfigTestValue(CONFIG_TEST_GENERATOR.key());
+    // The generator's keys always start with a lowercase letter, so the uppercased
+    // variant is guaranteed distinct from `name` and was never provisioned.
+    const missing = name.toUpperCase();
 
     await withWorktreeLayoutEnv({ bare: false, worktrees: [{ name }] }, async (env) => {
       expect(env.worktree(name)).toBe(env.worktrees[name]);
