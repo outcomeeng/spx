@@ -39,3 +39,13 @@ The handoff-base checklist enumerates two base prerequisites — a clean working
 **Impact:** A domain-driven change to the path-segment pattern must be tracked down and replicated across every copy; a missed site drifts silently.
 
 **Resolution:** Extract `PATH_SEGMENT_PATTERN`, the path-segment arbitrary, and `arbitraryBranchName()` into one shared git-name generator module and re-point every site to it.
+
+## Handoff-base gate test sits at session-store while its rendering ADR sits at session-cli
+
+`handoff-base-gate.property.l1.test.ts` and its `session-store.md` property assertion (node 43) verify `resolveHandoffGitRef`, whose layering invariants are declared by [`spx/36-session.enabler/76-session-cli.enabler/21-handoff-base-rendering.adr.md`](21-handoff-base-rendering.adr.md) (node 76). A reader of that ADR finds the rendering `[test]` evidence co-located at node 76 but the gate-decision `[test]` evidence at node 43.
+
+**Evidence:** The gate decision is consumed by `handoffCommand`, which the session-store node owns, so the placement is defensible; the ADR's resolver rules are `[audit]` constraints, not `[test]` assertions, and node 76 already carries the render-property `[test]` assertions that trace to the ADR.
+
+**Impact:** Navigation only — a reader tracing the ADR's resolver invariants to executable evidence crosses a node boundary.
+
+**Resolution (open question):** Decide via `/refactor` whether the gate-decision property belongs at node 76 beside the rendering ADR, or stays at node 43 with the `handoffCommand` consumer it verifies. No move until that decision is made.
