@@ -9,13 +9,24 @@ import { readFile } from "node:fs/promises";
 import { type Command, Option } from "commander";
 
 import { diagnoseCommand } from "@/commands/diagnose";
+import { marketplaceInstallRunner } from "@/domains/diagnose/checks/marketplace-install";
+import { sessionEnvironmentRunner } from "@/domains/diagnose/checks/session-environment";
+import { sessionStoreRunner } from "@/domains/diagnose/checks/session-store";
 import { spxReachabilityRunner } from "@/domains/diagnose/checks/spx-reachability";
+import { worktreePoolRunner } from "@/domains/diagnose/checks/worktree-pool";
 import type { CheckRegistry } from "@/domains/diagnose/engine";
 import { CHECK_NAME } from "@/domains/diagnose/manifest";
 import { DIAGNOSE_FORMAT, type DiagnoseFormat } from "@/domains/diagnose/report";
 import type { Domain } from "@/domains/types";
 import { defaultSpxReachabilityProbe } from "@/lib/diagnose/spx-reachability-probe";
 import { sanitizeCliArgument } from "@/lib/sanitize-cli-argument";
+
+import {
+  defaultMarketplaceInstallProbe,
+  defaultSessionEnvironmentProbe,
+  defaultSessionStoreProbe,
+  defaultWorktreePoolProbe,
+} from "./diagnose-probes";
 
 /** Source-owned `spx diagnose` command and flag vocabulary, shared with the CLI tests. */
 export const DIAGNOSE_CLI = {
@@ -29,6 +40,10 @@ const DIAGNOSE_DOMAIN_DESCRIPTION = "Run deterministic environment-diagnostics c
 /** The check runners `spx diagnose` dispatches to, over the real probes. */
 const DEFAULT_REGISTRY: CheckRegistry = {
   [CHECK_NAME.SPX_REACHABILITY]: spxReachabilityRunner(defaultSpxReachabilityProbe),
+  [CHECK_NAME.SESSION_ENVIRONMENT]: sessionEnvironmentRunner(defaultSessionEnvironmentProbe),
+  [CHECK_NAME.WORKTREE_POOL]: worktreePoolRunner(defaultWorktreePoolProbe),
+  [CHECK_NAME.SESSION_STORE]: sessionStoreRunner(defaultSessionStoreProbe),
+  [CHECK_NAME.MARKETPLACE_INSTALL]: marketplaceInstallRunner(defaultMarketplaceInstallProbe),
 };
 
 function handleError(error: string): never {
