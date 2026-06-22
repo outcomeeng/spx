@@ -24,6 +24,8 @@ export interface DiagnoseCommandOptions {
   readonly manifestPath: string;
   /** Output format for the rendered report. */
   readonly format: DiagnoseFormat;
+  /** Whether the text report carries ANSI styling, resolved at the descriptor boundary. */
+  readonly color: boolean;
   /** The check runners the engine dispatches the manifest's checks to. */
   readonly registry: CheckRegistry;
   /** Injected manifest filesystem. */
@@ -58,6 +60,9 @@ export async function diagnoseCommand(options: DiagnoseCommandOptions): Promise<
 
   return {
     ok: true,
-    value: { output: renderReport(report.value, options.format), exitCode: overallExitCode(report.value.overall) },
+    value: {
+      output: renderReport(report.value, options.format, { color: options.color }),
+      exitCode: overallExitCode(report.value.overall),
+    },
   };
 }
