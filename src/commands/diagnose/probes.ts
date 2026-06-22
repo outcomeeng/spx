@@ -85,18 +85,21 @@ export const defaultWorktreePoolProbe: WorktreePoolProbe = {
     const paths = facts.worktreeRoots;
     const linkedWorktrees = !bareRepository && paths.length > 1;
 
+    // Occupancy comes only from spx; with spx unreachable the stale-claim
+    // reading is unknowable, so degrade to errored rather than affirm a
+    // compliant pool whose claims went unchecked.
     const spx = resolveSpx();
+    if (spx === null) return errored;
+
     let staleClaim = false;
-    if (spx !== null) {
-      for (const path of paths) {
-        const status = await runCapture(spx, ["worktree", "status", path, "--format", "json"]);
-        if (!status.ok) return errored;
-        const occupancy = worktreeStatusOf(status.stdout);
-        if (occupancy === null) return errored;
-        if (occupancy === OCCUPANCY_STATUS.STALE) {
-          staleClaim = true;
-          break;
-        }
+    for (const path of paths) {
+      const status = await runCapture(spx, ["worktree", "status", path, "--format", "json"]);
+      if (!status.ok) return errored;
+      const occupancy = worktreeStatusOf(status.stdout);
+      if (occupancy === null) return errored;
+      if (occupancy === OCCUPANCY_STATUS.STALE) {
+        staleClaim = true;
+        break;
       }
     }
     return { errored: false, bareRepository, linkedWorktrees, staleClaim };
