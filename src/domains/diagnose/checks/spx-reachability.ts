@@ -41,8 +41,8 @@ interface SemverParts {
   readonly major: number;
   readonly minor: number;
   readonly patch: number;
-  /** True when a prerelease tag follows the numeric triple (e.g. `1.2.3-beta.1`). */
-  readonly prerelease: boolean;
+  /** The prerelease tag without its leading hyphen (e.g. `beta.1`), or null for a release version. */
+  readonly prerelease: string | null;
 }
 
 function parseSemver(value: string): SemverParts | null {
@@ -52,16 +52,42 @@ function parseSemver(value: string): SemverParts | null {
     major: Number(match[1]),
     minor: Number(match[2]),
     patch: Number(match[3]),
-    prerelease: match[4] !== undefined,
+    prerelease: match[4] === undefined ? null : match[4].slice(1),
   };
+}
+
+function isNumericIdentifier(identifier: string): boolean {
+  return /^\d{1,18}$/.test(identifier);
+}
+
+/** Compares two prerelease identifiers by semver §11: numeric identifiers rank below alphanumeric ones. */
+function comparePrereleaseIdentifier(left: string, right: string): number {
+  const leftNumeric = isNumericIdentifier(left);
+  const rightNumeric = isNumericIdentifier(right);
+  if (leftNumeric && rightNumeric) return Number(left) - Number(right);
+  if (leftNumeric) return -1;
+  if (rightNumeric) return 1;
+  return left < right ? -1 : left > right ? 1 : 0;
+}
+
+/** Compares two prerelease tags by semver §11; a larger set of identifiers outranks a smaller equal prefix. */
+function comparePrerelease(left: string, right: string): number {
+  const leftIds = left.split(".");
+  const rightIds = right.split(".");
+  const shared = Math.min(leftIds.length, rightIds.length);
+  for (let index = 0; index < shared; index += 1) {
+    const comparison = comparePrereleaseIdentifier(leftIds[index], rightIds[index]);
+    if (comparison !== 0) return comparison;
+  }
+  return leftIds.length - rightIds.length;
 }
 
 /**
  * Whether `version` is at or above `floor` by semver precedence. At equal
- * major.minor.patch a prerelease version ranks below a release floor, so a
- * prerelease does not satisfy a final-version floor. Returns null when either
- * string is not semver-shaped, so the check falls back to an unknown verdict
- * rather than guess.
+ * major.minor.patch a prerelease ranks below a release, and two prereleases
+ * compare by their dot-separated identifiers (semver §11), so a prerelease below
+ * the floor does not satisfy it. Returns null when either string is not
+ * semver-shaped, so the check falls back to an unknown verdict rather than guess.
  */
 export function meetsFloor(version: string, floor: string): boolean | null {
   const left = parseSemver(version);
@@ -70,7 +96,9 @@ export function meetsFloor(version: string, floor: string): boolean | null {
   if (left.major !== right.major) return left.major > right.major;
   if (left.minor !== right.minor) return left.minor > right.minor;
   if (left.patch !== right.patch) return left.patch > right.patch;
-  return !(left.prerelease && !right.prerelease);
+  if (left.prerelease === null) return true;
+  if (right.prerelease === null) return false;
+  return comparePrerelease(left.prerelease, right.prerelease) >= 0;
 }
 
 const REMEDIATION: Readonly<Record<SpxReachabilityVerdict, string>> = {

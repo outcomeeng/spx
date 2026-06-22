@@ -78,6 +78,26 @@ describe("the spx-reachability check classifies spx against the manifest floor",
     );
   });
 
+  it("ranks two prereleases at the floor's numeric level by their identifiers (semver precedence)", () => {
+    fc.assert(
+      fc.property(arbitraryFloorParts(), arbitraryNameToken(), ([major, minor, patch], path) => {
+        const floor = `${major}.${minor}.${patch}-beta.2`;
+
+        const lower = classifySpxReachability(
+          spxReachabilityReading({ resolvedPath: path, version: `${major}.${minor}.${patch}-alpha.9` }),
+          floor,
+        );
+        expect(lower.verdict).toBe(SPX_REACHABILITY_VERDICT.BELOW_FLOOR);
+
+        const higher = classifySpxReachability(
+          spxReachabilityReading({ resolvedPath: path, version: `${major}.${minor}.${patch}-beta.3` }),
+          floor,
+        );
+        expect(higher.verdict).toBe(SPX_REACHABILITY_VERDICT.REACHABLE);
+      }),
+    );
+  });
+
   it("classifies a resolved but unreadable version as unknown (bucket unknown)", () => {
     fc.assert(
       fc.property(arbitrarySpxFloor(), arbitraryNameToken(), (floor, path) => {
