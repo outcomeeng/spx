@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 
 import { createNodeStatusProvider, NODE_STATUS_FILENAME, readNodeStatus, updateNodeStatus } from "@/lib/node-status";
 import { createFilesystemSpecTreeSource, readSpecTree } from "@/lib/spec-tree";
+import { compareAsciiStrings } from "@/lib/state-store";
 import { NODE_STATUS_TEST_GENERATOR, sampleNodeStatusValue } from "@testing/generators/node-status/node-status";
 import { withClassificationTree } from "@testing/harnesses/node-status/node-status";
 
@@ -42,7 +43,8 @@ describe("node-status absence semantics", () => {
 
     await withClassificationTree(fixture, async ({ env, expectations }) => {
       for (const expectation of expectations) {
-        const nodeDir = `${env.productDir}/${expectation.statusPath.replace(`/${NODE_STATUS_FILENAME}`, "")}`;
+        const statusFilenameSuffix = `/${NODE_STATUS_FILENAME}`;
+        const nodeDir = `${env.productDir}/${expectation.statusPath.replace(statusFilenameSuffix, "")}`;
         expect(readNodeStatus(nodeDir)).toBeUndefined();
       }
     });
@@ -70,8 +72,8 @@ describe("node-status delegation to the outcome resolver", () => {
       const testOutcomeStage = expectations
         .filter((expectation) => expectation.facts.hasTests && !expectation.facts.isExcluded)
         .map((expectation) => expectation.nodeId)
-        .sort();
-      expect([...consulted].sort()).toEqual(testOutcomeStage);
+        .sort(compareAsciiStrings);
+      expect([...consulted].sort(compareAsciiStrings)).toEqual(testOutcomeStage);
     });
   });
 });

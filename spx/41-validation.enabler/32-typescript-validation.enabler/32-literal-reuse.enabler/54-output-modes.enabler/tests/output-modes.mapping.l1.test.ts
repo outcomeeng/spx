@@ -8,6 +8,7 @@ import {
   OUTPUT_MODE_NAMES,
   VERBOSE_PROBLEM_LINE_PREFIX,
 } from "@/commands/validation/literal";
+import { compareAsciiStrings } from "@/lib/state-store";
 import { LITERAL_DEFAULTS } from "@/validation/literal/config";
 import { parseLiteralReuseResult } from "@/validation/literal/index";
 import {
@@ -110,8 +111,8 @@ describe("output-modes — mappings", () => {
       expect([...reuseLines, ...dupeLines]).toEqual(lines);
 
       // Each group sorted within itself
-      expect(reuseLines).toEqual([...reuseLines].sort());
-      expect(dupeLines).toEqual([...dupeLines].sort());
+      expect(reuseLines).toEqual([...reuseLines].sort(compareAsciiStrings));
+      expect(dupeLines).toEqual([...dupeLines].sort(compareAsciiStrings));
     });
   });
 
@@ -158,7 +159,7 @@ describe("output-modes — mappings", () => {
 
       // Unique, sorted, no line number suffix
       expect(new Set(lines).size).toBe(lines.length);
-      expect(lines).toEqual([...lines].sort());
+      expect(lines).toEqual([...lines].sort(compareAsciiStrings));
       for (const line of lines) {
         expect(line).not.toMatch(/:\d+$/);
       }
@@ -180,7 +181,7 @@ describe("output-modes — mappings", () => {
 
       // Unique, sorted, all values in double quotes
       expect(new Set(lines).size).toBe(lines.length);
-      expect(lines).toEqual([...lines].sort());
+      expect(lines).toEqual([...lines].sort(compareAsciiStrings));
       for (const line of lines) {
         expect(line.startsWith("\"") && line.endsWith("\"")).toBe(true);
       }

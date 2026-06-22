@@ -13,6 +13,7 @@ import {
   serializeConfigFileSections,
 } from "@/config/index";
 import { agentEnvironmentConfigDescriptor } from "@/domains/agent-environment/config";
+import { compareAsciiStrings } from "@/lib/state-store";
 import { CONFIG_TEST_GENERATOR, sampleConfigTestValue } from "@testing/generators/config/descriptors";
 import type { Config } from "@testing/harnesses/spec-tree/spec-tree";
 import { withTestEnv } from "@testing/harnesses/spec-tree/spec-tree";
@@ -39,7 +40,9 @@ describe("agent environment descriptor format mapping", () => {
       });
     }
 
-    expect(Object.keys(results).sort()).toEqual([...CONFIG_FILE_FORMAT_ORDER].sort());
+    expect(Object.keys(results).sort(compareAsciiStrings)).toEqual(
+      [...CONFIG_FILE_FORMAT_ORDER].sort(compareAsciiStrings),
+    );
     expect(results[CONFIG_FILE_FORMAT.JSON]).toEqual(results[CONFIG_FILE_FORMAT.YAML]);
     expect(results[CONFIG_FILE_FORMAT.TOML]).toEqual(results[CONFIG_FILE_FORMAT.YAML]);
   });

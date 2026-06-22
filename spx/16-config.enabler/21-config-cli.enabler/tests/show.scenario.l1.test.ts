@@ -11,6 +11,7 @@ import {
 } from "@/config/index";
 import type { Config, Result } from "@/config/types";
 import { specTreeConfigDescriptor } from "@/lib/spec-tree/config";
+import { compareAsciiStrings } from "@/lib/state-store";
 import { CONFIG_TEST_GENERATOR, sampleConfigTestValue } from "@testing/generators/config/descriptors";
 
 function makeDeps(resolved: Result<Config>): CliDeps {
@@ -64,7 +65,9 @@ describe("showCommand — default-format output", () => {
     const parsed = parseOutput(DEFAULT_CONFIG_FILE_FORMAT, result.stdout);
     const specTree = parsed[specTreeConfigDescriptor.section] as typeof specTreeConfigDescriptor.defaults;
     const expected = config[specTreeConfigDescriptor.section] as typeof specTreeConfigDescriptor.defaults;
-    expect(Object.keys(specTree.kinds).sort()).toEqual(Object.keys(expected.kinds).sort());
+    expect(Object.keys(specTree.kinds).sort(compareAsciiStrings)).toEqual(
+      Object.keys(expected.kinds).sort(compareAsciiStrings),
+    );
   });
 });
 

@@ -9,6 +9,7 @@ import {
   SPEC_TREE_SECTION,
   specTreeConfigDescriptor,
 } from "@/lib/spec-tree/config";
+import { compareAsciiStrings } from "@/lib/state-store";
 
 describe("specTreeConfigDescriptor.section", () => {
   it("names the spec-tree section of spx.config.yaml", () => {
@@ -20,7 +21,7 @@ describe("specTreeConfigDescriptor.defaults", () => {
   it("carries every kind registered in KIND_REGISTRY", () => {
     const defaultKinds = Object.keys(specTreeConfigDescriptor.defaults.kinds);
     const registryKinds = Object.keys(KIND_REGISTRY);
-    expect(defaultKinds.sort()).toEqual(registryKinds.sort());
+    expect([...defaultKinds].sort(compareAsciiStrings)).toEqual([...registryKinds].sort(compareAsciiStrings));
   });
 
   it("carries the full definition for each default kind", () => {
@@ -47,7 +48,7 @@ describe("specTreeConfigDescriptor.validate", () => {
 
     expect(result.ok).toBe(true);
     if (result.ok) {
-      expect(Object.keys(result.value.kinds).sort()).toEqual([...subset].sort());
+      expect(Object.keys(result.value.kinds).sort(compareAsciiStrings)).toEqual([...subset].sort(compareAsciiStrings));
     }
   });
 

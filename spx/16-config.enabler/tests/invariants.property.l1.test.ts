@@ -6,6 +6,7 @@ import { describe, expect, it } from "vitest";
 import { resolveConfig } from "@/config/index";
 import { RESULT_VALUE_KEY } from "@/config/types";
 import { KIND_REGISTRY, specTreeConfigDescriptor } from "@/lib/spec-tree/config";
+import { compareAsciiStrings } from "@/lib/state-store";
 import { CONFIG_TEST_GENERATOR, sampleConfigTestValue } from "@testing/generators/config/descriptors";
 import type { Config } from "@testing/harnesses/spec-tree/spec-tree";
 import { withTestEnv } from "@testing/harnesses/spec-tree/spec-tree";
@@ -23,7 +24,7 @@ describe("resolveConfig — side-effect freedom (property)", () => {
           await resolveConfig(productDir, [specTreeConfigDescriptor]);
           const after = await readdir(productDir);
 
-          expect(after.sort()).toEqual(before.sort());
+          expect(after.sort(compareAsciiStrings)).toEqual(before.sort(compareAsciiStrings));
         });
       }),
       { numRuns: 10 },

@@ -2,6 +2,7 @@ import * as fc from "fast-check";
 import { describe, expect, it } from "vitest";
 
 import { createIgnoreSourceReader } from "@/lib/file-inclusion/ignore-source";
+import { compareAsciiStrings } from "@/lib/state-store";
 import { withTestEnv } from "@testing/harnesses/spec-tree/spec-tree";
 
 import {
@@ -37,8 +38,8 @@ describe("ignore-source — properties", () => {
               expect(readerA.isUnderIgnoreSource(input)).toBe(readerB.isUnderIgnoreSource(input));
             }
 
-            const entriesA = readerA.entries().map((e) => e.segment).sort();
-            const entriesB = readerB.entries().map((e) => e.segment).sort();
+            const entriesA = readerA.entries().map((e) => e.segment).sort(compareAsciiStrings);
+            const entriesB = readerB.entries().map((e) => e.segment).sort(compareAsciiStrings);
             expect(entriesA).toEqual(entriesB);
           });
         },

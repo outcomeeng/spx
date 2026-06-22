@@ -7,6 +7,7 @@ import {
   SPEC_TREE_NAMING_SCHEMA_VERSIONS,
 } from "@/lib/spec-tree";
 import { DECISION_SUFFIXES, KIND_REGISTRY, NODE_SUFFIXES } from "@/lib/spec-tree/config";
+import { compareAsciiStrings } from "@/lib/state-store";
 
 // The size of every grammar token group named by the spec, read through the registry surface.
 const grammarTokenGroupSizes: readonly number[] = [
@@ -40,8 +41,10 @@ describe("filename grammar token vocabulary", () => {
 
   it("sources the canonical version's suffix sets from the kind registry, not redeclared literals", () => {
     const canonical = canonicalNamingSchemaVersion(SPEC_TREE_NAMING_SCHEMA_VERSIONS);
-    expect([...canonical.nodeSuffixes].sort()).toEqual([...NODE_SUFFIXES].sort());
-    expect([...canonical.decisionSuffixes].sort()).toEqual([...DECISION_SUFFIXES].sort());
+    expect([...canonical.nodeSuffixes].sort(compareAsciiStrings)).toEqual([...NODE_SUFFIXES].sort(compareAsciiStrings));
+    expect([...canonical.decisionSuffixes].sort(compareAsciiStrings)).toEqual(
+      [...DECISION_SUFFIXES].sort(compareAsciiStrings),
+    );
   });
 
   it("keeps prior-version node suffixes out of the live kind registry", () => {
