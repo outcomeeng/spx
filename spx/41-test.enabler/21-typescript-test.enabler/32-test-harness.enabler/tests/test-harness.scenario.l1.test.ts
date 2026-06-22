@@ -5,7 +5,7 @@ import { resolve, sep } from "node:path";
 import { describe, expect, it } from "vitest";
 
 import { arbitraryDomainLiteral, sampleLiteralTestValue } from "@testing/generators/literal/literal";
-import { VITEST_FIXTURE, withTempVitestProject } from "@testing/harnesses/testing/typescript-runner";
+import { COPIED_SUITE_NAME, VITEST_FIXTURE, withTempVitestProject } from "@testing/harnesses/testing/typescript-runner";
 
 async function pathExists(path: string): Promise<boolean> {
   try {
@@ -25,7 +25,7 @@ describe("withTempVitestProject", () => {
       capturedProjectRoot = projectRoot;
 
       expect(resolve(projectRoot).startsWith(tempRootPrefix)).toBe(true);
-      expect(await readdir(projectRoot)).toHaveLength(1);
+      expect(await readdir(projectRoot)).toEqual([COPIED_SUITE_NAME]);
     });
 
     expect(await pathExists(capturedProjectRoot)).toBe(false);
