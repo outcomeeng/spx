@@ -13,3 +13,4 @@
 26-release.enabler/43-publish-dispatch.enabler
 23-spec-tree.enabler/48-skill-conformance-oracle.enabler
 41-test.enabler/95-changed-set-planning.enabler
+13-cli.enabler/21-styled-output.enabler
