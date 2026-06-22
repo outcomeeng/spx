@@ -256,19 +256,16 @@ diagnostics.
 - Whether unsupported custom runners should fail closed in v1 or be allowed
   through a generic shell-command adapter with reduced guarantees.
 
-## Harness governance (in progress — branch `work/test-recording-runner-governance`)
+## Harness governance — recording-runner batch complete
 
-Govern the testing recording-runner harnesses and generators per the **Remaining harness governance program** in `spx/PLAN.md`. One PR for this batch, built on `work/test-recording-runner-governance`.
+The recording-runner harness-governance batch governs the testing recording-runner harnesses and generators per the **Remaining harness governance program** in `spx/PLAN.md`. All four module groups are governed (spec + focused contract tests; spec-auditor and test-evidence-auditor approved):
 
-Governed: `testing/generators/testing/run-state.ts` by `spx/41-test.enabler/43-last-run-evidence.enabler/15-test-state-generator.enabler` (spec + property test; spec-auditor and test-evidence-auditor approved).
+- `testing/generators/testing/run-state.ts` → `spx/41-test.enabler/43-last-run-evidence.enabler/15-test-state-generator.enabler`
+- `testing/harnesses/testing/python-runner.ts`, `testing/generators/testing/python-runner.ts`, `testing/harnesses/testing/python-product-inputs.ts` → `spx/41-test.enabler/21-python-test.enabler/32-test-harness.enabler`
+- `testing/harnesses/testing/typescript-runner.ts`, `testing/generators/testing/typescript-runner.ts` → `spx/41-test.enabler/21-typescript-test.enabler/32-test-harness.enabler`
+- `testing/harnesses/testing/harness.ts`, `testing/harnesses/testing/cli.ts`, `testing/generators/testing/dispatch.ts` → `spx/41-test.enabler/26-test-harness.enabler` (dispatch operand semantics stay governed by `spx/41-test.enabler/90-targeted-execution.enabler`, not restated)
 
-Remaining modules → governing node (place each beside its owning sub-enabler):
-
-- `spx/41-test.enabler/21-python-test.enabler` ← `testing/harnesses/testing/python-runner.ts`, `testing/generators/testing/python-runner.ts`, `testing/harnesses/testing/python-product-inputs.ts`
-- `spx/41-test.enabler/21-typescript-test.enabler` ← `testing/harnesses/testing/typescript-runner.ts`, `testing/generators/testing/typescript-runner.ts`
-- `spx/41-test.enabler` (parent) ← `testing/harnesses/testing/harness.ts`, `testing/harnesses/testing/cli.ts`, `testing/generators/testing/dispatch.ts` — reconcile `dispatch`'s existing `nodeOperand`/`supportFileUnder` against `spx/41-test.enabler/90-targeted-execution.enabler`, do not duplicate.
-
-Learnings:
+Learnings (carry to the remaining `spx/PLAN.md` harness-governance batches):
 
 - Several modules already reach near or full coverage through their consumers (run-state was 100%), so governance is mostly authoring spec nodes with focused contract tests, not coverage-closing tests.
 - The python and typescript runners share a `RecordingCommandRunner` structure and the runner generators share spec-tree path constants — keep the parallel structure; do not extract until a third language arrives (see this enabler's `ISSUES.md`).
