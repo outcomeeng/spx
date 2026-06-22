@@ -7,7 +7,7 @@ import { DIAGNOSE_FORMAT, DIAGNOSE_TEXT_OVERALL_LABEL } from "@/domains/diagnose
 import { OVERALL_VERDICT, type OverallVerdict, VERDICT_BUCKET } from "@/domains/diagnose/types";
 import { DIAGNOSE_CLI } from "@/interfaces/cli/diagnose";
 import { CLI_PATH, NODE_EXECUTABLE } from "@testing/harnesses/constants";
-import { writeSpxReachabilityManifest } from "@testing/harnesses/diagnose/cli";
+import { writeAllChecksManifest, writeSpxReachabilityManifest } from "@testing/harnesses/diagnose/cli";
 
 interface ReportShape {
   readonly checks: {
@@ -60,6 +60,25 @@ describe("spx diagnose emits a schema-valid report and exits with the code keyed
     expect(textRun.stdout).toContain(`${DIAGNOSE_TEXT_OVERALL_LABEL}: ${report.overall}`);
     expect(textRun.exitCode).toBe(jsonRun.exitCode);
     expect(textRun.exitCode).toBe(overallExitCode(report.overall as OverallVerdict));
+  });
+
+  it("runs every registered check and exits with the code keyed to the folded overall verdict", async () => {
+    const manifestPath = await writeAllChecksManifest();
+
+    const result = await runDiagnose([
+      DIAGNOSE_CLI.MANIFEST_FLAG,
+      manifestPath,
+      DIAGNOSE_CLI.FORMAT_FLAG,
+      DIAGNOSE_FORMAT.JSON,
+    ]);
+
+    const report = JSON.parse(result.stdout) as ReportShape;
+    expect(report.checks.map((check) => check.name)).toEqual(Object.values(CHECK_NAME));
+    for (const check of report.checks) {
+      expect(Object.values(VERDICT_BUCKET)).toContain(check.bucket);
+    }
+    expect(Object.values(OVERALL_VERDICT)).toContain(report.overall);
+    expect(result.exitCode).toBe(overallExitCode(report.overall as OverallVerdict));
   });
 
   it("rejects an unsupported --format value with a non-zero exit", async () => {
