@@ -61,4 +61,18 @@ describe("spx diagnose emits a schema-valid report and exits with the code keyed
     expect(textRun.exitCode).toBe(jsonRun.exitCode);
     expect(textRun.exitCode).toBe(overallExitCode(report.overall as OverallVerdict));
   });
+
+  it("rejects an unsupported --format value with a non-zero exit", async () => {
+    const manifestPath = await writeSpxReachabilityManifest();
+    const unsupportedFormat = `${DIAGNOSE_FORMAT.JSON}${DIAGNOSE_FORMAT.TEXT}`;
+
+    const result = await runDiagnose([
+      DIAGNOSE_CLI.MANIFEST_FLAG,
+      manifestPath,
+      DIAGNOSE_CLI.FORMAT_FLAG,
+      unsupportedFormat,
+    ]);
+
+    expect(result.exitCode).not.toBe(0);
+  });
 });
