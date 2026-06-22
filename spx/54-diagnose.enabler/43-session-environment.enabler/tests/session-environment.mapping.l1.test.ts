@@ -25,6 +25,11 @@ describe("the session-environment check classifies the SessionStart round-trip",
     },
     { overrides: { errored: true }, verdict: SESSION_ENVIRONMENT_VERDICT.UNKNOWN, bucket: VERDICT_BUCKET.UNKNOWN },
     {
+      overrides: { errored: true, sessionIdentity: true },
+      verdict: SESSION_ENVIRONMENT_VERDICT.UNKNOWN,
+      bucket: VERDICT_BUCKET.UNKNOWN,
+    },
+    {
       overrides: { sessionIdentity: true, worktreeClaimed: true, roundTripStale: true },
       verdict: SESSION_ENVIRONMENT_VERDICT.UNKNOWN,
       bucket: VERDICT_BUCKET.UNKNOWN,

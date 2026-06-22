@@ -118,9 +118,12 @@ export const defaultSessionEnvironmentProbe: SessionEnvironmentProbe = {
     const hookPresent = HOOK_SESSION_START_ENV.CLAUDE_WORKTREE_CLAIMED in process.env;
     const sessionIdentity = resolveAgentSessionId(process.env) !== undefined;
 
+    // The worktree-claim and round-trip readings come only from spx; with spx
+    // unreachable they are unknowable, so degrade to errored rather than affirm
+    // an unclaimed worktree the probe never checked.
     const spx = resolveSpx();
     if (spx === null) {
-      return { errored: false, hookPresent, sessionIdentity, worktreeClaimed: false, roundTripStale: false };
+      return { errored: true, hookPresent, sessionIdentity, worktreeClaimed: false, roundTripStale: false };
     }
     const status = await runCapture(spx, ["worktree", "status", "--format", "json"]);
     if (!status.ok) {
