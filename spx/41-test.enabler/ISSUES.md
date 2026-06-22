@@ -65,6 +65,8 @@ The recording command runner (`createRecordingCommandRunner` and the `RecordingC
 
 **Resolution:** when a third language testing descriptor is added, extract the shared recording command runner to `testing/harnesses/testing/language-runner.ts` and the shared generator constants to `testing/generators/testing/language-runner.ts`, and re-point every language runner harness and generator — and the dispatch-level tests (`spx/41-test.enabler/tests/test.scenario.l1.test.ts` and `tests/execution-recording.scenario.l1.test.ts`), which import `createRecordingCommandRunner` from the typescript-runner harness — at the shared module.
 
+**Test-contract assertion already shared:** the parallel recording-runner *contract test* is extracted to `testing/harnesses/testing/recording-command-runner.ts` (`assertRecordingCommandRunnerContract`), consumed by the python and typescript runner test-harness nodes, so SonarCloud sees no duplicated test block on new code. The two `createRecordingCommandRunner` *source* copies stay parallel until the third language — only the shared assertion was lifted, parametrized by each language's factory and source-owned generators.
+
 **Evidence:** spec-tree-review on PR #69; the shared contract `src/test/languages/types.ts` both runners conform to.
 
 ## FOLLOW-UP: pnpm script gates can enter dependency repair before the requested command
