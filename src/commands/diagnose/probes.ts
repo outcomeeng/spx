@@ -222,14 +222,50 @@ function parseInstalledPlugins(stdout: string): readonly InstalledPlugin[] | nul
   }
 }
 
+interface RegisteredMarketplace {
+  readonly name: string;
+  readonly source: string;
+}
+
+/**
+ * Normalizes the registered marketplaces from `claude`/`codex plugin marketplace list --json`,
+ * or null when the output is unparseable. Claude emits a flat array of `{ name, repo }`
+ * (`repo` is the `owner/repo` source); Codex emits `{ marketplaces: [{ name, marketplaceSource: { source } }] }`.
+ */
+function parseRegisteredMarketplaces(stdout: string): readonly RegisteredMarketplace[] | null {
+  try {
+    const parsed = JSON.parse(stdout) as unknown;
+    if (Array.isArray(parsed)) {
+      return parsed.map((entry) => {
+        const record = entry as { name?: string; repo?: string };
+        return { name: String(record.name ?? ""), source: String(record.repo ?? "") };
+      });
+    }
+    const marketplaces = (parsed as { marketplaces?: unknown }).marketplaces;
+    if (Array.isArray(marketplaces)) {
+      return marketplaces.map((entry) => {
+        const record = entry as { name?: string; marketplaceSource?: { source?: string } };
+        return { name: String(record.name ?? ""), source: String(record.marketplaceSource?.source ?? "") };
+      });
+    }
+    return null;
+  } catch {
+    return null;
+  }
+}
+
 async function surfaceState(
   cli: string,
   marketplace: MarketplaceIdentity,
   expectedPlugins: readonly string[],
 ): Promise<{ ok: boolean; unregistered: boolean; drifted: boolean }> {
-  const marketplaces = await runCapture(cli, ["plugin", "marketplace", "list"]);
+  const marketplaces = await runCapture(cli, ["plugin", "marketplace", "list", "--json"]);
   if (!marketplaces.ok) return { ok: false, unregistered: false, drifted: false };
-  const registered = marketplaces.stdout.includes(marketplace.name) || marketplaces.stdout.includes(marketplace.source);
+  const registry = parseRegisteredMarketplaces(marketplaces.stdout);
+  if (registry === null) return { ok: false, unregistered: false, drifted: false };
+  // Match the marketplace identity on exact structured fields rather than a
+  // substring of the rendered list, consistent with the plugin-list parse below.
+  const registered = registry.some((entry) => entry.name === marketplace.name || entry.source === marketplace.source);
   if (!registered) return { ok: true, unregistered: true, drifted: false };
 
   const plugins = await runCapture(cli, ["plugin", "list", "--json"]);
