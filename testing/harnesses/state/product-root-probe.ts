@@ -1,11 +1,22 @@
+import { tmpdir } from "node:os";
+import { join } from "node:path";
+
 import { type GitTestEnvironmentOverrides, runTsxEval } from "@testing/harnesses/git-test-constants";
 
 const PRODUCT_ROOT_TEST_CWD_ENV = "SPX_PRODUCT_ROOT_TEST_CWD";
 
+/**
+ * Base for the nonexistent git paths {@link POLLUTED_GIT_ENVIRONMENT} points at.
+ * Derived from the OS temp directory instead of a hardcoded publicly-writable
+ * `/tmp` literal, and never created on disk — the paths exist only as env values
+ * the resolver must prove it ignores, so no temporary file is ever written.
+ */
+const NONEXISTENT_GIT_REPO_BASE = join(tmpdir(), "spx-nonexistent-git-repo");
+
 /** Git environment pointing at a nonexistent repository, to prove the resolver ignores inherited git env. */
 export const POLLUTED_GIT_ENVIRONMENT: GitTestEnvironmentOverrides = {
-  GIT_DIR: "/tmp/nonexistent-git-dir",
-  GIT_WORK_TREE: "/tmp/nonexistent-git-work-tree",
+  GIT_DIR: join(NONEXISTENT_GIT_REPO_BASE, "git-dir"),
+  GIT_WORK_TREE: join(NONEXISTENT_GIT_REPO_BASE, "git-work-tree"),
 };
 
 /** Product roots resolved by {@link detectProductRootsInChildProcess}. */
@@ -17,7 +28,7 @@ export interface DetectedProductRoots {
 function parseDetectedProductRoots(stdout: string): DetectedProductRoots {
   const parsed = JSON.parse(stdout) as Partial<DetectedProductRoots>;
   if (typeof parsed.worktreeProductRoot !== "string" || typeof parsed.gitCommonDirProductRoot !== "string") {
-    throw new Error("Product root child process returned invalid JSON");
+    throw new TypeError("Product root child process returned invalid JSON");
   }
   return {
     worktreeProductRoot: parsed.worktreeProductRoot,
