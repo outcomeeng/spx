@@ -13,3 +13,7 @@
 26-release.enabler/43-publish-dispatch.enabler
 23-spec-tree.enabler/48-skill-conformance-oracle.enabler
 41-test.enabler/95-changed-set-planning.enabler
+54-diagnose.enabler/43-session-environment.enabler
+54-diagnose.enabler/43-worktree-pool.enabler
+54-diagnose.enabler/43-session-store.enabler
+54-diagnose.enabler/43-marketplace-install.enabler
