@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 
 import { resolveConfig } from "@/config/index";
 import { KIND_REGISTRY, specTreeConfigDescriptor } from "@/lib/spec-tree/config";
+import { compareAsciiStrings } from "@/lib/state-store";
 import { CONFIG_TEST_GENERATOR, sampleConfigTestValue } from "@testing/generators/config/descriptors";
 import type { Config } from "@testing/harnesses/spec-tree/spec-tree";
 import { withTestEnv } from "@testing/harnesses/spec-tree/spec-tree";
@@ -17,7 +18,9 @@ describe("resolveConfig — partial config", () => {
       expect(result.ok).toBe(true);
       if (result.ok) {
         const specTree = result.value[specTreeConfigDescriptor.section] as typeof specTreeConfigDescriptor.defaults;
-        expect(Object.keys(specTree.kinds).sort()).toEqual(Object.keys(expected.kinds).sort());
+        expect(Object.keys(specTree.kinds).sort(compareAsciiStrings)).toEqual(
+          Object.keys(expected.kinds).sort(compareAsciiStrings),
+        );
       }
     });
   });
@@ -62,7 +65,9 @@ describe("resolveConfig — array-shorthand kinds", () => {
       expect(result.ok).toBe(true);
       if (result.ok) {
         const specTree = result.value[specTreeConfigDescriptor.section] as typeof specTreeConfigDescriptor.defaults;
-        expect(Object.keys(specTree.kinds).sort()).toEqual([...generated.selectedKinds].sort());
+        expect(Object.keys(specTree.kinds).sort(compareAsciiStrings)).toEqual(
+          [...generated.selectedKinds].sort(compareAsciiStrings),
+        );
         for (const kind of generated.selectedKinds) {
           expect(specTree.kinds[kind]).toEqual(KIND_REGISTRY[kind]);
         }

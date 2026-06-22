@@ -11,6 +11,7 @@ import {
 } from "@/config/index";
 import type { Config, ConfigDescriptor } from "@/config/types";
 import { specTreeConfigDescriptor } from "@/lib/spec-tree/config";
+import { compareAsciiStrings } from "@/lib/state-store";
 import { CONFIG_TEST_GENERATOR, sampleConfigTestValue } from "@testing/generators/config/descriptors";
 
 function makeDeps(descriptors: readonly ConfigDescriptor<unknown>[]): CliDeps {
@@ -100,8 +101,8 @@ describe("defaultsCommand — registry iteration", () => {
     const result = await defaultsCommand({}, deps);
 
     const parsed = parseOutput(DEFAULT_CONFIG_FILE_FORMAT, result.stdout);
-    expect(Object.keys(parsed).sort()).toEqual(
-      [generated.section, specTreeConfigDescriptor.section].sort(),
+    expect(Object.keys(parsed).sort(compareAsciiStrings)).toEqual(
+      [generated.section, specTreeConfigDescriptor.section].sort(compareAsciiStrings),
     );
   });
 });

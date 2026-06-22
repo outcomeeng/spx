@@ -3,6 +3,7 @@ import { describe, expect, it } from "vitest";
 
 import { resolveConfig } from "@/config/index";
 import { specTreeConfigDescriptor } from "@/lib/spec-tree/config";
+import { compareAsciiStrings } from "@/lib/state-store";
 import { CONFIG_TEST_GENERATOR, sampleConfigTestValue } from "@testing/generators/config/descriptors";
 import { withTestEnv } from "@testing/harnesses/spec-tree/spec-tree";
 
@@ -49,8 +50,10 @@ describe("resolveConfig — defaults are type-complete", () => {
 
       expect(result.ok).toBe(true);
       if (result.ok) {
-        const keys = Object.keys(result.value).sort();
-        const expected = [specTreeConfigDescriptor.section, ...descriptors.map((d) => d.section)].sort();
+        const keys = Object.keys(result.value).sort(compareAsciiStrings);
+        const expected = [specTreeConfigDescriptor.section, ...descriptors.map((d) => d.section)].sort(
+          compareAsciiStrings,
+        );
         expect(keys).toEqual(expected);
       }
     });

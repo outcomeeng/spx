@@ -3,6 +3,7 @@ import { realpath } from "node:fs/promises";
 import { describe, expect, it } from "vitest";
 
 import { detectMainCheckout, gatherGitFacts } from "@/git/root";
+import { compareAsciiStrings } from "@/lib/state-store";
 import { arbitraryBranchName } from "@testing/generators/git-name/git-name";
 import {
   arbitraryBarePoolLayoutCase,
@@ -17,7 +18,7 @@ import {
 import { withWorktreeLayoutEnv } from "@testing/harnesses/worktree-layout/worktree-layout";
 
 function sortedPaths(paths: Iterable<string>): string[] {
-  return [...paths].sort();
+  return [...paths].sort(compareAsciiStrings);
 }
 
 async function realpaths(paths: Iterable<string>): Promise<string[]> {

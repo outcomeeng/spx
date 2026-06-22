@@ -8,6 +8,7 @@ import { LAYER_SEQUENCE } from "@/lib/file-inclusion/layer-sequence";
 import { EXPLICIT_OVERRIDE_LAYER, resolveScope, runPipeline } from "@/lib/file-inclusion/pipeline";
 import type { LayerEntry } from "@/lib/file-inclusion/pipeline";
 import type { LayerDecision } from "@/lib/file-inclusion/types";
+import { compareAsciiStrings } from "@/lib/state-store";
 
 import {
   artifactFilePath,
@@ -38,8 +39,12 @@ describe("scope resolver — properties", () => {
               : { walkRoot: env.productDir };
             const first = await resolveScope(env.productDir, request, resolverConfig);
             const second = await resolveScope(env.productDir, request, resolverConfig);
-            expect(first.included.map((e) => e.path).sort()).toEqual(second.included.map((e) => e.path).sort());
-            expect(first.excluded.map((e) => e.path).sort()).toEqual(second.excluded.map((e) => e.path).sort());
+            expect(first.included.map((e) => e.path).sort(compareAsciiStrings)).toEqual(
+              second.included.map((e) => e.path).sort(compareAsciiStrings),
+            );
+            expect(first.excluded.map((e) => e.path).sort(compareAsciiStrings)).toEqual(
+              second.excluded.map((e) => e.path).sort(compareAsciiStrings),
+            );
           },
         ),
         { numRuns: PROPERTY_NUM_RUNS },
@@ -127,11 +132,17 @@ describe("scope resolver — properties", () => {
           ignoreReader,
         );
 
-        expect(extResult.included.map((e) => e.path).sort(), `position ${position}: included set unchanged`).toEqual(
-          baseResult.included.map((e) => e.path).sort(),
+        expect(
+          extResult.included.map((e) => e.path).sort(compareAsciiStrings),
+          `position ${position}: included set unchanged`,
+        ).toEqual(
+          baseResult.included.map((e) => e.path).sort(compareAsciiStrings),
         );
-        expect(extResult.excluded.map((e) => e.path).sort(), `position ${position}: excluded set unchanged`).toEqual(
-          baseResult.excluded.map((e) => e.path).sort(),
+        expect(
+          extResult.excluded.map((e) => e.path).sort(compareAsciiStrings),
+          `position ${position}: excluded set unchanged`,
+        ).toEqual(
+          baseResult.excluded.map((e) => e.path).sort(compareAsciiStrings),
         );
         for (const extEntry of extResult.excluded) {
           const baseEntry = baseExcluded.get(extEntry.path);

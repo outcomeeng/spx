@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 
 import { projectSpecTree, readSpecTree, SPEC_TREE_PROJECTION } from "@/lib/spec-tree";
 import { KIND_REGISTRY } from "@/lib/spec-tree/config";
+import { compareAsciiStrings } from "@/lib/state-store";
 import { buildRepresentativeFixture, createSource } from "@testing/generators/spec-tree/spec-tree";
 import { expectPresent } from "@testing/harnesses/spec-tree/assertions";
 
@@ -17,9 +18,15 @@ describe("spec-tree projection contract", () => {
     const decision = expectPresent(projection.decisions.find((entry) => entry.id === fixture.decision.id));
     const product = expectPresent(projection.product);
 
-    expect(Object.keys(projection).sort()).toEqual(Object.values(SPEC_TREE_PROJECTION.KEYS).sort());
-    expect(Object.keys(root).sort()).toEqual(Object.values(SPEC_TREE_PROJECTION.NODE_KEYS).sort());
-    expect(Object.keys(decision).sort()).toEqual(Object.values(SPEC_TREE_PROJECTION.DECISION_KEYS).sort());
+    expect(Object.keys(projection).sort(compareAsciiStrings)).toEqual(
+      Object.values(SPEC_TREE_PROJECTION.KEYS).sort(compareAsciiStrings),
+    );
+    expect(Object.keys(root).sort(compareAsciiStrings)).toEqual(
+      Object.values(SPEC_TREE_PROJECTION.NODE_KEYS).sort(compareAsciiStrings),
+    );
+    expect(Object.keys(decision).sort(compareAsciiStrings)).toEqual(
+      Object.values(SPEC_TREE_PROJECTION.DECISION_KEYS).sort(compareAsciiStrings),
+    );
     expect(projection.version).toBe(SPEC_TREE_PROJECTION.VERSION);
     expect(product.id).toBe(fixture.product.id);
     expect(root.id).toBe(fixture.root.id);

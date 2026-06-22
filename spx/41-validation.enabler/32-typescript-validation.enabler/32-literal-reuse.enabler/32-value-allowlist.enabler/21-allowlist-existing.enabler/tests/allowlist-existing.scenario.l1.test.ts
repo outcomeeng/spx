@@ -11,6 +11,7 @@ import {
   resolveConfig,
   serializeConfigFileSections,
 } from "@/config/index";
+import { compareAsciiStrings } from "@/lib/state-store";
 import { type ValidationConfig, validationConfigDescriptor } from "@/validation/config/descriptor";
 import { allowlistExisting } from "@/validation/literal/allowlist-existing";
 import { validateLiteralReuse } from "@/validation/literal/index";
@@ -110,7 +111,7 @@ describe("allowlist-existing scenario", () => {
       const indices = literals.map((value) => include.indexOf(value));
       indices.forEach((idx) => expect(idx).toBeGreaterThan(-1));
 
-      const expectedOrder = [...literals].sort();
+      const expectedOrder = [...literals].sort(compareAsciiStrings);
       const observedOrder = include.filter((value) => literals.includes(value));
       expect(observedOrder).toEqual(expectedOrder);
     });

@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 
 import { formatNoProblemsOfKind, LITERAL_PROBLEM_KIND, literalCommand } from "@/commands/validation/literal";
+import { compareAsciiStrings } from "@/lib/state-store";
 import { LITERAL_DEFAULTS } from "@/validation/literal/config";
 import { parseLiteralReuseResult } from "@/validation/literal/index";
 import { LITERAL_TEST_GENERATOR, sampleLiteralTestValue } from "@testing/generators/literal/literal";
@@ -42,7 +43,7 @@ describe("output-modes compliance", () => {
       expect(result.exitCode).toBe(1);
       const lines = result.output.split("\n").filter(Boolean);
       expect(new Set(lines).size).toBe(lines.length);
-      expect(lines).toEqual([...lines].sort());
+      expect(lines).toEqual([...lines].sort(compareAsciiStrings));
       for (const line of lines) {
         expect(line).not.toMatch(/:\d+$/);
       }
@@ -63,7 +64,7 @@ describe("output-modes compliance", () => {
       expect(result.exitCode).toBe(1);
       const lines = result.output.split("\n").filter(Boolean);
       expect(new Set(lines).size).toBe(lines.length);
-      expect(lines).toEqual([...lines].sort());
+      expect(lines).toEqual([...lines].sort(compareAsciiStrings));
     });
   });
 

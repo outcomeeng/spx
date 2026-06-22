@@ -2,9 +2,12 @@ import * as fc from "fast-check";
 import { describe, expect, it } from "vitest";
 
 import { canonicalDescriptorJson, type DescriptorJsonValue } from "@/config/index";
+import { compareAsciiStrings } from "@/lib/state-store";
 import { CONFIG_TEST_GENERATOR, sampleConfigTestValue } from "@testing/generators/config/descriptors";
 
-class NonPlainDescriptorRecord {}
+class NonPlainDescriptorRecord {
+  readonly nonPlain = true;
+}
 
 const bmpCodePointAfterSurrogateBlock = 0xe000;
 const astralCodePointAfterBmp = 0x10000;
@@ -46,7 +49,7 @@ function sampleDistinctAsciiKeys(count: number): readonly string[] {
 describe("canonical descriptor JSON compliance", () => {
   it("sorts object keys recursively and preserves array order", () => {
     const path = sampleConfigTestValue(CONFIG_TEST_GENERATOR.key());
-    const [firstKey, secondKey, thirdKey] = [...sampleDistinctAsciiKeys(3)].sort();
+    const [firstKey, secondKey, thirdKey] = [...sampleDistinctAsciiKeys(3)].sort(compareAsciiStrings);
     const canonicalJson = expectCanonical({
       [secondKey]: {
         [secondKey]: true,

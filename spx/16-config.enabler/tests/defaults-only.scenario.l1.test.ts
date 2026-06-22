@@ -5,6 +5,7 @@ import { describe, expect, it } from "vitest";
 
 import { DEFAULT_CONFIG_FILENAME, resolveConfig } from "@/config/index";
 import { KIND_REGISTRY, specTreeConfigDescriptor } from "@/lib/spec-tree/config";
+import { compareAsciiStrings } from "@/lib/state-store";
 import { CONFIG_TEST_GENERATOR, sampleConfigTestValue } from "@testing/generators/config/descriptors";
 import type { Config } from "@testing/harnesses/spec-tree/spec-tree";
 import { withTestEnv } from "@testing/harnesses/spec-tree/spec-tree";
@@ -47,7 +48,9 @@ describe("resolveConfig — no product config file", () => {
       expect(result.ok).toBe(true);
       if (result.ok) {
         const specTree = result.value[specTreeConfigDescriptor.section] as typeof specTreeConfigDescriptor.defaults;
-        expect(Object.keys(specTree.kinds).sort()).toEqual(Object.keys(KIND_REGISTRY).sort());
+        expect(Object.keys(specTree.kinds).sort(compareAsciiStrings)).toEqual(
+          Object.keys(KIND_REGISTRY).sort(compareAsciiStrings),
+        );
       }
     });
   });

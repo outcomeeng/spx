@@ -3,6 +3,7 @@ import { describe, expect, it } from "vitest";
 
 import { readSpecTree } from "@/lib/spec-tree";
 import { KIND_REGISTRY } from "@/lib/spec-tree/config";
+import { compareAsciiStrings } from "@/lib/state-store";
 import {
   buildNodeEntry,
   buildRepresentativeFixture,
@@ -74,7 +75,9 @@ describe("spec-tree assembly invariants", () => {
       ]),
     });
 
-    expect(snapshot.nodes.map((node) => node.id).sort()).toEqual([fixture.peer.id, fixture.root.id].sort());
+    expect(snapshot.nodes.map((node) => node.id).sort(compareAsciiStrings)).toEqual(
+      [fixture.peer.id, fixture.root.id].sort(compareAsciiStrings),
+    );
     expect(snapshot.nodes.flatMap((node) => node.children)).toHaveLength(0);
   });
 });
