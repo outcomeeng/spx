@@ -17,7 +17,7 @@ import type { SessionStoreProbe, SessionStoreReading } from "@/domains/diagnose/
 import type { WorktreePoolProbe, WorktreePoolReading } from "@/domains/diagnose/checks/worktree-pool";
 import type { MarketplaceIdentity } from "@/domains/diagnose/manifest";
 import { HOOK_SESSION_START_ENV } from "@/domains/hooks/session-start";
-import { AGENT_SESSION_ENV, resolveAgentSessionId } from "@/domains/session/agent-session";
+import { resolveAgentSessionId } from "@/domains/session/agent-session";
 import type { SessionRecord } from "@/domains/session/list";
 import {
   classifyOccupancy,
@@ -109,12 +109,13 @@ export const defaultWorktreePoolProbe: WorktreePoolProbe = {
 /** Resolves the session-environment reading from the agent-session env vars and the worktree-claim round-trip. */
 export const defaultSessionEnvironmentProbe: SessionEnvironmentProbe = {
   async probe(): Promise<SessionEnvironmentReading> {
-    // Key hook-presence on CLAUDE_WORKTREE_CLAIMED — the hook always exports it,
-    // even when it resolves no session id, so a hook that ran but established
-    // nothing reads as silent-no-op rather than not-applicable. The Codex arm
-    // keys on its identity var until a CODEX_WORKTREE_CLAIMED equivalent exists.
-    const hookPresent = HOOK_SESSION_START_ENV.CLAUDE_WORKTREE_CLAIMED in process.env
-      || AGENT_SESSION_ENV.CODEX_THREAD_ID in process.env;
+    // The spec-tree SessionStart hook always exports CLAUDE_WORKTREE_CLAIMED on
+    // every run and every runtime (even when it resolves no session id), so its
+    // presence is the runtime-agnostic signal that the hook ran. CODEX_THREAD_ID
+    // is set by the Codex runtime before any hook, so it cannot signal hook
+    // presence — a Codex session with no spec-tree hook would falsely read as a
+    // silent no-op rather than not-applicable.
+    const hookPresent = HOOK_SESSION_START_ENV.CLAUDE_WORKTREE_CLAIMED in process.env;
     const sessionIdentity = resolveAgentSessionId(process.env) !== undefined;
 
     const spx = resolveSpx();
@@ -189,6 +190,38 @@ function pluginSurfacePresent(cli: string): boolean {
   return findExecutableOnPath(cli) !== null;
 }
 
+interface InstalledPlugin {
+  readonly name: string;
+  readonly enabled: boolean;
+}
+
+/**
+ * Normalizes the installed plugins from `claude`/`codex plugin list --json`, or
+ * null when the output is unparseable. Claude emits a flat array of
+ * `{ id: "name@marketplace", enabled }`; Codex emits `{ installed: [{ name, enabled }] }`.
+ */
+function parseInstalledPlugins(stdout: string): readonly InstalledPlugin[] | null {
+  try {
+    const parsed = JSON.parse(stdout) as unknown;
+    if (Array.isArray(parsed)) {
+      return parsed.map((entry) => {
+        const record = entry as { id?: string; enabled?: boolean };
+        return { name: String(record.id ?? "").split("@")[0], enabled: record.enabled === true };
+      });
+    }
+    const installed = (parsed as { installed?: unknown }).installed;
+    if (Array.isArray(installed)) {
+      return installed.map((entry) => {
+        const record = entry as { name?: string; enabled?: boolean };
+        return { name: String(record.name ?? ""), enabled: record.enabled === true };
+      });
+    }
+    return null;
+  } catch {
+    return null;
+  }
+}
+
 async function surfaceState(
   cli: string,
   marketplace: MarketplaceIdentity,
@@ -199,9 +232,16 @@ async function surfaceState(
   const registered = marketplaces.stdout.includes(marketplace.name) || marketplaces.stdout.includes(marketplace.source);
   if (!registered) return { ok: true, unregistered: true, drifted: false };
 
-  const plugins = await runCapture(cli, ["plugin", "list"]);
+  const plugins = await runCapture(cli, ["plugin", "list", "--json"]);
   if (!plugins.ok) return { ok: false, unregistered: false, drifted: false };
-  const drifted = expectedPlugins.some((plugin) => !plugins.stdout.includes(plugin));
+  const installed = parseInstalledPlugins(plugins.stdout);
+  if (installed === null) return { ok: false, unregistered: false, drifted: false };
+  // A surface drifts when an expected plugin is absent or installed but disabled,
+  // read from the structured enabled flag rather than a name substring match.
+  const drifted = expectedPlugins.some((expected) => {
+    const found = installed.find((plugin) => plugin.name === expected);
+    return !found?.enabled;
+  });
   return { ok: true, unregistered: false, drifted };
 }
 
