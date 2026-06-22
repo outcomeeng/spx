@@ -6,7 +6,7 @@ CAN publish a rendered result to where consumers watch for it — a local surfac
 
 ### Mappings
 
-- The environment maps to the delivery backend: an unset selector outside continuous integration, or the local selector, binds the local backend; a hosted continuous-integration environment, or an explicit backend selector, binds that backend; an unrecognized selector is rejected naming the value and the registered backends ([test](tests/backend-selection.mapping.l1.test.ts))
+- The environment maps to the delivery backend: an unset selector outside continuous integration, or the local selector, binds the local backend; a continuous-integration run targeting a GitHub pull request, or an explicit backend selector, binds that backend; an unrecognized selector is rejected naming the value and the registered backends ([test](tests/backend-selection.mapping.l1.test.ts))
 
 ### Conformance
 
