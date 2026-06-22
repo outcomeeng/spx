@@ -8,7 +8,7 @@ import { withTempDir } from "@testing/harnesses/with-temp-dir";
 
 const VITEST_FIXTURE_DIR = join(dirname(fileURLToPath(import.meta.url)), "..", "..", "fixtures", "vitest");
 const TEMP_PROJECT_PREFIX = "spx-vitest-";
-const COPIED_SUITE_NAME = "suite.test.ts";
+export const COPIED_SUITE_NAME = "suite.test.ts";
 
 // Committed inert fixture suites copied into a temp project for the real-vitest run.
 export const VITEST_FIXTURE = {
