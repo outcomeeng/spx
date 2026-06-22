@@ -20,18 +20,18 @@ import type { MarketplaceIdentity } from "@/domains/diagnose/manifest";
 import { AGENT_SESSION_ENV } from "@/domains/session/agent-session";
 import { classifyOccupancy, OCCUPANCY_STATUS, readClaim } from "@/domains/worktree/occupancy-store";
 import { worktreeClaimName } from "@/domains/worktree/worktree-name";
-import { detectGitCommonDirProductRoot } from "@/git/root";
+import {
+  detectGitCommonDirProductRoot,
+  GIT_WORKTREE_PORCELAIN_BARE_LINE,
+  GIT_WORKTREE_PORCELAIN_ROOT_PREFIX,
+} from "@/git/root";
 import { findExecutableOnPath } from "@/lib/executable-on-path";
 import { worktreesScopeDir } from "@/lib/state-store";
 import { defaultOccupancyFileSystem } from "@/lib/worktree-occupancy-file-system";
 import { defaultProcessTable } from "@/lib/worktree-process-table";
 
-const OCCUPANCY_STALE = "stale";
-const OCCUPANCY_OCCUPIED = "occupied";
 const GIT = "git";
 const SPX = "spx";
-const WORKTREE_LINE_PREFIX = "worktree ";
-const BARE_MARKER = "bare";
 const PORCELAIN_BLOCK_SEPARATOR = "\n\n";
 
 interface Capture {
@@ -57,10 +57,10 @@ function worktreePaths(porcelain: string): readonly string[] {
   const paths: string[] = [];
   for (const block of porcelain.split(PORCELAIN_BLOCK_SEPARATOR)) {
     const lines = block.split("\n");
-    const worktreeLine = lines.find((line) => line.startsWith(WORKTREE_LINE_PREFIX));
+    const worktreeLine = lines.find((line) => line.startsWith(GIT_WORKTREE_PORCELAIN_ROOT_PREFIX));
     if (worktreeLine === undefined) continue;
-    if (lines.some((line) => line.trim() === BARE_MARKER)) continue;
-    paths.push(worktreeLine.slice(WORKTREE_LINE_PREFIX.length).trim());
+    if (lines.some((line) => line.trim() === GIT_WORKTREE_PORCELAIN_BARE_LINE)) continue;
+    paths.push(worktreeLine.slice(GIT_WORKTREE_PORCELAIN_ROOT_PREFIX.length).trim());
   }
   return paths;
 }
@@ -88,7 +88,7 @@ export const defaultWorktreePoolProbe: WorktreePoolProbe = {
       for (const path of paths) {
         const status = await runCapture(spx, ["worktree", "status", path]);
         if (!status.ok) return errored;
-        if (status.stdout.includes(OCCUPANCY_STALE)) {
+        if (status.stdout.includes(OCCUPANCY_STATUS.STALE)) {
           staleClaim = true;
           break;
         }
@@ -118,8 +118,8 @@ export const defaultSessionEnvironmentProbe: SessionEnvironmentProbe = {
       errored: false,
       hookPresent,
       sessionIdentity,
-      worktreeClaimed: status.stdout.includes(OCCUPANCY_OCCUPIED),
-      roundTripStale: status.stdout.includes(OCCUPANCY_STALE),
+      worktreeClaimed: status.stdout.includes(OCCUPANCY_STATUS.OCCUPIED),
+      roundTripStale: status.stdout.includes(OCCUPANCY_STATUS.STALE),
     };
   },
 };
