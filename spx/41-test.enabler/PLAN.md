@@ -256,10 +256,22 @@ diagnostics.
 - Whether unsupported custom runners should fail closed in v1 or be allowed
   through a generic shell-command adapter with reduced guarantees.
 
-## Harness governance (queued)
+## Harness governance (in progress — branch `work/test-recording-runner-governance`)
 
-Govern the still-ungoverned testing recording-runner harnesses and generators per the **Remaining harness governance program** in `spx/PLAN.md` (approach, audit gates, literal-collision lessons). One PR for this batch.
+Govern the testing recording-runner harnesses and generators per the **Remaining harness governance program** in `spx/PLAN.md`. One PR for this batch, built on `work/test-recording-runner-governance`.
 
-Modules: `testing/harnesses/testing/{cli,harness,python-runner,typescript-runner,python-product-inputs}.ts` and `testing/generators/testing/{dispatch,python-runner,run-state,typescript-runner}.ts` — place each governing node beside `spx/41-test.enabler` and its sub-enablers (`21-python-test`, `21-typescript-test`, `85-agent-test-output`). The `dispatch` generator already gained `nodeOperand`/`supportFileUnder` in prior work — reconcile, do not duplicate.
+Governed: `testing/generators/testing/run-state.ts` by `spx/41-test.enabler/43-last-run-evidence.enabler/15-test-state-generator.enabler` (spec + property test; spec-auditor and test-evidence-auditor approved).
 
-Route: `/understand` -> `/contextualize spx/41-test.enabler` -> `/author` per-module test-harness/generator enablers -> `/apply` audit gates (spec-auditor + test-evidence-auditor, including the coverage gate) -> `/merge`.
+Remaining modules → governing node (place each beside its owning sub-enabler):
+
+- `spx/41-test.enabler/21-python-test.enabler` ← `testing/harnesses/testing/python-runner.ts`, `testing/generators/testing/python-runner.ts`, `testing/harnesses/testing/python-product-inputs.ts`
+- `spx/41-test.enabler/21-typescript-test.enabler` ← `testing/harnesses/testing/typescript-runner.ts`, `testing/generators/testing/typescript-runner.ts`
+- `spx/41-test.enabler` (parent) ← `testing/harnesses/testing/harness.ts`, `testing/harnesses/testing/cli.ts`, `testing/generators/testing/dispatch.ts` — reconcile `dispatch`'s existing `nodeOperand`/`supportFileUnder` against `spx/41-test.enabler/90-targeted-execution.enabler`, do not duplicate.
+
+Learnings:
+
+- Several modules already reach near or full coverage through their consumers (run-state was 100%), so governance is mostly authoring spec nodes with focused contract tests, not coverage-closing tests.
+- The python and typescript runners share a `RecordingCommandRunner` structure and the runner generators share spec-tree path constants — keep the parallel structure; do not extract until a third language arrives (see this enabler's `ISSUES.md`).
+- `testing/generators/**` is excluded from vitest coverage instrumentation (`coverage.include`), so a generator node's test verifies the generator's output contract rather than adding instrumented coverage — accepted by the test-evidence-auditor as a coverage note.
+
+Route per node: `/contextualize spx/41-test.enabler` -> `/author` -> `/apply` (spec-auditor + test-evidence-auditor) -> after all nodes, one `/merge` for the batch PR.
