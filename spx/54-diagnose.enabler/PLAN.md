@@ -10,7 +10,7 @@ The deterministic engine — manifest parsing with availability and conditional-
 
 The classifiers are exact (the contract); the default probes in `src/commands/diagnose/probes.ts` gather readings best-effort and degrade to unknown on failure. Two read surfaces whose precise shape is runtime-specific and worth confirming against the real environment:
 
-- `session-environment` detects the SessionStart hook by the presence of an agent-session env var (`CLAUDE_SESSION_ID` / `CODEX_THREAD_ID`); a runtime that ships the hook under a different signal would need that signal added.
+- `session-environment` detects the SessionStart hook by the presence of an agent-session env var (`CLAUDE_SESSION_ID` / `CODEX_THREAD_ID`); a runtime that ships the hook under a different signal would need that signal added. A hook that ran but resolved no session id leaves those vars absent, so the probe reads it as not-applicable; `renderHookSessionStartEnvFile` always exports `CLAUDE_WORKTREE_CLAIMED`, which is the more reliable hook-ran signal to key `hookPresent` on.
 - `marketplace-install` reads `claude plugin marketplace list` and `claude plugin list` by substring over the marketplace name/source and the expected plugin names; a stricter offered-version comparison would parse each CLI's structured output.
 
 ## Remaining
