@@ -1,9 +1,112 @@
 /**
  * Permission merging with subsumption and conflict resolution
  */
+import { compareAsciiStrings } from "@/lib/state-store";
 import { parsePermission } from "./parser";
 import { removeSubsumed, subsumes } from "./subsumption";
-import type { ConsolidationResult, Permissions, PermissionsAdded } from "./types";
+import {
+  type ConsolidationResult,
+  PERMISSION_CATEGORY,
+  type PermissionCategory,
+  type Permissions,
+  type PermissionsAdded,
+} from "./types";
+
+const PERMISSION_CATEGORIES: readonly PermissionCategory[] = [
+  PERMISSION_CATEGORY.ALLOW,
+  PERMISSION_CATEGORY.DENY,
+  PERMISSION_CATEGORY.ASK,
+];
+
+// Combine global and local permissions per category, counting files that carried
+// at least one permission against those that carried none.
+function combinePermissions(
+  global: Permissions,
+  local: Permissions[],
+): { combined: Permissions; filesProcessed: number; filesSkipped: number } {
+  const combined: Permissions = {
+    allow: [...(global.allow || [])],
+    deny: [...(global.deny || [])],
+    ask: [...(global.ask || [])],
+  };
+
+  let filesProcessed = 0;
+  let filesSkipped = 0;
+
+  for (const localPerms of local) {
+    let hasPerms = false;
+    for (const category of PERMISSION_CATEGORIES) {
+      const values = localPerms[category];
+      if (values && values.length > 0) {
+        combined[category]?.push(...values);
+        hasPerms = true;
+      }
+    }
+    if (hasPerms) {
+      filesProcessed++;
+    } else {
+      filesSkipped++;
+    }
+  }
+
+  return { combined, filesProcessed, filesSkipped };
+}
+
+// Remove subsumed permissions per category, collecting every permission dropped.
+function applySubsumption(
+  combined: Permissions,
+): { afterSubsumption: Permissions; allSubsumed: string[] } {
+  const afterSubsumption: Permissions = {};
+  const allSubsumed: string[] = [];
+
+  for (const category of PERMISSION_CATEGORIES) {
+    const values = combined[category];
+    if (values && values.length > 0) {
+      const before = new Set(values);
+      const filtered = removeSubsumed(values, category);
+      const after = new Set(filtered);
+      for (const perm of before) {
+        if (!after.has(perm)) {
+          allSubsumed.push(perm);
+        }
+      }
+      afterSubsumption[category] = filtered;
+    } else {
+      afterSubsumption[category] = values;
+    }
+  }
+
+  return { afterSubsumption, allSubsumed };
+}
+
+// Deduplicate and sort each category's resolved permissions.
+function dedupeAndSort(resolved: Permissions): Permissions {
+  const merged: Permissions = {};
+  for (const category of PERMISSION_CATEGORIES) {
+    const values = resolved[category];
+    if (values && values.length > 0) {
+      merged[category] = Array.from(new Set(values)).sort(compareAsciiStrings);
+    }
+  }
+  return merged;
+}
+
+// Compute the permissions present in the merged result but absent from the
+// original global baseline.
+function computeAdded(
+  merged: Permissions,
+  originalGlobal: Record<PermissionCategory, Set<string>>,
+): PermissionsAdded {
+  const added: PermissionsAdded = { allow: [], deny: [], ask: [] };
+  for (const category of PERMISSION_CATEGORIES) {
+    for (const perm of merged[category] || []) {
+      if (!originalGlobal[category].has(perm)) {
+        added[category].push(perm);
+      }
+    }
+  }
+  return added;
+}
 
 /**
  * Merge permissions from global settings and multiple local settings files
@@ -37,93 +140,17 @@ export function mergePermissions(
   global: Permissions,
   local: Permissions[],
 ): { merged: Permissions; result: ConsolidationResult } {
-  // Track original global permissions for computing added
-  const originalGlobal = {
+  const originalGlobal: Record<PermissionCategory, Set<string>> = {
     allow: new Set(global.allow || []),
     deny: new Set(global.deny || []),
     ask: new Set(global.ask || []),
   };
 
   // Step 1: Combine all permissions by category
-  const combined: Permissions = {
-    allow: [...(global.allow || [])],
-    deny: [...(global.deny || [])],
-    ask: [...(global.ask || [])],
-  };
-
-  let filesProcessed = 0;
-  let filesSkipped = 0;
-
-  for (const localPerms of local) {
-    let hasPerms = false;
-
-    if (localPerms.allow && localPerms.allow.length > 0) {
-      combined.allow?.push(...localPerms.allow);
-      hasPerms = true;
-    }
-    if (localPerms.deny && localPerms.deny.length > 0) {
-      combined.deny?.push(...localPerms.deny);
-      hasPerms = true;
-    }
-    if (localPerms.ask && localPerms.ask.length > 0) {
-      combined.ask?.push(...localPerms.ask);
-      hasPerms = true;
-    }
-
-    if (hasPerms) {
-      filesProcessed++;
-    } else {
-      filesSkipped++;
-    }
-  }
+  const { combined, filesProcessed, filesSkipped } = combinePermissions(global, local);
 
   // Step 2: Apply subsumption to each category
-  const allSubsumed: string[] = [];
-
-  const afterSubsumption: Permissions = {};
-
-  if (combined.allow && combined.allow.length > 0) {
-    const before = new Set(combined.allow);
-    combined.allow = removeSubsumed(combined.allow, "allow");
-    const after = new Set(combined.allow);
-
-    // Track what was removed
-    for (const perm of before) {
-      if (!after.has(perm)) {
-        allSubsumed.push(perm);
-      }
-    }
-  }
-
-  if (combined.deny && combined.deny.length > 0) {
-    const before = new Set(combined.deny);
-    combined.deny = removeSubsumed(combined.deny, "deny");
-    const after = new Set(combined.deny);
-
-    // Track what was removed
-    for (const perm of before) {
-      if (!after.has(perm)) {
-        allSubsumed.push(perm);
-      }
-    }
-  }
-
-  if (combined.ask && combined.ask.length > 0) {
-    const before = new Set(combined.ask);
-    combined.ask = removeSubsumed(combined.ask, "ask");
-    const after = new Set(combined.ask);
-
-    // Track what was removed
-    for (const perm of before) {
-      if (!after.has(perm)) {
-        allSubsumed.push(perm);
-      }
-    }
-  }
-
-  afterSubsumption.allow = combined.allow;
-  afterSubsumption.deny = combined.deny;
-  afterSubsumption.ask = combined.ask;
+  const { afterSubsumption, allSubsumed } = applySubsumption(combined);
 
   // Step 3: Resolve conflicts (deny wins over allow)
   const {
@@ -136,46 +163,11 @@ export function mergePermissions(
   const subsumed = [...allSubsumed, ...conflictSubsumed];
 
   // Step 4: Deduplicate using Sets and sort
-  const merged: Permissions = {};
+  const merged = dedupeAndSort(resolved);
 
-  if (resolved.allow && resolved.allow.length > 0) {
-    merged.allow = Array.from(new Set(resolved.allow)).sort();
-  }
+  // Step 5: Compute what was added relative to the original global baseline
+  const added = computeAdded(merged, originalGlobal);
 
-  if (resolved.deny && resolved.deny.length > 0) {
-    merged.deny = Array.from(new Set(resolved.deny)).sort();
-  }
-
-  if (resolved.ask && resolved.ask.length > 0) {
-    merged.ask = Array.from(new Set(resolved.ask)).sort();
-  }
-
-  // Step 5: Compute what was added
-  const added: PermissionsAdded = {
-    allow: [],
-    deny: [],
-    ask: [],
-  };
-
-  for (const perm of merged.allow || []) {
-    if (!originalGlobal.allow.has(perm)) {
-      added.allow.push(perm);
-    }
-  }
-
-  for (const perm of merged.deny || []) {
-    if (!originalGlobal.deny.has(perm)) {
-      added.deny.push(perm);
-    }
-  }
-
-  for (const perm of merged.ask || []) {
-    if (!originalGlobal.ask.has(perm)) {
-      added.ask.push(perm);
-    }
-  }
-
-  // Build result
   const result: ConsolidationResult = {
     filesScanned: local.length,
     filesProcessed,
