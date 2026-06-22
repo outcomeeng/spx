@@ -15,18 +15,21 @@ import type { SessionStoreProbe, SessionStoreReading } from "@/domains/diagnose/
 import type { WorktreePoolProbe, WorktreePoolReading } from "@/domains/diagnose/checks/worktree-pool";
 import type { MarketplaceIdentity } from "@/domains/diagnose/manifest";
 import { AGENT_SESSION_ENV } from "@/domains/session/agent-session";
-import { readClaim } from "@/domains/worktree/occupancy-store";
+import { classifyOccupancy, OCCUPANCY_STATUS, readClaim } from "@/domains/worktree/occupancy-store";
 import { worktreeClaimName } from "@/domains/worktree/worktree-name";
 import { detectGitCommonDirProductRoot } from "@/git/root";
 import { findExecutableOnPath } from "@/lib/executable-on-path";
 import { worktreesScopeDir } from "@/lib/state-store";
 import { defaultOccupancyFileSystem } from "@/lib/worktree-occupancy-file-system";
+import { defaultProcessTable } from "@/lib/worktree-process-table";
 
 const OCCUPANCY_STALE = "stale";
 const OCCUPANCY_OCCUPIED = "occupied";
 const GIT = "git";
 const SPX = "spx";
 const WORKTREE_LINE_PREFIX = "worktree ";
+const BARE_MARKER = "bare";
+const PORCELAIN_BLOCK_SEPARATOR = "\n\n";
 
 interface Capture {
   readonly ok: boolean;
@@ -46,11 +49,17 @@ function resolveSpx(): string | null {
   return findExecutableOnPath(SPX);
 }
 
+/** The working-tree paths from `git worktree list --porcelain`, excluding the bare-repository entry. */
 function worktreePaths(porcelain: string): readonly string[] {
-  return porcelain
-    .split("\n")
-    .filter((line) => line.startsWith(WORKTREE_LINE_PREFIX))
-    .map((line) => line.slice(WORKTREE_LINE_PREFIX.length).trim());
+  const paths: string[] = [];
+  for (const block of porcelain.split(PORCELAIN_BLOCK_SEPARATOR)) {
+    const lines = block.split("\n");
+    const worktreeLine = lines.find((line) => line.startsWith(WORKTREE_LINE_PREFIX));
+    if (worktreeLine === undefined) continue;
+    if (lines.some((line) => line.trim() === BARE_MARKER)) continue;
+    paths.push(worktreeLine.slice(WORKTREE_LINE_PREFIX.length).trim());
+  }
+  return paths;
 }
 
 /** Resolves the worktree layout from git plus the per-worktree `spx worktree status` occupancy. */
@@ -75,7 +84,8 @@ export const defaultWorktreePoolProbe: WorktreePoolProbe = {
     if (spx !== null) {
       for (const path of paths) {
         const status = await runCapture(spx, ["worktree", "status", path]);
-        if (status.ok && status.stdout.includes(OCCUPANCY_STALE)) {
+        if (!status.ok) return errored;
+        if (status.stdout.includes(OCCUPANCY_STALE)) {
           staleClaim = true;
           break;
         }
@@ -125,7 +135,11 @@ async function claimedSessionIds(): Promise<ReadonlySet<string> | null> {
   const sessionIds = new Set<string>();
   for (const path of worktreePaths(layout.stdout)) {
     const claim = await readClaim(worktreesDir, worktreeClaimName(path), { fs: defaultOccupancyFileSystem });
-    if (claim.ok && claim.value !== undefined) sessionIds.add(claim.value.sessionId);
+    if (!claim.ok || claim.value === undefined) continue;
+    // Only a live (occupied) claim backs a doing session; a stale claim leaves it orphaned.
+    if (classifyOccupancy(claim.value, defaultProcessTable) === OCCUPANCY_STATUS.OCCUPIED) {
+      sessionIds.add(claim.value.sessionId);
+    }
   }
   return sessionIds;
 }
