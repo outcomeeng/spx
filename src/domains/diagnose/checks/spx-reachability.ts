@@ -67,7 +67,9 @@ function comparePrereleaseIdentifier(left: string, right: string): number {
   if (leftNumeric && rightNumeric) return Number(left) - Number(right);
   if (leftNumeric) return -1;
   if (rightNumeric) return 1;
-  return left < right ? -1 : left > right ? 1 : 0;
+  if (left < right) return -1;
+  if (left > right) return 1;
+  return 0;
 }
 
 /** Compares two prerelease tags by semver §11; a larger set of identifiers outranks a smaller equal prefix. */
