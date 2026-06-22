@@ -16,6 +16,7 @@ import type { SessionEnvironmentProbe, SessionEnvironmentReading } from "@/domai
 import type { SessionStoreProbe, SessionStoreReading } from "@/domains/diagnose/checks/session-store";
 import type { WorktreePoolProbe, WorktreePoolReading } from "@/domains/diagnose/checks/worktree-pool";
 import type { MarketplaceIdentity } from "@/domains/diagnose/manifest";
+import { HOOK_SESSION_START_ENV } from "@/domains/hooks/session-start";
 import { AGENT_SESSION_ENV, resolveAgentSessionId } from "@/domains/session/agent-session";
 import type { SessionRecord } from "@/domains/session/list";
 import {
@@ -105,7 +106,11 @@ export const defaultWorktreePoolProbe: WorktreePoolProbe = {
 /** Resolves the session-environment reading from the agent-session env vars and the worktree-claim round-trip. */
 export const defaultSessionEnvironmentProbe: SessionEnvironmentProbe = {
   async probe(): Promise<SessionEnvironmentReading> {
-    const hookPresent = AGENT_SESSION_ENV.CLAUDE_SESSION_ID in process.env
+    // Key hook-presence on CLAUDE_WORKTREE_CLAIMED — the hook always exports it,
+    // even when it resolves no session id, so a hook that ran but established
+    // nothing reads as silent-no-op rather than not-applicable. The Codex arm
+    // keys on its identity var until a CODEX_WORKTREE_CLAIMED equivalent exists.
+    const hookPresent = HOOK_SESSION_START_ENV.CLAUDE_WORKTREE_CLAIMED in process.env
       || AGENT_SESSION_ENV.CODEX_THREAD_ID in process.env;
     const sessionIdentity = resolveAgentSessionId(process.env) !== undefined;
 
