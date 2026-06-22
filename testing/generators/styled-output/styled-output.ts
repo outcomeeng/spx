@@ -19,7 +19,7 @@ import {
 
 /** Printable-ASCII text with no control, ESC, or whitespace bytes that would confuse ANSI stripping or line joins. */
 const arbitrarySafeText = (): fc.Arbitrary<string> =>
-  fc.string({ minLength: 1, maxLength: 24 }).map((value) => value.replace(/[^!-~]/g, "x"));
+  fc.string({ minLength: 1, maxLength: 24 }).map((value) => value.replaceAll(/[^!-~]/g, "x"));
 
 /** A severity drawn from the production registry. */
 const arbitrarySeverity = (): fc.Arbitrary<Severity> => fc.constantFrom(...Object.values(SEVERITY));

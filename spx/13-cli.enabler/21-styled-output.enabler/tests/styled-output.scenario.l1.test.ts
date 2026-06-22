@@ -22,9 +22,11 @@ describe("a styled report renders bold headers, dim tree-indented detail, and a 
     ).split("\n");
 
     const okStyle = SEVERITY_STYLE[SEVERITY.OK];
+    const firstDetailText = `${DETAIL_TEE} ${section.details[0]}`;
+    const lastDetailText = `${DETAIL_ELBOW} ${section.details[1]}`;
     expect(headerLine).toBe(`${chalk[okStyle.style](okStyle.glyph)} ${chalk.bold(section.header)}`);
-    expect(firstDetail).toBe(`${DETAIL_INDENT}${chalk.dim(`${DETAIL_TEE} ${section.details[0]}`)}`);
-    expect(lastDetail).toBe(`${DETAIL_INDENT}${chalk.dim(`${DETAIL_ELBOW} ${section.details[1]}`)}`);
+    expect(firstDetail).toBe(`${DETAIL_INDENT}${chalk.dim(firstDetailText)}`);
+    expect(lastDetail).toBe(`${DETAIL_INDENT}${chalk.dim(lastDetailText)}`);
     expect(summaryLine).toBe(chalk.bold(chalk[SEVERITY_STYLE[SEVERITY.ERROR].style](summary.text)));
   });
 });

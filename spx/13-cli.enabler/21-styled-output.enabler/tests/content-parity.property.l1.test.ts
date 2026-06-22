@@ -6,9 +6,9 @@ import { arbitraryStyledReportModel } from "@testing/generators/styled-output/st
 
 // The ANSI escape (ESC) code point; built here to avoid an invisible control byte in source.
 const escCharCode = 27;
-const ansiEscape = String.fromCharCode(escCharCode);
-const ansiSequence = new RegExp(`${ansiEscape}\\[[0-9;]*m`, "g");
-const stripAnsi = (value: string): string => value.replace(ansiSequence, "");
+const ansiEscape = String.fromCodePoint(escCharCode);
+const ansiSequence = new RegExp(String.raw`${ansiEscape}\[[0-9;]*m`, "g");
+const stripAnsi = (value: string): string => value.replaceAll(ansiSequence, "");
 
 describe("styling never changes content", () => {
   it("renders identical content with and without color, differing only by ANSI", () => {

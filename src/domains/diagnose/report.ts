@@ -8,8 +8,13 @@
  * @module domains/diagnose/report
  */
 
-import { OVERALL_VERDICT, type OverallVerdict, VERDICT_BUCKET, type VerdictBucket } from "@/domains/diagnose/types";
-import type { DiagnoseReport } from "@/domains/diagnose/types";
+import {
+  type DiagnoseReport,
+  OVERALL_VERDICT,
+  type OverallVerdict,
+  VERDICT_BUCKET,
+  type VerdictBucket,
+} from "@/domains/diagnose/types";
 import {
   renderStyledReport,
   SEVERITY,
