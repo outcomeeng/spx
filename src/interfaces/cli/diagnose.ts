@@ -32,8 +32,8 @@ const DEFAULT_REGISTRY: CheckRegistry = {
 };
 
 function handleError(error: string): never {
-  // The error can embed user-supplied bytes — the manifest path and manifest-named
-  // checks — so sanitize before the diagnostic echo per spx/13-cli.enabler/cli.md.
+  // Sanitize before echoing: the error embeds user-supplied manifest path and
+  // check-name bytes.
   console.error("Error:", sanitizeCliArgument(error));
   process.exit(1);
 }
