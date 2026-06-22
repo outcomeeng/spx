@@ -78,7 +78,7 @@ export const defaultWorktreePoolProbe: WorktreePoolProbe = {
       staleClaim: false,
     };
     const facts = await gatherGitFacts();
-    if (facts === null || !facts.worktreeListRead) return errored;
+    if (!facts?.worktreeListRead) return errored;
 
     const bareRepository = facts.commonDirIsBare;
     const paths = facts.worktreeRoots;
@@ -136,7 +136,7 @@ async function claimedSessionIds(): Promise<ReadonlySet<string> | null> {
   if (!root.isGitRepo) return null;
   const worktreesDir = worktreesScopeDir(root.productDir);
   const facts = await gatherGitFacts();
-  if (facts === null || !facts.worktreeListRead) return null;
+  if (!facts?.worktreeListRead) return null;
 
   const sessionIds = new Set<string>();
   for (const path of facts.worktreeRoots) {
