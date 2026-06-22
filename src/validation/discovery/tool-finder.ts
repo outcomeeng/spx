@@ -12,6 +12,8 @@ import { createRequire } from "node:module";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 
+import { findExecutableOnPath } from "@/lib/executable-on-path";
+
 import { TOOL_DISCOVERY, type ToolSource } from "./constants";
 
 /**
@@ -81,52 +83,6 @@ export interface ToolDiscoveryDeps {
 const require = createRequire(import.meta.url);
 const FILE_URL_PROTOCOL = new URL(import.meta.url).protocol;
 const PACKAGE_MANIFEST_FILENAME = "package.json";
-const PATH_ENVIRONMENT_VARIABLE = "PATH";
-const WINDOWS_EXECUTABLE_EXTENSIONS_VARIABLE = "PATHEXT";
-const WINDOWS_DEFAULT_EXECUTABLE_EXTENSIONS = [".COM", ".EXE", ".BAT", ".CMD"] as const;
-
-function executableExtensions(): readonly string[] {
-  if (process.platform !== "win32") {
-    return [""];
-  }
-  const pathExtensions = process.env[WINDOWS_EXECUTABLE_EXTENSIONS_VARIABLE]?.split(path.delimiter).filter(Boolean);
-  return pathExtensions && pathExtensions.length > 0 ? pathExtensions : WINDOWS_DEFAULT_EXECUTABLE_EXTENSIONS;
-}
-
-function executableCandidateNames(tool: string): readonly string[] {
-  if (process.platform !== "win32" || path.extname(tool) !== "") {
-    return [tool];
-  }
-  return executableExtensions().map((extension) => `${tool}${extension}`);
-}
-
-function isExecutableFile(filePath: string): boolean {
-  try {
-    fs.accessSync(filePath, fs.constants.X_OK);
-    return true;
-  } catch {
-    return false;
-  }
-}
-
-function findExecutableOnPath(tool: string): string | null {
-  const pathValue = process.env[PATH_ENVIRONMENT_VARIABLE];
-  if (!pathValue) {
-    return null;
-  }
-  for (const directory of pathValue.split(path.delimiter)) {
-    if (!directory) {
-      continue;
-    }
-    for (const candidateName of executableCandidateNames(tool)) {
-      const candidatePath = path.join(directory, candidateName);
-      if (isExecutableFile(candidatePath)) {
-        return candidatePath;
-      }
-    }
-  }
-  return null;
-}
 
 /**
  * Default production dependencies for tool discovery.
