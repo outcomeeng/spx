@@ -31,7 +31,7 @@ export interface MarketplaceInstallReading {
   readonly surfacePresent: boolean;
   /** True when a present surface lacks the marketplace registration. */
   readonly unregistered: boolean;
-  /** True when a registered surface has a plugin missing, disabled, or below the offered version. */
+  /** True when a registered surface has an expected plugin missing or installed but disabled. */
   readonly drifted: boolean;
 }
 
@@ -41,9 +41,9 @@ export interface MarketplaceInstallProbe {
 }
 
 const REMEDIATION: Readonly<Record<MarketplaceInstallVerdict, string>> = {
-  [MARKETPLACE_INSTALL_VERDICT.INSTALLED]: "Marketplace and plugins are installed and current; no action needed.",
-  [MARKETPLACE_INSTALL_VERDICT.DRIFTED]:
-    "Install, enable, or update the expected plugins to the offered version on the drifted surface.",
+  [MARKETPLACE_INSTALL_VERDICT.INSTALLED]:
+    "Marketplace and expected plugins are installed and enabled; no action needed.",
+  [MARKETPLACE_INSTALL_VERDICT.DRIFTED]: "Install or enable the expected plugins on the drifted surface.",
   [MARKETPLACE_INSTALL_VERDICT.UNREGISTERED]: "Register the methodology marketplace on the present plugin surface.",
   [MARKETPLACE_INSTALL_VERDICT.NOT_APPLICABLE]: "No plugin CLI surface present; no action needed.",
   [MARKETPLACE_INSTALL_VERDICT.UNKNOWN]: "Re-run diagnose; if it persists, inspect the claude/codex plugin CLI output.",
