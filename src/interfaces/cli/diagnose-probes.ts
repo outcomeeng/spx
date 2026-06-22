@@ -8,7 +8,6 @@
  */
 
 import { execa } from "execa";
-import { basename } from "node:path";
 
 import type { MarketplaceInstallProbe, MarketplaceInstallReading } from "@/domains/diagnose/checks/marketplace-install";
 import type { SessionEnvironmentProbe, SessionEnvironmentReading } from "@/domains/diagnose/checks/session-environment";
@@ -17,6 +16,7 @@ import type { WorktreePoolProbe, WorktreePoolReading } from "@/domains/diagnose/
 import type { MarketplaceIdentity } from "@/domains/diagnose/manifest";
 import { AGENT_SESSION_ENV } from "@/domains/session/agent-session";
 import { readClaim } from "@/domains/worktree/occupancy-store";
+import { worktreeClaimName } from "@/domains/worktree/worktree-name";
 import { detectGitCommonDirProductRoot } from "@/git/root";
 import { findExecutableOnPath } from "@/lib/executable-on-path";
 import { worktreesScopeDir } from "@/lib/state-store";
@@ -124,7 +124,7 @@ async function claimedSessionIds(): Promise<ReadonlySet<string> | null> {
 
   const sessionIds = new Set<string>();
   for (const path of worktreePaths(layout.stdout)) {
-    const claim = await readClaim(worktreesDir, basename(path), { fs: defaultOccupancyFileSystem });
+    const claim = await readClaim(worktreesDir, worktreeClaimName(path), { fs: defaultOccupancyFileSystem });
     if (claim.ok && claim.value !== undefined) sessionIds.add(claim.value.sessionId);
   }
   return sessionIds;
