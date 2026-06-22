@@ -6,9 +6,9 @@
  */
 
 import { findSettingsFiles, isValidSettingsFile } from "@/lib/claude/permissions/discovery";
-import { mkdir, rm, symlink, writeFile } from "fs/promises";
-import { tmpdir } from "os";
-import { join } from "path";
+import { mkdir, rm, symlink, writeFile } from "node:fs/promises";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
 import { describe, expect, test } from "vitest";
 
 // ============================================================================
@@ -280,14 +280,14 @@ describe("findSettingsFiles", () => {
     await mkdir(unreadableDir);
 
     // Make directory unreadable (mode 000)
-    await import("fs/promises").then((fs) => fs.chmod(unreadableDir, 0o000));
+    await import("node:fs/promises").then((fs) => fs.chmod(unreadableDir, 0o000));
 
     try {
       // Should throw permission denied error
       await expect(findSettingsFiles(unreadableDir)).rejects.toThrow("Permission denied");
     } finally {
-      // Restore permissions before cleanup
-      await import("fs/promises").then((fs) => fs.chmod(unreadableDir, 0o755));
+      // Restore owner-only permissions before cleanup — rm needs owner rwx, not world access
+      await import("node:fs/promises").then((fs) => fs.chmod(unreadableDir, 0o700));
       await rm(testDir, { recursive: true });
     }
   });

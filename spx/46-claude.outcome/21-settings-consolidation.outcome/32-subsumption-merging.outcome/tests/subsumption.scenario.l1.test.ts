@@ -14,155 +14,70 @@ import { describe, expect, test } from "vitest";
 // ============================================================================
 
 describe("parseScopePattern", () => {
-  test("detects command patterns", () => {
-    const result = parseScopePattern("git:*");
-    expect(result.type).toBe("command");
-    expect(result.pattern).toBe("git:*");
-  });
-
-  test("detects file_path patterns", () => {
-    const result = parseScopePattern("file_path:/Users/user/Code/**");
-    expect(result.type).toBe("path");
-    expect(result.pattern).toBe("/Users/user/Code/**");
-  });
-
-  test("detects directory_path patterns", () => {
-    const result = parseScopePattern("directory_path:/tmp/**");
-    expect(result.type).toBe("path");
-    expect(result.pattern).toBe("/tmp/**");
-  });
-
-  test("detects path: patterns", () => {
-    const result = parseScopePattern("path:/var/log/**");
-    expect(result.type).toBe("path");
-    expect(result.pattern).toBe("/var/log/**");
-  });
-
-  test("defaults to command pattern for non-path scopes", () => {
-    const result = parseScopePattern("domain:github.com");
-    expect(result.type).toBe("command");
-    expect(result.pattern).toBe("domain:github.com");
+  test.each([
+    ["git:*", "command", "git:*"],
+    ["file_path:/Users/user/Code/**", "path", "/Users/user/Code/**"],
+    ["directory_path:/srv/data/**", "path", "/srv/data/**"],
+    ["path:/var/log/**", "path", "/var/log/**"],
+    ["domain:github.com", "command", "domain:github.com"],
+  ])("parses %s as type %s with pattern %s", (scope, type, pattern) => {
+    const result = parseScopePattern(scope);
+    expect(result.type).toBe(type);
+    expect(result.pattern).toBe(pattern);
   });
 });
 
 // ============================================================================
-// subsumes() - Command Patterns
+// subsumes() Tests
 // ============================================================================
 
-describe("subsumes - Command Patterns", () => {
-  test("Bash(git:*) subsumes Bash(git log:*)", () => {
-    const broader = parsePermission("Bash(git:*)", "allow");
-    const narrower = parsePermission("Bash(git log:*)", "allow");
+describe("subsumes", () => {
+  test.each([
+    ["Bash(git:*)", "Bash(git log:*)"],
+    ["Bash(git:*)", "Bash(git worktree:*)"],
+    ["Bash(npm:*)", "Bash(npm install:*)"],
+    ["Bash(ls)", "Bash(ls -la)"],
+    ["Read(file_path:/Users/user/Code/**)", "Read(file_path:/Users/user/Code/project-a/**)"],
+    ["Read(file_path:/Users/user/**)", "Read(file_path:/Users/user/Code/project-a/**)"],
+  ])("%s subsumes %s", (broader, narrower) => {
+    const broaderPermission = parsePermission(broader, "allow");
+    const narrowerPermission = parsePermission(narrower, "allow");
 
-    expect(subsumes(broader, narrower)).toBe(true);
+    expect(subsumes(broaderPermission, narrowerPermission)).toBe(true);
   });
 
-  test("Bash(git:*) subsumes Bash(git worktree:*)", () => {
-    const broader = parsePermission("Bash(git:*)", "allow");
-    const narrower = parsePermission("Bash(git worktree:*)", "allow");
+  test.each([
+    ["Bash(npm:*)", "Bash(git:*)"],
+    ["Read(file_path:/Users/user/Code/**)", "Read(file_path:/Users/other/**)"],
+    ["Read(file_path:/Users/user/project-a/**)", "Read(file_path:/Users/user/project-b/**)"],
+  ])("%s and %s do not subsume each other", (rawA, rawB) => {
+    const permissionA = parsePermission(rawA, "allow");
+    const permissionB = parsePermission(rawB, "allow");
 
-    expect(subsumes(broader, narrower)).toBe(true);
+    expect(subsumes(permissionA, permissionB)).toBe(false);
+    expect(subsumes(permissionB, permissionA)).toBe(false);
   });
 
-  test("Bash(npm:*) does NOT subsume Bash(git:*) (different prefixes)", () => {
-    const permA = parsePermission("Bash(npm:*)", "allow");
-    const permB = parsePermission("Bash(git:*)", "allow");
+  // One command-type and one path-type permission, so identity is exercised for both scope kinds.
+  test.each([
+    "Bash(git:*)",
+    "Read(file_path:/srv/data/**)",
+  ])("%s does not subsume itself", (raw) => {
+    const permission = parsePermission(raw, "allow");
 
-    expect(subsumes(permA, permB)).toBe(false);
-    expect(subsumes(permB, permA)).toBe(false);
+    expect(subsumes(permission, permission)).toBe(false);
   });
 
-  test("Bash(git:*) does NOT subsume Bash(git:*) (identical)", () => {
-    const perm = parsePermission("Bash(git:*)", "allow");
+  test.each([
+    ["Bash(git:*)", "Read(file_path:/Users/user/Code/**)"],
+    ["Read(file_path:/srv/data/**)", "WebFetch(domain:github.com)"],
+    ["WebFetch(domain:github.com)", "Bash(curl:*)"],
+  ])("%s and %s do not subsume across types", (rawA, rawB) => {
+    const permissionA = parsePermission(rawA, "allow");
+    const permissionB = parsePermission(rawB, "allow");
 
-    expect(subsumes(perm, perm)).toBe(false);
-  });
-
-  test("Bash(npm:*) subsumes Bash(npm install:*)", () => {
-    const broader = parsePermission("Bash(npm:*)", "allow");
-    const narrower = parsePermission("Bash(npm install:*)", "allow");
-
-    expect(subsumes(broader, narrower)).toBe(true);
-  });
-
-  test("Command without :* suffix", () => {
-    const broader = parsePermission("Bash(ls)", "allow");
-    const narrower = parsePermission("Bash(ls -la)", "allow");
-
-    // "ls" should subsume "ls -la"
-    expect(subsumes(broader, narrower)).toBe(true);
-  });
-});
-
-// ============================================================================
-// subsumes() - Path Patterns
-// ============================================================================
-
-describe("subsumes - Path Patterns", () => {
-  test("Read(file_path:/Users/user/Code/**) subsumes Read(file_path:/Users/user/Code/project-a/**)", () => {
-    const broader = parsePermission("Read(file_path:/Users/user/Code/**)", "allow");
-    const narrower = parsePermission("Read(file_path:/Users/user/Code/project-a/**)", "allow");
-
-    expect(subsumes(broader, narrower)).toBe(true);
-  });
-
-  test("Read(file_path:/Users/user/**) subsumes Read(file_path:/Users/user/Code/project-a/**)", () => {
-    const broader = parsePermission("Read(file_path:/Users/user/**)", "allow");
-    const narrower = parsePermission("Read(file_path:/Users/user/Code/project-a/**)", "allow");
-
-    expect(subsumes(broader, narrower)).toBe(true);
-  });
-
-  test("Read(file_path:/Users/user/Code/**) does NOT subsume Read(file_path:/Users/other/**)", () => {
-    const permA = parsePermission("Read(file_path:/Users/user/Code/**)", "allow");
-    const permB = parsePermission("Read(file_path:/Users/other/**)", "allow");
-
-    expect(subsumes(permA, permB)).toBe(false);
-    expect(subsumes(permB, permA)).toBe(false);
-  });
-
-  test("Read(file_path:/tmp/**) does NOT subsume Read(file_path:/tmp/**) (identical)", () => {
-    const perm = parsePermission("Read(file_path:/tmp/**)", "allow");
-
-    expect(subsumes(perm, perm)).toBe(false);
-  });
-
-  test("Sibling paths do not subsume each other", () => {
-    const permA = parsePermission("Read(file_path:/Users/user/project-a/**)", "allow");
-    const permB = parsePermission("Read(file_path:/Users/user/project-b/**)", "allow");
-
-    expect(subsumes(permA, permB)).toBe(false);
-    expect(subsumes(permB, permA)).toBe(false);
-  });
-});
-
-// ============================================================================
-// subsumes() - Cross-Type (Must Not Subsume)
-// ============================================================================
-
-describe("subsumes - Cross-Type", () => {
-  test("Bash does NOT subsume Read", () => {
-    const bash = parsePermission("Bash(git:*)", "allow");
-    const read = parsePermission("Read(file_path:/Users/user/Code/**)", "allow");
-
-    expect(subsumes(bash, read)).toBe(false);
-    expect(subsumes(read, bash)).toBe(false);
-  });
-
-  test("Read does NOT subsume WebFetch", () => {
-    const read = parsePermission("Read(file_path:/tmp/**)", "allow");
-    const webFetch = parsePermission("WebFetch(domain:github.com)", "allow");
-
-    expect(subsumes(read, webFetch)).toBe(false);
-    expect(subsumes(webFetch, read)).toBe(false);
-  });
-
-  test("WebFetch does NOT subsume Bash", () => {
-    const webFetch = parsePermission("WebFetch(domain:github.com)", "allow");
-    const bash = parsePermission("Bash(curl:*)", "allow");
-
-    expect(subsumes(webFetch, bash)).toBe(false);
-    expect(subsumes(bash, webFetch)).toBe(false);
+    expect(subsumes(permissionA, permissionB)).toBe(false);
+    expect(subsumes(permissionB, permissionA)).toBe(false);
   });
 });
 
@@ -209,7 +124,7 @@ describe("detectSubsumptions", () => {
     const permissions = [
       parsePermission("Bash(git:*)", "allow"),
       parsePermission("Bash(npm:*)", "allow"),
-      parsePermission("Read(file_path:/tmp/**)", "allow"),
+      parsePermission("Read(file_path:/srv/data/**)", "allow"),
     ];
 
     const results = detectSubsumptions(permissions);
@@ -291,7 +206,7 @@ describe("removeSubsumed", () => {
   });
 
   test("returns all permissions when no subsumptions exist", () => {
-    const permissions = ["Bash(git:*)", "Bash(npm:*)", "Read(file_path:/tmp/**)"];
+    const permissions = ["Bash(git:*)", "Bash(npm:*)", "Read(file_path:/srv/data/**)"];
 
     const result = removeSubsumed(permissions, "allow");
 
@@ -326,7 +241,7 @@ describe("removeSubsumed", () => {
   });
 
   test("preserves order of non-subsumed permissions", () => {
-    const permissions = ["Bash(npm:*)", "Bash(git:*)", "Read(file_path:/tmp/**)"];
+    const permissions = ["Bash(npm:*)", "Bash(git:*)", "Read(file_path:/srv/data/**)"];
 
     const result = removeSubsumed(permissions, "allow");
 
