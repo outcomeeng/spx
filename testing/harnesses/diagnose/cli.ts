@@ -12,7 +12,7 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 
 import { CHECK_NAME } from "@/domains/diagnose/manifest";
-import { arbitrarySpxFloor } from "@testing/generators/diagnose/manifest";
+import { arbitraryManifestFacts, arbitrarySpxFloor, manifestJson } from "@testing/generators/diagnose/manifest";
 
 async function diagnoseTempDir(): Promise<string> {
   return mkdtemp(join(tmpdir(), "diagnose-cli-"));
@@ -24,6 +24,15 @@ export async function writeSpxReachabilityManifest(): Promise<string> {
   const dir = await diagnoseTempDir();
   const manifestPath = join(dir, "diagnose.json");
   await writeFile(manifestPath, JSON.stringify({ checks: [CHECK_NAME.SPX_REACHABILITY], spx_floor: floor }));
+  return manifestPath;
+}
+
+/** Writes a manifest selecting every known check, with the consumer facts each check requires. */
+export async function writeAllChecksManifest(): Promise<string> {
+  const [facts] = fc.sample(arbitraryManifestFacts(), { numRuns: 1, seed: 7 });
+  const dir = await diagnoseTempDir();
+  const manifestPath = join(dir, "diagnose.json");
+  await writeFile(manifestPath, manifestJson({ ...facts, checks: Object.values(CHECK_NAME) }));
   return manifestPath;
 }
 
