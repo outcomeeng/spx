@@ -181,12 +181,39 @@ exiting non-zero.
 Observable path:
 
 ```bash
-spx test passing --changed --base origin/main
+spx test passing --changed [--base <ref>]
 ```
 
-This slice should map changed files to affected nodes and test files. It may
-integrate runner-specific related-test support, such as Vitest `--related`, only
-through the selected adapter's declared capability.
+`--changed` selects the tests affected by the branch's changes against a base
+ref. Settled design for this slice:
+
+- **Base default.** `--base` defaults to `origin/<default-branch>`, resolved
+  through the existing git/base-ref abstractions (the same `origin/HEAD`
+  resolution `sync-base` and the changeset-scope primitives use); `--changed`
+  alone means `--changed --base origin/<default-branch>`.
+- **Changed-file → test mapping.** A changed spec or test under `spx/<node>/`
+  selects that node's `tests/` directly (pure path math). A changed source file
+  has no path relation to the tests that exercise it, so it routes through each
+  language adapter's registry-declared related-test capability (TypeScript via
+  Vitest `--related`; a language whose adapter declares none contributes nothing
+  from its changed source files, and that degradation is reported, never silently
+  dropped). The planner names no language — it reaches each through
+  `src/test/registry.ts` per `../19-language-registration.adr.md`.
+- **Pipeline reuse.** The resolved set feeds the existing
+  `90-targeted-execution.enabler` resolver → dispatch → passing-scope → last-run
+  recording pipeline unchanged; `--changed` is another operand source beside the
+  explicit operands.
+- **No special-node handling.** There is no list of "expensive" nodes and no
+  precommit-ownership rule; selection is uniform across every node.
+- **Evidence.** One top-level `l2` scenario exercising the real command against a
+  real repository and runner, trusting the proven git abstractions and targeted
+  pipeline beneath it.
+
+Compose this as a new enabler under `spx/41-test.enabler`, indexed above
+`90-targeted-execution.enabler` (which it consumes), with a resolution ADR
+covering the base-ref default, the changed-path partition, and the per-language
+adapter related-test capability contract. Route: `/decompose` → `/author` →
+`/apply`.
 
 ### Slice 4: CI Environment
 
