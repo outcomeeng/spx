@@ -263,7 +263,7 @@ The recording-runner harness-governance batch governs the testing recording-runn
 - `testing/generators/testing/run-state.ts` → `spx/41-test.enabler/43-last-run-evidence.enabler/15-test-state-generator.enabler`
 - `testing/harnesses/testing/python-runner.ts`, `testing/generators/testing/python-runner.ts`, `testing/harnesses/testing/python-product-inputs.ts` → `spx/41-test.enabler/21-python-test.enabler/32-test-harness.enabler`
 - `testing/harnesses/testing/typescript-runner.ts`, `testing/generators/testing/typescript-runner.ts` → `spx/41-test.enabler/21-typescript-test.enabler/32-test-harness.enabler`
-- `testing/harnesses/testing/harness.ts`, `testing/harnesses/testing/cli.ts`, `testing/generators/testing/dispatch.ts` → `spx/41-test.enabler/26-test-harness.enabler` (dispatch operand semantics stay governed by `spx/41-test.enabler/90-targeted-execution.enabler`, not restated)
+- `testing/harnesses/testing/harness.ts`, `testing/harnesses/testing/cli.ts`, `testing/generators/testing/dispatch.ts`, `testing/harnesses/testing/recording-command-runner.ts` (the shared recording-runner contract assertion lifted from the per-language harness tests) → `spx/41-test.enabler/26-test-harness.enabler` (dispatch operand semantics stay governed by `spx/41-test.enabler/90-targeted-execution.enabler`, not restated)
 
 Learnings (carry to the remaining `spx/PLAN.md` harness-governance batches):
 
