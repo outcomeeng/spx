@@ -6,7 +6,7 @@ CAN publish a rendered result to where consumers watch for it — a local surfac
 
 ### Mappings
 
-- The environment maps to the delivery backend: an unset selector outside continuous integration, or the local selector, binds the local backend; a continuous-integration run targeting a GitHub pull request, or an explicit backend selector, binds that backend; an unrecognized selector is rejected naming the value and the registered backends ([test](tests/backend-selection.mapping.l1.test.ts))
+- The environment maps to the delivery backend: an unset selector on a run that is not a continuous-integration GitHub pull request, or the local selector, binds the local backend; a continuous-integration run targeting a GitHub pull request binds the hosted backend; an explicit backend selector binds the backend it names; an unrecognized selector is rejected naming the value and the registered backends ([test](tests/backend-selection.mapping.l1.test.ts))
 
 ### Conformance
 
@@ -14,7 +14,7 @@ CAN publish a rendered result to where consumers watch for it — a local surfac
 
 ### Compliance
 
-- ALWAYS: a delivery resolves the backend from the environment and routes the body through the backend's injected client ([test](tests/backend-resolution.compliance.l1.test.ts))
+- ALWAYS: a delivery resolves the backend from the environment and routes the body through the injected backend ([test](tests/backend-resolution.compliance.l1.test.ts))
 - ALWAYS: a first delivery for a marker creates the backend surface, and a later delivery for that marker updates it in place ([test](tests/upsert.compliance.l1.test.ts))
-- NEVER: the library holds a backend API or CLI call of its own — backend I/O routes through the injected client ([audit])
+- NEVER: the library holds a backend API or CLI call of its own — backend I/O routes through the injected backend ([audit])
 - NEVER: the library references a verification type or result kind — the body and marker are opaque ([audit])
