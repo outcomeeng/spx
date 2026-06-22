@@ -26,12 +26,15 @@ import { CHECK_NAME } from "@/domains/diagnose/manifest";
 import { DIAGNOSE_FORMAT, type DiagnoseFormat } from "@/domains/diagnose/report";
 import type { Domain } from "@/domains/types";
 import { sanitizeCliArgument } from "@/lib/sanitize-cli-argument";
+import { resolveColorChoice } from "@/lib/styled-output/styled-output";
 
 /** Source-owned `spx diagnose` command and flag vocabulary, shared with the CLI tests. */
 export const DIAGNOSE_CLI = {
   COMMAND: "diagnose",
   MANIFEST_FLAG: "--manifest",
   FORMAT_FLAG: "--format",
+  COLOR_FLAG: "--color",
+  NO_COLOR_FLAG: "--no-color",
 } as const;
 
 const DIAGNOSE_DOMAIN_DESCRIPTION = "Run deterministic environment-diagnostics checks from a declarative manifest";
@@ -68,10 +71,17 @@ export const diagnoseDomain: Domain = {
           .choices([DIAGNOSE_FORMAT.TEXT, DIAGNOSE_FORMAT.JSON])
           .default(DIAGNOSE_FORMAT.TEXT),
       )
-      .action(async (options: { manifest: string; format: DiagnoseFormat }) => {
+      .addOption(new Option(`${DIAGNOSE_CLI.COLOR_FLAG}`, "Force colored output"))
+      .addOption(new Option(`${DIAGNOSE_CLI.NO_COLOR_FLAG}`, "Disable colored output"))
+      .action(async (options: { manifest: string; format: DiagnoseFormat; color?: boolean }) => {
         const result = await diagnoseCommand({
           manifestPath: options.manifest,
           format: options.format,
+          color: resolveColorChoice({
+            flag: options.color,
+            noColor: process.env.NO_COLOR,
+            isTty: Boolean(process.stdout.isTTY),
+          }),
           registry: DEFAULT_REGISTRY,
           fs: { readFile: (path) => readFile(path, "utf8") },
         });
