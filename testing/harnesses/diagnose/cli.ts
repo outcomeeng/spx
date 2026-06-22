@@ -32,3 +32,11 @@ export async function absentManifestPath(infix: string): Promise<string> {
   const dir = await diagnoseTempDir();
   return join(dir, `manifest${infix}.json`);
 }
+
+/** Writes a manifest whose check set is the single given name to a fresh temp dir and returns its path. */
+export async function writeManifestNamingCheck(checkName: string): Promise<string> {
+  const dir = await diagnoseTempDir();
+  const manifestPath = join(dir, "diagnose.json");
+  await writeFile(manifestPath, JSON.stringify({ checks: [checkName] }));
+  return manifestPath;
+}
