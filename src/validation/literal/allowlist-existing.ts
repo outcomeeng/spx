@@ -1,3 +1,4 @@
+import { randomBytes } from "node:crypto";
 import { rename, writeFile } from "node:fs/promises";
 import { dirname, join } from "node:path";
 
@@ -18,6 +19,7 @@ import {
   VALIDATION_SECTION,
 } from "@/validation/config/descriptor";
 
+import { compareAsciiStrings } from "@/lib/state-store";
 import { type LiteralConfig, literalConfigDescriptor } from "./config";
 import { validateLiteralReuse } from "./index";
 
@@ -51,9 +53,7 @@ const ALLOWLIST_INCLUDE_PATH = [
 ] as const;
 const TEMP_FILE_PREFIX = ".spx-allowlist-existing-";
 const TEMP_FILE_SUFFIX = ".tmp";
-const RANDOM_BASE = 36;
-const RANDOM_PREFIX_SLICE = 2;
-const RANDOM_TOKEN_LENGTH = 10;
+const RANDOM_TOKEN_BYTES = 8;
 
 export const productionReader: ConfigReader = {
   read: readProductConfigFile,
@@ -62,9 +62,7 @@ export const productionReader: ConfigReader = {
 export const productionWriter: ConfigWriter = {
   async write(filePath: string, content: string): Promise<void> {
     const dir = dirname(filePath);
-    const random = Math.random()
-      .toString(RANDOM_BASE)
-      .slice(RANDOM_PREFIX_SLICE, RANDOM_PREFIX_SLICE + RANDOM_TOKEN_LENGTH);
+    const random = randomBytes(RANDOM_TOKEN_BYTES).toString("hex");
     const tmpPath = join(dir, `${TEMP_FILE_PREFIX}${random}${TEMP_FILE_SUFFIX}`);
     await writeFile(tmpPath, content, "utf8");
     await rename(tmpPath, filePath);
@@ -154,7 +152,7 @@ function computeUpdatedInclude(
 ): readonly string[] {
   const existingArr = existing ?? [];
   const existingSet = new Set(existingArr);
-  const additions = findingValues.filter((value) => !existingSet.has(value)).sort();
+  const additions = findingValues.filter((value) => !existingSet.has(value)).sort(compareAsciiStrings);
   return [...existingArr, ...additions];
 }
 
