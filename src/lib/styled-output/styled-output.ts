@@ -23,7 +23,7 @@ export const SEVERITY = {
 export type Severity = (typeof SEVERITY)[keyof typeof SEVERITY];
 
 /** The chalk method names this primitive styles glyphs and summaries with. */
-export const STYLE_NAME = {
+const STYLE_NAME = {
   GREEN: "green",
   YELLOW: "yellow",
   RED: "red",
