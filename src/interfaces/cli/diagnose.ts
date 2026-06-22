@@ -6,7 +6,7 @@
  */
 import { readFile } from "node:fs/promises";
 
-import type { Command } from "commander";
+import { type Command, Option } from "commander";
 
 import { diagnoseCommand } from "@/commands/diagnose";
 import { spxReachabilityRunner } from "@/domains/diagnose/checks/spx-reachability";
@@ -53,7 +53,11 @@ export const diagnoseDomain: Domain = {
       .command(DIAGNOSE_CLI.COMMAND)
       .description(DIAGNOSE_DOMAIN_DESCRIPTION)
       .requiredOption(`${DIAGNOSE_CLI.MANIFEST_FLAG} <path>`, "Path to the declarative diagnose manifest")
-      .option(`${DIAGNOSE_CLI.FORMAT_FLAG} <format>`, "Output format (text|json)", DIAGNOSE_FORMAT.TEXT)
+      .addOption(
+        new Option(`${DIAGNOSE_CLI.FORMAT_FLAG} <format>`, "Output format")
+          .choices([DIAGNOSE_FORMAT.TEXT, DIAGNOSE_FORMAT.JSON])
+          .default(DIAGNOSE_FORMAT.TEXT),
+      )
       .action(async (options: { manifest: string; format?: string }) => {
         const result = await diagnoseCommand({
           manifestPath: options.manifest,
