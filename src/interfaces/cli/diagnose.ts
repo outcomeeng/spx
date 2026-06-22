@@ -31,10 +31,6 @@ const DEFAULT_REGISTRY: CheckRegistry = {
   [CHECK_NAME.SPX_REACHABILITY]: spxReachabilityRunner(defaultSpxReachabilityProbe),
 };
 
-function resolveFormat(value: string | undefined): DiagnoseFormat {
-  return value === DIAGNOSE_FORMAT.JSON ? DIAGNOSE_FORMAT.JSON : DIAGNOSE_FORMAT.TEXT;
-}
-
 function handleError(error: string): never {
   // The error can embed user-supplied bytes — the manifest path and manifest-named
   // checks — so sanitize before the diagnostic echo per spx/13-cli.enabler/cli.md.
@@ -58,10 +54,10 @@ export const diagnoseDomain: Domain = {
           .choices([DIAGNOSE_FORMAT.TEXT, DIAGNOSE_FORMAT.JSON])
           .default(DIAGNOSE_FORMAT.TEXT),
       )
-      .action(async (options: { manifest: string; format?: string }) => {
+      .action(async (options: { manifest: string; format: DiagnoseFormat }) => {
         const result = await diagnoseCommand({
           manifestPath: options.manifest,
-          format: resolveFormat(options.format),
+          format: options.format,
           registry: DEFAULT_REGISTRY,
           fs: { readFile: (path) => readFile(path, "utf8") },
         });
