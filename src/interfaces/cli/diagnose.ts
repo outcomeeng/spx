@@ -9,6 +9,13 @@ import { readFile } from "node:fs/promises";
 import { type Command, Option } from "commander";
 
 import { diagnoseCommand } from "@/commands/diagnose";
+import {
+  defaultMarketplaceInstallProbe,
+  defaultSessionEnvironmentProbe,
+  defaultSessionStoreProbe,
+  defaultWorktreePoolProbe,
+} from "@/commands/diagnose/probes";
+import { defaultSpxReachabilityProbe } from "@/commands/diagnose/spx-reachability-probe";
 import { marketplaceInstallRunner } from "@/domains/diagnose/checks/marketplace-install";
 import { sessionEnvironmentRunner } from "@/domains/diagnose/checks/session-environment";
 import { sessionStoreRunner } from "@/domains/diagnose/checks/session-store";
@@ -18,15 +25,7 @@ import type { CheckRegistry } from "@/domains/diagnose/engine";
 import { CHECK_NAME } from "@/domains/diagnose/manifest";
 import { DIAGNOSE_FORMAT, type DiagnoseFormat } from "@/domains/diagnose/report";
 import type { Domain } from "@/domains/types";
-import { defaultSpxReachabilityProbe } from "@/lib/diagnose/spx-reachability-probe";
 import { sanitizeCliArgument } from "@/lib/sanitize-cli-argument";
-
-import {
-  defaultMarketplaceInstallProbe,
-  defaultSessionEnvironmentProbe,
-  defaultSessionStoreProbe,
-  defaultWorktreePoolProbe,
-} from "./diagnose-probes";
 
 /** Source-owned `spx diagnose` command and flag vocabulary, shared with the CLI tests. */
 export const DIAGNOSE_CLI = {

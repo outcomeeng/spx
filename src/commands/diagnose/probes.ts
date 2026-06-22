@@ -1,10 +1,13 @@
 /**
- * Default diagnose check probes — the real-environment I/O the descriptor wires
- * into the check registry. Each probe gathers its check's reading by shelling out
- * to git, the on-PATH `spx`, and the plugin CLIs, and degrades to an errored
- * reading on any failure so the pure classifier maps it to an unknown verdict.
- * Composition lives in the interfaces layer because the readings cross the
- * process boundary and reuse the agent-session vocabulary.
+ * Default diagnose check probes — the reading-gathering orchestration the
+ * descriptor wires into the check registry. Each probe gathers its check's
+ * reading by shelling out to git, the on-PATH `spx`, and the plugin CLIs, and
+ * degrades to an errored reading on any failure so the pure classifier maps it
+ * to an unknown verdict. This is the command-layer I/O orchestration of
+ * `spx/54-diagnose.enabler/13-diagnose-engine.adr.md`: filesystem and subprocess
+ * reads with no Commander binding and no process exit.
+ *
+ * @module commands/diagnose/probes
  */
 
 import { execa } from "execa";
