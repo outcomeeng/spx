@@ -3,9 +3,8 @@
  * descriptor wires into the check registry. Each probe gathers its check's
  * reading by shelling out to git, the on-PATH `spx`, and the plugin CLIs, and
  * degrades to an errored reading on any failure so the pure classifier maps it
- * to an unknown verdict. This is the command-layer I/O orchestration of
- * `spx/54-diagnose.enabler/13-diagnose-engine.adr.md`: filesystem and subprocess
- * reads with no Commander binding and no process exit.
+ * to an unknown verdict. Command-layer I/O orchestration: filesystem and
+ * subprocess reads with no Commander binding and no process exit.
  *
  * @module commands/diagnose/probes
  */
@@ -17,8 +16,14 @@ import type { SessionEnvironmentProbe, SessionEnvironmentReading } from "@/domai
 import type { SessionStoreProbe, SessionStoreReading } from "@/domains/diagnose/checks/session-store";
 import type { WorktreePoolProbe, WorktreePoolReading } from "@/domains/diagnose/checks/worktree-pool";
 import type { MarketplaceIdentity } from "@/domains/diagnose/manifest";
-import { AGENT_SESSION_ENV } from "@/domains/session/agent-session";
-import { classifyOccupancy, OCCUPANCY_STATUS, readClaim } from "@/domains/worktree/occupancy-store";
+import { AGENT_SESSION_ENV, resolveAgentSessionId } from "@/domains/session/agent-session";
+import type { SessionRecord } from "@/domains/session/list";
+import {
+  classifyOccupancy,
+  OCCUPANCY_STATUS,
+  type OccupancyStatus,
+  readClaim,
+} from "@/domains/worktree/occupancy-store";
 import { worktreeClaimName } from "@/domains/worktree/worktree-name";
 import {
   detectGitCommonDirProductRoot,
@@ -50,6 +55,23 @@ async function runCapture(file: string, args: readonly string[]): Promise<Captur
 
 function resolveSpx(): string | null {
   return findExecutableOnPath(SPX);
+}
+
+/**
+ * The occupancy status from one `spx worktree status --format json` object, or
+ * null when the output is unparseable. Reading the structured `status` field
+ * avoids a substring match against the rendered line, whose worktree name can
+ * itself contain an occupancy word.
+ */
+function worktreeStatusOf(stdout: string): OccupancyStatus | null {
+  try {
+    const parsed = JSON.parse(stdout) as { status?: string };
+    // Match against the canonical values so an unrecognized or malformed status
+    // degrades to the errored (unknown) reading rather than a clean one.
+    return Object.values(OCCUPANCY_STATUS).find((value) => value === parsed.status) ?? null;
+  } catch {
+    return null;
+  }
 }
 
 /** The working-tree paths from `git worktree list --porcelain`, excluding the bare-repository entry. */
@@ -86,9 +108,11 @@ export const defaultWorktreePoolProbe: WorktreePoolProbe = {
     let staleClaim = false;
     if (spx !== null) {
       for (const path of paths) {
-        const status = await runCapture(spx, ["worktree", "status", path]);
+        const status = await runCapture(spx, ["worktree", "status", path, "--format", "json"]);
         if (!status.ok) return errored;
-        if (status.stdout.includes(OCCUPANCY_STATUS.STALE)) {
+        const occupancy = worktreeStatusOf(status.stdout);
+        if (occupancy === null) return errored;
+        if (occupancy === OCCUPANCY_STATUS.STALE) {
           staleClaim = true;
           break;
         }
@@ -103,30 +127,29 @@ export const defaultSessionEnvironmentProbe: SessionEnvironmentProbe = {
   async probe(): Promise<SessionEnvironmentReading> {
     const hookPresent = AGENT_SESSION_ENV.CLAUDE_SESSION_ID in process.env
       || AGENT_SESSION_ENV.CODEX_THREAD_ID in process.env;
-    const sessionIdentity = (process.env[AGENT_SESSION_ENV.CLAUDE_SESSION_ID] ?? "").length > 0
-      || (process.env[AGENT_SESSION_ENV.CODEX_THREAD_ID] ?? "").length > 0;
+    const sessionIdentity = resolveAgentSessionId(process.env) !== undefined;
 
     const spx = resolveSpx();
     if (spx === null) {
       return { errored: false, hookPresent, sessionIdentity, worktreeClaimed: false, roundTripStale: false };
     }
-    const status = await runCapture(spx, ["worktree", "status"]);
+    const status = await runCapture(spx, ["worktree", "status", "--format", "json"]);
     if (!status.ok) {
+      return { errored: true, hookPresent, sessionIdentity, worktreeClaimed: false, roundTripStale: false };
+    }
+    const occupancy = worktreeStatusOf(status.stdout);
+    if (occupancy === null) {
       return { errored: true, hookPresent, sessionIdentity, worktreeClaimed: false, roundTripStale: false };
     }
     return {
       errored: false,
       hookPresent,
       sessionIdentity,
-      worktreeClaimed: status.stdout.includes(OCCUPANCY_STATUS.OCCUPIED),
-      roundTripStale: status.stdout.includes(OCCUPANCY_STATUS.STALE),
+      worktreeClaimed: occupancy === OCCUPANCY_STATUS.OCCUPIED,
+      roundTripStale: occupancy === OCCUPANCY_STATUS.STALE,
     };
   },
 };
-
-interface DoingSession {
-  readonly agent_session_id?: string;
-}
 
 async function claimedSessionIds(): Promise<ReadonlySet<string> | null> {
   const root = await detectGitCommonDirProductRoot();
@@ -157,9 +180,9 @@ export const defaultSessionStoreProbe: SessionStoreProbe = {
     const claimed = await claimedSessionIds();
     if (!list.ok || claimed === null) return { errored: true, orphanedClaims: 0 };
 
-    let doing: readonly DoingSession[];
+    let doing: readonly SessionRecord[];
     try {
-      const parsed = JSON.parse(list.stdout) as { doing?: readonly DoingSession[] };
+      const parsed = JSON.parse(list.stdout) as { doing?: readonly SessionRecord[] };
       doing = parsed.doing ?? [];
     } catch {
       return { errored: true, orphanedClaims: 0 };
