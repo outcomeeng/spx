@@ -24,8 +24,11 @@ interface ReportShape {
   readonly overall: string;
 }
 
-async function runDiagnose(args: readonly string[]): Promise<{ readonly stdout: string; readonly exitCode: number }> {
-  const result = await execa(NODE_EXECUTABLE, [CLI_PATH, DIAGNOSE_CLI.COMMAND, ...args], { reject: false });
+async function runDiagnose(
+  args: readonly string[],
+  env?: NodeJS.ProcessEnv,
+): Promise<{ readonly stdout: string; readonly exitCode: number }> {
+  const result = await execa(NODE_EXECUTABLE, [CLI_PATH, DIAGNOSE_CLI.COMMAND, ...args], { reject: false, env });
   return { stdout: result.stdout, exitCode: result.exitCode ?? 1 };
 }
 
@@ -119,6 +122,14 @@ describe("spx diagnose emits a schema-valid report and exits with the code keyed
     const manifestPath = await writeSpxReachabilityManifest();
 
     const result = await runDiagnose([DIAGNOSE_CLI.MANIFEST_FLAG, manifestPath, DIAGNOSE_CLI.NO_COLOR_FLAG]);
+
+    expect(result.stdout).not.toContain(ansiEscape);
+  });
+
+  it("emits no ANSI escape when a non-empty NO_COLOR environment variable disables color", async () => {
+    const manifestPath = await writeSpxReachabilityManifest();
+
+    const result = await runDiagnose([DIAGNOSE_CLI.MANIFEST_FLAG, manifestPath], { ...process.env, NO_COLOR: "1" });
 
     expect(result.stdout).not.toContain(ansiEscape);
   });
