@@ -209,11 +209,16 @@ ref. Settled design for this slice:
   real repository and runner, trusting the proven git abstractions and targeted
   pipeline beneath it.
 
-Compose this as a new enabler under `spx/41-test.enabler`, indexed above
-`90-targeted-execution.enabler` (which it consumes), with a resolution ADR
-covering the base-ref default, the changed-path partition, and the per-language
-adapter related-test capability contract. Route: `/decompose` → `/author` →
-`/apply`.
+Composed as `spx/41-test.enabler/95-changed-set-planning.enabler` (index 95,
+above `90-targeted-execution.enabler`, which it consumes), with the settled
+design above authored into its `changed-set-planning.md` spec and
+`11-changed-set-resolution.adr.md` resolution ADR (base-ref default,
+changed-path partition, per-language adapter related-test capability contract).
+Remaining route: `/apply`.
+
+Reserved horizon under `spx/41-test.enabler`: indices `91–94` and `96–99` stay
+free for later slices. Slice 4 (`--ci` environment) and Slice 5 (dogfooding)
+have no node yet.
 
 ### Slice 4: CI Environment
 
