@@ -6,9 +6,11 @@ import type { Result } from "@/config/types";
 import { defaultGitDependencies } from "@/git/root";
 import {
   createProcessHookIo,
+  ERROR_DETAIL_SEPARATOR,
   HOOK_PROCESS_IO_EVENT,
   type HookProcessIo,
   runHookCli,
+  STDIN_READ_ERROR,
 } from "@/interfaces/hooks/cli-runner";
 import { HOOK_EVENT } from "@/interfaces/hooks/registry";
 import { defaultOccupancyFileSystem } from "@/lib/worktree-occupancy-file-system";
@@ -38,7 +40,7 @@ class ErroringHookInput extends EventEmitter {
   readonly isTTY = false;
   private encoding: BufferEncoding | undefined;
 
-  constructor(private readonly failure: Error) {
+  constructor(private readonly failure: unknown) {
     super();
   }
 
@@ -50,6 +52,18 @@ class ErroringHookInput extends EventEmitter {
     if (this.encoding === undefined) throw new Error("expected hook input encoding to be configured");
     this.emit(HOOK_PROCESS_IO_EVENT.ERROR, this.failure);
   }
+}
+
+async function readErroringStdin(failure: unknown): Promise<Result<string | undefined>> {
+  const stdin = new ErroringHookInput(failure);
+  const io = createProcessHookIo({
+    stdin,
+    stdout: { write: () => undefined },
+    stderr: { write: () => undefined },
+  });
+  const read = io.readStdin();
+  stdin.start();
+  return read;
 }
 
 describe("hook CLI runner", () => {
@@ -133,5 +147,52 @@ describe("hook CLI runner", () => {
     expect(result.error).toContain(errorMessage);
     expect(stdout).toEqual([]);
     expect(stderr).toEqual([]);
+  });
+
+  it("renders an Error stdin failure as its message", async () => {
+    const message = sampleWorktreeTestValue(WORKTREE_TEST_GENERATOR.sessionId());
+    const result = await readErroringStdin(new Error(message));
+
+    expect(result.ok).toBe(false);
+    if (result.ok) throw new Error("expected stdin read to fail");
+    expect(result.error).toBe(`${STDIN_READ_ERROR}${ERROR_DETAIL_SEPARATOR}${message}`);
+  });
+
+  it("passes a string stdin error through verbatim", async () => {
+    const failure = sampleWorktreeTestValue(WORKTREE_TEST_GENERATOR.sessionId());
+    const result = await readErroringStdin(failure);
+
+    expect(result.ok).toBe(false);
+    if (result.ok) throw new Error("expected stdin read to fail");
+    expect(result.error).toBe(`${STDIN_READ_ERROR}${ERROR_DETAIL_SEPARATOR}${failure}`);
+  });
+
+  it("serializes a JSON-representable stdin error object", async () => {
+    const detail = sampleWorktreeTestValue(WORKTREE_TEST_GENERATOR.sessionId());
+    const failure = { detail };
+    const result = await readErroringStdin(failure);
+
+    expect(result.ok).toBe(false);
+    if (result.ok) throw new Error("expected stdin read to fail");
+    expect(result.error).toBe(`${STDIN_READ_ERROR}${ERROR_DETAIL_SEPARATOR}${JSON.stringify(failure)}`);
+  });
+
+  it("falls back to the type name when a stdin error serializes to undefined", async () => {
+    const failure = Symbol(sampleWorktreeTestValue(WORKTREE_TEST_GENERATOR.sessionId()));
+    const result = await readErroringStdin(failure);
+
+    expect(result.ok).toBe(false);
+    if (result.ok) throw new Error("expected stdin read to fail");
+    expect(result.error).toBe(`${STDIN_READ_ERROR}${ERROR_DETAIL_SEPARATOR}${typeof failure}`);
+  });
+
+  it("falls back to the type name when a stdin error cannot be serialized", async () => {
+    const failure: Record<string, unknown> = {};
+    failure.self = failure;
+    const result = await readErroringStdin(failure);
+
+    expect(result.ok).toBe(false);
+    if (result.ok) throw new Error("expected stdin read to fail");
+    expect(result.error).toBe(`${STDIN_READ_ERROR}${ERROR_DETAIL_SEPARATOR}${typeof failure}`);
   });
 });

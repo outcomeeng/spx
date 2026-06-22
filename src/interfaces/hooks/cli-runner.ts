@@ -55,8 +55,8 @@ export const HOOK_PROCESS_IO_EVENT = {
 } as const;
 
 const LINE_SEPARATOR = "\n";
-const ERROR_DETAIL_SEPARATOR = ": ";
-const STDIN_READ_ERROR = "hook stdin read failed";
+export const ERROR_DETAIL_SEPARATOR = ": ";
+export const STDIN_READ_ERROR = "hook stdin read failed";
 
 /** Runs a hook event from a CLI transport, including hook-owned process I/O. */
 export async function runHookCli(options: HookCliRunOptions): Promise<Result<void>> {
