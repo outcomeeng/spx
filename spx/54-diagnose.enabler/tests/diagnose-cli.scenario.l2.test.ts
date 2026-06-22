@@ -114,4 +114,12 @@ describe("spx diagnose emits a schema-valid report and exits with the code keyed
 
     expect(result.stdout).not.toContain(ansiEscape);
   });
+
+  it("emits no ANSI escape when --no-color disables color at the descriptor boundary", async () => {
+    const manifestPath = await writeSpxReachabilityManifest();
+
+    const result = await runDiagnose([DIAGNOSE_CLI.MANIFEST_FLAG, manifestPath, DIAGNOSE_CLI.NO_COLOR_FLAG]);
+
+    expect(result.stdout).not.toContain(ansiEscape);
+  });
 });
