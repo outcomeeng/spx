@@ -9,6 +9,10 @@ import { DIAGNOSE_CLI } from "@/interfaces/cli/diagnose";
 import { CLI_PATH, NODE_EXECUTABLE } from "@testing/harnesses/constants";
 import { writeAllChecksManifest, writeSpxReachabilityManifest } from "@testing/harnesses/diagnose/cli";
 
+// The ANSI escape (ESC) code point; built here to avoid an invisible control byte in source.
+const escCharCode = 27;
+const ansiEscape = String.fromCodePoint(escCharCode);
+
 interface ReportShape {
   readonly checks: {
     readonly name: string;
@@ -93,5 +97,21 @@ describe("spx diagnose emits a schema-valid report and exits with the code keyed
     ]);
 
     expect(result.exitCode).not.toBe(0);
+  });
+
+  it("emits ANSI escapes in the text report when --color forces color at the descriptor boundary", async () => {
+    const manifestPath = await writeSpxReachabilityManifest();
+
+    const result = await runDiagnose([DIAGNOSE_CLI.MANIFEST_FLAG, manifestPath, DIAGNOSE_CLI.COLOR_FLAG]);
+
+    expect(result.stdout).toContain(ansiEscape);
+  });
+
+  it("emits no ANSI escape in the default piped, non-TTY text report", async () => {
+    const manifestPath = await writeSpxReachabilityManifest();
+
+    const result = await runDiagnose([DIAGNOSE_CLI.MANIFEST_FLAG, manifestPath]);
+
+    expect(result.stdout).not.toContain(ansiEscape);
   });
 });
