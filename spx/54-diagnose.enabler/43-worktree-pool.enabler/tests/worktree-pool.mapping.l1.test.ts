@@ -30,6 +30,11 @@ describe("the worktree-pool check classifies the layout from git worktree list a
     },
     { overrides: { staleClaim: true }, verdict: WORKTREE_POOL_VERDICT.STALE_CLAIMS, bucket: VERDICT_BUCKET.DEGRADED },
     { overrides: { bareRepository: true }, verdict: WORKTREE_POOL_VERDICT.COMPLIANT, bucket: VERDICT_BUCKET.HEALTHY },
+    {
+      overrides: { bareRepository: true, linkedWorktrees: true },
+      verdict: WORKTREE_POOL_VERDICT.COMPLIANT,
+      bucket: VERDICT_BUCKET.HEALTHY,
+    },
     { overrides: {}, verdict: WORKTREE_POOL_VERDICT.COMPLIANT, bucket: VERDICT_BUCKET.HEALTHY },
   ])("classifies the worktree layout as $verdict (bucket $bucket)", ({ overrides, verdict, bucket }) => {
     const result = classifyWorktreePool(reading(overrides));
