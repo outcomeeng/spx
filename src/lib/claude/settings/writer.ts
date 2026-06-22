@@ -1,9 +1,12 @@
 /**
  * Atomic file writing for Claude Code settings
  */
-import fs from "fs/promises";
-import os from "os";
-import path from "path";
+import { randomBytes as nodeRandomBytes } from "node:crypto";
+import fs from "node:fs/promises";
+import path from "node:path";
+
+import { type AtomicWriteFileSystem, type RandomBytes, writeFileAtomic } from "@/lib/atomic-file-write";
+
 import type { ClaudeSettings } from "../permissions/types";
 
 /**
@@ -11,10 +14,7 @@ import type { ClaudeSettings } from "../permissions/types";
  *
  * Enables testing error paths without mocking.
  */
-export interface FileSystem {
-  writeFile(path: string, content: string): Promise<void>;
-  rename(oldPath: string, newPath: string): Promise<void>;
-  unlink(path: string): Promise<void>;
+export interface FileSystem extends AtomicWriteFileSystem {
   mkdir(path: string, options?: { recursive?: boolean }): Promise<void>;
 }
 
@@ -24,24 +24,25 @@ export interface FileSystem {
 const realFs: FileSystem = {
   writeFile: (path, content) => fs.writeFile(path, content, "utf-8"),
   rename: fs.rename,
-  unlink: fs.unlink,
+  rm: (path, options) => fs.rm(path, options),
   mkdir: async (path, options) => {
     await fs.mkdir(path, options);
   },
 };
 
+const defaultWriteSettingsDeps: { readonly fs: FileSystem } = { fs: realFs };
+
 /**
  * Atomically write settings to a file
  *
- * Uses temp file + rename pattern for atomicity:
- * 1. Write to temporary file
- * 2. Rename to target (atomic operation on most filesystems)
- *
- * Preserves JSON formatting with 2-space indentation.
+ * Routes through the shared atomic file-write primitive: the content is written
+ * to a uniquely named temporary sibling of the target and renamed onto it, so a
+ * concurrent reader never observes a partial write. Preserves JSON formatting
+ * with 2-space indentation.
  *
  * @param filePath - Absolute path to settings file
  * @param settings - Settings object to write
- * @param deps - Dependencies (for testing)
+ * @param deps - Dependencies (for testing); `randomBytes` defaults to `node:crypto`
  * @throws Error if write fails
  *
  * @example
@@ -57,38 +58,24 @@ const realFs: FileSystem = {
 export async function writeSettings(
   filePath: string,
   settings: ClaudeSettings,
-  deps: { fs: FileSystem } = { fs: realFs },
+  deps: { fs: FileSystem; randomBytes?: RandomBytes } = defaultWriteSettingsDeps,
 ): Promise<void> {
   // Ensure directory exists
   const dir = path.dirname(filePath);
   await deps.fs.mkdir(dir, { recursive: true });
 
-  // Generate temporary file path
-  const tempPath = path.join(
-    os.tmpdir(),
-    `settings-${Date.now()}-${Math.random().toString(36).substring(7)}.json`,
-  );
+  // Format JSON with 2-space indentation and trailing newline
+  const content = JSON.stringify(settings, null, 2) + "\n";
 
   try {
-    // Format JSON with 2-space indentation and trailing newline
-    const content = JSON.stringify(settings, null, 2) + "\n";
-
-    // Write to temp file
-    await deps.fs.writeFile(tempPath, content);
-
-    // Atomic rename
-    await deps.fs.rename(tempPath, filePath);
+    await writeFileAtomic(filePath, content, {
+      fs: deps.fs,
+      randomBytes: deps.randomBytes ?? nodeRandomBytes,
+    });
   } catch (error) {
-    // Cleanup temp file on failure
-    try {
-      await deps.fs.unlink(tempPath);
-    } catch {
-      // Ignore cleanup errors
-    }
-
-    // Re-throw original error
+    // Re-throw with settings-write context, preserving the original cause
     if (error instanceof Error) {
-      throw new Error(`Failed to write settings: ${error.message}`);
+      throw new Error(`Failed to write settings: ${error.message}`, { cause: error });
     }
     throw error;
   }
