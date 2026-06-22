@@ -9,6 +9,7 @@ CAN render `/doctor`-grade styled output from a pure function whose content is i
 ### Mappings
 
 - Each severity maps to its fixed glyph and color — ok to green `✓`, warn to yellow `⚠`, error to red `✗`, unknown to red `?`, muted to dim `○` ([test](tests/severity-styling.mapping.l1.test.ts))
+- The color choice resolves by precedence — an explicit `--color`/`--no-color` flag wins, else a non-empty `NO_COLOR` disables color, else the output stream's TTY status decides ([test](tests/color-choice.mapping.l1.test.ts))
 
 ### Scenarios
 
