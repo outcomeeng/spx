@@ -1,8 +1,12 @@
 import type { RuleTester } from "eslint";
+import { readFileSync } from "node:fs";
+import { join, resolve } from "node:path";
+import { fileURLToPath } from "node:url";
 
 import { VALIDATION_EXIT_CODES } from "@/commands/validation/messages";
 import { SESSION_FRONT_MATTER } from "@/domains/session/types";
 import { NODE_KINDS, SPEC_TREE_NODE_STATE } from "@/lib/spec-tree/config";
+import { LINT_POLICY_MANIFESTS, parseLintPolicyManifest } from "@/validation/lint-policy-constants";
 import { VALIDATION_PIPELINE_TOTAL_STEPS } from "@/validation/registry";
 import { ASYNC_SPAWN_OUTSIDE_LIFECYCLE_MESSAGE_ID } from "@eslint-rules/no-async-spawn-outside-lifecycle";
 import {
@@ -211,6 +215,33 @@ export const VALIDATION_ESLINT_EXPECTED = {
   warningSeverity: WARNING_SEVERITY,
 } as const;
 
+// Repo root resolved from this module's URL — three levels up from
+// testing/generators/validation/ — so the manifest read below is independent of
+// the process working directory rather than relying on the runner starting at root.
+const REPO_ROOT = resolve(fileURLToPath(new URL(".", import.meta.url)), "../../..");
+
+// Derives a fixture path under the first node a lint-debt manifest lists, so the
+// manifest-coverage scenarios track the manifest rather than a hardcoded node a
+// pruning pass can remove. Reads the manifest at module load: a manifest pruned to
+// zero entries fails this module's import loudly with the message below rather than
+// yielding an undefined path. Both lint-debt manifests retain at least one
+// out-of-scope node, so the non-empty invariant holds; the throw guards the future
+// that empties one.
+function firstManifestedNodePath(
+  manifest: (typeof LINT_POLICY_MANIFESTS)[keyof typeof LINT_POLICY_MANIFESTS],
+): string {
+  const entries = parseLintPolicyManifest(
+    readFileSync(join(REPO_ROOT, manifest.file), "utf-8"),
+    manifest.file,
+    manifest.key,
+  );
+  const [first] = entries;
+  if (first === undefined) {
+    throw new Error(`${manifest.file} lists no nodes; cannot derive a manifest-covered fixture path`);
+  }
+  return first;
+}
+
 export const VALIDATION_ESLINT_FILES = {
   genericTest: "test.test.ts",
   genericSpec: "state.spec.ts",
@@ -233,8 +264,12 @@ export const VALIDATION_ESLINT_FILES = {
   sessionCommandExample: "src/commands/session/example.ts",
   eslintStep: "src/validation/steps/eslint.ts",
   unmanifestedSpecTest: "spx/31-spec-domain.enabler/tests/new.mapping.l1.test.ts",
-  manifestCoveredSpecTest: "spx/16-config.enabler/tests/config-ambiguity.scenario.l1.test.ts",
-  lintDebtCoveredSpecTest: "spx/46-claude.outcome/tests/lint-debt.mapping.l1.test.ts",
+  manifestCoveredSpecTest: `${
+    firstManifestedNodePath(LINT_POLICY_MANIFESTS.TEST_OWNED_CONSTANT_DEBT_NODES)
+  }/tests/manifest-covered.scenario.l1.test.ts`,
+  lintDebtCoveredSpecTest: `${
+    firstManifestedNodePath(LINT_POLICY_MANIFESTS.TEST_LINT_DEBT_NODES)
+  }/tests/lint-debt.mapping.l1.test.ts`,
   registrySpecTest: "spx/sample.enabler/tests/registry.mapping.l1.test.ts",
   sourceOwnedSpecTest: "spx/sample.enabler/tests/source-owned.mapping.l1.test.ts",
   supportFile: "spx/sample.enabler/tests/support.ts",
@@ -276,7 +311,7 @@ export const VALIDATION_ESLINT_SNIPPETS = {
     `import { SESSION_FRONT_MATTER } from "@/domains/session/types"; const key = SESSION_FRONT_MATTER.PRIORITY;`,
   declaredPathAssertion: `expect(file).toBe("declared.md")`,
   nestedDeclaredPathAssertion: `expect(path).toContain("tests/declared.md")`,
-  kindRegex: `const pattern = /\\.(enabler|outcome)$/`,
+  kindRegex: String.raw`const pattern = /\.(enabler|outcome)$/`,
   stateObjectKeys: `const map = { declared: 1, specified: 2, passing: 3 }`,
   kindObjectKeys: `const map = { enabler: 1, outcome: 2 }`,
   templateStateDescription: "describe(`node state for ${name}`, () => {})",
