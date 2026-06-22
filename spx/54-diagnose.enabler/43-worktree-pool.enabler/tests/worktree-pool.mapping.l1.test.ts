@@ -28,6 +28,7 @@ describe("the worktree-pool check classifies the layout from git worktree list a
       verdict: WORKTREE_POOL_VERDICT.STALE_CLAIMS,
       bucket: VERDICT_BUCKET.DEGRADED,
     },
+    { overrides: { staleClaim: true }, verdict: WORKTREE_POOL_VERDICT.STALE_CLAIMS, bucket: VERDICT_BUCKET.DEGRADED },
     {
       overrides: { bareRepository: true, linkedWorktrees: true },
       verdict: WORKTREE_POOL_VERDICT.COMPLIANT,
