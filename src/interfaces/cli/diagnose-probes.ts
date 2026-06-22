@@ -8,8 +8,7 @@
  */
 
 import { execa } from "execa";
-import { readdir, readFile } from "node:fs/promises";
-import { dirname, join } from "node:path";
+import { basename } from "node:path";
 
 import type { MarketplaceInstallProbe, MarketplaceInstallReading } from "@/domains/diagnose/checks/marketplace-install";
 import type { SessionEnvironmentProbe, SessionEnvironmentReading } from "@/domains/diagnose/checks/session-environment";
@@ -17,7 +16,11 @@ import type { SessionStoreProbe, SessionStoreReading } from "@/domains/diagnose/
 import type { WorktreePoolProbe, WorktreePoolReading } from "@/domains/diagnose/checks/worktree-pool";
 import type { MarketplaceIdentity } from "@/domains/diagnose/manifest";
 import { AGENT_SESSION_ENV } from "@/domains/session/agent-session";
+import { readClaim } from "@/domains/worktree/occupancy-store";
+import { detectGitCommonDirProductRoot } from "@/git/root";
 import { findExecutableOnPath } from "@/lib/executable-on-path";
+import { worktreesScopeDir } from "@/lib/state-store";
+import { defaultOccupancyFileSystem } from "@/lib/worktree-occupancy-file-system";
 
 const OCCUPANCY_STALE = "stale";
 const OCCUPANCY_OCCUPIED = "occupied";
@@ -112,28 +115,17 @@ interface DoingSession {
   readonly agent_session_id?: string;
 }
 
-const CLAIM_SUFFIX = ".claim";
-const WORKTREES_DIR = ".spx/worktrees";
-
 async function claimedSessionIds(): Promise<ReadonlySet<string> | null> {
-  const commonDir = await runCapture(GIT, ["rev-parse", "--git-common-dir"]);
-  if (!commonDir.ok) return null;
-  const worktreesDir = join(dirname(commonDir.stdout.trim()), WORKTREES_DIR);
-  let entries: readonly string[];
-  try {
-    entries = await readdir(worktreesDir);
-  } catch {
-    return new Set();
-  }
+  const root = await detectGitCommonDirProductRoot();
+  if (!root.isGitRepo) return null;
+  const worktreesDir = worktreesScopeDir(root.productDir);
+  const layout = await runCapture(GIT, ["worktree", "list", "--porcelain"]);
+  if (!layout.ok) return null;
+
   const sessionIds = new Set<string>();
-  for (const entry of entries) {
-    if (!entry.endsWith(CLAIM_SUFFIX)) continue;
-    try {
-      const claim = JSON.parse(await readFile(join(worktreesDir, entry), "utf8")) as { sessionId?: string };
-      if (claim.sessionId !== undefined) sessionIds.add(claim.sessionId);
-    } catch {
-      // An unreadable claim leaves no session id; the doing session it would back reads as orphaned.
-    }
+  for (const path of worktreePaths(layout.stdout)) {
+    const claim = await readClaim(worktreesDir, basename(path), { fs: defaultOccupancyFileSystem });
+    if (claim.ok && claim.value !== undefined) sessionIds.add(claim.value.sessionId);
   }
   return sessionIds;
 }
