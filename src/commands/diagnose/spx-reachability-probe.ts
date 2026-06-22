@@ -4,7 +4,7 @@
  * The pure classification lives in the domain; this module is the injected I/O
  * default the descriptor wires in.
  *
- * @module lib/diagnose/spx-reachability-probe
+ * @module commands/diagnose/spx-reachability-probe
  */
 
 import { execa } from "execa";
