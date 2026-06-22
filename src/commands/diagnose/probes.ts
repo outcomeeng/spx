@@ -17,7 +17,7 @@ import type { SessionStoreProbe, SessionStoreReading } from "@/domains/diagnose/
 import type { WorktreePoolProbe, WorktreePoolReading } from "@/domains/diagnose/checks/worktree-pool";
 import type { MarketplaceIdentity } from "@/domains/diagnose/manifest";
 import { HOOK_SESSION_START_ENV } from "@/domains/hooks/session-start";
-import { resolveAgentSessionId } from "@/domains/session/agent-session";
+import { normalizeAgentSessionToken, resolveAgentSessionId } from "@/domains/session/agent-session";
 import type { SessionRecord } from "@/domains/session/list";
 import {
   classifyOccupancy,
@@ -152,8 +152,10 @@ async function claimedSessionIds(): Promise<ReadonlySet<string> | null> {
     const claim = await readClaim(worktreesDir, worktreeClaimName(path), { fs: defaultOccupancyFileSystem });
     if (!claim.ok || claim.value === undefined) continue;
     // Only a live (occupied) claim backs a doing session; a stale claim leaves it orphaned.
+    // Normalize the claim id the same way handoff normalizes agent_session_id, so the
+    // join matches on the canonical token rather than diverging on an unsafe raw id.
     if (classifyOccupancy(claim.value, defaultProcessTable) === OCCUPANCY_STATUS.OCCUPIED) {
-      sessionIds.add(claim.value.sessionId);
+      sessionIds.add(normalizeAgentSessionToken(claim.value.sessionId));
     }
   }
   return sessionIds;
