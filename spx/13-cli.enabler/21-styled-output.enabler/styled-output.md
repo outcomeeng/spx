@@ -23,6 +23,6 @@ CAN render `/doctor`-grade styled output from a pure function whose content is i
 
 ### Compliance
 
-- ALWAYS: the pure styling utility lives under `src/lib/` and accepts a color boolean, building a chalk instance at a fixed level — 1 when color is enabled, 0 when disabled — per `spx/13-cli.enabler/15-cli-architecture.adr.md` ([audit])
+- ALWAYS: the pure styling utility lives under `src/lib/` per `spx/13-cli.enabler/15-cli-architecture.adr.md`; it accepts a color boolean, building a chalk instance at a fixed level — 1 when color is enabled, 0 when disabled ([audit])
 - ALWAYS: the color decision resolves at the descriptor boundary from TTY detection, `NO_COLOR`, and `--color`/`--no-color`, and is passed as a boolean to the pure formatter, which performs no TTY or environment probing ([audit])
 - NEVER: the styled-output primitive renders an interactive interface or imports Ink, React, or a terminal-control API — interactive rendering is governed by `spx/13-cli.enabler/21-terminal-ui.adr.md` ([audit])
