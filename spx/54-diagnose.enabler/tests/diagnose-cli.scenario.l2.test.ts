@@ -153,6 +153,26 @@ describe("spx diagnose emits a schema-valid report and exits with the code keyed
     });
   });
 
+  it("runs from a supplied --manifest even when the diagnose config section is malformed — manifest takes precedence", async () => {
+    await withTempDir("diagnose-manifest-precedence", async (cwd) => {
+      // A diagnose section the config descriptor rejects (checks must be strings). A manifest run must
+      // bypass config resolution entirely, so this malformed section never derails the diagnosis.
+      const malformed = ["diagnose:", "  checks: [42]"].join("\n");
+      await writeFile(join(cwd, DEFAULT_CONFIG_FILENAME), `${malformed}\n`);
+      const manifestPath = await writeSpxReachabilityManifest();
+
+      const result = await runDiagnose([
+        DIAGNOSE_CLI.MANIFEST_FLAG,
+        manifestPath,
+        DIAGNOSE_CLI.FORMAT_FLAG,
+        DIAGNOSE_FORMAT.JSON,
+      ], { cwd });
+
+      const report = JSON.parse(result.stdout) as ReportShape;
+      expect(report.checks.map((check) => check.name)).toEqual([CHECK_NAME.SPX_REACHABILITY]);
+    });
+  });
+
   it(
     "runs bare with no manifest and no diagnose config, rendering every registered check with a verdict-keyed exit",
     async () => {
