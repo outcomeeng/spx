@@ -20,6 +20,13 @@ export const SESSION_ID_PATTERN = /^(\d{4})-(\d{2})-(\d{2})_(\d{2})-(\d{2})-(\d{
 export const SESSION_ID_SEPARATOR = "_";
 
 /**
+ * Character a session ID never contains. Session IDs double as filenames, and
+ * colons are invalid in Windows filenames, so the `YYYY-MM-DD_HH-mm-ss` format
+ * encodes time with hyphens and excludes the colon entirely.
+ */
+export const SESSION_ID_FORBIDDEN_FILENAME_CHARACTER = ":";
+
+/**
  * Options for generating session IDs.
  */
 export interface GenerateSessionIdOptions {

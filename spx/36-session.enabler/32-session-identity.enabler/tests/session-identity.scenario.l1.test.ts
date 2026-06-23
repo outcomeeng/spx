@@ -11,23 +11,20 @@ import {
   SESSION_ID_PATTERN,
   SESSION_ID_SEPARATOR,
 } from "@/domains/session/timestamp";
-import { DEFAULT_PRIORITY, SESSION_FRONT_MATTER, SESSION_PRIORITY, SessionPriority } from "@/domains/session/types";
-import { sampleSessionId } from "@testing/generators/session/session";
+import { DEFAULT_PRIORITY, SESSION_FRONT_MATTER, SESSION_PRIORITY } from "@/domains/session/types";
+import {
+  arbitrarySessionPriority,
+  arbitraryValidSessionInstant,
+  sampleDistinctSessionIds,
+  samplePathUnsafeAgentSessionIdentity,
+} from "@testing/generators/session/session";
 import { buildSessionMarkdownBody } from "@testing/harnesses/session/harness";
 import fc from "fast-check";
 import { describe, expect, it } from "vitest";
 
-/** Valid priorities derived from the type, not hardcoded. */
-const VALID_PRIORITIES: readonly SessionPriority[] = Object.values(SESSION_PRIORITY);
-const PROPERTY_DATE_MIN = new Date("2000-01-01T00:00:00.000Z");
-const PROPERTY_DATE_MAX = new Date("2099-12-28T23:59:59.000Z");
-const CODEX_SESSION_SAMPLE_SEED = 0xC0D3;
-const PATH_UNSAFE_CODEX_THREAD_ID = "thread.id:with/slashes+plus";
-
 describe("resolveAgentSessionId", () => {
   it("GIVEN agent session environment values WHEN resolved THEN Claude takes precedence and Codex is the fallback", () => {
-    const claudeSession = sampleSessionId();
-    const codexSession = sampleSessionId(CODEX_SESSION_SAMPLE_SEED);
+    const [claudeSession, codexSession] = sampleDistinctSessionIds(2);
 
     expect(resolveAgentSessionId({
       CLAUDE_SESSION_ID: claudeSession,
@@ -48,13 +45,14 @@ describe("resolveAgentSessionId", () => {
   });
 
   it("GIVEN path-unsafe Codex thread identity WHEN resolved THEN returns a safe token", () => {
+    const pathUnsafeIdentity = samplePathUnsafeAgentSessionIdentity();
     const resolved = resolveAgentSessionId({
-      CODEX_THREAD_ID: PATH_UNSAFE_CODEX_THREAD_ID,
+      CODEX_THREAD_ID: pathUnsafeIdentity,
     });
 
     expect(resolved).toBeDefined();
     expect(resolved).toMatch(AGENT_SESSION_TOKEN_PATTERN);
-    expect(resolved).not.toBe(PATH_UNSAFE_CODEX_THREAD_ID);
+    expect(resolved).not.toBe(pathUnsafeIdentity);
   });
 });
 
@@ -124,11 +122,7 @@ describe("parseSessionId", () => {
 
 describe("generateSessionId → parseSessionId roundtrip (property-based)", () => {
   it("GIVEN any valid Date WHEN generated then parsed THEN roundtrips correctly", () => {
-    const validDate = fc.date({
-      min: PROPERTY_DATE_MIN,
-      max: PROPERTY_DATE_MAX,
-      noInvalidDate: true,
-    });
+    const validDate = arbitraryValidSessionInstant();
 
     fc.assert(
       fc.property(validDate, (original) => {
@@ -212,9 +206,10 @@ describe("parseSessionMetadata", () => {
   });
 
   it("GIVEN front matter carrying keys outside the declared shape WHEN parsed THEN only declared fields are returned and no error is raised", () => {
+    const gitRef = "main";
     const content = buildSessionFrontMatterContent([
       `${SESSION_FRONT_MATTER.PRIORITY}: ${SESSION_PRIORITY.HIGH}`,
-      `${SESSION_FRONT_MATTER.GIT_REF}: main`,
+      `${SESSION_FRONT_MATTER.GIT_REF}: ${gitRef}`,
       `${SESSION_FRONT_MATTER.GOAL}: ${JSON.stringify("Resume the work")}`,
       `${SESSION_FRONT_MATTER.NEXT_STEP}: ${JSON.stringify("Open the file")}`,
       "result: completed under the previous shape",
@@ -225,7 +220,7 @@ describe("parseSessionMetadata", () => {
     const result = parseSessionMetadata(content) as Record<string, unknown>;
 
     expect(result.priority).toBe(SESSION_PRIORITY.HIGH);
-    expect(result.git_ref).toBe("main");
+    expect(result.git_ref).toBe(gitRef);
     expect(result.result).toBeUndefined();
     expect(result.worktree).toBeUndefined();
     expect(result.branch).toBeUndefined();
@@ -304,7 +299,7 @@ describe("parseSessionMetadata properties (property-based)", () => {
   it("GIVEN any valid priority in YAML WHEN parsed THEN roundtrips correctly", () => {
     fc.assert(
       fc.property(
-        fc.constantFrom(...VALID_PRIORITIES),
+        arbitrarySessionPriority(),
         (priority) => {
           const content = buildSessionFrontMatterContent([
             `${SESSION_FRONT_MATTER.PRIORITY}: ${priority}`,
@@ -317,7 +312,7 @@ describe("parseSessionMetadata properties (property-based)", () => {
   });
 
   it("GIVEN any string not in valid priorities WHEN parsed THEN returns DEFAULT_PRIORITY", () => {
-    const validSet = new Set<string>(VALID_PRIORITIES);
+    const validSet = new Set<string>(Object.values(SESSION_PRIORITY));
     fc.assert(
       fc.property(
         fc.string().filter((s) => !validSet.has(s) && !s.includes("\n") && !s.includes(SESSION_FRONT_MATTER_DELIMITER)),

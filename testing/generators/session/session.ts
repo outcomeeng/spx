@@ -469,14 +469,53 @@ const SESSION_ID_MAX_DATE = new Date("2099-12-31T23:59:59.000Z");
 const SESSION_ID_SAMPLE_SEED = 0x5e5520;
 
 /**
+ * Arbitrary valid session instant — a `Date` within the four-digit-year bounds
+ * the `YYYY-MM-DD_HH-mm-ss` ID format admits. Session-identity property tests
+ * draw instants from this domain instead of re-declaring date bounds inline.
+ */
+export function arbitraryValidSessionInstant(): fc.Arbitrary<Date> {
+  return fc.date({ min: SESSION_ID_MIN_DATE, max: SESSION_ID_MAX_DATE, noInvalidDate: true });
+}
+
+/**
  * Arbitrary session ID in the `YYYY-MM-DD_HH-mm-ss` shape, formatted through the
  * production `generateSessionId` so the test domain tracks the source format
  * rather than re-deriving it.
  */
 export function arbitrarySessionId(): fc.Arbitrary<string> {
+  return arbitraryValidSessionInstant().map((instant) => generateSessionId({ now: () => instant }));
+}
+
+/** Characters an agent-session identity may carry that are unsafe in a path segment. */
+const PATH_UNSAFE_MARKERS = ":/+.\\@ ";
+
+/** Fixed seed for single-value path-unsafe-identity draws so scenario tests stay deterministic. */
+const PATH_UNSAFE_IDENTITY_SAMPLE_SEED = 0x5e5530;
+
+/**
+ * Arbitrary non-empty agent-session identity ($CLAUDE_SESSION_ID / $CODEX_THREAD_ID)
+ * carrying at least one path-unsafe marker, so `resolveAgentSessionId` must
+ * sanitize it into a path-safe token. Interleaves alphanumeric runs with unsafe
+ * markers and guarantees at least one marker is present.
+ */
+export function arbitraryPathUnsafeAgentSessionIdentity(): fc.Arbitrary<string> {
   return fc
-    .date({ min: SESSION_ID_MIN_DATE, max: SESSION_ID_MAX_DATE, noInvalidDate: true })
-    .map((instant) => generateSessionId({ now: () => instant }));
+    .tuple(
+      fc.string({ minLength: 1, maxLength: 8 }),
+      fc.constantFrom(...PATH_UNSAFE_MARKERS),
+      fc.string({ minLength: 1, maxLength: 8 }),
+    )
+    .map(([head, marker, tail]) => `${head}${marker}${tail}`);
+}
+
+/**
+ * Draws one deterministic path-unsafe agent-session identity for scenario tests
+ * that need a single example rather than a full property loop.
+ */
+export function samplePathUnsafeAgentSessionIdentity(
+  seed: number = PATH_UNSAFE_IDENTITY_SAMPLE_SEED,
+): string {
+  return fc.sample(arbitraryPathUnsafeAgentSessionIdentity(), { numRuns: 1, seed })[0];
 }
 
 /**

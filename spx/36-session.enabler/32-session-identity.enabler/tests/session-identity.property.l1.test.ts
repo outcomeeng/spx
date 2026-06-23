@@ -1,24 +1,12 @@
 import fc from "fast-check";
 import { describe, expect, it } from "vitest";
 
-import { resolveAgentSessionId } from "@/domains/session/agent-session";
+import { AGENT_SESSION_TOKEN_PATTERN, resolveAgentSessionId } from "@/domains/session/agent-session";
 import { buildSessionFrontMatterContent, SESSION_FRONT_MATTER_DELIMITER } from "@/domains/session/create";
-import { parseSessionMetadata } from "@/domains/session/list";
-import { generateSessionId, parseSessionId } from "@/domains/session/timestamp";
+import { DEFAULT_SESSION_METADATA, parseSessionMetadata } from "@/domains/session/list";
+import { generateSessionId, parseSessionId, SESSION_ID_PATTERN } from "@/domains/session/timestamp";
+import { arbitraryValidSessionInstant } from "@testing/generators/session/session";
 import { STATE_STORE_TEST_GENERATOR } from "@testing/generators/state-store/state-store";
-
-const PROPERTY_DATE_MIN = new Date("2000-01-01T00:00:00.000Z");
-const PROPERTY_DATE_MAX = new Date("2099-12-28T23:59:59.000Z");
-const SESSION_ID_SPEC_PATTERN = /^\d{4}-\d{2}-\d{2}_\d{2}-\d{2}-\d{2}$/;
-const SAFE_AGENT_SESSION_TOKEN_PATTERN = /^[A-Za-z0-9_-]+$/;
-const EXPECTED_DEFAULT_SESSION_METADATA = {
-  priority: "medium",
-  specs: [],
-  files: [],
-  git_ref: "",
-  goal: "",
-  next_step: "",
-} as const;
 
 function truncateToSecond(instant: Date): number {
   return instant.getTime() - instant.getMilliseconds();
@@ -28,9 +16,9 @@ describe("session identity properties", () => {
   it("GIVEN any valid Date WHEN generated THEN ID matches the canonical pattern", () => {
     fc.assert(
       fc.property(
-        fc.date({ min: PROPERTY_DATE_MIN, max: PROPERTY_DATE_MAX, noInvalidDate: true }),
+        arbitraryValidSessionInstant(),
         (instant) => {
-          expect(generateSessionId({ now: () => instant })).toMatch(SESSION_ID_SPEC_PATTERN);
+          expect(generateSessionId({ now: () => instant })).toMatch(SESSION_ID_PATTERN);
         },
       ),
     );
@@ -39,8 +27,8 @@ describe("session identity properties", () => {
   it("GIVEN any two valid Dates WHEN IDs compared THEN lexicographic order matches chronological order", () => {
     fc.assert(
       fc.property(
-        fc.date({ min: PROPERTY_DATE_MIN, max: PROPERTY_DATE_MAX, noInvalidDate: true }),
-        fc.date({ min: PROPERTY_DATE_MIN, max: PROPERTY_DATE_MAX, noInvalidDate: true }),
+        arbitraryValidSessionInstant(),
+        arbitraryValidSessionInstant(),
         (left, right) => {
           const leftId = generateSessionId({ now: () => left });
           const rightId = generateSessionId({ now: () => right });
@@ -62,7 +50,7 @@ describe("session identity properties", () => {
       fc.property(
         fc.string().filter((content) => !content.startsWith(SESSION_FRONT_MATTER_DELIMITER)),
         (content) => {
-          expect(parseSessionMetadata(content)).toEqual(EXPECTED_DEFAULT_SESSION_METADATA);
+          expect(parseSessionMetadata(content)).toEqual(DEFAULT_SESSION_METADATA);
         },
       ),
     );
@@ -79,7 +67,7 @@ describe("session identity properties", () => {
         (priority) => {
           const content = buildSessionFrontMatterContent([`priority: ${JSON.stringify(priority)}`], "# Session");
 
-          expect(parseSessionMetadata(content).priority).toBe(EXPECTED_DEFAULT_SESSION_METADATA.priority);
+          expect(parseSessionMetadata(content).priority).toBe(DEFAULT_SESSION_METADATA.priority);
         },
       ),
     );
@@ -101,7 +89,7 @@ describe("session identity properties", () => {
           });
 
           expect(firstClaudeToken).toBeDefined();
-          expect(firstClaudeToken).toMatch(SAFE_AGENT_SESSION_TOKEN_PATTERN);
+          expect(firstClaudeToken).toMatch(AGENT_SESSION_TOKEN_PATTERN);
           expect(firstClaudeToken).not.toBe(unsafeSessionToken);
           expect(secondClaudeToken).toBe(firstClaudeToken);
           expect(codexToken).toBe(firstClaudeToken);
