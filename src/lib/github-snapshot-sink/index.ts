@@ -1,5 +1,7 @@
 import { JOURNAL_BACKEND_KIND, type SnapshotBackend } from "@/lib/agent-run-journal";
 
+import type { GithubSnapshotClient } from "./types";
+
 /** The GitHub-native surfaces a run's rendered projection can be published to. */
 export const SNAPSHOT_SURFACE_KIND = {
   PULL_REQUEST_COMMENT: "pull-request-comment",
@@ -18,13 +20,6 @@ export type SnapshotSurfaceTarget =
   }
   | { readonly kind: typeof SNAPSHOT_SURFACE_KIND.ACTIONS_ARTIFACT; readonly runToken: string }
   | { readonly kind: typeof SNAPSHOT_SURFACE_KIND.ACTIONS_CACHE; readonly runToken: string };
-
-/** Injected client boundary for GitHub and Actions-runtime writes. */
-export interface GithubSnapshotClient {
-  upsertPullRequestComment(args: { pullNumber: number; marker: string; body: string }): Promise<void>;
-  uploadActionsArtifact(args: { name: string; body: string }): Promise<void>;
-  saveActionsCache(args: { key: string; body: string }): Promise<void>;
-}
 
 export interface GithubSnapshotSinkOptions {
   readonly target: SnapshotSurfaceTarget;
@@ -71,3 +66,14 @@ export function createGithubSnapshotSink(options: GithubSnapshotSinkOptions): Sn
 function assertNeverSurface(target: never): never {
   throw new Error(`unhandled snapshot surface target: ${JSON.stringify(target)}`);
 }
+
+export { GH_API, runGhApi } from "./gh-api-runner";
+export {
+  createGithubPullRequestCommentClient,
+  GITHUB_API,
+  GITHUB_API_ERROR,
+  githubCommentMarkerTag,
+  type GithubApiRunner,
+  type GithubPullRequestCommentClient,
+} from "./pull-request-comment-client";
+export type { GithubSnapshotClient } from "./types";
