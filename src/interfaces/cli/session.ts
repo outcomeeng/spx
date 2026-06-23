@@ -1,6 +1,7 @@
 /**
  * Session CLI — Commander registration descriptor for the session subcommands.
  */
+import { sessionCliDefinition, sessionCommandToken, sessionOptionToken } from "./session/definition";
 import type { Command } from "commander";
 
 import {
@@ -112,14 +113,14 @@ function resolveListWidth(): number {
 function registerSessionCommands(sessionCmd: Command): void {
   // list command
   sessionCmd
-    .command("list")
-    .description("List active sessions (doing + todo by default)")
-    .option("--status <status>", "Filter by status (todo|doing|archive); defaults to doing + todo")
-    .option("--json", "Output as JSON")
-    .option("--fields <fields>", "Comma-separated fields to emit as JSON (implies --json)")
-    .option("--color", "Force colored text output")
-    .option("--no-color", "Disable colored text output")
-    .option("--sessions-dir <path>", "Custom sessions directory")
+    .command(sessionCommandToken(sessionCliDefinition.subcommands.list))
+    .description(sessionCliDefinition.subcommands.list.description)
+    .option(sessionOptionToken(sessionCliDefinition.options.status), sessionCliDefinition.options.status.description)
+    .option(sessionOptionToken(sessionCliDefinition.options.json), sessionCliDefinition.options.json.description)
+    .option(sessionOptionToken(sessionCliDefinition.options.fields), sessionCliDefinition.options.fields.description)
+    .option(sessionOptionToken(sessionCliDefinition.options.color), sessionCliDefinition.options.color.description)
+    .option(sessionOptionToken(sessionCliDefinition.options.noColor), sessionCliDefinition.options.noColor.description)
+    .option(sessionOptionToken(sessionCliDefinition.options.sessionsDir), sessionCliDefinition.options.sessionsDir.description)
     .action(
       async (options: { status?: string; json?: boolean; fields?: string; color?: boolean; sessionsDir?: string }) => {
         try {
@@ -142,9 +143,9 @@ function registerSessionCommands(sessionCmd: Command): void {
   // pick command — interactive launcher: browse the todo queue, then hand the
   // selected session to claude or codex via `/pickup`. The picker never claims.
   sessionCmd
-    .command("pick")
-    .description("Interactively pick a session and launch claude or codex to resume it")
-    .option("--sessions-dir <path>", "Custom sessions directory")
+    .command(sessionCommandToken(sessionCliDefinition.subcommands.pick))
+    .description(sessionCliDefinition.subcommands.pick.description)
+    .option(sessionOptionToken(sessionCliDefinition.options.sessionsDir), sessionCliDefinition.options.sessionsDir.description)
     .action(async (options: { sessionsDir?: string }) => {
       try {
         // The picker needs a real terminal; refuse a non-interactive context
@@ -175,13 +176,13 @@ function registerSessionCommands(sessionCmd: Command): void {
 
   // todo command (convenience alias for list --status todo)
   sessionCmd
-    .command("todo")
-    .description("List todo sessions")
-    .option("--json", "Output as JSON")
-    .option("--fields <fields>", "Comma-separated fields to emit as JSON (implies --json)")
-    .option("--color", "Force colored text output")
-    .option("--no-color", "Disable colored text output")
-    .option("--sessions-dir <path>", "Custom sessions directory")
+    .command(sessionCommandToken(sessionCliDefinition.subcommands.todo))
+    .description(sessionCliDefinition.subcommands.todo.description)
+    .option(sessionOptionToken(sessionCliDefinition.options.json), sessionCliDefinition.options.json.description)
+    .option(sessionOptionToken(sessionCliDefinition.options.fields), sessionCliDefinition.options.fields.description)
+    .option(sessionOptionToken(sessionCliDefinition.options.color), sessionCliDefinition.options.color.description)
+    .option(sessionOptionToken(sessionCliDefinition.options.noColor), sessionCliDefinition.options.noColor.description)
+    .option(sessionOptionToken(sessionCliDefinition.options.sessionsDir), sessionCliDefinition.options.sessionsDir.description)
     .action(async (options: { json?: boolean; fields?: string; color?: boolean; sessionsDir?: string }) => {
       try {
         const output = await listCommand({
@@ -201,10 +202,10 @@ function registerSessionCommands(sessionCmd: Command): void {
 
   // show command
   sessionCmd
-    .command("show <id...>")
-    .description("Show session content")
-    .option("--json", "Output parsed session frontmatter as JSON (a record per id)")
-    .option("--sessions-dir <path>", "Custom sessions directory")
+    .command(sessionCommandToken(sessionCliDefinition.subcommands.show))
+    .description(sessionCliDefinition.subcommands.show.description)
+    .option(sessionOptionToken(sessionCliDefinition.options.json), sessionCliDefinition.options.json.description)
+    .option(sessionOptionToken(sessionCliDefinition.options.sessionsDir), sessionCliDefinition.options.sessionsDir.description)
     .action(async (ids: string[], options: { json?: boolean; sessionsDir?: string }) => {
       try {
         const output = await showCommand({
@@ -221,10 +222,10 @@ function registerSessionCommands(sessionCmd: Command): void {
 
   // pickup command
   sessionCmd
-    .command("pickup [ids...]")
-    .description("Claim one or more sessions (move from todo to doing)")
-    .option("--auto", "Auto-select highest priority session")
-    .option("--sessions-dir <path>", "Custom sessions directory")
+    .command(sessionCommandToken(sessionCliDefinition.subcommands.pickup))
+    .description(sessionCliDefinition.subcommands.pickup.description)
+    .option(sessionOptionToken(sessionCliDefinition.options.auto), sessionCliDefinition.options.auto.description)
+    .option(sessionOptionToken(sessionCliDefinition.options.sessionsDir), sessionCliDefinition.options.sessionsDir.description)
     .addHelpText("after", PICKUP_SELECTION_HELP)
     .action(async (ids: string[], options: { auto?: boolean; sessionsDir?: string }) => {
       try {
@@ -246,9 +247,9 @@ function registerSessionCommands(sessionCmd: Command): void {
 
   // release command
   sessionCmd
-    .command("release [ids...]")
-    .description("Release one or more sessions (move from doing to todo)")
-    .option("--sessions-dir <path>", "Custom sessions directory")
+    .command(sessionCommandToken(sessionCliDefinition.subcommands.release))
+    .description(sessionCliDefinition.subcommands.release.description)
+    .option(sessionOptionToken(sessionCliDefinition.options.sessionsDir), sessionCliDefinition.options.sessionsDir.description)
     .action(async (ids: string[], options: { sessionsDir?: string }) => {
       try {
         const output = await releaseCommand({
@@ -266,9 +267,9 @@ function registerSessionCommands(sessionCmd: Command): void {
   // Caller-supplied fields come from a JSON header at the start of stdin;
   // bytes after the header form the markdown body verbatim.
   sessionCmd
-    .command("handoff")
-    .description("Create a handoff session (reads JSON header + body from stdin)")
-    .option("--sessions-dir <path>", "Custom sessions directory")
+    .command(sessionCommandToken(sessionCliDefinition.subcommands.handoff))
+    .description(sessionCliDefinition.subcommands.handoff.description)
+    .option(sessionOptionToken(sessionCliDefinition.options.sessionsDir), sessionCliDefinition.options.sessionsDir.description)
     .addHelpText("after", HANDOFF_FRONTMATTER_HELP)
     .action(async (options: { sessionsDir?: string }) => {
       try {
@@ -299,9 +300,9 @@ function registerSessionCommands(sessionCmd: Command): void {
 
   // delete command
   sessionCmd
-    .command("delete <id...>")
-    .description("Delete one or more sessions")
-    .option("--sessions-dir <path>", "Custom sessions directory")
+    .command(sessionCommandToken(sessionCliDefinition.subcommands.delete))
+    .description(sessionCliDefinition.subcommands.delete.description)
+    .option(sessionOptionToken(sessionCliDefinition.options.sessionsDir), sessionCliDefinition.options.sessionsDir.description)
     .action(async (ids: string[], options: { sessionsDir?: string }) => {
       try {
         const output = await deleteCommand({
@@ -317,11 +318,11 @@ function registerSessionCommands(sessionCmd: Command): void {
 
   // prune command
   sessionCmd
-    .command("prune")
-    .description("Remove old todo sessions, keeping the most recent N")
-    .option("--keep <count>", "Number of sessions to keep (default: 5)", "5")
-    .option("--dry-run", "Show what would be deleted without deleting")
-    .option("--sessions-dir <path>", "Custom sessions directory")
+    .command(sessionCommandToken(sessionCliDefinition.subcommands.prune))
+    .description(sessionCliDefinition.subcommands.prune.description)
+    .option(sessionOptionToken(sessionCliDefinition.options.keep), sessionCliDefinition.options.keep.description, sessionCliDefinition.options.keep.defaultValue)
+    .option(sessionOptionToken(sessionCliDefinition.options.dryRun), sessionCliDefinition.options.dryRun.description)
+    .option(sessionOptionToken(sessionCliDefinition.options.sessionsDir), sessionCliDefinition.options.sessionsDir.description)
     .action(async (options: { keep?: string; dryRun?: boolean; sessionsDir?: string }) => {
       try {
         const keep = options.keep ? Number.parseInt(options.keep, 10) : undefined;
@@ -343,9 +344,9 @@ function registerSessionCommands(sessionCmd: Command): void {
 
   // archive command
   sessionCmd
-    .command("archive <id...>")
-    .description("Move one or more sessions to the archive directory")
-    .option("--sessions-dir <path>", "Custom sessions directory")
+    .command(sessionCommandToken(sessionCliDefinition.subcommands.archive))
+    .description(sessionCliDefinition.subcommands.archive.description)
+    .option(sessionOptionToken(sessionCliDefinition.options.sessionsDir), sessionCliDefinition.options.sessionsDir.description)
     .action(async (ids: string[], options: { sessionsDir?: string }) => {
       try {
         const output = await archiveCommand({
@@ -368,12 +369,12 @@ function registerSessionCommands(sessionCmd: Command): void {
  * Session CLI — Commander registration descriptor for the session subcommands.
  */
 export const sessionDomain: Domain = {
-  name: "session",
-  description: "Manage session workflow",
+  name: sessionCliDefinition.domain.commandName,
+  description: sessionCliDefinition.domain.description,
   register: (program: Command) => {
     const sessionCmd = program
-      .command("session")
-      .description("Manage session workflow")
+      .command(sessionCliDefinition.domain.commandName)
+      .description(sessionCliDefinition.domain.description)
       .addHelpText("after", SESSION_FORMAT_HELP);
 
     registerSessionCommands(sessionCmd);
