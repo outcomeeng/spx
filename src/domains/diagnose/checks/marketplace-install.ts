@@ -8,8 +8,9 @@
  * @module domains/diagnose/checks/marketplace-install
  */
 
-import type { CheckRunner } from "@/domains/diagnose/engine";
-import { CHECK_NAME, type MarketplaceIdentity } from "@/domains/diagnose/manifest";
+import { type CheckRunner } from "@/domains/diagnose/engine";
+import { type MarketplaceIdentity } from "@/domains/diagnose/facts";
+import { CHECK_NAME } from "@/domains/diagnose/manifest";
 import { type CheckRecord, VERDICT_BUCKET } from "@/domains/diagnose/types";
 
 /** The marketplace-install verdict labels. */
