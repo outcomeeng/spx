@@ -23,7 +23,7 @@ function equivalentConfig(): Config {
 }
 
 function serializeEquivalentConfig(format: ConfigFileFormat, config: Config): string {
-  const serialized = serializeConfigFileSections(format, config as Record<string, unknown>);
+  const serialized = serializeConfigFileSections(format, config);
   if (!serialized.ok) {
     throw new Error(serialized.error);
   }

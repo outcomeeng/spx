@@ -5,13 +5,13 @@ import { DECISION_KINDS, type Kind, KIND_REGISTRY, NODE_KINDS, SPEC_TREE_KIND_CA
 describe("single-source invariants", () => {
   it("every NODE_KINDS entry appears as a key in KIND_REGISTRY", () => {
     for (const kind of NODE_KINDS) {
-      expect(Object.prototype.hasOwnProperty.call(KIND_REGISTRY, kind)).toBe(true);
+      expect(Object.hasOwn(KIND_REGISTRY, kind)).toBe(true);
     }
   });
 
   it("every DECISION_KINDS entry appears as a key in KIND_REGISTRY", () => {
     for (const kind of DECISION_KINDS) {
-      expect(Object.prototype.hasOwnProperty.call(KIND_REGISTRY, kind)).toBe(true);
+      expect(Object.hasOwn(KIND_REGISTRY, kind)).toBe(true);
     }
   });
 

@@ -43,7 +43,7 @@ function serializeSections(
   format: typeof CONFIG_FILE_FORMAT.JSON | typeof CONFIG_FILE_FORMAT.TOML,
   config: Config,
 ): string {
-  const serialized = serializeConfigFileSections(format, config as Record<string, unknown>);
+  const serialized = serializeConfigFileSections(format, config);
   expect(serialized.ok).toBe(true);
   if (!serialized.ok) {
     throw new Error(serialized.error);

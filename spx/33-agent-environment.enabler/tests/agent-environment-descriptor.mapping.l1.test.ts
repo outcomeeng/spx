@@ -19,7 +19,7 @@ import type { Config } from "@testing/harnesses/spec-tree/spec-tree";
 import { withTestEnv } from "@testing/harnesses/spec-tree/spec-tree";
 
 function serializeConfig(format: ConfigFileFormat, config: Config): string {
-  const serialized = serializeConfigFileSections(format, config as Record<string, unknown>);
+  const serialized = serializeConfigFileSections(format, config);
   if (!serialized.ok) throw new Error(serialized.error);
   return serialized.value;
 }

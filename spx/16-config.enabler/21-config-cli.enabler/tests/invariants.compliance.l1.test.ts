@@ -39,25 +39,25 @@ function trapProcessSideEffects(): ProcessOverrides {
     stderrWrite: process.stderr.write.bind(process.stderr),
   };
 
-  process.exit = ((code?: number) => {
+  process.exit = (code?: number) => {
     tripped.push(`process.exit(${code ?? ""})`);
     throw new Error(`process.exit(${code ?? ""}) called by handler`);
-  }) as typeof process.exit;
+  };
 
-  process.chdir = ((directory: string) => {
+  process.chdir = (directory: string) => {
     tripped.push(`process.chdir(${directory})`);
     throw new Error(`process.chdir(${directory}) called by handler`);
-  }) as typeof process.chdir;
+  };
 
-  process.stdout.write = ((..._args: readonly unknown[]) => {
+  process.stdout.write = (..._args: readonly unknown[]) => {
     tripped.push("process.stdout.write");
     throw new Error("process.stdout.write called by handler");
-  }) as typeof process.stdout.write;
+  };
 
-  process.stderr.write = ((..._args: readonly unknown[]) => {
+  process.stderr.write = (..._args: readonly unknown[]) => {
     tripped.push("process.stderr.write");
     throw new Error("process.stderr.write called by handler");
-  }) as typeof process.stderr.write;
+  };
 
   return {
     tripped,
