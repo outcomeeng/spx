@@ -1,6 +1,10 @@
+import { writeFile } from "node:fs/promises";
+import { join } from "node:path";
+
 import { execa } from "execa";
 import { describe, expect, it } from "vitest";
 
+import { SPX_REACHABILITY_VERDICT } from "@/domains/diagnose/checks/spx-reachability";
 import { overallExitCode } from "@/domains/diagnose/fold";
 import { CHECK_NAME } from "@/domains/diagnose/manifest";
 import { DIAGNOSE_FORMAT, DIAGNOSE_TEXT_OVERALL_LABEL } from "@/domains/diagnose/report";
@@ -129,6 +133,23 @@ describe("spx diagnose emits a schema-valid report and exits with the code keyed
     const result = await runDiagnose([DIAGNOSE_CLI.MANIFEST_FLAG, manifestPath, DIAGNOSE_CLI.NO_COLOR_FLAG]);
 
     expect(result.stdout).not.toContain(ansiEscape);
+  });
+
+  it("resolves the check set and floor from the spx.config diagnose section when no --manifest is supplied", async () => {
+    await withTempDir("diagnose-config", async (cwd) => {
+      // The configured check set restricts the run to one check, and a configured floor makes
+      // spx-reachability perform a floor comparison — so its verdict is never the no-floor `present`
+      // that bare mode yields. Both signals prove the config diagnose section was resolved, without
+      // assuming whether spx happens to be on PATH in the test environment.
+      const config = ["diagnose:", "  spxFloor: \"0.0.0\"", `  checks: ["${CHECK_NAME.SPX_REACHABILITY}"]`].join("\n");
+      await writeFile(join(cwd, "spx.config.yaml"), `${config}\n`, "utf8");
+
+      const result = await runDiagnose([DIAGNOSE_CLI.FORMAT_FLAG, DIAGNOSE_FORMAT.JSON], { cwd });
+
+      const report = JSON.parse(result.stdout) as ReportShape;
+      expect(report.checks.map((check) => check.name)).toEqual([CHECK_NAME.SPX_REACHABILITY]);
+      expect(report.checks[0].verdict).not.toBe(SPX_REACHABILITY_VERDICT.PRESENT);
+    });
   });
 
   it("runs bare with no manifest and no diagnose config, rendering every registered check with a verdict-keyed exit", async () => {
