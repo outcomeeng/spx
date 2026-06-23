@@ -8,6 +8,7 @@ import { DEFAULT_SESSION_METADATA } from "@/domains/session/list";
 import { DEFAULT_KEEP_COUNT, selectSessionsToDelete } from "@/domains/session/prune";
 import { type Session, SESSION_STATUSES } from "@/domains/session/types";
 import { arbitrarySessionContent, arbitrarySessionId } from "@testing/generators/session/session";
+import { assertProperty, PROPERTY_LEVEL, PROPERTY_SIZE } from "@testing/harnesses/property/property";
 import { createSessionHarness } from "@testing/harnesses/session/harness";
 
 const [TODO, DOING, ARCHIVE] = SESSION_STATUSES;
@@ -24,8 +25,6 @@ function session(id: string, status: typeof SESSION_STATUSES[number] = ARCHIVE):
 function sessionId(day: number): string {
   return `2026-01-${String(day).padStart(2, "0")}_10-00-00`;
 }
-
-const NON_CANONICAL_ARCHIVE_RUNS = 40;
 
 describe("session retention properties", () => {
   it("GIVEN todo and doing sessions WHEN prune candidates are selected THEN active sessions are not selected by archive caller input", () => {
@@ -69,8 +68,9 @@ describe("session retention properties", () => {
   });
 
   it("GIVEN session content of any frontmatter shape WHEN archive THEN it moves to archive without rejecting", async () => {
-    await fc.assert(
-      fc.asyncProperty(arbitrarySessionContent(), arbitrarySessionId(), async (content, id) => {
+    await assertProperty(
+      fc.tuple(arbitrarySessionContent(), arbitrarySessionId()),
+      async ([content, id]) => {
         const harness = await createSessionHarness();
         try {
           await harness.writeRawSession(TODO, id, content);
@@ -80,8 +80,8 @@ describe("session retention properties", () => {
         } finally {
           await harness.cleanup();
         }
-      }),
-      { numRuns: NON_CANONICAL_ARCHIVE_RUNS },
+      },
+      { level: PROPERTY_LEVEL.L1, size: PROPERTY_SIZE.SMALL },
     );
   });
 });
