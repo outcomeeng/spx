@@ -1,14 +1,16 @@
 # Diagnose
 
-PROVIDES the `spx diagnose` command — a deterministic environment-diagnostics pipeline that gathers each configured check's readings, classifies them against fixed verdict tables, folds the per-check verdicts into one overall verdict, and emits a per-check and overall report in text or JSON with a process exit code keyed to that verdict, all driven by a consumer-supplied declarative manifest
+PROVIDES the `spx diagnose` command — a deterministic environment-diagnostics pipeline that gathers each check's readings, classifies them against fixed verdict tables, folds the per-check verdicts into one overall verdict, and emits a per-check and overall report in text or JSON with a process exit code keyed to that verdict, resolving the facts each check judges against from `spx.config` and per-check defaults, or from an explicit `--manifest` that fully instruments the diagnosis, per `spx/54-diagnose.enabler/11-invocation-modes.pdr.md`
 SO THAT a spec-tree product and the agents working it, consuming spx as a trusted third party
-CAN deterministically self-diagnose a misconfigured environment without re-deriving the classification on every invocation
+CAN deterministically self-diagnose a misconfigured environment by running `spx diagnose` with no arguments, without re-deriving the classification on every invocation
 
 ## Assertions
 
 ### Scenarios
 
-- Given a manifest file, when `spx diagnose` runs, it emits a schema-valid report in the requested format and exits with the process code keyed to the overall verdict ([test](tests/diagnose-cli.scenario.l2.test.ts))
+- Given a `diagnose` section in `spx.config` and no `--manifest`, when `spx diagnose` runs, it resolves the diagnostic facts from configuration and emits a schema-valid report keyed to the overall verdict ([test](tests/diagnose-cli.scenario.l2.test.ts))
+- Given no `--manifest` and no `diagnose` configuration, when `spx diagnose` runs, each check reports against its per-check default and the report renders keyed to the overall verdict ([test](tests/diagnose-cli.scenario.l2.test.ts))
+- Given a `--manifest`, when `spx diagnose` runs, it judges against the manifest's facts and emits a schema-valid report in the requested format keyed to the overall verdict ([test](tests/diagnose-cli.scenario.l2.test.ts))
 
 ### Mappings
 
