@@ -175,6 +175,7 @@ export function buildEslintConfig(options: BuildEslintConfigOptions = {}) {
         "@typescript-eslint": tseslint.plugin,
         sonarjs,
         unicorn,
+        import: importPlugin,
       },
       languageOptions: {
         parser: tseslint.parser,
