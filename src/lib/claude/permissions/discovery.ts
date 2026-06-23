@@ -1,6 +1,7 @@
 /**
  * Discovery of Claude Code settings files across project directories
  */
+import type { Dirent } from "node:fs";
 import fs from "node:fs/promises";
 import path from "node:path";
 
@@ -28,58 +29,66 @@ export async function findSettingsFiles(
   root: string,
   visited: Set<string> = new Set(),
 ): Promise<string[]> {
-  // Normalize and resolve path to handle symlinks and ~ expansion
   const normalizedRoot = path.resolve(root.replace(/^~/, process.env.HOME || "~"));
 
-  // Check for symlink loops
   if (visited.has(normalizedRoot)) {
-    return []; // Skip already visited directories
+    return [];
   }
   visited.add(normalizedRoot);
 
   try {
-    // Stat the root to verify it exists and is a directory
-    const stats = await fs.stat(normalizedRoot);
-    if (!stats.isDirectory()) {
-      throw new Error(`Path is not a directory: ${normalizedRoot}`);
-    }
-
-    // Read directory contents
-    const entries = await fs.readdir(normalizedRoot, { withFileTypes: true });
-    const results: string[] = [];
-
-    for (const entry of entries) {
-      const fullPath = path.join(normalizedRoot, entry.name);
-
-      // If this is a .claude directory, check for settings.local.json
-      if (entry.isDirectory() && entry.name === ".claude") {
-        const settingsPath = path.join(fullPath, "settings.local.json");
-        if (await isValidSettingsFile(settingsPath)) {
-          results.push(settingsPath);
-        }
-      }
-
-      // Recursively search subdirectories (skip .claude to avoid double-checking)
-      if (entry.isDirectory() && entry.name !== ".claude") {
-        const subFiles = await findSettingsFiles(fullPath, visited);
-        results.push(...subFiles);
-      }
-    }
-
-    return results;
+    return await findSettingsFilesInDirectory(normalizedRoot, visited);
   } catch (error) {
-    // Re-throw with more context
-    if (error instanceof Error) {
-      if (error.message.includes("ENOENT")) {
-        throw new Error(`Directory not found: ${normalizedRoot}`);
-      }
-      if (error.message.includes("EACCES")) {
-        throw new Error(`Permission denied: ${normalizedRoot}`);
-      }
-      throw new Error(`Failed to search directory "${normalizedRoot}": ${error.message}`);
-    }
-    throw error;
+    throw discoveryError(normalizedRoot, error);
   }
+}
+
+async function findSettingsFilesInDirectory(
+  normalizedRoot: string,
+  visited: Set<string>,
+): Promise<string[]> {
+  const stats = await fs.stat(normalizedRoot);
+  if (!stats.isDirectory()) {
+    throw new Error(`Path is not a directory: ${normalizedRoot}`);
+  }
+
+  const entries = await fs.readdir(normalizedRoot, { withFileTypes: true });
+  const results: string[] = [];
+  for (const entry of entries) {
+    results.push(...await settingsFilesForEntry(normalizedRoot, entry, visited));
+  }
+  return results;
+}
+
+async function settingsFilesForEntry(
+  normalizedRoot: string,
+  entry: Dirent,
+  visited: Set<string>,
+): Promise<string[]> {
+  if (!entry.isDirectory()) return [];
+
+  const fullPath = path.join(normalizedRoot, entry.name);
+  if (entry.name === ".claude") {
+    const settingsPath = path.join(fullPath, "settings.local.json");
+    return await isValidSettingsFile(settingsPath) ? [settingsPath] : [];
+  }
+
+  return findSettingsFiles(fullPath, visited);
+}
+
+function discoveryError(normalizedRoot: string, error: unknown): Error {
+  if (!(error instanceof Error)) return new Error(unknownErrorMessage(error));
+  if (error.message.includes("ENOENT")) return new Error(`Directory not found: ${normalizedRoot}`);
+  if (error.message.includes("EACCES")) return new Error(`Permission denied: ${normalizedRoot}`);
+  return new Error(`Failed to search directory "${normalizedRoot}": ${error.message}`);
+}
+
+function unknownErrorMessage(error: unknown): string {
+  if (typeof error === "string") return error;
+  if (typeof error === "number" || typeof error === "boolean" || typeof error === "bigint") return error.toString();
+  if (typeof error === "symbol") return error.description ?? "Symbol()";
+  if (error === undefined) return "undefined";
+  return Object.prototype.toString.call(error);
 }
 
 /**

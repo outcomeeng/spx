@@ -4,6 +4,9 @@
 import fs from "node:fs/promises";
 import type { ClaudeSettings, Permission, PermissionCategory, Permissions } from "./types";
 
+const PERMISSION_PATTERN = /^([^(]+)\((.+)\)$/;
+const PERMISSION_CATEGORIES = ["allow", "deny", "ask"] as const satisfies readonly PermissionCategory[];
+
 /**
  * Parse a settings.json file and extract permissions
  *
@@ -65,7 +68,7 @@ export async function parseSettingsFile(filePath: string): Promise<ClaudeSetting
  */
 export function parsePermission(raw: string, category: PermissionCategory): Permission {
   // Match pattern: Type(scope)
-  const match = raw.match(/^([^(]+)\((.+)\)$/);
+  const match = PERMISSION_PATTERN.exec(raw);
 
   if (!match) {
     throw new Error(`Malformed permission string: "${raw}"`);
@@ -103,42 +106,27 @@ export function parsePermission(raw: string, category: PermissionCategory): Perm
 export function parseAllPermissions(permissions: Permissions): Permission[] {
   const result: Permission[] = [];
 
-  // Parse allow permissions
-  if (permissions.allow) {
-    for (const perm of permissions.allow) {
-      try {
-        result.push(parsePermission(perm, "allow"));
-      } catch {
-        // Skip malformed permissions
-        continue;
-      }
-    }
+  for (const category of PERMISSION_CATEGORIES) {
+    result.push(...parsePermissionsByCategory(permissions[category], category));
   }
 
-  // Parse deny permissions
-  if (permissions.deny) {
-    for (const perm of permissions.deny) {
-      try {
-        result.push(parsePermission(perm, "deny"));
-      } catch {
-        // Skip malformed permissions
-        continue;
-      }
+  return result;
+}
+
+function parsePermissionsByCategory(
+  rawPermissions: readonly string[] | undefined,
+  category: PermissionCategory,
+): Permission[] {
+  if (rawPermissions === undefined) return [];
+
+  const result: Permission[] = [];
+  for (const raw of rawPermissions) {
+    try {
+      result.push(parsePermission(raw, category));
+    } catch {
+      continue;
     }
   }
-
-  // Parse ask permissions
-  if (permissions.ask) {
-    for (const perm of permissions.ask) {
-      try {
-        result.push(parsePermission(perm, "ask"));
-      } catch {
-        // Skip malformed permissions
-        continue;
-      }
-    }
-  }
-
   return result;
 }
 

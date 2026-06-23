@@ -6,6 +6,11 @@ export const DEFAULT_MIN_NUMBER_DIGITS = 4;
 export const LEGACY_LITERAL_ALLOWLIST_FIELD = "allowlist";
 export const LEGACY_LITERAL_ALLOWLIST_ERROR =
   "validation.literal.values.allowlist is no longer valid; move its contents up one level to validation.literal.values.{presets,include,exclude}";
+export const LITERAL_STRING_LIST_FIELDS = {
+  INCLUDE: "include",
+  EXCLUDE: "exclude",
+} as const;
+export type LiteralStringListField = (typeof LITERAL_STRING_LIST_FIELDS)[keyof typeof LITERAL_STRING_LIST_FIELDS];
 
 export interface LiteralValueAllowlistConfig {
   readonly presets?: readonly string[];
@@ -80,10 +85,6 @@ export const LITERAL_DEFAULTS: LiteralConfig = {
   minNumberDigits: DEFAULT_MIN_NUMBER_DIGITS,
 };
 
-function isStringArray(value: unknown): value is string[] {
-  return Array.isArray(value) && value.every((item) => typeof item === "string");
-}
-
 function isNonNegativeInteger(value: unknown): value is number {
   return typeof value === "number" && Number.isInteger(value) && value >= 0;
 }
@@ -98,26 +99,14 @@ function validate(value: unknown): Result<LiteralConfig> {
     return { ok: false, error: LEGACY_LITERAL_ALLOWLIST_ERROR };
   }
 
-  const presets = candidate["presets"];
-  if (presets !== undefined) {
-    if (!isStringArray(presets)) {
-      return { ok: false, error: `${LITERAL_SECTION}.presets must be an array of strings` };
-    }
-    const unknownPreset = presets.find((id) => !PRESET_REGISTRY.has(id as PresetName));
-    if (unknownPreset !== undefined) {
-      return { ok: false, error: `${LITERAL_SECTION}.presets: unrecognized preset "${unknownPreset}"` };
-    }
-  }
+  const presets = readPresetList(candidate);
+  if (!presets.ok) return presets;
 
-  const include = candidate["include"];
-  if (include !== undefined && !isStringArray(include)) {
-    return { ok: false, error: `${LITERAL_SECTION}.include must be an array of strings` };
-  }
+  const include = readStringList(candidate, LITERAL_STRING_LIST_FIELDS.INCLUDE);
+  if (!include.ok) return include;
 
-  const exclude = candidate["exclude"];
-  if (exclude !== undefined && !isStringArray(exclude)) {
-    return { ok: false, error: `${LITERAL_SECTION}.exclude must be an array of strings` };
-  }
+  const exclude = readStringList(candidate, LITERAL_STRING_LIST_FIELDS.EXCLUDE);
+  if (!exclude.ok) return exclude;
 
   const minStringLength = candidate["minStringLength"] ?? LITERAL_DEFAULTS.minStringLength;
   if (!isNonNegativeInteger(minStringLength)) {
@@ -138,13 +127,41 @@ function validate(value: unknown): Result<LiteralConfig> {
   return {
     ok: true,
     value: {
-      presets: presets,
-      include: include,
-      exclude: exclude,
+      presets: presets.value,
+      include: include.value,
+      exclude: exclude.value,
       minStringLength,
       minNumberDigits,
     },
   };
+}
+
+function readPresetList(candidate: Record<string, unknown>): Result<readonly string[] | undefined> {
+  const presets = candidate["presets"];
+  if (presets === undefined) return { ok: true, value: undefined };
+  if (!isStringArray(presets)) {
+    return { ok: false, error: `${LITERAL_SECTION}.presets must be an array of strings` };
+  }
+  for (const id of presets) {
+    if (!PRESET_REGISTRY.has(id as PresetName)) {
+      return { ok: false, error: `${LITERAL_SECTION}.presets: unrecognized preset "${id}"` };
+    }
+  }
+  return { ok: true, value: presets };
+}
+
+function readStringList(
+  candidate: Record<string, unknown>,
+  field: LiteralStringListField,
+): Result<readonly string[] | undefined> {
+  const value = candidate[field];
+  if (value === undefined) return { ok: true, value: undefined };
+  if (!isStringArray(value)) return { ok: false, error: `${LITERAL_SECTION}.${field} must be an array of strings` };
+  return { ok: true, value };
+}
+
+function isStringArray(value: unknown): value is readonly string[] {
+  return Array.isArray(value) && value.every((item) => typeof item === "string");
 }
 
 export const literalConfigDescriptor: ConfigDescriptor<LiteralConfig> = {

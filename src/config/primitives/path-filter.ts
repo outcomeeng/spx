@@ -56,7 +56,7 @@ const PATH_SEGMENT_SEPARATOR = "/";
 function normalizePathPrefix(value: string): string {
   let end = value.length;
   while (end > 0 && value[end - 1] === PATH_SEGMENT_SEPARATOR) {
-    end--;
+    end -= 1;
   }
   return value.slice(0, end);
 }
