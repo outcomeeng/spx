@@ -9,6 +9,7 @@ export type {
   AllCommandOptions,
   CircularCommandOptions,
   CommonValidationOptions,
+  FormattingCommandOptions,
   KnipCommandOptions,
   LintCommandOptions,
   MarkdownCommandOptions,
@@ -19,6 +20,7 @@ export type {
 // Commands
 export { allCommand } from "./all";
 export { circularCommand } from "./circular";
+export { FORMATTING_COMMAND_OUTPUT, formattingCommand } from "./formatting";
 export { knipCommand } from "./knip";
 export { lintCommand } from "./lint";
 export { LITERAL_PROBLEM_KIND, literalCommand } from "./literal";

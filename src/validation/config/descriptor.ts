@@ -20,6 +20,7 @@ export const VALIDATION_PATH_TOOL_SUBSECTIONS = {
   KNIP: "knip",
   MARKDOWN: "markdown",
   LITERAL: "literal",
+  FORMATTING: "formatting",
 } as const;
 
 export type ValidationPathToolSubsection =

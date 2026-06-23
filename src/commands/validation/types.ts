@@ -52,6 +52,13 @@ export interface MarkdownCommandOptions {
   quiet?: boolean;
 }
 
+/** Options for formatting command */
+export interface FormattingCommandOptions {
+  cwd: string;
+  files?: string[];
+  quiet?: boolean;
+}
+
 /** Options for all command */
 export interface AllCommandOptions extends CommonValidationOptions {
   /** Auto-fix ESLint issues */

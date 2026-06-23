@@ -7,18 +7,24 @@
  * filesystem scanning. Adding a language is one descriptor module plus one entry
  * here.
  */
+import { formattingValidationLanguage } from "@/validation/languages/formatting";
 import { markdownValidationLanguage } from "@/validation/languages/markdown";
-import type { ValidationRegistry } from "@/validation/languages/types";
+import type { ValidationLanguageDescriptor, ValidationRegistry, ValidationStage } from "@/validation/languages/types";
 import { typescriptValidationLanguage } from "@/validation/languages/typescript";
 
 export const validationRegistry: ValidationRegistry = {
-  languages: [typescriptValidationLanguage, markdownValidationLanguage],
+  languages: [typescriptValidationLanguage, markdownValidationLanguage, formattingValidationLanguage],
 };
 
+/** Flatten a language set into its ordered pipeline stages. */
+export function composeValidationPipelineStages(
+  languages: readonly ValidationLanguageDescriptor[],
+): readonly ValidationStage[] {
+  return languages.flatMap((language) => language.stages);
+}
+
 /** Flattened, ordered pipeline stages composed from every registered language. */
-export const validationPipelineStages = validationRegistry.languages.flatMap(
-  (language) => language.stages,
-);
+export const validationPipelineStages = composeValidationPipelineStages(validationRegistry.languages);
 
 /** Total pipeline step count, derived from the registry rather than a constant. */
 export const VALIDATION_PIPELINE_TOTAL_STEPS = validationPipelineStages.length;
