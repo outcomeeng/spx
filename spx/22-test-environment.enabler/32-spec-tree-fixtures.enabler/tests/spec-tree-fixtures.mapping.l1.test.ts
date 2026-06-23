@@ -33,7 +33,7 @@ describe("spec-tree fixture generator", () => {
     ];
 
     for (const kind of generatedKinds) {
-      expect(Object.prototype.hasOwnProperty.call(KIND_REGISTRY, kind)).toBe(true);
+      expect(Object.hasOwn(KIND_REGISTRY, kind)).toBe(true);
     }
     expect(SPEC_TREE_TEST_GENERATOR.representativeFixture(KIND_REGISTRY)).toBeDefined();
   });

@@ -3,8 +3,7 @@ import { join as joinPath } from "node:path";
 
 import { describe, expect, it } from "vitest";
 
-import { LITERAL_EXIT_CODES } from "@/commands/validation/literal";
-import { literalCommand } from "@/commands/validation/literal";
+import { LITERAL_EXIT_CODES, literalCommand } from "@/commands/validation/literal";
 import { detectTypeScript } from "@/validation/discovery/index";
 import { LITERAL_DEFAULTS } from "@/validation/literal/config";
 import { parseLiteralReuseResult } from "@/validation/literal/index";
