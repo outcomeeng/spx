@@ -65,7 +65,7 @@ The **spec-tree** plugin is the active system for managing specification trees. 
 | `/align`         | Review for gaps, contradictions, and consistency                   |
 | `/pr`            | Route PR lifecycle work through opening, managing, and merge gates |
 
-Additional skills ship with the plugin and are invoked by name: `/commit-changes`, `/interview`, `/audit-tests`, `/audit-pdr`, `/audit-adr`, `/audit-specs`, `/handoff`, `/pickup`, `/refocus`, `/bootstrap`, `/open-pr`, `/manage-pr`, `/merging-standards`, `/diagnose`. See the spec-tree plugin's `skills/` directory for the full list.
+Additional skills ship with the plugin and are invoked by name: `/commit-changes`, `/interview`, `/audit-tests`, `/audit-pdr`, `/audit-adr`, `/audit-specs`, `/handoff`, `/pickup`, `/refocus`, `/bootstrap`, `/open-pr`, `/manage-pr`, `/merge`, `/sync-base`, `/merging-standards`, `/diagnose`. See the spec-tree plugin's `skills/` directory for the full list.
 
 </skill_router>
 
@@ -171,6 +171,10 @@ Before publishing or tagging a release:
 - [ ] **`pnpm run validate:published`** passes after the final build
 - [ ] **`pnpm run circular:published`** passes after the final build
 - [ ] The version in `package.json` matches the release tag
+
+### Releasing CLI-surface changes (interim — remove when the `/release` skill ships)
+
+When a changeset reaching `main` adds a new CLI subcommand, verb, or option, it is not done at merge: drive a release, autonomous up to the publish gate — on `main` synced to `origin/main` via `/sync-base` (so the gate and bump see the merged state), `pnpm version patch --no-git-tag-version` (unless directed otherwise; updates `package.json` only), run `pnpm run publish:check`, use `/commit-changes` to commit `build(release): bump version to X.Y.Z` on `main`, then `git push origin main` (fast-forward only; never `--force`), and tag `vX.Y.Z` and push the tag (triggers `publish.yml`). Then pause: ask the operator to approve the `vX.Y.Z` run's `npm-publish` deployment (the human checkpoint the environment gate exists for); after they approve, verify with `npm view @outcomeeng/spx version` that the registry shows the new version.
 
 ### Committing Changes
 
