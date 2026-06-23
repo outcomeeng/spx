@@ -202,31 +202,6 @@ function arbitraryRepresentativeFixture(registry: SpecTreeRegistry): fc.Arbitrar
       const [productTitle, rootTitle, childTitle, peerTitle, decisionTitle] = titles;
       const [decisionOrder, rootOrder, childOrder, peerOrder] = sortedOrders;
 
-      if (
-        productId === undefined
-        || rootId === undefined
-        || childId === undefined
-        || peerId === undefined
-        || decisionId === undefined
-        || childEvidenceId === undefined
-        || peerEvidenceId === undefined
-        || rootSlug === undefined
-        || childSlug === undefined
-        || peerSlug === undefined
-        || decisionSlug === undefined
-        || productTitle === undefined
-        || rootTitle === undefined
-        || childTitle === undefined
-        || peerTitle === undefined
-        || decisionTitle === undefined
-        || decisionOrder === undefined
-        || rootOrder === undefined
-        || childOrder === undefined
-        || peerOrder === undefined
-      ) {
-        throw new Error("Representative spec-tree generator returned an incomplete fixture");
-      }
-
       const product = {
         type: SPEC_TREE_ENTRY_TYPE.PRODUCT,
         id: productId,

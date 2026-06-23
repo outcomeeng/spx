@@ -446,8 +446,7 @@ function globPatternCanMatchInsideDirectory(
         );
     } else {
       const directorySegment = directorySegments[directoryIndex];
-      result = directorySegment !== undefined
-        && globSegmentMatchesPathSegment(patternSegment, directorySegment)
+      result = globSegmentMatchesPathSegment(patternSegment, directorySegment)
         && globPatternCanMatchInsideDirectory(
           patternSegments,
           directorySegments,

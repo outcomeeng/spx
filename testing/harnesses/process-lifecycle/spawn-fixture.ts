@@ -18,7 +18,7 @@ const STDERR_ENCODING = "utf8";
 const SIGNAL_BASE_EXIT_CODE = 128;
 const UNKNOWN_EXIT_CODE = -1;
 
-const SIGNAL_NUMBERS: Readonly<Record<string, number>> = {
+const SIGNAL_NUMBERS: Readonly<Partial<Record<NodeJS.Signals, number>>> = {
   SIGHUP: 1,
   SIGINT: 2,
   SIGQUIT: 3,

@@ -1,3 +1,4 @@
+import type { Dirent } from "node:fs";
 import { readdir, readFile } from "node:fs/promises";
 import { join } from "node:path";
 
@@ -345,11 +346,7 @@ export function recognizeSpecTreeFilesystemEntry(
     return recognizeDirectoryRecord(record, name, registry, schemaVersions);
   }
 
-  if (
-    record.type === SPEC_TREE_FILESYSTEM_RECORD_TYPE.FILE
-    && record.parentId !== undefined
-    && isEvidenceFile(record.relativePath)
-  ) {
+  if (record.parentId !== undefined && isEvidenceFile(record.relativePath)) {
     return {
       type: SPEC_TREE_ENTRY_TYPE.EVIDENCE,
       id: record.relativePath,
@@ -359,23 +356,19 @@ export function recognizeSpecTreeFilesystemEntry(
     };
   }
 
-  if (record.type === SPEC_TREE_FILESYSTEM_RECORD_TYPE.FILE) {
-    const decisionMatch = matchKindSuffix(name, registry, SPEC_TREE_KIND_CATEGORY.DECISION);
-    if (decisionMatch === null) return null;
-    const parsed = parseOrderedSlug(stripSuffix(name, decisionMatch.definition.suffix));
-    if (parsed === null) return null;
-    return {
-      type: SPEC_TREE_ENTRY_TYPE.DECISION,
-      kind: decisionMatch.kind as DecisionKind,
-      id: record.relativePath,
-      order: parsed.order,
-      slug: parsed.slug,
-      parentId: record.parentId,
-      ref: sourceRefForRelativePath(record.relativePath),
-    };
-  }
-
-  return null;
+  const decisionMatch = matchKindSuffix(name, registry, SPEC_TREE_KIND_CATEGORY.DECISION);
+  if (decisionMatch === null) return null;
+  const parsed = parseOrderedSlug(stripSuffix(name, decisionMatch.definition.suffix));
+  if (parsed === null) return null;
+  return {
+    type: SPEC_TREE_ENTRY_TYPE.DECISION,
+    kind: decisionMatch.kind as DecisionKind,
+    id: record.relativePath,
+    order: parsed.order,
+    slug: parsed.slug,
+    parentId: record.parentId,
+    ref: sourceRefForRelativePath(record.relativePath),
+  };
 }
 
 function recognizeDirectoryRecord(
@@ -615,7 +608,8 @@ function groupDecisions(entries: readonly SpecTreeDecision[]): Map<string, SpecT
     if (entry.parentId === undefined) continue;
     const group = grouped.get(entry.parentId) ?? [];
     group.push(entry);
-    grouped.set(entry.parentId, group.sort(compareOrderedEntries));
+    group.sort(compareOrderedEntries);
+    grouped.set(entry.parentId, group);
   }
   return grouped;
 }
@@ -713,11 +707,7 @@ async function* walkFilesystemDirectory(context: FilesystemWalkContext): AsyncIt
     const refPath = joinSpecTreePath(SPEC_TREE_CONFIG.ROOT_DIRECTORY, relativePath);
     if (!await context.includePath(refPath)) continue;
 
-    const recordType = entry.isDirectory()
-      ? SPEC_TREE_FILESYSTEM_RECORD_TYPE.DIRECTORY
-      : entry.isFile()
-      ? SPEC_TREE_FILESYSTEM_RECORD_TYPE.FILE
-      : undefined;
+    const recordType = filesystemRecordType(entry);
     if (recordType === undefined) continue;
 
     const sourceEntry = recognizeSpecTreeFilesystemEntry(
@@ -733,10 +723,23 @@ async function* walkFilesystemDirectory(context: FilesystemWalkContext): AsyncIt
         registry: context.registry,
         schemaVersions: context.schemaVersions,
         includePath: context.includePath,
-        parentId: sourceEntry?.type === SPEC_TREE_ENTRY_TYPE.NODE ? sourceEntry.id : context.parentId,
+        parentId: childParentId(context, sourceEntry),
       });
     }
   }
+}
+
+function filesystemRecordType(entry: Dirent): SpecTreeFilesystemRecord["type"] | undefined {
+  if (entry.isDirectory()) return SPEC_TREE_FILESYSTEM_RECORD_TYPE.DIRECTORY;
+  if (entry.isFile()) return SPEC_TREE_FILESYSTEM_RECORD_TYPE.FILE;
+  return undefined;
+}
+
+function childParentId(
+  context: FilesystemWalkContext,
+  sourceEntry: SpecTreeSourceEntry | null,
+): string | undefined {
+  return sourceEntry?.type === SPEC_TREE_ENTRY_TYPE.NODE ? sourceEntry.id : context.parentId;
 }
 
 type KindSuffixMatch = {
@@ -783,8 +786,8 @@ function isEvidenceFile(relativePath: string): boolean {
   const segments = relativePath.split(SPEC_TREE_PATH_SEPARATOR);
   if (segments.length < SPEC_TREE_MIN_EVIDENCE_PATH_SEGMENTS) return false;
 
-  const filename = segments[segments.length - 1] ?? "";
-  const directoryName = segments[segments.length - SPEC_TREE_PARENT_SEGMENT_OFFSET];
+  const filename = segments.at(-1) ?? "";
+  const directoryName = segments.at(-SPEC_TREE_PARENT_SEGMENT_OFFSET);
   const filenameSegments = filename.split(SPEC_TREE_EVIDENCE_FILE.SEGMENT_SEPARATOR);
 
   return directoryName === SPEC_TREE_EVIDENCE_FILE.DIRECTORY_NAME
@@ -840,7 +843,7 @@ function stripSuffix(value: string, suffix: string): string {
 
 function readLastPathSegment(relativePath: string): string {
   const segments = relativePath.split(SPEC_TREE_PATH_SEPARATOR);
-  return segments[segments.length - 1] ?? relativePath;
+  return segments.at(-1) ?? relativePath;
 }
 
 function joinSpecTreePath(...segments: readonly string[]): string {

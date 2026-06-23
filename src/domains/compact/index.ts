@@ -158,13 +158,12 @@ function readTargetPath(value: string, startIndex: number): string {
 }
 
 function isTargetPathCharacter(character: string): boolean {
-  const code = character.codePointAt(0);
-  return code !== undefined
-    && ((code >= 48 && code <= 57)
-      || (code >= 65 && code <= 90)
-      || (code >= 97 && code <= 122)
-      || character === "."
-      || character === "_"
-      || character === "-"
-      || character === "/");
+  const code = character.codePointAt(0) ?? 0;
+  return (code >= 48 && code <= 57)
+    || (code >= 65 && code <= 90)
+    || (code >= 97 && code <= 122)
+    || character === "."
+    || character === "_"
+    || character === "-"
+    || character === "/";
 }

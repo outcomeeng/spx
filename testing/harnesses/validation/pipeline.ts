@@ -364,7 +364,7 @@ function expectStepSequence(stdout: string): void {
 function extractStepOutcomes(stdout: string): Map<number, ValidationStepOutcome> {
   const outcomes = new Map<number, ValidationStepOutcome>();
   for (const line of stdout.split(VALIDATION_PIPELINE_DATA.outputLineSeparator)) {
-    const [match] = [...line.matchAll(VALIDATION_PIPELINE_DATA.stepLinePattern)];
+    const match = [...line.matchAll(VALIDATION_PIPELINE_DATA.stepLinePattern)].at(0);
     if (!match) continue;
     const step = Number(match[1]);
     if (

@@ -109,9 +109,9 @@ function resolveListColorDecision(colorOption: boolean | undefined): boolean {
  * minimum and falling back to the default when stdout reports no columns.
  */
 function resolveListWidth(): number {
-  const stdout = process.stdout as { readonly columns: number | undefined };
-  const columns = stdout.columns ?? DEFAULT_LIST_WIDTH;
-  return Math.max(LIST_TEXT_MIN_WIDTH, columns);
+  const columns = Reflect.get(process.stdout, "columns");
+  const resolvedColumns = typeof columns === "number" ? columns : DEFAULT_LIST_WIDTH;
+  return Math.max(LIST_TEXT_MIN_WIDTH, resolvedColumns);
 }
 
 function addSessionOptions(command: Command, options: readonly SessionOptionDefinition[]): Command {

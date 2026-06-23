@@ -109,7 +109,7 @@ export async function lintValidationText(
   eslint: ESLint,
   testCase: Omit<ValidationLintTextCase, "ruleId">,
 ): Promise<ESLint.LintResult> {
-  const [result] = await eslint.lintText(testCase.code, { filePath: testCase.filePath });
+  const result = (await eslint.lintText(testCase.code, { filePath: testCase.filePath })).at(0);
   if (result === undefined) {
     throw new Error(testCase.filePath);
   }

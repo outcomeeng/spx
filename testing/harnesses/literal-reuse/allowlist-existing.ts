@@ -105,9 +105,6 @@ export async function writeMultipleLiteralFixtures(
   for (const [index, literal] of literals.entries()) {
     const sourcePath = sourcePaths[index];
     const testPath = testPaths[index];
-    if (sourcePath === undefined || testPath === undefined) {
-      throw new Error("distinct fixture paths exhausted for multiple-literal fixtures");
-    }
     await env.writeRaw(sourcePath, `export const MULTI_VALUE_${index} = "${literal}";\n`);
     await env.writeRaw(testPath, `expect(value).toBe("${literal}");\n`);
   }

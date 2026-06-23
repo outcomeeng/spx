@@ -105,8 +105,13 @@ const FIXTURE_DATA_ROLE_SEGMENTS: ReadonlySet<string> = new Set([
   "source",
 ]);
 const FIXTURE_DATA_CONTEXT_SEGMENTS: ReadonlySet<string> = new Set(["path", "tree"]);
-// Used through String#match; match resets global regex state instead of reading lastIndex.
-const IDENTIFIER_SEGMENT_PATTERN = /[A-Z]+(?=[A-Z][a-z]|$)|[A-Z]?[a-z]+|[0-9]+/g;
+const IDENTIFIER_CHAR_KIND = {
+  UPPER: "upper",
+  LOWER: "lower",
+  DIGIT: "digit",
+  OTHER: "other",
+} as const;
+type IdentifierCharKind = (typeof IDENTIFIER_CHAR_KIND)[keyof typeof IDENTIFIER_CHAR_KIND];
 
 interface Node {
   readonly type: string;
@@ -208,25 +213,41 @@ function emitLiteral(
   const line = node.loc?.start?.line ?? 0;
 
   if (node.type === LITERAL_TYPE) {
-    if (typeof node.value === "string") {
-      if (node.value.length >= options.minStringLength) {
-        out.push({ kind: "string", value: node.value, loc: { file: context.filename, line } });
-      }
-    } else if (typeof node.value === "number") {
-      const raw = typeof node.raw === "string" ? node.raw : String(node.value);
-      if (isMeaningfulNumber(raw, options.minNumberDigits)) {
-        out.push({ kind: "number", value: String(node.value), loc: { file: context.filename, line } });
-      }
-    }
+    emitEstreeLiteral(node, context, line, options, out);
     return;
   }
 
-  if (node.type === TEMPLATE_ELEMENT_TYPE) {
-    const value = node.value as { readonly cooked?: string } | undefined;
-    const cooked = value?.cooked ?? "";
-    if (cooked.length >= options.minStringLength) {
-      out.push({ kind: "string", value: cooked, loc: { file: context.filename, line } });
+  emitTemplateElementLiteral(node, context, line, options, out);
+}
+
+function emitEstreeLiteral(
+  node: Node,
+  context: WalkContext,
+  line: number,
+  options: CollectLiteralsOptions,
+  out: LiteralOccurrence[],
+): void {
+  if (typeof node.value === "string" && node.value.length >= options.minStringLength) {
+    out.push({ kind: "string", value: node.value, loc: { file: context.filename, line } });
+  } else if (typeof node.value === "number") {
+    const raw = typeof node.raw === "string" ? node.raw : String(node.value);
+    if (isMeaningfulNumber(raw, options.minNumberDigits)) {
+      out.push({ kind: "number", value: String(node.value), loc: { file: context.filename, line } });
     }
+  }
+}
+
+function emitTemplateElementLiteral(
+  node: Node,
+  context: WalkContext,
+  line: number,
+  options: CollectLiteralsOptions,
+  out: LiteralOccurrence[],
+): void {
+  const value = node.value as { readonly cooked?: string } | undefined;
+  const cooked = value?.cooked ?? "";
+  if (cooked.length >= options.minStringLength) {
+    out.push({ kind: "string", value: cooked, loc: { file: context.filename, line } });
   }
 }
 
@@ -328,15 +349,78 @@ function isFixtureDataVariableName(variableName: string): boolean {
     return true;
   }
   // Tier 3: role/context compounds are fixtures only when the context word is final.
-  const finalSegment = segments[segments.length - 1];
+  const finalSegment = segments.at(-1);
   return finalSegment !== undefined && FIXTURE_DATA_CONTEXT_SEGMENTS.has(finalSegment);
 }
 
 function splitIdentifierName(variableName: string): readonly string[] {
   return variableName
     .split("_")
-    .flatMap((part) => part.match(IDENTIFIER_SEGMENT_PATTERN) ?? [])
+    .flatMap(splitIdentifierPart)
     .map((segment) => segment.toLowerCase());
+}
+
+function splitIdentifierPart(identifierPart: string): readonly string[] {
+  const segments: string[] = [];
+  let currentSegment = "";
+
+  for (const character of identifierPart) {
+    const kind = classifyIdentifierCharacter(character);
+    if (kind === IDENTIFIER_CHAR_KIND.OTHER) {
+      pushIdentifierSegment(segments, currentSegment);
+      currentSegment = "";
+      continue;
+    }
+
+    if (currentSegment === "") {
+      currentSegment = character;
+      continue;
+    }
+
+    if (startsNewIdentifierSegment(currentSegment, kind)) {
+      if (kind === IDENTIFIER_CHAR_KIND.LOWER && isUppercaseRun(currentSegment)) {
+        const prefix = currentSegment.slice(0, -1);
+        pushIdentifierSegment(segments, prefix);
+        currentSegment = `${currentSegment.at(-1) ?? ""}${character}`;
+      } else {
+        pushIdentifierSegment(segments, currentSegment);
+        currentSegment = character;
+      }
+      continue;
+    }
+
+    currentSegment = `${currentSegment}${character}`;
+  }
+
+  pushIdentifierSegment(segments, currentSegment);
+  return segments;
+}
+
+function classifyIdentifierCharacter(character: string): IdentifierCharKind {
+  if (character >= "0" && character <= "9") return IDENTIFIER_CHAR_KIND.DIGIT;
+  const lower = character.toLowerCase();
+  const upper = character.toUpperCase();
+  if (lower === upper) return IDENTIFIER_CHAR_KIND.OTHER;
+  return character === upper ? IDENTIFIER_CHAR_KIND.UPPER : IDENTIFIER_CHAR_KIND.LOWER;
+}
+
+function startsNewIdentifierSegment(currentSegment: string, nextKind: IdentifierCharKind): boolean {
+  const currentKind = classifyIdentifierCharacter(currentSegment.at(-1) ?? "");
+  if (nextKind === IDENTIFIER_CHAR_KIND.DIGIT) return currentKind !== IDENTIFIER_CHAR_KIND.DIGIT;
+  if (currentKind === IDENTIFIER_CHAR_KIND.DIGIT) return true;
+  if (nextKind === IDENTIFIER_CHAR_KIND.UPPER) return currentKind === IDENTIFIER_CHAR_KIND.LOWER;
+  return currentKind === IDENTIFIER_CHAR_KIND.UPPER && isUppercaseRun(currentSegment);
+}
+
+function isUppercaseRun(value: string): boolean {
+  return value.length > 1
+    && Array.from(value).every((character) => classifyIdentifierCharacter(character) === IDENTIFIER_CHAR_KIND.UPPER);
+}
+
+function pushIdentifierSegment(segments: string[], segment: string): void {
+  if (segment !== "") {
+    segments.push(segment);
+  }
 }
 
 function getCallName(node: Node): string | undefined {
@@ -372,7 +456,7 @@ function getLiteralString(value: unknown): string | undefined {
 }
 
 function isMeaningfulNumber(raw: string, minDigits: number): boolean {
-  const digits = raw.replace(/[^0-9]/g, "");
+  const digits = raw.replaceAll(/\D/g, "");
   return digits.length >= minDigits;
 }
 
@@ -404,22 +488,7 @@ function splitKey(key: string): { kind: LiteralKind; value: string } {
 export function detectReuse(input: DetectReuseInput): DetectionResult {
   const srcReuse: ReuseFinding[] = [];
   const testDupe: DupeFinding[] = [];
-
-  const testIndex = new Map<string, Map<string, LiteralLocation[]>>();
-  for (const [file, occurrences] of input.testOccurrencesByFile) {
-    for (const occ of occurrences) {
-      if (input.allowlist.has(occ.value)) continue;
-      const key = makeKey(occ.kind, occ.value);
-      let byFile = testIndex.get(key);
-      if (!byFile) {
-        byFile = new Map<string, LiteralLocation[]>();
-        testIndex.set(key, byFile);
-      }
-      const locsInFile = byFile.get(file);
-      if (locsInFile) locsInFile.push(occ.loc);
-      else byFile.set(file, [occ.loc]);
-    }
-  }
+  const testIndex = buildTestOccurrenceIndex(input.testOccurrencesByFile, input.allowlist);
 
   for (const [key, byFile] of testIndex) {
     const { kind, value } = splitKey(key);
@@ -428,42 +497,84 @@ export function detectReuse(input: DetectReuseInput): DetectionResult {
     for (const locs of byFile.values()) allTestLocs.push(...locs);
 
     if (srcLocs && srcLocs.length > 0) {
-      for (const testLoc of allTestLocs) {
-        srcReuse.push({
-          test: testLoc,
-          kind,
-          value,
-          src: srcLocs,
-          remediation: REMEDIATION.IMPORT_FROM_SOURCE,
-        });
-      }
+      srcReuse.push(...reuseFindings(kind, value, srcLocs, allTestLocs));
     } else if (byFile.size >= 2) {
-      for (let i = 0; i < allTestLocs.length; i += 1) {
-        const otherTests = [...allTestLocs.slice(0, i), ...allTestLocs.slice(i + 1)];
-        testDupe.push({
-          test: allTestLocs[i],
-          kind,
-          value,
-          otherTests,
-          remediation: REMEDIATION.REFACTOR_TO_SOURCE_OR_GENERATOR,
-        });
-      }
+      testDupe.push(...dupeFindings(kind, value, allTestLocs));
     }
   }
 
   return { srcReuse, testDupe };
 }
 
+function buildTestOccurrenceIndex(
+  occurrencesByFile: ReadonlyMap<string, readonly LiteralOccurrence[]>,
+  allowlist: ReadonlySet<string>,
+): Map<string, Map<string, LiteralLocation[]>> {
+  const testIndex = new Map<string, Map<string, LiteralLocation[]>>();
+  for (const [file, occurrences] of occurrencesByFile) {
+    for (const occ of occurrences) {
+      if (allowlist.has(occ.value)) continue;
+      addTestOccurrence(testIndex, file, occ);
+    }
+  }
+  return testIndex;
+}
+
+function addTestOccurrence(
+  testIndex: Map<string, Map<string, LiteralLocation[]>>,
+  file: string,
+  occurrence: LiteralOccurrence,
+): void {
+  const key = makeKey(occurrence.kind, occurrence.value);
+  let byFile = testIndex.get(key);
+  if (!byFile) {
+    byFile = new Map<string, LiteralLocation[]>();
+    testIndex.set(key, byFile);
+  }
+  const locsInFile = byFile.get(file);
+  if (locsInFile) locsInFile.push(occurrence.loc);
+  else byFile.set(file, [occurrence.loc]);
+}
+
+function reuseFindings(
+  kind: LiteralKind,
+  value: string,
+  srcLocs: readonly LiteralLocation[],
+  allTestLocs: readonly LiteralLocation[],
+): ReuseFinding[] {
+  return allTestLocs.map((testLoc) => ({
+    test: testLoc,
+    kind,
+    value,
+    src: srcLocs,
+    remediation: REMEDIATION.IMPORT_FROM_SOURCE,
+  }));
+}
+
+function dupeFindings(
+  kind: LiteralKind,
+  value: string,
+  allTestLocs: readonly LiteralLocation[],
+): DupeFinding[] {
+  return allTestLocs.map((test, index) => ({
+    test,
+    kind,
+    value,
+    otherTests: [...allTestLocs.slice(0, index), ...allTestLocs.slice(index + 1)],
+    remediation: REMEDIATION.REFACTOR_TO_SOURCE_OR_GENERATOR,
+  }));
+}
+
 export function parseLiteralReuseResult(value: unknown): DetectionResult {
   if (!isPlainObject(value)) {
-    throw new Error("literal-reuse result must be an object");
+    throw new TypeError("literal-reuse result must be an object");
   }
   const obj = value as { srcReuse?: unknown; testDupe?: unknown };
   if (!Array.isArray(obj.srcReuse)) {
-    throw new Error("literal-reuse result is missing srcReuse array");
+    throw new TypeError("literal-reuse result is missing srcReuse array");
   }
   if (!Array.isArray(obj.testDupe)) {
-    throw new Error("literal-reuse result is missing testDupe array");
+    throw new TypeError("literal-reuse result is missing testDupe array");
   }
   for (const f of obj.srcReuse) validateReuseFinding(f);
   for (const f of obj.testDupe) validateDupeFinding(f);
@@ -475,18 +586,18 @@ function isPlainObject(value: unknown): value is Record<string, unknown> {
 }
 
 function validateLiteralLocation(value: unknown, context: string): void {
-  if (!isPlainObject(value)) throw new Error(`${context} must be an object`);
-  if (typeof value["file"] !== "string") throw new Error(`${context}.file must be a string`);
-  if (typeof value["line"] !== "number") throw new Error(`${context}.line must be a number`);
+  if (!isPlainObject(value)) throw new TypeError(`${context} must be an object`);
+  if (typeof value["file"] !== "string") throw new TypeError(`${context}.file must be a string`);
+  if (typeof value["line"] !== "number") throw new TypeError(`${context}.line must be a number`);
 }
 
 function validateKindValue(value: unknown, context: string): void {
-  if (!isPlainObject(value)) throw new Error(`${context} must be an object`);
+  if (!isPlainObject(value)) throw new TypeError(`${context} must be an object`);
   if (value["kind"] !== "string" && value["kind"] !== "number") {
-    throw new Error(`${context}.kind must be "string" or "number"`);
+    throw new TypeError(`${context}.kind must be "string" or "number"`);
   }
   if (typeof value["value"] !== "string") {
-    throw new Error(`${context}.value must be a string`);
+    throw new TypeError(`${context}.value must be a string`);
   }
 }
 
@@ -494,10 +605,10 @@ function validateReuseFinding(value: unknown): void {
   validateKindValue(value, "srcReuse finding");
   const obj = value as Record<string, unknown>;
   validateLiteralLocation(obj["test"], "srcReuse finding.test");
-  if (!Array.isArray(obj["src"])) throw new Error("srcReuse finding.src must be an array");
+  if (!Array.isArray(obj["src"])) throw new TypeError("srcReuse finding.src must be an array");
   for (const loc of obj["src"]) validateLiteralLocation(loc, "srcReuse finding.src[i]");
   if (obj["remediation"] !== REMEDIATION.IMPORT_FROM_SOURCE) {
-    throw new Error(`srcReuse finding.remediation must be "${REMEDIATION.IMPORT_FROM_SOURCE}"`);
+    throw new TypeError(`srcReuse finding.remediation must be "${REMEDIATION.IMPORT_FROM_SOURCE}"`);
   }
 }
 
@@ -506,7 +617,7 @@ function validateDupeFinding(value: unknown): void {
   const obj = value as Record<string, unknown>;
   validateLiteralLocation(obj["test"], "testDupe finding.test");
   if (!Array.isArray(obj["otherTests"])) {
-    throw new Error("testDupe finding.otherTests must be an array");
+    throw new TypeError("testDupe finding.otherTests must be an array");
   }
   for (const loc of obj["otherTests"]) validateLiteralLocation(loc, "testDupe finding.otherTests[i]");
   if (obj["remediation"] !== REMEDIATION.REFACTOR_TO_SOURCE_OR_GENERATOR) {

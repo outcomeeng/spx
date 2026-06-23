@@ -158,7 +158,7 @@ function validateTools(raw: unknown): Result<ToolAdaptersConfig> {
     };
   }
 
-  const tools: Record<string, { readonly ignoreFlag: string }> = { ...DEFAULT_TOOLS_CONFIG };
+  const tools: Partial<Record<string, { readonly ignoreFlag: string }>> = { ...DEFAULT_TOOLS_CONFIG };
   for (const [toolName, adapterRaw] of Object.entries(raw)) {
     const defaultToolConfig = DEFAULT_TOOLS_CONFIG[toolName];
     if (defaultToolConfig === undefined) {

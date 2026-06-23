@@ -32,7 +32,7 @@ const RELEASE_TAG_GLOB = `${RELEASE_TAG_PREFIX}*`;
 const RANGE_SEPARATOR = "..";
 /** The unit-separator byte (U+001F) git emits between a commit's SHA and subject. */
 const UNIT_SEPARATOR_CODE = 0x1f;
-const COMMIT_FIELD_SEPARATOR = String.fromCharCode(UNIT_SEPARATOR_CODE);
+const COMMIT_FIELD_SEPARATOR = String.fromCodePoint(UNIT_SEPARATOR_CODE);
 /** Git pretty-format escape directing git to emit the unit-separator byte. */
 const GIT_FORMAT_UNIT_SEPARATOR = "%x1f";
 const COMMIT_LOG_FORMAT = `--format=%H${GIT_FORMAT_UNIT_SEPARATOR}%s`;

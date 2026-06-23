@@ -18,7 +18,7 @@ export const TOOL_DEFAULT_FLAGS: Readonly<Record<string, string>> = {
   vitest: "--exclude",
 };
 
-const ADAPTER_MAP: Readonly<Record<string, ToolAdapterFn>> = {
+const ADAPTER_MAP: Readonly<Partial<Record<string, ToolAdapterFn>>> = {
   eslint: eslintAdapter,
   tsc: tscAdapter,
   knip: knipAdapter,

@@ -120,7 +120,7 @@ function resolvedModulePath(resolvedPath: string): string {
 
 function nearestPackageRoot(filePath: string, existsSync: (path: string) => boolean): string | null {
   let currentDirectory = path.dirname(filePath);
-  while (true) {
+  for (;;) {
     if (existsSync(path.join(currentDirectory, PACKAGE_MANIFEST_FILENAME))) {
       return currentDirectory;
     }

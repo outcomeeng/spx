@@ -105,15 +105,22 @@ export async function typescriptCommand(options: TypeScriptCommandOptions): Prom
   });
   const durationMs = Date.now() - startTime;
 
-  // Map result to command output
+  return formatTypeScriptResult(result, quiet, durationMs);
+}
+
+function formatTypeScriptResult(
+  result: Awaited<ReturnType<typeof validateTypeScript>>,
+  quiet: boolean | undefined,
+  durationMs: number,
+): ValidationCommandResult {
   if (result.skipped) {
     const output = quiet ? "" : TYPESCRIPT_VALIDATION_MESSAGES.NO_VALIDATION_PATH_TARGETS;
     return { exitCode: 0, output, durationMs };
-  } else if (result.success) {
+  }
+  if (result.success) {
     const output = quiet ? "" : TYPESCRIPT_VALIDATION_MESSAGES.SUCCESS;
     return { exitCode: 0, output, durationMs };
-  } else {
-    const output = result.error ?? VALIDATION_COMMAND_OUTPUT.TYPESCRIPT_FAILURE;
-    return { exitCode: 1, output, durationMs };
   }
+  const output = result.error ?? VALIDATION_COMMAND_OUTPUT.TYPESCRIPT_FAILURE;
+  return { exitCode: 1, output, durationMs };
 }

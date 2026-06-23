@@ -65,6 +65,17 @@ export interface TypeScriptValidationOptions {
   readonly outputStreams?: ValidationSubprocessOutputStreams;
 }
 
+export interface TypeScriptValidationResult {
+  readonly success: boolean;
+  readonly error?: string;
+  readonly skipped?: boolean;
+}
+
+interface TypeScriptCommandInvocation {
+  readonly tool: string;
+  readonly args: readonly string[];
+}
+
 /**
  * Compiler options for a temporary `tsconfig.json`; all else is inherited via `extends`.
  */
@@ -147,14 +158,7 @@ export async function createFileSpecificTsconfig(
   // Write temporary config
   deps.writeFileSync(configPath, JSON.stringify(tempConfig, null, 2));
 
-  // Return config path and cleanup function
-  const cleanup = () => {
-    try {
-      deps.rmSync(tempDir, { recursive: true, force: true });
-    } catch {
-      // Cleanup error - don't fail validation
-    }
-  };
+  const cleanup = createTemporaryTsconfigCleanup(tempDir, deps);
 
   return { configPath, tempDir, cleanup };
 }
@@ -178,15 +182,19 @@ async function createScopeFilteredTsconfig(
 
   deps.writeFileSync(configPath, JSON.stringify(tempConfig, null, 2));
 
-  const cleanup = () => {
+  const cleanup = createTemporaryTsconfigCleanup(tempDir, deps);
+
+  return { configPath, tempDir, cleanup };
+}
+
+function createTemporaryTsconfigCleanup(tempDir: string, deps: TypeScriptDeps): () => void {
+  return () => {
     try {
       deps.rmSync(tempDir, { recursive: true, force: true });
     } catch {
       // Cleanup error - don't fail validation
     }
   };
-
-  return { configPath, tempDir, cleanup };
 }
 
 // =============================================================================
@@ -211,11 +219,7 @@ async function createScopeFilteredTsconfig(
 export async function validateTypeScript(
   context: TypeScriptValidationContext,
   options: TypeScriptValidationOptions = {},
-): Promise<{
-  success: boolean;
-  error?: string;
-  skipped?: boolean;
-}> {
+): Promise<TypeScriptValidationResult> {
   const { scope, projectRoot, files, scopeConfig } = context;
   const {
     runner = defaultTypeScriptProcessRunner,
@@ -224,38 +228,16 @@ export async function validateTypeScript(
   } = options;
   const configFile = TSCONFIG_FILES[scope];
 
-  // Determine tool and arguments based on whether specific files are provided
-  let tool: string;
-  let tscArgs: string[];
-
   if (files && files.length > 0) {
-    // File-specific validation using custom temporary tsconfig
     const { configPath, cleanup } = await createFileSpecificTsconfig(scope, files, projectRoot, deps);
-
     try {
-      return await new Promise((resolve) => {
-        const tscBin = join(projectRoot, "node_modules", ".bin", "tsc");
-        const tscBinary = deps.existsSync(tscBin) ? tscBin : "npx";
-        const tscArgs = tscBinary === "npx" ? ["tsc", "--project", configPath] : ["--project", configPath];
-        const tscProcess = spawnManagedSubprocess(runner, tscBinary, tscArgs, {
-          cwd: projectRoot,
-        });
-        forwardValidationSubprocessOutput(tscProcess, outputStreams);
-
-        tscProcess.on(VALIDATION_SUBPROCESS_EVENTS.CLOSE, (code) => {
-          cleanup();
-          if (code === 0) {
-            resolve({ success: true, skipped: false });
-          } else {
-            resolve({ success: false, error: `TypeScript exited with code ${code}` });
-          }
-        });
-
-        tscProcess.on(VALIDATION_SUBPROCESS_EVENTS.ERROR, (error) => {
-          cleanup();
-          resolve({ success: false, error: error.message });
-        });
-      });
+      return await runTypeScriptInvocation(
+        projectRoot,
+        resolveProjectTscInvocation(projectRoot, deps, ["--project", configPath]),
+        runner,
+        outputStreams,
+        cleanup,
+      );
     } catch (error) {
       cleanup();
       const errorMessage = error instanceof Error ? error.message : String(error);
@@ -269,44 +251,51 @@ export async function validateTypeScript(
       return { success: true, skipped: true };
     }
     const { configPath, cleanup } = await createScopeFilteredTsconfig(scope, projectRoot, scopeConfig, deps);
-    const tscBin = join(projectRoot, "node_modules", ".bin", "tsc");
-    tool = deps.existsSync(tscBin) ? tscBin : "npx";
-    tscArgs = tool === "npx" ? ["tsc", "--project", configPath] : ["--project", configPath];
-    return new Promise((resolve) => {
-      const tscProcess = spawnManagedSubprocess(runner, tool, tscArgs, {
-        cwd: projectRoot,
-      });
-      forwardValidationSubprocessOutput(tscProcess, outputStreams);
-
-      tscProcess.on(VALIDATION_SUBPROCESS_EVENTS.CLOSE, (code) => {
-        cleanup();
-        if (code === 0) {
-          resolve({ success: true, skipped: false });
-        } else {
-          resolve({ success: false, error: `TypeScript exited with code ${code}` });
-        }
-      });
-
-      tscProcess.on(VALIDATION_SUBPROCESS_EVENTS.ERROR, (error) => {
-        cleanup();
-        resolve({ success: false, error: error.message });
-      });
-    });
-  } else {
-    // Full validation using tsc
-    const tscBin = join(projectRoot, "node_modules", ".bin", "tsc");
-    tool = deps.existsSync(tscBin) ? tscBin : "npx";
-    const rawArgs = buildTypeScriptArgs({ scope, configFile });
-    tscArgs = tool === "npx" ? rawArgs : rawArgs.slice(1);
+    return runTypeScriptInvocation(
+      projectRoot,
+      resolveProjectTscInvocation(projectRoot, deps, ["--project", configPath]),
+      runner,
+      outputStreams,
+      cleanup,
+    );
   }
 
+  return runTypeScriptInvocation(
+    projectRoot,
+    resolveProjectTscInvocation(projectRoot, deps, buildTypeScriptArgs({ scope, configFile }).slice(1)),
+    runner,
+    outputStreams,
+  );
+}
+
+function resolveProjectTscInvocation(
+  projectRoot: string,
+  deps: TypeScriptDeps,
+  tscArgs: readonly string[],
+): TypeScriptCommandInvocation {
+  const tscBin = join(projectRoot, "node_modules", ".bin", "tsc");
+  const tool = deps.existsSync(tscBin) ? tscBin : "npx";
+  return {
+    tool,
+    args: tool === "npx" ? ["tsc", ...tscArgs] : tscArgs,
+  };
+}
+
+function runTypeScriptInvocation(
+  projectRoot: string,
+  invocation: TypeScriptCommandInvocation,
+  runner: ProcessRunner,
+  outputStreams: ValidationSubprocessOutputStreams,
+  cleanup: () => void = () => {},
+): Promise<TypeScriptValidationResult> {
   return new Promise((resolve) => {
-    const tscProcess = spawnManagedSubprocess(runner, tool, tscArgs, {
+    const tscProcess = spawnManagedSubprocess(runner, invocation.tool, invocation.args, {
       cwd: projectRoot,
     });
     forwardValidationSubprocessOutput(tscProcess, outputStreams);
 
     tscProcess.on(VALIDATION_SUBPROCESS_EVENTS.CLOSE, (code) => {
+      cleanup();
       if (code === 0) {
         resolve({ success: true, skipped: false });
       } else {
@@ -315,6 +304,7 @@ export async function validateTypeScript(
     });
 
     tscProcess.on(VALIDATION_SUBPROCESS_EVENTS.ERROR, (error) => {
+      cleanup();
       resolve({ success: false, error: error.message });
     });
   });

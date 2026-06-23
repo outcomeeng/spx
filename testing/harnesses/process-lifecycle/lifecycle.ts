@@ -26,7 +26,7 @@ export class RecordingChild implements ChildHandle {
   }
 
   on(event: "exit", listener: (code: number | null) => void): this {
-    if (event === "exit") this.exitListeners.push(listener);
+    this.exitListeners.push(listener);
     return this;
   }
 

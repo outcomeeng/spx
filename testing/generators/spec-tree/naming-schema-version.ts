@@ -203,9 +203,6 @@ function arbitraryRecognitionVersionScenario(): fc.Arbitrary<RecognitionVersionS
     .map(({ validNodeSuffix, foreignSuffixes }) => {
       const supersededNodeSuffix = foreignSuffixes[0];
       const invalidNodeSuffix = foreignSuffixes[1];
-      if (supersededNodeSuffix === undefined || invalidNodeSuffix === undefined) {
-        throw new Error("Recognition scenario requires two distinct foreign node suffixes");
-      }
       return {
         schemaVersions: [
           buildNamingSchemaVersion(
@@ -238,9 +235,6 @@ function arbitraryCanonicalForeignSuffixScenario(): fc.Arbitrary<CanonicalForeig
     .map((foreignSuffixes) => {
       const foreignCanonicalSuffix = foreignSuffixes[0];
       const foreignPriorSuffix = foreignSuffixes[1];
-      if (foreignCanonicalSuffix === undefined || foreignPriorSuffix === undefined) {
-        throw new Error("Canonical-foreign-suffix scenario requires two distinct foreign node suffixes");
-      }
       return {
         schemaVersions: [
           buildNamingSchemaVersion(
@@ -266,9 +260,6 @@ function arbitraryDemotedRegistrySuffixScenario(): fc.Arbitrary<DemotedRegistryS
     const demotedRegistrySuffix = NODE_SUFFIXES[demotedIndex];
     const canonicalRegistrySuffixes = NODE_SUFFIXES.filter((_, index) => index !== demotedIndex);
     const canonicalRegistrySuffix = canonicalRegistrySuffixes[0];
-    if (demotedRegistrySuffix === undefined || canonicalRegistrySuffix === undefined) {
-      throw new Error("Demoted-registry-suffix scenario requires at least two registry node suffixes");
-    }
     return {
       schemaVersions: [
         buildNamingSchemaVersion(

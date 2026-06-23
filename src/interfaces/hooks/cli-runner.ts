@@ -141,7 +141,8 @@ function describeStdinReadError(error: unknown): string {
   if (error instanceof Error) return error.message;
   if (typeof error === "string") return error;
   try {
-    return JSON.stringify(error) ?? `${typeof error}`;
+    const serialized = JSON.stringify(error);
+    return typeof serialized === "string" ? serialized : `${typeof error}`;
   } catch {
     return `${typeof error}`;
   }

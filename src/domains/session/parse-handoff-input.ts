@@ -19,17 +19,22 @@ import {
 
 const LEGACY_FRONTMATTER_PREFIX = /^---\r?\n/;
 const JSON_OBJECT_OPEN_CHAR = "{";
-const CARRIAGE_RETURN_CHAR_CODE = "\r".charCodeAt(0);
-const NEWLINE_CHAR_CODE = "\n".charCodeAt(0);
-const BACKSLASH_CHAR_CODE = "\\".charCodeAt(0);
-const DOUBLE_QUOTE_CHAR_CODE = "\"".charCodeAt(0);
-const OPEN_BRACE_CHAR_CODE = "{".charCodeAt(0);
-const CLOSE_BRACE_CHAR_CODE = "}".charCodeAt(0);
+const CARRIAGE_RETURN_CHAR_CODE = "\r".codePointAt(0) ?? 0;
+const NEWLINE_CHAR_CODE = "\n".codePointAt(0) ?? 0;
+const BACKSLASH_CHAR_CODE = "\\".codePointAt(0) ?? 0;
+const DOUBLE_QUOTE_CHAR_CODE = "\"".codePointAt(0) ?? 0;
+const OPEN_BRACE_CHAR_CODE = "{".codePointAt(0) ?? 0;
+const CLOSE_BRACE_CHAR_CODE = "}".codePointAt(0) ?? 0;
 const UNBALANCED_HEADER_END = -1;
 const LF_SEPARATOR_LENGTH = 1;
 const CRLF_SEPARATOR_LENGTH = 2;
 
 const SESSION_PRIORITY_VALUES = new Set<string>(Object.values(SESSION_PRIORITY));
+
+interface JsonStringScanState {
+  readonly inString: boolean;
+  readonly skipNext: boolean;
+}
 
 /**
  * Caller-supplied structured fields recognized by `parseHandoffInput`.
@@ -120,13 +125,13 @@ export function parseHandoffInput(stdin: string): ParsedHandoffInput {
 
 function consumeOptionalBodySeparator(stdin: string, bodyStart: number): number {
   if (
-    stdin.charCodeAt(bodyStart) === CARRIAGE_RETURN_CHAR_CODE
-    && stdin.charCodeAt(bodyStart + LF_SEPARATOR_LENGTH) === NEWLINE_CHAR_CODE
+    stdin.codePointAt(bodyStart) === CARRIAGE_RETURN_CHAR_CODE
+    && stdin.codePointAt(bodyStart + LF_SEPARATOR_LENGTH) === NEWLINE_CHAR_CODE
   ) {
     return bodyStart + CRLF_SEPARATOR_LENGTH;
   }
 
-  if (stdin.charCodeAt(bodyStart) === NEWLINE_CHAR_CODE) {
+  if (stdin.codePointAt(bodyStart) === NEWLINE_CHAR_CODE) {
     return bodyStart + LF_SEPARATOR_LENGTH;
   }
 
@@ -148,32 +153,34 @@ function findJsonObjectEnd(stdin: string): number {
   let depth = 0;
   let inString = false;
   for (let i = 0; i < stdin.length; i++) {
-    const code = stdin.charCodeAt(i);
+    const code = stdin.codePointAt(i);
     if (inString) {
-      if (code === BACKSLASH_CHAR_CODE) {
-        // Skip the next character (an escape sequence is one logical unit).
-        i += 1;
-        continue;
-      }
-      if (code === DOUBLE_QUOTE_CHAR_CODE) {
-        inString = false;
-      }
+      const stringState = scanJsonStringCharacter(code);
+      inString = stringState.inString;
+      if (stringState.skipNext) i += 1;
       continue;
     }
     if (code === DOUBLE_QUOTE_CHAR_CODE) {
       inString = true;
       continue;
     }
-    if (code === OPEN_BRACE_CHAR_CODE) {
-      depth += 1;
-      continue;
-    }
-    if (code === CLOSE_BRACE_CHAR_CODE) {
-      depth -= 1;
-      if (depth === 0) return i;
-    }
+    depth = nextJsonObjectDepth(depth, code);
+    if (depth === 0 && code === CLOSE_BRACE_CHAR_CODE) return i;
   }
   return UNBALANCED_HEADER_END;
+}
+
+function scanJsonStringCharacter(code: number | undefined): JsonStringScanState {
+  if (code === BACKSLASH_CHAR_CODE) {
+    return { inString: true, skipNext: true };
+  }
+  return { inString: code !== DOUBLE_QUOTE_CHAR_CODE, skipNext: false };
+}
+
+function nextJsonObjectDepth(depth: number, code: number | undefined): number {
+  if (code === OPEN_BRACE_CHAR_CODE) return depth + 1;
+  if (code === CLOSE_BRACE_CHAR_CODE) return depth - 1;
+  return depth;
 }
 
 /**

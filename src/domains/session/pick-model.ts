@@ -133,7 +133,7 @@ const FILTER_KEY = "/";
 const QUIT_KEY = "q";
 
 /** Browse-mode launch keystrokes: the printable key to the runtime and auto-continue it launches. */
-const LAUNCH_KEYS: Partial<Record<string, { runtime: PickerRuntime; autoContinue: boolean }>> = {
+const LAUNCH_KEYS: Readonly<Partial<Record<string, { runtime: PickerRuntime; autoContinue: boolean }>>> = {
   c: { runtime: PICKER_RUNTIME.CLAUDE, autoContinue: false },
   C: { runtime: PICKER_RUNTIME.CLAUDE, autoContinue: true },
   x: { runtime: PICKER_RUNTIME.CODEX, autoContinue: false },

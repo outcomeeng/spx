@@ -228,7 +228,7 @@ async function runVitestImpl(args: string[]): Promise<VitestResult> {
     stdio: ["inherit", "pipe", "pipe"],
   });
 
-  const output = (result.stdout ?? "") + (result.stderr ?? "");
+  const output = result.stdout + result.stderr;
   console.log(output);
 
   return {

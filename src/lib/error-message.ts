@@ -11,7 +11,8 @@ export function toMessage(error: unknown): string {
   if (typeof error === "string") return error;
   const fallback = `[${typeof error}]`;
   try {
-    return JSON.stringify(error) ?? fallback;
+    const serialized = JSON.stringify(error);
+    return typeof serialized === "string" ? serialized : fallback;
   } catch {
     return fallback;
   }
