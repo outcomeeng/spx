@@ -35,7 +35,9 @@ describe("createSessionHarness", () => {
     try {
       const entries = await readdir(harness.sessionsDir);
       const expected = SESSION_STATUSES.map((s) => statusDirs[s]);
-      expect(entries.sort()).toEqual([...expected].sort());
+      expect(entries.sort((a, b) => a.localeCompare(b))).toEqual(
+        [...expected].sort((a, b) => a.localeCompare(b)),
+      );
 
       for (const status of SESSION_STATUSES) {
         const dirStat = await stat(harness.statusDir(status));
