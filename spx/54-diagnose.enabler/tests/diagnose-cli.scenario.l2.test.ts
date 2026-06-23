@@ -4,13 +4,14 @@ import { join } from "node:path";
 import { execa } from "execa";
 import { describe, expect, it } from "vitest";
 
+import { DEFAULT_CONFIG_FILENAME } from "@/config/index";
 import { SPX_REACHABILITY_VERDICT } from "@/domains/diagnose/checks/spx-reachability";
 import { overallExitCode } from "@/domains/diagnose/fold";
 import { CHECK_NAME } from "@/domains/diagnose/manifest";
 import { DIAGNOSE_FORMAT, DIAGNOSE_TEXT_OVERALL_LABEL } from "@/domains/diagnose/report";
 import { OVERALL_VERDICT, type OverallVerdict, VERDICT_BUCKET } from "@/domains/diagnose/types";
 import { DIAGNOSE_CLI } from "@/interfaces/cli/diagnose";
-import { CLI_PATH, NODE_EXECUTABLE } from "@testing/harnesses/constants";
+import { CLI_PATH, CLI_TIMEOUTS_MS, NODE_EXECUTABLE } from "@testing/harnesses/constants";
 import { writeAllChecksManifest, writeSpxReachabilityManifest } from "@testing/harnesses/diagnose/cli";
 import { withTempDir } from "@testing/harnesses/with-temp-dir";
 
@@ -142,7 +143,7 @@ describe("spx diagnose emits a schema-valid report and exits with the code keyed
       // that bare mode yields. Both signals prove the config diagnose section was resolved, without
       // assuming whether spx happens to be on PATH in the test environment.
       const config = ["diagnose:", "  spxFloor: \"0.0.0\"", `  checks: ["${CHECK_NAME.SPX_REACHABILITY}"]`].join("\n");
-      await writeFile(join(cwd, "spx.config.yaml"), `${config}\n`, "utf8");
+      await writeFile(join(cwd, DEFAULT_CONFIG_FILENAME), `${config}\n`);
 
       const result = await runDiagnose([DIAGNOSE_CLI.FORMAT_FLAG, DIAGNOSE_FORMAT.JSON], { cwd });
 
@@ -152,16 +153,22 @@ describe("spx diagnose emits a schema-valid report and exits with the code keyed
     });
   });
 
-  it("runs bare with no manifest and no diagnose config, rendering every registered check with a verdict-keyed exit", async () => {
-    await withTempDir("diagnose-bare", async (cwd) => {
-      const result = await runDiagnose([DIAGNOSE_CLI.FORMAT_FLAG, DIAGNOSE_FORMAT.JSON], { cwd });
+  it(
+    "runs bare with no manifest and no diagnose config, rendering every registered check with a verdict-keyed exit",
+    async () => {
+      await withTempDir("diagnose-bare", async (cwd) => {
+        const result = await runDiagnose([DIAGNOSE_CLI.FORMAT_FLAG, DIAGNOSE_FORMAT.JSON], { cwd });
 
-      const report = JSON.parse(result.stdout) as ReportShape;
-      expect(new Set(report.checks.map((check) => check.name))).toEqual(new Set(Object.values(CHECK_NAME)));
-      expect(Object.values(OVERALL_VERDICT)).toContain(report.overall);
-      expect(result.exitCode).toBe(overallExitCode(report.overall as OverallVerdict));
-    });
-  });
+        const report = JSON.parse(result.stdout) as ReportShape;
+        expect(new Set(report.checks.map((check) => check.name))).toEqual(new Set(Object.values(CHECK_NAME)));
+        expect(Object.values(OVERALL_VERDICT)).toContain(report.overall);
+        expect(result.exitCode).toBe(overallExitCode(report.overall as OverallVerdict));
+      });
+    },
+    // Bare mode spawns the CLI running all five real probes (git, spx, plugin CLIs, filesystem);
+    // under test-suite subprocess contention this needs the batched-E2E guardrail, not the 30s default.
+    CLI_TIMEOUTS_MS.E2E_BATCH,
+  );
 
   it("emits no ANSI escape when a non-empty NO_COLOR environment variable disables color", async () => {
     const manifestPath = await writeSpxReachabilityManifest();
