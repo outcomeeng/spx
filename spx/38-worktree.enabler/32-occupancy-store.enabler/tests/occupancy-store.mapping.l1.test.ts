@@ -65,42 +65,42 @@ function identicalClaimRecordWithDistinctWriteTokens(): readonly [WorktreeClaimR
 }
 
 describe("worktree occupancy classification mapping", () => {
-  it("maps no claim to unclaimed", () => {
+  it("maps no claim to free", () => {
     const probe = createLiveHolderProbe(sampleWorktreeTestValue(WORKTREE_TEST_GENERATOR.claimRecord()));
-    expect(classifyOccupancy(undefined, probe)).toBe(OCCUPANCY_STATUS.UNCLAIMED);
+    expect(classifyOccupancy(undefined, probe)).toBe(OCCUPANCY_STATUS.FREE);
   });
 
-  it("maps a same-host holder that is alive with a matching start time to occupied", () => {
+  it("maps a same-host holder that is alive with a matching start time to running", () => {
     const record = sampleWorktreeTestValue(WORKTREE_TEST_GENERATOR.claimRecord());
-    expect(classifyOccupancy(record, createLiveHolderProbe(record))).toBe(OCCUPANCY_STATUS.OCCUPIED);
+    expect(classifyOccupancy(record, createLiveHolderProbe(record))).toBe(OCCUPANCY_STATUS.RUNNING);
   });
 
-  it("maps a claim whose holder process is dead to stale", () => {
+  it("maps a claim whose holder process is dead to free", () => {
     const record = sampleWorktreeTestValue(WORKTREE_TEST_GENERATOR.claimRecord());
-    expect(classifyOccupancy(record, createDeadHolderProbe(record))).toBe(OCCUPANCY_STATUS.STALE);
+    expect(classifyOccupancy(record, createDeadHolderProbe(record))).toBe(OCCUPANCY_STATUS.FREE);
   });
 
-  it("maps a claim recorded on a different host to stale", () => {
+  it("maps a claim recorded on a different host to free", () => {
     const [recordHost, foreignHost] = sampleWorktreeTestValue(WORKTREE_TEST_GENERATOR.distinctHosts());
     const record = { ...sampleWorktreeTestValue(WORKTREE_TEST_GENERATOR.claimRecord()), host: recordHost };
-    expect(classifyOccupancy(record, createForeignHostProbe(record, foreignHost))).toBe(OCCUPANCY_STATUS.STALE);
+    expect(classifyOccupancy(record, createForeignHostProbe(record, foreignHost))).toBe(OCCUPANCY_STATUS.FREE);
   });
 
-  it("maps a claim whose pid was recycled to a different live process to stale", () => {
+  it("maps a claim whose pid was recycled to a different live process to free", () => {
     const [claimStart, liveStart] = sampleWorktreeTestValue(WORKTREE_TEST_GENERATOR.distinctStartTimes());
     const record = { ...sampleWorktreeTestValue(WORKTREE_TEST_GENERATOR.claimRecord()), startedAt: claimStart };
-    expect(classifyOccupancy(record, createRecycledPidProbe(record, liveStart))).toBe(OCCUPANCY_STATUS.STALE);
+    expect(classifyOccupancy(record, createRecycledPidProbe(record, liveStart))).toBe(OCCUPANCY_STATUS.FREE);
   });
 
-  it("maps a live same-host holder whose start time cannot be read to occupied", () => {
+  it("maps a live same-host holder whose start time cannot be read to running", () => {
     const record = sampleWorktreeTestValue(WORKTREE_TEST_GENERATOR.claimRecord());
-    expect(classifyOccupancy(record, createUnreadableStartTimeProbe(record))).toBe(OCCUPANCY_STATUS.OCCUPIED);
+    expect(classifyOccupancy(record, createUnreadableStartTimeProbe(record))).toBe(OCCUPANCY_STATUS.RUNNING);
   });
 
-  it("maps a live same-host holder claimed with an unreadable-start token to occupied", () => {
+  it("maps a live same-host holder claimed with an unreadable-start token to running", () => {
     const record = sampleWorktreeTestValue(WORKTREE_TEST_GENERATOR.claimRecord());
     const unreadableRecord = { ...record, startedAt: unreadableStartedAt(record.pid) };
-    expect(classifyOccupancy(unreadableRecord, createLiveHolderProbe(record))).toBe(OCCUPANCY_STATUS.OCCUPIED);
+    expect(classifyOccupancy(unreadableRecord, createLiveHolderProbe(record))).toBe(OCCUPANCY_STATUS.RUNNING);
   });
 
   it("maps a safe name to a claim path and an empty or unsafe name to the INVALID_NAME rejection", () => {

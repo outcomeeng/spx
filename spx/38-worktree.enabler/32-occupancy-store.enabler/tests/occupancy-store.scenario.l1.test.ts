@@ -60,13 +60,13 @@ describe("worktree occupancy claim store", () => {
       const held = await readOccupancy(worktreesDir, name, probe, { fs: defaultOccupancyFileSystem });
       expect(held.ok).toBe(true);
       if (!held.ok) throw new Error(held.error);
-      expect(held.value).toBe(OCCUPANCY_STATUS.OCCUPIED);
+      expect(held.value).toBe(OCCUPANCY_STATUS.RUNNING);
 
       await removeClaim(worktreesDir, name, { fs: defaultOccupancyFileSystem });
       const freed = await readOccupancy(worktreesDir, name, probe, { fs: defaultOccupancyFileSystem });
       expect(freed.ok).toBe(true);
       if (!freed.ok) throw new Error(freed.error);
-      expect(freed.value).toBe(OCCUPANCY_STATUS.UNCLAIMED);
+      expect(freed.value).toBe(OCCUPANCY_STATUS.FREE);
     });
   });
 });

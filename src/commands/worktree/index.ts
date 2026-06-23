@@ -6,4 +6,10 @@
 
 export { claimCommand, type ClaimCommandOptions } from "./claim";
 export { releaseCommand, type ReleaseCommandOptions } from "./release";
-export { statusCommand, type StatusCommandOptions, WORKTREE_STATUS_FORMAT, type WorktreeStatusFormat } from "./status";
+export {
+  statusCommand,
+  type StatusCommandOptions,
+  WORKTREE_STATUS_FORMAT,
+  WORKTREE_STATUS_RENDER,
+  type WorktreeStatusFormat,
+} from "./status";

@@ -62,7 +62,7 @@ describe("worktree CLI compliance", () => {
 
         expect(result.exitCode).toBe(0);
         const parsed = JSON.parse(result.stdout) as { status: string };
-        expect(parsed.status).toBe(OCCUPANCY_STATUS.UNCLAIMED);
+        expect(parsed.status).toBe(OCCUPANCY_STATUS.FREE);
       });
     });
   });
@@ -91,8 +91,8 @@ describe("worktree CLI compliance", () => {
         expect(result.exitCode).toBe(0);
         const parsed = JSON.parse(result.stdout) as readonly { worktree: string; status: string }[];
         expect(parsed).toEqual([
-          { worktree: worktreeClaimName(firstPath), status: OCCUPANCY_STATUS.UNCLAIMED },
-          { worktree: worktreeClaimName(secondPath), status: OCCUPANCY_STATUS.UNCLAIMED },
+          { worktree: worktreeClaimName(firstPath), status: OCCUPANCY_STATUS.FREE },
+          { worktree: worktreeClaimName(secondPath), status: OCCUPANCY_STATUS.FREE },
         ]);
       },
     );
@@ -150,12 +150,12 @@ describe("worktree CLI compliance", () => {
 
       expect(result.exitCode).toBe(0);
       expect(JSON.parse(result.stdout)).toEqual([
-        { worktree: worktreeClaimName(worktreePath), status: OCCUPANCY_STATUS.UNCLAIMED },
+        { worktree: worktreeClaimName(worktreePath), status: OCCUPANCY_STATUS.FREE },
       ]);
     });
   });
 
-  it("ALWAYS: a live holder reads occupied when claim and status run under different timezones", async () => {
+  it("ALWAYS: a live holder reads running when claim and status run under different timezones", async () => {
     const prefix = sampleWorktreeTestValue(WORKTREE_TEST_GENERATOR.tempPrefix());
     const worktreeName = sampleWorktreeTestValue(WORKTREE_TEST_GENERATOR.poolWorktreeName());
     const sessionId = sampleWorktreeTestValue(WORKTREE_TEST_GENERATOR.sessionId());
@@ -193,7 +193,7 @@ describe("worktree CLI compliance", () => {
 
         expect(status.exitCode).toBe(0);
         const parsed = JSON.parse(status.stdout) as { status: string };
-        expect(parsed.status).toBe(OCCUPANCY_STATUS.OCCUPIED);
+        expect(parsed.status).toBe(OCCUPANCY_STATUS.RUNNING);
       });
     });
   });

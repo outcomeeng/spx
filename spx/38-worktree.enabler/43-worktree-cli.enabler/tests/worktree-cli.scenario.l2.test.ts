@@ -3,7 +3,7 @@ import { join } from "node:path";
 
 import { describe, expect, it } from "vitest";
 
-import { WORKTREE_STATUS_FORMAT } from "@/commands/worktree/index";
+import { WORKTREE_STATUS_FORMAT, WORKTREE_STATUS_RENDER } from "@/commands/worktree/index";
 import { CONTROLLING_PID_ENV } from "@/domains/worktree/controlling-process";
 import { OCCUPANCY_STATUS } from "@/domains/worktree/occupancy-store";
 import { worktreeClaimName } from "@/domains/worktree/worktree-name";
@@ -48,8 +48,10 @@ describe("worktree CLI occupancy round-trip", () => {
         expect(status.exitCode).toBe(0);
         expect(status.stderr).toHaveLength(0);
         expect(status.stdout).not.toContain(String(undefined));
-        expect(status.stdout).toContain(`${worktreeClaimName(claimedPath)} ${OCCUPANCY_STATUS.OCCUPIED}`);
-        expect(status.stdout).toContain(`${worktreeClaimName(unclaimedPath)} ${OCCUPANCY_STATUS.UNCLAIMED}`);
+        expect(status.stdout).toContain(
+          `${worktreeClaimName(claimedPath)} ${WORKTREE_STATUS_RENDER.RUNNING_PID_PREFIX}`,
+        );
+        expect(status.stdout).toContain(`${worktreeClaimName(unclaimedPath)} ${WORKTREE_STATUS_RENDER.FREE}`);
         expect(status.stdout).not.toContain(absentName);
       },
     );
@@ -75,12 +77,12 @@ describe("worktree CLI occupancy round-trip", () => {
       expect(status.exitCode).toBe(0);
       expect(status.stderr).toHaveLength(0);
       expect(status.stdout.trim().split("\n")).toEqual([
-        `${worktreeClaimName(worktreePath)} ${OCCUPANCY_STATUS.UNCLAIMED}`,
+        `${worktreeClaimName(worktreePath)} ${WORKTREE_STATUS_RENDER.FREE}`,
       ]);
     });
   });
 
-  it("reports the claimed worktree occupied across path forms and refuses a non-worktree path", async () => {
+  it("reports the claimed worktree running across path forms and refuses a non-worktree path", async () => {
     const [worktreeName, absentName] = sampleWorktreeTestValue(WORKTREE_TEST_GENERATOR.distinctPoolWorktreeNames());
     const subdir = sampleWorktreeTestValue(WORKTREE_TEST_GENERATOR.poolWorktreeName());
     const sessionId = sampleWorktreeTestValue(WORKTREE_TEST_GENERATOR.sessionId());
@@ -129,7 +131,7 @@ describe("worktree CLI occupancy round-trip", () => {
             ];
           const status = await runWorktreeCli(args, { [CONTROLLING_PID_ENV]: controllingPid }, worktreePath);
           expect(status.exitCode, `form "${form}"`).toBe(0);
-          expect(parsedStatus(status.stdout), `form "${form}"`).toBe(OCCUPANCY_STATUS.OCCUPIED);
+          expect(parsedStatus(status.stdout), `form "${form}"`).toBe(OCCUPANCY_STATUS.RUNNING);
         }
 
         const nonWorktree = await runWorktreeCli(
