@@ -2,9 +2,9 @@ import { describe, expect, it } from "vitest";
 
 import {
   createGithubPullRequestCommentClient,
-  type GithubApiRunner,
   GITHUB_API,
   GITHUB_API_ERROR,
+  type GithubApiRunner,
 } from "@/lib/github-snapshot-sink";
 import { CONFIG_TEST_GENERATOR, sampleConfigTestValue } from "@testing/generators/config/descriptors";
 import {

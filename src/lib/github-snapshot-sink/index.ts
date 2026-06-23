@@ -72,8 +72,8 @@ export {
   createGithubPullRequestCommentClient,
   GITHUB_API,
   GITHUB_API_ERROR,
-  githubCommentMarkerTag,
   type GithubApiRunner,
+  githubCommentMarkerTag,
   type GithubPullRequestCommentClient,
 } from "./pull-request-comment-client";
 export type { GithubSnapshotClient } from "./types";
