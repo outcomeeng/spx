@@ -1273,7 +1273,8 @@ describe("parseFieldSelection", () => {
     fc.assert(
       fc.property(
         fc.string({ minLength: 1 }).filter((token) =>
-          !token.includes(",") && token.trim().length > 0 && !SESSION_RECORD_FIELDS.includes(token.trim())
+          !token.includes(",") && token.trim().length > 0
+          && !(SESSION_RECORD_FIELDS as readonly string[]).includes(token.trim())
         ),
         (token) => {
           let thrown: unknown;
@@ -1325,7 +1326,7 @@ describe("parseFieldSelection", () => {
         fc.constantFrom(...SESSION_RECORD_FIELDS),
         fc.string({ minLength: 1 }).filter((token) =>
           !token.includes(FIELD_SELECTION_SEPARATOR) && token.trim().length > 0
-          && !SESSION_RECORD_FIELDS.includes(token.trim())
+          && !(SESSION_RECORD_FIELDS as readonly string[]).includes(token.trim())
         ),
         (validField, invalidToken) => {
           let thrown: unknown;
