@@ -16,13 +16,11 @@ import {
   defaultWorktreePoolProbe,
 } from "@/commands/diagnose/probes";
 import { defaultSpxReachabilityProbe } from "@/commands/diagnose/spx-reachability-probe";
-import { resolveConfig } from "@/config/index";
 import { marketplaceInstallRunner } from "@/domains/diagnose/checks/marketplace-install";
 import { sessionEnvironmentRunner } from "@/domains/diagnose/checks/session-environment";
 import { sessionStoreRunner } from "@/domains/diagnose/checks/session-store";
 import { spxReachabilityRunner } from "@/domains/diagnose/checks/spx-reachability";
 import { worktreePoolRunner } from "@/domains/diagnose/checks/worktree-pool";
-import { type DiagnoseConfig, diagnoseConfigDescriptor } from "@/domains/diagnose/config";
 import type { CheckRegistry } from "@/domains/diagnose/engine";
 import { CHECK_NAME } from "@/domains/diagnose/manifest";
 import { DIAGNOSE_FORMAT, type DiagnoseFormat } from "@/domains/diagnose/report";
@@ -80,14 +78,9 @@ export const diagnoseDomain: Domain = {
       .addOption(new Option(`${DIAGNOSE_CLI.COLOR_FLAG}`, "Force colored output"))
       .addOption(new Option(`${DIAGNOSE_CLI.NO_COLOR_FLAG}`, "Disable colored output"))
       .action(async (options: { manifest?: string; format: DiagnoseFormat; color?: boolean }) => {
-        const productDir = process.cwd();
-        const loaded = await resolveConfig(productDir, [diagnoseConfigDescriptor]);
-        if (!loaded.ok) handleError(loaded.error);
-        const config = loaded.value[diagnoseConfigDescriptor.section] as DiagnoseConfig;
-
         const result = await diagnoseCommand({
           manifestPath: options.manifest,
-          config,
+          productDir: process.cwd(),
           format: options.format,
           color: resolveColorChoice({
             flag: options.color,
