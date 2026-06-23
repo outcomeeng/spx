@@ -120,14 +120,6 @@ export function buildEslintConfig(options: BuildEslintConfigOptions = {}) {
           ...globals.es2021,
         },
       },
-      settings: {
-        "import/resolver": {
-          typescript: {
-            alwaysTryTypes: true,
-            project: typescriptConfigFile,
-          },
-        },
-      },
     },
 
     // JavaScript recommended rules
@@ -160,11 +152,13 @@ export function buildEslintConfig(options: BuildEslintConfigOptions = {}) {
       },
     },
 
-    // Type-aware lint mirror — runs the SonarJS analyzer rules, the type-aware
-    // @typescript-eslint rules, and the unicorn-family modernization rules
-    // locally, the deterministic offline floor of code-quality enforcement.
-    // Warn-first while the backlog is cleared; each backlog session flips its
-    // rules to error.
+    // Type-aware lint mirror — the deterministic offline floor of code-quality
+    // enforcement. Runs rules drawn from SonarJS, the type-aware
+    // @typescript-eslint rules, ESLint core, eslint-plugin-import, and the
+    // unicorn-family modernization rules locally, at two tiers: an error tier
+    // for finding classes cleared from the tree and a warn tier for classes
+    // whose backlog is uncleared. A backlog session flips a class to error as
+    // its last occurrence clears.
     {
       // Scoped to the trees in tsconfig.json `include`, so the project service
       // resolves a project for every linted file. Root build-config files

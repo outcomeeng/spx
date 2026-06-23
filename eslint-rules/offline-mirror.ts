@@ -25,15 +25,14 @@ export const MIRROR_WARN_SEVERITY = "warn" as const;
 export const MIRROR_ERROR_SEVERITY = "error" as const;
 
 /**
- * The warn-tier rules: type-aware `@typescript-eslint` rules dormant without the
- * project service (redundant assertions, superfluous narrowings), SonarJS
- * analyzer rules whose backlog is not yet cleared, and the unicorn-family
- * modernization rules — provided by `eslint-plugin-unicorn` for the SonarQube
- * analyzer rules `eslint-plugin-sonarjs` does not package — whose backlog is
- * likewise uncleared. They surface findings locally without failing the gate.
+ * The warn-tier rules: the type-aware `@typescript-eslint` narrowing rule
+ * dormant without the project service, SonarJS analyzer rules whose backlog is
+ * not yet cleared, and the unicorn-family modernization rules — provided by
+ * `eslint-plugin-unicorn` for the SonarQube analyzer rules `eslint-plugin-sonarjs`
+ * does not package — whose backlog is likewise uncleared. They surface findings
+ * locally without failing the gate.
  */
 export const MIRROR_WARN_RULES: Linter.RulesRecord = {
-  "@typescript-eslint/no-unnecessary-type-assertion": MIRROR_WARN_SEVERITY,
   "@typescript-eslint/no-unnecessary-condition": MIRROR_WARN_SEVERITY,
   "sonarjs/cognitive-complexity": MIRROR_WARN_SEVERITY,
   "sonarjs/no-identical-expressions": MIRROR_WARN_SEVERITY,
@@ -52,10 +51,18 @@ export const ARRAY_SORT_COMPARATOR_RULE = "sonarjs/no-alphabetical-sort" as cons
 
 /**
  * The error-tier rules: finding classes fully cleared from the linted tree, so a
- * new finding blocks the push.
+ * new finding blocks the push. Each mirrors a SonarQube finding through an
+ * already-present ESLint rule — SonarJS, `@typescript-eslint`, ESLint core, or
+ * `eslint-plugin-import`.
  */
 export const MIRROR_ERROR_RULES: Linter.RulesRecord = {
   [ARRAY_SORT_COMPARATOR_RULE]: MIRROR_ERROR_SEVERITY,
+  // S4325 redundant casts / non-null assertions (type-aware).
+  "@typescript-eslint/no-unnecessary-type-assertion": MIRROR_ERROR_SEVERITY,
+  // S6653 prefer Object.hasOwn over Object.prototype.hasOwnProperty.
+  "prefer-object-has-own": MIRROR_ERROR_SEVERITY,
+  // S3863 merge duplicate imports from the same module.
+  "import/no-duplicates": MIRROR_ERROR_SEVERITY,
 };
 
 /**
