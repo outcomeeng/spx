@@ -18,7 +18,7 @@ import { RecordingJournalStreamSink } from "@testing/harnesses/journal/harness";
 import { withGitEnv } from "@testing/harnesses/with-git-env";
 
 describe("journal CLI github-pr backend", () => {
-  it("streams an appended event to the run's pull-request comment", async () => {
+  it("streams a rendered projection to the run's pull-request comment", async () => {
     const type = sampleStateStoreTestValue(STATE_STORE_TEST_GENERATOR.scopeToken());
     const input = sampleAgentRunJournalValue(arbitraryJournalEventInput());
     const pullNumber = sampleGithubSnapshotValue(arbitraryPullNumber());
@@ -42,7 +42,7 @@ describe("journal CLI github-pr backend", () => {
         deps,
       );
       expect(appended.exitCode).toBe(JOURNAL_CLI_EXIT_CODE.OK);
-      // append's event reaches the pull-request comment, so its result is empty.
+      // append's projection reaches the pull-request comment, so its result is empty.
       expect(appended.output).toHaveLength(0);
 
       expect(githubClient.comments).toHaveLength(1);

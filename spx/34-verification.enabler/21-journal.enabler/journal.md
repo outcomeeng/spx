@@ -10,7 +10,7 @@ CAN open a changeset-scoped run, append one event per significant step, read the
 
 - Given a run scope whose branch and product root resolve from the git environment and whose backend binds local, when the `spx journal` commands `open`, `append`, `read --from <cursor>`, `seal`, and `render` run in sequence, then `open` reports a run token, `append` persists and streams each event, `read` returns the events at or after the cursor, `seal` closes the run, and `render` projects the event prefix ([test](tests/journal-cli.scenario.l1.test.ts))
 - Given the journal domain in the CLI registry, when it registers with the program, then the `journal` command exposes exactly the `open`, `append`, `read`, `seal`, and `render` verbs ([test](tests/journal-cli-registry.scenario.l1.test.ts))
-- Given a run scope whose backend binds github-pr and whose pull-request number resolves from the git environment, when the `spx journal` `open` and `append` commands run in sequence, then `append` streams the appended event to the run's pull-request comment identified by the run's marker ([test](tests/github-cli.scenario.l1.test.ts))
+- Given a run scope whose backend binds github-pr and whose pull-request number resolves from the git environment, when the `spx journal` `open` and `append` commands run in sequence, then `append` streams a rendered projection containing the appended event to the run's pull-request comment identified by the run's marker ([test](tests/github-cli.scenario.l1.test.ts))
 
 ### Mappings
 
@@ -26,9 +26,9 @@ CAN open a changeset-scoped run, append one event per significant step, read the
 
 ### Compliance
 
-- ALWAYS: `append` both persists the event to the bound backend and emits it to the run's streaming surface — standard output under the local backend, the pull-request comment under the GitHub pull-request backend — so the run is observable as it advances ([test](tests/streaming.scenario.l1.test.ts), [test](tests/github-pr-sink.scenario.l1.test.ts), [test](tests/github-cli.scenario.l1.test.ts))
+- ALWAYS: `append` both persists the event to the run journal and emits to the run's streaming surface — the event itself to standard output under the local backend, the rendered event-history projection to the pull-request comment under the GitHub pull-request backend — so the run is observable as it advances ([test](tests/streaming.scenario.l1.test.ts), [test](tests/github-pr-sink.scenario.l1.test.ts), [test](tests/github-cli.scenario.l1.test.ts))
 - ALWAYS: streaming is best-effort once the event is durably appended — a streaming-emit failure does not fail the append, so a retry cannot duplicate a committed event ([test](tests/streaming.scenario.l1.test.ts))
-- ALWAYS: a successful `append` returns an empty result — its event reaches the run's streaming surface (standard output under the local backend, the pull-request comment under the github-pr backend), so `append` writes no separate result of its own ([test](tests/journal-cli.scenario.l1.test.ts), [test](tests/github-cli.scenario.l1.test.ts))
+- ALWAYS: a successful `append` returns an empty result — its event reaches the run's streaming surface directly under the local backend or through the rendered projection under the github-pr backend, so `append` writes no separate result of its own ([test](tests/journal-cli.scenario.l1.test.ts), [test](tests/github-cli.scenario.l1.test.ts))
 - ALWAYS: `append`, `read`, `seal`, and `render` reject a run token that `open` did not create rather than operating on a phantom empty run, so a mistyped or unopened token is distinguishable from a real empty run ([test](tests/streaming.scenario.l1.test.ts))
 - ALWAYS: `append`, `read`, `seal`, and `render` reject a run whose run-file path resolves to a symbolic link rather than following it, so a symbolic link planted at the run path cannot redirect a run's reads or writes to another file ([test](tests/streaming.scenario.l1.test.ts))
 - ALWAYS: the journal verbs resolve a run outside a git repository — including where git is unavailable — using a fallback branch identity rather than failing, so the channel still records the run ([test](tests/journal-cli.scenario.l1.test.ts))
