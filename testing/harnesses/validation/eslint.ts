@@ -3,7 +3,7 @@ import { ESLint, RuleTester } from "eslint";
 import { builtinRules } from "eslint/use-at-your-own-risk";
 import tseslint from "typescript-eslint";
 
-import { MIRROR_RULES } from "@eslint-rules/sonarjs-mirror";
+import { MIRROR_RULES } from "@eslint-rules/offline-mirror";
 import {
   validationEslintRuleTesterLanguageOptions,
   validationRuleTesterHooks,
