@@ -21,8 +21,8 @@ import { runValidationRuleTester } from "@testing/harnesses/validation/eslint";
 
 // ISO 8601 with timezone: YYYY-MM-DDTHH:mm:ss[.SSS](Z|±HH:MM)
 // Matches: 2026-01-13T10:00:00Z, 2026-01-13T10:00:00.000Z, 2026-01-13T10:00:00+00:00
-const ISO_8601_WITH_TIMEZONE_OFFSET = /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(?:\.\d+)?(?:Z|[+-]\d{2}:\d{2})$/;
-const COMPLIANCE_GIT_DEPS = createSessionGitDeps();
+const iso8601WithTimezoneOffset = /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(?:\.\d+)?(?:Z|[+-]\d{2}:\d{2})$/;
+const complianceGitDeps = createSessionGitDeps();
 
 describe("session-store compliance — timestamp format", () => {
   let harness: SessionHarness;
@@ -50,12 +50,12 @@ describe("session-store compliance — timestamp format", () => {
     const { output } = await handoffCommand({
       content: stdin,
       sessionsDir: harness.sessionsDir,
-      deps: COMPLIANCE_GIT_DEPS,
+      deps: complianceGitDeps,
     });
     const frontMatter = parseFrontMatter(await readFile(extractSessionFile(output), "utf-8"));
 
     expect(frontMatter).toHaveProperty(SESSION_FRONT_MATTER.CREATED_AT);
-    expect(frontMatter[SESSION_FRONT_MATTER.CREATED_AT]).toMatch(ISO_8601_WITH_TIMEZONE_OFFSET);
+    expect(frontMatter[SESSION_FRONT_MATTER.CREATED_AT]).toMatch(iso8601WithTimezoneOffset);
   });
 });
 
@@ -78,7 +78,7 @@ describe("session-store compliance — legacy YAML frontmatter input rejection",
       handoffCommand({
         content: legacyYamlStdin,
         sessionsDir: harness.sessionsDir,
-        deps: COMPLIANCE_GIT_DEPS,
+        deps: complianceGitDeps,
       }),
     ).rejects.toBeInstanceOf(SessionLegacyFrontmatterInputError);
   });
@@ -110,7 +110,7 @@ describe("session-store compliance — declared frontmatter shape", () => {
     const { output } = await handoffCommand({
       content: stdin,
       sessionsDir: harness.sessionsDir,
-      deps: COMPLIANCE_GIT_DEPS,
+      deps: complianceGitDeps,
     });
     const frontMatter = parseFrontMatter(await readFile(extractSessionFile(output), "utf-8"));
 

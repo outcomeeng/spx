@@ -76,11 +76,13 @@ export function parseSessionMetadata(content: string): SessionMetadata {
   }
 
   try {
-    const parsed = parseYaml(match[1]) as Record<string, unknown>;
+    const parsedDocument: unknown = parseYaml(match[1]);
 
-    if (!parsed || typeof parsed !== "object") {
+    if (!parsedDocument || typeof parsedDocument !== "object") {
       return defaultSessionMetadata();
     }
+
+    const parsed = parsedDocument as Record<string, unknown>;
 
     const rawPriority = parsed[SESSION_FRONT_MATTER.PRIORITY];
     const priority = isValidPriority(rawPriority) ? rawPriority : DEFAULT_PRIORITY;
@@ -350,7 +352,7 @@ export const DEFAULT_LIST_WIDTH = 80;
 /** Indent every rendered session line carries. */
 const LIST_INDENT = "  ";
 /** Joins a session's goal and next step in the summary segment. */
-const LIST_SUMMARY_SEPARATOR = " -> ";
+export const LIST_SUMMARY_SEPARATOR = " -> ";
 
 /** Options the pure list text formatter renders against. */
 export interface ListTextOptions {

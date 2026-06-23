@@ -23,6 +23,14 @@ import { SessionLegacyFrontmatterInputError } from "@/domains/session/errors";
 import { parseSessionMetadata } from "@/domains/session/list";
 import { arbitraryHandoffHeader, arbitraryLegacyYamlFrontmatterStdin } from "@testing/generators/session/session";
 import {
+  assertProperty,
+  PROPERTY_LEVEL,
+  PROPERTY_SIZE,
+  type PropertyClassification,
+  resolveRunCount,
+  resolveTimeout,
+} from "@testing/harnesses/property/property";
+import {
   buildHandoffStdin,
   createSessionGitDeps,
   createSessionHarness,
@@ -31,10 +39,15 @@ import {
 
 import { extractSessionFile } from "@testing/harnesses/session/session-store";
 
-const PROPERTY_RUN_COUNT = 100;
-const TEST_TIMEOUT_MS = 60_000;
+const propertyClassification: PropertyClassification = {
+  level: PROPERTY_LEVEL.L1,
+  size: PROPERTY_SIZE.STANDARD,
+};
+// Vitest envelope must cover the whole property loop: the harness bounds each
+// run, this bounds the run count times that per-run budget.
+const propertyTestEnvelopeMs = resolveRunCount(propertyClassification) * resolveTimeout(propertyClassification);
 
-const PROPERTY_GIT_DEPS = createSessionGitDeps();
+const propertyGitDeps = createSessionGitDeps();
 
 describe("handoff round-trip property", () => {
   let harness: SessionHarness;
@@ -50,39 +63,36 @@ describe("handoff round-trip property", () => {
   it(
     "for every JSON header with arbitrary unicode strings, the parsed session metadata equals caller input exactly",
     async () => {
-      await fc.assert(
-        fc.asyncProperty(
-          arbitraryHandoffHeader(),
-          // Body must be non-empty so the `onDisk.endsWith(body)` check is
-          // falsifiable — `''.endsWith('')` is vacuously true regardless of
-          // what the implementation writes after the YAML frontmatter.
-          // `unit: "binary"` covers the full Unicode range (0000-10FFFF) so
-          // the round-trip is exercised beyond BMP-only inputs.
-          fc.string({ unit: "binary", minLength: 1 }),
-          async (header, body) => {
-            const stdin = buildHandoffStdin(header, body);
+      // Body must be non-empty so the `onDisk.endsWith(body)` check is
+      // falsifiable — `''.endsWith('')` is vacuously true regardless of what
+      // the implementation writes after the YAML frontmatter. `unit: "binary"`
+      // covers the full Unicode range (0000-10FFFF) so the round-trip is
+      // exercised beyond BMP-only inputs.
+      await assertProperty(
+        fc.tuple(arbitraryHandoffHeader(), fc.string({ unit: "binary", minLength: 1 })),
+        async ([header, body]) => {
+          const stdin = buildHandoffStdin(header, body);
 
-            const { output } = await handoffCommand({
-              content: stdin,
-              sessionsDir: harness.sessionsDir,
-              deps: PROPERTY_GIT_DEPS,
-            });
+          const { output } = await handoffCommand({
+            content: stdin,
+            sessionsDir: harness.sessionsDir,
+            deps: propertyGitDeps,
+          });
 
-            const onDisk = await readFile(extractSessionFile(output), "utf-8");
-            const parsed = parseSessionMetadata(onDisk);
+          const onDisk = await readFile(extractSessionFile(output), "utf-8");
+          const parsed = parseSessionMetadata(onDisk);
 
-            expect(parsed.priority).toBe(header.priority);
-            expect(parsed.goal).toBe(header.goal);
-            expect(parsed.next_step).toBe(header.next_step);
-            expect(parsed.specs).toEqual([...header.specs]);
-            expect(parsed.files).toEqual([...header.files]);
-            expect(onDisk.endsWith(body)).toBe(true);
-          },
-        ),
-        { numRuns: PROPERTY_RUN_COUNT },
+          expect(parsed.priority).toBe(header.priority);
+          expect(parsed.goal).toBe(header.goal);
+          expect(parsed.next_step).toBe(header.next_step);
+          expect(parsed.specs).toEqual([...header.specs]);
+          expect(parsed.files).toEqual([...header.files]);
+          expect(onDisk.endsWith(body)).toBe(true);
+        },
+        propertyClassification,
       );
     },
-    TEST_TIMEOUT_MS,
+    propertyTestEnvelopeMs,
   );
 });
 
@@ -100,23 +110,21 @@ describe("handoff legacy YAML rejection property", () => {
   it(
     "for every stdin opening with the YAML-frontmatter delimiter, handoff throws SessionLegacyFrontmatterInputError",
     async () => {
-      await fc.assert(
-        fc.asyncProperty(
-          arbitraryLegacyYamlFrontmatterStdin(),
-          async (stdin) => {
-            await expect(
-              handoffCommand({
-                content: stdin,
-                sessionsDir: harness.sessionsDir,
-                deps: PROPERTY_GIT_DEPS,
-              }),
-            ).rejects.toBeInstanceOf(SessionLegacyFrontmatterInputError);
-          },
-        ),
-        { numRuns: PROPERTY_RUN_COUNT },
+      await assertProperty(
+        arbitraryLegacyYamlFrontmatterStdin(),
+        async (stdin) => {
+          await expect(
+            handoffCommand({
+              content: stdin,
+              sessionsDir: harness.sessionsDir,
+              deps: propertyGitDeps,
+            }),
+          ).rejects.toBeInstanceOf(SessionLegacyFrontmatterInputError);
+        },
+        propertyClassification,
       );
     },
-    TEST_TIMEOUT_MS,
+    propertyTestEnvelopeMs,
   );
 });
 
