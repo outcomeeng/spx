@@ -19,6 +19,7 @@ import { handoffCommand } from "@/commands/session/handoff";
 import { listCommand, SESSION_LIST_EMPTY_TEXT, SESSION_LIST_FORMAT } from "@/commands/session/list";
 import { pickupCommand } from "@/commands/session/pickup";
 import { releaseCommand } from "@/commands/session/release";
+import { showCommand } from "@/commands/session/show";
 import { DEFAULT_CONFIG } from "@/config/defaults";
 import { buildSessionFrontMatterContent } from "@/domains/session/create";
 import { resolveDeletePath } from "@/domains/session/delete";
@@ -69,7 +70,12 @@ import {
 import { STATE_STORE_PATH } from "@/lib/state-store";
 
 import type { HandoffHeaderFixture } from "@testing/generators/session/session";
-import { arbitrarySessionId, arbitrarySessionPriority, sampleSessionId } from "@testing/generators/session/session";
+import {
+  arbitrarySessionId,
+  arbitrarySessionPriority,
+  sampleDistinctSessionIds,
+  sampleSessionId,
+} from "@testing/generators/session/session";
 import {
   buildHandoffStdin,
   buildSessionMarkdownBody,
@@ -1444,5 +1450,134 @@ describe("listCommand JSON records and field projection", () => {
         sessionsDir: harness.sessionsDir,
       }),
     ).rejects.toBeInstanceOf(SessionInvalidFieldError);
+  });
+});
+
+describe("showCommand JSON output", () => {
+  let harness: SessionHarness;
+
+  beforeEach(async () => {
+    harness = await createSessionHarness();
+    for (const key of ENV_KEYS) {
+      delete process.env[key];
+    }
+  });
+
+  afterEach(async () => {
+    await harness.cleanup();
+    for (const key of ENV_KEYS) {
+      delete process.env[key];
+    }
+  });
+
+  // The exact key set a session with no optional frontmatter projects to. Asserting
+  // equality (not mere presence) proves the JSON record carries no session body, no
+  // `path`, and no `metadata` nesting — any smuggled extra key breaks the match.
+  const bareRecordKeys: SessionRecordField[] = [
+    SESSION_RECORD_FIELD.ID,
+    SESSION_RECORD_FIELD.STATUS,
+    SESSION_RECORD_FIELD.PRIORITY,
+    SESSION_RECORD_FIELD.GIT_REF,
+    SESSION_RECORD_FIELD.GOAL,
+    SESSION_RECORD_FIELD.NEXT_STEP,
+    SESSION_RECORD_FIELD.SPECS,
+    SESSION_RECORD_FIELD.FILES,
+  ];
+
+  it("GIVEN a single session WHEN show invoked with JSON format THEN the output is that session's bare flat record", async () => {
+    const id = sampleSessionId();
+    await harness.writeSession(TODO, id);
+
+    const output = await showCommand({
+      sessionIds: [id],
+      sessionsDir: harness.sessionsDir,
+      format: SESSION_LIST_FORMAT.JSON,
+    });
+    const parsed = JSON.parse(output) as Record<string, unknown>;
+
+    expect(Array.isArray(parsed)).toBe(false);
+    expect(parsed[SESSION_RECORD_FIELD.ID]).toBe(id);
+    expect(parsed[SESSION_RECORD_FIELD.STATUS]).toBe(TODO);
+    expect(Object.keys(parsed)).toEqual(bareRecordKeys);
+  });
+
+  it("GIVEN several sessions WHEN show invoked with JSON format THEN the output is a JSON array of records in supplied order", async () => {
+    const ids = [...sampleDistinctSessionIds(3)];
+    for (const id of ids) {
+      await harness.writeSession(TODO, id);
+    }
+
+    const output = await showCommand({
+      sessionIds: ids,
+      sessionsDir: harness.sessionsDir,
+      format: SESSION_LIST_FORMAT.JSON,
+    });
+    const parsed = JSON.parse(output) as Array<Record<string, unknown>>;
+
+    expect(Array.isArray(parsed)).toBe(true);
+    expect(parsed.map((record) => record[SESSION_RECORD_FIELD.ID])).toEqual(ids);
+    for (const record of parsed) {
+      expect(Object.keys(record)).toEqual(bareRecordKeys);
+    }
+  });
+
+  it("GIVEN a session carrying created_at and agent_session_id WHEN shown as JSON THEN both appear; a bare session omits them", async () => {
+    const agentSessionId = sampleSessionId();
+    process.env.CLAUDE_SESSION_ID = agentSessionId;
+    const { output: handoffOutput } = await handoffCommand({
+      content: PREFILL_HANDOFF_STDIN,
+      sessionsDir: harness.sessionsDir,
+      deps: HANDOFF_GIT_DEPS,
+    });
+    const carriedId = extractSessionFile(handoffOutput).split("/").pop()!.replace(".md", "");
+
+    const bareId = sampleSessionId();
+    await harness.writeSession(TODO, bareId);
+
+    const carried = JSON.parse(
+      await showCommand({
+        sessionIds: [carriedId],
+        sessionsDir: harness.sessionsDir,
+        format: SESSION_LIST_FORMAT.JSON,
+      }),
+    ) as Record<string, unknown>;
+    const bare = JSON.parse(
+      await showCommand({ sessionIds: [bareId], sessionsDir: harness.sessionsDir, format: SESSION_LIST_FORMAT.JSON }),
+    ) as Record<string, unknown>;
+
+    expect(carried[SESSION_RECORD_FIELD.AGENT_SESSION_ID]).toBe(agentSessionId);
+    expect(typeof carried[SESSION_RECORD_FIELD.CREATED_AT]).toBe("string");
+    expect(bare).not.toHaveProperty(SESSION_RECORD_FIELD.CREATED_AT);
+    expect(bare).not.toHaveProperty(SESSION_RECORD_FIELD.AGENT_SESSION_ID);
+  });
+
+  it("GIVEN an unresolvable id WHEN show invoked with JSON format THEN it rejects naming the id before emitting JSON", async () => {
+    const absentId = sampleSessionId();
+
+    await expect(
+      showCommand({
+        sessionIds: [absentId],
+        sessionsDir: harness.sessionsDir,
+        format: SESSION_LIST_FORMAT.JSON,
+      }),
+    ).rejects.toThrow(absentId);
+  });
+
+  it("GIVEN several ids with one unresolvable WHEN show invoked with JSON format THEN it processes both and rejects naming the absent id", async () => {
+    // A resolvable id alongside an absent one drives the collect-then-throw path:
+    // the present id resolves into the record set while the absent id records a
+    // failure, so the raised error names the absent id and no partial JSON is
+    // emitted. The two ids must be distinct, so draw them from the distinct-id
+    // generator rather than two same-seed samples.
+    const [presentId, absentId] = sampleDistinctSessionIds(2);
+    await harness.writeSession(TODO, presentId);
+
+    await expect(
+      showCommand({
+        sessionIds: [presentId, absentId],
+        sessionsDir: harness.sessionsDir,
+        format: SESSION_LIST_FORMAT.JSON,
+      }),
+    ).rejects.toThrow(absentId);
   });
 });

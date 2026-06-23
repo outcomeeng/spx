@@ -203,11 +203,13 @@ function registerSessionCommands(sessionCmd: Command): void {
   sessionCmd
     .command("show <id...>")
     .description("Show session content")
+    .option("--json", "Output parsed session frontmatter as JSON (a record per id)")
     .option("--sessions-dir <path>", "Custom sessions directory")
-    .action(async (ids: string[], options: { sessionsDir?: string }) => {
+    .action(async (ids: string[], options: { json?: boolean; sessionsDir?: string }) => {
       try {
         const output = await showCommand({
           sessionIds: ids,
+          format: options.json ? SESSION_LIST_FORMAT.JSON : SESSION_LIST_FORMAT.TEXT,
           sessionsDir: options.sessionsDir,
           onWarning: writeWarning,
         });
