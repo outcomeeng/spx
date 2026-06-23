@@ -8,4 +8,4 @@ CAN fold session-store health into the overall environment verdict
 
 ### Mappings
 
-- The check classifies the session store as consistent (the store reads and every doing session's backing worktree is occupied; bucket healthy) or orphaned-claims (a doing session whose backing worktree is stale or absent; bucket degraded) from `spx session list` joined to the worktree occupancy of each doing claim, and as unknown (bucket unknown) when a command errors, pairing each verdict with a remediation hint ([test](tests/session-store.mapping.l1.test.ts))
+- The check classifies the session store as consistent (the store reads and every doing session's backing worktree reads `running`; bucket healthy) or orphaned-claims (a doing session whose backing worktree reads `free` or is absent; bucket degraded) from `spx session list` joined to the worktree occupancy of each doing claim, and as unknown (bucket unknown) when a command errors, pairing each verdict with a remediation hint ([test](tests/session-store.mapping.l1.test.ts))
