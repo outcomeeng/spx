@@ -196,11 +196,11 @@ export function compareNamingSchemaVersions(left: NamingSchemaVersion, right: Na
 }
 
 export function canonicalNamingSchemaVersion(versions: readonly NamingSchemaVersion[]): NamingSchemaVersion {
-  const [first, ...rest] = versions;
+  const first = versions.at(0);
   if (first === undefined) {
     throw new Error("Naming-schema version tuple must declare at least one version");
   }
-  return rest.reduce(
+  return versions.slice(1).reduce(
     (max, version) => (compareNamingSchemaVersions(version, max) > VERSION_ORDER_EQUAL ? version : max),
     first,
   );

@@ -235,7 +235,7 @@ function firstManifestedNodePath(
     manifest.file,
     manifest.key,
   );
-  const [first] = entries;
+  const first = entries.at(0);
   if (first === undefined) {
     throw new Error(`${manifest.file} lists no nodes; cannot derive a manifest-covered fixture path`);
   }

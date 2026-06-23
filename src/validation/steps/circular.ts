@@ -179,7 +179,7 @@ function dependencyCruiserGlobSegmentToRegExpSource(segment: string): string {
     } else if (character === SINGLE_CHARACTER_GLOB_MARKER) {
       source += `[^${DEPENDENCY_CRUISER_PATH_SEGMENT_SEPARATOR}]`;
     } else {
-      source += character?.replaceAll(LITERAL_REGEX_SPECIAL_CHARACTER_PATTERN, REGEX_ESCAPE_REPLACEMENT) ?? "";
+      source += character.replaceAll(LITERAL_REGEX_SPECIAL_CHARACTER_PATTERN, REGEX_ESCAPE_REPLACEMENT);
     }
   }
   return source;
@@ -237,11 +237,11 @@ function patternIsCoveredByDirectory(pattern: string, directories: readonly stri
 }
 
 function isCruiseResult(output: IReporterOutput["output"]): output is ICruiseResult {
-  return typeof output === "object" && output !== null && "modules" in output && "summary" in output;
+  return typeof output === "object" && "modules" in output && "summary" in output;
 }
 
 function closeCycle(cycle: readonly string[]): string[] {
-  const first = cycle[0];
+  const first = cycle.at(0);
   const last = cycle.at(-1);
   if (first === undefined) {
     return [];

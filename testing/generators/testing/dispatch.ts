@@ -119,7 +119,7 @@ function arbitrarySupportFileUnder(
   descriptor: TestingLanguageDescriptor,
   nodePath: string,
 ): fc.Arbitrary<string> {
-  const [firstTestPattern] = descriptor.testFilePatterns;
+  const firstTestPattern = descriptor.testFilePatterns.at(0);
   if (firstTestPattern === undefined) {
     throw new Error("arbitrarySupportFileUnder: descriptor declares no testFilePatterns");
   }

@@ -52,6 +52,6 @@ export type LayerEntry<C = unknown> = {
 
 export type AdapterConfig = { readonly ignoreFlag: string };
 
-export type ToolAdaptersConfig = Readonly<Record<string, AdapterConfig>>;
+export type ToolAdaptersConfig = Readonly<Partial<Record<string, AdapterConfig>>>;
 
 export type ToolAdapterFn = (scope: ScopeResult, config: AdapterConfig) => readonly string[];

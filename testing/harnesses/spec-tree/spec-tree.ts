@@ -209,17 +209,16 @@ function valueDescriptor<T>(value: T): PropertyDescriptor {
 }
 
 function readKinds(config: Config, category: SpecTreeKindCategory): readonly KindEntry[] {
-  const specTree = config[SPEC_TREE_CONFIG.SECTION] as SpecTreeConfig | undefined;
-  if (!specTree || typeof specTree !== "object") {
+  const rawSpecTree = config[SPEC_TREE_CONFIG.SECTION];
+  if (rawSpecTree === undefined || rawSpecTree === null || typeof rawSpecTree !== "object") {
     throw new Error(`Config supplied to spec-tree generators is missing the ${SPEC_TREE_CONFIG.SECTION} section`);
   }
-  const kinds = specTree.kinds ?? {};
+  const specTree = rawSpecTree as SpecTreeConfig;
+  const kinds = specTree.kinds;
   return Object.entries(kinds)
     .filter((entry): entry is [string, KindDefinition<Kind>] => {
       const value = entry[1];
-      return typeof value === "object"
-        && value !== null
-        && (value as KindDefinition<Kind>).category === category;
+      return (value as KindDefinition<Kind>).category === category;
     })
     .map(([key, value]) => ({ kind: key, suffix: value.suffix }));
 }

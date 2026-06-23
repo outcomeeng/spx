@@ -15,10 +15,22 @@ import type {
   ScopeResult,
 } from "./types";
 
-export { LayerEntry, ScopeEntry, ScopeRequest, ScopeResolverConfig, ScopeResult };
-export type { LayerContext, LayerDecision };
+export type {
+  LayerContext,
+  LayerDecision,
+  LayerEntry,
+  ScopeEntry,
+  ScopeRequest,
+  ScopeResolverConfig,
+  ScopeResult,
+} from "./types";
 
 export const EXPLICIT_OVERRIDE_LAYER = "explicit-override" as const;
+
+type LayerPair = {
+  readonly entry: LayerEntry;
+  readonly layerConfig: unknown;
+};
 
 function isNodeError(err: unknown): err is NodeJS.ErrnoException {
   return err instanceof Error && "code" in err;
@@ -72,7 +84,7 @@ export async function runPipeline(
   ignoreReader: IgnoreSourceReader,
 ): Promise<ScopeResult> {
   const layerCtx: LayerContext = { config, ignoreReader };
-  const layerPairs = sequence.map((entry) => ({
+  const layerPairs: LayerPair[] = sequence.map((entry) => ({
     entry,
     layerConfig: entry.extractConfig(layerCtx),
   }));
@@ -97,22 +109,33 @@ export async function runPipeline(
 
     for (const path of allPaths) {
       if (explicitPathSet.has(path)) continue;
-
-      const trail: LayerDecision[] = [];
-      for (const { entry, layerConfig } of layerPairs) {
-        const decision = entry.predicate(path, layerConfig);
-        if (decision.matched) {
-          trail.push(decision);
-        }
-      }
-
-      if (trail.length > 0) {
-        excluded.push({ path, decisionTrail: trail });
+      const classified = classifyPath(path, layerPairs);
+      if (classified.excluded) {
+        excluded.push(classified.entry);
       } else {
-        included.push({ path, decisionTrail: [] });
+        included.push(classified.entry);
       }
     }
   }
 
   return { included, excluded };
+}
+
+function classifyPath(path: string, layerPairs: readonly LayerPair[]): { excluded: boolean; entry: ScopeEntry } {
+  const trail = decisionTrailForPath(path, layerPairs);
+  return {
+    excluded: trail.length > 0,
+    entry: { path, decisionTrail: trail },
+  };
+}
+
+function decisionTrailForPath(path: string, layerPairs: readonly LayerPair[]): readonly LayerDecision[] {
+  const trail: LayerDecision[] = [];
+  for (const { entry, layerConfig } of layerPairs) {
+    const decision = entry.predicate(path, layerConfig);
+    if (decision.matched) {
+      trail.push(decision);
+    }
+  }
+  return trail;
 }

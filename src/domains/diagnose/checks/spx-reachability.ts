@@ -53,7 +53,7 @@ function parseSemver(value: string): SemverParts | null {
     major: Number(match[1]),
     minor: Number(match[2]),
     patch: Number(match[3]),
-    prerelease: match[4] === undefined ? null : match[4].slice(1),
+    prerelease: match.at(4) === undefined ? null : match.at(4)?.slice(1) ?? null,
   };
 }
 

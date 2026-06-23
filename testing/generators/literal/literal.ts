@@ -244,9 +244,6 @@ export interface LiteralModuleNamingFixture {
 export function literalModuleNamingFixtures(): readonly LiteralModuleNamingFixture[] {
   return Object.entries(MODULE_NAMING_SKIP).flatMap(([nodeType, fields]) => {
     const example = IMPORT_SYNTAX_EXAMPLES[nodeType];
-    if (example === undefined) {
-      return [];
-    }
     return [...fields].map((field) => ({ nodeType, field, source: example.source, path: example.path }));
   });
 }
@@ -314,25 +311,16 @@ export function sampleDistinctSourceFilePaths(count: number): readonly string[] 
 
 export function sampleLiteralPair(): readonly [string, string] {
   const [first, second] = sampleIndependentDomainLiterals(LITERAL_TEST_GENERATOR_COUNTS.two);
-  if (first === undefined || second === undefined) {
-    throw new Error("Literal generator returned an incomplete pair");
-  }
   return [first, second];
 }
 
 export function sampleTestFilePathPair(): readonly [string, string] {
   const [first, second] = sampleDistinctTestFilePaths(LITERAL_TEST_GENERATOR_COUNTS.two);
-  if (first === undefined || second === undefined) {
-    throw new Error("Literal generator returned an incomplete test file path pair");
-  }
   return [first, second];
 }
 
 export function sampleLiteralTriple(): readonly [string, string, string] {
   const [first, second, third] = sampleIndependentDomainLiterals(LITERAL_TEST_GENERATOR_COUNTS.multiFixture);
-  if (first === undefined || second === undefined || third === undefined) {
-    throw new Error("Literal generator returned an incomplete triple");
-  }
   return [first, second, third];
 }
 

@@ -1,5 +1,5 @@
 ---
-template_version: "0.21.2"
+template_version: "0.21.3"
 template_source: spec-tree
 languages: [typescript]
 ---
@@ -48,7 +48,7 @@ Review, audit, or quality check specs. Find contradictions or gaps.
 
 **BLOCKING REQUIREMENT**
 
-Every change destined for the default branch routes through `/merge`, the transport dispatcher — it reads `spx/local/merging.md`, classifies the changeset, selects the transport, and delegates. The three authority gates, the delivered-value boundary, and the finding-disposition rule are transport-neutral and live in `/merging-standards`.
+Every change destined for the default branch routes through `/merge`, the transport dispatcher — it classifies the changeset, selects the transport, and delegates. `/merge` reads `spx/local/merging.md` as a repo-local overlay **when that file is present**; the overlay is optional, so its absence is normal and not a blocker — `/merge` applies the default lifecycle. `spx/local/merging.md` is the one place repository-specific merge behavior belongs: never infer the transport from other docs when it is absent, and never edit this generated guide to change merge behavior — invoke `/merge` and let the lifecycle apply the defaults. The three authority gates, the delivered-value boundary, and the finding-disposition rule are transport-neutral and live in `/merging-standards`.
 
 ## Stop Triggers
 
@@ -68,9 +68,7 @@ Default-branch work is complete only when it reaches the default branch on origi
 
 ## Quick Reference: Skills and Agents
 
-Skills run in the main conversation. Agents preload the skill and run autonomously as subagents in a separate context, returning structured APPROVED/REJECTED verdicts. **ALWAYS run an audit through its agent** — the separate context keeps the verdict free of the main conversation's bias — and dispatch agents in parallel when auditing multiple targets.
-
-**Prefer auditor and reviewer work in a subagent when the runtime provides the matching agent.** When an audit or review is called for and subagents are available, spawn the matching subagent — `changes-reviewer` for a changeset review, `skill-auditor`, `adr-auditor`, `pdr-auditor`, or `test-evidence-auditor` for the artifact in scope — and act only on the verdict it returns. This generated guide is explicit workflow authorization to spawn the required read-only verifier subagents; do not ask the operator for additional permission to run them. Runtime approval prompts are separate: if the tool itself asks for approval, answer that prompt through the runtime approval flow. If the matching subagent is unavailable in the current runtime, run the corresponding review or audit skill in the main conversation as the fallback path and treat its verdict as the gate result.
+Skills run in the main conversation. Agents preload the skill and run autonomously as subagents in a separate context. Audit agents return structured verdicts; reviewer agents return findings for the main conversation to validate and apply through the governing review workflow. **ALWAYS run an audit through its agent** — the separate context keeps the verdict free of the main conversation's bias — and dispatch agents in parallel when auditing multiple targets.
 
 | User Says...                               | Skill            | Agent                   |
 | ------------------------------------------ | ---------------- | ----------------------- |
@@ -100,15 +98,15 @@ Per-language code, architecture, and test audits ship as `audit-{lang}*` skills 
 
 ## Test Naming Convention
 
-Test level is encoded in the filename. This guide renders only the languages listed in its `languages` frontmatter; `/update-spx` re-renders from the installed template when the methodology advances.
+Test level is encoded in the filename. The `{evidence}` segment is chosen by `/test` routing from the assertion type: `scenario`, `mapping`, `conformance`, `property`, or `compliance`. Universal assertions use `mapping`, `conformance`, `property`, or `compliance`; a universal is never `scenario`. This guide renders only the languages listed in its `languages` frontmatter; `/update-spx` re-renders from the installed template when the methodology advances.
 
 ### TypeScript
 
 | Level | Pattern                           | Example                        |
 | ----- | --------------------------------- | ------------------------------ |
 | 1     | `{subject}.{evidence}.l1.test.ts` | `parsing.scenario.l1.test.ts`  |
-| 2     | `{subject}.{evidence}.l2.test.ts` | `cli.scenario.l2.test.ts`      |
-| 3     | `{subject}.{evidence}.l3.test.ts` | `workflow.scenario.l3.test.ts` |
+| 2     | `{subject}.{evidence}.l2.test.ts` | `cli.mapping.l2.test.ts`       |
+| 3     | `{subject}.{evidence}.l3.test.ts` | `workflow.property.l3.test.ts` |
 
 ---
 

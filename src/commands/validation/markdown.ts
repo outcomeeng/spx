@@ -74,14 +74,14 @@ export async function markdownCommand(options: MarkdownCommandOptions): Promise<
   const targetResolutions = files && files.length > 0
     ? files.map((filePath) => resolveMarkdownValidationTarget(filePath))
     : undefined;
-  const unfilteredTargets = targetResolutions !== undefined
-    ? targetResolutions
-      .map((resolution) => resolution.target)
-      .filter((target): target is MarkdownValidationTarget => target !== undefined)
-    : getDefaultDirectories(cwd).map((path) => ({
+  const unfilteredTargets = targetResolutions === undefined
+    ? getDefaultDirectories(cwd).map((path) => ({
       kind: MARKDOWN_VALIDATION_TARGET_KIND.DIRECTORY,
       path,
-    }));
+    }))
+    : targetResolutions
+      .map((resolution) => resolution.target)
+      .filter((target): target is MarkdownValidationTarget => target !== undefined);
   const targets = unfilteredTargets.filter((target) =>
     pathPassesValidationFilter(relative(cwd, target.path), pathFilter)
   );
@@ -110,24 +110,30 @@ export async function markdownCommand(options: MarkdownCommandOptions): Promise<
   });
   const durationMs = Date.now() - startTime;
 
-  // Map result to command output
-  if (result.success) {
-    const output = quiet ? "" : [...skippedOutput, MARKDOWN_COMMAND_OUTPUT.NO_ISSUES].join("\n");
-    return { exitCode: 0, output, durationMs };
-  } else {
-    const errorLines = result.errors.map(
-      (error) => `  ${error.file}:${error.line} ${error.detail}`,
-    );
-    const output = [
-      ...skippedOutput,
-      `Markdown: ${result.errors.length} ${MARKDOWN_COMMAND_OUTPUT.ERROR_SUMMARY_SUFFIX}`,
-      ...errorLines,
-    ]
-      .join("\n");
-    return { exitCode: 1, output, durationMs };
-  }
+  return formatMarkdownResult(result, skippedOutput, quiet, durationMs);
 }
 
 function formatSkippedFileScope(target: MarkdownSkippedValidationTarget): string {
   return `${MARKDOWN_COMMAND_OUTPUT.SKIPPED_FILE_SCOPE_PREFIX}: ${target.path} (${target.reason})`;
+}
+
+function formatMarkdownResult(
+  result: Awaited<ReturnType<typeof validateMarkdown>>,
+  skippedOutput: readonly string[],
+  quiet: boolean | undefined,
+  durationMs: number,
+): ValidationCommandResult {
+  if (result.success) {
+    const output = quiet ? "" : [...skippedOutput, MARKDOWN_COMMAND_OUTPUT.NO_ISSUES].join("\n");
+    return { exitCode: 0, output, durationMs };
+  }
+  const errorLines = result.errors.map(
+    (error) => `  ${error.file}:${error.line} ${error.detail}`,
+  );
+  const output = [
+    ...skippedOutput,
+    `Markdown: ${result.errors.length} ${MARKDOWN_COMMAND_OUTPUT.ERROR_SUMMARY_SUFFIX}`,
+    ...errorLines,
+  ].join("\n");
+  return { exitCode: 1, output, durationMs };
 }

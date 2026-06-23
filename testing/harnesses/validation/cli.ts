@@ -93,7 +93,7 @@ export function validationCliPackagedArgs(args: readonly string[]): string[] {
 }
 
 export function validationCliOptionName(option: ValidationCliOptionDefinition): string {
-  const [name] = option.flag.split(validationCliOptionOperandSeparator());
+  const name = option.flag.split(validationCliOptionOperandSeparator()).at(0);
   return name ?? option.flag;
 }
 

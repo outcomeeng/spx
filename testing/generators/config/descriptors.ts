@@ -505,9 +505,6 @@ function arbitraryTokenDescriptors(options: GeneratedDescriptorOptions): fc.Arbi
 function arbitraryTokenDescriptorPair(): fc.Arbitrary<readonly [GeneratedTokenDescriptor, GeneratedTokenDescriptor]> {
   return arbitraryTokenDescriptors({ minLength: 2, maxLength: 2 }).map((descriptors) => {
     const [first, second] = descriptors;
-    if (first === undefined || second === undefined) {
-      throw new Error("Token descriptor pair generator returned an incomplete descriptor set");
-    }
     return [first, second] as const;
   });
 }
@@ -523,10 +520,6 @@ function arbitraryModeDescriptor(): fc.Arbitrary<GeneratedModeDescriptor> {
     })
     .map(({ section, modes }) => {
       const [defaultMode, overrideMode, invalidMode] = modes;
-      if (defaultMode === undefined || overrideMode === undefined || invalidMode === undefined) {
-        throw new Error("Mode descriptor generator returned an incomplete mode set");
-      }
-
       return buildModeDescriptor(section, defaultMode, overrideMode, invalidMode);
     });
 }

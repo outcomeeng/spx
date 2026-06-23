@@ -139,9 +139,8 @@ export function SessionPicker(
   { sessions, onLaunch, onQuit, columns: columnsProp }: SessionPickerProps,
 ): ReactElement {
   const { stdout } = useStdout();
-  const output = stdout as { readonly columns: number | undefined };
-  const outputColumns = output.columns ?? FALLBACK_COLUMNS;
-  const columns = columnsProp ?? outputColumns;
+  const stdoutColumns = Reflect.get(stdout, "columns");
+  const columns = columnsProp ?? (typeof stdoutColumns === "number" ? stdoutColumns : FALLBACK_COLUMNS);
   const [state, setState] = useState(() => initialPickerState(sessions));
 
   useInput((input, key) => {

@@ -127,15 +127,22 @@ export async function lintCommand(options: LintCommandOptions): Promise<Validati
   const result = await validateESLint(context, undefined, outputStreams);
   const durationMs = Date.now() - startTime;
 
-  // Map result to command output
+  return formatLintResult(result, quiet, durationMs);
+}
+
+function formatLintResult(
+  result: Awaited<ReturnType<typeof validateESLint>>,
+  quiet: boolean | undefined,
+  durationMs: number,
+): ValidationCommandResult {
   if (result.skipped) {
     const output = quiet ? "" : VALIDATION_PATHS_NO_TARGETS_MESSAGE;
     return { exitCode: 0, output, durationMs };
-  } else if (result.success) {
+  }
+  if (result.success) {
     const output = quiet ? "" : VALIDATION_COMMAND_OUTPUT.ESLINT_SUCCESS;
     return { exitCode: 0, output, durationMs };
-  } else {
-    const output = result.error ?? VALIDATION_COMMAND_OUTPUT.ESLINT_FAILURE;
-    return { exitCode: 1, output, durationMs };
   }
+  const output = result.error ?? VALIDATION_COMMAND_OUTPUT.ESLINT_FAILURE;
+  return { exitCode: 1, output, durationMs };
 }

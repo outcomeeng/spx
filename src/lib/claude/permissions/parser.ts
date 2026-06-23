@@ -6,7 +6,6 @@ import type { ClaudeSettings, Permission, PermissionCategory, Permissions } from
 
 const PERMISSION_PATTERN = /^([^(]+)\((.+)\)$/;
 const PERMISSION_CATEGORIES = ["allow", "deny", "ask"] as const satisfies readonly PermissionCategory[];
-
 /**
  * Parse a settings.json file and extract permissions
  *
@@ -105,7 +104,6 @@ export function parsePermission(raw: string, category: PermissionCategory): Perm
  */
 export function parseAllPermissions(permissions: Permissions): Permission[] {
   const result: Permission[] = [];
-
   for (const category of PERMISSION_CATEGORIES) {
     result.push(...parsePermissionsByCategory(permissions[category], category));
   }
