@@ -122,6 +122,20 @@ describe("the spx-reachability check classifies spx against the manifest floor",
     );
   });
 
+  it("classifies a resolved spx with no floor and an unread version as present — presence alone decides", () => {
+    fc.assert(
+      fc.property(arbitraryNameToken(), (path) => {
+        const result = classifySpxReachability(
+          spxReachabilityReading({ resolvedPath: path, version: null }),
+          undefined,
+        );
+        expect(result.verdict).toBe(SPX_REACHABILITY_VERDICT.PRESENT);
+        expect(result.bucket).toBe(VERDICT_BUCKET.HEALTHY);
+        expect(result.readings.path).toBe(path);
+      }),
+    );
+  });
+
   it("classifies an absent spx with no floor as unreachable (bucket broken) — absence is broken regardless of floor", () => {
     const result = classifySpxReachability(spxReachabilityReading({ resolvedPath: null }), undefined);
     expect(result.verdict).toBe(SPX_REACHABILITY_VERDICT.UNREACHABLE);

@@ -77,7 +77,11 @@ export async function diagnoseCommand(options: DiagnoseCommandOptions): Promise<
     : await readManifest(options.fs, options.manifestPath, availableChecks);
   if (manifest !== undefined && !manifest.ok) return manifest;
 
-  const config = await resolveDiagnoseConfig(options.productDir);
+  // A supplied manifest takes precedence over configuration (the PDR's precedence rule), so config
+  // is resolved only on the no-manifest path — a malformed diagnose config never derails a manifest run.
+  const config: Result<DiagnoseConfig> = manifest === undefined
+    ? await resolveDiagnoseConfig(options.productDir)
+    : { ok: true, value: {} };
   if (!config.ok) return config;
 
   const resolved = resolveDiagnoseFacts({
