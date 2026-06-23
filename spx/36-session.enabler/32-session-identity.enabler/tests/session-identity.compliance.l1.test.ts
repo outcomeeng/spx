@@ -52,7 +52,7 @@ describe("session identity compliance", () => {
             `${SESSION_FRONT_MATTER.PRIORITY}: ${SESSION_PRIORITY.HIGH}`,
             `${outsideKey}: ${JSON.stringify(outsideValue)}`,
           ], "# Session");
-          const metadata = parseSessionMetadata(content) as Record<string, unknown>;
+          const metadata = parseSessionMetadata(content) as unknown as Record<string, unknown>;
 
           expect(Object.hasOwn(metadata, outsideKey)).toBe(false);
         },

@@ -1,9 +1,5 @@
 import { AGENT_SESSION_TOKEN_PATTERN, resolveAgentSessionId } from "@/domains/session/agent-session";
-import {
-  buildSessionFrontMatterContent,
-  SESSION_FRONT_MATTER_DELIMITER,
-  SESSION_FRONT_MATTER_DOCUMENT_END,
-} from "@/domains/session/create";
+import { buildSessionFrontMatterContent, SESSION_FRONT_MATTER_DELIMITER } from "@/domains/session/create";
 import { DEFAULT_SESSION_METADATA, parseSessionMetadata } from "@/domains/session/list";
 import {
   generateSessionId,
@@ -217,7 +213,7 @@ describe("parseSessionMetadata", () => {
       "branch: feature/legacy",
       "tags: [old, shape]",
     ], buildSessionMarkdownBody("keys outside the declared shape"));
-    const result = parseSessionMetadata(content) as Record<string, unknown>;
+    const result = parseSessionMetadata(content) as unknown as Record<string, unknown>;
 
     expect(result.priority).toBe(SESSION_PRIORITY.HIGH);
     expect(result.git_ref).toBe(gitRef);
@@ -274,7 +270,7 @@ describe("parseSessionMetadata", () => {
     const content = buildSessionFrontMatterContent(
       [`${SESSION_FRONT_MATTER.PRIORITY}: ${expectedPriority}`],
       buildSessionMarkdownBody("document-end delimiter"),
-      SESSION_FRONT_MATTER_DOCUMENT_END,
+      SESSION_FRONT_MATTER_DELIMITER,
     );
     const result = parseSessionMetadata(content);
 
