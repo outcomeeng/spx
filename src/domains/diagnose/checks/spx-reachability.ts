@@ -1,6 +1,6 @@
 /**
  * The spx-reachability diagnose check — classifies the `spx` CLI against the
- * manifest's version floor from its PATH resolution and reported version. The
+ * resolved version floor from its PATH resolution and reported version. The
  * classification is pure over the gathered reading and the floor; the reading
  * is obtained through a dependency-injected probe so the check verifies over
  * controlled readings without resolving a real PATH.
@@ -111,7 +111,7 @@ const REMEDIATION: Readonly<Record<SpxReachabilityVerdict, string>> = {
   [SPX_REACHABILITY_VERDICT.BELOW_FLOOR]: "Update spx to at least the required floor (pnpm add -g @outcomeeng/spx).",
   [SPX_REACHABILITY_VERDICT.UNREACHABLE]: "Install spx and ensure it resolves on PATH (pnpm add -g @outcomeeng/spx).",
   [SPX_REACHABILITY_VERDICT.UNKNOWN]:
-    "Re-run diagnose; if it persists, verify the manifest carries a valid spx_floor, that spx is on PATH, and that spx --version reports a semver version.",
+    "Re-run diagnose; if it persists, verify the configured or manifest-supplied spx_floor is a valid semver, that spx is on PATH, and that spx --version reports a semver version.",
 };
 
 function record(
@@ -134,7 +134,7 @@ function record(
 }
 
 /**
- * Classifies the spx-reachability reading against the manifest floor into a
+ * Classifies the spx-reachability reading against the resolved floor into a
  * check record. Presence is judged before the floor: an absent `spx` is broken
  * regardless of the floor, and a present `spx` with no floor configured reports
  * its presence and version rather than an unknown verdict.

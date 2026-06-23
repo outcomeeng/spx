@@ -39,7 +39,8 @@ export const DIAGNOSE_CLI = {
   NO_COLOR_FLAG: "--no-color",
 } as const;
 
-const DIAGNOSE_DOMAIN_DESCRIPTION = "Run deterministic environment-diagnostics checks from a declarative manifest";
+const DIAGNOSE_DOMAIN_DESCRIPTION =
+  "Run deterministic environment-diagnostics checks, resolving facts from spx.config or a --manifest";
 
 /** The check runners `spx diagnose` dispatches to, over the real probes. */
 const DEFAULT_REGISTRY: CheckRegistry = {
