@@ -68,10 +68,13 @@ async function resolveStatusTargets(options: StatusCommandOptions): Promise<Resu
   }
 
   const targets: ResolvedTargetWorktree[] = [];
+  const seenRoots = new Set<string>();
   let firstError: string | undefined;
   for (const worktree of requested) {
     const target = await resolveTargetWorktree({ ...options, worktree });
     if (target.ok) {
+      if (seenRoots.has(target.value.worktreeRoot)) continue;
+      seenRoots.add(target.value.worktreeRoot);
       targets.push(target.value);
     } else {
       firstError ??= target.error;
