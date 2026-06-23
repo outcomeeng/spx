@@ -4,6 +4,7 @@ import { dirname, join } from "node:path";
 import { parse as parseToml, stringify as stringifyToml } from "smol-toml";
 
 import type { Result } from "@/config/types";
+import { toMessage } from "@/lib/error-message";
 
 import { AGENT_RUNTIME, type AgentEnvironmentConfig, type AgentRuntime } from "./config";
 
@@ -560,10 +561,4 @@ function isFileNotFound(error: unknown): boolean {
 
 function isNodeError(error: unknown): error is NodeJS.ErrnoException {
   return error instanceof Error && "code" in error;
-}
-
-function toMessage(error: unknown): string {
-  if (error instanceof Error) return error.message;
-  if (typeof error === "string") return error;
-  return JSON.stringify(error);
 }
