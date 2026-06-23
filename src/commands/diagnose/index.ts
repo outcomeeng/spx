@@ -3,16 +3,17 @@
  * check set through the injected registry, folds the report, and renders it with
  * the exit code keyed to the overall verdict. With a manifest path the manifest
  * is read through the injected filesystem and is authoritative; otherwise the
- * facts resolve from the descriptor-supplied `spx.config` diagnose section and
- * per-check safe defaults, per `spx/54-diagnose.enabler/11-invocation-modes.pdr.md`.
- * Composes the pure domain pipeline with the injected manifest filesystem;
- * carries no Commander binding and no process exit.
+ * facts resolve from the `spx.config` diagnose section read at the product
+ * directory and per-check safe defaults, per `spx/54-diagnose.enabler/11-invocation-modes.pdr.md`.
+ * Owns the command-layer filesystem orchestration — manifest read and config
+ * resolution — with no Commander binding and no process exit.
  *
  * @module commands/diagnose
  */
 
+import { resolveConfig } from "@/config/index";
 import type { Result } from "@/config/types";
-import type { DiagnoseConfig } from "@/domains/diagnose/config";
+import { type DiagnoseConfig, diagnoseConfigDescriptor } from "@/domains/diagnose/config";
 import { type CheckRegistry, runDiagnose } from "@/domains/diagnose/engine";
 import { overallExitCode } from "@/domains/diagnose/fold";
 import { type CheckName, type DiagnoseManifest, parseManifest } from "@/domains/diagnose/manifest";
@@ -27,8 +28,8 @@ export interface ManifestFileSystem {
 export interface DiagnoseCommandOptions {
   /** Path to the declarative diagnose manifest; when omitted, facts resolve from config and safe defaults. */
   readonly manifestPath?: string;
-  /** The resolved `spx.config` diagnose section, supplied by the descriptor boundary. */
-  readonly config: DiagnoseConfig;
+  /** The product directory the `spx.config` diagnose section is resolved from. */
+  readonly productDir: string;
   /** Output format for the rendered report. */
   readonly format: DiagnoseFormat;
   /** Whether the text report carries ANSI styling, resolved at the descriptor boundary. */
@@ -37,6 +38,13 @@ export interface DiagnoseCommandOptions {
   readonly registry: CheckRegistry;
   /** Injected manifest filesystem. */
   readonly fs: ManifestFileSystem;
+}
+
+/** Resolves the `spx.config` diagnose section from the product directory. */
+async function resolveDiagnoseConfig(productDir: string): Promise<Result<DiagnoseConfig>> {
+  const loaded = await resolveConfig(productDir, [diagnoseConfigDescriptor]);
+  if (!loaded.ok) return loaded;
+  return { ok: true, value: loaded.value[diagnoseConfigDescriptor.section] as DiagnoseConfig };
 }
 
 export interface DiagnoseCommandResult {
@@ -69,9 +77,12 @@ export async function diagnoseCommand(options: DiagnoseCommandOptions): Promise<
     : await readManifest(options.fs, options.manifestPath, availableChecks);
   if (manifest !== undefined && !manifest.ok) return manifest;
 
+  const config = await resolveDiagnoseConfig(options.productDir);
+  if (!config.ok) return config;
+
   const resolved = resolveDiagnoseFacts({
     manifest: manifest?.value,
-    config: options.config,
+    config: config.value,
     availableChecks,
   });
   if (!resolved.ok) return resolved;

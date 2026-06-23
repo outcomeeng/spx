@@ -18,7 +18,7 @@ function recordingRegistry(invoked: CheckName[]): CheckRegistry {
   return Object.fromEntries(entries);
 }
 
-describe("the pipeline runs exactly the check set the manifest names, in manifest order", () => {
+describe("the pipeline runs exactly the resolved check set, in the order the resolved facts supply it", () => {
   it("invokes each named check once, in order, and only the named checks", async () => {
     await fc.assert(
       fc.asyncProperty(fc.uniqueArray(arbitraryCheckName(), { minLength: 1 }), async (checks) => {
