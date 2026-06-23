@@ -4,6 +4,8 @@ import { join } from "node:path";
 import { parse as parseToml, stringify as stringifyToml } from "smol-toml";
 import { parse as parseYaml, parseDocument as parseYamlDocument, stringify as stringifyYaml } from "yaml";
 
+import { toMessage } from "@/lib/error-message";
+
 import { productionRegistry } from "./registry";
 import type { Config, ConfigDescriptor, Result } from "./types";
 
@@ -286,12 +288,6 @@ function validateParsedSections(filename: string, parsed: unknown): Result<Recor
 
 function isFileNotFound(error: unknown): boolean {
   return error instanceof Error && "code" in error && (error as NodeJS.ErrnoException).code === "ENOENT";
-}
-
-function toMessage(error: unknown): string {
-  if (error instanceof Error) return error.message;
-  if (typeof error === "string") return error;
-  return JSON.stringify(error);
 }
 
 export {
