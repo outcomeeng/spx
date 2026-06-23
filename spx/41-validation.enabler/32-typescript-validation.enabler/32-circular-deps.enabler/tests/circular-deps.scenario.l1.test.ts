@@ -570,7 +570,7 @@ describe("circular dependency filtering", () => {
     expect(result.success).toBe(true);
     expect(dependencyGraphCalls).toHaveLength(1);
     const [, config] = dependencyGraphCalls[0] ?? [];
-    const expectedExcludePattern = String.raw`(^|/)dist(/.*|$)`;
+    const expectedExcludePattern = '(^|/)dist(/.*|$)';
     expect(config?.exclude).toEqual({
       path: [
         DEPENDENCY_CRUISER_PACKAGE_EXCLUDE_PATTERN,
@@ -626,7 +626,7 @@ describe("circular dependency filtering", () => {
     expect(result.success).toBe(true);
     expect(dependencyGraphCalls).toHaveLength(1);
     const [, config] = dependencyGraphCalls[0] ?? [];
-    const expectedExcludePattern = String.raw`(^|/)src(/.*/|/)generated(/.*|$)`;
+    const expectedExcludePattern = '(^|/)src(/.*/|/)generated(/.*|$)';
     expect(config?.exclude).toEqual({
       path: [
         DEPENDENCY_CRUISER_PACKAGE_EXCLUDE_PATTERN,

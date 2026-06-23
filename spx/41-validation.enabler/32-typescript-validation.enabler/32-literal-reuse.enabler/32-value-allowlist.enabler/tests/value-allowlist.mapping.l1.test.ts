@@ -8,7 +8,7 @@ import {
 } from "@testing/generators/literal/literal";
 
 describe("value-allowlist — mappings", () => {
-  describe("effective allowlist = union(preset bundles) ∪ include \\ exclude", () => {
+  describe(String.raw`effective allowlist = union(preset bundles) ∪ include \ exclude`, () => {
     it("only include: effective set contains exactly the included values", () => {
       const v = sampleLiteralTestValue(arbitraryDomainLiteral());
 
