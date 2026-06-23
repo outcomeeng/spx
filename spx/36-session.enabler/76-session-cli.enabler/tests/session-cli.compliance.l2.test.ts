@@ -12,6 +12,7 @@ import {
   SESSION_HANDOFF_BASE_ERROR_NAME,
 } from "@/domains/session/handoff-base-checklist";
 import { FIELD_SELECTION_SEPARATOR, parseSessionMetadata, SESSION_RECORD_FIELD } from "@/domains/session/list";
+import { SESSION_SHOW_LABEL } from "@/domains/session/show";
 import { SESSION_PRIORITY, SESSION_STATUSES, type SessionStatus } from "@/domains/session/types";
 import { GIT_HEAD_SHA_ARGS, NOT_GIT_REPO_WARNING } from "@/git/root";
 import { sampleLiteralTestValue } from "@testing/generators/literal/literal";
@@ -714,6 +715,109 @@ describe("session CLI — JSON list output and field selection", () => {
     for (const field of Object.values(SESSION_RECORD_FIELD)) {
       expect(result.stderr).toContain(field);
     }
+  });
+});
+
+describe("session CLI — JSON show output", () => {
+  let harness: SessionHarness;
+
+  beforeEach(async () => {
+    harness = await createSessionHarness();
+  });
+
+  afterEach(async () => {
+    await harness.cleanup();
+  });
+
+  // The CLI boundary smoke for record shape: every emitted key is a declared
+  // session-record field, so no `path`, no `metadata`, and no session body leak
+  // into the JSON. The domain l1 tests own the exact-key contract; this asserts
+  // the boundary carries nothing outside the source-owned record vocabulary.
+  const recordFieldNames = Object.values(SESSION_RECORD_FIELD) as readonly string[];
+  const expectOnlyRecordKeys = (record: Record<string, unknown>): void => {
+    expect(Object.keys(record).every((key) => recordFieldNames.includes(key))).toBe(true);
+  };
+
+  it("ALWAYS: `session show <id> --json` writes a bare flat record, exit 0", async () => {
+    const id = sampleSessionId();
+    await harness.writeSession(TODO, id);
+
+    const result = await runSessionCli(["session", "show", id, "--json", "--sessions-dir", harness.sessionsDir]);
+
+    expect(result.exitCode).toBe(0);
+    const parsed = JSON.parse(result.stdout) as Record<string, unknown>;
+    expect(Array.isArray(parsed)).toBe(false);
+    expect(parsed[SESSION_RECORD_FIELD.ID]).toBe(id);
+    expect(parsed[SESSION_RECORD_FIELD.STATUS]).toBe(TODO);
+    expectOnlyRecordKeys(parsed);
+  });
+
+  it("ALWAYS: `session show <id...> --json` writes a JSON array of records in supplied order, exit 0", async () => {
+    const ids = [...sampleDistinctSessionIds(3)];
+    for (const id of ids) {
+      await harness.writeSession(TODO, id);
+    }
+
+    const result = await runSessionCli([
+      "session",
+      "show",
+      ...ids,
+      "--json",
+      "--sessions-dir",
+      harness.sessionsDir,
+    ]);
+
+    expect(result.exitCode).toBe(0);
+    const parsed = JSON.parse(result.stdout) as Array<Record<string, unknown>>;
+    expect(parsed.map((record) => record[SESSION_RECORD_FIELD.ID])).toEqual(ids);
+    for (const record of parsed) {
+      expectOnlyRecordKeys(record);
+    }
+  });
+
+  it("ALWAYS: `session show` without --json leaves the text header and body output unchanged", async () => {
+    const id = sampleSessionId();
+    await harness.writeSession(TODO, id);
+
+    const result = await runSessionCli(["session", "show", id, "--sessions-dir", harness.sessionsDir]);
+
+    expect(result.exitCode).toBe(0);
+    expect(result.stdout).toContain(`${SESSION_SHOW_LABEL.STATUS}: ${TODO}`);
+    expect(() => JSON.parse(result.stdout)).toThrow();
+  });
+
+  it("ALWAYS: `session show <absent> --json` writes the not-found diagnostic to stderr, no stdout JSON, non-zero exit", async () => {
+    const result = await runSessionCli([
+      "session",
+      "show",
+      ABSENT_SESSION_ID,
+      "--json",
+      "--sessions-dir",
+      harness.sessionsDir,
+    ]);
+
+    expect(result.exitCode).not.toBe(0);
+    expect(result.stderr).toContain(ABSENT_SESSION_ID);
+    expect(result.stdout.trim()).toBe("");
+  });
+
+  it("ALWAYS: `session show <valid> <absent> --json` processes both, names the absent id on stderr, non-zero exit", async () => {
+    const validId = sampleSessionId();
+    await harness.writeSession(TODO, validId);
+
+    const result = await runSessionCli([
+      "session",
+      "show",
+      validId,
+      ABSENT_SESSION_ID,
+      "--json",
+      "--sessions-dir",
+      harness.sessionsDir,
+    ]);
+
+    expect(result.exitCode).not.toBe(0);
+    expect(result.stderr).toContain(ABSENT_SESSION_ID);
+    expect(result.stdout.trim()).toBe("");
   });
 });
 
