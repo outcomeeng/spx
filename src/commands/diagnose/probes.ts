@@ -15,7 +15,7 @@ import type { MarketplaceInstallProbe, MarketplaceInstallReading } from "@/domai
 import type { SessionEnvironmentProbe, SessionEnvironmentReading } from "@/domains/diagnose/checks/session-environment";
 import type { SessionStoreProbe, SessionStoreReading } from "@/domains/diagnose/checks/session-store";
 import type { WorktreePoolProbe, WorktreePoolReading } from "@/domains/diagnose/checks/worktree-pool";
-import type { MarketplaceIdentity } from "@/domains/diagnose/manifest";
+import type { MarketplaceIdentity } from "@/domains/diagnose/facts";
 import { HOOK_SESSION_START_ENV } from "@/domains/hooks/session-start";
 import { normalizeAgentSessionToken, resolveAgentSessionId } from "@/domains/session/agent-session";
 import type { SessionRecord } from "@/domains/session/list";

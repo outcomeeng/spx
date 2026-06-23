@@ -10,6 +10,13 @@
  */
 
 import type { Result } from "@/config/types";
+import {
+  isNonEmptyString,
+  isNonEmptyStringArray,
+  isRecord,
+  type MarketplaceIdentity,
+  validateMarketplaceIdentity,
+} from "@/domains/diagnose/facts";
 
 /** The diagnose checks the pipeline knows how to run, named in the manifest's check set. */
 export const CHECK_NAME = {
@@ -22,12 +29,6 @@ export const CHECK_NAME = {
 
 export type CheckName = (typeof CHECK_NAME)[keyof typeof CHECK_NAME];
 
-/** The marketplace identity a consumer depends on. */
-export interface MarketplaceIdentity {
-  readonly name: string;
-  readonly source: string;
-}
-
 /** The typed, validated manifest contract. */
 export interface DiagnoseManifest {
   /** The spx-version floor; present when `spx-reachability` is selected. */
@@ -38,14 +39,6 @@ export interface DiagnoseManifest {
   readonly expectedPlugins?: readonly string[];
   /** The check set the pipeline runs, in order. */
   readonly checks: readonly CheckName[];
-}
-
-function isRecord(value: unknown): value is Record<string, unknown> {
-  return typeof value === "object" && value !== null && !Array.isArray(value);
-}
-
-function isNonEmptyString(value: unknown): value is string {
-  return typeof value === "string" && value.length > 0;
 }
 
 function validateChecks(raw: unknown, available: ReadonlySet<string>): Result<readonly CheckName[]> {
@@ -60,13 +53,6 @@ function validateChecks(raw: unknown, available: ReadonlySet<string>): Result<re
     };
   }
   return { ok: true, value: raw as readonly CheckName[] };
-}
-
-function validateMarketplace(raw: unknown): Result<MarketplaceIdentity> {
-  if (!isRecord(raw) || !isNonEmptyString(raw.name) || !isNonEmptyString(raw.source)) {
-    return { ok: false, error: "manifest `marketplace` must carry a non-empty `name` and `source`" };
-  }
-  return { ok: true, value: { name: raw.name, source: raw.source } };
 }
 
 /**
@@ -105,9 +91,9 @@ export function parseManifest(rawJson: string, availableChecks: readonly CheckNa
   }
 
   if (checks.value.includes(CHECK_NAME.MARKETPLACE_INSTALL)) {
-    const marketplace = validateMarketplace(parsed.marketplace);
+    const marketplace = validateMarketplaceIdentity(parsed.marketplace, "manifest `marketplace`");
     if (!marketplace.ok) return marketplace;
-    if (!Array.isArray(parsed.expected_plugins) || !parsed.expected_plugins.every(isNonEmptyString)) {
+    if (!isNonEmptyStringArray(parsed.expected_plugins)) {
       return { ok: false, error: "manifest selects `marketplace-install` but carries no `expected_plugins`" };
     }
     manifest.marketplace = marketplace.value;
