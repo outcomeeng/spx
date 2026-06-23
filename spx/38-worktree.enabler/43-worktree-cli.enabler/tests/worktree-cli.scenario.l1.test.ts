@@ -3,7 +3,13 @@ import { basename, join } from "node:path";
 
 import { describe, expect, it } from "vitest";
 
-import { claimCommand, releaseCommand, statusCommand, WORKTREE_STATUS_FORMAT } from "@/commands/worktree/index";
+import {
+  claimCommand,
+  releaseCommand,
+  statusCommand,
+  WORKTREE_STATUS_FORMAT,
+  WORKTREE_STATUS_RENDER,
+} from "@/commands/worktree/index";
 import { CONTROLLING_PID_ENV } from "@/domains/worktree/controlling-process";
 import { OCCUPANCY_STATUS, readClaim, writeClaim } from "@/domains/worktree/occupancy-store";
 import { worktreeClaimName } from "@/domains/worktree/worktree-name";
@@ -53,7 +59,7 @@ describe("worktree command handlers", () => {
     });
   });
 
-  it("reports occupied for a live holder, unclaimed for no claim, and stale for a dead holder", async () => {
+  it("reports running with the holder's pid for a live holder, and free for no claim or a dead holder", async () => {
     const worktreeName = sampleWorktreeTestValue(WORKTREE_TEST_GENERATOR.poolWorktreeName());
     const holder = sampleWorktreeTestValue(WORKTREE_TEST_GENERATOR.poolHolder());
     const sessionId = sampleWorktreeTestValue(WORKTREE_TEST_GENERATOR.sessionId());
@@ -62,7 +68,7 @@ describe("worktree command handlers", () => {
       const name = worktreeClaimName(basename(env.worktreePath));
       const deadTable = createProcessTable({ host: holder.host, processes: new Map<number, ProcessTableEntry>() });
 
-      const unclaimed = await statusCommand({
+      const noClaim = await statusCommand({
         worktrees: [env.worktreePath],
         cwd: env.worktreePath,
         fs: env.fs,
@@ -72,9 +78,9 @@ describe("worktree command handlers", () => {
         format: WORKTREE_STATUS_FORMAT.JSON,
         pathInfo: defaultWorktreePathInfo,
       });
-      expect(unclaimed.ok).toBe(true);
-      if (!unclaimed.ok) throw new Error(unclaimed.error);
-      expect(JSON.parse(unclaimed.value)).toEqual({ worktree: name, status: OCCUPANCY_STATUS.UNCLAIMED });
+      expect(noClaim.ok).toBe(true);
+      if (!noClaim.ok) throw new Error(noClaim.error);
+      expect(JSON.parse(noClaim.value)).toEqual({ worktree: name, status: OCCUPANCY_STATUS.FREE });
 
       await writeClaim(
         env.worktreesDir,
@@ -88,7 +94,7 @@ describe("worktree command handlers", () => {
         { fs: env.fs, writeToken: sampleWorktreeTestValue(WORKTREE_TEST_GENERATOR.writeToken()) },
       );
 
-      const occupied = await statusCommand({
+      const running = await statusCommand({
         worktrees: [env.worktreePath],
         cwd: env.worktreePath,
         fs: env.fs,
@@ -97,11 +103,11 @@ describe("worktree command handlers", () => {
         processTable: env.processTable,
         pathInfo: defaultWorktreePathInfo,
       });
-      expect(occupied.ok).toBe(true);
-      if (!occupied.ok) throw new Error(occupied.error);
-      expect(occupied.value).toContain(OCCUPANCY_STATUS.OCCUPIED);
+      expect(running.ok).toBe(true);
+      if (!running.ok) throw new Error(running.error);
+      expect(running.value).toContain(`${WORKTREE_STATUS_RENDER.RUNNING_PID_PREFIX}${holder.pid}`);
 
-      const occupiedNoArg = await statusCommand({
+      const runningNoArg = await statusCommand({
         cwd: env.worktreePath,
         fs: env.fs,
         gitDeps: defaultGitDependencies,
@@ -109,11 +115,11 @@ describe("worktree command handlers", () => {
         processTable: env.processTable,
         pathInfo: defaultWorktreePathInfo,
       });
-      expect(occupiedNoArg.ok).toBe(true);
-      if (!occupiedNoArg.ok) throw new Error(occupiedNoArg.error);
-      expect(occupiedNoArg.value).toContain(OCCUPANCY_STATUS.OCCUPIED);
+      expect(runningNoArg.ok).toBe(true);
+      if (!runningNoArg.ok) throw new Error(runningNoArg.error);
+      expect(runningNoArg.value).toContain(`${WORKTREE_STATUS_RENDER.RUNNING_PID_PREFIX}${holder.pid}`);
 
-      const stale = await statusCommand({
+      const free = await statusCommand({
         worktrees: [env.worktreePath],
         cwd: env.worktreePath,
         fs: env.fs,
@@ -122,9 +128,9 @@ describe("worktree command handlers", () => {
         processTable: deadTable,
         pathInfo: defaultWorktreePathInfo,
       });
-      expect(stale.ok).toBe(true);
-      if (!stale.ok) throw new Error(stale.error);
-      expect(stale.value).toContain(OCCUPANCY_STATUS.STALE);
+      expect(free.ok).toBe(true);
+      if (!free.ok) throw new Error(free.error);
+      expect(free.value).toBe(`${name} ${WORKTREE_STATUS_RENDER.FREE}`);
     });
   });
 
@@ -215,7 +221,7 @@ describe("worktree command handlers", () => {
       });
       expect(status.ok).toBe(true);
       if (!status.ok) throw new Error(status.error);
-      expect(status.value).toContain(OCCUPANCY_STATUS.OCCUPIED);
+      expect(status.value).toContain(`${WORKTREE_STATUS_RENDER.RUNNING_PID_PREFIX}${holder.pid}`);
     });
   });
 
@@ -258,7 +264,7 @@ describe("worktree command handlers", () => {
         });
         expect(status.ok).toBe(true);
         if (!status.ok) throw new Error(status.error);
-        expect(status.value).toContain(OCCUPANCY_STATUS.OCCUPIED);
+        expect(status.value).toContain(`${WORKTREE_STATUS_RENDER.RUNNING_PID_PREFIX}${holder.pid}`);
       });
     });
   });

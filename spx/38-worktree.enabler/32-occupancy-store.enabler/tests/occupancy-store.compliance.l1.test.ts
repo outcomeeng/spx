@@ -40,10 +40,10 @@ describe("worktree occupancy compliance", () => {
     expect(claimPath.value.endsWith(`${name}${OCCUPANCY_CLAIM.FILE_EXTENSION}`)).toBe(true);
   });
 
-  it("never ages out: any live same-host holder with a matching start time reads occupied", () => {
+  it("never ages out: any live same-host holder with a matching start time reads running", () => {
     fc.assert(
       fc.property(WORKTREE_TEST_GENERATOR.claimRecord(), (record) => {
-        expect(classifyOccupancy(record, createLiveHolderProbe(record))).toBe(OCCUPANCY_STATUS.OCCUPIED);
+        expect(classifyOccupancy(record, createLiveHolderProbe(record))).toBe(OCCUPANCY_STATUS.RUNNING);
       }),
     );
   });

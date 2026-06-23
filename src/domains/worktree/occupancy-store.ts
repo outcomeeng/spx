@@ -13,9 +13,8 @@ import type { Result } from "@/config/types";
 import { ERROR_CODE_NOT_FOUND, hasErrorCode, validateScopeToken } from "@/lib/state-store";
 
 export const OCCUPANCY_STATUS = {
-  UNCLAIMED: "unclaimed",
-  OCCUPIED: "occupied",
-  STALE: "stale",
+  FREE: "free",
+  RUNNING: "running",
 } as const;
 
 export type OccupancyStatus = (typeof OCCUPANCY_STATUS)[keyof typeof OCCUPANCY_STATUS];
@@ -95,26 +94,28 @@ export function claimTempFilePath(claimPath: string, writeToken: string): Result
 }
 
 /**
- * Classifies a worktree's occupancy from its claim and the process table: no
- * claim is unclaimed; a different host or a dead process is stale and therefore
- * free; a live same-host process whose start time is readable and differs is a
- * recycled pid and reads stale. A live same-host process whose start time
- * matches — or cannot be read at all — reads occupied: a live holder is never
- * reported free on the strength of an unreadable start time, the conservative
- * choice that keeps one agent out of another live agent's worktree. The
- * decision reads no clock, so a live holder never ages out.
+ * Classifies a worktree's occupancy from its claim and the process table as the
+ * two-state truth `running` or `free`. A worktree is `running` only when a
+ * same-host claim names a live process whose start time matches — or cannot be
+ * read at all (a live holder is never reported `free` on the strength of an
+ * unreadable start time, the conservative choice that keeps one agent out of
+ * another live agent's worktree). Every other case is `free`: no claim, a
+ * different host, a dead process, or a readable start time that differs (a
+ * recycled pid). There is no third state — a dead holder's residual claim reads
+ * `free`, indistinguishable from a never-claimed worktree. The decision reads no
+ * clock, so a live holder never ages out.
  */
 export function classifyOccupancy(
   claim: WorktreeClaimRecord | undefined,
   probe: ProcessProbe,
 ): OccupancyStatus {
-  if (claim === undefined) return OCCUPANCY_STATUS.UNCLAIMED;
-  if (claim.host !== probe.currentHost()) return OCCUPANCY_STATUS.STALE;
-  if (!probe.isAlive(claim.pid)) return OCCUPANCY_STATUS.STALE;
+  if (claim === undefined) return OCCUPANCY_STATUS.FREE;
+  if (claim.host !== probe.currentHost()) return OCCUPANCY_STATUS.FREE;
+  if (!probe.isAlive(claim.pid)) return OCCUPANCY_STATUS.FREE;
+  if (claim.startedAt === unreadableStartedAt(claim.pid)) return OCCUPANCY_STATUS.RUNNING;
   const liveStartTime = probe.startTimeOf(claim.pid);
-  if (claim.startedAt === unreadableStartedAt(claim.pid)) return OCCUPANCY_STATUS.OCCUPIED;
-  if (liveStartTime !== undefined && liveStartTime !== claim.startedAt) return OCCUPANCY_STATUS.STALE;
-  return OCCUPANCY_STATUS.OCCUPIED;
+  if (liveStartTime !== undefined && liveStartTime !== claim.startedAt) return OCCUPANCY_STATUS.FREE;
+  return OCCUPANCY_STATUS.RUNNING;
 }
 
 /** A source-owned claim start token for live processes whose start time cannot be read. */

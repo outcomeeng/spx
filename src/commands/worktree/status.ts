@@ -6,7 +6,13 @@
  */
 
 import type { Result } from "@/config/types";
-import { type OccupancyFileSystem, type OccupancyStatus, readOccupancy } from "@/domains/worktree/occupancy-store";
+import {
+  classifyOccupancy,
+  OCCUPANCY_STATUS,
+  type OccupancyFileSystem,
+  type OccupancyStatus,
+  readClaim,
+} from "@/domains/worktree/occupancy-store";
 import type { ProcessTable } from "@/domains/worktree/process-table";
 
 import {
@@ -24,6 +30,12 @@ export const WORKTREE_STATUS_FORMAT = {
 
 export type WorktreeStatusFormat = (typeof WORKTREE_STATUS_FORMAT)[keyof typeof WORKTREE_STATUS_FORMAT];
 
+/** Text-status renderings: a `free` worktree shows this marker; a `running` one shows the pid prefix then the holder's pid. */
+export const WORKTREE_STATUS_RENDER = {
+  FREE: "-",
+  RUNNING_PID_PREFIX: "PID ",
+} as const;
+
 export interface StatusCommandOptions extends WorktreeScopeOptions {
   /** The worktrees to query — paths inside them; defaults to the running directory when omitted. */
   readonly worktrees?: readonly string[];
@@ -40,6 +52,10 @@ export interface StatusCommandOptions extends WorktreeScopeOptions {
 interface WorktreeStatusRecord {
   readonly worktree: string;
   readonly status: OccupancyStatus;
+  /** The live holder's pid, session id, and host — present only when `running`. */
+  readonly pid?: number;
+  readonly session?: string;
+  readonly host?: string;
 }
 
 /** Reads target worktree occupancy and renders it in the requested format. */
@@ -51,9 +67,15 @@ export async function statusCommand(options: StatusCommandOptions): Promise<Resu
   const records: WorktreeStatusRecord[] = [];
   for (const target of targets.value) {
     const worktreesDir = await resolveWorktreesDir({ ...options, cwd: target.worktreeRoot });
-    const occupancy = await readOccupancy(worktreesDir, target.name, options.processTable, { fs: options.fs });
-    if (!occupancy.ok) return occupancy;
-    records.push({ worktree: target.name, status: occupancy.value });
+    const claimResult = await readClaim(worktreesDir, target.name, { fs: options.fs });
+    if (!claimResult.ok) return claimResult;
+    const claim = claimResult.value;
+    const status = classifyOccupancy(claim, options.processTable);
+    records.push(
+      status === OCCUPANCY_STATUS.RUNNING && claim !== undefined
+        ? { worktree: target.name, status, pid: claim.pid, session: claim.sessionId, host: claim.host }
+        : { worktree: target.name, status },
+    );
   }
 
   return { ok: true, value: renderStatus(records, options.format, multiTargetRequest) };
@@ -100,5 +122,8 @@ function renderStatus(
 }
 
 function renderTextStatus(record: WorktreeStatusRecord): string {
-  return `${record.worktree} ${record.status}`;
+  if (record.status === OCCUPANCY_STATUS.RUNNING) {
+    return `${record.worktree} ${WORKTREE_STATUS_RENDER.RUNNING_PID_PREFIX}${record.pid} (${record.session} @ ${record.host})`;
+  }
+  return `${record.worktree} ${WORKTREE_STATUS_RENDER.FREE}`;
 }

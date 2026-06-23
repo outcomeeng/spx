@@ -3,9 +3,8 @@ import { join } from "node:path";
 
 import { describe, expect, it } from "vitest";
 
-import { claimCommand, statusCommand } from "@/commands/worktree/index";
+import { claimCommand, statusCommand, WORKTREE_STATUS_RENDER } from "@/commands/worktree/index";
 import { CONTROLLING_PID_ENV } from "@/domains/worktree/controlling-process";
-import { OCCUPANCY_STATUS } from "@/domains/worktree/occupancy-store";
 import { defaultGitDependencies } from "@/git/root";
 import { defaultWorktreePathInfo } from "@/lib/worktree-path-info";
 import { sampleWorktreeTestValue, WORKTREE_TEST_GENERATOR } from "@testing/generators/worktree/worktree";
@@ -55,7 +54,7 @@ describe("worktree status path-form resolution", () => {
         });
         expect(status.ok, `form ${form}`).toBe(true);
         if (!status.ok) throw new Error(`form ${form}: ${status.error}`);
-        expect(status.value, `form ${form}`).toContain(OCCUPANCY_STATUS.OCCUPIED);
+        expect(status.value, `form ${form}`).toContain(`${WORKTREE_STATUS_RENDER.RUNNING_PID_PREFIX}${holder.pid}`);
       }
     });
   });
