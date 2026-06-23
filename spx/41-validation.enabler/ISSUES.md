@@ -1,5 +1,36 @@
 # Known Issues: 41-validation.enabler
 
+## Passing validation still emits manual lint warnings
+
+`pnpm run validate` can pass while ESLint emits warning-level findings. On
+June 23, 2026, `pnpm run validate` passed with 162 warnings; `pnpm run lint:fix`
+reduced the count to 101 warnings and left manual findings in these classes:
+
+- `sonarjs/cognitive-complexity`
+- `@typescript-eslint/no-unnecessary-condition`
+- `unicorn/prefer-code-point`
+- `unicorn/prefer-single-call`
+
+**Impact:** The source gate is green, but warning output creates noisy
+validation transcripts and weakens confidence that "passed" means no developer
+attention is needed. The remaining fixes require broad manual refactors across
+validation, session, spec-tree, file-inclusion, generator, and harness code.
+
+**Tracking classification:** Tracked deferral, chosen by the operator during
+the worktree status duplicate-target cleanup on June 23, 2026 after the safe
+auto-fix subset was applied.
+
+**Revisit condition:** Resolve as a dedicated warning cleanup before changing
+validation lint policy, warning severity, lint output rendering, or CI gates
+that consume `pnpm run validate`; rerun `pnpm run lint:fix`, manually clear the
+remaining warnings, and keep `pnpm run validate` warning-clean.
+
+**Skills:** `spec-tree:contextualize`, `spec-tree:apply`,
+`typescript:test-typescript`, `typescript:code-typescript`,
+`typescript:audit-typescript-tests`, and `typescript:audit-typescript`.
+
+---
+
 ## Release note: validation env toggles moved to config
 
 `KNIP_VALIDATION_ENABLED` and `LITERAL_VALIDATION_ENABLED` are no longer
