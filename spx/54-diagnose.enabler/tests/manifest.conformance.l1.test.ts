@@ -46,6 +46,21 @@ describe("a manifest that selects a check without that check's required consumer
     expect(result.ok).toBe(false);
   });
 
+  it("rejects a manifest selecting marketplace-install with an empty expected_plugins array", () => {
+    fc.assert(
+      fc.property(arbitraryManifestFacts(), (facts) => {
+        const result = parseAgainstAllChecks(
+          JSON.stringify({
+            checks: [CHECK_NAME.MARKETPLACE_INSTALL],
+            marketplace: { name: facts.marketplaceName, source: facts.marketplaceSource },
+            expected_plugins: [],
+          }),
+        );
+        expect(result.ok).toBe(false);
+      }),
+    );
+  });
+
   it("rejects a manifest naming an unknown check", () => {
     fc.assert(
       fc.property(
