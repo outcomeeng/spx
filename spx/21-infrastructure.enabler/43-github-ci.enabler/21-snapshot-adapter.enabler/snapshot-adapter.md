@@ -9,6 +9,7 @@ CAN surface each run's latest event-journal projection on a GitHub-native surfac
 ### Scenarios
 
 - Given a rendered run projection and a configured GitHub surface — a PR comment, an Actions artifact, or an Actions cache entry — when the Snapshot adapter writes, then the projection is published to that surface ([test](tests/surface-write.scenario.l1.test.ts))
+- Given the pull-request comment client and a run's projection, when the projection is upserted, then the client edits in place the one comment carrying the run's marker or creates it when absent, and rejects the Actions artifact and cache surfaces it does not serve ([test](tests/pull-request-comment-client.scenario.l1.test.ts))
 
 ### Properties
 

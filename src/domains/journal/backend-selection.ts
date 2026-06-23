@@ -2,8 +2,8 @@ import type { Result } from "@/config/types";
 
 /**
  * The registered journal backends. `local` persists to a `.spx/` run file and
- * streams to standard output; `github-pr` persists through the Snapshot adapter
- * and appends each event to a pull-request comment.
+ * streams to standard output; `github-pr` persists the same run file and streams
+ * the rendered projection through the Snapshot adapter to a pull-request comment.
  */
 export const JOURNAL_BACKEND = {
   LOCAL: "local",

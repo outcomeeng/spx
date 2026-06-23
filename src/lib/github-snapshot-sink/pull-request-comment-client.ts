@@ -1,13 +1,10 @@
-import { execa } from "execa";
+import type { GithubSnapshotClient } from "./types";
 
-import type { GithubSnapshotClient } from "@/lib/github-snapshot-sink";
-
-export const GITHUB_CLI_ERROR = {
+export const GITHUB_API_ERROR = {
   SURFACE_UNSUPPORTED: "the pull-request comment client supports only the pull-request comment surface",
 } as const;
 
-export const GITHUB_CLI = {
-  executable: "gh",
+export const GITHUB_API = {
   apiCommand: "api",
   fieldFlag: "-f",
   methodFlag: "-X",
@@ -19,29 +16,24 @@ export const GITHUB_CLI = {
 } as const;
 
 /** Injected boundary that runs one `gh` invocation and returns its standard output. */
-export type GhRunner = (
+export type GithubApiRunner = (
   args: readonly string[],
   options?: { readonly input?: string },
 ) => Promise<{ readonly stdout: string }>;
 
-export interface GithubPrCommentClientOptions {
+export type GithubPullRequestCommentClient = GithubSnapshotClient;
+
+export interface GithubPullRequestCommentClientOptions {
   /** The `owner/repo` slug the comment lives under. */
   readonly repository: string;
-  /** Injected `gh` runner; defaults to the real `gh` executable. */
-  readonly run?: GhRunner;
+  /** Injected GitHub API runner. */
+  readonly run: GithubApiRunner;
 }
 
 interface GithubComment {
   readonly id: number;
   readonly body: string;
 }
-
-const defaultGhRunner: GhRunner = async (args, options) => {
-  const result = await execa(GITHUB_CLI.executable, [...args], {
-    ...(options?.input === undefined ? {} : { input: options.input }),
-  });
-  return { stdout: typeof result.stdout === "string" ? result.stdout : "" };
-};
 
 /** The hidden HTML-comment tag that makes one run's comment findable for in-place upsert. */
 export function githubCommentMarkerTag(marker: string): string {
@@ -58,21 +50,22 @@ function issueCommentPath(repository: string, commentId: number): string {
 
 /**
  * A {@link GithubSnapshotClient} that upserts a run's projection to one pull-request
- * comment through the `gh` CLI: it lists the pull request's comments, finds the one
- * carrying the run's marker tag, and edits it in place or creates it when absent. The
- * Actions artifact and cache surfaces are not part of the pull-request comment stream
- * and are rejected.
+ * comment through the injected GitHub API runner: it lists the pull request's comments,
+ * finds the one carrying the run's marker tag, and edits it in place or creates it when
+ * absent. The Actions artifact and cache surfaces are rejected.
  */
-export function createGithubPrCommentClient(options: GithubPrCommentClientOptions): GithubSnapshotClient {
-  const run = options.run ?? defaultGhRunner;
+export function createGithubPullRequestCommentClient(
+  options: GithubPullRequestCommentClientOptions,
+): GithubPullRequestCommentClient {
+  const { run } = options;
   return {
     async upsertPullRequestComment({ pullNumber, marker, body }): Promise<void> {
       const markedBody = `${body}\n${githubCommentMarkerTag(marker)}`;
       const listed = await run([
-        GITHUB_CLI.apiCommand,
+        GITHUB_API.apiCommand,
         issueCommentsPath(options.repository, pullNumber),
-        GITHUB_CLI.paginateFlag,
-        GITHUB_CLI.slurpFlag,
+        GITHUB_API.paginateFlag,
+        GITHUB_API.slurpFlag,
       ]);
       // `--paginate --slurp` wraps each page's comment array in one outer array;
       // flatten the pages so a paginated pull request does not throw before the
@@ -81,29 +74,29 @@ export function createGithubPrCommentClient(options: GithubPrCommentClientOption
       const existing = comments.find((comment) => comment.body.includes(githubCommentMarkerTag(marker)));
       if (existing === undefined) {
         await run([
-          GITHUB_CLI.apiCommand,
+          GITHUB_API.apiCommand,
           issueCommentsPath(options.repository, pullNumber),
-          GITHUB_CLI.methodFlag,
-          GITHUB_CLI.postMethod,
-          GITHUB_CLI.fieldFlag,
-          `${GITHUB_CLI.bodyField}=${markedBody}`,
+          GITHUB_API.methodFlag,
+          GITHUB_API.postMethod,
+          GITHUB_API.fieldFlag,
+          `${GITHUB_API.bodyField}=${markedBody}`,
         ]);
         return;
       }
       await run([
-        GITHUB_CLI.apiCommand,
+        GITHUB_API.apiCommand,
         issueCommentPath(options.repository, existing.id),
-        GITHUB_CLI.methodFlag,
-        GITHUB_CLI.patchMethod,
-        GITHUB_CLI.fieldFlag,
-        `${GITHUB_CLI.bodyField}=${markedBody}`,
+        GITHUB_API.methodFlag,
+        GITHUB_API.patchMethod,
+        GITHUB_API.fieldFlag,
+        `${GITHUB_API.bodyField}=${markedBody}`,
       ]);
     },
     uploadActionsArtifact(): Promise<void> {
-      return Promise.reject(new Error(GITHUB_CLI_ERROR.SURFACE_UNSUPPORTED));
+      return Promise.reject(new Error(GITHUB_API_ERROR.SURFACE_UNSUPPORTED));
     },
     saveActionsCache(): Promise<void> {
-      return Promise.reject(new Error(GITHUB_CLI_ERROR.SURFACE_UNSUPPORTED));
+      return Promise.reject(new Error(GITHUB_API_ERROR.SURFACE_UNSUPPORTED));
     },
   };
 }

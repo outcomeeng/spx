@@ -59,7 +59,7 @@ corner case.
 ## FOLLOW-UP — github-pr comment upsert re-lists all PR comments on every append
 
 Under the github-pr backend, `upsertPullRequestComment` in
-`src/commands/journal/github-client.ts` lists every comment on the pull request
+`src/lib/github-snapshot-sink/pull-request-comment-client.ts` lists every comment on the pull request
 (`gh api ... --paginate --slurp`) and scans the bodies for the run's marker on
 each append. For a run of N events on a pull request with M comments this is
 O(N × M) body scans and roughly N × (M / page-size) API calls.

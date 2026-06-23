@@ -11,11 +11,11 @@ import {
   journalSealCommand,
   type JournalStreamBinding,
 } from "@/commands/journal/cli";
-import { createGithubPrCommentClient } from "@/commands/journal/github-client";
 import type { JournalStreamSink } from "@/commands/journal/runtime";
 import type { Result } from "@/config/types";
 import type { Domain } from "@/domains/types";
 import type { JournalEvent } from "@/lib/agent-run-journal";
+import { createGithubPullRequestCommentClient, runGhApi } from "@/lib/github-snapshot-sink";
 import { EPIPE_CODE } from "@/lib/process-lifecycle";
 
 export const JOURNAL_CLI = {
@@ -129,7 +129,7 @@ function streamBinding(): JournalStreamBinding {
   const repository = process.env[JOURNAL_CLI_ENV.GITHUB_REPOSITORY] ?? "";
   return {
     localSink: stdoutStreamSink(),
-    githubClient: createGithubPrCommentClient({ repository }),
+    githubClient: createGithubPullRequestCommentClient({ repository, run: runGhApi }),
     githubRepository: repository,
   };
 }

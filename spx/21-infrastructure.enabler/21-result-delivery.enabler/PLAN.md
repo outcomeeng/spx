@@ -10,7 +10,7 @@ The work below is sequenced against the PDR `spx/21-infrastructure.enabler/21-re
 
 Each backend is its own infrastructure node implementing this domain's port; the domain holds only the dispatch contract.
 
-- **GitHub** lives under `spx/21-infrastructure.enabler/43-github-ci.enabler`. Today's github-pr Snapshot transport (`src/lib/github-snapshot-sink/index.ts`, `src/commands/journal/github-client.ts`) refactors into the GitHub backend, carrying its own backend ADR for the construction the PDR defers — `gh` behind an injected client, the hidden-marker-tag upsert idempotency, and the content-vs-transport split.
+- **GitHub** lives under `spx/21-infrastructure.enabler/43-github-ci.enabler`. The github-pr Snapshot transport (`src/lib/github-snapshot-sink/index.ts`, `src/lib/github-snapshot-sink/pull-request-comment-client.ts`, `src/lib/github-snapshot-sink/gh-api-runner.ts`) carries the backend construction the PDR defers — `gh` behind an injected client, the hidden-marker-tag upsert idempotency, and the content-vs-transport split.
 - **GitLab** and **observability** are further infrastructure backend nodes, added by a later `/decompose spx/21-infrastructure.enabler` when built.
 
 ## Consumers (refactor onto this domain)

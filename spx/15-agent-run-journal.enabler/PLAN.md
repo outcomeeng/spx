@@ -222,13 +222,14 @@ On branch `work/journal`, committed:
   surface; the adapter binds it (next entry).
 
 - `src/commands/journal/cli.ts` (github-pr binding) + `github-cli.scenario.l1.test.ts`,
-  `src/commands/journal/github-client.ts` + `github-client.scenario.l1.test.ts`, and the
+  `src/lib/github-snapshot-sink/pull-request-comment-client.ts` +
+  `pull-request-comment-client.scenario.l1.test.ts`, and the
   descriptor (`src/interfaces/cli/journal.ts`) — the github-pr backend binding. `append`
   resolves its streaming surface by backend kind (the local Appendable backend is the event log
   for every verb in both cases); under github-pr it resolves the PR number from `GITHUB_REF` and
   a run-scoped comment marker, re-renders the run's projection, and upserts the one comment
-  through `createGithubPrCommentClient` (a `GithubSnapshotClient` over the `gh` CLI:
-  find-by-marker, edit-in-place or create; `execa` injected). A render fault surfaces as an error,
+  through `createGithubPullRequestCommentClient` (a `GithubSnapshotClient` over an injected
+  GitHub API runner: find-by-marker, edit-in-place or create). A render fault surfaces as an error,
   never an empty comment. Verified end-to-end through the built executable. Tests + code audit
   gates APPROVED (one code REJECT — a swallowed render-failure Result — fixed and re-approved).
 
