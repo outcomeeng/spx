@@ -14,7 +14,7 @@ import type { ProcessTable } from "./process-table";
 
 export const CONTROLLING_PID_ENV = "SPX_WORKTREE_CONTROLLING_PID";
 export const AGENT_RUNTIME_NAMES = ["claude", "codex"] as const;
-export const AGENT_COMMAND_PATTERN = new RegExp(`\\b(?:${AGENT_RUNTIME_NAMES.join("|")})\\b`, "i");
+export const AGENT_COMMAND_PATTERN = new RegExp(String.raw`\b(?:${AGENT_RUNTIME_NAMES.join("|")})\b`, "i");
 
 export const CONTROLLING_PROCESS_ERROR = {
   UNRESOLVED: "worktree controlling process could not be resolved",
