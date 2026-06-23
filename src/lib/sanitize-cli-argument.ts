@@ -13,7 +13,7 @@ export const HEX_RADIX = 16;
 export const HEX_PAD = 2;
 
 export function formatHexEscape(code: number): string {
-  return `\\x${code.toString(HEX_RADIX).padStart(HEX_PAD, "0")}`;
+  return String.raw`\x${code.toString(HEX_RADIX).padStart(HEX_PAD, "0")}`;
 }
 
 export function nonStringSentinel(type: string): string {
