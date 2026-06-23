@@ -13,13 +13,13 @@ import { describe, expect, it } from "vitest";
 
 import { PICK_NON_TTY_MESSAGE } from "@/interfaces/cli/session/pick/run-picker";
 
-const CLI_ENTRY = join(process.cwd(), "bin/spx.js");
+const cliEntry = join(process.cwd(), "bin/spx.js");
 
 async function runSpx(
   args: readonly string[],
   input: string,
 ): Promise<{ stdout: string; stderr: string; exitCode: number }> {
-  const result = await execa("node", [CLI_ENTRY, ...args], { input, reject: false });
+  const result = await execa("node", [cliEntry, ...args], { input, reject: false });
   return { stdout: result.stdout, stderr: result.stderr, exitCode: result.exitCode ?? 1 };
 }
 
@@ -29,7 +29,7 @@ describe("session pick compliance", () => {
     const { stdout, stderr, exitCode } = await runSpx(["session", "pick"], "");
 
     expect(exitCode).not.toBe(0);
-    expect(stdout).toBe("");
+    expect(stdout).toHaveLength(0);
     // The diagnostic is the production message verbatim — asserted against the
     // imported constant, not re-typed fragments.
     expect(stderr).toContain(PICK_NON_TTY_MESSAGE);
