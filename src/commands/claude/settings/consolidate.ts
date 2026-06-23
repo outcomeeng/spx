@@ -15,8 +15,8 @@ import { parseAllSettings, parseSettingsFile } from "@/lib/claude/permissions/pa
 import { createBackup } from "@/lib/claude/settings/backup";
 import { formatReport } from "@/lib/claude/settings/reporter";
 import { writeSettings } from "@/lib/claude/settings/writer";
-import os from "os";
-import path from "path";
+import os from "node:os";
+import path from "node:path";
 
 /**
  * Options for consolidate command
