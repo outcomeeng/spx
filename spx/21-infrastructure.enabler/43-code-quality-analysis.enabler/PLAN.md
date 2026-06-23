@@ -12,7 +12,15 @@ Local quality-enforcement decision (`spx/21-infrastructure.enabler/43-code-quali
 - Unicorn-family mirror: `eslint-plugin-unicorn` (65.0.1, for ESLint 9 peer compatibility) added to `eslint-rules/offline-mirror.ts` with `prefer-node-protocol`, `prefer-code-point`, `prefer-single-call`, and `prefer-string-raw` at the warn tier (backlog uncleared), plus the `unicorn` plugin registered in the mirror config block. The compliance test proves each unicorn rule flags a violating fixture and sits in the warn tier.
 - The unicorn classes graduate to the error tier in whatever change clears their last occurrence. Under Team-plan zero-debt-on-touch (`sonar analyze --base origin/main` blocks on every finding in a changed file when enabled), a cross-cutting unicorn sweep would inherit the whole backlog of every touched file, so the clearing distributes across each session's touched-file collateral instead.
 
+## Landed (session 02)
+
+- S2871 (array sort without a compare function) cleared across product source and the co-located test suites by sorting through `compareAsciiStrings`. The mirror is partitioned into a warn tier and an error tier (`MIRROR_WARN_RULES` / `MIRROR_ERROR_RULES`), and `sonarjs/no-alphabetical-sort` graduated to the error tier — the two-tier enforcement model is declared in `15-local-quality-enforcement.adr.md` and `code-quality-analysis.md`.
+
 ## Pending
 
 - SonarQube Cloud gate: create and assign the custom `spx — zero tolerance` gate — new-code-zero conditions now (session 01 operator task), overall-zero conditions in session 12 once the backlog clears. Server-side config, covered by the `[audit]` gate-policy assertions in `code-quality-analysis.md`; needs the SonarQube Cloud UI or a web-API token.
 - Backlog: the remaining mirror-extension sessions add their rule classes (warn-tier while uncleared) and graduate each to error as its last occurrence is cleared; the per-file clearing distributes across sessions' touched-file collateral. Session 12 locks the overall-zero gate.
+
+## Gate scope — touched-file cleanliness vs new-code-only (operator decision pending)
+
+The pre-push `sonar analyze --base origin/main` enforces touched-file cleanliness: every finding in a touched file blocks the push, not only the batch's target rule. Session 02 hit this — clearing S2871 in `merger.ts` pulled in a cognitive-complexity-49 refactor (S3776), and `allowlist-existing.ts` plus three swept test files carried S2245 / S4043 / S7780 / S4624. Each later batch (05–11) will touch files carrying pre-existing findings and absorb the same widening. Revisit whether the gate should scope to SonarQube's new-code definition rather than whole-touched-files before the heavier batches; the operator chose touched-file-cleanliness in session 01.
