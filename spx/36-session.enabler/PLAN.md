@@ -1,5 +1,31 @@
 # PLAN
 
+## Plan B — Finish the literal-reuse paydown for the session subtree
+
+### Why this plan exists
+
+The eslint test-owned-constant paydown for `spx/36-session.enabler` is complete and committed on `work/session-lint-debt-pr3` (all eight children clean; the four eslint debt-manifest entries removed). Removing the `spx/36-session.enabler/` path exclusion from `spx.config.yaml` then surfaced a second, larger debt class the eslint-only survey never counted: `spx validation literal` reports **318 cross-file literal-reuse findings** (153 `[dupe]` + 160 `[reuse]`) across ~32 test files. The path exclusion is therefore back in place (net-zero in `spx.config.yaml`) and lifts only in the final commit, once every literal is resolved.
+
+The keystone is built: `src/interfaces/cli/session/definition.ts` exports a semantic `sessionCliDefinition` registry (domain, subcommands with operands, options) plus `sessionCommandToken`/`sessionOptionToken`, and `src/interfaces/cli/session.ts` builds the Commander descriptor from it (no inline command/option literals remain).
+
+### Remaining work
+
+1. **Route the session tests through the registry.** Replace the duplicated CLI-token literals (`"session"`, `"--sessions-dir"`, `"list"`, `"pickup"`, `"handoff"`, …) in the ~32 session test files with `sessionCliDefinition.domain.commandName`, `.subcommands.<verb>.commandName`, and `.options.<opt>.flag`. This clears every `[reuse]`/`[dupe]` on a CLI token at once.
+2. **Add a `SESSION_OUTPUT_MARKER` source registry** for the structured tags the commands emit and tests parse (`<PICKUP_ID>`, `<HANDOFF_ID>`, `<SESSION_FILE>` and their closers) — owned by the emitting source, imported by tests. Reuse any marker constant that already exists (`HANDOFF_ID_TAG_PATTERN`, `SESSION_FILE_TAG_PATTERN`) rather than re-declaring.
+3. **Resolve the other literal categories by owner** — no new flat constants:
+   - session-id timestamps (`2026-01-13_08-00-00`, `_10-00-00`) → generate via `sampleSessionId` / `sampleDistinctSessionIds`;
+   - `utf-8` → one shared source-owned `FILE_ENCODING` constant;
+   - `high` / `todo` / `archive` → import `SESSION_PRIORITY` / `SESSION_STATUSES`;
+   - fixture paths (`src/file.ts`, `path/to/spec.md`) → the existing literal generator (`sampleLiteralTestValue` / source-file arbitrary);
+   - `it.each` row labels (`escape`, `return`, `delete`) → derive each from its source-owned key/action rather than a hand-typed twin.
+4. **Remove the `spx/36-session.enabler/` path exclusion from `spx.config.yaml` in the final commit**, then confirm the full gate is green over the subtree: `pnpm run validate` (literal + all stages), `pnpm run typecheck`, `pnpm run circular`, and `pnpm test` for the subtree, with `SPX_PROPERTY_SEED` both unset and set.
+5. **Re-survey type errors after the exclusion lifts.** The path exclusion also hid the subtree from `tsx src/cli.ts validation typescript`; five pre-existing type errors were fixed this session, but re-run `pnpm run typecheck` after un-excluding to confirm none remain.
+6. **Ship via `/pr`** once the full gate is green.
+
+### Method that worked this session
+
+Work by value/category, not file-by-file — fixing one source-owned token clears many findings at once. Survey current findings with `tsx src/cli.ts validation literal | grep spx/36-session.enabler`; the eslint survey was `npx eslint . --config eslint.config.ts --format json` filtered to the subtree (the `pnpm run lint` gate hides it via the path exclusion). Commit per coherent slice; the Lefthook pre-commit runs the staged-file tests.
+
 ## Plan A — Wire the spx CLI half of the session-scope accumulator
 
 ### Why this plan exists
