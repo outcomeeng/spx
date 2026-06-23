@@ -26,9 +26,9 @@ export function isNonEmptyString(value: unknown): value is string {
   return typeof value === "string" && value.length > 0;
 }
 
-/** Whether the value is an array of non-empty strings. */
+/** Whether the value is a non-empty array of non-empty strings. */
 export function isNonEmptyStringArray(value: unknown): value is readonly string[] {
-  return Array.isArray(value) && value.every(isNonEmptyString);
+  return Array.isArray(value) && value.length > 0 && value.every(isNonEmptyString);
 }
 
 /** Validates a marketplace-identity value, labelling errors with the supplied field path. */

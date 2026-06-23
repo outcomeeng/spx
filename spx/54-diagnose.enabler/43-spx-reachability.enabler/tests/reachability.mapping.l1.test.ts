@@ -7,9 +7,9 @@ import { arbitraryNameToken, arbitrarySpxFloor } from "@testing/generators/diagn
 import { arbitraryFloorParts, spxReachabilityReading } from "@testing/generators/diagnose/reachability";
 
 describe("the spx-reachability check classifies spx against the manifest floor", () => {
-  it("classifies a probe error as unknown (bucket unknown), whatever the floor", () => {
+  it("classifies a probe error as unknown (bucket unknown), whatever the floor — including no floor", () => {
     fc.assert(
-      fc.property(arbitrarySpxFloor(), (floor) => {
+      fc.property(fc.option(arbitrarySpxFloor(), { nil: undefined }), (floor) => {
         const result = classifySpxReachability(spxReachabilityReading({ errored: true }), floor);
         expect(result.verdict).toBe(SPX_REACHABILITY_VERDICT.UNKNOWN);
         expect(result.bucket).toBe(VERDICT_BUCKET.UNKNOWN);
