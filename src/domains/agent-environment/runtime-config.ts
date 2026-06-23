@@ -143,7 +143,7 @@ export const RUNTIME_CONFIG_TEXT_ENCODING = "utf-8";
 const TOML_MANAGED_TABLE_HEADER =
   `[${RUNTIME_CONFIG_STATE_FIELDS.SPX}.${RUNTIME_CONFIG_STATE_FIELDS.AGENT_ENVIRONMENT}]`;
 const TOML_MANAGED_INLINE_ASSIGNMENT_PATTERN = new RegExp(
-  `^${RUNTIME_CONFIG_STATE_FIELDS.SPX}\\s*\\.\\s*${RUNTIME_CONFIG_STATE_FIELDS.AGENT_ENVIRONMENT}\\s*=`,
+  String.raw`^${RUNTIME_CONFIG_STATE_FIELDS.SPX}\s*\.\s*${RUNTIME_CONFIG_STATE_FIELDS.AGENT_ENVIRONMENT}\s*=`,
 );
 
 const DEFAULT_RUNTIME_CONFIG_DEPENDENCIES: RuntimeConfigDependencies = {
@@ -369,7 +369,7 @@ function parseJsonRuntimeConfig(raw: string, path: string): Result<Record<string
 function parseTomlRuntimeConfig(raw: string, path: string): Result<Record<string, unknown>> {
   let parsed: unknown;
   try {
-    parsed = parseToml(raw) as unknown;
+    parsed = parseToml(raw);
   } catch (error) {
     return { ok: false, error: `${path} is ${RUNTIME_CONFIG_ERROR_MESSAGES.INVALID_TOML}: ${toMessage(error)}` };
   }
@@ -470,7 +470,7 @@ function mergeTomlManagedTable(current: string | undefined, managedTable: string
   const normalizedManagedTable = ensureTrailingNewline(managedTable);
   if (current === undefined || current.trim() === "") return normalizedManagedTable;
 
-  const currentLines = trimTrailingNewline(current.replace(/\r\n/g, "\n")).split("\n");
+  const currentLines = trimTrailingNewline(current.replaceAll("\r\n", "\n")).split("\n");
   const managedLines = trimTrailingNewline(normalizedManagedTable).split("\n");
   const managedStart = currentLines.findIndex(isTomlManagedTableHeader);
   if (managedStart === -1) {
@@ -529,7 +529,11 @@ function ensureTrailingNewline(value: string): string {
 }
 
 function trimTrailingNewline(value: string): string {
-  return value.replace(/\n+$/, "");
+  let end = value.length;
+  while (end > 0 && value[end - 1] === "\n") {
+    end--;
+  }
+  return value.slice(0, end);
 }
 
 function publicRuntimeConfigReconciliation(
@@ -559,5 +563,7 @@ function isNodeError(error: unknown): error is NodeJS.ErrnoException {
 }
 
 function toMessage(error: unknown): string {
-  return error instanceof Error ? error.message : String(error);
+  if (error instanceof Error) return error.message;
+  if (typeof error === "string") return error;
+  return JSON.stringify(error);
 }

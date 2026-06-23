@@ -45,8 +45,8 @@ export function validatePathFilterConfig(raw: unknown, path: string): Result<Pat
     include?: readonly string[];
     exclude?: readonly string[];
   } = {};
-  if (include !== undefined) value.include = include as readonly string[];
-  if (exclude !== undefined) value.exclude = exclude as readonly string[];
+  if (include !== undefined) value.include = include;
+  if (exclude !== undefined) value.exclude = exclude;
 
   return { ok: true, value };
 }
@@ -54,7 +54,11 @@ export function validatePathFilterConfig(raw: unknown, path: string): Result<Pat
 const PATH_SEGMENT_SEPARATOR = "/";
 
 function normalizePathPrefix(value: string): string {
-  return value.replace(/\/+$/, "");
+  let end = value.length;
+  while (end > 0 && value[end - 1] === PATH_SEGMENT_SEPARATOR) {
+    end--;
+  }
+  return value.slice(0, end);
 }
 
 function pathMatchesPrefix(path: string, prefix: string): boolean {

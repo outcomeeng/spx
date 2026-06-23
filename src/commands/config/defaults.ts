@@ -18,7 +18,7 @@ export function defaultsCommand(options: DefaultsOptions, deps: CliDeps): Promis
 
 function formatConfig(config: Config, asJson: boolean): string {
   const format = asJson ? CONFIG_FILE_FORMAT.JSON : DEFAULT_CONFIG_FILE_FORMAT;
-  const serialized = serializeConfigFileSections(format, config as Record<string, unknown>);
+  const serialized = serializeConfigFileSections(format, config);
   if (!serialized.ok) {
     throw new Error(serialized.error);
   }

@@ -223,7 +223,7 @@ function parseYamlSections(filename: string, raw: string): Result<Record<string,
 function parseTomlSections(filename: string, raw: string): Result<Record<string, unknown>> {
   let parsed: unknown;
   try {
-    parsed = parseToml(raw) as unknown;
+    parsed = parseToml(raw);
   } catch (error) {
     return { ok: false, error: `${filename} is not valid ${CONFIG_FILE_FORMAT.TOML}: ${toMessage(error)}` };
   }
@@ -274,7 +274,7 @@ function setNested(target: Record<string, unknown>, path: readonly string[], val
       cursor = fresh;
     }
   }
-  cursor[path[path.length - 1]] = value;
+  cursor[path.at(-1)!] = value;
 }
 
 function validateParsedSections(filename: string, parsed: unknown): Result<Record<string, unknown>> {
@@ -289,7 +289,9 @@ function isFileNotFound(error: unknown): boolean {
 }
 
 function toMessage(error: unknown): string {
-  return error instanceof Error ? error.message : String(error);
+  if (error instanceof Error) return error.message;
+  if (typeof error === "string") return error;
+  return JSON.stringify(error);
 }
 
 export {

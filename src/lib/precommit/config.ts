@@ -38,7 +38,7 @@ function validate(value: unknown): Result<PrecommitConfig> {
     ok: true,
     value: {
       sourceDirs: sourceDirs as readonly string[],
-      testPattern: testPattern as string,
+      testPattern: testPattern,
     },
   };
 }

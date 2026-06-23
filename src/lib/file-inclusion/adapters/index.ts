@@ -1,5 +1,4 @@
-import type { ScopeResult } from "../types";
-import type { AdapterConfig, ToolAdapterFn, ToolAdaptersConfig } from "../types";
+import type { ScopeResult, ToolAdapterFn, ToolAdaptersConfig } from "../types";
 
 import { eslintAdapter } from "./eslint";
 import { knipAdapter } from "./knip";
@@ -8,7 +7,7 @@ import { pytestAdapter } from "./pytest";
 import { tscAdapter } from "./tsc";
 import { vitestAdapter } from "./vitest";
 
-export type { AdapterConfig, ToolAdapterFn, ToolAdaptersConfig };
+export type { AdapterConfig, ToolAdapterFn, ToolAdaptersConfig } from "../types";
 
 export const TOOL_DEFAULT_FLAGS: Readonly<Record<string, string>> = {
   eslint: "--ignore-pattern",

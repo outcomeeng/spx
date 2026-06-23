@@ -89,7 +89,7 @@ export function validationBuiltinRule(name: string): Rule.RuleModule {
   if (rule === undefined) {
     throw new Error(name);
   }
-  return rule as Rule.RuleModule;
+  return rule;
 }
 
 export function createValidationEslint(): ESLint {

@@ -74,7 +74,7 @@ export function createIgnoreSourceReader(
   const parsedEntries: IgnoreSourceEntry[] = [];
   const lines = content.split("\n");
   for (let i = 0; i < lines.length; i++) {
-    const trimmed = lines[i]!.trim();
+    const trimmed = lines[i].trim();
     if (trimmed.length === 0 || trimmed.startsWith(COMMENT_PREFIX)) continue;
     const lineNumber = i + 1;
     validateEntry(trimmed, lineNumber);
