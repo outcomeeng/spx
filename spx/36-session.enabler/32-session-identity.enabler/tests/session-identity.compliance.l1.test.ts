@@ -40,7 +40,7 @@ describe("session identity compliance", () => {
       fc.property(
         fc
           .string({ minLength: 1, maxLength: 16 })
-          .map((raw) => `x_${raw.replace(/[^a-zA-Z0-9]/g, "")}`)
+          .map((raw) => `x_${raw.replaceAll(/[^a-zA-Z0-9]/g, "")}`)
           .filter((key) => key.length > 2 && !declaredKeys.has(key)),
         fc.string({ minLength: 1, maxLength: 24 }).filter((value) => !value.includes("\n")),
         (outsideKey, outsideValue) => {
@@ -50,7 +50,7 @@ describe("session identity compliance", () => {
           ], "# Session");
           const metadata = parseSessionMetadata(content) as Record<string, unknown>;
 
-          expect(Object.prototype.hasOwnProperty.call(metadata, outsideKey)).toBe(false);
+          expect(Object.hasOwn(metadata, outsideKey)).toBe(false);
         },
       ),
     );
