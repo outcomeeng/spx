@@ -12,7 +12,7 @@ import {
   MIRROR_WARN_RULES,
   MIRROR_WARN_SEVERITY,
   TYPE_AWARE_PARSER_OPTIONS,
-} from "@eslint-rules/sonarjs-mirror";
+} from "@eslint-rules/offline-mirror";
 
 describe("type-aware lint mirror", () => {
   const sonarjsPrefix = "sonarjs/";

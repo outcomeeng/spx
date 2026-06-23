@@ -19,13 +19,13 @@ import { NO_IMPORT_SOURCE_EXTENSIONS_RULE_ID } from "./eslint-rules/no-import-so
 import { NO_REGISTRY_POSITION_ACCESS_RULE_ID } from "./eslint-rules/no-registry-position-access";
 import { NO_SPEC_REFERENCES_RULE_ID } from "./eslint-rules/no-spec-references";
 import { NO_TEST_OWNED_DOMAIN_CONSTANTS_RULE_ID } from "./eslint-rules/no-test-owned-domain-constants";
+import { MIRROR_RULES, TYPE_AWARE_PARSER_OPTIONS } from "./eslint-rules/offline-mirror";
 import {
   TEST_ASSERTION_STRING_LITERAL_RULE,
   TEST_READ_FILE_SYNC_IMPORT_RULE,
   testRestrictedSyntax,
   tsRestrictedSyntax,
 } from "./eslint-rules/restricted-syntax";
-import { MIRROR_RULES, TYPE_AWARE_PARSER_OPTIONS } from "./eslint-rules/sonarjs-mirror";
 import { readTypeScriptExcludeGlobs } from "./src/validation/eslint-config-exclusions";
 import { LINT_POLICY_MANIFESTS, parseLintPolicyManifest } from "./src/validation/lint-policy-constants";
 
