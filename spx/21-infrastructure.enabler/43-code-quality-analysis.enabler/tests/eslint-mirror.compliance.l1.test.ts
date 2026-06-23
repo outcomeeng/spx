@@ -1,6 +1,8 @@
 import { Linter } from "eslint";
+import importPlugin from "eslint-plugin-import";
 import sonarjs from "eslint-plugin-sonarjs";
 import unicorn from "eslint-plugin-unicorn";
+import { builtinRules } from "eslint/use-at-your-own-risk";
 import tseslint from "typescript-eslint";
 import { describe, expect, it } from "vitest";
 
@@ -18,6 +20,9 @@ describe("type-aware lint mirror", () => {
   const sonarjsPrefix = "sonarjs/";
   const typescriptPrefix = "@typescript-eslint/";
   const unicornPrefix = "unicorn/";
+  const importPrefix = "import/";
+  // ESLint core rules carry no plugin prefix (no `/` in the rule id).
+  const isCoreRule = (rule: string): boolean => !rule.includes("/");
   // Identical operands around `&&` violate a mirrored SonarJS rule
   // (no-identical-expressions; the rule exempts `===`/`!==`, the NaN self-check
   // idiom). The specific rule name stays source-owned in MIRROR_RULES.
@@ -126,12 +131,14 @@ describe("type-aware lint mirror", () => {
     }
   });
 
-  it("mirrors SonarJS, type-aware @typescript-eslint, and unicorn rule families across its tiers", () => {
+  it("draws rules from sonarjs, @typescript-eslint, ESLint core, eslint-plugin-import, and unicorn across its tiers", () => {
     const ruleNames = Object.keys(MIRROR_RULES);
 
     expect(ruleNames.some((rule) => rule.startsWith(sonarjsPrefix))).toBe(true);
     expect(ruleNames.some((rule) => rule.startsWith(typescriptPrefix))).toBe(true);
     expect(ruleNames.some((rule) => rule.startsWith(unicornPrefix))).toBe(true);
+    expect(ruleNames.some((rule) => rule.startsWith(importPrefix))).toBe(true);
+    expect(ruleNames.some(isCoreRule)).toBe(true);
   });
 
   it("reports a finding when ESLint runs the mirrored SonarJS rules against violating source", () => {
@@ -146,39 +153,76 @@ describe("type-aware lint mirror", () => {
     ).toBe(true);
   });
 
+  // The non-type-aware error-tier rules paired with violating source. Each rule
+  // id is read from the source-owned MIRROR_ERROR_RULES via its selector, so no
+  // rule-id literal is duplicated from source; only the violating fixture — kept
+  // to short module names and identifiers, never a flaggable string literal — is
+  // test input. The type-aware error-tier rules (S2871 sort, S4325 assertion)
+  // fire only against a real project, covered by the buildEslintConfig
+  // composition [audit] and the live `spx validation` gate.
+  const offlineErrorRuleProbes: { select: (rule: string) => boolean; violatingSource: string }[] = [
+    {
+      // S6653 prefer Object.hasOwn — an ESLint core rule (no plugin prefix).
+      select: (rule) => isCoreRule(rule),
+      violatingSource: "const obj = {};\nObject.prototype.hasOwnProperty.call(obj, \"k\");\n",
+    },
+    {
+      // S3863 merge duplicate imports — eslint-plugin-import.
+      select: (rule) => rule.startsWith(importPrefix),
+      violatingSource:
+        "import { readFileSync } from \"fs\";\nimport { writeFileSync } from \"fs\";\nreadFileSync;\nwriteFileSync;\n",
+    },
+  ];
+
+  it("reports a finding when ESLint runs each offline-testable error-tier rule against violating source", () => {
+    const linter = new Linter();
+    for (const probe of offlineErrorRuleProbes) {
+      const ruleId = Object.keys(MIRROR_ERROR_RULES).find(probe.select);
+      expect(ruleId, "no error-tier rule matched the probe selector").toBeDefined();
+
+      const messages = linter.verify(probe.violatingSource, {
+        plugins: { import: importPlugin },
+        rules: { [ruleId!]: MIRROR_ERROR_SEVERITY },
+      });
+
+      expect(
+        messages.some((message) => message.ruleId === ruleId),
+        `error-tier rule ${ruleId} did not fire on its violating fixture`,
+      ).toBe(true);
+    }
+  });
+
   it("declares mirror rule ids the owning plugins recognize", () => {
-    // The type-aware rules — the @typescript-eslint redundancy rules and the
-    // SonarJS sort-comparator rule — report only against a real TypeScript
-    // project, covered by the buildEslintConfig composition [audit] and the live
-    // `spx validation` gate; here the rule ids are confirmed recognized by the
-    // plugins that own them.
-    const typescriptRuleNames = Object.keys(MIRROR_RULES)
-      .filter((rule) => rule.startsWith(typescriptPrefix))
-      .map((rule) => rule.slice(typescriptPrefix.length));
-    const sonarjsRuleNames = Object.keys(MIRROR_RULES)
-      .filter((rule) => rule.startsWith(sonarjsPrefix))
-      .map((rule) => rule.slice(sonarjsPrefix.length));
-    const unicornRuleNames = Object.keys(MIRROR_RULES)
-      .filter((rule) => rule.startsWith(unicornPrefix))
-      .map((rule) => rule.slice(unicornPrefix.length));
+    // Type-aware rules report only against a real TypeScript project, covered by
+    // the buildEslintConfig composition [audit] and the live `spx validation`
+    // gate; here every rule id is confirmed recognized by the plugin (or ESLint
+    // core) that owns it, so a typo cannot silently disable a mirrored rule.
+    const namesUnder = (prefix: string): string[] =>
+      Object.keys(MIRROR_RULES)
+        .filter((rule) => rule.startsWith(prefix))
+        .map((rule) => rule.slice(prefix.length));
 
-    // The runtime plugin exposes `rules`; the compat plugin type does not.
-    const tseslintPluginRules = (tseslint.plugin as { rules?: Record<string, unknown> })
-      .rules ?? {};
-    const sonarjsPluginRules = (sonarjs as { rules?: Record<string, unknown> }).rules ?? {};
-    const unicornPluginRules = (unicorn as { rules?: Record<string, unknown> }).rules ?? {};
+    // The runtime plugins expose `rules`; the compat plugin types do not.
+    const pluginRulesOf = (plugin: unknown): Record<string, unknown> =>
+      (plugin as { rules?: Record<string, unknown> }).rules ?? {};
 
-    expect(typescriptRuleNames.length).toBeGreaterThan(0);
-    for (const ruleName of typescriptRuleNames) {
-      expect(tseslintPluginRules).toHaveProperty(ruleName);
-    }
-    expect(sonarjsRuleNames.length).toBeGreaterThan(0);
-    for (const ruleName of sonarjsRuleNames) {
-      expect(sonarjsPluginRules).toHaveProperty(ruleName);
-    }
-    expect(unicornRuleNames.length).toBeGreaterThan(0);
-    for (const ruleName of unicornRuleNames) {
-      expect(unicornPluginRules).toHaveProperty(ruleName);
+    const expectAllRecognized = (ruleNames: string[], ownerRules: Record<string, unknown>): void => {
+      expect(ruleNames.length).toBeGreaterThan(0);
+      for (const ruleName of ruleNames) {
+        expect(ownerRules).toHaveProperty(ruleName);
+      }
+    };
+
+    expectAllRecognized(namesUnder(typescriptPrefix), pluginRulesOf(tseslint.plugin));
+    expectAllRecognized(namesUnder(sonarjsPrefix), pluginRulesOf(sonarjs));
+    expectAllRecognized(namesUnder(importPrefix), pluginRulesOf(importPlugin));
+    expectAllRecognized(namesUnder(unicornPrefix), pluginRulesOf(unicorn));
+
+    // ESLint core rules carry no plugin prefix; the builtin rule map owns them.
+    const coreRuleNames = Object.keys(MIRROR_RULES).filter(isCoreRule);
+    expect(coreRuleNames.length).toBeGreaterThan(0);
+    for (const ruleName of coreRuleNames) {
+      expect(builtinRules.has(ruleName)).toBe(true);
     }
   });
 });
