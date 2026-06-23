@@ -109,15 +109,23 @@ describe("the spx-reachability check classifies spx against the manifest floor",
     );
   });
 
-  it("classifies a resolved reading with no manifest floor as unknown (bucket unknown)", () => {
+  it("classifies a resolved spx with no floor as present (bucket healthy), reporting presence and version", () => {
     fc.assert(
       fc.property(arbitraryNameToken(), arbitraryNameToken(), (path, version) => {
         const result = classifySpxReachability(spxReachabilityReading({ resolvedPath: path, version }), undefined);
-        expect(result.verdict).toBe(SPX_REACHABILITY_VERDICT.UNKNOWN);
-        expect(result.bucket).toBe(VERDICT_BUCKET.UNKNOWN);
+        expect(result.verdict).toBe(SPX_REACHABILITY_VERDICT.PRESENT);
+        expect(result.bucket).toBe(VERDICT_BUCKET.HEALTHY);
+        expect(result.readings.path).toBe(path);
+        expect(result.readings.version).toBe(version);
         expect(result.remediation.length).toBeGreaterThan(0);
       }),
     );
+  });
+
+  it("classifies an absent spx with no floor as unreachable (bucket broken) — absence is broken regardless of floor", () => {
+    const result = classifySpxReachability(spxReachabilityReading({ resolvedPath: null }), undefined);
+    expect(result.verdict).toBe(SPX_REACHABILITY_VERDICT.UNREACHABLE);
+    expect(result.bucket).toBe(VERDICT_BUCKET.BROKEN);
   });
 
   it("classifies a resolved non-semver version as unknown (bucket unknown)", () => {

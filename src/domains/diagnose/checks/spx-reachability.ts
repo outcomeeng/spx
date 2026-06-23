@@ -15,6 +15,7 @@ import { type CheckRecord, VERDICT_BUCKET } from "@/domains/diagnose/types";
 /** The spx-reachability verdict labels. */
 export const SPX_REACHABILITY_VERDICT = {
   REACHABLE: "reachable",
+  PRESENT: "present",
   BELOW_FLOOR: "below-floor",
   UNREACHABLE: "unreachable",
   UNKNOWN: "unknown",
@@ -105,6 +106,8 @@ export function meetsFloor(version: string, floor: string): boolean | null {
 
 const REMEDIATION: Readonly<Record<SpxReachabilityVerdict, string>> = {
   [SPX_REACHABILITY_VERDICT.REACHABLE]: "spx is on PATH at or above the required floor; no action needed.",
+  [SPX_REACHABILITY_VERDICT.PRESENT]:
+    "spx is on PATH; no version floor is configured to compare against, so only presence is reported.",
   [SPX_REACHABILITY_VERDICT.BELOW_FLOOR]: "Update spx to at least the required floor (pnpm add -g @outcomeeng/spx).",
   [SPX_REACHABILITY_VERDICT.UNREACHABLE]: "Install spx and ensure it resolves on PATH (pnpm add -g @outcomeeng/spx).",
   [SPX_REACHABILITY_VERDICT.UNKNOWN]:
@@ -130,13 +133,21 @@ function record(
   };
 }
 
-/** Classifies the spx-reachability reading against the manifest floor into a check record. */
+/**
+ * Classifies the spx-reachability reading against the manifest floor into a
+ * check record. Presence is judged before the floor: an absent `spx` is broken
+ * regardless of the floor, and a present `spx` with no floor configured reports
+ * its presence and version rather than an unknown verdict.
+ */
 export function classifySpxReachability(reading: SpxReachabilityReading, floor: string | undefined): CheckRecord {
-  if (reading.errored || floor === undefined) {
+  if (reading.errored) {
     return record(SPX_REACHABILITY_VERDICT.UNKNOWN, VERDICT_BUCKET.UNKNOWN, reading, floor);
   }
   if (reading.resolvedPath === null) {
     return record(SPX_REACHABILITY_VERDICT.UNREACHABLE, VERDICT_BUCKET.BROKEN, reading, floor);
+  }
+  if (floor === undefined) {
+    return record(SPX_REACHABILITY_VERDICT.PRESENT, VERDICT_BUCKET.HEALTHY, reading, floor);
   }
   if (reading.version === null) {
     return record(SPX_REACHABILITY_VERDICT.UNKNOWN, VERDICT_BUCKET.UNKNOWN, reading, floor);
