@@ -16,11 +16,13 @@ import {
   defaultWorktreePoolProbe,
 } from "@/commands/diagnose/probes";
 import { defaultSpxReachabilityProbe } from "@/commands/diagnose/spx-reachability-probe";
+import { resolveConfig } from "@/config/index";
 import { marketplaceInstallRunner } from "@/domains/diagnose/checks/marketplace-install";
 import { sessionEnvironmentRunner } from "@/domains/diagnose/checks/session-environment";
 import { sessionStoreRunner } from "@/domains/diagnose/checks/session-store";
 import { spxReachabilityRunner } from "@/domains/diagnose/checks/spx-reachability";
 import { worktreePoolRunner } from "@/domains/diagnose/checks/worktree-pool";
+import { type DiagnoseConfig, diagnoseConfigDescriptor } from "@/domains/diagnose/config";
 import type { CheckRegistry } from "@/domains/diagnose/engine";
 import { CHECK_NAME } from "@/domains/diagnose/manifest";
 import { DIAGNOSE_FORMAT, type DiagnoseFormat } from "@/domains/diagnose/report";
@@ -65,7 +67,10 @@ export const diagnoseDomain: Domain = {
     program
       .command(DIAGNOSE_CLI.COMMAND)
       .description(DIAGNOSE_DOMAIN_DESCRIPTION)
-      .requiredOption(`${DIAGNOSE_CLI.MANIFEST_FLAG} <path>`, "Path to the declarative diagnose manifest")
+      .option(
+        `${DIAGNOSE_CLI.MANIFEST_FLAG} <path>`,
+        "Path to a declarative diagnose manifest that fully instruments the diagnosis",
+      )
       .addOption(
         new Option(`${DIAGNOSE_CLI.FORMAT_FLAG} <format>`, "Output format")
           .choices([DIAGNOSE_FORMAT.TEXT, DIAGNOSE_FORMAT.JSON])
@@ -73,9 +78,15 @@ export const diagnoseDomain: Domain = {
       )
       .addOption(new Option(`${DIAGNOSE_CLI.COLOR_FLAG}`, "Force colored output"))
       .addOption(new Option(`${DIAGNOSE_CLI.NO_COLOR_FLAG}`, "Disable colored output"))
-      .action(async (options: { manifest: string; format: DiagnoseFormat; color?: boolean }) => {
+      .action(async (options: { manifest?: string; format: DiagnoseFormat; color?: boolean }) => {
+        const productDir = process.cwd();
+        const loaded = await resolveConfig(productDir, [diagnoseConfigDescriptor]);
+        if (!loaded.ok) handleError(loaded.error);
+        const config = loaded.value[diagnoseConfigDescriptor.section] as DiagnoseConfig;
+
         const result = await diagnoseCommand({
           manifestPath: options.manifest,
+          config,
           format: options.format,
           color: resolveColorChoice({
             flag: options.color,

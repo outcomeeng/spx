@@ -89,8 +89,9 @@ export function classifyMarketplaceInstall(reading: MarketplaceInstallReading): 
 export function marketplaceInstallRunner(probe: MarketplaceInstallProbe): CheckRunner {
   return async (manifest) => {
     if (manifest.marketplace === undefined || manifest.expectedPlugins === undefined) {
-      // Unreachable in production: parseManifest rejects a marketplace-install manifest without these facts.
-      // With no marketplace to probe, the not-applicable verdict is the honest reading, not an error.
+      // Safe default: with no marketplace facts resolved from manifest or config, there is nothing to
+      // probe against, so not-applicable is the honest reading rather than an error. An explicit
+      // manifest still supplies these facts (parseManifest rejects a marketplace-install manifest without them).
       return classifyMarketplaceInstall({ errored: false, surfacePresent: false, unregistered: false, drifted: false });
     }
     return classifyMarketplaceInstall(await probe.probe(manifest.marketplace, manifest.expectedPlugins));
