@@ -16,7 +16,7 @@ CAN deterministically self-diagnose a misconfigured environment by running `spx 
 
 - The overall verdict folds the per-check verdicts by the precedence broken > unknown > degraded > healthy, excluding not-applicable, and is healthy when every check is not-applicable ([test](tests/fold.mapping.l1.test.ts))
 - The process exit code maps the overall verdict — healthy to 0, degraded to 1, unknown to 2, broken to 3 ([test](tests/exit-code.mapping.l1.test.ts))
-- The pipeline runs exactly the check set the manifest names, in manifest order ([test](tests/check-selection.mapping.l1.test.ts))
+- The pipeline runs exactly the resolved check set, in the order the resolved facts supply it ([test](tests/check-selection.mapping.l1.test.ts))
 
 ### Conformance
 
