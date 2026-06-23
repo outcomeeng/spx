@@ -3,6 +3,7 @@ import type { Command } from "commander";
 import {
   allCommand,
   circularCommand,
+  formattingCommand,
   knipCommand,
   lintCommand,
   LITERAL_PROBLEM_KIND,
@@ -37,6 +38,7 @@ interface ValidationCliDefinition {
     readonly knip: ValidationSubcommandDefinition;
     readonly literal: ValidationSubcommandDefinition;
     readonly markdown: ValidationSubcommandDefinition;
+    readonly format: ValidationSubcommandDefinition;
     readonly all: ValidationSubcommandDefinition;
   };
   readonly commanderHelpOperands: {
@@ -88,6 +90,10 @@ export const validationCliDefinition: ValidationCliDefinition = {
       commandName: "markdown",
       alias: "md",
       description: "Validate markdown link integrity and structure",
+    },
+    format: {
+      commandName: "format",
+      description: "Check code formatting with dprint",
     },
     all: {
       commandName: "all",
@@ -348,6 +354,19 @@ function registerValidationCommands(validationCmd: Command): void {
       process.exit(result.exitCode);
     });
   addCommonOptions(markdownCmd);
+
+  // format command
+  const formatCmd = addValidationSubcommand(validationCmd, subcommands.format)
+    .action(async (options: CommonOptions) => {
+      const result = await formattingCommand({
+        cwd: process.cwd(),
+        files: options.files,
+        quiet: options.quiet,
+      });
+      if (result.output) console.log(result.output);
+      process.exit(result.exitCode);
+    });
+  addCommonOptions(formatCmd);
 
   // all command
   const allCmd = addValidationSubcommand(validationCmd, subcommands.all)
