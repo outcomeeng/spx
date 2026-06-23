@@ -1,13 +1,5 @@
 # Worktree CLI Issues
 
-## Duplicate Resolved Status Targets
-
-`spx worktree status` can receive more than one path argument that resolves to the same worktree root, such as the root path and a file path inside it. The current multi-target behavior reports one occupancy record per resolving argument, so duplicate resolved roots can produce duplicate records.
-
-Revisit when specifying duplicate-target semantics for multi-target status. Decide whether `status [worktree...]` preserves one output per input argument or de-duplicates after git worktree-root resolution while preserving first-seen order.
-
-Evidence: GitHub PR #193 review comment on `spx/38-worktree.enabler/43-worktree-cli.enabler`.
-
 ## Codex hook integration has no reliable controlling-process contract
 
 The installed spec-tree plugin invokes `spx worktree claim --session-id <session-id>` from `SessionStart` and from `PreToolUse` repair. The hook passes the session identity but no explicit holder process identity. `spx worktree claim` therefore infers the holder by walking the hook subprocess ancestry for an agent command name, then falling back to the immediate parent. In Codex, live repair sometimes reports `Error: worktree controlling process could not be resolved`, and sometimes reports successful repair on every tool use because the claim records a transient hook-side process that is gone by the next `PreToolUse`.
