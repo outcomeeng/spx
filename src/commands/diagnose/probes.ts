@@ -69,14 +69,15 @@ function worktreeStatusOf(stdout: string): OccupancyStatus | null {
   }
 }
 
-/** Resolves the worktree layout from git plus the per-worktree `spx worktree status` occupancy. */
+/** Resolves the worktree layout from git plus the per-worktree `spx worktree status` occupancy counts. */
 export const defaultWorktreePoolProbe: WorktreePoolProbe = {
   async probe(): Promise<WorktreePoolReading> {
     const errored: WorktreePoolReading = {
       errored: true,
       bareRepository: false,
       linkedWorktrees: false,
-      staleClaim: false,
+      running: 0,
+      free: 0,
     };
     const facts = await gatherGitFacts();
     if (!facts?.worktreeListRead) return errored;
@@ -85,24 +86,23 @@ export const defaultWorktreePoolProbe: WorktreePoolProbe = {
     const paths = facts.worktreeRoots;
     const linkedWorktrees = !bareRepository && paths.length > 1;
 
-    // Occupancy comes only from spx; with spx unreachable the stale-claim
-    // reading is unknowable, so degrade to errored rather than affirm a
-    // compliant pool whose claims went unchecked.
+    // Occupancy counts come only from spx; with spx unreachable the running/free
+    // split is unknowable, so degrade to errored rather than report counts whose
+    // per-worktree occupancy went unchecked.
     const spx = resolveSpx();
     if (spx === null) return errored;
 
-    let staleClaim = false;
+    let running = 0;
+    let free = 0;
     for (const path of paths) {
       const status = await runCapture(spx, ["worktree", "status", path, "--format", "json"]);
       if (!status.ok) return errored;
       const occupancy = worktreeStatusOf(status.stdout);
       if (occupancy === null) return errored;
-      if (occupancy === OCCUPANCY_STATUS.STALE) {
-        staleClaim = true;
-        break;
-      }
+      if (occupancy === OCCUPANCY_STATUS.RUNNING) running += 1;
+      else free += 1;
     }
-    return { errored: false, bareRepository, linkedWorktrees, staleClaim };
+    return { errored: false, bareRepository, linkedWorktrees, running, free };
   },
 };
 
@@ -118,27 +118,26 @@ export const defaultSessionEnvironmentProbe: SessionEnvironmentProbe = {
     const hookPresent = HOOK_SESSION_START_ENV.CLAUDE_WORKTREE_CLAIMED in process.env;
     const sessionIdentity = resolveAgentSessionId(process.env) !== undefined;
 
-    // The worktree-claim and round-trip readings come only from spx; with spx
-    // unreachable they are unknowable, so degrade to errored rather than affirm
-    // an unclaimed worktree the probe never checked.
+    // The worktree occupancy reading comes only from spx; with spx unreachable it
+    // is unknowable, so degrade to errored rather than affirm a `free` worktree
+    // the probe never checked.
     const spx = resolveSpx();
     if (spx === null) {
-      return { errored: true, hookPresent, sessionIdentity, worktreeClaimed: false, roundTripStale: false };
+      return { errored: true, hookPresent, sessionIdentity, worktreeClaimed: false };
     }
     const status = await runCapture(spx, ["worktree", "status", "--format", "json"]);
     if (!status.ok) {
-      return { errored: true, hookPresent, sessionIdentity, worktreeClaimed: false, roundTripStale: false };
+      return { errored: true, hookPresent, sessionIdentity, worktreeClaimed: false };
     }
     const occupancy = worktreeStatusOf(status.stdout);
     if (occupancy === null) {
-      return { errored: true, hookPresent, sessionIdentity, worktreeClaimed: false, roundTripStale: false };
+      return { errored: true, hookPresent, sessionIdentity, worktreeClaimed: false };
     }
     return {
       errored: false,
       hookPresent,
       sessionIdentity,
-      worktreeClaimed: occupancy === OCCUPANCY_STATUS.OCCUPIED,
-      roundTripStale: occupancy === OCCUPANCY_STATUS.STALE,
+      worktreeClaimed: occupancy === OCCUPANCY_STATUS.RUNNING,
     };
   },
 };
@@ -154,10 +153,10 @@ async function claimedSessionIds(): Promise<ReadonlySet<string> | null> {
   for (const path of facts.worktreeRoots) {
     const claim = await readClaim(worktreesDir, worktreeClaimName(path), { fs: defaultOccupancyFileSystem });
     if (!claim.ok || claim.value === undefined) continue;
-    // Only a live (occupied) claim backs a doing session; a stale claim leaves it orphaned.
+    // Only a live (running) claim backs a doing session; a free worktree leaves it orphaned.
     // Normalize the claim id the same way handoff normalizes agent_session_id, so the
     // join matches on the canonical token rather than diverging on an unsafe raw id.
-    if (classifyOccupancy(claim.value, defaultProcessTable) === OCCUPANCY_STATUS.OCCUPIED) {
+    if (classifyOccupancy(claim.value, defaultProcessTable) === OCCUPANCY_STATUS.RUNNING) {
       sessionIds.add(normalizeAgentSessionToken(claim.value.sessionId));
     }
   }

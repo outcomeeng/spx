@@ -24,7 +24,7 @@ export type SessionStoreVerdict = (typeof SESSION_STORE_VERDICT)[keyof typeof SE
 export interface SessionStoreReading {
   /** True when a command errored. */
   readonly errored: boolean;
-  /** The number of doing sessions whose backing worktree is stale or absent. */
+  /** The number of doing sessions whose backing worktree reads `free` or is absent. */
   readonly orphanedClaims: number;
 }
 
@@ -36,7 +36,7 @@ export interface SessionStoreProbe {
 const REMEDIATION: Readonly<Record<SessionStoreVerdict, string>> = {
   [SESSION_STORE_VERDICT.CONSISTENT]: "Session store is consistent; no action needed.",
   [SESSION_STORE_VERDICT.ORPHANED_CLAIMS]:
-    "Release or reclaim doing sessions whose backing worktree is stale or absent (spx session release).",
+    "Release or reclaim doing sessions whose backing worktree reads free or is absent (spx session release).",
   [SESSION_STORE_VERDICT.UNKNOWN]: "Re-run diagnose; if it persists, inspect spx session list and spx worktree status.",
 };
 

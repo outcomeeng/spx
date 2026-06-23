@@ -12,11 +12,10 @@ const reading = (overrides: Partial<SessionEnvironmentReading>): SessionEnvironm
   hookPresent: true,
   sessionIdentity: false,
   worktreeClaimed: false,
-  roundTripStale: false,
   ...overrides,
 });
 
-describe("the session-environment check classifies the SessionStart round-trip", () => {
+describe("the session-environment check classifies the SessionStart worktree occupancy", () => {
   it.each([
     {
       overrides: { hookPresent: false },
@@ -26,11 +25,6 @@ describe("the session-environment check classifies the SessionStart round-trip",
     { overrides: { errored: true }, verdict: SESSION_ENVIRONMENT_VERDICT.UNKNOWN, bucket: VERDICT_BUCKET.UNKNOWN },
     {
       overrides: { errored: true, sessionIdentity: true },
-      verdict: SESSION_ENVIRONMENT_VERDICT.UNKNOWN,
-      bucket: VERDICT_BUCKET.UNKNOWN,
-    },
-    {
-      overrides: { sessionIdentity: true, worktreeClaimed: true, roundTripStale: true },
       verdict: SESSION_ENVIRONMENT_VERDICT.UNKNOWN,
       bucket: VERDICT_BUCKET.UNKNOWN,
     },
