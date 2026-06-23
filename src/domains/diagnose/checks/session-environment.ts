@@ -31,10 +31,8 @@ export interface SessionEnvironmentReading {
   readonly hookPresent: boolean;
   /** True when the agent session identity resolved. */
   readonly sessionIdentity: boolean;
-  /** True when the current worktree carries an occupancy claim. */
+  /** True when the current worktree reads `running` — a live process holds its claim. */
   readonly worktreeClaimed: boolean;
-  /** True when the `spx worktree status` round-trip is stale relative to the claim. */
-  readonly roundTripStale: boolean;
 }
 
 /** The injected boundary that gathers the session-environment reading. */
@@ -66,7 +64,6 @@ function record(
       hook: String(reading.hookPresent),
       identity: String(reading.sessionIdentity),
       claimed: String(reading.worktreeClaimed),
-      stale: String(reading.roundTripStale),
     },
     remediation: REMEDIATION[verdict],
   };
@@ -77,7 +74,7 @@ export function classifySessionEnvironment(reading: SessionEnvironmentReading): 
   if (!reading.hookPresent) {
     return record(SESSION_ENVIRONMENT_VERDICT.NOT_APPLICABLE, VERDICT_BUCKET.NOT_APPLICABLE, reading);
   }
-  if (reading.errored || reading.roundTripStale) {
+  if (reading.errored) {
     return record(SESSION_ENVIRONMENT_VERDICT.UNKNOWN, VERDICT_BUCKET.UNKNOWN, reading);
   }
   if (reading.sessionIdentity && reading.worktreeClaimed) {

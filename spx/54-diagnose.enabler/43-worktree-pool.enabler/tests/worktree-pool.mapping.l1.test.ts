@@ -11,11 +11,12 @@ const reading = (overrides: Partial<WorktreePoolReading>): WorktreePoolReading =
   errored: false,
   bareRepository: false,
   linkedWorktrees: false,
-  staleClaim: false,
+  running: 0,
+  free: 0,
   ...overrides,
 });
 
-describe("the worktree-pool check classifies the layout from git worktree list and occupancy", () => {
+describe("the worktree-pool check classifies the layout from git worktree list and core.bare", () => {
   it.each([
     { overrides: { errored: true }, verdict: WORKTREE_POOL_VERDICT.UNKNOWN, bucket: VERDICT_BUCKET.UNKNOWN },
     {
@@ -23,12 +24,6 @@ describe("the worktree-pool check classifies the layout from git worktree list a
       verdict: WORKTREE_POOL_VERDICT.NON_COMPLIANT,
       bucket: VERDICT_BUCKET.BROKEN,
     },
-    {
-      overrides: { bareRepository: true, staleClaim: true },
-      verdict: WORKTREE_POOL_VERDICT.STALE_CLAIMS,
-      bucket: VERDICT_BUCKET.DEGRADED,
-    },
-    { overrides: { staleClaim: true }, verdict: WORKTREE_POOL_VERDICT.STALE_CLAIMS, bucket: VERDICT_BUCKET.DEGRADED },
     { overrides: { bareRepository: true }, verdict: WORKTREE_POOL_VERDICT.COMPLIANT, bucket: VERDICT_BUCKET.HEALTHY },
     {
       overrides: { bareRepository: true, linkedWorktrees: true },
@@ -43,8 +38,18 @@ describe("the worktree-pool check classifies the layout from git worktree list a
     expect(result.remediation.length).toBeGreaterThan(0);
   });
 
-  it("ranks a non-bare repository with linked worktrees as non-compliant even when a claim is stale", () => {
-    const result = classifyWorktreePool(reading({ linkedWorktrees: true, staleClaim: true }));
+  it("ranks a non-bare repository with linked worktrees as non-compliant whatever the occupancy", () => {
+    const result = classifyWorktreePool(reading({ linkedWorktrees: true, running: 2, free: 3 }));
     expect(result.verdict).toBe(WORKTREE_POOL_VERDICT.NON_COMPLIANT);
+  });
+
+  it("reports the running and free counts as information and never degrades on free worktrees", () => {
+    const running = 2;
+    const free = 4;
+    const result = classifyWorktreePool(reading({ bareRepository: true, running, free }));
+    expect(result.verdict).toBe(WORKTREE_POOL_VERDICT.COMPLIANT);
+    expect(result.bucket).toBe(VERDICT_BUCKET.HEALTHY);
+    expect(result.readings.running).toBe(String(running));
+    expect(result.readings.free).toBe(String(free));
   });
 });

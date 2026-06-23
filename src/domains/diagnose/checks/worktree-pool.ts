@@ -1,9 +1,12 @@
 /**
  * The worktree-pool diagnose check — classifies the git worktree layout from
- * `git worktree list` and the per-worktree `spx worktree status` occupancy. The
- * classification is pure over the gathered reading; the reading is obtained
- * through a dependency-injected probe so the check verifies over controlled
- * readings without a real repository.
+ * `git worktree list` and `git config --get core.bare`, and reports how many
+ * worktrees are `running` versus `free` from the per-worktree `spx worktree
+ * status` occupancy as information. Occupancy never degrades the verdict: a
+ * `free` worktree — never claimed or holding a dead holder's residual claim —
+ * is a healthy resting state, not a fault. The classification is pure over the
+ * gathered reading; the reading is obtained through a dependency-injected probe
+ * so the check verifies over controlled readings without a real repository.
  *
  * @module domains/diagnose/checks/worktree-pool
  */
@@ -15,7 +18,6 @@ import { type CheckRecord, VERDICT_BUCKET } from "@/domains/diagnose/types";
 /** The worktree-pool verdict labels. */
 export const WORKTREE_POOL_VERDICT = {
   COMPLIANT: "compliant",
-  STALE_CLAIMS: "stale-claims",
   NON_COMPLIANT: "non-compliant",
   UNKNOWN: "unknown",
 } as const;
@@ -30,8 +32,10 @@ export interface WorktreePoolReading {
   readonly bareRepository: boolean;
   /** True when linked worktrees are attached beyond the main working tree. */
   readonly linkedWorktrees: boolean;
-  /** True when any worktree's occupancy is stale. */
-  readonly staleClaim: boolean;
+  /** The count of worktrees a live process holds (`running`). */
+  readonly running: number;
+  /** The count of worktrees with no live holder (`free`). */
+  readonly free: number;
 }
 
 /** The injected boundary that gathers the worktree-pool reading. */
@@ -41,8 +45,6 @@ export interface WorktreePoolProbe {
 
 const REMEDIATION: Readonly<Record<WorktreePoolVerdict, string>> = {
   [WORKTREE_POOL_VERDICT.COMPLIANT]: "Worktree layout is compliant; no action needed.",
-  [WORKTREE_POOL_VERDICT.STALE_CLAIMS]:
-    "Release stale worktree claims (spx worktree release) or remove dead worktrees.",
   [WORKTREE_POOL_VERDICT.NON_COMPLIANT]:
     "Linked worktrees require a bare-repository pool; convert the layout or remove the linked worktrees.",
   [WORKTREE_POOL_VERDICT.UNKNOWN]:
@@ -61,22 +63,25 @@ function record(
     readings: {
       bare: String(reading.bareRepository),
       linked: String(reading.linkedWorktrees),
-      stale: String(reading.staleClaim),
+      running: String(reading.running),
+      free: String(reading.free),
     },
     remediation: REMEDIATION[verdict],
   };
 }
 
-/** Classifies the worktree-pool reading into a check record. */
+/**
+ * Classifies the worktree-pool reading into a check record. The verdict is a
+ * function of layout alone — linked worktrees on a non-bare repository are
+ * broken, every other resolved layout is compliant — and never of occupancy:
+ * the `running`/`free` counts are reported as information, not as a fault.
+ */
 export function classifyWorktreePool(reading: WorktreePoolReading): CheckRecord {
   if (reading.errored) {
     return record(WORKTREE_POOL_VERDICT.UNKNOWN, VERDICT_BUCKET.UNKNOWN, reading);
   }
   if (!reading.bareRepository && reading.linkedWorktrees) {
     return record(WORKTREE_POOL_VERDICT.NON_COMPLIANT, VERDICT_BUCKET.BROKEN, reading);
-  }
-  if (reading.staleClaim) {
-    return record(WORKTREE_POOL_VERDICT.STALE_CLAIMS, VERDICT_BUCKET.DEGRADED, reading);
   }
   return record(WORKTREE_POOL_VERDICT.COMPLIANT, VERDICT_BUCKET.HEALTHY, reading);
 }
