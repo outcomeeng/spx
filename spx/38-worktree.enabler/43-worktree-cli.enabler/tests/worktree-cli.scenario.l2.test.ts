@@ -1,4 +1,4 @@
-import { mkdir } from "node:fs/promises";
+import { mkdir, writeFile } from "node:fs/promises";
 import { join } from "node:path";
 
 import { describe, expect, it } from "vitest";
@@ -53,6 +53,31 @@ describe("worktree CLI occupancy round-trip", () => {
         expect(status.stdout).not.toContain(absentName);
       },
     );
+  });
+
+  it("reports a resolved worktree once when multiple path forms denote it", async () => {
+    const [worktreeName, subdir] = sampleWorktreeTestValue(WORKTREE_TEST_GENERATOR.distinctPoolWorktreeNames());
+    const fileName = sampleWorktreeTestValue(WORKTREE_TEST_GENERATOR.writeToken());
+
+    await withWorktreeLayoutEnv({ bare: true, worktrees: [{ name: worktreeName }] }, async (layout) => {
+      const worktreePath = layout.worktree(worktreeName);
+      const subdirPath = join(worktreePath, subdir);
+      const filePath = join(subdirPath, fileName);
+      await mkdir(subdirPath);
+      await writeFile(filePath, fileName);
+
+      const status = await runWorktreeCli(
+        [WORKTREE_CLI.COMMAND, WORKTREE_CLI.STATUS, worktreePath, filePath],
+        {},
+        layout.container,
+      );
+
+      expect(status.exitCode).toBe(0);
+      expect(status.stderr).toHaveLength(0);
+      expect(status.stdout.trim().split("\n")).toEqual([
+        `${worktreeClaimName(worktreePath)} ${OCCUPANCY_STATUS.UNCLAIMED}`,
+      ]);
+    });
   });
 
   it("reports the claimed worktree occupied across path forms and refuses a non-worktree path", async () => {

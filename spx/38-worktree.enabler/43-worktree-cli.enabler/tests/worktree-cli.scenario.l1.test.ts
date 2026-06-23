@@ -1,4 +1,5 @@
-import { basename } from "node:path";
+import { mkdir, writeFile } from "node:fs/promises";
+import { basename, join } from "node:path";
 
 import { describe, expect, it } from "vitest";
 
@@ -124,6 +125,36 @@ describe("worktree command handlers", () => {
       expect(stale.ok).toBe(true);
       if (!stale.ok) throw new Error(stale.error);
       expect(stale.value).toContain(OCCUPANCY_STATUS.STALE);
+    });
+  });
+
+  it("reports duplicate resolved status targets once in first-seen order", async () => {
+    const [worktreeName, subdir] = sampleWorktreeTestValue(WORKTREE_TEST_GENERATOR.distinctPoolWorktreeNames());
+    const fileName = sampleWorktreeTestValue(WORKTREE_TEST_GENERATOR.writeToken());
+    const holder = sampleWorktreeTestValue(WORKTREE_TEST_GENERATOR.poolHolder());
+
+    await withWorktreePool({ worktreeName, holder }, async (env) => {
+      const subdirPath = join(env.worktreePath, subdir);
+      const filePath = join(subdirPath, fileName);
+      await mkdir(subdirPath);
+      await writeFile(filePath, fileName);
+
+      const status = await statusCommand({
+        worktrees: [env.worktreePath, filePath, subdirPath],
+        cwd: env.worktreePath,
+        fs: env.fs,
+        gitDeps: defaultGitDependencies,
+        worktreesDir: env.worktreesDir,
+        processTable: env.processTable,
+        format: WORKTREE_STATUS_FORMAT.JSON,
+        pathInfo: defaultWorktreePathInfo,
+      });
+
+      expect(status.ok).toBe(true);
+      if (!status.ok) throw new Error(status.error);
+      expect(JSON.parse(status.value)).toEqual([
+        { worktree: worktreeClaimName(env.worktreePath), status: OCCUPANCY_STATUS.UNCLAIMED },
+      ]);
     });
   });
 

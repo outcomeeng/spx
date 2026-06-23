@@ -1,4 +1,4 @@
-import { readdir } from "node:fs/promises";
+import { mkdir, readdir, writeFile } from "node:fs/promises";
 
 import { join } from "node:path";
 
@@ -96,6 +96,37 @@ describe("worktree CLI compliance", () => {
         ]);
       },
     );
+  });
+
+  it("ALWAYS: multi-target status --format json de-duplicates resolved worktree roots", async () => {
+    const [worktreeName, subdir] = sampleWorktreeTestValue(WORKTREE_TEST_GENERATOR.distinctPoolWorktreeNames());
+    const fileName = sampleWorktreeTestValue(WORKTREE_TEST_GENERATOR.writeToken());
+
+    await withWorktreeLayoutEnv({ bare: true, worktrees: [{ name: worktreeName }] }, async (layout) => {
+      const worktreePath = layout.worktree(worktreeName);
+      const subdirPath = join(worktreePath, subdir);
+      const filePath = join(subdirPath, fileName);
+      await mkdir(subdirPath);
+      await writeFile(filePath, fileName);
+
+      const result = await runWorktreeCli(
+        [
+          WORKTREE_CLI.COMMAND,
+          WORKTREE_CLI.STATUS,
+          WORKTREE_CLI.FORMAT_FLAG,
+          WORKTREE_STATUS_FORMAT.JSON,
+          worktreePath,
+          filePath,
+        ],
+        {},
+        layout.container,
+      );
+
+      expect(result.exitCode).toBe(0);
+      expect(JSON.parse(result.stdout)).toEqual([
+        { worktree: worktreeClaimName(worktreePath), status: OCCUPANCY_STATUS.UNCLAIMED },
+      ]);
+    });
   });
 
   it("ALWAYS: multi-target status --format json returns an array when one candidate resolves", async () => {
