@@ -3,7 +3,12 @@ import { readdir, readFile, writeFile } from "node:fs/promises";
 import { basename, join, sep } from "node:path";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 
-import { SessionWorkBranchNotOnOriginError } from "@/domains/session/errors";
+import {
+  SessionInvalidGoalError,
+  SessionInvalidJsonHeaderError,
+  SessionLegacyFrontmatterInputError,
+  SessionWorkBranchNotOnOriginError,
+} from "@/domains/session/errors";
 import {
   HANDOFF_BASE_FACT_LABEL,
   HANDOFF_BASE_MARK,
@@ -49,14 +54,14 @@ import { withWorktreeLayoutEnv } from "@testing/harnesses/worktree-layout/worktr
 const [TODO, DOING, ARCHIVE] = SESSION_STATUSES;
 
 /** A worktree-local branch and the linked worktree path the refusal wiring smoke provisions. */
-const LINKED_WORKTREE_BRANCH = "feature/linked-local";
-const LINKED_WORKTREE_RELATIVE_PATH = ".worktrees/linked";
+const linkedWorktreeBranch = "feature/linked-local";
+const linkedWorktreeRelativePath = ".worktrees/linked";
 /** The default branch the permitted-base smoke points `origin/HEAD` at. */
-const FIXTURE_DEFAULT_BRANCH = "main";
+const fixtureDefaultBranch = "main";
 /** The work-hiding remedy the refusal diagnostic must never surface at the CLI boundary. */
-const FORBIDDEN_STASH_REMEDY = "git stash";
+const forbiddenStashRemedy = "git stash";
 /** The fabricated placeholder an unresolved base must never render as at the CLI boundary. */
-const FORBIDDEN_ORIGIN_PLACEHOLDER = "origin/<default>";
+const forbiddenOriginPlaceholder = "origin/<default>";
 
 /** The rendered fact line for `label`, anchored to its label prefix so the header prose never matches. */
 function factLine(stderr: string, label: string): string {
@@ -76,7 +81,7 @@ function prerequisiteLine(stderr: string, label: string): string {
 }
 
 /**
- * Seeds a commit and points `origin/HEAD` at `origin/<FIXTURE_DEFAULT_BRANCH>` = the seed commit,
+ * Seeds a commit and points `origin/HEAD` at `origin/<fixtureDefaultBranch>` = the seed commit,
  * so the handler's default-branch and origin-tip collection resolve to real values. Returns the
  * resolved tip SHA. Shared by the permitted (detached-at-tip) and refused (on-branch) origin smokes.
  */
@@ -88,7 +93,7 @@ async function seedResolvedOrigin(gitEnv: GitWorktreeEnv): Promise<string> {
     SESSION_FIXTURE_COMMIT_MESSAGE,
   ]);
   const tipSha = await gitEnv.runGit([...GIT_HEAD_SHA_ARGS]);
-  const originDefaultRef = `${GIT_TEST_REF.REMOTE_ORIGIN_PREFIX}${FIXTURE_DEFAULT_BRANCH}`;
+  const originDefaultRef = `${GIT_TEST_REF.REMOTE_ORIGIN_PREFIX}${fixtureDefaultBranch}`;
   await gitEnv.runGit([GIT_TEST_SUBCOMMANDS.UPDATE_REF, originDefaultRef, tipSha]);
   await gitEnv.runGit([
     GIT_TEST_SUBCOMMANDS.SYMBOLIC_REF,
@@ -110,13 +115,13 @@ async function addLinkedWorktreeOnBranch(gitEnv: GitWorktreeEnv): Promise<string
     GIT_TEST_FLAGS.COMMIT_MESSAGE,
     SESSION_FIXTURE_COMMIT_MESSAGE,
   ]);
-  await gitEnv.runGit([GIT_TEST_SUBCOMMANDS.BRANCH, LINKED_WORKTREE_BRANCH]);
-  const linkedWorktreeDir = join(gitEnv.productDir, LINKED_WORKTREE_RELATIVE_PATH);
+  await gitEnv.runGit([GIT_TEST_SUBCOMMANDS.BRANCH, linkedWorktreeBranch]);
+  const linkedWorktreeDir = join(gitEnv.productDir, linkedWorktreeRelativePath);
   await gitEnv.runGit([
     GIT_TEST_SUBCOMMANDS.WORKTREE,
     GIT_TEST_SUBCOMMANDS.ADD,
     linkedWorktreeDir,
-    LINKED_WORKTREE_BRANCH,
+    linkedWorktreeBranch,
   ]);
   return linkedWorktreeDir;
 }
@@ -126,7 +131,7 @@ async function addLinkedWorktreeOnBranch(gitEnv: GitWorktreeEnv): Promise<string
  * remote (no repository name to designate a worktree), and one whose `origin` names a repository
  * but whose named worktree is absent. Both must render the main-checkout fact line unresolved.
  */
-const UNRESOLVED_BARE_POOL_CASES: ReadonlyArray<{
+const unresolvedBarePoolCases: ReadonlyArray<{
   readonly label: string;
   readonly arbitrary: typeof arbitraryBarePoolWithoutOriginLayoutCase;
 }> = [
@@ -267,15 +272,15 @@ describe("session CLI compliance", () => {
       );
 
       expect(omitsGoal.exitCode).toBe(1);
-      expect(omitsGoal.stderr).toContain("SessionInvalidGoalError");
+      expect(omitsGoal.stderr).toContain(SessionInvalidGoalError.name);
       expect(await readdir(harness.statusDir(TODO))).toEqual([]);
 
       expect(legacyYaml.exitCode).toBe(1);
-      expect(legacyYaml.stderr).toContain("SessionLegacyFrontmatterInputError");
+      expect(legacyYaml.stderr).toContain(SessionLegacyFrontmatterInputError.name);
       expect(await readdir(harness.statusDir(TODO))).toEqual([]);
 
       expect(malformedJson.exitCode).toBe(1);
-      expect(malformedJson.stderr).toContain("SessionInvalidJsonHeaderError");
+      expect(malformedJson.stderr).toContain(SessionInvalidJsonHeaderError.name);
       expect(await readdir(harness.statusDir(TODO))).toEqual([]);
     });
   });
@@ -401,7 +406,7 @@ describe("session CLI handoff-base wiring", () => {
       // invariant to the temp-dir realpath prefix), and — with no origin — the default branch
       // and tip stated as unresolved rather than fabricated.
       expect(factLine(result.stderr, HANDOFF_BASE_FACT_LABEL.CURRENT_WORKTREE)).toContain(
-        LINKED_WORKTREE_RELATIVE_PATH,
+        linkedWorktreeRelativePath,
       );
       expect(factLine(result.stderr, HANDOFF_BASE_FACT_LABEL.MAIN_CHECKOUT)).toContain(basename(gitEnv.productDir));
       expect(factLine(result.stderr, HANDOFF_BASE_FACT_LABEL.DEFAULT_BRANCH).trim()).toBe(
@@ -412,8 +417,8 @@ describe("session CLI handoff-base wiring", () => {
       );
       // CLI-boundary invariants: the diagnostic the descriptor writes never directs the agent to
       // stash, and an unresolved base never fabricates the literal placeholder.
-      expect(result.stderr).not.toContain(FORBIDDEN_STASH_REMEDY);
-      expect(result.stderr).not.toContain(FORBIDDEN_ORIGIN_PLACEHOLDER);
+      expect(result.stderr).not.toContain(forbiddenStashRemedy);
+      expect(result.stderr).not.toContain(forbiddenOriginPlaceholder);
       expect(await readdir(harness.statusDir(TODO))).toEqual([]);
     });
   });
@@ -443,7 +448,7 @@ describe("session CLI handoff-base wiring", () => {
       expect(result.exitCode).toBe(0);
       expect(result.stdout).toMatch(HANDOFF_ID_TAG_PATTERN);
       expect(result.stdout).toMatch(SESSION_FILE_TAG_PATTERN);
-      expect(result.stderr.trim()).toBe("");
+      expect(result.stderr.trim()).toHaveLength(0);
       expect(await readdir(harness.statusDir(TODO))).toHaveLength(1);
     });
   });
@@ -465,7 +470,7 @@ describe("session CLI handoff-base wiring", () => {
     });
   });
 
-  it.each(UNRESOLVED_BARE_POOL_CASES)(
+  it.each(unresolvedBarePoolCases)(
     "bare pool with $label: the checklist renders the main-checkout path unresolved",
     async ({ arbitrary }) => {
       const layout = sampleMainCheckoutTestValue(arbitrary());
@@ -485,7 +490,7 @@ describe("session CLI handoff-base wiring", () => {
   it("permitted: a clean non-main worktree detached at the origin tip writes the session and no checklist", async () => {
     await withGitWorktreeEnv(async (gitEnv) => {
       const tipSha = await seedResolvedOrigin(gitEnv);
-      const linkedWorktreeDir = join(gitEnv.productDir, LINKED_WORKTREE_RELATIVE_PATH);
+      const linkedWorktreeDir = join(gitEnv.productDir, linkedWorktreeRelativePath);
       await gitEnv.runGit([
         GIT_TEST_SUBCOMMANDS.WORKTREE,
         GIT_TEST_SUBCOMMANDS.ADD,
@@ -499,7 +504,7 @@ describe("session CLI handoff-base wiring", () => {
       expect(result.exitCode).toBe(0);
       expect(result.stdout).toMatch(HANDOFF_ID_TAG_PATTERN);
       expect(result.stdout).toMatch(SESSION_FILE_TAG_PATTERN);
-      expect(result.stderr.trim()).toBe("");
+      expect(result.stderr.trim()).toHaveLength(0);
       expect(await readdir(harness.statusDir(TODO))).toHaveLength(1);
     });
   });
@@ -507,8 +512,8 @@ describe("session CLI handoff-base wiring", () => {
   it("refused with a resolved origin: the checklist names the real default branch and origin tip", async () => {
     await withGitWorktreeEnv(async (gitEnv) => {
       const tipSha = await seedResolvedOrigin(gitEnv);
-      await gitEnv.runGit([GIT_TEST_SUBCOMMANDS.BRANCH, LINKED_WORKTREE_BRANCH]);
-      const linkedWorktreeDir = join(gitEnv.productDir, LINKED_WORKTREE_RELATIVE_PATH);
+      await gitEnv.runGit([GIT_TEST_SUBCOMMANDS.BRANCH, linkedWorktreeBranch]);
+      const linkedWorktreeDir = join(gitEnv.productDir, linkedWorktreeRelativePath);
       // On a named branch (not detached) the at-tip prerequisite is unmet, so the base refuses
       // even though origin resolves — exercising the resolved-origin refused render the permitted
       // smoke cannot, since success emits no checklist.
@@ -516,7 +521,7 @@ describe("session CLI handoff-base wiring", () => {
         GIT_TEST_SUBCOMMANDS.WORKTREE,
         GIT_TEST_SUBCOMMANDS.ADD,
         linkedWorktreeDir,
-        LINKED_WORKTREE_BRANCH,
+        linkedWorktreeBranch,
       ]);
 
       const result = await runHandoffFrom(linkedWorktreeDir);
@@ -526,7 +531,7 @@ describe("session CLI handoff-base wiring", () => {
       // The default-branch and origin-tip fact lines carry the real collected values, proving the
       // git-to-facts collection of the resolved-origin facts reaches the rendered checklist.
       expect(factLine(result.stderr, HANDOFF_BASE_FACT_LABEL.DEFAULT_BRANCH).trim()).toBe(
-        `${HANDOFF_BASE_FACT_LABEL.DEFAULT_BRANCH}: ${FIXTURE_DEFAULT_BRANCH}`,
+        `${HANDOFF_BASE_FACT_LABEL.DEFAULT_BRANCH}: ${fixtureDefaultBranch}`,
       );
       expect(factLine(result.stderr, HANDOFF_BASE_FACT_LABEL.DEFAULT_TIP)).toContain(tipSha);
       // HEAD is the seed commit the branch was cut from, so the HEAD fact line carries it too —
@@ -587,7 +592,7 @@ describe("session CLI non-git warning", () => {
       expect(result.exitCode).not.toBe(0);
       expect(result.stderr).not.toContain(NOT_GIT_REPO_WARNING);
       expect(result.stderr).not.toContain(SESSION_HANDOFF_BASE_ERROR_NAME);
-      expect(result.stderr.trim()).toBe("");
+      expect(result.stderr.trim()).toHaveLength(0);
       expect(await readdir(env.statusDir(TODO))).toEqual([]);
     } finally {
       await env.cleanup();
@@ -599,7 +604,7 @@ describe("session CLI non-git warning", () => {
     try {
       const result = await runSessionCli([SESSION_DOMAIN, "list"], undefined, env.cwd);
 
-      expect(result.stderr.trim()).not.toBe("");
+      expect(result.stderr.trim()).not.toHaveLength(0);
       expect(result.stderr).not.toMatch(/creat/i);
     } finally {
       await env.cleanup();
@@ -676,7 +681,7 @@ describe("session CLI — JSON list output and field selection", () => {
     ]);
 
     expect(result.exitCode).not.toBe(0);
-    expect(result.stdout.trim()).toBe("");
+    expect(result.stdout.trim()).toHaveLength(0);
     expect(result.stderr).toContain(unknownToken);
     for (const field of Object.values(SESSION_RECORD_FIELD)) {
       expect(result.stderr).toContain(field);
@@ -690,7 +695,7 @@ describe("session CLI — JSON list output and field selection", () => {
     const result = await runSessionCli(["session", "list", "--fields", "", "--sessions-dir", harness.sessionsDir]);
 
     expect(result.exitCode).not.toBe(0);
-    expect(result.stdout.trim()).toBe("");
+    expect(result.stdout.trim()).toHaveLength(0);
     for (const field of Object.values(SESSION_RECORD_FIELD)) {
       expect(result.stderr).toContain(field);
     }
@@ -710,7 +715,7 @@ describe("session CLI — JSON list output and field selection", () => {
     ]);
 
     expect(result.exitCode).not.toBe(0);
-    expect(result.stdout.trim()).toBe("");
+    expect(result.stdout.trim()).toHaveLength(0);
     expect(result.stderr).toContain(FIELD_SELECTION_SEPARATOR);
     for (const field of Object.values(SESSION_RECORD_FIELD)) {
       expect(result.stderr).toContain(field);
@@ -821,7 +826,7 @@ describe("session CLI — JSON show output", () => {
   });
 });
 
-const LIST_COLOR_FIELDS = `${SESSION_RECORD_FIELD.ID}${FIELD_SELECTION_SEPARATOR}${SESSION_RECORD_FIELD.PRIORITY}`;
+const listColorFields = `${SESSION_RECORD_FIELD.ID}${FIELD_SELECTION_SEPARATOR}${SESSION_RECORD_FIELD.PRIORITY}`;
 
 /** A `spx session list`/`todo` invocation and whether its piped output should carry ANSI styling. */
 interface ListColorCase {
@@ -831,7 +836,7 @@ interface ListColorCase {
   readonly expectColor: boolean;
 }
 
-const LIST_COLOR_CASES: readonly ListColorCase[] = [
+const listColorCases: readonly ListColorCase[] = [
   { title: "piped session list emits no ANSI escape (pipe-safe)", args: ["session", "list"], expectColor: false },
   { title: "piped session todo emits no ANSI escape (pipe-safe)", args: ["session", "todo"], expectColor: false },
   {
@@ -848,7 +853,7 @@ const LIST_COLOR_CASES: readonly ListColorCase[] = [
   },
   {
     title: "the --fields path emits no ANSI escape even with --color",
-    args: ["session", "list", "--fields", LIST_COLOR_FIELDS, "--color"],
+    args: ["session", "list", "--fields", listColorFields, "--color"],
     expectColor: false,
   },
 ];
@@ -869,7 +874,7 @@ describe("session CLI list color compliance", () => {
     await harness.cleanup();
   });
 
-  it.each(LIST_COLOR_CASES)("ALWAYS: $title", async ({ args, env, expectColor }) => {
+  it.each(listColorCases)("ALWAYS: $title", async ({ args, env, expectColor }) => {
     const { stdout, exitCode } = await runSessionCli(
       [...args, "--sessions-dir", harness.sessionsDir],
       undefined,

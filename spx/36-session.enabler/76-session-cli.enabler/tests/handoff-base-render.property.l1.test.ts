@@ -17,18 +17,18 @@ import { arbitraryHandoffBaseChecklist } from "@testing/generators/session/hando
  * ref — an unresolved value is the {@link HANDOFF_BASE_UNRESOLVED} sentinel, never
  * a fabricated `origin/<default>`. Owned by this contract, not a domain value.
  */
-const FORBIDDEN_ORIGIN_PLACEHOLDER = "origin/<default>";
+const forbiddenOriginPlaceholder = "origin/<default>";
 
 /**
  * The work-hiding remedy the refusal must never suggest — a refused base directs
  * the agent to commit, detach, or hand off from the main checkout, never to stash.
  */
-const FORBIDDEN_STASH_REMEDY = "git stash";
+const forbiddenStashRemedy = "git stash";
 
 /** The header line, then the five resolved-fact lines, before any prerequisite lines. */
-const HEADER_LINE_COUNT = 1;
-const FACT_LINE_COUNT = 5;
-const FACT_LABEL_VALUE_SEPARATOR = ": ";
+const headerLineCount = 1;
+const factLineCount = 5;
+const factLabelValueSeparator = ": ";
 
 /** The five fact lines the renderer emits, in order, paired with the checklist field each carries. */
 function expectedFacts(checklist: HandoffBaseChecklist): ReadonlyArray<readonly [string, string | null]> {
@@ -44,10 +44,10 @@ function expectedFacts(checklist: HandoffBaseChecklist): ReadonlyArray<readonly 
 /** Splits a rendered fact line into its label and value at the first label-value separator. */
 function parseFactLine(line: string): { readonly label: string; readonly value: string } {
   const trimmed = line.trimStart();
-  const separator = trimmed.indexOf(FACT_LABEL_VALUE_SEPARATOR);
+  const separator = trimmed.indexOf(factLabelValueSeparator);
   return {
     label: trimmed.slice(0, separator),
-    value: trimmed.slice(separator + FACT_LABEL_VALUE_SEPARATOR.length),
+    value: trimmed.slice(separator + factLabelValueSeparator.length),
   };
 }
 
@@ -57,7 +57,7 @@ describe("renderHandoffBaseChecklist", () => {
       fc.property(arbitraryHandoffBaseChecklist(), (checklist) => {
         const lines = renderHandoffBaseChecklist(checklist).split("\n");
 
-        expect(lines).toHaveLength(HEADER_LINE_COUNT + FACT_LINE_COUNT + checklist.prerequisites.length);
+        expect(lines).toHaveLength(headerLineCount + factLineCount + checklist.prerequisites.length);
         expect(lines[0]).toContain(SESSION_HANDOFF_BASE_ERROR_NAME);
       }),
     );
@@ -70,7 +70,7 @@ describe("renderHandoffBaseChecklist", () => {
         const facts = expectedFacts(checklist);
 
         facts.forEach(([label, field], index) => {
-          const parsed = parseFactLine(lines[HEADER_LINE_COUNT + index]);
+          const parsed = parseFactLine(lines[headerLineCount + index]);
           expect(parsed.label).toBe(label);
           expect(parsed.value).toBe(field ?? HANDOFF_BASE_UNRESOLVED);
         });
@@ -84,7 +84,7 @@ describe("renderHandoffBaseChecklist", () => {
     // formatting from emitting the literal placeholder, not an arbitrary-input injection boundary.
     fc.assert(
       fc.property(arbitraryHandoffBaseChecklist(), (checklist) => {
-        expect(renderHandoffBaseChecklist(checklist)).not.toContain(FORBIDDEN_ORIGIN_PLACEHOLDER);
+        expect(renderHandoffBaseChecklist(checklist)).not.toContain(forbiddenOriginPlaceholder);
       }),
     );
   });
@@ -96,11 +96,11 @@ describe("renderHandoffBaseChecklist", () => {
     // generator draws remedies only from that closed set, the property guards the renderer's
     // static text rather than an arbitrary-remedy round-trip.
     for (const remedy of Object.values(HANDOFF_BASE_REMEDY)) {
-      expect(remedy).not.toContain(FORBIDDEN_STASH_REMEDY);
+      expect(remedy).not.toContain(forbiddenStashRemedy);
     }
     fc.assert(
       fc.property(arbitraryHandoffBaseChecklist(), (checklist) => {
-        expect(renderHandoffBaseChecklist(checklist)).not.toContain(FORBIDDEN_STASH_REMEDY);
+        expect(renderHandoffBaseChecklist(checklist)).not.toContain(forbiddenStashRemedy);
       }),
     );
   });
@@ -109,7 +109,7 @@ describe("renderHandoffBaseChecklist", () => {
     fc.assert(
       fc.property(arbitraryHandoffBaseChecklist(), (checklist) => {
         const lines = renderHandoffBaseChecklist(checklist).split("\n");
-        const prerequisiteOffset = HEADER_LINE_COUNT + FACT_LINE_COUNT;
+        const prerequisiteOffset = headerLineCount + factLineCount;
 
         checklist.prerequisites.forEach((prerequisite, index) => {
           const line = lines[prerequisiteOffset + index].trimStart();

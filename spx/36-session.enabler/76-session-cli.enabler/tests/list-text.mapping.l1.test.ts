@@ -25,7 +25,7 @@ interface ColorDecisionCase {
 // (OFF) forces disabled over both inputs; with no flag (AUTO) color is enabled
 // only on a TTY with no NO_COLOR. Expected booleans are the oracle, written
 // from the spec rather than recomputed from the resolver under test.
-const COLOR_DECISION_CASES: readonly ColorDecisionCase[] = [
+const colorDecisionCases: readonly ColorDecisionCase[] = [
   { isTty: true, noColor: false, colorFlag: COLOR_FLAG.AUTO, expected: true },
   { isTty: true, noColor: true, colorFlag: COLOR_FLAG.AUTO, expected: false },
   { isTty: false, noColor: false, colorFlag: COLOR_FLAG.AUTO, expected: false },
@@ -43,7 +43,7 @@ const COLOR_DECISION_CASES: readonly ColorDecisionCase[] = [
 ];
 
 describe("resolveListColor decision table", () => {
-  it.each(COLOR_DECISION_CASES)(
+  it.each(colorDecisionCases)(
     "isTty=$isTty noColor=$noColor colorFlag=$colorFlag -> $expected",
     ({ isTty, noColor, colorFlag, expected }) => {
       expect(resolveListColor({ isTty, noColor, colorFlag })).toBe(expected);
@@ -51,7 +51,7 @@ describe("resolveListColor decision table", () => {
   );
 
   it("covers every COLOR_FLAG member, so a new flag value cannot silently skip the table", () => {
-    const flagsInTable = new Set(COLOR_DECISION_CASES.map((testCase) => testCase.colorFlag));
+    const flagsInTable = new Set(colorDecisionCases.map((testCase) => testCase.colorFlag));
     expect(flagsInTable).toEqual(new Set(Object.values(COLOR_FLAG)));
   });
 });
