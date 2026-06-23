@@ -1,8 +1,8 @@
 /**
  * Discovery of Claude Code settings files across project directories
  */
-import fs from "fs/promises";
-import path from "path";
+import fs from "node:fs/promises";
+import path from "node:path";
 
 /**
  * Recursively find all .claude/settings.local.json files under a root directory

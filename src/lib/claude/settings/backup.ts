@@ -1,7 +1,7 @@
 /**
  * Backup management for Claude Code settings files
  */
-import fs from "fs/promises";
+import fs from "node:fs/promises";
 
 /**
  * Create a timestamped backup of a settings file

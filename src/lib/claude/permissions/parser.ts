@@ -1,7 +1,7 @@
 /**
  * Parser for Claude Code settings files and permissions
  */
-import fs from "fs/promises";
+import fs from "node:fs/promises";
 import type { ClaudeSettings, Permission, PermissionCategory, Permissions } from "./types";
 
 /**

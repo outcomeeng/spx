@@ -49,12 +49,10 @@ export function formatReport(
   const lines: string[] = [];
 
   // Header
-  lines.push("Scanning for Claude Code settings files...");
-  lines.push("");
+  lines.push("Scanning for Claude Code settings files...", "");
 
   // Files summary
-  lines.push(`Found ${result.filesScanned} settings files`);
-  lines.push(`  Processed: ${result.filesProcessed}`);
+  lines.push(`Found ${result.filesScanned} settings files`, `  Processed: ${result.filesProcessed}`);
   if (result.filesSkipped > 0) {
     lines.push(`  Skipped: ${result.filesSkipped} (no permissions)`);
   }
@@ -69,24 +67,21 @@ export function formatReport(
     lines.push(`Permissions to add: ${totalAdded}`);
 
     if (result.added.allow.length > 0) {
-      lines.push("");
-      lines.push("  allow:");
+      lines.push("", "  allow:");
       for (const perm of result.added.allow) {
         lines.push(`    + ${perm}`);
       }
     }
 
     if (result.added.deny.length > 0) {
-      lines.push("");
-      lines.push("  deny:");
+      lines.push("", "  deny:");
       for (const perm of result.added.deny) {
         lines.push(`    + ${perm}`);
       }
     }
 
     if (result.added.ask.length > 0) {
-      lines.push("");
-      lines.push("  ask:");
+      lines.push("", "  ask:");
       for (const perm of result.added.ask) {
         lines.push(`    + ${perm}`);
       }
@@ -99,8 +94,7 @@ export function formatReport(
 
   // Subsumption results
   if (result.subsumed.length > 0) {
-    lines.push(`Subsumed permissions removed: ${result.subsumed.length}`);
-    lines.push("  (narrower permissions replaced by broader ones)");
+    lines.push(`Subsumed permissions removed: ${result.subsumed.length}`, "  (narrower permissions replaced by broader ones)");
     for (const perm of result.subsumed) {
       lines.push(`    - ${perm}`);
     }
@@ -109,21 +103,18 @@ export function formatReport(
 
   // Conflicts
   if (result.conflictsResolved > 0) {
-    lines.push(`Conflicts resolved: ${result.conflictsResolved}`);
-    lines.push("  (permissions moved from allow to deny)");
-    lines.push("");
+    lines.push(`Conflicts resolved: ${result.conflictsResolved}`, "  (permissions moved from allow to deny)", "");
   }
 
   // Backup
   if (result.backupPath) {
-    lines.push(`Backup created: ${result.backupPath}`);
-    lines.push("");
+    lines.push(`Backup created: ${result.backupPath}`, "");
   }
 
   // Summary
-  lines.push("Summary:");
-  lines.push(`  Files scanned: ${result.filesScanned}`);
   lines.push(
+    "Summary:",
+    `  Files scanned: ${result.filesScanned}`,
     `  Permissions added: ${result.added.allow.length} allow, ${result.added.deny.length} deny, ${result.added.ask.length} ask`,
   );
   if (result.subsumed.length > 0) {
@@ -136,17 +127,9 @@ export function formatReport(
   // Final status message
   lines.push("");
   if (previewOnly) {
-    lines.push("ℹ️  Preview mode: No changes written");
-    lines.push("");
-    lines.push("To apply changes:");
-    lines.push(`  • Modify global settings: spx claude settings consolidate --write`);
-    lines.push(`  • Write to file: spx claude settings consolidate --output-file /path/to/file`);
+    lines.push("ℹ️  Preview mode: No changes written", "", "To apply changes:", `  • Modify global settings: spx claude settings consolidate --write`, `  • Write to file: spx claude settings consolidate --output-file /path/to/file`);
   } else if (outputFile) {
-    lines.push(`✓ Settings written to: ${result.outputPath || outputFile}`);
-    lines.push("");
-    lines.push("To apply to your global settings:");
-    lines.push(`  • Review the file, then copy to: ${globalSettingsPath || "~/.claude/settings.json"}`);
-    lines.push(`  • Or run: spx claude settings consolidate --write`);
+    lines.push(`✓ Settings written to: ${result.outputPath || outputFile}`, "", "To apply to your global settings:", `  • Review the file, then copy to: ${globalSettingsPath || "~/.claude/settings.json"}`, `  • Or run: spx claude settings consolidate --write`);
   } else {
     lines.push(`✓ Global settings updated: ${globalSettingsPath || "~/.claude/settings.json"}`);
   }
