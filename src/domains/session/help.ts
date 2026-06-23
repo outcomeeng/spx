@@ -36,7 +36,7 @@ Workflow:
 /**
  * Input contract for the handoff command.
  */
-export const HANDOFF_FRONTMATTER_HELP = `
+export const HANDOFF_FRONTMATTER_HELP = String.raw`
 Usage:
   Pipe a JSON header followed by the body bytes to stdin.
 
@@ -65,11 +65,11 @@ Output Tags (for automation):
   <SESSION_FILE>/path/to/file</SESSION_FILE>   Absolute path to created file
 
 Canonical Invocation:
-  printf '%s\\n' \\
-    '{"priority":"high","goal":"Fix login","next_step":"Run validation","specs":[],"files":[]}' \\
-    '# Fix login' \\
-    '' \\
-    'Body text — # symbols, --- delimiters, and code fences are literal.' \\
+  printf '%s\n' \
+    '{"priority":"high","goal":"Fix login","next_step":"Run validation","specs":[],"files":[]}' \
+    '# Fix login' \
+    '' \
+    'Body text — # symbols, --- delimiters, and code fences are literal.' \
     | spx session handoff
 `;
 
