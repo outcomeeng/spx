@@ -1,5 +1,6 @@
 import { Linter } from "eslint";
 import sonarjs from "eslint-plugin-sonarjs";
+import unicorn from "eslint-plugin-unicorn";
 import tseslint from "typescript-eslint";
 import { describe, expect, it } from "vitest";
 
@@ -16,6 +17,7 @@ import {
 describe("type-aware lint mirror", () => {
   const sonarjsPrefix = "sonarjs/";
   const typescriptPrefix = "@typescript-eslint/";
+  const unicornPrefix = "unicorn/";
   // Identical operands around `&&` violate a mirrored SonarJS rule
   // (no-identical-expressions; the rule exempts `===`/`!==`, the NaN self-check
   // idiom). The specific rule name stays source-owned in MIRROR_RULES.
@@ -25,6 +27,19 @@ describe("type-aware lint mirror", () => {
     Object.fromEntries(
       Object.entries(MIRROR_RULES).filter(([name]) => name.startsWith(sonarjsPrefix)),
     );
+
+  // One violating fixture per mirrored unicorn rule, keyed by the rule's short
+  // name. The full `unicorn/...` id stays source-owned in MIRROR_RULES; the test
+  // reads that source-owned set and looks up each rule's fixture here.
+  const unicornViolationFixtures: Record<string, string> = {
+    "prefer-node-protocol": "import { readFileSync } from \"fs\";\nreadFileSync;\n",
+    "prefer-code-point": "const code = \"a\".charCodeAt(0);\ncode;\n",
+    "prefer-single-call": "const list = [];\nlist.push(1);\nlist.push(2);\n",
+    "prefer-string-raw": "const pattern = \"a\\\\b\";\npattern;\n",
+  };
+
+  const unicornMirrorRuleNames = (): string[] =>
+    Object.keys(MIRROR_RULES).filter((name) => name.startsWith(unicornPrefix));
 
   it("enables type-aware linting through the project service", () => {
     expect(TYPE_AWARE_PARSER_OPTIONS.projectService).toBe(true);
@@ -80,11 +95,43 @@ describe("type-aware lint mirror", () => {
     expect(MIRROR_ERROR_RULES).toHaveProperty(ARRAY_SORT_COMPARATOR_RULE, MIRROR_ERROR_SEVERITY);
   });
 
-  it("mirrors both SonarJS and type-aware @typescript-eslint rules across its tiers", () => {
+  it("places the unicorn-family rules in the warn tier", () => {
+    // The unicorn-family modernization backlog is uncleared, so each rule runs at
+    // the warn tier — findings surface without failing the gate — and graduates to
+    // the error tier in the change that clears its last occurrence.
+    const unicornNames = unicornMirrorRuleNames();
+    expect(unicornNames.length).toBeGreaterThan(0);
+    expect(
+      unicornNames.every((name) => MIRROR_WARN_RULES[name] === MIRROR_WARN_SEVERITY),
+    ).toBe(true);
+    expect(unicornNames.some((name) => name in MIRROR_ERROR_RULES)).toBe(false);
+  });
+
+  it("reports a finding when ESLint runs each mirrored unicorn rule against violating source", () => {
+    const linter = new Linter();
+    const unicornNames = unicornMirrorRuleNames();
+
+    expect(unicornNames.length).toBeGreaterThan(0);
+    for (const ruleId of unicornNames) {
+      const shortName = ruleId.slice(unicornPrefix.length);
+      const source = unicornViolationFixtures[shortName];
+      expect(source, `missing violating fixture for ${ruleId}`).toBeDefined();
+
+      const messages = linter.verify(source, {
+        plugins: { unicorn },
+        rules: { [ruleId]: MIRROR_WARN_SEVERITY },
+      });
+
+      expect(messages.some((message) => message.ruleId === ruleId)).toBe(true);
+    }
+  });
+
+  it("mirrors SonarJS, type-aware @typescript-eslint, and unicorn rule families across its tiers", () => {
     const ruleNames = Object.keys(MIRROR_RULES);
 
     expect(ruleNames.some((rule) => rule.startsWith(sonarjsPrefix))).toBe(true);
     expect(ruleNames.some((rule) => rule.startsWith(typescriptPrefix))).toBe(true);
+    expect(ruleNames.some((rule) => rule.startsWith(unicornPrefix))).toBe(true);
   });
 
   it("reports a finding when ESLint runs the mirrored SonarJS rules against violating source", () => {
@@ -111,11 +158,15 @@ describe("type-aware lint mirror", () => {
     const sonarjsRuleNames = Object.keys(MIRROR_RULES)
       .filter((rule) => rule.startsWith(sonarjsPrefix))
       .map((rule) => rule.slice(sonarjsPrefix.length));
+    const unicornRuleNames = Object.keys(MIRROR_RULES)
+      .filter((rule) => rule.startsWith(unicornPrefix))
+      .map((rule) => rule.slice(unicornPrefix.length));
 
     // The runtime plugin exposes `rules`; the compat plugin type does not.
     const tseslintPluginRules = (tseslint.plugin as { rules?: Record<string, unknown> })
       .rules ?? {};
     const sonarjsPluginRules = (sonarjs as { rules?: Record<string, unknown> }).rules ?? {};
+    const unicornPluginRules = (unicorn as { rules?: Record<string, unknown> }).rules ?? {};
 
     expect(typescriptRuleNames.length).toBeGreaterThan(0);
     for (const ruleName of typescriptRuleNames) {
@@ -124,6 +175,10 @@ describe("type-aware lint mirror", () => {
     expect(sonarjsRuleNames.length).toBeGreaterThan(0);
     for (const ruleName of sonarjsRuleNames) {
       expect(sonarjsPluginRules).toHaveProperty(ruleName);
+    }
+    expect(unicornRuleNames.length).toBeGreaterThan(0);
+    for (const ruleName of unicornRuleNames) {
+      expect(unicornPluginRules).toHaveProperty(ruleName);
     }
   });
 });

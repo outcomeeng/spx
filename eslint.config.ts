@@ -1,6 +1,7 @@
 import js from "@eslint/js";
 import importPlugin from "eslint-plugin-import";
 import sonarjs from "eslint-plugin-sonarjs";
+import unicorn from "eslint-plugin-unicorn";
 import globals from "globals";
 import { readFileSync } from "node:fs";
 import tseslint from "typescript-eslint";
@@ -159,10 +160,11 @@ export function buildEslintConfig(options: BuildEslintConfigOptions = {}) {
       },
     },
 
-    // Type-aware lint mirror — runs the SonarJS analyzer rules and the
-    // type-aware @typescript-eslint rules locally, the deterministic offline
-    // floor of code-quality enforcement. Warn-first while the backlog is
-    // cleared; each backlog session flips its rules to error.
+    // Type-aware lint mirror — runs the SonarJS analyzer rules, the type-aware
+    // @typescript-eslint rules, and the unicorn-family modernization rules
+    // locally, the deterministic offline floor of code-quality enforcement.
+    // Warn-first while the backlog is cleared; each backlog session flips its
+    // rules to error.
     {
       // Scoped to the trees in tsconfig.json `include`, so the project service
       // resolves a project for every linted file. Root build-config files
@@ -178,6 +180,7 @@ export function buildEslintConfig(options: BuildEslintConfigOptions = {}) {
       plugins: {
         "@typescript-eslint": tseslint.plugin,
         sonarjs,
+        unicorn,
       },
       languageOptions: {
         parser: tseslint.parser,
