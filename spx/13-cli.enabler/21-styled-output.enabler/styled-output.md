@@ -1,7 +1,7 @@
 # Styled Output
 
 PROVIDES a shared, non-interactive styled-output primitive — a pure formatter that renders a report from section headers, severity-keyed status glyphs, tree-indented detail lines, and a severity-colored summary line, with ANSI styling gated by a color boolean
-SO THAT spx commands that emit a human-readable report to a non-interactive terminal — `spx diagnose` now, and other report-rendering commands later
+SO THAT `spx diagnose` and other spx commands that emit a human-readable report to a non-interactive terminal
 CAN render `/doctor`-grade styled output from a pure function whose content is identical across styled and plain renders, with the color decision resolved once at the descriptor boundary
 
 ## Assertions
