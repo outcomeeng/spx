@@ -20,10 +20,10 @@ import type { SessionHarness } from "@testing/harnesses/session/harness";
 import { createSessionHarness } from "@testing/harnesses/session/harness";
 
 const [TODO] = SESSION_STATUSES;
-const CLI_ENTRY = "bin/spx.js";
+const cliEntry = "bin/spx.js";
 
 async function runSpx(...args: string[]): Promise<{ stdout: string; stderr: string; exitCode: number }> {
-  const result = await execa("node", [CLI_ENTRY, ...args], { cwd: process.cwd(), reject: false });
+  const result = await execa("node", [cliEntry, ...args], { cwd: process.cwd(), reject: false });
   return { stdout: result.stdout, stderr: result.stderr, exitCode: result.exitCode ?? 1 };
 }
 

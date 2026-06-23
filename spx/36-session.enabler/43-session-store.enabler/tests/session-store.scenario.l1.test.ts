@@ -21,6 +21,7 @@ import { pickupCommand } from "@/commands/session/pickup";
 import { releaseCommand } from "@/commands/session/release";
 import { showCommand } from "@/commands/session/show";
 import { DEFAULT_CONFIG } from "@/config/defaults";
+import { AGENT_SESSION_ENV } from "@/domains/session/agent-session";
 import { buildSessionFrontMatterContent } from "@/domains/session/create";
 import { resolveDeletePath } from "@/domains/session/delete";
 import {
@@ -40,6 +41,7 @@ import { resolveWorkBranchGitRef } from "@/domains/session/handoff-base";
 import {
   DEFAULT_SESSION_METADATA,
   FIELD_SELECTION_SEPARATOR,
+  LIST_SUMMARY_SEPARATOR,
   parseFieldSelection,
   parseSessionMetadata,
   projectSessionRecord,
@@ -89,19 +91,19 @@ import { extractSessionFile, parseFrontMatter } from "@testing/harnesses/session
 
 const [TODO, DOING] = SESSION_STATUSES;
 
-const ENV_KEYS = ["CLAUDE_SESSION_ID", "CODEX_THREAD_ID"] as const;
-const TEST_GOAL = "Exercise session handoff";
-const TEST_NEXT_STEP = "Inspect generated session";
-const PREFILL_HANDOFF_HEADER: HandoffHeaderFixture = {
+const envKeys = Object.values(AGENT_SESSION_ENV);
+const testGoal = "Exercise session handoff";
+const testNextStep = "Inspect generated session";
+const prefillHandoffHeader: HandoffHeaderFixture = {
   priority: DEFAULT_PRIORITY,
-  goal: TEST_GOAL,
-  next_step: TEST_NEXT_STEP,
+  goal: testGoal,
+  next_step: testNextStep,
   specs: [],
   files: [],
 };
-const PREFILL_HANDOFF_STDIN = buildHandoffStdin(PREFILL_HANDOFF_HEADER, "# Test session");
-const HANDOFF_GIT_REF = "topic/session-frontmatter";
-const HANDOFF_GIT_DEPS = createSessionGitDeps({ branch: HANDOFF_GIT_REF });
+const prefillHandoffStdin = buildHandoffStdin(prefillHandoffHeader, "# Test session");
+const handoffGitRef = "topic/session-frontmatter";
+const handoffGitDeps = createSessionGitDeps({ branch: handoffGitRef });
 
 describe("listCommand", () => {
   let harness: SessionHarness;
@@ -183,7 +185,7 @@ describe("listCommand", () => {
 
       const listed = await listCommand({ status: TODO, sessionsDir: harness.sessionsDir });
       expect(listed).toContain(sessionId);
-      expect(listed).not.toContain(" ->");
+      expect(listed).not.toContain(LIST_SUMMARY_SEPARATOR);
 
       const shown = formatShowOutput(content, { status: TODO });
       expect(shown).toContain(`${SESSION_SHOW_LABEL.GOAL}: `);
@@ -343,35 +345,38 @@ describe("listCommand", () => {
     });
 
     it("THEN sessions without summaries do not show a dangling separator", async () => {
-      await harness.writeSession(TODO, "2026-01-12_10-00-00", {
+      const danglingSessionId = "2026-01-12_10-00-00";
+      await harness.writeSession(TODO, danglingSessionId, {
         goal: "",
         next_step: "",
       });
 
       const output = await listCommand({ status: TODO, sessionsDir: harness.sessionsDir });
 
-      expect(output).toContain("2026-01-12_10-00-00");
-      expect(output).not.toContain(" ->");
+      expect(output).toContain(danglingSessionId);
+      expect(output).not.toContain(LIST_SUMMARY_SEPARATOR);
     });
 
     it("THEN sessions with partial summaries do not show a dangling separator", async () => {
       const goalOnlySessionId = "2026-01-13_10-00-00";
       const nextStepOnlySessionId = "2026-01-14_10-00-00";
+      const goalOnly = "Fix CI";
+      const nextStepOnly = "Run tests";
       await harness.writeSession(TODO, goalOnlySessionId, {
-        goal: "Fix CI",
+        goal: goalOnly,
         next_step: "",
       });
       await harness.writeSession(TODO, nextStepOnlySessionId, {
         goal: "",
-        next_step: "Run tests",
+        next_step: nextStepOnly,
       });
 
       const output = await listCommand({ status: TODO, sessionsDir: harness.sessionsDir });
 
       expect(output).toContain(goalOnlySessionId);
       expect(output).toContain(nextStepOnlySessionId);
-      expect(output).not.toContain("Fix CI ->");
-      expect(output).not.toContain("-> Run tests");
+      expect(output).not.toContain(`${goalOnly}${LIST_SUMMARY_SEPARATOR}`);
+      expect(output).not.toContain(`${LIST_SUMMARY_SEPARATOR}${nextStepOnly}`);
     });
   });
 });
@@ -561,7 +566,7 @@ describe("Session error types", () => {
 });
 
 // ============================================================
-// Handoff: JSON-prefix input contract (PDR-11)
+// Handoff: JSON-prefix input contract
 // ============================================================
 
 describe("handoffCommand with real filesystem", () => {
@@ -579,8 +584,8 @@ describe("handoffCommand with real filesystem", () => {
     const stdin = buildHandoffStdin(
       {
         priority: SESSION_PRIORITY.HIGH,
-        goal: TEST_GOAL,
-        next_step: TEST_NEXT_STEP,
+        goal: testGoal,
+        next_step: testNextStep,
         specs: [],
         files: [],
       },
@@ -590,7 +595,7 @@ describe("handoffCommand with real filesystem", () => {
     const { output } = await handoffCommand({
       content: stdin,
       sessionsDir: harness.sessionsDir,
-      deps: HANDOFF_GIT_DEPS,
+      deps: handoffGitDeps,
     });
 
     expect(output).toMatch(/<HANDOFF_ID>\d{4}-\d{2}-\d{2}_\d{2}-\d{2}-\d{2}<\/HANDOFF_ID>/);
@@ -598,9 +603,9 @@ describe("handoffCommand with real filesystem", () => {
 
     const frontMatter = parseFrontMatter(await readFile(extractSessionFile(output), "utf-8"));
     expect(frontMatter).toHaveProperty(SESSION_FRONT_MATTER.PRIORITY, SESSION_PRIORITY.HIGH);
-    expect(frontMatter).toHaveProperty(SESSION_FRONT_MATTER.GIT_REF, HANDOFF_GIT_REF);
-    expect(frontMatter).toHaveProperty(SESSION_FRONT_MATTER.GOAL, TEST_GOAL);
-    expect(frontMatter).toHaveProperty(SESSION_FRONT_MATTER.NEXT_STEP, TEST_NEXT_STEP);
+    expect(frontMatter).toHaveProperty(SESSION_FRONT_MATTER.GIT_REF, handoffGitRef);
+    expect(frontMatter).toHaveProperty(SESSION_FRONT_MATTER.GOAL, testGoal);
+    expect(frontMatter).toHaveProperty(SESSION_FRONT_MATTER.NEXT_STEP, testNextStep);
   });
 
   it("GIVEN git output with YAML-special characters in the git ref WHEN handoff executes THEN metadata parses back unchanged", async () => {
@@ -608,7 +613,7 @@ describe("handoffCommand with real filesystem", () => {
     const deps = createSessionGitDeps({ branch: gitRef });
 
     const { output } = await handoffCommand({
-      content: PREFILL_HANDOFF_STDIN,
+      content: prefillHandoffStdin,
       sessionsDir: harness.sessionsDir,
       deps,
     });
@@ -619,12 +624,12 @@ describe("handoffCommand with real filesystem", () => {
 
   it("GIVEN JSON header followed by CRLF separator WHEN handoff executes THEN body starts after the separator", async () => {
     const body = "# CRLF-separated body";
-    const stdin = `${JSON.stringify(PREFILL_HANDOFF_HEADER)}\r\n${body}`;
+    const stdin = `${JSON.stringify(prefillHandoffHeader)}\r\n${body}`;
 
     const { output } = await handoffCommand({
       content: stdin,
       sessionsDir: harness.sessionsDir,
-      deps: HANDOFF_GIT_DEPS,
+      deps: handoffGitDeps,
     });
     const onDisk = await readFile(extractSessionFile(output), "utf-8");
 
@@ -636,14 +641,14 @@ describe("handoffCommand with real filesystem", () => {
   it("GIVEN JSON header with YAML-significant characters in specs WHEN handoff executes THEN parsed specs round-trips unchanged", async () => {
     const specs = [">", "|", "{"];
     const stdin = buildHandoffStdin(
-      { priority: DEFAULT_PRIORITY, goal: TEST_GOAL, next_step: TEST_NEXT_STEP, specs, files: [] },
+      { priority: DEFAULT_PRIORITY, goal: testGoal, next_step: testNextStep, specs, files: [] },
       "# Test handoff",
     );
 
     const { output } = await handoffCommand({
       content: stdin,
       sessionsDir: harness.sessionsDir,
-      deps: HANDOFF_GIT_DEPS,
+      deps: handoffGitDeps,
     });
     const metadata = parseSessionMetadata(await readFile(extractSessionFile(output), "utf-8"));
 
@@ -653,14 +658,14 @@ describe("handoffCommand with real filesystem", () => {
   it("GIVEN JSON header with YAML-significant characters in files WHEN handoff executes THEN parsed files round-trips unchanged", async () => {
     const files = [">", "|", "{"];
     const stdin = buildHandoffStdin(
-      { priority: DEFAULT_PRIORITY, goal: TEST_GOAL, next_step: TEST_NEXT_STEP, specs: [], files },
+      { priority: DEFAULT_PRIORITY, goal: testGoal, next_step: testNextStep, specs: [], files },
       "# Test handoff",
     );
 
     const { output } = await handoffCommand({
       content: stdin,
       sessionsDir: harness.sessionsDir,
-      deps: HANDOFF_GIT_DEPS,
+      deps: handoffGitDeps,
     });
     const metadata = parseSessionMetadata(await readFile(extractSessionFile(output), "utf-8"));
 
@@ -670,14 +675,14 @@ describe("handoffCommand with real filesystem", () => {
   it("GIVEN JSON header with a single empty-string entry in specs WHEN handoff executes THEN parsed specs round-trips unchanged", async () => {
     const specs = [""];
     const stdin = buildHandoffStdin(
-      { priority: DEFAULT_PRIORITY, goal: TEST_GOAL, next_step: TEST_NEXT_STEP, specs, files: [] },
+      { priority: DEFAULT_PRIORITY, goal: testGoal, next_step: testNextStep, specs, files: [] },
       "# Test handoff",
     );
 
     const { output } = await handoffCommand({
       content: stdin,
       sessionsDir: harness.sessionsDir,
-      deps: HANDOFF_GIT_DEPS,
+      deps: handoffGitDeps,
     });
     const metadata = parseSessionMetadata(await readFile(extractSessionFile(output), "utf-8"));
 
@@ -687,14 +692,14 @@ describe("handoffCommand with real filesystem", () => {
   it("GIVEN JSON header with a single empty-string entry in files WHEN handoff executes THEN parsed files round-trips unchanged", async () => {
     const files = [""];
     const stdin = buildHandoffStdin(
-      { priority: DEFAULT_PRIORITY, goal: TEST_GOAL, next_step: TEST_NEXT_STEP, specs: [], files },
+      { priority: DEFAULT_PRIORITY, goal: testGoal, next_step: testNextStep, specs: [], files },
       "# Test handoff",
     );
 
     const { output } = await handoffCommand({
       content: stdin,
       sessionsDir: harness.sessionsDir,
-      deps: HANDOFF_GIT_DEPS,
+      deps: handoffGitDeps,
     });
     const metadata = parseSessionMetadata(await readFile(extractSessionFile(output), "utf-8"));
 
@@ -703,35 +708,35 @@ describe("handoffCommand with real filesystem", () => {
 
   it("GIVEN empty stdin WHEN handoff executes THEN rejects with SessionInvalidContentError before writing", async () => {
     await expect(
-      handoffCommand({ content: "", sessionsDir: harness.sessionsDir, deps: HANDOFF_GIT_DEPS }),
+      handoffCommand({ content: "", sessionsDir: harness.sessionsDir, deps: handoffGitDeps }),
     ).rejects.toThrow(SessionInvalidContentError);
   });
 
   it("GIVEN whitespace-only stdin WHEN handoff executes THEN rejects with SessionInvalidContentError before writing", async () => {
     await expect(
-      handoffCommand({ content: "   \n\t  ", sessionsDir: harness.sessionsDir, deps: HANDOFF_GIT_DEPS }),
+      handoffCommand({ content: "   \n\t  ", sessionsDir: harness.sessionsDir, deps: handoffGitDeps }),
     ).rejects.toThrow(SessionInvalidContentError);
   });
 
   it("GIVEN JSON header with empty goal WHEN piped THEN rejects with SessionInvalidGoalError before writing", async () => {
     const stdin = buildHandoffStdin(
-      { priority: SESSION_PRIORITY.HIGH, goal: "", next_step: TEST_NEXT_STEP, specs: [], files: [] },
+      { priority: SESSION_PRIORITY.HIGH, goal: "", next_step: testNextStep, specs: [], files: [] },
       "# Test handoff",
     );
 
     await expect(
-      handoffCommand({ content: stdin, sessionsDir: harness.sessionsDir, deps: HANDOFF_GIT_DEPS }),
+      handoffCommand({ content: stdin, sessionsDir: harness.sessionsDir, deps: handoffGitDeps }),
     ).rejects.toThrow(SessionInvalidGoalError);
   });
 
   it("GIVEN JSON header with empty next_step WHEN piped THEN rejects with SessionInvalidNextStepError before writing", async () => {
     const stdin = buildHandoffStdin(
-      { priority: SESSION_PRIORITY.HIGH, goal: TEST_GOAL, next_step: "", specs: [], files: [] },
+      { priority: SESSION_PRIORITY.HIGH, goal: testGoal, next_step: "", specs: [], files: [] },
       "# Test handoff",
     );
 
     await expect(
-      handoffCommand({ content: stdin, sessionsDir: harness.sessionsDir, deps: HANDOFF_GIT_DEPS }),
+      handoffCommand({ content: stdin, sessionsDir: harness.sessionsDir, deps: handoffGitDeps }),
     ).rejects.toThrow(SessionInvalidNextStepError);
   });
 
@@ -739,7 +744,7 @@ describe("handoffCommand with real filesystem", () => {
     const legacyYamlStdin = "---\npriority: high\ngoal: Legacy shape\nnext_step: Should reject\n---\n# Body";
 
     await expect(
-      handoffCommand({ content: legacyYamlStdin, sessionsDir: harness.sessionsDir, deps: HANDOFF_GIT_DEPS }),
+      handoffCommand({ content: legacyYamlStdin, sessionsDir: harness.sessionsDir, deps: handoffGitDeps }),
     ).rejects.toThrow(SessionLegacyFrontmatterInputError);
   });
 
@@ -747,7 +752,7 @@ describe("handoffCommand with real filesystem", () => {
     const malformedJsonStdin = `{"priority":"high","goal":"oops"`;
 
     await expect(
-      handoffCommand({ content: malformedJsonStdin, sessionsDir: harness.sessionsDir, deps: HANDOFF_GIT_DEPS }),
+      handoffCommand({ content: malformedJsonStdin, sessionsDir: harness.sessionsDir, deps: handoffGitDeps }),
     ).rejects.toThrow(SessionInvalidJsonHeaderError);
   });
 
@@ -756,14 +761,14 @@ describe("handoffCommand with real filesystem", () => {
   it("GIVEN JSON header with `#` in goal WHEN piped THEN parsed goal equals caller-supplied string in full", async () => {
     const goalWithHash = "Finish PR #294 so validation-test CI vocabulary and behavior are reviewed, green, and ready.";
     const stdin = buildHandoffStdin(
-      { priority: SESSION_PRIORITY.HIGH, goal: goalWithHash, next_step: TEST_NEXT_STEP, specs: [], files: [] },
+      { priority: SESSION_PRIORITY.HIGH, goal: goalWithHash, next_step: testNextStep, specs: [], files: [] },
       "# Body",
     );
 
     const { output } = await handoffCommand({
       content: stdin,
       sessionsDir: harness.sessionsDir,
-      deps: HANDOFF_GIT_DEPS,
+      deps: handoffGitDeps,
     });
     const metadata = parseSessionMetadata(await readFile(extractSessionFile(output), "utf-8"));
 
@@ -773,14 +778,14 @@ describe("handoffCommand with real filesystem", () => {
   it("GIVEN JSON header with `#` in next_step WHEN piped THEN parsed next_step equals caller-supplied string in full", async () => {
     const nextStepWithHash = "Inspect PR #294 and continue.";
     const stdin = buildHandoffStdin(
-      { priority: SESSION_PRIORITY.HIGH, goal: TEST_GOAL, next_step: nextStepWithHash, specs: [], files: [] },
+      { priority: SESSION_PRIORITY.HIGH, goal: testGoal, next_step: nextStepWithHash, specs: [], files: [] },
       "# Body",
     );
 
     const { output } = await handoffCommand({
       content: stdin,
       sessionsDir: harness.sessionsDir,
-      deps: HANDOFF_GIT_DEPS,
+      deps: handoffGitDeps,
     });
     const metadata = parseSessionMetadata(await readFile(extractSessionFile(output), "utf-8"));
 
@@ -790,14 +795,14 @@ describe("handoffCommand with real filesystem", () => {
   it("GIVEN JSON header with embedded colon in next_step WHEN piped THEN parsed next_step equals caller-supplied string in full", async () => {
     const nextStepWithColon = "Review: inspect checks";
     const stdin = buildHandoffStdin(
-      { priority: SESSION_PRIORITY.HIGH, goal: TEST_GOAL, next_step: nextStepWithColon, specs: [], files: [] },
+      { priority: SESSION_PRIORITY.HIGH, goal: testGoal, next_step: nextStepWithColon, specs: [], files: [] },
       "# Body",
     );
 
     const { output } = await handoffCommand({
       content: stdin,
       sessionsDir: harness.sessionsDir,
-      deps: HANDOFF_GIT_DEPS,
+      deps: handoffGitDeps,
     });
     const metadata = parseSessionMetadata(await readFile(extractSessionFile(output), "utf-8"));
 
@@ -852,7 +857,8 @@ describe("sortSessions with unparsable IDs", () => {
     const input = [makeSession("zzz"), makeSession("aaa")];
     const sorted = sortSessions(input);
     expect(sorted).toHaveLength(2);
-    expect(sorted.map((s) => s.id).sort()).toEqual(input.map((session) => session.id).sort());
+    expect(sorted.map((s) => s.id).sort((a, b) => a.localeCompare(b)))
+      .toEqual(input.map((session) => session.id).sort((a, b) => a.localeCompare(b)));
   });
 });
 
@@ -865,23 +871,23 @@ describe("handoffCommand — created_at and agent_session_id pre-fill", () => {
 
   beforeEach(async () => {
     harness = await createSessionHarness();
-    for (const key of ENV_KEYS) {
+    for (const key of envKeys) {
       delete process.env[key];
     }
   });
 
   afterEach(async () => {
     await harness.cleanup();
-    for (const key of ENV_KEYS) {
+    for (const key of envKeys) {
       delete process.env[key];
     }
   });
 
   it("GIVEN handoff is invoked WHEN session file is created THEN created_at is written to YAML front matter", async () => {
     const { output } = await handoffCommand({
-      content: PREFILL_HANDOFF_STDIN,
+      content: prefillHandoffStdin,
       sessionsDir: harness.sessionsDir,
-      deps: HANDOFF_GIT_DEPS,
+      deps: handoffGitDeps,
     });
     const frontMatter = parseFrontMatter(await readFile(extractSessionFile(output), "utf-8"));
 
@@ -894,9 +900,9 @@ describe("handoffCommand — created_at and agent_session_id pre-fill", () => {
     process.env.CLAUDE_SESSION_ID = agentSessionId;
 
     const { output } = await handoffCommand({
-      content: PREFILL_HANDOFF_STDIN,
+      content: prefillHandoffStdin,
       sessionsDir: harness.sessionsDir,
-      deps: HANDOFF_GIT_DEPS,
+      deps: handoffGitDeps,
     });
     const frontMatter = parseFrontMatter(await readFile(extractSessionFile(output), "utf-8"));
 
@@ -908,9 +914,9 @@ describe("handoffCommand — created_at and agent_session_id pre-fill", () => {
     process.env.CODEX_THREAD_ID = threadId;
 
     const { output } = await handoffCommand({
-      content: PREFILL_HANDOFF_STDIN,
+      content: prefillHandoffStdin,
       sessionsDir: harness.sessionsDir,
-      deps: HANDOFF_GIT_DEPS,
+      deps: handoffGitDeps,
     });
     const frontMatter = parseFrontMatter(await readFile(extractSessionFile(output), "utf-8"));
 
@@ -919,9 +925,9 @@ describe("handoffCommand — created_at and agent_session_id pre-fill", () => {
 
   it("GIVEN neither CLAUDE_SESSION_ID nor CODEX_THREAD_ID set WHEN handoff creates session THEN agent_session_id does not appear in YAML front matter", async () => {
     const { output } = await handoffCommand({
-      content: PREFILL_HANDOFF_STDIN,
+      content: prefillHandoffStdin,
       sessionsDir: harness.sessionsDir,
-      deps: HANDOFF_GIT_DEPS,
+      deps: handoffGitDeps,
     });
     const frontMatter = parseFrontMatter(await readFile(extractSessionFile(output), "utf-8"));
 
@@ -942,7 +948,7 @@ describe("handoffCommand — handoff-base gate", () => {
 
   it("GIVEN the main checkout with a detached HEAD WHEN handoff executes THEN git_ref is the HEAD commit SHA", async () => {
     const { output } = await handoffCommand({
-      content: PREFILL_HANDOFF_STDIN,
+      content: prefillHandoffStdin,
       sessionsDir: harness.sessionsDir,
       deps: createSessionGitDeps({ branch: null }),
     });
@@ -953,7 +959,7 @@ describe("handoffCommand — handoff-base gate", () => {
 
   it("GIVEN a linked worktree clean and detached at origin/<default> WHEN handoff executes THEN git_ref is that commit SHA", async () => {
     const { output } = await handoffCommand({
-      content: PREFILL_HANDOFF_STDIN,
+      content: prefillHandoffStdin,
       sessionsDir: harness.sessionsDir,
       deps: createSessionGitDeps({ worktreeKind: "non-main", branch: null, clean: true, detachedAtDefaultTip: true }),
     });
@@ -965,7 +971,7 @@ describe("handoffCommand — handoff-base gate", () => {
   it("GIVEN a linked worktree with a dirty working tree WHEN handoff executes THEN rejects with SessionHandoffBaseError", async () => {
     await expect(
       handoffCommand({
-        content: PREFILL_HANDOFF_STDIN,
+        content: prefillHandoffStdin,
         sessionsDir: harness.sessionsDir,
         deps: createSessionGitDeps({
           worktreeKind: "non-main",
@@ -980,7 +986,7 @@ describe("handoffCommand — handoff-base gate", () => {
   it("GIVEN a linked worktree on a worktree-local branch WHEN handoff executes THEN rejects with SessionHandoffBaseError", async () => {
     await expect(
       handoffCommand({
-        content: PREFILL_HANDOFF_STDIN,
+        content: prefillHandoffStdin,
         sessionsDir: harness.sessionsDir,
         deps: createSessionGitDeps({ worktreeKind: "non-main", branch: "feature/local", clean: true }),
       }),
@@ -990,7 +996,7 @@ describe("handoffCommand — handoff-base gate", () => {
   it("GIVEN a linked worktree detached at a commit other than origin/<default> WHEN handoff executes THEN rejects with SessionHandoffBaseError", async () => {
     await expect(
       handoffCommand({
-        content: PREFILL_HANDOFF_STDIN,
+        content: prefillHandoffStdin,
         sessionsDir: harness.sessionsDir,
         deps: createSessionGitDeps({
           worktreeKind: "non-main",
@@ -1004,7 +1010,7 @@ describe("handoffCommand — handoff-base gate", () => {
 });
 
 // ============================================================
-// Handoff: explicit work-branch ref (PDR-11 — verified on origin)
+// Handoff: explicit work-branch ref (verified on origin)
 // ============================================================
 
 describe("resolveWorkBranchGitRef (explicit work-branch ref)", () => {
@@ -1041,7 +1047,7 @@ describe("handoffCommand — explicit work-branch ref", () => {
 
   function handoffStdinWithGitRef(gitRef: string): string {
     return buildHandoffStdin(
-      { priority: DEFAULT_PRIORITY, goal: TEST_GOAL, next_step: TEST_NEXT_STEP, specs: [], files: [], git_ref: gitRef },
+      { priority: DEFAULT_PRIORITY, goal: testGoal, next_step: testNextStep, specs: [], files: [], git_ref: gitRef },
       "# Test handoff",
     );
   }
@@ -1192,7 +1198,7 @@ describe("projectSessionRecord", () => {
             },
           });
 
-          const projected = projectSessionRecord(record, selection as SessionRecordField[]);
+          const projected = projectSessionRecord(record, selection);
 
           expect(Object.keys(projected)).toEqual(selection);
         },
@@ -1342,14 +1348,14 @@ describe("listCommand JSON records and field projection", () => {
 
   beforeEach(async () => {
     harness = await createSessionHarness();
-    for (const key of ENV_KEYS) {
+    for (const key of envKeys) {
       delete process.env[key];
     }
   });
 
   afterEach(async () => {
     await harness.cleanup();
-    for (const key of ENV_KEYS) {
+    for (const key of envKeys) {
       delete process.env[key];
     }
   });
@@ -1395,9 +1401,9 @@ describe("listCommand JSON records and field projection", () => {
     const agentSessionId = sampleSessionId();
     process.env.CLAUDE_SESSION_ID = agentSessionId;
     const { output: handoffOutput } = await handoffCommand({
-      content: PREFILL_HANDOFF_STDIN,
+      content: prefillHandoffStdin,
       sessionsDir: harness.sessionsDir,
-      deps: HANDOFF_GIT_DEPS,
+      deps: handoffGitDeps,
     });
     const carriedId = extractSessionFile(handoffOutput).split("/").pop()!.replace(".md", "");
 
