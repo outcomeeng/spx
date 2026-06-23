@@ -3,7 +3,11 @@ import { describe, expect, it } from "vitest";
 
 import { buildSessionFrontMatterContent } from "@/domains/session/create";
 import { DEFAULT_SESSION_METADATA, parseSessionMetadata } from "@/domains/session/list";
-import { generateSessionId, SESSION_ID_SEPARATOR } from "@/domains/session/timestamp";
+import {
+  generateSessionId,
+  SESSION_ID_FORBIDDEN_FILENAME_CHARACTER,
+  SESSION_ID_SEPARATOR,
+} from "@/domains/session/timestamp";
 import { SESSION_FRONT_MATTER, SESSION_PRIORITY } from "@/domains/session/types";
 
 describe("session identity compliance", () => {
@@ -31,7 +35,7 @@ describe("session identity compliance", () => {
   it("NEVER: session IDs contain colon characters", () => {
     const id = generateSessionId({ now: () => new Date(Date.UTC(2026, 0, 13, 8, 1, 5)) });
 
-    expect(id).not.toContain(":");
+    expect(id).not.toContain(SESSION_ID_FORBIDDEN_FILENAME_CHARACTER);
   });
 
   it("NEVER: parseSessionMetadata returns a key outside the declared shape", () => {
