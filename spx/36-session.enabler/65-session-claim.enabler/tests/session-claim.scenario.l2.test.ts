@@ -19,7 +19,7 @@ import type { SessionHarness } from "@testing/harnesses/session/harness";
 import { createSessionHarness } from "@testing/harnesses/session/harness";
 
 const [TODO, DOING] = SESSION_STATUSES;
-const CONCURRENT_AGENTS = 5;
+const concurrentAgents = 5;
 
 describe("concurrent pickup atomicity (P1)", () => {
   let harness: SessionHarness;
@@ -39,7 +39,7 @@ describe("concurrent pickup atomicity (P1)", () => {
     // Launch concurrent pickups
     const results = await Promise.allSettled(
       Array.from(
-        { length: CONCURRENT_AGENTS },
+        { length: concurrentAgents },
         () => pickupCommand({ sessionIds: [sessionId], sessionsDir: harness.sessionsDir }),
       ),
     );
@@ -49,7 +49,7 @@ describe("concurrent pickup atomicity (P1)", () => {
 
     // Exactly one agent wins
     expect(successes).toHaveLength(1);
-    expect(failures).toHaveLength(CONCURRENT_AGENTS - 1);
+    expect(failures).toHaveLength(concurrentAgents - 1);
 
     // Session moved into the doing directory and left the available queue
     expect(existsSync(join(harness.statusDir(DOING), `${sessionId}.md`))).toBe(true);
@@ -65,7 +65,7 @@ describe("concurrent pickup atomicity (P1)", () => {
     // Launch concurrent auto-pickups (more agents than sessions)
     const results = await Promise.allSettled(
       Array.from(
-        { length: CONCURRENT_AGENTS },
+        { length: concurrentAgents },
         () => pickupCommand({ sessionIds: [], auto: true, sessionsDir: harness.sessionsDir }),
       ),
     );
@@ -78,7 +78,7 @@ describe("concurrent pickup atomicity (P1)", () => {
 
     // Each success claimed a different session (no duplicates)
     const claimedIds = successes.map((r) => {
-      const output = (r as PromiseFulfilledResult<string>).value;
+      const output = r.value;
       const match = /<PICKUP_ID>([^<]+)<\/PICKUP_ID>/.exec(output);
       return match?.[1];
     });
