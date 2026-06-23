@@ -2,6 +2,7 @@ import type { Result } from "@/config/types";
 import { journalRunFilePath } from "@/domains/journal/run-scope";
 import { createJournal, type JournalEvent, type JournalEventInput, type Projection } from "@/lib/agent-run-journal";
 import { createAppendableJournalStore } from "@/lib/appendable-journal-store";
+import { toMessage } from "@/lib/error-message";
 import {
   branchScopeDir,
   createJsonlRunFile,
@@ -204,8 +205,4 @@ export async function renderJournalRun<T>(
   } catch (error) {
     return { ok: false, error: `${JOURNAL_RUNTIME_ERROR.RENDER_FAILED}: ${toMessage(error)}` };
   }
-}
-
-function toMessage(error: unknown): string {
-  return error instanceof Error ? error.message : String(error);
 }
