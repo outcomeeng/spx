@@ -71,7 +71,8 @@ function validate(value: unknown): Result<DiagnoseConfig> {
     if (!isNonEmptyStringArray(expectedPlugins)) {
       return {
         ok: false,
-        error: `${DIAGNOSE_SECTION}.${DIAGNOSE_CONFIG_FIELDS.EXPECTED_PLUGINS} must be an array of non-empty strings`,
+        error:
+          `${DIAGNOSE_SECTION}.${DIAGNOSE_CONFIG_FIELDS.EXPECTED_PLUGINS} must be a non-empty array of non-empty strings`,
       };
     }
     resolved.expectedPlugins = expectedPlugins;
@@ -82,7 +83,7 @@ function validate(value: unknown): Result<DiagnoseConfig> {
     if (!isNonEmptyStringArray(checks)) {
       return {
         ok: false,
-        error: `${DIAGNOSE_SECTION}.${DIAGNOSE_CONFIG_FIELDS.CHECKS} must be an array of non-empty strings`,
+        error: `${DIAGNOSE_SECTION}.${DIAGNOSE_CONFIG_FIELDS.CHECKS} must be a non-empty array of non-empty strings`,
       };
     }
     resolved.checks = checks;
