@@ -46,93 +46,106 @@ export function formatReport(
   globalSettingsPath?: string,
   outputFile?: string,
 ): string {
-  const lines: string[] = [];
-
-  // Header
-  lines.push("Scanning for Claude Code settings files...", "");
-
-  // Files summary
-  lines.push(`Found ${result.filesScanned} settings files`, `  Processed: ${result.filesProcessed}`);
-  if (result.filesSkipped > 0) {
-    lines.push(`  Skipped: ${result.filesSkipped} (no permissions)`);
-  }
-  lines.push("");
-
-  // Permissions added
   const totalAdded = result.added.allow.length
     + result.added.deny.length
     + result.added.ask.length;
+  return [
+    ...headerLines(),
+    ...filesSummaryLines(result),
+    ...permissionLines(result, totalAdded),
+    ...subsumptionLines(result),
+    ...conflictLines(result),
+    ...backupLines(result),
+    ...summaryLines(result),
+    ...finalStatusLines(result, previewOnly, globalSettingsPath, outputFile),
+  ].join("\n");
+}
 
-  if (totalAdded > 0) {
-    lines.push(`Permissions to add: ${totalAdded}`);
+function headerLines(): string[] {
+  return ["Scanning for Claude Code settings files...", ""];
+}
 
-    if (result.added.allow.length > 0) {
-      lines.push("", "  allow:");
-      for (const perm of result.added.allow) {
-        lines.push(`    + ${perm}`);
-      }
-    }
+function filesSummaryLines(result: ConsolidationResult): string[] {
+  const lines = [`Found ${result.filesScanned} settings files`, `  Processed: ${result.filesProcessed}`];
+  if (result.filesSkipped > 0) lines.push(`  Skipped: ${result.filesSkipped} (no permissions)`);
+  return [...lines, ""];
+}
 
-    if (result.added.deny.length > 0) {
-      lines.push("", "  deny:");
-      for (const perm of result.added.deny) {
-        lines.push(`    + ${perm}`);
-      }
-    }
+function permissionLines(result: ConsolidationResult, totalAdded: number): string[] {
+  if (totalAdded === 0) return ["No new permissions to add (all permissions already in global settings)", ""];
+  return [
+    `Permissions to add: ${totalAdded}`,
+    ...permissionCategoryLines("allow", result.added.allow),
+    ...permissionCategoryLines("deny", result.added.deny),
+    ...permissionCategoryLines("ask", result.added.ask),
+    "",
+  ];
+}
 
-    if (result.added.ask.length > 0) {
-      lines.push("", "  ask:");
-      for (const perm of result.added.ask) {
-        lines.push(`    + ${perm}`);
-      }
-    }
-  } else {
-    lines.push("No new permissions to add (all permissions already in global settings)");
-  }
+function permissionCategoryLines(label: string, permissions: readonly string[]): string[] {
+  if (permissions.length === 0) return [];
+  return ["", `  ${label}:`, ...permissions.map((permission) => `    + ${permission}`)];
+}
 
-  lines.push("");
+function subsumptionLines(result: ConsolidationResult): string[] {
+  if (result.subsumed.length === 0) return [];
+  return [
+    `Subsumed permissions removed: ${result.subsumed.length}`,
+    "  (narrower permissions replaced by broader ones)",
+    ...result.subsumed.map((permission) => `    - ${permission}`),
+    "",
+  ];
+}
 
-  // Subsumption results
-  if (result.subsumed.length > 0) {
-    lines.push(`Subsumed permissions removed: ${result.subsumed.length}`, "  (narrower permissions replaced by broader ones)");
-    for (const perm of result.subsumed) {
-      lines.push(`    - ${perm}`);
-    }
-    lines.push("");
-  }
+function conflictLines(result: ConsolidationResult): string[] {
+  if (result.conflictsResolved === 0) return [];
+  return [`Conflicts resolved: ${result.conflictsResolved}`, "  (permissions moved from allow to deny)", ""];
+}
 
-  // Conflicts
-  if (result.conflictsResolved > 0) {
-    lines.push(`Conflicts resolved: ${result.conflictsResolved}`, "  (permissions moved from allow to deny)", "");
-  }
+function backupLines(result: ConsolidationResult): string[] {
+  return result.backupPath ? [`Backup created: ${result.backupPath}`, ""] : [];
+}
 
-  // Backup
-  if (result.backupPath) {
-    lines.push(`Backup created: ${result.backupPath}`, "");
-  }
-
-  // Summary
-  lines.push(
+function summaryLines(result: ConsolidationResult): string[] {
+  return [
     "Summary:",
     `  Files scanned: ${result.filesScanned}`,
     `  Permissions added: ${result.added.allow.length} allow, ${result.added.deny.length} deny, ${result.added.ask.length} ask`,
-  );
-  if (result.subsumed.length > 0) {
-    lines.push(`  Subsumed removed: ${result.subsumed.length}`);
-  }
-  if (result.conflictsResolved > 0) {
-    lines.push(`  Conflicts resolved: ${result.conflictsResolved}`);
-  }
+    ...optionalSummaryLines(result),
+    "",
+  ];
+}
 
-  // Final status message
-  lines.push("");
+function optionalSummaryLines(result: ConsolidationResult): string[] {
+  return [
+    ...(result.subsumed.length > 0 ? [`  Subsumed removed: ${result.subsumed.length}`] : []),
+    ...(result.conflictsResolved > 0 ? [`  Conflicts resolved: ${result.conflictsResolved}`] : []),
+  ];
+}
+
+function finalStatusLines(
+  result: ConsolidationResult,
+  previewOnly: boolean,
+  globalSettingsPath?: string,
+  outputFile?: string,
+): string[] {
   if (previewOnly) {
-    lines.push("ℹ️  Preview mode: No changes written", "", "To apply changes:", `  • Modify global settings: spx claude settings consolidate --write`, `  • Write to file: spx claude settings consolidate --output-file /path/to/file`);
-  } else if (outputFile) {
-    lines.push(`✓ Settings written to: ${result.outputPath || outputFile}`, "", "To apply to your global settings:", `  • Review the file, then copy to: ${globalSettingsPath || "~/.claude/settings.json"}`, `  • Or run: spx claude settings consolidate --write`);
-  } else {
-    lines.push(`✓ Global settings updated: ${globalSettingsPath || "~/.claude/settings.json"}`);
+    return [
+      "ℹ️  Preview mode: No changes written",
+      "",
+      "To apply changes:",
+      "  • Modify global settings: spx claude settings consolidate --write",
+      "  • Write to file: spx claude settings consolidate --output-file /path/to/file",
+    ];
   }
-
-  return lines.join("\n");
+  if (outputFile) {
+    return [
+      `✓ Settings written to: ${result.outputPath || outputFile}`,
+      "",
+      "To apply to your global settings:",
+      `  • Review the file, then copy to: ${globalSettingsPath || "~/.claude/settings.json"}`,
+      "  • Or run: spx claude settings consolidate --write",
+    ];
+  }
+  return [`✓ Global settings updated: ${globalSettingsPath || "~/.claude/settings.json"}`];
 }

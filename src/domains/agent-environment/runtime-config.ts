@@ -522,7 +522,18 @@ function isTomlManagedInlineAssignment(line: string): boolean {
 }
 
 function isTomlTableHeader(line: string): boolean {
-  return /^\[\[?[^\]\r\n]+\]\]?\s*(?:#.*)?$/.test(line);
+  const trimmed = line.trim();
+  const commentStart = trimmed.indexOf("#");
+  const header = commentStart === -1 ? trimmed : trimmed.slice(0, commentStart).trimEnd();
+  if (header.startsWith("[[") && header.endsWith("]]")) {
+    const inner = header.slice(2, -2);
+    return inner.length > 0 && !inner.includes("]");
+  }
+  if (header.startsWith("[") && header.endsWith("]")) {
+    const inner = header.slice(1, -1);
+    return inner.length > 0 && !inner.includes("]");
+  }
+  return false;
 }
 
 function ensureTrailingNewline(value: string): string {
@@ -532,7 +543,7 @@ function ensureTrailingNewline(value: string): string {
 function trimTrailingNewline(value: string): string {
   let end = value.length;
   while (end > 0 && value[end - 1] === "\n") {
-    end--;
+    end -= 1;
   }
   return value.slice(0, end);
 }
