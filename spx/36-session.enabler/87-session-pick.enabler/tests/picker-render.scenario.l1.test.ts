@@ -26,6 +26,7 @@ import {
   arbitraryGoalWithNewline,
   arbitrarySessionId,
   claimableSession,
+  FILTER_FIELD,
 } from "@testing/generators/session/session";
 import { renderPickerView } from "@testing/harnesses/session/picker";
 
@@ -51,7 +52,7 @@ interface LaunchCase {
   readonly autoContinue: boolean;
 }
 
-const LAUNCH_CASES: readonly LaunchCase[] = [
+const launchCases: readonly LaunchCase[] = [
   { key: "c", runtime: PICKER_RUNTIME.CLAUDE, autoContinue: false },
   { key: "C", runtime: PICKER_RUNTIME.CLAUDE, autoContinue: true },
   { key: "x", runtime: PICKER_RUNTIME.CODEX, autoContinue: false },
@@ -74,7 +75,7 @@ describe("SessionPicker rendering", () => {
   });
 
   it("filters modally: `/` opens filter and narrows, Enter keeps the query, Esc clears it", async () => {
-    const { candidates, needle, matchingIds } = sample(arbitraryFilterScenario("goal"));
+    const { candidates, needle, matchingIds } = sample(arbitraryFilterScenario(FILTER_FIELD.GOAL));
     const matches = (id: string): number => (matchingIds.includes(id) ? 1 : 0);
     const view = renderPickerView({ sessions: candidates, columns: sampleWidth() });
 
@@ -105,7 +106,7 @@ describe("SessionPicker rendering", () => {
     view.unmount();
   });
 
-  it.each(LAUNCH_CASES)(
+  it.each(launchCases)(
     "launches the selected session with $key as the chosen runtime and auto-continue",
     async ({ key, runtime, autoContinue }) => {
       const session = sample(arbitraryClaimableSession());
