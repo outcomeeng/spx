@@ -26,15 +26,21 @@ export const MIRROR_ERROR_SEVERITY = "error" as const;
 
 /**
  * The warn-tier rules: type-aware `@typescript-eslint` rules dormant without the
- * project service (redundant assertions, superfluous narrowings) plus SonarJS
- * analyzer rules whose backlog is not yet cleared. They surface findings locally
- * without failing the gate.
+ * project service (redundant assertions, superfluous narrowings), SonarJS
+ * analyzer rules whose backlog is not yet cleared, and the unicorn-family
+ * modernization rules — provided by `eslint-plugin-unicorn` for the SonarQube
+ * analyzer rules `eslint-plugin-sonarjs` does not package — whose backlog is
+ * likewise uncleared. They surface findings locally without failing the gate.
  */
 export const MIRROR_WARN_RULES: Linter.RulesRecord = {
   "@typescript-eslint/no-unnecessary-type-assertion": MIRROR_WARN_SEVERITY,
   "@typescript-eslint/no-unnecessary-condition": MIRROR_WARN_SEVERITY,
   "sonarjs/cognitive-complexity": MIRROR_WARN_SEVERITY,
   "sonarjs/no-identical-expressions": MIRROR_WARN_SEVERITY,
+  "unicorn/prefer-node-protocol": MIRROR_WARN_SEVERITY,
+  "unicorn/prefer-code-point": MIRROR_WARN_SEVERITY,
+  "unicorn/prefer-single-call": MIRROR_WARN_SEVERITY,
+  "unicorn/prefer-string-raw": MIRROR_WARN_SEVERITY,
 };
 
 /**
