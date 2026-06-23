@@ -244,7 +244,7 @@ export type SpecTreeConfig = {
 export const SPEC_TREE_SECTION = SPEC_TREE_CONFIG.SECTION;
 
 function isKind(value: string): value is Kind {
-  return Object.prototype.hasOwnProperty.call(KIND_REGISTRY, value);
+  return Object.hasOwn(KIND_REGISTRY, value);
 }
 
 function buildDefaults(): SpecTreeConfig {
@@ -253,7 +253,7 @@ function buildDefaults(): SpecTreeConfig {
 
 function buildConfigFromKindNames(kindNames: readonly Kind[]): SpecTreeConfig {
   const entries = kindNames.map((kind) => [kind, KIND_REGISTRY[kind]] as const);
-  return { kinds: Object.fromEntries(entries) as SpecTreeConfig["kinds"] };
+  return { kinds: Object.fromEntries(entries) };
 }
 
 function validate(value: unknown): Result<SpecTreeConfig> {

@@ -1,8 +1,14 @@
 import { artifactDirectoryPredicate } from "./predicates/artifact-directory";
 import { hiddenPrefixPredicate } from "./predicates/hidden-prefix";
 import { ignoreSourcePredicate } from "./predicates/ignore-source";
-import type { ArtifactDirectoryConfig, HiddenPrefixConfig, IgnoreSourcePredicateConfig } from "./types";
-import type { LayerContext, LayerDecision, LayerEntry } from "./types";
+import type {
+  ArtifactDirectoryConfig,
+  HiddenPrefixConfig,
+  IgnoreSourcePredicateConfig,
+  LayerContext,
+  LayerDecision,
+  LayerEntry,
+} from "./types";
 
 function makeLayer<C>(
   extractConfig: (ctx: LayerContext) => C,

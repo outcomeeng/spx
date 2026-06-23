@@ -154,7 +154,7 @@ export function assertProperty<T>(
   }
 
   const guardedSyncPredicate = (value: T): boolean | void => {
-    const outcome = (predicate as (value: T) => boolean | void | Promise<boolean | void>)(value);
+    const outcome = predicate(value);
     if (outcome != null && typeof (outcome as { then?: unknown }).then === "function") {
       throw new TypeError(
         "assertProperty received a Promise-returning predicate that is not an async function; "

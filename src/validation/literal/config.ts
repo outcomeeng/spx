@@ -80,6 +80,14 @@ export const LITERAL_DEFAULTS: LiteralConfig = {
   minNumberDigits: DEFAULT_MIN_NUMBER_DIGITS,
 };
 
+function isStringArray(value: unknown): value is string[] {
+  return Array.isArray(value) && value.every((item) => typeof item === "string");
+}
+
+function isNonNegativeInteger(value: unknown): value is number {
+  return typeof value === "number" && Number.isInteger(value) && value >= 0;
+}
+
 function validate(value: unknown): Result<LiteralConfig> {
   if (typeof value !== "object" || value === null || Array.isArray(value)) {
     return { ok: false, error: `${LITERAL_SECTION} section must be an object` };
@@ -92,28 +100,27 @@ function validate(value: unknown): Result<LiteralConfig> {
 
   const presets = candidate["presets"];
   if (presets !== undefined) {
-    if (!Array.isArray(presets) || !presets.every((x) => typeof x === "string")) {
+    if (!isStringArray(presets)) {
       return { ok: false, error: `${LITERAL_SECTION}.presets must be an array of strings` };
     }
-    for (const id of presets as string[]) {
-      if (!PRESET_REGISTRY.has(id as PresetName)) {
-        return { ok: false, error: `${LITERAL_SECTION}.presets: unrecognized preset "${id}"` };
-      }
+    const unknownPreset = presets.find((id) => !PRESET_REGISTRY.has(id as PresetName));
+    if (unknownPreset !== undefined) {
+      return { ok: false, error: `${LITERAL_SECTION}.presets: unrecognized preset "${unknownPreset}"` };
     }
   }
 
   const include = candidate["include"];
-  if (include !== undefined && (!Array.isArray(include) || !include.every((x) => typeof x === "string"))) {
+  if (include !== undefined && !isStringArray(include)) {
     return { ok: false, error: `${LITERAL_SECTION}.include must be an array of strings` };
   }
 
   const exclude = candidate["exclude"];
-  if (exclude !== undefined && (!Array.isArray(exclude) || !exclude.every((x) => typeof x === "string"))) {
+  if (exclude !== undefined && !isStringArray(exclude)) {
     return { ok: false, error: `${LITERAL_SECTION}.exclude must be an array of strings` };
   }
 
   const minStringLength = candidate["minStringLength"] ?? LITERAL_DEFAULTS.minStringLength;
-  if (typeof minStringLength !== "number" || !Number.isInteger(minStringLength) || minStringLength < 0) {
+  if (!isNonNegativeInteger(minStringLength)) {
     return {
       ok: false,
       error: `${LITERAL_SECTION}.minStringLength must be a non-negative integer`,
@@ -121,7 +128,7 @@ function validate(value: unknown): Result<LiteralConfig> {
   }
 
   const minNumberDigits = candidate["minNumberDigits"] ?? LITERAL_DEFAULTS.minNumberDigits;
-  if (typeof minNumberDigits !== "number" || !Number.isInteger(minNumberDigits) || minNumberDigits < 0) {
+  if (!isNonNegativeInteger(minNumberDigits)) {
     return {
       ok: false,
       error: `${LITERAL_SECTION}.minNumberDigits must be a non-negative integer`,
@@ -131,9 +138,9 @@ function validate(value: unknown): Result<LiteralConfig> {
   return {
     ok: true,
     value: {
-      presets: presets as readonly string[] | undefined,
-      include: include as readonly string[] | undefined,
-      exclude: exclude as readonly string[] | undefined,
+      presets: presets,
+      include: include,
+      exclude: exclude,
       minStringLength,
       minNumberDigits,
     },

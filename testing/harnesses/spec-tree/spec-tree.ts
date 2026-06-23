@@ -17,8 +17,14 @@ import {
   type SpecTreeSnapshot,
   type SpecTreeSource,
 } from "@/lib/spec-tree";
-import type { Kind, KindDefinition, SpecTreeConfig } from "@/lib/spec-tree/config";
-import { KIND_REGISTRY, SPEC_TREE_CONFIG, type SpecTreeKindCategory } from "@/lib/spec-tree/config";
+import {
+  type Kind,
+  KIND_REGISTRY,
+  type KindDefinition,
+  SPEC_TREE_CONFIG,
+  type SpecTreeConfig,
+  type SpecTreeKindCategory,
+} from "@/lib/spec-tree/config";
 import {
   buildRepresentativeFixture,
   createSource,
@@ -91,7 +97,7 @@ export function withTestEnv(
     const configFile = configFileForFormat(productDir, DEFAULT_CONFIG_FILE_FORMAT);
     const serialized = serializeConfigFileSections(
       configFile.format,
-      config as Record<string, unknown>,
+      config,
     );
     if (!serialized.ok) {
       throw new Error(serialized.error);
