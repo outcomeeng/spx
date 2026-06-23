@@ -168,7 +168,7 @@ export class SessionLegacyFrontmatterInputError extends SessionError {
       "Invalid handoff input: stdin opens with the YAML-frontmatter delimiter `---`. "
         + "Use the JSON-prefix wire format: a single JSON object holding caller-supplied "
         + "fields followed by the body bytes verbatim. Example:\n\n"
-        + "  printf '%s\\n' '{\"priority\":\"high\",\"goal\":\"...\",\"next_step\":\"...\"}' '# Body' "
+        + String.raw`  printf '%s\n' '{"priority":"high","goal":"...","next_step":"..."}' '# Body' `
         + "| spx session handoff",
     );
     this.name = "SessionLegacyFrontmatterInputError";
