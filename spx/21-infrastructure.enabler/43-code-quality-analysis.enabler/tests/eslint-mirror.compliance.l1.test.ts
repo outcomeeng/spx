@@ -94,10 +94,19 @@ describe("type-aware lint mirror", () => {
     expect(reportedSeverityAt(MIRROR_ERROR_SEVERITY)).toBe(eslintErrorSeverity);
   });
 
-  it("places the array-sort-comparator class in the error tier", () => {
-    // The sort-comparator class (SonarQube S2871) has no remaining occurrence in
-    // the linted tree, so it runs at the error tier: a new bare sort fails the gate.
+  it("places the cleared classes in the error tier", () => {
+    // The cleared finding classes have no remaining occurrence in the linted
+    // tree, so each runs at the error tier: a new occurrence fails the gate. The
+    // sort-comparator class (SonarQube S2871) is named through its source-owned
+    // constant; the other three graduates — the redundant-assertion
+    // (@typescript-eslint), object-has-own (ESLint core), and duplicate-import
+    // (eslint-plugin-import) classes — are read by family from the source-owned
+    // error tier, so no rule-id literal is duplicated from source.
     expect(MIRROR_ERROR_RULES).toHaveProperty(ARRAY_SORT_COMPARATOR_RULE, MIRROR_ERROR_SEVERITY);
+    const errorRuleNames = Object.keys(MIRROR_ERROR_RULES);
+    expect(errorRuleNames.some((rule) => rule.startsWith(typescriptPrefix))).toBe(true);
+    expect(errorRuleNames.some(isCoreRule)).toBe(true);
+    expect(errorRuleNames.some((rule) => rule.startsWith(importPrefix))).toBe(true);
   });
 
   it("places the unicorn-family rules in the warn tier", () => {
