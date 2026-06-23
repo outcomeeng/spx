@@ -461,6 +461,22 @@ export function arbitrarySession(): fc.Arbitrary<Session> {
     .map((fields) => makeSession(fields));
 }
 
+/**
+ * Arbitrary value that is never a `string[]` — integers, booleans, null, plain
+ * objects, and arrays of non-strings. Drives tests that a session metadata
+ * parser coerces a non-string-array `specs`/`files` field to an empty array
+ * rather than trusting the raw YAML value.
+ */
+export function arbitraryNonStringArrayValue(): fc.Arbitrary<unknown> {
+  return fc.oneof(
+    fc.integer(),
+    fc.boolean(),
+    fc.constant(null),
+    fc.dictionary(fc.string({ maxLength: 8 }), fc.string({ maxLength: 8 })),
+    fc.array(fc.oneof(fc.integer(), fc.boolean(), fc.constant(null)), { maxLength: 4 }),
+  );
+}
+
 /** Date bounds keep generated session instants within four-digit years so the ID format holds. */
 const SESSION_ID_MIN_DATE = new Date("2000-01-01T00:00:00.000Z");
 const SESSION_ID_MAX_DATE = new Date("2099-12-31T23:59:59.000Z");
