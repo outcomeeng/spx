@@ -24,7 +24,11 @@ import {
 } from "@/domains/session/types";
 import { GIT_HEAD_SHA_ARGS, NOT_GIT_REPO_WARNING } from "@/git/root";
 import { sessionDomain as sessionDomainDescriptor } from "@/interfaces/cli/session";
-import { sessionCliDefinition, sessionOptionToken, sessionSubcommandOptions } from "@/interfaces/cli/session/definition";
+import {
+  sessionCliDefinition,
+  sessionOptionToken,
+  sessionSubcommandOptions,
+} from "@/interfaces/cli/session/definition";
 import { sampleLiteralTestValue } from "@testing/generators/literal/literal";
 import {
   arbitraryBarePoolLayoutCase,

@@ -1,8 +1,8 @@
+import { execa } from "execa";
 import { constants as fsConstants } from "node:fs";
 import { chmod, mkdir, readFile, writeFile } from "node:fs/promises";
 import { join } from "node:path";
 import { parse } from "yaml";
-import { execa } from "execa";
 
 import { isDirectPrecommitEntrypoint, PRECOMMIT_ENTRYPOINT } from "./entrypoint";
 
