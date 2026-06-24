@@ -4,8 +4,9 @@
 
 `pnpm run validate` can pass while ESLint emits warning-level findings. On
 June 23, 2026, `pnpm run validate` passed with 162 warnings; `pnpm run lint:fix`
-reduced the count to 101 warnings, and pre-push remediation reduced it to 95
-warnings. The remaining manual findings are in these classes:
+reduced the count to 101 warnings, pre-push remediation reduced it to 95
+warnings, and the current validation pass reports 96 warnings. The remaining
+manual findings are in these classes:
 
 - `sonarjs/cognitive-complexity`
 - `@typescript-eslint/no-unnecessary-condition`
