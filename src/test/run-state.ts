@@ -256,7 +256,7 @@ function runCoversNode(run: TestTerminalRun, nodeTestPaths: readonly string[]): 
   return outcomesCoverPaths(run.state.runnerOutcomes, nodeTestPaths);
 }
 
-export function outcomesCoverPaths(
+function outcomesCoverPaths(
   outcomes: readonly TestRunnerOutcome[],
   nodeTestPaths: readonly string[],
 ): boolean {

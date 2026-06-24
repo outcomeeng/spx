@@ -4,6 +4,7 @@ import { describe, expect, it } from "vitest";
 import {
   classifyNodeStatus,
   createNodeStatusFile,
+  createNodeStatusMechanismRecord,
   NODE_STATUS_EVIDENCE_OUTCOME,
   NODE_STATUS_FIELD,
   NODE_STATUS_SCHEMA_VERSION,
@@ -35,16 +36,55 @@ describe("node-status writer output", () => {
         const serialized = serializeNodeStatus(createNodeStatusFile(verification));
         const parsed = parseNodeStatusFile(JSON.parse(serialized), "generated-status");
 
-        expect(Object.keys(parsed.verification).length).toBeGreaterThan(1);
-        for (const mechanism of Object.values(parsed.verification)) {
-          expect(Object.keys(mechanism).filter((key) => key !== NODE_STATUS_FIELD.OVERALL).length).toBeGreaterThan(1);
-        }
         expect(parsed).toEqual({
           schemaVersion: NODE_STATUS_SCHEMA_VERSION,
           verification,
         });
       }),
     );
+  });
+
+  it("round-trips a single mechanism with one evidence reference across parse and serialize", () => {
+    const evidenceReference = "tests/node-status.scenario.l1.test.ts";
+    const verification = {
+      [NODE_STATUS_VERIFICATION_MECHANISM.TEST]: createNodeStatusMechanismRecord({
+        [evidenceReference]: NODE_STATUS_EVIDENCE_OUTCOME.PASSED,
+      }),
+    };
+
+    const parsed = parseNodeStatusFile(
+      JSON.parse(serializeNodeStatus(createNodeStatusFile(verification))),
+      "singleton-status",
+    );
+
+    expect(parsed).toEqual({
+      schemaVersion: NODE_STATUS_SCHEMA_VERSION,
+      verification,
+    });
+  });
+
+  it("round-trips multiple mechanisms across parse and serialize", () => {
+    const verification = {
+      [NODE_STATUS_VERIFICATION_MECHANISM.TEST]: createNodeStatusMechanismRecord({
+        "tests/node-status.scenario.l1.test.ts": NODE_STATUS_EVIDENCE_OUTCOME.PASSED,
+      }),
+      [NODE_STATUS_VERIFICATION_MECHANISM.EVAL]: createNodeStatusMechanismRecord({
+        "evals/node-status.eval.ts": NODE_STATUS_EVIDENCE_OUTCOME.NOT_RUN,
+      }),
+      [NODE_STATUS_VERIFICATION_MECHANISM.AUDIT]: createNodeStatusMechanismRecord({
+        "audits/node-status.audit.md": NODE_STATUS_EVIDENCE_OUTCOME.FAILED,
+      }),
+    };
+
+    const parsed = parseNodeStatusFile(
+      JSON.parse(serializeNodeStatus(createNodeStatusFile(verification))),
+      "multi-mechanism-status",
+    );
+
+    expect(parsed).toEqual({
+      schemaVersion: NODE_STATUS_SCHEMA_VERSION,
+      verification,
+    });
   });
 
   it("rejects nonconforming status JSON", () => {
