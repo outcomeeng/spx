@@ -61,6 +61,11 @@ export interface SessionCliDefinition {
   };
 }
 
+export interface SessionSubcommandOptionsDefinition {
+  readonly subcommand: SessionSubcommandDefinition;
+  readonly options: readonly SessionOptionDefinition[];
+}
+
 export const sessionCliDefinition: SessionCliDefinition = {
   domain: { commandName: "session", description: "Manage session workflow" },
   subcommands: {
@@ -154,6 +159,72 @@ export const sessionCliDefinition: SessionCliDefinition = {
     },
   },
 };
+
+export const sessionSubcommandOptions = [
+  {
+    subcommand: sessionCliDefinition.subcommands.list,
+    options: [
+      sessionCliDefinition.options.status,
+      sessionCliDefinition.options.json,
+      sessionCliDefinition.options.fields,
+      sessionCliDefinition.options.color,
+      sessionCliDefinition.options.noColor,
+      sessionCliDefinition.options.sessionsDir,
+    ],
+  },
+  {
+    subcommand: sessionCliDefinition.subcommands.pick,
+    options: [sessionCliDefinition.options.sessionsDir],
+  },
+  {
+    subcommand: sessionCliDefinition.subcommands.todo,
+    options: [
+      sessionCliDefinition.options.json,
+      sessionCliDefinition.options.fields,
+      sessionCliDefinition.options.color,
+      sessionCliDefinition.options.noColor,
+      sessionCliDefinition.options.sessionsDir,
+    ],
+  },
+  {
+    subcommand: sessionCliDefinition.subcommands.show,
+    options: [sessionCliDefinition.options.json, sessionCliDefinition.options.sessionsDir],
+  },
+  {
+    subcommand: sessionCliDefinition.subcommands.pickup,
+    options: [sessionCliDefinition.options.auto, sessionCliDefinition.options.sessionsDir],
+  },
+  {
+    subcommand: sessionCliDefinition.subcommands.release,
+    options: [sessionCliDefinition.options.sessionsDir],
+  },
+  {
+    subcommand: sessionCliDefinition.subcommands.handoff,
+    options: [sessionCliDefinition.options.sessionsDir],
+  },
+  {
+    subcommand: sessionCliDefinition.subcommands.delete,
+    options: [sessionCliDefinition.options.sessionsDir],
+  },
+  {
+    subcommand: sessionCliDefinition.subcommands.prune,
+    options: [
+      sessionCliDefinition.options.keep,
+      sessionCliDefinition.options.dryRun,
+      sessionCliDefinition.options.sessionsDir,
+    ],
+  },
+  {
+    subcommand: sessionCliDefinition.subcommands.archive,
+    options: [sessionCliDefinition.options.sessionsDir],
+  },
+] satisfies readonly SessionSubcommandOptionsDefinition[];
+
+export function sessionOptionsForSubcommand(
+  subcommand: SessionSubcommandDefinition,
+): readonly SessionOptionDefinition[] {
+  return sessionSubcommandOptions.find((entry) => entry.subcommand === subcommand)?.options ?? [];
+}
 
 /** The Commander command token for a subcommand: the verb followed by its operand grammar. */
 export function sessionCommandToken(subcommand: SessionSubcommandDefinition): string {

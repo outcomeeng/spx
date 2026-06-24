@@ -10,7 +10,7 @@ import { BatchError, type BatchItemResult, processBatch } from "@/domains/sessio
 import { SessionNotFoundError } from "@/domains/session/errors";
 import { parseSessionMetadata, type SessionRecord, toSessionRecord } from "@/domains/session/list";
 import { formatShowOutput, resolveSessionPaths, SEARCH_ORDER, SessionDirectoryConfig } from "@/domains/session/show";
-import { SessionStatus } from "@/domains/session/types";
+import { SESSION_FILE_ENCODING, SessionStatus } from "@/domains/session/types";
 import { SESSION_LIST_FORMAT, type SessionListFormat } from "./list";
 import { resolveSessionConfigSurfacingWarning, type SessionWarningHandler } from "./resolve-config";
 
@@ -66,7 +66,7 @@ async function resolveSession(
     throw new SessionNotFoundError(sessionId);
   }
 
-  const content = await readFile(found.path, "utf-8");
+  const content = await readFile(found.path, SESSION_FILE_ENCODING);
   return { status: found.status, path: found.path, content };
 }
 

@@ -10,7 +10,13 @@ import { join } from "node:path";
 import { parseSessionMetadata } from "@/domains/session/list";
 import { DEFAULT_KEEP_COUNT, selectSessionsToDelete } from "@/domains/session/prune";
 import { SessionDirectoryConfig } from "@/domains/session/show";
-import { Session, SESSION_STATUSES, SessionStatus } from "@/domains/session/types";
+import {
+  Session,
+  SESSION_FILE_ENCODING,
+  SESSION_FILE_ERROR_CODE,
+  SESSION_STATUSES,
+  SessionStatus,
+} from "@/domains/session/types";
 import { resolveSessionConfigSurfacingWarning, type SessionWarningHandler } from "./resolve-config";
 
 export { DEFAULT_KEEP_COUNT };
@@ -76,7 +82,7 @@ async function loadArchiveSessions(config: SessionDirectoryConfig): Promise<Sess
 
       const id = file.replace(".md", "");
       const filePath = join(config.archiveDir, file);
-      const content = await readFile(filePath, "utf-8");
+      const content = await readFile(filePath, SESSION_FILE_ENCODING);
       const metadata = parseSessionMetadata(content);
 
       sessions.push({
@@ -89,7 +95,7 @@ async function loadArchiveSessions(config: SessionDirectoryConfig): Promise<Sess
 
     return sessions;
   } catch (error) {
-    if (error instanceof Error && "code" in error && error.code === "ENOENT") {
+    if (error instanceof Error && "code" in error && error.code === SESSION_FILE_ERROR_CODE.NOT_FOUND) {
       return [];
     }
     throw error;

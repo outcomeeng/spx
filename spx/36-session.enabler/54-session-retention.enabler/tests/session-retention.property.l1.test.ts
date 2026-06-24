@@ -5,13 +5,19 @@ import { describe, expect, it } from "vitest";
 
 import { archiveCommand } from "@/commands/session/archive";
 import { DEFAULT_SESSION_METADATA } from "@/domains/session/list";
-import { DEFAULT_KEEP_COUNT, selectSessionsToDelete } from "@/domains/session/prune";
+import { selectSessionsToDelete } from "@/domains/session/prune";
+import { generateSessionId } from "@/domains/session/timestamp";
 import { type Session, SESSION_STATUSES } from "@/domains/session/types";
-import { arbitrarySessionContent, arbitrarySessionId } from "@testing/generators/session/session";
+import {
+  arbitrarySessionContent,
+  arbitrarySessionId,
+  samplePathUnsafeAgentSessionIdentity,
+} from "@testing/generators/session/session";
 import { assertProperty, PROPERTY_LEVEL, PROPERTY_SIZE } from "@testing/harnesses/property/property";
 import { createSessionHarness } from "@testing/harnesses/session/harness";
 
 const [TODO, DOING, ARCHIVE] = SESSION_STATUSES;
+const fixtureYear = 2026;
 
 function session(id: string, status: typeof SESSION_STATUSES[number] = ARCHIVE): Session {
   return {
@@ -23,7 +29,7 @@ function session(id: string, status: typeof SESSION_STATUSES[number] = ARCHIVE):
 }
 
 function sessionId(day: number): string {
-  return `2026-01-${String(day).padStart(2, "0")}_10-00-00`;
+  return generateSessionId({ now: () => new Date(Date.UTC(fixtureYear, 0, day, 10, 0, 0)) });
 }
 
 describe("session retention properties", () => {
@@ -61,10 +67,20 @@ describe("session retention properties", () => {
   });
 
   it("GIVEN unparsable archive IDs WHEN selected THEN ordering is deterministic", () => {
-    const archive = [session("zzz"), session("aaa"), session(sessionId(1)), session(sessionId(2))];
+    const unparsableSessions = [
+      session(samplePathUnsafeAgentSessionIdentity()),
+      session(samplePathUnsafeAgentSessionIdentity(0x5e5531)),
+    ];
+    const parsableSessions = [
+      session(sessionId(1)),
+      session(sessionId(2)),
+    ];
+    const archive = [...unparsableSessions, ...parsableSessions];
+    const selected = selectSessionsToDelete(archive, { keep: parsableSessions.length });
 
-    expect(selectSessionsToDelete(archive, { keep: DEFAULT_KEEP_COUNT - 3 }).map((item) => item.id))
-      .toEqual(selectSessionsToDelete(archive, { keep: DEFAULT_KEEP_COUNT - 3 }).map((item) => item.id));
+    expect(selected.map((item) => item.id)).toEqual(unparsableSessions.map((item) => item.id));
+    expect(selected.map((item) => item.id))
+      .toEqual(selectSessionsToDelete(archive, { keep: parsableSessions.length }).map((item) => item.id));
   });
 
   it("GIVEN session content of any frontmatter shape WHEN archive THEN it moves to archive without rejecting", async () => {

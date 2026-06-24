@@ -21,7 +21,12 @@ import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { handoffCommand } from "@/commands/session/handoff";
 import { SessionLegacyFrontmatterInputError } from "@/domains/session/errors";
 import { parseSessionMetadata } from "@/domains/session/list";
-import { arbitraryHandoffHeader, arbitraryLegacyYamlFrontmatterStdin } from "@testing/generators/session/session";
+import { SESSION_FILE_ENCODING } from "@/domains/session/types";
+import {
+  arbitraryHandoffHeader,
+  arbitraryLegacyYamlFrontmatterStdin,
+  SESSION_UNICODE_STRING_UNIT,
+} from "@testing/generators/session/session";
 import {
   assertProperty,
   PROPERTY_LEVEL,
@@ -34,6 +39,7 @@ import {
   buildHandoffStdin,
   createSessionGitDeps,
   createSessionHarness,
+  DEFAULT_GIT_DEPS_BRANCH,
   SessionHarness,
 } from "@testing/harnesses/session/harness";
 
@@ -69,22 +75,26 @@ describe("handoff round-trip property", () => {
       // covers the full Unicode range (0000-10FFFF) so the round-trip is
       // exercised beyond BMP-only inputs.
       await assertProperty(
-        fc.tuple(arbitraryHandoffHeader(), fc.string({ unit: "binary", minLength: 1 })),
+        fc.tuple(
+          arbitraryHandoffHeader({ includeGitRef: true }),
+          fc.string({ unit: SESSION_UNICODE_STRING_UNIT, minLength: 1 }),
+        ),
         async ([header, body]) => {
           const stdin = buildHandoffStdin(header, body);
 
           const { output } = await handoffCommand({
             content: stdin,
             sessionsDir: harness.sessionsDir,
-            deps: propertyGitDeps,
+            deps: header.git_ref ? createSessionGitDeps({ originWorkBranches: [header.git_ref] }) : propertyGitDeps,
           });
 
-          const onDisk = await readFile(extractSessionFile(output), "utf-8");
+          const onDisk = await readFile(extractSessionFile(output), SESSION_FILE_ENCODING);
           const parsed = parseSessionMetadata(onDisk);
 
           expect(parsed.priority).toBe(header.priority);
           expect(parsed.goal).toBe(header.goal);
           expect(parsed.next_step).toBe(header.next_step);
+          expect(parsed.git_ref).toBe(header.git_ref || DEFAULT_GIT_DEPS_BRANCH);
           expect(parsed.specs).toEqual([...header.specs]);
           expect(parsed.files).toEqual([...header.files]);
           expect(onDisk.endsWith(body)).toBe(true);

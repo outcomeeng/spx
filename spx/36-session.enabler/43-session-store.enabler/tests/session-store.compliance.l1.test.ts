@@ -1,15 +1,22 @@
 import { handoffCommand } from "@/commands/session/handoff";
 import { listCommand, SESSION_LIST_FORMAT } from "@/commands/session/list";
 import { SessionLegacyFrontmatterInputError } from "@/domains/session/errors";
-import { SESSION_FRONT_MATTER, SESSION_PRIORITY, SESSION_STATUSES } from "@/domains/session/types";
+import {
+  SESSION_FILE_ENCODING,
+  SESSION_FRONT_MATTER,
+  SESSION_PRIORITY,
+  SESSION_STATUSES,
+} from "@/domains/session/types";
 import { sampleSessionId } from "@testing/generators/session/session";
 import {
   buildHandoffStdin,
   createSessionGitDeps,
   createSessionHarness,
+  SESSION_FORBIDDEN_JSON_RECORD_FIELD,
   SessionHarness,
 } from "@testing/harnesses/session/harness";
 import { readFile } from "node:fs/promises";
+import { join } from "node:path";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 
 import rule, {
@@ -23,6 +30,8 @@ import { runValidationRuleTester } from "@testing/harnesses/validation/eslint";
 // Matches: 2026-01-13T10:00:00Z, 2026-01-13T10:00:00.000Z, 2026-01-13T10:00:00+00:00
 const iso8601WithTimezoneOffset = /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(?:\.\d+)?(?:Z|[+-]\d{2}:\d{2})$/;
 const complianceGitDeps = createSessionGitDeps();
+const sessionCommandFixtureFile = join("src", "commands", "session", "frontmatter-fixture.ts");
+const sessionTypesFixtureFile = join("src", "domains", "session", "types.ts");
 
 describe("session-store compliance — timestamp format", () => {
   let harness: SessionHarness;
@@ -52,7 +61,7 @@ describe("session-store compliance — timestamp format", () => {
       sessionsDir: harness.sessionsDir,
       deps: complianceGitDeps,
     });
-    const frontMatter = parseFrontMatter(await readFile(extractSessionFile(output), "utf-8"));
+    const frontMatter = parseFrontMatter(await readFile(extractSessionFile(output), SESSION_FILE_ENCODING));
 
     expect(frontMatter).toHaveProperty(SESSION_FRONT_MATTER.CREATED_AT);
     expect(frontMatter[SESSION_FRONT_MATTER.CREATED_AT]).toMatch(iso8601WithTimezoneOffset);
@@ -112,7 +121,7 @@ describe("session-store compliance — declared frontmatter shape", () => {
       sessionsDir: harness.sessionsDir,
       deps: complianceGitDeps,
     });
-    const frontMatter = parseFrontMatter(await readFile(extractSessionFile(output), "utf-8"));
+    const frontMatter = parseFrontMatter(await readFile(extractSessionFile(output), SESSION_FILE_ENCODING));
 
     const declaredKeys = new Set<string>(Object.values(SESSION_FRONT_MATTER));
     for (const key of Object.keys(frontMatter)) {
@@ -130,25 +139,25 @@ describe("session-store compliance — frontmatter key registry", () => {
         {
           code:
             `import { SESSION_FRONT_MATTER } from "@/domains/session/types";\nconst key = SESSION_FRONT_MATTER.GOAL;`,
-          filename: "src/commands/session/example.ts",
+          filename: sessionCommandFixtureFile,
         },
         {
-          code: `export const SESSION_FRONT_MATTER = { GOAL: "${SESSION_FRONT_MATTER.GOAL}" } as const;`,
-          filename: "src/domains/session/types.ts",
+          code: `export const SESSION_FRONT_MATTER = { GOAL: "${SESSION_FRONT_MATTER.GOAL}" } as const`,
+          filename: sessionTypesFixtureFile,
         },
         {
-          code: `it("${SESSION_FRONT_MATTER.GOAL}", () => {});`,
-          filename: "spx/36-session.enabler/43-session-store.enabler/tests/example.test.ts",
+          code: `test("${SESSION_FRONT_MATTER.GOAL}", () => {});`,
+          filename: "frontmatter-description.test.ts",
         },
         {
           code: `type SessionFrontmatterShape = { "${SESSION_FRONT_MATTER.GOAL}": string };`,
-          filename: "src/domains/session/example.ts",
+          filename: "frontmatter-shape.ts",
         },
       ],
       invalid: [
         {
-          code: `const key = "${SESSION_FRONT_MATTER.GOAL}";`,
-          filename: "src/commands/session/example.ts",
+          code: `const sessionFrontmatterKey = "${SESSION_FRONT_MATTER.GOAL}";`,
+          filename: sessionCommandFixtureFile,
           errors: [{ messageId: USE_SESSION_FRONTMATTER_MESSAGE_ID }],
         },
       ],
@@ -181,7 +190,7 @@ describe("session-store compliance — JSON list output excludes the absolute pa
 
     expect(output).not.toContain(harness.sessionsDir);
     for (const record of records) {
-      expect(record).not.toHaveProperty("path");
+      expect(record).not.toHaveProperty(SESSION_FORBIDDEN_JSON_RECORD_FIELD.PATH);
     }
   });
 });

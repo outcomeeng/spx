@@ -17,20 +17,29 @@
 import fc from "fast-check";
 import { describe, expect, it } from "vitest";
 
+import { buildSessionFrontMatterContent } from "@/domains/session/create";
 import { parseSessionMetadata } from "@/domains/session/list";
+import { SESSION_FRONT_MATTER, SESSION_PRIORITY } from "@/domains/session/types";
+import { buildSessionMarkdownBody } from "@testing/harnesses/session/harness";
 
 describe("parseSessionMetadata — specs and files extraction (P1)", () => {
   it("GIVEN session with specs and files arrays WHEN parsed THEN both arrays extracted", () => {
-    const content =
-      `---\nspecs:\n  - path/to/spec.md\n  - path/to/other.md\nfiles:\n  - src/file.ts\n  - src/other.ts\n---\n# Content`;
+    const expectedSpecs = ["auto/spec.md", "auto/other.md"];
+    const expectedFiles = ["auto/file.ts", "auto/other.ts"];
+    const content = buildSessionFrontMatterContent([
+      `${SESSION_FRONT_MATTER.SPECS}: ${JSON.stringify(expectedSpecs)}`,
+      `${SESSION_FRONT_MATTER.FILES}: ${JSON.stringify(expectedFiles)}`,
+    ], buildSessionMarkdownBody("auto-injection arrays"));
     const result = parseSessionMetadata(content);
 
-    expect(result.specs).toEqual(["path/to/spec.md", "path/to/other.md"]);
-    expect(result.files).toEqual(["src/file.ts", "src/other.ts"]);
+    expect(result.specs).toEqual(expectedSpecs);
+    expect(result.files).toEqual(expectedFiles);
   });
 
   it("GIVEN session without specs/files WHEN parsed THEN fields are empty arrays", () => {
-    const content = `---\npriority: high\n---\n# Content`;
+    const content = buildSessionFrontMatterContent([
+      `${SESSION_FRONT_MATTER.PRIORITY}: ${SESSION_PRIORITY.HIGH}`,
+    ], buildSessionMarkdownBody("no arrays"));
     const result = parseSessionMetadata(content);
 
     expect(result.specs).toEqual([]);
@@ -38,7 +47,10 @@ describe("parseSessionMetadata — specs and files extraction (P1)", () => {
   });
 
   it("GIVEN session with empty specs/files arrays WHEN parsed THEN returns empty arrays", () => {
-    const content = `---\nspecs: []\nfiles: []\n---\n# Content`;
+    const content = buildSessionFrontMatterContent([
+      `${SESSION_FRONT_MATTER.SPECS}: []`,
+      `${SESSION_FRONT_MATTER.FILES}: []`,
+    ], buildSessionMarkdownBody("empty arrays"));
     const result = parseSessionMetadata(content);
 
     expect(result.specs).toEqual([]);
@@ -46,18 +58,26 @@ describe("parseSessionMetadata — specs and files extraction (P1)", () => {
   });
 
   it("GIVEN session with non-array specs/files WHEN parsed THEN does not throw", () => {
-    const content = `---\nspecs: not-an-array\nfiles: 42\n---\n# Content`;
+    const content = buildSessionFrontMatterContent([
+      `${SESSION_FRONT_MATTER.SPECS}: not-an-array`,
+      `${SESSION_FRONT_MATTER.FILES}: 42`,
+    ], buildSessionMarkdownBody("non-array values"));
 
     // Non-array values should not crash — graceful degradation
     expect(() => parseSessionMetadata(content)).not.toThrow();
   });
 
   it("GIVEN session with mixed-type specs array WHEN parsed THEN only strings kept", () => {
-    const content = `---\nspecs: [valid.md, 123, true, null]\nfiles: [src/ok.ts, 456]\n---\n# Content`;
+    const expectedSpecs = ["auto-valid.md"];
+    const expectedFiles = ["auto-ok.ts"];
+    const content = buildSessionFrontMatterContent([
+      `${SESSION_FRONT_MATTER.SPECS}: ${JSON.stringify([...expectedSpecs, 123, true, null])}`,
+      `${SESSION_FRONT_MATTER.FILES}: ${JSON.stringify([...expectedFiles, 456])}`,
+    ], buildSessionMarkdownBody("mixed arrays"));
     const result = parseSessionMetadata(content);
 
-    expect(result.specs).toEqual(["valid.md"]);
-    expect(result.files).toEqual(["src/ok.ts"]);
+    expect(result.specs).toEqual(expectedSpecs);
+    expect(result.files).toEqual(expectedFiles);
   });
 
   it("GIVEN no front matter WHEN parsed THEN specs and files are empty arrays", () => {
@@ -74,10 +94,9 @@ describe("parseSessionMetadata — specs/files property-based", () => {
       fc.property(
         fc.array(fc.string(), { maxLength: 5 }),
         (paths) => {
-          const yamlArray = paths.length === 0
-            ? " []"
-            : `\n${paths.map((p) => `  - ${JSON.stringify(p)}`).join("\n")}`;
-          const content = `---\nspecs:${yamlArray}\n---\n# Content`;
+          const content = buildSessionFrontMatterContent([
+            `${SESSION_FRONT_MATTER.SPECS}: ${JSON.stringify(paths)}`,
+          ], buildSessionMarkdownBody("generated specs"));
           const result = parseSessionMetadata(content);
 
           expect(result.specs).toEqual(paths);

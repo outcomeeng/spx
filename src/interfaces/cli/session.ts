@@ -1,8 +1,14 @@
 /**
  * Session CLI — Commander registration descriptor for the session subcommands.
  */
-import { sessionCliDefinition, sessionCommandToken, sessionOptionToken } from "./session/definition";
 import type { Command } from "commander";
+import {
+  sessionCliDefinition,
+  sessionCommandToken,
+  sessionOptionToken,
+  sessionOptionsForSubcommand,
+  type SessionOptionDefinition,
+} from "./session/definition";
 
 import {
   archiveCommand,
@@ -29,7 +35,7 @@ import {
   resolveListColor,
 } from "@/domains/session/list";
 import { buildPickupCommand, pickupReference } from "@/domains/session/pick-model";
-import { SESSION_STATUSES } from "@/domains/session/types";
+import { SESSION_FILE_ENCODING, SESSION_STATUSES } from "@/domains/session/types";
 import type { Domain } from "@/domains/types";
 import { foregroundProcessRunner, lifecycleSignalSuspender } from "@/lib/process-lifecycle";
 import { launchAgent } from "./session/pick/launch-agent";
@@ -49,7 +55,7 @@ async function readStdin(): Promise<string | undefined> {
 
   return new Promise((resolve) => {
     let data = "";
-    process.stdin.setEncoding("utf-8");
+    process.stdin.setEncoding(SESSION_FILE_ENCODING);
     process.stdin.on("data", (chunk) => {
       data += chunk;
     });
@@ -105,6 +111,17 @@ function resolveListWidth(): number {
   return Math.max(LIST_TEXT_MIN_WIDTH, process.stdout.columns ?? DEFAULT_LIST_WIDTH);
 }
 
+function addSessionOptions(command: Command, options: readonly SessionOptionDefinition[]): Command {
+  for (const option of options) {
+    if (option.defaultValue === undefined) {
+      command.option(sessionOptionToken(option), option.description);
+    } else {
+      command.option(sessionOptionToken(option), option.description, option.defaultValue);
+    }
+  }
+  return command;
+}
+
 /**
  * Register session domain commands
  *
@@ -112,15 +129,12 @@ function resolveListWidth(): number {
  */
 function registerSessionCommands(sessionCmd: Command): void {
   // list command
-  sessionCmd
+  addSessionOptions(
+    sessionCmd
     .command(sessionCommandToken(sessionCliDefinition.subcommands.list))
-    .description(sessionCliDefinition.subcommands.list.description)
-    .option(sessionOptionToken(sessionCliDefinition.options.status), sessionCliDefinition.options.status.description)
-    .option(sessionOptionToken(sessionCliDefinition.options.json), sessionCliDefinition.options.json.description)
-    .option(sessionOptionToken(sessionCliDefinition.options.fields), sessionCliDefinition.options.fields.description)
-    .option(sessionOptionToken(sessionCliDefinition.options.color), sessionCliDefinition.options.color.description)
-    .option(sessionOptionToken(sessionCliDefinition.options.noColor), sessionCliDefinition.options.noColor.description)
-    .option(sessionOptionToken(sessionCliDefinition.options.sessionsDir), sessionCliDefinition.options.sessionsDir.description)
+      .description(sessionCliDefinition.subcommands.list.description),
+    sessionOptionsForSubcommand(sessionCliDefinition.subcommands.list),
+  )
     .action(
       async (options: { status?: string; json?: boolean; fields?: string; color?: boolean; sessionsDir?: string }) => {
         try {
@@ -142,10 +156,12 @@ function registerSessionCommands(sessionCmd: Command): void {
 
   // pick command — interactive launcher: browse the todo queue, then hand the
   // selected session to claude or codex via `/pickup`. The picker never claims.
-  sessionCmd
+  addSessionOptions(
+    sessionCmd
     .command(sessionCommandToken(sessionCliDefinition.subcommands.pick))
-    .description(sessionCliDefinition.subcommands.pick.description)
-    .option(sessionOptionToken(sessionCliDefinition.options.sessionsDir), sessionCliDefinition.options.sessionsDir.description)
+      .description(sessionCliDefinition.subcommands.pick.description),
+    sessionOptionsForSubcommand(sessionCliDefinition.subcommands.pick),
+  )
     .action(async (options: { sessionsDir?: string }) => {
       try {
         // The picker needs a real terminal; refuse a non-interactive context
@@ -175,14 +191,12 @@ function registerSessionCommands(sessionCmd: Command): void {
     });
 
   // todo command (convenience alias for list --status todo)
-  sessionCmd
+  addSessionOptions(
+    sessionCmd
     .command(sessionCommandToken(sessionCliDefinition.subcommands.todo))
-    .description(sessionCliDefinition.subcommands.todo.description)
-    .option(sessionOptionToken(sessionCliDefinition.options.json), sessionCliDefinition.options.json.description)
-    .option(sessionOptionToken(sessionCliDefinition.options.fields), sessionCliDefinition.options.fields.description)
-    .option(sessionOptionToken(sessionCliDefinition.options.color), sessionCliDefinition.options.color.description)
-    .option(sessionOptionToken(sessionCliDefinition.options.noColor), sessionCliDefinition.options.noColor.description)
-    .option(sessionOptionToken(sessionCliDefinition.options.sessionsDir), sessionCliDefinition.options.sessionsDir.description)
+      .description(sessionCliDefinition.subcommands.todo.description),
+    sessionOptionsForSubcommand(sessionCliDefinition.subcommands.todo),
+  )
     .action(async (options: { json?: boolean; fields?: string; color?: boolean; sessionsDir?: string }) => {
       try {
         const output = await listCommand({
@@ -201,11 +215,12 @@ function registerSessionCommands(sessionCmd: Command): void {
     });
 
   // show command
-  sessionCmd
+  addSessionOptions(
+    sessionCmd
     .command(sessionCommandToken(sessionCliDefinition.subcommands.show))
-    .description(sessionCliDefinition.subcommands.show.description)
-    .option(sessionOptionToken(sessionCliDefinition.options.json), sessionCliDefinition.options.json.description)
-    .option(sessionOptionToken(sessionCliDefinition.options.sessionsDir), sessionCliDefinition.options.sessionsDir.description)
+      .description(sessionCliDefinition.subcommands.show.description),
+    sessionOptionsForSubcommand(sessionCliDefinition.subcommands.show),
+  )
     .action(async (ids: string[], options: { json?: boolean; sessionsDir?: string }) => {
       try {
         const output = await showCommand({
@@ -221,11 +236,12 @@ function registerSessionCommands(sessionCmd: Command): void {
     });
 
   // pickup command
-  sessionCmd
+  addSessionOptions(
+    sessionCmd
     .command(sessionCommandToken(sessionCliDefinition.subcommands.pickup))
-    .description(sessionCliDefinition.subcommands.pickup.description)
-    .option(sessionOptionToken(sessionCliDefinition.options.auto), sessionCliDefinition.options.auto.description)
-    .option(sessionOptionToken(sessionCliDefinition.options.sessionsDir), sessionCliDefinition.options.sessionsDir.description)
+      .description(sessionCliDefinition.subcommands.pickup.description),
+    sessionOptionsForSubcommand(sessionCliDefinition.subcommands.pickup),
+  )
     .addHelpText("after", PICKUP_SELECTION_HELP)
     .action(async (ids: string[], options: { auto?: boolean; sessionsDir?: string }) => {
       try {
@@ -246,10 +262,12 @@ function registerSessionCommands(sessionCmd: Command): void {
     });
 
   // release command
-  sessionCmd
+  addSessionOptions(
+    sessionCmd
     .command(sessionCommandToken(sessionCliDefinition.subcommands.release))
-    .description(sessionCliDefinition.subcommands.release.description)
-    .option(sessionOptionToken(sessionCliDefinition.options.sessionsDir), sessionCliDefinition.options.sessionsDir.description)
+      .description(sessionCliDefinition.subcommands.release.description),
+    sessionOptionsForSubcommand(sessionCliDefinition.subcommands.release),
+  )
     .action(async (ids: string[], options: { sessionsDir?: string }) => {
       try {
         const output = await releaseCommand({
@@ -266,10 +284,12 @@ function registerSessionCommands(sessionCmd: Command): void {
   // handoff command
   // Caller-supplied fields come from a JSON header at the start of stdin;
   // bytes after the header form the markdown body verbatim.
-  sessionCmd
+  addSessionOptions(
+    sessionCmd
     .command(sessionCommandToken(sessionCliDefinition.subcommands.handoff))
-    .description(sessionCliDefinition.subcommands.handoff.description)
-    .option(sessionOptionToken(sessionCliDefinition.options.sessionsDir), sessionCliDefinition.options.sessionsDir.description)
+      .description(sessionCliDefinition.subcommands.handoff.description),
+    sessionOptionsForSubcommand(sessionCliDefinition.subcommands.handoff),
+  )
     .addHelpText("after", HANDOFF_FRONTMATTER_HELP)
     .action(async (options: { sessionsDir?: string }) => {
       try {
@@ -299,10 +319,12 @@ function registerSessionCommands(sessionCmd: Command): void {
     });
 
   // delete command
-  sessionCmd
+  addSessionOptions(
+    sessionCmd
     .command(sessionCommandToken(sessionCliDefinition.subcommands.delete))
-    .description(sessionCliDefinition.subcommands.delete.description)
-    .option(sessionOptionToken(sessionCliDefinition.options.sessionsDir), sessionCliDefinition.options.sessionsDir.description)
+      .description(sessionCliDefinition.subcommands.delete.description),
+    sessionOptionsForSubcommand(sessionCliDefinition.subcommands.delete),
+  )
     .action(async (ids: string[], options: { sessionsDir?: string }) => {
       try {
         const output = await deleteCommand({
@@ -317,12 +339,12 @@ function registerSessionCommands(sessionCmd: Command): void {
     });
 
   // prune command
-  sessionCmd
+  addSessionOptions(
+    sessionCmd
     .command(sessionCommandToken(sessionCliDefinition.subcommands.prune))
-    .description(sessionCliDefinition.subcommands.prune.description)
-    .option(sessionOptionToken(sessionCliDefinition.options.keep), sessionCliDefinition.options.keep.description, sessionCliDefinition.options.keep.defaultValue)
-    .option(sessionOptionToken(sessionCliDefinition.options.dryRun), sessionCliDefinition.options.dryRun.description)
-    .option(sessionOptionToken(sessionCliDefinition.options.sessionsDir), sessionCliDefinition.options.sessionsDir.description)
+      .description(sessionCliDefinition.subcommands.prune.description),
+    sessionOptionsForSubcommand(sessionCliDefinition.subcommands.prune),
+  )
     .action(async (options: { keep?: string; dryRun?: boolean; sessionsDir?: string }) => {
       try {
         const keep = options.keep ? Number.parseInt(options.keep, 10) : undefined;
@@ -343,10 +365,12 @@ function registerSessionCommands(sessionCmd: Command): void {
     });
 
   // archive command
-  sessionCmd
+  addSessionOptions(
+    sessionCmd
     .command(sessionCommandToken(sessionCliDefinition.subcommands.archive))
-    .description(sessionCliDefinition.subcommands.archive.description)
-    .option(sessionOptionToken(sessionCliDefinition.options.sessionsDir), sessionCliDefinition.options.sessionsDir.description)
+      .description(sessionCliDefinition.subcommands.archive.description),
+    sessionOptionsForSubcommand(sessionCliDefinition.subcommands.archive),
+  )
     .action(async (ids: string[], options: { sessionsDir?: string }) => {
       try {
         const output = await archiveCommand({

@@ -25,7 +25,12 @@ import {
 import { resolveHandoffGitRef, resolveWorkBranchGitRef } from "@/domains/session/handoff-base";
 import { parseHandoffInput } from "@/domains/session/parse-handoff-input";
 import { generateSessionId } from "@/domains/session/timestamp";
-import { SESSION_FRONT_MATTER } from "@/domains/session/types";
+import {
+  formatSessionOutputMarker,
+  SESSION_FILE_ENCODING,
+  SESSION_FRONT_MATTER,
+  SESSION_OUTPUT_MARKER,
+} from "@/domains/session/types";
 import {
   gatherGitFacts,
   getCurrentBranch,
@@ -231,9 +236,10 @@ export async function handoffCommand(options: HandoffOptions): Promise<HandoffRe
   const absolutePath = resolve(sessionPath);
 
   await mkdir(config.todoDir, { recursive: true });
-  await writeFile(sessionPath, fullContent, "utf-8");
+  await writeFile(sessionPath, fullContent, SESSION_FILE_ENCODING);
 
-  const output =
-    `Created handoff session <HANDOFF_ID>${sessionId}</HANDOFF_ID>\n<SESSION_FILE>${absolutePath}</SESSION_FILE>`;
+  const output = `Created handoff session ${formatSessionOutputMarker(SESSION_OUTPUT_MARKER.HANDOFF_ID, sessionId)}\n${
+    formatSessionOutputMarker(SESSION_OUTPUT_MARKER.SESSION_FILE, absolutePath)
+  }`;
   return { output };
 }

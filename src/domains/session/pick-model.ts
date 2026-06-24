@@ -32,6 +32,12 @@ const RUNTIME_SKILL_PREFIX: Record<PickerRuntime, string> = {
   [PICKER_RUNTIME.CODEX]: "$",
 };
 
+/** Command token embedded in the launched agent prompt. */
+export const PICKER_PICKUP_COMMAND_NAME = "pickup";
+
+/** Auto-continue flag embedded in the launched agent prompt when requested. */
+export const PICKER_AUTO_CONTINUE_FLAG = "--auto-continue";
+
 /** A resolved command to hand the terminal to: the runtime binary and its single prompt argument. */
 export interface LaunchCommand {
   readonly command: string;
@@ -50,7 +56,9 @@ export function buildPickupCommand(
   autoContinue: boolean,
   reference: string,
 ): LaunchCommand {
-  const prompt = `${RUNTIME_SKILL_PREFIX[runtime]}pickup ${reference}${autoContinue ? " --auto-continue" : ""}`;
+  const prompt = `${RUNTIME_SKILL_PREFIX[runtime]}${PICKER_PICKUP_COMMAND_NAME} ${reference}${
+    autoContinue ? ` ${PICKER_AUTO_CONTINUE_FLAG}` : ""
+  }`;
   return { command: runtime, args: [prompt] };
 }
 

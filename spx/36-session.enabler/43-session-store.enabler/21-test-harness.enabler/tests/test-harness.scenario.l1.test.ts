@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 
 import { SESSION_FRONT_MATTER_CLOSE, SESSION_FRONT_MATTER_OPEN } from "@/domains/session/create";
+import { formatSessionOutputMarker, SESSION_OUTPUT_MARKER } from "@/domains/session/types";
 import { CONFIG_TEST_GENERATOR, sampleConfigTestValue } from "@testing/generators/config/descriptors";
 import { extractSessionFile, parseFrontMatter } from "@testing/harnesses/session/session-store";
 
@@ -15,7 +16,7 @@ describe("session-store test harness — scenarios", () => {
 
   it("extractSessionFile returns the path enclosed in the SESSION_FILE tag", () => {
     const path = sampleConfigTestValue(CONFIG_TEST_GENERATOR.key());
-    const output = `<SESSION_FILE>${path}</SESSION_FILE>`;
+    const output = formatSessionOutputMarker(SESSION_OUTPUT_MARKER.SESSION_FILE, path);
 
     expect(extractSessionFile(output)).toBe(path);
   });

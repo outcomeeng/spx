@@ -12,7 +12,16 @@ import { NoSessionsAvailableError } from "@/domains/session/errors";
 import { parseSessionMetadata } from "@/domains/session/list";
 import { buildClaimPaths, classifyClaimError, selectBestSession } from "@/domains/session/pickup";
 import { formatShowOutput, SessionDirectoryConfig } from "@/domains/session/show";
-import { CLAIMABLE_STATUS, Session, SESSION_STATUSES, SessionStatus } from "@/domains/session/types";
+import {
+  CLAIMABLE_STATUS,
+  formatSessionOutputMarker,
+  Session,
+  SESSION_FILE_ENCODING,
+  SESSION_FILE_ERROR_CODE,
+  SESSION_OUTPUT_MARKER,
+  SESSION_STATUSES,
+  SessionStatus,
+} from "@/domains/session/types";
 import { resolveSessionConfigSurfacingWarning, type SessionWarningHandler } from "./resolve-config";
 
 /** Status of sessions after being claimed. */
@@ -45,7 +54,7 @@ export async function loadTodoSessions(config: SessionDirectoryConfig): Promise<
 
       const id = file.replace(".md", "");
       const filePath = join(config.todoDir, file);
-      const content = await readFile(filePath, "utf-8");
+      const content = await readFile(filePath, SESSION_FILE_ENCODING);
       const metadata = parseSessionMetadata(content);
 
       sessions.push({
@@ -58,7 +67,7 @@ export async function loadTodoSessions(config: SessionDirectoryConfig): Promise<
 
     return sessions;
   } catch (error) {
-    if (error instanceof Error && "code" in error && error.code === "ENOENT") {
+    if (error instanceof Error && "code" in error && error.code === SESSION_FILE_ERROR_CODE.NOT_FOUND) {
       return [];
     }
     throw error;
@@ -78,10 +87,10 @@ async function pickupSingle(sessionId: string, config: SessionDirectoryConfig): 
     throw classifyClaimError(error, sessionId);
   }
 
-  const content = await readFile(paths.target, "utf-8");
+  const content = await readFile(paths.target, SESSION_FILE_ENCODING);
   const output = formatShowOutput(content, { status: PICKUP_TARGET_STATUS });
 
-  return `Claimed session <PICKUP_ID>${sessionId}</PICKUP_ID>\n\n${output}`;
+  return `Claimed session ${formatSessionOutputMarker(SESSION_OUTPUT_MARKER.PICKUP_ID, sessionId)}\n\n${output}`;
 }
 
 /**

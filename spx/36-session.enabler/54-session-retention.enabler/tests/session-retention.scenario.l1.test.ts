@@ -27,11 +27,20 @@ import { type ArchivableStatus, buildArchivePaths, findSessionForArchive } from 
 import { DEFAULT_SESSION_METADATA } from "@/domains/session/list";
 import { DEFAULT_KEEP_COUNT, selectSessionsToDelete } from "@/domains/session/prune";
 import { DEFAULT_PRIORITY, type Session, SESSION_STATUSES, type SessionPriority } from "@/domains/session/types";
-import { sampleSessionContent, sampleSessionId } from "@testing/generators/session/session";
+import {
+  sampleDistinctSessionIds,
+  samplePathUnsafeAgentSessionIdentity,
+  sampleSessionContent,
+  sampleSessionId,
+} from "@testing/generators/session/session";
 import type { SessionHarness } from "@testing/harnesses/session/harness";
 import { createSessionHarness } from "@testing/harnesses/session/harness";
 
 const [TODO, DOING, ARCHIVE] = SESSION_STATUSES;
+
+function orderedSessionIds(count: number): readonly string[] {
+  return [...sampleDistinctSessionIds(count)].sort((left, right) => left.localeCompare(right));
+}
 
 /** Factory for test sessions — derives from SESSION_STATUSES. */
 function createTestSession(overrides: {
@@ -39,12 +48,12 @@ function createTestSession(overrides: {
   priority?: SessionPriority;
   status?: typeof SESSION_STATUSES[number];
 } = {}): Session {
-  const id = overrides.id ?? "2026-01-13_10-00-00";
+  const id = overrides.id ?? sampleSessionId();
   const status = overrides.status ?? ARCHIVE;
   return {
     id,
     status,
-    path: `/test/sessions/${status}/${id}.md`,
+    path: join(status, `${id}.md`),
     metadata: {
       ...DEFAULT_SESSION_METADATA,
       priority: overrides.priority ?? DEFAULT_PRIORITY,
@@ -56,10 +65,7 @@ function createTestSession(overrides: {
 
 describe("selectSessionsToDelete", () => {
   it("GIVEN 10 sessions and keep=5 WHEN selected THEN returns 5 oldest", () => {
-    const sessions = Array.from(
-      { length: 10 },
-      (_, i) => createTestSession({ id: `2026-01-${String(i + 1).padStart(2, "0")}_10-00-00` }),
-    );
+    const sessions = orderedSessionIds(10).map((id) => createTestSession({ id }));
 
     const toPrune = selectSessionsToDelete(sessions, { keep: 5 });
 
@@ -67,10 +73,7 @@ describe("selectSessionsToDelete", () => {
   });
 
   it("P2: GIVEN keep >= total WHEN selected THEN returns empty", () => {
-    const sessions = [
-      createTestSession({ id: "2026-01-01_10-00-00" }),
-      createTestSession({ id: "2026-01-02_10-00-00" }),
-    ];
+    const sessions = orderedSessionIds(2).map((id) => createTestSession({ id }));
 
     expect(selectSessionsToDelete(sessions, { keep: 5 })).toHaveLength(0);
     expect(selectSessionsToDelete(sessions, { keep: 2 })).toHaveLength(0);
@@ -81,11 +84,12 @@ describe("selectSessionsToDelete", () => {
   });
 
   it("GIVEN mix of valid and unparsable IDs WHEN selected THEN unparsable deleted first", () => {
-    const unparsableSessionId = "unparsable";
+    const unparsableSessionId = samplePathUnsafeAgentSessionIdentity();
+    const [firstValidSessionId, secondValidSessionId] = orderedSessionIds(2);
     const sessions = [
       createTestSession({ id: unparsableSessionId }),
-      createTestSession({ id: "2026-01-13_10-00-00" }),
-      createTestSession({ id: "2026-01-14_10-00-00" }),
+      createTestSession({ id: firstValidSessionId }),
+      createTestSession({ id: secondValidSessionId }),
     ];
 
     const toPrune = selectSessionsToDelete(sessions, { keep: 2 });
@@ -132,7 +136,7 @@ describe("buildArchivePaths", () => {
         doingDir: "/s/doing",
         archiveDir: "/s/archive",
       };
-      const sessionId = "test-id";
+      const sessionId = sampleSessionId();
       const result = buildArchivePaths(sessionId, status, config);
 
       expect(result.target).toContain(config.archiveDir);
@@ -188,8 +192,8 @@ describe("pruneCommand with real filesystem", () => {
   });
 
   it("S1: GIVEN 10 archived sessions WHEN prune --keep 5 THEN 5 oldest deleted", async () => {
-    for (let i = 0; i < 10; i++) {
-      await harness.writeSession(ARCHIVE, `2026-01-${String(i + 1).padStart(2, "0")}_10-00-00`);
+    for (const id of orderedSessionIds(10)) {
+      await harness.writeSession(ARCHIVE, id);
     }
 
     const output = await pruneCommand({ keep: 5, sessionsDir: harness.sessionsDir });
@@ -201,8 +205,8 @@ describe("pruneCommand with real filesystem", () => {
 
   it("S2: GIVEN archived sessions WHEN prune with no --keep THEN default retention applies", async () => {
     const sessionCount = DEFAULT_KEEP_COUNT + 3;
-    for (let i = 0; i < sessionCount; i++) {
-      await harness.writeSession(ARCHIVE, `2026-01-${String(i + 1).padStart(2, "0")}_10-00-00`);
+    for (const id of orderedSessionIds(sessionCount)) {
+      await harness.writeSession(ARCHIVE, id);
     }
 
     const output = await pruneCommand({ sessionsDir: harness.sessionsDir });
@@ -213,8 +217,8 @@ describe("pruneCommand with real filesystem", () => {
   });
 
   it("S5: GIVEN sessions WHEN prune --dry-run THEN nothing deleted", async () => {
-    for (let i = 0; i < 8; i++) {
-      await harness.writeSession(ARCHIVE, `2026-01-${String(i + 1).padStart(2, "0")}_10-00-00`);
+    for (const id of orderedSessionIds(8)) {
+      await harness.writeSession(ARCHIVE, id);
     }
 
     const output = await pruneCommand({ keep: 5, dryRun: true, sessionsDir: harness.sessionsDir });
@@ -226,10 +230,11 @@ describe("pruneCommand with real filesystem", () => {
   });
 
   it("P1: GIVEN sessions in todo and doing WHEN prune THEN those directories untouched", async () => {
-    await harness.writeSession(TODO, "2026-01-01_10-00-00");
-    await harness.writeSession(DOING, "2026-01-02_10-00-00");
-    for (let i = 0; i < 8; i++) {
-      await harness.writeSession(ARCHIVE, `2026-01-${String(i + 10).padStart(2, "0")}_10-00-00`);
+    const [todoSessionId, doingSessionId, ...archiveSessionIds] = orderedSessionIds(10);
+    await harness.writeSession(TODO, todoSessionId);
+    await harness.writeSession(DOING, doingSessionId);
+    for (const id of archiveSessionIds) {
+      await harness.writeSession(ARCHIVE, id);
     }
 
     await pruneCommand({ keep: 3, sessionsDir: harness.sessionsDir });
@@ -254,7 +259,7 @@ describe("archiveCommand with real filesystem", () => {
   });
 
   it("S3: GIVEN session in todo WHEN archive THEN moves to archive dir", async () => {
-    const sessionId = "2026-01-13_08-00-00";
+    const sessionId = sampleSessionId();
     await harness.writeSession(TODO, sessionId);
 
     const output = await archiveCommand({ sessionIds: [sessionId], sessionsDir: harness.sessionsDir });
@@ -265,7 +270,7 @@ describe("archiveCommand with real filesystem", () => {
   });
 
   it("S3: GIVEN session in doing WHEN archive THEN moves to archive dir", async () => {
-    const sessionId = "2026-01-13_08-00-00";
+    const sessionId = sampleSessionId();
     await harness.writeSession(DOING, sessionId);
 
     const output = await archiveCommand({ sessionIds: [sessionId], sessionsDir: harness.sessionsDir });
@@ -276,7 +281,7 @@ describe("archiveCommand with real filesystem", () => {
   });
 
   it("S4: GIVEN session already in archive WHEN archive THEN throws with already-archived message", async () => {
-    const sessionId = "2026-01-13_08-00-00";
+    const sessionId = sampleSessionId();
     await harness.writeSession(ARCHIVE, sessionId);
 
     await expect(

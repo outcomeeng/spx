@@ -19,7 +19,14 @@ import {
   toSessionRecord,
 } from "@/domains/session/list";
 import { SessionDirectoryConfig } from "@/domains/session/show";
-import { DEFAULT_LIST_STATUSES, Session, SESSION_STATUSES, SessionStatus } from "@/domains/session/types";
+import {
+  DEFAULT_LIST_STATUSES,
+  Session,
+  SESSION_FILE_ENCODING,
+  SESSION_FILE_ERROR_CODE,
+  SESSION_STATUSES,
+  SessionStatus,
+} from "@/domains/session/types";
 import { resolveSessionConfigSurfacingWarning, type SessionWarningHandler } from "./resolve-config";
 
 export const SESSION_LIST_FORMAT = {
@@ -69,7 +76,7 @@ async function loadSessionsFromDir(
 
       const id = file.replace(".md", "");
       const filePath = join(dir, file);
-      const content = await readFile(filePath, "utf-8");
+      const content = await readFile(filePath, SESSION_FILE_ENCODING);
       const metadata = parseSessionMetadata(content);
 
       sessions.push({
@@ -82,7 +89,7 @@ async function loadSessionsFromDir(
 
     return sessions;
   } catch (error) {
-    if (error instanceof Error && "code" in error && error.code === "ENOENT") {
+    if (error instanceof Error && "code" in error && error.code === SESSION_FILE_ERROR_CODE.NOT_FOUND) {
       return [];
     }
     throw error;
