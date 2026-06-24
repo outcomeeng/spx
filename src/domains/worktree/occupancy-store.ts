@@ -235,5 +235,10 @@ function formatOccupancyError(code: OccupancyErrorCode, detail: string): string 
 }
 
 function toErrorMessage(error: unknown): string {
-  return error instanceof Error ? error.message : String(error);
+  if (error instanceof Error) return error.message;
+  if (typeof error === "string") return error;
+  // A numeric or boolean throw carries its own stringification; anything else routes through JSON so
+  // a non-Error object never collapses to "[object Object]". No `unknown` reaches default coercion.
+  if (typeof error === "number" || typeof error === "bigint" || typeof error === "boolean") return error.toString();
+  return JSON.stringify(error) ?? "unknown error";
 }
