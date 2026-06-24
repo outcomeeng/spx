@@ -42,6 +42,13 @@ export const SPEC_STATUS_TABLE_HEADER = formatTableRow([
 
 export type OutputFormat = (typeof OUTPUT_FORMAT)[keyof typeof OUTPUT_FORMAT];
 
+export class SpecStatusUpdateRequiresProductDirError extends Error {
+  constructor() {
+    super("Cannot update spec status for an injected in-memory source");
+    this.name = "SpecStatusUpdateRequiresProductDirError";
+  }
+}
+
 interface StatusBaseOptions {
   cwd?: string;
   format?: OutputFormat;
@@ -50,27 +57,38 @@ interface StatusBaseOptions {
   source?: SpecTreeSource;
 }
 
-// The read path takes no resolver; the --update path requires one. Modeling the
-// co-dependency as a discriminated union makes `update: true` without a resolver a
-// compile-time error rather than a runtime throw.
+// The read path takes no resolver; the --update path requires one. The injected
+// source/update arm keeps the fail-fast path testable while the filesystem update
+// arm continues to reject `update: true` without a resolver at compile time.
 interface StatusReadOptions extends StatusBaseOptions {
   update?: false;
-  resolveOutcomeFor?: undefined;
+  resolveOutcomeFor?: never;
 }
 
-interface StatusUpdateOptions extends StatusBaseOptions {
+interface StatusUpdateOptions extends Omit<StatusBaseOptions, "source"> {
+  source?: never;
   /** Refresh each node's spx.status.json before reporting the rollup. */
   update: true;
   /** Builds the per-node outcome resolver --update injects. */
   resolveOutcomeFor: (productDir: string) => NodeOutcomeResolver;
 }
 
-export type StatusOptions = StatusReadOptions | StatusUpdateOptions;
+interface StatusInMemoryUpdateOptions extends StatusBaseOptions {
+  source: SpecTreeSource;
+  /** Refresh each node's spx.status.json before reporting the rollup. */
+  update: true;
+  resolveOutcomeFor?: never;
+}
+
+export type StatusOptions = StatusReadOptions | StatusUpdateOptions | StatusInMemoryUpdateOptions;
 
 export async function statusCommand(
   options: StatusOptions = {},
 ): Promise<string> {
   if (options.source !== undefined) {
+    if (options.update === true) {
+      throw new SpecStatusUpdateRequiresProductDirError();
+    }
     // Injected sources are in-memory and carry no productDir, so the node-status
     // read-back provider — which resolves each spx.status.json under productDir —
     // cannot apply here; this path bypasses filesystem and git resolution and
@@ -165,7 +183,7 @@ function flattenProjectionNodes(nodes: readonly SpecTreeProjectedNode[]): readon
 }
 
 function formatTableRow(values: readonly string[]): string {
-  return `${TABLE_SEPARATOR} ${values.join(` ${TABLE_SEPARATOR} `)} ${TABLE_SEPARATOR}`;
+  return `${TABLE_SEPARATOR} ${values.join(" " + TABLE_SEPARATOR + " ")} ${TABLE_SEPARATOR}`;
 }
 
 function formatNodeLabel(node: SpecTreeProjectedNode): string {

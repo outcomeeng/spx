@@ -7,7 +7,12 @@ import { describe, expect, it } from "vitest";
 import { nextCommand, SPEC_NEXT_MESSAGE } from "@/commands/spec/next";
 import { createNodeOutcomeResolver } from "@/commands/spec/node-outcome-resolver";
 import { SPEC_PRODUCT_DIR_WARNING } from "@/commands/spec/root";
-import { OUTPUT_FORMAT, SPEC_STATUS_MESSAGE, statusCommand } from "@/commands/spec/status";
+import {
+  OUTPUT_FORMAT,
+  SPEC_STATUS_MESSAGE,
+  SpecStatusUpdateRequiresProductDirError,
+  statusCommand,
+} from "@/commands/spec/status";
 import { runTestsCommand } from "@/commands/test";
 import { DEFAULT_CONFIG_FILENAME } from "@/config/index";
 import { GIT_ROOT_COMMAND, GIT_SHOW_TOPLEVEL_ARGS, type GitDependencies } from "@/git/root";
@@ -264,6 +269,15 @@ describe("spx spec status", () => {
       id: nodeId,
       state: SPEC_TREE_NODE_STATE.DECLARED,
     });
+  });
+
+  it("rejects status update requests for injected in-memory sources", async () => {
+    await expect(
+      statusCommand({
+        source: createSource([]),
+        update: true,
+      }),
+    ).rejects.toThrow(SpecStatusUpdateRequiresProductDirError);
   });
 
   it("warns and reports an empty current spec-tree outside a git repository", async () => {
