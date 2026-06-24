@@ -8,7 +8,7 @@
  *
  * Assertions covered from session-lifecycle.md:
  * - S1: pickup moves session to doing via rename()
- * - S2: release moves session back to todo
+ * - S2: release moves session back to the claimable queue
  * - S3: --auto claims highest-priority oldest
  * - S4: second agent gets SessionNotAvailableError
  * - P2: auto-pickup deterministic
@@ -263,7 +263,7 @@ describe("pickupCommand with real filesystem", () => {
     });
 
     expect(output).toContain(formatSessionOutputMarker(SESSION_OUTPUT_MARKER.PICKUP_ID, sessionId));
-    // File should be in doing, not todo
+    // File should be in the claimed queue, not the claimable queue.
     expect(existsSync(join(harness.statusDir(DOING), `${sessionId}.md`))).toBe(true);
     expect(existsSync(join(harness.statusDir(TODO), `${sessionId}.md`))).toBe(false);
   });
@@ -318,7 +318,7 @@ describe("releaseCommand with real filesystem", () => {
     });
 
     expect(output).toContain(SESSION_RELEASE_OUTPUT.RELEASED);
-    // File should be in todo, not doing
+    // File should be in the claimable queue, not the claimed queue.
     expect(existsSync(join(harness.statusDir(TODO), `${sessionId}.md`))).toBe(true);
     expect(existsSync(join(harness.statusDir(DOING), `${sessionId}.md`))).toBe(false);
   });

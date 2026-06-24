@@ -106,7 +106,7 @@ async function resolveSessionGitRef(
   let isClean = false;
   let defaultBranch: string | null = null;
   let defaultTipSha: string | null = null;
-  if (isGitRepo && !isMain) {
+  if (isGitRepo && isMain === false) {
     [isClean, defaultBranch] = await Promise.all([
       isWorkingTreeClean(cwd, deps),
       resolveDefaultBranch(cwd, deps),
@@ -155,7 +155,7 @@ async function resolveRecordedGitRef(
 /**
  * Executes the handoff command.
  *
- * Creates a new session in the todo directory for pickup by another context.
+ * Creates a new session in the claimable queue for pickup by another context.
  * Output includes `<HANDOFF_ID>` and `<SESSION_FILE>` tags for parsing by
  * automation tools.
  *

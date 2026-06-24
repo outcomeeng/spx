@@ -162,7 +162,7 @@ const DECLARED_CONTENT_KEYS = [
 function arbitrarySafeScalar(): fc.Arbitrary<string> {
   return fc
     .string({ minLength: 1, maxLength: 40 })
-    .map((value) => value.replace(/[\r\n]/g, " "))
+    .map((value) => value.replaceAll(/[\r\n]/g, " "))
     .filter((value) => value.trim().length > 0);
 }
 
@@ -200,7 +200,7 @@ function arbitraryAbsentKey(): fc.Arbitrary<string> {
     fc.constantFrom("result", "worktree", "branch", "tags", "working_directory"),
     fc
       .string({ minLength: 1, maxLength: 12 })
-      .map((value) => `extra_${value.replace(/[^a-zA-Z0-9]/g, "")}`)
+      .map((value) => `extra_${value.replaceAll(/[^a-zA-Z0-9]/g, "")}`)
       .filter((key) => key.length > "extra_".length && !SESSION_FRONT_MATTER_KEY_SET.has(key)),
   );
 }
@@ -328,7 +328,7 @@ export function makeSession(opts: MakeSessionOptions = {}): Session {
 }
 
 /**
- * A claimable session — one in the `todo` status the picker lists. Intent-named
+ * A claimable session — one in the queue status the picker lists. Intent-named
  * over `makeSession` so picker tests state "a claimable session" rather than
  * re-specifying the status and field shape inline.
  */
@@ -367,7 +367,7 @@ export function arbitraryNeedle(): fc.Arbitrary<string> {
   return fc.string({ unit: NEEDLE_UNIT, minLength: 1, maxLength: 8 });
 }
 
-/** A claimable (todo) session with every field generated. */
+/** A claimable session with every field generated. */
 export function arbitraryClaimableSession(): fc.Arbitrary<Session> {
   return fc
     .record({

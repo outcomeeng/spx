@@ -10,6 +10,7 @@
 import { join } from "node:path";
 
 import type { Result } from "@/config/types";
+import { toMessage } from "@/lib/error-message";
 import { ERROR_CODE_NOT_FOUND, hasErrorCode, validateScopeToken } from "@/lib/state-store";
 
 export const OCCUPANCY_STATUS = {
@@ -235,10 +236,5 @@ function formatOccupancyError(code: OccupancyErrorCode, detail: string): string 
 }
 
 function toErrorMessage(error: unknown): string {
-  if (error instanceof Error) return error.message;
-  if (typeof error === "string") return error;
-  // A numeric or boolean throw carries its own stringification; anything else routes through JSON so
-  // a non-Error object never collapses to "[object Object]". No `unknown` reaches default coercion.
-  if (typeof error === "number" || typeof error === "bigint" || typeof error === "boolean") return error.toString();
-  return JSON.stringify(error) ?? "unknown error";
+  return toMessage(error);
 }

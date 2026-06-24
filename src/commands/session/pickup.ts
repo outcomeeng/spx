@@ -42,7 +42,7 @@ export interface PickupOptions {
 }
 
 /**
- * Loads sessions from the todo directory.
+ * Loads sessions from the claimable-session directory.
  */
 export async function loadTodoSessions(config: SessionDirectoryConfig): Promise<Session[]> {
   try {
@@ -75,7 +75,7 @@ export async function loadTodoSessions(config: SessionDirectoryConfig): Promise<
 }
 
 /**
- * Claims one session from the todo queue and moves it to doing.
+ * Claims one session from the claimable queue and moves it to doing.
  */
 async function pickupSingle(sessionId: string, config: SessionDirectoryConfig): Promise<string> {
   const paths = buildClaimPaths(sessionId, config);
@@ -96,12 +96,12 @@ async function pickupSingle(sessionId: string, config: SessionDirectoryConfig): 
 /**
  * Executes the pickup command.
  *
- * Claims one or more sessions from the todo queue and moves them to doing.
+ * Claims one or more sessions from the claimable queue and moves them to doing.
  * Output includes one `<PICKUP_ID>` tag per claimed session for automation.
  *
  * @param options - Command options
  * @returns Formatted output for display with parseable session IDs
- * @throws {NoSessionsAvailableError} When no sessions in todo for auto mode
+ * @throws {NoSessionsAvailableError} When no sessions are available for auto mode
  * @throws {SessionNotAvailableError} When one or more sessions cannot be claimed
  * @throws {BatchError} When one or more explicit IDs fail
  */

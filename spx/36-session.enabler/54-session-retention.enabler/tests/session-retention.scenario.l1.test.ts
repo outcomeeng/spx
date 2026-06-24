@@ -12,7 +12,7 @@
  * - S3: archive moves session to archive dir
  * - S4: archive already-archived → error
  * - S5: --dry-run shows what would be deleted without deleting
- * - P1: prune never deletes from todo or doing
+ * - P1: prune never deletes from active queues
  * - P2: prune --keep N >= total → deletes nothing
  */
 
@@ -239,7 +239,7 @@ describe("pruneCommand with real filesystem", () => {
 
     await pruneCommand({ keep: 3, sessionsDir: harness.sessionsDir });
 
-    // Todo and doing untouched
+    // Active queues are untouched.
     const todoFiles = await readdir(harness.statusDir(TODO));
     const doingFiles = await readdir(harness.statusDir(DOING));
     expect(todoFiles.filter((f) => f.endsWith(".md"))).toHaveLength(1);

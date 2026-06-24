@@ -804,7 +804,7 @@ describe("session CLI — JSON show output", () => {
   });
 });
 const listColorFields = `${SESSION_RECORD_FIELD.ID}${FIELD_SELECTION_SEPARATOR}${SESSION_RECORD_FIELD.PRIORITY}`;
-/** A `spx session list`/`todo` invocation and whether its piped output should carry ANSI styling. */
+/** A session list-like invocation and whether its piped output should carry ANSI styling. */
 interface ListColorCase {
   readonly title: string;
   readonly args: readonly string[];

@@ -8,7 +8,7 @@ import { readdir, readFile, unlink } from "node:fs/promises";
 import { join } from "node:path";
 
 import { parseSessionMetadata } from "@/domains/session/list";
-import { DEFAULT_KEEP_COUNT, selectSessionsToDelete } from "@/domains/session/prune";
+import { DEFAULT_KEEP_COUNT as DOMAIN_DEFAULT_KEEP_COUNT, selectSessionsToDelete } from "@/domains/session/prune";
 import { SessionDirectoryConfig } from "@/domains/session/show";
 import {
   Session,
@@ -19,7 +19,7 @@ import {
 } from "@/domains/session/types";
 import { resolveSessionConfigSurfacingWarning, type SessionWarningHandler } from "./resolve-config";
 
-export { DEFAULT_KEEP_COUNT };
+export { DEFAULT_KEEP_COUNT } from "@/domains/session/prune";
 
 /** Prune operates only on archived sessions. */
 const PRUNE_STATUS: SessionStatus = SESSION_STATUSES[2]; // archive
@@ -113,7 +113,7 @@ export async function pruneCommand(options: PruneOptions): Promise<string> {
   // Validate options
   validatePruneOptions(options);
 
-  const keep = options.keep ?? DEFAULT_KEEP_COUNT;
+  const keep = options.keep ?? DOMAIN_DEFAULT_KEEP_COUNT;
   const dryRun = options.dryRun ?? false;
 
   const config = await resolveSessionConfigSurfacingWarning(options.sessionsDir, options.onWarning);

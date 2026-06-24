@@ -127,16 +127,16 @@ function validateStatus(input: string): SessionStatus {
 export async function listCommand(options: ListOptions): Promise<string> {
   // Parse the field selection first so an unknown field fails fast, before any
   // filesystem work. A field selection implies JSON output.
-  const fieldSelection: SessionRecordField[] | undefined = options.fields !== undefined
-    ? parseFieldSelection(options.fields)
-    : undefined;
+  const fieldSelection: SessionRecordField[] | undefined = options.fields === undefined
+    ? undefined
+    : parseFieldSelection(options.fields);
 
   const config = await resolveSessionConfigSurfacingWarning(options.sessionsDir, options.onWarning);
 
   // Validate and resolve statuses before use.
-  const statuses: readonly SessionStatus[] = options.status !== undefined
-    ? [validateStatus(options.status)]
-    : DEFAULT_LIST_STATUSES;
+  const statuses: readonly SessionStatus[] = options.status === undefined
+    ? DEFAULT_LIST_STATUSES
+    : [validateStatus(options.status)];
 
   const sessionsByStatus: Partial<Record<SessionStatus, Session[]>> = {};
 
@@ -154,7 +154,7 @@ export async function listCommand(options: ListOptions): Promise<string> {
     for (const status of statuses) {
       recordsByStatus[status] = (sessionsByStatus[status] ?? []).map((session) => {
         const record = toSessionRecord(session);
-        return fieldSelection !== undefined ? projectSessionRecord(record, fieldSelection) : record;
+        return fieldSelection === undefined ? record : projectSessionRecord(record, fieldSelection);
       });
     }
     return JSON.stringify(recordsByStatus, null, 2);

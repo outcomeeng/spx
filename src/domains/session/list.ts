@@ -48,7 +48,7 @@ function defaultSessionMetadata(): SessionMetadata {
  * Validates if a value is a valid priority.
  */
 function isValidPriority(value: unknown): value is SessionPriority {
-  return typeof value === "string" && SESSION_PRIORITY_VALUES.some((priority) => priority === value);
+  return typeof value === "string" && SESSION_PRIORITY_VALUES.includes(value as SessionPriority);
 }
 
 /**
@@ -299,7 +299,7 @@ export function parseFieldSelection(input: string): SessionRecordField[] {
 }
 
 /**
- * Explicit color flags the `list`/`todo` descriptor maps from `--color` and
+ * Explicit color flags the list-like descriptor maps from `--color` and
  * `--no-color`. `AUTO` is the absence of both flags, so the resolver decides
  * from the TTY state and `NO_COLOR`.
  */
