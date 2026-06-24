@@ -12,7 +12,7 @@ import { hasErrorCode } from "@/lib/state-store";
 
 // Absolute path to a fixed, unwriteable location so PATH cannot shadow `ps`.
 // Where `/bin/ps` is absent, `startTimeOf` returns undefined; classification
-// treats a live same-host process with an unreadable start time as occupied.
+// treats a live same-host process with an unreadable start time as running.
 const PS_COMMAND = "/bin/ps";
 const PS_FIELD = {
   START_TIME: "lstart",

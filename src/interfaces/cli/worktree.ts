@@ -59,7 +59,7 @@ function registerWorktreeCommands(worktreeCmd: Command): void {
 
   worktreeCmd
     .command(`${WORKTREE_CLI.STATUS} ${WORKTREE_CLI.WORKTREE_ARGUMENT}`)
-    .description("Report a worktree's occupancy (occupied | unclaimed | stale)")
+    .description("Report a worktree's occupancy (running | free)")
     .option(`${WORKTREE_CLI.FORMAT_FLAG} <format>`, "Output format (text|json)", WORKTREE_STATUS_FORMAT.TEXT)
     .option(`${WORKTREE_CLI.WORKTREES_DIR_FLAG} <path>`, "Explicit .spx/worktrees directory")
     .action(async (worktrees: string[] | undefined, options: { format?: string; worktreesDir?: string }) => {
