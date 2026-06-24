@@ -351,6 +351,15 @@ Choose by what the command's result depends on:
 
 Because the global `spx` tracks the `main` worktree's build, feature worktrees use `pnpm run` / `tsx src/cli.ts` for their own work and never rely on `spx` reflecting uncommitted or unmerged changes.
 
+### CLI build and git-hook gotchas
+
+These recur on feature worktrees and have cost real debugging time and machine stability — internalize them before running CLI tests or pushing.
+
+- **L2 CLI tests exercise the built `dist/`, not source.** Any `spx/**/tests/*.l2.test.ts` shells out to `node bin/spx.js` → `dist/cli.js`. Run `pnpm run build` before trusting an L2 result. The Lefthook `rebuild-dist` hook rebuilds only on the **main** worktree — it prints `rebuild-dist: skipped (non-main checkout)` on feature/linked worktrees — so after editing source or rebasing in a feature worktree, `dist/` is stale. A "failing" L2 test (e.g. an assertion seeing old output) is most often just stale `dist/`; rebuild and re-run before treating it as a real failure.
+- **The pre-push SonarQube agentic gate flags pre-existing issues in any file the changeset touches**, not only changed lines. Pre-existing repo debt (e.g. `typescript:S6551` on `String(unknown)`) in a file you edited for unrelated reasons will block the push as touched-file debt. Fix it in the same change: never pass `unknown` to `String()`/template coercion — route objects through `JSON.stringify`, primitives through `.toString()`. Phantom findings in files you did NOT touch usually mean the branch is behind `origin/main`; rebase to clear them, and validate any reviewer/gate finding against `git diff --name-only origin/main...HEAD` before acting.
+- **Never pipe `git push` or `git commit` output through `head`/`tail`** (or any pipe that closes early). The Lefthook pre-push (58-file sonar analysis) and pre-commit (vitest) hooks are long-running; a closing pipe sends SIGPIPE and kills the hook mid-run, orphaning the heavy sonar/vitest subprocesses. Redirect to a log file (`> /tmp/...log 2>&1`) and inspect the file instead.
+- **Give commit/push commands a generous timeout** (300000ms+). The pre-commit and pre-push hooks take minutes; a short timeout that kills the command mid-hook orphans subprocesses and, across concurrent worktrees, can drive load-average into machine-melting territory. If a hook was killed mid-run, terminate the orphaned `vitest`/`sonar` PIDs explicitly (only your own worktree's) before retrying.
+
 ## Architecture
 
 ```
