@@ -69,7 +69,7 @@ function worktreeStatusOf(stdout: string): OccupancyStatus | null {
   }
 }
 
-/** Resolves the worktree layout from git plus the per-worktree `spx worktree status` occupancy counts. */
+/** Resolves the worktree layout from git and counts running/free occupancy by reading each claim in-process. */
 export const defaultWorktreePoolProbe: WorktreePoolProbe = {
   async probe(): Promise<WorktreePoolReading> {
     const errored: WorktreePoolReading = {
@@ -79,27 +79,25 @@ export const defaultWorktreePoolProbe: WorktreePoolProbe = {
       running: 0,
       free: 0,
     };
+    const root = await detectGitCommonDirProductRoot();
     const facts = await gatherGitFacts();
-    if (!facts?.worktreeListRead) return errored;
+    if (!root.isGitRepo || !facts?.worktreeListRead) return errored;
 
     const bareRepository = facts.commonDirIsBare;
     const paths = facts.worktreeRoots;
     const linkedWorktrees = !bareRepository && paths.length > 1;
 
-    // Occupancy counts come only from spx; with spx unreachable the running/free
-    // split is unknowable, so degrade to errored rather than report counts whose
-    // per-worktree occupancy went unchecked.
-    const spx = resolveSpx();
-    if (spx === null) return errored;
-
+    // Occupancy is read in-process from each worktree's claim under the shared
+    // `.spx/worktrees` scope and classified against the process table — never by
+    // spawning `spx worktree status` per worktree, which forks a CLI per member.
+    // Mirrors claimedSessionIds below.
+    const worktreesDir = worktreesScopeDir(root.productDir);
     let running = 0;
     let free = 0;
     for (const path of paths) {
-      const status = await runCapture(spx, ["worktree", "status", path, "--format", "json"]);
-      if (!status.ok) return errored;
-      const occupancy = worktreeStatusOf(status.stdout);
-      if (occupancy === null) return errored;
-      if (occupancy === OCCUPANCY_STATUS.RUNNING) running += 1;
+      const claim = await readClaim(worktreesDir, worktreeClaimName(path), { fs: defaultOccupancyFileSystem });
+      if (!claim.ok) return errored;
+      if (classifyOccupancy(claim.value, defaultProcessTable) === OCCUPANCY_STATUS.RUNNING) running += 1;
       else free += 1;
     }
     return { errored: false, bareRepository, linkedWorktrees, running, free };
