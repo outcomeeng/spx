@@ -192,8 +192,13 @@ describe("worktree CLI compliance", () => {
         );
 
         expect(status.exitCode).toBe(0);
-        const parsed = JSON.parse(status.stdout) as { status: string };
-        expect(parsed.status).toBe(OCCUPANCY_STATUS.RUNNING);
+        expect(JSON.parse(status.stdout)).toEqual({
+          worktree: worktreeClaimName(worktreePath),
+          status: OCCUPANCY_STATUS.RUNNING,
+          pid: process.pid,
+          session: sessionId,
+          host: expect.any(String),
+        });
       });
     });
   });
