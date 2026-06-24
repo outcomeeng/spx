@@ -96,7 +96,10 @@ async function resolveSessionGitRef(
   // The main checkout is where a resuming agent reaches the base; null when none is
   // designable (e.g. a pool whose origin resolves no repository name), which the
   // refusal checklist renders as "unresolved" rather than echoing the current worktree.
-  const designatedMainCheckout = facts !== null ? mainCheckoutPath(facts) : null;
+  let designatedMainCheckout: string | null = null;
+  if (facts !== null) {
+    designatedMainCheckout = mainCheckoutPath(facts);
+  }
 
   // The clean-tree and origin facts feed only the non-main-checkout refusal
   // checklist; the main checkout (permitted regardless of HEAD state) and a non-git
