@@ -115,7 +115,7 @@ export function arbitraryHandoffHeader(options: HandoffHeaderOptions = {}): fc.A
     arbitraryOptionalWorkBranchRef().map((gitRef) => ({
       ...header,
       ...(gitRef === undefined ? {} : { git_ref: gitRef }),
-    })),
+    }))
   );
 }
 

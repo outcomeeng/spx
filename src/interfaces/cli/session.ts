@@ -5,9 +5,9 @@ import type { Command } from "commander";
 import {
   sessionCliDefinition,
   sessionCommandToken,
-  sessionOptionToken,
-  sessionOptionsForSubcommand,
   type SessionOptionDefinition,
+  sessionOptionsForSubcommand,
+  sessionOptionToken,
 } from "./session/definition";
 
 import {
@@ -131,7 +131,7 @@ function registerSessionCommands(sessionCmd: Command): void {
   // list command
   addSessionOptions(
     sessionCmd
-    .command(sessionCommandToken(sessionCliDefinition.subcommands.list))
+      .command(sessionCommandToken(sessionCliDefinition.subcommands.list))
       .description(sessionCliDefinition.subcommands.list.description),
     sessionOptionsForSubcommand(sessionCliDefinition.subcommands.list),
   )
@@ -158,7 +158,7 @@ function registerSessionCommands(sessionCmd: Command): void {
   // selected session to claude or codex via `/pickup`. The picker never claims.
   addSessionOptions(
     sessionCmd
-    .command(sessionCommandToken(sessionCliDefinition.subcommands.pick))
+      .command(sessionCommandToken(sessionCliDefinition.subcommands.pick))
       .description(sessionCliDefinition.subcommands.pick.description),
     sessionOptionsForSubcommand(sessionCliDefinition.subcommands.pick),
   )
@@ -193,7 +193,7 @@ function registerSessionCommands(sessionCmd: Command): void {
   // todo command (convenience alias for list --status todo)
   addSessionOptions(
     sessionCmd
-    .command(sessionCommandToken(sessionCliDefinition.subcommands.todo))
+      .command(sessionCommandToken(sessionCliDefinition.subcommands.todo))
       .description(sessionCliDefinition.subcommands.todo.description),
     sessionOptionsForSubcommand(sessionCliDefinition.subcommands.todo),
   )
@@ -217,7 +217,7 @@ function registerSessionCommands(sessionCmd: Command): void {
   // show command
   addSessionOptions(
     sessionCmd
-    .command(sessionCommandToken(sessionCliDefinition.subcommands.show))
+      .command(sessionCommandToken(sessionCliDefinition.subcommands.show))
       .description(sessionCliDefinition.subcommands.show.description),
     sessionOptionsForSubcommand(sessionCliDefinition.subcommands.show),
   )
@@ -238,7 +238,7 @@ function registerSessionCommands(sessionCmd: Command): void {
   // pickup command
   addSessionOptions(
     sessionCmd
-    .command(sessionCommandToken(sessionCliDefinition.subcommands.pickup))
+      .command(sessionCommandToken(sessionCliDefinition.subcommands.pickup))
       .description(sessionCliDefinition.subcommands.pickup.description),
     sessionOptionsForSubcommand(sessionCliDefinition.subcommands.pickup),
   )
@@ -264,7 +264,7 @@ function registerSessionCommands(sessionCmd: Command): void {
   // release command
   addSessionOptions(
     sessionCmd
-    .command(sessionCommandToken(sessionCliDefinition.subcommands.release))
+      .command(sessionCommandToken(sessionCliDefinition.subcommands.release))
       .description(sessionCliDefinition.subcommands.release.description),
     sessionOptionsForSubcommand(sessionCliDefinition.subcommands.release),
   )
@@ -286,7 +286,7 @@ function registerSessionCommands(sessionCmd: Command): void {
   // bytes after the header form the markdown body verbatim.
   addSessionOptions(
     sessionCmd
-    .command(sessionCommandToken(sessionCliDefinition.subcommands.handoff))
+      .command(sessionCommandToken(sessionCliDefinition.subcommands.handoff))
       .description(sessionCliDefinition.subcommands.handoff.description),
     sessionOptionsForSubcommand(sessionCliDefinition.subcommands.handoff),
   )
@@ -321,7 +321,7 @@ function registerSessionCommands(sessionCmd: Command): void {
   // delete command
   addSessionOptions(
     sessionCmd
-    .command(sessionCommandToken(sessionCliDefinition.subcommands.delete))
+      .command(sessionCommandToken(sessionCliDefinition.subcommands.delete))
       .description(sessionCliDefinition.subcommands.delete.description),
     sessionOptionsForSubcommand(sessionCliDefinition.subcommands.delete),
   )
@@ -341,7 +341,7 @@ function registerSessionCommands(sessionCmd: Command): void {
   // prune command
   addSessionOptions(
     sessionCmd
-    .command(sessionCommandToken(sessionCliDefinition.subcommands.prune))
+      .command(sessionCommandToken(sessionCliDefinition.subcommands.prune))
       .description(sessionCliDefinition.subcommands.prune.description),
     sessionOptionsForSubcommand(sessionCliDefinition.subcommands.prune),
   )
@@ -367,7 +367,7 @@ function registerSessionCommands(sessionCmd: Command): void {
   // archive command
   addSessionOptions(
     sessionCmd
-    .command(sessionCommandToken(sessionCliDefinition.subcommands.archive))
+      .command(sessionCommandToken(sessionCliDefinition.subcommands.archive))
       .description(sessionCliDefinition.subcommands.archive.description),
     sessionOptionsForSubcommand(sessionCliDefinition.subcommands.archive),
   )

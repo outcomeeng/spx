@@ -7,18 +7,18 @@ import {
   EXECUTABLE_HOOK_MODE,
   GIT_COMMAND,
   GIT_DIRECTORY_NAME,
+  GIT_HOOK_NAMES,
   GIT_HOOKS_DIRECTORY_NAME,
   GIT_HOOKS_PATH_ARGS,
-  GIT_HOOK_NAMES,
+  type GitHookName,
   HOOK_FILE_ENCODING,
   installPortableLefthookHooks,
   LEFTHOOK_CONFIG_FILE,
   LEFTHOOK_INSTALL_ARGS,
   LEFTHOOK_INSTALL_COMMAND,
   PORTABLE_HOOK_TOKENS,
-  renderPortableLefthookHook,
-  type GitHookName,
   type PortableHookInstallDeps,
+  renderPortableLefthookHook,
 } from "@/lib/precommit/install-hooks";
 import { withTempDir } from "@testing/harnesses/with-temp-dir";
 
