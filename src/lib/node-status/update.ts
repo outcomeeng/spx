@@ -1,4 +1,5 @@
-import { mkdir, writeFile } from "node:fs/promises";
+import type { Dirent } from "node:fs";
+import { mkdir, readdir, rm, writeFile } from "node:fs/promises";
 import { dirname, join } from "node:path";
 
 import { createIgnoreSourceReader, IGNORE_SOURCE_FILENAME_DEFAULT } from "@/lib/file-inclusion/ignore-source";
@@ -52,6 +53,7 @@ export async function updateNodeStatus(options: UpdateNodeStatusOptions): Promis
     specTreeRootSegment: SPEC_TREE_CONFIG.ROOT_DIRECTORY,
   });
   const evidenceByNode = collectEvidenceByNode(snapshot);
+  const liveStatusPaths = new Set<string>();
 
   for (const node of snapshot.allNodes) {
     const evidence = evidenceByNode.get(node.id) ?? [];
@@ -60,8 +62,12 @@ export async function updateNodeStatus(options: UpdateNodeStatusOptions): Promis
       isExcluded: isNodeExcluded(ignoreReader, node),
       resolveOutcome,
     });
-    await writeNodeStatus(productDir, node.id, verification);
+    const statusPath = nodeStatusPath(productDir, node.id);
+    liveStatusPaths.add(statusPath);
+    await writeNodeStatus(statusPath, verification);
   }
+
+  await removeStaleNodeStatusFiles(productDir, liveStatusPaths);
 }
 
 type VerificationInput = {
@@ -134,11 +140,49 @@ function isNodeExcluded(ignoreReader: ReturnType<typeof createIgnoreSourceReader
 }
 
 async function writeNodeStatus(
-  productDir: string,
-  nodeId: string,
+  filePath: string,
   verification: NodeStatusVerification,
 ): Promise<void> {
-  const filePath = join(productDir, SPEC_TREE_CONFIG.ROOT_DIRECTORY, nodeId, NODE_STATUS_FILENAME);
   await mkdir(dirname(filePath), { recursive: true });
   await writeFile(filePath, serializeNodeStatus(createNodeStatusFile(verification)), NODE_STATUS_TEXT_ENCODING);
+}
+
+function nodeStatusPath(productDir: string, nodeId: string): string {
+  return join(productDir, SPEC_TREE_CONFIG.ROOT_DIRECTORY, nodeId, NODE_STATUS_FILENAME);
+}
+
+async function removeStaleNodeStatusFiles(
+  productDir: string,
+  liveStatusPaths: ReadonlySet<string>,
+): Promise<void> {
+  const statusPaths = await collectNodeStatusFiles(join(productDir, SPEC_TREE_CONFIG.ROOT_DIRECTORY));
+  await Promise.all(statusPaths.filter((path) => !liveStatusPaths.has(path)).map((path) => rm(path, { force: true })));
+}
+
+async function collectNodeStatusFiles(directory: string): Promise<readonly string[]> {
+  const entries = await readDirectoryEntries(directory);
+
+  const statusPaths: string[] = [];
+  for (const entry of entries) {
+    const entryPath = join(directory, entry.name);
+    if (entry.isDirectory()) {
+      statusPaths.push(...await collectNodeStatusFiles(entryPath));
+    } else if (entry.isFile() && entry.name === NODE_STATUS_FILENAME) {
+      statusPaths.push(entryPath);
+    }
+  }
+  return statusPaths;
+}
+
+async function readDirectoryEntries(directory: string): Promise<readonly Dirent<string>[]> {
+  try {
+    return await readdir(directory, { withFileTypes: true });
+  } catch (error) {
+    if (isNodeError(error) && error.code === "ENOENT") return [];
+    throw error;
+  }
+}
+
+function isNodeError(error: unknown): error is NodeJS.ErrnoException {
+  return error instanceof Error && "code" in error;
 }

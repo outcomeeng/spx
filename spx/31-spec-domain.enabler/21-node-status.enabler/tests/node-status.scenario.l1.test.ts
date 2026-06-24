@@ -1,3 +1,5 @@
+import { dirname, join } from "node:path";
+
 import { describe, expect, it } from "vitest";
 
 import { createNodeStatusProvider, NODE_STATUS_FILENAME, readNodeStatus, updateNodeStatus } from "@/lib/node-status";
@@ -25,6 +27,23 @@ describe("spx spec status --update", () => {
         const recorded = JSON.parse(await env.readFile(expectation.statusPath));
         expect(recorded).toEqual(expectation.expectedStatusFile);
       }
+    });
+  });
+
+  it("removes a stale status file outside the live node set", async () => {
+    const fixture = sampleNodeStatusValue(NODE_STATUS_TEST_GENERATOR.classificationTree());
+
+    await withClassificationTree(fixture, async ({ env, resolveOutcome }) => {
+      await updateNodeStatus({ productDir: env.productDir, resolveOutcome });
+
+      const staleStatusPath = `spx/orphan/${NODE_STATUS_FILENAME}`;
+      const staleNodeDirectory = join(env.productDir, dirname(staleStatusPath));
+      await env.writeRaw(staleStatusPath, "{\"schemaVersion\":1,\"verification\":{}}\n");
+      expect(readNodeStatus(staleNodeDirectory)).toBeDefined();
+
+      await updateNodeStatus({ productDir: env.productDir, resolveOutcome });
+
+      expect(readNodeStatus(staleNodeDirectory)).toBeUndefined();
     });
   });
 
