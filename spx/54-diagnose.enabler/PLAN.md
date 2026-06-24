@@ -31,4 +31,6 @@ Keep this separate from the running/free vocabulary collapse (already landed) an
 - use spec-derived metamorphic properties as the oracle — adding a dead claim never degrades a healthy verdict; a free worktree never degrades the pool;
 - one snapshot type emitted by both the parser and the generator, with a property that every parser-emitted snapshot classifies into a valid verdict.
 
+The default probes (`defaultWorktreePoolProbe`, `claimedSessionIds`) call `gatherGitFacts()` directly, so the gather — including the `worktreesScopeDir(dirname(facts.commonDir))` scope derivation — has no L1 coverage today; only the L2 E2E suite exercises it. Giving the gather an injected git-facts seam is what makes it L1-testable, and that seam is part of this reality-anchored test work rather than a standalone patch.
+
 This mirrors the spec domain: it builds spec-tree node structures as data via the `@testing/generators/...` arbitraries and materializes only some trees on disk (e.g. `withWorktreeLayoutEnv`), so the bulk of coverage runs over generated data while a thin set of tests materialize reality to pin the parse.
