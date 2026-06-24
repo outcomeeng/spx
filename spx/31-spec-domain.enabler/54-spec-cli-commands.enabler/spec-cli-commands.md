@@ -13,6 +13,7 @@ CAN inspect current node state and select the next non-passing node without hand
 - Given a tracked `spx/` tree is read from a nested directory inside a git repository, when `spx spec status` and `spx spec next` run, then both commands resolve the product root through the worktree-local git root and read the tracked `spx/` tree ([test](tests/spec-cli-commands.scenario.l1.test.ts))
 - Given a command runs outside a git worktree, when `spx spec status` or `spx spec next` falls back to the current working directory, then the command emits a warning and returns deterministic empty-tree output for no current spec-tree nodes ([test](tests/spec-cli-commands.scenario.l1.test.ts))
 - Given a node carries a committed `spx.status.json`, when `spx spec status` runs without `--update`, then it derives that node's lifecycle state from the recorded verification outcomes rather than live structural state, and executes no verification ([test](tests/spec-cli-commands.scenario.l1.test.ts))
+- Given an injected in-memory source is supplied with `update: true`, when `spx spec status` runs, then it rejects the request ([test](tests/spec-cli-commands.scenario.l1.test.ts))
 - Given a verification surface's recorded evidence for a node is stale, failing, or absent, when `spx spec status --update` runs, then it invokes that surface to obtain the node's outcomes before classifying and writing `spx.status.json` ([test](tests/spec-cli-commands.scenario.l1.test.ts))
 
 ### Compliance
