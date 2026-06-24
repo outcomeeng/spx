@@ -30,6 +30,6 @@ CAN claim, query, and release worktree occupancy with predictable output, exit c
 ### Compliance
 
 - ALWAYS: a successful `spx worktree claim` executed through `node bin/spx.js` writes nothing to stdout and exits 0, so manual repair and compatibility flows can call it without adding model-visible context ([test](tests/worktree-cli.compliance.l2.test.ts))
-- ALWAYS: `spx worktree status [worktree...] --format json` executed through `node bin/spx.js` writes parseable JSON naming each first-seen resolved worktree's two-state occupancy and exits 0 when at least one worktree is reported, so `/pickup` can branch on `running` or `free` ([test](tests/worktree-cli.compliance.l2.test.ts))
+- ALWAYS: `spx worktree status [worktree...] --format json` executed through `node bin/spx.js` writes parseable JSON naming each first-seen resolved worktree's two-state occupancy — and, for a `running` worktree, the holder's `pid`, `session`, and `host` — and exits 0 when at least one worktree is reported, so `/pickup` can branch on `running` or `free` ([test](tests/worktree-cli.compliance.l2.test.ts))
 - ALWAYS: a `spx worktree` subcommand executed through `node bin/spx.js` exits non-zero when its operation fails, writing a diagnostic to stderr ([test](tests/worktree-cli.compliance.l2.test.ts))
 - NEVER: status reports a path outside every worktree as a `free` worktree — single-target status refuses such a path with a diagnostic, and multi-target status excludes unresolved paths from reported occupancy ([test](tests/worktree-name-resolution.compliance.l1.test.ts))
