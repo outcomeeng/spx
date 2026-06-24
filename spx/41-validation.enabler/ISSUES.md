@@ -5,9 +5,7 @@
 `pnpm run validate` can pass while ESLint emits warning-level findings. On
 June 23, 2026, `pnpm run validate` passed with 162 warnings; `pnpm run lint:fix`
 reduced the count to 101 warnings, and pre-push remediation reduced it to 95
-warnings. On June 24, 2026, `pnpm run validate` passed with 96 warnings while
-preparing the node-status verification projection PR. The remaining manual
-findings are in these classes:
+warnings. The remaining manual findings are in these classes:
 
 - `sonarjs/cognitive-complexity`
 - `@typescript-eslint/no-unnecessary-condition`
@@ -21,8 +19,7 @@ validation, session, spec-tree, file-inclusion, generator, and harness code.
 
 **Tracking classification:** Tracked deferral, chosen by the operator during
 the worktree status duplicate-target cleanup on June 23, 2026 after the safe
-auto-fix subset was applied; reaffirmed by the operator on June 24, 2026 after
-the node-status PR gate reported 96 warnings.
+auto-fix subset was applied.
 
 **Revisit condition:** Resolve as a dedicated warning cleanup before changing
 validation lint policy, warning severity, lint output rendering, or CI gates
@@ -71,9 +68,9 @@ The audit behavior follows the Unix convention: command errors go to stderr.
 stream routing, or the validation command result interface; align validation
 failure output with the audit CLI stderr-for-errors behavior.
 
-**Skills:** `spec-tree:contextualize`, `spec-tree:apply`,
-`typescript:test-typescript`, `typescript:code-typescript`,
-`typescript:audit-typescript-tests`, and `typescript:audit-typescript`.
+**Skills:** `spec-tree:contextualizing`, `spec-tree:applying`,
+`typescript:testing-typescript`, `typescript:coding-typescript`,
+`typescript:auditing-typescript-tests`, and `typescript:auditing-typescript`.
 
 ---
 

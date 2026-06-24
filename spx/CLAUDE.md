@@ -1,5 +1,5 @@
 ---
-template_version: "0.21.1"
+template_version: "0.21.0"
 template_source: spec-tree
 languages: [typescript]
 ---
@@ -69,6 +69,8 @@ Default-branch work is complete only when it reaches the default branch on origi
 ## Quick Reference: Skills and Agents
 
 Skills run in the main conversation. Agents preload the skill and run autonomously as subagents in a separate context, returning structured APPROVED/REJECTED verdicts. **ALWAYS run an audit through its agent** — the separate context keeps the verdict free of the main conversation's bias — and dispatch agents in parallel when auditing multiple targets.
+
+**Run auditor and reviewer work in a subagent, never the main thread.** When an audit or review is called for, spawn the matching subagent — `changes-reviewer` for a changeset review, `skill-auditor`, `adr-auditor`, `pdr-auditor`, or `test-evidence-auditor` for the artifact in scope — and act only on the verdict it returns. NEVER run the audit or review skill in the main conversation as a substitute: the isolated subagent context is what keeps the verdict free of author bias, and the main thread tends to continue the work itself rather than spawn the subagent. If the subagent cannot be spawned or does not finish, the gate is blocked — do not proceed as if it passed.
 
 | User Says...                               | Skill            | Agent                   |
 | ------------------------------------------ | ---------------- | ----------------------- |
