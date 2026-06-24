@@ -124,7 +124,7 @@ describe("worktree CLI compliance", () => {
 
       expect(result.exitCode).toBe(0);
       expect(JSON.parse(result.stdout)).toEqual([
-        { worktree: worktreeClaimName(worktreePath), status: OCCUPANCY_STATUS.UNCLAIMED },
+        { worktree: worktreeClaimName(worktreePath), status: OCCUPANCY_STATUS.FREE },
       ]);
     });
   });
