@@ -159,7 +159,7 @@ describe("worktree command handlers", () => {
       expect(status.ok).toBe(true);
       if (!status.ok) throw new Error(status.error);
       expect(JSON.parse(status.value)).toEqual([
-        { worktree: worktreeClaimName(env.worktreePath), status: OCCUPANCY_STATUS.UNCLAIMED },
+        { worktree: worktreeClaimName(env.worktreePath), status: OCCUPANCY_STATUS.FREE },
       ]);
     });
   });
