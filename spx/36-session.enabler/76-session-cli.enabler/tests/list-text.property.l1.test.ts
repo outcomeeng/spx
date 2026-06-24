@@ -23,7 +23,7 @@ import { arbitraryClaimableSession } from "@testing/generators/session/session";
 /** The ANSI control introducer chalk emits; its presence marks styled output. */
 const ansiEscape = String.fromCodePoint(0x1b);
 /** Matches ANSI SGR sequences (`ESC [ … m`) for escape-stripped width measurement. */
-const ansiSgrSequence = new RegExp(`${ansiEscape}\\[[0-9;]*m`, "g");
+const ansiSgrSequence = new RegExp(String.raw`${ansiEscape}\[[0-9;]*m`, "g");
 
 /** Display width of a rendered line: its length with ANSI styling removed. */
 function displayWidth(line: string): number {
