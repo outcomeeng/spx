@@ -53,11 +53,3 @@ The `--update` scenario tests drive `createNodeOutcomeResolver` with a recording
 **Resolution:** add an l2 test that runs `spx spec status --update` over a node with a real co-located passing (and failing) test file through the actual registry runner, asserting the recorded `spx.status.json` reflects the real outcome.
 
 **Skills:** `typescript:testing-typescript` (l2 test).
-
-## FOLLOW-UP: statusCommand silently skips --update when an in-memory source is injected
-
-`statusCommand` returns from the injected-source branch before the `--update` path, so a caller passing both `source` and `update: true` gets a rendered rollup with no refresh and no diagnostic. The production CLI never sets `source` (it is the in-memory rendering test seam), so no caller hits this today, but the silent skip violates fail-fast.
-
-**Resolution:** throw a clear error when `source` and `update` are both set — the in-memory source has no productDir to refresh — rather than silently rendering without updating.
-
-**Skills:** `spec-tree:applying` (implementation).
