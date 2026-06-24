@@ -9,6 +9,8 @@
  * @module commands/diagnose/probes
  */
 
+import { dirname } from "node:path";
+
 import { execa } from "execa";
 
 import type { MarketplaceInstallProbe, MarketplaceInstallReading } from "@/domains/diagnose/checks/marketplace-install";
@@ -26,7 +28,7 @@ import {
   readClaim,
 } from "@/domains/worktree/occupancy-store";
 import { worktreeClaimName } from "@/domains/worktree/worktree-name";
-import { detectGitCommonDirProductRoot, gatherGitFacts } from "@/git/root";
+import { gatherGitFacts } from "@/git/root";
 import { findExecutableOnPath } from "@/lib/executable-on-path";
 import { worktreesScopeDir } from "@/lib/state-store";
 import { defaultOccupancyFileSystem } from "@/lib/worktree-occupancy-file-system";
@@ -79,9 +81,8 @@ export const defaultWorktreePoolProbe: WorktreePoolProbe = {
       running: 0,
       free: 0,
     };
-    const root = await detectGitCommonDirProductRoot();
     const facts = await gatherGitFacts();
-    if (!root.isGitRepo || !facts?.worktreeListRead) return errored;
+    if (!facts?.worktreeListRead) return errored;
 
     const bareRepository = facts.commonDirIsBare;
     const paths = facts.worktreeRoots;
@@ -90,8 +91,10 @@ export const defaultWorktreePoolProbe: WorktreePoolProbe = {
     // Occupancy is read in-process from each worktree's claim under the shared
     // `.spx/worktrees` scope and classified against the process table — never by
     // spawning `spx worktree status` per worktree, which forks a CLI per member.
-    // Mirrors claimedSessionIds below.
-    const worktreesDir = worktreesScopeDir(root.productDir);
+    // The shared scope is the parent of the absolute common dir gatherGitFacts
+    // already resolved, so no second git round (detectGitCommonDirProductRoot) is
+    // needed. Mirrors claimedSessionIds below.
+    const worktreesDir = worktreesScopeDir(dirname(facts.commonDir));
     let running = 0;
     let free = 0;
     for (const path of paths) {
@@ -141,11 +144,11 @@ export const defaultSessionEnvironmentProbe: SessionEnvironmentProbe = {
 };
 
 async function claimedSessionIds(): Promise<ReadonlySet<string> | null> {
-  const root = await detectGitCommonDirProductRoot();
-  if (!root.isGitRepo) return null;
-  const worktreesDir = worktreesScopeDir(root.productDir);
   const facts = await gatherGitFacts();
   if (!facts?.worktreeListRead) return null;
+  // The shared `.spx/worktrees` scope is the parent of the absolute common dir
+  // gatherGitFacts already resolved — no second git round is needed.
+  const worktreesDir = worktreesScopeDir(dirname(facts.commonDir));
 
   const sessionIds = new Set<string>();
   for (const path of facts.worktreeRoots) {
