@@ -13,9 +13,16 @@ import { mkdir, symlink, writeFile as writeFileFs } from "node:fs/promises";
 import { dirname, join, relative, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 
+import { PREPARE_HOOK_ENTRYPOINT } from "@/interfaces/cli/invocation";
 import { PRECOMMIT_PATH } from "@/lib/precommit/precommit-path";
 import { withTempDir } from "@testing/harnesses/with-temp-dir";
-import { buildGitTestEnvironment, GIT_TEST_CONFIG, GIT_TEST_SUBCOMMANDS, runGit } from "./git-test-constants";
+import {
+  buildGitTestEnvironment,
+  GIT_TEST_CONFIG,
+  GIT_TEST_SUBCOMMANDS,
+  runGit,
+  runTsxFile,
+} from "./git-test-constants";
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
@@ -107,12 +114,8 @@ export function withGitEnv<T>(
     await runGit(tempDir, [GIT_TEST_SUBCOMMANDS.CONFIG, "user.email", GIT_TEST_CONFIG.EMAIL]);
     await runGit(tempDir, [GIT_TEST_SUBCOMMANDS.CONFIG, "user.name", GIT_TEST_CONFIG.USER_NAME]);
 
-    // Install lefthook hooks
-    await execa("npx", ["lefthook", "install"], {
-      cwd: tempDir,
-      env: buildGitTestEnvironment(),
-      extendEnv: false,
-    });
+    // Install hooks through the entrypoint that the product prepare script invokes.
+    await runTsxFile(tempDir, PREPARE_HOOK_ENTRYPOINT);
 
     // Create context helpers
     const exec = async (
@@ -151,8 +154,8 @@ export function withGitEnv<T>(
         ) {
           return {
             exitCode: (error as { exitCode: number }).exitCode,
-            stdout: (error as { stdout: string }).stdout ?? "",
-            stderr: (error as { stderr: string }).stderr ?? "",
+            stdout: (error as { stdout: string }).stdout,
+            stderr: (error as { stderr: string }).stderr,
           };
         }
         throw error;

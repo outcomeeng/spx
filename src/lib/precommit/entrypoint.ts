@@ -12,6 +12,10 @@ export const PRECOMMIT_ENTRYPOINT = {
     sourceSuffix: "/main-checkout-gate.ts",
     argvFragment: "precommit/main-checkout-gate",
   },
+  INSTALL_HOOKS: {
+    sourceSuffix: "/install-hooks.ts",
+    argvFragment: "precommit/install-hooks",
+  },
   SONARQUBE_CLOUD_EXCLUSIONS: {
     sourceSuffix: "/check-fixture-exclusions.ts",
     argvFragment: "sonarqube-cloud/check-fixture-exclusions",

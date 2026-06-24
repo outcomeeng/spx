@@ -144,3 +144,19 @@ export async function runTsxEval(
   });
   return result.stdout.trim();
 }
+
+export async function runTsxFile(
+  cwd: string,
+  scriptPath: string,
+  envOverrides: GitTestEnvironmentOverrides = {},
+): Promise<void> {
+  const tsxBinary = join(cwd, ...TEST_TYPESCRIPT_RUNNER_RELATIVE_PATH);
+  await execa(tsxBinary, [scriptPath], {
+    cwd,
+    env: {
+      ...buildGitTestEnvironment(),
+      ...envOverrides,
+    },
+    extendEnv: false,
+  });
+}
