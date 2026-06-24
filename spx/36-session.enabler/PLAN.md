@@ -20,7 +20,7 @@ The keystone is built: `src/interfaces/cli/session/definition.ts` exports a sema
    - `it.each` row labels (`escape`, `return`, `delete`) → derive each from its source-owned key/action rather than a hand-typed twin.
 4. **Remove the `spx/36-session.enabler/` path exclusion from `spx.config.yaml` in the final commit**, then confirm the full gate is green over the subtree: `pnpm run validate` (literal + all stages), `pnpm run typecheck`, `pnpm run circular`, and `pnpm test` for the subtree, with `SPX_PROPERTY_SEED` both unset and set.
 5. **Re-survey type errors after the exclusion lifts.** The path exclusion also hid the subtree from `tsx src/cli.ts validation typescript`; five pre-existing type errors were fixed this session, but re-run `pnpm run typecheck` after un-excluding to confirm none remain.
-6. **Ship via `/pr`** once the full gate is green.
+6. **Ship via `/merge`** once the full gate is green.
 
 ### Method that worked this session
 
