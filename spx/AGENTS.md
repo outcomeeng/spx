@@ -1,5 +1,5 @@
 ---
-template_version: "0.21.1"
+template_version: "0.21.2"
 template_source: spec-tree
 languages: [typescript]
 ---
@@ -71,6 +71,8 @@ Default-branch work is complete only when it reaches the default branch on origi
 Skills run in the main conversation. Agents preload the skill and run autonomously as subagents in a separate context, returning structured APPROVED/REJECTED verdicts. **ALWAYS run an audit through its agent** — the separate context keeps the verdict free of the main conversation's bias — and dispatch agents in parallel when auditing multiple targets.
 
 **Run auditor and reviewer work in a subagent, never the main thread.** When an audit or review is called for, spawn the matching subagent — `changes-reviewer` for a changeset review, `skill-auditor`, `adr-auditor`, `pdr-auditor`, or `test-evidence-auditor` for the artifact in scope — and act only on the verdict it returns. This generated guide is explicit workflow authorization to spawn the required read-only verifier subagents; do not ask the operator for additional permission to run them. Runtime approval prompts are separate: if the tool itself asks for approval, answer that prompt through the runtime approval flow. NEVER run the audit or review skill in the main conversation as a substitute: the isolated subagent context is what keeps the verdict free of author bias, and the main thread tends to continue the work itself rather than spawn the subagent. If the subagent cannot be spawned or does not finish, the gate is blocked — do not proceed as if it passed.
+
+When launching `changes-reviewer` from this runtime, use the exact runtime agent type and pass only the raw scope token in `message`: `{"agent_type":"changes-reviewer","message":"HEAD"}` for the current working diff, or `{"agent_type":"changes-reviewer","message":"origin/<base>...HEAD"}` for a specific range. Do not pass a prose prompt, restate review instructions, add severity filters, or tell the reviewer what to emphasize — the agent definition and `spec-tree:review-changes` skill own those instructions. Prepare the worktree first: isolate the intended changes, sync to the base when the governing workflow requires it, and make the diff scope clean enough for the reviewer to infer the target from the raw token.
 
 | User Says...                               | Skill            | Agent                   |
 | ------------------------------------------ | ---------------- | ----------------------- |

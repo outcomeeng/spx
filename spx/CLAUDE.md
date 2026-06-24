@@ -1,5 +1,5 @@
 ---
-template_version: "0.21.1"
+template_version: "0.21.2"
 template_source: spec-tree
 languages: [typescript]
 ---
