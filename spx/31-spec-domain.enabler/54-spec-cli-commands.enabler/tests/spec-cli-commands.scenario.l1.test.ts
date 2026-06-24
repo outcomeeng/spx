@@ -354,7 +354,9 @@ describe("spx spec status --update command", () => {
       const plainOutput = await statusCommand({ cwd: env.productDir });
 
       expect(updateOutput).toBe(plainOutput);
-      await expect(readRecordedStatus(env, rootPath)).resolves.toBe(SPEC_TREE_NODE_STATE.PASSING);
+      await expect(readRecordedStatus(env, rootPath, { isExcluded: false })).resolves.toBe(
+        SPEC_TREE_NODE_STATE.PASSING,
+      );
     });
   });
 
@@ -368,14 +370,18 @@ describe("spx spec status --update command", () => {
       const firstRunner = createRecordingCommandRunner({ present: true, exitCode: 0 });
       await statusCommand({ cwd: env.productDir, update: true, resolveOutcomeFor: recordingResolverFor(firstRunner) });
       expect(firstRunner.calls.length).toBeGreaterThan(0);
-      await expect(readRecordedStatus(env, rootPath)).resolves.toBe(SPEC_TREE_NODE_STATE.PASSING);
+      await expect(readRecordedStatus(env, rootPath, { isExcluded: false })).resolves.toBe(
+        SPEC_TREE_NODE_STATE.PASSING,
+      );
 
       // The run just recorded is fresh and passed: a second --update runs nothing
       // and reports the cached passing outcome through the production resolver.
       const secondRunner = createRecordingCommandRunner({ present: true, exitCode: 0 });
       await statusCommand({ cwd: env.productDir, update: true, resolveOutcomeFor: recordingResolverFor(secondRunner) });
       expect(secondRunner.calls).toEqual([]);
-      await expect(readRecordedStatus(env, rootPath)).resolves.toBe(SPEC_TREE_NODE_STATE.PASSING);
+      await expect(readRecordedStatus(env, rootPath, { isExcluded: false })).resolves.toBe(
+        SPEC_TREE_NODE_STATE.PASSING,
+      );
     });
   });
 
@@ -399,8 +405,12 @@ describe("spx spec status --update command", () => {
       expect(runner.calls).toHaveLength(1);
       expect(invokedArgs(runner)).toContain(rootTestFile);
       expect(invokedArgs(runner)).toContain(childTestFile);
-      await expect(readRecordedStatus(env, rootPath)).resolves.toBe(SPEC_TREE_NODE_STATE.PASSING);
-      await expect(readRecordedStatus(env, childPath)).resolves.toBe(SPEC_TREE_NODE_STATE.PASSING);
+      await expect(readRecordedStatus(env, rootPath, { isExcluded: false })).resolves.toBe(
+        SPEC_TREE_NODE_STATE.PASSING,
+      );
+      await expect(readRecordedStatus(env, childPath, { isExcluded: false })).resolves.toBe(
+        SPEC_TREE_NODE_STATE.PASSING,
+      );
     });
   });
 
@@ -526,7 +536,9 @@ describe("spx spec status --update command", () => {
       const absentRunner = createRecordingCommandRunner({ present: false, exitCode: 0 });
       await statusCommand({ cwd: env.productDir, update: true, resolveOutcomeFor: recordingResolverFor(absentRunner) });
 
-      await expect(readRecordedStatus(env, rootPath)).resolves.toBe(SPEC_TREE_NODE_STATE.FAILING);
+      await expect(readRecordedStatus(env, rootPath, { isExcluded: false })).resolves.toBe(
+        SPEC_TREE_NODE_STATE.FAILING,
+      );
       await expect(readRecordedStatusFile(env, rootPath)).resolves.toMatchObject({
         verification: {
           test: {
@@ -558,7 +570,9 @@ describe("spx spec status --update command", () => {
 
       await statusCommand({ cwd: env.productDir, update: true, resolveOutcomeFor });
 
-      await expect(readRecordedStatus(env, rootPath)).resolves.toBe(SPEC_TREE_NODE_STATE.FAILING);
+      await expect(readRecordedStatus(env, rootPath, { isExcluded: false })).resolves.toBe(
+        SPEC_TREE_NODE_STATE.FAILING,
+      );
       await expect(readRecordedStatusFile(env, rootPath)).resolves.toMatchObject({
         verification: {
           test: {
@@ -591,7 +605,9 @@ describe("spx spec status --update command", () => {
 
       await statusCommand({ cwd: env.productDir, update: true, resolveOutcomeFor });
 
-      await expect(readRecordedStatus(env, rootPath)).resolves.toBe(SPEC_TREE_NODE_STATE.FAILING);
+      await expect(readRecordedStatus(env, rootPath, { isExcluded: false })).resolves.toBe(
+        SPEC_TREE_NODE_STATE.FAILING,
+      );
       await expect(readRecordedStatusFile(env, rootPath)).resolves.toMatchObject({
         verification: {
           test: {
@@ -651,11 +667,19 @@ async function addNodePythonTestFile(env: CurrentSpecTreeEnv, nodePath: string):
   return evidenceFile;
 }
 
-async function readRecordedStatus(env: CurrentSpecTreeEnv, nodePath: string): Promise<string> {
+type RecordedStatusClassificationOptions = {
+  readonly isExcluded: boolean;
+};
+
+async function readRecordedStatus(
+  env: CurrentSpecTreeEnv,
+  nodePath: string,
+  options: RecordedStatusClassificationOptions,
+): Promise<string> {
   const status = await readRecordedStatusFile(env, nodePath);
   return classifyNodeStatus({
     hasVerificationReferences: hasNodeStatusVerificationReferences(status.verification),
-    isExcluded: false,
+    isExcluded: options.isExcluded,
     verification: status.verification,
   });
 }
