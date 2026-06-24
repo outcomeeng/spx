@@ -20,10 +20,7 @@ One worktree is canonical because a single working copy backs the repository's s
 
 ## Product properties
 
-- `spx session` commands read and write the same `.spx/sessions/` directory from every worktree of the repository.
-- `spx worktree` commands read and write the same `.spx/worktrees/` claims from every worktree of the repository.
-- Branch-scoped store consumers read and write the same `.spx/branch/` state from every worktree of the repository.
-- `spx validation` and spec-tree commands operate on the current worktree's tracked `spx/` files, and a worktree's `.spx/worktree/` state is private to that worktree.
+- Shared session, worktree-occupancy, and branch-scoped state are visible from every worktree of a repository, while tracked `spx/` files and `.spx/worktree/` state stay local to the current worktree.
 - `spx -C <path> ...` operates as if `<path>` supplied the command's invocation directory for product-root, config, worktree, and shared-state resolution, while the caller's ambient directory does not participate in target command gates.
 - At most one worktree of a repository is the main checkout: a non-bare repository's main working tree, or the pool worktree beside the bare repository whose directory name is the `origin` remote's repository name; a pool without that observed worktree has no main checkout, and the designation does not depend on the branch any worktree has checked out.
 
