@@ -1,0 +1,11 @@
+{
+  "schemaVersion": 1,
+  "verification": {
+    "test": {
+      "overall": "passed",
+      "spx/21-infrastructure.enabler/11-atomic-file-write.enabler/tests/atomic-file-write.compliance.l1.test.ts": "passed",
+      "spx/21-infrastructure.enabler/11-atomic-file-write.enabler/tests/atomic-file-write.property.l1.test.ts": "passed",
+      "spx/21-infrastructure.enabler/11-atomic-file-write.enabler/tests/atomic-file-write.scenario.l1.test.ts": "passed"
+    }
+  }
+}

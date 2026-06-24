@@ -1,0 +1,11 @@
+{
+  "schemaVersion": 1,
+  "verification": {
+    "test": {
+      "overall": "passed",
+      "spx/18-state.enabler/21-product-root.enabler/tests/env-isolation.scenario.l1.test.ts": "passed",
+      "spx/18-state.enabler/21-product-root.enabler/tests/result-shape.mapping.l1.test.ts": "passed",
+      "spx/18-state.enabler/21-product-root.enabler/tests/root-resolution.scenario.l1.test.ts": "passed"
+    }
+  }
+}

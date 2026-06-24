@@ -1,0 +1,9 @@
+{
+  "schemaVersion": 1,
+  "verification": {
+    "test": {
+      "overall": "passed",
+      "spx/36-session.enabler/87-session-pick.enabler/21-launch-runner-test-harness.enabler/tests/launch-runner-test-harness.property.l1.test.ts": "passed"
+    }
+  }
+}

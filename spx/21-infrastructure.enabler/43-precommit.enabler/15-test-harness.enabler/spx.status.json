@@ -1,0 +1,9 @@
+{
+  "schemaVersion": 1,
+  "verification": {
+    "test": {
+      "overall": "passed",
+      "spx/21-infrastructure.enabler/43-precommit.enabler/15-test-harness.enabler/tests/test-harness.scenario.l1.test.ts": "passed"
+    }
+  }
+}

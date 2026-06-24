@@ -1,0 +1,9 @@
+{
+  "schemaVersion": 1,
+  "verification": {
+    "test": {
+      "overall": "passed",
+      "spx/41-validation.enabler/65-markdown-validation.enabler/tests/markdown-validation.scenario.l1.test.ts": "passed"
+    }
+  }
+}

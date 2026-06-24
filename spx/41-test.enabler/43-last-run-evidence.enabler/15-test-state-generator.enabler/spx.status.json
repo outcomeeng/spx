@@ -1,0 +1,9 @@
+{
+  "schemaVersion": 1,
+  "verification": {
+    "test": {
+      "overall": "passed",
+      "spx/41-test.enabler/43-last-run-evidence.enabler/15-test-state-generator.enabler/tests/test-state-generator.property.l1.test.ts": "passed"
+    }
+  }
+}

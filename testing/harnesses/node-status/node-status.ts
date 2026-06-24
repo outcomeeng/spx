@@ -1,8 +1,20 @@
 import { IGNORE_SOURCE_FILENAME_DEFAULT } from "@/lib/file-inclusion/ignore-source";
-import { classifyNodeStatus, NODE_STATUS_FILENAME, type NodeClassificationFacts } from "@/lib/node-status";
+import {
+  classifyNodeStatus,
+  createNodeStatusFile,
+  createNodeStatusMechanismRecord,
+  NODE_STATUS_EVIDENCE_OUTCOME,
+  NODE_STATUS_FILENAME,
+  NODE_STATUS_VERIFICATION_MECHANISM,
+  type NodeStatusEvidenceOutcome,
+  type NodeStatusFile,
+} from "@/lib/node-status";
 import { SPEC_TREE_CONFIG, type SpecTreeNodeState } from "@/lib/spec-tree/config";
 import { MINIMAL_SPEC_TREE_CONFIG } from "@testing/generators/config/config";
-import type { ClassificationTreeFixture } from "@testing/generators/node-status/node-status";
+import type {
+  ClassificationFixtureFacts,
+  ClassificationTreeFixture,
+} from "@testing/generators/node-status/node-status";
 import { sampleSpecTreeTestValue, SPEC_TREE_TEST_GENERATOR } from "@testing/generators/spec-tree/spec-tree";
 import { type SpecTreeEnv, withTestEnv } from "@testing/harnesses/spec-tree/spec-tree";
 
@@ -16,15 +28,20 @@ const EVIDENCE_CONTENT =
 export type ClassificationTreeNodeExpectation = {
   readonly nodeId: string;
   readonly slug: string;
-  readonly facts: NodeClassificationFacts;
+  readonly facts: ClassificationFixtureFacts;
+  readonly evidencePaths: readonly string[];
   readonly statusPath: string;
+  readonly expectedStatusFile: NodeStatusFile;
   readonly expectedStatus: SpecTreeNodeState;
 };
 
 export type ClassificationTreeEnv = {
   readonly env: SpecTreeEnv;
   readonly expectations: readonly ClassificationTreeNodeExpectation[];
-  resolveOutcome(nodeId: string): Promise<boolean>;
+  resolveOutcome(
+    nodeId: string,
+    evidencePaths: readonly string[],
+  ): Promise<Readonly<Record<string, NodeStatusEvidenceOutcome>>>;
 };
 
 // Materialize a generated classification tree into a temp product directory:
@@ -42,22 +59,31 @@ export async function withClassificationTree(
 
     for (const node of fixture.nodes) {
       await env.writeNode(`${ROOT}/${node.dirName}/${node.slug}.md`, SPEC_CONTENT);
+      let evidencePath: string | undefined;
 
-      if (node.facts.hasTests) {
+      if (node.facts.hasVerificationReferences) {
         const evidenceFileName = sampleSpecTreeTestValue(SPEC_TREE_TEST_GENERATOR.evidenceFileName());
-        await env.writeNode(`${ROOT}/${node.dirName}/${EVIDENCE_DIRECTORY}/${evidenceFileName}`, EVIDENCE_CONTENT);
+        evidencePath = `${ROOT}/${node.dirName}/${EVIDENCE_DIRECTORY}/${evidenceFileName}`;
+        await env.writeNode(evidencePath, EVIDENCE_CONTENT);
       }
 
       if (node.facts.isExcluded) {
         excludedDirs.push(node.dirName);
       }
 
+      const expectedStatusFile = expectedNodeStatusFile(node.facts, evidencePath);
       expectations.push({
         nodeId: node.dirName,
         slug: node.slug,
         facts: node.facts,
+        evidencePaths: evidencePath === undefined ? [] : [evidencePath],
         statusPath: `${ROOT}/${node.dirName}/${NODE_STATUS_FILENAME}`,
-        expectedStatus: classifyNodeStatus(node.facts),
+        expectedStatusFile,
+        expectedStatus: classifyNodeStatus({
+          hasVerificationReferences: node.facts.hasVerificationReferences,
+          isExcluded: node.facts.isExcluded,
+          verification: expectedStatusFile.verification,
+        }),
       });
     }
 
@@ -70,7 +96,29 @@ export async function withClassificationTree(
     await callback({
       env,
       expectations,
-      resolveOutcome: (nodeId: string) => Promise.resolve(factsByNodeId.get(nodeId)?.testsPass ?? false),
+      resolveOutcome: (nodeId: string, evidencePaths: readonly string[]) =>
+        Promise.resolve(
+          Object.fromEntries(
+            evidencePaths.map((path) => [
+              path,
+              factsByNodeId.get(nodeId)?.testsPass
+                ? NODE_STATUS_EVIDENCE_OUTCOME.PASSED
+                : NODE_STATUS_EVIDENCE_OUTCOME.FAILED,
+            ]),
+          ),
+        ),
     });
+  });
+}
+
+function expectedNodeStatusFile(facts: ClassificationFixtureFacts, evidencePath: string | undefined): NodeStatusFile {
+  if (evidencePath === undefined) return createNodeStatusFile({});
+  const outcome = facts.isExcluded
+    ? NODE_STATUS_EVIDENCE_OUTCOME.NOT_RUN
+    : facts.testsPass
+    ? NODE_STATUS_EVIDENCE_OUTCOME.PASSED
+    : NODE_STATUS_EVIDENCE_OUTCOME.FAILED;
+  return createNodeStatusFile({
+    [NODE_STATUS_VERIFICATION_MECHANISM.TEST]: createNodeStatusMechanismRecord({ [evidencePath]: outcome }),
   });
 }

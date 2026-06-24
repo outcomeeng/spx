@@ -1,0 +1,12 @@
+{
+  "schemaVersion": 1,
+  "verification": {
+    "test": {
+      "overall": "passed",
+      "spx/41-test.enabler/21-python-test.enabler/tests/python-test.compliance.l1.test.ts": "passed",
+      "spx/41-test.enabler/21-python-test.enabler/tests/python-test.mapping.l1.test.ts": "passed",
+      "spx/41-test.enabler/21-python-test.enabler/tests/python-test.scenario.l1.test.ts": "passed",
+      "spx/41-test.enabler/21-python-test.enabler/tests/python-test.scenario.l2.test.ts": "passed"
+    }
+  }
+}

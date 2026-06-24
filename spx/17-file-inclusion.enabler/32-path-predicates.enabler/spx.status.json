@@ -1,0 +1,14 @@
+{
+  "schemaVersion": 1,
+  "verification": {
+    "test": {
+      "overall": "not-run",
+      "spx/17-file-inclusion.enabler/32-path-predicates.enabler/tests/artifact-directory.property.l1.test.ts": "not-run",
+      "spx/17-file-inclusion.enabler/32-path-predicates.enabler/tests/artifact-directory.scenario.l1.test.ts": "not-run",
+      "spx/17-file-inclusion.enabler/32-path-predicates.enabler/tests/hidden-prefix.scenario.l1.test.ts": "not-run",
+      "spx/17-file-inclusion.enabler/32-path-predicates.enabler/tests/ignore-source.scenario.l1.test.ts": "not-run",
+      "spx/17-file-inclusion.enabler/32-path-predicates.enabler/tests/independence.property.l1.test.ts": "not-run",
+      "spx/17-file-inclusion.enabler/32-path-predicates.enabler/tests/purity.property.l1.test.ts": "not-run"
+    }
+  }
+}

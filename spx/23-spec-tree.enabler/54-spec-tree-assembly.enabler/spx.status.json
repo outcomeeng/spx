@@ -1,0 +1,10 @@
+{
+  "schemaVersion": 1,
+  "verification": {
+    "test": {
+      "overall": "passed",
+      "spx/23-spec-tree.enabler/54-spec-tree-assembly.enabler/tests/residual-snapshot.compliance.l1.test.ts": "passed",
+      "spx/23-spec-tree.enabler/54-spec-tree-assembly.enabler/tests/spec-tree-assembly.property.l1.test.ts": "passed"
+    }
+  }
+}

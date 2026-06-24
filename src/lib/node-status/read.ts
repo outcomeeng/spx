@@ -1,32 +1,49 @@
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
 
-import { SPEC_TREE_NODE_STATE, type SpecTreeNodeState } from "@/lib/spec-tree/config";
-import { NODE_STATUS_STATUS_KEY } from "./classify";
+import {
+  NODE_STATUS_EVIDENCE_OUTCOME,
+  NODE_STATUS_FIELD,
+  NODE_STATUS_MECHANISM_OVERALL,
+  NODE_STATUS_SCHEMA_VERSION,
+  NODE_STATUS_VERIFICATION_MECHANISM,
+  type NodeStatusEvidenceOutcome,
+  type NodeStatusFile,
+  type NodeStatusMechanismOverall,
+  type NodeStatusMechanismRecord,
+  type NodeStatusVerification,
+  type NodeStatusVerificationMechanism,
+  rollupNodeStatusMechanism,
+} from "./classify";
 
-/** Filename of the co-located per-node lifecycle-state record. */
+/** Filename of the co-located per-node verification projection. */
 export const NODE_STATUS_FILENAME = "spx.status.json";
 
-const NODE_STATUS_VALUES: ReadonlySet<string> = new Set(Object.values(SPEC_TREE_NODE_STATE));
+const NODE_STATUS_MECHANISMS: ReadonlySet<string> = new Set(Object.values(NODE_STATUS_VERIFICATION_MECHANISM));
+const NODE_STATUS_EVIDENCE_OUTCOMES: ReadonlySet<string> = new Set(Object.values(NODE_STATUS_EVIDENCE_OUTCOME));
+const NODE_STATUS_OVERALL_VALUES: ReadonlySet<string> = new Set(Object.values(NODE_STATUS_MECHANISM_OVERALL));
 
 function isNodeError(error: unknown): error is NodeJS.ErrnoException {
   return error instanceof Error && "code" in error;
 }
 
-function isSpecTreeNodeState(value: unknown): value is SpecTreeNodeState {
-  return typeof value === "string" && NODE_STATUS_VALUES.has(value);
+function isObject(value: unknown): value is Record<string, unknown> {
+  return typeof value === "object" && value !== null && !Array.isArray(value);
 }
 
-/**
- * Read a node's recorded lifecycle state from its co-located `spx.status.json`.
- *
- * Returns `undefined` when the file is absent — absence means "no recorded
- * state", which routes consumers to live derivation. A present file whose
- * content is not a valid status record is a corruption error, not absence.
- *
- * @param nodeDir - Absolute path to the node directory.
- */
-export function readNodeStatus(nodeDir: string): SpecTreeNodeState | undefined {
+function isNodeStatusMechanism(value: string): value is NodeStatusVerificationMechanism {
+  return NODE_STATUS_MECHANISMS.has(value);
+}
+
+function isNodeStatusEvidenceOutcome(value: unknown): value is NodeStatusEvidenceOutcome {
+  return typeof value === "string" && NODE_STATUS_EVIDENCE_OUTCOMES.has(value);
+}
+
+function isNodeStatusMechanismOverall(value: unknown): value is NodeStatusMechanismOverall {
+  return typeof value === "string" && NODE_STATUS_OVERALL_VALUES.has(value);
+}
+
+export function readNodeStatus(nodeDir: string): NodeStatusFile | undefined {
   const filePath = join(nodeDir, NODE_STATUS_FILENAME);
 
   let content: string;
@@ -39,12 +56,72 @@ export function readNodeStatus(nodeDir: string): SpecTreeNodeState | undefined {
     throw error;
   }
 
-  const parsed = JSON.parse(content) as Record<string, unknown>;
-  const status = parsed[NODE_STATUS_STATUS_KEY];
-  if (!isSpecTreeNodeState(status)) {
+  return parseNodeStatusFile(JSON.parse(content), filePath);
+}
+
+export function parseNodeStatusFile(candidate: unknown, source: string): NodeStatusFile {
+  if (!isObject(candidate)) {
+    throw new Error(`Invalid ${NODE_STATUS_FILENAME} at ${source}: expected a JSON object`);
+  }
+  if (candidate[NODE_STATUS_FIELD.SCHEMA_VERSION] !== NODE_STATUS_SCHEMA_VERSION) {
     throw new Error(
-      `Invalid ${NODE_STATUS_FILENAME} at ${filePath}: status "${String(status)}" is not a lifecycle state`,
+      `Invalid ${NODE_STATUS_FILENAME} at ${source}: schemaVersion must be ${NODE_STATUS_SCHEMA_VERSION}`,
     );
   }
-  return status;
+  const verification = parseVerification(candidate[NODE_STATUS_FIELD.VERIFICATION], source);
+  return {
+    [NODE_STATUS_FIELD.SCHEMA_VERSION]: NODE_STATUS_SCHEMA_VERSION,
+    [NODE_STATUS_FIELD.VERIFICATION]: verification,
+  };
+}
+
+function parseVerification(candidate: unknown, source: string): NodeStatusVerification {
+  if (!isObject(candidate)) {
+    throw new Error(`Invalid ${NODE_STATUS_FILENAME} at ${source}: verification must be an object`);
+  }
+  const verification: Partial<Record<NodeStatusVerificationMechanism, NodeStatusMechanismRecord>> = {};
+  for (const [mechanism, rawRecord] of Object.entries(candidate)) {
+    if (!isNodeStatusMechanism(mechanism)) {
+      throw new Error(`Invalid ${NODE_STATUS_FILENAME} at ${source}: unknown verification mechanism "${mechanism}"`);
+    }
+    verification[mechanism] = parseMechanismRecord(rawRecord, source, mechanism);
+  }
+  return verification;
+}
+
+function parseMechanismRecord(
+  candidate: unknown,
+  source: string,
+  mechanism: NodeStatusVerificationMechanism,
+): NodeStatusMechanismRecord {
+  if (!isObject(candidate)) {
+    throw new Error(`Invalid ${NODE_STATUS_FILENAME} at ${source}: verification.${mechanism} must be an object`);
+  }
+  const overall = candidate[NODE_STATUS_FIELD.OVERALL];
+  if (!isNodeStatusMechanismOverall(overall)) {
+    throw new Error(
+      `Invalid ${NODE_STATUS_FILENAME} at ${source}: verification.${mechanism}.overall is invalid`,
+    );
+  }
+  const parsed: Record<string, NodeStatusEvidenceOutcome | NodeStatusMechanismOverall> = {
+    [NODE_STATUS_FIELD.OVERALL]: overall,
+  };
+  const outcomes: Record<string, NodeStatusEvidenceOutcome> = {};
+  for (const [reference, outcome] of Object.entries(candidate)) {
+    if (reference === NODE_STATUS_FIELD.OVERALL) continue;
+    if (!isNodeStatusEvidenceOutcome(outcome)) {
+      throw new Error(
+        `Invalid ${NODE_STATUS_FILENAME} at ${source}: verification.${mechanism}.${reference} is invalid`,
+      );
+    }
+    outcomes[reference] = outcome;
+    parsed[reference] = outcome;
+  }
+  const expectedOverall = rollupNodeStatusMechanism(outcomes);
+  if (overall !== expectedOverall) {
+    throw new Error(
+      `Invalid ${NODE_STATUS_FILENAME} at ${source}: verification.${mechanism}.overall does not match evidence outcomes`,
+    );
+  }
+  return parsed as NodeStatusMechanismRecord;
 }

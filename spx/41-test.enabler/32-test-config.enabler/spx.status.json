@@ -1,0 +1,9 @@
+{
+  "schemaVersion": 1,
+  "verification": {
+    "test": {
+      "overall": "passed",
+      "spx/41-test.enabler/32-test-config.enabler/tests/test-config.compliance.l1.test.ts": "passed"
+    }
+  }
+}

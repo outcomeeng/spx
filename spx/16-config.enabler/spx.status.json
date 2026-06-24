@@ -1,0 +1,19 @@
+{
+  "schemaVersion": 1,
+  "verification": {
+    "test": {
+      "overall": "passed",
+      "spx/16-config.enabler/tests/config-ambiguity.scenario.l1.test.ts": "passed",
+      "spx/16-config.enabler/tests/config-format.mapping.l1.test.ts": "passed",
+      "spx/16-config.enabler/tests/defaults-only.scenario.l1.test.ts": "passed",
+      "spx/16-config.enabler/tests/defaults.property.l1.test.ts": "passed",
+      "spx/16-config.enabler/tests/determinism.property.l1.test.ts": "passed",
+      "spx/16-config.enabler/tests/invariants.property.l1.test.ts": "passed",
+      "spx/16-config.enabler/tests/partial-yaml.scenario.l1.test.ts": "passed",
+      "spx/16-config.enabler/tests/registry-extension.scenario.l1.test.ts": "passed",
+      "spx/16-config.enabler/tests/resolution-scope.compliance.l1.test.ts": "passed",
+      "spx/16-config.enabler/tests/validation-failure.scenario.l1.test.ts": "passed",
+      "spx/16-config.enabler/tests/validation-isolation.compliance.l1.test.ts": "passed"
+    }
+  }
+}

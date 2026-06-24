@@ -57,6 +57,15 @@ jobs:
       - name: Testing
         run: pnpm test
 
+      - name: Check committed status projection
+        run: |
+          pnpm exec tsx src/cli.ts spec status --update --format json > /tmp/spx-status.json
+          if [ -n "$(git status --porcelain -- spx)" ]; then
+            git status --short -- spx
+            git diff -- spx
+            exit 1
+          fi
+
       - name: Build packaged CLI
         run: pnpm run build
 

@@ -1,0 +1,10 @@
+{
+  "schemaVersion": 1,
+  "verification": {
+    "test": {
+      "overall": "passed",
+      "spx/41-test.enabler/85-agent-test-output.enabler/tests/agent-test-output.compliance.l1.test.ts": "passed",
+      "spx/41-test.enabler/85-agent-test-output.enabler/tests/agent-test-output.scenario.l1.test.ts": "passed"
+    }
+  }
+}

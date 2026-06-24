@@ -1,0 +1,11 @@
+{
+  "schemaVersion": 1,
+  "verification": {
+    "test": {
+      "overall": "passed",
+      "spx/17-file-inclusion.enabler/54-tool-adapters.enabler/tests/tool-adapters.mapping.l1.test.ts": "passed",
+      "spx/17-file-inclusion.enabler/54-tool-adapters.enabler/tests/tool-adapters.property.l1.test.ts": "passed",
+      "spx/17-file-inclusion.enabler/54-tool-adapters.enabler/tests/tool-adapters.scenario.l1.test.ts": "passed"
+    }
+  }
+}

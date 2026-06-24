@@ -1,0 +1,11 @@
+{
+  "schemaVersion": 1,
+  "verification": {
+    "test": {
+      "overall": "passed",
+      "spx/36-session.enabler/54-session-retention.enabler/tests/session-retention.compliance.l1.test.ts": "passed",
+      "spx/36-session.enabler/54-session-retention.enabler/tests/session-retention.property.l1.test.ts": "passed",
+      "spx/36-session.enabler/54-session-retention.enabler/tests/session-retention.scenario.l1.test.ts": "passed"
+    }
+  }
+}

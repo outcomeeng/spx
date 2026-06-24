@@ -1,0 +1,12 @@
+{
+  "schemaVersion": 1,
+  "verification": {
+    "test": {
+      "overall": "passed",
+      "spx/16-config.enabler/32-shared-config-primitives.enabler/tests/path-filter-apply.property.l1.test.ts": "passed",
+      "spx/16-config.enabler/32-shared-config-primitives.enabler/tests/path-filter-config.scenario.l1.test.ts": "passed",
+      "spx/16-config.enabler/32-shared-config-primitives.enabler/tests/path-filter.compliance.l1.test.ts": "passed",
+      "spx/16-config.enabler/32-shared-config-primitives.enabler/tests/path-filter.property.l1.test.ts": "passed"
+    }
+  }
+}

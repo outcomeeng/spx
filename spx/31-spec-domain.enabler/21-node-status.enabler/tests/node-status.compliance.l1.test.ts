@@ -1,6 +1,13 @@
 import { describe, expect, it } from "vitest";
 
-import { createNodeStatusProvider, NODE_STATUS_FILENAME, readNodeStatus, updateNodeStatus } from "@/lib/node-status";
+import {
+  createNodeStatusProvider,
+  NODE_STATUS_EVIDENCE_OUTCOME,
+  NODE_STATUS_FIELD,
+  NODE_STATUS_FILENAME,
+  readNodeStatus,
+  updateNodeStatus,
+} from "@/lib/node-status";
 import { createFilesystemSpecTreeSource, readSpecTree } from "@/lib/spec-tree";
 import { compareAsciiStrings } from "@/lib/state-store";
 import { NODE_STATUS_TEST_GENERATOR, sampleNodeStatusValue } from "@testing/generators/node-status/node-status";
@@ -25,13 +32,22 @@ describe("node-status write authority", () => {
       // Only the --update path creates the files.
       await updateNodeStatus({
         productDir: env.productDir,
-        resolveOutcome: (nodeId: string) =>
-          Promise.resolve(expectations.find((e) => e.nodeId === nodeId)?.facts.testsPass ?? false),
+        resolveOutcome: (nodeId: string, evidencePaths: readonly string[]) =>
+          Promise.resolve(
+            Object.fromEntries(
+              evidencePaths.map((path) => [
+                path,
+                expectations.find((e) => e.nodeId === nodeId)?.facts.testsPass
+                  ? NODE_STATUS_EVIDENCE_OUTCOME.PASSED
+                  : NODE_STATUS_EVIDENCE_OUTCOME.FAILED,
+              ]),
+            ),
+          ),
       });
 
       for (const expectation of expectations) {
         const recorded = JSON.parse(await env.readFile(expectation.statusPath));
-        expect(recorded.status).toBe(expectation.expectedStatus);
+        expect(recorded).toEqual(expectation.expectedStatusFile);
       }
     });
   });
@@ -61,19 +77,43 @@ describe("node-status delegation to the outcome resolver", () => {
       const consulted: string[] = [];
       await updateNodeStatus({
         productDir: env.productDir,
-        resolveOutcome: (nodeId: string) => {
+        resolveOutcome: (nodeId: string, evidencePaths: readonly string[]) => {
           consulted.push(nodeId);
-          return resolveOutcome(nodeId);
+          return resolveOutcome(nodeId, evidencePaths);
         },
       });
 
       // Declared (no tests) and specified (excluded) nodes classify structurally,
       // so only the test-outcome-stage node reaches the resolver.
       const testOutcomeStage = expectations
-        .filter((expectation) => expectation.facts.hasTests && !expectation.facts.isExcluded)
+        .filter((expectation) => expectation.facts.hasVerificationReferences && !expectation.facts.isExcluded)
         .map((expectation) => expectation.nodeId)
         .sort(compareAsciiStrings);
       expect([...consulted].sort(compareAsciiStrings)).toEqual(testOutcomeStage);
+
+      for (const expectation of expectations) {
+        const recorded = JSON.parse(await env.readFile(expectation.statusPath));
+        expect(recorded).toEqual(expectation.expectedStatusFile);
+
+        const testRecord = recorded.verification.test as Record<string, string> | undefined;
+        if (expectation.evidencePaths.length === 0) {
+          expect(testRecord).toBeUndefined();
+          continue;
+        }
+
+        expect(testRecord).toBeDefined();
+        expect(
+          Object.keys(testRecord ?? {}).filter((key) => key !== NODE_STATUS_FIELD.OVERALL).sort(compareAsciiStrings),
+        ).toEqual([...expectation.evidencePaths].sort(compareAsciiStrings));
+        const expectedOutcome = expectation.facts.isExcluded
+          ? NODE_STATUS_EVIDENCE_OUTCOME.NOT_RUN
+          : expectation.facts.testsPass
+          ? NODE_STATUS_EVIDENCE_OUTCOME.PASSED
+          : NODE_STATUS_EVIDENCE_OUTCOME.FAILED;
+        for (const evidencePath of expectation.evidencePaths) {
+          expect(testRecord?.[evidencePath]).toBe(expectedOutcome);
+        }
+      }
     });
   });
 });

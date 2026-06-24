@@ -1,6 +1,6 @@
 # Status File Contract
 
-Each spec-tree node's verification outcomes persist in a co-located, machine-written `spx.status.json` file with a schema version and a `verification` object keyed by verification mechanism and evidence reference. The file stores only execution outcomes that Git cannot answer: whether each linked test, eval, or audit evidence reference passed, failed, or did not run, plus per-mechanism overall rollups. `spx spec status` derives the node lifecycle state from the committed `spx.status.json` when present and from the tracked spec tree when absent; `spx spec status --update` refreshes the file from the testing, eval, and audit execution surfaces.
+Each spec-tree node's verification outcomes persist in a co-located, machine-written `spx.status.json` file with a schema version and a `verification` object keyed by verification mechanism and evidence reference. The file stores only execution outcomes that Git cannot answer: whether each linked test, eval, or audit evidence reference passed, failed, or did not run, plus per-mechanism overall rollups. `spx spec status` derives the node lifecycle state from the committed `spx.status.json` when present and from the tracked spec tree when absent; `spx spec status --update` refreshes the file from the configured verification surfaces that own the linked evidence.
 
 ## Rationale
 

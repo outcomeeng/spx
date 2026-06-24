@@ -1,0 +1,12 @@
+{
+  "schemaVersion": 1,
+  "verification": {
+    "test": {
+      "overall": "passed",
+      "spx/22-test-environment.enabler/32-property-harness.enabler/tests/property-harness.compliance.l1.test.ts": "passed",
+      "spx/22-test-environment.enabler/32-property-harness.enabler/tests/property-harness.mapping.l1.test.ts": "passed",
+      "spx/22-test-environment.enabler/32-property-harness.enabler/tests/property-harness.property.l1.test.ts": "passed",
+      "spx/22-test-environment.enabler/32-property-harness.enabler/tests/property-harness.scenario.l1.test.ts": "passed"
+    }
+  }
+}

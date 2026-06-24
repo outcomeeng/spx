@@ -1,0 +1,9 @@
+{
+  "schemaVersion": 1,
+  "verification": {
+    "test": {
+      "overall": "passed",
+      "spx/33-agent-environment.enabler/32-runtime-config.enabler/21-test-harness.enabler/tests/test-harness.scenario.l1.test.ts": "passed"
+    }
+  }
+}

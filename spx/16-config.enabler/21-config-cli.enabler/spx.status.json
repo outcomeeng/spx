@@ -1,0 +1,13 @@
+{
+  "schemaVersion": 1,
+  "verification": {
+    "test": {
+      "overall": "passed",
+      "spx/16-config.enabler/21-config-cli.enabler/tests/defaults.scenario.l1.test.ts": "passed",
+      "spx/16-config.enabler/21-config-cli.enabler/tests/invariants.compliance.l1.test.ts": "passed",
+      "spx/16-config.enabler/21-config-cli.enabler/tests/root-resolution.compliance.l1.test.ts": "passed",
+      "spx/16-config.enabler/21-config-cli.enabler/tests/show.scenario.l1.test.ts": "passed",
+      "spx/16-config.enabler/21-config-cli.enabler/tests/validate.scenario.l1.test.ts": "passed"
+    }
+  }
+}

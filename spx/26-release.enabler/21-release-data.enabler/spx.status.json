@@ -1,0 +1,12 @@
+{
+  "schemaVersion": 1,
+  "verification": {
+    "test": {
+      "overall": "passed",
+      "spx/26-release.enabler/21-release-data.enabler/tests/release-data.compliance.l1.test.ts": "passed",
+      "spx/26-release.enabler/21-release-data.enabler/tests/release-data.mapping.l1.test.ts": "passed",
+      "spx/26-release.enabler/21-release-data.enabler/tests/release-data.property.l1.test.ts": "passed",
+      "spx/26-release.enabler/21-release-data.enabler/tests/release-data.scenario.l1.test.ts": "passed"
+    }
+  }
+}

@@ -1,0 +1,9 @@
+{
+  "schemaVersion": 1,
+  "verification": {
+    "test": {
+      "overall": "passed",
+      "spx/23-spec-tree.enabler/87-spec-tree-projection.enabler/tests/spec-tree-projection.conformance.l1.test.ts": "passed"
+    }
+  }
+}

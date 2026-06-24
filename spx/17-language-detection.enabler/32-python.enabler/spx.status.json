@@ -1,0 +1,9 @@
+{
+  "schemaVersion": 1,
+  "verification": {
+    "test": {
+      "overall": "passed",
+      "spx/17-language-detection.enabler/32-python.enabler/tests/python.property.l1.test.ts": "passed"
+    }
+  }
+}

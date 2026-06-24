@@ -1,0 +1,11 @@
+{
+  "schemaVersion": 1,
+  "verification": {
+    "test": {
+      "overall": "passed",
+      "spx/17-file-inclusion.enabler/43-scope-resolver.enabler/tests/scope-resolver.compliance.l1.test.ts": "passed",
+      "spx/17-file-inclusion.enabler/43-scope-resolver.enabler/tests/scope-resolver.property.l1.test.ts": "passed",
+      "spx/17-file-inclusion.enabler/43-scope-resolver.enabler/tests/scope-resolver.scenario.l1.test.ts": "passed"
+    }
+  }
+}

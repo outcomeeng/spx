@@ -1,0 +1,12 @@
+{
+  "schemaVersion": 1,
+  "verification": {
+    "test": {
+      "overall": "passed",
+      "spx/38-worktree.enabler/32-occupancy-store.enabler/tests/occupancy-store.compliance.l1.test.ts": "passed",
+      "spx/38-worktree.enabler/32-occupancy-store.enabler/tests/occupancy-store.mapping.l1.test.ts": "passed",
+      "spx/38-worktree.enabler/32-occupancy-store.enabler/tests/occupancy-store.property.l1.test.ts": "passed",
+      "spx/38-worktree.enabler/32-occupancy-store.enabler/tests/occupancy-store.scenario.l1.test.ts": "passed"
+    }
+  }
+}

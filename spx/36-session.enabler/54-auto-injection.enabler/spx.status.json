@@ -1,0 +1,11 @@
+{
+  "schemaVersion": 1,
+  "verification": {
+    "test": {
+      "overall": "passed",
+      "spx/36-session.enabler/54-auto-injection.enabler/tests/auto-injection.compliance.l1.test.ts": "passed",
+      "spx/36-session.enabler/54-auto-injection.enabler/tests/auto-injection.property.l1.test.ts": "passed",
+      "spx/36-session.enabler/54-auto-injection.enabler/tests/auto-injection.scenario.l1.test.ts": "passed"
+    }
+  }
+}

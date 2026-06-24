@@ -1,0 +1,11 @@
+{
+  "schemaVersion": 1,
+  "verification": {
+    "test": {
+      "overall": "passed",
+      "spx/21-infrastructure.enabler/43-code-quality-analysis.enabler/tests/eslint-mirror.compliance.l1.test.ts": "passed",
+      "spx/21-infrastructure.enabler/43-code-quality-analysis.enabler/tests/exclusion-sync.compliance.l1.test.ts": "passed",
+      "spx/21-infrastructure.enabler/43-code-quality-analysis.enabler/tests/exclusion-sync.property.l1.test.ts": "passed"
+    }
+  }
+}

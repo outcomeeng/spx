@@ -1,6 +1,12 @@
 import * as fc from "fast-check";
 
-import type { NodeClassificationFacts } from "@/lib/node-status";
+import type {
+  NodeClassificationFacts,
+  NodeStatusEvidenceOutcome,
+  NodeStatusMechanismOverall,
+  NodeStatusMechanismRecord,
+  NodeStatusVerification,
+} from "@/lib/node-status";
 import { KIND_REGISTRY } from "@/lib/spec-tree/config";
 
 const NODE_STATUS_GENERATOR_OPTIONS = {
@@ -14,16 +20,36 @@ const NODE_STATUS_GENERATOR_OPTIONS = {
 
 const ENABLER_SUFFIX = KIND_REGISTRY.enabler.suffix;
 const CONSULTATION_CLASS_COUNT = 3;
+const STATUS_REFERENCE_MODES = ["scenario", "mapping", "property", "compliance", "conformance"] as const;
+const STATUS_REFERENCE_LEVELS = ["l1", "l2", "l3"] as const;
+const STATUS_REFERENCE_NAME_PATTERN = /^[a-z][a-z0-9-]{2,12}$/;
+const STATUS_FIELD_OVERALL = "overall";
+const STATUS_VERIFICATION_MECHANISM_TEST = "test";
+const STATUS_EVIDENCE_OUTCOMES = [
+  "passed",
+  "failed",
+  "not-run",
+] as const satisfies readonly NodeStatusEvidenceOutcome[];
+const STATUS_MECHANISM_OVERALL_PASSED = "passed" satisfies NodeStatusMechanismOverall;
+const STATUS_MECHANISM_OVERALL_FAILED = "failed" satisfies NodeStatusMechanismOverall;
+const STATUS_MECHANISM_OVERALL_PARTIAL = "partial" satisfies NodeStatusMechanismOverall;
+const STATUS_MECHANISM_OVERALL_NOT_RUN = "not-run" satisfies NodeStatusMechanismOverall;
 const SLUG_PATTERN = new RegExp(
   `^[a-z][a-z0-9-]{${NODE_STATUS_GENERATOR_OPTIONS.SLUG_MIN_LENGTH - 1},${
     NODE_STATUS_GENERATOR_OPTIONS.SLUG_MAX_LENGTH - 1
   }}$`,
 );
 
+export type ClassificationFixtureFacts = {
+  readonly hasVerificationReferences: boolean;
+  readonly isExcluded: boolean;
+  readonly testsPass: boolean;
+};
+
 export type ClassificationTreeNode = {
   readonly dirName: string;
   readonly slug: string;
-  readonly facts: NodeClassificationFacts;
+  readonly facts: ClassificationFixtureFacts;
 };
 
 export type ClassificationTreeFixture = {
@@ -34,6 +60,8 @@ export const NODE_STATUS_TEST_GENERATOR = {
   facts: arbitraryNodeClassificationFacts,
   classificationTree: arbitraryClassificationTree,
   delegationTree: arbitraryDelegationTree,
+  statusReference: arbitraryStatusReference,
+  evidenceOutcome: arbitraryEvidenceOutcome,
 } as const;
 
 export function sampleNodeStatusValue<T>(arbitrary: fc.Arbitrary<T>): T {
@@ -45,11 +73,21 @@ export function sampleNodeStatusValue<T>(arbitrary: fc.Arbitrary<T>): T {
 }
 
 export function arbitraryNodeClassificationFacts(): fc.Arbitrary<NodeClassificationFacts> {
-  return fc.record({
-    hasTests: fc.boolean(),
-    isExcluded: fc.boolean(),
-    testsPass: fc.boolean(),
-  });
+  return fc
+    .record({
+      hasVerificationReferences: fc.boolean(),
+      isExcluded: fc.boolean(),
+      reference: arbitraryStatusReference(),
+      outcome: arbitraryEvidenceOutcome(),
+    })
+    .map(({ hasVerificationReferences, isExcluded, reference, outcome }): NodeClassificationFacts => {
+      const verification: NodeStatusVerification = hasVerificationReferences
+        ? {
+          [STATUS_VERIFICATION_MECHANISM_TEST]: independentMechanismRecord({ [reference]: outcome }),
+        }
+        : {};
+      return { hasVerificationReferences, isExcluded, verification };
+    });
 }
 
 // Human-readable lowercase slugs (e.g. "node-a3"), mirroring the spec-tree
@@ -58,6 +96,20 @@ export function arbitraryNodeClassificationFacts(): fc.Arbitrary<NodeClassificat
 // when two nodes draw the same slug.
 function arbitraryNodeSlug(): fc.Arbitrary<string> {
   return fc.stringMatching(SLUG_PATTERN, { maxLength: NODE_STATUS_GENERATOR_OPTIONS.SLUG_MAX_LENGTH });
+}
+
+function arbitraryStatusReference(): fc.Arbitrary<string> {
+  return fc
+    .record({
+      name: fc.stringMatching(STATUS_REFERENCE_NAME_PATTERN),
+      mode: fc.constantFrom(...STATUS_REFERENCE_MODES),
+      level: fc.constantFrom(...STATUS_REFERENCE_LEVELS),
+    })
+    .map(({ name, mode, level }) => `tests/${name}.${mode}.${level}.test.ts`);
+}
+
+function arbitraryEvidenceOutcome(): fc.Arbitrary<NodeStatusEvidenceOutcome> {
+  return fc.constantFrom(...STATUS_EVIDENCE_OUTCOMES);
 }
 
 export function arbitraryClassificationTree(): fc.Arbitrary<ClassificationTreeFixture> {
@@ -72,7 +124,7 @@ export function arbitraryClassificationTree(): fc.Arbitrary<ClassificationTreeFi
           fc.record({
             order: fc.constant(order),
             slug: arbitraryNodeSlug(),
-            facts: arbitraryNodeClassificationFacts(),
+            facts: arbitraryClassificationFixtureFacts(),
           })
         ),
       )
@@ -84,6 +136,14 @@ export function arbitraryClassificationTree(): fc.Arbitrary<ClassificationTreeFi
         facts,
       })),
     }));
+}
+
+function arbitraryClassificationFixtureFacts(): fc.Arbitrary<ClassificationFixtureFacts> {
+  return fc.record({
+    hasVerificationReferences: fc.boolean(),
+    isExcluded: fc.boolean(),
+    testsPass: fc.boolean(),
+  });
 }
 
 // A classification tree guaranteed to span all three consultation classes — one
@@ -108,7 +168,7 @@ export function arbitraryDelegationTree(): fc.Arbitrary<ClassificationTreeFixtur
 
 function delegationNode(
   order: number,
-  hasTests: boolean,
+  hasVerificationReferences: boolean,
   isExcluded: boolean,
 ): fc.Arbitrary<ClassificationTreeNode> {
   return fc
@@ -116,6 +176,26 @@ function delegationNode(
     .map(({ slug, testsPass }) => ({
       dirName: `${order}-${slug}${ENABLER_SUFFIX}`,
       slug,
-      facts: { hasTests, isExcluded, testsPass },
+      facts: { hasVerificationReferences, isExcluded, testsPass },
     }));
+}
+
+function independentMechanismRecord(
+  outcomes: Readonly<Record<string, NodeStatusEvidenceOutcome>>,
+): NodeStatusMechanismRecord {
+  return {
+    [STATUS_FIELD_OVERALL]: independentMechanismOverall(outcomes),
+    ...outcomes,
+  };
+}
+
+function independentMechanismOverall(
+  outcomes: Readonly<Record<string, NodeStatusEvidenceOutcome>>,
+): NodeStatusMechanismOverall {
+  const values = Object.values(outcomes);
+  if (values.length === 0) return STATUS_MECHANISM_OVERALL_NOT_RUN;
+  if (values.some((outcome) => outcome === "failed")) return STATUS_MECHANISM_OVERALL_FAILED;
+  if (values.every((outcome) => outcome === "passed")) return STATUS_MECHANISM_OVERALL_PASSED;
+  if (values.every((outcome) => outcome === "not-run")) return STATUS_MECHANISM_OVERALL_NOT_RUN;
+  return STATUS_MECHANISM_OVERALL_PARTIAL;
 }

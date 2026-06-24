@@ -1,0 +1,11 @@
+{
+  "schemaVersion": 1,
+  "verification": {
+    "test": {
+      "overall": "passed",
+      "spx/18-state.enabler/32-scope-addressing.enabler/tests/branch-identity.property.l1.test.ts": "passed",
+      "spx/18-state.enabler/32-scope-addressing.enabler/tests/scope-addressing.scenario.l1.test.ts": "passed",
+      "spx/18-state.enabler/32-scope-addressing.enabler/tests/scope-token.property.l1.test.ts": "passed"
+    }
+  }
+}

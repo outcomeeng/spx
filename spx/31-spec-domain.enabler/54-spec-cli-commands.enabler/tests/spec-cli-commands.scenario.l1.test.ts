@@ -12,7 +12,16 @@ import { runTestsCommand } from "@/commands/test";
 import { DEFAULT_CONFIG_FILENAME } from "@/config/index";
 import { GIT_ROOT_COMMAND, GIT_SHOW_TOPLEVEL_ARGS, type GitDependencies } from "@/git/root";
 import { createRunnerDepsFor } from "@/interfaces/cli/test-runner-deps";
-import { NODE_STATUS_FILENAME, serializeNodeStatus } from "@/lib/node-status";
+import {
+  classifyNodeStatus,
+  createNodeStatusFile,
+  createNodeStatusMechanismRecord,
+  NODE_STATUS_EVIDENCE_OUTCOME,
+  NODE_STATUS_FILENAME,
+  NODE_STATUS_VERIFICATION_MECHANISM,
+  type NodeStatusFile,
+  serializeNodeStatus,
+} from "@/lib/node-status";
 import {
   getKindDefinition,
   SPEC_TREE_ENTRY_TYPE,
@@ -64,13 +73,20 @@ describe("spx spec status", () => {
       // state proves `spx spec status` reports the recorded state rather than
       // re-deriving it — overriding even a structurally-derived state.
       const evidenceFile = sampleSpecTreeTestValue(SPEC_TREE_TEST_GENERATOR.evidenceFileName());
-      await env.writeRaw(
-        [SPEC_TREE_CONFIG.ROOT_DIRECTORY, rootPath, SPEC_TREE_EVIDENCE_FILE.DIRECTORY_NAME, evidenceFile].join("/"),
-        "",
-      );
+      const statusEvidencePath = [
+        SPEC_TREE_CONFIG.ROOT_DIRECTORY,
+        rootPath,
+        SPEC_TREE_EVIDENCE_FILE.DIRECTORY_NAME,
+        evidenceFile,
+      ].join("/");
+      await env.writeRaw(statusEvidencePath, "");
       await env.writeRaw(
         [SPEC_TREE_CONFIG.ROOT_DIRECTORY, rootPath, NODE_STATUS_FILENAME].join("/"),
-        serializeNodeStatus(SPEC_TREE_NODE_STATE.PASSING),
+        serializeNodeStatus(createNodeStatusFile({
+          [NODE_STATUS_VERIFICATION_MECHANISM.TEST]: createNodeStatusMechanismRecord({
+            [statusEvidencePath]: NODE_STATUS_EVIDENCE_OUTCOME.PASSED,
+          }),
+        })),
       );
 
       const output = await statusCommand({ cwd: env.productDir });
@@ -80,6 +96,32 @@ describe("spx spec status", () => {
       // Read-back executes no node tests: a per-node run records evidence under the
       // testing runs directory, so its absence proves status ran none.
       expect(existsSync(testingRunsDir(env.productDir))).toBe(false);
+    });
+  });
+
+  it("reports a committed spx.status.json state when live evidence files are absent", async () => {
+    await withSpecTreeEnv(MINIMAL_SPEC_TREE_CONFIG, async (env) => {
+      await env.materialize();
+      const rootPath = formatNodePath(env.fixture.root.order, env.fixture.root.slug, env.fixture.root.kind);
+      const statusEvidencePath = [
+        SPEC_TREE_CONFIG.ROOT_DIRECTORY,
+        rootPath,
+        SPEC_TREE_EVIDENCE_FILE.DIRECTORY_NAME,
+        sampleSpecTreeTestValue(SPEC_TREE_TEST_GENERATOR.evidenceFileName()),
+      ].join("/");
+      await env.writeRaw(
+        [SPEC_TREE_CONFIG.ROOT_DIRECTORY, rootPath, NODE_STATUS_FILENAME].join("/"),
+        serializeNodeStatus(createNodeStatusFile({
+          [NODE_STATUS_VERIFICATION_MECHANISM.TEST]: createNodeStatusMechanismRecord({
+            [statusEvidencePath]: NODE_STATUS_EVIDENCE_OUTCOME.PASSED,
+          }),
+        })),
+      );
+
+      const output = await statusCommand({ cwd: env.productDir });
+
+      expect(output).toContain(`${rootPath} [${SPEC_TREE_NODE_STATE.PASSING}]`);
+      expect(output).not.toContain(`${rootPath} [${SPEC_TREE_NODE_STATE.DECLARED}]`);
     });
   });
 
@@ -303,7 +345,10 @@ describe("spx spec status --update command", () => {
       const updateOutput = await statusCommand({
         cwd: env.productDir,
         update: true,
-        resolveOutcomeFor: () => () => Promise.resolve(true),
+        resolveOutcomeFor: () => (_nodeId, evidencePaths) =>
+          Promise.resolve(
+            Object.fromEntries(evidencePaths.map((path) => [path, NODE_STATUS_EVIDENCE_OUTCOME.PASSED])),
+          ),
       });
       const plainOutput = await statusCommand({ cwd: env.productDir });
 
@@ -473,7 +518,7 @@ describe("spx spec status --update command", () => {
     await withSpecTreeEnv(MINIMAL_SPEC_TREE_CONFIG, async (env) => {
       await env.materialize();
       const rootPath = formatNodePath(env.fixture.root.order, env.fixture.root.slug, env.fixture.root.kind);
-      await addNodeTestFile(env, rootPath);
+      const rootTestFile = await addNodeTestFile(env, rootPath);
 
       // The language runner reports absent, so the per-node run executes nothing.
       // A zero-outcome run must not classify the node passing.
@@ -481,6 +526,13 @@ describe("spx spec status --update command", () => {
       await statusCommand({ cwd: env.productDir, update: true, resolveOutcomeFor: recordingResolverFor(absentRunner) });
 
       await expect(readRecordedStatus(env, rootPath)).resolves.toBe(SPEC_TREE_NODE_STATE.FAILING);
+      await expect(readRecordedStatusFile(env, rootPath)).resolves.toMatchObject({
+        verification: {
+          test: {
+            [rootTestFile]: NODE_STATUS_EVIDENCE_OUTCOME.NOT_RUN,
+          },
+        },
+      });
     });
   });
 
@@ -488,8 +540,8 @@ describe("spx spec status --update command", () => {
     await withSpecTreeEnv(MINIMAL_SPEC_TREE_CONFIG, async (env) => {
       await env.materialize();
       const rootPath = formatNodePath(env.fixture.root.order, env.fixture.root.slug, env.fixture.root.kind);
-      await addNodeTestFile(env, rootPath);
-      await addNodePythonTestFile(env, rootPath);
+      const typescriptTestFile = await addNodeTestFile(env, rootPath);
+      const pythonTestFile = await addNodePythonTestFile(env, rootPath);
 
       // The TypeScript runner is present and passes; the Python runner is absent, so
       // the node's Python test path never executes. A partial run must not classify
@@ -506,6 +558,47 @@ describe("spx spec status --update command", () => {
       await statusCommand({ cwd: env.productDir, update: true, resolveOutcomeFor });
 
       await expect(readRecordedStatus(env, rootPath)).resolves.toBe(SPEC_TREE_NODE_STATE.FAILING);
+      await expect(readRecordedStatusFile(env, rootPath)).resolves.toMatchObject({
+        verification: {
+          test: {
+            [typescriptTestFile]: NODE_STATUS_EVIDENCE_OUTCOME.PASSED,
+            [pythonTestFile]: NODE_STATUS_EVIDENCE_OUTCOME.NOT_RUN,
+          },
+        },
+      });
+    });
+  });
+
+  it("records per-reference outcomes when one runner passes and another runner fails", async () => {
+    await withSpecTreeEnv(MINIMAL_SPEC_TREE_CONFIG, async (env) => {
+      await env.materialize();
+      const rootPath = formatNodePath(env.fixture.root.order, env.fixture.root.slug, env.fixture.root.kind);
+      const typescriptTestFile = await addNodeTestFile(env, rootPath);
+      const pythonTestFile = await addNodePythonTestFile(env, rootPath);
+
+      const passingRunner = createRecordingCommandRunner({ present: true, exitCode: 0 });
+      const failingRunner = createRecordingCommandRunner({
+        present: true,
+        exitCode: sampleDispatchValue(TEST_DISPATCH_GENERATOR.nonZeroExitCode()),
+      });
+      const resolveOutcomeFor = (productDir: string) =>
+        createNodeOutcomeResolver({
+          productDir,
+          registry: testingRegistry,
+          runnerDepsFor: (language) => language.name === typescriptTestingLanguage.name ? passingRunner : failingRunner,
+        });
+
+      await statusCommand({ cwd: env.productDir, update: true, resolveOutcomeFor });
+
+      await expect(readRecordedStatus(env, rootPath)).resolves.toBe(SPEC_TREE_NODE_STATE.FAILING);
+      await expect(readRecordedStatusFile(env, rootPath)).resolves.toMatchObject({
+        verification: {
+          test: {
+            [typescriptTestFile]: NODE_STATUS_EVIDENCE_OUTCOME.PASSED,
+            [pythonTestFile]: NODE_STATUS_EVIDENCE_OUTCOME.FAILED,
+          },
+        },
+      });
     });
   });
 });
@@ -558,11 +651,20 @@ async function addNodePythonTestFile(env: CurrentSpecTreeEnv, nodePath: string):
 }
 
 async function readRecordedStatus(env: CurrentSpecTreeEnv, nodePath: string): Promise<string> {
+  const status = await readRecordedStatusFile(env, nodePath);
+  return classifyNodeStatus({
+    hasVerificationReferences: true,
+    isExcluded: false,
+    verification: status.verification,
+  });
+}
+
+async function readRecordedStatusFile(env: CurrentSpecTreeEnv, nodePath: string): Promise<NodeStatusFile> {
   const statusPath = [SPEC_TREE_CONFIG.ROOT_DIRECTORY, nodePath, NODE_STATUS_FILENAME].join("/");
   // Fail with a clear diagnostic if --update skipped the write, not a JSON parse error.
   expect(existsSync(join(env.productDir, statusPath))).toBe(true);
   const raw = await env.readFile(statusPath);
-  return (JSON.parse(raw) as { readonly status: string }).status;
+  return JSON.parse(raw) as NodeStatusFile;
 }
 
 function sampleSpecOrder(): number {
