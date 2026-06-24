@@ -12,11 +12,9 @@ import {
 import { SPEC_TREE_NODE_STATE } from "@/lib/spec-tree/config";
 import { NODE_STATUS_TEST_GENERATOR, sampleNodeStatusValue } from "@testing/generators/node-status/node-status";
 
-// The classifier is a total function of three booleans, so the finite input cube
-// (2^3 = 8 combinations) is the complete mapping. Each row's expected state is the
-// precedence contract declared in node-status.md:
-//   no verification -> declared; else EXCLUDE-listed -> specified; else all outcomes pass -> passing; else failing.
-// Booleans enumerate the finite domain; expected states come from SPEC_TREE_NODE_STATE.
+// The rows below exercise the precedence contract declared in node-status.md:
+// no verification -> declared; EXCLUDE-listed -> specified; all outcomes pass -> passing;
+// every other verified, non-excluded outcome shape -> failing.
 
 describe("classifyNodeStatus over the full fact cube", () => {
   it("resolves to declared whenever the node has no linked verification, regardless of other facts", () => {
@@ -55,12 +53,52 @@ describe("classifyNodeStatus over the full fact cube", () => {
     );
   });
 
+  it("resolves a verified, non-excluded node whose mechanisms all pass to passing", () => {
+    expect(classifyNodeStatus({
+      hasVerificationReferences: true,
+      isExcluded: false,
+      verification: {
+        [NODE_STATUS_VERIFICATION_MECHANISM.TEST]: createNodeStatusMechanismRecord(outcomes(
+          NODE_STATUS_EVIDENCE_OUTCOME.PASSED,
+        )),
+        [NODE_STATUS_VERIFICATION_MECHANISM.EVAL]: createNodeStatusMechanismRecord(outcomes(
+          NODE_STATUS_EVIDENCE_OUTCOME.PASSED,
+        )),
+      },
+    })).toBe(
+      SPEC_TREE_NODE_STATE.PASSING,
+    );
+  });
+
+  it("resolves a verified, non-excluded node with any non-passing mechanism to failing", () => {
+    expect(classifyNodeStatus({
+      hasVerificationReferences: true,
+      isExcluded: false,
+      verification: {
+        [NODE_STATUS_VERIFICATION_MECHANISM.TEST]: createNodeStatusMechanismRecord(outcomes(
+          NODE_STATUS_EVIDENCE_OUTCOME.PASSED,
+        )),
+        [NODE_STATUS_VERIFICATION_MECHANISM.AUDIT]: createNodeStatusMechanismRecord(outcomes(
+          NODE_STATUS_EVIDENCE_OUTCOME.NOT_RUN,
+        )),
+      },
+    })).toBe(
+      SPEC_TREE_NODE_STATE.FAILING,
+    );
+  });
+
   it("resolves a verified, non-excluded node whose outcomes do not all pass to failing", () => {
-    for (const outcome of [NODE_STATUS_EVIDENCE_OUTCOME.FAILED, NODE_STATUS_EVIDENCE_OUTCOME.NOT_RUN]) {
+    for (
+      const verification of [
+        testVerification(NODE_STATUS_EVIDENCE_OUTCOME.FAILED),
+        testVerification(NODE_STATUS_EVIDENCE_OUTCOME.NOT_RUN),
+        testVerification(NODE_STATUS_EVIDENCE_OUTCOME.PASSED, NODE_STATUS_EVIDENCE_OUTCOME.NOT_RUN),
+      ]
+    ) {
       expect(classifyNodeStatus({
         hasVerificationReferences: true,
         isExcluded: false,
-        verification: testVerification(outcome),
+        verification,
       })).toBe(
         SPEC_TREE_NODE_STATE.FAILING,
       );
@@ -99,9 +137,11 @@ describe("rollupNodeStatusMechanism", () => {
   });
 });
 
-function testVerification(outcome: NodeStatusEvidenceOutcome) {
+function testVerification(
+  ...values: readonly NodeStatusEvidenceOutcome[]
+) {
   return {
-    [NODE_STATUS_VERIFICATION_MECHANISM.TEST]: createNodeStatusMechanismRecord(outcomes(outcome)),
+    [NODE_STATUS_VERIFICATION_MECHANISM.TEST]: createNodeStatusMechanismRecord(outcomes(...values)),
   };
 }
 

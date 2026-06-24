@@ -83,7 +83,7 @@ export function arbitraryNodeClassificationFacts(): fc.Arbitrary<NodeClassificat
 
 export function arbitraryVerification(): fc.Arbitrary<NodeStatusVerification> {
   return fc
-    .uniqueArray(fc.constantFrom(...STATUS_VERIFICATION_MECHANISMS), { minLength: 2, maxLength: 3 })
+    .uniqueArray(fc.constantFrom(...STATUS_VERIFICATION_MECHANISMS), { minLength: 1, maxLength: 3 })
     .chain((mechanisms) =>
       fc.tuple(
         ...mechanisms.map((mechanism) => arbitraryMechanismRecord().map((record) => [mechanism, record] as const)),
@@ -116,7 +116,7 @@ function arbitraryEvidenceOutcome(): fc.Arbitrary<NodeStatusEvidenceOutcome> {
 
 function arbitraryMechanismRecord(): fc.Arbitrary<NodeStatusMechanismRecord> {
   return fc
-    .uniqueArray(arbitraryStatusReference(), { minLength: 2, maxLength: 4 })
+    .uniqueArray(arbitraryStatusReference(), { minLength: 1, maxLength: 4 })
     .chain((references) =>
       fc.tuple(
         ...references.map((reference) => arbitraryEvidenceOutcome().map((outcome) => [reference, outcome] as const)),
