@@ -21,6 +21,7 @@ import {
   type NodeStatusVerification,
   serializeNodeStatus,
 } from "./classify";
+import { isNodeStatusEntryExcluded } from "./exclude";
 import { NODE_STATUS_FILENAME } from "./read";
 
 /**
@@ -59,7 +60,7 @@ export async function updateNodeStatus(options: UpdateNodeStatusOptions): Promis
     const evidence = evidenceByNode.get(node.id) ?? [];
     const verification = await resolveVerification(node, {
       evidence,
-      isExcluded: isNodeExcluded(ignoreReader, node),
+      isExcluded: isNodeStatusEntryExcluded(ignoreReader, node),
       resolveOutcome,
     });
     const statusPath = nodeStatusPath(productDir, node.id);
@@ -131,12 +132,6 @@ function evidencePaths(evidence: readonly SpecTreeEvidenceSourceEntry[]): readon
 
 function evidencePath(entry: SpecTreeEvidenceSourceEntry): string {
   return entry.ref?.path ?? entry.id;
-}
-
-function isNodeExcluded(ignoreReader: ReturnType<typeof createIgnoreSourceReader>, node: SpecTreeNode): boolean {
-  const reference = node.ref?.path;
-  if (reference === undefined) return false;
-  return ignoreReader.isUnderIgnoreSource(reference);
 }
 
 async function writeNodeStatus(
