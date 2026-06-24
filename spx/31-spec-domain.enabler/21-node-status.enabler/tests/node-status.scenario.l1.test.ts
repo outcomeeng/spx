@@ -15,7 +15,7 @@ function nodeStateById(nodes: readonly SpecTreeNode[], id: string): string | und
 }
 
 describe("spx spec status --update", () => {
-  it("writes each node's classified lifecycle state to its co-located spx.status.json", async () => {
+  it("writes each node's verification projection to its co-located spx.status.json", async () => {
     const fixture = sampleNodeStatusValue(NODE_STATUS_TEST_GENERATOR.classificationTree());
 
     await withClassificationTree(fixture, async ({ env, expectations, resolveOutcome }) => {
@@ -23,7 +23,7 @@ describe("spx spec status --update", () => {
 
       for (const expectation of expectations) {
         const recorded = JSON.parse(await env.readFile(expectation.statusPath));
-        expect(recorded.status).toBe(expectation.expectedStatus);
+        expect(recorded).toEqual(expectation.expectedStatusFile);
       }
     });
   });

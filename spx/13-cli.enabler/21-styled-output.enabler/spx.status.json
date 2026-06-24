@@ -1,0 +1,13 @@
+{
+  "schemaVersion": 1,
+  "verification": {
+    "test": {
+      "overall": "passed",
+      "spx/13-cli.enabler/21-styled-output.enabler/tests/color-choice.mapping.l1.test.ts": "passed",
+      "spx/13-cli.enabler/21-styled-output.enabler/tests/content-parity.property.l1.test.ts": "passed",
+      "spx/13-cli.enabler/21-styled-output.enabler/tests/severity-styling.mapping.l1.test.ts": "passed",
+      "spx/13-cli.enabler/21-styled-output.enabler/tests/styled-output.property.l1.test.ts": "passed",
+      "spx/13-cli.enabler/21-styled-output.enabler/tests/styled-output.scenario.l1.test.ts": "passed"
+    }
+  }
+}

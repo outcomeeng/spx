@@ -1,0 +1,9 @@
+{
+  "schemaVersion": 1,
+  "verification": {
+    "test": {
+      "overall": "passed",
+      "spx/16-config.enabler/65-product-directory-api.enabler/tests/product-directory-api.compliance.l1.test.ts": "passed"
+    }
+  }
+}

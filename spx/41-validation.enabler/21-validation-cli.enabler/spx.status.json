@@ -1,0 +1,10 @@
+{
+  "schemaVersion": 1,
+  "verification": {
+    "test": {
+      "overall": "passed",
+      "spx/41-validation.enabler/21-validation-cli.enabler/tests/dispatch.property.l2.test.ts": "passed",
+      "spx/41-validation.enabler/21-validation-cli.enabler/tests/dispatch.scenario.l2.test.ts": "passed"
+    }
+  }
+}

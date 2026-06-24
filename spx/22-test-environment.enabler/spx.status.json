@@ -1,0 +1,17 @@
+{
+  "schemaVersion": 1,
+  "verification": {
+    "test": {
+      "overall": "passed",
+      "spx/22-test-environment.enabler/tests/generators.property.l1.test.ts": "passed",
+      "spx/22-test-environment.enabler/tests/generators.scenario.l1.test.ts": "passed",
+      "spx/22-test-environment.enabler/tests/helpers.scenario.l1.test.ts": "passed",
+      "spx/22-test-environment.enabler/tests/isolation.property.l1.test.ts": "passed",
+      "spx/22-test-environment.enabler/tests/lifecycle.property.l1.test.ts": "passed",
+      "spx/22-test-environment.enabler/tests/lifecycle.scenario.l1.test.ts": "passed",
+      "spx/22-test-environment.enabler/tests/nesting.scenario.l1.test.ts": "passed",
+      "spx/22-test-environment.enabler/tests/safety.compliance.l1.test.ts": "passed",
+      "spx/22-test-environment.enabler/tests/temp-dir.scenario.l1.test.ts": "passed"
+    }
+  }
+}

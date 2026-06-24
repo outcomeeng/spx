@@ -1,0 +1,9 @@
+{
+  "schemaVersion": 1,
+  "verification": {
+    "test": {
+      "overall": "not-run",
+      "spx/17-file-inclusion.enabler/32-path-predicates.enabler/21-test-harness.enabler/tests/test-harness.property.l1.test.ts": "not-run"
+    }
+  }
+}

@@ -1,0 +1,9 @@
+{
+  "schemaVersion": 1,
+  "verification": {
+    "test": {
+      "overall": "passed",
+      "spx/23-spec-tree.enabler/76-node-state-derivation.enabler/tests/node-state-derivation.mapping.l1.test.ts": "passed"
+    }
+  }
+}

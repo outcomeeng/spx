@@ -1,6 +1,10 @@
 import { currentStalenessInputs, discoverTestFiles, runNodeCommand } from "@/commands/test";
 import type { GitDependencies } from "@/git/root";
-import type { NodeOutcomeResolver } from "@/lib/node-status";
+import {
+  NODE_STATUS_EVIDENCE_OUTCOME,
+  type NodeOutcomeResolver,
+  type NodeStatusEvidenceOutcome,
+} from "@/lib/node-status";
 import { SPEC_TREE_CONFIG } from "@/lib/spec-tree/config";
 import { compareAsciiStrings } from "@/lib/state-store";
 import type { TestingLanguageDescriptor, TestRunnerDependencies } from "@/test/languages/types";
@@ -8,16 +12,17 @@ import type { TestingRegistry } from "@/test/registry";
 import {
   extractStalenessInputs,
   isStalenessMatch,
-  outcomesCoverPaths,
   readTestingRuns,
   selectLatestTerminalTestRunForNode,
   type StalenessInputs,
   TEST_RUN_STATE_STATUS,
+  type TestRunnerOutcome,
   type TestRunStateFileSystem,
   type TestTerminalRun,
 } from "@/test/run-state";
 
 const PATH_SEPARATOR = "/";
+const SUCCESS_EXIT_CODE = 0;
 
 /** Dependencies the production resolver composes over the testing domain. */
 export interface NodeOutcomeResolverDependencies {
@@ -67,20 +72,20 @@ export function createNodeOutcomeResolver(deps: NodeOutcomeResolverDependencies)
     return current;
   };
 
-  return async (nodeId: string): Promise<boolean> => {
+  return async (
+    nodeId: string,
+    evidencePaths: readonly string[],
+  ): Promise<Readonly<Record<string, NodeStatusEvidenceOutcome>>> => {
     const { discoveredTestPaths, terminalRuns } = await sharedEvidence();
     const nodePath = `${SPEC_TREE_CONFIG.ROOT_DIRECTORY}${PATH_SEPARATOR}${nodeId}`;
-    const nodeTestPaths = filterNodeTestPaths(discoveredTestPaths, nodePath);
+    const nodeTestPaths = filterNodeTestPaths(discoveredTestPaths, nodePath, evidencePaths);
     const usable = await usableRecordedOutcome(discoveredTestPaths, terminalRuns, nodeTestPaths, currentInputsFor);
     if (usable !== undefined) {
       return usable;
     }
-    const { dispatch, recorded } = await runNodeCommand({ productDir: deps.productDir, nodePath }, deps);
+    const { dispatch } = await runNodeCommand({ productDir: deps.productDir, nodePath }, deps);
     refreshEvidence();
-    // Report the node passing only when the run executed every one of its test paths
-    // and passed; a gated-out or unmatched language leaves some path unexecuted, and
-    // a zero-outcome run covers nothing, so neither vacuously passes.
-    return outcomesCoverPaths(dispatch.outcomes, nodeTestPaths) && recorded.status === TEST_RUN_STATE_STATUS.PASSED;
+    return outcomesForPaths(dispatch.outcomes, nodeTestPaths);
   };
 }
 
@@ -100,9 +105,14 @@ async function loadResolverEvidence(deps: NodeOutcomeResolverDependencies): Prom
 // A node's test paths are the discovered test files under its subtree — the same
 // set the per-node run records against, so coverage-gated evidence selection and
 // the per-node run agree on path identity.
-function filterNodeTestPaths(discoveredTestPaths: readonly string[], nodePath: string): readonly string[] {
+function filterNodeTestPaths(
+  discoveredTestPaths: readonly string[],
+  nodePath: string,
+  evidencePaths: readonly string[],
+): readonly string[] {
   const prefix = `${nodePath}${PATH_SEPARATOR}`;
-  return discoveredTestPaths.filter((path) => path.startsWith(prefix));
+  const discovered = new Set(discoveredTestPaths.filter((path) => path.startsWith(prefix)));
+  return evidencePaths.filter((path) => discovered.has(path));
 }
 
 // Resolves a recorded outcome (true) only when the latest covering run is fresh —
@@ -114,7 +124,7 @@ async function usableRecordedOutcome(
   terminalRuns: readonly TestTerminalRun[],
   nodeTestPaths: readonly string[],
   currentInputsFor: CurrentStalenessInputsFor,
-): Promise<boolean | undefined> {
+): Promise<Readonly<Record<string, NodeStatusEvidenceOutcome>> | undefined> {
   const latest = selectLatestTerminalTestRunForNode(terminalRuns, nodeTestPaths);
   if (latest === undefined) {
     return undefined;
@@ -132,5 +142,30 @@ async function usableRecordedOutcome(
   }
   const current = await currentInputsFor(runCoveredPaths);
   const fresh = isStalenessMatch(extractStalenessInputs(latest.state), current);
-  return fresh && latest.state.status === TEST_RUN_STATE_STATUS.PASSED ? true : undefined;
+  return fresh && latest.state.status === TEST_RUN_STATE_STATUS.PASSED
+    ? outcomesForPaths(latest.state.runnerOutcomes, nodeTestPaths)
+    : undefined;
+}
+
+function outcomesForPaths(
+  outcomes: readonly TestRunnerOutcome[],
+  nodeTestPaths: readonly string[],
+): Readonly<Record<string, NodeStatusEvidenceOutcome>> {
+  return Object.fromEntries(
+    nodeTestPaths.map((path) => [path, outcomeForPath(outcomes, path)]),
+  );
+}
+
+function outcomeForPath(
+  outcomes: readonly TestRunnerOutcome[],
+  path: string,
+): NodeStatusEvidenceOutcome {
+  const covering = outcomes.filter((outcome) => outcome.testPaths.includes(path));
+  if (covering.length === 0) return NODE_STATUS_EVIDENCE_OUTCOME.NOT_RUN;
+  if (covering.every((outcome) => outcome.exitCode === SUCCESS_EXIT_CODE)) {
+    return NODE_STATUS_EVIDENCE_OUTCOME.PASSED;
+  }
+  return covering.some((outcome) => outcome.exitCode !== SUCCESS_EXIT_CODE)
+    ? NODE_STATUS_EVIDENCE_OUTCOME.FAILED
+    : NODE_STATUS_EVIDENCE_OUTCOME.NOT_RUN;
 }

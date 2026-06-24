@@ -1,0 +1,10 @@
+{
+  "schemaVersion": 1,
+  "verification": {
+    "test": {
+      "overall": "passed",
+      "spx/16-config.enabler/43-domain-execution-descriptors.enabler/tests/testing-descriptor.compliance.l1.test.ts": "passed",
+      "spx/16-config.enabler/43-domain-execution-descriptors.enabler/tests/testing-descriptor.mapping.l1.test.ts": "passed"
+    }
+  }
+}

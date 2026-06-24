@@ -1,0 +1,9 @@
+{
+  "schemaVersion": 1,
+  "verification": {
+    "test": {
+      "overall": "passed",
+      "spx/36-session.enabler/21-session-test-harness.enabler/tests/session-test-harness.scenario.l1.test.ts": "passed"
+    }
+  }
+}

@@ -1,0 +1,10 @@
+{
+  "schemaVersion": 1,
+  "verification": {
+    "test": {
+      "overall": "passed",
+      "spx/36-session.enabler/65-session-claim.enabler/tests/session-claim.scenario.l1.test.ts": "passed",
+      "spx/36-session.enabler/65-session-claim.enabler/tests/session-claim.scenario.l2.test.ts": "passed"
+    }
+  }
+}

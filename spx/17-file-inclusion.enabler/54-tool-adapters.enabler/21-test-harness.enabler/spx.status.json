@@ -1,0 +1,9 @@
+{
+  "schemaVersion": 1,
+  "verification": {
+    "test": {
+      "overall": "passed",
+      "spx/17-file-inclusion.enabler/54-tool-adapters.enabler/21-test-harness.enabler/tests/test-harness.property.l1.test.ts": "passed"
+    }
+  }
+}

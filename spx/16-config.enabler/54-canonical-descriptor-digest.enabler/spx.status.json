@@ -1,0 +1,10 @@
+{
+  "schemaVersion": 1,
+  "verification": {
+    "test": {
+      "overall": "passed",
+      "spx/16-config.enabler/54-canonical-descriptor-digest.enabler/tests/canonical-json.compliance.l1.test.ts": "passed",
+      "spx/16-config.enabler/54-canonical-descriptor-digest.enabler/tests/descriptor-digest.compliance.l1.test.ts": "passed"
+    }
+  }
+}

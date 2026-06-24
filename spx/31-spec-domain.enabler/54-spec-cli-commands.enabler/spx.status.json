@@ -1,0 +1,10 @@
+{
+  "schemaVersion": 1,
+  "verification": {
+    "test": {
+      "overall": "passed",
+      "spx/31-spec-domain.enabler/54-spec-cli-commands.enabler/tests/spec-cli-commands.scenario.l1.test.ts": "passed",
+      "spx/31-spec-domain.enabler/54-spec-cli-commands.enabler/tests/status-testing-delegation.compliance.l1.test.ts": "passed"
+    }
+  }
+}

@@ -1,0 +1,15 @@
+{
+  "schemaVersion": 1,
+  "verification": {
+    "test": {
+      "overall": "passed",
+      "spx/38-worktree.enabler/43-worktree-cli.enabler/tests/worktree-cli.compliance.l2.test.ts": "passed",
+      "spx/38-worktree.enabler/43-worktree-cli.enabler/tests/worktree-cli.scenario.l1.test.ts": "passed",
+      "spx/38-worktree.enabler/43-worktree-cli.enabler/tests/worktree-cli.scenario.l2.test.ts": "passed",
+      "spx/38-worktree.enabler/43-worktree-cli.enabler/tests/worktree-controlling-process.scenario.l1.test.ts": "passed",
+      "spx/38-worktree.enabler/43-worktree-cli.enabler/tests/worktree-name-resolution.compliance.l1.test.ts": "passed",
+      "spx/38-worktree.enabler/43-worktree-cli.enabler/tests/worktree-name-resolution.mapping.l1.test.ts": "passed",
+      "spx/38-worktree.enabler/43-worktree-cli.enabler/tests/worktree-name.property.l1.test.ts": "passed"
+    }
+  }
+}

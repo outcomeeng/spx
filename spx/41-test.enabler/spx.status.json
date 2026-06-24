@@ -1,0 +1,12 @@
+{
+  "schemaVersion": 1,
+  "verification": {
+    "test": {
+      "overall": "passed",
+      "spx/41-test.enabler/tests/execution-recording.scenario.l1.test.ts": "passed",
+      "spx/41-test.enabler/tests/test.mapping.l1.test.ts": "passed",
+      "spx/41-test.enabler/tests/test.property.l1.test.ts": "passed",
+      "spx/41-test.enabler/tests/test.scenario.l1.test.ts": "passed"
+    }
+  }
+}

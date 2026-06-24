@@ -1,0 +1,11 @@
+{
+  "schemaVersion": 1,
+  "verification": {
+    "test": {
+      "overall": "passed",
+      "spx/36-session.enabler/32-session-identity.enabler/tests/session-identity.compliance.l1.test.ts": "passed",
+      "spx/36-session.enabler/32-session-identity.enabler/tests/session-identity.property.l1.test.ts": "passed",
+      "spx/36-session.enabler/32-session-identity.enabler/tests/session-identity.scenario.l1.test.ts": "passed"
+    }
+  }
+}

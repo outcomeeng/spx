@@ -6,19 +6,32 @@ import {
   createFilesystemSpecTreeSource,
   readSpecTree,
   SPEC_TREE_ENTRY_TYPE,
+  type SpecTreeEvidenceSourceEntry,
   type SpecTreeNode,
   type SpecTreeSnapshot,
 } from "@/lib/spec-tree";
 import { SPEC_TREE_CONFIG } from "@/lib/spec-tree/config";
-import { classifyNodeStatus, type NodeClassificationFacts, serializeNodeStatus } from "./classify";
+import {
+  createNodeStatusFile,
+  createNodeStatusMechanismRecord,
+  NODE_STATUS_EVIDENCE_OUTCOME,
+  NODE_STATUS_VERIFICATION_MECHANISM,
+  type NodeStatusEvidenceOutcome,
+  type NodeStatusVerification,
+  serializeNodeStatus,
+} from "./classify";
 import { NODE_STATUS_FILENAME } from "./read";
 
 /**
- * Resolves a node's pass/fail outcome — from recorded testing evidence when it is
- * usable, otherwise by running the node's tests. Injected at the command edge so
- * the classifier's precedence logic is verifiable without executing a real suite.
+ * Resolves a node's per-reference test outcomes — from recorded testing evidence
+ * when it is usable, otherwise by running the node's tests. Injected at the
+ * command edge so the classifier's precedence logic is verifiable without
+ * executing a real suite.
  */
-export type NodeOutcomeResolver = (nodeId: string) => Promise<boolean>;
+export type NodeOutcomeResolver = (
+  nodeId: string,
+  evidencePaths: readonly string[],
+) => Promise<Readonly<Record<string, NodeStatusEvidenceOutcome>>>;
 
 export interface UpdateNodeStatusOptions {
   readonly productDir: string;
@@ -38,40 +51,80 @@ export async function updateNodeStatus(options: UpdateNodeStatusOptions): Promis
     ignoreSourceFilename: IGNORE_SOURCE_FILENAME_DEFAULT,
     specTreeRootSegment: SPEC_TREE_CONFIG.ROOT_DIRECTORY,
   });
-  const nodesWithTests = collectNodesWithTests(snapshot);
+  const evidenceByNode = collectEvidenceByNode(snapshot);
 
   for (const node of snapshot.allNodes) {
-    const facts = await classifyFacts(node, {
-      hasTests: nodesWithTests.has(node.id),
+    const evidence = evidenceByNode.get(node.id) ?? [];
+    const verification = await resolveVerification(node, {
+      evidence,
       isExcluded: isNodeExcluded(ignoreReader, node),
       resolveOutcome,
     });
-    await writeNodeStatus(productDir, node.id, classifyNodeStatus(facts));
+    await writeNodeStatus(productDir, node.id, verification);
   }
 }
 
-type ClassifyFactsInput = {
-  readonly hasTests: boolean;
+type VerificationInput = {
+  readonly evidence: readonly SpecTreeEvidenceSourceEntry[];
   readonly isExcluded: boolean;
   readonly resolveOutcome: NodeOutcomeResolver;
 };
 
-async function classifyFacts(node: SpecTreeNode, input: ClassifyFactsInput): Promise<NodeClassificationFacts> {
+async function resolveVerification(
+  node: SpecTreeNode,
+  input: VerificationInput,
+): Promise<NodeStatusVerification> {
   // The resolver is consulted only when its outcome can change the classification
-  // — a node with no tests is declared, and an excluded node is specified, before
-  // any outcome is resolved.
-  const testsPass = input.hasTests && !input.isExcluded ? await input.resolveOutcome(node.id) : false;
-  return { hasTests: input.hasTests, isExcluded: input.isExcluded, testsPass };
+  // — a node with no linked evidence is declared, and an excluded node is specified,
+  // before any outcome is resolved.
+  if (input.evidence.length === 0) return {};
+  if (input.isExcluded) return createTestVerification(input.evidence, NODE_STATUS_EVIDENCE_OUTCOME.NOT_RUN);
+  return createTestVerificationFromOutcomes(
+    input.evidence,
+    await input.resolveOutcome(node.id, evidencePaths(input.evidence)),
+  );
 }
 
-function collectNodesWithTests(snapshot: SpecTreeSnapshot): ReadonlySet<string> {
-  const parents = new Set<string>();
+function collectEvidenceByNode(
+  snapshot: SpecTreeSnapshot,
+): ReadonlyMap<string, readonly SpecTreeEvidenceSourceEntry[]> {
+  const evidenceByNode = new Map<string, SpecTreeEvidenceSourceEntry[]>();
   for (const entry of snapshot.entries) {
     if (entry.type === SPEC_TREE_ENTRY_TYPE.EVIDENCE) {
-      parents.add(entry.parentId);
+      const entries = evidenceByNode.get(entry.parentId) ?? [];
+      entries.push(entry);
+      evidenceByNode.set(entry.parentId, entries);
     }
   }
-  return parents;
+  return evidenceByNode;
+}
+
+function createTestVerification(
+  evidence: readonly SpecTreeEvidenceSourceEntry[],
+  outcome: NodeStatusEvidenceOutcome,
+): NodeStatusVerification {
+  const outcomes = Object.fromEntries(evidence.map((entry) => [evidencePath(entry), outcome]));
+  return createTestVerificationFromOutcomes(evidence, outcomes);
+}
+
+function createTestVerificationFromOutcomes(
+  evidence: readonly SpecTreeEvidenceSourceEntry[],
+  resolvedOutcomes: Readonly<Record<string, NodeStatusEvidenceOutcome>>,
+): NodeStatusVerification {
+  const outcomes: Record<string, NodeStatusEvidenceOutcome> = {};
+  for (const entry of evidence) {
+    const path = evidencePath(entry);
+    outcomes[path] = resolvedOutcomes[path] ?? NODE_STATUS_EVIDENCE_OUTCOME.NOT_RUN;
+  }
+  return { [NODE_STATUS_VERIFICATION_MECHANISM.TEST]: createNodeStatusMechanismRecord(outcomes) };
+}
+
+function evidencePaths(evidence: readonly SpecTreeEvidenceSourceEntry[]): readonly string[] {
+  return evidence.map(evidencePath);
+}
+
+function evidencePath(entry: SpecTreeEvidenceSourceEntry): string {
+  return entry.ref?.path ?? entry.id;
 }
 
 function isNodeExcluded(ignoreReader: ReturnType<typeof createIgnoreSourceReader>, node: SpecTreeNode): boolean {
@@ -83,9 +136,9 @@ function isNodeExcluded(ignoreReader: ReturnType<typeof createIgnoreSourceReader
 async function writeNodeStatus(
   productDir: string,
   nodeId: string,
-  state: ReturnType<typeof classifyNodeStatus>,
+  verification: NodeStatusVerification,
 ): Promise<void> {
   const filePath = join(productDir, SPEC_TREE_CONFIG.ROOT_DIRECTORY, nodeId, NODE_STATUS_FILENAME);
   await mkdir(dirname(filePath), { recursive: true });
-  await writeFile(filePath, serializeNodeStatus(state), NODE_STATUS_TEXT_ENCODING);
+  await writeFile(filePath, serializeNodeStatus(createNodeStatusFile(verification)), NODE_STATUS_TEXT_ENCODING);
 }
