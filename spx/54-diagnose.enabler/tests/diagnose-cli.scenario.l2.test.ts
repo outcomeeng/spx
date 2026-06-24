@@ -2,7 +2,7 @@ import { writeFile } from "node:fs/promises";
 import { join } from "node:path";
 
 import { execa } from "execa";
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 
 import { DEFAULT_CONFIG_FILENAME } from "@/config/index";
 import { SPX_REACHABILITY_VERDICT } from "@/domains/diagnose/checks/spx-reachability";
@@ -14,6 +14,11 @@ import { DIAGNOSE_CLI } from "@/interfaces/cli/diagnose";
 import { CLI_PATH, CLI_TIMEOUTS_MS, NODE_EXECUTABLE } from "@testing/harnesses/constants";
 import { writeAllChecksManifest, writeSpxReachabilityManifest } from "@testing/harnesses/diagnose/cli";
 import { withTempDir } from "@testing/harnesses/with-temp-dir";
+
+// Every test here spawns the CLI as a cold `node bin/spx.js` subprocess running real probes;
+// under test-suite subprocess contention that exceeds the 30s default, so the whole file runs
+// under the batched-E2E guardrail.
+vi.setConfig({ testTimeout: CLI_TIMEOUTS_MS.E2E_BATCH });
 
 // The ANSI escape (ESC) code point; built here to avoid an invisible control byte in source.
 const escCharCode = 27;
@@ -173,22 +178,16 @@ describe("spx diagnose emits a schema-valid report and exits with the code keyed
     });
   });
 
-  it(
-    "runs bare with no manifest and no diagnose config, rendering every registered check with a verdict-keyed exit",
-    async () => {
-      await withTempDir("diagnose-bare", async (cwd) => {
-        const result = await runDiagnose([DIAGNOSE_CLI.FORMAT_FLAG, DIAGNOSE_FORMAT.JSON], { cwd });
+  it("runs bare with no manifest and no diagnose config, rendering every registered check with a verdict-keyed exit", async () => {
+    await withTempDir("diagnose-bare", async (cwd) => {
+      const result = await runDiagnose([DIAGNOSE_CLI.FORMAT_FLAG, DIAGNOSE_FORMAT.JSON], { cwd });
 
-        const report = JSON.parse(result.stdout) as ReportShape;
-        expect(new Set(report.checks.map((check) => check.name))).toEqual(new Set(Object.values(CHECK_NAME)));
-        expect(Object.values(OVERALL_VERDICT)).toContain(report.overall);
-        expect(result.exitCode).toBe(overallExitCode(report.overall as OverallVerdict));
-      });
-    },
-    // Bare mode spawns the CLI running all five real probes (git, spx, plugin CLIs, filesystem);
-    // under test-suite subprocess contention this needs the batched-E2E guardrail, not the 30s default.
-    CLI_TIMEOUTS_MS.E2E_BATCH,
-  );
+      const report = JSON.parse(result.stdout) as ReportShape;
+      expect(new Set(report.checks.map((check) => check.name))).toEqual(new Set(Object.values(CHECK_NAME)));
+      expect(Object.values(OVERALL_VERDICT)).toContain(report.overall);
+      expect(result.exitCode).toBe(overallExitCode(report.overall as OverallVerdict));
+    });
+  });
 
   it("emits no ANSI escape when a non-empty NO_COLOR environment variable disables color", async () => {
     const manifestPath = await writeSpxReachabilityManifest();
