@@ -40,7 +40,9 @@ function createValidationContext(scopeConfig: ScopeConfig = createValidationScop
 
 // Compile-time fixture: accepting options through this function proves the
 // ManagedSubprocessSpawnOptions type, not runtime behavior.
-function acceptManagedSubprocessOptions(_options: ManagedSubprocessSpawnOptions): void {}
+function requireManagedSubprocessOptions(options: ManagedSubprocessSpawnOptions): ManagedSubprocessSpawnOptions {
+  return options;
+}
 
 describe("Compliance: validation step ProcessRunner defaults reference lifecycleProcessRunner", () => {
   it("defaultEslintProcessRunner is the shared lifecycleProcessRunner", () => {
@@ -69,7 +71,8 @@ describe("Compliance: validation step ProcessRunner defaults reference lifecycle
     const callerOwnedStdioOptions: SpawnOptions = { stdio: [process.stdin, process.stdout, process.stderr] };
 
     // @ts-expect-error - Managed subprocess options reject caller-owned stdio even through SpawnOptions variables.
-    acceptManagedSubprocessOptions(callerOwnedStdioOptions);
+    const rejectedOptions = requireManagedSubprocessOptions(callerOwnedStdioOptions);
+    expect(rejectedOptions.stdio).toBeDefined();
   });
 
   it("ESLint subprocess output is owned by parent-owned pipes", async () => {

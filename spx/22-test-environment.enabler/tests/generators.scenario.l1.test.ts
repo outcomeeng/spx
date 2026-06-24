@@ -2,7 +2,7 @@ import { access } from "node:fs/promises";
 import { join } from "node:path";
 
 import * as fc from "fast-check";
-import { describe, it } from "vitest";
+import { describe, expect, it } from "vitest";
 
 import { MINIMAL_SPEC_TREE_CONFIG } from "@testing/generators/config/config";
 import { withTestEnv } from "@testing/harnesses/spec-tree/spec-tree";
@@ -14,7 +14,7 @@ describe("env-scoped generators — produce fixtures materializable inside the c
         fc.asyncProperty(env.arbitraryNodePath, async (path) => {
           const specRelative = `${path}/spec.md`;
           await env.writeNode(specRelative, `# ${path}\n`);
-          await access(join(env.productDir, specRelative));
+          await expect(access(join(env.productDir, specRelative))).resolves.toBeUndefined();
         }),
         { numRuns: 10 },
       );
