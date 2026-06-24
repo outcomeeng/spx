@@ -2,6 +2,7 @@ export {
   classifyNodeStatus,
   createNodeStatusFile,
   createNodeStatusMechanismRecord,
+  hasNodeStatusVerificationReferences,
   NODE_STATUS_EVIDENCE_OUTCOME,
   NODE_STATUS_FIELD,
   NODE_STATUS_MECHANISM_OVERALL,

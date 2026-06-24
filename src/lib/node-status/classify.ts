@@ -85,6 +85,12 @@ export function createNodeStatusFile(verification: NodeStatusVerification): Node
   };
 }
 
+export function hasNodeStatusVerificationReferences(verification: NodeStatusVerification): boolean {
+  return Object.values(verification).some((mechanism) =>
+    Object.keys(mechanism).some((reference) => reference !== NODE_STATUS_FIELD.OVERALL)
+  );
+}
+
 export function createNodeStatusMechanismRecord(
   outcomes: Readonly<Record<string, NodeStatusEvidenceOutcome>>,
 ): NodeStatusMechanismRecord {

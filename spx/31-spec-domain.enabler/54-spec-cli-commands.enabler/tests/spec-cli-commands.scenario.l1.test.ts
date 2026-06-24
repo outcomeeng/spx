@@ -16,6 +16,7 @@ import {
   classifyNodeStatus,
   createNodeStatusFile,
   createNodeStatusMechanismRecord,
+  hasNodeStatusVerificationReferences,
   NODE_STATUS_EVIDENCE_OUTCOME,
   NODE_STATUS_FILENAME,
   NODE_STATUS_VERIFICATION_MECHANISM,
@@ -653,7 +654,7 @@ async function addNodePythonTestFile(env: CurrentSpecTreeEnv, nodePath: string):
 async function readRecordedStatus(env: CurrentSpecTreeEnv, nodePath: string): Promise<string> {
   const status = await readRecordedStatusFile(env, nodePath);
   return classifyNodeStatus({
-    hasVerificationReferences: true,
+    hasVerificationReferences: hasNodeStatusVerificationReferences(status.verification),
     isExcluded: false,
     verification: status.verification,
   });
