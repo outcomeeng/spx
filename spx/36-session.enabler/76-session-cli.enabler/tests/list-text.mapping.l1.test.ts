@@ -1,7 +1,7 @@
 /**
  * Mapping evidence for the non-interactive list color decision.
  *
- * `resolveListColor` is the pure resolver the `list`/`todo` descriptor calls
+ * `resolveListColor` is the pure resolver the list-like descriptor calls
  * with the raw process facts it reads (`process.stdout.isTTY`, `NO_COLOR`, and
  * the `--color`/`--no-color` flag). This table enumerates the full
  * `(isTty, noColor, colorFlag)` domain — `colorFlag` drawn from the source-owned

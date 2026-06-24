@@ -93,12 +93,12 @@ export function parseSessionId(id: string): Date | null {
 
   const [, yearStr, monthStr, dayStr, hoursStr, minutesStr, secondsStr] = match;
 
-  const year = parseInt(yearStr, 10);
-  const month = parseInt(monthStr, 10) - 1; // Date months are 0-indexed
-  const day = parseInt(dayStr, 10);
-  const hours = parseInt(hoursStr, 10);
-  const minutes = parseInt(minutesStr, 10);
-  const seconds = parseInt(secondsStr, 10);
+  const year = Number.parseInt(yearStr, 10);
+  const month = Number.parseInt(monthStr, 10) - 1; // Date months are 0-indexed
+  const day = Number.parseInt(dayStr, 10);
+  const hours = Number.parseInt(hoursStr, 10);
+  const minutes = Number.parseInt(minutesStr, 10);
+  const seconds = Number.parseInt(secondsStr, 10);
 
   // Validate component ranges
   if (month < 0 || month > 11) return null;

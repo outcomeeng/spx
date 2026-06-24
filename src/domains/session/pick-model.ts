@@ -81,7 +81,7 @@ export function pickupReference(session: Session, sessionsDir: string | undefine
  * frontmatter permits) still renders on one row rather than wrapping the list.
  */
 export function toSingleLine(text: string): string {
-  return text.replace(/\s+/g, " ").trim();
+  return text.replaceAll(/\s+/g, " ").trim();
 }
 
 /**
@@ -163,7 +163,7 @@ export interface PickerState {
 }
 
 /**
- * Builds the ordered candidate set from a session pool: only `todo` sessions,
+ * Builds the ordered candidate set from a session pool: only claimable sessions,
  * ordered by priority then recency as `sortSessions` orders them.
  */
 export function buildCandidates(sessions: readonly Session[]): Session[] {

@@ -54,8 +54,8 @@ export function formatSessionOutputMarker(marker: SessionOutputMarker, value: st
   return `<${marker}>${value}</${marker}>`;
 }
 
-/** The status a session is claimable from — the source `pickup` and `pick` move it out of. */
-export const CLAIMABLE_STATUS: SessionStatus = SESSION_STATUSES[0]; // todo
+/** The status a session is claimable from; `pickup` and `pick` move sessions out of it. */
+export const CLAIMABLE_STATUS: SessionStatus = SESSION_STATUSES[0];
 
 /**
  * Priority sort order (lower number = higher priority).

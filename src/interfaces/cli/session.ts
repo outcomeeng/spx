@@ -37,6 +37,7 @@ import {
 import { buildPickupCommand, pickupReference } from "@/domains/session/pick-model";
 import { SESSION_FILE_ENCODING, SESSION_STATUSES } from "@/domains/session/types";
 import type { Domain } from "@/domains/types";
+import { toMessage } from "@/lib/error-message";
 import { foregroundProcessRunner, lifecycleSignalSuspender } from "@/lib/process-lifecycle";
 import { launchAgent } from "./session/pick/launch-agent";
 import { PICK_NON_TTY_MESSAGE, runPicker } from "./session/pick/run-picker";
@@ -73,7 +74,7 @@ async function readStdin(): Promise<string | undefined> {
  * Handles command errors with consistent formatting.
  */
 function handleError(error: unknown): never {
-  console.error("Error:", error instanceof Error ? `${error.name}: ${error.message}` : String(error));
+  console.error("Error:", error instanceof Error ? `${error.name}: ${error.message}` : toMessage(error));
   process.exit(1);
 }
 
@@ -89,7 +90,7 @@ function colorFlagFromOption(colorOption: boolean | undefined): ColorFlag {
 }
 
 /**
- * Resolves the list/todo color decision from process state and the `--color`/
+ * Resolves the list-like color decision from process state and the `--color`/
  * `--no-color` flag. This is the descriptor's process I/O: it reads
  * `process.stdout.isTTY` and `NO_COLOR`, then delegates the decision to the pure
  * resolver so the formatter receives a plain boolean.
@@ -104,7 +105,7 @@ function resolveListColorDecision(colorOption: boolean | undefined): boolean {
 }
 
 /**
- * Reads the terminal width for list/todo truncation, clamped to the formatter's
+ * Reads the terminal width for list-like truncation, clamped to the formatter's
  * minimum and falling back to the default when stdout reports no columns.
  */
 function resolveListWidth(): number {
@@ -154,7 +155,7 @@ function registerSessionCommands(sessionCmd: Command): void {
       },
     );
 
-  // pick command — interactive launcher: browse the todo queue, then hand the
+  // pick command — interactive launcher: browse the claimable queue, then hand the
   // selected session to claude or codex via `/pickup`. The picker never claims.
   addSessionOptions(
     sessionCmd
@@ -190,7 +191,7 @@ function registerSessionCommands(sessionCmd: Command): void {
       }
     });
 
-  // todo command (convenience alias for list --status todo)
+  // convenience alias for the claimable-status list view
   addSessionOptions(
     sessionCmd
       .command(sessionCommandToken(sessionCliDefinition.subcommands.todo))

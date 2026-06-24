@@ -27,7 +27,7 @@ export interface ClaimPathConfig {
  * Result of building claim paths.
  */
 export interface ClaimPaths {
-  /** Source path (session in todo) */
+  /** Source path for the claim operation. */
   source: string;
   /** Target path (session in doing) */
   target: string;
@@ -42,11 +42,8 @@ export interface ClaimPaths {
  *
  * @example
  * ```typescript
- * const paths = buildClaimPaths("2026-01-13_08-01-05", {
- *   todoDir: ".spx/sessions/todo",
- *   doingDir: ".spx/sessions/doing",
- * });
- * // => { source: ".spx/sessions/todo/2026-01-13_08-01-05.md", target: ".spx/sessions/doing/2026-01-13_08-01-05.md" }
+ * const paths = buildClaimPaths("2026-01-13_08-01-05", sessionConfig);
+ * // => { source: "<claimable-dir>/2026-01-13_08-01-05.md", target: "<doing-dir>/2026-01-13_08-01-05.md" }
  * ```
  */
 export function buildClaimPaths(sessionId: string, config: ClaimPathConfig): ClaimPaths {

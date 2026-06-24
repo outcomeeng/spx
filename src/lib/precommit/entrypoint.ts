@@ -28,7 +28,7 @@ export function isDirectPrecommitEntrypoint(
   entrypoint: PrecommitEntrypoint,
 ): boolean {
   if (argvPath === undefined) return false;
-  const normalizedArgvPath = argvPath.replace(/\\/g, "/");
+  const normalizedArgvPath = argvPath.replaceAll("\\", "/");
   return importMetaUrl.endsWith(entrypoint.sourceSuffix)
     && (
       normalizedArgvPath.endsWith(`/${entrypoint.argvFragment}.ts`)

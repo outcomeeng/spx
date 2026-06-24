@@ -109,6 +109,29 @@ const prefillHandoffStdin = buildHandoffStdin(prefillHandoffHeader, "# Test sess
 const handoffGitRef = "topic/session-frontmatter";
 const handoffGitDeps = createSessionGitDeps({ branch: handoffGitRef });
 
+function makeSession(id: string, priority: SessionPriority = DEFAULT_PRIORITY): Session {
+  return {
+    id,
+    status: TODO,
+    path: `/s/${TODO}/${id}.md`,
+    metadata: {
+      priority,
+      git_ref: "",
+      goal: "",
+      next_step: "",
+      specs: [],
+      files: [],
+    },
+  };
+}
+
+function handoffStdinWithGitRef(gitRef: string): string {
+  return buildHandoffStdin(
+    { priority: DEFAULT_PRIORITY, goal: testGoal, next_step: testNextStep, specs: [], files: [], git_ref: gitRef },
+    "# Test handoff",
+  );
+}
+
 describe("listCommand", () => {
   let harness: SessionHarness;
 
@@ -819,22 +842,6 @@ describe("handoffCommand with real filesystem", () => {
 // ============================================================
 
 describe("sortSessions with unparsable IDs", () => {
-  function makeSession(id: string, priority: SessionPriority = DEFAULT_PRIORITY): Session {
-    return {
-      id,
-      status: TODO,
-      path: `/s/${TODO}/${id}.md`,
-      metadata: {
-        priority,
-        git_ref: "",
-        goal: "",
-        next_step: "",
-        specs: [],
-        files: [],
-      },
-    };
-  }
-
   it("GIVEN all valid IDs at same priority WHEN sorted THEN newest first", () => {
     const oldestSessionId = "2026-01-10_10-00-00";
     const newestSessionId = "2026-01-13_10-00-00";
@@ -1053,13 +1060,6 @@ describe("handoffCommand — explicit work-branch ref", () => {
   afterEach(async () => {
     await harness.cleanup();
   });
-
-  function handoffStdinWithGitRef(gitRef: string): string {
-    return buildHandoffStdin(
-      { priority: DEFAULT_PRIORITY, goal: testGoal, next_step: testNextStep, specs: [], files: [], git_ref: gitRef },
-      "# Test handoff",
-    );
-  }
 
   async function todoFileCount(): Promise<number> {
     return (await readdir(harness.statusDir(TODO))).length;
@@ -1375,7 +1375,7 @@ describe("listCommand JSON records and field projection", () => {
     await harness.writeSession(TODO, id);
     await harness.writeSession(DOING, id);
 
-    // No status filter: the default lists both doing and todo, keyed by status directory.
+    // No status filter: the default lists both active statuses, keyed by status directory.
     const output = await listCommand({
       format: SESSION_LIST_FORMAT.JSON,
       sessionsDir: harness.sessionsDir,

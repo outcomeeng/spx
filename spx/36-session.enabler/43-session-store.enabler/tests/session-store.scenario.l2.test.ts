@@ -1,13 +1,13 @@
 /**
- * Integration tests for session list and todo CLI subcommands.
+ * Integration tests for session list and claimable-list CLI subcommands.
  *
  * Test Level: 2 (Integration)
  * - Exercises Commander.js routing via real CLI execution
  * - Verifies subcommand wiring, option parsing, and output
  *
  * Assertions covered from core-operations.md:
- * - S4: spx session todo shows only todo sessions
- * - S2: spx session list default shows doing + todo
+ * - S4: the claimable-list command shows only claimable sessions
+ * - S2: the default list shows doing + claimable sessions
  * - Input validation: --status with invalid value shows error
  */
 import { SESSION_LIST_EMPTY_TEXT } from "@/commands/session/list";

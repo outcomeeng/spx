@@ -207,7 +207,10 @@ function argsEqual(args: readonly string[], expected: readonly string[]): boolea
  */
 export function createSessionGitDeps(overrides: SessionGitDepsOverrides = {}): GitDependencies {
   const worktreeKind = overrides.worktreeKind ?? WORKTREE_KIND.MAIN_CHECKOUT;
-  const branch = overrides.branch === undefined ? DEFAULT_GIT_DEPS_BRANCH : overrides.branch;
+  let branch: string | null = DEFAULT_GIT_DEPS_BRANCH;
+  if (overrides.branch !== undefined) {
+    branch = overrides.branch;
+  }
   const clean = overrides.clean ?? true;
   const defaultBranch = overrides.defaultBranch ?? DEFAULT_GIT_DEPS_DEFAULT_BRANCH;
   const detachedAtDefaultTip = overrides.detachedAtDefaultTip ?? false;
@@ -412,7 +415,7 @@ export interface NonGitSessionEnv {
 
 /**
  * Creates a non-git session environment: a temp directory holding the
- * `.spx/sessions/{todo,doing,archive}` fallback layout, with no git repository.
+ * `.spx/sessions/{claimable,doing,archive}` fallback layout, with no git repository.
  */
 export async function createNonGitSessionEnv(): Promise<NonGitSessionEnv> {
   const cwd = await createTempDir("spx-session-nongit-");
