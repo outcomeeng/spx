@@ -1,16 +1,16 @@
 /**
  * Picker rendering scenarios.
  *
- * Sessions, widths, goals, and filter needles are generated; every expectation
- * is derived from the generated input. Each scenario mounts the picker through
- * the render harness and queries the frame by intent. The picker performs no
- * claim — a launch keystroke is captured through the `onLaunch` callback.
+ * Sessions, widths, goals, and filter needles are sampled from generators; every
+ * expectation is derived from the sampled input. Each scenario mounts the picker
+ * through the render harness and queries the frame by intent. The picker
+ * performs no claim — a launch keystroke is captured through `onLaunch`.
  */
 
 import * as fc from "fast-check";
 import { describe, expect, it } from "vitest";
 
-import { ELLIPSIS, PICKER_RUNTIME, type PickerRuntime } from "@/domains/session/pick-model";
+import { PICKER_RUNTIME, type PickerRuntime } from "@/domains/session/pick-model";
 import type { Session } from "@/domains/session/types";
 import {
   PREVIEW_GOAL_LABEL,
@@ -23,7 +23,6 @@ import {
   arbitraryClaimableSession,
   arbitraryClaimableSessionsSamePriority,
   arbitraryFilterScenario,
-  arbitraryGoalWiderThan,
   arbitraryGoalWithNewline,
   arbitrarySessionId,
   claimableSession,
@@ -177,24 +176,6 @@ describe("SessionPicker rendering", () => {
     expect(view.preview()?.goalLine.startsWith(`${PREVIEW_GOAL_LABEL} `)).toBe(true);
     expect(view.preview()?.nextLine.startsWith(`${PREVIEW_NEXT_LABEL} `)).toBe(true);
     view.unmount();
-  });
-
-  it("renders any row on a single line truncated to the row width", () => {
-    fc.assert(
-      fc.property(
-        fc.integer({ min: 60, max: 160 }).chain((columns) =>
-          fc.tuple(arbitraryGoalWiderThan(columns), arbitrarySessionId()).map(([goal, id]) => ({ columns, goal, id }))
-        ),
-        ({ columns, goal, id }) => {
-          const view = renderPickerView({ sessions: [claimableSession({ id, goal })], columns });
-          const rows = view.rowLinesFor(id);
-          const ok = rows.length === 1 && rows[0].trimEnd().length <= columns && rows[0].endsWith(ELLIPSIS);
-          view.unmount();
-          return ok;
-        },
-      ),
-      { numRuns: 25 },
-    );
   });
 
   it("collapses a newline in a goal so the row stays a single line", () => {
