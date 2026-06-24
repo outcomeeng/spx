@@ -5,6 +5,7 @@ import {
   FORMAT_CHECK_INVOCATION,
   FORMAT_INVOCATION,
   PACKAGED_CLI_INVOCATION,
+  PREPARE_HOOK_INVOCATION,
   PREPUBLISH_HOOK_INVOCATION,
   SOURCE_CLI_INVOCATION,
   VITEST_RUN_INVOCATION,
@@ -41,6 +42,7 @@ describe("package scripts — CLI boundary compliance", () => {
       `pnpm run validate && pnpm run circular && ${BUILD_INVOCATION} && ${VITEST_RUN_INVOCATION} && pnpm run validate:published && pnpm run circular:published`,
     );
     expect(scripts.prepublishOnly).toBe(PREPUBLISH_HOOK_INVOCATION);
+    expect(scripts.prepare).toBe(PREPARE_HOOK_INVOCATION);
   });
 
   it("the default test script builds before running CLI subprocess tests", () => {

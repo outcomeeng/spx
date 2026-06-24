@@ -16,3 +16,5 @@ export const FORMAT_CHECK_INVOCATION = "dprint check .";
 export const BUILD_INVOCATION = "pnpm run build";
 export const VITEST_RUN_INVOCATION = "vitest run";
 export const PREPUBLISH_HOOK_INVOCATION = "pnpm run publish:check";
+export const PREPARE_HOOK_ENTRYPOINT = "src/lib/precommit/install-hooks.ts";
+export const PREPARE_HOOK_INVOCATION = `tsx ${PREPARE_HOOK_ENTRYPOINT}`;
