@@ -71,24 +71,26 @@ Additional skills ship with the plugin and are invoked by name: `/commit-changes
 
 <skill_sources>
 
-Outcome Engineering plugin skills are installed in the directory resolved by:
+Outcome Engineering plugin skills live in the plugin repository resolved by:
 
 ```bash
-claude plugin marketplace list | sed -nEe 's#.*Directory.*\((.*outcomeeng.*)\).*#\1/src/plugins#p'
+claude plugin marketplace list | sed -nEe 's#.*Directory.*\((.*outcomeeng.*)\).*#\1#p'
 ```
 
-That directory is a shared installed plugin repository used directly by other agents. Do not edit it from a product workflow.
+That repository is shared installed plugin infrastructure used directly by other agents. Do not edit it from this product workflow.
 
-When a product workflow observes an imperfection whose durable fix belongs in the plugin repository, keep a note in the active conversation state for the next handoff and continue the product workflow. Do not surface it repeatedly during normal progress updates.
+If a file under that resolved repository, or a generated/cache copy of those plugin files, appears wrong, stale, incomplete, unsafe, confusing, or responsible for incorrect workflow behavior, do not edit it from this product workflow.
 
-Mention the observation only during SPX session handoff. The handoff note should include:
+Instead, create follow-up work in the plugin repository:
 
-- the installed plugin path from the command above
-- the observed source path and affected product artifact
-- the concrete defect
-- the intended follow-up: inject an SPX session for the plugin repository from an unoccupied worktree
+1. Resolve the plugin repository with the command above.
+2. Go to that repository's default checkout.
+3. Get it current with `origin/main`:
+   `git checkout --detach origin/main`
+4. Run `spx session handoff` from that checkout.
+5. In the handoff, describe what happened, what was unclear, what you checked, and what facts would help the future plugin workflow.
 
-Do not create files, edit plugin source, or open a PR in the plugin repository from the product workflow merely to record the observation.
+Do not prescribe exact code, documentation, or template changes unless you are doing the plugin-repository workflow yourself.
 
 </skill_sources>
 
