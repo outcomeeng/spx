@@ -113,12 +113,13 @@ export async function withClassificationTree(
 
 function expectedNodeStatusFile(facts: ClassificationFixtureFacts, evidencePath: string | undefined): NodeStatusFile {
   if (evidencePath === undefined) return createNodeStatusFile({});
-  const outcome = facts.isExcluded
-    ? NODE_STATUS_EVIDENCE_OUTCOME.NOT_RUN
-    : facts.testsPass
-    ? NODE_STATUS_EVIDENCE_OUTCOME.PASSED
-    : NODE_STATUS_EVIDENCE_OUTCOME.FAILED;
+  const outcome = expectedOutcomeFor(facts);
   return createNodeStatusFile({
     [NODE_STATUS_VERIFICATION_MECHANISM.TEST]: createNodeStatusMechanismRecord({ [evidencePath]: outcome }),
   });
+}
+
+function expectedOutcomeFor(facts: ClassificationFixtureFacts): NodeStatusEvidenceOutcome {
+  if (facts.isExcluded) return NODE_STATUS_EVIDENCE_OUTCOME.NOT_RUN;
+  return facts.testsPass ? NODE_STATUS_EVIDENCE_OUTCOME.PASSED : NODE_STATUS_EVIDENCE_OUTCOME.FAILED;
 }

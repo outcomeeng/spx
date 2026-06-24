@@ -34,8 +34,9 @@ describe("spx spec status --update", () => {
     await withClassificationTree(fixture, async ({ env, expectations }) => {
       // No --update has run, so no status file exists for any node.
       for (const expectation of expectations) {
-        expect(readNodeStatus(`${env.productDir}/${expectation.statusPath.replace(`/${NODE_STATUS_FILENAME}`, "")}`))
-          .toBeUndefined();
+        const statusFilenameSuffix = `/${NODE_STATUS_FILENAME}`;
+        const nodeDir = `${env.productDir}/${expectation.statusPath.replace(statusFilenameSuffix, "")}`;
+        expect(readNodeStatus(nodeDir)).toBeUndefined();
       }
 
       const liveSnapshot = await readSpecTree({

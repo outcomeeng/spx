@@ -99,7 +99,7 @@ export function rollupNodeStatusMechanism(
 ): NodeStatusMechanismOverall {
   const values = Object.values(outcomes);
   if (values.length === 0) return NODE_STATUS_MECHANISM_OVERALL.NOT_RUN;
-  if (values.some((outcome) => outcome === NODE_STATUS_EVIDENCE_OUTCOME.FAILED)) {
+  if (values.includes(NODE_STATUS_EVIDENCE_OUTCOME.FAILED)) {
     return NODE_STATUS_MECHANISM_OVERALL.FAILED;
   }
   if (values.every((outcome) => outcome === NODE_STATUS_EVIDENCE_OUTCOME.PASSED)) {

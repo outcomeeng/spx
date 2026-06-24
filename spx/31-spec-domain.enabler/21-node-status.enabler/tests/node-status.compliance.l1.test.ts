@@ -105,11 +105,7 @@ describe("node-status delegation to the outcome resolver", () => {
         expect(
           Object.keys(testRecord ?? {}).filter((key) => key !== NODE_STATUS_FIELD.OVERALL).sort(compareAsciiStrings),
         ).toEqual([...expectation.evidencePaths].sort(compareAsciiStrings));
-        const expectedOutcome = expectation.facts.isExcluded
-          ? NODE_STATUS_EVIDENCE_OUTCOME.NOT_RUN
-          : expectation.facts.testsPass
-          ? NODE_STATUS_EVIDENCE_OUTCOME.PASSED
-          : NODE_STATUS_EVIDENCE_OUTCOME.FAILED;
+        const expectedOutcome = expectedOutcomeFor(expectation.facts);
         for (const evidencePath of expectation.evidencePaths) {
           expect(testRecord?.[evidencePath]).toBe(expectedOutcome);
         }
@@ -117,3 +113,8 @@ describe("node-status delegation to the outcome resolver", () => {
     });
   });
 });
+
+function expectedOutcomeFor(facts: { readonly isExcluded: boolean; readonly testsPass: boolean }) {
+  if (facts.isExcluded) return NODE_STATUS_EVIDENCE_OUTCOME.NOT_RUN;
+  return facts.testsPass ? NODE_STATUS_EVIDENCE_OUTCOME.PASSED : NODE_STATUS_EVIDENCE_OUTCOME.FAILED;
+}
