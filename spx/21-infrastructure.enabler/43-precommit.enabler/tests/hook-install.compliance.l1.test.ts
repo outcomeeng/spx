@@ -1,4 +1,4 @@
-import { chmod as chmodFs, mkdir, readFile, stat, writeFile } from "node:fs/promises";
+import { chmod as chmodFs, mkdir, readFile, stat, unlink, writeFile } from "node:fs/promises";
 import { join } from "node:path";
 import { describe, expect, it } from "vitest";
 
@@ -25,6 +25,7 @@ import { withTempDir } from "@testing/harnesses/with-temp-dir";
 const executableModeMask = 0o111;
 const yamlCommandStub = "commands: {}";
 const unknownLefthookSection = "not-a-git-hook";
+const handwrittenHookContent = "#!/bin/sh\ncustom-hook \"$@\"\n";
 
 function sampleHookNames(): readonly [GitHookName, GitHookName] {
   const [firstHook, secondHook] = GIT_HOOK_NAMES;
@@ -81,6 +82,7 @@ describe("portable lefthook hook installation", () => {
         writeFile,
         mkdir,
         chmod: chmodFs,
+        unlink,
       };
 
       await installPortableLefthookHooks(productDir, deps);
@@ -98,6 +100,44 @@ describe("portable lefthook hook installation", () => {
         expect(hookContent).toBe(renderPortableLefthookHook(hookName));
         expect(hookStats.mode & executableModeMask).toBe(EXECUTABLE_HOOK_MODE & executableModeMask);
       }
+    });
+  });
+
+  it("removes obsolete portable shims without deleting handwritten hooks", async () => {
+    await withTempDir("spx-hook-install-", async (productDir) => {
+      const [configuredHook, obsoletePortableHook, handwrittenHook] = GIT_HOOK_NAMES;
+      if (
+        configuredHook === undefined
+        || obsoletePortableHook === undefined
+        || handwrittenHook === undefined
+      ) {
+        throw new Error("Git hook registry must contain at least three names");
+      }
+
+      const hooksDir = join(productDir, GIT_DIRECTORY_NAME, GIT_HOOKS_DIRECTORY_NAME);
+      await mkdir(hooksDir, { recursive: true });
+      await writeFile(join(productDir, LEFTHOOK_CONFIG_FILE), renderHookConfig([configuredHook]));
+      await writeFile(join(hooksDir, obsoletePortableHook), renderPortableLefthookHook(obsoletePortableHook));
+      await writeFile(join(hooksDir, handwrittenHook), handwrittenHookContent);
+
+      const deps: PortableHookInstallDeps = {
+        run: async (command) => command === GIT_COMMAND ? hooksDir : "",
+        readFile,
+        writeFile,
+        mkdir,
+        chmod: chmodFs,
+        unlink,
+      };
+
+      await installPortableLefthookHooks(productDir, deps);
+
+      await expect(readFile(join(hooksDir, obsoletePortableHook), HOOK_FILE_ENCODING)).rejects.toMatchObject({
+        code: "ENOENT",
+      });
+      await expect(readFile(join(hooksDir, handwrittenHook), HOOK_FILE_ENCODING)).resolves.toBe(handwrittenHookContent);
+      await expect(readFile(join(hooksDir, configuredHook), HOOK_FILE_ENCODING)).resolves.toBe(
+        renderPortableLefthookHook(configuredHook),
+      );
     });
   });
 });

@@ -1,6 +1,6 @@
 import { execa } from "execa";
 import { constants as fsConstants } from "node:fs";
-import { chmod, mkdir, readFile, writeFile } from "node:fs/promises";
+import { chmod, mkdir, readFile, unlink, writeFile } from "node:fs/promises";
 import { join } from "node:path";
 import { parse } from "yaml";
 
@@ -59,6 +59,7 @@ export interface PortableHookInstallDeps {
   readonly writeFile: (path: string, content: string, encoding: BufferEncoding) => Promise<void>;
   readonly mkdir: (path: string, options: { readonly recursive: boolean }) => Promise<string | undefined>;
   readonly chmod: (path: string, mode: number) => Promise<void>;
+  readonly unlink: (path: string) => Promise<void>;
 }
 
 export function configuredHookNames(configText: string): GitHookName[] {
@@ -113,6 +114,39 @@ call_lefthook "$@"
 `;
 }
 
+function isNodeError(error: unknown): error is NodeJS.ErrnoException {
+  return error instanceof Error;
+}
+
+async function readOptionalHook(hookPath: string, deps: PortableHookInstallDeps): Promise<string | undefined> {
+  try {
+    return await deps.readFile(hookPath, HOOK_FILE_ENCODING);
+  } catch (error) {
+    if (isNodeError(error) && error.code === "ENOENT") {
+      return undefined;
+    }
+    throw error;
+  }
+}
+
+async function removeObsoletePortableHooks(
+  hooksDir: string,
+  configuredHooks: ReadonlySet<GitHookName>,
+  deps: PortableHookInstallDeps,
+): Promise<void> {
+  for (const hookName of GIT_HOOK_NAMES) {
+    if (configuredHooks.has(hookName)) {
+      continue;
+    }
+
+    const hookPath = join(hooksDir, hookName);
+    const hookContent = await readOptionalHook(hookPath, deps);
+    if (hookContent === renderPortableLefthookHook(hookName)) {
+      await deps.unlink(hookPath);
+    }
+  }
+}
+
 export async function installPortableLefthookHooks(
   productDir: string,
   deps: PortableHookInstallDeps = createProductionDeps(),
@@ -123,8 +157,10 @@ export async function installPortableLefthookHooks(
   const hookNames = configuredHookNames(configText);
   const hooksPath = await deps.run(GIT_COMMAND, GIT_HOOKS_PATH_ARGS, { cwd: productDir });
   const hooksDir = hooksPath.trim();
+  const configuredHooks = new Set(hookNames);
 
   await deps.mkdir(hooksDir, { recursive: true });
+  await removeObsoletePortableHooks(hooksDir, configuredHooks, deps);
   for (const hookName of hookNames) {
     const hookPath = join(hooksDir, hookName);
     await deps.writeFile(hookPath, renderPortableLefthookHook(hookName), HOOK_FILE_ENCODING);
@@ -142,6 +178,7 @@ export function createProductionDeps(): PortableHookInstallDeps {
     writeFile,
     mkdir,
     chmod,
+    unlink,
   };
 }
 
