@@ -1,4 +1,5 @@
 import { SESSION_FRONT_MATTER_CLOSE, SESSION_FRONT_MATTER_OPEN } from "@/domains/session/create";
+import { SESSION_OUTPUT_MARKER } from "@/domains/session/types";
 import { parse as parseYaml } from "yaml";
 
 export function parseFrontMatter(content: string): Record<string, unknown> {
@@ -12,7 +13,9 @@ export function parseFrontMatter(content: string): Record<string, unknown> {
 }
 
 export function extractSessionFile(output: string): string {
-  const match = /<SESSION_FILE>(.*?)<\/SESSION_FILE>/.exec(output);
+  const match = new RegExp(`<${SESSION_OUTPUT_MARKER.SESSION_FILE}>(.*?)</${SESSION_OUTPUT_MARKER.SESSION_FILE}>`).exec(
+    output,
+  );
   if (!match?.[1]) throw new Error(`No SESSION_FILE tag in handoff output`);
   return match[1];
 }

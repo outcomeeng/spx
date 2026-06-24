@@ -5,8 +5,10 @@ import { AGENT_SESSION_TOKEN_PATTERN, resolveAgentSessionId } from "@/domains/se
 import { buildSessionFrontMatterContent, SESSION_FRONT_MATTER_DELIMITER } from "@/domains/session/create";
 import { DEFAULT_SESSION_METADATA, parseSessionMetadata } from "@/domains/session/list";
 import { generateSessionId, parseSessionId, SESSION_ID_PATTERN } from "@/domains/session/timestamp";
+import { SESSION_FRONT_MATTER, SESSION_PRIORITY } from "@/domains/session/types";
 import { arbitraryValidSessionInstant } from "@testing/generators/session/session";
 import { STATE_STORE_TEST_GENERATOR } from "@testing/generators/state-store/state-store";
+import { buildSessionMarkdownBody } from "@testing/harnesses/session/harness";
 
 function truncateToSecond(instant: Date): number {
   return instant.getTime() - instant.getMilliseconds();
@@ -57,15 +59,18 @@ describe("session identity properties", () => {
   });
 
   it("GIVEN invalid priority values WHEN parsed THEN default priority is used", () => {
+    const validPriorities = new Set<string>(Object.values(SESSION_PRIORITY));
     fc.assert(
       fc.property(
         fc.string().filter((priority) =>
-          !["high", "medium", "low"].includes(priority)
+          !validPriorities.has(priority)
           && !priority.includes("\n")
           && !priority.includes(SESSION_FRONT_MATTER_DELIMITER)
         ),
         (priority) => {
-          const content = buildSessionFrontMatterContent([`priority: ${JSON.stringify(priority)}`], "# Session");
+          const content = buildSessionFrontMatterContent([
+            `${SESSION_FRONT_MATTER.PRIORITY}: ${JSON.stringify(priority)}`,
+          ], buildSessionMarkdownBody("invalid priority"));
 
           expect(parseSessionMetadata(content).priority).toBe(DEFAULT_SESSION_METADATA.priority);
         },

@@ -43,18 +43,18 @@ const browseCases: readonly KeyCase[] = [
     expected: { type: PICKER_ACTION.LAUNCH, runtime: PICKER_RUNTIME.CODEX, autoContinue: true },
   },
   { label: "q", key: { input: "q" }, expected: { type: PICKER_ACTION.QUIT } },
-  { label: "escape", key: { ...noFlags, escape: true }, expected: { type: PICKER_ACTION.QUIT } },
-  { label: "return", key: { ...noFlags, return: true }, expected: null },
+  { label: "esc key", key: { ...noFlags, escape: true }, expected: { type: PICKER_ACTION.QUIT } },
+  { label: "enter key", key: { ...noFlags, return: true }, expected: null },
   { label: "unbound letter", key: { input: "z" }, expected: null },
 ];
 
 const filterCases: readonly KeyCase[] = [
   { label: "down arrow", key: { ...noFlags, downArrow: true }, expected: { type: PICKER_ACTION.MOVE, delta: 1 } },
   { label: "up arrow", key: { ...noFlags, upArrow: true }, expected: { type: PICKER_ACTION.MOVE, delta: -1 } },
-  { label: "return", key: { ...noFlags, return: true }, expected: { type: PICKER_ACTION.APPLY_FILTER } },
-  { label: "escape", key: { ...noFlags, escape: true }, expected: { type: PICKER_ACTION.CLEAR_FILTER } },
+  { label: "enter key", key: { ...noFlags, return: true }, expected: { type: PICKER_ACTION.APPLY_FILTER } },
+  { label: "esc key", key: { ...noFlags, escape: true }, expected: { type: PICKER_ACTION.CLEAR_FILTER } },
   { label: "backspace", key: { ...noFlags, backspace: true }, expected: { type: PICKER_ACTION.FILTER_DELETE } },
-  { label: "delete", key: { ...noFlags, delete: true }, expected: { type: PICKER_ACTION.FILTER_DELETE } },
+  { label: "forward-delete key", key: { ...noFlags, delete: true }, expected: { type: PICKER_ACTION.FILTER_DELETE } },
   { label: "launch char c", key: { input: "c" }, expected: { type: PICKER_ACTION.FILTER_APPEND, char: "c" } },
   { label: "filter char /", key: { input: "/" }, expected: { type: PICKER_ACTION.FILTER_APPEND, char: "/" } },
   { label: "quit char q", key: { input: "q" }, expected: { type: PICKER_ACTION.FILTER_APPEND, char: "q" } },

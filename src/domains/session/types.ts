@@ -33,6 +33,27 @@ export type SessionStatus = (typeof SESSION_STATUSES)[number];
  */
 export const DEFAULT_LIST_STATUSES: readonly SessionStatus[] = ["doing", "todo"] as const;
 
+/** Text encoding for session markdown files and piped session content. */
+export const SESSION_FILE_ENCODING = "utf-8";
+
+/** Filesystem error codes interpreted by the session domain. */
+export const SESSION_FILE_ERROR_CODE = {
+  NOT_FOUND: "ENOENT",
+} as const;
+
+/** Structured stdout tags emitted by session commands for automation. */
+export const SESSION_OUTPUT_MARKER = {
+  HANDOFF_ID: "HANDOFF_ID",
+  PICKUP_ID: "PICKUP_ID",
+  SESSION_FILE: "SESSION_FILE",
+} as const;
+
+export type SessionOutputMarker = (typeof SESSION_OUTPUT_MARKER)[keyof typeof SESSION_OUTPUT_MARKER];
+
+export function formatSessionOutputMarker(marker: SessionOutputMarker, value: string): string {
+  return `<${marker}>${value}</${marker}>`;
+}
+
 /** The status a session is claimable from — the source `pickup` and `pick` move it out of. */
 export const CLAIMABLE_STATUS: SessionStatus = SESSION_STATUSES[0]; // todo
 

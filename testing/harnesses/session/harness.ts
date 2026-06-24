@@ -42,6 +42,12 @@ export const SESSION_CLI_ENTRY = join(process.cwd(), "bin/spx.js");
 /** ANSI control introducer; its presence in CLI output marks styled text. */
 export const SESSION_CLI_ANSI_ESCAPE = String.fromCodePoint(0x1b);
 
+/** Internal fields the JSON list output must not leak. */
+export const SESSION_FORBIDDEN_JSON_RECORD_FIELD = {
+  PATH: "path",
+  METADATA: "metadata",
+} as const;
+
 /** Captured streams and exit code of a built-executable CLI run. */
 export interface SessionCliResult {
   readonly stdout: string;
@@ -173,7 +179,7 @@ export const SESSION_GIT_DEPS_PATHS = {
 export const HEAD_SHA = "1111111111111111111111111111111111111111";
 export const ORIGIN_DEFAULT_SHA = "2222222222222222222222222222222222222222";
 
-const DEFAULT_GIT_DEPS_BRANCH = "main";
+export const DEFAULT_GIT_DEPS_BRANCH = "main";
 const DEFAULT_GIT_DEPS_DEFAULT_BRANCH = "main";
 const DIRTY_PORCELAIN_LINE = " M file.txt";
 const DETACHED_HEAD_REF = "HEAD";

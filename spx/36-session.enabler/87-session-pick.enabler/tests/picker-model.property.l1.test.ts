@@ -19,6 +19,8 @@ import {
   filterCandidates,
   initialPickerState,
   keyToAction,
+  PICKER_AUTO_CONTINUE_FLAG,
+  PICKER_PICKUP_COMMAND_NAME,
   PICKER_RUNTIME,
   type PickerKey,
   type PickerState,
@@ -59,8 +61,21 @@ function sameIds(actual: readonly string[], expected: readonly string[]): boolea
   return actual.length === expected.length && actual.every((id, index) => id === expected[index]);
 }
 
+function codePointFor(character: string): number {
+  const codePoint = character.codePointAt(0);
+  if (codePoint === undefined) throw new Error("expected a character");
+  return codePoint;
+}
+
+function arbitraryPathSafeCharacter(): fc.Arbitrary<string> {
+  return fc.oneof(
+    fc.integer({ min: codePointFor("a"), max: codePointFor("z") }),
+    fc.integer({ min: codePointFor("0"), max: codePointFor("9") }),
+  ).map((codePoint) => String.fromCodePoint(codePoint));
+}
+
 /** A non-empty path segment built from path-safe characters. */
-const pathSegment = fc.array(fc.constantFrom(..."abcdefghijklmnopqrstuvwxyz0123456789"), { minLength: 1, maxLength: 6 })
+const pathSegment = fc.array(arbitraryPathSafeCharacter(), { minLength: 1, maxLength: 6 })
   .map(
     (chars) => chars.join(""),
   );
@@ -165,7 +180,9 @@ describe("picker model invariants", () => {
         (runtime, autoContinue, reference) => {
           const { command, args } = buildPickupCommand(runtime, autoContinue, reference);
           const prefix = runtime === PICKER_RUNTIME.CLAUDE ? "/" : "$";
-          const expectedPrompt = `${prefix}pickup ${reference}${autoContinue ? " --auto-continue" : ""}`;
+          const expectedPrompt = `${prefix}${PICKER_PICKUP_COMMAND_NAME} ${reference}${
+            autoContinue ? ` ${PICKER_AUTO_CONTINUE_FLAG}` : ""
+          }`;
           return command === runtime && args.length === 1 && args[0] === expectedPrompt;
         },
       ),

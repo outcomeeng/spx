@@ -14,9 +14,21 @@ import {
   sampleDistinctSessionIds,
   samplePathUnsafeAgentSessionIdentity,
 } from "@testing/generators/session/session";
-import { buildSessionMarkdownBody } from "@testing/harnesses/session/harness";
+import { buildSessionMarkdownBody, DEFAULT_GIT_DEPS_BRANCH } from "@testing/harnesses/session/harness";
 import fc from "fast-check";
 import { describe, expect, it } from "vitest";
+
+const fixtureYear = 2026;
+const invalidTimestamp = "not-a-timestamp";
+
+function utcFixtureInstant(month: number, day: number, hour: number, minute: number, second: number): Date {
+  return new Date(Date.UTC(fixtureYear, month, day, hour, minute, second));
+}
+
+function expectedSessionId(instant: Date): string {
+  const iso = instant.toISOString();
+  return `${iso.slice(0, 10)}${SESSION_ID_SEPARATOR}${iso.slice(11, 19).replaceAll(":", "-")}`;
+}
 
 describe("resolveAgentSessionId", () => {
   it("GIVEN agent session environment values WHEN resolved THEN Claude takes precedence and Codex is the fallback", () => {
@@ -55,7 +67,7 @@ describe("resolveAgentSessionId", () => {
 describe("generateSessionId", () => {
   it("GIVEN injected time WHEN generated THEN matches SESSION_ID_PATTERN", () => {
     const id = generateSessionId({
-      now: () => new Date(Date.UTC(2026, 0, 13, 8, 1, 5)),
+      now: () => utcFixtureInstant(0, 13, 8, 1, 5),
     });
 
     expect(id).toMatch(SESSION_ID_PATTERN);
@@ -63,56 +75,59 @@ describe("generateSessionId", () => {
   });
 
   it("GIVEN single-digit components WHEN generated THEN zero-pads all fields", () => {
+    const instant = utcFixtureInstant(0, 3, 5, 7, 9);
     const id = generateSessionId({
-      now: () => new Date(Date.UTC(2026, 0, 3, 5, 7, 9)),
+      now: () => instant,
     });
 
-    expect(id).toBe(`2026-01-03${SESSION_ID_SEPARATOR}05-07-09`);
+    expect(id).toBe(expectedSessionId(instant));
   });
 
   it("GIVEN end-of-day time WHEN generated THEN handles 23:59:59", () => {
+    const instant = utcFixtureInstant(11, 31, 23, 59, 59);
     const id = generateSessionId({
-      now: () => new Date(Date.UTC(2026, 11, 31, 23, 59, 59)),
+      now: () => instant,
     });
 
-    expect(id).toBe(`2026-12-31${SESSION_ID_SEPARATOR}23-59-59`);
+    expect(id).toBe(expectedSessionId(instant));
   });
 });
 
 describe("parseSessionId", () => {
   it("GIVEN valid session ID WHEN parsed THEN returns Date with correct components", () => {
-    const date = parseSessionId(`2026-01-13${SESSION_ID_SEPARATOR}08-01-05`);
+    const expected = utcFixtureInstant(0, 13, 8, 1, 5);
+    const date = parseSessionId(expectedSessionId(expected));
 
     expect(date).not.toBeNull();
-    expect(date!.getUTCFullYear()).toBe(2026);
-    expect(date!.getUTCMonth()).toBe(0);
-    expect(date!.getUTCDate()).toBe(13);
-    expect(date!.getUTCHours()).toBe(8);
-    expect(date!.getUTCMinutes()).toBe(1);
-    expect(date!.getUTCSeconds()).toBe(5);
+    expect(date!.getUTCFullYear()).toBe(expected.getUTCFullYear());
+    expect(date!.getUTCMonth()).toBe(expected.getUTCMonth());
+    expect(date!.getUTCDate()).toBe(expected.getUTCDate());
+    expect(date!.getUTCHours()).toBe(expected.getUTCHours());
+    expect(date!.getUTCMinutes()).toBe(expected.getUTCMinutes());
+    expect(date!.getUTCSeconds()).toBe(expected.getUTCSeconds());
   });
 
   it("GIVEN invalid format WHEN parsed THEN returns null", () => {
-    expect(parseSessionId("not-a-timestamp")).toBeNull();
+    expect(parseSessionId(invalidTimestamp)).toBeNull();
     expect(parseSessionId("")).toBeNull();
-    expect(parseSessionId("2026/01/13 08:01:05")).toBeNull();
+    expect(parseSessionId(`${fixtureYear}/01/13 08:01:05`)).toBeNull();
   });
 
   it("GIVEN out-of-range month WHEN parsed THEN returns null", () => {
-    expect(parseSessionId(`2026-13-01${SESSION_ID_SEPARATOR}00-00-00`)).toBeNull();
-    expect(parseSessionId(`2026-00-01${SESSION_ID_SEPARATOR}00-00-00`)).toBeNull();
+    expect(parseSessionId(`${fixtureYear}-13-01${SESSION_ID_SEPARATOR}00-00-00`)).toBeNull();
+    expect(parseSessionId(`${fixtureYear}-00-01${SESSION_ID_SEPARATOR}00-00-00`)).toBeNull();
   });
 
   it("GIVEN out-of-range hour WHEN parsed THEN returns null", () => {
-    expect(parseSessionId(`2026-01-01${SESSION_ID_SEPARATOR}24-00-00`)).toBeNull();
+    expect(parseSessionId(`${fixtureYear}-01-01${SESSION_ID_SEPARATOR}24-00-00`)).toBeNull();
   });
 
   it("GIVEN out-of-range minute WHEN parsed THEN returns null", () => {
-    expect(parseSessionId(`2026-01-01${SESSION_ID_SEPARATOR}00-60-00`)).toBeNull();
+    expect(parseSessionId(`${fixtureYear}-01-01${SESSION_ID_SEPARATOR}00-60-00`)).toBeNull();
   });
 
   it("GIVEN out-of-range second WHEN parsed THEN returns null", () => {
-    expect(parseSessionId(`2026-01-01${SESSION_ID_SEPARATOR}00-00-60`)).toBeNull();
+    expect(parseSessionId(`${fixtureYear}-01-01${SESSION_ID_SEPARATOR}00-00-60`)).toBeNull();
   });
 });
 
@@ -169,13 +184,13 @@ describe("parseSessionMetadata", () => {
   it("GIVEN YAML front matter with the declared fields WHEN parsed THEN extracts all fields", () => {
     const expected = {
       priority: SESSION_PRIORITY.HIGH,
-      git_ref: "topic/session",
+      git_ref: "identity/session",
       goal: "Fix session parsing",
       next_step: "Run session identity tests",
-      created_at: "2026-01-13T10:00:00-08:00",
+      created_at: utcFixtureInstant(0, 13, 18, 0, 0).toISOString(),
       agent_session_id: "thread-session-identity",
-      specs: ["path/to/spec.md"],
-      files: ["src/file.ts"],
+      specs: ["identity/spec.md"],
+      files: ["identity/file.ts"],
     };
     const content = buildSessionFrontMatterContent([
       `${SESSION_FRONT_MATTER.PRIORITY}: ${expected.priority}`,
@@ -184,10 +199,8 @@ describe("parseSessionMetadata", () => {
       `${SESSION_FRONT_MATTER.NEXT_STEP}: ${JSON.stringify(expected.next_step)}`,
       `${SESSION_FRONT_MATTER.CREATED_AT}: ${expected.created_at}`,
       `${SESSION_FRONT_MATTER.AGENT_SESSION_ID}: ${expected.agent_session_id}`,
-      `${SESSION_FRONT_MATTER.SPECS}:`,
-      `  - ${expected.specs[0]}`,
-      `${SESSION_FRONT_MATTER.FILES}:`,
-      `  - ${expected.files[0]}`,
+      `${SESSION_FRONT_MATTER.SPECS}: ${JSON.stringify(expected.specs)}`,
+      `${SESSION_FRONT_MATTER.FILES}: ${JSON.stringify(expected.files)}`,
     ], buildSessionMarkdownBody("identity metadata"));
     const result = parseSessionMetadata(content);
 
@@ -202,7 +215,7 @@ describe("parseSessionMetadata", () => {
   });
 
   it("GIVEN front matter carrying keys outside the declared shape WHEN parsed THEN only declared fields are returned and no error is raised", () => {
-    const gitRef = "main";
+    const gitRef = DEFAULT_GIT_DEPS_BRANCH;
     const content = buildSessionFrontMatterContent([
       `${SESSION_FRONT_MATTER.PRIORITY}: ${SESSION_PRIORITY.HIGH}`,
       `${SESSION_FRONT_MATTER.GIT_REF}: ${gitRef}`,
@@ -278,7 +291,7 @@ describe("parseSessionMetadata", () => {
   });
 
   it("GIVEN specs and files with non-string values WHEN parsed THEN filters them out", () => {
-    const expectedSpecs = ["valid.md"];
+    const expectedSpecs = ["identity-valid.md"];
     const expectedFiles = ["src/valid.ts"];
     const content = buildSessionFrontMatterContent([
       `${SESSION_FRONT_MATTER.SPECS}: [${expectedSpecs[0]}, 123, true, null]`,

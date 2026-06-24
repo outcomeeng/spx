@@ -9,16 +9,24 @@ import {
   SESSION_ID_SEPARATOR,
 } from "@/domains/session/timestamp";
 import { SESSION_FRONT_MATTER, SESSION_PRIORITY } from "@/domains/session/types";
+import { buildSessionMarkdownBody } from "@testing/harnesses/session/harness";
+
+const fixtureInstant = new Date("2026-01-13T08:01:05.000Z");
+
+function expectedIdForFixtureInstant(): string {
+  const iso = fixtureInstant.toISOString();
+  return `${iso.slice(0, 10)}${SESSION_ID_SEPARATOR}${iso.slice(11, 19).replaceAll(":", "-")}`;
+}
 
 describe("session identity compliance", () => {
   it("ALWAYS: session IDs use underscore between date and time and hyphen within components", () => {
-    const id = generateSessionId({ now: () => new Date(Date.UTC(2026, 0, 13, 8, 1, 5)) });
+    const id = generateSessionId({ now: () => fixtureInstant });
 
-    expect(id).toBe(`2026-01-13${SESSION_ID_SEPARATOR}08-01-05`);
+    expect(id).toBe(expectedIdForFixtureInstant());
   });
 
   it("ALWAYS: default metadata contains every required canonical field", () => {
-    expect(parseSessionMetadata("# Sparse session")).toEqual(DEFAULT_SESSION_METADATA);
+    expect(parseSessionMetadata(buildSessionMarkdownBody("sparse metadata"))).toEqual(DEFAULT_SESSION_METADATA);
   });
 
   it("ALWAYS: default array fields are fresh for each parse result", () => {
@@ -33,7 +41,7 @@ describe("session identity compliance", () => {
   });
 
   it("NEVER: session IDs contain colon characters", () => {
-    const id = generateSessionId({ now: () => new Date(Date.UTC(2026, 0, 13, 8, 1, 5)) });
+    const id = generateSessionId({ now: () => fixtureInstant });
 
     expect(id).not.toContain(SESSION_ID_FORBIDDEN_FILENAME_CHARACTER);
   });
@@ -51,7 +59,7 @@ describe("session identity compliance", () => {
           const content = buildSessionFrontMatterContent([
             `${SESSION_FRONT_MATTER.PRIORITY}: ${SESSION_PRIORITY.HIGH}`,
             `${outsideKey}: ${JSON.stringify(outsideValue)}`,
-          ], "# Session");
+          ], buildSessionMarkdownBody("unknown key"));
           const metadata = parseSessionMetadata(content) as unknown as Record<string, unknown>;
 
           expect(Object.hasOwn(metadata, outsideKey)).toBe(false);

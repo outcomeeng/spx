@@ -10,20 +10,11 @@ import {
   renderHandoffBaseChecklist,
   SESSION_HANDOFF_BASE_ERROR_NAME,
 } from "@/domains/session/handoff-base-checklist";
-import { arbitraryHandoffBaseChecklist } from "@testing/generators/session/handoff-base";
-
-/**
- * The literal placeholder the diagnostic must never render in place of an absent
- * ref — an unresolved value is the {@link HANDOFF_BASE_UNRESOLVED} sentinel, never
- * a fabricated `origin/<default>`. Owned by this contract, not a domain value.
- */
-const forbiddenOriginPlaceholder = "origin/<default>";
-
-/**
- * The work-hiding remedy the refusal must never suggest — a refused base directs
- * the agent to commit, detach, or hand off from the main checkout, never to stash.
- */
-const forbiddenStashRemedy = "git stash";
+import {
+  arbitraryHandoffBaseChecklist,
+  FORBIDDEN_HANDOFF_BASE_ORIGIN_PLACEHOLDER,
+  FORBIDDEN_HANDOFF_BASE_STASH_REMEDY,
+} from "@testing/generators/session/handoff-base";
 
 /** The header line, then the five resolved-fact lines, before any prerequisite lines. */
 const headerLineCount = 1;
@@ -84,7 +75,7 @@ describe("renderHandoffBaseChecklist", () => {
     // formatting from emitting the literal placeholder, not an arbitrary-input injection boundary.
     fc.assert(
       fc.property(arbitraryHandoffBaseChecklist(), (checklist) => {
-        expect(renderHandoffBaseChecklist(checklist)).not.toContain(forbiddenOriginPlaceholder);
+        expect(renderHandoffBaseChecklist(checklist)).not.toContain(FORBIDDEN_HANDOFF_BASE_ORIGIN_PLACEHOLDER);
       }),
     );
   });
@@ -96,11 +87,11 @@ describe("renderHandoffBaseChecklist", () => {
     // generator draws remedies only from that closed set, the property guards the renderer's
     // static text rather than an arbitrary-remedy round-trip.
     for (const remedy of Object.values(HANDOFF_BASE_REMEDY)) {
-      expect(remedy).not.toContain(forbiddenStashRemedy);
+      expect(remedy).not.toContain(FORBIDDEN_HANDOFF_BASE_STASH_REMEDY);
     }
     fc.assert(
       fc.property(arbitraryHandoffBaseChecklist(), (checklist) => {
-        expect(renderHandoffBaseChecklist(checklist)).not.toContain(forbiddenStashRemedy);
+        expect(renderHandoffBaseChecklist(checklist)).not.toContain(FORBIDDEN_HANDOFF_BASE_STASH_REMEDY);
       }),
     );
   });

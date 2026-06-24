@@ -242,6 +242,10 @@ function firstManifestedNodePath(
   return first;
 }
 
+function isSameOrDescendantPath(path: string, parent: string): boolean {
+  return path === parent || path.startsWith(`${parent}/`);
+}
+
 export const VALIDATION_ESLINT_FILES = {
   genericTest: "test.test.ts",
   genericSpec: "state.spec.ts",
@@ -1138,9 +1142,16 @@ export function validationRuleRegistrationCases(): ValidationGeneratedRuleRegist
 }
 
 export function validationConfigSeverityScenarios(): ValidationGeneratedConfigSeverityScenario[] {
+  const testOwnedConstantDebtNode = firstManifestedNodePath(LINT_POLICY_MANIFESTS.TEST_OWNED_CONSTANT_DEBT_NODES);
+  const lintDebtNode = firstManifestedNodePath(LINT_POLICY_MANIFESTS.TEST_LINT_DEBT_NODES);
+  const registryRuleSeverityForTestOwnedConstantDebtNode =
+    isSameOrDescendantPath(testOwnedConstantDebtNode, lintDebtNode)
+      ? VALIDATION_ESLINT_EXPECTED.warningSeverity
+      : VALIDATION_ESLINT_EXPECTED.errorSeverity;
+
   return [
     {
-      title: "test-owned constant debt manifest downgrades only the test-owned constant rule",
+      title: "test-owned constant debt manifest downgrades the test-owned constant rule",
       filePath: VALIDATION_ESLINT_FILES.manifestCoveredSpecTest,
       expectations: [
         {
@@ -1149,11 +1160,11 @@ export function validationConfigSeverityScenarios(): ValidationGeneratedConfigSe
         },
         {
           ruleId: NO_HARDCODED_SPEC_TREE_NODE_STATES_RULE_ID,
-          severity: VALIDATION_ESLINT_EXPECTED.errorSeverity,
+          severity: registryRuleSeverityForTestOwnedConstantDebtNode,
         },
         {
           ruleId: NO_HARDCODED_SPEC_TREE_NODE_KINDS_RULE_ID,
-          severity: VALIDATION_ESLINT_EXPECTED.errorSeverity,
+          severity: registryRuleSeverityForTestOwnedConstantDebtNode,
         },
       ],
     },

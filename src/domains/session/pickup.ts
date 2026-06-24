@@ -11,7 +11,7 @@
 
 import { SessionNotAvailableError } from "./errors";
 import { parseSessionId } from "./timestamp";
-import { PRIORITY_ORDER, type Session } from "./types";
+import { PRIORITY_ORDER, type Session, SESSION_FILE_ERROR_CODE } from "./types";
 
 /**
  * Configuration for session claim paths.
@@ -61,23 +61,23 @@ export function buildClaimPaths(sessionId: string, config: ClaimPathConfig): Cla
  *
  * When a claim operation fails, this function maps the raw filesystem
  * error to an appropriate domain error:
- * - ENOENT: Session was claimed by another agent (SessionNotAvailable)
+ * - missing source file: Session was claimed by another agent (SessionNotAvailable)
  * - Other errors: Rethrown as-is
  *
  * @param error - The error from the claim operation
  * @param sessionId - The session ID being claimed
- * @returns A SessionNotAvailableError if ENOENT
+ * @returns A SessionNotAvailableError if the source file is missing
  * @throws The original error if not ENOENT
  *
  * @example
  * ```typescript
- * const err = Object.assign(new Error("ENOENT"), { code: "ENOENT" });
+ * const err = Object.assign(new Error("missing source file"), { code: SESSION_FILE_ERROR_CODE.NOT_FOUND });
  * const classified = classifyClaimError(err, "test-id");
  * // => SessionNotAvailableError
  * ```
  */
 export function classifyClaimError(error: unknown, sessionId: string): SessionNotAvailableError {
-  if (error instanceof Error && "code" in error && error.code === "ENOENT") {
+  if (error instanceof Error && "code" in error && error.code === SESSION_FILE_ERROR_CODE.NOT_FOUND) {
     return new SessionNotAvailableError(sessionId);
   }
   throw error;

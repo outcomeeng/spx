@@ -27,23 +27,33 @@ import { buildClaimPaths, classifyClaimError, selectBestSession } from "@/domain
 import { buildReleasePaths, findCurrentSession } from "@/domains/session/release";
 import {
   DEFAULT_PRIORITY,
+  formatSessionOutputMarker,
   type Session,
+  SESSION_FILE_ERROR_CODE,
+  SESSION_OUTPUT_MARKER,
   SESSION_PRIORITY,
   SESSION_STATUSES,
   type SessionPriority,
 } from "@/domains/session/types";
+import {
+  sampleDistinctSessionIds,
+  samplePathUnsafeAgentSessionIdentity,
+  sampleSessionId,
+} from "@testing/generators/session/session";
 import type { SessionHarness } from "@testing/harnesses/session/harness";
 import { createSessionHarness } from "@testing/harnesses/session/harness";
 
 const [TODO, DOING] = SESSION_STATUSES;
+const invalidTimestampSessionId = samplePathUnsafeAgentSessionIdentity();
+const testSessionsRoot = "/test/sessions";
 
 /** Factory for test sessions — no hardcoded status strings. */
 function createTestSession(overrides: { id?: string; priority?: SessionPriority } = {}): Session {
-  const id = overrides.id ?? "2026-01-13_10-00-00";
+  const id = overrides.id ?? sampleSessionId();
   return {
     id,
     status: TODO,
-    path: `/test/sessions/${TODO}/${id}.md`,
+    path: `${testSessionsRoot}/${TODO}/${id}.md`,
     metadata: {
       ...DEFAULT_SESSION_METADATA,
       priority: overrides.priority ?? DEFAULT_PRIORITY,
@@ -56,7 +66,7 @@ function createTestSession(overrides: { id?: string; priority?: SessionPriority 
 describe("buildClaimPaths", () => {
   it("GIVEN session ID and config WHEN built THEN returns todo→doing paths", () => {
     const config = { todoDir: "/sessions/todo", doingDir: "/sessions/doing" };
-    const sessionId = "2026-01-13_08-01-05";
+    const sessionId = sampleSessionId();
     const result = buildClaimPaths(sessionId, config);
 
     expect(result.source).toContain(sessionId);
@@ -66,9 +76,11 @@ describe("buildClaimPaths", () => {
 });
 
 describe("classifyClaimError", () => {
-  it("GIVEN ENOENT error WHEN classified THEN returns SessionNotAvailableError", () => {
-    const error = Object.assign(new Error("ENOENT"), { code: "ENOENT" });
-    const sessionId = "test-id";
+  it("GIVEN missing-file error WHEN classified THEN returns SessionNotAvailableError", () => {
+    const error = Object.assign(new Error(SESSION_FILE_ERROR_CODE.NOT_FOUND), {
+      code: SESSION_FILE_ERROR_CODE.NOT_FOUND,
+    });
+    const sessionId = sampleSessionId();
     const result = classifyClaimError(error, sessionId);
 
     expect(result).toBeInstanceOf(SessionNotAvailableError);
@@ -78,7 +90,7 @@ describe("classifyClaimError", () => {
   it("GIVEN unknown error WHEN classified THEN rethrows", () => {
     const message = "Unknown";
     const error = new Error(message);
-    expect(() => classifyClaimError(error, "test-id")).toThrow(message);
+    expect(() => classifyClaimError(error, sampleSessionId())).toThrow(message);
   });
 });
 
@@ -95,10 +107,13 @@ describe("selectBestSession", () => {
   });
 
   it("GIVEN sessions with same priority WHEN selected THEN returns oldest (FIFO)", () => {
+    const [oldestSessionId, middleSessionId, newestSessionId] = [...sampleDistinctSessionIds(3)].sort((left, right) =>
+      left.localeCompare(right)
+    );
     const sessions = [
-      createTestSession({ id: "2026-01-13_10-00-00", priority: SESSION_PRIORITY.HIGH }),
-      createTestSession({ id: "2026-01-10_10-00-00", priority: SESSION_PRIORITY.HIGH }),
-      createTestSession({ id: "2026-01-12_10-00-00", priority: SESSION_PRIORITY.HIGH }),
+      createTestSession({ id: newestSessionId, priority: SESSION_PRIORITY.HIGH }),
+      createTestSession({ id: oldestSessionId, priority: SESSION_PRIORITY.HIGH }),
+      createTestSession({ id: middleSessionId, priority: SESSION_PRIORITY.HIGH }),
     ];
     const expected = sessions[1];
 
@@ -121,16 +136,16 @@ describe("selectBestSession", () => {
     expect(sessions.map((s) => s.id)).toEqual(originalOrder);
   });
 
-  it("GIVEN mix of valid and unparsable IDs at same priority WHEN selected THEN valid ID returned (FIFO)", () => {
+  it("GIVEN mix of valid and invalid IDs at same priority WHEN selected THEN valid ID returned (FIFO)", () => {
     // Both orderings tested to exercise both sides of the invalid-ID comparator branches.
-    const a = createTestSession({ id: "unparsable", priority: SESSION_PRIORITY.HIGH });
-    const b = createTestSession({ id: "2026-01-13_10-00-00", priority: SESSION_PRIORITY.HIGH });
+    const a = createTestSession({ id: invalidTimestampSessionId, priority: SESSION_PRIORITY.HIGH });
+    const b = createTestSession({ id: sampleSessionId(), priority: SESSION_PRIORITY.HIGH });
 
     expect(selectBestSession([a, b])?.id).toBe(b.id);
     expect(selectBestSession([b, a])?.id).toBe(b.id);
   });
 
-  it("GIVEN all unparsable IDs at same priority WHEN selected THEN deterministic selection", () => {
+  it("GIVEN all invalid IDs at same priority WHEN selected THEN deterministic selection", () => {
     const sessions = [
       createTestSession({ id: "zzz", priority: SESSION_PRIORITY.HIGH }),
       createTestSession({ id: "aaa", priority: SESSION_PRIORITY.HIGH }),
@@ -167,7 +182,7 @@ describe("selectBestSession determinism (P2)", () => {
 describe("buildReleasePaths", () => {
   it("GIVEN session ID and config WHEN built THEN returns doing→todo paths", () => {
     const config = { todoDir: "/sessions/todo", doingDir: "/sessions/doing" };
-    const result = buildReleasePaths("2026-01-13_08-01-05", config);
+    const result = buildReleasePaths(sampleSessionId(), config);
 
     expect(result.source).toContain(config.doingDir);
     expect(result.target).toContain(config.todoDir);
@@ -176,10 +191,13 @@ describe("buildReleasePaths", () => {
 
 describe("findCurrentSession", () => {
   it("GIVEN multiple sessions WHEN found THEN returns most recent", () => {
+    const [oldestSessionId, middleSessionId, newestSessionId] = [...sampleDistinctSessionIds(3)].sort((left, right) =>
+      left.localeCompare(right)
+    );
     const sessions = [
-      { id: "2026-01-10_08-00-00" },
-      { id: "2026-01-13_08-00-00" },
-      { id: "2026-01-11_08-00-00" },
+      { id: oldestSessionId },
+      { id: newestSessionId },
+      { id: middleSessionId },
     ];
     const expected = sessions[1];
 
@@ -191,9 +209,10 @@ describe("findCurrentSession", () => {
   });
 
   it("GIVEN input array WHEN found THEN does not mutate original", () => {
+    const [firstSessionId, secondSessionId] = sampleDistinctSessionIds(2);
     const sessions = [
-      { id: "2026-01-10_08-00-00" },
-      { id: "2026-01-13_08-00-00" },
+      { id: firstSessionId },
+      { id: secondSessionId },
     ];
     const originalOrder = sessions.map((s) => s.id);
 
@@ -202,17 +221,17 @@ describe("findCurrentSession", () => {
     expect(sessions.map((s) => s.id)).toEqual(originalOrder);
   });
 
-  it("GIVEN mix of valid and unparsable IDs WHEN found THEN valid ID returned", () => {
+  it("GIVEN mix of valid and invalid IDs WHEN found THEN valid ID returned", () => {
     const sessions = [
-      { id: "unparsable" },
-      { id: "2026-01-13_08-00-00" },
+      { id: invalidTimestampSessionId },
+      { id: sampleSessionId() },
     ];
     const expected = sessions[1];
 
     expect(findCurrentSession(sessions)?.id).toBe(expected.id);
   });
 
-  it("GIVEN all unparsable IDs WHEN found THEN deterministic selection", () => {
+  it("GIVEN all invalid IDs WHEN found THEN deterministic selection", () => {
     const sessions = [{ id: "zzz" }, { id: "aaa" }];
     const first = findCurrentSession(sessions);
     const second = findCurrentSession(sessions);
@@ -235,7 +254,7 @@ describe("pickupCommand with real filesystem", () => {
   });
 
   it("S1: GIVEN session in todo WHEN pickup THEN file moves to doing", async () => {
-    const sessionId = "2026-01-13_08-00-00";
+    const sessionId = sampleSessionId();
     await harness.writeSession(TODO, sessionId, { priority: SESSION_PRIORITY.HIGH });
 
     const output = await pickupCommand({
@@ -243,15 +262,14 @@ describe("pickupCommand with real filesystem", () => {
       sessionsDir: harness.sessionsDir,
     });
 
-    expect(output).toContain(`<PICKUP_ID>${sessionId}</PICKUP_ID>`);
+    expect(output).toContain(formatSessionOutputMarker(SESSION_OUTPUT_MARKER.PICKUP_ID, sessionId));
     // File should be in doing, not todo
     expect(existsSync(join(harness.statusDir(DOING), `${sessionId}.md`))).toBe(true);
     expect(existsSync(join(harness.statusDir(TODO), `${sessionId}.md`))).toBe(false);
   });
 
   it("S3: GIVEN sessions with different priorities WHEN pickup --auto THEN claims highest priority", async () => {
-    const lowPrioritySessionId = "2026-01-10_10-00-00";
-    const highPrioritySessionId = "2026-01-11_10-00-00";
+    const [lowPrioritySessionId, highPrioritySessionId] = sampleDistinctSessionIds(2);
     await harness.writeSession(TODO, lowPrioritySessionId, { priority: SESSION_PRIORITY.LOW });
     await harness.writeSession(TODO, highPrioritySessionId, { priority: SESSION_PRIORITY.HIGH });
 
@@ -261,11 +279,11 @@ describe("pickupCommand with real filesystem", () => {
       sessionsDir: harness.sessionsDir,
     });
 
-    expect(output).toContain(`<PICKUP_ID>${highPrioritySessionId}</PICKUP_ID>`);
+    expect(output).toContain(formatSessionOutputMarker(SESSION_OUTPUT_MARKER.PICKUP_ID, highPrioritySessionId));
   });
 
   it("S4: GIVEN session already claimed WHEN second pickup THEN throws SessionNotAvailableError", async () => {
-    const sessionId = "2026-01-13_08-00-00";
+    const sessionId = sampleSessionId();
     await harness.writeSession(TODO, sessionId);
 
     // First pickup succeeds
@@ -290,7 +308,7 @@ describe("releaseCommand with real filesystem", () => {
   });
 
   it("S2: GIVEN claimed session in doing WHEN release THEN file moves back to todo", async () => {
-    const sessionId = "2026-01-13_08-00-00";
+    const sessionId = sampleSessionId();
     // Write directly to doing (simulating a claimed session)
     await harness.writeSession(DOING, sessionId);
 

@@ -22,7 +22,7 @@ import { releaseCommand } from "@/commands/session/release";
 import { showCommand } from "@/commands/session/show";
 import { DEFAULT_CONFIG } from "@/config/defaults";
 import { AGENT_SESSION_ENV } from "@/domains/session/agent-session";
-import { buildSessionFrontMatterContent } from "@/domains/session/create";
+import { buildSessionFrontMatterContent, SESSION_FRONT_MATTER_DELIMITER } from "@/domains/session/create";
 import { resolveDeletePath } from "@/domains/session/delete";
 import {
   SessionError,
@@ -64,11 +64,13 @@ import {
   DEFAULT_LIST_STATUSES,
   DEFAULT_PRIORITY,
   type Session,
+  SESSION_FILE_ENCODING,
   SESSION_FRONT_MATTER,
   SESSION_PRIORITY,
   SESSION_STATUSES,
   type SessionPriority,
 } from "@/domains/session/types";
+import { GIT_ROOT_COMMAND } from "@/git/root";
 import { STATE_STORE_PATH } from "@/lib/state-store";
 
 import type { HandoffHeaderFixture } from "@testing/generators/session/session";
@@ -85,7 +87,9 @@ import {
   createSessionHarness,
   HEAD_SHA,
   ORIGIN_DEFAULT_SHA,
+  SESSION_FORBIDDEN_JSON_RECORD_FIELD,
   SessionHarness,
+  WORKTREE_KIND,
 } from "@testing/harnesses/session/harness";
 import { extractSessionFile, parseFrontMatter } from "@testing/harnesses/session/session-store";
 
@@ -340,7 +344,7 @@ describe("listCommand", () => {
       const output = await listCommand({ status: TODO, sessionsDir: harness.sessionsDir });
 
       expect(output).toContain(`[${priority}]`);
-      expect(output).toContain(`${goal} -> ${nextStep}`);
+      expect(output).toContain(`${goal}${LIST_SUMMARY_SEPARATOR}${nextStep}`);
       expect(output).not.toContain(`[${DEFAULT_PRIORITY}]`);
     });
 
@@ -528,7 +532,7 @@ describe("resolveDeletePath", () => {
   });
 
   it("GIVEN no matching paths WHEN resolved THEN throws SessionNotFoundError", () => {
-    expect(() => resolveDeletePath("nonexistent", [])).toThrow(SessionNotFoundError);
+    expect(() => resolveDeletePath(sampleSessionId(), [])).toThrow(SessionNotFoundError);
   });
 
   it("GIVEN paths that don't match ID WHEN resolved THEN throws SessionNotFoundError", () => {
@@ -539,7 +543,7 @@ describe("resolveDeletePath", () => {
 
 describe("Session error types", () => {
   it("GIVEN SessionNotFoundError WHEN inspected THEN has session ID and descriptive message", () => {
-    const sessionId = "test-id";
+    const sessionId = sampleSessionId();
     const error = new SessionNotFoundError(sessionId);
 
     expect(error.sessionId).toBe(sessionId);
@@ -601,7 +605,7 @@ describe("handoffCommand with real filesystem", () => {
     expect(output).toMatch(/<HANDOFF_ID>\d{4}-\d{2}-\d{2}_\d{2}-\d{2}-\d{2}<\/HANDOFF_ID>/);
     expect(output).toMatch(/<SESSION_FILE>.*\.md<\/SESSION_FILE>/);
 
-    const frontMatter = parseFrontMatter(await readFile(extractSessionFile(output), "utf-8"));
+    const frontMatter = parseFrontMatter(await readFile(extractSessionFile(output), SESSION_FILE_ENCODING));
     expect(frontMatter).toHaveProperty(SESSION_FRONT_MATTER.PRIORITY, SESSION_PRIORITY.HIGH);
     expect(frontMatter).toHaveProperty(SESSION_FRONT_MATTER.GIT_REF, handoffGitRef);
     expect(frontMatter).toHaveProperty(SESSION_FRONT_MATTER.GOAL, testGoal);
@@ -617,7 +621,7 @@ describe("handoffCommand with real filesystem", () => {
       sessionsDir: harness.sessionsDir,
       deps,
     });
-    const metadata = parseSessionMetadata(await readFile(extractSessionFile(output), "utf-8"));
+    const metadata = parseSessionMetadata(await readFile(extractSessionFile(output), SESSION_FILE_ENCODING));
 
     expect(metadata.git_ref).toBe(gitRef);
   });
@@ -631,11 +635,11 @@ describe("handoffCommand with real filesystem", () => {
       sessionsDir: harness.sessionsDir,
       deps: handoffGitDeps,
     });
-    const onDisk = await readFile(extractSessionFile(output), "utf-8");
+    const onDisk = await readFile(extractSessionFile(output), SESSION_FILE_ENCODING);
 
-    expect(onDisk).toContain(`---\n${body}`);
+    expect(onDisk).toContain(`${SESSION_FRONT_MATTER_DELIMITER}\n${body}`);
     expect(onDisk.endsWith(body)).toBe(true);
-    expect(onDisk).not.toContain(`---\n\r${body}`);
+    expect(onDisk).not.toContain(`${SESSION_FRONT_MATTER_DELIMITER}\n${String.fromCodePoint(13)}${body}`);
   });
 
   it("GIVEN JSON header with YAML-significant characters in specs WHEN handoff executes THEN parsed specs round-trips unchanged", async () => {
@@ -650,7 +654,7 @@ describe("handoffCommand with real filesystem", () => {
       sessionsDir: harness.sessionsDir,
       deps: handoffGitDeps,
     });
-    const metadata = parseSessionMetadata(await readFile(extractSessionFile(output), "utf-8"));
+    const metadata = parseSessionMetadata(await readFile(extractSessionFile(output), SESSION_FILE_ENCODING));
 
     expect(metadata.specs).toEqual(specs);
   });
@@ -667,7 +671,7 @@ describe("handoffCommand with real filesystem", () => {
       sessionsDir: harness.sessionsDir,
       deps: handoffGitDeps,
     });
-    const metadata = parseSessionMetadata(await readFile(extractSessionFile(output), "utf-8"));
+    const metadata = parseSessionMetadata(await readFile(extractSessionFile(output), SESSION_FILE_ENCODING));
 
     expect(metadata.files).toEqual(files);
   });
@@ -684,7 +688,7 @@ describe("handoffCommand with real filesystem", () => {
       sessionsDir: harness.sessionsDir,
       deps: handoffGitDeps,
     });
-    const metadata = parseSessionMetadata(await readFile(extractSessionFile(output), "utf-8"));
+    const metadata = parseSessionMetadata(await readFile(extractSessionFile(output), SESSION_FILE_ENCODING));
 
     expect(metadata.specs).toEqual(specs);
   });
@@ -701,7 +705,7 @@ describe("handoffCommand with real filesystem", () => {
       sessionsDir: harness.sessionsDir,
       deps: handoffGitDeps,
     });
-    const metadata = parseSessionMetadata(await readFile(extractSessionFile(output), "utf-8"));
+    const metadata = parseSessionMetadata(await readFile(extractSessionFile(output), SESSION_FILE_ENCODING));
 
     expect(metadata.files).toEqual(files);
   });
@@ -770,7 +774,7 @@ describe("handoffCommand with real filesystem", () => {
       sessionsDir: harness.sessionsDir,
       deps: handoffGitDeps,
     });
-    const metadata = parseSessionMetadata(await readFile(extractSessionFile(output), "utf-8"));
+    const metadata = parseSessionMetadata(await readFile(extractSessionFile(output), SESSION_FILE_ENCODING));
 
     expect(metadata.goal).toBe(goalWithHash);
   });
@@ -787,7 +791,7 @@ describe("handoffCommand with real filesystem", () => {
       sessionsDir: harness.sessionsDir,
       deps: handoffGitDeps,
     });
-    const metadata = parseSessionMetadata(await readFile(extractSessionFile(output), "utf-8"));
+    const metadata = parseSessionMetadata(await readFile(extractSessionFile(output), SESSION_FILE_ENCODING));
 
     expect(metadata.next_step).toBe(nextStepWithHash);
   });
@@ -804,7 +808,7 @@ describe("handoffCommand with real filesystem", () => {
       sessionsDir: harness.sessionsDir,
       deps: handoffGitDeps,
     });
-    const metadata = parseSessionMetadata(await readFile(extractSessionFile(output), "utf-8"));
+    const metadata = parseSessionMetadata(await readFile(extractSessionFile(output), SESSION_FILE_ENCODING));
 
     expect(metadata.next_step).toBe(nextStepWithColon);
   });
@@ -889,10 +893,10 @@ describe("handoffCommand — created_at and agent_session_id pre-fill", () => {
       sessionsDir: harness.sessionsDir,
       deps: handoffGitDeps,
     });
-    const frontMatter = parseFrontMatter(await readFile(extractSessionFile(output), "utf-8"));
+    const frontMatter = parseFrontMatter(await readFile(extractSessionFile(output), SESSION_FILE_ENCODING));
 
     expect(frontMatter).toHaveProperty(SESSION_FRONT_MATTER.CREATED_AT);
-    expect(typeof frontMatter[SESSION_FRONT_MATTER.CREATED_AT]).toBe("string");
+    expect(frontMatter[SESSION_FRONT_MATTER.CREATED_AT]).toEqual(expect.any(String));
   });
 
   it("GIVEN CLAUDE_SESSION_ID is set WHEN handoff creates session THEN agent_session_id is written with CLAUDE_SESSION_ID value", async () => {
@@ -904,7 +908,7 @@ describe("handoffCommand — created_at and agent_session_id pre-fill", () => {
       sessionsDir: harness.sessionsDir,
       deps: handoffGitDeps,
     });
-    const frontMatter = parseFrontMatter(await readFile(extractSessionFile(output), "utf-8"));
+    const frontMatter = parseFrontMatter(await readFile(extractSessionFile(output), SESSION_FILE_ENCODING));
 
     expect(frontMatter).toHaveProperty(SESSION_FRONT_MATTER.AGENT_SESSION_ID, agentSessionId);
   });
@@ -918,7 +922,7 @@ describe("handoffCommand — created_at and agent_session_id pre-fill", () => {
       sessionsDir: harness.sessionsDir,
       deps: handoffGitDeps,
     });
-    const frontMatter = parseFrontMatter(await readFile(extractSessionFile(output), "utf-8"));
+    const frontMatter = parseFrontMatter(await readFile(extractSessionFile(output), SESSION_FILE_ENCODING));
 
     expect(frontMatter).toHaveProperty(SESSION_FRONT_MATTER.AGENT_SESSION_ID, threadId);
   });
@@ -929,7 +933,7 @@ describe("handoffCommand — created_at and agent_session_id pre-fill", () => {
       sessionsDir: harness.sessionsDir,
       deps: handoffGitDeps,
     });
-    const frontMatter = parseFrontMatter(await readFile(extractSessionFile(output), "utf-8"));
+    const frontMatter = parseFrontMatter(await readFile(extractSessionFile(output), SESSION_FILE_ENCODING));
 
     expect(frontMatter).not.toHaveProperty(SESSION_FRONT_MATTER.AGENT_SESSION_ID);
   });
@@ -952,7 +956,7 @@ describe("handoffCommand — handoff-base gate", () => {
       sessionsDir: harness.sessionsDir,
       deps: createSessionGitDeps({ branch: null }),
     });
-    const metadata = parseSessionMetadata(await readFile(extractSessionFile(output), "utf-8"));
+    const metadata = parseSessionMetadata(await readFile(extractSessionFile(output), SESSION_FILE_ENCODING));
 
     expect(metadata.git_ref).toBe(HEAD_SHA);
   });
@@ -961,9 +965,14 @@ describe("handoffCommand — handoff-base gate", () => {
     const { output } = await handoffCommand({
       content: prefillHandoffStdin,
       sessionsDir: harness.sessionsDir,
-      deps: createSessionGitDeps({ worktreeKind: "non-main", branch: null, clean: true, detachedAtDefaultTip: true }),
+      deps: createSessionGitDeps({
+        worktreeKind: WORKTREE_KIND.NON_MAIN,
+        branch: null,
+        clean: true,
+        detachedAtDefaultTip: true,
+      }),
     });
-    const metadata = parseSessionMetadata(await readFile(extractSessionFile(output), "utf-8"));
+    const metadata = parseSessionMetadata(await readFile(extractSessionFile(output), SESSION_FILE_ENCODING));
 
     expect(metadata.git_ref).toBe(ORIGIN_DEFAULT_SHA);
   });
@@ -974,7 +983,7 @@ describe("handoffCommand — handoff-base gate", () => {
         content: prefillHandoffStdin,
         sessionsDir: harness.sessionsDir,
         deps: createSessionGitDeps({
-          worktreeKind: "non-main",
+          worktreeKind: WORKTREE_KIND.NON_MAIN,
           branch: null,
           clean: false,
           detachedAtDefaultTip: true,
@@ -988,7 +997,7 @@ describe("handoffCommand — handoff-base gate", () => {
       handoffCommand({
         content: prefillHandoffStdin,
         sessionsDir: harness.sessionsDir,
-        deps: createSessionGitDeps({ worktreeKind: "non-main", branch: "feature/local", clean: true }),
+        deps: createSessionGitDeps({ worktreeKind: WORKTREE_KIND.NON_MAIN, branch: "feature/local", clean: true }),
       }),
     ).rejects.toBeInstanceOf(SessionHandoffBaseError);
   });
@@ -999,7 +1008,7 @@ describe("handoffCommand — handoff-base gate", () => {
         content: prefillHandoffStdin,
         sessionsDir: harness.sessionsDir,
         deps: createSessionGitDeps({
-          worktreeKind: "non-main",
+          worktreeKind: WORKTREE_KIND.NON_MAIN,
           branch: null,
           clean: true,
           detachedAtDefaultTip: false,
@@ -1062,7 +1071,7 @@ describe("handoffCommand — explicit work-branch ref", () => {
       sessionsDir: harness.sessionsDir,
       deps: createSessionGitDeps({ originWorkBranches: [WORK_BRANCH] }),
     });
-    const metadata = parseSessionMetadata(await readFile(extractSessionFile(output), "utf-8"));
+    const metadata = parseSessionMetadata(await readFile(extractSessionFile(output), SESSION_FILE_ENCODING));
 
     expect(metadata.git_ref).toBe(WORK_BRANCH);
   });
@@ -1078,7 +1087,7 @@ describe("handoffCommand — explicit work-branch ref", () => {
       sessionsDir: harness.sessionsDir,
       deps: createSessionGitDeps({ branch: gateBranch }),
     });
-    const metadata = parseSessionMetadata(await readFile(extractSessionFile(output), "utf-8"));
+    const metadata = parseSessionMetadata(await readFile(extractSessionFile(output), SESSION_FILE_ENCODING));
 
     expect(metadata.git_ref).toBe(gateBranch);
   });
@@ -1114,7 +1123,7 @@ describe("handoffCommand — explicit work-branch ref", () => {
     // `rev-parse --abbrev-ref HEAD` yields. It must be refused as a non-branch.
     await expect(
       handoffCommand({
-        content: handoffStdinWithGitRef("HEAD"),
+        content: handoffStdinWithGitRef(GIT_ROOT_COMMAND.HEAD),
         sessionsDir: harness.sessionsDir,
         deps: createSessionGitDeps(),
       }),
@@ -1128,7 +1137,7 @@ describe("handoffCommand — explicit work-branch ref", () => {
         content: handoffStdinWithGitRef(WORK_BRANCH),
         sessionsDir: harness.sessionsDir,
         deps: createSessionGitDeps({
-          worktreeKind: "non-main",
+          worktreeKind: WORKTREE_KIND.NON_MAIN,
           branch: null,
           clean: false,
           detachedAtDefaultTip: true,
@@ -1155,7 +1164,7 @@ describe("toSessionRecord", () => {
           metadata: { ...DEFAULT_SESSION_METADATA, priority },
         });
 
-        expect(record).not.toHaveProperty("path");
+        expect(record).not.toHaveProperty(SESSION_FORBIDDEN_JSON_RECORD_FIELD.PATH);
         expect(record.id).toBe(id);
         expect(record.status).toBe(TODO);
         expect(record.priority).toBe(priority);
@@ -1378,8 +1387,8 @@ describe("listCommand JSON records and field projection", () => {
       expect(records.length).toBeGreaterThan(0);
       for (const record of records) {
         expect(record.status).toBe(status);
-        expect(record).not.toHaveProperty("path");
-        expect(record).not.toHaveProperty("metadata");
+        expect(record).not.toHaveProperty(SESSION_FORBIDDEN_JSON_RECORD_FIELD.PATH);
+        expect(record).not.toHaveProperty(SESSION_FORBIDDEN_JSON_RECORD_FIELD.METADATA);
         for (
           const field of [
             SESSION_RECORD_FIELD.ID,
@@ -1423,7 +1432,7 @@ describe("listCommand JSON records and field projection", () => {
     expect(carried).toBeDefined();
     expect(bare).toBeDefined();
     expect(carried?.[SESSION_RECORD_FIELD.AGENT_SESSION_ID]).toBe(agentSessionId);
-    expect(typeof carried?.[SESSION_RECORD_FIELD.CREATED_AT]).toBe("string");
+    expect(carried?.[SESSION_RECORD_FIELD.CREATED_AT]).toEqual(expect.any(String));
     expect(bare).not.toHaveProperty(SESSION_RECORD_FIELD.CREATED_AT);
     expect(bare).not.toHaveProperty(SESSION_RECORD_FIELD.AGENT_SESSION_ID);
   });
@@ -1465,14 +1474,14 @@ describe("showCommand JSON output", () => {
 
   beforeEach(async () => {
     harness = await createSessionHarness();
-    for (const key of ENV_KEYS) {
+    for (const key of envKeys) {
       delete process.env[key];
     }
   });
 
   afterEach(async () => {
     await harness.cleanup();
-    for (const key of ENV_KEYS) {
+    for (const key of envKeys) {
       delete process.env[key];
     }
   });
@@ -1532,9 +1541,9 @@ describe("showCommand JSON output", () => {
     const agentSessionId = sampleSessionId();
     process.env.CLAUDE_SESSION_ID = agentSessionId;
     const { output: handoffOutput } = await handoffCommand({
-      content: PREFILL_HANDOFF_STDIN,
+      content: prefillHandoffStdin,
       sessionsDir: harness.sessionsDir,
-      deps: HANDOFF_GIT_DEPS,
+      deps: handoffGitDeps,
     });
     const carriedId = extractSessionFile(handoffOutput).split("/").pop()!.replace(".md", "");
 
@@ -1553,7 +1562,7 @@ describe("showCommand JSON output", () => {
     ) as Record<string, unknown>;
 
     expect(carried[SESSION_RECORD_FIELD.AGENT_SESSION_ID]).toBe(agentSessionId);
-    expect(typeof carried[SESSION_RECORD_FIELD.CREATED_AT]).toBe("string");
+    expect(carried[SESSION_RECORD_FIELD.CREATED_AT]).toEqual(expect.any(String));
     expect(bare).not.toHaveProperty(SESSION_RECORD_FIELD.CREATED_AT);
     expect(bare).not.toHaveProperty(SESSION_RECORD_FIELD.AGENT_SESSION_ID);
   });

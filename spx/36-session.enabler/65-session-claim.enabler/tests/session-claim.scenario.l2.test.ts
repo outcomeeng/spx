@@ -14,12 +14,17 @@ import { join } from "node:path";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 
 import { pickupCommand } from "@/commands/session/pickup";
-import { SESSION_STATUSES } from "@/domains/session/types";
+import { SESSION_OUTPUT_MARKER, SESSION_PRIORITY, SESSION_STATUSES } from "@/domains/session/types";
+import { sampleDistinctSessionIds, sampleSessionId } from "@testing/generators/session/session";
 import type { SessionHarness } from "@testing/harnesses/session/harness";
 import { createSessionHarness } from "@testing/harnesses/session/harness";
 
 const [TODO, DOING] = SESSION_STATUSES;
 const concurrentAgents = 5;
+
+function isFulfilled<T>(result: PromiseSettledResult<T>): result is PromiseFulfilledResult<T> {
+  return result.status === "fulfilled";
+}
 
 describe("concurrent pickup atomicity (P1)", () => {
   let harness: SessionHarness;
@@ -33,8 +38,8 @@ describe("concurrent pickup atomicity (P1)", () => {
   });
 
   it("GIVEN one session WHEN multiple agents pickup concurrently THEN exactly one succeeds", async () => {
-    const sessionId = "2026-01-13_08-00-00";
-    await harness.writeSession(TODO, sessionId, { priority: "high" });
+    const sessionId = sampleSessionId();
+    await harness.writeSession(TODO, sessionId, { priority: SESSION_PRIORITY.HIGH });
 
     // Launch concurrent pickups
     const results = await Promise.allSettled(
@@ -44,8 +49,8 @@ describe("concurrent pickup atomicity (P1)", () => {
       ),
     );
 
-    const successes = results.filter((r) => r.status === "fulfilled");
-    const failures = results.filter((r) => r.status === "rejected");
+    const successes = results.filter(isFulfilled);
+    const failures = results.filter((result) => !isFulfilled(result));
 
     // Exactly one agent wins
     expect(successes).toHaveLength(1);
@@ -58,8 +63,8 @@ describe("concurrent pickup atomicity (P1)", () => {
 
   it("GIVEN multiple sessions WHEN agents pickup --auto concurrently THEN no double-claiming", async () => {
     const sessionCount = 3;
-    for (let i = 0; i < sessionCount; i++) {
-      await harness.writeSession(TODO, `2026-01-${10 + i}_10-00-00`, { priority: "high" });
+    for (const id of sampleDistinctSessionIds(sessionCount)) {
+      await harness.writeSession(TODO, id, { priority: SESSION_PRIORITY.HIGH });
     }
 
     // Launch concurrent auto-pickups (more agents than sessions)
@@ -70,7 +75,7 @@ describe("concurrent pickup atomicity (P1)", () => {
       ),
     );
 
-    const successes = results.filter((r) => r.status === "fulfilled");
+    const successes = results.filter(isFulfilled);
 
     // At most as many successes as sessions
     expect(successes.length).toBeLessThanOrEqual(sessionCount);
@@ -79,7 +84,9 @@ describe("concurrent pickup atomicity (P1)", () => {
     // Each success claimed a different session (no duplicates)
     const claimedIds = successes.map((r) => {
       const output = r.value;
-      const match = /<PICKUP_ID>([^<]+)<\/PICKUP_ID>/.exec(output);
+      const match = new RegExp(`<${SESSION_OUTPUT_MARKER.PICKUP_ID}>([^<]+)</${SESSION_OUTPUT_MARKER.PICKUP_ID}>`).exec(
+        output,
+      );
       return match?.[1];
     });
     const uniqueIds = new Set(claimedIds);

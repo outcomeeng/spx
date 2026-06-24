@@ -23,8 +23,10 @@ import {
   type SessionPriority,
   type SessionStatus,
 } from "@/domains/session/types";
+import { arbitraryBranchName } from "@testing/generators/git-name/git-name";
 
 const SESSION_PRIORITY_VALUES = Object.values(SESSION_PRIORITY) as readonly SessionPriority[];
+export const SESSION_UNICODE_STRING_UNIT = "binary";
 
 /**
  * Shape callers supply to `spx session handoff` as the JSON header at the
@@ -43,6 +45,10 @@ export interface HandoffHeaderFixture {
   readonly files: readonly string[];
   /** Optional explicit work-branch ref the command verifies on `origin` and records as `git_ref`. */
   readonly git_ref?: string;
+}
+
+export interface HandoffHeaderOptions {
+  readonly includeGitRef?: boolean;
 }
 
 /**
@@ -67,7 +73,7 @@ export function arbitrarySessionPriority(): fc.Arbitrary<SessionPriority> {
  * not empty-rejection, is the property under test.
  */
 function arbitraryNonEmptyString(): fc.Arbitrary<string> {
-  return fc.string({ unit: "binary", minLength: 1 });
+  return fc.string({ unit: SESSION_UNICODE_STRING_UNIT, minLength: 1 });
 }
 
 /**
@@ -78,7 +84,11 @@ function arbitraryNonEmptyString(): fc.Arbitrary<string> {
  * boundary the round-trip invariant must still hold for.
  */
 function arbitraryUnicodeString(): fc.Arbitrary<string> {
-  return fc.string({ unit: "binary" });
+  return fc.string({ unit: SESSION_UNICODE_STRING_UNIT });
+}
+
+function arbitraryOptionalWorkBranchRef(): fc.Arbitrary<string | undefined> {
+  return fc.oneof(fc.constant(undefined), fc.constant(""), arbitraryBranchName());
 }
 
 /**
@@ -90,14 +100,23 @@ function arbitraryUnicodeString(): fc.Arbitrary<string> {
  * caller-supplied string field survives unchanged from input to parsed
  * metadata regardless of which unicode codepoints the string contains.
  */
-export function arbitraryHandoffHeader(): fc.Arbitrary<HandoffHeaderFixture> {
-  return fc.record({
+export function arbitraryHandoffHeader(options: HandoffHeaderOptions = {}): fc.Arbitrary<HandoffHeaderFixture> {
+  const baseHeader = fc.record({
     priority: arbitrarySessionPriority(),
     goal: arbitraryNonEmptyString(),
     next_step: arbitraryNonEmptyString(),
     specs: fc.array(arbitraryUnicodeString()),
     files: fc.array(arbitraryUnicodeString()),
   });
+  if (options.includeGitRef !== true) {
+    return baseHeader;
+  }
+  return baseHeader.chain((header) =>
+    arbitraryOptionalWorkBranchRef().map((gitRef) => ({
+      ...header,
+      ...(gitRef === undefined ? {} : { git_ref: gitRef }),
+    })),
+  );
 }
 
 /**
@@ -503,7 +522,7 @@ export function arbitrarySessionId(): fc.Arbitrary<string> {
 }
 
 /** Characters an agent-session identity may carry that are unsafe in a path segment. */
-const PATH_UNSAFE_MARKERS = ":/+.\\@ ";
+const PATH_UNSAFE_MARKERS = String.raw`:/+.\@ `;
 
 /** Fixed seed for single-value path-unsafe-identity draws so scenario tests stay deterministic. */
 const PATH_UNSAFE_IDENTITY_SAMPLE_SEED = 0x5e5530;

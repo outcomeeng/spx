@@ -52,6 +52,10 @@ interface LaunchCase {
   readonly autoContinue: boolean;
 }
 
+interface QuitCase {
+  readonly action: (view: ReturnType<typeof renderPickerView>) => Promise<void>;
+}
+
 const launchCases: readonly LaunchCase[] = [
   { key: "c", runtime: PICKER_RUNTIME.CLAUDE, autoContinue: false },
   { key: "C", runtime: PICKER_RUNTIME.CLAUDE, autoContinue: true },
@@ -127,7 +131,12 @@ describe("SessionPicker rendering", () => {
   );
 
   it("quits on q and on Esc without launching", async () => {
-    for (const quitKey of ["q", "escape"] as const) {
+    const quitCases: readonly QuitCase[] = [
+      { action: (view) => view.type("q") },
+      { action: (view) => view.esc() },
+    ];
+
+    for (const quitCase of quitCases) {
       const session = sample(arbitraryClaimableSession());
       let launched = false;
       let quit = false;
@@ -142,8 +151,7 @@ describe("SessionPicker rendering", () => {
         },
       });
 
-      if (quitKey === "escape") await view.esc();
-      else await view.type(quitKey);
+      await quitCase.action(view);
       view.unmount();
 
       expect(quit).toBe(true);

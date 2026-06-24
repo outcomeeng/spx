@@ -10,6 +10,7 @@ import { processBatch } from "@/domains/session/batch";
 import { SessionNotClaimedError } from "@/domains/session/errors";
 import { buildReleasePaths, findCurrentSession } from "@/domains/session/release";
 import { SessionDirectoryConfig } from "@/domains/session/show";
+import { SESSION_FILE_ERROR_CODE } from "@/domains/session/types";
 import { resolveSessionConfigSurfacingWarning, type SessionWarningHandler } from "./resolve-config";
 
 export const SESSION_RELEASE_OUTPUT = {
@@ -39,7 +40,7 @@ async function loadDoingSessions(config: SessionDirectoryConfig): Promise<Array<
       .filter((file) => file.endsWith(".md"))
       .map((file) => ({ id: file.replace(".md", "") }));
   } catch (error) {
-    if (error instanceof Error && "code" in error && error.code === "ENOENT") {
+    if (error instanceof Error && "code" in error && error.code === SESSION_FILE_ERROR_CODE.NOT_FOUND) {
       return [];
     }
     throw error;
@@ -55,7 +56,7 @@ async function releaseSingle(sessionId: string, config: SessionDirectoryConfig):
   try {
     await rename(paths.source, paths.target);
   } catch (error) {
-    if (error instanceof Error && "code" in error && error.code === "ENOENT") {
+    if (error instanceof Error && "code" in error && error.code === SESSION_FILE_ERROR_CODE.NOT_FOUND) {
       throw new SessionNotClaimedError(sessionId);
     }
     throw error;

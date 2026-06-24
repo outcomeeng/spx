@@ -26,6 +26,12 @@ const POSIX_SEPARATOR = "/";
 const MAX_PATH_SEGMENTS = 4;
 const MAX_PREREQUISITES = 4;
 
+/** Placeholder text the renderer must not fabricate for an unresolved origin ref. */
+export const FORBIDDEN_HANDOFF_BASE_ORIGIN_PLACEHOLDER = "origin/<default>";
+
+/** Work-hiding remedy the handoff-base refusal must not suggest. */
+export const FORBIDDEN_HANDOFF_BASE_STASH_REMEDY = "git stash";
+
 /** A 40-character lowercase hex commit SHA. */
 export function arbitraryCommitSha(): fc.Arbitrary<string> {
   return fc.stringMatching(COMMIT_SHA_PATTERN);

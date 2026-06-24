@@ -22,9 +22,15 @@ import { parse as parseYaml } from "yaml";
 import { DEFAULT_CONFIG } from "@/config/defaults";
 import { SESSION_FRONT_MATTER_CLOSE, SESSION_FRONT_MATTER_OPEN } from "@/domains/session/create";
 import { parseSessionMetadata } from "@/domains/session/list";
-import { DEFAULT_PRIORITY, SESSION_FRONT_MATTER, SESSION_PRIORITY, SESSION_STATUSES } from "@/domains/session/types";
-import { sampleSessionContent, sampleSessionId } from "@testing/generators/session/session";
-import { createSessionHarness } from "@testing/harnesses/session/harness";
+import {
+  DEFAULT_PRIORITY,
+  SESSION_FILE_ENCODING,
+  SESSION_FRONT_MATTER,
+  SESSION_PRIORITY,
+  SESSION_STATUSES,
+} from "@/domains/session/types";
+import { sampleDistinctSessionIds, sampleSessionContent, sampleSessionId } from "@testing/generators/session/session";
+import { createSessionHarness, DEFAULT_GIT_DEPS_BRANCH } from "@testing/harnesses/session/harness";
 
 const { statusDirs } = DEFAULT_CONFIG.sessions;
 
@@ -61,19 +67,21 @@ describe("createSessionHarness", () => {
 });
 
 describe("writeSession", () => {
+  const [sessionWithMetadataId, sessionWithDefaultPriorityId, sessionWithDefaultGitRefId] = sampleDistinctSessionIds(3);
+
   // S2: creates markdown with YAML front matter in correct subdir
   it("GIVEN a harness WHEN writeSession is called THEN file exists in correct status subdir with YAML front matter", async () => {
     const harness = await createSessionHarness();
     try {
       const status = SESSION_STATUSES[0];
-      const id = "2026-01-10_10-00-00";
+      const id = sessionWithMetadataId;
       const goal = "Exercise the harness";
       const nextStep = "Read the generated file";
 
       await harness.writeSession(status, id, { priority: SESSION_PRIORITY.HIGH, goal, next_step: nextStep });
 
       const filePath = join(harness.statusDir(status), `${id}.md`);
-      const content = await readFile(filePath, "utf-8");
+      const content = await readFile(filePath, SESSION_FILE_ENCODING);
       const metadata = parseSessionMetadata(content);
 
       expect(metadata.priority).toBe(SESSION_PRIORITY.HIGH);
@@ -88,12 +96,12 @@ describe("writeSession", () => {
     const harness = await createSessionHarness();
     try {
       const status = SESSION_STATUSES[1];
-      const id = "2026-01-11_10-00-00";
+      const id = sessionWithDefaultPriorityId;
 
       await harness.writeSession(status, id);
 
       const filePath = join(harness.statusDir(status), `${id}.md`);
-      const content = await readFile(filePath, "utf-8");
+      const content = await readFile(filePath, SESSION_FILE_ENCODING);
       const metadata = parseSessionMetadata(content);
 
       expect(metadata.priority).toBe(DEFAULT_PRIORITY);
@@ -106,16 +114,16 @@ describe("writeSession", () => {
     const harness = await createSessionHarness();
     try {
       const status = SESSION_STATUSES[0];
-      const id = "2026-01-12_10-00-00";
+      const id = sessionWithDefaultGitRefId;
 
       await harness.writeSession(status, id);
 
       const filePath = join(harness.statusDir(status), `${id}.md`);
-      const content = await readFile(filePath, "utf-8");
+      const content = await readFile(filePath, SESSION_FILE_ENCODING);
       const end = content.indexOf(SESSION_FRONT_MATTER_CLOSE, SESSION_FRONT_MATTER_OPEN.length);
       const frontMatter = parseYaml(content.slice(SESSION_FRONT_MATTER_OPEN.length, end)) as Record<string, unknown>;
 
-      expect(frontMatter).toHaveProperty(SESSION_FRONT_MATTER.GIT_REF, "main");
+      expect(frontMatter).toHaveProperty(SESSION_FRONT_MATTER.GIT_REF, DEFAULT_GIT_DEPS_BRANCH);
     } finally {
       await harness.cleanup();
     }
@@ -162,7 +170,7 @@ describe("writeRawSession", () => {
       await harness.writeRawSession(status, id, content);
 
       const filePath = join(harness.statusDir(status), `${id}.md`);
-      expect(await readFile(filePath, "utf-8")).toBe(content);
+      expect(await readFile(filePath, SESSION_FILE_ENCODING)).toBe(content);
     } finally {
       await harness.cleanup();
     }
