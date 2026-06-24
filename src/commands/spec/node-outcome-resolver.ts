@@ -165,7 +165,5 @@ function outcomeForPath(
   if (covering.every((outcome) => outcome.exitCode === SUCCESS_EXIT_CODE)) {
     return NODE_STATUS_EVIDENCE_OUTCOME.PASSED;
   }
-  return covering.some((outcome) => outcome.exitCode !== SUCCESS_EXIT_CODE)
-    ? NODE_STATUS_EVIDENCE_OUTCOME.FAILED
-    : NODE_STATUS_EVIDENCE_OUTCOME.NOT_RUN;
+  return NODE_STATUS_EVIDENCE_OUTCOME.FAILED;
 }
