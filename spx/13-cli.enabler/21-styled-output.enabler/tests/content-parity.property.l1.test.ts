@@ -3,12 +3,7 @@ import { describe, expect, it } from "vitest";
 
 import { renderStyledReport } from "@/lib/styled-output/styled-output";
 import { arbitraryStyledReportModel } from "@testing/generators/styled-output/styled-output";
-
-// The ANSI escape (ESC) code point; built here to avoid an invisible control byte in source.
-const escCharCode = 27;
-const ansiEscape = String.fromCodePoint(escCharCode);
-const ansiSequence = new RegExp(String.raw`${ansiEscape}\[[0-9;]*m`, "g");
-const stripAnsi = (value: string): string => value.replaceAll(ansiSequence, "");
+import { ANSI_ESCAPE, stripAnsi } from "@testing/harnesses/styled-output/ansi";
 
 describe("styling never changes content", () => {
   it("renders identical content with and without color, differing only by ANSI", () => {
@@ -27,7 +22,7 @@ describe("styling never changes content", () => {
       fc.property(arbitraryStyledReportModel(), (model) => {
         const plain = renderStyledReport(model, { color: false });
 
-        expect(plain).not.toContain(ansiEscape);
+        expect(plain).not.toContain(ANSI_ESCAPE);
       }),
     );
   });

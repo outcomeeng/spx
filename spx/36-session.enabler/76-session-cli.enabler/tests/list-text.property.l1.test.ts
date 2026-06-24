@@ -19,15 +19,11 @@ import { describe, expect, it } from "vitest";
 
 import { formatSessionListText, LIST_TEXT_MIN_WIDTH } from "@/domains/session/list";
 import { arbitraryClaimableSession } from "@testing/generators/session/session";
-
-/** The ANSI control introducer chalk emits; its presence marks styled output. */
-const ansiEscape = String.fromCodePoint(0x1b);
-/** Matches ANSI SGR sequences (`ESC [ … m`) for escape-stripped width measurement. */
-const ansiSgrSequence = new RegExp(String.raw`${ansiEscape}\[[0-9;]*m`, "g");
+import { ANSI_ESCAPE, stripAnsi } from "@testing/harnesses/styled-output/ansi";
 
 /** Display width of a rendered line: its length with ANSI styling removed. */
 function displayWidth(line: string): number {
-  return line.replace(ansiSgrSequence, "").length;
+  return stripAnsi(line).length;
 }
 
 const arbitrarySessionList = fc.array(arbitraryClaimableSession(), { minLength: 1, maxLength: 8 });
@@ -48,8 +44,8 @@ describe("formatSessionListText", () => {
   it("emits ANSI escapes only when color is enabled", () => {
     fc.assert(
       fc.property(arbitrarySessionList, arbitraryWidth, (sessions, width) => {
-        expect(formatSessionListText(sessions, { color: false, width })).not.toContain(ansiEscape);
-        expect(formatSessionListText(sessions, { color: true, width })).toContain(ansiEscape);
+        expect(formatSessionListText(sessions, { color: false, width })).not.toContain(ANSI_ESCAPE);
+        expect(formatSessionListText(sessions, { color: true, width })).toContain(ANSI_ESCAPE);
       }),
     );
   });

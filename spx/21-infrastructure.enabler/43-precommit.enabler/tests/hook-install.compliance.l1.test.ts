@@ -2,6 +2,7 @@ import { chmod as chmodFs, mkdir, readFile, stat, unlink, writeFile } from "node
 import { join } from "node:path";
 import { describe, expect, it } from "vitest";
 
+import { SESSION_FILE_ERROR_CODE } from "@/domains/session/types";
 import {
   configuredHookNames,
   EXECUTABLE_HOOK_MODE,
@@ -132,7 +133,7 @@ describe("portable lefthook hook installation", () => {
       await installPortableLefthookHooks(productDir, deps);
 
       await expect(readFile(join(hooksDir, obsoletePortableHook), HOOK_FILE_ENCODING)).rejects.toMatchObject({
-        code: "ENOENT",
+        code: SESSION_FILE_ERROR_CODE.NOT_FOUND,
       });
       await expect(readFile(join(hooksDir, handwrittenHook), HOOK_FILE_ENCODING)).resolves.toBe(handwrittenHookContent);
       await expect(readFile(join(hooksDir, configuredHook), HOOK_FILE_ENCODING)).resolves.toBe(
