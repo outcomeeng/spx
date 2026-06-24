@@ -64,6 +64,58 @@ export interface GitTestEnvContext {
   writeFile: (relativePath: string, content: string) => Promise<void>;
 }
 
+type GitEnvExecOptions = { reject?: boolean };
+
+interface ExecaResultLike {
+  exitCode?: number;
+  stdout?: unknown;
+  stderr?: unknown;
+}
+
+function toExecResult(result: ExecaResultLike): ExecResult {
+  return {
+    exitCode: result.exitCode ?? 0,
+    stdout: typeof result.stdout === "string" ? result.stdout : "",
+    stderr: typeof result.stderr === "string" ? result.stderr : "",
+  };
+}
+
+function execResultFromError(error: unknown): ExecResult | undefined {
+  if (!error || typeof error !== "object") {
+    return undefined;
+  }
+  const failedProcess = error as ExecaResultLike;
+  return typeof failedProcess.exitCode === "number"
+    ? toExecResult(failedProcess)
+    : undefined;
+}
+
+async function runGitEnvCommand(
+  tempDir: string,
+  command: string | string[],
+  options?: GitEnvExecOptions,
+): Promise<ExecResult> {
+  const execaOpts: ExecaOptions = {
+    cwd: tempDir,
+    reject: options?.reject ?? true,
+    env: buildGitTestEnvironment(),
+    extendEnv: false,
+  };
+
+  try {
+    const result = Array.isArray(command)
+      ? await execa(command[0], command.slice(1), execaOpts)
+      : await execa(command, { ...execaOpts, shell: true });
+    return toExecResult(result);
+  } catch (error) {
+    const result = execResultFromError(error);
+    if (result) {
+      return result;
+    }
+    throw error;
+  }
+}
+
 /**
  * Execute test with isolated git environment
  *
@@ -120,46 +172,9 @@ export function withGitEnv<T>(
     // Create context helpers
     const exec = async (
       command: string | string[],
-      options?: { reject?: boolean },
+      options?: GitEnvExecOptions,
     ): Promise<ExecResult> => {
-      const execaOpts: ExecaOptions = {
-        cwd: tempDir,
-        reject: options?.reject ?? true,
-        env: buildGitTestEnvironment(),
-        extendEnv: false,
-      };
-
-      try {
-        let result;
-        if (Array.isArray(command)) {
-          // Array form: first element is command, rest are args
-          const [cmd, ...args] = command;
-          result = await execa(cmd, args, execaOpts);
-        } else {
-          // String form: use shell to parse (handles quotes, etc.)
-          result = await execa(command, { ...execaOpts, shell: true });
-        }
-        return {
-          exitCode: result.exitCode ?? 0,
-          stdout: typeof result.stdout === "string" ? result.stdout : "",
-          stderr: typeof result.stderr === "string" ? result.stderr : "",
-        };
-      } catch (error) {
-        if (
-          error
-          && typeof error === "object"
-          && "exitCode" in error
-          && "stdout" in error
-          && "stderr" in error
-        ) {
-          return {
-            exitCode: (error as { exitCode: number }).exitCode,
-            stdout: (error as { stdout: string }).stdout,
-            stderr: (error as { stderr: string }).stderr,
-          };
-        }
-        throw error;
-      }
+      return await runGitEnvCommand(tempDir, command, options);
     };
 
     const writeFile = async (
