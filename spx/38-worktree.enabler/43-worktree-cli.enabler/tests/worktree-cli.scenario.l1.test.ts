@@ -107,6 +107,26 @@ describe("worktree command handlers", () => {
       if (!running.ok) throw new Error(running.error);
       expect(running.value).toContain(`${WORKTREE_STATUS_RENDER.RUNNING_PID_PREFIX}${holder.pid}`);
 
+      const runningJson = await statusCommand({
+        worktrees: [env.worktreePath],
+        cwd: env.worktreePath,
+        fs: env.fs,
+        gitDeps: defaultGitDependencies,
+        worktreesDir: env.worktreesDir,
+        processTable: env.processTable,
+        format: WORKTREE_STATUS_FORMAT.JSON,
+        pathInfo: defaultWorktreePathInfo,
+      });
+      expect(runningJson.ok).toBe(true);
+      if (!runningJson.ok) throw new Error(runningJson.error);
+      expect(JSON.parse(runningJson.value)).toEqual({
+        worktree: name,
+        status: OCCUPANCY_STATUS.RUNNING,
+        pid: holder.pid,
+        session: sessionId,
+        host: holder.host,
+      });
+
       const runningNoArg = await statusCommand({
         cwd: env.worktreePath,
         fs: env.fs,
