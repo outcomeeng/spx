@@ -27,7 +27,7 @@ CAN read a node's last-recorded verification projection from a committed file wi
 - ALWAYS: each `spx.status.json` is co-located in the directory of the node it describes; node identity comes from file location, not file content ([audit])
 - ALWAYS: `spx.status.json` stores only runtime verification outcomes; node identity, assertion text, evidence links, test source, eval definitions, audit rules, configuration, commit identity, authorship, and timestamps come from Git ([audit])
 - ALWAYS: `spx spec status --update` derives pass/fail/not-run outcomes only for linked verification references and obtains those outcomes from the owning verification surface; `declared` and `specified` nodes classify structurally without a run ([test](tests/node-status.compliance.l1.test.ts))
-- ALWAYS: CI regenerates every committed `spx.status.json` from the checkout after running the configured verification suite and rejects a mismatch ([audit])
+- ALWAYS: CI regenerates every committed `spx.status.json` from the checkout after running the configured verification suite and rejects a mismatch ([test](tests/node-status.compliance.l1.test.ts))
 - NEVER: a consumer treats a missing `spx.status.json` as an error or a fixed state — absence routes to live derivation ([test](tests/node-status.compliance.l1.test.ts))
 - NEVER: `spx.status.json` is hand-authored or offered as `spx.status.yaml`/`spx.status.toml` — it is a machine-written JSON artifact ([audit])
 - NEVER: the status path composes a language-specific test runner — the per-node run is the testing domain's registry-based, multi-language surface ([audit])

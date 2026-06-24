@@ -1,3 +1,6 @@
+import { readFile } from "node:fs/promises";
+import { join } from "node:path";
+
 import { describe, expect, it } from "vitest";
 
 import {
@@ -5,11 +8,18 @@ import {
   NODE_STATUS_EVIDENCE_OUTCOME,
   NODE_STATUS_FIELD,
   NODE_STATUS_FILENAME,
+  NODE_STATUS_PROJECTION_DIFF_COMMAND,
+  NODE_STATUS_PROJECTION_DRIFT_CHECK_COMMAND,
+  NODE_STATUS_PROJECTION_FAILURE_COMMAND,
+  NODE_STATUS_PROJECTION_STEP_NAME,
+  NODE_STATUS_PROJECTION_UPDATE_COMMAND,
+  NODE_STATUS_PROJECTION_WORKFLOW_PATHS,
+  parseNodeStatusProjectionWorkflowSteps,
   readNodeStatus,
   updateNodeStatus,
 } from "@/lib/node-status";
 import { createFilesystemSpecTreeSource, readSpecTree } from "@/lib/spec-tree";
-import { compareAsciiStrings } from "@/lib/state-store";
+import { compareAsciiStrings, STATE_STORE_TEXT_ENCODING } from "@/lib/state-store";
 import { NODE_STATUS_TEST_GENERATOR, sampleNodeStatusValue } from "@testing/generators/node-status/node-status";
 import { withClassificationTree } from "@testing/harnesses/node-status/node-status";
 
@@ -50,6 +60,23 @@ describe("node-status write authority", () => {
         expect(recorded).toEqual(expectation.expectedStatusFile);
       }
     });
+  });
+});
+
+describe("node-status CI drift check", () => {
+  it("ALWAYS: CI refreshes committed status projections and rejects spx drift", async () => {
+    for (const workflowPath of NODE_STATUS_PROJECTION_WORKFLOW_PATHS) {
+      const workflowSteps = parseNodeStatusProjectionWorkflowSteps(
+        await readFile(join(process.cwd(), workflowPath), STATE_STORE_TEXT_ENCODING),
+      );
+      const step = workflowSteps.find((candidate) => candidate.name === NODE_STATUS_PROJECTION_STEP_NAME);
+
+      expect(step, `${workflowPath} has ${NODE_STATUS_PROJECTION_STEP_NAME}`).toBeDefined();
+      expect(step?.run).toContain(NODE_STATUS_PROJECTION_UPDATE_COMMAND);
+      expect(step?.run).toContain(NODE_STATUS_PROJECTION_DRIFT_CHECK_COMMAND);
+      expect(step?.run).toContain(NODE_STATUS_PROJECTION_DIFF_COMMAND);
+      expect(step?.run).toContain(NODE_STATUS_PROJECTION_FAILURE_COMMAND);
+    }
   });
 });
 

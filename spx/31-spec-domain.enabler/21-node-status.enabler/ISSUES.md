@@ -32,22 +32,3 @@ the covering cases are authored in the implementation unit that wires
 `spx spec status --update` to the resolver.
 
 **Skills:** `spec-tree:applying` (implementation), `typescript:testing-typescript` (tests).
-
-## Open: duplicated EXCLUDE membership helper
-
-The review on
-[`outcomeeng/spx#266`](https://github.com/outcomeeng/spx/pull/266#issuecomment-4786938639)
-identified that `src/lib/node-status/provider.ts` and
-`src/lib/node-status/update.ts` each define an `isNodeExcluded` helper with the
-same body. The helpers operate on different spec-tree node entry types, but both
-types expose the same `ref?.path` shape used for EXCLUDE membership.
-
-**Impact:** Future changes to EXCLUDE matching semantics would need coordinated
-edits in both read-back and update paths.
-
-**Resolution:** Extract a shared helper inside the node-status library when
-changing EXCLUDE handling or the node-status provider/update boundary.
-
-**Skills:** `spec-tree:apply`, `typescript:code-typescript`,
-`typescript:test-typescript`, `typescript:audit-typescript-tests`, and
-`typescript:audit-typescript`.
