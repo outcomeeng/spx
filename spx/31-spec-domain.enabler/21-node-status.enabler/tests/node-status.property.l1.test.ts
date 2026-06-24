@@ -29,6 +29,24 @@ describe("node-status writer output", () => {
     );
   });
 
+  it("preserves every mechanism and evidence reference across parse and serialize", () => {
+    fc.assert(
+      fc.property(NODE_STATUS_TEST_GENERATOR.verification(), (verification) => {
+        const serialized = serializeNodeStatus(createNodeStatusFile(verification));
+        const parsed = parseNodeStatusFile(JSON.parse(serialized), "generated-status");
+
+        expect(Object.keys(parsed.verification).length).toBeGreaterThan(1);
+        for (const mechanism of Object.values(parsed.verification)) {
+          expect(Object.keys(mechanism).filter((key) => key !== NODE_STATUS_FIELD.OVERALL).length).toBeGreaterThan(1);
+        }
+        expect(parsed).toEqual({
+          schemaVersion: NODE_STATUS_SCHEMA_VERSION,
+          verification,
+        });
+      }),
+    );
+  });
+
   it("rejects nonconforming status JSON", () => {
     expect(() =>
       parseNodeStatusFile({ [NODE_STATUS_FIELD.SCHEMA_VERSION]: 2, [NODE_STATUS_FIELD.VERIFICATION]: {} }, "bad-status")

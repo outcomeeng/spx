@@ -3,10 +3,11 @@ import * as fc from "fast-check";
 import type {
   NodeClassificationFacts,
   NodeStatusEvidenceOutcome,
-  NodeStatusMechanismOverall,
   NodeStatusMechanismRecord,
   NodeStatusVerification,
+  NodeStatusVerificationMechanism,
 } from "@/lib/node-status";
+import { createNodeStatusMechanismRecord, NODE_STATUS_VERIFICATION_MECHANISM } from "@/lib/node-status";
 import { KIND_REGISTRY } from "@/lib/spec-tree/config";
 
 const NODE_STATUS_GENERATOR_OPTIONS = {
@@ -23,17 +24,12 @@ const CONSULTATION_CLASS_COUNT = 3;
 const STATUS_REFERENCE_MODES = ["scenario", "mapping", "property", "compliance", "conformance"] as const;
 const STATUS_REFERENCE_LEVELS = ["l1", "l2", "l3"] as const;
 const STATUS_REFERENCE_NAME_PATTERN = /^[a-z][a-z0-9-]{2,12}$/;
-const STATUS_FIELD_OVERALL = "overall";
-const STATUS_VERIFICATION_MECHANISM_TEST = "test";
+const STATUS_VERIFICATION_MECHANISMS = Object.values(NODE_STATUS_VERIFICATION_MECHANISM);
 const STATUS_EVIDENCE_OUTCOMES = [
   "passed",
   "failed",
   "not-run",
 ] as const satisfies readonly NodeStatusEvidenceOutcome[];
-const STATUS_MECHANISM_OVERALL_PASSED = "passed" satisfies NodeStatusMechanismOverall;
-const STATUS_MECHANISM_OVERALL_FAILED = "failed" satisfies NodeStatusMechanismOverall;
-const STATUS_MECHANISM_OVERALL_PARTIAL = "partial" satisfies NodeStatusMechanismOverall;
-const STATUS_MECHANISM_OVERALL_NOT_RUN = "not-run" satisfies NodeStatusMechanismOverall;
 const SLUG_PATTERN = new RegExp(
   `^[a-z][a-z0-9-]{${NODE_STATUS_GENERATOR_OPTIONS.SLUG_MIN_LENGTH - 1},${
     NODE_STATUS_GENERATOR_OPTIONS.SLUG_MAX_LENGTH - 1
@@ -62,6 +58,7 @@ export const NODE_STATUS_TEST_GENERATOR = {
   delegationTree: arbitraryDelegationTree,
   statusReference: arbitraryStatusReference,
   evidenceOutcome: arbitraryEvidenceOutcome,
+  verification: arbitraryVerification,
 } as const;
 
 export function sampleNodeStatusValue<T>(arbitrary: fc.Arbitrary<T>): T {
@@ -77,17 +74,22 @@ export function arbitraryNodeClassificationFacts(): fc.Arbitrary<NodeClassificat
     .record({
       hasVerificationReferences: fc.boolean(),
       isExcluded: fc.boolean(),
-      reference: arbitraryStatusReference(),
-      outcome: arbitraryEvidenceOutcome(),
+      verification: arbitraryVerification(),
     })
-    .map(({ hasVerificationReferences, isExcluded, reference, outcome }): NodeClassificationFacts => {
-      const verification: NodeStatusVerification = hasVerificationReferences
-        ? {
-          [STATUS_VERIFICATION_MECHANISM_TEST]: independentMechanismRecord({ [reference]: outcome }),
-        }
-        : {};
+    .map(({ hasVerificationReferences, isExcluded, verification }): NodeClassificationFacts => {
       return { hasVerificationReferences, isExcluded, verification };
     });
+}
+
+export function arbitraryVerification(): fc.Arbitrary<NodeStatusVerification> {
+  return fc
+    .uniqueArray(fc.constantFrom(...STATUS_VERIFICATION_MECHANISMS), { minLength: 2, maxLength: 3 })
+    .chain((mechanisms) =>
+      fc.tuple(
+        ...mechanisms.map((mechanism) => arbitraryMechanismRecord().map((record) => [mechanism, record] as const)),
+      )
+    )
+    .map(verificationFromEntries);
 }
 
 // Human-readable lowercase slugs (e.g. "node-a3"), mirroring the spec-tree
@@ -110,6 +112,17 @@ function arbitraryStatusReference(): fc.Arbitrary<string> {
 
 function arbitraryEvidenceOutcome(): fc.Arbitrary<NodeStatusEvidenceOutcome> {
   return fc.constantFrom(...STATUS_EVIDENCE_OUTCOMES);
+}
+
+function arbitraryMechanismRecord(): fc.Arbitrary<NodeStatusMechanismRecord> {
+  return fc
+    .uniqueArray(arbitraryStatusReference(), { minLength: 2, maxLength: 4 })
+    .chain((references) =>
+      fc.tuple(
+        ...references.map((reference) => arbitraryEvidenceOutcome().map((outcome) => [reference, outcome] as const)),
+      )
+    )
+    .map((entries) => createNodeStatusMechanismRecord(outcomesFromEntries(entries)));
 }
 
 export function arbitraryClassificationTree(): fc.Arbitrary<ClassificationTreeFixture> {
@@ -180,22 +193,22 @@ function delegationNode(
     }));
 }
 
-function independentMechanismRecord(
-  outcomes: Readonly<Record<string, NodeStatusEvidenceOutcome>>,
-): NodeStatusMechanismRecord {
-  return {
-    [STATUS_FIELD_OVERALL]: independentMechanismOverall(outcomes),
-    ...outcomes,
-  };
+function outcomesFromEntries(
+  entries: readonly (readonly [string, NodeStatusEvidenceOutcome])[],
+): Record<string, NodeStatusEvidenceOutcome> {
+  const outcomes: Record<string, NodeStatusEvidenceOutcome> = {};
+  for (const [reference, outcome] of entries) {
+    outcomes[reference] = outcome;
+  }
+  return outcomes;
 }
 
-function independentMechanismOverall(
-  outcomes: Readonly<Record<string, NodeStatusEvidenceOutcome>>,
-): NodeStatusMechanismOverall {
-  const values = Object.values(outcomes);
-  if (values.length === 0) return STATUS_MECHANISM_OVERALL_NOT_RUN;
-  if (values.some((outcome) => outcome === "failed")) return STATUS_MECHANISM_OVERALL_FAILED;
-  if (values.every((outcome) => outcome === "passed")) return STATUS_MECHANISM_OVERALL_PASSED;
-  if (values.every((outcome) => outcome === "not-run")) return STATUS_MECHANISM_OVERALL_NOT_RUN;
-  return STATUS_MECHANISM_OVERALL_PARTIAL;
+function verificationFromEntries(
+  entries: readonly (readonly [NodeStatusVerificationMechanism, NodeStatusMechanismRecord])[],
+): NodeStatusVerification {
+  const verification: Partial<Record<NodeStatusVerificationMechanism, NodeStatusMechanismRecord>> = {};
+  for (const [mechanism, record] of entries) {
+    verification[mechanism] = record;
+  }
+  return verification;
 }
