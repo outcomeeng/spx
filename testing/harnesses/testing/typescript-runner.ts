@@ -1,5 +1,5 @@
 import { execa } from "execa";
-import { copyFile } from "node:fs/promises";
+import { copyFile, mkdir } from "node:fs/promises";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 
@@ -61,4 +61,14 @@ export function withTempVitestProject(
     await copyFile(join(VITEST_FIXTURE_DIR, fixture), join(projectRoot, COPIED_SUITE_NAME));
     await callback(projectRoot);
   });
+}
+
+export async function writeVitestFixture(
+  productDir: string,
+  relativePath: string,
+  fixture: VitestFixture,
+): Promise<void> {
+  const target = join(productDir, relativePath);
+  await mkdir(dirname(target), { recursive: true });
+  await copyFile(join(VITEST_FIXTURE_DIR, fixture), target);
 }

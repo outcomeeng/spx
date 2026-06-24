@@ -7,6 +7,7 @@
       "spx/36-session.enabler/87-session-pick.enabler/tests/picker-cli.compliance.l2.test.ts": "passed",
       "spx/36-session.enabler/87-session-pick.enabler/tests/picker-model.mapping.l1.test.ts": "passed",
       "spx/36-session.enabler/87-session-pick.enabler/tests/picker-model.property.l1.test.ts": "passed",
+      "spx/36-session.enabler/87-session-pick.enabler/tests/picker-render.property.l1.test.ts": "passed",
       "spx/36-session.enabler/87-session-pick.enabler/tests/picker-render.scenario.l1.test.ts": "passed",
       "spx/36-session.enabler/87-session-pick.enabler/tests/run-picker.scenario.l1.test.ts": "passed"
     }
