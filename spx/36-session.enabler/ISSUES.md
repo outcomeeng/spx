@@ -1,32 +1,14 @@
 # Open Issues
 
-## Formatter baseline outside session rollout
-
-`pnpm run format:check` failed on May 20, 2026 after `pnpm run validate` and `pnpm test` passed. The failure is a formatter baseline outside the session frontmatter rollout, not a validation-gate failure.
-
-Observed command:
-
-```bash
-pnpm run format:check
-```
-
-Reported files outside this rollout included:
-
-- `pnpm-lock.yaml`
-- `spx/15-worktree-management.pdr.md`
-- `spx/16-config.enabler/PLAN.md`
-
-Resolution condition: run the repository formatter in a dedicated formatting cleanup, keep the resulting diff isolated from behavior changes, and then remove this entry.
-
 ## Handoff re-derives git state in two places
 
-`handoffCommand` resolves the same git state twice for one `cwd`: `resolveSessionConfig` calls `detectGitCommonDirProductRoot` (`rev-parse --show-toplevel` + `--git-common-dir`) to locate the sessions directory, and `resolveSessionGitRef` also calls `detectGitCommonDirProductRoot` (the same `--show-toplevel` + `--git-common-dir` reads) to derive the worktree roots for the handoff-base gate.
+`handoffCommand` still resolves repository state through two independent paths for one `cwd`: `resolveSessionConfig` calls `resolveSessionsScopeDir`, which calls `detectGitCommonDirProductRoot` (`git rev-parse --show-toplevel` + `--git-common-dir`) to locate `.spx/sessions`, while `resolveSessionGitRef` separately calls `gatherGitFacts` plus branch/head probes to evaluate the handoff-base gate.
 
-Observed in PR review of the session-frontmatter implementation.
+Observed while reconciling coordination notes on June 25, 2026.
 
-Impact: every `spx session handoff` issues two redundant git subprocess pairs on a hot path.
+Impact: every `spx session handoff` repeats repository-root discovery work before it writes the session file. The handoff-base resolver now gathers its own facts in one path, but the session-store location and handoff-base gate still do not share a single repository fact packet.
 
-Resolution condition: gather the toplevel and common-dir once and share the result between session-directory resolution and the handoff-base gate.
+Resolution condition: gather the worktree root, common git directory, branch, and head facts once for `handoffCommand`, then feed that packet to both session-directory resolution and the handoff-base gate.
 
 ## Cross-product session injection mechanics are underspecified
 

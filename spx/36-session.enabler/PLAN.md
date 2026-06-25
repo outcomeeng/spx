@@ -1,25 +1,6 @@
 # PLAN
 
-## Plan B — Completed literal-reuse paydown for the session subtree
-
-### Why this plan exists
-
-The eslint test-owned-constant paydown for `spx/36-session.enabler` is complete and committed on `work/session-lint-debt-pr3` (all eight children clean; the four eslint debt-manifest entries removed). Removing the `spx/36-session.enabler/` path exclusion from `spx.config.yaml` then surfaced a second, larger debt class the eslint-only survey never counted: `spx validation literal` reported **318 cross-file literal-reuse findings** (153 `[dupe]` + 160 `[reuse]`) across ~32 test files. That paydown is now complete, and the session subtree is no longer excluded from validation.
-
-The keystone is built: `src/interfaces/cli/session/definition.ts` exports a semantic `sessionCliDefinition` registry (domain, subcommands with operands, options) plus `sessionCommandToken`/`sessionOptionToken`, and `src/interfaces/cli/session.ts` builds the Commander descriptor from it (no inline command/option literals remain).
-
-### Completed work
-
-1. **Session tests route CLI tokens through the registry.** Session CLI-token literals (`"session"`, `"--sessions-dir"`, `"list"`, `"pickup"`, `"handoff"`, and related verbs/options) now use the `sessionCliDefinition` registry in the session CLI test surfaces that need command grammar.
-2. **Other literal categories are source-owned or generated.** Session IDs use session generators, status and priority tokens use `SESSION_STATUSES` / `SESSION_PRIORITY`, file encoding uses source-owned encoding, and fixture-like values use generated inputs or source-owned helpers.
-3. **The session subtree exclusion is removed from `spx.config.yaml`.** The current config excludes `.work/` and `spx/46-claude.outcome/`; it no longer excludes `spx/36-session.enabler/`.
-4. **Literal validation is clean for the session subtree.** `tsx src/cli.ts validation literal --files spx/36-session.enabler --json` returns `{"srcReuse":[],"testDupe":[]}` on the synced base.
-
-### Method that worked this session
-
-Work by value/category, not file-by-file — fixing one source-owned token clears many findings at once. Survey current findings with `tsx src/cli.ts validation literal | grep spx/36-session.enabler`; the eslint survey was `npx eslint . --config eslint.config.ts --format json` filtered to the subtree (the `pnpm run lint` gate hides it via the path exclusion). Commit per coherent slice; the Lefthook pre-commit runs the staged-file tests.
-
-## Plan A — Wire the spx CLI half of the session-scope accumulator
+## Wire the spx CLI half of the session-scope accumulator
 
 ### Why this plan exists
 
@@ -31,7 +12,11 @@ The spec-tree plugin now specifies `.spx/sessions/$CLAUDE_SESSION_ID/` (or `$COD
 
 The corresponding `spx` CLI changes have not landed. Until they do, the filesystem source is empty on every runtime, the algorithm falls through to marker-based scope recovery, and context compaction still risks dropping scope — the exact failure mode this work eliminates.
 
-This plan hands the CLI implementation off to an agent working in `~/Code/outcomeeng/spx/`.
+This plan keeps the CLI half of the accumulator under the session enabler. The owning nodes are:
+
+- `spx/36-session.enabler/65-session-claim.enabler` for pickup-side symlink creation.
+- `spx/36-session.enabler/54-session-retention.enabler` for archive-side symlink cleanup.
+- `spx/36-session.enabler/32-session-identity.enabler` for the reusable runtime-id resolver.
 
 ### Target behavior
 
@@ -72,34 +57,34 @@ Relative symlink is deliberate — absolute paths break when the repo is checked
 
 #### Step 1 — Spec the new behavior
 
-**Target node**: `spx/41-validation.enabler/21-validation-cli.enabler/` already hosts the CLI dispatch spec. The session subcommands live under a different enabler — confirm by `/contextualizing spx/` in the `spx` repo on first entry.
-
-1. Invoke `/contextualizing` on the target enabler under the `spx` repo's spec tree. Resolve the authoritative node.
-2. Amend the spec to declare the two new assertions (pickup-creates-symlink, archive-removes-symlink) plus the per-session-dir scanning rule.
-3. **Audit gate**: run `/auditing-product-decisions` on any PDR changes and `/aligning` across the affected subtree.
+1. Invoke `/contextualize spx/36-session.enabler/65-session-claim.enabler` before changing pickup behavior.
+2. Invoke `/contextualize spx/36-session.enabler/54-session-retention.enabler` before changing archive behavior.
+3. Invoke `/contextualize spx/36-session.enabler/32-session-identity.enabler` before moving or changing runtime-id resolution.
+4. Amend the owning specs to declare pickup-side symlink creation, archive-side symlink cleanup, and shared runtime-id resolution. If the shared accumulator invariant needs a parent-level statement, amend `spx/36-session.enabler/session.md` in the same changeset.
+5. **Audit gate**: run the spec and alignment audits for the changed session subtree before implementation.
 
 #### Step 2 — Tests first (TDD)
 
-Per the spx repo's test-language ADR (TypeScript + Vitest), write tests in the target node's `tests/` directory following `<subject>.<evidence>.<level>[.<runner>].test.ts`:
+Per the product's test-language ADR (TypeScript + Vitest), write tests in the owning node `tests/` directories following `<subject>.<evidence>.<level>[.<runner>].test.ts`:
 
-- `pickup.scenario.l1.test.ts` — claim-then-inspect-symlink round-trip; $CLAUDE_SESSION_ID and $CODEX_THREAD_ID paths; neither-set degraded path.
-- `archive.scenario.l1.test.ts` — archive-removes-own-symlink; archive-removes-cross-runtime-symlink (simulate second runtime directory); archive-of-untracked-id (no symlink exists).
-- `accumulator.property.l1.test.ts` — property: for any sequence of pickup(id_i) and archive(id_i) operations with a fixed runtime id, the set `{readlink(S) for S in .spx/sessions/$RUNTIME_ID/}` equals the set of picked-up-but-not-yet-archived ids.
-- `symlink-recovery.scenario.l1.test.ts` — pre-existing dangling symlink with a newly-claimed matching id; crash-between-move-and-symlink recovery.
+- `spx/36-session.enabler/65-session-claim.enabler/tests/session-claim.scenario.l1.test.ts` — claim-then-inspect-symlink round-trip; `$CLAUDE_SESSION_ID` and `$CODEX_THREAD_ID` paths; neither-set degraded path.
+- `spx/36-session.enabler/54-session-retention.enabler/tests/session-retention.scenario.l1.test.ts` — archive-removes-own-symlink; archive-removes-cross-runtime-symlink by simulating a second runtime directory; archive-of-untracked-id when no symlink exists.
+- `spx/36-session.enabler/65-session-claim.enabler/tests/session-claim.property.l1.test.ts` or a parent-level session property test — for any sequence of pickup and archive operations with a fixed runtime id, the set `{readlink(S) for S in .spx/sessions/$RUNTIME_ID/}` equals the set of picked-up-but-not-yet-archived ids.
+- `spx/36-session.enabler/65-session-claim.enabler/tests/session-claim.scenario.l1.test.ts` — pre-existing dangling symlink with a newly-claimed matching id; crash-between-move-and-symlink recovery.
 
-**Audit gate**: run `/auditing-tests` (via `/spec-tree:test-evidence-auditor` agent) to confirm coupling, falsifiability, alignment, coverage. Every new test must pass the 4-property evidence check.
+**Audit gate**: dispatch the test-evidence auditor to confirm coupling, falsifiability, alignment, and coverage. Every new test must pass the 4-property evidence check.
 
 #### Step 3 — Implementation
 
-- `src/commands/session/pickup.ts` (or wherever the handler lives) — add the resolve-runtime-id + mkdir -p + ln -sfn after the existing move.
+- `src/commands/session/pickup.ts` — add the resolve-runtime-id + mkdir -p + ln -sfn step after the existing move.
 - `src/commands/session/archive.ts` — add the scan-and-unlink step before the existing move.
-- Factor the runtime-id resolution into a helper under `src/lib/` so other session commands can reuse it without duplicating env-var priority logic.
+- Reuse or extend `src/domains/session/agent-session.ts` for runtime-id resolution instead of duplicating the `$CLAUDE_SESSION_ID` / `$CODEX_THREAD_ID` priority logic.
 
-**Audit gate**: `spx validation all` in the spx repo after each file. Zero new findings.
+**Audit gate**: run the current local validation gate and the focused session tests that cover the edited nodes. Zero new findings.
 
 #### Step 4 — End-to-end verification in the marketplace repo
 
-Return to `~/Code/outcomeeng/plugins/`. Install the updated `spx` via `pnpm link`. Then:
+Return to `~/Code/outcomeeng/plugins/` only for the cross-product verification step. Install or point that repository at the updated `spx` build through the product's current local workflow. Then:
 
 1. In a fresh conversation, `/pickup` some test session. Verify `.spx/sessions/$CLAUDE_SESSION_ID/<id>.md` exists as a symlink pointing at `../doing/<id>.md`.
 2. `/handoff`. Confirm workflow 04 resolves scope from the filesystem (the verdict output should name the symlink's id) and the symlink is removed after `spx session archive`.
@@ -108,11 +93,12 @@ Return to `~/Code/outcomeeng/plugins/`. Install the updated `spx` via `pnpm link
 
 ### Touch points in the marketplace repo
 
-Nothing else to change here. The plugin-side contract is already merged. If the spx agent finds a drift between what this PLAN.md describes and what `references/scope-resolution.md` prescribes, the `references/scope-resolution.md` is authoritative — update this PLAN.md, not the reference.
+Nothing else to change here. The plugin-side contract is already merged. If a future implementation pass finds a drift between what this PLAN.md describes and what `references/scope-resolution.md` prescribes, the `references/scope-resolution.md` is authoritative — update this PLAN.md, not the reference.
 
 ### Pointers
 
 - Marketplace commit implementing the plugin-side contract: `ad7d696`
 - Authoritative algorithm: `plugins/spec-tree/skills/handoff/references/scope-resolution.md` (in the sibling `outcomeeng/plugins` repo)
 - SessionStart hook (lazy-create expectation): `plugins/spec-tree/bin/session-start` (in the sibling `outcomeeng/plugins` repo)
-- Current spx session command handlers (paths observed during plan drafting; confirm on entry): `src/commands/session/pickup.ts`, `src/commands/session/archive.ts`, `src/domains/session/index.ts`
+- Current session command handlers: `src/commands/session/pickup.ts`, `src/commands/session/archive.ts`
+- Current runtime identity helper: `src/domains/session/agent-session.ts`
