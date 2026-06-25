@@ -137,6 +137,7 @@ export function withGitEnv<T>(
 ): Promise<T> {
   return withTempDir("spx-git-test-", async (tempDir) => {
     const precommitRelativePath = relative(PRODUCT_ROOT, PRECOMMIT_PATH);
+    const configDomainRelativePath = "src/domains/config";
 
     // Symlink project config files (ensures tests verify ACTUAL configuration)
     const filesToSymlink = [
@@ -159,6 +160,11 @@ export function withGitEnv<T>(
     await symlink(
       join(PRECOMMIT_PATH),
       join(tempDir, precommitRelativePath),
+    );
+    await mkdir(join(tempDir, dirname(configDomainRelativePath)), { recursive: true });
+    await symlink(
+      join(PRODUCT_ROOT, configDomainRelativePath),
+      join(tempDir, configDomainRelativePath),
     );
 
     // Initialize git repo
