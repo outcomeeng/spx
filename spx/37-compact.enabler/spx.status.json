@@ -3,6 +3,7 @@
   "verification": {
     "test": {
       "overall": "passed",
+      "spx/37-compact.enabler/tests/compact-cli-io.scenario.l1.test.ts": "passed",
       "spx/37-compact.enabler/tests/compact-cli.scenario.l2.test.ts": "passed",
       "spx/37-compact.enabler/tests/compact.scenario.l1.test.ts": "passed"
     }
