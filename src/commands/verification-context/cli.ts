@@ -1,4 +1,4 @@
-import { isAbsolute, normalize } from "node:path";
+import { isAbsolute, normalize, win32 } from "node:path";
 
 import {
   createVerificationContextDocument,
@@ -37,6 +37,8 @@ export const VERIFICATION_CONTEXT_CLI_ERROR = {
 const MISSING_HEAD_SHA_FALLBACK = "unknown";
 export const VERIFICATION_CONTEXT_FILE_SUBJECT_PATH = {
   PARENT_DIRECTORY_SEGMENT: "..",
+  PARENT_DIRECTORY_POSIX_PREFIX: "../",
+  PARENT_DIRECTORY_WINDOWS_PREFIX: "..\\",
 } as const;
 
 export interface VerificationContextCliResult {
@@ -63,7 +65,8 @@ export interface VerificationContextCreateCliOptions {
 }
 
 interface VerificationContextCommandScope {
-  readonly productDir: string;
+  readonly storageProductDir: string;
+  readonly launchProductDir: string;
   readonly branchSlug: string;
   readonly branchIdentity: string;
   readonly headSha: string;
@@ -81,7 +84,8 @@ async function resolveCommandScope(deps: VerificationContextCliDeps): Promise<Ve
     headSha,
   });
   return {
-    productDir: product.productDir,
+    storageProductDir: product.productDir,
+    launchProductDir: product.worktreeRoot,
     branchSlug: slugBranchIdentity(branchIdentity),
     branchIdentity,
     headSha,
@@ -100,8 +104,10 @@ function normalizeFileSubjectPath(path: string): string | undefined {
   const normalized = normalize(path);
   if (
     isAbsolute(path)
+    || win32.isAbsolute(path)
     || normalized === VERIFICATION_CONTEXT_FILE_SUBJECT_PATH.PARENT_DIRECTORY_SEGMENT
-    || normalized.startsWith(`${VERIFICATION_CONTEXT_FILE_SUBJECT_PATH.PARENT_DIRECTORY_SEGMENT}/`)
+    || normalized.startsWith(VERIFICATION_CONTEXT_FILE_SUBJECT_PATH.PARENT_DIRECTORY_POSIX_PREFIX)
+    || normalized.startsWith(VERIFICATION_CONTEXT_FILE_SUBJECT_PATH.PARENT_DIRECTORY_WINDOWS_PREFIX)
   ) {
     return undefined;
   }
@@ -144,7 +150,7 @@ export async function verificationContextCreateCommand(
     predicate: options.predicate,
     workflow: { name: options.workflow },
     launch: {
-      productDir: scope.productDir,
+      productDir: scope.launchProductDir,
       branchSlug: scope.branchSlug,
       branchIdentity: scope.branchIdentity,
       headSha: scope.headSha,
@@ -154,7 +160,7 @@ export async function verificationContextCreateCommand(
   });
   if (!document.ok) return errorResult(document.error);
   const persisted = await persistVerificationContext(
-    { productDir: scope.productDir, branchSlug: scope.branchSlug, digest: document.value.digest },
+    { productDir: scope.storageProductDir, branchSlug: scope.branchSlug, digest: document.value.digest },
     document.value,
     { ...(deps.fs === undefined ? {} : { fs: deps.fs }) },
   );
