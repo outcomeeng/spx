@@ -27,7 +27,7 @@ CAN inspect the resolved configuration, verify that the product `spx.config.*` f
 
 ### Compliance
 
-- ALWAYS: `productDir` passed to `resolveConfig` is derived from `git rev-parse --show-toplevel` when the current working directory is inside a git worktree, falling back to `process.cwd()` with a stderr warning otherwise — matches PDR-15 for tracked-file reads ([test](tests/root-resolution.compliance.l1.test.ts))
+- ALWAYS: `productDir` passed to `resolveConfig` is derived from `git rev-parse --show-toplevel` when the effective invocation directory is inside a git worktree, falling back to that effective invocation directory with a stderr warning otherwise; the effective invocation directory is the `-C <path>` target when present and `process.cwd()` when absent, per `spx/15-worktree-management.pdr.md` ([test](tests/root-resolution.compliance.l1.test.ts))
 - ALWAYS: command output to stdout is reserved for the resolved Config (or validation success line); errors and diagnostics route to stderr ([test](tests/invariants.compliance.l1.test.ts))
 - NEVER: handlers write to the filesystem, spawn subprocesses, mutate `process.env`, or call `process.exit` — handlers return a `CliResult` and the registration layer owns process effects ([test](tests/invariants.compliance.l1.test.ts))
 - NEVER: hardcode descriptor section names or vocabulary outside descriptor modules — the CLI iterates the registry and uses `descriptor.section` / `descriptor.defaults` exclusively ([review])
