@@ -38,11 +38,20 @@ import { buildPickupCommand, pickupReference } from "@/domains/session/pick-mode
 import { SESSION_FILE_ENCODING, SESSION_STATUSES } from "@/domains/session/types";
 import type { Domain } from "@/domains/types";
 import { toMessage } from "@/lib/error-message";
+import type { CliInvocation } from "@/interfaces/cli/product-context";
 import { foregroundProcessRunner, lifecycleSignalSuspender } from "@/lib/process-lifecycle";
 import { launchAgent } from "./session/pick/launch-agent";
 import { PICK_NON_TTY_MESSAGE, runPicker } from "./session/pick/run-picker";
 
-import { writeWarning } from "./write-warning";
+export const SESSION_CLI = {
+  commandName: "session",
+  commands: {
+    list: "list",
+  },
+  flags: {
+    json: "--json",
+  },
+} as const;
 
 /**
  * Reads content from stdin if available (piped input).
@@ -73,9 +82,30 @@ async function readStdin(): Promise<string | undefined> {
 /**
  * Handles command errors with consistent formatting.
  */
-function handleError(error: unknown): never {
-  console.error("Error:", error instanceof Error ? `${error.name}: ${error.message}` : toMessage(error));
-  process.exit(1);
+function writeOutput(invocation: CliInvocation, output: string): void {
+  invocation.io.writeStdout(`${output}\n`);
+}
+
+function writeError(invocation: CliInvocation, output: string): void {
+  invocation.io.writeStderr(`${output}\n`);
+}
+
+function writeInvocationWarning(invocation: CliInvocation, warning: string | undefined): void {
+  if (warning !== undefined) {
+    writeError(invocation, warning);
+  }
+}
+
+function formatError(error: unknown): string {
+  if (error instanceof Error) {
+    return `${error.name}: ${error.message}`;
+  }
+  return toMessage(error);
+}
+
+function handleError(invocation: CliInvocation, error: unknown): never {
+  writeError(invocation, `Error: ${formatError(error)}`);
+  return invocation.io.exit(1);
 }
 
 /** Maps Commander's tri-state `--color`/`--no-color` option to a `ColorFlag`. */
@@ -130,7 +160,9 @@ function addSessionOptions(command: Command, options: readonly SessionOptionDefi
  *
  * @param sessionCmd - Commander.js session domain command
  */
-function registerSessionCommands(sessionCmd: Command): void {
+function registerSessionCommands(sessionCmd: Command, invocation: CliInvocation): void {
+  const effectiveInvocationDir = (): string => invocation.resolveEffectiveInvocationDir();
+
   // list command
   addSessionOptions(
     sessionCmd
@@ -148,11 +180,12 @@ function registerSessionCommands(sessionCmd: Command): void {
             color: resolveListColorDecision(options.color),
             width: resolveListWidth(),
             sessionsDir: options.sessionsDir,
-            onWarning: writeWarning,
+            cwd: effectiveInvocationDir(),
+            onWarning: (warning) => writeInvocationWarning(invocation, warning),
           });
-          console.log(output);
+          writeOutput(invocation, output);
         } catch (error) {
-          handleError(error);
+          handleError(invocation, error);
         }
       },
     );
@@ -170,12 +203,13 @@ function registerSessionCommands(sessionCmd: Command): void {
         // The picker needs a real terminal; refuse a non-interactive context
         // rather than render to a non-TTY stream.
         if (!process.stdin.isTTY || !process.stdout.isTTY) {
-          console.error(PICK_NON_TTY_MESSAGE);
-          process.exit(1);
+          writeError(invocation, PICK_NON_TTY_MESSAGE);
+          invocation.io.exit(1);
         }
         const sessions = await loadPickCandidates({
           sessionsDir: options.sessionsDir,
-          onWarning: writeWarning,
+          cwd: effectiveInvocationDir(),
+          onWarning: (warning) => writeInvocationWarning(invocation, warning),
         });
         const choice = await runPicker(sessions);
         if (choice !== null) {
@@ -183,13 +217,13 @@ function registerSessionCommands(sessionCmd: Command): void {
           // then exit with the agent's status. With the default store the agent
           // resolves the id; with a custom store it is given the session's path
           // made absolute against the working directory so the agent can reach it.
-          const reference = pickupReference(choice.session, options.sessionsDir, process.cwd());
+          const reference = pickupReference(choice.session, options.sessionsDir, effectiveInvocationDir());
           const command = buildPickupCommand(choice.runtime, choice.autoContinue, reference);
           const code = await launchAgent(foregroundProcessRunner, lifecycleSignalSuspender, command);
-          process.exit(code);
+          invocation.io.exit(code);
         }
       } catch (error) {
-        handleError(error);
+        handleError(invocation, error);
       }
     });
 
@@ -209,11 +243,12 @@ function registerSessionCommands(sessionCmd: Command): void {
           color: resolveListColorDecision(options.color),
           width: resolveListWidth(),
           sessionsDir: options.sessionsDir,
-          onWarning: writeWarning,
+          cwd: effectiveInvocationDir(),
+          onWarning: (warning) => writeInvocationWarning(invocation, warning),
         });
-        console.log(output);
+        writeOutput(invocation, output);
       } catch (error) {
-        handleError(error);
+        handleError(invocation, error);
       }
     });
 
@@ -230,11 +265,12 @@ function registerSessionCommands(sessionCmd: Command): void {
           sessionIds: ids,
           format: options.json ? SESSION_LIST_FORMAT.JSON : SESSION_LIST_FORMAT.TEXT,
           sessionsDir: options.sessionsDir,
-          onWarning: writeWarning,
+          cwd: effectiveInvocationDir(),
+          onWarning: (warning) => writeInvocationWarning(invocation, warning),
         });
-        console.log(output);
+        writeOutput(invocation, output);
       } catch (error) {
-        handleError(error);
+        handleError(invocation, error);
       }
     });
 
@@ -249,20 +285,20 @@ function registerSessionCommands(sessionCmd: Command): void {
     .action(async (ids: string[], options: { auto?: boolean; inject?: boolean; sessionsDir?: string }) => {
       try {
         if (ids.length === 0 && !options.auto) {
-          console.error("Error: Either session ID or --auto flag is required");
-          process.exit(1);
+          writeError(invocation, "Error: Either session ID or --auto flag is required");
+          invocation.io.exit(1);
         }
         const output = await pickupCommand({
           sessionIds: ids,
           auto: options.auto,
-          cwd: process.cwd(),
           noInject: options.inject === false,
           sessionsDir: options.sessionsDir,
-          onWarning: writeWarning,
+          cwd: effectiveInvocationDir(),
+          onWarning: (warning) => writeInvocationWarning(invocation, warning),
         });
-        console.log(output);
+        writeOutput(invocation, output);
       } catch (error) {
-        handleError(error);
+        handleError(invocation, error);
       }
     });
 
@@ -278,11 +314,12 @@ function registerSessionCommands(sessionCmd: Command): void {
         const output = await releaseCommand({
           sessionIds: ids,
           sessionsDir: options.sessionsDir,
-          onWarning: writeWarning,
+          cwd: effectiveInvocationDir(),
+          onWarning: (warning) => writeInvocationWarning(invocation, warning),
         });
-        console.log(output);
+        writeOutput(invocation, output);
       } catch (error) {
-        handleError(error);
+        handleError(invocation, error);
       }
     });
 
@@ -304,22 +341,23 @@ function registerSessionCommands(sessionCmd: Command): void {
         const result = await handoffCommand({
           content,
           sessionsDir: options.sessionsDir,
+          cwd: effectiveInvocationDir(),
           env: process.env,
         });
-        console.log(result.output);
+        writeOutput(invocation, result.output);
       } catch (error) {
         if (error instanceof SessionHandoffBaseError) {
           // A non-main-checkout refusal renders the prerequisite checklist; a
           // non-git base refuses silently; any other git refusal writes the
           // message as a plain diagnostic.
           if (error.checklist !== null) {
-            console.error(renderHandoffBaseChecklist(error.checklist));
+            writeError(invocation, renderHandoffBaseChecklist(error.checklist));
           } else if (!error.silent) {
-            console.error("Error:", `${error.name}: ${error.message}`);
+            writeError(invocation, `Error: ${error.name}: ${error.message}`);
           }
-          process.exit(1);
+          invocation.io.exit(1);
         }
-        handleError(error);
+        handleError(invocation, error);
       }
     });
 
@@ -335,11 +373,12 @@ function registerSessionCommands(sessionCmd: Command): void {
         const output = await deleteCommand({
           sessionIds: ids,
           sessionsDir: options.sessionsDir,
-          onWarning: writeWarning,
+          cwd: effectiveInvocationDir(),
+          onWarning: (warning) => writeInvocationWarning(invocation, warning),
         });
-        console.log(output);
+        writeOutput(invocation, output);
       } catch (error) {
-        handleError(error);
+        handleError(invocation, error);
       }
     });
 
@@ -357,15 +396,16 @@ function registerSessionCommands(sessionCmd: Command): void {
           keep,
           dryRun: options.dryRun,
           sessionsDir: options.sessionsDir,
-          onWarning: writeWarning,
+          cwd: effectiveInvocationDir(),
+          onWarning: (warning) => writeInvocationWarning(invocation, warning),
         });
-        console.log(output);
+        writeOutput(invocation, output);
       } catch (error) {
         if (error instanceof PruneValidationError) {
-          console.error("Error:", error.message);
-          process.exit(1);
+          writeError(invocation, `Error: ${error.message}`);
+          invocation.io.exit(1);
         }
-        handleError(error);
+        handleError(invocation, error);
       }
     });
 
@@ -381,15 +421,16 @@ function registerSessionCommands(sessionCmd: Command): void {
         const output = await archiveCommand({
           sessionIds: ids,
           sessionsDir: options.sessionsDir,
-          onWarning: writeWarning,
+          cwd: effectiveInvocationDir(),
+          onWarning: (warning) => writeInvocationWarning(invocation, warning),
         });
-        console.log(output);
+        writeOutput(invocation, output);
       } catch (error) {
         if (error instanceof SessionAlreadyArchivedError) {
-          console.error("Error:", error.message);
-          process.exit(1);
+          writeError(invocation, `Error: ${error.message}`);
+          invocation.io.exit(1);
         }
-        handleError(error);
+        handleError(invocation, error);
       }
     });
 }
@@ -400,12 +441,12 @@ function registerSessionCommands(sessionCmd: Command): void {
 export const sessionDomain: Domain = {
   name: sessionCliDefinition.domain.commandName,
   description: sessionCliDefinition.domain.description,
-  register: (program: Command) => {
+  register: (program: Command, invocation: CliInvocation) => {
     const sessionCmd = program
       .command(sessionCliDefinition.domain.commandName)
       .description(sessionCliDefinition.domain.description)
       .addHelpText("after", SESSION_FORMAT_HELP);
 
-    registerSessionCommands(sessionCmd);
+    registerSessionCommands(sessionCmd, invocation);
   },
 };

@@ -83,8 +83,9 @@ export type SessionWarningHandler = (warning: string) => void;
 export async function resolveSessionConfigSurfacingWarning(
   sessionsDir: string | undefined,
   onWarning?: SessionWarningHandler,
+  cwd?: string,
 ): Promise<SessionDirectoryConfig> {
-  const { config, warning } = await resolveSessionConfig({ sessionsDir });
+  const { config, warning } = await resolveSessionConfig({ sessionsDir, cwd });
   if (warning !== undefined) {
     onWarning?.(warning);
   }

@@ -7,6 +7,7 @@ import type { Command } from "commander";
 import { claimCommand, releaseCommand, statusCommand, WORKTREE_STATUS_FORMAT } from "@/commands/worktree/index";
 import type { Domain } from "@/domains/types";
 import { defaultGitDependencies } from "@/git/root";
+import type { CliInvocation } from "@/interfaces/cli/product-context";
 import { createClaimWriteToken } from "@/lib/worktree-claim-write-token";
 import { defaultOccupancyFileSystem } from "@/lib/worktree-occupancy-file-system";
 import { defaultWorktreePathInfo } from "@/lib/worktree-path-info";
@@ -33,7 +34,9 @@ function handleError(error: string): never {
   process.exit(1);
 }
 
-function registerWorktreeCommands(worktreeCmd: Command): void {
+function registerWorktreeCommands(worktreeCmd: Command, invocation: CliInvocation): void {
+  const effectiveInvocationDir = (): string => invocation.resolveEffectiveInvocationDir();
+
   worktreeCmd
     .command(WORKTREE_CLI.CLAIM)
     .description("Record a worktree-occupancy claim for the running worktree")
@@ -42,7 +45,7 @@ function registerWorktreeCommands(worktreeCmd: Command): void {
     .action(async (options: { sessionId: string; worktreesDir?: string }) => {
       const result = await claimCommand({
         claimWriteToken: createClaimWriteToken(),
-        cwd: process.cwd(),
+        cwd: effectiveInvocationDir(),
         env: process.env,
         fs: defaultOccupancyFileSystem,
         gitDeps: defaultGitDependencies,
@@ -64,7 +67,7 @@ function registerWorktreeCommands(worktreeCmd: Command): void {
     .option(`${WORKTREE_CLI.WORKTREES_DIR_FLAG} <path>`, "Explicit .spx/worktrees directory")
     .action(async (worktrees: string[] | undefined, options: { format?: string; worktreesDir?: string }) => {
       const result = await statusCommand({
-        cwd: process.cwd(),
+        cwd: effectiveInvocationDir(),
         fs: defaultOccupancyFileSystem,
         gitDeps: defaultGitDependencies,
         worktrees,
@@ -84,7 +87,7 @@ function registerWorktreeCommands(worktreeCmd: Command): void {
     .option(`${WORKTREE_CLI.WORKTREES_DIR_FLAG} <path>`, "Explicit .spx/worktrees directory")
     .action(async (options: { worktreesDir?: string }) => {
       const result = await releaseCommand({
-        cwd: process.cwd(),
+        cwd: effectiveInvocationDir(),
         fs: defaultOccupancyFileSystem,
         gitDeps: defaultGitDependencies,
         worktreesDir: options.worktreesDir,
@@ -100,11 +103,11 @@ function registerWorktreeCommands(worktreeCmd: Command): void {
 export const worktreeDomain: Domain = {
   name: WORKTREE_CLI.COMMAND,
   description: WORKTREE_DOMAIN_DESCRIPTION,
-  register: (program: Command) => {
+  register: (program: Command, invocation: CliInvocation) => {
     const worktreeCmd = program
       .command(WORKTREE_CLI.COMMAND)
       .description(WORKTREE_DOMAIN_DESCRIPTION);
 
-    registerWorktreeCommands(worktreeCmd);
+    registerWorktreeCommands(worktreeCmd, invocation);
   },
 };

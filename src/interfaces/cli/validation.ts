@@ -13,6 +13,7 @@ import {
   typescriptCommand,
 } from "@/commands/validation";
 import type { Domain } from "@/domains/types";
+import type { CliInvocation, CliIo } from "@/interfaces/cli/product-context";
 import { sanitizeCliArgument } from "@/lib/sanitize-cli-argument";
 import { allowlistExisting } from "@/validation/literal/allowlist-existing";
 import type { ValidationScope } from "@/validation/types";
@@ -151,6 +152,12 @@ export const allValidationCliOptions = {
   },
 } as const;
 
+export const validationCommonCliOptions = {
+  scope: {
+    flag: "--scope",
+  },
+} as const;
+
 const validationSubcommandOperands = Object.values(validationCliDefinition.subcommands).flatMap(
   (subcommand) => {
     const operands = [subcommand.commandName];
@@ -192,6 +199,18 @@ interface AllOptions extends CommonOptions {
   skipLiteral?: boolean;
 }
 
+interface ValidationCliResult {
+  readonly output: string;
+  readonly exitCode: number;
+}
+
+function emitValidationResult(result: ValidationCliResult, io: CliIo): never {
+  if (result.output.length > 0) {
+    io.writeStdout(`${result.output}\n`);
+  }
+  return io.exit(result.exitCode);
+}
+
 /**
  * Add common options to a command
  */
@@ -221,21 +240,21 @@ function addValidationSubcommand(
 /**
  * Register validation domain commands
  */
-function registerValidationCommands(validationCmd: Command): void {
+function registerValidationCommands(validationCmd: Command, invocation: CliInvocation): void {
   const { subcommands } = validationCliDefinition;
+  const productDir = (): string => invocation.resolveProductContext().productDir;
 
   // typescript command
   const tsCmd = addValidationSubcommand(validationCmd, subcommands.typescript)
     .action(async (options: CommonOptions) => {
       const result = await typescriptCommand({
-        cwd: process.cwd(),
+        cwd: productDir(),
         scope: options.scope,
         files: options.files,
         quiet: options.quiet,
         json: options.json,
       });
-      if (result.output) console.log(result.output);
-      process.exit(result.exitCode);
+      emitValidationResult(result, invocation.io);
     });
   addCommonOptions(tsCmd);
 
@@ -244,15 +263,14 @@ function registerValidationCommands(validationCmd: Command): void {
     .option("--fix", "Auto-fix issues")
     .action(async (options: LintOptions) => {
       const result = await lintCommand({
-        cwd: process.cwd(),
+        cwd: productDir(),
         scope: options.scope,
         files: options.files,
         fix: options.fix,
         quiet: options.quiet,
         json: options.json,
       });
-      if (result.output) console.log(result.output);
-      process.exit(result.exitCode);
+      emitValidationResult(result, invocation.io);
     });
   addCommonOptions(lintCmd);
 
@@ -260,14 +278,13 @@ function registerValidationCommands(validationCmd: Command): void {
   const circularCmd = addValidationSubcommand(validationCmd, subcommands.circular)
     .action(async (options: CommonOptions) => {
       const result = await circularCommand({
-        cwd: process.cwd(),
+        cwd: productDir(),
         scope: options.scope,
         files: options.files,
         quiet: options.quiet,
         json: options.json,
       });
-      if (result.output) console.log(result.output);
-      process.exit(result.exitCode);
+      emitValidationResult(result, invocation.io);
     });
   addCommonOptions(circularCmd);
 
@@ -275,14 +292,13 @@ function registerValidationCommands(validationCmd: Command): void {
   const knipCmd = addValidationSubcommand(validationCmd, subcommands.knip)
     .action(async (options: CommonOptions) => {
       const result = await knipCommand({
-        cwd: process.cwd(),
+        cwd: productDir(),
         scope: options.scope,
         files: options.files,
         quiet: options.quiet,
         json: options.json,
       });
-      if (result.output) console.log(result.output);
-      process.exit(result.exitCode);
+      emitValidationResult(result, invocation.io);
     });
   addCommonOptions(knipCmd);
 
@@ -306,23 +322,22 @@ function registerValidationCommands(validationCmd: Command): void {
     )
     .action(async (options: LiteralOptions) => {
       if (options.allowlistExisting) {
-        const result = await allowlistExisting({ productDir: process.cwd() });
-        if (result.output) console.log(result.output);
-        process.exit(result.exitCode);
+        const result = await allowlistExisting({ productDir: productDir() });
+        emitValidationResult(result, invocation.io);
       }
       let kind: LiteralProblemKind | undefined;
       if (options.kind !== undefined) {
         kind = parseLiteralProblemKind(options.kind);
         if (kind === undefined) {
           const { unknownLiteralProblemKind } = validationCliDefinition.diagnostics;
-          process.stderr.write(
+          invocation.io.writeStderr(
             `spx validation literal: ${unknownLiteralProblemKind.messageLabel}: ${sanitizeCliArgument(options.kind)}\n`,
           );
-          process.exit(unknownLiteralProblemKind.exitCode);
+          invocation.io.exit(unknownLiteralProblemKind.exitCode);
         }
       }
       const result = await literalCommand({
-        cwd: process.cwd(),
+        cwd: productDir(),
         files: options.files,
         kind,
         filesWithProblems: options.filesWithProblems,
@@ -331,8 +346,7 @@ function registerValidationCommands(validationCmd: Command): void {
         quiet: options.quiet,
         json: options.json,
       });
-      if (result.output) console.log(result.output);
-      process.exit(result.exitCode);
+      emitValidationResult(result, invocation.io);
     });
   addCommonOptions(literalCmd);
 
@@ -346,12 +360,11 @@ function registerValidationCommands(validationCmd: Command): void {
     )
     .action(async (options: CommonOptions) => {
       const result = await markdownCommand({
-        cwd: process.cwd(),
+        cwd: productDir(),
         files: options.files,
         quiet: options.quiet,
       });
-      if (result.output) console.log(result.output);
-      process.exit(result.exitCode);
+      emitValidationResult(result, invocation.io);
     });
   addCommonOptions(markdownCmd);
 
@@ -359,12 +372,11 @@ function registerValidationCommands(validationCmd: Command): void {
   const formatCmd = addValidationSubcommand(validationCmd, subcommands.format)
     .action(async (options: CommonOptions) => {
       const result = await formattingCommand({
-        cwd: process.cwd(),
+        cwd: productDir(),
         files: options.files,
         quiet: options.quiet,
       });
-      if (result.output) console.log(result.output);
-      process.exit(result.exitCode);
+      emitValidationResult(result, invocation.io);
     });
   addCommonOptions(formatCmd);
 
@@ -375,7 +387,7 @@ function registerValidationCommands(validationCmd: Command): void {
     .option(allValidationCliOptions.skipLiteral.flag, allValidationCliOptions.skipLiteral.description)
     .action(async (options: AllOptions) => {
       const result = await allCommand({
-        cwd: process.cwd(),
+        cwd: productDir(),
         scope: options.scope,
         files: options.files,
         fix: options.fix,
@@ -384,8 +396,7 @@ function registerValidationCommands(validationCmd: Command): void {
         quiet: options.quiet,
         json: options.json,
       });
-      if (result.output) console.log(result.output);
-      process.exit(result.exitCode);
+      emitValidationResult(result, invocation.io);
     });
   addCommonOptions(allCmd);
 }
@@ -397,19 +408,19 @@ function parseLiteralProblemKind(value: string): LiteralProblemKind | undefined 
   return undefined;
 }
 
-function handleUnknownSubcommand(operands: readonly string[]): never {
+function handleUnknownSubcommand(operands: readonly string[], io: CliIo): never {
   const [first] = operands;
   const sanitized = sanitizeCliArgument(first);
   const { domain, diagnostics } = validationCliDefinition;
   const { unknownSubcommand } = diagnostics;
-  process.stderr.write(`spx ${domain.commandName}: ${unknownSubcommand.messageLabel}: ${sanitized}\n`);
-  process.exit(unknownSubcommand.exitCode);
+  io.writeStderr(`spx ${domain.commandName}: ${unknownSubcommand.messageLabel}: ${sanitized}\n`);
+  return io.exit(unknownSubcommand.exitCode);
 }
 
 export const validationDomain: Domain = {
   name: validationCliDefinition.domain.commandName,
   description: validationCliDefinition.domain.description,
-  register: (program: Command) => {
+  register: (program: Command, invocation: CliInvocation) => {
     const { domain } = validationCliDefinition;
     const validationCmd = program
       .command(domain.commandName)
@@ -417,9 +428,9 @@ export const validationDomain: Domain = {
       .description(domain.description);
 
     validationCmd.on("command:*", (operands: readonly string[]) => {
-      handleUnknownSubcommand(operands);
+      handleUnknownSubcommand(operands, invocation.io);
     });
 
-    registerValidationCommands(validationCmd);
+    registerValidationCommands(validationCmd, invocation);
   },
 };

@@ -31,6 +31,8 @@ export interface ArchiveOptions {
   sessionIds: string[];
   /** Custom sessions directory */
   sessionsDir?: string;
+  /** Current working directory for default session-store resolution. */
+  cwd?: string;
   /** Receives the non-git-repo diagnostic for the descriptor to surface. */
   onWarning?: SessionWarningHandler;
 }
@@ -139,7 +141,7 @@ async function archiveSingle(
  * @throws {SessionAlreadyArchivedError} When session already archived (single ID)
  */
 export async function archiveCommand(options: ArchiveOptions): Promise<string> {
-  const config = await resolveSessionConfigSurfacingWarning(options.sessionsDir, options.onWarning);
+  const config = await resolveSessionConfigSurfacingWarning(options.sessionsDir, options.onWarning, options.cwd);
 
   return processBatch(options.sessionIds, (id) => archiveSingle(id, config));
 }

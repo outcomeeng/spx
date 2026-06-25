@@ -39,6 +39,8 @@ export interface PruneOptions {
   dryRun?: boolean;
   /** Custom sessions directory */
   sessionsDir?: string;
+  /** Current working directory for default session-store resolution. */
+  cwd?: string;
   /** Receives the non-git-repo diagnostic for the descriptor to surface. */
   onWarning?: SessionWarningHandler;
 }
@@ -116,7 +118,7 @@ export async function pruneCommand(options: PruneOptions): Promise<string> {
   const keep = options.keep ?? DOMAIN_DEFAULT_KEEP_COUNT;
   const dryRun = options.dryRun ?? false;
 
-  const config = await resolveSessionConfigSurfacingWarning(options.sessionsDir, options.onWarning);
+  const config = await resolveSessionConfigSurfacingWarning(options.sessionsDir, options.onWarning, options.cwd);
 
   // Load and sort sessions
   const sessions = await loadArchiveSessions(config);

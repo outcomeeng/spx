@@ -4,6 +4,7 @@ import {
   JOURNAL_CLI_ENV,
   JOURNAL_CLI_EXIT_CODE,
   journalAppendCommand,
+  type JournalCliResult,
   journalOpenCommand,
   journalReadCommand,
   journalRenderCommand,
@@ -13,10 +14,9 @@ import {
 import type { JournalStreamSink } from "@/commands/journal/runtime";
 import type { Result } from "@/config/types";
 import type { Domain } from "@/domains/types";
+import type { CliInvocation, CliIo } from "@/interfaces/cli/product-context";
 import type { JournalEvent } from "@/lib/agent-run-journal";
 import { createGithubPullRequestCommentClient, runGhApi } from "@/lib/github-snapshot-sink";
-
-import { CLI_STREAM_REPORT, reportCliResult, writeStreamOutput } from "./lib/stream-report";
 
 export const JOURNAL_CLI = {
   commandName: "journal",
@@ -31,6 +31,7 @@ export const JOURNAL_CLI = {
   fromOption: "--from <cursor>",
 } as const;
 
+const STREAM_LINE_SEPARATOR = "\n";
 const MALFORMED_EVENT_INPUT_ERROR = "journal append event input is not valid JSON";
 
 interface JournalScopeCliOptions {
@@ -56,7 +57,8 @@ function runScope(options: JournalRunCliOptions): { readonly type: string; reado
 export const journalDomain: Domain = {
   name: JOURNAL_CLI.commandName,
   description: JOURNAL_CLI.description,
-  register: (program: Command) => {
+  register: (program: Command, invocation: CliInvocation) => {
+    const journalDeps = () => ({ cwd: invocation.resolveEffectiveInvocationDir() });
     const journalCmd = program.command(JOURNAL_CLI.commandName).description(JOURNAL_CLI.description);
 
     journalCmd
@@ -64,7 +66,7 @@ export const journalDomain: Domain = {
       .description("Open a new run journal and report its run token")
       .requiredOption(JOURNAL_CLI.typeOption, "Opaque verification-type scope segment")
       .action(async (options: JournalScopeCliOptions) => {
-        await reportCliResult(await journalOpenCommand(scope(options)));
+        report(await journalOpenCommand(scope(options), journalDeps()), invocation.io);
       });
 
     journalCmd
@@ -75,14 +77,19 @@ export const journalDomain: Domain = {
       .action(async (options: JournalRunCliOptions) => {
         const input = await readStdinEventInput();
         if (!input.ok) {
-          await reportCliResult({ exitCode: JOURNAL_CLI_EXIT_CODE.ERROR, output: input.error });
+          report({ exitCode: JOURNAL_CLI_EXIT_CODE.ERROR, output: input.error }, invocation.io);
           return;
         }
-        const result = await journalAppendCommand(runScope(options), input.value, streamBinding());
+        const result = await journalAppendCommand(
+          runScope(options),
+          input.value,
+          streamBinding(invocation.io),
+          journalDeps(),
+        );
         // A successful append's result is empty — the event already reached the
         // streaming surface — so exit without writing a result line; only report errors.
-        if (result.exitCode === JOURNAL_CLI_EXIT_CODE.OK) process.exit(JOURNAL_CLI_EXIT_CODE.OK);
-        else await reportCliResult(result);
+        if (result.exitCode === JOURNAL_CLI_EXIT_CODE.OK) invocation.io.setExitCode(JOURNAL_CLI_EXIT_CODE.OK);
+        else report(result, invocation.io);
       });
 
     journalCmd
@@ -92,7 +99,7 @@ export const journalDomain: Domain = {
       .requiredOption(JOURNAL_CLI.runOption, "Run token reported by open")
       .requiredOption(JOURNAL_CLI.fromOption, "Sequence cursor; events at or after it are returned")
       .action(async (options: JournalReadCliOptions) => {
-        await reportCliResult(await journalReadCommand(runScope(options), options.from));
+        report(await journalReadCommand(runScope(options), options.from, journalDeps()), invocation.io);
       });
 
     journalCmd
@@ -101,7 +108,7 @@ export const journalDomain: Domain = {
       .requiredOption(JOURNAL_CLI.typeOption, "Opaque verification-type scope segment")
       .requiredOption(JOURNAL_CLI.runOption, "Run token reported by open")
       .action(async (options: JournalRunCliOptions) => {
-        await reportCliResult(await journalSealCommand(runScope(options)));
+        report(await journalSealCommand(runScope(options), journalDeps()), invocation.io);
       });
 
     journalCmd
@@ -110,24 +117,24 @@ export const journalDomain: Domain = {
       .requiredOption(JOURNAL_CLI.typeOption, "Opaque verification-type scope segment")
       .requiredOption(JOURNAL_CLI.runOption, "Run token reported by open")
       .action(async (options: JournalRunCliOptions) => {
-        await reportCliResult(await journalRenderCommand(runScope(options)));
+        report(await journalRenderCommand(runScope(options), journalDeps()), invocation.io);
       });
   },
 };
 
-function stdoutStreamSink(): JournalStreamSink {
+function stdoutStreamSink(io: CliIo): JournalStreamSink {
   return {
     async emit(event: JournalEvent): Promise<void> {
-      await writeStreamOutput(process.stdout, `${JSON.stringify(event)}${CLI_STREAM_REPORT.LINE_SEPARATOR}`);
+      io.writeStdout(`${JSON.stringify(event)}${STREAM_LINE_SEPARATOR}`);
     },
   };
 }
 
 /** The boundary surfaces the journal append streams through: stdout locally, the gh client under github-pr. */
-function streamBinding(): JournalStreamBinding {
+function streamBinding(io: CliIo): JournalStreamBinding {
   const repository = process.env[JOURNAL_CLI_ENV.GITHUB_REPOSITORY] ?? "";
   return {
-    localSink: stdoutStreamSink(),
+    localSink: stdoutStreamSink(io),
     githubClient: createGithubPullRequestCommentClient({ repository, run: runGhApi }),
     githubRepository: repository,
   };
@@ -143,4 +150,11 @@ async function readStdinEventInput(): Promise<Result<unknown>> {
   } catch {
     return { ok: false, error: MALFORMED_EVENT_INPUT_ERROR };
   }
+}
+
+function report(result: JournalCliResult, io: CliIo): void {
+  const output = `${result.output}${STREAM_LINE_SEPARATOR}`;
+  if (result.exitCode === JOURNAL_CLI_EXIT_CODE.OK) io.writeStdout(output);
+  else io.writeStderr(output);
+  io.setExitCode(result.exitCode);
 }

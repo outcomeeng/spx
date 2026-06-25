@@ -7,6 +7,7 @@
 import { mkdir, readdir, readFile, rename } from "node:fs/promises";
 import { join, resolve } from "node:path";
 
+import { CONFIG_PROCESS_CWD } from "@/domains/config/cwd";
 import { processBatch } from "@/domains/session/batch";
 import { NoSessionsAvailableError } from "@/domains/session/errors";
 import { parseSessionMetadata } from "@/domains/session/list";
@@ -37,7 +38,7 @@ export interface PickupOptions {
   auto?: boolean;
   /** Custom sessions directory */
   sessionsDir?: string;
-  /** Current working directory used to resolve relative injection paths. */
+  /** Current working directory used for session-store resolution and relative injection paths. */
   cwd?: string;
   /** Skip reading and printing session `specs` / `files` references. */
   noInject?: boolean;
@@ -177,9 +178,9 @@ async function pickupSingle(
  * @throws {BatchError} When one or more explicit IDs fail
  */
 export async function pickupCommand(options: PickupOptions): Promise<string> {
-  const config = await resolveSessionConfigSurfacingWarning(options.sessionsDir, options.onWarning);
   const deps = options.deps ?? PICKUP_DEPS;
-  const cwd = options.cwd ?? process.cwd();
+  const cwd = options.cwd ?? CONFIG_PROCESS_CWD.read();
+  const config = await resolveSessionConfigSurfacingWarning(options.sessionsDir, options.onWarning, cwd);
   const noInject = options.noInject === true;
 
   if (options.auto) {

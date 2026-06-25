@@ -22,6 +22,8 @@ export interface ShowOptions {
   sessionIds: string[];
   /** Custom sessions directory */
   sessionsDir?: string;
+  /** Current working directory for default session-store resolution. */
+  cwd?: string;
   /** Receives the non-git-repo diagnostic for the descriptor to surface. */
   onWarning?: SessionWarningHandler;
   /** Output format: text (the default header + body) or the parsed-frontmatter JSON record. */
@@ -132,7 +134,7 @@ async function showJson(
  * @throws {BatchError} When one or more IDs fail
  */
 export async function showCommand(options: ShowOptions): Promise<string> {
-  const config = await resolveSessionConfigSurfacingWarning(options.sessionsDir, options.onWarning);
+  const config = await resolveSessionConfigSurfacingWarning(options.sessionsDir, options.onWarning, options.cwd);
 
   if (options.format === SESSION_LIST_FORMAT.JSON) {
     return showJson(options.sessionIds, config);

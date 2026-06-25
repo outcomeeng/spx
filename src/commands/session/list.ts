@@ -48,6 +48,8 @@ export interface ListOptions {
   status?: string;
   /** Custom sessions directory */
   sessionsDir?: string;
+  /** Current working directory for default session-store resolution. */
+  cwd?: string;
   /** Receives the non-git-repo diagnostic for the descriptor to surface. */
   onWarning?: SessionWarningHandler;
   /** Output format */
@@ -131,7 +133,7 @@ export async function listCommand(options: ListOptions): Promise<string> {
     ? undefined
     : parseFieldSelection(options.fields);
 
-  const config = await resolveSessionConfigSurfacingWarning(options.sessionsDir, options.onWarning);
+  const config = await resolveSessionConfigSurfacingWarning(options.sessionsDir, options.onWarning, options.cwd);
 
   // Validate and resolve statuses before use.
   const statuses: readonly SessionStatus[] = options.status === undefined

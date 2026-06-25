@@ -4,6 +4,7 @@ import { type RecordedTestRun, runTestsCommand, type TestDispatchResult } from "
 import type { TargetSelection } from "@/domains/test";
 import type { Domain } from "@/domains/types";
 import { detectWorktreeProductRoot } from "@/git/root";
+import type { CliInvocation } from "@/interfaces/cli/product-context";
 import { formatAgentTestOutput } from "@/interfaces/cli/test-agent-output";
 import { writeWarning as writeCliWarning } from "@/interfaces/cli/write-warning";
 import { SPEC_TREE_CONFIG } from "@/lib/spec-tree/config";
@@ -34,8 +35,8 @@ const TESTING_PRODUCT_DIR_WARNING = {
     `Warning: Not in a git repository. Reading ${SPEC_TREE_CONFIG.ROOT_DIRECTORY} tests relative to the current working directory.`,
 } as const;
 
-async function resolveTestProductDir(): Promise<string> {
-  const { productDir, isGitRepo } = await detectWorktreeProductRoot(process.cwd());
+async function resolveTestProductDir(cwd: string): Promise<string> {
+  const { productDir, isGitRepo } = await detectWorktreeProductRoot(cwd);
   writeCliWarning(isGitRepo ? undefined : TESTING_PRODUCT_DIR_WARNING.NOT_GIT_REPOSITORY);
   return productDir;
 }
@@ -139,19 +140,21 @@ export interface TestingCliDependencies {
   readonly exit: (exitCode: number) => never;
 }
 
-const defaultTestingCliDependencies: TestingCliDependencies = {
-  resolveProductDir: resolveTestProductDir,
-  runTests: runTestsThroughCommand,
-  runAgentTests: runAgentTestsThroughCommand,
-  writeStdout: (output) => {
-    process.stdout.write(output);
-  },
-  writeWarning: writeCliWarning,
-  setExitCode: (exitCode) => {
-    process.exitCode = exitCode;
-  },
-  exit: (exitCode) => process.exit(exitCode),
-};
+function defaultTestingCliDependencies(invocation: CliInvocation): TestingCliDependencies {
+  return {
+    resolveProductDir: () => resolveTestProductDir(invocation.resolveEffectiveInvocationDir()),
+    runTests: runTestsThroughCommand,
+    runAgentTests: runAgentTestsThroughCommand,
+    writeStdout: (output) => {
+      process.stdout.write(output);
+    },
+    writeWarning: writeCliWarning,
+    setExitCode: (exitCode) => {
+      process.exitCode = exitCode;
+    },
+    exit: (exitCode) => process.exit(exitCode),
+  };
+}
 
 async function runTestingAction(
   deps: TestingCliDependencies,
@@ -170,11 +173,12 @@ async function runTestingAction(
   reportAndExit(result.dispatch, deps);
 }
 
-export function createTestingDomain(deps: TestingCliDependencies = defaultTestingCliDependencies): Domain {
+export function createTestingDomain(deps?: TestingCliDependencies): Domain {
   return {
     name: TESTING_CLI.commandName,
     description: TESTING_CLI.description,
-    register: (program: Command) => {
+    register: (program: Command, invocation: CliInvocation) => {
+      const actionDeps = deps ?? defaultTestingCliDependencies(invocation);
       const testCmd = program.command(TESTING_CLI.commandName).description(TESTING_CLI.description);
       testCmd.option(TESTING_CLI.agentOption, TESTING_CLI.agentDescription);
       testCmd.option(
@@ -185,7 +189,7 @@ export function createTestingDomain(deps: TestingCliDependencies = defaultTestin
 
       testCmd.action(async (targets: readonly string[], options: TestingCliActionOptions, command: Command) => {
         await runTestingAction(
-          deps,
+          actionDeps,
           false,
           { agent: requestsAgentMode(options, command) },
           targetSelection(targets, options, command),
@@ -200,7 +204,7 @@ export function createTestingDomain(deps: TestingCliDependencies = defaultTestin
         .argument(TESTING_CLI.targetsArgument, TESTING_CLI.targetsDescription)
         .action(async (targets: readonly string[], options: TestingCliActionOptions, command: Command) => {
           await runTestingAction(
-            deps,
+            actionDeps,
             true,
             { agent: requestsAgentMode(options, command) },
             targetSelection(targets, options, command),

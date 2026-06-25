@@ -2,6 +2,8 @@ import { Command, CommanderError } from "commander";
 import { execa } from "execa";
 import { expect } from "vitest";
 
+import { resolveProductDir } from "@/domains/config/root";
+import { createCliInvocation } from "@/interfaces/cli/product-context";
 import { validationCliDefinition, validationDomain } from "@/interfaces/cli/validation";
 import { sampleLiteralTestValue } from "@testing/generators/literal/literal";
 import {
@@ -58,7 +60,28 @@ export async function runValidationInProcess(args: readonly string[]): Promise<V
     writeErr: (value) => stderr.push(value),
     writeOut: (value) => stdout.push(value),
   });
-  validationDomain.register(program);
+  validationDomain.register(
+    program,
+    createCliInvocation({
+      readDirectoryOption: () => undefined,
+      processCwd: process.cwd,
+      resolveProductDir,
+      writeWarning: (warning) => {
+        if (warning !== undefined) stderr.push(`${warning}\n`);
+      },
+      io: {
+        writeStdout: (output) => stdout.push(output),
+        writeStderr: (output) => stderr.push(output),
+        exit: (exitCode) => {
+          throw new CommanderError(
+            exitCode,
+            validationCliDefinition.domain.commandName,
+            validationCliEmptyOutput(),
+          );
+        },
+      },
+    }),
+  );
 
   try {
     await program.parseAsync(

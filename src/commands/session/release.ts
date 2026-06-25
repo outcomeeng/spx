@@ -26,6 +26,8 @@ export interface ReleaseOptions {
   sessionIds: string[];
   /** Custom sessions directory */
   sessionsDir?: string;
+  /** Current working directory for default session-store resolution. */
+  cwd?: string;
   /** Receives the non-git-repo diagnostic for the descriptor to surface. */
   onWarning?: SessionWarningHandler;
 }
@@ -77,7 +79,7 @@ async function releaseSingle(sessionId: string, config: SessionDirectoryConfig):
  * @throws {SessionNotClaimedError} When no session is claimed (empty IDs) or session not in doing (single ID)
  */
 export async function releaseCommand(options: ReleaseOptions): Promise<string> {
-  const config = await resolveSessionConfigSurfacingWarning(options.sessionsDir, options.onWarning);
+  const config = await resolveSessionConfigSurfacingWarning(options.sessionsDir, options.onWarning, options.cwd);
 
   let ids = options.sessionIds;
 

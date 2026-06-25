@@ -3,6 +3,8 @@
  */
 import type { Command } from "commander";
 
+import type { CliInvocation } from "@/interfaces/cli/product-context";
+
 /**
  * Represents a CLI domain (e.g., spec, claude, marketplace)
  */
@@ -12,7 +14,7 @@ export interface Domain {
   /** Description shown in help text */
   description: string;
   /** Function to register commands for this domain */
-  register: (program: Command) => void;
+  register: (program: Command, invocation: CliInvocation) => void;
 }
 
 /**

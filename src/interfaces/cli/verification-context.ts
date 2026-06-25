@@ -2,6 +2,7 @@ import type { Command } from "commander";
 
 import { verificationContextCreateCommand } from "@/commands/verification-context/cli";
 import type { Domain } from "@/domains/types";
+import type { CliInvocation } from "@/interfaces/cli/product-context";
 
 import { reportCliResult } from "./lib/stream-report";
 
@@ -29,7 +30,7 @@ interface VerificationContextCreateOptions {
 export const verificationContextDomain: Domain = {
   name: VERIFICATION_CONTEXT_CLI.commandName,
   description: VERIFICATION_CONTEXT_CLI.description,
-  register: (program: Command) => {
+  register: (program: Command, invocation: CliInvocation) => {
     const command = program
       .command(VERIFICATION_CONTEXT_CLI.commandName)
       .description(VERIFICATION_CONTEXT_CLI.description);
@@ -44,7 +45,10 @@ export const verificationContextDomain: Domain = {
       .requiredOption(VERIFICATION_CONTEXT_CLI.predicateOption, "Caller-supplied predicate identifier")
       .requiredOption(VERIFICATION_CONTEXT_CLI.workflowOption, "Caller-supplied workflow identifier")
       .action(async (options: VerificationContextCreateOptions) => {
-        await reportCliResult(await verificationContextCreateCommand(options));
+        reportCliResult(
+          await verificationContextCreateCommand(options, { cwd: invocation.resolveEffectiveInvocationDir() }),
+          invocation.io,
+        );
       });
   },
 };
