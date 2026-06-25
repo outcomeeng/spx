@@ -14,6 +14,7 @@ import {
 } from "@/lib/state-store";
 
 export const VERIFICATION_CONTEXT_RUNTIME_ERROR = {
+  READ_FAILED: "verification context read failed",
   WRITE_FAILED: "verification context write failed",
   CONTENT_MISMATCH: "verification context already exists with different content",
 } as const;
@@ -56,6 +57,6 @@ async function readExistingContext(fs: StateStoreFileSystem, contextPath: string
   try {
     return { ok: true, value: await fs.readFile(contextPath, STATE_STORE_TEXT_ENCODING) };
   } catch (error) {
-    return { ok: false, error: `${VERIFICATION_CONTEXT_RUNTIME_ERROR.WRITE_FAILED}: ${toMessage(error)}` };
+    return { ok: false, error: `${VERIFICATION_CONTEXT_RUNTIME_ERROR.READ_FAILED}: ${toMessage(error)}` };
   }
 }

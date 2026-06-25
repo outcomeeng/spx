@@ -1,5 +1,6 @@
-import { isAbsolute, normalize, win32 } from "node:path";
+import { isAbsolute, win32 } from "node:path";
 
+import type { CliCommandResult } from "@/config/types";
 import {
   createVerificationContextDocument,
   VERIFICATION_CONTEXT_PERSISTENCE,
@@ -15,6 +16,7 @@ import {
   type GitDependencies,
 } from "@/git/root";
 import { resolveBranchIdentity, slugBranchIdentity, type StateStoreFileSystem } from "@/lib/state-store";
+import { SPX_VERIFY_ENV, SPX_VERIFY_HEAD_SHA } from "@/lib/verification-env";
 
 import { persistVerificationContext } from "./runtime";
 
@@ -24,7 +26,7 @@ export const VERIFICATION_CONTEXT_CLI_EXIT_CODE = {
 } as const;
 
 export const VERIFICATION_CONTEXT_CLI_ENV = {
-  BRANCH: "SPX_VERIFY_BRANCH",
+  BRANCH: SPX_VERIFY_ENV.BRANCH,
 } as const;
 
 export const VERIFICATION_CONTEXT_CLI_ERROR = {
@@ -34,17 +36,16 @@ export const VERIFICATION_CONTEXT_CLI_ERROR = {
   CHANGESET_REFS_REQUIRED: "verification context changeset subject requires --base and --head",
 } as const;
 
-const MISSING_HEAD_SHA_FALLBACK = "unknown";
 export const VERIFICATION_CONTEXT_FILE_SUBJECT_PATH = {
-  PARENT_DIRECTORY_SEGMENT: "..",
-  PARENT_DIRECTORY_POSIX_PREFIX: "../",
-  PARENT_DIRECTORY_WINDOWS_PREFIX: "..\\",
+  PARENT_DIRECTORY: {
+    SEGMENT: "..",
+    PREFIX: "../",
+  },
+  SEPARATOR: {
+    CANONICAL: "/",
+    WINDOWS: "\\",
+  },
 } as const;
-
-export interface VerificationContextCliResult {
-  readonly exitCode: number;
-  readonly output: string;
-}
 
 export interface VerificationContextCliDeps {
   readonly cwd?: string;
@@ -78,7 +79,7 @@ async function resolveCommandScope(deps: VerificationContextCliDeps): Promise<Ve
   const product = await detectGitCommonDirProductRoot(cwd, git);
   const processEnv = deps.processEnv ?? process.env;
   const probedBranch = product.isGitRepo ? (await getCurrentBranch(cwd, git)) ?? undefined : undefined;
-  const headSha = (product.isGitRepo ? await getHeadSha(cwd, git) : null) ?? MISSING_HEAD_SHA_FALLBACK;
+  const headSha = (product.isGitRepo ? await getHeadSha(cwd, git) : null) ?? SPX_VERIFY_HEAD_SHA.MISSING;
   const branchIdentity = resolveBranchIdentity({
     branchName: deps.branch ?? processEnv[VERIFICATION_CONTEXT_CLI_ENV.BRANCH] ?? probedBranch,
     headSha,
@@ -92,22 +93,28 @@ async function resolveCommandScope(deps: VerificationContextCliDeps): Promise<Ve
   };
 }
 
-function okResult(output: string): VerificationContextCliResult {
+function okResult(output: string): CliCommandResult {
   return { exitCode: VERIFICATION_CONTEXT_CLI_EXIT_CODE.OK, output };
 }
 
-function errorResult(error: string): VerificationContextCliResult {
+function errorResult(error: string): CliCommandResult {
   return { exitCode: VERIFICATION_CONTEXT_CLI_EXIT_CODE.ERROR, output: error };
 }
 
 function normalizeFileSubjectPath(path: string): string | undefined {
-  const normalized = normalize(path);
+  const windowsRoot = win32.parse(path).root;
+  const normalized = win32
+    .normalize(path)
+    .replaceAll(
+      VERIFICATION_CONTEXT_FILE_SUBJECT_PATH.SEPARATOR.WINDOWS,
+      VERIFICATION_CONTEXT_FILE_SUBJECT_PATH.SEPARATOR.CANONICAL,
+    );
+  const segments = normalized.split(VERIFICATION_CONTEXT_FILE_SUBJECT_PATH.SEPARATOR.CANONICAL);
   if (
     isAbsolute(path)
     || win32.isAbsolute(path)
-    || normalized === VERIFICATION_CONTEXT_FILE_SUBJECT_PATH.PARENT_DIRECTORY_SEGMENT
-    || normalized.startsWith(VERIFICATION_CONTEXT_FILE_SUBJECT_PATH.PARENT_DIRECTORY_POSIX_PREFIX)
-    || normalized.startsWith(VERIFICATION_CONTEXT_FILE_SUBJECT_PATH.PARENT_DIRECTORY_WINDOWS_PREFIX)
+    || windowsRoot.length > 0
+    || segments.includes(VERIFICATION_CONTEXT_FILE_SUBJECT_PATH.PARENT_DIRECTORY.SEGMENT)
   ) {
     return undefined;
   }
@@ -140,7 +147,7 @@ function resolveSubject(options: VerificationContextCreateCliOptions): Verificat
 export async function verificationContextCreateCommand(
   options: VerificationContextCreateCliOptions,
   deps: VerificationContextCliDeps = {},
-): Promise<VerificationContextCliResult> {
+): Promise<CliCommandResult> {
   const subject = resolveSubject(options);
   if (typeof subject === "string") return errorResult(subject);
   const scope = await resolveCommandScope(deps);

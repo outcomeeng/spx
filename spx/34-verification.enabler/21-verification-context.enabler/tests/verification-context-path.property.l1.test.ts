@@ -3,6 +3,7 @@ import { join } from "node:path";
 import * as fc from "fast-check";
 import { describe, expect, it } from "vitest";
 
+import { createVerificationContextDocument } from "@/domains/verification-context/context";
 import {
   VERIFICATION_CONTEXT_STATE_DOMAIN,
   VERIFICATION_CONTEXT_STATE_PATH,
@@ -20,10 +21,22 @@ describe("verificationContextFilePath", () => {
         STATE_STORE_TEST_GENERATOR.branchSlug(),
         VERIFICATION_CONTEXT_TEST_GENERATOR.payload(),
         (productDir, branchSlug, payload) => {
-          const result = verificationContextFilePath({ productDir, branchSlug, digest: payload.launch.headSha });
+          const document = createVerificationContextDocument(payload);
+          expect(document.ok).toBe(true);
+          if (!document.ok) return;
+          const result = verificationContextFilePath({
+            productDir,
+            branchSlug,
+            digest: document.value.digest,
+          });
 
           expect(result.ok).toBe(true);
           if (!result.ok) return;
+          const expectedContextFile = [
+            VERIFICATION_CONTEXT_STATE_PATH.FILE_PREFIX,
+            document.value.digest,
+            VERIFICATION_CONTEXT_STATE_PATH.JSON_EXTENSION,
+          ].join("");
           expect(result.value).toBe(
             join(
               productDir,
@@ -32,7 +45,7 @@ describe("verificationContextFilePath", () => {
               branchSlug,
               VERIFICATION_CONTEXT_STATE_DOMAIN,
               VERIFICATION_CONTEXT_STATE_PATH.CONTEXTS_DIR,
-              `${VERIFICATION_CONTEXT_STATE_PATH.FILE_PREFIX}${payload.launch.headSha}${VERIFICATION_CONTEXT_STATE_PATH.JSON_EXTENSION}`,
+              expectedContextFile,
             ),
           );
         },

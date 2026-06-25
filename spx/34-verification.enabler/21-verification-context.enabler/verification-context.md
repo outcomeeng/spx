@@ -9,6 +9,7 @@ CAN pass a stable, digest-addressed verification input to a verifier and reconst
 ### Scenarios
 
 - Given a file subject with a product-relative path and a predicate, when `spx verification-context create` runs, then it writes a canonical context document and reports the context path and digest ([test](tests/verification-context-cli.scenario.l1.test.ts))
+- Given a verification context path already exists, when `spx verification-context create` runs for that request, then matching canonical content reports the same path and digest while divergent content returns a content-mismatch error ([test](tests/verification-context-cli.scenario.l1.test.ts))
 - Given a file subject with an absolute path or parent-directory escape, when `spx verification-context create` runs, then it rejects the subject before persistence ([test](tests/verification-context-cli.scenario.l1.test.ts))
 - Given a changeset subject with base and head refs and a predicate, when `spx verification-context create` runs, then the context records the changeset reconstruction fields and reports the context path and digest ([test](tests/verification-context-cli.scenario.l1.test.ts))
 - Given the verification-context domain in the CLI registry, when it registers with the program, then the `verification-context` command exposes exactly the `create` verb ([test](tests/verification-context-cli-registry.scenario.l1.test.ts))

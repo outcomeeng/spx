@@ -3,6 +3,11 @@ export const RESULT_ERROR_KEY = "error";
 
 export type Result<T> = { ok: true; value: T } | { ok: false; error: string };
 
+export interface CliCommandResult {
+  readonly exitCode: number;
+  readonly output: string;
+}
+
 export interface ConfigDescriptor<T> {
   readonly section: string;
   readonly defaults: T;

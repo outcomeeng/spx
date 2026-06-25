@@ -1,4 +1,4 @@
-import type { Result } from "@/config/types";
+import type { CliCommandResult, Result } from "@/config/types";
 import {
   JOURNAL_BACKEND,
   type JournalEdgeBackend,
@@ -15,6 +15,7 @@ import {
 import type { JournalEvent, JournalEventInput } from "@/lib/agent-run-journal";
 import type { GithubSnapshotClient } from "@/lib/github-snapshot-sink";
 import { resolveBranchIdentity, slugBranchIdentity, type StateStoreFileSystem } from "@/lib/state-store";
+import { SPX_VERIFY_ENV, SPX_VERIFY_HEAD_SHA } from "@/lib/verification-env";
 
 import { createGithubPrStreamSink } from "./github-pr-sink";
 import {
@@ -34,7 +35,7 @@ export const JOURNAL_CLI_EXIT_CODE = {
 
 export const JOURNAL_CLI_ENV = {
   BACKEND: "SPX_VERIFY_BACKEND",
-  BRANCH: "SPX_VERIFY_BRANCH",
+  BRANCH: SPX_VERIFY_ENV.BRANCH,
   CONTINUOUS_INTEGRATION: "CI",
   GITHUB_EVENT_NAME: "GITHUB_EVENT_NAME",
   GITHUB_REF: "GITHUB_REF",
@@ -48,14 +49,6 @@ export const JOURNAL_CLI_ERROR = {
   INVALID_EVENT_INPUT: "journal append event input is missing a required CloudEvents field",
   INVALID_CURSOR: "journal read cursor must be a whole non-negative integer",
 } as const;
-
-/**
- * The branch-identity head-SHA placeholder used outside a git repository when no
- * branch is pinned. It is a data fallback, not an error message, so it lives
- * apart from JOURNAL_CLI_ERROR; the journal resolves a branch identity outside a
- * git repository with this fallback rather than failing.
- */
-const MISSING_HEAD_SHA_FALLBACK = "unknown";
 
 const CURSOR_PATTERN = /^\d+$/;
 const JOURNAL_EVENT_INPUT_STRING_FIELDS = ["id", "source", "type", "time"] as const;
@@ -79,11 +72,6 @@ const DECIMAL_RADIX = 10;
 /** The environment-variable values `isTruthyEnv` accepts as true (case-insensitive). */
 export const TRUTHY_ENV_VALUES = ["1", "true"] as const;
 const TRUTHY_ENV_VALUE_SET: ReadonlySet<string> = new Set(TRUTHY_ENV_VALUES);
-
-export interface JournalCliResult {
-  readonly exitCode: number;
-  readonly output: string;
-}
 
 export interface JournalCliDeps {
   readonly cwd?: string;
@@ -160,7 +148,7 @@ async function resolveJournalRunContext(
   // the missing-head-sha placeholder rather than letting the probes fail the verb.
   const probedBranch = product.isGitRepo ? (await getCurrentBranch(cwd, git)) ?? undefined : undefined;
   const branchName = deps.branch ?? cliEnvironment.branch ?? probedBranch;
-  const headSha = (product.isGitRepo ? await getHeadSha(cwd, git) : null) ?? MISSING_HEAD_SHA_FALLBACK;
+  const headSha = (product.isGitRepo ? await getHeadSha(cwd, git) : null) ?? SPX_VERIFY_HEAD_SHA.MISSING;
   const branchIdentity = resolveBranchIdentity({ ...(branchName === undefined ? {} : { branchName }), headSha });
   return {
     ok: true,
@@ -237,16 +225,19 @@ function runRef(context: JournalRunContext, runToken: string): JournalRunRef {
   return { productDir: context.productDir, branchSlug: context.branchSlug, type: context.type, runToken };
 }
 
-function okResult(output: string): JournalCliResult {
+function okResult(output: string): CliCommandResult {
   return { exitCode: JOURNAL_CLI_EXIT_CODE.OK, output };
 }
 
-function errorResult(error: string): JournalCliResult {
+function errorResult(error: string): CliCommandResult {
   return { exitCode: JOURNAL_CLI_EXIT_CODE.ERROR, output: error };
 }
 
 /** Open a new journal run and report its run token and run-file path. */
-export async function journalOpenCommand(scope: JournalCliScope, deps: JournalCliDeps = {}): Promise<JournalCliResult> {
+export async function journalOpenCommand(
+  scope: JournalCliScope,
+  deps: JournalCliDeps = {},
+): Promise<CliCommandResult> {
   const context = await resolveJournalRunContext(scope, deps);
   if (!context.ok) return errorResult(context.error);
   const opened = await openJournalRun(context.value, openOptions(deps));
@@ -295,7 +286,7 @@ export async function journalAppendCommand(
   input: unknown,
   binding: JournalStreamBinding,
   deps: JournalCliDeps = {},
-): Promise<JournalCliResult> {
+): Promise<CliCommandResult> {
   const validatedInput = validateJournalEventInput(input);
   if (!validatedInput.ok) return errorResult(validatedInput.error);
   const context = await resolveJournalRunContext(scope, deps);
@@ -317,7 +308,7 @@ export async function journalReadCommand(
   scope: JournalRunCliScope,
   fromCursor: string,
   deps: JournalCliDeps = {},
-): Promise<JournalCliResult> {
+): Promise<CliCommandResult> {
   const cursor = parseJournalCursor(fromCursor);
   if (!cursor.ok) return errorResult(cursor.error);
   const context = await resolveJournalRunContext(scope, deps);
@@ -331,7 +322,7 @@ export async function journalReadCommand(
 export async function journalSealCommand(
   scope: JournalRunCliScope,
   deps: JournalCliDeps = {},
-): Promise<JournalCliResult> {
+): Promise<CliCommandResult> {
   const context = await resolveJournalRunContext(scope, deps);
   if (!context.ok) return errorResult(context.error);
   const sealed = await sealJournalRun(runRef(context.value, scope.runToken), verbOptions(deps));
@@ -343,7 +334,7 @@ export async function journalSealCommand(
 export async function journalRenderCommand(
   scope: JournalRunCliScope,
   deps: JournalCliDeps = {},
-): Promise<JournalCliResult> {
+): Promise<CliCommandResult> {
   const context = await resolveJournalRunContext(scope, deps);
   if (!context.ok) return errorResult(context.error);
   const rendered = await renderJournalRun<readonly JournalEvent[]>(

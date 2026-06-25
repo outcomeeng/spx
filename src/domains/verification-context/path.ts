@@ -3,7 +3,9 @@ import { join } from "node:path";
 import type { Result } from "@/config/types";
 import { branchScopeDir, composeScopeDir, validateScopeToken } from "@/lib/state-store";
 
-export const VERIFICATION_CONTEXT_STATE_DOMAIN = "verification-context";
+import { VERIFICATION_CONTEXT_PERSISTENCE } from "./context";
+
+export const VERIFICATION_CONTEXT_STATE_DOMAIN = VERIFICATION_CONTEXT_PERSISTENCE.domain;
 
 export const VERIFICATION_CONTEXT_STATE_PATH = {
   CONTEXTS_DIR: "contexts",

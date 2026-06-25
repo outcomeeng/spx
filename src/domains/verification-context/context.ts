@@ -70,6 +70,10 @@ export interface VerificationContextDocumentResult extends VerificationContextDo
 
 const VERIFICATION_CONTEXT_DIGEST_PATH = "verification context";
 
+export function isVerificationContextJsonObject(value: unknown): value is Record<string, unknown> {
+  return Object(value) === value && Object.getPrototypeOf(value) === Object.prototype;
+}
+
 export function createVerificationContextDocument(
   payload: VerificationContextPayload,
 ): Result<VerificationContextDocumentResult> {

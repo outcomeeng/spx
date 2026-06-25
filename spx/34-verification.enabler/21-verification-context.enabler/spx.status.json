@@ -1,0 +1,13 @@
+{
+  "schemaVersion": 1,
+  "verification": {
+    "test": {
+      "overall": "passed",
+      "spx/34-verification.enabler/21-verification-context.enabler/tests/verification-context-cli-registry.scenario.l1.test.ts": "passed",
+      "spx/34-verification.enabler/21-verification-context.enabler/tests/verification-context-cli.scenario.l1.test.ts": "passed",
+      "spx/34-verification.enabler/21-verification-context.enabler/tests/verification-context-digest.property.l1.test.ts": "passed",
+      "spx/34-verification.enabler/21-verification-context.enabler/tests/verification-context-path.property.l1.test.ts": "passed",
+      "spx/34-verification.enabler/21-verification-context.enabler/tests/verification-context-shape.compliance.l1.test.ts": "passed"
+    }
+  }
+}
