@@ -85,4 +85,16 @@ describe("the session-store check classifies the store from sessions joined to o
 
     expect(doingSessionBackedByClaim(session, new Set([session.id]))).toBe(true);
   });
+
+  it("treats a doing session with no matching claim as orphaned", () => {
+    const session = doingSession();
+
+    expect(doingSessionBackedByClaim(session, new Set([]))).toBe(false);
+  });
+
+  it("treats a doing session without an agent session id and no matching claim as orphaned", () => {
+    const session = doingSessionWithoutAgentSessionId();
+
+    expect(doingSessionBackedByClaim(session, new Set([]))).toBe(false);
+  });
 });
