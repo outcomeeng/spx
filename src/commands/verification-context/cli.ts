@@ -1,0 +1,163 @@
+import { isAbsolute, normalize } from "node:path";
+
+import {
+  createVerificationContextDocument,
+  VERIFICATION_CONTEXT_PERSISTENCE,
+  VERIFICATION_CONTEXT_SCHEMA_VERSION,
+  VERIFICATION_CONTEXT_SUBJECT_KIND,
+  type VerificationContextSubject,
+} from "@/domains/verification-context/context";
+import {
+  defaultGitDependencies,
+  detectGitCommonDirProductRoot,
+  getCurrentBranch,
+  getHeadSha,
+  type GitDependencies,
+} from "@/git/root";
+import { resolveBranchIdentity, slugBranchIdentity, type StateStoreFileSystem } from "@/lib/state-store";
+
+import { persistVerificationContext } from "./runtime";
+
+export const VERIFICATION_CONTEXT_CLI_EXIT_CODE = {
+  OK: 0,
+  ERROR: 1,
+} as const;
+
+export const VERIFICATION_CONTEXT_CLI_ENV = {
+  BRANCH: "SPX_VERIFY_BRANCH",
+} as const;
+
+export const VERIFICATION_CONTEXT_CLI_ERROR = {
+  INVALID_SUBJECT: "verification context subject must be file or changeset",
+  FILE_PATH_REQUIRED: "verification context file subject requires --path",
+  FILE_PATH_UNSAFE: "verification context file subject path must be product-relative",
+  CHANGESET_REFS_REQUIRED: "verification context changeset subject requires --base and --head",
+} as const;
+
+const MISSING_HEAD_SHA_FALLBACK = "unknown";
+export const VERIFICATION_CONTEXT_FILE_SUBJECT_PATH = {
+  PARENT_DIRECTORY_SEGMENT: "..",
+} as const;
+
+export interface VerificationContextCliResult {
+  readonly exitCode: number;
+  readonly output: string;
+}
+
+export interface VerificationContextCliDeps {
+  readonly cwd?: string;
+  readonly git?: GitDependencies;
+  readonly branch?: string;
+  readonly processEnv?: NodeJS.ProcessEnv;
+  readonly fs?: StateStoreFileSystem;
+  readonly now?: () => Date;
+}
+
+export interface VerificationContextCreateCliOptions {
+  readonly subject: string;
+  readonly path?: string;
+  readonly base?: string;
+  readonly head?: string;
+  readonly predicate: string;
+  readonly workflow: string;
+}
+
+interface VerificationContextCommandScope {
+  readonly productDir: string;
+  readonly branchSlug: string;
+  readonly branchIdentity: string;
+  readonly headSha: string;
+}
+
+async function resolveCommandScope(deps: VerificationContextCliDeps): Promise<VerificationContextCommandScope> {
+  const cwd = deps.cwd ?? process.cwd();
+  const git = deps.git ?? defaultGitDependencies;
+  const product = await detectGitCommonDirProductRoot(cwd, git);
+  const processEnv = deps.processEnv ?? process.env;
+  const probedBranch = product.isGitRepo ? (await getCurrentBranch(cwd, git)) ?? undefined : undefined;
+  const headSha = (product.isGitRepo ? await getHeadSha(cwd, git) : null) ?? MISSING_HEAD_SHA_FALLBACK;
+  const branchIdentity = resolveBranchIdentity({
+    branchName: deps.branch ?? processEnv[VERIFICATION_CONTEXT_CLI_ENV.BRANCH] ?? probedBranch,
+    headSha,
+  });
+  return {
+    productDir: product.productDir,
+    branchSlug: slugBranchIdentity(branchIdentity),
+    branchIdentity,
+    headSha,
+  };
+}
+
+function okResult(output: string): VerificationContextCliResult {
+  return { exitCode: VERIFICATION_CONTEXT_CLI_EXIT_CODE.OK, output };
+}
+
+function errorResult(error: string): VerificationContextCliResult {
+  return { exitCode: VERIFICATION_CONTEXT_CLI_EXIT_CODE.ERROR, output: error };
+}
+
+function normalizeFileSubjectPath(path: string): string | undefined {
+  const normalized = normalize(path);
+  if (
+    isAbsolute(path)
+    || normalized === VERIFICATION_CONTEXT_FILE_SUBJECT_PATH.PARENT_DIRECTORY_SEGMENT
+    || normalized.startsWith(`${VERIFICATION_CONTEXT_FILE_SUBJECT_PATH.PARENT_DIRECTORY_SEGMENT}/`)
+  ) {
+    return undefined;
+  }
+  return normalized;
+}
+
+function resolveSubject(options: VerificationContextCreateCliOptions): VerificationContextSubject | string {
+  if (options.subject === VERIFICATION_CONTEXT_SUBJECT_KIND.FILE) {
+    if (options.path === undefined || options.path.length === 0) {
+      return VERIFICATION_CONTEXT_CLI_ERROR.FILE_PATH_REQUIRED;
+    }
+    const path = normalizeFileSubjectPath(options.path);
+    if (path === undefined) return VERIFICATION_CONTEXT_CLI_ERROR.FILE_PATH_UNSAFE;
+    return { kind: VERIFICATION_CONTEXT_SUBJECT_KIND.FILE, path };
+  }
+  if (options.subject === VERIFICATION_CONTEXT_SUBJECT_KIND.CHANGESET) {
+    if (
+      options.base === undefined
+      || options.base.length === 0
+      || options.head === undefined
+      || options.head.length === 0
+    ) {
+      return VERIFICATION_CONTEXT_CLI_ERROR.CHANGESET_REFS_REQUIRED;
+    }
+    return { kind: VERIFICATION_CONTEXT_SUBJECT_KIND.CHANGESET, base: options.base, head: options.head };
+  }
+  return VERIFICATION_CONTEXT_CLI_ERROR.INVALID_SUBJECT;
+}
+
+export async function verificationContextCreateCommand(
+  options: VerificationContextCreateCliOptions,
+  deps: VerificationContextCliDeps = {},
+): Promise<VerificationContextCliResult> {
+  const subject = resolveSubject(options);
+  if (typeof subject === "string") return errorResult(subject);
+  const scope = await resolveCommandScope(deps);
+  const document = createVerificationContextDocument({
+    schemaVersion: VERIFICATION_CONTEXT_SCHEMA_VERSION,
+    subject,
+    predicate: options.predicate,
+    workflow: { name: options.workflow },
+    launch: {
+      productDir: scope.productDir,
+      branchSlug: scope.branchSlug,
+      branchIdentity: scope.branchIdentity,
+      headSha: scope.headSha,
+      createdAt: (deps.now ?? (() => new Date()))().toISOString(),
+    },
+    persistence: VERIFICATION_CONTEXT_PERSISTENCE,
+  });
+  if (!document.ok) return errorResult(document.error);
+  const persisted = await persistVerificationContext(
+    { productDir: scope.productDir, branchSlug: scope.branchSlug, digest: document.value.digest },
+    document.value,
+    { ...(deps.fs === undefined ? {} : { fs: deps.fs }) },
+  );
+  if (!persisted.ok) return errorResult(persisted.error);
+  return okResult(JSON.stringify(persisted.value));
+}

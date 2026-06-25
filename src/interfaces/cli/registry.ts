@@ -10,6 +10,7 @@ import { sessionDomain } from "./session";
 import { specDomain } from "./spec";
 import { testingDomain } from "./test";
 import { validationDomain } from "./validation";
+import { verificationContextDomain } from "./verification-context";
 import { worktreeDomain } from "./worktree";
 
 export const CLI_DOMAINS: readonly Domain[] = [
@@ -23,5 +24,6 @@ export const CLI_DOMAINS: readonly Domain[] = [
   specDomain,
   testingDomain,
   validationDomain,
+  verificationContextDomain,
   worktreeDomain,
 ];
