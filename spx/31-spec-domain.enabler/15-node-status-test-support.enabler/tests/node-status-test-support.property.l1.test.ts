@@ -101,14 +101,23 @@ describe("node-status test support", () => {
   it("generates node slugs from the readable slug pool", () => {
     fc.assert(
       fc.property(NODE_STATUS_TEST_GENERATOR.classificationTree(), (fixture) => {
-        for (const node of fixture.nodes) {
-          expect(NODE_STATUS_READABLE_SLUGS).toContain(node.slug);
-          expect(node.slug).not.toMatch(/-{2}/u);
-        }
+        expectNodeSlugsToComeFromReadablePool(fixture.nodes);
+      }),
+    );
+    fc.assert(
+      fc.property(NODE_STATUS_TEST_GENERATOR.delegationTree(), (fixture) => {
+        expectNodeSlugsToComeFromReadablePool(fixture.nodes);
       }),
     );
   });
 });
+
+function expectNodeSlugsToComeFromReadablePool(nodes: readonly { slug: string }[]): void {
+  for (const node of nodes) {
+    expect(NODE_STATUS_READABLE_SLUGS).toContain(node.slug);
+    expect(node.slug).not.toMatch(/-{2}/u);
+  }
+}
 
 function expectStatusFileMatchesFacts(
   facts: ClassificationFixtureFacts,
