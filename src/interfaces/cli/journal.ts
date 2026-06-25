@@ -4,7 +4,6 @@ import {
   JOURNAL_CLI_ENV,
   JOURNAL_CLI_EXIT_CODE,
   journalAppendCommand,
-  type JournalCliResult,
   journalOpenCommand,
   journalReadCommand,
   journalRenderCommand,
@@ -16,7 +15,8 @@ import type { Result } from "@/config/types";
 import type { Domain } from "@/domains/types";
 import type { JournalEvent } from "@/lib/agent-run-journal";
 import { createGithubPullRequestCommentClient, runGhApi } from "@/lib/github-snapshot-sink";
-import { EPIPE_CODE } from "@/lib/process-lifecycle";
+
+import { CLI_STREAM_REPORT, reportCliResult, writeStreamOutput } from "./lib/stream-report";
 
 export const JOURNAL_CLI = {
   commandName: "journal",
@@ -31,7 +31,6 @@ export const JOURNAL_CLI = {
   fromOption: "--from <cursor>",
 } as const;
 
-const STREAM_LINE_SEPARATOR = "\n";
 const MALFORMED_EVENT_INPUT_ERROR = "journal append event input is not valid JSON";
 
 interface JournalScopeCliOptions {
@@ -65,7 +64,7 @@ export const journalDomain: Domain = {
       .description("Open a new run journal and report its run token")
       .requiredOption(JOURNAL_CLI.typeOption, "Opaque verification-type scope segment")
       .action(async (options: JournalScopeCliOptions) => {
-        await report(await journalOpenCommand(scope(options)));
+        await reportCliResult(await journalOpenCommand(scope(options)));
       });
 
     journalCmd
@@ -76,14 +75,14 @@ export const journalDomain: Domain = {
       .action(async (options: JournalRunCliOptions) => {
         const input = await readStdinEventInput();
         if (!input.ok) {
-          await report({ exitCode: JOURNAL_CLI_EXIT_CODE.ERROR, output: input.error });
+          await reportCliResult({ exitCode: JOURNAL_CLI_EXIT_CODE.ERROR, output: input.error });
           return;
         }
         const result = await journalAppendCommand(runScope(options), input.value, streamBinding());
         // A successful append's result is empty — the event already reached the
         // streaming surface — so exit without writing a result line; only report errors.
         if (result.exitCode === JOURNAL_CLI_EXIT_CODE.OK) process.exit(JOURNAL_CLI_EXIT_CODE.OK);
-        else await report(result);
+        else await reportCliResult(result);
       });
 
     journalCmd
@@ -93,7 +92,7 @@ export const journalDomain: Domain = {
       .requiredOption(JOURNAL_CLI.runOption, "Run token reported by open")
       .requiredOption(JOURNAL_CLI.fromOption, "Sequence cursor; events at or after it are returned")
       .action(async (options: JournalReadCliOptions) => {
-        await report(await journalReadCommand(runScope(options), options.from));
+        await reportCliResult(await journalReadCommand(runScope(options), options.from));
       });
 
     journalCmd
@@ -102,7 +101,7 @@ export const journalDomain: Domain = {
       .requiredOption(JOURNAL_CLI.typeOption, "Opaque verification-type scope segment")
       .requiredOption(JOURNAL_CLI.runOption, "Run token reported by open")
       .action(async (options: JournalRunCliOptions) => {
-        await report(await journalSealCommand(runScope(options)));
+        await reportCliResult(await journalSealCommand(runScope(options)));
       });
 
     journalCmd
@@ -111,7 +110,7 @@ export const journalDomain: Domain = {
       .requiredOption(JOURNAL_CLI.typeOption, "Opaque verification-type scope segment")
       .requiredOption(JOURNAL_CLI.runOption, "Run token reported by open")
       .action(async (options: JournalRunCliOptions) => {
-        await report(await journalRenderCommand(runScope(options)));
+        await reportCliResult(await journalRenderCommand(runScope(options)));
       });
   },
 };
@@ -119,7 +118,7 @@ export const journalDomain: Domain = {
 function stdoutStreamSink(): JournalStreamSink {
   return {
     async emit(event: JournalEvent): Promise<void> {
-      await writeOutput(process.stdout, `${JSON.stringify(event)}${STREAM_LINE_SEPARATOR}`);
+      await writeStreamOutput(process.stdout, `${JSON.stringify(event)}${CLI_STREAM_REPORT.LINE_SEPARATOR}`);
     },
   };
 }
@@ -144,26 +143,4 @@ async function readStdinEventInput(): Promise<Result<unknown>> {
   } catch {
     return { ok: false, error: MALFORMED_EVENT_INPUT_ERROR };
   }
-}
-
-async function report(result: JournalCliResult): Promise<void> {
-  const stream = result.exitCode === JOURNAL_CLI_EXIT_CODE.OK ? process.stdout : process.stderr;
-  const completed = await writeOutput(stream, `${result.output}${STREAM_LINE_SEPARATOR}`);
-  if (completed) process.exit(result.exitCode);
-}
-
-function writeOutput(stream: NodeJS.WriteStream, output: string): Promise<boolean> {
-  return new Promise<boolean>((resolve, reject) => {
-    stream.write(output, (error?: Error | null) => {
-      if (error === undefined || error === null) {
-        resolve(true);
-        return;
-      }
-      if ((error as NodeJS.ErrnoException).code === EPIPE_CODE) {
-        resolve(false);
-        return;
-      }
-      reject(error);
-    });
-  });
 }

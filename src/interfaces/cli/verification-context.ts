@@ -1,11 +1,9 @@
 import type { Command } from "commander";
 
-import {
-  VERIFICATION_CONTEXT_CLI_EXIT_CODE,
-  type VerificationContextCliResult,
-  verificationContextCreateCommand,
-} from "@/commands/verification-context/cli";
+import { verificationContextCreateCommand } from "@/commands/verification-context/cli";
 import type { Domain } from "@/domains/types";
+
+import { reportCliResult } from "./lib/stream-report";
 
 export const VERIFICATION_CONTEXT_CLI = {
   commandName: "verification-context",
@@ -46,18 +44,7 @@ export const verificationContextDomain: Domain = {
       .requiredOption(VERIFICATION_CONTEXT_CLI.predicateOption, "Caller-supplied predicate identifier")
       .requiredOption(VERIFICATION_CONTEXT_CLI.workflowOption, "Caller-supplied workflow identifier")
       .action(async (options: VerificationContextCreateOptions) => {
-        await report(await verificationContextCreateCommand(options));
+        await reportCliResult(await verificationContextCreateCommand(options));
       });
   },
 };
-
-async function report(result: VerificationContextCliResult): Promise<void> {
-  const stream = result.exitCode === VERIFICATION_CONTEXT_CLI_EXIT_CODE.OK ? process.stdout : process.stderr;
-  await new Promise<void>((resolve, reject) => {
-    stream.write(`${result.output}\n`, (error?: Error | null) => {
-      if (error === undefined || error === null) resolve();
-      else reject(error);
-    });
-  });
-  process.exit(result.exitCode);
-}
