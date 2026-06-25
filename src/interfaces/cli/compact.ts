@@ -61,7 +61,7 @@ export const compactDomain: Domain = {
         if (result.output.length > 0) {
           invocation.io.writeStdout(result.output);
         }
-        invocation.io.exit(result.exitCode);
+        invocation.io.setExitCode(result.exitCode);
       });
   },
 };

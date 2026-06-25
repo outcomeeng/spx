@@ -86,6 +86,7 @@ function descriptorInvocation(): CliInvocation {
     io: {
       writeStdout: () => {},
       writeStderr: () => {},
+      setExitCode: () => {},
       exit: (exitCode): never => {
         throw new Error(`unexpected descriptor exit ${exitCode}`);
       },

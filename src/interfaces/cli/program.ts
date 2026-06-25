@@ -25,6 +25,7 @@ export function createCliProgram(options: CliProgramOptions = {}): Command {
   const io: CliIo = {
     writeStdout: options.writeStdout ?? DEFAULT_CLI_IO.writeStdout,
     writeStderr: options.writeStderr ?? DEFAULT_CLI_IO.writeStderr,
+    setExitCode: options.setExitCode ?? DEFAULT_CLI_IO.setExitCode,
     exit: options.exit ?? DEFAULT_CLI_IO.exit,
   };
 
