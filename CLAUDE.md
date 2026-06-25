@@ -174,9 +174,7 @@ Before pushing:
 
 Before publishing or tagging a release:
 
-- [ ] **`pnpm run publish:check`** passes
-- [ ] **`pnpm run validate:published`** passes after the final build
-- [ ] **`pnpm run circular:published`** passes after the final build
+- [ ] **`pnpm run publish:check`** passes, including packaged validation and packaged circular validation
 - [ ] The version in `package.json` matches the release tag
 
 ### Releasing CLI-surface changes (interim — remove when the `/release` skill ships)
