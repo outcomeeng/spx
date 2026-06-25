@@ -12,6 +12,7 @@ import { isAbsolute } from "node:path";
 import * as fc from "fast-check";
 import { describe, it } from "vitest";
 
+import { visibleWidth } from "@/domains/session/display-width";
 import {
   buildCandidates,
   buildPickupCommand,
@@ -246,9 +247,9 @@ describe("picker model invariants", () => {
     fc.assert(
       fc.property(fc.string(), fc.integer({ min: 1, max: 200 }), (text, max) => {
         const result = truncateToWidth(text, max);
-        if (result.length > max) return false;
-        if (text.length <= max) return result === text;
-        return result.length === max && result.endsWith(ELLIPSIS);
+        if (visibleWidth(result) > max) return false;
+        if (visibleWidth(text) <= max) return result === text;
+        return visibleWidth(result) <= max && result.endsWith(ELLIPSIS);
       }),
     );
   });

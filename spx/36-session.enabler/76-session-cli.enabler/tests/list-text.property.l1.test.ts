@@ -17,16 +17,17 @@
 import fc from "fast-check";
 import { describe, expect, it } from "vitest";
 
+import { visibleWidth } from "@/domains/session/display-width";
 import { formatSessionListText, LIST_TEXT_MIN_WIDTH } from "@/domains/session/list";
-import { arbitraryClaimableSession } from "@testing/generators/session/session";
+import { arbitrarySession } from "@testing/generators/session/session";
 import { ANSI_ESCAPE, stripAnsi } from "@testing/harnesses/styled-output/ansi";
 
 /** Display width of a rendered line: its length with ANSI styling removed. */
 function displayWidth(line: string): number {
-  return stripAnsi(line).length;
+  return visibleWidth(stripAnsi(line));
 }
 
-const arbitrarySessionList = fc.array(arbitraryClaimableSession(), { minLength: 1, maxLength: 8 });
+const arbitrarySessionList = fc.array(arbitrarySession(), { minLength: 1, maxLength: 8 });
 const arbitraryWidth = fc.integer({ min: LIST_TEXT_MIN_WIDTH, max: 200 });
 
 describe("formatSessionListText", () => {

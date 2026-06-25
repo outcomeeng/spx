@@ -7,6 +7,7 @@
 import { Chalk, type ChalkInstance } from "chalk";
 import { parse as parseYaml } from "yaml";
 
+import { takeVisibleColumns, visibleWidth } from "./display-width";
 import { SessionInvalidFieldError } from "./errors";
 import { parseSessionId } from "./timestamp";
 import {
@@ -385,14 +386,14 @@ function formatSessionLine(session: Session, width: number, chalk: ChalkInstance
     ? ` ${metadata.goal}${LIST_SUMMARY_SEPARATOR}${metadata.next_step}`
     : "";
 
-  let remaining = Math.max(0, width - LIST_INDENT.length);
-  const idShown = id.slice(0, remaining);
-  remaining -= idShown.length;
-  const badgeShown = badge.slice(0, remaining);
-  remaining -= badgeShown.length;
-  const summaryShown = summary.slice(0, remaining);
+  let remaining = Math.max(0, width - visibleWidth(LIST_INDENT));
+  const idShown = takeVisibleColumns(id, remaining);
+  remaining -= visibleWidth(idShown);
+  const badgeShown = takeVisibleColumns(badge, remaining);
+  remaining -= visibleWidth(badgeShown);
+  const summaryShown = takeVisibleColumns(summary, remaining);
 
-  const styledBadge = badgeShown.length > 0 ? PRIORITY_STYLE[metadata.priority](chalk, badgeShown) : "";
+  const styledBadge = visibleWidth(badgeShown) > 0 ? PRIORITY_STYLE[metadata.priority](chalk, badgeShown) : "";
   return `${LIST_INDENT}${chalk.dim(idShown)}${styledBadge}${chalk.dim(summaryShown)}`;
 }
 

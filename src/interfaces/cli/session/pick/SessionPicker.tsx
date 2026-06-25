@@ -12,6 +12,7 @@
 import { Box, Text, useInput, useStdout } from "ink";
 import { type ReactElement, useState } from "react";
 
+import { visibleWidth } from "@/domains/session/display-width";
 import {
   initialPickerState,
   keyToAction,
@@ -95,7 +96,8 @@ function SessionRow(
   const priority = session.metadata.priority;
   const marker = selected ? SESSION_PICKER_SELECTED_MARKER : " ";
   const badge = priority === DEFAULT_PRIORITY ? "" : ` [${priority}]`;
-  const reserved = marker.length + 1 + session.id.length + badge.length + 1;
+  const reserved = visibleWidth(marker) + visibleWidth(" ") + visibleWidth(session.id) + visibleWidth(badge)
+    + visibleWidth(" ");
   const goal = truncateToWidth(toSingleLine(session.metadata.goal), Math.max(MIN_GOAL_WIDTH, columns - reserved));
   return (
     <Text wrap="truncate" color={selected ? "cyan" : undefined}>
@@ -137,7 +139,9 @@ export function SessionPicker(
   { sessions, onLaunch, onQuit, columns: columnsProp }: SessionPickerProps,
 ): ReactElement {
   const { stdout } = useStdout();
-  const columns = columnsProp ?? stdout?.columns ?? FALLBACK_COLUMNS;
+  const output = stdout as { readonly columns: number | undefined };
+  const outputColumns = output.columns === undefined ? FALLBACK_COLUMNS : output.columns;
+  const columns = columnsProp === undefined ? outputColumns : columnsProp;
   const [state, setState] = useState(() => initialPickerState(sessions));
 
   useInput((input, key) => {

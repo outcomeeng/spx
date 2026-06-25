@@ -12,6 +12,7 @@
 
 import { resolve } from "node:path";
 
+import { takeVisibleColumns, visibleWidth } from "./display-width";
 import { sortSessions } from "./list";
 import { CLAIMABLE_STATUS, type Session } from "./types";
 
@@ -85,15 +86,16 @@ export function toSingleLine(text: string): string {
 }
 
 /**
- * Truncates `text` to at most `max` characters, appending a single ellipsis
- * when it overflows. Returns the input unchanged when it already fits, the
- * empty string for a non-positive width, and just the ellipsis at width 1.
+ * Truncates `text` to at most `max` display columns, appending a single
+ * ellipsis when it overflows. Returns the input unchanged when it already fits,
+ * the empty string for a non-positive width, and just the ellipsis at width 1.
  */
 export function truncateToWidth(text: string, max: number): string {
   if (max <= 0) return "";
-  if (text.length <= max) return text;
-  if (max === 1) return ELLIPSIS;
-  return text.slice(0, max - 1) + ELLIPSIS;
+  if (visibleWidth(text) <= max) return text;
+  const ellipsisWidth = visibleWidth(ELLIPSIS);
+  if (max <= ellipsisWidth) return takeVisibleColumns(ELLIPSIS, max);
+  return `${takeVisibleColumns(text, max - ellipsisWidth)}${ELLIPSIS}`;
 }
 
 /** The picker's two input modes: browsing the list, or editing the filter query. */
@@ -131,7 +133,7 @@ const FILTER_KEY = "/";
 const QUIT_KEY = "q";
 
 /** Browse-mode launch keystrokes: the printable key to the runtime and auto-continue it launches. */
-const LAUNCH_KEYS: Record<string, { runtime: PickerRuntime; autoContinue: boolean }> = {
+const LAUNCH_KEYS: Partial<Record<string, { runtime: PickerRuntime; autoContinue: boolean }>> = {
   c: { runtime: PICKER_RUNTIME.CLAUDE, autoContinue: false },
   C: { runtime: PICKER_RUNTIME.CLAUDE, autoContinue: true },
   x: { runtime: PICKER_RUNTIME.CODEX, autoContinue: false },
