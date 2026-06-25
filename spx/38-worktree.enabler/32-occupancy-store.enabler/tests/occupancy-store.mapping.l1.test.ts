@@ -14,6 +14,7 @@ import {
   type WorktreeClaimRecord,
   writeClaim,
 } from "@/domains/worktree/occupancy-store";
+import { toMessage } from "@/lib/error-message";
 import { sampleStateStoreTestValue, STATE_STORE_TEST_GENERATOR } from "@testing/generators/state-store/state-store";
 import { sampleWorktreeTestValue, WORKTREE_TEST_GENERATOR } from "@testing/generators/worktree/worktree";
 import {
@@ -53,6 +54,28 @@ class RecordingClaimFileSystem implements OccupancyFileSystem {
 
   async rm(path: string): Promise<void> {
     this.files.delete(path);
+  }
+}
+
+class SymbolThrowingClaimFileSystem implements OccupancyFileSystem {
+  mkdir(): Promise<void> {
+    return Promise.resolve();
+  }
+
+  async writeFile(): Promise<void> {
+    throw Symbol();
+  }
+
+  rename(): Promise<void> {
+    return Promise.resolve();
+  }
+
+  async readFile(): Promise<string> {
+    return "";
+  }
+
+  rm(): Promise<void> {
+    return Promise.resolve();
   }
 }
 
@@ -150,5 +173,22 @@ describe("worktree occupancy classification mapping", () => {
         return path.value;
       })),
     );
+  });
+
+  it("maps an unserializable thrown write failure to a formatted occupancy error", async () => {
+    const worktreesDir = sampleStateStoreTestValue(STATE_STORE_TEST_GENERATOR.productRoot());
+    const name = sampleWorktreeTestValue(WORKTREE_TEST_GENERATOR.worktreeName());
+    const record = sampleWorktreeTestValue(WORKTREE_TEST_GENERATOR.claimRecord());
+    const writeToken = sampleWorktreeTestValue(WORKTREE_TEST_GENERATOR.writeToken());
+
+    const result = await writeClaim(worktreesDir, name, record, {
+      fs: new SymbolThrowingClaimFileSystem(),
+      writeToken,
+    });
+
+    expect(result.ok).toBe(false);
+    if (result.ok) throw new Error("expected write failure");
+    expect(result.error).toContain(OCCUPANCY_ERROR.CLAIM_WRITE_FAILED);
+    expect(result.error).toContain(toMessage(Symbol()));
   });
 });
