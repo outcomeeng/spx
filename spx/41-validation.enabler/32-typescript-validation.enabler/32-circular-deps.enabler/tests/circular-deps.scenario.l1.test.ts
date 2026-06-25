@@ -260,11 +260,11 @@ async function validateCircularScopeWithRecording(scopeConfig: ScopeConfig): Pro
   return { dependencyGraphCalls: recording.dependencyGraphCalls, result };
 }
 
-function createReporterOutputDeps(reporterOutput: string): CircularDeps {
+function createReporterOutputDeps(reporterOutput: unknown): CircularDeps {
   return {
     [CIRCULAR_DEPS_KEYS.DEPENDENCY_CRUISER]: async (): Promise<IReporterOutput> => ({
       exitCode: 0,
-      output: reporterOutput,
+      output: reporterOutput as string | ICruiseResult,
     }),
     [CIRCULAR_DEPS_KEYS.EXTRACT_TYPESCRIPT_CONFIG]: () => emptyTypescriptConfig,
   };
@@ -651,6 +651,20 @@ describe("circular dependency filtering", () => {
       typescriptScope,
       projectRoot,
       createReporterOutputDeps(sampleLiteralTestValue(arbitraryDomainLiteral())),
+    );
+
+    expect(result).toEqual({
+      success: false,
+      error: DEPENDENCY_CRUISER_NON_STRUCTURED_OUTPUT_ERROR,
+    });
+  });
+
+  it("fails clearly when dependency-cruiser returns null reporter output", async () => {
+    const result = await validateCircularDependencies(
+      VALIDATION_SCOPES.FULL,
+      typescriptScope,
+      projectRoot,
+      createReporterOutputDeps(null),
     );
 
     expect(result).toEqual({

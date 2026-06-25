@@ -15,7 +15,11 @@ import {
   type SpecTreeSourceEntry,
 } from "@/lib/spec-tree";
 import { KIND_REGISTRY, type NodeKind, SPEC_TREE_CONFIG } from "@/lib/spec-tree/config";
-import { sampleSpecTreeTestValue, SPEC_TREE_TEST_GENERATOR } from "@testing/generators/spec-tree/spec-tree";
+import {
+  sampleDecisionKind,
+  sampleSpecTreeTestValue,
+  SPEC_TREE_TEST_GENERATOR,
+} from "@testing/generators/spec-tree/spec-tree";
 import { expectPresent } from "@testing/harnesses/spec-tree/assertions";
 import { withSpecTreeEnv } from "@testing/harnesses/spec-tree/spec-tree";
 
@@ -119,6 +123,35 @@ describe("SpecTreeSource mappings", () => {
         status: SPEC_TREE_EVIDENCE_STATUS.LINKED,
       });
       expect(evidenceEntry.ref?.path).toBe(evidencePath);
+    });
+  });
+
+  it("descends through directories whose names match decision filename grammar", async () => {
+    await withSpecTreeEnv({}, async (env) => {
+      await env.materialize();
+      const rootDirectory = nodeDirectoryName(env.fixture.root);
+      const childDirectory = nodeDirectoryName(env.fixture.child);
+      const decisionKind = sampleDecisionKind(KIND_REGISTRY);
+      const decisionOrder = sampleSpecTreeTestValue(SPEC_TREE_TEST_GENERATOR.filesystemOrder());
+      const decisionSlug = sampleSpecTreeTestValue(SPEC_TREE_TEST_GENERATOR.sourceSlug());
+      const decisionDirectory = `${decisionOrder}-${decisionSlug}${KIND_REGISTRY[decisionKind].suffix}`;
+      const nestedChildId = `${rootDirectory}/${decisionDirectory}/${childDirectory}`;
+
+      await env.writeRaw(
+        [
+          SPEC_TREE_CONFIG.ROOT_DIRECTORY,
+          rootDirectory,
+          decisionDirectory,
+          childDirectory,
+          `${env.fixture.child.slug}.md`,
+        ].join("/"),
+        "",
+      );
+
+      const snapshot = await readSpecTree({ source: env.filesystemSource() });
+
+      expect(snapshot.decisions.map((decision) => decision.id)).not.toContain(`${rootDirectory}/${decisionDirectory}`);
+      expect(snapshot.allNodes.map((node) => node.id)).toContain(nestedChildId);
     });
   });
 
