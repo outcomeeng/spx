@@ -246,7 +246,7 @@ function registerSessionCommands(sessionCmd: Command): void {
     sessionOptionsForSubcommand(sessionCliDefinition.subcommands.pickup),
   )
     .addHelpText("after", PICKUP_SELECTION_HELP)
-    .action(async (ids: string[], options: { auto?: boolean; inject: boolean; sessionsDir?: string }) => {
+    .action(async (ids: string[], options: { auto?: boolean; inject?: boolean; sessionsDir?: string }) => {
       try {
         if (ids.length === 0 && !options.auto) {
           console.error("Error: Either session ID or --auto flag is required");
