@@ -15,7 +15,11 @@ import { execa } from "execa";
 
 import type { MarketplaceInstallProbe, MarketplaceInstallReading } from "@/domains/diagnose/checks/marketplace-install";
 import type { SessionEnvironmentProbe, SessionEnvironmentReading } from "@/domains/diagnose/checks/session-environment";
-import type { SessionStoreProbe, SessionStoreReading } from "@/domains/diagnose/checks/session-store";
+import {
+  doingSessionBackedByClaim,
+  type SessionStoreProbe,
+  type SessionStoreReading,
+} from "@/domains/diagnose/checks/session-store";
 import type { WorktreePoolProbe, WorktreePoolReading } from "@/domains/diagnose/checks/worktree-pool";
 import type { MarketplaceIdentity } from "@/domains/diagnose/facts";
 import { HOOK_SESSION_START_ENV } from "@/domains/hooks/session-start";
@@ -159,13 +163,6 @@ async function claimedSessionIds(): Promise<ReadonlySet<string> | null> {
     }
   }
   return sessionIds;
-}
-
-/** Returns true when a live worktree claim can be joined to a doing session. */
-export function doingSessionBackedByClaim(session: SessionRecord, claimedSessionIds: ReadonlySet<string>): boolean {
-  if (claimedSessionIds.has(normalizeAgentSessionToken(session.id))) return true;
-  return session.agent_session_id !== undefined
-    && claimedSessionIds.has(normalizeAgentSessionToken(session.agent_session_id));
 }
 
 /** Resolves the session-store reading from doing sessions joined to the worktree claims that back them. */

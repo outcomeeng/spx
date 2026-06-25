@@ -10,6 +10,8 @@
 import type { CheckRunner } from "@/domains/diagnose/engine";
 import { CHECK_NAME } from "@/domains/diagnose/manifest";
 import { type CheckRecord, VERDICT_BUCKET } from "@/domains/diagnose/types";
+import { normalizeAgentSessionToken } from "@/domains/session/agent-session";
+import type { SessionRecord } from "@/domains/session/list";
 
 /** The session-store verdict labels. */
 export const SESSION_STORE_VERDICT = {
@@ -31,6 +33,13 @@ export interface SessionStoreReading {
 /** The injected boundary that gathers the session-store reading. */
 export interface SessionStoreProbe {
   probe(): Promise<SessionStoreReading>;
+}
+
+/** Returns true when a live worktree claim can be joined to a doing session. */
+export function doingSessionBackedByClaim(session: SessionRecord, claimedSessionIds: ReadonlySet<string>): boolean {
+  if (claimedSessionIds.has(normalizeAgentSessionToken(session.id))) return true;
+  return session.agent_session_id !== undefined
+    && claimedSessionIds.has(normalizeAgentSessionToken(session.agent_session_id));
 }
 
 const REMEDIATION: Readonly<Record<SessionStoreVerdict, string>> = {
