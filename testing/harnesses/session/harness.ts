@@ -39,9 +39,6 @@ const { statusDirs } = DEFAULT_CONFIG.sessions;
 /** Absolute path to the built CLI entry the l2 session tests invoke via `node`. */
 export const SESSION_CLI_ENTRY = join(process.cwd(), "bin/spx.js");
 
-/** ANSI control introducer; its presence in CLI output marks styled text. */
-export const SESSION_CLI_ANSI_ESCAPE = String.fromCodePoint(0x1b);
-
 /** Internal fields the JSON list output must not leak. */
 export const SESSION_FORBIDDEN_JSON_RECORD_FIELD = {
   PATH: "path",

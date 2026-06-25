@@ -492,7 +492,7 @@ export function arbitraryNonStringArrayValue(): fc.Arbitrary<unknown> {
     fc.boolean(),
     fc.constant(null),
     fc.dictionary(fc.string({ maxLength: 8 }), fc.string({ maxLength: 8 })),
-    fc.array(fc.oneof(fc.integer(), fc.boolean(), fc.constant(null)), { maxLength: 4 }),
+    fc.array(fc.oneof(fc.integer(), fc.boolean(), fc.constant(null)), { minLength: 1, maxLength: 4 }),
   );
 }
 

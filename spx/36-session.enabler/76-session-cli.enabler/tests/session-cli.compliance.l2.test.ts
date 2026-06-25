@@ -56,13 +56,13 @@ import {
   createSessionHarness,
   HANDOFF_ID_TAG_PATTERN,
   runSessionCli,
-  SESSION_CLI_ANSI_ESCAPE,
   SESSION_FILE_TAG_PATTERN,
   SESSION_FIXTURE_COMMIT_MESSAGE,
   SESSION_FORBIDDEN_JSON_RECORD_FIELD,
   type SessionHarness,
   withCommittedGitCwd,
 } from "@testing/harnesses/session/harness";
+import { ANSI_ESCAPE } from "@testing/harnesses/styled-output/ansi";
 import { withWorktreeLayoutEnv } from "@testing/harnesses/worktree-layout/worktree-layout";
 import { Command } from "commander";
 import { existsSync } from "node:fs";
@@ -872,9 +872,9 @@ describe("session CLI list color compliance", () => {
     );
     expect(exitCode).toBe(0);
     if (expectColor) {
-      expect(stdout).toContain(SESSION_CLI_ANSI_ESCAPE);
+      expect(stdout).toContain(ANSI_ESCAPE);
     } else {
-      expect(stdout).not.toContain(SESSION_CLI_ANSI_ESCAPE);
+      expect(stdout).not.toContain(ANSI_ESCAPE);
     }
   });
 });
