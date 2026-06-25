@@ -1,25 +1,19 @@
 # PLAN
 
-## Plan B — Finish the literal-reuse paydown for the session subtree
+## Plan B — Completed literal-reuse paydown for the session subtree
 
 ### Why this plan exists
 
-The eslint test-owned-constant paydown for `spx/36-session.enabler` is complete and committed on `work/session-lint-debt-pr3` (all eight children clean; the four eslint debt-manifest entries removed). Removing the `spx/36-session.enabler/` path exclusion from `spx.config.yaml` then surfaced a second, larger debt class the eslint-only survey never counted: `spx validation literal` reports **318 cross-file literal-reuse findings** (153 `[dupe]` + 160 `[reuse]`) across ~32 test files. The path exclusion is therefore back in place (net-zero in `spx.config.yaml`) and lifts only in the final commit, once every literal is resolved.
+The eslint test-owned-constant paydown for `spx/36-session.enabler` is complete and committed on `work/session-lint-debt-pr3` (all eight children clean; the four eslint debt-manifest entries removed). Removing the `spx/36-session.enabler/` path exclusion from `spx.config.yaml` then surfaced a second, larger debt class the eslint-only survey never counted: `spx validation literal` reported **318 cross-file literal-reuse findings** (153 `[dupe]` + 160 `[reuse]`) across ~32 test files. That paydown is now complete, and the session subtree is no longer excluded from validation.
 
 The keystone is built: `src/interfaces/cli/session/definition.ts` exports a semantic `sessionCliDefinition` registry (domain, subcommands with operands, options) plus `sessionCommandToken`/`sessionOptionToken`, and `src/interfaces/cli/session.ts` builds the Commander descriptor from it (no inline command/option literals remain).
 
-### Remaining work
+### Completed work
 
-1. **Route the session tests through the registry.** Replace the duplicated CLI-token literals (`"session"`, `"--sessions-dir"`, `"list"`, `"pickup"`, `"handoff"`, …) in the ~32 session test files with `sessionCliDefinition.domain.commandName`, `.subcommands.<verb>.commandName`, and `.options.<opt>.flag`. This clears every `[reuse]`/`[dupe]` on a CLI token at once.
-2. **Resolve the other literal categories by owner** — no new flat constants:
-   - session-id timestamps (`2026-01-13_08-00-00`, `_10-00-00`) → generate via `sampleSessionId` / `sampleDistinctSessionIds`;
-   - `utf-8` → one shared source-owned `FILE_ENCODING` constant;
-   - `high` / `todo` / `archive` → import `SESSION_PRIORITY` / `SESSION_STATUSES`;
-   - fixture paths (`src/file.ts`, `path/to/spec.md`) → the existing literal generator (`sampleLiteralTestValue` / source-file arbitrary);
-   - `it.each` row labels (`escape`, `return`, `delete`) → derive each from its source-owned key/action rather than a hand-typed twin.
-3. **Remove the `spx/36-session.enabler/` path exclusion from `spx.config.yaml` in the final commit**, then confirm the full gate is green over the subtree: `pnpm run validate` (literal + all stages), `pnpm run typecheck`, `pnpm run circular`, and `pnpm test` for the subtree, with `SPX_PROPERTY_SEED` both unset and set.
-4. **Re-survey type errors after the exclusion lifts.** The path exclusion also hid the subtree from `tsx src/cli.ts validation typescript`; five pre-existing type errors were fixed this session, but re-run `pnpm run typecheck` after un-excluding to confirm none remain.
-5. **Ship via `/merge`** once the full gate is green.
+1. **Session tests route CLI tokens through the registry.** Session CLI-token literals (`"session"`, `"--sessions-dir"`, `"list"`, `"pickup"`, `"handoff"`, and related verbs/options) now use the `sessionCliDefinition` registry in the session CLI test surfaces that need command grammar.
+2. **Other literal categories are source-owned or generated.** Session IDs use session generators, status and priority tokens use `SESSION_STATUSES` / `SESSION_PRIORITY`, file encoding uses source-owned encoding, and fixture-like values use generated inputs or source-owned helpers.
+3. **The session subtree exclusion is removed from `spx.config.yaml`.** The current config excludes `.work/` and `spx/46-claude.outcome/`; it no longer excludes `spx/36-session.enabler/`.
+4. **Literal validation is clean for the session subtree.** `tsx src/cli.ts validation literal --files spx/36-session.enabler --json` returns `{"srcReuse":[],"testDupe":[]}` on the synced base.
 
 ### Method that worked this session
 
