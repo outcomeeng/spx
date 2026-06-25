@@ -1,6 +1,7 @@
 import * as fc from "fast-check";
 import { describe, it } from "vitest";
 
+import { visibleWidth } from "@/domains/session/display-width";
 import { ELLIPSIS } from "@/domains/session/pick-model";
 import { arbitraryGoalWiderThan, arbitrarySessionId, claimableSession } from "@testing/generators/session/session";
 import { renderPickerView } from "@testing/harnesses/session/picker";
@@ -15,7 +16,7 @@ describe("SessionPicker rendering properties", () => {
         ({ columns, goal, id }) => {
           const view = renderPickerView({ sessions: [claimableSession({ id, goal })], columns });
           const rows = view.rowLinesFor(id);
-          const ok = rows.length === 1 && rows[0].trimEnd().length <= columns && rows[0].endsWith(ELLIPSIS);
+          const ok = rows.length === 1 && visibleWidth(rows[0].trimEnd()) <= columns && rows[0].endsWith(ELLIPSIS);
           view.unmount();
           return ok;
         },
