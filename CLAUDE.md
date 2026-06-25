@@ -181,7 +181,32 @@ Before publishing or tagging a release:
 
 ### Releasing CLI-surface changes (interim — remove when the `/release` skill ships)
 
-When a changeset reaching `main` adds a new CLI subcommand, verb, or option, it is not done at merge: drive a release, autonomous up to the publish gate — on `main` synced to `origin/main` via `/sync-base` (so the gate and bump see the merged state), `pnpm version patch --no-git-tag-version` (unless directed otherwise; updates `package.json` only), run `pnpm run publish:check`, use `/commit-changes` to commit `build(release): bump version to X.Y.Z` on `main`, then `git push origin main` (fast-forward only; never `--force`), and tag `vX.Y.Z` and push the tag (triggers `publish.yml`). Then pause: ask the operator to approve the `vX.Y.Z` run's `npm-publish` deployment (the human checkpoint the environment gate exists for); after they approve, verify with `npm view @outcomeeng/spx version` that the registry shows the new version.
+When a changeset reaching `main` adds a new CLI subcommand, verb, or option, it is not done at merge: drive a release, autonomous up to the publish gate — on `main` synced to `origin/main` via `/sync-base` (so the gate and bump see the merged state), `pnpm version patch --no-git-tag-version` (unless directed otherwise; updates `package.json` only), run `pnpm run publish:check`, use `/commit-changes` to commit `build(release): bump version to X.Y.Z` on `main`, tag `vX.Y.Z` with `git tag vX.Y.Z`, then push both refs with `git push origin main && git push origin vX.Y.Z` (fast-forward only for `main`; never `--force`). Then pause: ask the operator to approve the `vX.Y.Z` run's `npm-publish` deployment (the human checkpoint the environment gate exists for); after they approve, verify with `npm view @outcomeeng/spx version` that the registry shows the new version and run `npm audit signatures` for provenance.
+
+### Release request protocol
+
+When the user asks to prepare or publish a release, follow `README.md`
+"Publishing a Release" and `.github/workflows/publish.yml` as the current
+manual release procedure for publishing this package. Use those two surfaces as
+the package-publishing authorities.
+
+For agent execution, treat README shell commands as the human-operator form of
+the procedure. Apply this file's agent rules while carrying out the same release
+sequence: sync through `/sync-base` and commit through `/commit-changes`. When a
+release request also satisfies the "Releasing CLI-surface changes" trigger,
+follow that section for the agent execution path.
+
+Report deterministic PNPM gate evidence explicitly. A valid release status
+update names `pnpm run publish:check` and summarizes every stage it ran: source
+validation, circular dependency validation, build, tests, packaged validation,
+and packaged circular dependency validation.
+
+Report the exact version bump command too. Use
+`pnpm version patch --no-git-tag-version` unless the release request specifies
+`minor`, `major`, or an exact version.
+
+If the publish gate exits 0 with warning-level lint output, report the warning
+count and continue. Do not turn tracked warning debt into a release blocker.
 
 ### Committing Changes
 

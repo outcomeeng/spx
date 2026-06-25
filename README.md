@@ -176,12 +176,22 @@ The project uses GitHub Actions for continuous integration and publishing:
 
 ### Publishing a Release
 
-1. Run `pnpm run publish:check`
-2. Bump the version in `package.json`
-3. Commit and tag: `git tag vX.Y.Z`
-4. Push: `git push origin main && git push origin vX.Y.Z`
-5. Approve the deployment in the GitHub Actions `npm-publish` environment
-6. Verify provenance with `npm audit signatures`
+1. Sync `main` with `origin/main`: `git pull --ff-only origin main`
+2. Bump the version with `pnpm version patch --no-git-tag-version`, unless the
+   release request specifies `minor`, `major`, or an exact version
+3. Run `pnpm run publish:check`
+4. Commit and tag:
+   `git add package.json`
+   `git commit -m "build(release): bump version to X.Y.Z"`
+   `git tag vX.Y.Z`
+5. Push: `git push origin main && git push origin vX.Y.Z`
+6. Approve the deployment in the GitHub Actions `npm-publish` environment
+7. Confirm the published version and provenance:
+
+```bash
+npm view @outcomeeng/spx version
+npm audit signatures
+```
 
 ## Technical Stack
 
