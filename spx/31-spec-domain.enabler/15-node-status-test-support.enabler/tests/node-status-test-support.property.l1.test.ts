@@ -2,9 +2,20 @@ import * as fc from "fast-check";
 import { describe, expect, it } from "vitest";
 
 import { IGNORE_SOURCE_FILENAME_DEFAULT } from "@/lib/file-inclusion/ignore-source";
-import { classifyNodeStatus, NODE_STATUS_EVIDENCE_OUTCOME } from "@/lib/node-status";
-import { SPEC_TREE_CONFIG } from "@/lib/spec-tree/config";
-import { NODE_STATUS_READABLE_SLUGS, NODE_STATUS_TEST_GENERATOR } from "@testing/generators/node-status/node-status";
+import {
+  classifyNodeStatus,
+  NODE_STATUS_EVIDENCE_OUTCOME,
+  NODE_STATUS_FIELD,
+  NODE_STATUS_VERIFICATION_MECHANISM,
+  type NodeStatusEvidenceOutcome,
+  type NodeStatusFile,
+} from "@/lib/node-status";
+import { SPEC_TREE_CONFIG, SPEC_TREE_NODE_STATE, type SpecTreeNodeState } from "@/lib/spec-tree/config";
+import {
+  type ClassificationFixtureFacts,
+  NODE_STATUS_READABLE_SLUGS,
+  NODE_STATUS_TEST_GENERATOR,
+} from "@testing/generators/node-status/node-status";
 import {
   NODE_STATUS_CLASSIFICATION_EVIDENCE_CONTENT,
   NODE_STATUS_CLASSIFICATION_SPEC_CONTENT,
@@ -43,6 +54,12 @@ describe("node-status test support", () => {
               ? NODE_STATUS_EVIDENCE_OUTCOME.PASSED
               : NODE_STATUS_EVIDENCE_OUTCOME.FAILED;
             expect(Object.values(resolved)).toEqual(expectation.evidencePaths.map(() => expectedOutcome));
+            expectStatusFileMatchesFacts(
+              generatedNode.facts,
+              expectation.evidencePaths,
+              expectation.expectedStatusFile,
+            );
+            expectLifecycleStatusMatchesFacts(generatedNode.facts, expectation.expectedStatus);
             expect(expectation.expectedStatus).toBe(classifyNodeStatus({
               hasVerificationReferences: generatedNode.facts.hasVerificationReferences,
               isExcluded: generatedNode.facts.isExcluded,
@@ -92,3 +109,46 @@ describe("node-status test support", () => {
     );
   });
 });
+
+function expectStatusFileMatchesFacts(
+  facts: ClassificationFixtureFacts,
+  evidencePaths: readonly string[],
+  statusFile: NodeStatusFile,
+): void {
+  if (!facts.hasVerificationReferences) {
+    expect(statusFile.verification).toEqual({});
+    return;
+  }
+
+  const expectedPersistedOutcome = expectedPersistedOutcomeFor(facts);
+  const testVerification = statusFile.verification[NODE_STATUS_VERIFICATION_MECHANISM.TEST];
+  expect(testVerification).toBeDefined();
+  if (testVerification === undefined) return;
+  expect(testVerification[NODE_STATUS_FIELD.OVERALL]).toBe(expectedPersistedOutcome);
+  expect(evidencePaths).toHaveLength(1);
+  for (const evidencePath of evidencePaths) {
+    expect(testVerification[evidencePath]).toBe(expectedPersistedOutcome);
+  }
+}
+
+function expectedPersistedOutcomeFor(facts: ClassificationFixtureFacts): NodeStatusEvidenceOutcome {
+  if (facts.isExcluded) return NODE_STATUS_EVIDENCE_OUTCOME.NOT_RUN;
+  return facts.testsPass ? NODE_STATUS_EVIDENCE_OUTCOME.PASSED : NODE_STATUS_EVIDENCE_OUTCOME.FAILED;
+}
+
+function expectLifecycleStatusMatchesFacts(
+  facts: ClassificationFixtureFacts,
+  expectedStatus: SpecTreeNodeState,
+): void {
+  if (!facts.hasVerificationReferences) {
+    expect(expectedStatus).toBe(SPEC_TREE_NODE_STATE.DECLARED);
+    return;
+  }
+
+  if (facts.isExcluded) {
+    expect(expectedStatus).toBe(SPEC_TREE_NODE_STATE.SPECIFIED);
+    return;
+  }
+
+  expect(expectedStatus).toBe(facts.testsPass ? SPEC_TREE_NODE_STATE.PASSING : SPEC_TREE_NODE_STATE.FAILING);
+}
