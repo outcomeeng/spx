@@ -21,8 +21,9 @@ import { type SpecTreeEnv, withTestEnv } from "@testing/harnesses/spec-tree/spec
 const ROOT = SPEC_TREE_CONFIG.ROOT_DIRECTORY;
 const EVIDENCE_DIRECTORY = "tests";
 
-const SPEC_CONTENT = "# Fixture\n\nPROVIDES fixture infrastructure\nSO THAT node-status tests\nCAN classify nodes\n";
-const EVIDENCE_CONTENT =
+export const NODE_STATUS_CLASSIFICATION_SPEC_CONTENT =
+  "# Fixture\n\nPROVIDES fixture infrastructure\nSO THAT node-status tests\nCAN classify nodes\n";
+export const NODE_STATUS_CLASSIFICATION_EVIDENCE_CONTENT =
   "import { expect, it } from \"vitest\";\n\nit(\"holds\", () => {\n  expect(true).toBe(true);\n});\n";
 
 export type ClassificationTreeNodeExpectation = {
@@ -58,13 +59,13 @@ export async function withClassificationTree(
     const expectations: ClassificationTreeNodeExpectation[] = [];
 
     for (const node of fixture.nodes) {
-      await env.writeNode(`${ROOT}/${node.dirName}/${node.slug}.md`, SPEC_CONTENT);
+      await env.writeNode(`${ROOT}/${node.dirName}/${node.slug}.md`, NODE_STATUS_CLASSIFICATION_SPEC_CONTENT);
       let evidencePath: string | undefined;
 
       if (node.facts.hasVerificationReferences) {
         const evidenceFileName = sampleSpecTreeTestValue(SPEC_TREE_TEST_GENERATOR.evidenceFileName());
         evidencePath = `${ROOT}/${node.dirName}/${EVIDENCE_DIRECTORY}/${evidenceFileName}`;
-        await env.writeNode(evidencePath, EVIDENCE_CONTENT);
+        await env.writeNode(evidencePath, NODE_STATUS_CLASSIFICATION_EVIDENCE_CONTENT);
       }
 
       if (node.facts.isExcluded) {
