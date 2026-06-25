@@ -15,12 +15,11 @@ const NODE_STATUS_GENERATOR_OPTIONS = {
   ORDER_MAX: 99,
   MIN_NODES: 1,
   MAX_NODES: 5,
-  SLUG_MIN_LENGTH: 3,
-  SLUG_MAX_LENGTH: 12,
 } as const;
 
 const ENABLER_SUFFIX = KIND_REGISTRY.enabler.suffix;
 const CONSULTATION_CLASS_COUNT = 3;
+export const NODE_STATUS_READABLE_SLUGS = ["alpha", "bravo", "charlie", "delta", "echo", "foxtrot"] as const;
 const STATUS_REFERENCE_MODES = ["scenario", "mapping", "property", "compliance", "conformance"] as const;
 const STATUS_REFERENCE_LEVELS = ["l1", "l2", "l3"] as const;
 const STATUS_REFERENCE_NAME_PATTERN = /^[a-z][a-z0-9-]{2,12}$/;
@@ -30,11 +29,6 @@ const STATUS_EVIDENCE_OUTCOMES = [
   "failed",
   "not-run",
 ] as const satisfies readonly NodeStatusEvidenceOutcome[];
-const SLUG_PATTERN = new RegExp(
-  `^[a-z][a-z0-9-]{${NODE_STATUS_GENERATOR_OPTIONS.SLUG_MIN_LENGTH - 1},${
-    NODE_STATUS_GENERATOR_OPTIONS.SLUG_MAX_LENGTH - 1
-  }}$`,
-);
 
 export type ClassificationFixtureFacts = {
   readonly hasVerificationReferences: boolean;
@@ -92,12 +86,8 @@ export function arbitraryVerification(): fc.Arbitrary<NodeStatusVerification> {
     .map(verificationFromEntries);
 }
 
-// Human-readable lowercase slugs (e.g. "node-a3"), mirroring the spec-tree
-// generator's readable-token convention so counterexamples stay legible. The
-// node order is unique per fixture, so node directory names stay unique even
-// when two nodes draw the same slug.
 function arbitraryNodeSlug(): fc.Arbitrary<string> {
-  return fc.stringMatching(SLUG_PATTERN, { maxLength: NODE_STATUS_GENERATOR_OPTIONS.SLUG_MAX_LENGTH });
+  return fc.constantFrom(...NODE_STATUS_READABLE_SLUGS);
 }
 
 function arbitraryStatusReference(): fc.Arbitrary<string> {
