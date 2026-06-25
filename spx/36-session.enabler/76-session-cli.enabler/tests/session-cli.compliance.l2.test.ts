@@ -56,12 +56,12 @@ import {
   createSessionHarness,
   HANDOFF_ID_TAG_PATTERN,
   runSessionCli,
-  SESSION_FILE_TAG_PATTERN,
   SESSION_FIXTURE_COMMIT_MESSAGE,
   SESSION_FORBIDDEN_JSON_RECORD_FIELD,
   type SessionHarness,
   withCommittedGitCwd,
 } from "@testing/harnesses/session/harness";
+import { extractSessionFile } from "@testing/harnesses/session/session-store";
 import { ANSI_ESCAPE } from "@testing/harnesses/styled-output/ansi";
 import { withWorktreeLayoutEnv } from "@testing/harnesses/worktree-layout/worktree-layout";
 import { Command } from "commander";
@@ -264,9 +264,7 @@ describe("session CLI compliance", () => {
         gitCwd,
       );
       expect(result.exitCode).toBe(0);
-      const sessionFileMatch = result.stdout.match(SESSION_FILE_TAG_PATTERN);
-      expect(sessionFileMatch).not.toBeNull();
-      const sessionFile = sessionFileMatch![1];
+      const sessionFile = extractSessionFile(result.stdout);
       const onDisk = await readFile(sessionFile, SESSION_FILE_ENCODING);
       expect(onDisk.endsWith(body)).toBe(true);
     });
@@ -358,9 +356,7 @@ describe("session CLI handoff git_ref recording", () => {
         gitEnv.productDir,
       );
       expect(result.exitCode).toBe(0);
-      const sessionFileMatch = result.stdout.match(SESSION_FILE_TAG_PATTERN);
-      expect(sessionFileMatch).not.toBeNull();
-      const metadata = parseSessionMetadata(await readFile(sessionFileMatch![1], SESSION_FILE_ENCODING));
+      const metadata = parseSessionMetadata(await readFile(extractSessionFile(result.stdout), SESSION_FILE_ENCODING));
       expect(metadata.git_ref).toBe(workBranch);
     });
   });
@@ -453,7 +449,7 @@ describe("session CLI handoff-base wiring", () => {
       const result = await runHandoffFrom(cwd);
       expect(result.exitCode).toBe(0);
       expect(result.stdout).toMatch(HANDOFF_ID_TAG_PATTERN);
-      expect(result.stdout).toMatch(SESSION_FILE_TAG_PATTERN);
+      expect(extractSessionFile(result.stdout)).not.toHaveLength(0);
       expect(result.stderr.trim()).toHaveLength(0);
       expect(await readdir(harness.statusDir(TODO))).toHaveLength(1);
     });
@@ -502,7 +498,7 @@ describe("session CLI handoff-base wiring", () => {
       const result = await runHandoffFrom(linkedWorktreeDir);
       expect(result.exitCode, result.stderr).toBe(0);
       expect(result.stdout).toMatch(HANDOFF_ID_TAG_PATTERN);
-      expect(result.stdout).toMatch(SESSION_FILE_TAG_PATTERN);
+      expect(extractSessionFile(result.stdout)).not.toHaveLength(0);
       expect(result.stderr.trim()).toHaveLength(0);
       expect(await readdir(harness.statusDir(TODO))).toHaveLength(1);
     });

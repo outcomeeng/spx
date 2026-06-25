@@ -1,15 +1,5 @@
 # Open Issues
 
-## Session-file tag extraction is duplicated across test helpers
-
-`testing/harnesses/session/harness.ts` exposes `SESSION_FILE_TAG_PATTERN`, which `session-cli.compliance.l2.test.ts` uses to read the file emitted by `spx session handoff`, while `testing/harnesses/session/session-store.ts` owns an `extractSessionFile` helper that parses the same `<SESSION_FILE>` tag.
-
-**Evidence:** Two parsers cover one tag contract — the regex pattern in `harness.ts` and `extractSessionFile` in `session-store.ts`. Keeping both creates a drift point for CLI-level tests.
-
-**Impact:** A future tag-format adjustment could update one parser without the other, leaving one test lane to assert a stale extraction rule.
-
-**Resolution:** Unify on one shared parser — fold `SESSION_FILE_TAG_PATTERN` and `extractSessionFile` into a single session-harness helper and re-point both lanes to it.
-
 ## On-branch non-main checkout folds into the detached-at-tip prerequisite
 
 The handoff-base checklist enumerates two base prerequisites — a clean working tree and a HEAD detached at the default-branch tip per [`spx/36-session.enabler/11-session-frontmatter.pdr.md`](../11-session-frontmatter.pdr.md). A non-main checkout checked out on a named branch resolves the clean prerequisite independently (it can read met) while the detached-at-tip prerequisite reads unmet, so the rendered checklist shows the tree as clean alongside an unmet at-tip line rather than naming "HEAD is on a branch" as its own concern.
