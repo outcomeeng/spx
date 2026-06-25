@@ -165,6 +165,14 @@ export function parseConfigFileSections(file: ConfigFile): Result<Record<string,
 }
 
 export function serializeConfigFileSections(
+  format: typeof CONFIG_FILE_FORMAT.JSON | typeof CONFIG_FILE_FORMAT.YAML,
+  sections: Record<string, unknown>,
+): { readonly ok: true; readonly value: string };
+export function serializeConfigFileSections(
+  format: ConfigFileFormat,
+  sections: Record<string, unknown>,
+): Result<string>;
+export function serializeConfigFileSections(
   format: ConfigFileFormat,
   sections: Record<string, unknown>,
 ): Result<string> {

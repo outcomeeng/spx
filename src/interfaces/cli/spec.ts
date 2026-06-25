@@ -4,6 +4,7 @@ import { nextCommand } from "@/commands/spec/next";
 import { createNodeOutcomeResolver } from "@/commands/spec/node-outcome-resolver";
 import { OUTPUT_FORMAT, type OutputFormat, statusCommand } from "@/commands/spec/status";
 import type { Domain } from "@/domains/types";
+import type { CliInvocation } from "@/interfaces/cli/product-context";
 import { testingRegistry } from "@/test/registry";
 
 import { createRunnerDepsFor } from "./test-runner-deps";
@@ -69,7 +70,9 @@ function resolveStatusFormat(options: { json?: boolean; format?: string }): Outp
   );
 }
 
-function registerSpecCommands(specCmd: Command): void {
+function registerSpecCommands(specCmd: Command, invocation: CliInvocation): void {
+  const productDir = (): string => invocation.resolveProductContext().productDir;
+
   specCmd
     .command(SPEC_DOMAIN_CLI.STATUS_COMMAND)
     .description("Get product status")
@@ -84,7 +87,7 @@ function registerSpecCommands(specCmd: Command): void {
         // even when --update runs a node's tests for stale, failing, or absent evidence.
         const output = options.update === true
           ? await statusCommand({
-            cwd: process.cwd(),
+            cwd: productDir(),
             format,
             onWarning: writeWarning,
             update: true,
@@ -95,7 +98,7 @@ function registerSpecCommands(specCmd: Command): void {
                 runnerDepsFor: createRunnerDepsFor(productDir, process.stderr),
               }),
           })
-          : await statusCommand({ cwd: process.cwd(), format, onWarning: writeWarning });
+          : await statusCommand({ cwd: productDir(), format, onWarning: writeWarning });
         console.log(output);
       } catch (error) {
         handleCommandError(error);
@@ -107,7 +110,7 @@ function registerSpecCommands(specCmd: Command): void {
     .description("Find next spec-tree node to work on")
     .action(async () => {
       try {
-        const output = await nextCommand({ cwd: process.cwd(), onWarning: writeWarning });
+        const output = await nextCommand({ cwd: productDir(), onWarning: writeWarning });
         console.log(output);
       } catch (error) {
         handleCommandError(error);
@@ -118,11 +121,11 @@ function registerSpecCommands(specCmd: Command): void {
 export const specDomain: Domain = {
   name: "spec",
   description: "Manage spec workflow",
-  register: (program: Command) => {
+  register: (program: Command, invocation: CliInvocation) => {
     const specCmd = program
       .command(SPEC_DOMAIN_CLI.COMMAND)
       .description("Manage spec workflow");
 
-    registerSpecCommands(specCmd);
+    registerSpecCommands(specCmd, invocation);
   },
 };

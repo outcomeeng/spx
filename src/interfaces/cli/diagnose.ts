@@ -25,6 +25,7 @@ import type { CheckRegistry } from "@/domains/diagnose/engine";
 import { CHECK_NAME } from "@/domains/diagnose/manifest";
 import { DIAGNOSE_FORMAT, type DiagnoseFormat } from "@/domains/diagnose/report";
 import type { Domain } from "@/domains/types";
+import type { CliInvocation } from "@/interfaces/cli/product-context";
 import { sanitizeCliArgument } from "@/lib/sanitize-cli-argument";
 import { resolveColorChoice } from "@/lib/styled-output/styled-output";
 
@@ -62,7 +63,7 @@ function handleError(error: string): never {
 export const diagnoseDomain: Domain = {
   name: DIAGNOSE_CLI.COMMAND,
   description: DIAGNOSE_DOMAIN_DESCRIPTION,
-  register: (program: Command) => {
+  register: (program: Command, invocation: CliInvocation) => {
     program
       .command(DIAGNOSE_CLI.COMMAND)
       .description(DIAGNOSE_DOMAIN_DESCRIPTION)
@@ -80,7 +81,7 @@ export const diagnoseDomain: Domain = {
       .action(async (options: { manifest?: string; format: DiagnoseFormat; color?: boolean }) => {
         const result = await diagnoseCommand({
           manifestPath: options.manifest,
-          productDir: process.cwd(),
+          productDir: invocation.resolveProductContext().productDir,
           format: options.format,
           color: resolveColorChoice({
             flag: options.color,

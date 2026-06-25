@@ -34,9 +34,6 @@ import {
 
 function serializeEmptyJsonConfig(): string {
   const serialized = serializeConfigFileSections(CONFIG_FILE_FORMAT.JSON, literalEmptyConfig());
-  if (!serialized.ok) {
-    throw new Error(serialized.error);
-  }
   return serialized.value;
 }
 

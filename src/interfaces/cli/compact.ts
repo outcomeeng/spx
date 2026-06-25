@@ -2,6 +2,7 @@ import type { Command } from "commander";
 
 import { compactRetrieveCommand, compactStoreCommand } from "@/commands/compact";
 import type { Domain } from "@/domains/types";
+import type { CliInvocation } from "@/interfaces/cli/product-context";
 
 export const COMPACT_CLI = {
   commandName: "compact",
@@ -27,7 +28,8 @@ interface CompactRetrieveCliOptions {
 export const compactDomain: Domain = {
   name: COMPACT_CLI.commandName,
   description: COMPACT_CLI.description,
-  register: (program: Command) => {
+  register: (program: Command, invocation: CliInvocation) => {
+    const effectiveInvocationDir = (): string => invocation.resolveEffectiveInvocationDir();
     const compactCmd = program.command(COMPACT_CLI.commandName).description(COMPACT_CLI.description);
 
     compactCmd
@@ -40,7 +42,7 @@ export const compactDomain: Domain = {
           await compactStoreCommand({
             transcript: options.transcript,
             sessionId: options.sessionId,
-            cwd: process.cwd(),
+            cwd: effectiveInvocationDir(),
             env: process.env,
           }),
         );
@@ -53,7 +55,7 @@ export const compactDomain: Domain = {
       .action(async (options: CompactRetrieveCliOptions) => {
         const result = await compactRetrieveCommand({
           sessionId: options.sessionId,
-          cwd: process.cwd(),
+          cwd: effectiveInvocationDir(),
           env: process.env,
         });
         if (result.output.length > 0) {

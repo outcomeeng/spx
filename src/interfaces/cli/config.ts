@@ -14,70 +14,76 @@ import {
 } from "@/config/index";
 import { productionRegistry } from "@/config/registry";
 
-import { resolveProductDir } from "@/domains/config/root";
 import type { Domain } from "@/domains/types";
+import type { CliInvocation, CliIo } from "@/interfaces/cli/product-context";
 
-import { writeWarning } from "./write-warning";
+export const CONFIG_CLI = {
+  commandName: "config",
+  commands: {
+    defaults: "defaults",
+    show: "show",
+    validate: "validate",
+  },
+  flags: {
+    json: "--json",
+  },
+} as const;
 
-function buildDefaultDeps(): CliDeps {
+function buildDefaultDeps(invocation: CliInvocation): CliDeps {
   return {
     resolveConfig,
     readProductConfigFile,
     resolveConfigFromReadResult,
-    resolveProductDir: (): string => {
-      const resolved = resolveProductDir();
-      writeWarning(resolved.warning);
-      return resolved.productDir;
-    },
+    resolveProductDir: (): string => invocation.resolveProductContext().productDir,
     descriptors: productionRegistry,
   };
 }
 
-async function emit(result: CliResult): Promise<never> {
+async function emit(result: CliResult, io: CliIo): Promise<never> {
   if (result.stdout.length > 0) {
-    process.stdout.write(result.stdout);
+    io.writeStdout(result.stdout);
   }
   if (result.stderr.length > 0) {
-    process.stderr.write(result.stderr);
+    io.writeStderr(result.stderr);
   }
-  return process.exit(result.exitCode);
+  return io.exit(result.exitCode);
 }
 
-function registerConfigCommands(configCmd: Command): void {
+function registerConfigCommands(configCmd: Command, invocation: CliInvocation): void {
   configCmd
-    .command("show")
+    .command(CONFIG_CLI.commands.show)
     .description(
       `Print the resolved configuration as ${DEFAULT_CONFIG_FILE_FORMAT.toUpperCase()} `
-        + `(or ${CONFIG_FILE_FORMAT.JSON.toUpperCase()} with --json)`,
+        + `(or ${CONFIG_FILE_FORMAT.JSON.toUpperCase()} with ${CONFIG_CLI.flags.json})`,
     )
-    .option("--json", `Output as ${CONFIG_FILE_FORMAT.JSON.toUpperCase()}`)
+    .option(CONFIG_CLI.flags.json, `Output as ${CONFIG_FILE_FORMAT.JSON.toUpperCase()}`)
     .action(async (options: ShowOptions) => {
-      await emit(await showCommand(options, buildDefaultDeps()));
+      await emit(await showCommand(options, buildDefaultDeps(invocation)), invocation.io);
     });
 
   configCmd
-    .command("validate")
+    .command(CONFIG_CLI.commands.validate)
     .description(`Verify that ${DEFAULT_CONFIG_FILENAME} passes every registered descriptor's validator`)
     .action(async (options: ValidateOptions) => {
-      await emit(await validateCommand(options, buildDefaultDeps()));
+      await emit(await validateCommand(options, buildDefaultDeps(invocation)), invocation.io);
     });
 
   configCmd
-    .command("defaults")
+    .command(CONFIG_CLI.commands.defaults)
     .description(`Print each registered descriptor's defaults; ignores ${DEFAULT_CONFIG_FILENAME}`)
-    .option("--json", `Output as ${CONFIG_FILE_FORMAT.JSON.toUpperCase()}`)
+    .option(CONFIG_CLI.flags.json, `Output as ${CONFIG_FILE_FORMAT.JSON.toUpperCase()}`)
     .action(async (options: ShowOptions) => {
-      await emit(await defaultsCommand(options, buildDefaultDeps()));
+      await emit(await defaultsCommand(options, buildDefaultDeps(invocation)), invocation.io);
     });
 }
 
 export const configDomain: Domain = {
   name: "config",
   description: "Inspect and validate the resolved spx configuration",
-  register: (program: Command) => {
+  register: (program: Command, invocation: CliInvocation) => {
     const configCmd = program
-      .command("config")
+      .command(CONFIG_CLI.commandName)
       .description("Inspect and validate the resolved spx configuration");
-    registerConfigCommands(configCmd);
+    registerConfigCommands(configCmd, invocation);
   },
 };

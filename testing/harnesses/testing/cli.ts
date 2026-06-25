@@ -1,7 +1,6 @@
-import { Command } from "commander";
-
 import type { RecordedTestRun } from "@/commands/test";
 import type { TargetSelection } from "@/domains/test";
+import { createCliProgram } from "@/interfaces/cli/program";
 import { createTestingDomain, type TestingCliDependencies } from "@/interfaces/cli/test";
 import { testingCliCommanderParseSource } from "@testing/generators/testing/dispatch";
 
@@ -52,16 +51,10 @@ export async function runTestingCli(
   args: readonly string[],
   deps: TestingCliDependencies,
 ): Promise<TestingCliResult> {
-  const program = new Command();
   const stdout: string[] = [];
   const stderr: string[] = [];
   const exitCodes: number[] = [];
-  program.exitOverride();
-  program.configureOutput({
-    writeOut: (output) => stdout.push(output),
-    writeErr: (output) => stderr.push(output),
-  });
-  createTestingDomain({
+  const domain = createTestingDomain({
     ...deps,
     writeStdout: (output) => stdout.push(output),
     writeWarning: (warning) => {
@@ -72,7 +65,13 @@ export async function runTestingCli(
       exitCodes.push(exitCode);
       throw new TestingCliExit(exitCode);
     },
-  }).register(program);
+  });
+  const program = createCliProgram({ domains: [domain] });
+  program.exitOverride();
+  program.configureOutput({
+    writeOut: (output) => stdout.push(output),
+    writeErr: (output) => stderr.push(output),
+  });
 
   try {
     await program.parseAsync([...args], { from: testingCliCommanderParseSource() });

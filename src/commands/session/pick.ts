@@ -19,6 +19,8 @@ import { resolveSessionConfigSurfacingWarning, type SessionWarningHandler } from
 export interface PickCandidatesOptions {
   /** Custom sessions directory. */
   sessionsDir?: string;
+  /** Current working directory for default session-store resolution. */
+  cwd?: string;
   /** Receives the non-git-repo diagnostic for the descriptor to surface. */
   onWarning?: SessionWarningHandler;
 }
@@ -32,6 +34,6 @@ export interface PickCandidatesOptions {
  * @returns The claimable `todo` sessions
  */
 export async function loadPickCandidates(options: PickCandidatesOptions): Promise<Session[]> {
-  const config = await resolveSessionConfigSurfacingWarning(options.sessionsDir, options.onWarning);
+  const config = await resolveSessionConfigSurfacingWarning(options.sessionsDir, options.onWarning, options.cwd);
   return loadTodoSessions(config);
 }

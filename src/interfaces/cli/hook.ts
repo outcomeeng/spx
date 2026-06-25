@@ -8,6 +8,7 @@ import type { Command } from "commander";
 
 import type { Domain } from "@/domains/types";
 import { defaultGitDependencies } from "@/git/root";
+import type { CliInvocation } from "@/interfaces/cli/product-context";
 import { processHookIo, runHookCli } from "@/interfaces/hooks/cli-runner";
 import { createClaimWriteToken } from "@/lib/worktree-claim-write-token";
 import { defaultOccupancyFileSystem } from "@/lib/worktree-occupancy-file-system";
@@ -26,7 +27,9 @@ export const HOOK_CLI = {
 
 const HOOK_DOMAIN_DESCRIPTION = "Run host lifecycle hook events";
 
-function registerHookCommands(hookCmd: Command): void {
+function registerHookCommands(hookCmd: Command, invocation: CliInvocation): void {
+  const effectiveInvocationDir = (): string => invocation.resolveEffectiveInvocationDir();
+
   hookCmd
     .command(`${HOOK_CLI.RUN} ${HOOK_CLI.EVENT_ARGUMENT}`)
     .description("Run a hook lifecycle event")
@@ -35,7 +38,7 @@ function registerHookCommands(hookCmd: Command): void {
     .action(async (event: string, options: { hookEnvFile?: string; worktreesDir?: string }) => {
       const result = await runHookCli({
         claimWriteToken: createClaimWriteToken(),
-        cwd: process.cwd(),
+        cwd: effectiveInvocationDir(),
         env: process.env,
         envFile: options.hookEnvFile,
         event,
@@ -55,9 +58,9 @@ function registerHookCommands(hookCmd: Command): void {
 export const hookDomain: Domain = {
   name: HOOK_CLI.COMMAND,
   description: HOOK_DOMAIN_DESCRIPTION,
-  register: (program: Command) => {
+  register: (program: Command, invocation: CliInvocation) => {
     const hookCmd = program.command(HOOK_CLI.COMMAND).description(HOOK_DOMAIN_DESCRIPTION);
 
-    registerHookCommands(hookCmd);
+    registerHookCommands(hookCmd, invocation);
   },
 };

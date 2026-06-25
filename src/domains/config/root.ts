@@ -1,7 +1,8 @@
-import { execSync } from "node:child_process";
+import { execFileSync } from "node:child_process";
 import { resolve } from "node:path";
 
-const GIT_TOPLEVEL_CMD = "git rev-parse --show-toplevel";
+const GIT_EXECUTABLE = "git";
+const GIT_TOPLEVEL_ARGS = ["rev-parse", "--show-toplevel"] as const;
 const GIT_NOT_REPO_MARKER = "not a git repository";
 
 export type ResolvedProductDir = {
@@ -9,20 +10,20 @@ export type ResolvedProductDir = {
   readonly warning?: string;
 };
 
-export function resolveProductDir(cwd: string = process.cwd()): ResolvedProductDir {
+export type ProductDirResolverDeps = {
+  readonly readGitToplevel: (cwd: string) => string | undefined;
+};
+
+export const LEGACY_PRODUCT_ROOT_FIELD_NAMES = ["projectRoot", "projectDir"] as const;
+
+export function resolveProductDir(
+  cwd: string,
+  deps: ProductDirResolverDeps = DEFAULT_PRODUCT_DIR_RESOLVER_DEPS,
+): ResolvedProductDir {
   const resolvedCwd = resolve(cwd);
-  try {
-    const stdout = execSync(GIT_TOPLEVEL_CMD, {
-      cwd: resolvedCwd,
-      stdio: ["ignore", "pipe", "pipe"],
-      encoding: "utf8",
-    });
-    const toplevel = stdout.trim();
-    if (toplevel.length > 0) {
-      return { productDir: resolve(toplevel) };
-    }
-  } catch {
-    // fall through to cwd fallback
+  const toplevel = deps.readGitToplevel(resolvedCwd);
+  if (toplevel !== undefined && toplevel.length > 0) {
+    return { productDir: resolve(toplevel) };
   }
 
   return {
@@ -31,3 +32,17 @@ export function resolveProductDir(cwd: string = process.cwd()): ResolvedProductD
       `warning: ${resolvedCwd} is not inside a git worktree — falling back to the current working directory. ${GIT_NOT_REPO_MARKER}.`,
   };
 }
+
+const DEFAULT_PRODUCT_DIR_RESOLVER_DEPS: ProductDirResolverDeps = {
+  readGitToplevel: (cwd) => {
+    try {
+      return execFileSync(GIT_EXECUTABLE, [...GIT_TOPLEVEL_ARGS], { // NOSONAR - spx intentionally uses the caller's git executable.
+        cwd,
+        stdio: ["ignore", "pipe", "pipe"],
+        encoding: "utf8",
+      }).trim();
+    } catch {
+      return undefined;
+    }
+  },
+};

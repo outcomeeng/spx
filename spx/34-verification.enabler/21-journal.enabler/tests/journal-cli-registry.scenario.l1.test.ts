@@ -1,7 +1,7 @@
-import { Command } from "commander";
 import { describe, expect, it } from "vitest";
 
 import { JOURNAL_CLI } from "@/interfaces/cli/journal";
+import { createCliProgram } from "@/interfaces/cli/program";
 import { CLI_DOMAINS } from "@/interfaces/cli/registry";
 
 describe("journal CLI registry", () => {
@@ -10,8 +10,7 @@ describe("journal CLI registry", () => {
     expect(journalDomain).toBeDefined();
     if (journalDomain === undefined) throw new Error("journal domain missing from the CLI registry");
 
-    const program = new Command();
-    journalDomain.register(program);
+    const program = createCliProgram({ domains: [journalDomain] });
     const journalCommand = program.commands.find((command) => command.name() === JOURNAL_CLI.commandName);
 
     expect(journalCommand).toBeDefined();

@@ -4,6 +4,7 @@
 import { initCommand } from "@/commands/claude/init";
 import { consolidateCommand } from "@/commands/claude/settings/consolidate";
 import type { Domain } from "@/domains/types";
+import type { CliInvocation } from "@/interfaces/cli/product-context";
 import type { Command } from "commander";
 
 /**
@@ -11,14 +12,16 @@ import type { Command } from "commander";
  *
  * @param claudeCmd - Commander.js claude domain command
  */
-function registerClaudeCommands(claudeCmd: Command): void {
+function registerClaudeCommands(claudeCmd: Command, invocation: CliInvocation): void {
+  const productDir = (): string => invocation.resolveProductContext().productDir;
+
   // init command
   claudeCmd
     .command("init")
     .description("Initialize or update outcomeeng marketplace plugin")
     .action(async () => {
       try {
-        const output = await initCommand({ cwd: process.cwd() });
+        const output = await initCommand({ cwd: productDir() });
         console.log(output);
       } catch (error) {
         console.error(
@@ -94,11 +97,11 @@ function registerClaudeCommands(claudeCmd: Command): void {
 export const claudeDomain: Domain = {
   name: "claude",
   description: "Manage Claude Code settings and plugins",
-  register: (program: Command) => {
+  register: (program: Command, invocation: CliInvocation) => {
     const claudeCmd = program
       .command("claude")
       .description("Manage Claude Code settings and plugins");
 
-    registerClaudeCommands(claudeCmd);
+    registerClaudeCommands(claudeCmd, invocation);
   },
 };
