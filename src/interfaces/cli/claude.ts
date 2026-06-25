@@ -4,8 +4,31 @@
 import { initCommand } from "@/commands/claude/init";
 import { consolidateCommand } from "@/commands/claude/settings/consolidate";
 import type { Domain } from "@/domains/types";
-import type { CliInvocation } from "@/interfaces/cli/product-context";
+import type { CliInvocation, CliIo } from "@/interfaces/cli/product-context";
 import type { Command } from "commander";
+
+function formatError(error: unknown): string {
+  if (error instanceof Error) {
+    return error.message;
+  }
+  if (typeof error === "string") {
+    return error;
+  }
+  return "Unknown error";
+}
+
+function writeOutput(io: CliIo, output: string): void {
+  io.writeStdout(`${output}\n`);
+}
+
+function writeError(io: CliIo, output: string): void {
+  io.writeStderr(`${output}\n`);
+}
+
+function exitWithError(io: CliIo, error: unknown): never {
+  writeError(io, `Error: ${formatError(error)}`);
+  return io.exit(1);
+}
 
 /**
  * Register claude domain commands
@@ -22,13 +45,9 @@ function registerClaudeCommands(claudeCmd: Command, invocation: CliInvocation): 
     .action(async () => {
       try {
         const output = await initCommand({ cwd: productDir() });
-        console.log(output);
+        writeOutput(invocation.io, output);
       } catch (error) {
-        console.error(
-          "Error:",
-          error instanceof Error ? error.message : String(error),
-        );
-        process.exit(1);
+        exitWithError(invocation.io, error);
       }
     });
 
@@ -66,11 +85,12 @@ function registerClaudeCommands(claudeCmd: Command, invocation: CliInvocation): 
         try {
           // Validate mutually exclusive options
           if (options.write && options.outputFile) {
-            console.error(
+            writeError(
+              invocation.io,
               "Error: --write and --output-file are mutually exclusive\n"
                 + "Use --write to modify global settings, or --output-file to write to a different location",
             );
-            process.exit(1);
+            return invocation.io.exit(1);
           }
 
           const output = await consolidateCommand({
@@ -79,13 +99,9 @@ function registerClaudeCommands(claudeCmd: Command, invocation: CliInvocation): 
             root: options.root,
             globalSettings: options.globalSettings,
           });
-          console.log(output);
+          writeOutput(invocation.io, output);
         } catch (error) {
-          console.error(
-            "Error:",
-            error instanceof Error ? error.message : String(error),
-          );
-          process.exit(1);
+          exitWithError(invocation.io, error);
         }
       },
     );

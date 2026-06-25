@@ -4,11 +4,10 @@ import { nextCommand } from "@/commands/spec/next";
 import { createNodeOutcomeResolver } from "@/commands/spec/node-outcome-resolver";
 import { OUTPUT_FORMAT, type OutputFormat, statusCommand } from "@/commands/spec/status";
 import type { Domain } from "@/domains/types";
-import type { CliInvocation } from "@/interfaces/cli/product-context";
+import type { CliInvocation, CliIo } from "@/interfaces/cli/product-context";
 import { testingRegistry } from "@/test/registry";
 
 import { createRunnerDepsFor } from "./test-runner-deps";
-import { writeWarning } from "./write-warning";
 
 export const SPEC_DOMAIN_CLI = {
   COMMAND: "spec",
@@ -33,7 +32,17 @@ const VALID_STATUS_FORMATS: readonly OutputFormat[] = [
 
 const UNPRINTABLE_ERROR_MESSAGE = "unprintable error";
 
-function handleCommandError(error: unknown): never {
+function writeOutput(io: CliIo, output: string): void {
+  io.writeStdout(`${output}\n`);
+}
+
+function writeInvocationWarning(io: CliIo, warning: string | undefined): void {
+  if (warning !== undefined) {
+    io.writeStderr(`${warning}\n`);
+  }
+}
+
+function handleCommandError(io: CliIo, error: unknown): never {
   let message: string;
   if (error instanceof Error) {
     message = error.message;
@@ -46,8 +55,8 @@ function handleCommandError(error: unknown): never {
       message = UNPRINTABLE_ERROR_MESSAGE;
     }
   }
-  console.error("Error:", message);
-  process.exit(1);
+  io.writeStderr(`Error: ${message}\n`);
+  return io.exit(1);
 }
 
 function resolveStatusFormat(options: { json?: boolean; format?: string }): OutputFormat {
@@ -72,6 +81,7 @@ function resolveStatusFormat(options: { json?: boolean; format?: string }): Outp
 
 function registerSpecCommands(specCmd: Command, invocation: CliInvocation): void {
   const productDir = (): string => invocation.resolveProductContext().productDir;
+  const onWarning = (warning: string | undefined): void => writeInvocationWarning(invocation.io, warning);
 
   specCmd
     .command(SPEC_DOMAIN_CLI.STATUS_COMMAND)
@@ -89,7 +99,7 @@ function registerSpecCommands(specCmd: Command, invocation: CliInvocation): void
           ? await statusCommand({
             cwd: productDir(),
             format,
-            onWarning: writeWarning,
+            onWarning,
             update: true,
             resolveOutcomeFor: (productDir) =>
               createNodeOutcomeResolver({
@@ -98,10 +108,10 @@ function registerSpecCommands(specCmd: Command, invocation: CliInvocation): void
                 runnerDepsFor: createRunnerDepsFor(productDir, process.stderr),
               }),
           })
-          : await statusCommand({ cwd: productDir(), format, onWarning: writeWarning });
-        console.log(output);
+          : await statusCommand({ cwd: productDir(), format, onWarning });
+        writeOutput(invocation.io, output);
       } catch (error) {
-        handleCommandError(error);
+        handleCommandError(invocation.io, error);
       }
     });
 
@@ -110,10 +120,10 @@ function registerSpecCommands(specCmd: Command, invocation: CliInvocation): void
     .description("Find next spec-tree node to work on")
     .action(async () => {
       try {
-        const output = await nextCommand({ cwd: productDir(), onWarning: writeWarning });
-        console.log(output);
+        const output = await nextCommand({ cwd: productDir(), onWarning });
+        writeOutput(invocation.io, output);
       } catch (error) {
-        handleCommandError(error);
+        handleCommandError(invocation.io, error);
       }
     });
 }
