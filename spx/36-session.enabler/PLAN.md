@@ -11,16 +11,15 @@ The keystone is built: `src/interfaces/cli/session/definition.ts` exports a sema
 ### Remaining work
 
 1. **Route the session tests through the registry.** Replace the duplicated CLI-token literals (`"session"`, `"--sessions-dir"`, `"list"`, `"pickup"`, `"handoff"`, …) in the ~32 session test files with `sessionCliDefinition.domain.commandName`, `.subcommands.<verb>.commandName`, and `.options.<opt>.flag`. This clears every `[reuse]`/`[dupe]` on a CLI token at once.
-2. **Add a `SESSION_OUTPUT_MARKER` source registry** for the structured tags the commands emit and tests parse (`<PICKUP_ID>`, `<HANDOFF_ID>`, `<SESSION_FILE>` and their closers) — owned by the emitting source, imported by tests. Reuse any marker constant that already exists (`HANDOFF_ID_TAG_PATTERN`, `SESSION_FILE_TAG_PATTERN`) rather than re-declaring.
-3. **Resolve the other literal categories by owner** — no new flat constants:
+2. **Resolve the other literal categories by owner** — no new flat constants:
    - session-id timestamps (`2026-01-13_08-00-00`, `_10-00-00`) → generate via `sampleSessionId` / `sampleDistinctSessionIds`;
    - `utf-8` → one shared source-owned `FILE_ENCODING` constant;
    - `high` / `todo` / `archive` → import `SESSION_PRIORITY` / `SESSION_STATUSES`;
    - fixture paths (`src/file.ts`, `path/to/spec.md`) → the existing literal generator (`sampleLiteralTestValue` / source-file arbitrary);
    - `it.each` row labels (`escape`, `return`, `delete`) → derive each from its source-owned key/action rather than a hand-typed twin.
-4. **Remove the `spx/36-session.enabler/` path exclusion from `spx.config.yaml` in the final commit**, then confirm the full gate is green over the subtree: `pnpm run validate` (literal + all stages), `pnpm run typecheck`, `pnpm run circular`, and `pnpm test` for the subtree, with `SPX_PROPERTY_SEED` both unset and set.
-5. **Re-survey type errors after the exclusion lifts.** The path exclusion also hid the subtree from `tsx src/cli.ts validation typescript`; five pre-existing type errors were fixed this session, but re-run `pnpm run typecheck` after un-excluding to confirm none remain.
-6. **Ship via `/merge`** once the full gate is green.
+3. **Remove the `spx/36-session.enabler/` path exclusion from `spx.config.yaml` in the final commit**, then confirm the full gate is green over the subtree: `pnpm run validate` (literal + all stages), `pnpm run typecheck`, `pnpm run circular`, and `pnpm test` for the subtree, with `SPX_PROPERTY_SEED` both unset and set.
+4. **Re-survey type errors after the exclusion lifts.** The path exclusion also hid the subtree from `tsx src/cli.ts validation typescript`; five pre-existing type errors were fixed this session, but re-run `pnpm run typecheck` after un-excluding to confirm none remain.
+5. **Ship via `/merge`** once the full gate is green.
 
 ### Method that worked this session
 
