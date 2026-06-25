@@ -34,7 +34,17 @@ describe("the session-environment check classifies the SessionStart worktree occ
       bucket: VERDICT_BUCKET.HEALTHY,
     },
     {
+      overrides: { hookPresent: false, sessionIdentity: true, worktreeClaimed: true },
+      verdict: SESSION_ENVIRONMENT_VERDICT.WORKING,
+      bucket: VERDICT_BUCKET.HEALTHY,
+    },
+    {
       overrides: { sessionIdentity: true },
+      verdict: SESSION_ENVIRONMENT_VERDICT.IDENTITY_ONLY,
+      bucket: VERDICT_BUCKET.DEGRADED,
+    },
+    {
+      overrides: { hookPresent: false, sessionIdentity: true },
       verdict: SESSION_ENVIRONMENT_VERDICT.IDENTITY_ONLY,
       bucket: VERDICT_BUCKET.DEGRADED,
     },

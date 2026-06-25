@@ -1,18 +1,36 @@
 import fc from "fast-check";
 import { describe, expect, it } from "vitest";
 
+import { doingSessionBackedByClaim } from "@/commands/diagnose/probes";
 import {
   classifySessionStore,
   SESSION_STORE_VERDICT,
   type SessionStoreReading,
 } from "@/domains/diagnose/checks/session-store";
 import { VERDICT_BUCKET } from "@/domains/diagnose/types";
+import { DEFAULT_SESSION_METADATA, type SessionRecord } from "@/domains/session/list";
+import { SESSION_STATUSES } from "@/domains/session/types";
+import { sampleDistinctSessionIds, sampleSessionId } from "@testing/generators/session/session";
 
 const reading = (overrides: Partial<SessionStoreReading>): SessionStoreReading => ({
   errored: false,
   orphanedClaims: 0,
   ...overrides,
 });
+
+type DoingSessionRecord = SessionRecord & { readonly agent_session_id: string };
+
+function doingSession(): DoingSessionRecord {
+  const sessionIds = sampleDistinctSessionIds(2);
+  return {
+    id: sessionIds[0] ?? sampleSessionId(),
+    status: SESSION_STATUSES[1],
+    ...DEFAULT_SESSION_METADATA,
+    specs: [],
+    files: [],
+    agent_session_id: sessionIds[1] ?? sampleSessionId(),
+  };
+}
 
 describe("the session-store check classifies the store from sessions joined to occupancy", () => {
   it("classifies an errored reading as unknown (bucket unknown)", () => {
@@ -38,5 +56,17 @@ describe("the session-store check classifies the store from sessions joined to o
         expect(result.remediation.length).toBeGreaterThan(0);
       }),
     );
+  });
+
+  it("treats a live claim naming the session id as backing the doing session", () => {
+    const session = doingSession();
+
+    expect(doingSessionBackedByClaim(session, new Set([session.id]))).toBe(true);
+  });
+
+  it("treats a live claim naming the agent session id as backing the doing session", () => {
+    const session = doingSession();
+
+    expect(doingSessionBackedByClaim(session, new Set([session.agent_session_id]))).toBe(true);
   });
 });

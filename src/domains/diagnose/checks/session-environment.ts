@@ -46,7 +46,8 @@ const REMEDIATION: Readonly<Record<SessionEnvironmentVerdict, string>> = {
     "The SessionStart hook set the session identity but did not claim the worktree; check the worktree-claim step.",
   [SESSION_ENVIRONMENT_VERDICT.SILENT_NO_OP]:
     "The SessionStart hook ran without effect; verify the hook resolves spx and the agent session id.",
-  [SESSION_ENVIRONMENT_VERDICT.NOT_APPLICABLE]: "No spec-tree SessionStart hook on this runtime; no action needed.",
+  [SESSION_ENVIRONMENT_VERDICT.NOT_APPLICABLE]:
+    "No SessionStart hook signal or agent session identity was observed; confirm a spec-tree SessionStart hook is configured and enabled.",
   [SESSION_ENVIRONMENT_VERDICT.UNKNOWN]:
     "Re-run diagnose; if it persists, inspect the agent session id and spx worktree status.",
 };
@@ -71,9 +72,6 @@ function record(
 
 /** Classifies the session-environment reading into a check record. */
 export function classifySessionEnvironment(reading: SessionEnvironmentReading): CheckRecord {
-  if (!reading.hookPresent) {
-    return record(SESSION_ENVIRONMENT_VERDICT.NOT_APPLICABLE, VERDICT_BUCKET.NOT_APPLICABLE, reading);
-  }
   if (reading.errored) {
     return record(SESSION_ENVIRONMENT_VERDICT.UNKNOWN, VERDICT_BUCKET.UNKNOWN, reading);
   }
@@ -83,8 +81,11 @@ export function classifySessionEnvironment(reading: SessionEnvironmentReading): 
   if (reading.sessionIdentity) {
     return record(SESSION_ENVIRONMENT_VERDICT.IDENTITY_ONLY, VERDICT_BUCKET.DEGRADED, reading);
   }
-  if (!reading.worktreeClaimed) {
+  if (reading.hookPresent && !reading.worktreeClaimed) {
     return record(SESSION_ENVIRONMENT_VERDICT.SILENT_NO_OP, VERDICT_BUCKET.BROKEN, reading);
+  }
+  if (!reading.hookPresent && !reading.worktreeClaimed) {
+    return record(SESSION_ENVIRONMENT_VERDICT.NOT_APPLICABLE, VERDICT_BUCKET.NOT_APPLICABLE, reading);
   }
   return record(SESSION_ENVIRONMENT_VERDICT.UNKNOWN, VERDICT_BUCKET.UNKNOWN, reading);
 }
