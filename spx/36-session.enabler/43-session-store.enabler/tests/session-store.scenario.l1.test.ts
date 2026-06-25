@@ -10,7 +10,7 @@
  */
 
 import { readdir, readFile, writeFile } from "node:fs/promises";
-import { join } from "node:path";
+import { basename, join } from "node:path";
 
 import fc from "fast-check";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
@@ -66,6 +66,7 @@ import {
   type Session,
   SESSION_FILE_ENCODING,
   SESSION_FRONT_MATTER,
+  SESSION_OUTPUT_MARKER,
   SESSION_PRIORITY,
   SESSION_STATUSES,
   type SessionPriority,
@@ -91,7 +92,7 @@ import {
   SessionHarness,
   WORKTREE_KIND,
 } from "@testing/harnesses/session/harness";
-import { extractSessionFile, parseFrontMatter } from "@testing/harnesses/session/session-store";
+import { extractSessionFile, extractSessionMarker, parseFrontMatter } from "@testing/harnesses/session/session-store";
 
 const [TODO, DOING] = SESSION_STATUSES;
 
@@ -625,10 +626,14 @@ describe("handoffCommand with real filesystem", () => {
       deps: handoffGitDeps,
     });
 
-    expect(output).toMatch(/<HANDOFF_ID>\d{4}-\d{2}-\d{2}_\d{2}-\d{2}-\d{2}<\/HANDOFF_ID>/);
-    expect(output).toMatch(/<SESSION_FILE>.*\.md<\/SESSION_FILE>/);
+    const handoffId = extractSessionMarker(output, SESSION_OUTPUT_MARKER.HANDOFF_ID);
+    const sessionFile = extractSessionFile(output);
 
-    const frontMatter = parseFrontMatter(await readFile(extractSessionFile(output), SESSION_FILE_ENCODING));
+    expect(handoffId).toMatch(/^\d{4}-\d{2}-\d{2}_\d{2}-\d{2}-\d{2}$/);
+    expect(basename(sessionFile)).toBe(`${handoffId}.md`);
+    expect(sessionFile).toBe(join(harness.statusDir(TODO), `${handoffId}.md`));
+
+    const frontMatter = parseFrontMatter(await readFile(sessionFile, SESSION_FILE_ENCODING));
     expect(frontMatter).toHaveProperty(SESSION_FRONT_MATTER.PRIORITY, SESSION_PRIORITY.HIGH);
     expect(frontMatter).toHaveProperty(SESSION_FRONT_MATTER.GIT_REF, handoffGitRef);
     expect(frontMatter).toHaveProperty(SESSION_FRONT_MATTER.GOAL, testGoal);
