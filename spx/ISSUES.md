@@ -1,5 +1,19 @@
 # Open Issues
 
+## Validation warning baseline remains noisy
+
+`pnpm run validate` passed on June 25, 2026 while emitting 89 ESLint warnings across source modules and testing helpers. The warning classes include `sonarjs/cognitive-complexity`, `@typescript-eslint/no-unnecessary-condition`, and `unicorn/prefer-code-point`.
+
+Observed command:
+
+```bash
+pnpm run validate
+```
+
+Impact: the local gate succeeds, but the warning stream makes validation output harder to scan and can hide new warnings inside a large baseline.
+
+Resolution condition: group the warnings by rule and owning node, then clear or deliberately downgrade them in coherent scoped changes. Keep each cleanup isolated from behavior changes and run the current local validation gate after each batch.
+
 ## Worktree-management PDR names git plumbing in its decision content
 
 `spx/15-worktree-management.pdr.md` carries a "Git mechanism" column in its state-class table and several `### Audit` rules that name specific git commands (`git rev-parse --git-common-dir`, `git rev-parse --show-toplevel`, `git config --get core.bare`) and a code-naming constraint (root-resolution helper-name alignment). A PDR audit argued these describe how root resolution is implemented rather than what users observe, and belong in [`spx/17-state.adr.md`](17-state.adr.md).
