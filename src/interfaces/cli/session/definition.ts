@@ -56,6 +56,7 @@ export interface SessionCliDefinition {
     readonly noColor: SessionOptionDefinition;
     readonly sessionsDir: SessionOptionDefinition;
     readonly auto: SessionOptionDefinition;
+    readonly noInject: SessionOptionDefinition;
     readonly keep: SessionOptionDefinition;
     readonly dryRun: SessionOptionDefinition;
   };
@@ -147,6 +148,10 @@ export const sessionCliDefinition: SessionCliDefinition = {
       flag: "--auto",
       description: "Auto-select highest priority session",
     },
+    noInject: {
+      flag: "--no-inject",
+      description: "Skip printing files listed in session specs/files metadata",
+    },
     keep: {
       flag: "--keep",
       placeholder: "<count>",
@@ -192,7 +197,11 @@ export const sessionSubcommandOptions = [
   },
   {
     subcommand: sessionCliDefinition.subcommands.pickup,
-    options: [sessionCliDefinition.options.auto, sessionCliDefinition.options.sessionsDir],
+    options: [
+      sessionCliDefinition.options.auto,
+      sessionCliDefinition.options.noInject,
+      sessionCliDefinition.options.sessionsDir,
+    ],
   },
   {
     subcommand: sessionCliDefinition.subcommands.release,

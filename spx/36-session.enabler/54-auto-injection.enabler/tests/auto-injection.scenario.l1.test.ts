@@ -1,26 +1,155 @@
-/**
- * Unit tests for auto-injection metadata parsing.
- *
- * Test Level: 1 (Unit)
- * - Pure function: parseSessionMetadata extracts specs/files arrays
- *
- * Assertions covered from auto-injection.md:
- * - P1: YAML front matter parsing extracts specs and files arrays;
- *   missing or malformed fields produce empty arrays, never errors
- *
- * NOTE: S1-S4 (pickup with injection) require the auto-injection
- * behavior to be implemented in pickupCommand. These tests will be
- * added when the behavior exists. For now, only P1 (metadata parsing)
- * is testable.
- */
+import { mkdir, readdir, readFile, rename, writeFile } from "node:fs/promises";
+import { dirname, resolve } from "node:path";
 
 import fc from "fast-check";
-import { describe, expect, it } from "vitest";
+import { afterEach, beforeEach, describe, expect, it } from "vitest";
 
+import {
+  pickupCommand,
+  type PickupDependencies,
+  SESSION_INJECTION_MISSING_WARNING_PREFIX,
+  SESSION_INJECTION_SECTION_PREFIX,
+} from "@/commands/session/pickup";
 import { buildSessionFrontMatterContent } from "@/domains/session/create";
 import { parseSessionMetadata } from "@/domains/session/list";
-import { SESSION_FRONT_MATTER, SESSION_PRIORITY } from "@/domains/session/types";
+import {
+  CLAIMABLE_STATUS,
+  SESSION_FILE_ENCODING,
+  SESSION_FRONT_MATTER,
+  SESSION_PRIORITY,
+} from "@/domains/session/types";
+import {
+  arbitraryDomainLiteral,
+  arbitrarySourceFilePath,
+  arbitrarySpecTreeTestFilePath,
+  sampleLiteralTestValue,
+} from "@testing/generators/literal/literal";
 import { buildSessionMarkdownBody } from "@testing/harnesses/session/harness";
+import { createSessionHarness, type SessionHarness } from "@testing/harnesses/session/harness";
+import { createTempDir, removeTempDir } from "@testing/harnesses/with-temp-dir";
+
+let harness: SessionHarness;
+let productDir: string;
+
+function sampleText(): string {
+  return sampleLiteralTestValue(arbitraryDomainLiteral());
+}
+
+function sampleSpecPath(): string {
+  return sampleLiteralTestValue(arbitrarySpecTreeTestFilePath());
+}
+
+function sampleFilePath(): string {
+  return sampleLiteralTestValue(arbitrarySourceFilePath());
+}
+
+async function writeProductFile(relativePath: string, content: string): Promise<void> {
+  const absolutePath = resolve(productDir, relativePath);
+  await mkdir(dirname(absolutePath), { recursive: true });
+  await writeFile(absolutePath, content, SESSION_FILE_ENCODING);
+}
+
+describe("pickup auto-injection", () => {
+  beforeEach(async () => {
+    harness = await createSessionHarness();
+    productDir = await createTempDir("spx-session-injection-");
+  });
+
+  afterEach(async () => {
+    await removeTempDir(productDir);
+    await harness.cleanup();
+  });
+
+  it("prints every listed file in a delimited stdout section", async () => {
+    const sessionId = sampleLiteralTestValue(arbitraryDomainLiteral());
+    const specPath = sampleSpecPath();
+    const filePath = sampleFilePath();
+    const specContent = sampleText();
+    const fileContent = sampleText();
+    await writeProductFile(specPath, specContent);
+    await writeProductFile(filePath, fileContent);
+    await harness.writeSession(CLAIMABLE_STATUS, sessionId, { specs: [specPath], files: [filePath] });
+
+    const output = await pickupCommand({ sessionIds: [sessionId], sessionsDir: harness.sessionsDir, cwd: productDir });
+
+    expect(output).toContain(`${SESSION_INJECTION_SECTION_PREFIX}: ${specPath}`);
+    expect(output).toContain(specContent);
+    expect(output).toContain(`${SESSION_INJECTION_SECTION_PREFIX}: ${filePath}`);
+    expect(output).toContain(fileContent);
+  });
+
+  it("warns and still claims the session when a listed file is missing", async () => {
+    const sessionId = sampleLiteralTestValue(arbitraryDomainLiteral());
+    const missingPath = sampleFilePath();
+    const warnings: string[] = [];
+    await harness.writeSession(CLAIMABLE_STATUS, sessionId, { specs: [missingPath] });
+
+    const output = await pickupCommand({
+      sessionIds: [sessionId],
+      sessionsDir: harness.sessionsDir,
+      cwd: productDir,
+      onWarning: (warning) => warnings.push(warning),
+    });
+
+    expect(output).toContain(sessionId);
+    expect(await harness.isInStatus(CLAIMABLE_STATUS, sessionId)).toBe(false);
+    expect(warnings).toContain(`${SESSION_INJECTION_MISSING_WARNING_PREFIX}: ${missingPath}`);
+  });
+
+  it("prints no injection section when specs and files are empty", async () => {
+    const sessionId = sampleLiteralTestValue(arbitraryDomainLiteral());
+    await harness.writeSession(CLAIMABLE_STATUS, sessionId, { specs: [], files: [] });
+
+    const output = await pickupCommand({ sessionIds: [sessionId], sessionsDir: harness.sessionsDir, cwd: productDir });
+
+    expect(output).not.toContain(SESSION_INJECTION_SECTION_PREFIX);
+  });
+
+  it("prints no injection section when specs and files are omitted", async () => {
+    const sessionId = sampleLiteralTestValue(arbitraryDomainLiteral());
+    const content = buildSessionFrontMatterContent([
+      `${SESSION_FRONT_MATTER.PRIORITY}: ${SESSION_PRIORITY.HIGH}`,
+    ], buildSessionMarkdownBody(sampleText()));
+    await harness.writeRawSession(CLAIMABLE_STATUS, sessionId, content);
+
+    const output = await pickupCommand({ sessionIds: [sessionId], sessionsDir: harness.sessionsDir, cwd: productDir });
+
+    expect(output).not.toContain(SESSION_INJECTION_SECTION_PREFIX);
+  });
+
+  it("does not read listed files when noInject is enabled", async () => {
+    const sessionId = sampleLiteralTestValue(arbitraryDomainLiteral());
+    const specPath = sampleSpecPath();
+    const specContent = sampleText();
+    const injectedPath = resolve(productDir, specPath);
+    let injectedReads = 0;
+    await writeProductFile(specPath, specContent);
+    await harness.writeSession(CLAIMABLE_STATUS, sessionId, { specs: [specPath] });
+    const deps: PickupDependencies = {
+      mkdir,
+      readdir,
+      rename,
+      readFile: async (path, encoding) => {
+        if (path === injectedPath) {
+          injectedReads += 1;
+        }
+        return readFile(path, encoding);
+      },
+    };
+
+    const output = await pickupCommand({
+      sessionIds: [sessionId],
+      sessionsDir: harness.sessionsDir,
+      cwd: productDir,
+      noInject: true,
+      deps,
+    });
+
+    expect(injectedReads).toBe(0);
+    expect(output).not.toContain(specContent);
+    expect(output).not.toContain(SESSION_INJECTION_SECTION_PREFIX);
+  });
+});
 
 describe("parseSessionMetadata — specs and files extraction (P1)", () => {
   it("GIVEN session with specs and files arrays WHEN parsed THEN both arrays extracted", () => {
