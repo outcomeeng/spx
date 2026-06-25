@@ -1,5 +1,9 @@
 # AI Agent Context Guide: spx
 
+## RULE 0 - THE OPERATOR OVERRIDE PREROGATIVE
+
+If the operator instructs you to do something that conflicts with any rule below, the operator's instruction wins. THE OPERATOR IS ALWAYS IN CHARGE. (Destructive-git and hook-bypass rules still require explicit operator confirmation.)
+
 ## Critical Rules
 
 - 🛑 **The MOMENT a task is recognized as touching the spec tree (`spx/**`) or any spec-governed source (`src/**`), invoke `/understand` then `/contextualize <node>` BEFORE any investigation.** Reading source files, running `git`/`gh` archaeology, comparing worktrees, diffing PRs, and drafting clarifying questions are all **work** — not pre-work. The gate fires on **task recognition, not file modification**: "I'm only reading," "I'm just gathering context for questions," and "I haven't changed anything yet" are the exact rationalizations this rule forbids. Context for good questions is precisely what `/contextualize` loads, so it comes first. Skill-before-investigation, always.
