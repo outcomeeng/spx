@@ -5,7 +5,7 @@
  */
 
 import { mkdir, readdir, readFile, rename } from "node:fs/promises";
-import { join } from "node:path";
+import { join, resolve } from "node:path";
 
 import { processBatch } from "@/domains/session/batch";
 import { NoSessionsAvailableError } from "@/domains/session/errors";
@@ -37,16 +37,40 @@ export interface PickupOptions {
   auto?: boolean;
   /** Custom sessions directory */
   sessionsDir?: string;
+  /** Current working directory used to resolve relative injection paths. */
+  cwd?: string;
+  /** Skip reading and printing session `specs` / `files` references. */
+  noInject?: boolean;
   /** Receives the non-git-repo diagnostic for the descriptor to surface. */
   onWarning?: SessionWarningHandler;
+  /** Injectable filesystem boundary for focused pickup tests. */
+  deps?: PickupDependencies;
 }
+
+export interface PickupDependencies {
+  readonly mkdir: (path: string, options: { readonly recursive: true }) => Promise<string | undefined>;
+  readonly readdir: (path: string) => Promise<string[]>;
+  readonly readFile: (path: string, encoding: BufferEncoding) => Promise<string>;
+  readonly rename: (oldPath: string, newPath: string) => Promise<void>;
+}
+
+const PICKUP_DEPS: PickupDependencies = {
+  mkdir,
+  readdir,
+  readFile,
+  rename,
+};
 
 /**
  * Loads sessions from the claimable-session directory.
  */
 export async function loadTodoSessions(config: SessionDirectoryConfig): Promise<Session[]> {
+  return loadTodoSessionsWithDeps(config, PICKUP_DEPS);
+}
+
+async function loadTodoSessionsWithDeps(config: SessionDirectoryConfig, deps: PickupDependencies): Promise<Session[]> {
   try {
-    const files = await readdir(config.todoDir);
+    const files = await deps.readdir(config.todoDir);
     const sessions: Session[] = [];
 
     for (const file of files) {
@@ -54,7 +78,7 @@ export async function loadTodoSessions(config: SessionDirectoryConfig): Promise<
 
       const id = file.replace(".md", "");
       const filePath = join(config.todoDir, file);
-      const content = await readFile(filePath, SESSION_FILE_ENCODING);
+      const content = await deps.readFile(filePath, SESSION_FILE_ENCODING);
       const metadata = parseSessionMetadata(content);
 
       sessions.push({
@@ -74,23 +98,70 @@ export async function loadTodoSessions(config: SessionDirectoryConfig): Promise<
   }
 }
 
+/** Delimiter prefix introducing an auto-injected file section. */
+export const SESSION_INJECTION_SECTION_PREFIX = "Injected file";
+/** Warning prefix for a listed injection path that cannot be read. */
+export const SESSION_INJECTION_MISSING_WARNING_PREFIX = "Warning: missing session injection file";
+
+function injectionPath(cwd: string, filePath: string): string {
+  return resolve(cwd, filePath);
+}
+
+function formatInjectedFile(listedPath: string, content: string): string {
+  return `${SESSION_INJECTION_SECTION_PREFIX}: ${listedPath}\n${content}`;
+}
+
+async function readInjectedFiles(
+  metadata: Session["metadata"],
+  cwd: string,
+  deps: PickupDependencies,
+  onWarning?: SessionWarningHandler,
+): Promise<string[]> {
+  const sections: string[] = [];
+  for (const listedPath of [...metadata.specs, ...metadata.files]) {
+    try {
+      const content = await deps.readFile(injectionPath(cwd, listedPath), SESSION_FILE_ENCODING);
+      sections.push(formatInjectedFile(listedPath, content));
+    } catch (error) {
+      if (error instanceof Error && "code" in error && error.code === SESSION_FILE_ERROR_CODE.NOT_FOUND) {
+        onWarning?.(`${SESSION_INJECTION_MISSING_WARNING_PREFIX}: ${listedPath}`);
+        continue;
+      }
+      throw error;
+    }
+  }
+  return sections;
+}
+
 /**
  * Claims one session from the claimable queue and moves it to doing.
  */
-async function pickupSingle(sessionId: string, config: SessionDirectoryConfig): Promise<string> {
+async function pickupSingle(
+  sessionId: string,
+  config: SessionDirectoryConfig,
+  cwd: string,
+  deps: PickupDependencies,
+  noInject: boolean,
+  onWarning?: SessionWarningHandler,
+): Promise<string> {
   const paths = buildClaimPaths(sessionId, config);
-  await mkdir(config.doingDir, { recursive: true });
+  await deps.mkdir(config.doingDir, { recursive: true });
 
   try {
-    await rename(paths.source, paths.target);
+    await deps.rename(paths.source, paths.target);
   } catch (error) {
     throw classifyClaimError(error, sessionId);
   }
 
-  const content = await readFile(paths.target, SESSION_FILE_ENCODING);
+  const content = await deps.readFile(paths.target, SESSION_FILE_ENCODING);
+  const metadata = parseSessionMetadata(content);
   const output = formatShowOutput(content, { status: PICKUP_TARGET_STATUS });
+  const injected = noInject ? [] : await readInjectedFiles(metadata, cwd, deps, onWarning);
+  const injectionOutput = injected.length === 0 ? "" : `\n\n${injected.join("\n\n")}`;
 
-  return `Claimed session ${formatSessionOutputMarker(SESSION_OUTPUT_MARKER.PICKUP_ID, sessionId)}\n\n${output}`;
+  return `Claimed session ${
+    formatSessionOutputMarker(SESSION_OUTPUT_MARKER.PICKUP_ID, sessionId)
+  }\n\n${output}${injectionOutput}`;
 }
 
 /**
@@ -107,20 +178,23 @@ async function pickupSingle(sessionId: string, config: SessionDirectoryConfig): 
  */
 export async function pickupCommand(options: PickupOptions): Promise<string> {
   const config = await resolveSessionConfigSurfacingWarning(options.sessionsDir, options.onWarning);
+  const deps = options.deps ?? PICKUP_DEPS;
+  const cwd = options.cwd ?? process.cwd();
+  const noInject = options.noInject === true;
 
   if (options.auto) {
     if (options.sessionIds.length > 0) {
       throw new Error("Session IDs cannot be combined with --auto");
     }
 
-    const sessions = await loadTodoSessions(config);
+    const sessions = await loadTodoSessionsWithDeps(config, deps);
     const selected = selectBestSession(sessions);
 
     if (!selected) {
       throw new NoSessionsAvailableError();
     }
 
-    return pickupSingle(selected.id, config);
+    return pickupSingle(selected.id, config, cwd, deps, noInject, options.onWarning);
   }
 
   if (options.sessionIds.length === 0) {
@@ -128,8 +202,8 @@ export async function pickupCommand(options: PickupOptions): Promise<string> {
   }
 
   if (options.sessionIds.length === 1) {
-    return pickupSingle(options.sessionIds[0], config);
+    return pickupSingle(options.sessionIds[0], config, cwd, deps, noInject, options.onWarning);
   }
 
-  return processBatch(options.sessionIds, (id) => pickupSingle(id, config));
+  return processBatch(options.sessionIds, (id) => pickupSingle(id, config, cwd, deps, noInject, options.onWarning));
 }
