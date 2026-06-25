@@ -110,7 +110,7 @@ function resolveListColorDecision(colorOption: boolean | undefined): boolean {
  */
 function resolveListWidth(): number {
   const stdout = process.stdout as { readonly columns: number | undefined };
-  const columns = stdout.columns === undefined ? DEFAULT_LIST_WIDTH : stdout.columns;
+  const columns = stdout.columns ?? DEFAULT_LIST_WIDTH;
   return Math.max(LIST_TEXT_MIN_WIDTH, columns);
 }
 

@@ -183,7 +183,8 @@ function flattenProjectionNodes(nodes: readonly SpecTreeProjectedNode[]): readon
 }
 
 function formatTableRow(values: readonly string[]): string {
-  return `${TABLE_SEPARATOR} ${values.join(" " + TABLE_SEPARATOR + " ")} ${TABLE_SEPARATOR}`;
+  const separator = ` ${TABLE_SEPARATOR} `;
+  return `${TABLE_SEPARATOR} ${values.join(separator)} ${TABLE_SEPARATOR}`;
 }
 
 function formatNodeLabel(node: SpecTreeProjectedNode): string {
