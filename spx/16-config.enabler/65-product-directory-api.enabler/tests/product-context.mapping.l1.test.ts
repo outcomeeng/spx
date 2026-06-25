@@ -1,100 +1,40 @@
-import { mkdir, mkdtemp, rm } from "node:fs/promises";
-import { tmpdir } from "node:os";
+import { mkdir } from "node:fs/promises";
 import { join } from "node:path";
 
-import type { Command } from "commander";
 import { afterEach, describe, expect, it } from "vitest";
 
 import { TYPESCRIPT_VALIDATION_MESSAGES } from "@/commands/validation/typescript";
-import { CONFIG_FILE_FORMAT, configFileForFormat, parseConfigFileSections } from "@/config/index";
-import type { Config } from "@/config/types";
 import { SESSION_STATUSES } from "@/domains/session/types";
 import { NOT_GIT_REPO_WARNING } from "@/git/root";
 import { CONFIG_CLI } from "@/interfaces/cli/config";
-import { SPX_COMMANDER_PARSE_SOURCE, SPX_GLOBAL_OPTIONS } from "@/interfaces/cli/product-context";
-import { createCliProgram } from "@/interfaces/cli/program";
+import { SPX_GLOBAL_OPTIONS } from "@/interfaces/cli/product-context";
 import { SESSION_CLI } from "@/interfaces/cli/session";
 import { validationCliDefinition, validationCommonCliOptions } from "@/interfaces/cli/validation";
-import { TESTING_SECTION, type TestingConfig } from "@/test/config";
 import { VALIDATION_SCOPES } from "@/validation/types";
 import { CONFIG_TEST_GENERATOR, sampleConfigTestValue } from "@testing/generators/config/descriptors";
 import { sampleSessionId } from "@testing/generators/session/session";
 import { GIT_TEST_FLAGS, GIT_TEST_SUBCOMMANDS, runGit } from "@testing/harnesses/git-test-constants";
+import {
+  parseProductContextJsonConfig,
+  ProductContextTempDirs,
+  productContextTestingConfig,
+  runProductContextCli,
+} from "@testing/harnesses/product-context/cli";
 import { createNonGitSessionEnv } from "@testing/harnesses/session/harness";
 import { withTestEnv } from "@testing/harnesses/spec-tree/spec-tree";
 
-type CliRun = {
-  readonly exitCodes: readonly number[];
-  readonly stderr: string;
-  readonly stdout: string;
-};
-
-type CliRunOptions = {
-  readonly processCwd: string;
-};
-
-class CliRunExit extends Error {
-  constructor(readonly exitCode: number) {
-    super();
-  }
-}
-
-const tempDirs: string[] = [];
+const tempDirs = new ProductContextTempDirs();
 const cleanupTasks: Array<() => Promise<void>> = [];
 
 afterEach(async () => {
   for (const cleanup of cleanupTasks.splice(0)) {
     await cleanup();
   }
-  for (const tempDir of tempDirs.splice(0)) {
-    await rm(tempDir, { recursive: true, force: true });
-  }
+  await tempDirs.cleanup();
 });
 
 async function makeTempDir(): Promise<string> {
-  const tempDir = await mkdtemp(join(tmpdir(), sampleConfigTestValue(CONFIG_TEST_GENERATOR.tempPrefix())));
-  tempDirs.push(tempDir);
-  return tempDir;
-}
-
-async function runCli(args: readonly string[], options: CliRunOptions): Promise<CliRun> {
-  const stdout: string[] = [];
-  const stderr: string[] = [];
-  const exitCodes: number[] = [];
-  const program: Command = createCliProgram({
-    processCwd: () => options.processCwd,
-    writeStdout: (output) => stdout.push(output),
-    writeStderr: (output) => stderr.push(output),
-    exit: (exitCode) => {
-      exitCodes.push(exitCode);
-      throw new CliRunExit(exitCode);
-    },
-  });
-
-  try {
-    await program.parseAsync(args, { from: SPX_COMMANDER_PARSE_SOURCE });
-  } catch (error) {
-    if (!(error instanceof CliRunExit)) throw error;
-  }
-
-  return {
-    exitCodes,
-    stderr: stderr.join(""),
-    stdout: stdout.join(""),
-  };
-}
-
-function parseJsonConfig(raw: string, productDir: string): Config {
-  const parsed = parseConfigFileSections(
-    configFileForFormat(productDir, CONFIG_FILE_FORMAT.JSON, raw),
-  );
-  expect(parsed.ok).toBe(true);
-  if (!parsed.ok) throw new Error(parsed.error);
-  return parsed.value;
-}
-
-function testingConfig(config: Config): TestingConfig {
-  return config[TESTING_SECTION] as TestingConfig;
+  return tempDirs.makeTempDir();
 }
 
 function configShowJsonArgs(): readonly string[] {
@@ -136,8 +76,12 @@ describe("product context mapping", () => {
 
       expect(redirected.exitCodes).toEqual(direct.exitCodes);
       expect(redirected.stderr).toBe(direct.stderr);
-      expect(parseJsonConfig(redirected.stdout, productDir)).toEqual(parseJsonConfig(direct.stdout, productDir));
-      expect(testingConfig(parseJsonConfig(redirected.stdout, productDir))).toEqual(generated.expected);
+      expect(parseProductContextJsonConfig(redirected.stdout, productDir)).toEqual(
+        parseProductContextJsonConfig(direct.stdout, productDir),
+      );
+      expect(productContextTestingConfig(parseProductContextJsonConfig(redirected.stdout, productDir))).toEqual(
+        generated.expected,
+      );
     });
   });
 
@@ -209,3 +153,7 @@ describe("product context mapping", () => {
     expect(result.stderr).toContain(processDir);
   });
 });
+
+function runCli(args: readonly string[], options: { readonly processCwd: string }) {
+  return runProductContextCli(args, options);
+}
