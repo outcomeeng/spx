@@ -23,6 +23,7 @@ export type ProductContext = {
 export type CliIo = {
   readonly writeStdout: (output: string) => void;
   readonly writeStderr: (output: string) => void;
+  readonly setExitCode: (exitCode: number) => void;
   readonly exit: (exitCode: number) => never;
 };
 
@@ -76,6 +77,9 @@ export const DEFAULT_CLI_IO: CliIo = {
   },
   writeStderr: (output) => {
     process.stderr.write(output);
+  },
+  setExitCode: (exitCode) => {
+    process.exitCode = exitCode;
   },
   exit: (exitCode) => process.exit(exitCode),
 };

@@ -72,6 +72,7 @@ export async function runValidationInProcess(args: readonly string[]): Promise<V
       io: {
         writeStdout: (output) => stdout.push(output),
         writeStderr: (output) => stderr.push(output),
+        setExitCode: () => undefined,
         exit: (exitCode) => {
           throw new CommanderError(
             exitCode,
