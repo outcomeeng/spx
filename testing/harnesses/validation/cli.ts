@@ -1,15 +1,13 @@
-import { Command, CommanderError } from "commander";
+import { CommanderError } from "commander";
 import { execa } from "execa";
 import { expect } from "vitest";
 
-import { resolveProductDir } from "@/domains/config/root";
-import { createCliInvocation } from "@/interfaces/cli/product-context";
+import { SPX_COMMANDER_PARSE_SOURCE } from "@/interfaces/cli/product-context";
+import { createCliProgram } from "@/interfaces/cli/program";
 import { validationCliDefinition, validationDomain } from "@/interfaces/cli/validation";
 import { sampleLiteralTestValue } from "@testing/generators/literal/literal";
 import {
   VALIDATION_CLI_GENERATOR,
-  validationCliCommanderArgvPrefix,
-  validationCliCommanderParseSource,
   validationCliEmptyOutputLength,
   validationCliOptionOperandSeparator,
   validationCliPackagedExecutablePath,
@@ -51,43 +49,32 @@ export async function runValidationSubprocess(
 }
 
 export async function runValidationInProcess(args: readonly string[]): Promise<ValidationCliResult> {
-  const program = new Command();
   const stdout: string[] = [];
   const stderr: string[] = [];
+  const program = createCliProgram({
+    domains: [validationDomain],
+    writeStdout: (output) => stdout.push(output),
+    writeStderr: (output) => stderr.push(output),
+    setExitCode: () => undefined,
+    exit: (exitCode) => {
+      throw new CommanderError(
+        exitCode,
+        validationCliDefinition.domain.commandName,
+        validationCliEmptyOutput(),
+      );
+    },
+  });
 
   program.exitOverride();
   program.configureOutput({
     writeErr: (value) => stderr.push(value),
     writeOut: (value) => stdout.push(value),
   });
-  validationDomain.register(
-    program,
-    createCliInvocation({
-      readDirectoryOption: () => undefined,
-      processCwd: process.cwd,
-      resolveProductDir,
-      writeWarning: (warning) => {
-        if (warning !== undefined) stderr.push(`${warning}\n`);
-      },
-      io: {
-        writeStdout: (output) => stdout.push(output),
-        writeStderr: (output) => stderr.push(output),
-        setExitCode: () => undefined,
-        exit: (exitCode) => {
-          throw new CommanderError(
-            exitCode,
-            validationCliDefinition.domain.commandName,
-            validationCliEmptyOutput(),
-          );
-        },
-      },
-    }),
-  );
 
   try {
     await program.parseAsync(
-      [...validationCliCommanderArgvPrefix(), ...args],
-      { from: validationCliCommanderParseSource() },
+      [validationCliDefinition.domain.commandName, ...args],
+      { from: SPX_COMMANDER_PARSE_SOURCE },
     );
     return {
       exitCode: validationCliEmptyOutputLength(),
@@ -95,9 +82,10 @@ export async function runValidationInProcess(args: readonly string[]): Promise<V
       stdout: stdout.join(validationCliEmptyOutput()),
     };
   } catch (error) {
-    if (isCommanderExit(error)) {
+    const exitCode = commanderExitCode(error);
+    if (exitCode !== undefined) {
       return {
-        exitCode: error.exitCode,
+        exitCode,
         stderr: stderr.join(validationCliEmptyOutput()),
         stdout: stdout.join(validationCliEmptyOutput()),
       };
@@ -158,6 +146,14 @@ export function expectValidationSubprocessResult(
   }
 }
 
-function isCommanderExit(error: unknown): error is CommanderError {
-  return error instanceof CommanderError;
+function commanderExitCode(error: unknown): number | undefined {
+  if (error instanceof CommanderError) return error.exitCode;
+  if (typeof error !== "object" || error === null) return undefined;
+  if ("exitCode" in error && typeof error.exitCode === "number") return error.exitCode;
+  if (!("message" in error) || typeof error.message !== "string") return undefined;
+
+  const match = /^process\.exit unexpectedly called with "(\d+)"$/u.exec(error.message);
+  if (match === null) return undefined;
+
+  return Number(match[1]);
 }
