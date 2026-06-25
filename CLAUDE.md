@@ -144,7 +144,7 @@ pnpm run validate
 # Build packaged output for the `spx` executable
 pnpm run build
 
-# Publish gate: source validation, circular validation, build, tests, packaged validation
+# Publish gate: source validation, circular validation, build, tests, packaged validation, packaged circular validation
 pnpm run publish:check
 ```
 
@@ -224,18 +224,18 @@ git add . && git commit -m "..."
 
 The pnpm scripts are the authoritative workflow interface for local validation and publish gates:
 
-| pnpm Script                    | Purpose                                                      |
-| ------------------------------ | ------------------------------------------------------------ |
-| `pnpm run validate`            | Source aggregate validation, circular skipped                |
-| `pnpm run validate:production` | Source production validation, circular skipped               |
-| `pnpm run validate:published`  | Built executable production validation, circular skipped     |
-| `pnpm run publish:check`       | Source validation, circular, build, tests, and packaged gate |
-| `pnpm run lint`                | ESLint only                                                  |
-| `pnpm run lint:fix`            | Auto-fix ESLint issues                                       |
-| `pnpm run typecheck`           | TypeScript only                                              |
-| `pnpm run circular`            | Source circular dependency detection                         |
-| `pnpm run circular:published`  | Built executable circular dependency detection               |
-| `pnpm run knip`                | Find unused code                                             |
+| pnpm Script                    | Purpose                                                                                          |
+| ------------------------------ | ------------------------------------------------------------------------------------------------ |
+| `pnpm run validate`            | Source aggregate validation, circular skipped                                                    |
+| `pnpm run validate:production` | Source production validation, circular skipped                                                   |
+| `pnpm run validate:published`  | Built executable production validation, circular skipped                                         |
+| `pnpm run publish:check`       | Source validation, circular, build, tests, packaged validation, and packaged circular validation |
+| `pnpm run lint`                | ESLint only                                                                                      |
+| `pnpm run lint:fix`            | Auto-fix ESLint issues                                                                           |
+| `pnpm run typecheck`           | TypeScript only                                                                                  |
+| `pnpm run circular`            | Source circular dependency detection                                                             |
+| `pnpm run circular:published`  | Built executable circular dependency detection                                                   |
+| `pnpm run knip`                | Find unused code                                                                                 |
 
 **Common validation options:**
 
