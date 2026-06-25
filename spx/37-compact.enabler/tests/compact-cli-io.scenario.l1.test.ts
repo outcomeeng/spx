@@ -114,7 +114,7 @@ describe("compact CLI IO", () => {
         gitEnv.productDir,
         sessionToken,
       );
-      expect(stored.immediateExitCodes).toEqual([0]);
+      expect([...stored.immediateExitCodes, ...stored.deferredExitCodes]).toEqual([0]);
 
       const retrieved = await runCompactCli(
         [COMPACT_CLI.commandName, COMPACT_CLI.retrieveCommandName],

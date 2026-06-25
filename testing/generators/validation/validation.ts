@@ -1,4 +1,3 @@
-import type { Command } from "commander";
 import * as fc from "fast-check";
 import { resolve } from "node:path";
 
@@ -42,8 +41,6 @@ const CONTROL_ARGUMENT_PARTS = ["bad", "\x01", "arg", "\x1f", "end"] as const;
 const UNICODE_ARGUMENT_PARTS = ["unicode", "é", "ø", "日", "語"] as const;
 const LITERAL_PROBLEM_KINDS = Object.values(LITERAL_PROBLEM_KIND);
 const VALIDATION_CLI_TEMP_PREFIX = "spx-validation-cli-";
-const COMMANDER_NODE_EXECUTABLE = "node";
-const COMMANDER_SCRIPT_NAME = "spx";
 const OPTION_OPERAND_SEPARATOR = " ";
 const PROCESS_EXIT_UNAVAILABLE = -1;
 const PACKAGED_CLI_DIRECTORY = "bin";
@@ -337,10 +334,6 @@ export const VALIDATION_PIPELINE_DATA = {
 export type ValidationStepOutcome =
   (typeof VALIDATION_PIPELINE_DATA.outcome)[keyof typeof VALIDATION_PIPELINE_DATA.outcome];
 
-export type ValidationCliCommanderParseSource = NonNullable<
-  NonNullable<Parameters<Command["parseAsync"]>[1]>["from"]
->;
-
 export function arbitraryValidationCliUnknownSubcommand(): fc.Arbitrary<string> {
   return arbitraryDomainLiteral()
     .filter((candidate) => !validationKnownOperands.has(candidate))
@@ -392,18 +385,6 @@ export function validationCliEmptyOutputLength(): number {
 
 export function validationCliTempDirectoryPrefix(): string {
   return VALIDATION_CLI_TEMP_PREFIX;
-}
-
-export function validationCliCommanderArgvPrefix(): string[] {
-  return [
-    COMMANDER_NODE_EXECUTABLE,
-    COMMANDER_SCRIPT_NAME,
-    validationCliDefinition.domain.commandName,
-  ];
-}
-
-export function validationCliCommanderParseSource(): ValidationCliCommanderParseSource {
-  return COMMANDER_NODE_EXECUTABLE;
 }
 
 export function validationCliOptionOperandSeparator(): string {
