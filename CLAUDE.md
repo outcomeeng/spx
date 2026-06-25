@@ -294,7 +294,7 @@ gh pr view "$pr_number" --json reviews,comments
 gh api "repos/{organization}/{repo}/pulls/${pr_number}/comments" --paginate
 ```
 
-Do not wait through shell polling, `sleep`, `gh pr checks --watch`, or workflow-run watchers. When checks or reviews need time, create or refresh the one heartbeat for the PR and re-enter `/pr` on the next fire.
+Do not add or substitute ad hoc waits such as shell polling loops, `sleep`, caffeine-style manual babysitting, repeated manual refreshes, or invented waiting schemes. Skills have precedence. When checks or reviews need time outside that mandated skill step, create or refresh the one heartbeat for the PR and re-enter `/pr` on the next fire.
 
 ### Ask for adversarial PR audit
 
