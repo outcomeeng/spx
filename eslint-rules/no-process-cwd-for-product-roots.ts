@@ -8,6 +8,7 @@ export const NO_PROCESS_CWD_FOR_PRODUCT_ROOTS_RULE_ID =
 export const PROCESS_CWD_FOR_PRODUCT_ROOT_MESSAGE_ID = "processCwdForProductRoot";
 
 const CONFIG_CWD_MODULE_PATH = "src/domains/config/cwd.ts";
+const PROCESS_IDENTIFIER_PATTERN = /^process$/u;
 
 type AstNode = {
   readonly type?: string;
@@ -28,7 +29,8 @@ function isProcessCwdCall(node: AstNode): boolean {
   return (
     node.callee?.type === "MemberExpression"
     && node.callee.object?.type === "Identifier"
-    && node.callee.object.name === "process"
+    && typeof node.callee.object.name === "string"
+    && PROCESS_IDENTIFIER_PATTERN.test(node.callee.object.name)
     && node.callee.property?.type === "Identifier"
     && node.callee.property.name === "cwd"
   );
