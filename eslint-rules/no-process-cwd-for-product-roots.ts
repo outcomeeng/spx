@@ -1,3 +1,5 @@
+import { relative } from "node:path";
+
 import type { Rule } from "eslint";
 
 import { SPX_RULE_PREFIX } from "./import-source";
@@ -8,7 +10,12 @@ export const NO_PROCESS_CWD_FOR_PRODUCT_ROOTS_RULE_ID =
 export const PROCESS_CWD_FOR_PRODUCT_ROOT_MESSAGE_ID = "processCwdForProductRoot";
 
 const CONFIG_CWD_MODULE_PATH = "src/domains/config/cwd.ts";
+const PATH_SEPARATOR_PATTERN = /[/\\]+/gu;
 const PROCESS_IDENTIFIER_PATTERN = /^process$/u;
+
+type RuleContextWithCwd = Rule.RuleContext & {
+  readonly cwd?: string;
+};
 
 type AstNode = {
   readonly type?: string;
@@ -36,6 +43,11 @@ function isProcessCwdCall(node: AstNode): boolean {
   );
 }
 
+function normalizedModulePath(filename: string, cwd: string | undefined): string {
+  const path = cwd === undefined ? filename : relative(cwd, filename);
+  return path.replace(PATH_SEPARATOR_PATTERN, "/");
+}
+
 const rule: Rule.RuleModule = {
   meta: {
     type: "problem",
@@ -49,7 +61,8 @@ const rule: Rule.RuleModule = {
   },
   create(context: Rule.RuleContext): Rule.RuleListener {
     const filename = context.filename ?? context.getFilename();
-    if (filename.endsWith(CONFIG_CWD_MODULE_PATH)) {
+    const cwd = (context as RuleContextWithCwd).cwd;
+    if (normalizedModulePath(filename, cwd) === CONFIG_CWD_MODULE_PATH) {
       return {};
     }
 
