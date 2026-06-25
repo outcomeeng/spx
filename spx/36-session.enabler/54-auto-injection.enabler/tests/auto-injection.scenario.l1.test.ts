@@ -120,7 +120,7 @@ describe("pickup auto-injection", () => {
   it("does not read listed files when noInject is enabled", async () => {
     const sessionId = sampleLiteralTestValue(arbitraryDomainLiteral());
     const specPath = sampleSpecPath();
-    const specContent = sampleText();
+    const specContent = `${sampleText()}\nnoInject fixture body`;
     const injectedPath = resolve(productDir, specPath);
     let injectedReads = 0;
     await writeProductFile(specPath, specContent);
