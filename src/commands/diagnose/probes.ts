@@ -110,12 +110,9 @@ export const defaultWorktreePoolProbe: WorktreePoolProbe = {
 /** Resolves the session-environment reading from the agent-session env vars and the worktree-claim round-trip. */
 export const defaultSessionEnvironmentProbe: SessionEnvironmentProbe = {
   async probe(): Promise<SessionEnvironmentReading> {
-    // The spec-tree SessionStart hook always exports CLAUDE_WORKTREE_CLAIMED on
-    // every run and every runtime (even when it resolves no session id), so its
-    // presence is the runtime-agnostic signal that the hook ran. CODEX_THREAD_ID
-    // is set by the Codex runtime before any hook, so it cannot signal hook
-    // presence — a Codex session with no spec-tree hook would falsely read as a
-    // silent no-op rather than not-applicable.
+    // CLAUDE_WORKTREE_CLAIMED is the hook-emitted marker. CODEX_THREAD_ID is
+    // available before hooks run, so the classifier judges identity and current
+    // worktree occupancy directly instead of treating hook absence as terminal.
     const hookPresent = HOOK_SESSION_START_ENV.CLAUDE_WORKTREE_CLAIMED in process.env;
     const sessionIdentity = resolveAgentSessionId(process.env) !== undefined;
 
@@ -164,6 +161,13 @@ async function claimedSessionIds(): Promise<ReadonlySet<string> | null> {
   return sessionIds;
 }
 
+/** Returns true when a live worktree claim can be joined to a doing session. */
+export function doingSessionBackedByClaim(session: SessionRecord, claimedSessionIds: ReadonlySet<string>): boolean {
+  if (claimedSessionIds.has(normalizeAgentSessionToken(session.id))) return true;
+  return session.agent_session_id !== undefined
+    && claimedSessionIds.has(normalizeAgentSessionToken(session.agent_session_id));
+}
+
 /** Resolves the session-store reading from doing sessions joined to the worktree claims that back them. */
 export const defaultSessionStoreProbe: SessionStoreProbe = {
   async probe(): Promise<SessionStoreReading> {
@@ -184,8 +188,7 @@ export const defaultSessionStoreProbe: SessionStoreProbe = {
 
     let orphanedClaims = 0;
     for (const session of doing) {
-      const sessionId = session.agent_session_id;
-      if (sessionId !== undefined && !claimed.has(sessionId)) orphanedClaims += 1;
+      if (!doingSessionBackedByClaim(session, claimed)) orphanedClaims += 1;
     }
     return { errored: false, orphanedClaims };
   },
