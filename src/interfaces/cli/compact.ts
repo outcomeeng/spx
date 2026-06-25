@@ -38,7 +38,7 @@ export const compactDomain: Domain = {
       .requiredOption(COMPACT_CLI.transcriptOption, "Transcript JSONL path")
       .option(COMPACT_CLI.sessionIdOption, COMPACT_CLI.sessionIdDescription)
       .action(async (options: CompactStoreCliOptions) => {
-        process.exit(
+        invocation.io.exit(
           await compactStoreCommand({
             transcript: options.transcript,
             sessionId: options.sessionId,
@@ -59,9 +59,9 @@ export const compactDomain: Domain = {
           env: process.env,
         });
         if (result.output.length > 0) {
-          process.stdout.write(result.output);
+          invocation.io.writeStdout(result.output);
         }
-        process.exitCode = result.exitCode;
+        invocation.io.exit(result.exitCode);
       });
   },
 };

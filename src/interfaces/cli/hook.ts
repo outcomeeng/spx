@@ -14,8 +14,6 @@ import { createClaimWriteToken } from "@/lib/worktree-claim-write-token";
 import { defaultOccupancyFileSystem } from "@/lib/worktree-occupancy-file-system";
 import { defaultProcessTable } from "@/lib/worktree-process-table";
 
-import { writeWarning } from "./write-warning";
-
 /** Source-owned `spx hook` command and flag vocabulary, shared with CLI tests. */
 export const HOOK_CLI = {
   COMMAND: "hook",
@@ -26,6 +24,16 @@ export const HOOK_CLI = {
 } as const;
 
 const HOOK_DOMAIN_DESCRIPTION = "Run host lifecycle hook events";
+
+function writeError(invocation: CliInvocation, output: string): void {
+  invocation.io.writeStderr(`${output}\n`);
+}
+
+function writeInvocationWarning(invocation: CliInvocation, warning: string | undefined): void {
+  if (warning !== undefined) {
+    writeError(invocation, warning);
+  }
+}
 
 function registerHookCommands(hookCmd: Command, invocation: CliInvocation): void {
   const effectiveInvocationDir = (): string => invocation.resolveEffectiveInvocationDir();
@@ -45,12 +53,12 @@ function registerHookCommands(hookCmd: Command, invocation: CliInvocation): void
         fs: defaultOccupancyFileSystem,
         gitDeps: defaultGitDependencies,
         io: processHookIo,
-        onWarning: writeWarning,
+        onWarning: (warning) => writeInvocationWarning(invocation, warning),
         processTable: defaultProcessTable,
         selfPid: process.pid,
         worktreesDir: options.worktreesDir,
       });
-      if (!result.ok) process.exit(1);
+      if (!result.ok) invocation.io.exit(1);
     });
 }
 

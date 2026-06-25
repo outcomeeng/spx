@@ -4,6 +4,8 @@ import { chmod, mkdir, readFile, unlink, writeFile } from "node:fs/promises";
 import { join } from "node:path";
 import { parse } from "yaml";
 
+import { CONFIG_PROCESS_CWD } from "@/domains/config/cwd";
+
 import { isDirectPrecommitEntrypoint, PRECOMMIT_ENTRYPOINT } from "./entrypoint";
 
 export const EXECUTABLE_HOOK_MODE = fsConstants.S_IRWXU
@@ -183,7 +185,7 @@ export function createProductionDeps(): PortableHookInstallDeps {
 }
 
 async function main(): Promise<void> {
-  await installPortableLefthookHooks(process.cwd());
+  await installPortableLefthookHooks(CONFIG_PROCESS_CWD.read());
 }
 
 const isDirectExecution = typeof import.meta.url === "string"

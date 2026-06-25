@@ -37,8 +37,8 @@ import {
 import { buildPickupCommand, pickupReference } from "@/domains/session/pick-model";
 import { SESSION_FILE_ENCODING, SESSION_STATUSES } from "@/domains/session/types";
 import type { Domain } from "@/domains/types";
-import { toMessage } from "@/lib/error-message";
 import type { CliInvocation } from "@/interfaces/cli/product-context";
+import { toMessage } from "@/lib/error-message";
 import { foregroundProcessRunner, lifecycleSignalSuspender } from "@/lib/process-lifecycle";
 import { launchAgent } from "./session/pick/launch-agent";
 import { PICK_NON_TTY_MESSAGE, runPicker } from "./session/pick/run-picker";
