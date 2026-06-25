@@ -1,4 +1,5 @@
 import type { CliCommandResult, Result } from "@/config/types";
+import { CONFIG_PROCESS_CWD } from "@/domains/config/cwd";
 import {
   JOURNAL_BACKEND,
   type JournalEdgeBackend,
@@ -133,7 +134,7 @@ async function resolveJournalRunContext(
   scope: JournalCliScope,
   deps: JournalCliDeps,
 ): Promise<Result<JournalRunContext>> {
-  const cwd = deps.cwd ?? process.cwd();
+  const cwd = deps.cwd ?? CONFIG_PROCESS_CWD.read();
   const git = deps.git ?? defaultGitDependencies;
   const cliEnvironment = readJournalCliEnvironment(deps.processEnv ?? process.env);
   const environment = deps.env ?? cliEnvironment.backend;

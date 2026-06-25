@@ -20,6 +20,9 @@ import noHardcodedSpecTreeNodeStates, {
   NO_HARDCODED_SPEC_TREE_NODE_STATES_RULE_NAME,
 } from "./no-hardcoded-spec-tree-node-states";
 import noImportSourceExtensions, { NO_IMPORT_SOURCE_EXTENSIONS_RULE_NAME } from "./no-import-source-extensions";
+import noProcessCwdForProductRoots, {
+  NO_PROCESS_CWD_FOR_PRODUCT_ROOTS_RULE_NAME,
+} from "./no-process-cwd-for-product-roots";
 import noRegistryPositionAccess, { NO_REGISTRY_POSITION_ACCESS_RULE_NAME } from "./no-registry-position-access";
 import noSpecReferences, { NO_SPEC_REFERENCES_RULE_NAME } from "./no-spec-references";
 import noTestOwnedDomainConstants, { NO_TEST_OWNED_DOMAIN_CONSTANTS_RULE_NAME } from "./no-test-owned-domain-constants";
@@ -39,6 +42,7 @@ const eslintRules = {
     [NO_HARDCODED_SPEC_TREE_NODE_STATES_RULE_NAME]: noHardcodedSpecTreeNodeStates,
     [NO_HARDCODED_SPEC_TREE_NODE_KINDS_RULE_NAME]: noHardcodedSpecTreeNodeKinds,
     [NO_IMPORT_SOURCE_EXTENSIONS_RULE_NAME]: noImportSourceExtensions,
+    [NO_PROCESS_CWD_FOR_PRODUCT_ROOTS_RULE_NAME]: noProcessCwdForProductRoots,
     [NO_REGISTRY_POSITION_ACCESS_RULE_NAME]: noRegistryPositionAccess,
     [NO_SPEC_REFERENCES_RULE_NAME]: noSpecReferences,
     [NO_TEST_OWNED_DOMAIN_CONSTANTS_RULE_NAME]: noTestOwnedDomainConstants,

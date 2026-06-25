@@ -1,5 +1,6 @@
 import { Command } from "commander";
 
+import { CONFIG_PROCESS_CWD } from "@/domains/config/cwd";
 import { resolveProductDir } from "@/domains/config/root";
 import type { Domain } from "@/domains/types";
 
@@ -38,7 +39,7 @@ export function createCliProgram(options: CliProgramOptions = {}): Command {
 
   const invocation = createCliInvocation({
     readDirectoryOption: () => program.opts<CliGlobalOptions>().directory,
-    processCwd: options.processCwd ?? process.cwd,
+    processCwd: options.processCwd ?? CONFIG_PROCESS_CWD.read,
     resolveProductDir,
     writeWarning: (warning) => {
       if (warning !== undefined) {

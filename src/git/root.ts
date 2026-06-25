@@ -1,6 +1,8 @@
 import { execa } from "execa";
 import { basename, dirname, isAbsolute, join, resolve } from "node:path";
 
+import { CONFIG_PROCESS_CWD } from "@/domains/config/cwd";
+
 import { withoutGitEnvironment } from "./environment";
 
 // Result from product-directory detection.
@@ -200,7 +202,7 @@ const TRAILING_PATH_SEPARATORS_PATTERN = /[\\/]+$/;
 
 // Detects the local worktree product directory.
 export async function detectWorktreeProductRoot(
-  cwd: string = process.cwd(),
+  cwd: string = CONFIG_PROCESS_CWD.read(),
   deps: GitDependencies = defaultGitDependencies,
 ): Promise<GitProductDirResult> {
   try {
@@ -249,7 +251,7 @@ function trimStdout(stdout: unknown): string {
 
 // Detects the Git common-dir product root, resolving through git worktrees.
 export async function detectGitCommonDirProductRoot(
-  cwd: string = process.cwd(),
+  cwd: string = CONFIG_PROCESS_CWD.read(),
   deps: GitDependencies = defaultGitDependencies,
 ): Promise<GitCommonDirProductDirResult> {
   try {
@@ -319,7 +321,7 @@ export async function detectGitCommonDirProductRoot(
  * (e.g. `"main"`). Returns null when `origin/HEAD` is unset or unresolvable.
  */
 export async function resolveDefaultBranch(
-  cwd: string = process.cwd(),
+  cwd: string = CONFIG_PROCESS_CWD.read(),
   deps: GitDependencies = defaultGitDependencies,
 ): Promise<string | null> {
   const result = await deps.execa(
@@ -339,7 +341,7 @@ export async function resolveDefaultBranch(
  * branch name is unavailable.
  */
 export async function getCurrentBranch(
-  cwd: string = process.cwd(),
+  cwd: string = CONFIG_PROCESS_CWD.read(),
   deps: GitDependencies = defaultGitDependencies,
 ): Promise<string | null> {
   const result = await deps.execa(
@@ -355,7 +357,7 @@ export async function getCurrentBranch(
 
 /** Returns the HEAD commit SHA, or null when unavailable. */
 export async function getHeadSha(
-  cwd: string = process.cwd(),
+  cwd: string = CONFIG_PROCESS_CWD.read(),
   deps: GitDependencies = defaultGitDependencies,
 ): Promise<string | null> {
   const result = await deps.execa(
@@ -374,7 +376,7 @@ export async function getHeadSha(
  */
 export async function resolveRefSha(
   ref: string,
-  cwd: string = process.cwd(),
+  cwd: string = CONFIG_PROCESS_CWD.read(),
   deps: GitDependencies = defaultGitDependencies,
 ): Promise<string | null> {
   const result = await deps.execa(
@@ -403,7 +405,7 @@ export async function resolveRefSha(
  */
 export async function originBranchExists(
   branch: string,
-  cwd: string = process.cwd(),
+  cwd: string = CONFIG_PROCESS_CWD.read(),
   deps: GitDependencies = defaultGitDependencies,
 ): Promise<boolean> {
   if (branch === GIT_ROOT_COMMAND.HEAD) return false;
@@ -425,7 +427,7 @@ export async function originBranchExists(
  * nothing. A non-zero git exit is treated as not clean.
  */
 export async function isWorkingTreeClean(
-  cwd: string = process.cwd(),
+  cwd: string = CONFIG_PROCESS_CWD.read(),
   deps: GitDependencies = defaultGitDependencies,
 ): Promise<boolean> {
   const result = await deps.execa(
@@ -558,7 +560,7 @@ export function mainCheckoutPath(facts: GitFacts): string | null {
  * which falls back to the toplevel on the same failure.
  */
 export async function gatherGitFacts(
-  cwd: string = process.cwd(),
+  cwd: string = CONFIG_PROCESS_CWD.read(),
   deps: GitDependencies = defaultGitDependencies,
 ): Promise<GitFacts | null> {
   try {
@@ -617,7 +619,7 @@ export async function gatherGitFacts(
  * main checkout.
  */
 export async function detectMainCheckout(
-  cwd: string = process.cwd(),
+  cwd: string = CONFIG_PROCESS_CWD.read(),
   deps: GitDependencies = defaultGitDependencies,
 ): Promise<boolean> {
   const facts = await gatherGitFacts(cwd, deps);

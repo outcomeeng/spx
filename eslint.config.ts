@@ -16,6 +16,7 @@ import { NO_HARDCODED_SESSION_FRONTMATTER_KEYS_RULE_ID } from "./eslint-rules/no
 import { NO_HARDCODED_SPEC_TREE_NODE_KINDS_RULE_ID } from "./eslint-rules/no-hardcoded-spec-tree-node-kinds";
 import { NO_HARDCODED_SPEC_TREE_NODE_STATES_RULE_ID } from "./eslint-rules/no-hardcoded-spec-tree-node-states";
 import { NO_IMPORT_SOURCE_EXTENSIONS_RULE_ID } from "./eslint-rules/no-import-source-extensions";
+import { NO_PROCESS_CWD_FOR_PRODUCT_ROOTS_RULE_ID } from "./eslint-rules/no-process-cwd-for-product-roots";
 import { NO_REGISTRY_POSITION_ACCESS_RULE_ID } from "./eslint-rules/no-registry-position-access";
 import { NO_SPEC_REFERENCES_RULE_ID } from "./eslint-rules/no-spec-references";
 import { NO_TEST_OWNED_DOMAIN_CONSTANTS_RULE_ID } from "./eslint-rules/no-test-owned-domain-constants";
@@ -265,6 +266,20 @@ export function buildEslintConfig(options: BuildEslintConfigOptions = {}) {
         [NO_DEEP_RELATIVE_IMPORTS_RULE_ID]: "error",
         [NO_IMPORT_SOURCE_EXTENSIONS_RULE_ID]: "error",
         [NO_SPEC_REFERENCES_RULE_ID]: "error",
+      },
+    },
+    {
+      files: [
+        "src/**/*.{ts,tsx}",
+        "bin/**/*.{ts,tsx}",
+        "scripts/**/*.{ts,tsx}",
+        "testing/generators/**/*.{ts,tsx}",
+      ],
+      plugins: {
+        spx: customRules,
+      },
+      rules: {
+        [NO_PROCESS_CWD_FOR_PRODUCT_ROOTS_RULE_ID]: "error",
       },
     },
     {

@@ -15,6 +15,7 @@ import { join, resolve } from "node:path";
 
 import { stringify as stringifyYaml } from "yaml";
 
+import { CONFIG_PROCESS_CWD } from "@/domains/config/cwd";
 import { type AgentSessionEnvironment, resolveAgentSessionId } from "@/domains/session/agent-session";
 import { SESSION_FRONT_MATTER_CLOSE, SESSION_FRONT_MATTER_OPEN } from "@/domains/session/create";
 import {
@@ -91,7 +92,7 @@ async function resolveSessionGitRef(
   // classifier needs, so the worktree path and the main-checkout verdict and path
   // compose from one read.
   const isGitRepo = facts !== null;
-  const currentWorktreePath = facts?.worktreeRoot ?? cwd ?? process.cwd();
+  const currentWorktreePath = facts?.worktreeRoot ?? cwd ?? CONFIG_PROCESS_CWD.read();
   const isMain = facts !== null && isMainCheckout(facts);
   // The main checkout is where a resuming agent reaches the base; null when none is
   // designable (e.g. a pool whose origin resolves no repository name), which the

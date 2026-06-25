@@ -27,6 +27,7 @@ Import hygiene (custom rule modules in `eslint-rules/`):
 
 - Internal import, export, dynamic import, and TypeScript import-type sources ending in `.js`, `.mjs`, `.cjs`, `.cts`, `.mts`, `.ts`, `.tsx`, `.d.ts`, `.d.cts`, or `.d.mts`, including before query/hash suffixes, map to lint error with autofix to the extensionless source ([test](tests/ast-enforcement.mapping.l1.test.ts), [enforce](../../../../eslint-rules/no-import-source-extensions.ts))
 - Relative import, export, dynamic import, and TypeScript import-type sources that climb more than one parent directory (`../../` or deeper) map to lint error — use a configured alias or a local module boundary ([test](tests/ast-enforcement.mapping.l1.test.ts), [enforce](../../../../eslint-rules/no-deep-relative-imports.ts))
+- Direct `process.cwd()` calls in product source outside `src/domains/config/cwd.ts` map to lint error — product-root callers use the config-owned cwd boundary or an explicit product context instead ([test](tests/no-process-cwd-for-product-roots.mapping.l1.test.ts), [enforce](../../../../eslint-rules/no-process-cwd-for-product-roots.ts))
 
 BDD test hygiene (custom rule module in `eslint-rules/`):
 

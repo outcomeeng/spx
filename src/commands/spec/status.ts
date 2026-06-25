@@ -1,3 +1,4 @@
+import { CONFIG_PROCESS_CWD } from "@/domains/config/cwd";
 import type { GitDependencies } from "@/git/root";
 import { createNodeStatusProvider, type NodeOutcomeResolver, updateNodeStatus } from "@/lib/node-status";
 import {
@@ -97,7 +98,7 @@ export async function statusCommand(
   }
 
   const productDir = await resolveSpecProductDir(
-    options.cwd ?? process.cwd(),
+    options.cwd ?? CONFIG_PROCESS_CWD.read(),
     options.gitDependencies,
     options.onWarning,
   );

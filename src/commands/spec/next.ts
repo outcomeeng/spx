@@ -1,3 +1,4 @@
+import { CONFIG_PROCESS_CWD } from "@/domains/config/cwd";
 import type { GitDependencies } from "@/git/root";
 import {
   createFilesystemSpecTreeSource,
@@ -36,7 +37,7 @@ export async function nextCommand(options: NextOptions = {}): Promise<string> {
   }
 
   const productDir = await resolveSpecProductDir(
-    options.cwd ?? process.cwd(),
+    options.cwd ?? CONFIG_PROCESS_CWD.read(),
     options.gitDependencies,
     options.onWarning,
   );

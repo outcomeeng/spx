@@ -18,6 +18,7 @@ import {
   VALIDATION_STEP_LINE_PATTERN,
 } from "@/commands/validation/messages";
 import { VALIDATION_RUNTIME_ANTI_MARKERS } from "@/commands/validation/runtime-diagnostics";
+import { CONFIG_PROCESS_CWD } from "@/domains/config/cwd";
 import {
   allValidationCliOptions,
   validationCliDefinition,
@@ -414,7 +415,7 @@ export function validationCliUnavailableExitCode(): number {
 }
 
 export function validationCliPackagedExecutablePath(): string {
-  return resolve(process.cwd(), PACKAGED_CLI_DIRECTORY, PACKAGED_CLI_FILENAME);
+  return resolve(CONFIG_PROCESS_CWD.read(), PACKAGED_CLI_DIRECTORY, PACKAGED_CLI_FILENAME);
 }
 
 export function validationLintSubprocessScenarios(): ValidationSubprocessScenario[] {
