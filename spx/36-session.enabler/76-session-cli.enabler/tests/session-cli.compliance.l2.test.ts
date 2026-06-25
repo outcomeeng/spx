@@ -1,3 +1,4 @@
+import { SESSION_INJECTION_SECTION_PREFIX } from "@/commands/session/pickup";
 import { buildSessionFrontMatterContent } from "@/domains/session/create";
 import {
   SessionInvalidGoalError,
@@ -29,7 +30,7 @@ import {
   sessionOptionToken,
   sessionSubcommandOptions,
 } from "@/interfaces/cli/session/definition";
-import { sampleLiteralTestValue } from "@testing/generators/literal/literal";
+import { arbitrarySourceFilePath, sampleLiteralTestValue } from "@testing/generators/literal/literal";
 import {
   arbitraryBarePoolLayoutCase,
   arbitraryBarePoolWithoutMainCheckoutLayoutCase,
@@ -66,8 +67,8 @@ import { ANSI_ESCAPE } from "@testing/harnesses/styled-output/ansi";
 import { withWorktreeLayoutEnv } from "@testing/harnesses/worktree-layout/worktree-layout";
 import { Command } from "commander";
 import { existsSync } from "node:fs";
-import { readdir, readFile, writeFile } from "node:fs/promises";
-import { basename, join, sep } from "node:path";
+import { mkdir, readdir, readFile, writeFile } from "node:fs/promises";
+import { basename, dirname, join, sep } from "node:path";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 const [TODO, DOING, ARCHIVE] = SESSION_STATUSES;
 const sessionDomain = sessionCliDefinition.domain.commandName;
@@ -254,6 +255,33 @@ describe("session CLI compliance", () => {
     expect(result.stderr).toContain(invalidId);
     expect(result.stderr).toContain(validId);
     expect(existsSync(join(harness.statusDir(DOING), `${validId}.md`))).toBe(true);
+  });
+  it("ALWAYS: pickup --no-inject suppresses CLI auto-injection", async () => {
+    const sessionId = sampleSessionId();
+    const filePath = sampleLiteralTestValue(arbitrarySourceFilePath());
+    const fileContent = sampleSessionContent();
+    const absoluteFilePath = join(harness.sessionsDir, filePath);
+    await mkdir(dirname(absoluteFilePath), { recursive: true });
+    await writeFile(absoluteFilePath, fileContent, SESSION_FILE_ENCODING);
+    await harness.writeSession(TODO, sessionId, { files: [filePath] });
+
+    const result = await runSessionCli(
+      [
+        sessionDomain,
+        sessionSubcommand.pickup.commandName,
+        sessionOption.noInject.flag,
+        sessionId,
+        sessionOption.sessionsDir.flag,
+        harness.sessionsDir,
+      ],
+      undefined,
+      harness.sessionsDir,
+    );
+
+    expect(result.exitCode).toBe(0);
+    expect(result.stdout).toContain(formatSessionOutputMarker(SESSION_OUTPUT_MARKER.PICKUP_ID, sessionId));
+    expect(result.stdout).not.toContain(SESSION_INJECTION_SECTION_PREFIX);
+    expect(result.stdout).not.toContain(fileContent);
   });
   it("ALWAYS: handoff preserves body bytes after the JSON-prefix separator", async () => {
     const body = "  # Body with edge whitespace  \n";
