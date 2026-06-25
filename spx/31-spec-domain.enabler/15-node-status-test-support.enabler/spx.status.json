@@ -1,9 +1,0 @@
-{
-  "schemaVersion": 1,
-  "verification": {
-    "test": {
-      "overall": "passed",
-      "spx/31-spec-domain.enabler/15-node-status-test-support.enabler/tests/node-status-test-support.property.l1.test.ts": "passed"
-    }
-  }
-}
