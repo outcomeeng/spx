@@ -407,14 +407,7 @@ function splitIdentifierPart(identifierPart: string): readonly string[] {
     }
 
     if (startsNewIdentifierSegment(currentSegment, kind)) {
-      if (kind === IDENTIFIER_CHAR_KIND.LOWER && isUppercaseRun(currentSegment)) {
-        const prefix = currentSegment.slice(0, -1);
-        pushIdentifierSegment(segments, prefix);
-        currentSegment = `${currentSegment.at(-1) ?? ""}${character}`;
-      } else {
-        pushIdentifierSegment(segments, currentSegment);
-        currentSegment = character;
-      }
+      currentSegment = startNextIdentifierSegment(segments, currentSegment, character, kind);
       continue;
     }
 
@@ -423,6 +416,24 @@ function splitIdentifierPart(identifierPart: string): readonly string[] {
 
   pushIdentifierSegment(segments, currentSegment);
   return segments;
+}
+
+function startNextIdentifierSegment(
+  segments: string[],
+  currentSegment: string,
+  character: string,
+  kind: IdentifierCharKind,
+): string {
+  if (kind === IDENTIFIER_CHAR_KIND.DIGIT && isUppercaseSegment(currentSegment)) {
+    return character;
+  }
+  if (kind === IDENTIFIER_CHAR_KIND.LOWER && isUppercaseRun(currentSegment)) {
+    const prefix = currentSegment.slice(0, -1);
+    pushIdentifierSegment(segments, prefix);
+    return `${currentSegment.at(-1) ?? ""}${character}`;
+  }
+  pushIdentifierSegment(segments, currentSegment);
+  return character;
 }
 
 function classifyIdentifierCharacter(character: string): IdentifierCharKind {
@@ -444,6 +455,10 @@ function startsNewIdentifierSegment(currentSegment: string, nextKind: Identifier
 function isUppercaseRun(value: string): boolean {
   return value.length > 1
     && Array.from(value).every((character) => classifyIdentifierCharacter(character) === IDENTIFIER_CHAR_KIND.UPPER);
+}
+
+function isUppercaseSegment(value: string): boolean {
+  return Array.from(value).every((character) => classifyIdentifierCharacter(character) === IDENTIFIER_CHAR_KIND.UPPER);
 }
 
 function pushIdentifierSegment(segments: string[], segment: string): void {
