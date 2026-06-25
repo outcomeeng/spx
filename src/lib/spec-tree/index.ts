@@ -405,6 +405,8 @@ function recognizeDirectoryRecord(
     };
   }
 
+  if (matchKindSuffix(name, registry, SPEC_TREE_KIND_CATEGORY.DECISION) !== null) return null;
+
   // An ordered-form attempt: parseOrderedSlug folds the unrecognized suffix into the
   // slug component (it splits on the first separator and accepts any non-empty slug),
   // so a `{NN}-{slug}{unknown-suffix}` directory parses here and is retained as invalid

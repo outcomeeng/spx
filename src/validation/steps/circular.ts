@@ -11,7 +11,6 @@ import {
   type ICruiseOptions,
   type ICruiseResult,
   type IDependency,
-  type IReporterOutput,
 } from "dependency-cruiser";
 import extractTypeScriptConfig from "dependency-cruiser/config-utl/extract-ts-config";
 import { join } from "node:path";
@@ -236,8 +235,8 @@ function patternIsCoveredByDirectory(pattern: string, directories: readonly stri
   });
 }
 
-function isCruiseResult(output: IReporterOutput["output"]): output is ICruiseResult {
-  return typeof output === "object" && "modules" in output && "summary" in output;
+function isCruiseResult(output: unknown): output is ICruiseResult {
+  return output !== null && typeof output === "object" && "modules" in output && "summary" in output;
 }
 
 function closeCycle(cycle: readonly string[]): string[] {
