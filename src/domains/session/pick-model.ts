@@ -228,8 +228,8 @@ export function keyToAction(key: PickerKey, mode: PickerMode): PickerAction | nu
   if (key.escape) return { type: PICKER_ACTION.QUIT };
   if (key.input === FILTER_KEY) return { type: PICKER_ACTION.ENTER_FILTER };
   if (key.input === QUIT_KEY) return { type: PICKER_ACTION.QUIT };
-  if (Object.hasOwn(LAUNCH_KEYS, key.input)) {
-    const launch = LAUNCH_KEYS[key.input];
+  const launch = LAUNCH_KEYS[key.input];
+  if (launch !== undefined) {
     return { type: PICKER_ACTION.LAUNCH, runtime: launch.runtime, autoContinue: launch.autoContinue };
   }
   return null;

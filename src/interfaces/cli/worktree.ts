@@ -13,8 +13,6 @@ import { defaultOccupancyFileSystem } from "@/lib/worktree-occupancy-file-system
 import { defaultWorktreePathInfo } from "@/lib/worktree-path-info";
 import { defaultProcessTable } from "@/lib/worktree-process-table";
 
-import { writeWarning } from "./write-warning";
-
 /** Source-owned `spx worktree` command and flag vocabulary, shared with the CLI tests. */
 export const WORKTREE_CLI = {
   COMMAND: "worktree",
@@ -29,9 +27,23 @@ export const WORKTREE_CLI = {
 
 const WORKTREE_DOMAIN_DESCRIPTION = "Coordinate worktree occupancy across a bare-repository pool";
 
-function handleError(error: string): never {
-  console.error("Error:", error);
-  process.exit(1);
+function writeOutput(invocation: CliInvocation, output: string): void {
+  invocation.io.writeStdout(`${output}\n`);
+}
+
+function writeError(invocation: CliInvocation, output: string): void {
+  invocation.io.writeStderr(`${output}\n`);
+}
+
+function writeInvocationWarning(invocation: CliInvocation, warning: string | undefined): void {
+  if (warning !== undefined) {
+    writeError(invocation, warning);
+  }
+}
+
+function handleError(invocation: CliInvocation, error: string): never {
+  writeError(invocation, `Error: ${error}`);
+  return invocation.io.exit(1);
 }
 
 function registerWorktreeCommands(worktreeCmd: Command, invocation: CliInvocation): void {
@@ -53,9 +65,9 @@ function registerWorktreeCommands(worktreeCmd: Command, invocation: CliInvocatio
         selfPid: process.pid,
         sessionId: options.sessionId,
         worktreesDir: options.worktreesDir,
-        onWarning: writeWarning,
+        onWarning: (warning) => writeInvocationWarning(invocation, warning),
       });
-      if (!result.ok) handleError(result.error);
+      if (!result.ok) handleError(invocation, result.error);
       // A successful claim writes nothing to stdout so command callers can use it
       // from hook flows without adding model-visible context.
     });
@@ -75,10 +87,10 @@ function registerWorktreeCommands(worktreeCmd: Command, invocation: CliInvocatio
         pathInfo: defaultWorktreePathInfo,
         processTable: defaultProcessTable,
         worktreesDir: options.worktreesDir,
-        onWarning: writeWarning,
+        onWarning: (warning) => writeInvocationWarning(invocation, warning),
       });
-      if (!result.ok) handleError(result.error);
-      console.log(result.value);
+      if (!result.ok) handleError(invocation, result.error);
+      writeOutput(invocation, result.value);
     });
 
   worktreeCmd
@@ -91,9 +103,9 @@ function registerWorktreeCommands(worktreeCmd: Command, invocation: CliInvocatio
         fs: defaultOccupancyFileSystem,
         gitDeps: defaultGitDependencies,
         worktreesDir: options.worktreesDir,
-        onWarning: writeWarning,
+        onWarning: (warning) => writeInvocationWarning(invocation, warning),
       });
-      if (!result.ok) handleError(result.error);
+      if (!result.ok) handleError(invocation, result.error);
     });
 }
 

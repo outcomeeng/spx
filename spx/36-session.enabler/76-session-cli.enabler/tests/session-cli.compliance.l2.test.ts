@@ -24,6 +24,7 @@ import {
   type SessionStatus,
 } from "@/domains/session/types";
 import { GIT_HEAD_SHA_ARGS, NOT_GIT_REPO_WARNING } from "@/git/root";
+import type { CliInvocation } from "@/interfaces/cli/product-context";
 import { sessionDomain as sessionDomainDescriptor } from "@/interfaces/cli/session";
 import {
   sessionCliDefinition,
@@ -79,6 +80,24 @@ const linkedWorktreeBranch = "feature/linked-local";
 const linkedWorktreeRelativePath = ".worktrees/linked";
 /** The default branch the permitted-base smoke points `origin/HEAD` at. */
 const fixtureDefaultBranch = "main";
+
+function descriptorInvocation(): CliInvocation {
+  return {
+    io: {
+      writeStdout: () => {},
+      writeStderr: () => {},
+      exit: (exitCode): never => {
+        throw new Error(`unexpected descriptor exit ${exitCode}`);
+      },
+    },
+    resolveEffectiveInvocationDir: () => "/descriptor-cwd",
+    resolveProductContext: () => ({
+      effectiveInvocationDir: "/descriptor-cwd",
+      productDir: "/descriptor-product",
+    }),
+  };
+}
+
 /** The rendered fact line for `label`, anchored to its label prefix so the header prose never matches. */
 function factLine(stderr: string, label: string): string {
   const prefix = `${label}: `;
@@ -111,7 +130,7 @@ describe("session CLI descriptor registry", () => {
   it("registers every session subcommand and option from the source-owned definition", () => {
     const program = new Command();
 
-    sessionDomainDescriptor.register(program);
+    sessionDomainDescriptor.register(program, descriptorInvocation());
 
     const sessionCommand = registeredSessionCommand(program);
     expect(sessionCommand.description()).toBe(sessionCliDefinition.domain.description);
