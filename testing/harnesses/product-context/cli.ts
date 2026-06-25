@@ -49,6 +49,7 @@ export async function runProductContextCli(
     processCwd: () => options.processCwd,
     writeStdout: (output) => stdout.push(output),
     writeStderr: (output) => stderr.push(output),
+    setExitCode: (exitCode) => exitCodes.push(exitCode),
     exit: (exitCode) => {
       exitCodes.push(exitCode);
       throw new ProductContextCliRunExit(exitCode);

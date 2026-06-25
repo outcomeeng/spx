@@ -4,9 +4,11 @@ import { join } from "node:path";
 import { afterEach, describe, expect, it } from "vitest";
 
 import { TYPESCRIPT_VALIDATION_MESSAGES } from "@/commands/validation/typescript";
+import { DIAGNOSE_FORMAT } from "@/domains/diagnose/report";
 import { SESSION_STATUSES } from "@/domains/session/types";
 import { NOT_GIT_REPO_WARNING } from "@/git/root";
 import { CONFIG_CLI } from "@/interfaces/cli/config";
+import { DIAGNOSE_CLI } from "@/interfaces/cli/diagnose";
 import { SPX_GLOBAL_OPTIONS } from "@/interfaces/cli/product-context";
 import { SESSION_CLI } from "@/interfaces/cli/session";
 import { validationCliDefinition, validationCommonCliOptions } from "@/interfaces/cli/validation";
@@ -151,6 +153,23 @@ describe("product context mapping", () => {
     expect(result.exitCodes).toEqual([0]);
     expect(result.stdout).toContain(processDir);
     expect(result.stderr).toContain(processDir);
+  });
+
+  it("captures deferred exit codes from product-context commands", async () => {
+    const processDir = await makeTempDir();
+
+    const result = await runCli(
+      [
+        DIAGNOSE_CLI.COMMAND,
+        DIAGNOSE_CLI.FORMAT_FLAG,
+        DIAGNOSE_FORMAT.JSON,
+      ],
+      { processCwd: processDir },
+    );
+
+    expect(result.exitCodes).toHaveLength(1);
+    const parsed = JSON.parse(result.stdout) as { readonly overall?: unknown };
+    expect(parsed.overall).toBeDefined();
   });
 });
 
