@@ -1,9 +1,9 @@
 import fc from "fast-check";
 import { describe, expect, it } from "vitest";
 
-import { doingSessionBackedByClaim } from "@/commands/diagnose/probes";
 import {
   classifySessionStore,
+  doingSessionBackedByClaim,
   SESSION_STORE_VERDICT,
   type SessionStoreReading,
 } from "@/domains/diagnose/checks/session-store";
@@ -29,6 +29,16 @@ function doingSession(): DoingSessionRecord {
     specs: [],
     files: [],
     agent_session_id: sessionIds[1] ?? sampleSessionId(),
+  };
+}
+
+function doingSessionWithoutAgentSessionId(): SessionRecord {
+  return {
+    id: sampleSessionId(),
+    status: SESSION_STATUSES[1],
+    ...DEFAULT_SESSION_METADATA,
+    specs: [],
+    files: [],
   };
 }
 
@@ -68,5 +78,11 @@ describe("the session-store check classifies the store from sessions joined to o
     const session = doingSession();
 
     expect(doingSessionBackedByClaim(session, new Set([session.agent_session_id]))).toBe(true);
+  });
+
+  it("treats a live claim naming the session id as backing a doing session without an agent session id", () => {
+    const session = doingSessionWithoutAgentSessionId();
+
+    expect(doingSessionBackedByClaim(session, new Set([session.id]))).toBe(true);
   });
 });

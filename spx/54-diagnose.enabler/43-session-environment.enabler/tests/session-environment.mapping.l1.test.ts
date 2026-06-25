@@ -54,6 +54,11 @@ describe("the session-environment check classifies the SessionStart worktree occ
       verdict: SESSION_ENVIRONMENT_VERDICT.UNKNOWN,
       bucket: VERDICT_BUCKET.UNKNOWN,
     },
+    {
+      overrides: { hookPresent: false, worktreeClaimed: true },
+      verdict: SESSION_ENVIRONMENT_VERDICT.UNKNOWN,
+      bucket: VERDICT_BUCKET.UNKNOWN,
+    },
   ])("classifies the session as $verdict (bucket $bucket)", ({ overrides, verdict, bucket }) => {
     const result = classifySessionEnvironment(reading(overrides));
     expect(result.verdict).toBe(verdict);
