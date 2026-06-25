@@ -50,11 +50,11 @@ const DEFAULT_REGISTRY: CheckRegistry = {
   [CHECK_NAME.MARKETPLACE_INSTALL]: marketplaceInstallRunner(defaultMarketplaceInstallProbe),
 };
 
-function handleError(error: string, io: CliIo): void {
+function handleError(error: string, io: CliIo): never {
   // Sanitize before echoing: the error embeds user-supplied manifest path and
   // check-name bytes.
   io.writeStderr(`Error: ${sanitizeCliArgument(error)}\n`);
-  io.setExitCode(1);
+  return io.exit(1);
 }
 
 /**
@@ -93,7 +93,6 @@ export const diagnoseDomain: Domain = {
         });
         if (!result.ok) {
           handleError(result.error, invocation.io);
-          return;
         }
         invocation.io.writeStdout(`${result.value.output}\n`);
         invocation.io.setExitCode(result.value.exitCode);
