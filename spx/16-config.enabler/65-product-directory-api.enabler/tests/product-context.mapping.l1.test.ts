@@ -5,6 +5,7 @@ import { join } from "node:path";
 import type { Command } from "commander";
 import { afterEach, describe, expect, it } from "vitest";
 
+import { TYPESCRIPT_VALIDATION_MESSAGES } from "@/commands/validation/typescript";
 import { CONFIG_FILE_FORMAT, configFileForFormat, parseConfigFileSections } from "@/config/index";
 import type { Config } from "@/config/types";
 import { SESSION_STATUSES } from "@/domains/session/types";
@@ -142,7 +143,12 @@ describe("product context mapping", () => {
 
   it("maps -C to the same validation result as invoking from the target directory", async () => {
     const callerDir = await makeTempDir();
-    const productDir = process.cwd();
+    const productDir = await makeTempDir();
+    const scope = sampleConfigTestValue(CONFIG_TEST_GENERATOR.resolutionScope());
+    await runGit(productDir, [GIT_TEST_SUBCOMMANDS.INIT, GIT_TEST_FLAGS.QUIET]);
+    const nestedProductDir = join(productDir, scope.nestedDirectory);
+    await mkdir(nestedProductDir, { recursive: true });
+
     const validationArgs = [
       validationCliDefinition.domain.commandName,
       validationCliDefinition.subcommands.typescript.commandName,
@@ -150,17 +156,18 @@ describe("product context mapping", () => {
       VALIDATION_SCOPES.FULL,
     ] as const;
 
-    const direct = await runCli(validationArgs, { processCwd: productDir });
+    const direct = await runCli(validationArgs, { processCwd: nestedProductDir });
     const redirected = await runCli(
       [
         SPX_GLOBAL_OPTIONS.directory.short,
-        productDir,
+        nestedProductDir,
         ...validationArgs,
       ],
       { processCwd: callerDir },
     );
 
     expect(redirected).toEqual(direct);
+    expect(redirected.stdout).toContain(TYPESCRIPT_VALIDATION_MESSAGES.ABSENT);
   });
 
   it("maps -C to the same session list as invoking from the target directory", async () => {
