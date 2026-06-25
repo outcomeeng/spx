@@ -25,7 +25,7 @@ import type { CheckRegistry } from "@/domains/diagnose/engine";
 import { CHECK_NAME } from "@/domains/diagnose/manifest";
 import { DIAGNOSE_FORMAT, type DiagnoseFormat } from "@/domains/diagnose/report";
 import type { Domain } from "@/domains/types";
-import type { CliInvocation } from "@/interfaces/cli/product-context";
+import type { CliInvocation, CliIo } from "@/interfaces/cli/product-context";
 import { sanitizeCliArgument } from "@/lib/sanitize-cli-argument";
 import { resolveColorChoice } from "@/lib/styled-output/styled-output";
 
@@ -50,11 +50,11 @@ const DEFAULT_REGISTRY: CheckRegistry = {
   [CHECK_NAME.MARKETPLACE_INSTALL]: marketplaceInstallRunner(defaultMarketplaceInstallProbe),
 };
 
-function handleError(error: string): never {
+function handleError(error: string, io: CliIo): void {
   // Sanitize before echoing: the error embeds user-supplied manifest path and
   // check-name bytes.
-  console.error("Error:", sanitizeCliArgument(error));
-  process.exit(1);
+  io.writeStderr(`Error: ${sanitizeCliArgument(error)}\n`);
+  io.setExitCode(1);
 }
 
 /**
@@ -91,9 +91,12 @@ export const diagnoseDomain: Domain = {
           registry: DEFAULT_REGISTRY,
           fs: { readFile: (path) => readFile(path, "utf8") },
         });
-        if (!result.ok) handleError(result.error);
-        console.log(result.value.output);
-        process.exit(result.value.exitCode);
+        if (!result.ok) {
+          handleError(result.error, invocation.io);
+          return;
+        }
+        invocation.io.writeStdout(`${result.value.output}\n`);
+        invocation.io.setExitCode(result.value.exitCode);
       });
   },
 };
