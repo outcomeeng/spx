@@ -14,7 +14,13 @@ import { join } from "node:path";
 
 import { DEFAULT_CONFIG } from "@/config/defaults";
 import { buildSessionFrontMatterContent, stringifySessionFrontMatter } from "@/domains/session/create";
-import { DEFAULT_PRIORITY, SESSION_STATUSES, type SessionPriority, type SessionStatus } from "@/domains/session/types";
+import {
+  DEFAULT_PRIORITY,
+  SESSION_OUTPUT_MARKER,
+  SESSION_STATUSES,
+  type SessionPriority,
+  type SessionStatus,
+} from "@/domains/session/types";
 import {
   GIT_COMMON_DIR_ARGS,
   GIT_CORE_BARE_ARGS,
@@ -74,11 +80,11 @@ export async function runSessionCli(
 /** Commit message for the seed commit a session git fixture writes — a fixture value, not a git token. */
 export const SESSION_FIXTURE_COMMIT_MESSAGE = "session cli fixture";
 
-/** The `<SESSION_FILE>` tag `spx session handoff` emits on success, carrying the written session path. */
-export const SESSION_FILE_TAG_PATTERN = /<SESSION_FILE>(.*?)<\/SESSION_FILE>/;
-
 /** The `<HANDOFF_ID>` tag `spx session handoff` emits on success, carrying the session id. */
-export const HANDOFF_ID_TAG_PATTERN = /<HANDOFF_ID>\d{4}-\d{2}-\d{2}_\d{2}-\d{2}-\d{2}<\/HANDOFF_ID>/;
+export const HANDOFF_ID_TAG_PATTERN = new RegExp(
+  String
+    .raw`<${SESSION_OUTPUT_MARKER.HANDOFF_ID}>\d{4}-\d{2}-\d{2}_\d{2}-\d{2}-\d{2}</${SESSION_OUTPUT_MARKER.HANDOFF_ID}>`,
+);
 
 /** A session id that resolves to no session file, exercising the per-id failure path. */
 export const ABSENT_SESSION_ID = "nonexistent";
