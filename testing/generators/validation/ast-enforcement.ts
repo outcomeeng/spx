@@ -1022,6 +1022,11 @@ export function noProcessCwdForProductRootsCases(): ValidationGeneratedRuleTeste
         filename: VALIDATION_ESLINT_FILES.configCwdModule,
       },
       {
+        name: "GIVEN config cwd module uses Windows separators WHEN linting THEN no error",
+        code: VALIDATION_ESLINT_SNIPPETS.processCwdCall,
+        filename: String.raw`src\domains\config\cwd.ts`,
+      },
+      {
         name: "GIVEN source imports config cwd boundary WHEN linting THEN no error",
         code: VALIDATION_ESLINT_SNIPPETS.configProcessCwdRead,
         filename: VALIDATION_ESLINT_FILES.gitRoot,
@@ -1037,6 +1042,12 @@ export function noProcessCwdForProductRootsCases(): ValidationGeneratedRuleTeste
         name: "GIVEN source reads process cwd directly WHEN linting THEN error",
         code: VALIDATION_ESLINT_SNIPPETS.processCwdCall,
         filename: VALIDATION_ESLINT_FILES.gitRoot,
+        errors: [{ messageId: PROCESS_CWD_FOR_PRODUCT_ROOT_MESSAGE_ID }],
+      },
+      {
+        name: "GIVEN another root has a cwd boundary suffix WHEN linting THEN error",
+        code: VALIDATION_ESLINT_SNIPPETS.processCwdCall,
+        filename: "other-package/src/domains/config/cwd.ts",
         errors: [{ messageId: PROCESS_CWD_FOR_PRODUCT_ROOT_MESSAGE_ID }],
       },
     ],
