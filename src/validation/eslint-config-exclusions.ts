@@ -3,6 +3,8 @@ import { readFileSync } from "node:fs";
 import { createRequire } from "node:module";
 import { basename, dirname, isAbsolute, join } from "node:path";
 
+import { CONFIG_PROCESS_CWD } from "../domains/config/cwd";
+
 const GLOB_MARKER = "*";
 const FILE_EXTENSION_PATTERN = /\.[^/]+$/;
 const TYPE_SCRIPT_EXCLUDE_TREE_GLOB = "/**/*";
@@ -16,7 +18,7 @@ export function readTypeScriptExcludeGlobs(configFile: string): string[] {
   return [...new Set(readTypeScriptExclusions(configFile).map(toTypeScriptExcludeGlob))];
 }
 
-function resolveTypeScriptConfigPath(configFile: string, baseDir: string = process.cwd()): string {
+function resolveTypeScriptConfigPath(configFile: string, baseDir: string = CONFIG_PROCESS_CWD.read()): string {
   return isAbsolute(configFile) ? configFile : join(baseDir, configFile);
 }
 

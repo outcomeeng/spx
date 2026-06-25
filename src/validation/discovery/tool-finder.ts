@@ -12,6 +12,7 @@ import { createRequire } from "node:module";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 
+import { CONFIG_PROCESS_CWD } from "@/domains/config/cwd";
 import { findExecutableOnPath } from "@/lib/executable-on-path";
 
 import { TOOL_DISCOVERY, type ToolSource } from "./constants";
@@ -181,7 +182,7 @@ export async function discoverTool(
   tool: string,
   options: DiscoverToolOptions = {},
 ): Promise<ToolDiscoveryResult> {
-  const { projectRoot = process.cwd(), deps = defaultToolDiscoveryDeps } = options;
+  const { projectRoot = CONFIG_PROCESS_CWD.read(), deps = defaultToolDiscoveryDeps } = options;
 
   // Tier 1: Check if bundled with spx-cli
   const bundledPath = deps.resolveModule(`${tool}/package.json`) ?? deps.resolveImport?.(tool);

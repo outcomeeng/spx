@@ -5,6 +5,8 @@
  */
 import { execa } from "execa";
 
+import { CONFIG_PROCESS_CWD } from "@/domains/config/cwd";
+
 /**
  * Options for init command
  */
@@ -43,7 +45,7 @@ export interface InitOptions {
 export async function initCommand(
   options: InitOptions = {},
 ): Promise<string> {
-  const cwd = options.cwd || process.cwd();
+  const cwd = options.cwd || CONFIG_PROCESS_CWD.read();
 
   try {
     // Step 1: Check if outcomeeng marketplace exists

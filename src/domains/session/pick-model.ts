@@ -69,7 +69,7 @@ export function buildPickupCommand(
  * the same store the picker read. With a custom store the agent cannot resolve the id — it scopes to
  * its own cwd, not the picker's `--sessions-dir` — so the reference is the session's file path made
  * absolute against `cwd`, which the agent reads directly regardless of where its own store is. The
- * `cwd` is the injected working directory (`process.cwd()` in production); an absolute session path
+ * `cwd` is the injected working directory from the config process boundary; an absolute session path
  * passes through `resolve` unchanged, a relative one is anchored to `cwd`.
  */
 export function pickupReference(session: Session, sessionsDir: string | undefined, cwd: string): string {
@@ -228,8 +228,8 @@ export function keyToAction(key: PickerKey, mode: PickerMode): PickerAction | nu
   if (key.escape) return { type: PICKER_ACTION.QUIT };
   if (key.input === FILTER_KEY) return { type: PICKER_ACTION.ENTER_FILTER };
   if (key.input === QUIT_KEY) return { type: PICKER_ACTION.QUIT };
-  const launch = LAUNCH_KEYS[key.input];
-  if (launch !== undefined) {
+  if (Object.hasOwn(LAUNCH_KEYS, key.input)) {
+    const launch = LAUNCH_KEYS[key.input];
     return { type: PICKER_ACTION.LAUNCH, runtime: launch.runtime, autoContinue: launch.autoContinue };
   }
   return null;

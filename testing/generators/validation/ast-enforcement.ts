@@ -43,6 +43,10 @@ import {
   NO_IMPORT_SOURCE_EXTENSIONS_RULE_NAME,
 } from "@eslint-rules/no-import-source-extensions";
 import {
+  NO_PROCESS_CWD_FOR_PRODUCT_ROOTS_RULE_ID,
+  PROCESS_CWD_FOR_PRODUCT_ROOT_MESSAGE_ID,
+} from "@eslint-rules/no-process-cwd-for-product-roots";
+import {
   NO_REGISTRY_POSITION_ACCESS_RULE_ID,
   REGISTRY_POSITION_ACCESS_MESSAGE_ID,
 } from "@eslint-rules/no-registry-position-access";
@@ -261,6 +265,7 @@ export const VALIDATION_ESLINT_FILES = {
   sessionTypes: "src/domains/session/types.ts",
   lifecycleModule: "src/lib/process-lifecycle/install.ts",
   lifecycleHarness: "testing/harnesses/process-lifecycle/spawn-fixture.ts",
+  configCwdModule: "src/domains/config/cwd.ts",
   gitRoot: "src/git/root.ts",
   precommitRunner: "src/lib/precommit/run.ts",
   domainRunner: "src/some-domain/runner.ts",
@@ -325,6 +330,10 @@ export const VALIDATION_ESLINT_SNIPPETS = {
   bareStringUnion: `type Tier = "free" | "pro";`,
   internalSourceExtension: `import "./local.js";`,
   deepParentImport: `import "../../config";`,
+  configProcessCwdRead:
+    `import { CONFIG_PROCESS_CWD } from "@/domains/config/cwd"; const cwd = CONFIG_PROCESS_CWD.read();`,
+  explicitCwdParameter: `function resolveRoot(cwd: string): string { return cwd; }`,
+  processCwdCall: `const cwd = process.cwd();`,
   testOwnedConstantDeclaration: `const NODE_KIND = "enabler";`,
   crossKindStateAssertions: `expect(node.kind).toBe("enabler"); expect(node.state).toBe("declared");`,
   noSpecReferenceRuleId: NO_SPEC_REFERENCES_RULE_ID,
@@ -1004,6 +1013,36 @@ export function astDeepRelativeImportRun(): ValidationGeneratedRuleTesterRun {
   };
 }
 
+export function noProcessCwdForProductRootsCases(): ValidationGeneratedRuleTesterCases {
+  return {
+    valid: [
+      {
+        name: "GIVEN config cwd module owns process.cwd WHEN linting THEN no error",
+        code: VALIDATION_ESLINT_SNIPPETS.processCwdCall,
+        filename: VALIDATION_ESLINT_FILES.configCwdModule,
+      },
+      {
+        name: "GIVEN source imports config cwd boundary WHEN linting THEN no error",
+        code: VALIDATION_ESLINT_SNIPPETS.configProcessCwdRead,
+        filename: VALIDATION_ESLINT_FILES.gitRoot,
+      },
+      {
+        name: "GIVEN source accepts explicit cwd parameter WHEN linting THEN no error",
+        code: VALIDATION_ESLINT_SNIPPETS.explicitCwdParameter,
+        filename: VALIDATION_ESLINT_FILES.sourceParser,
+      },
+    ],
+    invalid: [
+      {
+        name: "GIVEN source reads process cwd directly WHEN linting THEN error",
+        code: VALIDATION_ESLINT_SNIPPETS.processCwdCall,
+        filename: VALIDATION_ESLINT_FILES.gitRoot,
+        errors: [{ messageId: PROCESS_CWD_FOR_PRODUCT_ROOT_MESSAGE_ID }],
+      },
+    ],
+  };
+}
+
 export function astNoSpecReferencesRuns(): ValidationGeneratedRuleTesterRun[] {
   return [
     {
@@ -1092,6 +1131,7 @@ export const VALIDATION_ESLINT_RULE_IDS = {
   hardcodedSpecTreeNodeKinds: NO_HARDCODED_SPEC_TREE_NODE_KINDS_RULE_ID,
   importSourceExtensions: NO_IMPORT_SOURCE_EXTENSIONS_RULE_ID,
   noRestrictedSyntax: NO_RESTRICTED_SYNTAX_RULE_ID,
+  processCwdForProductRoots: NO_PROCESS_CWD_FOR_PRODUCT_ROOTS_RULE_ID,
   noSpecReferences: NO_SPEC_REFERENCES_RULE_ID,
   noTestOwnedDomainConstants: NO_TEST_OWNED_DOMAIN_CONSTANTS_RULE_ID,
   registryPositionAccess: NO_REGISTRY_POSITION_ACCESS_RULE_ID,
@@ -1126,6 +1166,7 @@ export function validationRuleRegistrationCases(): ValidationGeneratedRuleRegist
         NO_BARE_STRING_UNIONS_RULE_ID,
         NO_IMPORT_SOURCE_EXTENSIONS_RULE_ID,
         NO_DEEP_RELATIVE_IMPORTS_RULE_ID,
+        NO_PROCESS_CWD_FOR_PRODUCT_ROOTS_RULE_ID,
       ],
     },
     {
@@ -1219,6 +1260,17 @@ export function validationLintScenarios(): ValidationGeneratedLintScenario[] {
       expectations: [
         {
           ruleId: NO_DEEP_RELATIVE_IMPORTS_RULE_ID,
+          count: VALIDATION_ESLINT_EXPECTED.singleDiagnostic,
+        },
+      ],
+    },
+    {
+      title: "direct process cwd source read is reported",
+      code: VALIDATION_ESLINT_SNIPPETS.processCwdCall,
+      filePath: VALIDATION_ESLINT_FILES.gitRoot,
+      expectations: [
+        {
+          ruleId: NO_PROCESS_CWD_FOR_PRODUCT_ROOTS_RULE_ID,
           count: VALIDATION_ESLINT_EXPECTED.singleDiagnostic,
         },
       ],
