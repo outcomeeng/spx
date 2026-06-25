@@ -332,7 +332,7 @@ function getFixtureDataDeclaratorName(node: Node): string | undefined {
 }
 
 function isFixtureDataVariableName(variableName: string): boolean {
-  const segments = splitIdentifierName(variableName);
+  const segments = fixtureClassificationSegments(variableName);
   if (segments.length === 0) {
     return false;
   }
@@ -358,6 +358,35 @@ function splitIdentifierName(variableName: string): readonly string[] {
     .split("_")
     .flatMap(splitIdentifierPart)
     .map((segment) => segment.toLowerCase());
+}
+
+function fixtureClassificationSegments(variableName: string): readonly string[] {
+  const segments = splitIdentifierName(variableName);
+  if (!isScreamingSnakeIdentifier(variableName)) {
+    return segments;
+  }
+
+  let first = 0;
+  let last = segments.length;
+  while (first < last && isSingleLetterSegment(segments[first])) {
+    first += 1;
+  }
+  while (last > first && isSingleLetterSegment(segments[last - 1])) {
+    last -= 1;
+  }
+  return segments.slice(first, last);
+}
+
+function isScreamingSnakeIdentifier(variableName: string): boolean {
+  return variableName.includes("_")
+    && variableName
+      .split("_")
+      .every((part) => part !== "" && part === part.toUpperCase() && part !== part.toLowerCase());
+}
+
+function isSingleLetterSegment(segment: string): boolean {
+  return segment.length === 1
+    && classifyIdentifierCharacter(segment) === IDENTIFIER_CHAR_KIND.LOWER;
 }
 
 function splitIdentifierPart(identifierPart: string): readonly string[] {

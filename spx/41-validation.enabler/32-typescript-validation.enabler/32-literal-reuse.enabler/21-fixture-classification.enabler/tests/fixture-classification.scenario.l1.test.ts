@@ -124,6 +124,20 @@ describe("fixture-classification — scenarios", () => {
     expect(values).toContain(assertionLiteral);
   });
 
+  it("SCREAMING_SNAKE role names with wrapper segments suppress setup literals", () => {
+    const testFilePath = sampleLiteralTestValue(arbitraryTestFilePath());
+    const [setupLiteral, assertionLiteral] = sampleLiteralPair();
+    const source = `
+      const A_SESSION_B = { status: "${setupLiteral}" };
+      expect(actual).toBe("${assertionLiteral}");
+    `;
+
+    const values = collectFromFile(source, testFilePath).map((o) => o.value);
+
+    expect(values).not.toContain(setupLiteral);
+    expect(values).toContain(assertionLiteral);
+  });
+
   it("a file path containing the .test. filename marker outside a tests directory is treated as test-authored", () => {
     const testMarkerPath = sampleLiteralTestValue(arbitraryTestMarkerFilePath());
     const [fixtureValue, assertionLiteral] = sampleLiteralPair();
