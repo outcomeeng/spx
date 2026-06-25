@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { PRECOMMIT_RUN, type PrecommitDeps, runPrecommitTests } from "@/lib/precommit/run";
+import { combineVitestProcessOutput, PRECOMMIT_RUN, type PrecommitDeps, runPrecommitTests } from "@/lib/precommit/run";
 import { VITEST_ARGS } from "@/lib/precommit/vitest-args";
 import { PRECOMMIT_TEST_GENERATOR, samplePrecommitTestValue } from "@testing/generators/precommit/precommit";
 
@@ -153,5 +153,11 @@ describe("runPrecommitTests scenarios", () => {
       expect(result.skipped).toBe(true);
       expect(result.exitCode).toBe(PRECOMMIT_RUN.EXIT_CODES.SUCCESS);
     });
+  });
+});
+
+describe("combineVitestProcessOutput scenarios", () => {
+  it("returns an empty string when spawnSync produces no captured output", () => {
+    expect(combineVitestProcessOutput(undefined, undefined)).toHaveLength(0);
   });
 });

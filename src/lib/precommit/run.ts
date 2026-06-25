@@ -98,6 +98,8 @@ export interface PrecommitResult {
   vitestOutput?: string;
 }
 
+type SpawnOutputValue = string | null | undefined;
+
 // =============================================================================
 // PURE FUNCTIONS
 // =============================================================================
@@ -123,6 +125,10 @@ export interface PrecommitResult {
 export function shouldRunTests(files: string[], config: PrecommitConfig = PRECOMMIT_DEFAULTS): boolean {
   const relevantFiles = filterTestRelevantFiles(files, config);
   return relevantFiles.length > 0;
+}
+
+export function combineVitestProcessOutput(stdout: SpawnOutputValue, stderr: SpawnOutputValue): string {
+  return `${stdout ?? ""}${stderr ?? ""}`;
 }
 
 // =============================================================================
@@ -228,7 +234,7 @@ async function runVitestImpl(args: string[]): Promise<VitestResult> {
     stdio: ["inherit", "pipe", "pipe"],
   });
 
-  const output = result.stdout + result.stderr;
+  const output = combineVitestProcessOutput(result.stdout, result.stderr);
   console.log(output);
 
   return {
