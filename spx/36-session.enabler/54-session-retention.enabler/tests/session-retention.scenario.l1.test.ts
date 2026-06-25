@@ -65,11 +65,12 @@ function createTestSession(overrides: {
 
 describe("selectSessionsToDelete", () => {
   it("GIVEN 10 sessions and keep=5 WHEN selected THEN returns 5 oldest", () => {
-    const sessions = orderedSessionIds(10).map((id) => createTestSession({ id }));
+    const ids = orderedSessionIds(10);
+    const sessions = ids.map((id) => createTestSession({ id }));
 
     const toPrune = selectSessionsToDelete(sessions, { keep: 5 });
 
-    expect(toPrune).toHaveLength(5);
+    expect(toPrune.map((session) => session.id)).toEqual(ids.slice(0, 5));
   });
 
   it("P2: GIVEN keep >= total WHEN selected THEN returns empty", () => {
@@ -192,7 +193,10 @@ describe("pruneCommand with real filesystem", () => {
   });
 
   it("S1: GIVEN 10 archived sessions WHEN prune --keep 5 THEN 5 oldest deleted", async () => {
-    for (const id of orderedSessionIds(10)) {
+    const ids = orderedSessionIds(10);
+    const oldestIds = ids.slice(0, 5);
+    const newestIds = ids.slice(5);
+    for (const id of ids) {
       await harness.writeSession(ARCHIVE, id);
     }
 
@@ -200,7 +204,13 @@ describe("pruneCommand with real filesystem", () => {
 
     expect(output).toContain(`${SESSION_PRUNE_OUTPUT.DELETED} 5 sessions`);
     const remaining = await readdir(harness.statusDir(ARCHIVE));
-    expect(remaining.filter((f) => f.endsWith(".md"))).toHaveLength(5);
+    const remainingMarkdownFiles = remaining.filter((f) => f.endsWith(".md")).sort((left, right) =>
+      left.localeCompare(right)
+    );
+    expect(remainingMarkdownFiles).toEqual(newestIds.map((id) => `${id}.md`));
+    for (const id of oldestIds) {
+      expect(existsSync(join(harness.statusDir(ARCHIVE), `${id}.md`))).toBe(false);
+    }
   });
 
   it("S2: GIVEN archived sessions WHEN prune with no --keep THEN default retention applies", async () => {
