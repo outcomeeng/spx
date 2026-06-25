@@ -31,7 +31,7 @@
 - ⚠️ **NEVER force-overwrite a shared remote ref with plain `git push --force`** — it unconditionally overwrites history a concurrent agent may have advanced. The PR-branch flows use `git push --force-with-lease` (which refuses when the remote advanced) instead, per the rule below.
 - ✅ **The `/pr` lifecycle and its internal opening/managing flows own their own PR branch's history** — per `/merging-standards`, the lifecycle autonomously rebases the current PR branch onto its base (`git rebase origin/<base>`), pushes the rebased branch with `git push --force-with-lease` (never plain `--force` — `--force-with-lease` refuses when the remote advanced, so it cannot clobber a concurrent push), merges via `gh pr merge --rebase`, detaches the worktree onto the refreshed base tip, and deletes the merged PR branch locally and remotely. These are governed, single-author-branch operations, not the work-discarding operations above.
 - ⚠️ **STOP TRIGGER: about to run `pnpm exec tsc --noEmit`, `npx tsc`, or any bare type-check command** — run `pnpm run typecheck` instead. Bare `tsc` misses product-specific config, paths, and exclusions. This applies to every TypeScript check, not just commit-time.
-- ⚠️ **ALWAYS run the documented pnpm validation scripts after code changes** — before audit, before commit, before claiming "done". `pnpm run typecheck` alone is not the quality gate — it runs only TypeScript checking. Run `pnpm run validate` and `pnpm run circular` for source validation, plus the relevant tests.
+- ⚠️ **ALWAYS run the documented pnpm validation scripts after code changes** — before audit, before commit, before claiming "done". `pnpm run typecheck` alone is not the quality gate — it runs only TypeScript checking. Run `pnpm run validate` for source validation, plus the relevant tests. Circular dependency detection runs in CI, not as a local gate.
 - ⚠️ **NEVER mechanically extract typed literal union values to named constants** — `no-restricted-syntax` warnings on `expect(x).toBe("declared")` where `x: NodeState` are false positives. The type annotation IS the documentation; renaming `"declared"` → `STATE_DECLARED` adds zero information. The lint rule targets magic strings whose meaning is obscure; enum-like union members are already self-documenting. Suppress the warning inline or leave it; never rename. The `typescript:auditing-typescript-tests` skill's Gate 0 C1/L1 findings for typed protocol values (`"PASS"`, `"FAIL"`, `"APPROVED"`, `"REJECT"`) are the same class of false positive — a Gate 0 REJECT on these strings is not a work blocker when `pnpm run validate` passes and tests pass.
 - ⚠️ **ALWAYS research related codebases before offering architectural options** — before presenting A/B/C choices via `AskUserQuestion`, grep/read related codebases (sibling monorepo paths like `~/Code/CraftFinal/root/`, existing `src/spec/apply/`, etc.) for established patterns. If a pattern already exists there, reference it rather than reinventing. "Read the existing code" beats any combination of options you can invent.
 
@@ -134,7 +134,8 @@ The authoritative ADR and PDR templates are **decision-first**. The skills own t
 pnpm run validate
 
 # Quick verification before committing
-pnpm run validate && pnpm run circular && pnpm test
+pnpm run validate
+# plus the focused tests that cover the touched spec node, source module, or workflow
 
 # Build packaged output for the `spx` executable
 pnpm run build
@@ -145,6 +146,8 @@ pnpm run publish:check
 
 `pnpm run validate` and related development scripts execute `tsx src/cli.ts`, so they validate the current source tree even when `dist/` exists. The packaged executable `bin/spx.js` requires `dist/cli.js`; invoke it only after `pnpm run build`.
 
+Local deterministic verification follows `/merging-standards`: run validation and tests for the touched scope by default. Full-repository local testing is CI's job unless the governing node, product overlay, or risk evidence requires a wider local run, such as changes to validation infrastructure, test runner wiring, generated distribution, package-manager configuration, shared runtime code, or a broad refactor whose touched-scope commands cannot cover the contract. Circular dependency detection is a whole-graph check that runs only in CI, never as a local pre-commit or pre-push gate.
+
 ### Pre-Commit Checklist
 
 Before committing ANY changes:
@@ -153,8 +156,7 @@ Before committing ANY changes:
 - [ ] **`/audit-typescript-tests` passed for TypeScript test changes** before committing test-bearing work
 - [ ] **`/audit-typescript` passed for TypeScript implementation changes** before committing code-bearing work
 - [ ] **`pnpm run validate`** passes (source CLI aggregate pipeline, circular skipped)
-- [ ] **`pnpm run circular`** passes (source CLI circular dependency detection)
-- [ ] **`pnpm test`** shows 0 failed tests
+- [ ] **Focused tests for the touched scope** pass; widen only when `/merging-standards` escalation applies
 
 ### Pre-Push Checklist
 
@@ -162,8 +164,7 @@ Before pushing:
 
 - [ ] **`pnpm run build`** succeeds
 - [ ] **`pnpm run validate`** passes
-- [ ] **`pnpm run circular`** passes
-- [ ] **`pnpm test`** passes
+- [ ] **Focused tests for the touched scope** pass on the tree being pushed; widen only when `/merging-standards` escalation applies
 
 ### Pre-Publish Checklist
 
@@ -216,7 +217,7 @@ The pnpm scripts are the authoritative workflow interface for local validation a
 
 **Scoping literal findings to a subtree:**
 
-`pnpm run validate` runs the aggregate validation pipeline with circular dependency detection skipped; run `pnpm run circular` beside it when a full local gate is required. Literal output can still flood when there are many findings. To see only the files with problems in a specific subtree:
+`pnpm run validate` runs the aggregate validation pipeline with circular dependency detection skipped; circular dependency detection runs in CI rather than as a local gate. Literal output can still flood when there are many findings. To see only the files with problems in a specific subtree:
 
 ```bash
 # Files with literal problems in a subtree
@@ -234,7 +235,7 @@ tsx src/cli.ts validation literal | grep spx/41-validation.enabler/32-typescript
 
 Use small PRs with one purpose. A PR that changes specs, tests, architecture, runtime code, deployment, and publishing workflows at once is too hard to review and too easy to merge for the wrong reason. Split the work into the smallest reviewable concern that can pass its own local gate.
 
-Run the right local gate before publishing. Use the documented pnpm validation scripts for default gates, add `pnpm run circular` when circular dependency detection is in scope, and add targeted tests for the node or workflow changed. Name those commands in the PR body.
+Run the right local gate before publishing. Use the documented pnpm validation scripts for default gates and add targeted tests for the node or workflow changed; circular dependency detection runs in CI, not locally. Name those commands in the PR body.
 
 ### PR review guidance
 
@@ -252,7 +253,7 @@ Treat PR-level comments as authoritative review surfaces. This product rarely re
 
 ### Executing PR workflow
 
-Run `/pr` for default-branch changes. It opens PRs ready once `REVIEW_READINESS` holds: the opening phase runs the product's deterministic verification and the `changes-reviewer` agent, then creates the PR `ready_for_review` (no draft phase; a stacked PR held draft until its base merges is the one exception). Its managing phase drives the merge loop: inspect all review surfaces, classify findings, sync to base when needed, fix `BLOCKING` and `DEBT`, record accepted `FOLLOW-UP`, rerun the local closure gate before pushing, refresh the heartbeat, and evaluate the merge authority gates.
+Run `/pr` for default-branch changes. It opens PRs ready once `REVIEW_READINESS` holds: the product's scoped deterministic verification passes, every required audit gate for the changed artifacts has approved, and local `changes-reviewer` review has converged. Review also runs on the ready PR in CI. If the operator explicitly suspends local reviewer agents for resource protection, treat that as a documented exception: do not run `changes-reviewer` locally, name the exception in the PR body, and let CI be the first review surface. The managing phase drives the merge loop: inspect all review surfaces, classify findings, sync to base when needed, fix `BLOCKING` and `DEBT`, record accepted `FOLLOW-UP`, rerun the local closure gate before pushing, refresh the heartbeat, and evaluate the merge authority gates.
 
 ```bash
 pr_url="$(gh pr create --title "$title" --body "$body" --base main --head "$branch")"
