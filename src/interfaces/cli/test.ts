@@ -4,9 +4,8 @@ import { type RecordedTestRun, runTestsCommand, type TestDispatchResult } from "
 import type { TargetSelection } from "@/domains/test";
 import type { Domain } from "@/domains/types";
 import { detectWorktreeProductRoot } from "@/git/root";
-import type { CliInvocation } from "@/interfaces/cli/product-context";
+import type { CliInvocation, CliIo } from "@/interfaces/cli/product-context";
 import { formatAgentTestOutput } from "@/interfaces/cli/test-agent-output";
-import { writeWarning as writeCliWarning } from "@/interfaces/cli/write-warning";
 import { SPEC_TREE_CONFIG } from "@/lib/spec-tree/config";
 import { testingRegistry } from "@/test/registry";
 
@@ -35,9 +34,12 @@ const TESTING_PRODUCT_DIR_WARNING = {
     `Warning: Not in a git repository. Reading ${SPEC_TREE_CONFIG.ROOT_DIRECTORY} tests relative to the current working directory.`,
 } as const;
 
-async function resolveTestProductDir(cwd: string): Promise<string> {
+async function resolveTestProductDir(
+  cwd: string,
+  writeWarning: (warning: string | undefined) => void,
+): Promise<string> {
   const { productDir, isGitRepo } = await detectWorktreeProductRoot(cwd);
-  writeCliWarning(isGitRepo ? undefined : TESTING_PRODUCT_DIR_WARNING.NOT_GIT_REPOSITORY);
+  writeWarning(isGitRepo ? undefined : TESTING_PRODUCT_DIR_WARNING.NOT_GIT_REPOSITORY);
   return productDir;
 }
 
@@ -46,6 +48,7 @@ async function resolveTestProductDir(cwd: string): Promise<string> {
 async function runTestsThroughCommand(
   productDir: string,
   passing: boolean,
+  io: CliIo,
   targets?: TargetSelection,
 ): Promise<RecordedTestRun> {
   try {
@@ -54,14 +57,15 @@ async function runTestsThroughCommand(
       { registry: testingRegistry, runnerDepsFor: createRunnerDepsFor(productDir) },
     );
   } catch (error) {
-    process.stderr.write(`${error instanceof Error ? error.message : String(error)}\n`);
-    process.exit(PROCESS_FAILURE_EXIT_CODE);
+    io.writeStderr(`${error instanceof Error ? error.message : String(error)}\n`);
+    io.exit(PROCESS_FAILURE_EXIT_CODE);
   }
 }
 
 async function runAgentTestsThroughCommand(
   productDir: string,
   passing: boolean,
+  io: CliIo,
   targets?: TargetSelection,
 ): Promise<RecordedTestRun> {
   try {
@@ -70,8 +74,8 @@ async function runAgentTestsThroughCommand(
       { registry: testingRegistry, runnerDepsFor: createAgentRunnerDepsFor(productDir) },
     );
   } catch (error) {
-    process.stderr.write(`${error instanceof Error ? error.message : String(error)}\n`);
-    process.exit(PROCESS_FAILURE_EXIT_CODE);
+    io.writeStderr(`${error instanceof Error ? error.message : String(error)}\n`);
+    io.exit(PROCESS_FAILURE_EXIT_CODE);
   }
 }
 
@@ -141,18 +145,20 @@ export interface TestingCliDependencies {
 }
 
 function defaultTestingCliDependencies(invocation: CliInvocation): TestingCliDependencies {
+  const writeWarning = (warning: string | undefined): void => {
+    if (warning !== undefined) {
+      invocation.io.writeStderr(`${warning}\n`);
+    }
+  };
   return {
-    resolveProductDir: () => resolveTestProductDir(invocation.resolveEffectiveInvocationDir()),
-    runTests: runTestsThroughCommand,
-    runAgentTests: runAgentTestsThroughCommand,
-    writeStdout: (output) => {
-      process.stdout.write(output);
-    },
-    writeWarning: writeCliWarning,
-    setExitCode: (exitCode) => {
-      process.exitCode = exitCode;
-    },
-    exit: (exitCode) => process.exit(exitCode),
+    resolveProductDir: () => resolveTestProductDir(invocation.resolveEffectiveInvocationDir(), writeWarning),
+    runTests: (productDir, passing, targets) => runTestsThroughCommand(productDir, passing, invocation.io, targets),
+    runAgentTests: (productDir, passing, targets) =>
+      runAgentTestsThroughCommand(productDir, passing, invocation.io, targets),
+    writeStdout: (output) => invocation.io.writeStdout(output),
+    writeWarning,
+    setExitCode: (exitCode) => invocation.io.setExitCode(exitCode),
+    exit: (exitCode) => invocation.io.exit(exitCode),
   };
 }
 
