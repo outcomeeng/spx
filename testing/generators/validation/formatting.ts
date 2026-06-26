@@ -20,6 +20,9 @@ const FORMATTABLE_TYPESCRIPT_CONTENT = "export const value = 1;\n";
 const TYPESCRIPT_SOURCE_FILENAME = "sample.ts";
 
 const DPRINT_CONFIG_FILENAME = "dprint.jsonc";
+const EXPECTED_DPRINT_CHECK_SUBCOMMAND = "check";
+const EXPECTED_DPRINT_EXCLUDES_OPTION = "--excludes";
+const EXPECTED_DPRINT_OPTIONS_TERMINATOR = "--";
 const VALIDATION_CONFIG_FILENAME = "spx.config.yaml";
 const GITIGNORE_FILENAME = ".gitignore";
 const NARROWED_SCOPE_DIRECTORY_NAME = "src";
@@ -57,6 +60,7 @@ export const FORMATTING_SCENARIO_KIND = {
   PIPELINE_FAILURE: "pipelineFailure",
   CLI_PROCESS_UNFORMATTED: "cliProcessUnformatted",
   CLI_PROCESS_DIRECTORY_SCOPE: "cliProcessDirectoryScope",
+  CLI_PROCESS_INVOCATION_DIRECTORY_SCOPE: "cliProcessInvocationDirectoryScope",
   CLI_PROCESS_DIRECTORY_INCLUDE_SCOPE: "cliProcessDirectoryIncludeScope",
   CLI_PROCESS_FILTERED_DIRECTORY_SCOPE: "cliProcessFilteredDirectoryScope",
   CLI_PROCESS_EXCLUDED_DIRECTORY_SCOPE: "cliProcessExcludedDirectoryScope",
@@ -76,6 +80,9 @@ export const FORMATTING_VALIDATION_DATA = {
   unformattedTypeScriptContent: UNFORMATTED_TYPESCRIPT_CONTENT,
   formattableTypeScriptContent: FORMATTABLE_TYPESCRIPT_CONTENT,
   typeScriptSourceFilename: TYPESCRIPT_SOURCE_FILENAME,
+  expectedDprintCheckSubcommand: EXPECTED_DPRINT_CHECK_SUBCOMMAND,
+  expectedDprintExcludesOption: EXPECTED_DPRINT_EXCLUDES_OPTION,
+  expectedDprintOptionsTerminator: EXPECTED_DPRINT_OPTIONS_TERMINATOR,
   dprintConfigFilename: DPRINT_CONFIG_FILENAME,
   validationConfigFilename: VALIDATION_CONFIG_FILENAME,
   gitignoreFilename: GITIGNORE_FILENAME,
@@ -116,6 +123,11 @@ export function formattingScenarios(): FormattingValidationScenario[] {
     {
       title: "the format CLI process expands directory operands before checking files",
       kind: FORMATTING_SCENARIO_KIND.CLI_PROCESS_DIRECTORY_SCOPE,
+      timeout: FORMATTING_HARNESS_TIMEOUT,
+    },
+    {
+      title: "the format CLI process resolves operands from the invocation directory",
+      kind: FORMATTING_SCENARIO_KIND.CLI_PROCESS_INVOCATION_DIRECTORY_SCOPE,
       timeout: FORMATTING_HARNESS_TIMEOUT,
     },
     {

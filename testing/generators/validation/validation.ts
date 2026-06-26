@@ -41,6 +41,7 @@ const CONTROL_ARGUMENT_PARTS = ["bad", "\x01", "arg", "\x1f", "end"] as const;
 const UNICODE_ARGUMENT_PARTS = ["unicode", "é", "ø", "日", "語"] as const;
 const LITERAL_PROBLEM_KINDS = Object.values(LITERAL_PROBLEM_KIND);
 const VALIDATION_CLI_TEMP_PREFIX = "spx-validation-cli-";
+const ESCAPING_PATH_OPERAND = "../outside.ts";
 const OPTION_OPERAND_SEPARATOR = " ";
 const PROCESS_EXIT_UNAVAILABLE = -1;
 const PACKAGED_CLI_DIRECTORY = "bin";
@@ -195,6 +196,7 @@ export const VALIDATION_PIPELINE_SCENARIO_KIND = {
   FAILURE_IDENTIFIES_STEP: "failureIdentifiesStep",
   PRODUCTION_SCOPE: "productionScope",
   PATH_DIRECTORY_SCOPE: "pathDirectoryScope",
+  PATH_FILE_SCOPE: "pathFileScope",
   STEP_ORDER: "stepOrder",
   SKIP_CIRCULAR: "skipCircular",
   SKIP_LITERAL: "skipLiteral",
@@ -349,6 +351,7 @@ export const VALIDATION_PIPELINE_DATA = {
   typeErrorReplacement: TYPE_ERROR_REPLACEMENT,
   scopeResolutionDirectoryName: "validation-scope-fixture",
   scopeResolutionSourceFile: "validation-scope-fixture/index.ts",
+  escapingPathOperand: ESCAPING_PATH_OPERAND,
   outcome: {
     pass: VALIDATION_STEP_OUTCOME_PASS,
     skip: VALIDATION_STEP_OUTCOME_SKIP,
@@ -560,6 +563,11 @@ export function validationPipelineScenarios(): ValidationPipelineScenario[] {
     {
       title: "path directory scope runs every step in sequence",
       kind: VALIDATION_PIPELINE_SCENARIO_KIND.PATH_DIRECTORY_SCOPE,
+      timeout: VALIDATION_PIPELINE_DATA.allTimeout,
+    },
+    {
+      title: "path file scope runs every step in sequence",
+      kind: VALIDATION_PIPELINE_SCENARIO_KIND.PATH_FILE_SCOPE,
       timeout: VALIDATION_PIPELINE_DATA.allTimeout,
     },
     {

@@ -18,6 +18,7 @@ import { VALIDATION_SUBPROCESS_EVENTS } from "./subprocess-output";
 export const DPRINT_COMMAND = "dprint";
 export const DPRINT_CHECK_SUBCOMMAND = "check";
 export const DPRINT_EXCLUDES_OPTION = "--excludes";
+export const DPRINT_OPTIONS_TERMINATOR = "--";
 
 /** Product-root config filename; its presence gates whether the stage runs. */
 export const DPRINT_CONFIG_FILENAME = "dprint.jsonc";
@@ -66,10 +67,12 @@ export function buildDprintCheckArgs(options: {
   excludes?: readonly string[];
 }): string[] {
   const excludes = options.excludes ?? [];
+  const files = options.files ?? [];
   return [
     DPRINT_CHECK_SUBCOMMAND,
     ...(excludes.length > 0 ? [DPRINT_EXCLUDES_OPTION, ...excludes] : []),
-    ...(options.files ?? []),
+    ...(files.length > 0 ? [DPRINT_OPTIONS_TERMINATOR] : []),
+    ...files,
   ];
 }
 

@@ -35,6 +35,8 @@ export async function runValidationPipelineScenario(scenario: ValidationPipeline
       return runProductionScopeScenario(scenario);
     case VALIDATION_PIPELINE_SCENARIO_KIND.PATH_DIRECTORY_SCOPE:
       return runPathDirectoryScopeScenario(scenario);
+    case VALIDATION_PIPELINE_SCENARIO_KIND.PATH_FILE_SCOPE:
+      return runPathFileScopeScenario(scenario);
     case VALIDATION_PIPELINE_SCENARIO_KIND.STEP_ORDER:
       return runStepOrderScenario(scenario);
     case VALIDATION_PIPELINE_SCENARIO_KIND.SKIP_CIRCULAR:
@@ -145,6 +147,27 @@ async function runPathDirectoryScopeScenario(_scenario: ValidationPipelineScenar
 
     const targetDirectory = VALIDATION_PIPELINE_DATA.sourceDirectoryName;
     const result = await runAll(path, [VALIDATION_PIPELINE_DATA.skipCircularFlag, targetDirectory]);
+
+    expect(result.exitCode).toBe(VALIDATION_PIPELINE_DATA.exitCodes.SUCCESS);
+    expectStepSequence(result.stdout);
+  });
+}
+
+async function runPathFileScopeScenario(_scenario: ValidationPipelineScenario): Promise<void> {
+  await withValidationEnv({ fixture: PROJECT_FIXTURES.CLEAN_PROJECT }, async ({ path }) => {
+    const outOfScopeDirectory = join(path, VALIDATION_PIPELINE_DATA.outOfScopeMarkdownDirectoryName);
+    await mkdir(outOfScopeDirectory, { recursive: true });
+    await writeFile(
+      join(outOfScopeDirectory, VALIDATION_PIPELINE_DATA.outOfScopeMarkdownFileName),
+      VALIDATION_PIPELINE_DATA.outOfScopeMarkdownContent,
+    );
+
+    const unscopedResult = await runAll(path, [VALIDATION_PIPELINE_DATA.skipCircularFlag]);
+    expect(unscopedResult.exitCode).toBe(VALIDATION_PIPELINE_DATA.exitCodes.FAILURE);
+    expect(unscopedResult.stdout).toContain(VALIDATION_PIPELINE_DATA.stageNames.FORMATTING);
+
+    const targetFile = join(VALIDATION_PIPELINE_DATA.sourceDirectoryName, VALIDATION_PIPELINE_DATA.cleanSourceFileName);
+    const result = await runAll(path, [VALIDATION_PIPELINE_DATA.skipCircularFlag, targetFile]);
 
     expect(result.exitCode).toBe(VALIDATION_PIPELINE_DATA.exitCodes.SUCCESS);
     expectStepSequence(result.stdout);
