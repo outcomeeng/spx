@@ -6,6 +6,7 @@ import {
   HOOK_SESSION_START_CLAIMED,
   HOOK_SESSION_START_ENV,
   HOOK_SESSION_START_PAYLOAD,
+  HOOK_SESSION_START_SOURCE,
 } from "@/domains/hooks/session-start";
 import { CONTROLLING_PID_ENV } from "@/domains/worktree/controlling-process";
 import { HOOK_CLI } from "@/interfaces/cli/hook";
@@ -49,6 +50,7 @@ async function runSuccessfulSessionStartHookCli(input: SuccessfulHookCliRunInput
         JSON.stringify({
           [HOOK_SESSION_START_PAYLOAD.SESSION_ID]: input.sessionId,
           [HOOK_SESSION_START_PAYLOAD.CWD]: env.worktreePath,
+          [HOOK_SESSION_START_PAYLOAD.SOURCE]: HOOK_SESSION_START_SOURCE.STARTUP,
         }),
       );
 
