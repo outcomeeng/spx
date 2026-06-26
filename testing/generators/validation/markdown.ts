@@ -16,6 +16,7 @@ const MISSING_HEADING_MARKER = "nonexistent-heading";
 const MISSING_FILE_MARKER = "does-not-exist";
 const MD024_RULE_MARKER = "MD024";
 const CHILD_MARKDOWN_FILE = "child.md";
+const COLON_MARKDOWN_FILE = "api:v2.md";
 const SAMPLE_MARKDOWN_FILE = "sample.md";
 const TARGET_MARKDOWN_FILE = "target.md";
 const SOURCE_MARKDOWN_FILE = "source.md";
@@ -61,6 +62,7 @@ export const MARKDOWN_SCENARIO_KIND = {
   UNRELATED_FILE_SCOPE_DIAGNOSTIC: "unrelatedFileScopeDiagnostic",
   MIXED_FILE_SCOPE_DIAGNOSTIC: "mixedFileScopeDiagnostic",
   DIRECTORY_SCOPE_MD_ONLY: "directoryScopeMdOnly",
+  COLON_PATH_ERROR: "colonPathError",
 } as const;
 
 export type MarkdownScenarioKind = (typeof MARKDOWN_SCENARIO_KIND)[keyof typeof MARKDOWN_SCENARIO_KIND];
@@ -84,6 +86,7 @@ export const MARKDOWN_VALIDATION_DATA = {
   missingFileMarker: MISSING_FILE_MARKER,
   md024RuleMarker: MD024_RULE_MARKER,
   childMarkdownFile: CHILD_MARKDOWN_FILE,
+  colonMarkdownFile: COLON_MARKDOWN_FILE,
   sampleMarkdownFile: SAMPLE_MARKDOWN_FILE,
   targetMarkdownFile: TARGET_MARKDOWN_FILE,
   sourceMarkdownFile: SOURCE_MARKDOWN_FILE,
@@ -189,6 +192,11 @@ export function markdownUnitScenarios(): MarkdownValidationScenario[] {
     {
       title: "directory targets recurse over md files only",
       kind: MARKDOWN_SCENARIO_KIND.DIRECTORY_SCOPE_MD_ONLY,
+      timeout: MARKDOWN_HARNESS_TIMEOUT,
+    },
+    {
+      title: "markdown errors are reported for file paths containing colons",
+      kind: MARKDOWN_SCENARIO_KIND.COLON_PATH_ERROR,
       timeout: MARKDOWN_HARNESS_TIMEOUT,
     },
   ];

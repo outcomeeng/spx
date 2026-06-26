@@ -54,7 +54,7 @@ spx validation literal           # Source/test literal reuse detection
 # Scope and targeting
 spx validation all --scope production        # Exclude tests/scripts
 spx validation all --fix                     # Auto-fix across all checks
-spx validation all --files src/session/      # Validate specific files or directories
+spx validation all src/session/              # Validate specific files or directories
 ```
 
 All validation commands support `--quiet` for CI and `--json` for machine-readable output.

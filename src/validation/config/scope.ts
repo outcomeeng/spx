@@ -822,6 +822,18 @@ export function constrainTypeScriptScopeToExplicitTargets(
       && retainedDirectories.some((directory) => pathMatchesLiteralPrefix(pattern, directory))
     )
     .map((pattern) => typeScriptLiteralDirectoryPattern(pattern));
+  const retainedDirectoryScopePatterns = retainedDirectories
+    .filter((directory) =>
+      scopeConfig.filePatterns.some((pattern) =>
+        !typeScriptScopePatternHasGlob(pattern)
+        && !pathHasTypeScriptSourceExtension(pattern)
+        && pathMatchesLiteralPrefix(directory, pattern)
+      )
+    )
+    .map((directory) => typeScriptLiteralDirectoryPattern(directory));
+  const retainedDirectoryOperandPatterns = scopeConfig.filePatterns.length === 0
+    ? retainedDirectories.map(typeScriptLiteralDirectoryPattern)
+    : [];
   const explicitFileTargets = targets
     .filter((target) => target.kind === EXPLICIT_TYPESCRIPT_SCOPE_TARGET_KIND.FILE)
     .map((target) => target.path)
@@ -837,10 +849,14 @@ export function constrainTypeScriptScopeToExplicitTargets(
     ...scopeConfig,
     directories: retainedDirectories,
     filePatterns: [
-      ...scopedFilePatternsForDirectoryTargets,
-      ...retainedDirectoryFilePatterns,
-      ...retainedDirectoryPatterns,
-      ...uncoveredExplicitFileTargets,
+      ...new Set([
+        ...scopedFilePatternsForDirectoryTargets,
+        ...retainedDirectoryFilePatterns,
+        ...retainedDirectoryPatterns,
+        ...retainedDirectoryScopePatterns,
+        ...retainedDirectoryOperandPatterns,
+        ...uncoveredExplicitFileTargets,
+      ]),
     ],
   };
 }

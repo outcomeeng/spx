@@ -65,6 +65,7 @@ async function runLiteralStage(context: ValidationStageContext): Promise<Validat
   }
   return literalCommand({
     cwd: context.cwd,
+    scope: context.scope,
     files: context.files,
     quiet: context.quiet,
     json: context.json,

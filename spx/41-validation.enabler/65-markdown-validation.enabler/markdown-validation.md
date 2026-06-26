@@ -28,6 +28,7 @@ CAN catch broken cross-references and structural defects before they reach the r
 - Given a file scope contains a missing markdown file path, when `spx validation markdown` runs with that path as a positional operand, then the command reports the skipped scope in output and exits 0 when no markdown target remains ([test](tests/markdown-validation.integration.test.ts))
 - Given a file scope contains a path that is neither an existing directory nor a markdown file, when `spx validation markdown` runs with that path as a positional operand, then the command reports the skipped scope in output and exits 0 when no markdown target remains ([test](tests/markdown-validation.integration.test.ts))
 - Given file scope contains both a valid markdown target and an unrelated file, when `spx validation markdown` runs with those paths as positional operands, then validation runs for the markdown target and the skipped unrelated file is reported in output ([test](tests/markdown-validation.integration.test.ts))
+- Given a markdown file path contains a colon, when markdownlint reports an error for that file, then markdown validation reports the file, line number, and rule detail instead of dropping the error ([test](tests/markdown-validation.scenario.l1.test.ts))
 
 ### Mappings
 

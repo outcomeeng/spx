@@ -14,7 +14,12 @@ import {
   type ValidationConfig,
   validationConfigDescriptor,
 } from "@/validation/config/descriptor";
-import { pathPassesValidationFilter, validationPathFilterForTool } from "@/validation/config/path-filter";
+import {
+  pathPassesValidationFilter,
+  validationPathFilterExcludes,
+  validationPathFilterForTool,
+  validationPathFilterIntersections,
+} from "@/validation/config/path-filter";
 import {
   getDefaultDirectories,
   MARKDOWN_VALIDATION_TARGET_KIND,
@@ -74,14 +79,18 @@ export async function markdownCommand(options: MarkdownCommandOptions): Promise<
   const targetResolutions = files && files.length > 0
     ? files.map((filePath) => resolveMarkdownValidationTarget(markdownValidationOperandPath(cwd, filePath)))
     : undefined;
-  const unfilteredTargets = targetResolutions === undefined
+  const explicitTargets = targetResolutions === undefined
+    ? undefined
+    : targetResolutions
+      .map((resolution) => resolution.target)
+      .filter((target): target is MarkdownValidationTarget => target !== undefined)
+      .flatMap((target) => markdownTargetsForValidationPathFilter(cwd, target, pathFilter));
+  const unfilteredTargets: MarkdownValidationTarget[] = targetResolutions === undefined
     ? getDefaultDirectories(cwd).map((path) => ({
       kind: MARKDOWN_VALIDATION_TARGET_KIND.DIRECTORY,
       path,
     }))
-    : targetResolutions
-      .map((resolution) => resolution.target)
-      .filter((target): target is MarkdownValidationTarget => target !== undefined);
+    : explicitTargets ?? [];
   const targets = unfilteredTargets.filter((target) =>
     pathPassesValidationFilter(relative(cwd, target.path), pathFilter)
   );
@@ -107,6 +116,7 @@ export async function markdownCommand(options: MarkdownCommandOptions): Promise<
   const result = await validateMarkdown({
     targets,
     projectRoot: cwd,
+    validationPathExcludes: validationPathFilterExcludes(pathFilter),
   });
   const durationMs = Date.now() - startTime;
 
@@ -115,6 +125,20 @@ export async function markdownCommand(options: MarkdownCommandOptions): Promise<
 
 function markdownValidationOperandPath(productDir: string, filePath: string): string {
   return isAbsolute(filePath) ? filePath : join(productDir, filePath);
+}
+
+function markdownTargetsForValidationPathFilter(
+  productDir: string,
+  target: MarkdownValidationTarget,
+  pathFilter: Parameters<typeof pathPassesValidationFilter>[1],
+): MarkdownValidationTarget[] {
+  const relativePath = relative(productDir, target.path);
+  if (target.kind === MARKDOWN_VALIDATION_TARGET_KIND.FILE) {
+    return pathPassesValidationFilter(relativePath, pathFilter) ? [target] : [];
+  }
+  return validationPathFilterIntersections(relativePath, pathFilter)
+    .map((path) => resolveMarkdownValidationTarget(markdownValidationOperandPath(productDir, path)).target)
+    .filter((filteredTarget): filteredTarget is MarkdownValidationTarget => filteredTarget !== undefined);
 }
 
 function formatSkippedFileScope(target: MarkdownSkippedValidationTarget): string {

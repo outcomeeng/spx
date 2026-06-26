@@ -11,9 +11,10 @@ import {
 } from "@/validation/config/descriptor";
 import {
   applyValidationPathFilterToScope,
-  pathPassesValidationFilter,
   toProjectRelativeValidationPath,
+  validationPathFilterExcludes,
   validationPathFilterForTool,
+  validationPathFilterIntersections,
 } from "@/validation/config/path-filter";
 import { getTypeScriptScope } from "@/validation/config/scope";
 import { detectTypeScript, discoverTool, formatSkipMessage } from "@/validation/discovery/index";
@@ -90,8 +91,12 @@ export async function lintCommand(options: LintCommandOptions): Promise<Validati
     validationPathFilter,
   );
   const validatedFiles = files
-    ?.map((file) => toProjectRelativeValidationPath(cwd, file))
-    .filter((file) => pathPassesValidationFilter(file, validationPathFilter));
+    ?.flatMap((file) =>
+      validationPathFilterIntersections(
+        toProjectRelativeValidationPath(cwd, file),
+        validationPathFilter,
+      ).map(formatLintValidationOperand)
+    );
 
   if (
     scopeConfig.filteredByValidationPathNoMatches
@@ -119,6 +124,7 @@ export async function lintCommand(options: LintCommandOptions): Promise<Validati
     mode: fix ? "write" : "read",
     enabledValidations: { ESLINT: true },
     validatedFiles,
+    validatedFileIgnorePatterns: files === undefined ? undefined : validationPathFilterExcludes(validationPathFilter),
     isFileSpecificMode: Boolean(validatedFiles && validatedFiles.length > 0),
     eslintConfigFile,
   };
@@ -128,6 +134,10 @@ export async function lintCommand(options: LintCommandOptions): Promise<Validati
   const durationMs = Date.now() - startTime;
 
   return formatLintResult(result, quiet, durationMs);
+}
+
+function formatLintValidationOperand(path: string): string {
+  return path.length === 0 ? "." : path;
 }
 
 function formatLintResult(

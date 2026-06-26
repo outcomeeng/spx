@@ -3,7 +3,7 @@ import { describe, expect, it } from "vitest";
 import type { KnipCommandOptions } from "@/commands/validation";
 import { knipCommand } from "@/commands/validation/knip";
 import { LITERAL_DISABLED_MESSAGE, literalCommand } from "@/commands/validation/literal";
-import { markdownCommand } from "@/commands/validation/markdown";
+import { MARKDOWN_COMMAND_OUTPUT, markdownCommand } from "@/commands/validation/markdown";
 import {
   formatValidationPathsNoTargetsSkipMessage,
   VALIDATION_COMMAND_OUTPUT,
@@ -323,6 +323,95 @@ describe("ALWAYS: validation command participation is driven by spx config", () 
         const result = await markdownCommand({ cwd: env.productDir, quiet: true });
 
         expect(result.exitCode).toBe(VALIDATION_EXIT_CODES.SUCCESS);
+      },
+    );
+  });
+
+  it("intersects explicit markdown root directory operands with markdown validation includes", async () => {
+    await withLiteralFixtureEnv(
+      {
+        [validationConfigDescriptor.section]: {
+          [VALIDATION_PATHS_SUBSECTION]: {
+            [VALIDATION_PATH_TOOL_SUBSECTIONS.MARKDOWN]: {
+              include: ["spx"],
+            },
+          },
+        },
+      },
+      async (env) => {
+        const [validMarkdownSlug, invalidMarkdownSlug] = sampleDistinctDomainLiterals(2);
+        const [specTreeDirectory, docsDirectory] = MARKDOWN_DEFAULT_DIRECTORY_NAMES;
+        await env.writeRaw(
+          `${specTreeDirectory}/${validMarkdownSlug}${MARKDOWN_PRIMARY_FILE_EXTENSION}`,
+          "# Good\n",
+        );
+        await env.writeRaw(
+          `${docsDirectory}/${invalidMarkdownSlug}${MARKDOWN_PRIMARY_FILE_EXTENSION}`,
+          "# Bad  \n",
+        );
+
+        const result = await markdownCommand({
+          cwd: env.productDir,
+          files: ["."],
+        });
+
+        expect(result.exitCode).toBe(VALIDATION_EXIT_CODES.SUCCESS);
+        expect(result.output).toBe(MARKDOWN_COMMAND_OUTPUT.NO_ISSUES);
+      },
+    );
+  });
+
+  it("applies markdown validation excludes below explicit root directory operands", async () => {
+    await withLiteralFixtureEnv(
+      {
+        [validationConfigDescriptor.section]: {
+          [VALIDATION_PATHS_SUBSECTION]: {
+            [VALIDATION_PATH_TOOL_SUBSECTIONS.MARKDOWN]: {
+              include: ["spx"],
+              exclude: ["spx/private"],
+            },
+          },
+        },
+      },
+      async (env) => {
+        await env.writeRaw("spx/good.md", "# Good\n");
+        await env.writeRaw("spx/private/bad.md", "# Bad  \n");
+
+        const result = await markdownCommand({
+          cwd: env.productDir,
+          files: ["."],
+        });
+
+        expect(result.exitCode).toBe(VALIDATION_EXIT_CODES.SUCCESS);
+        expect(result.output).toBe(MARKDOWN_COMMAND_OUTPUT.NO_ISSUES);
+      },
+    );
+  });
+
+  it("does not widen explicit markdown directory operands to every markdown include", async () => {
+    await withLiteralFixtureEnv(
+      {
+        [validationConfigDescriptor.section]: {
+          [VALIDATION_PATHS_SUBSECTION]: {
+            [VALIDATION_PATH_TOOL_SUBSECTIONS.MARKDOWN]: {
+              include: ["spx/public", "spx/other"],
+              exclude: ["spx/public/private"],
+            },
+          },
+        },
+      },
+      async (env) => {
+        await env.writeRaw("spx/public/good.md", "# Good\n");
+        await env.writeRaw("spx/public/private/bad.md", "# Bad  \n");
+        await env.writeRaw("spx/other/bad.md", "# Bad  \n");
+
+        const result = await markdownCommand({
+          cwd: env.productDir,
+          files: ["spx/public"],
+        });
+
+        expect(result.exitCode).toBe(VALIDATION_EXIT_CODES.SUCCESS);
+        expect(result.output).toBe(MARKDOWN_COMMAND_OUTPUT.NO_ISSUES);
       },
     );
   });

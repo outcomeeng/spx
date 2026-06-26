@@ -7,6 +7,8 @@ import { artifactDirectoryLayer, hiddenPrefixLayer } from "@/lib/file-inclusion/
 import { runPipeline } from "@/lib/file-inclusion/pipeline";
 import type { ScopeEntry } from "@/lib/file-inclusion/types";
 import { type ValidationPathConfig } from "@/validation/config/descriptor";
+import { pathPassesTypeScriptScope } from "@/validation/config/scope";
+import type { ScopeConfig } from "@/validation/types";
 
 import { type LiteralConfig, literalConfigDescriptor, resolveAllowlist } from "./config";
 import {
@@ -49,11 +51,13 @@ export interface ValidateLiteralReuseInput {
   readonly files?: readonly string[];
   readonly config?: LiteralConfig;
   readonly pathConfig?: ValidationPathConfig;
+  readonly scopeConfig?: ScopeConfig;
 }
 
 export interface ValidateLiteralReuseResult {
   readonly findings: DetectionResult;
   readonly indexedOccurrencesByFile: ReadonlyMap<string, readonly LiteralOccurrence[]>;
+  readonly filteredByValidationPathNoMatches?: boolean;
 }
 
 const PATH_PREFIX_SEPARATOR = "/";
@@ -101,7 +105,7 @@ export async function validateLiteralReuse(
 ): Promise<ValidateLiteralReuseResult> {
   const config = input.config ?? literalConfigDescriptor.defaults;
 
-  const request = input.files
+  const request = input.scopeConfig === undefined && input.files
     ? {
       explicit: input.files.map((f) => {
         const abs = isAbsolute(f) ? f : resolve(input.productDir, f);
@@ -118,7 +122,11 @@ export async function validateLiteralReuse(
     EMPTY_IGNORE_READER,
   );
 
-  const filtered = applyPathFilter(scope.included, input.pathConfig);
+  const pathFiltered = applyPathFilter(scope.included, input.pathConfig);
+  const literalScopeConfig = input.scopeConfig;
+  const filtered = literalScopeConfig === undefined
+    ? pathFiltered
+    : pathFiltered.filter((entry) => pathPassesTypeScriptScope(entry.path, literalScopeConfig));
 
   const candidateFiles = filtered
     .filter((entry) => isTypescriptSource(entry.path))
@@ -156,7 +164,11 @@ export async function validateLiteralReuse(
     allowlist: resolveAllowlist(config),
   });
 
-  return { findings, indexedOccurrencesByFile };
+  return {
+    findings,
+    indexedOccurrencesByFile,
+    filteredByValidationPathNoMatches: input.scopeConfig?.filteredByValidationPathNoMatches,
+  };
 }
 
 async function readSafe(path: string): Promise<string | null> {

@@ -15,12 +15,17 @@
  *   C2: NEVER invoke tsc without tsconfig.json
  */
 
+import { mkdir, readFile, writeFile } from "node:fs/promises";
+import { join } from "node:path";
+
 import { execa } from "execa";
 import { describe, expect, it } from "vitest";
 
 import { VALIDATION_RUNTIME_ANTI_MARKERS } from "@/commands/validation/runtime-diagnostics";
 import { TYPESCRIPT_VALIDATION_MESSAGES } from "@/commands/validation/typescript";
 import { validationCliDefinition } from "@/interfaces/cli/validation";
+import { TSCONFIG_FILES } from "@/validation/config/scope";
+import { VALIDATION_PIPELINE_DATA } from "@testing/generators/validation/validation";
 import { CLI_PATH } from "@testing/harnesses/constants";
 import { HARNESS_TIMEOUT, PROJECT_FIXTURES, withValidationEnv } from "@testing/harnesses/with-validation-env";
 
@@ -82,6 +87,41 @@ describe("spx validation typescript — language-gated type checking", () => {
         });
 
         expect(result.exitCode).not.toBe(0);
+        expect(result.stdout).not.toContain(VALIDATION_RUNTIME_ANTI_MARKERS.NPX_INSTALL_PROMPT);
+      });
+    },
+  );
+
+  it(
+    "S3: GIVEN a directory operand and default TypeScript includes WHEN the directory has type errors THEN exits non-zero",
+    { timeout: HARNESS_TIMEOUT },
+    async () => {
+      await withValidationEnv({ fixture: PROJECT_FIXTURES.CLEAN_PROJECT }, async ({ path }) => {
+        const apiDirectory = join(
+          VALIDATION_PIPELINE_DATA.sourceDirectoryName,
+          VALIDATION_PIPELINE_DATA.narrowSourceDirectoryName,
+        );
+        await mkdir(join(path, apiDirectory), { recursive: true });
+        await writeFile(
+          join(path, apiDirectory, VALIDATION_PIPELINE_DATA.cleanSourceFileName),
+          VALIDATION_PIPELINE_DATA.secondaryTypeErrorSourceContent,
+        );
+        const tsconfigWithDefaultIncludes = JSON.parse(
+          await readFile(join(path, TSCONFIG_FILES.full), VALIDATION_PIPELINE_DATA.fixtureTextEncoding),
+        ) as { include?: unknown };
+        delete tsconfigWithDefaultIncludes.include;
+        await writeFile(
+          join(path, TSCONFIG_FILES.full),
+          JSON.stringify(tsconfigWithDefaultIncludes),
+        );
+
+        const result = await execa(process.execPath, [...validationTypeScriptAliasArgs(), apiDirectory], {
+          cwd: path,
+          reject: false,
+        });
+
+        expect(result.exitCode).not.toBe(0);
+        expect(result.stdout).toContain(TYPESCRIPT_VALIDATION_MESSAGES.TOOL_LABEL);
         expect(result.stdout).not.toContain(VALIDATION_RUNTIME_ANTI_MARKERS.NPX_INSTALL_PROMPT);
       });
     },

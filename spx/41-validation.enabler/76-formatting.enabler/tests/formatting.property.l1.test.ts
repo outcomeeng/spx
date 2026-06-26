@@ -55,7 +55,7 @@ describe("the formatting stage composes additively into the validation pipeline"
     );
     const baseStages = languagesWithoutFormatting.flatMap((language) => language.stages);
 
-    expect(validationPipelineStages.length).toBe(baseStages.length + formattingValidationLanguage.stages.length);
+    expect(validationPipelineStages).toHaveLength(baseStages.length + formattingValidationLanguage.stages.length);
     expect(validationPipelineStages).toEqual([...baseStages, ...formattingValidationLanguage.stages]);
   });
 });

@@ -12,6 +12,8 @@ CAN exclude entries git considers ignored under the working tree and entries an 
 - Given `validation.paths.include` lists a path prefix, when the detector walks files, then only files whose relative path starts with at least one include prefix are parsed and indexed ([test](tests/path-filter.scenario.l1.test.ts))
 - Given a path is matched by `.gitignore`, nested `.gitignore`, `.git/info/exclude`, or global gitignore, when the detector walks files, then files under that path are not parsed or indexed and the decision trail names the git-tracking layer ([test](tests/path-filter.scenario.l1.test.ts))
 - Given a file lives under a dot-prefixed directory (`.github/`, `.changeset/`, `.husky/`, `.devcontainer/`) that git does not ignore, when the detector walks files, then the file is parsed and indexed normally ([test](tests/path-filter.scenario.l1.test.ts))
+- Given a directory path operand is supplied to `spx validation literal`, when TypeScript files under that directory contain a literal reuse problem, then the literal stage scans those files and reports the finding ([test](tests/path-filter.scenario.l1.test.ts))
+- Given no path operand is supplied to `spx validation literal`, when `validation.paths.include` selects TypeScript files outside the TypeScript compilation scope, then the literal stage scans the validation-path scope instead of filtering it through the compilation scope ([test](tests/path-filter.scenario.l1.test.ts))
 
 ### Compliance
 
