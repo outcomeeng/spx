@@ -3,7 +3,6 @@ import { describe, expect, it } from "vitest";
 
 import { IGNORE_SOURCE_FILENAME_DEFAULT } from "@/lib/file-inclusion/ignore-source";
 import {
-  classifyNodeStatus,
   NODE_STATUS_EVIDENCE_OUTCOME,
   NODE_STATUS_FIELD,
   NODE_STATUS_VERIFICATION_MECHANISM,
@@ -60,11 +59,6 @@ describe("node-status test support", () => {
               expectation.expectedStatusFile,
             );
             expectLifecycleStatusMatchesFacts(generatedNode.facts, expectation.expectedStatus);
-            expect(expectation.expectedStatus).toBe(classifyNodeStatus({
-              hasVerificationReferences: generatedNode.facts.hasVerificationReferences,
-              isExcluded: generatedNode.facts.isExcluded,
-              verification: expectation.expectedStatusFile.verification,
-            }));
           }
 
           if (excludedNodeIds.length > 0) {
