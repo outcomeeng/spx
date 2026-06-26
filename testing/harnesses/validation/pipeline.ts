@@ -33,8 +33,8 @@ export async function runValidationPipelineScenario(scenario: ValidationPipeline
       return runFailureIdentifiesStepScenario(scenario);
     case VALIDATION_PIPELINE_SCENARIO_KIND.PRODUCTION_SCOPE:
       return runProductionScopeScenario(scenario);
-    case VALIDATION_PIPELINE_SCENARIO_KIND.FILE_SCOPE:
-      return runFileScopeScenario(scenario);
+    case VALIDATION_PIPELINE_SCENARIO_KIND.PATH_DIRECTORY_SCOPE:
+      return runPathDirectoryScopeScenario(scenario);
     case VALIDATION_PIPELINE_SCENARIO_KIND.STEP_ORDER:
       return runStepOrderScenario(scenario);
     case VALIDATION_PIPELINE_SCENARIO_KIND.SKIP_CIRCULAR:
@@ -130,15 +130,23 @@ async function runProductionScopeScenario(_scenario: ValidationPipelineScenario)
   });
 }
 
-async function runFileScopeScenario(_scenario: ValidationPipelineScenario): Promise<void> {
+async function runPathDirectoryScopeScenario(_scenario: ValidationPipelineScenario): Promise<void> {
   await withValidationEnv({ fixture: PROJECT_FIXTURES.CLEAN_PROJECT }, async ({ path }) => {
-    const targetFile = join(
-      path,
-      VALIDATION_PIPELINE_DATA.sourceDirectoryName,
-      VALIDATION_PIPELINE_DATA.cleanSourceFileName,
+    const outOfScopeDirectory = join(path, VALIDATION_PIPELINE_DATA.outOfScopeMarkdownDirectoryName);
+    await mkdir(outOfScopeDirectory, { recursive: true });
+    await writeFile(
+      join(outOfScopeDirectory, VALIDATION_PIPELINE_DATA.outOfScopeMarkdownFileName),
+      VALIDATION_PIPELINE_DATA.outOfScopeMarkdownContent,
     );
-    const result = await runAll(path, [targetFile]);
 
+    const unscopedResult = await runAll(path, [VALIDATION_PIPELINE_DATA.skipCircularFlag]);
+    expect(unscopedResult.exitCode).toBe(VALIDATION_PIPELINE_DATA.exitCodes.FAILURE);
+    expect(unscopedResult.stdout).toContain(VALIDATION_PIPELINE_DATA.stageNames.FORMATTING);
+
+    const targetDirectory = VALIDATION_PIPELINE_DATA.sourceDirectoryName;
+    const result = await runAll(path, [VALIDATION_PIPELINE_DATA.skipCircularFlag, targetDirectory]);
+
+    expect(result.exitCode).toBe(VALIDATION_PIPELINE_DATA.exitCodes.SUCCESS);
     expectStepSequence(result.stdout);
   });
 }

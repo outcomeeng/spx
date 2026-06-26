@@ -10,15 +10,16 @@
 
 import { execFile } from "node:child_process";
 import { readFileSync, writeFileSync } from "node:fs";
-import { writeFile } from "node:fs/promises";
+import { mkdir, writeFile } from "node:fs/promises";
 import { basename, join } from "node:path";
 import { promisify } from "node:util";
 
 import { parse as parseJsonc } from "jsonc-parser";
 import { expect } from "vitest";
+import { stringify } from "yaml";
 
 import { allCommand } from "@/commands/validation/all";
-import { formattingCommand } from "@/commands/validation/formatting";
+import { FORMATTING_COMMAND_OUTPUT, formattingCommand } from "@/commands/validation/formatting";
 import type { ValidationCommandResult } from "@/commands/validation/types";
 import { validationCliDefinition } from "@/interfaces/cli/validation";
 import {
@@ -61,6 +62,14 @@ export function runFormattingScenario(scenario: FormattingValidationScenario): P
       return runPipelineFailureScenario();
     case FORMATTING_SCENARIO_KIND.CLI_PROCESS_UNFORMATTED:
       return runCliProcessScenario();
+    case FORMATTING_SCENARIO_KIND.CLI_PROCESS_DIRECTORY_SCOPE:
+      return runCliProcessDirectoryScopeScenario();
+    case FORMATTING_SCENARIO_KIND.CLI_PROCESS_DIRECTORY_INCLUDE_SCOPE:
+      return runCliProcessDirectoryIncludeScopeScenario();
+    case FORMATTING_SCENARIO_KIND.CLI_PROCESS_FILTERED_DIRECTORY_SCOPE:
+      return runCliProcessFilteredDirectoryScopeScenario();
+    case FORMATTING_SCENARIO_KIND.CLI_PROCESS_EXCLUDED_DIRECTORY_SCOPE:
+      return runCliProcessExcludedDirectoryScopeScenario();
     case FORMATTING_SCENARIO_KIND.GITIGNORE_SKIP:
       return runGitignoreSkipScenario();
   }
@@ -105,6 +114,141 @@ async function runCliProcessScenario(): Promise<void> {
 
     expect(result.exitCode).toBe(FORMATTING_VALIDATION_DATA.failureExitCode);
     expect(result.stdout).toContain(FORMATTING_VALIDATION_DATA.typeScriptSourceFilename);
+  });
+}
+
+async function runCliProcessDirectoryScopeScenario(): Promise<void> {
+  await withFormattingFixture(FORMATTING_VALIDATION_DATA.unformattedTypeScriptContent, async (fixture) => {
+    const result = await runValidationSubprocess(
+      [
+        validationCliDefinition.subcommands.format.commandName,
+        ".",
+      ],
+      { cwd: fixture.projectRoot },
+    );
+
+    expect(result.exitCode).toBe(FORMATTING_VALIDATION_DATA.failureExitCode);
+    expect(result.stdout).toContain(FORMATTING_VALIDATION_DATA.typeScriptSourceFilename);
+  });
+}
+
+async function runCliProcessDirectoryIncludeScopeScenario(): Promise<void> {
+  await withFormattingFixture(FORMATTING_VALIDATION_DATA.unformattedTypeScriptContent, async (fixture) => {
+    const sourceDirectory = join(fixture.projectRoot, FORMATTING_VALIDATION_DATA.narrowedScopeDirectoryName);
+    await mkdir(sourceDirectory);
+    await writeFile(
+      join(fixture.projectRoot, FORMATTING_VALIDATION_DATA.narrowedScopeTypeScriptSourcePath),
+      FORMATTING_VALIDATION_DATA.formattableTypeScriptContent,
+    );
+    await writeFile(
+      join(fixture.projectRoot, FORMATTING_VALIDATION_DATA.validationConfigFilename),
+      stringify({
+        validation: {
+          paths: {
+            include: [FORMATTING_VALIDATION_DATA.narrowedScopeDirectoryName],
+          },
+        },
+      }),
+    );
+
+    const result = await runValidationSubprocess(
+      [
+        validationCliDefinition.subcommands.format.commandName,
+        ".",
+      ],
+      { cwd: fixture.projectRoot },
+    );
+
+    expect(result.exitCode).toBe(FORMATTING_VALIDATION_DATA.passExitCode);
+    expect(result.stdout).toContain(FORMATTING_COMMAND_OUTPUT.NO_ISSUES);
+    expect(result.stdout).not.toContain(FORMATTING_VALIDATION_DATA.typeScriptSourceFilename);
+  });
+}
+
+async function runCliProcessFilteredDirectoryScopeScenario(): Promise<void> {
+  await withFormattingFixture(FORMATTING_VALIDATION_DATA.formattableTypeScriptContent, async (fixture) => {
+    const sourceDirectory = join(fixture.projectRoot, FORMATTING_VALIDATION_DATA.narrowedScopeDirectoryName);
+    await mkdir(sourceDirectory);
+    await writeFile(
+      join(fixture.projectRoot, FORMATTING_VALIDATION_DATA.narrowedScopeTypeScriptSourcePath),
+      FORMATTING_VALIDATION_DATA.formattableTypeScriptContent,
+    );
+    const secondaryDirectory = join(fixture.projectRoot, FORMATTING_VALIDATION_DATA.secondaryScopeDirectoryName);
+    await mkdir(secondaryDirectory);
+    await writeFile(
+      join(fixture.projectRoot, FORMATTING_VALIDATION_DATA.secondaryScopeTypeScriptSourcePath),
+      FORMATTING_VALIDATION_DATA.unformattedTypeScriptContent,
+    );
+    await writeFile(
+      join(fixture.projectRoot, FORMATTING_VALIDATION_DATA.validationConfigFilename),
+      stringify({
+        validation: {
+          paths: {
+            include: [
+              FORMATTING_VALIDATION_DATA.narrowedScopeDirectoryName,
+              FORMATTING_VALIDATION_DATA.secondaryScopeDirectoryName,
+            ],
+          },
+        },
+      }),
+    );
+
+    const result = await runValidationSubprocess(
+      [
+        validationCliDefinition.subcommands.format.commandName,
+        FORMATTING_VALIDATION_DATA.narrowedScopeDirectoryName,
+      ],
+      { cwd: fixture.projectRoot },
+    );
+
+    expect(result.exitCode).toBe(FORMATTING_VALIDATION_DATA.passExitCode);
+    expect(result.stdout).toContain(FORMATTING_COMMAND_OUTPUT.NO_ISSUES);
+    expect(result.stdout).not.toContain(FORMATTING_VALIDATION_DATA.secondaryScopeTypeScriptSourcePath);
+  });
+}
+
+async function runCliProcessExcludedDirectoryScopeScenario(): Promise<void> {
+  await withFormattingFixture(FORMATTING_VALIDATION_DATA.formattableTypeScriptContent, async (fixture) => {
+    const sourceDirectory = join(fixture.projectRoot, FORMATTING_VALIDATION_DATA.narrowedScopeDirectoryName);
+    await mkdir(sourceDirectory);
+    await writeFile(
+      join(fixture.projectRoot, FORMATTING_VALIDATION_DATA.narrowedScopeTypeScriptSourcePath),
+      FORMATTING_VALIDATION_DATA.formattableTypeScriptContent,
+    );
+    const excludedDirectory = join(
+      sourceDirectory,
+      FORMATTING_VALIDATION_DATA.excludedScopeDirectoryName,
+    );
+    await mkdir(excludedDirectory);
+    await writeFile(
+      join(fixture.projectRoot, FORMATTING_VALIDATION_DATA.excludedScopeTypeScriptSourcePath),
+      FORMATTING_VALIDATION_DATA.unformattedTypeScriptContent,
+    );
+    await writeFile(
+      join(fixture.projectRoot, FORMATTING_VALIDATION_DATA.validationConfigFilename),
+      stringify({
+        validation: {
+          paths: {
+            include: [FORMATTING_VALIDATION_DATA.narrowedScopeDirectoryName],
+            exclude: [
+              `${FORMATTING_VALIDATION_DATA.narrowedScopeDirectoryName}/${FORMATTING_VALIDATION_DATA.excludedScopeDirectoryName}`,
+            ],
+          },
+        },
+      }),
+    );
+
+    const result = await runValidationSubprocess(
+      [
+        validationCliDefinition.subcommands.format.commandName,
+        FORMATTING_VALIDATION_DATA.narrowedScopeDirectoryName,
+      ],
+      { cwd: fixture.projectRoot },
+    );
+
+    expect(result.exitCode).toBe(FORMATTING_VALIDATION_DATA.passExitCode);
+    expect(result.stdout).toContain(FORMATTING_COMMAND_OUTPUT.NO_ISSUES);
+    expect(result.stdout).not.toContain(FORMATTING_VALIDATION_DATA.excludedScopeTypeScriptSourcePath);
   });
 }
 

@@ -3,7 +3,7 @@ import { describe, expect, it } from "vitest";
 
 import { formattingValidationLanguage } from "@/validation/languages/formatting";
 import { composeValidationPipelineStages, validationRegistry } from "@/validation/registry";
-import { buildDprintCheckArgs, DPRINT_CHECK_SUBCOMMAND } from "@/validation/steps/formatting";
+import { buildDprintCheckArgs, DPRINT_CHECK_SUBCOMMAND, DPRINT_EXCLUDES_OPTION } from "@/validation/steps/formatting";
 import { arbitraryDprintFileArguments } from "@testing/generators/validation/formatting";
 
 describe("dprint check argument construction is deterministic and scope-preserving", () => {
@@ -22,6 +22,17 @@ describe("dprint check argument construction is deterministic and scope-preservi
 
   it("emits only the check subcommand when no file scope is supplied", () => {
     expect(buildDprintCheckArgs({})).toEqual([DPRINT_CHECK_SUBCOMMAND]);
+  });
+
+  it("emits additive excludes before preserving every file argument in order", () => {
+    fc.assert(
+      fc.property(arbitraryDprintFileArguments(), arbitraryDprintFileArguments(), (excludes, files) => {
+        const args = buildDprintCheckArgs({ excludes, files });
+        const excludeArguments = excludes.length > 0 ? [DPRINT_EXCLUDES_OPTION, ...excludes] : [];
+
+        expect(args).toEqual([DPRINT_CHECK_SUBCOMMAND, ...excludeArguments, ...files]);
+      }),
+    );
   });
 });
 

@@ -15,7 +15,11 @@ import { isAbsolute, join, relative, resolve } from "node:path";
 import { compareAsciiStrings } from "@/lib/state-store";
 import type { ValidationPathFilterConfig } from "@/validation/config/descriptor";
 import type { ScopeConfig, ValidationScope } from "../types";
-import { applyValidationPathFilterToScope, pathPassesValidationFilter } from "./path-filter";
+import {
+  applyValidationPathFilterToScope,
+  pathIntersectsValidationFilter,
+  pathPassesValidationFilter,
+} from "./path-filter";
 
 // =============================================================================
 // CONSTANTS
@@ -723,8 +727,17 @@ export function filterExplicitTypeScriptScopeTargets(
     .map((path) => toExplicitTypeScriptScopeTarget(projectRoot, path, deps))
     .filter((target) => !requireExistingPaths || explicitTypeScriptScopeTargetExists(projectRoot, target, deps))
     .filter((target) => explicitTypeScriptScopeTargetPassesSourceKind(target))
-    .filter((target) => pathPassesValidationFilter(target.path, validationPathFilter))
+    .filter((target) => explicitTypeScriptScopeTargetIntersectsValidationPathFilter(target, validationPathFilter))
     .filter((target) => explicitTypeScriptScopeTargetPassesScope(target, scopeConfig));
+}
+
+function explicitTypeScriptScopeTargetIntersectsValidationPathFilter(
+  target: ExplicitTypeScriptScopeTarget,
+  validationPathFilter: ValidationPathFilterConfig,
+): boolean {
+  return target.kind === EXPLICIT_TYPESCRIPT_SCOPE_TARGET_KIND.DIRECTORY
+    ? pathIntersectsValidationFilter(target.path, validationPathFilter)
+    : pathPassesValidationFilter(target.path, validationPathFilter);
 }
 
 export function explicitTypeScriptScopeTargetPassesSourceKind(
@@ -754,7 +767,9 @@ export function explicitTypeScriptScopeTargetPassesScope(
   if (typeScriptSourcePatterns.length > 0) {
     return typeScriptSourcePatterns.some((pattern) => typeScriptScopePatternIntersectsDirectory(pattern, target.path));
   }
-  return pathPassesTypeScriptScope(join(target.path, TYPESCRIPT_SCOPE_DIRECTORY_PROBE_FILENAME), scopeConfig);
+  return scopeConfig.directories.some((directory) =>
+    pathMatchesLiteralPrefix(directory, target.path) || pathMatchesLiteralPrefix(target.path, directory)
+  ) || pathPassesTypeScriptScope(join(target.path, TYPESCRIPT_SCOPE_DIRECTORY_PROBE_FILENAME), scopeConfig);
 }
 
 function directoryPassesTypeScriptExcludes(directory: string, scopeConfig: ScopeConfig): boolean {
@@ -800,6 +815,13 @@ export function constrainTypeScriptScopeToExplicitTargets(
     && pathHasTypeScriptSourceExtension(pattern)
     && retainedDirectories.some((directory) => pathMatchesLiteralPrefix(pattern, directory))
   );
+  const retainedDirectoryPatterns = scopeConfig.filePatterns
+    .filter((pattern) =>
+      !typeScriptScopePatternHasGlob(pattern)
+      && !pathHasTypeScriptSourceExtension(pattern)
+      && retainedDirectories.some((directory) => pathMatchesLiteralPrefix(pattern, directory))
+    )
+    .map((pattern) => typeScriptLiteralDirectoryPattern(pattern));
   const explicitFileTargets = targets
     .filter((target) => target.kind === EXPLICIT_TYPESCRIPT_SCOPE_TARGET_KIND.FILE)
     .map((target) => target.path)
@@ -817,9 +839,16 @@ export function constrainTypeScriptScopeToExplicitTargets(
     filePatterns: [
       ...scopedFilePatternsForDirectoryTargets,
       ...retainedDirectoryFilePatterns,
+      ...retainedDirectoryPatterns,
       ...uncoveredExplicitFileTargets,
     ],
   };
+}
+
+function typeScriptLiteralDirectoryPattern(pattern: string): string {
+  return pattern === TYPESCRIPT_SCOPE_PROJECT_ROOT
+    ? TYPESCRIPT_SCOPE_DIRECTORY_PATTERN_SUFFIX.slice(1)
+    : `${pattern}${TYPESCRIPT_SCOPE_DIRECTORY_PATTERN_SUFFIX}`;
 }
 
 export function resolveTypeScriptValidationScope(

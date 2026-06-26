@@ -30,16 +30,20 @@ function hasEffectiveValidationPathMetadata(
 }
 
 function normalizePathPrefix(prefix: string): string {
-  return prefix
+  const normalized = prefix
     .split(/[\\/]/g)
     .join(PATH_PREFIX_SEPARATOR)
     .replace(/^\.\//, "")
     .replace(/\/+$/, "");
+  return normalized === "." ? "" : normalized;
 }
 
 function pathMatchesPrefix(path: string, prefix: string): boolean {
   const normalizedPath = normalizePathPrefix(path);
   const normalizedPrefix = normalizePathPrefix(prefix);
+  if (normalizedPrefix.length === 0) {
+    return true;
+  }
   return normalizedPath === normalizedPrefix
     || normalizedPath.startsWith(`${normalizedPrefix}${PATH_PREFIX_SEPARATOR}`);
 }
@@ -113,6 +117,35 @@ export function pathPassesValidationFilter(path: string, filter: ValidationPathF
     return false;
   }
   return !exclude.some((prefix) => pathMatchesPrefix(path, prefix));
+}
+
+export function pathIntersectsValidationFilter(path: string, filter: ValidationPathFilterConfig): boolean {
+  return validationPathFilterIntersections(path, filter).length > 0;
+}
+
+export function validationPathFilterExcludes(filter: ValidationPathFilterConfig): string[] {
+  return unique(nonEmpty(filter.exclude).map(normalizePathPrefix));
+}
+
+export function validationPathFilterIntersections(
+  path: string,
+  filter: ValidationPathFilterConfig,
+): string[] {
+  if (hasEffectiveValidationPathMetadata(filter) && filter.noMatchingIncludes) {
+    return [];
+  }
+  const normalizedPath = normalizePathPrefix(path);
+  const include = nonEmpty(filter.include);
+  const exclude = nonEmpty(filter.exclude);
+  const candidates = include.length > 0
+    ? include.flatMap((prefix) => {
+      const normalizedPrefix = normalizePathPrefix(prefix);
+      if (pathMatchesPrefix(normalizedPath, normalizedPrefix)) return [normalizedPath];
+      if (pathMatchesPrefix(normalizedPrefix, normalizedPath)) return [normalizedPrefix];
+      return [];
+    })
+    : [normalizedPath];
+  return unique(candidates).filter((candidate) => !exclude.some((prefix) => pathMatchesPrefix(candidate, prefix)));
 }
 
 export function applyValidationPathFilterToScope(

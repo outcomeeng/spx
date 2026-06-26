@@ -130,6 +130,19 @@ const RECURSIVE_GLOB_STRESS_DIRECTORY = [
 const MARKDOWN_ONLY_DIRECTORY_NAME = "docs";
 const MARKDOWN_ONLY_FILE_NAME = "readme.md";
 const MARKDOWN_ONLY_FILE_PATTERN = `${MARKDOWN_ONLY_DIRECTORY_NAME}/**/*.md`;
+const VALIDATION_CONFIG_FILENAME = "spx.config.yaml";
+const SECONDARY_SOURCE_DIRECTORY_NAME = "api";
+const SECONDARY_SOURCE_FILE_NAME = "secondary.ts";
+const SECONDARY_SOURCE_CONTENT = "export const secondary = true;\n";
+const SECONDARY_TYPE_ERROR_SOURCE_CONTENT = "export const secondary: number = \"bad\";\n";
+const EXCLUDED_SOURCE_DIRECTORY_NAME = "private";
+const EXCLUDED_SOURCE_FILE_NAME = "excluded.ts";
+const NARROWED_SOURCE_DIRECTORY_NAME = "generated";
+const NARROWED_SOURCE_FILE_NAME = "narrowed.ts";
+const FIXTURE_TEXT_ENCODING = "utf8";
+const OUT_OF_SCOPE_MARKDOWN_DIRECTORY_NAME = "docs";
+const OUT_OF_SCOPE_MARKDOWN_FILE_NAME = "unformatted.md";
+const OUT_OF_SCOPE_MARKDOWN_CONTENT = "# Broken\n\n[missing](./missing.md)\n";
 const MISSING_SOURCE_DIRECTORY_NAME = "missing";
 const TYPE_ERROR_REPLACEMENT_PATTERN = /const x:\s*number\s*=\s*"[^"]+";?/g;
 const TYPE_ERROR_REPLACEMENT = "const x: number = 0;";
@@ -181,7 +194,7 @@ export const VALIDATION_PIPELINE_SCENARIO_KIND = {
   CLEAN_PROJECT: "cleanProject",
   FAILURE_IDENTIFIES_STEP: "failureIdentifiesStep",
   PRODUCTION_SCOPE: "productionScope",
-  FILE_SCOPE: "fileScope",
+  PATH_DIRECTORY_SCOPE: "pathDirectoryScope",
   STEP_ORDER: "stepOrder",
   SKIP_CIRCULAR: "skipCircular",
   SKIP_LITERAL: "skipLiteral",
@@ -307,6 +320,19 @@ export const VALIDATION_PIPELINE_DATA = {
   markdownOnlyDirectoryName: MARKDOWN_ONLY_DIRECTORY_NAME,
   markdownOnlyFileName: MARKDOWN_ONLY_FILE_NAME,
   markdownOnlyFilePattern: MARKDOWN_ONLY_FILE_PATTERN,
+  validationConfigFilename: VALIDATION_CONFIG_FILENAME,
+  secondarySourceDirectoryName: SECONDARY_SOURCE_DIRECTORY_NAME,
+  secondarySourceFileName: SECONDARY_SOURCE_FILE_NAME,
+  secondarySourceContent: SECONDARY_SOURCE_CONTENT,
+  secondaryTypeErrorSourceContent: SECONDARY_TYPE_ERROR_SOURCE_CONTENT,
+  excludedSourceDirectoryName: EXCLUDED_SOURCE_DIRECTORY_NAME,
+  excludedSourceFileName: EXCLUDED_SOURCE_FILE_NAME,
+  narrowedSourceDirectoryName: NARROWED_SOURCE_DIRECTORY_NAME,
+  narrowedSourceFileName: NARROWED_SOURCE_FILE_NAME,
+  fixtureTextEncoding: FIXTURE_TEXT_ENCODING,
+  outOfScopeMarkdownDirectoryName: OUT_OF_SCOPE_MARKDOWN_DIRECTORY_NAME,
+  outOfScopeMarkdownFileName: OUT_OF_SCOPE_MARKDOWN_FILE_NAME,
+  outOfScopeMarkdownContent: OUT_OF_SCOPE_MARKDOWN_CONTENT,
   missingSourceDirectoryName: MISSING_SOURCE_DIRECTORY_NAME,
   circularSkipASourceSegments: CIRCULAR_SKIP_A_SOURCE_SEGMENTS,
   circularSkipBSourceSegments: CIRCULAR_SKIP_B_SOURCE_SEGMENTS,
@@ -532,8 +558,8 @@ export function validationPipelineScenarios(): ValidationPipelineScenario[] {
       timeout: VALIDATION_PIPELINE_DATA.allTimeout,
     },
     {
-      title: "file scope runs every step in sequence",
-      kind: VALIDATION_PIPELINE_SCENARIO_KIND.FILE_SCOPE,
+      title: "path directory scope runs every step in sequence",
+      kind: VALIDATION_PIPELINE_SCENARIO_KIND.PATH_DIRECTORY_SCOPE,
       timeout: VALIDATION_PIPELINE_DATA.allTimeout,
     },
     {

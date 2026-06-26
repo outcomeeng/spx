@@ -20,7 +20,15 @@ const FORMATTABLE_TYPESCRIPT_CONTENT = "export const value = 1;\n";
 const TYPESCRIPT_SOURCE_FILENAME = "sample.ts";
 
 const DPRINT_CONFIG_FILENAME = "dprint.jsonc";
+const VALIDATION_CONFIG_FILENAME = "spx.config.yaml";
 const GITIGNORE_FILENAME = ".gitignore";
+const NARROWED_SCOPE_DIRECTORY_NAME = "src";
+const NARROWED_SCOPE_TYPESCRIPT_SOURCE_PATH = `${NARROWED_SCOPE_DIRECTORY_NAME}/${TYPESCRIPT_SOURCE_FILENAME}`;
+const SECONDARY_SCOPE_DIRECTORY_NAME = "docs";
+const SECONDARY_SCOPE_TYPESCRIPT_SOURCE_PATH = `${SECONDARY_SCOPE_DIRECTORY_NAME}/${TYPESCRIPT_SOURCE_FILENAME}`;
+const EXCLUDED_SCOPE_DIRECTORY_NAME = "private";
+const EXCLUDED_SCOPE_TYPESCRIPT_SOURCE_PATH =
+  `${NARROWED_SCOPE_DIRECTORY_NAME}/${EXCLUDED_SCOPE_DIRECTORY_NAME}/${TYPESCRIPT_SOURCE_FILENAME}`;
 
 const EXPECTED_PASS_EXIT_CODE = 0;
 const EXPECTED_FAILURE_EXIT_CODE = 1;
@@ -48,6 +56,10 @@ export const FORMATTING_SCENARIO_KIND = {
   UNFORMATTED_COMMAND: "unformattedCommand",
   PIPELINE_FAILURE: "pipelineFailure",
   CLI_PROCESS_UNFORMATTED: "cliProcessUnformatted",
+  CLI_PROCESS_DIRECTORY_SCOPE: "cliProcessDirectoryScope",
+  CLI_PROCESS_DIRECTORY_INCLUDE_SCOPE: "cliProcessDirectoryIncludeScope",
+  CLI_PROCESS_FILTERED_DIRECTORY_SCOPE: "cliProcessFilteredDirectoryScope",
+  CLI_PROCESS_EXCLUDED_DIRECTORY_SCOPE: "cliProcessExcludedDirectoryScope",
   GITIGNORE_SKIP: "gitignoreSkip",
 } as const;
 
@@ -65,7 +77,14 @@ export const FORMATTING_VALIDATION_DATA = {
   formattableTypeScriptContent: FORMATTABLE_TYPESCRIPT_CONTENT,
   typeScriptSourceFilename: TYPESCRIPT_SOURCE_FILENAME,
   dprintConfigFilename: DPRINT_CONFIG_FILENAME,
+  validationConfigFilename: VALIDATION_CONFIG_FILENAME,
   gitignoreFilename: GITIGNORE_FILENAME,
+  narrowedScopeDirectoryName: NARROWED_SCOPE_DIRECTORY_NAME,
+  narrowedScopeTypeScriptSourcePath: NARROWED_SCOPE_TYPESCRIPT_SOURCE_PATH,
+  secondaryScopeDirectoryName: SECONDARY_SCOPE_DIRECTORY_NAME,
+  secondaryScopeTypeScriptSourcePath: SECONDARY_SCOPE_TYPESCRIPT_SOURCE_PATH,
+  excludedScopeDirectoryName: EXCLUDED_SCOPE_DIRECTORY_NAME,
+  excludedScopeTypeScriptSourcePath: EXCLUDED_SCOPE_TYPESCRIPT_SOURCE_PATH,
   passExitCode: EXPECTED_PASS_EXIT_CODE,
   failureExitCode: EXPECTED_FAILURE_EXIT_CODE,
   formattedFileExtensions: FORMATTED_FILE_EXTENSIONS,
@@ -92,6 +111,26 @@ export function formattingScenarios(): FormattingValidationScenario[] {
     {
       title: "the format CLI process exits non-zero and names the unformatted file",
       kind: FORMATTING_SCENARIO_KIND.CLI_PROCESS_UNFORMATTED,
+      timeout: FORMATTING_HARNESS_TIMEOUT,
+    },
+    {
+      title: "the format CLI process expands directory operands before checking files",
+      kind: FORMATTING_SCENARIO_KIND.CLI_PROCESS_DIRECTORY_SCOPE,
+      timeout: FORMATTING_HARNESS_TIMEOUT,
+    },
+    {
+      title: "the format CLI process intersects root operands with validation includes",
+      kind: FORMATTING_SCENARIO_KIND.CLI_PROCESS_DIRECTORY_INCLUDE_SCOPE,
+      timeout: FORMATTING_HARNESS_TIMEOUT,
+    },
+    {
+      title: "the format CLI process intersects directory operands with validation includes",
+      kind: FORMATTING_SCENARIO_KIND.CLI_PROCESS_FILTERED_DIRECTORY_SCOPE,
+      timeout: FORMATTING_HARNESS_TIMEOUT,
+    },
+    {
+      title: "the format CLI process excludes descendants below directory operands",
+      kind: FORMATTING_SCENARIO_KIND.CLI_PROCESS_EXCLUDED_DIRECTORY_SCOPE,
       timeout: FORMATTING_HARNESS_TIMEOUT,
     },
     {

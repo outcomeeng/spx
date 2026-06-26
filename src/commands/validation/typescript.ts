@@ -9,13 +9,8 @@ import {
   type ValidationConfig,
   validationConfigDescriptor,
 } from "@/validation/config/descriptor";
-import {
-  applyValidationPathFilterToScope,
-  pathPassesValidationFilter,
-  toProjectRelativeValidationPath,
-  validationPathFilterForTool,
-} from "@/validation/config/path-filter";
-import { getTypeScriptScope } from "@/validation/config/scope";
+import { validationPathFilterForTool } from "@/validation/config/path-filter";
+import { resolveTypeScriptValidationScope } from "@/validation/config/scope";
 import { detectTypeScript, discoverTool, formatSkipMessage } from "@/validation/discovery/index";
 import { validateTypeScript } from "@/validation/steps/typescript";
 import {
@@ -67,22 +62,18 @@ export async function typescriptCommand(options: TypeScriptCommandOptions): Prom
     };
   }
   const validationConfig = loaded.value[validationConfigDescriptor.section] as ValidationConfig;
-  const validationPathFilter = validationPathFilterForTool(
-    validationConfig.paths,
-    VALIDATION_PATH_TOOL_SUBSECTIONS.TYPESCRIPT,
-  );
-  const scopeConfig = applyValidationPathFilterToScope(
-    getTypeScriptScope(scope, cwd),
-    validationPathFilter,
-  );
-  const filteredFiles = files
-    ?.map((file) => toProjectRelativeValidationPath(cwd, file))
-    .filter((file) => pathPassesValidationFilter(file, validationPathFilter));
+  const scopeConfig = resolveTypeScriptValidationScope({
+    projectRoot: cwd,
+    scope,
+    paths: files,
+    validationPathFilter: validationPathFilterForTool(
+      validationConfig.paths,
+      VALIDATION_PATH_TOOL_SUBSECTIONS.TYPESCRIPT,
+    ),
+    markExplicitPathsAsValidationFilter: true,
+  });
 
-  if (
-    scopeConfig.filteredByValidationPathNoMatches
-    || (files !== undefined && files.length > 0 && filteredFiles?.length === 0)
-  ) {
+  if (scopeConfig.filteredByValidationPathNoMatches) {
     return {
       exitCode: 0,
       output: quiet ? "" : TYPESCRIPT_VALIDATION_MESSAGES.NO_VALIDATION_PATH_TARGETS,
@@ -100,7 +91,6 @@ export async function typescriptCommand(options: TypeScriptCommandOptions): Prom
   const result = await validateTypeScript({
     scope,
     projectRoot: cwd,
-    files: filteredFiles,
     scopeConfig,
   });
   const durationMs = Date.now() - startTime;
