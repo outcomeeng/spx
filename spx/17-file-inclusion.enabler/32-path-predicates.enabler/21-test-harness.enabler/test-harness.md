@@ -1,17 +1,18 @@
 # Path Predicates Test Harness
 
-PROVIDES path-predicates fixtures derived from the production scope constants — an integration Config, artifact-directory and hidden-prefix predicate configs built from `ARTIFACT_DIRECTORIES_DEFAULT` and `HIDDEN_PREFIX_DEFAULT`, the `spxPath` builder, the `writeExclude` writer, and `makeIgnoreSourceConfig` which materializes an EXCLUDE file and returns a constructed ignore-source predicate config
-SO THAT the path-predicates enabler's L1 scenario, property, and mapping tests
-CAN exercise each predicate layer against real fixtures without restating production directory and prefix constants or reimplementing reader construction
+PROVIDES generator-backed path-predicates fixtures — sampled git-visible paths, generated path prefixes, a `makeGitTrackingState` reader-state builder, and a `pathFilter` config helper
+SO THAT the path-predicates enabler's L1 scenario and property tests
+CAN exercise git-tracking and domain-path-filter predicates without hardcoded path examples or reimplemented reader state
 
 ## Assertions
 
 ### Properties
 
-- For all node segments, `makeIgnoreSourceConfig` writes an EXCLUDE file listing the segments and returns a predicate config whose ignore-source reader reports a path under a listed segment as under-ignore-source ([test](tests/test-harness.property.l1.test.ts))
+- For all generated predicate inputs, `makeGitTrackingState` returns reader state whose membership result matches the included-path set passed to the helper ([test](tests/test-harness.property.l1.test.ts))
+- For all generated path prefixes, `pathFilter` preserves the supplied include or exclude config unchanged ([test](tests/test-harness.property.l1.test.ts))
 
 ### Compliance
 
-- ALWAYS: the artifact-directory and hidden-prefix fixture configs derive from `ARTIFACT_DIRECTORIES_DEFAULT` and `HIDDEN_PREFIX_DEFAULT`, and the root segment from the spec-tree config — never restated literals ([audit])
-- ALWAYS: EXCLUDE fixtures are written through the spec-tree test env, which owns temp-directory lifecycle — the harness creates and removes no directory itself ([audit])
-- NEVER: use `vi.mock()`, `jest.mock()`, `memfs`, or any filesystem-mocking mechanism — fixtures and the constructed reader operate on the real filesystem under the env's temp product directory ([audit])
+- ALWAYS: every path or prefix fixture comes from `testing/generators/` through the harness, never from a hardcoded test literal ([audit])
+- ALWAYS: predicate tests import production layer constants and predicate functions from source, while the harness owns only generated inputs and reader-state construction ([audit])
+- NEVER: use `vi.mock()`, `jest.mock()`, `memfs`, or any filesystem-mocking mechanism — predicate tests use in-memory reader state or real git-worktree fixtures owned by the relevant harness ([audit])

@@ -1,116 +1,120 @@
-import * as fc from "fast-check";
+import { writeFile } from "node:fs/promises";
+import { join } from "node:path";
+
 import { describe, expect, it } from "vitest";
 
-import {
-  createIgnoreSourceReader,
-  IGNORE_SOURCE_FILENAME_DEFAULT,
-  type IgnoreSourceReaderConfig,
-} from "@/lib/file-inclusion/ignore-source";
-import { withTestEnv } from "@testing/harnesses/spec-tree/spec-tree";
+import { CORE_EXCLUDES_FILE_CONFIG_KEY, createIgnoreSourceReader } from "@/lib/file-inclusion/ignore-source";
+import { GIT_TEST_SUBCOMMANDS } from "@testing/harnesses/git-test-constants";
+import { withGitWorktreeEnv } from "@testing/harnesses/git-worktree/git-worktree";
+import { withTempDir } from "@testing/harnesses/with-temp-dir";
 
-import {
-  arbNestedNodeSegment,
-  arbNodeSegment,
-  arbSubpath,
-  integrationConfig,
-  PROPERTY_NUM_RUNS,
-  readerConfig,
-  spxPath,
-  writeExclude,
-} from "@testing/harnesses/file-inclusion/ignore-source";
+import { fileContent, ignoredPattern, readerConfig } from "@testing/harnesses/file-inclusion/ignore-source";
+
+const fakeHomePrefix = "spx-ignore-source-home-";
+const globalExcludesFileName = "global-excludes";
+const homeEnvironmentKey = "HOME";
 
 describe("ignore-source — mappings", () => {
-  it("an entry segment in the ignore-source file maps to the directory {specTreeRootSegment}/{segment}/ for prefix matching", async () => {
-    await fc.assert(
-      fc.asyncProperty(arbNodeSegment, arbSubpath, async (segment, sub) => {
-        await withTestEnv(integrationConfig(), async (env) => {
-          await writeExclude(env, [segment]);
+  it("maps --no-ignore-vcs to bypass .gitignore while still honoring info/exclude and global excludes", async () => {
+    await withGitWorktreeEnv(async (env) => {
+      const gitignoreOnly = ignoredPattern();
+      const infoExcluded = ignoredPattern();
+      const globalExcluded = ignoredPattern();
+      await env.writeGitignore(".", gitignoreOnly);
+      await env.writeInfoExclude(`${infoExcluded}\n`);
+      await env.configureGlobalExcludes(`${globalExcluded}\n`);
+      await env.writeUntracked(gitignoreOnly, fileContent());
+      await env.writeUntracked(infoExcluded, fileContent());
+      await env.writeUntracked(globalExcluded, fileContent());
 
-          const reader = createIgnoreSourceReader(env.productDir, readerConfig());
+      const reader = createIgnoreSourceReader(env.productDir, readerConfig({ noIgnoreVcs: true }));
 
-          expect(reader.isUnderIgnoreSource(spxPath(segment, sub))).toBe(true);
-          // directory path without trailing separator does not match
-          expect(reader.isUnderIgnoreSource(spxPath(segment))).toBe(false);
-        });
-      }),
-      { numRuns: PROPERTY_NUM_RUNS },
-    );
+      expect(reader.isInIncludedSet(gitignoreOnly)).toBe(true);
+      expect(reader.isInIncludedSet(infoExcluded)).toBe(false);
+      expect(reader.isInIncludedSet(globalExcluded)).toBe(false);
+    });
   });
 
-  it("entries() returns the parsed segments from the ignore-source file", async () => {
-    await fc.assert(
-      fc.asyncProperty(arbNodeSegment, arbNestedNodeSegment, async (simple, nested) => {
-        await withTestEnv(integrationConfig(), async (env) => {
-          await writeExclude(env, [simple, nested]);
+  it("maps relative core.excludesFile paths from the product directory", async () => {
+    await withGitWorktreeEnv(async (env) => {
+      const excluded = ignoredPattern();
+      const relativeExcludesFile = ignoredPattern();
+      await env.writeUntracked(relativeExcludesFile, `${excluded}\n`);
+      await env.runGit([GIT_TEST_SUBCOMMANDS.CONFIG, CORE_EXCLUDES_FILE_CONFIG_KEY, relativeExcludesFile]);
+      await env.writeUntracked(excluded, fileContent());
 
-          const reader = createIgnoreSourceReader(env.productDir, readerConfig());
+      const reader = createIgnoreSourceReader(env.productDir, readerConfig({ noIgnoreVcs: true }));
 
-          const segments = reader.entries().map((e) => e.segment);
-          expect(segments).toContain(simple);
-          expect(segments).toContain(nested);
-        });
-      }),
-      { numRuns: PROPERTY_NUM_RUNS },
-    );
+      expect(reader.isInIncludedSet(excluded)).toBe(false);
+    });
   });
 
-  it("matchedEntry returns the IgnoreSourceEntry whose segment matches the path's directory prefix", async () => {
-    await fc.assert(
-      fc.asyncProperty(
-        fc.tuple(arbNodeSegment, arbNodeSegment).filter(([a, b]) => a !== b),
-        arbSubpath,
-        async ([matched, other], sub) => {
-          await withTestEnv(integrationConfig(), async (env) => {
-            await writeExclude(env, [matched, other]);
+  it("maps tilde-prefixed core.excludesFile paths through git path semantics", async () => {
+    await withGitWorktreeEnv(async (env) => {
+      await withTempDir(fakeHomePrefix, async (fakeHome) => {
+        const excluded = ignoredPattern();
+        await writeFile(join(fakeHome, globalExcludesFileName), `${excluded}\n`);
+        await env.runGit([
+          GIT_TEST_SUBCOMMANDS.CONFIG,
+          CORE_EXCLUDES_FILE_CONFIG_KEY,
+          `~/${globalExcludesFileName}`,
+        ]);
+        await env.writeUntracked(excluded, fileContent());
 
-            const reader = createIgnoreSourceReader(env.productDir, readerConfig());
-            const path = spxPath(matched, sub);
-
-            const entry = reader.matchedEntry(path);
-            expect(entry, `matchedEntry("${path}") defined`).toBeDefined();
-            expect(entry?.segment, `segment for "${path}"`).toBe(matched);
-          });
-        },
-      ),
-      { numRuns: PROPERTY_NUM_RUNS },
-    );
+        const previousHome = process.env[homeEnvironmentKey];
+        process.env[homeEnvironmentKey] = fakeHome;
+        try {
+          const reader = createIgnoreSourceReader(env.productDir, readerConfig({ noIgnoreVcs: true }));
+          expect(reader.isInIncludedSet(excluded)).toBe(false);
+        } finally {
+          if (previousHome === undefined) {
+            delete process.env[homeEnvironmentKey];
+          } else {
+            process.env[homeEnvironmentKey] = previousHome;
+          }
+        }
+      });
+    });
   });
 
-  it("matchedEntry returns undefined when the path is not under any listed entry", async () => {
-    await fc.assert(
-      fc.asyncProperty(arbNodeSegment, arbSubpath, async (segment, sub) => {
-        await withTestEnv(integrationConfig(), async (env) => {
-          await writeExclude(env, [segment]);
+  it("lets --no-ignore take precedence over --no-ignore-vcs", async () => {
+    await withGitWorktreeEnv(async (env) => {
+      const ignored = ignoredPattern();
+      await env.writeGitignore(".", ignored);
+      await env.writeInfoExclude(`${ignored}\n`);
+      await env.configureGlobalExcludes(`${ignored}\n`);
+      await env.writeUntracked(ignored, fileContent());
 
-          const reader = createIgnoreSourceReader(env.productDir, readerConfig());
-          const unrelatedPath = `other-root/${segment}/${sub}`;
+      const reader = createIgnoreSourceReader(
+        env.productDir,
+        readerConfig({
+          noIgnore: true,
+          noIgnoreVcs: true,
+        }),
+      );
 
-          const entry = reader.matchedEntry(unrelatedPath);
-          expect(entry, `matchedEntry("${unrelatedPath}") undefined`).toBeUndefined();
-        });
-      }),
-      { numRuns: PROPERTY_NUM_RUNS },
-    );
+      expect(reader.isInIncludedSet(ignored)).toBe(true);
+    });
   });
 
-  it("specTreeRootSegment comes from the reader config, not hardcoded — a different segment prefix produces a different match domain", async () => {
-    const altRootSegment = "alt-root";
-    const altConfig: IgnoreSourceReaderConfig = {
-      ignoreSourceFilename: IGNORE_SOURCE_FILENAME_DEFAULT,
-      specTreeRootSegment: altRootSegment,
-    };
-    await fc.assert(
-      fc.asyncProperty(arbNodeSegment, arbSubpath, async (segment, sub) => {
-        await withTestEnv(integrationConfig(), async (env) => {
-          await env.writeRaw(`${altRootSegment}/${IGNORE_SOURCE_FILENAME_DEFAULT}`, segment);
+  it("reports the structured overrides applied during construction", async () => {
+    await withGitWorktreeEnv(async (env) => {
+      const ignoreFile = ignoredPattern();
+      await env.writeUntracked(ignoreFile, `${ignoredPattern()}\n`);
 
-          const reader = createIgnoreSourceReader(env.productDir, altConfig);
+      const reader = createIgnoreSourceReader(
+        env.productDir,
+        readerConfig({
+          noIgnore: true,
+          ignoreFile,
+        }),
+      );
 
-          expect(reader.isUnderIgnoreSource(`${altRootSegment}/${segment}/${sub}`)).toBe(true);
-          expect(reader.isUnderIgnoreSource(spxPath(segment, sub))).toBe(false);
-        });
-      }),
-      { numRuns: PROPERTY_NUM_RUNS },
-    );
+      expect(reader.appliedOverrides()).toEqual({
+        noIgnore: true,
+        noIgnoreVcs: false,
+        ignoreFile,
+      });
+    });
   });
 });

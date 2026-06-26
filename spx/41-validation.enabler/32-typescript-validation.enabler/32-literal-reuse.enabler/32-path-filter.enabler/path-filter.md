@@ -10,7 +10,8 @@ CAN exclude entries git considers ignored under the working tree and entries an 
 
 - Given `validation.paths.exclude` lists a path prefix, when the detector walks files, then files whose relative path starts with that prefix are not parsed or indexed ([test](tests/path-filter.scenario.l1.test.ts))
 - Given `validation.paths.include` lists a path prefix, when the detector walks files, then only files whose relative path starts with at least one include prefix are parsed and indexed ([test](tests/path-filter.scenario.l1.test.ts))
-- Given a path is matched by `.gitignore`, nested `.gitignore`, `.git/info/exclude`, or global gitignore, when the detector walks files, then files under that path are not parsed or indexed and the decision trail names the git-tracking layer ([test](tests/path-filter.scenario.l1.test.ts))
+- Given the detector receives caller-supplied explicit files, when `validation.paths.exclude` also matches one explicit file, then the explicit file is still parsed and indexed ([test](tests/path-filter.scenario.l1.test.ts))
+- Given a path is matched by `.gitignore`, nested `.gitignore`, `.git/info/exclude`, or global gitignore, when the detector walks files, then files under that path are not parsed or indexed ([test](tests/path-filter.scenario.l1.test.ts))
 - Given a file lives under a dot-prefixed directory (`.github/`, `.changeset/`, `.husky/`, `.devcontainer/`) that git does not ignore, when the detector walks files, then the file is parsed and indexed normally ([test](tests/path-filter.scenario.l1.test.ts))
 - Given a directory path operand is supplied to `spx validation literal`, when TypeScript files under that directory contain a literal reuse problem, then the literal stage scans those files and reports the finding ([test](tests/path-filter.scenario.l1.test.ts))
 - Given no path operand is supplied to `spx validation literal`, when `validation.paths.include` selects TypeScript files outside the TypeScript compilation scope, then the literal stage scans the validation-path scope instead of filtering it through the compilation scope ([test](tests/path-filter.scenario.l1.test.ts))
@@ -18,5 +19,6 @@ CAN exclude entries git considers ignored under the working tree and entries an 
 ### Compliance
 
 - ALWAYS: `validation.paths.exclude` suppresses files by path prefix — files under every listed prefix are never parsed and contribute no occurrences ([test](tests/path-filter.compliance.l1.test.ts))
+- ALWAYS: caller-supplied explicit files bypass `validation.paths` because explicit invocation scope is resolved before non-override domain path filters ([test](tests/path-filter.compliance.l1.test.ts))
 - ALWAYS: entries git considers ignored under the working tree are excluded from the walker's scope without requiring restatement in `validation.paths.exclude` — the git-tracking layer is the single default scope source per [`11-ignore-defaults.pdr.md`](../../../../17-file-inclusion.enabler/11-ignore-defaults.pdr.md) ([test](tests/path-filter.compliance.l1.test.ts))
 - NEVER: compose an artifact-directory list or hidden-prefix rule inside the literal-reuse walker — the git-tracking layer subsumes both per [`11-ignore-defaults.pdr.md`](../../../../17-file-inclusion.enabler/11-ignore-defaults.pdr.md) ([review](../../../../17-file-inclusion.enabler/11-ignore-defaults.pdr.md))

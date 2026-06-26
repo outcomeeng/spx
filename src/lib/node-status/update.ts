@@ -4,7 +4,6 @@ import { dirname, join } from "node:path";
 
 import { defaultGitDependencies, type GitDependencies } from "@/git/root";
 import { createTrackedPathInclusion, listTrackedPaths, TRACKED_PATH_DIRECTORY_SEPARATOR } from "@/git/tracked-paths";
-import { createIgnoreSourceReader, IGNORE_SOURCE_FILENAME_DEFAULT } from "@/lib/file-inclusion/ignore-source";
 import {
   createFilesystemSpecTreeSource,
   readSpecTree,
@@ -23,7 +22,7 @@ import {
   type NodeStatusVerification,
   serializeNodeStatus,
 } from "./classify";
-import { isNodeStatusEntryExcluded } from "./exclude";
+import { createNodeStatusExcludeReader } from "./exclude";
 import { NODE_STATUS_FILENAME } from "./read";
 
 /**
@@ -58,10 +57,7 @@ const NODE_STATUS_TEXT_ENCODING = "utf8";
 export async function updateNodeStatus(options: UpdateNodeStatusOptions): Promise<void> {
   const { productDir, resolveOutcome, gitDependencies = defaultGitDependencies } = options;
   const snapshot = await readSpecTree({ source: createFilesystemSpecTreeSource({ productDir }) });
-  const ignoreReader = createIgnoreSourceReader(productDir, {
-    ignoreSourceFilename: IGNORE_SOURCE_FILENAME_DEFAULT,
-    specTreeRootSegment: SPEC_TREE_CONFIG.ROOT_DIRECTORY,
-  });
+  const excludeReader = createNodeStatusExcludeReader(productDir);
   // The boundary is the node directory: status is written only for a git-tracked
   // node directory. A tracked node's own untracked, not-yet-staged evidence stays
   // visible, so the projection matches what CI regenerates once it is committed.
@@ -76,7 +72,7 @@ export async function updateNodeStatus(options: UpdateNodeStatusOptions): Promis
     const evidence = evidenceByNode.get(node.id) ?? [];
     const verification = await resolveVerification(node, {
       evidence,
-      isExcluded: isNodeStatusEntryExcluded(ignoreReader, node),
+      isExcluded: excludeReader.isExcluded(node),
       resolveOutcome,
     });
     const statusPath = nodeStatusPath(productDir, node.id);

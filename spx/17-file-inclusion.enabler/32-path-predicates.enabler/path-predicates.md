@@ -9,10 +9,11 @@ CAN evaluate each layer's membership through a uniform predicate shape without c
 ### Scenarios
 
 - Given the git-tracking predicate receives a layer state built from the ignore-source reader and is invoked with a path the reader reports as in the included set, when the predicate evaluates, then the predicate reports `matched: false` (the path is in scope) ([test](tests/git-tracking.scenario.l1.test.ts))
-- Given the git-tracking predicate receives a layer state built from the ignore-source reader and is invoked with a path the reader reports as not in the included set, when the predicate evaluates, then the predicate reports `matched: true` (the path is excluded) with the responsible ignore source identified in the decision when the reader exposes it ([test](tests/git-tracking.scenario.l1.test.ts))
+- Given the git-tracking predicate receives a layer state built from the ignore-source reader and is invoked with a path the reader reports as not in the included set, when the predicate evaluates, then the predicate reports `matched: true` (the path is excluded) under the git-tracking layer ([test](tests/git-tracking.scenario.l1.test.ts))
 - Given the git-tracking predicate is invoked with a path inside a submodule directory, when the predicate evaluates, then the predicate reports `matched: true` because git's enumeration treats submodule contents as opaque ([test](tests/git-tracking.scenario.l1.test.ts))
 - Given the domain-path-filter predicate receives a layer state with a configured `exclude` pattern and is invoked with a path matching the pattern, when the predicate evaluates, then the predicate reports `matched: true` with the matched exclude pattern identified in the decision ([test](tests/domain-path-filter.scenario.l1.test.ts))
 - Given the domain-path-filter predicate receives a layer state with a configured `include` pattern and is invoked with a path outside every include pattern, when the predicate evaluates, then the predicate reports `matched: true` with the missing-include decision identified ([test](tests/domain-path-filter.scenario.l1.test.ts))
+- Given a domain path filter prefix contains Windows separators, a leading `./`, or trailing separators, when the predicate evaluates a normalized product-relative path, then matching uses the same normalized prefix semantics as validation path filters ([test](tests/domain-path-filter.scenario.l1.test.ts))
 
 ### Properties
 

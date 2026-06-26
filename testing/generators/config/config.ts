@@ -13,8 +13,6 @@ import { DECISION_KINDS, KIND_REGISTRY, NODE_KINDS, SPEC_TREE_SECTION } from "@/
 
 const GENERATED_SEGMENT_MIN_LENGTH = 3;
 const GENERATED_SEGMENT_MAX_LENGTH = 12;
-const GENERATED_ARTIFACT_DIRECTORY_MIN_COUNT = 1;
-const GENERATED_ARTIFACT_DIRECTORY_MAX_COUNT = 3;
 const GENERATED_SEGMENT_SUFFIX_MIN_LENGTH = GENERATED_SEGMENT_MIN_LENGTH - 1;
 const GENERATED_SEGMENT_SUFFIX_MAX_LENGTH = GENERATED_SEGMENT_MAX_LENGTH - 1;
 
@@ -83,46 +81,32 @@ function arbitraryUnknownToolName(): fc.Arbitrary<string> {
 function arbitraryFileInclusionOverride(): fc.Arbitrary<GeneratedFileInclusionOverride> {
   return fc
     .record({
-      artifactDirectories: fc.uniqueArray(arbitraryConfigSegment(), {
-        minLength: GENERATED_ARTIFACT_DIRECTORY_MIN_COUNT,
-        maxLength: GENERATED_ARTIFACT_DIRECTORY_MAX_COUNT,
-      }),
-      hiddenPrefix: fc.constantFrom("_", "#"),
-      ignoreSourceFilename: arbitraryConfigSegment(),
-      specTreeRootSegment: arbitraryConfigSegment(),
       selectedTool: fc.constantFrom(...REGISTERED_TOOL_NAMES),
       ignoreFlag: arbitraryConfigSegment().map((flag) => `--${flag}`),
     })
-    .map(
-      ({ artifactDirectories, hiddenPrefix, ignoreSourceFilename, specTreeRootSegment, selectedTool, ignoreFlag }) => {
-        const expected: FileInclusionConfig = {
-          scope: {
-            artifactDirectories,
-            hiddenPrefix,
-            ignoreSourceFilename,
-            specTreeRootSegment,
-          },
-          tools: {
-            ...DEFAULT_TOOLS_CONFIG,
-            [selectedTool]: { ignoreFlag },
-          },
-        };
-        return {
-          selectedTool,
-          expected,
-          config: {
-            [FILE_INCLUSION_SECTION]: {
-              [FILE_INCLUSION_CONFIG_FIELDS.SCOPE]: expected.scope,
-              [FILE_INCLUSION_CONFIG_FIELDS.TOOLS]: {
-                [selectedTool]: {
-                  [FILE_INCLUSION_CONFIG_FIELDS.IGNORE_FLAG]: ignoreFlag,
-                },
+    .map(({ selectedTool, ignoreFlag }) => {
+      const expected: FileInclusionConfig = {
+        scope: DEFAULT_SCOPE_CONFIG,
+        tools: {
+          ...DEFAULT_TOOLS_CONFIG,
+          [selectedTool]: { ignoreFlag },
+        },
+      };
+      return {
+        selectedTool,
+        expected,
+        config: {
+          [FILE_INCLUSION_SECTION]: {
+            [FILE_INCLUSION_CONFIG_FIELDS.SCOPE]: expected.scope,
+            [FILE_INCLUSION_CONFIG_FIELDS.TOOLS]: {
+              [selectedTool]: {
+                [FILE_INCLUSION_CONFIG_FIELDS.IGNORE_FLAG]: ignoreFlag,
               },
             },
           },
-        };
-      },
-    );
+        },
+      };
+    });
 }
 
 function arbitraryFileInclusionPartialToolOverride(): fc.Arbitrary<GeneratedFileInclusionOverride> {

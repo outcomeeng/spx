@@ -2,70 +2,58 @@ import * as fc from "fast-check";
 import { describe, expect, it } from "vitest";
 
 import { createIgnoreSourceReader } from "@/lib/file-inclusion/ignore-source";
-import { compareAsciiStrings } from "@/lib/state-store";
-import { withTestEnv } from "@testing/harnesses/spec-tree/spec-tree";
+import { withGitWorktreeEnv } from "@testing/harnesses/git-worktree/git-worktree";
 
 import {
-  arbitraryQueryMax,
-  arbitrarySegmentMax,
-  arbNodeSegment,
-  arbSubpath,
-  integrationConfig,
+  fileContent,
+  ignoredPattern,
   PROPERTY_NUM_RUNS,
   readerConfig,
-  spxPath,
-  writeExclude,
+  trackedFilePath,
 } from "@testing/harnesses/file-inclusion/ignore-source";
 
 describe("ignore-source — properties", () => {
-  it("the reader is deterministic: the same project root and the same ignore-source file content always produce the same parsed entry set and the same membership-query results", async () => {
+  it("reader membership is deterministic across readers constructed from the same worktree state", async () => {
     await fc.assert(
-      fc.asyncProperty(
-        fc.array(arbNodeSegment, { maxLength: arbitrarySegmentMax() }),
-        fc.array(fc.tuple(arbNodeSegment, arbSubpath), {
-          minLength: 1,
-          maxLength: arbitraryQueryMax(),
-        }),
-        async (segments, queries) => {
-          await withTestEnv(integrationConfig(), async (env) => {
-            await writeExclude(env, segments);
+      fc.asyncProperty(fc.boolean(), async (noIgnore) => {
+        await withGitWorktreeEnv(async (env) => {
+          const tracked = trackedFilePath();
+          const ignored = ignoredPattern();
+          await env.writeTracked(tracked, fileContent());
+          await env.writeGitignore(".", ignored);
+          await env.writeUntracked(ignored, fileContent());
 
-            const readerA = createIgnoreSourceReader(env.productDir, readerConfig());
-            const readerB = createIgnoreSourceReader(env.productDir, readerConfig());
+          const first = createIgnoreSourceReader(env.productDir, readerConfig({ noIgnore }));
+          const second = createIgnoreSourceReader(env.productDir, readerConfig({ noIgnore }));
 
-            for (const [segment, rest] of queries) {
-              const input = spxPath(segment, rest);
-              expect(readerA.isUnderIgnoreSource(input)).toBe(readerB.isUnderIgnoreSource(input));
-            }
-
-            const entriesA = readerA.entries().map((e) => e.segment).sort(compareAsciiStrings);
-            const entriesB = readerB.entries().map((e) => e.segment).sort(compareAsciiStrings);
-            expect(entriesA).toEqual(entriesB);
-          });
-        },
-      ),
+          expect(first.isInIncludedSet(tracked)).toBe(second.isInIncludedSet(tracked));
+          expect(first.isInIncludedSet(ignored)).toBe(second.isInIncludedSet(ignored));
+        });
+      }),
       { numRuns: PROPERTY_NUM_RUNS },
     );
   });
 
-  it("membership matching is prefix-based: every path inside the directory of a parsed entry reports as under-ignore-source, and no path outside every such directory reports as under-ignore-source", async () => {
+  it("reader membership is a construction-time snapshot", async () => {
     await fc.assert(
-      fc.asyncProperty(
-        fc.tuple(arbNodeSegment, arbNodeSegment).filter(([a, b]) => a !== b),
-        fc.array(arbSubpath, { minLength: 1, maxLength: arbitraryQueryMax() }),
-        async ([listed, unlisted], subpaths) => {
-          await withTestEnv(integrationConfig(), async (env) => {
-            await writeExclude(env, [listed]);
+      fc.asyncProperty(fc.boolean(), async (startIgnored) => {
+        await withGitWorktreeEnv(async (env) => {
+          const path = ignoredPattern();
+          if (startIgnored) {
+            await env.writeGitignore(".", path);
+          }
+          await env.writeUntracked(path, fileContent());
+          const reader = createIgnoreSourceReader(env.productDir, readerConfig());
+          if (startIgnored) {
+            await env.writeGitignore(".", "");
+          } else {
+            await env.writeGitignore(".", path);
+          }
 
-            const reader = createIgnoreSourceReader(env.productDir, readerConfig());
-
-            for (const sub of subpaths) {
-              expect(reader.isUnderIgnoreSource(spxPath(listed, sub))).toBe(true);
-              expect(reader.isUnderIgnoreSource(spxPath(unlisted, sub))).toBe(false);
-            }
-          });
-        },
-      ),
+          expect(reader.isInIncludedSet(path)).toBe(!startIgnored);
+          expect(createIgnoreSourceReader(env.productDir, readerConfig()).isInIncludedSet(path)).toBe(startIgnored);
+        });
+      }),
       { numRuns: PROPERTY_NUM_RUNS },
     );
   });

@@ -1,7 +1,8 @@
 import * as fc from "fast-check";
 
-import { IGNORE_SOURCE_FILENAME_DEFAULT, type IgnoreSourceReaderConfig } from "@/lib/file-inclusion/ignore-source";
+import { DEFAULT_IGNORE_SOURCE_OVERRIDES, type IgnoreSourceReaderConfig } from "@/lib/file-inclusion/ignore-source";
 import { SPEC_TREE_CONFIG, specTreeConfigDescriptor } from "@/lib/spec-tree/config";
+import { GIT_WORKTREE_TEST_GENERATOR } from "@testing/generators/git-worktree/git-worktree";
 import type { Config } from "@testing/harnesses/spec-tree/spec-tree";
 
 const IGNORE_SOURCE_COMMENT_LINES = {
@@ -50,14 +51,11 @@ function arbitraryRootSegment(): fc.Arbitrary<string> {
 }
 
 function arbitraryExcludeFilename(): fc.Arbitrary<string> {
-  return arbitraryRootSegment().map((rootSegment) => `${rootSegment}/${IGNORE_SOURCE_FILENAME_DEFAULT}`);
+  return GIT_WORKTREE_TEST_GENERATOR.gitignorePattern();
 }
 
 function arbitraryReaderConfig(): fc.Arbitrary<IgnoreSourceReaderConfig> {
-  return arbitraryRootSegment().map((rootSegment) => ({
-    ignoreSourceFilename: IGNORE_SOURCE_FILENAME_DEFAULT,
-    specTreeRootSegment: rootSegment,
-  }));
+  return fc.constant({ overrides: DEFAULT_IGNORE_SOURCE_OVERRIDES });
 }
 
 function arbitraryIntegrationConfig(): fc.Arbitrary<Config> {

@@ -17,7 +17,7 @@ file-inclusion subtree and the consumers that wire override flags.
 ## Current Tranche
 
 1. Replace the `spx/EXCLUDE` reader with a git-plumbing reader under `spx/17-file-inclusion.enabler/21-ignore-source.enabler/`.
-   - `createIgnoreSourceReader` invokes `git ls-files --cached --others --exclude-standard --full-name` once at construction against the resolved worktree.
+   - `createIgnoreSourceReader` invokes `git ls-files --cached --others --exclude-standard --full-name -z` once at construction against the resolved worktree.
    - Override flags (`--no-ignore`, `--no-ignore-vcs`, `--ignore-file`) translate to git plumbing arguments at construction.
    - Construction fails with an actionable error outside a git working tree.
 
@@ -29,8 +29,9 @@ file-inclusion subtree and the consumers that wire override flags.
    - Construct the ignore-source reader up front from `ScopeRequest`, including override flags.
    - Compose the layer sequence as `[explicit-caller, domain-path-filter, git-tracking]`.
 
-4. Wire override flags into domain CLI commands.
-   - Each validation, testing, audit, and review command that walks files exposes `--no-ignore`, `--no-ignore-vcs`, `--ignore-file <path>` per `spx/17-file-inclusion.enabler/11-ignore-defaults.pdr.md`.
+4. Defer command-line override wiring to the owning domain CLI nodes.
+   - The shared file-inclusion request shape accepts `--no-ignore`, `--no-ignore-vcs`, and `--ignore-file` as structured overrides.
+   - Each validation, testing, audit, and review command that walks files still needs its owning CLI node to expose those flags.
 
 ## Evidence Required
 
@@ -42,16 +43,16 @@ file-inclusion subtree and the consumers that wire override flags.
 
 ## Open Coordination
 
-- This tranche removes `spx/EXCLUDE` as the scope source. Until the tranche lands, `src/lib/file-inclusion/ignore-source.ts` still reads `spx/EXCLUDE`, and consumers such as markdown validation and node-status still depend on that reader.
-- Consumer commands (validation, testing, audit, review) wire override flags in the same tranche as the resolver changes so default behavior changes are matched by override availability.
+- Node-status now owns its `spx/EXCLUDE` lifecycle classification separately from file-inclusion scope. Keep that reader local to node-status and do not route file-inclusion scope through it.
+- Consumer commands (validation, testing, audit, review) still need CLI-level override flags where their owning CLI specs require user-facing `--no-ignore`, `--no-ignore-vcs`, or `--ignore-file <path>` support.
 - Consumers that currently restate `node_modules`, `dist`, build artifacts, or other gitignored paths in domain descriptors can simplify their config; the git-tracking layer subsumes those entries.
 
 ## Resumption Notes
 
 - Start from fresh `origin/main`; earlier branch-specific and worktree-specific resumption paths are obsolete.
 - The git-worktree test harness needed for the reader tests is available under `spx/22-test-environment.enabler/32-git-worktree.enabler/`, with implementation helpers at `testing/harnesses/git-worktree/git-worktree.ts`.
-- The current reader surface in `src/lib/file-inclusion/ignore-source.ts` is still the `spx/EXCLUDE` reader (`isUnderIgnoreSource`, `entries`, `matchedEntry`). The replacement slice begins in `spx/17-file-inclusion.enabler/21-ignore-source.enabler/`.
-- The current layer sequence in `src/lib/file-inclusion/layer-sequence.ts` still contains the artifact-directory, hidden-prefix, and ignore-source layers. The path-predicate mismatch is tracked in `spx/17-file-inclusion.enabler/32-path-predicates.enabler/ISSUES.md`.
+- The file-inclusion reader surface is now the git-backed `isInIncludedSet` reader, and the layer sequence is now domain-path-filter followed by git-tracking.
+- The stale path-predicate issue file was removed once the git-tracking and domain-path-filter tests existed.
 
 Use `withGitWorktreeEnv` and supporting types from `@testing/harnesses/git-worktree/git-worktree` for the reader tests: every git ignore source (top-level `.gitignore`, nested `.gitignore`, `.git/info/exclude`, the `core.excludesFile`-referenced file via `configureGlobalExcludes`), submodule exclusion, and the three override flags (`--no-ignore`, `--no-ignore-vcs`, `--ignore-file`).
 

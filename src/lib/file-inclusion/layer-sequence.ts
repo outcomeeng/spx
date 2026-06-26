@@ -1,42 +1,28 @@
-import { artifactDirectoryPredicate } from "./predicates/artifact-directory";
-import { hiddenPrefixPredicate } from "./predicates/hidden-prefix";
-import { ignoreSourcePredicate } from "./predicates/ignore-source";
-import type {
-  ArtifactDirectoryConfig,
-  HiddenPrefixConfig,
-  IgnoreSourcePredicateConfig,
-  LayerContext,
-  LayerDecision,
-  LayerEntry,
-} from "./types";
+import { domainPathFilterPredicate } from "./predicates/domain-path-filter";
+import { gitTrackingPredicate } from "./predicates/git-tracking";
+import type { DomainPathFilterState, GitTrackingState, LayerDecision, LayerEntry, ScopeResolverState } from "./types";
 
 function makeLayer<C>(
-  extractConfig: (ctx: LayerContext) => C,
+  extractState: (state: ScopeResolverState) => C,
   predicate: (path: string, config: C) => LayerDecision,
 ): LayerEntry {
   return {
-    extractConfig,
+    extractState,
     predicate: (path, config) => predicate(path, config as C),
   };
 }
 
-export const artifactDirectoryLayer: LayerEntry = makeLayer(
-  (ctx): ArtifactDirectoryConfig => ({ artifactDirectories: ctx.config.artifactDirectories }),
-  artifactDirectoryPredicate,
+export const domainPathFilterLayer: LayerEntry = makeLayer(
+  (state): DomainPathFilterState => state.request.domainPathFilter ?? {},
+  domainPathFilterPredicate,
 );
 
-export const hiddenPrefixLayer: LayerEntry = makeLayer(
-  (ctx): HiddenPrefixConfig => ({ hiddenPrefix: ctx.config.hiddenPrefix }),
-  hiddenPrefixPredicate,
-);
-
-export const ignoreSourceLayer: LayerEntry = makeLayer(
-  (ctx): IgnoreSourcePredicateConfig => ({ reader: ctx.ignoreReader }),
-  ignoreSourcePredicate,
+export const gitTrackingLayer: LayerEntry = makeLayer(
+  (state): GitTrackingState => ({ reader: state.ignoreReader }),
+  gitTrackingPredicate,
 );
 
 export const LAYER_SEQUENCE: readonly LayerEntry[] = [
-  artifactDirectoryLayer,
-  hiddenPrefixLayer,
-  ignoreSourceLayer,
+  domainPathFilterLayer,
+  gitTrackingLayer,
 ];

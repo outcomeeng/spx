@@ -2,6 +2,7 @@ import { cp, symlink } from "node:fs/promises";
 import { dirname, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 
+import { GIT_TEST_SUBCOMMANDS, runGit } from "@testing/harnesses/git-test-constants";
 import { withTempDir } from "@testing/harnesses/with-temp-dir";
 import { FIXTURES_PATH } from "../fixtures";
 
@@ -82,6 +83,7 @@ export function withValidationEnv(
     const fixtureDest = join(tempDir, opts.fixture);
 
     await cp(fixtureSource, fixtureDest, { recursive: true });
+    await runGit(fixtureDest, [GIT_TEST_SUBCOMMANDS.INIT]);
 
     // Symlink node_modules from project root (fast, no install needed)
     await symlink(join(PRODUCT_ROOT, "node_modules"), join(fixtureDest, "node_modules"));

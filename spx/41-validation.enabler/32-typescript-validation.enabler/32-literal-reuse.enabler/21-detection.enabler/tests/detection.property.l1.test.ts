@@ -12,11 +12,16 @@ import {
 } from "@/validation/literal/index";
 import {
   arbitraryDomainLiteral,
+  arbitraryDomainNumber,
   arbitrarySourceFilePath,
   arbitraryTestFilePath,
   LITERAL_TEST_GENERATOR_COUNTS,
 } from "@testing/generators/literal/literal";
-import { buildStringAssertion, buildStringDeclaration } from "@testing/harnesses/literal/snippets";
+import {
+  buildNumericDeclaration,
+  buildStringAssertion,
+  buildStringDeclaration,
+} from "@testing/harnesses/literal/snippets";
 
 interface FixtureFile {
   readonly filename: string;
@@ -102,6 +107,10 @@ function naturalOrder(fixture: DetectionFixture): readonly FixtureFile[] {
   return [...fixture.srcFiles, ...fixture.testFiles];
 }
 
+function quotedNumber(value: number): string {
+  return String(value);
+}
+
 describe("detection — invariants", () => {
   it("detection is deterministic: running the detector twice over the same fixture yields deep-equal problems", () => {
     fc.assert(
@@ -125,33 +134,30 @@ describe("detection — invariants", () => {
     );
   });
 
-  it("index keys are injective on (kind, value): distinct (kind, value) pairs occupy distinct keys in the built index", () => {
+  it("index keys are injective on (kind, value), including same-value cross-kind entries", () => {
     fc.assert(
       fc.property(
-        fc.uniqueArray(
-          fc.record({
-            literal: arbitraryDomainLiteral(),
-            filename: arbitrarySourceFilePath(),
-          }),
-          {
-            minLength: LITERAL_TEST_GENERATOR_COUNTS.two,
-            maxLength: LITERAL_TEST_GENERATOR_COUNTS.findingsMax,
-            selector: (entry) => entry.literal,
-          },
-        ),
+        fc.record({
+          literal: arbitraryDomainNumber(),
+          stringFilename: arbitrarySourceFilePath(),
+          numberFilename: arbitrarySourceFilePath(),
+        }),
         (entries) => {
-          const occurrences: LiteralOccurrence[] = [];
-          for (const entry of entries) {
-            occurrences.push(
-              ...collectLiterals(
-                buildStringDeclaration(entry.literal),
-                entry.filename,
-                DEFAULT_LITERAL_COLLECT_OPTIONS,
-              ),
-            );
-          }
+          const sameValue = quotedNumber(entries.literal);
+          const occurrences: LiteralOccurrence[] = [
+            ...collectLiterals(
+              buildStringDeclaration(sameValue),
+              entries.stringFilename,
+              DEFAULT_LITERAL_COLLECT_OPTIONS,
+            ),
+            ...collectLiterals(
+              buildNumericDeclaration(sameValue),
+              entries.numberFilename,
+              DEFAULT_LITERAL_COLLECT_OPTIONS,
+            ),
+          ];
           const index = buildIndex(occurrences);
-          expect(index.size).toBe(entries.length);
+          expect(index.size).toBe(LITERAL_TEST_GENERATOR_COUNTS.two);
         },
       ),
       { numRuns: LITERAL_TEST_GENERATOR_COUNTS.propertyRuns },

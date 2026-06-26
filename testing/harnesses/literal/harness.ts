@@ -1,11 +1,16 @@
+import { readFile } from "node:fs/promises";
+import { join } from "node:path";
+
+import { configFileForFormat, DEFAULT_CONFIG_FILE_FORMAT, serializeConfigFileSections } from "@/config/index";
 import { TYPESCRIPT_MARKER } from "@/validation/discovery/index";
 import type {
   LiteralPathScopedSourceReuseFixtureInputs,
   LiteralReuseFixtureInputs,
   LiteralSourceReuseFixtureInputs,
 } from "@testing/generators/literal/literal";
+import { withGitWorktreeEnv } from "@testing/harnesses/git-worktree/git-worktree";
 import { buildStringAssertion, buildStringDeclaration } from "@testing/harnesses/literal/snippets";
-import { type Config, type SpecTreeEnv, withTestEnv } from "@testing/harnesses/spec-tree/spec-tree";
+import type { Config } from "@testing/harnesses/spec-tree/spec-tree";
 
 const EMPTY_TSCONFIG_CONTENT = "{}\n";
 
@@ -15,6 +20,7 @@ export interface LiteralFixtureEnv {
   writeTsConfigMarker(): Promise<void>;
   writeSourceFile(relativePath: string, value: string): Promise<void>;
   writeTestFile(relativePath: string, value: string): Promise<void>;
+  writeGitignore(directory: string, content: string): Promise<void>;
   writeReuseFixture(inputs: LiteralReuseFixtureInputs): Promise<void>;
   writeSourceReuseFixture(inputs: LiteralSourceReuseFixtureInputs): Promise<void>;
   writeSourceReuseFixtures(inputs: readonly LiteralSourceReuseFixtureInputs[]): Promise<void>;
@@ -28,8 +34,14 @@ export async function withLiteralFixtureEnv<T>(
 ): Promise<T> {
   const NOT_SET = Symbol("withLiteralFixtureEnv.callback-not-completed");
   let captured: T | typeof NOT_SET = NOT_SET;
-  await withTestEnv(config, async (specEnv) => {
-    const env = createLiteralFixtureEnv(specEnv);
+  await withGitWorktreeEnv(async (gitEnv) => {
+    const configFile = configFileForFormat(gitEnv.productDir, DEFAULT_CONFIG_FILE_FORMAT);
+    const serialized = serializeConfigFileSections(configFile.format, config);
+    if (!serialized.ok) {
+      throw new Error(serialized.error);
+    }
+    await gitEnv.writeUntracked(configFile.filename, serialized.value);
+    const env = createLiteralFixtureEnv(gitEnv);
     captured = await callback(env);
   });
   if (captured === NOT_SET) {
@@ -38,54 +50,61 @@ export async function withLiteralFixtureEnv<T>(
   return captured;
 }
 
-function createLiteralFixtureEnv(specEnv: SpecTreeEnv): LiteralFixtureEnv {
+type LiteralFixtureGitEnv = {
+  readonly productDir: string;
+  writeGitignore(directory: string, content: string): Promise<void>;
+  writeUntracked(relativePath: string, content: string): Promise<void>;
+};
+
+function createLiteralFixtureEnv(gitEnv: LiteralFixtureGitEnv): LiteralFixtureEnv {
   return {
-    productDir: specEnv.productDir,
-    readFile: (relativePath) => specEnv.readFile(relativePath),
-    writeTsConfigMarker: () => specEnv.writeRaw(TYPESCRIPT_MARKER, EMPTY_TSCONFIG_CONTENT),
-    writeSourceFile: (relativePath, value) => specEnv.writeRaw(relativePath, formatSourceFile(value)),
-    writeTestFile: (relativePath, value) => specEnv.writeRaw(relativePath, formatTestFile(value)),
-    writeReuseFixture: (inputs) => writeReuseFixture(specEnv, inputs),
-    writeSourceReuseFixture: (inputs) => writeSourceReuseFixture(specEnv, inputs),
-    writeSourceReuseFixtures: (inputs) => writeSourceReuseFixtures(specEnv, inputs),
-    writePathScopedSourceReuseFixture: (inputs) => writePathScopedSourceReuseFixture(specEnv, inputs),
-    writeRaw: (relativePath, content) => specEnv.writeRaw(relativePath, content),
+    productDir: gitEnv.productDir,
+    readFile: (relativePath) => readFile(join(gitEnv.productDir, relativePath), "utf8"),
+    writeTsConfigMarker: () => gitEnv.writeUntracked(TYPESCRIPT_MARKER, EMPTY_TSCONFIG_CONTENT),
+    writeSourceFile: (relativePath, value) => gitEnv.writeUntracked(relativePath, formatSourceFile(value)),
+    writeTestFile: (relativePath, value) => gitEnv.writeUntracked(relativePath, formatTestFile(value)),
+    writeGitignore: (directory, content) => gitEnv.writeGitignore(directory, content),
+    writeReuseFixture: (inputs) => writeReuseFixture(gitEnv, inputs),
+    writeSourceReuseFixture: (inputs) => writeSourceReuseFixture(gitEnv, inputs),
+    writeSourceReuseFixtures: (inputs) => writeSourceReuseFixtures(gitEnv, inputs),
+    writePathScopedSourceReuseFixture: (inputs) => writePathScopedSourceReuseFixture(gitEnv, inputs),
+    writeRaw: (relativePath, content) => gitEnv.writeUntracked(relativePath, content),
   };
 }
 
-async function writeReuseFixture(specEnv: SpecTreeEnv, inputs: LiteralReuseFixtureInputs): Promise<void> {
-  await writeSourceReuseFixture(specEnv, {
+async function writeReuseFixture(gitEnv: LiteralFixtureGitEnv, inputs: LiteralReuseFixtureInputs): Promise<void> {
+  await writeSourceReuseFixture(gitEnv, {
     literal: inputs.reuseLiteral,
     sourceFile: inputs.reuseSourceFile,
     testFile: inputs.reuseTestFile,
   });
-  await specEnv.writeRaw(inputs.dupeFirstTestFile, formatTestFile(inputs.dupeLiteral));
-  await specEnv.writeRaw(inputs.dupeSecondTestFile, formatTestFile(inputs.dupeLiteral));
+  await gitEnv.writeUntracked(inputs.dupeFirstTestFile, formatTestFile(inputs.dupeLiteral));
+  await gitEnv.writeUntracked(inputs.dupeSecondTestFile, formatTestFile(inputs.dupeLiteral));
 }
 
 async function writeSourceReuseFixture(
-  specEnv: SpecTreeEnv,
+  gitEnv: LiteralFixtureGitEnv,
   inputs: LiteralSourceReuseFixtureInputs,
 ): Promise<void> {
-  await specEnv.writeRaw(TYPESCRIPT_MARKER, EMPTY_TSCONFIG_CONTENT);
-  await specEnv.writeRaw(inputs.sourceFile, formatSourceFile(inputs.literal));
-  await specEnv.writeRaw(inputs.testFile, formatTestFile(inputs.literal));
+  await gitEnv.writeUntracked(TYPESCRIPT_MARKER, EMPTY_TSCONFIG_CONTENT);
+  await gitEnv.writeUntracked(inputs.sourceFile, formatSourceFile(inputs.literal));
+  await gitEnv.writeUntracked(inputs.testFile, formatTestFile(inputs.literal));
 }
 
 async function writeSourceReuseFixtures(
-  specEnv: SpecTreeEnv,
+  gitEnv: LiteralFixtureGitEnv,
   inputs: readonly LiteralSourceReuseFixtureInputs[],
 ): Promise<void> {
   for (const fixture of inputs) {
-    await writeSourceReuseFixture(specEnv, fixture);
+    await writeSourceReuseFixture(gitEnv, fixture);
   }
 }
 
 async function writePathScopedSourceReuseFixture(
-  specEnv: SpecTreeEnv,
+  gitEnv: LiteralFixtureGitEnv,
   inputs: LiteralPathScopedSourceReuseFixtureInputs,
 ): Promise<void> {
-  await writeSourceReuseFixtures(specEnv, [inputs.included, inputs.excluded]);
+  await writeSourceReuseFixtures(gitEnv, [inputs.included, inputs.excluded]);
 }
 
 function formatSourceFile(value: string): string {

@@ -2,12 +2,8 @@ import { readFile } from "node:fs/promises";
 import { isAbsolute, relative, resolve } from "node:path";
 
 import { DEFAULT_SCOPE_CONFIG } from "@/lib/file-inclusion/config";
-import { EMPTY_IGNORE_READER } from "@/lib/file-inclusion/ignore-source";
-import { artifactDirectoryLayer, hiddenPrefixLayer } from "@/lib/file-inclusion/layer-sequence";
-import { runPipeline } from "@/lib/file-inclusion/pipeline";
-import type { ScopeEntry } from "@/lib/file-inclusion/types";
+import { resolveScope } from "@/lib/file-inclusion/pipeline";
 import { type ValidationPathConfig } from "@/validation/config/descriptor";
-import { pathPassesValidationFilter } from "@/validation/config/path-filter";
 import { pathPassesTypeScriptScope } from "@/validation/config/scope";
 import type { ScopeConfig } from "@/validation/types";
 
@@ -71,20 +67,11 @@ export function createEmptyLiteralAllowlist(): ReadonlySet<string> {
   return new Set();
 }
 
-function applyPathFilter(
-  entries: readonly ScopeEntry[],
-  pathConfig: ValidationPathConfig | undefined,
-): readonly ScopeEntry[] {
-  if (pathConfig === undefined) {
-    return entries;
-  }
-  return entries.filter((entry) => pathPassesValidationFilter(entry.path, pathConfig));
-}
-
 export async function validateLiteralReuse(
   input: ValidateLiteralReuseInput,
 ): Promise<ValidateLiteralReuseResult> {
   const config = input.config ?? literalConfigDescriptor.defaults;
+  const hasExplicitFiles = input.scopeConfig === undefined && input.files !== undefined;
 
   const request = input.scopeConfig === undefined && input.files
     ? {
@@ -95,19 +82,15 @@ export async function validateLiteralReuse(
     }
     : { walkRoot: input.productDir };
 
-  const scope = await runPipeline(
-    [artifactDirectoryLayer, hiddenPrefixLayer],
-    input.productDir,
-    request,
-    DEFAULT_SCOPE_CONFIG,
-    EMPTY_IGNORE_READER,
-  );
+  const scope = await resolveScope(input.productDir, {
+    ...request,
+    domainPathFilter: hasExplicitFiles ? undefined : input.pathConfig,
+  }, DEFAULT_SCOPE_CONFIG);
 
-  const pathFiltered = applyPathFilter(scope.included, input.pathConfig);
   const literalScopeConfig = input.scopeConfig;
   const filtered = literalScopeConfig === undefined
-    ? pathFiltered
-    : pathFiltered.filter((entry) => pathPassesTypeScriptScope(entry.path, literalScopeConfig));
+    ? scope.included
+    : scope.included.filter((entry) => pathPassesTypeScriptScope(entry.path, literalScopeConfig));
 
   const candidateFiles = filtered
     .filter((entry) => isTypescriptSource(entry.path))

@@ -31,7 +31,7 @@ Rejected: a predicate list without explicit-override short-circuit (makes the ov
 - ALWAYS: the layer sequence is declared in one module inside the file-inclusion subtree, imported by the pipeline composer, and consumed by no other module ([audit])
 - ALWAYS: explicit-caller override short-circuits the pipeline — the override is a property of the pipeline's composition, not a per-layer obligation ([audit])
 - ALWAYS: each filter layer is a pure predicate typed `(path: string, state: LayerState) => LayerDecision`; layers perform no filesystem I/O at evaluation time — any I/O happens at construction time ([audit])
-- ALWAYS: the git-tracking layer constructs its `LayerState` from a single `git ls-files --cached --others --exclude-standard --full-name` invocation against the worktree resolved per `spx/15-worktree-management.pdr.md` ([audit])
+- ALWAYS: the git-tracking layer constructs its `LayerState` from a single `git ls-files --cached --others --exclude-standard --full-name -z` invocation against the worktree resolved per `spx/15-worktree-management.pdr.md` ([audit])
 - ALWAYS: each tool adapter is declared in its own module as a pure function over `(ScopeResult, AdapterConfig) => readonly string[]` and registered through the adapter registry's static import list ([audit])
 - ALWAYS: `ScopeResult` carries a per-path decision trail — the layers that matched the path, in pipeline order, with the first element `explicit-override` when the path was caller-supplied ([audit])
 - ALWAYS: every file-inclusion vocabulary constant the subtree consumes is read through a descriptor registered per `spx/16-config.enabler/21-descriptor-registration.adr.md` at every use site ([audit])

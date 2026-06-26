@@ -2,24 +2,37 @@ import * as fc from "fast-check";
 import { describe, expect, it } from "vitest";
 
 import {
-  arbNodeSegment,
-  arbSubpath,
-  integrationConfig,
-  makeIgnoreSourceConfig,
+  makeGitTrackingState,
+  pathFilter,
+  pathPrefix,
   PROPERTY_NUM_RUNS,
-  spxPath,
+  samplePath,
+  trackedPath,
 } from "@testing/harnesses/file-inclusion/path-predicates";
-import { withTestEnv } from "@testing/harnesses/spec-tree/spec-tree";
 
 describe("path-predicates test harness — properties", () => {
-  it("makeIgnoreSourceConfig writes the segments and returns a reader reporting paths under them as under-ignore-source", async () => {
-    await fc.assert(
-      fc.asyncProperty(arbNodeSegment, arbSubpath, async (segment, sub) => {
-        await withTestEnv(integrationConfig, async (env) => {
-          const config = await makeIgnoreSourceConfig(env, [segment]);
+  it("makeGitTrackingState returns reader state that reports exactly the included paths", () => {
+    fc.assert(
+      fc.property(fc.boolean(), (includePath) => {
+        const path = trackedPath();
+        const state = makeGitTrackingState(includePath ? [path] : []);
 
-          expect(config.reader.isUnderIgnoreSource(spxPath(segment, sub))).toBe(true);
-        });
+        expect(state.reader.isInIncludedSet(path)).toBe(includePath);
+      }),
+      { numRuns: PROPERTY_NUM_RUNS },
+    );
+  });
+
+  it("pathFilter preserves generated include and exclude prefixes", () => {
+    fc.assert(
+      fc.property(fc.boolean(), (useInclude) => {
+        const path = samplePath();
+        const prefix = pathPrefix(path);
+        const config = useInclude
+          ? pathFilter({ include: [prefix] })
+          : pathFilter({ exclude: [prefix] });
+
+        expect(config).toEqual(useInclude ? { include: [prefix] } : { exclude: [prefix] });
       }),
       { numRuns: PROPERTY_NUM_RUNS },
     );

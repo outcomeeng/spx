@@ -1,3 +1,5 @@
+import type { PathFilterConfig } from "@/config/primitives/path-filter";
+
 import type { IgnoreSourceReader } from "./ignore-source";
 
 export type LayerDecision = {
@@ -6,26 +8,16 @@ export type LayerDecision = {
   readonly detail?: string;
 };
 
-export type ArtifactDirectoryConfig = {
-  readonly artifactDirectories: readonly string[];
-};
-
-export type HiddenPrefixConfig = {
-  readonly hiddenPrefix: string;
-};
-
-export type IgnoreSourcePredicateConfig = {
+export type GitTrackingState = {
   readonly reader: IgnoreSourceReader;
 };
 
-export type ScopeResolverConfig = {
-  readonly artifactDirectories: readonly string[];
-  readonly hiddenPrefix: string;
-  readonly ignoreSourceFilename: string;
-  readonly specTreeRootSegment: string;
-};
+export type DomainPathFilterState = PathFilterConfig;
 
-export type LayerContext = {
+export type ScopeResolverConfig = Record<string, never>;
+
+export type ScopeResolverState = {
+  readonly request: ScopeRequest;
   readonly config: ScopeResolverConfig;
   readonly ignoreReader: IgnoreSourceReader;
 };
@@ -33,6 +25,8 @@ export type LayerContext = {
 export type ScopeRequest = {
   readonly explicit?: readonly string[];
   readonly walkRoot?: string;
+  readonly domainPathFilter?: PathFilterConfig;
+  readonly overrides?: IgnoreSourceOverrides;
 };
 
 export type ScopeEntry = {
@@ -47,7 +41,7 @@ export type ScopeResult = {
 
 export type LayerEntry<C = unknown> = {
   readonly predicate: (path: string, config: C) => LayerDecision;
-  readonly extractConfig: (ctx: LayerContext) => C;
+  readonly extractState: (state: ScopeResolverState) => C;
 };
 
 export type AdapterConfig = { readonly ignoreFlag: string };
@@ -55,3 +49,9 @@ export type AdapterConfig = { readonly ignoreFlag: string };
 export type ToolAdaptersConfig = Readonly<Partial<Record<string, AdapterConfig>>>;
 
 export type ToolAdapterFn = (scope: ScopeResult, config: AdapterConfig) => readonly string[];
+
+export type IgnoreSourceOverrides = {
+  readonly noIgnore: boolean;
+  readonly noIgnoreVcs: boolean;
+  readonly ignoreFile: string | undefined;
+};

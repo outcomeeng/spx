@@ -1,8 +1,6 @@
-import { join } from "node:path";
-
+import * as fc from "fast-check";
 import { describe, expect, it } from "vitest";
 
-import { ARTIFACT_DIRECTORIES_DEFAULT } from "@/lib/file-inclusion/predicates/artifact-directory";
 import {
   collectLiterals,
   DEFAULT_LITERAL_COLLECT_OPTIONS,
@@ -15,12 +13,12 @@ import {
 import {
   arbitraryDomainLiteral,
   arbitrarySourceFilePath,
-  literalEmptyConfig,
   literalModuleNamingFixtures,
   sampleLiteralPair,
   sampleLiteralTestValue,
 } from "@testing/generators/literal/literal";
-import { withLiteralFixtureEnv } from "@testing/harnesses/literal/harness";
+import { withGitWorktreeEnv } from "@testing/harnesses/git-worktree/git-worktree";
+import { buildStringDeclaration } from "@testing/harnesses/literal/snippets";
 
 import { collectFromSource } from "@testing/harnesses/literal-reuse/detection";
 
@@ -53,28 +51,35 @@ describe("ALWAYS: AST traversal descends only into fields the injected visitor-k
   });
 });
 
-describe("NEVER: descend into artifact directories", () => {
-  it.each(ARTIFACT_DIRECTORIES_DEFAULT)(
-    "skips files under %s regardless of their contents",
-    async (artifactDir) => {
-      await withLiteralFixtureEnv(literalEmptyConfig(), async (env) => {
-        const [artifactLiteral, activeLiteral] = sampleLiteralPair();
-        const activeRelativePath = sampleLiteralTestValue(arbitrarySourceFilePath());
-        const artifactRelativePath = join(artifactDir, "junk.ts");
+describe("ALWAYS: domain path filters narrow literal reuse indexing", () => {
+  it("skips files excluded through pathConfig while indexing other git-visible files", async () => {
+    await withGitWorktreeEnv(async (env) => {
+      const [excludedLiteral, activeLiteral] = sampleLiteralPair();
+      const generatedPaths = sampleLiteralTestValue(
+        fc.uniqueArray(arbitrarySourceFilePath(), { minLength: 2, maxLength: 2 }),
+      );
+      const excludedRelativePath = generatedPaths[0];
+      const activeRelativePath = generatedPaths[1];
+      if (excludedRelativePath === undefined || activeRelativePath === undefined) {
+        throw new Error("literal detection compliance: source path generator returned too few paths");
+      }
 
-        await env.writeSourceFile(artifactRelativePath, artifactLiteral);
-        await env.writeSourceFile(activeRelativePath, activeLiteral);
+      await env.writeTracked(excludedRelativePath, buildStringDeclaration(excludedLiteral));
+      await env.writeTracked(activeRelativePath, buildStringDeclaration(activeLiteral));
 
-        const result = await validateLiteralReuse({ productDir: env.productDir });
-
-        const indexedValues = new Set<string>();
-        for (const occurrences of result.indexedOccurrencesByFile.values()) {
-          for (const occurrence of occurrences) indexedValues.add(occurrence.value);
-        }
-        expect(indexedValues.has(artifactLiteral)).toBe(false);
+      const result = await validateLiteralReuse({
+        productDir: env.productDir,
+        pathConfig: { exclude: [excludedRelativePath] },
       });
-    },
-  );
+
+      const indexedValues = new Set<string>();
+      for (const occurrences of result.indexedOccurrencesByFile.values()) {
+        for (const occurrence of occurrences) indexedValues.add(occurrence.value);
+      }
+      expect(indexedValues.has(excludedLiteral)).toBe(false);
+      expect(indexedValues.has(activeLiteral)).toBe(true);
+    });
+  });
 });
 
 describe("NEVER: index literals from module-naming positions", () => {

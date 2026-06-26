@@ -27,5 +27,5 @@ CAN operate on a deterministic, order-independent, injectively-keyed problem set
 ### Compliance
 
 - ALWAYS: AST traversal descends only into fields the injected visitor-keys map declares for each node type; unknown node types short-circuit with no descent ([test](tests/detection.compliance.l1.test.ts), [review](21-visitor-traversal.adr.md))
-- NEVER: descend into artifact directories — `node_modules`, `dist`, `build`, `.next`, `.source`, `.git`, `out`, `coverage` ([test](tests/detection.compliance.l1.test.ts))
+- NEVER: index files excluded by the resolved validation path scope ([test](tests/detection.compliance.l1.test.ts))
 - NEVER: index literals from positions that name a module — `ImportDeclaration.source`, `ExportNamedDeclaration.source`, `ExportAllDeclaration.source`, `ImportExpression.source`, `TSImportType.source`, `TSExternalModuleReference.expression` ([test](tests/detection.compliance.l1.test.ts))

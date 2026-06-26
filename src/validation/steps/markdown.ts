@@ -11,8 +11,7 @@
 import { existsSync, statSync } from "node:fs";
 import { basename, dirname, join, relative as pathRelative } from "node:path";
 
-import { createIgnoreSourceReader, IGNORE_SOURCE_FILENAME_DEFAULT } from "@/lib/file-inclusion/ignore-source";
-import { SPEC_TREE_CONFIG } from "@/lib/spec-tree/config";
+import { createNodeStatusExcludeReader } from "@/lib/node-status";
 import { normalizePathPrefix } from "@/validation/config/path-filter";
 
 // @ts-expect-error markdownlint-cli2 has no TypeScript type declarations
@@ -215,11 +214,8 @@ export function resolveMarkdownValidationTarget(
  */
 export function getExcludeGlobs(projectRoot: string | undefined): string[] {
   if (projectRoot === undefined) return [];
-  const reader = createIgnoreSourceReader(projectRoot, {
-    ignoreSourceFilename: IGNORE_SOURCE_FILENAME_DEFAULT,
-    specTreeRootSegment: SPEC_TREE_CONFIG.ROOT_DIRECTORY,
-  });
-  return reader.entries().map((entry) => `${entry.segment}/**`);
+  const reader = createNodeStatusExcludeReader(projectRoot);
+  return reader.entries().map((entry) => `${entry}/**`);
 }
 
 // =============================================================================
