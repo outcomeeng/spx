@@ -46,6 +46,7 @@ import { CONFIG_TEST_GENERATOR, sampleConfigTestValue } from "@testing/generator
 import {
   buildEvidenceEntry,
   createSource,
+  orderedDirectoryName,
   sampleNodeKind,
   sampleSpecTreeTestValue,
   SPEC_TREE_TEST_GENERATOR,
@@ -67,6 +68,37 @@ describe("spx spec status", () => {
       expect(output).toContain(KIND_REGISTRY[env.fixture.root.kind].label);
       expect(output).toContain(rootPath);
       expect(output).toContain(SPEC_TREE_NODE_STATE.DECLARED);
+    });
+  });
+
+  it("surfaces an untracked node-shaped directory alongside a tracked node without --update", async () => {
+    await withSpecTreeEnv(MINIMAL_SPEC_TREE_CONFIG, async (env) => {
+      await env.materialize();
+      const rootPath = formatNodePath(env.fixture.root.order, env.fixture.root.slug, env.fixture.root.kind);
+      // Track the materialized tree, then add a node-shaped directory left untracked,
+      // so the read path's visibility is tested against a genuine git-tracked boundary.
+      await runGit(env.productDir, [GIT_TEST_SUBCOMMANDS.INIT, GIT_TEST_FLAGS.QUIET]);
+      await runGit(env.productDir, [GIT_TEST_SUBCOMMANDS.ADD, SPEC_TREE_CONFIG.ROOT_DIRECTORY]);
+      let untrackedNodeDirectory = orderedDirectoryName(KIND_REGISTRY.enabler.suffix);
+      while (untrackedNodeDirectory === rootPath) {
+        untrackedNodeDirectory = orderedDirectoryName(KIND_REGISTRY.enabler.suffix);
+      }
+      await env.writeRaw(
+        [
+          SPEC_TREE_CONFIG.ROOT_DIRECTORY,
+          untrackedNodeDirectory,
+          SPEC_TREE_EVIDENCE_FILE.DIRECTORY_NAME,
+          sampleSpecTreeTestValue(SPEC_TREE_TEST_GENERATOR.evidenceFileName()),
+        ].join("/"),
+        "",
+      );
+
+      // No --update: the read path applies no git-tracked filter, so the untracked,
+      // node-shaped directory is reported alongside the tracked node.
+      const output = await statusCommand({ cwd: env.productDir });
+
+      expect(output).toContain(rootPath);
+      expect(output).toContain(untrackedNodeDirectory);
     });
   });
 

@@ -9,6 +9,7 @@ import {
   SPEC_TREE_ENTRY_TYPE,
   type SpecTreeEvidenceSourceEntry,
   type SpecTreeNode,
+  type SpecTreePathInclusionPredicate,
   type SpecTreeSnapshot,
 } from "@/lib/spec-tree";
 import { SPEC_TREE_CONFIG } from "@/lib/spec-tree/config";
@@ -38,6 +39,13 @@ export type NodeOutcomeResolver = (
 export interface UpdateNodeStatusOptions {
   readonly productDir: string;
   readonly resolveOutcome: NodeOutcomeResolver;
+  /**
+   * Restricts the spec-tree node set to git-tracked node directories. The
+   * command edge builds it from the injected git runner and passes it through;
+   * when omitted, the filesystem source's include-everything default applies so
+   * non-git fixtures and in-memory sources see every node.
+   */
+  readonly includePath?: SpecTreePathInclusionPredicate;
 }
 
 const NODE_STATUS_TEXT_ENCODING = "utf8";
@@ -47,8 +55,8 @@ const NODE_STATUS_TEXT_ENCODING = "utf8";
  * to a co-located `spx.status.json`. This is the only path that writes the file.
  */
 export async function updateNodeStatus(options: UpdateNodeStatusOptions): Promise<void> {
-  const { productDir, resolveOutcome } = options;
-  const snapshot = await readSpecTree({ source: createFilesystemSpecTreeSource({ productDir }) });
+  const { productDir, resolveOutcome, includePath } = options;
+  const snapshot = await readSpecTree({ source: createFilesystemSpecTreeSource({ productDir, includePath }) });
   const ignoreReader = createIgnoreSourceReader(productDir, {
     ignoreSourceFilename: IGNORE_SOURCE_FILENAME_DEFAULT,
     specTreeRootSegment: SPEC_TREE_CONFIG.ROOT_DIRECTORY,

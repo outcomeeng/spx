@@ -3,7 +3,10 @@ import { join } from "node:path";
 
 import { describe, expect, it } from "vitest";
 
+import { defaultGitDependencies } from "@/git/root";
+import { createTrackedPathInclusion, listTrackedPaths } from "@/git/tracked-paths";
 import {
+  createNodeStatusFile,
   createNodeStatusProvider,
   NODE_STATUS_EVIDENCE_OUTCOME,
   NODE_STATUS_FIELD,
@@ -16,11 +19,15 @@ import {
   NODE_STATUS_PROJECTION_WORKFLOW_PATHS,
   parseNodeStatusProjectionWorkflowSteps,
   readNodeStatus,
+  serializeNodeStatus,
   updateNodeStatus,
 } from "@/lib/node-status";
 import { createFilesystemSpecTreeSource, readSpecTree } from "@/lib/spec-tree";
+import { KIND_REGISTRY, SPEC_TREE_CONFIG } from "@/lib/spec-tree/config";
 import { compareAsciiStrings, STATE_STORE_TEXT_ENCODING } from "@/lib/state-store";
 import { NODE_STATUS_TEST_GENERATOR, sampleNodeStatusValue } from "@testing/generators/node-status/node-status";
+import { orderedDirectoryName } from "@testing/generators/spec-tree/spec-tree";
+import { GIT_TEST_SUBCOMMANDS, runGit } from "@testing/harnesses/git-test-constants";
 import { withClassificationTree } from "@testing/harnesses/node-status/node-status";
 
 describe("node-status write authority", () => {
@@ -144,4 +151,41 @@ describe("node-status delegation to the outcome resolver", () => {
 function expectedOutcomeFor(facts: { readonly isExcluded: boolean; readonly testsPass: boolean }) {
   if (facts.isExcluded) return NODE_STATUS_EVIDENCE_OUTCOME.NOT_RUN;
   return facts.testsPass ? NODE_STATUS_EVIDENCE_OUTCOME.PASSED : NODE_STATUS_EVIDENCE_OUTCOME.FAILED;
+}
+
+describe("node-status tracked-tree write boundary", () => {
+  it("NEVER: --update writes into an untracked node-shaped directory; a stale status file there is removed", async () => {
+    const fixture = sampleNodeStatusValue(NODE_STATUS_TEST_GENERATOR.classificationTree());
+
+    await withClassificationTree(fixture, async ({ env, expectations, resolveOutcome }) => {
+      // Track the materialized spec tree in a real repo before introducing the stale
+      // directory, so the node-shaped stale directory is genuinely untracked.
+      await runGit(env.productDir, [GIT_TEST_SUBCOMMANDS.INIT]);
+      await runGit(env.productDir, [GIT_TEST_SUBCOMMANDS.ADD, SPEC_TREE_CONFIG.ROOT_DIRECTORY]);
+
+      // A node-shaped directory left behind by a removed node: never tracked, still
+      // carrying a leftover status file from a prior --update run.
+      const staleNodeId = distinctNodeDirectoryName(expectations.map((expectation) => expectation.nodeId));
+      const staleStatusPath = `${SPEC_TREE_CONFIG.ROOT_DIRECTORY}/${staleNodeId}/${NODE_STATUS_FILENAME}`;
+      await env.writeRaw(staleStatusPath, serializeNodeStatus(createNodeStatusFile({})));
+
+      const includePath = createTrackedPathInclusion(await listTrackedPaths(env.productDir, defaultGitDependencies));
+      await updateNodeStatus({ productDir: env.productDir, resolveOutcome, includePath });
+
+      // The untracked stale directory's leftover status file is swept; every tracked node keeps its own.
+      await expect(env.readFile(staleStatusPath)).rejects.toThrow();
+      for (const expectation of expectations) {
+        const recorded = JSON.parse(await env.readFile(expectation.statusPath));
+        expect(recorded).toEqual(expectation.expectedStatusFile);
+      }
+    });
+  });
+});
+
+function distinctNodeDirectoryName(taken: readonly string[]): string {
+  let candidate = orderedDirectoryName(KIND_REGISTRY.enabler.suffix);
+  while (taken.includes(candidate)) {
+    candidate = orderedDirectoryName(KIND_REGISTRY.enabler.suffix);
+  }
+  return candidate;
 }
