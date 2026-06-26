@@ -4,7 +4,6 @@ import {
   JOURNAL_CLI_ENV,
   JOURNAL_CLI_EXIT_CODE,
   journalAppendCommand,
-  type JournalCliResult,
   journalOpenCommand,
   journalReadCommand,
   journalRenderCommand,
@@ -12,7 +11,7 @@ import {
   type JournalStreamBinding,
 } from "@/commands/journal/cli";
 import type { JournalStreamSink } from "@/commands/journal/runtime";
-import type { Result } from "@/config/types";
+import type { CliCommandResult, Result } from "@/config/types";
 import type { Domain } from "@/domains/types";
 import type { CliInvocation, CliIo } from "@/interfaces/cli/product-context";
 import type { JournalEvent } from "@/lib/agent-run-journal";
@@ -152,7 +151,7 @@ async function readStdinEventInput(): Promise<Result<unknown>> {
   }
 }
 
-function report(result: JournalCliResult, io: CliIo): void {
+function report(result: CliCommandResult, io: CliIo): void {
   const output = `${result.output}${STREAM_LINE_SEPARATOR}`;
   if (result.exitCode === JOURNAL_CLI_EXIT_CODE.OK) io.writeStdout(output);
   else io.writeStderr(output);

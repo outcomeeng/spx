@@ -1,6 +1,7 @@
 import { isAbsolute, win32 } from "node:path";
 
 import type { CliCommandResult } from "@/config/types";
+import { CONFIG_PROCESS_CWD } from "@/domains/config/cwd";
 import {
   createVerificationContextDocument,
   VERIFICATION_CONTEXT_PERSISTENCE,
@@ -74,7 +75,7 @@ interface VerificationContextCommandScope {
 }
 
 async function resolveCommandScope(deps: VerificationContextCliDeps): Promise<VerificationContextCommandScope> {
-  const cwd = deps.cwd ?? process.cwd();
+  const cwd = deps.cwd ?? CONFIG_PROCESS_CWD.read();
   const git = deps.git ?? defaultGitDependencies;
   const product = await detectGitCommonDirProductRoot(cwd, git);
   const processEnv = deps.processEnv ?? process.env;
