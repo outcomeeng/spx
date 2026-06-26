@@ -185,12 +185,14 @@ positional-path replacement.
 
 ---
 
-## Positional path arguments to replace `--files` flag
+## Positional verification path operands to replace `--files` flag
 
-All `spx validation <step>` subcommands currently accept `--files <paths...>` to
-scope which files are validated. The flag is redundant naming — paths are paths.
-ESLint, ruff, mypy, and cat all accept files and directories as positional
-arguments with no flag:
+`spx/29-verification-path-scope.pdr.md` establishes positional product path
+operands as the shared path-scope vocabulary for verification commands. All
+`spx validation <step>` subcommands currently accept `--files <paths...>` to
+scope which files are validated. The flag is redundant naming because paths are
+already the operands. ESLint, ruff, mypy, and cat all accept files and
+directories as positional arguments with no flag:
 
 ```bash
 eslint src/
@@ -220,6 +222,8 @@ validator's stage runner.
   directory input, only explicit file lists
 - Every leaf validator enabler (lint, type-check, ast-enforcement,
   circular-deps, literal-reuse, markdown)
+- `41-test.enabler` — already ships targeted positional operands; keep future
+  verification path-scope work aligned with its operand vocabulary
 
 **Related gap:** `17-file-inclusion.enabler` does not currently declare
 directory expansion behavior. When a directory is supplied, the resolver should
@@ -227,13 +231,14 @@ walk it and return all language-appropriate files (`.ts`/`.tsx` for TypeScript,
 `.py` for Python, etc.) as if they were supplied explicitly. This gap exists
 independently of the positional-args decision.
 
-**Decision needed:** PDR at `41-validation.enabler` level establishing
-positional paths as the convention for all validation subcommands, with
-`--files` deprecated or removed.
+**Decision:** `spx/29-verification-path-scope.pdr.md` establishes positional
+paths as the convention for verification path scope, with `--files` removed from
+validation rather than preserved as a parallel alias.
 
-**Constraint:** `32-literal-reuse.enabler` output-mode redesign (in-flight)
-retains `--files` as-is. Apply the positional-args change after the PDR is
-authored and as a separate pass across all affected nodes.
+**Constraint:** `32-literal-reuse.enabler` output-mode redesign must preserve
+the existing non-scope output flags (`--kind`, `--files-with-problems`,
+`--literals`, `--verbose`, `--json`) while replacing `--files` path scoping
+through a separate implementation pass across all affected nodes.
 
 **Scope:** follow-up work, not part of any in-flight cycle.
 

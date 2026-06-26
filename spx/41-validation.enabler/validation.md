@@ -11,7 +11,7 @@ CAN surface security, maintainability, and reliability issues before they reach 
 - Given a project with no violations, when `spx validation all` runs, then all steps pass and exit 0 ([test](tests/validation.integration.test.ts))
 - Given a project with a failing step, when `spx validation all` runs, then the pipeline reports the failure with step name and details ([test](tests/validation.integration.test.ts))
 - Given `--scope production`, when `spx validation all` runs, then only production-scoped checks execute ([test](tests/validation.integration.test.ts))
-- Given `--files path/to/file.ts`, when `spx validation all` runs, then checks target only the specified files ([test](tests/validation.integration.test.ts))
+- Given `path/to/file.ts` is supplied as a positional operand, when `spx validation all` runs, then checks target only the specified files ([test](tests/validation.integration.test.ts))
 - Given a step completes, when subsequent steps are still running, then the completed step's result is already visible in output ([test](tests/validation.integration.test.ts))
 
 ### Mappings
