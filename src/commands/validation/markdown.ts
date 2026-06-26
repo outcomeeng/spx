@@ -6,7 +6,7 @@
  * markdownlint-cli2 is a production dependency, always available.
  */
 
-import { relative } from "node:path";
+import { isAbsolute, join, relative } from "node:path";
 
 import { resolveConfig } from "@/config/index";
 import {
@@ -72,7 +72,7 @@ export async function markdownCommand(options: MarkdownCommandOptions): Promise<
   );
 
   const targetResolutions = files && files.length > 0
-    ? files.map((filePath) => resolveMarkdownValidationTarget(filePath))
+    ? files.map((filePath) => resolveMarkdownValidationTarget(markdownValidationOperandPath(cwd, filePath)))
     : undefined;
   const unfilteredTargets = targetResolutions === undefined
     ? getDefaultDirectories(cwd).map((path) => ({
@@ -111,6 +111,10 @@ export async function markdownCommand(options: MarkdownCommandOptions): Promise<
   const durationMs = Date.now() - startTime;
 
   return formatMarkdownResult(result, skippedOutput, quiet, durationMs);
+}
+
+function markdownValidationOperandPath(productDir: string, filePath: string): string {
+  return isAbsolute(filePath) ? filePath : join(productDir, filePath);
 }
 
 function formatSkippedFileScope(target: MarkdownSkippedValidationTarget): string {

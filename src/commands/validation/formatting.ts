@@ -18,6 +18,7 @@ import {
 } from "@/validation/config/descriptor";
 import {
   pathPassesValidationFilter,
+  trimTrailingPathSeparators,
   validationPathFilterExcludes,
   validationPathFilterForTool,
   validationPathFilterIntersections,
@@ -120,14 +121,6 @@ function normalizeFormattingPathOperand(productDir: string, relativePath: string
     return DPRINT_RECURSIVE_DIRECTORY_GLOB_SUFFIX.slice(1);
   }
   return `${normalizedDirectory}${DPRINT_RECURSIVE_DIRECTORY_GLOB_SUFFIX}`;
-}
-
-function trimTrailingPathSeparators(path: string): string {
-  let end = path.length;
-  while (end > 0 && path[end - 1] === "/") {
-    end -= 1;
-  }
-  return path.slice(0, end);
 }
 
 function formattingPathOperandsForValidationPathFilter(

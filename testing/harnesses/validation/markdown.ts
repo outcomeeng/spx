@@ -288,7 +288,7 @@ async function runE2eHelpScenario(): Promise<void> {
 }
 
 async function runE2eBrokenDirectoryScenario(): Promise<void> {
-  await withMarkdownTempProject(async ({ spxDir }) => {
+  await withMarkdownTempProject(async ({ path, spxDir }) => {
     await mkdir(spxDir, { recursive: true });
     await writeFile(
       join(spxDir, MARKDOWN_VALIDATION_DATA.brokenMarkdownFile),
@@ -298,7 +298,7 @@ async function runE2eBrokenDirectoryScenario(): Promise<void> {
     const result = await runValidationSubprocess([
       validationCliDefinition.subcommands.markdown.commandName,
       spxDir,
-    ]);
+    ], { cwd: path });
 
     expect(result.exitCode).toBe(MARKDOWN_VALIDATION_DATA.one);
     expect(result.stdout).toContain(MARKDOWN_VALIDATION_DATA.missingFileMarker);
@@ -306,26 +306,26 @@ async function runE2eBrokenDirectoryScenario(): Promise<void> {
 }
 
 async function runE2eValidDirectoryScenario(): Promise<void> {
-  await withMarkdownTempProject(async ({ spxDir }) => {
+  await withMarkdownTempProject(async ({ path, spxDir }) => {
     await writeValidMarkdownPair(spxDir);
 
     const result = await runValidationSubprocess([
       validationCliDefinition.subcommands.markdown.commandName,
       spxDir,
-    ]);
+    ], { cwd: path });
 
     expect(result.exitCode).toBe(MARKDOWN_VALIDATION_DATA.zero);
   });
 }
 
 async function runE2eDirectFileScenario(): Promise<void> {
-  await withMarkdownTempProject(async ({ spxDir }) => {
+  await withMarkdownTempProject(async ({ path, spxDir }) => {
     const sourceFile = await writeValidMarkdownPair(spxDir);
 
     const result = await runValidationSubprocess([
       validationCliDefinition.subcommands.markdown.commandName,
       sourceFile,
-    ]);
+    ], { cwd: path });
 
     expect(result.exitCode).toBe(MARKDOWN_VALIDATION_DATA.zero);
   });

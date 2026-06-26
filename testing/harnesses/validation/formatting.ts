@@ -64,6 +64,8 @@ export function runFormattingScenario(scenario: FormattingValidationScenario): P
       return runCliProcessScenario();
     case FORMATTING_SCENARIO_KIND.CLI_PROCESS_DIRECTORY_SCOPE:
       return runCliProcessDirectoryScopeScenario();
+    case FORMATTING_SCENARIO_KIND.CLI_PROCESS_INVOCATION_DIRECTORY_SCOPE:
+      return runCliProcessInvocationDirectoryScopeScenario();
     case FORMATTING_SCENARIO_KIND.CLI_PROCESS_DIRECTORY_INCLUDE_SCOPE:
       return runCliProcessDirectoryIncludeScopeScenario();
     case FORMATTING_SCENARIO_KIND.CLI_PROCESS_FILTERED_DIRECTORY_SCOPE:
@@ -129,6 +131,29 @@ async function runCliProcessDirectoryScopeScenario(): Promise<void> {
 
     expect(result.exitCode).toBe(FORMATTING_VALIDATION_DATA.failureExitCode);
     expect(result.stdout).toContain(FORMATTING_VALIDATION_DATA.typeScriptSourceFilename);
+  });
+}
+
+async function runCliProcessInvocationDirectoryScopeScenario(): Promise<void> {
+  await withFormattingFixture(FORMATTING_VALIDATION_DATA.formattableTypeScriptContent, async (fixture) => {
+    await initializeGitProductRoot(fixture.projectRoot);
+    const sourceDirectory = join(fixture.projectRoot, FORMATTING_VALIDATION_DATA.narrowedScopeDirectoryName);
+    await mkdir(sourceDirectory);
+    await writeFile(
+      join(fixture.projectRoot, FORMATTING_VALIDATION_DATA.narrowedScopeTypeScriptSourcePath),
+      FORMATTING_VALIDATION_DATA.unformattedTypeScriptContent,
+    );
+
+    const result = await runValidationSubprocess(
+      [
+        validationCliDefinition.subcommands.format.commandName,
+        FORMATTING_VALIDATION_DATA.typeScriptSourceFilename,
+      ],
+      { cwd: sourceDirectory },
+    );
+
+    expect(result.exitCode).toBe(FORMATTING_VALIDATION_DATA.failureExitCode);
+    expect(result.stdout).toContain(FORMATTING_VALIDATION_DATA.narrowedScopeTypeScriptSourcePath);
   });
 }
 
@@ -213,7 +238,7 @@ async function runCliProcessExcludedDirectoryScopeScenario(): Promise<void> {
     await mkdir(sourceDirectory);
     await writeFile(
       join(fixture.projectRoot, FORMATTING_VALIDATION_DATA.narrowedScopeTypeScriptSourcePath),
-      FORMATTING_VALIDATION_DATA.formattableTypeScriptContent,
+      FORMATTING_VALIDATION_DATA.unformattedTypeScriptContent,
     );
     const excludedDirectory = join(
       sourceDirectory,
@@ -246,8 +271,8 @@ async function runCliProcessExcludedDirectoryScopeScenario(): Promise<void> {
       { cwd: fixture.projectRoot },
     );
 
-    expect(result.exitCode).toBe(FORMATTING_VALIDATION_DATA.passExitCode);
-    expect(result.stdout).toContain(FORMATTING_COMMAND_OUTPUT.NO_ISSUES);
+    expect(result.exitCode).toBe(FORMATTING_VALIDATION_DATA.failureExitCode);
+    expect(result.stdout).toContain(FORMATTING_VALIDATION_DATA.narrowedScopeTypeScriptSourcePath);
     expect(result.stdout).not.toContain(FORMATTING_VALIDATION_DATA.excludedScopeTypeScriptSourcePath);
   });
 }
@@ -341,4 +366,8 @@ async function canonicalizeFixture(projectRoot: string, sourceFile: string): Pro
   await execFileAsync(DPRINT_COMMAND_NAME, [DPRINT_FORMAT_SUBCOMMAND, basename(sourceFile)], {
     cwd: projectRoot,
   });
+}
+
+async function initializeGitProductRoot(productRoot: string): Promise<void> {
+  await execFileAsync("git", ["init"], { cwd: productRoot });
 }

@@ -1,4 +1,6 @@
 import type { Command } from "commander";
+import { existsSync, realpathSync } from "node:fs";
+import { isAbsolute, relative, resolve, sep } from "node:path";
 
 import {
   allCommand,
@@ -58,6 +60,11 @@ interface ValidationCliDefinition {
     };
     readonly unknownLiteralProblemKind: {
       readonly messageLabel: string;
+      readonly exitCode: number;
+    };
+    readonly invalidPathOperand: {
+      readonly messageLabel: string;
+      readonly reason: string;
       readonly exitCode: number;
     };
   };
@@ -121,6 +128,11 @@ export const validationCliDefinition: ValidationCliDefinition = {
     },
     unknownLiteralProblemKind: {
       messageLabel: "unknown problem kind",
+      exitCode: 1,
+    },
+    invalidPathOperand: {
+      messageLabel: "invalid path operand",
+      reason: "escapes product directory",
       exitCode: 1,
     },
   },
@@ -230,8 +242,60 @@ function addCommonOptions(cmd: Command): Command {
     .option("--json", "Output results as JSON");
 }
 
-function normalizePathOperands(pathOperands: readonly string[]): string[] | undefined {
-  return pathOperands.length > 0 ? [...pathOperands] : undefined;
+function normalizeProductPathOperand(
+  productDir: string,
+  effectiveInvocationDir: string,
+  operand: string,
+): string | undefined {
+  const resolvedProductDir = canonicalExistingPath(resolve(productDir));
+  const absoluteOperand = canonicalExistingPath(resolve(effectiveInvocationDir, operand));
+  const relativeOperand = relative(resolvedProductDir, absoluteOperand);
+  if (relativeOperand === ".." || relativeOperand.startsWith(`..${sep}`) || isAbsolute(relativeOperand)) {
+    return undefined;
+  }
+  return relativeOperand.length > 0 ? relativeOperand.split("\\").join("/") : ".";
+}
+
+function canonicalExistingPath(path: string): string {
+  return existsSync(path) ? realpathSync.native(path) : path;
+}
+
+function normalizePathOperands(
+  productDir: string,
+  effectiveInvocationDir: string,
+  pathOperands: readonly string[],
+): string[] | undefined {
+  if (pathOperands.length === 0) return undefined;
+  const normalized: string[] = [];
+  for (const operand of pathOperands) {
+    const path = normalizeProductPathOperand(productDir, effectiveInvocationDir, operand);
+    if (path === undefined) return undefined;
+    normalized.push(path);
+  }
+  return normalized;
+}
+
+function resolveValidationPaths(invocation: CliInvocation, pathOperands: readonly string[]): {
+  readonly productDir: string;
+  readonly files: string[] | undefined;
+} {
+  const context = invocation.resolveProductContext();
+  const files = normalizePathOperands(context.productDir, context.effectiveInvocationDir, pathOperands);
+  if (pathOperands.length > 0 && files === undefined) {
+    const { invalidPathOperand } = validationCliDefinition.diagnostics;
+    const invalidOperand = pathOperands.find((operand) =>
+      normalizeProductPathOperand(context.productDir, context.effectiveInvocationDir, operand) === undefined
+    );
+    invocation.io.writeStderr(
+      `spx ${validationCliDefinition.domain.commandName}: ${invalidPathOperand.messageLabel}: `
+        + `${sanitizeCliArgument(invalidOperand)} (${invalidPathOperand.reason})\n`,
+    );
+    invocation.io.exit(invalidPathOperand.exitCode);
+  }
+  return {
+    productDir: context.productDir,
+    files,
+  };
 }
 
 function addValidationSubcommand(
@@ -254,15 +318,15 @@ function addValidationSubcommand(
  */
 function registerValidationCommands(validationCmd: Command, invocation: CliInvocation): void {
   const { subcommands } = validationCliDefinition;
-  const productDir = (): string => invocation.resolveProductContext().productDir;
 
   // typescript command
   const tsCmd = addValidationSubcommand(validationCmd, subcommands.typescript)
     .action(async (pathOperands: string[], options: CommonOptions) => {
+      const paths = resolveValidationPaths(invocation, pathOperands);
       const result = await typescriptCommand({
-        cwd: productDir(),
+        cwd: paths.productDir,
         scope: options.scope,
-        files: normalizePathOperands(pathOperands),
+        files: paths.files,
         quiet: options.quiet,
         json: options.json,
       });
@@ -274,10 +338,11 @@ function registerValidationCommands(validationCmd: Command, invocation: CliInvoc
   const lintCmd = addValidationSubcommand(validationCmd, subcommands.lint)
     .option("--fix", "Auto-fix issues")
     .action(async (pathOperands: string[], options: LintOptions) => {
+      const paths = resolveValidationPaths(invocation, pathOperands);
       const result = await lintCommand({
-        cwd: productDir(),
+        cwd: paths.productDir,
         scope: options.scope,
-        files: normalizePathOperands(pathOperands),
+        files: paths.files,
         fix: options.fix,
         quiet: options.quiet,
         json: options.json,
@@ -289,10 +354,11 @@ function registerValidationCommands(validationCmd: Command, invocation: CliInvoc
   // circular command
   const circularCmd = addValidationSubcommand(validationCmd, subcommands.circular)
     .action(async (pathOperands: string[], options: CommonOptions) => {
+      const paths = resolveValidationPaths(invocation, pathOperands);
       const result = await circularCommand({
-        cwd: productDir(),
+        cwd: paths.productDir,
         scope: options.scope,
-        files: normalizePathOperands(pathOperands),
+        files: paths.files,
         quiet: options.quiet,
         json: options.json,
       });
@@ -303,10 +369,11 @@ function registerValidationCommands(validationCmd: Command, invocation: CliInvoc
   // knip command
   const knipCmd = addValidationSubcommand(validationCmd, subcommands.knip)
     .action(async (pathOperands: string[], options: CommonOptions) => {
+      const paths = resolveValidationPaths(invocation, pathOperands);
       const result = await knipCommand({
-        cwd: productDir(),
+        cwd: paths.productDir,
         scope: options.scope,
-        files: normalizePathOperands(pathOperands),
+        files: paths.files,
         quiet: options.quiet,
         json: options.json,
       });
@@ -333,8 +400,9 @@ function registerValidationCommands(validationCmd: Command, invocation: CliInvoc
         + "in spx.config.* to skip during migration.",
     )
     .action(async (pathOperands: string[], options: LiteralOptions) => {
+      const paths = resolveValidationPaths(invocation, pathOperands);
       if (options.allowlistExisting) {
-        const result = await allowlistExisting({ productDir: productDir() });
+        const result = await allowlistExisting({ productDir: paths.productDir });
         emitValidationResult(result, invocation.io);
       }
       let kind: LiteralProblemKind | undefined;
@@ -349,8 +417,8 @@ function registerValidationCommands(validationCmd: Command, invocation: CliInvoc
         }
       }
       const result = await literalCommand({
-        cwd: productDir(),
-        files: normalizePathOperands(pathOperands),
+        cwd: paths.productDir,
+        files: paths.files,
         kind,
         filesWithProblems: options.filesWithProblems,
         literals: options.literals,
@@ -371,9 +439,10 @@ function registerValidationCommands(validationCmd: Command, invocation: CliInvoc
         + "to files that do not exist yet.",
     )
     .action(async (pathOperands: string[], options: CommonOptions) => {
+      const paths = resolveValidationPaths(invocation, pathOperands);
       const result = await markdownCommand({
-        cwd: productDir(),
-        files: normalizePathOperands(pathOperands),
+        cwd: paths.productDir,
+        files: paths.files,
         quiet: options.quiet,
       });
       emitValidationResult(result, invocation.io);
@@ -383,9 +452,10 @@ function registerValidationCommands(validationCmd: Command, invocation: CliInvoc
   // format command
   const formatCmd = addValidationSubcommand(validationCmd, subcommands.format)
     .action(async (pathOperands: string[], options: CommonOptions) => {
+      const paths = resolveValidationPaths(invocation, pathOperands);
       const result = await formattingCommand({
-        cwd: productDir(),
-        files: normalizePathOperands(pathOperands),
+        cwd: paths.productDir,
+        files: paths.files,
         quiet: options.quiet,
       });
       emitValidationResult(result, invocation.io);
@@ -398,10 +468,11 @@ function registerValidationCommands(validationCmd: Command, invocation: CliInvoc
     .option(allValidationCliOptions.skipCircular.flag, allValidationCliOptions.skipCircular.description)
     .option(allValidationCliOptions.skipLiteral.flag, allValidationCliOptions.skipLiteral.description)
     .action(async (pathOperands: string[], options: AllOptions) => {
+      const paths = resolveValidationPaths(invocation, pathOperands);
       const result = await allCommand({
-        cwd: productDir(),
+        cwd: paths.productDir,
         scope: options.scope,
-        files: normalizePathOperands(pathOperands),
+        files: paths.files,
         fix: options.fix,
         skipCircular: options.skipCircular,
         skipLiteral: options.skipLiteral,

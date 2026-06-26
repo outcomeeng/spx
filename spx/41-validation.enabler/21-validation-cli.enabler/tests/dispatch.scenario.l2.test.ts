@@ -56,6 +56,25 @@ describe("spx validation dispatch — observable scenarios", () => {
     });
   });
 
+  it("path operands that escape the product directory are rejected before validation runs", async () => {
+    await withEmptyValidationProject(async (productRoot) => {
+      const result = await runValidationSubprocess(
+        [
+          validationCliDefinition.subcommands.format.commandName,
+          VALIDATION_PIPELINE_DATA.escapingPathOperand,
+        ],
+        { cwd: productRoot },
+      );
+
+      expect(result.exitCode).toBe(validationCliDefinition.diagnostics.invalidPathOperand.exitCode);
+      expect(result.stdout).toBe(validationCliEmptyOutput());
+      expect(result.stderr).toContain(validationCliDefinition.diagnostics.invalidPathOperand.messageLabel);
+      expect(result.stderr).toContain(sanitizeCliArgument(VALIDATION_PIPELINE_DATA.escapingPathOperand));
+      expect(result.stderr).toContain(validationCliDefinition.diagnostics.invalidPathOperand.reason);
+      expect(result.stderr).not.toContain(VALIDATION_COMMAND_OUTPUT.FORMATTING_NO_ISSUES);
+    });
+  });
+
   it("unknown subcommand reaches the sanitized diagnostic path", async () => {
     const unknownStage = sampleLiteralTestValue(VALIDATION_CLI_GENERATOR.unknownSubcommand());
     const result = await runValidationSubprocess([unknownStage]);

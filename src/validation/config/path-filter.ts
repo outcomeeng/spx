@@ -38,7 +38,7 @@ function normalizePathPrefix(prefix: string): string {
   return normalized === "." ? "" : normalized;
 }
 
-function trimTrailingPathSeparators(path: string): string {
+export function trimTrailingPathSeparators(path: string): string {
   let end = path.length;
   while (end > 0 && path[end - 1] === PATH_PREFIX_SEPARATOR) {
     end -= 1;
