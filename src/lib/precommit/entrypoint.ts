@@ -12,6 +12,10 @@ export const PRECOMMIT_ENTRYPOINT = {
     sourceSuffix: "/main-checkout-gate.ts",
     argvFragment: "precommit/main-checkout-gate",
   },
+  DEPS_INSTALL_GATE: {
+    sourceSuffix: "/deps-install-gate.ts",
+    argvFragment: "precommit/deps-install-gate",
+  },
   INSTALL_HOOKS: {
     sourceSuffix: "/install-hooks.ts",
     argvFragment: "precommit/install-hooks",

@@ -33,6 +33,42 @@ pre-push:
     sonar-analyze:
       run: env -u GIT_DIR -u GIT_WORK_TREE -u GIT_INDEX_FILE -u GIT_PREFIX -u GIT_COMMON_DIR sonar analyze --base origin/main --project outcomeeng_spx --force
 
+# git fires post-checkout after git switch, git checkout, and git worktree add
+# with three arguments: the previous HEAD ref, the new HEAD ref, and a flag that
+# is 1 for a branch-or-HEAD checkout and 0 for a file checkout. Lefthook forwards
+# them as {1} {2} {3}. The deps-install gate
+# (src/lib/precommit/deps-install-gate.ts) routes the decision through the tested
+# resolveCheckoutFacts/depsInstallGateExitCode functions: it exits 0 to install
+# when a branch-or-HEAD checkout changed pnpm-lock.yaml, 78 to skip otherwise,
+# and any other non-zero status for gate failures. The gate runs through the
+# direct tsx binary rather than `pnpm exec` so that pnpm's verify-deps step does
+# not repair a stale node_modules before the gate decides — the very repair the
+# gate exists to make explicit. A worktree with no node_modules yet (a fresh
+# `git worktree add`) has no tsx to run, so it installs unconditionally. The
+# install runs in every worktree, because each resolves commands against its own
+# node_modules. CI=true keeps pnpm non-interactive.
+post-checkout:
+  commands:
+    install-deps:
+      run: |
+        env -u GIT_DIR -u GIT_WORK_TREE -u GIT_INDEX_FILE -u GIT_PREFIX -u GIT_COMMON_DIR sh -c '
+          gate_runner="./node_modules/.bin/tsx"
+          if [ ! -x "$gate_runner" ]; then
+            export CI=true
+            exec pnpm install --frozen-lockfile
+          fi
+          "$gate_runner" src/lib/precommit/deps-install-gate.ts "$1" "$2" "$3"
+          gate_status=$?
+          if [ "$gate_status" -eq 0 ]; then
+            export CI=true
+            pnpm install --frozen-lockfile
+          elif [ "$gate_status" -eq 78 ]; then
+            echo "install-deps: skipped (lockfile unchanged)"
+          else
+            exit "$gate_status"
+          fi
+        ' -- {1} {2} {3}
+
 post-merge:
   commands:
     # The main-checkout gate (src/lib/precommit/main-checkout-gate.ts) routes the
