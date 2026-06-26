@@ -6,7 +6,9 @@
       "spx/31-spec-domain.enabler/21-node-status.enabler/tests/node-status.compliance.l1.test.ts": "passed",
       "spx/31-spec-domain.enabler/21-node-status.enabler/tests/node-status.mapping.l1.test.ts": "passed",
       "spx/31-spec-domain.enabler/21-node-status.enabler/tests/node-status.property.l1.test.ts": "passed",
-      "spx/31-spec-domain.enabler/21-node-status.enabler/tests/node-status.scenario.l1.test.ts": "passed"
+      "spx/31-spec-domain.enabler/21-node-status.enabler/tests/node-status.scenario.l1.test.ts": "passed",
+      "spx/31-spec-domain.enabler/21-node-status.enabler/tests/tracked-path-inclusion.property.l1.test.ts": "passed",
+      "spx/31-spec-domain.enabler/21-node-status.enabler/tests/tracked-paths.mapping.l1.test.ts": "passed"
     }
   }
 }
