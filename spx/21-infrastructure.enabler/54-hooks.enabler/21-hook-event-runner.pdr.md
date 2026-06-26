@@ -28,9 +28,6 @@ surfaces remain focused on explicit operator actions.
    information to resolve them.
 3. `session-start` reports degraded responsibilities explicitly and does not
    block session startup because one responsibility degrades.
-4. `session-start` emits model-visible startup guidance on hook stdout, and on
-   the compact lifecycle source it emits a directive to re-establish spec-tree
-   foundation before resuming spec-governed work.
 
 ## Verification
 
