@@ -104,6 +104,7 @@ describe("spx validation dispatch — observable scenarios", () => {
     expect(result.stdout).toContain(literalValidationCliOptions.filesWithProblems.flag);
     expect(result.stdout).toContain(literalValidationCliOptions.literals.flag);
     expect(result.stdout).toContain(literalValidationCliOptions.verbose.flag);
+    expect(result.stdout).toContain(validationCliDefinition.pathOperands.optionalVariadic);
     expect(result.stdout).toContain(LITERAL_PROBLEM_KIND.REUSE);
     expect(result.stdout).toContain(LITERAL_PROBLEM_KIND.DUPE);
   });

@@ -13,7 +13,7 @@ import { LITERAL_TEST_GENERATOR, sampleLiteralTestValue } from "@testing/generat
 import { withLiteralFixtureEnv } from "@testing/harnesses/literal/harness";
 
 describe("output-modes — scenarios", () => {
-  it("--files scopes detection to only the named files and their contributed index", async () => {
+  it("positional path operands scope detection to only the named files and their contributed index", async () => {
     await withLiteralFixtureEnv({}, async (env) => {
       const inputs = sampleLiteralTestValue(LITERAL_TEST_GENERATOR.reuseFixtureInputs());
       await env.writeReuseFixture(inputs);

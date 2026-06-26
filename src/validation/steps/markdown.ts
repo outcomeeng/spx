@@ -22,7 +22,7 @@ import relativeLinksRule from "markdownlint-rule-relative-links";
 // CONSTANTS
 // =============================================================================
 
-/** Default directories to validate when no --files are specified. */
+/** Default directories to validate when no path operands are specified. */
 export const MARKDOWN_DEFAULT_DIRECTORY_NAMES = ["spx", "docs"] as const;
 export const MARKDOWN_PRIMARY_FILE_EXTENSION = ".md";
 const MARKDOWN_FILE_EXTENSIONS: ReadonlySet<string> = new Set([".md", ".markdown"]);

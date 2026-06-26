@@ -47,6 +47,10 @@ interface ValidationCliDefinition {
     readonly longFlag: string;
     readonly shortFlag: string;
   };
+  readonly pathOperands: {
+    readonly optionalVariadic: string;
+    readonly description: string;
+  };
   readonly diagnostics: {
     readonly unknownSubcommand: {
       readonly messageLabel: string;
@@ -105,6 +109,10 @@ export const validationCliDefinition: ValidationCliDefinition = {
     subcommand: "help",
     longFlag: "--help",
     shortFlag: "-h",
+  },
+  pathOperands: {
+    optionalVariadic: "[paths...]",
+    description: "Specific files/directories to validate",
   },
   diagnostics: {
     unknownSubcommand: {
@@ -175,7 +183,6 @@ export const validationOptionPrefix = validationCliDefinition.commanderHelpOpera
 /** Common options for all validation commands */
 interface CommonOptions {
   scope?: ValidationScope;
-  files?: string[];
   quiet?: boolean;
   json?: boolean;
 }
@@ -215,11 +222,16 @@ function emitValidationResult(result: ValidationCliResult, io: CliIo): never {
  * Add common options to a command
  */
 function addCommonOptions(cmd: Command): Command {
+  const { pathOperands } = validationCliDefinition;
   return cmd
+    .argument(pathOperands.optionalVariadic, pathOperands.description)
     .option("--scope <scope>", "Validation scope (full|production)", "full")
-    .option("--files <paths...>", "Specific files/directories to validate")
     .option("--quiet", "Suppress progress output")
     .option("--json", "Output results as JSON");
+}
+
+function normalizePathOperands(pathOperands: readonly string[]): string[] | undefined {
+  return pathOperands.length > 0 ? [...pathOperands] : undefined;
 }
 
 function addValidationSubcommand(
@@ -246,11 +258,11 @@ function registerValidationCommands(validationCmd: Command, invocation: CliInvoc
 
   // typescript command
   const tsCmd = addValidationSubcommand(validationCmd, subcommands.typescript)
-    .action(async (options: CommonOptions) => {
+    .action(async (pathOperands: string[], options: CommonOptions) => {
       const result = await typescriptCommand({
         cwd: productDir(),
         scope: options.scope,
-        files: options.files,
+        files: normalizePathOperands(pathOperands),
         quiet: options.quiet,
         json: options.json,
       });
@@ -261,11 +273,11 @@ function registerValidationCommands(validationCmd: Command, invocation: CliInvoc
   // lint command
   const lintCmd = addValidationSubcommand(validationCmd, subcommands.lint)
     .option("--fix", "Auto-fix issues")
-    .action(async (options: LintOptions) => {
+    .action(async (pathOperands: string[], options: LintOptions) => {
       const result = await lintCommand({
         cwd: productDir(),
         scope: options.scope,
-        files: options.files,
+        files: normalizePathOperands(pathOperands),
         fix: options.fix,
         quiet: options.quiet,
         json: options.json,
@@ -276,11 +288,11 @@ function registerValidationCommands(validationCmd: Command, invocation: CliInvoc
 
   // circular command
   const circularCmd = addValidationSubcommand(validationCmd, subcommands.circular)
-    .action(async (options: CommonOptions) => {
+    .action(async (pathOperands: string[], options: CommonOptions) => {
       const result = await circularCommand({
         cwd: productDir(),
         scope: options.scope,
-        files: options.files,
+        files: normalizePathOperands(pathOperands),
         quiet: options.quiet,
         json: options.json,
       });
@@ -290,11 +302,11 @@ function registerValidationCommands(validationCmd: Command, invocation: CliInvoc
 
   // knip command
   const knipCmd = addValidationSubcommand(validationCmd, subcommands.knip)
-    .action(async (options: CommonOptions) => {
+    .action(async (pathOperands: string[], options: CommonOptions) => {
       const result = await knipCommand({
         cwd: productDir(),
         scope: options.scope,
-        files: options.files,
+        files: normalizePathOperands(pathOperands),
         quiet: options.quiet,
         json: options.json,
       });
@@ -320,7 +332,7 @@ function registerValidationCommands(validationCmd: Command, invocation: CliInvoc
       "\nEnabled for TypeScript projects by default. Set validation.literal.enabled=false\n"
         + "in spx.config.* to skip during migration.",
     )
-    .action(async (options: LiteralOptions) => {
+    .action(async (pathOperands: string[], options: LiteralOptions) => {
       if (options.allowlistExisting) {
         const result = await allowlistExisting({ productDir: productDir() });
         emitValidationResult(result, invocation.io);
@@ -338,7 +350,7 @@ function registerValidationCommands(validationCmd: Command, invocation: CliInvoc
       }
       const result = await literalCommand({
         cwd: productDir(),
-        files: options.files,
+        files: normalizePathOperands(pathOperands),
         kind,
         filesWithProblems: options.filesWithProblems,
         literals: options.literals,
@@ -358,10 +370,10 @@ function registerValidationCommands(validationCmd: Command, invocation: CliInvoc
         + "skipped — use this for declared-state nodes whose [test] links point\n"
         + "to files that do not exist yet.",
     )
-    .action(async (options: CommonOptions) => {
+    .action(async (pathOperands: string[], options: CommonOptions) => {
       const result = await markdownCommand({
         cwd: productDir(),
-        files: options.files,
+        files: normalizePathOperands(pathOperands),
         quiet: options.quiet,
       });
       emitValidationResult(result, invocation.io);
@@ -370,10 +382,10 @@ function registerValidationCommands(validationCmd: Command, invocation: CliInvoc
 
   // format command
   const formatCmd = addValidationSubcommand(validationCmd, subcommands.format)
-    .action(async (options: CommonOptions) => {
+    .action(async (pathOperands: string[], options: CommonOptions) => {
       const result = await formattingCommand({
         cwd: productDir(),
-        files: options.files,
+        files: normalizePathOperands(pathOperands),
         quiet: options.quiet,
       });
       emitValidationResult(result, invocation.io);
@@ -385,11 +397,11 @@ function registerValidationCommands(validationCmd: Command, invocation: CliInvoc
     .option("--fix", "Auto-fix ESLint issues")
     .option(allValidationCliOptions.skipCircular.flag, allValidationCliOptions.skipCircular.description)
     .option(allValidationCliOptions.skipLiteral.flag, allValidationCliOptions.skipLiteral.description)
-    .action(async (options: AllOptions) => {
+    .action(async (pathOperands: string[], options: AllOptions) => {
       const result = await allCommand({
         cwd: productDir(),
         scope: options.scope,
-        files: options.files,
+        files: normalizePathOperands(pathOperands),
         fix: options.fix,
         skipCircular: options.skipCircular,
         skipLiteral: options.skipLiteral,

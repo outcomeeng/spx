@@ -20,7 +20,7 @@ export const VALIDATION_SKIP_LABELS = {
   DISABLED_BY_PREFIX: "disabled by",
   TYPESCRIPT_ABSENT_REASON: "TypeScript not detected in project",
   VALIDATION_PATHS_NO_TARGETS_REASON: "validation paths matched no files",
-  MARKDOWN_NO_SCOPE_REASON: "no markdown files in --files scope",
+  MARKDOWN_NO_SCOPE_REASON: "no markdown files in explicit path scope",
   MARKDOWN_NO_DEFAULT_DIRECTORIES_REASON: "no spx/ or docs/ directories found",
 } as const;
 

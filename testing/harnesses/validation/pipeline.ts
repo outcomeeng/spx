@@ -137,7 +137,7 @@ async function runFileScopeScenario(_scenario: ValidationPipelineScenario): Prom
       VALIDATION_PIPELINE_DATA.sourceDirectoryName,
       VALIDATION_PIPELINE_DATA.cleanSourceFileName,
     );
-    const result = await runAll(path, [VALIDATION_PIPELINE_DATA.filesFlag, targetFile]);
+    const result = await runAll(path, [targetFile]);
 
     expectStepSequence(result.stdout);
   });

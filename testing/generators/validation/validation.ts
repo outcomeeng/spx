@@ -257,7 +257,6 @@ export const VALIDATION_PIPELINE_DATA = {
   quietFlag: "--quiet",
   jsonFlag: "--json",
   scopeFlag: "--scope",
-  filesFlag: "--files",
   productionScope: "production",
   productionScopeFilePattern: PRODUCTION_SCOPE_FILE_PATTERN,
   scriptSourceDirectoryName: SCRIPT_SOURCE_DIRECTORY_NAME,
