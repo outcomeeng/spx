@@ -5,9 +5,11 @@ SPX exposes agent lifecycle hooks as a product-level event runner invoked as
 derived from the upstream agent lifecycle event they serve, consume the hook
 payload and hook runtime environment, and may coordinate multiple SPX domains
 without becoming commands in any one domain. `session-start` is the first
-required event: its first observable slice reports session and project identity,
-writes hook-runtime exports, and reports whether the worktree is held by the
-agent session.
+required event: it reports session and project identity, writes hook-runtime
+exports, reports whether the worktree is held by the agent session, and emits
+model-visible startup guidance on hook stdout — on the compact lifecycle source,
+a directive to re-establish spec-tree foundation before spec-governed work
+resumes.
 
 ## Rationale
 
@@ -26,6 +28,9 @@ surfaces remain focused on explicit operator actions.
    information to resolve them.
 3. `session-start` reports degraded responsibilities explicitly and does not
    block session startup because one responsibility degrades.
+4. `session-start` emits model-visible startup guidance on hook stdout, and on
+   the compact lifecycle source it emits a directive to re-establish spec-tree
+   foundation before resuming spec-governed work.
 
 ## Verification
 
@@ -42,5 +47,9 @@ surfaces remain focused on explicit operator actions.
 - ALWAYS: a failed `session-start` responsibility degrades by recording an
   explicit marker or diagnostic while allowing the hook invocation to complete
   successfully ([audit])
+- ALWAYS: the compact-source startup directive actionably re-establishes
+  spec-tree foundation — directing re-invocation of `/understand` then
+  `/contextualize` before spec-governed work resumes — and frames pre-compaction
+  skill text as historical rather than active ([audit])
 - NEVER: hook stdout carries diagnostics; stdout is reserved for hook-specific
   model-visible context ([audit])
