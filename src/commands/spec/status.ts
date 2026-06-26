@@ -1,6 +1,5 @@
 import { CONFIG_PROCESS_CWD } from "@/domains/config/cwd";
 import { defaultGitDependencies, type GitDependencies } from "@/git/root";
-import { createTrackedPathInclusion, listTrackedPaths } from "@/git/tracked-paths";
 import { createNodeStatusProvider, type NodeOutcomeResolver, updateNodeStatus } from "@/lib/node-status";
 import {
   createFilesystemSpecTreeSource,
@@ -106,12 +105,11 @@ export async function statusCommand(
   );
   if (options.update === true) {
     // --update refreshes each node's spx.status.json before the read-back below, so
-    // the reported rollup reflects the just-written state. The resolver is injected
-    // at the command edge; this handler composes no language runner. The write set is
-    // restricted to git-tracked node directories so a stale, untracked, node-shaped
-    // directory is neither written nor retained by the stale-file sweep.
-    const includePath = createTrackedPathInclusion(await listTrackedPaths(productDir, gitDependencies));
-    await updateNodeStatus({ productDir, resolveOutcome: options.resolveOutcomeFor(productDir), includePath });
+    // the reported rollup reflects the just-written state. The resolver and git runner
+    // are injected at the command edge; updateNodeStatus restricts writes to git-tracked
+    // node directories so a stale, untracked, node-shaped directory is neither written
+    // nor retained by the stale-file sweep.
+    await updateNodeStatus({ productDir, resolveOutcome: options.resolveOutcomeFor(productDir), gitDependencies });
   }
   // Read-back: a node's committed spx.status.json overrides live derivation; a node
   // with no status file yields undefined, routing the spec-tree library back to live

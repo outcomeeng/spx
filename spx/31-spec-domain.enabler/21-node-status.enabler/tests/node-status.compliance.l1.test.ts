@@ -3,8 +3,6 @@ import { join } from "node:path";
 
 import { describe, expect, it } from "vitest";
 
-import { defaultGitDependencies } from "@/git/root";
-import { createTrackedPathInclusion, listTrackedPaths } from "@/git/tracked-paths";
 import {
   createNodeStatusFile,
   createNodeStatusProvider,
@@ -22,11 +20,15 @@ import {
   serializeNodeStatus,
   updateNodeStatus,
 } from "@/lib/node-status";
-import { createFilesystemSpecTreeSource, readSpecTree } from "@/lib/spec-tree";
+import { createFilesystemSpecTreeSource, readSpecTree, SPEC_TREE_EVIDENCE_FILE } from "@/lib/spec-tree";
 import { KIND_REGISTRY, SPEC_TREE_CONFIG } from "@/lib/spec-tree/config";
 import { compareAsciiStrings, STATE_STORE_TEXT_ENCODING } from "@/lib/state-store";
 import { NODE_STATUS_TEST_GENERATOR, sampleNodeStatusValue } from "@testing/generators/node-status/node-status";
-import { orderedDirectoryName } from "@testing/generators/spec-tree/spec-tree";
+import {
+  orderedDirectoryName,
+  sampleSpecTreeTestValue,
+  SPEC_TREE_TEST_GENERATOR,
+} from "@testing/generators/spec-tree/spec-tree";
 import { GIT_TEST_SUBCOMMANDS, runGit } from "@testing/harnesses/git-test-constants";
 import { withClassificationTree } from "@testing/harnesses/node-status/node-status";
 
@@ -169,8 +171,7 @@ describe("node-status tracked-tree write boundary", () => {
       const staleStatusPath = `${SPEC_TREE_CONFIG.ROOT_DIRECTORY}/${staleNodeId}/${NODE_STATUS_FILENAME}`;
       await env.writeRaw(staleStatusPath, serializeNodeStatus(createNodeStatusFile({})));
 
-      const includePath = createTrackedPathInclusion(await listTrackedPaths(env.productDir, defaultGitDependencies));
-      await updateNodeStatus({ productDir: env.productDir, resolveOutcome, includePath });
+      await updateNodeStatus({ productDir: env.productDir, resolveOutcome });
 
       // The untracked stale directory's leftover status file is swept; every tracked node keeps its own.
       await expect(env.readFile(staleStatusPath)).rejects.toThrow();
@@ -178,6 +179,33 @@ describe("node-status tracked-tree write boundary", () => {
         const recorded = JSON.parse(await env.readFile(expectation.statusPath));
         expect(recorded).toEqual(expectation.expectedStatusFile);
       }
+    });
+  });
+
+  it("ALWAYS: --update records a tracked node's not-yet-staged evidence in its projection", async () => {
+    const fixture = sampleNodeStatusValue(NODE_STATUS_TEST_GENERATOR.classificationTree());
+
+    await withClassificationTree(fixture, async ({ env, expectations, resolveOutcome }) => {
+      // Track the materialized tree, then add a not-yet-staged evidence file inside an
+      // already-tracked node directory.
+      await runGit(env.productDir, [GIT_TEST_SUBCOMMANDS.INIT]);
+      await runGit(env.productDir, [GIT_TEST_SUBCOMMANDS.ADD, SPEC_TREE_CONFIG.ROOT_DIRECTORY]);
+
+      const trackedNode = expectations[0];
+      const untrackedEvidence = [
+        SPEC_TREE_CONFIG.ROOT_DIRECTORY,
+        trackedNode.nodeId,
+        SPEC_TREE_EVIDENCE_FILE.DIRECTORY_NAME,
+        sampleSpecTreeTestValue(SPEC_TREE_TEST_GENERATOR.evidenceFileName()),
+      ].join("/");
+      await env.writeRaw(untrackedEvidence, "");
+
+      await updateNodeStatus({ productDir: env.productDir, resolveOutcome });
+
+      // The tracked node directory is git-tracked, so its untracked evidence is recorded —
+      // the projection matches what CI regenerates once the evidence is committed.
+      const recorded = JSON.parse(await env.readFile(trackedNode.statusPath));
+      expect(Object.keys(recorded.verification.test ?? {})).toContain(untrackedEvidence);
     });
   });
 });

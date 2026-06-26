@@ -2,6 +2,8 @@ import type { Dirent } from "node:fs";
 import { mkdir, readdir, rm, writeFile } from "node:fs/promises";
 import { dirname, join } from "node:path";
 
+import { defaultGitDependencies, type GitDependencies } from "@/git/root";
+import { createTrackedPathInclusion, listTrackedPaths, TRACKED_PATH_DIRECTORY_SEPARATOR } from "@/git/tracked-paths";
 import { createIgnoreSourceReader, IGNORE_SOURCE_FILENAME_DEFAULT } from "@/lib/file-inclusion/ignore-source";
 import {
   createFilesystemSpecTreeSource,
@@ -9,7 +11,6 @@ import {
   SPEC_TREE_ENTRY_TYPE,
   type SpecTreeEvidenceSourceEntry,
   type SpecTreeNode,
-  type SpecTreePathInclusionPredicate,
   type SpecTreeSnapshot,
 } from "@/lib/spec-tree";
 import { SPEC_TREE_CONFIG } from "@/lib/spec-tree/config";
@@ -40,12 +41,12 @@ export interface UpdateNodeStatusOptions {
   readonly productDir: string;
   readonly resolveOutcome: NodeOutcomeResolver;
   /**
-   * Restricts the spec-tree node set to git-tracked node directories. The
-   * command edge builds it from the injected git runner and passes it through;
-   * when omitted, the filesystem source's include-everything default applies so
-   * non-git fixtures and in-memory sources see every node.
+   * Git runner used to resolve which node directories are git-tracked, so status
+   * is written only into tracked node directories. Defaults to the production
+   * runner; outside a git repository the query yields no scoping and every node
+   * directory is written, so non-git fixtures see every node.
    */
-  readonly includePath?: SpecTreePathInclusionPredicate;
+  readonly gitDependencies?: GitDependencies;
 }
 
 const NODE_STATUS_TEXT_ENCODING = "utf8";
@@ -55,16 +56,23 @@ const NODE_STATUS_TEXT_ENCODING = "utf8";
  * to a co-located `spx.status.json`. This is the only path that writes the file.
  */
 export async function updateNodeStatus(options: UpdateNodeStatusOptions): Promise<void> {
-  const { productDir, resolveOutcome, includePath } = options;
-  const snapshot = await readSpecTree({ source: createFilesystemSpecTreeSource({ productDir, includePath }) });
+  const { productDir, resolveOutcome, gitDependencies = defaultGitDependencies } = options;
+  const snapshot = await readSpecTree({ source: createFilesystemSpecTreeSource({ productDir }) });
   const ignoreReader = createIgnoreSourceReader(productDir, {
     ignoreSourceFilename: IGNORE_SOURCE_FILENAME_DEFAULT,
     specTreeRootSegment: SPEC_TREE_CONFIG.ROOT_DIRECTORY,
   });
+  // The boundary is the node directory: status is written only for a git-tracked
+  // node directory. A tracked node's own untracked, not-yet-staged evidence stays
+  // visible, so the projection matches what CI regenerates once it is committed.
+  const isTrackedNodeDirectory = createTrackedPathInclusion(await listTrackedPaths(productDir, gitDependencies));
   const evidenceByNode = collectEvidenceByNode(snapshot);
   const liveStatusPaths = new Set<string>();
 
   for (const node of snapshot.allNodes) {
+    if (!isTrackedNodeDirectory(`${SPEC_TREE_CONFIG.ROOT_DIRECTORY}${TRACKED_PATH_DIRECTORY_SEPARATOR}${node.id}`)) {
+      continue;
+    }
     const evidence = evidenceByNode.get(node.id) ?? [];
     const verification = await resolveVerification(node, {
       evidence,

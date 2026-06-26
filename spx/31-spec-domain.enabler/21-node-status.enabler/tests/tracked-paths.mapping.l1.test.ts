@@ -36,4 +36,12 @@ describe("listTrackedPaths", () => {
     const productDir = sampleSpecTreeTestValue(SPEC_TREE_TEST_GENERATOR.sourceSlug());
     expect(await listTrackedPaths(productDir, deps)).toBeUndefined();
   });
+
+  it("maps a git runner failure (git executable unavailable) to undefined", async () => {
+    const deps: GitDependencies = {
+      execa: () => Promise.reject(new Error(sampleSpecTreeTestValue(SPEC_TREE_TEST_GENERATOR.sourceSlug()))),
+    };
+    const productDir = sampleSpecTreeTestValue(SPEC_TREE_TEST_GENERATOR.sourceSlug());
+    expect(await listTrackedPaths(productDir, deps)).toBeUndefined();
+  });
 });
