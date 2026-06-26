@@ -1,10 +1,6 @@
 import type { ConfigDescriptor, Result } from "@/config/types";
-import { SPEC_TREE_CONFIG } from "@/lib/spec-tree/config";
 
 import { TOOL_DEFAULT_FLAGS } from "./adapters";
-import { IGNORE_SOURCE_FILENAME_DEFAULT } from "./ignore-source";
-import { ARTIFACT_DIRECTORIES_DEFAULT } from "./predicates/artifact-directory";
-import { HIDDEN_PREFIX_DEFAULT } from "./predicates/hidden-prefix";
 import type { ScopeResolverConfig, ToolAdaptersConfig } from "./types";
 
 export const FILE_INCLUSION_SECTION = "fileInclusion";
@@ -12,10 +8,6 @@ export const FILE_INCLUSION_SECTION = "fileInclusion";
 export const FILE_INCLUSION_CONFIG_FIELDS = {
   SCOPE: "scope",
   TOOLS: "tools",
-  ARTIFACT_DIRECTORIES: "artifactDirectories",
-  HIDDEN_PREFIX: "hiddenPrefix",
-  IGNORE_SOURCE_FILENAME: "ignoreSourceFilename",
-  SPEC_TREE_ROOT_SEGMENT: "specTreeRootSegment",
   IGNORE_FLAG: "ignoreFlag",
 } as const;
 
@@ -24,12 +16,7 @@ export type FileInclusionConfig = {
   readonly tools: ToolAdaptersConfig;
 };
 
-export const DEFAULT_SCOPE_CONFIG: ScopeResolverConfig = {
-  artifactDirectories: ARTIFACT_DIRECTORIES_DEFAULT,
-  hiddenPrefix: HIDDEN_PREFIX_DEFAULT,
-  ignoreSourceFilename: IGNORE_SOURCE_FILENAME_DEFAULT,
-  specTreeRootSegment: SPEC_TREE_CONFIG.ROOT_DIRECTORY,
-};
+export const DEFAULT_SCOPE_CONFIG: ScopeResolverConfig = {};
 
 export const DEFAULT_TOOLS_CONFIG: ToolAdaptersConfig = Object.fromEntries(
   Object.entries(TOOL_DEFAULT_FLAGS).map(([name, flag]) => [name, { ignoreFlag: flag }]),
@@ -55,17 +42,6 @@ function validateStringField(
   return { ok: true, value };
 }
 
-function validateStringArrayField(
-  section: string,
-  field: string,
-  value: unknown,
-): Result<readonly string[]> {
-  if (!Array.isArray(value) || value.some((entry) => typeof entry !== "string" || entry.length === 0)) {
-    return { ok: false, error: `${section}.${field} must be an array of non-empty strings` };
-  }
-  return { ok: true, value };
-}
-
 function rejectUnknownFields(
   section: string,
   value: Record<string, unknown>,
@@ -86,12 +62,7 @@ function validateScope(raw: unknown): Result<ScopeResolverConfig> {
     };
   }
 
-  const allowed = new Set<string>([
-    FILE_INCLUSION_CONFIG_FIELDS.ARTIFACT_DIRECTORIES,
-    FILE_INCLUSION_CONFIG_FIELDS.HIDDEN_PREFIX,
-    FILE_INCLUSION_CONFIG_FIELDS.IGNORE_SOURCE_FILENAME,
-    FILE_INCLUSION_CONFIG_FIELDS.SPEC_TREE_ROOT_SEGMENT,
-  ]);
+  const allowed = new Set<string>();
   const scopeUnknownFieldResult = rejectUnknownFields(
     `${FILE_INCLUSION_SECTION}.${FILE_INCLUSION_CONFIG_FIELDS.SCOPE}`,
     raw,
@@ -99,55 +70,7 @@ function validateScope(raw: unknown): Result<ScopeResolverConfig> {
   );
   if (!scopeUnknownFieldResult.ok) return scopeUnknownFieldResult;
 
-  const artifactDirectoriesRaw = raw[FILE_INCLUSION_CONFIG_FIELDS.ARTIFACT_DIRECTORIES];
-  const artifactDirectories = artifactDirectoriesRaw === undefined
-    ? { ok: true as const, value: DEFAULT_SCOPE_CONFIG.artifactDirectories }
-    : validateStringArrayField(
-      `${FILE_INCLUSION_SECTION}.${FILE_INCLUSION_CONFIG_FIELDS.SCOPE}`,
-      FILE_INCLUSION_CONFIG_FIELDS.ARTIFACT_DIRECTORIES,
-      artifactDirectoriesRaw,
-    );
-  if (!artifactDirectories.ok) return artifactDirectories;
-
-  const hiddenPrefixRaw = raw[FILE_INCLUSION_CONFIG_FIELDS.HIDDEN_PREFIX];
-  const hiddenPrefix = hiddenPrefixRaw === undefined
-    ? { ok: true as const, value: DEFAULT_SCOPE_CONFIG.hiddenPrefix }
-    : validateStringField(
-      `${FILE_INCLUSION_SECTION}.${FILE_INCLUSION_CONFIG_FIELDS.SCOPE}`,
-      FILE_INCLUSION_CONFIG_FIELDS.HIDDEN_PREFIX,
-      hiddenPrefixRaw,
-    );
-  if (!hiddenPrefix.ok) return hiddenPrefix;
-
-  const ignoreSourceFilenameRaw = raw[FILE_INCLUSION_CONFIG_FIELDS.IGNORE_SOURCE_FILENAME];
-  const ignoreSourceFilename = ignoreSourceFilenameRaw === undefined
-    ? { ok: true as const, value: DEFAULT_SCOPE_CONFIG.ignoreSourceFilename }
-    : validateStringField(
-      `${FILE_INCLUSION_SECTION}.${FILE_INCLUSION_CONFIG_FIELDS.SCOPE}`,
-      FILE_INCLUSION_CONFIG_FIELDS.IGNORE_SOURCE_FILENAME,
-      ignoreSourceFilenameRaw,
-    );
-  if (!ignoreSourceFilename.ok) return ignoreSourceFilename;
-
-  const specTreeRootSegmentRaw = raw[FILE_INCLUSION_CONFIG_FIELDS.SPEC_TREE_ROOT_SEGMENT];
-  const specTreeRootSegment = specTreeRootSegmentRaw === undefined
-    ? { ok: true as const, value: DEFAULT_SCOPE_CONFIG.specTreeRootSegment }
-    : validateStringField(
-      `${FILE_INCLUSION_SECTION}.${FILE_INCLUSION_CONFIG_FIELDS.SCOPE}`,
-      FILE_INCLUSION_CONFIG_FIELDS.SPEC_TREE_ROOT_SEGMENT,
-      specTreeRootSegmentRaw,
-    );
-  if (!specTreeRootSegment.ok) return specTreeRootSegment;
-
-  return {
-    ok: true,
-    value: {
-      artifactDirectories: artifactDirectories.value,
-      hiddenPrefix: hiddenPrefix.value,
-      ignoreSourceFilename: ignoreSourceFilename.value,
-      specTreeRootSegment: specTreeRootSegment.value,
-    },
-  };
+  return { ok: true, value: DEFAULT_SCOPE_CONFIG };
 }
 
 function validateTools(raw: unknown): Result<ToolAdaptersConfig> {

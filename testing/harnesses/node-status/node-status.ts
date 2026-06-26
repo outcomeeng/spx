@@ -1,9 +1,9 @@
-import { IGNORE_SOURCE_FILENAME_DEFAULT } from "@/lib/file-inclusion/ignore-source";
 import {
   classifyNodeStatus,
   createNodeStatusFile,
   createNodeStatusMechanismRecord,
   NODE_STATUS_EVIDENCE_OUTCOME,
+  NODE_STATUS_EXCLUDE_FILENAME,
   NODE_STATUS_FILENAME,
   NODE_STATUS_VERIFICATION_MECHANISM,
   type NodeStatusEvidenceOutcome,
@@ -89,7 +89,7 @@ export async function withClassificationTree(
     }
 
     if (excludedDirs.length > 0) {
-      await env.writeRaw(`${ROOT}/${IGNORE_SOURCE_FILENAME_DEFAULT}`, `${excludedDirs.join("\n")}\n`);
+      await env.writeRaw(`${ROOT}/${NODE_STATUS_EXCLUDE_FILENAME}`, `${excludedDirs.join("\n")}\n`);
     }
 
     const factsByNodeId = new Map(expectations.map((expectation) => [expectation.nodeId, expectation.facts]));

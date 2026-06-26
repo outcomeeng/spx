@@ -1,10 +1,9 @@
 import { join } from "node:path";
 
-import { createIgnoreSourceReader, IGNORE_SOURCE_FILENAME_DEFAULT } from "@/lib/file-inclusion/ignore-source";
 import type { SpecTreeEvidenceProvider, SpecTreeNodeSourceEntry } from "@/lib/spec-tree";
 import { SPEC_TREE_CONFIG, type SpecTreeNodeState } from "@/lib/spec-tree/config";
 import { classifyNodeStatus, hasNodeStatusVerificationReferences } from "./classify";
-import { isNodeStatusEntryExcluded } from "./exclude";
+import { createNodeStatusExcludeReader } from "./exclude";
 import { readNodeStatus } from "./read";
 
 /**
@@ -29,17 +28,14 @@ function nodeDirectory(productDir: string, node: SpecTreeNodeSourceEntry): strin
  * @param productDir - Absolute path to the product directory.
  */
 export function createNodeStatusProvider(productDir: string): SpecTreeEvidenceProvider {
-  const ignoreReader = createIgnoreSourceReader(productDir, {
-    ignoreSourceFilename: IGNORE_SOURCE_FILENAME_DEFAULT,
-    specTreeRootSegment: SPEC_TREE_CONFIG.ROOT_DIRECTORY,
-  });
+  const excludeReader = createNodeStatusExcludeReader(productDir);
   return {
     stateForNode(node: SpecTreeNodeSourceEntry): SpecTreeNodeState | undefined {
       const status = readNodeStatus(nodeDirectory(productDir, node));
       if (status === undefined) return undefined;
       return classifyNodeStatus({
         hasVerificationReferences: hasNodeStatusVerificationReferences(status.verification),
-        isExcluded: isNodeStatusEntryExcluded(ignoreReader, node),
+        isExcluded: excludeReader.isExcluded(node),
         verification: status.verification,
       });
     },

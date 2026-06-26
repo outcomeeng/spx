@@ -28,6 +28,12 @@ export {
   rollupNodeStatusMechanism,
   serializeNodeStatus,
 } from "./classify";
+export {
+  createNodeStatusExcludeReader,
+  isNodeStatusEntryExcluded,
+  NODE_STATUS_EXCLUDE_FILENAME,
+  type NodeStatusExcludeReader,
+} from "./exclude";
 export { createNodeStatusProvider } from "./provider";
 export { NODE_STATUS_FILENAME, parseNodeStatusFile, readNodeStatus } from "./read";
 export { type NodeOutcomeResolver, updateNodeStatus, type UpdateNodeStatusOptions } from "./update";

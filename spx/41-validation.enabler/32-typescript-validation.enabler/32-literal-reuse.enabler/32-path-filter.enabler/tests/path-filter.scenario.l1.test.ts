@@ -69,7 +69,6 @@ describe("path-filter — scenarios", () => {
       expect(indexedValues.has(literal)).toBe(true);
     });
   });
-
   it("directory operands are expanded before literal validation scans TypeScript files", async () => {
     await withLiteralFixtureEnv({}, async (env) => {
       const [literal] = sampleDistinctDomainLiterals(1);
@@ -104,6 +103,41 @@ describe("path-filter — scenarios", () => {
 
       expect(result.exitCode).toBe(LITERAL_EXIT_CODES.FINDINGS);
       expect(findings.srcReuse.some((finding) => finding.value === literal)).toBe(true);
+    });
+  });
+
+  it("gitignored files are not parsed or indexed", async () => {
+    await withLiteralFixtureEnv({}, async (env) => {
+      const [ignoredLiteral, activeLiteral] = sampleIndependentDomainLiterals(2);
+
+      await env.writeGitignore(".", "ignored/\n");
+      await env.writeSourceFile("ignored/file.ts", ignoredLiteral);
+      await env.writeSourceFile("src/active.ts", activeLiteral);
+
+      const result = await validateLiteralReuse({ productDir: env.productDir });
+
+      const indexedValues = new Set<string>();
+      for (const occurrences of result.indexedOccurrencesByFile.values()) {
+        for (const o of occurrences) indexedValues.add(o.value);
+      }
+      expect(indexedValues.has(ignoredLiteral)).toBe(false);
+      expect(indexedValues.has(activeLiteral)).toBe(true);
+    });
+  });
+
+  it("dot-prefixed product directories are parsed and indexed when git does not ignore them", async () => {
+    await withLiteralFixtureEnv({}, async (env) => {
+      const [literal] = sampleDistinctDomainLiterals(1);
+
+      await env.writeSourceFile(".github/workflows/check.ts", literal);
+
+      const result = await validateLiteralReuse({ productDir: env.productDir });
+
+      const indexedValues = new Set<string>();
+      for (const occurrences of result.indexedOccurrencesByFile.values()) {
+        for (const o of occurrences) indexedValues.add(o.value);
+      }
+      expect(indexedValues.has(literal)).toBe(true);
     });
   });
 });

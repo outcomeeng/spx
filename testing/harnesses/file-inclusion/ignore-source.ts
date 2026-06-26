@@ -1,69 +1,36 @@
-import type { Config, SpecTreeEnv } from "@testing/harnesses/spec-tree/spec-tree";
-
 import type { IgnoreSourceReaderConfig } from "@/lib/file-inclusion/ignore-source";
-import {
-  FILE_INCLUSION_IGNORE_SOURCE_GENERATOR,
-  sampleFileInclusionIgnoreSourceValue,
-} from "@testing/generators/file-inclusion/ignore-source";
+import { DEFAULT_IGNORE_SOURCE_OVERRIDES } from "@/lib/file-inclusion/ignore-source";
 
-export {
-  arbNestedNodeSegment,
-  arbNodeSegment,
-  arbSubpath,
-  PROPERTY_NUM_RUNS,
-} from "@testing/harnesses/spec-tree/generators";
+import { GIT_WORKTREE_TEST_GENERATOR, sampleGitWorktreeTestValue } from "@testing/generators/git-worktree/git-worktree";
 
-export function integrationConfig(): Config {
-  return sampleFileInclusionIgnoreSourceValue(FILE_INCLUSION_IGNORE_SOURCE_GENERATOR.integrationConfig());
+export { PROPERTY_NUM_RUNS } from "@testing/harnesses/spec-tree/generators";
+
+export function readerConfig(
+  overrides: IgnoreSourceReaderConfig["overrides"] = DEFAULT_IGNORE_SOURCE_OVERRIDES,
+): IgnoreSourceReaderConfig {
+  return { overrides };
 }
 
-export function readerConfig(): IgnoreSourceReaderConfig {
-  return sampleFileInclusionIgnoreSourceValue(FILE_INCLUSION_IGNORE_SOURCE_GENERATOR.readerConfig());
+export function trackedFilePath(): string {
+  return sampleGitWorktreeTestValue(GIT_WORKTREE_TEST_GENERATOR.trackedFilePath());
 }
 
-export function commentHeader(): string {
-  return sampleFileInclusionIgnoreSourceValue(FILE_INCLUSION_IGNORE_SOURCE_GENERATOR.commentHeader());
+export function untrackedFilePath(): string {
+  return sampleGitWorktreeTestValue(GIT_WORKTREE_TEST_GENERATOR.untrackedFilePath());
 }
 
-export function commentIndented(): string {
-  return sampleFileInclusionIgnoreSourceValue(FILE_INCLUSION_IGNORE_SOURCE_GENERATOR.commentIndented());
+export function ignoredPattern(): string {
+  return sampleGitWorktreeTestValue(GIT_WORKTREE_TEST_GENERATOR.gitignorePattern());
 }
 
-export function commentMiddle(): string {
-  return sampleFileInclusionIgnoreSourceValue(FILE_INCLUSION_IGNORE_SOURCE_GENERATOR.commentMiddle());
+export function fileContent(): string {
+  return sampleGitWorktreeTestValue(GIT_WORKTREE_TEST_GENERATOR.fileContent());
 }
 
-export function invalidExcludeEntries(): readonly string[] {
-  return sampleFileInclusionIgnoreSourceValue(FILE_INCLUSION_IGNORE_SOURCE_GENERATOR.invalidEntries());
+export function submodulePath(): string {
+  return sampleGitWorktreeTestValue(GIT_WORKTREE_TEST_GENERATOR.submodulePath());
 }
 
-export function arbitrarySegmentMax(): number {
-  return sampleFileInclusionIgnoreSourceValue(FILE_INCLUSION_IGNORE_SOURCE_GENERATOR.propertyLimits()).SEGMENT_MAX;
-}
-
-export function arbitraryQueryMax(): number {
-  return sampleFileInclusionIgnoreSourceValue(FILE_INCLUSION_IGNORE_SOURCE_GENERATOR.propertyLimits()).QUERY_MAX;
-}
-
-export function spxPath(segment: string, ...rest: string[]): string {
-  const rootSegment = sampleFileInclusionIgnoreSourceValue(FILE_INCLUSION_IGNORE_SOURCE_GENERATOR.rootSegment());
-  return [rootSegment, segment, ...rest].join("/");
-}
-
-export function excludeContents(lines: readonly string[]): string {
-  return lines.join("\n");
-}
-
-export async function writeExclude(env: SpecTreeEnv, lines: readonly string[]): Promise<void> {
-  await env.writeRaw(
-    sampleFileInclusionIgnoreSourceValue(FILE_INCLUSION_IGNORE_SOURCE_GENERATOR.excludeFilename()),
-    excludeContents(lines),
-  );
-}
-
-export async function writeExcludeRaw(env: SpecTreeEnv, contents: string): Promise<void> {
-  await env.writeRaw(
-    sampleFileInclusionIgnoreSourceValue(FILE_INCLUSION_IGNORE_SOURCE_GENERATOR.excludeFilename()),
-    contents,
-  );
+export function bogusGitDir(): string {
+  return sampleGitWorktreeTestValue(GIT_WORKTREE_TEST_GENERATOR.bogusGitDir());
 }

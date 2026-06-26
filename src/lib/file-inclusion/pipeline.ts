@@ -1,31 +1,32 @@
 import type { Dirent } from "node:fs";
-import { readdir } from "node:fs/promises";
+import { readdir, stat } from "node:fs/promises";
 import { join, relative, sep } from "node:path";
 
-import { createIgnoreSourceReader } from "./ignore-source";
+import { createIgnoreSourceReader, DEFAULT_IGNORE_SOURCE_OVERRIDES } from "./ignore-source";
 import type { IgnoreSourceReader } from "./ignore-source";
 import { LAYER_SEQUENCE } from "./layer-sequence";
 import type {
-  LayerContext,
   LayerDecision,
   LayerEntry,
   ScopeEntry,
   ScopeRequest,
   ScopeResolverConfig,
+  ScopeResolverState,
   ScopeResult,
 } from "./types";
 
 export type {
-  LayerContext,
   LayerDecision,
   LayerEntry,
   ScopeEntry,
   ScopeRequest,
   ScopeResolverConfig,
+  ScopeResolverState,
   ScopeResult,
 } from "./types";
 
 export const EXPLICIT_OVERRIDE_LAYER = "explicit-override" as const;
+export const GIT_INTERNAL_DIRECTORY = ".git";
 
 type LayerPair = {
   readonly entry: LayerEntry;
@@ -36,76 +37,101 @@ function isNodeError(err: unknown): err is NodeJS.ErrnoException {
   return err instanceof Error && "code" in err;
 }
 
-async function collectPaths(
-  absoluteDir: string,
-  projectRoot: string,
-  result: string[],
-  artifactDirs: ReadonlySet<string>,
-): Promise<void> {
-  let dirEntries: Dirent<string>[];
+async function isDirectory(absolutePath: string): Promise<boolean> {
   try {
-    dirEntries = await readdir(absoluteDir, { withFileTypes: true });
+    return (await stat(absolutePath)).isDirectory();
   } catch (err) {
     if (isNodeError(err) && (err.code === "ENOENT" || err.code === "ENOTDIR")) {
-      return;
+      return false;
     }
     throw err;
   }
+}
+
+async function readDirectoryEntries(absoluteDir: string): Promise<readonly Dirent<string>[]> {
+  try {
+    return await readdir(absoluteDir, { withFileTypes: true });
+  } catch (err) {
+    if (isNodeError(err) && (err.code === "ENOENT" || err.code === "ENOTDIR")) {
+      return [];
+    }
+    throw err;
+  }
+}
+
+function normalizeProductPath(productDir: string, absolutePath: string): string {
+  const rel = relative(productDir, absolutePath);
+  return sep === "/" ? rel : rel.split(sep).join("/");
+}
+
+function shouldWalkEntry(
+  entry: Dirent<string>,
+  relativePath: string,
+  ignoreReader: IgnoreSourceReader,
+  pruneGitOpaqueDirectories: boolean,
+): boolean {
+  if (entry.name === GIT_INTERNAL_DIRECTORY) return false;
+  if (!entry.isDirectory()) return true;
+  return !pruneGitOpaqueDirectories || ignoreReader.hasIncludedDescendant(relativePath);
+}
+
+async function collectPaths(
+  absoluteDir: string,
+  productDir: string,
+  result: string[],
+  ignoreReader: IgnoreSourceReader,
+  pruneGitOpaqueDirectories: boolean,
+): Promise<void> {
+  const dirEntries = await readDirectoryEntries(absoluteDir);
   for (const entry of dirEntries) {
+    const absolutePath = join(absoluteDir, entry.name);
+    const relativePath = normalizeProductPath(productDir, absolutePath);
+    if (!shouldWalkEntry(entry, relativePath, ignoreReader, pruneGitOpaqueDirectories)) continue;
     if (entry.isDirectory()) {
-      if (artifactDirs.has(entry.name)) continue;
-      const absolutePath = join(absoluteDir, entry.name);
-      await collectPaths(absolutePath, projectRoot, result, artifactDirs);
+      await collectPaths(absolutePath, productDir, result, ignoreReader, pruneGitOpaqueDirectories);
     } else if (entry.isFile()) {
-      const absolutePath = join(absoluteDir, entry.name);
-      const rel = relative(projectRoot, absolutePath);
-      result.push(sep === "/" ? rel : rel.split(sep).join("/"));
+      result.push(relativePath);
     }
   }
 }
 
 export async function resolveScope(
-  projectRoot: string,
+  productDir: string,
   request: ScopeRequest,
   config: ScopeResolverConfig,
 ): Promise<ScopeResult> {
-  const ignoreReader = createIgnoreSourceReader(projectRoot, {
-    ignoreSourceFilename: config.ignoreSourceFilename,
-    specTreeRootSegment: config.specTreeRootSegment,
+  const ignoreReader = createIgnoreSourceReader(productDir, {
+    overrides: request.overrides ?? DEFAULT_IGNORE_SOURCE_OVERRIDES,
   });
-  return runPipeline(LAYER_SEQUENCE, projectRoot, request, config, ignoreReader);
+  return runPipeline(LAYER_SEQUENCE, productDir, request, config, ignoreReader);
 }
 
 export async function runPipeline(
   sequence: readonly LayerEntry[],
-  projectRoot: string,
+  productDir: string,
   request: ScopeRequest,
   config: ScopeResolverConfig,
   ignoreReader: IgnoreSourceReader,
 ): Promise<ScopeResult> {
-  const layerCtx: LayerContext = { config, ignoreReader };
+  const resolverState: ScopeResolverState = { request, config, ignoreReader };
   const layerPairs: LayerPair[] = sequence.map((entry) => ({
     entry,
-    layerConfig: entry.extractConfig(layerCtx),
+    layerConfig: entry.extractState(resolverState),
   }));
 
   const included: ScopeEntry[] = [];
   const excluded: ScopeEntry[] = [];
 
   const explicitPaths = request.explicit ?? [];
-  const explicitPathSet = new Set<string>(explicitPaths);
+  const explicitPathSet = new Set<string>();
 
   for (const path of explicitPaths) {
-    included.push({
-      path,
-      decisionTrail: [{ matched: true, layer: EXPLICIT_OVERRIDE_LAYER }],
-    });
+    await addExplicitPath(path, productDir, ignoreReader, explicitPathSet, included);
   }
 
   if (request.walkRoot !== undefined) {
-    const artifactDirs = new Set(config.artifactDirectories);
     const allPaths: string[] = [];
-    await collectPaths(request.walkRoot, projectRoot, allPaths, artifactDirs);
+    await collectPaths(request.walkRoot, productDir, allPaths, ignoreReader, true);
 
     for (const path of allPaths) {
       if (explicitPathSet.has(path)) continue;
@@ -119,6 +145,32 @@ export async function runPipeline(
   }
 
   return { included, excluded };
+}
+
+async function addExplicitPath(
+  path: string,
+  productDir: string,
+  ignoreReader: IgnoreSourceReader,
+  explicitPathSet: Set<string>,
+  included: ScopeEntry[],
+): Promise<void> {
+  addExplicitEntry(path, explicitPathSet, included);
+  const absolutePath = join(productDir, path);
+  if (!await isDirectory(absolutePath)) return;
+  const descendantPaths: string[] = [];
+  await collectPaths(absolutePath, productDir, descendantPaths, ignoreReader, false);
+  for (const descendantPath of descendantPaths) {
+    addExplicitEntry(descendantPath, explicitPathSet, included);
+  }
+}
+
+function addExplicitEntry(path: string, explicitPathSet: Set<string>, included: ScopeEntry[]): void {
+  if (explicitPathSet.has(path)) return;
+  explicitPathSet.add(path);
+  included.push({
+    path,
+    decisionTrail: [{ matched: true, layer: EXPLICIT_OVERRIDE_LAYER }],
+  });
 }
 
 function classifyPath(path: string, layerPairs: readonly LayerPair[]): { excluded: boolean; entry: ScopeEntry } {

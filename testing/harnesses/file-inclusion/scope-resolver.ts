@@ -1,66 +1,92 @@
-import type { Config, SpecTreeEnv } from "@testing/harnesses/spec-tree/spec-tree";
+import type { Config } from "@testing/harnesses/spec-tree/spec-tree";
 
-import { IGNORE_SOURCE_FILENAME_DEFAULT } from "@/lib/file-inclusion/ignore-source";
-import type { IgnoreSourceReader } from "@/lib/file-inclusion/ignore-source";
-import type { LayerContext, ScopeResolverConfig } from "@/lib/file-inclusion/pipeline";
-import { ARTIFACT_DIRECTORIES_DEFAULT } from "@/lib/file-inclusion/predicates/artifact-directory";
-import { HIDDEN_PREFIX_DEFAULT } from "@/lib/file-inclusion/predicates/hidden-prefix";
+import { DEFAULT_IGNORE_SOURCE_OVERRIDES, EMPTY_IGNORE_READER } from "@/lib/file-inclusion/ignore-source";
+import type { ScopeResolverConfig, ScopeResolverState } from "@/lib/file-inclusion/pipeline";
 import { SPEC_TREE_CONFIG } from "@/lib/spec-tree/config";
-
-export const integrationConfig: Config = {
-  specTree: {
-    kinds: {
-      enabler: { category: "node", suffix: ".enabler" },
-      outcome: { category: "node", suffix: ".outcome" },
-      adr: { category: "decision", suffix: ".adr.md" },
-      pdr: { category: "decision", suffix: ".pdr.md" },
-    },
-  },
-};
-
-const spxRootSegment = SPEC_TREE_CONFIG.ROOT_DIRECTORY;
-const ignoreSourceFilename = IGNORE_SOURCE_FILENAME_DEFAULT;
-
-export const resolverConfig: ScopeResolverConfig = {
-  artifactDirectories: [...ARTIFACT_DIRECTORIES_DEFAULT],
-  hiddenPrefix: HIDDEN_PREFIX_DEFAULT,
-  ignoreSourceFilename,
-  specTreeRootSegment: spxRootSegment,
-};
-
-export const excludeRelativePath = `${spxRootSegment}/${ignoreSourceFilename}`;
-
-const firstArtifactDir = ARTIFACT_DIRECTORIES_DEFAULT[0];
-
-export const cleanFilePath = "src/index.ts";
-export const artifactFilePath = `${firstArtifactDir}/pkg/index.js`;
-export const hiddenFilePath = `src/${HIDDEN_PREFIX_DEFAULT}config.ts`;
-export const excludedNodeSegment = "21-excluded-sample.enabler";
-export const ignoredFilePath = `${spxRootSegment}/${excludedNodeSegment}/impl.ts`;
-// Matches both hidden-prefix (basename starts with HIDDEN_PREFIX_DEFAULT) and ignore-source (under an excluded node).
-// Does NOT use an artifact directory so it is collected during the walk.
-export const multiLayerFilePath = `${spxRootSegment}/${excludedNodeSegment}/${HIDDEN_PREFIX_DEFAULT}hidden-file.ts`;
-
-export const noopIgnoreReader: IgnoreSourceReader = {
-  isUnderIgnoreSource: () => false,
-  entries: () => [],
-  matchedEntry: () => undefined,
-};
-
-export function makeLayerContext(config: ScopeResolverConfig): LayerContext {
-  return { config, ignoreReader: noopIgnoreReader };
-}
+import { MINIMAL_SPEC_TREE_CONFIG } from "@testing/generators/config/config";
+import { GIT_WORKTREE_TEST_GENERATOR, sampleGitWorktreeTestValue } from "@testing/generators/git-worktree/git-worktree";
+import {
+  differentPrefixPath,
+  distinctUntrackedPaths,
+  nestedTrackedPath,
+  pathPrefix,
+} from "@testing/harnesses/file-inclusion/path-predicates";
+import type { GitWorktreeEnv } from "@testing/harnesses/git-worktree/git-worktree";
 
 export { PROPERTY_NUM_RUNS } from "@testing/harnesses/spec-tree/generators";
 
-export async function writeTestFiles(env: SpecTreeEnv): Promise<void> {
-  await env.writeRaw(cleanFilePath, "export const x = 1;");
-  await env.writeRaw(artifactFilePath, "module.exports = {};");
-  await env.writeRaw(hiddenFilePath, "export const hidden = true;");
-  await env.writeRaw(ignoredFilePath, "export const impl = {};");
-  await env.writeRaw(multiLayerFilePath, "export const multi = true;");
+export const integrationConfig: Config = MINIMAL_SPEC_TREE_CONFIG;
+
+export const resolverConfig: ScopeResolverConfig = {};
+
+export const specTreePath = `${SPEC_TREE_CONFIG.ROOT_DIRECTORY}/17-file-inclusion.enabler/file-inclusion.md`;
+
+export type ScopeResolverFixture = {
+  readonly trackedFilePath: string;
+  readonly untrackedFilePath: string;
+  readonly ignoredFilePath: string;
+  readonly domainExcludedPath: string;
+  readonly domainExcludePrefix: string;
+  readonly domainIncludedPath: string;
+  readonly domainIncludePrefix: string;
+  readonly domainIncludeMissPath: string;
+  readonly ignoredPattern: string;
+  readonly fileContent: string;
+};
+
+export function scopeResolverFixture(): ScopeResolverFixture {
+  const [tracked, domainExcludedPath, domainIncludedPath] = distinctPrefixedTrackedPaths(3);
+  const [untrackedPath] = distinctUntrackedPaths(1);
+  const ignoredPattern = sampleGitWorktreeTestValue(GIT_WORKTREE_TEST_GENERATOR.gitignorePattern());
+  return {
+    trackedFilePath: tracked,
+    untrackedFilePath: untrackedPath,
+    ignoredFilePath: ignoredPattern,
+    domainExcludedPath,
+    domainExcludePrefix: pathPrefix(domainExcludedPath),
+    domainIncludedPath,
+    domainIncludePrefix: pathPrefix(domainIncludedPath),
+    domainIncludeMissPath: differentPrefixPath(domainIncludedPath),
+    ignoredPattern,
+    fileContent: sampleGitWorktreeTestValue(GIT_WORKTREE_TEST_GENERATOR.fileContent()),
+  };
 }
 
-export async function writeExclude(env: SpecTreeEnv, segments: readonly string[]): Promise<void> {
-  await env.writeRaw(excludeRelativePath, segments.join("\n"));
+export function distinctPrefixedTrackedPaths(count: number): readonly string[] {
+  const paths = new Map<string, string>();
+  const maxAttempts = count * 50;
+  for (let attempt = 0; attempt < maxAttempts && paths.size < count; attempt += 1) {
+    const candidate = nestedTrackedPath();
+    paths.set(pathPrefix(candidate), candidate);
+  }
+  if (paths.size !== count) {
+    throw new Error("Unable to generate tracked paths with distinct prefixes");
+  }
+  return [...paths.values()];
+}
+
+export async function writeScopeResolverFixture(
+  env: GitWorktreeEnv,
+  fixture: ScopeResolverFixture,
+): Promise<void> {
+  await env.writeTracked(fixture.trackedFilePath, fixture.fileContent);
+  await env.writeTracked(fixture.domainExcludedPath, fixture.fileContent);
+  await env.writeTracked(fixture.domainIncludedPath, fixture.fileContent);
+  await env.writeUntracked(fixture.untrackedFilePath, fixture.fileContent);
+  await env.writeUntracked(fixture.domainIncludeMissPath, fixture.fileContent);
+  await env.writeGitignore(".", `${fixture.ignoredPattern}\n`);
+  await env.writeUntracked(fixture.ignoredFilePath, fixture.fileContent);
+}
+
+export function makeResolverState(
+  request: ScopeResolverState["request"] = {},
+): ScopeResolverState {
+  return {
+    config: resolverConfig,
+    ignoreReader: EMPTY_IGNORE_READER,
+    request: {
+      overrides: DEFAULT_IGNORE_SOURCE_OVERRIDES,
+      ...request,
+    },
+  };
 }

@@ -1,115 +1,154 @@
-import * as fc from "fast-check";
+import { mkdir, writeFile } from "node:fs/promises";
+import { dirname, join } from "node:path";
+
 import { describe, expect, it } from "vitest";
 
-import { createIgnoreSourceReader } from "@/lib/file-inclusion/ignore-source";
-import { withTestEnv } from "@testing/harnesses/spec-tree/spec-tree";
+import { createIgnoreSourceReader, GIT_MISSING_CONTEXT_MESSAGE } from "@/lib/file-inclusion/ignore-source";
+import { arbitraryPathSegment } from "@testing/generators/git-name/git-name";
+import { sampleGitWorktreeTestValue } from "@testing/generators/git-worktree/git-worktree";
+import { GIT_TEST_FLAGS, GIT_TEST_SUBCOMMANDS } from "@testing/harnesses/git-test-constants";
+import { withGitWorktreeEnv } from "@testing/harnesses/git-worktree/git-worktree";
+import { withTempDir } from "@testing/harnesses/with-temp-dir";
 
 import {
-  arbNestedNodeSegment,
-  arbNodeSegment,
-  arbSubpath,
-  commentHeader,
-  commentMiddle,
-  integrationConfig,
-  PROPERTY_NUM_RUNS,
+  bogusGitDir,
+  fileContent,
+  ignoredPattern,
   readerConfig,
-  spxPath,
-  writeExclude,
-  writeExcludeRaw,
+  submodulePath,
+  trackedFilePath,
+  untrackedFilePath,
 } from "@testing/harnesses/file-inclusion/ignore-source";
 
+const linkedWorktreeTempPrefix = "spx-linked-ignore-source-";
+
+async function writeUnderDirectory(root: string, relativePath: string, content: string): Promise<void> {
+  const target = join(root, relativePath);
+  await mkdir(dirname(target), { recursive: true });
+  await writeFile(target, content);
+}
+
 describe("ignore-source — scenarios", () => {
-  it("ignore-source file lists a node path and the reader reports a path under that node directory as under-ignore-source", async () => {
-    await fc.assert(
-      fc.asyncProperty(
-        fc.tuple(arbNodeSegment, arbNodeSegment).filter(([a, b]) => a !== b),
-        arbSubpath,
-        async ([listed, unlisted], sub) => {
-          await withTestEnv(integrationConfig(), async (env) => {
-            await writeExclude(env, [listed]);
+  it("reports tracked and untracked-not-ignored paths as included and gitignored paths as excluded", async () => {
+    await withGitWorktreeEnv(async (env) => {
+      const tracked = trackedFilePath();
+      const untracked = untrackedFilePath();
+      const ignored = ignoredPattern();
+      await env.writeTracked(tracked, fileContent());
+      await env.writeUntracked(untracked, fileContent());
+      await env.writeGitignore(".", ignored);
+      await env.writeUntracked(ignored, fileContent());
 
-            const reader = createIgnoreSourceReader(env.productDir, readerConfig());
+      const reader = createIgnoreSourceReader(env.productDir, readerConfig());
 
-            expect(reader.isUnderIgnoreSource(spxPath(listed, sub))).toBe(true);
-            expect(reader.isUnderIgnoreSource(spxPath(unlisted, sub))).toBe(false);
-          });
-        },
-      ),
-      { numRuns: PROPERTY_NUM_RUNS },
-    );
+      expect(reader.isInIncludedSet(tracked)).toBe(true);
+      expect(reader.isInIncludedSet(untracked)).toBe(true);
+      expect(reader.isInIncludedSet(ignored)).toBe(false);
+    });
   });
 
-  it("ignore-source file lists a nested node path and the reader reports a path under that nested node as under-ignore-source", async () => {
-    await fc.assert(
-      fc.asyncProperty(arbNestedNodeSegment, arbSubpath, async (nested, sub) => {
-        await withTestEnv(integrationConfig(), async (env) => {
-          await writeExclude(env, [nested]);
+  it("preserves path spelling for filenames ending with a space", async () => {
+    await withGitWorktreeEnv(async (env) => {
+      const spacedPath = `${trackedFilePath()} `;
+      await env.writeTracked(spacedPath, fileContent());
 
-          const reader = createIgnoreSourceReader(env.productDir, readerConfig());
+      const reader = createIgnoreSourceReader(env.productDir, readerConfig());
 
-          expect(reader.isUnderIgnoreSource(spxPath(nested, sub))).toBe(true);
-        });
-      }),
-      { numRuns: PROPERTY_NUM_RUNS },
-    );
+      expect(reader.isInIncludedSet(spacedPath)).toBe(true);
+    });
   });
 
-  it("ignore-source file with comments and blank lines parses so only non-comment, non-blank, whitespace-trimmed lines become entries", async () => {
-    await fc.assert(
-      fc.asyncProperty(
-        fc
-          .tuple(arbNodeSegment, arbNodeSegment, arbNodeSegment)
-          .filter(([a, b, c]) => a !== b && b !== c && a !== c),
-        arbSubpath,
-        async ([segA, segB, segC], sub) => {
-          await withTestEnv(integrationConfig(), async (env) => {
-            await writeExclude(env, [
-              commentHeader(),
-              "",
-              `  ${segA}  `,
-              "",
-              commentMiddle(),
-              segB,
-              "",
-            ]);
+  it("reports paths ignored by nested, info, and global git ignore sources as excluded", async () => {
+    await withGitWorktreeEnv(async (env) => {
+      const nestedDirectory = submodulePath();
+      const nestedPattern = ignoredPattern();
+      const nestedIgnored = `${nestedDirectory}/${nestedPattern}`;
+      const infoIgnored = ignoredPattern();
+      const globalIgnored = ignoredPattern();
+      await env.writeGitignore(nestedDirectory, nestedPattern);
+      await env.writeUntracked(nestedIgnored, fileContent());
+      await env.writeInfoExclude(`${infoIgnored}\n`);
+      await env.writeUntracked(infoIgnored, fileContent());
+      await env.configureGlobalExcludes(`${globalIgnored}\n`);
+      await env.writeUntracked(globalIgnored, fileContent());
 
-            const reader = createIgnoreSourceReader(env.productDir, readerConfig());
+      const reader = createIgnoreSourceReader(env.productDir, readerConfig());
 
-            expect(reader.isUnderIgnoreSource(spxPath(segA, sub))).toBe(true);
-            expect(reader.isUnderIgnoreSource(spxPath(segB, sub))).toBe(true);
-            expect(reader.isUnderIgnoreSource(spxPath(segC, sub))).toBe(false);
-          });
-        },
-      ),
-      { numRuns: PROPERTY_NUM_RUNS },
-    );
+      expect(reader.isInIncludedSet(nestedIgnored)).toBe(false);
+      expect(reader.isInIncludedSet(infoIgnored)).toBe(false);
+      expect(reader.isInIncludedSet(globalIgnored)).toBe(false);
+    });
   });
 
-  it("ignore-source file is absent and the reader reports every path as not-under-ignore-source", async () => {
-    await fc.assert(
-      fc.asyncProperty(arbNodeSegment, arbSubpath, async (segment, sub) => {
-        await withTestEnv(integrationConfig(), async (env) => {
-          const reader = createIgnoreSourceReader(env.productDir, readerConfig());
+  it("honors --no-ignore by including paths every git ignore source would otherwise exclude", async () => {
+    await withGitWorktreeEnv(async (env) => {
+      const ignored = ignoredPattern();
+      await env.writeGitignore(".", ignored);
+      await env.writeUntracked(ignored, fileContent());
 
-          expect(reader.isUnderIgnoreSource(spxPath(segment, sub))).toBe(false);
-        });
-      }),
-      { numRuns: PROPERTY_NUM_RUNS },
-    );
+      const reader = createIgnoreSourceReader(env.productDir, readerConfig({ noIgnore: true }));
+
+      expect(reader.isInIncludedSet(ignored)).toBe(true);
+    });
   });
 
-  it("ignore-source file exists but contains no entries after comment and blank stripping and the reader reports every path as not-under-ignore-source", async () => {
-    await fc.assert(
-      fc.asyncProperty(arbNodeSegment, arbSubpath, async (segment, sub) => {
-        await withTestEnv(integrationConfig(), async (env) => {
-          await writeExcludeRaw(env, "");
+  it("honors --ignore-file by excluding paths matching the supplied ignore file", async () => {
+    await withGitWorktreeEnv(async (env) => {
+      const ignored = ignoredPattern();
+      const ignoreFile = ignoredPattern();
+      await env.writeUntracked(ignored, fileContent());
+      await env.writeUntracked(ignoreFile, `${ignored}\n`);
 
-          const reader = createIgnoreSourceReader(env.productDir, readerConfig());
+      const reader = createIgnoreSourceReader(
+        env.productDir,
+        readerConfig({
+          ignoreFile: join(env.productDir, ignoreFile),
+        }),
+      );
 
-          expect(reader.isUnderIgnoreSource(spxPath(segment, sub))).toBe(false);
-        });
-      }),
-      { numRuns: PROPERTY_NUM_RUNS },
-    );
+      expect(reader.isInIncludedSet(ignored)).toBe(false);
+    });
+  });
+
+  it("excludes submodule contents from the included set", async () => {
+    await withGitWorktreeEnv(async (env) => {
+      const submodule = submodulePath();
+      const submoduleContent = trackedFilePath();
+      await env.addSubmodule(submodule);
+
+      const reader = createIgnoreSourceReader(env.productDir, readerConfig());
+
+      expect(reader.isInIncludedSet(`${submodule}/${submoduleContent}`)).toBe(false);
+    });
+  });
+
+  it("honors --no-ignore-vcs repo-local excludes from a linked worktree", async () => {
+    await withGitWorktreeEnv(async (env) => {
+      const ignored = ignoredPattern();
+      await env.writeInfoExclude(`${ignored}\n`);
+      await env.writeTracked(trackedFilePath(), fileContent());
+      await env.commit(sampleGitWorktreeTestValue(arbitraryPathSegment()));
+      await withTempDir(linkedWorktreeTempPrefix, async (linkedWorktreeDir) => {
+        await env.runGit([
+          GIT_TEST_SUBCOMMANDS.WORKTREE,
+          GIT_TEST_SUBCOMMANDS.ADD,
+          GIT_TEST_FLAGS.NEW_BRANCH,
+          sampleGitWorktreeTestValue(arbitraryPathSegment()),
+          linkedWorktreeDir,
+        ]);
+        await writeUnderDirectory(linkedWorktreeDir, ignored, fileContent());
+
+        const reader = createIgnoreSourceReader(linkedWorktreeDir, readerConfig({ noIgnoreVcs: true }));
+
+        expect(reader.isInIncludedSet(ignored)).toBe(false);
+      });
+    });
+  });
+
+  it("fails with an actionable error outside a git working tree", () => {
+    const productDir = bogusGitDir();
+
+    expect(() => createIgnoreSourceReader(productDir, readerConfig())).toThrow(productDir);
+    expect(() => createIgnoreSourceReader(productDir, readerConfig())).toThrow(GIT_MISSING_CONTEXT_MESSAGE);
   });
 });

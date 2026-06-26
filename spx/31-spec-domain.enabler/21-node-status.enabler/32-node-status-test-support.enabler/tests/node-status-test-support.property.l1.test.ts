@@ -1,9 +1,9 @@
 import * as fc from "fast-check";
 import { describe, expect, it } from "vitest";
 
-import { IGNORE_SOURCE_FILENAME_DEFAULT } from "@/lib/file-inclusion/ignore-source";
 import {
   NODE_STATUS_EVIDENCE_OUTCOME,
+  NODE_STATUS_EXCLUDE_FILENAME,
   NODE_STATUS_FIELD,
   NODE_STATUS_VERIFICATION_MECHANISM,
   type NodeStatusEvidenceOutcome,
@@ -63,7 +63,7 @@ describe("node-status test support", () => {
 
           if (excludedNodeIds.length > 0) {
             const excludeFile = await env.readFile(
-              `${SPEC_TREE_CONFIG.ROOT_DIRECTORY}/${IGNORE_SOURCE_FILENAME_DEFAULT}`,
+              `${SPEC_TREE_CONFIG.ROOT_DIRECTORY}/${NODE_STATUS_EXCLUDE_FILENAME}`,
             );
             expect(excludeFile.trim().split(/\n/u).sort((left, right) => left.localeCompare(right))).toEqual(
               excludedNodeIds,
