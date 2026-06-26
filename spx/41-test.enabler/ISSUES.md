@@ -117,19 +117,25 @@ TypeScript `spx test --agent` still uses the `pnpm exec vitest` adapter path
 until runner-adapter policy changes; package-script gates can hit the same
 dependency repair path.
 
-**Resolution:** decide a package-script verification policy for non-interactive
-agents: either keep using pnpm with a configured non-interactive install/hook
-policy, or document direct local-binary equivalents for gates that do not require
-pnpm script semantics. The policy must preserve the requested command's evidence
-without package-manager setup output taking over the run.
+**Resolution (decided):** the policy is to keep every worktree's dependencies
+installed, not to avoid pnpm. A worktree whose `node_modules` matches the
+lockfile runs `pnpm exec` and `pnpm run` gates cleanly — no dependency repair,
+no `prepare`/install-hooks cascade, no `ERR_PNPM_ABORTED_REMOVE_MODULES_DIR_NO_TTY`.
+The root cause was that pool worktrees drift stale: dependency install on a
+lockfile change fired only on `post-merge` and `post-rewrite` (pull/rebase), so a
+worktree parked at a new commit through `git switch` or `git worktree add` (which
+fire `post-checkout`) never re-installed. The post-checkout install gate
+`spx/21-infrastructure.enabler/43-precommit.enabler/60-deps-install-on-checkout.adr.md`
+closes that gap: every checkout that changes the lockfile re-installs in that
+worktree.
 
-**Tracking classification:** Tracked deferral, chosen by the operator for the
-broader package-manager setup issue during agent test-output feature work on
-June 17, 2026.
+**Tracking classification:** Resolved. Originally a tracked deferral chosen by the
+operator for the broader package-manager setup issue during agent test-output
+feature work on June 17, 2026.
 
-**Revisit condition:** fix before documenting agent package-script gates or
-requiring agents to run `pnpm run build`, `pnpm run test`, or `pnpm run
-publish:check` as their default verification entrypoints.
+**Evidence:** `spx/21-infrastructure.enabler/43-precommit.enabler/60-deps-install-on-checkout.adr.md`;
+`spx/21-infrastructure.enabler/43-precommit.enabler/precommit.md`; `lefthook.yml`
+`post-checkout` command; `src/lib/precommit/deps-install-gate.ts`.
 
 **Skills:** `spec-tree:contextualize`, `spec-tree:apply`,
 `typescript:code-typescript`, `typescript:test-typescript`,
