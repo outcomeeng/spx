@@ -47,7 +47,7 @@ describe("journal append streaming", () => {
       // emitted to the streaming surface as it advances
       expect(sink.emitted).toEqual([appended.value]);
 
-      // persisted to the bound backend
+      // persisted to the run journal
       const persisted = await renderJournalRun<readonly JournalEvent[]>(ref, (events) => [...events]);
       expect(persisted).toEqual({ ok: true, value: [appended.value] });
     });
