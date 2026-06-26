@@ -15,7 +15,7 @@ CAN inspect current node state and select the next non-passing node without hand
 - Given a node carries a committed `spx.status.json`, when `spx spec status` runs without `--update`, then it derives that node's lifecycle state from the recorded verification outcomes rather than live structural state, and executes no verification ([test](tests/spec-cli-commands.scenario.l1.test.ts))
 - Given an injected in-memory source is supplied with `update: true`, when `spx spec status` runs, then it rejects the request ([test](tests/spec-cli-commands.scenario.l1.test.ts))
 - Given a verification surface's recorded evidence for a node is stale, failing, or absent, when `spx spec status --update` runs, then it invokes that surface to obtain the node's outcomes before classifying and writing `spx.status.json` ([test](tests/spec-cli-commands.scenario.l1.test.ts))
-- Given a git repository whose `spx/` tree holds both a git-tracked node directory and an untracked, node-shaped directory, when `spx spec status` runs without `--update`, then both are reported as nodes — node visibility is structural and applies no git-tracked filter, so a newly authored, not-yet-tracked node appears; only `--update` restricts writes to git-tracked node directories ([test](tests/spec-cli-commands.scenario.l1.test.ts))
+- Given a git repository whose `spx/` tree holds both a git-tracked node directory and an untracked, node-shaped directory, when `spx spec status` runs without `--update`, then both are reported as nodes ([test](tests/spec-cli-commands.scenario.l1.test.ts))
 
 ### Compliance
 
