@@ -9,6 +9,16 @@ import type { Result } from "@/config/types";
 export const HOOK_SESSION_START_PAYLOAD = {
   CWD: "cwd",
   SESSION_ID: "session_id",
+  SOURCE: "source",
+} as const;
+
+// Agent lifecycle sources reported on the `session-start` payload. `compact`
+// follows a transcript compaction that resets the loaded spec-tree foundation.
+export const HOOK_SESSION_START_SOURCE = {
+  CLEAR: "clear",
+  COMPACT: "compact",
+  RESUME: "resume",
+  STARTUP: "startup",
 } as const;
 
 export const HOOK_SESSION_START_ENV = {
@@ -40,6 +50,7 @@ export type HookSessionStartEnv = { readonly [key: string]: string | undefined }
 export interface HookSessionStartPayload {
   readonly cwd?: string;
   readonly sessionId?: string;
+  readonly source?: string;
 }
 
 export interface HookSessionStartEnvRenderInput {
@@ -76,6 +87,7 @@ export function parseHookSessionStartPayload(content: string | undefined): Resul
     value: {
       cwd: nonEmptyString(record[HOOK_SESSION_START_PAYLOAD.CWD]),
       sessionId: nonEmptyString(record[HOOK_SESSION_START_PAYLOAD.SESSION_ID]),
+      source: nonEmptyString(record[HOOK_SESSION_START_PAYLOAD.SOURCE]),
     },
   };
 }
@@ -93,6 +105,22 @@ export function resolveHookSessionStartSessionId(
 
 export function resolveHookSessionStartProductDir(payload: HookSessionStartPayload, cwd: string): string {
   return payload.cwd ?? cwd;
+}
+
+const NO_STARTUP_DIRECTIVE = "";
+
+// Model-visible stdout the session-start hook emits after a transcript
+// compaction resets the loaded spec-tree foundation. Emitted only on the
+// compact source so a fresh startup is not interrupted.
+export const HOOK_COMPACT_FOUNDATION_DIRECTIVE = [
+  "Spec-tree foundation was reset by this compaction.",
+  "Before any spec-governed action, including resuming an in-flight PR, /apply, or /handoff, re-invoke /understand then /contextualize <node> before any gh/git archaeology or reading spec-governed source.",
+  "The pre-compaction skill text in this summary is a historical record, not a live tool.",
+].join("\n");
+
+/** Renders the model-visible session-start stdout for an agent lifecycle source. */
+export function renderSessionStartStdout(source: string | undefined): string {
+  return source === HOOK_SESSION_START_SOURCE.COMPACT ? HOOK_COMPACT_FOUNDATION_DIRECTIVE : NO_STARTUP_DIRECTIVE;
 }
 
 export function resolveHookSessionStartEnvFile(

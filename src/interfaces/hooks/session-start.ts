@@ -13,6 +13,7 @@ import {
   type HookSessionStartEnv,
   parseHookSessionStartPayload,
   renderHookSessionStartEnvFile,
+  renderSessionStartStdout,
   resolveHookSessionStartEnvFile,
   resolveHookSessionStartProductDir,
   resolveHookSessionStartSessionId,
@@ -65,7 +66,6 @@ const defaultHookEnvFileSystem: HookEnvFileSystem = {
 };
 
 const ERROR_DETAIL_SEPARATOR = ": ";
-const EMPTY_HOOK_STDOUT = "";
 
 /** Runs the `session-start` hook event without blocking startup on degraded responsibilities. */
 export async function runSessionStartHook(options: SessionStartHookOptions): Promise<Result<SessionStartHookResult>> {
@@ -110,7 +110,7 @@ export async function runSessionStartHook(options: SessionStartHookOptions): Pro
       diagnostics,
       envFileWritten,
       productDir,
-      stdout: EMPTY_HOOK_STDOUT,
+      stdout: renderSessionStartStdout(payload.source),
       ...(sessionId === undefined ? {} : { sessionId }),
     },
   };
