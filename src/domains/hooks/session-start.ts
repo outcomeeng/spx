@@ -114,7 +114,7 @@ const NO_STARTUP_DIRECTIVE = "";
 // compact source so a fresh startup is not interrupted.
 export const HOOK_COMPACT_FOUNDATION_DIRECTIVE = [
   "Spec-tree foundation was reset by this compaction.",
-  "Before any spec-governed action, including resuming an in-flight PR, /apply, or /handoff, re-invoke /understand then /contextualize <node> before any gh/git archaeology or reading spec-governed source.",
+  "Before any spec-governed action, including resuming an in-flight PR, /apply, or /handoff, re-invoke /understand then /contextualize on every spec node still in scope (not just the next one) before any gh/git archaeology or reading spec-governed source.",
   "The pre-compaction skill text in this summary is a historical record, not a live tool.",
 ].join("\n");
 
