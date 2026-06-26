@@ -32,4 +32,4 @@ scripts or forcing cross-domain hook work through one domain's command surface
   `spx worktree session-start` ([audit])
 - NEVER: `session-start` emits the foundation re-anchor directive on hook stdout
   for a lifecycle source other than `compact`
-  ([test](tests/session-start.compliance.l1.test.ts), [test](tests/hook-cli.compliance.l2.test.ts))
+  ([test](tests/session-start.compliance.l1.test.ts))
