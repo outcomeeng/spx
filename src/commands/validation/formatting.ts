@@ -115,11 +115,19 @@ function normalizeFormattingPathOperand(productDir: string, relativePath: string
   if (!existsSync(absolutePath) || !statSync(absolutePath).isDirectory()) {
     return relativePath;
   }
-  const normalizedDirectory = relativePath.replace(/\/+$/u, "");
+  const normalizedDirectory = trimTrailingPathSeparators(relativePath);
   if (normalizedDirectory.length === 0 || normalizedDirectory === ".") {
     return DPRINT_RECURSIVE_DIRECTORY_GLOB_SUFFIX.slice(1);
   }
   return `${normalizedDirectory}${DPRINT_RECURSIVE_DIRECTORY_GLOB_SUFFIX}`;
+}
+
+function trimTrailingPathSeparators(path: string): string {
+  let end = path.length;
+  while (end > 0 && path[end - 1] === "/") {
+    end -= 1;
+  }
+  return path.slice(0, end);
 }
 
 function formattingPathOperandsForValidationPathFilter(

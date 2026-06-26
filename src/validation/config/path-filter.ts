@@ -30,12 +30,20 @@ function hasEffectiveValidationPathMetadata(
 }
 
 function normalizePathPrefix(prefix: string): string {
-  const normalized = prefix
-    .split(/[\\/]/g)
-    .join(PATH_PREFIX_SEPARATOR)
-    .replace(/^\.\//, "")
-    .replace(/\/+$/, "");
+  const normalizedSeparators = prefix.split("\\").join(PATH_PREFIX_SEPARATOR);
+  const withoutLeadingDot = normalizedSeparators.startsWith(`.${PATH_PREFIX_SEPARATOR}`)
+    ? normalizedSeparators.slice(2)
+    : normalizedSeparators;
+  const normalized = trimTrailingPathSeparators(withoutLeadingDot);
   return normalized === "." ? "" : normalized;
+}
+
+function trimTrailingPathSeparators(path: string): string {
+  let end = path.length;
+  while (end > 0 && path[end - 1] === PATH_PREFIX_SEPARATOR) {
+    end -= 1;
+  }
+  return path.slice(0, end);
 }
 
 function pathMatchesPrefix(path: string, prefix: string): boolean {
@@ -169,11 +177,14 @@ export function applyValidationPathFilterToScope(
   const noMatchingIncludes = (hasEffectiveMetadata && filter.noMatchingIncludes)
     || (hasIncludeFilter && scopedDirectories.length === 0 && scopedFilePatterns.length === 0
       && includeFallbacksWithinScope.length === 0);
-  const directories = noMatchingIncludes
-    ? []
-    : scopedDirectories.length > 0
-    ? scopedDirectories
-    : includeFallbacksWithinScope;
+  let directories: string[];
+  if (noMatchingIncludes) {
+    directories = [];
+  } else if (scopedDirectories.length > 0) {
+    directories = scopedDirectories;
+  } else {
+    directories = includeFallbacksWithinScope;
+  }
   const filePatterns = scopedFilePatterns.length > 0 ? scopedFilePatterns : [...directories];
 
   return {
