@@ -51,12 +51,6 @@ export const MARKDOWN_VALIDATION_TARGET_DIAGNOSTICS = {
   MISSING_OR_UNRELATED_SCOPE: "not an existing directory or markdown file",
 } as const;
 
-/**
- * Pattern for parsing markdownlint-cli2 default formatter output.
- * Format: filename:line[:column] [severity] ruleName/ruleAlias description [detail] [context]
- */
-const ERROR_LINE_PATTERN = /^(.+?):(\d+)(?::\d+)?\s+(.+)$/;
-
 // =============================================================================
 // TYPES
 // =============================================================================
@@ -248,16 +242,62 @@ function parseErrorLine(line: string): MarkdownError | null {
   if (DATA_URI_PATTERN.test(line)) {
     return null;
   }
-  const match = ERROR_LINE_PATTERN.exec(line);
-  if (!match) {
-    return null;
-  }
-  const [, file, lineStr, detail] = match;
+  const parsed = parseMarkdownlintErrorLine(line);
+  if (parsed === null) return null;
   return {
-    file,
-    line: parseInt(lineStr, 10),
-    detail,
+    file: parsed.file,
+    line: Number.parseInt(parsed.line, 10),
+    detail: parsed.detail,
   };
+}
+
+function parseMarkdownlintErrorLine(line: string): {
+  readonly file: string;
+  readonly line: string;
+  readonly detail: string;
+} | null {
+  const fileSeparator = line.indexOf(":");
+  if (fileSeparator <= 0) return null;
+  const lineStart = fileSeparator + 1;
+  const lineEnd = scanDigits(line, lineStart);
+  if (lineEnd === lineStart) return null;
+  const detailStart = scanMarkdownlintColumnAndWhitespace(line, lineEnd);
+  if (detailStart === null || detailStart >= line.length) return null;
+  return {
+    file: line.slice(0, fileSeparator),
+    line: line.slice(lineStart, lineEnd),
+    detail: line.slice(detailStart),
+  };
+}
+
+function scanDigits(value: string, start: number): number {
+  let index = start;
+  while (index < value.length && isAsciiDigit(value[index] ?? "")) {
+    index += 1;
+  }
+  return index;
+}
+
+function scanMarkdownlintColumnAndWhitespace(value: string, start: number): number | null {
+  let index = start;
+  if (value[index] === ":") {
+    const columnStart = index + 1;
+    index = scanDigits(value, columnStart);
+    if (index === columnStart) return null;
+  }
+  if (!isAsciiWhitespace(value[index] ?? "")) return null;
+  while (index < value.length && isAsciiWhitespace(value[index] ?? "")) {
+    index += 1;
+  }
+  return index;
+}
+
+function isAsciiDigit(value: string): boolean {
+  return value >= "0" && value <= "9";
+}
+
+function isAsciiWhitespace(value: string): boolean {
+  return value === " " || value === "\t";
 }
 
 // =============================================================================
