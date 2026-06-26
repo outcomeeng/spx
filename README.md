@@ -170,8 +170,9 @@ A Lefthook **pre-push** hook runs `sonar analyze --base origin/main` so SonarQub
 
 The project uses GitHub Actions for continuous integration and publishing:
 
-- `ci.yml` — Runs validate, test, and build on Node 22 and 24 for every push to `main` and every pull request. Includes dependency review to block PRs introducing vulnerable dependencies.
-- `publish.yml` — Triggered by `v*` tags. Uses OIDC Trusted Publishing (no stored npm tokens) with Sigstore provenance attestation. Requires manual approval via the `npm-publish` GitHub Environment.
+- `deterministic-verification.yml` — Runs the deterministic verification suite (validation, circular dependencies, tests with the status projection, and packaged-CLI checks) as parallel jobs on Node 24 for every push to `main` and every pull request, skipping root instruction docs. Includes dependency review on pull requests to block PRs introducing vulnerable dependencies.
+- `agentic-verification.yml` — Runs agentic verification (audit and review) over each pull request.
+- `publish.yml` — Triggered by `v*` tags. Gates on `deterministic-verification.yml` and publishes its verified build via OIDC Trusted Publishing (no stored npm tokens) with Sigstore provenance attestation. Requires manual approval via the `npm-publish` GitHub Environment.
 - `scorecard.yml` — Weekly OpenSSF Scorecard assessment, results published to the GitHub Security tab.
 
 ### Publishing a Release

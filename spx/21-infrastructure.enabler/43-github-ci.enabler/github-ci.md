@@ -8,7 +8,7 @@ CAN run under names aligned with the verification taxonomy, keep full validation
 
 ### Compliance
 
-- ALWAYS: GitHub Actions workflow, job, and step names identify deterministic verification work with the taxonomy terms Validation and Testing; agentic verdict-mode workflows carry no spx-assigned verification-kind name ([audit])
+- ALWAYS: GitHub Actions verification workflows carry their verdict-mode name — Deterministic Verification for the validate-and-test lanes, Agentic Verification for the audit-and-review lanes — with the deterministic workflow's jobs and steps identifying validation and test work, and the agentic workflow carrying no spx-assigned verification-kind name ([audit])
 - ALWAYS: package build, package-content, release-tag, dependency security, and scorecard steps use non-verification names rather than generic "verify" labels ([audit])
 - ALWAYS: GitHub Actions integration for agentic verdict-mode runs — the Snapshot journal backend that publishes run projections to GitHub-native surfaces — is governed under this node, not inside the journal library or a consuming verdict-mode domain ([audit])
 - ALWAYS: GitHub integration consumes the agent-run journal only through its published backend port and projection contract, adding no run-state vocabulary of its own ([audit])

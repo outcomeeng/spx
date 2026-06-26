@@ -13,7 +13,7 @@
     "bin"
   ],
   "engines": {
-    "node": ">=22.13.0"
+    "node": ">=24.0.0"
   },
   "repository": {
     "type": "git",
@@ -70,7 +70,7 @@
   "devDependencies": {
     "@faker-js/faker": "^10.4.0",
     "@types/estree": "^1.0.8",
-    "@types/node": "^22.19.21",
+    "@types/node": "^24.13.2",
     "@types/react": "^19.2.17",
     "@vitest/coverage-v8": "^4.1.5",
     "dprint": "0.54.0",
