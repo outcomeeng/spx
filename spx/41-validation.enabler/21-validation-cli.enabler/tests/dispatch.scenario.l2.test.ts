@@ -1,3 +1,6 @@
+import { symlink } from "node:fs/promises";
+import { basename, dirname, join } from "node:path";
+
 import { describe, expect, it } from "vitest";
 
 import { LITERAL_PROBLEM_KIND, VALIDATION_COMMAND_OUTPUT } from "@/commands/validation";
@@ -7,7 +10,7 @@ import {
   validationCliDefinition,
 } from "@/interfaces/cli/validation";
 import { sanitizeCliArgument, SENTINEL_EMPTY } from "@/lib/sanitize-cli-argument";
-import { sampleLiteralTestValue } from "@testing/generators/literal/literal";
+import { LITERAL_TEST_GENERATOR, sampleLiteralTestValue } from "@testing/generators/literal/literal";
 import {
   VALIDATION_CLI_GENERATOR,
   VALIDATION_PIPELINE_DATA,
@@ -72,6 +75,26 @@ describe("spx validation dispatch — observable scenarios", () => {
       expect(result.stderr).toContain(sanitizeCliArgument(VALIDATION_PIPELINE_DATA.escapingPathOperand));
       expect(result.stderr).toContain(validationCliDefinition.diagnostics.invalidPathOperand.reason);
       expect(result.stderr).not.toContain(VALIDATION_COMMAND_OUTPUT.FORMATTING_NO_ISSUES);
+    });
+  });
+
+  it("non-existent in-product path operands resolve from a symlinked invocation directory", async () => {
+    await withEmptyValidationProject(async (productRoot) => {
+      const symlinkRoot = join(dirname(productRoot), `${basename(productRoot)}-link`);
+      const operand = sampleLiteralTestValue(LITERAL_TEST_GENERATOR.sourceFilePath());
+      await symlink(productRoot, symlinkRoot, "dir");
+
+      const result = await runValidationSubprocess(
+        [
+          validationCliDefinition.subcommands.format.commandName,
+          operand,
+        ],
+        { cwd: symlinkRoot },
+      );
+
+      expect(result.exitCode).not.toBe(validationCliDefinition.diagnostics.invalidPathOperand.exitCode);
+      expect(result.stderr).not.toContain(validationCliDefinition.diagnostics.invalidPathOperand.messageLabel);
+      expect(result.stderr).not.toContain(validationCliDefinition.diagnostics.invalidPathOperand.reason);
     });
   });
 

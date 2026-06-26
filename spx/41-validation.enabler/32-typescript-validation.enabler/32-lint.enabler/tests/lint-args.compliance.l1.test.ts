@@ -432,6 +432,111 @@ describe("ESLint command arguments", () => {
     );
   });
 
+  it("intersects explicit ESLint root directory operands with validation paths", async () => {
+    await withTestEnv(
+      {
+        [validationConfigDescriptor.section]: {
+          [VALIDATION_PATHS_SUBSECTION]: {
+            include: [VALIDATION_PIPELINE_DATA.sourceDirectoryName],
+            exclude: [
+              `${VALIDATION_PIPELINE_DATA.sourceDirectoryName}/${VALIDATION_PIPELINE_DATA.excludedSourceDirectoryName}`,
+            ],
+          },
+        },
+      },
+      async (env) => {
+        await env.writeRaw(
+          TSCONFIG_FILES.full,
+          JSON.stringify({ include: [VALIDATION_PIPELINE_DATA.productionScopeFilePattern] }),
+        );
+        await env.writeRaw(DEFAULT_ESLINT_CONFIG_FILE, "export default [];\n");
+        await env.writeRaw(
+          join(VALIDATION_PIPELINE_DATA.sourceDirectoryName, VALIDATION_PIPELINE_DATA.cleanSourceFileName),
+          "export const lintCommandProjectRoot = 1;\n",
+        );
+        await env.writeRaw(
+          join(...ESLINT_LOCAL_BIN_SEGMENTS),
+          "#!/bin/sh\nprintf '%s\\n' \"$@\" > eslint-args.txt\nexit 0\n",
+        );
+        await chmod(join(env.productDir, ...ESLINT_LOCAL_BIN_SEGMENTS), 0o755);
+
+        const result = await lintCommand({ cwd: env.productDir, files: ["."], quiet: true });
+
+        expect(result.exitCode).toBe(VALIDATION_EXIT_CODES.SUCCESS);
+        expect((await env.readFile("eslint-args.txt")).trim().split("\n")).toStrictEqual([
+          ESLINT_COMMAND_TOKENS.CONFIG_FLAG,
+          DEFAULT_ESLINT_CONFIG_FILE,
+          ESLINT_COMMAND_TOKENS.IGNORE_PATTERN_FLAG,
+          `${VALIDATION_PIPELINE_DATA.sourceDirectoryName}/${VALIDATION_PIPELINE_DATA.excludedSourceDirectoryName}`,
+          ESLINT_COMMAND_TOKENS.FILE_SEPARATOR,
+          VALIDATION_PIPELINE_DATA.sourceDirectoryName,
+        ]);
+      },
+    );
+  });
+
+  it("does not widen explicit ESLint directory operands to every validation include", async () => {
+    await withTestEnv(
+      {
+        [validationConfigDescriptor.section]: {
+          [VALIDATION_PATHS_SUBSECTION]: {
+            include: [
+              VALIDATION_PIPELINE_DATA.sourceDirectoryName,
+              VALIDATION_PIPELINE_DATA.secondarySourceDirectoryName,
+            ],
+            exclude: [
+              `${VALIDATION_PIPELINE_DATA.sourceDirectoryName}/${VALIDATION_PIPELINE_DATA.excludedSourceDirectoryName}`,
+            ],
+          },
+        },
+      },
+      async (env) => {
+        await env.writeRaw(
+          TSCONFIG_FILES.full,
+          JSON.stringify({
+            include: [
+              VALIDATION_PIPELINE_DATA.productionScopeFilePattern,
+              `${VALIDATION_PIPELINE_DATA.secondarySourceDirectoryName}/**/*.ts`,
+            ],
+          }),
+        );
+        await env.writeRaw(DEFAULT_ESLINT_CONFIG_FILE, "export default [];\n");
+        await env.writeRaw(
+          join(VALIDATION_PIPELINE_DATA.sourceDirectoryName, VALIDATION_PIPELINE_DATA.cleanSourceFileName),
+          "export const lintCommandProjectRoot = 1;\n",
+        );
+        await env.writeRaw(
+          join(
+            VALIDATION_PIPELINE_DATA.secondarySourceDirectoryName,
+            VALIDATION_PIPELINE_DATA.secondarySourceFileName,
+          ),
+          "export const widenedLintTarget = 1;\n",
+        );
+        await env.writeRaw(
+          join(...ESLINT_LOCAL_BIN_SEGMENTS),
+          "#!/bin/sh\nprintf '%s\\n' \"$@\" > eslint-args.txt\nexit 0\n",
+        );
+        await chmod(join(env.productDir, ...ESLINT_LOCAL_BIN_SEGMENTS), 0o755);
+
+        const result = await lintCommand({
+          cwd: env.productDir,
+          files: [VALIDATION_PIPELINE_DATA.sourceDirectoryName],
+          quiet: true,
+        });
+
+        expect(result.exitCode).toBe(VALIDATION_EXIT_CODES.SUCCESS);
+        expect((await env.readFile("eslint-args.txt")).trim().split("\n")).toStrictEqual([
+          ESLINT_COMMAND_TOKENS.CONFIG_FLAG,
+          DEFAULT_ESLINT_CONFIG_FILE,
+          ESLINT_COMMAND_TOKENS.IGNORE_PATTERN_FLAG,
+          `${VALIDATION_PIPELINE_DATA.sourceDirectoryName}/${VALIDATION_PIPELINE_DATA.excludedSourceDirectoryName}`,
+          ESLINT_COMMAND_TOKENS.FILE_SEPARATOR,
+          VALIDATION_PIPELINE_DATA.sourceDirectoryName,
+        ]);
+      },
+    );
+  });
+
   it("normalizes absolute ESLint file scope before validation path filtering", async () => {
     const sourceFilePath = sampleLiteralTestValue(LITERAL_TEST_GENERATOR.sourceFilePath());
     await withTestEnv(

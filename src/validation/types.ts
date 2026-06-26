@@ -91,6 +91,8 @@ export interface ValidationContext {
   enabledValidations: Partial<Record<string, boolean>>;
   /** Specific files to validate (if file-specific mode) */
   validatedFiles?: string[];
+  /** Ignore patterns to preserve validation-path excludes in file-specific mode */
+  validatedFileIgnorePatterns?: readonly string[];
   /** Whether running in file-specific mode */
   isFileSpecificMode: boolean;
   /** ESLint flat config file name, determined by language detection */

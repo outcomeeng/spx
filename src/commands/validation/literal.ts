@@ -1,5 +1,6 @@
 import {
   formatTypeScriptAbsentSkipMessage,
+  formatValidationPathsNoTargetsSkipMessage,
   VALIDATION_SKIP_LABELS,
   VALIDATION_STAGE_DISPLAY_NAMES,
 } from "@/commands/validation/messages";
@@ -12,6 +13,7 @@ import {
   type ValidationPathConfig,
 } from "@/validation/config/descriptor";
 import { validationPathFilterForTool } from "@/validation/config/path-filter";
+import { resolveTypeScriptValidationScope } from "@/validation/config/scope";
 import { detectTypeScript } from "@/validation/discovery/index";
 import { type LiteralConfig } from "@/validation/literal/config";
 import {
@@ -22,6 +24,7 @@ import {
   type ReuseFinding,
   validateLiteralReuse,
 } from "@/validation/literal/index";
+import { VALIDATION_SCOPES, type ValidationScope } from "@/validation/types";
 
 export const LITERAL_PROBLEM_KIND = {
   REUSE: "reuse",
@@ -45,6 +48,7 @@ export const VERBOSE_PROBLEM_LINE_PREFIX = "line ";
 
 export interface LiteralCommandOptions {
   readonly cwd: string;
+  readonly scope?: ValidationScope;
   readonly files?: readonly string[];
   readonly kind?: LiteralProblemKind;
   readonly filesWithProblems?: boolean;
@@ -71,6 +75,9 @@ export const LITERAL_EXIT_CODES = {
 const TYPESCRIPT_ABSENT_MESSAGE = formatTypeScriptAbsentSkipMessage(
   VALIDATION_STAGE_DISPLAY_NAMES.LITERAL,
 );
+const VALIDATION_PATHS_NO_TARGETS_MESSAGE = formatValidationPathsNoTargetsSkipMessage(
+  VALIDATION_STAGE_DISPLAY_NAMES.LITERAL,
+);
 export const LITERAL_DISABLED_MESSAGE =
   `⏭ ${VALIDATION_SKIP_LABELS.VERB} ${VALIDATION_STAGE_DISPLAY_NAMES.LITERAL} (${VALIDATION_SKIP_LABELS.DISABLED_BY_PREFIX} validation.literal.enabled)`;
 export const NO_PROBLEMS_MESSAGE = "Literal: ✓ No problems";
@@ -87,6 +94,12 @@ interface LiteralProblem {
   readonly related: readonly LiteralLocation[];
 }
 
+interface ResolvedLiteralCommandConfig {
+  readonly enabled: boolean;
+  readonly literalConfig: LiteralConfig;
+  readonly pathConfig: ValidationPathConfig;
+}
+
 export async function literalCommand(
   options: LiteralCommandOptions,
 ): Promise<ValidationCommandResult> {
@@ -101,32 +114,16 @@ export async function literalCommand(
     };
   }
 
-  let resolvedEnabled: boolean;
-  let resolvedLiteralConfig: LiteralConfig;
-  let resolvedPathConfig: ValidationPathConfig;
-  if (options.config === undefined) {
-    const loaded = await resolveConfig(options.cwd, [validationConfigDescriptor]);
-    if (!loaded.ok) {
-      return {
-        exitCode: LITERAL_EXIT_CODES.CONFIG_ERROR,
-        output: `Literal: ✗ config error — ${loaded.error}`,
-        durationMs: Date.now() - start,
-      };
-    }
-    const validationConfig = loaded.value[validationConfigDescriptor.section] as ValidationConfig;
-    resolvedEnabled = validationConfig.literal.enabled;
-    resolvedLiteralConfig = validationConfig.literal.values;
-    resolvedPathConfig = validationPathFilterForTool(
-      validationConfig.paths,
-      VALIDATION_PATH_TOOL_SUBSECTIONS.LITERAL,
-    );
-  } else {
-    resolvedEnabled = options.enabled ?? validationConfigDescriptor.defaults.literal.enabled;
-    resolvedLiteralConfig = options.config;
-    resolvedPathConfig = options.pathConfig ?? validationConfigDescriptor.defaults.paths;
+  const resolved = await resolveLiteralCommandConfig(options);
+  if (typeof resolved === "string") {
+    return {
+      exitCode: LITERAL_EXIT_CODES.CONFIG_ERROR,
+      output: `Literal: ✗ config error — ${resolved}`,
+      durationMs: Date.now() - start,
+    };
   }
 
-  if (!resolvedEnabled) {
+  if (!resolved.enabled) {
     return {
       exitCode: LITERAL_EXIT_CODES.OK,
       output: options.quiet ? "" : LITERAL_DISABLED_MESSAGE,
@@ -136,10 +133,18 @@ export async function literalCommand(
 
   const result = await validateLiteralReuse({
     productDir: options.cwd,
-    files: options.files,
-    config: resolvedLiteralConfig,
-    pathConfig: resolvedPathConfig,
+    config: resolved.literalConfig,
+    pathConfig: resolved.pathConfig,
+    scopeConfig: resolveExplicitLiteralTypeScriptScope(options, resolved.pathConfig),
   });
+
+  if (options.files !== undefined && options.files.length > 0 && result.filteredByValidationPathNoMatches) {
+    return {
+      exitCode: LITERAL_EXIT_CODES.OK,
+      output: options.quiet ? "" : VALIDATION_PATHS_NO_TARGETS_MESSAGE,
+      durationMs: Date.now() - start,
+    };
+  }
 
   const filteredFindings = filterLiteralFindings(result.findings, options.kind);
   const totalProblems = countLiteralProblems(filteredFindings);
@@ -155,6 +160,47 @@ export async function literalCommand(
   }
 
   return { exitCode, output, durationMs: Date.now() - start };
+}
+
+async function resolveLiteralCommandConfig(
+  options: LiteralCommandOptions,
+): Promise<ResolvedLiteralCommandConfig | string> {
+  if (options.config !== undefined) {
+    return {
+      enabled: options.enabled ?? validationConfigDescriptor.defaults.literal.enabled,
+      literalConfig: options.config,
+      pathConfig: options.pathConfig ?? validationConfigDescriptor.defaults.paths,
+    };
+  }
+
+  const loaded = await resolveConfig(options.cwd, [validationConfigDescriptor]);
+  if (!loaded.ok) return loaded.error;
+
+  const validationConfig = loaded.value[validationConfigDescriptor.section] as ValidationConfig;
+  return {
+    enabled: validationConfig.literal.enabled,
+    literalConfig: validationConfig.literal.values,
+    pathConfig: validationPathFilterForTool(
+      validationConfig.paths,
+      VALIDATION_PATH_TOOL_SUBSECTIONS.LITERAL,
+    ),
+  };
+}
+
+function resolveExplicitLiteralTypeScriptScope(
+  options: LiteralCommandOptions,
+  pathConfig: ValidationPathConfig,
+) {
+  if (options.files === undefined || options.files.length === 0) {
+    return undefined;
+  }
+  return resolveTypeScriptValidationScope({
+    projectRoot: options.cwd,
+    scope: options.scope ?? VALIDATION_SCOPES.FULL,
+    paths: options.files,
+    validationPathFilter: pathConfig,
+    markExplicitPathsAsValidationFilter: true,
+  });
 }
 
 export function filterLiteralFindings(

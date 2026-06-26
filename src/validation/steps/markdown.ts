@@ -13,6 +13,7 @@ import { basename, dirname, join, relative as pathRelative } from "node:path";
 
 import { createIgnoreSourceReader, IGNORE_SOURCE_FILENAME_DEFAULT } from "@/lib/file-inclusion/ignore-source";
 import { SPEC_TREE_CONFIG } from "@/lib/spec-tree/config";
+import { normalizePathPrefix } from "@/validation/config/path-filter";
 
 // @ts-expect-error markdownlint-cli2 has no TypeScript type declarations
 import { main as markdownlintMain } from "markdownlint-cli2";
@@ -86,6 +87,8 @@ export interface ValidateMarkdownOptions {
   targets: MarkdownValidationTarget[];
   /** Project root for resolving project-absolute links. */
   projectRoot?: string;
+  /** Product-relative validation path excludes to pass to markdownlint. */
+  validationPathExcludes?: readonly string[];
 }
 
 export interface MarkdownValidationTarget {
@@ -256,8 +259,25 @@ function parseMarkdownlintErrorLine(line: string): {
   readonly line: string;
   readonly detail: string;
 } | null {
-  const fileSeparator = line.indexOf(":");
-  if (fileSeparator <= 0) return null;
+  for (
+    let fileSeparator = line.indexOf(":");
+    fileSeparator > 0;
+    fileSeparator = line.indexOf(":", fileSeparator + 1)
+  ) {
+    const parsed = parseMarkdownlintErrorLineAtSeparator(line, fileSeparator);
+    if (parsed !== null) return parsed;
+  }
+  return null;
+}
+
+function parseMarkdownlintErrorLineAtSeparator(
+  line: string,
+  fileSeparator: number,
+): {
+  readonly file: string;
+  readonly line: string;
+  readonly detail: string;
+} | null {
   const lineStart = fileSeparator + 1;
   const lineEnd = scanDigits(line, lineStart);
   if (lineEnd === lineStart) return null;
@@ -329,14 +349,18 @@ function isAsciiWhitespace(value: string): boolean {
 export async function validateMarkdown(
   options: ValidateMarkdownOptions,
 ): Promise<MarkdownValidationResult> {
-  const { targets, projectRoot } = options;
+  const { targets, projectRoot, validationPathExcludes = [] } = options;
   const errors: MarkdownError[] = [];
-  const excludeGlobs = getExcludeGlobs(projectRoot);
+  const specTreeExcludeGlobs = getExcludeGlobs(projectRoot);
 
   for (const target of targets) {
     const directory = targetDirectory(target);
     const dirName = markdownlintConfigDirectoryName(directory, projectRoot);
     const config = buildMarkdownlintConfig(dirName);
+    const excludeGlobs = [
+      ...specTreeExcludeGlobs,
+      ...validationPathExcludeGlobsForTarget(target, projectRoot, validationPathExcludes),
+    ];
     const dirErrors = await validateTarget(target, config, projectRoot, excludeGlobs);
     errors.push(...dirErrors);
   }
@@ -402,6 +426,39 @@ async function validateTarget(
 
 function targetDirectory(target: MarkdownValidationTarget): string {
   return target.kind === MARKDOWN_VALIDATION_TARGET_KIND.FILE ? dirname(target.path) : target.path;
+}
+
+function validationPathExcludeGlobsForTarget(
+  target: MarkdownValidationTarget,
+  projectRoot: string | undefined,
+  excludes: readonly string[],
+): string[] {
+  if (projectRoot === undefined || excludes.length === 0) return [];
+
+  const directory = targetDirectory(target);
+  const targetPath = normalizePathPrefix(pathRelative(projectRoot, directory));
+  return excludes.flatMap((exclude) => {
+    const excludedPath = normalizePathPrefix(exclude);
+    if (pathContainsValidationPath(excludedPath, targetPath)) {
+      return [MARKDOWN_DIRECTORY_GLOB];
+    }
+    if (!pathContainsValidationPath(targetPath, excludedPath)) {
+      return [];
+    }
+    const relativeExclude = normalizePathPrefix(pathRelative(directory, join(projectRoot, excludedPath)));
+    if (relativeExclude.length === 0) {
+      return [MARKDOWN_DIRECTORY_GLOB];
+    }
+    const absoluteExclude = join(projectRoot, excludedPath);
+    return [
+      isExistingFile(absoluteExclude, defaultMarkdownValidationTargetDeps) ? relativeExclude : `${relativeExclude}/**`,
+    ];
+  });
+}
+
+function pathContainsValidationPath(prefix: string, path: string): boolean {
+  if (prefix.length === 0) return true;
+  return path === prefix || path.startsWith(`${prefix}/`);
 }
 
 function hasMarkdownExtension(path: string): boolean {

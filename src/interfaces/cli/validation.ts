@@ -248,12 +248,13 @@ function normalizeProductPathOperand(
   operand: string,
 ): string | undefined {
   const resolvedProductDir = canonicalExistingPath(resolve(productDir));
-  const absoluteOperand = canonicalExistingPath(resolve(effectiveInvocationDir, operand));
+  const resolvedInvocationDir = canonicalExistingPath(resolve(effectiveInvocationDir));
+  const absoluteOperand = canonicalExistingPath(resolve(resolvedInvocationDir, operand));
   const relativeOperand = relative(resolvedProductDir, absoluteOperand);
   if (relativeOperand === ".." || relativeOperand.startsWith(`..${sep}`) || isAbsolute(relativeOperand)) {
     return undefined;
   }
-  return relativeOperand.length > 0 ? relativeOperand.split("\\").join("/") : ".";
+  return relativeOperand.length > 0 ? relativeOperand.replaceAll("\\", "/") : ".";
 }
 
 function canonicalExistingPath(path: string): string {
@@ -418,6 +419,7 @@ function registerValidationCommands(validationCmd: Command, invocation: CliInvoc
       }
       const result = await literalCommand({
         cwd: paths.productDir,
+        scope: options.scope,
         files: paths.files,
         kind,
         filesWithProblems: options.filesWithProblems,

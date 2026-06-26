@@ -29,7 +29,7 @@ function hasEffectiveValidationPathMetadata(
     && typeof filter.noMatchingIncludes === "boolean";
 }
 
-function normalizePathPrefix(prefix: string): string {
+export function normalizePathPrefix(prefix: string): string {
   const normalizedSeparators = prefix.split("\\").join(PATH_PREFIX_SEPARATOR);
   const withoutLeadingDot = normalizedSeparators.startsWith(`.${PATH_PREFIX_SEPARATOR}`)
     ? normalizedSeparators.slice(2)

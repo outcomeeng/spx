@@ -69,12 +69,20 @@ export const ESLINT_LOCAL_BIN_SEGMENTS = ["node_modules", ".bin", ESLINT_COMMAND
  */
 export function buildEslintArgs(context: {
   validatedFiles?: string[];
+  validatedFileIgnorePatterns?: readonly string[];
   mode?: ExecutionMode;
   configFile?: string;
   scope: ValidationScope;
   scopeConfig?: ScopeConfig;
 }): string[] {
-  const { validatedFiles, mode, configFile = DEFAULT_ESLINT_CONFIG_FILE, scope, scopeConfig } = context;
+  const {
+    validatedFiles,
+    validatedFileIgnorePatterns = [],
+    mode,
+    configFile = DEFAULT_ESLINT_CONFIG_FILE,
+    scope,
+    scopeConfig,
+  } = context;
   const fixArg = mode === EXECUTION_MODES.WRITE ? [ESLINT_COMMAND_TOKENS.FIX_FLAG] : [];
 
   if (validatedFiles && validatedFiles.length > 0) {
@@ -85,6 +93,7 @@ export function buildEslintArgs(context: {
       ESLINT_COMMAND_TOKENS.CONFIG_FLAG,
       configFile,
       ...fixArg,
+      ...buildIgnorePatternArgs(validatedFileIgnorePatterns),
       ESLINT_COMMAND_TOKENS.FILE_SEPARATOR,
       ...validatedFiles,
     ];
@@ -163,6 +172,7 @@ export async function validateESLint(
 
   const eslintArgs = buildEslintArgs({
     validatedFiles,
+    validatedFileIgnorePatterns: context.validatedFileIgnorePatterns,
     mode,
     configFile: eslintConfigFile,
     scope,

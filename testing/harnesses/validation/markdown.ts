@@ -75,6 +75,8 @@ export async function runMarkdownValidationScenario(scenario: MarkdownValidation
       return runMixedFileScopeDiagnosticScenario();
     case MARKDOWN_SCENARIO_KIND.DIRECTORY_SCOPE_MD_ONLY:
       return runDirectoryScopeMdOnlyScenario();
+    case MARKDOWN_SCENARIO_KIND.COLON_PATH_ERROR:
+      return runColonPathErrorScenario();
   }
 }
 
@@ -422,6 +424,28 @@ async function runDirectoryScopeMdOnlyScenario(): Promise<void> {
     expect(directoryResult.errors).toHaveLength(MARKDOWN_VALIDATION_DATA.zero);
     expect(directFileResult.success).toBe(false);
     expect(directFileResult.errors.length).toBeGreaterThanOrEqual(MARKDOWN_VALIDATION_DATA.one);
+  });
+}
+
+async function runColonPathErrorScenario(): Promise<void> {
+  await withMarkdownTempProject(async ({ path, spxDir }) => {
+    await mkdir(spxDir, { recursive: true });
+    const colonFile = join(spxDir, MARKDOWN_VALIDATION_DATA.colonMarkdownFile);
+    await writeFile(colonFile, MARKDOWN_VALIDATION_DATA.brokenMarkdownContent);
+
+    const result = await validateMarkdown({
+      targets: [markdownFileTarget(colonFile)],
+      projectRoot: path,
+    });
+
+    expect(result.success).toBe(false);
+    expect(result.errors).toEqual([
+      expect.objectContaining({
+        file: colonFile,
+        line: MARKDOWN_VALIDATION_DATA.three,
+      }),
+    ]);
+    expect(result.errors[MARKDOWN_VALIDATION_DATA.zero]?.detail).toContain(MARKDOWN_VALIDATION_DATA.missingFileMarker);
   });
 }
 
