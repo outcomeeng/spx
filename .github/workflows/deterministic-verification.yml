@@ -1,0 +1,211 @@
+name: Deterministic Verification
+
+# Deterministic verification (validate + test verdict modes). Mirrors
+# agentic-verification.yml, which carries the audit + review verdict modes.
+# The fast source checks group into one validation job (the validate-all
+# pipeline); circular, build, test, and packaged checks are separate jobs so
+# they run in parallel, fanning out from a single shared build artifact.
+
+on:
+  push:
+    branches: [main]
+    paths-ignore: &instruction-docs
+      - CLAUDE.md
+      - AGENTS.md
+      - README.md
+      - LICENSE
+      - docs/**
+  pull_request:
+    branches: [main]
+    paths-ignore: *instruction-docs
+  # Callable as a release gate by publish.yml so the publish runs the full
+  # deterministic suite exactly once on the tagged commit and consumes its
+  # verified build artifact.
+  workflow_call:
+
+# Deny all permissions by default — grant per-job
+permissions: {}
+
+jobs:
+  validation:
+    name: Validation
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6.0.3
+      - run: corepack enable
+      - uses: actions/setup-node@48b55a011bda9f5d6aeb4c2d9c7362e8dae4041e # v6.4.0
+        with:
+          node-version: "24"
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile --ignore-scripts
+      # Runs the source validation pipeline — lint, typecheck, format, markdown,
+      # literal-reuse, and informational knip — in registry order.
+      - run: pnpm run validate
+
+  circular:
+    name: Circular dependencies
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6.0.3
+      - run: corepack enable
+      - uses: actions/setup-node@48b55a011bda9f5d6aeb4c2d9c7362e8dae4041e # v6.4.0
+        with:
+          node-version: "24"
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile --ignore-scripts
+      - run: pnpm run circular
+
+  build:
+    name: Build packaged CLI
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6.0.3
+      - run: corepack enable
+      - uses: actions/setup-node@48b55a011bda9f5d6aeb4c2d9c7362e8dae4041e # v6.4.0
+        with:
+          node-version: "24"
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile --ignore-scripts
+      - run: pnpm run build
+      - name: Upload dist artifact
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: dist
+          path: dist
+          if-no-files-found: error
+          retention-days: 1
+
+  test-and-status:
+    name: Test + status projection
+    needs: build
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6.0.3
+      - run: corepack enable
+      - uses: actions/setup-node@48b55a011bda9f5d6aeb4c2d9c7362e8dae4041e # v6.4.0
+        with:
+          node-version: "24"
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile --ignore-scripts
+
+      # The L2 tests shell out to node bin/spx.js -> dist/cli.js, so the
+      # verified build from the build job stands in for a local rebuild.
+      - name: Download dist artifact
+        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
+        with:
+          name: dist
+          path: dist
+
+      # Provisions the pytest toolchain so the Python runner's real-tool test
+      # runs against real pytest, before the suite step.
+      - name: Install uv
+        uses: astral-sh/setup-uv@fac544c07dec837d0ccb6301d7b5580bf5edae39 # v8.2.0
+        with:
+          enable-cache: true
+      - name: Install managed Python
+        run: uv python install 3.13
+      - name: Provision pytest
+        run: |
+          uv venv --python 3.13
+          uv pip install --only-binary :all: pytest==9.1.1
+          echo "VIRTUAL_ENV=$PWD/.venv" >> "$GITHUB_ENV"
+          echo "$PWD/.venv/bin" >> "$GITHUB_PATH"
+
+      # One suite run: `spx test passing` runs the configured passing scope and
+      # records per-node last-run evidence under .spx/. The status step then
+      # reuses that fresh evidence to regenerate the committed status projection
+      # without re-running any test.
+      - name: Test (passing scope)
+        run: pnpm exec tsx src/cli.ts test passing
+      - name: Check committed status projection
+        run: |
+          pnpm exec tsx src/cli.ts spec status --update --format json > /tmp/spx-status.json
+          if [ -n "$(git status --porcelain -- spx)" ]; then
+            git status --short -- spx
+            git diff -- spx
+            exit 1
+          fi
+
+  validate-published:
+    name: Validation (packaged CLI)
+    needs: build
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6.0.3
+      - run: corepack enable
+      - uses: actions/setup-node@48b55a011bda9f5d6aeb4c2d9c7362e8dae4041e # v6.4.0
+        with:
+          node-version: "24"
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile --ignore-scripts
+      - name: Download dist artifact
+        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
+        with:
+          name: dist
+          path: dist
+      - run: pnpm run validate:published
+
+  circular-published:
+    name: Circular dependencies (packaged CLI)
+    needs: build
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6.0.3
+      - run: corepack enable
+      - uses: actions/setup-node@48b55a011bda9f5d6aeb4c2d9c7362e8dae4041e # v6.4.0
+        with:
+          node-version: "24"
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile --ignore-scripts
+      - name: Download dist artifact
+        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
+        with:
+          name: dist
+          path: dist
+      - run: pnpm run circular:published
+
+  package:
+    name: Package contents
+    needs: build
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6.0.3
+      - run: corepack enable
+      - uses: actions/setup-node@48b55a011bda9f5d6aeb4c2d9c7362e8dae4041e # v6.4.0
+        with:
+          node-version: "24"
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile --ignore-scripts
+      - name: Download dist artifact
+        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
+        with:
+          name: dist
+          path: dist
+      - run: npm pack --dry-run
+
+  dependency-review:
+    name: Dependency Security Check
+    runs-on: ubuntu-latest
+    if: github.event_name == 'pull_request'
+    permissions:
+      contents: read
+      pull-requests: write
+    steps:
+      - uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6.0.3
+      - uses: actions/dependency-review-action@a1d282b36b6f3519aa1f3fc636f609c47dddb294 # v5.0.0
+        with:
+          fail-on-severity: high

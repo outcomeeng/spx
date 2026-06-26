@@ -4,8 +4,7 @@ const OBJECT_TYPE = "object";
 const STRING_TYPE = "string";
 
 export const NODE_STATUS_PROJECTION_WORKFLOW_PATHS = [
-  ".github/workflows/ci.yml",
-  ".github/workflows/publish.yml",
+  ".github/workflows/deterministic-verification.yml",
 ] as const;
 export const NODE_STATUS_PROJECTION_STEP_NAME = "Check committed status projection";
 export const NODE_STATUS_PROJECTION_UPDATE_COMMAND = "pnpm exec tsx src/cli.ts spec status --update --format json";

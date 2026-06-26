@@ -51,12 +51,12 @@ Observed while verifying the spec-tree boundary correction on May 1, 2026: `pnpm
 The root `renovate.json` — declared by [`spx/21-infrastructure.enabler/32-dependency-updates.enabler/dependency-updates.md`](21-infrastructure.enabler/32-dependency-updates.enabler/dependency-updates.md) — satisfies the Scorecard Dependency-Update-Tool check, which clears on the next Scorecard run. GitHub code scanning reports the remaining open Scorecard alerts:
 
 - High: Branch-Protection and Code-Review (repository-policy alerts, no associated file)
-- Medium: Security-Policy and SAST (repository-policy alerts), and two Pinned-Dependencies alerts in `.github/workflows/spec-tree.yml` and `.github/workflows/spec-tree-review.yml`
+- Medium: Security-Policy and SAST (repository-policy alerts), and two Pinned-Dependencies alerts in `.github/workflows/spec-tree.yml` and `.github/workflows/agentic-verification.yml`
 - Low: CII-Best-Practices (repository-policy alert)
 
 **Skills:** `github:github`, GitHub security triage, and the workflow-specific implementation skill for any `.github/workflows/` edits.
 
-**Resolution:** Triage the repository-policy alerts (Branch-Protection, Code-Review, Security-Policy, SAST, CII-Best-Practices) separately from the workflow-file alerts. For the two Pinned-Dependencies alerts, pin the external actions in `.github/workflows/spec-tree.yml` and `.github/workflows/spec-tree-review.yml` to commit digests before changing the automation.
+**Resolution:** Triage the repository-policy alerts (Branch-Protection, Code-Review, Security-Policy, SAST, CII-Best-Practices) separately from the workflow-file alerts. For the two Pinned-Dependencies alerts, pin the external actions in `.github/workflows/spec-tree.yml` and `.github/workflows/agentic-verification.yml` to commit digests before changing the automation.
 
 ## GitHub dependency vulnerability alerts remain open
 

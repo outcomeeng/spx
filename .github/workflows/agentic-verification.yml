@@ -1,4 +1,4 @@
-# Copy this file to .github/workflows/spec-tree-review.yml in your repository
+# Copy this file to .github/workflows/agentic-verification.yml in your repository
 #
 # Required setup:
 # 1. Add CLAUDE_CODE_OAUTH_TOKEN to repository secrets.
@@ -12,7 +12,7 @@
 #    reusable's default when the variable is unset. No edits to this file
 #    are needed to change runner, timeout, model, etc.
 
-name: Spec Tree Review
+name: Agentic Verification
 
 on:
   pull_request:
@@ -30,7 +30,7 @@ permissions:
   actions: read
 
 jobs:
-  spec-tree-review:
+  agentic-verification:
     # BETA TESTER: deliberately tracks outcomeeng/gh-actions @main to surface
     # upstream changes early without a per-release follow-up PR. Production
     # callers must SHA-pin per the gh-actions README "Security" section
