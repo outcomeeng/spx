@@ -8,4 +8,4 @@ This mismatch makes config harder to compare with other domains and makes future
 
 **Resolution:** Add or revise the command/domain architecture decision before moving code. The decision should define the CLI adapter boundary, the domain behavior boundary, dependency injection ownership, and the expected test level for each side. Then refactor config first as the pilot domain and apply the same rule to validation once the pilot passes `spx validation all`.
 
-**Skills:** `spec-tree:aligning`, `typescript:architecting-typescript`, `typescript:auditing-typescript-architecture`, `typescript:testing-typescript`, `typescript:coding-typescript`, `typescript:auditing-typescript`.
+**Skills:** `spec-tree:align`, `typescript:architect-typescript`, `typescript:audit-typescript-architecture`, `typescript:test-typescript`, `typescript:code-typescript`, `typescript:audit-typescript`.
