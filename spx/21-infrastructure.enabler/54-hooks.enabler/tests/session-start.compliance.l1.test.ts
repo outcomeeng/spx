@@ -22,6 +22,10 @@ function hookContentWithSource(env: WorktreePoolEnv, source: string): string {
   });
 }
 
+function hookContentWithoutSource(env: WorktreePoolEnv): string {
+  return JSON.stringify({ [HOOK_SESSION_START_PAYLOAD.CWD]: env.worktreePath });
+}
+
 function hookEnvWithHolder(env: WorktreePoolEnv, envFile: string): HookSessionStartEnv {
   return {
     [CONTROLLING_PID_ENV]: String(env.holder.pid),
@@ -29,35 +33,40 @@ function hookEnvWithHolder(env: WorktreePoolEnv, envFile: string): HookSessionSt
   };
 }
 
+async function expectNoDirectiveFor(renderContent: (env: WorktreePoolEnv) => string): Promise<void> {
+  const worktreeName = sampleWorktreeTestValue(WORKTREE_TEST_GENERATOR.poolWorktreeName());
+  const holder = sampleWorktreeTestValue(WORKTREE_TEST_GENERATOR.poolHolder());
+  const envFileName = sampleWorktreeTestValue(WORKTREE_TEST_GENERATOR.envFileName());
+  const claimWriteToken = sampleWorktreeTestValue(WORKTREE_TEST_GENERATOR.writeToken());
+
+  await withWorktreePool({ worktreeName, holder }, async (env) => {
+    const envFile = join(env.container, envFileName);
+    const result = await runSessionStartHook({
+      claimWriteToken,
+      content: renderContent(env),
+      cwd: env.container,
+      fs: env.fs,
+      gitDeps: defaultGitDependencies,
+      worktreesDir: env.worktreesDir,
+      processTable: env.processTable,
+      selfPid: env.holder.pid,
+      env: hookEnvWithHolder(env, envFile),
+    });
+
+    expect(result.ok).toBe(true);
+    if (!result.ok) throw new Error(result.error);
+    expect(result.value.stdout).not.toContain(HOOK_COMPACT_FOUNDATION_DIRECTIVE);
+  });
+}
+
 describe("hook session-start compact-directive boundary", () => {
   it.each(
     Object.values(HOOK_SESSION_START_SOURCE).filter((source) => source !== HOOK_SESSION_START_SOURCE.COMPACT),
-  )(
-    "emits no foundation re-anchor directive for the %s lifecycle source",
-    async (source) => {
-      const worktreeName = sampleWorktreeTestValue(WORKTREE_TEST_GENERATOR.poolWorktreeName());
-      const holder = sampleWorktreeTestValue(WORKTREE_TEST_GENERATOR.poolHolder());
-      const envFileName = sampleWorktreeTestValue(WORKTREE_TEST_GENERATOR.envFileName());
-      const claimWriteToken = sampleWorktreeTestValue(WORKTREE_TEST_GENERATOR.writeToken());
+  )("emits no foundation re-anchor directive for the %s lifecycle source", async (source) => {
+    await expectNoDirectiveFor((env) => hookContentWithSource(env, source));
+  });
 
-      await withWorktreePool({ worktreeName, holder }, async (env) => {
-        const envFile = join(env.container, envFileName);
-        const result = await runSessionStartHook({
-          claimWriteToken,
-          content: hookContentWithSource(env, source),
-          cwd: env.container,
-          fs: env.fs,
-          gitDeps: defaultGitDependencies,
-          worktreesDir: env.worktreesDir,
-          processTable: env.processTable,
-          selfPid: env.holder.pid,
-          env: hookEnvWithHolder(env, envFile),
-        });
-
-        expect(result.ok).toBe(true);
-        if (!result.ok) throw new Error(result.error);
-        expect(result.value.stdout).not.toContain(HOOK_COMPACT_FOUNDATION_DIRECTIVE);
-      });
-    },
-  );
+  it("emits no foundation re-anchor directive when the payload carries no lifecycle source", async () => {
+    await expectNoDirectiveFor(hookContentWithoutSource);
+  });
 });
