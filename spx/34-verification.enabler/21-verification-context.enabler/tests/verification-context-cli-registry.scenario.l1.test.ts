@@ -1,6 +1,6 @@
-import { Command } from "commander";
 import { describe, expect, it } from "vitest";
 
+import { createCliProgram } from "@/interfaces/cli/program";
 import { CLI_DOMAINS } from "@/interfaces/cli/registry";
 import { VERIFICATION_CONTEXT_CLI } from "@/interfaces/cli/verification-context";
 
@@ -10,8 +10,7 @@ describe("verification-context CLI registry", () => {
     expect(domain).toBeDefined();
     if (domain === undefined) throw new Error("verification-context domain missing from the CLI registry");
 
-    const program = new Command();
-    domain.register(program);
+    const program = createCliProgram({ domains: [domain] });
     const command = program.commands.find((candidate) => candidate.name() === VERIFICATION_CONTEXT_CLI.commandName);
 
     expect(command).toBeDefined();
