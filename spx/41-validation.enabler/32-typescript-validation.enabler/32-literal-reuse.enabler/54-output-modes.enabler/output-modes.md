@@ -1,6 +1,6 @@
 # Output Modes
 
-PROVIDES the operator-facing surface of `spx validation literal` — file scoping via `--files`, kind filtering via `--kind {reuse|dupe}`, and four mutually-exclusive output formats (default text, `--verbose`, `--files-with-problems`, `--literals`, `--json`) — together with deterministic exit-code semantics that respect the active filter
+PROVIDES the operator-facing surface of `spx validation literal` — file scoping via positional product path operands, kind filtering via `--kind {reuse|dupe}`, and four mutually-exclusive output formats (default text, `--verbose`, `--files-with-problems`, `--literals`, `--json`) — together with deterministic exit-code semantics that respect the active filter
 SO THAT operators, agents, and CI pipelines invoking the detector
 CAN consume the problem set in the form their tooling expects, scoped to the kinds they care about, with exit codes that reflect only the filtered subset
 
@@ -8,7 +8,7 @@ CAN consume the problem set in the form their tooling expects, scoped to the kin
 
 ### Scenarios
 
-- Given the detector is invoked with `--files <paths...>`, when it runs, then only the named files are walked and problems are reported against the index those files contribute ([test](tests/output-modes.scenario.l1.test.ts))
+- Given the detector is invoked with `<paths...>` as positional operands, when it runs, then only the named files are walked and problems are reported against the index those files contribute ([test](tests/output-modes.scenario.l1.test.ts))
 - Given the detector is invoked with `--json`, when it completes, then the output parses through `parseLiteralReuseResult` without throwing ([test](tests/output-modes.scenario.l1.test.ts))
 - Given `--kind dupe` is specified, when the detector runs, then only test↔test duplication problems appear in the output ([test](tests/output-modes.scenario.l1.test.ts))
 - Given `--kind reuse` is specified, when the detector runs, then only src↔test reuse problems appear in the output ([test](tests/output-modes.scenario.l1.test.ts))

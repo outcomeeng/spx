@@ -14,7 +14,7 @@ CAN catch broken cross-references and structural defects before they reach the r
 - Given a markdown file with a heading fragment referencing a non-existent heading, when validation runs, then an error is reported ([test](tests/markdown-validation.scenario.l1.test.ts))
 - Given a markdown file with a project-absolute link (e.g., `/spx/foo.md`), when validation runs, then the link resolves relative to the project root ([test](tests/markdown-validation.integration.test.ts))
 - Given `spx/` and `docs/` directories exist, when `spx validation markdown` runs with no arguments, then both directories are validated ([test](tests/markdown-validation.integration.test.ts))
-- Given `--files spx/` is passed, when validation runs, then only the specified directory is validated ([test](tests/markdown-validation.integration.test.ts))
+- Given `spx/` is supplied as a positional operand, when validation runs, then only the specified directory is validated ([test](tests/markdown-validation.integration.test.ts))
 - Given `spx validation all` runs, then markdown validation executes as a step and its failure fails the pipeline ([test](tests/markdown-validation.integration.test.ts))
 - Given `spx/` contains duplicate sibling headings, when validation runs, then MD024 errors are reported for the sibling duplicates ([test](tests/markdown-validation.scenario.l1.test.ts))
 - Given `spx/` contains the same heading under different parent sections, when validation runs, then no MD024 error is reported ([test](tests/markdown-validation.scenario.l1.test.ts))
@@ -25,9 +25,9 @@ CAN catch broken cross-references and structural defects before they reach the r
 - Given `spx/EXCLUDE` lists a node path, when validation runs, then markdown files in that node directory are skipped ([test](tests/markdown-validation.scenario.l1.test.ts))
 - Given a declared-state node has `[test]` links to files that do not exist yet, when that node is listed in `spx/EXCLUDE`, then those broken links are not reported ([test](tests/markdown-validation.scenario.l1.test.ts))
 - Given a directory scope contains a broken `.markdown` file and no broken `.md` file, when validation runs on the directory, then no error is reported for the `.markdown` file; when validation runs on that direct `.markdown` file, then the broken link is reported ([test](tests/markdown-validation.scenario.l1.test.ts))
-- Given a file scope contains a missing markdown file path, when `spx validation markdown --files` runs, then the command reports the skipped scope in output and exits 0 when no markdown target remains ([test](tests/markdown-validation.integration.test.ts))
-- Given a file scope contains a path that is neither an existing directory nor a markdown file, when `spx validation markdown --files` runs, then the command reports the skipped scope in output and exits 0 when no markdown target remains ([test](tests/markdown-validation.integration.test.ts))
-- Given file scope contains both a valid markdown target and an unrelated file, when `spx validation markdown --files` runs, then validation runs for the markdown target and the skipped unrelated file is reported in output ([test](tests/markdown-validation.integration.test.ts))
+- Given a file scope contains a missing markdown file path, when `spx validation markdown` runs with that path as a positional operand, then the command reports the skipped scope in output and exits 0 when no markdown target remains ([test](tests/markdown-validation.integration.test.ts))
+- Given a file scope contains a path that is neither an existing directory nor a markdown file, when `spx validation markdown` runs with that path as a positional operand, then the command reports the skipped scope in output and exits 0 when no markdown target remains ([test](tests/markdown-validation.integration.test.ts))
+- Given file scope contains both a valid markdown target and an unrelated file, when `spx validation markdown` runs with those paths as positional operands, then validation runs for the markdown target and the skipped unrelated file is reported in output ([test](tests/markdown-validation.integration.test.ts))
 
 ### Mappings
 
