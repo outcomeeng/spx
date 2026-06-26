@@ -9,12 +9,16 @@ backend authoritative, which is what the shared-backend `SEQ_CONSUMED` rejection
 ([`21-event-sourced-journal.adr.md`](21-event-sourced-journal.adr.md) compliance
 rule) and cursor stability rest on.
 
-Impact is currently low: appends target a **local** Appendable backend, the
-remote GitHub backend is Snapshot (write-only projections, no per-append read),
-and a run emits a bounded event count. No ADR invariant requires O(1) append.
+Impact is currently low: every append targets a runner-local Appendable JSONL
+run file — the GitHub Appendable backend of
+`spx/21-infrastructure.enabler/43-github-ci.enabler/21-artifact-journal-store.enabler`
+appends to that same runner-local file during a job and retains it as a durable
+artifact only at seal — so the `readAll` cost is a local-file read under both
+backends, and a run emits a bounded event count. No ADR invariant requires O(1)
+append.
 
-Revisit when building the adapters ([PLAN.md](PLAN.md) step 1), where a real
-backend's `readAll` cost is observable. Any optimization (e.g. lazy-initialised
+Revisit if a backend's `readAll` cost becomes observable at scale. Any
+optimization (e.g. lazy-initialised
 local sequence caching) MUST preserve cursor stability across restarts and the
 shared-backend already-consumed-sequence rejection — a single journal per run is
 the design's single-writer assumption, not a guarantee the type enforces.
