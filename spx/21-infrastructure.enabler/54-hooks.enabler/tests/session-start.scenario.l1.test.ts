@@ -4,10 +4,12 @@ import { basename, join } from "node:path";
 import { describe, expect, it } from "vitest";
 
 import {
+  HOOK_COMPACT_FOUNDATION_DIRECTIVE,
   HOOK_ENV_FILE,
   HOOK_SESSION_START_CLAIMED,
   HOOK_SESSION_START_ENV,
   HOOK_SESSION_START_PAYLOAD,
+  HOOK_SESSION_START_SOURCE,
   type HookSessionStartEnv,
 } from "@/domains/hooks/session-start";
 import { CONTROLLING_PID_ENV, CONTROLLING_PROCESS_ERROR } from "@/domains/worktree/controlling-process";
@@ -24,9 +26,10 @@ interface SessionStartHookScenarioInput {
   readonly env: HookSessionStartEnv;
 }
 
-function hookContent(env: WorktreePoolEnv, sessionId?: string): string {
+function hookContent(env: WorktreePoolEnv, sessionId?: string, source?: string): string {
   return JSON.stringify({
     ...(sessionId === undefined ? {} : { [HOOK_SESSION_START_PAYLOAD.SESSION_ID]: sessionId }),
+    ...(source === undefined ? {} : { [HOOK_SESSION_START_PAYLOAD.SOURCE]: source }),
     [HOOK_SESSION_START_PAYLOAD.CWD]: env.worktreePath,
   });
 }
@@ -114,6 +117,27 @@ describe("hook session-start adapter", () => {
       expectHookEnvExport(envContent, HOOK_SESSION_START_ENV.CLAUDE_PROJECT_DIR, `'${env.worktreePath}'`);
       expectHookEnvExport(envContent, HOOK_SESSION_START_ENV.PROJECT_DIR, `'${env.worktreePath}'`);
       expectHookEnvClaimed(envContent, HOOK_SESSION_START_CLAIMED.TRUE);
+    });
+  });
+
+  it("emits the foundation re-anchor directive on the compact lifecycle source", async () => {
+    const worktreeName = sampleWorktreeTestValue(WORKTREE_TEST_GENERATOR.poolWorktreeName());
+    const holder = sampleWorktreeTestValue(WORKTREE_TEST_GENERATOR.poolHolder());
+    const sessionId = sampleWorktreeTestValue(WORKTREE_TEST_GENERATOR.sessionId());
+    const envFileName = sampleWorktreeTestValue(WORKTREE_TEST_GENERATOR.envFileName());
+    const claimWriteToken = sampleWorktreeTestValue(WORKTREE_TEST_GENERATOR.writeToken());
+
+    await withWorktreePool({ worktreeName, holder }, async (env) => {
+      const envFile = hookEnvFilePath(env, envFileName);
+      const result = await runSessionStartHookScenario(env, {
+        claimWriteToken,
+        content: hookContent(env, sessionId, HOOK_SESSION_START_SOURCE.COMPACT),
+        env: hookEnvWithHolder(env, envFile),
+      });
+
+      expect(result.ok).toBe(true);
+      if (!result.ok) throw new Error(result.error);
+      expect(result.value.stdout).toContain(HOOK_COMPACT_FOUNDATION_DIRECTIVE);
     });
   });
 
