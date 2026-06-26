@@ -1,6 +1,5 @@
-import { GIT_ROOT_COMMAND, type GitDependencies } from "@/git/root";
+import { type ExecResult, GIT_ROOT_COMMAND, type GitDependencies } from "@/git/root";
 
-const GIT_DIR_OPTION = "-C";
 const GIT_LS_FILES_SUBCOMMAND = "ls-files";
 const GIT_NUL_TERMINATED_FLAG = "-z";
 
@@ -15,21 +14,27 @@ export const GIT_SUCCESS_EXIT_CODE = 0;
  * The paths git tracks under `productDir`, relative to it, as a set, or
  * `undefined` when `productDir` is not a git repository.
  *
- * Reads through the injected git runner — `git -C <productDir> ls-files -z`
- * emits NUL-separated tracked paths, which is robust to paths containing
- * newlines or spaces. Outside a git repository the command
- * exits non-zero; that returns `undefined` so a caller applies no git scoping
- * rather than treating every path as untracked.
+ * Reads through the injected git runner — `git ls-files -z` run with `cwd` set
+ * to `productDir` emits NUL-separated tracked paths, which is robust to paths
+ * containing newlines or spaces. Outside a git repository the command exits
+ * non-zero, and when the git executable is unavailable the runner throws; both
+ * return `undefined` so a caller applies no git scoping — the same no-git
+ * fallback root resolution uses — rather than treating every path as untracked.
  */
 export async function listTrackedPaths(
   productDir: string,
   deps: GitDependencies,
 ): Promise<ReadonlySet<string> | undefined> {
-  const result = await deps.execa(
-    GIT_ROOT_COMMAND.EXECUTABLE,
-    [GIT_DIR_OPTION, productDir, GIT_LS_FILES_SUBCOMMAND, GIT_NUL_TERMINATED_FLAG],
-    { cwd: productDir, reject: false },
-  );
+  let result: ExecResult;
+  try {
+    result = await deps.execa(
+      GIT_ROOT_COMMAND.EXECUTABLE,
+      [GIT_LS_FILES_SUBCOMMAND, GIT_NUL_TERMINATED_FLAG],
+      { cwd: productDir, reject: false },
+    );
+  } catch {
+    return undefined;
+  }
   if (result.exitCode !== GIT_SUCCESS_EXIT_CODE) return undefined;
   return new Set(result.stdout.split(TRACKED_PATH_NUL_SEPARATOR).filter((entry) => entry.length > 0));
 }
@@ -37,8 +42,10 @@ export async function listTrackedPaths(
 /**
  * A path-inclusion predicate that admits a path only when git tracks a file at
  * or under it — the tracked files themselves and every ancestor directory of a
- * tracked file. A node-shaped directory with no tracked file under it is
- * rejected, so a stale, untracked directory never enters a git-scoped walk.
+ * tracked file. Applied to a node's directory path, it answers whether the node
+ * directory is git-tracked: a directory containing at least one tracked file is
+ * admitted, while a stale, untracked node-shaped directory with no tracked file
+ * under it is rejected.
  *
  * `undefined` tracked paths means no git scoping is available (the directory is
  * not a git repository), so every path is admitted.
