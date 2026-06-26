@@ -31,7 +31,6 @@ const VALID_MARKDOWN_SOURCE_CONTENT = "# Source\n\n[valid](./target.md)\n";
 const BROKEN_MARKDOWN_CONTENT = "# Broken\n\n[broken](./does-not-exist.md)\n";
 const UNRELATED_MARKDOWN_SCOPE_CONTENT = "plain text\n";
 const MARKDOWN_HELP_FLAG = "--help";
-const FILES_FLAG = "--files";
 const EXPECTED_ZERO = 0;
 const EXPECTED_ONE = 1;
 const EXPECTED_TWO = 2;
@@ -100,7 +99,6 @@ export const MARKDOWN_VALIDATION_DATA = {
   brokenMarkdownContent: BROKEN_MARKDOWN_CONTENT,
   unrelatedMarkdownScopeContent: UNRELATED_MARKDOWN_SCOPE_CONTENT,
   helpFlag: MARKDOWN_HELP_FLAG,
-  filesFlag: FILES_FLAG,
   zero: EXPECTED_ZERO,
   one: EXPECTED_ONE,
   two: EXPECTED_TWO,

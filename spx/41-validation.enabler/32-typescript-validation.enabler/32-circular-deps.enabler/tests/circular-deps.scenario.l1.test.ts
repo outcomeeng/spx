@@ -908,7 +908,7 @@ describe("circular command scope routing", () => {
     });
   });
 
-  it("forwards --files as project-relative dependency-cruiser inputs", async () => {
+  it("forwards explicit path operands as project-relative dependency-cruiser inputs", async () => {
     await withValidationEnv({ fixture: PROJECT_FIXTURES.CLEAN_PROJECT }, async ({ path }) => {
       const validationCalls: Array<{
         readonly scope: string;
@@ -952,7 +952,7 @@ describe("circular command scope routing", () => {
     });
   });
 
-  it("rejects out-of-project --files operands before circular validation runs", async () => {
+  it("rejects out-of-project path operands before circular validation runs", async () => {
     await withValidationEnv({ fixture: PROJECT_FIXTURES.CLEAN_PROJECT }, async ({ path }) => {
       const { deps, validationCalls } = createRecordingCircularCommandDeps();
 
@@ -970,7 +970,7 @@ describe("circular command scope routing", () => {
     });
   });
 
-  it("forwards --files directories as constrained TypeScript scope", async () => {
+  it("forwards path operand directories as constrained TypeScript scope", async () => {
     await withValidationEnv({ fixture: PROJECT_FIXTURES.CLEAN_PROJECT }, async ({ path }) => {
       await expectCircularCommandScopes(
         path,
@@ -986,7 +986,7 @@ describe("circular command scope routing", () => {
     });
   });
 
-  it("forwards --files directories covered by config include when tsconfig uses default includes", async () => {
+  it("forwards path operand directories covered by config include when tsconfig uses default includes", async () => {
     await withValidationEnv({ fixture: PROJECT_FIXTURES.CLEAN_PROJECT }, async ({ path }) => {
       const apiDirectory = join(
         VALIDATION_PIPELINE_DATA.sourceDirectoryName,
@@ -1055,7 +1055,7 @@ describe("circular command scope routing", () => {
     });
   });
 
-  it("forwards --files directories that intersect wildcard-backed TypeScript includes", async () => {
+  it("forwards path operand directories that intersect wildcard-backed TypeScript includes", async () => {
     await withValidationEnv({ fixture: PROJECT_FIXTURES.CLEAN_PROJECT }, async ({ path }) => {
       const wildcardBackedDirectory = join(
         VALIDATION_PIPELINE_DATA.sourceDirectoryName,
@@ -1092,7 +1092,7 @@ describe("circular command scope routing", () => {
     });
   });
 
-  it("forwards --files directories that intersect single-character TypeScript includes", async () => {
+  it("forwards path operand directories that intersect single-character TypeScript includes", async () => {
     await withValidationEnv({ fixture: PROJECT_FIXTURES.CLEAN_PROJECT }, async ({ path }) => {
       const singleCharacterBackedDirectory = join(VALIDATION_PIPELINE_DATA.sourceDirectoryName, "a");
       await mkdir(join(path, singleCharacterBackedDirectory), { recursive: true });
@@ -1338,7 +1338,7 @@ describe("circular command scope routing", () => {
     });
   });
 
-  it("skips --files directories below single-character wildcard TypeScript includes", async () => {
+  it("skips path operand directories below single-character wildcard TypeScript includes", async () => {
     await withValidationEnv({ fixture: PROJECT_FIXTURES.CLEAN_PROJECT }, async ({ path }) => {
       const singleCharacterDirectory = join(VALIDATION_PIPELINE_DATA.sourceDirectoryName, "a");
       const nestedSingleCharacterDirectory = join(
@@ -1377,7 +1377,7 @@ describe("circular command scope routing", () => {
     });
   });
 
-  it("forwards root --files directories as the existing TypeScript scope", async () => {
+  it("forwards root path operand directories as the existing TypeScript scope", async () => {
     await withValidationEnv({ fixture: PROJECT_FIXTURES.CLEAN_PROJECT }, async ({ path }) => {
       const { deps, validationCalls } = createRecordingCircularCommandDeps();
 
@@ -1401,7 +1401,7 @@ describe("circular command scope routing", () => {
     });
   });
 
-  it("forwards existing dotted --files directories as constrained TypeScript scope", async () => {
+  it("forwards existing dotted path operand directories as constrained TypeScript scope", async () => {
     await withValidationEnv({ fixture: PROJECT_FIXTURES.CLEAN_PROJECT }, async ({ path }) => {
       await mkdir(join(path, dottedSourceDirectory), { recursive: true });
       await writeFile(join(path, dottedSourceDirectory, "index.ts"), "export const dottedDirectory = true;\n");

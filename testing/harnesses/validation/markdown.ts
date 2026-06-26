@@ -297,7 +297,6 @@ async function runE2eBrokenDirectoryScenario(): Promise<void> {
 
     const result = await runValidationSubprocess([
       validationCliDefinition.subcommands.markdown.commandName,
-      MARKDOWN_VALIDATION_DATA.filesFlag,
       spxDir,
     ]);
 
@@ -312,7 +311,6 @@ async function runE2eValidDirectoryScenario(): Promise<void> {
 
     const result = await runValidationSubprocess([
       validationCliDefinition.subcommands.markdown.commandName,
-      MARKDOWN_VALIDATION_DATA.filesFlag,
       spxDir,
     ]);
 
@@ -326,7 +324,6 @@ async function runE2eDirectFileScenario(): Promise<void> {
 
     const result = await runValidationSubprocess([
       validationCliDefinition.subcommands.markdown.commandName,
-      MARKDOWN_VALIDATION_DATA.filesFlag,
       sourceFile,
     ]);
 

@@ -42,16 +42,16 @@ failure output with the audit CLI stderr-for-errors behavior.
 
 ---
 
-## TypeScript `--files` path scopes are passed to TypeScript as files
+## TypeScript path operands are passed to TypeScript as files
 
-`spx validation typescript --files <directory>` can fail before validation
+`spx validation typescript <directory>` can fail before validation
 because directory scopes are forwarded into the generated TypeScript file list
 as if they were files.
 
 Observed on June 10, 2026 while validating audit-boundary code changes:
 
 ```bash
-pnpm exec tsx src/cli.ts validation typescript --files \
+pnpm exec tsx src/cli.ts validation typescript \
   src/commands/audit \
   src/domains/audit \
   spx/36-audit.enabler/32-verify.enabler/21-verdict-reader.enabler/tests \
@@ -81,7 +81,7 @@ Observed on June 17, 2026 while validating a mixed focused set containing
 TypeScript source, TypeScript tests, and a Markdown spec:
 
 ```bash
-pnpm run validate --files \
+pnpm run validate \
   src/validation/discovery/tool-finder.ts \
   spx/41-validation.enabler/tests/tool-discovery.compliance.l1.test.ts \
   spx/41-validation.enabler/validation.md \
@@ -104,7 +104,7 @@ An explicit-file version of the same focused check passed:
 ```bash
 run_state_tests=spx/36-audit.enabler/54-branch-run-state.enabler/tests
 
-pnpm exec tsx src/cli.ts validation typescript --files \
+pnpm exec tsx src/cli.ts validation typescript \
   src/commands/audit/run-state.ts \
   src/domains/audit/run-state.ts \
   src/domains/audit/config.ts \
@@ -125,9 +125,9 @@ run the full validation gate.
 audit-boundary work on June 10, 2026.
 
 **Revisit condition:** Fix before changing TypeScript scope generation,
-file-inclusion directory expansion, or the planned positional-path replacement
-for `--files`; add evidence that directory scopes expand to TypeScript files
-before writing the temporary tsconfig.
+file-inclusion directory expansion, or validation path operand handling; add
+evidence that directory scopes expand to TypeScript files before writing the
+temporary tsconfig.
 
 **Skills:** `spec-tree:contextualize`, `spec-tree:apply`,
 `typescript:test-typescript`, `typescript:code-typescript`,
@@ -160,10 +160,10 @@ cleanup:
 
 ---
 
-## TypeScript and lint `--files` scopes lack TypeScript-scope intersection
+## TypeScript and lint path scopes lack TypeScript-scope intersection
 
 The review on `outcomeeng/spx#211` identified that `circularCommand` and
-`knipCommand` now resolve explicit `--files` operands through
+`knipCommand` now resolve explicit path operands through
 `resolveTypeScriptValidationScope`, which intersects explicit paths with the
 effective TypeScript scope before forwarding them to their tools.
 `typescriptCommand` and `lintCommand` still apply validation path filters but do
@@ -175,72 +175,12 @@ so validation subcommands do not share one effective-scope contract.
 
 **Tracking classification:** Follow-up from PR #211 review on June 20, 2026.
 
-**Revisit condition:** Resolve before further changing validation `--files`
-handling, TypeScript scope generation, lint target selection, or the planned
-positional-path replacement.
+**Revisit condition:** Resolve before further changing validation path operand
+handling, TypeScript scope generation, or lint target selection.
 
 **Skills:** `spec-tree:contextualize`, `spec-tree:apply`,
 `typescript:test-typescript`, `typescript:code-typescript`,
 `typescript:audit-typescript-tests`, and `typescript:audit-typescript`.
-
----
-
-## Positional verification path operands to replace `--files` flag
-
-`spx/29-verification-path-scope.pdr.md` establishes positional product path
-operands as the shared path-scope vocabulary for verification commands. All
-`spx validation <step>` subcommands currently accept `--files <paths...>` to
-scope which files are validated. The flag is redundant naming because paths are
-already the operands. ESLint, ruff, mypy, and cat all accept files and
-directories as positional arguments with no flag:
-
-```bash
-eslint src/
-ruff check src/ tests/
-mypy src/
-cat *.md /tmp/drafts/ > out.md
-```
-
-The equivalent spx interface would be:
-
-```bash
-spx validation literal              # whole project
-spx validation literal src/         # directory
-spx validation literal src/ tests/  # two directories
-spx validation all src/             # all validators scoped to src/
-```
-
-**Scope:** every `spx validation <step>` subcommand and the `spx validation all`
-orchestrator. The orchestrator must thread positional paths through to each
-validator's stage runner.
-
-**Affected nodes:**
-
-- `21-validation-cli.enabler` — CLI surface (argument parsing convention)
-- `17-file-inclusion.enabler` — directory expansion behavior (walking a
-  directory to its language-appropriate files); current spec says nothing about
-  directory input, only explicit file lists
-- Every leaf validator enabler (lint, type-check, ast-enforcement,
-  circular-deps, literal-reuse, markdown)
-- `41-test.enabler` — already ships targeted positional operands; keep future
-  verification path-scope work aligned with its operand vocabulary
-
-**Related gap:** `17-file-inclusion.enabler` does not currently declare
-directory expansion behavior. When a directory is supplied, the resolver should
-walk it and return all language-appropriate files (`.ts`/`.tsx` for TypeScript,
-`.py` for Python, etc.) as if they were supplied explicitly. This gap exists
-independently of the positional-args decision.
-
-**Decision:** `spx/29-verification-path-scope.pdr.md` establishes positional
-paths as the convention for verification path scope, with `--files` removed from
-validation rather than preserved as a parallel alias.
-
-**Constraint:** `32-literal-reuse.enabler` output-mode redesign must preserve
-the existing non-scope output flags (`--kind`, `--files-with-problems`,
-`--literals`, `--verbose`, `--json`) while replacing `--files` path scoping
-through a separate implementation pass across all affected nodes.
-
-**Scope:** follow-up work, not part of any in-flight cycle.
 
 ---
 

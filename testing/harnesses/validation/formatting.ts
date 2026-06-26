@@ -98,7 +98,6 @@ async function runCliProcessScenario(): Promise<void> {
     const result = await runValidationSubprocess(
       [
         validationCliDefinition.subcommands.format.commandName,
-        FORMATTING_VALIDATION_DATA.filesScopeFlag,
         FORMATTING_VALIDATION_DATA.typeScriptSourceFilename,
       ],
       { cwd: fixture.projectRoot },
