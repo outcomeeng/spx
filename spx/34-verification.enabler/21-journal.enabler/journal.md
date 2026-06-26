@@ -2,7 +2,7 @@
 
 PROVIDES the `spx journal` command — the verbs `open`, `append`, `read --from <cursor>`, `seal`, and `render` over the agent-run-journal contract of `spx/15-agent-run-journal.enabler`, binding the backend at the edge from the environment and folding a run's terminal projection from its event history
 SO THAT the agentic verification skills an agent runs
-CAN open a changeset-scoped run, append one event per significant step, read the event history from a cursor, seal the run at terminal completion, and render a projection — persisting and streaming to a local file-and-standard-output backend by default or a GitHub pull-request backend under continuous integration — without naming the backend or carrying a verification-type vocabulary
+CAN open a changeset-scoped run, append one event per significant step, read the event history from a cursor, seal the run at terminal completion, and render a projection — persisting every event to the run journal as the source of truth and streaming to the environment-bound surface, standard output by default or a GitHub pull-request comment under continuous integration — without naming the backend or carrying a verification-type vocabulary
 
 ## Assertions
 
