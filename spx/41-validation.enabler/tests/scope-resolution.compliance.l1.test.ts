@@ -1,19 +1,26 @@
 import type { ChildProcess, SpawnOptions } from "node:child_process";
-import { mkdir } from "node:fs/promises";
-import { join } from "node:path";
+import { mkdir, readFile, writeFile } from "node:fs/promises";
+import { dirname, join, relative } from "node:path";
 
 import { describe, expect, it } from "vitest";
+import { stringify } from "yaml";
 
 import { VALIDATION_EXIT_CODES } from "@/commands/validation/messages";
 import { TYPESCRIPT_VALIDATION_MESSAGES, typescriptCommand } from "@/commands/validation/typescript";
 import type { ProcessRunner } from "@/lib/process-lifecycle";
-import { VALIDATION_PATHS_SUBSECTION, validationConfigDescriptor } from "@/validation/config/descriptor";
+import {
+  VALIDATION_PATH_TOOL_SUBSECTIONS,
+  VALIDATION_PATHS_SUBSECTION,
+  validationConfigDescriptor,
+} from "@/validation/config/descriptor";
+import { validationPathFilterForTool } from "@/validation/config/path-filter";
 import {
   constrainTypeScriptScopeToExplicitTargets,
   defaultScopeDeps,
   EXPLICIT_TYPESCRIPT_SCOPE_TARGET_KIND,
   getTypeScriptScope,
   pathPassesTypeScriptScope,
+  resolveTypeScriptValidationScope,
   TEMPORARY_TSCONFIG_PARENT_SEGMENTS,
   TSCONFIG_FILES,
   TYPESCRIPT_FALLBACK_INCLUDE_PATTERNS,
@@ -43,6 +50,7 @@ import { LITERAL_TEST_GENERATOR, sampleLiteralTestValue } from "@testing/generat
 import { VALIDATION_PIPELINE_DATA } from "@testing/generators/validation/validation";
 import { withTestEnv } from "@testing/harnesses/spec-tree/spec-tree";
 import { RecordingSpawnOptionsRunner, RecordingValidationChild } from "@testing/harnesses/validation/subprocess";
+import { PROJECT_FIXTURES, withValidationEnv } from "@testing/harnesses/with-validation-env";
 
 function createRootRecordingDeps(projectRoot: string, checkedPaths: string[]): TypeScriptDeps {
   return {
@@ -500,9 +508,11 @@ describe("ALWAYS: TypeScript scope resolution uses the requested project root", 
     await withTestEnv({}, async (env) => {
       const runner = new RecordingSpawnOptionsRunner();
       const writtenConfigs: string[] = [];
+      let writtenConfigPath = "";
       const deps: TypeScriptDeps = {
         ...defaultTypeScriptDeps,
         writeFileSync(path, data) {
+          writtenConfigPath = path.toString();
           writtenConfigs.push(data.toString());
           defaultTypeScriptDeps.writeFileSync(path, data);
         },
@@ -526,10 +536,12 @@ describe("ALWAYS: TypeScript scope resolution uses the requested project root", 
       expect(runner.options.every((options) => options.cwd === env.productDir)).toBe(true);
       expect(writtenConfigs).toHaveLength(1);
       const writtenConfig = JSON.parse(writtenConfigs[0] ?? "{}");
+      const configRelativePath = (pattern: string): string =>
+        relative(dirname(writtenConfigPath), join(env.productDir, pattern));
       expect(writtenConfig).toMatchObject({
         extends: join(env.productDir, TSCONFIG_FILES.full),
-        include: [join(env.productDir, VALIDATION_PIPELINE_DATA.productionScopeFilePattern)],
-        exclude: [join(env.productDir, VALIDATION_PIPELINE_DATA.productionScopeExcludePattern)],
+        include: [configRelativePath(VALIDATION_PIPELINE_DATA.productionScopeFilePattern)],
+        exclude: [configRelativePath(VALIDATION_PIPELINE_DATA.productionScopeExcludePattern)],
       });
       expect(writtenConfig.compilerOptions).toEqual({ noEmit: true });
     });
@@ -586,6 +598,181 @@ describe("ALWAYS: TypeScript scope resolution uses the requested project root", 
         expect(result.output).toBe(TYPESCRIPT_VALIDATION_MESSAGES.NO_VALIDATION_PATH_TARGETS);
       },
     );
+  });
+
+  it("expands TypeScript directory path operands through a scoped temporary config", async () => {
+    await withValidationEnv({ fixture: PROJECT_FIXTURES.CLEAN_PROJECT }, async ({ path }) => {
+      const result = await typescriptCommand({
+        cwd: path,
+        files: [VALIDATION_PIPELINE_DATA.sourceDirectoryName],
+      });
+
+      expect(result.exitCode).toBe(VALIDATION_EXIT_CODES.SUCCESS);
+      expect(result.output).toBe(TYPESCRIPT_VALIDATION_MESSAGES.SUCCESS);
+    });
+  });
+
+  it("intersects TypeScript root directory operands with validation include paths", async () => {
+    await withValidationEnv({ fixture: PROJECT_FIXTURES.CLEAN_PROJECT }, async ({ path }) => {
+      const secondarySourceDirectory = join(path, VALIDATION_PIPELINE_DATA.secondarySourceDirectoryName);
+      await mkdir(secondarySourceDirectory);
+      await writeFile(
+        join(secondarySourceDirectory, VALIDATION_PIPELINE_DATA.secondarySourceFileName),
+        VALIDATION_PIPELINE_DATA.secondaryTypeErrorSourceContent,
+      );
+      await writeFile(
+        join(path, TSCONFIG_FILES.full),
+        JSON.stringify({
+          ...JSON.parse(await readFile(join(path, TSCONFIG_FILES.full), VALIDATION_PIPELINE_DATA.fixtureTextEncoding)),
+          include: [
+            `${VALIDATION_PIPELINE_DATA.sourceDirectoryName}${TYPESCRIPT_SCOPE_DIRECTORY_PATTERN_SUFFIX}`,
+            `${VALIDATION_PIPELINE_DATA.secondarySourceDirectoryName}${TYPESCRIPT_SCOPE_DIRECTORY_PATTERN_SUFFIX}`,
+          ],
+        }),
+      );
+      await writeFile(
+        join(path, VALIDATION_PIPELINE_DATA.validationConfigFilename),
+        stringify({
+          validation: {
+            paths: {
+              include: [VALIDATION_PIPELINE_DATA.sourceDirectoryName],
+            },
+          },
+        }),
+      );
+
+      const result = await typescriptCommand({
+        cwd: path,
+        files: ["."],
+      });
+
+      expect(result.exitCode).toBe(VALIDATION_EXIT_CODES.SUCCESS);
+      expect(result.output).toBe(TYPESCRIPT_VALIDATION_MESSAGES.SUCCESS);
+    });
+  });
+
+  it("intersects TypeScript directory operands with validation include paths", async () => {
+    await withValidationEnv({ fixture: PROJECT_FIXTURES.CLEAN_PROJECT }, async ({ path }) => {
+      const secondarySourceDirectory = join(path, VALIDATION_PIPELINE_DATA.secondarySourceDirectoryName);
+      await mkdir(secondarySourceDirectory);
+      await writeFile(
+        join(secondarySourceDirectory, VALIDATION_PIPELINE_DATA.secondarySourceFileName),
+        VALIDATION_PIPELINE_DATA.secondarySourceContent,
+      );
+      await writeFile(
+        join(path, TSCONFIG_FILES.full),
+        JSON.stringify({
+          ...JSON.parse(await readFile(join(path, TSCONFIG_FILES.full), VALIDATION_PIPELINE_DATA.fixtureTextEncoding)),
+          include: [
+            `${VALIDATION_PIPELINE_DATA.sourceDirectoryName}${TYPESCRIPT_SCOPE_DIRECTORY_PATTERN_SUFFIX}`,
+            `${VALIDATION_PIPELINE_DATA.secondarySourceDirectoryName}${TYPESCRIPT_SCOPE_DIRECTORY_PATTERN_SUFFIX}`,
+          ],
+        }),
+      );
+
+      const scopeConfig = resolveTypeScriptValidationScope({
+        projectRoot: path,
+        scope: VALIDATION_SCOPES.FULL,
+        paths: [VALIDATION_PIPELINE_DATA.sourceDirectoryName],
+        validationPathFilter: validationPathFilterForTool(
+          {
+            include: [
+              VALIDATION_PIPELINE_DATA.sourceDirectoryName,
+              VALIDATION_PIPELINE_DATA.secondarySourceDirectoryName,
+            ],
+          },
+          VALIDATION_PATH_TOOL_SUBSECTIONS.TYPESCRIPT,
+        ),
+        markExplicitPathsAsValidationFilter: true,
+      });
+
+      expect(scopeConfig.filteredByValidationPathNoMatches).not.toBe(true);
+      expect(scopeConfig.filePatterns.length + scopeConfig.directories.length).toBeGreaterThan(0);
+      expect(scopeConfig.filePatterns.join("\n")).not.toContain(VALIDATION_PIPELINE_DATA.secondarySourceDirectoryName);
+      expect(scopeConfig.directories).not.toContain(VALIDATION_PIPELINE_DATA.secondarySourceDirectoryName);
+    });
+  });
+
+  it("excludes TypeScript descendants below directory path operands", async () => {
+    await withValidationEnv({ fixture: PROJECT_FIXTURES.CLEAN_PROJECT }, async ({ path }) => {
+      const excludedSourceDirectory = join(
+        path,
+        VALIDATION_PIPELINE_DATA.sourceDirectoryName,
+        VALIDATION_PIPELINE_DATA.excludedSourceDirectoryName,
+      );
+      await mkdir(excludedSourceDirectory);
+      await writeFile(
+        join(excludedSourceDirectory, VALIDATION_PIPELINE_DATA.excludedSourceFileName),
+        VALIDATION_PIPELINE_DATA.secondaryTypeErrorSourceContent,
+      );
+      await writeFile(
+        join(path, VALIDATION_PIPELINE_DATA.validationConfigFilename),
+        stringify({
+          validation: {
+            paths: {
+              include: [VALIDATION_PIPELINE_DATA.sourceDirectoryName],
+              exclude: [
+                `${VALIDATION_PIPELINE_DATA.sourceDirectoryName}/${VALIDATION_PIPELINE_DATA.excludedSourceDirectoryName}`,
+              ],
+            },
+          },
+        }),
+      );
+
+      const result = await typescriptCommand({
+        cwd: path,
+        files: [VALIDATION_PIPELINE_DATA.sourceDirectoryName],
+      });
+
+      expect(result.exitCode).toBe(VALIDATION_EXIT_CODES.SUCCESS);
+      expect(result.output).toBe(TYPESCRIPT_VALIDATION_MESSAGES.SUCCESS);
+    });
+  });
+
+  it("preserves validation include directories below TypeScript directory operands", async () => {
+    await withValidationEnv({ fixture: PROJECT_FIXTURES.CLEAN_PROJECT }, async ({ path }) => {
+      const narrowedSourceDirectory = join(
+        path,
+        VALIDATION_PIPELINE_DATA.sourceDirectoryName,
+        VALIDATION_PIPELINE_DATA.narrowedSourceDirectoryName,
+      );
+      await mkdir(narrowedSourceDirectory);
+      await writeFile(
+        join(narrowedSourceDirectory, VALIDATION_PIPELINE_DATA.narrowedSourceFileName),
+        VALIDATION_PIPELINE_DATA.secondaryTypeErrorSourceContent,
+      );
+      await writeFile(
+        join(path, VALIDATION_PIPELINE_DATA.validationConfigFilename),
+        stringify({
+          validation: {
+            paths: {
+              include: [
+                `${VALIDATION_PIPELINE_DATA.sourceDirectoryName}/${VALIDATION_PIPELINE_DATA.narrowedSourceDirectoryName}`,
+              ],
+            },
+          },
+        }),
+      );
+
+      const scopeConfig = resolveTypeScriptValidationScope({
+        projectRoot: path,
+        scope: VALIDATION_SCOPES.FULL,
+        paths: [VALIDATION_PIPELINE_DATA.sourceDirectoryName],
+        validationPathFilter: validationPathFilterForTool(
+          {
+            include: [
+              `${VALIDATION_PIPELINE_DATA.sourceDirectoryName}/${VALIDATION_PIPELINE_DATA.narrowedSourceDirectoryName}`,
+            ],
+          },
+          VALIDATION_PATH_TOOL_SUBSECTIONS.TYPESCRIPT,
+        ),
+        markExplicitPathsAsValidationFilter: true,
+      });
+
+      expect(scopeConfig.filePatterns).toContain(
+        `${VALIDATION_PIPELINE_DATA.sourceDirectoryName}/${VALIDATION_PIPELINE_DATA.narrowedSourceDirectoryName}${TYPESCRIPT_SCOPE_DIRECTORY_PATTERN_SUFFIX}`,
+      );
+    });
   });
 
   it("does not expand TypeScript validation scope to include paths outside tsconfig scope", async () => {

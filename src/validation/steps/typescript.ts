@@ -8,7 +8,7 @@
 
 import { existsSync, mkdirSync, rmSync, writeFileSync } from "node:fs";
 import { mkdtemp } from "node:fs/promises";
-import { isAbsolute, join } from "node:path";
+import { isAbsolute, join, relative } from "node:path";
 
 import { lifecycleProcessRunner, type ProcessRunner, spawnManagedSubprocess } from "@/lib/process-lifecycle";
 import { TEMPORARY_TSCONFIG_PARENT_SEGMENTS, TSCONFIG_FILES } from "../config/scope";
@@ -172,11 +172,14 @@ async function createScopeFilteredTsconfig(
   const tempDir = await createTemporaryTsconfigDir(projectRoot, deps);
   const configPath = join(tempDir, "tsconfig.json");
   const baseConfigFile = TSCONFIG_FILES[scope];
-  const toProjectPathPattern = (pattern: string) => isAbsolute(pattern) ? pattern : join(projectRoot, pattern);
+  const toTemporaryConfigPathPattern = (pattern: string) => {
+    const absolutePattern = isAbsolute(pattern) ? pattern : join(projectRoot, pattern);
+    return relative(tempDir, absolutePattern);
+  };
   const tempConfig = {
     extends: join(projectRoot, baseConfigFile),
-    include: scopeConfig.filePatterns.map(toProjectPathPattern),
-    exclude: scopeConfig.excludePatterns.map(toProjectPathPattern),
+    include: scopeConfig.filePatterns.map(toTemporaryConfigPathPattern),
+    exclude: scopeConfig.excludePatterns.map(toTemporaryConfigPathPattern),
     compilerOptions: TEMPORARY_TSCONFIG_COMPILER_OPTIONS,
   };
 

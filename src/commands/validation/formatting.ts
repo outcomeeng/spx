@@ -7,7 +7,7 @@
  * configuration, never from process environment.
  */
 
-import { existsSync } from "node:fs";
+import { existsSync, statSync } from "node:fs";
 import { isAbsolute, join, relative } from "node:path";
 
 import { resolveConfig } from "@/config/index";
@@ -16,7 +16,12 @@ import {
   type ValidationConfig,
   validationConfigDescriptor,
 } from "@/validation/config/descriptor";
-import { pathPassesValidationFilter, validationPathFilterForTool } from "@/validation/config/path-filter";
+import {
+  pathPassesValidationFilter,
+  validationPathFilterExcludes,
+  validationPathFilterForTool,
+  validationPathFilterIntersections,
+} from "@/validation/config/path-filter";
 import { DPRINT_CONFIG_FILENAME, validateFormatting } from "@/validation/steps/formatting";
 import { VALIDATION_COMMAND_OUTPUT, VALIDATION_STAGE_DISPLAY_NAMES } from "./messages";
 import type { FormattingCommandOptions, ValidationCommandResult } from "./types";
@@ -29,6 +34,7 @@ export const FORMATTING_COMMAND_OUTPUT = {
 } as const;
 
 const FORMATTING_CONFIG_ERROR_MESSAGE = `${VALIDATION_STAGE_DISPLAY_NAMES.FORMATTING}: ✗ config error`;
+const DPRINT_RECURSIVE_DIRECTORY_GLOB_SUFFIX = "/**/*";
 
 /**
  * Run formatting validation.
@@ -72,8 +78,13 @@ export async function formattingCommand(options: FormattingCommandOptions): Prom
   const hasExplicitScope = files !== undefined && files.length > 0;
   const scopedFiles = hasExplicitScope
     ? files
-      .map((filePath) => (isAbsolute(filePath) ? relative(cwd, filePath) : filePath))
-      .filter((relativePath) => pathPassesValidationFilter(relativePath, pathFilter))
+      .flatMap((filePath) =>
+        formattingPathOperandsForValidationPathFilter(
+          cwd,
+          isAbsolute(filePath) ? relative(cwd, filePath) : filePath,
+          pathFilter,
+        )
+      )
     : undefined;
 
   if (hasExplicitScope && (scopedFiles === undefined || scopedFiles.length === 0)) {
@@ -83,7 +94,11 @@ export async function formattingCommand(options: FormattingCommandOptions): Prom
     return { exitCode: 0, output, durationMs: Date.now() - startTime };
   }
 
-  const result = await validateFormatting({ projectRoot: cwd, files: scopedFiles });
+  const result = await validateFormatting({
+    projectRoot: cwd,
+    files: scopedFiles,
+    excludes: validationPathFilterExcludes(pathFilter),
+  });
   const durationMs = Date.now() - startTime;
 
   if (result.success) {
@@ -93,4 +108,29 @@ export async function formattingCommand(options: FormattingCommandOptions): Prom
   const detail = result.error ?? result.output;
   const output = [FORMATTING_COMMAND_OUTPUT.FAILURE_SUMMARY, detail].filter((line) => line.length > 0).join("\n");
   return { exitCode: 1, output, durationMs };
+}
+
+function normalizeFormattingPathOperand(productDir: string, relativePath: string): string {
+  const absolutePath = join(productDir, relativePath);
+  if (!existsSync(absolutePath) || !statSync(absolutePath).isDirectory()) {
+    return relativePath;
+  }
+  const normalizedDirectory = relativePath.replace(/\/+$/u, "");
+  if (normalizedDirectory.length === 0 || normalizedDirectory === ".") {
+    return DPRINT_RECURSIVE_DIRECTORY_GLOB_SUFFIX.slice(1);
+  }
+  return `${normalizedDirectory}${DPRINT_RECURSIVE_DIRECTORY_GLOB_SUFFIX}`;
+}
+
+function formattingPathOperandsForValidationPathFilter(
+  productDir: string,
+  relativePath: string,
+  pathFilter: Parameters<typeof pathPassesValidationFilter>[1],
+): string[] {
+  const absolutePath = join(productDir, relativePath);
+  if (!existsSync(absolutePath) || !statSync(absolutePath).isDirectory()) {
+    return pathPassesValidationFilter(relativePath, pathFilter) ? [relativePath] : [];
+  }
+  return validationPathFilterIntersections(relativePath, pathFilter)
+    .map((path) => normalizeFormattingPathOperand(productDir, path));
 }

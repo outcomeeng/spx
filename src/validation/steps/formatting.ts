@@ -17,6 +17,7 @@ import { VALIDATION_SUBPROCESS_EVENTS } from "./subprocess-output";
 /** Bare command resolved from `PATH`; check mode reports without rewriting. */
 export const DPRINT_COMMAND = "dprint";
 export const DPRINT_CHECK_SUBCOMMAND = "check";
+export const DPRINT_EXCLUDES_OPTION = "--excludes";
 
 /** Product-root config filename; its presence gates whether the stage runs. */
 export const DPRINT_CONFIG_FILENAME = "dprint.jsonc";
@@ -40,6 +41,8 @@ export interface FormattingValidationContext {
   readonly projectRoot: string;
   /** Explicit file scope; omitted to check the whole `dprint.jsonc` includes set. */
   readonly files?: readonly string[];
+  /** Additive dprint excludes; omitted when validation path filters have none. */
+  readonly excludes?: readonly string[];
 }
 
 /**
@@ -58,8 +61,16 @@ export interface FormattingValidationContext {
  * // Returns: ["check", "src/index.ts"]
  * ```
  */
-export function buildDprintCheckArgs(options: { files?: readonly string[] }): string[] {
-  return [DPRINT_CHECK_SUBCOMMAND, ...(options.files ?? [])];
+export function buildDprintCheckArgs(options: {
+  files?: readonly string[];
+  excludes?: readonly string[];
+}): string[] {
+  const excludes = options.excludes ?? [];
+  return [
+    DPRINT_CHECK_SUBCOMMAND,
+    ...(excludes.length > 0 ? [DPRINT_EXCLUDES_OPTION, ...excludes] : []),
+    ...(options.files ?? []),
+  ];
 }
 
 /**
@@ -73,7 +84,7 @@ export async function validateFormatting(
   context: FormattingValidationContext,
   runner: ProcessRunner = defaultFormattingProcessRunner,
 ): Promise<FormattingValidationResult> {
-  const args = buildDprintCheckArgs({ files: context.files });
+  const args = buildDprintCheckArgs({ files: context.files, excludes: context.excludes });
 
   return new Promise((resolve) => {
     const child = spawnManagedSubprocess(runner, DPRINT_COMMAND, args, { cwd: context.projectRoot });
