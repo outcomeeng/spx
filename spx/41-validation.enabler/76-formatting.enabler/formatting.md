@@ -21,7 +21,7 @@ CAN catch unformatted files before they reach the repository, with one verdict r
 ### Properties
 
 - Formatting argument construction is deterministic: the same file scope always produces the same `dprint check` invocation ([test](tests/formatting.property.l1.test.ts))
-- Formatting is additive: adding the formatting stage never changes the verdict of existing validation stages ([test](tests/formatting.property.l1.test.ts))
+- Formatting registry composition is additive: adding the formatting stage preserves every existing validation stage descriptor and appends the formatting stage descriptors ([test](tests/formatting.property.l1.test.ts))
 
 ### Compliance
 
