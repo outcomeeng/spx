@@ -71,7 +71,7 @@ function expectHookCliClaimedEnv(envContent: string, sessionId: string): void {
 }
 
 describe("hook CLI compliance", () => {
-  it("ALWAYS: hook run session-start reads hook stdin, writes no stdout, exits 0, claims once, and writes the hook env file", async () => {
+  it("ALWAYS: hook run session-start reads hook stdin, writes no stdout on a non-compact source, exits 0, claims once, and writes the hook env file", async () => {
     const prefix = sampleWorktreeTestValue(WORKTREE_TEST_GENERATOR.tempPrefix());
     const worktreeName = sampleWorktreeTestValue(WORKTREE_TEST_GENERATOR.poolWorktreeName());
     const sessionId = sampleWorktreeTestValue(WORKTREE_TEST_GENERATOR.sessionId());
