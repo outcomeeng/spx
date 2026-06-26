@@ -29,5 +29,6 @@ CAN read a node's last-recorded verification projection from a committed file wi
 - ALWAYS: `spx spec status --update` derives pass/fail/not-run outcomes only for linked verification references and obtains those outcomes from the owning verification surface; `declared` and `specified` nodes classify structurally without a run ([test](tests/node-status.compliance.l1.test.ts))
 - ALWAYS: CI regenerates every committed `spx.status.json` from the checkout after running the configured verification suite and rejects a mismatch ([test](tests/node-status.compliance.l1.test.ts))
 - NEVER: a consumer treats a missing `spx.status.json` as an error or a fixed state — absence routes to live derivation ([test](tests/node-status.compliance.l1.test.ts))
+- NEVER: `spx spec status --update` writes `spx.status.json` into a node-shaped directory with no git-tracked file under it; such a directory is excluded from the update node set and any stale `spx.status.json` already there is removed ([test](tests/node-status.compliance.l1.test.ts))
 - NEVER: `spx.status.json` is hand-authored or offered as `spx.status.yaml`/`spx.status.toml` — it is a machine-written JSON artifact ([audit])
 - NEVER: the status path composes a language-specific test runner — the per-node run is the testing domain's registry-based, multi-language surface ([audit])
