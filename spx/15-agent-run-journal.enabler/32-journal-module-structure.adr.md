@@ -1,6 +1,6 @@
 # Agent Run Journal Module Structure
 
-The agent run journal is a backend-agnostic event-store library under `src/lib/agent-run-journal/`: the CloudEvents event model, the journal interface (`append`, `read` from a cursor, `render`, `seal`), and the replay and projection logic compose over an injected storage-backend port, and the concrete Appendable and Snapshot adapters bind that port from their own modules — the local Appendable adapter over `src/lib/state-store/`, the GitHub adapter in its CI-integration module. The library performs no filesystem, process, or network I/O; every backend reaches the journal only through the port.
+The agent run journal is a backend-agnostic event-store library under `src/lib/agent-run-journal/`: the CloudEvents event model, the journal interface (`append`, `read` from a cursor, `render`, `seal`), and the replay and projection logic compose over an injected storage-backend port, and the concrete Appendable and Snapshot adapters bind that port from their own modules — the local Appendable adapter over `src/lib/state-store/`, and the GitHub Appendable and Snapshot adapters in their CI-integration modules. The library performs no filesystem, process, or network I/O; every backend reaches the journal only through the port.
 
 ## Rationale
 

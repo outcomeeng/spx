@@ -1,0 +1,24 @@
+# Artifact Journal Store Architecture
+
+The GitHub Appendable journal backend is a `src/lib/` module that binds the agent-run journal's `AppendableBackend` port over the runner-local JSONL run history of `spx/18-state.enabler/71-appendable-journal-store.enabler` and adds GitHub durability through an injected Actions-artifact client: `append`, `readAll`, `seal`, and `isSealed` operate the runner-local run file during the job; `seal` additionally uploads the run's JSONL as a per-run Actions artifact; and opening a run hydrates the pull request's prior retained runs by downloading their artifacts into the runner-local run histories. Every Actions artifact upload, download, and listing passes through the injected client; the real client binds only at the outermost edge.
+
+## Rationale
+
+The journal contract names no backend, so durable GitHub persistence is one more `AppendableBackend` — symmetric to the local store of `spx/18-state.enabler/71-appendable-journal-store.enabler` and an independent peer of the Snapshot projection sink of `spx/21-infrastructure.enabler/43-github-ci.enabler/21-snapshot-adapter.enabler`, not a replacement for it. The runner filesystem is durable only for the job's lifetime, so a run's JSONL is the live append target during the job and an Actions artifact is its cross-job durable record; reusing the local Appendable mechanics keeps one JSONL format and one append/readAll/seal/replay contract across both backends, while the artifact client supplies only the durability boundary the runner lacks. Uploading once at seal rather than per append keeps `append` a local-file write with no per-event network cost, and addressing each run's artifact by pull request and run token makes the pull request's source of truth the union of its retained artifacts, which concurrent jobs extend without collision. Concentrating Actions access behind an injected client keeps the binding verifiable over a controlled client without a network — the same boundary discipline by which the local store routes filesystem access through an injected `StateStoreFileSystem` per `spx/17-state.adr.md` and the Snapshot sink routes GitHub access through an injected client.
+
+Rejected: making the Actions artifact the per-append target — an artifact is immutable once written and unavailable mid-write, so it cannot back `append`; the runner-local file is the append target and the artifact its sealed snapshot. Rejected: persisting a run only as its PR-comment projection — a projection is a rendered view, not the event history, so it can neither replay nor resume a run; the Snapshot sink owns the comment, this backend owns the durable events. Rejected: module-level interception of the Actions runtime — it hides the boundary the injected client makes explicit, against `spx/17-state.adr.md`.
+
+## Invariants
+
+- The backend binds the `AppendableBackend` port; `append`/`readAll`/`seal`/`isSealed` preserve the journal contract unchanged from the local store.
+- A run's durable artifact holds exactly the run's sealed JSONL event history; re-reading it replays the identical events in ascending `seq` order.
+- Constructing the backend reads no ambient Actions environment; every artifact upload, download, and listing passes through the injected client.
+
+## Verification
+
+### Audit
+
+- ALWAYS: the backend is a `src/lib/` module binding the journal's `AppendableBackend` port over the runner-local JSONL run history of `spx/18-state.enabler/71-appendable-journal-store.enabler`, without widening or altering the `append`/`readAll`/`seal`/`isSealed` contract, per `spx/15-agent-run-journal.enabler/32-journal-module-structure.adr.md` ([audit])
+- ALWAYS: every Actions artifact upload, download, and listing routes through a client interface accepted as an injected parameter, so the backend's dispatch verifies over a controlled client at `l1` and the real client binds only at the outermost edge, mirroring `spx/17-state.adr.md` and `spx/21-infrastructure.enabler/43-github-ci.enabler/21-snapshot-adapter.enabler/21-snapshot-adapter-architecture.adr.md` ([audit])
+- NEVER: an Actions artifact backs `append` as a per-event store, or a rendered projection (the pull-request comment) substitutes for the durable event history — the runner-local JSONL is the append target and the artifact its sealed snapshot, while the projection surface belongs to the Snapshot sink ([audit])
+- NEVER: `vi.mock()`, `jest.mock()`, or module interception substitutes for the Actions-artifact client — tests inject a controlled client implementing the same interface and exercise the real backend code paths ([audit])
