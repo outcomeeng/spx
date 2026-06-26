@@ -2,7 +2,7 @@
 
 PROVIDES the `spx journal` command — the verbs `open`, `append`, `read --from <cursor>`, `seal`, and `render` over the agent-run-journal contract of `spx/15-agent-run-journal.enabler`, binding the backend at the edge from the environment and folding a run's terminal projection from its event history
 SO THAT the agentic verification skills an agent runs
-CAN open a changeset-scoped run, append one event per significant step, read the event history from a cursor, seal the run at terminal completion, and render a projection — persisting every event to the bound Appendable journal store as the source of truth, a local run file by default or the durable GitHub Appendable store under continuous integration, and streaming each event to the environment-bound surface, standard output by default or the pull-request comment under continuous integration — without naming the backend or carrying a verification-type vocabulary
+CAN open a changeset-scoped run, append one event per significant step, read the event history from a cursor, seal the run at terminal completion, and render a projection — persisting every event to the run journal as the source of truth and streaming each event to the environment-bound surface, standard output by default or the pull-request comment under continuous integration — without naming the backend or carrying a verification-type vocabulary
 
 ## Assertions
 
@@ -14,7 +14,7 @@ CAN open a changeset-scoped run, append one event per significant step, read the
 
 ### Mappings
 
-- Environment maps to backend: an unset `SPX_VERIFY_BACKEND` outside continuous integration, or `SPX_VERIFY_BACKEND=local`, selects the local Appendable store with standard output; a continuous-integration GitHub pull-request environment, or `SPX_VERIFY_BACKEND=github-pr`, selects the GitHub Appendable store with the pull-request comment projection; an unrecognized value is rejected naming the value and the registered backends ([test](tests/backend-selection.mapping.l1.test.ts))
+- Environment maps to backend: an unset `SPX_VERIFY_BACKEND` outside continuous integration, or `SPX_VERIFY_BACKEND=local`, selects the local backend; a continuous-integration GitHub pull-request environment, or `SPX_VERIFY_BACKEND=github-pr`, selects the GitHub pull-request backend; an unrecognized value is rejected naming the value and the registered backends ([test](tests/backend-selection.mapping.l1.test.ts))
 - Each verb maps to its agent-run-journal contract operation — `open` to a new sealed-on-terminal stream, `append` to a sequenced event, `read --from <cursor>` to the events at or after the cursor, `seal` to a terminal seal, `render` to a projection of the event prefix ([test](tests/journal-verbs.mapping.l1.test.ts))
 - GitHub event name maps to pull-request context: the `pull_request` event marks the run as a continuous-integration pull request whose number resolves from `GITHUB_REF`, and any other event name — including `pull_request_target`, whose `GITHUB_REF` is the base branch ref — does not ([test](tests/journal-environment.mapping.l1.test.ts))
 - The CLI reads the process environment into the journal environment snapshot: a truthy `CI` value (`1` or `true`, case-insensitive) marks continuous integration and any other value does not, `SPX_VERIFY_BACKEND` sets the backend override, and `SPX_VERIFY_BRANCH` sets the branch override ([test](tests/journal-environment.mapping.l1.test.ts))
@@ -26,7 +26,7 @@ CAN open a changeset-scoped run, append one event per significant step, read the
 
 ### Compliance
 
-- ALWAYS: `append` both persists the event to the bound Appendable store — the local run file or the durable GitHub Appendable store — and emits to the run's streaming surface — the event itself to standard output under the local backend, the rendered event-history projection to the pull-request comment under the GitHub pull-request backend — so the run is observable as it advances ([test](tests/streaming.scenario.l1.test.ts), [test](tests/github-pr-sink.scenario.l1.test.ts), [test](tests/github-cli.scenario.l1.test.ts))
+- ALWAYS: `append` both persists the event to the run journal and emits to the run's streaming surface — the event itself to standard output under the local backend, the rendered event-history projection to the pull-request comment under the GitHub pull-request backend — so the run is observable as it advances ([test](tests/streaming.scenario.l1.test.ts), [test](tests/github-pr-sink.scenario.l1.test.ts), [test](tests/github-cli.scenario.l1.test.ts))
 - ALWAYS: streaming is best-effort once the event is durably appended — a streaming-emit failure does not fail the append, so a retry cannot duplicate a committed event ([test](tests/streaming.scenario.l1.test.ts))
 - ALWAYS: a successful `append` returns an empty result — its event reaches the run's streaming surface directly under the local backend or through the rendered projection under the github-pr backend, so `append` writes no separate result of its own ([test](tests/journal-cli.scenario.l1.test.ts), [test](tests/github-cli.scenario.l1.test.ts))
 - ALWAYS: `append`, `read`, `seal`, and `render` reject a run token that `open` did not create rather than operating on a phantom empty run, so a mistyped or unopened token is distinguishable from a real empty run ([test](tests/streaming.scenario.l1.test.ts))
