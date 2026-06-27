@@ -66,6 +66,28 @@ describe("artifact journal store — compliance", () => {
     expect(artifactClient.uploads[0]?.name).toBe(artifactJournalRunArtifactName({ pullNumber, runToken }));
   });
 
+  it("re-seals an already-retained run as a no-op, uploading no second artifact", async () => {
+    const pullNumber = sampleGithubSnapshotValue(arbitraryPullNumber());
+    const runToken = sampleGithubSnapshotValue(arbitraryRunToken());
+
+    const artifactClient = new InMemoryActionsArtifactClient();
+    const store = createArtifactJournalStore({
+      runFilePath: journalRunFilePath(runToken),
+      fs: createInMemoryStateStoreFileSystem(),
+      artifactClient,
+      pullNumber,
+      runToken,
+    });
+    const journal = createJournal(store, { streamid: runToken, runid: runToken });
+    await journal.append(sampleAgentRunJournalValue(arbitraryJournalEventInput()));
+
+    await store.seal();
+    await store.seal();
+
+    // The retry retains nothing new — a duplicate artifact name would conflict.
+    expect(artifactClient.uploads).toHaveLength(1);
+  });
+
   it("skips a prior run whose artifact retention has expired when hydrating", async () => {
     const pullNumber = sampleGithubSnapshotValue(arbitraryPullNumber());
     const [liveToken, expiredToken] = sampleGithubSnapshotValue(
