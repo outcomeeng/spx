@@ -82,6 +82,16 @@ describe("batch delete", () => {
     // Valid one was still deleted
     expect(existsSync(join(harness.statusDir(TODO), `${validId}.md`))).toBe(false);
   });
+  it("GIVEN single ID WHEN delete THEN one session is deleted and reported", async () => {
+    const id = sampleSessionId();
+    await harness.writeSession(TODO, id);
+
+    const output = await deleteCommand({ sessionIds: [id], sessionsDir: harness.sessionsDir });
+
+    expect(existsSync(join(harness.statusDir(TODO), `${id}.md`))).toBe(false);
+    expect(output).toContain(SESSION_DELETE_OUTPUT.DELETED);
+    expect(output).toContain(id);
+  });
 });
 describe("batch release", () => {
   it("S6: GIVEN 2 sessions in doing WHEN release with 2 IDs THEN both move to todo", async () => {
@@ -103,6 +113,17 @@ describe("batch release", () => {
       .toThrow();
     expect(existsSync(join(harness.statusDir(TODO), `${validId}.md`))).toBe(true);
     expect(existsSync(join(harness.statusDir(DOING), `${validId}.md`))).toBe(false);
+  });
+  it("GIVEN single ID WHEN release THEN one session is released and reported", async () => {
+    const id = sampleSessionId();
+    await harness.writeSession(DOING, id);
+
+    const output = await releaseCommand({ sessionIds: [id], sessionsDir: harness.sessionsDir });
+
+    expect(existsSync(join(harness.statusDir(TODO), `${id}.md`))).toBe(true);
+    expect(existsSync(join(harness.statusDir(DOING), `${id}.md`))).toBe(false);
+    expect(output).toContain(SESSION_RELEASE_OUTPUT.RELEASED);
+    expect(output).toContain(id);
   });
 });
 describe("batch pickup", () => {
@@ -126,6 +147,16 @@ describe("batch pickup", () => {
     expect(existsSync(join(harness.statusDir(DOING), `${validId}.md`))).toBe(true);
     expect(existsSync(join(harness.statusDir(TODO), `${validId}.md`))).toBe(false);
   });
+  it("GIVEN single ID WHEN pickup THEN one session is claimed and reported", async () => {
+    const id = sampleSessionId();
+    await harness.writeSession(TODO, id);
+
+    const output = await pickupCommand({ sessionIds: [id], sessionsDir: harness.sessionsDir });
+
+    expect(existsSync(join(harness.statusDir(DOING), `${id}.md`))).toBe(true);
+    expect(existsSync(join(harness.statusDir(TODO), `${id}.md`))).toBe(false);
+    expect(output).toContain(formatSessionOutputMarker(SESSION_OUTPUT_MARKER.PICKUP_ID, id));
+  });
 });
 describe("batch show", () => {
   it("S3: GIVEN 2 sessions WHEN show with 2 IDs THEN both contents printed", async () => {
@@ -139,6 +170,16 @@ describe("batch show", () => {
     expect(output).toContain(id2);
     expect(output).toContain(`${SESSION_SHOW_LABEL.PRIORITY}: ${priority1}`);
     expect(output).toContain(`${SESSION_SHOW_LABEL.PRIORITY}: ${priority2}`);
+  });
+  it("GIVEN single ID WHEN show THEN one session is shown and reported", async () => {
+    const id = sampleSessionId();
+    const priority = SESSION_PRIORITY.HIGH;
+    await harness.writeSession(TODO, id, { priority });
+
+    const output = await showCommand({ sessionIds: [id], sessionsDir: harness.sessionsDir });
+
+    expect(output).toContain(id);
+    expect(output).toContain(`${SESSION_SHOW_LABEL.PRIORITY}: ${priority}`);
   });
 });
 describe("batch properties", () => {

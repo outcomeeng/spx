@@ -2,8 +2,10 @@ import * as fc from "fast-check";
 import { describe, expect, it } from "vitest";
 
 import {
+  HANDOFF_BASE_DIRTY_HEADER,
   HANDOFF_BASE_FACT_LABEL,
   HANDOFF_BASE_MARK,
+  HANDOFF_BASE_PREREQUISITE_LABEL,
   HANDOFF_BASE_REMEDY,
   HANDOFF_BASE_UNRESOLVED,
   type HandoffBaseChecklist,
@@ -16,8 +18,9 @@ import {
   FORBIDDEN_HANDOFF_BASE_STASH_REMEDY,
 } from "@testing/generators/session/handoff-base";
 
-/** The header line, then the five resolved-fact lines, before any prerequisite lines. */
+/** The header line, facts heading, five resolved-fact lines, and checks heading before prerequisites. */
 const headerLineCount = 1;
+const sectionHeadingLineCount = 2;
 const factLineCount = 5;
 const factLabelValueSeparator = ": ";
 
@@ -43,12 +46,14 @@ function parseFactLine(line: string): { readonly label: string; readonly value: 
 }
 
 describe("renderHandoffBaseChecklist", () => {
-  it("renders the header, five fact lines, and one line per prerequisite", () => {
+  it("renders the header, facts section, checks section, and one line per prerequisite", () => {
     fc.assert(
       fc.property(arbitraryHandoffBaseChecklist(), (checklist) => {
         const lines = renderHandoffBaseChecklist(checklist).split("\n");
 
-        expect(lines).toHaveLength(headerLineCount + factLineCount + checklist.prerequisites.length);
+        expect(lines).toHaveLength(
+          headerLineCount + sectionHeadingLineCount + factLineCount + checklist.prerequisites.length,
+        );
         expect(lines[0]).toContain(SESSION_HANDOFF_BASE_ERROR_NAME);
       }),
     );
@@ -61,7 +66,7 @@ describe("renderHandoffBaseChecklist", () => {
         const facts = expectedFacts(checklist);
 
         facts.forEach(([label, field], index) => {
-          const parsed = parseFactLine(lines[headerLineCount + index]);
+          const parsed = parseFactLine(lines[headerLineCount + 1 + index]);
           expect(parsed.label).toBe(label);
           expect(parsed.value).toBe(field ?? HANDOFF_BASE_UNRESOLVED);
         });
@@ -100,18 +105,46 @@ describe("renderHandoffBaseChecklist", () => {
     fc.assert(
       fc.property(arbitraryHandoffBaseChecklist(), (checklist) => {
         const lines = renderHandoffBaseChecklist(checklist).split("\n");
-        const prerequisiteOffset = headerLineCount + factLineCount;
+        const prerequisiteOffset = headerLineCount + sectionHeadingLineCount + factLineCount;
 
         checklist.prerequisites.forEach((prerequisite, index) => {
           const line = lines[prerequisiteOffset + index].trimStart();
+          expect(line.startsWith(`${index + 1}. `)).toBe(true);
           expect(line).toContain(prerequisite.label);
           if (prerequisite.met) {
-            expect(line.startsWith(HANDOFF_BASE_MARK.MET)).toBe(true);
+            expect(line).toContain(HANDOFF_BASE_MARK.MET);
           } else {
-            expect(line.startsWith(HANDOFF_BASE_MARK.UNMET)).toBe(true);
+            expect(line).toContain(HANDOFF_BASE_MARK.UNMET);
             expect(line).toContain(prerequisite.remedy);
           }
         });
+      }),
+    );
+  });
+
+  it("makes dirty-checkout refusals the first diagnostic and removes the main-checkout alternative", () => {
+    fc.assert(
+      fc.property(arbitraryHandoffBaseChecklist(), (checklist) => {
+        const dirtyChecklist: HandoffBaseChecklist = {
+          ...checklist,
+          prerequisites: [
+            {
+              label: HANDOFF_BASE_PREREQUISITE_LABEL.CLEAN_WORKING_TREE,
+              met: false,
+              remedy: HANDOFF_BASE_REMEDY.COMMIT_BEFORE_HANDOFF,
+            },
+            ...checklist.prerequisites,
+          ],
+        };
+        const lines = renderHandoffBaseChecklist(dirtyChecklist).split("\n");
+        const dirtyLine = lines.find((line) => line.includes(HANDOFF_BASE_PREREQUISITE_LABEL.CLEAN_WORKING_TREE));
+
+        expect(lines[0]).toBe(HANDOFF_BASE_DIRTY_HEADER);
+        expect(dirtyLine).toBeDefined();
+        expect(dirtyLine).toContain(HANDOFF_BASE_MARK.UNMET);
+        expect(dirtyLine).toContain(HANDOFF_BASE_REMEDY.COMMIT_BEFORE_HANDOFF);
+        expect(dirtyLine).not.toContain(HANDOFF_BASE_REMEDY.MAIN_CHECKOUT_ONLY);
+        expect(dirtyLine).not.toContain(HANDOFF_BASE_REMEDY.DETACH_TO_TIP_OR_MAIN_CHECKOUT);
       }),
     );
   });

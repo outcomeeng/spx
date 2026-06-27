@@ -95,7 +95,7 @@ describe("resolveHandoffGitRef — refusals", () => {
         expect(checklist?.prerequisites[0]).toEqual({
           label: HANDOFF_BASE_PREREQUISITE_LABEL.CLEAN_WORKING_TREE,
           met: false,
-          remedy: HANDOFF_BASE_REMEDY.COMMIT_OR_MAIN_CHECKOUT,
+          remedy: HANDOFF_BASE_REMEDY.COMMIT_BEFORE_HANDOFF,
         });
         expect(checklist?.defaultBranch).toBe(refused.defaultBranch);
         expect(checklist?.defaultTipSha).toBe(refused.defaultTipSha);

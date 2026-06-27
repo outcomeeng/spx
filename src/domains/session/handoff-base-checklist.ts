@@ -11,10 +11,10 @@
 /** The error name a handoff-base refusal carries and the checklist names. */
 export const SESSION_HANDOFF_BASE_ERROR_NAME = "SessionHandoffBaseError";
 
-/** Markers a checklist line carries for a met or unmet base prerequisite. */
+/** Markers a checklist line carries for a passing or failing base prerequisite. */
 export const HANDOFF_BASE_MARK = {
-  MET: "✓",
-  UNMET: "✗",
+  MET: "[PASS]:",
+  UNMET: "[FAIL]:",
 } as const;
 
 /** The base prerequisites a non-main-checkout handoff must satisfy. */
@@ -25,8 +25,8 @@ export const HANDOFF_BASE_PREREQUISITE_LABEL = {
 
 /** The non-stashing remedy each unmet prerequisite states. */
 export const HANDOFF_BASE_REMEDY = {
-  /** Unclean working tree: commit, or hand off from the main checkout. */
-  COMMIT_OR_MAIN_CHECKOUT: "commit the changes, or run handoff from the main checkout",
+  /** Unclean working tree: commit before any handoff proceeds. */
+  COMMIT_BEFORE_HANDOFF: "commit the changes before handoff. DO NOT PROCEED while this checkout is dirty",
   /** Off the default-branch tip: detach to it, or hand off from the main checkout. */
   DETACH_TO_TIP_OR_MAIN_CHECKOUT: "detach HEAD to the default-branch tip, or run handoff from the main checkout",
   /** Default branch unresolved: only the main checkout can anchor the base. */
@@ -80,17 +80,24 @@ export interface HandoffBaseChecklist {
   readonly currentWorktreePath: string;
   /** The absolute path of the repository's main checkout, or null when none is designable (rendered "unresolved"). */
   readonly mainCheckoutPath: string | null;
-  /** Every base prerequisite, each marked met or unmet. */
+  /** Every base prerequisite, each marked passing or failing. */
   readonly prerequisites: readonly HandoffBasePrerequisite[];
 }
 
-/** Leading indent on every checklist body line. */
+/** Leading indent on resolved-fact lines. */
 const CHECKLIST_INDENT = "  ";
 /** Separator between an unmet prerequisite and its remedy. */
 const REMEDY_SEPARATOR = " — ";
 /** Opening line introducing the refusal and naming the error. */
 const CHECKLIST_HEADER =
   `${SESSION_HANDOFF_BASE_ERROR_NAME}: cannot create a handoff session from this worktree — it is not the main checkout.`;
+/** Opening line for dirty-checkout refusals, which must dominate the diagnostic. */
+export const HANDOFF_BASE_DIRTY_HEADER =
+  `${SESSION_HANDOFF_BASE_ERROR_NAME}: YOUR CHECKOUT IS DIRTY. YOU CANNOT HANDOFF.`;
+/** Heading before resolved git facts. */
+export const HANDOFF_BASE_FACTS_HEADER = "GIT FACTS:";
+/** Heading before prerequisite status lines. */
+export const HANDOFF_BASE_CHECKS_HEADER = "HERE ARE THE CHECKS AND THEIR STATUS:";
 
 /** Renders one resolved-fact line, stating `unresolved` for an absent value. */
 function renderFactLine(label: string, value: string | null): string {
@@ -98,10 +105,18 @@ function renderFactLine(label: string, value: string | null): string {
 }
 
 /** Renders one prerequisite line — a mark, the label, and (when unmet) its remedy. */
-function renderPrerequisiteLine(prerequisite: HandoffBasePrerequisite): string {
+function renderPrerequisiteLine(prerequisite: HandoffBasePrerequisite, index: number): string {
   const mark = prerequisite.met ? HANDOFF_BASE_MARK.MET : HANDOFF_BASE_MARK.UNMET;
-  const base = `${CHECKLIST_INDENT}${mark} ${prerequisite.label}`;
+  const lineNumber = index + 1;
+  const base = `${lineNumber}. ${mark} ${prerequisite.label}`;
   return prerequisite.met ? base : `${base}${REMEDY_SEPARATOR}${prerequisite.remedy}`;
+}
+
+/** Whether the refusal includes an unmet clean-working-tree prerequisite. */
+function isDirtyCheckoutRefusal(checklist: HandoffBaseChecklist): boolean {
+  return checklist.prerequisites.some(
+    (prerequisite) => prerequisite.label === HANDOFF_BASE_PREREQUISITE_LABEL.CLEAN_WORKING_TREE && !prerequisite.met,
+  );
 }
 
 /**
@@ -109,7 +124,7 @@ function renderPrerequisiteLine(prerequisite: HandoffBasePrerequisite): string {
  * descriptor writes to standard error: the error name, the resolved git values
  * (default branch, origin tip SHA, observed HEAD SHA, current and main checkout
  * paths — each stated `unresolved` when absent), and every base prerequisite on
- * its own line marked met or unmet with a non-stashing remedy when unmet.
+ * its own numbered line marked pass or fail with a non-stashing remedy when unmet.
  *
  * @param checklist - The resolved facts and per-prerequisite evaluation the
  *   refusal carries.
@@ -117,12 +132,14 @@ function renderPrerequisiteLine(prerequisite: HandoffBasePrerequisite): string {
  */
 export function renderHandoffBaseChecklist(checklist: HandoffBaseChecklist): string {
   return [
-    CHECKLIST_HEADER,
+    isDirtyCheckoutRefusal(checklist) ? HANDOFF_BASE_DIRTY_HEADER : CHECKLIST_HEADER,
+    HANDOFF_BASE_FACTS_HEADER,
     renderFactLine(HANDOFF_BASE_FACT_LABEL.DEFAULT_BRANCH, checklist.defaultBranch),
     renderFactLine(HANDOFF_BASE_FACT_LABEL.DEFAULT_TIP, checklist.defaultTipSha),
     renderFactLine(HANDOFF_BASE_FACT_LABEL.HEAD, checklist.headSha),
     renderFactLine(HANDOFF_BASE_FACT_LABEL.CURRENT_WORKTREE, checklist.currentWorktreePath),
     renderFactLine(HANDOFF_BASE_FACT_LABEL.MAIN_CHECKOUT, checklist.mainCheckoutPath),
-    ...checklist.prerequisites.map(renderPrerequisiteLine),
+    HANDOFF_BASE_CHECKS_HEADER,
+    ...checklist.prerequisites.map((prerequisite, index) => renderPrerequisiteLine(prerequisite, index)),
   ].join("\n");
 }
