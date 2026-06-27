@@ -24,4 +24,4 @@
 ## Validation Notes
 
 - For documentation-only reconciliation, run the markdown/spec validation path required by the current branch scope.
-- For source or test changes under this node, run `pnpm run validate` and `pnpm test`, then apply the TypeScript implementation and test-audit gates before committing.
+- For source or test changes under this node, run `pnpm run validate` and focused `spx test spx/<touched-literal-reuse-node>`, then apply the TypeScript implementation and test-audit gates before committing.
