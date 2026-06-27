@@ -1,5 +1,5 @@
 import type { Dirent } from "node:fs";
-import { readdir, stat } from "node:fs/promises";
+import { access, readdir, stat } from "node:fs/promises";
 import { join, relative, sep } from "node:path";
 
 import { createIgnoreSourceReader, DEFAULT_IGNORE_SOURCE_OVERRIDES } from "./ignore-source";
@@ -48,6 +48,18 @@ async function isDirectory(absolutePath: string): Promise<boolean> {
   }
 }
 
+async function pathExists(absolutePath: string): Promise<boolean> {
+  try {
+    await access(absolutePath);
+    return true;
+  } catch (err) {
+    if (isNodeError(err) && err.code === "ENOENT") {
+      return false;
+    }
+    throw err;
+  }
+}
+
 async function readDirectoryEntries(absoluteDir: string): Promise<readonly Dirent<string>[]> {
   try {
     return await readdir(absoluteDir, { withFileTypes: true });
@@ -64,31 +76,28 @@ function normalizeProductPath(productDir: string, absolutePath: string): string 
   return sep === "/" ? rel : rel.split(sep).join("/");
 }
 
-function shouldWalkEntry(
-  entry: Dirent<string>,
-  relativePath: string,
-  ignoreReader: IgnoreSourceReader,
-  pruneGitOpaqueDirectories: boolean,
-): boolean {
+function shouldWalkEntry(entry: Dirent<string>): boolean {
   if (entry.name === GIT_INTERNAL_DIRECTORY) return false;
-  if (!entry.isDirectory()) return true;
-  return !pruneGitOpaqueDirectories || ignoreReader.hasIncludedDescendant(relativePath);
+  return true;
+}
+
+async function shouldDescendIntoDirectory(absoluteDir: string): Promise<boolean> {
+  return !await pathExists(join(absoluteDir, GIT_INTERNAL_DIRECTORY));
 }
 
 async function collectPaths(
   absoluteDir: string,
   productDir: string,
   result: string[],
-  ignoreReader: IgnoreSourceReader,
-  pruneGitOpaqueDirectories: boolean,
 ): Promise<void> {
   const dirEntries = await readDirectoryEntries(absoluteDir);
   for (const entry of dirEntries) {
     const absolutePath = join(absoluteDir, entry.name);
     const relativePath = normalizeProductPath(productDir, absolutePath);
-    if (!shouldWalkEntry(entry, relativePath, ignoreReader, pruneGitOpaqueDirectories)) continue;
+    if (!shouldWalkEntry(entry)) continue;
     if (entry.isDirectory()) {
-      await collectPaths(absolutePath, productDir, result, ignoreReader, pruneGitOpaqueDirectories);
+      if (!await shouldDescendIntoDirectory(absolutePath)) continue;
+      await collectPaths(absolutePath, productDir, result);
     } else if (entry.isFile()) {
       result.push(relativePath);
     }
@@ -126,12 +135,12 @@ export async function runPipeline(
   const explicitPathSet = new Set<string>();
 
   for (const path of explicitPaths) {
-    await addExplicitPath(path, productDir, ignoreReader, explicitPathSet, included);
+    await addExplicitPath(path, productDir, explicitPathSet, included);
   }
 
   if (request.walkRoot !== undefined) {
     const allPaths: string[] = [];
-    await collectPaths(request.walkRoot, productDir, allPaths, ignoreReader, true);
+    await collectPaths(request.walkRoot, productDir, allPaths);
 
     for (const path of allPaths) {
       if (explicitPathSet.has(path)) continue;
@@ -150,7 +159,6 @@ export async function runPipeline(
 async function addExplicitPath(
   path: string,
   productDir: string,
-  ignoreReader: IgnoreSourceReader,
   explicitPathSet: Set<string>,
   included: ScopeEntry[],
 ): Promise<void> {
@@ -158,7 +166,7 @@ async function addExplicitPath(
   const absolutePath = join(productDir, path);
   if (!await isDirectory(absolutePath)) return;
   const descendantPaths: string[] = [];
-  await collectPaths(absolutePath, productDir, descendantPaths, ignoreReader, false);
+  await collectPaths(absolutePath, productDir, descendantPaths);
   for (const descendantPath of descendantPaths) {
     addExplicitEntry(descendantPath, explicitPathSet, included);
   }

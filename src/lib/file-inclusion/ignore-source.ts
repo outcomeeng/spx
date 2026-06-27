@@ -28,6 +28,7 @@ const GIT_REV_PARSE_ARGS = {
   GIT_COMMON_DIR: "--git-common-dir",
 } as const;
 const INFO_EXCLUDE_RELATIVE_PATH = "info/exclude";
+const PATH_SEGMENT_SEPARATOR = "/";
 export const GIT_MISSING_CONTEXT_MESSAGE = "missing git working tree";
 
 export const DEFAULT_IGNORE_SOURCE_OVERRIDES: IgnoreSourceOverrides = {
@@ -121,6 +122,27 @@ function readInfoExcludePath(productDir: string): string | undefined {
   return join(absoluteCommonDir, INFO_EXCLUDE_RELATIVE_PATH);
 }
 
+function parentPrefixes(path: string): readonly string[] {
+  const prefixes: string[] = [];
+  let index = path.lastIndexOf(PATH_SEGMENT_SEPARATOR);
+  while (index > 0) {
+    const parent = path.slice(0, index);
+    prefixes.push(parent);
+    index = parent.lastIndexOf(PATH_SEGMENT_SEPARATOR);
+  }
+  return prefixes;
+}
+
+function includedDescendantParents(paths: ReadonlySet<string>): ReadonlySet<string> {
+  const parents = new Set<string>();
+  for (const path of paths) {
+    for (const parent of parentPrefixes(path)) {
+      parents.add(parent);
+    }
+  }
+  return parents;
+}
+
 function gitLsFilesArgs(productDir: string, overrides: IgnoreSourceOverrides): readonly string[] {
   const args: string[] = [
     GIT_LS_FILES_ARGS.LS_FILES,
@@ -159,16 +181,17 @@ export function createIgnoreSourceReader(productDir: string, config: IgnoreSourc
   const overrides = normalizeOverrides(config);
   const output = readGit(productDir, gitLsFilesArgs(productDir, overrides));
   const includedSet = new Set(output.split("\0").filter((line) => line.length > 0));
+  const descendantParents = includedDescendantParents(includedSet);
   return {
     isInIncludedSet(relativePath: string): boolean {
       return includedSet.has(relativePath);
     },
     hasIncludedDescendant(relativePath: string): boolean {
-      const descendantPrefix = relativePath.endsWith("/") ? relativePath : `${relativePath}/`;
-      for (const path of includedSet) {
-        if (path.startsWith(descendantPrefix)) return true;
-      }
-      return false;
+      return descendantParents.has(
+        relativePath.endsWith(PATH_SEGMENT_SEPARATOR)
+          ? relativePath.slice(0, -1)
+          : relativePath,
+      );
     },
     appliedOverrides(): IgnoreSourceOverrides {
       return overrides;
