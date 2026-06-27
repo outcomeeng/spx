@@ -147,6 +147,26 @@ describe("allowlist-existing scenario", () => {
     });
   });
 
+  it("uses resolved empty literal path intersections before collecting values for validation.literal.values.include", async () => {
+    const fixture = sampleLiteralTestValue(LITERAL_TEST_GENERATOR.pathScopedSourceReuseFixtureInputs());
+    const config = buildConfigWithValidationPaths({
+      include: [fixture.included.sourceFile],
+      [VALIDATION_PATH_TOOL_SUBSECTIONS.LITERAL]: {
+        include: [fixture.excludedPathPrefix],
+      },
+    });
+
+    await withLiteralFixtureEnv(config, async (env) => {
+      await env.writePathScopedSourceReuseFixture(fixture);
+
+      const result = await allowlistExisting({ productDir: env.productDir });
+      expect(result.exitCode).toBe(LITERAL_EXIT_CODES.OK);
+
+      const allowlist = readLiteralAllowlist(await readProductConfigSections(env));
+      expect(allowlist.include ?? []).toEqual([]);
+    });
+  });
+
   it("returns the resolveConfig ambiguity error and writes nothing when multiple spx.config.* files are present", async () => {
     const fixture = sampleLiteralTestValue(LITERAL_TEST_GENERATOR.sourceReuseFixtureInputs());
     await withLiteralFixtureEnv(buildBaselineConfig(), async (env) => {
