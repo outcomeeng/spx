@@ -9,7 +9,7 @@
  * Spec: 43-session-store.enabler/session-store.md
  */
 
-import { readdir, readFile, writeFile } from "node:fs/promises";
+import { mkdir, readdir, readFile, writeFile } from "node:fs/promises";
 import { basename, join } from "node:path";
 
 import fc from "fast-check";
@@ -27,6 +27,7 @@ import { resolveDeletePath } from "@/domains/session/delete";
 import {
   SessionError,
   SessionHandoffBaseError,
+  SessionInjectionDirectoryError,
   SessionInvalidContentError,
   SessionInvalidFieldError,
   SessionInvalidGoalError,
@@ -81,6 +82,7 @@ import {
   sampleDistinctSessionIds,
   sampleSessionId,
 } from "@testing/generators/session/session";
+import { sampleSpecTreeTestValue, SPEC_TREE_TEST_GENERATOR } from "@testing/generators/spec-tree/spec-tree";
 import {
   buildHandoffStdin,
   buildSessionMarkdownBody,
@@ -93,6 +95,7 @@ import {
   WORKTREE_KIND,
 } from "@testing/harnesses/session/harness";
 import { extractSessionFile, extractSessionMarker, parseFrontMatter } from "@testing/harnesses/session/session-store";
+import { withTempDir } from "@testing/harnesses/with-temp-dir";
 
 const [TODO, DOING] = SESSION_STATUSES;
 
@@ -736,6 +739,100 @@ describe("handoffCommand with real filesystem", () => {
     const metadata = parseSessionMetadata(await readFile(extractSessionFile(output), SESSION_FILE_ENCODING));
 
     expect(metadata.files).toEqual(files);
+  });
+
+  it("GIVEN a specs entry resolving to an existing directory WHEN handoff executes THEN rejects with SessionInjectionDirectoryError naming the entry and writes no file", async () => {
+    await withTempDir("spx-handoff-injection-", async (productDir) => {
+      const directoryEntry = sampleSpecTreeTestValue(SPEC_TREE_TEST_GENERATOR.sourceSlug());
+      await mkdir(join(productDir, directoryEntry), { recursive: true });
+      const stdin = buildHandoffStdin(
+        { priority: DEFAULT_PRIORITY, goal: testGoal, next_step: testNextStep, specs: [directoryEntry], files: [] },
+        "# Test handoff",
+      );
+
+      let caught: unknown;
+      try {
+        await handoffCommand({
+          content: stdin,
+          sessionsDir: harness.sessionsDir,
+          cwd: productDir,
+          deps: handoffGitDeps,
+        });
+      } catch (error) {
+        caught = error;
+      }
+
+      expect(caught).toBeInstanceOf(SessionInjectionDirectoryError);
+      expect((caught as SessionInjectionDirectoryError).entry).toBe(directoryEntry);
+      expect(await readdir(harness.statusDir(TODO))).toHaveLength(0);
+    });
+  });
+
+  it("GIVEN a specs entry that does not exist on disk WHEN handoff executes THEN writes the session and records the entry unchanged", async () => {
+    await withTempDir("spx-handoff-injection-", async (productDir) => {
+      const missingEntry = sampleSpecTreeTestValue(SPEC_TREE_TEST_GENERATOR.sourceSlug());
+      const stdin = buildHandoffStdin(
+        { priority: DEFAULT_PRIORITY, goal: testGoal, next_step: testNextStep, specs: [missingEntry], files: [] },
+        "# Test handoff",
+      );
+
+      const { output } = await handoffCommand({
+        content: stdin,
+        sessionsDir: harness.sessionsDir,
+        cwd: productDir,
+        deps: handoffGitDeps,
+      });
+      const metadata = parseSessionMetadata(await readFile(extractSessionFile(output), SESSION_FILE_ENCODING));
+
+      expect(metadata.specs).toEqual([missingEntry]);
+    });
+  });
+
+  it("GIVEN a files entry resolving to an existing directory WHEN handoff executes THEN rejects with SessionInjectionDirectoryError naming the entry and writes no file", async () => {
+    await withTempDir("spx-handoff-injection-", async (productDir) => {
+      const directoryEntry = sampleSpecTreeTestValue(SPEC_TREE_TEST_GENERATOR.sourceSlug());
+      await mkdir(join(productDir, directoryEntry), { recursive: true });
+      const stdin = buildHandoffStdin(
+        { priority: DEFAULT_PRIORITY, goal: testGoal, next_step: testNextStep, specs: [], files: [directoryEntry] },
+        "# Test handoff",
+      );
+
+      let caught: unknown;
+      try {
+        await handoffCommand({
+          content: stdin,
+          sessionsDir: harness.sessionsDir,
+          cwd: productDir,
+          deps: handoffGitDeps,
+        });
+      } catch (error) {
+        caught = error;
+      }
+
+      expect(caught).toBeInstanceOf(SessionInjectionDirectoryError);
+      expect((caught as SessionInjectionDirectoryError).entry).toBe(directoryEntry);
+      expect(await readdir(harness.statusDir(TODO))).toHaveLength(0);
+    });
+  });
+
+  it("GIVEN a files entry that does not exist on disk WHEN handoff executes THEN writes the session and records the entry unchanged", async () => {
+    await withTempDir("spx-handoff-injection-", async (productDir) => {
+      const missingEntry = sampleSpecTreeTestValue(SPEC_TREE_TEST_GENERATOR.sourceSlug());
+      const stdin = buildHandoffStdin(
+        { priority: DEFAULT_PRIORITY, goal: testGoal, next_step: testNextStep, specs: [], files: [missingEntry] },
+        "# Test handoff",
+      );
+
+      const { output } = await handoffCommand({
+        content: stdin,
+        sessionsDir: harness.sessionsDir,
+        cwd: productDir,
+        deps: handoffGitDeps,
+      });
+      const metadata = parseSessionMetadata(await readFile(extractSessionFile(output), SESSION_FILE_ENCODING));
+
+      expect(metadata.files).toEqual([missingEntry]);
+    });
   });
 
   it("GIVEN empty stdin WHEN handoff executes THEN rejects with SessionInvalidContentError before writing", async () => {
