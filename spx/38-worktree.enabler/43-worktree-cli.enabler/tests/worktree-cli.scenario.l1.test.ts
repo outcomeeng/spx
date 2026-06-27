@@ -13,6 +13,7 @@ import {
 } from "@/commands/worktree/index";
 import { CONTROLLING_PID_ENV } from "@/domains/worktree/controlling-process";
 import { OCCUPANCY_STATUS, readClaim, writeClaim } from "@/domains/worktree/occupancy-store";
+import { WORKTREE_RESOLVE_ERROR } from "@/domains/worktree/resolve";
 import { worktreeClaimName } from "@/domains/worktree/worktree-name";
 import {
   defaultGitDependencies,
@@ -67,6 +68,36 @@ function worktreeListDeps(options: {
     },
   };
 }
+
+function worktreeListUnavailableDeps(options: {
+  readonly worktreeRoot: string;
+  readonly commonDir: string;
+}): GitDependencies {
+  return {
+    execa: async (_command, args) => {
+      if (argsEqual(args, GIT_SHOW_TOPLEVEL_ARGS)) {
+        return { exitCode: 0, stdout: options.worktreeRoot, stderr: "" };
+      }
+      if (argsEqual(args, GIT_COMMON_DIR_ARGS)) {
+        return { exitCode: 0, stdout: options.commonDir, stderr: "" };
+      }
+      if (argsEqual(args, GIT_REMOTE_GET_URL_ORIGIN_ARGS)) {
+        return { exitCode: 1, stdout: "", stderr: "" };
+      }
+      if (argsEqual(args, GIT_WORKTREE_LIST_PORCELAIN_ARGS)) {
+        return { exitCode: 1, stdout: "", stderr: "" };
+      }
+      if (argsEqual(args, GIT_CORE_BARE_ARGS)) {
+        return { exitCode: 0, stdout: GIT_CORE_BARE_TRUE, stderr: "" };
+      }
+      return { exitCode: 1, stdout: "", stderr: "" };
+    },
+  };
+}
+
+const notGitDeps: GitDependencies = {
+  execa: async () => ({ exitCode: 1, stdout: "", stderr: "" }),
+};
 
 describe("worktree command handlers", () => {
   it("writes a claim for the running worktree under the resolved scope", async () => {
@@ -294,6 +325,40 @@ describe("worktree command handlers", () => {
         });
       },
     );
+  });
+
+  it("reports the established non-worktree diagnostic when all targets are requested outside git", async () => {
+    const cwd = sampleWorktreeTestValue(WORKTREE_TEST_GENERATOR.tempPrefix());
+
+    const status = await statusCommand({
+      all: true,
+      cwd,
+      fs: defaultOccupancyFileSystem,
+      gitDeps: notGitDeps,
+      processTable: createProcessTable({ host: cwd, processes: new Map() }),
+      pathInfo: defaultWorktreePathInfo,
+    });
+
+    expect(status).toEqual({ ok: false, error: `${WORKTREE_RESOLVE_ERROR.NOT_A_WORKTREE}: ${cwd}` });
+  });
+
+  it("reports worktree-list unavailability when all targets are requested inside git and list fails", async () => {
+    const [worktreeName, commonDirName] = sampleWorktreeTestValue(
+      WORKTREE_TEST_GENERATOR.distinctPoolWorktreeNames(),
+    );
+    const worktreeRoot = join("/", worktreeName);
+    const commonDir = join("/", commonDirName);
+
+    const status = await statusCommand({
+      all: true,
+      cwd: worktreeRoot,
+      fs: defaultOccupancyFileSystem,
+      gitDeps: worktreeListUnavailableDeps({ worktreeRoot, commonDir }),
+      processTable: createProcessTable({ host: worktreeName, processes: new Map() }),
+      pathInfo: defaultWorktreePathInfo,
+    });
+
+    expect(status).toEqual({ ok: false, error: WORKTREE_RESOLVE_ERROR.WORKTREE_LIST_UNAVAILABLE });
   });
 
   it("rejects combining all targets with explicit worktree operands", async () => {
