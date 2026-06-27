@@ -28,6 +28,7 @@ export const PORTABLE_HOOK_TOKENS = {
   PNPM_EXEC_DELEGATION: "pnpm exec lefthook",
   WORKTREE_RESOLUTION: "git rev-parse --show-toplevel",
   WORKTREE_BINARY: "node_modules/.bin/lefthook",
+  FALLBACK_WORKTREE_RUN: "&& \"$worktree_lefthook\" run",
   ABSOLUTE_PNPM_STORE_FRAGMENT: "node_modules/.pnpm",
 } as const;
 
@@ -106,7 +107,7 @@ call_lefthook()
     if [ -x "$worktree_lefthook" ]; then
       "$worktree_lefthook" run "$hook_name" "$@"
     elif command -v pnpm >/dev/null 2>&1; then
-      (cd "$worktree_root" && ${PORTABLE_HOOK_TOKENS.NON_INTERACTIVE_ENV} ${PORTABLE_HOOK_TOKENS.FROZEN_INSTALL} && "$worktree_lefthook" run "$hook_name" "$@")
+      (cd "$worktree_root" && ${PORTABLE_HOOK_TOKENS.NON_INTERACTIVE_ENV} ${PORTABLE_HOOK_TOKENS.FROZEN_INSTALL} ${PORTABLE_HOOK_TOKENS.FALLBACK_WORKTREE_RUN} "$hook_name" "$@")
     else
       echo "Can't find lefthook in PATH or current worktree"
       exit 1

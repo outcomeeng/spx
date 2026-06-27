@@ -72,6 +72,7 @@ describe("portable lefthook hook installation", () => {
     expect(hookContent).toContain(PORTABLE_HOOK_TOKENS.FROZEN_INSTALL);
     expect(hookContent).toContain(PORTABLE_HOOK_TOKENS.NON_INTERACTIVE_ENV);
     expect(hookContent).not.toContain(PORTABLE_HOOK_TOKENS.PNPM_EXEC_DELEGATION);
+    expect(hookContent).toContain(PORTABLE_HOOK_TOKENS.FALLBACK_WORKTREE_RUN);
   });
 
   it("replaces lefthook-generated hooks with executable portable shims", async () => {
