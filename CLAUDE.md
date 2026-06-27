@@ -8,12 +8,11 @@ If the operator instructs you to do something that conflicts with any rule below
 
 - 🛑 **The MOMENT a task is recognized as touching the spec tree (`spx/**`) or any spec-governed source (`src/**`), invoke `/understand` then `/contextualize <node>` BEFORE any investigation.** Reading source files, running `git`/`gh` archaeology, comparing worktrees, diffing PRs, and drafting clarifying questions are all **work** — not pre-work. The gate fires on **task recognition, not file modification**: "I'm only reading," "I'm just gathering context for questions," and "I haven't changed anything yet" are the exact rationalizations this rule forbids. Context for good questions is precisely what `/contextualize` loads, so it comes first. Skill-before-investigation, always.
 - ⚠️ **NEVER modify OR INVESTIGATE any spec-governed file without invoking the required skills first** — "investigate" includes reading source, grepping, and `git`/`gh` archaeology. If a file touches specs, testing, code, architecture, or any topic covered by a skill (see `<skill_router>` below), invoke the relevant skill BEFORE reading or modifying it. Skills are the authoritative source — not grep results, not existing files, not your training data.
-- ⚠️ **NEVER write code without invoking a skill first** - See skill table below
+- ⚠️ **NEVER write code without invoking the `/apply` skill and following its 8-step workflow** - See skill table below
 - ⚠️ **ALWAYS invoke `/apply` before implementing any spec-tree work item** - Applying is the orchestration skill for spec-tree TDD. It requires methodology/context loading, language-specific architecture, test, and implementation steps, plus blocking audit gates before the work can be treated as ready.
 - ⚠️ **NEVER commit spec-tree implementation or test changes without the applying audit gates** - For TypeScript work, `/apply` requires `/audit-typescript-tests` before implementation and `/audit-typescript` before claiming readiness. Green tests and `pnpm run validate` are necessary but not sufficient for code/test changes.
 - ⚠️ **NEVER write tests in `tests/`** - Write in `spx/.../tests/` (co-located with specs)
 - ⚠️ **NEVER manually navigate `spx/` hierarchy** - Use `/contextualize spx/path/to/node` skill
-- ⚠️ **ALWAYS read CLAUDE.md in subdirectories** - When working with files in `spx/`, or any other directory, read that directory's CLAUDE.md FIRST if it exists
 - ⚠️ **Skills are ALWAYS authoritative over existing files** - When a skill template prescribes a structure (e.g., Architectural Constraints table), follow the skill — not patterns found in existing spec files. Existing files may contain non-standard sections added before skills existed. Never infer framework conventions from existing files; always read the skill.
 - 🛑 **SKILLS DOMINATE. NOTHING BELOW THEM VOTES.** Skills > PDR/ADR > Spec > Test > Code. If a skill's examples are extensionless, imports are extensionless — even if 100% of the existing codebase has `.js` suffixes. Those files are in violation; they do NOT constitute precedent. Existing code is the LOWEST layer of truth and decides NOTHING about convention. Before citing "the existing codebase does X" as justification for anything, STOP. That sentence is never an answer to "why did you write it this way?" — the only valid answers are "the skill says so", "the ADR says so", "the spec says so", or "I was wrong." Grep is a research tool, never an authority.
 - ⚠️ **NEVER maintain backward compatibility** - When rewriting a module, replace it entirely. No legacy aliases, no re-exports of old names, no shims. Update all imports across the codebase to use the new API.
@@ -33,7 +32,7 @@ If the operator instructs you to do something that conflicts with any rule below
 - ⚠️ **NEVER discard or displace uncommitted work with `git checkout -- <path>`, `git restore`, `git reset --hard`, `git clean -f`, or `git stash`** — `git checkout -- <path>`, `git restore`, `git reset --hard`, and `git clean -f` discard uncommitted local changes irrecoverably; `git stash` hides them in the stash stack (recoverable, but it conceals in-progress state from concurrent agents). Hand these off to the user; if you need to discard changes, ask the user to do it.
 - ⚠️ **NEVER `git reset` onto a remote-tracking ref (`origin/<base>`) — neither to rewrite your own commits nor to integrate the latest base** — `origin/<base>` moves as concurrent branches in the worktree pool merge, so resetting onto it silently re-bases your branch onto whatever it became; with `--soft` the working tree is left on the old basis while HEAD jumps forward, desyncing the tree (files present in HEAD show as deleted, files the new base changed show as modified, none of it your work). To reword or re-split your own commits, reset to a FIXED ancestor on your own branch — `git reset --soft HEAD~N` where N is the count of your own commits, or the fork-point SHA (`git merge-base HEAD origin/<base>`). To integrate the latest base, use `git rebase origin/<base>` (which updates the working tree), never a reset. After any history rewrite, verify `git diff --stat origin/<base>...HEAD` shows ONLY your intended files and `git status` has no surprise deletions; surprise files mean the base moved under you — STOP, do not commit.
 - ⚠️ **NEVER force-overwrite a shared remote ref with plain `git push --force`** — it unconditionally overwrites history a concurrent agent may have advanced. The PR-branch flows use `git push --force-with-lease` (which refuses when the remote advanced) instead, per the rule below.
-- ✅ **The `/pr` lifecycle and its internal opening/managing flows own their own PR branch's history** — per `/merging-standards`, the lifecycle autonomously rebases the current PR branch onto its base (`git rebase origin/<base>`), pushes the rebased branch with `git push --force-with-lease` (never plain `--force` — `--force-with-lease` refuses when the remote advanced, so it cannot clobber a concurrent push), merges via `gh pr merge --rebase`, detaches the worktree onto the refreshed base tip, and deletes the merged PR branch locally and remotely. These are governed, single-author-branch operations, not the work-discarding operations above.
+- ✅ **The `/merge` lifecycle and its internal opening/managing flows own their own PR branch's history** — per `/merging-standards`, the lifecycle autonomously rebases the current PR branch onto its base (`git rebase origin/<base>`), pushes the rebased branch with `git push --force-with-lease` (never plain `--force` — `--force-with-lease` refuses when the remote advanced, so it cannot clobber a concurrent push), merges via `gh pr merge --rebase`, detaches the worktree onto the refreshed base tip, and deletes the merged PR branch locally and remotely. These are governed, single-author-branch operations, not the work-discarding operations above.
 - ⚠️ **STOP TRIGGER: about to run `pnpm exec tsc --noEmit`, `npx tsc`, or any bare type-check command** — run `pnpm run typecheck` instead. Bare `tsc` misses product-specific config, paths, and exclusions. This applies to every TypeScript check, not just commit-time.
 - ⚠️ **ALWAYS run the documented pnpm validation scripts after code changes** — before audit, before commit, before claiming "done". `pnpm run typecheck` alone is not the quality gate — it runs only TypeScript checking. Run `pnpm run validate` for source validation, plus the relevant tests. Circular dependency detection runs in CI, not as a local gate.
 - 🛑 **STOP TRIGGER — running tests. NEVER run the full suite to verify a change; run the touched scope through `spx test`.** `pnpm test` (and `spx test` with no operands) runs ~2100 tests — minutes idle, up to ~20 minutes under machine load, and agents looping it during PR cycles exhaust the host. The product has ONE test verb, `spx test`; pick a **situation**, not a runner:
@@ -74,7 +73,7 @@ The **spec-tree** plugin is the active system for managing specification trees. 
 | `/apply`         | Orchestrate spec-tree implementation and audit gates               |
 | `/refactor`      | Restructure the spec tree (move, consolidate, extract)             |
 | `/align`         | Review for gaps, contradictions, and consistency                   |
-| `/pr`            | Route PR lifecycle work through opening, managing, and merge gates |
+| `/merge`         | Route PR lifecycle work through opening, managing, and merge gates |
 
 Additional skills ship with the plugin and are invoked by name: `/commit-changes`, `/interview`, `/audit-tests`, `/audit-pdr`, `/audit-adr`, `/audit-specs`, `/handoff`, `/pickup`, `/refocus`, `/bootstrap`, `/open-pr`, `/manage-pr`, `/merge`, `/sync-base`, `/merging-standards`, `/diagnose`. See the spec-tree plugin's `skills/` directory for the full list.
 
@@ -92,8 +91,6 @@ Outcome Engineering plugin skills live in the plugin repository resolved by:
 claude plugin marketplace list | sed -nEe 's#.*Directory.*\((.*outcomeeng.*)\).*#\1#p'
 ```
 
-That repository is shared installed plugin infrastructure used directly by other agents. Do not edit it from this product workflow.
-
 If a file under that resolved repository, or a generated/cache copy of those plugin files, appears wrong, stale, incomplete, unsafe, confusing, or responsible for incorrect workflow behavior, do not edit it from this product workflow.
 
 Instead, create follow-up work in the plugin repository:
@@ -105,31 +102,11 @@ Instead, create follow-up work in the plugin repository:
 4. Run `spx session handoff` from that checkout.
 5. In the handoff, describe what happened, what was unclear, what you checked, and what facts would help the future plugin workflow.
 
-Do not prescribe exact code, documentation, or template changes unless you are doing the plugin-repository workflow yourself.
+Do not prescribe exact code, documentation, or template changes. Record the mistaken assumption, the trigger that led to it, and the facts that would help the plugin-repository workflow target the misconception precisely.
 
 </skill_sources>
 
 ### Decision records: the decision-first ADR/PDR template
-
-The authoritative ADR and PDR templates are **decision-first**. The skills own them — `/author` (`templates/decisions/decision-name.adr.md` and `decision-name.pdr.md`) and `/architect-typescript` for ADRs. Read the skill, never an existing decision file, for the shape.
-
-**ADR** — `# Title`, then the decision stated directly as 1–3 sentences of opening prose, then:
-
-- `## Rationale` — brief; name a rejected alternative only when it sharpens the decision
-- `## Invariants` — optional; algebraic properties holding for all governed code
-- `## Verification` — ALWAYS/NEVER rules grouped under the subsections that apply, ordered by decreasing enforcement strength: `### Testing` (the evidence type: `[scenario]`/`[mapping]`/`[conformance]`/`[property]`/`[compliance]`), `### Eval` (`[eval]`), `### Audit` (`[audit]`). DI and no-mocking testability constraints are `### Audit` rules.
-
-**PDR** — `# Title`, then the decision stated directly as 1–3 sentences of user-observable behavior, then:
-
-- `## Rationale`
-- `## Product properties` — optional; ≤3 observable properties
-- `## Verification` — the same subsection scheme as the ADR: `### Testing`, `### Eval`, `### Audit`, ordered by decreasing enforcement strength
-
-**Verification subsection order.** Both record types order the subsections by decreasing enforcement strength — `### Testing` → `### Eval` → `### Audit`. The canonical ADR template currently lists them Audit-first; reordering it to match is an upstream fix tracked in `spx/23-spec-tree.enabler/ISSUES.md`.
-
-**What the decision-first template removes.** No `## Purpose`, no `## Context` (Business impact / Technical constraints), no `## Decision` heading (the decision IS the opening prose), no `## Trade-offs accepted` table, no `## Compliance` block with `### Recognized by` / `### MUST` / `### NEVER`, no `## Status`, no level-assignment tables. Trade-offs and business context fold into the decision statement and Rationale.
-
-**The blanket `[review]` tag is retired.** Each Verification rule carries the tag its subsection prescribes: `[audit]` under `### Audit`, `[eval]` under `### Eval`, the evidence type under `### Testing`. `[review]` is accepted only as the legacy spelling of `[audit]` during migration.
 
 **Legacy verbose decision records are no longer valid.** Any ADR or PDR carrying `## Purpose`, `## Context`, a `## Decision` heading, `## Trade-offs accepted`, a `## Compliance` block, or the PDR-specific `## Product invariants` heading (the template's heading is `## Product properties`) — or blanket `[review]` tags — is in violation of the current template and slated for migration to the decision-first shape. It is NOT precedent: do not copy its structure, and never cite it to justify a new or migrated decision record's shape. When the spec-tree reviewer compares a decision-first file against a still-legacy sibling, the legacy sibling is the file in violation.
 
@@ -145,11 +122,10 @@ The authoritative ADR and PDR templates are **decision-first**. The skills own t
 **NEVER commit without passing source validation. NEVER publish without passing the publish gate.**
 
 ```bash
+# Quick verification before committing
 # Source validation for current TypeScript source
 pnpm run validate
 
-# Quick verification before committing
-pnpm run validate
 # plus the focused tests that cover the touched spec node, source module, or workflow
 
 # Build packaged output for the `spx` executable
@@ -194,28 +170,15 @@ When a changeset reaching `main` adds a new CLI subcommand, verb, or option, it 
 
 ### Release request protocol
 
-When the user asks to prepare or publish a release, follow `README.md`
-"Publishing a Release" and `.github/workflows/publish.yml` as the current
-manual release procedure for publishing this package. Use those two surfaces as
-the package-publishing authorities.
+When the user asks to prepare or publish a release, follow `README.md` "Publishing a Release" and `.github/workflows/publish.yml` as the current manual release procedure for publishing this package. Use those two surfaces as the package-publishing authorities.
 
-For agent execution, treat README shell commands as the human-operator form of
-the procedure. Apply this file's agent rules while carrying out the same release
-sequence: sync through `/sync-base` and commit through `/commit-changes`. When a
-release request also satisfies the "Releasing CLI-surface changes" trigger,
-follow that section for the agent execution path.
+For agent execution, treat README shell commands as the human-operator form of the procedure. Apply this file's agent rules while carrying out the same release sequence: sync through `/sync-base` and commit through `/commit-changes`. When a release request also satisfies the "Releasing CLI-surface changes" trigger, follow that section for the agent execution path.
 
-Report deterministic PNPM gate evidence explicitly. A valid release status
-update names `pnpm run publish:check` and summarizes every stage it ran: source
-validation, circular dependency validation, build, tests, packaged validation,
-and packaged circular dependency validation.
+Report deterministic PNPM gate evidence explicitly. A valid release status update names `pnpm run publish:check` and summarizes every stage it ran: source validation, circular dependency validation, build, tests, packaged validation, and packaged circular dependency validation.
 
-Report the exact version bump command too. Use
-`pnpm version patch --no-git-tag-version` unless the release request specifies
-`minor`, `major`, or an exact version.
+Report the exact version bump command too. Use `pnpm version patch --no-git-tag-version` unless the release request specifies `minor`, `major`, or an exact version.
 
-If the publish gate exits 0 with warning-level lint output, report the warning
-count and continue. Do not turn tracked warning debt into a release blocker.
+If the publish gate exits 0 with warning-level lint output, report the warning count and continue. Do not turn tracked warning debt into a release blocker.
 
 ### Committing Changes
 
@@ -231,24 +194,22 @@ git add . && git commit -m "..."
 
 ### Available Validation Commands
 
-The pnpm scripts are the authoritative workflow interface for local validation and publish gates:
+The pnpm scripts below are the agent-facing workflow interface for local validation and publish gates:
 
-| pnpm Script                    | Purpose                                                                                          |
-| ------------------------------ | ------------------------------------------------------------------------------------------------ |
-| `pnpm run validate`            | Source aggregate validation, circular skipped                                                    |
-| `pnpm run validate:production` | Source production validation, circular skipped                                                   |
-| `pnpm run validate:published`  | Built executable production validation, circular skipped                                         |
-| `pnpm run publish:check`       | Source validation, circular, build, tests, packaged validation, and packaged circular validation |
-| `pnpm run lint`                | ESLint only                                                                                      |
-| `pnpm run lint:fix`            | Auto-fix ESLint issues                                                                           |
-| `pnpm run typecheck`           | TypeScript only                                                                                  |
-| `pnpm run circular`            | Source circular dependency detection                                                             |
-| `pnpm run circular:published`  | Built executable circular dependency detection                                                   |
-| `pnpm run knip`                | Find unused code                                                                                 |
+| pnpm Script                   | Purpose                                                                                          |
+| ----------------------------- | ------------------------------------------------------------------------------------------------ |
+| `pnpm run validate`           | Source aggregate validation, circular skipped                                                    |
+| `pnpm run validate:published` | Built executable validation, circular skipped                                                    |
+| `pnpm run publish:check`      | Source validation, circular, build, tests, packaged validation, and packaged circular validation |
+| `pnpm run lint`               | ESLint only                                                                                      |
+| `pnpm run lint:fix`           | Auto-fix ESLint issues                                                                           |
+| `pnpm run typecheck`          | TypeScript only                                                                                  |
+| `pnpm run circular`           | Source circular dependency detection                                                             |
+| `pnpm run circular:published` | Built executable circular dependency detection                                                   |
+| `pnpm run knip`               | Find unused code                                                                                 |
 
 **Common validation options:**
 
-- `--scope <scope>`: Validation scope (`full` or `production`)
 - `--files <paths...>`: Specific files/directories to validate
 - `--quiet`: Suppress progress output
 - `--json`: Output results as JSON
@@ -277,11 +238,11 @@ Run the right local gate before publishing. Use the documented pnpm validation s
 
 ### PR review guidance
 
-`/pr` is the active PR lifecycle for PR reviews. Its managing phase classifies automated and human findings by required receiver action using only `BLOCKING`, `DEBT`, and `FOLLOW-UP`.
+`/merge` is the active default-branch lifecycle. It selects transport, delegates to PR opening and managing flows, and classifies automated and human findings by required receiver action using only `BLOCKING` and `DEBT`.
 
-`BLOCKING` and `DEBT` enter the active PR loop and must be fixed in the same PR. `FOLLOW-UP` items must name the owning tracking location when retention is useful.
+`BLOCKING` and `DEBT` enter the active PR loop and must be fixed in the same PR.
 
-Treat PR-level comments as authoritative review surfaces. This product rarely receives inline review-thread comments, and many PRs receive none. A reviewer comment posted in the PR conversation with `BLOCKING`, `DEBT`, or `FOLLOW-UP` findings is a review for the managing-PR gate even when the formal review list and inline review-thread list are empty. Still inspect all three surfaces on every PR pass:
+Treat PR-level comments as authoritative review surfaces. This product receives inline review-thread comments. A reviewer comment posted in the PR conversation with `BLOCKING` or `DEBT` findings is a review for the managing-PR gate even when the formal review list and inline review-thread list are empty. Still inspect all three surfaces on every PR pass:
 
 - Formal reviews and PR-level comments via `gh pr view <pr-number> --json reviews,comments`
 - Inline review-thread comments via `gh api repos/{organization}/{repo}/pulls/<pr-number>/comments --paginate`
@@ -291,7 +252,7 @@ Treat PR-level comments as authoritative review surfaces. This product rarely re
 
 ### Executing PR workflow
 
-Run `/pr` for default-branch changes. It opens PRs ready once `REVIEW_READINESS` holds: the product's scoped deterministic verification passes, every required audit gate for the changed artifacts has approved, and local `changes-reviewer` review has converged. Review also runs on the ready PR in CI. If the operator explicitly suspends local reviewer agents for resource protection, treat that as a documented exception: do not run `changes-reviewer` locally, name the exception in the PR body, and let CI be the first review surface. The managing phase drives the merge loop: inspect all review surfaces, classify findings, sync to base when needed, fix `BLOCKING` and `DEBT`, record accepted `FOLLOW-UP`, rerun the local closure gate before pushing, refresh the heartbeat, and evaluate the merge authority gates.
+Run `/merge` for default-branch changes. It opens PRs ready once `REVIEW_READINESS` holds: the product's scoped deterministic verification passes, every required audit gate for the changed artifacts has approved, and local `changes-reviewer` review has converged. Review also runs on the ready PR in CI. If the operator explicitly suspends local reviewer agents for resource protection, treat that as a documented exception: do not run `changes-reviewer` locally, name the exception in the PR body, and let CI be the first review surface. The managing phase drives the merge loop: inspect all review surfaces, classify findings, sync to base when needed, fix `BLOCKING` and `DEBT`, rerun the local closure gate before pushing, wait with `gh pr checks <pr-number> --watch --fail-fast --interval 30` when checks or reviews need time, and evaluate the merge authority gates.
 
 ```bash
 pr_url="$(gh pr create --title "$title" --body "$body" --base main --head "$branch")"
@@ -305,17 +266,16 @@ gh pr view "$pr_number" --json reviews,comments
 gh api "repos/{organization}/{repo}/pulls/${pr_number}/comments" --paginate
 ```
 
-Do not add or substitute ad hoc waits such as shell polling loops, `sleep`, caffeine-style manual babysitting, repeated manual refreshes, or invented waiting schemes. Skills have precedence. When checks or reviews need time outside that mandated skill step, create or refresh the one heartbeat for the PR and re-enter `/pr` on the next fire.
+Do not add or substitute ad hoc waits such as shell polling loops, `sleep`, manual babysitting, repeated manual refreshes, or invented waiting schemes. Skills have precedence. When checks or reviews need time, use the managed PR check wait command from `/merging-standards`: `gh pr checks <pr-number> --watch --fail-fast --interval 30`, then re-inspect PR state, check rollup, PR-level comments, formal reviews, and review-thread comments before acting.
 
 ### Ask for adversarial PR audit
 
-Ask the PR reviewers for adversarial auditing of all architecture, security-sensitive workflows, deployment and publishing paths, and any PR that changes production behavior. When checks or reviews need time, create or refresh the heartbeat for the PR and re-enter `/pr` on the next fire. Continue with non-blocking local work while the heartbeat owns the wait.
+Ask the PR reviewers for adversarial auditing of all architecture, security-sensitive workflows, deployment and publishing paths, and any PR that changes production behavior. When checks or reviews need time, use `gh pr checks <pr-number> --watch --fail-fast --interval 30`, then run the full managing inspection before acting. Continue with non-blocking local work only when it does not overlap with the PR wait or review surface.
 
 ### Treat PR review findings by receiver action
 
 - Fix `BLOCKING` findings in the same PR, rerun the focused tests and relevant pnpm validation scripts, then update the PR.
 - Fix `DEBT` findings in the same PR, rerun the focused tests and relevant pnpm validation scripts, then update the PR.
-- Record retained `FOLLOW-UP` findings in the owning spec tree node's `ISSUES.md` or `PLAN.md` with evidence, impact, and resolution and Markdown links to all involved files and specs.
 - Findings that expose weak evidence require a test rearchitecture using the `/test-typescript` skill before merge.
 
 ### Merge discipline
@@ -323,17 +283,9 @@ Ask the PR reviewers for adversarial auditing of all architecture, security-sens
 - Merge stacked PRs in dependency order.
 - Do not deploy or publish from unmerged PR branches.
 - Use selective staging and one commit per concern before pushing using the `/commit-changes` skill.
-- After merge, sync local `main` and verify the worktree is clean before starting the next branch.
+- After merge, sync local `main` and verify the worktree is clean before starting the next branch using the `sync-base` skill.
 
 ---
-
-## Project Overview
-
-**spx** is a developer CLI for code validation and session management:
-
-- **Code validation** — ESLint, TypeScript, circular dependency detection, unused code analysis
-- **Session management** — work handoffs between agent contexts with priority ordering
-- **Multiple output formats** — Text, JSON for CI and automation
 
 ## Technical Stack
 
