@@ -24,9 +24,9 @@ literal config can be ignored during allowlist generation.
 config. Keep config-file mutation in a config-owned helper that preserves the
 existing file format while writing the updated allowlist path.
 
-**Skills:** `spec-tree:aligning`, `typescript:architecting-typescript`,
-`typescript:testing-typescript`, `typescript:coding-typescript`,
-`typescript:auditing-typescript`.
+**Skills:** `spec-tree:align`, `typescript:architect-typescript`,
+`typescript:test-typescript`, `typescript:code-typescript`,
+`typescript:audit-typescript`.
 
 ---
 
@@ -60,5 +60,5 @@ receiving the exact key path in the diagnostic.
 the full user-visible path for every literal value config field, then adjust the
 config validation tests to assert the full path strings.
 
-**Skills:** `spec-tree:aligning`, `typescript:testing-typescript`,
-`typescript:coding-typescript`, `typescript:auditing-typescript`.
+**Skills:** `spec-tree:align`, `typescript:test-typescript`,
+`typescript:code-typescript`, `typescript:audit-typescript`.

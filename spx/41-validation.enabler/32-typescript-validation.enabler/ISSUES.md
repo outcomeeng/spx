@@ -15,5 +15,5 @@ planning the dependency-cruiser PR #199 completion slice on June 18, 2026.
 **Revisit condition:** Migrate before editing the TypeScript conventions ADR or
 before using it as a template for any new TypeScript validation decision record.
 
-**Skills:** `spec-tree:contextualizing`, `spec-tree:authoring`,
-`spec-tree:auditing-adr`, and `typescript:architect-typescript`.
+**Skills:** `spec-tree:contextualize`, `spec-tree:author`,
+`spec-tree:audit-adr`, and `typescript:architect-typescript`.

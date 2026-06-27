@@ -36,142 +36,25 @@ The audit behavior follows the Unix convention: command errors go to stderr.
 stream routing, or the validation command result interface; align validation
 failure output with the audit CLI stderr-for-errors behavior.
 
-**Skills:** `spec-tree:contextualizing`, `spec-tree:applying`,
-`typescript:testing-typescript`, `typescript:coding-typescript`,
-`typescript:auditing-typescript-tests`, and `typescript:auditing-typescript`.
-
----
-
-## TypeScript path operands are passed to TypeScript as files
-
-`spx validation typescript <directory>` can fail before validation
-because directory scopes are forwarded into the generated TypeScript file list
-as if they were files.
-
-Observed on June 10, 2026 while validating audit-boundary code changes:
-
-```bash
-pnpm exec tsx src/cli.ts validation typescript \
-  src/commands/audit \
-  src/domains/audit \
-  spx/36-audit.enabler/32-verify.enabler/21-verdict-reader.enabler/tests \
-  spx/36-audit.enabler/32-verify.enabler/tests \
-  spx/36-audit.enabler/54-branch-run-state.enabler/tests
-```
-
-Output:
-
-```text
-error TS6231: Could not resolve the path
-'/Users/shz/Code/outcomeeng/spx/spx-a/src/commands/audit'
-with the extensions: '.ts', '.tsx', '.d.ts', '.cts', '.d.cts', '.mts',
-'.d.mts'.
-  The file is in the program because:
-    Part of 'files' list in tsconfig.json
-error TS6231: Could not resolve the path
-'/Users/shz/Code/outcomeeng/spx/spx-a/src/domains/audit'
-with the extensions: '.ts', '.tsx', '.d.ts', '.cts', '.d.cts', '.mts',
-'.d.mts'.
-  The file is in the program because:
-    Part of 'files' list in tsconfig.json
-TypeScript exited with code 2
-```
-
-Observed on June 17, 2026 while validating a mixed focused set containing
-TypeScript source, TypeScript tests, and a Markdown spec:
-
-```bash
-pnpm run validate \
-  src/validation/discovery/tool-finder.ts \
-  spx/41-validation.enabler/tests/tool-discovery.compliance.l1.test.ts \
-  spx/41-validation.enabler/validation.md \
-  src/commands/validation/circular.ts \
-  src/validation/steps/circular.ts \
-  spx/41-validation.enabler/tests/scope-resolution.compliance.l1.test.ts
-```
-
-Output:
-
-```text
-error TS6054: File
-'/Users/shz/Code/outcomeeng/spx/spx-c/spx/41-validation.enabler/validation.md'
-has an unsupported extension. The only supported extensions are '.ts', '.tsx',
-'.d.ts', '.cts', '.d.cts', '.mts', '.d.mts'.
-```
-
-An explicit-file version of the same focused check passed:
-
-```bash
-run_state_tests=spx/36-audit.enabler/54-branch-run-state.enabler/tests
-
-pnpm exec tsx src/cli.ts validation typescript \
-  src/commands/audit/run-state.ts \
-  src/domains/audit/run-state.ts \
-  src/domains/audit/config.ts \
-  "$run_state_tests"/run-file.compliance.l1.test.ts \
-  "$run_state_tests"/run-state.compliance.l1.test.ts \
-  "$run_state_tests"/branch-slug.property.l1.test.ts
-```
-
-```text
-TypeScript: ✓ No type errors
-```
-
-**Impact:** Focused TypeScript validation with directory scopes can fail for
-valid changes, forcing operators to expand directories to individual files or
-run the full validation gate.
-
-**Tracking classification:** Tracked deferral, chosen by the operator during the
-audit-boundary work on June 10, 2026.
-
-**Revisit condition:** Fix before changing TypeScript scope generation,
-file-inclusion directory expansion, or validation path operand handling; add
-evidence that directory scopes expand to TypeScript files before writing the
-temporary tsconfig.
-
 **Skills:** `spec-tree:contextualize`, `spec-tree:apply`,
 `typescript:test-typescript`, `typescript:code-typescript`,
 `typescript:audit-typescript-tests`, and `typescript:audit-typescript`.
 
 ---
 
-## PR 19 review follow-ups for validation path filtering
-
-The review on
-[`outcomeeng/spx#19`](https://github.com/outcomeeng/spx/pull/19#issuecomment-4437790114)
-identified follow-ups after the managed subprocess and validation path-filter
-cleanup:
-
-- `applyValidationPathFilterToScope` falls back from file patterns to directory
-  names; confirm the TypeScript temp `include` semantics recurse the same way
-  ESLint directory targets do, or normalize directory fallbacks to recursive
-  globs before writing temp tsconfig files.
-- `validateKnip` returns success when `typescriptScope.directories` is empty,
-  even when filtered `filePatterns` still contains targets; gate the skip on
-  both collections so path-filtered file patterns still run Knip.
-- `eslint.config.production.ts` participates in production lint selection; add
-  a compliance assertion in the lint enabler or validation configuration ADR if
-  it is the durable production linting contract.
-- `hasValidationPathFilter` relies on `&&` binding before `||`; add explicit
-  parentheses around the metadata/no-match clause so the filter activation rule
-  is unambiguous to readers.
-
-**Scope:** follow-up work, not part of the managed subprocess lifecycle fix.
-
----
-
-## TypeScript and lint path scopes lack TypeScript-scope intersection
+## Lint path scopes lack TypeScript-scope intersection
 
 The review on `outcomeeng/spx#211` identified that `circularCommand` and
 `knipCommand` now resolve explicit path operands through
 `resolveTypeScriptValidationScope`, which intersects explicit paths with the
 effective TypeScript scope before forwarding them to their tools.
-`typescriptCommand` and `lintCommand` still apply validation path filters but do
-not drop explicit paths outside the tsconfig-backed TypeScript scope.
+`typescriptCommand` now uses the same resolver. `lintCommand` still applies
+validation path filters directly and does not drop explicit paths outside the
+tsconfig-backed TypeScript scope.
 
 **Impact:** An explicit path outside the effective TypeScript scope can be
-forwarded by TypeScript and lint while circular and Knip reject the same path,
-so validation subcommands do not share one effective-scope contract.
+forwarded by lint while TypeScript, circular, and Knip reject the same path, so
+validation subcommands do not share one effective-scope contract.
 
 **Tracking classification:** Follow-up from PR #211 review on June 20, 2026.
 
