@@ -29,6 +29,7 @@ const GIT_REV_PARSE_ARGS = {
 } as const;
 const INFO_EXCLUDE_RELATIVE_PATH = "info/exclude";
 const PATH_SEGMENT_SEPARATOR = "/";
+const CURRENT_DIRECTORY_PREFIX = ".";
 export const GIT_MISSING_CONTEXT_MESSAGE = "missing git working tree";
 
 export const DEFAULT_IGNORE_SOURCE_OVERRIDES: IgnoreSourceOverrides = {
@@ -135,6 +136,10 @@ function parentPrefixes(path: string): readonly string[] {
 
 function includedDescendantParents(paths: ReadonlySet<string>): ReadonlySet<string> {
   const parents = new Set<string>();
+  if (paths.size > 0) {
+    parents.add("");
+    parents.add(CURRENT_DIRECTORY_PREFIX);
+  }
   for (const path of paths) {
     for (const parent of parentPrefixes(path)) {
       parents.add(parent);

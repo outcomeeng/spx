@@ -9,6 +9,7 @@ import { arbitraryDomainLiteral, sampleLiteralTestValue } from "@testing/generat
 
 const SAMPLE_ATTEMPTS = 50;
 const NESTED_PREFIX_MAX_DEPTH = 2;
+const CURRENT_DIRECTORY_PREFIX = ".";
 
 export { PROPERTY_NUM_RUNS } from "@testing/harnesses/spec-tree/generators";
 
@@ -74,6 +75,9 @@ export function makeReader(includedPaths: readonly string[]): IgnoreSourceReader
       return included.has(relativePath);
     },
     hasIncludedDescendant(relativePath: string): boolean {
+      if (included.size > 0 && (relativePath.length === 0 || relativePath === CURRENT_DIRECTORY_PREFIX)) {
+        return true;
+      }
       const descendantPrefix = relativePath.endsWith("/") ? relativePath : `${relativePath}/`;
       for (const path of included) {
         if (path.startsWith(descendantPrefix)) return true;

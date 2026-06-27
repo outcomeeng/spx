@@ -141,6 +141,26 @@ describe("scope resolver — compliance", () => {
     });
   });
 
+  it("explicit directory descendants include submodule contents", async () => {
+    await withGitWorktreeEnv(async (env) => {
+      const explicitDirectory = trackedFilePath();
+      const submodule = `${explicitDirectory}/${trackedFilePath()}`;
+      const submoduleChild = `${submodule}/${trackedFilePath()}`;
+      await env.addSubmodule(submodule);
+      await env.writeUntracked(submoduleChild, fileContent());
+
+      const result = await resolveScope(
+        env.productDir,
+        { explicit: [explicitDirectory], overrides: DEFAULT_IGNORE_SOURCE_OVERRIDES },
+        resolverConfig,
+      );
+
+      const explicitChildEntry = result.included.find((entry) => entry.path === submoduleChild);
+      expect(explicitChildEntry).toBeDefined();
+      expect(explicitChildEntry!.decisionTrail).toEqual([{ matched: true, layer: EXPLICIT_OVERRIDE_LAYER }]);
+    });
+  });
+
   it("ScopeResult excluded entries always carry per-path decision trails", async () => {
     await withGitWorktreeEnv(async (env) => {
       const fixture = scopeResolverFixture();
