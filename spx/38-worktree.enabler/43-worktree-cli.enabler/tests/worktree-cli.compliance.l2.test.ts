@@ -155,6 +155,69 @@ describe("worktree CLI compliance", () => {
     });
   });
 
+  it("ALWAYS: status --all --format json writes parseable records for every git-observed worktree", async () => {
+    const [firstName, secondName] = sampleWorktreeTestValue(WORKTREE_TEST_GENERATOR.distinctPoolWorktreeNames());
+
+    await withWorktreeLayoutEnv(
+      { bare: true, worktrees: [{ name: firstName }, { name: secondName }] },
+      async (layout) => {
+        await withTempDir(sampleWorktreeTestValue(WORKTREE_TEST_GENERATOR.tempPrefix()), async (worktreesDir) => {
+          const firstPath = layout.worktree(firstName);
+          const secondPath = layout.worktree(secondName);
+          const result = await runWorktreeCli(
+            [
+              WORKTREE_CLI.COMMAND,
+              WORKTREE_CLI.STATUS,
+              WORKTREE_CLI.ALL_FLAG,
+              WORKTREE_CLI.FORMAT_FLAG,
+              WORKTREE_STATUS_FORMAT.JSON,
+              WORKTREE_CLI.WORKTREES_DIR_FLAG,
+              worktreesDir,
+            ],
+            {},
+            firstPath,
+          );
+
+          expect(result.exitCode).toBe(0);
+          const parsed = JSON.parse(result.stdout) as readonly { readonly worktree: string; readonly status: string }[];
+          expect(parsed).toHaveLength(2);
+          expect(parsed).toEqual(expect.arrayContaining([
+            { worktree: worktreeClaimName(firstPath), status: OCCUPANCY_STATUS.FREE },
+            { worktree: worktreeClaimName(secondPath), status: OCCUPANCY_STATUS.FREE },
+          ]));
+        });
+      },
+    );
+  });
+
+  it("ALWAYS: status --all --format json writes an array for a one-worktree repository", async () => {
+    const worktreeName = sampleWorktreeTestValue(WORKTREE_TEST_GENERATOR.poolWorktreeName());
+
+    await withWorktreeLayoutEnv({ bare: true, worktrees: [{ name: worktreeName }] }, async (layout) => {
+      await withTempDir(sampleWorktreeTestValue(WORKTREE_TEST_GENERATOR.tempPrefix()), async (worktreesDir) => {
+        const worktreePath = layout.worktree(worktreeName);
+        const result = await runWorktreeCli(
+          [
+            WORKTREE_CLI.COMMAND,
+            WORKTREE_CLI.STATUS,
+            WORKTREE_CLI.ALL_FLAG,
+            WORKTREE_CLI.FORMAT_FLAG,
+            WORKTREE_STATUS_FORMAT.JSON,
+            WORKTREE_CLI.WORKTREES_DIR_FLAG,
+            worktreesDir,
+          ],
+          {},
+          worktreePath,
+        );
+
+        expect(result.exitCode).toBe(0);
+        expect(JSON.parse(result.stdout)).toEqual([
+          { worktree: worktreeClaimName(worktreePath), status: OCCUPANCY_STATUS.FREE },
+        ]);
+      });
+    });
+  });
+
   it("ALWAYS: a live holder reads running when claim and status run under different timezones", async () => {
     const prefix = sampleWorktreeTestValue(WORKTREE_TEST_GENERATOR.tempPrefix());
     const worktreeName = sampleWorktreeTestValue(WORKTREE_TEST_GENERATOR.poolWorktreeName());

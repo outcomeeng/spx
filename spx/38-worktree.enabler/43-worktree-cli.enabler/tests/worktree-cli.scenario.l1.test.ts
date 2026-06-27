@@ -7,13 +7,24 @@ import {
   claimCommand,
   releaseCommand,
   statusCommand,
+  WORKTREE_STATUS_ERROR,
   WORKTREE_STATUS_FORMAT,
   WORKTREE_STATUS_RENDER,
 } from "@/commands/worktree/index";
 import { CONTROLLING_PID_ENV } from "@/domains/worktree/controlling-process";
 import { OCCUPANCY_STATUS, readClaim, writeClaim } from "@/domains/worktree/occupancy-store";
 import { worktreeClaimName } from "@/domains/worktree/worktree-name";
-import { defaultGitDependencies } from "@/git/root";
+import {
+  defaultGitDependencies,
+  GIT_COMMON_DIR_ARGS,
+  GIT_CORE_BARE_ARGS,
+  GIT_CORE_BARE_TRUE,
+  GIT_REMOTE_GET_URL_ORIGIN_ARGS,
+  GIT_SHOW_TOPLEVEL_ARGS,
+  GIT_WORKTREE_LIST_PORCELAIN_ARGS,
+  GIT_WORKTREE_PORCELAIN_ROOT_PREFIX,
+  type GitDependencies,
+} from "@/git/root";
 import { defaultOccupancyFileSystem } from "@/lib/worktree-occupancy-file-system";
 import { defaultWorktreePathInfo } from "@/lib/worktree-path-info";
 import { sampleWorktreeTestValue, WORKTREE_TEST_GENERATOR } from "@testing/generators/worktree/worktree";
@@ -21,6 +32,41 @@ import { createSessionGitDeps, SESSION_GIT_DEPS_PATHS, WORKTREE_KIND } from "@te
 import { withTempDir } from "@testing/harnesses/with-temp-dir";
 import { withWorktreeLayoutEnv } from "@testing/harnesses/worktree-layout/worktree-layout";
 import { createProcessTable, type ProcessTableEntry, withWorktreePool } from "@testing/harnesses/worktree/harness";
+
+function argsEqual(actual: readonly string[], expected: readonly string[]): boolean {
+  return actual.length === expected.length && actual.every((value, index) => value === expected[index]);
+}
+
+function worktreeListDeps(options: {
+  readonly worktreeRoot: string;
+  readonly commonDir: string;
+  readonly worktreeRoots: readonly string[];
+}): GitDependencies {
+  return {
+    execa: async (_command, args) => {
+      if (argsEqual(args, GIT_SHOW_TOPLEVEL_ARGS)) {
+        return { exitCode: 0, stdout: options.worktreeRoot, stderr: "" };
+      }
+      if (argsEqual(args, GIT_COMMON_DIR_ARGS)) {
+        return { exitCode: 0, stdout: options.commonDir, stderr: "" };
+      }
+      if (argsEqual(args, GIT_REMOTE_GET_URL_ORIGIN_ARGS)) {
+        return { exitCode: 1, stdout: "", stderr: "" };
+      }
+      if (argsEqual(args, GIT_WORKTREE_LIST_PORCELAIN_ARGS)) {
+        return {
+          exitCode: 0,
+          stdout: options.worktreeRoots.map((root) => `${GIT_WORKTREE_PORCELAIN_ROOT_PREFIX}${root}`).join("\n\n"),
+          stderr: "",
+        };
+      }
+      if (argsEqual(args, GIT_CORE_BARE_ARGS)) {
+        return { exitCode: 0, stdout: GIT_CORE_BARE_TRUE, stderr: "" };
+      }
+      return { exitCode: 1, stdout: "", stderr: "" };
+    },
+  };
+}
 
 describe("worktree command handlers", () => {
   it("writes a claim for the running worktree under the resolved scope", async () => {
@@ -181,6 +227,92 @@ describe("worktree command handlers", () => {
       expect(JSON.parse(status.value)).toEqual([
         { worktree: worktreeClaimName(env.worktreePath), status: OCCUPANCY_STATUS.FREE },
       ]);
+    });
+  });
+
+  it("reports every git-observed worktree when all targets are requested", async () => {
+    const [firstName, secondName] = sampleWorktreeTestValue(WORKTREE_TEST_GENERATOR.distinctPoolWorktreeNames());
+    const holder = sampleWorktreeTestValue(WORKTREE_TEST_GENERATOR.poolHolder());
+    const sessionId = sampleWorktreeTestValue(WORKTREE_TEST_GENERATOR.sessionId());
+
+    await withWorktreeLayoutEnv(
+      { bare: true, worktrees: [{ name: firstName }, { name: secondName }] },
+      async (layout) => {
+        await withTempDir(sampleWorktreeTestValue(WORKTREE_TEST_GENERATOR.tempPrefix()), async (worktreesDir) => {
+          const firstPath = layout.worktree(firstName);
+          const secondPath = layout.worktree(secondName);
+          const firstClaimName = worktreeClaimName(firstPath);
+          const secondClaimName = worktreeClaimName(secondPath);
+
+          await writeClaim(
+            worktreesDir,
+            firstClaimName,
+            {
+              sessionId,
+              host: holder.host,
+              pid: holder.pid,
+              startedAt: holder.startedAt,
+            },
+            {
+              fs: defaultOccupancyFileSystem,
+              writeToken: sampleWorktreeTestValue(WORKTREE_TEST_GENERATOR.writeToken()),
+            },
+          );
+
+          const status = await statusCommand({
+            all: true,
+            cwd: firstPath,
+            fs: defaultOccupancyFileSystem,
+            gitDeps: worktreeListDeps({
+              worktreeRoot: firstPath,
+              commonDir: layout.container,
+              worktreeRoots: [secondPath, firstPath],
+            }),
+            worktreesDir,
+            processTable: createProcessTable({
+              host: holder.host,
+              processes: new Map<number, ProcessTableEntry>([
+                [holder.pid, { alive: true, startTime: holder.startedAt }],
+              ]),
+            }),
+            format: WORKTREE_STATUS_FORMAT.JSON,
+            pathInfo: defaultWorktreePathInfo,
+          });
+
+          expect(status.ok).toBe(true);
+          if (!status.ok) throw new Error(status.error);
+          expect(JSON.parse(status.value)).toEqual([
+            { worktree: secondClaimName, status: OCCUPANCY_STATUS.FREE },
+            {
+              worktree: firstClaimName,
+              status: OCCUPANCY_STATUS.RUNNING,
+              pid: holder.pid,
+              session: sessionId,
+              host: holder.host,
+            },
+          ]);
+        });
+      },
+    );
+  });
+
+  it("rejects combining all targets with explicit worktree operands", async () => {
+    const [worktreeName, otherWorktreeName] = sampleWorktreeTestValue(
+      WORKTREE_TEST_GENERATOR.distinctPoolWorktreeNames(),
+    );
+
+    await withWorktreeLayoutEnv({ bare: true, worktrees: [{ name: worktreeName }] }, async (layout) => {
+      const result = await statusCommand({
+        all: true,
+        worktrees: [layout.worktree(worktreeName), otherWorktreeName],
+        cwd: layout.worktree(worktreeName),
+        fs: defaultOccupancyFileSystem,
+        gitDeps: defaultGitDependencies,
+        processTable: createProcessTable({ host: otherWorktreeName, processes: new Map() }),
+        pathInfo: defaultWorktreePathInfo,
+      });
+
+      expect(result).toEqual({ ok: false, error: WORKTREE_STATUS_ERROR.ALL_WITH_EXPLICIT_TARGETS });
     });
   });
 

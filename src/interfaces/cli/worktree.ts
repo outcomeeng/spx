@@ -21,6 +21,7 @@ export const WORKTREE_CLI = {
   RELEASE: "release",
   WORKTREE_ARGUMENT: "[worktrees...]",
   SESSION_ID_FLAG: "--session-id",
+  ALL_FLAG: "--all",
   FORMAT_FLAG: "--format",
   WORKTREES_DIR_FLAG: "--worktrees-dir",
 } as const;
@@ -75,23 +76,27 @@ function registerWorktreeCommands(worktreeCmd: Command, invocation: CliInvocatio
   worktreeCmd
     .command(`${WORKTREE_CLI.STATUS} ${WORKTREE_CLI.WORKTREE_ARGUMENT}`)
     .description("Report a worktree's occupancy (running | free)")
+    .option(WORKTREE_CLI.ALL_FLAG, "Report every git-observed worktree")
     .option(`${WORKTREE_CLI.FORMAT_FLAG} <format>`, "Output format (text|json)", WORKTREE_STATUS_FORMAT.TEXT)
     .option(`${WORKTREE_CLI.WORKTREES_DIR_FLAG} <path>`, "Explicit .spx/worktrees directory")
-    .action(async (worktrees: string[] | undefined, options: { format?: string; worktreesDir?: string }) => {
-      const result = await statusCommand({
-        cwd: effectiveInvocationDir(),
-        fs: defaultOccupancyFileSystem,
-        gitDeps: defaultGitDependencies,
-        worktrees,
-        format: options.format,
-        pathInfo: defaultWorktreePathInfo,
-        processTable: defaultProcessTable,
-        worktreesDir: options.worktreesDir,
-        onWarning: (warning) => writeInvocationWarning(invocation, warning),
-      });
-      if (!result.ok) handleError(invocation, result.error);
-      writeOutput(invocation, result.value);
-    });
+    .action(
+      async (worktrees: string[] | undefined, options: { all?: boolean; format?: string; worktreesDir?: string }) => {
+        const result = await statusCommand({
+          cwd: effectiveInvocationDir(),
+          fs: defaultOccupancyFileSystem,
+          gitDeps: defaultGitDependencies,
+          worktrees,
+          all: options.all,
+          format: options.format,
+          pathInfo: defaultWorktreePathInfo,
+          processTable: defaultProcessTable,
+          worktreesDir: options.worktreesDir,
+          onWarning: (warning) => writeInvocationWarning(invocation, warning),
+        });
+        if (!result.ok) handleError(invocation, result.error);
+        writeOutput(invocation, result.value);
+      },
+    );
 
   worktreeCmd
     .command(WORKTREE_CLI.RELEASE)
