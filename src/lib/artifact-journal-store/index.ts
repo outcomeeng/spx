@@ -87,18 +87,18 @@ export function createArtifactJournalStore(options: ArtifactJournalStoreOptions)
     },
 
     async seal(): Promise<void> {
-      // A re-seal is a no-op: the run is already retained, and re-uploading the
-      // same per-run artifact name conflicts under the Actions artifact API, so a
-      // harmless retry must not become an upload error.
       if (await local.isSealed()) return;
-      // Retain first, then mark sealed: the successful upload is the commitment
-      // point, so an upload failure leaves the run unsealed and a retry re-attempts
-      // retention rather than seeing a sealed-but-unretained run it can never fix.
-      const body = await readFileOrEmpty(fs, runFilePath);
-      await artifactClient.uploadArtifact({
-        name: artifactJournalRunArtifactName({ pullNumber, runToken }),
-        body,
-      });
+      // Retain first, then mark sealed, so a failed upload leaves the run unsealed
+      // and retriable. Skip the upload when the artifact is already retained — a run
+      // whose prior seal uploaded but crashed before the marker is retained yet
+      // unsealed, and re-uploading the same per-run name conflicts under the Actions
+      // artifact API — so the retry completes sealing instead of failing on the
+      // duplicate. Retention, not the marker, is the run's commitment point.
+      const name = artifactJournalRunArtifactName({ pullNumber, runToken });
+      if (!(await isArtifactRetained(artifactClient, name))) {
+        const body = await readFileOrEmpty(fs, runFilePath);
+        await artifactClient.uploadArtifact({ name, body });
+      }
       await local.seal();
     },
   };
@@ -151,6 +151,11 @@ export async function hydratePriorRuns(options: HydratePriorRunsOptions): Promis
     hydrated.push({ runToken, runFilePath });
   }
   return hydrated;
+}
+
+async function isArtifactRetained(client: ActionsArtifactClient, name: string): Promise<boolean> {
+  const summaries = await client.listArtifacts({ namePrefix: name });
+  return summaries.some((summary) => summary.name === name && !summary.expired);
 }
 
 async function readFileOrEmpty(fs: StateStoreFileSystem, path: string): Promise<string> {
