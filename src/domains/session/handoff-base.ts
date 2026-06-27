@@ -63,12 +63,12 @@ function detachedDefaultTipSha(facts: HandoffGitFacts): string | null {
   return atTip ? facts.headSha : null;
 }
 
-/** The clean-working-tree prerequisite, with its commit-or-main-checkout remedy when unmet. */
+/** The clean-working-tree prerequisite, with its commit-before-handoff remedy when unmet. */
 function cleanPrerequisite(facts: HandoffGitFacts): HandoffBasePrerequisite {
   return {
     label: HANDOFF_BASE_PREREQUISITE_LABEL.CLEAN_WORKING_TREE,
     met: facts.isClean,
-    remedy: facts.isClean ? "" : HANDOFF_BASE_REMEDY.COMMIT_OR_MAIN_CHECKOUT,
+    remedy: facts.isClean ? "" : HANDOFF_BASE_REMEDY.COMMIT_BEFORE_HANDOFF,
   };
 }
 

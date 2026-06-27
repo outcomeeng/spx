@@ -7,9 +7,11 @@ import {
   SessionWorkBranchNotOnOriginError,
 } from "@/domains/session/errors";
 import {
+  HANDOFF_BASE_DIRTY_HEADER,
   HANDOFF_BASE_FACT_LABEL,
   HANDOFF_BASE_MARK,
   HANDOFF_BASE_PREREQUISITE_LABEL,
+  HANDOFF_BASE_REMEDY,
   HANDOFF_BASE_UNRESOLVED,
   SESSION_HANDOFF_BASE_ERROR_NAME,
 } from "@/domains/session/handoff-base-checklist";
@@ -485,10 +487,13 @@ describe("session CLI handoff-base wiring", () => {
       await writeFile(join(linkedWorktreeDir, "uncommitted.txt"), "dirty");
       const result = await runHandoffFrom(linkedWorktreeDir);
       expect(result.exitCode).not.toBe(0);
+      expect(result.stderr.split("\n")[0]).toBe(HANDOFF_BASE_DIRTY_HEADER);
       expect(result.stderr).toContain(SESSION_HANDOFF_BASE_ERROR_NAME);
-      expect(prerequisiteLine(result.stderr, HANDOFF_BASE_PREREQUISITE_LABEL.CLEAN_WORKING_TREE)).toContain(
-        HANDOFF_BASE_MARK.UNMET,
-      );
+      const dirtyLine = prerequisiteLine(result.stderr, HANDOFF_BASE_PREREQUISITE_LABEL.CLEAN_WORKING_TREE);
+      expect(dirtyLine).toContain(HANDOFF_BASE_MARK.UNMET);
+      expect(dirtyLine).toContain(HANDOFF_BASE_REMEDY.COMMIT_BEFORE_HANDOFF);
+      expect(dirtyLine).not.toContain(HANDOFF_BASE_REMEDY.MAIN_CHECKOUT_ONLY);
+      expect(dirtyLine).not.toContain(HANDOFF_BASE_REMEDY.DETACH_TO_TIP_OR_MAIN_CHECKOUT);
       expect(await readdir(harness.statusDir(TODO))).toEqual([]);
     });
   });

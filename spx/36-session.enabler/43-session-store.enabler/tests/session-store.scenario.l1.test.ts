@@ -39,6 +39,7 @@ import {
   SessionWorkBranchNotOnOriginError,
 } from "@/domains/session/errors";
 import { resolveWorkBranchGitRef } from "@/domains/session/handoff-base";
+import { HANDOFF_BASE_PREREQUISITE_LABEL, HANDOFF_BASE_REMEDY } from "@/domains/session/handoff-base-checklist";
 import {
   DEFAULT_SESSION_METADATA,
   FIELD_SELECTION_SEPARATOR,
@@ -134,6 +135,28 @@ function handoffStdinWithGitRef(gitRef: string): string {
     { priority: DEFAULT_PRIORITY, goal: testGoal, next_step: testNextStep, specs: [], files: [], git_ref: gitRef },
     "# Test handoff",
   );
+}
+
+async function expectHandoffBaseError(action: Promise<unknown>): Promise<SessionHandoffBaseError> {
+  try {
+    await action;
+  } catch (error) {
+    expect(error).toBeInstanceOf(SessionHandoffBaseError);
+    if (error instanceof SessionHandoffBaseError) {
+      return error;
+    }
+  }
+  throw new Error("Expected SessionHandoffBaseError");
+}
+
+function requireHandoffBasePrerequisite(error: SessionHandoffBaseError, label: string) {
+  expect(error.checklist).not.toBeNull();
+  const prerequisite = error.checklist?.prerequisites.find((entry) => entry.label === label);
+  expect(prerequisite).toBeDefined();
+  if (prerequisite === undefined) {
+    throw new Error(`Missing handoff-base prerequisite: ${label}`);
+  }
+  return prerequisite;
 }
 
 describe("listCommand", () => {
@@ -1117,8 +1140,8 @@ describe("handoffCommand — handoff-base gate", () => {
     expect(metadata.git_ref).toBe(ORIGIN_DEFAULT_SHA);
   });
 
-  it("GIVEN a linked worktree with a dirty working tree WHEN handoff executes THEN rejects with SessionHandoffBaseError", async () => {
-    await expect(
+  it("GIVEN a linked worktree with a dirty working tree WHEN handoff executes THEN rejects without writing and names the commit-before-handoff remedy", async () => {
+    const error = await expectHandoffBaseError(
       handoffCommand({
         content: prefillHandoffStdin,
         sessionsDir: harness.sessionsDir,
@@ -1129,7 +1152,17 @@ describe("handoffCommand — handoff-base gate", () => {
           detachedAtDefaultTip: true,
         }),
       }),
-    ).rejects.toBeInstanceOf(SessionHandoffBaseError);
+    );
+    const cleanPrerequisite = requireHandoffBasePrerequisite(
+      error,
+      HANDOFF_BASE_PREREQUISITE_LABEL.CLEAN_WORKING_TREE,
+    );
+
+    expect(await readdir(harness.statusDir(TODO))).toHaveLength(0);
+    expect(cleanPrerequisite.met).toBe(false);
+    expect(cleanPrerequisite.remedy).toBe(HANDOFF_BASE_REMEDY.COMMIT_BEFORE_HANDOFF);
+    expect(cleanPrerequisite.remedy).not.toBe(HANDOFF_BASE_REMEDY.MAIN_CHECKOUT_ONLY);
+    expect(cleanPrerequisite.remedy).not.toBe(HANDOFF_BASE_REMEDY.DETACH_TO_TIP_OR_MAIN_CHECKOUT);
   });
 
   it("GIVEN a linked worktree on a worktree-local branch WHEN handoff executes THEN rejects with SessionHandoffBaseError", async () => {
@@ -1142,8 +1175,8 @@ describe("handoffCommand — handoff-base gate", () => {
     ).rejects.toBeInstanceOf(SessionHandoffBaseError);
   });
 
-  it("GIVEN a linked worktree detached at a commit other than origin/<default> WHEN handoff executes THEN rejects with SessionHandoffBaseError", async () => {
-    await expect(
+  it("GIVEN a linked worktree detached at a commit other than origin/<default> WHEN handoff executes THEN rejects without writing and names the detach-or-main remedy", async () => {
+    const error = await expectHandoffBaseError(
       handoffCommand({
         content: prefillHandoffStdin,
         sessionsDir: harness.sessionsDir,
@@ -1154,7 +1187,15 @@ describe("handoffCommand — handoff-base gate", () => {
           detachedAtDefaultTip: false,
         }),
       }),
-    ).rejects.toBeInstanceOf(SessionHandoffBaseError);
+    );
+    const detachedAtTipPrerequisite = requireHandoffBasePrerequisite(
+      error,
+      HANDOFF_BASE_PREREQUISITE_LABEL.DETACHED_AT_DEFAULT_TIP,
+    );
+
+    expect(await readdir(harness.statusDir(TODO))).toHaveLength(0);
+    expect(detachedAtTipPrerequisite.met).toBe(false);
+    expect(detachedAtTipPrerequisite.remedy).toBe(HANDOFF_BASE_REMEDY.DETACH_TO_TIP_OR_MAIN_CHECKOUT);
   });
 });
 
