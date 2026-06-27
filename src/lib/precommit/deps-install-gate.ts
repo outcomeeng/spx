@@ -41,6 +41,8 @@ export const LOCKFILE_NAME = "pnpm-lock.yaml";
 const GIT_DIFF = "diff";
 const GIT_NAME_ONLY = "--name-only";
 const GIT_PATHSPEC_SEPARATOR = "--";
+/** Exit code git emits for a successful `git diff`; any other value is a probe failure. */
+export const GIT_DIFF_SUCCESS_EXIT_CODE = 0;
 const GATE_FAILURE_MESSAGE = "Dependency-install gate failed:";
 
 /** `process.argv` index where git's post-checkout arguments begin (after node and the script path). */
@@ -90,7 +92,9 @@ export function depsInstallGateExitCode(facts: CheckoutFacts): DepsInstallGateEx
  * Thin probe: reads the lockfile-scoped diff across the checkout range, running
  * git in `cwd` through the injected git dependencies. A null previous ref
  * consults no diff — a fresh worktree's checkout has no range to compare and
- * resolves to a changed lockfile directly.
+ * resolves to a changed lockfile directly. A non-zero git exit is a probe
+ * failure: it throws so the caller resolves the failure exit code rather than
+ * reading the empty output as an unchanged lockfile.
  */
 async function readChangedLockfilePaths(
   previousRef: string,
@@ -106,6 +110,9 @@ async function readChangedLockfilePaths(
     [GIT_DIFF, GIT_NAME_ONLY, previousRef, newRef, GIT_PATHSPEC_SEPARATOR, LOCKFILE_NAME],
     { cwd, reject: false },
   );
+  if (result.exitCode !== GIT_DIFF_SUCCESS_EXIT_CODE) {
+    throw new Error(`${GIT_DIFF} ${GIT_NAME_ONLY} exited ${result.exitCode}: ${result.stderr}`);
+  }
   return result.stdout
     .split("\n")
     .map((line) => line.trim())
