@@ -835,6 +835,37 @@ describe("handoffCommand with real filesystem", () => {
     });
   });
 
+  it("GIVEN a disallowed git base and a specs entry resolving to a directory WHEN handoff executes THEN the base gate rejects with SessionHandoffBaseError before the directory check", async () => {
+    await withTempDir("spx-handoff-injection-", async (productDir) => {
+      const directoryEntry = sampleSpecTreeTestValue(SPEC_TREE_TEST_GENERATOR.sourceSlug());
+      await mkdir(join(productDir, directoryEntry), { recursive: true });
+      const stdin = buildHandoffStdin(
+        { priority: DEFAULT_PRIORITY, goal: testGoal, next_step: testNextStep, specs: [directoryEntry], files: [] },
+        "# Test handoff",
+      );
+
+      let caught: unknown;
+      try {
+        await handoffCommand({
+          content: stdin,
+          sessionsDir: harness.sessionsDir,
+          cwd: productDir,
+          deps: createSessionGitDeps({
+            worktreeKind: WORKTREE_KIND.NON_MAIN,
+            branch: null,
+            clean: false,
+            detachedAtDefaultTip: true,
+          }),
+        });
+      } catch (error) {
+        caught = error;
+      }
+
+      expect(caught).toBeInstanceOf(SessionHandoffBaseError);
+      expect(await readdir(harness.statusDir(TODO))).toHaveLength(0);
+    });
+  });
+
   it("GIVEN empty stdin WHEN handoff executes THEN rejects with SessionInvalidContentError before writing", async () => {
     await expect(
       handoffCommand({ content: "", sessionsDir: harness.sessionsDir, deps: handoffGitDeps }),

@@ -215,11 +215,11 @@ async function rejectDirectoryInjectionEntries(entries: readonly string[], cwd: 
  *   or fails caller-field schema validation
  * @throws {SessionInvalidGoalError} When the parsed `goal` is empty
  * @throws {SessionInvalidNextStepError} When the parsed `next_step` is empty
- * @throws {SessionInjectionDirectoryError} When a `specs`/`files` entry resolves
- *   to an existing directory
  * @throws {SessionHandoffBaseError} When the git work context cannot anchor a base
  * @throws {SessionWorkBranchNotOnOriginError} When the caller-supplied
  *   work-branch ref does not exist on `origin`
+ * @throws {SessionInjectionDirectoryError} When a `specs`/`files` entry resolves
+ *   to an existing directory
  */
 export async function handoffCommand(options: HandoffOptions): Promise<HandoffResult> {
   const { config } = await resolveSessionConfig({
@@ -242,11 +242,14 @@ export async function handoffCommand(options: HandoffOptions): Promise<HandoffRe
     throw new SessionInvalidNextStepError();
   }
 
-  const injectionCwd = options.cwd ?? CONFIG_PROCESS_CWD.read();
-  await rejectDirectoryInjectionEntries([...header.specs, ...header.files], injectionCwd);
-
+  // The git-context gate governs whether handoff is permitted at all, so it
+  // resolves before the injection-content check — a disallowed base rejects with
+  // its prerequisite checklist rather than a secondary directory-entry error.
   const gateRef = await resolveSessionGitRef(options.cwd, options.deps);
   const gitRef = await resolveRecordedGitRef(header.git_ref, gateRef, options.cwd, options.deps);
+
+  const injectionCwd = options.cwd ?? CONFIG_PROCESS_CWD.read();
+  await rejectDirectoryInjectionEntries([...header.specs, ...header.files], injectionCwd);
 
   const sessionId = generateSessionId();
   const agentSessionId = resolveAgentSessionId(options.env ?? process.env);
