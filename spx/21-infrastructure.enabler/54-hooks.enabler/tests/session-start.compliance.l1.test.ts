@@ -3,7 +3,6 @@ import { join } from "node:path";
 import { describe, expect, it } from "vitest";
 
 import {
-  HOOK_COMPACT_FOUNDATION_DIRECTIVE,
   HOOK_SESSION_START_ENV,
   HOOK_SESSION_START_PAYLOAD,
   HOOK_SESSION_START_SOURCE,
@@ -33,7 +32,7 @@ function hookEnvWithHolder(env: WorktreePoolEnv, envFile: string): HookSessionSt
   };
 }
 
-async function expectNoDirectiveFor(renderContent: (env: WorktreePoolEnv) => string): Promise<void> {
+async function expectNoCompactStdoutFor(renderContent: (env: WorktreePoolEnv) => string): Promise<void> {
   const worktreeName = sampleWorktreeTestValue(WORKTREE_TEST_GENERATOR.poolWorktreeName());
   const holder = sampleWorktreeTestValue(WORKTREE_TEST_GENERATOR.poolHolder());
   const envFileName = sampleWorktreeTestValue(WORKTREE_TEST_GENERATOR.envFileName());
@@ -55,18 +54,18 @@ async function expectNoDirectiveFor(renderContent: (env: WorktreePoolEnv) => str
 
     expect(result.ok).toBe(true);
     if (!result.ok) throw new Error(result.error);
-    expect(result.value.stdout).not.toContain(HOOK_COMPACT_FOUNDATION_DIRECTIVE);
+    expect(result.value.stdout).toHaveLength(0);
   });
 }
 
-describe("hook session-start compact-directive boundary", () => {
+describe("hook session-start compact stdout boundary", () => {
   it.each(
     Object.values(HOOK_SESSION_START_SOURCE).filter((source) => source !== HOOK_SESSION_START_SOURCE.COMPACT),
-  )("emits no foundation re-anchor directive for the %s lifecycle source", async (source) => {
-    await expectNoDirectiveFor((env) => hookContentWithSource(env, source));
+  )("emits no compact-source stdout for the %s lifecycle source", async (source) => {
+    await expectNoCompactStdoutFor((env) => hookContentWithSource(env, source));
   });
 
-  it("emits no foundation re-anchor directive when the payload carries no lifecycle source", async () => {
-    await expectNoDirectiveFor(hookContentWithoutSource);
+  it("emits no compact-source stdout when the payload carries no lifecycle source", async () => {
+    await expectNoCompactStdoutFor(hookContentWithoutSource);
   });
 });

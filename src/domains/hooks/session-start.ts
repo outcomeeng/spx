@@ -109,13 +109,22 @@ export function resolveHookSessionStartProductDir(payload: HookSessionStartPaylo
 
 const NO_STARTUP_DIRECTIVE = "";
 
+export const HOOK_COMPACT_FOUNDATION_ACTION = {
+  CONTEXTUALIZE: "/contextualize",
+  UNDERSTAND: "/understand",
+} as const;
+
+export const HOOK_COMPACT_FOUNDATION_REASON =
+  `Hook fired because the agent runtime reported ${HOOK_SESSION_START_PAYLOAD.SOURCE}=${HOOK_SESSION_START_SOURCE.COMPACT}.`;
+
 // Model-visible stdout the session-start hook emits after a transcript
 // compaction resets the loaded spec-tree foundation. Emitted only on the
 // compact source so a fresh startup is not interrupted.
 export const HOOK_COMPACT_FOUNDATION_DIRECTIVE = [
+  HOOK_COMPACT_FOUNDATION_REASON,
   "Spec-tree foundation was reset by this compaction.",
-  "Before any spec-governed action, including resuming an in-flight PR, /apply, or /handoff, re-invoke /understand then /contextualize on every spec node still in scope (not just the next one) before any gh/git archaeology or reading spec-governed source.",
-  "The pre-compaction skill text in this summary is a historical record, not a live tool.",
+  `Before any spec-governed action, including resuming an in-flight PR, /apply, or /handoff, re-invoke ${HOOK_COMPACT_FOUNDATION_ACTION.UNDERSTAND} then ${HOOK_COMPACT_FOUNDATION_ACTION.CONTEXTUALIZE} on every spec node still in scope (not just the next one) before any gh/git archaeology or reading spec-governed source.`,
+  "Skill text carried in the compaction summary is context only, outside active tool authority.",
 ].join("\n");
 
 /** Renders the model-visible session-start stdout for an agent lifecycle source. */

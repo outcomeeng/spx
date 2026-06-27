@@ -14,7 +14,7 @@ import { withHookCliWorktreeEnv } from "@testing/harnesses/hook-cli";
 import { runWorktreeCli } from "@testing/harnesses/worktree/harness";
 
 describe("hook CLI compact directive", () => {
-  it("forwards the foundation re-anchor directive to process stdout for the compact source", async () => {
+  it("forwards compact startup guidance to process stdout for the compact source", async () => {
     const prefix = sampleWorktreeTestValue(WORKTREE_TEST_GENERATOR.tempPrefix());
     const worktreeName = sampleWorktreeTestValue(WORKTREE_TEST_GENERATOR.poolWorktreeName());
     const sessionId = sampleWorktreeTestValue(WORKTREE_TEST_GENERATOR.sessionId());
