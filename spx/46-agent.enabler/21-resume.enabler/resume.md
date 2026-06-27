@@ -14,7 +14,7 @@ CAN continue matching Codex and Claude Code conversations through `spx agent res
 ### Mappings
 
 - Resume mode maps to behavior: default opens the interactive picker, `--latest` launches the newest matching session, `--list` prints matching sessions, and `--json` prints matching sessions as JSON ([test](tests/resume.mapping.l1.test.ts))
-- Runtime candidate maps to launch command: a Codex candidate launches `codex resume <session-id>` and a Claude Code candidate launches `claude --resume <session-id>` ([test](tests/resume.mapping.l1.test.ts))
+- Runtime candidate maps to launch command and context: every candidate launches from the candidate's recorded current working directory, a Codex candidate uses `codex resume <session-id>`, and a Claude Code candidate uses `claude --resume <session-id>` ([test](tests/resume.mapping.l1.test.ts))
 
 ### Compliance
 
