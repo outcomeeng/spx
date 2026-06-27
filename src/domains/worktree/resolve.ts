@@ -59,7 +59,11 @@ export interface ResolvedTargetWorktree {
 export async function resolveAllTargetWorktrees(
   options: WorktreeScopeOptions,
 ): Promise<Result<readonly ResolvedTargetWorktree[]>> {
-  const facts = await gatherGitFacts(options.cwd, options.gitDeps);
+  const worktree = await detectWorktreeProductRoot(options.cwd, options.gitDeps);
+  if (!worktree.isGitRepo) {
+    return { ok: false, error: `${WORKTREE_RESOLVE_ERROR.NOT_A_WORKTREE}: ${options.cwd}` };
+  }
+  const facts = await gatherGitFacts(worktree.productDir, options.gitDeps);
   if (!facts?.worktreeListRead) {
     return { ok: false, error: WORKTREE_RESOLVE_ERROR.WORKTREE_LIST_UNAVAILABLE };
   }
