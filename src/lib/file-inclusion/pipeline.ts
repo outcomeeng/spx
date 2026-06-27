@@ -27,11 +27,17 @@ export type {
 
 export const EXPLICIT_OVERRIDE_LAYER = "explicit-override" as const;
 export const GIT_INTERNAL_DIRECTORY = ".git";
+const DIRECTORY_TRAVERSAL_MODE = {
+  AUTOMATIC: "automatic",
+  EXPLICIT: "explicit",
+} as const;
 
 type LayerPair = {
   readonly entry: LayerEntry;
   readonly layerConfig: unknown;
 };
+
+type DirectoryTraversalMode = (typeof DIRECTORY_TRAVERSAL_MODE)[keyof typeof DIRECTORY_TRAVERSAL_MODE];
 
 function isNodeError(err: unknown): err is NodeJS.ErrnoException {
   return err instanceof Error && "code" in err;
@@ -89,6 +95,7 @@ async function collectPaths(
   absoluteDir: string,
   productDir: string,
   result: string[],
+  mode: DirectoryTraversalMode,
 ): Promise<void> {
   const dirEntries = await readDirectoryEntries(absoluteDir);
   for (const entry of dirEntries) {
@@ -96,8 +103,8 @@ async function collectPaths(
     const relativePath = normalizeProductPath(productDir, absolutePath);
     if (!shouldWalkEntry(entry)) continue;
     if (entry.isDirectory()) {
-      if (!await shouldDescendIntoDirectory(absolutePath)) continue;
-      await collectPaths(absolutePath, productDir, result);
+      if (mode === DIRECTORY_TRAVERSAL_MODE.AUTOMATIC && !await shouldDescendIntoDirectory(absolutePath)) continue;
+      await collectPaths(absolutePath, productDir, result, mode);
     } else if (entry.isFile()) {
       result.push(relativePath);
     }
@@ -140,7 +147,7 @@ export async function runPipeline(
 
   if (request.walkRoot !== undefined) {
     const allPaths: string[] = [];
-    await collectPaths(request.walkRoot, productDir, allPaths);
+    await collectPaths(request.walkRoot, productDir, allPaths, DIRECTORY_TRAVERSAL_MODE.AUTOMATIC);
 
     for (const path of allPaths) {
       if (explicitPathSet.has(path)) continue;
@@ -166,7 +173,7 @@ async function addExplicitPath(
   const absolutePath = join(productDir, path);
   if (!await isDirectory(absolutePath)) return;
   const descendantPaths: string[] = [];
-  await collectPaths(absolutePath, productDir, descendantPaths);
+  await collectPaths(absolutePath, productDir, descendantPaths, DIRECTORY_TRAVERSAL_MODE.EXPLICIT);
   for (const descendantPath of descendantPaths) {
     addExplicitEntry(descendantPath, explicitPathSet, included);
   }

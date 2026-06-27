@@ -35,4 +35,16 @@ describe("ignore-source — compliance", () => {
       expect(reader.hasIncludedDescendant(child)).toBe(false);
     });
   });
+
+  it("root descendant membership follows the constructed included set", async () => {
+    await withGitWorktreeEnv(async (env) => {
+      const tracked = trackedFilePath();
+      await env.writeTracked(tracked, fileContent());
+
+      const reader = createIgnoreSourceReader(env.productDir, readerConfig());
+
+      expect(reader.hasIncludedDescendant("")).toBe(true);
+      expect(reader.hasIncludedDescendant(".")).toBe(true);
+    });
+  });
 });
