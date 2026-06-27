@@ -19,7 +19,7 @@ import * as fc from "fast-check";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 
 import { handoffCommand } from "@/commands/session/handoff";
-import { SessionLegacyFrontmatterInputError } from "@/domains/session/errors";
+import { SessionInjectionDirectoryError, SessionLegacyFrontmatterInputError } from "@/domains/session/errors";
 import { parseSessionMetadata } from "@/domains/session/list";
 import { SESSION_FILE_ENCODING } from "@/domains/session/types";
 import {
@@ -42,6 +42,7 @@ import {
   DEFAULT_GIT_DEPS_BRANCH,
   SessionHarness,
 } from "@testing/harnesses/session/harness";
+import { createTempDir, removeTempDir } from "@testing/harnesses/with-temp-dir";
 
 import { extractSessionFile } from "@testing/harnesses/session/session-store";
 
@@ -57,12 +58,18 @@ const propertyGitDeps = createSessionGitDeps();
 
 describe("handoff round-trip property", () => {
   let harness: SessionHarness;
+  // An empty working directory so arbitrary `specs`/`files` entries do not
+  // resolve to real repository directories: this property exercises YAML
+  // serialization fidelity, not the handoff directory-injection guard.
+  let productDir: string;
 
   beforeEach(async () => {
     harness = await createSessionHarness();
+    productDir = await createTempDir("spx-handoff-roundtrip-");
   });
 
   afterEach(async () => {
+    await removeTempDir(productDir);
     await harness.cleanup();
   });
 
@@ -82,13 +89,24 @@ describe("handoff round-trip property", () => {
         async ([header, body]) => {
           const stdin = buildHandoffStdin(header, body);
 
-          const { output } = await handoffCommand({
+          const result = await handoffCommand({
             content: stdin,
             sessionsDir: harness.sessionsDir,
+            cwd: productDir,
             deps: header.git_ref ? createSessionGitDeps({ originWorkBranches: [header.git_ref] }) : propertyGitDeps,
+          }).catch((error: unknown) => {
+            // A `specs`/`files` entry that resolves to an existing directory is
+            // rejected, not round-tripped, so it lies outside this property's
+            // serialization domain — discard the generated case.
+            if (error instanceof SessionInjectionDirectoryError) return null;
+            throw error;
           });
+          if (result === null) {
+            fc.pre(false);
+            return;
+          }
 
-          const onDisk = await readFile(extractSessionFile(output), SESSION_FILE_ENCODING);
+          const onDisk = await readFile(extractSessionFile(result.output), SESSION_FILE_ENCODING);
           const parsed = parseSessionMetadata(onDisk);
 
           expect(parsed.priority).toBe(header.priority);

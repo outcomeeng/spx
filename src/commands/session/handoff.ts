@@ -10,7 +10,7 @@
  * @module commands/session/handoff
  */
 
-import { mkdir, writeFile } from "node:fs/promises";
+import { mkdir, stat, writeFile } from "node:fs/promises";
 import { join, resolve } from "node:path";
 
 import { stringify as stringifyYaml } from "yaml";
@@ -19,6 +19,7 @@ import { CONFIG_PROCESS_CWD } from "@/domains/config/cwd";
 import { type AgentSessionEnvironment, resolveAgentSessionId } from "@/domains/session/agent-session";
 import { SESSION_FRONT_MATTER_CLOSE, SESSION_FRONT_MATTER_OPEN } from "@/domains/session/create";
 import {
+  SessionInjectionDirectoryError,
   SessionInvalidContentError,
   SessionInvalidGoalError,
   SessionInvalidNextStepError,
@@ -157,6 +158,33 @@ async function resolveRecordedGitRef(
 }
 
 /**
+ * Rejects a `specs`/`files` entry that resolves to an existing directory.
+ *
+ * Each non-empty entry is resolved against the handoff working directory and
+ * probed. An entry that resolves to an existing directory throws
+ * {@link SessionInjectionDirectoryError} naming the listed entry, because the
+ * arrays hold file paths and a directory carries no injectable content. An entry
+ * that does not exist, or that cannot be probed, is accepted — only a confirmed
+ * directory is rejected, so a path that resolves later still records. An empty
+ * entry names no injection target (it resolves to the working directory itself),
+ * so it is left to record verbatim rather than probed as a directory.
+ */
+async function rejectDirectoryInjectionEntries(entries: readonly string[], cwd: string): Promise<void> {
+  for (const entry of entries) {
+    if (entry.length === 0) continue;
+    let entryIsDirectory = false;
+    try {
+      entryIsDirectory = (await stat(resolve(cwd, entry))).isDirectory();
+    } catch {
+      continue;
+    }
+    if (entryIsDirectory) {
+      throw new SessionInjectionDirectoryError(entry);
+    }
+  }
+}
+
+/**
  * Executes the handoff command.
  *
  * Creates a new session in the claimable queue for pickup by another context.
@@ -187,6 +215,8 @@ async function resolveRecordedGitRef(
  *   or fails caller-field schema validation
  * @throws {SessionInvalidGoalError} When the parsed `goal` is empty
  * @throws {SessionInvalidNextStepError} When the parsed `next_step` is empty
+ * @throws {SessionInjectionDirectoryError} When a `specs`/`files` entry resolves
+ *   to an existing directory
  * @throws {SessionHandoffBaseError} When the git work context cannot anchor a base
  * @throws {SessionWorkBranchNotOnOriginError} When the caller-supplied
  *   work-branch ref does not exist on `origin`
@@ -211,6 +241,9 @@ export async function handoffCommand(options: HandoffOptions): Promise<HandoffRe
   if (header.next_step.length === 0) {
     throw new SessionInvalidNextStepError();
   }
+
+  const injectionCwd = options.cwd ?? CONFIG_PROCESS_CWD.read();
+  await rejectDirectoryInjectionEntries([...header.specs, ...header.files], injectionCwd);
 
   const gateRef = await resolveSessionGitRef(options.cwd, options.deps);
   const gitRef = await resolveRecordedGitRef(header.git_ref, gateRef, options.cwd, options.deps);

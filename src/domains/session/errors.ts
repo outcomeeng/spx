@@ -199,6 +199,31 @@ export class SessionWorkBranchNotOnOriginError extends SessionError {
 }
 
 /**
+ * Error thrown when a `spx session handoff` `specs` or `files` entry resolves to
+ * an existing directory.
+ *
+ * The arrays hold file paths for auto-injection; a directory carries no
+ * injectable file content, so a directory entry is malformed input. Handoff
+ * rejects it at write time, where the author can replace it with the file
+ * inside the directory. A path that does not exist on disk is accepted, since
+ * sessions outlive the files they reference and the path may resolve later.
+ */
+export class SessionInjectionDirectoryError extends SessionError {
+  /** The listed `specs`/`files` entry that resolves to an existing directory. */
+  readonly entry: string;
+
+  constructor(entry: string) {
+    super(
+      `Session injection entry resolves to a directory: ${entry}. `
+        + "The specs and files arrays hold file paths; list the file inside "
+        + "the directory rather than the directory itself.",
+    );
+    this.name = "SessionInjectionDirectoryError";
+    this.entry = entry;
+  }
+}
+
+/**
  * Error thrown when the JSON header at the start of handoff stdin is malformed
  * or fails schema validation.
  *
