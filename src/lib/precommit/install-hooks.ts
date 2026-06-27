@@ -23,7 +23,9 @@ export const LEFTHOOK_INSTALL_COMMAND = "lefthook";
 export const LEFTHOOK_INSTALL_ARGS = ["install"] as const;
 
 export const PORTABLE_HOOK_TOKENS = {
-  PNPX_FALLBACK: "pnpm exec lefthook",
+  FROZEN_INSTALL: "pnpm install --frozen-lockfile",
+  NON_INTERACTIVE_ENV: "CI=true",
+  PNPM_EXEC_DELEGATION: "pnpm exec lefthook",
   WORKTREE_RESOLUTION: "git rev-parse --show-toplevel",
   WORKTREE_BINARY: "node_modules/.bin/lefthook",
   ABSOLUTE_PNPM_STORE_FRAGMENT: "node_modules/.pnpm",
@@ -104,7 +106,7 @@ call_lefthook()
     if [ -x "$worktree_lefthook" ]; then
       "$worktree_lefthook" run "$hook_name" "$@"
     elif command -v pnpm >/dev/null 2>&1; then
-      (cd "$worktree_root" && ${PORTABLE_HOOK_TOKENS.PNPX_FALLBACK} run "$hook_name" "$@")
+      (cd "$worktree_root" && ${PORTABLE_HOOK_TOKENS.NON_INTERACTIVE_ENV} ${PORTABLE_HOOK_TOKENS.FROZEN_INSTALL} && "$worktree_lefthook" run "$hook_name" "$@")
     else
       echo "Can't find lefthook in PATH or current worktree"
       exit 1

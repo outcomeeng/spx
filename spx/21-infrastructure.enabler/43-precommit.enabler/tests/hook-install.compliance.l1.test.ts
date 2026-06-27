@@ -61,8 +61,17 @@ describe("portable lefthook hook installation", () => {
     expect(hookContent).toContain(`hook_name="${hookName}"`);
     expect(hookContent).toContain(PORTABLE_HOOK_TOKENS.WORKTREE_RESOLUTION);
     expect(hookContent).toContain(PORTABLE_HOOK_TOKENS.WORKTREE_BINARY);
-    expect(hookContent).toContain(PORTABLE_HOOK_TOKENS.PNPX_FALLBACK);
     expect(hookContent).not.toContain(PORTABLE_HOOK_TOKENS.ABSOLUTE_PNPM_STORE_FRAGMENT);
+  });
+
+  it("provisions dependencies with a frozen-lockfile install before running lefthook when no binary is reachable", () => {
+    const [hookName] = sampleHookNames();
+
+    const hookContent = renderPortableLefthookHook(hookName);
+
+    expect(hookContent).toContain(PORTABLE_HOOK_TOKENS.FROZEN_INSTALL);
+    expect(hookContent).toContain(PORTABLE_HOOK_TOKENS.NON_INTERACTIVE_ENV);
+    expect(hookContent).not.toContain(PORTABLE_HOOK_TOKENS.PNPM_EXEC_DELEGATION);
   });
 
   it("replaces lefthook-generated hooks with executable portable shims", async () => {
