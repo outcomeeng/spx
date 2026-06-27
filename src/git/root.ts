@@ -111,6 +111,7 @@ export const GIT_ROOT_COMMAND = {
   REMOTE: "remote",
   GET_URL: "get-url",
   ORIGIN: "origin",
+  UNTRACKED_FILES_ALL: "--untracked-files=all",
 } as const;
 
 /** The `.git` suffix a repository URL or bare directory carries; stripped to recover the repository name. */
@@ -186,6 +187,7 @@ export const GIT_ORIGIN_HEAD_REF_ARGS = [
 export const GIT_STATUS_PORCELAIN_ARGS = [
   GIT_ROOT_COMMAND.STATUS,
   GIT_ROOT_COMMAND.PORCELAIN,
+  GIT_ROOT_COMMAND.UNTRACKED_FILES_ALL,
 ] as const;
 
 export const GIT_WORKTREE_LIST_PORCELAIN_ARGS = [
