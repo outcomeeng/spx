@@ -415,4 +415,19 @@ describe("ALWAYS: validation command participation is driven by spx config", () 
       },
     );
   });
+
+  it("does not widen explicit markdown directory operands to default markdown roots", async () => {
+    await withLiteralFixtureEnv({}, async (env) => {
+      await env.writeRaw("src/good.md", "# Good\n");
+      await env.writeRaw("docs/bad.md", "# Bad  \n");
+
+      const result = await markdownCommand({
+        cwd: env.productDir,
+        files: ["src"],
+      });
+
+      expect(result.exitCode).toBe(VALIDATION_EXIT_CODES.SUCCESS);
+      expect(result.output).toBe(MARKDOWN_COMMAND_OUTPUT.NO_ISSUES);
+    });
+  });
 });
