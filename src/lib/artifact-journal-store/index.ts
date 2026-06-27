@@ -1,7 +1,7 @@
 import { dirname } from "node:path";
 
 import { type AppendableBackend, JOURNAL_BACKEND_KIND } from "@/lib/agent-run-journal";
-import { createAppendableJournalStore } from "@/lib/appendable-journal-store";
+import { appendableJournalSealMarkerPath, createAppendableJournalStore } from "@/lib/appendable-journal-store";
 import {
   defaultStateStoreFileSystem,
   ERROR_CODE_NOT_FOUND,
@@ -136,6 +136,11 @@ export async function hydratePriorRuns(options: HydratePriorRunsOptions): Promis
     const runFilePath = runFilePathFor(runToken);
     await fs.mkdir(dirname(runFilePath), { recursive: true });
     await fs.writeFile(runFilePath, body);
+    // A retained artifact exists only because its run was sealed, so restore the
+    // seal marker alongside the body — otherwise a reopened prior run reports
+    // unsealed and a caller could append to it, diverging the durable record from
+    // the journal's terminal-seal contract.
+    await fs.writeFile(appendableJournalSealMarkerPath(runFilePath), EMPTY_ARTIFACT_BODY);
     hydrated.push({ runToken, runFilePath });
   }
   return hydrated;

@@ -1,7 +1,8 @@
 import fc from "fast-check";
 import { describe, expect, it } from "vitest";
 
-import { createJournal, JOURNAL_BACKEND_KIND } from "@/lib/agent-run-journal";
+import { createJournal, JOURNAL_BACKEND_KIND, JOURNAL_ERROR } from "@/lib/agent-run-journal";
+import { createAppendableJournalStore } from "@/lib/appendable-journal-store";
 import {
   artifactJournalRunArtifactName,
   createArtifactJournalStore,
@@ -120,5 +121,43 @@ describe("artifact journal store — compliance", () => {
       runToken,
     });
     expect(store.kind).toBe(JOURNAL_BACKEND_KIND.APPENDABLE);
+  });
+
+  it("replays a hydrated prior run as sealed, rejecting a further append", async () => {
+    const pullNumber = sampleGithubSnapshotValue(arbitraryPullNumber());
+    const runToken = sampleGithubSnapshotValue(arbitraryRunToken());
+
+    const artifactClient = new InMemoryActionsArtifactClient();
+    const jobFs = createInMemoryStateStoreFileSystem();
+    const journal = createJournal(
+      createArtifactJournalStore({
+        runFilePath: journalRunFilePath(runToken),
+        fs: jobFs,
+        artifactClient,
+        pullNumber,
+        runToken,
+      }),
+      { streamid: runToken, runid: runToken },
+    );
+    for (const input of sampleAgentRunJournalValue(arbitraryJournalEventInputs())) await journal.append(input);
+    await journal.seal();
+
+    const freshFs = createInMemoryStateStoreFileSystem();
+    const [hydratedRun] = await hydratePriorRuns({
+      artifactClient,
+      fs: freshFs,
+      pullNumber,
+      runFilePathFor: (token) => journalRunFilePath(token),
+    });
+
+    // The hydrated run carries the durable record's terminal seal.
+    const reopened = createAppendableJournalStore({ runFilePath: hydratedRun.runFilePath, fs: freshFs });
+    expect(await reopened.isSealed()).toBe(true);
+
+    // A journal bound to the reopened sealed run rejects a further append.
+    const reopenedJournal = createJournal(reopened, { streamid: runToken, runid: runToken });
+    await expect(reopenedJournal.append(sampleAgentRunJournalValue(arbitraryJournalEventInput()))).rejects.toThrow(
+      JOURNAL_ERROR.SEALED,
+    );
   });
 });
