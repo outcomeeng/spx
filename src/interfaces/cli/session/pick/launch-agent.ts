@@ -33,7 +33,7 @@ const LAUNCH_FAILURE_STATUS = 1;
 export function launchAgent(
   runner: ProcessRunner,
   suspender: SignalSuspender,
-  command: LaunchCommand,
+  command: LaunchCommand & { readonly cwd?: string },
 ): Promise<number> {
   const restoreSignals = suspender.suspend();
   return new Promise((resolve) => {
@@ -47,7 +47,10 @@ export function launchAgent(
       restoreSignals();
       resolve(status);
     };
-    const child = runner.spawn(command.command, command.args, { stdio: "inherit" });
+    const child = runner.spawn(command.command, command.args, {
+      stdio: "inherit",
+      ...(command.cwd === undefined ? {} : { cwd: command.cwd }),
+    });
     child.once("exit", (code) => settle(code ?? LAUNCH_FAILURE_STATUS));
     child.once("error", () => settle(LAUNCH_FAILURE_STATUS));
   });

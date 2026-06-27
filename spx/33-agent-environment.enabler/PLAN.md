@@ -42,6 +42,7 @@ Instruction-file reconciliation and plugin bootstrap can proceed independently a
 
 ## Open Coordination
 
+- Rename the Codex/Claude Code identity vocabulary from the legacy `runtime` term to agent terminology across this node's specs, config contracts, source modules, generators, and tests. The resume command node already uses agent terminology; this broader rename belongs here because the descriptor and child reconcilers own that shared vocabulary.
 - Author the invoking-agent isolation decision before an agentic verification run's implementation chooses working-directory, environment-variable, or temporary-file sharing boundaries.
 - When E1, E2, or E3 add descriptor-consuming tests, expand `CONFIG_TEST_GENERATOR.agentEnvironmentConfig()` beyond the E0 representative mapping shape or add narrower generator names for shape-specific evidence.
 

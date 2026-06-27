@@ -1,11 +1,11 @@
 # Agent
 
-PROVIDES coding-agent runtime session coordination
+PROVIDES coding-agent session coordination
 SO THAT users operating Codex and Claude Code in a product worktree
-CAN find and continue runtime-native agent sessions from the SPX CLI
+CAN find and continue agent-native sessions from the SPX CLI
 
 ## Assertions
 
 ### Compliance
 
-- ALWAYS: agent runtime session coordination treats Codex and Claude Code runtime-native sessions as distinct from SPX handoff session files under `.spx/sessions/` ([audit])
+- ALWAYS: agent session coordination treats Codex and Claude Code agent-native sessions as distinct from SPX handoff session files under `.spx/sessions/` ([audit])
