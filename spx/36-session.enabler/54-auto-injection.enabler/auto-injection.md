@@ -22,7 +22,7 @@ CAN deliver referenced file contents to the agent without additional read comman
 
 ### Compliance
 
-- ALWAYS: pickup continues on any entry unreadable as a file — whether absent or resolving to a directory — surfacing each as a warning and never failing the claim per [`spx/36-session.enabler/21-auto-injection.adr.md`](../21-auto-injection.adr.md) ([review])
+- ALWAYS: pickup continues on any entry unreadable as a file — whether absent or resolving to a directory — surfacing each as a warning and never failing the claim per [`spx/36-session.enabler/21-auto-injection.adr.md`](../21-auto-injection.adr.md) ([audit])
 - ALWAYS: `parseSessionMetadata` returns `specs` and `files` as arrays — `undefined` never appears in either slot per [`spx/36-session.enabler/11-session-frontmatter.pdr.md`](../11-session-frontmatter.pdr.md) ([test](tests/auto-injection.compliance.l1.test.ts))
-- NEVER: cache injected file contents — every pickup reads the listed files fresh per [`spx/36-session.enabler/21-auto-injection.adr.md`](../21-auto-injection.adr.md) ([review])
-- NEVER: inject files not listed in the session's `specs` or `files` arrays — only declared dependencies enter stdout per [`spx/36-session.enabler/21-auto-injection.adr.md`](../21-auto-injection.adr.md) ([review])
+- NEVER: cache injected file contents — every pickup reads the listed files fresh per [`spx/36-session.enabler/21-auto-injection.adr.md`](../21-auto-injection.adr.md) ([audit])
+- NEVER: inject files not listed in the session's `specs` or `files` arrays — only declared dependencies enter stdout per [`spx/36-session.enabler/21-auto-injection.adr.md`](../21-auto-injection.adr.md) ([audit])
