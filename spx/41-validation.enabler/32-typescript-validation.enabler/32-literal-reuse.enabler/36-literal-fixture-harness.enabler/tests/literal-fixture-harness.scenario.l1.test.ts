@@ -104,6 +104,7 @@ describe("withLiteralFixtureEnv", () => {
       expect(inputs.excluded.sourceFile.startsWith(inputs.excludedPathPrefix)).toBe(true);
       expect(inputs.excluded.testFile.startsWith(inputs.excludedPathPrefix)).toBe(true);
       await expect(env.readFile(inputs.included.sourceFile)).resolves.toContain(inputs.included.literal);
+      await expect(env.readFile(inputs.included.testFile)).resolves.toContain(inputs.included.literal);
       await expect(env.readFile(inputs.excluded.sourceFile)).resolves.toContain(inputs.excluded.literal);
       await expect(env.readFile(inputs.excluded.testFile)).resolves.toContain(inputs.excluded.literal);
     });
