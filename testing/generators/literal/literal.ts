@@ -69,6 +69,7 @@ const LITERAL_SECTION_INDENT_WIDTH = 2;
 const LITERAL_NESTED_INDENT_WIDTH = 4;
 const LITERAL_LIST_INDENT_WIDTH = 6;
 const LITERAL_TEXT_LINE_SEPARATOR = "\n";
+const PATH_SCOPED_EXCLUDED_ROOT = "excluded-literal-fixtures";
 
 const RESERVED_LITERALS: ReadonlySet<string> = new Set(WEB_PRESET_TOKENS);
 
@@ -204,6 +205,18 @@ export interface LiteralReuseFixtureInputs {
   readonly dupeSecondTestFile: string;
 }
 
+export interface LiteralSourceReuseFixtureInputs {
+  readonly literal: string;
+  readonly sourceFile: string;
+  readonly testFile: string;
+}
+
+export interface LiteralPathScopedSourceReuseFixtureInputs {
+  readonly included: LiteralSourceReuseFixtureInputs;
+  readonly excluded: LiteralSourceReuseFixtureInputs;
+  readonly excludedPathPrefix: string;
+}
+
 export function arbitraryLiteralReuseFixtureInputs(): fc.Arbitrary<LiteralReuseFixtureInputs> {
   return fc
     .record({
@@ -220,6 +233,40 @@ export function arbitraryLiteralReuseFixtureInputs(): fc.Arbitrary<LiteralReuseF
         && !inputs.reuseLiteral.includes(inputs.dupeLiteral)
         && !inputs.dupeLiteral.includes(inputs.reuseLiteral);
     });
+}
+
+export function arbitraryLiteralSourceReuseFixtureInputs(): fc.Arbitrary<LiteralSourceReuseFixtureInputs> {
+  return fc.record({
+    literal: arbitraryDomainLiteral(),
+    sourceFile: arbitrarySourceFilePath(),
+    testFile: arbitraryTestFilePath(),
+  });
+}
+
+export function arbitraryLiteralPathScopedSourceReuseFixtureInputs(): fc.Arbitrary<
+  LiteralPathScopedSourceReuseFixtureInputs
+> {
+  return fc
+    .record({
+      included: arbitraryLiteralSourceReuseFixtureInputs(),
+      excludedLiteral: arbitraryDomainLiteral(),
+      excludedPathSlug: arbitraryDomainLiteral(),
+      excludedSourceSlug: arbitraryDomainLiteral(),
+      excludedTestSlug: arbitraryDomainLiteral(),
+    })
+    .map((inputs) => {
+      const excludedPathPrefix = `${PATH_SCOPED_EXCLUDED_ROOT}/${inputs.excludedPathSlug}`;
+      return {
+        included: inputs.included,
+        excludedPathPrefix,
+        excluded: {
+          literal: inputs.excludedLiteral,
+          sourceFile: `${excludedPathPrefix}/${inputs.excludedSourceSlug}.ts`,
+          testFile: `${excludedPathPrefix}/${inputs.excludedTestSlug}.test.ts`,
+        },
+      };
+    })
+    .filter((inputs) => inputs.included.literal !== inputs.excluded.literal);
 }
 
 export function arbitraryLiteralConfig(
@@ -309,6 +356,23 @@ export function sampleDistinctSourceFilePaths(count: number): readonly string[] 
   );
 }
 
+export function sampleLiteralSourceReuseFixtures(
+  count: number,
+): readonly LiteralSourceReuseFixtureInputs[] {
+  return sampleLiteralTestValue(
+    fc
+      .uniqueArray(arbitraryLiteralSourceReuseFixtureInputs(), {
+        minLength: count,
+        maxLength: count,
+        selector: (fixture) => fixture.literal,
+      })
+      .filter((fixtures) =>
+        new Set(fixtures.map((fixture) => fixture.sourceFile)).size === count
+        && new Set(fixtures.map((fixture) => fixture.testFile)).size === count
+      ),
+  );
+}
+
 export function sampleLiteralPair(): readonly [string, string] {
   const [first, second] = sampleIndependentDomainLiterals(LITERAL_TEST_GENERATOR_COUNTS.two);
   return [first, second];
@@ -380,6 +444,8 @@ export const LITERAL_TEST_GENERATOR = {
   webPresetToken: arbitraryWebPresetToken,
   presetName: arbitraryPresetName,
   reuseFixtureInputs: arbitraryLiteralReuseFixtureInputs,
+  sourceReuseFixtureInputs: arbitraryLiteralSourceReuseFixtureInputs,
+  pathScopedSourceReuseFixtureInputs: arbitraryLiteralPathScopedSourceReuseFixtureInputs,
   literalConfig: arbitraryLiteralConfig,
   literalValueConfig: arbitraryLiteralValueConfig,
   detectionResult: arbitraryDetectionResult,
