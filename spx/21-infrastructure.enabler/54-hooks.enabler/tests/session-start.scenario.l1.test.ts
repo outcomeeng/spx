@@ -1,10 +1,10 @@
-import { readFile } from "node:fs/promises";
+import { readFile, writeFile } from "node:fs/promises";
 import { basename, join } from "node:path";
 
 import { describe, expect, it } from "vitest";
 
 import {
-  HOOK_COMPACT_FOUNDATION_DIRECTIVE,
+  HOOK_COMPACT_FOUNDATION_ACTION,
   HOOK_ENV_FILE,
   HOOK_SESSION_START_CLAIMED,
   HOOK_SESSION_START_ENV,
@@ -19,6 +19,10 @@ import { defaultGitDependencies } from "@/git/root";
 import { runSessionStartHook } from "@/interfaces/hooks/session-start";
 import { sampleWorktreeTestValue, WORKTREE_TEST_GENERATOR } from "@testing/generators/worktree/worktree";
 import { withWorktreePool, type WorktreePoolEnv } from "@testing/harnesses/worktree/harness";
+
+const expectedCompactReasonLine = "Hook fired because the agent runtime reported source=compact.";
+const expectedCompactStdoutLineCount = 4;
+const compactDirectiveLineIndex = 2;
 
 interface SessionStartHookScenarioInput {
   readonly claimWriteToken: string;
@@ -72,12 +76,32 @@ async function readHookEnvFile(envFile: string): Promise<string> {
   return readFile(envFile, HOOK_ENV_FILE.ENCODING);
 }
 
+async function seedHookEnvFile(envFile: string, threadId: string): Promise<string> {
+  const existingExport = `${HOOK_ENV_FILE.EXPORT_PREFIX}${HOOK_SESSION_START_ENV.CODEX_THREAD_ID}=${threadId}\n`;
+  await writeFile(envFile, existingExport, HOOK_ENV_FILE.ENCODING);
+  return existingExport;
+}
+
 function expectHookEnvExport(envContent: string, name: string, value: string): void {
   expect(envContent).toContain(`${HOOK_ENV_FILE.EXPORT_PREFIX}${name}=${value}`);
 }
 
 function expectHookEnvClaimed(envContent: string, claimed: string): void {
   expectHookEnvExport(envContent, HOOK_SESSION_START_ENV.CLAUDE_WORKTREE_CLAIMED, claimed);
+}
+
+function expectCompactStdout(stdout: string): void {
+  const lines = stdout.split("\n");
+  expect(lines).toHaveLength(expectedCompactStdoutLineCount);
+  expect(lines[0]).toBe(expectedCompactReasonLine);
+  expect(lines[0]).toContain(HOOK_SESSION_START_PAYLOAD.SOURCE);
+  expect(lines[0]).toContain(HOOK_SESSION_START_SOURCE.COMPACT);
+
+  const directiveLine = lines[compactDirectiveLineIndex];
+  const understandIndex = directiveLine.indexOf(HOOK_COMPACT_FOUNDATION_ACTION.UNDERSTAND);
+  const contextualizeIndex = directiveLine.indexOf(HOOK_COMPACT_FOUNDATION_ACTION.CONTEXTUALIZE);
+  expect(understandIndex).toBeGreaterThanOrEqual(0);
+  expect(contextualizeIndex).toBeGreaterThan(understandIndex);
 }
 
 describe("hook session-start adapter", () => {
@@ -90,6 +114,7 @@ describe("hook session-start adapter", () => {
 
     await withWorktreePool({ worktreeName, holder }, async (env) => {
       const envFile = hookEnvFilePath(env, envFileName);
+      const existingExport = await seedHookEnvFile(envFile, sessionId);
       const result = await runSessionStartHookScenario(env, {
         claimWriteToken,
         content: hookContent(env, sessionId),
@@ -113,6 +138,7 @@ describe("hook session-start adapter", () => {
       });
 
       const envContent = await readHookEnvFile(envFile);
+      expect(envContent.startsWith(existingExport)).toBe(true);
       expectHookEnvExport(envContent, HOOK_SESSION_START_ENV.CLAUDE_SESSION_ID, sessionId);
       expectHookEnvExport(envContent, HOOK_SESSION_START_ENV.CLAUDE_PROJECT_DIR, `'${env.worktreePath}'`);
       expectHookEnvExport(envContent, HOOK_SESSION_START_ENV.PROJECT_DIR, `'${env.worktreePath}'`);
@@ -120,7 +146,7 @@ describe("hook session-start adapter", () => {
     });
   });
 
-  it("emits the foundation re-anchor directive on the compact lifecycle source", async () => {
+  it("emits the source reason and foundation re-anchor directive on the compact lifecycle source", async () => {
     const worktreeName = sampleWorktreeTestValue(WORKTREE_TEST_GENERATOR.poolWorktreeName());
     const holder = sampleWorktreeTestValue(WORKTREE_TEST_GENERATOR.poolHolder());
     const sessionId = sampleWorktreeTestValue(WORKTREE_TEST_GENERATOR.sessionId());
@@ -137,7 +163,7 @@ describe("hook session-start adapter", () => {
 
       expect(result.ok).toBe(true);
       if (!result.ok) throw new Error(result.error);
-      expect(result.value.stdout).toContain(HOOK_COMPACT_FOUNDATION_DIRECTIVE);
+      expectCompactStdout(result.value.stdout);
     });
   });
 
