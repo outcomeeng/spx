@@ -34,6 +34,9 @@ export class InMemoryActionsArtifactClient implements ActionsArtifactClient {
   async downloadArtifact(args: { name: string }): Promise<string> {
     const artifact = this.store.get(args.name);
     if (artifact === undefined) throw new Error(`actions artifact not found: ${args.name}`);
+    // The real Actions API rejects an expired artifact's download; modelling that
+    // here makes any caller that skips the expiry guard fail in tests, not only in production.
+    if (artifact.expired) throw new Error(`actions artifact is expired and cannot be downloaded: ${args.name}`);
     return artifact.body;
   }
 }
