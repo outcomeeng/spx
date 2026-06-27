@@ -33,6 +33,36 @@ class UploadFailingArtifactClient implements ActionsArtifactClient {
   }
 }
 
+/** An artifact client whose first uploads fail and later uploads succeed, exercising retention retry through DI. */
+class FlakyUploadArtifactClient implements ActionsArtifactClient {
+  private failuresRemaining: number;
+  private readonly inner = new InMemoryActionsArtifactClient();
+
+  constructor(failuresBeforeSuccess: number) {
+    this.failuresRemaining = failuresBeforeSuccess;
+  }
+
+  get uploads(): ReadonlyArray<{ name: string; body: string }> {
+    return this.inner.uploads;
+  }
+
+  async uploadArtifact(args: { name: string; body: string }): Promise<void> {
+    if (this.failuresRemaining > 0) {
+      this.failuresRemaining -= 1;
+      throw new Error("actions artifact upload temporarily unavailable");
+    }
+    await this.inner.uploadArtifact(args);
+  }
+
+  listArtifacts(args: { namePrefix: string }): Promise<readonly ActionsArtifactSummary[]> {
+    return this.inner.listArtifacts(args);
+  }
+
+  downloadArtifact(args: { name: string }): Promise<string> {
+    return this.inner.downloadArtifact(args);
+  }
+}
+
 describe("artifact journal store — compliance", () => {
   it("appends to the runner-local journal with no network write, retaining the run once at seal", async () => {
     const pullNumber = sampleGithubSnapshotValue(arbitraryPullNumber());
@@ -103,7 +133,7 @@ describe("artifact journal store — compliance", () => {
     expect(artifactClient.uploads).toHaveLength(1);
   });
 
-  it("leaves the run unsealed when retention fails, so a later seal can retry", async () => {
+  it("seals terminally before retention, so a failed seal cannot be followed by a diverging append", async () => {
     const pullNumber = sampleGithubSnapshotValue(arbitraryPullNumber());
     const runToken = sampleGithubSnapshotValue(arbitraryRunToken());
 
@@ -117,17 +147,21 @@ describe("artifact journal store — compliance", () => {
     const journal = createJournal(store, { streamid: runToken, runid: runToken });
     await journal.append(sampleAgentRunJournalValue(arbitraryJournalEventInput()));
 
-    // Retention is the commitment point: a failed upload propagates and the run
-    // stays unsealed, so a later seal retries rather than stranding it sealed-but-unretained.
+    // The seal marker is written before retention, so even when the upload fails the
+    // run is terminally sealed and rejects a further append — the local body cannot
+    // grow to diverge from the history a retry will retain.
     await expect(store.seal()).rejects.toThrow();
-    expect(await store.isSealed()).toBe(false);
+    expect(await store.isSealed()).toBe(true);
+    await expect(journal.append(sampleAgentRunJournalValue(arbitraryJournalEventInput()))).rejects.toThrow(
+      JOURNAL_ERROR.SEALED,
+    );
   });
 
-  it("completes sealing without re-uploading when the run is already retained but unsealed", async () => {
+  it("re-attempts retention on a later seal when a prior retention failed", async () => {
     const pullNumber = sampleGithubSnapshotValue(arbitraryPullNumber());
     const runToken = sampleGithubSnapshotValue(arbitraryRunToken());
 
-    const artifactClient = new InMemoryActionsArtifactClient();
+    const artifactClient = new FlakyUploadArtifactClient(1);
     const store = createArtifactJournalStore({
       runFilePath: journalRunFilePath(runToken),
       fs: createInMemoryStateStoreFileSystem(),
@@ -138,14 +172,14 @@ describe("artifact journal store — compliance", () => {
     const journal = createJournal(store, { streamid: runToken, runid: runToken });
     await journal.append(sampleAgentRunJournalValue(arbitraryJournalEventInput()));
 
-    // A prior seal uploaded the artifact but crashed before writing the marker:
-    // the run is retained yet reports unsealed.
-    artifactClient.seed({ name: artifactJournalRunArtifactName({ pullNumber, runToken }), body: "", expired: false });
-
-    // The retry must complete sealing without re-uploading the already-retained name.
-    await store.seal();
-    expect(artifactClient.uploads).toHaveLength(0);
+    // First seal: terminally sealed, but the upload fails — sealed-but-unretained.
+    await expect(store.seal()).rejects.toThrow();
     expect(await store.isSealed()).toBe(true);
+    expect(artifactClient.uploads).toHaveLength(0);
+
+    // A later seal re-attempts retention independently of the seal marker.
+    await store.seal();
+    expect(artifactClient.uploads).toHaveLength(1);
   });
 
   it("skips a prior run whose artifact retention has expired when hydrating", async () => {
