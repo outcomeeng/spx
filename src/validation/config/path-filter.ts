@@ -110,7 +110,7 @@ export function validationPathFilterForTool(
 }
 
 export function hasValidationPathFilter(filter: ValidationPathFilterConfig): boolean {
-  return hasEffectiveValidationPathMetadata(filter) && filter.noMatchingIncludes
+  return (hasEffectiveValidationPathMetadata(filter) && filter.noMatchingIncludes)
     || nonEmpty(filter.include).length > 0
     || nonEmpty(filter.exclude).length > 0;
 }
