@@ -5,6 +5,7 @@ import {
   BRANCH_CHECKOUT_FLAG,
   type CheckoutHookArgs,
   DEPS_INSTALL_GATE_EXIT_CODE,
+  GIT_DIFF_SUCCESS_EXIT_CODE,
   LOCKFILE_NAME,
   resolveDepsInstallGateExitCode,
 } from "@/lib/precommit/deps-install-gate";
@@ -28,8 +29,8 @@ class RecordingGitRunner implements GitDependencies {
   }
 }
 
-function execResult(stdout: string): ExecResult {
-  return { exitCode: 0, stdout, stderr: "" };
+function execResult(stdout: string, exitCode: number = GIT_DIFF_SUCCESS_EXIT_CODE): ExecResult {
+  return { exitCode, stdout, stderr: "" };
 }
 
 function runnerEmitting(stdout: string): RecordingGitRunner {
@@ -62,6 +63,15 @@ describe("resolveDepsInstallGateExitCode", () => {
 
   it("returns the failure exit code when the lockfile-diff probe throws", async () => {
     const git = new RecordingGitRunner(() => Promise.reject(new Error("git diff failed")));
+
+    await expect(resolveDepsInstallGateExitCode(branchArgs, git, cwd)).resolves.toBe(
+      DEPS_INSTALL_GATE_EXIT_CODE.FAILURE,
+    );
+  });
+
+  it("returns the failure exit code when the lockfile-diff probe resolves a non-zero exit code", async () => {
+    const failingExitCode = samplePrecommitTestValue(PRECOMMIT_TEST_GENERATOR.exitCode());
+    const git = new RecordingGitRunner(() => Promise.resolve(execResult("", failingExitCode)));
 
     await expect(resolveDepsInstallGateExitCode(branchArgs, git, cwd)).resolves.toBe(
       DEPS_INSTALL_GATE_EXIT_CODE.FAILURE,
