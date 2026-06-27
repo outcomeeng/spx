@@ -200,7 +200,8 @@ export const GIT_WORKTREE_PORCELAIN_ROOT_PREFIX = "worktree ";
 export const GIT_WORKTREE_PORCELAIN_BARE_LINE = "bare";
 export const GIT_WORKTREE_PORCELAIN_PRUNABLE_LINE = "prunable";
 export const GIT_WORKTREE_PORCELAIN_PRUNABLE_PREFIX = `${GIT_WORKTREE_PORCELAIN_PRUNABLE_LINE} `;
-const TRAILING_PATH_SEPARATORS_PATTERN = /[\\/]+$/;
+const POSIX_PATH_SEPARATOR = "/";
+const WINDOWS_PATH_SEPARATOR = "\\";
 
 // Detects the local worktree product directory.
 export async function detectWorktreeProductRoot(
@@ -238,17 +239,26 @@ export async function detectWorktreeProductRoot(
   }
 }
 
-// Extracts a trimmed string from execa stdout.
-function extractStdout(stdout: unknown): string {
-  if (!stdout) return "";
-  const str = typeof stdout === "string" ? stdout : String(stdout);
-  return str.trim().replace(TRAILING_PATH_SEPARATORS_PATTERN, "");
+function stripTrailingPathSeparators(value: string): string {
+  let end = value.length;
+  while (
+    end > 0
+    && (value[end - 1] === POSIX_PATH_SEPARATOR || value[end - 1] === WINDOWS_PATH_SEPARATOR)
+  ) {
+    end -= 1;
+  }
+  return value.slice(0, end);
 }
 
-function trimStdout(stdout: unknown): string {
+// Extracts a trimmed string from execa stdout.
+function extractStdout(stdout: string): string {
   if (!stdout) return "";
-  const str = typeof stdout === "string" ? stdout : String(stdout);
-  return str.trim();
+  return stripTrailingPathSeparators(stdout.trim());
+}
+
+function trimStdout(stdout: string): string {
+  if (!stdout) return "";
+  return stdout.trim();
 }
 
 // Detects the Git common-dir product root, resolving through git worktrees.
@@ -451,7 +461,7 @@ export async function isWorkingTreeClean(
  */
 export function repositoryName(originUrl: string | null): string | null {
   if (originUrl === null) return null;
-  const trimmed = originUrl.trim().replace(TRAILING_PATH_SEPARATORS_PATTERN, "");
+  const trimmed = stripTrailingPathSeparators(originUrl.trim());
   const lastSeparator = Math.max(
     trimmed.lastIndexOf("/"),
     trimmed.lastIndexOf("\\"),
@@ -465,11 +475,11 @@ export function repositoryName(originUrl: string | null): string | null {
 }
 
 function normalizeGitPath(path: string): string {
-  return path.trim().replace(TRAILING_PATH_SEPARATORS_PATTERN, "");
+  return stripTrailingPathSeparators(path.trim());
 }
 
 function normalizedGitPathKey(path: string): string {
-  return normalizeGitPath(path).replace(/\\/g, "/");
+  return normalizeGitPath(path).replaceAll(WINDOWS_PATH_SEPARATOR, POSIX_PATH_SEPARATOR);
 }
 
 function isObservedWorktreeRoot(worktreeRoots: readonly string[], candidate: string): boolean {
