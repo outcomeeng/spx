@@ -178,9 +178,15 @@ not the only product-owned way to obtain trustworthy test evidence.
   not tests affected by the current diff. The product has no `spx test --changed`,
   no `--base origin/main`, no planner from changed files to affected nodes or test
   files, and no product-owned Vitest `--related` integration through `spx`.
-- Dogfooding: package scripts and CI still use raw Vitest through `pnpm test`
-  (`pnpm run build && vitest run`) rather than `spx test`, so the product-owned
-  test verb exists without owning the default local or CI verification path.
+- Dogfooding: CI's gate now runs `spx test passing`
+  (`.github/workflows/deterministic-verification.yml`), and the product
+  `CLAUDE.md` running-tests STOP TRIGGER documents `spx test spx/<node>` as the
+  focused agent verification path — so the product verb owns the CI gate and the
+  focused-local path. Remaining: the `pnpm test` package script is still raw
+  Vitest (`pnpm run build && vitest run`), intentionally kept as the explicit
+  broad full-suite gate; and the pre-commit hook still drives raw Vitest on
+  staged files. Both fully dogfood only once `spx test --changed` (above) lands
+  to own the changed-set path.
 
 **Evidence:** agent-output feature work on June 18, 2026; targeted verification
 used direct Vitest because `spx test --agent` has no explicit-target CLI. The
