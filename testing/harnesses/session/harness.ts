@@ -36,7 +36,7 @@ import {
 } from "@/git/root";
 import { sessionsScopeDir } from "@/lib/state-store";
 import type { HandoffHeaderFixture } from "@testing/generators/session/session";
-import { GIT_TEST_FLAGS, GIT_TEST_SUBCOMMANDS } from "@testing/harnesses/git-test-constants";
+import { GIT_TEST_FLAGS, GIT_TEST_SUBCOMMANDS, gitArgsEqual } from "@testing/harnesses/git-test-constants";
 import { withGitWorktreeEnv } from "@testing/harnesses/git-worktree/git-worktree";
 import { createTempDir, removeTempDir } from "@testing/harnesses/with-temp-dir";
 
@@ -187,11 +187,6 @@ const DEFAULT_GIT_DEPS_DEFAULT_BRANCH = "main";
 const DIRTY_PORCELAIN_LINE = " M file.txt";
 const DETACHED_HEAD_REF = "HEAD";
 
-/** Whether a git arg vector equals the expected vector exactly. */
-function argsEqual(args: readonly string[], expected: readonly string[]): boolean {
-  return args.length === expected.length && args.every((arg, index) => arg === expected[index]);
-}
-
 /**
  * Builds a `GitDependencies` double that returns canned `git` output for the
  * command set the handoff-base resolution consults:
@@ -236,12 +231,12 @@ export function createSessionGitDeps(overrides: SessionGitDepsOverrides = {}): G
       // Each branch matches the exact production arg vector from `@/git/root`,
       // so the double tracks the pinned command set rather than substrings and
       // the three-arg `--abbrev-ref HEAD` form cannot collide with `rev-parse HEAD`.
-      if (argsEqual(args, GIT_SHOW_TOPLEVEL_ARGS)) return ok(toplevel);
-      if (argsEqual(args, GIT_COMMON_DIR_ARGS)) return ok(SHARED_COMMON_DIR);
-      if (argsEqual(args, GIT_CURRENT_BRANCH_ARGS)) return ok(branch ?? DETACHED_HEAD_REF);
-      if (argsEqual(args, GIT_ORIGIN_HEAD_REF_ARGS)) return ok(originDefaultRef);
-      if (argsEqual(args, GIT_STATUS_PORCELAIN_ARGS)) return ok(clean ? "" : DIRTY_PORCELAIN_LINE);
-      if (argsEqual(args, [GIT_ROOT_COMMAND.REV_PARSE, originDefaultRef])) return ok(ORIGIN_DEFAULT_SHA);
+      if (gitArgsEqual(args, GIT_SHOW_TOPLEVEL_ARGS)) return ok(toplevel);
+      if (gitArgsEqual(args, GIT_COMMON_DIR_ARGS)) return ok(SHARED_COMMON_DIR);
+      if (gitArgsEqual(args, GIT_CURRENT_BRANCH_ARGS)) return ok(branch ?? DETACHED_HEAD_REF);
+      if (gitArgsEqual(args, GIT_ORIGIN_HEAD_REF_ARGS)) return ok(originDefaultRef);
+      if (gitArgsEqual(args, GIT_STATUS_PORCELAIN_ARGS)) return ok(clean ? "" : DIRTY_PORCELAIN_LINE);
+      if (gitArgsEqual(args, [GIT_ROOT_COMMAND.REV_PARSE, originDefaultRef])) return ok(ORIGIN_DEFAULT_SHA);
       // Exact remote-branch existence probe: `show-ref --verify --quiet refs/remotes/origin/<branch>`.
       // Members exit 0 (no stdout); non-members fall through to the exit-1 catch-all, so a
       // revision expression like `<branch>~1` — never an exact ref — is correctly rejected.
@@ -254,9 +249,9 @@ export function createSessionGitDeps(overrides: SessionGitDepsOverrides = {}): G
       ) {
         return ok("");
       }
-      if (argsEqual(args, GIT_HEAD_SHA_ARGS)) return ok(headSha);
-      if (argsEqual(args, GIT_REMOTE_GET_URL_ORIGIN_ARGS)) return ok(SIMULATED_ORIGIN_URL);
-      if (argsEqual(args, GIT_CORE_BARE_ARGS)) return ok(NON_BARE_CORE_BARE);
+      if (gitArgsEqual(args, GIT_HEAD_SHA_ARGS)) return ok(headSha);
+      if (gitArgsEqual(args, GIT_REMOTE_GET_URL_ORIGIN_ARGS)) return ok(SIMULATED_ORIGIN_URL);
+      if (gitArgsEqual(args, GIT_CORE_BARE_ARGS)) return ok(NON_BARE_CORE_BARE);
 
       return { exitCode: 1, stdout: "", stderr: "" };
     },
