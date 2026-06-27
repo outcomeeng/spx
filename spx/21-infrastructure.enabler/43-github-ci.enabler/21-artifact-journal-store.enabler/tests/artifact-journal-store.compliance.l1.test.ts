@@ -17,6 +17,7 @@ import {
   sampleAgentRunJournalValue,
 } from "@testing/generators/agent-run-journal";
 import { arbitraryPullNumber, arbitraryRunToken, sampleGithubSnapshotValue } from "@testing/generators/github-snapshot";
+import { sampleStateStoreTestValue, STATE_STORE_TEST_GENERATOR } from "@testing/generators/state-store/state-store";
 import { InMemoryActionsArtifactClient } from "@testing/harnesses/actions-artifact-client";
 import { createInMemoryStateStoreFileSystem } from "@testing/harnesses/state/in-memory-file-system";
 
@@ -66,6 +67,7 @@ class FlakyUploadArtifactClient implements ActionsArtifactClient {
 describe("artifact journal store — compliance", () => {
   it("appends to the runner-local journal with no network write, retaining the run once at seal", async () => {
     const pullNumber = sampleGithubSnapshotValue(arbitraryPullNumber());
+    const type = sampleStateStoreTestValue(STATE_STORE_TEST_GENERATOR.scopeToken());
     const runToken = sampleGithubSnapshotValue(arbitraryRunToken());
     const inputs = sampleAgentRunJournalValue(fc.array(arbitraryJournalEventInput(), { minLength: 1, maxLength: 5 }));
 
@@ -76,6 +78,7 @@ describe("artifact journal store — compliance", () => {
         fs: createInMemoryStateStoreFileSystem(),
         artifactClient,
         pullNumber,
+        type,
         runToken,
       }),
       { streamid: runToken, runid: runToken },
@@ -90,8 +93,9 @@ describe("artifact journal store — compliance", () => {
     expect(artifactClient.uploads).toHaveLength(1);
   });
 
-  it("retains each sealed run as a distinct per-run artifact addressed by its pull request and run token", async () => {
+  it("retains each sealed run as a distinct per-run artifact addressed by its pull request, type, and run token", async () => {
     const pullNumber = sampleGithubSnapshotValue(arbitraryPullNumber());
+    const type = sampleStateStoreTestValue(STATE_STORE_TEST_GENERATOR.scopeToken());
     const runToken = sampleGithubSnapshotValue(arbitraryRunToken());
 
     const artifactClient = new InMemoryActionsArtifactClient();
@@ -101,6 +105,7 @@ describe("artifact journal store — compliance", () => {
         fs: createInMemoryStateStoreFileSystem(),
         artifactClient,
         pullNumber,
+        type,
         runToken,
       }),
       { streamid: runToken, runid: runToken },
@@ -108,11 +113,12 @@ describe("artifact journal store — compliance", () => {
     await journal.append(sampleAgentRunJournalValue(arbitraryJournalEventInput()));
     await journal.seal();
 
-    expect(artifactClient.uploads[0]?.name).toBe(artifactJournalRunArtifactName({ pullNumber, runToken }));
+    expect(artifactClient.uploads[0]?.name).toBe(artifactJournalRunArtifactName({ pullNumber, type, runToken }));
   });
 
   it("re-seals an already-retained run as a no-op, uploading no second artifact", async () => {
     const pullNumber = sampleGithubSnapshotValue(arbitraryPullNumber());
+    const type = sampleStateStoreTestValue(STATE_STORE_TEST_GENERATOR.scopeToken());
     const runToken = sampleGithubSnapshotValue(arbitraryRunToken());
 
     const artifactClient = new InMemoryActionsArtifactClient();
@@ -121,6 +127,7 @@ describe("artifact journal store — compliance", () => {
       fs: createInMemoryStateStoreFileSystem(),
       artifactClient,
       pullNumber,
+      type,
       runToken,
     });
     const journal = createJournal(store, { streamid: runToken, runid: runToken });
@@ -135,6 +142,7 @@ describe("artifact journal store — compliance", () => {
 
   it("seals terminally before retention, so a failed seal cannot be followed by a diverging append", async () => {
     const pullNumber = sampleGithubSnapshotValue(arbitraryPullNumber());
+    const type = sampleStateStoreTestValue(STATE_STORE_TEST_GENERATOR.scopeToken());
     const runToken = sampleGithubSnapshotValue(arbitraryRunToken());
 
     const store = createArtifactJournalStore({
@@ -142,6 +150,7 @@ describe("artifact journal store — compliance", () => {
       fs: createInMemoryStateStoreFileSystem(),
       artifactClient: new UploadFailingArtifactClient(),
       pullNumber,
+      type,
       runToken,
     });
     const journal = createJournal(store, { streamid: runToken, runid: runToken });
@@ -159,6 +168,7 @@ describe("artifact journal store — compliance", () => {
 
   it("re-attempts retention on a later seal when a prior retention failed", async () => {
     const pullNumber = sampleGithubSnapshotValue(arbitraryPullNumber());
+    const type = sampleStateStoreTestValue(STATE_STORE_TEST_GENERATOR.scopeToken());
     const runToken = sampleGithubSnapshotValue(arbitraryRunToken());
 
     const artifactClient = new FlakyUploadArtifactClient(1);
@@ -167,6 +177,7 @@ describe("artifact journal store — compliance", () => {
       fs: createInMemoryStateStoreFileSystem(),
       artifactClient,
       pullNumber,
+      type,
       runToken,
     });
     const journal = createJournal(store, { streamid: runToken, runid: runToken });
@@ -184,6 +195,7 @@ describe("artifact journal store — compliance", () => {
 
   it("skips a prior run whose artifact retention has expired when hydrating", async () => {
     const pullNumber = sampleGithubSnapshotValue(arbitraryPullNumber());
+    const type = sampleStateStoreTestValue(STATE_STORE_TEST_GENERATOR.scopeToken());
     const [liveToken, expiredToken] = sampleGithubSnapshotValue(
       fc.uniqueArray(arbitraryRunToken(), { minLength: 2, maxLength: 2 }),
     );
@@ -198,6 +210,7 @@ describe("artifact journal store — compliance", () => {
         fs: jobFs,
         artifactClient,
         pullNumber,
+        type,
         runToken: liveToken,
       }),
       { streamid: liveToken, runid: liveToken },
@@ -209,7 +222,7 @@ describe("artifact journal store — compliance", () => {
 
     // A prior run whose artifact retention window has lapsed.
     artifactClient.seed({
-      name: artifactJournalRunArtifactName({ pullNumber, runToken: expiredToken }),
+      name: artifactJournalRunArtifactName({ pullNumber, type, runToken: expiredToken }),
       body: "",
       expired: true,
     });
@@ -219,6 +232,7 @@ describe("artifact journal store — compliance", () => {
       artifactClient,
       fs: freshFs,
       pullNumber,
+      type,
       runFilePathFor: (token) => journalRunFilePath(token),
     });
 
@@ -228,6 +242,7 @@ describe("artifact journal store — compliance", () => {
 
   it("replays a hydrated prior run as sealed, rejecting a further append", async () => {
     const pullNumber = sampleGithubSnapshotValue(arbitraryPullNumber());
+    const type = sampleStateStoreTestValue(STATE_STORE_TEST_GENERATOR.scopeToken());
     const runToken = sampleGithubSnapshotValue(arbitraryRunToken());
 
     const artifactClient = new InMemoryActionsArtifactClient();
@@ -238,6 +253,7 @@ describe("artifact journal store — compliance", () => {
         fs: jobFs,
         artifactClient,
         pullNumber,
+        type,
         runToken,
       }),
       { streamid: runToken, runid: runToken },
@@ -250,6 +266,7 @@ describe("artifact journal store — compliance", () => {
       artifactClient,
       fs: freshFs,
       pullNumber,
+      type,
       runFilePathFor: (token) => journalRunFilePath(token),
     });
 
@@ -262,5 +279,46 @@ describe("artifact journal store — compliance", () => {
     await expect(reopenedJournal.append(sampleAgentRunJournalValue(arbitraryJournalEventInput()))).rejects.toThrow(
       JOURNAL_ERROR.SEALED,
     );
+  });
+
+  it("hydrates only the run's own verification type, never another type's runs of the same pull request", async () => {
+    const pullNumber = sampleGithubSnapshotValue(arbitraryPullNumber());
+    const [typeA, typeB] = sampleStateStoreTestValue(
+      fc.uniqueArray(STATE_STORE_TEST_GENERATOR.scopeToken(), { minLength: 2, maxLength: 2 }),
+    );
+    const [tokenA, tokenB] = sampleGithubSnapshotValue(
+      fc.uniqueArray(arbitraryRunToken(), { minLength: 2, maxLength: 2 }),
+    );
+
+    const artifactClient = new InMemoryActionsArtifactClient();
+    const jobFs = createInMemoryStateStoreFileSystem();
+
+    // Two runs of the same pull request but different verification types.
+    for (const run of [{ type: typeA, runToken: tokenA }, { type: typeB, runToken: tokenB }]) {
+      const journal = createJournal(
+        createArtifactJournalStore({
+          runFilePath: journalRunFilePath(run.runToken),
+          fs: jobFs,
+          artifactClient,
+          pullNumber,
+          type: run.type,
+          runToken: run.runToken,
+        }),
+        { streamid: run.runToken, runid: run.runToken },
+      );
+      await journal.append(sampleAgentRunJournalValue(arbitraryJournalEventInput()));
+      await journal.seal();
+    }
+
+    // Hydrating type A must materialize only type A's run — type B's is in a disjoint name space.
+    const freshFs = createInMemoryStateStoreFileSystem();
+    const hydrated = await hydratePriorRuns({
+      artifactClient,
+      fs: freshFs,
+      pullNumber,
+      type: typeA,
+      runFilePathFor: (token) => journalRunFilePath(token),
+    });
+    expect(hydrated.map((run) => run.runToken)).toEqual([tokenA]);
   });
 });

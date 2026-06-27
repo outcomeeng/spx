@@ -10,12 +10,14 @@ import {
   sampleAgentRunJournalValue,
 } from "@testing/generators/agent-run-journal";
 import { arbitraryPullNumber, arbitraryRunToken, sampleGithubSnapshotValue } from "@testing/generators/github-snapshot";
+import { sampleStateStoreTestValue, STATE_STORE_TEST_GENERATOR } from "@testing/generators/state-store/state-store";
 import { InMemoryActionsArtifactClient } from "@testing/harnesses/actions-artifact-client";
 import { createInMemoryStateStoreFileSystem } from "@testing/harnesses/state/in-memory-file-system";
 
 describe("artifact journal store — prior-run hydration", () => {
   it("hydrates a pull request's prior runs at open, replaying each run's events identically", async () => {
     const pullNumber = sampleGithubSnapshotValue(arbitraryPullNumber());
+    const type = sampleStateStoreTestValue(STATE_STORE_TEST_GENERATOR.scopeToken());
     const runTokens = sampleGithubSnapshotValue(fc.uniqueArray(arbitraryRunToken(), { minLength: 2, maxLength: 2 }));
 
     // The durable GitHub side survives across jobs; the runner filesystem does not.
@@ -32,6 +34,7 @@ describe("artifact journal store — prior-run hydration", () => {
           fs: jobFs,
           artifactClient,
           pullNumber,
+          type,
           runToken,
         }),
         identity,
@@ -48,6 +51,7 @@ describe("artifact journal store — prior-run hydration", () => {
       artifactClient,
       fs: freshFs,
       pullNumber,
+      type,
       runFilePathFor: (runToken) => journalRunFilePath(runToken),
     });
 
