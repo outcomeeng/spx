@@ -1,7 +1,7 @@
 import fc from "fast-check";
 import { describe, expect, it } from "vitest";
 
-import { createJournal, JOURNAL_BACKEND_KIND, type JournalEvent } from "@/lib/agent-run-journal";
+import { createJournal, JOURNAL_BACKEND_KIND } from "@/lib/agent-run-journal";
 import {
   artifactJournalRunArtifactName,
   createArtifactJournalStore,
@@ -85,9 +85,8 @@ describe("artifact journal store — compliance", () => {
       }),
       { streamid: liveToken, runid: liveToken },
     );
-    const liveEvents: JournalEvent[] = [];
     for (const input of sampleAgentRunJournalValue(arbitraryJournalEventInputs())) {
-      liveEvents.push(await liveJournal.append(input));
+      await liveJournal.append(input);
     }
     await liveJournal.seal();
 
