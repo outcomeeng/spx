@@ -30,7 +30,10 @@ const GIT_REV_PARSE_ARGS = {
 const INFO_EXCLUDE_RELATIVE_PATH = "info/exclude";
 const PATH_SEGMENT_SEPARATOR = "/";
 const CURRENT_DIRECTORY_PREFIX = ".";
+const GIT_SCOPE_FAILURE_MESSAGE = "failed to read git scope";
 export const GIT_MISSING_CONTEXT_MESSAGE = "missing git working tree";
+const GIT_NOT_A_REPOSITORY_STDERR = "not a git repository";
+const GIT_NOT_A_WORK_TREE_STDERR = "not a git work tree";
 
 export const DEFAULT_IGNORE_SOURCE_OVERRIDES: IgnoreSourceOverrides = {
   noIgnore: false,
@@ -71,7 +74,25 @@ function gitEnvironment(): NodeJS.ProcessEnv {
   return withoutGitEnvironment(process.env);
 }
 
+function errorStderr(error: unknown): string | undefined {
+  if (typeof error !== "object" || error === null || !("stderr" in error)) {
+    return undefined;
+  }
+  const stderr = (error as { readonly stderr: unknown }).stderr;
+  return typeof stderr === "string" ? stderr : undefined;
+}
+
+function isMissingGitWorkingTreeError(error: unknown): boolean {
+  const stderr = errorStderr(error);
+  return stderr !== undefined && (
+    stderr.includes(GIT_NOT_A_REPOSITORY_STDERR) || stderr.includes(GIT_NOT_A_WORK_TREE_STDERR)
+  );
+}
+
 function readGit(productDir: string, args: readonly string[]): string {
+  if (!existsSync(productDir)) {
+    throw new Error(`${GIT_SCOPE_FAILURE_MESSAGE} for ${productDir}: ${GIT_MISSING_CONTEXT_MESSAGE}`);
+  }
   try {
     // NOSONAR: synchronous git plumbing runs once at reader construction and is exempt from the async lifecycle rule.
     return execFileSync(GIT_EXECUTABLE, [...args], {
@@ -81,7 +102,12 @@ function readGit(productDir: string, args: readonly string[]): string {
       stdio: ["ignore", "pipe", "pipe"],
     });
   } catch (err) {
-    throw new Error(`failed to read git scope for ${productDir}: ${GIT_MISSING_CONTEXT_MESSAGE}`, { cause: err });
+    if (isMissingGitWorkingTreeError(err)) {
+      throw new Error(`${GIT_SCOPE_FAILURE_MESSAGE} for ${productDir}: ${GIT_MISSING_CONTEXT_MESSAGE}`, {
+        cause: err,
+      });
+    }
+    throw new Error(`${GIT_SCOPE_FAILURE_MESSAGE} for ${productDir}`, { cause: err });
   }
 }
 
