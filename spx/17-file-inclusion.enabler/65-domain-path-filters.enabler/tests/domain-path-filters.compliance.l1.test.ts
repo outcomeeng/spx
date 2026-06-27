@@ -1,5 +1,10 @@
+import { writeFile } from "node:fs/promises";
+import { join } from "node:path";
+
 import { describe, expect, it } from "vitest";
 
+import { runTestsCommand } from "@/commands/test";
+import { CONFIG_FILENAMES } from "@/config/index";
 import { DEFAULT_IGNORE_SOURCE_OVERRIDES } from "@/lib/file-inclusion/ignore-source";
 import { EXPLICIT_OVERRIDE_LAYER, resolveScope } from "@/lib/file-inclusion/pipeline";
 import {
@@ -7,12 +12,51 @@ import {
   DOMAIN_PATH_FILTER_LAYER,
 } from "@/lib/file-inclusion/predicates/domain-path-filter";
 import { GIT_TRACKING_LAYER } from "@/lib/file-inclusion/predicates/git-tracking";
+import { TESTING_CONFIG_FIELDS, TESTING_SECTION } from "@/test/config";
+import { testingRegistry } from "@/test/registry";
+import { VALIDATION_PATHS_SUBSECTION, VALIDATION_SECTION } from "@/validation/config/descriptor";
+import { arbitraryDomainLiteral, sampleLiteralTestValue } from "@testing/generators/literal/literal";
 import {
   resolverConfig,
   scopeResolverFixture,
   writeScopeResolverFixture,
 } from "@testing/harnesses/file-inclusion/scope-resolver";
 import { withGitWorktreeEnv } from "@testing/harnesses/git-worktree/git-worktree";
+import { withTestingTempProductDir, writeTestFileFixture } from "@testing/harnesses/testing/harness";
+import { createRecordingCommandRunner } from "@testing/harnesses/testing/typescript-runner";
+
+import type { GitDependencies } from "@/git/root";
+
+function invokedArgs(
+  runner: { readonly calls: ReadonlyArray<{ readonly args: readonly string[] }> },
+): readonly string[] {
+  return runner.calls.flatMap((call) => call.args);
+}
+
+function gitIdentityStub(): GitDependencies {
+  return {
+    execa: async () => ({ exitCode: 0, stdout: sampleLiteralTestValue(arbitraryDomainLiteral()), stderr: "" }),
+  };
+}
+
+async function writeMixedDomainConfig(productDir: string): Promise<void> {
+  await writeFile(
+    join(productDir, CONFIG_FILENAMES.json),
+    JSON.stringify({
+      [VALIDATION_SECTION]: {
+        [VALIDATION_PATHS_SUBSECTION]: {
+          include: ["spx/validation-only.enabler"],
+          exclude: ["spx/17-file-inclusion.enabler"],
+        },
+      },
+      [TESTING_SECTION]: {
+        [TESTING_CONFIG_FIELDS.PASSING_SCOPE]: {
+          include: ["spx/17-file-inclusion.enabler"],
+        },
+      },
+    }),
+  );
+}
 
 describe("domain path filters — compliance", () => {
   it("records include and exclude matches in the scope decision trail", async () => {
@@ -115,6 +159,26 @@ describe("domain path filters — compliance", () => {
       const ignored = result.excluded.find((e) => e.path === fixture.ignoredFilePath);
       expect(ignored).toBeDefined();
       expect(ignored!.decisionTrail.some((decision) => decision.layer === GIT_TRACKING_LAYER)).toBe(true);
+    });
+  });
+
+  it("testing passing scope does not inherit validation domain path filters", async () => {
+    const includedTestFile = "spx/17-file-inclusion.enabler/tests/included.scenario.l1.test.ts";
+    const excludedByTestingTestFile = "spx/41-test.enabler/tests/excluded.scenario.l1.test.ts";
+    const runner = createRecordingCommandRunner({ present: true, exitCode: 0 });
+
+    await withTestingTempProductDir(async (productDir) => {
+      await writeTestFileFixture(productDir, includedTestFile);
+      await writeTestFileFixture(productDir, excludedByTestingTestFile);
+      await writeMixedDomainConfig(productDir);
+
+      await runTestsCommand(
+        { productDir, passing: true },
+        { registry: testingRegistry, runnerDepsFor: () => runner, git: gitIdentityStub() },
+      );
+
+      expect(invokedArgs(runner)).toContain(includedTestFile);
+      expect(invokedArgs(runner)).not.toContain(excludedByTestingTestFile);
     });
   });
 });
