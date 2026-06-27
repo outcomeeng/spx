@@ -87,6 +87,10 @@ export function createArtifactJournalStore(options: ArtifactJournalStoreOptions)
     },
 
     async seal(): Promise<void> {
+      // A re-seal is a no-op: the run is already retained, and re-uploading the
+      // same per-run artifact name conflicts under the Actions artifact API, so a
+      // harmless retry must not become an upload error.
+      if (await local.isSealed()) return;
       await local.seal();
       const body = await readFileOrEmpty(fs, runFilePath);
       await artifactClient.uploadArtifact({
