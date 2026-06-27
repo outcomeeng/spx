@@ -15,6 +15,7 @@ import {
   sampleLiteralTestValue,
 } from "@testing/generators/literal/literal";
 import { withLiteralFixtureEnv } from "@testing/harnesses/literal/harness";
+import { buildStringAssertion, buildStringDeclaration } from "@testing/harnesses/literal/snippets";
 
 describe("withLiteralFixtureEnv", () => {
   it("materializes a temp project and provides productDir to the callback", async () => {
@@ -40,7 +41,7 @@ describe("withLiteralFixtureEnv", () => {
     await withLiteralFixtureEnv(literalEmptyConfig(), async (env) => {
       await env.writeSourceFile(sourcePath, value);
       const content = await env.readFile(sourcePath);
-      expect(content).toContain(value);
+      expect(content).toBe(buildStringDeclaration(value));
     });
   });
 
@@ -50,7 +51,7 @@ describe("withLiteralFixtureEnv", () => {
     await withLiteralFixtureEnv(literalEmptyConfig(), async (env) => {
       await env.writeTestFile(testPath, value);
       const content = await env.readFile(testPath);
-      expect(content).toContain(value);
+      expect(content).toBe(buildStringAssertion(value));
     });
   });
 
@@ -69,6 +70,42 @@ describe("withLiteralFixtureEnv", () => {
       expect(result.exitCode).toBe(LITERAL_EXIT_CODES.FINDINGS);
       expect(parsed.srcReuse).toHaveLength(LITERAL_TEST_GENERATOR_COUNTS.one);
       expect(parsed.testDupe).toHaveLength(LITERAL_TEST_GENERATOR_COUNTS.two);
+      expect(parsed.srcReuse[0]?.value).toBe(inputs.reuseLiteral);
+      expect(parsed.testDupe.map((finding) => finding.value)).toEqual([
+        inputs.dupeLiteral,
+        inputs.dupeLiteral,
+      ]);
+    });
+  });
+
+  it("writeSourceReuseFixture produces project state that yields one srcReuse via literalCommand", async () => {
+    const inputs = sampleLiteralTestValue(LITERAL_TEST_GENERATOR.sourceReuseFixtureInputs());
+    await withLiteralFixtureEnv(literalEmptyConfig(), async (env) => {
+      await env.writeSourceReuseFixture(inputs);
+      const result = await literalCommand({
+        cwd: env.productDir,
+        config: LITERAL_DEFAULTS,
+        json: true,
+      });
+      const parsed = parseLiteralReuseResult(JSON.parse(result.output));
+      expect(result.exitCode).toBe(LITERAL_EXIT_CODES.FINDINGS);
+      expect(parsed.srcReuse).toHaveLength(LITERAL_TEST_GENERATOR_COUNTS.one);
+      expect(parsed.srcReuse[0]?.value).toBe(inputs.literal);
+    });
+  });
+
+  it("writePathScopedSourceReuseFixture materializes included and excluded source-reuse inputs", async () => {
+    const inputs = sampleLiteralTestValue(LITERAL_TEST_GENERATOR.pathScopedSourceReuseFixtureInputs());
+    await withLiteralFixtureEnv(literalEmptyConfig(), async (env) => {
+      await env.writePathScopedSourceReuseFixture(inputs);
+
+      expect(inputs.included.sourceFile.startsWith(inputs.excludedPathPrefix)).toBe(false);
+      expect(inputs.included.testFile.startsWith(inputs.excludedPathPrefix)).toBe(false);
+      expect(inputs.excluded.sourceFile.startsWith(inputs.excludedPathPrefix)).toBe(true);
+      expect(inputs.excluded.testFile.startsWith(inputs.excludedPathPrefix)).toBe(true);
+      await expect(env.readFile(inputs.included.sourceFile)).resolves.toContain(inputs.included.literal);
+      await expect(env.readFile(inputs.excluded.sourceFile)).resolves.toContain(inputs.excluded.literal);
+      await expect(env.readFile(inputs.excluded.testFile)).resolves.toContain(inputs.excluded.literal);
     });
   });
 

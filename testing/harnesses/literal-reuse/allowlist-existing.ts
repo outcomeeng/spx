@@ -12,16 +12,23 @@ import {
 import {
   VALIDATION_LITERAL_SUBSECTION,
   VALIDATION_LITERAL_VALUES_SUBSECTION,
+  VALIDATION_PATHS_SUBSECTION,
   VALIDATION_SECTION,
+  type ValidationPathConfig,
 } from "@/validation/config/descriptor";
-import { LITERAL_DEFAULTS, type LiteralValueAllowlistConfig } from "@/validation/literal/config";
 import {
-  LITERAL_TEST_GENERATOR,
-  sampleDistinctSourceFilePaths,
-  sampleDistinctTestFilePaths,
-  sampleLiteralTestValue,
-} from "@testing/generators/literal/literal";
-import type { Config, SpecTreeEnv } from "@testing/harnesses/spec-tree/spec-tree";
+  LITERAL_DEFAULTS,
+  type LiteralConfig,
+  literalConfigDescriptor,
+  type LiteralValueAllowlistConfig,
+} from "@/validation/literal/config";
+import type { Config } from "@testing/harnesses/spec-tree/spec-tree";
+
+interface ConfigFixtureEnv {
+  readonly productDir: string;
+  readFile(relativePath: string): Promise<string>;
+  writeRaw(relativePath: string, content: string): Promise<void>;
+}
 
 function literalSection(values: Record<string, unknown>): Config {
   return {
@@ -41,6 +48,20 @@ export function buildConfigWithAllowlist(allowlist: LiteralValueAllowlistConfig)
   return literalSection({ ...LITERAL_DEFAULTS, ...allowlist });
 }
 
+export function buildConfigWithValidationPaths(
+  paths: ValidationPathConfig,
+  allowlist: LiteralValueAllowlistConfig = {},
+): Config {
+  return {
+    [VALIDATION_SECTION]: {
+      [VALIDATION_PATHS_SUBSECTION]: paths,
+      [VALIDATION_LITERAL_SUBSECTION]: {
+        [VALIDATION_LITERAL_VALUES_SUBSECTION]: { ...LITERAL_DEFAULTS, ...allowlist },
+      },
+    },
+  };
+}
+
 export function buildConfigWithForeignSection(
   foreignKey: string,
   foreignBody: Record<string, unknown>,
@@ -52,7 +73,7 @@ export function buildConfigWithForeignSection(
 }
 
 export async function writeProjectConfig(
-  env: SpecTreeEnv,
+  env: ConfigFixtureEnv,
   format: ConfigFileFormat,
   config: Config,
 ): Promise<void> {
@@ -71,7 +92,7 @@ export async function writeProjectConfig(
   await env.writeRaw(CONFIG_FILE_DEFINITIONS[format].filename, serialized.value);
 }
 
-export async function readProductConfigSections(env: SpecTreeEnv): Promise<Record<string, unknown>> {
+export async function readProductConfigSections(env: ConfigFixtureEnv): Promise<Record<string, unknown>> {
   const read = await readProductConfigFile(env.productDir);
   if (!read.ok) {
     throw new Error(read.error);
@@ -86,31 +107,7 @@ export async function readProductConfigSections(env: SpecTreeEnv): Promise<Recor
   return parsed.value;
 }
 
-export async function writeDuplicatedLiteralFixture(
-  env: SpecTreeEnv,
-  literal: string,
-): Promise<void> {
-  const sourcePath = sampleLiteralTestValue(LITERAL_TEST_GENERATOR.sourceFilePath());
-  const testPath = sampleLiteralTestValue(LITERAL_TEST_GENERATOR.testFilePath());
-  await env.writeRaw(sourcePath, `export const FIXTURE_VALUE = "${literal}";\n`);
-  await env.writeRaw(testPath, `expect(value).toBe("${literal}");\n`);
-}
-
-export async function writeMultipleLiteralFixtures(
-  env: SpecTreeEnv,
-  literals: readonly string[],
-): Promise<void> {
-  const sourcePaths = sampleDistinctSourceFilePaths(literals.length);
-  const testPaths = sampleDistinctTestFilePaths(literals.length);
-  for (const [index, literal] of literals.entries()) {
-    const sourcePath = sourcePaths[index];
-    const testPath = testPaths[index];
-    await env.writeRaw(sourcePath, `export const MULTI_VALUE_${index} = "${literal}";\n`);
-    await env.writeRaw(testPath, `expect(value).toBe("${literal}");\n`);
-  }
-}
-
-export function readLiteralAllowlist(parsedConfig: unknown): LiteralValueAllowlistConfig {
+export function readLiteralAllowlist(parsedConfig: unknown): LiteralConfig {
   if (typeof parsedConfig !== "object" || parsedConfig === null) {
     throw new Error("parsed config is not an object");
   }
@@ -128,5 +125,9 @@ export function readLiteralAllowlist(parsedConfig: unknown): LiteralValueAllowli
       `parsed config missing ${VALIDATION_SECTION}.${VALIDATION_LITERAL_SUBSECTION}.${VALIDATION_LITERAL_VALUES_SUBSECTION} section`,
     );
   }
-  return values;
+  const validated = literalConfigDescriptor.validate(values);
+  if (!validated.ok) {
+    throw new Error(validated.error);
+  }
+  return validated.value;
 }

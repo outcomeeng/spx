@@ -1,5 +1,9 @@
 import { TYPESCRIPT_MARKER } from "@/validation/discovery/index";
-import type { LiteralReuseFixtureInputs } from "@testing/generators/literal/literal";
+import type {
+  LiteralPathScopedSourceReuseFixtureInputs,
+  LiteralReuseFixtureInputs,
+  LiteralSourceReuseFixtureInputs,
+} from "@testing/generators/literal/literal";
 import { buildStringAssertion, buildStringDeclaration } from "@testing/harnesses/literal/snippets";
 import { type Config, type SpecTreeEnv, withTestEnv } from "@testing/harnesses/spec-tree/spec-tree";
 
@@ -12,6 +16,9 @@ export interface LiteralFixtureEnv {
   writeSourceFile(relativePath: string, value: string): Promise<void>;
   writeTestFile(relativePath: string, value: string): Promise<void>;
   writeReuseFixture(inputs: LiteralReuseFixtureInputs): Promise<void>;
+  writeSourceReuseFixture(inputs: LiteralSourceReuseFixtureInputs): Promise<void>;
+  writeSourceReuseFixtures(inputs: readonly LiteralSourceReuseFixtureInputs[]): Promise<void>;
+  writePathScopedSourceReuseFixture(inputs: LiteralPathScopedSourceReuseFixtureInputs): Promise<void>;
   writeRaw(relativePath: string, content: string): Promise<void>;
 }
 
@@ -39,16 +46,48 @@ function createLiteralFixtureEnv(specEnv: SpecTreeEnv): LiteralFixtureEnv {
     writeSourceFile: (relativePath, value) => specEnv.writeRaw(relativePath, formatSourceFile(value)),
     writeTestFile: (relativePath, value) => specEnv.writeRaw(relativePath, formatTestFile(value)),
     writeReuseFixture: (inputs) => writeReuseFixture(specEnv, inputs),
+    writeSourceReuseFixture: (inputs) => writeSourceReuseFixture(specEnv, inputs),
+    writeSourceReuseFixtures: (inputs) => writeSourceReuseFixtures(specEnv, inputs),
+    writePathScopedSourceReuseFixture: (inputs) => writePathScopedSourceReuseFixture(specEnv, inputs),
     writeRaw: (relativePath, content) => specEnv.writeRaw(relativePath, content),
   };
 }
 
 async function writeReuseFixture(specEnv: SpecTreeEnv, inputs: LiteralReuseFixtureInputs): Promise<void> {
   await specEnv.writeRaw(TYPESCRIPT_MARKER, EMPTY_TSCONFIG_CONTENT);
-  await specEnv.writeRaw(inputs.reuseSourceFile, formatSourceFile(inputs.reuseLiteral));
-  await specEnv.writeRaw(inputs.reuseTestFile, formatTestFile(inputs.reuseLiteral));
+  await writeSourceReuseFixture(specEnv, {
+    literal: inputs.reuseLiteral,
+    sourceFile: inputs.reuseSourceFile,
+    testFile: inputs.reuseTestFile,
+  });
   await specEnv.writeRaw(inputs.dupeFirstTestFile, formatTestFile(inputs.dupeLiteral));
   await specEnv.writeRaw(inputs.dupeSecondTestFile, formatTestFile(inputs.dupeLiteral));
+}
+
+async function writeSourceReuseFixture(
+  specEnv: SpecTreeEnv,
+  inputs: LiteralSourceReuseFixtureInputs,
+): Promise<void> {
+  await specEnv.writeRaw(TYPESCRIPT_MARKER, EMPTY_TSCONFIG_CONTENT);
+  await specEnv.writeRaw(inputs.sourceFile, formatSourceFile(inputs.literal));
+  await specEnv.writeRaw(inputs.testFile, formatTestFile(inputs.literal));
+}
+
+async function writeSourceReuseFixtures(
+  specEnv: SpecTreeEnv,
+  inputs: readonly LiteralSourceReuseFixtureInputs[],
+): Promise<void> {
+  await specEnv.writeRaw(TYPESCRIPT_MARKER, EMPTY_TSCONFIG_CONTENT);
+  for (const fixture of inputs) {
+    await writeSourceReuseFixture(specEnv, fixture);
+  }
+}
+
+async function writePathScopedSourceReuseFixture(
+  specEnv: SpecTreeEnv,
+  inputs: LiteralPathScopedSourceReuseFixtureInputs,
+): Promise<void> {
+  await writeSourceReuseFixtures(specEnv, [inputs.included, inputs.excluded]);
 }
 
 function formatSourceFile(value: string): string {

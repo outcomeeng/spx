@@ -8,19 +8,22 @@ import {
   type ConfigFileReadResult,
   DEFAULT_CONFIG_FILE_FORMAT,
   formatConfigFileAmbiguityError,
-  parseConfigFileSections,
   readProductConfigFile,
+  resolveConfigFromReadResult,
   serializeConfigFileSectionsWithSetIn,
 } from "@/config/index";
 import type { Result } from "@/config/types";
 import {
   VALIDATION_LITERAL_SUBSECTION,
   VALIDATION_LITERAL_VALUES_SUBSECTION,
+  VALIDATION_PATH_TOOL_SUBSECTIONS,
   VALIDATION_SECTION,
+  type ValidationConfig,
+  validationConfigDescriptor,
 } from "@/validation/config/descriptor";
+import { validationPathFilterForTool } from "@/validation/config/path-filter";
 
 import { compareAsciiStrings } from "@/lib/state-store";
-import { type LiteralConfig, literalConfigDescriptor } from "./config";
 import { validateLiteralReuse } from "./index";
 
 export interface ConfigReader {
@@ -85,19 +88,24 @@ export async function allowlistExisting(
     return { exitCode: EXIT_ERROR, output: formatConfigFileAmbiguityError(configRead.detected) };
   }
 
-  const currentLiteralConfig = readCurrentLiteralConfig(configRead);
-  if (!currentLiteralConfig.ok) {
-    return { exitCode: EXIT_ERROR, output: currentLiteralConfig.error };
+  const resolvedConfig = resolveConfigFromReadResult(configRead, [validationConfigDescriptor]);
+  if (!resolvedConfig.ok) {
+    return { exitCode: EXIT_ERROR, output: resolvedConfig.error };
   }
+  const validationConfig = resolvedConfig.value[validationConfigDescriptor.section] as ValidationConfig;
 
   const detection = await validateLiteralReuse({
     productDir: options.productDir,
-    config: currentLiteralConfig.value,
+    config: validationConfig.literal.values,
+    pathConfig: validationPathFilterForTool(
+      validationConfig.paths,
+      VALIDATION_PATH_TOOL_SUBSECTIONS.LITERAL,
+    ),
   });
 
   const findingValues = collectFindingValues(detection.findings);
   const updatedInclude = computeUpdatedInclude(
-    currentLiteralConfig.value.include,
+    validationConfig.literal.values.include,
     findingValues,
   );
 
@@ -112,26 +120,6 @@ export async function allowlistExisting(
   await writer.write(target.path, serialized.value);
 
   return { exitCode: EXIT_OK, output: "" };
-}
-
-function readCurrentLiteralConfig(read: ConfigFileReadResult): Result<LiteralConfig> {
-  if (read.kind !== "ok") return { ok: true, value: literalConfigDescriptor.defaults };
-  const sections = parseConfigFileSections(read.file);
-  if (!sections.ok) return sections;
-  const validationRaw = sections.value[VALIDATION_SECTION];
-  if (typeof validationRaw !== "object" || validationRaw === null) {
-    return { ok: true, value: literalConfigDescriptor.defaults };
-  }
-  const literalRaw = (validationRaw as Record<string, unknown>)[VALIDATION_LITERAL_SUBSECTION];
-  if (typeof literalRaw !== "object" || literalRaw === null) {
-    return { ok: true, value: literalConfigDescriptor.defaults };
-  }
-  const valuesRaw = (literalRaw as Record<string, unknown>)[VALIDATION_LITERAL_VALUES_SUBSECTION];
-  if (valuesRaw === undefined) {
-    return { ok: true, value: literalConfigDescriptor.defaults };
-  }
-  const validated = literalConfigDescriptor.validate(valuesRaw);
-  return validated.ok ? validated : { ok: true, value: literalConfigDescriptor.defaults };
 }
 
 function collectFindingValues(
