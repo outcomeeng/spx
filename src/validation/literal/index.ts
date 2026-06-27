@@ -2,7 +2,7 @@ import { readFile } from "node:fs/promises";
 import { isAbsolute, relative, resolve } from "node:path";
 
 import { DEFAULT_SCOPE_CONFIG } from "@/lib/file-inclusion/config";
-import { resolveScope } from "@/lib/file-inclusion/pipeline";
+import { EXPLICIT_OVERRIDE_LAYER, resolveScope } from "@/lib/file-inclusion/pipeline";
 import { type ValidationPathConfig } from "@/validation/config/descriptor";
 import { pathPassesTypeScriptScope } from "@/validation/config/scope";
 import type { ScopeConfig } from "@/validation/types";
@@ -46,6 +46,7 @@ export type {
 export interface ValidateLiteralReuseInput {
   readonly productDir: string;
   readonly files?: readonly string[];
+  readonly explicitFiles?: readonly string[];
   readonly config?: LiteralConfig;
   readonly pathConfig?: ValidationPathConfig;
   readonly scopeConfig?: ScopeConfig;
@@ -71,26 +72,28 @@ export async function validateLiteralReuse(
   input: ValidateLiteralReuseInput,
 ): Promise<ValidateLiteralReuseResult> {
   const config = input.config ?? literalConfigDescriptor.defaults;
-  const hasExplicitFiles = input.scopeConfig === undefined && input.files !== undefined;
+  const explicitFiles = input.explicitFiles ?? (input.scopeConfig === undefined ? input.files : undefined);
+  const explicitPaths = explicitFiles?.map((f) => {
+    const abs = isAbsolute(f) ? f : resolve(input.productDir, f);
+    return relative(input.productDir, abs).split(/[\\/]/g).join("/");
+  });
 
   const request = input.scopeConfig === undefined && input.files
-    ? {
-      explicit: input.files.map((f) => {
-        const abs = isAbsolute(f) ? f : resolve(input.productDir, f);
-        return relative(input.productDir, abs).split(/[\\/]/g).join("/");
-      }),
-    }
-    : { walkRoot: input.productDir };
+    ? { explicit: explicitPaths }
+    : { walkRoot: input.productDir, explicit: explicitPaths };
 
   const scope = await resolveScope(input.productDir, {
     ...request,
-    domainPathFilter: hasExplicitFiles ? undefined : input.pathConfig,
+    domainPathFilter: input.scopeConfig === undefined && input.files !== undefined ? undefined : input.pathConfig,
   }, DEFAULT_SCOPE_CONFIG);
 
   const literalScopeConfig = input.scopeConfig;
   const filtered = literalScopeConfig === undefined
     ? scope.included
-    : scope.included.filter((entry) => pathPassesTypeScriptScope(entry.path, literalScopeConfig));
+    : scope.included.filter((entry) =>
+      entry.decisionTrail.some((decision) => decision.layer === EXPLICIT_OVERRIDE_LAYER)
+      || pathPassesTypeScriptScope(entry.path, literalScopeConfig)
+    );
 
   const candidateFiles = filtered
     .filter((entry) => isTypescriptSource(entry.path))

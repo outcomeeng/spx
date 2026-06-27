@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 
+import { LITERAL_EXIT_CODES, literalCommand } from "@/commands/validation/literal";
 import { validateLiteralReuse } from "@/validation/literal/index";
 import { sampleIndependentDomainLiterals } from "@testing/generators/literal/literal";
 import { withLiteralFixtureEnv } from "@testing/harnesses/literal/harness";
@@ -47,6 +48,28 @@ describe("ALWAYS: explicit files bypass validation.paths", () => {
       }
       expect(indexedValues.has(excludedLiteral)).toBe(true);
       expect(indexedValues.has(activeLiteral)).toBe(true);
+    });
+  });
+
+  it("literal command caller-supplied files are parsed even when validation.paths.exclude matches them", async () => {
+    await withLiteralFixtureEnv({}, async (env) => {
+      const [literal] = sampleIndependentDomainLiterals(1);
+      const sourceFile = "excluded/source.ts";
+      const testFile = "excluded/source.test.ts";
+      await env.writeSourceFile(sourceFile, literal);
+      await env.writeTestFile(testFile, literal);
+      await env.writeTsConfigMarker();
+
+      const result = await literalCommand({
+        cwd: env.productDir,
+        files: [sourceFile, testFile],
+        pathConfig: { exclude: ["excluded"] },
+        json: true,
+      });
+      const findings = JSON.parse(result.output) as { srcReuse: readonly { value: string }[] };
+
+      expect(result.exitCode).toBe(LITERAL_EXIT_CODES.FINDINGS);
+      expect(findings.srcReuse.some((finding) => finding.value === literal)).toBe(true);
     });
   });
 });

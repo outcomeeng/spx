@@ -13,7 +13,7 @@ import {
   type ValidationPathConfig,
 } from "@/validation/config/descriptor";
 import { validationPathFilterForTool } from "@/validation/config/path-filter";
-import { resolveTypeScriptValidationScope } from "@/validation/config/scope";
+import { pathHasTypeScriptSourceExtension, resolveTypeScriptValidationScope } from "@/validation/config/scope";
 import { detectTypeScript } from "@/validation/discovery/index";
 import { type LiteralConfig } from "@/validation/literal/config";
 import {
@@ -133,6 +133,7 @@ export async function literalCommand(
 
   const result = await validateLiteralReuse({
     productDir: options.cwd,
+    explicitFiles: explicitLiteralFiles(options.files),
     config: resolved.literalConfig,
     pathConfig: resolved.pathConfig,
     scopeConfig: resolveExplicitLiteralTypeScriptScope(options, resolved.pathConfig),
@@ -201,6 +202,11 @@ function resolveExplicitLiteralTypeScriptScope(
     validationPathFilter: pathConfig,
     markExplicitPathsAsValidationFilter: true,
   });
+}
+
+function explicitLiteralFiles(files: readonly string[] | undefined): readonly string[] | undefined {
+  const explicit = files?.filter(pathHasTypeScriptSourceExtension);
+  return explicit === undefined || explicit.length === 0 ? undefined : explicit;
 }
 
 export function filterLiteralFindings(
