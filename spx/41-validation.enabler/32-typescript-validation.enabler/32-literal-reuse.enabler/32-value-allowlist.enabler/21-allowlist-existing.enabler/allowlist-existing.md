@@ -9,6 +9,7 @@ CAN absorb the existing violations into configured allowlist entries without rem
 ### Scenarios
 
 - Given a product repository with one or more current findings, when the user runs `spx validation literal --allowlist-existing`, then every distinct value currently flagged is appended to `validation.literal.values.include` in the product's `spx.config.*` file (creating the file or `validation.literal.values` section if absent, deduplicating against existing entries, sorted alphabetically), and a subsequent `spx validation literal` run against the unchanged source reports zero findings ([test](tests/allowlist-existing.scenario.l1.test.ts))
+- Given `validation.paths.exclude` removes files from the literal-reuse scope, when the user runs `spx validation literal --allowlist-existing`, then values found only under excluded paths are not appended to `validation.literal.values.include` ([test](tests/allowlist-existing.scenario.l1.test.ts))
 - Given multiple `spx.config.*` files exist at the product directory, when `--allowlist-existing` runs, then it returns the same ambiguity error as `resolveConfig` (naming every detected file) and writes nothing ([test](tests/allowlist-existing.scenario.l1.test.ts))
 
 ### Compliance
