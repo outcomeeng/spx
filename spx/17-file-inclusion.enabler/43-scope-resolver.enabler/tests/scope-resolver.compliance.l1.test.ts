@@ -12,6 +12,7 @@ import {
   runPipeline,
 } from "@/lib/file-inclusion/pipeline";
 import type { LayerEntry } from "@/lib/file-inclusion/pipeline";
+import { GIT_TRACKING_LAYER } from "@/lib/file-inclusion/predicates/git-tracking";
 import type { LayerDecision } from "@/lib/file-inclusion/types";
 import { arbitraryPathSegment } from "@testing/generators/git-name/git-name";
 import { sampleGitWorktreeTestValue } from "@testing/generators/git-worktree/git-worktree";
@@ -159,6 +160,28 @@ describe("scope resolver — compliance", () => {
           `excluded path "${excluded.path}" must have a non-empty decision trail`,
         ).toBeGreaterThan(0);
       }
+    });
+  });
+
+  it("ignored directory descendants still reach excluded classification", async () => {
+    await withGitWorktreeEnv(async (env) => {
+      const ignoredDirectory = trackedFilePath();
+      const ignoredChild = `${ignoredDirectory}/${trackedFilePath()}`;
+      await env.writeGitignore(".", `${ignoredDirectory}/\n`);
+      await env.writeUntracked(ignoredChild, fileContent());
+
+      const result = await resolveScope(
+        env.productDir,
+        {
+          walkRoot: env.productDir,
+          overrides: DEFAULT_IGNORE_SOURCE_OVERRIDES,
+        },
+        resolverConfig,
+      );
+
+      const excluded = result.excluded.find((entry) => entry.path === ignoredChild);
+      expect(excluded).toBeDefined();
+      expect(excluded!.decisionTrail.some((decision) => decision.layer === GIT_TRACKING_LAYER)).toBe(true);
     });
   });
 
