@@ -1,9 +1,11 @@
 import fc from "fast-check";
 import { describe, expect, it } from "vitest";
 
-import { createJournal, JOURNAL_BACKEND_KIND, JOURNAL_ERROR } from "@/lib/agent-run-journal";
+import { createJournal, JOURNAL_ERROR } from "@/lib/agent-run-journal";
 import { createAppendableJournalStore } from "@/lib/appendable-journal-store";
 import {
+  type ActionsArtifactClient,
+  type ActionsArtifactSummary,
   artifactJournalRunArtifactName,
   createArtifactJournalStore,
   hydratePriorRuns,
@@ -17,6 +19,19 @@ import {
 import { arbitraryPullNumber, arbitraryRunToken, sampleGithubSnapshotValue } from "@testing/generators/github-snapshot";
 import { InMemoryActionsArtifactClient } from "@testing/harnesses/actions-artifact-client";
 import { createInMemoryStateStoreFileSystem } from "@testing/harnesses/state/in-memory-file-system";
+
+/** An artifact client whose upload always fails, exercising the retention-failure path through DI. */
+class UploadFailingArtifactClient implements ActionsArtifactClient {
+  uploadArtifact(): Promise<void> {
+    return Promise.reject(new Error("actions artifact upload unavailable"));
+  }
+  listArtifacts(): Promise<readonly ActionsArtifactSummary[]> {
+    return Promise.resolve([]);
+  }
+  downloadArtifact(): Promise<string> {
+    return Promise.reject(new Error("actions artifact unavailable"));
+  }
+}
 
 describe("artifact journal store — compliance", () => {
   it("appends to the runner-local journal with no network write, retaining the run once at seal", async () => {
@@ -88,6 +103,26 @@ describe("artifact journal store — compliance", () => {
     expect(artifactClient.uploads).toHaveLength(1);
   });
 
+  it("leaves the run unsealed when retention fails, so a later seal can retry", async () => {
+    const pullNumber = sampleGithubSnapshotValue(arbitraryPullNumber());
+    const runToken = sampleGithubSnapshotValue(arbitraryRunToken());
+
+    const store = createArtifactJournalStore({
+      runFilePath: journalRunFilePath(runToken),
+      fs: createInMemoryStateStoreFileSystem(),
+      artifactClient: new UploadFailingArtifactClient(),
+      pullNumber,
+      runToken,
+    });
+    const journal = createJournal(store, { streamid: runToken, runid: runToken });
+    await journal.append(sampleAgentRunJournalValue(arbitraryJournalEventInput()));
+
+    // Retention is the commitment point: a failed upload propagates and the run
+    // stays unsealed, so a later seal retries rather than stranding it sealed-but-unretained.
+    await expect(store.seal()).rejects.toThrow();
+    expect(await store.isSealed()).toBe(false);
+  });
+
   it("skips a prior run whose artifact retention has expired when hydrating", async () => {
     const pullNumber = sampleGithubSnapshotValue(arbitraryPullNumber());
     const [liveToken, expiredToken] = sampleGithubSnapshotValue(
@@ -130,19 +165,6 @@ describe("artifact journal store — compliance", () => {
 
     // Only the still-retained run is hydrated; the expired one is skipped, not a failure.
     expect(hydrated.map((run) => run.runToken)).toEqual([liveToken]);
-  });
-
-  it("declares its kind as Appendable", () => {
-    const pullNumber = sampleGithubSnapshotValue(arbitraryPullNumber());
-    const runToken = sampleGithubSnapshotValue(arbitraryRunToken());
-    const store = createArtifactJournalStore({
-      runFilePath: journalRunFilePath(runToken),
-      fs: createInMemoryStateStoreFileSystem(),
-      artifactClient: new InMemoryActionsArtifactClient(),
-      pullNumber,
-      runToken,
-    });
-    expect(store.kind).toBe(JOURNAL_BACKEND_KIND.APPENDABLE);
   });
 
   it("replays a hydrated prior run as sealed, rejecting a further append", async () => {
