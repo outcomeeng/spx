@@ -123,6 +123,31 @@ describe("artifact journal store — compliance", () => {
     expect(await store.isSealed()).toBe(false);
   });
 
+  it("completes sealing without re-uploading when the run is already retained but unsealed", async () => {
+    const pullNumber = sampleGithubSnapshotValue(arbitraryPullNumber());
+    const runToken = sampleGithubSnapshotValue(arbitraryRunToken());
+
+    const artifactClient = new InMemoryActionsArtifactClient();
+    const store = createArtifactJournalStore({
+      runFilePath: journalRunFilePath(runToken),
+      fs: createInMemoryStateStoreFileSystem(),
+      artifactClient,
+      pullNumber,
+      runToken,
+    });
+    const journal = createJournal(store, { streamid: runToken, runid: runToken });
+    await journal.append(sampleAgentRunJournalValue(arbitraryJournalEventInput()));
+
+    // A prior seal uploaded the artifact but crashed before writing the marker:
+    // the run is retained yet reports unsealed.
+    artifactClient.seed({ name: artifactJournalRunArtifactName({ pullNumber, runToken }), body: "", expired: false });
+
+    // The retry must complete sealing without re-uploading the already-retained name.
+    await store.seal();
+    expect(artifactClient.uploads).toHaveLength(0);
+    expect(await store.isSealed()).toBe(true);
+  });
+
   it("skips a prior run whose artifact retention has expired when hydrating", async () => {
     const pullNumber = sampleGithubSnapshotValue(arbitraryPullNumber());
     const [liveToken, expiredToken] = sampleGithubSnapshotValue(
