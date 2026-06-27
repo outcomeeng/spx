@@ -92,6 +92,10 @@ export function cleanGitTestEnvironment(env: NodeJS.ProcessEnv = process.env): N
   return cleaned;
 }
 
+export function gitArgsEqual(actual: readonly string[], expected: readonly string[]): boolean {
+  return actual.length === expected.length && actual.every((value, index) => value === expected[index]);
+}
+
 export function buildGitTestEnvironment(
   envOverrides: GitTestEnvironmentOverrides = {},
 ): NodeJS.ProcessEnv {

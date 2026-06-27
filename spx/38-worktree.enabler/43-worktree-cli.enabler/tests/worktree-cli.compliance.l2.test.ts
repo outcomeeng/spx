@@ -180,11 +180,10 @@ describe("worktree CLI compliance", () => {
 
           expect(result.exitCode).toBe(0);
           const parsed = JSON.parse(result.stdout) as readonly { readonly worktree: string; readonly status: string }[];
-          expect(parsed).toHaveLength(2);
-          expect(parsed).toEqual(expect.arrayContaining([
-            { worktree: worktreeClaimName(firstPath), status: OCCUPANCY_STATUS.FREE },
+          expect(parsed).toEqual([
             { worktree: worktreeClaimName(secondPath), status: OCCUPANCY_STATUS.FREE },
-          ]));
+            { worktree: worktreeClaimName(firstPath), status: OCCUPANCY_STATUS.FREE },
+          ]);
         });
       },
     );
