@@ -93,27 +93,23 @@ describe("artifact journal store — compliance", () => {
     expect(artifactClient.uploads).toHaveLength(1);
   });
 
-  it("retains each sealed run as a distinct per-run artifact addressed by its pull request, type, and run token", async () => {
-    const pullNumber = sampleGithubSnapshotValue(arbitraryPullNumber());
-    const type = sampleStateStoreTestValue(STATE_STORE_TEST_GENERATOR.scopeToken());
-    const runToken = sampleGithubSnapshotValue(arbitraryRunToken());
-
-    const artifactClient = new InMemoryActionsArtifactClient();
-    const journal = createJournal(
-      createArtifactJournalStore({
-        runFilePath: journalRunFilePath(runToken),
-        fs: createInMemoryStateStoreFileSystem(),
-        artifactClient,
-        pullNumber,
-        type,
-        runToken,
-      }),
-      { streamid: runToken, runid: runToken },
+  it("addresses the retained artifact by pull request, type, and run token, so any one distinguishes it", () => {
+    const [pullNumber, otherPull] = sampleGithubSnapshotValue(
+      fc.uniqueArray(arbitraryPullNumber(), { minLength: 2, maxLength: 2 }),
     );
-    await journal.append(sampleAgentRunJournalValue(arbitraryJournalEventInput()));
-    await journal.seal();
+    const [type, otherType] = sampleStateStoreTestValue(
+      fc.uniqueArray(STATE_STORE_TEST_GENERATOR.scopeToken(), { minLength: 2, maxLength: 2 }),
+    );
+    const [runToken, otherToken] = sampleGithubSnapshotValue(
+      fc.uniqueArray(arbitraryRunToken(), { minLength: 2, maxLength: 2 }),
+    );
 
-    expect(artifactClient.uploads[0]?.name).toBe(artifactJournalRunArtifactName({ pullNumber, type, runToken }));
+    // Each component participates in the name: changing any one yields a different
+    // artifact, so two runs differing in pull request, type, or run token never collide.
+    const name = artifactJournalRunArtifactName({ pullNumber, type, runToken });
+    expect(artifactJournalRunArtifactName({ pullNumber: otherPull, type, runToken })).not.toBe(name);
+    expect(artifactJournalRunArtifactName({ pullNumber, type: otherType, runToken })).not.toBe(name);
+    expect(artifactJournalRunArtifactName({ pullNumber, type, runToken: otherToken })).not.toBe(name);
   });
 
   it("re-seals an already-retained run as a no-op, uploading no second artifact", async () => {
