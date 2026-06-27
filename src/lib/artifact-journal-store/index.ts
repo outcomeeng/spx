@@ -91,12 +91,15 @@ export function createArtifactJournalStore(options: ArtifactJournalStoreOptions)
       // same per-run artifact name conflicts under the Actions artifact API, so a
       // harmless retry must not become an upload error.
       if (await local.isSealed()) return;
-      await local.seal();
+      // Retain first, then mark sealed: the successful upload is the commitment
+      // point, so an upload failure leaves the run unsealed and a retry re-attempts
+      // retention rather than seeing a sealed-but-unretained run it can never fix.
       const body = await readFileOrEmpty(fs, runFilePath);
       await artifactClient.uploadArtifact({
         name: artifactJournalRunArtifactName({ pullNumber, runToken }),
         body,
       });
+      await local.seal();
     },
   };
 }
