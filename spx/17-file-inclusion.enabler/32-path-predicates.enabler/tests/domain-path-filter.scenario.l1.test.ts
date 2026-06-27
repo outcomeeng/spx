@@ -3,6 +3,7 @@ import { describe, expect, it } from "vitest";
 import {
   DOMAIN_PATH_FILTER_DETAIL_PREFIX,
   DOMAIN_PATH_FILTER_LAYER,
+  DOMAIN_PATH_FILTER_ROOT_PREFIX,
   domainPathFilterPredicate,
 } from "@/lib/file-inclusion/predicates/domain-path-filter";
 import {
@@ -86,6 +87,25 @@ describe("domain-path-filter predicate — scenarios", () => {
       matched: true,
       layer: DOMAIN_PATH_FILTER_LAYER,
       detail: `${DOMAIN_PATH_FILTER_DETAIL_PREFIX.EXCLUDE}${trailingPrefix}`,
+    });
+  });
+
+  it("normalizes dot prefixes to the root path filter", () => {
+    const tracked = trackedPath();
+    const includeResult = domainPathFilterPredicate(
+      tracked,
+      pathFilter({ include: [DOMAIN_PATH_FILTER_ROOT_PREFIX] }),
+    );
+    const excludeResult = domainPathFilterPredicate(
+      tracked,
+      pathFilter({ exclude: [DOMAIN_PATH_FILTER_ROOT_PREFIX] }),
+    );
+
+    expect(includeResult).toEqual({ matched: false, layer: DOMAIN_PATH_FILTER_LAYER });
+    expect(excludeResult).toEqual({
+      matched: true,
+      layer: DOMAIN_PATH_FILTER_LAYER,
+      detail: `${DOMAIN_PATH_FILTER_DETAIL_PREFIX.EXCLUDE}${DOMAIN_PATH_FILTER_ROOT_PREFIX}`,
     });
   });
 });
