@@ -7,6 +7,7 @@ import { artifactDirectoryLayer, hiddenPrefixLayer } from "@/lib/file-inclusion/
 import { runPipeline } from "@/lib/file-inclusion/pipeline";
 import type { ScopeEntry } from "@/lib/file-inclusion/types";
 import { type ValidationPathConfig } from "@/validation/config/descriptor";
+import { pathPassesValidationFilter } from "@/validation/config/path-filter";
 import { pathPassesTypeScriptScope } from "@/validation/config/scope";
 import type { ScopeConfig } from "@/validation/types";
 
@@ -60,8 +61,6 @@ export interface ValidateLiteralReuseResult {
   readonly filteredByValidationPathNoMatches?: boolean;
 }
 
-const PATH_PREFIX_SEPARATOR = "/";
-
 export const DEFAULT_LITERAL_COLLECT_OPTIONS = {
   visitorKeys: defaultVisitorKeys,
   minStringLength: literalConfigDescriptor.defaults.minStringLength,
@@ -72,11 +71,6 @@ export function createEmptyLiteralAllowlist(): ReadonlySet<string> {
   return new Set();
 }
 
-function normalizePathPrefix(prefix: string): string {
-  const posix = prefix.split(/[\\/]/g).join(PATH_PREFIX_SEPARATOR);
-  return posix.endsWith(PATH_PREFIX_SEPARATOR) ? posix : `${posix}${PATH_PREFIX_SEPARATOR}`;
-}
-
 function applyPathFilter(
   entries: readonly ScopeEntry[],
   pathConfig: ValidationPathConfig | undefined,
@@ -84,20 +78,7 @@ function applyPathFilter(
   if (pathConfig === undefined) {
     return entries;
   }
-  const includePrefixes = (pathConfig.include ?? []).map(normalizePathPrefix);
-  const excludePrefixes = (pathConfig.exclude ?? []).map(normalizePathPrefix);
-  return entries.filter((entry) => {
-    if (
-      includePrefixes.length > 0
-      && !includePrefixes.some((p) => entry.path.startsWith(p))
-    ) {
-      return false;
-    }
-    if (excludePrefixes.some((p) => entry.path.startsWith(p))) {
-      return false;
-    }
-    return true;
-  });
+  return entries.filter((entry) => pathPassesValidationFilter(entry.path, pathConfig));
 }
 
 export async function validateLiteralReuse(

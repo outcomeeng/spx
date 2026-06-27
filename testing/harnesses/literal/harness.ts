@@ -54,7 +54,6 @@ function createLiteralFixtureEnv(specEnv: SpecTreeEnv): LiteralFixtureEnv {
 }
 
 async function writeReuseFixture(specEnv: SpecTreeEnv, inputs: LiteralReuseFixtureInputs): Promise<void> {
-  await specEnv.writeRaw(TYPESCRIPT_MARKER, EMPTY_TSCONFIG_CONTENT);
   await writeSourceReuseFixture(specEnv, {
     literal: inputs.reuseLiteral,
     sourceFile: inputs.reuseSourceFile,
@@ -77,7 +76,6 @@ async function writeSourceReuseFixtures(
   specEnv: SpecTreeEnv,
   inputs: readonly LiteralSourceReuseFixtureInputs[],
 ): Promise<void> {
-  await specEnv.writeRaw(TYPESCRIPT_MARKER, EMPTY_TSCONFIG_CONTENT);
   for (const fixture of inputs) {
     await writeSourceReuseFixture(specEnv, fixture);
   }
