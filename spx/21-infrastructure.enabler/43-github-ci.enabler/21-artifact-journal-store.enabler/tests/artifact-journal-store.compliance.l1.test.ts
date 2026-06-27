@@ -7,6 +7,7 @@ import {
   type ActionsArtifactClient,
   type ActionsArtifactSummary,
   artifactJournalRunArtifactName,
+  artifactJournalScopePrefix,
   createArtifactJournalStore,
   hydratePriorRuns,
 } from "@/lib/artifact-journal-store";
@@ -234,6 +235,37 @@ describe("artifact journal store — compliance", () => {
 
     // Only the still-retained run is hydrated; the expired one is skipped, not a failure.
     expect(hydrated.map((run) => run.runToken)).toEqual([liveToken]);
+  });
+
+  it("skips an artifact whose run-token segment is not a valid scope token", async () => {
+    const pullNumber = sampleGithubSnapshotValue(arbitraryPullNumber());
+    const type = sampleStateStoreTestValue(STATE_STORE_TEST_GENERATOR.scopeToken());
+
+    const artifactClient = new InMemoryActionsArtifactClient();
+    // A network-sourced artifact whose run-token segment is a path-traversal sequence; it
+    // matches the scope prefix but must never reach the filesystem.
+    const traversalToken = "../escape";
+    artifactClient.seed({
+      name: `${artifactJournalScopePrefix({ pullNumber, type })}${traversalToken}`,
+      body: "",
+      expired: false,
+    });
+
+    let pathRequested = false;
+    const hydrated = await hydratePriorRuns({
+      artifactClient,
+      fs: createInMemoryStateStoreFileSystem(),
+      pullNumber,
+      type,
+      runFilePathFor: (token) => {
+        pathRequested = true;
+        return journalRunFilePath(token);
+      },
+    });
+
+    // The malformed artifact is skipped before any path is built or written.
+    expect(hydrated).toEqual([]);
+    expect(pathRequested).toBe(false);
   });
 
   it("replays a hydrated prior run as sealed, rejecting a further append", async () => {

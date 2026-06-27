@@ -8,6 +8,7 @@ import {
   hasErrorCode,
   STATE_STORE_TEXT_ENCODING,
   type StateStoreFileSystem,
+  validateScopeToken,
 } from "@/lib/state-store";
 
 const ARTIFACT_NAME_PR_PREFIX = "spx-journal-pr-";
@@ -47,13 +48,20 @@ export interface ActionsArtifactClient {
  * type, used to list that scope's retained runs. Including the opaque `<type>` keeps a
  * pull request's verification kinds in disjoint artifact name spaces, so hydration for
  * one type never lists or materializes another type's runs.
+ *
+ * `type` must be a scope token (`[A-Za-z0-9_-]`, the journal's `<type>` segment): the `.`
+ * delimiter relies on the type being dotless for the disjoint-name-space guarantee.
  */
 export function artifactJournalScopePrefix(args: { pullNumber: number; type: string }): string {
   const d = ARTIFACT_NAME_SEGMENT_DELIMITER;
   return `${ARTIFACT_NAME_PR_PREFIX}${args.pullNumber}${d}${args.type}${d}`;
 }
 
-/** The artifact name that retains one run, addressed by its pull request, verification type, and run token. */
+/**
+ * The artifact name that retains one run, addressed by its pull request, verification type,
+ * and run token. `type` and `runToken` must be scope tokens (`[A-Za-z0-9_-]`) so the `.`
+ * delimiters stay unambiguous.
+ */
 export function artifactJournalRunArtifactName(args: { pullNumber: number; type: string; runToken: string }): string {
   return `${artifactJournalScopePrefix({ pullNumber: args.pullNumber, type: args.type })}${args.runToken}`;
 }
@@ -67,7 +75,7 @@ export interface ArtifactJournalStoreOptions {
   readonly artifactClient: ActionsArtifactClient;
   /** The pull request whose retained runs this run joins. */
   readonly pullNumber: number;
-  /** The opaque verification-type segment this run is scoped to. */
+  /** The opaque verification-type segment this run is scoped to; a scope token (`[A-Za-z0-9_-]`). */
   readonly type: string;
   /** This run's token, addressing its per-run artifact. */
   readonly runToken: string;
@@ -134,7 +142,7 @@ export interface HydratePriorRunsOptions {
   readonly fs: StateStoreFileSystem;
   /** The pull request whose retained runs to hydrate. */
   readonly pullNumber: number;
-  /** The opaque verification-type segment to hydrate; another type's runs are not listed. */
+  /** The opaque verification-type segment to hydrate; a scope token (`[A-Za-z0-9_-]`). Another type's runs are not listed. */
   readonly type: string;
   /** Maps a run token to the runner-local run file path its history is written to. */
   readonly runFilePathFor: (runToken: string) => string;
@@ -147,6 +155,12 @@ export interface HydratePriorRunsOptions {
  * the run's local path. Scoping the prefix by type keeps another verification kind's runs
  * out of the listing. A prior run whose artifact expired is skipped rather than failing the
  * opening run, so the readable set is the type's still-retained runs.
+ *
+ * Artifact names are network-sourced, so the run-token segment extracted from each name is
+ * validated as a scope token before it reaches the filesystem: an artifact whose suffix is
+ * not a valid token (a path separator, a `..` segment, or any non-`[A-Za-z0-9_-]` character)
+ * is skipped, so a malformed or adversarial artifact name cannot redirect a hydrated write
+ * outside the runs directory.
  */
 export async function hydratePriorRuns(options: HydratePriorRunsOptions): Promise<readonly HydratedRun[]> {
   const { artifactClient, fs, pullNumber, type, runFilePathFor } = options;
@@ -157,6 +171,10 @@ export async function hydratePriorRuns(options: HydratePriorRunsOptions): Promis
   for (const summary of summaries) {
     if (summary.expired) continue;
     const runToken = summary.name.slice(prefix.length);
+    // The run token comes from a network-sourced artifact name; reject anything that is not a
+    // scope token before it reaches runFilePathFor and the filesystem, so a traversal suffix
+    // cannot escape the runs directory.
+    if (!validateScopeToken(runToken).ok) continue;
     const body = await artifactClient.downloadArtifact({ name: summary.name });
     const runFilePath = runFilePathFor(runToken);
     await fs.mkdir(dirname(runFilePath), { recursive: true });
