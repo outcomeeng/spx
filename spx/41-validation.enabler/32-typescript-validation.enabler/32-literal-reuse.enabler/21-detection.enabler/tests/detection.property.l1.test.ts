@@ -107,10 +107,6 @@ function naturalOrder(fixture: DetectionFixture): readonly FixtureFile[] {
   return [...fixture.srcFiles, ...fixture.testFiles];
 }
 
-function quotedNumber(value: number): string {
-  return String(value);
-}
-
 describe("detection — invariants", () => {
   it("detection is deterministic: running the detector twice over the same fixture yields deep-equal problems", () => {
     fc.assert(
@@ -143,7 +139,7 @@ describe("detection — invariants", () => {
           numberFilename: arbitrarySourceFilePath(),
         }),
         (entries) => {
-          const sameValue = quotedNumber(entries.literal);
+          const sameValue = String(entries.literal);
           const occurrences: LiteralOccurrence[] = [
             ...collectLiterals(
               buildStringDeclaration(sameValue),

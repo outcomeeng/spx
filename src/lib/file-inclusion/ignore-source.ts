@@ -6,7 +6,7 @@ import { withoutGitEnvironment } from "@/git/environment";
 
 import type { IgnoreSourceOverrides } from "./types";
 
-const GIT_EXECUTABLE = "git";
+const GIT_EXECUTABLE = "/usr/bin/git";
 const GIT_LS_FILES_ARGS = {
   LS_FILES: "ls-files",
   CACHED: "--cached",

@@ -205,7 +205,7 @@ function resolveExplicitLiteralTypeScriptScope(
 }
 
 function explicitLiteralFiles(files: readonly string[] | undefined): readonly string[] | undefined {
-  const explicit = files?.filter(pathHasTypeScriptSourceExtension);
+  const explicit = files?.filter((file) => pathHasTypeScriptSourceExtension(file));
   return explicit === undefined || explicit.length === 0 ? undefined : explicit;
 }
 
