@@ -6,6 +6,7 @@ import { createAppendableJournalStore } from "@/lib/appendable-journal-store";
 import { createArtifactJournalStore, hydratePriorRuns } from "@/lib/artifact-journal-store";
 import { arbitraryJournalEventInputs, journalRunFilePath } from "@testing/generators/agent-run-journal";
 import { arbitraryPullNumber, arbitraryRunToken } from "@testing/generators/github-snapshot";
+import { STATE_STORE_TEST_GENERATOR } from "@testing/generators/state-store/state-store";
 import { InMemoryActionsArtifactClient } from "@testing/harnesses/actions-artifact-client";
 import { createInMemoryStateStoreFileSystem } from "@testing/harnesses/state/in-memory-file-system";
 
@@ -16,7 +17,8 @@ describe("artifact journal store — durable artifact replay", () => {
         arbitraryJournalEventInputs(),
         arbitraryRunToken(),
         arbitraryPullNumber(),
-        async (inputs, runToken, pullNumber) => {
+        STATE_STORE_TEST_GENERATOR.scopeToken(),
+        async (inputs, runToken, pullNumber, type) => {
           const artifactClient = new InMemoryActionsArtifactClient();
           const jobFs = createInMemoryStateStoreFileSystem();
           const identity = { streamid: runToken, runid: runToken };
@@ -26,6 +28,7 @@ describe("artifact journal store — durable artifact replay", () => {
               fs: jobFs,
               artifactClient,
               pullNumber,
+              type,
               runToken,
             }),
             identity,
@@ -41,6 +44,7 @@ describe("artifact journal store — durable artifact replay", () => {
             artifactClient,
             fs: freshFs,
             pullNumber,
+            type,
             runFilePathFor: (token) => journalRunFilePath(token),
           });
           const reopened = createAppendableJournalStore({ runFilePath: hydratedRun.runFilePath, fs: freshFs });

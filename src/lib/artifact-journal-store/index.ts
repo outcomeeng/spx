@@ -11,7 +11,12 @@ import {
 } from "@/lib/state-store";
 
 const ARTIFACT_NAME_PR_PREFIX = "spx-journal-pr-";
-const ARTIFACT_NAME_RUN_INFIX = "-run-";
+// `.` delimits the pull request, verification type, and run token. The type and run
+// token are scope tokens (`[A-Za-z0-9_-]`) and the run token is a fixed dotless format,
+// so none can contain `.` — the delimiter is unambiguous and `.` is legal in an Actions
+// artifact name. This keeps one pull request's verification types in disjoint name
+// spaces so hydration never lists another type's runs.
+const ARTIFACT_NAME_SEGMENT_DELIMITER = ".";
 const EMPTY_ARTIFACT_BODY = "";
 
 /** A run-scoped GitHub Actions artifact discovered when listing a pull request's retained runs. */
@@ -37,14 +42,20 @@ export interface ActionsArtifactClient {
   downloadArtifact(args: { name: string }): Promise<string>;
 }
 
-/** The artifact-name prefix shared by every run of one pull request, used to list its retained runs. */
-export function artifactJournalPullRequestPrefix(pullNumber: number): string {
-  return `${ARTIFACT_NAME_PR_PREFIX}${pullNumber}${ARTIFACT_NAME_RUN_INFIX}`;
+/**
+ * The artifact-name prefix shared by every run of one pull request and verification
+ * type, used to list that scope's retained runs. Including the opaque `<type>` keeps a
+ * pull request's verification kinds in disjoint artifact name spaces, so hydration for
+ * one type never lists or materializes another type's runs.
+ */
+export function artifactJournalScopePrefix(args: { pullNumber: number; type: string }): string {
+  const d = ARTIFACT_NAME_SEGMENT_DELIMITER;
+  return `${ARTIFACT_NAME_PR_PREFIX}${args.pullNumber}${d}${args.type}${d}`;
 }
 
-/** The artifact name that retains one run, addressed by its pull request and run token. */
-export function artifactJournalRunArtifactName(args: { pullNumber: number; runToken: string }): string {
-  return `${artifactJournalPullRequestPrefix(args.pullNumber)}${args.runToken}`;
+/** The artifact name that retains one run, addressed by its pull request, verification type, and run token. */
+export function artifactJournalRunArtifactName(args: { pullNumber: number; type: string; runToken: string }): string {
+  return `${artifactJournalScopePrefix({ pullNumber: args.pullNumber, type: args.type })}${args.runToken}`;
 }
 
 export interface ArtifactJournalStoreOptions {
@@ -56,6 +67,8 @@ export interface ArtifactJournalStoreOptions {
   readonly artifactClient: ActionsArtifactClient;
   /** The pull request whose retained runs this run joins. */
   readonly pullNumber: number;
+  /** The opaque verification-type segment this run is scoped to. */
+  readonly type: string;
   /** This run's token, addressing its per-run artifact. */
   readonly runToken: string;
 }
@@ -68,7 +81,7 @@ export interface ArtifactJournalStoreOptions {
  */
 export function createArtifactJournalStore(options: ArtifactJournalStoreOptions): AppendableBackend {
   const fs = options.fs ?? defaultStateStoreFileSystem;
-  const { runFilePath, artifactClient, pullNumber, runToken } = options;
+  const { runFilePath, artifactClient, pullNumber, type, runToken } = options;
   const local = createAppendableJournalStore({ runFilePath, fs });
 
   return {
@@ -98,7 +111,7 @@ export function createArtifactJournalStore(options: ArtifactJournalStoreOptions)
       // a later seal re-attempts the upload. Skip the upload when the artifact is
       // already retained — its per-run name is immutable under the Actions API, so
       // re-uploading it would conflict.
-      const name = artifactJournalRunArtifactName({ pullNumber, runToken });
+      const name = artifactJournalRunArtifactName({ pullNumber, type, runToken });
       if (await isArtifactRetained(artifactClient, name)) return;
       const body = await readFileOrEmpty(fs, runFilePath);
       await artifactClient.uploadArtifact({ name, body });
@@ -121,20 +134,23 @@ export interface HydratePriorRunsOptions {
   readonly fs: StateStoreFileSystem;
   /** The pull request whose retained runs to hydrate. */
   readonly pullNumber: number;
+  /** The opaque verification-type segment to hydrate; another type's runs are not listed. */
+  readonly type: string;
   /** Maps a run token to the runner-local run file path its history is written to. */
   readonly runFilePathFor: (runToken: string) => string;
 }
 
 /**
- * Hydrate a pull request's prior runs into the runner-local filesystem: list the retained
- * artifacts by the pull request's prefix, skip any whose retention has expired, download each
- * live artifact's JSONL body, and write it to the run's local path. A prior run whose artifact
- * expired is skipped rather than failing the opening run, so the readable set is the pull
- * request's still-retained runs.
+ * Hydrate a pull request's prior runs of one verification type into the runner-local
+ * filesystem: list the retained artifacts by the pull-request-and-type prefix, skip any
+ * whose retention has expired, download each live artifact's JSONL body, and write it to
+ * the run's local path. Scoping the prefix by type keeps another verification kind's runs
+ * out of the listing. A prior run whose artifact expired is skipped rather than failing the
+ * opening run, so the readable set is the type's still-retained runs.
  */
 export async function hydratePriorRuns(options: HydratePriorRunsOptions): Promise<readonly HydratedRun[]> {
-  const { artifactClient, fs, pullNumber, runFilePathFor } = options;
-  const prefix = artifactJournalPullRequestPrefix(pullNumber);
+  const { artifactClient, fs, pullNumber, type, runFilePathFor } = options;
+  const prefix = artifactJournalScopePrefix({ pullNumber, type });
   const summaries = await artifactClient.listArtifacts({ namePrefix: prefix });
 
   const hydrated: HydratedRun[] = [];
