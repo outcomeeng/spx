@@ -87,19 +87,21 @@ export function createArtifactJournalStore(options: ArtifactJournalStoreOptions)
     },
 
     async seal(): Promise<void> {
-      if (await local.isSealed()) return;
-      // Retain first, then mark sealed, so a failed upload leaves the run unsealed
-      // and retriable. Skip the upload when the artifact is already retained — a run
-      // whose prior seal uploaded but crashed before the marker is retained yet
-      // unsealed, and re-uploading the same per-run name conflicts under the Actions
-      // artifact API — so the retry completes sealing instead of failing on the
-      // duplicate. Retention, not the marker, is the run's commitment point.
+      // Seal the local marker first: sealing is terminal, so a sealed run rejects
+      // further appends and the JSONL body can no longer grow. Retention captures
+      // that frozen body, so no append can interleave between a failed seal and a
+      // retry to diverge the retained record from the local one. Idempotent — a
+      // re-seal skips the marker when the run is already sealed.
+      if (!(await local.isSealed())) await local.seal();
+      // Then ensure durable retention, independently of the seal guard and
+      // idempotently: a retention failure leaves the run sealed-but-unretained, and
+      // a later seal re-attempts the upload. Skip the upload when the artifact is
+      // already retained — its per-run name is immutable under the Actions API, so
+      // re-uploading it would conflict.
       const name = artifactJournalRunArtifactName({ pullNumber, runToken });
-      if (!(await isArtifactRetained(artifactClient, name))) {
-        const body = await readFileOrEmpty(fs, runFilePath);
-        await artifactClient.uploadArtifact({ name, body });
-      }
-      await local.seal();
+      if (await isArtifactRetained(artifactClient, name)) return;
+      const body = await readFileOrEmpty(fs, runFilePath);
+      await artifactClient.uploadArtifact({ name, body });
     },
   };
 }
