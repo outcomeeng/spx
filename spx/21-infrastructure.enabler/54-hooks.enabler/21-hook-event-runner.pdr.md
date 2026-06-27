@@ -8,8 +8,8 @@ without becoming commands in any one domain. `session-start` is the first
 required event: it reports session and project identity, writes hook-runtime
 exports, reports whether the worktree is held by the agent session, and emits
 model-visible startup guidance on hook stdout — on the compact lifecycle source,
-a directive to re-establish spec-tree foundation before spec-governed work
-resumes.
+the guidance names the compact source as the hook-firing reason and directs
+re-establishment of spec-tree foundation before spec-governed work resumes.
 
 ## Rationale
 
@@ -44,9 +44,10 @@ surfaces remain focused on explicit operator actions.
 - ALWAYS: a failed `session-start` responsibility degrades by recording an
   explicit marker or diagnostic while allowing the hook invocation to complete
   successfully ([audit])
-- ALWAYS: the compact-source startup directive actionably re-establishes
-  spec-tree foundation — directing re-invocation of `/understand` then
-  `/contextualize` before spec-governed work resumes — and frames pre-compaction
-  skill text as historical rather than active ([audit])
+- ALWAYS: the compact-source startup directive names the compact lifecycle
+  source as the hook-firing reason, actionably re-establishes spec-tree
+  foundation — directing re-invocation of `/understand` then `/contextualize`
+  before spec-governed work resumes — and classifies compaction-summary skill
+  text as context only, outside active instruction authority ([audit])
 - NEVER: hook stdout carries diagnostics; stdout is reserved for hook-specific
   model-visible context ([audit])
