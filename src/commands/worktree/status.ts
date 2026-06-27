@@ -16,6 +16,7 @@ import {
 import type { ProcessTable } from "@/domains/worktree/process-table";
 
 import {
+  resolveAllTargetWorktrees,
   type ResolvedTargetWorktree,
   resolveTargetWorktree,
   resolveWorktreesDir,
@@ -36,9 +37,15 @@ export const WORKTREE_STATUS_RENDER = {
   RUNNING_PID_PREFIX: "PID ",
 } as const;
 
+export const WORKTREE_STATUS_ERROR = {
+  ALL_WITH_EXPLICIT_TARGETS: "worktree status --all cannot be combined with explicit worktree operands",
+} as const;
+
 export interface StatusCommandOptions extends WorktreeScopeOptions {
   /** The worktrees to query — paths inside them; defaults to the running directory when omitted. */
   readonly worktrees?: readonly string[];
+  /** Whether to query every git-observed worktree in the repository. */
+  readonly all?: boolean;
   /** Output format; defaults to text. */
   readonly format?: string;
   /** Injected process table. */
@@ -60,7 +67,7 @@ interface WorktreeStatusRecord {
 
 /** Reads target worktree occupancy and renders it in the requested format. */
 export async function statusCommand(options: StatusCommandOptions): Promise<Result<string>> {
-  const multiTargetRequest = options.worktrees !== undefined && options.worktrees.length > 1;
+  const multiTargetRequest = options.all === true || (options.worktrees !== undefined && options.worktrees.length > 1);
   const targets = await resolveStatusTargets(options);
   if (!targets.ok) return targets;
 
@@ -83,6 +90,12 @@ export async function statusCommand(options: StatusCommandOptions): Promise<Resu
 
 async function resolveStatusTargets(options: StatusCommandOptions): Promise<Result<readonly ResolvedTargetWorktree[]>> {
   const requested = options.worktrees;
+  if (options.all === true) {
+    if (requested !== undefined && requested.length > 0) {
+      return { ok: false, error: WORKTREE_STATUS_ERROR.ALL_WITH_EXPLICIT_TARGETS };
+    }
+    return resolveAllTargetWorktrees(options);
+  }
   if (requested === undefined || requested.length === 0) {
     const target = await resolveTargetWorktree(options);
     if (!target.ok) return target;

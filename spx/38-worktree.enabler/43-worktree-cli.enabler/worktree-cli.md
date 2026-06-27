@@ -1,6 +1,6 @@
 # Worktree CLI
 
-PROVIDES Commander.js bindings for `spx worktree status [worktree...]`, `spx worktree claim --session-id <id>`, and `spx worktree release`, with shared worktree-root resolution, controlling-process resolution, the silent-stdout claim contract, machine-parseable status output, and exit codes the marketplace consumers depend on
+PROVIDES Commander.js bindings for `spx worktree status [worktree...]`, `spx worktree status --all`, `spx worktree claim --session-id <id>`, and `spx worktree release`, with shared worktree-root resolution, controlling-process resolution, the silent-stdout claim contract, machine-parseable status output, and exit codes the marketplace consumers depend on
 SO THAT `/handoff`, `/pickup`, manual repair flows, and compatibility flows
 CAN claim, query, and release worktree occupancy with predictable output, exit codes, and shared worktree identity rules
 
@@ -15,6 +15,8 @@ CAN claim, query, and release worktree occupancy with predictable output, exit c
 - Given a worktree whose claim holder is live on the same host, when the status handler runs, then it reports `running` with the holder's pid — and in `--format json` carries the holder's `pid`, `session`, and `host` — while a worktree with no claim and one whose holder is dead both report `free` ([test](tests/worktree-cli.scenario.l1.test.ts))
 - Given the running worktree holds a claim, when the release handler runs, then the claim is removed ([test](tests/worktree-cli.scenario.l1.test.ts))
 - Given no worktree argument, when the status handler runs from within a worktree, then it reports that worktree's occupancy, the same claim and release resolve from the running directory ([test](tests/worktree-cli.scenario.l1.test.ts))
+- Given `--all`, when the status handler runs from inside a git worktree pool, then it reports every first-seen worktree root from git's worktree list using the same occupancy shape as multi-target status and emits an array for `--format json` even when the pool contains one worktree ([test](tests/worktree-cli.scenario.l1.test.ts), [test](tests/worktree-cli.compliance.l2.test.ts))
+- Given `--all` and explicit worktree operands, when the status handler runs, then it rejects the ambiguous target selection ([test](tests/worktree-cli.scenario.l1.test.ts))
 - Given a worktree claimed under its own git-common-dir scope, when the status handler runs with that worktree's path from an unrelated directory, then it resolves the claim scope from the target worktree, not the caller's directory, and reports `running` ([test](tests/worktree-cli.scenario.l1.test.ts))
 - Given shell expansion supplies multiple sibling paths to `spx worktree status`, when at least one path resolves to a worktree, then text output reports one line for each first-seen resolved worktree with that worktree's derived claim name and occupancy, emits no line whose worktree name is `undefined`, and exits 0 ([test](tests/worktree-cli.scenario.l1.test.ts), [test](tests/worktree-cli.scenario.l2.test.ts))
 - Given a claimed pool worktree, when `spx worktree status` is executed through `node bin/spx.js` from inside it, against its root path, and against a path within it, then each reports the same occupancy as the claim, and `spx worktree status` of a single path that is not a worktree exits non-zero ([test](tests/worktree-cli.scenario.l2.test.ts))

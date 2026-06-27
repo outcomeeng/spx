@@ -9,11 +9,12 @@ import { dirname, resolve } from "node:path";
 
 import type { Result } from "@/config/types";
 import { worktreeClaimName } from "@/domains/worktree/worktree-name";
-import { detectWorktreeProductRoot, type GitDependencies } from "@/git/root";
+import { detectWorktreeProductRoot, gatherGitFacts, type GitDependencies } from "@/git/root";
 import { resolveWorktreesScopeDir } from "@/lib/state-store";
 
 export const WORKTREE_RESOLVE_ERROR = {
   NOT_A_WORKTREE: "path resolves to no worktree",
+  WORKTREE_LIST_UNAVAILABLE: "git worktree list is unavailable",
 } as const;
 
 /** Receives a non-git-repo diagnostic for an interface boundary to surface. */
@@ -52,6 +53,23 @@ export async function resolveCurrentWorktreeName(options: WorktreeScopeOptions):
 export interface ResolvedTargetWorktree {
   readonly name: string;
   readonly worktreeRoot: string;
+}
+
+/** Every git-observed worktree root for the repository containing `cwd`, in git's first-seen order. */
+export async function resolveAllTargetWorktrees(
+  options: WorktreeScopeOptions,
+): Promise<Result<readonly ResolvedTargetWorktree[]>> {
+  const facts = await gatherGitFacts(options.cwd, options.gitDeps);
+  if (facts === null || !facts.worktreeListRead) {
+    return { ok: false, error: WORKTREE_RESOLVE_ERROR.WORKTREE_LIST_UNAVAILABLE };
+  }
+  return {
+    ok: true,
+    value: facts.worktreeRoots.map((worktreeRoot) => ({
+      name: worktreeClaimName(worktreeRoot),
+      worktreeRoot,
+    })),
+  };
 }
 
 /**
