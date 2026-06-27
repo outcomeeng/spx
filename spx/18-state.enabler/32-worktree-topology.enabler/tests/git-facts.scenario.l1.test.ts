@@ -22,10 +22,7 @@ import {
   arbitraryPoolFactsSample,
   sampleMainCheckoutTestValue,
 } from "@testing/generators/main-checkout/main-checkout";
-
-function argsEqual(actual: readonly string[], expected: readonly string[]): boolean {
-  return actual.length === expected.length && actual.every((value, index) => value === expected[index]);
-}
+import { gitArgsEqual } from "@testing/harnesses/git-test-constants";
 
 /**
  * A git double driving `gatherGitFacts`'s probe fallbacks: `--show-toplevel`
@@ -45,25 +42,25 @@ function probeDeps(
 ): GitDependencies {
   return {
     execa: async (_command, args) => {
-      if (argsEqual(args, GIT_SHOW_TOPLEVEL_ARGS)) {
+      if (gitArgsEqual(args, GIT_SHOW_TOPLEVEL_ARGS)) {
         return { exitCode: toplevel.exitCode, stdout: toplevel.stdout, stderr: "" };
       }
-      if (argsEqual(args, GIT_COMMON_DIR_ARGS)) {
+      if (gitArgsEqual(args, GIT_COMMON_DIR_ARGS)) {
         return { exitCode: commonDirExit, stdout: options.commonDirStdout ?? "", stderr: "" };
       }
-      if (argsEqual(args, GIT_REMOTE_GET_URL_ORIGIN_ARGS)) {
+      if (gitArgsEqual(args, GIT_REMOTE_GET_URL_ORIGIN_ARGS)) {
         return originUrl === null
           ? { exitCode: 1, stdout: "", stderr: "" }
           : { exitCode: 0, stdout: originUrl, stderr: "" };
       }
-      if (argsEqual(args, GIT_WORKTREE_LIST_PORCELAIN_ARGS)) {
+      if (gitArgsEqual(args, GIT_WORKTREE_LIST_PORCELAIN_ARGS)) {
         return {
           exitCode: options.worktreeListExitCode ?? 1,
           stdout: options.worktreeListStdout ?? "",
           stderr: "",
         };
       }
-      if (argsEqual(args, GIT_CORE_BARE_ARGS)) {
+      if (gitArgsEqual(args, GIT_CORE_BARE_ARGS)) {
         return {
           exitCode: 0,
           stdout: options.commonDirIsBare === true ? GIT_CORE_BARE_TRUE : GIT_CORE_BARE_TRUE.toUpperCase(),

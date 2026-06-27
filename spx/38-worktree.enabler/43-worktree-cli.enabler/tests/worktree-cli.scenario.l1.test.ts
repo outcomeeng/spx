@@ -29,14 +29,11 @@ import {
 import { defaultOccupancyFileSystem } from "@/lib/worktree-occupancy-file-system";
 import { defaultWorktreePathInfo } from "@/lib/worktree-path-info";
 import { sampleWorktreeTestValue, WORKTREE_TEST_GENERATOR } from "@testing/generators/worktree/worktree";
+import { gitArgsEqual } from "@testing/harnesses/git-test-constants";
 import { createSessionGitDeps, SESSION_GIT_DEPS_PATHS, WORKTREE_KIND } from "@testing/harnesses/session/harness";
 import { withTempDir } from "@testing/harnesses/with-temp-dir";
 import { withWorktreeLayoutEnv } from "@testing/harnesses/worktree-layout/worktree-layout";
 import { createProcessTable, type ProcessTableEntry, withWorktreePool } from "@testing/harnesses/worktree/harness";
-
-function argsEqual(actual: readonly string[], expected: readonly string[]): boolean {
-  return actual.length === expected.length && actual.every((value, index) => value === expected[index]);
-}
 
 function worktreeListDeps(options: {
   readonly worktreeRoot: string;
@@ -45,23 +42,23 @@ function worktreeListDeps(options: {
 }): GitDependencies {
   return {
     execa: async (_command, args) => {
-      if (argsEqual(args, GIT_SHOW_TOPLEVEL_ARGS)) {
+      if (gitArgsEqual(args, GIT_SHOW_TOPLEVEL_ARGS)) {
         return { exitCode: 0, stdout: options.worktreeRoot, stderr: "" };
       }
-      if (argsEqual(args, GIT_COMMON_DIR_ARGS)) {
+      if (gitArgsEqual(args, GIT_COMMON_DIR_ARGS)) {
         return { exitCode: 0, stdout: options.commonDir, stderr: "" };
       }
-      if (argsEqual(args, GIT_REMOTE_GET_URL_ORIGIN_ARGS)) {
+      if (gitArgsEqual(args, GIT_REMOTE_GET_URL_ORIGIN_ARGS)) {
         return { exitCode: 1, stdout: "", stderr: "" };
       }
-      if (argsEqual(args, GIT_WORKTREE_LIST_PORCELAIN_ARGS)) {
+      if (gitArgsEqual(args, GIT_WORKTREE_LIST_PORCELAIN_ARGS)) {
         return {
           exitCode: 0,
           stdout: options.worktreeRoots.map((root) => `${GIT_WORKTREE_PORCELAIN_ROOT_PREFIX}${root}`).join("\n\n"),
           stderr: "",
         };
       }
-      if (argsEqual(args, GIT_CORE_BARE_ARGS)) {
+      if (gitArgsEqual(args, GIT_CORE_BARE_ARGS)) {
         return { exitCode: 0, stdout: GIT_CORE_BARE_TRUE, stderr: "" };
       }
       return { exitCode: 1, stdout: "", stderr: "" };
@@ -75,19 +72,19 @@ function worktreeListUnavailableDeps(options: {
 }): GitDependencies {
   return {
     execa: async (_command, args) => {
-      if (argsEqual(args, GIT_SHOW_TOPLEVEL_ARGS)) {
+      if (gitArgsEqual(args, GIT_SHOW_TOPLEVEL_ARGS)) {
         return { exitCode: 0, stdout: options.worktreeRoot, stderr: "" };
       }
-      if (argsEqual(args, GIT_COMMON_DIR_ARGS)) {
+      if (gitArgsEqual(args, GIT_COMMON_DIR_ARGS)) {
         return { exitCode: 0, stdout: options.commonDir, stderr: "" };
       }
-      if (argsEqual(args, GIT_REMOTE_GET_URL_ORIGIN_ARGS)) {
+      if (gitArgsEqual(args, GIT_REMOTE_GET_URL_ORIGIN_ARGS)) {
         return { exitCode: 1, stdout: "", stderr: "" };
       }
-      if (argsEqual(args, GIT_WORKTREE_LIST_PORCELAIN_ARGS)) {
+      if (gitArgsEqual(args, GIT_WORKTREE_LIST_PORCELAIN_ARGS)) {
         return { exitCode: 1, stdout: "", stderr: "" };
       }
-      if (argsEqual(args, GIT_CORE_BARE_ARGS)) {
+      if (gitArgsEqual(args, GIT_CORE_BARE_ARGS)) {
         return { exitCode: 0, stdout: GIT_CORE_BARE_TRUE, stderr: "" };
       }
       return { exitCode: 1, stdout: "", stderr: "" };
