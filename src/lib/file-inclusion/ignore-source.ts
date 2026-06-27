@@ -133,8 +133,8 @@ function gitLsFilesArgs(productDir: string, overrides: IgnoreSourceOverrides): r
   if (!overrides.noIgnore && !overrides.noIgnoreVcs) {
     args.push(GIT_LS_FILES_ARGS.EXCLUDE_STANDARD);
   }
-  if (overrides.ignoreFile !== undefined) {
-    args.push(GIT_LS_FILES_ARGS.EXCLUDE_FROM, overrides.ignoreFile);
+  if (!overrides.noIgnore && overrides.ignoreFile !== undefined) {
+    args.push(...excludeFromArgs(resolveGitPath(productDir, overrides.ignoreFile)));
   }
   if (!overrides.noIgnore && overrides.noIgnoreVcs) {
     const infoExcludePath = readInfoExcludePath(productDir);
