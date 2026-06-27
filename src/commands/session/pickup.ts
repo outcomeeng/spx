@@ -101,8 +101,10 @@ async function loadTodoSessionsWithDeps(config: SessionDirectoryConfig, deps: Pi
 
 /** Delimiter prefix introducing an auto-injected file section. */
 export const SESSION_INJECTION_SECTION_PREFIX = "Injected file";
-/** Warning prefix for a listed injection path that cannot be read. */
+/** Warning prefix for a listed injection path that is absent. */
 export const SESSION_INJECTION_MISSING_WARNING_PREFIX = "Warning: missing session injection file";
+/** Warning prefix for a listed injection path that exists but cannot be read as a file, such as a directory. */
+export const SESSION_INJECTION_UNREADABLE_WARNING_PREFIX = "Warning: unreadable session injection path";
 
 function injectionPath(cwd: string, filePath: string): string {
   return resolve(cwd, filePath);
@@ -110,6 +112,17 @@ function injectionPath(cwd: string, filePath: string): string {
 
 function formatInjectedFile(listedPath: string, content: string): string {
   return `${SESSION_INJECTION_SECTION_PREFIX}: ${listedPath}\n${content}`;
+}
+
+/**
+ * Builds the warning for a listed injection path that could not be read, naming
+ * the path. An absent path reports the missing-file prefix; any other read
+ * failure, such as a directory entry's EISDIR, reports the unreadable prefix.
+ */
+function formatInjectionWarning(error: unknown, listedPath: string): string {
+  const isAbsent = error instanceof Error && "code" in error && error.code === SESSION_FILE_ERROR_CODE.NOT_FOUND;
+  const prefix = isAbsent ? SESSION_INJECTION_MISSING_WARNING_PREFIX : SESSION_INJECTION_UNREADABLE_WARNING_PREFIX;
+  return `${prefix}: ${listedPath}`;
 }
 
 async function readInjectedFiles(
@@ -120,15 +133,13 @@ async function readInjectedFiles(
 ): Promise<string[]> {
   const sections: string[] = [];
   for (const listedPath of [...metadata.specs, ...metadata.files]) {
+    // The claim has already committed, so an injection read that throws for any
+    // reason degrades to a warning naming the path rather than aborting pickup.
     try {
       const content = await deps.readFile(injectionPath(cwd, listedPath), SESSION_FILE_ENCODING);
       sections.push(formatInjectedFile(listedPath, content));
     } catch (error) {
-      if (error instanceof Error && "code" in error && error.code === SESSION_FILE_ERROR_CODE.NOT_FOUND) {
-        onWarning?.(`${SESSION_INJECTION_MISSING_WARNING_PREFIX}: ${listedPath}`);
-        continue;
-      }
-      throw error;
+      onWarning?.(formatInjectionWarning(error, listedPath));
     }
   }
   return sections;

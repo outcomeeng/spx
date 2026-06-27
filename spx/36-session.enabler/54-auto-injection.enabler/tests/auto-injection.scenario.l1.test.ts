@@ -9,6 +9,7 @@ import {
   type PickupDependencies,
   SESSION_INJECTION_MISSING_WARNING_PREFIX,
   SESSION_INJECTION_SECTION_PREFIX,
+  SESSION_INJECTION_UNREADABLE_WARNING_PREFIX,
 } from "@/commands/session/pickup";
 import { buildSessionFrontMatterContent } from "@/domains/session/create";
 import { parseSessionMetadata } from "@/domains/session/list";
@@ -94,6 +95,25 @@ describe("pickup auto-injection", () => {
     expect(output).toContain(sessionId);
     expect(await harness.isInStatus(CLAIMABLE_STATUS, sessionId)).toBe(false);
     expect(warnings).toContain(`${SESSION_INJECTION_MISSING_WARNING_PREFIX}: ${missingPath}`);
+  });
+
+  it("warns and still claims the session when a listed path is a directory", async () => {
+    const sessionId = sampleLiteralTestValue(arbitraryDomainLiteral());
+    const directoryPath = sampleSpecPath();
+    const warnings: string[] = [];
+    await mkdir(resolve(productDir, directoryPath), { recursive: true });
+    await harness.writeSession(CLAIMABLE_STATUS, sessionId, { specs: [directoryPath] });
+
+    const output = await pickupCommand({
+      sessionIds: [sessionId],
+      sessionsDir: harness.sessionsDir,
+      cwd: productDir,
+      onWarning: (warning) => warnings.push(warning),
+    });
+
+    expect(output).toContain(sessionId);
+    expect(await harness.isInStatus(CLAIMABLE_STATUS, sessionId)).toBe(false);
+    expect(warnings).toContain(`${SESSION_INJECTION_UNREADABLE_WARNING_PREFIX}: ${directoryPath}`);
   });
 
   it("prints no injection section when specs and files are empty", async () => {
