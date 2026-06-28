@@ -53,12 +53,28 @@ export const AGENT_RESUME_TEXT = {
 
 export const AGENT_SESSION_JSON_FIELDS = {
   TIMESTAMP: "timestamp",
+  TYPE: "type",
   CWD: "cwd",
+  ORIGINATOR: "originator",
+  SOURCE: "source",
   SESSION_ID: "session_id",
   SESSION_ID_CAMEL: "sessionId",
   ID: "id",
   PAYLOAD: "payload",
   GIT_BRANCH: "gitBranch",
+  THREAD_SOURCE: "thread_source",
+} as const;
+
+export const AGENT_SESSION_ROW_TYPE = {
+  CODEX_SESSION_META: "session_meta",
+} as const;
+
+export const CODEX_SESSION_ORIGINATOR = {
+  TUI: "codex-tui",
+  CLI: "codex_cli",
+  VSCODE: "codex_vscode",
+  VSCODE_HYPHEN: "codex-vscode",
+  EXEC: "codex-exec",
 } as const;
 
 export const AGENT_RESUME_RECENT_WINDOW_MS = AGENT_RESUME_LIMITS.RECENT_DAYS
