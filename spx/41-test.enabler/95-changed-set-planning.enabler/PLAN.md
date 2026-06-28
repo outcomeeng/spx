@@ -53,6 +53,6 @@ Whether to dogfood the `pnpm test` package script
 → `spx test passing`. This is governed by `spx/13-cli.enabler` — the CLI-boundary
 compliance assertion in `cli.md`, its `tests/package-scripts.compliance.l1.test.ts`,
 and the invocation constants in `src/interfaces/cli/invocation.ts` — so it is an
-`/apply` change there, not a loose script edit. It is the lowest-value dogfood
+`/apply` change there, with script edits only inside that node's workflow. It is the lowest-value dogfood
 (the full-suite `pnpm test` should rarely run and is STOP-triggered for agents);
 land it only if the boundary contract is being revisited anyway.

@@ -18,9 +18,9 @@ Resolution condition: group the warnings by rule and owning node, then clear or 
 
 `spx/15-worktree-management.pdr.md` carries a "Git mechanism" column in its state-class table and several `### Audit` rules that name specific git commands (`git rev-parse --git-common-dir`, `git rev-parse --show-toplevel`, `git config --get core.bare`) and a code-naming constraint (root-resolution helper-name alignment). A PDR audit argued these describe how root resolution is implemented rather than what users observe, and belong in [`spx/17-state.adr.md`](17-state.adr.md).
 
-**Impact:** Contestable. The PDR/ADR boundary is product-relative (`what-goes-where`): for a developer harness whose observable contract is where shared state resolves across worktrees, pinning the resolution rule in the PDR is defensible. The same content passed property-quality, consistency, atemporal-voice, and tag-mechanics checks. This structure spans the product root PDR and state ADR rather than one capability.
+**Impact:** Contestable. The PDR/ADR boundary is product-relative (`what-goes-where`): for a developer harness whose observable contract is where shared state resolves across worktrees, pinning the resolution rule in the PDR is defensible. The same content passed property-quality, consistency, atemporal-voice, and tag-mechanics checks. This established structure applies across capabilities.
 
-**Scope:** Product-root PDR + `17-state.adr.md`; a dedicated methodology-cleanup change, not feature work.
+**Scope:** Product-root PDR + `17-state.adr.md`; belongs to a dedicated methodology-cleanup change.
 
 **Resolution:** Decide whether the git-mechanism naming stays as the PDR's observable resolution contract or moves into `spx/17-state.adr.md`, then either close this note or re-home the mechanism content across the PDR and the state ADR in one coherent pass and re-run the PDR and ADR audits.
 
