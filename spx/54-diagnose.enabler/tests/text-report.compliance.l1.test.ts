@@ -51,7 +51,7 @@ const sampleReport: DiagnoseReport = {
   overall: OVERALL_VERDICT.DEGRADED,
 };
 
-const fieldDelimiter = String.fromCodePoint(58);
+const fieldDelimiter = ":";
 const reusableSpxReading: SpxReachabilityReading = { errored: false, resolvedPath: "/bin/spx", version: "0.6.8" };
 const newerSpxFloor = "0.6.0";
 const futureSpxFloor = "0.7.0";
