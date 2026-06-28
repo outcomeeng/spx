@@ -106,6 +106,25 @@ describe("path-filter — scenarios", () => {
     });
   });
 
+  it("directory operands bypass validation path excludes before literal validation scans TypeScript files", async () => {
+    const explicitDirectory = sampleLiteralTestValue(LITERAL_TEST_GENERATOR.domainLiteral());
+    await withLiteralFixtureEnv({ validation: { paths: { exclude: [explicitDirectory] } } }, async (env) => {
+      const [literal] = sampleDistinctDomainLiterals(1);
+      const sourceFilePath = sampleLiteralTestValue(LITERAL_TEST_GENERATOR.sourceFilePath())
+        .replace("src/", `${explicitDirectory}/`);
+      const testFilePath = [sourceFilePath.slice(0, -3), ["t", "e", "s", "t"].join(""), "ts"].join(".");
+      await env.writeTsConfigMarker();
+      await env.writeSourceFile(sourceFilePath, literal);
+      await env.writeTestFile(testFilePath, literal);
+
+      const result = await literalCommand({ cwd: env.productDir, files: [explicitDirectory], json: true });
+      const findings = JSON.parse(result.output) as { srcReuse: readonly { value: string }[] };
+
+      expect(result.exitCode).toBe(LITERAL_EXIT_CODES.FINDINGS);
+      expect(findings.srcReuse.some((finding) => finding.value === literal)).toBe(true);
+    });
+  });
+
   it("unscoped literal validation uses validation path filters without TypeScript scope filtering", async () => {
     await withLiteralFixtureEnv({}, async (env) => {
       const [literal] = sampleDistinctDomainLiterals(1);
