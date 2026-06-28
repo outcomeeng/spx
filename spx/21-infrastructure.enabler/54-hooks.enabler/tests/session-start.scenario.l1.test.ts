@@ -4,7 +4,6 @@ import { basename, join } from "node:path";
 import { describe, expect, it } from "vitest";
 
 import {
-  HOOK_COMPACT_FOUNDATION_ACTION,
   HOOK_ENV_FILE,
   HOOK_SESSION_START_CLAIMED,
   HOOK_SESSION_START_ENV,
@@ -19,9 +18,6 @@ import { defaultGitDependencies } from "@/git/root";
 import { runSessionStartHook } from "@/interfaces/hooks/session-start";
 import { sampleWorktreeTestValue, WORKTREE_TEST_GENERATOR } from "@testing/generators/worktree/worktree";
 import { withWorktreePool, type WorktreePoolEnv } from "@testing/harnesses/worktree/harness";
-
-const expectedCompactReasonLine = "Hook fired because the agent runtime reported source=compact.";
-const expectedCompactStdoutLineCount = 4;
 
 interface SessionStartHookScenarioInput {
   readonly claimWriteToken: string;
@@ -89,20 +85,6 @@ function expectHookEnvClaimed(envContent: string, claimed: string): void {
   expectHookEnvExport(envContent, HOOK_SESSION_START_ENV.CLAUDE_WORKTREE_CLAIMED, claimed);
 }
 
-function expectCompactStdout(stdout: string): void {
-  const lines = stdout.split("\n");
-  expect(lines).toHaveLength(expectedCompactStdoutLineCount);
-  expect(lines[0]).toBe(expectedCompactReasonLine);
-
-  const directiveLine = lines.find((line) => line.includes(HOOK_COMPACT_FOUNDATION_ACTION.UNDERSTAND));
-  expect(directiveLine).toBeDefined();
-  if (directiveLine === undefined) throw new Error("compact stdout omitted the foundation directive");
-  const understandIndex = directiveLine.indexOf(HOOK_COMPACT_FOUNDATION_ACTION.UNDERSTAND);
-  const contextualizeIndex = directiveLine.indexOf(HOOK_COMPACT_FOUNDATION_ACTION.CONTEXTUALIZE);
-  expect(understandIndex).toBeGreaterThanOrEqual(0);
-  expect(contextualizeIndex).toBeGreaterThan(understandIndex);
-}
-
 describe("hook session-start adapter", () => {
   it("writes one claim and the hook env exports from a session-start payload", async () => {
     const worktreeName = sampleWorktreeTestValue(WORKTREE_TEST_GENERATOR.poolWorktreeName());
@@ -145,7 +127,7 @@ describe("hook session-start adapter", () => {
     });
   });
 
-  it("emits the source reason and foundation re-anchor directive on the compact lifecycle source", async () => {
+  it("claims the worktree and emits no hook stdout on the compact lifecycle source", async () => {
     const worktreeName = sampleWorktreeTestValue(WORKTREE_TEST_GENERATOR.poolWorktreeName());
     const holder = sampleWorktreeTestValue(WORKTREE_TEST_GENERATOR.poolHolder());
     const sessionId = sampleWorktreeTestValue(WORKTREE_TEST_GENERATOR.sessionId());
@@ -162,7 +144,16 @@ describe("hook session-start adapter", () => {
 
       expect(result.ok).toBe(true);
       if (!result.ok) throw new Error(result.error);
-      expectCompactStdout(result.value.stdout);
+      expect(result.value.claimed).toBe(true);
+      expect(result.value.stdout).toHaveLength(0);
+
+      const claim = await readWorktreeClaim(env);
+      expect(claim.ok).toBe(true);
+      if (!claim.ok) throw new Error(claim.error);
+      expect(claim.value?.sessionId).toBe(sessionId);
+
+      const envContent = await readHookEnvFile(envFile);
+      expectHookEnvClaimed(envContent, HOOK_SESSION_START_CLAIMED.TRUE);
     });
   });
 

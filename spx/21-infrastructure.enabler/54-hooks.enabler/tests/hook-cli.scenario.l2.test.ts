@@ -1,7 +1,6 @@
 import { describe, expect, it } from "vitest";
 
 import {
-  HOOK_COMPACT_FOUNDATION_DIRECTIVE,
   HOOK_SESSION_START_ENV,
   HOOK_SESSION_START_PAYLOAD,
   HOOK_SESSION_START_SOURCE,
@@ -13,8 +12,8 @@ import { sampleWorktreeTestValue, WORKTREE_TEST_GENERATOR } from "@testing/gener
 import { withHookCliWorktreeEnv } from "@testing/harnesses/hook-cli";
 import { runWorktreeCli } from "@testing/harnesses/worktree/harness";
 
-describe("hook CLI compact directive", () => {
-  it("forwards compact startup guidance to process stdout for the compact source", async () => {
+describe("hook CLI compact stdout boundary", () => {
+  it("keeps process stdout empty for the compact source", async () => {
     const prefix = sampleWorktreeTestValue(WORKTREE_TEST_GENERATOR.tempPrefix());
     const worktreeName = sampleWorktreeTestValue(WORKTREE_TEST_GENERATOR.poolWorktreeName());
     const sessionId = sampleWorktreeTestValue(WORKTREE_TEST_GENERATOR.sessionId());
@@ -36,7 +35,7 @@ describe("hook CLI compact directive", () => {
       );
 
       expect(result.exitCode, result.stderr).toBe(0);
-      expect(result.stdout).toContain(HOOK_COMPACT_FOUNDATION_DIRECTIVE);
+      expect(result.stdout).toHaveLength(0);
     });
   });
 });
