@@ -13,7 +13,7 @@ import { withHookCliWorktreeEnv } from "@testing/harnesses/hook-cli";
 import { runWorktreeCli } from "@testing/harnesses/worktree/harness";
 
 describe("hook CLI compact stdout boundary", () => {
-  it("keeps process stdout empty for the compact source", async () => {
+  it("keeps process stdout empty for Codex compact source under the default runtime policy", async () => {
     const prefix = sampleWorktreeTestValue(WORKTREE_TEST_GENERATOR.tempPrefix());
     const worktreeName = sampleWorktreeTestValue(WORKTREE_TEST_GENERATOR.poolWorktreeName());
     const sessionId = sampleWorktreeTestValue(WORKTREE_TEST_GENERATOR.sessionId());
@@ -21,14 +21,21 @@ describe("hook CLI compact stdout boundary", () => {
 
     await withHookCliWorktreeEnv({ envFileName, prefix, worktreeName }, async (env) => {
       const result = await runWorktreeCli(
-        [HOOK_CLI.COMMAND, HOOK_CLI.RUN, HOOK_EVENT.SESSION_START, HOOK_CLI.WORKTREES_DIR_FLAG, env.worktreesDir],
+        [
+          HOOK_CLI.COMMAND,
+          HOOK_CLI.RUN,
+          HOOK_EVENT.SESSION_START,
+          HOOK_CLI.ENV_FILE_FLAG,
+          env.envFile,
+          HOOK_CLI.WORKTREES_DIR_FLAG,
+          env.worktreesDir,
+        ],
         {
           [CONTROLLING_PID_ENV]: String(process.pid),
-          [HOOK_SESSION_START_ENV.CLAUDE_ENV_FILE]: env.envFile,
+          [HOOK_SESSION_START_ENV.CODEX_THREAD_ID]: sessionId,
         },
         env.worktreePath,
         JSON.stringify({
-          [HOOK_SESSION_START_PAYLOAD.SESSION_ID]: sessionId,
           [HOOK_SESSION_START_PAYLOAD.CWD]: env.worktreePath,
           [HOOK_SESSION_START_PAYLOAD.SOURCE]: HOOK_SESSION_START_SOURCE.COMPACT,
         }),

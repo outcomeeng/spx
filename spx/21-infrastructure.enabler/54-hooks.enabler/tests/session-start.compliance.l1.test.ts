@@ -2,11 +2,11 @@ import { join } from "node:path";
 
 import { describe, expect, it } from "vitest";
 
+import { agentEnvironmentConfigDescriptor } from "@/domains/agent-environment/config";
 import {
   HOOK_SESSION_START_ENV,
   HOOK_SESSION_START_PAYLOAD,
   HOOK_SESSION_START_SOURCE,
-  type HookSessionStartEnv,
 } from "@/domains/hooks/session-start";
 import { CONTROLLING_PID_ENV } from "@/domains/worktree/controlling-process";
 import { defaultGitDependencies } from "@/git/root";
@@ -21,13 +21,6 @@ function hookContentWithSource(env: WorktreePoolEnv, source: string): string {
   });
 }
 
-function hookEnvWithHolder(env: WorktreePoolEnv, envFile: string): HookSessionStartEnv {
-  return {
-    [CONTROLLING_PID_ENV]: String(env.holder.pid),
-    [HOOK_SESSION_START_ENV.CLAUDE_ENV_FILE]: envFile,
-  };
-}
-
 async function expectNoHookStdoutFor(renderContent: (env: WorktreePoolEnv) => string): Promise<void> {
   const worktreeName = sampleWorktreeTestValue(WORKTREE_TEST_GENERATOR.poolWorktreeName());
   const holder = sampleWorktreeTestValue(WORKTREE_TEST_GENERATOR.poolHolder());
@@ -40,12 +33,17 @@ async function expectNoHookStdoutFor(renderContent: (env: WorktreePoolEnv) => st
       claimWriteToken,
       content: renderContent(env),
       cwd: env.container,
+      agentEnvironment: agentEnvironmentConfigDescriptor.defaults,
+      envFile,
       fs: env.fs,
       gitDeps: defaultGitDependencies,
       worktreesDir: env.worktreesDir,
       processTable: env.processTable,
       selfPid: env.holder.pid,
-      env: hookEnvWithHolder(env, envFile),
+      env: {
+        [CONTROLLING_PID_ENV]: String(env.holder.pid),
+        [HOOK_SESSION_START_ENV.CODEX_THREAD_ID]: claimWriteToken,
+      },
     });
 
     expect(result.ok).toBe(true);

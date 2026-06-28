@@ -9,8 +9,14 @@ export function enabledAgentEnvironment(): AgentEnvironmentConfig {
   return {
     ...agentEnvironmentConfigDescriptor.defaults,
     runtimes: {
-      [AGENT_RUNTIME.CODEX]: { enabled: true },
-      [AGENT_RUNTIME.CLAUDE_CODE]: { enabled: true },
+      [AGENT_RUNTIME.CODEX]: {
+        ...agentEnvironmentConfigDescriptor.defaults.runtimes[AGENT_RUNTIME.CODEX],
+        enabled: true,
+      },
+      [AGENT_RUNTIME.CLAUDE_CODE]: {
+        ...agentEnvironmentConfigDescriptor.defaults.runtimes[AGENT_RUNTIME.CLAUDE_CODE],
+        enabled: true,
+      },
     },
   };
 }
