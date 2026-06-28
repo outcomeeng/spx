@@ -21,7 +21,6 @@ export const CHANGED_TEST_SHOW_COMMAND = "show";
 export const CHANGED_TEST_INDEX_PATH_PREFIX = ":";
 export const CHANGED_TEST_DIFF_NAME_STATUS_FLAG = GIT_NAME_STATUS_FLAG;
 export const CHANGED_TEST_NULL_DELIMITED_FLAG = GIT_NULL_DELIMITED_FLAG;
-const DIFF_NAME_ONLY_FLAG = "--name-only";
 const LS_FILES_CACHED_FLAG = "--cached";
 const HEAD_REF = "HEAD";
 const ORIGIN_REMOTE = "origin";
@@ -87,7 +86,7 @@ async function changedPaths(
       CHANGED_TEST_DIFF_COMMAND,
       ...(staged
         ? [CHANGED_TEST_DIFF_CACHED_FLAG, CHANGED_TEST_DIFF_NAME_STATUS_FLAG, CHANGED_TEST_NULL_DELIMITED_FLAG]
-        : [DIFF_NAME_ONLY_FLAG, CHANGED_TEST_NULL_DELIMITED_FLAG]),
+        : [CHANGED_TEST_DIFF_NAME_STATUS_FLAG, CHANGED_TEST_NULL_DELIMITED_FLAG]),
       baseSha,
     ],
     { cwd: productDir, reject: false },
@@ -95,7 +94,7 @@ async function changedPaths(
   if (result.exitCode !== 0) {
     throw new Error(`failed to diff changed paths for test planning: ${result.stderr}`);
   }
-  return staged ? changedPathsFromNameStatus(result.stdout) : pathsFromNulDelimited(result.stdout);
+  return changedPathsFromNameStatus(result.stdout);
 }
 
 function isSpecTestPath(path: string): boolean {
