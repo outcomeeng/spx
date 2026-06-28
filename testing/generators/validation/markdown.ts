@@ -52,6 +52,7 @@ export const MARKDOWN_SCENARIO_KIND = {
   DEFAULT_DIRECTORIES: "defaultDirectories",
   EXCLUDE_NODE: "excludeNode",
   EXCLUDE_NODE_EXACT_ONLY: "excludeNodeExactOnly",
+  EXCLUDE_NODE_SCOPED_TARGET: "excludeNodeScopedTarget",
   DUPLICATE_HEADINGS: "duplicateHeadings",
   CONFIG_BUILDER: "configBuilder",
   COMMAND_DEFAULTS: "commandDefaults",
@@ -190,6 +191,11 @@ export function markdownUnitScenarios(): MarkdownValidationScenario[] {
     {
       title: "excluded spec nodes do not skip child nodes",
       kind: MARKDOWN_SCENARIO_KIND.EXCLUDE_NODE_EXACT_ONLY,
+      timeout: MARKDOWN_HARNESS_TIMEOUT,
+    },
+    {
+      title: "excluded spec nodes are skipped when directly targeted",
+      kind: MARKDOWN_SCENARIO_KIND.EXCLUDE_NODE_SCOPED_TARGET,
       timeout: MARKDOWN_HARNESS_TIMEOUT,
     },
     {

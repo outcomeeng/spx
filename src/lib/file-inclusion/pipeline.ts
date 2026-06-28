@@ -102,21 +102,11 @@ async function directoryContainsGitMetadata(
   return false;
 }
 
-function shouldDescendIntoAutomaticDirectory(
-  productDir: string,
-  absoluteDir: string,
-  ignoreReader: IgnoreSourceReader,
-): boolean {
-  const relativePath = normalizeProductPath(productDir, absoluteDir);
-  return ignoreReader.hasIncludedDescendant(relativePath);
-}
-
 async function collectPaths(
   absoluteDir: string,
   productDir: string,
   result: string[],
   mode: DirectoryTraversalMode,
-  ignoreReader?: IgnoreSourceReader,
   skipWhenGitMetadataPresent = false,
 ): Promise<void> {
   const dirEntries = await readDirectoryEntries(absoluteDir);
@@ -132,19 +122,11 @@ async function collectPaths(
     const relativePath = normalizeProductPath(productDir, absolutePath);
     if (await isGitMetadataEntry(absolutePath, entry)) continue;
     if (entry.isDirectory()) {
-      if (
-        mode === DIRECTORY_TRAVERSAL_MODE.AUTOMATIC
-        && ignoreReader !== undefined
-        && !shouldDescendIntoAutomaticDirectory(productDir, absolutePath, ignoreReader)
-      ) {
-        continue;
-      }
       await collectPaths(
         absolutePath,
         productDir,
         result,
         mode,
-        ignoreReader,
         mode === DIRECTORY_TRAVERSAL_MODE.AUTOMATIC,
       );
     } else if (entry.isFile()) {
@@ -189,7 +171,7 @@ export async function runPipeline(
 
   if (request.walkRoot !== undefined) {
     const allPaths: string[] = [];
-    await collectPaths(request.walkRoot, productDir, allPaths, DIRECTORY_TRAVERSAL_MODE.AUTOMATIC, ignoreReader);
+    await collectPaths(request.walkRoot, productDir, allPaths, DIRECTORY_TRAVERSAL_MODE.AUTOMATIC);
 
     for (const path of allPaths) {
       if (explicitPathSet.has(path)) continue;

@@ -396,7 +396,7 @@ describe("ESLint command arguments", () => {
     );
   });
 
-  it("intersects explicit ESLint file scope with validation paths", async () => {
+  it("preserves explicit ESLint file scope through validation paths", async () => {
     const sourceFilePath = sampleLiteralTestValue(LITERAL_TEST_GENERATOR.sourceFilePath());
     const testFilePath = sampleLiteralTestValue(LITERAL_TEST_GENERATOR.testFilePath());
     await withTestEnv(
@@ -426,13 +426,17 @@ describe("ESLint command arguments", () => {
         const result = await lintCommand({ cwd: env.productDir, files: [testFilePath] });
 
         expect(result.exitCode).toBe(VALIDATION_EXIT_CODES.SUCCESS);
-        expect(result.output).toBe(formatValidationPathsNoTargetsSkipMessage(VALIDATION_STAGE_DISPLAY_NAMES.ESLINT));
-        expect(existsSync(join(env.productDir, "eslint-args.txt"))).toBe(false);
+        expect((await env.readFile("eslint-args.txt")).trim().split("\n")).toStrictEqual([
+          ESLINT_COMMAND_TOKENS.CONFIG_FLAG,
+          DEFAULT_ESLINT_CONFIG_FILE,
+          ESLINT_COMMAND_TOKENS.FILE_SEPARATOR,
+          testFilePath,
+        ]);
       },
     );
   });
 
-  it("intersects explicit ESLint root directory operands with validation paths", async () => {
+  it("preserves explicit ESLint root directory operands through validation paths", async () => {
     await withTestEnv(
       {
         [validationConfigDescriptor.section]: {
@@ -464,12 +468,9 @@ describe("ESLint command arguments", () => {
 
         expect(result.exitCode).toBe(VALIDATION_EXIT_CODES.SUCCESS);
         expect((await env.readFile("eslint-args.txt")).trim().split("\n")).toStrictEqual([
+          VALIDATION_PIPELINE_DATA.productionScopeFilePattern,
           ESLINT_COMMAND_TOKENS.CONFIG_FLAG,
           DEFAULT_ESLINT_CONFIG_FILE,
-          ESLINT_COMMAND_TOKENS.IGNORE_PATTERN_FLAG,
-          `${VALIDATION_PIPELINE_DATA.sourceDirectoryName}/${VALIDATION_PIPELINE_DATA.excludedSourceDirectoryName}`,
-          ESLINT_COMMAND_TOKENS.FILE_SEPARATOR,
-          VALIDATION_PIPELINE_DATA.sourceDirectoryName,
         ]);
       },
     );
@@ -526,12 +527,9 @@ describe("ESLint command arguments", () => {
 
         expect(result.exitCode).toBe(VALIDATION_EXIT_CODES.SUCCESS);
         expect((await env.readFile("eslint-args.txt")).trim().split("\n")).toStrictEqual([
+          VALIDATION_PIPELINE_DATA.productionScopeFilePattern,
           ESLINT_COMMAND_TOKENS.CONFIG_FLAG,
           DEFAULT_ESLINT_CONFIG_FILE,
-          ESLINT_COMMAND_TOKENS.IGNORE_PATTERN_FLAG,
-          `${VALIDATION_PIPELINE_DATA.sourceDirectoryName}/${VALIDATION_PIPELINE_DATA.excludedSourceDirectoryName}`,
-          ESLINT_COMMAND_TOKENS.FILE_SEPARATOR,
-          VALIDATION_PIPELINE_DATA.sourceDirectoryName,
         ]);
       },
     );

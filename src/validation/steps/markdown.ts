@@ -86,6 +86,8 @@ export interface ValidateMarkdownOptions {
   targets: MarkdownValidationTarget[];
   /** Project root for resolving project-absolute links. */
   projectRoot?: string;
+  /** Whether spx/EXCLUDE node-status skips apply to direct spec-node markdown files. */
+  applyNodeStatusExcludes?: boolean;
   /** Product-relative validation path excludes to pass to markdownlint. */
   validationPathExcludes?: readonly string[];
 }
@@ -221,6 +223,36 @@ export function getExcludeGlobs(projectRoot: string | undefined): string[] {
   );
 }
 
+function getExcludeGlobsForTarget(
+  target: MarkdownValidationTarget,
+  projectRoot: string | undefined,
+  entries: readonly string[],
+): string[] {
+  if (projectRoot === undefined || entries.length === 0) return [];
+
+  const directory = targetDirectory(target);
+  const specTreeRoot = join(projectRoot, "spx");
+  const targetPath = normalizePathPrefix(pathRelative(specTreeRoot, directory));
+  return entries.flatMap((entry) => {
+    const excludedPath = normalizePathPrefix(entry);
+    if (targetPath === excludedPath) {
+      return directMarkdownGlobs("");
+    }
+    if (!pathContainsValidationPath(targetPath, excludedPath)) {
+      return [];
+    }
+    return directMarkdownGlobs(
+      normalizePathPrefix(pathRelative(directory, join(specTreeRoot, excludedPath))),
+    );
+  });
+}
+
+function directMarkdownGlobs(directory: string): string[] {
+  return [...MARKDOWN_FILE_EXTENSIONS].map((extension) =>
+    directory.length === 0 ? `*${extension}` : `${directory}/*${extension}`
+  );
+}
+
 // =============================================================================
 // ERROR PARSING
 // =============================================================================
@@ -348,16 +380,21 @@ function isAsciiWhitespace(value: string): boolean {
 export async function validateMarkdown(
   options: ValidateMarkdownOptions,
 ): Promise<MarkdownValidationResult> {
-  const { targets, projectRoot, validationPathExcludes = [] } = options;
+  const {
+    targets,
+    projectRoot,
+    applyNodeStatusExcludes = true,
+    validationPathExcludes = [],
+  } = options;
   const errors: MarkdownError[] = [];
-  const specTreeExcludeGlobs = getExcludeGlobs(projectRoot);
+  const specTreeExcludeEntries = applyNodeStatusExcludes ? getExcludeEntries(projectRoot) : [];
 
   for (const target of targets) {
     const directory = targetDirectory(target);
     const dirName = markdownlintConfigDirectoryName(directory, projectRoot);
     const config = buildMarkdownlintConfig(dirName);
     const excludeGlobs = [
-      ...specTreeExcludeGlobs,
+      ...getExcludeGlobsForTarget(target, projectRoot, specTreeExcludeEntries),
       ...validationPathExcludeGlobsForTarget(target, projectRoot, validationPathExcludes),
     ];
     const dirErrors = await validateTarget(target, config, projectRoot, excludeGlobs);
@@ -368,6 +405,11 @@ export async function validateMarkdown(
     success: errors.length === 0,
     errors,
   };
+}
+
+function getExcludeEntries(projectRoot: string | undefined): readonly string[] {
+  if (projectRoot === undefined) return [];
+  return createNodeStatusExcludeReader(projectRoot).entries();
 }
 
 /**

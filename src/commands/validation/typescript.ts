@@ -71,6 +71,7 @@ export async function typescriptCommand(options: TypeScriptCommandOptions): Prom
       VALIDATION_PATH_TOOL_SUBSECTIONS.TYPESCRIPT,
     ),
     markExplicitPathsAsValidationFilter: true,
+    bypassExplicitPathValidationFilter: true,
   });
 
   if (scopeConfig.filteredByValidationPathNoMatches) {

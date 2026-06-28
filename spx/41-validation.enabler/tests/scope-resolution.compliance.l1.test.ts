@@ -44,7 +44,12 @@ import {
 } from "@/validation/steps/circular";
 import { KNIP_COMMAND_TOKENS, type KnipDeps, validateKnip } from "@/validation/steps/knip";
 import { VALIDATION_SUBPROCESS_EVENTS } from "@/validation/steps/subprocess-output";
-import { defaultTypeScriptDeps, type TypeScriptDeps, validateTypeScript } from "@/validation/steps/typescript";
+import {
+  defaultTypeScriptDeps,
+  formatTypeScriptExitCodeError,
+  type TypeScriptDeps,
+  validateTypeScript,
+} from "@/validation/steps/typescript";
 import { VALIDATION_SCOPES } from "@/validation/types";
 import { LITERAL_TEST_GENERATOR, sampleLiteralTestValue } from "@testing/generators/literal/literal";
 import { VALIDATION_PIPELINE_DATA } from "@testing/generators/validation/validation";
@@ -573,7 +578,7 @@ describe("ALWAYS: TypeScript scope resolution uses the requested project root", 
     });
   });
 
-  it("intersects file-scoped TypeScript validation with validation paths", async () => {
+  it("preserves file-scoped TypeScript validation through validation paths", async () => {
     const testFilePath = sampleLiteralTestValue(LITERAL_TEST_GENERATOR.testFilePath());
     await withTestEnv(
       {
@@ -591,11 +596,22 @@ describe("ALWAYS: TypeScript scope resolution uses the requested project root", 
           }),
         );
         await env.writeRaw(testFilePath, "expect(true).toBe(true);\n");
+        const scopeConfig = resolveTypeScriptValidationScope({
+          projectRoot: env.productDir,
+          scope: VALIDATION_SCOPES.FULL,
+          paths: [testFilePath],
+          validationPathFilter: validationPathFilterForTool(
+            {
+              include: [VALIDATION_PIPELINE_DATA.sourceDirectoryName],
+            },
+            VALIDATION_PATH_TOOL_SUBSECTIONS.TYPESCRIPT,
+          ),
+          markExplicitPathsAsValidationFilter: true,
+          bypassExplicitPathValidationFilter: true,
+        });
 
-        const result = await typescriptCommand({ cwd: env.productDir, files: [testFilePath] });
-
-        expect(result.exitCode).toBe(VALIDATION_EXIT_CODES.SUCCESS);
-        expect(result.output).toBe(TYPESCRIPT_VALIDATION_MESSAGES.NO_VALIDATION_PATH_TARGETS);
+        expect(scopeConfig.filteredByValidationPathNoMatches).not.toBe(true);
+        expect(scopeConfig.filePatterns).toContain(testFilePath);
       },
     );
   });
@@ -612,7 +628,7 @@ describe("ALWAYS: TypeScript scope resolution uses the requested project root", 
     });
   });
 
-  it("intersects TypeScript root directory operands with validation include paths", async () => {
+  it("preserves TypeScript root directory operands through validation include paths", async () => {
     await withValidationEnv({ fixture: PROJECT_FIXTURES.CLEAN_PROJECT }, async ({ path }) => {
       const secondarySourceDirectory = join(path, VALIDATION_PIPELINE_DATA.secondarySourceDirectoryName);
       await mkdir(secondarySourceDirectory);
@@ -646,8 +662,8 @@ describe("ALWAYS: TypeScript scope resolution uses the requested project root", 
         files: ["."],
       });
 
-      expect(result.exitCode).toBe(VALIDATION_EXIT_CODES.SUCCESS);
-      expect(result.output).toBe(TYPESCRIPT_VALIDATION_MESSAGES.SUCCESS);
+      expect(result.exitCode).toBe(VALIDATION_EXIT_CODES.FAILURE);
+      expect(result.output).toBe(formatTypeScriptExitCodeError(2));
     });
   });
 
@@ -693,7 +709,7 @@ describe("ALWAYS: TypeScript scope resolution uses the requested project root", 
     });
   });
 
-  it("excludes TypeScript descendants below directory path operands", async () => {
+  it("preserves TypeScript descendants below directory path operands through validation excludes", async () => {
     await withValidationEnv({ fixture: PROJECT_FIXTURES.CLEAN_PROJECT }, async ({ path }) => {
       const excludedSourceDirectory = join(
         path,
@@ -724,8 +740,8 @@ describe("ALWAYS: TypeScript scope resolution uses the requested project root", 
         files: [VALIDATION_PIPELINE_DATA.sourceDirectoryName],
       });
 
-      expect(result.exitCode).toBe(VALIDATION_EXIT_CODES.SUCCESS);
-      expect(result.output).toBe(TYPESCRIPT_VALIDATION_MESSAGES.SUCCESS);
+      expect(result.exitCode).toBe(VALIDATION_EXIT_CODES.FAILURE);
+      expect(result.output).toBe(formatTypeScriptExitCodeError(2));
     });
   });
 

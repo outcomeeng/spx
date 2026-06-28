@@ -38,7 +38,7 @@ describe("ALWAYS: explicit files bypass validation.paths", () => {
 
       const result = await validateLiteralReuse({
         productDir: env.productDir,
-        files: ["excluded/file.ts", "active/file.ts"],
+        explicitFiles: ["excluded/file.ts", "active/file.ts"],
         pathConfig: { exclude: ["excluded"] },
       });
 

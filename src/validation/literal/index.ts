@@ -47,7 +47,6 @@ export type {
 
 export interface ValidateLiteralReuseInput {
   readonly productDir: string;
-  readonly files?: readonly string[];
   readonly explicitFiles?: readonly string[];
   readonly config?: LiteralConfig;
   readonly pathConfig?: ValidationPathConfig;
@@ -74,25 +73,19 @@ export async function validateLiteralReuse(
   input: ValidateLiteralReuseInput,
 ): Promise<ValidateLiteralReuseResult> {
   const config = input.config ?? literalConfigDescriptor.defaults;
-  const explicitFiles = input.explicitFiles ?? (input.scopeConfig === undefined ? input.files : undefined);
-  const explicitPaths = explicitFiles?.map((f) => {
+  const explicitPaths = input.explicitFiles?.map((f) => {
     const abs = isAbsolute(f) ? f : resolve(input.productDir, f);
     return relative(input.productDir, abs).split(/[\\/]/g).join("/");
   });
 
-  const request = input.scopeConfig === undefined && input.files
-    ? { explicit: explicitPaths }
-    : { walkRoot: input.productDir, explicit: explicitPaths };
-
   const scope = await resolveScope(input.productDir, {
-    ...request,
-    domainPathFilter: input.scopeConfig === undefined && input.files !== undefined ? undefined : input.pathConfig,
+    walkRoot: input.productDir,
+    explicit: explicitPaths,
+    domainPathFilter: input.pathConfig,
   }, DEFAULT_SCOPE_CONFIG);
 
   const literalScopeConfig = input.scopeConfig;
-  const pathFiltered = input.scopeConfig === undefined && input.files !== undefined
-    ? scope.included
-    : applyPathFilter(scope.included, input.pathConfig);
+  const pathFiltered = applyPathFilter(scope.included, input.pathConfig);
   const filtered = literalScopeConfig === undefined
     ? pathFiltered
     : pathFiltered.filter((entry) =>

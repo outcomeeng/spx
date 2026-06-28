@@ -104,6 +104,7 @@ export interface ExplicitTypeScriptScopeTargetFilter {
   readonly paths: readonly string[] | undefined;
   readonly validationPathFilter: ValidationPathFilterConfig;
   readonly scopeConfig: ScopeConfig;
+  readonly bypassValidationPathFilter?: boolean;
   readonly requireExistingPaths?: boolean;
 }
 
@@ -113,6 +114,7 @@ export interface TypeScriptValidationScopeFilter {
   readonly paths?: readonly string[];
   readonly validationPathFilter: ValidationPathFilterConfig;
   readonly markExplicitPathsAsValidationFilter?: boolean;
+  readonly bypassExplicitPathValidationFilter?: boolean;
 }
 
 interface TypeScriptFileDiscoveryOptions {
@@ -718,7 +720,14 @@ export function filterExplicitTypeScriptScopeTargets(
   filter: ExplicitTypeScriptScopeTargetFilter,
   deps: ScopeDeps = defaultScopeDeps,
 ): ExplicitTypeScriptScopeTarget[] | undefined {
-  const { paths, projectRoot, requireExistingPaths = true, scopeConfig, validationPathFilter } = filter;
+  const {
+    paths,
+    projectRoot,
+    requireExistingPaths = true,
+    scopeConfig,
+    validationPathFilter,
+    bypassValidationPathFilter = false,
+  } = filter;
   if (paths === undefined) {
     return undefined;
   }
@@ -727,7 +736,10 @@ export function filterExplicitTypeScriptScopeTargets(
     .map((path) => toExplicitTypeScriptScopeTarget(projectRoot, path, deps))
     .filter((target) => !requireExistingPaths || explicitTypeScriptScopeTargetExists(projectRoot, target, deps))
     .filter((target) => explicitTypeScriptScopeTargetPassesSourceKind(target))
-    .filter((target) => explicitTypeScriptScopeTargetIntersectsValidationPathFilter(target, validationPathFilter))
+    .filter((target) =>
+      bypassValidationPathFilter
+      || explicitTypeScriptScopeTargetIntersectsValidationPathFilter(target, validationPathFilter)
+    )
     .filter((target) => explicitTypeScriptScopeTargetPassesScope(target, scopeConfig));
 }
 
@@ -871,15 +883,15 @@ export function resolveTypeScriptValidationScope(
   filter: TypeScriptValidationScopeFilter,
   deps: ScopeDeps = defaultScopeDeps,
 ): ScopeConfig {
-  const scopeConfig = applyValidationPathFilterToScope(
-    getTypeScriptScope(filter.scope, filter.projectRoot, deps),
-    filter.validationPathFilter,
-  );
+  const baseScopeConfig = getTypeScriptScope(filter.scope, filter.projectRoot, deps);
+  const scopeConfig = applyValidationPathFilterToScope(baseScopeConfig, filter.validationPathFilter);
+  const explicitTargetScopeConfig = filter.bypassExplicitPathValidationFilter === true ? baseScopeConfig : scopeConfig;
   const explicitTargets = filterExplicitTypeScriptScopeTargets({
     paths: filter.paths,
     projectRoot: filter.projectRoot,
     validationPathFilter: filter.validationPathFilter,
-    scopeConfig,
+    scopeConfig: explicitTargetScopeConfig,
+    bypassValidationPathFilter: filter.bypassExplicitPathValidationFilter,
   }, deps);
 
   if (filter.paths !== undefined && filter.paths.length > 0 && explicitTargets?.length === 0) {
@@ -894,7 +906,7 @@ export function resolveTypeScriptValidationScope(
   }
 
   if (explicitTargets !== undefined && explicitTargets.length > 0) {
-    const explicitScopeConfig = constrainTypeScriptScopeToExplicitTargets(scopeConfig, explicitTargets);
+    const explicitScopeConfig = constrainTypeScriptScopeToExplicitTargets(explicitTargetScopeConfig, explicitTargets);
     return filter.markExplicitPathsAsValidationFilter === true
       ? {
         ...explicitScopeConfig,
