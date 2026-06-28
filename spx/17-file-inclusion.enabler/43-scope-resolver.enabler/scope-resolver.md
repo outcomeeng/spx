@@ -1,8 +1,8 @@
 # Scope Resolver
 
-PROVIDES the scope resolver — the fixed-sequence pipeline that assembles the shared layers in the order declared by the composition ADR (explicit-caller, domain-path-filter, git-tracking), short-circuits on caller-supplied explicit paths, and produces a `ScopeResult` with per-path decision trails
+PROVIDES the scope resolver — the fixed-sequence pipeline that assembles the shared layers in the order declared by the composition ADR (explicit-caller, domain-path-filter, git-tracking), short-circuits on caller-supplied explicit paths, and produces a `ScopeResult` with per-path decision trails and normalized applied overrides
 SO THAT every file-inclusion consumer requesting an inclusion decision
-CAN obtain a resolved included set, a resolved excluded set, and the decision trail for every path through one entry point without knowing layer order, composing layers itself, or evaluating the explicit-override rule
+CAN obtain a resolved included set, a resolved excluded set, the decision trail for every path, and the override flags governing git-tracking construction through one entry point without knowing layer order, composing layers itself, or evaluating the explicit-override rule
 
 ## Assertions
 
@@ -12,7 +12,7 @@ CAN obtain a resolved included set, a resolved excluded set, and the decision tr
 - Given the resolver receives a caller-supplied explicit directory whose descendants are git-ignored, when the resolver runs, then the directory and its descendants appear in `ScopeResult.included` with explicit-override decision trails ([test](tests/scope-resolver.compliance.l1.test.ts))
 - Given the resolver receives a request with no caller-supplied explicit paths and a walk root that contains paths matching each non-override layer, when the resolver runs, then every path the git-tracking layer reports as excluded — because git ignores it or it lives inside a submodule — and every path the domain-path-filter layer matches appears in `ScopeResult.excluded` with a decision trail naming the responsible layer, and every other walked path appears in `ScopeResult.included` ([test](tests/scope-resolver.scenario.l1.test.ts))
 - Given the resolver's request includes both explicit caller paths and a walk root, when the resolver runs, then every explicit path appears in `ScopeResult.included` under the explicit-override layer and the walked paths are resolved independently against the non-override layers ([test](tests/scope-resolver.scenario.l1.test.ts))
-- Given the resolver's request includes override flags `--no-ignore`, `--no-ignore-vcs`, or `--ignore-file <path>`, when the resolver runs, then the git-tracking layer's state is constructed with the corresponding git plumbing arguments and the resulting included set reflects the override ([test](tests/scope-resolver.scenario.l1.test.ts))
+- Given the resolver's request includes override flags `--no-ignore`, `--no-ignore-vcs`, or `--ignore-file <path>`, when the resolver runs, then the git-tracking layer's state is constructed with the corresponding git plumbing arguments, the resulting included set reflects the override, and `ScopeResult` records the applied overrides ([test](tests/scope-resolver.scenario.l1.test.ts))
 
 ### Properties
 
