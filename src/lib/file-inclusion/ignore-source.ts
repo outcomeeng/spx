@@ -3,6 +3,7 @@ import { existsSync } from "node:fs";
 import { isAbsolute, join } from "node:path";
 
 import { withoutGitEnvironment } from "@/git/environment";
+import { findExecutableOnPath } from "@/lib/executable-on-path";
 
 import type { IgnoreSourceOverrides } from "./types";
 
@@ -32,6 +33,7 @@ const PATH_SEGMENT_SEPARATOR = "/";
 const CURRENT_DIRECTORY_PREFIX = ".";
 const GIT_SCOPE_FAILURE_MESSAGE = "failed to read git scope";
 export const GIT_MISSING_CONTEXT_MESSAGE = "missing git working tree";
+const GIT_MISSING_EXECUTABLE_MESSAGE = "missing git executable";
 const GIT_NOT_A_REPOSITORY_STDERR = "not a git repository";
 const GIT_NOT_A_WORK_TREE_STDERR = "not a git work tree";
 
@@ -74,6 +76,14 @@ function gitEnvironment(): NodeJS.ProcessEnv {
   return withoutGitEnvironment(process.env);
 }
 
+function gitExecutable(productDir: string): string {
+  const executable = findExecutableOnPath(GIT_EXECUTABLE);
+  if (executable === null) {
+    throw new Error(`${GIT_SCOPE_FAILURE_MESSAGE} for ${productDir}: ${GIT_MISSING_EXECUTABLE_MESSAGE}`);
+  }
+  return executable;
+}
+
 function errorStderr(error: unknown): string | undefined {
   if (typeof error !== "object" || error === null || !("stderr" in error)) {
     return undefined;
@@ -94,8 +104,7 @@ function readGit(productDir: string, args: readonly string[]): string {
     throw new Error(`${GIT_SCOPE_FAILURE_MESSAGE} for ${productDir}: ${GIT_MISSING_CONTEXT_MESSAGE}`);
   }
   try {
-    // NOSONAR: spx intentionally uses the caller's git executable; this synchronous git plumbing runs once at reader construction.
-    return execFileSync(GIT_EXECUTABLE, [...args], {
+    return execFileSync(gitExecutable(productDir), [...args], {
       cwd: productDir,
       encoding: "utf8",
       env: gitEnvironment(),
