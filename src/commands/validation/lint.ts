@@ -9,14 +9,13 @@ import {
   type ValidationConfig,
   validationConfigDescriptor,
 } from "@/validation/config/descriptor";
+import { toProjectRelativeValidationPath, validationPathFilterForTool } from "@/validation/config/path-filter";
 import {
-  applyValidationPathFilterToScope,
-  toProjectRelativeValidationPath,
-  validationPathFilterExcludes,
-  validationPathFilterForTool,
-  validationPathFilterIntersections,
-} from "@/validation/config/path-filter";
-import { getTypeScriptScope } from "@/validation/config/scope";
+  EXPLICIT_TYPESCRIPT_SCOPE_TARGET_KIND,
+  filterExplicitTypeScriptScopeTargets,
+  getTypeScriptScope,
+  resolveTypeScriptValidationScope,
+} from "@/validation/config/scope";
 import { detectTypeScript, discoverTool, formatSkipMessage } from "@/validation/discovery/index";
 import { validateESLint } from "@/validation/steps/eslint";
 import { VALIDATION_SCOPES, type ValidationContext } from "@/validation/types";
@@ -86,22 +85,29 @@ export async function lintCommand(options: LintCommandOptions): Promise<Validati
     validationConfig.paths,
     VALIDATION_PATH_TOOL_SUBSECTIONS.ESLINT,
   );
-  const scopeConfig = applyValidationPathFilterToScope(
-    getTypeScriptScope(scope, cwd),
+  const explicitMode = files !== undefined && files.length > 0;
+  const scopeConfig = resolveTypeScriptValidationScope({
+    projectRoot: cwd,
+    scope,
+    paths: files,
     validationPathFilter,
-  );
-  const validatedFiles = files
-    ?.flatMap((file) =>
-      validationPathFilterIntersections(
-        toProjectRelativeValidationPath(cwd, file),
-        validationPathFilter,
-      ).map(formatLintValidationOperand)
-    );
+    markExplicitPathsAsValidationFilter: explicitMode,
+    bypassExplicitPathValidationFilter: true,
+  });
+  const explicitTargets = explicitMode
+    ? filterExplicitTypeScriptScopeTargets({
+      paths: files,
+      projectRoot: cwd,
+      validationPathFilter,
+      scopeConfig: getTypeScriptScope(scope, cwd),
+      bypassValidationPathFilter: true,
+    })
+    : undefined;
+  const validatedFiles = explicitTargets?.every((target) => target.kind === EXPLICIT_TYPESCRIPT_SCOPE_TARGET_KIND.FILE)
+    ? explicitTargets.map((target) => formatLintValidationOperand(toProjectRelativeValidationPath(cwd, target.path)))
+    : undefined;
 
-  if (
-    scopeConfig.filteredByValidationPathNoMatches
-    || (files !== undefined && files.length > 0 && validatedFiles?.length === 0)
-  ) {
+  if (scopeConfig.filteredByValidationPathNoMatches) {
     return {
       exitCode: 0,
       output: quiet ? "" : VALIDATION_PATHS_NO_TARGETS_MESSAGE,
@@ -124,7 +130,7 @@ export async function lintCommand(options: LintCommandOptions): Promise<Validati
     mode: fix ? "write" : "read",
     enabledValidations: { ESLINT: true },
     validatedFiles,
-    validatedFileIgnorePatterns: files === undefined ? undefined : validationPathFilterExcludes(validationPathFilter),
+    validatedFileIgnorePatterns: undefined,
     isFileSpecificMode: Boolean(validatedFiles && validatedFiles.length > 0),
     eslintConfigFile,
   };

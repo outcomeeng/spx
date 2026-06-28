@@ -6,23 +6,23 @@
  * markdownlint-cli2 is a production dependency, always available.
  */
 
-import { isAbsolute, join, relative } from "node:path";
+import { isAbsolute, join } from "node:path";
 
 import { resolveConfig } from "@/config/index";
 import {
   VALIDATION_PATH_TOOL_SUBSECTIONS,
   type ValidationConfig,
   validationConfigDescriptor,
+  type ValidationPathFilterConfig,
 } from "@/validation/config/descriptor";
 import {
-  pathPassesValidationFilter,
+  toProjectRelativeValidationPath,
   validationPathFilterExcludes,
   validationPathFilterForTool,
   validationPathFilterIntersections,
 } from "@/validation/config/path-filter";
 import {
   getDefaultDirectories,
-  MARKDOWN_VALIDATION_TARGET_KIND,
   type MarkdownSkippedValidationTarget,
   type MarkdownValidationTarget,
   resolveMarkdownValidationTarget,
@@ -83,17 +83,11 @@ export async function markdownCommand(options: MarkdownCommandOptions): Promise<
     ? undefined
     : targetResolutions
       .map((resolution) => resolution.target)
-      .filter((target): target is MarkdownValidationTarget => target !== undefined)
-      .flatMap((target) => markdownTargetsForValidationPathFilter(cwd, target, pathFilter));
+      .filter((target): target is MarkdownValidationTarget => target !== undefined);
   const unfilteredTargets: MarkdownValidationTarget[] = targetResolutions === undefined
-    ? getDefaultDirectories(cwd).map((path) => ({
-      kind: MARKDOWN_VALIDATION_TARGET_KIND.DIRECTORY,
-      path,
-    }))
+    ? defaultMarkdownTargets(cwd, pathFilter)
     : explicitTargets ?? [];
-  const targets = unfilteredTargets.filter((target) =>
-    pathPassesValidationFilter(relative(cwd, target.path), pathFilter)
-  );
+  const targets = unfilteredTargets;
   const skippedTargets = targetResolutions === undefined
     ? []
     : targetResolutions
@@ -116,7 +110,8 @@ export async function markdownCommand(options: MarkdownCommandOptions): Promise<
   const result = await validateMarkdown({
     targets,
     projectRoot: cwd,
-    validationPathExcludes: validationPathFilterExcludes(pathFilter),
+    applyNodeStatusExcludes: targetResolutions === undefined,
+    validationPathExcludes: targetResolutions === undefined ? validationPathFilterExcludes(pathFilter) : [],
   });
   const durationMs = Date.now() - startTime;
 
@@ -127,18 +122,15 @@ function markdownValidationOperandPath(productDir: string, filePath: string): st
   return isAbsolute(filePath) ? filePath : join(productDir, filePath);
 }
 
-function markdownTargetsForValidationPathFilter(
+function defaultMarkdownTargets(
   productDir: string,
-  target: MarkdownValidationTarget,
-  pathFilter: Parameters<typeof pathPassesValidationFilter>[1],
+  pathFilter: ValidationPathFilterConfig,
 ): MarkdownValidationTarget[] {
-  const relativePath = relative(productDir, target.path);
-  if (target.kind === MARKDOWN_VALIDATION_TARGET_KIND.FILE) {
-    return pathPassesValidationFilter(relativePath, pathFilter) ? [target] : [];
-  }
-  return validationPathFilterIntersections(relativePath, pathFilter)
-    .map((path) => resolveMarkdownValidationTarget(markdownValidationOperandPath(productDir, path)).target)
-    .filter((filteredTarget): filteredTarget is MarkdownValidationTarget => filteredTarget !== undefined);
+  return getDefaultDirectories(productDir).flatMap((directory) =>
+    validationPathFilterIntersections(toProjectRelativeValidationPath(productDir, directory), pathFilter)
+      .map((intersection) => resolveMarkdownValidationTarget(join(productDir, intersection)).target)
+      .filter((target): target is MarkdownValidationTarget => target !== undefined)
+  );
 }
 
 function formatSkippedFileScope(target: MarkdownSkippedValidationTarget): string {

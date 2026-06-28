@@ -121,6 +121,7 @@ export async function circularCommand(
       validationConfig.paths,
       VALIDATION_PATH_TOOL_SUBSECTIONS.CIRCULAR,
     ),
+    bypassExplicitPathValidationFilter: true,
   });
   if (effectiveScopeConfig.filteredByValidationPathNoMatches) {
     return {

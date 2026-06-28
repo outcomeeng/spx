@@ -48,6 +48,8 @@ export async function runMarkdownValidationScenario(scenario: MarkdownValidation
       return runExcludeScenario(scenario);
     case MARKDOWN_SCENARIO_KIND.EXCLUDE_NODE_EXACT_ONLY:
       return runExcludeExactOnlyScenario();
+    case MARKDOWN_SCENARIO_KIND.EXCLUDE_NODE_SCOPED_TARGET:
+      return runExcludeScopedTargetScenario();
     case MARKDOWN_SCENARIO_KIND.DUPLICATE_HEADINGS:
       return runDuplicateHeadingsScenario(scenario);
     case MARKDOWN_SCENARIO_KIND.CONFIG_BUILDER:
@@ -213,6 +215,30 @@ async function runExcludeExactOnlyScenario(): Promise<void> {
 
     expect(result.errors.some((error) => error.file === declaredFile)).toBe(false);
     expect(result.errors.some((error) => error.file === declaredMarkdownExtensionFile)).toBe(false);
+    expect(result.errors.some((error) => error.file === childFile)).toBe(true);
+  });
+}
+
+async function runExcludeScopedTargetScenario(): Promise<void> {
+  await withMarkdownTempProject(async ({ path, spxDir }) => {
+    const declaredNodeDir = join(spxDir, MARKDOWN_VALIDATION_DATA.declaredNodeDirectory);
+    const childNodeDir = join(declaredNodeDir, MARKDOWN_VALIDATION_DATA.declaredChildDirectory);
+    const declaredFile = join(declaredNodeDir, MARKDOWN_VALIDATION_DATA.declaredMarkdownFile);
+    const childFile = join(childNodeDir, MARKDOWN_VALIDATION_DATA.childMarkdownFile);
+    await mkdir(childNodeDir, { recursive: true });
+    await writeFile(
+      join(spxDir, NODE_STATUS_EXCLUDE_FILENAME),
+      `${MARKDOWN_VALIDATION_DATA.declaredNodeDirectory}\n`,
+    );
+    await writeFile(declaredFile, MARKDOWN_VALIDATION_DATA.brokenMarkdownContent);
+    await writeFile(childFile, MARKDOWN_VALIDATION_DATA.brokenMarkdownContent);
+
+    const result = await validateMarkdown({
+      targets: [markdownDirectoryTarget(declaredNodeDir)],
+      projectRoot: path,
+    });
+
+    expect(result.errors.some((error) => error.file === declaredFile)).toBe(false);
     expect(result.errors.some((error) => error.file === childFile)).toBe(true);
   });
 }

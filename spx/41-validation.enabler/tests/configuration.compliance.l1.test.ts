@@ -11,6 +11,7 @@ import {
   VALIDATION_STAGE_DISPLAY_NAMES,
 } from "@/commands/validation/messages";
 import { resolveConfig } from "@/config/index";
+import { NODE_STATUS_EXCLUDE_FILENAME } from "@/lib/node-status/exclude";
 import {
   VALIDATION_ENABLED_FIELD,
   VALIDATION_KNIP_SUBSECTION,
@@ -30,6 +31,7 @@ import {
   sampleDistinctDomainLiterals,
   sampleLiteralTestValue,
 } from "@testing/generators/literal/literal";
+import { MARKDOWN_VALIDATION_DATA } from "@testing/generators/validation/markdown";
 import { VALIDATION_PIPELINE_DATA } from "@testing/generators/validation/validation";
 import { withLiteralFixtureEnv } from "@testing/harnesses/literal/harness";
 import { type Config } from "@testing/harnesses/spec-tree/spec-tree";
@@ -327,7 +329,7 @@ describe("ALWAYS: validation command participation is driven by spx config", () 
     );
   });
 
-  it("intersects explicit markdown root directory operands with markdown validation includes", async () => {
+  it("preserves explicit markdown root directory operands through markdown validation includes", async () => {
     await withLiteralFixtureEnv(
       {
         [validationConfigDescriptor.section]: {
@@ -347,7 +349,7 @@ describe("ALWAYS: validation command participation is driven by spx config", () 
         );
         await env.writeRaw(
           `${docsDirectory}/${invalidMarkdownSlug}${MARKDOWN_PRIMARY_FILE_EXTENSION}`,
-          "# Bad  \n",
+          MARKDOWN_VALIDATION_DATA.brokenMarkdownContent,
         );
 
         const result = await markdownCommand({
@@ -355,13 +357,13 @@ describe("ALWAYS: validation command participation is driven by spx config", () 
           files: ["."],
         });
 
-        expect(result.exitCode).toBe(VALIDATION_EXIT_CODES.SUCCESS);
-        expect(result.output).toBe(MARKDOWN_COMMAND_OUTPUT.NO_ISSUES);
+        expect(result.exitCode).toBe(VALIDATION_EXIT_CODES.FAILURE);
+        expect(result.output).toContain(MARKDOWN_COMMAND_OUTPUT.ERROR_SUMMARY_SUFFIX);
       },
     );
   });
 
-  it("applies markdown validation excludes below explicit root directory operands", async () => {
+  it("preserves explicit markdown root directory operands through markdown validation excludes", async () => {
     await withLiteralFixtureEnv(
       {
         [validationConfigDescriptor.section]: {
@@ -375,15 +377,15 @@ describe("ALWAYS: validation command participation is driven by spx config", () 
       },
       async (env) => {
         await env.writeRaw("spx/good.md", "# Good\n");
-        await env.writeRaw("spx/private/bad.md", "# Bad  \n");
+        await env.writeRaw("spx/private/bad.md", MARKDOWN_VALIDATION_DATA.brokenMarkdownContent);
 
         const result = await markdownCommand({
           cwd: env.productDir,
           files: ["."],
         });
 
-        expect(result.exitCode).toBe(VALIDATION_EXIT_CODES.SUCCESS);
-        expect(result.output).toBe(MARKDOWN_COMMAND_OUTPUT.NO_ISSUES);
+        expect(result.exitCode).toBe(VALIDATION_EXIT_CODES.FAILURE);
+        expect(result.output).toContain(MARKDOWN_COMMAND_OUTPUT.ERROR_SUMMARY_SUFFIX);
       },
     );
   });
@@ -428,6 +430,31 @@ describe("ALWAYS: validation command participation is driven by spx config", () 
 
       expect(result.exitCode).toBe(VALIDATION_EXIT_CODES.SUCCESS);
       expect(result.output).toBe(MARKDOWN_COMMAND_OUTPUT.NO_ISSUES);
+    });
+  });
+
+  it("preserves explicit markdown operands through node-status excludes", async () => {
+    await withLiteralFixtureEnv({}, async (env) => {
+      const excludedNodePath = [
+        MARKDOWN_VALIDATION_DATA.spxDirectoryName,
+        MARKDOWN_VALIDATION_DATA.declaredNodeDirectory,
+      ].join("/");
+      await env.writeRaw(
+        [MARKDOWN_VALIDATION_DATA.spxDirectoryName, NODE_STATUS_EXCLUDE_FILENAME].join("/"),
+        `${MARKDOWN_VALIDATION_DATA.declaredNodeDirectory}\n`,
+      );
+      await env.writeRaw(
+        [excludedNodePath, MARKDOWN_VALIDATION_DATA.declaredMarkdownFile].join("/"),
+        MARKDOWN_VALIDATION_DATA.brokenMarkdownContent,
+      );
+
+      const result = await markdownCommand({
+        cwd: env.productDir,
+        files: [excludedNodePath],
+      });
+
+      expect(result.exitCode).toBe(VALIDATION_EXIT_CODES.FAILURE);
+      expect(result.output).toContain(MARKDOWN_COMMAND_OUTPUT.ERROR_SUMMARY_SUFFIX);
     });
   });
 });

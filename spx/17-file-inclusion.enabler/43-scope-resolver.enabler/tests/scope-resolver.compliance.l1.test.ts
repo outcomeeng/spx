@@ -12,6 +12,7 @@ import {
   runPipeline,
 } from "@/lib/file-inclusion/pipeline";
 import type { LayerEntry } from "@/lib/file-inclusion/pipeline";
+import { GIT_TRACKING_LAYER } from "@/lib/file-inclusion/predicates/git-tracking";
 import type { LayerDecision } from "@/lib/file-inclusion/types";
 import { arbitraryPathSegment } from "@testing/generators/git-name/git-name";
 import { sampleGitWorktreeTestValue } from "@testing/generators/git-worktree/git-worktree";
@@ -182,7 +183,7 @@ describe("scope resolver — compliance", () => {
     });
   });
 
-  it("automatic walking prunes directories with no git-included descendants", async () => {
+  it("automatic walking classifies ignored-only directory descendants as excluded", async () => {
     await withGitWorktreeEnv(async (env) => {
       const ignoredDirectory = trackedFilePath();
       const ignoredChild = `${ignoredDirectory}/${trackedFilePath()}`;
@@ -199,7 +200,9 @@ describe("scope resolver — compliance", () => {
       );
 
       expect(result.included.some((entry) => entry.path === ignoredChild)).toBe(false);
-      expect(result.excluded.some((entry) => entry.path === ignoredChild)).toBe(false);
+      const excludedEntry = result.excluded.find((entry) => entry.path === ignoredChild);
+      expect(excludedEntry).toBeDefined();
+      expect(excludedEntry!.decisionTrail.some((decision) => decision.layer === GIT_TRACKING_LAYER)).toBe(true);
     });
   });
 

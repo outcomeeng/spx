@@ -11,7 +11,12 @@ import { mkdtemp } from "node:fs/promises";
 import { isAbsolute, join, relative } from "node:path";
 
 import { lifecycleProcessRunner, type ProcessRunner, spawnManagedSubprocess } from "@/lib/process-lifecycle";
-import { TEMPORARY_TSCONFIG_PARENT_SEGMENTS, TSCONFIG_FILES } from "../config/scope";
+import {
+  TEMPORARY_TSCONFIG_PARENT_SEGMENTS,
+  TSCONFIG_FILES,
+  TYPESCRIPT_SCOPE_DIRECTORY_PATTERN_SUFFIX,
+  TYPESCRIPT_SCOPE_PROJECT_ROOT,
+} from "../config/scope";
 import type { ScopeConfig, ValidationScope } from "../types";
 import { VALIDATION_SCOPES } from "../types";
 import {
@@ -69,6 +74,10 @@ export interface TypeScriptValidationResult {
   readonly success: boolean;
   readonly error?: string;
   readonly skipped?: boolean;
+}
+
+export function formatTypeScriptExitCodeError(code: number | null): string {
+  return `TypeScript exited with code ${code}`;
 }
 
 interface TypeScriptCommandInvocation {
@@ -178,7 +187,7 @@ async function createScopeFilteredTsconfig(
   };
   const tempConfig = {
     extends: join(projectRoot, baseConfigFile),
-    include: scopeConfig.filePatterns.map(toTemporaryConfigPathPattern),
+    include: scopeConfigToTemporaryIncludes(scopeConfig).map(toTemporaryConfigPathPattern),
     exclude: scopeConfig.excludePatterns.map(toTemporaryConfigPathPattern),
     compilerOptions: TEMPORARY_TSCONFIG_COMPILER_OPTIONS,
   };
@@ -188,6 +197,21 @@ async function createScopeFilteredTsconfig(
   const cleanup = createTemporaryTsconfigCleanup(tempDir, deps);
 
   return { configPath, tempDir, cleanup };
+}
+
+function scopeConfigToTemporaryIncludes(scopeConfig: ScopeConfig): string[] {
+  return [
+    ...new Set([
+      ...scopeConfig.filePatterns,
+      ...scopeConfig.directories.map(typeScriptDirectoryIncludePattern),
+    ]),
+  ];
+}
+
+function typeScriptDirectoryIncludePattern(directory: string): string {
+  return directory === TYPESCRIPT_SCOPE_PROJECT_ROOT
+    ? TYPESCRIPT_SCOPE_DIRECTORY_PATTERN_SUFFIX.slice(1)
+    : `${directory}${TYPESCRIPT_SCOPE_DIRECTORY_PATTERN_SUFFIX}`;
 }
 
 function createTemporaryTsconfigCleanup(tempDir: string, deps: TypeScriptDeps): () => void {
@@ -302,7 +326,7 @@ function runTypeScriptInvocation(
       if (code === 0) {
         resolve({ success: true, skipped: false });
       } else {
-        resolve({ success: false, error: `TypeScript exited with code ${code}` });
+        resolve({ success: false, error: formatTypeScriptExitCodeError(code) });
       }
     });
 

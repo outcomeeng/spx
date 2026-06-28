@@ -1027,9 +1027,6 @@ describe("circular command scope routing", () => {
             directories: [apiDirectory],
             filePatterns: [`${apiDirectory}${TYPESCRIPT_SCOPE_DIRECTORY_PATTERN_SUFFIX}`],
             excludePatterns: [],
-            filteredByValidationPathIncludes: true,
-            filteredByValidationPathNoMatches: false,
-            filteredByValidationPaths: true,
           },
         ],
       );
