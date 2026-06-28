@@ -14,7 +14,7 @@ import { JOURNAL_BACKEND } from "@/domains/journal/backend-selection";
 import { JOURNAL_SEQ_BASE, type JournalEvent } from "@/lib/agent-run-journal";
 import { arbitraryJournalEventInput, sampleAgentRunJournalValue } from "@testing/generators/agent-run-journal";
 import { sampleStateStoreTestValue, STATE_STORE_TEST_GENERATOR } from "@testing/generators/state-store/state-store";
-import { RecordingJournalStreamSink } from "@testing/harnesses/journal/harness";
+import { failingGitDependencies, RecordingJournalStreamSink } from "@testing/harnesses/journal/harness";
 import { withGitEnv } from "@testing/harnesses/with-git-env";
 
 function localDeps(path: string): JournalCliDeps {
@@ -86,7 +86,7 @@ describe("journal CLI", () => {
       // the root resolver falls back to cwd and the verbs must not throw.
       const noGit: JournalCliDeps = {
         ...localDeps(path),
-        git: { execa: () => Promise.reject(new Error("git not found")) },
+        git: failingGitDependencies(),
       };
 
       const opened = await journalOpenCommand({ type }, noGit);

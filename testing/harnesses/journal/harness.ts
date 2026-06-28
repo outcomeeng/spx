@@ -7,9 +7,21 @@
  */
 
 import type { JournalStreamSink } from "@/commands/journal/runtime";
+import type { GitDependencies } from "@/git/root";
 import type { JournalEvent } from "@/lib/agent-run-journal";
 
 import { createTempDir, removeTempDir } from "@testing/harnesses/with-temp-dir";
+
+const GIT_UNAVAILABLE_MESSAGE = "git not found";
+
+/**
+ * A {@link GitDependencies} double whose git invocation always rejects, standing in for
+ * git not being installed. The journal verbs' scope resolution then falls back to cwd and
+ * the fixed branch identity, so a test exercises the git-unavailable path deterministically.
+ */
+export function failingGitDependencies(): GitDependencies {
+  return { execa: () => Promise.reject(new Error(GIT_UNAVAILABLE_MESSAGE)) };
+}
 
 export interface JournalHarness {
   /** Absolute path to the temp directory used as a fake product directory. */
