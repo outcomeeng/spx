@@ -1,35 +1,5 @@
 # Known Issues: 32-literal-reuse.enabler
 
-## Allowlist writer bypasses resolved validation config
-
-`src/validation/literal/allowlist-existing.ts` parses raw `spx.config.*`
-sections directly, indexes validation section keys itself, validates only the
-nested literal values descriptor, and falls back to literal defaults when that
-nested section is invalid.
-
-This conflicts with the config descriptor architecture. Consumers should receive
-their resolved domain section through the config module, and descriptor
-validation failures should remain failures rather than silently becoming
-defaults.
-
-The allowlist writer also runs `validateLiteralReuse` without the resolved
-`validation.paths` config, so values under excluded paths can be written into
-the generated allowlist.
-
-**Impact:** `spx validation literal --allowlist-existing` can produce an
-allowlist from a different scope than `spx validation literal`, and invalid
-literal config can be ignored during allowlist generation.
-
-**Resolution:** Route allowlist generation through the resolved validation
-config. Keep config-file mutation in a config-owned helper that preserves the
-existing file format while writing the updated allowlist path.
-
-**Skills:** `spec-tree:align`, `typescript:architect-typescript`,
-`typescript:test-typescript`, `typescript:code-typescript`,
-`typescript:audit-typescript`.
-
----
-
 ## Future enhancement: per-tool path filter at `validation.paths.literal.*`
 
 The current `validation.paths.{exclude,include}` config (governed by [`11-ignore-defaults.pdr.md`](../../../17-file-inclusion.enabler/11-ignore-defaults.pdr.md)) applies uniformly to every spx validation tool. A path listed in `validation.paths.exclude` is suppressed from literal-reuse, lint, type-check, circular-deps, knip, and AST enforcement alike.
