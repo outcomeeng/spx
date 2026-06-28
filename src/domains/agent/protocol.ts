@@ -33,6 +33,7 @@ export const AGENT_RESUME_LIMITS = {
   MINUTES_PER_HOUR: 60,
   SECONDS_PER_MINUTE: 60,
   MILLISECONDS_PER_SECOND: 1000,
+  ROOT_RESOLUTION_CONCURRENCY: 8,
 } as const;
 
 export const AGENT_RESUME_MODE = {
@@ -47,6 +48,7 @@ export type AgentResumeMode = (typeof AGENT_RESUME_MODE)[keyof typeof AGENT_RESU
 export const AGENT_RESUME_TEXT = {
   NO_MATCHES: "No matching agent sessions found.",
   INTERACTIVE_REQUIRED: "agent resume requires an interactive terminal.",
+  MODE_CONFLICT: "Choose only one resume mode",
 } as const;
 
 export const AGENT_SESSION_JSON_FIELDS = {

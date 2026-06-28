@@ -138,3 +138,8 @@ export function agentResumeCandidate(overrides: Partial<AgentResumeCandidate> = 
     ...overrides,
   };
 }
+
+export function isPathInsideOrEqual(parent: string, child: string): boolean {
+  const rel = relative(resolve(parent), resolve(child));
+  return rel.length === 0 || (!rel.startsWith("..") && rel !== ".." && !rel.startsWith(`..${sep}`));
+}

@@ -3,7 +3,7 @@ import { join } from "node:path";
 import { describe, expect, it } from "vitest";
 
 import { AGENT_RESUME_LIMITS, AGENT_SESSION_KIND, AGENT_SESSION_STORE } from "@/domains/agent/protocol";
-import { type AgentResumeCandidate, discoverAgentResumeCandidates, isPathInsideOrEqual } from "@/domains/agent/resume";
+import { type AgentResumeCandidate, discoverAgentResumeCandidates } from "@/domains/agent/resume";
 import { AGENT_CLI, createAgentDomain } from "@/interfaces/cli/agent";
 import { selectedAgentResumeCandidate } from "@/interfaces/cli/agent/resume/run-picker";
 import { SPX_COMMANDER_PARSE_SOURCE } from "@/interfaces/cli/product-context";
@@ -21,6 +21,7 @@ import {
   claudeCodeTranscript,
   codexTranscript,
   codexTranscriptPath,
+  isPathInsideOrEqual,
   MemoryAgentSessionFileSystem,
 } from "@testing/harnesses/agent/resume";
 

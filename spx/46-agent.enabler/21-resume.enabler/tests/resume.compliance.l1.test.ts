@@ -2,13 +2,8 @@ import { join } from "node:path";
 
 import { describe, expect, it } from "vitest";
 
-import { AGENT_RESUME_LIMITS, AGENT_SESSION_STORE } from "@/domains/agent/protocol";
-import {
-  claudeCodeSessionStoreDir,
-  codexSessionStoreDir,
-  discoverAgentResumeCandidates,
-  isPathInsideOrEqual,
-} from "@/domains/agent/resume";
+import { AGENT_RESUME_LIMITS, AGENT_RESUME_RECENT_WINDOW_MS, AGENT_SESSION_STORE } from "@/domains/agent/protocol";
+import { claudeCodeSessionStoreDir, codexSessionStoreDir, discoverAgentResumeCandidates } from "@/domains/agent/resume";
 import {
   arbitraryAgentResumeExtraCandidateCount,
   arbitraryAgentResumeNowMs,
@@ -21,6 +16,7 @@ import {
   claudeCodeTranscript,
   codexTranscript,
   codexTranscriptPath,
+  isPathInsideOrEqual,
   MemoryAgentSessionFileSystem,
 } from "@testing/harnesses/agent/resume";
 
@@ -29,12 +25,7 @@ describe("agent resume recency and display compliance", () => {
     const fs = new MemoryAgentSessionFileSystem();
     const nowMs = sampleAgentResumeValue(arbitraryAgentResumeNowMs());
     const sessionTimestamp = new Date(nowMs).toISOString();
-    const oldSessionOffsetMs = AGENT_RESUME_LIMITS.RECENT_DAYS
-        * AGENT_RESUME_LIMITS.HOURS_PER_DAY
-        * AGENT_RESUME_LIMITS.MINUTES_PER_HOUR
-        * AGENT_RESUME_LIMITS.SECONDS_PER_MINUTE
-        * AGENT_RESUME_LIMITS.MILLISECONDS_PER_SECOND
-      + AGENT_RESUME_LIMITS.MILLISECONDS_PER_SECOND;
+    const oldSessionOffsetMs = AGENT_RESUME_RECENT_WINDOW_MS + AGENT_RESUME_LIMITS.MILLISECONDS_PER_SECOND;
     const homeDir = sampleAgentResumeValue(arbitraryAgentWorktreeRoot());
     const worktreeRoot = sampleAgentResumeValue(arbitraryAgentWorktreeRoot(), 1);
     const cwd = sampleAgentResumeValue(arbitraryAgentSessionCwd(worktreeRoot), 2);
@@ -91,6 +82,60 @@ describe("agent resume recency and display compliance", () => {
     expect(candidates.map((candidate) => candidate.sessionId)).not.toContain(futureSessionId);
     expect(fs.readCount(oldSessionPath)).toBe(0);
     expect(fs.readCount(futureSessionPath)).toBe(0);
+  });
+});
+
+describe("agent resume root-resolution compliance", () => {
+  it("resolves candidate worktree roots with bounded concurrency while preserving newest-first matches", async () => {
+    const fs = new MemoryAgentSessionFileSystem();
+    const nowMs = sampleAgentResumeValue(arbitraryAgentResumeNowMs());
+    const sessionTimestamp = new Date(nowMs).toISOString();
+    const homeDir = sampleAgentResumeValue(arbitraryAgentWorktreeRoot(), 6);
+    const worktreeRoot = sampleAgentResumeValue(arbitraryAgentWorktreeRoot(), 7);
+    const cwd = sampleAgentResumeValue(arbitraryAgentSessionCwd(worktreeRoot), 8);
+    const candidateCount = AGENT_RESUME_LIMITS.ROOT_RESOLUTION_CONCURRENCY
+      + sampleAgentResumeValue(arbitraryAgentResumeExtraCandidateCount(), 9);
+    let activeResolutions = 0;
+    let maxActiveResolutions = 0;
+    let releaseResolution: (() => void) | null = null;
+    const resolutionBarrier = new Promise<void>((resolveBarrier) => {
+      releaseResolution = resolveBarrier;
+    });
+
+    for (let index = 0; index < candidateCount; index += 1) {
+      const sessionId = sampleAgentResumeValue(arbitraryAgentSessionId(), index + 10);
+      fs.writeFile(
+        codexTranscriptPath(homeDir, `${sessionId}${AGENT_SESSION_STORE.JSONL_EXTENSION}`),
+        codexTranscript({ sessionId, cwd, timestamp: sessionTimestamp }),
+        nowMs - index,
+      );
+    }
+
+    const candidates = await discoverAgentResumeCandidates({
+      invocationDir: worktreeRoot,
+      homeDir,
+      nowMs,
+      fs,
+      resolveWorktreeRoot: async (candidateCwd) => {
+        if (candidateCwd === worktreeRoot) {
+          return worktreeRoot;
+        }
+        activeResolutions += 1;
+        maxActiveResolutions = Math.max(maxActiveResolutions, activeResolutions);
+        if (activeResolutions === AGENT_RESUME_LIMITS.ROOT_RESOLUTION_CONCURRENCY && releaseResolution !== null) {
+          releaseResolution();
+        }
+        await resolutionBarrier;
+        activeResolutions -= 1;
+        return isPathInsideOrEqual(worktreeRoot, candidateCwd) ? worktreeRoot : null;
+      },
+    });
+
+    expect(candidates).toHaveLength(Math.min(candidateCount, AGENT_RESUME_LIMITS.DISPLAYED_CANDIDATES));
+    expect(candidates.map((candidate) => candidate.modifiedAtMs)).toEqual(
+      [...candidates].map((candidate) => candidate.modifiedAtMs).sort((left, right) => right - left),
+    );
+    expect(maxActiveResolutions).toBe(AGENT_RESUME_LIMITS.ROOT_RESOLUTION_CONCURRENCY);
   });
 });
 

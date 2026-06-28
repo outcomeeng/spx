@@ -1,4 +1,4 @@
-import { relative, resolve, sep } from "node:path";
+import { resolve } from "node:path";
 
 import {
   AGENT_RESUME_COMMAND,
@@ -64,7 +64,7 @@ export interface AgentResumeModeFlags {
 
 export class AgentResumeModeError extends Error {
   constructor(readonly selectedModes: readonly AgentResumeMode[]) {
-    super(`Choose only one resume mode: ${selectedModes.join(", ")}`);
+    super(`${AGENT_RESUME_TEXT.MODE_CONFLICT}: ${selectedModes.join(", ")}`);
     this.name = "AgentResumeModeError";
   }
 }
@@ -126,17 +126,19 @@ export async function discoverAgentResumeCandidates(
     )
     .sort(compareCandidates);
 
-  const matching: AgentResumeCandidate[] = [];
-  for (const candidate of recentDrafts) {
-    const candidateRoot = await options.resolveWorktreeRoot(candidate.cwd);
-    if (candidateRoot !== null && samePath(candidateRoot, invocationRoot)) {
-      matching.push(candidate);
-    }
-    if (matching.length >= AGENT_RESUME_LIMITS.DISPLAYED_CANDIDATES) {
-      break;
-    }
-  }
-  return matching;
+  const rootResults = await mapWithConcurrency(
+    recentDrafts,
+    AGENT_RESUME_LIMITS.ROOT_RESOLUTION_CONCURRENCY,
+    async (candidate) => ({
+      candidate,
+      root: await options.resolveWorktreeRoot(candidate.cwd),
+    }),
+  );
+
+  return rootResults
+    .filter((result) => result.root !== null && samePath(result.root, invocationRoot))
+    .map((result) => result.candidate)
+    .slice(0, AGENT_RESUME_LIMITS.DISPLAYED_CANDIDATES);
 }
 
 export function buildAgentResumeLaunchCommand(candidate: AgentResumeCandidate): AgentResumeLaunchCommand {
@@ -371,7 +373,26 @@ function samePath(left: string, right: string): boolean {
   return resolve(left) === resolve(right);
 }
 
-export function isPathInsideOrEqual(parent: string, child: string): boolean {
-  const rel = relative(resolve(parent), resolve(child));
-  return rel.length === 0 || (!rel.startsWith("..") && rel !== ".." && !rel.startsWith(`..${sep}`));
+async function mapWithConcurrency<T, U>(
+  items: readonly T[],
+  concurrency: number,
+  mapper: (item: T) => Promise<U>,
+): Promise<U[]> {
+  const results = new Array<U>(items.length);
+  let nextIndex = 0;
+
+  async function worker(): Promise<void> {
+    for (;;) {
+      const index = nextIndex;
+      nextIndex += 1;
+      if (index >= items.length) {
+        return;
+      }
+      results[index] = await mapper(items[index]);
+    }
+  }
+
+  const workerCount = Math.min(Math.max(1, concurrency), items.length);
+  await Promise.all(Array.from({ length: workerCount }, () => worker()));
+  return results;
 }

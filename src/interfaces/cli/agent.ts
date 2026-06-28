@@ -19,12 +19,12 @@ import type { Domain } from "@/domains/types";
 import type { CliInvocation } from "@/interfaces/cli/product-context";
 import { foregroundProcessRunner, lifecycleSignalSuspender } from "@/lib/process-lifecycle";
 
+import { launchAgentResume } from "./agent/resume/launch-agent-resume";
 import {
   AGENT_RESUME_PICKER_RESULT,
   type AgentResumePickerResult,
   runAgentResumePicker,
 } from "./agent/resume/run-picker";
-import { launchAgent } from "./session/pick/launch-agent";
 
 export const AGENT_CLI = {
   commandName: "agent",
@@ -58,7 +58,7 @@ const DEFAULT_AGENT_CLI_DEPENDENCIES: AgentCliDependencies = {
   isInteractiveTerminal: () => Boolean(process.stdin.isTTY) && Boolean(process.stdout.isTTY),
   pickCandidate: runAgentResumePicker,
   launchCandidate: async (candidate) => {
-    return launchAgent(
+    return launchAgentResume(
       foregroundProcessRunner,
       lifecycleSignalSuspender,
       buildAgentResumeLaunchCommand(candidate),
