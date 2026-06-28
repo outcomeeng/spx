@@ -72,6 +72,7 @@ export const DIAGNOSE_TEXT_HEADER = {
   AGENT_SESSION_UNLINKED: "agent session is not linked to this worktree",
   AGENT_SESSION_UNKNOWN: "agent session state unknown",
   MARKETPLACE_CHECKS_SKIPPED: "plugin marketplace checks skipped",
+  MARKETPLACE_CLI_UNAVAILABLE: "plugin CLI unavailable",
   MARKETPLACE_CONFIGURED: "plugin marketplace configured",
   MARKETPLACE_DRIFT: "plugin installation drift",
   MARKETPLACE_UNREGISTERED: "plugin marketplace unregistered",
@@ -93,6 +94,9 @@ export const DIAGNOSE_TEXT_HEADER = {
 export const DIAGNOSE_TEXT_DETAIL = {
   AGENT_SESSION_ACTIVE: "Agent session identity and worktree claim are both present.",
   AGENT_SESSION_SKIPPED: "No agent session is active in this shell.",
+  MARKETPLACE_CLI_UNAVAILABLE_FIX: "Install or enable the Claude or Codex plugin CLI, then rerun `spx diagnose`.",
+  MARKETPLACE_CLI_UNAVAILABLE_PROBLEM:
+    "A marketplace check is configured, but no plugin CLI is available to inspect it.",
   MARKETPLACE_CONFIGURED: "Configured plugins are installed and enabled.",
   MARKETPLACE_SKIPPED: "Plugin marketplace checks are not configured.",
   RENDERING_UNAVAILABLE: "This check produced a record this version cannot translate into diagnosis text.",
@@ -302,6 +306,14 @@ function marketplaceInstallText(check: CheckRecord): DiagnoseHumanText {
       return {
         header: DIAGNOSE_TEXT_HEADER.MARKETPLACE_DRIFT,
         details: [`${DIAGNOSE_TEXT_LABEL.FIX}: install or enable the expected plugins.`],
+      };
+    case MARKETPLACE_INSTALL_VERDICT.CLI_UNAVAILABLE:
+      return {
+        header: DIAGNOSE_TEXT_HEADER.MARKETPLACE_CLI_UNAVAILABLE,
+        details: [
+          `${DIAGNOSE_TEXT_LABEL.PROBLEM}: ${DIAGNOSE_TEXT_DETAIL.MARKETPLACE_CLI_UNAVAILABLE_PROBLEM}`,
+          `${DIAGNOSE_TEXT_LABEL.FIX}: ${DIAGNOSE_TEXT_DETAIL.MARKETPLACE_CLI_UNAVAILABLE_FIX}`,
+        ],
       };
     case MARKETPLACE_INSTALL_VERDICT.UNREGISTERED:
       return {

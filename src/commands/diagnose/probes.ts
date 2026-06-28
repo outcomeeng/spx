@@ -363,6 +363,7 @@ export const defaultMarketplaceInstallProbe: MarketplaceInstallProbe = {
     expectedPlugins: readonly string[],
   ): Promise<MarketplaceInstallReading> {
     const clean: MarketplaceInstallReading = {
+      configured: true,
       errored: false,
       surfacePresent: false,
       unregistered: false,
@@ -373,9 +374,10 @@ export const defaultMarketplaceInstallProbe: MarketplaceInstallProbe = {
       if (!pluginSurfacePresent(cli)) continue;
       const state = await surfaceState(cli, marketplace, expectedPlugins);
       if (!state.ok) {
-        return { errored: true, surfacePresent: true, unregistered: false, drifted: false };
+        return { configured: true, errored: true, surfacePresent: true, unregistered: false, drifted: false };
       }
       reading = {
+        configured: true,
         errored: false,
         surfacePresent: true,
         unregistered: reading.unregistered || state.unregistered,

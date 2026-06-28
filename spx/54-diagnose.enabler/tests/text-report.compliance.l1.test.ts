@@ -46,7 +46,13 @@ const sampleReport: DiagnoseReport = {
     classifySessionEnvironment({ errored: false, hookPresent: false, sessionIdentity: false, worktreeClaimed: false }),
     classifyWorktreePool({ errored: false, bareRepository: true, linkedWorktrees: false, running: 1, free: 8 }),
     classifySessionStore({ errored: false, orphanedClaims: 11 }),
-    classifyMarketplaceInstall({ errored: false, surfacePresent: false, unregistered: false, drifted: false }),
+    classifyMarketplaceInstall({
+      configured: false,
+      errored: false,
+      surfacePresent: false,
+      unregistered: false,
+      drifted: false,
+    }),
   ],
   overall: OVERALL_VERDICT.DEGRADED,
 };
@@ -62,6 +68,7 @@ const workingSessionReading: SessionEnvironmentReading = {
   worktreeClaimed: true,
 };
 const configuredMarketplaceReading: MarketplaceInstallReading = {
+  configured: true,
   errored: false,
   surfacePresent: true,
   unregistered: false,
@@ -72,7 +79,9 @@ const sessionEnvironmentRecord = sampleReport.checks[1];
 const worktreePoolRecord = sampleReport.checks[2];
 const sessionStoreRecord = sampleReport.checks[3];
 const marketplaceRecord = sampleReport.checks[4];
-const hiddenMarketplaceReadingKey = Object.keys(marketplaceRecord.readings)[0];
+const rawMarketplaceReadingLines = Object.keys(marketplaceRecord.readings).map((key) =>
+  `${key}${fieldDelimiter} ${marketplaceRecord.readings[key] ?? ""}`
+);
 const sessionEnvironmentReadings: Readonly<Record<string, string>> = sessionEnvironmentRecord.readings;
 const rawSessionEnvironmentReadingLines = Object.keys(sessionEnvironmentReadings).map((key) =>
   `${key}${fieldDelimiter} ${sessionEnvironmentReadings[key] ?? ""}`
@@ -190,6 +199,10 @@ const supportedTranslationBranches: readonly TranslationBranchCase[] = [
   },
   {
     check: classifyMarketplaceInstall({ ...configuredMarketplaceReading, surfacePresent: false }),
+    header: DIAGNOSE_TEXT_HEADER.MARKETPLACE_CLI_UNAVAILABLE,
+  },
+  {
+    check: classifyMarketplaceInstall({ ...configuredMarketplaceReading, configured: false, surfacePresent: false }),
     header: DIAGNOSE_TEXT_HEADER.MARKETPLACE_CHECKS_SKIPPED,
   },
   {
@@ -219,12 +232,31 @@ describe("the text report translates check records into a human diagnosis", () =
     expect(text).toContain(DIAGNOSE_TEXT_DETAIL.MARKETPLACE_SKIPPED);
   });
 
+  it("reports a configured marketplace check with no plugin CLI as an actionable problem", () => {
+    const text = renderSingleCheckText(
+      classifyMarketplaceInstall({ ...configuredMarketplaceReading, surfacePresent: false }),
+    );
+
+    expect(text).toContain(DIAGNOSE_TEXT_HEADER.MARKETPLACE_CLI_UNAVAILABLE);
+    expect(text).toContain(
+      `${DIAGNOSE_TEXT_LABEL.PROBLEM}${fieldDelimiter} ${DIAGNOSE_TEXT_DETAIL.MARKETPLACE_CLI_UNAVAILABLE_PROBLEM}`,
+    );
+    expect(text).toContain(
+      `${DIAGNOSE_TEXT_LABEL.FIX}${fieldDelimiter} ${DIAGNOSE_TEXT_DETAIL.MARKETPLACE_CLI_UNAVAILABLE_FIX}`,
+    );
+    expect(text).not.toContain(DIAGNOSE_TEXT_HEADER.MARKETPLACE_CHECKS_SKIPPED);
+    expect(text).not.toContain(DIAGNOSE_TEXT_DETAIL.MARKETPLACE_SKIPPED);
+  });
+
   it("does not expose raw boolean fields, duplicated verdict labels, or remediation prose in text mode", () => {
     const text = renderReportText(sampleReport, { color: false });
 
     expect(text).not.toContain(`${sessionEnvironmentRecord.verdict} [${sessionEnvironmentRecord.bucket}]`);
     expect(text).not.toContain(`${worktreePoolRecord.verdict} [${worktreePoolRecord.bucket}]`);
-    expect(text).not.toContain(hiddenMarketplaceReadingKey);
+    expect(text).not.toMatch(/\bsurface\b/i);
+    for (const rawReadingLine of rawMarketplaceReadingLines) {
+      expect(text).not.toContain(rawReadingLine);
+    }
     for (const rawReadingLine of rawSessionEnvironmentReadingLines) {
       expect(text).not.toContain(rawReadingLine);
     }
