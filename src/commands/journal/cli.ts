@@ -299,16 +299,17 @@ export async function journalOpenCommand(
   if (!context.ok) return errorResult(context.error);
 
   // The pull request number addresses both the prior-run hydration and this run's artifact
-  // name; resolve it once, only under github-pr. An environment where it does not resolve
-  // still opens the run — it simply carries no pull-request durability.
+  // name; resolve it once, only under github-pr. The github-pr backend was selected, so the
+  // run must be durably addressable on the pull request — an unresolvable number is a
+  // misconfigured environment, so reject at open rather than opening a run that can neither
+  // hydrate prior runs nor be retained, pre-empting the same rejection every later append raises.
   let pullNumber: number | undefined;
   if (context.value.backendKind === JOURNAL_BACKEND.GITHUB_PR) {
     const resolved = resolvePullRequestNumber(deps.processEnv ?? process.env);
-    if (resolved.ok) {
-      pullNumber = resolved.value;
-      const hydrated = await hydrateGithubPriorRuns(context.value, pullNumber, deps);
-      if (!hydrated.ok) return errorResult(hydrated.error);
-    }
+    if (!resolved.ok) return errorResult(resolved.error);
+    pullNumber = resolved.value;
+    const hydrated = await hydrateGithubPriorRuns(context.value, pullNumber, deps);
+    if (!hydrated.ok) return errorResult(hydrated.error);
   }
 
   const opened = await openJournalRun(context.value, openOptions(deps));
