@@ -363,7 +363,7 @@ describe("ALWAYS: validation command participation is driven by spx config", () 
     );
   });
 
-  it("preserves explicit markdown root directory operands through markdown validation excludes", async () => {
+  it("applies markdown validation excludes to explicit directory operands", async () => {
     await withLiteralFixtureEnv(
       {
         [validationConfigDescriptor.section]: {
@@ -384,8 +384,8 @@ describe("ALWAYS: validation command participation is driven by spx config", () 
           files: ["."],
         });
 
-        expect(result.exitCode).toBe(VALIDATION_EXIT_CODES.FAILURE);
-        expect(result.output).toContain(MARKDOWN_COMMAND_OUTPUT.ERROR_SUMMARY_SUFFIX);
+        expect(result.exitCode).toBe(VALIDATION_EXIT_CODES.SUCCESS);
+        expect(result.output).toBe(MARKDOWN_COMMAND_OUTPUT.NO_ISSUES);
       },
     );
   });
@@ -414,6 +414,56 @@ describe("ALWAYS: validation command participation is driven by spx config", () 
 
         expect(result.exitCode).toBe(VALIDATION_EXIT_CODES.SUCCESS);
         expect(result.output).toBe(MARKDOWN_COMMAND_OUTPUT.NO_ISSUES);
+      },
+    );
+  });
+
+  it("does not erase explicit markdown child directories below excluded ancestors", async () => {
+    await withLiteralFixtureEnv(
+      {
+        [validationConfigDescriptor.section]: {
+          [VALIDATION_PATHS_SUBSECTION]: {
+            [VALIDATION_PATH_TOOL_SUBSECTIONS.MARKDOWN]: {
+              exclude: ["spx/private"],
+            },
+          },
+        },
+      },
+      async (env) => {
+        await env.writeRaw("spx/private/child/bad.md", MARKDOWN_VALIDATION_DATA.brokenMarkdownContent);
+
+        const result = await markdownCommand({
+          cwd: env.productDir,
+          files: ["spx/private/child"],
+        });
+
+        expect(result.exitCode).toBe(VALIDATION_EXIT_CODES.FAILURE);
+        expect(result.output).toContain(MARKDOWN_COMMAND_OUTPUT.ERROR_SUMMARY_SUFFIX);
+      },
+    );
+  });
+
+  it("preserves explicit markdown file operands through markdown validation excludes", async () => {
+    await withLiteralFixtureEnv(
+      {
+        [validationConfigDescriptor.section]: {
+          [VALIDATION_PATHS_SUBSECTION]: {
+            [VALIDATION_PATH_TOOL_SUBSECTIONS.MARKDOWN]: {
+              exclude: ["spx/private"],
+            },
+          },
+        },
+      },
+      async (env) => {
+        await env.writeRaw("spx/private/bad.md", MARKDOWN_VALIDATION_DATA.brokenMarkdownContent);
+
+        const result = await markdownCommand({
+          cwd: env.productDir,
+          files: ["spx/private/bad.md"],
+        });
+
+        expect(result.exitCode).toBe(VALIDATION_EXIT_CODES.FAILURE);
+        expect(result.output).toContain(MARKDOWN_COMMAND_OUTPUT.ERROR_SUMMARY_SUFFIX);
       },
     );
   });
