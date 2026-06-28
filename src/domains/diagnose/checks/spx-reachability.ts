@@ -23,6 +23,13 @@ export const SPX_REACHABILITY_VERDICT = {
 
 export type SpxReachabilityVerdict = (typeof SPX_REACHABILITY_VERDICT)[keyof typeof SPX_REACHABILITY_VERDICT];
 
+/** Source-owned display values for spx-reachability readings. */
+export const SPX_REACHABILITY_READING_VALUE = {
+  ABSENT_FLOOR: "(absent)",
+  UNREAD_VERSION: "(unread)",
+  UNRESOLVED_PATH: "(not on PATH)",
+} as const;
+
 /** The reading the probe gathers: the resolved path and version, or an error flag. */
 export interface SpxReachabilityReading {
   /** The `spx` path resolved on PATH, or null when `spx` is absent from PATH. */
@@ -125,9 +132,9 @@ function record(
     verdict,
     bucket,
     readings: {
-      path: reading.resolvedPath ?? "(not on PATH)",
-      version: reading.version ?? "(unread)",
-      floor: floor ?? "(absent)",
+      path: reading.resolvedPath ?? SPX_REACHABILITY_READING_VALUE.UNRESOLVED_PATH,
+      version: reading.version ?? SPX_REACHABILITY_READING_VALUE.UNREAD_VERSION,
+      floor: floor ?? SPX_REACHABILITY_READING_VALUE.ABSENT_FLOOR,
     },
     remediation: REMEDIATION[verdict],
   };
