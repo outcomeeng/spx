@@ -1,6 +1,7 @@
 import { readFile as readFileFromDisk } from "node:fs/promises";
 import { join as joinFilePath } from "node:path";
 import { dirname, extname, join as joinProductPath, normalize } from "node:path/posix";
+import ts from "typescript";
 
 import { defaultGitDependencies, GIT_ROOT_COMMAND, type GitDependencies } from "@/git/root";
 import {
@@ -44,7 +45,7 @@ const GIT_MERGE_BASE_COMMAND = {
   MERGE_BASE: "merge-base",
   IS_ANCESTOR: "--is-ancestor",
 } as const;
-const TYPESCRIPT_SOURCE_EXTENSIONS = [".ts", ".tsx"] as const;
+const TYPESCRIPT_SOURCE_EXTENSIONS: readonly string[] = [".ts", ".tsx"];
 const TYPESCRIPT_INDEX_BASENAME = "index";
 const SOURCE_ROOT = "src";
 const SOURCE_ROOT_PREFIX = `${SOURCE_ROOT}/`;
@@ -75,8 +76,7 @@ const LOCAL_DEPENDENCY_ROOT_PREFIXES = [
   SCRIPTS_ROOT_PREFIX,
   ESLINT_RULES_ROOT_PREFIX,
 ] as const;
-const STATIC_IMPORT_SPECIFIER_PATTERN = /(?:import|export)\s+(?:type\s+)?(?:[^'"]*?\s+from\s+)?["']([^"']+)["']/g;
-const DYNAMIC_IMPORT_SPECIFIER_PATTERN = /import\s*\(\s*["']([^"']+)["']\s*\)/g;
+const IMPORT_ANALYSIS_FILENAME = "node-status-staleness-imports.ts";
 
 /**
  * Resolve node ids whose committed status projection is older than their
@@ -199,21 +199,41 @@ async function collectReachableImplementationPaths(options: CollectImplementatio
 }
 
 function importSpecifiers(content: string): readonly string[] {
-  return [
-    ...matchedImportSpecifiers(content, STATIC_IMPORT_SPECIFIER_PATTERN),
-    ...matchedImportSpecifiers(content, DYNAMIC_IMPORT_SPECIFIER_PATTERN),
-  ];
+  const sourceFile = ts.createSourceFile(
+    IMPORT_ANALYSIS_FILENAME,
+    content,
+    ts.ScriptTarget.Latest,
+    true,
+    ts.ScriptKind.TS,
+  );
+  const specifiers: string[] = [];
+  collectImportSpecifiers(sourceFile, specifiers);
+  return specifiers;
 }
 
-function matchedImportSpecifiers(content: string, pattern: RegExp): readonly string[] {
-  pattern.lastIndex = 0;
-  const specifiers: string[] = [];
-  let match = pattern.exec(content);
-  while (match !== null) {
-    specifiers.push(match[1]);
-    match = pattern.exec(content);
+function collectImportSpecifiers(node: ts.Node, specifiers: string[]): void {
+  const specifier = importSpecifierForNode(node);
+  if (specifier !== undefined) {
+    specifiers.push(specifier);
   }
-  return specifiers;
+  ts.forEachChild(node, (child) => collectImportSpecifiers(child, specifiers));
+}
+
+function importSpecifierForNode(node: ts.Node): string | undefined {
+  if (ts.isImportDeclaration(node) || ts.isExportDeclaration(node)) {
+    return stringLiteralText(node.moduleSpecifier);
+  }
+  if (ts.isCallExpression(node) && node.expression.kind === ts.SyntaxKind.ImportKeyword) {
+    return stringLiteralText(node.arguments[0]);
+  }
+  return undefined;
+}
+
+function stringLiteralText(node: ts.Node | undefined): string | undefined {
+  if (node === undefined) {
+    return undefined;
+  }
+  return ts.isStringLiteral(node) ? node.text : undefined;
 }
 
 interface ResolveLocalImportOptions {
@@ -270,7 +290,7 @@ function sourcePathCandidates(sourcePath: string): readonly string[] {
 
 function hasTypeScriptSourceExtension(path: string): boolean {
   const pathExtension = extname(path);
-  return TYPESCRIPT_SOURCE_EXTENSIONS.some((extension) => extension === pathExtension);
+  return TYPESCRIPT_SOURCE_EXTENSIONS.includes(pathExtension);
 }
 
 async function hasLaterDependencyCommit(
