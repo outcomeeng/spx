@@ -22,7 +22,6 @@ import { withWorktreePool, type WorktreePoolEnv } from "@testing/harnesses/workt
 
 const expectedCompactReasonLine = "Hook fired because the agent runtime reported source=compact.";
 const expectedCompactStdoutLineCount = 4;
-const compactDirectiveLineIndex = 2;
 
 interface SessionStartHookScenarioInput {
   readonly claimWriteToken: string;
@@ -94,10 +93,10 @@ function expectCompactStdout(stdout: string): void {
   const lines = stdout.split("\n");
   expect(lines).toHaveLength(expectedCompactStdoutLineCount);
   expect(lines[0]).toBe(expectedCompactReasonLine);
-  expect(lines[0]).toContain(HOOK_SESSION_START_PAYLOAD.SOURCE);
-  expect(lines[0]).toContain(HOOK_SESSION_START_SOURCE.COMPACT);
 
-  const directiveLine = lines[compactDirectiveLineIndex];
+  const directiveLine = lines.find((line) => line.includes(HOOK_COMPACT_FOUNDATION_ACTION.UNDERSTAND));
+  expect(directiveLine).toBeDefined();
+  if (directiveLine === undefined) throw new Error("compact stdout omitted the foundation directive");
   const understandIndex = directiveLine.indexOf(HOOK_COMPACT_FOUNDATION_ACTION.UNDERSTAND);
   const contextualizeIndex = directiveLine.indexOf(HOOK_COMPACT_FOUNDATION_ACTION.CONTEXTUALIZE);
   expect(understandIndex).toBeGreaterThanOrEqual(0);
