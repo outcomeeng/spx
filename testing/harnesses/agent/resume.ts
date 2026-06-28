@@ -1,6 +1,12 @@
 import { dirname, isAbsolute, join, relative, resolve, sep } from "node:path";
 
-import { AGENT_SESSION_JSON_FIELDS, AGENT_SESSION_KIND, AGENT_SESSION_STORE } from "@/domains/agent/protocol";
+import {
+  AGENT_SESSION_JSON_FIELDS,
+  AGENT_SESSION_KIND,
+  AGENT_SESSION_ROW_TYPE,
+  AGENT_SESSION_STORE,
+  CODEX_SESSION_ORIGINATOR,
+} from "@/domains/agent/protocol";
 import {
   type AgentResumeCandidate,
   type AgentSessionDirEntry,
@@ -19,6 +25,7 @@ export interface TranscriptInput {
   readonly cwd: string;
   readonly timestamp: string;
   readonly branch?: string;
+  readonly originator?: string;
 }
 
 export class ImmediateExit extends Error {
@@ -96,9 +103,11 @@ export class MemoryAgentSessionFileSystem implements AgentSessionFileSystem {
 export function codexTranscript(input: TranscriptInput): string {
   return JSON.stringify({
     [AGENT_SESSION_JSON_FIELDS.TIMESTAMP]: input.timestamp,
+    [AGENT_SESSION_JSON_FIELDS.TYPE]: AGENT_SESSION_ROW_TYPE.CODEX_SESSION_META,
     [AGENT_SESSION_JSON_FIELDS.PAYLOAD]: {
       [AGENT_SESSION_JSON_FIELDS.SESSION_ID]: input.sessionId,
       [AGENT_SESSION_JSON_FIELDS.CWD]: input.cwd,
+      [AGENT_SESSION_JSON_FIELDS.ORIGINATOR]: input.originator ?? CODEX_SESSION_ORIGINATOR.TUI,
     },
   });
 }

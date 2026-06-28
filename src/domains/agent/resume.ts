@@ -9,9 +9,11 @@ import {
   AGENT_SESSION_JSON_FIELDS,
   AGENT_SESSION_KIND,
   AGENT_SESSION_LABEL,
+  AGENT_SESSION_ROW_TYPE,
   AGENT_SESSION_STORE,
   type AgentResumeMode,
   type AgentSessionKind,
+  CODEX_SESSION_ORIGINATOR,
 } from "./protocol";
 
 export interface AgentSessionDirEntry {
@@ -296,26 +298,28 @@ function parseCodexCandidateFile(
   let sessionId: string | null = null;
   let cwd: string | null = null;
   let updatedAt: string | null = null;
+  let isInteractiveSession = false;
 
   for (const line of content.split("\n")) {
     const row = parseJsonObject(line);
     if (row === null) {
       continue;
     }
+    isInteractiveSession = isCodexInteractiveSessionRow(row) || isInteractiveSession;
     sessionId ??= firstString(row, [
       [AGENT_SESSION_JSON_FIELDS.SESSION_ID],
       [AGENT_SESSION_JSON_FIELDS.ID],
       [AGENT_SESSION_JSON_FIELDS.PAYLOAD, AGENT_SESSION_JSON_FIELDS.SESSION_ID],
       [AGENT_SESSION_JSON_FIELDS.PAYLOAD, AGENT_SESSION_JSON_FIELDS.ID],
     ]);
-    cwd ??= firstString(row, [
+    cwd = firstString(row, [
       [AGENT_SESSION_JSON_FIELDS.CWD],
       [AGENT_SESSION_JSON_FIELDS.PAYLOAD, AGENT_SESSION_JSON_FIELDS.CWD],
-    ]);
+    ]) ?? cwd;
     updatedAt = maxIsoTimestamp(updatedAt, firstString(row, [[AGENT_SESSION_JSON_FIELDS.TIMESTAMP]]));
   }
 
-  if (sessionId === null || cwd === null) {
+  if (!isInteractiveSession || sessionId === null || cwd === null) {
     return null;
   }
   return {
@@ -327,6 +331,20 @@ function parseCodexCandidateFile(
     updatedAt,
     branch: null,
   };
+}
+
+function isCodexInteractiveSessionRow(row: Record<string, unknown>): boolean {
+  if (firstString(row, [[AGENT_SESSION_JSON_FIELDS.TYPE]]) !== AGENT_SESSION_ROW_TYPE.CODEX_SESSION_META) {
+    return false;
+  }
+  const originator = firstString(row, [
+    [AGENT_SESSION_JSON_FIELDS.ORIGINATOR],
+    [AGENT_SESSION_JSON_FIELDS.PAYLOAD, AGENT_SESSION_JSON_FIELDS.ORIGINATOR],
+  ]);
+  return originator === CODEX_SESSION_ORIGINATOR.TUI
+    || originator === CODEX_SESSION_ORIGINATOR.CLI
+    || originator === CODEX_SESSION_ORIGINATOR.VSCODE
+    || originator === CODEX_SESSION_ORIGINATOR.VSCODE_HYPHEN;
 }
 
 function parseClaudeCodeCandidateFile(

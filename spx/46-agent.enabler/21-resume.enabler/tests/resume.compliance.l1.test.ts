@@ -7,6 +7,7 @@ import {
   AGENT_RESUME_RECENT_WINDOW_MS,
   AGENT_SESSION_KIND,
   AGENT_SESSION_STORE,
+  CODEX_SESSION_ORIGINATOR,
 } from "@/domains/agent/protocol";
 import { claudeCodeSessionStoreDir, codexSessionStoreDir, discoverAgentResumeCandidates } from "@/domains/agent/resume";
 import {
@@ -91,6 +92,40 @@ describe("agent resume recency and display compliance", () => {
 });
 
 describe("agent resume root-resolution compliance", () => {
+  it("uses the latest Codex cwd row when resolving a candidate worktree", async () => {
+    const fs = new MemoryAgentSessionFileSystem();
+    const nowMs = sampleAgentResumeValue(arbitraryAgentResumeNowMs(), 40);
+    const sessionId = sampleAgentResumeValue(arbitraryAgentSessionId(), 41);
+    const homeDir = sampleAgentResumeValue(arbitraryAgentWorktreeRoot(), 42);
+    const originalWorktreeRoot = sampleAgentResumeValue(arbitraryAgentWorktreeRoot(), 43);
+    const currentWorktreeRoot = sampleAgentResumeValue(arbitraryAgentWorktreeRoot(), 44);
+    const originalCwd = sampleAgentResumeValue(arbitraryAgentSessionCwd(originalWorktreeRoot), 45);
+    const currentCwd = sampleAgentResumeValue(arbitraryAgentSessionCwd(currentWorktreeRoot), 46);
+    const originalTimestamp = new Date(nowMs - AGENT_RESUME_LIMITS.MILLISECONDS_PER_SECOND).toISOString();
+    const currentTimestamp = new Date(nowMs).toISOString();
+    fs.writeFile(
+      codexTranscriptPath(homeDir, `${sessionId}${AGENT_SESSION_STORE.JSONL_EXTENSION}`),
+      [
+        codexTranscript({ sessionId, cwd: originalCwd, timestamp: originalTimestamp }),
+        codexTranscript({ sessionId, cwd: currentCwd, timestamp: currentTimestamp }),
+      ].join("\n"),
+      nowMs,
+    );
+
+    const candidates = await discoverAgentResumeCandidates({
+      invocationDir: currentCwd,
+      homeDir,
+      nowMs,
+      fs,
+      resolveWorktreeRoot: async (candidateCwd) =>
+        isPathInsideOrEqual(currentWorktreeRoot, candidateCwd) ? currentWorktreeRoot : null,
+    });
+
+    expect(candidates.map((candidate) => [candidate.agent, candidate.sessionId, candidate.cwd])).toEqual([
+      [AGENT_SESSION_KIND.CODEX, sessionId, currentCwd],
+    ]);
+  });
+
   it("uses the latest Claude Code cwd row when resolving a candidate worktree", async () => {
     const fs = new MemoryAgentSessionFileSystem();
     const nowMs = sampleAgentResumeValue(arbitraryAgentResumeNowMs(), 20);
@@ -185,6 +220,69 @@ describe("agent resume root-resolution compliance", () => {
 });
 
 describe("agent resume store path compliance", () => {
+  it("excludes non-interactive Codex exec transcripts from interactive resume candidates", async () => {
+    const fs = new MemoryAgentSessionFileSystem();
+    const nowMs = sampleAgentResumeValue(arbitraryAgentResumeNowMs(), 50);
+    const sessionTimestamp = new Date(nowMs).toISOString();
+    const homeDir = sampleAgentResumeValue(arbitraryAgentWorktreeRoot(), 51);
+    const worktreeRoot = sampleAgentResumeValue(arbitraryAgentWorktreeRoot(), 52);
+    const cwd = sampleAgentResumeValue(arbitraryAgentSessionCwd(worktreeRoot), 53);
+    const interactiveSessionId = sampleAgentResumeValue(arbitraryAgentSessionId(), 54);
+    const execSessionId = sampleAgentResumeValue(arbitraryAgentSessionId(), 55);
+    fs.writeFile(
+      codexTranscriptPath(homeDir, `${interactiveSessionId}${AGENT_SESSION_STORE.JSONL_EXTENSION}`),
+      codexTranscript({ sessionId: interactiveSessionId, cwd, timestamp: sessionTimestamp }),
+      nowMs,
+    );
+    fs.writeFile(
+      codexTranscriptPath(homeDir, `${execSessionId}${AGENT_SESSION_STORE.JSONL_EXTENSION}`),
+      codexTranscript({
+        sessionId: execSessionId,
+        cwd,
+        timestamp: sessionTimestamp,
+        originator: CODEX_SESSION_ORIGINATOR.EXEC,
+      }),
+      nowMs + 1,
+    );
+
+    const candidates = await discoverAgentResumeCandidates({
+      invocationDir: cwd,
+      homeDir,
+      nowMs: nowMs + AGENT_RESUME_LIMITS.MILLISECONDS_PER_SECOND,
+      fs,
+      resolveWorktreeRoot: async (candidateCwd) =>
+        isPathInsideOrEqual(worktreeRoot, candidateCwd) ? worktreeRoot : null,
+    });
+
+    expect(candidates.map((candidate) => candidate.sessionId)).toEqual([interactiveSessionId]);
+  });
+
+  it("includes Codex VS Code transcripts as interactive resume candidates", async () => {
+    const fs = new MemoryAgentSessionFileSystem();
+    const nowMs = sampleAgentResumeValue(arbitraryAgentResumeNowMs(), 60);
+    const sessionTimestamp = new Date(nowMs).toISOString();
+    const homeDir = sampleAgentResumeValue(arbitraryAgentWorktreeRoot(), 61);
+    const worktreeRoot = sampleAgentResumeValue(arbitraryAgentWorktreeRoot(), 62);
+    const cwd = sampleAgentResumeValue(arbitraryAgentSessionCwd(worktreeRoot), 63);
+    const sessionId = sampleAgentResumeValue(arbitraryAgentSessionId(), 64);
+    fs.writeFile(
+      codexTranscriptPath(homeDir, `${sessionId}${AGENT_SESSION_STORE.JSONL_EXTENSION}`),
+      codexTranscript({ sessionId, cwd, timestamp: sessionTimestamp, originator: CODEX_SESSION_ORIGINATOR.VSCODE }),
+      nowMs,
+    );
+
+    const candidates = await discoverAgentResumeCandidates({
+      invocationDir: cwd,
+      homeDir,
+      nowMs,
+      fs,
+      resolveWorktreeRoot: async (candidateCwd) =>
+        isPathInsideOrEqual(worktreeRoot, candidateCwd) ? worktreeRoot : null,
+    });
+
+    expect(candidates.map((candidate) => candidate.sessionId)).toEqual([sessionId]);
+  });
+
   it("reads Codex and Claude Code candidates from their default agent session stores", () => {
     const homeDir = sampleAgentResumeValue(arbitraryAgentWorktreeRoot());
 
