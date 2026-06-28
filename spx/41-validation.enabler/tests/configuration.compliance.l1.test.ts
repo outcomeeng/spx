@@ -439,22 +439,37 @@ describe("ALWAYS: validation command participation is driven by spx config", () 
         MARKDOWN_VALIDATION_DATA.spxDirectoryName,
         MARKDOWN_VALIDATION_DATA.declaredNodeDirectory,
       ].join("/");
+      const directMarkdownPath = [
+        excludedNodePath,
+        MARKDOWN_VALIDATION_DATA.declaredMarkdownFile,
+      ].join("/");
+      const childMarkdownPath = [
+        excludedNodePath,
+        MARKDOWN_VALIDATION_DATA.declaredChildDirectory,
+        MARKDOWN_VALIDATION_DATA.childMarkdownFile,
+      ].join("/");
       await env.writeRaw(
         [MARKDOWN_VALIDATION_DATA.spxDirectoryName, NODE_STATUS_EXCLUDE_FILENAME].join("/"),
         `${MARKDOWN_VALIDATION_DATA.declaredNodeDirectory}\n`,
       );
-      await env.writeRaw(
-        [excludedNodePath, MARKDOWN_VALIDATION_DATA.declaredMarkdownFile].join("/"),
-        MARKDOWN_VALIDATION_DATA.brokenMarkdownContent,
-      );
+      await env.writeRaw(directMarkdownPath, MARKDOWN_VALIDATION_DATA.brokenMarkdownContent);
+      await env.writeRaw(childMarkdownPath, MARKDOWN_VALIDATION_DATA.brokenMarkdownContent);
 
-      const result = await markdownCommand({
+      const directoryResult = await markdownCommand({
         cwd: env.productDir,
         files: [excludedNodePath],
       });
+      const fileResult = await markdownCommand({
+        cwd: env.productDir,
+        files: [directMarkdownPath],
+      });
 
-      expect(result.exitCode).toBe(VALIDATION_EXIT_CODES.FAILURE);
-      expect(result.output).toContain(MARKDOWN_COMMAND_OUTPUT.ERROR_SUMMARY_SUFFIX);
+      expect(directoryResult.exitCode).toBe(VALIDATION_EXIT_CODES.FAILURE);
+      expect(directoryResult.output).toContain(MARKDOWN_COMMAND_OUTPUT.ERROR_SUMMARY_SUFFIX);
+      expect(directoryResult.output).toContain(childMarkdownPath);
+      expect(directoryResult.output).not.toContain(directMarkdownPath);
+      expect(fileResult.exitCode).toBe(VALIDATION_EXIT_CODES.SUCCESS);
+      expect(fileResult.output).toBe(MARKDOWN_COMMAND_OUTPUT.NO_ISSUES);
     });
   });
 });
