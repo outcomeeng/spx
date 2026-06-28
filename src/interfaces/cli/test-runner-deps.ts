@@ -1,13 +1,19 @@
 import type { ChildProcess } from "node:child_process";
 import { createWriteStream } from "node:fs";
-import { mkdtemp } from "node:fs/promises";
+import { mkdtemp, readFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import type { Writable } from "node:stream";
 import { finished } from "node:stream/promises";
 
 import { lifecycleProcessRunner, type ProcessRunner, spawnManagedSubprocess } from "@/lib/process-lifecycle";
-import type { TestingLanguageDescriptor, TestRunCommandResult, TestRunnerDependencies } from "@/test/languages/types";
+import type {
+  RelatedTestCommandResult,
+  RelatedTestDependencies,
+  TestingLanguageDescriptor,
+  TestRunCommandResult,
+  TestRunnerDependencies,
+} from "@/test/languages/types";
 
 export const PROCESS_FAILURE_EXIT_CODE = 1;
 export const AGENT_ARTIFACT_DIR_PREFIX = "spx-test-agent-";
@@ -64,6 +70,31 @@ function createCommandRunner(
     });
 }
 
+function createRelatedCommandRunner(productDir: string): RelatedTestDependencies["runCommand"] {
+  return (command, args) =>
+    new Promise<RelatedTestCommandResult>((resolveResult) => {
+      const stdout: string[] = [];
+      const stderr: string[] = [];
+      const child: ChildProcess = spawnManagedSubprocess(lifecycleProcessRunner, command, args, {
+        cwd: productDir,
+      });
+      child.stdout?.on("data", (chunk: Buffer | string) => stdout.push(String(chunk)));
+      child.stderr?.on("data", (chunk: Buffer | string) => stderr.push(String(chunk)));
+      child.on("close", (code) =>
+        resolveResult({
+          exitCode: code ?? PROCESS_FAILURE_EXIT_CODE,
+          stdout: stdout.join(""),
+          stderr: stderr.join(""),
+        }));
+      child.on("error", (error) =>
+        resolveResult({
+          exitCode: PROCESS_FAILURE_EXIT_CODE,
+          stdout: stdout.join(""),
+          stderr: error.message,
+        }));
+    });
+}
+
 /**
  * Builds the runner dependencies the `spx test` run and the
  * `spx spec status --update` outcome resolver both compose: a command runner
@@ -78,6 +109,13 @@ export function createRunnerDepsFor(
 ): (language: TestingLanguageDescriptor) => TestRunnerDependencies {
   const runCommand = createCommandRunner(productDir, outStream);
   return () => ({ runCommand });
+}
+
+export function createRelatedDepsFor(
+  productDir: string,
+): (language: TestingLanguageDescriptor) => RelatedTestDependencies {
+  const runCommand = createRelatedCommandRunner(productDir);
+  return () => ({ runCommand, readFile: (path) => readFile(join(productDir, path), "utf8") });
 }
 
 function artifactFileName(index: number, suffix: string): string {

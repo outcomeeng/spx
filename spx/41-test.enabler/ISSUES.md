@@ -142,7 +142,7 @@ feature work on June 17, 2026.
 `typescript:audit-typescript-tests`, and
 `typescript:audit-typescript`.
 
-## FOLLOW-UP: `spx test` lacks explicit target arguments
+## RESOLVED: `spx test` owns focused and changed-set verification
 
 Agents expect focused verification through the product CLI, for example:
 
@@ -178,31 +178,27 @@ targeted path should be the expected agent verification command for iterative
 push-readiness work; the full package suite should remain an explicit broad gate,
 not the only product-owned way to obtain trustworthy test evidence.
 
-**Additional gaps to close in the same area:**
+**Resolution:** explicit target operands are available through `spx test
+spx/<node>` and `spx test spx/<node>/tests/<file>`. Selective changeset testing
+is available through `spx test --changed [--base <ref>]`, which resolves changed
+spec or test files by node path and changed source files through registered
+language adapters. The product `CLAUDE.md` running-tests STOP TRIGGER documents
+`spx test --changed [--base origin/main]` as the focused agent verification path,
+and the pre-commit hook drives `spx test --changed --base HEAD` instead of raw
+Vitest. The remaining raw-Vitest package script (`pnpm run build && vitest run`)
+is the deliberate broad full-suite gate covered by the running-tests STOP
+TRIGGER, alongside the human `test:coverage` and `test:watch` scripts.
 
-- Selective changeset testing: `spx test passing` means configured passing scope,
-  not tests affected by the current diff. The product has no `spx test --changed`,
-  no `--base origin/main`, no planner from changed files to affected nodes or test
-  files, and no product-owned Vitest `--related` integration through `spx`.
-- Dogfooding: CI's gate now runs `spx test passing`
-  (`.github/workflows/deterministic-verification.yml`), and the product
-  `CLAUDE.md` running-tests STOP TRIGGER documents `spx test spx/<node>` as the
-  focused agent verification path — so the product verb owns the CI gate and the
-  focused-local path. Remaining: the `pnpm test` package script is still raw
-  Vitest (`pnpm run build && vitest run`), intentionally kept as the explicit
-  broad full-suite gate; and the pre-commit hook still drives raw Vitest on
-  staged files. Both fully dogfood only once `spx test --changed` (above) lands
-  to own the changed-set path.
-
-**Evidence:** agent-output feature work on June 18, 2026; targeted verification
-used direct Vitest because `spx test --agent` has no explicit-target CLI. The
+**Evidence:** agent-output feature work on June 18, 2026 used direct Vitest
+before explicit target operands and changed-set planning were present. The
 operator reported the full suite taking about 45 seconds idle and about 20
 minutes under load 200, with multiple agents repeatedly running the full suite
 during PR push loops. A second agent review called out the absent
-`--changed`/`--base` planner and package-script and CI non-dogfooding.
+`--changed`/`--base` planner and package-script non-dogfooding.
 
-**Revisit condition:** fix before documenting `spx test --agent` as the default
-focused verification command for agents.
+**Tracking classification:** Resolved for focused local verification and
+pre-commit dogfooding. The full-suite package script remains a deliberate broad
+gate.
 
 **Skills:** `spec-tree:contextualize`, `spec-tree:apply`,
 `typescript:code-typescript`, `typescript:test-typescript`,

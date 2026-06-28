@@ -3,13 +3,13 @@
  *
  * Creates an isolated git repository with:
  * - Symlinked node_modules from project (fast, no install needed)
- * - Minimal vitest config
+ * - Minimal vitest config for spx test
  * - Lefthook pre-commit hook configured
  *
- * Used for Level 2 integration tests that verify real git + lefthook + vitest behavior.
+ * Used for Level 2 integration tests that verify real git + lefthook + spx test behavior.
  */
 import { execa, type Options as ExecaOptions } from "execa";
-import { mkdir, symlink, writeFile as writeFileFs } from "node:fs/promises";
+import { mkdir, readFile, symlink, writeFile as writeFileFs } from "node:fs/promises";
 import { dirname, join, relative, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 
@@ -19,6 +19,7 @@ import { withTempDir } from "@testing/harnesses/with-temp-dir";
 import {
   buildGitTestEnvironment,
   GIT_TEST_CONFIG,
+  GIT_TEST_FLAGS,
   GIT_TEST_SUBCOMMANDS,
   runGit,
   runTsxFile,
@@ -29,6 +30,7 @@ const __dirname = dirname(__filename);
 
 /** Project root resolved from this helper's location */
 const PRODUCT_ROOT = resolve(__dirname, "../..");
+const BASELINE_COMMIT_MESSAGE = "baseline fixture";
 
 /**
  * Result from executing a command
@@ -137,19 +139,20 @@ export function withGitEnv<T>(
 ): Promise<T> {
   return withTempDir("spx-git-test-", async (tempDir) => {
     const precommitRelativePath = relative(PRODUCT_ROOT, PRECOMMIT_PATH);
+    const configFilenamesRelativePath = "src/config/filenames.ts";
+    const sourceRootsRelativePath = "src/config/source-roots.ts";
     const configDomainRelativePath = "src/domains/config";
+    const gitLibRelativePath = "src/lib/git";
 
     // Symlink project config files (ensures tests verify ACTUAL configuration)
-    const filesToSymlink = [
-      "node_modules",
-      "package.json",
-      "vitest.config.ts",
-      "tsconfig.json",
-      "lefthook.yml",
-    ];
+    const filesToSymlink = ["node_modules", "lefthook.yml"];
+    const filesToCopy = ["package.json", "vitest.config.ts", "tsconfig.json"];
 
     for (const file of filesToSymlink) {
       await symlink(join(PRODUCT_ROOT, file), join(tempDir, file));
+    }
+    for (const file of filesToCopy) {
+      await writeFileFs(join(tempDir, file), await readFile(join(PRODUCT_ROOT, file)));
     }
 
     // Symlink src/lib/precommit specifically (NOT all of src/)
@@ -161,16 +164,36 @@ export function withGitEnv<T>(
       join(PRECOMMIT_PATH),
       join(tempDir, precommitRelativePath),
     );
+    await mkdir(join(tempDir, dirname(configFilenamesRelativePath)), { recursive: true });
+    await symlink(
+      join(PRODUCT_ROOT, configFilenamesRelativePath),
+      join(tempDir, configFilenamesRelativePath),
+    );
+    await symlink(
+      join(PRODUCT_ROOT, sourceRootsRelativePath),
+      join(tempDir, sourceRootsRelativePath),
+    );
     await mkdir(join(tempDir, dirname(configDomainRelativePath)), { recursive: true });
     await symlink(
       join(PRODUCT_ROOT, configDomainRelativePath),
       join(tempDir, configDomainRelativePath),
+    );
+    await mkdir(join(tempDir, dirname(gitLibRelativePath)), { recursive: true });
+    await symlink(
+      join(PRODUCT_ROOT, gitLibRelativePath),
+      join(tempDir, gitLibRelativePath),
     );
 
     // Initialize git repo
     await runGit(tempDir, [GIT_TEST_SUBCOMMANDS.INIT]);
     await runGit(tempDir, [GIT_TEST_SUBCOMMANDS.CONFIG, "user.email", GIT_TEST_CONFIG.EMAIL]);
     await runGit(tempDir, [GIT_TEST_SUBCOMMANDS.CONFIG, "user.name", GIT_TEST_CONFIG.USER_NAME]);
+    await runGit(tempDir, [GIT_TEST_SUBCOMMANDS.ADD, "."]);
+    await runGit(tempDir, [
+      GIT_TEST_SUBCOMMANDS.COMMIT,
+      GIT_TEST_FLAGS.COMMIT_MESSAGE,
+      BASELINE_COMMIT_MESSAGE,
+    ]);
 
     // Install hooks through the entrypoint that the product prepare script invokes.
     await runTsxFile(tempDir, PREPARE_HOOK_ENTRYPOINT);

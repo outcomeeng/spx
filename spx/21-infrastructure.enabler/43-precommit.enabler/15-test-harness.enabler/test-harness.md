@@ -1,8 +1,8 @@
 # Precommit Git Environment Test Harness
 
-PROVIDES an isolated git environment for precommit integration tests — a temporary repository with the product's `node_modules`, `package.json`, vitest, tsconfig, and lefthook configuration symlinked in, lefthook hooks installed, and a callback context whose `exec` runs a command in the environment and whose `writeFile` writes a file relative to the environment root
+PROVIDES an isolated git environment for precommit integration tests — a temporary repository with the product's `package.json`, vitest config, and tsconfig copied in, the product's `node_modules` and lefthook configuration symlinked in, lefthook hooks installed, and a callback context whose `exec` runs a command in the environment and whose `writeFile` writes a file relative to the environment root
 SO THAT the precommit enabler's integration tests
-CAN drive real git, lefthook, and vitest behavior against the actual product configuration and read every command's exit code, stdout, and stderr through one `ExecResult` shape whether the command succeeds or exits non-zero
+CAN drive real git, lefthook, and `spx test` behavior against the actual product configuration and read every command's exit code, stdout, and stderr through one `ExecResult` shape whether the command succeeds or exits non-zero
 
 ## Assertions
 

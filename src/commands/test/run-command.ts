@@ -1,12 +1,31 @@
 import { join } from "node:path";
 
 import { digestDescriptorSection } from "@/config/descriptor-digest";
-import { resolveConfig } from "@/config/index";
+import {
+  CONFIG_FILE_DEFINITIONS,
+  CONFIG_FILE_FORMAT_ORDER,
+  CONFIG_FILENAMES,
+  type ConfigFile,
+  type ConfigFileReadResult,
+  resolveConfig,
+  resolveConfigFromReadResult,
+} from "@/config/index";
+import type { Config, Result } from "@/config/types";
 import { SUCCESS_EXIT_CODE, type TargetSelection } from "@/domains/test";
-import { getCurrentBranch, getHeadSha, type GitDependencies } from "@/git/root";
+import {
+  defaultGitDependencies,
+  getCurrentBranch,
+  getHeadSha,
+  GIT_ROOT_COMMAND,
+  type GitDependencies,
+} from "@/git/root";
 import { compareAsciiStrings, hasErrorCode } from "@/lib/state-store";
 import { TESTING_SECTION, type TestingConfig, testingConfigDescriptor } from "@/test/config";
-import type { TestingLanguageDescriptor, TestRunnerDependencies } from "@/test/languages/types";
+import type {
+  RelatedTestDependencies,
+  TestingLanguageDescriptor,
+  TestRunnerDependencies,
+} from "@/test/languages/types";
 import type { TestingRegistry } from "@/test/registry";
 import {
   createTestRunFile,
@@ -26,6 +45,11 @@ import {
   writeTerminalTestRunState,
 } from "@/test/run-state";
 
+import {
+  CHANGED_TEST_INDEX_PATH_PREFIX,
+  CHANGED_TEST_SHOW_COMMAND,
+  planChangedTestSelection,
+} from "./changed-set-planning";
 import { runTests, type TestDispatchResult } from "./dispatch";
 
 // Non-empty sentinel for branch/head-SHA when git resolution returns null (no
@@ -38,11 +62,14 @@ const PRODUCT_INPUT_FIELDS = {
   PRESENT: "present",
   CONTENT: "content",
 } as const;
+const STAGED_CONFIG_FILENAMES = new Set<string>(Object.values(CONFIG_FILENAMES));
+export const CHANGED_TEST_RELATED_DEPS_ERROR = "spx test --changed requires related-test dependencies";
 
 /** Shared command dependencies; filesystem, clock, and git default to real access. */
 export interface TestCommandDependencies {
   readonly registry: TestingRegistry;
   readonly runnerDepsFor: (language: TestingLanguageDescriptor) => TestRunnerDependencies;
+  readonly relatedDepsFor?: (language: TestingLanguageDescriptor) => RelatedTestDependencies;
   /** Git access for branch and head-SHA identity; defaults to real git resolution. */
   readonly git?: GitDependencies;
   /** State filesystem for recording and discovered-content reads; defaults to real fs. */
@@ -57,6 +84,8 @@ export interface RunTestsCommandOptions {
   readonly passing: boolean;
   /** When present with operands, only the operand-selected files dispatch; passing scope still applies. */
   readonly targets?: TargetSelection;
+  /** When present, resolve changed paths to a targeted-execution operand source before dispatch. */
+  readonly changed?: { readonly baseRef?: string; readonly staged?: boolean };
 }
 
 export interface RecordedTestRun {
@@ -87,10 +116,41 @@ function resolveRecordingDependencies(deps: TestCommandDependencies): RecordingD
   };
 }
 
+function mergeTargetSelections(
+  explicit: TargetSelection | undefined,
+  changed: TargetSelection | undefined,
+): TargetSelection | undefined {
+  if (explicit === undefined) return changed;
+  if (changed === undefined) return explicit;
+  return {
+    operands: [...new Set([...explicit.operands, ...changed.operands])].sort(compareAsciiStrings),
+    recursive: explicit.recursive || changed.recursive,
+  };
+}
+
+function includesStagedConfigChange(changedPaths: readonly string[]): boolean {
+  return changedPaths.some((path) => STAGED_CONFIG_FILENAMES.has(path));
+}
+
 // Resolves the testing config and its canonical digest, the staleness input that
 // detects testing-policy changes. Throws with context on a malformed config.
 async function resolveTestingConfig(productDir: string): Promise<{ config: TestingConfig; digest: string }> {
   const loaded = await resolveConfig(productDir, [testingConfigDescriptor]);
+  return resolvedTestingConfig(loaded);
+}
+
+async function resolveStagedTestingConfig(
+  productDir: string,
+  git: GitDependencies,
+): Promise<{ config: TestingConfig; digest: string }> {
+  const loaded = resolveConfigFromReadResult(
+    await readStagedConfigFile(productDir, git),
+    [testingConfigDescriptor],
+  );
+  return resolvedTestingConfig(loaded);
+}
+
+function resolvedTestingConfig(loaded: Result<Config>): { config: TestingConfig; digest: string } {
   if (!loaded.ok) {
     throw new Error(`failed to resolve testing config: ${loaded.error}`);
   }
@@ -100,6 +160,33 @@ async function resolveTestingConfig(productDir: string): Promise<{ config: Testi
     throw new Error(`failed to digest testing config: ${digest.error}`);
   }
   return { config, digest: digest.value.sha256 };
+}
+
+async function readStagedConfigFile(productDir: string, git: GitDependencies): Promise<ConfigFileReadResult> {
+  const detected: ConfigFile[] = [];
+  for (const format of CONFIG_FILE_FORMAT_ORDER) {
+    const definition = CONFIG_FILE_DEFINITIONS[format];
+    const result = await git.execa(
+      GIT_ROOT_COMMAND.EXECUTABLE,
+      [CHANGED_TEST_SHOW_COMMAND, `${CHANGED_TEST_INDEX_PATH_PREFIX}${definition.filename}`],
+      { cwd: productDir, reject: false },
+    );
+    if (result.exitCode !== 0) continue;
+    detected.push({
+      filename: definition.filename,
+      format: definition.format,
+      path: join(productDir, definition.filename),
+      raw: result.stdout,
+    });
+  }
+  if (detected.length === 0) return { kind: "absent" };
+  if (detected.length > 1) {
+    return {
+      kind: "ambiguous",
+      detected: detected.map((file) => file.filename),
+    };
+  }
+  return { kind: "ok", file: detected[0] };
 }
 
 // The files this run covered — the union of the dispatched runners' test paths.
@@ -282,16 +369,43 @@ export async function runTestsCommand(
   options: RunTestsCommandOptions,
   deps: TestCommandDependencies,
 ): Promise<RecordedTestRun> {
-  const { config, digest } = await resolveTestingConfig(options.productDir);
-  const passingScope = options.passing ? config.passingScope : undefined;
   const recording = resolveRecordingDependencies(deps);
+  const relatedDepsFor = deps.relatedDepsFor;
+  let changedSelection: Awaited<ReturnType<typeof planChangedTestSelection>> | undefined;
+  if (options.changed !== undefined) {
+    if (relatedDepsFor === undefined) {
+      throw new Error(CHANGED_TEST_RELATED_DEPS_ERROR);
+    }
+    changedSelection = await planChangedTestSelection(
+      { productDir: options.productDir, baseRef: options.changed.baseRef, staged: options.changed.staged },
+      {
+        git: deps.git ?? defaultGitDependencies,
+        registry: deps.registry,
+        relatedDepsFor: (languageName) => {
+          const language = deps.registry.languages.find((candidate) => candidate.name === languageName);
+          if (language === undefined) {
+            throw new Error(`failed to resolve related-test dependencies for ${languageName}`);
+          }
+          return relatedDepsFor(language);
+        },
+      },
+    );
+  }
+  const stagedConfigChanged = options.changed?.staged === true
+    && changedSelection !== undefined
+    && includesStagedConfigChange(changedSelection.changedPaths);
+  const { config, digest } = stagedConfigChanged
+    ? await resolveStagedTestingConfig(options.productDir, deps.git ?? defaultGitDependencies)
+    : await resolveTestingConfig(options.productDir);
+  const passingScope = options.passing ? config.passingScope : undefined;
   const runFile = await reserveRunFile(options.productDir, recording);
   const dispatch = await runTests(
     {
       productDir: options.productDir,
       registry: deps.registry,
       passingScope,
-      targets: options.targets,
+      targets: mergeTargetSelections(options.targets, changedSelection?.targets),
+      unresolvedChangedSourceFiles: changedSelection?.unresolvedSourceFiles,
     },
     { runnerDepsFor: deps.runnerDepsFor },
   );

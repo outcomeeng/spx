@@ -1,24 +1,26 @@
 import { describe, expect, it } from "vitest";
 
-import { combineVitestProcessOutput, PRECOMMIT_RUN, type PrecommitDeps, runPrecommitTests } from "@/lib/precommit/run";
-import { VITEST_ARGS } from "@/lib/precommit/vitest-args";
+import { CONFIG_FILENAMES } from "@/config/index";
+import { PRECOMMIT_SPX_TEST_ARGS } from "@/lib/precommit/build-args";
+import { combineTestProcessOutput, PRECOMMIT_RUN, type PrecommitDeps, runPrecommitTests } from "@/lib/precommit/run";
 import { PRECOMMIT_TEST_GENERATOR, samplePrecommitTestValue } from "@testing/generators/precommit/precommit";
 
 const otherFile = () => samplePrecommitTestValue(PRECOMMIT_TEST_GENERATOR.otherPath());
 const sourceFile = () => samplePrecommitTestValue(PRECOMMIT_TEST_GENERATOR.sourcePath());
 const testFile = () => samplePrecommitTestValue(PRECOMMIT_TEST_GENERATOR.testPath());
+const configFilePaths = Object.values(CONFIG_FILENAMES);
 
 function createTestDeps(
   overrides: Partial<{
     stagedFiles: string[];
-    vitestExitCode: number;
-    vitestOutput: string;
+    testExitCode: number;
+    testOutput: string;
   }> = {},
 ): { deps: PrecommitDeps; logs: string[] } {
   const {
     stagedFiles = [],
-    vitestExitCode = PRECOMMIT_RUN.EXIT_CODES.SUCCESS,
-    vitestOutput = PRECOMMIT_RUN.MESSAGES.TESTS_PASSED,
+    testExitCode = PRECOMMIT_RUN.EXIT_CODES.SUCCESS,
+    testOutput = PRECOMMIT_RUN.MESSAGES.TESTS_PASSED,
   } = overrides;
 
   const logs: string[] = [];
@@ -26,7 +28,7 @@ function createTestDeps(
   return {
     deps: {
       getStagedFiles: async () => stagedFiles,
-      runVitest: async () => ({ exitCode: vitestExitCode, output: vitestOutput }),
+      runSpxTest: async () => ({ exitCode: testExitCode, output: testOutput }),
       log: (message: string) => logs.push(message),
     },
     logs,
@@ -58,8 +60,8 @@ describe("runPrecommitTests scenarios", () => {
     it("WHEN running THEN returns success", async () => {
       const { deps } = createTestDeps({
         stagedFiles: [sourceFile()],
-        vitestExitCode: PRECOMMIT_RUN.EXIT_CODES.SUCCESS,
-        vitestOutput: PRECOMMIT_RUN.MESSAGES.TESTS_PASSED,
+        testExitCode: PRECOMMIT_RUN.EXIT_CODES.SUCCESS,
+        testOutput: PRECOMMIT_RUN.MESSAGES.TESTS_PASSED,
       });
 
       const result = await runPrecommitTests(deps);
@@ -69,17 +71,17 @@ describe("runPrecommitTests scenarios", () => {
       expect(result.message).toBe(PRECOMMIT_RUN.MESSAGES.TESTS_PASSED);
     });
 
-    it("WHEN running THEN passes vitest output through to result", async () => {
+    it("WHEN running THEN passes spx test output through to result", async () => {
       const expectedOutput = samplePrecommitTestValue(PRECOMMIT_TEST_GENERATOR.otherPath());
       const { deps } = createTestDeps({
         stagedFiles: [sourceFile()],
-        vitestExitCode: PRECOMMIT_RUN.EXIT_CODES.SUCCESS,
-        vitestOutput: expectedOutput,
+        testExitCode: PRECOMMIT_RUN.EXIT_CODES.SUCCESS,
+        testOutput: expectedOutput,
       });
 
       const result = await runPrecommitTests(deps);
 
-      expect(result.vitestOutput).toBe(expectedOutput);
+      expect(result.testOutput).toBe(expectedOutput);
     });
 
     it("WHEN running THEN logs running message", async () => {
@@ -95,7 +97,7 @@ describe("runPrecommitTests scenarios", () => {
     it("WHEN running THEN returns failure exit code", async () => {
       const { deps } = createTestDeps({
         stagedFiles: [testFile()],
-        vitestExitCode: PRECOMMIT_RUN.EXIT_CODES.FAILURE,
+        testExitCode: PRECOMMIT_RUN.EXIT_CODES.FAILURE,
       });
 
       const result = await runPrecommitTests(deps);
@@ -107,13 +109,13 @@ describe("runPrecommitTests scenarios", () => {
   });
 
   describe("GIVEN test files staged", () => {
-    it("WHEN running THEN calls runVitest with --run followed by those test files", async () => {
+    it("WHEN running THEN calls spx test with changed-set arguments", async () => {
       const staged = testFile();
-      let vitestArgs: string[] = [];
+      let spxTestArgs: string[] = [];
       const deps: PrecommitDeps = {
         getStagedFiles: async () => [staged],
-        runVitest: async (args) => {
-          vitestArgs = args;
+        runSpxTest: async (args) => {
+          spxTestArgs = args;
           return { exitCode: 0, output: "" };
         },
         log: () => {},
@@ -121,18 +123,18 @@ describe("runPrecommitTests scenarios", () => {
 
       await runPrecommitTests(deps);
 
-      expect(vitestArgs).toEqual([VITEST_ARGS.RUN, staged]);
+      expect(spxTestArgs).toEqual(PRECOMMIT_SPX_TEST_ARGS);
     });
   });
 
   describe("GIVEN source files staged", () => {
-    it("WHEN running THEN uses related --run followed by those source files", async () => {
+    it("WHEN running THEN calls spx test with changed-set arguments", async () => {
       const staged = sourceFile();
-      let vitestArgs: string[] = [];
+      let spxTestArgs: string[] = [];
       const deps: PrecommitDeps = {
         getStagedFiles: async () => [staged],
-        runVitest: async (args) => {
-          vitestArgs = args;
+        runSpxTest: async (args) => {
+          spxTestArgs = args;
           return { exitCode: 0, output: "" };
         },
         log: () => {},
@@ -140,7 +142,48 @@ describe("runPrecommitTests scenarios", () => {
 
       await runPrecommitTests(deps);
 
-      expect(vitestArgs).toEqual([VITEST_ARGS.RELATED, VITEST_ARGS.RUN, staged]);
+      expect(spxTestArgs).toEqual(PRECOMMIT_SPX_TEST_ARGS);
+    });
+  });
+
+  describe("GIVEN product config files staged", () => {
+    it("WHEN running THEN calls spx test with changed-set arguments", async () => {
+      for (const path of configFilePaths) {
+        let spxTestArgs: string[] = [];
+        const deps: PrecommitDeps = {
+          getStagedFiles: async () => [path],
+          runSpxTest: async (args) => {
+            spxTestArgs = args;
+            return { exitCode: 0, output: "" };
+          },
+          log: () => {},
+        };
+
+        await runPrecommitTests(deps);
+
+        expect(spxTestArgs).toEqual(PRECOMMIT_SPX_TEST_ARGS);
+      }
+    });
+  });
+
+  describe("GIVEN source and test files staged together", () => {
+    it("WHEN running THEN calls spx test once with changed-set arguments", async () => {
+      let spxTestCallCount = 0;
+      let spxTestArgs: string[] = [];
+      const deps: PrecommitDeps = {
+        getStagedFiles: async () => [sourceFile(), testFile()],
+        runSpxTest: async (args) => {
+          spxTestCallCount += 1;
+          spxTestArgs = args;
+          return { exitCode: 0, output: "" };
+        },
+        log: () => {},
+      };
+
+      await runPrecommitTests(deps);
+
+      expect(spxTestCallCount).toBe(1);
+      expect(spxTestArgs).toEqual(PRECOMMIT_SPX_TEST_ARGS);
     });
   });
 
@@ -156,8 +199,8 @@ describe("runPrecommitTests scenarios", () => {
   });
 });
 
-describe("combineVitestProcessOutput scenarios", () => {
+describe("combineTestProcessOutput scenarios", () => {
   it("returns an empty string when spawnSync produces no captured output", () => {
-    expect(combineVitestProcessOutput(undefined, undefined)).toHaveLength(0);
+    expect(combineTestProcessOutput(undefined, undefined)).toHaveLength(0);
   });
 });

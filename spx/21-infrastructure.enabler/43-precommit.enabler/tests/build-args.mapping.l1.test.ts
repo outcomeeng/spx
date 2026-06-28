@@ -1,9 +1,12 @@
 import * as fc from "fast-check";
 import { describe, expect, it } from "vitest";
 
-import { buildVitestArgs, isTestFile } from "@/lib/precommit/build-args";
-import { VITEST_ARGS } from "@/lib/precommit/vitest-args";
+import { CONFIG_FILENAMES } from "@/config/index";
+import { buildSpxTestArgs, isTestFile } from "@/lib/precommit/build-args";
+import { SPX_TEST_ARGS } from "@/lib/precommit/spx-test-args";
 import { PRECOMMIT_TEST_GENERATOR } from "@testing/generators/precommit/precommit";
+
+const configFilePaths = Object.values(CONFIG_FILENAMES);
 
 describe("isTestFile", () => {
   it("returns true for any path containing the test pattern", () => {
@@ -31,32 +34,52 @@ describe("isTestFile", () => {
   });
 });
 
-describe("buildVitestArgs", () => {
-  it("empty staged file list produces empty vitest argument list", () => {
-    expect(buildVitestArgs([])).toEqual([]);
+describe("buildSpxTestArgs", () => {
+  it("empty staged file list produces empty spx test argument list", () => {
+    expect(buildSpxTestArgs([])).toEqual([]);
   });
 
-  it("test-files-only input maps exactly to --run followed by the test files", () => {
+  it("test-files-only input maps to changed-set testing against HEAD", () => {
     fc.assert(
       fc.property(fc.array(PRECOMMIT_TEST_GENERATOR.testPath(), { minLength: 1 }), (testFiles) => {
-        expect(buildVitestArgs(testFiles)).toEqual([VITEST_ARGS.RUN, ...testFiles]);
+        expect(buildSpxTestArgs(testFiles)).toEqual([
+          SPX_TEST_ARGS.COMMAND,
+          SPX_TEST_ARGS.CHANGED,
+          SPX_TEST_ARGS.STAGED,
+          SPX_TEST_ARGS.BASE,
+          SPX_TEST_ARGS.BASE_REF,
+        ]);
       }),
     );
   });
 
-  it("source-files-present input maps exactly to related --run followed by the source files", () => {
+  it("source-files-present input maps to changed-set testing against HEAD", () => {
     fc.assert(
       fc.property(
         fc.array(PRECOMMIT_TEST_GENERATOR.sourcePath(), { minLength: 1 }),
         fc.array(PRECOMMIT_TEST_GENERATOR.testPath()),
         (sourceFiles, testFiles) => {
-          expect(buildVitestArgs([...sourceFiles, ...testFiles])).toEqual([
-            VITEST_ARGS.RELATED,
-            VITEST_ARGS.RUN,
-            ...sourceFiles,
+          expect(buildSpxTestArgs([...sourceFiles, ...testFiles])).toEqual([
+            SPX_TEST_ARGS.COMMAND,
+            SPX_TEST_ARGS.CHANGED,
+            SPX_TEST_ARGS.STAGED,
+            SPX_TEST_ARGS.BASE,
+            SPX_TEST_ARGS.BASE_REF,
           ]);
         },
       ),
     );
+  });
+
+  it("config-files-only input maps to changed-set testing against HEAD", () => {
+    for (const path of configFilePaths) {
+      expect(buildSpxTestArgs([path])).toEqual([
+        SPX_TEST_ARGS.COMMAND,
+        SPX_TEST_ARGS.CHANGED,
+        SPX_TEST_ARGS.STAGED,
+        SPX_TEST_ARGS.BASE,
+        SPX_TEST_ARGS.BASE_REF,
+      ]);
+    }
   });
 });

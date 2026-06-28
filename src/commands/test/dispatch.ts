@@ -28,6 +28,8 @@ export interface TestDispatchResult {
   readonly unmatched: readonly string[];
   /** Operands that matched no discovered test file; non-empty makes the command fail. */
   readonly unresolvedTargets: readonly string[];
+  /** Changed source files whose language adapter declared no related-test capability. */
+  readonly unresolvedChangedSourceFiles?: readonly string[];
   readonly reports: readonly TestRunnerReport[];
   readonly outcomes: readonly TestRunnerOutcome[];
 }
@@ -46,6 +48,8 @@ export interface TestDispatchOptions {
   readonly passingScope?: PathFilterConfig;
   /** When present with operands, only the operand-selected files dispatch; passing scope still applies. */
   readonly targets?: TargetSelection;
+  /** Changed source files that could not be resolved into related tests. */
+  readonly unresolvedChangedSourceFiles?: readonly string[];
 }
 
 export interface TestDispatchDependencies {
@@ -69,9 +73,9 @@ export async function runTests(
   const discovered = await discoverTestFiles(options.productDir);
   // Explicit operands narrow the discovered set before passing-scope; with no
   // operands the full discovered set carries through unchanged.
-  const targeted = options.targets !== undefined && options.targets.operands.length > 0
-    ? resolveTargetedTestFiles(discovered, options.targets)
-    : { selected: discovered, unresolved: [] as readonly string[] };
+  const targeted = options.targets === undefined
+    ? { selected: discovered, unresolved: [] as readonly string[] }
+    : resolveTargetedTestFiles(discovered, options.targets);
   const testFiles = options.passingScope === undefined
     ? targeted.selected
     : applyPathFilter(targeted.selected, options.passingScope);
@@ -107,10 +111,14 @@ export async function runTests(
   }
 
   return {
-    exitCode: aggregateTestExitCode(invocations, unmatched.length + targeted.unresolved.length),
+    exitCode: aggregateTestExitCode(
+      invocations,
+      unmatched.length + targeted.unresolved.length,
+    ),
     groups,
     unmatched,
     unresolvedTargets: targeted.unresolved,
+    unresolvedChangedSourceFiles: options.unresolvedChangedSourceFiles ?? [],
     reports,
     outcomes,
   };

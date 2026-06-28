@@ -29,6 +29,34 @@ export interface TestRunnerDependencies {
   readonly runCommand: (command: string, args: readonly string[]) => Promise<TestRunCommandResult>;
 }
 
+/** Result from a related-test resolver command that emits parseable stdout. */
+export interface RelatedTestCommandResult {
+  readonly exitCode: number;
+  readonly stdout: string;
+  readonly stderr: string;
+}
+
+/** Related-test resolver output: test-file operands plus the source files they cover. */
+export interface RelatedTestResolution {
+  readonly testPaths: readonly string[];
+  readonly resolvedSourcePaths: readonly string[];
+}
+
+/** Dependencies injected into a language's related-test resolver. */
+export interface RelatedTestDependencies {
+  readonly isLanguagePresent?: (projectRoot: string) => boolean;
+  readonly runCommand: (command: string, args: readonly string[]) => Promise<RelatedTestCommandResult>;
+  readonly readFile: (path: string) => Promise<string>;
+}
+
+/** Request to resolve source files to related test file paths. */
+export interface RelatedTestRequest {
+  readonly projectRoot: string;
+  readonly sourcePaths: readonly string[];
+  readonly candidateTestPaths: readonly string[];
+  readonly baseRef: string;
+}
+
 /** A request to run a language's tests over a set of discovered paths. */
 export interface TestRunRequest {
   /** Project root passed to the runner as its working root. */
@@ -70,4 +98,9 @@ export interface TestingLanguageDescriptor {
   detect(projectRoot: string, deps?: Pick<TestRunnerDependencies, "isLanguagePresent">): boolean;
   /** Invokes the runner, gated on detection, through the injected command runner. */
   runTests(request: TestRunRequest, deps: TestRunnerDependencies): Promise<TestRunInvocation>;
+  /** Resolves source files to related test file paths without running those tests. */
+  relatedTestPaths?(
+    request: RelatedTestRequest,
+    deps: RelatedTestDependencies,
+  ): Promise<RelatedTestResolution>;
 }

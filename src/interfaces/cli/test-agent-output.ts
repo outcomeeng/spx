@@ -15,6 +15,7 @@ export const AGENT_TEST_OUTPUT_TEXT = {
   SKIPPED_TESTS: "skippedTests",
   UNMATCHED: "unmatched",
   UNRESOLVED_TARGETS: "unresolvedTargets",
+  UNRESOLVED_CHANGED_SOURCE_FILES: "unresolvedChangedSourceFiles",
 } as const;
 
 const NEWLINE = "\n";
@@ -94,6 +95,14 @@ export function formatAgentTestOutput(run: RecordedTestRun): string {
 
   if (run.dispatch.unresolvedTargets.length > 0) {
     appendPathList(lines, AGENT_TEST_OUTPUT_TEXT.UNRESOLVED_TARGETS, run.dispatch.unresolvedTargets);
+  }
+
+  if ((run.dispatch.unresolvedChangedSourceFiles ?? []).length > 0) {
+    appendPathList(
+      lines,
+      AGENT_TEST_OUTPUT_TEXT.UNRESOLVED_CHANGED_SOURCE_FILES,
+      run.dispatch.unresolvedChangedSourceFiles ?? [],
+    );
   }
 
   if (run.dispatch.unmatched.length > 0) {

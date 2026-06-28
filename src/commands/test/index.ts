@@ -1,6 +1,7 @@
 export { discoverTestFiles } from "./discovery";
 export { runTests, type TestDispatchDependencies, type TestDispatchOptions, type TestDispatchResult } from "./dispatch";
 export {
+  CHANGED_TEST_RELATED_DEPS_ERROR,
   currentStalenessInputs,
   NO_GIT_IDENTITY,
   type RecordedTestRun,
