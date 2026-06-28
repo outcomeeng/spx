@@ -88,6 +88,29 @@ function recordingGitRunner(changedPaths: readonly string[]): RecordingGitRunner
   };
 }
 
+function renameGitRunner(oldPath: string, newPath: string): RecordingGitRunner {
+  const calls: GitCall[] = [];
+  return {
+    calls,
+    git: {
+      execa: async (command, args) => {
+        calls.push({ command, args });
+        if (args.includes(GIT_TEST_SUBCOMMANDS.SYMBOLIC_REF)) {
+          return { exitCode: 0, stdout: defaultBaseRef, stderr: "" };
+        }
+        const lastArg = args.at(-1);
+        if (lastArg === defaultBaseRef) {
+          return { exitCode: 0, stdout: defaultBaseSha, stderr: "" };
+        }
+        if (args.includes(CHANGED_TEST_DIFF_COMMAND)) {
+          return { exitCode: 0, stdout: `${GIT_RENAME_STATUS_EXAMPLE}\0${oldPath}\0${newPath}\0`, stderr: "" };
+        }
+        return { exitCode: 0, stdout: headSha, stderr: "" };
+      },
+    },
+  };
+}
+
 function unbornHeadGitRunner(changedPaths: readonly string[]): RecordingGitRunner {
   const calls: GitCall[] = [];
   return {
@@ -99,7 +122,7 @@ function unbornHeadGitRunner(changedPaths: readonly string[]): RecordingGitRunne
           return { exitCode: 1, stdout: "", stderr: "unknown revision" };
         }
         if (args.includes(CHANGED_TEST_DIFF_COMMAND)) {
-          return { exitCode: 0, stdout: nulDelimited(changedPaths), stderr: "" };
+          return { exitCode: 0, stdout: nameStatusNulDelimited(changedPaths), stderr: "" };
         }
         return { exitCode: 0, stdout: "", stderr: "" };
       },
@@ -305,7 +328,7 @@ describe("changed-set planning path partition", () => {
     expect(plan.unresolvedSourceFiles).toEqual([sourcePath]);
   });
 
-  it("preserves changed path whitespace from name-only diff output", async () => {
+  it("preserves changed path whitespace from name-status diff output", async () => {
     const pathSpace = String.fromCodePoint(32);
     const sourcePath = `${sampleLiteralTestValue(arbitrarySourceFilePath())}${pathSpace}`;
     const git = recordingGitRunner([sourcePath]);
@@ -321,6 +344,34 @@ describe("changed-set planning path partition", () => {
 
     expect(plan.changedPaths).toEqual([sourcePath]);
     expect(plan.unresolvedSourceFiles).toEqual([sourcePath]);
+    expect(
+      git.calls.some((call) =>
+        call.args.includes(CHANGED_TEST_DIFF_COMMAND)
+        && call.args.includes(CHANGED_TEST_DIFF_NAME_STATUS_FLAG)
+        && call.args.includes(CHANGED_TEST_NULL_DELIMITED_FLAG)
+        && !call.args.includes(CHANGED_TEST_DIFF_CACHED_FLAG)
+      ),
+    ).toBe(true);
+  });
+
+  it("includes both non-staged rename paths from NUL-delimited name-status output", async () => {
+    const pathTab = String.fromCodePoint(9);
+    const pathNewline = String.fromCodePoint(10);
+    const oldPath = `${sampleLiteralTestValue(arbitrarySourceFilePath())}${pathTab}`;
+    const newPath = `${sampleLiteralTestValue(arbitrarySourceFilePath())}${GIT_RENAMED_PATH_SUFFIX}${pathNewline}`;
+    const git = renameGitRunner(oldPath, newPath);
+
+    const plan = await planChangedTestSelection(
+      { productDir: sampleDispatchValue(TEST_DISPATCH_GENERATOR.nodePath()) },
+      {
+        git: git.git,
+        registry: registry([descriptorWithoutRelatedTests()]),
+        relatedDepsFor: () => relatedDeps(),
+      },
+    );
+
+    expect(plan.changedPaths).toEqual([oldPath, newPath].sort(compareAsciiStrings));
+    expect(plan.unresolvedSourceFiles).toEqual([oldPath, newPath].sort(compareAsciiStrings));
   });
 
   it("routes changed testing harness files through related-test resolution", async () => {
