@@ -1,9 +1,8 @@
 /**
- * The worktree-pool diagnose check — classifies the git worktree layout from
- * `git worktree list` and `git config --get core.bare`, and reports how many
- * worktrees are `running` versus `free` from the per-worktree `spx worktree
- * status` occupancy as information. Occupancy never degrades the verdict: a
- * `free` worktree — never claimed or holding a dead holder's residual claim —
+ * The worktree-pool diagnose check — classifies the git worktree layout and
+ * reports how many worktrees are `running` versus `free` from the shared
+ * worktree pool snapshot as information. Occupancy never degrades the verdict:
+ * a `free` worktree — never claimed or holding a dead holder's residual claim —
  * is a healthy resting state, not a fault. The classification is pure over the
  * gathered reading; the reading is obtained through a dependency-injected probe
  * so the check verifies over controlled readings without a real repository.
@@ -26,7 +25,7 @@ export type WorktreePoolVerdict = (typeof WORKTREE_POOL_VERDICT)[keyof typeof WO
 
 /** The reading the probe gathers about the worktree layout. */
 export interface WorktreePoolReading {
-  /** True when a `git worktree list` or `spx worktree status` command errored. */
+  /** True when snapshot gathering errored. */
   readonly errored: boolean;
   /** True when the repository is bare (a worktree pool), false for a non-bare repository. */
   readonly bareRepository: boolean;
@@ -47,8 +46,7 @@ const REMEDIATION: Readonly<Record<WorktreePoolVerdict, string>> = {
   [WORKTREE_POOL_VERDICT.COMPLIANT]: "Worktree layout is compliant; no action needed.",
   [WORKTREE_POOL_VERDICT.NON_COMPLIANT]:
     "Linked worktrees require a bare-repository pool; convert the layout or remove the linked worktrees.",
-  [WORKTREE_POOL_VERDICT.UNKNOWN]:
-    "Re-run diagnose; if it persists, inspect git worktree list and spx worktree status.",
+  [WORKTREE_POOL_VERDICT.UNKNOWN]: "Re-run diagnose; if it persists, inspect git worktree list and occupancy claims.",
 };
 
 function record(

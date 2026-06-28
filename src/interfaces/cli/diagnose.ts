@@ -10,10 +10,11 @@ import { type Command, Option } from "commander";
 
 import { diagnoseCommand } from "@/commands/diagnose";
 import {
+  createWorktreePoolSnapshotProvider,
   defaultMarketplaceInstallProbe,
-  defaultSessionEnvironmentProbe,
-  defaultSessionStoreProbe,
-  defaultWorktreePoolProbe,
+  sessionEnvironmentProbeFromSnapshotProvider,
+  sessionStoreProbeFromSnapshotProvider,
+  worktreePoolProbeFromSnapshotProvider,
 } from "@/commands/diagnose/probes";
 import { defaultSpxReachabilityProbe } from "@/commands/diagnose/spx-reachability-probe";
 import { marketplaceInstallRunner } from "@/domains/diagnose/checks/marketplace-install";
@@ -41,14 +42,18 @@ export const DIAGNOSE_CLI = {
 const DIAGNOSE_DOMAIN_DESCRIPTION =
   "Run deterministic environment-diagnostics checks, resolving facts from spx.config or a --manifest";
 
-/** The check runners `spx diagnose` dispatches to, over the real probes. */
-const DEFAULT_REGISTRY: CheckRegistry = {
-  [CHECK_NAME.SPX_REACHABILITY]: spxReachabilityRunner(defaultSpxReachabilityProbe),
-  [CHECK_NAME.SESSION_ENVIRONMENT]: sessionEnvironmentRunner(defaultSessionEnvironmentProbe),
-  [CHECK_NAME.WORKTREE_POOL]: worktreePoolRunner(defaultWorktreePoolProbe),
-  [CHECK_NAME.SESSION_STORE]: sessionStoreRunner(defaultSessionStoreProbe),
-  [CHECK_NAME.MARKETPLACE_INSTALL]: marketplaceInstallRunner(defaultMarketplaceInstallProbe),
-};
+function defaultRegistry(): CheckRegistry {
+  const worktreePoolSnapshot = createWorktreePoolSnapshotProvider();
+  return {
+    [CHECK_NAME.SPX_REACHABILITY]: spxReachabilityRunner(defaultSpxReachabilityProbe),
+    [CHECK_NAME.SESSION_ENVIRONMENT]: sessionEnvironmentRunner(
+      sessionEnvironmentProbeFromSnapshotProvider(worktreePoolSnapshot),
+    ),
+    [CHECK_NAME.WORKTREE_POOL]: worktreePoolRunner(worktreePoolProbeFromSnapshotProvider(worktreePoolSnapshot)),
+    [CHECK_NAME.SESSION_STORE]: sessionStoreRunner(sessionStoreProbeFromSnapshotProvider(worktreePoolSnapshot)),
+    [CHECK_NAME.MARKETPLACE_INSTALL]: marketplaceInstallRunner(defaultMarketplaceInstallProbe),
+  };
+}
 
 function handleError(error: string, io: CliIo): never {
   // Sanitize before echoing: the error embeds user-supplied manifest path and
@@ -88,7 +93,7 @@ export const diagnoseDomain: Domain = {
             noColor: process.env.NO_COLOR,
             isTty: Boolean(process.stdout.isTTY),
           }),
-          registry: DEFAULT_REGISTRY,
+          registry: defaultRegistry(),
           fs: { readFile: (path) => readFile(path, "utf8") },
         });
         if (!result.ok) {

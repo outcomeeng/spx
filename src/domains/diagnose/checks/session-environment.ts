@@ -1,9 +1,9 @@
 /**
  * The session-environment diagnose check — classifies the agent session the
  * spec-tree `SessionStart` hook establishes from the agent session identity, the
- * worktree-claim flag, and the `spx worktree status` round-trip. The
- * classification is pure over the gathered reading; the reading is obtained
- * through a dependency-injected probe.
+ * worktree-claim flag, and the current worktree's shared snapshot occupancy.
+ * The classification is pure over the gathered reading; the reading is
+ * obtained through a dependency-injected probe.
  *
  * @module domains/diagnose/checks/session-environment
  */
@@ -49,7 +49,7 @@ const REMEDIATION: Readonly<Record<SessionEnvironmentVerdict, string>> = {
   [SESSION_ENVIRONMENT_VERDICT.NOT_APPLICABLE]:
     "No SessionStart hook signal or agent session identity was observed; confirm a spec-tree SessionStart hook is configured and enabled.",
   [SESSION_ENVIRONMENT_VERDICT.UNKNOWN]:
-    "Re-run diagnose; if it persists, inspect the agent session id and spx worktree status.",
+    "Re-run diagnose; if it persists, inspect the agent session id and shared worktree occupancy.",
 };
 
 function record(

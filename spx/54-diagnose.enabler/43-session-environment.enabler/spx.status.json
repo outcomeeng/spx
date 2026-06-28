@@ -3,6 +3,7 @@
   "verification": {
     "test": {
       "overall": "passed",
+      "spx/54-diagnose.enabler/43-session-environment.enabler/tests/session-environment-snapshot.mapping.l1.test.ts": "passed",
       "spx/54-diagnose.enabler/43-session-environment.enabler/tests/session-environment.mapping.l1.test.ts": "passed"
     }
   }
