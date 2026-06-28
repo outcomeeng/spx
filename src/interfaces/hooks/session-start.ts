@@ -7,7 +7,6 @@
 import { appendFile as nodeAppendFile } from "node:fs/promises";
 
 import type { Result } from "@/config/types";
-import type { AgentEnvironmentConfig } from "@/domains/agent-environment/config";
 import {
   HOOK_ENV_FILE,
   HOOK_SESSION_START_ERROR,
@@ -15,7 +14,6 @@ import {
   parseHookSessionStartPayload,
   renderHookSessionStartEnvFile,
   renderSessionStartStdout,
-  resolveHookSessionStartEnvFile,
   resolveHookSessionStartProductDir,
   resolveHookSessionStartSessionId,
 } from "@/domains/hooks/session-start";
@@ -42,13 +40,13 @@ export interface SessionStartHookResult extends HookEventResult {
 }
 
 export interface SessionStartHookOptions extends WorktreeScopeOptions {
-  /** Resolved per-runtime agent environment policy. */
-  readonly agentEnvironment: AgentEnvironmentConfig;
+  /** Resolved per-runtime compact stdout policy. */
+  readonly compactStdout: boolean;
   /** Raw hook stdin JSON. */
   readonly content?: string;
   /** Writer-unique token used for the atomic claim temp path. */
   readonly claimWriteToken: string;
-  /** Explicit hook env file path; `$CLAUDE_ENV_FILE` remains the hook-runtime fallback. */
+  /** Resolved hook env file path. */
   readonly envFile?: string;
   /** Environment read for session identity, env-file path, and controlling-pid override. */
   readonly env: HookSessionStartEnv & ControllingProcessEnv;
@@ -96,10 +94,9 @@ export async function runSessionStartHook(options: SessionStartHookOptions): Pro
     }
   }
 
-  const envFile = resolveHookSessionStartEnvFile(options.env, options.envFile);
   const envFileWritten = await writeEnvFileIfConfigured({
     claimed,
-    envFile,
+    envFile: options.envFile,
     productDir,
     sessionId,
     envFileSystem: options.envFileSystem ?? defaultHookEnvFileSystem,
@@ -114,8 +111,7 @@ export async function runSessionStartHook(options: SessionStartHookOptions): Pro
       envFileWritten,
       productDir,
       stdout: renderSessionStartStdout({
-        agentEnvironment: options.agentEnvironment,
-        env: options.env,
+        compactStdout: options.compactStdout,
         source: payload.source,
       }),
       ...(sessionId === undefined ? {} : { sessionId }),

@@ -2,7 +2,6 @@ import { join } from "node:path";
 
 import { describe, expect, it } from "vitest";
 
-import { agentEnvironmentConfigDescriptor } from "@/domains/agent-environment/config";
 import {
   HOOK_SESSION_START_ENV,
   HOOK_SESSION_START_PAYLOAD,
@@ -31,9 +30,9 @@ async function expectNoHookStdoutFor(renderContent: (env: WorktreePoolEnv) => st
     const envFile = join(env.container, envFileName);
     const result = await runSessionStartHook({
       claimWriteToken,
+      compactStdout: false,
       content: renderContent(env),
       cwd: env.container,
-      agentEnvironment: agentEnvironmentConfigDescriptor.defaults,
       envFile,
       fs: env.fs,
       gitDeps: defaultGitDependencies,

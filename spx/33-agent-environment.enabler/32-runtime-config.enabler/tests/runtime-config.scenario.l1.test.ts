@@ -31,7 +31,7 @@ class FailingWriteFileSystem implements RuntimeConfigFileSystem {
   constructor(private readonly message: string) {}
 
   async readFile(_path: string, _encoding: BufferEncoding): Promise<string> {
-    const error = new Error();
+    const error = new Error(RUNTIME_CONFIG_FILE_ERROR_CODES.FILE_NOT_FOUND);
     (error as NodeJS.ErrnoException).code = RUNTIME_CONFIG_FILE_ERROR_CODES.FILE_NOT_FOUND;
     throw error;
   }
@@ -97,7 +97,7 @@ class RuntimeConfigMemoryFileSystem implements RuntimeConfigFileSystem {
 }
 
 function fileNotFoundError(): NodeJS.ErrnoException {
-  const error = new Error() as NodeJS.ErrnoException;
+  const error = new Error(RUNTIME_CONFIG_FILE_ERROR_CODES.FILE_NOT_FOUND) as NodeJS.ErrnoException;
   error.code = RUNTIME_CONFIG_FILE_ERROR_CODES.FILE_NOT_FOUND;
   return error;
 }

@@ -26,9 +26,8 @@ explicit operator actions.
 2. `session-start` produces session identity, project identity, and worktree
    occupancy state when the hook payload and runtime context provide enough
    information to resolve them.
-3. `session-start` emits compact-source hook stdout only when the invoking
-   runtime's `agentEnvironment.runtimes.<runtime>.hooks.sessionStart.compactStdout`
-   policy is true.
+3. `session-start` emits compact-source hook stdout only when the CLI-resolved
+   `hooks.sessionStart.compactStdout` policy is true.
 4. `session-start` reports degraded responsibilities explicitly and does not
    block session startup because one responsibility degrades.
 
@@ -44,9 +43,17 @@ explicit operator actions.
 - ALWAYS: `session-start` provides the first startup behavior slice: session
   identity, project identity, worktree occupancy state, and hook-runtime env
   exports ([audit])
-- ALWAYS: `session-start` reads compact-source stdout policy from the invoking
-  runtime's `agentEnvironment.runtimes.<runtime>.hooks.sessionStart.compactStdout`
-  config, defaulting Codex to false and Claude Code to true ([audit])
+- ALWAYS: the hook CLI transport resolves hook execution context once before
+  running a known hook event, including hook env-file selection and
+  compact-source stdout policy ([audit])
+- ALWAYS: the hook CLI transport resolves compact-source stdout policy from the
+  hook runtime's
+  `agentEnvironment.runtimes.<runtime>.hooks.sessionStart.compactStdout` config,
+  defaulting Codex to false and Claude Code to true ([audit])
+- ALWAYS: compact-source stdout policy runtime selection treats
+  `CODEX_THREAD_ID` as the Codex runtime marker even when a `CLAUDE_SESSION_ID`
+  value is also present; session identity resolution remains an event-specific
+  `session-start` responsibility ([audit])
 - ALWAYS: a failed `session-start` responsibility degrades by recording an
   explicit marker or diagnostic while allowing the hook invocation to complete
   successfully ([audit])

@@ -80,6 +80,7 @@ describe("hook CLI runner", () => {
 
     const result = await runHookCli({
       claimWriteToken,
+      compactStdout: false,
       cwd,
       env: {},
       event: HOOK_EVENT.SESSION_START,
@@ -109,6 +110,7 @@ describe("hook CLI runner", () => {
 
     const result = await runHookCli({
       claimWriteToken,
+      compactStdout: false,
       cwd,
       env: {},
       event: HOOK_EVENT.SESSION_START,
