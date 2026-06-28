@@ -12,7 +12,8 @@ scripts or forcing cross-domain hook work through one domain's command surface
 ### Scenarios
 
 - Given the `session-start` hook adapter receives a hook payload and env-file path, when the event runs with enough identity and worktree information to claim the worktree, then SPX appends the session and project exports and records one worktree occupancy claim ([test](tests/session-start.scenario.l1.test.ts))
-- Given the `session-start` hook adapter receives a payload whose lifecycle source is `compact`, when the event runs, then SPX emits hook stdout that names the compact lifecycle source as the hook-firing reason and includes a foundation re-anchor directive instructing re-invocation of `/understand` then `/contextualize` before resuming spec-governed work ([test](tests/session-start.scenario.l1.test.ts), [test](tests/hook-cli.scenario.l2.test.ts))
+- Given the `session-start` hook adapter receives a payload whose lifecycle source is `compact`, when the event runs with enough identity and worktree information to claim the worktree, then SPX records one worktree occupancy claim, appends hook-runtime exports, and emits no hook stdout ([test](tests/session-start.scenario.l1.test.ts))
+- Given `spx hook run session-start` receives a payload whose lifecycle source is `compact`, when the CLI transport runs the event, then SPX exits successfully and writes no process stdout ([test](tests/hook-cli.scenario.l2.test.ts))
 - Given a plugin invokes `spx hook run session-start` and hook stdin cannot be read, when the hook runner handles the event, then SPX records a diagnostic and does not fail the hook invocation ([test](tests/hook-cli.scenario.l1.test.ts))
 
 ### Compliance
@@ -30,6 +31,5 @@ scripts or forcing cross-domain hook work through one domain's command surface
   preserving each domain's ownership of its underlying state and rules ([audit])
 - NEVER: expose an agent lifecycle hook as a domain-specific command such as
   `spx worktree session-start` ([audit])
-- NEVER: `session-start` emits compact-source stdout on hook stdout for a
-  lifecycle source other than `compact`
+- NEVER: `session-start` emits hook stdout for the `compact` lifecycle source
   ([test](tests/session-start.compliance.l1.test.ts))
