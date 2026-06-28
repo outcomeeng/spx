@@ -13,8 +13,9 @@ validation controls. Projects configure these stages through `spx.config.*`:
 that disabled literal validation with `LITERAL_VALIDATION_ENABLED=0` must set
 `validation.literal.enabled: false`.
 
-**Current release state:** `npm view @outcomeeng/spx version` reports `0.6.7`,
-and tag `v0.6.5` contains the validation config-descriptor replacement. This
+**Current release state:** `package.json` on `origin/main` declares `0.6.8`,
+tag `v0.6.8` exists, `npm view @outcomeeng/spx version` reports `0.6.7`, and
+tag `v0.6.5` contains the validation config-descriptor replacement. This
 repository has no root `CHANGELOG.md` artifact; release-notes generation is
 itself pending under `spx/26-release.enabler/32-release-notes.enabler/`.
 
@@ -75,17 +76,25 @@ handling, TypeScript scope generation, or lint target selection.
 ## `validation all --quiet --json` emits warning text before JSON
 
 `pnpm exec tsx src/cli.ts validation all --quiet --json` is not parseable JSON
-when ESLint reports `spx/no-test-owned-domain-constants` warnings. During the
-May 8, 2026 verification pass, parsing `/tmp/spx-validation-all-current.json`
-failed because the file began with human warning output:
+when process, package-manager, or validation diagnostics are written to stdout
+before the JSON payload. During the May 8, 2026 verification pass, parsing
+`/tmp/spx-validation-all-current.json` failed because the file began with human
+warning output:
 
 ```text
 /Users/shz/Code/outcomeeng/spx/spx/16-config.enabler/...
 ```
 
+During the June 28, 2026 reconciliation pass, the same command produced a file
+that began with package-manager status text:
+
+```text
+Already up to date
+```
+
 **Consequence:** agents and scripts cannot rely on `validation all --quiet
---json` as a machine-readable gate while warnings are present, even though
-`pnpm run validate` exits 0.
+--json` as a machine-readable gate while any wrapper or validation diagnostic
+writes non-JSON text to stdout, even though `pnpm run validate` exits 0.
 
 **Remediation:** route diagnostics through the JSON result shape when `--json`
 is set, or emit human warning text on a separate stream that callers can keep
@@ -101,7 +110,7 @@ Several validation spec-tree tests still use legacy runner-style filenames rathe
 than the canonical `<subject>.<evidence>.<level>.test.ts` model required by the
 testing methodology.
 
-Observed on June 17, 2026:
+Observed on June 28, 2026:
 
 ```bash
 rg --files spx/41-validation.enabler | rg '(integration|e2e)\.test\.ts$'
@@ -112,7 +121,6 @@ spx/41-validation.enabler/65-markdown-validation.enabler/tests/markdown-validati
 spx/41-validation.enabler/65-markdown-validation.enabler/tests/markdown-validation.e2e.test.ts
 spx/41-validation.enabler/tests/validation.integration.test.ts
 spx/41-validation.enabler/32-typescript-validation.enabler/tests/typescript-validation.integration.test.ts
-spx/41-validation.enabler/32-typescript-validation.enabler/32-circular-deps.enabler/tests/circular-deps.integration.test.ts
 spx/41-validation.enabler/32-typescript-validation.enabler/32-lint.enabler/tests/lint.integration.test.ts
 ```
 
