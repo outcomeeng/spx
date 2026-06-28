@@ -7,6 +7,7 @@
 import { appendFile as nodeAppendFile } from "node:fs/promises";
 
 import type { Result } from "@/config/types";
+import type { AgentEnvironmentConfig } from "@/domains/agent-environment/config";
 import {
   HOOK_ENV_FILE,
   HOOK_SESSION_START_ERROR,
@@ -41,6 +42,8 @@ export interface SessionStartHookResult extends HookEventResult {
 }
 
 export interface SessionStartHookOptions extends WorktreeScopeOptions {
+  /** Resolved per-runtime agent environment policy. */
+  readonly agentEnvironment: AgentEnvironmentConfig;
   /** Raw hook stdin JSON. */
   readonly content?: string;
   /** Writer-unique token used for the atomic claim temp path. */
@@ -110,7 +113,11 @@ export async function runSessionStartHook(options: SessionStartHookOptions): Pro
       diagnostics,
       envFileWritten,
       productDir,
-      stdout: renderSessionStartStdout(),
+      stdout: renderSessionStartStdout({
+        agentEnvironment: options.agentEnvironment,
+        env: options.env,
+        source: payload.source,
+      }),
       ...(sessionId === undefined ? {} : { sessionId }),
     },
   };

@@ -13,6 +13,9 @@ export const AGENT_ENVIRONMENT_CONFIG_FIELDS = {
   INSTRUCTIONS: "instructions",
   RUNTIMES: "runtimes",
   PLUGIN_BOOTSTRAP: "pluginBootstrap",
+  HOOKS: "hooks",
+  SESSION_START: "sessionStart",
+  COMPACT_STDOUT: "compactStdout",
   FILES: "files",
   PATH: "path",
   TARGET_RUNTIMES: "targetRuntimes",
@@ -32,8 +35,17 @@ export interface AgentInstructionFileConfig {
   readonly targetRuntimes: readonly AgentRuntime[];
 }
 
+export interface AgentRuntimeSessionStartHookConfig {
+  readonly compactStdout: boolean;
+}
+
+export interface AgentRuntimeHooksConfig {
+  readonly sessionStart: AgentRuntimeSessionStartHookConfig;
+}
+
 export interface AgentRuntimeConfig {
   readonly enabled: boolean;
+  readonly hooks: AgentRuntimeHooksConfig;
 }
 
 export interface AgentMarketplaceConfig {
@@ -86,8 +98,22 @@ export const DEFAULT_AGENT_ENVIRONMENT_CONFIG: AgentEnvironmentConfig = {
     ],
   },
   runtimes: {
-    [AGENT_RUNTIME.CODEX]: { enabled: true },
-    [AGENT_RUNTIME.CLAUDE_CODE]: { enabled: true },
+    [AGENT_RUNTIME.CODEX]: {
+      enabled: true,
+      hooks: {
+        sessionStart: {
+          compactStdout: false,
+        },
+      },
+    },
+    [AGENT_RUNTIME.CLAUDE_CODE]: {
+      enabled: true,
+      hooks: {
+        sessionStart: {
+          compactStdout: true,
+        },
+      },
+    },
   },
   pluginBootstrap: {
     marketplaces: [],
@@ -113,6 +139,15 @@ const AGENT_ENVIRONMENT_INSTRUCTION_FILE_ALLOWED_FIELDS = new Set([
 
 const AGENT_ENVIRONMENT_RUNTIME_CONFIG_ALLOWED_FIELDS = new Set([
   AGENT_ENVIRONMENT_CONFIG_FIELDS.ENABLED,
+  AGENT_ENVIRONMENT_CONFIG_FIELDS.HOOKS,
+]);
+
+const AGENT_ENVIRONMENT_RUNTIME_HOOKS_ALLOWED_FIELDS = new Set([
+  AGENT_ENVIRONMENT_CONFIG_FIELDS.SESSION_START,
+]);
+
+const AGENT_ENVIRONMENT_SESSION_START_HOOKS_ALLOWED_FIELDS = new Set([
+  AGENT_ENVIRONMENT_CONFIG_FIELDS.COMPACT_STDOUT,
 ]);
 
 const AGENT_ENVIRONMENT_PLUGIN_BOOTSTRAP_ALLOWED_FIELDS = new Set([
@@ -286,10 +321,58 @@ function validateRuntimeConfig(
   if (!unknown.ok) return unknown;
 
   const enabledRaw = raw[AGENT_ENVIRONMENT_CONFIG_FIELDS.ENABLED];
-  if (enabledRaw === undefined) return { ok: true, value: defaults };
-  const enabled = validateBoolean(`${path}.${AGENT_ENVIRONMENT_CONFIG_FIELDS.ENABLED}`, enabledRaw);
+  const enabled = enabledRaw === undefined
+    ? { ok: true as const, value: defaults.enabled }
+    : validateBoolean(`${path}.${AGENT_ENVIRONMENT_CONFIG_FIELDS.ENABLED}`, enabledRaw);
   if (!enabled.ok) return enabled;
-  return { ok: true, value: { ...defaults, enabled: enabled.value } };
+
+  const hooksRaw = raw[AGENT_ENVIRONMENT_CONFIG_FIELDS.HOOKS];
+  const hooks = hooksRaw === undefined
+    ? { ok: true as const, value: defaults.hooks }
+    : validateRuntimeHooks(`${path}.${AGENT_ENVIRONMENT_CONFIG_FIELDS.HOOKS}`, hooksRaw, defaults.hooks);
+  if (!hooks.ok) return hooks;
+
+  return { ok: true, value: { enabled: enabled.value, hooks: hooks.value } };
+}
+
+function validateRuntimeHooks(
+  path: string,
+  raw: unknown,
+  defaults: AgentRuntimeHooksConfig,
+): Result<AgentRuntimeHooksConfig> {
+  if (!isRecord(raw)) return { ok: false, error: `${path} must be an object` };
+  const unknown = rejectUnknownFields(path, raw, AGENT_ENVIRONMENT_RUNTIME_HOOKS_ALLOWED_FIELDS);
+  if (!unknown.ok) return unknown;
+
+  const sessionStartRaw = raw[AGENT_ENVIRONMENT_CONFIG_FIELDS.SESSION_START];
+  const sessionStart = sessionStartRaw === undefined
+    ? { ok: true as const, value: defaults.sessionStart }
+    : validateSessionStartHooks(
+      `${path}.${AGENT_ENVIRONMENT_CONFIG_FIELDS.SESSION_START}`,
+      sessionStartRaw,
+      defaults.sessionStart,
+    );
+  if (!sessionStart.ok) return sessionStart;
+
+  return { ok: true, value: { sessionStart: sessionStart.value } };
+}
+
+function validateSessionStartHooks(
+  path: string,
+  raw: unknown,
+  defaults: AgentRuntimeSessionStartHookConfig,
+): Result<AgentRuntimeSessionStartHookConfig> {
+  if (!isRecord(raw)) return { ok: false, error: `${path} must be an object` };
+  const unknown = rejectUnknownFields(path, raw, AGENT_ENVIRONMENT_SESSION_START_HOOKS_ALLOWED_FIELDS);
+  if (!unknown.ok) return unknown;
+
+  const compactStdoutRaw = raw[AGENT_ENVIRONMENT_CONFIG_FIELDS.COMPACT_STDOUT];
+  const compactStdout = compactStdoutRaw === undefined
+    ? { ok: true as const, value: defaults.compactStdout }
+    : validateBoolean(`${path}.${AGENT_ENVIRONMENT_CONFIG_FIELDS.COMPACT_STDOUT}`, compactStdoutRaw);
+  if (!compactStdout.ok) return compactStdout;
+
+  return { ok: true, value: { compactStdout: compactStdout.value } };
 }
 
 function validatePluginBootstrap(raw: unknown): Result<AgentEnvironmentConfig["pluginBootstrap"]> {

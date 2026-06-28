@@ -5,6 +5,12 @@
  */
 
 import type { Result } from "@/config/types";
+import {
+  AGENT_RUNTIME,
+  type AgentEnvironmentConfig,
+  type AgentRuntime,
+  type AgentRuntimeSessionStartHookConfig,
+} from "@/domains/agent-environment/config";
 
 export const HOOK_SESSION_START_PAYLOAD = {
   CWD: "cwd",
@@ -59,6 +65,12 @@ export interface HookSessionStartEnvRenderInput {
   readonly sessionId?: string;
 }
 
+export interface HookSessionStartStdoutInput {
+  readonly agentEnvironment: AgentEnvironmentConfig;
+  readonly env: HookSessionStartEnv;
+  readonly source?: string;
+}
+
 // `\w` matches exactly `[A-Za-z0-9_]` in JavaScript regexes; env-var names are ASCII.
 const ENV_NAME_PATTERN = /^[A-Za-z_]\w*$/;
 const SAFE_SHELL_VALUE_PATTERN = /^[A-Za-z0-9_@%+=:,.-]+$/;
@@ -66,6 +78,22 @@ const SINGLE_QUOTE = "'";
 const SHELL_SINGLE_QUOTE_ESCAPE = "'\"'\"'";
 const ENV_FILE_HEADER = "# Managed by spx hook run session-start";
 const LINE_SEPARATOR = "\n";
+const NO_STARTUP_DIRECTIVE = "";
+
+export const HOOK_COMPACT_FOUNDATION_ACTION = {
+  CONTEXTUALIZE: "/contextualize",
+  UNDERSTAND: "/understand",
+} as const;
+
+export const HOOK_COMPACT_FOUNDATION_REASON =
+  `Hook fired because the agent runtime reported ${HOOK_SESSION_START_PAYLOAD.SOURCE}=${HOOK_SESSION_START_SOURCE.COMPACT}.`;
+
+export const HOOK_COMPACT_FOUNDATION_DIRECTIVE = [
+  HOOK_COMPACT_FOUNDATION_REASON,
+  "Spec-tree foundation was reset by this compaction.",
+  `Before any spec-governed action, including resuming an in-flight PR, /apply, or /handoff, re-invoke ${HOOK_COMPACT_FOUNDATION_ACTION.UNDERSTAND} then ${HOOK_COMPACT_FOUNDATION_ACTION.CONTEXTUALIZE} on every spec node still in scope (not just the next one) before any gh/git archaeology or reading spec-governed source.`,
+  "Skill text carried in the compaction summary is context only, outside active tool authority.",
+].join(LINE_SEPARATOR);
 
 export function parseHookSessionStartPayload(content: string | undefined): Result<HookSessionStartPayload> {
   if (content === undefined || content.trim().length === 0) return { ok: true, value: {} };
@@ -107,9 +135,29 @@ export function resolveHookSessionStartProductDir(payload: HookSessionStartPaylo
   return payload.cwd ?? cwd;
 }
 
+export function resolveHookSessionStartAgentRuntime(env: HookSessionStartEnv): AgentRuntime {
+  if (nonEmptyString(env[HOOK_SESSION_START_ENV.CLAUDE_SESSION_ID]) !== undefined) {
+    return AGENT_RUNTIME.CLAUDE_CODE;
+  }
+  if (nonEmptyString(env[HOOK_SESSION_START_ENV.CODEX_THREAD_ID]) !== undefined) {
+    return AGENT_RUNTIME.CODEX;
+  }
+  return AGENT_RUNTIME.CODEX;
+}
+
+export function resolveHookSessionStartPolicy(
+  agentEnvironment: AgentEnvironmentConfig,
+  env: HookSessionStartEnv,
+): AgentRuntimeSessionStartHookConfig {
+  return agentEnvironment.runtimes[resolveHookSessionStartAgentRuntime(env)].hooks.sessionStart;
+}
+
 /** Renders the model-visible stdout for the `session-start` hook event. */
-export function renderSessionStartStdout(): string {
-  return "";
+export function renderSessionStartStdout(input: HookSessionStartStdoutInput): string {
+  if (input.source !== HOOK_SESSION_START_SOURCE.COMPACT) return NO_STARTUP_DIRECTIVE;
+  return resolveHookSessionStartPolicy(input.agentEnvironment, input.env).compactStdout
+    ? HOOK_COMPACT_FOUNDATION_DIRECTIVE
+    : NO_STARTUP_DIRECTIVE;
 }
 
 export function resolveHookSessionStartEnvFile(

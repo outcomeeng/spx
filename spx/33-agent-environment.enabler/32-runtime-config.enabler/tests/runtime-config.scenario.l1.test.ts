@@ -289,8 +289,14 @@ describe("runtime config reconciliation scenarios", () => {
     const agentEnvironment: AgentEnvironmentConfig = {
       ...agentEnvironmentConfigDescriptor.defaults,
       runtimes: {
-        [AGENT_RUNTIME.CODEX]: { enabled: false },
-        [AGENT_RUNTIME.CLAUDE_CODE]: { enabled: true },
+        [AGENT_RUNTIME.CODEX]: {
+          ...agentEnvironmentConfigDescriptor.defaults.runtimes[AGENT_RUNTIME.CODEX],
+          enabled: false,
+        },
+        [AGENT_RUNTIME.CLAUDE_CODE]: {
+          ...agentEnvironmentConfigDescriptor.defaults.runtimes[AGENT_RUNTIME.CLAUDE_CODE],
+          enabled: true,
+        },
       },
     };
 
@@ -335,8 +341,14 @@ describe("runtime config reconciliation scenarios", () => {
     const agentEnvironment: AgentEnvironmentConfig = {
       ...agentEnvironmentConfigDescriptor.defaults,
       runtimes: {
-        [AGENT_RUNTIME.CODEX]: { enabled: false },
-        [AGENT_RUNTIME.CLAUDE_CODE]: { enabled: true },
+        [AGENT_RUNTIME.CODEX]: {
+          ...agentEnvironmentConfigDescriptor.defaults.runtimes[AGENT_RUNTIME.CODEX],
+          enabled: false,
+        },
+        [AGENT_RUNTIME.CLAUDE_CODE]: {
+          ...agentEnvironmentConfigDescriptor.defaults.runtimes[AGENT_RUNTIME.CLAUDE_CODE],
+          enabled: true,
+        },
       },
     };
 
@@ -599,8 +611,14 @@ describe("runtime config reconciliation scenarios", () => {
     const agentEnvironment: AgentEnvironmentConfig = {
       ...agentEnvironmentConfigDescriptor.defaults,
       runtimes: {
-        [AGENT_RUNTIME.CODEX]: { enabled: false },
-        [AGENT_RUNTIME.CLAUDE_CODE]: { enabled: true },
+        [AGENT_RUNTIME.CODEX]: {
+          ...agentEnvironmentConfigDescriptor.defaults.runtimes[AGENT_RUNTIME.CODEX],
+          enabled: false,
+        },
+        [AGENT_RUNTIME.CLAUDE_CODE]: {
+          ...agentEnvironmentConfigDescriptor.defaults.runtimes[AGENT_RUNTIME.CLAUDE_CODE],
+          enabled: true,
+        },
       },
     };
 

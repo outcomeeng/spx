@@ -96,6 +96,49 @@ describe("agent environment config descriptor", () => {
     });
   });
 
+  it("resolves per-runtime hook policy defaults", async () => {
+    await withTestEnv({}, async ({ productDir }) => {
+      const result = await resolveConfig(productDir, [agentEnvironmentConfigDescriptor]);
+      const config = expectResolvedConfig(result);
+      const agentEnvironment = assertAgentEnvironmentConfig(config[AGENT_ENVIRONMENT_SECTION]);
+
+      expect(agentEnvironment.runtimes[AGENT_RUNTIME.CODEX].hooks.sessionStart.compactStdout).toBe(false);
+      expect(agentEnvironment.runtimes[AGENT_RUNTIME.CLAUDE_CODE].hooks.sessionStart.compactStdout).toBe(true);
+    });
+  });
+
+  it("resolves explicit runtime hook policy overrides", async () => {
+    const productConfig: Config = {
+      [AGENT_ENVIRONMENT_SECTION]: {
+        [AGENT_ENVIRONMENT_CONFIG_FIELDS.RUNTIMES]: {
+          [AGENT_RUNTIME.CODEX]: {
+            [AGENT_ENVIRONMENT_CONFIG_FIELDS.HOOKS]: {
+              [AGENT_ENVIRONMENT_CONFIG_FIELDS.SESSION_START]: {
+                [AGENT_ENVIRONMENT_CONFIG_FIELDS.COMPACT_STDOUT]: true,
+              },
+            },
+          },
+          [AGENT_RUNTIME.CLAUDE_CODE]: {
+            [AGENT_ENVIRONMENT_CONFIG_FIELDS.HOOKS]: {
+              [AGENT_ENVIRONMENT_CONFIG_FIELDS.SESSION_START]: {
+                [AGENT_ENVIRONMENT_CONFIG_FIELDS.COMPACT_STDOUT]: false,
+              },
+            },
+          },
+        },
+      },
+    };
+
+    await withTestEnv(productConfig, async ({ productDir }) => {
+      const result = await resolveConfig(productDir, [agentEnvironmentConfigDescriptor]);
+      const config = expectResolvedConfig(result);
+      const agentEnvironment = assertAgentEnvironmentConfig(config[AGENT_ENVIRONMENT_SECTION]);
+
+      expect(agentEnvironment.runtimes[AGENT_RUNTIME.CODEX].hooks.sessionStart.compactStdout).toBe(true);
+      expect(agentEnvironment.runtimes[AGENT_RUNTIME.CLAUDE_CODE].hooks.sessionStart.compactStdout).toBe(false);
+    });
+  });
+
   it("resolves default instruction files for an explicit empty instructions section", async () => {
     const productConfig: Config = {
       [AGENT_ENVIRONMENT_SECTION]: {
@@ -235,6 +278,28 @@ describe("agent environment config descriptor", () => {
           AGENT_ENVIRONMENT_CONFIG_FIELDS.RUNTIMES,
           AGENT_RUNTIME.CODEX,
           AGENT_ENVIRONMENT_CONFIG_FIELDS.ENABLED,
+        ),
+      },
+      {
+        productConfig: {
+          [AGENT_ENVIRONMENT_SECTION]: {
+            [AGENT_ENVIRONMENT_CONFIG_FIELDS.RUNTIMES]: {
+              [AGENT_RUNTIME.CODEX]: {
+                [AGENT_ENVIRONMENT_CONFIG_FIELDS.HOOKS]: {
+                  [AGENT_ENVIRONMENT_CONFIG_FIELDS.SESSION_START]: {
+                    [AGENT_ENVIRONMENT_CONFIG_FIELDS.COMPACT_STDOUT]: sampleAgentEnvironmentKey(),
+                  },
+                },
+              },
+            },
+          },
+        },
+        expectedErrorPath: agentEnvironmentPath(
+          AGENT_ENVIRONMENT_CONFIG_FIELDS.RUNTIMES,
+          AGENT_RUNTIME.CODEX,
+          AGENT_ENVIRONMENT_CONFIG_FIELDS.HOOKS,
+          AGENT_ENVIRONMENT_CONFIG_FIELDS.SESSION_START,
+          AGENT_ENVIRONMENT_CONFIG_FIELDS.COMPACT_STDOUT,
         ),
       },
     ];

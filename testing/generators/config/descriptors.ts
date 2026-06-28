@@ -361,9 +361,19 @@ function arbitraryAgentEnvironmentConfig(): fc.Arbitrary<GeneratedAgentEnvironme
           runtimes: {
             [AGENT_RUNTIME.CODEX]: {
               enabled: false,
+              hooks: {
+                sessionStart: {
+                  compactStdout: false,
+                },
+              },
             },
             [AGENT_RUNTIME.CLAUDE_CODE]: {
               enabled: true,
+              hooks: {
+                sessionStart: {
+                  compactStdout: true,
+                },
+              },
             },
           },
           pluginBootstrap: {
