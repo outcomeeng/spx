@@ -8,6 +8,27 @@ import { runFileName, STATE_STORE_TEXT_ENCODING, type StateStoreFileSystem } fro
 /** The staging directory the workflow's download step restores prior-run artifacts into, in tests. */
 export const RESTORED_JOURNAL_RUNS_DIR = "restored-journal-runs";
 
+const STAGING_READ_FAILURE_MESSAGE = "restored runs directory could not be read";
+
+/**
+ * Wrap a {@link StateStoreFileSystem} so that listing the staging directory rejects with a
+ * non-ENOENT I/O error, standing in for a corrupt or unreadable restored-runs directory.
+ * `hydratePriorRuns` rethrows such an error rather than treating it as an empty set, so a
+ * test drives the open-hydration failure path deterministically over a real filesystem
+ * double rather than a mock.
+ */
+export function stagingReadFailingFileSystem(base: StateStoreFileSystem): StateStoreFileSystem {
+  return {
+    mkdir: (path, options) => base.mkdir(path, options),
+    writeFile: (path, data, options) => base.writeFile(path, data, options),
+    appendFile: (path, data) => base.appendFile(path, data),
+    readFile: (path, encoding) => base.readFile(path, encoding),
+    readdir: () => Promise.reject(new Error(STAGING_READ_FAILURE_MESSAGE)),
+    lstat: (path) => base.lstat(path),
+    rm: (path, options) => base.rm(path, options),
+  };
+}
+
 /**
  * Build a sealed run through the runner-local appendable store and return its appended
  * events with the run file's JSONL body — the body a prior job sealed and the workflow's
