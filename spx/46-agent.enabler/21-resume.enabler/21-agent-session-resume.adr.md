@@ -17,6 +17,6 @@ Codex and Claude Code store transcript metadata in agent-owned JSONL stores with
 
 - ALWAYS: agent session discovery accepts filesystem, clock, home-directory, and worktree-root dependencies through explicit parameters rather than reading the developer environment directly from pure domain code ([audit])
 - ALWAYS: Codex and Claude Code transcript parsing lives in agent-specific adapters under the resume domain, and each adapter emits the same candidate shape for command and interface layers ([audit])
-- ALWAYS: Commander option parsing, TTY checks, Ink rendering, and foreground process handoff live under `src/interfaces/cli/` per [`spx/13-cli.enabler/21-terminal-ui.adr.md`](/spx/13-cli.enabler/21-terminal-ui.adr.md) ([audit])
+- ALWAYS: Commander option parsing, TTY checks, Ink rendering, and foreground process handoff live under `src/interfaces/cli/` per [`spx/13-cli.enabler/21-terminal-ui.adr.md`](../../13-cli.enabler/21-terminal-ui.adr.md) ([audit])
 - NEVER: tests for resume discovery replace injected filesystem, clock, home-directory, worktree-root, picker, or foreground-launch dependencies through framework-level module replacement; they use explicit controlled implementations supplied through dependency injection ([audit])
 - NEVER: agent session discovery reads or writes `.spx/sessions/`; SPX handoff sessions remain under `spx/36-session.enabler` ([audit])

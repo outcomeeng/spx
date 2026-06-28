@@ -22,6 +22,9 @@ export function launchAgentResume(
 ): Promise<number> {
   const restoreSignals = suspender.suspend();
   return new Promise((resolve) => {
+    // `exit` and `error` are mutually exclusive in practice, but Node warns a
+    // child may emit both; the guard keeps the non-idempotent signal restore
+    // from running twice and duplicating the parent's listeners.
     let settled = false;
     const settle = (status: number): void => {
       if (settled) return;
