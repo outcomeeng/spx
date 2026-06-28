@@ -119,15 +119,10 @@ export async function discoverAgentResumeCandidates(
     )),
   ];
 
-  const recentDrafts = drafts
-    .filter((candidate) =>
-      candidate.modifiedAtMs <= options.nowMs
-      && options.nowMs - candidate.modifiedAtMs <= AGENT_RESUME_RECENT_WINDOW_MS
-    )
-    .sort(compareCandidates);
+  const sortedDrafts = drafts.sort(compareCandidates);
 
   const rootResults = await mapWithConcurrency(
-    recentDrafts,
+    sortedDrafts,
     AGENT_RESUME_LIMITS.ROOT_RESOLUTION_CONCURRENCY,
     async (candidate) => ({
       candidate,
