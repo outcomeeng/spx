@@ -13,7 +13,8 @@
       "spx/54-diagnose.enabler/tests/manifest.conformance.l1.test.ts": "passed",
       "spx/54-diagnose.enabler/tests/report.conformance.l1.test.ts": "passed",
       "spx/54-diagnose.enabler/tests/resolve.mapping.l1.test.ts": "passed",
-      "spx/54-diagnose.enabler/tests/text-report.compliance.l1.test.ts": "passed"
+      "spx/54-diagnose.enabler/tests/text-report.compliance.l1.test.ts": "passed",
+      "spx/54-diagnose.enabler/tests/worktree-status-probe.compliance.l1.test.ts": "passed"
     }
   }
 }

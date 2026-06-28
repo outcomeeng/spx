@@ -553,6 +553,16 @@ export function samplePathUnsafeAgentSessionIdentity(
   return fc.sample(arbitraryPathUnsafeAgentSessionIdentity(), { numRuns: 1, seed })[0];
 }
 
+export function sampleDistinctPathUnsafeAgentSessionIdentities(
+  count: number,
+  seed: number = PATH_UNSAFE_IDENTITY_SAMPLE_SEED,
+): readonly string[] {
+  return fc.sample(
+    fc.uniqueArray(arbitraryPathUnsafeAgentSessionIdentity(), { minLength: count, maxLength: count }),
+    { numRuns: 1, seed },
+  )[0];
+}
+
 /**
  * Draws one deterministic session ID for scenario/compliance tests that need a
  * single filename rather than a full property loop.

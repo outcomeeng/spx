@@ -28,17 +28,57 @@ import type { SessionRecord } from "@/domains/session/list";
 import {
   classifyOccupancy,
   OCCUPANCY_STATUS,
+  type OccupancyFileSystem,
   type OccupancyStatus,
   readClaim,
 } from "@/domains/worktree/occupancy-store";
+import type { ProcessTable } from "@/domains/worktree/process-table";
 import { worktreeClaimName } from "@/domains/worktree/worktree-name";
-import { gatherGitFacts } from "@/git/root";
+import { gatherGitFacts, type GitFacts } from "@/git/root";
 import { findExecutableOnPath } from "@/lib/executable-on-path";
 import { worktreesScopeDir } from "@/lib/state-store";
 import { defaultOccupancyFileSystem } from "@/lib/worktree-occupancy-file-system";
 import { defaultProcessTable } from "@/lib/worktree-process-table";
 
-const SPX = "spx";
+export const DIAGNOSE_SPX_EXECUTABLE = "spx";
+export const DIAGNOSE_DOING_SESSION_ARGS = ["session", "list", "--status", "doing", "--json"] as const;
+
+export interface WorktreePoolSnapshotEntry {
+  readonly root: string;
+  readonly name: string;
+  readonly status: OccupancyStatus;
+  readonly sessionId?: string;
+}
+
+export interface WorktreePoolSnapshot {
+  readonly errored: boolean;
+  readonly bareRepository: boolean;
+  readonly linkedWorktrees: boolean;
+  readonly worktrees: readonly WorktreePoolSnapshotEntry[];
+  readonly currentWorktreeRoot: string | null;
+  readonly liveClaimSessionIds: ReadonlySet<string>;
+}
+
+export interface WorktreePoolSnapshotDependencies {
+  readonly gatherGitFacts: () => Promise<GitFacts | null>;
+  readonly fs: OccupancyFileSystem;
+  readonly processTable: ProcessTable;
+}
+
+export interface SessionEnvironmentSnapshotInput {
+  readonly hookPresent: boolean;
+  readonly sessionIdentity: boolean;
+}
+
+export interface WorktreePoolSnapshotProvider {
+  read(): Promise<WorktreePoolSnapshot>;
+}
+
+const defaultWorktreePoolSnapshotDependencies: WorktreePoolSnapshotDependencies = {
+  gatherGitFacts,
+  fs: defaultOccupancyFileSystem,
+  processTable: defaultProcessTable,
+};
 
 interface Capture {
   readonly ok: boolean;
@@ -55,141 +95,171 @@ async function runCapture(file: string, args: readonly string[]): Promise<Captur
 }
 
 function resolveSpx(): string | null {
-  return findExecutableOnPath(SPX);
+  return findExecutableOnPath(DIAGNOSE_SPX_EXECUTABLE);
 }
 
-/**
- * The occupancy status from one `spx worktree status --format json` object, or
- * null when the output is unparseable. Reading the structured `status` field
- * avoids a substring match against the rendered line, whose worktree name can
- * itself contain an occupancy word.
- */
-function worktreeStatusOf(stdout: string): OccupancyStatus | null {
+function erroredSessionStoreReading(): SessionStoreReading {
+  return { errored: true, orphanedClaims: 0 };
+}
+
+function erroredWorktreePoolSnapshot(): WorktreePoolSnapshot {
+  return {
+    errored: true,
+    bareRepository: false,
+    linkedWorktrees: false,
+    worktrees: [],
+    currentWorktreeRoot: null,
+    liveClaimSessionIds: new Set(),
+  };
+}
+
+function parseDoingSessions(stdout: string): readonly SessionRecord[] | null {
   try {
-    const parsed = JSON.parse(stdout) as { status?: string };
-    // Match against the canonical values so an unrecognized or malformed status
-    // degrades to the errored (unknown) reading rather than a clean one.
-    return Object.values(OCCUPANCY_STATUS).find((value) => value === parsed.status) ?? null;
+    const parsed = JSON.parse(stdout) as { doing?: unknown };
+    return Array.isArray(parsed.doing) ? parsed.doing as readonly SessionRecord[] : null;
   } catch {
     return null;
   }
 }
 
-/** Resolves the worktree layout from git and counts running/free occupancy by reading each claim in-process. */
-export const defaultWorktreePoolProbe: WorktreePoolProbe = {
-  async probe(): Promise<WorktreePoolReading> {
-    const errored: WorktreePoolReading = {
+export async function gatherWorktreePoolSnapshot(
+  deps: WorktreePoolSnapshotDependencies = defaultWorktreePoolSnapshotDependencies,
+): Promise<WorktreePoolSnapshot> {
+  const facts = await deps.gatherGitFacts();
+  if (!facts?.worktreeListRead) return erroredWorktreePoolSnapshot();
+
+  const worktreesDir = worktreesScopeDir(dirname(facts.commonDir));
+  const worktrees: WorktreePoolSnapshotEntry[] = [];
+  const liveClaimSessionIds = new Set<string>();
+
+  for (const root of facts.worktreeRoots) {
+    const name = worktreeClaimName(root);
+    const claim = await readClaim(worktreesDir, name, { fs: deps.fs });
+    if (!claim.ok) return erroredWorktreePoolSnapshot();
+
+    const status = classifyOccupancy(claim.value, deps.processTable);
+    const sessionId = status === OCCUPANCY_STATUS.RUNNING && claim.value !== undefined
+      ? normalizeAgentSessionToken(claim.value.sessionId)
+      : undefined;
+    if (sessionId !== undefined) liveClaimSessionIds.add(sessionId);
+    worktrees.push({ root, name, status, sessionId });
+  }
+
+  return {
+    errored: false,
+    bareRepository: facts.commonDirIsBare,
+    linkedWorktrees: !facts.commonDirIsBare && facts.worktreeRoots.length > 1,
+    worktrees,
+    currentWorktreeRoot: facts.worktreeRoot,
+    liveClaimSessionIds,
+  };
+}
+
+export function worktreePoolReadingFromSnapshot(snapshot: WorktreePoolSnapshot): WorktreePoolReading {
+  if (snapshot.errored) {
+    return {
       errored: true,
       bareRepository: false,
       linkedWorktrees: false,
       running: 0,
       free: 0,
     };
-    const facts = await gatherGitFacts();
-    if (!facts?.worktreeListRead) return errored;
-
-    const bareRepository = facts.commonDirIsBare;
-    const paths = facts.worktreeRoots;
-    const linkedWorktrees = !bareRepository && paths.length > 1;
-
-    // Occupancy is read in-process from each worktree's claim under the shared
-    // `.spx/worktrees` scope and classified against the process table — never by
-    // spawning `spx worktree status` per worktree, which forks a CLI per member.
-    // The shared scope is the parent of the absolute common dir gatherGitFacts
-    // already resolved, so no second git round (detectGitCommonDirProductRoot) is
-    // needed. Mirrors claimedSessionIds below.
-    const worktreesDir = worktreesScopeDir(dirname(facts.commonDir));
-    let running = 0;
-    let free = 0;
-    for (const path of paths) {
-      const claim = await readClaim(worktreesDir, worktreeClaimName(path), { fs: defaultOccupancyFileSystem });
-      if (!claim.ok) return errored;
-      if (classifyOccupancy(claim.value, defaultProcessTable) === OCCUPANCY_STATUS.RUNNING) running += 1;
-      else free += 1;
-    }
-    return { errored: false, bareRepository, linkedWorktrees, running, free };
-  },
-};
-
-/** Resolves the session-environment reading from the agent-session env vars and the worktree-claim round-trip. */
-export const defaultSessionEnvironmentProbe: SessionEnvironmentProbe = {
-  async probe(): Promise<SessionEnvironmentReading> {
-    // CLAUDE_WORKTREE_CLAIMED is the hook-emitted marker. CODEX_THREAD_ID is
-    // available before hooks run, so the classifier judges identity and current
-    // worktree occupancy directly instead of treating hook absence as terminal.
-    const hookPresent = HOOK_SESSION_START_ENV.CLAUDE_WORKTREE_CLAIMED in process.env;
-    const sessionIdentity = resolveAgentSessionId(process.env) !== undefined;
-
-    // The worktree occupancy reading comes only from spx; with spx unreachable it
-    // is unknowable, so degrade to errored rather than affirm a `free` worktree
-    // the probe never checked.
-    const spx = resolveSpx();
-    if (spx === null) {
-      return { errored: true, hookPresent, sessionIdentity, worktreeClaimed: false };
-    }
-    const status = await runCapture(spx, ["worktree", "status", "--format", "json"]);
-    if (!status.ok) {
-      return { errored: true, hookPresent, sessionIdentity, worktreeClaimed: false };
-    }
-    const occupancy = worktreeStatusOf(status.stdout);
-    if (occupancy === null) {
-      return { errored: true, hookPresent, sessionIdentity, worktreeClaimed: false };
-    }
-    return {
-      errored: false,
-      hookPresent,
-      sessionIdentity,
-      worktreeClaimed: occupancy === OCCUPANCY_STATUS.RUNNING,
-    };
-  },
-};
-
-async function claimedSessionIds(): Promise<ReadonlySet<string> | null> {
-  const facts = await gatherGitFacts();
-  if (!facts?.worktreeListRead) return null;
-  // The shared `.spx/worktrees` scope is the parent of the absolute common dir
-  // gatherGitFacts already resolved — no second git round is needed.
-  const worktreesDir = worktreesScopeDir(dirname(facts.commonDir));
-
-  const sessionIds = new Set<string>();
-  for (const path of facts.worktreeRoots) {
-    const claim = await readClaim(worktreesDir, worktreeClaimName(path), { fs: defaultOccupancyFileSystem });
-    if (!claim.ok || claim.value === undefined) continue;
-    // Only a live (running) claim backs a doing session; a free worktree leaves it orphaned.
-    // Normalize the claim id the same way handoff normalizes agent_session_id, so the
-    // join matches on the canonical token rather than diverging on an unsafe raw id.
-    if (classifyOccupancy(claim.value, defaultProcessTable) === OCCUPANCY_STATUS.RUNNING) {
-      sessionIds.add(normalizeAgentSessionToken(claim.value.sessionId));
-    }
   }
-  return sessionIds;
+
+  let running = 0;
+  let free = 0;
+  for (const worktree of snapshot.worktrees) {
+    if (worktree.status === OCCUPANCY_STATUS.RUNNING) running += 1;
+    else free += 1;
+  }
+
+  return {
+    errored: false,
+    bareRepository: snapshot.bareRepository,
+    linkedWorktrees: snapshot.linkedWorktrees,
+    running,
+    free,
+  };
 }
 
-/** Resolves the session-store reading from doing sessions joined to the worktree claims that back them. */
-export const defaultSessionStoreProbe: SessionStoreProbe = {
-  async probe(): Promise<SessionStoreReading> {
-    const spx = resolveSpx();
-    if (spx === null) return { errored: true, orphanedClaims: 0 };
+export function sessionEnvironmentReadingFromSnapshot(
+  snapshot: WorktreePoolSnapshot,
+  environment: SessionEnvironmentSnapshotInput,
+): SessionEnvironmentReading {
+  const currentWorktree = snapshot.worktrees.find((worktree) => worktree.root === snapshot.currentWorktreeRoot);
+  return {
+    errored: snapshot.errored,
+    hookPresent: environment.hookPresent,
+    sessionIdentity: environment.sessionIdentity,
+    worktreeClaimed: currentWorktree?.status === OCCUPANCY_STATUS.RUNNING,
+  };
+}
 
-    const list = await runCapture(spx, ["session", "list", "--status", "doing", "--json"]);
-    const claimed = await claimedSessionIds();
-    if (!list.ok || claimed === null) return { errored: true, orphanedClaims: 0 };
+export function sessionStoreReadingFromSnapshot(
+  snapshot: WorktreePoolSnapshot,
+  doing: readonly SessionRecord[],
+): SessionStoreReading {
+  if (snapshot.errored) return { errored: true, orphanedClaims: 0 };
 
-    let doing: readonly SessionRecord[];
-    try {
-      const parsed = JSON.parse(list.stdout) as { doing?: readonly SessionRecord[] };
-      doing = parsed.doing ?? [];
-    } catch {
-      return { errored: true, orphanedClaims: 0 };
-    }
+  let orphanedClaims = 0;
+  for (const session of doing) {
+    if (!doingSessionBackedByClaim(session, snapshot.liveClaimSessionIds)) orphanedClaims += 1;
+  }
+  return { errored: false, orphanedClaims };
+}
 
-    let orphanedClaims = 0;
-    for (const session of doing) {
-      if (!doingSessionBackedByClaim(session, claimed)) orphanedClaims += 1;
-    }
-    return { errored: false, orphanedClaims };
-  },
-};
+export function createWorktreePoolSnapshotProvider(
+  deps: WorktreePoolSnapshotDependencies = defaultWorktreePoolSnapshotDependencies,
+): WorktreePoolSnapshotProvider {
+  let snapshot: Promise<WorktreePoolSnapshot> | undefined;
+  return {
+    read() {
+      snapshot ??= gatherWorktreePoolSnapshot(deps);
+      return snapshot;
+    },
+  };
+}
+
+export function worktreePoolProbeFromSnapshotProvider(provider: WorktreePoolSnapshotProvider): WorktreePoolProbe {
+  return {
+    async probe(): Promise<WorktreePoolReading> {
+      return worktreePoolReadingFromSnapshot(await provider.read());
+    },
+  };
+}
+
+export function sessionEnvironmentProbeFromSnapshotProvider(
+  provider: WorktreePoolSnapshotProvider,
+): SessionEnvironmentProbe {
+  return {
+    async probe(): Promise<SessionEnvironmentReading> {
+      const hookPresent = HOOK_SESSION_START_ENV.CLAUDE_WORKTREE_CLAIMED in process.env;
+      const sessionIdentity = resolveAgentSessionId(process.env) !== undefined;
+      return sessionEnvironmentReadingFromSnapshot(await provider.read(), {
+        hookPresent,
+        sessionIdentity,
+      });
+    },
+  };
+}
+
+export function sessionStoreProbeFromSnapshotProvider(provider: WorktreePoolSnapshotProvider): SessionStoreProbe {
+  return {
+    async probe(): Promise<SessionStoreReading> {
+      const spx = resolveSpx();
+      if (spx === null) return erroredSessionStoreReading();
+
+      const list = await runCapture(spx, DIAGNOSE_DOING_SESSION_ARGS);
+      const snapshot = await provider.read();
+      if (!list.ok || snapshot.errored) return erroredSessionStoreReading();
+
+      const doing = parseDoingSessions(list.stdout);
+      if (doing === null) return erroredSessionStoreReading();
+
+      return sessionStoreReadingFromSnapshot(snapshot, doing);
+    },
+  };
+}
 
 function pluginSurfacePresent(cli: string): boolean {
   return findExecutableOnPath(cli) !== null;

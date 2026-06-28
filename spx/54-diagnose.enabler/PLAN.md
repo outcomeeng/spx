@@ -15,22 +15,3 @@ Dual-mode invocation: `spx diagnose` runs bare (`/doctor`-style) by resolving it
 ### Downstream plugin rewire
 
 The consuming plugins repository advances its `REQUIRED_SPX_VERSION` floor to 0.6.2 and rewires its diagnose skill to a thin invoker of `spx diagnose`. Its own session tracks that work.
-
-### Re-architect the worktree probes to one in-memory snapshot, with reality-anchored tests
-
-Keep this separate from the running/free vocabulary collapse (already landed) and from check-reliability hardening, which is explicitly deferred — this is a structure-and-test-strategy concern, not a correctness one.
-
-**Problem.** Each worktree-touching check — `worktree-pool`, `session-environment`, `session-store` — gathers occupancy independently, and `worktree-pool` spawned `spx worktree status` per worktree, forking a whole CLI per pool member. That made `spx diagnose` fork a process per worktree and turned the l2 E2E suite into a subprocess storm under Vitest worker concurrency. A contained fix has landed: the `worktree-pool` probe now reads each claim in-process (mirroring `claimedSessionIds` in the same file), so no per-worktree CLI fork. The `session-environment` and `session-store` probes still shell `spx`/`git` once each; folding them into the shared gather is the remaining work.
-
-**Re-architecture.** One in-process gather pass parses the worktree/occupancy state once into a single `WorktreePoolSnapshot` data structure — bare?, linked?, and per-worktree `{ name, status }` from in-process `readClaim` + `classifyOccupancy` — and all three checks classify over that one snapshot. One parse of reality, many pure classifications. This changes the probe-gather contract, so it needs an ADR.
-
-**Test strategy — break the author-introspection illusion.** The current l1 mapping tests feed the pure classifiers synthetic `Reading` structs the author invented, so they verify the code against the author's own model and are blind exactly at the reality→structure seam: nothing checks whether the real probe ever produces the `Reading`s that were enumerated, nor whether the probe maps reality→structure correctly. The discipline that breaks the circularity:
-
-- generate the raw inputs (claim bytes, process-table states, captured `git worktree list` output) and run the real gather + classify over them, not author-picked `Reading`s;
-- anchor the parse layer to captured real artifacts, materializing a real pool sparingly;
-- use spec-derived metamorphic properties as the oracle — adding a dead claim never degrades a healthy verdict; a free worktree never degrades the pool;
-- one snapshot type emitted by both the parser and the generator, with a property that every parser-emitted snapshot classifies into a valid verdict.
-
-The default probes (`defaultWorktreePoolProbe`, `claimedSessionIds`) call `gatherGitFacts()` directly, so the gather — including the `worktreesScopeDir(dirname(facts.commonDir))` scope derivation — has no L1 coverage today; only the L2 E2E suite exercises it. Giving the gather an injected git-facts seam is what makes it L1-testable, and that seam is part of this reality-anchored test work rather than a standalone patch.
-
-This mirrors the spec domain: it builds spec-tree node structures as data via the `@testing/generators/...` arbitraries and materializes only some trees on disk (e.g. `withWorktreeLayoutEnv`), so the bulk of coverage runs over generated data while a thin set of tests materialize reality to pin the parse.

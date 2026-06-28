@@ -1,8 +1,8 @@
 /**
  * The session-store diagnose check — classifies the `.spx/` session store from
- * `spx session list` joined to the `spx worktree status` occupancy backing each
- * doing claim. The classification is pure over the gathered reading; the reading
- * is obtained through a dependency-injected probe.
+ * `spx session list` joined to the shared worktree pool snapshot's live claim
+ * set. The classification is pure over the gathered reading; the reading is
+ * obtained through a dependency-injected probe.
  *
  * @module domains/diagnose/checks/session-store
  */
@@ -46,7 +46,7 @@ const REMEDIATION: Readonly<Record<SessionStoreVerdict, string>> = {
   [SESSION_STORE_VERDICT.CONSISTENT]: "Session store is consistent; no action needed.",
   [SESSION_STORE_VERDICT.ORPHANED_CLAIMS]:
     "Release or reclaim doing sessions whose backing worktree reads free or is absent (spx session release).",
-  [SESSION_STORE_VERDICT.UNKNOWN]: "Re-run diagnose; if it persists, inspect spx session list and spx worktree status.",
+  [SESSION_STORE_VERDICT.UNKNOWN]: "Re-run diagnose; if it persists, inspect spx session list and occupancy claims.",
 };
 
 function record(
