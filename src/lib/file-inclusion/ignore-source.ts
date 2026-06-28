@@ -153,7 +153,11 @@ function readOptionalGit(productDir: string, args: readonly string[]): string | 
 }
 
 function excludeFromArgs(path: string): readonly string[] {
-  return existsSync(path) ? [GIT_LS_FILES_ARGS.EXCLUDE_FROM, path] : [];
+  return [GIT_LS_FILES_ARGS.EXCLUDE_FROM, path];
+}
+
+function optionalExcludeFromArgs(path: string): readonly string[] {
+  return existsSync(path) ? excludeFromArgs(path) : [];
 }
 
 function resolveGitPath(productDir: string, path: string): string {
@@ -254,11 +258,11 @@ export function buildIgnoreSourceGitLsFilesArgs(
   if (!normalizedOverrides.noIgnore && normalizedOverrides.noIgnoreVcs) {
     const infoExcludePath = readInfoExcludePath(productDir);
     if (infoExcludePath !== undefined) {
-      args.push(...excludeFromArgs(infoExcludePath));
+      args.push(...optionalExcludeFromArgs(infoExcludePath));
     }
     const globalExcludesPath = readGlobalExcludesPath(productDir);
     if (globalExcludesPath !== undefined) {
-      args.push(...excludeFromArgs(globalExcludesPath));
+      args.push(...optionalExcludeFromArgs(globalExcludesPath));
     }
   }
 

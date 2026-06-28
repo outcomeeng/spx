@@ -142,6 +142,18 @@ describe("ignore-source — mappings", () => {
     });
   });
 
+  it("maps a missing --ignore-file to git so git reports the invalid caller input", async () => {
+    await withGitWorktreeEnv(async (env) => {
+      const ignoreFile = ignoredPattern();
+      const config = readerConfig({ ignoreFile });
+
+      const args = buildIgnoreSourceGitLsFilesArgs(env.productDir, config.overrides);
+      const excludeFromIndex = args.indexOf(GIT_LS_FILES_ARGS.EXCLUDE_FROM);
+
+      expect(args[excludeFromIndex + 1]).toBe(join(env.productDir, ignoreFile));
+    });
+  });
+
   it("maps tilde-prefixed core.excludesFile paths through git path semantics", async () => {
     await withGitWorktreeEnv(async (env) => {
       await withTempDir(fakeHomePrefix, async (fakeHome) => {
