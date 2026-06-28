@@ -3,7 +3,9 @@ import { isAbsolute, relative, resolve } from "node:path";
 
 import { DEFAULT_SCOPE_CONFIG } from "@/lib/file-inclusion/config";
 import { EXPLICIT_OVERRIDE_LAYER, resolveScope } from "@/lib/file-inclusion/pipeline";
+import type { ScopeEntry } from "@/lib/file-inclusion/types";
 import { type ValidationPathConfig } from "@/validation/config/descriptor";
+import { pathPassesValidationFilter } from "@/validation/config/path-filter";
 import { pathPassesTypeScriptScope } from "@/validation/config/scope";
 import type { ScopeConfig } from "@/validation/types";
 
@@ -88,9 +90,12 @@ export async function validateLiteralReuse(
   }, DEFAULT_SCOPE_CONFIG);
 
   const literalScopeConfig = input.scopeConfig;
-  const filtered = literalScopeConfig === undefined
+  const pathFiltered = input.scopeConfig === undefined && input.files !== undefined
     ? scope.included
-    : scope.included.filter((entry) =>
+    : applyPathFilter(scope.included, input.pathConfig);
+  const filtered = literalScopeConfig === undefined
+    ? pathFiltered
+    : pathFiltered.filter((entry) =>
       entry.decisionTrail.some((decision) => decision.layer === EXPLICIT_OVERRIDE_LAYER)
       || pathPassesTypeScriptScope(entry.path, literalScopeConfig)
     );
@@ -148,4 +153,14 @@ async function readSafe(path: string): Promise<string | null> {
     }
     throw err;
   }
+}
+
+function applyPathFilter(
+  entries: readonly ScopeEntry[],
+  pathConfig: ValidationPathConfig | undefined,
+): readonly ScopeEntry[] {
+  if (pathConfig === undefined) {
+    return entries;
+  }
+  return entries.filter((entry) => pathPassesValidationFilter(entry.path, pathConfig));
 }
