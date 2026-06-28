@@ -76,6 +76,12 @@ export const NODE_STATUS_INDEX_ALIAS_FIXTURE = {
   INITIAL_CONTENT: "export const nodeStatusIndexSupportValue = true;\n",
   UPDATED_CONTENT: "export const nodeStatusIndexSupportValue = false;\n",
 } as const;
+export const NODE_STATUS_RUNTIME_EXTENSION_FIXTURE = {
+  IMPORT_SPECIFIER: "@/node-status-runtime-extension-support.js",
+  PATH: "src/node-status-runtime-extension-support.ts",
+  INITIAL_CONTENT: "export const nodeStatusRuntimeExtensionValue = true;\n",
+  UPDATED_CONTENT: "export const nodeStatusRuntimeExtensionValue = false;\n",
+} as const;
 export const NODE_STATUS_IMPORT_SYNTAX_FIXTURES = [
   {
     EVIDENCE_CONTENT:

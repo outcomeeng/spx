@@ -44,6 +44,7 @@ import {
   NODE_STATUS_INDEX_ALIAS_FIXTURE,
   NODE_STATUS_LOCAL_ALIAS_FIXTURES,
   NODE_STATUS_ROOT_RELATIVE_FIXTURE,
+  NODE_STATUS_RUNTIME_EXTENSION_FIXTURE,
   NODE_STATUS_TEST_SUPPORT_FIXTURE,
   nodeStatusEvidenceWithImport,
   requireNodeStatusEvidencePath,
@@ -417,6 +418,44 @@ describe("node-status read-time staleness", () => {
 
       await env.writeRaw(NODE_STATUS_INDEX_ALIAS_FIXTURE.PATH, NODE_STATUS_INDEX_ALIAS_FIXTURE.UPDATED_CONTENT);
       await commitNodeStatusProductPath(env.productDir, NODE_STATUS_INDEX_ALIAS_FIXTURE.PATH);
+
+      const snapshot = await readSpecTree({
+        source: createFilesystemSpecTreeSource({ productDir: env.productDir }),
+        evidence: createNodeStatusProvider(env.productDir),
+      });
+      const staleNodeIds = await resolveStaleNodeIds({ productDir: env.productDir, snapshot });
+
+      expect(staleNodeIds.has(recordedNode.nodeId)).toBe(true);
+    });
+  });
+
+  it("ALWAYS: resolves runtime .js import specifiers to TypeScript source files", async () => {
+    const fixture = sampleNodeStatusValue(NODE_STATUS_TEST_GENERATOR.delegationTree());
+
+    await withClassificationTree(fixture, async ({ env, expectations, resolveOutcome }) => {
+      const recordedNode = requireNodeStatusRecordedExpectation(expectations);
+      const evidencePath = requireNodeStatusEvidencePath(recordedNode);
+      await env.writeNode(
+        evidencePath,
+        nodeStatusEvidenceWithImport(NODE_STATUS_RUNTIME_EXTENSION_FIXTURE.IMPORT_SPECIFIER),
+      );
+      await env.writeRaw(
+        NODE_STATUS_RUNTIME_EXTENSION_FIXTURE.PATH,
+        NODE_STATUS_RUNTIME_EXTENSION_FIXTURE.INITIAL_CONTENT,
+      );
+
+      await initializeNodeStatusGitHistory(env.productDir);
+      await commitNodeStatusProductPath(env.productDir, SPEC_TREE_CONFIG.ROOT_DIRECTORY);
+      await commitNodeStatusProductPath(env.productDir, NODE_STATUS_RUNTIME_EXTENSION_FIXTURE.PATH);
+
+      await updateNodeStatus({ productDir: env.productDir, resolveOutcome });
+      await commitNodeStatusProductPath(env.productDir, SPEC_TREE_CONFIG.ROOT_DIRECTORY);
+
+      await env.writeRaw(
+        NODE_STATUS_RUNTIME_EXTENSION_FIXTURE.PATH,
+        NODE_STATUS_RUNTIME_EXTENSION_FIXTURE.UPDATED_CONTENT,
+      );
+      await commitNodeStatusProductPath(env.productDir, NODE_STATUS_RUNTIME_EXTENSION_FIXTURE.PATH);
 
       const snapshot = await readSpecTree({
         source: createFilesystemSpecTreeSource({ productDir: env.productDir }),

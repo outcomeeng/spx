@@ -46,6 +46,7 @@ const GIT_MERGE_BASE_COMMAND = {
   MERGE_BASE: "merge-base",
   IS_ANCESTOR: "--is-ancestor",
 } as const;
+const TYPESCRIPT_RUNTIME_SOURCE_EXTENSION = ".js";
 const TYPESCRIPT_SOURCE_EXTENSIONS: readonly string[] = [".ts", ".tsx"];
 const TYPESCRIPT_INDEX_BASENAME = "index";
 const SOURCE_ROOT = "src";
@@ -300,6 +301,10 @@ function sourcePathCandidates(sourcePath: string): readonly string[] {
   if (hasTypeScriptSourceExtension(sourcePath)) {
     return [sourcePath];
   }
+  const sourcePathWithoutRuntimeExtension = stripTypeScriptRuntimeExtension(sourcePath);
+  if (sourcePathWithoutRuntimeExtension !== sourcePath) {
+    return TYPESCRIPT_SOURCE_EXTENSIONS.map((extension) => `${sourcePathWithoutRuntimeExtension}${extension}`);
+  }
   return [
     ...TYPESCRIPT_SOURCE_EXTENSIONS.map((extension) => `${sourcePath}${extension}`),
     ...TYPESCRIPT_SOURCE_EXTENSIONS.map((extension) =>
@@ -311,6 +316,12 @@ function sourcePathCandidates(sourcePath: string): readonly string[] {
 function hasTypeScriptSourceExtension(path: string): boolean {
   const pathExtension = extname(path);
   return TYPESCRIPT_SOURCE_EXTENSIONS.includes(pathExtension);
+}
+
+function stripTypeScriptRuntimeExtension(path: string): string {
+  return path.endsWith(TYPESCRIPT_RUNTIME_SOURCE_EXTENSION)
+    ? path.slice(0, -TYPESCRIPT_RUNTIME_SOURCE_EXTENSION.length)
+    : path;
 }
 
 async function hasLaterDependencyCommit(
