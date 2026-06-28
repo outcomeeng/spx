@@ -1,5 +1,5 @@
 import type { Dirent } from "node:fs";
-import { access, readdir, stat } from "node:fs/promises";
+import { readdir, readFile, stat } from "node:fs/promises";
 import { join, relative, sep } from "node:path";
 
 import { createIgnoreSourceReader, DEFAULT_IGNORE_SOURCE_OVERRIDES } from "./ignore-source";
@@ -27,6 +27,7 @@ export type {
 
 export const EXPLICIT_OVERRIDE_LAYER = "explicit-override" as const;
 export const GIT_INTERNAL_DIRECTORY = ".git";
+const GITDIR_POINTER_PREFIX = "gitdir:";
 const DIRECTORY_TRAVERSAL_MODE = {
   AUTOMATIC: "automatic",
   EXPLICIT: "explicit",
@@ -54,12 +55,12 @@ async function isDirectory(absolutePath: string): Promise<boolean> {
   }
 }
 
-async function pathExists(absolutePath: string): Promise<boolean> {
+async function isGitdirPointerFile(absolutePath: string): Promise<boolean> {
   try {
-    await access(absolutePath);
-    return true;
+    const content = await readFile(absolutePath, "utf8");
+    return content.startsWith(GITDIR_POINTER_PREFIX);
   } catch (err) {
-    if (isNodeError(err) && err.code === "ENOENT") {
+    if (isNodeError(err) && (err.code === "ENOENT" || err.code === "ENOTDIR")) {
       return false;
     }
     throw err;
@@ -82,13 +83,21 @@ function normalizeProductPath(productDir: string, absolutePath: string): string 
   return sep === "/" ? rel : rel.split(sep).join("/");
 }
 
-function shouldWalkEntry(entry: Dirent<string>): boolean {
-  if (entry.name === GIT_INTERNAL_DIRECTORY) return false;
-  return true;
+async function isGitMetadataEntry(absolutePath: string, entry: Dirent<string>): Promise<boolean> {
+  if (entry.name !== GIT_INTERNAL_DIRECTORY) return false;
+  if (entry.isDirectory()) return true;
+  if (!entry.isFile()) return false;
+  return isGitdirPointerFile(absolutePath);
 }
 
 async function shouldDescendIntoDirectory(absoluteDir: string): Promise<boolean> {
-  return !await pathExists(join(absoluteDir, GIT_INTERNAL_DIRECTORY));
+  const entries = await readDirectoryEntries(absoluteDir);
+  for (const entry of entries) {
+    if (await isGitMetadataEntry(join(absoluteDir, entry.name), entry)) {
+      return false;
+    }
+  }
+  return true;
 }
 
 async function collectPaths(
@@ -101,7 +110,7 @@ async function collectPaths(
   for (const entry of dirEntries) {
     const absolutePath = join(absoluteDir, entry.name);
     const relativePath = normalizeProductPath(productDir, absolutePath);
-    if (!shouldWalkEntry(entry)) continue;
+    if (await isGitMetadataEntry(absolutePath, entry)) continue;
     if (entry.isDirectory()) {
       if (mode === DIRECTORY_TRAVERSAL_MODE.AUTOMATIC && !await shouldDescendIntoDirectory(absolutePath)) continue;
       await collectPaths(absolutePath, productDir, result, mode);

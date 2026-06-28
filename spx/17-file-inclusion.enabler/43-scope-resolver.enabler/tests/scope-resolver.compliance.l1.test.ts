@@ -267,4 +267,46 @@ describe("scope resolver — compliance", () => {
       });
     });
   });
+
+  it("explicit directory expansion includes ordinary tracked files named .git", async () => {
+    await withGitWorktreeEnv(async (env) => {
+      const normalDirectory = sampleGitWorktreeTestValue(arbitraryPathSegment());
+      const trackedGitFile = `${normalDirectory}/${GIT_INTERNAL_DIRECTORY}`;
+      await env.writeTracked(trackedGitFile, fileContent());
+
+      const result = await resolveScope(
+        env.productDir,
+        {
+          explicit: [normalDirectory],
+          overrides: DEFAULT_IGNORE_SOURCE_OVERRIDES,
+        },
+        resolverConfig,
+      );
+
+      expect(result.included.some((entry) => entry.path === trackedGitFile)).toBe(true);
+      expect(result.excluded.some((entry) => entry.path === trackedGitFile)).toBe(false);
+    });
+  });
+
+  it("automatic walking descends through directories containing ordinary tracked files named .git", async () => {
+    await withGitWorktreeEnv(async (env) => {
+      const normalDirectory = sampleGitWorktreeTestValue(arbitraryPathSegment());
+      const trackedGitFile = `${normalDirectory}/${GIT_INTERNAL_DIRECTORY}`;
+      const trackedChild = `${normalDirectory}/${trackedFilePath()}`;
+      await env.writeTracked(trackedGitFile, fileContent());
+      await env.writeTracked(trackedChild, fileContent());
+
+      const result = await resolveScope(
+        env.productDir,
+        {
+          walkRoot: env.productDir,
+          overrides: DEFAULT_IGNORE_SOURCE_OVERRIDES,
+        },
+        resolverConfig,
+      );
+
+      expect(result.included.some((entry) => entry.path === trackedChild)).toBe(true);
+      expect(result.excluded.some((entry) => entry.path === trackedChild)).toBe(false);
+    });
+  });
 });
