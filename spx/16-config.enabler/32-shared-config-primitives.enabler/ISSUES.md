@@ -4,10 +4,10 @@
 
 `applyPathFilter` (`src/config/primitives/path-filter.ts`) is the shared apply-side of the `PathFilterConfig` primitive: it keeps paths admitted by the include set and not matched by the exclude set, matching a prefix by path-segment boundary. Two command-local appliers predate it and carry their own prefix-matching:
 
-- `src/validation/literal/index.ts` `applyPathFilter` — appends `/` to every prefix, so it never matches the exact `path === prefix` case the shared primitive handles.
+- `src/validation/literal/index.ts` `applyPathFilter` — delegates path membership to `pathPassesValidationFilter`, but it remains a call-site duplicate instead of consuming the shared `applyPathFilter` primitive from `src/config/primitives/path-filter.ts`.
 - `testing/generators/testing/dispatch.ts` `isNodePathPrefix` — the same segment-boundary predicate without normalization, used by the `arbitraryDistinctNodePaths` generator to keep sampled node paths prefix-disjoint. It is a test-data guard rather than a filter applier, but a shared segment-boundary matcher extracted for the two production appliers would absorb it too.
 
-**Impact:** None on behavior today — each applier is correct for its own consumer. The duplication risks silent divergence in prefix-matching semantics across domains (the literal applier already differs on the exact-match case).
+**Impact:** None on behavior today — each applier is correct for its own consumer. The duplication risks silent divergence in prefix-matching semantics across domains as the shared primitive evolves.
 
 `src/validation/config/path-filter.ts` consumes the shared prefix matcher while keeping validation-specific include intersection layered in its own module. The shared primitive owns separator normalization, leading `./` stripping, trailing separator trimming, root-prefix matching, and exact-or-boundary matching.
 
