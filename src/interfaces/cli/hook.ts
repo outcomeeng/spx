@@ -6,10 +6,31 @@
 
 import type { Command } from "commander";
 
+import { resolveConfig } from "@/config/index";
+import type { Result } from "@/config/types";
+import {
+  AGENT_RUNTIME,
+  type AgentEnvironmentConfig,
+  agentEnvironmentConfigDescriptor,
+  type AgentRuntime,
+} from "@/domains/agent-environment/config";
+import {
+  HOOK_SESSION_START_ENV,
+  type HookSessionStartEnv,
+  resolveHookSessionStartEnvFile,
+} from "@/domains/hooks/session-start";
 import type { Domain } from "@/domains/types";
 import { defaultGitDependencies } from "@/git/root";
 import type { CliInvocation } from "@/interfaces/cli/product-context";
-import { processHookIo, runHookCli } from "@/interfaces/hooks/cli-runner";
+import {
+  ERROR_DETAIL_SEPARATOR,
+  HOOK_CONFIG_ERROR_PREFIX,
+  type HookCliRunOptions,
+  processHookIo,
+  runHookCli,
+} from "@/interfaces/hooks/cli-runner";
+import { HOOK_ERROR, isHookEvent } from "@/interfaces/hooks/registry";
+import { sanitizeCliArgument } from "@/lib/sanitize-cli-argument";
 import { createClaimWriteToken } from "@/lib/worktree-claim-write-token";
 import { defaultOccupancyFileSystem } from "@/lib/worktree-occupancy-file-system";
 import { defaultProcessTable } from "@/lib/worktree-process-table";
@@ -25,6 +46,65 @@ export const HOOK_CLI = {
 
 const HOOK_DOMAIN_DESCRIPTION = "Run host lifecycle hook events";
 
+interface HookCommandOptions {
+  readonly hookEnvFile?: string;
+  readonly worktreesDir?: string;
+}
+
+interface HookExecutionContext {
+  readonly runOptions: Omit<HookCliRunOptions, "event">;
+  readonly warnings: readonly string[];
+}
+
+function resolveHookCliRuntime(env: HookSessionStartEnv): AgentRuntime {
+  if (env[HOOK_SESSION_START_ENV.CODEX_THREAD_ID]?.trim()) return AGENT_RUNTIME.CODEX;
+  if (env[HOOK_SESSION_START_ENV.CLAUDE_SESSION_ID]?.trim()) return AGENT_RUNTIME.CLAUDE_CODE;
+  return AGENT_RUNTIME.CODEX;
+}
+
+async function resolveHookCliCompactStdout(productDir: string, env: HookSessionStartEnv): Promise<Result<boolean>> {
+  const loaded = await resolveConfig(productDir, [agentEnvironmentConfigDescriptor]);
+  if (!loaded.ok) return loaded;
+  const agentEnvironment = loaded.value[agentEnvironmentConfigDescriptor.section] as AgentEnvironmentConfig;
+  return {
+    ok: true,
+    value: agentEnvironment.runtimes[resolveHookCliRuntime(env)].hooks.sessionStart.compactStdout,
+  };
+}
+
+function defaultHookCliCompactStdout(env: HookSessionStartEnv): boolean {
+  return agentEnvironmentConfigDescriptor.defaults.runtimes[resolveHookCliRuntime(env)].hooks.sessionStart
+    .compactStdout;
+}
+
+async function resolveHookExecutionContext(
+  invocation: CliInvocation,
+  options: HookCommandOptions,
+): Promise<HookExecutionContext> {
+  const env = process.env;
+  const context = invocation.resolveProductContext();
+  const compactStdout = await resolveHookCliCompactStdout(context.productDir, env);
+  return {
+    runOptions: {
+      claimWriteToken: createClaimWriteToken(),
+      compactStdout: compactStdout.ok ? compactStdout.value : defaultHookCliCompactStdout(env),
+      cwd: invocation.resolveEffectiveInvocationDir(),
+      env,
+      envFile: resolveHookSessionStartEnvFile(env, options.hookEnvFile),
+      fs: defaultOccupancyFileSystem,
+      gitDeps: defaultGitDependencies,
+      io: processHookIo,
+      onWarning: (warning) => writeInvocationWarning(invocation, warning),
+      processTable: defaultProcessTable,
+      selfPid: process.pid,
+      worktreesDir: options.worktreesDir,
+    },
+    warnings: compactStdout.ok
+      ? []
+      : [`${HOOK_CONFIG_ERROR_PREFIX}${ERROR_DETAIL_SEPARATOR}${compactStdout.error}`],
+  };
+}
+
 function writeError(invocation: CliInvocation, output: string): void {
   invocation.io.writeStderr(`${output}\n`);
 }
@@ -36,27 +116,24 @@ function writeInvocationWarning(invocation: CliInvocation, warning: string | und
 }
 
 function registerHookCommands(hookCmd: Command, invocation: CliInvocation): void {
-  const effectiveInvocationDir = (): string => invocation.resolveEffectiveInvocationDir();
-
   hookCmd
     .command(`${HOOK_CLI.RUN} ${HOOK_CLI.EVENT_ARGUMENT}`)
     .description("Run a hook lifecycle event")
     .option(`${HOOK_CLI.ENV_FILE_FLAG} <path>`, "Hook env file to append; defaults to $CLAUDE_ENV_FILE")
     .option(`${HOOK_CLI.WORKTREES_DIR_FLAG} <path>`, "Explicit .spx/worktrees directory")
-    .action(async (event: string, options: { hookEnvFile?: string; worktreesDir?: string }) => {
+    .action(async (event: string, options: HookCommandOptions) => {
+      if (!isHookEvent(event)) {
+        writeError(invocation, `${HOOK_ERROR.UNKNOWN_EVENT}: ${sanitizeCliArgument(event)}`);
+        invocation.io.exit(1);
+        return;
+      }
+      const hookContext = await resolveHookExecutionContext(invocation, options);
+      for (const warning of hookContext.warnings) {
+        writeInvocationWarning(invocation, warning);
+      }
       const result = await runHookCli({
-        claimWriteToken: createClaimWriteToken(),
-        cwd: effectiveInvocationDir(),
-        env: process.env,
-        envFile: options.hookEnvFile,
+        ...hookContext.runOptions,
         event,
-        fs: defaultOccupancyFileSystem,
-        gitDeps: defaultGitDependencies,
-        io: processHookIo,
-        onWarning: (warning) => writeInvocationWarning(invocation, warning),
-        processTable: defaultProcessTable,
-        selfPid: process.pid,
-        worktreesDir: options.worktreesDir,
       });
       if (!result.ok) invocation.io.exit(1);
     });

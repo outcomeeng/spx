@@ -1,6 +1,6 @@
 # Agent Environment Descriptor
 
-The `agentEnvironment` config descriptor lives at `src/domains/agent-environment/config.ts`, registers with the production config registry per `spx/16-config.enabler/21-descriptor-registration.adr.md`, and resolves three parent-owned subsections — `instructions`, `runtimes`, and `pluginBootstrap` — with explicit source-owned runtime ids for Codex and Claude Code that the instruction-reconciliation, runtime-configuration, hook, and plugin-bootstrap children import when selecting runtime-specific serializers, instruction targets, hook policy, or bootstrap adapters. The descriptor models shared inputs and target runtimes only: it writes no files, installs no plugins, and encodes no runtime-specific serializers, and it rejects unknown fields and malformed entry shapes rather than ignoring them, because it is the shared API those children consume.
+The `agentEnvironment` config descriptor lives at `src/domains/agent-environment/config.ts`, registers with the production config registry per `spx/16-config.enabler/21-descriptor-registration.adr.md`, and resolves three parent-owned subsections — `instructions`, `runtimes`, and `pluginBootstrap` — with explicit source-owned runtime ids for Codex and Claude Code that instruction-reconciliation, runtime-configuration, hook CLI transport, and plugin-bootstrap boundaries consume when selecting runtime-specific serializers, instruction targets, hook policy, or bootstrap adapters. The descriptor models shared inputs and target runtimes only: it writes no files, installs no plugins, and encodes no runtime-specific serializers, and it rejects unknown fields and malformed entry shapes rather than ignoring them, because it is the shared API those boundaries consume.
 
 ## Rationale
 
@@ -18,6 +18,8 @@ Rejected: separate config sections for instructions, runtimes, and bootstrap (th
 - Marketplace, plugin, and skill names are unique within each runtime.
 - Plugin entries that name a marketplace reference a configured marketplace for the same runtime.
 - Child reconcilers consume the descriptor's resolved values; they do not parse raw `spx.config.*` content.
+- The hook CLI transport resolves `hooks.sessionStart.compactStdout` from the descriptor as part of one hook execution context and passes hook infrastructure a primitive policy value; hook event runners do not import the agent-environment descriptor.
+- Compact stdout runtime-policy selection and `session-start` session identity are separate concerns: a Codex runtime marker disables Codex compact stdout even when `session-start` identity resolution later uses a Claude session id.
 - The instruction-reconciliation child validates concrete instruction paths before writing files, and the plugin-bootstrap child validates marketplace source formats before resolving external inputs.
 - Marketplace `source` values and skill `source` values are different semantic fields even though they share the same config field name.
 - An omitted `instructions.files` keeps the default `AGENTS.md`; an explicit empty list disables instruction-file management.

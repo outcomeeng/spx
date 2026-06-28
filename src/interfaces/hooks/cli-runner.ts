@@ -4,9 +4,7 @@
  * @module interfaces/hooks/cli-runner
  */
 
-import { resolveConfig } from "@/config/index";
 import type { Result } from "@/config/types";
-import { type AgentEnvironmentConfig, agentEnvironmentConfigDescriptor } from "@/domains/agent-environment/config";
 import type { HookSessionStartEnv } from "@/domains/hooks/session-start";
 import type { ControllingProcessEnv } from "@/domains/worktree/controlling-process";
 import type { OccupancyFileSystem } from "@/domains/worktree/occupancy-store";
@@ -24,8 +22,8 @@ export interface HookProcessIo {
 
 export interface HookCliRunOptions {
   readonly claimWriteToken: string;
+  readonly compactStdout: boolean;
   readonly cwd: string;
-  readonly agentEnvironment?: AgentEnvironmentConfig;
   readonly envFile?: string;
   readonly env: HookSessionStartEnv & ControllingProcessEnv;
   readonly event: string;
@@ -62,15 +60,6 @@ export const ERROR_DETAIL_SEPARATOR = ": ";
 export const STDIN_READ_ERROR = "hook stdin read failed";
 export const HOOK_CONFIG_ERROR_PREFIX = "hook agent environment config read failed";
 
-async function resolveHookAgentEnvironment(productDir: string): Promise<Result<AgentEnvironmentConfig>> {
-  const loaded = await resolveConfig(productDir, [agentEnvironmentConfigDescriptor]);
-  if (!loaded.ok) return loaded;
-  return {
-    ok: true,
-    value: loaded.value[agentEnvironmentConfigDescriptor.section] as AgentEnvironmentConfig,
-  };
-}
-
 /** Runs a hook event from a CLI transport, including hook-owned process I/O. */
 export async function runHookCli(options: HookCliRunOptions): Promise<Result<void>> {
   if (!isHookEvent(options.event)) {
@@ -82,16 +71,10 @@ export async function runHookCli(options: HookCliRunOptions): Promise<Result<voi
   const stdin = await options.io.readStdin();
   const content = stdin.ok ? stdin.value : undefined;
   if (!stdin.ok) diagnostics.push(stdin.error);
-  const agentEnvironment = options.agentEnvironment === undefined
-    ? await resolveHookAgentEnvironment(options.cwd)
-    : { ok: true as const, value: options.agentEnvironment };
-  if (!agentEnvironment.ok) {
-    diagnostics.push(`${HOOK_CONFIG_ERROR_PREFIX}${ERROR_DETAIL_SEPARATOR}${agentEnvironment.error}`);
-  }
   const runEvent = options.runEvent ?? runHookEvent;
   const result = await runEvent({
-    agentEnvironment: agentEnvironment.ok ? agentEnvironment.value : agentEnvironmentConfigDescriptor.defaults,
     claimWriteToken: options.claimWriteToken,
+    compactStdout: options.compactStdout,
     content,
     cwd: options.cwd,
     env: options.env,

@@ -4,11 +4,6 @@ import { basename, join } from "node:path";
 import { describe, expect, it } from "vitest";
 
 import {
-  AGENT_RUNTIME,
-  type AgentEnvironmentConfig,
-  agentEnvironmentConfigDescriptor,
-} from "@/domains/agent-environment/config";
-import {
   HOOK_COMPACT_FOUNDATION_DIRECTIVE,
   HOOK_ENV_FILE,
   HOOK_SESSION_START_CLAIMED,
@@ -26,8 +21,8 @@ import { sampleWorktreeTestValue, WORKTREE_TEST_GENERATOR } from "@testing/gener
 import { withWorktreePool, type WorktreePoolEnv } from "@testing/harnesses/worktree/harness";
 
 interface SessionStartHookScenarioInput {
-  readonly agentEnvironment?: AgentEnvironmentConfig;
   readonly claimWriteToken: string;
+  readonly compactStdout?: boolean;
   readonly content: string;
   readonly env: HookSessionStartEnv;
   readonly envFile?: string;
@@ -60,10 +55,10 @@ function hookEnvWithHolder(
 async function runSessionStartHookScenario(env: WorktreePoolEnv, input: SessionStartHookScenarioInput) {
   return runSessionStartHook({
     claimWriteToken: input.claimWriteToken,
+    compactStdout: input.compactStdout ?? false,
     content: input.content,
     cwd: env.container,
-    agentEnvironment: input.agentEnvironment ?? agentEnvironmentConfigDescriptor.defaults,
-    envFile: input.envFile,
+    envFile: input.envFile ?? input.env[HOOK_SESSION_START_ENV.CLAUDE_ENV_FILE],
     fs: env.fs,
     gitDeps: defaultGitDependencies,
     worktreesDir: env.worktreesDir,
@@ -186,6 +181,7 @@ describe("hook session-start adapter", () => {
       const envFile = hookEnvFilePath(env, envFileName);
       const result = await runSessionStartHookScenario(env, {
         claimWriteToken,
+        compactStdout: true,
         content: hookContent(env, undefined, HOOK_SESSION_START_SOURCE.COMPACT),
         env: hookEnvWithHolder(env, envFile, { [HOOK_SESSION_START_ENV.CLAUDE_SESSION_ID]: sessionId }),
       });
@@ -205,32 +201,18 @@ describe("hook session-start adapter", () => {
     });
   });
 
-  it("emits the compact foundation directive for Codex when runtime config enables compact stdout", async () => {
+  it("emits the compact foundation directive when compact stdout policy is enabled", async () => {
     const worktreeName = sampleWorktreeTestValue(WORKTREE_TEST_GENERATOR.poolWorktreeName());
     const holder = sampleWorktreeTestValue(WORKTREE_TEST_GENERATOR.poolHolder());
     const sessionId = sampleWorktreeTestValue(WORKTREE_TEST_GENERATOR.sessionId());
     const envFileName = sampleWorktreeTestValue(WORKTREE_TEST_GENERATOR.envFileName());
     const claimWriteToken = sampleWorktreeTestValue(WORKTREE_TEST_GENERATOR.writeToken());
-    const agentEnvironment: AgentEnvironmentConfig = {
-      ...agentEnvironmentConfigDescriptor.defaults,
-      runtimes: {
-        ...agentEnvironmentConfigDescriptor.defaults.runtimes,
-        [AGENT_RUNTIME.CODEX]: {
-          ...agentEnvironmentConfigDescriptor.defaults.runtimes[AGENT_RUNTIME.CODEX],
-          hooks: {
-            sessionStart: {
-              compactStdout: true,
-            },
-          },
-        },
-      },
-    };
 
     await withWorktreePool({ worktreeName, holder }, async (env) => {
       const envFile = hookEnvFilePath(env, envFileName);
       const result = await runSessionStartHookScenario(env, {
-        agentEnvironment,
         claimWriteToken,
+        compactStdout: true,
         content: hookContent(env, undefined, HOOK_SESSION_START_SOURCE.COMPACT),
         env: {
           [CONTROLLING_PID_ENV]: String(env.holder.pid),

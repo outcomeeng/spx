@@ -5,12 +5,6 @@
  */
 
 import type { Result } from "@/config/types";
-import {
-  AGENT_RUNTIME,
-  type AgentEnvironmentConfig,
-  type AgentRuntime,
-  type AgentRuntimeSessionStartHookConfig,
-} from "@/domains/agent-environment/config";
 
 export const HOOK_SESSION_START_PAYLOAD = {
   CWD: "cwd",
@@ -66,8 +60,7 @@ export interface HookSessionStartEnvRenderInput {
 }
 
 export interface HookSessionStartStdoutInput {
-  readonly agentEnvironment: AgentEnvironmentConfig;
-  readonly env: HookSessionStartEnv;
+  readonly compactStdout: boolean;
   readonly source?: string;
 }
 
@@ -135,29 +128,10 @@ export function resolveHookSessionStartProductDir(payload: HookSessionStartPaylo
   return payload.cwd ?? cwd;
 }
 
-export function resolveHookSessionStartAgentRuntime(env: HookSessionStartEnv): AgentRuntime {
-  if (nonEmptyString(env[HOOK_SESSION_START_ENV.CLAUDE_SESSION_ID]) !== undefined) {
-    return AGENT_RUNTIME.CLAUDE_CODE;
-  }
-  if (nonEmptyString(env[HOOK_SESSION_START_ENV.CODEX_THREAD_ID]) !== undefined) {
-    return AGENT_RUNTIME.CODEX;
-  }
-  return AGENT_RUNTIME.CODEX;
-}
-
-export function resolveHookSessionStartPolicy(
-  agentEnvironment: AgentEnvironmentConfig,
-  env: HookSessionStartEnv,
-): AgentRuntimeSessionStartHookConfig {
-  return agentEnvironment.runtimes[resolveHookSessionStartAgentRuntime(env)].hooks.sessionStart;
-}
-
 /** Renders the model-visible stdout for the `session-start` hook event. */
 export function renderSessionStartStdout(input: HookSessionStartStdoutInput): string {
   if (input.source !== HOOK_SESSION_START_SOURCE.COMPACT) return NO_STARTUP_DIRECTIVE;
-  return resolveHookSessionStartPolicy(input.agentEnvironment, input.env).compactStdout
-    ? HOOK_COMPACT_FOUNDATION_DIRECTIVE
-    : NO_STARTUP_DIRECTIVE;
+  return input.compactStdout ? HOOK_COMPACT_FOUNDATION_DIRECTIVE : NO_STARTUP_DIRECTIVE;
 }
 
 export function resolveHookSessionStartEnvFile(
