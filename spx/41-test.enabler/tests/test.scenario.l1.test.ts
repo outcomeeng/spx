@@ -75,7 +75,11 @@ function recordedPassingRun(productDir: string, run: TestDispatchResult): Record
   };
 }
 
-function stagedConfigChangeGit(headSha: string, stagedConfig: string): GitDependencies {
+function stagedConfigChangeGit(
+  headSha: string,
+  stagedConfig: string,
+  changedPath: string = CONFIG_FILENAMES.yaml,
+): GitDependencies {
   return {
     execa: async (_command, args) => {
       if (args.includes(GIT_TEST_SUBCOMMANDS.REV_PARSE)) {
@@ -88,7 +92,7 @@ function stagedConfigChangeGit(headSha: string, stagedConfig: string): GitDepend
       ) {
         return {
           exitCode: 0,
-          stdout: [GIT_MODIFY_STATUS_EXAMPLE, CONFIG_FILENAMES.yaml].join("\0") + "\0",
+          stdout: [GIT_MODIFY_STATUS_EXAMPLE, changedPath].join("\0") + "\0",
           stderr: "",
         };
       }
@@ -264,7 +268,7 @@ describe("spx test dispatch over the language registry", () => {
     expect(result.exitCodes).toEqual([SUCCESS_EXIT_CODE]);
   });
 
-  it("reads staged config snapshots when staged changed selection sees config changes", async () => {
+  it("reads staged config snapshots when staged changed selection runs", async () => {
     const runner = createRecordingCommandRunner({ present: true, exitCode: SUCCESS_EXIT_CODE });
     const headSha = sampleLiteralTestValue(arbitraryDomainLiteral());
     const malformedTestingConfig = [TESTING_SECTION, "["].join(": ");
@@ -290,7 +294,7 @@ describe("spx test dispatch over the language registry", () => {
             readFile: async () => "",
             runCommand: async () => ({ exitCode: SUCCESS_EXIT_CODE, stdout: "", stderr: "" }),
           }),
-          git: stagedConfigChangeGit(headSha, stagedTestingConfig),
+          git: stagedConfigChangeGit(headSha, stagedTestingConfig, testPath),
         },
       );
 
