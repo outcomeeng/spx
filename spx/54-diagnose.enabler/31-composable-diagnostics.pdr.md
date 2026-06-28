@@ -17,7 +17,7 @@ Users need both a whole-environment answer and a way to inspect one product conc
 ### Testing
 
 - ALWAYS: `spx diagnose` includes every resolved domain diagnosis and folds their verdicts into one overall verdict ([mapping])
-- ALWAYS: a focused domain diagnose command reports the same conclusion and next action that `spx diagnose` includes for that domain under the same inputs ([conformance])
+- ALWAYS: a focused domain diagnose command reports the same conclusion and next action that `spx diagnose` includes for that domain under the same inputs ([property])
 - NEVER: `spx diagnose` reports a domain conclusion that contradicts the focused diagnose command for the same domain and inputs ([compliance])
 
 ### Audit
