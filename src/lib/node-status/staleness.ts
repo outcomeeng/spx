@@ -50,12 +50,31 @@ const SOURCE_ROOT = "src";
 const SOURCE_ROOT_PREFIX = `${SOURCE_ROOT}/`;
 const TEST_SUPPORT_ROOT = "testing";
 const TEST_SUPPORT_ROOT_PREFIX = `${TEST_SUPPORT_ROOT}/`;
-const SOURCE_ALIAS_PREFIX = "@/";
-const LIB_ALIAS_PREFIX = "@lib/";
-const TEST_SUPPORT_ALIAS_PREFIX = "@testing/";
 const LIB_ROOT = `${SOURCE_ROOT}/lib`;
+const SCRIPTS_ROOT = "scripts";
+const SCRIPTS_ROOT_PREFIX = `${SCRIPTS_ROOT}/`;
+const ESLINT_RULES_ROOT = "eslint-rules";
+const ESLINT_RULES_ROOT_PREFIX = `${ESLINT_RULES_ROOT}/`;
 const RELATIVE_IMPORT_PREFIX = ".";
 const EMPTY_STDOUT = "";
+const NODE_FILE_ERROR_CODE = {
+  ENOENT: "ENOENT",
+  EISDIR: "EISDIR",
+} as const;
+const LOCAL_IMPORT_ALIASES = [
+  { prefix: "@/", target: SOURCE_ROOT_PREFIX },
+  { prefix: "@lib/", target: `${LIB_ROOT}/` },
+  { prefix: "@root/", target: "" },
+  { prefix: "@scripts/", target: SCRIPTS_ROOT_PREFIX },
+  { prefix: "@testing/", target: TEST_SUPPORT_ROOT_PREFIX },
+  { prefix: "@eslint-rules/", target: ESLINT_RULES_ROOT_PREFIX },
+] as const;
+const LOCAL_DEPENDENCY_ROOT_PREFIXES = [
+  SOURCE_ROOT_PREFIX,
+  TEST_SUPPORT_ROOT_PREFIX,
+  SCRIPTS_ROOT_PREFIX,
+  ESLINT_RULES_ROOT_PREFIX,
+] as const;
 const STATIC_IMPORT_SPECIFIER_PATTERN = /(?:import|export)\s+(?:type\s+)?(?:[^'"]*?\s+from\s+)?["']([^"']+)["']/g;
 const DYNAMIC_IMPORT_SPECIFIER_PATTERN = /import\s*\(\s*["']([^"']+)["']\s*\)/g;
 
@@ -209,6 +228,9 @@ async function resolveLocalImplementationImport(options: ResolveLocalImportOptio
   if (unresolvedPath === undefined) {
     return undefined;
   }
+  if (await canReadProductFile(options.productDir, unresolvedPath, options.fileSystem)) {
+    return unresolvedPath;
+  }
   for (const candidate of sourcePathCandidates(unresolvedPath)) {
     if (await canReadProductFile(options.productDir, candidate, options.fileSystem)) {
       return candidate;
@@ -218,14 +240,9 @@ async function resolveLocalImplementationImport(options: ResolveLocalImportOptio
 }
 
 function unresolvedLocalImplementationPath(importerPath: string, specifier: string): string | undefined {
-  if (specifier.startsWith(SOURCE_ALIAS_PREFIX)) {
-    return `${SOURCE_ROOT_PREFIX}${specifier.slice(SOURCE_ALIAS_PREFIX.length)}`;
-  }
-  if (specifier.startsWith(LIB_ALIAS_PREFIX)) {
-    return `${LIB_ROOT}/${specifier.slice(LIB_ALIAS_PREFIX.length)}`;
-  }
-  if (specifier.startsWith(TEST_SUPPORT_ALIAS_PREFIX)) {
-    return `${TEST_SUPPORT_ROOT_PREFIX}${specifier.slice(TEST_SUPPORT_ALIAS_PREFIX.length)}`;
+  const alias = LOCAL_IMPORT_ALIASES.find((candidate) => specifier.startsWith(candidate.prefix));
+  if (alias !== undefined) {
+    return normalize(`${alias.target}${specifier.slice(alias.prefix.length)}`);
   }
   if (!specifier.startsWith(RELATIVE_IMPORT_PREFIX)) {
     return undefined;
@@ -236,7 +253,7 @@ function unresolvedLocalImplementationPath(importerPath: string, specifier: stri
 }
 
 function isTrackedDependencyRoot(path: string): boolean {
-  return path.startsWith(SOURCE_ROOT_PREFIX) || path.startsWith(TEST_SUPPORT_ROOT_PREFIX);
+  return LOCAL_DEPENDENCY_ROOT_PREFIXES.some((prefix) => path.startsWith(prefix));
 }
 
 function sourcePathCandidates(sourcePath: string): readonly string[] {
@@ -333,7 +350,10 @@ async function readProductFile(
   try {
     return await fileSystem.readFile(joinFilePath(productDir, path));
   } catch (error) {
-    if (isNodeError(error) && error.code === "ENOENT") {
+    if (
+      isNodeError(error)
+      && (error.code === NODE_FILE_ERROR_CODE.ENOENT || error.code === NODE_FILE_ERROR_CODE.EISDIR)
+    ) {
       return undefined;
     }
     throw error;

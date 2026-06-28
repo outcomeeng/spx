@@ -37,7 +37,11 @@ import {
   initializeNodeStatusGitHistory,
   NODE_STATUS_CLASSIFICATION_EVIDENCE_WITH_TEST_SUPPORT_CONTENT,
   NODE_STATUS_CLASSIFICATION_SPEC_CONTENT,
+  NODE_STATUS_EXACT_ALIAS_FIXTURE,
+  NODE_STATUS_INDEX_ALIAS_FIXTURE,
+  NODE_STATUS_LOCAL_ALIAS_FIXTURES,
   NODE_STATUS_TEST_SUPPORT_FIXTURE,
+  nodeStatusEvidenceWithImport,
   requireNodeStatusEvidencePath,
   requireNodeStatusRecordedExpectation,
   withClassificationTree,
@@ -220,6 +224,95 @@ describe("node-status read-time staleness", () => {
 
       await env.writeRaw(NODE_STATUS_TEST_SUPPORT_FIXTURE.PATH, NODE_STATUS_TEST_SUPPORT_FIXTURE.UPDATED_CONTENT);
       await commitNodeStatusProductPath(env.productDir, NODE_STATUS_TEST_SUPPORT_FIXTURE.PATH);
+
+      const snapshot = await readSpecTree({
+        source: createFilesystemSpecTreeSource({ productDir: env.productDir }),
+        evidence: createNodeStatusProvider(env.productDir),
+      });
+      const staleNodeIds = await resolveStaleNodeIds({ productDir: env.productDir, snapshot });
+
+      expect(staleNodeIds.has(recordedNode.nodeId)).toBe(true);
+    });
+  });
+
+  it("ALWAYS: includes every local TypeScript path alias in the read-time staleness graph", async () => {
+    for (const aliasFixture of NODE_STATUS_LOCAL_ALIAS_FIXTURES) {
+      const fixture = sampleNodeStatusValue(NODE_STATUS_TEST_GENERATOR.delegationTree());
+
+      await withClassificationTree(fixture, async ({ env, expectations, resolveOutcome }) => {
+        const recordedNode = requireNodeStatusRecordedExpectation(expectations);
+        const evidencePath = requireNodeStatusEvidencePath(recordedNode);
+        await env.writeNode(evidencePath, nodeStatusEvidenceWithImport(aliasFixture.IMPORT_SPECIFIER));
+        await env.writeRaw(aliasFixture.PATH, aliasFixture.INITIAL_CONTENT);
+
+        await initializeNodeStatusGitHistory(env.productDir);
+        await commitNodeStatusProductPath(env.productDir, SPEC_TREE_CONFIG.ROOT_DIRECTORY);
+        await commitNodeStatusProductPath(env.productDir, aliasFixture.PATH);
+
+        await updateNodeStatus({ productDir: env.productDir, resolveOutcome });
+        await commitNodeStatusProductPath(env.productDir, SPEC_TREE_CONFIG.ROOT_DIRECTORY);
+
+        await env.writeRaw(aliasFixture.PATH, aliasFixture.UPDATED_CONTENT);
+        await commitNodeStatusProductPath(env.productDir, aliasFixture.PATH);
+
+        const snapshot = await readSpecTree({
+          source: createFilesystemSpecTreeSource({ productDir: env.productDir }),
+          evidence: createNodeStatusProvider(env.productDir),
+        });
+        const staleNodeIds = await resolveStaleNodeIds({ productDir: env.productDir, snapshot });
+
+        expect(staleNodeIds.has(recordedNode.nodeId)).toBe(true);
+      });
+    }
+  });
+
+  it("ALWAYS: includes exact local alias targets in the read-time staleness graph", async () => {
+    const fixture = sampleNodeStatusValue(NODE_STATUS_TEST_GENERATOR.delegationTree());
+
+    await withClassificationTree(fixture, async ({ env, expectations, resolveOutcome }) => {
+      const recordedNode = requireNodeStatusRecordedExpectation(expectations);
+      const evidencePath = requireNodeStatusEvidencePath(recordedNode);
+      await env.writeNode(evidencePath, nodeStatusEvidenceWithImport(NODE_STATUS_EXACT_ALIAS_FIXTURE.IMPORT_SPECIFIER));
+      await env.writeRaw(NODE_STATUS_EXACT_ALIAS_FIXTURE.PATH, NODE_STATUS_EXACT_ALIAS_FIXTURE.INITIAL_CONTENT);
+
+      await initializeNodeStatusGitHistory(env.productDir);
+      await commitNodeStatusProductPath(env.productDir, SPEC_TREE_CONFIG.ROOT_DIRECTORY);
+      await commitNodeStatusProductPath(env.productDir, NODE_STATUS_EXACT_ALIAS_FIXTURE.PATH);
+
+      await updateNodeStatus({ productDir: env.productDir, resolveOutcome });
+      await commitNodeStatusProductPath(env.productDir, SPEC_TREE_CONFIG.ROOT_DIRECTORY);
+
+      await env.writeRaw(NODE_STATUS_EXACT_ALIAS_FIXTURE.PATH, NODE_STATUS_EXACT_ALIAS_FIXTURE.UPDATED_CONTENT);
+      await commitNodeStatusProductPath(env.productDir, NODE_STATUS_EXACT_ALIAS_FIXTURE.PATH);
+
+      const snapshot = await readSpecTree({
+        source: createFilesystemSpecTreeSource({ productDir: env.productDir }),
+        evidence: createNodeStatusProvider(env.productDir),
+      });
+      const staleNodeIds = await resolveStaleNodeIds({ productDir: env.productDir, snapshot });
+
+      expect(staleNodeIds.has(recordedNode.nodeId)).toBe(true);
+    });
+  });
+
+  it("ALWAYS: resolves directory-style local alias imports through TypeScript index files", async () => {
+    const fixture = sampleNodeStatusValue(NODE_STATUS_TEST_GENERATOR.delegationTree());
+
+    await withClassificationTree(fixture, async ({ env, expectations, resolveOutcome }) => {
+      const recordedNode = requireNodeStatusRecordedExpectation(expectations);
+      const evidencePath = requireNodeStatusEvidencePath(recordedNode);
+      await env.writeNode(evidencePath, nodeStatusEvidenceWithImport(NODE_STATUS_INDEX_ALIAS_FIXTURE.IMPORT_SPECIFIER));
+      await env.writeRaw(NODE_STATUS_INDEX_ALIAS_FIXTURE.PATH, NODE_STATUS_INDEX_ALIAS_FIXTURE.INITIAL_CONTENT);
+
+      await initializeNodeStatusGitHistory(env.productDir);
+      await commitNodeStatusProductPath(env.productDir, SPEC_TREE_CONFIG.ROOT_DIRECTORY);
+      await commitNodeStatusProductPath(env.productDir, NODE_STATUS_INDEX_ALIAS_FIXTURE.PATH);
+
+      await updateNodeStatus({ productDir: env.productDir, resolveOutcome });
+      await commitNodeStatusProductPath(env.productDir, SPEC_TREE_CONFIG.ROOT_DIRECTORY);
+
+      await env.writeRaw(NODE_STATUS_INDEX_ALIAS_FIXTURE.PATH, NODE_STATUS_INDEX_ALIAS_FIXTURE.UPDATED_CONTENT);
+      await commitNodeStatusProductPath(env.productDir, NODE_STATUS_INDEX_ALIAS_FIXTURE.PATH);
 
       const snapshot = await readSpecTree({
         source: createFilesystemSpecTreeSource({ productDir: env.productDir }),
