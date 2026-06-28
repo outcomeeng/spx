@@ -53,8 +53,6 @@ export interface DiagnoseHumanText {
 }
 
 export const DIAGNOSE_TEXT_LABEL = {
-  ACTIVE_WORKTREES: "Active worktrees",
-  FREE_WORKTREES: "Free worktrees",
   FIX: "Fix",
   INSTALLED: "Installed",
   PATH: "Path",
