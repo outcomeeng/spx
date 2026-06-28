@@ -1,6 +1,6 @@
 # Worktree CLI
 
-PROVIDES Commander.js bindings for `spx worktree status [worktree...]`, `spx worktree status --all`, `spx worktree claim --session-id <id>`, and `spx worktree release`, with shared worktree-root resolution, controlling-process resolution, the silent-stdout claim contract, machine-parseable status output, and exit codes the marketplace consumers depend on
+PROVIDES Commander.js bindings for `spx worktree status [worktree...]`, `spx worktree status --all`, `spx worktree claim --session-id <id>`, and `spx worktree release`, with shared worktree-root resolution, controlling-process resolution, the silent-stdout claim contract, grouped human-readable status output, machine-parseable status output, and exit codes the marketplace consumers depend on
 SO THAT `/handoff`, `/pickup`, manual repair flows, and compatibility flows
 CAN claim, query, and release worktree occupancy with predictable output, exit codes, and shared worktree identity rules
 
@@ -18,12 +18,13 @@ CAN claim, query, and release worktree occupancy with predictable output, exit c
 - Given `--all`, when the status handler runs from inside a git worktree pool, then it reports every first-seen worktree root from git's worktree list using the same occupancy shape as multi-target status and emits an array for `--format json` even when the pool contains one worktree ([test](tests/worktree-cli.scenario.l1.test.ts), [test](tests/worktree-cli.compliance.l2.test.ts))
 - Given `--all` and explicit worktree operands, when the status handler runs, then it rejects the ambiguous target selection ([test](tests/worktree-cli.scenario.l1.test.ts))
 - Given a worktree claimed under its own git-common-dir scope, when the status handler runs with that worktree's path from an unrelated directory, then it resolves the claim scope from the target worktree, not the caller's directory, and reports `running` ([test](tests/worktree-cli.scenario.l1.test.ts))
-- Given shell expansion supplies multiple sibling paths to `spx worktree status`, when at least one path resolves to a worktree, then text output reports one line for each first-seen resolved worktree with that worktree's derived claim name and occupancy, emits no line whose worktree name is `undefined`, and exits 0 ([test](tests/worktree-cli.scenario.l1.test.ts), [test](tests/worktree-cli.scenario.l2.test.ts))
+- Given shell expansion supplies multiple sibling paths to `spx worktree status`, when at least one path resolves to a worktree, then text output reports each first-seen resolved worktree under its parent-directory group with that worktree's basename and occupancy, emits no line whose worktree name is `undefined`, and exits 0 ([test](tests/worktree-cli.scenario.l1.test.ts), [test](tests/worktree-cli.scenario.l2.test.ts))
+- Given text status reports one or more worktrees, when their roots share or differ by parent directory, then output groups worktrees under parent-directory headings and renders each child with its basename plus `-` for `free` or a runtime-qualified running pid for `running` ([test](tests/worktree-cli.scenario.l1.test.ts), [test](tests/worktree-cli.scenario.l2.test.ts))
 - Given a claimed pool worktree, when `spx worktree status` is executed through `node bin/spx.js` from inside it, against its root path, and against a path within it, then each reports the same occupancy as the claim, and `spx worktree status` of a single path that is not a worktree exits non-zero ([test](tests/worktree-cli.scenario.l2.test.ts))
 
 ### Mappings
 
-- Every path that denotes a worktree — the worktree root, `.` or `./` from within it, or any path inside it — maps to that worktree's claim, so status reports the occupancy claim recorded for it ([test](tests/worktree-name-resolution.mapping.l1.test.ts))
+- Every target that denotes a worktree — the worktree root, `.` or `./` from within it, any path inside it, or a bare basename that exactly matches a git-observed worktree root's basename — maps to that worktree's claim, so status reports the occupancy claim recorded for it ([test](tests/worktree-name-resolution.mapping.l1.test.ts))
 
 ### Properties
 
