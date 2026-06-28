@@ -90,14 +90,16 @@ async function isGitMetadataEntry(absolutePath: string, entry: Dirent<string>): 
   return isGitdirPointerFile(absolutePath);
 }
 
-async function shouldDescendIntoDirectory(absoluteDir: string): Promise<boolean> {
-  const entries = await readDirectoryEntries(absoluteDir);
+async function directoryContainsGitMetadata(
+  absoluteDir: string,
+  entries: readonly Dirent<string>[],
+): Promise<boolean> {
   for (const entry of entries) {
     if (await isGitMetadataEntry(join(absoluteDir, entry.name), entry)) {
-      return false;
+      return true;
     }
   }
-  return true;
+  return false;
 }
 
 function shouldDescendIntoAutomaticDirectory(
@@ -115,14 +117,21 @@ async function collectPaths(
   result: string[],
   mode: DirectoryTraversalMode,
   ignoreReader?: IgnoreSourceReader,
+  skipWhenGitMetadataPresent = false,
 ): Promise<void> {
   const dirEntries = await readDirectoryEntries(absoluteDir);
+  if (
+    mode === DIRECTORY_TRAVERSAL_MODE.AUTOMATIC
+    && skipWhenGitMetadataPresent
+    && await directoryContainsGitMetadata(absoluteDir, dirEntries)
+  ) {
+    return;
+  }
   for (const entry of dirEntries) {
     const absolutePath = join(absoluteDir, entry.name);
     const relativePath = normalizeProductPath(productDir, absolutePath);
     if (await isGitMetadataEntry(absolutePath, entry)) continue;
     if (entry.isDirectory()) {
-      if (mode === DIRECTORY_TRAVERSAL_MODE.AUTOMATIC && !await shouldDescendIntoDirectory(absolutePath)) continue;
       if (
         mode === DIRECTORY_TRAVERSAL_MODE.AUTOMATIC
         && ignoreReader !== undefined
@@ -130,7 +139,14 @@ async function collectPaths(
       ) {
         continue;
       }
-      await collectPaths(absolutePath, productDir, result, mode, ignoreReader);
+      await collectPaths(
+        absolutePath,
+        productDir,
+        result,
+        mode,
+        ignoreReader,
+        mode === DIRECTORY_TRAVERSAL_MODE.AUTOMATIC,
+      );
     } else if (entry.isFile()) {
       result.push(relativePath);
     }
