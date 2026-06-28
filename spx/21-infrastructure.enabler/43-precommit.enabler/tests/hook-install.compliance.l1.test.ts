@@ -13,9 +13,11 @@ import {
   type GitHookName,
   HOOK_FILE_ENCODING,
   installPortableLefthookHooks,
+  isPortableLefthookShim,
   LEFTHOOK_CONFIG_FILE,
   LEFTHOOK_INSTALL_ARGS,
   LEFTHOOK_INSTALL_COMMAND,
+  PORTABLE_HOOK_MARKER,
   PORTABLE_HOOK_TOKENS,
   type PortableHookInstallDeps,
   renderPortableLefthookHook,
@@ -75,6 +77,21 @@ describe("portable lefthook hook installation", () => {
     expect(hookContent).toContain(PORTABLE_HOOK_TOKENS.FALLBACK_WORKTREE_RUN);
   });
 
+  it("recognizes a portable shim by a marker present in every rendered template version", () => {
+    const [hookName] = sampleHookNames();
+    const currentShim = renderPortableLefthookHook(hookName);
+    const priorTemplateShim = currentShim.replace(
+      PORTABLE_HOOK_TOKENS.FROZEN_INSTALL,
+      PORTABLE_HOOK_TOKENS.PNPM_EXEC_DELEGATION,
+    );
+
+    expect(currentShim).toContain(PORTABLE_HOOK_MARKER);
+    expect(priorTemplateShim).not.toBe(currentShim);
+    expect(isPortableLefthookShim(currentShim)).toBe(true);
+    expect(isPortableLefthookShim(priorTemplateShim)).toBe(true);
+    expect(isPortableLefthookShim(handwrittenHookContent)).toBe(false);
+  });
+
   it("replaces lefthook-generated hooks with executable portable shims", async () => {
     await withTempDir("spx-hook-install-", async (productDir) => {
       const hookNames = sampleHookNames();
@@ -125,9 +142,15 @@ describe("portable lefthook hook installation", () => {
       }
 
       const hooksDir = join(productDir, GIT_DIRECTORY_NAME, GIT_HOOKS_DIRECTORY_NAME);
+      // Install the obsolete shim as a prior-template render — it carries the shim marker
+      // but differs from the current render — so the cleanup must recognize it across versions.
+      const priorTemplateShim = renderPortableLefthookHook(obsoletePortableHook).replace(
+        PORTABLE_HOOK_TOKENS.FROZEN_INSTALL,
+        PORTABLE_HOOK_TOKENS.PNPM_EXEC_DELEGATION,
+      );
       await mkdir(hooksDir, { recursive: true });
       await writeFile(join(productDir, LEFTHOOK_CONFIG_FILE), renderHookConfig([configuredHook]));
-      await writeFile(join(hooksDir, obsoletePortableHook), renderPortableLefthookHook(obsoletePortableHook));
+      await writeFile(join(hooksDir, obsoletePortableHook), priorTemplateShim);
       await writeFile(join(hooksDir, handwrittenHook), handwrittenHookContent);
 
       const deps: PortableHookInstallDeps = {
