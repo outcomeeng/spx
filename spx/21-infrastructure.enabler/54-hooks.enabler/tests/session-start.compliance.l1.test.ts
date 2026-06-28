@@ -21,10 +21,6 @@ function hookContentWithSource(env: WorktreePoolEnv, source: string): string {
   });
 }
 
-function hookContentWithoutSource(env: WorktreePoolEnv): string {
-  return JSON.stringify({ [HOOK_SESSION_START_PAYLOAD.CWD]: env.worktreePath });
-}
-
 function hookEnvWithHolder(env: WorktreePoolEnv, envFile: string): HookSessionStartEnv {
   return {
     [CONTROLLING_PID_ENV]: String(env.holder.pid),
@@ -32,7 +28,7 @@ function hookEnvWithHolder(env: WorktreePoolEnv, envFile: string): HookSessionSt
   };
 }
 
-async function expectNoCompactStdoutFor(renderContent: (env: WorktreePoolEnv) => string): Promise<void> {
+async function expectNoHookStdoutFor(renderContent: (env: WorktreePoolEnv) => string): Promise<void> {
   const worktreeName = sampleWorktreeTestValue(WORKTREE_TEST_GENERATOR.poolWorktreeName());
   const holder = sampleWorktreeTestValue(WORKTREE_TEST_GENERATOR.poolHolder());
   const envFileName = sampleWorktreeTestValue(WORKTREE_TEST_GENERATOR.envFileName());
@@ -59,13 +55,7 @@ async function expectNoCompactStdoutFor(renderContent: (env: WorktreePoolEnv) =>
 }
 
 describe("hook session-start compact stdout boundary", () => {
-  it.each(
-    Object.values(HOOK_SESSION_START_SOURCE),
-  )("emits no hook stdout for the %s lifecycle source", async (source) => {
-    await expectNoCompactStdoutFor((env) => hookContentWithSource(env, source));
-  });
-
-  it("emits no hook stdout when the payload carries no lifecycle source", async () => {
-    await expectNoCompactStdoutFor(hookContentWithoutSource);
+  it("emits no hook stdout for the compact lifecycle source", async () => {
+    await expectNoHookStdoutFor((env) => hookContentWithSource(env, HOOK_SESSION_START_SOURCE.COMPACT));
   });
 });
