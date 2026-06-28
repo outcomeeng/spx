@@ -32,6 +32,13 @@ export const PORTABLE_HOOK_TOKENS = {
   ABSOLUTE_PNPM_STORE_FRAGMENT: "node_modules/.pnpm",
 } as const;
 
+// Every portable shim, in every rendered template version, defines this dispatcher
+// function. Obsolete-hook cleanup recognizes a portable shim by this stable marker
+// rather than by exact equality with the current render, so a de-configured hook
+// installed by an earlier template is still removed while a handwritten hook — which
+// never contains the marker — is preserved.
+export const PORTABLE_HOOK_MARKER = "call_lefthook()";
+
 export const GIT_HOOK_NAMES = [
   "applypatch-msg",
   "commit-msg",
@@ -134,6 +141,10 @@ async function readOptionalHook(hookPath: string, deps: PortableHookInstallDeps)
   }
 }
 
+export function isPortableLefthookShim(hookContent: string): boolean {
+  return hookContent.includes(PORTABLE_HOOK_MARKER);
+}
+
 async function removeObsoletePortableHooks(
   hooksDir: string,
   configuredHooks: ReadonlySet<GitHookName>,
@@ -146,7 +157,7 @@ async function removeObsoletePortableHooks(
 
     const hookPath = join(hooksDir, hookName);
     const hookContent = await readOptionalHook(hookPath, deps);
-    if (hookContent === renderPortableLefthookHook(hookName)) {
+    if (hookContent !== undefined && isPortableLefthookShim(hookContent)) {
       await deps.unlink(hookPath);
     }
   }
