@@ -13,9 +13,21 @@ import fc from "fast-check";
 
 import { CHECK_NAME, type CheckName } from "@/domains/diagnose/manifest";
 
+const DIAGNOSE_SAMPLE_SEED = 7;
+
 /** A semver-shaped spx-version floor. */
 export const arbitrarySpxFloor = (): fc.Arbitrary<string> =>
   fc.tuple(fc.nat(99), fc.nat(99), fc.nat(99)).map(([major, minor, patch]) => `${major}.${minor}.${patch}`);
+
+/** A non-empty floor string that cannot be parsed as semver. */
+export const arbitraryInvalidSpxFloor = (): fc.Arbitrary<string> =>
+  arbitraryNameToken().filter((value) => !/^\s*\d{1,9}\.\d{1,9}\.\d{1,9}(-[0-9A-Za-z.-]{1,64})?/.test(value));
+
+/** Samples a deterministic diagnose generator value for scenario/compliance tests. */
+export function sampleDiagnoseTestValue<T>(arbitrary: fc.Arbitrary<T>): T {
+  const [value] = fc.sample(arbitrary, { numRuns: 1, seed: DIAGNOSE_SAMPLE_SEED });
+  return value;
+}
 
 /** A non-empty whitespace-free token used for plugin, marketplace, reading, and remediation values. */
 export const arbitraryNameToken = (): fc.Arbitrary<string> =>

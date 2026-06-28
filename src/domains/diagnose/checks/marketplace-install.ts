@@ -39,9 +39,12 @@ export interface MarketplaceInstallReading {
   readonly drifted: boolean;
 }
 
+/** The CLI-probe reading before the runner adds configuration context. */
+export type MarketplaceInstallProbeReading = Omit<MarketplaceInstallReading, "configured">;
+
 /** The injected boundary that gathers the marketplace-install reading against the manifest's consumer facts. */
 export interface MarketplaceInstallProbe {
-  probe(marketplace: MarketplaceIdentity, expectedPlugins: readonly string[]): Promise<MarketplaceInstallReading>;
+  probe(marketplace: MarketplaceIdentity, expectedPlugins: readonly string[]): Promise<MarketplaceInstallProbeReading>;
 }
 
 const REMEDIATION: Readonly<Record<MarketplaceInstallVerdict, string>> = {

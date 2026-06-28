@@ -104,6 +104,9 @@ export const DIAGNOSE_TEXT_DETAIL = {
   SESSION_STORE_ORPHANED_FIX:
     "inspect `spx session list --status doing`, then release stale sessions with `spx session release <id>`.",
   SESSION_START_NO_OP_PROBLEM: "The SessionStart hook ran without setting an agent session or worktree claim.",
+  SPX_UNKNOWN_FIX:
+    "Verify the configured or manifest-supplied `spx_floor` and `spx --version` are valid semver versions.",
+  SPX_UNKNOWN_PROBLEM: "Diagnose could not compare the installed spx version with the required version.",
   SESSION_UNKNOWN_PROBLEM: "Diagnose could not reconcile the agent session identity with the worktree claim.",
   SPX_UNREACHABLE_FIX: "Install `@outcomeeng/spx` and ensure `spx` resolves on PATH.",
   UNKNOWN_RETRY: "Re-run `spx diagnose`; inspect the relevant command output if this repeats.",
@@ -185,7 +188,12 @@ function spxReachabilityText(check: CheckRecord): DiagnoseHumanText {
     case SPX_REACHABILITY_VERDICT.UNKNOWN:
       return {
         header: DIAGNOSE_TEXT_HEADER.SPX_UNKNOWN,
-        details: [`${DIAGNOSE_TEXT_LABEL.FIX}: ${DIAGNOSE_TEXT_DETAIL.UNKNOWN_RETRY}`],
+        details: [
+          `${DIAGNOSE_TEXT_LABEL.PROBLEM}: ${DIAGNOSE_TEXT_DETAIL.SPX_UNKNOWN_PROBLEM}`,
+          `${DIAGNOSE_TEXT_LABEL.INSTALLED}: ${version ?? SPX_REACHABILITY_READING_VALUE.UNREAD_VERSION}`,
+          `${DIAGNOSE_TEXT_LABEL.REQUIRED_VERSION}: ${floor ?? SPX_REACHABILITY_READING_VALUE.ABSENT_FLOOR}`,
+          `${DIAGNOSE_TEXT_LABEL.FIX}: ${DIAGNOSE_TEXT_DETAIL.SPX_UNKNOWN_FIX}`,
+        ],
       };
     default:
       return fallbackText(check);

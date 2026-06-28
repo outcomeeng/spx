@@ -13,7 +13,10 @@ import { dirname } from "node:path";
 
 import { execa } from "execa";
 
-import type { MarketplaceInstallProbe, MarketplaceInstallReading } from "@/domains/diagnose/checks/marketplace-install";
+import type {
+  MarketplaceInstallProbe,
+  MarketplaceInstallProbeReading,
+} from "@/domains/diagnose/checks/marketplace-install";
 import type { SessionEnvironmentProbe, SessionEnvironmentReading } from "@/domains/diagnose/checks/session-environment";
 import {
   doingSessionBackedByClaim,
@@ -361,9 +364,8 @@ export const defaultMarketplaceInstallProbe: MarketplaceInstallProbe = {
   async probe(
     marketplace: MarketplaceIdentity,
     expectedPlugins: readonly string[],
-  ): Promise<MarketplaceInstallReading> {
-    const clean: MarketplaceInstallReading = {
-      configured: true,
+  ): Promise<MarketplaceInstallProbeReading> {
+    const clean: MarketplaceInstallProbeReading = {
       errored: false,
       surfacePresent: false,
       unregistered: false,
@@ -374,10 +376,9 @@ export const defaultMarketplaceInstallProbe: MarketplaceInstallProbe = {
       if (!pluginSurfacePresent(cli)) continue;
       const state = await surfaceState(cli, marketplace, expectedPlugins);
       if (!state.ok) {
-        return { configured: true, errored: true, surfacePresent: true, unregistered: false, drifted: false };
+        return { errored: true, surfacePresent: true, unregistered: false, drifted: false };
       }
       reading = {
-        configured: true,
         errored: false,
         surfacePresent: true,
         unregistered: reading.unregistered || state.unregistered,
