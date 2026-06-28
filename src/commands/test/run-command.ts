@@ -108,6 +108,12 @@ interface RecordingDependencies {
   readonly git?: GitDependencies;
 }
 
+type FileReadResult =
+  | { readonly present: true; readonly content: string }
+  | { readonly present: false };
+
+type SnapshotFileReader = (path: string) => Promise<FileReadResult>;
+
 function resolveRecordingDependencies(deps: TestCommandDependencies): RecordingDependencies {
   return {
     fs: deps.fs ?? defaultTestRunStateFileSystem,
@@ -197,32 +203,31 @@ function coveredTestPaths(dispatch: TestDispatchResult): readonly string[] {
 }
 
 async function readCoveredContents(
-  productDir: string,
   paths: readonly string[],
-  fs: TestRunStateFileSystem,
+  readSnapshotFile: SnapshotFileReader,
 ): Promise<readonly TestContentEntry[]> {
   const entries: TestContentEntry[] = [];
   for (const path of paths) {
-    entries.push({ path, content: await fs.readFile(join(productDir, path), TEXT_ENCODING) });
+    const result = await readSnapshotFile(path);
+    entries.push({ path, content: result.present ? result.content : "" });
   }
   return entries;
 }
 
 async function readProductInputEntries(
-  productDir: string,
   paths: readonly string[],
-  fs: TestRunStateFileSystem,
+  readSnapshotFile: SnapshotFileReader,
 ): Promise<readonly Record<string, string | boolean>[]> {
   const entries: Array<Record<string, string | boolean>> = [];
   for (const path of [...paths].sort(compareAsciiStrings)) {
-    try {
+    const result = await readSnapshotFile(path);
+    if (result.present) {
       entries.push({
         [PRODUCT_INPUT_FIELDS.PATH]: path,
         [PRODUCT_INPUT_FIELDS.PRESENT]: true,
-        [PRODUCT_INPUT_FIELDS.CONTENT]: await fs.readFile(join(productDir, path), TEXT_ENCODING),
+        [PRODUCT_INPUT_FIELDS.CONTENT]: result.content,
       });
-    } catch (error) {
-      if (!hasErrorCode(error, TESTING_RUN_STATE_ERROR_CODE.NOT_FOUND)) throw error;
+    } else {
       entries.push({
         [PRODUCT_INPUT_FIELDS.PATH]: path,
         [PRODUCT_INPUT_FIELDS.PRESENT]: false,
@@ -233,12 +238,11 @@ async function readProductInputEntries(
 }
 
 async function digestLanguageProductInputs(
-  productDir: string,
   language: TestingLanguageDescriptor,
   coveredPaths: readonly string[],
-  fs: TestRunStateFileSystem,
+  readSnapshotFile: SnapshotFileReader,
 ): Promise<string> {
-  const entries = await readProductInputEntries(productDir, languageProductInputPaths(language, coveredPaths), fs);
+  const entries = await readProductInputEntries(languageProductInputPaths(language, coveredPaths), readSnapshotFile);
   const digest = digestDescriptorSection(entries, `${language.name} product inputs`);
   if (!digest.ok) {
     throw new Error(`failed to digest ${language.name} product inputs: ${digest.error}`);
@@ -247,19 +251,41 @@ async function digestLanguageProductInputs(
 }
 
 async function productInputDigests(
-  productDir: string,
   registry: TestingRegistry,
   coveredPaths: readonly string[],
-  fs: TestRunStateFileSystem,
+  readSnapshotFile: SnapshotFileReader,
 ): Promise<readonly ProductInputDigest[]> {
   const digests: ProductInputDigest[] = [];
   for (const language of registry.languages) {
     digests.push({
       descriptorId: language.name,
-      digest: await digestLanguageProductInputs(productDir, language, coveredPaths, fs),
+      digest: await digestLanguageProductInputs(language, coveredPaths, readSnapshotFile),
     });
   }
   return digests;
+}
+
+function worktreeSnapshotFileReader(productDir: string, fs: TestRunStateFileSystem): SnapshotFileReader {
+  return async (path) => {
+    try {
+      return { present: true, content: await fs.readFile(join(productDir, path), TEXT_ENCODING) };
+    } catch (error) {
+      if (!hasErrorCode(error, TESTING_RUN_STATE_ERROR_CODE.NOT_FOUND)) throw error;
+      return { present: false };
+    }
+  };
+}
+
+function stagedSnapshotFileReader(productDir: string, git: GitDependencies): SnapshotFileReader {
+  return async (path) => {
+    const result = await git.execa(
+      GIT_ROOT_COMMAND.EXECUTABLE,
+      [CHANGED_TEST_SHOW_COMMAND, `${CHANGED_TEST_INDEX_PATH_PREFIX}${path}`],
+      { cwd: productDir, reject: false },
+    );
+    if (result.exitCode !== 0) return { present: false };
+    return { present: true, content: result.stdout };
+  };
 }
 
 function deriveStatus(dispatch: TestDispatchResult): TestRunStateStatus {
@@ -282,19 +308,21 @@ export async function currentStalenessInputs(
     readonly fs?: TestRunStateFileSystem;
     readonly registry: TestingRegistry;
     readonly testingConfigDigest?: string;
+    readonly snapshotFileReader?: SnapshotFileReader;
   },
 ): Promise<StalenessInputs> {
   const fs = deps.fs ?? defaultTestRunStateFileSystem;
+  const snapshotFileReader = deps.snapshotFileReader ?? worktreeSnapshotFileReader(productDir, fs);
   // A caller that already resolved the testing config (e.g. runTestsCommand reading
   // passingScope) passes its digest so the config is read once per command; callers
   // holding no config (the per-node run, the status resolver) resolve it here.
   const testingConfigDigest = deps.testingConfigDigest ?? (await resolveTestingConfig(productDir)).digest;
-  const contents = await readCoveredContents(productDir, coveredPaths, fs);
+  const contents = await readCoveredContents(coveredPaths, snapshotFileReader);
   return {
     testingConfigDigest,
     discoveredTestPathsDigest: digestTestPaths(coveredPaths),
     discoveredTestContentDigest: digestTestContents(contents),
-    productInputDigests: await productInputDigests(productDir, deps.registry, coveredPaths, fs),
+    productInputDigests: await productInputDigests(deps.registry, coveredPaths, snapshotFileReader),
   };
 }
 
@@ -320,11 +348,13 @@ async function recordRun(
   recording: RecordingDependencies,
   registry: TestingRegistry,
   testingConfigDigest?: string,
+  snapshotFileReader?: SnapshotFileReader,
 ): Promise<TestRunState> {
   const staleness = await currentStalenessInputs(productDir, coveredTestPaths(dispatch), {
     fs: recording.fs,
     registry,
     testingConfigDigest,
+    snapshotFileReader,
   });
   const branchName = (await getCurrentBranch(productDir, recording.git)) ?? NO_GIT_IDENTITY;
   const headSha = (await getHeadSha(productDir, recording.git)) ?? NO_GIT_IDENTITY;
@@ -372,6 +402,7 @@ export async function runTestsCommand(
   const recording = resolveRecordingDependencies(deps);
   const relatedDepsFor = deps.relatedDepsFor;
   let changedSelection: Awaited<ReturnType<typeof planChangedTestSelection>> | undefined;
+  const changedGit = deps.git ?? defaultGitDependencies;
   if (options.changed !== undefined) {
     if (relatedDepsFor === undefined) {
       throw new Error(CHANGED_TEST_RELATED_DEPS_ERROR);
@@ -379,7 +410,7 @@ export async function runTestsCommand(
     changedSelection = await planChangedTestSelection(
       { productDir: options.productDir, baseRef: options.changed.baseRef, staged: options.changed.staged },
       {
-        git: deps.git ?? defaultGitDependencies,
+        git: changedGit,
         registry: deps.registry,
         relatedDepsFor: (languageName) => {
           const language = deps.registry.languages.find((candidate) => candidate.name === languageName);
@@ -395,8 +426,11 @@ export async function runTestsCommand(
     && changedSelection !== undefined
     && includesStagedConfigChange(changedSelection.changedPaths);
   const { config, digest } = stagedConfigChanged
-    ? await resolveStagedTestingConfig(options.productDir, deps.git ?? defaultGitDependencies)
+    ? await resolveStagedTestingConfig(options.productDir, changedGit)
     : await resolveTestingConfig(options.productDir);
+  const snapshotFileReader = options.changed?.staged === true
+    ? stagedSnapshotFileReader(options.productDir, changedGit)
+    : undefined;
   const passingScope = options.passing ? config.passingScope : undefined;
   const runFile = await reserveRunFile(options.productDir, recording);
   const dispatch = await runTests(
@@ -409,7 +443,15 @@ export async function runTestsCommand(
     },
     { runnerDepsFor: deps.runnerDepsFor },
   );
-  const recorded = await recordRun(runFile, options.productDir, dispatch, recording, deps.registry, digest);
+  const recorded = await recordRun(
+    runFile,
+    options.productDir,
+    dispatch,
+    recording,
+    deps.registry,
+    digest,
+    snapshotFileReader,
+  );
   return { dispatch, runFile, recorded };
 }
 
