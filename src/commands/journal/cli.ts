@@ -6,6 +6,7 @@ import {
   type JournalEnvironment,
   resolveJournalBackend,
 } from "@/domains/journal/backend-selection";
+import { journalRunFilePath } from "@/domains/journal/run-scope";
 import {
   defaultGitDependencies,
   detectGitCommonDirProductRoot,
@@ -14,8 +15,15 @@ import {
   type GitDependencies,
 } from "@/git/root";
 import type { JournalEvent, JournalEventInput } from "@/lib/agent-run-journal";
+import { artifactJournalRunArtifactName, hydratePriorRuns } from "@/lib/artifact-journal-store";
+import { toMessage } from "@/lib/error-message";
 import type { GithubSnapshotClient } from "@/lib/github-snapshot-sink";
-import { resolveBranchIdentity, slugBranchIdentity, type StateStoreFileSystem } from "@/lib/state-store";
+import {
+  defaultStateStoreFileSystem,
+  resolveBranchIdentity,
+  slugBranchIdentity,
+  type StateStoreFileSystem,
+} from "@/lib/state-store";
 import { SPX_VERIFY_ENV, SPX_VERIFY_HEAD_SHA } from "@/lib/verification-env";
 
 import { createGithubPrStreamSink } from "./github-pr-sink";
@@ -41,6 +49,9 @@ export const JOURNAL_CLI_ENV = {
   GITHUB_EVENT_NAME: "GITHUB_EVENT_NAME",
   GITHUB_REF: "GITHUB_REF",
   GITHUB_REPOSITORY: "GITHUB_REPOSITORY",
+  // The directory the verification workflow's download-artifact step restores this pull
+  // request's prior-run artifacts into, read by `open` to hydrate them under github-pr.
+  RESTORED_RUNS_DIR: "SPX_JOURNAL_RESTORED_RUNS_DIR",
 } as const;
 
 export const JOURNAL_CLI_ERROR = {
@@ -49,6 +60,7 @@ export const JOURNAL_CLI_ERROR = {
   PULL_REQUEST_UNRESOLVED: "github pull-request number is not resolvable from the environment",
   INVALID_EVENT_INPUT: "journal append event input is missing a required CloudEvents field",
   INVALID_CURSOR: "journal read cursor must be a whole non-negative integer",
+  OPEN_HYDRATION_FAILED: "journal open failed to hydrate the pull request's prior runs",
 } as const;
 
 const CURSOR_PATTERN = /^\d+$/;
@@ -234,16 +246,85 @@ function errorResult(error: string): CliCommandResult {
   return { exitCode: JOURNAL_CLI_EXIT_CODE.ERROR, output: error };
 }
 
-/** Open a new journal run and report its run token and run-file path. */
+/**
+ * Hydrate the pull request's prior runs of this run's verification type before the run
+ * opens, under the github-pr backend. The verification workflow's download step restores
+ * those runs' artifacts into the staging directory named by `SPX_JOURNAL_RESTORED_RUNS_DIR`;
+ * this reads them through the injected filesystem and materializes each into the runs
+ * directory. An unset staging directory means the workflow restored no prior runs, so
+ * hydration is a no-op. GitHub artifact transport is the workflow's, never this process's.
+ */
+async function hydrateGithubPriorRuns(
+  context: JournalRunContext,
+  pullNumber: number,
+  deps: JournalCliDeps,
+): Promise<Result<void>> {
+  const restoredRunsDir = (deps.processEnv ?? process.env)[JOURNAL_CLI_ENV.RESTORED_RUNS_DIR];
+  if (restoredRunsDir === undefined || restoredRunsDir.length === 0) return { ok: true, value: undefined };
+  const fs = deps.fs ?? defaultStateStoreFileSystem;
+  try {
+    await hydratePriorRuns({
+      fs,
+      restoredRunsDir,
+      pullNumber,
+      type: context.type,
+      runFilePathFor: (runToken) => {
+        const path = journalRunFilePath({
+          productDir: context.productDir,
+          branchSlug: context.branchSlug,
+          type: context.type,
+          runToken,
+        });
+        if (!path.ok) throw new Error(path.error);
+        return path.value;
+      },
+    });
+    return { ok: true, value: undefined };
+  } catch (error) {
+    return { ok: false, error: `${JOURNAL_CLI_ERROR.OPEN_HYDRATION_FAILED}: ${toMessage(error)}` };
+  }
+}
+
+/**
+ * Open a new journal run and report its run token and run-file path. Under the github-pr
+ * backend, this additionally hydrates the pull request's prior runs from the
+ * workflow-restored staging directory and reports the run's per-run artifact name, which
+ * the verification workflow's upload step retains the sealed run under.
+ */
 export async function journalOpenCommand(
   scope: JournalCliScope,
   deps: JournalCliDeps = {},
 ): Promise<CliCommandResult> {
   const context = await resolveJournalRunContext(scope, deps);
   if (!context.ok) return errorResult(context.error);
+
+  // The pull request number addresses both the prior-run hydration and this run's artifact
+  // name; resolve it once, only under github-pr. An environment where it does not resolve
+  // still opens the run — it simply carries no pull-request durability.
+  let pullNumber: number | undefined;
+  if (context.value.backendKind === JOURNAL_BACKEND.GITHUB_PR) {
+    const resolved = resolvePullRequestNumber(deps.processEnv ?? process.env);
+    if (resolved.ok) {
+      pullNumber = resolved.value;
+      const hydrated = await hydrateGithubPriorRuns(context.value, pullNumber, deps);
+      if (!hydrated.ok) return errorResult(hydrated.error);
+    }
+  }
+
   const opened = await openJournalRun(context.value, openOptions(deps));
   if (!opened.ok) return errorResult(opened.error);
-  return okResult(JSON.stringify({ runToken: opened.value.ref.runToken, runFile: opened.value.runFilePath }));
+
+  const artifactName = pullNumber === undefined
+    ? undefined
+    : artifactJournalRunArtifactName({ pullNumber, type: context.value.type, runToken: opened.value.ref.runToken });
+
+  return okResult(
+    JSON.stringify({
+      runToken: opened.value.ref.runToken,
+      runFile: opened.value.runFilePath,
+      ...(artifactName === undefined ? {} : { artifactName }),
+    }),
+  );
 }
 
 /**
