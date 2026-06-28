@@ -1,9 +1,16 @@
-import { writeFile } from "node:fs/promises";
+import { mkdir, writeFile } from "node:fs/promises";
 import { join } from "node:path";
 
 import { describe, expect, it } from "vitest";
 
-import { CORE_EXCLUDES_FILE_CONFIG_KEY, createIgnoreSourceReader } from "@/lib/file-inclusion/ignore-source";
+import {
+  buildIgnoreSourceGitLsFilesArgs,
+  CORE_EXCLUDES_FILE_CONFIG_KEY,
+  createIgnoreSourceReader,
+  GIT_DEFAULT_GLOBAL_IGNORE_PATH,
+  GIT_GLOBAL_EXCLUDES_ENV_KEYS,
+  GIT_LS_FILES_ARGS,
+} from "@/lib/file-inclusion/ignore-source";
 import { GIT_TEST_SUBCOMMANDS } from "@testing/harnesses/git-test-constants";
 import { withGitWorktreeEnv } from "@testing/harnesses/git-worktree/git-worktree";
 import { withTempDir } from "@testing/harnesses/with-temp-dir";
@@ -11,8 +18,40 @@ import { withTempDir } from "@testing/harnesses/with-temp-dir";
 import { fileContent, ignoredPattern, readerConfig } from "@testing/harnesses/file-inclusion/ignore-source";
 
 const fakeHomePrefix = "spx-ignore-source-home-";
+const fakeXdgConfigHomePrefix = "spx-ignore-source-xdg-";
 const globalExcludesFileName = "global-excludes";
-const homeEnvironmentKey = "HOME";
+
+async function withProcessEnvironment(
+  updates: Readonly<Record<string, string | undefined>>,
+  callback: () => Promise<void>,
+): Promise<void> {
+  const previousValues = new Map<string, string | undefined>();
+  for (const [key, value] of Object.entries(updates)) {
+    previousValues.set(key, process.env[key]);
+    if (value === undefined) {
+      delete process.env[key];
+    } else {
+      process.env[key] = value;
+    }
+  }
+  try {
+    await callback();
+  } finally {
+    for (const [key, value] of previousValues) {
+      if (value === undefined) {
+        delete process.env[key];
+      } else {
+        process.env[key] = value;
+      }
+    }
+  }
+}
+
+async function writeDefaultGlobalIgnore(configHome: string, content: string): Promise<void> {
+  const gitConfigDirectory = join(configHome, GIT_DEFAULT_GLOBAL_IGNORE_PATH.GIT_DIRECTORY);
+  await mkdir(gitConfigDirectory, { recursive: true });
+  await writeFile(join(gitConfigDirectory, GIT_DEFAULT_GLOBAL_IGNORE_PATH.IGNORE_FILE), content);
+}
 
 describe("ignore-source — mappings", () => {
   it("maps --no-ignore-vcs to bypass .gitignore while still honoring info/exclude and global excludes", async () => {
@@ -49,6 +88,60 @@ describe("ignore-source — mappings", () => {
     });
   });
 
+  it("maps unset core.excludesFile to the default XDG global excludes path", async () => {
+    await withGitWorktreeEnv(async (env) => {
+      await withTempDir(fakeXdgConfigHomePrefix, async (fakeXdgConfigHome) => {
+        const excluded = ignoredPattern();
+        await writeDefaultGlobalIgnore(fakeXdgConfigHome, `${excluded}\n`);
+        await env.writeUntracked(excluded, fileContent());
+
+        await withProcessEnvironment({
+          [GIT_GLOBAL_EXCLUDES_ENV_KEYS.XDG_CONFIG_HOME]: fakeXdgConfigHome,
+          [GIT_GLOBAL_EXCLUDES_ENV_KEYS.HOME]: undefined,
+        }, async () => {
+          const reader = createIgnoreSourceReader(env.productDir, readerConfig({ noIgnoreVcs: true }));
+          expect(reader.isInIncludedSet(excluded)).toBe(false);
+        });
+      });
+    });
+  });
+
+  it("maps unset core.excludesFile to the default HOME global excludes path when XDG is absent", async () => {
+    await withGitWorktreeEnv(async (env) => {
+      await withTempDir(fakeHomePrefix, async (fakeHome) => {
+        const excluded = ignoredPattern();
+        const defaultConfigHome = join(fakeHome, GIT_DEFAULT_GLOBAL_IGNORE_PATH.CONFIG_DIRECTORY);
+        await writeDefaultGlobalIgnore(defaultConfigHome, `${excluded}\n`);
+        await env.writeUntracked(excluded, fileContent());
+
+        await withProcessEnvironment({
+          [GIT_GLOBAL_EXCLUDES_ENV_KEYS.XDG_CONFIG_HOME]: undefined,
+          [GIT_GLOBAL_EXCLUDES_ENV_KEYS.HOME]: fakeHome,
+        }, async () => {
+          const reader = createIgnoreSourceReader(env.productDir, readerConfig({ noIgnoreVcs: true }));
+          expect(reader.isInIncludedSet(excluded)).toBe(false);
+        });
+      });
+    });
+  });
+
+  it("maps --ignore-file to an additional exclude source", async () => {
+    await withGitWorktreeEnv(async (env) => {
+      const ignored = ignoredPattern();
+      const ignoreFile = ignoredPattern();
+      await env.writeUntracked(ignoreFile, `${ignored}\n`);
+      await env.writeUntracked(ignored, fileContent());
+      const config = readerConfig({ ignoreFile });
+
+      const args = buildIgnoreSourceGitLsFilesArgs(env.productDir, config.overrides);
+      const excludeFromIndex = args.indexOf(GIT_LS_FILES_ARGS.EXCLUDE_FROM);
+      const reader = createIgnoreSourceReader(env.productDir, config);
+
+      expect(args[excludeFromIndex + 1]).toBe(join(env.productDir, ignoreFile));
+      expect(reader.isInIncludedSet(ignored)).toBe(false);
+    });
+  });
+
   it("maps tilde-prefixed core.excludesFile paths through git path semantics", async () => {
     await withGitWorktreeEnv(async (env) => {
       await withTempDir(fakeHomePrefix, async (fakeHome) => {
@@ -61,18 +154,12 @@ describe("ignore-source — mappings", () => {
         ]);
         await env.writeUntracked(excluded, fileContent());
 
-        const previousHome = process.env[homeEnvironmentKey];
-        process.env[homeEnvironmentKey] = fakeHome;
-        try {
+        await withProcessEnvironment({
+          [GIT_GLOBAL_EXCLUDES_ENV_KEYS.HOME]: fakeHome,
+        }, async () => {
           const reader = createIgnoreSourceReader(env.productDir, readerConfig({ noIgnoreVcs: true }));
           expect(reader.isInIncludedSet(excluded)).toBe(false);
-        } finally {
-          if (previousHome === undefined) {
-            delete process.env[homeEnvironmentKey];
-          } else {
-            process.env[homeEnvironmentKey] = previousHome;
-          }
-        }
+        });
       });
     });
   });
