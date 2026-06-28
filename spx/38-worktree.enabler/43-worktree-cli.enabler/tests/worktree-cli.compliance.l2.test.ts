@@ -8,9 +8,16 @@ import { WORKTREE_STATUS_FORMAT } from "@/commands/worktree/index";
 import { CONTROLLING_PID_ENV } from "@/domains/worktree/controlling-process";
 import { OCCUPANCY_CLAIM, OCCUPANCY_STATUS } from "@/domains/worktree/occupancy-store";
 import { worktreeClaimName } from "@/domains/worktree/worktree-name";
-import { gatherGitFacts } from "@/git/root";
+import {
+  GIT_WORKTREE_LIST_PORCELAIN_ARGS,
+  GIT_WORKTREE_PORCELAIN_BARE_LINE,
+  GIT_WORKTREE_PORCELAIN_PRUNABLE_LINE,
+  GIT_WORKTREE_PORCELAIN_PRUNABLE_PREFIX,
+  GIT_WORKTREE_PORCELAIN_ROOT_PREFIX,
+} from "@/git/root";
 import { WORKTREE_CLI } from "@/interfaces/cli/worktree";
 import { sampleWorktreeTestValue, WORKTREE_TEST_GENERATOR } from "@testing/generators/worktree/worktree";
+import { readGit } from "@testing/harnesses/git-test-constants";
 import { withTempDir } from "@testing/harnesses/with-temp-dir";
 import { withWorktreeLayoutEnv } from "@testing/harnesses/worktree-layout/worktree-layout";
 import { runWorktreeCli } from "@testing/harnesses/worktree/harness";
@@ -20,10 +27,33 @@ type JsonStatusEntry = {
   readonly status: string;
 };
 
-async function expectedFreeStatusEntriesFromGitFacts(cwd: string): Promise<readonly JsonStatusEntry[]> {
-  const facts = await gatherGitFacts(cwd);
-  if (facts === null) throw new Error("expected git facts for worktree CLI compliance fixture");
-  return facts.worktreeRoots.map((worktreeRoot) => ({
+async function expectedFreeStatusEntriesFromGitWorktreeList(cwd: string): Promise<readonly JsonStatusEntry[]> {
+  const output = await readGit(cwd, GIT_WORKTREE_LIST_PORCELAIN_ARGS);
+  return output.split("\n\n").flatMap((record) => {
+    const lines = record.split("\n");
+    if (
+      lines.includes(GIT_WORKTREE_PORCELAIN_BARE_LINE)
+      || lines.some((line) =>
+        line === GIT_WORKTREE_PORCELAIN_PRUNABLE_LINE
+        || line.startsWith(GIT_WORKTREE_PORCELAIN_PRUNABLE_PREFIX)
+      )
+    ) {
+      return [];
+    }
+    const worktreeLine = lines.find((line) => line.startsWith(GIT_WORKTREE_PORCELAIN_ROOT_PREFIX));
+    if (worktreeLine === undefined) return [];
+    const worktreeRoot = worktreeLine.slice(GIT_WORKTREE_PORCELAIN_ROOT_PREFIX.length);
+    return [{
+      worktree: worktreeClaimName(worktreeRoot),
+      status: OCCUPANCY_STATUS.FREE,
+    }];
+  });
+}
+
+function expectedFreeStatusEntriesFromWorktreePaths(
+  worktreeRoots: readonly string[],
+): readonly JsonStatusEntry[] {
+  return worktreeRoots.map((worktreeRoot) => ({
     worktree: worktreeClaimName(worktreeRoot),
     status: OCCUPANCY_STATUS.FREE,
   }));
@@ -193,7 +223,7 @@ describe("worktree CLI compliance", () => {
           );
 
           expect(result.exitCode).toBe(0);
-          const expected = await expectedFreeStatusEntriesFromGitFacts(firstPath);
+          const expected = await expectedFreeStatusEntriesFromGitWorktreeList(firstPath);
           const parsed = JSON.parse(result.stdout) as readonly JsonStatusEntry[];
           expect(parsed).toEqual(expected);
         });
@@ -222,9 +252,7 @@ describe("worktree CLI compliance", () => {
         );
 
         expect(result.exitCode).toBe(0);
-        expect(JSON.parse(result.stdout)).toEqual([
-          { worktree: worktreeClaimName(worktreePath), status: OCCUPANCY_STATUS.FREE },
-        ]);
+        expect(JSON.parse(result.stdout)).toEqual(expectedFreeStatusEntriesFromWorktreePaths([worktreePath]));
       });
     });
   });
