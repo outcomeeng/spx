@@ -10,7 +10,7 @@ import { nodeOperand, TEST_DISPATCH_GENERATOR } from "@testing/generators/testin
 function arbitraryChangedSpecPath(): fc.Arbitrary<{ readonly node: string; readonly path: string }> {
   return TEST_DISPATCH_GENERATOR.nodePath().map((node) => {
     const segment = node.split("/").at(-1) ?? node;
-    const slug = segment.replace(/^[0-9]+-/, "").replace(KIND_REGISTRY.enabler.suffix, "");
+    const slug = segment.replace(/^\d+-/, "").replace(KIND_REGISTRY.enabler.suffix, "");
     return { node, path: `${nodeOperand(node)}/${slug}.md` };
   });
 }

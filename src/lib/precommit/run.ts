@@ -15,12 +15,8 @@ import { dirname, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 
 import { CONFIG_PROCESS_CWD } from "@/domains/config/cwd";
-import {
-  GIT_DIFF_FILTER_FLAG,
-  GIT_NAME_STATUS_FLAG,
-  GIT_NULL_DELIMITED_FLAG,
-  pathsFromNameStatus,
-} from "@/lib/git/name-status";
+import { GIT_NAME_STATUS_FLAG, GIT_NULL_DELIMITED_FLAG, pathsFromNameStatus } from "@/lib/git/name-status";
+export { GIT_DIFF_FILTER_FLAG as PRECOMMIT_STAGED_FILES_EXCLUDED_DIFF_FILTER_FLAG } from "@/lib/git/name-status";
 
 import { buildSpxTestArgs } from "./build-args";
 import { filterTestRelevantFiles } from "./categorize";
@@ -57,7 +53,6 @@ export const PRECOMMIT_RUN = {
 } as const;
 
 export const PRECOMMIT_STAGED_FILES_COMMAND = `git diff --cached ${GIT_NAME_STATUS_FLAG} ${GIT_NULL_DELIMITED_FLAG}`;
-export const PRECOMMIT_STAGED_FILES_EXCLUDED_DIFF_FILTER_FLAG = GIT_DIFF_FILTER_FLAG;
 
 export function stagedFilesFromGitOutput(output: string): string[] {
   return [...pathsFromNameStatus(output)];
