@@ -207,7 +207,8 @@ export function resolveMarkdownValidationTarget(
  *
  * Declared-state nodes have [test] links pointing to files that do not
  * exist yet. Listing them in spx/EXCLUDE tells markdown validation to
- * skip those directories so broken [test] links are not flagged.
+ * skip direct markdown files in those directories so broken [test] links
+ * are not flagged while child-node markdown files remain in scope.
  *
  * @param projectRoot - Absolute path to the project root
  * @returns Array of glob patterns to ignore (relative to the validated directory)
