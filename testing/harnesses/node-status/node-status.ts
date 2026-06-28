@@ -76,6 +76,40 @@ export const NODE_STATUS_INDEX_ALIAS_FIXTURE = {
   INITIAL_CONTENT: "export const nodeStatusIndexSupportValue = true;\n",
   UPDATED_CONTENT: "export const nodeStatusIndexSupportValue = false;\n",
 } as const;
+export const NODE_STATUS_IMPORT_SYNTAX_FIXTURES = [
+  {
+    EVIDENCE_CONTENT:
+      "const nodeStatusRequired = require(\"@/node-status-commonjs-require-support\");\nvoid nodeStatusRequired;\n",
+    PATH: "src/node-status-commonjs-require-support.ts",
+    INITIAL_CONTENT: "export const nodeStatusCommonjsRequireValue = true;\n",
+    UPDATED_CONTENT: "export const nodeStatusCommonjsRequireValue = false;\n",
+  },
+  {
+    EVIDENCE_CONTENT:
+      "type NodeStatusTypeOnly = import(\"@/node-status-type-only-support\").NodeStatusTypeOnly;\ntype NodeStatusTypeOnlyAlias = NodeStatusTypeOnly;\n",
+    PATH: "src/node-status-type-only-support.ts",
+    INITIAL_CONTENT: "export interface NodeStatusTypeOnly { readonly value: true; }\n",
+    UPDATED_CONTENT: "export interface NodeStatusTypeOnly { readonly value: false; }\n",
+  },
+  {
+    EVIDENCE_CONTENT:
+      "import nodeStatusEqualsRequired = require(\"@/node-status-equals-required-support\");\nvoid nodeStatusEqualsRequired;\n",
+    PATH: "src/node-status-equals-required-support.ts",
+    INITIAL_CONTENT: "export const nodeStatusEqualsRequiredValue = true;\n",
+    UPDATED_CONTENT: "export const nodeStatusEqualsRequiredValue = false;\n",
+  },
+] as const;
+export const NODE_STATUS_ROOT_RELATIVE_FIXTURE = {
+  IMPORT_SPECIFIER: "@/node-status-package-reader",
+  PATH: "src/node-status-package-reader.ts",
+  INITIAL_CONTENT:
+    "const nodeStatusPackage = require(\"../package.json\") as { readonly name: string };\nexport const nodeStatusPackageName = nodeStatusPackage.name;\n",
+  UPDATED_CONTENT:
+    "const nodeStatusPackage = require(\"../package.json\") as { readonly version: string };\nexport const nodeStatusPackageVersion = nodeStatusPackage.version;\n",
+  ROOT_PATH: "package.json",
+  ROOT_INITIAL_CONTENT: "{\"name\":\"node-status-fixture\",\"version\":\"0.0.0\"}\n",
+  ROOT_UPDATED_CONTENT: "{\"name\":\"node-status-fixture\",\"version\":\"0.0.1\"}\n",
+} as const;
 export const NODE_STATUS_CLASSIFICATION_EVIDENCE_WITH_TEST_SUPPORT_CONTENT =
   `import "${NODE_STATUS_TEST_SUPPORT_FIXTURE.IMPORT_SPECIFIER}";\n${NODE_STATUS_CLASSIFICATION_EVIDENCE_CONTENT}`;
 

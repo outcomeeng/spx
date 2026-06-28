@@ -59,6 +59,9 @@ const ESLINT_RULES_ROOT = "eslint-rules";
 const ESLINT_RULES_ROOT_PREFIX = `${ESLINT_RULES_ROOT}/`;
 const IGNORE_SOURCE_PATH = `${SPEC_TREE_CONFIG.ROOT_DIRECTORY}/${IGNORE_SOURCE_FILENAME_DEFAULT}`;
 const RELATIVE_IMPORT_PREFIX = ".";
+const PRODUCT_PARENT_PREFIX = "../";
+const PRODUCT_PARENT_SEGMENT = "..";
+const COMMONJS_REQUIRE_IDENTIFIER = "require";
 const EMPTY_STDOUT = "";
 const NODE_FILE_ERROR_CODE = {
   ENOENT: "ENOENT",
@@ -71,12 +74,6 @@ const LOCAL_IMPORT_ALIASES = [
   { prefix: "@scripts/", target: SCRIPTS_ROOT_PREFIX },
   { prefix: "@testing/", target: TEST_SUPPORT_ROOT_PREFIX },
   { prefix: "@eslint-rules/", target: ESLINT_RULES_ROOT_PREFIX },
-] as const;
-const LOCAL_DEPENDENCY_ROOT_PREFIXES = [
-  SOURCE_ROOT_PREFIX,
-  TEST_SUPPORT_ROOT_PREFIX,
-  SCRIPTS_ROOT_PREFIX,
-  ESLINT_RULES_ROOT_PREFIX,
 ] as const;
 const IMPORT_ANALYSIS_FILENAME = "node-status-staleness-imports.ts";
 
@@ -226,10 +223,30 @@ function importSpecifierForNode(node: ts.Node): string | undefined {
   if (ts.isImportDeclaration(node) || ts.isExportDeclaration(node)) {
     return stringLiteralText(node.moduleSpecifier);
   }
+  if (ts.isImportTypeNode(node)) {
+    return importTypeArgumentText(node.argument);
+  }
+  if (ts.isImportEqualsDeclaration(node) && ts.isExternalModuleReference(node.moduleReference)) {
+    return stringLiteralText(node.moduleReference.expression);
+  }
   if (ts.isCallExpression(node) && node.expression.kind === ts.SyntaxKind.ImportKeyword) {
     return stringLiteralText(node.arguments[0]);
   }
+  if (
+    ts.isCallExpression(node)
+    && ts.isIdentifier(node.expression)
+    && node.expression.text === COMMONJS_REQUIRE_IDENTIFIER
+  ) {
+    return stringLiteralText(node.arguments[0]);
+  }
   return undefined;
+}
+
+function importTypeArgumentText(node: ts.TypeNode): string | undefined {
+  if (!ts.isLiteralTypeNode(node)) {
+    return undefined;
+  }
+  return stringLiteralText(node.literal);
 }
 
 function stringLiteralText(node: ts.Node | undefined): string | undefined {
@@ -272,11 +289,11 @@ function unresolvedLocalImplementationPath(importerPath: string, specifier: stri
   }
 
   const resolvedPath = normalize(joinProductPath(dirname(importerPath), specifier));
-  return isTrackedDependencyRoot(resolvedPath) ? resolvedPath : undefined;
+  return isInProductPath(resolvedPath) ? resolvedPath : undefined;
 }
 
-function isTrackedDependencyRoot(path: string): boolean {
-  return LOCAL_DEPENDENCY_ROOT_PREFIXES.some((prefix) => path.startsWith(prefix));
+function isInProductPath(path: string): boolean {
+  return path !== PRODUCT_PARENT_SEGMENT && !path.startsWith(PRODUCT_PARENT_PREFIX);
 }
 
 function sourcePathCandidates(sourcePath: string): readonly string[] {

@@ -36,11 +36,14 @@ import { GIT_TEST_SUBCOMMANDS, runGit } from "@testing/harnesses/git-test-consta
 import {
   commitNodeStatusProductPath,
   initializeNodeStatusGitHistory,
+  NODE_STATUS_CLASSIFICATION_EVIDENCE_CONTENT,
   NODE_STATUS_CLASSIFICATION_EVIDENCE_WITH_TEST_SUPPORT_CONTENT,
   NODE_STATUS_CLASSIFICATION_SPEC_CONTENT,
   NODE_STATUS_EXACT_ALIAS_FIXTURE,
+  NODE_STATUS_IMPORT_SYNTAX_FIXTURES,
   NODE_STATUS_INDEX_ALIAS_FIXTURE,
   NODE_STATUS_LOCAL_ALIAS_FIXTURES,
+  NODE_STATUS_ROOT_RELATIVE_FIXTURE,
   NODE_STATUS_TEST_SUPPORT_FIXTURE,
   nodeStatusEvidenceWithImport,
   requireNodeStatusEvidencePath,
@@ -225,6 +228,80 @@ describe("node-status read-time staleness", () => {
 
       await env.writeRaw(NODE_STATUS_TEST_SUPPORT_FIXTURE.PATH, NODE_STATUS_TEST_SUPPORT_FIXTURE.UPDATED_CONTENT);
       await commitNodeStatusProductPath(env.productDir, NODE_STATUS_TEST_SUPPORT_FIXTURE.PATH);
+
+      const snapshot = await readSpecTree({
+        source: createFilesystemSpecTreeSource({ productDir: env.productDir }),
+        evidence: createNodeStatusProvider(env.productDir),
+      });
+      const staleNodeIds = await resolveStaleNodeIds({ productDir: env.productDir, snapshot });
+
+      expect(staleNodeIds.has(recordedNode.nodeId)).toBe(true);
+    });
+  });
+
+  it("ALWAYS: includes every local TypeScript import syntax in the read-time staleness graph", async () => {
+    for (const syntaxFixture of NODE_STATUS_IMPORT_SYNTAX_FIXTURES) {
+      const fixture = sampleNodeStatusValue(NODE_STATUS_TEST_GENERATOR.delegationTree());
+
+      await withClassificationTree(fixture, async ({ env, expectations, resolveOutcome }) => {
+        const recordedNode = requireNodeStatusRecordedExpectation(expectations);
+        const evidencePath = requireNodeStatusEvidencePath(recordedNode);
+        await env.writeNode(
+          evidencePath,
+          `${syntaxFixture.EVIDENCE_CONTENT}${NODE_STATUS_CLASSIFICATION_EVIDENCE_CONTENT}`,
+        );
+        await env.writeRaw(syntaxFixture.PATH, syntaxFixture.INITIAL_CONTENT);
+
+        await initializeNodeStatusGitHistory(env.productDir);
+        await commitNodeStatusProductPath(env.productDir, SPEC_TREE_CONFIG.ROOT_DIRECTORY);
+        await commitNodeStatusProductPath(env.productDir, syntaxFixture.PATH);
+
+        await updateNodeStatus({ productDir: env.productDir, resolveOutcome });
+        await commitNodeStatusProductPath(env.productDir, SPEC_TREE_CONFIG.ROOT_DIRECTORY);
+
+        await env.writeRaw(syntaxFixture.PATH, syntaxFixture.UPDATED_CONTENT);
+        await commitNodeStatusProductPath(env.productDir, syntaxFixture.PATH);
+
+        const snapshot = await readSpecTree({
+          source: createFilesystemSpecTreeSource({ productDir: env.productDir }),
+          evidence: createNodeStatusProvider(env.productDir),
+        });
+        const staleNodeIds = await resolveStaleNodeIds({ productDir: env.productDir, snapshot });
+
+        expect(staleNodeIds.has(recordedNode.nodeId)).toBe(true);
+      });
+    }
+  });
+
+  it("ALWAYS: includes reachable root-level relative files in the read-time staleness graph", async () => {
+    const fixture = sampleNodeStatusValue(NODE_STATUS_TEST_GENERATOR.delegationTree());
+
+    await withClassificationTree(fixture, async ({ env, expectations, resolveOutcome }) => {
+      const recordedNode = requireNodeStatusRecordedExpectation(expectations);
+      const evidencePath = requireNodeStatusEvidencePath(recordedNode);
+      await env.writeNode(
+        evidencePath,
+        nodeStatusEvidenceWithImport(NODE_STATUS_ROOT_RELATIVE_FIXTURE.IMPORT_SPECIFIER),
+      );
+      await env.writeRaw(NODE_STATUS_ROOT_RELATIVE_FIXTURE.PATH, NODE_STATUS_ROOT_RELATIVE_FIXTURE.INITIAL_CONTENT);
+      await env.writeRaw(
+        NODE_STATUS_ROOT_RELATIVE_FIXTURE.ROOT_PATH,
+        NODE_STATUS_ROOT_RELATIVE_FIXTURE.ROOT_INITIAL_CONTENT,
+      );
+
+      await initializeNodeStatusGitHistory(env.productDir);
+      await commitNodeStatusProductPath(env.productDir, SPEC_TREE_CONFIG.ROOT_DIRECTORY);
+      await commitNodeStatusProductPath(env.productDir, NODE_STATUS_ROOT_RELATIVE_FIXTURE.PATH);
+      await commitNodeStatusProductPath(env.productDir, NODE_STATUS_ROOT_RELATIVE_FIXTURE.ROOT_PATH);
+
+      await updateNodeStatus({ productDir: env.productDir, resolveOutcome });
+      await commitNodeStatusProductPath(env.productDir, SPEC_TREE_CONFIG.ROOT_DIRECTORY);
+
+      await env.writeRaw(
+        NODE_STATUS_ROOT_RELATIVE_FIXTURE.ROOT_PATH,
+        NODE_STATUS_ROOT_RELATIVE_FIXTURE.ROOT_UPDATED_CONTENT,
+      );
+      await commitNodeStatusProductPath(env.productDir, NODE_STATUS_ROOT_RELATIVE_FIXTURE.ROOT_PATH);
 
       const snapshot = await readSpecTree({
         source: createFilesystemSpecTreeSource({ productDir: env.productDir }),
