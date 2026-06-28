@@ -3,9 +3,15 @@ import { join } from "node:path";
 import { describe, expect, it } from "vitest";
 
 import { AGENT_RESUME_LIMITS, AGENT_SESSION_KIND, AGENT_SESSION_STORE } from "@/domains/agent/protocol";
-import { type AgentResumeCandidate, discoverAgentResumeCandidates } from "@/domains/agent/resume";
+import {
+  type AgentResumeCandidate,
+  buildAgentResumeLaunchCommand,
+  discoverAgentResumeCandidates,
+} from "@/domains/agent/resume";
 import { AGENT_CLI, createAgentDomain } from "@/interfaces/cli/agent";
+import { launchAgentResume } from "@/interfaces/cli/agent/resume/launch-agent-resume";
 import { selectedAgentResumeCandidate } from "@/interfaces/cli/agent/resume/run-picker";
+import { FOREGROUND_LAUNCH_STDIO } from "@/interfaces/cli/foreground-launch";
 import { SPX_COMMANDER_PARSE_SOURCE } from "@/interfaces/cli/product-context";
 import { createCliProgram } from "@/interfaces/cli/program";
 import {
@@ -22,15 +28,11 @@ import {
   claudeCodeTranscript,
   codexTranscript,
   codexTranscriptPath,
+  ImmediateExit,
   isPathInsideOrEqual,
   MemoryAgentSessionFileSystem,
 } from "@testing/harnesses/agent/resume";
-
-class ImmediateExit extends Error {
-  constructor(readonly exitCode: number) {
-    super();
-  }
-}
+import { RecordingLaunchRunner, RecordingSuspender } from "@testing/harnesses/session/launch-runner";
 
 describe("agent resume discovery scenarios", () => {
   it("includes sessions recorded inside the invocation worktree and excludes sibling worktrees", async () => {
@@ -199,5 +201,24 @@ describe("agent resume discovery scenarios", () => {
       expect(quit).toBe(true);
       expect(chose).toBe(false);
     }
+  });
+
+  it("launches a native agent resume command from the candidate cwd through foreground handoff", async () => {
+    const candidate = agentResumeCandidate({
+      cwd: sampleAgentResumeValue(
+        arbitraryAgentSessionCwd(sampleAgentResumeValue(arbitraryAgentWorktreeRoot(), 17)),
+        18,
+      ),
+    });
+    const runner = new RecordingLaunchRunner();
+    const suspender = new RecordingSuspender();
+    const pending = launchAgentResume(runner, suspender, buildAgentResumeLaunchCommand(candidate));
+
+    runner.children[0].emitExit(sampleAgentResumeValue(arbitraryAgentLaunchExitCode(), 19));
+
+    await pending;
+
+    expect(runner.options[0]).toMatchObject({ cwd: candidate.cwd, stdio: FOREGROUND_LAUNCH_STDIO });
+    expect(suspender.restoreCount).toBe(1);
   });
 });

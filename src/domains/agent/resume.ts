@@ -62,6 +62,33 @@ export interface AgentResumeModeFlags {
   readonly json?: boolean;
 }
 
+export const AGENT_RESUME_PICKER_ACTION = {
+  MOVE_UP: "move-up",
+  MOVE_DOWN: "move-down",
+  CHOOSE: "choose",
+  QUIT: "quit",
+  IGNORE: "ignore",
+} as const;
+
+export type AgentResumePickerAction = (typeof AGENT_RESUME_PICKER_ACTION)[keyof typeof AGENT_RESUME_PICKER_ACTION];
+
+export interface AgentResumePickerInput {
+  readonly input: string;
+  readonly upArrow: boolean;
+  readonly downArrow: boolean;
+  readonly return: boolean;
+  readonly escape: boolean;
+}
+
+export interface AgentResumePickerState {
+  readonly selectedIndex: number;
+}
+
+const FIRST_PICKER_INDEX = 0;
+const PICKER_MOVE_UP_DELTA = -1;
+const PICKER_MOVE_DOWN_DELTA = 1;
+const PICKER_QUIT_INPUT = "q";
+
 export class AgentResumeModeError extends Error {
   constructor(readonly selectedModes: readonly AgentResumeMode[]) {
     super(`${AGENT_RESUME_TEXT.MODE_CONFLICT}: ${selectedModes.join(", ")}`);
@@ -88,6 +115,42 @@ export function resolveAgentResumeMode(flags: AgentResumeModeFlags): AgentResume
     throw new AgentResumeModeError(selected);
   }
   return selected[0] ?? AGENT_RESUME_MODE.PICK;
+}
+
+export function initialAgentResumePickerState(): AgentResumePickerState {
+  return { selectedIndex: FIRST_PICKER_INDEX };
+}
+
+export function resolveAgentResumePickerAction(input: AgentResumePickerInput): AgentResumePickerAction {
+  if (input.upArrow) return AGENT_RESUME_PICKER_ACTION.MOVE_UP;
+  if (input.downArrow) return AGENT_RESUME_PICKER_ACTION.MOVE_DOWN;
+  if (input.return) return AGENT_RESUME_PICKER_ACTION.CHOOSE;
+  if (input.escape || input.input === PICKER_QUIT_INPUT) return AGENT_RESUME_PICKER_ACTION.QUIT;
+  return AGENT_RESUME_PICKER_ACTION.IGNORE;
+}
+
+export function reduceAgentResumePickerState(
+  state: AgentResumePickerState,
+  action: AgentResumePickerAction,
+  candidateCount: number,
+): AgentResumePickerState {
+  if (action === AGENT_RESUME_PICKER_ACTION.MOVE_UP) {
+    return moveAgentResumePickerSelection(state, PICKER_MOVE_UP_DELTA, candidateCount);
+  }
+  if (action === AGENT_RESUME_PICKER_ACTION.MOVE_DOWN) {
+    return moveAgentResumePickerSelection(state, PICKER_MOVE_DOWN_DELTA, candidateCount);
+  }
+  return state;
+}
+
+function moveAgentResumePickerSelection(
+  state: AgentResumePickerState,
+  delta: number,
+  candidateCount: number,
+): AgentResumePickerState {
+  const lastIndex = Math.max(candidateCount - 1, FIRST_PICKER_INDEX);
+  const nextIndex = Math.min(Math.max(state.selectedIndex + delta, FIRST_PICKER_INDEX), lastIndex);
+  return { selectedIndex: nextIndex };
 }
 
 export function codexSessionStoreDir(homeDir: string): string {
@@ -287,12 +350,12 @@ function parseClaudeCodeCandidateFile(
       [AGENT_SESSION_JSON_FIELDS.PAYLOAD, AGENT_SESSION_JSON_FIELDS.SESSION_ID_CAMEL],
       [AGENT_SESSION_JSON_FIELDS.PAYLOAD, AGENT_SESSION_JSON_FIELDS.SESSION_ID],
     ]);
-    cwd ??= firstString(row, [
+    cwd = firstString(row, [
       [AGENT_SESSION_JSON_FIELDS.CWD],
       [AGENT_SESSION_JSON_FIELDS.PAYLOAD, AGENT_SESSION_JSON_FIELDS.CWD],
-    ]);
+    ]) ?? cwd;
     updatedAt = maxIsoTimestamp(updatedAt, firstString(row, [[AGENT_SESSION_JSON_FIELDS.TIMESTAMP]]));
-    branch ??= firstString(row, [[AGENT_SESSION_JSON_FIELDS.GIT_BRANCH]]);
+    branch = firstString(row, [[AGENT_SESSION_JSON_FIELDS.GIT_BRANCH]]) ?? branch;
   }
 
   if (sessionId === null || cwd === null) {

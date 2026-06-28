@@ -5,12 +5,7 @@ import { AGENT_CLI, createAgentDomain } from "@/interfaces/cli/agent";
 import { SPX_COMMANDER_PARSE_SOURCE } from "@/interfaces/cli/product-context";
 import { createCliProgram } from "@/interfaces/cli/program";
 import { arbitraryAgentWorktreeRoot, sampleAgentResumeValue } from "@testing/generators/agent/resume";
-
-class ImmediateExit extends Error {
-  constructor(readonly exitCode: number) {
-    super();
-  }
-}
+import { ImmediateExit } from "@testing/harnesses/agent/resume";
 
 describe("agent resume non-interactive compliance", () => {
   it("refuses the default interactive picker without writing stdout", async () => {

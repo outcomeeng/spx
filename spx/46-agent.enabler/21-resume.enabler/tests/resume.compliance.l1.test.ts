@@ -2,7 +2,12 @@ import { join } from "node:path";
 
 import { describe, expect, it } from "vitest";
 
-import { AGENT_RESUME_LIMITS, AGENT_RESUME_RECENT_WINDOW_MS, AGENT_SESSION_STORE } from "@/domains/agent/protocol";
+import {
+  AGENT_RESUME_LIMITS,
+  AGENT_RESUME_RECENT_WINDOW_MS,
+  AGENT_SESSION_KIND,
+  AGENT_SESSION_STORE,
+} from "@/domains/agent/protocol";
 import { claudeCodeSessionStoreDir, codexSessionStoreDir, discoverAgentResumeCandidates } from "@/domains/agent/resume";
 import {
   arbitraryAgentResumeExtraCandidateCount,
@@ -86,6 +91,46 @@ describe("agent resume recency and display compliance", () => {
 });
 
 describe("agent resume root-resolution compliance", () => {
+  it("uses the latest Claude Code cwd row when resolving a candidate worktree", async () => {
+    const fs = new MemoryAgentSessionFileSystem();
+    const nowMs = sampleAgentResumeValue(arbitraryAgentResumeNowMs(), 20);
+    const sessionId = sampleAgentResumeValue(arbitraryAgentSessionId(), 21);
+    const homeDir = sampleAgentResumeValue(arbitraryAgentWorktreeRoot(), 22);
+    const originalWorktreeRoot = sampleAgentResumeValue(arbitraryAgentWorktreeRoot(), 23);
+    const currentWorktreeRoot = sampleAgentResumeValue(arbitraryAgentWorktreeRoot(), 24);
+    const originalCwd = sampleAgentResumeValue(arbitraryAgentSessionCwd(originalWorktreeRoot), 25);
+    const currentCwd = sampleAgentResumeValue(arbitraryAgentSessionCwd(currentWorktreeRoot), 26);
+    const originalTimestamp = new Date(nowMs - AGENT_RESUME_LIMITS.MILLISECONDS_PER_SECOND).toISOString();
+    const currentTimestamp = new Date(nowMs).toISOString();
+    const transcriptPath = join(
+      homeDir,
+      AGENT_SESSION_STORE.CLAUDE_DIR,
+      AGENT_SESSION_STORE.CLAUDE_PROJECTS_DIR,
+      `${sessionId}${AGENT_SESSION_STORE.JSONL_EXTENSION}`,
+    );
+    fs.writeFile(
+      transcriptPath,
+      [
+        claudeCodeTranscript({ sessionId, cwd: originalCwd, timestamp: originalTimestamp }),
+        claudeCodeTranscript({ sessionId, cwd: currentCwd, timestamp: currentTimestamp }),
+      ].join("\n"),
+      nowMs,
+    );
+
+    const candidates = await discoverAgentResumeCandidates({
+      invocationDir: currentCwd,
+      homeDir,
+      nowMs,
+      fs,
+      resolveWorktreeRoot: async (candidateCwd) =>
+        isPathInsideOrEqual(currentWorktreeRoot, candidateCwd) ? currentWorktreeRoot : null,
+    });
+
+    expect(candidates.map((candidate) => [candidate.agent, candidate.sessionId, candidate.cwd])).toEqual([
+      [AGENT_SESSION_KIND.CLAUDE_CODE, sessionId, currentCwd],
+    ]);
+  });
+
   it("resolves candidate worktree roots with bounded concurrency while preserving newest-first matches", async () => {
     const fs = new MemoryAgentSessionFileSystem();
     const nowMs = sampleAgentResumeValue(arbitraryAgentResumeNowMs());

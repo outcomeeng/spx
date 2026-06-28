@@ -21,6 +21,12 @@ export interface TranscriptInput {
   readonly branch?: string;
 }
 
+export class ImmediateExit extends Error {
+  constructor(readonly exitCode: number) {
+    super();
+  }
+}
+
 interface MemoryFile {
   readonly content: string;
   readonly mtimeMs: number;
