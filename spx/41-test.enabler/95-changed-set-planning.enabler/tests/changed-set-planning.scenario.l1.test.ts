@@ -6,6 +6,8 @@ import {
   CHANGED_TEST_DIFF_NAME_STATUS_FLAG,
   CHANGED_TEST_INDEX_PATH_PREFIX,
   CHANGED_TEST_LS_FILES_COMMAND,
+  CHANGED_TEST_LS_FILES_EXCLUDE_STANDARD_FLAG,
+  CHANGED_TEST_LS_FILES_OTHERS_FLAG,
   CHANGED_TEST_NULL_DELIMITED_FLAG,
   CHANGED_TEST_SHOW_COMMAND,
   changedPathsFromNameStatus,
@@ -59,7 +61,10 @@ function nameStatusNulDelimited(paths: readonly string[]): string {
   return paths.map((path) => `${GIT_DELETE_STATUS_EXAMPLE}\0${path}\0`).join("");
 }
 
-function recordingGitRunner(changedPaths: readonly string[]): RecordingGitRunner {
+function recordingGitRunner(
+  changedPaths: readonly string[],
+  untrackedPaths: readonly string[] = [],
+): RecordingGitRunner {
   const calls: GitCall[] = [];
   return {
     calls,
@@ -81,6 +86,9 @@ function recordingGitRunner(changedPaths: readonly string[]): RecordingGitRunner
             ? nameStatusNulDelimited(changedPaths)
             : nulDelimited(changedPaths);
           return { exitCode: 0, stdout, stderr: "" };
+        }
+        if (args.includes(CHANGED_TEST_LS_FILES_COMMAND)) {
+          return { exitCode: 0, stdout: nulDelimited(untrackedPaths), stderr: "" };
         }
         return { exitCode: 0, stdout: headSha, stderr: "" };
       },
@@ -104,6 +112,9 @@ function renameGitRunner(oldPath: string, newPath: string): RecordingGitRunner {
         }
         if (args.includes(CHANGED_TEST_DIFF_COMMAND)) {
           return { exitCode: 0, stdout: `${GIT_RENAME_STATUS_EXAMPLE}\0${oldPath}\0${newPath}\0`, stderr: "" };
+        }
+        if (args.includes(CHANGED_TEST_LS_FILES_COMMAND)) {
+          return { exitCode: 0, stdout: "", stderr: "" };
         }
         return { exitCode: 0, stdout: headSha, stderr: "" };
       },
@@ -326,6 +337,54 @@ describe("changed-set planning path partition", () => {
 
     expect(plan.targets).toEqual({ operands: [], recursive: false });
     expect(plan.unresolvedSourceFiles).toEqual([sourcePath]);
+  });
+
+  it("routes untracked source files through a registered related-test capability", async () => {
+    const sourcePath = sampleLiteralTestValue(arbitrarySourceFilePath());
+    const nodePath = sampleDispatchValue(TEST_DISPATCH_GENERATOR.nodePath());
+    const relatedTestPath = sampleDispatchValue(
+      TEST_DISPATCH_GENERATOR.testFileUnder(typescriptTestingLanguage, nodePath),
+    );
+    const git = recordingGitRunner([], [sourcePath]);
+    const language = {
+      ...descriptorWithRelatedTests([relatedTestPath], [sourcePath]),
+      runTests: noRunTests,
+    };
+
+    const plan = await planChangedTestSelection(
+      { productDir: sampleDispatchValue(TEST_DISPATCH_GENERATOR.nodePath()) },
+      {
+        git: git.git,
+        registry: registry([language]),
+        relatedDepsFor: () => relatedDeps(),
+      },
+    );
+
+    expect(plan.targets).toEqual({ operands: [relatedTestPath], recursive: false });
+    expect(plan.changedPaths).toEqual([sourcePath]);
+    expect(plan.unresolvedSourceFiles).toEqual([]);
+    expect(
+      git.calls.some((call) =>
+        call.args.includes(CHANGED_TEST_LS_FILES_COMMAND)
+        && call.args.includes(CHANGED_TEST_LS_FILES_OTHERS_FLAG)
+        && call.args.includes(CHANGED_TEST_LS_FILES_EXCLUDE_STANDARD_FLAG)
+        && call.args.includes(CHANGED_TEST_NULL_DELIMITED_FLAG)
+      ),
+    ).toBe(true);
+  });
+
+  it("selects a node operand for an untracked spec-tree test file", async () => {
+    const nodePath = sampleDispatchValue(TEST_DISPATCH_GENERATOR.nodePath());
+    const testPath = sampleDispatchValue(TEST_DISPATCH_GENERATOR.testFileUnder(typescriptTestingLanguage, nodePath));
+    const git = recordingGitRunner([], [testPath]);
+
+    const plan = await planChangedTestSelection(
+      { productDir: sampleDispatchValue(TEST_DISPATCH_GENERATOR.nodePath()) },
+      { git: git.git, registry: registry([]), relatedDepsFor: () => relatedDeps() },
+    );
+
+    expect(plan.targets).toEqual({ operands: [nodeOperand(nodePath)], recursive: false });
+    expect(plan.changedPaths).toEqual([testPath]);
   });
 
   it("preserves changed path whitespace from name-status diff output", async () => {
@@ -573,6 +632,12 @@ subject;
     expect(diffCall?.args).toContain(CHANGED_TEST_DIFF_CACHED_FLAG);
     expect(diffCall?.args).toContain(CHANGED_TEST_DIFF_NAME_STATUS_FLAG);
     expect(diffCall?.args).toContain(CHANGED_TEST_NULL_DELIMITED_FLAG);
+    expect(
+      git.calls.some((call) =>
+        call.args.includes(CHANGED_TEST_LS_FILES_COMMAND)
+        && call.args.includes(CHANGED_TEST_LS_FILES_OTHERS_FLAG)
+      ),
+    ).toBe(false);
   });
 
   it("includes both staged rename paths from NUL-delimited name-status output", () => {

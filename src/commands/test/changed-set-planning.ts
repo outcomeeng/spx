@@ -21,6 +21,8 @@ export const CHANGED_TEST_SHOW_COMMAND = "show";
 export const CHANGED_TEST_INDEX_PATH_PREFIX = ":";
 export const CHANGED_TEST_DIFF_NAME_STATUS_FLAG = GIT_NAME_STATUS_FLAG;
 export const CHANGED_TEST_NULL_DELIMITED_FLAG = GIT_NULL_DELIMITED_FLAG;
+export const CHANGED_TEST_LS_FILES_OTHERS_FLAG = "--others";
+export const CHANGED_TEST_LS_FILES_EXCLUDE_STANDARD_FLAG = "--exclude-standard";
 const LS_FILES_CACHED_FLAG = "--cached";
 const HEAD_REF = "HEAD";
 const ORIGIN_REMOTE = "origin";
@@ -94,7 +96,33 @@ async function changedPaths(
   if (result.exitCode !== 0) {
     throw new Error(`failed to diff changed paths for test planning: ${result.stderr}`);
   }
-  return changedPathsFromNameStatus(result.stdout);
+  const diffPaths = changedPathsFromNameStatus(result.stdout);
+  if (staged) {
+    return diffPaths;
+  }
+  const untrackedPaths = await untrackedWorktreePaths(productDir, git);
+  return [...new Set([...diffPaths, ...untrackedPaths])].sort(compareAsciiStrings);
+}
+
+async function untrackedWorktreePaths(productDir: string, git?: GitDependencies): Promise<readonly string[]> {
+  const runner = git?.execa;
+  if (runner === undefined) {
+    throw new Error("changed test planning requires injected git access");
+  }
+  const result = await runner(
+    GIT_ROOT_COMMAND.EXECUTABLE,
+    [
+      CHANGED_TEST_LS_FILES_COMMAND,
+      CHANGED_TEST_LS_FILES_OTHERS_FLAG,
+      CHANGED_TEST_LS_FILES_EXCLUDE_STANDARD_FLAG,
+      CHANGED_TEST_NULL_DELIMITED_FLAG,
+    ],
+    { cwd: productDir, reject: false },
+  );
+  if (result.exitCode !== 0) {
+    throw new Error(`failed to list untracked paths for changed test planning: ${result.stderr}`);
+  }
+  return pathsFromNulDelimited(result.stdout);
 }
 
 function isSpecTestPath(path: string): boolean {
