@@ -10,6 +10,7 @@ CAN read a node's last-recorded verification projection from a committed file wi
 
 - Given a node directory has no `spx.status.json`, when a consumer reads that node's lifecycle state, then the consumer derives the state live rather than reading a file ([test](tests/node-status.scenario.l1.test.ts))
 - Given a node with linked verification references, when `spx spec status --update` refreshes that node, then it records outcomes only for those linked references before deriving the lifecycle projection ([test](tests/node-status.scenario.l1.test.ts))
+- Given a node carries `spx.status.json` and a path in its status dependency graph has a later Git commit than that file, when `spx spec status` renders the node, then the command marks the node stale without changing the lifecycle state derived from the recorded outcomes ([test](tests/node-status.scenario.l1.test.ts))
 
 ### Mappings
 
@@ -26,6 +27,7 @@ CAN read a node's last-recorded verification projection from a committed file wi
 - ALWAYS: `spx.status.json` is written only by the `spx spec status --update` path ([test](tests/node-status.compliance.l1.test.ts))
 - ALWAYS: each `spx.status.json` is co-located in the directory of the node it describes; node identity comes from file location, not file content ([audit])
 - ALWAYS: `spx.status.json` stores only runtime verification outcomes; node identity, assertion text, evidence links, test source, eval definitions, audit rules, configuration, commit identity, authorship, and timestamps come from Git ([audit])
+- ALWAYS: status staleness is derived at read time from Git history over the node spec, linked evidence files, and local implementation dependencies reachable from linked tests; `spx.status.json` stores no staleness anchors ([test](tests/node-status.compliance.l1.test.ts))
 - ALWAYS: `spx spec status --update` derives pass/fail/not-run outcomes only for linked verification references and obtains those outcomes from the owning verification surface; `declared` and `specified` nodes classify structurally without a run ([test](tests/node-status.compliance.l1.test.ts))
 - ALWAYS: CI regenerates every committed `spx.status.json` from the checkout after running the configured verification suite and rejects a mismatch ([test](tests/node-status.compliance.l1.test.ts))
 - NEVER: a consumer treats a missing `spx.status.json` as an error or a fixed state — absence routes to live derivation ([test](tests/node-status.compliance.l1.test.ts))
