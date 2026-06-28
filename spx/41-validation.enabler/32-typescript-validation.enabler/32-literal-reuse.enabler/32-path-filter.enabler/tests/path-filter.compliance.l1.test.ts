@@ -1,8 +1,14 @@
 import { describe, expect, it } from "vitest";
 
 import { LITERAL_EXIT_CODES, literalCommand } from "@/commands/validation/literal";
+import { VALIDATION_PATH_TOOL_SUBSECTIONS } from "@/validation/config/descriptor";
+import { validationPathFilterForTool } from "@/validation/config/path-filter";
 import { validateLiteralReuse } from "@/validation/literal/index";
-import { sampleIndependentDomainLiterals } from "@testing/generators/literal/literal";
+import {
+  LITERAL_TEST_GENERATOR,
+  sampleIndependentDomainLiterals,
+  sampleLiteralTestValue,
+} from "@testing/generators/literal/literal";
 import { withLiteralFixtureEnv } from "@testing/harnesses/literal/harness";
 
 describe("ALWAYS: validation.paths.exclude suppresses files by path prefix", () => {
@@ -27,6 +33,35 @@ describe("ALWAYS: validation.paths.exclude suppresses files by path prefix", () 
     });
   });
 });
+
+describe("ALWAYS: unmatched validation include intersections produce no literal scope", () => {
+  it("returns no indexed files before walking automatic scope", async () => {
+    await withLiteralFixtureEnv({}, async (env) => {
+      const [literal] = sampleIndependentDomainLiterals(1);
+      const sourceFilePath = sampleLiteralTestValue(LITERAL_TEST_GENERATOR.sourceFilePath());
+      const sourcePrefix = firstPathSegment(sourceFilePath);
+      const toolIncludePrefix = sampleLiteralTestValue(LITERAL_TEST_GENERATOR.domainLiteral());
+
+      await env.writeSourceFile(sourceFilePath, literal);
+
+      const result = await validateLiteralReuse({
+        productDir: env.productDir,
+        pathConfig: validationPathFilterForTool(
+          { include: [sourcePrefix], literal: { include: [toolIncludePrefix] } },
+          VALIDATION_PATH_TOOL_SUBSECTIONS.LITERAL,
+        ),
+      });
+
+      expect(result.filteredByValidationPathNoMatches).toBe(true);
+      expect(result.indexedOccurrencesByFile.size).toBe(0);
+      expect(result.findings).toEqual({ srcReuse: [], testDupe: [] });
+    });
+  });
+});
+
+function firstPathSegment(path: string): string {
+  return path.slice(0, path.indexOf("/"));
+}
 
 describe("ALWAYS: explicit files bypass validation.paths", () => {
   it("caller-supplied files are parsed even when validation.paths.exclude matches them", async () => {

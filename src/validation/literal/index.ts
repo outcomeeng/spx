@@ -1,11 +1,12 @@
 import { readFile } from "node:fs/promises";
 import { isAbsolute, relative, resolve } from "node:path";
 
+import { applyPathFilter as applyPrimitivePathFilter } from "@/config/primitives/path-filter";
 import { DEFAULT_SCOPE_CONFIG } from "@/lib/file-inclusion/config";
 import { EXPLICIT_OVERRIDE_LAYER, resolveScope } from "@/lib/file-inclusion/pipeline";
 import type { ScopeEntry } from "@/lib/file-inclusion/types";
 import { type ValidationPathConfig } from "@/validation/config/descriptor";
-import { pathPassesValidationFilter } from "@/validation/config/path-filter";
+import { validationPathFilterHasNoMatchingIncludes } from "@/validation/config/path-filter";
 import { pathPassesTypeScriptScope } from "@/validation/config/scope";
 import type { ScopeConfig } from "@/validation/types";
 
@@ -77,6 +78,18 @@ export async function validateLiteralReuse(
     const abs = isAbsolute(f) ? f : resolve(input.productDir, f);
     return relative(input.productDir, abs).split(/[\\/]/g).join("/");
   });
+
+  if (
+    input.pathConfig !== undefined
+    && (explicitPaths === undefined || explicitPaths.length === 0)
+    && validationPathFilterHasNoMatchingIncludes(input.pathConfig)
+  ) {
+    return {
+      findings: { srcReuse: [], testDupe: [] },
+      indexedOccurrencesByFile: new Map(),
+      filteredByValidationPathNoMatches: true,
+    };
+  }
 
   const scope = await resolveScope(input.productDir, {
     walkRoot: input.productDir,
@@ -155,8 +168,23 @@ function applyPathFilter(
   if (pathConfig === undefined) {
     return entries;
   }
-  return entries.filter((entry) =>
+  const explicitEntries = entries.filter((entry) =>
     entry.decisionTrail.some((decision) => decision.layer === EXPLICIT_OVERRIDE_LAYER)
-    || pathPassesValidationFilter(entry.path, pathConfig)
   );
+  const automaticEntries = entries.filter((entry) =>
+    !entry.decisionTrail.some((decision) => decision.layer === EXPLICIT_OVERRIDE_LAYER)
+  );
+  if (validationPathFilterHasNoMatchingIncludes(pathConfig)) {
+    return explicitEntries;
+  }
+  const admittedPaths = new Set(
+    applyPrimitivePathFilter(
+      automaticEntries.map((entry) => entry.path),
+      pathConfig,
+    ),
+  );
+  return [
+    ...explicitEntries,
+    ...automaticEntries.filter((entry) => admittedPaths.has(entry.path)),
+  ];
 }

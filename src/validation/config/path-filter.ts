@@ -87,6 +87,10 @@ export function hasValidationPathFilter(filter: ValidationPathFilterConfig): boo
     || nonEmpty(filter.exclude).length > 0;
 }
 
+export function validationPathFilterHasNoMatchingIncludes(filter: ValidationPathFilterConfig): boolean {
+  return hasEffectiveValidationPathMetadata(filter) && filter.noMatchingIncludes;
+}
+
 export function pathPassesValidationFilter(path: string, filter: ValidationPathFilterConfig): boolean {
   if (hasEffectiveValidationPathMetadata(filter) && filter.noMatchingIncludes) {
     return false;
