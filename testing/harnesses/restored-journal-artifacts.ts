@@ -3,7 +3,7 @@ import { basename } from "node:path";
 import { createJournal, type JournalEvent, type JournalEventInput } from "@/lib/agent-run-journal";
 import { createAppendableJournalStore } from "@/lib/appendable-journal-store";
 import { artifactJournalRunArtifactName } from "@/lib/artifact-journal-store";
-import { STATE_STORE_TEXT_ENCODING, type StateStoreFileSystem } from "@/lib/state-store";
+import { runFileName, STATE_STORE_TEXT_ENCODING, type StateStoreFileSystem } from "@/lib/state-store";
 
 /** The staging directory the workflow's download step restores prior-run artifacts into, in tests. */
 export const RESTORED_JOURNAL_RUNS_DIR = "restored-journal-runs";
@@ -21,7 +21,11 @@ export async function buildSealedRunBody(args: {
   readonly inputs: readonly JournalEventInput[];
 }): Promise<{ readonly appended: readonly JournalEvent[]; readonly body: string }> {
   const store = createAppendableJournalStore({ runFilePath: args.runFilePath, fs: args.fs });
-  const journal = createJournal(store, { streamid: args.runToken, runid: args.runToken });
+  // Match the production journal identity: the runtime opens every run with
+  // `streamid`/`runid` set to the run file name, not the raw token, so a prior run this
+  // fixture builds carries the same event identity a real sealed run produces.
+  const identity = runFileName(args.runToken);
+  const journal = createJournal(store, { streamid: identity, runid: identity });
   const appended: JournalEvent[] = [];
   for (const input of args.inputs) appended.push(await journal.append(input));
   await journal.seal();
