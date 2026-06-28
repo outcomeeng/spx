@@ -250,39 +250,47 @@ describe("agent resume mode behavior mappings", () => {
     expect(parsed.map((candidate) => candidate.sessionId)).toEqual([fixture.newestSessionId, fixture.olderSessionId]);
   });
 
-  it("conflicting mode flags write a diagnostic and exit non-zero without launching an agent", async () => {
-    const fixture = createResumeFixture();
-    const stderr: string[] = [];
-    const launchedSessionIds: string[] = [];
-    const program = createProgramForFixture(fixture, {
-      launchCandidate: async (candidate) => {
-        launchedSessionIds.push(candidate.sessionId);
-        return sampleAgentResumeValue(arbitraryAgentLaunchExitCode(), 10);
-      },
-      writeStderr: (output) => stderr.push(output),
-      exit: (exitCode) => {
-        throw new ImmediateExit(exitCode);
-      },
-    });
-    program.exitOverride();
+  it.each(
+    [
+      [[AGENT_CLI.flags.latest, AGENT_CLI.flags.list], [AGENT_RESUME_MODE.LATEST, AGENT_RESUME_MODE.LIST]],
+      [[AGENT_CLI.flags.latest, AGENT_CLI.flags.json], [AGENT_RESUME_MODE.LATEST, AGENT_RESUME_MODE.JSON]],
+      [[AGENT_CLI.flags.list, AGENT_CLI.flags.json], [AGENT_RESUME_MODE.LIST, AGENT_RESUME_MODE.JSON]],
+      [
+        [AGENT_CLI.flags.latest, AGENT_CLI.flags.list, AGENT_CLI.flags.json],
+        [AGENT_RESUME_MODE.LATEST, AGENT_RESUME_MODE.LIST, AGENT_RESUME_MODE.JSON],
+      ],
+    ] as const,
+  )(
+    "conflicting mode flags %j write a diagnostic and exit non-zero without launching an agent",
+    async (flags, expectedModes) => {
+      const fixture = createResumeFixture();
+      const stderr: string[] = [];
+      const launchedSessionIds: string[] = [];
+      const program = createProgramForFixture(fixture, {
+        launchCandidate: async (candidate) => {
+          launchedSessionIds.push(candidate.sessionId);
+          return sampleAgentResumeValue(arbitraryAgentLaunchExitCode(), 10);
+        },
+        writeStderr: (output) => stderr.push(output),
+        exit: (exitCode) => {
+          throw new ImmediateExit(exitCode);
+        },
+      });
+      program.exitOverride();
 
-    await expect(
-      program.parseAsync(
-        [
-          AGENT_CLI.commandName,
-          AGENT_CLI.resumeCommandName,
-          AGENT_CLI.flags.list,
-          AGENT_CLI.flags.json,
-        ],
-        { from: SPX_COMMANDER_PARSE_SOURCE },
-      ),
-    ).rejects.toMatchObject({ exitCode: AGENT_CLI_EXIT.FAILURE });
+      await expect(
+        program.parseAsync([AGENT_CLI.commandName, AGENT_CLI.resumeCommandName, ...flags], {
+          from: SPX_COMMANDER_PARSE_SOURCE,
+        }),
+      ).rejects.toMatchObject({ exitCode: AGENT_CLI_EXIT.FAILURE });
 
-    expect(stderr.join("")).toContain(AGENT_RESUME_TEXT.MODE_CONFLICT);
-    expect(stderr.join("")).toContain(AGENT_RESUME_MODE.LIST);
-    expect(stderr.join("")).toContain(AGENT_RESUME_MODE.JSON);
-    expect(launchedSessionIds).toEqual([]);
-  });
+      expect(stderr.join("")).toContain(AGENT_RESUME_TEXT.MODE_CONFLICT);
+      for (const expectedMode of expectedModes) {
+        expect(stderr.join("")).toContain(expectedMode);
+      }
+      expect(launchedSessionIds).toEqual([]);
+    },
+  );
 });
 
 describe("agent resume launch command mappings", () => {
