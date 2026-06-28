@@ -1,6 +1,6 @@
 # Agent Environment Descriptor
 
-The `agentEnvironment` config descriptor lives at `src/domains/agent-environment/config.ts`, registers with the production config registry per `spx/16-config.enabler/21-descriptor-registration.adr.md`, and resolves three parent-owned subsections — `instructions`, `runtimes`, and `pluginBootstrap` — with explicit source-owned runtime ids for Codex and Claude Code that the instruction-reconciliation, runtime-configuration, and plugin-bootstrap children import when selecting runtime-specific serializers, instruction targets, or bootstrap adapters. The descriptor models shared inputs and target runtimes only: it writes no files, installs no plugins, and encodes no runtime-specific serializers, and it rejects unknown fields and malformed entry shapes rather than ignoring them, because it is the shared API those children consume.
+The `agentEnvironment` config descriptor lives at `src/domains/agent-environment/config.ts`, registers with the production config registry per `spx/16-config.enabler/21-descriptor-registration.adr.md`, and resolves three parent-owned subsections — `instructions`, `runtimes`, and `pluginBootstrap` — with explicit source-owned runtime ids for Codex and Claude Code that the instruction-reconciliation, runtime-configuration, hook, and plugin-bootstrap children import when selecting runtime-specific serializers, instruction targets, hook policy, or bootstrap adapters. The descriptor models shared inputs and target runtimes only: it writes no files, installs no plugins, and encodes no runtime-specific serializers, and it rejects unknown fields and malformed entry shapes rather than ignoring them, because it is the shared API those children consume.
 
 ## Rationale
 
@@ -12,6 +12,7 @@ Rejected: separate config sections for instructions, runtimes, and bootstrap (th
 
 - Descriptor validation has no filesystem, process, network, or runtime side effects.
 - For a resolved `agentEnvironment` section, every instruction, marketplace, plugin, and skill entry references a registered runtime id.
+- Each runtime config carries `hooks.sessionStart.compactStdout`; Codex defaults it to false and Claude Code defaults it to true.
 - Instruction file paths are unique within `instructions.files`.
 - Instruction file target runtime lists are non-empty and do not repeat runtimes.
 - Marketplace, plugin, and skill names are unique within each runtime.
@@ -28,6 +29,7 @@ Rejected: separate config sections for instructions, runtimes, and bootstrap (th
 ### Testing
 
 - ALWAYS: the descriptor resolves `instructions`, `runtimes`, and `pluginBootstrap` defaults through the static config registry ([compliance])
+- ALWAYS: runtime hook policy defaults resolve from the descriptor, and explicit `hooks.sessionStart.compactStdout` booleans override the per-runtime default ([compliance])
 - ALWAYS: instruction targets, marketplace entries, plugin entries, and skill entries reference registered runtime ids exported by the descriptor module ([compliance])
 - ALWAYS: the descriptor rejects unknown fields and malformed entry shapes before child reconcilers run ([compliance])
 - ALWAYS: the descriptor section resolves equivalently across JSON, YAML, and TOML config files ([mapping])
