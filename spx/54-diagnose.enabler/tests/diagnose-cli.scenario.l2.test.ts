@@ -5,14 +5,25 @@ import { execa } from "execa";
 import { describe, expect, it, vi } from "vitest";
 
 import { DEFAULT_CONFIG_FILENAME } from "@/config/index";
+import { MARKETPLACE_INSTALL_VERDICT } from "@/domains/diagnose/checks/marketplace-install";
 import { SPX_REACHABILITY_VERDICT } from "@/domains/diagnose/checks/spx-reachability";
-import { overallExitCode } from "@/domains/diagnose/fold";
+import { foldOverallVerdict, overallExitCode } from "@/domains/diagnose/fold";
 import { CHECK_NAME } from "@/domains/diagnose/manifest";
 import { DIAGNOSE_FORMAT, DIAGNOSE_TEXT_OVERALL_LABEL } from "@/domains/diagnose/report";
-import { OVERALL_VERDICT, type OverallVerdict, VERDICT_BUCKET } from "@/domains/diagnose/types";
+import {
+  CHECK_RECORD_FIELDS,
+  OVERALL_VERDICT,
+  type OverallVerdict,
+  VERDICT_BUCKET,
+  type VerdictBucket,
+} from "@/domains/diagnose/types";
 import { DIAGNOSE_CLI } from "@/interfaces/cli/diagnose";
 import { CLI_PATH, CLI_TIMEOUTS_MS, NODE_EXECUTABLE } from "@testing/harnesses/constants";
-import { writeAllChecksManifest, writeSpxReachabilityManifest } from "@testing/harnesses/diagnose/cli";
+import {
+  writeAllChecksManifest,
+  writeSpxReachabilityManifest,
+  writeSpxReachabilityManifestFixture,
+} from "@testing/harnesses/diagnose/cli";
 import { withTempDir } from "@testing/harnesses/with-temp-dir";
 
 // Every test here spawns the CLI as a cold `node bin/spx.js` subprocess running real probes;
@@ -47,6 +58,25 @@ async function runDiagnose(
   return { stdout: result.stdout, exitCode: result.exitCode ?? 1 };
 }
 
+function expectSchemaValidReport(report: ReportShape): void {
+  expect(Object.values(OVERALL_VERDICT)).toContain(report.overall);
+  for (const check of report.checks) {
+    expect(Object.keys(check).sort((a, b) => a.localeCompare(b))).toEqual(
+      [...CHECK_RECORD_FIELDS].sort((a, b) => a.localeCompare(b)),
+    );
+    expect(Object.values(CHECK_NAME)).toContain(check.name);
+    expect(Object.values(VERDICT_BUCKET)).toContain(check.bucket);
+  }
+}
+
+function foldedOverall(report: ReportShape): OverallVerdict {
+  return foldOverallVerdict(report.checks.map((check) => check.bucket as VerdictBucket));
+}
+
+function expectExitCodeKeyedToFold(result: { readonly exitCode: number }, report: ReportShape): void {
+  expect(result.exitCode).toBe(overallExitCode(foldedOverall(report)));
+}
+
 describe("spx diagnose emits a schema-valid report and exits with the code keyed to the overall verdict", () => {
   it("runs the manifest's check, prints a conforming JSON report, and exits with the verdict's exit code", async () => {
     const manifestPath = await writeSpxReachabilityManifest();
@@ -59,15 +89,15 @@ describe("spx diagnose emits a schema-valid report and exits with the code keyed
     ]);
 
     const report = JSON.parse(result.stdout) as ReportShape;
-    expect(Object.values(OVERALL_VERDICT)).toContain(report.overall);
+    expectSchemaValidReport(report);
     expect(report.checks).toHaveLength(1);
     expect(report.checks[0].name).toBe(CHECK_NAME.SPX_REACHABILITY);
-    expect(Object.values(VERDICT_BUCKET)).toContain(report.checks[0].bucket);
-    expect(result.exitCode).toBe(overallExitCode(report.overall as OverallVerdict));
+    expect(report.overall).toBe(foldedOverall(report));
+    expectExitCodeKeyedToFold(result, report);
   });
 
   it("defaults to the text format and carries the same overall verdict and exit code as the JSON report", async () => {
-    const manifestPath = await writeSpxReachabilityManifest();
+    const { manifestPath, spxFloor } = await writeSpxReachabilityManifestFixture();
 
     const textRun = await runDiagnose([DIAGNOSE_CLI.MANIFEST_FLAG, manifestPath]);
     const jsonRun = await runDiagnose([
@@ -78,10 +108,13 @@ describe("spx diagnose emits a schema-valid report and exits with the code keyed
     ]);
 
     const report = JSON.parse(jsonRun.stdout) as ReportShape;
-    expect(textRun.stdout).toContain(CHECK_NAME.SPX_REACHABILITY);
-    expect(textRun.stdout).toContain(`${DIAGNOSE_TEXT_OVERALL_LABEL}: ${report.overall}`);
-    expect(textRun.exitCode).toBe(jsonRun.exitCode);
-    expect(textRun.exitCode).toBe(overallExitCode(report.overall as OverallVerdict));
+    const expectedOverall = foldedOverall(report);
+    expectSchemaValidReport(report);
+    expect(textRun.stdout).not.toContain(CHECK_NAME.SPX_REACHABILITY);
+    expect(textRun.stdout).toContain(spxFloor);
+    expect(textRun.stdout).toContain(`${DIAGNOSE_TEXT_OVERALL_LABEL}: ${expectedOverall}`);
+    expect(textRun.exitCode).toBe(overallExitCode(expectedOverall));
+    expectExitCodeKeyedToFold(jsonRun, report);
   });
 
   it("runs every registered check and exits with the code keyed to the folded overall verdict", async () => {
@@ -95,12 +128,10 @@ describe("spx diagnose emits a schema-valid report and exits with the code keyed
     ]);
 
     const report = JSON.parse(result.stdout) as ReportShape;
+    expectSchemaValidReport(report);
     expect(report.checks.map((check) => check.name)).toEqual(Object.values(CHECK_NAME));
-    for (const check of report.checks) {
-      expect(Object.values(VERDICT_BUCKET)).toContain(check.bucket);
-    }
-    expect(Object.values(OVERALL_VERDICT)).toContain(report.overall);
-    expect(result.exitCode).toBe(overallExitCode(report.overall as OverallVerdict));
+    expect(report.overall).toBe(foldedOverall(report));
+    expectExitCodeKeyedToFold(result, report);
   });
 
   it("rejects an unsupported --format value with a non-zero exit", async () => {
@@ -147,13 +178,19 @@ describe("spx diagnose emits a schema-valid report and exits with the code keyed
       // spx-reachability perform a floor comparison — so its verdict is never the no-floor `present`
       // that bare mode yields. Both signals prove the config diagnose section was resolved, without
       // assuming whether spx happens to be on PATH in the test environment.
-      const config = ["diagnose:", "  spxFloor: \"0.0.0\"", `  checks: ["${CHECK_NAME.SPX_REACHABILITY}"]`].join("\n");
+      const expectedFloor = "0.0.0";
+      const config = ["diagnose:", `  spxFloor: "${expectedFloor}"`, `  checks: ["${CHECK_NAME.SPX_REACHABILITY}"]`]
+        .join("\n");
       await writeFile(join(cwd, DEFAULT_CONFIG_FILENAME), `${config}\n`);
 
       const result = await runDiagnose([DIAGNOSE_CLI.FORMAT_FLAG, DIAGNOSE_FORMAT.JSON], { cwd });
 
       const report = JSON.parse(result.stdout) as ReportShape;
+      expectSchemaValidReport(report);
       expect(report.checks.map((check) => check.name)).toEqual([CHECK_NAME.SPX_REACHABILITY]);
+      expect(report.checks[0].readings.floor).toBe(expectedFloor);
+      expect(report.overall).toBe(foldedOverall(report));
+      expectExitCodeKeyedToFold(result, report);
       expect(report.checks[0].verdict).not.toBe(SPX_REACHABILITY_VERDICT.PRESENT);
     });
   });
@@ -174,7 +211,10 @@ describe("spx diagnose emits a schema-valid report and exits with the code keyed
       ], { cwd });
 
       const report = JSON.parse(result.stdout) as ReportShape;
+      expectSchemaValidReport(report);
       expect(report.checks.map((check) => check.name)).toEqual([CHECK_NAME.SPX_REACHABILITY]);
+      expect(report.overall).toBe(foldedOverall(report));
+      expectExitCodeKeyedToFold(result, report);
     });
   });
 
@@ -183,9 +223,15 @@ describe("spx diagnose emits a schema-valid report and exits with the code keyed
       const result = await runDiagnose([DIAGNOSE_CLI.FORMAT_FLAG, DIAGNOSE_FORMAT.JSON], { cwd });
 
       const report = JSON.parse(result.stdout) as ReportShape;
+      const textRun = await runDiagnose([], { cwd });
+      const marketplaceRecord = report.checks.find((check) => check.name === CHECK_NAME.MARKETPLACE_INSTALL);
+      expectSchemaValidReport(report);
       expect(new Set(report.checks.map((check) => check.name))).toEqual(new Set(Object.values(CHECK_NAME)));
-      expect(Object.values(OVERALL_VERDICT)).toContain(report.overall);
-      expect(result.exitCode).toBe(overallExitCode(report.overall as OverallVerdict));
+      expect(marketplaceRecord?.verdict).toBe(MARKETPLACE_INSTALL_VERDICT.NOT_APPLICABLE);
+      expect(report.overall).toBe(foldedOverall(report));
+      expect(textRun.stdout).toContain(`${DIAGNOSE_TEXT_OVERALL_LABEL}: ${foldedOverall(report)}`);
+      expectExitCodeKeyedToFold(result, report);
+      expect(textRun.exitCode).toBe(result.exitCode);
     });
   });
 
