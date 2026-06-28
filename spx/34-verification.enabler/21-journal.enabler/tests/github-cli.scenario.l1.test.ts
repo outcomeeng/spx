@@ -101,6 +101,25 @@ describe("journal CLI github-pr backend", () => {
     });
   });
 
+  it("rejects a github-pr open when the pull-request number is unresolvable", async () => {
+    const type = sampleStateStoreTestValue(STATE_STORE_TEST_GENERATOR.scopeToken());
+
+    // github-pr is selected, but GITHUB_REF carries no pull-request ref, so the run cannot
+    // be addressed on a pull request — open rejects rather than opening a run that can
+    // neither hydrate prior runs nor be durably retained.
+    const deps: JournalCliDeps = {
+      cwd: "/workspace",
+      git: failingGitDependencies(),
+      env: { backendOverride: JOURNAL_BACKEND.GITHUB_PR, continuousIntegration: true, githubPullRequest: true },
+      processEnv: {},
+      fs: createInMemoryStateStoreFileSystem(),
+    };
+
+    const opened = await journalOpenCommand({ type }, deps);
+    expect(opened.exitCode).toBe(JOURNAL_CLI_EXIT_CODE.ERROR);
+    expect(opened.output).toBe(JOURNAL_CLI_ERROR.PULL_REQUEST_UNRESOLVED);
+  });
+
   it("hydrates the pull request's prior runs and reports the run's artifact name on open", async () => {
     const type = sampleStateStoreTestValue(STATE_STORE_TEST_GENERATOR.scopeToken());
     const pullNumber = sampleGithubSnapshotValue(arbitraryPullNumber());
