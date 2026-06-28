@@ -51,23 +51,25 @@ describe("agent resume recency and display compliance", () => {
     }
     const oldSessionId = sampleAgentResumeValue(arbitraryAgentSessionId(), candidateCount);
     const futureSessionId = sampleAgentResumeValue(arbitraryAgentSessionId(), candidateCount + 1);
+    const oldSessionPath = join(
+      homeDir,
+      AGENT_SESSION_STORE.CLAUDE_DIR,
+      AGENT_SESSION_STORE.CLAUDE_PROJECTS_DIR,
+      `${oldSessionId}${AGENT_SESSION_STORE.JSONL_EXTENSION}`,
+    );
+    const futureSessionPath = join(
+      homeDir,
+      AGENT_SESSION_STORE.CLAUDE_DIR,
+      AGENT_SESSION_STORE.CLAUDE_PROJECTS_DIR,
+      `${futureSessionId}${AGENT_SESSION_STORE.JSONL_EXTENSION}`,
+    );
     fs.writeFile(
-      join(
-        homeDir,
-        AGENT_SESSION_STORE.CLAUDE_DIR,
-        AGENT_SESSION_STORE.CLAUDE_PROJECTS_DIR,
-        `${oldSessionId}${AGENT_SESSION_STORE.JSONL_EXTENSION}`,
-      ),
+      oldSessionPath,
       claudeCodeTranscript({ sessionId: oldSessionId, cwd, timestamp: sessionTimestamp }),
       nowMs - oldSessionOffsetMs,
     );
     fs.writeFile(
-      join(
-        homeDir,
-        AGENT_SESSION_STORE.CLAUDE_DIR,
-        AGENT_SESSION_STORE.CLAUDE_PROJECTS_DIR,
-        `${futureSessionId}${AGENT_SESSION_STORE.JSONL_EXTENSION}`,
-      ),
+      futureSessionPath,
       claudeCodeTranscript({ sessionId: futureSessionId, cwd, timestamp: sessionTimestamp }),
       nowMs + AGENT_RESUME_LIMITS.MILLISECONDS_PER_SECOND,
     );
@@ -87,6 +89,8 @@ describe("agent resume recency and display compliance", () => {
     );
     expect(candidates.map((candidate) => candidate.sessionId)).not.toContain(oldSessionId);
     expect(candidates.map((candidate) => candidate.sessionId)).not.toContain(futureSessionId);
+    expect(fs.readCount(oldSessionPath)).toBe(0);
+    expect(fs.readCount(futureSessionPath)).toBe(0);
   });
 });
 

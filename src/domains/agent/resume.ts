@@ -107,15 +107,15 @@ export async function discoverAgentResumeCandidates(
   }
 
   const drafts = [
-    ...(await discoverStoreCandidates(
-      AGENT_SESSION_KIND.CODEX,
+    ...(await discoverCodexResumeCandidates(
       codexSessionStoreDir(options.homeDir),
       options.fs,
+      options.nowMs,
     )),
-    ...(await discoverStoreCandidates(
-      AGENT_SESSION_KIND.CLAUDE_CODE,
+    ...(await discoverClaudeCodeResumeCandidates(
       claudeCodeSessionStoreDir(options.homeDir),
       options.fs,
+      options.nowMs,
     )),
   ];
 
@@ -168,22 +168,40 @@ export function renderAgentResumeJson(candidates: readonly AgentResumeCandidate[
   return JSON.stringify(candidates, null, 2);
 }
 
-async function discoverStoreCandidates(
-  agent: AgentSessionKind,
+async function discoverCodexResumeCandidates(
   root: string,
   fs: AgentSessionFileSystem,
+  nowMs: number,
+): Promise<CandidateDraft[]> {
+  return discoverStoreCandidates(root, fs, nowMs, parseCodexCandidateFile);
+}
+
+async function discoverClaudeCodeResumeCandidates(
+  root: string,
+  fs: AgentSessionFileSystem,
+  nowMs: number,
+): Promise<CandidateDraft[]> {
+  return discoverStoreCandidates(root, fs, nowMs, parseClaudeCodeCandidateFile);
+}
+
+async function discoverStoreCandidates(
+  root: string,
+  fs: AgentSessionFileSystem,
+  nowMs: number,
+  parseCandidate: (sourcePath: string, content: string, modifiedAtMs: number) => CandidateDraft | null,
 ): Promise<CandidateDraft[]> {
   const files = await collectJsonlFiles(root, fs);
   const candidates: CandidateDraft[] = [];
   for (const file of files) {
-    const [content, stat] = await Promise.all([
-      fs.readFile(file).catch(() => null),
-      fs.stat(file).catch(() => null),
-    ]);
-    if (content === null || stat === null) {
+    const stat = await fs.stat(file).catch(() => null);
+    if (stat === null || !isRecentAgentSessionMtime(stat.mtimeMs, nowMs)) {
       continue;
     }
-    const candidate = parseCandidateFile(agent, file, content, stat.mtimeMs);
+    const content = await fs.readFile(file).catch(() => null);
+    if (content === null) {
+      continue;
+    }
+    const candidate = parseCandidate(file, content, stat.mtimeMs);
     if (candidate !== null) {
       candidates.push(candidate);
     }
@@ -205,8 +223,52 @@ async function collectJsonlFiles(root: string, fs: AgentSessionFileSystem): Prom
   return files;
 }
 
-function parseCandidateFile(
-  agent: AgentSessionKind,
+function isRecentAgentSessionMtime(modifiedAtMs: number, nowMs: number): boolean {
+  return modifiedAtMs <= nowMs && nowMs - modifiedAtMs <= AGENT_RESUME_RECENT_WINDOW_MS;
+}
+
+function parseCodexCandidateFile(
+  sourcePath: string,
+  content: string,
+  modifiedAtMs: number,
+): CandidateDraft | null {
+  let sessionId: string | null = null;
+  let cwd: string | null = null;
+  let updatedAt: string | null = null;
+
+  for (const line of content.split("\n")) {
+    const row = parseJsonObject(line);
+    if (row === null) {
+      continue;
+    }
+    sessionId ??= firstString(row, [
+      [AGENT_SESSION_JSON_FIELDS.SESSION_ID],
+      [AGENT_SESSION_JSON_FIELDS.ID],
+      [AGENT_SESSION_JSON_FIELDS.PAYLOAD, AGENT_SESSION_JSON_FIELDS.SESSION_ID],
+      [AGENT_SESSION_JSON_FIELDS.PAYLOAD, AGENT_SESSION_JSON_FIELDS.ID],
+    ]);
+    cwd ??= firstString(row, [
+      [AGENT_SESSION_JSON_FIELDS.CWD],
+      [AGENT_SESSION_JSON_FIELDS.PAYLOAD, AGENT_SESSION_JSON_FIELDS.CWD],
+    ]);
+    updatedAt = maxIsoTimestamp(updatedAt, firstString(row, [[AGENT_SESSION_JSON_FIELDS.TIMESTAMP]]));
+  }
+
+  if (sessionId === null || cwd === null) {
+    return null;
+  }
+  return {
+    agent: AGENT_SESSION_KIND.CODEX,
+    sessionId,
+    cwd,
+    sourcePath,
+    modifiedAtMs,
+    updatedAt,
+    branch: null,
+  };
+}
+
+function parseClaudeCodeCandidateFile(
   sourcePath: string,
   content: string,
   modifiedAtMs: number,
@@ -222,12 +284,10 @@ function parseCandidateFile(
       continue;
     }
     sessionId ??= firstString(row, [
-      [AGENT_SESSION_JSON_FIELDS.SESSION_ID],
       [AGENT_SESSION_JSON_FIELDS.SESSION_ID_CAMEL],
-      [AGENT_SESSION_JSON_FIELDS.ID],
-      [AGENT_SESSION_JSON_FIELDS.PAYLOAD, AGENT_SESSION_JSON_FIELDS.SESSION_ID],
+      [AGENT_SESSION_JSON_FIELDS.SESSION_ID],
       [AGENT_SESSION_JSON_FIELDS.PAYLOAD, AGENT_SESSION_JSON_FIELDS.SESSION_ID_CAMEL],
-      [AGENT_SESSION_JSON_FIELDS.PAYLOAD, AGENT_SESSION_JSON_FIELDS.ID],
+      [AGENT_SESSION_JSON_FIELDS.PAYLOAD, AGENT_SESSION_JSON_FIELDS.SESSION_ID],
     ]);
     cwd ??= firstString(row, [
       [AGENT_SESSION_JSON_FIELDS.CWD],
@@ -240,7 +300,15 @@ function parseCandidateFile(
   if (sessionId === null || cwd === null) {
     return null;
   }
-  return { agent, sessionId, cwd, sourcePath, modifiedAtMs, updatedAt, branch };
+  return {
+    agent: AGENT_SESSION_KIND.CLAUDE_CODE,
+    sessionId,
+    cwd,
+    sourcePath,
+    modifiedAtMs,
+    updatedAt,
+    branch,
+  };
 }
 
 function parseJsonObject(line: string): Record<string, unknown> | null {
