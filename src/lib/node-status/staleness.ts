@@ -4,6 +4,7 @@ import { dirname, extname, join as joinProductPath, normalize } from "node:path/
 import ts from "typescript";
 
 import { defaultGitDependencies, GIT_ROOT_COMMAND, type GitDependencies } from "@/git/root";
+import { IGNORE_SOURCE_FILENAME_DEFAULT } from "@/lib/file-inclusion/ignore-source";
 import {
   SPEC_TREE_ENTRY_TYPE,
   type SpecTreeEvidenceSourceEntry,
@@ -56,6 +57,7 @@ const SCRIPTS_ROOT = "scripts";
 const SCRIPTS_ROOT_PREFIX = `${SCRIPTS_ROOT}/`;
 const ESLINT_RULES_ROOT = "eslint-rules";
 const ESLINT_RULES_ROOT_PREFIX = `${ESLINT_RULES_ROOT}/`;
+const IGNORE_SOURCE_PATH = `${SPEC_TREE_CONFIG.ROOT_DIRECTORY}/${IGNORE_SOURCE_FILENAME_DEFAULT}`;
 const RELATIVE_IMPORT_PREFIX = ".";
 const EMPTY_STDOUT = "";
 const NODE_FILE_ERROR_CODE = {
@@ -139,6 +141,7 @@ interface StatusDependencyPathOptions {
 
 async function statusDependencyPaths(options: StatusDependencyPathOptions): Promise<ReadonlySet<string>> {
   const paths = new Set<string>();
+  paths.add(IGNORE_SOURCE_PATH);
   if (options.node.ref?.path !== undefined) {
     paths.add(options.node.ref.path);
   }

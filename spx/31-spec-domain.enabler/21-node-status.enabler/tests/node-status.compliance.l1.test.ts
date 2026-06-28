@@ -3,6 +3,7 @@ import { join } from "node:path";
 
 import { describe, expect, it } from "vitest";
 
+import { IGNORE_SOURCE_FILENAME_DEFAULT } from "@/lib/file-inclusion/ignore-source";
 import {
   createNodeStatusFile,
   createNodeStatusProvider,
@@ -224,6 +225,32 @@ describe("node-status read-time staleness", () => {
 
       await env.writeRaw(NODE_STATUS_TEST_SUPPORT_FIXTURE.PATH, NODE_STATUS_TEST_SUPPORT_FIXTURE.UPDATED_CONTENT);
       await commitNodeStatusProductPath(env.productDir, NODE_STATUS_TEST_SUPPORT_FIXTURE.PATH);
+
+      const snapshot = await readSpecTree({
+        source: createFilesystemSpecTreeSource({ productDir: env.productDir }),
+        evidence: createNodeStatusProvider(env.productDir),
+      });
+      const staleNodeIds = await resolveStaleNodeIds({ productDir: env.productDir, snapshot });
+
+      expect(staleNodeIds.has(recordedNode.nodeId)).toBe(true);
+    });
+  });
+
+  it("ALWAYS: includes the spec-tree ignore source in the read-time staleness graph", async () => {
+    const fixture = sampleNodeStatusValue(NODE_STATUS_TEST_GENERATOR.delegationTree());
+
+    await withClassificationTree(fixture, async ({ env, expectations, resolveOutcome }) => {
+      const recordedNode = requireNodeStatusRecordedExpectation(expectations);
+      const ignoreSourcePath = `${SPEC_TREE_CONFIG.ROOT_DIRECTORY}/${IGNORE_SOURCE_FILENAME_DEFAULT}`;
+
+      await initializeNodeStatusGitHistory(env.productDir);
+      await commitNodeStatusProductPath(env.productDir, SPEC_TREE_CONFIG.ROOT_DIRECTORY);
+
+      await updateNodeStatus({ productDir: env.productDir, resolveOutcome });
+      await commitNodeStatusProductPath(env.productDir, SPEC_TREE_CONFIG.ROOT_DIRECTORY);
+
+      await env.writeRaw(ignoreSourcePath, `${recordedNode.nodeId}\n`);
+      await commitNodeStatusProductPath(env.productDir, ignoreSourcePath);
 
       const snapshot = await readSpecTree({
         source: createFilesystemSpecTreeSource({ productDir: env.productDir }),
