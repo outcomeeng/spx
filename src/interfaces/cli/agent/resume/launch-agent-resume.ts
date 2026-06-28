@@ -1,20 +1,9 @@
-/**
- * Hands the terminal to an agent resume command from the recorded session cwd.
- *
- * @module interfaces/cli/agent/resume/launch-agent-resume
- */
-
 import type { AgentResumeLaunchCommand } from "@/domains/agent";
 import type { ProcessRunner, SignalSuspender } from "@/lib/process-lifecycle";
 
 /** Status the descriptor exits with when the agent never reports its own. */
 const LAUNCH_FAILURE_STATUS = 1;
 
-/**
- * Suspends the parent's foreground-signal handling, spawns `command` with
- * inherited stdio from the session cwd through `runner`, and resolves with the
- * child's exit code after restoring the parent's signal handling.
- */
 export function launchAgentResume(
   runner: ProcessRunner,
   suspender: SignalSuspender,
