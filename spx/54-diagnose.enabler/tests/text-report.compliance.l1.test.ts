@@ -2,10 +2,16 @@ import { Chalk } from "chalk";
 import fc from "fast-check";
 import { describe, expect, it } from "vitest";
 
-import { classifyMarketplaceInstall } from "@/domains/diagnose/checks/marketplace-install";
-import { classifySessionEnvironment } from "@/domains/diagnose/checks/session-environment";
+import {
+  classifyMarketplaceInstall,
+  type MarketplaceInstallReading,
+} from "@/domains/diagnose/checks/marketplace-install";
+import {
+  classifySessionEnvironment,
+  type SessionEnvironmentReading,
+} from "@/domains/diagnose/checks/session-environment";
 import { classifySessionStore } from "@/domains/diagnose/checks/session-store";
-import { classifySpxReachability } from "@/domains/diagnose/checks/spx-reachability";
+import { classifySpxReachability, type SpxReachabilityReading } from "@/domains/diagnose/checks/spx-reachability";
 import { classifyWorktreePool } from "@/domains/diagnose/checks/worktree-pool";
 import {
   BUCKET_SEVERITY,
@@ -17,9 +23,22 @@ import {
   renderReportJson,
   renderReportText,
 } from "@/domains/diagnose/report";
-import { CHECK_RECORD_FIELDS, type DiagnoseReport, OVERALL_VERDICT } from "@/domains/diagnose/types";
+import {
+  CHECK_RECORD_FIELDS,
+  type CheckRecord,
+  type DiagnoseReport,
+  OVERALL_VERDICT,
+  type OverallVerdict,
+  VERDICT_BUCKET,
+  type VerdictBucket,
+} from "@/domains/diagnose/types";
 import { SEVERITY_STYLE } from "@/lib/styled-output/styled-output";
 import { arbitraryReport } from "@testing/generators/diagnose/report";
+
+interface TranslationBranchCase {
+  readonly check: CheckRecord;
+  readonly header: string;
+}
 
 const sampleReport: DiagnoseReport = {
   checks: [
@@ -33,16 +52,151 @@ const sampleReport: DiagnoseReport = {
 };
 
 const fieldDelimiter = String.fromCodePoint(58);
+const reusableSpxReading: SpxReachabilityReading = { errored: false, resolvedPath: "/bin/spx", version: "0.6.8" };
+const newerSpxFloor = "0.6.0";
+const futureSpxFloor = "0.7.0";
+const workingSessionReading: SessionEnvironmentReading = {
+  errored: false,
+  hookPresent: true,
+  sessionIdentity: true,
+  worktreeClaimed: true,
+};
+const configuredMarketplaceReading: MarketplaceInstallReading = {
+  errored: false,
+  surfacePresent: true,
+  unregistered: false,
+  drifted: false,
+};
 const spxRecord = sampleReport.checks[0];
 const sessionEnvironmentRecord = sampleReport.checks[1];
 const worktreePoolRecord = sampleReport.checks[2];
 const sessionStoreRecord = sampleReport.checks[3];
 const marketplaceRecord = sampleReport.checks[4];
 const hiddenMarketplaceReadingKey = Object.keys(marketplaceRecord.readings)[0];
-const rawSessionEnvironmentReadingLines = Object.entries(sessionEnvironmentRecord.readings).map(
-  ([key, value]) => `${key}${fieldDelimiter} ${value}`,
+const sessionEnvironmentReadings: Readonly<Record<string, string>> = sessionEnvironmentRecord.readings;
+const rawSessionEnvironmentReadingLines = Object.keys(sessionEnvironmentReadings).map((key) =>
+  `${key}${fieldDelimiter} ${sessionEnvironmentReadings[key] ?? ""}`
 );
 const machineRemediationFieldName = CHECK_RECORD_FIELDS.find((field) => spxRecord[field] === spxRecord.remediation);
+
+function overallForBucket(bucket: VerdictBucket): OverallVerdict {
+  switch (bucket) {
+    case VERDICT_BUCKET.BROKEN:
+      return OVERALL_VERDICT.BROKEN;
+    case VERDICT_BUCKET.UNKNOWN:
+      return OVERALL_VERDICT.UNKNOWN;
+    case VERDICT_BUCKET.DEGRADED:
+      return OVERALL_VERDICT.DEGRADED;
+    case VERDICT_BUCKET.HEALTHY:
+    case VERDICT_BUCKET.NOT_APPLICABLE:
+      return OVERALL_VERDICT.HEALTHY;
+  }
+}
+
+function sectionHeaderLine(check: CheckRecord, header: string): string {
+  const { glyph } = SEVERITY_STYLE[BUCKET_SEVERITY[check.bucket]];
+  return `${glyph} ${header}`;
+}
+
+function renderSingleCheckText(check: CheckRecord): string {
+  return renderReportText({ checks: [check], overall: overallForBucket(check.bucket) }, { color: false });
+}
+
+const supportedTranslationBranches: readonly TranslationBranchCase[] = [
+  {
+    check: classifySpxReachability(reusableSpxReading, newerSpxFloor),
+    header: DIAGNOSE_TEXT_HEADER.SPX_INSTALLED,
+  },
+  {
+    check: classifySpxReachability(reusableSpxReading, undefined),
+    header: DIAGNOSE_TEXT_HEADER.SPX_INSTALLED,
+  },
+  {
+    check: classifySpxReachability(reusableSpxReading, futureSpxFloor),
+    header: DIAGNOSE_TEXT_HEADER.SPX_BELOW_FLOOR,
+  },
+  {
+    check: classifySpxReachability({ ...reusableSpxReading, resolvedPath: null }, newerSpxFloor),
+    header: DIAGNOSE_TEXT_HEADER.SPX_UNREACHABLE,
+  },
+  {
+    check: classifySpxReachability({ ...reusableSpxReading, errored: true }, newerSpxFloor),
+    header: DIAGNOSE_TEXT_HEADER.SPX_UNKNOWN,
+  },
+  {
+    check: classifySessionEnvironment(workingSessionReading),
+    header: DIAGNOSE_TEXT_HEADER.AGENT_SESSION_ACTIVE,
+  },
+  {
+    check: classifySessionEnvironment({ ...workingSessionReading, worktreeClaimed: false }),
+    header: DIAGNOSE_TEXT_HEADER.AGENT_SESSION_UNLINKED,
+  },
+  {
+    check: classifySessionEnvironment({
+      ...workingSessionReading,
+      sessionIdentity: false,
+      worktreeClaimed: false,
+    }),
+    header: DIAGNOSE_TEXT_HEADER.SESSION_START_NO_OP,
+  },
+  {
+    check: classifySessionEnvironment({
+      ...workingSessionReading,
+      hookPresent: false,
+      sessionIdentity: false,
+      worktreeClaimed: false,
+    }),
+    header: DIAGNOSE_TEXT_HEADER.AGENT_SESSION_HOOK_SKIPPED,
+  },
+  {
+    check: classifySessionEnvironment({ ...workingSessionReading, hookPresent: false, sessionIdentity: false }),
+    header: DIAGNOSE_TEXT_HEADER.AGENT_SESSION_UNKNOWN,
+  },
+  {
+    check: classifyWorktreePool({ errored: false, bareRepository: true, linkedWorktrees: false, running: 1, free: 8 }),
+    header: DIAGNOSE_TEXT_HEADER.WORKTREE_POOL_VALID,
+  },
+  {
+    check: classifyWorktreePool({ errored: false, bareRepository: false, linkedWorktrees: true, running: 1, free: 8 }),
+    header: DIAGNOSE_TEXT_HEADER.WORKTREE_POOL_INVALID,
+  },
+  {
+    check: classifyWorktreePool({ errored: true, bareRepository: true, linkedWorktrees: false, running: 1, free: 8 }),
+    header: DIAGNOSE_TEXT_HEADER.WORKTREE_POOL_UNKNOWN,
+  },
+  {
+    check: classifySessionStore({ errored: false, orphanedClaims: 0 }),
+    header: DIAGNOSE_TEXT_HEADER.SESSION_STORE_CLEAN,
+  },
+  {
+    check: classifySessionStore({ errored: false, orphanedClaims: 11 }),
+    header: DIAGNOSE_TEXT_HEADER.STALE_DOING_SESSIONS,
+  },
+  {
+    check: classifySessionStore({ errored: true, orphanedClaims: 0 }),
+    header: DIAGNOSE_TEXT_HEADER.SESSION_STORE_UNKNOWN,
+  },
+  {
+    check: classifyMarketplaceInstall(configuredMarketplaceReading),
+    header: DIAGNOSE_TEXT_HEADER.MARKETPLACE_CONFIGURED,
+  },
+  {
+    check: classifyMarketplaceInstall({ ...configuredMarketplaceReading, drifted: true }),
+    header: DIAGNOSE_TEXT_HEADER.MARKETPLACE_DRIFT,
+  },
+  {
+    check: classifyMarketplaceInstall({ ...configuredMarketplaceReading, unregistered: true }),
+    header: DIAGNOSE_TEXT_HEADER.MARKETPLACE_UNREGISTERED,
+  },
+  {
+    check: classifyMarketplaceInstall({ ...configuredMarketplaceReading, surfacePresent: false }),
+    header: DIAGNOSE_TEXT_HEADER.MARKETPLACE_CHECKS_SKIPPED,
+  },
+  {
+    check: classifyMarketplaceInstall({ ...configuredMarketplaceReading, errored: true }),
+    header: DIAGNOSE_TEXT_HEADER.MARKETPLACE_UNKNOWN,
+  },
+];
 
 describe("the text report translates check records into a human diagnosis", () => {
   it("states the conclusion, active problem, useful healthy facts, and concrete next action", () => {
@@ -92,6 +246,14 @@ describe("the text report translates check records into a human diagnosis", () =
     expect(text).not.toContain(fallbackRecord.verdict);
     expect(text).not.toContain(fallbackRecord.remediation);
   });
+
+  it("translates every supported check verdict branch into its diagnosis heading", () => {
+    for (const branch of supportedTranslationBranches) {
+      const text = renderSingleCheckText(branch.check);
+
+      expect(text.split("\n")).toContain(sectionHeaderLine(branch.check, branch.header));
+    }
+  });
 });
 
 describe("the JSON report remains the complete machine schema", () => {
@@ -103,15 +265,19 @@ describe("the JSON report remains the complete machine schema", () => {
 });
 
 describe("the text report renders through the styled-output primitive", () => {
-  it("prefixes each per-check line with the status glyph keyed by the check's bucket", () => {
+  it("prefixes each per-check heading line with the status glyph keyed by the check's bucket", () => {
     fc.assert(
       fc.property(arbitraryReport(), (report) => {
         const text = renderReportText(report, { color: false });
+        const headingLines = text.split("\n").filter((line) => {
+          return !line.startsWith("  ") && !line.startsWith(DIAGNOSE_TEXT_OVERALL_LABEL);
+        });
 
-        for (const check of report.checks) {
+        expect(headingLines).toHaveLength(report.checks.length);
+        report.checks.forEach((check, index) => {
           const { glyph } = SEVERITY_STYLE[BUCKET_SEVERITY[check.bucket]];
-          expect(text).toContain(`${glyph} `);
-        }
+          expect(headingLines[index]?.startsWith(`${glyph} `)).toBe(true);
+        });
       }),
     );
   });
