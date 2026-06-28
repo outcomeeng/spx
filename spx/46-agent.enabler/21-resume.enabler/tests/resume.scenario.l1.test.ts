@@ -16,6 +16,7 @@ import {
   arbitraryAgentWorktreeRoot,
   sampleAgentResumeValue,
 } from "@testing/generators/agent/resume";
+import { renderAgentResumePickerView } from "@testing/harnesses/agent/picker";
 import {
   agentResumeCandidate,
   claudeCodeTranscript,
@@ -149,5 +150,54 @@ describe("agent resume discovery scenarios", () => {
 
     expect(launched).toEqual([chosen]);
     expect(exitCodes).toEqual([launchExitCode]);
+  });
+
+  it("drives the agent resume picker component through Ink key input", async () => {
+    const first = agentResumeCandidate({ sessionId: sampleAgentResumeValue(arbitraryAgentSessionId(), 14) });
+    const second = agentResumeCandidate({ sessionId: sampleAgentResumeValue(arbitraryAgentSessionId(), 15) });
+    const chosen: AgentResumeCandidate[] = [];
+    const view = renderAgentResumePickerView({
+      candidates: [first, second],
+      onChoose: (candidate) => {
+        chosen.push(candidate);
+      },
+    });
+
+    expect(view.rowLinesFor(first.sessionId)).toHaveLength(1);
+    expect(view.rowLinesFor(second.sessionId)).toHaveLength(1);
+
+    await view.arrowDown();
+    await view.enter();
+    view.unmount();
+
+    expect(chosen).toEqual([second]);
+  });
+
+  it("quits the agent resume picker component through q and Escape key input", async () => {
+    const candidates = [agentResumeCandidate({ sessionId: sampleAgentResumeValue(arbitraryAgentSessionId(), 16) })];
+    const quitActions: readonly ((view: ReturnType<typeof renderAgentResumePickerView>) => Promise<void>)[] = [
+      (view) => view.quitWithQ(),
+      (view) => view.escape(),
+    ];
+
+    for (const quitAction of quitActions) {
+      let chose = false;
+      let quit = false;
+      const view = renderAgentResumePickerView({
+        candidates,
+        onChoose: () => {
+          chose = true;
+        },
+        onQuit: () => {
+          quit = true;
+        },
+      });
+
+      await quitAction(view);
+      view.unmount();
+
+      expect(quit).toBe(true);
+      expect(chose).toBe(false);
+    }
   });
 });
