@@ -1,6 +1,6 @@
 # Diagnose
 
-PROVIDES the `spx diagnose` command — a deterministic environment-diagnostics pipeline that gathers each check's readings, classifies them against fixed verdict tables, folds the per-check verdicts into one overall verdict, and emits a per-check and overall report in text or JSON with a process exit code keyed to that verdict, resolving the facts each check judges against from `spx.config` and per-check defaults, or from an explicit `--manifest` that fully instruments the diagnosis, per `spx/54-diagnose.enabler/11-invocation-modes.pdr.md`
+PROVIDES the `spx diagnose` command — a deterministic environment-diagnostics pipeline that includes each resolved domain diagnosis, folds the per-domain verdicts into one overall verdict, and emits a per-domain and overall report in text or JSON with a process exit code keyed to that verdict, resolving the facts each domain diagnosis judges against from `spx.config` and per-domain defaults, or from an explicit `--manifest` that fully instruments the diagnosis, per `spx/54-diagnose.enabler/11-invocation-modes.pdr.md` and `spx/54-diagnose.enabler/31-composable-diagnostics.pdr.md`
 SO THAT a spec-tree product and the agents working it, consuming spx as a trusted third party
 CAN deterministically self-diagnose a misconfigured environment by running `spx diagnose` with no arguments, without re-deriving the classification on every invocation
 
@@ -16,7 +16,7 @@ CAN deterministically self-diagnose a misconfigured environment by running `spx 
 
 - The overall verdict folds the per-check verdicts by the precedence broken > unknown > degraded > healthy, excluding not-applicable, and is healthy when every check is not-applicable ([test](tests/fold.mapping.l1.test.ts))
 - The process exit code maps the overall verdict — healthy to 0, degraded to 1, unknown to 2, broken to 3 ([test](tests/exit-code.mapping.l1.test.ts))
-- The pipeline runs exactly the resolved check set, in the order the resolved facts supply it ([test](tests/check-selection.mapping.l1.test.ts))
+- The pipeline runs exactly the resolved domain diagnosis set, in the order the resolved facts supply it ([test](tests/check-selection.mapping.l1.test.ts))
 
 ### Conformance
 
@@ -30,5 +30,6 @@ CAN deterministically self-diagnose a misconfigured environment by running `spx 
 ### Compliance
 
 - ALWAYS: the JSON report carries the complete per-check schema for machines, while the text report translates the same check records into a human diagnosis: a conclusion, the active problems, the useful healthy facts, and concrete next actions without raw boolean fields or duplicated verdict/bucket labels ([test](tests/text-report.compliance.l1.test.ts))
+- ALWAYS: a focused domain diagnose command reports the same conclusion and next action that `spx diagnose` includes for that domain under the same inputs, per `spx/54-diagnose.enabler/31-composable-diagnostics.pdr.md` ([audit])
 - ALWAYS: the text report renders through the `spx/13-cli.enabler/21-styled-output.enabler` primitive — each diagnosis line carries the status glyph keyed by the check's bucket and the diagnosis line is colored by the overall verdict's severity ([test](tests/text-report.compliance.l1.test.ts))
 - ALWAYS: user-supplied bytes a diagnose error echoes — the manifest path and the manifest-named checks — are sanitized before the diagnostic echo, per `spx/13-cli.enabler/cli.md` ([test](tests/error-sanitization.compliance.l2.test.ts))
