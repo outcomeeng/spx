@@ -20,6 +20,7 @@ import {
   shouldRunTests,
   stagedFilesFromGitOutput,
 } from "@/lib/precommit/run";
+import { VITEST_ARGS } from "@/lib/precommit/vitest-args";
 import { compareAsciiStrings } from "@/lib/state-store";
 import { PRECOMMIT_TEST_GENERATOR, samplePrecommitTestValue } from "@testing/generators/precommit/precommit";
 
@@ -190,5 +191,29 @@ describe("runPrecommitTests compliance", () => {
 
       expect(spxTestArgs).toEqual(PRECOMMIT_SPX_TEST_ARGS);
     }
+  });
+
+  it("routes non-default precommit config through the operand runner", async () => {
+    const customConfig = samplePrecommitTestValue(PRECOMMIT_TEST_GENERATOR.config());
+    const customSource = samplePrecommitTestValue(PRECOMMIT_TEST_GENERATOR.sourcePath(customConfig));
+    let spxTestCalled = false;
+    let vitestArgs: string[] = [];
+    const deps: PrecommitDeps = {
+      getStagedFiles: async () => [customSource],
+      runSpxTest: async () => {
+        spxTestCalled = true;
+        return { exitCode: PRECOMMIT_RUN.EXIT_CODES.SUCCESS, output: "" };
+      },
+      runVitest: async (args) => {
+        vitestArgs = args;
+        return { exitCode: PRECOMMIT_RUN.EXIT_CODES.SUCCESS, output: "" };
+      },
+      log: () => {},
+    };
+
+    await runPrecommitTests(deps, customConfig);
+
+    expect(spxTestCalled).toBe(false);
+    expect(vitestArgs).toEqual([VITEST_ARGS.RELATED, VITEST_ARGS.RUN, customSource]);
   });
 });
