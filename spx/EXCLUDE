@@ -1,6 +1,7 @@
 # Nodes excluded from the quality gate.
 # Specs exist; tests or implementation do not yet.
-# spx test passing skips these nodes.
+# spx test passing skips these exact nodes.
+# Descendant nodes require their own entry.
 # Linting still runs — style is checked regardless.
 #
 # Remove entries when implementation begins.
