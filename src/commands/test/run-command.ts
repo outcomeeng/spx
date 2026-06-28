@@ -4,7 +4,6 @@ import { digestDescriptorSection } from "@/config/descriptor-digest";
 import {
   CONFIG_FILE_DEFINITIONS,
   CONFIG_FILE_FORMAT_ORDER,
-  CONFIG_FILENAMES,
   type ConfigFile,
   type ConfigFileReadResult,
   resolveConfig,
@@ -62,7 +61,6 @@ const PRODUCT_INPUT_FIELDS = {
   PRESENT: "present",
   CONTENT: "content",
 } as const;
-const STAGED_CONFIG_FILENAMES = new Set<string>(Object.values(CONFIG_FILENAMES));
 export const CHANGED_TEST_RELATED_DEPS_ERROR = "spx test --changed requires related-test dependencies";
 
 /** Shared command dependencies; filesystem, clock, and git default to real access. */
@@ -132,10 +130,6 @@ function mergeTargetSelections(
     operands: [...new Set([...explicit.operands, ...changed.operands])].sort(compareAsciiStrings),
     recursive: explicit.recursive || changed.recursive,
   };
-}
-
-function includesStagedConfigChange(changedPaths: readonly string[]): boolean {
-  return changedPaths.some((path) => STAGED_CONFIG_FILENAMES.has(path));
 }
 
 // Resolves the testing config and its canonical digest, the staleness input that
@@ -422,13 +416,11 @@ export async function runTestsCommand(
       },
     );
   }
-  const stagedConfigChanged = options.changed?.staged === true
-    && changedSelection !== undefined
-    && includesStagedConfigChange(changedSelection.changedPaths);
-  const { config, digest } = stagedConfigChanged
+  const stagedChangedRun = options.changed?.staged === true;
+  const { config, digest } = stagedChangedRun
     ? await resolveStagedTestingConfig(options.productDir, changedGit)
     : await resolveTestingConfig(options.productDir);
-  const snapshotFileReader = options.changed?.staged === true
+  const snapshotFileReader = stagedChangedRun
     ? stagedSnapshotFileReader(options.productDir, changedGit)
     : undefined;
   const passingScope = options.passing ? config.passingScope : undefined;
