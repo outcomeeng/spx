@@ -2,11 +2,11 @@
   "schemaVersion": 1,
   "verification": {
     "test": {
-      "overall": "passed",
-      "spx/46-agent.enabler/21-resume.enabler/tests/resume.compliance.l1.test.ts": "passed",
-      "spx/46-agent.enabler/21-resume.enabler/tests/resume.compliance.l2.test.ts": "passed",
-      "spx/46-agent.enabler/21-resume.enabler/tests/resume.mapping.l1.test.ts": "passed",
-      "spx/46-agent.enabler/21-resume.enabler/tests/resume.scenario.l1.test.ts": "passed"
+      "overall": "not-run",
+      "spx/46-agent.enabler/21-resume.enabler/tests/resume.compliance.l1.test.ts": "not-run",
+      "spx/46-agent.enabler/21-resume.enabler/tests/resume.compliance.l2.test.ts": "not-run",
+      "spx/46-agent.enabler/21-resume.enabler/tests/resume.mapping.l1.test.ts": "not-run",
+      "spx/46-agent.enabler/21-resume.enabler/tests/resume.scenario.l1.test.ts": "not-run"
     }
   }
 }
