@@ -55,7 +55,7 @@ function pathsFromLineDelimitedNameStatus(stdout: string): readonly string[] {
       for (const path of fields.slice(1)) paths.add(path);
       continue;
     }
-    paths.add(fields[fields.length - 1] ?? status);
+    paths.add(fields.at(-1) ?? status);
   }
   return sortedPathSet(paths);
 }

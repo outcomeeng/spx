@@ -44,7 +44,15 @@ async function readRecordedState(stdout: string): Promise<TestRunState> {
   expect(stateLine).toBeDefined();
   const statePath = stateLine?.slice(prefix.length) ?? "";
   const raw = (await readFile(statePath)).toString();
-  const terminalLine = raw.split("\n").filter(Boolean).at(-1) ?? "";
+  const lines = raw.split("\n");
+  let terminalLine = "";
+  for (let index = lines.length - 1; index >= 0; index -= 1) {
+    const line = lines[index];
+    if (line !== undefined && line.length > 0) {
+      terminalLine = line;
+      break;
+    }
+  }
   return JSON.parse(terminalLine) as TestRunState;
 }
 
@@ -69,7 +77,7 @@ describe("changed-set planning command path", () => {
       const [packageJsonPath] = typescriptTestingLanguage.productInputPaths;
       const tsconfigPath = typescriptTestingLanguage.productInputPaths.find((path) => path === TYPESCRIPT_MARKER);
       if (packageJsonPath === undefined || tsconfigPath === undefined) {
-        throw new Error();
+        throw new Error("TypeScript product input paths must include package.json and tsconfig.json");
       }
       await writeFileFixture(productDir, packageJsonPath, packageJson);
       await writeFileFixture(productDir, tsconfigPath, tsconfigJson);
@@ -104,7 +112,7 @@ describe("changed-set planning command path", () => {
 
       const [sourceCliCommand, sourceCliPath] = SOURCE_CLI_INVOCATION.split(" ");
       if (sourceCliCommand === undefined || sourceCliPath === undefined) {
-        throw new Error();
+        throw new Error("Source CLI invocation must contain a command and path");
       }
 
       const result = await execa(

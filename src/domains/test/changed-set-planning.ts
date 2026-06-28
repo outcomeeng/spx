@@ -6,7 +6,7 @@ import { compareAsciiStrings } from "@/lib/state-store";
 
 const PATH_SEPARATOR = "/";
 const MARKDOWN_EXTENSION = ".md";
-const NODE_INDEX_PATTERN = /^[0-9]+-/;
+const NODE_INDEX_PATTERN = /^\d+-/;
 const TESTS_DIRECTORY_NAME = SPEC_TREE_EVIDENCE_FILE.DIRECTORY_NAME;
 const SPEC_ROOT = SPEC_TREE_CONFIG.ROOT_DIRECTORY;
 const NODE_SUFFIXES = [KIND_REGISTRY.enabler.suffix, KIND_REGISTRY.outcome.suffix] as const;

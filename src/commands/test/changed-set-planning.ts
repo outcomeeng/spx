@@ -176,11 +176,12 @@ export async function planChangedTestSelection(
   ]);
   const paths = await changedPaths(options.productDir, baseSha, options.staged === true, deps.git);
   const partition = partitionChangedPaths(paths);
-  const candidateTestPaths = partition.sourceFiles.length === 0
-    ? []
-    : options.staged === true
-    ? await stagedCandidateTestPaths(options.productDir, deps.git)
-    : await discoverTestFiles(options.productDir);
+  let candidateTestPaths: readonly string[] = [];
+  if (partition.sourceFiles.length > 0) {
+    candidateTestPaths = options.staged === true
+      ? await stagedCandidateTestPaths(options.productDir, deps.git)
+      : await discoverTestFiles(options.productDir);
+  }
   const related = partition.sourceFiles.length === 0
     ? { testPaths: [], unresolved: [] }
     : await relatedTestPaths(partition.sourceFiles, options, baseRef, candidateTestPaths, deps);

@@ -227,7 +227,7 @@ function relatedDeps(): RelatedTestDependencies {
 
 function nodeSpecSlug(nodePath: string, suffix: string): string {
   const nodeSegment = nodePath.split("/").at(-1) ?? "";
-  const unindexedSegment = nodeSegment.replace(/^[0-9]+-/, "");
+  const unindexedSegment = nodeSegment.replace(/^\d+-/, "");
   return unindexedSegment.slice(0, -suffix.length);
 }
 
