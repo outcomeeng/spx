@@ -6,16 +6,18 @@ derived from the upstream agent lifecycle event they serve, consume the hook
 payload and hook runtime environment, and may coordinate multiple SPX domains
 without becoming commands in any one domain. `session-start` is the first
 required event: it reports session and project identity, writes hook-runtime
-exports, reports whether the worktree is held by the agent session, and keeps
-the compact lifecycle source presentation-free on hook stdout.
+exports, reports whether the worktree is held by the agent session, and emits
+compact lifecycle source hook stdout according to the invoking runtime's
+configured hook policy.
 
 ## Rationale
 
 Lifecycle hooks are a plugin integration surface, not a worktree command surface.
 A hook event can span worktree occupancy, session identity, Spec Tree context,
-stale-base detection, and queued-work discoverability in one invocation, so the
-product contract belongs to hooks infrastructure and the domain-specific command
-surfaces remain focused on explicit operator actions.
+stale-base detection, queued-work discoverability, and runtime-specific hook
+policy in one invocation, so the product contract belongs to hooks
+infrastructure and the domain-specific command surfaces remain focused on
+explicit operator actions.
 
 ## Product properties
 
@@ -24,7 +26,10 @@ surfaces remain focused on explicit operator actions.
 2. `session-start` produces session identity, project identity, and worktree
    occupancy state when the hook payload and runtime context provide enough
    information to resolve them.
-3. `session-start` reports degraded responsibilities explicitly and does not
+3. `session-start` emits compact-source hook stdout only when the invoking
+   runtime's `agentEnvironment.runtimes.<runtime>.hooks.sessionStart.compactStdout`
+   policy is true.
+4. `session-start` reports degraded responsibilities explicitly and does not
    block session startup because one responsibility degrades.
 
 ## Verification
@@ -39,10 +44,14 @@ surfaces remain focused on explicit operator actions.
 - ALWAYS: `session-start` provides the first startup behavior slice: session
   identity, project identity, worktree occupancy state, and hook-runtime env
   exports ([audit])
+- ALWAYS: `session-start` reads compact-source stdout policy from the invoking
+  runtime's `agentEnvironment.runtimes.<runtime>.hooks.sessionStart.compactStdout`
+  config, defaulting Codex to false and Claude Code to true ([audit])
 - ALWAYS: a failed `session-start` responsibility degrades by recording an
   explicit marker or diagnostic while allowing the hook invocation to complete
   successfully ([audit])
 - NEVER: `session-start` emits model-visible hook stdout for the compact
-  lifecycle source ([audit])
+  lifecycle source when the invoking runtime's compact stdout policy is false
+  ([audit])
 - NEVER: hook stdout carries diagnostics; stdout is reserved for hook-specific
   model-visible context ([audit])
