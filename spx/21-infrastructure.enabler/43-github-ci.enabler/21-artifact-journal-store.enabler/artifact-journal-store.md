@@ -1,29 +1,25 @@
 # Artifact Journal Store
 
-PROVIDES a GitHub Appendable backend that persists an agent-run journal's events as a JSONL run history and durably retains each sealed run as a per-run GitHub Actions artifact, binding the `AppendableBackend` port of `spx/15-agent-run-journal.enabler` and hydrating a pull request's prior runs from their retained artifacts
+PROVIDES the per-run artifact naming and the prior-run hydration that make the runner-local appendable store of `spx/18-state.enabler/71-appendable-journal-store.enabler` the github-pr journal's durable backend — the verification workflow's upload and download steps retaining a sealed run under its per-run artifact name and restoring a pull request's prior runs, which hydration materializes into the runs directory
 SO THAT agentic verification runs executing in GitHub Actions
-CAN store, durably retain, and replay each run's event history — and read the pull request's prior runs — through the journal interface across the ephemeral runner, without the journal itself touching the network or the Actions runtime
+CAN durably retain across the ephemeral runner, replay each run's event history, and read the pull request's prior runs through the journal interface, while the process performs only runner-local-file I/O and never touches the network or the Actions runtime
 
 ## Assertions
 
 ### Scenarios
 
-- Given a pull request whose prior runs of one verification type are retained as Actions artifacts, when a run of that type opens, then each retained prior run's event history is hydrated and replays identically through the journal interface ([test](tests/artifact-journal-store.scenario.l1.test.ts))
+- Given a pull request whose prior runs of one verification type the workflow restored into the staging directory, when a run of that type opens, then hydration materializes each restored prior run into the runs directory and it replays identically through the journal interface ([test](tests/artifact-journal-store.scenario.l1.test.ts))
 
 ### Properties
 
-- A sealed run's event history retained as an Actions artifact and re-read through a fresh backend replays the identical events in ascending `seq` order ([test](tests/artifact-journal-store.property.l1.test.ts))
+- A sealed run's restored file materialized into the runs directory re-reads through a fresh appendable store and replays the identical events in ascending `seq` order ([test](tests/artifact-journal-store.property.l1.test.ts))
 
 ### Compliance
 
-- ALWAYS: an `append` writes the runner-local JSONL run history and durable retention happens once at `seal`, so a run performs no per-append network write ([test](tests/artifact-journal-store.compliance.l1.test.ts))
-- ALWAYS: each sealed run is retained as a distinct per-run artifact addressed by its pull request, verification type, and run token, so concurrent jobs never collide and the readable run set is the union of the type's retained artifacts ([test](tests/artifact-journal-store.compliance.l1.test.ts))
-- ALWAYS: hydration lists only artifacts of the run's own pull request and verification type, so another verification type's runs of the same pull request are never materialized or read as this type's ([test](tests/artifact-journal-store.compliance.l1.test.ts))
-- ALWAYS: re-sealing an already-retained run is a no-op that uploads no second artifact, so a retried seal does not conflict on the run's artifact name ([test](tests/artifact-journal-store.compliance.l1.test.ts))
-- ALWAYS: `seal` marks the run terminally sealed before it retains the body, so a sealed run rejects every further append and no event can interleave between a failed seal and a retry to diverge the retained record from the local one ([test](tests/artifact-journal-store.compliance.l1.test.ts))
-- ALWAYS: retention is ensured independently of the seal marker — a retention failure leaves the run sealed-but-unretained, and a later seal re-attempts the upload rather than stranding the run without a durable artifact ([test](tests/artifact-journal-store.compliance.l1.test.ts))
-- ALWAYS: a prior run whose artifact retention has expired is skipped at hydration rather than failing the opening run, so the readable run set is the pull request's still-retained runs ([test](tests/artifact-journal-store.compliance.l1.test.ts))
-- ALWAYS: hydration skips an artifact whose run-token segment is not a valid scope token, so a malformed or adversarial network-sourced artifact name cannot redirect a hydrated write outside the runs directory ([test](tests/artifact-journal-store.compliance.l1.test.ts))
-- ALWAYS: a hydrated prior run replays as sealed — a run materialized from its retained artifact reports sealed and rejects a further append — so the durable record's terminal seal survives hydration ([test](tests/artifact-journal-store.compliance.l1.test.ts))
-- ALWAYS: the backend declares its kind as Appendable and binds the journal's `AppendableBackend` port without widening the `append`/`readAll`/`seal`/`isSealed` contract, per `spx/15-agent-run-journal.enabler/32-journal-module-structure.adr.md` ([audit])
-- ALWAYS: every GitHub Actions artifact and runtime access routes through an injected client interface — re-deriving no Actions runtime and importing no network client — so the store's dispatch verifies over a controlled client without a network, mirroring `spx/21-infrastructure.enabler/43-github-ci.enabler/21-snapshot-adapter.enabler` ([audit])
+- ALWAYS: a run's per-run artifact name is addressed by pull request, verification type, and run token, so changing any one yields a distinct name and concurrent jobs retain disjoint artifacts ([test](tests/artifact-journal-store.compliance.l1.test.ts))
+- ALWAYS: hydration materializes only restored runs whose name carries the run's own pull-request-and-type prefix, so another verification type's runs of the same pull request are never materialized ([test](tests/artifact-journal-store.compliance.l1.test.ts))
+- ALWAYS: hydration skips a restored run whose run-token segment is not a valid scope token, so a malformed or adversarial network-sourced name cannot redirect a hydrated write outside the runs directory ([test](tests/artifact-journal-store.compliance.l1.test.ts))
+- ALWAYS: hydration materializes each restored prior run as sealed — writing its seal marker alongside its events — so a hydrated run reports sealed and rejects a further append ([test](tests/artifact-journal-store.compliance.l1.test.ts))
+- ALWAYS: hydration's materialized set is exactly the restored runs present in the staging directory — a prior run the workflow did not restore, its artifact expired or pruned, is absent rather than a hydration failure ([test](tests/artifact-journal-store.compliance.l1.test.ts))
+- ALWAYS: hydration materializes only restored artifact directories, skipping a staging entry that is a plain file, so a stray file in the staging directory does not fail the opening run ([test](tests/artifact-journal-store.compliance.l1.test.ts))
+- ALWAYS: hydration and the per-run naming perform only runner-local-file I/O through an injected `StateStoreFileSystem`, importing no Actions-artifact toolkit and constructing no `gh` artifact request, so they verify over a controlled filesystem without a network, per `spx/21-infrastructure.enabler/43-github-ci.enabler/21-artifact-journal-store.enabler/21-artifact-journal-store-architecture.adr.md` ([audit])
