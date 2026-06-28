@@ -204,25 +204,6 @@ export function resolveMarkdownValidationTarget(
 // EXCLUDE SUPPORT
 // =============================================================================
 
-/**
- * Read node paths from spx/EXCLUDE and return them as ignore globs.
- *
- * Declared-state nodes have [test] links pointing to files that do not
- * exist yet. Listing them in spx/EXCLUDE tells markdown validation to
- * skip direct markdown files in those directories so broken [test] links
- * are not flagged while child-node markdown files remain in scope.
- *
- * @param projectRoot - Absolute path to the project root
- * @returns Array of glob patterns to ignore (relative to the validated directory)
- */
-export function getExcludeGlobs(projectRoot: string | undefined): string[] {
-  if (projectRoot === undefined) return [];
-  const reader = createNodeStatusExcludeReader(projectRoot);
-  return reader.entries().flatMap((entry) =>
-    [...MARKDOWN_FILE_EXTENSIONS].map((extension) => `${entry}/*${extension}`)
-  );
-}
-
 function getExcludeGlobsForTarget(
   target: MarkdownValidationTarget,
   projectRoot: string | undefined,

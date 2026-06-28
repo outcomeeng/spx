@@ -1,6 +1,6 @@
 import type { Config } from "@testing/harnesses/spec-tree/spec-tree";
 
-import { DEFAULT_IGNORE_SOURCE_OVERRIDES, EMPTY_IGNORE_READER } from "@/lib/file-inclusion/ignore-source";
+import { DEFAULT_IGNORE_SOURCE_OVERRIDES, EMPTY_INCLUDED_SET_IGNORE_READER } from "@/lib/file-inclusion/ignore-source";
 import type { ScopeResolverConfig, ScopeResolverState } from "@/lib/file-inclusion/pipeline";
 import { SPEC_TREE_CONFIG } from "@/lib/spec-tree/config";
 import { MINIMAL_SPEC_TREE_CONFIG } from "@testing/generators/config/config";
@@ -83,7 +83,7 @@ export function makeResolverState(
 ): ScopeResolverState {
   return {
     config: resolverConfig,
-    ignoreReader: EMPTY_IGNORE_READER,
+    ignoreReader: EMPTY_INCLUDED_SET_IGNORE_READER,
     request: {
       overrides: DEFAULT_IGNORE_SOURCE_OVERRIDES,
       ...request,
