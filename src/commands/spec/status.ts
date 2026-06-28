@@ -32,6 +32,11 @@ export const SPEC_STATUS_METADATA_LABEL = {
   STALE: "stale",
 } as const;
 
+export const SPEC_STATUS_JSON_METADATA_FIELD = {
+  METADATA: "metadata",
+  STALE_NODE_IDS: "staleNodeIds",
+} as const;
+
 const DEFAULT_FORMAT: OutputFormat = OUTPUT_FORMAT.TEXT;
 const JSON_INDENTATION = 2;
 const STATUS_SEPARATOR = " ";
@@ -146,7 +151,7 @@ export function renderSpecStatus(
 
   switch (format) {
     case OUTPUT_FORMAT.JSON:
-      return formatJSON(projection);
+      return formatJSON(projection, metadata);
     case OUTPUT_FORMAT.MARKDOWN:
       return formatMarkdown(projection, metadata);
     case OUTPUT_FORMAT.TABLE:
@@ -160,8 +165,21 @@ export function renderSpecStatus(
   }
 }
 
-function formatJSON(projection: SpecTreeProjection): string {
-  return JSON.stringify(projection, null, JSON_INDENTATION);
+function formatJSON(projection: SpecTreeProjection, metadata: StatusRenderMetadata): string {
+  const staleNodeIds = [...(metadata.staleNodeIds ?? [])].sort((left, right) => left.localeCompare(right));
+  if (staleNodeIds.length === 0) {
+    return JSON.stringify(projection, null, JSON_INDENTATION);
+  }
+  return JSON.stringify(
+    {
+      ...projection,
+      [SPEC_STATUS_JSON_METADATA_FIELD.METADATA]: {
+        [SPEC_STATUS_JSON_METADATA_FIELD.STALE_NODE_IDS]: staleNodeIds,
+      },
+    },
+    null,
+    JSON_INDENTATION,
+  );
 }
 
 function formatText(projection: SpecTreeProjection, metadata: StatusRenderMetadata): string {

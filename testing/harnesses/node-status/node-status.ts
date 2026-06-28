@@ -32,6 +32,50 @@ export const NODE_STATUS_TEST_SUPPORT_FIXTURE = {
   INITIAL_CONTENT: "export const nodeStatusTestSupportValue = true;\n",
   UPDATED_CONTENT: "export const nodeStatusTestSupportValue = false;\n",
 } as const;
+export const NODE_STATUS_LOCAL_ALIAS_FIXTURES = [
+  {
+    IMPORT_SPECIFIER: "@/node-status-source-support",
+    PATH: "src/node-status-source-support.ts",
+    INITIAL_CONTENT: "export const nodeStatusSourceSupportValue = true;\n",
+    UPDATED_CONTENT: "export const nodeStatusSourceSupportValue = false;\n",
+  },
+  {
+    IMPORT_SPECIFIER: "@lib/node-status-lib-support",
+    PATH: "src/lib/node-status-lib-support.ts",
+    INITIAL_CONTENT: "export const nodeStatusLibSupportValue = true;\n",
+    UPDATED_CONTENT: "export const nodeStatusLibSupportValue = false;\n",
+  },
+  {
+    IMPORT_SPECIFIER: "@root/testing/node-status-root-support",
+    PATH: "testing/node-status-root-support.ts",
+    INITIAL_CONTENT: "export const nodeStatusRootSupportValue = true;\n",
+    UPDATED_CONTENT: "export const nodeStatusRootSupportValue = false;\n",
+  },
+  {
+    IMPORT_SPECIFIER: "@scripts/node-status-script-support",
+    PATH: "scripts/node-status-script-support.ts",
+    INITIAL_CONTENT: "export const nodeStatusScriptSupportValue = true;\n",
+    UPDATED_CONTENT: "export const nodeStatusScriptSupportValue = false;\n",
+  },
+  {
+    IMPORT_SPECIFIER: "@eslint-rules/node-status-rule-support",
+    PATH: "eslint-rules/node-status-rule-support.ts",
+    INITIAL_CONTENT: "export const nodeStatusRuleSupportValue = true;\n",
+    UPDATED_CONTENT: "export const nodeStatusRuleSupportValue = false;\n",
+  },
+] as const;
+export const NODE_STATUS_EXACT_ALIAS_FIXTURE = {
+  IMPORT_SPECIFIER: "@root/package.json",
+  PATH: "package.json",
+  INITIAL_CONTENT: "{\"name\":\"node-status-fixture\",\"version\":\"0.0.0\"}\n",
+  UPDATED_CONTENT: "{\"name\":\"node-status-fixture\",\"version\":\"0.0.1\"}\n",
+} as const;
+export const NODE_STATUS_INDEX_ALIAS_FIXTURE = {
+  IMPORT_SPECIFIER: "@/node-status-index-support",
+  PATH: "src/node-status-index-support/index.ts",
+  INITIAL_CONTENT: "export const nodeStatusIndexSupportValue = true;\n",
+  UPDATED_CONTENT: "export const nodeStatusIndexSupportValue = false;\n",
+} as const;
 export const NODE_STATUS_CLASSIFICATION_EVIDENCE_WITH_TEST_SUPPORT_CONTENT =
   `import "${NODE_STATUS_TEST_SUPPORT_FIXTURE.IMPORT_SPECIFIER}";\n${NODE_STATUS_CLASSIFICATION_EVIDENCE_CONTENT}`;
 
@@ -143,6 +187,10 @@ export function requireNodeStatusEvidencePath(expectation: ClassificationTreeNod
     throw new Error(NODE_STATUS_HARNESS_ERROR.MISSING_EVIDENCE_PATH);
   }
   return expectation.evidencePaths[0];
+}
+
+export function nodeStatusEvidenceWithImport(importSpecifier: string): string {
+  return `import "${importSpecifier}";\n${NODE_STATUS_CLASSIFICATION_EVIDENCE_CONTENT}`;
 }
 
 export async function initializeNodeStatusGitHistory(productDir: string): Promise<void> {

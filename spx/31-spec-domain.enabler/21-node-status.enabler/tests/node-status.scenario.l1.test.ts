@@ -2,12 +2,19 @@ import { dirname, join } from "node:path";
 
 import { describe, expect, it } from "vitest";
 
-import { SPEC_STATUS_METADATA_LABEL, statusCommand } from "@/commands/spec/status";
+import {
+  OUTPUT_FORMAT,
+  SPEC_STATUS_JSON_METADATA_FIELD,
+  SPEC_STATUS_METADATA_LABEL,
+  statusCommand,
+} from "@/commands/spec/status";
 import { createNodeStatusProvider, NODE_STATUS_FILENAME, readNodeStatus, updateNodeStatus } from "@/lib/node-status";
 import { createFilesystemSpecTreeSource, readSpecTree, type SpecTreeNode } from "@/lib/spec-tree";
 import { SPEC_TREE_CONFIG } from "@/lib/spec-tree/config";
 import { NODE_STATUS_TEST_GENERATOR, sampleNodeStatusValue } from "@testing/generators/node-status/node-status";
 import {
+  type ClassificationTreeEnv,
+  type ClassificationTreeNodeExpectation,
   commitNodeStatusProductPath,
   initializeNodeStatusGitHistory,
   NODE_STATUS_CLASSIFICATION_SPEC_CONTENT,
@@ -22,6 +29,11 @@ function nodeStateById(nodes: readonly SpecTreeNode[], id: string): string | und
     if (childState !== undefined) return childState;
   }
   return undefined;
+}
+
+interface StaleSpecChangeTree {
+  readonly env: ClassificationTreeEnv["env"];
+  readonly resolveOutcome: ClassificationTreeEnv["resolveOutcome"];
 }
 
 describe("spx spec status --update", () => {
@@ -90,19 +102,7 @@ describe("spx spec status --update", () => {
     await withClassificationTree(fixture, async ({ env, expectations, resolveOutcome }) => {
       const recordedNode = requireNodeStatusRecordedExpectation(expectations);
 
-      await initializeNodeStatusGitHistory(env.productDir);
-      await commitNodeStatusProductPath(env.productDir, SPEC_TREE_CONFIG.ROOT_DIRECTORY);
-
-      await updateNodeStatus({ productDir: env.productDir, resolveOutcome });
-      await commitNodeStatusProductPath(env.productDir, SPEC_TREE_CONFIG.ROOT_DIRECTORY);
-
-      const specPath = [
-        SPEC_TREE_CONFIG.ROOT_DIRECTORY,
-        recordedNode.nodeId,
-        `${recordedNode.slug}.md`,
-      ].join("/");
-      await env.writeNode(specPath, `${NODE_STATUS_CLASSIFICATION_SPEC_CONTENT}\n`);
-      await commitNodeStatusProductPath(env.productDir, specPath);
+      await commitRecordedStatusThenChangeSpec({ env, resolveOutcome }, recordedNode);
 
       const output = await statusCommand({ cwd: env.productDir });
 
@@ -111,4 +111,45 @@ describe("spx spec status --update", () => {
       );
     });
   });
+
+  it("serializes stale node ids for JSON status output without changing node state", async () => {
+    const fixture = sampleNodeStatusValue(NODE_STATUS_TEST_GENERATOR.delegationTree());
+
+    await withClassificationTree(fixture, async ({ env, expectations, resolveOutcome }) => {
+      const recordedNode = requireNodeStatusRecordedExpectation(expectations);
+
+      await commitRecordedStatusThenChangeSpec({ env, resolveOutcome }, recordedNode);
+
+      const output = await statusCommand({ cwd: env.productDir, format: OUTPUT_FORMAT.JSON });
+      const parsed = JSON.parse(output) as {
+        readonly nodes: ReadonlyArray<{ readonly id: string; readonly state: string }>;
+        readonly [SPEC_STATUS_JSON_METADATA_FIELD.METADATA]?: {
+          readonly [SPEC_STATUS_JSON_METADATA_FIELD.STALE_NODE_IDS]?: readonly string[];
+        };
+      };
+
+      expect(parsed[SPEC_STATUS_JSON_METADATA_FIELD.METADATA]?.[SPEC_STATUS_JSON_METADATA_FIELD.STALE_NODE_IDS])
+        .toContain(recordedNode.nodeId);
+      expect(parsed.nodes.find((node) => node.id === recordedNode.nodeId)?.state).toBe(recordedNode.expectedStatus);
+    });
+  });
 });
+
+async function commitRecordedStatusThenChangeSpec(
+  tree: StaleSpecChangeTree,
+  recordedNode: ClassificationTreeNodeExpectation,
+): Promise<void> {
+  await initializeNodeStatusGitHistory(tree.env.productDir);
+  await commitNodeStatusProductPath(tree.env.productDir, SPEC_TREE_CONFIG.ROOT_DIRECTORY);
+
+  await updateNodeStatus({ productDir: tree.env.productDir, resolveOutcome: tree.resolveOutcome });
+  await commitNodeStatusProductPath(tree.env.productDir, SPEC_TREE_CONFIG.ROOT_DIRECTORY);
+
+  const specPath = [
+    SPEC_TREE_CONFIG.ROOT_DIRECTORY,
+    recordedNode.nodeId,
+    `${recordedNode.slug}.md`,
+  ].join("/");
+  await tree.env.writeNode(specPath, `${NODE_STATUS_CLASSIFICATION_SPEC_CONTENT}\n`);
+  await commitNodeStatusProductPath(tree.env.productDir, specPath);
+}
