@@ -5,7 +5,7 @@
  * @module domains/worktree/resolve
  */
 
-import { dirname, resolve } from "node:path";
+import { basename, dirname, resolve } from "node:path";
 
 import type { Result } from "@/config/types";
 import { worktreeClaimName } from "@/domains/worktree/worktree-name";
@@ -93,7 +93,26 @@ export async function resolveTargetWorktree(
   const targetGitPath = (await options.pathInfo.isExistingNonDirectory(targetPath)) ? dirname(targetPath) : targetPath;
   const worktree = await detectWorktreeProductRoot(targetGitPath, options.gitDeps);
   if (!worktree.isGitRepo) {
+    const basenameTarget = await resolveBasenameTargetWorktree(options);
+    if (basenameTarget.ok) return basenameTarget;
     return { ok: false, error: `${WORKTREE_RESOLVE_ERROR.NOT_A_WORKTREE}: ${options.worktree ?? base}` };
   }
   return { ok: true, value: { name: worktreeClaimName(worktree.productDir), worktreeRoot: worktree.productDir } };
+}
+
+async function resolveBasenameTargetWorktree(
+  options: WorktreeScopeOptions & { readonly worktree?: string },
+): Promise<Result<ResolvedTargetWorktree>> {
+  if (options.worktree === undefined || options.worktree !== basename(options.worktree)) {
+    return { ok: false, error: `${WORKTREE_RESOLVE_ERROR.NOT_A_WORKTREE}: ${options.worktree ?? options.cwd}` };
+  }
+  const facts = await gatherGitFacts(options.cwd, options.gitDeps);
+  if (facts === null || !facts.worktreeListRead) {
+    return { ok: false, error: `${WORKTREE_RESOLVE_ERROR.NOT_A_WORKTREE}: ${options.worktree}` };
+  }
+  const worktreeRoot = facts.worktreeRoots.find((root) => basename(root) === options.worktree);
+  if (worktreeRoot === undefined) {
+    return { ok: false, error: `${WORKTREE_RESOLVE_ERROR.NOT_A_WORKTREE}: ${options.worktree}` };
+  }
+  return { ok: true, value: { name: worktreeClaimName(worktreeRoot), worktreeRoot } };
 }
