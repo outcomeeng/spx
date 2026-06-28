@@ -162,5 +162,8 @@ function applyPathFilter(
   if (pathConfig === undefined) {
     return entries;
   }
-  return entries.filter((entry) => pathPassesValidationFilter(entry.path, pathConfig));
+  return entries.filter((entry) =>
+    entry.decisionTrail.some((decision) => decision.layer === EXPLICIT_OVERRIDE_LAYER)
+    || pathPassesValidationFilter(entry.path, pathConfig)
+  );
 }

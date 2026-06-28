@@ -136,7 +136,7 @@ export async function literalCommand(
     explicitFiles: explicitLiteralPaths(options.files),
     config: resolved.literalConfig,
     pathConfig: resolved.pathConfig,
-    scopeConfig: resolveExplicitLiteralTypeScriptScope(options, resolved.pathConfig),
+    scopeConfig: resolveExplicitLiteralTypeScriptScope(options),
   });
 
   if (options.files !== undefined && options.files.length > 0 && result.filteredByValidationPathNoMatches) {
@@ -188,10 +188,7 @@ async function resolveLiteralCommandConfig(
   };
 }
 
-function resolveExplicitLiteralTypeScriptScope(
-  options: LiteralCommandOptions,
-  pathConfig: ValidationPathConfig,
-) {
+function resolveExplicitLiteralTypeScriptScope(options: LiteralCommandOptions) {
   if (options.files === undefined || options.files.length === 0) {
     return undefined;
   }
@@ -199,7 +196,7 @@ function resolveExplicitLiteralTypeScriptScope(
     projectRoot: options.cwd,
     scope: options.scope ?? VALIDATION_SCOPES.FULL,
     paths: options.files,
-    validationPathFilter: pathConfig,
+    validationPathFilter: validationConfigDescriptor.defaults.paths,
     markExplicitPathsAsValidationFilter: true,
   });
 }
