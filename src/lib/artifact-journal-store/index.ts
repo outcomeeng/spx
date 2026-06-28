@@ -118,7 +118,16 @@ export async function hydratePriorRuns(options: HydratePriorRunsOptions): Promis
     // whatever basename the caller's run path uses under test.
     const runFilePath = runFilePathFor(runToken);
     const restoredFilePath = `${restoredRunsDir}/${entry.name}/${basename(runFilePath)}`;
-    const body = await fs.readFile(restoredFilePath, STATE_STORE_TEXT_ENCODING);
+    let body: string;
+    try {
+      body = await fs.readFile(restoredFilePath, STATE_STORE_TEXT_ENCODING);
+    } catch (error) {
+      // A restored artifact directory that does not hold its run file — an empty or
+      // truncated upload — is a malformed restored run, not a hydration failure: skip it
+      // so the materialized set stays the restored runs the workflow actually retained.
+      if (hasErrorCode(error, ERROR_CODE_NOT_FOUND)) continue;
+      throw error;
+    }
     await fs.mkdir(dirname(runFilePath), { recursive: true });
     await fs.writeFile(runFilePath, body);
     // A restored artifact exists only because its run was sealed, so write the seal

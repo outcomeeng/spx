@@ -203,4 +203,29 @@ describe("artifact journal store — compliance", () => {
     expect(hydrated).toEqual([]);
     expect(pathRequested).toBe(false);
   });
+
+  it("skips a restored artifact directory that does not hold its run file", async () => {
+    const pullNumber = sampleGithubSnapshotValue(arbitraryPullNumber());
+    const type = sampleStateStoreTestValue(STATE_STORE_TEST_GENERATOR.scopeToken());
+    const runToken = sampleGithubSnapshotValue(arbitraryRunToken());
+
+    const fs = createInMemoryStateStoreFileSystem();
+    // A restored artifact directory with a valid prefix and run token but holding no run
+    // file — an empty or truncated upload `actions/download-artifact` still restores as a
+    // directory; hydration skips it rather than throwing on the missing run file.
+    await fs.mkdir(`${RESTORED_JOURNAL_RUNS_DIR}/${artifactJournalRunArtifactName({ pullNumber, type, runToken })}`, {
+      recursive: true,
+    });
+
+    const hydrated = await hydratePriorRuns({
+      fs,
+      restoredRunsDir: RESTORED_JOURNAL_RUNS_DIR,
+      pullNumber,
+      type,
+      runFilePathFor: (token) => journalRunFilePath(token),
+    });
+
+    // The malformed artifact directory is absent from the materialized set, not a failure.
+    expect(hydrated).toEqual([]);
+  });
 });
