@@ -148,48 +148,90 @@ function isConcreteSourcePath(path: string): boolean {
   return TYPESCRIPT_SOURCE_EXTENSIONS.some((extension) => path.endsWith(extension));
 }
 
-function isTraversableHelperPath(path: string): boolean {
-  return path.startsWith("spx/") || path.startsWith("testing/")
-    || (path.startsWith("src/") && path.endsWith("/index.ts"));
+function isTraversableModulePath(path: string): boolean {
+  return path.startsWith("src/")
+    || path.startsWith("spx/")
+    || path.startsWith("testing/")
+    || path.startsWith("scripts/")
+    || path.startsWith("eslint-rules/");
 }
 
-function matchedChangedSources(
-  testPath: string,
-  sourceText: string,
+type ModuleTextCache = Map<string, Promise<string | null>>;
+type ReachabilityCache = Map<string, Promise<readonly string[]>>;
+
+async function changedSourcesReachableFromText(
+  importerPath: string,
+  importerText: string,
   sourcePaths: ReadonlySet<string>,
   deps: Pick<RelatedTestDependencies, "readFile">,
-  moduleTextCache: Map<string, Promise<string | null>>,
+  moduleTextCache: ModuleTextCache,
+  reachabilityCache: ReachabilityCache,
+  visiting: ReadonlySet<string>,
 ): Promise<readonly string[]> {
   const matched = new Set<string>();
-  const visited = new Set<string>();
 
-  async function visit(importerPath: string, importerText: string): Promise<void> {
-    if (visited.has(importerPath)) return;
-    visited.add(importerPath);
-    for (const specifier of importSpecifiers(importerText, importerPath)) {
-      const candidates = candidateImportPaths(importerPath, specifier).filter(isProductRelativePath);
-      const directMatches = candidates.filter((candidate) => sourcePaths.has(candidate));
-      if (directMatches.length > 0) {
-        for (const candidate of directMatches) matched.add(candidate);
-        continue;
-      }
-      for (const candidate of candidates) {
-        if (!isConcreteSourcePath(candidate) || !isTraversableHelperPath(candidate)) continue;
-        const candidateText = await readCandidateModule(candidate, deps, moduleTextCache);
-        if (candidateText !== null) {
-          await visit(candidate, candidateText);
-        }
+  for (const specifier of importSpecifiers(importerText, importerPath)) {
+    const candidates = candidateImportPaths(importerPath, specifier).filter(isProductRelativePath);
+    const directMatches = candidates.filter((candidate) => sourcePaths.has(candidate));
+    if (directMatches.length > 0) {
+      for (const candidate of directMatches) matched.add(candidate);
+      continue;
+    }
+    for (const candidate of candidates) {
+      if (!isConcreteSourcePath(candidate) || !isTraversableModulePath(candidate)) continue;
+      for (
+        const sourcePath of await changedSourcesReachableFromPath(
+          candidate,
+          sourcePaths,
+          deps,
+          moduleTextCache,
+          reachabilityCache,
+          visiting,
+        )
+      ) {
+        matched.add(sourcePath);
       }
     }
   }
 
-  return visit(testPath, sourceText).then(() => [...matched]);
+  return [...matched];
+}
+
+async function changedSourcesReachableFromPath(
+  path: string,
+  sourcePaths: ReadonlySet<string>,
+  deps: Pick<RelatedTestDependencies, "readFile">,
+  moduleTextCache: ModuleTextCache,
+  reachabilityCache: ReachabilityCache,
+  visiting: ReadonlySet<string>,
+): Promise<readonly string[]> {
+  if (visiting.has(path)) return [];
+  const cached = reachabilityCache.get(path);
+  if (cached !== undefined) return cached;
+
+  const reachable = readCandidateModule(path, deps, moduleTextCache).then((sourceText) => {
+    if (sourceText === null) return [];
+    return changedSourcesReachableFromText(
+      path,
+      sourceText,
+      sourcePaths,
+      deps,
+      moduleTextCache,
+      reachabilityCache,
+      new Set([
+        ...visiting,
+        path,
+      ]),
+    );
+  });
+  reachabilityCache.set(path, reachable);
+  return reachable;
 }
 
 async function readCandidateModule(
   path: string,
   deps: Pick<RelatedTestDependencies, "readFile">,
-  moduleTextCache: Map<string, Promise<string | null>>,
+  moduleTextCache: ModuleTextCache,
 ): Promise<string | null> {
   const cached = moduleTextCache.get(path);
   if (cached !== undefined) return cached;
@@ -201,7 +243,7 @@ async function readCandidateModule(
 async function readCandidateTest(
   path: string,
   deps: Pick<RelatedTestDependencies, "readFile">,
-  moduleTextCache: Map<string, Promise<string | null>>,
+  moduleTextCache: ModuleTextCache,
 ): Promise<string> {
   const cached = moduleTextCache.get(path);
   if (cached !== undefined) {
@@ -211,20 +253,6 @@ async function readCandidateTest(
   const loaded = deps.readFile(path);
   moduleTextCache.set(path, loaded);
   return loaded;
-}
-
-function directChangedSources(
-  testPath: string,
-  sourceText: string,
-  sourcePaths: ReadonlySet<string>,
-): readonly string[] {
-  const matched = new Set<string>();
-  for (const specifier of importSpecifiers(sourceText, testPath)) {
-    for (const candidate of candidateImportPaths(testPath, specifier)) {
-      if (sourcePaths.has(candidate)) matched.add(candidate);
-    }
-  }
-  return [...matched];
 }
 
 async function relatedTestPaths(
@@ -238,14 +266,18 @@ async function relatedTestPaths(
   const testPaths: string[] = [];
   const resolvedSourcePaths = new Set<string>();
   const moduleTextCache = new Map<string, Promise<string | null>>();
+  const reachabilityCache = new Map<string, Promise<readonly string[]>>();
   for (const testPath of request.candidateTestPaths.filter(matchesTestFile)) {
     const sourceText = await readCandidateTest(testPath, deps, moduleTextCache);
-    const matchedSources = [
-      ...new Set([
-        ...directChangedSources(testPath, sourceText, sourcePaths),
-        ...await matchedChangedSources(testPath, sourceText, sourcePaths, deps, moduleTextCache),
-      ]),
-    ];
+    const matchedSources = await changedSourcesReachableFromText(
+      testPath,
+      sourceText,
+      sourcePaths,
+      deps,
+      moduleTextCache,
+      reachabilityCache,
+      new Set([testPath]),
+    );
     if (matchedSources.length > 0) {
       testPaths.push(testPath);
       for (const sourcePath of matchedSources) resolvedSourcePaths.add(sourcePath);
