@@ -14,6 +14,10 @@ Plugin SessionStart hooks delegate startup behavior to `spx hook run session-sta
 
 The plugin-side integration design is governed in `github.com/outcomeeng/plugins` at `spx/21-spec-tree.enabler/19-worktree-occupancy.enabler/` and `spx/21-spec-tree.enabler/76-sessions.enabler/ISSUES.md`.
 
+## Harness vocabulary alignment
+
+`spx/12-agent-harness.pdr.md` distinguishes configured agents from agent sessions. Align worktree occupancy specs, command text, and claim records so the worktree holder vocabulary names the configured agent or agent session being coordinated, rather than treating the worktree claim itself as an agent.
+
 ## Harness governance
 
 `testing/harnesses/worktree/harness.ts`'s recording `OccupancyFileSystem` double is governed by `spx/38-worktree.enabler/32-occupancy-store.enabler/21-test-harness.enabler` (the harness file reaches 100% statement coverage; its probes, process table, CLI runner, and pool-env builders are consumer-covered). The `worktree` generator is fully consumer-covered (no node). `testing/harnesses/worktree-layout/worktree-layout.ts` is a cross-cutting provisioner (6 consumer nodes) deferred to the infrastructure batch in `spx/21-infrastructure.enabler/PLAN.md`.
