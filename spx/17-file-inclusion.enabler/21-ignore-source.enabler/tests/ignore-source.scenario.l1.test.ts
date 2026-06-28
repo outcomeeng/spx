@@ -18,6 +18,7 @@ import {
   submodulePath,
   trackedFilePath,
   untrackedFilePath,
+  writeScopeLargerThanDefaultBuffer,
 } from "@testing/harnesses/file-inclusion/ignore-source";
 
 const linkedWorktreeTempPrefix = "spx-linked-ignore-source-";
@@ -55,6 +56,16 @@ describe("ignore-source — scenarios", () => {
       const reader = createIgnoreSourceReader(env.productDir, readerConfig());
 
       expect(reader.isInIncludedSet(spacedPath)).toBe(true);
+    });
+  });
+
+  it("reads git scope output larger than Node's default sync buffer", async () => {
+    await withGitWorktreeEnv(async (env) => {
+      const samplePath = await writeScopeLargerThanDefaultBuffer(env.productDir);
+
+      const reader = createIgnoreSourceReader(env.productDir, readerConfig());
+
+      expect(reader.isInIncludedSet(samplePath)).toBe(true);
     });
   });
 
