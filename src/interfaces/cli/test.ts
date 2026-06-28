@@ -9,7 +9,12 @@ import { formatAgentTestOutput } from "@/interfaces/cli/test-agent-output";
 import { SPEC_TREE_CONFIG } from "@/lib/spec-tree/config";
 import { testingRegistry } from "@/test/registry";
 
-import { createAgentRunnerDepsFor, createRunnerDepsFor, PROCESS_FAILURE_EXIT_CODE } from "./test-runner-deps";
+import {
+  createAgentRunnerDepsFor,
+  createRelatedDepsFor,
+  createRunnerDepsFor,
+  PROCESS_FAILURE_EXIT_CODE,
+} from "./test-runner-deps";
 
 export const TESTING_CLI = {
   commandName: "test",
@@ -19,6 +24,13 @@ export const TESTING_CLI = {
   recursiveShortFlag: "-r",
   recursiveLongFlag: "--recursive",
   recursiveDescription: "Extend a node-path operand to its descendant nodes' tests",
+  changedLongFlag: "--changed",
+  changedDescription: "Run only tests affected by changes against the selected base",
+  stagedLongFlag: "--staged",
+  stagedDescription: "With --changed, diff the staged snapshot instead of the worktree",
+  baseLongFlag: "--base",
+  baseOperand: "<ref>",
+  baseDescription: "Base ref for --changed; defaults to origin of the default branch",
   targetsArgument: "[targets...]",
   targetsDescription: "Node paths or test-file paths to run; omit to run the full discovered suite",
   passingSubcommand: "passing",
@@ -28,6 +40,7 @@ export const TESTING_CLI = {
 const UNMATCHED_TEST_FILES_WARNING = "Skipped test files with no registered runner";
 const GATED_TEST_RUNNERS_WARNING = "Skipped test files because their registered runner was gated out";
 const UNRESOLVED_TARGETS_WARNING = "No tests matched these operands";
+const UNRESOLVED_CHANGED_SOURCE_WARNING = "No related-test capability resolved these changed source files";
 
 const TESTING_PRODUCT_DIR_WARNING = {
   NOT_GIT_REPOSITORY:
@@ -50,11 +63,16 @@ async function runTestsThroughCommand(
   passing: boolean,
   io: CliIo,
   targets?: TargetSelection,
+  changed?: TestingChangedSelection,
 ): Promise<RecordedTestRun> {
   try {
     return await runTestsCommand(
-      { productDir, passing, targets },
-      { registry: testingRegistry, runnerDepsFor: createRunnerDepsFor(productDir) },
+      { productDir, passing, targets, changed },
+      {
+        registry: testingRegistry,
+        runnerDepsFor: createRunnerDepsFor(productDir),
+        relatedDepsFor: createRelatedDepsFor(productDir),
+      },
     );
   } catch (error) {
     io.writeStderr(`${error instanceof Error ? error.message : String(error)}\n`);
@@ -67,11 +85,16 @@ async function runAgentTestsThroughCommand(
   passing: boolean,
   io: CliIo,
   targets?: TargetSelection,
+  changed?: TestingChangedSelection,
 ): Promise<RecordedTestRun> {
   try {
     return await runTestsCommand(
-      { productDir, passing, targets },
-      { registry: testingRegistry, runnerDepsFor: createAgentRunnerDepsFor(productDir) },
+      { productDir, passing, targets, changed },
+      {
+        registry: testingRegistry,
+        runnerDepsFor: createAgentRunnerDepsFor(productDir),
+        relatedDepsFor: createRelatedDepsFor(productDir),
+      },
     );
   } catch (error) {
     io.writeStderr(`${error instanceof Error ? error.message : String(error)}\n`);
@@ -92,6 +115,11 @@ interface TestingCliExitDependencies {
 function reportAndExit(result: TestDispatchResult, deps: TestingCliExitDependencies): never {
   if (result.unresolvedTargets.length > 0) {
     deps.writeWarning(`${UNRESOLVED_TARGETS_WARNING}:\n${result.unresolvedTargets.join("\n")}`);
+  }
+  if ((result.unresolvedChangedSourceFiles ?? []).length > 0) {
+    deps.writeWarning(
+      `${UNRESOLVED_CHANGED_SOURCE_WARNING}:\n${(result.unresolvedChangedSourceFiles ?? []).join("\n")}`,
+    );
   }
   if (result.unmatched.length > 0) {
     deps.writeWarning(`${UNMATCHED_TEST_FILES_WARNING}:\n${result.unmatched.join("\n")}`);
@@ -114,6 +142,14 @@ function reportAndExit(result: TestDispatchResult, deps: TestingCliExitDependenc
 interface TestingCliActionOptions {
   readonly agent?: boolean;
   readonly recursive?: boolean;
+  readonly changed?: boolean;
+  readonly staged?: boolean;
+  readonly base?: string;
+}
+
+interface TestingChangedSelection {
+  readonly baseRef?: string;
+  readonly staged?: boolean;
 }
 
 function requestsAgentMode(options: TestingCliActionOptions, command: Command): boolean {
@@ -134,10 +170,30 @@ function targetSelection(
   return { operands: targets, recursive: options.recursive === true || parentOptions.recursive === true };
 }
 
+function changedSelection(options: TestingCliActionOptions, command: Command): TestingChangedSelection | undefined {
+  const parentOptions = command.parent?.opts<TestingCliActionOptions>() ?? {};
+  const changed = options.changed === true || parentOptions.changed === true;
+  if (!changed) return undefined;
+  return {
+    baseRef: options.base ?? parentOptions.base,
+    staged: options.staged === true || parentOptions.staged === true,
+  };
+}
+
 export interface TestingCliDependencies {
   readonly resolveProductDir: () => Promise<string>;
-  readonly runTests: (productDir: string, passing: boolean, targets?: TargetSelection) => Promise<RecordedTestRun>;
-  readonly runAgentTests: (productDir: string, passing: boolean, targets?: TargetSelection) => Promise<RecordedTestRun>;
+  readonly runTests: (
+    productDir: string,
+    passing: boolean,
+    targets?: TargetSelection,
+    changed?: TestingChangedSelection,
+  ) => Promise<RecordedTestRun>;
+  readonly runAgentTests: (
+    productDir: string,
+    passing: boolean,
+    targets?: TargetSelection,
+    changed?: TestingChangedSelection,
+  ) => Promise<RecordedTestRun>;
   readonly writeStdout: (output: string) => void;
   readonly writeWarning: (warning: string | undefined) => void;
   readonly setExitCode: (exitCode: number) => void;
@@ -152,9 +208,10 @@ function defaultTestingCliDependencies(invocation: CliInvocation): TestingCliDep
   };
   return {
     resolveProductDir: () => resolveTestProductDir(invocation.resolveEffectiveInvocationDir(), writeWarning),
-    runTests: (productDir, passing, targets) => runTestsThroughCommand(productDir, passing, invocation.io, targets),
-    runAgentTests: (productDir, passing, targets) =>
-      runAgentTestsThroughCommand(productDir, passing, invocation.io, targets),
+    runTests: (productDir, passing, targets, changed) =>
+      runTestsThroughCommand(productDir, passing, invocation.io, targets, changed),
+    runAgentTests: (productDir, passing, targets, changed) =>
+      runAgentTestsThroughCommand(productDir, passing, invocation.io, targets, changed),
     writeStdout: (output) => invocation.io.writeStdout(output),
     writeWarning,
     setExitCode: (exitCode) => invocation.io.setExitCode(exitCode),
@@ -167,15 +224,16 @@ async function runTestingAction(
   passing: boolean,
   options: TestingCliActionOptions,
   targets: TargetSelection | undefined,
+  changed: TestingChangedSelection | undefined,
 ): Promise<void> {
   const productDir = await deps.resolveProductDir();
   if (options.agent === true) {
-    const result = await deps.runAgentTests(productDir, passing, targets);
+    const result = await deps.runAgentTests(productDir, passing, targets, changed);
     deps.writeStdout(formatAgentTestOutput(result));
     deps.setExitCode(result.dispatch.exitCode);
     return;
   }
-  const result = await deps.runTests(productDir, passing, targets);
+  const result = await deps.runTests(productDir, passing, targets, changed);
   reportAndExit(result.dispatch, deps);
 }
 
@@ -191,6 +249,9 @@ export function createTestingDomain(deps?: TestingCliDependencies): Domain {
         `${TESTING_CLI.recursiveShortFlag}, ${TESTING_CLI.recursiveLongFlag}`,
         TESTING_CLI.recursiveDescription,
       );
+      testCmd.option(TESTING_CLI.changedLongFlag, TESTING_CLI.changedDescription);
+      testCmd.option(TESTING_CLI.stagedLongFlag, TESTING_CLI.stagedDescription);
+      testCmd.option(`${TESTING_CLI.baseLongFlag} ${TESTING_CLI.baseOperand}`, TESTING_CLI.baseDescription);
       testCmd.argument(TESTING_CLI.targetsArgument, TESTING_CLI.targetsDescription);
 
       testCmd.action(async (targets: readonly string[], options: TestingCliActionOptions, command: Command) => {
@@ -199,6 +260,7 @@ export function createTestingDomain(deps?: TestingCliDependencies): Domain {
           false,
           { agent: requestsAgentMode(options, command) },
           targetSelection(targets, options, command),
+          changedSelection(options, command),
         );
       });
 
@@ -207,6 +269,9 @@ export function createTestingDomain(deps?: TestingCliDependencies): Domain {
         .description(TESTING_CLI.passingDescription)
         .option(TESTING_CLI.agentOption, TESTING_CLI.agentDescription)
         .option(`${TESTING_CLI.recursiveShortFlag}, ${TESTING_CLI.recursiveLongFlag}`, TESTING_CLI.recursiveDescription)
+        .option(TESTING_CLI.changedLongFlag, TESTING_CLI.changedDescription)
+        .option(TESTING_CLI.stagedLongFlag, TESTING_CLI.stagedDescription)
+        .option(`${TESTING_CLI.baseLongFlag} ${TESTING_CLI.baseOperand}`, TESTING_CLI.baseDescription)
         .argument(TESTING_CLI.targetsArgument, TESTING_CLI.targetsDescription)
         .action(async (targets: readonly string[], options: TestingCliActionOptions, command: Command) => {
           await runTestingAction(
@@ -214,6 +279,7 @@ export function createTestingDomain(deps?: TestingCliDependencies): Domain {
             true,
             { agent: requestsAgentMode(options, command) },
             targetSelection(targets, options, command),
+            changedSelection(options, command),
           );
         });
     },

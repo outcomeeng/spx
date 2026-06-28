@@ -1,12 +1,31 @@
 import * as fc from "fast-check";
 import { describe, expect, it } from "vitest";
 
-import { PRECOMMIT_RUN, type PrecommitDeps, runPrecommitTests, shouldRunTests } from "@/lib/precommit/run";
-import { VITEST_ARGS } from "@/lib/precommit/vitest-args";
+import { CONFIG_FILENAMES } from "@/config/index";
+import {
+  GIT_COPY_STATUS_EXAMPLE,
+  GIT_DELETE_STATUS_EXAMPLE,
+  GIT_NAME_STATUS_FLAG,
+  GIT_NULL_DELIMITED_FLAG,
+  GIT_RENAME_STATUS_EXAMPLE,
+  GIT_RENAMED_PATH_SUFFIX,
+} from "@/lib/git/name-status";
+import { PRECOMMIT_SPX_TEST_ARGS } from "@/lib/precommit/build-args";
+import {
+  PRECOMMIT_RUN,
+  PRECOMMIT_STAGED_FILES_COMMAND,
+  PRECOMMIT_STAGED_FILES_EXCLUDED_DIFF_FILTER_FLAG,
+  type PrecommitDeps,
+  runPrecommitTests,
+  shouldRunTests,
+  stagedFilesFromGitOutput,
+} from "@/lib/precommit/run";
+import { compareAsciiStrings } from "@/lib/state-store";
 import { PRECOMMIT_TEST_GENERATOR, samplePrecommitTestValue } from "@testing/generators/precommit/precommit";
 
 const otherFile = () => samplePrecommitTestValue(PRECOMMIT_TEST_GENERATOR.otherPath());
 const sourceFile = () => samplePrecommitTestValue(PRECOMMIT_TEST_GENERATOR.sourcePath());
+const configFilePaths = Object.values(CONFIG_FILENAMES);
 
 describe("shouldRunTests", () => {
   it("returns true when any test file is present", () => {
@@ -36,13 +55,38 @@ describe("shouldRunTests", () => {
   it("returns false for empty list", () => {
     expect(shouldRunTests([])).toBe(false);
   });
+
+  it("returns true when a product config file is present", () => {
+    for (const path of configFilePaths) {
+      expect(shouldRunTests([path])).toBe(true);
+    }
+  });
 });
 
 describe("runPrecommitTests compliance", () => {
+  it("enumerates staged paths without filtering out deleted or renamed files", () => {
+    const pathSpace = String.fromCodePoint(32);
+    const pathTab = String.fromCodePoint(9);
+    const pathNewline = String.fromCodePoint(10);
+    const oldPath = `${pathSpace}${sourceFile()}${pathTab}`;
+    const newPath = `${sourceFile()}${GIT_RENAMED_PATH_SUFFIX}${pathNewline}${pathSpace}`;
+    const copiedPath = `${sourceFile()}.copied`;
+    const deletedPath = sourceFile();
+
+    expect(PRECOMMIT_STAGED_FILES_COMMAND).toContain(GIT_NAME_STATUS_FLAG);
+    expect(PRECOMMIT_STAGED_FILES_COMMAND).toContain(GIT_NULL_DELIMITED_FLAG);
+    expect(PRECOMMIT_STAGED_FILES_COMMAND).not.toContain(PRECOMMIT_STAGED_FILES_EXCLUDED_DIFF_FILTER_FLAG);
+    expect(
+      stagedFilesFromGitOutput(
+        `${GIT_RENAME_STATUS_EXAMPLE}\0${oldPath}\0${newPath}\0${GIT_COPY_STATUS_EXAMPLE}\0${oldPath}\0${copiedPath}\0${GIT_DELETE_STATUS_EXAMPLE}\0${deletedPath}\0`,
+      ),
+    ).toEqual([copiedPath, deletedPath, oldPath, newPath].sort(compareAsciiStrings));
+  });
+
   it("exits zero when no test-relevant files are staged", async () => {
     const deps: PrecommitDeps = {
       getStagedFiles: async () => [otherFile(), otherFile()],
-      runVitest: async () => ({ exitCode: PRECOMMIT_RUN.EXIT_CODES.FAILURE, output: "" }),
+      runSpxTest: async () => ({ exitCode: PRECOMMIT_RUN.EXIT_CODES.FAILURE, output: "" }),
       log: () => {},
     };
 
@@ -52,12 +96,12 @@ describe("runPrecommitTests compliance", () => {
     expect(result.skipped).toBe(true);
   });
 
-  it("does not invoke vitest when no test-relevant files are staged", async () => {
-    let vitestCalled = false;
+  it("does not invoke spx test when no test-relevant files are staged", async () => {
+    let spxTestCalled = false;
     const deps: PrecommitDeps = {
       getStagedFiles: async () => [otherFile()],
-      runVitest: async () => {
-        vitestCalled = true;
+      runSpxTest: async () => {
+        spxTestCalled = true;
         return { exitCode: PRECOMMIT_RUN.EXIT_CODES.SUCCESS, output: "" };
       },
       log: () => {},
@@ -65,34 +109,34 @@ describe("runPrecommitTests compliance", () => {
 
     await runPrecommitTests(deps);
 
-    expect(vitestCalled).toBe(false);
+    expect(spxTestCalled).toBe(false);
   });
 
-  it("propagates the vitest process exit code", async () => {
-    const vitestExitCode = samplePrecommitTestValue(PRECOMMIT_TEST_GENERATOR.exitCode());
+  it("propagates the spx test process exit code", async () => {
+    const testExitCode = samplePrecommitTestValue(PRECOMMIT_TEST_GENERATOR.exitCode());
     const deps: PrecommitDeps = {
       getStagedFiles: async () => [sourceFile()],
-      runVitest: async () => ({ exitCode: vitestExitCode, output: "" }),
+      runSpxTest: async () => ({ exitCode: testExitCode, output: "" }),
       log: () => {},
     };
 
     const result = await runPrecommitTests(deps);
 
-    expect(result.exitCode).toBe(vitestExitCode);
+    expect(result.exitCode).toBe(testExitCode);
   });
 
-  it("passes only retained test-relevant paths to vitest", async () => {
+  it("passes changed-set arguments to spx test when source files are staged", async () => {
     await fc.assert(
       fc.asyncProperty(
         fc.array(PRECOMMIT_TEST_GENERATOR.sourcePath(), { minLength: 1 }),
         fc.array(PRECOMMIT_TEST_GENERATOR.testPath()),
         fc.array(PRECOMMIT_TEST_GENERATOR.otherPath(), { minLength: 1 }),
         async (sourceFiles, testFiles, otherFiles) => {
-          let vitestArgs: string[] = [];
+          let spxTestArgs: string[] = [];
           const deps: PrecommitDeps = {
             getStagedFiles: async () => [...sourceFiles, ...testFiles, ...otherFiles],
-            runVitest: async (args) => {
-              vitestArgs = args;
+            runSpxTest: async (args) => {
+              spxTestArgs = args;
               return { exitCode: PRECOMMIT_RUN.EXIT_CODES.SUCCESS, output: "" };
             },
             log: () => {},
@@ -100,23 +144,23 @@ describe("runPrecommitTests compliance", () => {
 
           await runPrecommitTests(deps);
 
-          expect(vitestArgs).toEqual([VITEST_ARGS.RELATED, VITEST_ARGS.RUN, ...sourceFiles]);
+          expect(spxTestArgs).toEqual(PRECOMMIT_SPX_TEST_ARGS);
         },
       ),
     );
   });
 
-  it("passes only retained test paths to vitest when no source files are staged", async () => {
+  it("passes changed-set arguments to spx test when no source files are staged", async () => {
     await fc.assert(
       fc.asyncProperty(
         fc.array(PRECOMMIT_TEST_GENERATOR.testPath(), { minLength: 1 }),
         fc.array(PRECOMMIT_TEST_GENERATOR.otherPath(), { minLength: 1 }),
         async (testFiles, otherFiles) => {
-          let vitestArgs: string[] = [];
+          let spxTestArgs: string[] = [];
           const deps: PrecommitDeps = {
             getStagedFiles: async () => [...testFiles, ...otherFiles],
-            runVitest: async (args) => {
-              vitestArgs = args;
+            runSpxTest: async (args) => {
+              spxTestArgs = args;
               return { exitCode: PRECOMMIT_RUN.EXIT_CODES.SUCCESS, output: "" };
             },
             log: () => {},
@@ -124,9 +168,27 @@ describe("runPrecommitTests compliance", () => {
 
           await runPrecommitTests(deps);
 
-          expect(vitestArgs).toEqual([VITEST_ARGS.RUN, ...testFiles]);
+          expect(spxTestArgs).toEqual(PRECOMMIT_SPX_TEST_ARGS);
         },
       ),
     );
+  });
+
+  it("passes changed-set arguments to spx test when only product config files are staged", async () => {
+    for (const path of configFilePaths) {
+      let spxTestArgs: string[] = [];
+      const deps: PrecommitDeps = {
+        getStagedFiles: async () => [path],
+        runSpxTest: async (args) => {
+          spxTestArgs = args;
+          return { exitCode: PRECOMMIT_RUN.EXIT_CODES.SUCCESS, output: "" };
+        },
+        log: () => {},
+      };
+
+      await runPrecommitTests(deps);
+
+      expect(spxTestArgs).toEqual(PRECOMMIT_SPX_TEST_ARGS);
+    }
   });
 });

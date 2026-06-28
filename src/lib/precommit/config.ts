@@ -1,3 +1,4 @@
+import { TEST_RELEVANT_SOURCE_ROOT_PREFIXES } from "@/config/source-roots";
 import type { ConfigDescriptor, Result } from "@/config/types";
 
 export const PRECOMMIT_SECTION = "precommit";
@@ -8,7 +9,7 @@ export interface PrecommitConfig {
 }
 
 export const PRECOMMIT_DEFAULTS: PrecommitConfig = {
-  sourceDirs: ["src/"],
+  sourceDirs: TEST_RELEVANT_SOURCE_ROOT_PREFIXES,
   testPattern: ".test.ts",
 };
 

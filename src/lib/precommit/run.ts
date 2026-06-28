@@ -1,9 +1,9 @@
 /**
- * Pre-commit test orchestration for vitest integration.
+ * Pre-commit test orchestration for spx test integration.
  *
  * Coordinates test execution during pre-commit hooks:
  * - Determines if tests should run based on staged files
- * - Executes vitest with appropriate arguments
+ * - Executes spx test with appropriate arguments
  * - Provides clear output on test results
  *
  * Uses dependency injection for subprocess calls to enable unit testing.
@@ -11,7 +11,18 @@
  * @module precommit/run
  */
 
-import { buildVitestArgs } from "./build-args";
+import { dirname, resolve } from "node:path";
+import { fileURLToPath } from "node:url";
+
+import { CONFIG_PROCESS_CWD } from "@/domains/config/cwd";
+import {
+  GIT_DIFF_FILTER_FLAG,
+  GIT_NAME_STATUS_FLAG,
+  GIT_NULL_DELIMITED_FLAG,
+  pathsFromNameStatus,
+} from "@/lib/git/name-status";
+
+import { buildSpxTestArgs } from "./build-args";
 import { filterTestRelevantFiles } from "./categorize";
 import { PRECOMMIT_DEFAULTS, type PrecommitConfig } from "./config";
 import { isDirectPrecommitEntrypoint, PRECOMMIT_ENTRYPOINT } from "./entrypoint";
@@ -45,14 +56,21 @@ export const PRECOMMIT_RUN = {
   },
 } as const;
 
+export const PRECOMMIT_STAGED_FILES_COMMAND = `git diff --cached ${GIT_NAME_STATUS_FLAG} ${GIT_NULL_DELIMITED_FLAG}`;
+export const PRECOMMIT_STAGED_FILES_EXCLUDED_DIFF_FILTER_FLAG = GIT_DIFF_FILTER_FLAG;
+
+export function stagedFilesFromGitOutput(output: string): string[] {
+  return [...pathsFromNameStatus(output)];
+}
+
 // =============================================================================
 // TYPES
 // =============================================================================
 
 /**
- * Result of running vitest.
+ * Result of running spx test.
  */
-export interface VitestResult {
+export interface SpxTestResult {
   /** Process exit code */
   exitCode: number;
   /** Combined stdout and stderr output */
@@ -71,11 +89,11 @@ export interface PrecommitDeps {
   getStagedFiles: () => Promise<string[]>;
 
   /**
-   * Run vitest with the given arguments.
-   * @param args - Vitest CLI arguments
+   * Run spx test with the given arguments.
+   * @param args - spx CLI arguments
    * @returns Result containing exit code and output
    */
-  runVitest: (args: string[]) => Promise<VitestResult>;
+  runSpxTest: (args: string[]) => Promise<SpxTestResult>;
 
   /**
    * Log a message to console.
@@ -94,8 +112,8 @@ export interface PrecommitResult {
   exitCode: number;
   /** Output message for the user */
   message: string;
-  /** Vitest output if tests were run */
-  vitestOutput?: string;
+  /** spx test output if tests were run */
+  testOutput?: string;
 }
 
 type SpawnOutputValue = string | null | undefined;
@@ -127,7 +145,7 @@ export function shouldRunTests(files: string[], config: PrecommitConfig = PRECOM
   return relevantFiles.length > 0;
 }
 
-export function combineVitestProcessOutput(stdout: SpawnOutputValue, stderr: SpawnOutputValue): string {
+export function combineTestProcessOutput(stdout: SpawnOutputValue, stderr: SpawnOutputValue): string {
   return `${stdout ?? ""}${stderr ?? ""}`;
 }
 
@@ -141,10 +159,10 @@ export function combineVitestProcessOutput(stdout: SpawnOutputValue, stderr: Spa
  * Orchestrates the complete pre-commit test workflow:
  * 1. Get staged files from git
  * 2. Determine if tests should run
- * 3. If relevant files exist, run vitest
+ * 3. If relevant files exist, run spx test
  * 4. Return result with appropriate exit code
  *
- * Uses dependency injection for external operations (git, vitest)
+ * Uses dependency injection for external operations (git, spx test)
  * to enable unit testing without mocking.
  *
  * @param deps - Injected dependencies for external operations
@@ -155,7 +173,7 @@ export function combineVitestProcessOutput(stdout: SpawnOutputValue, stderr: Spa
  * // Production usage
  * const result = await runPrecommitTests({
  *   getStagedFiles: async () => execGitDiffStaged(),
- *   runVitest: async (args) => execVitest(args),
+ *   runSpxTest: async (args) => execSpxTest(args),
  * });
  *
  * process.exit(result.exitCode);
@@ -179,27 +197,25 @@ export async function runPrecommitTests(
   }
 
   const relevantFiles = filterTestRelevantFiles(stagedFiles, config);
-  const vitestArgs = buildVitestArgs(relevantFiles, config);
+  const spxTestArgs = buildSpxTestArgs(relevantFiles, config);
 
-  // Run vitest
   log(PRECOMMIT_RUN.MESSAGES.RUNNING_TESTS);
-  const vitestResult = await deps.runVitest(vitestArgs);
+  const spxTestResult = await deps.runSpxTest(spxTestArgs);
 
-  // Determine result
-  if (vitestResult.exitCode === PRECOMMIT_RUN.EXIT_CODES.SUCCESS) {
+  if (spxTestResult.exitCode === PRECOMMIT_RUN.EXIT_CODES.SUCCESS) {
     return {
       skipped: false,
       exitCode: PRECOMMIT_RUN.EXIT_CODES.SUCCESS,
       message: PRECOMMIT_RUN.MESSAGES.TESTS_PASSED,
-      vitestOutput: vitestResult.output,
+      testOutput: spxTestResult.output,
     };
   }
 
   return {
     skipped: false,
-    exitCode: vitestResult.exitCode,
+    exitCode: spxTestResult.exitCode,
     message: PRECOMMIT_RUN.MESSAGES.TESTS_FAILED,
-    vitestOutput: vitestResult.output,
+    testOutput: spxTestResult.output,
   };
 }
 
@@ -213,28 +229,30 @@ export async function runPrecommitTests(
  */
 async function getStagedFilesImpl(): Promise<string[]> {
   const { execSync } = await import("node:child_process");
-  const output = execSync("git diff --cached --name-only --diff-filter=ACM", {
+  const output = execSync(PRECOMMIT_STAGED_FILES_COMMAND, {
     encoding: "utf-8",
   });
-  return output
-    .split("\n")
-    .map((line) => line.trim())
-    .filter(Boolean);
+  return stagedFilesFromGitOutput(output);
 }
 
 /**
- * Run vitest with given arguments.
- * @param args - Vitest CLI arguments
+ * Run spx test with given arguments.
+ * @param args - spx CLI arguments
  * @returns Result with exit code and output
  */
-async function runVitestImpl(args: string[]): Promise<VitestResult> {
+async function runSpxTestImpl(args: string[]): Promise<SpxTestResult> {
   const { spawnSync } = await import("node:child_process");
-  const result = spawnSync("npx", ["vitest", ...args], {
+  const sourceDir = resolve(dirname(fileURLToPath(import.meta.url)), "..", "..");
+  const productRoot = resolve(sourceDir, "..");
+  const cliPath = resolve(sourceDir, "cli.ts");
+  const invocationDir = CONFIG_PROCESS_CWD.read();
+  const result = spawnSync("npx", ["tsx", cliPath, "-C", invocationDir, ...args], {
+    cwd: productRoot,
     encoding: "utf-8",
     stdio: ["inherit", "pipe", "pipe"],
   });
 
-  const output = combineVitestProcessOutput(result.stdout, result.stderr);
+  const output = combineTestProcessOutput(result.stdout, result.stderr);
   console.log(output);
 
   return {
@@ -249,7 +267,7 @@ async function runVitestImpl(args: string[]): Promise<VitestResult> {
 export function createProductionDeps(): PrecommitDeps {
   return {
     getStagedFiles: getStagedFilesImpl,
-    runVitest: runVitestImpl,
+    runSpxTest: runSpxTestImpl,
   };
 }
 

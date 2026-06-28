@@ -66,7 +66,7 @@ it("${PRECOMMIT_TEST_FIXTURE.PASSING_TEST_NAME}", () => {
 
         const result = await exec("git commit -m 'test commit'", { reject: false });
 
-        expect(result.exitCode).toBe(0);
+        expect(result.exitCode, `${result.stdout}\n${result.stderr}`).toBe(0);
       });
     });
   });
