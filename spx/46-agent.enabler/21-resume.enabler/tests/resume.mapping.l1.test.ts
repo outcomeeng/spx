@@ -1,7 +1,13 @@
 import { describe, expect, it } from "vitest";
 
-import { AGENT_RESUME_COMMAND, AGENT_SESSION_KIND, AGENT_SESSION_STORE } from "@/domains/agent/protocol";
-import { type AgentResumeCandidate, buildAgentResumeLaunchCommand, isPathInsideOrEqual } from "@/domains/agent/resume";
+import {
+  AGENT_RESUME_COMMAND,
+  AGENT_RESUME_MODE,
+  AGENT_RESUME_TEXT,
+  AGENT_SESSION_KIND,
+  AGENT_SESSION_STORE,
+} from "@/domains/agent/protocol";
+import { type AgentResumeCandidate, buildAgentResumeLaunchCommand } from "@/domains/agent/resume";
 import { AGENT_CLI, AGENT_CLI_EXIT, createAgentDomain } from "@/interfaces/cli/agent";
 import {
   type AgentResumePickerResult,
@@ -23,6 +29,7 @@ import {
   agentResumeCandidate,
   codexTranscript,
   codexTranscriptPath,
+  isPathInsideOrEqual,
   MemoryAgentSessionFileSystem,
 } from "@testing/harnesses/agent/resume";
 
@@ -74,6 +81,7 @@ function createProgramForFixture(
     readonly pickCandidate?: (candidates: readonly AgentResumeCandidate[]) => Promise<AgentResumePickerResult>;
     readonly launchCandidate?: (candidate: AgentResumeCandidate) => Promise<number>;
     readonly writeStdout?: (output: string) => void;
+    readonly writeStderr?: (output: string) => void;
     readonly exit?: (exitCode: number) => never;
   } = {},
 ) {
@@ -99,6 +107,7 @@ function createProgramForFixture(
     ],
     processCwd: () => fixture.cwd,
     writeStdout: options.writeStdout,
+    writeStderr: options.writeStderr,
     exit: options.exit,
   });
 }
@@ -239,6 +248,40 @@ describe("agent resume mode behavior mappings", () => {
 
     const parsed = JSON.parse(stdout.join("")) as readonly AgentResumeCandidate[];
     expect(parsed.map((candidate) => candidate.sessionId)).toEqual([fixture.newestSessionId, fixture.olderSessionId]);
+  });
+
+  it("conflicting mode flags write a diagnostic and exit non-zero without launching an agent", async () => {
+    const fixture = createResumeFixture();
+    const stderr: string[] = [];
+    const launchedSessionIds: string[] = [];
+    const program = createProgramForFixture(fixture, {
+      launchCandidate: async (candidate) => {
+        launchedSessionIds.push(candidate.sessionId);
+        return sampleAgentResumeValue(arbitraryAgentLaunchExitCode(), 10);
+      },
+      writeStderr: (output) => stderr.push(output),
+      exit: (exitCode) => {
+        throw new ImmediateExit(exitCode);
+      },
+    });
+    program.exitOverride();
+
+    await expect(
+      program.parseAsync(
+        [
+          AGENT_CLI.commandName,
+          AGENT_CLI.resumeCommandName,
+          AGENT_CLI.flags.list,
+          AGENT_CLI.flags.json,
+        ],
+        { from: SPX_COMMANDER_PARSE_SOURCE },
+      ),
+    ).rejects.toMatchObject({ exitCode: AGENT_CLI_EXIT.FAILURE });
+
+    expect(stderr.join("")).toContain(AGENT_RESUME_TEXT.MODE_CONFLICT);
+    expect(stderr.join("")).toContain(AGENT_RESUME_MODE.LIST);
+    expect(stderr.join("")).toContain(AGENT_RESUME_MODE.JSON);
+    expect(launchedSessionIds).toEqual([]);
   });
 });
 
