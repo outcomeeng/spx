@@ -8,9 +8,11 @@ import {
 } from "@/lib/file-inclusion/predicates/domain-path-filter";
 import {
   differentPrefixPath,
+  distinctTrackedPaths,
   nestedTrackedPath,
   pathFilter,
   pathPrefix,
+  PROPERTY_NUM_RUNS,
   trackedPath,
 } from "@testing/harnesses/file-inclusion/path-predicates";
 
@@ -37,6 +39,19 @@ describe("domain-path-filter predicate — scenarios", () => {
       matched: true,
       layer: DOMAIN_PATH_FILTER_LAYER,
       detail: `${DOMAIN_PATH_FILTER_DETAIL_PREFIX.INCLUDE}${includePrefix}`,
+    });
+  });
+
+  it("records all configured include filters when no include prefix matches", () => {
+    const [firstIncludedPath, secondIncludedPath] = distinctTrackedPaths(2);
+    const includePrefixes = [pathPrefix(firstIncludedPath), pathPrefix(secondIncludedPath)];
+    const outsidePath = pathOutsidePrefixes(includePrefixes);
+    const result = domainPathFilterPredicate(outsidePath, pathFilter({ include: includePrefixes }));
+
+    expect(result).toEqual({
+      matched: true,
+      layer: DOMAIN_PATH_FILTER_LAYER,
+      detail: `${DOMAIN_PATH_FILTER_DETAIL_PREFIX.INCLUDE}${includePrefixes.join(",")}`,
     });
   });
 
@@ -109,3 +124,13 @@ describe("domain-path-filter predicate — scenarios", () => {
     });
   });
 });
+
+function pathOutsidePrefixes(prefixes: readonly string[]): string {
+  for (let attempt = 0; attempt < PROPERTY_NUM_RUNS; attempt += 1) {
+    const candidate = trackedPath();
+    if (!prefixes.some((prefix) => candidate === prefix || candidate.startsWith(`${prefix}/`))) {
+      return candidate;
+    }
+  }
+  throw new Error("Unable to generate a path outside the configured include prefixes");
+}
