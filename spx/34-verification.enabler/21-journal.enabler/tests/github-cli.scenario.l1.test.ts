@@ -27,6 +27,7 @@ import {
   buildSealedRunBody,
   RESTORED_JOURNAL_RUNS_DIR,
   stageRestoredRun,
+  stagingReadFailingFileSystem,
 } from "@testing/harnesses/restored-journal-artifacts";
 import { createInMemoryStateStoreFileSystem } from "@testing/harnesses/state/in-memory-file-system";
 import { withGitEnv } from "@testing/harnesses/with-git-env";
@@ -118,6 +119,28 @@ describe("journal CLI github-pr backend", () => {
     const opened = await journalOpenCommand({ type }, deps);
     expect(opened.exitCode).toBe(JOURNAL_CLI_EXIT_CODE.ERROR);
     expect(opened.output).toBe(JOURNAL_CLI_ERROR.PULL_REQUEST_UNRESOLVED);
+  });
+
+  it("rejects a github-pr open when reading the restored prior runs fails", async () => {
+    const type = sampleStateStoreTestValue(STATE_STORE_TEST_GENERATOR.scopeToken());
+    const pullNumber = sampleGithubSnapshotValue(arbitraryPullNumber());
+
+    // github-pr is selected and the pull-request number resolves, but listing the staging
+    // directory fails — open rejects rather than opening a run over a corrupt restored set.
+    const deps: JournalCliDeps = {
+      cwd: "/workspace",
+      git: failingGitDependencies(),
+      env: { backendOverride: JOURNAL_BACKEND.GITHUB_PR, continuousIntegration: true, githubPullRequest: true },
+      processEnv: {
+        [JOURNAL_CLI_ENV.GITHUB_REF]: `refs/pull/${pullNumber}/merge`,
+        [JOURNAL_CLI_ENV.RESTORED_RUNS_DIR]: RESTORED_JOURNAL_RUNS_DIR,
+      },
+      fs: stagingReadFailingFileSystem(createInMemoryStateStoreFileSystem()),
+    };
+
+    const opened = await journalOpenCommand({ type }, deps);
+    expect(opened.exitCode).toBe(JOURNAL_CLI_EXIT_CODE.ERROR);
+    expect(opened.output).toContain(JOURNAL_CLI_ERROR.OPEN_HYDRATION_FAILED);
   });
 
   it("hydrates the pull request's prior runs and reports the run's artifact name on open", async () => {
