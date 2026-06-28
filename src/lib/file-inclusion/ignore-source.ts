@@ -6,7 +6,7 @@ import { withoutGitEnvironment } from "@/git/environment";
 
 import type { IgnoreSourceOverrides } from "./types";
 
-const GIT_EXECUTABLE = "/usr/bin/git";
+const GIT_EXECUTABLE = "git";
 const GIT_LS_FILES_ARGS = {
   LS_FILES: "ls-files",
   CACHED: "--cached",
@@ -94,7 +94,7 @@ function readGit(productDir: string, args: readonly string[]): string {
     throw new Error(`${GIT_SCOPE_FAILURE_MESSAGE} for ${productDir}: ${GIT_MISSING_CONTEXT_MESSAGE}`);
   }
   try {
-    // NOSONAR: synchronous git plumbing runs once at reader construction and is exempt from the async lifecycle rule.
+    // NOSONAR: spx intentionally uses the caller's git executable; this synchronous git plumbing runs once at reader construction.
     return execFileSync(GIT_EXECUTABLE, [...args], {
       cwd: productDir,
       encoding: "utf8",
