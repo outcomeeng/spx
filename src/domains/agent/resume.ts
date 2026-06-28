@@ -119,7 +119,8 @@ export async function discoverAgentResumeCandidates(
     )),
   ];
 
-  const sortedDrafts = drafts.sort(compareCandidates);
+  const sortedDrafts = [...drafts];
+  sortedDrafts.sort(compareCandidates);
 
   const rootResults = await mapWithConcurrency(
     sortedDrafts,
