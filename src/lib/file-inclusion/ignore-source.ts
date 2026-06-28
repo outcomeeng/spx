@@ -36,6 +36,10 @@ export const GIT_MISSING_CONTEXT_MESSAGE = "missing git working tree";
 const GIT_MISSING_EXECUTABLE_MESSAGE = "missing git executable";
 const GIT_NOT_A_REPOSITORY_STDERR = "not a git repository";
 const GIT_NOT_A_WORK_TREE_STDERR = "not a git work tree";
+const BYTES_PER_KIBIBYTE = 1024;
+const GIT_SCOPE_BUFFER_MULTIPLIER = 64;
+export const GIT_SCOPE_DEFAULT_NODE_MAX_BUFFER_BYTES = BYTES_PER_KIBIBYTE * BYTES_PER_KIBIBYTE;
+export const GIT_SCOPE_MAX_BUFFER_BYTES = GIT_SCOPE_DEFAULT_NODE_MAX_BUFFER_BYTES * GIT_SCOPE_BUFFER_MULTIPLIER;
 
 export const DEFAULT_IGNORE_SOURCE_OVERRIDES: IgnoreSourceOverrides = {
   noIgnore: false,
@@ -108,6 +112,7 @@ function readGit(productDir: string, args: readonly string[]): string {
       cwd: productDir,
       encoding: "utf8",
       env: gitEnvironment(),
+      maxBuffer: GIT_SCOPE_MAX_BUFFER_BYTES,
       stdio: ["ignore", "pipe", "pipe"],
     });
   } catch (err) {
