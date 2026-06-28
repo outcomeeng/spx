@@ -8,7 +8,7 @@ import { findExecutableOnPath } from "@/lib/executable-on-path";
 import type { IgnoreSourceOverrides } from "./types";
 
 const GIT_EXECUTABLE = "git";
-const GIT_LS_FILES_ARGS = {
+export const GIT_LS_FILES_ARGS = {
   LS_FILES: "ls-files",
   CACHED: "--cached",
   OTHERS: "--others",
@@ -29,6 +29,15 @@ const GIT_REV_PARSE_ARGS = {
   GIT_COMMON_DIR: "--git-common-dir",
 } as const;
 const INFO_EXCLUDE_RELATIVE_PATH = "info/exclude";
+export const GIT_GLOBAL_EXCLUDES_ENV_KEYS = {
+  XDG_CONFIG_HOME: "XDG_CONFIG_HOME",
+  HOME: "HOME",
+} as const;
+export const GIT_DEFAULT_GLOBAL_IGNORE_PATH = {
+  CONFIG_DIRECTORY: ".config",
+  GIT_DIRECTORY: "git",
+  IGNORE_FILE: "ignore",
+} as const;
 const PATH_SEGMENT_SEPARATOR = "/";
 const CURRENT_DIRECTORY_PREFIX = ".";
 const GIT_SCOPE_FAILURE_MESSAGE = "failed to read git scope";
@@ -163,6 +172,41 @@ function readInfoExcludePath(productDir: string): string | undefined {
   return join(absoluteCommonDir, INFO_EXCLUDE_RELATIVE_PATH);
 }
 
+function defaultGlobalExcludesPath(env: NodeJS.ProcessEnv): string | undefined {
+  const xdgConfigHome = env[GIT_GLOBAL_EXCLUDES_ENV_KEYS.XDG_CONFIG_HOME];
+  if (xdgConfigHome !== undefined && xdgConfigHome.length > 0) {
+    return join(
+      xdgConfigHome,
+      GIT_DEFAULT_GLOBAL_IGNORE_PATH.GIT_DIRECTORY,
+      GIT_DEFAULT_GLOBAL_IGNORE_PATH.IGNORE_FILE,
+    );
+  }
+
+  const home = env[GIT_GLOBAL_EXCLUDES_ENV_KEYS.HOME];
+  if (home === undefined || home.length === 0) {
+    return undefined;
+  }
+  return join(
+    home,
+    GIT_DEFAULT_GLOBAL_IGNORE_PATH.CONFIG_DIRECTORY,
+    GIT_DEFAULT_GLOBAL_IGNORE_PATH.GIT_DIRECTORY,
+    GIT_DEFAULT_GLOBAL_IGNORE_PATH.IGNORE_FILE,
+  );
+}
+
+function readGlobalExcludesPath(productDir: string): string | undefined {
+  const configuredPath = readOptionalGit(productDir, [
+    GIT_CONFIG_ARGS.CONFIG,
+    GIT_CONFIG_ARGS.TYPE_PATH,
+    GIT_CONFIG_ARGS.GET,
+    GIT_CONFIG_ARGS.CORE_EXCLUDES_FILE,
+  ]);
+  if (configuredPath !== undefined && configuredPath.length > 0) {
+    return resolveGitPath(productDir, configuredPath);
+  }
+  return defaultGlobalExcludesPath(gitEnvironment());
+}
+
 function parentPrefixes(path: string): readonly string[] {
   const prefixes: string[] = [];
   let index = path.lastIndexOf(PATH_SEGMENT_SEPARATOR);
@@ -188,7 +232,11 @@ function includedDescendantParents(paths: ReadonlySet<string>): ReadonlySet<stri
   return parents;
 }
 
-function gitLsFilesArgs(productDir: string, overrides: IgnoreSourceOverrides): readonly string[] {
+export function buildIgnoreSourceGitLsFilesArgs(
+  productDir: string,
+  overrides: Partial<IgnoreSourceOverrides> = DEFAULT_IGNORE_SOURCE_OVERRIDES,
+): readonly string[] {
+  const normalizedOverrides = normalizeOverrides({ overrides });
   const args: string[] = [
     GIT_LS_FILES_ARGS.LS_FILES,
     GIT_LS_FILES_ARGS.CACHED,
@@ -197,25 +245,20 @@ function gitLsFilesArgs(productDir: string, overrides: IgnoreSourceOverrides): r
     GIT_LS_FILES_ARGS.NULL_TERMINATED,
   ];
 
-  if (!overrides.noIgnore && !overrides.noIgnoreVcs) {
+  if (!normalizedOverrides.noIgnore && !normalizedOverrides.noIgnoreVcs) {
     args.push(GIT_LS_FILES_ARGS.EXCLUDE_STANDARD);
   }
-  if (!overrides.noIgnore && overrides.ignoreFile !== undefined) {
-    args.push(...excludeFromArgs(resolveGitPath(productDir, overrides.ignoreFile)));
+  if (!normalizedOverrides.noIgnore && normalizedOverrides.ignoreFile !== undefined) {
+    args.push(...excludeFromArgs(resolveGitPath(productDir, normalizedOverrides.ignoreFile)));
   }
-  if (!overrides.noIgnore && overrides.noIgnoreVcs) {
+  if (!normalizedOverrides.noIgnore && normalizedOverrides.noIgnoreVcs) {
     const infoExcludePath = readInfoExcludePath(productDir);
     if (infoExcludePath !== undefined) {
       args.push(...excludeFromArgs(infoExcludePath));
     }
-    const globalExcludesPath = readOptionalGit(productDir, [
-      GIT_CONFIG_ARGS.CONFIG,
-      GIT_CONFIG_ARGS.TYPE_PATH,
-      GIT_CONFIG_ARGS.GET,
-      GIT_CONFIG_ARGS.CORE_EXCLUDES_FILE,
-    ]);
-    if (globalExcludesPath !== undefined && globalExcludesPath.length > 0) {
-      args.push(...excludeFromArgs(resolveGitPath(productDir, globalExcludesPath)));
+    const globalExcludesPath = readGlobalExcludesPath(productDir);
+    if (globalExcludesPath !== undefined) {
+      args.push(...excludeFromArgs(globalExcludesPath));
     }
   }
 
@@ -224,7 +267,7 @@ function gitLsFilesArgs(productDir: string, overrides: IgnoreSourceOverrides): r
 
 export function createIgnoreSourceReader(productDir: string, config: IgnoreSourceReaderConfig): IgnoreSourceReader {
   const overrides = normalizeOverrides(config);
-  const output = readGit(productDir, gitLsFilesArgs(productDir, overrides));
+  const output = readGit(productDir, buildIgnoreSourceGitLsFilesArgs(productDir, overrides));
   const includedSet = new Set(output.split("\0").filter((line) => line.length > 0));
   const descendantParents = includedDescendantParents(includedSet);
   return {
