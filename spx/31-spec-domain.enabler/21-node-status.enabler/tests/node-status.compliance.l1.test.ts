@@ -4,6 +4,7 @@ import { join } from "node:path";
 import { describe, expect, it } from "vitest";
 
 import {
+  createNodeStatusExcludeReader,
   createNodeStatusFile,
   createNodeStatusProvider,
   NODE_STATUS_EVIDENCE_OUTCOME,
@@ -99,6 +100,18 @@ describe("node-status absence semantics", () => {
         const nodeDir = `${env.productDir}/${expectation.statusPath.replace(statusFilenameSuffix, "")}`;
         expect(readNodeStatus(nodeDir)).toBeUndefined();
       }
+    });
+  });
+});
+
+describe("node-status EXCLUDE validation", () => {
+  it("ALWAYS: malformed EXCLUDE entries fail before consumers can use them", async () => {
+    const fixture = sampleNodeStatusValue(NODE_STATUS_TEST_GENERATOR.classificationTree());
+
+    await withClassificationTree(fixture, async ({ env }) => {
+      await env.writeRaw("spx/EXCLUDE", "../docs\n./node\nparent//child\n/absolute\n");
+
+      expect(() => createNodeStatusExcludeReader(env.productDir)).toThrow("Invalid spx/EXCLUDE entry");
     });
   });
 });

@@ -14,9 +14,10 @@ describe("path-filter — scenarios", () => {
   it("files whose relative path starts with a prefix listed in validation.paths.exclude are not parsed or indexed", async () => {
     await withLiteralFixtureEnv({}, async (env) => {
       const [excludedLiteral, activeLiteral] = sampleIndependentDomainLiterals(2);
+      const activePath = sampleLiteralTestValue(LITERAL_TEST_GENERATOR.sourceFilePath());
 
       await env.writeSourceFile("legacy/module.ts", excludedLiteral);
-      await env.writeSourceFile("src/active.ts", activeLiteral);
+      await env.writeSourceFile(activePath, activeLiteral);
 
       const result = await validateLiteralReuse({
         productDir: env.productDir,
@@ -35,13 +36,15 @@ describe("path-filter — scenarios", () => {
   it("when validation.paths.include lists a prefix, only files matching at least one include prefix are parsed and indexed", async () => {
     await withLiteralFixtureEnv({}, async (env) => {
       const [includedLiteral, outsideLiteral] = sampleIndependentDomainLiterals(2);
+      const includedPath = sampleLiteralTestValue(LITERAL_TEST_GENERATOR.sourceFilePath());
+      const includedPrefix = firstPathSegment(includedPath);
 
-      await env.writeSourceFile("src/active.ts", includedLiteral);
+      await env.writeSourceFile(includedPath, includedLiteral);
       await env.writeSourceFile("vendor/third-party.ts", outsideLiteral);
 
       const result = await validateLiteralReuse({
         productDir: env.productDir,
-        pathConfig: { include: ["src"] },
+        pathConfig: { include: [includedPrefix] },
       });
 
       const indexedValues = new Set<string>();
@@ -148,10 +151,11 @@ describe("path-filter — scenarios", () => {
   it("gitignored files are not parsed or indexed", async () => {
     await withLiteralFixtureEnv({}, async (env) => {
       const [ignoredLiteral, activeLiteral] = sampleIndependentDomainLiterals(2);
+      const activePath = sampleLiteralTestValue(LITERAL_TEST_GENERATOR.sourceFilePath());
 
       await env.writeGitignore(".", "ignored/\n");
       await env.writeSourceFile("ignored/file.ts", ignoredLiteral);
-      await env.writeSourceFile("src/active.ts", activeLiteral);
+      await env.writeSourceFile(activePath, activeLiteral);
 
       const result = await validateLiteralReuse({ productDir: env.productDir });
 
@@ -180,3 +184,7 @@ describe("path-filter — scenarios", () => {
     });
   });
 });
+
+function firstPathSegment(path: string): string {
+  return path.slice(0, path.indexOf("/"));
+}
