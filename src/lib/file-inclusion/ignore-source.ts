@@ -66,7 +66,7 @@ export type IgnoreSourceReader = {
   appliedOverrides(): IgnoreSourceOverrides;
 };
 
-export const EMPTY_IGNORE_READER: IgnoreSourceReader = {
+export const EMPTY_INCLUDED_SET_IGNORE_READER: IgnoreSourceReader = {
   isInIncludedSet(): boolean {
     return false;
   },
