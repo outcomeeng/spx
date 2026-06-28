@@ -33,6 +33,7 @@ import {
   type VerdictBucket,
 } from "@/domains/diagnose/types";
 import { SEVERITY_STYLE } from "@/lib/styled-output/styled-output";
+import { arbitraryInvalidSpxFloor, sampleDiagnoseTestValue } from "@testing/generators/diagnose/manifest";
 import { arbitraryReport } from "@testing/generators/diagnose/report";
 
 interface TranslationBranchCase {
@@ -61,6 +62,7 @@ const fieldDelimiter = ":";
 const reusableSpxReading: SpxReachabilityReading = { errored: false, resolvedPath: "/bin/spx", version: "0.6.8" };
 const newerSpxFloor = "0.6.0";
 const futureSpxFloor = "0.7.0";
+const invalidSpxFloor = sampleDiagnoseTestValue(arbitraryInvalidSpxFloor());
 const workingSessionReading: SessionEnvironmentReading = {
   errored: false,
   hookPresent: true,
@@ -246,6 +248,20 @@ describe("the text report translates check records into a human diagnosis", () =
     );
     expect(text).not.toContain(DIAGNOSE_TEXT_HEADER.MARKETPLACE_CHECKS_SKIPPED);
     expect(text).not.toContain(DIAGNOSE_TEXT_DETAIL.MARKETPLACE_SKIPPED);
+  });
+
+  it("reports invalid spx version comparison details in text mode", () => {
+    const text = renderSingleCheckText(classifySpxReachability(reusableSpxReading, invalidSpxFloor));
+
+    expect(text).toContain(DIAGNOSE_TEXT_HEADER.SPX_UNKNOWN);
+    expect(text).toContain(
+      `${DIAGNOSE_TEXT_LABEL.PROBLEM}${fieldDelimiter} ${DIAGNOSE_TEXT_DETAIL.SPX_UNKNOWN_PROBLEM}`,
+    );
+    expect(text).toContain(
+      `${DIAGNOSE_TEXT_LABEL.INSTALLED}${fieldDelimiter} ${reusableSpxReading.version ?? ""}`,
+    );
+    expect(text).toContain(`${DIAGNOSE_TEXT_LABEL.REQUIRED_VERSION}${fieldDelimiter} ${invalidSpxFloor}`);
+    expect(text).toContain(`${DIAGNOSE_TEXT_LABEL.FIX}${fieldDelimiter} ${DIAGNOSE_TEXT_DETAIL.SPX_UNKNOWN_FIX}`);
   });
 
   it("does not expose raw boolean fields, duplicated verdict labels, or remediation prose in text mode", () => {
