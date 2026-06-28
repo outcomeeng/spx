@@ -2,10 +2,18 @@ import { dirname, join } from "node:path";
 
 import { describe, expect, it } from "vitest";
 
+import { SPEC_STATUS_METADATA_LABEL, statusCommand } from "@/commands/spec/status";
 import { createNodeStatusProvider, NODE_STATUS_FILENAME, readNodeStatus, updateNodeStatus } from "@/lib/node-status";
 import { createFilesystemSpecTreeSource, readSpecTree, type SpecTreeNode } from "@/lib/spec-tree";
+import { SPEC_TREE_CONFIG } from "@/lib/spec-tree/config";
 import { NODE_STATUS_TEST_GENERATOR, sampleNodeStatusValue } from "@testing/generators/node-status/node-status";
-import { withClassificationTree } from "@testing/harnesses/node-status/node-status";
+import {
+  commitNodeStatusProductPath,
+  initializeNodeStatusGitHistory,
+  NODE_STATUS_CLASSIFICATION_SPEC_CONTENT,
+  requireNodeStatusRecordedExpectation,
+  withClassificationTree,
+} from "@testing/harnesses/node-status/node-status";
 
 function nodeStateById(nodes: readonly SpecTreeNode[], id: string): string | undefined {
   for (const node of nodes) {
@@ -73,6 +81,34 @@ describe("spx spec status --update", () => {
           nodeStateById(liveSnapshot.nodes, expectation.nodeId),
         );
       }
+    });
+  });
+
+  it("marks a recorded node stale without changing its recorded lifecycle state", async () => {
+    const fixture = sampleNodeStatusValue(NODE_STATUS_TEST_GENERATOR.delegationTree());
+
+    await withClassificationTree(fixture, async ({ env, expectations, resolveOutcome }) => {
+      const recordedNode = requireNodeStatusRecordedExpectation(expectations);
+
+      await initializeNodeStatusGitHistory(env.productDir);
+      await commitNodeStatusProductPath(env.productDir, SPEC_TREE_CONFIG.ROOT_DIRECTORY);
+
+      await updateNodeStatus({ productDir: env.productDir, resolveOutcome });
+      await commitNodeStatusProductPath(env.productDir, SPEC_TREE_CONFIG.ROOT_DIRECTORY);
+
+      const specPath = [
+        SPEC_TREE_CONFIG.ROOT_DIRECTORY,
+        recordedNode.nodeId,
+        `${recordedNode.slug}.md`,
+      ].join("/");
+      await env.writeNode(specPath, `${NODE_STATUS_CLASSIFICATION_SPEC_CONTENT}\n`);
+      await commitNodeStatusProductPath(env.productDir, specPath);
+
+      const output = await statusCommand({ cwd: env.productDir });
+
+      expect(output).toContain(
+        `${recordedNode.nodeId} [${recordedNode.expectedStatus}] [${SPEC_STATUS_METADATA_LABEL.STALE}]`,
+      );
     });
   });
 });

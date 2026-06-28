@@ -1,6 +1,11 @@
 import { CONFIG_PROCESS_CWD } from "@/domains/config/cwd";
 import { defaultGitDependencies, type GitDependencies } from "@/git/root";
-import { createNodeStatusProvider, type NodeOutcomeResolver, updateNodeStatus } from "@/lib/node-status";
+import {
+  createNodeStatusProvider,
+  type NodeOutcomeResolver,
+  resolveStaleNodeIds,
+  updateNodeStatus,
+} from "@/lib/node-status";
 import {
   createFilesystemSpecTreeSource,
   projectSpecTree,
@@ -23,6 +28,10 @@ export const SPEC_STATUS_MESSAGE = {
   EMPTY: `No spec-tree nodes found in ${SPEC_TREE_CONFIG.ROOT_DIRECTORY}`,
 } as const;
 
+export const SPEC_STATUS_METADATA_LABEL = {
+  STALE: "stale",
+} as const;
+
 const DEFAULT_FORMAT: OutputFormat = OUTPUT_FORMAT.TEXT;
 const JSON_INDENTATION = 2;
 const STATUS_SEPARATOR = " ";
@@ -42,6 +51,9 @@ export const SPEC_STATUS_TABLE_HEADER = formatTableRow([
 ]);
 
 export type OutputFormat = (typeof OUTPUT_FORMAT)[keyof typeof OUTPUT_FORMAT];
+export type StatusRenderMetadata = {
+  readonly staleNodeIds?: ReadonlySet<string>;
+};
 
 export class SpecStatusUpdateRequiresProductDirError extends Error {
   constructor() {
@@ -118,12 +130,15 @@ export async function statusCommand(
     source: createFilesystemSpecTreeSource({ productDir }),
     evidence: createNodeStatusProvider(productDir),
   });
-  return renderSpecStatus(projectSpecTree(snapshot), options.format);
+  return renderSpecStatus(projectSpecTree(snapshot), options.format, {
+    staleNodeIds: await resolveStaleNodeIds({ productDir, snapshot, gitDependencies }),
+  });
 }
 
 export function renderSpecStatus(
   projection: SpecTreeProjection,
   format: OutputFormat = DEFAULT_FORMAT,
+  metadata: StatusRenderMetadata = {},
 ): string {
   if (projection.nodes.length === 0 && format !== OUTPUT_FORMAT.JSON) {
     return SPEC_STATUS_MESSAGE.EMPTY;
@@ -133,11 +148,11 @@ export function renderSpecStatus(
     case OUTPUT_FORMAT.JSON:
       return formatJSON(projection);
     case OUTPUT_FORMAT.MARKDOWN:
-      return formatMarkdown(projection);
+      return formatMarkdown(projection, metadata);
     case OUTPUT_FORMAT.TABLE:
-      return formatTable(projection);
+      return formatTable(projection, metadata);
     case OUTPUT_FORMAT.TEXT:
-      return formatText(projection);
+      return formatText(projection, metadata);
     default: {
       const unsupportedFormat: never = format;
       throw new RangeError(`Unsupported spec status output format: ${unsupportedFormat}`);
@@ -149,31 +164,31 @@ function formatJSON(projection: SpecTreeProjection): string {
   return JSON.stringify(projection, null, JSON_INDENTATION);
 }
 
-function formatText(projection: SpecTreeProjection): string {
-  return projection.nodes.map((node) => formatTextNode(node)).join("\n");
+function formatText(projection: SpecTreeProjection, metadata: StatusRenderMetadata): string {
+  return projection.nodes.map((node) => formatTextNode(node, metadata)).join("\n");
 }
 
-function formatTextNode(node: SpecTreeProjectedNode, depth = 0): string {
-  const current = `${NODE_INDENT.repeat(depth)}${formatNodeLabel(node)}`;
-  const children = node.children.map((child) => formatTextNode(child, depth + 1));
+function formatTextNode(node: SpecTreeProjectedNode, metadata: StatusRenderMetadata, depth = 0): string {
+  const current = `${NODE_INDENT.repeat(depth)}${formatNodeLabel(node, metadata)}`;
+  const children = node.children.map((child) => formatTextNode(child, metadata, depth + 1));
   return [current, ...children].join("\n");
 }
 
-function formatMarkdown(projection: SpecTreeProjection): string {
-  return projection.nodes.map((node) => formatMarkdownNode(node)).join("\n");
+function formatMarkdown(projection: SpecTreeProjection, metadata: StatusRenderMetadata): string {
+  return projection.nodes.map((node) => formatMarkdownNode(node, metadata)).join("\n");
 }
 
-function formatMarkdownNode(node: SpecTreeProjectedNode, depth = 0): string {
-  const current = `${NODE_INDENT.repeat(depth)}${MARKDOWN_NODE_PREFIX}${formatNodeLabel(node)}`;
-  const children = node.children.map((child) => formatMarkdownNode(child, depth + 1));
+function formatMarkdownNode(node: SpecTreeProjectedNode, metadata: StatusRenderMetadata, depth = 0): string {
+  const current = `${NODE_INDENT.repeat(depth)}${MARKDOWN_NODE_PREFIX}${formatNodeLabel(node, metadata)}`;
+  const children = node.children.map((child) => formatMarkdownNode(child, metadata, depth + 1));
   return [current, ...children].join("\n");
 }
 
-function formatTable(projection: SpecTreeProjection): string {
+function formatTable(projection: SpecTreeProjection, metadata: StatusRenderMetadata): string {
   const rows = flattenProjectionNodes(projection.nodes).map((node) => [
     KIND_REGISTRY[node.kind].label,
     node.id,
-    node.state,
+    formatStateCell(node, metadata),
   ]);
   return [
     SPEC_STATUS_TABLE_HEADER,
@@ -191,10 +206,25 @@ function formatTableRow(values: readonly string[]): string {
   return `${TABLE_SEPARATOR} ${values.join(separator)} ${TABLE_SEPARATOR}`;
 }
 
-function formatNodeLabel(node: SpecTreeProjectedNode): string {
+function formatNodeLabel(node: SpecTreeProjectedNode, metadata: StatusRenderMetadata): string {
   return [
     KIND_REGISTRY[node.kind].label,
     node.id,
-    `[${node.state}]`,
+    ...statusLabels(node, metadata),
   ].join(STATUS_SEPARATOR);
+}
+
+function statusLabels(node: SpecTreeProjectedNode, metadata: StatusRenderMetadata): readonly string[] {
+  const labels = [`[${node.state}]`];
+  if (metadata.staleNodeIds?.has(node.id) === true) {
+    labels.push(`[${SPEC_STATUS_METADATA_LABEL.STALE}]`);
+  }
+  return labels;
+}
+
+function formatStateCell(node: SpecTreeProjectedNode, metadata: StatusRenderMetadata): string {
+  if (metadata.staleNodeIds?.has(node.id) !== true) {
+    return node.state;
+  }
+  return `${node.state}${STATUS_SEPARATOR}${SPEC_STATUS_METADATA_LABEL.STALE}`;
 }

@@ -30,4 +30,10 @@ export {
 } from "./classify";
 export { createNodeStatusProvider } from "./provider";
 export { NODE_STATUS_FILENAME, parseNodeStatusFile, readNodeStatus } from "./read";
+export {
+  NODE_STATUS_STALENESS_STORAGE_FIELD,
+  type NodeStatusStalenessFileSystem,
+  resolveStaleNodeIds,
+  type ResolveStaleNodeIdsOptions,
+} from "./staleness";
 export { type NodeOutcomeResolver, updateNodeStatus, type UpdateNodeStatusOptions } from "./update";

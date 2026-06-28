@@ -15,8 +15,10 @@ import {
   NODE_STATUS_PROJECTION_STEP_NAME,
   NODE_STATUS_PROJECTION_UPDATE_COMMAND,
   NODE_STATUS_PROJECTION_WORKFLOW_PATHS,
+  NODE_STATUS_STALENESS_STORAGE_FIELD,
   parseNodeStatusProjectionWorkflowSteps,
   readNodeStatus,
+  resolveStaleNodeIds,
   serializeNodeStatus,
   updateNodeStatus,
 } from "@/lib/node-status";
@@ -30,7 +32,16 @@ import {
   SPEC_TREE_TEST_GENERATOR,
 } from "@testing/generators/spec-tree/spec-tree";
 import { GIT_TEST_SUBCOMMANDS, runGit } from "@testing/harnesses/git-test-constants";
-import { withClassificationTree } from "@testing/harnesses/node-status/node-status";
+import {
+  commitNodeStatusProductPath,
+  initializeNodeStatusGitHistory,
+  NODE_STATUS_CLASSIFICATION_EVIDENCE_WITH_TEST_SUPPORT_CONTENT,
+  NODE_STATUS_CLASSIFICATION_SPEC_CONTENT,
+  NODE_STATUS_TEST_SUPPORT_FIXTURE,
+  requireNodeStatusEvidencePath,
+  requireNodeStatusRecordedExpectation,
+  withClassificationTree,
+} from "@testing/harnesses/node-status/node-status";
 
 describe("node-status write authority", () => {
   it("ALWAYS: spx.status.json appears only after the --update path runs", async () => {
@@ -154,6 +165,72 @@ function expectedOutcomeFor(facts: { readonly isExcluded: boolean; readonly test
   if (facts.isExcluded) return NODE_STATUS_EVIDENCE_OUTCOME.NOT_RUN;
   return facts.testsPass ? NODE_STATUS_EVIDENCE_OUTCOME.PASSED : NODE_STATUS_EVIDENCE_OUTCOME.FAILED;
 }
+
+describe("node-status read-time staleness", () => {
+  it("ALWAYS: derives stale status from Git history without storing staleness anchors", async () => {
+    const fixture = sampleNodeStatusValue(NODE_STATUS_TEST_GENERATOR.delegationTree());
+
+    await withClassificationTree(fixture, async ({ env, expectations, resolveOutcome }) => {
+      const recordedNode = requireNodeStatusRecordedExpectation(expectations);
+
+      await initializeNodeStatusGitHistory(env.productDir);
+      await commitNodeStatusProductPath(env.productDir, SPEC_TREE_CONFIG.ROOT_DIRECTORY);
+
+      await updateNodeStatus({ productDir: env.productDir, resolveOutcome });
+      await commitNodeStatusProductPath(env.productDir, SPEC_TREE_CONFIG.ROOT_DIRECTORY);
+
+      const specPath = [
+        SPEC_TREE_CONFIG.ROOT_DIRECTORY,
+        recordedNode.nodeId,
+        `${recordedNode.slug}.md`,
+      ].join("/");
+      await env.writeNode(specPath, `${NODE_STATUS_CLASSIFICATION_SPEC_CONTENT}\n`);
+      await commitNodeStatusProductPath(env.productDir, specPath);
+
+      const snapshot = await readSpecTree({
+        source: createFilesystemSpecTreeSource({ productDir: env.productDir }),
+        evidence: createNodeStatusProvider(env.productDir),
+      });
+      const staleNodeIds = await resolveStaleNodeIds({ productDir: env.productDir, snapshot });
+      const recordedStatus = JSON.parse(await env.readFile(recordedNode.statusPath)) as Record<string, unknown>;
+
+      expect(staleNodeIds.has(recordedNode.nodeId)).toBe(true);
+      for (const field of Object.values(NODE_STATUS_STALENESS_STORAGE_FIELD)) {
+        expect(recordedStatus).not.toHaveProperty(field);
+      }
+      expect(recordedStatus).toEqual(recordedNode.expectedStatusFile);
+    });
+  });
+
+  it("ALWAYS: includes linked test-support imports in the read-time staleness graph", async () => {
+    const fixture = sampleNodeStatusValue(NODE_STATUS_TEST_GENERATOR.delegationTree());
+
+    await withClassificationTree(fixture, async ({ env, expectations, resolveOutcome }) => {
+      const recordedNode = requireNodeStatusRecordedExpectation(expectations);
+      const evidencePath = requireNodeStatusEvidencePath(recordedNode);
+      await env.writeNode(evidencePath, NODE_STATUS_CLASSIFICATION_EVIDENCE_WITH_TEST_SUPPORT_CONTENT);
+      await env.writeRaw(NODE_STATUS_TEST_SUPPORT_FIXTURE.PATH, NODE_STATUS_TEST_SUPPORT_FIXTURE.INITIAL_CONTENT);
+
+      await initializeNodeStatusGitHistory(env.productDir);
+      await commitNodeStatusProductPath(env.productDir, SPEC_TREE_CONFIG.ROOT_DIRECTORY);
+      await commitNodeStatusProductPath(env.productDir, NODE_STATUS_TEST_SUPPORT_FIXTURE.PATH);
+
+      await updateNodeStatus({ productDir: env.productDir, resolveOutcome });
+      await commitNodeStatusProductPath(env.productDir, SPEC_TREE_CONFIG.ROOT_DIRECTORY);
+
+      await env.writeRaw(NODE_STATUS_TEST_SUPPORT_FIXTURE.PATH, NODE_STATUS_TEST_SUPPORT_FIXTURE.UPDATED_CONTENT);
+      await commitNodeStatusProductPath(env.productDir, NODE_STATUS_TEST_SUPPORT_FIXTURE.PATH);
+
+      const snapshot = await readSpecTree({
+        source: createFilesystemSpecTreeSource({ productDir: env.productDir }),
+        evidence: createNodeStatusProvider(env.productDir),
+      });
+      const staleNodeIds = await resolveStaleNodeIds({ productDir: env.productDir, snapshot });
+
+      expect(staleNodeIds.has(recordedNode.nodeId)).toBe(true);
+    });
+  });
+});
 
 describe("node-status tracked-tree write boundary", () => {
   it("NEVER: --update writes into an untracked node-shaped directory; a stale status file there is removed", async () => {

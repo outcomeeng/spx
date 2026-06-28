@@ -16,6 +16,7 @@ import type {
   ClassificationTreeFixture,
 } from "@testing/generators/node-status/node-status";
 import { sampleSpecTreeTestValue, SPEC_TREE_TEST_GENERATOR } from "@testing/generators/spec-tree/spec-tree";
+import { GIT_TEST_CONFIG, GIT_TEST_FLAGS, GIT_TEST_SUBCOMMANDS, runGit } from "@testing/harnesses/git-test-constants";
 import { type SpecTreeEnv, withTestEnv } from "@testing/harnesses/spec-tree/spec-tree";
 
 const ROOT = SPEC_TREE_CONFIG.ROOT_DIRECTORY;
@@ -25,6 +26,14 @@ export const NODE_STATUS_CLASSIFICATION_SPEC_CONTENT =
   "# Fixture\n\nPROVIDES fixture infrastructure\nSO THAT node-status tests\nCAN classify nodes\n";
 export const NODE_STATUS_CLASSIFICATION_EVIDENCE_CONTENT =
   "import { expect, it } from \"vitest\";\n\nit(\"holds\", () => {\n  expect(true).toBe(true);\n});\n";
+export const NODE_STATUS_TEST_SUPPORT_FIXTURE = {
+  IMPORT_SPECIFIER: "@testing/harnesses/node-status/node-status",
+  PATH: "testing/harnesses/node-status/node-status.ts",
+  INITIAL_CONTENT: "export const nodeStatusTestSupportValue = true;\n",
+  UPDATED_CONTENT: "export const nodeStatusTestSupportValue = false;\n",
+} as const;
+export const NODE_STATUS_CLASSIFICATION_EVIDENCE_WITH_TEST_SUPPORT_CONTENT =
+  `import "${NODE_STATUS_TEST_SUPPORT_FIXTURE.IMPORT_SPECIFIER}";\n${NODE_STATUS_CLASSIFICATION_EVIDENCE_CONTENT}`;
 
 export type ClassificationTreeNodeExpectation = {
   readonly nodeId: string;
@@ -44,6 +53,11 @@ export type ClassificationTreeEnv = {
     evidencePaths: readonly string[],
   ): Promise<Readonly<Record<string, NodeStatusEvidenceOutcome>>>;
 };
+
+const NODE_STATUS_HARNESS_ERROR = {
+  MISSING_RECORDED_NODE: "Delegation fixture must contain a recorded node",
+  MISSING_EVIDENCE_PATH: "Recorded node must contain an evidence path",
+} as const;
 
 // Materialize a generated classification tree into a temp product directory:
 // each node becomes a directory with a spec file, optional co-located tests, and
@@ -110,6 +124,48 @@ export async function withClassificationTree(
         ),
     });
   });
+}
+
+export function requireNodeStatusRecordedExpectation(
+  expectations: readonly ClassificationTreeNodeExpectation[],
+): ClassificationTreeNodeExpectation {
+  const recordedNode = expectations.find(
+    (expectation) => expectation.facts.hasVerificationReferences && !expectation.facts.isExcluded,
+  );
+  if (recordedNode === undefined) {
+    throw new Error(NODE_STATUS_HARNESS_ERROR.MISSING_RECORDED_NODE);
+  }
+  return recordedNode;
+}
+
+export function requireNodeStatusEvidencePath(expectation: ClassificationTreeNodeExpectation): string {
+  if (expectation.evidencePaths.length === 0) {
+    throw new Error(NODE_STATUS_HARNESS_ERROR.MISSING_EVIDENCE_PATH);
+  }
+  return expectation.evidencePaths[0];
+}
+
+export async function initializeNodeStatusGitHistory(productDir: string): Promise<void> {
+  await runGit(productDir, [GIT_TEST_SUBCOMMANDS.INIT]);
+  await runGit(productDir, [
+    GIT_TEST_SUBCOMMANDS.CONFIG,
+    GIT_TEST_CONFIG.EMAIL_KEY,
+    GIT_TEST_CONFIG.EMAIL,
+  ]);
+  await runGit(productDir, [
+    GIT_TEST_SUBCOMMANDS.CONFIG,
+    GIT_TEST_CONFIG.USER_NAME_KEY,
+    GIT_TEST_CONFIG.USER_NAME,
+  ]);
+}
+
+export async function commitNodeStatusProductPath(productDir: string, pathspec: string): Promise<void> {
+  await runGit(productDir, [GIT_TEST_SUBCOMMANDS.ADD, pathspec]);
+  await runGit(productDir, [
+    GIT_TEST_SUBCOMMANDS.COMMIT,
+    GIT_TEST_FLAGS.COMMIT_MESSAGE,
+    sampleSpecTreeTestValue(SPEC_TREE_TEST_GENERATOR.evidenceFileName()),
+  ]);
 }
 
 function expectedNodeStatusFile(facts: ClassificationFixtureFacts, evidencePath: string | undefined): NodeStatusFile {
