@@ -9,8 +9,8 @@ Children occupy the first-half grid slots `[10, 50]` — `21-occupancy-claim.adr
 Plugin SessionStart hooks delegate startup behavior to `spx hook run session-start`; `/handoff`, `/pickup`, and manual repair flows invoke `spx worktree`:
 
 - `spx worktree claim --session-id <id>` — invoked by manual repair and compatibility flows with the working directory in the worktree being claimed. Fast; writes nothing to stdout; exits 0 on success.
-- `spx worktree status <pool-worktree>` — invoked by `/pickup` before checking a work branch out into a pool worktree. Reports occupied, unclaimed, or stale through a parseable shape (`--format json`). `/pickup` enters only an unclaimed-or-stale worktree.
-- `spx worktree release` — invoked by `/handoff` at session close. Frees the running worktree's claim. Best-effort: a missing command, non-zero exit, or slow release is harmless because a dead holder's claim already reads as stale at the next status check.
+- `spx worktree status <pool-worktree>` — invoked by `/pickup` before checking a work branch out into a pool worktree. Reports `running` or `free` through a parseable shape (`--format json`). `/pickup` enters only a `free` worktree.
+- `spx worktree release` — invoked by `/handoff` at session close. Frees the running worktree's claim. Best-effort: a missing command, non-zero exit, or slow release is harmless because a dead holder's claim already reads as `free` at the next status check.
 
 The plugin-side integration design is governed in `github.com/outcomeeng/plugins` at `spx/21-spec-tree.enabler/19-worktree-occupancy.enabler/` and `spx/21-spec-tree.enabler/76-sessions.enabler/ISSUES.md`.
 
