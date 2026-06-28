@@ -1,6 +1,6 @@
 # Session Store Check
 
-PROVIDES the session-store diagnose check — classifies the `.spx/` session store from doing sessions joined to the shared worktree pool snapshot's live claim set, pairing the verdict with a remediation hint
+PROVIDES the session-store diagnose behavior — classifies the `.spx/` session store from doing sessions joined to the shared worktree pool snapshot's live claim set, pairing the verdict with a remediation hint for both the whole-product diagnose report and the focused session-store diagnosis
 SO THAT the `spx diagnose` engine in [`spx/54-diagnose.enabler/diagnose.md`](../diagnose.md)
 CAN fold session-store health into the overall environment verdict
 
