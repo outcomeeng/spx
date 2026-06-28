@@ -1,12 +1,18 @@
-import { writeFile } from "node:fs/promises";
+import { readFile, writeFile } from "node:fs/promises";
 import { dirname, join } from "node:path";
 
 import * as fc from "fast-check";
 import { describe, expect, it } from "vitest";
 
 import { currentStalenessInputs, NO_GIT_IDENTITY, runNodeCommand, runTestsCommand } from "@/commands/test";
+import {
+  CHANGED_TEST_DIFF_COMMAND,
+  CHANGED_TEST_INDEX_PATH_PREFIX,
+  CHANGED_TEST_SHOW_COMMAND,
+} from "@/commands/test/changed-set-planning";
 import { digestDescriptorSection } from "@/config/descriptor-digest";
-import type { GitDependencies } from "@/git/root";
+import { GIT_ROOT_COMMAND, type GitDependencies } from "@/git/root";
+import { GIT_DELETE_STATUS_EXAMPLE } from "@/lib/git/name-status";
 import { SPEC_TREE_CONFIG } from "@/lib/spec-tree/config";
 import { PYTHON_PRODUCT_INPUT_PATH, pythonTestingLanguage } from "@/test/languages/python";
 import { typescriptTestingLanguage } from "@/test/languages/typescript";
@@ -25,6 +31,7 @@ import {
   sampleLiteralTestValue,
 } from "@testing/generators/literal/literal";
 import { sampleDispatchValue, TEST_DISPATCH_GENERATOR } from "@testing/generators/testing/dispatch";
+import { GIT_TEST_SUBCOMMANDS } from "@testing/harnesses/git-test-constants";
 import {
   withTestingTempProductDir,
   writeTestFileFixture,
@@ -44,6 +51,42 @@ function invokedArgs(
 function gitIdentityStub(): GitDependencies {
   return {
     execa: async () => ({ exitCode: 0, stdout: sampleLiteralTestValue(arbitraryDomainLiteral()), stderr: "" }),
+  };
+}
+
+function nameStatusNulDelimited(paths: readonly string[]): string {
+  return paths.map((path) => `${GIT_DELETE_STATUS_EXAMPLE}\0${path}\0`).join("");
+}
+
+function stagedSnapshotGit(
+  changedPaths: readonly string[],
+  stagedFiles: ReadonlyMap<string, string>,
+): GitDependencies {
+  const defaultBranchName = sampleLiteralTestValue(arbitraryDomainLiteral());
+  const defaultBaseRef = [GIT_ROOT_COMMAND.ORIGIN, defaultBranchName].join("/");
+  const defaultBaseSha = sampleLiteralTestValue(arbitraryDomainLiteral());
+  const headSha = sampleLiteralTestValue(arbitraryDomainLiteral());
+  return {
+    execa: async (_command, args) => {
+      if (args.includes(GIT_TEST_SUBCOMMANDS.SYMBOLIC_REF)) {
+        return { exitCode: 0, stdout: defaultBaseRef, stderr: "" };
+      }
+      const lastArg = args.at(-1);
+      if (lastArg === defaultBaseRef) {
+        return { exitCode: 0, stdout: defaultBaseSha, stderr: "" };
+      }
+      if (args.includes(CHANGED_TEST_DIFF_COMMAND)) {
+        return { exitCode: 0, stdout: nameStatusNulDelimited(changedPaths), stderr: "" };
+      }
+      if (args.includes(CHANGED_TEST_SHOW_COMMAND)) {
+        const path = args.find((arg) => arg.startsWith(CHANGED_TEST_INDEX_PATH_PREFIX))?.slice(1) ?? "";
+        const content = stagedFiles.get(path);
+        return content === undefined
+          ? { exitCode: 1, stdout: "", stderr: "" }
+          : { exitCode: 0, stdout: content, stderr: "" };
+      }
+      return { exitCode: 0, stdout: headSha, stderr: "" };
+    },
   };
 }
 
@@ -228,6 +271,57 @@ describe("spx test execution recording and per-node run", () => {
           expect(presentInputDigest).not.toBe(missingInputDigest);
         });
       }),
+      { numRuns: LITERAL_TEST_GENERATOR_COUNTS.smallPropertyRuns },
+    );
+  });
+
+  it("records staged product input digests when staged changed-set planning runs", async () => {
+    const nodePath = sampleDispatchValue(TEST_DISPATCH_GENERATOR.nodePath());
+    const nodeFile = sampleDispatchValue(TEST_DISPATCH_GENERATOR.testFileUnder(typescriptTestingLanguage, nodePath));
+    const [productInputPath] = typescriptTestingLanguage.productInputPaths;
+    if (productInputPath === undefined) throw new Error("TypeScript descriptor declares no product input path");
+
+    await fc.assert(
+      fc.asyncProperty(
+        fc.uniqueArray(arbitraryDomainLiteral(), {
+          minLength: LITERAL_TEST_GENERATOR_COUNTS.two,
+          maxLength: LITERAL_TEST_GENERATOR_COUNTS.two,
+        }),
+        async ([worktreeInputContent, stagedInputContent]) => {
+          await withTestingTempProductDir(async (productDir) => {
+            await writeTestFileFixture(productDir, nodeFile);
+            await writeFile(join(productDir, productInputPath), worktreeInputContent);
+
+            const runner = createRecordingCommandRunner({ present: true, exitCode: 0 });
+            const recorded = await runTestsCommand(
+              { productDir, passing: false, changed: { staged: true } },
+              {
+                registry: testingRegistry,
+                runnerDepsFor: () => runner,
+                relatedDepsFor: () => ({
+                  isLanguagePresent: () => true,
+                  readFile: async () => "",
+                  runCommand: async () => ({ exitCode: 0, stdout: "", stderr: "" }),
+                }),
+                git: stagedSnapshotGit(
+                  [nodeFile, productInputPath],
+                  new Map([
+                    [nodeFile, (await readFile(join(productDir, nodeFile))).toString()],
+                    [productInputPath, stagedInputContent],
+                  ]),
+                ),
+              },
+            );
+            const stagedDigest = recordedProductInputDigest(recorded.recorded, typescriptTestingLanguage.name);
+            expect(stagedDigest).toBeDefined();
+
+            await writeFile(join(productDir, productInputPath), stagedInputContent);
+            const currentInputs = await currentStalenessInputs(productDir, [nodeFile], { registry: testingRegistry });
+            const currentDigest = recordedProductInputDigest(currentInputs, typescriptTestingLanguage.name);
+            expect(stagedDigest).toBe(currentDigest);
+          });
+        },
+      ),
       { numRuns: LITERAL_TEST_GENERATOR_COUNTS.smallPropertyRuns },
     );
   });

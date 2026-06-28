@@ -140,7 +140,80 @@ function candidateImportPaths(testPath: string, specifier: string): readonly str
   ];
 }
 
+function isProductRelativePath(path: string): boolean {
+  return path !== ".." && !path.startsWith("../");
+}
+
+function isConcreteSourcePath(path: string): boolean {
+  return TYPESCRIPT_SOURCE_EXTENSIONS.some((extension) => path.endsWith(extension));
+}
+
+function isTraversableHelperPath(path: string): boolean {
+  return path.startsWith("spx/") || path.startsWith("testing/")
+    || (path.startsWith("src/") && path.endsWith("/index.ts"));
+}
+
 function matchedChangedSources(
+  testPath: string,
+  sourceText: string,
+  sourcePaths: ReadonlySet<string>,
+  deps: Pick<RelatedTestDependencies, "readFile">,
+  moduleTextCache: Map<string, Promise<string | null>>,
+): Promise<readonly string[]> {
+  const matched = new Set<string>();
+  const visited = new Set<string>();
+
+  async function visit(importerPath: string, importerText: string): Promise<void> {
+    if (visited.has(importerPath)) return;
+    visited.add(importerPath);
+    for (const specifier of importSpecifiers(importerText, importerPath)) {
+      const candidates = candidateImportPaths(importerPath, specifier).filter(isProductRelativePath);
+      const directMatches = candidates.filter((candidate) => sourcePaths.has(candidate));
+      if (directMatches.length > 0) {
+        for (const candidate of directMatches) matched.add(candidate);
+        continue;
+      }
+      for (const candidate of candidates) {
+        if (!isConcreteSourcePath(candidate) || !isTraversableHelperPath(candidate)) continue;
+        const candidateText = await readCandidateModule(candidate, deps, moduleTextCache);
+        if (candidateText !== null) {
+          await visit(candidate, candidateText);
+        }
+      }
+    }
+  }
+
+  return visit(testPath, sourceText).then(() => [...matched]);
+}
+
+async function readCandidateModule(
+  path: string,
+  deps: Pick<RelatedTestDependencies, "readFile">,
+  moduleTextCache: Map<string, Promise<string | null>>,
+): Promise<string | null> {
+  const cached = moduleTextCache.get(path);
+  if (cached !== undefined) return cached;
+  const loaded = deps.readFile(path).catch(() => null);
+  moduleTextCache.set(path, loaded);
+  return loaded;
+}
+
+async function readCandidateTest(
+  path: string,
+  deps: Pick<RelatedTestDependencies, "readFile">,
+  moduleTextCache: Map<string, Promise<string | null>>,
+): Promise<string> {
+  const cached = moduleTextCache.get(path);
+  if (cached !== undefined) {
+    const text = await cached;
+    if (text !== null) return text;
+  }
+  const loaded = deps.readFile(path);
+  moduleTextCache.set(path, loaded);
+  return loaded;
+}
+
+function directChangedSources(
   testPath: string,
   sourceText: string,
   sourcePaths: ReadonlySet<string>,
@@ -164,8 +237,15 @@ async function relatedTestPaths(
   const sourcePaths = new Set(request.sourcePaths);
   const testPaths: string[] = [];
   const resolvedSourcePaths = new Set<string>();
+  const moduleTextCache = new Map<string, Promise<string | null>>();
   for (const testPath of request.candidateTestPaths.filter(matchesTestFile)) {
-    const matchedSources = matchedChangedSources(testPath, await deps.readFile(testPath), sourcePaths);
+    const sourceText = await readCandidateTest(testPath, deps, moduleTextCache);
+    const matchedSources = [
+      ...new Set([
+        ...directChangedSources(testPath, sourceText, sourcePaths),
+        ...await matchedChangedSources(testPath, sourceText, sourcePaths, deps, moduleTextCache),
+      ]),
+    ];
     if (matchedSources.length > 0) {
       testPaths.push(testPath);
       for (const sourcePath of matchedSources) resolvedSourcePaths.add(sourcePath);

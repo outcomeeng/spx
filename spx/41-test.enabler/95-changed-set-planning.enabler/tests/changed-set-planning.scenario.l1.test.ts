@@ -395,6 +395,39 @@ withGitEnv;
     expect(plan.unresolvedSourceFiles).toEqual([]);
   });
 
+  it("routes indirectly imported source files through related-test resolution", async () => {
+    const sourcePath = "src/commands/test/changed-set-planning.ts";
+    const helperPath = "spx/41-test.enabler/tests/helpers/changed-source-helper.ts";
+    const testPath = "spx/41-test.enabler/tests/test.scenario.l1.test.ts";
+    const git = stagedSourceCandidatesGitRunner(
+      [sourcePath],
+      new Map([
+        [
+          testPath,
+          `import { helper } from "./helpers/changed-source-helper";
+
+helper;
+`,
+        ],
+        [
+          helperPath,
+          `import { planChangedTestSelection } from "@/commands/test/changed-set-planning";
+
+planChangedTestSelection;
+`,
+        ],
+      ]),
+    );
+
+    const plan = await planChangedTestSelection(
+      { productDir: sampleDispatchValue(TEST_DISPATCH_GENERATOR.nodePath()), staged: true },
+      { git: git.git, registry: registry([typescriptTestingLanguage]), relatedDepsFor: () => relatedDeps() },
+    );
+
+    expect(plan.targets).toEqual({ operands: [testPath], recursive: false });
+    expect(plan.unresolvedSourceFiles).toEqual([]);
+  });
+
   it("resolves tsconfig alias directory imports to changed source index modules", async () => {
     const sourcePath = "src/commands/test/index.ts";
     const testPath = "spx/41-test.enabler/tests/test.scenario.l1.test.ts";
