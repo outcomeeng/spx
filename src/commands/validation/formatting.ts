@@ -117,7 +117,7 @@ function normalizeFormattingPathOperand(productDir: string, relativePath: string
     return relativePath;
   }
   const normalizedDirectory = normalizePathPrefix(relativePath);
-  if (normalizedDirectory.length === 0 || normalizedDirectory === ".") {
+  if (normalizedDirectory.length === 0) {
     return DPRINT_RECURSIVE_DIRECTORY_GLOB_SUFFIX.slice(1);
   }
   return `${normalizedDirectory}${DPRINT_RECURSIVE_DIRECTORY_GLOB_SUFFIX}`;
