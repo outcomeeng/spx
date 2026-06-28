@@ -13,6 +13,7 @@ import { basename, dirname, join, relative as pathRelative } from "node:path";
 
 import { normalizePathPrefix } from "@/config/primitives/path-filter";
 import { createNodeStatusExcludeReader } from "@/lib/node-status";
+import { SPEC_TREE_CONFIG } from "@/lib/spec-tree/config";
 
 // @ts-expect-error markdownlint-cli2 has no TypeScript type declarations
 import { main as markdownlintMain } from "markdownlint-cli2";
@@ -23,7 +24,7 @@ import relativeLinksRule from "markdownlint-rule-relative-links";
 // =============================================================================
 
 /** Default directories to validate when no path operands are specified. */
-export const MARKDOWN_DEFAULT_DIRECTORY_NAMES = ["spx", "docs"] as const;
+export const MARKDOWN_DEFAULT_DIRECTORY_NAMES = [SPEC_TREE_CONFIG.ROOT_DIRECTORY, "docs"] as const;
 export const MARKDOWN_PRIMARY_FILE_EXTENSION = ".md";
 const MARKDOWN_FILE_EXTENSIONS: ReadonlySet<string> = new Set([".md", ".markdown"]);
 export const MARKDOWN_DIRECTORY_GLOB = "**/*.md";
@@ -212,7 +213,7 @@ function getExcludeGlobsForTarget(
   if (projectRoot === undefined || entries.length === 0) return [];
 
   const directory = targetDirectory(target);
-  const specTreeRoot = join(projectRoot, "spx");
+  const specTreeRoot = join(projectRoot, SPEC_TREE_CONFIG.ROOT_DIRECTORY);
   const targetPath = normalizePathPrefix(pathRelative(specTreeRoot, directory));
   return entries.flatMap((entry) => {
     const excludedPath = normalizePathPrefix(entry);
