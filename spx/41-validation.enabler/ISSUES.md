@@ -1,6 +1,6 @@
 # Known Issues: 41-validation.enabler
 
-## Release note: validation env toggles moved to config
+## Documentation follow-up: validation env toggles moved to config
 
 `KNIP_VALIDATION_ENABLED` and `LITERAL_VALIDATION_ENABLED` are no longer
 validation controls. Projects configure these stages through `spx.config.*`:
@@ -13,9 +13,14 @@ validation controls. Projects configure these stages through `spx.config.*`:
 that disabled literal validation with `LITERAL_VALIDATION_ENABLED=0` must set
 `validation.literal.enabled: false`.
 
-**Release requirement:** include this migration note in the next published
-release notes before tagging a release that contains the config-descriptor
-replacement.
+**Current release state:** `npm view @outcomeeng/spx version` reports `0.6.7`,
+and tag `v0.6.5` contains the validation config-descriptor replacement. This
+repository has no root `CHANGELOG.md` artifact; release-notes generation is
+itself pending under `spx/26-release.enabler/32-release-notes.enabler/`.
+
+**Revisit condition:** include this migration note when adding a changelog,
+release-notes surface, validation configuration docs, or another user-facing
+validation migration notice.
 
 ---
 
@@ -87,23 +92,6 @@ is set, or emit human warning text on a separate stream that callers can keep
 out of the JSON capture.
 
 **Scope:** follow-up work for the next validation cleanup tranche.
-
----
-
-## Repository-wide `dprint check .` drift
-
-`pnpm run format:check` failed on May 12, 2026 with 17 unrelated files that
-would be rewritten by `dprint fmt .`, including `eslint-rules/index.ts`,
-multiple `spx/16-config.enabler/**/tests/*.ts` files, session/audit legacy test
-files, and `pnpm-lock.yaml`.
-
-The active review-thread fix formatted its touched files directly with
-`pnpm exec dprint fmt <paths...>`, and the source validation gate passed. The
-repo-wide formatter drift is deferred because including the full cleanup would
-add broad lockfile and cross-node formatting churn to a targeted validation PR.
-
-**Revisit condition:** run as a dedicated formatter cleanup pass before making
-`pnpm run format:check` a required PR gate.
 
 ---
 
