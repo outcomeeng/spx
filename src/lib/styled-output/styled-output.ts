@@ -85,6 +85,17 @@ export interface StyledReportOptions {
   readonly color: boolean;
 }
 
+/** One section in a plain grouped tree: a header plus indented child lines. */
+export interface PlainTreeSection {
+  readonly header: string;
+  readonly children: readonly string[];
+}
+
+/** A plain grouped tree, used by non-severity command output. */
+export interface PlainTreeModel {
+  readonly sections: readonly PlainTreeSection[];
+}
+
 /**
  * Renders the report model to text. With `color: false` the output is identical
  * content with no ANSI; with `color: true` the same content carries ANSI, so the
@@ -106,6 +117,16 @@ export function renderStyledReport(model: StyledReportModel, options: StyledRepo
   const summaryStyle = SEVERITY_STYLE[model.summary.severity].style;
   lines.push(chalk.bold(chalk[summaryStyle](model.summary.text)));
   return lines.join("\n");
+}
+
+/** Renders a plain grouped tree with each section header followed by indented children. */
+export function renderPlainTree(model: PlainTreeModel): string {
+  return model.sections
+    .flatMap((section) => [
+      `${section.header}:`,
+      ...section.children.map((child) => `${DETAIL_INDENT}${child}`),
+    ])
+    .join("\n");
 }
 
 /** The inputs the descriptor boundary reads to resolve the color choice. */

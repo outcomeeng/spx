@@ -1,4 +1,4 @@
-import { mkdir, writeFile } from "node:fs/promises";
+import { mkdir, realpath, writeFile } from "node:fs/promises";
 import { basename, join } from "node:path";
 
 import { describe, expect, it } from "vitest";
@@ -11,7 +11,7 @@ import {
   WORKTREE_STATUS_FORMAT,
   WORKTREE_STATUS_RENDER,
 } from "@/commands/worktree/index";
-import { CONTROLLING_PID_ENV } from "@/domains/worktree/controlling-process";
+import { AGENT_RUNTIME, AGENT_RUNTIME_DISPLAY_NAME, CONTROLLING_PID_ENV } from "@/domains/worktree/controlling-process";
 import { OCCUPANCY_STATUS, readClaim, writeClaim } from "@/domains/worktree/occupancy-store";
 import { WORKTREE_RESOLVE_ERROR } from "@/domains/worktree/resolve";
 import { worktreeClaimName } from "@/domains/worktree/worktree-name";
@@ -179,7 +179,9 @@ describe("worktree command handlers", () => {
       });
       expect(running.ok).toBe(true);
       if (!running.ok) throw new Error(running.error);
-      expect(running.value).toContain(`${WORKTREE_STATUS_RENDER.RUNNING_PID_PREFIX}${holder.pid}`);
+      expect(running.value).toContain(
+        `${WORKTREE_STATUS_RENDER.RUNNING_FALLBACK_RUNTIME} ${WORKTREE_STATUS_RENDER.RUNNING_WORD} [${holder.pid}]`,
+      );
 
       const runningJson = await statusCommand({
         worktrees: [env.worktreePath],
@@ -211,7 +213,9 @@ describe("worktree command handlers", () => {
       });
       expect(runningNoArg.ok).toBe(true);
       if (!runningNoArg.ok) throw new Error(runningNoArg.error);
-      expect(runningNoArg.value).toContain(`${WORKTREE_STATUS_RENDER.RUNNING_PID_PREFIX}${holder.pid}`);
+      expect(runningNoArg.value).toContain(
+        `${WORKTREE_STATUS_RENDER.RUNNING_FALLBACK_RUNTIME} ${WORKTREE_STATUS_RENDER.RUNNING_WORD} [${holder.pid}]`,
+      );
 
       const free = await statusCommand({
         worktrees: [env.worktreePath],
@@ -224,8 +228,66 @@ describe("worktree command handlers", () => {
       });
       expect(free.ok).toBe(true);
       if (!free.ok) throw new Error(free.error);
-      expect(free.value).toBe(`${name} ${WORKTREE_STATUS_RENDER.FREE}`);
+      const expectedParent = await realpath(env.container);
+      const freeLines = free.value.split("\n");
+      expect(freeLines).toEqual([`${expectedParent}:`, `  ${worktreeName}: ${WORKTREE_STATUS_RENDER.FREE}`]);
     });
+  });
+
+  it("renders text status as a grouped tree with runtime-qualified running holders", async () => {
+    const [firstName, secondName] = sampleWorktreeTestValue(WORKTREE_TEST_GENERATOR.distinctPoolWorktreeNames());
+    const holder = sampleWorktreeTestValue(WORKTREE_TEST_GENERATOR.poolHolder());
+    const sessionId = sampleWorktreeTestValue(WORKTREE_TEST_GENERATOR.sessionId());
+    const runtimeCommand = `/${AGENT_RUNTIME.CODEX}`;
+
+    await withWorktreeLayoutEnv(
+      { bare: true, worktrees: [{ name: firstName }, { name: secondName }] },
+      async (layout) => {
+        await withTempDir(sampleWorktreeTestValue(WORKTREE_TEST_GENERATOR.tempPrefix()), async (worktreesDir) => {
+          const firstPath = layout.worktree(firstName);
+          const secondPath = layout.worktree(secondName);
+          await writeClaim(
+            worktreesDir,
+            worktreeClaimName(firstPath),
+            {
+              sessionId,
+              host: holder.host,
+              pid: holder.pid,
+              startedAt: holder.startedAt,
+            },
+            {
+              fs: defaultOccupancyFileSystem,
+              writeToken: sampleWorktreeTestValue(WORKTREE_TEST_GENERATOR.writeToken()),
+            },
+          );
+
+          const status = await statusCommand({
+            worktrees: [firstPath, secondPath],
+            cwd: firstPath,
+            fs: defaultOccupancyFileSystem,
+            gitDeps: defaultGitDependencies,
+            worktreesDir,
+            processTable: createProcessTable({
+              host: holder.host,
+              processes: new Map<number, ProcessTableEntry>([
+                [holder.pid, { alive: true, command: runtimeCommand, startTime: holder.startedAt }],
+              ]),
+            }),
+            pathInfo: defaultWorktreePathInfo,
+          });
+
+          expect(status.ok).toBe(true);
+          if (!status.ok) throw new Error(status.error);
+          const expectedParent = await realpath(layout.container);
+          const lines = status.value.split("\n");
+          expect(lines).toEqual([
+            `${expectedParent}:`,
+            `  ${firstName}: ${AGENT_RUNTIME_DISPLAY_NAME.codex} ${WORKTREE_STATUS_RENDER.RUNNING_WORD} [${holder.pid}]`,
+            `  ${secondName}: ${WORKTREE_STATUS_RENDER.FREE}`,
+          ]);
+        });
+      },
+    );
   });
 
   it("reports duplicate resolved status targets once in first-seen order", async () => {
@@ -435,7 +497,9 @@ describe("worktree command handlers", () => {
       });
       expect(status.ok).toBe(true);
       if (!status.ok) throw new Error(status.error);
-      expect(status.value).toContain(`${WORKTREE_STATUS_RENDER.RUNNING_PID_PREFIX}${holder.pid}`);
+      expect(status.value).toContain(
+        `${WORKTREE_STATUS_RENDER.RUNNING_FALLBACK_RUNTIME} ${WORKTREE_STATUS_RENDER.RUNNING_WORD} [${holder.pid}]`,
+      );
     });
   });
 
@@ -478,7 +542,9 @@ describe("worktree command handlers", () => {
         });
         expect(status.ok).toBe(true);
         if (!status.ok) throw new Error(status.error);
-        expect(status.value).toContain(`${WORKTREE_STATUS_RENDER.RUNNING_PID_PREFIX}${holder.pid}`);
+        expect(status.value).toContain(
+          `${WORKTREE_STATUS_RENDER.RUNNING_FALLBACK_RUNTIME} ${WORKTREE_STATUS_RENDER.RUNNING_WORD} [${holder.pid}]`,
+        );
       });
     });
   });

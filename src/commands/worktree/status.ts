@@ -5,7 +5,10 @@
  * @module commands/worktree/status
  */
 
+import { basename, dirname } from "node:path";
+
 import type { Result } from "@/config/types";
+import { agentRuntimeDisplayName } from "@/domains/worktree/controlling-process";
 import {
   classifyOccupancy,
   OCCUPANCY_STATUS,
@@ -23,6 +26,7 @@ import {
   type WorktreePathInfo,
   type WorktreeScopeOptions,
 } from "@/domains/worktree/resolve";
+import { type PlainTreeSection, renderPlainTree } from "@/lib/styled-output/styled-output";
 
 export const WORKTREE_STATUS_FORMAT = {
   JSON: "json",
@@ -31,10 +35,11 @@ export const WORKTREE_STATUS_FORMAT = {
 
 export type WorktreeStatusFormat = (typeof WORKTREE_STATUS_FORMAT)[keyof typeof WORKTREE_STATUS_FORMAT];
 
-/** Text-status renderings: a `free` worktree shows this marker; a `running` one shows the pid prefix then the holder's pid. */
+/** Text-status renderings: free worktrees show a marker; running worktrees show runtime and holder pid. */
 export const WORKTREE_STATUS_RENDER = {
   FREE: "-",
-  RUNNING_PID_PREFIX: "PID ",
+  RUNNING_FALLBACK_RUNTIME: "PID",
+  RUNNING_WORD: "running",
 } as const;
 
 export const WORKTREE_STATUS_ERROR = {
@@ -58,8 +63,18 @@ export interface StatusCommandOptions extends WorktreeScopeOptions {
 
 interface WorktreeStatusRecord {
   readonly worktree: string;
+  readonly worktreeRoot: string;
   readonly status: OccupancyStatus;
   /** The live holder's pid, session id, and host — present only when `running`. */
+  readonly pid?: number;
+  readonly session?: string;
+  readonly host?: string;
+  readonly runtime?: string;
+}
+
+interface WorktreeJsonStatusRecord {
+  readonly worktree: string;
+  readonly status: OccupancyStatus;
   readonly pid?: number;
   readonly session?: string;
   readonly host?: string;
@@ -80,8 +95,16 @@ export async function statusCommand(options: StatusCommandOptions): Promise<Resu
     const status = classifyOccupancy(claim, options.processTable);
     records.push(
       status === OCCUPANCY_STATUS.RUNNING && claim !== undefined
-        ? { worktree: target.name, status, pid: claim.pid, session: claim.sessionId, host: claim.host }
-        : { worktree: target.name, status },
+        ? {
+          worktree: target.name,
+          worktreeRoot: target.worktreeRoot,
+          status,
+          pid: claim.pid,
+          session: claim.sessionId,
+          host: claim.host,
+          runtime: agentRuntimeDisplayName(options.processTable.commandOf(claim.pid)),
+        }
+        : { worktree: target.name, worktreeRoot: target.worktreeRoot, status },
     );
   }
 
@@ -129,14 +152,40 @@ function renderStatus(
   multiTargetRequest: boolean,
 ): string {
   if (format === WORKTREE_STATUS_FORMAT.JSON) {
-    return JSON.stringify(multiTargetRequest ? records : records[0]);
+    const jsonRecords = records.map(toJsonStatusRecord);
+    return JSON.stringify(multiTargetRequest ? jsonRecords : jsonRecords[0]);
   }
-  return records.map(renderTextStatus).join("\n");
+  return renderTextStatus(records);
 }
 
-function renderTextStatus(record: WorktreeStatusRecord): string {
-  if (record.status === OCCUPANCY_STATUS.RUNNING) {
-    return `${record.worktree} ${WORKTREE_STATUS_RENDER.RUNNING_PID_PREFIX}${record.pid} (${record.session} @ ${record.host})`;
+function toJsonStatusRecord(record: WorktreeStatusRecord): WorktreeJsonStatusRecord {
+  const { worktree, status, pid, session, host } = record;
+  return pid === undefined ? { worktree, status } : { worktree, status, pid, session, host };
+}
+
+function renderTextStatus(records: readonly WorktreeStatusRecord[]): string {
+  const sections: PlainTreeSection[] = [];
+  const sectionByParent = new Map<string, string[]>();
+  for (const record of records) {
+    const parent = dirname(record.worktreeRoot);
+    const children = sectionByParent.get(parent);
+    const rendered = renderTextStatusChild(record);
+    if (children === undefined) {
+      const newChildren = [rendered];
+      sectionByParent.set(parent, newChildren);
+      sections.push({ header: parent, children: newChildren });
+    } else {
+      children.push(rendered);
+    }
   }
-  return `${record.worktree} ${WORKTREE_STATUS_RENDER.FREE}`;
+  return renderPlainTree({ sections });
+}
+
+function renderTextStatusChild(record: WorktreeStatusRecord): string {
+  if (record.status === OCCUPANCY_STATUS.RUNNING) {
+    return `${basename(record.worktreeRoot)}: ${
+      record.runtime ?? WORKTREE_STATUS_RENDER.RUNNING_FALLBACK_RUNTIME
+    } ${WORKTREE_STATUS_RENDER.RUNNING_WORD} [${record.pid}]`;
+  }
+  return `${basename(record.worktreeRoot)}: ${WORKTREE_STATUS_RENDER.FREE}`;
 }

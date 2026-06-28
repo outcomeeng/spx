@@ -1,4 +1,4 @@
-import { mkdir, writeFile } from "node:fs/promises";
+import { mkdir, realpath, writeFile } from "node:fs/promises";
 import { join } from "node:path";
 
 import { describe, expect, it } from "vitest";
@@ -6,7 +6,6 @@ import { describe, expect, it } from "vitest";
 import { WORKTREE_STATUS_FORMAT, WORKTREE_STATUS_RENDER } from "@/commands/worktree/index";
 import { CONTROLLING_PID_ENV } from "@/domains/worktree/controlling-process";
 import { OCCUPANCY_STATUS } from "@/domains/worktree/occupancy-store";
-import { worktreeClaimName } from "@/domains/worktree/worktree-name";
 import { WORKTREE_CLI } from "@/interfaces/cli/worktree";
 import { sampleWorktreeTestValue, WORKTREE_TEST_GENERATOR } from "@testing/generators/worktree/worktree";
 import { CLI_TIMEOUTS_MS } from "@testing/harnesses/constants";
@@ -49,9 +48,9 @@ describe("worktree CLI occupancy round-trip", () => {
         expect(status.stderr).toHaveLength(0);
         expect(status.stdout).not.toContain(String(undefined));
         expect(status.stdout).toContain(
-          `${worktreeClaimName(claimedPath)} ${WORKTREE_STATUS_RENDER.RUNNING_PID_PREFIX}`,
+          `${claimedName}: ${WORKTREE_STATUS_RENDER.RUNNING_FALLBACK_RUNTIME} ${WORKTREE_STATUS_RENDER.RUNNING_WORD} [`,
         );
-        expect(status.stdout).toContain(`${worktreeClaimName(unclaimedPath)} ${WORKTREE_STATUS_RENDER.FREE}`);
+        expect(status.stdout).toContain(`${unclaimedName}: ${WORKTREE_STATUS_RENDER.FREE}`);
         expect(status.stdout).not.toContain(absentName);
       },
     );
@@ -76,9 +75,9 @@ describe("worktree CLI occupancy round-trip", () => {
 
       expect(status.exitCode).toBe(0);
       expect(status.stderr).toHaveLength(0);
-      expect(status.stdout.trim().split("\n")).toEqual([
-        `${worktreeClaimName(worktreePath)} ${WORKTREE_STATUS_RENDER.FREE}`,
-      ]);
+      const expectedParent = await realpath(layout.container);
+      const lines = status.stdout.trim().split("\n");
+      expect(lines).toEqual([`${expectedParent}:`, `  ${worktreeName}: ${WORKTREE_STATUS_RENDER.FREE}`]);
     });
   });
 

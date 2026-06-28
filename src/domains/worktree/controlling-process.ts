@@ -13,7 +13,16 @@ import { unreadableStartedAt } from "./occupancy-store";
 import type { ProcessTable } from "./process-table";
 
 export const CONTROLLING_PID_ENV = "SPX_WORKTREE_CONTROLLING_PID";
-export const AGENT_RUNTIME_NAMES = ["claude", "codex"] as const;
+export const AGENT_RUNTIME = {
+  CLAUDE: "claude",
+  CODEX: "codex",
+} as const;
+export const AGENT_RUNTIME_NAMES = [AGENT_RUNTIME.CLAUDE, AGENT_RUNTIME.CODEX] as const;
+export type AgentRuntimeName = (typeof AGENT_RUNTIME_NAMES)[number];
+export const AGENT_RUNTIME_DISPLAY_NAME: Readonly<Record<AgentRuntimeName, string>> = {
+  claude: "Claude Code",
+  codex: "Codex",
+} as const;
 export const AGENT_COMMAND_PATTERN = new RegExp(String.raw`\b(?:${AGENT_RUNTIME_NAMES.join("|")})\b`, "i");
 
 export const CONTROLLING_PROCESS_ERROR = {
@@ -74,6 +83,16 @@ function findAgentAncestor(selfPid: number, table: ProcessTable): number | undef
     const command = table.commandOf(pid);
     if (command !== undefined && AGENT_COMMAND_PATTERN.test(command)) return pid;
     pid = table.parentOf(pid);
+  }
+  return undefined;
+}
+
+export function agentRuntimeDisplayName(command: string | undefined): string | undefined {
+  if (command === undefined) return undefined;
+  for (const name of AGENT_RUNTIME_NAMES) {
+    if (new RegExp(String.raw`\b${name}\b`, "i").test(command)) {
+      return AGENT_RUNTIME_DISPLAY_NAME[name];
+    }
   }
   return undefined;
 }
