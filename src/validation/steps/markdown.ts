@@ -215,7 +215,9 @@ export function resolveMarkdownValidationTarget(
 export function getExcludeGlobs(projectRoot: string | undefined): string[] {
   if (projectRoot === undefined) return [];
   const reader = createNodeStatusExcludeReader(projectRoot);
-  return reader.entries().map((entry) => `${entry}/**`);
+  return reader.entries().flatMap((entry) =>
+    [...MARKDOWN_FILE_EXTENSIONS].map((extension) => `${entry}/*${extension}`)
+  );
 }
 
 // =============================================================================

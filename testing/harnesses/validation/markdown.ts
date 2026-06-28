@@ -8,6 +8,7 @@ import { withTempDir } from "@testing/harnesses/with-temp-dir";
 import { allCommand } from "@/commands/validation/all";
 import { MARKDOWN_COMMAND_OUTPUT, markdownCommand } from "@/commands/validation/markdown";
 import { validationCliDefinition } from "@/interfaces/cli/validation";
+import { NODE_STATUS_EXCLUDE_FILENAME } from "@/lib/node-status/exclude";
 import {
   buildMarkdownlintConfig,
   getDefaultDirectories,
@@ -45,6 +46,8 @@ export async function runMarkdownValidationScenario(scenario: MarkdownValidation
       return runDefaultDirectoriesScenario(scenario);
     case MARKDOWN_SCENARIO_KIND.EXCLUDE_NODE:
       return runExcludeScenario(scenario);
+    case MARKDOWN_SCENARIO_KIND.EXCLUDE_NODE_EXACT_ONLY:
+      return runExcludeExactOnlyScenario();
     case MARKDOWN_SCENARIO_KIND.DUPLICATE_HEADINGS:
       return runDuplicateHeadingsScenario(scenario);
     case MARKDOWN_SCENARIO_KIND.CONFIG_BUILDER:
@@ -181,6 +184,36 @@ async function runExcludeScenario(scenario: MarkdownValidationScenario): Promise
 
     expect(result.success).toBe(true);
     expect(declaredErrors).toHaveLength(MARKDOWN_VALIDATION_DATA.zero);
+  });
+}
+
+async function runExcludeExactOnlyScenario(): Promise<void> {
+  await withMarkdownTempProject(async ({ path, spxDir }) => {
+    const declaredNodeDir = join(spxDir, MARKDOWN_VALIDATION_DATA.declaredNodeDirectory);
+    const childNodeDir = join(declaredNodeDir, MARKDOWN_VALIDATION_DATA.declaredChildDirectory);
+    const declaredFile = join(declaredNodeDir, MARKDOWN_VALIDATION_DATA.declaredMarkdownFile);
+    const declaredMarkdownExtensionFile = join(
+      declaredNodeDir,
+      MARKDOWN_VALIDATION_DATA.declaredMarkdownExtensionFile,
+    );
+    const childFile = join(childNodeDir, MARKDOWN_VALIDATION_DATA.childMarkdownFile);
+    await mkdir(childNodeDir, { recursive: true });
+    await writeFile(
+      join(spxDir, NODE_STATUS_EXCLUDE_FILENAME),
+      `${MARKDOWN_VALIDATION_DATA.declaredNodeDirectory}\n`,
+    );
+    await writeFile(declaredFile, MARKDOWN_VALIDATION_DATA.brokenMarkdownContent);
+    await writeFile(declaredMarkdownExtensionFile, MARKDOWN_VALIDATION_DATA.brokenMarkdownContent);
+    await writeFile(childFile, MARKDOWN_VALIDATION_DATA.brokenMarkdownContent);
+
+    const result = await validateMarkdown({
+      targets: [markdownDirectoryTarget(spxDir)],
+      projectRoot: path,
+    });
+
+    expect(result.errors.some((error) => error.file === declaredFile)).toBe(false);
+    expect(result.errors.some((error) => error.file === declaredMarkdownExtensionFile)).toBe(false);
+    expect(result.errors.some((error) => error.file === childFile)).toBe(true);
   });
 }
 

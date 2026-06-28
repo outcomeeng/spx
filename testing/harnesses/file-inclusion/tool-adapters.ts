@@ -1,4 +1,5 @@
 import type { AdapterConfig, ToolAdaptersConfig } from "@/lib/file-inclusion/adapters";
+import { DEFAULT_IGNORE_SOURCE_OVERRIDES } from "@/lib/file-inclusion/ignore-source";
 import type { ScopeResult } from "@/lib/file-inclusion/types";
 
 export const sampleExcludedPath = "src/example.ts";
@@ -12,6 +13,7 @@ export function makeScope(
   return {
     included: includedPaths.map((path) => ({ path, decisionTrail: [] })),
     excluded: excludedPaths.map((path) => ({ path, decisionTrail: [] })),
+    appliedOverrides: DEFAULT_IGNORE_SOURCE_OVERRIDES,
   };
 }
 
