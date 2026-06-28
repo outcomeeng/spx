@@ -52,7 +52,13 @@ import {
   SPEC_TREE_TEST_GENERATOR,
 } from "@testing/generators/spec-tree/spec-tree";
 import { sampleDispatchValue, TEST_DISPATCH_GENERATOR } from "@testing/generators/testing/dispatch";
-import { GIT_TEST_CONFIG, GIT_TEST_FLAGS, GIT_TEST_SUBCOMMANDS, runGit } from "@testing/harnesses/git-test-constants";
+import {
+  GIT_TEST_CONFIG,
+  GIT_TEST_FLAGS,
+  GIT_TEST_SUBCOMMANDS,
+  gitArgsEqual,
+  runGit,
+} from "@testing/harnesses/git-test-constants";
 import { type CurrentSpecTreeEnv, withSpecTreeEnv, withTestEnv } from "@testing/harnesses/spec-tree/spec-tree";
 import { writeTestFileFixture } from "@testing/harnesses/testing/harness";
 import { createRecordingCommandRunner } from "@testing/harnesses/testing/typescript-runner";
@@ -750,21 +756,28 @@ function createGitRootDependencies(
   productDir: string,
   expectedCwd: string,
 ): { dependencies: GitDependencies; calls: () => number } {
-  let callCount = 0;
+  let rootResolutionCallCount = 0;
   return {
     dependencies: {
       execa: async (command, args, options) => {
-        callCount += 1;
         expect(command).toBe(GIT_ROOT_COMMAND.EXECUTABLE);
-        expect(args).toEqual(GIT_SHOW_TOPLEVEL_ARGS);
-        expect(options?.cwd).toBe(expectedCwd);
+        if (gitArgsEqual(args, GIT_SHOW_TOPLEVEL_ARGS)) {
+          rootResolutionCallCount += 1;
+          expect(options?.cwd).toBe(expectedCwd);
+          return {
+            exitCode: 0,
+            stderr: "",
+            stdout: productDir,
+          };
+        }
+        expect(options?.cwd).toBe(productDir);
         return {
           exitCode: 0,
           stderr: "",
-          stdout: productDir,
+          stdout: "",
         };
       },
     },
-    calls: () => callCount,
+    calls: () => rootResolutionCallCount,
   };
 }
