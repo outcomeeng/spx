@@ -1,6 +1,6 @@
 # Session Environment Check
 
-PROVIDES the session-environment diagnose check — classifies the agent session the spec-tree `SessionStart` hook establishes, from the agent session identity, hook marker, and the shared worktree pool snapshot's occupancy of the current worktree, pairing the verdict with a remediation hint
+PROVIDES the session-environment diagnose behavior — classifies the agent session the spec-tree `SessionStart` hook establishes, from the agent session identity, hook marker, and the shared worktree pool snapshot's occupancy of the current worktree, pairing the verdict with a remediation hint for both the whole-product diagnose report and the focused session-environment diagnosis
 SO THAT the `spx diagnose` engine in [`spx/54-diagnose.enabler/diagnose.md`](../diagnose.md)
 CAN fold session-environment health into the overall environment verdict
 
