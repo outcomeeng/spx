@@ -107,7 +107,7 @@ async function resolveBasenameTargetWorktree(
     return { ok: false, error: `${WORKTREE_RESOLVE_ERROR.NOT_A_WORKTREE}: ${options.worktree ?? options.cwd}` };
   }
   const facts = await gatherGitFacts(options.cwd, options.gitDeps);
-  if (facts === null || !facts.worktreeListRead) {
+  if (!facts?.worktreeListRead) {
     return { ok: false, error: `${WORKTREE_RESOLVE_ERROR.NOT_A_WORKTREE}: ${options.worktree}` };
   }
   const worktreeRoot = facts.worktreeRoots.find((root) => basename(root) === options.worktree);
