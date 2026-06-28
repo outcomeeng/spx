@@ -1,8 +1,7 @@
-# Nodes excluded from the quality gate.
-# Specs exist; tests or implementation do not yet.
-# spx test passing skips these exact nodes.
-# Descendant nodes require their own entry.
-# Linting still runs — style is checked regardless.
+# Nodes whose direct markdown files are skipped by markdown validation.
+# Exact node entries are classified as specified while implementation is absent.
+# Descendant nodes are independent and require their own entry.
+# Child-node markdown and non-markdown validation remain in scope.
 #
 # Remove entries when implementation begins.
 

@@ -436,9 +436,9 @@ function registerValidationCommands(validationCmd: Command, invocation: CliInvoc
   const markdownCmd = addValidationSubcommand(validationCmd, subcommands.markdown)
     .addHelpText(
       "after",
-      "\nValidates spx/ and docs/ by default. Nodes listed in spx/EXCLUDE are\n"
-        + "skipped — use this for declared-state nodes whose [test] links point\n"
-        + "to files that do not exist yet.",
+      "\nValidates spx/ and docs/ by default. For nodes listed in spx/EXCLUDE,\n"
+        + "only direct markdown files in that node directory are skipped;\n"
+        + "child-node markdown remains in scope.",
     )
     .action(async (pathOperands: string[], options: CommonOptions) => {
       const paths = resolveValidationPaths(invocation, pathOperands);
