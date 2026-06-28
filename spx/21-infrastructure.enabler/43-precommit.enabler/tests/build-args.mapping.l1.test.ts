@@ -2,8 +2,15 @@ import * as fc from "fast-check";
 import { describe, expect, it } from "vitest";
 
 import { CONFIG_FILENAMES } from "@/config/index";
-import { buildSpxTestArgs, isTestFile } from "@/lib/precommit/build-args";
+import {
+  buildPrecommitTestInvocation,
+  buildSpxTestArgs,
+  buildVitestArgs,
+  isTestFile,
+  PRECOMMIT_TEST_RUNNERS,
+} from "@/lib/precommit/build-args";
 import { SPX_TEST_ARGS } from "@/lib/precommit/spx-test-args";
+import { VITEST_ARGS } from "@/lib/precommit/vitest-args";
 import { PRECOMMIT_TEST_GENERATOR } from "@testing/generators/precommit/precommit";
 
 const configFilePaths = Object.values(CONFIG_FILENAMES);
@@ -81,5 +88,47 @@ describe("buildSpxTestArgs", () => {
         SPX_TEST_ARGS.BASE_REF,
       ]);
     }
+  });
+
+  it("non-default config source files map to the operand runner", () => {
+    fc.assert(
+      fc.property(
+        PRECOMMIT_TEST_GENERATOR.config().chain((config) =>
+          fc
+            .array(PRECOMMIT_TEST_GENERATOR.sourcePath(config), { minLength: 1, maxLength: 3 })
+            .map((sourceFiles) => ({ config, sourceFiles }))
+        ),
+        ({ config, sourceFiles }) => {
+          expect(buildVitestArgs(sourceFiles, config)).toEqual([
+            VITEST_ARGS.RELATED,
+            VITEST_ARGS.RUN,
+            ...sourceFiles,
+          ]);
+          expect(buildPrecommitTestInvocation(sourceFiles, config)).toEqual({
+            runner: PRECOMMIT_TEST_RUNNERS.VITEST,
+            args: [VITEST_ARGS.RELATED, VITEST_ARGS.RUN, ...sourceFiles],
+          });
+        },
+      ),
+    );
+  });
+
+  it("non-default config test files map to the operand runner when source files are absent", () => {
+    fc.assert(
+      fc.property(
+        PRECOMMIT_TEST_GENERATOR.config().chain((config) =>
+          fc
+            .array(PRECOMMIT_TEST_GENERATOR.testPath(config), { minLength: 1, maxLength: 3 })
+            .map((testFiles) => ({ config, testFiles }))
+        ),
+        ({ config, testFiles }) => {
+          expect(buildVitestArgs(testFiles, config)).toEqual([VITEST_ARGS.RUN, ...testFiles]);
+          expect(buildPrecommitTestInvocation(testFiles, config)).toEqual({
+            runner: PRECOMMIT_TEST_RUNNERS.VITEST,
+            args: [VITEST_ARGS.RUN, ...testFiles],
+          });
+        },
+      ),
+    );
   });
 });

@@ -3,6 +3,7 @@ import { describe, expect, it } from "vitest";
 import { CONFIG_FILENAMES } from "@/config/index";
 import { PRECOMMIT_SPX_TEST_ARGS } from "@/lib/precommit/build-args";
 import { combineTestProcessOutput, PRECOMMIT_RUN, type PrecommitDeps, runPrecommitTests } from "@/lib/precommit/run";
+import { VITEST_ARGS } from "@/lib/precommit/vitest-args";
 import { PRECOMMIT_TEST_GENERATOR, samplePrecommitTestValue } from "@testing/generators/precommit/precommit";
 
 const otherFile = () => samplePrecommitTestValue(PRECOMMIT_TEST_GENERATOR.otherPath());
@@ -184,6 +185,32 @@ describe("runPrecommitTests scenarios", () => {
 
       expect(spxTestCallCount).toBe(1);
       expect(spxTestArgs).toEqual(PRECOMMIT_SPX_TEST_ARGS);
+    });
+  });
+
+  describe("GIVEN non-default precommit config", () => {
+    it("WHEN custom source files are staged THEN calls the operand runner", async () => {
+      const customConfig = samplePrecommitTestValue(PRECOMMIT_TEST_GENERATOR.config());
+      const staged = samplePrecommitTestValue(PRECOMMIT_TEST_GENERATOR.sourcePath(customConfig));
+      let spxTestCallCount = 0;
+      let vitestArgs: string[] = [];
+      const deps: PrecommitDeps = {
+        getStagedFiles: async () => [staged],
+        runSpxTest: async () => {
+          spxTestCallCount += 1;
+          return { exitCode: 0, output: "" };
+        },
+        runVitest: async (args) => {
+          vitestArgs = args;
+          return { exitCode: 0, output: "" };
+        },
+        log: () => {},
+      };
+
+      await runPrecommitTests(deps, customConfig);
+
+      expect(spxTestCallCount).toBe(0);
+      expect(vitestArgs).toEqual([VITEST_ARGS.RELATED, VITEST_ARGS.RUN, staged]);
     });
   });
 

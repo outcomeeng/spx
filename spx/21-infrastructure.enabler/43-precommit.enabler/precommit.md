@@ -1,6 +1,6 @@
 # Precommit
 
-PROVIDES lefthook-managed local hook machinery: a selective `spx test --changed --staged` runner that classifies git-staged files, a fixture-exclusion drift check, a main-checkout-gated dist rebuild path for pull and rebase events, and a post-checkout dependency-install gate for checkout events
+PROVIDES lefthook-managed local hook machinery: a selective default-config `spx test --changed --staged` runner and non-default-config operand runner that classify git-staged files, a fixture-exclusion drift check, a main-checkout-gated dist rebuild path for pull and rebase events, and a post-checkout dependency-install gate for checkout events
 SO THAT `lefthook`'s pre-commit hook, rebuild-dist hooks, and post-checkout hook
 CAN block commits when staged changes break their related tests, block commits when fixture exclusion policy drifts, keep the main checkout's packaged `dist/` current after incoming changes, skip rebuilds in non-main worktrees, install dependencies in any worktree advanced to a new commit when the checkout changes the lockfile, and leave full build/validation/test execution to CI or explicit operator commands
 
@@ -9,10 +9,11 @@ CAN block commits when staged changes break their related tests, block commits w
 ### Scenarios
 
 - Given a staged file list containing only non-code files outside product config (README, package.json), when the runner executes, then `spx test` is not invoked and the runner exits zero ([test](tests/run.scenario.l1.test.ts))
-- Given a staged file list containing only a product config file, when the runner executes, then `spx test --changed --staged --base HEAD` runs and the runner's exit code equals the `spx test` exit code ([test](tests/run.scenario.l1.test.ts))
-- Given a staged file list containing one or more test files, when the runner executes, then `spx test --changed --staged --base HEAD` runs and the runner's exit code equals the `spx test` exit code ([test](tests/run.scenario.l1.test.ts))
-- Given a staged file list containing one or more source files, when the runner executes, then `spx test --changed --staged --base HEAD` runs and the runner's exit code equals the `spx test` exit code ([test](tests/run.scenario.l1.test.ts))
-- Given a staged file list mixing test and source files, when the runner executes, then `spx test --changed --staged --base HEAD` runs once for the changed set ([test](tests/build-args.mapping.l1.test.ts))
+- Given a staged file list containing only a product config file under default precommit config, when the runner executes, then `spx test --changed --staged --base HEAD` runs and the runner's exit code equals the `spx test` exit code ([test](tests/run.scenario.l1.test.ts))
+- Given a staged file list containing one or more test files under default precommit config, when the runner executes, then `spx test --changed --staged --base HEAD` runs and the runner's exit code equals the `spx test` exit code ([test](tests/run.scenario.l1.test.ts))
+- Given a staged file list containing one or more source files under default precommit config, when the runner executes, then `spx test --changed --staged --base HEAD` runs and the runner's exit code equals the `spx test` exit code ([test](tests/run.scenario.l1.test.ts))
+- Given a staged file list mixing test and source files under default precommit config, when the runner executes, then `spx test --changed --staged --base HEAD` runs once for the changed set ([test](tests/build-args.mapping.l1.test.ts))
+- Given non-default precommit config with custom source directories or test pattern, when the runner executes for retained staged files, then the operand runner receives the config-classified paths and the runner's exit code is observed directly ([test](tests/run.scenario.l1.test.ts))
 - Given a staged failing test, when a user attempts `git commit`, then the lefthook pre-commit hook blocks the commit and surfaces the failure output ([test](tests/precommit.scenario.l2.test.ts))
 - Given a staged passing test, when a user attempts `git commit`, then the lefthook pre-commit hook allows the commit ([test](tests/precommit.scenario.l2.test.ts))
 - Given staged files that are exclusively non-test-relevant, when a user attempts `git commit`, then the lefthook pre-commit hook skips `spx test` and allows the commit ([test](tests/precommit.scenario.l2.test.ts))
@@ -22,7 +23,8 @@ CAN block commits when staged changes break their related tests, block commits w
 
 - File categorization: a product config file maps to `config`; a path containing `.test.ts` maps to `test`; a path starting with `src/` maps to `source`; every other path maps to `other` ([test](tests/categorize.mapping.l1.test.ts))
 - Test relevance: paths mapped to `config`, `test`, or `source` are retained by `filterTestRelevantFiles`; paths mapped to `other` are filtered out ([test](tests/categorize.mapping.l1.test.ts))
-- `spx test` invocation shape: the empty list maps to `[]`; any retained test-relevant or product-config list maps to `["test", "--changed", "--staged", "--base", "HEAD"]` ([test](tests/build-args.mapping.l1.test.ts))
+- Default-config test invocation shape: the empty list maps to `[]`; any retained test-relevant or product-config list maps to `["test", "--changed", "--staged", "--base", "HEAD"]` ([test](tests/build-args.mapping.l1.test.ts))
+- Non-default-config operand invocation shape: retained source files map to `["related", "--run", ...sourceFiles]`, and retained test files with no source files map to `["--run", ...testFiles]` ([test](tests/build-args.mapping.l1.test.ts))
 - TypeScript hook entrypoint recognition maps POSIX and Windows argv paths for the invoked precommit script to direct execution, and maps a mismatched argv path to not-direct execution ([test](tests/entrypoint.mapping.l1.test.ts))
 - Main-checkout gate exit-code classification maps unreadable git facts, incomplete bare-pool worktree-list facts, and main-checkout facts to the rebuild exit code, and maps non-main checkout facts to the classified skip exit code ([test](tests/main-checkout-gate.mapping.l1.test.ts))
 - Post-checkout install-gate exit-code classification maps a branch-or-HEAD checkout whose lockfile changed to the install exit code, and maps a file checkout or an unchanged lockfile to the skip exit code ([test](tests/deps-install-gate.mapping.l1.test.ts))
@@ -39,6 +41,7 @@ CAN block commits when staged changes break their related tests, block commits w
 - ALWAYS: the runner's exit code equals the `spx test` process exit code when `spx test` is invoked — lefthook observes the product test verdict directly ([test](tests/run.compliance.l1.test.ts))
 - NEVER: invoke `spx test` when `filterTestRelevantFiles` returns an empty list — avoids running the suite for commits that touch no code ([test](tests/run.compliance.l1.test.ts))
 - NEVER: pass staged path operands to `spx test` as arguments — the hook delegates changed-set resolution to `spx test --changed --staged --base HEAD` ([test](tests/run.compliance.l1.test.ts))
+- ALWAYS: non-default precommit `sourceDirs` or `testPattern` route through the operand runner rather than changed-set planning, so precommit-owned classification remains honored when it differs from the product-owned changed-set roots and TypeScript test suffixes ([test](tests/run.scenario.l1.test.ts))
 - ALWAYS: staged path enumeration uses NUL-delimited name-status output and includes deleted and renamed paths instead of filtering by added/copied/modified status only ([test](tests/run.compliance.l1.test.ts))
 - ALWAYS: `src/lib/precommit/run.ts` is the command lefthook invokes for the `pre-commit.tests` hook, matching the `run:` entry in `lefthook.yml` ([audit])
 - ALWAYS: `lefthook.yml` keeps local pre-commit work selective and does not declare a `pre-push` hook that runs full build, validation, or test commands; those full gates run through CI or explicit operator commands ([audit])
