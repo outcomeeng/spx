@@ -17,7 +17,11 @@ import {
   type SessionEnvironmentVerdict,
 } from "@/domains/diagnose/checks/session-environment";
 import { SESSION_STORE_VERDICT, type SessionStoreVerdict } from "@/domains/diagnose/checks/session-store";
-import { SPX_REACHABILITY_VERDICT, type SpxReachabilityVerdict } from "@/domains/diagnose/checks/spx-reachability";
+import {
+  SPX_REACHABILITY_READING_VALUE,
+  SPX_REACHABILITY_VERDICT,
+  type SpxReachabilityVerdict,
+} from "@/domains/diagnose/checks/spx-reachability";
 import { WORKTREE_POOL_VERDICT, type WorktreePoolVerdict } from "@/domains/diagnose/checks/worktree-pool";
 import { CHECK_NAME } from "@/domains/diagnose/manifest";
 import {
@@ -103,8 +107,6 @@ export const DIAGNOSE_TEXT_DETAIL = {
   WORKTREE_POOL_VALID: "Layout is valid for shared session work.",
 } as const;
 
-const EMPTY_READING_VALUE = "(absent)";
-
 /** Maps each per-check verdict bucket to the styled-output severity its glyph and color key on. */
 export const BUCKET_SEVERITY: Readonly<Record<VerdictBucket, Severity>> = {
   [VERDICT_BUCKET.HEALTHY]: SEVERITY.OK,
@@ -158,16 +160,16 @@ function spxReachabilityText(check: CheckRecord): DiagnoseHumanText {
       return {
         header: DIAGNOSE_TEXT_HEADER.SPX_INSTALLED,
         details: [
-          `${DIAGNOSE_TEXT_LABEL.VERSION}: ${version ?? EMPTY_READING_VALUE}`,
-          `${DIAGNOSE_TEXT_LABEL.PATH}: ${path ?? EMPTY_READING_VALUE}`,
+          `${DIAGNOSE_TEXT_LABEL.VERSION}: ${version ?? SPX_REACHABILITY_READING_VALUE.UNREAD_VERSION}`,
+          `${DIAGNOSE_TEXT_LABEL.PATH}: ${path ?? SPX_REACHABILITY_READING_VALUE.UNRESOLVED_PATH}`,
         ],
       };
     case SPX_REACHABILITY_VERDICT.BELOW_FLOOR:
       return {
         header: DIAGNOSE_TEXT_HEADER.SPX_BELOW_FLOOR,
         details: [
-          `${DIAGNOSE_TEXT_LABEL.INSTALLED}: ${version ?? EMPTY_READING_VALUE}`,
-          `${DIAGNOSE_TEXT_LABEL.REQUIRED_VERSION}: ${floor ?? EMPTY_READING_VALUE}`,
+          `${DIAGNOSE_TEXT_LABEL.INSTALLED}: ${version ?? SPX_REACHABILITY_READING_VALUE.UNREAD_VERSION}`,
+          `${DIAGNOSE_TEXT_LABEL.REQUIRED_VERSION}: ${floor ?? SPX_REACHABILITY_READING_VALUE.ABSENT_FLOOR}`,
           `${DIAGNOSE_TEXT_LABEL.FIX}: update spx to at least the required version.`,
         ],
       };
