@@ -29,6 +29,6 @@ CAN deterministically self-diagnose a misconfigured environment by running `spx 
 
 ### Compliance
 
-- ALWAYS: the text report carries the same per-check verdicts, readings, remediation hints, and overall verdict as the JSON report for the same run ([test](tests/text-report.compliance.l1.test.ts))
-- ALWAYS: the text report renders through the `spx/13-cli.enabler/21-styled-output.enabler` primitive — each per-check line carries the status glyph keyed by the check's bucket and the overall line is colored by the overall verdict's severity ([test](tests/text-report.compliance.l1.test.ts))
+- ALWAYS: the JSON report carries the complete per-check schema for machines, while the text report translates the same check records into a human diagnosis: a conclusion, the active problems, the useful healthy facts, and concrete next actions without raw boolean fields or duplicated verdict/bucket labels ([test](tests/text-report.compliance.l1.test.ts))
+- ALWAYS: the text report renders through the `spx/13-cli.enabler/21-styled-output.enabler` primitive — each diagnosis line carries the status glyph keyed by the check's bucket and the diagnosis line is colored by the overall verdict's severity ([test](tests/text-report.compliance.l1.test.ts))
 - ALWAYS: user-supplied bytes a diagnose error echoes — the manifest path and the manifest-named checks — are sanitized before the diagnostic echo, per `spx/13-cli.enabler/cli.md` ([test](tests/error-sanitization.compliance.l2.test.ts))
