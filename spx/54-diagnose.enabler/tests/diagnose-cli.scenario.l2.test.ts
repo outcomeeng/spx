@@ -79,7 +79,7 @@ function expectExitCodeKeyedToFold(result: { readonly exitCode: number }, report
 
 describe("spx diagnose emits a schema-valid report and exits with the code keyed to the overall verdict", () => {
   it("runs the manifest's check, prints a conforming JSON report, and exits with the verdict's exit code", async () => {
-    const manifestPath = await writeSpxReachabilityManifest();
+    const { manifestPath, spxFloor } = await writeSpxReachabilityManifestFixture();
 
     const result = await runDiagnose([
       DIAGNOSE_CLI.MANIFEST_FLAG,
@@ -92,12 +92,13 @@ describe("spx diagnose emits a schema-valid report and exits with the code keyed
     expectSchemaValidReport(report);
     expect(report.checks).toHaveLength(1);
     expect(report.checks[0].name).toBe(CHECK_NAME.SPX_REACHABILITY);
+    expect(report.checks[0].readings.floor).toBe(spxFloor);
     expect(report.overall).toBe(foldedOverall(report));
     expectExitCodeKeyedToFold(result, report);
   });
 
   it("defaults to the text format and carries the same overall verdict and exit code as the JSON report", async () => {
-    const { manifestPath, spxFloor } = await writeSpxReachabilityManifestFixture();
+    const manifestPath = await writeSpxReachabilityManifest();
 
     const textRun = await runDiagnose([DIAGNOSE_CLI.MANIFEST_FLAG, manifestPath]);
     const jsonRun = await runDiagnose([
@@ -111,7 +112,6 @@ describe("spx diagnose emits a schema-valid report and exits with the code keyed
     const expectedOverall = foldedOverall(report);
     expectSchemaValidReport(report);
     expect(textRun.stdout).not.toContain(CHECK_NAME.SPX_REACHABILITY);
-    expect(textRun.stdout).toContain(spxFloor);
     expect(textRun.stdout).toContain(`${DIAGNOSE_TEXT_OVERALL_LABEL}: ${expectedOverall}`);
     expect(textRun.exitCode).toBe(overallExitCode(expectedOverall));
     expectExitCodeKeyedToFold(jsonRun, report);
