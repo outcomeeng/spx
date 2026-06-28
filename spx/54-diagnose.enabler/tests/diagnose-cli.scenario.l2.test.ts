@@ -6,7 +6,11 @@ import { describe, expect, it, vi } from "vitest";
 
 import { DEFAULT_CONFIG_FILENAME } from "@/config/index";
 import { MARKETPLACE_INSTALL_VERDICT } from "@/domains/diagnose/checks/marketplace-install";
-import { SPX_REACHABILITY_VERDICT } from "@/domains/diagnose/checks/spx-reachability";
+import { SESSION_ENVIRONMENT_VERDICT } from "@/domains/diagnose/checks/session-environment";
+import { SESSION_STORE_VERDICT } from "@/domains/diagnose/checks/session-store";
+import { SPX_REACHABILITY_READING_VALUE, SPX_REACHABILITY_VERDICT } from "@/domains/diagnose/checks/spx-reachability";
+import { WORKTREE_POOL_VERDICT } from "@/domains/diagnose/checks/worktree-pool";
+import { DIAGNOSE_CONFIG_FIELDS, DIAGNOSE_SECTION } from "@/domains/diagnose/config";
 import { foldOverallVerdict, overallExitCode } from "@/domains/diagnose/fold";
 import { CHECK_NAME } from "@/domains/diagnose/manifest";
 import { DIAGNOSE_FORMAT, DIAGNOSE_TEXT_OVERALL_LABEL } from "@/domains/diagnose/report";
@@ -35,14 +39,16 @@ vi.setConfig({ testTimeout: CLI_TIMEOUTS_MS.E2E_BATCH });
 const escCharCode = 27;
 const ansiEscape = String.fromCodePoint(escCharCode);
 
+interface ReportCheckShape {
+  readonly name: string;
+  readonly verdict: string;
+  readonly bucket: string;
+  readonly readings: Record<string, string>;
+  readonly remediation: string;
+}
+
 interface ReportShape {
-  readonly checks: {
-    readonly name: string;
-    readonly verdict: string;
-    readonly bucket: string;
-    readonly readings: Record<string, string>;
-    readonly remediation: string;
-  }[];
+  readonly checks: ReportCheckShape[];
   readonly overall: string;
 }
 
@@ -75,6 +81,12 @@ function foldedOverall(report: ReportShape): OverallVerdict {
 
 function expectExitCodeKeyedToFold(result: { readonly exitCode: number }, report: ReportShape): void {
   expect(result.exitCode).toBe(overallExitCode(foldedOverall(report)));
+}
+
+function checkByName(report: ReportShape, name: string): ReportCheckShape {
+  const check = report.checks.find((candidate) => candidate.name === name);
+  expect(check).toBeDefined();
+  return check as ReportCheckShape;
 }
 
 describe("spx diagnose emits a schema-valid report and exits with the code keyed to the overall verdict", () => {
@@ -179,8 +191,11 @@ describe("spx diagnose emits a schema-valid report and exits with the code keyed
       // that bare mode yields. Both signals prove the config diagnose section was resolved, without
       // assuming whether spx happens to be on PATH in the test environment.
       const expectedFloor = "0.0.0";
-      const config = ["diagnose:", `  spxFloor: "${expectedFloor}"`, `  checks: ["${CHECK_NAME.SPX_REACHABILITY}"]`]
-        .join("\n");
+      const config = [
+        `${DIAGNOSE_SECTION}:`,
+        `  ${DIAGNOSE_CONFIG_FIELDS.SPX_FLOOR}: "${expectedFloor}"`,
+        `  ${DIAGNOSE_CONFIG_FIELDS.CHECKS}: ["${CHECK_NAME.SPX_REACHABILITY}"]`,
+      ].join("\n");
       await writeFile(join(cwd, DEFAULT_CONFIG_FILENAME), `${config}\n`);
 
       const result = await runDiagnose([DIAGNOSE_CLI.FORMAT_FLAG, DIAGNOSE_FORMAT.JSON], { cwd });
@@ -197,9 +212,9 @@ describe("spx diagnose emits a schema-valid report and exits with the code keyed
 
   it("runs from a supplied --manifest even when the diagnose config section is malformed — manifest takes precedence", async () => {
     await withTempDir("diagnose-manifest-precedence", async (cwd) => {
-      // A diagnose section the config descriptor rejects (checks must be strings). A manifest run must
+      // A diagnose section the config descriptor rejects. A manifest run must
       // bypass config resolution entirely, so this malformed section never derails the diagnosis.
-      const malformed = ["diagnose:", "  checks: [42]"].join("\n");
+      const malformed = [`${DIAGNOSE_SECTION}:`, `  ${DIAGNOSE_CONFIG_FIELDS.CHECKS}: [42]`].join("\n");
       await writeFile(join(cwd, DEFAULT_CONFIG_FILENAME), `${malformed}\n`);
       const manifestPath = await writeSpxReachabilityManifest();
 
@@ -224,10 +239,19 @@ describe("spx diagnose emits a schema-valid report and exits with the code keyed
 
       const report = JSON.parse(result.stdout) as ReportShape;
       const textRun = await runDiagnose([], { cwd });
-      const marketplaceRecord = report.checks.find((check) => check.name === CHECK_NAME.MARKETPLACE_INSTALL);
+      const spxRecord = checkByName(report, CHECK_NAME.SPX_REACHABILITY);
+      const sessionEnvironmentRecord = checkByName(report, CHECK_NAME.SESSION_ENVIRONMENT);
+      const worktreePoolRecord = checkByName(report, CHECK_NAME.WORKTREE_POOL);
+      const sessionStoreRecord = checkByName(report, CHECK_NAME.SESSION_STORE);
+      const marketplaceRecord = checkByName(report, CHECK_NAME.MARKETPLACE_INSTALL);
       expectSchemaValidReport(report);
       expect(new Set(report.checks.map((check) => check.name))).toEqual(new Set(Object.values(CHECK_NAME)));
-      expect(marketplaceRecord?.verdict).toBe(MARKETPLACE_INSTALL_VERDICT.NOT_APPLICABLE);
+      expect([SPX_REACHABILITY_VERDICT.PRESENT, SPX_REACHABILITY_VERDICT.UNREACHABLE]).toContain(spxRecord.verdict);
+      expect(spxRecord.readings.floor).toBe(SPX_REACHABILITY_READING_VALUE.ABSENT_FLOOR);
+      expect(Object.values(SESSION_ENVIRONMENT_VERDICT)).toContain(sessionEnvironmentRecord.verdict);
+      expect(Object.values(WORKTREE_POOL_VERDICT)).toContain(worktreePoolRecord.verdict);
+      expect(Object.values(SESSION_STORE_VERDICT)).toContain(sessionStoreRecord.verdict);
+      expect(marketplaceRecord.verdict).toBe(MARKETPLACE_INSTALL_VERDICT.NOT_APPLICABLE);
       expect(report.overall).toBe(foldedOverall(report));
       expect(textRun.stdout).toContain(`${DIAGNOSE_TEXT_OVERALL_LABEL}: ${foldedOverall(report)}`);
       expectExitCodeKeyedToFold(result, report);
