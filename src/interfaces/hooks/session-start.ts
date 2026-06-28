@@ -110,7 +110,7 @@ export async function runSessionStartHook(options: SessionStartHookOptions): Pro
       diagnostics,
       envFileWritten,
       productDir,
-      stdout: renderSessionStartStdout(payload.source),
+      stdout: renderSessionStartStdout(),
       ...(sessionId === undefined ? {} : { sessionId }),
     },
   };

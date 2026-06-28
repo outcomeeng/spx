@@ -60,12 +60,12 @@ async function expectNoCompactStdoutFor(renderContent: (env: WorktreePoolEnv) =>
 
 describe("hook session-start compact stdout boundary", () => {
   it.each(
-    Object.values(HOOK_SESSION_START_SOURCE).filter((source) => source !== HOOK_SESSION_START_SOURCE.COMPACT),
-  )("emits no compact-source stdout for the %s lifecycle source", async (source) => {
+    Object.values(HOOK_SESSION_START_SOURCE),
+  )("emits no hook stdout for the %s lifecycle source", async (source) => {
     await expectNoCompactStdoutFor((env) => hookContentWithSource(env, source));
   });
 
-  it("emits no compact-source stdout when the payload carries no lifecycle source", async () => {
+  it("emits no hook stdout when the payload carries no lifecycle source", async () => {
     await expectNoCompactStdoutFor(hookContentWithoutSource);
   });
 });
