@@ -11,6 +11,10 @@ const SPX_DIRECTORY_NAME = "spx";
 const DOCS_DIRECTORY_NAME = "docs";
 const SAMPLE_DIRECTORY_NAME = "21-sample.outcome";
 const DECLARED_NODE_FRAGMENT = "32-declared";
+const DECLARED_NODE_DIRECTORY = "32-declared.outcome";
+const DECLARED_MARKDOWN_FILE = "declared.md";
+const DECLARED_MARKDOWN_EXTENSION_FILE = "declared.markdown";
+const DECLARED_CHILD_DIRECTORY = "43-child.enabler";
 const DATA_URI_MARKER = "data:";
 const MISSING_HEADING_MARKER = "nonexistent-heading";
 const MISSING_FILE_MARKER = "does-not-exist";
@@ -47,6 +51,7 @@ export const MARKDOWN_SCENARIO_KIND = {
   NO_SIDE_EFFECTS: "noSideEffects",
   DEFAULT_DIRECTORIES: "defaultDirectories",
   EXCLUDE_NODE: "excludeNode",
+  EXCLUDE_NODE_EXACT_ONLY: "excludeNodeExactOnly",
   DUPLICATE_HEADINGS: "duplicateHeadings",
   CONFIG_BUILDER: "configBuilder",
   COMMAND_DEFAULTS: "commandDefaults",
@@ -81,6 +86,10 @@ export const MARKDOWN_VALIDATION_DATA = {
   docsDirectoryName: DOCS_DIRECTORY_NAME,
   sampleDirectoryName: SAMPLE_DIRECTORY_NAME,
   declaredNodeFragment: DECLARED_NODE_FRAGMENT,
+  declaredNodeDirectory: DECLARED_NODE_DIRECTORY,
+  declaredMarkdownFile: DECLARED_MARKDOWN_FILE,
+  declaredMarkdownExtensionFile: DECLARED_MARKDOWN_EXTENSION_FILE,
+  declaredChildDirectory: DECLARED_CHILD_DIRECTORY,
   dataUriMarker: DATA_URI_MARKER,
   missingHeadingMarker: MISSING_HEADING_MARKER,
   missingFileMarker: MISSING_FILE_MARKER,
@@ -176,6 +185,11 @@ export function markdownUnitScenarios(): MarkdownValidationScenario[] {
       title: "excluded spec nodes are skipped",
       kind: MARKDOWN_SCENARIO_KIND.EXCLUDE_NODE,
       fixture: MARKDOWN_FIXTURES.WITH_EXCLUDE,
+      timeout: MARKDOWN_HARNESS_TIMEOUT,
+    },
+    {
+      title: "excluded spec nodes do not skip child nodes",
+      kind: MARKDOWN_SCENARIO_KIND.EXCLUDE_NODE_EXACT_ONLY,
       timeout: MARKDOWN_HARNESS_TIMEOUT,
     },
     {

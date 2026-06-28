@@ -27,6 +27,7 @@ function normalizeScopeResult(result: ScopeResult): ScopeResult {
   return {
     included: normalizeScopeEntries(result.included),
     excluded: normalizeScopeEntries(result.excluded),
+    appliedOverrides: result.appliedOverrides,
   };
 }
 

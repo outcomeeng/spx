@@ -138,8 +138,23 @@ describe("scope resolver — scenarios", () => {
       );
 
       expect(noIgnore.included.some((entry) => entry.path === fixture.ignoredFilePath)).toBe(true);
+      expect(noIgnore.appliedOverrides).toEqual({
+        noIgnore: true,
+        noIgnoreVcs: false,
+        ignoreFile: undefined,
+      });
       expect(noIgnoreVcs.included.some((entry) => entry.path === fixture.ignoredFilePath)).toBe(true);
+      expect(noIgnoreVcs.appliedOverrides).toEqual({
+        noIgnore: false,
+        noIgnoreVcs: true,
+        ignoreFile: undefined,
+      });
       expect(ignoreFileResult.excluded.some((entry) => entry.path === ignoreFileOnly)).toBe(true);
+      expect(ignoreFileResult.appliedOverrides).toEqual({
+        noIgnore: false,
+        noIgnoreVcs: false,
+        ignoreFile,
+      });
     });
   });
 });

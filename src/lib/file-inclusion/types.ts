@@ -37,6 +37,7 @@ export type ScopeEntry = {
 export type ScopeResult = {
   readonly included: readonly ScopeEntry[];
   readonly excluded: readonly ScopeEntry[];
+  readonly appliedOverrides: IgnoreSourceOverrides;
 };
 
 export type LayerEntry<C = unknown> = {

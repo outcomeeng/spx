@@ -202,7 +202,11 @@ export async function runPipeline(
     }
   }
 
-  return { included, excluded };
+  return {
+    included,
+    excluded,
+    appliedOverrides: ignoreReader.appliedOverrides(),
+  };
 }
 
 async function addExplicitPath(

@@ -266,6 +266,24 @@ describe("scope resolver — compliance", () => {
     });
   });
 
+  it("automatic walking from a git worktree root still visits tracked descendants", async () => {
+    await withGitWorktreeEnv(async (env) => {
+      const tracked = trackedFilePath();
+      await env.writeTracked(tracked, fileContent());
+
+      const result = await resolveScope(
+        env.productDir,
+        {
+          walkRoot: env.productDir,
+          overrides: DEFAULT_IGNORE_SOURCE_OVERRIDES,
+        },
+        resolverConfig,
+      );
+
+      expect(result.included.some((entry) => entry.path === tracked)).toBe(true);
+    });
+  });
+
   it("explicit directory expansion includes ordinary tracked files named .git", async () => {
     await withGitWorktreeEnv(async (env) => {
       const normalDirectory = sampleGitWorktreeTestValue(arbitraryPathSegment());

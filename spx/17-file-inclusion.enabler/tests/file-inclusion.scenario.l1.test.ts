@@ -133,6 +133,42 @@ describe("file-inclusion service — scenarios", () => {
     });
   });
 
+  it("walked scope includes every git ignore source when no-ignore is set", async () => {
+    await withGitWorktreeEnv(async (env) => {
+      const [nestedDirectory] = distinctPrefixedTrackedPaths(1).map((path) => pathPrefix(path));
+      const nestedPattern = ignoredPattern();
+      const nestedIgnored = `${nestedDirectory}/${nestedPattern}`;
+      const infoIgnored = ignoredPattern();
+      const globalIgnored = ignoredPattern();
+      await env.writeGitignore(nestedDirectory, nestedPattern);
+      await env.writeUntracked(nestedIgnored, fileContent());
+      await env.writeInfoExclude(`${infoIgnored}\n`);
+      await env.writeUntracked(infoIgnored, fileContent());
+      await env.configureGlobalExcludes(`${globalIgnored}\n`);
+      await env.writeUntracked(globalIgnored, fileContent());
+
+      const result = await resolveScope(
+        env.productDir,
+        {
+          walkRoot: env.productDir,
+          overrides: {
+            noIgnore: true,
+            noIgnoreVcs: false,
+            ignoreFile: undefined,
+          },
+        },
+        resolverConfig,
+      );
+
+      expect(result.appliedOverrides.noIgnore).toBe(true);
+      for (const includedPath of [nestedIgnored, infoIgnored, globalIgnored]) {
+        const entry = result.included.find((candidate) => candidate.path === includedPath);
+        expect(entry).toBeDefined();
+        expect(entry!.decisionTrail.some((decision) => decision.layer === GIT_TRACKING_LAYER)).toBe(false);
+      }
+    });
+  });
+
   it("tool arguments reference only the resolved excluded set in the tool's native flag syntax", async () => {
     await withGitWorktreeEnv(async (env) => {
       const fixture = scopeResolverFixture();
