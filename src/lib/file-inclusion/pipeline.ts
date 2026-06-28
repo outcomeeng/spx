@@ -90,12 +90,16 @@ async function isGitMetadataEntry(absolutePath: string, entry: Dirent<string>): 
   return isGitdirPointerFile(absolutePath);
 }
 
-async function directoryContainsGitMetadata(
+async function directoryContainsGitdirPointer(
   absoluteDir: string,
   entries: readonly Dirent<string>[],
 ): Promise<boolean> {
   for (const entry of entries) {
-    if (await isGitMetadataEntry(join(absoluteDir, entry.name), entry)) {
+    if (
+      entry.name === GIT_INTERNAL_DIRECTORY
+      && entry.isFile()
+      && await isGitdirPointerFile(join(absoluteDir, entry.name))
+    ) {
       return true;
     }
   }
@@ -113,7 +117,7 @@ async function collectPaths(
   if (
     mode === DIRECTORY_TRAVERSAL_MODE.AUTOMATIC
     && skipWhenGitMetadataPresent
-    && await directoryContainsGitMetadata(absoluteDir, dirEntries)
+    && await directoryContainsGitdirPointer(absoluteDir, dirEntries)
   ) {
     return;
   }

@@ -456,13 +456,17 @@ function validationPathExcludeGlobsForTarget(
   projectRoot: string | undefined,
   excludes: readonly string[],
 ): string[] {
-  if (projectRoot === undefined || excludes.length === 0) return [];
+  if (
+    projectRoot === undefined
+    || excludes.length === 0
+    || target.kind === MARKDOWN_VALIDATION_TARGET_KIND.FILE
+  ) return [];
 
   const directory = targetDirectory(target);
   const targetPath = normalizePathPrefix(pathRelative(projectRoot, directory));
   return excludes.flatMap((exclude) => {
     const excludedPath = normalizePathPrefix(exclude);
-    if (pathContainsValidationPath(excludedPath, targetPath)) {
+    if (targetPath === excludedPath) {
       return [MARKDOWN_DIRECTORY_GLOB];
     }
     if (!pathContainsValidationPath(targetPath, excludedPath)) {
