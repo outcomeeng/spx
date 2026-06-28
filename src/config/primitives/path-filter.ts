@@ -52,18 +52,28 @@ export function validatePathFilterConfig(raw: unknown, path: string): Result<Pat
 }
 
 const PATH_SEGMENT_SEPARATOR = "/";
+const CURRENT_DIRECTORY_PREFIX = "./";
+const ROOT_PATH_PREFIX = ".";
 
-function normalizePathPrefix(value: string): string {
-  let end = value.length;
-  while (end > 0 && value[end - 1] === PATH_SEGMENT_SEPARATOR) {
+export function normalizePathPrefix(value: string): string {
+  const normalizedSeparatorPath = value.split("\\").join(PATH_SEGMENT_SEPARATOR);
+  const relativePath = normalizedSeparatorPath.startsWith(CURRENT_DIRECTORY_PREFIX)
+    ? normalizedSeparatorPath.slice(CURRENT_DIRECTORY_PREFIX.length)
+    : normalizedSeparatorPath;
+  let end = relativePath.length;
+  while (end > 0 && relativePath[end - 1] === PATH_SEGMENT_SEPARATOR) {
     end -= 1;
   }
-  return value.slice(0, end);
+  const normalized = relativePath.slice(0, end);
+  return normalized === ROOT_PATH_PREFIX ? "" : normalized;
 }
 
-function pathMatchesPrefix(path: string, prefix: string): boolean {
+export function pathMatchesPrefix(path: string, prefix: string): boolean {
   const normalizedPath = normalizePathPrefix(path);
   const normalizedPrefix = normalizePathPrefix(prefix);
+  if (normalizedPrefix.length === 0) {
+    return true;
+  }
   return normalizedPath === normalizedPrefix
     || normalizedPath.startsWith(`${normalizedPrefix}${PATH_SEGMENT_SEPARATOR}`);
 }

@@ -11,8 +11,8 @@
 import { existsSync, statSync } from "node:fs";
 import { basename, dirname, join, relative as pathRelative } from "node:path";
 
+import { normalizePathPrefix } from "@/config/primitives/path-filter";
 import { createNodeStatusExcludeReader } from "@/lib/node-status";
-import { normalizePathPrefix } from "@/validation/config/path-filter";
 
 // @ts-expect-error markdownlint-cli2 has no TypeScript type declarations
 import { main as markdownlintMain } from "markdownlint-cli2";

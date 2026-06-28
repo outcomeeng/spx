@@ -43,6 +43,19 @@ describe("path filter application", () => {
     );
   });
 
+  it("normalizes separators, leading dot-slash, trailing slashes, and root prefixes", () => {
+    fc.assert(
+      fc.property(CONFIG_TEST_GENERATOR.prefixCohort(), ({ prefix, under }) => {
+        const windowsPrefix = prefix.replaceAll("/", "\\");
+        const dottedPrefix = `./${prefix}//`;
+
+        expect(applyPathFilter([under], { include: [dottedPrefix] })).toEqual([under]);
+        expect(applyPathFilter([under], { exclude: [windowsPrefix] })).toEqual([]);
+        expect(applyPathFilter([under], { include: ["."] })).toEqual([under]);
+      }),
+    );
+  });
+
   it("intersects include and exclude: keeps only paths the include admits and the exclude does not match", () => {
     fc.assert(
       fc.property(CONFIG_TEST_GENERATOR.prefixCohort(), ({ prefix, under, outside }) => {

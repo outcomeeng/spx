@@ -1,13 +1,12 @@
 import { isAbsolute, relative } from "node:path";
 
+import { normalizePathPrefix, pathMatchesPrefix } from "@/config/primitives/path-filter";
 import {
   type ValidationPathConfig,
   type ValidationPathFilterConfig,
   type ValidationPathToolSubsection,
 } from "@/validation/config/descriptor";
 import type { ScopeConfig } from "@/validation/types";
-
-const PATH_PREFIX_SEPARATOR = "/";
 
 interface ValidationPathIncludeIntersection {
   readonly include?: readonly string[];
@@ -27,33 +26,6 @@ function hasEffectiveValidationPathMetadata(
     && typeof filter.hasIncludeFilter === "boolean"
     && "noMatchingIncludes" in filter
     && typeof filter.noMatchingIncludes === "boolean";
-}
-
-export function normalizePathPrefix(prefix: string): string {
-  const normalizedSeparators = prefix.split("\\").join(PATH_PREFIX_SEPARATOR);
-  const withoutLeadingDot = normalizedSeparators.startsWith(`.${PATH_PREFIX_SEPARATOR}`)
-    ? normalizedSeparators.slice(2)
-    : normalizedSeparators;
-  const normalized = trimTrailingPathSeparators(withoutLeadingDot);
-  return normalized === "." ? "" : normalized;
-}
-
-export function trimTrailingPathSeparators(path: string): string {
-  let end = path.length;
-  while (end > 0 && path[end - 1] === PATH_PREFIX_SEPARATOR) {
-    end -= 1;
-  }
-  return path.slice(0, end);
-}
-
-function pathMatchesPrefix(path: string, prefix: string): boolean {
-  const normalizedPath = normalizePathPrefix(path);
-  const normalizedPrefix = normalizePathPrefix(prefix);
-  if (normalizedPrefix.length === 0) {
-    return true;
-  }
-  return normalizedPath === normalizedPrefix
-    || normalizedPath.startsWith(`${normalizedPrefix}${PATH_PREFIX_SEPARATOR}`);
 }
 
 function unique(values: readonly string[]): string[] {
@@ -132,7 +104,7 @@ export function pathIntersectsValidationFilter(path: string, filter: ValidationP
 }
 
 export function validationPathFilterExcludes(filter: ValidationPathFilterConfig): string[] {
-  return unique(nonEmpty(filter.exclude).map(normalizePathPrefix));
+  return unique(nonEmpty(filter.exclude).map((prefix) => normalizePathPrefix(prefix)));
 }
 
 export function validationPathFilterIntersections(

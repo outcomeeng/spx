@@ -11,6 +11,7 @@ import { existsSync, statSync } from "node:fs";
 import { isAbsolute, join, relative } from "node:path";
 
 import { resolveConfig } from "@/config/index";
+import { normalizePathPrefix } from "@/config/primitives/path-filter";
 import {
   VALIDATION_PATH_TOOL_SUBSECTIONS,
   type ValidationConfig,
@@ -18,7 +19,6 @@ import {
 } from "@/validation/config/descriptor";
 import {
   pathPassesValidationFilter,
-  trimTrailingPathSeparators,
   validationPathFilterExcludes,
   validationPathFilterForTool,
   validationPathFilterIntersections,
@@ -116,7 +116,7 @@ function normalizeFormattingPathOperand(productDir: string, relativePath: string
   if (!existsSync(absolutePath) || !statSync(absolutePath).isDirectory()) {
     return relativePath;
   }
-  const normalizedDirectory = trimTrailingPathSeparators(relativePath);
+  const normalizedDirectory = normalizePathPrefix(relativePath);
   if (normalizedDirectory.length === 0 || normalizedDirectory === ".") {
     return DPRINT_RECURSIVE_DIRECTORY_GLOB_SUFFIX.slice(1);
   }
