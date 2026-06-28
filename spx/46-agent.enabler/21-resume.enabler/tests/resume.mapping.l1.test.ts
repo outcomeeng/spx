@@ -7,7 +7,14 @@ import {
   AGENT_SESSION_KIND,
   AGENT_SESSION_STORE,
 } from "@/domains/agent/protocol";
-import { type AgentResumeCandidate, buildAgentResumeLaunchCommand } from "@/domains/agent/resume";
+import {
+  AGENT_RESUME_PICKER_ACTION,
+  type AgentResumeCandidate,
+  buildAgentResumeLaunchCommand,
+  initialAgentResumePickerState,
+  reduceAgentResumePickerState,
+  resolveAgentResumePickerAction,
+} from "@/domains/agent/resume";
 import { AGENT_CLI, AGENT_CLI_EXIT, createAgentDomain } from "@/interfaces/cli/agent";
 import {
   type AgentResumePickerResult,
@@ -29,15 +36,10 @@ import {
   agentResumeCandidate,
   codexTranscript,
   codexTranscriptPath,
+  ImmediateExit,
   isPathInsideOrEqual,
   MemoryAgentSessionFileSystem,
 } from "@testing/harnesses/agent/resume";
-
-class ImmediateExit extends Error {
-  constructor(readonly exitCode: number) {
-    super();
-  }
-}
 
 interface ResumeFixture {
   readonly fs: MemoryAgentSessionFileSystem;
@@ -308,5 +310,56 @@ describe("agent resume launch command mappings", () => {
       args: [AGENT_RESUME_COMMAND.CLAUDE_RESUME, claudeCode.sessionId],
       cwd: claudeCode.cwd,
     });
+  });
+});
+
+describe("agent resume picker state mappings", () => {
+  it("maps Ink key input to pure picker actions and clamps selection to the candidate bounds", () => {
+    let state = initialAgentResumePickerState();
+
+    expect(resolveAgentResumePickerAction({
+      input: "",
+      upArrow: true,
+      downArrow: false,
+      return: false,
+      escape: false,
+    })).toBe(AGENT_RESUME_PICKER_ACTION.MOVE_UP);
+    expect(resolveAgentResumePickerAction({
+      input: "",
+      upArrow: false,
+      downArrow: true,
+      return: false,
+      escape: false,
+    })).toBe(AGENT_RESUME_PICKER_ACTION.MOVE_DOWN);
+    expect(resolveAgentResumePickerAction({
+      input: "",
+      upArrow: false,
+      downArrow: false,
+      return: true,
+      escape: false,
+    })).toBe(AGENT_RESUME_PICKER_ACTION.CHOOSE);
+    expect(resolveAgentResumePickerAction({
+      input: "q",
+      upArrow: false,
+      downArrow: false,
+      return: false,
+      escape: false,
+    })).toBe(AGENT_RESUME_PICKER_ACTION.QUIT);
+    expect(resolveAgentResumePickerAction({
+      input: "",
+      upArrow: false,
+      downArrow: false,
+      return: false,
+      escape: true,
+    })).toBe(AGENT_RESUME_PICKER_ACTION.QUIT);
+
+    state = reduceAgentResumePickerState(state, AGENT_RESUME_PICKER_ACTION.MOVE_UP, 2);
+    expect(state.selectedIndex).toBe(0);
+    state = reduceAgentResumePickerState(state, AGENT_RESUME_PICKER_ACTION.MOVE_DOWN, 2);
+    expect(state.selectedIndex).toBe(1);
+    state = reduceAgentResumePickerState(state, AGENT_RESUME_PICKER_ACTION.MOVE_DOWN, 2);
+    expect(state.selectedIndex).toBe(1);
+    state = reduceAgentResumePickerState(state, AGENT_RESUME_PICKER_ACTION.MOVE_UP, 2);
+    expect(state.selectedIndex).toBe(0);
   });
 });
