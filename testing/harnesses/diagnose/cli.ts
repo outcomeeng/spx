@@ -14,16 +14,27 @@ import { join } from "node:path";
 import { CHECK_NAME } from "@/domains/diagnose/manifest";
 import { arbitraryManifestFacts, arbitrarySpxFloor, manifestJson } from "@testing/generators/diagnose/manifest";
 
+export interface SpxReachabilityManifestFixture {
+  readonly manifestPath: string;
+  readonly spxFloor: string;
+}
+
 async function diagnoseTempDir(): Promise<string> {
   return mkdtemp(join(tmpdir(), "diagnose-cli-"));
 }
 
-/** Writes a minimal spx-reachability manifest to a fresh temp dir and returns its path. */
-export async function writeSpxReachabilityManifest(): Promise<string> {
+/** Writes a minimal spx-reachability manifest to a fresh temp dir and returns its path and generated facts. */
+export async function writeSpxReachabilityManifestFixture(): Promise<SpxReachabilityManifestFixture> {
   const [floor] = fc.sample(arbitrarySpxFloor(), { numRuns: 1, seed: 7 });
   const dir = await diagnoseTempDir();
   const manifestPath = join(dir, "diagnose.json");
   await writeFile(manifestPath, JSON.stringify({ checks: [CHECK_NAME.SPX_REACHABILITY], spx_floor: floor }));
+  return { manifestPath, spxFloor: floor };
+}
+
+/** Writes a minimal spx-reachability manifest to a fresh temp dir and returns its path. */
+export async function writeSpxReachabilityManifest(): Promise<string> {
+  const { manifestPath } = await writeSpxReachabilityManifestFixture();
   return manifestPath;
 }
 
