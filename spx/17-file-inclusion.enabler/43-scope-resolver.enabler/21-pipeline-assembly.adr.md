@@ -1,6 +1,6 @@
 # Pipeline Assembly
 
-The scope resolver declares its layer sequence as a single `readonly` tuple of `LayerEntry` records — each pairing a layer predicate with a state extractor — exported under one name (`LAYER_SEQUENCE`) and imported only by the pipeline. Each `resolveScope(productDir, request, config)` invocation owns one git-tracking reader derived from the request's override flags, includes caller-supplied explicit paths through the explicit-override trail, and classifies walked paths by applying each declared layer in order, producing a `ScopeResult` of `productDir`-relative paths with per-path decision trails. Config is an explicit parameter, so the resolver reads no global registry.
+The scope resolver declares its layer sequence as a single `readonly` tuple of `LayerEntry` records — each pairing a layer predicate with a state extractor — exported under one name (`LAYER_SEQUENCE`) and imported only by the pipeline. Each `resolveScope(productDir, request, config)` invocation owns one git-tracking reader derived from the request's override flags, includes caller-supplied explicit paths through the explicit-override trail, and classifies walked paths by applying each declared layer in order, producing a `ScopeResult` of `productDir`-relative paths with per-path decision trails and normalized applied overrides. Config is an explicit parameter, so the resolver reads no global registry.
 
 ## Rationale
 
@@ -22,6 +22,7 @@ Rejected: `LAYER_SEQUENCE` as a bare function list with no state extraction (the
 - No non-override layer predicate is invoked against a caller-supplied explicit path.
 - Paths in `ScopeResult` entries are relative to `productDir`.
 - Each `ScopeResult.excluded` entry carries a non-empty `decisionTrail`.
+- `ScopeResult.appliedOverrides` records the normalized override flags used to construct the invocation's git-tracking reader.
 
 ## Verification
 
@@ -31,6 +32,7 @@ Rejected: `LAYER_SEQUENCE` as a bare function list with no state extraction (the
 - ALWAYS: the explicit-override short-circuit runs before any non-override layer evaluation — paths in `ScopeRequest.explicit` never reach a non-override predicate ([compliance])
 - ALWAYS: caller-supplied explicit directories are expanded without git-based directory pruning, and each descendant receives the explicit-override decision trail ([compliance])
 - ALWAYS: tests construct `ScopeResolverConfig` from production-owned constants and real temp git worktrees — no mocking, no hardcoded strings ([compliance])
+- ALWAYS: `ScopeResult` records the normalized applied override flags for the invocation ([compliance])
 - NEVER: import `LAYER_SEQUENCE` from any module other than `pipeline.ts` ([compliance])
 - NEVER: invoke a layer predicate against a caller-supplied explicit path — the override is unconditional ([compliance])
 - NEVER: produce a `ScopeResult` missing a decision trail on any excluded entry, or missing the explicit-override trail entry on a caller-supplied path ([compliance])

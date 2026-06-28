@@ -31,7 +31,7 @@ CAN consult the operator's effective scope through one typed surface without re-
 
 - ALWAYS: the reader's git invocations all happen at construction — query methods are pure over the constructed set and perform no filesystem or subprocess I/O ([review])
 - ALWAYS: the reader resolves its worktree root per `spx/15-worktree-management.pdr.md` and passes it as the `-C` argument or `cwd` of every git invocation ([review])
-- ALWAYS: override-flag translation happens once at construction; the constructed reader records which overrides were applied so consumers can inspect them through the decision trail ([review])
+- ALWAYS: override-flag translation happens once at construction; the constructed reader records which overrides were applied so consumers can inspect the normalized override request ([review])
 - ALWAYS: automatic directory walking can ask whether an included descendant exists under a directory without shelling out again or parsing ignore files ([review])
 - NEVER: shell out to git from any module outside this enabler — git plumbing is invoked only here ([review])
 - NEVER: parse `.gitignore`, `.git/info/exclude`, or `core.excludesFile` content directly — spx delegates the ignore-resolution semantics to git plumbing ([review])
