@@ -5,7 +5,7 @@
  * @module commands/worktree/status
  */
 
-import { basename, dirname } from "node:path";
+import { basename, dirname, sep } from "node:path";
 
 import type { Result } from "@/config/types";
 import { agentRuntimeDisplayName } from "@/domains/worktree/controlling-process";
@@ -167,7 +167,7 @@ function renderTextStatus(records: readonly WorktreeStatusRecord[]): string {
   const sections: PlainTreeSection[] = [];
   const sectionByParent = new Map<string, string[]>();
   for (const record of records) {
-    const parent = dirname(record.worktreeRoot);
+    const parent = renderParentDirectory(dirname(record.worktreeRoot));
     const children = sectionByParent.get(parent);
     const rendered = renderTextStatusChild(record);
     if (children === undefined) {
@@ -179,6 +179,10 @@ function renderTextStatus(records: readonly WorktreeStatusRecord[]): string {
     }
   }
   return renderPlainTree({ sections });
+}
+
+function renderParentDirectory(parent: string): string {
+  return parent.endsWith(sep) ? parent : `${parent}${sep}`;
 }
 
 function renderTextStatusChild(record: WorktreeStatusRecord): string {

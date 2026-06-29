@@ -13,6 +13,7 @@ import { detectWorktreeProductRoot, gatherGitFacts, type GitDependencies } from 
 import { resolveWorktreesScopeDir } from "@/lib/state-store";
 
 export const WORKTREE_RESOLVE_ERROR = {
+  AMBIGUOUS_WORKTREE_BASENAME: "ambiguous worktree basename",
   NOT_A_WORKTREE: "path resolves to no worktree",
   WORKTREE_LIST_UNAVAILABLE: "git worktree list is unavailable",
 } as const;
@@ -95,7 +96,9 @@ export async function resolveTargetWorktree(
   if (!worktree.isGitRepo) {
     const basenameTarget = await resolveBasenameTargetWorktree(options);
     if (basenameTarget.ok) return basenameTarget;
-    return { ok: false, error: `${WORKTREE_RESOLVE_ERROR.NOT_A_WORKTREE}: ${options.worktree ?? base}` };
+    return basenameTarget.error.startsWith(WORKTREE_RESOLVE_ERROR.AMBIGUOUS_WORKTREE_BASENAME)
+      ? basenameTarget
+      : { ok: false, error: `${WORKTREE_RESOLVE_ERROR.NOT_A_WORKTREE}: ${options.worktree ?? base}` };
   }
   return { ok: true, value: { name: worktreeClaimName(worktree.productDir), worktreeRoot: worktree.productDir } };
 }
@@ -110,9 +113,13 @@ async function resolveBasenameTargetWorktree(
   if (!facts?.worktreeListRead) {
     return { ok: false, error: `${WORKTREE_RESOLVE_ERROR.NOT_A_WORKTREE}: ${options.worktree}` };
   }
-  const worktreeRoot = facts.worktreeRoots.find((root) => basename(root) === options.worktree);
-  if (worktreeRoot === undefined) {
+  const matchingRoots = facts.worktreeRoots.filter((root) => basename(root) === options.worktree);
+  if (matchingRoots.length === 0) {
     return { ok: false, error: `${WORKTREE_RESOLVE_ERROR.NOT_A_WORKTREE}: ${options.worktree}` };
   }
+  if (matchingRoots.length > 1) {
+    return { ok: false, error: `${WORKTREE_RESOLVE_ERROR.AMBIGUOUS_WORKTREE_BASENAME}: ${options.worktree}` };
+  }
+  const [worktreeRoot] = matchingRoots;
   return { ok: true, value: { name: worktreeClaimName(worktreeRoot), worktreeRoot } };
 }
