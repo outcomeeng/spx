@@ -5,6 +5,7 @@
  */
 
 import type { Result } from "@/config/types";
+import { normalizeAgentSessionToken, resolveAgentSessionId } from "@/domains/session/agent-session";
 
 export const HOOK_SESSION_START_PAYLOAD = {
   CWD: "cwd",
@@ -113,11 +114,7 @@ export function resolveHookSessionStartSessionId(
   payload: HookSessionStartPayload,
   env: HookSessionStartEnv,
 ): string | undefined {
-  return (
-    payload.sessionId
-      ?? nonEmptyString(env[HOOK_SESSION_START_ENV.CLAUDE_SESSION_ID])
-      ?? nonEmptyString(env[HOOK_SESSION_START_ENV.CODEX_THREAD_ID])
-  );
+  return payload.sessionId === undefined ? resolveAgentSessionId(env) : normalizeAgentSessionToken(payload.sessionId);
 }
 
 export function resolveHookSessionStartProductDir(payload: HookSessionStartPayload, cwd: string): string {

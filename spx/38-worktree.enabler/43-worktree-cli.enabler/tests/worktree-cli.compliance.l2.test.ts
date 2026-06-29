@@ -7,7 +7,7 @@ import { describe, expect, it } from "vitest";
 
 import { WORKTREE_STATUS_FORMAT } from "@/commands/worktree/index";
 import { CONTROLLING_PID_ENV } from "@/domains/worktree/controlling-process";
-import { OCCUPANCY_CLAIM, OCCUPANCY_STATUS, writeClaim } from "@/domains/worktree/occupancy-store";
+import { OCCUPANCY_CLAIM, OCCUPANCY_ERROR, OCCUPANCY_STATUS, readClaim, writeClaim } from "@/domains/worktree/occupancy-store";
 import { worktreeClaimName } from "@/domains/worktree/worktree-name";
 import {
   GIT_WORKTREE_LIST_PORCELAIN_ARGS,
@@ -100,6 +100,54 @@ describe("worktree CLI compliance", () => {
     });
   });
 
+  it("ALWAYS: claim exits non-zero and preserves the live holder when the worktree is already claimed", async () => {
+    const prefix = sampleWorktreeTestValue(WORKTREE_TEST_GENERATOR.tempPrefix());
+    const worktreeName = sampleWorktreeTestValue(WORKTREE_TEST_GENERATOR.poolWorktreeName());
+    const [firstSessionId, secondSessionId] = sampleWorktreeTestValue(WORKTREE_TEST_GENERATOR.distinctSessionIds());
+
+    await withWorktreeLayoutEnv({ bare: true, worktrees: [{ name: worktreeName }] }, async (layout) => {
+      await withTempDir(prefix, async (worktreesDir) => {
+        const worktreePath = layout.worktree(worktreeName);
+        const first = await runWorktreeCli(
+          [
+            WORKTREE_CLI.COMMAND,
+            WORKTREE_CLI.CLAIM,
+            WORKTREE_CLI.SESSION_ID_FLAG,
+            firstSessionId,
+            WORKTREE_CLI.WORKTREES_DIR_FLAG,
+            worktreesDir,
+          ],
+          { [CONTROLLING_PID_ENV]: String(process.pid) },
+          worktreePath,
+        );
+        expect(first.exitCode).toBe(0);
+
+        const second = await runWorktreeCli(
+          [
+            WORKTREE_CLI.COMMAND,
+            WORKTREE_CLI.CLAIM,
+            WORKTREE_CLI.SESSION_ID_FLAG,
+            secondSessionId,
+            WORKTREE_CLI.WORKTREES_DIR_FLAG,
+            worktreesDir,
+          ],
+          { [CONTROLLING_PID_ENV]: String(process.pid) },
+          worktreePath,
+        );
+
+        expect(second.exitCode).not.toBe(0);
+        expect(second.stdout).toHaveLength(0);
+        expect(second.stderr).toContain(OCCUPANCY_ERROR.CLAIM_HELD);
+        const claim = await readClaim(worktreesDir, worktreeClaimName(worktreePath), {
+          fs: defaultOccupancyFileSystem,
+        });
+        expect(claim.ok).toBe(true);
+        if (!claim.ok) throw new Error(claim.error);
+        expect(claim.value?.sessionId).toBe(firstSessionId);
+      });
+    });
+  });
+
   it("ALWAYS: status --format json writes a parseable record and exits 0", async () => {
     const prefix = sampleWorktreeTestValue(WORKTREE_TEST_GENERATOR.tempPrefix());
     const worktreeName = sampleWorktreeTestValue(WORKTREE_TEST_GENERATOR.poolWorktreeName());
@@ -160,7 +208,7 @@ describe("worktree CLI compliance", () => {
 
   it("ALWAYS: multi-target status --format json de-duplicates resolved worktree roots", async () => {
     const [worktreeName, subdir] = sampleWorktreeTestValue(WORKTREE_TEST_GENERATOR.distinctPoolWorktreeNames());
-    const fileName = sampleWorktreeTestValue(WORKTREE_TEST_GENERATOR.safeToken());
+    const fileName = sampleWorktreeTestValue(WORKTREE_TEST_GENERATOR.writeToken());
 
     await withWorktreeLayoutEnv({ bare: true, worktrees: [{ name: worktreeName }] }, async (layout) => {
       const worktreePath = layout.worktree(worktreeName);
@@ -325,7 +373,7 @@ describe("worktree CLI compliance", () => {
     const worktreeName = sampleWorktreeTestValue(WORKTREE_TEST_GENERATOR.poolWorktreeName());
     const sessionId = sampleWorktreeTestValue(WORKTREE_TEST_GENERATOR.sessionId());
     const startedAt = sampleWorktreeTestValue(WORKTREE_TEST_GENERATOR.startTime());
-    const randomBytes = sampleWorktreeTestValue(WORKTREE_TEST_GENERATOR.randomBytes());
+    const writeToken = sampleWorktreeTestValue(WORKTREE_TEST_GENERATOR.writeToken());
 
     await withWorktreeLayoutEnv({ bare: true, worktrees: [{ name: worktreeName }] }, async (layout) => {
       await withTempDir(prefix, async (worktreesDir) => {
@@ -334,7 +382,7 @@ describe("worktree CLI compliance", () => {
           worktreesDir,
           worktreeClaimName(worktreePath),
           { sessionId, host: hostname(), pid: Number.MAX_SAFE_INTEGER, startedAt },
-          { fs: defaultOccupancyFileSystem, randomBytes },
+          { fs: defaultOccupancyFileSystem, writeToken },
         );
         expect(write.ok).toBe(true);
         if (!write.ok) throw new Error(write.error);

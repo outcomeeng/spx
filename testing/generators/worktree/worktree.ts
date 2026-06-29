@@ -10,7 +10,6 @@ import * as fc from "fast-check";
 
 import { AGENT_COMMAND_PATTERN, AGENT_RUNTIME_NAMES } from "@/domains/worktree/controlling-process";
 import type { WorktreeClaimRecord } from "@/domains/worktree/occupancy-store";
-import type { RandomBytes } from "@/lib/atomic-file-write";
 
 const SAMPLE_SEED = 0x574f524b;
 const TOKEN_CHARACTERS = [..."abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789_-"] as const;
@@ -20,6 +19,7 @@ const RAW_BASENAME_CHARACTERS = [..."abcXYZ012_-. /"] as const;
 // Interpreters that run a shebang-installed agent script, so `ps -o args=` reports
 // the interpreter followed by the agent script path. None names an agent runtime.
 const AGENT_INTERPRETERS = ["node", "python3"] as const;
+const TIMEZONE_NAMES = ["America/New_York", "Asia/Tokyo", "Europe/Zurich", "UTC"] as const;
 const MIN_PID = 1;
 const MAX_PID = 4_194_304;
 // Spans from the Unix epoch so the "occupancy never ages out" property is
@@ -69,23 +69,18 @@ export const WORKTREE_TEST_GENERATOR = {
         stringFromCharacters(TOKEN_CHARACTERS, { minLength: 1, maxLength: 36 }),
       )
       .filter(([first, second]) => first !== second),
-  safeToken: (): fc.Arbitrary<string> => stringFromCharacters(TOKEN_CHARACTERS, { minLength: 8, maxLength: 24 }),
-  distinctSafeTokens: (): fc.Arbitrary<readonly [string, string]> =>
+  writeToken: (): fc.Arbitrary<string> => stringFromCharacters(TOKEN_CHARACTERS, { minLength: 8, maxLength: 24 }),
+  distinctWriteTokens: (): fc.Arbitrary<readonly [string, string]> =>
     fc
       .tuple(
         stringFromCharacters(TOKEN_CHARACTERS, { minLength: 8, maxLength: 24 }),
         stringFromCharacters(TOKEN_CHARACTERS, { minLength: 8, maxLength: 24 }),
       )
       .filter(([first, second]) => first !== second),
-  randomBytes: (): fc.Arbitrary<RandomBytes> =>
-    stringFromCharacters(TOKEN_CHARACTERS, { minLength: 8, maxLength: 24 }).map((token) => () => Buffer.from(token)),
-  distinctRandomBytes: (): fc.Arbitrary<readonly [RandomBytes, RandomBytes]> =>
-    WORKTREE_TEST_GENERATOR.distinctSafeTokens().map(([first, second]) =>
-      [
-        () => Buffer.from(first),
-        () => Buffer.from(second),
-      ] as const
-    ),
+  distinctTimeZones: (): fc.Arbitrary<readonly [string, string]> =>
+    fc
+      .tuple(fc.constantFrom(...TIMEZONE_NAMES), fc.constantFrom(...TIMEZONE_NAMES))
+      .filter(([first, second]) => first !== second),
   pid: (): fc.Arbitrary<number> => fc.integer({ min: MIN_PID, max: MAX_PID }),
   startTime: (): fc.Arbitrary<string> =>
     fc.date({ min: START_TIME_MIN, max: START_TIME_MAX, noInvalidDate: true }).map((date) => date.toISOString()),

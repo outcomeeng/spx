@@ -11,13 +11,12 @@ import type { ControllingProcessEnv } from "@/domains/worktree/controlling-proce
 import type { OccupancyFileSystem } from "@/domains/worktree/occupancy-store";
 import type { ProcessTable } from "@/domains/worktree/process-table";
 import type { WorktreeScopeOptions } from "@/domains/worktree/resolve";
-import type { RandomBytes } from "@/lib/atomic-file-write";
 
 export interface ClaimCommandOptions extends WorktreeScopeOptions {
   /** The claiming agent's session id. */
   readonly sessionId: string;
-  /** Source of cryptographic random bytes for the atomic claim temp path. */
-  readonly randomBytes: RandomBytes;
+  /** Writer-unique token used for the atomic claim temp path. */
+  readonly claimWriteToken: string;
   /** Environment read for the controlling-pid override. */
   readonly env: ControllingProcessEnv;
   /** Injected process table. */

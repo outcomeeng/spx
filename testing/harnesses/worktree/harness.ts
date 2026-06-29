@@ -120,6 +120,8 @@ export const OCCUPANCY_FS_OP = {
   MKDIR: "mkdir",
   WRITE_FILE: "writeFile",
   RENAME: "rename",
+  SYMLINK: "symlink",
+  READLINK: "readlink",
   READ_FILE: "readFile",
   RM: "rm",
 } as const;
@@ -155,6 +157,14 @@ export function createRecordingOccupancyFileSystem(backing: OccupancyFileSystem)
     rename: async (from, to) => {
       calls.push({ op: OCCUPANCY_FS_OP.RENAME, paths: [from, to] });
       await backing.rename(from, to);
+    },
+    symlink: async (target, path) => {
+      calls.push({ op: OCCUPANCY_FS_OP.SYMLINK, paths: [target, path] });
+      await backing.symlink(target, path);
+    },
+    readlink: async (path) => {
+      calls.push({ op: OCCUPANCY_FS_OP.READLINK, paths: [path] });
+      return backing.readlink(path);
     },
     readFile: async (path, encoding) => {
       calls.push({ op: OCCUPANCY_FS_OP.READ_FILE, paths: [path] });

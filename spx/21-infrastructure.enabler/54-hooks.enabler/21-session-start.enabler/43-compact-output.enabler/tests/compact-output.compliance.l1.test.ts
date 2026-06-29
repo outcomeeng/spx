@@ -25,12 +25,12 @@ async function expectNoHookStdoutFor(renderContent: (env: WorktreePoolEnv) => st
   const holder = sampleWorktreeTestValue(WORKTREE_TEST_GENERATOR.poolHolder());
   const envFileName = sampleWorktreeTestValue(WORKTREE_TEST_GENERATOR.envFileName());
   const threadId = sampleWorktreeTestValue(WORKTREE_TEST_GENERATOR.sessionId());
-  const randomBytes = sampleWorktreeTestValue(WORKTREE_TEST_GENERATOR.randomBytes());
+  const claimWriteToken = sampleWorktreeTestValue(WORKTREE_TEST_GENERATOR.writeToken());
 
   await withWorktreePool({ worktreeName, holder }, async (env) => {
     const envFile = join(env.container, envFileName);
     const result = await runSessionStartHook({
-      randomBytes,
+      claimWriteToken,
       compactStdout: false,
       content: renderContent(env),
       cwd: env.container,

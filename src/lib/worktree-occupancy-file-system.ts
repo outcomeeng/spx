@@ -7,8 +7,10 @@
 import {
   mkdir as nodeMkdir,
   readFile as nodeReadFile,
+  readlink as nodeReadlink,
   rename as nodeRename,
   rm as nodeRm,
+  symlink as nodeSymlink,
   writeFile as nodeWriteFile,
 } from "node:fs/promises";
 
@@ -22,6 +24,8 @@ export const defaultOccupancyFileSystem: OccupancyFileSystem = {
     await nodeWriteFile(path, data);
   },
   rename: nodeRename,
+  symlink: nodeSymlink,
+  readlink: nodeReadlink,
   readFile: nodeReadFile,
   rm: async (path, options) => {
     await nodeRm(path, options);

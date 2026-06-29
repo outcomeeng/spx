@@ -32,11 +32,11 @@ describe("the session-environment probe maps exported claim paths", () => {
       const worktreeRoot = join(productDir, worktreeName);
       const worktreesDir = join(productDir, sampleWorktreeTestValue(WORKTREE_TEST_GENERATOR.worktreeName()));
       const claim = sampleWorktreeTestValue(WORKTREE_TEST_GENERATOR.claimRecord());
-      const randomBytes = sampleWorktreeTestValue(WORKTREE_TEST_GENERATOR.randomBytes());
+      const writeToken = sampleWorktreeTestValue(WORKTREE_TEST_GENERATOR.writeToken());
       const claimName = worktreeClaimName(worktreeRoot);
       const written = await writeClaim(worktreesDir, claimName, claim, {
         fs: defaultOccupancyFileSystem,
-        randomBytes,
+        writeToken,
       });
       if (!written.ok) throw new Error(written.error);
       const env = {
@@ -82,10 +82,10 @@ describe("the session-environment probe maps exported claim paths", () => {
       const claimedWorktreeRoot = join(productDir, claimedName);
       const worktreesDir = join(productDir, sampleWorktreeTestValue(WORKTREE_TEST_GENERATOR.worktreeName()));
       const claim = sampleWorktreeTestValue(WORKTREE_TEST_GENERATOR.claimRecord());
-      const randomBytes = sampleWorktreeTestValue(WORKTREE_TEST_GENERATOR.randomBytes());
+      const writeToken = sampleWorktreeTestValue(WORKTREE_TEST_GENERATOR.writeToken());
       const written = await writeClaim(worktreesDir, worktreeClaimName(claimedWorktreeRoot), claim, {
         fs: defaultOccupancyFileSystem,
-        randomBytes,
+        writeToken,
       });
       if (!written.ok) throw new Error(written.error);
       const env = {
