@@ -23,6 +23,7 @@ export interface HookProcessIo {
 export interface HookCliRunOptions {
   readonly claimWriteToken: string;
   readonly compactStdout: boolean;
+  readonly stdinContent?: Result<string | undefined>;
   readonly cwd: string;
   readonly envFile?: string;
   readonly env: HookSessionStartEnv & ControllingProcessEnv;
@@ -68,7 +69,7 @@ export async function runHookCli(options: HookCliRunOptions): Promise<Result<voi
   }
 
   const diagnostics: string[] = [];
-  const stdin = await options.io.readStdin();
+  const stdin = options.stdinContent ?? (await options.io.readStdin());
   const content = stdin.ok ? stdin.value : undefined;
   if (!stdin.ok) diagnostics.push(stdin.error);
   const runEvent = options.runEvent ?? runHookEvent;

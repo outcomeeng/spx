@@ -250,4 +250,43 @@ describe("hook CLI compact stdout boundary", () => {
       expect(result.stdout).toBe(HOOK_COMPACT_FOUNDATION_DIRECTIVE);
     });
   });
+
+  it("loads compact stdout policy from the payload product root for an external hook invocation", async () => {
+    const prefix = sampleWorktreeTestValue(WORKTREE_TEST_GENERATOR.tempPrefix());
+    const [worktreeName, outsideDirectoryName] = sampleWorktreeTestValue(
+      WORKTREE_TEST_GENERATOR.distinctPoolWorktreeNames(),
+    );
+    const sessionId = sampleWorktreeTestValue(WORKTREE_TEST_GENERATOR.sessionId());
+    const envFileName = sampleWorktreeTestValue(WORKTREE_TEST_GENERATOR.envFileName());
+
+    await withHookCliWorktreeEnv({ envFileName, prefix, worktreeName }, async (env) => {
+      const externalInvocationDir = join(env.worktreePath, "..", outsideDirectoryName);
+      await mkdir(externalInvocationDir);
+      await writeCodexCompactStdoutConfig(env.worktreePath);
+
+      const result = await runWorktreeCli(
+        [
+          HOOK_CLI.COMMAND,
+          HOOK_CLI.RUN,
+          HOOK_EVENT.SESSION_START,
+          HOOK_CLI.ENV_FILE_FLAG,
+          env.envFile,
+          HOOK_CLI.WORKTREES_DIR_FLAG,
+          env.worktreesDir,
+        ],
+        {
+          [CONTROLLING_PID_ENV]: String(process.pid),
+          [HOOK_SESSION_START_ENV.CODEX_THREAD_ID]: sessionId,
+        },
+        externalInvocationDir,
+        JSON.stringify({
+          [HOOK_SESSION_START_PAYLOAD.CWD]: env.worktreePath,
+          [HOOK_SESSION_START_PAYLOAD.SOURCE]: HOOK_SESSION_START_SOURCE.COMPACT,
+        }),
+      );
+
+      expect(result.exitCode, result.stderr).toBe(0);
+      expect(result.stdout).toBe(HOOK_COMPACT_FOUNDATION_DIRECTIVE);
+    });
+  });
 });
