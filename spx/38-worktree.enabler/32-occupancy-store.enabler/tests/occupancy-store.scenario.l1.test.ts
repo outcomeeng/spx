@@ -13,6 +13,7 @@ import {
   readClaim,
   readOccupancy,
   removeClaim,
+  unreadableStartedAt,
   writeClaim,
 } from "@/domains/worktree/occupancy-store";
 import { defaultOccupancyFileSystem } from "@/lib/worktree-occupancy-file-system";
@@ -22,6 +23,7 @@ import {
   createDeadHolderProbe,
   createForeignHostProbe,
   createLiveHolderProbe,
+  createRecycledPidProbe,
 } from "@testing/harnesses/worktree/harness";
 
 function createThrowingProbe(): ProcessProbe {
@@ -185,6 +187,38 @@ describe("worktree occupancy claim store", () => {
         name,
         nextRecord,
         createDeadHolderProbe(deadLockOwner),
+        { fs: defaultOccupancyFileSystem, writeToken },
+      );
+
+      expect(acquired.ok).toBe(true);
+      const readBack = await readClaim(worktreesDir, name, { fs: defaultOccupancyFileSystem });
+      expect(readBack.ok).toBe(true);
+      if (!readBack.ok) throw new Error(readBack.error);
+      expect(readBack.value).toEqual(nextRecord);
+    });
+  });
+
+  it("recovers a claim-acquisition lock whose unreadable-start owner pid was recycled", async () => {
+    const prefix = sampleWorktreeTestValue(WORKTREE_TEST_GENERATOR.tempPrefix());
+    const name = sampleWorktreeTestValue(WORKTREE_TEST_GENERATOR.worktreeName());
+    const lockOwnerBase = sampleWorktreeTestValue(WORKTREE_TEST_GENERATOR.claimRecord());
+    const lockOwner = { ...lockOwnerBase, startedAt: unreadableStartedAt(lockOwnerBase.pid) };
+    const nextRecord = sampleWorktreeTestValue(WORKTREE_TEST_GENERATOR.claimRecord());
+    const writeToken = sampleWorktreeTestValue(WORKTREE_TEST_GENERATOR.writeToken());
+    const recycledPidStartTime = sampleWorktreeTestValue(WORKTREE_TEST_GENERATOR.startTime());
+
+    await withTempDir(prefix, async (worktreesDir) => {
+      const claimPath = claimFilePath(worktreesDir, name);
+      expect(claimPath.ok).toBe(true);
+      if (!claimPath.ok) throw new Error(claimPath.error);
+      await defaultOccupancyFileSystem.mkdir(worktreesDir, { recursive: true });
+      await defaultOccupancyFileSystem.symlink(claimLockTarget(lockOwner), claimLockPath(claimPath.value));
+
+      const acquired = await acquireClaim(
+        worktreesDir,
+        name,
+        nextRecord,
+        createRecycledPidProbe(lockOwner, recycledPidStartTime),
         { fs: defaultOccupancyFileSystem, writeToken },
       );
 

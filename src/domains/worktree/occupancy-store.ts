@@ -427,8 +427,8 @@ async function clearRecoverableClaimLock(
 function claimLockOwnerIsRecoverable(owner: WorktreeClaimRecord, probe: ProcessProbe): boolean {
   if (owner.host !== probe.currentHost()) return false;
   if (!probe.isAlive(owner.pid)) return true;
-  if (owner.startedAt === unreadableStartedAt(owner.pid)) return false;
   const liveStartTime = probe.startTimeOf(owner.pid);
+  if (owner.startedAt === unreadableStartedAt(owner.pid)) return liveStartTime !== undefined;
   return liveStartTime !== undefined && liveStartTime !== owner.startedAt;
 }
 
