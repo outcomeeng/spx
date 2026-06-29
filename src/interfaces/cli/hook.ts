@@ -59,6 +59,7 @@ interface HookExecutionContext {
 function resolveHookCliRuntime(env: HookSessionStartEnv): AgentRuntime {
   if (env[HOOK_SESSION_START_ENV.CODEX_THREAD_ID]?.trim()) return AGENT_RUNTIME.CODEX;
   if (env[HOOK_SESSION_START_ENV.CLAUDE_SESSION_ID]?.trim()) return AGENT_RUNTIME.CLAUDE_CODE;
+  if (env[HOOK_SESSION_START_ENV.CLAUDE_ENV_FILE]?.trim()) return AGENT_RUNTIME.CLAUDE_CODE;
   return AGENT_RUNTIME.CODEX;
 }
 
