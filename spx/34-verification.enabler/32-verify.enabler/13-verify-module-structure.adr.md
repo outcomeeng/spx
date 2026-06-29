@@ -4,7 +4,7 @@ The verify command follows the three-layer CLI composition of `spx/14-cli-compos
 
 ## Rationale
 
-The public verify lifecycle has product-specific rules that do not belong in the raw journal channel: verification-type validation, changeset and working-tree scope mapping, finding-schema validation, lifecycle legality, and idempotent append semantics. Keeping those rules in `src/domains/verify/` lets the public interface verify without filesystem, process, or backend I/O, while the command layer composes existing context and journal capabilities.
+The public verify lifecycle has product-specific rules that do not belong in the raw journal channel: verification-type validation, changeset scope mapping, append-payload validation, finding-schema validation, lifecycle legality, and idempotent append semantics. Keeping those rules in `src/domains/verify/` lets the public interface verify without filesystem, process, or backend I/O, while the command layer composes existing context and journal capabilities.
 
 ## Invariants
 
@@ -17,7 +17,7 @@ The public verify lifecycle has product-specific rules that do not belong in the
 
 ### Audit
 
-- ALWAYS: verification type, scope type, lifecycle legality, finding validation, and idempotency rules live in `src/domains/verify/` as pure functions with no filesystem, process, or command-layer imports ([audit])
+- ALWAYS: verification type, scope type, append payload, lifecycle legality, finding validation, and idempotency rules live in `src/domains/verify/` as pure functions with no filesystem, process, or command-layer imports ([audit])
 - ALWAYS: `src/commands/verify/` orchestrates verification-context creation and journal operations through injected ports, so tests can exercise real verify behavior against controlled dependencies ([audit])
 - ALWAYS: `src/interfaces/cli/verify.ts` owns Commander registration and process-boundary parsing for the `verify` command, and imports command handlers rather than domain internals directly ([audit])
 - NEVER: verify domain code imports from `src/commands/verify/`, `src/interfaces/cli/`, `src/domains/journal/` storage adapters, or `src/domains/verification-context/` storage adapters ([audit])
