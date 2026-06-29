@@ -50,6 +50,10 @@ explicit operator actions.
   hook runtime's
   `agentEnvironment.runtimes.<runtime>.hooks.sessionStart.compactStdout` config,
   defaulting Codex to false and Claude Code to true ([audit])
+- ALWAYS: for `session-start`, the hook CLI transport resolves compact-source
+  stdout policy from the product directory named by the hook payload `cwd` when
+  the payload is readable, rather than from the process launch directory
+  ([audit])
 - ALWAYS: compact-source stdout policy runtime selection treats
   `CODEX_THREAD_ID` as the Codex runtime marker even when a `CLAUDE_SESSION_ID`
   value is also present, treats `CLAUDE_SESSION_ID` as the Claude Code runtime
