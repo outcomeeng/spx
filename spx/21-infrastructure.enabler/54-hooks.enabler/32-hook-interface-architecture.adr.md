@@ -53,8 +53,9 @@ semantics separate while still sharing domain logic with command surfaces.
   status-then-claim occupancy repair loop ([audit])
 - ALWAYS: the `session-start` hook adapter writes hook env-file exports for
   `CLAUDE_SESSION_ID`, `CLAUDE_PROJECT_DIR`, `PROJECT_DIR`, and
-  `CLAUDE_WORKTREE_CLAIMED` when the hook runtime supplies an env-file path
-  and enough identity or project information to compute each value ([audit])
+  `SPX_WORKTREE_CLAIM_PATH` when the hook runtime supplies an env-file path
+  and enough identity, project, and worktree information to compute each value
+  ([audit])
 - NEVER: a module under `src/interfaces/hooks/` imports from `src/commands/` ([audit])
 - NEVER: a domain-specific command descriptor exposes an agent lifecycle event as
   a subcommand ([audit])

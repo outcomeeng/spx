@@ -1,0 +1,15 @@
+# Session ID
+
+PROVIDES session identity resolution for the `session-start` hook event — using
+the hook payload and runtime environment to select the agent session id written
+to hook exports and worktree occupancy state
+SO THAT session-start dependents
+CAN share one session identity across hook runtime state and SPX state
+
+## Assertions
+
+### Scenarios
+
+- Given the `session-start` payload has no session id and the hook environment contains `CODEX_THREAD_ID`, when the hook runs, then SPX uses `CODEX_THREAD_ID` as the session id and writes it to the hook env file ([test](tests/session-id.scenario.l1.test.ts))
+- Given the hook environment contains both `CLAUDE_SESSION_ID` and `CODEX_THREAD_ID`, when the `session-start` payload has no session id, then SPX uses `CLAUDE_SESSION_ID` as the session id and writes it to the hook env file ([test](tests/session-id.scenario.l1.test.ts))
+- Given the `session-start` payload contains a session id and the hook environment also contains `CLAUDE_SESSION_ID`, when the hook runs, then SPX uses the payload session id and writes it to the hook env file ([test](tests/session-id.scenario.l1.test.ts))

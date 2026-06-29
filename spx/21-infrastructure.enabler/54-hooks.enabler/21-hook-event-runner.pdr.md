@@ -6,7 +6,7 @@ derived from the upstream agent lifecycle event they serve, consume the hook
 payload and hook runtime environment, and may coordinate multiple SPX domains
 without becoming commands in any one domain. `session-start` is the first
 required event: it reports session and project identity, writes hook-runtime
-exports, reports whether the worktree is held by the agent session, and emits
+exports, reports the claim file path when the worktree is held by the agent session, and emits
 compact lifecycle source hook stdout according to the invoking runtime's
 configured hook policy.
 
@@ -23,8 +23,8 @@ explicit operator actions.
 
 1. A plugin invokes SPX hook behavior by naming an agent lifecycle event and
    providing that event's payload and runtime context.
-2. `session-start` produces session identity, project identity, and worktree
-   occupancy state when the hook payload and runtime context provide enough
+2. `session-start` produces session identity, project identity, and a worktree
+   claim path when the hook payload and runtime context provide enough
    information to resolve them.
 3. `session-start` emits compact-source hook stdout only when the CLI-resolved
    `hooks.sessionStart.compactStdout` policy is true.

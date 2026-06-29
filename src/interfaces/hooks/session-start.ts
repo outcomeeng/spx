@@ -34,6 +34,7 @@ export interface HookEventResult {
 
 export interface SessionStartHookResult extends HookEventResult {
   readonly claimed: boolean;
+  readonly claimPath?: string;
   readonly envFileWritten: boolean;
   readonly productDir: string;
   readonly sessionId?: string;
@@ -80,7 +81,7 @@ export async function runSessionStartHook(options: SessionStartHookOptions): Pro
   const productDir = resolveHookSessionStartProductDir(payload, options.cwd);
   const sessionId = resolveHookSessionStartSessionId(payload, options.env);
 
-  let claimed = false;
+  let claimPath: string | undefined;
   if (sessionId !== undefined) {
     const claim = await claimWorktreeOccupancy({
       ...options,
@@ -88,14 +89,14 @@ export async function runSessionStartHook(options: SessionStartHookOptions): Pro
       sessionId,
     });
     if (claim.ok) {
-      claimed = true;
+      claimPath = claim.value;
     } else {
       diagnostics.push(claim.error);
     }
   }
 
   const envFileWritten = await writeEnvFileIfConfigured({
-    claimed,
+    claimPath,
     envFile: options.envFile,
     productDir,
     sessionId,
@@ -106,7 +107,7 @@ export async function runSessionStartHook(options: SessionStartHookOptions): Pro
   return {
     ok: true,
     value: {
-      claimed,
+      claimed: claimPath !== undefined,
       diagnostics,
       envFileWritten,
       productDir,
@@ -114,13 +115,14 @@ export async function runSessionStartHook(options: SessionStartHookOptions): Pro
         compactStdout: options.compactStdout,
         source: payload.source,
       }),
+      ...(claimPath === undefined ? {} : { claimPath }),
       ...(sessionId === undefined ? {} : { sessionId }),
     },
   };
 }
 
 async function writeEnvFileIfConfigured(options: {
-  readonly claimed: boolean;
+  readonly claimPath: string | undefined;
   readonly envFile: string | undefined;
   readonly productDir: string;
   readonly sessionId: string | undefined;
@@ -133,7 +135,7 @@ async function writeEnvFileIfConfigured(options: {
     await options.envFileSystem.appendFile(
       options.envFile,
       renderHookSessionStartEnvFile({
-        claimed: options.claimed,
+        claimPath: options.claimPath,
         productDir: options.productDir,
         sessionId: options.sessionId,
       }),
