@@ -8,5 +8,5 @@ CAN record, refine, query, claim, and implement Outcome Engineering work without
 
 ### Compliance
 
-- ALWAYS: change records carry enough structured product context for agents and surfaces to query by maturity, node ownership, related node ancestry, and backend status ([audit])
+- ALWAYS: the backend-neutral changes model declares maturity, node anchors, related-node ancestry, and backend status as shared query predicates rather than letting each backend or surface define incompatible filters ([audit])
 - ALWAYS: backend implementations expose change-record behavior through the backend-neutral changes model rather than owning incompatible record shapes per surface ([audit])
