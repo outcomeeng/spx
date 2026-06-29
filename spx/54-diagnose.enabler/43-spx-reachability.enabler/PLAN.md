@@ -1,6 +1,6 @@
 # Spx Reachability Plan
 
-## Focused diagnose command
+## Focused diagnostic provider
 
-- Add focused spx-reachability diagnose command behavior governed by this node.
-- Verify that the focused spx-reachability diagnosis and `spx diagnose` report the same conclusion and next action for the same inputs.
+- Add domain-owned spx-reachability diagnostic provider behavior governed by this node.
+- Verify that the spx-reachability diagnostic provider and `spx diagnose` report the same conclusion and next action for the same inputs.
