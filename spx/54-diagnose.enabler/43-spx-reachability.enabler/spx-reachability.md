@@ -13,6 +13,6 @@ CAN fold spx tool health into the overall environment verdict
 - An errored probe reading classifies spx as unknown (bucket unknown) regardless of the resolved floor, since presence cannot be inferred from a failed probe — pairing the verdict with a remediation hint ([test](tests/reachability.mapping.l1.test.ts))
 - A resolved spx whose version cannot be compared to a present floor — the reported version is absent or not semver-shaped — classifies as unknown (bucket unknown), pairing the verdict with a remediation hint ([test](tests/reachability.mapping.l1.test.ts))
 
-### Scenarios
+### Properties
 
-- A reachable or below-floor verdict reports the resolved spx path and version verbatim in the check's readings ([test](tests/reachability-readings.scenario.l1.test.ts))
+- A reachable or below-floor verdict reports the resolved spx path and version verbatim in the check's readings ([test](tests/reachability-readings.property.l1.test.ts))

@@ -8,4 +8,5 @@ CAN fold session-store health into the overall environment verdict
 
 ### Mappings
 
-- The check classifies the session store as consistent (the store reads and every doing session has a matching live claim in the shared worktree pool snapshot; bucket healthy) or orphaned-claims (a doing session whose backing worktree claim is absent or not live; bucket degraded) from doing sessions joined to the snapshot's normalized live claim set, and as unknown (bucket unknown) when gathering errors, pairing each verdict with a remediation hint ([test](tests/session-store.mapping.l1.test.ts), [test](tests/session-store-snapshot.mapping.l1.test.ts))
+- The check classifies the session store reading as consistent (the store reads and every doing session has a matching live claim; bucket healthy), orphaned-claims (at least one doing session has no matching live claim; bucket degraded), or unknown (bucket unknown) when gathering errors, pairing each verdict with a remediation hint ([test](tests/session-store.mapping.l1.test.ts))
+- The session-store reading joins doing sessions to the shared worktree pool snapshot's normalized live claim set, counts orphaned doing sessions, and classifies the derived reading with the same verdict and bucket mapping ([test](tests/session-store-snapshot.mapping.l1.test.ts))
