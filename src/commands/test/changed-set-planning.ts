@@ -5,6 +5,7 @@ import {
   pathsFromNameStatus,
   pathsFromNulDelimited,
 } from "@/lib/git/name-status";
+import { SPEC_TREE_CONFIG } from "@/lib/spec-tree/config";
 import { compareAsciiStrings } from "@/lib/state-store";
 import type { RelatedTestDependencies } from "@/test/languages/types";
 import type { TestingRegistry } from "@/test/registry";
@@ -28,8 +29,8 @@ const HEAD_REF = "HEAD";
 const ORIGIN_REMOTE = "origin";
 const REF_SEPARATOR = "/";
 const SPEC_TESTS_PATH_SEGMENT = "/tests/";
-const SPEC_ROOT_PREFIX = "spx/";
-const SPEC_ROOT_OPERAND = "spx";
+const SPEC_ROOT_PREFIX = `${SPEC_TREE_CONFIG.ROOT_DIRECTORY}${REF_SEPARATOR}`;
+const SPEC_ROOT_OPERAND = SPEC_TREE_CONFIG.ROOT_DIRECTORY;
 export const EMPTY_TREE_SHA = "4b825dc642cb6eb9a060e54bf8d69288fbee4904";
 
 export interface ChangedTestSelectionOptions {

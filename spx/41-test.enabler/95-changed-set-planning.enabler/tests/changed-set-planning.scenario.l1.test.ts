@@ -18,7 +18,7 @@ import { CONFIG_FILENAMES } from "@/config/index";
 import { partitionChangedPaths } from "@/domains/test/changed-set-planning";
 import { GIT_ROOT_COMMAND, type GitDependencies } from "@/git/root";
 import { GIT_DELETE_STATUS_EXAMPLE, GIT_RENAME_STATUS_EXAMPLE, GIT_RENAMED_PATH_SUFFIX } from "@/lib/git/name-status";
-import { KIND_REGISTRY } from "@/lib/spec-tree/config";
+import { KIND_REGISTRY, SPEC_TREE_CONFIG } from "@/lib/spec-tree/config";
 import { compareAsciiStrings } from "@/lib/state-store";
 import type {
   RelatedTestDependencies,
@@ -579,7 +579,7 @@ subject;
       { git: git.git, registry: registry([]), relatedDepsFor: () => relatedDeps() },
     );
 
-    expect(plan.targets).toEqual({ operands: ["spx"], recursive: true });
+    expect(plan.targets).toEqual({ operands: [SPEC_TREE_CONFIG.ROOT_DIRECTORY], recursive: true });
   });
 
   it("defaults the changed base to origin of the default branch and honors an explicit base ref", async () => {
