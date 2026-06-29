@@ -390,6 +390,35 @@ describe("ALWAYS: validation command participation is driven by spx config", () 
     );
   });
 
+  it("preserves exact explicit markdown directory operands through markdown validation excludes", async () => {
+    await withLiteralFixtureEnv(
+      {
+        [validationConfigDescriptor.section]: {
+          [VALIDATION_PATHS_SUBSECTION]: {
+            [VALIDATION_PATH_TOOL_SUBSECTIONS.MARKDOWN]: {
+              exclude: [MARKDOWN_VALIDATION_DATA.docsDirectoryName],
+            },
+          },
+        },
+      },
+      async (env) => {
+        const markdownPath = [
+          MARKDOWN_VALIDATION_DATA.docsDirectoryName,
+          MARKDOWN_VALIDATION_DATA.brokenMarkdownFile,
+        ].join("/");
+        await env.writeRaw(markdownPath, MARKDOWN_VALIDATION_DATA.brokenMarkdownContent);
+
+        const result = await markdownCommand({
+          cwd: env.productDir,
+          files: [MARKDOWN_VALIDATION_DATA.docsDirectoryName],
+        });
+
+        expect(result.exitCode).toBe(VALIDATION_EXIT_CODES.FAILURE);
+        expect(result.output).toContain(MARKDOWN_COMMAND_OUTPUT.ERROR_SUMMARY_SUFFIX);
+      },
+    );
+  });
+
   it("does not widen explicit markdown directory operands to every markdown include", async () => {
     await withLiteralFixtureEnv(
       {
