@@ -162,7 +162,7 @@ describe("domain path filters — compliance", () => {
     });
   });
 
-  it("testing passing scope does not inherit validation domain path filters", async () => {
+  it("test passing scope does not inherit validate domain path filters", async () => {
     const includedTestFile = "spx/17-file-inclusion.enabler/tests/included.scenario.l1.test.ts";
     const excludedByTestingTestFile = "spx/41-test.enabler/tests/excluded.scenario.l1.test.ts";
     const runner = createRecordingCommandRunner({ present: true, exitCode: 0 });
