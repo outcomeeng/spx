@@ -1,4 +1,54 @@
-# Test Runner Environments PDR Plan
+# Plan: Testing provider role in spec-tree materialization
+
+This coordination note records the testing-domain responsibility in the spec-tree foundation repair.
+
+## Ownership target
+
+`spx/41-test.enabler` owns test execution and language-registered input discovery:
+
+- test file discovery
+- runner adapter selection
+- language descriptor dispatch
+- product-input discovery for test freshness
+- last-run evidence recording
+- stale/fresh comparison inputs for test evidence
+
+It does not own spec-tree state semantics or interface rendering.
+
+## Contract needed by spec-tree materialization
+
+The spec-tree materialization layer needs a testing provider contract that can answer:
+
+- which test paths cover a node
+- which product input paths affect those test paths
+- whether current recorded evidence is usable
+- how to request fresh verification
+- which operations are unsupported for a backend or language
+
+## Language descriptor responsibilities
+
+Language descriptors should own language-specific product-input expansion.
+
+Examples:
+
+- TypeScript descriptor expands `.test.ts` paths through configured runner inputs, package inputs, `tsconfig`, and local import closure.
+- Rust descriptor expands Rust test paths through Cargo manifests, lockfile, target metadata, and reachable crate source paths.
+- A descriptor that cannot compute inputs reports that limitation so status can render stale or unsupported rather than falsely fresh.
+
+## Current branch disposition
+
+The TypeScript import walker from the node-status branch should move out of `src/lib/node-status/` and into the TypeScript testing input path.
+
+## Next steps
+
+1. Amend testing ADRs only after the spec-tree materialization contract exists.
+2. Define a provider interface for discovered test paths and product input paths.
+3. Reuse existing last-run staleness input machinery where it fits.
+4. Add fake-descriptor tests before wiring TypeScript-specific expansion.
+
+---
+
+## Existing plan: Test runner environments PDR
 
 ## Context to Preserve
 

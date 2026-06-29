@@ -1,4 +1,60 @@
-# Plan: Spec-domain command refactor
+# Plan: Consumer boundary repair
+
+This coordination note preserves the spec-domain repair before durable specs and implementation are moved.
+
+## Ownership target
+
+`spx/31-spec-domain.enabler` should consume the spec-tree logical foundation and feed interfaces:
+
+- CLI command behavior
+- web API and MCP use-cases when those surfaces exist
+- terminal, JSON, and UI projection rendering
+- diagnostics and exit behavior
+
+It should not own:
+
+- node state vocabulary
+- status semantics
+- stale/fresh dependency semantics
+- filesystem metadata schema
+- language dependency discovery
+- executable evidence semantics
+
+## Current node-status disposition
+
+`spx/31-spec-domain.enabler/21-node-status.enabler` is a migration holding area. Its business logic should move to `spx/23-spec-tree.enabler` and its filesystem status-file behavior should move under the materialization backend.
+
+Spec-domain may keep a status command/use-case node only after it is reduced to:
+
+- call the spec-tree foundation
+- pass interface options
+- render projections
+- report diagnostics
+
+## Interface model
+
+All interfaces should sit above spec-domain use-cases:
+
+```text
+CLI / Web API / MCP / UI
+        ↓
+spx/31-spec-domain.enabler
+        ↓
+spx/23-spec-tree.enabler
+```
+
+No interface should shell out to another interface. A web frontend calls an API/use-case boundary; it does not run the CLI.
+
+## Next steps
+
+1. Keep current node-status branch unmerged until ownership is repaired.
+2. After the provider nodes exist, rewrite spec-domain specs to reference provider operations rather than status-file internals.
+3. Move implementation from `src/lib/node-status/` into provider/backend modules where appropriate.
+4. Keep command modules thin over provider operations.
+
+---
+
+## Existing plan: Spec-domain command refactor
 
 ## Purpose
 

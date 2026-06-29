@@ -208,9 +208,9 @@ The pnpm scripts below are the agent-facing workflow interface for local validat
 | `pnpm run circular:published` | Built executable circular dependency detection                                                   |
 | `pnpm run knip`               | Find unused code                                                                                 |
 
-**Common validation options:**
+**Common validation operands and options:**
 
-- `--files <paths...>`: Specific files/directories to validate
+- `<paths...>`: Specific files/directories to validate, supplied as positional operands after command options
 - `--quiet`: Suppress progress output
 - `--json`: Output results as JSON
 

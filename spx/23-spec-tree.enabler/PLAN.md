@@ -1,4 +1,66 @@
-# Plan: Spec-tree library refactor
+# Plan: Logical foundation ownership repair
+
+This coordination note preserves the spec-tree foundation repair before `/decompose` and `/author` produce durable specs and decisions.
+
+## Ownership target
+
+`spx/23-spec-tree.enabler` should own spec-tree business logic:
+
+- node identity and relationships
+- dependency graph semantics
+- state model and state derivation
+- status semantics and stale/fresh projection
+- projection contracts
+- logical operations over nodes, evidence, and materialization state
+
+The consumer `spx/31-spec-domain.enabler` should call this foundation and render or adapt results for interfaces.
+
+## New structure to decompose
+
+Candidate child structure:
+
+```text
+spx/23-spec-tree.enabler/
+├── 24-materialization.enabler/
+│   ├── 21-filesystem-git-backend.enabler/
+│   └── 32-executable-operations.enabler/
+├── 29-filename-grammar.enabler/
+├── 32-spec-tree-source.enabler/
+├── 54-spec-tree-assembly.enabler/
+├── 65-spec-tree-traversal.enabler/
+├── 76-node-state-derivation.enabler/
+└── 87-spec-tree-projection.enabler/
+```
+
+The materialization child is a placeholder until `/decompose` settles the final index and boundary.
+
+## Concerns to pull from spec-domain
+
+Move or re-author these concerns under this node:
+
+- status dependency graph semantics
+- stale/fresh projection semantics
+- state vocabulary beyond the current four states, including future `prototype`
+- generic node metadata vocabulary
+- logical status operations that interfaces consume
+
+Keep these outside this node:
+
+- CLI flag parsing and terminal rendering
+- web API, MCP, and UI adapters
+- language runner implementation
+- backend-specific storage encoding, except through child backend nodes
+
+## Immediate next steps
+
+1. Author `spx/12-spec-tree-methodology.pdr.md` before changing this node's durable spec.
+2. Run `/decompose spx/23-spec-tree.enabler` using the root `spx/PLAN.md` ownership model.
+3. Create specs for the materialization and backend placeholder nodes.
+4. Amend existing source, state, and projection nodes after the materialization boundary is settled.
+
+---
+
+## Existing plan: Spec-tree library refactor
 
 ## Purpose
 
