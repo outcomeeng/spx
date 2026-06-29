@@ -1,3 +1,4 @@
+import { CONFIG_FILENAMES } from "@/config/filenames";
 import { GIT_ROOT_COMMAND, type GitDependencies, resolveDefaultBranch, resolveRefSha } from "@/git/root";
 import {
   GIT_NAME_STATUS_FLAG,
@@ -193,6 +194,13 @@ async function relatedTestPaths(
   };
 }
 
+function productInputPaths(registry: TestingRegistry): readonly string[] {
+  return [
+    ...Object.values(CONFIG_FILENAMES),
+    ...registry.languages.flatMap((language) => language.productInputPaths),
+  ].sort(compareAsciiStrings);
+}
+
 /** Resolves the changed-set operand source consumed by targeted execution. */
 export async function planChangedTestSelection(
   options: ChangedTestSelectionOptions,
@@ -204,7 +212,7 @@ export async function planChangedTestSelection(
     requiredRefSha(HEAD_REF, options.productDir, deps.git),
   ]);
   const paths = await changedPaths(options.productDir, baseSha, options.staged === true, deps.git);
-  const partition = partitionChangedPaths(paths);
+  const partition = partitionChangedPaths(paths, productInputPaths(deps.registry));
   let candidateTestPaths: readonly string[] = [];
   if (partition.sourceFiles.length > 0) {
     candidateTestPaths = options.staged === true
@@ -217,10 +225,10 @@ export async function planChangedTestSelection(
 
   return {
     targets: {
-      operands: partition.configChanged
+      operands: partition.productInputChanged
         ? [SPEC_ROOT_OPERAND]
         : mergeChangedSetOperands(partition.operands, related.testPaths),
-      recursive: partition.configChanged,
+      recursive: partition.productInputChanged,
     },
     baseRef,
     baseSha,

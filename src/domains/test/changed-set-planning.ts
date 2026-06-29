@@ -10,7 +10,6 @@ const NODE_INDEX_PATTERN = /^\d+-/;
 const TESTS_DIRECTORY_NAME = SPEC_TREE_EVIDENCE_FILE.DIRECTORY_NAME;
 const SPEC_ROOT = SPEC_TREE_CONFIG.ROOT_DIRECTORY;
 const NODE_SUFFIXES = [KIND_REGISTRY.enabler.suffix, KIND_REGISTRY.outcome.suffix] as const;
-const CONFIG_FILE_PATHS = new Set<string>(Object.values(CONFIG_FILENAMES));
 
 /** Changed paths partitioned into target operands and source files needing adapter resolution. */
 export interface ChangedPathPartition {
@@ -18,8 +17,8 @@ export interface ChangedPathPartition {
   readonly operands: readonly string[];
   /** Changed source files that require a registered related-test capability. */
   readonly sourceFiles: readonly string[];
-  /** Whether changed paths include product config, which affects test selection globally. */
-  readonly configChanged: boolean;
+  /** Whether changed paths include product inputs that affect test selection globally. */
+  readonly productInputChanged: boolean;
 }
 
 function isNodeSegment(segment: string): boolean {
@@ -52,14 +51,18 @@ function nearestNodeOperand(path: string): string | null {
  * Partitions changed paths into target operands selected by pure spec-tree path
  * math and source files that need related-test resolution from language adapters.
  */
-export function partitionChangedPaths(changedPaths: readonly string[]): ChangedPathPartition {
+export function partitionChangedPaths(
+  changedPaths: readonly string[],
+  productInputPaths: readonly string[] = Object.values(CONFIG_FILENAMES),
+): ChangedPathPartition {
   const operands = new Set<string>();
   const sourceFiles = new Set<string>();
-  let configChanged = false;
+  const productInputs = new Set(productInputPaths);
+  let productInputChanged = false;
 
   for (const path of changedPaths) {
-    if (CONFIG_FILE_PATHS.has(path)) {
-      configChanged = true;
+    if (productInputs.has(path)) {
+      productInputChanged = true;
       continue;
     }
     const operand = nearestNodeOperand(path);
@@ -75,7 +78,7 @@ export function partitionChangedPaths(changedPaths: readonly string[]): ChangedP
   return {
     operands: [...operands].sort(compareAsciiStrings),
     sourceFiles: [...sourceFiles].sort(compareAsciiStrings),
-    configChanged,
+    productInputChanged,
   };
 }
 
