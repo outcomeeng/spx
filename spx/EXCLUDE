@@ -13,5 +13,6 @@
 26-release.enabler/32-release-notes.enabler
 26-release.enabler/32-documentation-sync.enabler
 26-release.enabler/43-publish-dispatch.enabler
+34-verification.enabler/32-verify.enabler
 23-spec-tree.enabler/48-skill-conformance-oracle.enabler
 41-test.enabler/95-changed-set-planning.enabler
