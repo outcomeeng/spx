@@ -125,6 +125,26 @@ describe("ignore-source — mappings", () => {
     });
   });
 
+  it("maps empty core.excludesFile to no global excludes path", async () => {
+    await withGitWorktreeEnv(async (env) => {
+      await withTempDir(fakeHomePrefix, async (fakeHome) => {
+        const excluded = ignoredPattern();
+        const defaultConfigHome = join(fakeHome, GIT_DEFAULT_GLOBAL_IGNORE_PATH.CONFIG_DIRECTORY);
+        await writeDefaultGlobalIgnore(defaultConfigHome, `${excluded}\n`);
+        await env.runGit([GIT_TEST_SUBCOMMANDS.CONFIG, CORE_EXCLUDES_FILE_CONFIG_KEY, ""]);
+        await env.writeUntracked(excluded, fileContent());
+
+        await withProcessEnvironment({
+          [GIT_GLOBAL_EXCLUDES_ENV_KEYS.XDG_CONFIG_HOME]: undefined,
+          [GIT_GLOBAL_EXCLUDES_ENV_KEYS.HOME]: fakeHome,
+        }, async () => {
+          const reader = createIgnoreSourceReader(env.productDir, readerConfig({ noIgnoreVcs: true }));
+          expect(reader.isInIncludedSet(excluded)).toBe(true);
+        });
+      });
+    });
+  });
+
   it("maps --ignore-file to an additional exclude source", async () => {
     await withGitWorktreeEnv(async (env) => {
       const ignored = ignoredPattern();
