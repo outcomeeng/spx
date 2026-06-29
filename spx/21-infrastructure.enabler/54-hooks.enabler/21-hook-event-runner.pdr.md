@@ -52,8 +52,11 @@ explicit operator actions.
   defaulting Codex to false and Claude Code to true ([audit])
 - ALWAYS: compact-source stdout policy runtime selection treats
   `CODEX_THREAD_ID` as the Codex runtime marker even when a `CLAUDE_SESSION_ID`
-  value is also present; session identity resolution remains an event-specific
-  `session-start` responsibility ([audit])
+  value is also present, treats `CLAUDE_SESSION_ID` as the Claude Code runtime
+  marker when `CODEX_THREAD_ID` is absent, and treats `CLAUDE_ENV_FILE` as the
+  tertiary Claude Code runtime marker when both session markers are absent;
+  session identity resolution remains an event-specific `session-start`
+  responsibility ([audit])
 - ALWAYS: a failed `session-start` responsibility degrades by recording an
   explicit marker or diagnostic while allowing the hook invocation to complete
   successfully ([audit])
