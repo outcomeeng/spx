@@ -41,3 +41,5 @@ Rejected: separate config sections for instructions, runtimes, and bootstrap (th
 - NEVER: perform instruction-file reconciliation, runtime config writes, plugin installation, plugin updates, network access, or filesystem writes from the descriptor validator ([audit])
 - NEVER: put runtime-specific serializers, concrete output paths, or verification run-state paths in this descriptor; those belong to the runtime-configuration child and to the verification run-journal channel `spx/34-verification.enabler` ([audit])
 - NEVER: validate traversal safety for instruction paths or protocol safety for marketplace sources in this descriptor; the children that know the concrete target own those checks ([audit])
+- NEVER: import the agent-environment descriptor from hook event runners; the hook CLI transport resolves hook policy and passes primitive policy values to hook infrastructure ([audit])
+- NEVER: infer session-start identity from compact stdout runtime-policy selection or infer compact stdout runtime policy from session-start identity; each derivation follows its own environment input priority ([audit])
