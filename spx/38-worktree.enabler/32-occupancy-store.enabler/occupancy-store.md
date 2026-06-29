@@ -1,15 +1,21 @@
 # Occupancy Store
 
-PROVIDES atomic claim-record I/O at `.spx/worktrees/<name>.claim` and an on-demand process-liveness check that classifies a worktree as the two-state `free` or `running`
+PROVIDES serialized claim acquisition, atomic claim-record I/O at `.spx/worktrees/<name>.claim`, and an on-demand process-liveness check that classifies a worktree as the two-state `free` or `running`
 SO THAT the worktree-cli enabler
-CAN answer `spx worktree status`, write a claim for `spx worktree claim`, and remove it for `spx worktree release` without re-deriving `.spx/worktrees/` layout or the liveness rule
+CAN answer `spx worktree status`, acquire a claim for `spx worktree claim`, and remove it for `spx worktree release` without re-deriving `.spx/worktrees/` layout or the liveness rule
 
 ## Assertions
 
 ### Scenarios
 
 - Given an unclaimed worktree, when a claim is written, then `.spx/worktrees/<name>.claim` holds the session id, host, controlling-process id, and start time ([test](tests/occupancy-store.scenario.l1.test.ts))
+- Given a worktree whose existing claim holder is live on the same host, when another claimant attempts acquisition, then the acquisition is refused and the existing claim remains unchanged ([test](tests/occupancy-store.scenario.l1.test.ts))
+- Given a worktree whose existing claim holder is dead, when another claimant attempts acquisition, then the claim file holds the new claim ([test](tests/occupancy-store.scenario.l1.test.ts))
+- Given a worktree with a claim-acquisition marker whose owner process is dead, when another claimant attempts acquisition, then the marker is recovered and the claim file holds the new claim ([test](tests/occupancy-store.scenario.l1.test.ts))
+- Given a worktree with a claim-acquisition marker whose owner is recorded on another host, when another claimant attempts acquisition, then acquisition reports an in-progress claim and leaves the marker unchanged ([test](tests/occupancy-store.scenario.l1.test.ts))
 - Given the running worktree holds a claim, when the claim is released, then `.spx/worktrees/<name>.claim` is absent ([test](tests/occupancy-store.scenario.l1.test.ts))
+- Given a worktree claim belongs to another holder, when a different holder releases, then the current claim remains unchanged and release reports an ownership failure ([test](tests/occupancy-store.scenario.l1.test.ts))
+- Given a process-probe boundary throws while acquisition classifies an existing holder, when another claimant attempts acquisition afterward, then the later claimant is not blocked by the failed acquisition marker ([test](tests/occupancy-store.scenario.l1.test.ts))
 
 ### Mappings
 
@@ -19,7 +25,8 @@ CAN answer `spx worktree status`, write a claim for `spx worktree claim`, and re
 ### Properties
 
 - A claim record round-trips: writing the session id, host, controlling-process id, and start time then reading the claim returns the same four fields ([test](tests/occupancy-store.property.l1.test.ts))
-- A claim write routes through the shared atomic file-write primitive: a concurrent read observes either no claim or the complete four-field record, never a partial record, and overlapping writes use distinct temporary siblings from injected random bytes ([test](tests/occupancy-store.property.l1.test.ts))
+- A claim write is atomic: a concurrent read observes either no claim or the complete four-field record, never a partial record ([test](tests/occupancy-store.property.l1.test.ts))
+- Claim admission is atomic: an overlapping claimant cannot overwrite a worktree claim while the first acquisition is in progress or while the current holder's release is in progress ([test](tests/occupancy-store.property.l1.test.ts))
 
 ### Compliance
 
