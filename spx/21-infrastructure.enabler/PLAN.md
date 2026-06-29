@@ -1,4 +1,34 @@
-# Plan: Infrastructure
+# Plan: Runtime decision relocation
+
+This coordination note records the infrastructure part of the top-level methodology repair.
+
+## Ownership target
+
+Infrastructure should own runtime and operational mechanics. The top-level record should define methodology vocabulary, while infrastructure owns how the product enforces runtime choices.
+
+## Candidate move
+
+Move or re-author the mechanics currently in `spx/12-node-runtime.adr.md` under infrastructure if `/decompose` confirms the top-level methodology PDR covers the product-wide vocabulary reach.
+
+Candidate homes:
+
+- `spx/21-infrastructure.enabler/` for broad Node/package runtime mechanics
+- `spx/13-cli.enabler/` only for CLI-specific process runtime behavior
+- `spx/26-release.enabler/` only for publish workflow runtime constraints
+
+## Rule for the move
+
+Do not lose product-wide reach accidentally. If runtime remains a product-wide guarantee, preserve it through the top-level methodology PDR or another top-level product decision while moving implementation mechanics under infrastructure.
+
+## Next steps
+
+1. Let `/decompose spx/` settle whether the top-level runtime ADR moves, splits, or stays.
+2. Keep runtime mechanics out of `spx/12-spec-tree-methodology.pdr.md` except for vocabulary needed by every later node.
+3. Align package, CI, and release assertions after the runtime decision is relocated.
+
+---
+
+## Existing plan: Infrastructure
 
 ## Harness governance (queued)
 

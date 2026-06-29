@@ -1,4 +1,248 @@
-# Plan: Current Spec Tree Refactor
+# Plan: Spec-tree foundation ownership repair
+
+This coordination note preserves the top-down repair model before the tree is restructured. It is not product truth. The follow-up work is to author or move the durable PDRs, ADRs, specs, tests, and implementation after the ownership boundaries are settled.
+
+## Target ownership model
+
+| Layer                       | Owner                                                                                    | Responsibility                                                                                                                                                                                          |
+| --------------------------- | ---------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Methodology vocabulary      | `spx/12-spec-tree-methodology.pdr.md`                                                    | Defines the product-wide vocabulary every later node uses: durable map, node, dependency order, decision reach, assertion, evidence, status, state, materialization, provider, consumer, and interface. |
+| Logical foundation          | `spx/23-spec-tree.enabler/`                                                              | Owns spec-tree business logic: node identity, relationships, dependency graph semantics, state model, status semantics, projection semantics, and logical operations.                                   |
+| Materialization             | `spx/23-spec-tree.enabler/24-materialization.enabler/`                                   | Owns the backend contract that materializes the logical foundation: current state, history, per-node metadata, dependency queries, evidence records, and executable operations.                         |
+| Filesystem backend          | `spx/23-spec-tree.enabler/24-materialization.enabler/21-filesystem-git-backend.enabler/` | Implements the first backend with tracked `spx/` files, Git history, local `.spx/` evidence, and `spx.status.json` as filesystem per-node metadata.                                                     |
+| Executable operation bridge | `spx/23-spec-tree.enabler/24-materialization.enabler/32-executable-operations.enabler/`  | Defines how a backend requests, records, or delegates operations such as node verification and evidence refresh.                                                                                        |
+| Testing provider            | `spx/41-test.enabler/`                                                                   | Owns runner adapters, test discovery, language descriptor dispatch, and language-owned product-input discovery.                                                                                         |
+| Spec-domain consumer        | `spx/31-spec-domain.enabler/`                                                            | Consumes the logical spec-tree foundation and feeds interfaces such as CLI, web API, MCP, and UI. It renders and adapts; it does not own spec-tree state semantics.                                     |
+
+## Main diagnosis
+
+The product has the right broad areas, but the responsibilities are mixed across layers:
+
+- `spx/31-spec-domain.enabler/21-node-status.enabler/` contains state, status, stale, and filesystem metadata behavior that belongs under the spec-tree logical foundation and materialization backend.
+- `spx/23-spec-tree.enabler/` is too small for the role the product expects from it. It provides source, assembly, traversal, state derivation, and projection, but it does not yet own the full state/status/materialization model.
+- `spx/41-test.enabler/` owns runner mechanics and recorded test freshness, but status staleness currently reaches into language-specific TypeScript import discovery from the wrong layer.
+- `spx/12-node-runtime.adr.md` is a top-level architecture record whose reach is broader than most consumers need. The runtime mechanics belong under infrastructure, while product-wide methodology vocabulary belongs in a top-level PDR.
+
+## Desired top-level structure
+
+```text
+spx/
+├── 12-spec-tree-methodology.pdr.md
+├── 21-infrastructure.enabler/
+├── 23-spec-tree.enabler/
+│   ├── 24-materialization.enabler/
+│   │   ├── 21-filesystem-git-backend.enabler/
+│   │   └── 32-executable-operations.enabler/
+│   ├── 29-filename-grammar.enabler/
+│   ├── 32-spec-tree-source.enabler/
+│   ├── 54-spec-tree-assembly.enabler/
+│   ├── 65-spec-tree-traversal.enabler/
+│   ├── 76-node-state-derivation.enabler/
+│   └── 87-spec-tree-projection.enabler/
+├── 31-spec-domain.enabler/
+├── 41-test.enabler/
+└── later consumers and product domains
+```
+
+The indices above are working notes. `/decompose` must settle final index assignment from ordering evidence before specs are authored.
+
+## Dependency model
+
+```mermaid
+flowchart TB
+  Methodology["spx/12-spec-tree-methodology.pdr.md<br/>product vocabulary and invariants"]
+
+  subgraph SpecTree["spx/23-spec-tree.enabler"]
+    Logic["Logical foundation<br/>nodes, relationships, states, status, projections"]
+    Materialization["24-materialization.enabler<br/>backend contract"]
+    FS["21-filesystem-git-backend.enabler<br/>spx files, Git history, spx.status.json"]
+    Exec["32-executable-operations.enabler<br/>verify, refresh, record evidence"]
+  end
+
+  subgraph Providers["Other providers"]
+    Test["spx/41-test.enabler<br/>test discovery, runners, language inputs"]
+    Infra["spx/21-infrastructure.enabler<br/>runtime and operational substrate"]
+  end
+
+  subgraph Consumers["Consumers"]
+    SpecDomain["spx/31-spec-domain.enabler<br/>application use-cases"]
+    Interfaces["CLI / Web API / MCP / UI"]
+  end
+
+  Logic --> Methodology
+  Logic --> Materialization
+  Materialization --> FS
+  Materialization --> Exec
+  Exec --> Test
+  Logic --> Infra
+  SpecDomain --> Logic
+  Interfaces --> SpecDomain
+```
+
+## Methodology PDR intent
+
+Author `spx/12-spec-tree-methodology.pdr.md` as the product-wide vocabulary record. It carries product behavior, not implementation mechanics.
+
+The PDR should define:
+
+- **Durable map.** The spec tree is the durable map of product truth.
+- **Truth hierarchy.** Decisions govern specs; specs declare; tests verify; code complies.
+- **Node vocabulary.** Enabler, outcome, child, sibling, dependency, provider, consumer, and internal node have product meanings.
+- **Ordering vocabulary.** Numeric order expresses dependency order and context reach.
+- **Decision reach.** A lower-index decision or provider contract reaches later siblings through its public contract; internal provider decisions stay inside the provider unless a consumer needs them.
+- **Assertion and evidence vocabulary.** Assertions declare observable behavior; evidence verifies assertions through deterministic tests, evals, or audits.
+- **State vocabulary.** Node state is derived from evidence and materialization, never assigned by a person. The state model must admit future states such as `prototype`, where implementation exists before test evidence and deployment or feature flags decide visibility.
+- **Materialization vocabulary.** A backend materializes current state, history, per-node metadata, dependency inputs, evidence records, and executable operations.
+- **Consumer vocabulary.** Interfaces consume the logical foundation through product use-cases and do not own storage or state semantics.
+
+Keep filesystem, Git, `spx.status.json`, CLI flags, and language runners out of the PDR except as examples in follow-up notes. Those belong in lower nodes.
+
+## Spec-tree foundation intent
+
+`spx/23-spec-tree.enabler/` should become the logical foundation for the methodology. It owns:
+
+- node identity and relationship semantics
+- dependency graph semantics
+- state derivation and state vocabulary
+- status semantics, including stale/fresh projection
+- projection contracts for consumers
+- logical operations such as read tree, derive state, compute dependency inputs, refresh evidence, and select next work
+
+Its public surface can still be TypeScript today. The product boundary is logical, so a later backend or interface is not forced to use the filesystem layout or CLI.
+
+## Materialization intent
+
+Create a materialization child under `spx/23-spec-tree.enabler/` to define the backend contract. The materialization layer must support:
+
+- static read operations over nodes, decisions, assertions, and evidence links
+- history queries over materialized product paths and node metadata
+- per-node metadata storage and retrieval
+- dependency path or dependency token resolution
+- executable operation requests and results
+- backend-specific evidence records
+
+Filesystem + Git is one backend. SQLite, graph DB, GraphQL API, Linear, GitHub Issues, or GitHub-backed storage are future backends if they can provide the same classes of current state and history.
+
+## Filesystem backend intent
+
+The filesystem backend owns:
+
+- tracked `spx/` files as materialized current state
+- Git history as the history source
+- `.spx/worktree/` evidence as local execution evidence
+- `spx.status.json` as filesystem per-node metadata
+- status-file schema and stale-file sweep behavior
+
+`spx.status.json` stores backend metadata. The logical state semantics belong above it.
+
+## Executable operations intent
+
+Executable operations are part of the materialization contract, but runner mechanics stay with the testing provider.
+
+The materialization contract should say:
+
+- a backend can request node verification
+- a backend can report executable evidence
+- a backend can declare whether evidence is local, remote, cached, or unavailable
+- a backend can surface unsupported operations deterministically
+
+The testing domain should say:
+
+- how tests are discovered
+- how language descriptors expand product inputs
+- how runner adapters execute tests
+- how last-run evidence is recorded and compared
+
+## Spec-domain consumer intent
+
+`spx/31-spec-domain.enabler/` should become a consumer. It should own:
+
+- application-level status and next-work use-cases as calls into the foundation
+- CLI and API request parsing
+- terminal/API/MCP/UI rendering contracts
+- diagnostics and exit behavior
+
+It should not own:
+
+- node state vocabulary
+- status semantics
+- stale dependency semantics
+- filesystem backend metadata schema
+- language dependency discovery
+- executable evidence semantics
+
+## Current branch disposition
+
+The current `work/node-status-staleness` branch should pause before merge. Its implementation is useful as an evidence inventory for what the filesystem backend and TypeScript test-input path need, but the current ownership is wrong.
+
+Keep from the branch as inputs:
+
+- `spx/EXCLUDE` participates in status freshness.
+- Runtime import extensions matter for TypeScript product-input discovery.
+- Local `require`, dynamic `import`, `import type`, and import-equals forms matter for TypeScript descriptor input expansion.
+- Root-level relative TypeScript imports matter.
+- Status stale projection should never change lifecycle state.
+
+Do not preserve from the branch as architecture:
+
+- TypeScript AST import walking inside `src/lib/node-status/`
+- status dependency graph semantics owned by spec-domain
+- `spx.status.json` treated as product-wide status truth rather than filesystem backend metadata
+- CLI command path as orchestration owner
+
+## Repair sequence
+
+1. Use `/decompose spx/` to settle top-level placement for `spx/12-spec-tree-methodology.pdr.md` and the runtime ADR relocation.
+2. Use `/author` to write `spx/12-spec-tree-methodology.pdr.md`.
+3. Use `/decompose spx/23-spec-tree.enabler` to settle materialization, filesystem backend, executable operations, and state/status/projection boundaries.
+4. Use `/author` to create or amend specs and ADRs under `spx/23-spec-tree.enabler`.
+5. Amend `spx/31-spec-domain.enabler` and `spx/31-spec-domain.enabler/21-node-status.enabler` so they record evacuation of state/status/storage semantics to the provider.
+6. Amend `spx/41-test.enabler` so language descriptors own product-input expansion for testing freshness and status dependency inputs.
+7. Apply the implementation migration:
+   - move logical state/status behavior from spec-domain into spec-tree
+   - model filesystem/Git/status-file behavior as the current materialization backend
+   - move TypeScript import expansion into the TypeScript testing descriptor path
+   - keep spec-domain as consumer and renderer
+8. Run the full gated workflow for the repaired slice: spec/ADR/PDR audits, test-evidence audits, TypeScript audits, focused `spx test`, `pnpm run validate`, changes review, commit, and `/merge`.
+
+## Affected node notes
+
+Detailed coordination notes now live in:
+
+- `spx/23-spec-tree.enabler/PLAN.md`
+- `spx/23-spec-tree.enabler/24-materialization.enabler/PLAN.md`
+- `spx/23-spec-tree.enabler/24-materialization.enabler/21-filesystem-git-backend.enabler/PLAN.md`
+- `spx/23-spec-tree.enabler/24-materialization.enabler/32-executable-operations.enabler/PLAN.md`
+- `spx/23-spec-tree.enabler/32-spec-tree-source.enabler/PLAN.md`
+- `spx/23-spec-tree.enabler/76-node-state-derivation.enabler/PLAN.md`
+- `spx/23-spec-tree.enabler/87-spec-tree-projection.enabler/PLAN.md`
+- `spx/31-spec-domain.enabler/PLAN.md`
+- `spx/31-spec-domain.enabler/21-node-status.enabler/PLAN.md`
+- `spx/41-test.enabler/PLAN.md`
+- `spx/21-infrastructure.enabler/PLAN.md`
+
+## Open structural questions for `/decompose`
+
+| Question                                                                                                                                                                   | Candidate answer to test                                                                                                  |
+| -------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------- |
+| Does `spx/23-spec-tree.enabler/24-materialization.enabler` need to sit below all logical children, or should logical children consume it through a same-index public port? | Put materialization lower than source/state/projection because later logical operations need its contract as context.     |
+| Is `spx/23-spec-tree.enabler/32-spec-tree-source.enabler` part of materialization or a logical source-record adapter layer?                                                | Treat it as a logical source-entry adapter until `/decompose` decides whether filesystem source moves under the backend.  |
+| Does `spx.status.json` move entirely under filesystem backend, or does a generic node-metadata schema sit above backend-specific files?                                    | Generic node metadata belongs in materialization; JSON file shape belongs in filesystem backend.                          |
+| Where does `prototype` live?                                                                                                                                               | In the top-level methodology vocabulary and spec-tree state model; backend and interfaces then materialize and render it. |
+| Where does runtime ADR reach belong?                                                                                                                                       | Runtime mechanics under infrastructure; product-wide methodology vocabulary at top-level PDR.                             |
+
+## Completion criteria for this coordination plan
+
+- `spx/12-spec-tree-methodology.pdr.md` exists and is audited.
+- `spx/23-spec-tree.enabler` owns logical state/status/materialization vocabulary.
+- `spx/31-spec-domain.enabler` owns only consumer/interface behavior.
+- `spx.status.json` is documented as filesystem backend metadata.
+- Language-specific dependency expansion is owned by testing language descriptors.
+- The stale node-status branch is either rewritten on top of the new structure or replaced by a smaller repaired slice.
+
+---
+
+## Existing plan: Current spec tree refactor
 
 ## Purpose
 
