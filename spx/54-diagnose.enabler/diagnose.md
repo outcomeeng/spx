@@ -1,6 +1,6 @@
 # Diagnose
 
-PROVIDES the `spx diagnose` command — a deterministic environment-diagnostics pipeline that gathers each check's readings, classifies them against fixed verdict tables, folds the per-check verdicts into one overall verdict, and emits a per-check and overall report in text or JSON with a process exit code keyed to that verdict, resolving the facts each check judges against from `spx.config` and per-check defaults, or from an explicit `--manifest` that fully instruments the diagnosis, per `spx/54-diagnose.enabler/11-invocation-modes.pdr.md`
+PROVIDES the `spx diagnose` command — a deterministic environment-diagnostics pipeline that invokes each resolved diagnostic provider, gathers each provider's check readings, classifies them against fixed verdict tables, folds the per-check verdicts into one overall verdict, and emits a per-check and overall report in text or JSON with a process exit code keyed to that verdict, resolving the facts each provider judges against from `spx.config` and per-check defaults, or from an explicit `--manifest` that fully instruments the diagnosis, per `spx/54-diagnose.enabler/11-invocation-modes.pdr.md` and `spx/54-diagnose.enabler/31-composable-diagnostics.pdr.md`
 SO THAT a spec-tree product and the agents working it, consuming spx as a trusted third party
 CAN deterministically self-diagnose a misconfigured environment by running `spx diagnose` with no arguments, without re-deriving the classification on every invocation
 
@@ -16,7 +16,7 @@ CAN deterministically self-diagnose a misconfigured environment by running `spx 
 
 - The overall verdict folds the per-check verdicts by the precedence broken > unknown > degraded > healthy, excluding not-applicable, and is healthy when every check is not-applicable ([test](tests/fold.mapping.l1.test.ts))
 - The process exit code maps the overall verdict — healthy to 0, degraded to 1, unknown to 2, broken to 3 ([test](tests/exit-code.mapping.l1.test.ts))
-- The pipeline runs exactly the resolved check set, in the order the resolved facts supply it ([test](tests/check-selection.mapping.l1.test.ts))
+- The pipeline runs exactly the resolved diagnostic provider set — the selected checks — in the order the resolved facts supply it ([test](tests/check-selection.mapping.l1.test.ts))
 
 ### Conformance
 
