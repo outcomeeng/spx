@@ -2,9 +2,9 @@
 
 This coordination note records that `spx/31-spec-domain.enabler/21-node-status.enabler` is the wrong long-term owner for state, status, stale, and status-file semantics.
 
-## Current branch disposition
+## Node-status changeset disposition
 
-The `work/node-status-staleness` branch should not merge in its present ownership shape.
+The node-status staleness implementation should not merge in its present ownership shape.
 
 Preserve as evidence inventory:
 
