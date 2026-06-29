@@ -2,7 +2,7 @@
 
 ## Purpose
 
-Wire typed config-backed domain path-filter inputs through the file-inclusion resolver so each consumer (validation, testing, audit, review) narrows scope within the git-tracking default per `spx/17-file-inclusion.enabler/11-ignore-defaults.pdr.md`.
+Wire typed config-backed domain path-filter inputs through the file-inclusion resolver so each validate, test, audit, review, and evaluate consumer narrows scope within the git-tracking default per `spx/17-file-inclusion.enabler/11-ignore-defaults.pdr.md`.
 
 ## Governing Artifacts
 
@@ -21,7 +21,7 @@ Wire typed config-backed domain path-filter inputs through the file-inclusion re
 
 - Scope resolver tests cover include misses, exclude matches, and explicit override layered on top of the git-tracking default.
 - Tool adapter tests prove ignore flags derive from the resolved excluded paths only.
-- Regression tests prove validation filters do not affect testing passing scope.
+- Regression tests prove validate path filters do not affect `test passing` scope.
 
 ## Implementation Ownership
 

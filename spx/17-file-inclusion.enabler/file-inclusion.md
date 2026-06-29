@@ -1,7 +1,7 @@
 # File Inclusion
 
 PROVIDES consistent file-scope decisions for spx commands that walk files or pass file arguments to downstream tools
-SO THAT every validation, testing, and internal traversal command deciding which product paths participate
+SO THAT every command deciding which product paths participate in validate, test, review, audit, evaluate, or internal traversal work
 CAN include explicit caller paths, default automatic walks to git-visible product files, apply command-specific scope filters, honor ignore override flags, and explain included or excluded paths consistently
 
 ## Assertions

@@ -31,20 +31,20 @@ file-inclusion subtree and the consumers that wire override flags.
 
 4. Defer command-line override wiring to the owning domain CLI nodes.
    - The shared file-inclusion request shape accepts `--no-ignore`, `--no-ignore-vcs`, and `--ignore-file` as structured overrides.
-   - Each validation, testing, audit, and review command that walks files still needs its owning CLI node to expose those flags.
+   - Each validate, test, audit, review, and evaluate command that walks files still needs its owning CLI node to expose those flags.
 
 ## Evidence Required
 
 - Git-tracking reader tests cover tracked, untracked-not-ignored, ignored-by-each-source (top-level, nested, info/exclude, global), submodule contents, and override-flag-modified behavior against real temp git worktrees.
 - Scope resolver tests cover explicit-override short-circuit, domain path-filter match, git-tracking exclusion, and override-flag application independently.
 - Tool adapter tests prove generated ignore flags derive from the resolved excluded set only.
-- Regression tests prove validation filters do not affect testing passing scope and testing passing scope does not affect validation output.
+- Regression tests prove validate path filters do not affect `test passing` scope and `test passing` scope does not affect validate output.
 - Removal tests prove no production code reads `spx/EXCLUDE` or parses git ignore files directly.
 
 ## Open Coordination
 
 - Node-status now owns its `spx/EXCLUDE` lifecycle classification separately from file-inclusion scope. Keep that reader local to node-status and do not route file-inclusion scope through it.
-- Consumer commands (validation, testing, audit, review) still need CLI-level override flags where their owning CLI specs require user-facing `--no-ignore`, `--no-ignore-vcs`, or `--ignore-file <path>` support.
+- Consumer commands for validate, test, audit, review, and evaluate still need CLI-level override flags where their owning CLI specs require user-facing `--no-ignore`, `--no-ignore-vcs`, or `--ignore-file <path>` support.
 - Consumers that currently restate `node_modules`, `dist`, build artifacts, or other gitignored paths in domain descriptors can simplify their config; the git-tracking layer subsumes those entries.
 
 ## Resumption Notes
