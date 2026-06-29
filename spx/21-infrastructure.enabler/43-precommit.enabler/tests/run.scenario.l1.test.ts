@@ -192,6 +192,7 @@ describe("runPrecommitTests scenarios", () => {
     it("WHEN custom source files are staged THEN calls the operand runner", async () => {
       const customConfig = samplePrecommitTestValue(PRECOMMIT_TEST_GENERATOR.config());
       const staged = samplePrecommitTestValue(PRECOMMIT_TEST_GENERATOR.sourcePath(customConfig));
+      const expectedExitCode = samplePrecommitTestValue(PRECOMMIT_TEST_GENERATOR.exitCode());
       let spxTestCallCount = 0;
       let vitestArgs: string[] = [];
       const deps: PrecommitDeps = {
@@ -202,15 +203,43 @@ describe("runPrecommitTests scenarios", () => {
         },
         runVitest: async (args) => {
           vitestArgs = args;
-          return { exitCode: 0, output: "" };
+          return { exitCode: expectedExitCode, output: "" };
         },
         log: () => {},
       };
 
-      await runPrecommitTests(deps, customConfig);
+      const result = await runPrecommitTests(deps, customConfig);
 
       expect(spxTestCallCount).toBe(0);
       expect(vitestArgs).toEqual([VITEST_ARGS.RELATED, VITEST_ARGS.RUN, staged]);
+      expect(result.exitCode).toBe(expectedExitCode);
+    });
+
+    it("WHEN custom source and test files are staged THEN passes both to the operand runner", async () => {
+      const customConfig = samplePrecommitTestValue(PRECOMMIT_TEST_GENERATOR.config());
+      const sourcePath = samplePrecommitTestValue(PRECOMMIT_TEST_GENERATOR.sourcePath(customConfig));
+      const testPath = samplePrecommitTestValue(PRECOMMIT_TEST_GENERATOR.testPath(customConfig));
+      const expectedExitCode = samplePrecommitTestValue(PRECOMMIT_TEST_GENERATOR.exitCode());
+      let spxTestCallCount = 0;
+      let vitestArgs: string[] = [];
+      const deps: PrecommitDeps = {
+        getStagedFiles: async () => [sourcePath, testPath],
+        runSpxTest: async () => {
+          spxTestCallCount += 1;
+          return { exitCode: 0, output: "" };
+        },
+        runVitest: async (args) => {
+          vitestArgs = args;
+          return { exitCode: expectedExitCode, output: "" };
+        },
+        log: () => {},
+      };
+
+      const result = await runPrecommitTests(deps, customConfig);
+
+      expect(spxTestCallCount).toBe(0);
+      expect(vitestArgs).toEqual([VITEST_ARGS.RELATED, VITEST_ARGS.RUN, sourcePath, testPath]);
+      expect(result.exitCode).toBe(expectedExitCode);
     });
 
     it("WHEN product config files are staged THEN calls spx test with changed-set arguments", async () => {

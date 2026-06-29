@@ -57,7 +57,7 @@ export function buildVitestArgs(files: string[], config: PrecommitConfig = PRECO
   const sourceFiles = files.filter((file) => categorizeFile(file, config) === FILE_CATEGORIES.SOURCE);
 
   if (sourceFiles.length > 0) {
-    return [VITEST_ARGS.RELATED, VITEST_ARGS.RUN, ...sourceFiles];
+    return [VITEST_ARGS.RELATED, VITEST_ARGS.RUN, ...sourceFiles, ...testFiles];
   }
 
   return testFiles.length > 0 ? [VITEST_ARGS.RUN, ...testFiles] : [];

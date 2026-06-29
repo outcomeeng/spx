@@ -22,6 +22,7 @@ import {
   CHANGED_TEST_SHOW_COMMAND,
 } from "@/commands/test/changed-set-planning";
 import { CONFIG_FILENAMES } from "@/config/index";
+import { PATH_FILTER_CONFIG_FIELDS } from "@/config/primitives/path-filter";
 import {
   NO_RUNNER_INVOCATION_EXIT_CODE,
   SUCCESS_EXIT_CODE,
@@ -31,7 +32,7 @@ import type { GitDependencies } from "@/git/root";
 import { TESTING_CLI } from "@/interfaces/cli/test";
 import { GIT_MODIFY_STATUS_EXAMPLE } from "@/lib/git/name-status";
 import { SPEC_TREE_CONFIG } from "@/lib/spec-tree/config";
-import { TESTING_SECTION } from "@/test/config";
+import { TESTING_CONFIG_FIELDS, TESTING_SECTION } from "@/test/config";
 import { pythonTestingLanguage } from "@/test/languages/python";
 import type { TestingLanguageDescriptor } from "@/test/languages/types";
 import { typescriptTestingLanguage } from "@/test/languages/typescript";
@@ -126,7 +127,7 @@ function stagedConfigChangeGit(
           stderr: "",
         };
       }
-      if (args.includes(CHANGED_TEST_SHOW_COMMAND) && args.includes(`:${CONFIG_FILENAMES.yaml}`)) {
+      if (args.includes(CHANGED_TEST_SHOW_COMMAND) && args.includes(`:${changedPath}`)) {
         return { exitCode: 0, stdout: stagedConfig, stderr: "" };
       }
       if (args.includes(CHANGED_TEST_SHOW_COMMAND)) {
@@ -301,19 +302,31 @@ describe("spx test dispatch over the language registry", () => {
   it("reads staged config snapshots when staged changed selection runs", async () => {
     const runner = createRecordingCommandRunner({ present: true, exitCode: SUCCESS_EXIT_CODE });
     const headSha = sampleLiteralTestValue(arbitraryDomainLiteral());
-    const malformedTestingConfig = [TESTING_SECTION, "["].join(": ");
-    const stagedTestingConfig = `${TESTING_SECTION}: {}\n`;
-    const nodePath = sampleDispatchValue(TEST_DISPATCH_GENERATOR.nodePath());
-    const testPath = sampleDispatchValue(TEST_DISPATCH_GENERATOR.testFileUnder(typescriptTestingLanguage, nodePath));
+    const malformedTestingConfig = sampleLiteralTestValue(arbitraryDomainLiteral());
+    const [excludedNode, includedNode] = sampleDispatchValue(TEST_DISPATCH_GENERATOR.distinctNodePaths());
+    const excludedTestPath = sampleDispatchValue(
+      TEST_DISPATCH_GENERATOR.testFileUnder(typescriptTestingLanguage, excludedNode),
+    );
+    const includedTestPath = sampleDispatchValue(
+      TEST_DISPATCH_GENERATOR.testFileUnder(typescriptTestingLanguage, includedNode),
+    );
+    const stagedTestingConfig = JSON.stringify({
+      [TESTING_SECTION]: {
+        [TESTING_CONFIG_FIELDS.PASSING_SCOPE]: {
+          [PATH_FILTER_CONFIG_FIELDS.EXCLUDE]: [`${SPEC_TREE_CONFIG.ROOT_DIRECTORY}/${excludedNode}`],
+        },
+      },
+    });
 
     await withTestingTempProductDir(async (productDir) => {
-      await writeFile(join(productDir, CONFIG_FILENAMES.yaml), malformedTestingConfig);
-      await writeTestFileFixture(productDir, testPath);
+      await writeFile(join(productDir, CONFIG_FILENAMES.json), malformedTestingConfig);
+      await writeTestFileFixture(productDir, excludedTestPath);
+      await writeTestFileFixture(productDir, includedTestPath);
 
       const run = await runTestsCommand(
         {
           productDir,
-          passing: false,
+          passing: true,
           changed: { baseRef: GIT_TEST_REF.HEAD_NAME, staged: true },
         },
         {
@@ -324,12 +337,13 @@ describe("spx test dispatch over the language registry", () => {
             readFile: async () => "",
             runCommand: async () => ({ exitCode: SUCCESS_EXIT_CODE, stdout: "", stderr: "" }),
           }),
-          git: stagedConfigChangeGit(headSha, stagedTestingConfig, testPath),
+          git: stagedConfigChangeGit(headSha, stagedTestingConfig, CONFIG_FILENAMES.json),
         },
       );
 
       expect(run.dispatch.exitCode).toBe(SUCCESS_EXIT_CODE);
-      expect(invokedArgs(runner)).toContain(testPath);
+      expect(invokedArgs(runner)).not.toContain(excludedTestPath);
+      expect(invokedArgs(runner)).toContain(includedTestPath);
     });
   });
 
