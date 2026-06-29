@@ -171,9 +171,9 @@ It should not own:
 - language dependency discovery
 - executable evidence semantics
 
-## Current branch disposition
+## Node-status changeset disposition
 
-The current `work/node-status-staleness` branch should pause before merge. Its implementation is useful as an evidence inventory for what the filesystem backend and TypeScript test-input path need, but the current ownership is wrong.
+The node-status staleness implementation should pause before merge in its present ownership shape. Its implementation is useful as an evidence inventory for what the filesystem backend and TypeScript test-input path need, but the current ownership is wrong.
 
 Keep from the branch as inputs:
 
