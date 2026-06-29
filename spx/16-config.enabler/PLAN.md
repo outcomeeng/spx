@@ -122,7 +122,7 @@ See packet-level PLAN files for per-node evidence items; this section records cr
 
 ## Harness governance (queued)
 
-Govern the still-ungoverned config generators and shared helpers per the **Remaining harness governance program** in `spx/PLAN.md` (approach, audit gates, literal-collision lessons). One PR.
+Govern the still-ungoverned config generators and shared helpers using the node-local harness-governance pattern: author per-module generator or test-harness enablers, run the spec-auditor and test-evidence-auditor gates including coverage, and carry the literal-collision lessons from the completed recording-runner batch in `spx/41-test.enabler/PLAN.md`. One PR.
 
 Modules: `testing/generators/config/{config,descriptors}.ts`, `testing/harnesses/crypto.ts` (-> `spx/16-config.enabler/54-canonical-descriptor-digest.enabler`), `testing/harnesses/git-test-constants.ts` (-> `spx/16-config.enabler/21-config-cli.enabler`), `testing/harnesses/constants.ts` (govern beside its dominant consumer, or extract a shared infrastructure node if genuinely cross-domain).
 

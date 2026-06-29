@@ -2,7 +2,7 @@
 
 ## Harness governance (queued)
 
-Govern the still-ungoverned process-lifecycle test harnesses per the **Remaining harness governance program** in `spx/PLAN.md` (uniform approach, audit gates, and literal-collision lessons). One PR for this batch.
+Govern the still-ungoverned process-lifecycle test harnesses using the node-local harness-governance pattern: author per-module test-harness enablers, run the spec-auditor and test-evidence-auditor gates including coverage, and carry the literal-collision lessons from the completed recording-runner batch in `spx/41-test.enabler/PLAN.md`. One PR for this batch.
 
 Modules to govern (place each governing node beside its owning sub-enabler under `spx/13-cli.enabler`, by the process-lifecycle tests that consume them):
 
