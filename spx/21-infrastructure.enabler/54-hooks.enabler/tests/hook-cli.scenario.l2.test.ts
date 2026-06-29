@@ -17,12 +17,13 @@ import {
 } from "@/domains/hooks/session-start";
 import { CONTROLLING_PID_ENV } from "@/domains/worktree/controlling-process";
 import { HOOK_CLI } from "@/interfaces/cli/hook";
+import { HOOK_CONFIG_ERROR_PREFIX } from "@/interfaces/hooks/cli-runner";
 import { HOOK_EVENT } from "@/interfaces/hooks/registry";
 import { sampleWorktreeTestValue, WORKTREE_TEST_GENERATOR } from "@testing/generators/worktree/worktree";
 import { withHookCliWorktreeEnv } from "@testing/harnesses/hook-cli";
 import { runWorktreeCli } from "@testing/harnesses/worktree/harness";
 
-async function writeCodexCompactStdoutConfig(productDir: string): Promise<void> {
+async function writeCodexCompactStdoutConfig(productDir: string, compactStdout: unknown = true): Promise<void> {
   await writeFile(
     join(productDir, CONFIG_FILENAMES.json),
     JSON.stringify({
@@ -31,7 +32,7 @@ async function writeCodexCompactStdoutConfig(productDir: string): Promise<void> 
           [AGENT_RUNTIME.CODEX]: {
             [AGENT_ENVIRONMENT_CONFIG_FIELDS.HOOKS]: {
               [AGENT_ENVIRONMENT_CONFIG_FIELDS.SESSION_START]: {
-                [AGENT_ENVIRONMENT_CONFIG_FIELDS.COMPACT_STDOUT]: true,
+                [AGENT_ENVIRONMENT_CONFIG_FIELDS.COMPACT_STDOUT]: compactStdout,
               },
             },
           },
@@ -112,7 +113,6 @@ describe("hook CLI compact stdout boundary", () => {
   it("emits compact stdout for Claude Code compact source under the default runtime policy", async () => {
     const prefix = sampleWorktreeTestValue(WORKTREE_TEST_GENERATOR.tempPrefix());
     const worktreeName = sampleWorktreeTestValue(WORKTREE_TEST_GENERATOR.poolWorktreeName());
-    const sessionId = sampleWorktreeTestValue(WORKTREE_TEST_GENERATOR.sessionId());
     const envFileName = sampleWorktreeTestValue(WORKTREE_TEST_GENERATOR.envFileName());
 
     await withHookCliWorktreeEnv({ envFileName, prefix, worktreeName }, async (env) => {
@@ -128,8 +128,8 @@ describe("hook CLI compact stdout boundary", () => {
         ],
         {
           [CONTROLLING_PID_ENV]: String(process.pid),
-          [HOOK_SESSION_START_ENV.CLAUDE_SESSION_ID]: sessionId,
           [HOOK_SESSION_START_ENV.CODEX_THREAD_ID]: "",
+          [HOOK_SESSION_START_ENV.CLAUDE_ENV_FILE]: env.envFile,
         },
         env.worktreePath,
         JSON.stringify({
@@ -140,6 +140,76 @@ describe("hook CLI compact stdout boundary", () => {
 
       expect(result.exitCode, result.stderr).toBe(0);
       expect(result.stdout).toBe(HOOK_COMPACT_FOUNDATION_DIRECTIVE);
+    });
+  });
+
+  it("defaults to Codex compact stdout policy when no runtime marker is present", async () => {
+    const prefix = sampleWorktreeTestValue(WORKTREE_TEST_GENERATOR.tempPrefix());
+    const worktreeName = sampleWorktreeTestValue(WORKTREE_TEST_GENERATOR.poolWorktreeName());
+    const envFileName = sampleWorktreeTestValue(WORKTREE_TEST_GENERATOR.envFileName());
+
+    await withHookCliWorktreeEnv({ envFileName, prefix, worktreeName }, async (env) => {
+      const result = await runWorktreeCli(
+        [
+          HOOK_CLI.COMMAND,
+          HOOK_CLI.RUN,
+          HOOK_EVENT.SESSION_START,
+          HOOK_CLI.ENV_FILE_FLAG,
+          env.envFile,
+          HOOK_CLI.WORKTREES_DIR_FLAG,
+          env.worktreesDir,
+        ],
+        {
+          [CONTROLLING_PID_ENV]: String(process.pid),
+          [HOOK_SESSION_START_ENV.CLAUDE_ENV_FILE]: "",
+          [HOOK_SESSION_START_ENV.CLAUDE_SESSION_ID]: "",
+          [HOOK_SESSION_START_ENV.CODEX_THREAD_ID]: "",
+        },
+        env.worktreePath,
+        JSON.stringify({
+          [HOOK_SESSION_START_PAYLOAD.CWD]: env.worktreePath,
+          [HOOK_SESSION_START_PAYLOAD.SOURCE]: HOOK_SESSION_START_SOURCE.COMPACT,
+        }),
+      );
+
+      expect(result.exitCode, result.stderr).toBe(0);
+      expect(result.stdout).toHaveLength(0);
+    });
+  });
+
+  it("falls back to runtime defaults and warns when compact stdout config is malformed", async () => {
+    const prefix = sampleWorktreeTestValue(WORKTREE_TEST_GENERATOR.tempPrefix());
+    const worktreeName = sampleWorktreeTestValue(WORKTREE_TEST_GENERATOR.poolWorktreeName());
+    const sessionId = sampleWorktreeTestValue(WORKTREE_TEST_GENERATOR.sessionId());
+    const envFileName = sampleWorktreeTestValue(WORKTREE_TEST_GENERATOR.envFileName());
+
+    await withHookCliWorktreeEnv({ envFileName, prefix, worktreeName }, async (env) => {
+      await writeCodexCompactStdoutConfig(env.worktreePath, sessionId);
+
+      const result = await runWorktreeCli(
+        [
+          HOOK_CLI.COMMAND,
+          HOOK_CLI.RUN,
+          HOOK_EVENT.SESSION_START,
+          HOOK_CLI.ENV_FILE_FLAG,
+          env.envFile,
+          HOOK_CLI.WORKTREES_DIR_FLAG,
+          env.worktreesDir,
+        ],
+        {
+          [CONTROLLING_PID_ENV]: String(process.pid),
+          [HOOK_SESSION_START_ENV.CODEX_THREAD_ID]: sessionId,
+        },
+        env.worktreePath,
+        JSON.stringify({
+          [HOOK_SESSION_START_PAYLOAD.CWD]: env.worktreePath,
+          [HOOK_SESSION_START_PAYLOAD.SOURCE]: HOOK_SESSION_START_SOURCE.COMPACT,
+        }),
+      );
+
+      expect(result.exitCode, result.stderr).toBe(0);
+      expect(result.stdout).toHaveLength(0);
+      expect(result.stderr).toContain(HOOK_CONFIG_ERROR_PREFIX);
     });
   });
 
