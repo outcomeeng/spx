@@ -1,6 +1,6 @@
 # Verify Command Surface
 
-spx exposes typed verification runs through `spx verify --verification-type <type> --scope-type <scope-type> --scope <scope> --input <input-source> [--run <run-token>] <verb>`. Existing deterministic `spx validation` and `spx test` surfaces remain top-level commands, while every verification run type that records scoped run evidence uses `spx verify`.
+spx exposes typed verification runs through `spx verify --verification-type <type> --scope-type changeset --scope <base>..<head> --input <input-source> [--run <run-token>] [--payload <payload-source>] [--idempotency-key <key>] <verb>`. Existing deterministic `spx validation` and `spx test` surfaces remain top-level commands, while every verification run type that records scoped run evidence uses `spx verify`.
 
 ## Rationale
 
@@ -8,17 +8,19 @@ Verification runs share lifecycle, scope, finding, idempotency, status, and rend
 
 ## Product properties
 
-1. `spx verify --verification-type <type> --scope-type <scope-type> --scope <scope> --input <input-source> [--run <run-token>] <verb>` is the public lifecycle for scoped verification runs such as review, audit, and any verification type that records durable run evidence.
+1. `spx verify --verification-type <type> --scope-type changeset --scope <base>..<head> --input <input-source> [--run <run-token>] [--payload <payload-source>] [--idempotency-key <key>] <verb>` is the public lifecycle for changeset-scoped verification runs such as review, audit, and any verification type that records durable run evidence.
 2. `spx validation` and `spx test` remain the top-level deterministic execution surfaces that run their own work directly.
-3. The public verify lifecycle validates type, scope, and finding inputs before it appends evidence to the run journal.
+3. The public verify lifecycle validates type, scope, payload, and finding inputs before it appends evidence to the run journal.
 
 ## Verification
 
 ### Testing
 
 - ALWAYS: `spx verify` exposes one lifecycle vocabulary whose verbs are `start`, `input`, `append-scope`, `append-finding`, `finish`, `status`, and `render` ([mapping])
-- ALWAYS: `spx verify` validates the caller's verification type, scope type, scope identity, and finding payload before appending durable run evidence ([compliance])
+- ALWAYS: `spx verify` validates the caller's verification type, scope type, scope identity, append payload, idempotency key, and finding payload before appending durable run evidence ([compliance])
 - ALWAYS: every `spx verify` verb that operates on an existing run requires an explicit `--run <run-token>` selector, while `start` creates and reports that token ([compliance])
+- ALWAYS: `append-scope` and `append-finding` require `--payload <payload-source>` and `--idempotency-key <key>`, keeping verification input replay separate from appended evidence payloads ([compliance])
+- NEVER: expose a `spx verify` scope type whose subject cannot be represented by the verification-context substrate's reconstruction fields ([compliance])
 - NEVER: move existing `spx validation` or `spx test` execution surfaces under `spx verify` solely because they are verification activities ([compliance])
 
 ### Audit
