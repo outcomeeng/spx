@@ -17,7 +17,9 @@ import {
 import {
   HOOK_SESSION_START_ENV,
   type HookSessionStartEnv,
+  parseHookSessionStartPayload,
   resolveHookSessionStartEnvFile,
+  resolveHookSessionStartProductDir,
 } from "@/domains/hooks/session-start";
 import type { Domain } from "@/domains/types";
 import { defaultGitDependencies } from "@/git/root";
@@ -29,7 +31,7 @@ import {
   processHookIo,
   runHookCli,
 } from "@/interfaces/hooks/cli-runner";
-import { HOOK_ERROR, isHookEvent } from "@/interfaces/hooks/registry";
+import { HOOK_ERROR, HOOK_EVENT, isHookEvent } from "@/interfaces/hooks/registry";
 import { sanitizeCliArgument } from "@/lib/sanitize-cli-argument";
 import { createClaimWriteToken } from "@/lib/worktree-claim-write-token";
 import { defaultOccupancyFileSystem } from "@/lib/worktree-occupancy-file-system";
@@ -80,16 +82,19 @@ function defaultHookCliCompactStdout(env: HookSessionStartEnv): boolean {
 
 async function resolveHookExecutionContext(
   invocation: CliInvocation,
+  event: string,
   options: HookCommandOptions,
 ): Promise<HookExecutionContext> {
   const env = process.env;
-  const context = invocation.resolveProductContext();
-  const compactStdout = await resolveHookCliCompactStdout(context.productDir, env);
+  const cwd = invocation.resolveEffectiveInvocationDir();
+  const stdinContent = await processHookIo.readStdin();
+  const productDir = resolveHookCliConfigProductDir(invocation, event, cwd, stdinContent);
+  const compactStdout = await resolveHookCliCompactStdout(productDir, env);
   return {
     runOptions: {
       claimWriteToken: createClaimWriteToken(),
       compactStdout: compactStdout.ok ? compactStdout.value : defaultHookCliCompactStdout(env),
-      cwd: invocation.resolveEffectiveInvocationDir(),
+      cwd,
       env,
       envFile: resolveHookSessionStartEnvFile(env, options.hookEnvFile),
       fs: defaultOccupancyFileSystem,
@@ -98,12 +103,26 @@ async function resolveHookExecutionContext(
       onWarning: (warning) => writeInvocationWarning(invocation, warning),
       processTable: defaultProcessTable,
       selfPid: process.pid,
+      stdinContent,
       worktreesDir: options.worktreesDir,
     },
     warnings: compactStdout.ok
       ? []
       : [`${HOOK_CONFIG_ERROR_PREFIX}${ERROR_DETAIL_SEPARATOR}${compactStdout.error}`],
   };
+}
+
+function resolveHookCliConfigProductDir(
+  invocation: CliInvocation,
+  event: string,
+  cwd: string,
+  stdinContent: Result<string | undefined>,
+): string {
+  if (event === HOOK_EVENT.SESSION_START && stdinContent.ok) {
+    const payload = parseHookSessionStartPayload(stdinContent.value);
+    if (payload.ok) return resolveHookSessionStartProductDir(payload.value, cwd);
+  }
+  return invocation.resolveProductContext().productDir;
 }
 
 function writeError(invocation: CliInvocation, output: string): void {
@@ -128,7 +147,7 @@ function registerHookCommands(hookCmd: Command, invocation: CliInvocation): void
         invocation.io.exit(1);
         return;
       }
-      const hookContext = await resolveHookExecutionContext(invocation, options);
+      const hookContext = await resolveHookExecutionContext(invocation, event, options);
       for (const warning of hookContext.warnings) {
         writeInvocationWarning(invocation, warning);
       }
