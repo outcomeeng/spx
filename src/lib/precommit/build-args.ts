@@ -1,3 +1,4 @@
+import { categorizeFile, FILE_CATEGORIES } from "./categorize";
 import { PRECOMMIT_DEFAULTS, type PrecommitConfig } from "./config";
 import { SPX_TEST_ARGS } from "./spx-test-args";
 import { VITEST_ARGS } from "./vitest-args";
@@ -43,26 +44,30 @@ export function buildSpxTestArgs(files: string[], _config: PrecommitConfig = PRE
   return [...PRECOMMIT_SPX_TEST_ARGS];
 }
 
+export function hasConfigFile(files: readonly string[], config: PrecommitConfig = PRECOMMIT_DEFAULTS): boolean {
+  return files.some((file) => categorizeFile(file, config) === FILE_CATEGORIES.CONFIG);
+}
+
 export function buildVitestArgs(files: string[], config: PrecommitConfig = PRECOMMIT_DEFAULTS): string[] {
   if (files.length === 0) {
     return [];
   }
 
-  const testFiles = files.filter((file) => isTestFile(file, config));
-  const sourceFiles = files.filter((file) => !isTestFile(file, config));
+  const testFiles = files.filter((file) => categorizeFile(file, config) === FILE_CATEGORIES.TEST);
+  const sourceFiles = files.filter((file) => categorizeFile(file, config) === FILE_CATEGORIES.SOURCE);
 
   if (sourceFiles.length > 0) {
     return [VITEST_ARGS.RELATED, VITEST_ARGS.RUN, ...sourceFiles];
   }
 
-  return [VITEST_ARGS.RUN, ...testFiles];
+  return testFiles.length > 0 ? [VITEST_ARGS.RUN, ...testFiles] : [];
 }
 
 export function buildPrecommitTestInvocation(
   files: string[],
   config: PrecommitConfig = PRECOMMIT_DEFAULTS,
 ): PrecommitTestInvocation {
-  return isDefaultPrecommitConfig(config)
+  return isDefaultPrecommitConfig(config) || hasConfigFile(files, config)
     ? { runner: PRECOMMIT_TEST_RUNNERS.SPX, args: buildSpxTestArgs(files, config) }
     : { runner: PRECOMMIT_TEST_RUNNERS.VITEST, args: buildVitestArgs(files, config) };
 }

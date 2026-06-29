@@ -216,4 +216,29 @@ describe("runPrecommitTests compliance", () => {
     expect(spxTestCalled).toBe(false);
     expect(vitestArgs).toEqual([VITEST_ARGS.RELATED, VITEST_ARGS.RUN, customSource]);
   });
+
+  it("routes product config files through changed-set planning under non-default precommit config", async () => {
+    const customConfig = samplePrecommitTestValue(PRECOMMIT_TEST_GENERATOR.config());
+    for (const path of configFilePaths) {
+      let spxTestArgs: string[] = [];
+      let vitestCalled = false;
+      const deps: PrecommitDeps = {
+        getStagedFiles: async () => [path],
+        runSpxTest: async (args) => {
+          spxTestArgs = args;
+          return { exitCode: PRECOMMIT_RUN.EXIT_CODES.SUCCESS, output: "" };
+        },
+        runVitest: async () => {
+          vitestCalled = true;
+          return { exitCode: PRECOMMIT_RUN.EXIT_CODES.SUCCESS, output: "" };
+        },
+        log: () => {},
+      };
+
+      await runPrecommitTests(deps, customConfig);
+
+      expect(spxTestArgs).toEqual(PRECOMMIT_SPX_TEST_ARGS);
+      expect(vitestCalled).toBe(false);
+    }
+  });
 });

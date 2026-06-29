@@ -212,6 +212,33 @@ describe("runPrecommitTests scenarios", () => {
       expect(spxTestCallCount).toBe(0);
       expect(vitestArgs).toEqual([VITEST_ARGS.RELATED, VITEST_ARGS.RUN, staged]);
     });
+
+    it("WHEN product config files are staged THEN calls spx test with changed-set arguments", async () => {
+      const customConfig = samplePrecommitTestValue(PRECOMMIT_TEST_GENERATOR.config());
+      for (const staged of configFilePaths) {
+        let spxTestArgs: string[] = [];
+        let vitestCallCount = 0;
+        const expectedExitCode = samplePrecommitTestValue(PRECOMMIT_TEST_GENERATOR.exitCode());
+        const deps: PrecommitDeps = {
+          getStagedFiles: async () => [staged],
+          runSpxTest: async (args) => {
+            spxTestArgs = args;
+            return { exitCode: expectedExitCode, output: "" };
+          },
+          runVitest: async () => {
+            vitestCallCount += 1;
+            return { exitCode: 0, output: "" };
+          },
+          log: () => {},
+        };
+
+        const result = await runPrecommitTests(deps, customConfig);
+
+        expect(spxTestArgs).toEqual(PRECOMMIT_SPX_TEST_ARGS);
+        expect(result.exitCode).toBe(expectedExitCode);
+        expect(vitestCallCount).toBe(0);
+      }
+    });
   });
 
   describe("GIVEN empty staged files", () => {

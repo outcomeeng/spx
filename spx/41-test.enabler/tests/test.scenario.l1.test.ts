@@ -5,6 +5,7 @@ import { describe, expect, it } from "vitest";
 
 import {
   CHANGED_TEST_RELATED_DEPS_ERROR,
+  CHANGED_TEST_STAGED_DIRTY_WORKTREE_ERROR,
   type RecordedTestRun,
   runTests,
   runTestsCommand,
@@ -14,6 +15,10 @@ import {
   CHANGED_TEST_DIFF_CACHED_FLAG,
   CHANGED_TEST_DIFF_COMMAND,
   CHANGED_TEST_DIFF_NAME_STATUS_FLAG,
+  CHANGED_TEST_LS_FILES_COMMAND,
+  CHANGED_TEST_LS_FILES_EXCLUDE_STANDARD_FLAG,
+  CHANGED_TEST_LS_FILES_OTHERS_FLAG,
+  CHANGED_TEST_NULL_DELIMITED_FLAG,
   CHANGED_TEST_SHOW_COMMAND,
 } from "@/commands/test/changed-set-planning";
 import { CONFIG_FILENAMES } from "@/config/index";
@@ -79,6 +84,8 @@ function stagedConfigChangeGit(
   headSha: string,
   stagedConfig: string,
   changedPath: string = CONFIG_FILENAMES.yaml,
+  dirtyWorktreePaths: readonly string[] = [],
+  untrackedWorktreePaths: readonly string[] = [],
 ): GitDependencies {
   return {
     execa: async (_command, args) => {
@@ -93,6 +100,29 @@ function stagedConfigChangeGit(
         return {
           exitCode: 0,
           stdout: [GIT_MODIFY_STATUS_EXAMPLE, changedPath].join("\0") + "\0",
+          stderr: "",
+        };
+      }
+      if (
+        args.includes(CHANGED_TEST_DIFF_COMMAND)
+        && args.includes(CHANGED_TEST_DIFF_NAME_STATUS_FLAG)
+        && args.includes(CHANGED_TEST_NULL_DELIMITED_FLAG)
+      ) {
+        return {
+          exitCode: 0,
+          stdout: dirtyWorktreePaths.map((path) => `${GIT_MODIFY_STATUS_EXAMPLE}\0${path}\0`).join(""),
+          stderr: "",
+        };
+      }
+      if (
+        args.includes(CHANGED_TEST_LS_FILES_COMMAND)
+        && args.includes(CHANGED_TEST_LS_FILES_OTHERS_FLAG)
+        && args.includes(CHANGED_TEST_LS_FILES_EXCLUDE_STANDARD_FLAG)
+        && args.includes(CHANGED_TEST_NULL_DELIMITED_FLAG)
+      ) {
+        return {
+          exitCode: 0,
+          stdout: untrackedWorktreePaths.map((path) => `${path}\0`).join(""),
           stderr: "",
         };
       }
@@ -300,6 +330,76 @@ describe("spx test dispatch over the language registry", () => {
 
       expect(run.dispatch.exitCode).toBe(SUCCESS_EXIT_CODE);
       expect(invokedArgs(runner)).toContain(testPath);
+    });
+  });
+
+  it("rejects staged changed selection when the worktree has unstaged tracked changes", async () => {
+    const runner = createRecordingCommandRunner({ present: true, exitCode: SUCCESS_EXIT_CODE });
+    const headSha = sampleLiteralTestValue(arbitraryDomainLiteral());
+    const stagedTestingConfig = `${TESTING_SECTION}: {}\n`;
+    const nodePath = sampleDispatchValue(TEST_DISPATCH_GENERATOR.nodePath());
+    const testPath = sampleDispatchValue(TEST_DISPATCH_GENERATOR.testFileUnder(typescriptTestingLanguage, nodePath));
+    const dirtyPath = sampleLiteralTestValue(arbitrarySourceFilePath());
+
+    await withTestingTempProductDir(async (productDir) => {
+      await writeTestFileFixture(productDir, testPath);
+
+      await expect(
+        runTestsCommand(
+          {
+            productDir,
+            passing: false,
+            changed: { baseRef: GIT_TEST_REF.HEAD_NAME, staged: true },
+          },
+          {
+            registry: testingRegistry,
+            runnerDepsFor: () => runner,
+            relatedDepsFor: () => ({
+              isLanguagePresent: () => true,
+              readFile: async () => "",
+              runCommand: async () => ({ exitCode: SUCCESS_EXIT_CODE, stdout: "", stderr: "" }),
+            }),
+            git: stagedConfigChangeGit(headSha, stagedTestingConfig, testPath, [dirtyPath]),
+          },
+        ),
+      ).rejects.toThrow(CHANGED_TEST_STAGED_DIRTY_WORKTREE_ERROR);
+
+      expect(invokedArgs(runner)).toEqual([]);
+    });
+  });
+
+  it("rejects staged changed selection when the worktree has untracked files", async () => {
+    const runner = createRecordingCommandRunner({ present: true, exitCode: SUCCESS_EXIT_CODE });
+    const headSha = sampleLiteralTestValue(arbitraryDomainLiteral());
+    const stagedTestingConfig = `${TESTING_SECTION}: {}\n`;
+    const nodePath = sampleDispatchValue(TEST_DISPATCH_GENERATOR.nodePath());
+    const testPath = sampleDispatchValue(TEST_DISPATCH_GENERATOR.testFileUnder(typescriptTestingLanguage, nodePath));
+    const untrackedPath = sampleLiteralTestValue(arbitrarySourceFilePath());
+
+    await withTestingTempProductDir(async (productDir) => {
+      await writeTestFileFixture(productDir, testPath);
+
+      await expect(
+        runTestsCommand(
+          {
+            productDir,
+            passing: false,
+            changed: { baseRef: GIT_TEST_REF.HEAD_NAME, staged: true },
+          },
+          {
+            registry: testingRegistry,
+            runnerDepsFor: () => runner,
+            relatedDepsFor: () => ({
+              isLanguagePresent: () => true,
+              readFile: async () => "",
+              runCommand: async () => ({ exitCode: SUCCESS_EXIT_CODE, stdout: "", stderr: "" }),
+            }),
+            git: stagedConfigChangeGit(headSha, stagedTestingConfig, testPath, [], [untrackedPath]),
+          },
+        ),
+      ).rejects.toThrow(CHANGED_TEST_STAGED_DIRTY_WORKTREE_ERROR);
+
+      expect(invokedArgs(runner)).toEqual([]);
     });
   });
 
