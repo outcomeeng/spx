@@ -467,7 +467,7 @@ function validationPathExcludeGlobsForTarget(
   return excludes.flatMap((exclude) => {
     const excludedPath = normalizePathPrefix(exclude);
     if (targetPath === excludedPath) {
-      return [MARKDOWN_DIRECTORY_GLOB];
+      return [];
     }
     if (!pathContainsValidationPath(targetPath, excludedPath)) {
       return [];
