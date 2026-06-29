@@ -24,7 +24,7 @@ CAN claim, query, and release worktree occupancy with predictable output, exit c
 
 ### Mappings
 
-- Every target that denotes a worktree — the worktree root, `.` or `./` from within it, any path inside it, or a bare basename that exactly matches a git-observed worktree root's basename — maps to that worktree's claim, so status reports the occupancy claim recorded for it ([test](tests/worktree-name-resolution.mapping.l1.test.ts))
+- Every target that denotes a worktree — the worktree root, `.` or `./` from within it, any path inside it, or a bare basename that uniquely matches a git-observed worktree root's basename — maps to that worktree's claim, while a bare basename that matches multiple git-observed worktree roots is refused as ambiguous, so status reports the occupancy claim recorded for a determinate worktree only ([test](tests/worktree-name-resolution.mapping.l1.test.ts))
 
 ### Properties
 

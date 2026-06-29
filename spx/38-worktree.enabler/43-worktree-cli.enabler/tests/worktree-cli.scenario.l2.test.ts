@@ -1,5 +1,5 @@
 import { mkdir, realpath, writeFile } from "node:fs/promises";
-import { join } from "node:path";
+import { join, sep } from "node:path";
 
 import { describe, expect, it } from "vitest";
 
@@ -7,6 +7,7 @@ import { WORKTREE_STATUS_FORMAT, WORKTREE_STATUS_RENDER } from "@/commands/workt
 import { CONTROLLING_PID_ENV } from "@/domains/worktree/controlling-process";
 import { OCCUPANCY_STATUS } from "@/domains/worktree/occupancy-store";
 import { WORKTREE_CLI } from "@/interfaces/cli/worktree";
+import { DETAIL_BRANCH_SEPARATOR, DETAIL_ELBOW } from "@/lib/styled-output/styled-output";
 import { sampleWorktreeTestValue, WORKTREE_TEST_GENERATOR } from "@testing/generators/worktree/worktree";
 import { CLI_TIMEOUTS_MS } from "@testing/harnesses/constants";
 import { withTempDir } from "@testing/harnesses/with-temp-dir";
@@ -75,9 +76,12 @@ describe("worktree CLI occupancy round-trip", () => {
 
       expect(status.exitCode).toBe(0);
       expect(status.stderr).toHaveLength(0);
-      const expectedParent = await realpath(layout.container);
+      const expectedParent = `${await realpath(layout.container)}${sep}`;
       const lines = status.stdout.trim().split("\n");
-      expect(lines).toEqual([`${expectedParent}:`, `  ${worktreeName}: ${WORKTREE_STATUS_RENDER.FREE}`]);
+      expect(lines).toEqual([
+        expectedParent,
+        `  ${DETAIL_ELBOW}${DETAIL_BRANCH_SEPARATOR}${worktreeName}: ${WORKTREE_STATUS_RENDER.FREE}`,
+      ]);
     });
   });
 

@@ -1,5 +1,5 @@
 import { mkdir, realpath, writeFile } from "node:fs/promises";
-import { basename, join } from "node:path";
+import { basename, join, sep } from "node:path";
 
 import { describe, expect, it } from "vitest";
 
@@ -26,6 +26,7 @@ import {
   GIT_WORKTREE_PORCELAIN_ROOT_PREFIX,
   type GitDependencies,
 } from "@/git/root";
+import { DETAIL_BRANCH_SEPARATOR, DETAIL_ELBOW, DETAIL_TEE } from "@/lib/styled-output/styled-output";
 import { defaultOccupancyFileSystem } from "@/lib/worktree-occupancy-file-system";
 import { defaultWorktreePathInfo } from "@/lib/worktree-path-info";
 import { sampleWorktreeTestValue, WORKTREE_TEST_GENERATOR } from "@testing/generators/worktree/worktree";
@@ -44,6 +45,40 @@ function worktreeListDeps(options: {
     execa: async (_command, args) => {
       if (gitArgsEqual(args, GIT_SHOW_TOPLEVEL_ARGS)) {
         return { exitCode: 0, stdout: options.worktreeRoot, stderr: "" };
+      }
+      if (gitArgsEqual(args, GIT_COMMON_DIR_ARGS)) {
+        return { exitCode: 0, stdout: options.commonDir, stderr: "" };
+      }
+      if (gitArgsEqual(args, GIT_REMOTE_GET_URL_ORIGIN_ARGS)) {
+        return { exitCode: 1, stdout: "", stderr: "" };
+      }
+      if (gitArgsEqual(args, GIT_WORKTREE_LIST_PORCELAIN_ARGS)) {
+        return {
+          exitCode: 0,
+          stdout: options.worktreeRoots.map((root) => `${GIT_WORKTREE_PORCELAIN_ROOT_PREFIX}${root}`).join("\n\n"),
+          stderr: "",
+        };
+      }
+      if (gitArgsEqual(args, GIT_CORE_BARE_ARGS)) {
+        return { exitCode: 0, stdout: GIT_CORE_BARE_TRUE, stderr: "" };
+      }
+      return { exitCode: 1, stdout: "", stderr: "" };
+    },
+  };
+}
+
+function pathAwareWorktreeListDeps(options: {
+  readonly commonDir: string;
+  readonly worktreeRoots: readonly string[];
+}): GitDependencies {
+  return {
+    execa: async (_command, args, commandOptions) => {
+      if (gitArgsEqual(args, GIT_SHOW_TOPLEVEL_ARGS)) {
+        const cwd = String(commandOptions?.cwd ?? options.worktreeRoots[0]);
+        const worktreeRoot = options.worktreeRoots.find((root) => cwd === root || cwd.startsWith(`${root}${sep}`));
+        return worktreeRoot === undefined
+          ? { exitCode: 1, stdout: "", stderr: "" }
+          : { exitCode: 0, stdout: worktreeRoot, stderr: "" };
       }
       if (gitArgsEqual(args, GIT_COMMON_DIR_ARGS)) {
         return { exitCode: 0, stdout: options.commonDir, stderr: "" };
@@ -228,9 +263,12 @@ describe("worktree command handlers", () => {
       });
       expect(free.ok).toBe(true);
       if (!free.ok) throw new Error(free.error);
-      const expectedParent = await realpath(env.container);
+      const expectedParent = `${await realpath(env.container)}${sep}`;
       const freeLines = free.value.split("\n");
-      expect(freeLines).toEqual([`${expectedParent}:`, `  ${worktreeName}: ${WORKTREE_STATUS_RENDER.FREE}`]);
+      expect(freeLines).toEqual([
+        expectedParent,
+        `  ${DETAIL_ELBOW}${DETAIL_BRANCH_SEPARATOR}${worktreeName}: ${WORKTREE_STATUS_RENDER.FREE}`,
+      ]);
     });
   });
 
@@ -278,16 +316,59 @@ describe("worktree command handlers", () => {
 
           expect(status.ok).toBe(true);
           if (!status.ok) throw new Error(status.error);
-          const expectedParent = await realpath(layout.container);
+          const expectedParent = `${await realpath(layout.container)}${sep}`;
           const lines = status.value.split("\n");
           expect(lines).toEqual([
-            `${expectedParent}:`,
-            `  ${firstName}: ${AGENT_RUNTIME_DISPLAY_NAME.codex} ${WORKTREE_STATUS_RENDER.RUNNING_WORD} [${holder.pid}]`,
-            `  ${secondName}: ${WORKTREE_STATUS_RENDER.FREE}`,
+            expectedParent,
+            `  ${DETAIL_TEE}${DETAIL_BRANCH_SEPARATOR}${firstName}: ${AGENT_RUNTIME_DISPLAY_NAME.codex} ${WORKTREE_STATUS_RENDER.RUNNING_WORD} [${holder.pid}]`,
+            `  ${DETAIL_ELBOW}${DETAIL_BRANCH_SEPARATOR}${secondName}: ${WORKTREE_STATUS_RENDER.FREE}`,
           ]);
         });
       },
     );
+  });
+
+  it("renders mixed-parent worktrees under slash-suffixed parent headings", async () => {
+    const [firstParentName, secondParentName] = sampleWorktreeTestValue(
+      WORKTREE_TEST_GENERATOR.distinctWriteTokens(),
+    );
+    const [firstWorktreeName, secondWorktreeName] = sampleWorktreeTestValue(
+      WORKTREE_TEST_GENERATOR.distinctPoolWorktreeNames(),
+    );
+    const commonDirName = sampleWorktreeTestValue(WORKTREE_TEST_GENERATOR.writeToken());
+    const tempPrefix = sampleWorktreeTestValue(WORKTREE_TEST_GENERATOR.tempPrefix());
+
+    await withTempDir(tempPrefix, async (container) => {
+      const firstParent = join(container, firstParentName);
+      const secondParent = join(container, secondParentName);
+      const firstRoot = join(firstParent, firstWorktreeName);
+      const secondRoot = join(secondParent, secondWorktreeName);
+      await mkdir(firstRoot, { recursive: true });
+      await mkdir(secondRoot, { recursive: true });
+
+      const status = await statusCommand({
+        worktrees: [firstRoot, secondRoot],
+        cwd: firstRoot,
+        fs: defaultOccupancyFileSystem,
+        gitDeps: pathAwareWorktreeListDeps({
+          commonDir: join(container, commonDirName),
+          worktreeRoots: [firstRoot, secondRoot],
+        }),
+        worktreesDir: container,
+        processTable: createProcessTable({ host: firstParentName, processes: new Map() }),
+        pathInfo: defaultWorktreePathInfo,
+      });
+
+      expect(status.ok).toBe(true);
+      if (!status.ok) throw new Error(status.error);
+      const lines = status.value.split("\n");
+      expect(lines).toEqual([
+        `${firstParent}${sep}`,
+        `  ${DETAIL_ELBOW}${DETAIL_BRANCH_SEPARATOR}${firstWorktreeName}: ${WORKTREE_STATUS_RENDER.FREE}`,
+        `${secondParent}${sep}`,
+        `  ${DETAIL_ELBOW}${DETAIL_BRANCH_SEPARATOR}${secondWorktreeName}: ${WORKTREE_STATUS_RENDER.FREE}`,
+      ]);
+    });
   });
 
   it("reports duplicate resolved status targets once in first-seen order", async () => {

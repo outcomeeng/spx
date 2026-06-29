@@ -55,6 +55,8 @@ export const DETAIL_TEE = "├";
 export const DETAIL_ELBOW = "└";
 /** The indent that precedes every detail line. */
 export const DETAIL_INDENT = "  ";
+/** The connector that separates a tree-branch glyph from its detail text. */
+export const DETAIL_BRANCH_SEPARATOR = "── ";
 
 /** One section of a styled report: a severity-keyed header with tree-indented detail lines. */
 export interface StyledSection {
@@ -122,10 +124,16 @@ export function renderStyledReport(model: StyledReportModel, options: StyledRepo
 /** Renders a plain grouped tree with each section header followed by indented children. */
 export function renderPlainTree(model: PlainTreeModel): string {
   return model.sections
-    .flatMap((section) => [
-      `${section.header}:`,
-      ...section.children.map((child) => `${DETAIL_INDENT}${child}`),
-    ])
+    .flatMap((section) => {
+      const lastIndex = section.children.length - 1;
+      return [
+        section.header,
+        ...section.children.map((child, index) => {
+          const branch = index === lastIndex ? DETAIL_ELBOW : DETAIL_TEE;
+          return `${DETAIL_INDENT}${branch}${DETAIL_BRANCH_SEPARATOR}${child}`;
+        }),
+      ];
+    })
     .join("\n");
 }
 
