@@ -205,8 +205,8 @@ function readGlobalExcludesPath(productDir: string): string | undefined {
     GIT_CONFIG_ARGS.GET,
     GIT_CONFIG_ARGS.CORE_EXCLUDES_FILE,
   ]);
-  if (configuredPath !== undefined && configuredPath.length > 0) {
-    return resolveGitPath(productDir, configuredPath);
+  if (configuredPath !== undefined) {
+    return configuredPath.length > 0 ? resolveGitPath(productDir, configuredPath) : undefined;
   }
   return defaultGlobalExcludesPath(gitEnvironment());
 }

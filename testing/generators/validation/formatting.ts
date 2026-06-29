@@ -62,6 +62,7 @@ export const FORMATTING_SCENARIO_KIND = {
   CLI_PROCESS_DIRECTORY_SCOPE: "cliProcessDirectoryScope",
   CLI_PROCESS_INVOCATION_DIRECTORY_SCOPE: "cliProcessInvocationDirectoryScope",
   CLI_PROCESS_DIRECTORY_INCLUDE_SCOPE: "cliProcessDirectoryIncludeScope",
+  CLI_PROCESS_EXCLUDED_FILE_SCOPE: "cliProcessExcludedFileScope",
   CLI_PROCESS_FILTERED_DIRECTORY_SCOPE: "cliProcessFilteredDirectoryScope",
   CLI_PROCESS_EXCLUDED_DIRECTORY_SCOPE: "cliProcessExcludedDirectoryScope",
   GITIGNORE_SKIP: "gitignoreSkip",
@@ -133,6 +134,11 @@ export function formattingScenarios(): FormattingValidationScenario[] {
     {
       title: "the format CLI process intersects root operands with validation includes",
       kind: FORMATTING_SCENARIO_KIND.CLI_PROCESS_DIRECTORY_INCLUDE_SCOPE,
+      timeout: FORMATTING_HARNESS_TIMEOUT,
+    },
+    {
+      title: "the format CLI process preserves explicit file operands through validation excludes",
+      kind: FORMATTING_SCENARIO_KIND.CLI_PROCESS_EXCLUDED_FILE_SCOPE,
       timeout: FORMATTING_HARNESS_TIMEOUT,
     },
     {

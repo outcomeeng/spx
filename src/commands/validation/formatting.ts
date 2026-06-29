@@ -87,6 +87,12 @@ export async function formattingCommand(options: FormattingCommandOptions): Prom
         )
       )
     : undefined;
+  const scopedExcludes = hasExplicitScope
+      && files.some((filePath) =>
+        isFormattingFileOperand(cwd, isAbsolute(filePath) ? relative(cwd, filePath) : filePath)
+      )
+    ? []
+    : validationPathFilterExcludes(pathFilter);
 
   if (hasExplicitScope && (scopedFiles === undefined || scopedFiles.length === 0)) {
     const output = quiet
@@ -98,7 +104,7 @@ export async function formattingCommand(options: FormattingCommandOptions): Prom
   const result = await validateFormatting({
     projectRoot: cwd,
     files: scopedFiles,
-    excludes: validationPathFilterExcludes(pathFilter),
+    excludes: scopedExcludes,
   });
   const durationMs = Date.now() - startTime;
 
@@ -112,8 +118,7 @@ export async function formattingCommand(options: FormattingCommandOptions): Prom
 }
 
 function normalizeFormattingPathOperand(productDir: string, relativePath: string): string {
-  const absolutePath = join(productDir, relativePath);
-  if (!existsSync(absolutePath) || !statSync(absolutePath).isDirectory()) {
+  if (isFormattingFileOperand(productDir, relativePath)) {
     return relativePath;
   }
   const normalizedDirectory = normalizePathPrefix(relativePath);
@@ -123,14 +128,18 @@ function normalizeFormattingPathOperand(productDir: string, relativePath: string
   return `${normalizedDirectory}${DPRINT_RECURSIVE_DIRECTORY_GLOB_SUFFIX}`;
 }
 
+function isFormattingFileOperand(productDir: string, relativePath: string): boolean {
+  const absolutePath = join(productDir, relativePath);
+  return !existsSync(absolutePath) || !statSync(absolutePath).isDirectory();
+}
+
 function formattingPathOperandsForValidationPathFilter(
   productDir: string,
   relativePath: string,
   pathFilter: Parameters<typeof pathPassesValidationFilter>[1],
 ): string[] {
-  const absolutePath = join(productDir, relativePath);
-  if (!existsSync(absolutePath) || !statSync(absolutePath).isDirectory()) {
-    return pathPassesValidationFilter(relativePath, pathFilter) ? [relativePath] : [];
+  if (isFormattingFileOperand(productDir, relativePath)) {
+    return [relativePath];
   }
   return validationPathFilterIntersections(relativePath, pathFilter)
     .map((path) => normalizeFormattingPathOperand(productDir, path));
