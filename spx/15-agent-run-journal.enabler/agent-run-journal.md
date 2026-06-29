@@ -1,7 +1,7 @@
 # Agent Run Journal
 
 PROVIDES an append-only event-store interface — append events under a monotonic cursor, read from a cursor, render projections by replay, and seal a run — specified independently of any storage backend, so an adapter binds the interface to a concrete store at composition time
-SO THAT the type-agnostic agentic verification run-journal channel `spx/34-verification.enabler` and the storage adapters that bind the interface
+SO THAT the typed verification-run lifecycle, journal substrate, and storage adapters under `spx/34-verification.enabler`
 CAN persist each run's truth once as an event history and render it into PR comments, reports, and check summaries identically whichever backend a run uses
 
 ## Assertions
