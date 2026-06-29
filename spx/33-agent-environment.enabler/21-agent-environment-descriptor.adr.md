@@ -19,7 +19,7 @@ Rejected: separate config sections for instructions, runtimes, and bootstrap (th
 - Plugin entries that name a marketplace reference a configured marketplace for the same runtime.
 - Child reconcilers consume the descriptor's resolved values; they do not parse raw `spx.config.*` content.
 - The hook CLI transport resolves `hooks.sessionStart.compactStdout` from the descriptor as part of one hook execution context and passes hook infrastructure a primitive policy value; hook event runners do not import the agent-environment descriptor.
-- Compact stdout runtime-policy selection and `session-start` session identity are separate concerns: a Codex runtime marker disables Codex compact stdout even when `session-start` identity resolution later uses a Claude session id.
+- Compact stdout runtime-policy selection and `session-start` session identity are separate concerns: `CODEX_THREAD_ID` selects Codex for compact stdout before `CLAUDE_SESSION_ID`, `CLAUDE_SESSION_ID` selects Claude Code when the Codex marker is absent, and `CLAUDE_ENV_FILE` selects Claude Code only when both session markers are absent.
 - The instruction-reconciliation child validates concrete instruction paths before writing files, and the plugin-bootstrap child validates marketplace source formats before resolving external inputs.
 - Marketplace `source` values and skill `source` values are different semantic fields even though they share the same config field name.
 - An omitted `instructions.files` keeps the default `AGENTS.md`; an explicit empty list disables instruction-file management.
@@ -42,4 +42,4 @@ Rejected: separate config sections for instructions, runtimes, and bootstrap (th
 - NEVER: put runtime-specific serializers, concrete output paths, or verification run-state paths in this descriptor; those belong to the runtime-configuration child and to the verification run-journal channel `spx/34-verification.enabler` ([audit])
 - NEVER: validate traversal safety for instruction paths or protocol safety for marketplace sources in this descriptor; the children that know the concrete target own those checks ([audit])
 - NEVER: import the agent-environment descriptor from hook event runners; the hook CLI transport resolves hook policy and passes primitive policy values to hook infrastructure ([audit])
-- NEVER: infer session-start identity from compact stdout runtime-policy selection or infer compact stdout runtime policy from session-start identity; each derivation follows its own environment input priority ([audit])
+- NEVER: infer session-start identity from compact stdout runtime-policy selection or infer compact stdout runtime policy from session-start identity; compact stdout policy follows `CODEX_THREAD_ID`, `CLAUDE_SESSION_ID`, then `CLAUDE_ENV_FILE`, while session-start identity follows its event-specific inputs ([audit])
