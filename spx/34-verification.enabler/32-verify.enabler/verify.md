@@ -1,6 +1,6 @@
 # Verify
 
-PROVIDES the `spx verify --verification-type <type> --scope-type changeset --scope <base>..<head> --input <input-source> [--run <run-token>] [--payload <payload-source>] [--idempotency-key <key>] [--terminal-status <status>] <verb>` command lifecycle for typed changeset verification runs over the verification-context and journal substrate
+PROVIDES the `spx verify --verification-type <type> --scope-type changeset --scope <base>..<head> [--input <input-source>] [--run <run-token>] [--payload <payload-source>] [--idempotency-key <key>] [--terminal-status <status>] <verb>` command lifecycle for typed changeset verification runs over the verification-context and journal substrate
 SO THAT agents, CI jobs, and launchers that run review, audit, and other scoped verification workflows
 CAN start one scoped run, read the exact verification input, append inspected scope and validated findings, finish the run, inspect resumable status, and render the journal projection without constructing journal events directly
 
@@ -9,8 +9,8 @@ CAN start one scoped run, read the exact verification input, append inspected sc
 ### Scenarios
 
 - Given `spx verify --verification-type review --scope-type changeset --scope <base>..<head> --input stdin start`, when standard input supplies the run input, then spx creates a canonical verification context, opens a run journal, and reports the run token, context digest, resolved changed-file scope, and exact input descriptor ([test](tests/verify-start.scenario.l1.test.ts))
-- Given a started run, when `spx verify --verification-type review --scope-type changeset --scope <base>..<head> --input stdin --run <run-token> input` runs, then it returns the exact verification input whose digest was recorded at start ([test](tests/verify-input.scenario.l1.test.ts))
-- Given a started run with appended scope and findings, when `spx verify --verification-type review --scope-type changeset --scope <base>..<head> --input stdin --run <run-token> --terminal-status approved finish` runs, then it records terminal completion, seals the journal, and renders a terminal projection from the event history ([test](tests/verify-lifecycle.scenario.l1.test.ts))
+- Given a started run, when `spx verify --verification-type review --scope-type changeset --scope <base>..<head> --run <run-token> input` runs, then it returns the exact verification input whose digest was recorded at start ([test](tests/verify-input.scenario.l1.test.ts))
+- Given a started run with appended scope and findings, when `spx verify --verification-type review --scope-type changeset --scope <base>..<head> --run <run-token> --terminal-status approved finish` runs, then it records terminal completion, seals the journal, and renders a terminal projection from the event history ([test](tests/verify-lifecycle.scenario.l1.test.ts))
 
 ### Mappings
 
@@ -20,7 +20,9 @@ CAN start one scoped run, read the exact verification input, append inspected sc
 ### Compliance
 
 - ALWAYS: `append-finding` validates the finding payload against the selected verification type before it appends a journal event ([test](tests/verify-finding.compliance.l1.test.ts))
+- ALWAYS: `start` requires `--input <input-source>` and records the verification input for replay by the `input` verb ([test](tests/verify-start.scenario.l1.test.ts))
 - ALWAYS: `input`, `append-scope`, `append-finding`, `finish`, `status`, and `render` require `--run <run-token>` and reject ambiguous type/scope-only selection ([test](tests/verify-run-token.compliance.l1.test.ts))
+- NEVER: `input`, `append-scope`, `append-finding`, `finish`, `status`, or `render` reads a fresh `--input <input-source>` value ([test](tests/verify-input.scenario.l1.test.ts))
 - ALWAYS: `append-scope` and `append-finding` require `--payload <payload-source>` for appended evidence and reject reuse of the run input as an append payload channel ([test](tests/verify-payload.compliance.l1.test.ts))
 - ALWAYS: repeated append commands with the same caller-supplied idempotency key return the existing journal sequence instead of duplicating scope or finding evidence ([test](tests/verify-idempotency.compliance.l1.test.ts))
 - ALWAYS: `append-scope` and `append-finding` require a caller-supplied idempotency key for every append payload ([test](tests/verify-idempotency.compliance.l1.test.ts))
