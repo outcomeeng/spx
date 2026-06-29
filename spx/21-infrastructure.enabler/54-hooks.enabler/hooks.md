@@ -20,7 +20,10 @@ scripts or forcing cross-domain hook work through one domain's command surface
   consumes the event ([audit])
 - ALWAYS: hook event execution is invoked through `spx hook run <event>`, with
   the hook event registry's lowercase hyphenated operand derived from the
-  upstream lifecycle event ([audit])
+  upstream lifecycle event ([test](tests/hook-cli.compliance.l2.test.ts))
+- ALWAYS: the first required event operand is `session-start`, matching the
+  lowercase hyphenated hook-runner naming used by established hook tools
+  ([test](tests/hook-cli.compliance.l2.test.ts))
 - ALWAYS: hook events may coordinate multiple SPX domains in one invocation while
   preserving each domain's ownership of its underlying state and rules ([audit])
 - NEVER: expose an agent lifecycle hook as a domain-specific command such as
