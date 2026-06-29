@@ -236,7 +236,7 @@ export function sessionEnvironmentProbeFromSnapshotProvider(
 ): SessionEnvironmentProbe {
   return {
     async probe(): Promise<SessionEnvironmentReading> {
-      const hookPresent = HOOK_SESSION_START_ENV.CLAUDE_WORKTREE_CLAIMED in process.env;
+      const hookPresent = HOOK_SESSION_START_ENV.SPX_WORKTREE_CLAIM_PATH in process.env;
       const sessionIdentity = resolveAgentSessionId(process.env) !== undefined;
       return sessionEnvironmentReadingFromSnapshot(await provider.read(), {
         hookPresent,

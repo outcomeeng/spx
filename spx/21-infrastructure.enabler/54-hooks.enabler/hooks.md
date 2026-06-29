@@ -1,8 +1,8 @@
 # Hooks
 
 PROVIDES the SPX hook event interface — a `spx hook run <event>` runner
-that consumes agent lifecycle payloads, writes hook-runtime exports, emits
-hook-specific context, and coordinates shared domain services
+that consumes agent lifecycle payloads, dispatches registered hook events, and
+coordinates shared domain services
 SO THAT installed agent plugins
 CAN delegate lifecycle behavior to SPX without reimplementing it in plugin
 scripts or forcing cross-domain hook work through one domain's command surface
@@ -11,13 +11,6 @@ scripts or forcing cross-domain hook work through one domain's command surface
 
 ### Scenarios
 
-- Given the `session-start` hook adapter receives a hook payload and env-file path, when the event runs with enough identity and worktree information to claim the worktree, then SPX appends the session and project exports and records one worktree occupancy claim ([test](tests/session-start.scenario.l1.test.ts))
-- Given the `session-start` hook adapter receives a payload whose lifecycle source is `compact`, when the resolved compact stdout policy is false and the event runs with enough identity and worktree information to claim the worktree, then SPX records one worktree occupancy claim, appends hook-runtime exports, and emits no hook stdout ([test](tests/session-start.scenario.l1.test.ts))
-- Given the `session-start` hook adapter receives a payload whose lifecycle source is `compact`, when the resolved compact stdout policy is true, then SPX emits the compact foundation directive as hook stdout ([test](tests/session-start.scenario.l1.test.ts))
-- Given `spx hook run session-start` receives a payload whose lifecycle source is `compact`, when the CLI transport resolves a runtime policy whose `hooks.sessionStart.compactStdout` is false, then SPX exits successfully and writes no process stdout ([test](tests/hook-cli.scenario.l2.test.ts))
-- Given `spx hook run session-start` is invoked outside the payload product and receives a payload whose lifecycle source is `compact`, when the payload product config enables the runtime's `hooks.sessionStart.compactStdout` policy, then SPX resolves compact stdout policy from the payload product and writes the compact foundation directive to process stdout ([test](tests/hook-cli.scenario.l2.test.ts))
-- Given `spx hook run session-start` receives a payload whose lifecycle source is `compact` and the hook environment carries `CLAUDE_ENV_FILE` with no `CODEX_THREAD_ID` or `CLAUDE_SESSION_ID`, when the CLI transport resolves default Claude Code runtime policy, then SPX writes the compact foundation directive to process stdout ([test](tests/hook-cli.scenario.l2.test.ts))
-- Given `spx hook run session-start` receives a payload whose lifecycle source is `compact` and both Codex and Claude Code runtime markers are present, when the CLI transport resolves compact stdout policy, then SPX applies the Codex compact stdout policy and writes no process stdout ([test](tests/hook-cli.scenario.l2.test.ts))
 - Given a plugin invokes `spx hook run session-start` and hook stdin cannot be read, when the hook runner handles the event, then SPX records a diagnostic and does not fail the hook invocation ([test](tests/hook-cli.scenario.l1.test.ts))
 
 ### Compliance
@@ -28,12 +21,7 @@ scripts or forcing cross-domain hook work through one domain's command surface
 - ALWAYS: hook event execution is invoked through `spx hook run <event>`, with
   the hook event registry's lowercase hyphenated operand derived from the
   upstream lifecycle event ([audit])
-- ALWAYS: the first required event operand is `session-start`, matching the
-  lowercase hyphenated hook-runner naming used by established hook tools
-  ([test](tests/hook-cli.compliance.l2.test.ts))
 - ALWAYS: hook events may coordinate multiple SPX domains in one invocation while
   preserving each domain's ownership of its underlying state and rules ([audit])
 - NEVER: expose an agent lifecycle hook as a domain-specific command such as
   `spx worktree session-start` ([audit])
-- NEVER: `session-start` emits hook stdout for the `compact` lifecycle source when the resolved compact stdout policy is false
-  ([test](tests/session-start.compliance.l1.test.ts))

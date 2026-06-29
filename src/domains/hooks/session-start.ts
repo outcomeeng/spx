@@ -25,14 +25,9 @@ export const HOOK_SESSION_START_ENV = {
   CLAUDE_ENV_FILE: "CLAUDE_ENV_FILE",
   CLAUDE_PROJECT_DIR: "CLAUDE_PROJECT_DIR",
   CLAUDE_SESSION_ID: "CLAUDE_SESSION_ID",
-  CLAUDE_WORKTREE_CLAIMED: "CLAUDE_WORKTREE_CLAIMED",
   CODEX_THREAD_ID: "CODEX_THREAD_ID",
   PROJECT_DIR: "PROJECT_DIR",
-} as const;
-
-export const HOOK_SESSION_START_CLAIMED = {
-  FALSE: "0",
-  TRUE: "1",
+  SPX_WORKTREE_CLAIM_PATH: "SPX_WORKTREE_CLAIM_PATH",
 } as const;
 
 export const HOOK_ENV_FILE = {
@@ -54,7 +49,7 @@ export interface HookSessionStartPayload {
 }
 
 export interface HookSessionStartEnvRenderInput {
-  readonly claimed: boolean;
+  readonly claimPath?: string;
   readonly productDir: string;
   readonly sessionId?: string;
 }
@@ -150,10 +145,9 @@ export function renderHookSessionStartEnvFile(input: HookSessionStartEnvRenderIn
       : [renderExportLine(HOOK_SESSION_START_ENV.CLAUDE_SESSION_ID, input.sessionId)]),
     renderExportLine(HOOK_SESSION_START_ENV.CLAUDE_PROJECT_DIR, input.productDir),
     renderExportLine(HOOK_SESSION_START_ENV.PROJECT_DIR, input.productDir),
-    renderExportLine(
-      HOOK_SESSION_START_ENV.CLAUDE_WORKTREE_CLAIMED,
-      input.claimed ? HOOK_SESSION_START_CLAIMED.TRUE : HOOK_SESSION_START_CLAIMED.FALSE,
-    ),
+    ...(input.claimPath === undefined
+      ? []
+      : [renderExportLine(HOOK_SESSION_START_ENV.SPX_WORKTREE_CLAIM_PATH, input.claimPath)]),
     "",
   ].join(LINE_SEPARATOR);
 }

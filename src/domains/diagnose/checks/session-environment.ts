@@ -1,7 +1,7 @@
 /**
  * The session-environment diagnose check — classifies the agent session the
  * spec-tree `SessionStart` hook establishes from the agent session identity, the
- * worktree-claim flag, and the current worktree's shared snapshot occupancy.
+ * worktree-claim path signal, and the current worktree's shared snapshot occupancy.
  * The classification is pure over the gathered reading; the reading is
  * obtained through a dependency-injected probe.
  *
@@ -27,7 +27,7 @@ export type SessionEnvironmentVerdict = (typeof SESSION_ENVIRONMENT_VERDICT)[key
 export interface SessionEnvironmentReading {
   /** True when a command errored. */
   readonly errored: boolean;
-  /** True when the runtime ships a spec-tree `SessionStart` hook. */
+  /** True when the hook runtime environment contains the SPX claim-path signal. */
   readonly hookPresent: boolean;
   /** True when the agent session identity resolved. */
   readonly sessionIdentity: boolean;
