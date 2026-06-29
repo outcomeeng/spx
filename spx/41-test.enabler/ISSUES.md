@@ -169,7 +169,7 @@ review-loop latency. The product needs a first-class targeted path so agents can
 verify the files or node they changed without exercising unrelated tests on every
 iteration.
 
-**Resolution:** add explicit target operands after `--` to `spx test` and
+**Original target:** add explicit target operands after `--` to `spx test` and
 `spx test passing`. Resolve each operand as either a node path whose co-located
 tests should run or a concrete test file path, route the selected tests through
 the existing testing registry, preserve passing-scope behavior for `passing`,
