@@ -5,7 +5,7 @@
  */
 
 import type { Result } from "@/config/types";
-import { resolveAgentSessionId } from "@/domains/session/agent-session";
+import { normalizeAgentSessionToken, resolveAgentSessionId } from "@/domains/session/agent-session";
 import { type ControllingProcessEnv, resolveControllingProcess } from "@/domains/worktree/controlling-process";
 import { type OccupancyFileSystem, removeClaim } from "@/domains/worktree/occupancy-store";
 import type { ProcessTable } from "@/domains/worktree/process-table";
@@ -55,7 +55,8 @@ function resolveReleaseSessionId(
   explicitSessionId: string | undefined,
   env: ControllingProcessEnv,
 ): string | undefined {
-  return nonEmptyString(explicitSessionId) ?? resolveAgentSessionId(env);
+  const explicit = nonEmptyString(explicitSessionId);
+  return explicit === undefined ? resolveAgentSessionId(env) : normalizeAgentSessionToken(explicit);
 }
 
 function nonEmptyString(value: string | undefined): string | undefined {
