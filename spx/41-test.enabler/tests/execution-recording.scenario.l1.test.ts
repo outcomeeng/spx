@@ -6,8 +6,13 @@ import { describe, expect, it } from "vitest";
 
 import { currentStalenessInputs, NO_GIT_IDENTITY, runNodeCommand, runTestsCommand } from "@/commands/test";
 import {
+  CHANGED_TEST_DIFF_CACHED_FLAG,
   CHANGED_TEST_DIFF_COMMAND,
   CHANGED_TEST_INDEX_PATH_PREFIX,
+  CHANGED_TEST_LS_FILES_COMMAND,
+  CHANGED_TEST_LS_FILES_EXCLUDE_STANDARD_FLAG,
+  CHANGED_TEST_LS_FILES_OTHERS_FLAG,
+  CHANGED_TEST_NULL_DELIMITED_FLAG,
   CHANGED_TEST_SHOW_COMMAND,
 } from "@/commands/test/changed-set-planning";
 import { digestDescriptorSection } from "@/config/descriptor-digest";
@@ -75,8 +80,22 @@ function stagedSnapshotGit(
       if (lastArg === defaultBaseRef) {
         return { exitCode: 0, stdout: defaultBaseSha, stderr: "" };
       }
-      if (args.includes(CHANGED_TEST_DIFF_COMMAND)) {
+      if (args.includes(CHANGED_TEST_DIFF_COMMAND) && args.includes(CHANGED_TEST_DIFF_CACHED_FLAG)) {
         return { exitCode: 0, stdout: nameStatusNulDelimited(changedPaths), stderr: "" };
+      }
+      if (
+        args.includes(CHANGED_TEST_DIFF_COMMAND)
+        && args.includes(CHANGED_TEST_NULL_DELIMITED_FLAG)
+      ) {
+        return { exitCode: 0, stdout: "", stderr: "" };
+      }
+      if (
+        args.includes(CHANGED_TEST_LS_FILES_COMMAND)
+        && args.includes(CHANGED_TEST_LS_FILES_OTHERS_FLAG)
+        && args.includes(CHANGED_TEST_LS_FILES_EXCLUDE_STANDARD_FLAG)
+        && args.includes(CHANGED_TEST_NULL_DELIMITED_FLAG)
+      ) {
+        return { exitCode: 0, stdout: "", stderr: "" };
       }
       if (args.includes(CHANGED_TEST_SHOW_COMMAND)) {
         const path = args.find((arg) => arg.startsWith(CHANGED_TEST_INDEX_PATH_PREFIX))?.slice(1) ?? "";

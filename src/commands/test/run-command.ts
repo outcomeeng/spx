@@ -44,8 +44,15 @@ import {
   writeTerminalTestRunState,
 } from "@/test/run-state";
 
+import { pathsFromNameStatus, pathsFromNulDelimited } from "@/lib/git/name-status";
 import {
+  CHANGED_TEST_DIFF_COMMAND,
+  CHANGED_TEST_DIFF_NAME_STATUS_FLAG,
   CHANGED_TEST_INDEX_PATH_PREFIX,
+  CHANGED_TEST_LS_FILES_COMMAND,
+  CHANGED_TEST_LS_FILES_EXCLUDE_STANDARD_FLAG,
+  CHANGED_TEST_LS_FILES_OTHERS_FLAG,
+  CHANGED_TEST_NULL_DELIMITED_FLAG,
   CHANGED_TEST_SHOW_COMMAND,
   planChangedTestSelection,
 } from "./changed-set-planning";
@@ -62,6 +69,8 @@ const PRODUCT_INPUT_FIELDS = {
   CONTENT: "content",
 } as const;
 export const CHANGED_TEST_RELATED_DEPS_ERROR = "spx test --changed requires related-test dependencies";
+export const CHANGED_TEST_STAGED_DIRTY_WORKTREE_ERROR =
+  "spx test --changed --staged requires the worktree to match the index";
 
 /** Shared command dependencies; filesystem, clock, and git default to real access. */
 export interface TestCommandDependencies {
@@ -282,6 +291,45 @@ function stagedSnapshotFileReader(productDir: string, git: GitDependencies): Sna
   };
 }
 
+async function dirtyWorktreePaths(productDir: string, git: GitDependencies): Promise<readonly string[]> {
+  const tracked = await git.execa(
+    GIT_ROOT_COMMAND.EXECUTABLE,
+    [CHANGED_TEST_DIFF_COMMAND, CHANGED_TEST_DIFF_NAME_STATUS_FLAG, CHANGED_TEST_NULL_DELIMITED_FLAG],
+    { cwd: productDir, reject: false },
+  );
+  if (tracked.exitCode !== 0) {
+    throw new Error(`failed to diff worktree paths for staged test planning: ${tracked.stderr}`);
+  }
+
+  const untracked = await git.execa(
+    GIT_ROOT_COMMAND.EXECUTABLE,
+    [
+      CHANGED_TEST_LS_FILES_COMMAND,
+      CHANGED_TEST_LS_FILES_OTHERS_FLAG,
+      CHANGED_TEST_LS_FILES_EXCLUDE_STANDARD_FLAG,
+      CHANGED_TEST_NULL_DELIMITED_FLAG,
+    ],
+    { cwd: productDir, reject: false },
+  );
+  if (untracked.exitCode !== 0) {
+    throw new Error(`failed to list untracked paths for staged test planning: ${untracked.stderr}`);
+  }
+
+  return [
+    ...new Set([
+      ...pathsFromNameStatus(tracked.stdout),
+      ...pathsFromNulDelimited(untracked.stdout),
+    ]),
+  ].sort(compareAsciiStrings);
+}
+
+async function requireWorktreeMatchesIndexForStagedRun(productDir: string, git: GitDependencies): Promise<void> {
+  const dirtyPaths = await dirtyWorktreePaths(productDir, git);
+  if (dirtyPaths.length > 0) {
+    throw new Error(`${CHANGED_TEST_STAGED_DIRTY_WORKTREE_ERROR}: ${dirtyPaths.join(", ")}`);
+  }
+}
+
 function deriveStatus(dispatch: TestDispatchResult): TestRunStateStatus {
   const allPassed = dispatch.exitCode === SUCCESS_EXIT_CODE
     && dispatch.outcomes.every((outcome) => outcome.exitCode === SUCCESS_EXIT_CODE);
@@ -417,6 +465,9 @@ export async function runTestsCommand(
     );
   }
   const stagedChangedRun = options.changed?.staged === true;
+  if (stagedChangedRun) {
+    await requireWorktreeMatchesIndexForStagedRun(options.productDir, changedGit);
+  }
   const { config, digest } = stagedChangedRun
     ? await resolveStagedTestingConfig(options.productDir, changedGit)
     : await resolveTestingConfig(options.productDir);

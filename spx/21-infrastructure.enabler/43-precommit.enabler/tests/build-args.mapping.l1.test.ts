@@ -15,6 +15,16 @@ import { PRECOMMIT_TEST_GENERATOR } from "@testing/generators/precommit/precommi
 
 const configFilePaths = Object.values(CONFIG_FILENAMES);
 
+function expectedSpxChangedSetArgs(): string[] {
+  return [
+    SPX_TEST_ARGS.COMMAND,
+    SPX_TEST_ARGS.CHANGED,
+    SPX_TEST_ARGS.STAGED,
+    SPX_TEST_ARGS.BASE,
+    SPX_TEST_ARGS.BASE_REF,
+  ];
+}
+
 describe("isTestFile", () => {
   it("returns true for any path containing the test pattern", () => {
     fc.assert(
@@ -49,13 +59,7 @@ describe("buildSpxTestArgs", () => {
   it("test-files-only input maps to changed-set testing against HEAD", () => {
     fc.assert(
       fc.property(fc.array(PRECOMMIT_TEST_GENERATOR.testPath(), { minLength: 1 }), (testFiles) => {
-        expect(buildSpxTestArgs(testFiles)).toEqual([
-          SPX_TEST_ARGS.COMMAND,
-          SPX_TEST_ARGS.CHANGED,
-          SPX_TEST_ARGS.STAGED,
-          SPX_TEST_ARGS.BASE,
-          SPX_TEST_ARGS.BASE_REF,
-        ]);
+        expect(buildSpxTestArgs(testFiles)).toEqual(expectedSpxChangedSetArgs());
       }),
     );
   });
@@ -66,13 +70,7 @@ describe("buildSpxTestArgs", () => {
         fc.array(PRECOMMIT_TEST_GENERATOR.sourcePath(), { minLength: 1 }),
         fc.array(PRECOMMIT_TEST_GENERATOR.testPath()),
         (sourceFiles, testFiles) => {
-          expect(buildSpxTestArgs([...sourceFiles, ...testFiles])).toEqual([
-            SPX_TEST_ARGS.COMMAND,
-            SPX_TEST_ARGS.CHANGED,
-            SPX_TEST_ARGS.STAGED,
-            SPX_TEST_ARGS.BASE,
-            SPX_TEST_ARGS.BASE_REF,
-          ]);
+          expect(buildSpxTestArgs([...sourceFiles, ...testFiles])).toEqual(expectedSpxChangedSetArgs());
         },
       ),
     );
@@ -80,13 +78,7 @@ describe("buildSpxTestArgs", () => {
 
   it("config-files-only input maps to changed-set testing against HEAD", () => {
     for (const path of configFilePaths) {
-      expect(buildSpxTestArgs([path])).toEqual([
-        SPX_TEST_ARGS.COMMAND,
-        SPX_TEST_ARGS.CHANGED,
-        SPX_TEST_ARGS.STAGED,
-        SPX_TEST_ARGS.BASE,
-        SPX_TEST_ARGS.BASE_REF,
-      ]);
+      expect(buildSpxTestArgs([path])).toEqual(expectedSpxChangedSetArgs());
     }
   });
 
@@ -127,6 +119,34 @@ describe("buildSpxTestArgs", () => {
             runner: PRECOMMIT_TEST_RUNNERS.VITEST,
             args: [VITEST_ARGS.RUN, ...testFiles],
           });
+        },
+      ),
+    );
+  });
+
+  it("non-default config product config files map to changed-set testing against HEAD", () => {
+    fc.assert(
+      fc.property(PRECOMMIT_TEST_GENERATOR.config(), (config) => {
+        for (const path of configFilePaths) {
+          expect(buildVitestArgs([path], config)).toEqual([]);
+          expect(buildPrecommitTestInvocation([path], config).args).toEqual(expectedSpxChangedSetArgs());
+        }
+      }),
+    );
+  });
+
+  it("non-default config mixed product config and source files map to changed-set testing against HEAD", () => {
+    fc.assert(
+      fc.property(
+        PRECOMMIT_TEST_GENERATOR.config().chain((config) =>
+          fc
+            .tuple(fc.constantFrom(...configFilePaths), PRECOMMIT_TEST_GENERATOR.sourcePath(config))
+            .map(([configPath, sourceFile]) => ({ config, configPath, sourceFile }))
+        ),
+        ({ config, configPath, sourceFile }) => {
+          expect(buildPrecommitTestInvocation([configPath, sourceFile], config).args).toEqual(
+            expectedSpxChangedSetArgs(),
+          );
         },
       ),
     );
