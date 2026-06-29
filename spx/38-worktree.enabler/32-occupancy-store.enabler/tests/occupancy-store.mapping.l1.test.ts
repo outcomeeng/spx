@@ -4,6 +4,7 @@ import { describe, expect, it } from "vitest";
 
 import {
   claimFilePath,
+  claimTempFilePath,
   classifyOccupancy,
   OCCUPANCY_CLAIM,
   OCCUPANCY_ERROR,
@@ -13,7 +14,6 @@ import {
   type WorktreeClaimRecord,
   writeClaim,
 } from "@/domains/worktree/occupancy-store";
-import { atomicWriteTempPath, type RandomBytes } from "@/lib/atomic-file-write";
 import { toMessage } from "@/lib/error-message";
 import { sampleStateStoreTestValue, STATE_STORE_TEST_GENERATOR } from "@testing/generators/state-store/state-store";
 import { sampleWorktreeTestValue, WORKTREE_TEST_GENERATOR } from "@testing/generators/worktree/worktree";
@@ -46,6 +46,16 @@ class RecordingClaimFileSystem implements OccupancyFileSystem {
     this.files.set(to, content);
   }
 
+  async symlink(target: string, path: string): Promise<void> {
+    this.files.set(path, target);
+  }
+
+  async readlink(path: string): Promise<string> {
+    const content = this.files.get(path);
+    if (content === undefined) throw new Error(OCCUPANCY_ERROR.CLAIM_READ_FAILED);
+    return content;
+  }
+
   async readFile(path: string): Promise<string> {
     const content = this.files.get(path);
     if (content === undefined) throw new Error(OCCUPANCY_ERROR.CLAIM_READ_FAILED);
@@ -70,6 +80,14 @@ class SymbolThrowingClaimFileSystem implements OccupancyFileSystem {
     return Promise.resolve();
   }
 
+  symlink(): Promise<void> {
+    return Promise.resolve();
+  }
+
+  readlink(): Promise<string> {
+    return Promise.resolve("");
+  }
+
   async readFile(): Promise<string> {
     return "";
   }
@@ -79,13 +97,13 @@ class SymbolThrowingClaimFileSystem implements OccupancyFileSystem {
   }
 }
 
-function identicalClaimRecordWithDistinctRandomBytes(): readonly [
+function identicalClaimRecordWithDistinctWriteTokens(): readonly [
   WorktreeClaimRecord,
-  readonly [RandomBytes, RandomBytes],
+  readonly [string, string],
 ] {
   return sampleWorktreeTestValue(
     WORKTREE_TEST_GENERATOR.claimRecord().chain((record) =>
-      WORKTREE_TEST_GENERATOR.distinctRandomBytes().map((randomByteSources) => [record, randomByteSources] as const)
+      WORKTREE_TEST_GENERATOR.distinctWriteTokens().map((writeTokens) => [record, writeTokens] as const)
     ),
   );
 }
@@ -153,24 +171,27 @@ describe("worktree occupancy classification mapping", () => {
   it("maps overlapping writes for one worktree to writer-unique temporary claim paths", async () => {
     const worktreesDir = sampleStateStoreTestValue(STATE_STORE_TEST_GENERATOR.productRoot());
     const name = sampleWorktreeTestValue(WORKTREE_TEST_GENERATOR.worktreeName());
-    const [record, [firstRandomBytes, secondRandomBytes]] = identicalClaimRecordWithDistinctRandomBytes();
+    const [record, [firstWriteToken, secondWriteToken]] = identicalClaimRecordWithDistinctWriteTokens();
     const fs = new RecordingClaimFileSystem();
     const claimPath = claimFilePath(worktreesDir, name);
     expect(claimPath.ok).toBe(true);
     if (!claimPath.ok) throw new Error(claimPath.error);
+    const firstTempPath = claimTempFilePath(claimPath.value, firstWriteToken);
+    const secondTempPath = claimTempFilePath(claimPath.value, secondWriteToken);
+    expect(firstTempPath.ok).toBe(true);
+    expect(secondTempPath.ok).toBe(true);
+    if (!firstTempPath.ok) throw new Error(firstTempPath.error);
+    if (!secondTempPath.ok) throw new Error(secondTempPath.error);
 
     const [first, second] = await Promise.all([
-      writeClaim(worktreesDir, name, record, { fs, randomBytes: firstRandomBytes }),
-      writeClaim(worktreesDir, name, record, { fs, randomBytes: secondRandomBytes }),
+      writeClaim(worktreesDir, name, record, { fs, writeToken: firstWriteToken }),
+      writeClaim(worktreesDir, name, record, { fs, writeToken: secondWriteToken }),
     ]);
 
     expect(first.ok).toBe(true);
     expect(second.ok).toBe(true);
     expect(new Set(fs.renamedFrom)).toEqual(
-      new Set([
-        atomicWriteTempPath(claimPath.value, firstRandomBytes),
-        atomicWriteTempPath(claimPath.value, secondRandomBytes),
-      ]),
+      new Set([firstTempPath.value, secondTempPath.value]),
     );
   });
 
@@ -178,11 +199,11 @@ describe("worktree occupancy classification mapping", () => {
     const worktreesDir = sampleStateStoreTestValue(STATE_STORE_TEST_GENERATOR.productRoot());
     const name = sampleWorktreeTestValue(WORKTREE_TEST_GENERATOR.worktreeName());
     const record = sampleWorktreeTestValue(WORKTREE_TEST_GENERATOR.claimRecord());
-    const randomBytes = sampleWorktreeTestValue(WORKTREE_TEST_GENERATOR.randomBytes());
+    const writeToken = sampleWorktreeTestValue(WORKTREE_TEST_GENERATOR.writeToken());
 
     const result = await writeClaim(worktreesDir, name, record, {
       fs: new SymbolThrowingClaimFileSystem(),
-      randomBytes,
+      writeToken,
     });
 
     expect(result.ok).toBe(false);

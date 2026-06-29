@@ -527,6 +527,10 @@ const PATH_UNSAFE_MARKERS = String.raw`:/+.\@ `;
 /** Fixed seed for single-value path-unsafe-identity draws so scenario tests stay deterministic. */
 const PATH_UNSAFE_IDENTITY_SAMPLE_SEED = 0x5e5530;
 
+export const SESSION_GENERATOR_ERROR = {
+  EMPTY_IDENTITY_SAMPLE: "session identity generator returned an empty value",
+} as const;
+
 /**
  * Arbitrary non-empty agent-session identity ($CLAUDE_SESSION_ID / $CODEX_THREAD_ID)
  * carrying at least one path-unsafe marker, so `resolveAgentSessionId` must

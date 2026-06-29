@@ -12,12 +12,11 @@ import {
 import { CONTROLLING_PID_ENV } from "@/domains/worktree/controlling-process";
 import { defaultGitDependencies } from "@/git/root";
 import { runSessionStartHook } from "@/interfaces/hooks/session-start";
-import type { RandomBytes } from "@/lib/atomic-file-write";
 import { sampleWorktreeTestValue, WORKTREE_TEST_GENERATOR } from "@testing/generators/worktree/worktree";
 import { withWorktreePool, type WorktreePoolEnv } from "@testing/harnesses/worktree/harness";
 
 interface CompactOutputScenarioInput {
-  readonly randomBytes: RandomBytes;
+  readonly claimWriteToken: string;
   readonly compactStdout: boolean;
   readonly env: HookSessionStartEnv;
   readonly envFile?: string;
@@ -32,7 +31,7 @@ function compactHookContent(env: WorktreePoolEnv): string {
 
 async function runCompactOutputScenario(env: WorktreePoolEnv, input: CompactOutputScenarioInput) {
   return runSessionStartHook({
-    randomBytes: input.randomBytes,
+    claimWriteToken: input.claimWriteToken,
     compactStdout: input.compactStdout,
     content: compactHookContent(env),
     cwd: env.container,
@@ -52,12 +51,12 @@ describe("hook session-start compact output", () => {
     const holder = sampleWorktreeTestValue(WORKTREE_TEST_GENERATOR.poolHolder());
     const sessionId = sampleWorktreeTestValue(WORKTREE_TEST_GENERATOR.sessionId());
     const envFileName = sampleWorktreeTestValue(WORKTREE_TEST_GENERATOR.envFileName());
-    const randomBytes = sampleWorktreeTestValue(WORKTREE_TEST_GENERATOR.randomBytes());
+    const claimWriteToken = sampleWorktreeTestValue(WORKTREE_TEST_GENERATOR.writeToken());
 
     await withWorktreePool({ worktreeName, holder }, async (env) => {
       const envFile = join(env.container, envFileName);
       const result = await runCompactOutputScenario(env, {
-        randomBytes,
+        claimWriteToken,
         compactStdout: false,
         env: {
           [CONTROLLING_PID_ENV]: String(env.holder.pid),
@@ -77,11 +76,11 @@ describe("hook session-start compact output", () => {
     const worktreeName = sampleWorktreeTestValue(WORKTREE_TEST_GENERATOR.poolWorktreeName());
     const holder = sampleWorktreeTestValue(WORKTREE_TEST_GENERATOR.poolHolder());
     const sessionId = sampleWorktreeTestValue(WORKTREE_TEST_GENERATOR.sessionId());
-    const randomBytes = sampleWorktreeTestValue(WORKTREE_TEST_GENERATOR.randomBytes());
+    const claimWriteToken = sampleWorktreeTestValue(WORKTREE_TEST_GENERATOR.writeToken());
 
     await withWorktreePool({ worktreeName, holder }, async (env) => {
       const result = await runCompactOutputScenario(env, {
-        randomBytes,
+        claimWriteToken,
         compactStdout: true,
         env: {
           [CONTROLLING_PID_ENV]: String(env.holder.pid),

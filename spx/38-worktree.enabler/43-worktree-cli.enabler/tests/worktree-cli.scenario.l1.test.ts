@@ -11,8 +11,9 @@ import {
   WORKTREE_STATUS_FORMAT,
   WORKTREE_STATUS_RENDER,
 } from "@/commands/worktree/index";
+import { AGENT_SESSION_ENV, resolveAgentSessionId } from "@/domains/session/agent-session";
 import { AGENT_RUNTIME, AGENT_RUNTIME_DISPLAY_NAME, CONTROLLING_PID_ENV } from "@/domains/worktree/controlling-process";
-import { OCCUPANCY_STATUS, readClaim, writeClaim } from "@/domains/worktree/occupancy-store";
+import { OCCUPANCY_ERROR, OCCUPANCY_STATUS, readClaim, writeClaim } from "@/domains/worktree/occupancy-store";
 import { WORKTREE_RESOLVE_ERROR } from "@/domains/worktree/resolve";
 import { worktreeClaimName } from "@/domains/worktree/worktree-name";
 import {
@@ -29,6 +30,7 @@ import {
 import { DETAIL_BRANCH_SEPARATOR, DETAIL_ELBOW, DETAIL_TEE } from "@/lib/styled-output/styled-output";
 import { defaultOccupancyFileSystem } from "@/lib/worktree-occupancy-file-system";
 import { defaultWorktreePathInfo } from "@/lib/worktree-path-info";
+import { samplePathUnsafeAgentSessionIdentity, SESSION_GENERATOR_ERROR } from "@testing/generators/session/session";
 import { sampleWorktreeTestValue, WORKTREE_TEST_GENERATOR } from "@testing/generators/worktree/worktree";
 import { gitArgsEqual } from "@testing/harnesses/git-test-constants";
 import { createSessionGitDeps, SESSION_GIT_DEPS_PATHS, WORKTREE_KIND } from "@testing/harnesses/session/harness";
@@ -146,7 +148,7 @@ describe("worktree command handlers", () => {
     const host = sampleWorktreeTestValue(WORKTREE_TEST_GENERATOR.host());
     const startedAt = sampleWorktreeTestValue(WORKTREE_TEST_GENERATOR.startTime());
     const sessionId = sampleWorktreeTestValue(WORKTREE_TEST_GENERATOR.sessionId());
-    const randomBytes = sampleWorktreeTestValue(WORKTREE_TEST_GENERATOR.randomBytes());
+    const claimWriteToken = sampleWorktreeTestValue(WORKTREE_TEST_GENERATOR.writeToken());
     const [selfPid, agentPid] = sampleWorktreeTestValue(WORKTREE_TEST_GENERATOR.distinctPids());
     const gitDeps = createSessionGitDeps({ worktreeKind: WORKTREE_KIND.MAIN_CHECKOUT });
     const expectedName = worktreeClaimName(SESSION_GIT_DEPS_PATHS.MAIN_CHECKOUT_TOPLEVEL);
@@ -157,7 +159,7 @@ describe("worktree command handlers", () => {
 
     await withTempDir(prefix, async (worktreesDir) => {
       const result = await claimCommand({
-        randomBytes,
+        claimWriteToken,
         cwd: SESSION_GIT_DEPS_PATHS.MAIN_CHECKOUT_TOPLEVEL,
         fs: defaultOccupancyFileSystem,
         sessionId,
@@ -209,7 +211,7 @@ describe("worktree command handlers", () => {
           pid: holder.pid,
           startedAt: holder.startedAt,
         },
-        { fs: env.fs, randomBytes: sampleWorktreeTestValue(WORKTREE_TEST_GENERATOR.randomBytes()) },
+        { fs: env.fs, writeToken: sampleWorktreeTestValue(WORKTREE_TEST_GENERATOR.writeToken()) },
       );
 
       const running = await statusCommand({
@@ -281,6 +283,55 @@ describe("worktree command handlers", () => {
     });
   });
 
+  it("rejects a claim for a worktree whose holder is live and leaves that holder unchanged", async () => {
+    const prefix = sampleWorktreeTestValue(WORKTREE_TEST_GENERATOR.tempPrefix());
+    const host = sampleWorktreeTestValue(WORKTREE_TEST_GENERATOR.host());
+    const [firstStartedAt, secondStartedAt] = sampleWorktreeTestValue(WORKTREE_TEST_GENERATOR.distinctStartTimes());
+    const [firstSessionId, secondSessionId] = sampleWorktreeTestValue(WORKTREE_TEST_GENERATOR.distinctSessionIds());
+    const [firstWriteToken, secondWriteToken] = sampleWorktreeTestValue(WORKTREE_TEST_GENERATOR.distinctWriteTokens());
+    const [selfPid, firstAgentPid, secondAgentPid] = sampleWorktreeTestValue(WORKTREE_TEST_GENERATOR.distinctPids());
+    const gitDeps = createSessionGitDeps({ worktreeKind: WORKTREE_KIND.MAIN_CHECKOUT });
+    const expectedName = worktreeClaimName(SESSION_GIT_DEPS_PATHS.MAIN_CHECKOUT_TOPLEVEL);
+    const existingRecord = {
+      sessionId: firstSessionId,
+      host,
+      pid: firstAgentPid,
+      startedAt: firstStartedAt,
+    };
+    const table = createProcessTable({
+      host,
+      processes: new Map<number, ProcessTableEntry>([
+        [firstAgentPid, { startTime: firstStartedAt, alive: true }],
+        [secondAgentPid, { startTime: secondStartedAt, alive: true }],
+      ]),
+    });
+
+    await withTempDir(prefix, async (worktreesDir) => {
+      await writeClaim(worktreesDir, expectedName, existingRecord, {
+        fs: defaultOccupancyFileSystem,
+        writeToken: firstWriteToken,
+      });
+
+      const result = await claimCommand({
+        claimWriteToken: secondWriteToken,
+        cwd: SESSION_GIT_DEPS_PATHS.MAIN_CHECKOUT_TOPLEVEL,
+        fs: defaultOccupancyFileSystem,
+        sessionId: secondSessionId,
+        worktreesDir,
+        gitDeps,
+        processTable: table,
+        selfPid,
+        env: { [CONTROLLING_PID_ENV]: String(secondAgentPid) },
+      });
+
+      expect(result).toEqual({ ok: false, error: OCCUPANCY_ERROR.CLAIM_HELD });
+      const claim = await readClaim(worktreesDir, expectedName, { fs: defaultOccupancyFileSystem });
+      expect(claim.ok).toBe(true);
+      if (!claim.ok) throw new Error(claim.error);
+      expect(claim.value).toEqual(existingRecord);
+    });
+  });
+
   it("renders text status as a grouped tree with runtime-qualified running holders", async () => {
     const [firstName, secondName] = sampleWorktreeTestValue(WORKTREE_TEST_GENERATOR.distinctPoolWorktreeNames());
     const holder = sampleWorktreeTestValue(WORKTREE_TEST_GENERATOR.poolHolder());
@@ -304,7 +355,7 @@ describe("worktree command handlers", () => {
             },
             {
               fs: defaultOccupancyFileSystem,
-              randomBytes: sampleWorktreeTestValue(WORKTREE_TEST_GENERATOR.randomBytes()),
+              writeToken: sampleWorktreeTestValue(WORKTREE_TEST_GENERATOR.writeToken()),
             },
           );
 
@@ -339,12 +390,12 @@ describe("worktree command handlers", () => {
 
   it("renders mixed-parent worktrees under slash-suffixed parent headings", async () => {
     const [firstParentName, secondParentName] = sampleWorktreeTestValue(
-      WORKTREE_TEST_GENERATOR.distinctSafeTokens(),
+      WORKTREE_TEST_GENERATOR.distinctWriteTokens(),
     );
     const [firstWorktreeName, secondWorktreeName] = sampleWorktreeTestValue(
       WORKTREE_TEST_GENERATOR.distinctPoolWorktreeNames(),
     );
-    const commonDirName = sampleWorktreeTestValue(WORKTREE_TEST_GENERATOR.safeToken());
+    const commonDirName = sampleWorktreeTestValue(WORKTREE_TEST_GENERATOR.writeToken());
     const tempPrefix = sampleWorktreeTestValue(WORKTREE_TEST_GENERATOR.tempPrefix());
 
     await withTempDir(tempPrefix, async (container) => {
@@ -382,7 +433,7 @@ describe("worktree command handlers", () => {
 
   it("reports duplicate resolved status targets once in first-seen order", async () => {
     const [worktreeName, subdir] = sampleWorktreeTestValue(WORKTREE_TEST_GENERATOR.distinctPoolWorktreeNames());
-    const fileName = sampleWorktreeTestValue(WORKTREE_TEST_GENERATOR.safeToken());
+    const fileName = sampleWorktreeTestValue(WORKTREE_TEST_GENERATOR.writeToken());
     const holder = sampleWorktreeTestValue(WORKTREE_TEST_GENERATOR.poolHolder());
 
     await withWorktreePool({ worktreeName, holder }, async (env) => {
@@ -435,7 +486,7 @@ describe("worktree command handlers", () => {
             },
             {
               fs: defaultOccupancyFileSystem,
-              randomBytes: sampleWorktreeTestValue(WORKTREE_TEST_GENERATOR.randomBytes()),
+              writeToken: sampleWorktreeTestValue(WORKTREE_TEST_GENERATOR.writeToken()),
             },
           );
 
@@ -585,16 +636,68 @@ describe("worktree command handlers", () => {
   it("removes the running worktree's claim", async () => {
     const prefix = sampleWorktreeTestValue(WORKTREE_TEST_GENERATOR.tempPrefix());
     const record = sampleWorktreeTestValue(WORKTREE_TEST_GENERATOR.claimRecord());
-    const randomBytes = sampleWorktreeTestValue(WORKTREE_TEST_GENERATOR.randomBytes());
+    const writeToken = sampleWorktreeTestValue(WORKTREE_TEST_GENERATOR.writeToken());
+    const selfPid = sampleWorktreeTestValue(WORKTREE_TEST_GENERATOR.pid());
     const gitDeps = createSessionGitDeps({ worktreeKind: WORKTREE_KIND.MAIN_CHECKOUT });
     const name = worktreeClaimName(SESSION_GIT_DEPS_PATHS.MAIN_CHECKOUT_TOPLEVEL);
+    const processTable = createProcessTable({
+      host: record.host,
+      processes: new Map<number, ProcessTableEntry>([[record.pid, { alive: true, startTime: record.startedAt }]]),
+    });
 
     await withTempDir(prefix, async (worktreesDir) => {
-      await writeClaim(worktreesDir, name, record, { fs: defaultOccupancyFileSystem, randomBytes });
+      await writeClaim(worktreesDir, name, record, { fs: defaultOccupancyFileSystem, writeToken });
 
       const result = await releaseCommand({
         cwd: SESSION_GIT_DEPS_PATHS.MAIN_CHECKOUT_TOPLEVEL,
+        env: { [CONTROLLING_PID_ENV]: String(record.pid) },
         fs: defaultOccupancyFileSystem,
+        processTable,
+        selfPid,
+        sessionId: record.sessionId,
+        worktreesDir,
+        gitDeps,
+      });
+      expect(result.ok).toBe(true);
+      if (!result.ok) throw new Error(result.error);
+
+      const after = await readClaim(worktreesDir, name, { fs: defaultOccupancyFileSystem });
+      expect(after.ok).toBe(true);
+      if (!after.ok) throw new Error(after.error);
+      expect(after.value).toBeUndefined();
+    });
+  });
+
+  it("removes a claim recorded with the normalized environment session id", async () => {
+    const prefix = sampleWorktreeTestValue(WORKTREE_TEST_GENERATOR.tempPrefix());
+    const rawSessionId = samplePathUnsafeAgentSessionIdentity();
+    const normalizedSessionId = resolveAgentSessionId({ [AGENT_SESSION_ENV.CODEX_THREAD_ID]: rawSessionId });
+    if (normalizedSessionId === undefined) throw new Error(SESSION_GENERATOR_ERROR.EMPTY_IDENTITY_SAMPLE);
+    const record = {
+      ...sampleWorktreeTestValue(WORKTREE_TEST_GENERATOR.claimRecord()),
+      sessionId: normalizedSessionId,
+    };
+    const writeToken = sampleWorktreeTestValue(WORKTREE_TEST_GENERATOR.writeToken());
+    const selfPid = sampleWorktreeTestValue(WORKTREE_TEST_GENERATOR.pid());
+    const gitDeps = createSessionGitDeps({ worktreeKind: WORKTREE_KIND.MAIN_CHECKOUT });
+    const name = worktreeClaimName(SESSION_GIT_DEPS_PATHS.MAIN_CHECKOUT_TOPLEVEL);
+    const processTable = createProcessTable({
+      host: record.host,
+      processes: new Map<number, ProcessTableEntry>([[record.pid, { alive: true, startTime: record.startedAt }]]),
+    });
+
+    await withTempDir(prefix, async (worktreesDir) => {
+      await writeClaim(worktreesDir, name, record, { fs: defaultOccupancyFileSystem, writeToken });
+
+      const result = await releaseCommand({
+        cwd: SESSION_GIT_DEPS_PATHS.MAIN_CHECKOUT_TOPLEVEL,
+        env: {
+          [AGENT_SESSION_ENV.CODEX_THREAD_ID]: rawSessionId,
+          [CONTROLLING_PID_ENV]: String(record.pid),
+        },
+        fs: defaultOccupancyFileSystem,
+        processTable,
+        selfPid,
         worktreesDir,
         gitDeps,
       });
@@ -612,7 +715,7 @@ describe("worktree command handlers", () => {
     const worktreeName = sampleWorktreeTestValue(WORKTREE_TEST_GENERATOR.poolWorktreeName());
     const holder = sampleWorktreeTestValue(WORKTREE_TEST_GENERATOR.poolHolder());
     const sessionId = sampleWorktreeTestValue(WORKTREE_TEST_GENERATOR.sessionId());
-    const randomBytes = sampleWorktreeTestValue(WORKTREE_TEST_GENERATOR.randomBytes());
+    const claimWriteToken = sampleWorktreeTestValue(WORKTREE_TEST_GENERATOR.writeToken());
     const relativeWorktreesDir = sampleWorktreeTestValue(WORKTREE_TEST_GENERATOR.poolWorktreeName());
 
     await withWorktreePool({ worktreeName, holder }, async (env) => {
@@ -620,7 +723,7 @@ describe("worktree command handlers", () => {
       const resolvedWorktreesDir = resolvePath(env.worktreePath, relativeWorktreesDir);
 
       const claim = await claimCommand({
-        randomBytes,
+        claimWriteToken,
         sessionId,
         cwd: env.worktreePath,
         fs: env.fs,
@@ -654,8 +757,12 @@ describe("worktree command handlers", () => {
 
       const release = await releaseCommand({
         cwd: env.worktreePath,
+        env: { [CONTROLLING_PID_ENV]: String(holder.pid) },
         fs: env.fs,
         gitDeps: defaultGitDependencies,
+        processTable: env.processTable,
+        selfPid: holder.pid,
+        sessionId,
         worktreesDir: relativeWorktreesDir,
       });
       expect(release.ok).toBe(true);
@@ -668,15 +775,53 @@ describe("worktree command handlers", () => {
     });
   });
 
+  it("refuses to remove a running worktree claim owned by a different session", async () => {
+    const prefix = sampleWorktreeTestValue(WORKTREE_TEST_GENERATOR.tempPrefix());
+    const record = sampleWorktreeTestValue(WORKTREE_TEST_GENERATOR.claimRecord());
+    const [ownerSessionId, otherSessionId] = sampleWorktreeTestValue(WORKTREE_TEST_GENERATOR.distinctSessionIds());
+    const ownedRecord = { ...record, sessionId: ownerSessionId };
+    const writeToken = sampleWorktreeTestValue(WORKTREE_TEST_GENERATOR.writeToken());
+    const selfPid = sampleWorktreeTestValue(WORKTREE_TEST_GENERATOR.pid());
+    const gitDeps = createSessionGitDeps({ worktreeKind: WORKTREE_KIND.MAIN_CHECKOUT });
+    const name = worktreeClaimName(SESSION_GIT_DEPS_PATHS.MAIN_CHECKOUT_TOPLEVEL);
+    const processTable = createProcessTable({
+      host: ownedRecord.host,
+      processes: new Map<number, ProcessTableEntry>([
+        [ownedRecord.pid, { alive: true, startTime: ownedRecord.startedAt }],
+      ]),
+    });
+
+    await withTempDir(prefix, async (worktreesDir) => {
+      await writeClaim(worktreesDir, name, ownedRecord, { fs: defaultOccupancyFileSystem, writeToken });
+
+      const result = await releaseCommand({
+        cwd: SESSION_GIT_DEPS_PATHS.MAIN_CHECKOUT_TOPLEVEL,
+        env: { [CONTROLLING_PID_ENV]: String(ownedRecord.pid) },
+        fs: defaultOccupancyFileSystem,
+        processTable,
+        selfPid,
+        sessionId: otherSessionId,
+        worktreesDir,
+        gitDeps,
+      });
+      expect(result).toEqual({ ok: false, error: OCCUPANCY_ERROR.CLAIM_RELEASE_NOT_OWNER });
+
+      const after = await readClaim(worktreesDir, name, { fs: defaultOccupancyFileSystem });
+      expect(after.ok).toBe(true);
+      if (!after.ok) throw new Error(after.error);
+      expect(after.value).toEqual(ownedRecord);
+    });
+  });
+
   it("reports the current worktree's occupancy when no worktree argument is given", async () => {
     const worktreeName = sampleWorktreeTestValue(WORKTREE_TEST_GENERATOR.poolWorktreeName());
     const holder = sampleWorktreeTestValue(WORKTREE_TEST_GENERATOR.poolHolder());
     const sessionId = sampleWorktreeTestValue(WORKTREE_TEST_GENERATOR.sessionId());
-    const randomBytes = sampleWorktreeTestValue(WORKTREE_TEST_GENERATOR.randomBytes());
+    const claimWriteToken = sampleWorktreeTestValue(WORKTREE_TEST_GENERATOR.writeToken());
 
     await withWorktreePool({ worktreeName, holder }, async (env) => {
       const claim = await claimCommand({
-        randomBytes,
+        claimWriteToken,
         sessionId,
         cwd: env.worktreePath,
         fs: env.fs,
@@ -709,7 +854,7 @@ describe("worktree command handlers", () => {
     const worktreeName = sampleWorktreeTestValue(WORKTREE_TEST_GENERATOR.poolWorktreeName());
     const holder = sampleWorktreeTestValue(WORKTREE_TEST_GENERATOR.poolHolder());
     const sessionId = sampleWorktreeTestValue(WORKTREE_TEST_GENERATOR.sessionId());
-    const randomBytes = sampleWorktreeTestValue(WORKTREE_TEST_GENERATOR.randomBytes());
+    const claimWriteToken = sampleWorktreeTestValue(WORKTREE_TEST_GENERATOR.writeToken());
     const callerPrefix = sampleWorktreeTestValue(WORKTREE_TEST_GENERATOR.tempPrefix());
     const probe = createProcessTable({
       host: holder.host,
@@ -721,7 +866,7 @@ describe("worktree command handlers", () => {
       // Claim from the worktree with no explicit scope, so the claim is written
       // under the worktree's own git-common-dir `.spx/worktrees`.
       const claim = await claimCommand({
-        randomBytes,
+        claimWriteToken,
         sessionId,
         cwd: worktreePath,
         fs: defaultOccupancyFileSystem,

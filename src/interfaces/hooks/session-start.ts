@@ -22,7 +22,6 @@ import type { ControllingProcessEnv } from "@/domains/worktree/controlling-proce
 import type { OccupancyFileSystem } from "@/domains/worktree/occupancy-store";
 import type { ProcessTable } from "@/domains/worktree/process-table";
 import type { WorktreeScopeOptions } from "@/domains/worktree/resolve";
-import type { RandomBytes } from "@/lib/atomic-file-write";
 
 export interface HookEnvFileSystem {
   appendFile(path: string, data: string, encoding: "utf8"): Promise<void>;
@@ -46,8 +45,8 @@ export interface SessionStartHookOptions extends WorktreeScopeOptions {
   readonly compactStdout: boolean;
   /** Raw hook stdin JSON. */
   readonly content?: string;
-  /** Source of cryptographic random bytes for the atomic claim temp path. */
-  readonly randomBytes: RandomBytes;
+  /** Writer-unique token used for the atomic claim temp path. */
+  readonly claimWriteToken: string;
   /** Resolved hook env file path. */
   readonly envFile?: string;
   /** Environment read for session identity, env-file path, and controlling-pid override. */

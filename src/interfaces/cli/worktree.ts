@@ -28,6 +28,7 @@ export const WORKTREE_CLI = {
 } as const;
 
 const WORKTREE_DOMAIN_DESCRIPTION = "Coordinate worktree occupancy across a bare-repository pool";
+const CLAIM_WRITE_TOKEN_BYTES = 16;
 
 function writeOutput(invocation: CliInvocation, output: string): void {
   invocation.io.writeStdout(`${output}\n`);
@@ -63,7 +64,7 @@ function registerWorktreeCommands(worktreeCmd: Command, invocation: CliInvocatio
         fs: defaultOccupancyFileSystem,
         gitDeps: defaultGitDependencies,
         processTable: defaultProcessTable,
-        randomBytes: nodeRandomBytes,
+        claimWriteToken: nodeRandomBytes(CLAIM_WRITE_TOKEN_BYTES).toString("hex"),
         selfPid: process.pid,
         sessionId: options.sessionId,
         worktreesDir: options.worktreesDir,
@@ -102,12 +103,17 @@ function registerWorktreeCommands(worktreeCmd: Command, invocation: CliInvocatio
   worktreeCmd
     .command(WORKTREE_CLI.RELEASE)
     .description("Release the running worktree's occupancy claim")
+    .option(`${WORKTREE_CLI.SESSION_ID_FLAG} <id>`, "Releasing agent session id")
     .option(`${WORKTREE_CLI.WORKTREES_DIR_FLAG} <path>`, "Explicit .spx/worktrees directory")
-    .action(async (options: { worktreesDir?: string }) => {
+    .action(async (options: { sessionId?: string; worktreesDir?: string }) => {
       const result = await releaseCommand({
         cwd: effectiveInvocationDir(),
+        env: process.env,
         fs: defaultOccupancyFileSystem,
         gitDeps: defaultGitDependencies,
+        processTable: defaultProcessTable,
+        selfPid: process.pid,
+        sessionId: options.sessionId,
         worktreesDir: options.worktreesDir,
         onWarning: (warning) => writeInvocationWarning(invocation, warning),
       });
