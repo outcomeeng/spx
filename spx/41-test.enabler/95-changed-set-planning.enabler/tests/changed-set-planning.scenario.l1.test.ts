@@ -568,7 +568,7 @@ subject;
 
     expect(partition.operands).toEqual([]);
     expect(partition.sourceFiles).toEqual([]);
-    expect(partition.configChanged).toBe(false);
+    expect(partition.productInputChanged).toBe(false);
   });
 
   it("selects the full spec tree when product config changes", async () => {
@@ -581,6 +581,21 @@ subject;
 
     expect(plan.targets).toEqual({ operands: [SPEC_TREE_CONFIG.ROOT_DIRECTORY], recursive: true });
   });
+
+  it.each(typescriptTestingLanguage.productInputPaths)(
+    "selects the full spec tree when TypeScript product input changes: %s",
+    async (productInputPath) => {
+      const git = recordingGitRunner([productInputPath]);
+
+      const plan = await planChangedTestSelection(
+        { productDir: sampleDispatchValue(TEST_DISPATCH_GENERATOR.nodePath()) },
+        { git: git.git, registry: registry([typescriptTestingLanguage]), relatedDepsFor: () => relatedDeps() },
+      );
+
+      expect(plan.targets).toEqual({ operands: [SPEC_TREE_CONFIG.ROOT_DIRECTORY], recursive: true });
+      expect(plan.unresolvedSourceFiles).toEqual([]);
+    },
+  );
 
   it("defaults the changed base to origin of the default branch and honors an explicit base ref", async () => {
     const git = recordingGitRunner([]);
