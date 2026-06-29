@@ -5,6 +5,7 @@
  */
 
 import type { Result } from "@/config/types";
+import { normalizeAgentSessionToken } from "@/domains/session/agent-session";
 import { type ControllingProcessEnv, resolveControllingProcess } from "@/domains/worktree/controlling-process";
 import { acquireClaim, type OccupancyFileSystem } from "@/domains/worktree/occupancy-store";
 import type { ProcessTable } from "@/domains/worktree/process-table";
@@ -37,7 +38,7 @@ export async function claimWorktreeOccupancy(options: ClaimWorktreeOccupancyOpti
     worktreesDir,
     name,
     {
-      sessionId: options.sessionId,
+      sessionId: normalizeAgentSessionToken(options.sessionId),
       host: controlling.value.host,
       pid: controlling.value.pid,
       startedAt: controlling.value.startedAt,
