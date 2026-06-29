@@ -105,6 +105,31 @@ describe("buildSpxTestArgs", () => {
     );
   });
 
+  it("non-default config mixed source and test files map to the operand runner", () => {
+    fc.assert(
+      fc.property(
+        PRECOMMIT_TEST_GENERATOR.config().chain((config) =>
+          fc
+            .tuple(
+              fc.array(PRECOMMIT_TEST_GENERATOR.sourcePath(config), { minLength: 1, maxLength: 3 }),
+              fc.array(PRECOMMIT_TEST_GENERATOR.testPath(config), { minLength: 1, maxLength: 3 }),
+            )
+            .map(([sourceFiles, testFiles]) => ({ config, sourceFiles, testFiles }))
+        ),
+        ({ config, sourceFiles, testFiles }) => {
+          const expectedArgs = [VITEST_ARGS.RELATED, VITEST_ARGS.RUN, ...sourceFiles, ...testFiles];
+          const stagedFiles = [...sourceFiles, ...testFiles];
+
+          expect(buildVitestArgs(stagedFiles, config)).toEqual(expectedArgs);
+          expect(buildPrecommitTestInvocation(stagedFiles, config)).toEqual({
+            runner: PRECOMMIT_TEST_RUNNERS.VITEST,
+            args: expectedArgs,
+          });
+        },
+      ),
+    );
+  });
+
   it("non-default config test files map to the operand runner when source files are absent", () => {
     fc.assert(
       fc.property(
