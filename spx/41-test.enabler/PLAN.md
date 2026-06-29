@@ -308,14 +308,14 @@ diagnostics.
 
 ## Harness governance — recording-runner batch complete
 
-The recording-runner harness-governance batch governs the testing recording-runner harnesses and generators per the **Remaining harness governance program** in `spx/PLAN.md`. All four module groups are governed (spec + focused contract tests; spec-auditor and test-evidence-auditor approved):
+The recording-runner harness-governance batch governs the testing recording-runner harnesses and generators with the node-local harness-governance pattern. All four module groups are governed (spec + focused contract tests; spec-auditor and test-evidence-auditor approved):
 
 - `testing/generators/testing/run-state.ts` → `spx/41-test.enabler/43-last-run-evidence.enabler/15-test-state-generator.enabler`
 - `testing/harnesses/testing/python-runner.ts`, `testing/generators/testing/python-runner.ts`, `testing/harnesses/testing/python-product-inputs.ts` → `spx/41-test.enabler/21-python-test.enabler/32-test-harness.enabler`
 - `testing/harnesses/testing/typescript-runner.ts`, `testing/generators/testing/typescript-runner.ts` → `spx/41-test.enabler/21-typescript-test.enabler/32-test-harness.enabler`
 - `testing/harnesses/testing/harness.ts`, `testing/harnesses/testing/cli.ts`, `testing/generators/testing/dispatch.ts`, `testing/harnesses/testing/recording-command-runner.ts` (the shared recording-runner contract assertion lifted from the per-language harness tests) → `spx/41-test.enabler/26-test-harness.enabler` (dispatch operand semantics stay governed by `spx/41-test.enabler/90-targeted-execution.enabler`, not restated)
 
-Learnings (carry to the remaining `spx/PLAN.md` harness-governance batches):
+Learnings to carry to the remaining harness-governance batches:
 
 - Several modules already reach near or full coverage through their consumers (run-state was 100%), so governance is mostly authoring spec nodes with focused contract tests, not coverage-closing tests.
 - The python and typescript runners share a `RecordingCommandRunner` structure and the runner generators share spec-tree path constants — keep the parallel structure; do not extract until a third language arrives (see this enabler's `ISSUES.md`).

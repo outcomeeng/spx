@@ -32,7 +32,7 @@ Do not lose product-wide reach accidentally. If runtime remains a product-wide g
 
 ## Harness governance (queued)
 
-Govern the still-ungoverned infrastructure and remaining cross-domain test harnesses and generators per the **Remaining harness governance program** in `spx/PLAN.md` (uniform approach, audit gates, and literal-collision lessons). This is the catch-all final batch spanning several domains; split into more than one PR if it grows large.
+Govern the still-ungoverned infrastructure and remaining cross-domain test harnesses and generators using the node-local harness-governance pattern: author per-module test-harness or generator enablers, run the spec-auditor and test-evidence-auditor gates including coverage, and carry the literal-collision lessons from the completed recording-runner batch in `spx/41-test.enabler/PLAN.md`. This is the catch-all final batch spanning several domains; split into more than one PR if it grows large.
 
 Modules to govern (place each governing node beside its owning domain node):
 

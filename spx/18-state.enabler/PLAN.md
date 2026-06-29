@@ -2,7 +2,7 @@
 
 ## Harness governance
 
-Governed under the **Remaining harness governance program** in `spx/PLAN.md`. Coverage survey dispositions for the state+worktree modules:
+Governed under the node-local harness-governance pattern: per-module test-harness or generator enablers, spec-auditor and test-evidence-auditor gates including coverage, and literal-collision checks. Coverage survey dispositions for the state+worktree modules:
 
 - **Governed (new nodes):** `testing/harnesses/state/in-memory-file-system.ts` (the `StateStoreFileSystem` double, was 34% consumer-covered) → `spx/18-state.enabler/43-record-store.enabler/21-test-harness.enabler` (it doubles the record-store's FS port); `testing/harnesses/worktree/harness.ts`'s recording `OccupancyFileSystem` double (un-exercised `readFile`/`rm` recording) → `spx/38-worktree.enabler/32-occupancy-store.enabler/21-test-harness.enabler`. Both harness files reach 100% statement coverage.
 - **Already governed:** `git-deps.ts` (100%) and `product-root-probe.ts` are governed by `spx/18-state.enabler/15-state-test-harness.enabler`.
