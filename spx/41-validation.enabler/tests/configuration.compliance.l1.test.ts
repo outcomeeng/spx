@@ -12,6 +12,7 @@ import {
 } from "@/commands/validation/messages";
 import { resolveConfig } from "@/config/index";
 import { NODE_STATUS_EXCLUDE_FILENAME } from "@/lib/node-status/exclude";
+import { SPEC_TREE_CONFIG } from "@/lib/spec-tree/config";
 import {
   VALIDATION_ENABLED_FIELD,
   VALIDATION_KNIP_SUBSECTION,
@@ -311,7 +312,7 @@ describe("ALWAYS: validation command participation is driven by spx config", () 
         [validationConfigDescriptor.section]: {
           [VALIDATION_PATHS_SUBSECTION]: {
             [VALIDATION_PATH_TOOL_SUBSECTIONS.MARKDOWN]: {
-              include: ["spx"],
+              include: [SPEC_TREE_CONFIG.ROOT_DIRECTORY],
             },
           },
         },
@@ -335,7 +336,7 @@ describe("ALWAYS: validation command participation is driven by spx config", () 
         [validationConfigDescriptor.section]: {
           [VALIDATION_PATHS_SUBSECTION]: {
             [VALIDATION_PATH_TOOL_SUBSECTIONS.MARKDOWN]: {
-              include: ["spx"],
+              include: [SPEC_TREE_CONFIG.ROOT_DIRECTORY],
             },
           },
         },
@@ -369,7 +370,7 @@ describe("ALWAYS: validation command participation is driven by spx config", () 
         [validationConfigDescriptor.section]: {
           [VALIDATION_PATHS_SUBSECTION]: {
             [VALIDATION_PATH_TOOL_SUBSECTIONS.MARKDOWN]: {
-              include: ["spx"],
+              include: [SPEC_TREE_CONFIG.ROOT_DIRECTORY],
               exclude: ["spx/private"],
             },
           },
