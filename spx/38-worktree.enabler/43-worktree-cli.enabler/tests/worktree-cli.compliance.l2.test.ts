@@ -39,7 +39,9 @@ function normalizeGitWorktreeRoot(value: string): string {
 
 async function expectedFreeStatusEntriesFromGitWorktreeList(cwd: string): Promise<readonly JsonStatusEntry[]> {
   const output = await readGit(cwd, GIT_WORKTREE_LIST_PORCELAIN_ARGS);
-  return output.split("\n\n").flatMap((record) => {
+  const entries: JsonStatusEntry[] = [];
+  const seenRoots = new Set<string>();
+  for (const record of output.split("\n\n")) {
     const lines = record.split("\n");
     if (
       lines.includes(GIT_WORKTREE_PORCELAIN_BARE_LINE)
@@ -48,16 +50,19 @@ async function expectedFreeStatusEntriesFromGitWorktreeList(cwd: string): Promis
         || line.startsWith(GIT_WORKTREE_PORCELAIN_PRUNABLE_PREFIX)
       )
     ) {
-      return [];
+      continue;
     }
     const worktreeLine = lines.find((line) => line.startsWith(GIT_WORKTREE_PORCELAIN_ROOT_PREFIX));
-    if (worktreeLine === undefined) return [];
+    if (worktreeLine === undefined) continue;
     const worktreeRoot = normalizeGitWorktreeRoot(worktreeLine.slice(GIT_WORKTREE_PORCELAIN_ROOT_PREFIX.length));
-    return [{
+    if (worktreeRoot.length === 0 || seenRoots.has(worktreeRoot)) continue;
+    seenRoots.add(worktreeRoot);
+    entries.push({
       worktree: worktreeClaimName(worktreeRoot),
       status: OCCUPANCY_STATUS.FREE,
-    }];
-  });
+    });
+  }
+  return entries;
 }
 
 function expectedFreeStatusEntriesFromWorktreePaths(

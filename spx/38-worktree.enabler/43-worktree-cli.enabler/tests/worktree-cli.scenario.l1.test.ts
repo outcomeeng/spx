@@ -1,5 +1,5 @@
 import { mkdir, realpath, writeFile } from "node:fs/promises";
-import { basename, join, sep } from "node:path";
+import { basename, isAbsolute, join, relative, sep } from "node:path";
 
 import { describe, expect, it } from "vitest";
 
@@ -75,7 +75,7 @@ function pathAwareWorktreeListDeps(options: {
     execa: async (_command, args, commandOptions) => {
       if (gitArgsEqual(args, GIT_SHOW_TOPLEVEL_ARGS)) {
         const cwd = String(commandOptions?.cwd ?? options.worktreeRoots[0]);
-        const worktreeRoot = options.worktreeRoots.find((root) => cwd === root || cwd.startsWith(`${root}${sep}`));
+        const worktreeRoot = options.worktreeRoots.find((root) => isPathInsideOrEqual(root, cwd));
         return worktreeRoot === undefined
           ? { exitCode: 1, stdout: "", stderr: "" }
           : { exitCode: 0, stdout: worktreeRoot, stderr: "" };
@@ -99,6 +99,11 @@ function pathAwareWorktreeListDeps(options: {
       return { exitCode: 1, stdout: "", stderr: "" };
     },
   };
+}
+
+function isPathInsideOrEqual(root: string, candidate: string): boolean {
+  const relativePath = relative(root, candidate);
+  return relativePath === "" || (!relativePath.startsWith("..") && !isAbsolute(relativePath));
 }
 
 function worktreeListUnavailableDeps(options: {
@@ -526,6 +531,35 @@ describe("worktree command handlers", () => {
     });
 
     expect(status).toEqual({ ok: false, error: WORKTREE_RESOLVE_ERROR.WORKTREE_LIST_UNAVAILABLE });
+  });
+
+  it("reports resolved targets when another target cannot read the worktree list", async () => {
+    const [worktreeName, commonDirName] = sampleWorktreeTestValue(
+      WORKTREE_TEST_GENERATOR.distinctPoolWorktreeNames(),
+    );
+    const worktreeRoot = join("/", worktreeName);
+    const commonDir = join("/", commonDirName);
+
+    const status = await statusCommand({
+      worktrees: [worktreeRoot, worktreeName],
+      cwd: worktreeRoot,
+      format: WORKTREE_STATUS_FORMAT.JSON,
+      fs: defaultOccupancyFileSystem,
+      gitDeps: worktreeListUnavailableDeps({
+        worktreeRoot,
+        commonDir,
+        unresolvedGitPath: join(worktreeRoot, worktreeName),
+      }),
+      processTable: createProcessTable({ host: commonDirName, processes: new Map() }),
+      pathInfo: defaultWorktreePathInfo,
+    });
+
+    expect(status.ok).toBe(true);
+    if (!status.ok) throw new Error(status.error);
+    expect(JSON.parse(status.value)).toEqual([{
+      worktree: worktreeClaimName(worktreeRoot),
+      status: OCCUPANCY_STATUS.FREE,
+    }]);
   });
 
   it("rejects combining all targets with explicit worktree operands", async () => {
