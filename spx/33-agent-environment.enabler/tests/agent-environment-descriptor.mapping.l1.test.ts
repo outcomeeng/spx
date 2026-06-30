@@ -12,7 +12,7 @@ import {
   resolveConfig,
   serializeConfigFileSections,
 } from "@/config/index";
-import { agentEnvironmentConfigDescriptor } from "@/domains/agent-environment/config";
+import { harnessEnvironmentConfigDescriptor } from "@/domains/agent-environment/config";
 import { compareAsciiStrings } from "@/lib/state-store";
 import { CONFIG_TEST_GENERATOR, sampleConfigTestValue } from "@testing/generators/config/descriptors";
 import type { Config } from "@testing/harnesses/spec-tree/spec-tree";
@@ -24,9 +24,9 @@ function serializeConfig(format: ConfigFileFormat, config: Config): string {
   return serialized.value;
 }
 
-describe("agent environment descriptor format mapping", () => {
-  it("resolves equivalent agent environment sections from JSON, YAML, and TOML config files", async () => {
-    const generated = sampleConfigTestValue(CONFIG_TEST_GENERATOR.agentEnvironmentConfig());
+describe("harness environment descriptor format mapping", () => {
+  it("resolves equivalent harness environment sections from JSON, YAML, and TOML config files", async () => {
+    const generated = sampleConfigTestValue(CONFIG_TEST_GENERATOR.harnessEnvironmentConfig());
     const results: Partial<Record<ConfigFileFormat, unknown>> = {};
 
     for (const format of CONFIG_FILE_FORMAT_ORDER) {
@@ -34,7 +34,7 @@ describe("agent environment descriptor format mapping", () => {
         const defaultConfigPath = join(productDir, DEFAULT_CONFIG_FILENAME);
         await rm(defaultConfigPath);
         await writeRaw(CONFIG_FILENAMES[format], serializeConfig(format, generated.config));
-        const result = await resolveConfig(productDir, [agentEnvironmentConfigDescriptor]);
+        const result = await resolveConfig(productDir, [harnessEnvironmentConfigDescriptor]);
         expect(result.ok).toBe(true);
         if (result.ok) results[format] = result.value;
       });

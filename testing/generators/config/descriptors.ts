@@ -8,11 +8,11 @@ import {
 } from "@/config/primitives/path-filter";
 import type { ConfigDescriptor, Result } from "@/config/types";
 import {
-  AGENT_ENVIRONMENT_CONFIG_FIELDS,
-  AGENT_ENVIRONMENT_SECTION,
-  AGENT_RUNTIME,
-  type AgentEnvironmentConfig,
+  AGENT,
   DEFAULT_AGENT_INSTRUCTION_FILE_PATH,
+  HARNESS_ENVIRONMENT_CONFIG_FIELDS,
+  HARNESS_ENVIRONMENT_SECTION,
+  type HarnessEnvironmentConfig,
 } from "@/domains/agent-environment/config";
 import {
   KIND_REGISTRY,
@@ -93,14 +93,14 @@ export type GeneratedTestingConfig = {
   readonly expected: TestingConfig;
 };
 
-export type GeneratedAgentEnvironmentConfig = {
+export type GeneratedHarnessEnvironmentConfig = {
   readonly config: Record<string, unknown>;
-  readonly expected: AgentEnvironmentConfig;
+  readonly expected: HarnessEnvironmentConfig;
 };
 
 export const CONFIG_TEST_GENERATOR = {
   absentConfigFileReadResult: arbitraryAbsentConfigFileReadResult,
-  agentEnvironmentConfig: arbitraryAgentEnvironmentConfig,
+  harnessEnvironmentConfig: arbitraryHarnessEnvironmentConfig,
   emptyConfig: arbitraryEmptyConfig,
   environmentSentinel: arbitraryEnvironmentSentinel,
   invalidSpecTreeConfig: arbitraryInvalidSpecTreeConfig,
@@ -285,7 +285,7 @@ function arbitraryTestingConfig(): fc.Arbitrary<GeneratedTestingConfig> {
   });
 }
 
-function arbitraryAgentEnvironmentConfig(): fc.Arbitrary<GeneratedAgentEnvironmentConfig> {
+function arbitraryHarnessEnvironmentConfig(): fc.Arbitrary<GeneratedHarnessEnvironmentConfig> {
   // Fixed structure: explicit tests cover optional shapes; add narrower generators for consumers that need shape variability.
   return fc
     .record({
@@ -298,68 +298,68 @@ function arbitraryAgentEnvironmentConfig(): fc.Arbitrary<GeneratedAgentEnvironme
     })
     .map(({ marketplaceName, marketplaceSource, pluginName, pluginVersion, skillName, skillSource }) => {
       const section = {
-        [AGENT_ENVIRONMENT_CONFIG_FIELDS.INSTRUCTIONS]: {
-          [AGENT_ENVIRONMENT_CONFIG_FIELDS.FILES]: [
+        [HARNESS_ENVIRONMENT_CONFIG_FIELDS.INSTRUCTIONS]: {
+          [HARNESS_ENVIRONMENT_CONFIG_FIELDS.FILES]: [
             {
-              [AGENT_ENVIRONMENT_CONFIG_FIELDS.PATH]: DEFAULT_AGENT_INSTRUCTION_FILE_PATH,
-              [AGENT_ENVIRONMENT_CONFIG_FIELDS.TARGET_RUNTIMES]: [
-                AGENT_RUNTIME.CODEX,
-                AGENT_RUNTIME.CLAUDE_CODE,
+              [HARNESS_ENVIRONMENT_CONFIG_FIELDS.PATH]: DEFAULT_AGENT_INSTRUCTION_FILE_PATH,
+              [HARNESS_ENVIRONMENT_CONFIG_FIELDS.TARGET_AGENTS]: [
+                AGENT.CODEX,
+                AGENT.CLAUDE_CODE,
               ],
             },
           ],
         },
-        [AGENT_ENVIRONMENT_CONFIG_FIELDS.RUNTIMES]: {
-          [AGENT_RUNTIME.CODEX]: {
-            [AGENT_ENVIRONMENT_CONFIG_FIELDS.ENABLED]: false,
+        [HARNESS_ENVIRONMENT_CONFIG_FIELDS.AGENTS]: {
+          [AGENT.CODEX]: {
+            [HARNESS_ENVIRONMENT_CONFIG_FIELDS.ENABLED]: false,
           },
-          [AGENT_RUNTIME.CLAUDE_CODE]: {
-            [AGENT_ENVIRONMENT_CONFIG_FIELDS.ENABLED]: true,
+          [AGENT.CLAUDE_CODE]: {
+            [HARNESS_ENVIRONMENT_CONFIG_FIELDS.ENABLED]: true,
           },
         },
-        [AGENT_ENVIRONMENT_CONFIG_FIELDS.PLUGIN_BOOTSTRAP]: {
-          [AGENT_ENVIRONMENT_CONFIG_FIELDS.MARKETPLACES]: [
+        [HARNESS_ENVIRONMENT_CONFIG_FIELDS.PLUGIN_BOOTSTRAP]: {
+          [HARNESS_ENVIRONMENT_CONFIG_FIELDS.MARKETPLACES]: [
             {
-              [AGENT_ENVIRONMENT_CONFIG_FIELDS.RUNTIME]: AGENT_RUNTIME.CLAUDE_CODE,
-              [AGENT_ENVIRONMENT_CONFIG_FIELDS.NAME]: marketplaceName,
-              [AGENT_ENVIRONMENT_CONFIG_FIELDS.SOURCE]: marketplaceSource,
+              [HARNESS_ENVIRONMENT_CONFIG_FIELDS.AGENT]: AGENT.CLAUDE_CODE,
+              [HARNESS_ENVIRONMENT_CONFIG_FIELDS.NAME]: marketplaceName,
+              [HARNESS_ENVIRONMENT_CONFIG_FIELDS.SOURCE]: marketplaceSource,
             },
           ],
-          [AGENT_ENVIRONMENT_CONFIG_FIELDS.PLUGINS]: [
+          [HARNESS_ENVIRONMENT_CONFIG_FIELDS.PLUGINS]: [
             {
-              [AGENT_ENVIRONMENT_CONFIG_FIELDS.RUNTIME]: AGENT_RUNTIME.CLAUDE_CODE,
-              [AGENT_ENVIRONMENT_CONFIG_FIELDS.NAME]: pluginName,
-              [AGENT_ENVIRONMENT_CONFIG_FIELDS.MARKETPLACE]: marketplaceName,
-              [AGENT_ENVIRONMENT_CONFIG_FIELDS.VERSION]: pluginVersion,
+              [HARNESS_ENVIRONMENT_CONFIG_FIELDS.AGENT]: AGENT.CLAUDE_CODE,
+              [HARNESS_ENVIRONMENT_CONFIG_FIELDS.NAME]: pluginName,
+              [HARNESS_ENVIRONMENT_CONFIG_FIELDS.MARKETPLACE]: marketplaceName,
+              [HARNESS_ENVIRONMENT_CONFIG_FIELDS.VERSION]: pluginVersion,
             },
           ],
-          [AGENT_ENVIRONMENT_CONFIG_FIELDS.SKILLS]: [
+          [HARNESS_ENVIRONMENT_CONFIG_FIELDS.SKILLS]: [
             {
-              [AGENT_ENVIRONMENT_CONFIG_FIELDS.RUNTIME]: AGENT_RUNTIME.CODEX,
-              [AGENT_ENVIRONMENT_CONFIG_FIELDS.NAME]: skillName,
-              [AGENT_ENVIRONMENT_CONFIG_FIELDS.SOURCE]: skillSource,
+              [HARNESS_ENVIRONMENT_CONFIG_FIELDS.AGENT]: AGENT.CODEX,
+              [HARNESS_ENVIRONMENT_CONFIG_FIELDS.NAME]: skillName,
+              [HARNESS_ENVIRONMENT_CONFIG_FIELDS.SOURCE]: skillSource,
             },
           ],
         },
       };
       return {
         config: {
-          [AGENT_ENVIRONMENT_SECTION]: section,
+          [HARNESS_ENVIRONMENT_SECTION]: section,
         },
         expected: {
           instructions: {
             files: [
               {
                 path: DEFAULT_AGENT_INSTRUCTION_FILE_PATH,
-                targetRuntimes: [
-                  AGENT_RUNTIME.CODEX,
-                  AGENT_RUNTIME.CLAUDE_CODE,
+                targetAgents: [
+                  AGENT.CODEX,
+                  AGENT.CLAUDE_CODE,
                 ],
               },
             ],
           },
-          runtimes: {
-            [AGENT_RUNTIME.CODEX]: {
+          agents: {
+            [AGENT.CODEX]: {
               enabled: false,
               hooks: {
                 sessionStart: {
@@ -367,7 +367,7 @@ function arbitraryAgentEnvironmentConfig(): fc.Arbitrary<GeneratedAgentEnvironme
                 },
               },
             },
-            [AGENT_RUNTIME.CLAUDE_CODE]: {
+            [AGENT.CLAUDE_CODE]: {
               enabled: true,
               hooks: {
                 sessionStart: {
@@ -379,14 +379,14 @@ function arbitraryAgentEnvironmentConfig(): fc.Arbitrary<GeneratedAgentEnvironme
           pluginBootstrap: {
             marketplaces: [
               {
-                runtime: AGENT_RUNTIME.CLAUDE_CODE,
+                agent: AGENT.CLAUDE_CODE,
                 name: marketplaceName,
                 source: marketplaceSource,
               },
             ],
             plugins: [
               {
-                runtime: AGENT_RUNTIME.CLAUDE_CODE,
+                agent: AGENT.CLAUDE_CODE,
                 name: pluginName,
                 marketplace: marketplaceName,
                 version: pluginVersion,
@@ -394,7 +394,7 @@ function arbitraryAgentEnvironmentConfig(): fc.Arbitrary<GeneratedAgentEnvironme
             ],
             skills: [
               {
-                runtime: AGENT_RUNTIME.CODEX,
+                agent: AGENT.CODEX,
                 name: skillName,
                 source: skillSource,
               },
