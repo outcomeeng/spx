@@ -1,4 +1,5 @@
 import { mkdir, readdir, writeFile } from "node:fs/promises";
+import { hostname } from "node:os";
 
 import { join } from "node:path";
 
@@ -6,7 +7,7 @@ import { describe, expect, it } from "vitest";
 
 import { WORKTREE_STATUS_FORMAT } from "@/commands/worktree/index";
 import { CONTROLLING_PID_ENV } from "@/domains/worktree/controlling-process";
-import { OCCUPANCY_CLAIM, OCCUPANCY_STATUS } from "@/domains/worktree/occupancy-store";
+import { OCCUPANCY_CLAIM, OCCUPANCY_STATUS, writeClaim } from "@/domains/worktree/occupancy-store";
 import { worktreeClaimName } from "@/domains/worktree/worktree-name";
 import {
   GIT_WORKTREE_LIST_PORCELAIN_ARGS,
@@ -16,6 +17,7 @@ import {
   GIT_WORKTREE_PORCELAIN_ROOT_PREFIX,
 } from "@/git/root";
 import { WORKTREE_CLI } from "@/interfaces/cli/worktree";
+import { defaultOccupancyFileSystem } from "@/lib/worktree-occupancy-file-system";
 import { sampleWorktreeTestValue, WORKTREE_TEST_GENERATOR } from "@testing/generators/worktree/worktree";
 import { readGit } from "@testing/harnesses/git-test-constants";
 import { withTempDir } from "@testing/harnesses/with-temp-dir";
@@ -26,6 +28,14 @@ type JsonStatusEntry = {
   readonly worktree: string;
   readonly status: string;
 };
+
+function trimTrailingPathSeparators(value: string): string {
+  return value.replace(/[\\/]+$/u, "");
+}
+
+function normalizeGitWorktreeRoot(value: string): string {
+  return trimTrailingPathSeparators(value.trim());
+}
 
 async function expectedFreeStatusEntriesFromGitWorktreeList(cwd: string): Promise<readonly JsonStatusEntry[]> {
   const output = await readGit(cwd, GIT_WORKTREE_LIST_PORCELAIN_ARGS);
@@ -42,7 +52,7 @@ async function expectedFreeStatusEntriesFromGitWorktreeList(cwd: string): Promis
     }
     const worktreeLine = lines.find((line) => line.startsWith(GIT_WORKTREE_PORCELAIN_ROOT_PREFIX));
     if (worktreeLine === undefined) return [];
-    const worktreeRoot = worktreeLine.slice(GIT_WORKTREE_PORCELAIN_ROOT_PREFIX.length);
+    const worktreeRoot = normalizeGitWorktreeRoot(worktreeLine.slice(GIT_WORKTREE_PORCELAIN_ROOT_PREFIX.length));
     return [{
       worktree: worktreeClaimName(worktreeRoot),
       status: OCCUPANCY_STATUS.FREE,
@@ -300,6 +310,48 @@ describe("worktree CLI compliance", () => {
           pid: process.pid,
           session: sessionId,
           host: expect.any(String),
+        });
+      });
+    });
+  });
+
+  it("ALWAYS: a dead holder claim reads free through status --format json", async () => {
+    const prefix = sampleWorktreeTestValue(WORKTREE_TEST_GENERATOR.tempPrefix());
+    const worktreeName = sampleWorktreeTestValue(WORKTREE_TEST_GENERATOR.poolWorktreeName());
+    const sessionId = sampleWorktreeTestValue(WORKTREE_TEST_GENERATOR.sessionId());
+    const startedAt = sampleWorktreeTestValue(WORKTREE_TEST_GENERATOR.startTime());
+    const claimWriteToken = sampleWorktreeTestValue(WORKTREE_TEST_GENERATOR.writeToken());
+
+    await withWorktreeLayoutEnv({ bare: true, worktrees: [{ name: worktreeName }] }, async (layout) => {
+      await withTempDir(prefix, async (worktreesDir) => {
+        const worktreePath = layout.worktree(worktreeName);
+        const write = await writeClaim(
+          worktreesDir,
+          worktreeClaimName(worktreePath),
+          { sessionId, host: hostname(), pid: Number.MAX_SAFE_INTEGER, startedAt },
+          { fs: defaultOccupancyFileSystem, writeToken: claimWriteToken },
+        );
+        expect(write.ok).toBe(true);
+        if (!write.ok) throw new Error(write.error);
+
+        const status = await runWorktreeCli(
+          [
+            WORKTREE_CLI.COMMAND,
+            WORKTREE_CLI.STATUS,
+            ".",
+            WORKTREE_CLI.FORMAT_FLAG,
+            WORKTREE_STATUS_FORMAT.JSON,
+            WORKTREE_CLI.WORKTREES_DIR_FLAG,
+            worktreesDir,
+          ],
+          {},
+          worktreePath,
+        );
+
+        expect(status.exitCode).toBe(0);
+        expect(JSON.parse(status.stdout)).toEqual({
+          worktree: worktreeClaimName(worktreePath),
+          status: OCCUPANCY_STATUS.FREE,
         });
       });
     });

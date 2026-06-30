@@ -23,6 +23,7 @@ import {
   type ResolvedTargetWorktree,
   resolveTargetWorktree,
   resolveWorktreesDir,
+  WORKTREE_RESOLVE_ERROR,
   type WorktreePathInfo,
   type WorktreeScopeOptions,
 } from "@/domains/worktree/resolve";
@@ -130,13 +131,12 @@ async function resolveStatusTargets(options: StatusCommandOptions): Promise<Resu
   let firstError: string | undefined;
   for (const worktree of requested) {
     const target = await resolveTargetWorktree({ ...options, worktree });
-    if (target.ok) {
-      if (seenRoots.has(target.value.worktreeRoot)) continue;
-      seenRoots.add(target.value.worktreeRoot);
-      targets.push(target.value);
-    } else {
+    if (!target.ok) {
+      if (isAmbiguousWorktreeTargetError(target.error)) return target;
       firstError ??= target.error;
+      continue;
     }
+    appendFirstSeenTarget(targets, seenRoots, target.value);
   }
 
   if (targets.length === 0) {
@@ -144,6 +144,20 @@ async function resolveStatusTargets(options: StatusCommandOptions): Promise<Resu
   }
 
   return { ok: true, value: targets };
+}
+
+function isAmbiguousWorktreeTargetError(error: string): boolean {
+  return error.startsWith(WORKTREE_RESOLVE_ERROR.AMBIGUOUS_WORKTREE_BASENAME);
+}
+
+function appendFirstSeenTarget(
+  targets: ResolvedTargetWorktree[],
+  seenRoots: Set<string>,
+  target: ResolvedTargetWorktree,
+): void {
+  if (seenRoots.has(target.worktreeRoot)) return;
+  seenRoots.add(target.worktreeRoot);
+  targets.push(target);
 }
 
 function renderStatus(

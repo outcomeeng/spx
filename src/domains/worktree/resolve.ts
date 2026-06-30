@@ -84,7 +84,8 @@ export async function resolveAllTargetWorktrees(
  * within — names the same claim. The resolved root is returned so the claim
  * scope resolves from the same worktree the name does, never from the caller's
  * unrelated working directory. A target that resolves to no worktree is refused
- * rather than keyed on a bare path segment.
+ * rather than keyed on a bare path segment. A bare basename target falls back
+ * to git's observed worktree list only after direct path resolution fails.
  */
 export async function resolveTargetWorktree(
   options: WorktreeScopeOptions & { readonly pathInfo: WorktreePathInfo; readonly worktree?: string },
@@ -96,7 +97,7 @@ export async function resolveTargetWorktree(
   if (!worktree.isGitRepo) {
     const basenameTarget = await resolveBasenameTargetWorktree(options);
     if (basenameTarget.ok) return basenameTarget;
-    return basenameTarget.error.startsWith(WORKTREE_RESOLVE_ERROR.AMBIGUOUS_WORKTREE_BASENAME)
+    return isBasenameFallbackResolutionError(basenameTarget.error)
       ? basenameTarget
       : { ok: false, error: `${WORKTREE_RESOLVE_ERROR.NOT_A_WORKTREE}: ${options.worktree ?? base}` };
   }
@@ -110,9 +111,10 @@ async function resolveBasenameTargetWorktree(
     return { ok: false, error: `${WORKTREE_RESOLVE_ERROR.NOT_A_WORKTREE}: ${options.worktree ?? options.cwd}` };
   }
   const facts = await gatherGitFacts(options.cwd, options.gitDeps);
-  if (!facts?.worktreeListRead) {
+  if (facts === null) {
     return { ok: false, error: `${WORKTREE_RESOLVE_ERROR.NOT_A_WORKTREE}: ${options.worktree}` };
   }
+  if (!facts.worktreeListRead) return { ok: false, error: WORKTREE_RESOLVE_ERROR.WORKTREE_LIST_UNAVAILABLE };
   const matchingRoots = facts.worktreeRoots.filter((root) => basename(root) === options.worktree);
   if (matchingRoots.length === 0) {
     return { ok: false, error: `${WORKTREE_RESOLVE_ERROR.NOT_A_WORKTREE}: ${options.worktree}` };
@@ -122,4 +124,9 @@ async function resolveBasenameTargetWorktree(
   }
   const [worktreeRoot] = matchingRoots;
   return { ok: true, value: { name: worktreeClaimName(worktreeRoot), worktreeRoot } };
+}
+
+function isBasenameFallbackResolutionError(error: string): boolean {
+  return error === WORKTREE_RESOLVE_ERROR.WORKTREE_LIST_UNAVAILABLE
+    || error.startsWith(WORKTREE_RESOLVE_ERROR.AMBIGUOUS_WORKTREE_BASENAME);
 }

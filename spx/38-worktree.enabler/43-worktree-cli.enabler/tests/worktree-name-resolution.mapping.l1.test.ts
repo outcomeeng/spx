@@ -197,4 +197,36 @@ describe("worktree status path-form resolution", () => {
       expect(status.error).toBe(`${WORKTREE_RESOLVE_ERROR.AMBIGUOUS_WORKTREE_BASENAME}: ${duplicateBasename}`);
     });
   });
+
+  it("refuses an ambiguous bare basename even when another target resolves", async () => {
+    const [firstParent, secondParent] = sampleWorktreeTestValue(WORKTREE_TEST_GENERATOR.distinctPoolWorktreeNames());
+    const duplicateBasename = sampleWorktreeTestValue(WORKTREE_TEST_GENERATOR.poolWorktreeName());
+    const commonDir = sampleWorktreeTestValue(WORKTREE_TEST_GENERATOR.writeToken());
+    const tempPrefix = sampleWorktreeTestValue(WORKTREE_TEST_GENERATOR.tempPrefix());
+
+    await withTempDir(tempPrefix, async (container) => {
+      const firstRoot = join(container, firstParent, duplicateBasename);
+      const secondRoot = join(container, secondParent, duplicateBasename);
+      const ambiguousTargetPath = join(firstRoot, duplicateBasename);
+
+      const status = await statusCommand({
+        worktrees: [duplicateBasename, firstRoot],
+        cwd: firstRoot,
+        fs: defaultOccupancyFileSystem,
+        gitDeps: duplicateBasenameGitDeps({
+          currentWorktreeRoot: firstRoot,
+          ambiguousTargetPath,
+          commonDir: join(container, commonDir),
+          worktreeRoots: [firstRoot, secondRoot],
+        }),
+        worktreesDir: container,
+        processTable: createProcessTable({ host: secondParent, processes: new Map() }),
+        pathInfo: absentPathInfo,
+      });
+
+      expect(status.ok).toBe(false);
+      if (status.ok) throw new Error(`expected mixed-target ambiguity refusal, got status "${status.value}"`);
+      expect(status.error).toBe(`${WORKTREE_RESOLVE_ERROR.AMBIGUOUS_WORKTREE_BASENAME}: ${duplicateBasename}`);
+    });
+  });
 });
