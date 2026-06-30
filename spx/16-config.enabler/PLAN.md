@@ -13,7 +13,7 @@ Coordinate the refactor tranche that moves deterministic execution domains onto 
 ## Settled foundations
 
 - `spx/16-config.enabler/32-shared-config-primitives.enabler/` owns the shared path-filter primitive.
-- `spx/16-config.enabler/43-domain-execution-descriptors.enabler/` owns the registered test descriptor extension.
+- `spx/16-config.enabler/43-domain-execution-descriptors.enabler/` owns the registered testing descriptor extension.
 - `spx/16-config.enabler/54-canonical-descriptor-digest.enabler/` owns canonical descriptor JSON and digest computation.
 - `spx/16-config.enabler/65-product-directory-api.enabler/` owns product-directory API vocabulary for config-owned root resolution.
 - `spx/33-agent-environment.enabler/` owns the agent environment descriptor shape consumed by runtime and future agent-environment packets.
@@ -22,7 +22,7 @@ Coordinate the refactor tranche that moves deterministic execution domains onto 
 
 1. Complete test status evidence.
    - Work in `spx/41-test.enabler/43-last-run-evidence.enabler/`.
-   - Consume the settled test descriptor, domain execution descriptor, canonical descriptor digest, and product-directory API.
+   - Consume the settled testing descriptor, domain execution descriptor, canonical descriptor digest, and product-directory API.
 
 2. Complete file-inclusion path-scope migration.
    - Work in `spx/17-file-inclusion.enabler/65-domain-path-filters.enabler/`.
@@ -42,7 +42,7 @@ Settled prerequisites on current `origin/main`:
 This list reflects expected state. Agents verify these at branch time, and dispatchers use the commands below to confirm current state before packet assignment.
 
 - Shared path-filter primitive: `spx/16-config.enabler/32-shared-config-primitives.enabler/` owns the structural `{ include?: string[]; exclude?: string[] }` primitive. Dependent packets consume it and do not recreate path-filter validators.
-- Test descriptor: `spx/41-test.enabler/32-test-config.enabler/` and `spx/16-config.enabler/43-domain-execution-descriptors.enabler/` own the registered test descriptor. Dependent packets consume it and do not create a second test descriptor.
+- Testing descriptor: `spx/41-test.enabler/32-test-config.enabler/` and `spx/16-config.enabler/43-domain-execution-descriptors.enabler/` own the registered testing descriptor. Dependent packets consume it and do not create a second testing descriptor.
 - Spec-domain public surface: `spx/31-spec-domain.enabler/spec-domain.md` and `spx/23-spec-tree.enabler/spec-tree.md` own the settled command and library surfaces S1 consumes.
 - F1 consumes the settled path-filter primitive directly.
 
