@@ -85,6 +85,10 @@ function expectNoHookEnvExport(envContent: string, name: string): void {
   expect(envContent).not.toContain(`${HOOK_ENV_FILE.EXPORT_PREFIX}${name}=`);
 }
 
+function expectHookEnvUnset(envContent: string, name: string): void {
+  expect(envContent).toContain(`${HOOK_ENV_FILE.UNSET_PREFIX}${name}`);
+}
+
 describe("hook session-start worktree claim", () => {
   it("writes one claim and exports the claim path from a session-start payload", async () => {
     const worktreeName = sampleWorktreeTestValue(WORKTREE_TEST_GENERATOR.poolWorktreeName());
@@ -129,7 +133,7 @@ describe("hook session-start worktree claim", () => {
     });
   });
 
-  it("writes project exports without a claim path when no session identity is available", async () => {
+  it("writes project exports and clears the claim path when no session identity is available", async () => {
     const worktreeName = sampleWorktreeTestValue(WORKTREE_TEST_GENERATOR.poolWorktreeName());
     const holder = sampleWorktreeTestValue(WORKTREE_TEST_GENERATOR.poolHolder());
     const envFileName = sampleWorktreeTestValue(WORKTREE_TEST_GENERATOR.envFileName());
@@ -153,10 +157,11 @@ describe("hook session-start worktree claim", () => {
       expectHookEnvExport(envContent, HOOK_SESSION_START_ENV.CLAUDE_PROJECT_DIR, `'${env.worktreePath}'`);
       expectHookEnvExport(envContent, HOOK_SESSION_START_ENV.PROJECT_DIR, `'${env.worktreePath}'`);
       expectNoHookEnvExport(envContent, HOOK_SESSION_START_ENV.SPX_WORKTREE_CLAIM_PATH);
+      expectHookEnvUnset(envContent, HOOK_SESSION_START_ENV.SPX_WORKTREE_CLAIM_PATH);
     });
   });
 
-  it("degrades without exporting a claim path when the claim cannot resolve a holder", async () => {
+  it("degrades and clears the claim path when the claim cannot resolve a holder", async () => {
     const worktreeName = sampleWorktreeTestValue(WORKTREE_TEST_GENERATOR.poolWorktreeName());
     const holder = sampleWorktreeTestValue(WORKTREE_TEST_GENERATOR.poolHolder());
     const sessionId = sampleWorktreeTestValue(WORKTREE_TEST_GENERATOR.sessionId());
@@ -181,6 +186,7 @@ describe("hook session-start worktree claim", () => {
 
       const envContent = await readHookEnvFile(envFile);
       expectNoHookEnvExport(envContent, HOOK_SESSION_START_ENV.SPX_WORKTREE_CLAIM_PATH);
+      expectHookEnvUnset(envContent, HOOK_SESSION_START_ENV.SPX_WORKTREE_CLAIM_PATH);
     });
   });
 });
