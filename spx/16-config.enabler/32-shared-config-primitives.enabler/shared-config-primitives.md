@@ -8,7 +8,7 @@ CAN share structural validation without sharing domain policy
 
 ### Scenarios
 
-- Given validation declares a path filter in a real product config file, when config resolves through the production registry, then validation exposes the structurally validated filter under its own section ([test](tests/path-filter-config.scenario.l1.test.ts))
+- Given the `validation` section declares a path filter in a real product config file, when config resolves through the production registry, then that section exposes the structurally validated filter under its own section ([test](tests/path-filter-config.scenario.l1.test.ts))
 
 ### Properties
 
