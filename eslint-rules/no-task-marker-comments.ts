@@ -6,6 +6,11 @@ export const NO_TASK_MARKER_COMMENTS_RULE_NAME = "no-task-marker-comments";
 export const NO_TASK_MARKER_COMMENTS_RULE_ID = `${SPX_RULE_PREFIX}${NO_TASK_MARKER_COMMENTS_RULE_NAME}` as const;
 export const TASK_MARKER_COMMENT_MESSAGE_ID = "taskMarkerComment";
 export const TASK_MARKER_COMMENT_TERMS = ["TODO", "FIXME"] as const;
+export const TASK_MARKER_COMMENT_FALLBACK_FILES = [
+  "eslint-rules/**/*.ts",
+  "*.config.ts",
+  "eslint.config.*.ts",
+] as const;
 
 const WORD_CHARACTER_PATTERN = "[A-Za-z0-9_]";
 const TASK_MARKER_COMMENT_PATTERNS = TASK_MARKER_COMMENT_TERMS.map(

@@ -6,9 +6,11 @@ import { builtinRules } from "eslint/use-at-your-own-risk";
 import tseslint from "typescript-eslint";
 import { describe, expect, it } from "vitest";
 
+import { ESLINT_PRODUCTION_CONFIG_FILES } from "@/validation/discovery/language-finder";
+import { DEFAULT_ESLINT_CONFIG_FILE } from "@/validation/steps/eslint";
 import { SPX_RULE_PREFIX } from "@eslint-rules/import-source";
 import customRules from "@eslint-rules/index";
-import { TASK_MARKER_COMMENT_TERMS } from "@eslint-rules/no-task-marker-comments";
+import { TASK_MARKER_COMMENT_FALLBACK_FILES, TASK_MARKER_COMMENT_TERMS } from "@eslint-rules/no-task-marker-comments";
 import {
   ARRAY_SORT_COMPARATOR_RULE,
   COGNITIVE_COMPLEXITY_RULE,
@@ -21,7 +23,6 @@ import {
   OBJECT_HAS_OWN_RULE,
   PSEUDO_RANDOM_RULE,
   REDUNDANT_ASSERTION_RULE,
-  TASK_MARKER_COMMENT_FALLBACK_FILES,
   TASK_MARKER_COMMENT_RULE,
   TYPE_AWARE_PARSER_OPTIONS,
 } from "@eslint-rules/offline-mirror";
@@ -260,19 +261,20 @@ describe("type-aware lint mirror", () => {
 
   it("reports task-marker comments in root TypeScript config files through the fallback config", () => {
     const linter = new Linter();
-    const [rootTypeScriptConfigGlob] = TASK_MARKER_COMMENT_FALLBACK_FILES.slice(-1);
-    const rootTypeScriptConfigFile = rootTypeScriptConfigGlob.replace("*", TASK_MARKER_COMMENT_RULE.split("/").at(-1)!);
-    const messages = linter.verify(
-      "// TODO: replace placeholder\nconst value = 1;\nvalue;\n",
-      {
-        files: [rootTypeScriptConfigGlob],
-        plugins: { spx: customRules },
-        rules: { [TASK_MARKER_COMMENT_RULE]: MIRROR_ERROR_SEVERITY },
-      },
-      { filename: rootTypeScriptConfigFile },
-    );
+    const [productionEslintConfigFile] = ESLINT_PRODUCTION_CONFIG_FILES;
+    for (const rootTypeScriptConfigFile of [DEFAULT_ESLINT_CONFIG_FILE, productionEslintConfigFile]) {
+      const messages = linter.verify(
+        "// TODO: replace placeholder\nconst value = 1;\nvalue;\n",
+        {
+          files: [...TASK_MARKER_COMMENT_FALLBACK_FILES],
+          plugins: { spx: customRules },
+          rules: { [TASK_MARKER_COMMENT_RULE]: MIRROR_ERROR_SEVERITY },
+        },
+        { filename: rootTypeScriptConfigFile },
+      );
 
-    expect(messages.some((message) => message.ruleId === TASK_MARKER_COMMENT_RULE)).toBe(true);
+      expect(messages.some((message) => message.ruleId === TASK_MARKER_COMMENT_RULE)).toBe(true);
+    }
   });
 
   it("declares mirror rule ids the owning plugins recognize", () => {
