@@ -103,7 +103,10 @@ export const DIAGNOSE_TEXT_DETAIL = {
   SESSION_STORE_CLEAN: "No stale doing sessions found.",
   SESSION_STORE_ORPHANED_FIX:
     "inspect `spx session list --status doing`, then release stale sessions with `spx session release <id>`.",
-  SESSION_START_NO_OP_PROBLEM: "The SessionStart hook ran without setting an agent session or worktree claim.",
+  SESSION_START_NO_OP_PROBLEM:
+    "SPX_WORKTREE_CLAIM_PATH is present, but no agent session identity or running worktree claim was found.",
+  SESSION_START_NO_OP_FIX:
+    "verify the agent session is current, re-run the SessionStart hook, or check whether the worktree claim file is stale.",
   SPX_UNKNOWN_FIX:
     "Verify the configured or manifest-supplied `spx_floor` and `spx --version` are valid semver versions.",
   SPX_UNKNOWN_PROBLEM: "Diagnose could not compare the installed spx version with the required version.",
@@ -220,7 +223,7 @@ function sessionEnvironmentText(check: CheckRecord): DiagnoseHumanText {
         header: DIAGNOSE_TEXT_HEADER.SESSION_START_NO_OP,
         details: [
           `${DIAGNOSE_TEXT_LABEL.PROBLEM}: ${DIAGNOSE_TEXT_DETAIL.SESSION_START_NO_OP_PROBLEM}`,
-          `${DIAGNOSE_TEXT_LABEL.FIX}: check that the hook resolves spx and receives the agent session id.`,
+          `${DIAGNOSE_TEXT_LABEL.FIX}: ${DIAGNOSE_TEXT_DETAIL.SESSION_START_NO_OP_FIX}`,
         ],
       };
     case SESSION_ENVIRONMENT_VERDICT.NOT_APPLICABLE:

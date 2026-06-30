@@ -40,12 +40,12 @@ export interface SessionEnvironmentProbe {
   probe(): Promise<SessionEnvironmentReading>;
 }
 
-const REMEDIATION: Readonly<Record<SessionEnvironmentVerdict, string>> = {
+export const SESSION_ENVIRONMENT_REMEDIATION: Readonly<Record<SessionEnvironmentVerdict, string>> = {
   [SESSION_ENVIRONMENT_VERDICT.WORKING]: "Session environment is established; no action needed.",
   [SESSION_ENVIRONMENT_VERDICT.IDENTITY_ONLY]:
     "The SessionStart hook set the session identity but did not claim the worktree; check the worktree-claim step.",
   [SESSION_ENVIRONMENT_VERDICT.SILENT_NO_OP]:
-    "The SessionStart hook ran without effect; verify the hook resolves spx and the agent session id.",
+    "SPX_WORKTREE_CLAIM_PATH is present from a session-start run, but no agent session identity or running worktree claim was found; verify the agent session is current, re-run the session-start hook, or check whether the worktree claim file is stale.",
   [SESSION_ENVIRONMENT_VERDICT.NOT_APPLICABLE]:
     "No SessionStart hook signal or agent session identity was observed; confirm a spec-tree SessionStart hook is configured and enabled.",
   [SESSION_ENVIRONMENT_VERDICT.UNKNOWN]:
@@ -66,7 +66,7 @@ function record(
       identity: String(reading.sessionIdentity),
       claimed: String(reading.worktreeClaimed),
     },
-    remediation: REMEDIATION[verdict],
+    remediation: SESSION_ENVIRONMENT_REMEDIATION[verdict],
   };
 }
 

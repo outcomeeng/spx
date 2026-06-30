@@ -250,6 +250,25 @@ describe("the text report translates check records into a human diagnosis", () =
     expect(text).not.toContain(DIAGNOSE_TEXT_DETAIL.MARKETPLACE_SKIPPED);
   });
 
+  it("reports silent session-start no-op as a stale claim-path signal", () => {
+    const text = renderSingleCheckText(
+      classifySessionEnvironment({
+        errored: false,
+        hookPresent: true,
+        sessionIdentity: false,
+        worktreeClaimed: false,
+      }),
+    );
+
+    expect(text).toContain(DIAGNOSE_TEXT_HEADER.SESSION_START_NO_OP);
+    expect(text).toContain(
+      `${DIAGNOSE_TEXT_LABEL.PROBLEM}${fieldDelimiter} ${DIAGNOSE_TEXT_DETAIL.SESSION_START_NO_OP_PROBLEM}`,
+    );
+    expect(text).toContain(
+      `${DIAGNOSE_TEXT_LABEL.FIX}${fieldDelimiter} ${DIAGNOSE_TEXT_DETAIL.SESSION_START_NO_OP_FIX}`,
+    );
+  });
+
   it("reports invalid spx version comparison details in text mode", () => {
     const text = renderSingleCheckText(classifySpxReachability(reusableSpxReading, invalidSpxFloor));
 
