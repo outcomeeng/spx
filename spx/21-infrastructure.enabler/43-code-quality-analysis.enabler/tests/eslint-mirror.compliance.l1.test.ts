@@ -175,6 +175,20 @@ describe("type-aware lint mirror", () => {
     expect(messages.some((message) => message.ruleId === PSEUDO_RANDOM_RULE)).toBe(true);
   });
 
+  it("reports a finding when ESLint runs the cognitive-complexity recurrence guard", () => {
+    const linter = new Linter();
+    const cognitiveComplexityProbeThreshold = 0;
+    const messages = linter.verify(
+      "function choose(flag) {\nif (flag) {\nreturn 1;\n}\nreturn 0;\n}\nchoose(true);\n",
+      {
+        plugins: { sonarjs },
+        rules: { [COGNITIVE_COMPLEXITY_RULE]: [MIRROR_ERROR_SEVERITY, cognitiveComplexityProbeThreshold] },
+      },
+    );
+
+    expect(messages.some((message) => message.ruleId === COGNITIVE_COMPLEXITY_RULE)).toBe(true);
+  });
+
   // The non-type-aware error-tier rules paired with violating source. Each rule
   // id is read from the source-owned MIRROR_ERROR_RULES via its selector, so no
   // rule-id literal is duplicated from source; only the violating fixture — kept
