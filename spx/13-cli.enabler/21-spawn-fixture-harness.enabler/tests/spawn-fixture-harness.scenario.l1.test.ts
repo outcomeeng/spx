@@ -1,10 +1,12 @@
 import { constants as osConstants } from "node:os";
+import { join } from "node:path";
 
 import { describe, expect, it } from "vitest";
 
 import { SIGINT_EXIT_CODE, SIGINT_NAME, SIGTERM_EXIT_CODE, SIGTERM_NAME } from "@/lib/process-lifecycle";
 import { arbitraryDomainLiteral, sampleLiteralTestValue } from "@testing/generators/literal/literal";
 import { runSpawnFixture, SPAWN_FIXTURE_UNKNOWN_EXIT_CODE } from "@testing/harnesses/process-lifecycle/spawn-fixture";
+import { withTempDir } from "@testing/harnesses/with-temp-dir";
 
 describe("Scenario: spawn fixture result capture", () => {
   it("reports numeric exit status, stderr text, and observed stdout bytes", async () => {
@@ -56,15 +58,17 @@ describe("Scenario: spawn fixture result capture", () => {
   });
 
   it("settles spawn errors with the source-owned unknown exit code", async () => {
-    const missingCommand = sampleLiteralTestValue(arbitraryDomainLiteral());
+    const missingCommandName = sampleLiteralTestValue(arbitraryDomainLiteral());
 
-    const result = await runSpawnFixture({
-      command: missingCommand,
-      args: [],
-      cwd: process.cwd(),
+    await withTempDir(missingCommandName, async (tempDir) => {
+      const result = await runSpawnFixture({
+        command: join(tempDir, missingCommandName),
+        args: [],
+        cwd: tempDir,
+      });
+
+      expect(result.exitCode).toBe(SPAWN_FIXTURE_UNKNOWN_EXIT_CODE);
     });
-
-    expect(result.exitCode).toBe(SPAWN_FIXTURE_UNKNOWN_EXIT_CODE);
   });
 });
 
