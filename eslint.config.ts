@@ -159,8 +159,9 @@ export function buildEslintConfig(options: BuildEslintConfigOptions = {}) {
 
     // Type-aware lint mirror — the deterministic offline floor of code-quality
     // enforcement. Runs rules drawn from SonarJS, the type-aware
-    // @typescript-eslint rules, ESLint core, eslint-plugin-import, and the
-    // unicorn-family modernization rules locally, at two tiers: an error tier
+    // @typescript-eslint rules, ESLint core, eslint-plugin-import, the custom
+    // spx plugin, and the unicorn-family modernization rules locally, at two
+    // tiers: an error tier
     // for finding classes cleared from the tree and a warn tier for classes
     // whose backlog is uncleared. A backlog session flips a class to error as
     // its last occurrence clears.
