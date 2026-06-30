@@ -15,7 +15,7 @@ CAN include explicit caller paths, default automatic walks to git-visible produc
 
 ### Compliance
 
-- ALWAYS: every validate or test command that invokes a downstream tool with file-scope arguments forwards a path set consistent with this node's inclusion decision; no validate or test command produces a conflicting included or excluded set for the same request ([audit])
+- ALWAYS: every validation or test command that invokes a downstream tool with file-scope arguments forwards a path set consistent with this node's inclusion decision; no validation or test command produces a conflicting included or excluded set for the same request ([audit])
 - ALWAYS: product path vocabulary used by file-scope decisions is configurable through product configuration rather than source edits ([audit])
 - ALWAYS: the default automatic scope comes from git's view of the current worktree per `11-ignore-defaults.pdr.md`; no parallel artifact-directory list, hidden-prefix rule, or standalone ignore-source file decides default scope ([audit])
 - NEVER: a command owns a separate default exclusion set or a separate downstream-tool ignore vocabulary that can disagree with this node's file-scope decision ([audit])
