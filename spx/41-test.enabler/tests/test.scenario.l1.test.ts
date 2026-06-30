@@ -43,6 +43,7 @@ import {
   arbitrarySourceFilePath,
   sampleLiteralTestValue,
 } from "@testing/generators/literal/literal";
+import { CHANGED_SET_PLANNING_GENERATOR } from "@testing/generators/testing/changed-set-planning";
 import { sampleDispatchValue, TEST_DISPATCH_GENERATOR } from "@testing/generators/testing/dispatch";
 import { GIT_TEST_REF, GIT_TEST_SUBCOMMANDS } from "@testing/harnesses/git-test-constants";
 import { runTestingCli, type TestingCliCall, testingCliDeps } from "@testing/harnesses/testing/cli";
@@ -54,6 +55,8 @@ function invokedArgs(
 ): readonly string[] {
   return runner.calls.flatMap((call) => call.args);
 }
+
+const changedSetContent = CHANGED_SET_PLANNING_GENERATOR.content();
 
 function recordedPassingRun(productDir: string, run: TestDispatchResult): RecordedTestRun {
   return {
@@ -131,7 +134,7 @@ function stagedConfigChangeGit(
         return { exitCode: 0, stdout: stagedConfig, stderr: "" };
       }
       if (args.includes(CHANGED_TEST_SHOW_COMMAND)) {
-        return { exitCode: 1, stdout: "", stderr: "not in index" };
+        return { exitCode: 1, stdout: "", stderr: changedSetContent.gitStagedNotInIndexMessage };
       }
       return { exitCode: 0, stdout: "", stderr: "" };
     },

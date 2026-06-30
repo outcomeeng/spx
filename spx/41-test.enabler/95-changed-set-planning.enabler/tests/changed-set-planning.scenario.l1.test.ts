@@ -857,12 +857,16 @@ helper;
     );
   });
 
-  it("ignores staged candidate test paths missing from the index", async () => {
+  it.each([
+    changedSetContent.gitStagedPathMissingMessage,
+    changedSetContent.gitStagedAmbiguousPathMessage,
+    changedSetContent.gitStagedNotInIndexMessage,
+  ])("ignores staged candidate test paths missing from the index: %s", async (missingMessage) => {
     const paths = sampleChangedSetPlanningValue(CHANGED_SET_PLANNING_GENERATOR.fixturePaths());
     const git = stagedMissingCandidateGitRunner(
       paths.sourcePath,
       paths.testPath,
-      changedSetContent.gitStagedPathMissingMessage,
+      missingMessage,
     );
 
     const plan = await planChangedTestSelection(
