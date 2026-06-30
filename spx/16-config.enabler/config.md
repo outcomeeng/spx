@@ -1,6 +1,6 @@
 # Config
 
-PROVIDES typed, registry-composed configuration for the whole spx harness — spec-tree kinds, session paths, validate rules, test scope, language markers, shared config primitives, and any other registered concern
+PROVIDES typed, registry-composed configuration for the whole spx harness — spec-tree kinds, session paths, `validation` rules, `testing` scope, language markers, shared config primitives, and any other registered concern
 SO THAT every spx command and module with configurable behavior
 CAN read its configuration through a uniform, type-checked API without inline config parsing or hardcoded vocabulary
 
