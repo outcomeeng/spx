@@ -1,5 +1,9 @@
 # PLAN: Worktree Occupancy
 
+## Harness vocabulary guard
+
+Before applying this plan, read `spx/12-agent-harness.pdr.md` and use its vocabulary as the authority: agent harness, configured agent, agent adapter, and agent session. Treat nearby `agent`, `runtime`, `session`, `Claude`, or `Codex` wording as lower-layer/local vocabulary until reconciled; every touched spec, command text, source name, test, and pickup prompt names the precise harness role it describes.
+
 ## Index horizon
 
 Children occupy the first-half grid slots `[10, 50]` — `21-occupancy-claim.adr.md`, `32-occupancy-store.enabler`, `43-worktree-cli.enabler`. The second-half grid slots `54, 65, 76, 87, 98` are reserved for future occupancy children (for example, a split of liveness from claim-record storage, or a status cache).

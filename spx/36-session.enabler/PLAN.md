@@ -2,6 +2,8 @@
 
 ## Harness vocabulary alignment
 
+Before applying this plan, read `spx/12-agent-harness.pdr.md` and use its vocabulary as the authority: agent harness, configured agent, agent adapter, and agent session. Treat nearby `agent`, `runtime`, `session`, `Claude`, or `Codex` wording as lower-layer/local vocabulary until reconciled; every touched spec, command text, source name, test, and pickup prompt names the precise harness role it describes.
+
 `spx/12-agent-harness.pdr.md` distinguishes SPX handoff session files and handoff records from coding-agent sessions. Align this node's specs, command text, and state naming so `session` stays explicit about whether it names a handoff file, a handoff record, or an agent session.
 
 ## Wire the spx CLI half of the session-scope accumulator
