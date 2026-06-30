@@ -1,5 +1,7 @@
 import type { Linter } from "eslint";
 
+import { NO_TASK_MARKER_COMMENTS_RULE_ID } from "./no-task-marker-comments";
+
 /**
  * Type-aware parser options. The rules that detect redundant assertions,
  * superfluous narrowings, and alphabetical sorts require TypeScript type
@@ -52,6 +54,7 @@ export const PSEUDO_RANDOM_RULE = "sonarjs/pseudo-random" as const;
 export const REDUNDANT_ASSERTION_RULE = "@typescript-eslint/no-unnecessary-type-assertion" as const;
 export const OBJECT_HAS_OWN_RULE = "prefer-object-has-own" as const;
 export const DUPLICATE_IMPORT_RULE = "import/no-duplicates" as const;
+export const TASK_MARKER_COMMENT_RULE = NO_TASK_MARKER_COMMENTS_RULE_ID;
 
 /**
  * The error-tier rules: finding classes fully cleared from the linted tree, so a
@@ -69,6 +72,8 @@ export const MIRROR_ERROR_RULES: Linter.RulesRecord = {
   [OBJECT_HAS_OWN_RULE]: MIRROR_ERROR_SEVERITY,
   // S3863 merge duplicate imports from the same module.
   [DUPLICATE_IMPORT_RULE]: MIRROR_ERROR_SEVERITY,
+  // S1135 explicit task markers.
+  [TASK_MARKER_COMMENT_RULE]: MIRROR_ERROR_SEVERITY,
 };
 
 /**

@@ -25,6 +25,7 @@ import noProcessCwdForProductRoots, {
 } from "./no-process-cwd-for-product-roots";
 import noRegistryPositionAccess, { NO_REGISTRY_POSITION_ACCESS_RULE_NAME } from "./no-registry-position-access";
 import noSpecReferences, { NO_SPEC_REFERENCES_RULE_NAME } from "./no-spec-references";
+import noTaskMarkerComments, { NO_TASK_MARKER_COMMENTS_RULE_NAME } from "./no-task-marker-comments";
 import noTestOwnedDomainConstants, { NO_TEST_OWNED_DOMAIN_CONSTANTS_RULE_NAME } from "./no-test-owned-domain-constants";
 
 const eslintRules = {
@@ -45,6 +46,7 @@ const eslintRules = {
     [NO_PROCESS_CWD_FOR_PRODUCT_ROOTS_RULE_NAME]: noProcessCwdForProductRoots,
     [NO_REGISTRY_POSITION_ACCESS_RULE_NAME]: noRegistryPositionAccess,
     [NO_SPEC_REFERENCES_RULE_NAME]: noSpecReferences,
+    [NO_TASK_MARKER_COMMENTS_RULE_NAME]: noTaskMarkerComments,
     [NO_TEST_OWNED_DOMAIN_CONSTANTS_RULE_NAME]: noTestOwnedDomainConstants,
   },
 };
