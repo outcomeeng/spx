@@ -15,6 +15,7 @@ import {
 } from "@/domains/worktree/occupancy-store";
 import { atomicWriteTempPath, type RandomBytes } from "@/lib/atomic-file-write";
 import { toMessage } from "@/lib/error-message";
+import { ERROR_CODE_FILE_EXISTS, ERROR_CODE_NOT_FOUND } from "@/lib/state-store";
 import { sampleStateStoreTestValue, STATE_STORE_TEST_GENERATOR } from "@testing/generators/state-store/state-store";
 import { sampleWorktreeTestValue, WORKTREE_TEST_GENERATOR } from "@testing/generators/worktree/worktree";
 import {
@@ -28,6 +29,7 @@ import {
 class RecordingClaimFileSystem implements OccupancyFileSystem {
   readonly directories = new Set<string>();
   readonly files = new Map<string, string>();
+  readonly links = new Map<string, string>();
   readonly renamedFrom: string[] = [];
 
   async mkdir(path: string): Promise<void> {
@@ -47,12 +49,18 @@ class RecordingClaimFileSystem implements OccupancyFileSystem {
   }
 
   async symlink(target: string, path: string): Promise<void> {
-    this.files.set(path, target);
+    if (this.files.has(path) || this.links.has(path)) {
+      throw errorWithCode(OCCUPANCY_ERROR.CLAIM_LOCK_FAILED, ERROR_CODE_FILE_EXISTS);
+    }
+    this.links.set(path, target);
   }
 
   async readlink(path: string): Promise<string> {
-    const content = this.files.get(path);
-    if (content === undefined) throw new Error(OCCUPANCY_ERROR.CLAIM_READ_FAILED);
+    const content = this.links.get(path);
+    if (content === undefined) {
+      if (this.files.has(path)) throw new Error(OCCUPANCY_ERROR.CLAIM_READ_FAILED);
+      throw errorWithCode(OCCUPANCY_ERROR.CLAIM_READ_FAILED, ERROR_CODE_NOT_FOUND);
+    }
     return content;
   }
 
@@ -64,7 +72,12 @@ class RecordingClaimFileSystem implements OccupancyFileSystem {
 
   async rm(path: string): Promise<void> {
     this.files.delete(path);
+    this.links.delete(path);
   }
+}
+
+function errorWithCode(message: string, code: string): Error & { readonly code: string } {
+  return Object.assign(new Error(message), { code });
 }
 
 class SymbolThrowingClaimFileSystem implements OccupancyFileSystem {
@@ -150,6 +163,7 @@ describe("worktree occupancy classification mapping", () => {
   it("maps a safe name to a claim path and an empty or unsafe name to the INVALID_NAME rejection", () => {
     const worktreesDir = sampleStateStoreTestValue(STATE_STORE_TEST_GENERATOR.productRoot());
     const safeName = sampleWorktreeTestValue(WORKTREE_TEST_GENERATOR.worktreeName());
+    const emptyName = sampleWorktreeTestValue(WORKTREE_TEST_GENERATOR.emptyWorktreeName());
     const unsafeName = sampleStateStoreTestValue(STATE_STORE_TEST_GENERATOR.scopeTokenContainingUnsafeMarker());
 
     const safe = claimFilePath(worktreesDir, safeName);
@@ -157,7 +171,7 @@ describe("worktree occupancy classification mapping", () => {
     if (!safe.ok) throw new Error(safe.error);
     expect(safe.value).toBe(join(worktreesDir, `${safeName}${OCCUPANCY_CLAIM.FILE_EXTENSION}`));
 
-    const empty = claimFilePath(worktreesDir, "");
+    const empty = claimFilePath(worktreesDir, emptyName);
     expect(empty.ok).toBe(false);
     if (empty.ok) throw new Error("expected the empty name to be rejected");
     expect(empty.error).toBe(OCCUPANCY_ERROR.INVALID_NAME);
