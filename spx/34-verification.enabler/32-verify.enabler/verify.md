@@ -2,7 +2,7 @@
 
 PROVIDES the `spx verify --verification-type <type> --scope-type changeset --scope <base>..<head> [--input <input-source>] [--run <run-token>] [--payload <payload-source>] [--idempotency-key <key>] [--terminal-status <status>] <verb>` command lifecycle for typed changeset verification runs over the verification-context and journal substrate
 SO THAT agents, CI jobs, and launchers that run review, audit, and other scoped verification workflows
-CAN start one scoped run, read the exact verification input, append inspected scope and validated findings, finish the run, inspect resumable status, and render the journal projection without constructing journal events directly
+CAN start one scoped run with a stable run locator, read the exact verification input, append inspected scope and validated findings, finish the run, inspect resumable status, and render the journal projection without constructing journal events directly
 
 ## Assertions
 
@@ -13,6 +13,8 @@ CAN start one scoped run, read the exact verification input, append inspected sc
 ### Compliance
 
 - NEVER: a caller hand-formats the journal event envelope for `spx verify`; verify commands construct journal events from typed lifecycle inputs ([test](tests/verify-journal-boundary.compliance.l1.test.ts))
+- ALWAYS: `start` reports a stable run locator containing the run token, verification type, scope type, scope identity, backend identity, storage namespace, and journal run path or backend target ([test](tests/verify-run-token.compliance.l1.test.ts))
 - ALWAYS: existing-run verbs `input`, `append-scope`, `append-finding`, `finish`, `status`, and `render` require `--run <run-token>` and reject ambiguous type/scope-only selection ([test](tests/verify-run-token.compliance.l1.test.ts))
+- ALWAYS: existing-run lookup failures report the run token, verification type, scope type, scope identity, backend identity, storage namespace, searched target, and selector inputs needed to address the run ([test](tests/verify-run-token.compliance.l1.test.ts))
 - NEVER: existing-run verbs `input`, `append-scope`, `append-finding`, `finish`, `status`, and `render` read a fresh `--input <input-source>` value after `start` records the run input ([test](tests/verify-no-fresh-input.compliance.l1.test.ts))
 - NEVER: `spx verify` launches, configures, or selects the verifier agent; it records and renders the run that the caller drives ([audit])

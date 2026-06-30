@@ -1,6 +1,6 @@
 # Terminal Projection
 
-PROVIDES terminal completion, resumable status, and rendered journal projection for `spx verify` runs
+PROVIDES terminal completion, resumable status, finding-count projection, and rendered journal projection for `spx verify` runs
 SO THAT agents, CI jobs, and launchers
 CAN close a scoped verification run with a terminal status and inspect the run's durable state from its journal history
 
@@ -9,9 +9,10 @@ CAN close a scoped verification run with a terminal status and inspect the run's
 ### Scenarios
 
 - Given a started run with appended scope and findings, when `spx verify --verification-type review --scope-type changeset --scope <base>..<head> --run <run-token> --terminal-status approved finish` runs, then it records terminal completion, seals the journal, and renders a terminal projection from the event history ([test](tests/verify-lifecycle.scenario.l1.test.ts))
-- Given a sealed run with terminal completion, when `spx verify --verification-type review --scope-type changeset --scope <base>..<head> --run <run-token> render` runs, then it renders the journal projection from the event history without appending journal events ([test](tests/verify-render.scenario.l1.test.ts))
+- Given a sealed review run with terminal completion, when `spx verify --verification-type review --scope-type changeset --scope <base>..<head> --run <run-token> render` runs, then it renders the journal projection including the authoritative finding count from the event history without appending journal events ([test](tests/verify-render.scenario.l1.test.ts))
 
 ### Compliance
 
 - ALWAYS: `finish` requires a terminal status in the journal terminal-status vocabulary before it records terminal completion or seals the journal ([test](tests/verify-lifecycle.scenario.l1.test.ts))
 - ALWAYS: `status` reports the run token, verification type, scope type, sealed state, last journal sequence, terminal status when present, and next legal lifecycle actions ([test](tests/verify-status.compliance.l1.test.ts))
+- ALWAYS: `finish`, `status`, and `render` report the run token and authoritative finding count from the journal projection for sealed review runs ([test](tests/verify-status.compliance.l1.test.ts))
