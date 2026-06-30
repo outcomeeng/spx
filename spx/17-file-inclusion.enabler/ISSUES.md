@@ -18,14 +18,14 @@ Governing artifacts:
 - `spx/17-file-inclusion.enabler/65-domain-path-filters.enabler/domain-path-filters.md`
 - `spx/16-config.enabler/32-shared-config-primitives.enabler/shared-config-primitives.md`
 
-Checklist for each consumer that walks files or passes file-scope arguments:
+Checklist for each validate or test consumer that walks files or passes file-scope arguments:
 
 - Identify whether the consumer participates in validate or test work.
 - For review, audit, and evaluate changeset verification, confirm scope derives from `spx verify --scope-type changeset` base/head paths rather than automatic file-inclusion walks.
 - Identify the owning descriptor section for its domain path filter, if any.
 - Confirm the descriptor consumes `PathFilterConfig` from `src/config/primitives/path-filter.ts` rather than defining a duplicate include/exclude shape.
 - Confirm the command resolves its domain config through the config module before scope resolution.
-- Confirm automatic scope flows through `resolveScope`.
+- Confirm automatic validate/test scope flows through `resolveScope`.
 - Confirm the domain-owned path filter is passed as `ScopeRequest.domainPathFilter`.
 - Confirm explicit caller-supplied paths bypass domain filters and remain included.
 - Confirm the consumer does not restate Git-ignored defaults such as `node_modules`, `dist`, dot-prefixed paths, build artifacts, or hidden-path rules in its own scope logic.
