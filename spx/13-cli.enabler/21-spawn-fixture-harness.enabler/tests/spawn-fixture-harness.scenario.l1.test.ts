@@ -62,7 +62,6 @@ describe("Scenario: spawn fixture result capture", () => {
       command: missingCommand,
       args: [],
       cwd: process.cwd(),
-      destroyStdoutAfterMs: SIGINT_EXIT_CODE,
     });
 
     expect(result.exitCode).toBe(SPAWN_FIXTURE_UNKNOWN_EXIT_CODE);
