@@ -10,11 +10,7 @@ import { ESLINT_PRODUCTION_CONFIG_FILES } from "@/validation/discovery/language-
 import { DEFAULT_ESLINT_CONFIG_FILE } from "@/validation/steps/eslint";
 import { SPX_RULE_PREFIX } from "@eslint-rules/import-source";
 import customRules from "@eslint-rules/index";
-import {
-  NO_TASK_MARKER_COMMENTS_RULE_NAME,
-  TASK_MARKER_COMMENT_FALLBACK_FILES,
-  TASK_MARKER_COMMENT_TERMS,
-} from "@eslint-rules/no-task-marker-comments";
+import { NO_TASK_MARKER_COMMENTS_RULE_NAME, TASK_MARKER_COMMENT_TERMS } from "@eslint-rules/no-task-marker-comments";
 import {
   ARRAY_SORT_COMPARATOR_RULE,
   COGNITIVE_COMPLEXITY_RULE,
@@ -27,6 +23,7 @@ import {
   OBJECT_HAS_OWN_RULE,
   PSEUDO_RANDOM_RULE,
   REDUNDANT_ASSERTION_RULE,
+  TASK_MARKER_COMMENT_FALLBACK_FILES,
   TASK_MARKER_COMMENT_RULE,
   TYPE_AWARE_PARSER_OPTIONS,
 } from "@eslint-rules/offline-mirror";
@@ -272,18 +269,19 @@ describe("type-aware lint mirror", () => {
     const [productionEslintConfigFile] = ESLINT_PRODUCTION_CONFIG_FILES;
     const fallbackCases = [
       {
-        files: [eslintRuleFileGlob],
+        glob: eslintRuleFileGlob,
         filename: `eslint-rules/${NO_TASK_MARKER_COMMENTS_RULE_NAME}.ts`,
       },
       {
-        files: [rootTypeScriptConfigGlob],
+        glob: rootTypeScriptConfigGlob,
         filename: DEFAULT_ESLINT_CONFIG_FILE,
       },
       {
-        files: [productionTypeScriptConfigGlob],
+        glob: productionTypeScriptConfigGlob,
         filename: productionEslintConfigFile,
       },
     ];
+    expect(fallbackCases.map((fallbackCase) => fallbackCase.glob)).toEqual([...TASK_MARKER_COMMENT_FALLBACK_FILES]);
     for (const fallbackCase of fallbackCases) {
       const [result] = await eslint.lintText(
         "// TODO: replace placeholder\nconst value = 1;\nvalue;\n",

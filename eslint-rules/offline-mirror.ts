@@ -55,6 +55,11 @@ export const REDUNDANT_ASSERTION_RULE = "@typescript-eslint/no-unnecessary-type-
 export const OBJECT_HAS_OWN_RULE = "prefer-object-has-own" as const;
 export const DUPLICATE_IMPORT_RULE = "import/no-duplicates" as const;
 export const TASK_MARKER_COMMENT_RULE = NO_TASK_MARKER_COMMENTS_RULE_ID;
+export const TASK_MARKER_COMMENT_FALLBACK_FILES = [
+  "eslint-rules/**/*.ts",
+  "*.config.ts",
+  "eslint.config.*.ts",
+] as const;
 
 /**
  * The error-tier rules: finding classes fully cleared from the linted tree, so a
