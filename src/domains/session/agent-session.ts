@@ -18,7 +18,9 @@ const AGENT_SESSION_TOKEN_HASH_LENGTH = 12;
 const EMPTY_TOKEN = "";
 
 export function nonEmptyEnvValue(value: string | undefined): string | undefined {
-  return value === undefined || value.length === 0 ? undefined : value;
+  if (value === undefined) return undefined;
+  const trimmed = value.trim();
+  return trimmed.length === 0 ? undefined : trimmed;
 }
 
 function hashAgentSessionToken(value: string): string {

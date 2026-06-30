@@ -165,9 +165,9 @@ export function createClaimOperationRecord(
 }
 
 /**
- * Writes the claim atomically: the record serializes to a temp file that is
- * renamed onto the claim path, so a concurrent read observes either no claim or
- * the complete record.
+ * Writes a claim record by atomic rename without taking the per-claim admission
+ * lock. Use this only for test precondition setup; serialized production
+ * acquisition goes through `acquireClaim`.
  */
 export async function writeClaim(
   worktreesDir: string,

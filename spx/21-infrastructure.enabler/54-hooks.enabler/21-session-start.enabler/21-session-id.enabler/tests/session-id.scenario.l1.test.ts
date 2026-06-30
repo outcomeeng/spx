@@ -14,7 +14,11 @@ import { CONTROLLING_PID_ENV } from "@/domains/worktree/controlling-process";
 import { defaultGitDependencies } from "@/git/root";
 import { runSessionStartHook } from "@/interfaces/hooks/session-start";
 import type { RandomBytes } from "@/lib/atomic-file-write";
-import { samplePathUnsafeAgentSessionIdentity, SESSION_GENERATOR_ERROR } from "@testing/generators/session/session";
+import {
+  samplePathUnsafeAgentSessionIdentity,
+  sampleWhitespaceAgentSessionIdentity,
+  SESSION_GENERATOR_ERROR,
+} from "@testing/generators/session/session";
 import { sampleWorktreeTestValue, WORKTREE_TEST_GENERATOR } from "@testing/generators/worktree/worktree";
 import { withWorktreePool, type WorktreePoolEnv } from "@testing/harnesses/worktree/harness";
 
@@ -145,6 +149,35 @@ describe("hook session-start session identity", () => {
 
       const envContent = await readHookEnvFile(envFile);
       expectHookEnvExport(envContent, HOOK_SESSION_START_ENV.CLAUDE_SESSION_ID, claudeSessionId);
+    });
+  });
+
+  it("uses CODEX_THREAD_ID when CLAUDE_SESSION_ID contains only whitespace", async () => {
+    const worktreeName = sampleWorktreeTestValue(WORKTREE_TEST_GENERATOR.poolWorktreeName());
+    const holder = sampleWorktreeTestValue(WORKTREE_TEST_GENERATOR.poolHolder());
+    const threadId = sampleWorktreeTestValue(WORKTREE_TEST_GENERATOR.sessionId());
+    const whitespaceSessionId = sampleWhitespaceAgentSessionIdentity();
+    const envFileName = sampleWorktreeTestValue(WORKTREE_TEST_GENERATOR.envFileName());
+    const claimRandomBytes = sampleWorktreeTestValue(WORKTREE_TEST_GENERATOR.randomBytes());
+
+    await withWorktreePool({ worktreeName, holder }, async (env) => {
+      const envFile = join(env.container, envFileName);
+      const result = await runSessionStartIdentityScenario(env, {
+        claimRandomBytes,
+        content: hookContent(env),
+        env: hookEnvWithHolder(env, envFile, {
+          [HOOK_SESSION_START_ENV.CLAUDE_SESSION_ID]: whitespaceSessionId,
+          [HOOK_SESSION_START_ENV.CODEX_THREAD_ID]: threadId,
+        }),
+      });
+
+      expect(result.ok).toBe(true);
+      if (!result.ok) throw new Error(result.error);
+      expect(result.value.sessionId).toBe(threadId);
+      expect(result.value.claimed).toBe(true);
+
+      const envContent = await readHookEnvFile(envFile);
+      expectHookEnvExport(envContent, HOOK_SESSION_START_ENV.CLAUDE_SESSION_ID, threadId);
     });
   });
 
