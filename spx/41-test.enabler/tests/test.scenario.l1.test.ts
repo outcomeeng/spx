@@ -420,9 +420,37 @@ describe("spx test dispatch over the language registry", () => {
     });
   });
 
-  it("requires related-test dependencies for changed-set command runs", async () => {
+  it("runs path-selected changed sets without related-test dependencies", async () => {
     const runner = createRecordingCommandRunner({ present: true, exitCode: SUCCESS_EXIT_CODE });
     const headSha = sampleLiteralTestValue(arbitraryDomainLiteral());
+    const nodePath = sampleDispatchValue(TEST_DISPATCH_GENERATOR.nodePath());
+    const testPath = sampleDispatchValue(TEST_DISPATCH_GENERATOR.testFileUnder(typescriptTestingLanguage, nodePath));
+
+    await withTestingTempProductDir(async (productDir) => {
+      await writeTestFileFixture(productDir, testPath);
+
+      const run = await runTestsCommand(
+        {
+          productDir,
+          passing: false,
+          changed: { baseRef: GIT_TEST_REF.HEAD_NAME, staged: true },
+        },
+        {
+          registry: testingRegistry,
+          runnerDepsFor: () => runner,
+          git: stagedConfigChangeGit(headSha, `${TESTING_SECTION}: {}\n`, testPath),
+        },
+      );
+
+      expect(run.dispatch.exitCode).toBe(SUCCESS_EXIT_CODE);
+      expect(invokedArgs(runner)).toContain(testPath);
+    });
+  });
+
+  it("requires related-test dependencies for changed source files", async () => {
+    const runner = createRecordingCommandRunner({ present: true, exitCode: SUCCESS_EXIT_CODE });
+    const headSha = sampleLiteralTestValue(arbitraryDomainLiteral());
+    const changedSourcePath = sampleLiteralTestValue(arbitrarySourceFilePath());
 
     await withTestingTempProductDir(async (productDir) => {
       await expect(
@@ -435,7 +463,7 @@ describe("spx test dispatch over the language registry", () => {
           {
             registry: testingRegistry,
             runnerDepsFor: () => runner,
-            git: stagedConfigChangeGit(headSha, `${TESTING_SECTION}: {}\n`),
+            git: stagedConfigChangeGit(headSha, `${TESTING_SECTION}: {}\n`, changedSourcePath),
           },
         ),
       ).rejects.toThrow(CHANGED_TEST_RELATED_DEPS_ERROR);
