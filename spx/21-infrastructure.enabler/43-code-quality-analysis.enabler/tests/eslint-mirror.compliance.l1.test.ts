@@ -6,6 +6,7 @@ import { builtinRules } from "eslint/use-at-your-own-risk";
 import tseslint from "typescript-eslint";
 import { describe, expect, it } from "vitest";
 
+import { TEST_RELEVANT_SOURCE_ROOT_PREFIX } from "@/config/source-roots";
 import { ESLINT_PRODUCTION_CONFIG_FILES } from "@/validation/discovery/language-finder";
 import { DEFAULT_ESLINT_CONFIG_FILE } from "@/validation/steps/eslint";
 import { SPX_RULE_PREFIX } from "@eslint-rules/import-source";
@@ -27,6 +28,7 @@ import {
   TASK_MARKER_COMMENT_RULE,
   TYPE_AWARE_PARSER_OPTIONS,
 } from "@eslint-rules/offline-mirror";
+import { ESLINT_MIRROR_TEST_GENERATOR } from "@testing/generators/validation/eslint-mirror";
 
 describe("type-aware lint mirror", () => {
   const sonarjsPrefix = "sonarjs/";
@@ -36,25 +38,14 @@ describe("type-aware lint mirror", () => {
   const spxPrefix = SPX_RULE_PREFIX;
   // ESLint core rules carry no plugin prefix (no `/` in the rule id).
   const isCoreRule = (rule: string): boolean => !rule.includes("/");
-  // Identical operands around `&&` violate a mirrored SonarJS rule
-  // (no-identical-expressions; the rule exempts `===`/`!==`, the NaN self-check
-  // idiom). The specific rule name stays source-owned in MIRROR_RULES.
-  const violatingSource = "const value = true;\nconst flag = value && value;\n";
+  const violatingSource = ESLINT_MIRROR_TEST_GENERATOR.identicalExpressionSource();
 
   const sonarjsMirrorRules = (): Linter.RulesRecord =>
     Object.fromEntries(
       Object.entries(MIRROR_RULES).filter(([name]) => name.startsWith(sonarjsPrefix)),
     );
 
-  // One violating fixture per mirrored unicorn rule, keyed by the rule's short
-  // name. The full `unicorn/...` id stays source-owned in MIRROR_RULES; the test
-  // reads that source-owned set and looks up each rule's fixture here.
-  const unicornViolationFixtures: Record<string, string> = {
-    "prefer-node-protocol": "import { readFileSync } from \"fs\";\nreadFileSync;\n",
-    "prefer-code-point": "const code = \"a\".charCodeAt(0);\ncode;\n",
-    "prefer-single-call": "const list = [];\nlist.push(1);\nlist.push(2);\n",
-    "prefer-string-raw": "const pattern = \"a\\\\b\";\npattern;\n",
-  };
+  const unicornViolationFixtures = ESLINT_MIRROR_TEST_GENERATOR.unicornViolationFixtures();
 
   const unicornMirrorRuleNames = (): string[] =>
     Object.keys(MIRROR_RULES).filter((name) => name.startsWith(unicornPrefix));
@@ -177,7 +168,7 @@ describe("type-aware lint mirror", () => {
 
   it("reports a finding when ESLint runs the PRNG recurrence guard against Math.random", () => {
     const linter = new Linter();
-    const messages = linter.verify("const token = Math.random();\ntoken;\n", {
+    const messages = linter.verify(ESLINT_MIRROR_TEST_GENERATOR.pseudoRandomSource(), {
       plugins: { sonarjs },
       rules: { [PSEUDO_RANDOM_RULE]: MIRROR_ERROR_SEVERITY },
     });
@@ -189,7 +180,7 @@ describe("type-aware lint mirror", () => {
     const linter = new Linter();
     const cognitiveComplexityProbeThreshold = 0;
     const messages = linter.verify(
-      "function choose(flag) {\nif (flag) {\nreturn 1;\n}\nreturn 0;\n}\nchoose(true);\n",
+      ESLINT_MIRROR_TEST_GENERATOR.cognitiveComplexitySource(),
       {
         plugins: { sonarjs },
         rules: { [COGNITIVE_COMPLEXITY_RULE]: [MIRROR_ERROR_SEVERITY, cognitiveComplexityProbeThreshold] },
@@ -208,15 +199,12 @@ describe("type-aware lint mirror", () => {
   // composition [audit] and the live `spx validation` gate.
   const offlineErrorRuleProbes: { select: (rule: string) => boolean; violatingSource: string }[] = [
     {
-      // S6653 prefer Object.hasOwn — an ESLint core rule (no plugin prefix).
       select: (rule) => isCoreRule(rule),
-      violatingSource: "const obj = {};\nObject.prototype.hasOwnProperty.call(obj, \"k\");\n",
+      violatingSource: ESLINT_MIRROR_TEST_GENERATOR.objectHasOwnSource(),
     },
     {
-      // S3863 merge duplicate imports — eslint-plugin-import.
       select: (rule) => rule.startsWith(importPrefix),
-      violatingSource:
-        "import { readFileSync } from \"fs\";\nimport { writeFileSync } from \"fs\";\nreadFileSync;\nwriteFileSync;\n",
+      violatingSource: ESLINT_MIRROR_TEST_GENERATOR.duplicateImportSource(),
     },
   ];
 
@@ -241,7 +229,7 @@ describe("type-aware lint mirror", () => {
   it("reports each uppercase task-marker comment while allowing lower-case session vocabulary", () => {
     const linter = new Linter();
     for (const marker of TASK_MARKER_COMMENT_TERMS) {
-      const violatingMessages = linter.verify(`// ${marker}: replace placeholder\nconst value = 1;\nvalue;\n`, {
+      const violatingMessages = linter.verify(ESLINT_MIRROR_TEST_GENERATOR.taskMarkerCommentSource(marker), {
         plugins: { spx: customRules },
         rules: { [TASK_MARKER_COMMENT_RULE]: MIRROR_ERROR_SEVERITY },
       });
@@ -250,7 +238,7 @@ describe("type-aware lint mirror", () => {
     }
 
     const domainVocabularyMessages = linter.verify(
-      "// session todo directory\nconst value = 1;\nvalue;\n",
+      ESLINT_MIRROR_TEST_GENERATOR.domainVocabularySource(),
       {
         plugins: { spx: customRules },
         rules: { [TASK_MARKER_COMMENT_RULE]: MIRROR_ERROR_SEVERITY },
@@ -270,7 +258,7 @@ describe("type-aware lint mirror", () => {
     const fallbackCases = [
       {
         glob: eslintRuleFileGlob,
-        filename: `eslint-rules/${NO_TASK_MARKER_COMMENTS_RULE_NAME}.ts`,
+        filename: `${TEST_RELEVANT_SOURCE_ROOT_PREFIX.ESLINT_RULES}${NO_TASK_MARKER_COMMENTS_RULE_NAME}.ts`,
       },
       {
         glob: rootTypeScriptConfigGlob,
@@ -284,7 +272,7 @@ describe("type-aware lint mirror", () => {
     expect(fallbackCases.map((fallbackCase) => fallbackCase.glob)).toEqual([...TASK_MARKER_COMMENT_FALLBACK_FILES]);
     for (const fallbackCase of fallbackCases) {
       const [result] = await eslint.lintText(
-        "// TODO: replace placeholder\nconst value = 1;\nvalue;\n",
+        ESLINT_MIRROR_TEST_GENERATOR.taskMarkerCommentSource(TASK_MARKER_COMMENT_TERMS[0]),
         { filePath: fallbackCase.filename },
       );
 
