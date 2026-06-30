@@ -2,11 +2,11 @@ import { describe, expect, it } from "vitest";
 
 import {
   classifySessionEnvironment,
-  SESSION_ENVIRONMENT_REMEDIATION,
   SESSION_ENVIRONMENT_VERDICT,
   type SessionEnvironmentReading,
 } from "@/domains/diagnose/checks/session-environment";
 import { VERDICT_BUCKET } from "@/domains/diagnose/types";
+import { HOOK_SESSION_START_ENV } from "@/domains/hooks/session-start";
 
 const reading = (overrides: Partial<SessionEnvironmentReading>): SessionEnvironmentReading => ({
   errored: false,
@@ -75,6 +75,6 @@ describe("the session-environment check classifies the SessionStart worktree occ
   it("describes silent no-op as a stale claim-path signal", () => {
     const result = classifySessionEnvironment(reading({}));
     expect(result.verdict).toBe(SESSION_ENVIRONMENT_VERDICT.SILENT_NO_OP);
-    expect(result.remediation).toBe(SESSION_ENVIRONMENT_REMEDIATION[SESSION_ENVIRONMENT_VERDICT.SILENT_NO_OP]);
+    expect(result.remediation).toContain(HOOK_SESSION_START_ENV.SPX_WORKTREE_CLAIM_PATH);
   });
 });
