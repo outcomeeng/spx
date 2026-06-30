@@ -7,6 +7,7 @@ import {
   groupTestFiles,
   NO_RUNNER_INVOCATION_EXIT_CODE,
   SUCCESS_EXIT_CODE,
+  UNSUPPORTED_TEST_SELECTION_EXIT_CODE,
 } from "@/domains/test";
 import { compareAsciiStrings } from "@/lib/state-store";
 import { testingRegistry } from "@/test/registry";
@@ -19,23 +20,27 @@ describe("spx test exit-code aggregation", () => {
       fc.property(
         fc.array(TEST_DISPATCH_GENERATOR.invocation()),
         TEST_DISPATCH_GENERATOR.unsupportedSelectionCount(),
-        (invocations, unsupportedSelectionCount) => {
+        TEST_DISPATCH_GENERATOR.unsupportedSelectionCount(),
+        (invocations, unsupportedSelectionCount, unresolvedTargetCount) => {
           const anyNonZero = invocations.some(
             (invocation) => invocation.invoked && invocation.exitCode !== SUCCESS_EXIT_CODE,
           );
           const firstNonZeroInvocation = invocations.find(
             (invocation) => invocation.invoked && invocation.exitCode !== SUCCESS_EXIT_CODE,
           );
-          const anyUnsupportedSelections = unsupportedSelectionCount > 0;
+          const selectionFailureCount = unsupportedSelectionCount + unresolvedTargetCount;
+          const anySelectionFailures = selectionFailureCount > 0;
           const noSelectedRunnerInvoked = invocations.length > 0
             && invocations.every((invocation) => !invocation.invoked);
-          const result = aggregateTestExitCode(invocations, unsupportedSelectionCount);
+          const result = aggregateTestExitCode(invocations, selectionFailureCount);
           expect(result === SUCCESS_EXIT_CODE).toBe(
-            !anyNonZero && !anyUnsupportedSelections && !noSelectedRunnerInvoked,
+            !anyNonZero && !anySelectionFailures && !noSelectedRunnerInvoked,
           );
           if (firstNonZeroInvocation?.invoked === true) {
             expect(result).toBe(firstNonZeroInvocation.exitCode);
-          } else if (!anyUnsupportedSelections && noSelectedRunnerInvoked) {
+          } else if (anySelectionFailures) {
+            expect(result).toBe(UNSUPPORTED_TEST_SELECTION_EXIT_CODE);
+          } else if (noSelectedRunnerInvoked) {
             expect(result).toBe(NO_RUNNER_INVOCATION_EXIT_CODE);
           }
         },
