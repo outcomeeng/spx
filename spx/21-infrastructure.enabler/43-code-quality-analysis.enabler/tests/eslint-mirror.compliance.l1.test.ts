@@ -10,7 +10,11 @@ import { ESLINT_PRODUCTION_CONFIG_FILES } from "@/validation/discovery/language-
 import { DEFAULT_ESLINT_CONFIG_FILE } from "@/validation/steps/eslint";
 import { SPX_RULE_PREFIX } from "@eslint-rules/import-source";
 import customRules from "@eslint-rules/index";
-import { TASK_MARKER_COMMENT_FALLBACK_FILES, TASK_MARKER_COMMENT_TERMS } from "@eslint-rules/no-task-marker-comments";
+import {
+  NO_TASK_MARKER_COMMENTS_RULE_NAME,
+  TASK_MARKER_COMMENT_FALLBACK_FILES,
+  TASK_MARKER_COMMENT_TERMS,
+} from "@eslint-rules/no-task-marker-comments";
 import {
   ARRAY_SORT_COMPARATOR_RULE,
   COGNITIVE_COMPLEXITY_RULE,
@@ -261,16 +265,32 @@ describe("type-aware lint mirror", () => {
 
   it("reports task-marker comments in root TypeScript config files through the fallback config", () => {
     const linter = new Linter();
+    const [eslintRuleFileGlob, rootTypeScriptConfigGlob, productionTypeScriptConfigGlob] =
+      TASK_MARKER_COMMENT_FALLBACK_FILES;
     const [productionEslintConfigFile] = ESLINT_PRODUCTION_CONFIG_FILES;
-    for (const rootTypeScriptConfigFile of [DEFAULT_ESLINT_CONFIG_FILE, productionEslintConfigFile]) {
+    const fallbackCases = [
+      {
+        files: [eslintRuleFileGlob],
+        filename: `eslint-rules/${NO_TASK_MARKER_COMMENTS_RULE_NAME}.ts`,
+      },
+      {
+        files: [rootTypeScriptConfigGlob],
+        filename: DEFAULT_ESLINT_CONFIG_FILE,
+      },
+      {
+        files: [productionTypeScriptConfigGlob],
+        filename: productionEslintConfigFile,
+      },
+    ];
+    for (const fallbackCase of fallbackCases) {
       const messages = linter.verify(
         "// TODO: replace placeholder\nconst value = 1;\nvalue;\n",
         {
-          files: [...TASK_MARKER_COMMENT_FALLBACK_FILES],
+          files: fallbackCase.files,
           plugins: { spx: customRules },
           rules: { [TASK_MARKER_COMMENT_RULE]: MIRROR_ERROR_SEVERITY },
         },
-        { filename: rootTypeScriptConfigFile },
+        { filename: fallbackCase.filename },
       );
 
       expect(messages.some((message) => message.ruleId === TASK_MARKER_COMMENT_RULE)).toBe(true);
