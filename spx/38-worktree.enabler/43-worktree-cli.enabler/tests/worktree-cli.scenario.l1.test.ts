@@ -104,10 +104,14 @@ function pathAwareWorktreeListDeps(options: {
 function worktreeListUnavailableDeps(options: {
   readonly worktreeRoot: string;
   readonly commonDir: string;
+  readonly unresolvedGitPath?: string;
 }): GitDependencies {
   return {
-    execa: async (_command, args) => {
+    execa: async (_command, args, commandOptions) => {
       if (gitArgsEqual(args, GIT_SHOW_TOPLEVEL_ARGS)) {
+        if (commandOptions?.cwd === options.unresolvedGitPath) {
+          return { exitCode: 1, stdout: "", stderr: "" };
+        }
         return { exitCode: 0, stdout: options.worktreeRoot, stderr: "" };
       }
       if (gitArgsEqual(args, GIT_COMMON_DIR_ARGS)) {
@@ -495,6 +499,29 @@ describe("worktree command handlers", () => {
       fs: defaultOccupancyFileSystem,
       gitDeps: worktreeListUnavailableDeps({ worktreeRoot, commonDir }),
       processTable: createProcessTable({ host: worktreeName, processes: new Map() }),
+      pathInfo: defaultWorktreePathInfo,
+    });
+
+    expect(status).toEqual({ ok: false, error: WORKTREE_RESOLVE_ERROR.WORKTREE_LIST_UNAVAILABLE });
+  });
+
+  it("reports worktree-list unavailability when bare-basename fallback cannot list worktrees", async () => {
+    const [worktreeName, commonDirName] = sampleWorktreeTestValue(
+      WORKTREE_TEST_GENERATOR.distinctPoolWorktreeNames(),
+    );
+    const worktreeRoot = join("/", worktreeName);
+    const commonDir = join("/", commonDirName);
+
+    const status = await statusCommand({
+      worktrees: [worktreeName],
+      cwd: worktreeRoot,
+      fs: defaultOccupancyFileSystem,
+      gitDeps: worktreeListUnavailableDeps({
+        worktreeRoot,
+        commonDir,
+        unresolvedGitPath: join(worktreeRoot, worktreeName),
+      }),
+      processTable: createProcessTable({ host: commonDirName, processes: new Map() }),
       pathInfo: defaultWorktreePathInfo,
     });
 
