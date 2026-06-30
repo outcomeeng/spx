@@ -7,4 +7,4 @@ CAN resolve shared, per-worktree, and tracked product roots, designate the repos
 ### Compliance
 
 - ALWAYS: a consumer obtains every product root, `.spx/` scope, and run record through this module's injected-dependency API rather than reading git plumbing or composing `.spx/` paths itself per [`spx/17-state.adr.md`](../17-state.adr.md) ([audit])
-- NEVER: this module imports a consumer domain (release, spec, session, compact, testing, verification) — the dependency flows from consumer to state, never the reverse per [`spx/17-state.adr.md`](../17-state.adr.md) ([audit])
+- NEVER: this module imports a consumer domain (release, spec, change, session, compact, testing, verification) — the dependency flows from consumer to state, never the reverse per [`spx/17-state.adr.md`](../17-state.adr.md) ([audit])
