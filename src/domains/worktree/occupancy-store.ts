@@ -25,7 +25,6 @@ export const OCCUPANCY_CLAIM = {
   FILE_EXTENSION: ".claim",
   LOCK_EXTENSION: ".lock",
   LOCK_RECOVERY_EXTENSION: ".recover",
-  TEMP_EXTENSION: ".tmp",
   UNREADABLE_STARTED_AT_PREFIX: "unreadable:",
 } as const;
 
@@ -310,7 +309,11 @@ async function acquireClaimLock(
 
   const matchingOwner = await claimLockMatchesOwner(lockPath, owner, fs);
   if (!matchingOwner.ok) return matchingOwner;
-  if (matchingOwner.value) return { ok: true, value: undefined };
+  if (matchingOwner.value) {
+    const releasedRecovery = await releaseClaimLock(claimLockRecoveryPath(lockPath), owner, fs);
+    if (!releasedRecovery.ok) return releasedRecovery;
+    return { ok: true, value: undefined };
+  }
 
   const recovered = await recoverClaimLock(lockPath, owner, probe, fs);
   if (!recovered.ok) return recovered;
@@ -450,6 +453,14 @@ async function acquireClaimRecoveryMarker(
   const acquired = await writeClaimRecoveryMarker(recoveryPath, owner, fs);
   if (acquired.ok && acquired.value) return acquired;
   if (!acquired.ok) return acquired;
+
+  const matchingOwner = await claimLockMatchesOwner(recoveryPath, owner, fs);
+  if (!matchingOwner.ok) return matchingOwner;
+  if (matchingOwner.value) {
+    const removed = await removeOwnedClaimLock(recoveryPath, claimLockTarget(owner), fs);
+    if (!removed.ok) return removed;
+    return { ok: true, value: true };
+  }
 
   const cleared = await clearRecoverableClaimLock(recoveryPath, probe, fs);
   if (!cleared.ok || !cleared.value) return cleared;
