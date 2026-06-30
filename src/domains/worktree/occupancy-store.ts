@@ -85,6 +85,14 @@ export interface OccupancyWriteOptions extends OccupancyFsOptions {
   readonly randomBytes: RandomBytes;
 }
 
+export interface OccupancyMutationOptions extends OccupancyFsOptions {
+  readonly operation: WorktreeClaimRecord;
+}
+
+export interface OccupancyAcquireOptions extends OccupancyWriteOptions {
+  readonly operation: WorktreeClaimRecord;
+}
+
 /** The claim filename for a worktree `name` — `<name>.claim`. */
 export function claimFileName(name: string): string {
   return `${name}${OCCUPANCY_CLAIM.FILE_EXTENSION}`;
@@ -142,6 +150,20 @@ export function unreadableStartedAt(pid: number): string {
   return `${OCCUPANCY_CLAIM.UNREADABLE_STARTED_AT_PREFIX}${pid}`;
 }
 
+/** Builds the process identity used only for serializing one claim mutation. */
+export function createClaimOperationRecord(
+  sessionId: string,
+  pid: number,
+  probe: ProcessProbe,
+): WorktreeClaimRecord {
+  return {
+    sessionId,
+    host: probe.currentHost(),
+    pid,
+    startedAt: probe.startTimeOf(pid) ?? unreadableStartedAt(pid),
+  };
+}
+
 /**
  * Writes the claim atomically: the record serializes to a temp file that is
  * renamed onto the claim path, so a concurrent read observes either no claim or
@@ -175,7 +197,7 @@ export async function acquireClaim(
   name: string,
   record: WorktreeClaimRecord,
   probe: ProcessProbe,
-  options: OccupancyWriteOptions,
+  options: OccupancyAcquireOptions,
 ): Promise<Result<string>> {
   const pathResult = claimFilePath(worktreesDir, name);
   if (!pathResult.ok) return pathResult;
@@ -187,7 +209,7 @@ export async function acquireClaim(
     return { ok: false, error: formatOccupancyError(OCCUPANCY_ERROR.CLAIM_WRITE_FAILED, toErrorMessage(error)) };
   }
 
-  const lock = await acquireClaimLock(claimLockPath(claimPath), record, probe, options.fs);
+  const lock = await acquireClaimLock(claimLockPath(claimPath), options.operation, probe, options.fs);
   if (!lock.ok) return lock;
 
   let acquired: Result<string>;
@@ -196,7 +218,7 @@ export async function acquireClaim(
   } catch (error) {
     acquired = { ok: false, error: formatOccupancyError(OCCUPANCY_ERROR.CLAIM_WRITE_FAILED, toErrorMessage(error)) };
   }
-  const released = await releaseClaimLock(claimLockPath(claimPath), record, options.fs);
+  const released = await releaseClaimLock(claimLockPath(claimPath), options.operation, options.fs);
   if (!released.ok) return released;
   return acquired;
 }
@@ -219,7 +241,7 @@ export async function removeClaim(
   name: string,
   owner: WorktreeClaimRecord,
   probe: ProcessProbe,
-  options: OccupancyFsOptions,
+  options: OccupancyMutationOptions,
 ): Promise<Result<void>> {
   const pathResult = claimFilePath(worktreesDir, name);
   if (!pathResult.ok) return pathResult;
@@ -231,7 +253,7 @@ export async function removeClaim(
     return { ok: false, error: formatOccupancyError(OCCUPANCY_ERROR.CLAIM_REMOVE_FAILED, toErrorMessage(error)) };
   }
 
-  const lock = await acquireClaimLock(claimLockPath(claimPath), owner, probe, options.fs);
+  const lock = await acquireClaimLock(claimLockPath(claimPath), options.operation, probe, options.fs);
   if (!lock.ok) return lock;
 
   let removed: Result<void>;
@@ -240,7 +262,7 @@ export async function removeClaim(
   } catch (error) {
     removed = { ok: false, error: formatOccupancyError(OCCUPANCY_ERROR.CLAIM_REMOVE_FAILED, toErrorMessage(error)) };
   }
-  const released = await releaseClaimLock(claimLockPath(claimPath), owner, options.fs);
+  const released = await releaseClaimLock(claimLockPath(claimPath), options.operation, options.fs);
   if (!released.ok) return released;
   return removed;
 }
@@ -307,33 +329,10 @@ async function acquireClaimLock(
     }
   }
 
-  const matchingOwner = await claimLockMatchesOwner(lockPath, owner, fs);
-  if (!matchingOwner.ok) return matchingOwner;
-  if (matchingOwner.value) {
-    const releasedRecovery = await releaseClaimLock(claimLockRecoveryPath(lockPath), owner, fs);
-    if (!releasedRecovery.ok) return releasedRecovery;
-    return { ok: true, value: undefined };
-  }
-
   const recovered = await recoverClaimLock(lockPath, owner, probe, fs);
   if (!recovered.ok) return recovered;
   if (recovered.value) return { ok: true, value: undefined };
   return { ok: false, error: OCCUPANCY_ERROR.CLAIM_LOCK_BUSY };
-}
-
-async function claimLockMatchesOwner(
-  lockPath: string,
-  owner: WorktreeClaimRecord,
-  fs: OccupancyFileSystem,
-): Promise<Result<boolean>> {
-  try {
-    const currentTarget = await fs.readlink(lockPath);
-    const parsed = parseClaim(currentTarget);
-    return { ok: true, value: parsed.ok && sameClaimOwner(parsed.value, owner) };
-  } catch (error) {
-    if (hasErrorCode(error, ERROR_CODE_NOT_FOUND)) return { ok: true, value: false };
-    return { ok: false, error: formatOccupancyError(OCCUPANCY_ERROR.CLAIM_LOCK_FAILED, toErrorMessage(error)) };
-  }
 }
 
 async function releaseClaimLock(
@@ -454,14 +453,6 @@ async function acquireClaimRecoveryMarker(
   if (acquired.ok && acquired.value) return acquired;
   if (!acquired.ok) return acquired;
 
-  const matchingOwner = await claimLockMatchesOwner(recoveryPath, owner, fs);
-  if (!matchingOwner.ok) return matchingOwner;
-  if (matchingOwner.value) {
-    const removed = await removeOwnedClaimLock(recoveryPath, claimLockTarget(owner), fs);
-    if (!removed.ok) return removed;
-    return { ok: true, value: true };
-  }
-
   const cleared = await clearRecoverableClaimLock(recoveryPath, probe, fs);
   if (!cleared.ok || !cleared.value) return cleared;
   return writeClaimRecoveryMarker(recoveryPath, owner, fs);
@@ -557,8 +548,13 @@ function sameClaimOwner(left: WorktreeClaimRecord, right: WorktreeClaimRecord): 
     left.sessionId === right.sessionId
     && left.host === right.host
     && left.pid === right.pid
-    && left.startedAt === right.startedAt
+    && sameClaimOwnerStartTime(left, right)
   );
+}
+
+function sameClaimOwnerStartTime(left: WorktreeClaimRecord, right: WorktreeClaimRecord): boolean {
+  const unreadable = unreadableStartedAt(left.pid);
+  return left.startedAt === right.startedAt || left.startedAt === unreadable || right.startedAt === unreadable;
 }
 
 function isWorktreeClaimRecord(value: unknown): value is WorktreeClaimRecord {

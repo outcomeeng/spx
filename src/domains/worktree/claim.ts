@@ -7,7 +7,7 @@
 import type { Result } from "@/config/types";
 import { normalizeAgentSessionToken } from "@/domains/session/agent-session";
 import { type ControllingProcessEnv, resolveControllingProcess } from "@/domains/worktree/controlling-process";
-import { acquireClaim, type OccupancyFileSystem } from "@/domains/worktree/occupancy-store";
+import { acquireClaim, createClaimOperationRecord, type OccupancyFileSystem } from "@/domains/worktree/occupancy-store";
 import type { ProcessTable } from "@/domains/worktree/process-table";
 import type { RandomBytes } from "@/lib/atomic-file-write";
 
@@ -33,18 +33,23 @@ export async function claimWorktreeOccupancy(options: ClaimWorktreeOccupancyOpti
   const controlling = resolveControllingProcess(options.selfPid, options.processTable, options.env);
   if (!controlling.ok) return controlling;
 
+  const sessionId = normalizeAgentSessionToken(options.sessionId);
   const worktreesDir = await resolveWorktreesDir(options);
   const name = await resolveCurrentWorktreeName(options);
   return acquireClaim(
     worktreesDir,
     name,
     {
-      sessionId: normalizeAgentSessionToken(options.sessionId),
+      sessionId,
       host: controlling.value.host,
       pid: controlling.value.pid,
       startedAt: controlling.value.startedAt,
     },
     options.processTable,
-    { fs: options.fs, randomBytes: options.claimRandomBytes },
+    {
+      fs: options.fs,
+      operation: createClaimOperationRecord(sessionId, options.selfPid, options.processTable),
+      randomBytes: options.claimRandomBytes,
+    },
   );
 }

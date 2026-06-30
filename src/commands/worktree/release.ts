@@ -7,7 +7,7 @@
 import type { Result } from "@/config/types";
 import { nonEmptyEnvValue, normalizeAgentSessionToken, resolveAgentSessionId } from "@/domains/session/agent-session";
 import { type ControllingProcessEnv, resolveControllingProcess } from "@/domains/worktree/controlling-process";
-import { type OccupancyFileSystem, removeClaim } from "@/domains/worktree/occupancy-store";
+import { createClaimOperationRecord, type OccupancyFileSystem, removeClaim } from "@/domains/worktree/occupancy-store";
 import type { ProcessTable } from "@/domains/worktree/process-table";
 import { resolveCurrentWorktreeName, resolveWorktreesDir, type WorktreeScopeOptions } from "@/domains/worktree/resolve";
 
@@ -47,7 +47,10 @@ export async function releaseCommand(options: ReleaseCommandOptions): Promise<Re
       startedAt: controlling.value.startedAt,
     },
     options.processTable,
-    { fs: options.fs },
+    {
+      fs: options.fs,
+      operation: createClaimOperationRecord(sessionId, options.selfPid, options.processTable),
+    },
   );
 }
 
