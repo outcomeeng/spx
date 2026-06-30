@@ -20,7 +20,7 @@ Governing artifacts:
 
 Checklist for each consumer that walks files or passes file-scope arguments:
 
-- Identify whether the consumer participates in validate, test, review, audit, evaluate, or internal traversal work.
+- Identify whether the consumer participates in validate, test, review, audit, or evaluate work.
 - Identify the owning descriptor section for its domain path filter, if any.
 - Confirm the descriptor consumes `PathFilterConfig` from `src/config/primitives/path-filter.ts` rather than defining a duplicate include/exclude shape.
 - Confirm the command resolves its domain config through the config module before scope resolution.

@@ -31,7 +31,7 @@ file-inclusion subtree and the consumers that wire override flags.
 
 4. Defer command-line override wiring to the owning domain CLI nodes.
    - The shared file-inclusion request shape accepts `--no-ignore`, `--no-ignore-vcs`, and `--ignore-file` as structured overrides.
-   - Each validate, test, audit, review, evaluate, and internal traversal command that walks files still needs its owning CLI node to expose those flags.
+   - Each validate, test, audit, review, and evaluate command that walks files still needs its owning CLI node to expose those flags.
 
 ## Evidence Required
 
@@ -44,7 +44,7 @@ file-inclusion subtree and the consumers that wire override flags.
 ## Open Coordination
 
 - Node-status now owns its `spx/EXCLUDE` lifecycle classification separately from file-inclusion scope. Keep that reader local to node-status and do not route file-inclusion scope through it.
-- Consumer commands for validate, test, audit, review, evaluate, and internal traversal still need CLI-level override flags where their owning CLI specs require user-facing `--no-ignore`, `--no-ignore-vcs`, or `--ignore-file <path>` support.
+- Consumer commands for validate, test, audit, review, and evaluate still need CLI-level override flags where their owning CLI specs require user-facing `--no-ignore`, `--no-ignore-vcs`, or `--ignore-file <path>` support.
 - Consumers that currently restate `node_modules`, `dist`, build artifacts, or other gitignored paths in domain descriptors can simplify their config; the git-tracking layer subsumes those entries.
 
 ## Resumption Notes

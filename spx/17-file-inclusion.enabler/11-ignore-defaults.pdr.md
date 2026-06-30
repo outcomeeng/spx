@@ -1,6 +1,6 @@
 # Ignore Defaults
 
-spx commands that discover files for validate, test, review, audit, evaluate, or internal traversal work use the current worktree's git-visible file set as the default automatic scope. Explicit caller paths are always honored, command-specific configured filters may narrow only automatic scope, ignore override flags use ripgrep's vocabulary, and dot-prefixed product-content paths are included by default without a hidden-file opt-in.
+spx commands that discover files for validate, test, review, audit, or evaluate work use the current worktree's git-visible file set as the default automatic scope. Explicit caller paths are always honored, command-specific configured filters may narrow only automatic scope, ignore override flags use ripgrep's vocabulary, and dot-prefixed product-content paths are included by default without a hidden-file opt-in.
 
 ## Rationale
 
