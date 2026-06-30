@@ -1,5 +1,5 @@
 import { mkdir, realpath, writeFile } from "node:fs/promises";
-import { basename, isAbsolute, join, relative, sep } from "node:path";
+import { basename, isAbsolute, join, relative, resolve as resolvePath, sep } from "node:path";
 
 import { describe, expect, it } from "vitest";
 
@@ -602,6 +602,66 @@ describe("worktree command handlers", () => {
       if (!result.ok) throw new Error(result.error);
 
       const after = await readClaim(worktreesDir, name, { fs: defaultOccupancyFileSystem });
+      expect(after.ok).toBe(true);
+      if (!after.ok) throw new Error(after.error);
+      expect(after.value).toBeUndefined();
+    });
+  });
+
+  it("shares a relative worktrees-dir scope across claim, status, and release", async () => {
+    const worktreeName = sampleWorktreeTestValue(WORKTREE_TEST_GENERATOR.poolWorktreeName());
+    const holder = sampleWorktreeTestValue(WORKTREE_TEST_GENERATOR.poolHolder());
+    const sessionId = sampleWorktreeTestValue(WORKTREE_TEST_GENERATOR.sessionId());
+    const claimWriteToken = sampleWorktreeTestValue(WORKTREE_TEST_GENERATOR.writeToken());
+    const relativeWorktreesDir = sampleWorktreeTestValue(WORKTREE_TEST_GENERATOR.poolWorktreeName());
+
+    await withWorktreePool({ worktreeName, holder }, async (env) => {
+      const name = worktreeClaimName(basename(env.worktreePath));
+      const resolvedWorktreesDir = resolvePath(env.worktreePath, relativeWorktreesDir);
+
+      const claim = await claimCommand({
+        claimWriteToken,
+        sessionId,
+        cwd: env.worktreePath,
+        fs: env.fs,
+        gitDeps: defaultGitDependencies,
+        worktreesDir: relativeWorktreesDir,
+        processTable: env.processTable,
+        selfPid: holder.pid,
+        env: { [CONTROLLING_PID_ENV]: String(holder.pid) },
+      });
+      expect(claim.ok).toBe(true);
+      if (!claim.ok) throw new Error(claim.error);
+
+      const written = await readClaim(resolvedWorktreesDir, name, { fs: env.fs });
+      expect(written.ok).toBe(true);
+      if (!written.ok) throw new Error(written.error);
+      expect(written.value?.sessionId).toBe(sessionId);
+
+      const status = await statusCommand({
+        cwd: env.worktreePath,
+        fs: env.fs,
+        gitDeps: defaultGitDependencies,
+        worktreesDir: relativeWorktreesDir,
+        processTable: env.processTable,
+        pathInfo: defaultWorktreePathInfo,
+      });
+      expect(status.ok).toBe(true);
+      if (!status.ok) throw new Error(status.error);
+      expect(status.value).toContain(
+        `${WORKTREE_STATUS_RENDER.RUNNING_FALLBACK_RUNTIME} ${WORKTREE_STATUS_RENDER.RUNNING_WORD} [${holder.pid}]`,
+      );
+
+      const release = await releaseCommand({
+        cwd: env.worktreePath,
+        fs: env.fs,
+        gitDeps: defaultGitDependencies,
+        worktreesDir: relativeWorktreesDir,
+      });
+      expect(release.ok).toBe(true);
+      if (!release.ok) throw new Error(release.error);
+
+      const after = await readClaim(resolvedWorktreesDir, name, { fs: env.fs });
       expect(after.ok).toBe(true);
       if (!after.ok) throw new Error(after.error);
       expect(after.value).toBeUndefined();
