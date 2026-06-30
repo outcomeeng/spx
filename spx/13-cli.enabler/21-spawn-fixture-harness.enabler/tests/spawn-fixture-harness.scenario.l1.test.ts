@@ -4,7 +4,7 @@ import { describe, expect, it } from "vitest";
 
 import { SIGINT_EXIT_CODE, SIGINT_NAME, SIGTERM_EXIT_CODE, SIGTERM_NAME } from "@/lib/process-lifecycle";
 import { arbitraryDomainLiteral, sampleLiteralTestValue } from "@testing/generators/literal/literal";
-import { runSpawnFixture } from "@testing/harnesses/process-lifecycle/spawn-fixture";
+import { runSpawnFixture, SPAWN_FIXTURE_UNKNOWN_EXIT_CODE } from "@testing/harnesses/process-lifecycle/spawn-fixture";
 
 describe("Scenario: spawn fixture result capture", () => {
   it("reports numeric exit status, stderr text, and observed stdout bytes", async () => {
@@ -53,6 +53,19 @@ describe("Scenario: spawn fixture result capture", () => {
 
     const posixSignalExitOffset = SIGTERM_EXIT_CODE - osConstants.signals[SIGTERM_NAME];
     expect(result.exitCode).toBe(posixSignalExitOffset + osConstants.signals[SIGINT_NAME]);
+  });
+
+  it("settles spawn errors with the source-owned unknown exit code", async () => {
+    const missingCommand = sampleLiteralTestValue(arbitraryDomainLiteral());
+
+    const result = await runSpawnFixture({
+      command: missingCommand,
+      args: [],
+      cwd: process.cwd(),
+      destroyStdoutAfterMs: SIGINT_EXIT_CODE,
+    });
+
+    expect(result.exitCode).toBe(SPAWN_FIXTURE_UNKNOWN_EXIT_CODE);
   });
 });
 
