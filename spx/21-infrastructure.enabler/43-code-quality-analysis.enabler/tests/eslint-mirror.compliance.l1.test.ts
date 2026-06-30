@@ -8,6 +8,7 @@ import { describe, expect, it } from "vitest";
 
 import {
   ARRAY_SORT_COMPARATOR_RULE,
+  COGNITIVE_COMPLEXITY_RULE,
   DUPLICATE_IMPORT_RULE,
   MIRROR_ERROR_RULES,
   MIRROR_ERROR_SEVERITY,
@@ -100,10 +101,11 @@ describe("type-aware lint mirror", () => {
 
   it("places the cleared classes in the error tier", () => {
     // The cleared finding classes have no remaining occurrence in the linted
-    // tree, so each runs at the error tier: a new occurrence fails the gate. The
+    // tree, so each runs at the error tier: a new occurrence fails the gate.
     // Each graduated class is named through a source-owned constant, so no
     // rule-id literal is duplicated from source.
     expect(MIRROR_ERROR_RULES).toHaveProperty(ARRAY_SORT_COMPARATOR_RULE, MIRROR_ERROR_SEVERITY);
+    expect(MIRROR_ERROR_RULES).toHaveProperty(COGNITIVE_COMPLEXITY_RULE, MIRROR_ERROR_SEVERITY);
     expect(MIRROR_ERROR_RULES).toHaveProperty(PSEUDO_RANDOM_RULE, MIRROR_ERROR_SEVERITY);
     expect(MIRROR_ERROR_RULES).toHaveProperty(REDUNDANT_ASSERTION_RULE, MIRROR_ERROR_SEVERITY);
     expect(MIRROR_ERROR_RULES).toHaveProperty(OBJECT_HAS_OWN_RULE, MIRROR_ERROR_SEVERITY);

@@ -12,6 +12,10 @@ Local quality-enforcement decision (`spx/21-infrastructure.enabler/43-code-quali
 - Unicorn-family mirror: `eslint-plugin-unicorn` (65.0.1, for ESLint 9 peer compatibility) added to `eslint-rules/offline-mirror.ts` with `prefer-node-protocol`, `prefer-code-point`, `prefer-single-call`, and `prefer-string-raw` at the warn tier (backlog uncleared), plus the `unicorn` plugin registered in the mirror config block. The compliance test proves each unicorn rule flags a violating fixture and sits in the warn tier.
 - The unicorn classes graduate to the error tier in whatever change clears their last occurrence. Under Team-plan zero-debt-on-touch (`sonar analyze --base origin/main` blocks on every finding in a changed file when enabled), a cross-cutting unicorn sweep would inherit the whole backlog of every touched file, so the clearing distributes across each session's touched-file collateral instead.
 
+## Landed (session 08)
+
+- S3776 (cognitive complexity above the SonarQube threshold) is clear in the linted tree, and `sonarjs/cognitive-complexity` is graduated to the error tier so any recurrence fails `spx validation`.
+
 ## Landed (session 02)
 
 - S2871 (array sort without a compare function) cleared across product source and the co-located test suites by sorting through `compareAsciiStrings`. The mirror is partitioned into a warn tier and an error tier (`MIRROR_WARN_RULES` / `MIRROR_ERROR_RULES`), and `sonarjs/no-alphabetical-sort` graduated to the error tier — the two-tier enforcement model is declared in `15-local-quality-enforcement.adr.md` and `code-quality-analysis.md`.
